@@ -1,0 +1,22 @@
+{
+  "name": "barnspel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Barnspel — PWA med roliga, lärorika minispel för barn 2–5 år (svenska, offline, ingen reklam)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "icons": "node scripts/generate-icons.mjs",
+    "assets": "node scripts/fetch-fonts.mjs"
+  },
+  "dependencies": {
+    "gsap": "^3.12.5",
+    "pixi.js": "^8.6.6"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11",
+    "vite-plugin-pwa": "^0.21.1"
+  }
+}

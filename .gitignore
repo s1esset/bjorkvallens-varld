@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dev-dist/
+*.local
+.DS_Store
+.vite/
+.idea/
+.vscode/
+*.log
+
+.playwright-mcp/
+/*.png

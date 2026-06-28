@@ -1,0 +1,132 @@
+/* Barnspel — global stil. Allt visuellt sker i Pixi-canvasen; denna fil
+   låser ner webbläsarbeteenden som stör en pekskärmsapp för småbarn. */
+
+/* Egen-hostade typsnitt (SIL OFL 1.1). Lägg WOFF2-filer i /public/fonts.
+   Saknas de faller vi tillbaka till systemets rundade typsnitt. */
+@font-face {
+  font-family: 'Fredoka';
+  src: url('/fonts/fredoka-600.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Baloo 2';
+  src: url('/fonts/baloo2-700.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('/fonts/nunito-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('/fonts/nunito-700.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --bg: #fdf6e3;
+  --orange: #ff8a3d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  /* Inga oavsiktliga gester: ingen zoom, ingen scroll, ingen text-markering. */
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  font-family: 'Nunito', 'Baloo 2', 'Trebuchet MS', system-ui, sans-serif;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#app canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  /* Pixlig uppskalning undviks; canvasen ritar i full upplösning. */
+}
+
+/* DOM-overlay för förälder-input (t.ex. namnge profil). Visas bakom grinden. */
+.dom-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 30, 20, 0.55);
+  font-family: 'Nunito', system-ui, sans-serif;
+}
+.dom-modal__card {
+  background: #fffdf7;
+  border-radius: 28px;
+  padding: 28px 26px;
+  width: min(440px, 86vw);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+.dom-modal__title {
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: #4a3526;
+  margin: 0 0 14px;
+}
+.dom-modal__input {
+  width: 100%;
+  font-size: 24px;
+  padding: 14px 16px;
+  border: 3px solid #ffd6a8;
+  border-radius: 16px;
+  outline: none;
+  text-align: center;
+  font-family: inherit;
+}
+.dom-modal__input:focus {
+  border-color: var(--orange);
+}
+.dom-modal__row {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+.dom-modal__btn {
+  flex: 1;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  padding: 14px 10px;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  color: #fff;
+}
+.dom-modal__btn--ok {
+  background: #5bbf6a;
+}
+.dom-modal__btn--cancel {
+  background: #c9b8a8;
+}

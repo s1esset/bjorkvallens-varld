@@ -71,7 +71,7 @@ src/
     theme.js        DESIGN_W/H, FONT, COLORS, PLAYFUL, CATEGORIES, PRAISE
     Button.js       stor barnknapp (hit-halo, studs, ljud)
     DragController.js  återanvändbar drag m. snäpp/snäpp-tillbaka/tap-tap
-    feedback.js     bounceIn/pop/wiggle/puff/sparkle/bigCelebration/floatText (alla exit-säkra)
+    feedback.js     bounceIn/pop/wiggle (på egna objekt — döda tweens i destroy) · puff/sparkle/bigCelebration/floatText (självstädande/exit-säkra)
     mascot.js       maskoten "Bobo" (Pixi Graphics)
     confirm.js      Ja/Nej-dialog
     domModal.js     DOM-textinmatning (namnge profil)

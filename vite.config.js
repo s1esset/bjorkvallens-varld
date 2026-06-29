@@ -6,6 +6,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 // uppdateringen läggs på vänt och appliceras först vid biblioteks-/menygränsen (se src/lib/pwa.js).
 export default defineConfig({
   base: './',
+  // Bind till alla nätverkskort så appen går att testa från t.ex. en telefon på
+  // samma Tailscale-nät. allowedHosts släpper in MagicDNS-namnet (*.ts.net) som
+  // används vid `tailscale serve` (HTTPS -> krävs för PWA-install/offline).
+  server: {
+    host: true,
+    allowedHosts: ['.ts.net'],
+  },
+  preview: {
+    host: true,
+    allowedHosts: ['.ts.net'],
+  },
   build: {
     target: 'es2022',
     sourcemap: true,

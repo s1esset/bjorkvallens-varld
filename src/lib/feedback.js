@@ -143,6 +143,124 @@ export function floatText(layer, x, y, text, { fontSize = 54, rise = 90, duratio
   return t
 }
 
+// Expanderande ring vid en pekning (mjuk, "vatten-ring"-känsla). Exit-säker.
+export function ripple(layer, x, y, { color = 0xffffff, maxR = 80, duration = 0.5, width = 6, alpha = 0.6 } = {}) {
+  const g = new Graphics()
+  g.position.set(x, y)
+  g.eventMode = 'none'
+  layer.addChild(g)
+  const st = { r: Math.max(4, maxR * 0.12), a: alpha }
+  const tw = gsap.to(st, {
+    r: maxR,
+    a: 0,
+    duration,
+    ease: 'power2.out',
+    onUpdate: () => {
+      if (g.destroyed) {
+        tw.kill()
+        return
+      }
+      g.clear().circle(0, 0, st.r).stroke({ width, color, alpha: st.a })
+    },
+    onComplete: () => {
+      if (!g.destroyed) g.destroy()
+    },
+  })
+}
+
+// Mjuk, kort skärmskakning (ALDRIG hård) — för en stor krock/firande. Exit-säker.
+export function shake(target, { intensity = 8, duration = 0.4 } = {}) {
+  if (!target || target.destroyed) return
+  const bx = target.x
+  const by = target.y
+  const st = { p: 1 }
+  const tw = gsap.to(st, {
+    p: 0,
+    duration,
+    ease: 'power2.out',
+    onUpdate: () => {
+      if (target.destroyed) {
+        tw.kill()
+        return
+      }
+      const m = st.p * intensity
+      target.x = bx + (Math.random() * 2 - 1) * m
+      target.y = by + (Math.random() * 2 - 1) * m
+    },
+    onComplete: () => {
+      if (!target.destroyed) {
+        target.x = bx
+        target.y = by
+      }
+    },
+  })
+  return tw
+}
+
+// Saftig partikel-explosion (mix av cirklar + stjärnor i glada färger), något
+// kraftigare än puff — för delfiranden/milstolpar. Exit-säker.
+export function burst(layer, x, y, { count = 14, colors = PLAYFUL, power = 1 } = {}) {
+  for (let i = 0; i < count; i++) {
+    const col = colors[(Math.random() * colors.length) | 0]
+    const p = new Graphics()
+    const r = 5 + Math.random() * 7
+    if (Math.random() < 0.4 && p.star) p.star(0, 0, 5, r, r * 0.5).fill(col)
+    else p.circle(0, 0, r).fill(col)
+    p.position.set(x, y)
+    p.eventMode = 'none'
+    layer.addChild(p)
+    const ang = Math.random() * Math.PI * 2
+    const dist = (50 + Math.random() * 90) * power
+    const st = { x, y, a: 1, s: 1, rot: 0 }
+    const tw = gsap.to(st, {
+      x: x + Math.cos(ang) * dist,
+      y: y + Math.sin(ang) * dist,
+      a: 0,
+      s: 0.3,
+      rot: (Math.random() * 2 - 1) * 3,
+      duration: 0.6 + Math.random() * 0.4,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (p.destroyed) {
+          tw.kill()
+          return
+        }
+        p.x = st.x
+        p.y = st.y
+        p.alpha = st.a
+        p.scale.set(st.s)
+        p.rotation = st.rot
+      },
+      onComplete: () => {
+        if (!p.destroyed) p.destroy()
+      },
+    })
+  }
+}
+
+// Lugn idle-puls (skala andas) för att locka pekning på rätt objekt. Returnerar
+// tween:en så anroparen kan döda den (eller låt exit-vakten döda den). Exit-säker.
+export function breathe(target, { scale = 1.08, duration = 0.9 } = {}) {
+  const sx = target.scale.x || 1
+  const sy = target.scale.y || 1
+  const st = { s: 1 }
+  const tw = gsap.to(st, {
+    s: scale,
+    duration,
+    repeat: -1,
+    yoyo: true,
+    ease: 'sine.inOut',
+    onUpdate: () => {
+      if (target.destroyed) {
+        tw.kill()
+        return
+      }
+      target.scale.set(sx * st.s, sy * st.s)
+    },
+  })
+  return tw
+}
+
 // Gnistor runt en punkt (vid match).
 export function sparkle(layer, x, y, { count = 6 } = {}) {
   for (let i = 0; i < count; i++) {

@@ -104,3 +104,22 @@ Plus: naturlig svensk neural röst (förgenererade klipp) och riktiga CC0-djurlj
 - **sapbubblor**: Byggd + testad. Skimrande translucenta bubblor svävar upp (sinus-vobbel), tryck=poppa m. droppar; tydligt annorlunda än klambubblor; 0 fel.
 - **djurorkester**: Byggd + testad. 2×3 djurkort (ko/hund/katt/groda/gris/anka), tryck → squash/stretch-studs + 🎵 + djurljud via röst (hook för riktigt djurljud finns); 0 fel.
 - **Röst v2**: La till alla 10 nya spels repliker i `voice-phrases.json` och regenererade (skippar befintliga). Nya intron/ord får nu neural röst; allt annat täcks av kedjning/Web Speech-fallback.
+
+---
+
+# v3 — "Marknadskvalitet": polera ~15 äldre spel (fas-loop)
+
+Mål: lyfta ~15 av de äldsta/enklaste spelen till marknadsnivå: polerad programmatisk
+grafik + juice + variationer/nivåer (mot upprepning/för-lätt) + CC0-konst där det passar.
+Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commit → nästa.
+
+**Faser:**
+- **Fas 0 — Grundverktyg**: ✅ `lib/scene.js` (gradient-himmel + sol/moln/kullar/bokeh/stjärnor, 7 teman, exit-säker drift) + `lib/feedback.js` utökad (`ripple`, `shake`, `burst`, `breathe`). Testad i appen (0 fel).
+- **Fas 1** — klambubblor, poppa-ballonger, kittla-figuren, tryck-och-forvandla — ⬜
+- **Fas 2** — fargregn, rakna-applen, stor-liten, peka-pa-kroppen — ⬜
+- **Fas 3** — vandkort, skuggmatchning, vilket-djur-later, klappa-mullvaden — ⬜
+- **Fas 4** — sortera-skrap, mata-monstret, kla-pa-nallen — ⬜
+- **Fas 5 — Riktiga SFX**: källa designat CC0/genererat ljud, AudioService sample-uppspelning, koppla in överallt — ⬜
+
+## v3-logg
+- **Fas 0**: Byggde delat grundverktyg. `scene.js`: drop-in bakgrund (`createScene(theme)`), teman sky/meadow/sunset/candy/water/night/warm. `feedback.js`: ripple (tryck-ring), shake (mjuk skärmskakning), burst (saftig partikelexplosion), breathe (idle-puls) — alla exit-säkra. Verifierat: meadow-scen + juice renderar fint, 0 fel.

@@ -4,14 +4,14 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 3 / 25**
+**Klara: 4 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
 | 1 | `regnbagsmalaren` | Regnbågsmålaren Elvira | ✅ | ✅ | ✅ | ✅ | ✅ | Svep målar 6 bågar (snäpp ≥90%), färgburk-val, tap-tap-fallback, dubbel-regnbåge L2, sol+blommor-firande; 0 fel |
 | 2 | `pruttbad` | Pruttbubbelbad | ✅ | ✅ | ✅ | ✅ | ✅ | Tryck/håll mage→prutt-bubblor (buoyancy-integrator), dra anka deflekterar, skum fyller mot mållinje; 0 fel |
 | 3 | `valpens-bajs` | Valpens Bajs | ✅ | ✅ | ✅ | ✅ | ✅ | Tap-to-walk valp bajsar, dra skyffel→tunna (tap-fallback), flugor dekorativa, mätare; 0 fel |
-| 4 | `enhorning-glitterbajs` | Enhörningens Glitterbajs | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 4 | `enhorning-glitterbajs` | Enhörningens Glitterbajs | ✅ | ✅ | ✅ | ✅ | ✅ | Mata enhörning→matter.js glitterpellets studsar, dra skattkista fångar; gravityY 1.0, bend-auto-hjälp; 0 fel |
 | 5 | `tvatta-djuret` | Tvätta Djuret | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 6 | `ballonglyft` | Ballonglyft | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 7 | `gungan` | Gungan | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
@@ -35,6 +35,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#4 enhorning-glitterbajs** ✅: Byggd (fräsch agent, matter.js PhysicsWorld) + simplify-agent (tog bort dött `emoji`-fält) + headless-test 0 fel (mata-drag + kist-drag). Calib: gravityY 1.0, MAX_FALL 11, ramp restitution 0.5, pellets bouncy 0.86, nivå-beroende bend mot kistan + auto-glid = no-fail. Röstrader (batchas): voiceIntro / "Pruttbajs! Massa glitter!" / "Mer glitter!". Committad.
 - **#3 valpens-bajs** ✅: Byggd (fräsch agent, mixed input) + inline-simplify (tog bort döda imports `PRAISE`/`randomFrom`; extraherade `_scheduleFlies` delad av spawn + släpp-tillbaka) + headless-test 0 fel (skyffel-drag + gå-taps). Egen skyffel-drag (fri placering) m. tap-fallback; auto-vandring+auto-skyffel garanterar full tunna. Röstrader (batchas): voiceIntro / "Skyffla bajset i tunnan!" / "Hurra! Parken är ren!". Committad.
 - **#2 pruttbad** ✅: Byggd (fräsch agent) + inline-simplify (extraherade `_pushBubble` delad av `_spawnBubble` + firande-svärm; flyttade redundant foam-tilldelning ur loop) + headless-test 0 fel (anka-drag + mage-tryck, exit-cykel). Agent-avvikelse: DragController stödjer ej fri placering → egen anka-drag m. tap-tap (matchar spec-avsikt). Röstrader (batchas): "Tryck på Zackes mage så pruttar det bubblor!" / "Pruttbubblor!". Committad.
 - **#1 regnbagsmalaren** ✅: Byggd (fräsch agent) + simplify (dedup arc-ritning, kollapsad unicorn-move) + headless-test 0 fel (svep målar bågarna, snäpp, exit-cykel). Röstrader (batchas till `npm run voice` sen): "Måla en regnbåge! Dra fingret över himlen." / "Så fint!" / "En till färg!" / "Titta vad fin!". Committad.

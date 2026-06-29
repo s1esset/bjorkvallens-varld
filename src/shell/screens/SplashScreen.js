@@ -67,6 +67,10 @@ export async function createSplashScreen(services) {
     destroy() {
       hintTween.kill()
       floatTween.kill()
+      // Döda även entré-tweens (kan pågå om barnet trycker direkt vid start).
+      gsap.killTweensOf(mascot)
+      gsap.killTweensOf(mascot.scale)
+      gsap.killTweensOf(title)
       view.off('pointertap', start)
     },
   }

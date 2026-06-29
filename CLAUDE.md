@@ -71,7 +71,7 @@ src/
     theme.js        DESIGN_W/H, FONT, COLORS, PLAYFUL, CATEGORIES, PRAISE
     Button.js       stor barnknapp (hit-halo, studs, ljud)
     DragController.js  återanvändbar drag m. snäpp/snäpp-tillbaka/tap-tap
-    feedback.js     bounceIn/pop/wiggle/puff/sparkle/bigCelebration
+    feedback.js     bounceIn/pop/wiggle/puff/sparkle/bigCelebration/floatText (alla exit-säkra)
     mascot.js       maskoten "Bobo" (Pixi Graphics)
     confirm.js      Ja/Nej-dialog
     domModal.js     DOM-textinmatning (namnge profil)
@@ -145,6 +145,7 @@ Every game is a folder under `src/games/<id>/` whose `index.js` **default-export
 - Never touch `localStorage` directly — use `ctx.progress`. Never load your own audio engine — use `ctx.services.audio` / `voice`.
 - **No visible score, no fail state, no timer pressure.** Call `ctx.progress.complete()` at a satisfying "done" → shared celebration + sticker.
 - Clean up in `destroy`: `ctx.ticker.remove(...)`, `gsap.killTweensOf(...)`, kill per-object tweens, `container.destroy({children:true})`. Guard async callbacks (`gsap.delayedCall`, `setTimeout`) with an `this._alive` flag set false in `destroy` (the user can exit mid-animation).
+- **Exit-safe transient particles (IMPORTANT):** anything you create *and* destroy on its own tween `onComplete` (confetti, puffs, floating emoji/text) can also be destroyed by the player exiting mid-animation — a raw `gsap.to(pixiObj, {...})` will then crash writing to a null transform. Use the shared `lib/feedback.js` helpers (`puff`, `sparkle`, `bigCelebration`, `floatText`) which are already exit-safe, OR tween a plain `{}` proxy and copy onto the Pixi object only `if (!obj.destroyed)` (`onComplete: () => { if (!obj.destroyed) obj.destroy() }`). Never tween a Pixi object directly when it can be destroyed by its own `onComplete` *or* by game exit.
 - Spoken Swedish on `mount`; re-cue gently if idle ~6s; provide a positive reaction to every tap.
 
 ### How to add a new game (checklist)

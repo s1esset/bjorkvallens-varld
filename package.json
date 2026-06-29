@@ -9,10 +9,12 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "icons": "node scripts/generate-icons.mjs",
-    "assets": "node scripts/fetch-fonts.mjs"
+    "assets": "node scripts/fetch-fonts.mjs",
+    "voice": "\"C:/repos/storygen/services/narrator/.venv/Scripts/python.exe\" scripts/gen-voice.py --phrases scripts/voice-phrases.json --ref \"C:/repos/storygen/services/narrator/src/narrator/assets/narrator_default.wav\" --ref-text \"Some call me nature, others call me mother nature.\" --out public/audio/voice"
   },
   "dependencies": {
     "gsap": "^3.12.5",
+    "matter-js": "^0.20.0",
     "pixi.js": "^8.6.6"
   },
   "devDependencies": {

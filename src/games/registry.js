@@ -21,8 +21,9 @@ import skuggmatchning from './skuggmatchning/index.js'
 import enkeltPussel from './enkelt-pussel/index.js'
 import plaskIVattnet from './plask-i-vattnet/index.js'
 import klaEfterVadret from './kla-efter-vadret/index.js'
+import vartTogDetVagen from './vart-tog-det-vagen/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret, vartTogDetVagen]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

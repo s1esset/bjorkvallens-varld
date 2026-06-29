@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 17 / 25**
+**Klara: 18 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -24,7 +24,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 15 | `enkelt-pussel` | Enkelt Pussel | ✅ Klar | ✔ | ✔ | ✔ | Dra 2-4 pusselbitar i ramen; riktiga pusselformer (knopp/hål); 4 motiv; 0 fel |
 | 16 | `plask-i-vattnet` | Plask i Vattnet | ✅ Klar | ✔ | ✔ | ✔ | Dra föremål i vattnet -> flyter/sjunker (fysik); plask+bubblor; tryck-vatten-plask; 0 fel |
 | 17 | `kla-efter-vadret` | Klä efter Vädret | ✅ Klar | ✔ | ✔ | ✔ | Klä figuren efter vädret (sol/regn/snö); pooled regn/snö; 0 fel; fixade stray-streck i munnen |
-| 18 | `vart-tog-det-vagen` | Vart Tog Det Vägen? | ⬜ Väntar | | | | |
+| 18 | `vart-tog-det-vagen` | Vart Tog Det Vägen? | ✅ Klar | ✔ | ✔ | ✔ | Kopp-spel: visa leksak -> blanda koppar -> hitta rätt; fel = kika igen; 0 fel |
 | 19 | `vad-forsvann` | Vad Försvann? | ⬜ Väntar | | | | |
 | 20 | `bygg-tornet` | Bygg Tornet | ⬜ Väntar | | | | |
 | 21 | `rulla-bollen-hem` | Rulla Bollen Hem | ⬜ Väntar | | | | |
@@ -54,3 +54,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **enkelt-pussel**: Byggd (agent avbröts av sessionsgräns före registrering -> jag granskade modulen, registrerade, testade). 3 rundor (2/3/4 bitar), stars 3, 0 fel. Maskade scen-bitar, spök-förhandsvisning.
 - **plask-i-vattnet**: Byggd + testad (6 föremål nedsläppta, runda klar, stars 1, 0 fel). Fysik flyter/sjunker per spec, plask-ringar (proxy), ambient bubblor via ticker, extra vatten-tryck-plask.
 - **kla-efter-vadret**: Byggd + testad (3 rundor, stars 3, 1-2 zoner, 0 fel). UI-fix: munnens arc() saknade moveTo -> drog ett streck från origo; lagt till moveTo. Pooled regn/snö-partiklar, tint-bakgrund.
+- **vart-tog-det-vagen**: Byggd + testad (3 rundor -> level+stjärna, gissning funkar, fel bestraffar ej, 0 fel). Persistenta koppar, gsap-blandning, leksak följer sin kopp.

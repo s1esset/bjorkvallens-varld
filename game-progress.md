@@ -117,7 +117,7 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
 - **Fas 0 — Grundverktyg**: ✅ `lib/scene.js` (gradient-himmel + sol/moln/kullar/bokeh/stjärnor, 7 teman, exit-säker drift) + `lib/feedback.js` utökad (`ripple`, `shake`, `burst`, `breathe`). Testad i appen (0 fel).
 - **Fas 1** — klambubblor, poppa-ballonger, kittla-figuren, tryck-och-forvandla — ✅ (alla 0 fel, headless-testade)
 - **Fas 2** — fargregn, rakna-applen, stor-liten, peka-pa-kroppen — ✅ (alla 0 fel, headless-testade; stor-liten även dragtestat)
-- **Fas 3** — vandkort, skuggmatchning, vilket-djur-later, klappa-mullvaden — ⬜
+- **Fas 3** — vandkort, skuggmatchning, vilket-djur-later, klappa-mullvaden — ✅ (alla 0 fel, headless-testade; skuggmatchning även dragtestat)
 - **Fas 4** — sortera-skrap, mata-monstret, kla-pa-nallen — ⬜
 - **Fas 5 — Riktiga SFX**: källa designat CC0/genererat ljud, AudioService sample-uppspelning, koppla in överallt — ⬜
 
@@ -136,3 +136,9 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
   - **stor-liten**: meadow-scen, korgar m. storleks-spöke som ikon, fler+varierade objekt, MELLAN-korg + mellanstorlek från nivå 5; DragController återanvänd, dragtestat ok.
   - **peka-pa-kroppen**: meadow-scen, gullig chibi-figur (blinkar/andas, byter skepnad/runda), fler kroppsdelar (huvud→knä), glödring-ledtråd, fler frågor + snabbare per nivå.
   - +167 röstrepliker (siffror×frukter, kroppsdels-mallar) tillagda + regenererade.
+- **Fas 3**: Uppgraderade 4 minne/matchnings-spel (bevarad mekanik + scen + juice + djup/nivåer). Alla headless-testade = 0 fel; skuggmatchning dragtestat (runda löstes, ny variation).
+  - **vandkort**: scen varierar per runda, premium-kort (mönstrad baksida, mjuk 3D-vändning, glansig framsida), match-glow; rutnät växer 2×2→4×4, symboluppsättning + tema roterar per runda (djur/frukt/fordon/figurer/havsdjur).
+  - **skuggmatchning**: meadow-scen, glansiga objekt + läsbara siluett-slots som blommar i färg, 44-objekts-pool m. anti-upprepning, 2→6 per runda; DragController återanvänd, dragtestat.
+  - **vilket-djur-later**: meadow-scen, gulliga djurkort m. egen accentfärg-spotlight, tydlig "spela ljud igen"-knapp, 2→6 val/nivå, 12-djurs-pool, distraktorer delar aldrig ljud.
+  - **klappa-mullvaden**: meadow-gräsmatta, ritade jordhögar m. djup, 5 kritter-arter (mullvad/kanin/igelkott/mus/groda), tass-framsteg, fler hål + snabbare/nivå, strikt no-fail.
+  - +64 röstrepliker (kort-teman, objektnamn, djurljud, klapp-beröm) tillagda + regenererade.

@@ -1,18 +1,40 @@
-// Vändkort — minne/par (3–5 år). Introducerar speltillstånd (tur-logik),
-// match-upplösning och skalbart rutnät — grunden för minnes-/pusselspel.
-// Vänd två kort: par = stannar uppe + gnistror; inget par = vänds tillbaka (ingen bestraffning).
+// Vändkort — minne/par (2–5 år). Marknadsmässig uppgradering: en levande scen,
+// premium-kort med mönstrad baksida, mjuk skugga och en saftig 3D-aktig vändning
+// (skala.x -> 0 -> visa framsida -> tillbaka). Par firas med popp + gnistor + ton;
+// fel par vänds vänligt tillbaka (ALDRIG en bestraffning). När brädet är tomt:
+// firande (delat via progress.complete) + mjuk skakning, och ett nytt, lite större
+// och TEMA-VARIERAT bräde fylls på. Inga felsteg, ingen timer, inga poäng.
+// All transient-effekt går via lib/feedback.js (exit-säkert).
 import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle } from '../../lib/swedish.js'
-import { sparkle, pop } from '../../lib/feedback.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
+import { bounceIn, sparkle, pop, ripple, breathe, shake, floatText, wiggle } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
-const MOTIFS = ['🐶', '🐱', '🦊', '🐰', '🐻', '🦁', '🐸', '🐵', '🐼', '🐧', '🐮', '🐷']
+// DJUP: rutnätet växer gradvis. Strikt felfritt — bara större, aldrig svårare-på-fel-sätt.
 const LEVELS = [
-  { pairs: 2, cols: 2 },
-  { pairs: 3, cols: 3 },
-  { pairs: 4, cols: 4 },
-  { pairs: 6, cols: 4 },
+  { pairs: 2, cols: 2 }, // 2x2
+  { pairs: 3, cols: 3 }, // 3x2
+  { pairs: 4, cols: 4 }, // 4x2
+  { pairs: 6, cols: 4 }, // 4x3
+  { pairs: 8, cols: 4 }, // 4x4
+]
+
+// VARIATION: korttema byts varje runda (djur/frukt/fordon/figurer/havsdjur) så att
+// det aldrig blir samma bräde två gånger. name = talad svensk form, scene = bakgrund,
+// back/accent = kortfärger, emblem = liten symbol på baksidan.
+const SETS = [
+  { name: 'djuren', scene: 'meadow', back: COLORS.green, accent: COLORS.greenDark, emblem: '🐾',
+    symbols: ['🐶', '🐱', '🦊', '🐰', '🐻', '🦁', '🐸', '🐵', '🐼', '🐧', '🐮', '🐷'] },
+  { name: 'frukterna', scene: 'warm', back: COLORS.red, accent: COLORS.orangeDark, emblem: '🍃',
+    symbols: ['🍎', '🍌', '🍓', '🍇', '🍊', '🍉', '🍐', '🍒', '🥝', '🍑', '🥥', '🍍'] },
+  { name: 'fordonen', scene: 'sky', back: COLORS.blue, accent: COLORS.teal, emblem: '⭐',
+    symbols: ['🚗', '🚒', '🚜', '🚌', '🚲', '🚁', '🚂', '🚀', '⛵', '🚓', '🚑', '🚕'] },
+  { name: 'figurerna', scene: 'candy', back: COLORS.purple, accent: COLORS.pink, emblem: '✨',
+    symbols: ['⭐', '❤️', '🔵', '🟢', '🟡', '🟣', '🔶', '🌸', '🌙', '🍀', '🔺', '💎'] },
+  { name: 'havsdjuren', scene: 'water', back: COLORS.teal, accent: COLORS.blue, emblem: '🐚',
+    symbols: ['🐠', '🐙', '🐳', '🦀', '🐬', '🐡', '🐢', '🦈', '🦐', '🐚', '🦑', '🪼'] },
 ]
 
 export default {
@@ -21,87 +43,139 @@ export default {
   icon: '🃏',
   category: 'minne',
   input: 'tap',
-  ageRange: [3, 5],
+  ageRange: [2, 5],
   bundle: 'vandkort',
-  voiceIntro: 'Hitta paren! Vänd korten.',
+  voiceIntro: 'Vänd korten och hitta paren som hör ihop!',
 
   init(ctx) {
     this._alive = true
+    this._started = false
+    this._level = clampLevel(ctx.progress.get().highestLevel | 0)
+    this._setIdx = (Math.random() * SETS.length) | 0
     this._root = new Container()
     ctx.stage.addChild(this._root)
-    this._level = clampLevel(ctx.progress.get().highestLevel | 0)
-    this._build(ctx)
+    this._build(ctx, false)
+    this._tick = (ticker) => this._update(ctx, ticker)
+    ctx.ticker.add(this._tick)
   },
 
   mount(ctx) {
-    ctx.services.voice.say(this.voiceIntro)
+    this._started = true
+    ctx.services.voice.say(this._cue || this.voiceIntro)
   },
 
-  _build(ctx) {
+  // Bygg (eller återuppbygg) ett bräde. announce=true talar rundans instruktion.
+  _build(ctx, announce = false) {
     if (!this._alive) return
-    this._cards?.forEach((c) => gsap.killTweensOf(c.scale))
+
+    // --- riv föregående bräde (exit-/rebuild-säkert) ---
+    this._clearHint()
+    this._cards?.forEach((c) => {
+      gsap.killTweensOf(c)
+      gsap.killTweensOf(c.scale)
+    })
     this._root.removeChildren().forEach((o) => o.destroy({ children: true }))
+
     this._cards = []
     this._first = null
     this._busy = false
     this._matched = 0
+    this._cleared = false
+    this._idle = 0
+
+    const set = SETS[this._setIdx]
+
+    // Bakgrundsscen (varierar med temat).
+    this._root.addChild(createScene(set.scene))
+    // Kort-lager + ett fx-lager ovanpå för ringar/gnistor/text (städas med roten).
+    this._layer = new Container()
+    this._fx = new Container()
+    this._fx.eventMode = 'none'
+    this._fx.interactiveChildren = false
+    this._root.addChild(this._layer, this._fx)
 
     const lvl = LEVELS[this._level]
-    const chosen = shuffle(MOTIFS).slice(0, lvl.pairs)
+    const chosen = shuffle(set.symbols).slice(0, lvl.pairs)
     const deck = shuffle([...chosen, ...chosen])
     const cols = lvl.cols
     const rows = Math.ceil(deck.length / cols)
-    const cardW = 150
-    const cardH = 188
-    const gap = 26
+
+    // --- responsiv kortstorlek så även 4x4 får plats (och 2x2 inte blir jättelikt) ---
+    const gap = 22
+    const topPad = 132 // plats för hem-/högtalarknapp högst upp
+    const availW = ctx.width - 120
+    const availH = ctx.height - topPad - 46
+    const AR = 0.8 // bredd/höjd
+    let cardW = (availW - (cols - 1) * gap) / cols
+    let cardH = cardW / AR
+    const maxH = (availH - (rows - 1) * gap) / rows
+    if (cardH > maxH) {
+      cardH = maxH
+      cardW = cardH * AR
+    }
+    cardW = Math.min(cardW, 208)
+    cardH = cardW / AR
+
     const gridW = cols * cardW + (cols - 1) * gap
     const gridH = rows * cardH + (rows - 1) * gap
     const startX = (ctx.width - gridW) / 2 + cardW / 2
-    const startY = (ctx.height - gridH) / 2 + cardH / 2 + 18
+    const startY = topPad + (availH - gridH) / 2 + cardH / 2
 
-    deck.forEach((motif, i) => {
+    deck.forEach((symbol, i) => {
       const col = i % cols
       const row = Math.floor(i / cols)
-      const card = this._makeCard(ctx, motif, cardW, cardH)
+      const card = this._makeCard(ctx, symbol, cardW, cardH, set)
       card.x = startX + col * (cardW + gap)
       card.y = startY + row * (cardH + gap)
-      this._root.addChild(card)
+      this._layer.addChild(card)
       this._cards.push(card)
-      card.scale.set(0)
-      gsap.to(card.scale, { x: 1, y: 1, duration: 0.3, delay: i * 0.04, ease: 'back.out(1.7)' })
+      // Studsande "dela ut"-entré med liten stagger.
+      bounceIn(card, { delay: Math.min(i * 0.05, 0.7), duration: 0.32 })
     })
+
+    this._cue = `Hitta ${set.name} som hör ihop!`
+    if (announce && this._started) ctx.services.voice.say(this._cue)
+
+    // Rotera temat för NÄSTA runda (garanterar variation).
+    this._setIdx = (this._setIdx + 1) % SETS.length
   },
 
-  _makeCard(ctx, motif, w, h) {
+  _makeCard(ctx, symbol, w, h, set) {
     const card = new Container()
-    card._motif = motif
+    card._symbol = symbol
     card._flipped = false
     card._done = false
+    card._w = w
+    card._h = h
+    const radius = Math.max(16, w * 0.14)
 
-    const back = new Graphics().roundRect(-w / 2, -h / 2, w, h, 22).fill(COLORS.orange).stroke({ width: 5, color: 0xffffff, alpha: 0.7 })
-    const q = new Text({ text: '❓', style: { fontFamily: FONT.body, fontSize: 76 } })
-    q.anchor.set(0.5)
-    const front = new Graphics().roundRect(-w / 2, -h / 2, w, h, 22).fill(COLORS.cream).stroke({ width: 5, color: COLORS.orange })
-    const face = new Text({ text: motif, style: { fontFamily: FONT.body, fontSize: 96 } })
-    face.anchor.set(0.5)
-    front.visible = false
-    face.visible = false
+    // Mjuk skugga (offset, låg alpha) — djup utan filter.
+    const shadow = new Graphics().roundRect(-w / 2 + 3, -h / 2 + 8, w, h, radius).fill({ color: 0x16314a, alpha: 0.16 })
 
-    card.addChild(back, q, front, face)
-    card._back = back
-    card._q = q
-    card._front = front
-    card._face = face
+    const backView = makeBackView(w, h, radius, set)
+    const frontView = makeFrontView(w, h, radius, symbol, set)
+    frontView.visible = false
+
+    card.addChild(shadow, backView, frontView)
+    card._backView = backView
+    card._frontView = frontView
+
     card.eventMode = 'static'
     card.cursor = 'pointer'
+    card.hitArea = { contains: (px, py) => Math.abs(px) <= w / 2 + 12 && Math.abs(py) <= h / 2 + 12 }
     card.on('pointertap', () => this._flip(ctx, card))
     return card
   },
 
   _flip(ctx, card) {
-    if (!this._alive || this._busy || card._flipped || card._done) return
-    this._showFace(card, true)
+    if (!this._alive || this._busy || this._cleared || card._flipped || card._done) return
+    this._idle = 0
+    this._clearHint()
+
+    // Direkt återkoppling < 100ms: ring + vänd-ljud, sedan vändningen.
+    ripple(this._fx, card.x, card.y, { color: 0xffffff, maxR: card._w * 0.75, width: 5, alpha: 0.55 })
     ctx.services.audio.sfx('flip')
+    this._showFace(card, true)
 
     if (!this._first) {
       this._first = card
@@ -113,56 +187,191 @@ export default {
     const b = card
     this._first = null
 
-    if (a._motif === b._motif) {
-      gsap.delayedCall(0.35, () => {
-        if (!this._alive) return
+    if (a._symbol === b._symbol) {
+      // PAR: kort paus så barnet hinner se båda, sedan firande.
+      gsap.delayedCall(0.4, () => {
+        if (!this._alive || a.destroyed || b.destroyed) return
         a._done = b._done = true
         ctx.services.audio.sfx('match')
-        sparkle(ctx.stage, a.x, a.y)
-        sparkle(ctx.stage, b.x, b.y)
-        pop(a)
-        pop(b)
+        this._celebratePair(a)
+        this._celebratePair(b)
+        floatText(this._fx, (a.x + b.x) / 2, Math.min(a.y, b.y) - a._h * 0.35, '⭐', { fontSize: a._h * 0.4, rise: 70 })
         this._matched++
         this._busy = false
-        if (this._matched >= LEVELS[this._level].pairs) {
-          this._level = clampLevel(this._level + 1)
-          ctx.progress.setLevel(this._level)
-          ctx.progress.complete()
-          gsap.delayedCall(1.4, () => this._build(ctx))
-        }
+        if (this._matched >= LEVELS[this._level].pairs) this._onCleared(ctx)
       })
     } else {
-      gsap.delayedCall(0.9, () => {
-        if (!this._alive) return
+      // INGET par: vänlig vingel och mjuk ton, vänd sedan tillbaka. Ingen bestraffning.
+      gsap.delayedCall(0.85, () => {
+        if (!this._alive || a.destroyed || b.destroyed) return
+        ctx.services.audio.sfx('soft')
+        wiggle(a)
+        wiggle(b)
         this._showFace(a, false)
         this._showFace(b, false)
-        ctx.services.audio.sfx('soft')
         this._busy = false
       })
     }
   },
 
+  // 3D-aktig vändning: krymp på x, byt synlig sida vid mitten, väx tillbaka.
   _showFace(card, faceUp) {
+    if (!this._alive || card.destroyed) return
     card._flipped = faceUp
+    gsap.killTweensOf(card.scale)
     gsap.to(card.scale, {
       x: 0,
-      duration: 0.12,
+      duration: 0.13,
+      ease: 'power2.in',
       onComplete: () => {
-        card._back.visible = !faceUp
-        card._q.visible = !faceUp
-        card._front.visible = faceUp
-        card._face.visible = faceUp
-        gsap.to(card.scale, { x: 1, duration: 0.14 })
+        if (!this._alive || card.destroyed) return
+        card._backView.visible = !faceUp
+        card._frontView.visible = faceUp
+        gsap.to(card.scale, { x: 1, duration: 0.17, ease: 'back.out(2)' })
       },
     })
   },
 
-  destroy() {
-    this._alive = false
-    this._cards?.forEach((c) => gsap.killTweensOf(c.scale))
-    gsap.killTweensOf(this._root)
-    this._root?.destroy({ children: true })
+  // Glad markering av ett funnet par: grön glöd + popp + gnistor.
+  _celebratePair(card) {
+    if (!this._alive || card.destroyed) return
+    const w = card._w
+    const h = card._h
+    const r = Math.max(16, w * 0.14)
+    const glow = new Graphics().roundRect(-w / 2 - 8, -h / 2 - 8, w + 16, h + 16, r + 6).fill({ color: COLORS.green, alpha: 0.3 })
+    card.addChildAt(glow, card.getChildIndex(card._frontView))
+    card._frontView.addChild(new Graphics().roundRect(-w / 2, -h / 2, w, h, r).stroke({ width: 6, color: COLORS.green, alpha: 0.95 }))
+    pop(card)
+    sparkle(this._fx, card.x, card.y, { count: 8 })
   },
+
+  // Brädet tomt: höj nivå, fira (delat: celebrate-sfx + beröm + konfetti + stjärna +
+  // klistermärke via progress.complete — INTE duplicerat här) + mjuk glad skakning.
+  _onCleared(ctx) {
+    if (!this._alive || this._cleared) return
+    this._cleared = true
+    this._clearHint()
+    this._level = clampLevel(this._level + 1)
+    ctx.progress.setLevel(this._level)
+    ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
+
+    // Liten gnist-svep över korten innan firandet (extra juice, ingen konfetti-dubbel).
+    this._cards?.forEach((c, i) => {
+      gsap.delayedCall(0.05 * i, () => {
+        if (!this._alive || c.destroyed) return
+        sparkle(this._fx, c.x, c.y, { count: 5 })
+      })
+    })
+
+    gsap.delayedCall(0.45, () => {
+      if (!this._alive) return
+      ctx.progress.complete()
+      shake(this._root, { intensity: 5, duration: 0.5 })
+    })
+
+    gsap.delayedCall(1.7, () => {
+      if (!this._alive) return
+      this._build(ctx, true)
+    })
+  },
+
+  // Lugn idle-lockelse: upprepa instruktionen och låt ett nedvänt kort "andas".
+  _update(ctx, ticker) {
+    if (!this._alive || this._cleared || this._busy) return
+    this._idle += ticker.deltaMS / 1000
+    if (this._idle > 6) {
+      this._idle = 0
+      ctx.services.voice.say(this._cue || this.voiceIntro)
+      this._clearHint()
+      const pool = this._cards?.filter((c) => !c._done && !c._flipped && !c.destroyed) || []
+      if (pool.length) {
+        const c = pool[(Math.random() * pool.length) | 0]
+        this._hintCard = c
+        this._hintTween = breathe(c, { scale: 1.07, duration: 0.7 })
+      }
+    }
+  },
+
+  _clearHint() {
+    if (this._hintTween) {
+      this._hintTween.kill()
+      this._hintTween = null
+    }
+    const c = this._hintCard
+    if (c && !c.destroyed && !c._done) {
+      gsap.killTweensOf(c.scale)
+      c.scale.set(1)
+    }
+    this._hintCard = null
+  },
+
+  destroy(ctx) {
+    this._alive = false
+    if (ctx?.ticker && this._tick) ctx.ticker.remove(this._tick)
+    if (this._hintTween) {
+      this._hintTween.kill()
+      this._hintTween = null
+    }
+    this._cards?.forEach((c) => {
+      gsap.killTweensOf(c)
+      gsap.killTweensOf(c.scale)
+    })
+    gsap.killTweensOf(this._root)
+    gsap.killTweensOf(this._layer)
+    ctx?.services?.voice?.cancel()
+    this._root?.destroy({ children: true })
+    this._root = null
+    this._layer = null
+    this._fx = null
+    this._cards = null
+    this._hintCard = null
+  },
+}
+
+// --- kort-grafik (rena Graphics/Text, inga tillgångar) ---
+
+// Mönstrad, premium-känslig baksida: bas + ljusare inre platta + prick-mönster +
+// centralt emblem. Stroke i vitt för "tryckt kort"-look.
+function makeBackView(w, h, radius, set) {
+  const v = new Container()
+  const inner = radius - 6
+  const light = lerpColor(set.back, 0xffffff, 0.22)
+  const dark = lerpColor(set.back, 0x000000, 0.12)
+  v.addChild(new Graphics().roundRect(-w / 2, -h / 2, w, h, radius).fill(set.back).stroke({ width: 5, color: 0xffffff, alpha: 0.9 }))
+  v.addChild(new Graphics().roundRect(-w / 2 + 9, -h / 2 + 9, w - 18, h - 18, inner).fill({ color: light, alpha: 0.55 }).stroke({ width: 3, color: dark, alpha: 0.45 }))
+  // Prick-mönster (förskjutna rader) inom den inre plattan.
+  const dots = new Graphics()
+  const stepX = w / 5
+  const stepY = h / 6
+  for (let row = 0; row * stepY < h - 28; row++) {
+    for (let colp = 0; colp * stepX < w - 28; colp++) {
+      const px = -w / 2 + 22 + colp * stepX + (row % 2 ? stepX / 2 : 0)
+      const py = -h / 2 + 24 + row * stepY
+      if (px > w / 2 - 16) continue
+      dots.circle(px, py, Math.max(2.5, w * 0.022)).fill({ color: 0xffffff, alpha: 0.16 })
+    }
+  }
+  v.addChild(dots)
+  // Centralt emblem (mjuk skiva + symbol).
+  v.addChild(new Graphics().circle(0, 0, w * 0.26).fill({ color: 0xffffff, alpha: 0.2 }))
+  const em = new Text({ text: set.emblem, style: { fontFamily: FONT.body, fontSize: h * 0.26 } })
+  em.anchor.set(0.5)
+  em.alpha = 0.9
+  v.addChild(em)
+  return v
+}
+
+// Ren, glansig framsida: gräddvit platta + accent-kant + topp-glans + stor symbol.
+function makeFrontView(w, h, radius, symbol, set) {
+  const v = new Container()
+  v.addChild(new Graphics().roundRect(-w / 2, -h / 2, w, h, radius).fill(COLORS.cream).stroke({ width: 5, color: set.accent }))
+  // Topp-glans (mjuk vit ellips) för "blank skärm"-känsla.
+  const gloss = new Graphics().ellipse(0, -h * 0.26, w * 0.36, h * 0.16).fill({ color: 0xffffff, alpha: 0.55 })
+  v.addChild(gloss)
+  const face = new Text({ text: symbol, style: { fontFamily: FONT.body, fontSize: h * 0.46 } })
+  face.anchor.set(0.5)
+  v.addChild(face)
+  return v
 }
 
 function clampLevel(l) {

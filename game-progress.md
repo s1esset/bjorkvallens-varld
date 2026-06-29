@@ -116,7 +116,7 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
 **Faser:**
 - **Fas 0 — Grundverktyg**: ✅ `lib/scene.js` (gradient-himmel + sol/moln/kullar/bokeh/stjärnor, 7 teman, exit-säker drift) + `lib/feedback.js` utökad (`ripple`, `shake`, `burst`, `breathe`). Testad i appen (0 fel).
 - **Fas 1** — klambubblor, poppa-ballonger, kittla-figuren, tryck-och-forvandla — ✅ (alla 0 fel, headless-testade)
-- **Fas 2** — fargregn, rakna-applen, stor-liten, peka-pa-kroppen — ⬜
+- **Fas 2** — fargregn, rakna-applen, stor-liten, peka-pa-kroppen — ✅ (alla 0 fel, headless-testade; stor-liten även dragtestat)
 - **Fas 3** — vandkort, skuggmatchning, vilket-djur-later, klappa-mullvaden — ⬜
 - **Fas 4** — sortera-skrap, mata-monstret, kla-pa-nallen — ⬜
 - **Fas 5 — Riktiga SFX**: källa designat CC0/genererat ljud, AudioService sample-uppspelning, koppla in överallt — ⬜
@@ -130,3 +130,9 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
   - **kittla-figuren**: candy-scen, 4 söta figurer (klump/björn/kanin/monster) som blinkar+andas, fler zoner, kittel-sekvens på högre nivåer.
   - **tryck-och-forvandla**: meadow-scen, 10 förvandlingskedjor som nivåer, fler objekt + flerstegs-förvandling på högre nivåer, magisk poff.
   - Röstrepliker för alla fyra tillagda i `voice-phrases.json` + regenererade.
+- **Fas 2**: Uppgraderade 4 lär-spel (bevarad mekanik + scen + juice + djup/nivåer). Alla headless-testade = 0 fel; `test-game.mjs` fick `--drag` (riktiga musdrag) för dragspel.
+  - **fargregn**: sky-scen m. sol/moln, glansiga droppar m. spår, pölar i marken, regnbågsdroppe; nivåer = fler färger/snabbare/tätare + talat färgmål m. målantal.
+  - **rakna-applen**: meadow-scen, programmatiskt träd + glansig frukt (äpple/päron/apelsin/plommon/citron varierar per runda), stor studsande siffra, korg, talad räkning + "tryck på N"-mål, mål 3→10.
+  - **stor-liten**: meadow-scen, korgar m. storleks-spöke som ikon, fler+varierade objekt, MELLAN-korg + mellanstorlek från nivå 5; DragController återanvänd, dragtestat ok.
+  - **peka-pa-kroppen**: meadow-scen, gullig chibi-figur (blinkar/andas, byter skepnad/runda), fler kroppsdelar (huvud→knä), glödring-ledtråd, fler frågor + snabbare per nivå.
+  - +167 röstrepliker (siffror×frukter, kroppsdels-mallar) tillagda + regenererade.

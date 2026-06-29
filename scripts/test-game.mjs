@@ -15,6 +15,12 @@ const opt = (name, def) => {
 const url = opt('--url', 'http://localhost:5173')
 const shot = opt('--shot', `test-${id}.png`)
 const tapsArg = opt('--taps', '')
+// Dragspel: --drag "fx,fy>tx,ty;fx,fy>tx,ty" gör riktiga musdrag (peka-ner,
+// flytta i steg, släpp). Om --drag anges hoppas standardtrycken över.
+const dragArg = opt('--drag', '')
+const drags = dragArg
+  ? dragArg.split(';').map((seg) => seg.split('>').map((p) => p.split(',').map(Number)))
+  : []
 const defaultTaps = [
   [300, 250], [640, 250], [950, 250],
   [300, 450], [640, 450], [950, 450],
@@ -22,7 +28,9 @@ const defaultTaps = [
 ]
 const taps = tapsArg
   ? tapsArg.split(';').map((p) => p.split(',').map(Number))
-  : defaultTaps
+  : drags.length
+    ? []
+    : defaultTaps
 
 if (!id) {
   console.error('usage: node scripts/test-game.mjs <id> [--shot out.png] [--taps "x,y;x,y"]')
@@ -59,6 +67,19 @@ try {
     }, { x, y })
     await page.waitForTimeout(260)
   }
+
+  // riktiga musdrag (för dragspel)
+  for (const [[fx, fy], [tx, ty]] of drags) {
+    await page.mouse.move(fx, fy)
+    await page.mouse.down()
+    for (let i = 1; i <= 12; i++) {
+      await page.mouse.move(fx + ((tx - fx) * i) / 12, fy + ((ty - fy) * i) / 12)
+      await page.waitForTimeout(22)
+    }
+    await page.mouse.up()
+    await page.waitForTimeout(550)
+  }
+
   await page.waitForTimeout(900)
   await page.screenshot({ path: shot })
 

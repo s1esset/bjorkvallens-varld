@@ -1,112 +1,409 @@
-// Studsa Ner — en lugn plinko för 2–5 år. Tryck högst upp så släpps ett glansigt
-// mynt som pingar ner genom en triangel av pinnar och landar i en färgglad ficka.
-// Inget mål att missa: varje tryck ger ett mynt + mjukt ljud. När myntet lägger sig
-// stilla i en ficka gnistrar det till. Efter ett gäng nedslag kommer ett delat
-// firande, sedan rullar leken vidare. Oändlig, snäll lek (matter.js + Pixi v8).
+// Studsa Ner — plinko som RIKTIG lek (2–5 år). Kärnan är kvar: ett glansigt mynt
+// pingar ner genom en triangel av pinnar och landar i en färgglad ficka. Men nu finns
+// ett MÅL: en ficka LYSER (en utropad färg) och myntet du släpper har samma färg —
+// landa i den lysande fickan så fylls en mätare; full mätare = firande + nästa nivå.
+// KONTROLL: innan du släpper DRAR du myntet i sidled högst upp för att välja var det
+// faller (med en mjuk vink om vilken ficka det lutar åt). Inget kan misslyckas: en
+// snäll, växande "bris" styr myntet mot målfickan så det alltid går att lyckas, och en
+// "fel" ficka ger ändå ett glatt plopp (bara ingen poäng) — aldrig ett straff.
+// Nivåer: fler fickor, målet flyttar, fler pinnar. Allt ritas programmatiskt
+// (matter.js + Pixi v8), exit-säkert.
 import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld } from '../../lib/physics.js'
-import { sparkle } from '../../lib/feedback.js'
+import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { createScene } from '../../lib/scene.js'
+import { sparkle, puff, floatText, bigCelebration, breathe } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { COLORS, PLAYFUL, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { COLORS, DESIGN_W, DESIGN_H, PRAISE } from '../../lib/theme.js'
 
-const MAX_BALLS = 10 // tak för prestanda; äldsta myntet tonar bort över detta
-const SETTLES_PER_CELEBRATION = 6 // antal nedslag innan ett delat firande
+const MAX_BALLS = 6 // tak för prestanda; äldsta myntet tonar bort över detta
+const TARGET_PER_LEVEL = 3 // antal träffar i målfickan för att fylla mätaren
 const BALL_R = 22
-const TOP_Y = 56 // var myntet föds (i toppbandet)
+const TOP_Y = 56 // var myntet föds (i toppbandet) + var droppar-myntet vilar
+const BOARD_TOP = 140
+const BINS_TOP = 560 // fickornas överkant
 const SETTLE_Y = 600 // myntet räknas som "nere i en ficka" under denna y
 const SETTLE_SPEED = 0.6 // ... och långsammare än så här
 const VOICE_THROTTLE = 2500 // ms mellan glada röst-rop (annars hackar rösten)
+const HIT_THROTTLE = 70 // ms mellan pinn-ljud (anti-spam)
 
-// Fem fickfärger (distinkta PLAYFUL-toner).
-const BIN_COLORS = [0xff8a3d, 0x5bbf6a, 0x4aa3df, 0xa78bfa, 0xff9ec4]
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
-// Korta glada svenska rop vid släpp (strypt så rösten inte avbryter sig själv).
-const DROP_CHEERS = ['Ner den åker!', 'Studs studs!', 'Titta!', 'Pang!', 'Wii!']
+// Fickfärger med svenska namn (adjektivform: "i den gröna fickan"). De första
+// `count` används per nivå, så färgerna är stabila och igenkännliga.
+const PALETTE = [
+  { color: 0xff8a3d, name: 'orange' },
+  { color: 0x5bbf6a, name: 'gröna' },
+  { color: 0x4aa3df, name: 'blåa' },
+  { color: 0xa78bfa, name: 'lila' },
+  { color: 0xff9ec4, name: 'rosa' },
+  { color: 0xffd35c, name: 'gula' },
+]
+
+const DROP_CHEERS = ['Ner det åker!', 'Studs studs!', 'Titta!', 'Pang!', 'Wii!']
+const MISS_CHEERS = ['Nästan! Prova igen.', 'Hoppsan! En till.', 'Snart där!']
 
 export default {
   id: 'studsa-ner',
   titleSv: 'Studsa Ner',
   icon: '🪙',
   category: 'fysik',
-  input: 'tap',
+  input: 'mixed',
   ageRange: [2, 5],
   bundle: 'studsa-ner',
-  voiceIntro: 'Tryck högst upp så ramlar bollen ner!',
+  voiceIntro: 'Dra myntet och släpp det i fickan som lyser!',
 
   init(ctx) {
     this._alive = true
     this._idle = 0
-    this._settled = 0
     this._balls = [] // { body, view, settled }
+    this._pegBodies = []
+    this._dividerBodies = []
     this._lastHit = 0
     this._lastVoice = 0
+
+    this._collected = 0
+    this._missStreak = 0 // växer vid miss -> starkare "bris" mot målet (no-fail)
+    this._binCount = 4
+    this._binW = DESIGN_W / 4
+    this._targetIdx = 1
+    this._targetColor = PALETTE[1].color
+    this._aiming = false
+    this._dropX = DESIGN_W / 2
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Fysik: bara golv + sidoväggar (myntet ramlar in uppifrån).
+    // Mjuk bakgrund.
+    this._scene = createScene('candy', { width: ctx.width, height: ctx.height })
+    this._root.addChild(this._scene)
+
+    // Fysik: golv + sidoväggar (myntet ramlar in uppifrån).
     this._phys = new PhysicsWorld({ gravityY: 1.3, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
 
-    this._buildBoard(ctx)
-    this._buildPegs(ctx)
-    this._buildBins(ctx)
-    this._buildIndicator(ctx)
+    this._buildStatic(ctx)
 
-    // Hela skärmen är tryckbar; ett tryck släpper alltid ett mynt uppifrån vid
-    // fingrets x (klampat). Toppbandet är extra inbjudande tack vare pulsaren.
-    this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
-    this._catcher.eventMode = 'static'
-    this._catcher.on('pointertap', (ev) => {
-      const p = this._root.toLocal(ev.global)
-      this._drop(ctx, p.x)
-    })
-    this._root.addChild(this._catcher)
+    this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
+    this._loadLevel(ctx, this._level, false)
 
-    this._tick = (t) => {
-      if (!this._alive) return
-      this._phys.update(t.deltaMS)
-
-      // Upptäck mynt som lagt sig stilla nere i en ficka.
-      for (const ball of this._balls) {
-        if (ball.settled) continue
-        if (ball.body.position.y > SETTLE_Y && ball.body.speed < SETTLE_SPEED) {
-          ball.settled = true
-          this._onSettle(ctx, ball)
-        }
-      }
-
-      // Mild återpåminnelse om ingen rört skärmen på ett tag.
-      this._idle += t.deltaMS / 1000
-      if (this._idle > 6) {
-        this._idle = 0
-        ctx.services.voice.say(this.voiceIntro)
-        this._lastVoice = performance.now()
-        this._drop(ctx, ctx.width / 2)
-      }
-    }
+    this._tick = (t) => this._update(ctx, t)
     ctx.ticker.add(this._tick)
   },
 
   mount(ctx) {
     ctx.services.voice.say(this.voiceIntro)
     this._lastVoice = performance.now()
-    // Ett mynt direkt för att visa idén.
-    gsap.delayedCall(0.4, () => this._alive && this._drop(ctx, ctx.width / 2))
+    this._announceTarget(ctx, 1.2)
+    // Ett mynt direkt mot målet för att visa idén.
+    this._demoTimer = gsap.delayedCall(0.6, () => this._alive && this._drop(ctx, this._targetCenterX(), true))
   },
 
-  _drop(ctx, x) {
+  // ---- Statisk scen (byggs en gång) ---------------------------------------
+
+  _buildStatic(ctx) {
+    // Spelbräda.
+    const board = new Graphics()
+      .roundRect(72, BOARD_TOP, ctx.width - 144, BINS_TOP - BOARD_TOP - 10, 28)
+      .fill({ color: COLORS.cream, alpha: 0.78 })
+      .stroke({ width: 4, color: COLORS.inkSoft, alpha: 0.2 })
+    board.eventMode = 'none'
+    this._root.addChild(board)
+
+    // Mjuk markering av toppbandet (där man drar).
+    const band = new Graphics().roundRect(72, 16, ctx.width - 144, 96, 24).fill({ color: COLORS.yellow, alpha: 0.18 })
+    band.eventMode = 'none'
+    this._root.addChild(band)
+
+    // Lager (fylls/återanvänds per nivå).
+    this._pegLayer = new Container()
+    this._pegLayer.eventMode = 'none'
+    this._pegLayer.interactiveChildren = false
+    this._root.addChild(this._pegLayer)
+
+    this._binLayer = new Container()
+    this._binLayer.eventMode = 'none'
+    this._binLayer.interactiveChildren = false
+    this._root.addChild(this._binLayer)
+
+    // Glöd över målfickan (positioneras per nivå; andas för att dra blicken).
+    this._glow = new Container()
+    this._glow.eventMode = 'none'
+    this._glowG = new Graphics()
+    this._glow.addChild(this._glowG)
+    this._root.addChild(this._glow)
+
+    // Mätare: TARGET_PER_LEVEL myntplatser uppe till höger.
+    this._meter = new Container()
+    this._meter.eventMode = 'none'
+    this._meterDots = []
+    for (let i = 0; i < TARGET_PER_LEVEL; i++) {
+      const slot = new Graphics()
+      slot.x = ctx.width - 56 - i * 64
+      slot.y = 56
+      this._drawMeterDot(slot, false, COLORS.inkSoft)
+      this._meter.addChild(slot)
+      this._meterDots.push(slot)
+    }
+    this._root.addChild(this._meter)
+
+    // Bollager (mynten i fysiken) — under den genomskinliga fångaren.
+    this._ballLayer = new Container()
+    this._root.addChild(this._ballLayer)
+
+    // Droppar-mynt: indikatorn högst upp som följer fingret och visar målfärgen.
+    this._dropper = new Container()
+    this._dropper.eventMode = 'none'
+    this._dropBody = new Graphics()
+    this._dropGloss = new Graphics().circle(-7, -7, 8).fill({ color: COLORS.white, alpha: 0.7 })
+    this._dropArrow = new Graphics().poly([-14, 30, 14, 30, 0, 50]).fill({ color: COLORS.orange, alpha: 0.9 })
+    this._dropper.addChild(this._dropBody, this._dropGloss, this._dropArrow)
+    this._dropper.x = this._dropX
+    this._dropper.y = TOP_Y
+    this._root.addChild(this._dropper)
+    this._dropperTween = breathe(this._dropper, { scale: 1.12, duration: 0.7 })
+
+    // Drag-vink: var myntet "lutar åt" (mjuk kolumn-highlight under fingret).
+    this._hint = new Graphics()
+    this._hint.eventMode = 'none'
+    this._hint.visible = false
+    this._root.addChild(this._hint)
+
+    // Genomskinlig fångare överst: dra i sidled -> välj drop-x; släpp -> släpp mynt.
+    this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
+    this._catcher.eventMode = 'static'
+    this._onDown = (e) => this._pointerDown(ctx, e)
+    this._onMove = (e) => this._pointerMove(ctx, e)
+    this._onUp = (e) => this._pointerUp(ctx, e)
+    this._catcher.on('pointerdown', this._onDown)
+    this._root.addChild(this._catcher)
+  },
+
+  // ---- Nivåer --------------------------------------------------------------
+
+  _cfgFor(level) {
+    if (level <= 1) return { bins: 4, rows: 5 }
+    if (level <= 3) return { bins: 5, rows: 6 }
+    return { bins: 6, rows: 7 }
+  },
+
+  _loadLevel(ctx, level, announce = true) {
+    if (!this._alive) return
+    const cfg = this._cfgFor(level)
+    this._binCount = cfg.bins
+    this._binW = ctx.width / cfg.bins
+    this._collected = 0
+    this._missStreak = 0
+
+    // Nytt mål: en annan ficka än förra (om möjligt).
+    let idx = (Math.random() * cfg.bins) | 0
+    if (cfg.bins > 1 && idx === this._targetIdx) idx = (idx + 1) % cfg.bins
+    this._targetIdx = idx
+    this._targetColor = PALETTE[idx % PALETTE.length].color
+    this._targetName = PALETTE[idx % PALETTE.length].name
+
+    this._clearBalls()
+    this._buildBins(ctx, cfg.bins)
+    this._buildPegs(ctx, cfg.rows)
+    this._setDropperColor(this._targetColor)
+    this._positionGlow()
+    this._refreshMeter()
+
+    if (announce) this._announceTarget(ctx, 0.2)
+  },
+
+  _buildBins(ctx, count) {
+    // Rensa gamla väggar + grafik.
+    for (const b of this._dividerBodies) this._phys.removeBody(b)
+    this._dividerBodies = []
+    for (const c of [...this._binLayer.children]) c.destroy()
+
+    const binW = ctx.width / count
+    const top = BINS_TOP
+    const h = ctx.height - top
+
+    for (let i = 0; i < count; i++) {
+      const x0 = i * binW
+      const isTarget = i === this._targetIdx
+      const col = PALETTE[i % PALETTE.length].color
+      const fill = new Graphics()
+        .roundRect(x0 + 8, top, binW - 16, h, 16)
+        .fill({ color: col, alpha: isTarget ? 0.95 : 0.8 })
+      this._binLayer.addChild(fill)
+    }
+
+    // Inre avdelare (yttre kanter = fysikväggarna).
+    for (let i = 1; i < count; i++) {
+      const x = i * binW
+      const body = this._phys.rectangle(x, top + h / 2, 14, h, { isStatic: true, restitution: 0.3, friction: 0.2, label: 'divider' })
+      this._dividerBodies.push(body)
+      const post = new Graphics()
+        .roundRect(x - 7, top - 6, 14, h + 6, 7)
+        .fill(COLORS.brown)
+        .stroke({ width: 3, color: COLORS.ink, alpha: 0.3 })
+      this._binLayer.addChild(post)
+    }
+  },
+
+  _buildPegs(ctx, rows) {
+    for (const b of this._pegBodies) this._phys.removeBody(b)
+    this._pegBodies = []
+    for (const c of [...this._pegLayer.children]) c.destroy()
+
+    const top = 200
+    const rowGap = 46
+    const colGap = 112
+    const marginX = 150
+    for (let row = 0; row < rows; row++) {
+      const y = top + row * rowGap
+      const offset = row % 2 ? colGap / 2 : 0
+      for (let x = marginX + offset; x <= ctx.width - marginX; x += colGap) {
+        const body = this._phys.circle(x, y, 10, { isStatic: true, restitution: 0.5, friction: 0.1, label: 'peg' })
+        this._pegBodies.push(body)
+        const peg = new Graphics()
+          .circle(0, 0, 10)
+          .fill(COLORS.white)
+          .stroke({ width: 3, color: COLORS.inkSoft, alpha: 0.35 })
+        const dot = new Graphics().circle(-3, -3, 3).fill({ color: COLORS.white, alpha: 0.9 })
+        dot.eventMode = 'none'
+        peg.addChild(dot)
+        peg.x = x
+        peg.y = y
+        this._pegLayer.addChild(peg)
+      }
+    }
+  },
+
+  _setDropperColor(color) {
+    this._dropBody
+      .clear()
+      .circle(0, 0, BALL_R)
+      .fill(color)
+      .stroke({ width: Math.max(2, BALL_R * 0.08), color: shade(color, 0.18), alpha: 0.6 })
+  },
+
+  _targetCenterX() {
+    return (this._targetIdx + 0.5) * this._binW
+  },
+
+  _positionGlow() {
+    const cx = this._targetCenterX()
+    const top = BINS_TOP
+    const h = DESIGN_H - top
+    this._glow.position.set(cx, top + h / 2)
+    this._glowG
+      .clear()
+      .roundRect(-this._binW / 2 + 6, -h / 2 - 2, this._binW - 12, h + 4, 16)
+      .stroke({ width: 7, color: COLORS.white, alpha: 0.95 })
+    this._glowTween?.kill()
+    this._glow.scale.set(1)
+    this._glowTween = breathe(this._glow, { scale: 1.05, duration: 0.9 })
+  },
+
+  // ---- Mätare --------------------------------------------------------------
+
+  _drawMeterDot(g, filled, color) {
+    g.clear().circle(0, 0, 22)
+    if (filled) g.fill(color).stroke({ width: 4, color: COLORS.white, alpha: 0.9 })
+    else g.fill({ color: COLORS.white, alpha: 0.35 }).stroke({ width: 4, color: COLORS.inkSoft, alpha: 0.45 })
+  },
+
+  _refreshMeter() {
+    for (let i = 0; i < this._meterDots.length; i++) {
+      const dot = this._meterDots[i]
+      if (dot.destroyed) continue
+      this._drawMeterDot(dot, i < this._collected, this._targetColor)
+    }
+  },
+
+  // ---- Pekare: dra för att välja drop-x ------------------------------------
+
+  _pointerDown(ctx, e) {
+    if (!this._alive) return
+    this._idle = 0
+    this._aiming = true
+    const p = this._root.toLocal(e.global)
+    this._dropX = clamp(p.x, BALL_R + 12, ctx.width - BALL_R - 12)
+    this._dropper.x = this._dropX
+    this._drawHint(ctx, this._dropX)
+    ctx.services.audio.sfx('tap')
+    gsap.killTweensOf(this._dropper.scale)
+    gsap.to(this._dropper.scale, { x: 1.18, y: 1.18, duration: 0.1, yoyo: true, repeat: 1 })
+    this._catcher.on('globalpointermove', this._onMove)
+    this._catcher.on('pointerup', this._onUp)
+    this._catcher.on('pointerupoutside', this._onUp)
+  },
+
+  _pointerMove(ctx, e) {
+    if (!this._aiming) return
+    const p = this._root.toLocal(e.global)
+    this._dropX = clamp(p.x, BALL_R + 12, ctx.width - BALL_R - 12)
+    this._dropper.x = this._dropX
+    this._drawHint(ctx, this._dropX)
+    this._idle = 0
+  },
+
+  _pointerUp(ctx, e) {
+    if (!this._aiming) return
+    this._aiming = false
+    this._detachPointer()
+    this._hideHint()
+    this._restoreDropperPulse()
+    this._drop(ctx, this._dropX, false)
+  },
+
+  _detachPointer() {
+    if (this._catcher && !this._catcher.destroyed) {
+      this._catcher.off('globalpointermove', this._onMove)
+      this._catcher.off('pointerup', this._onUp)
+      this._catcher.off('pointerupoutside', this._onUp)
+    }
+  },
+
+  _restoreDropperPulse() {
+    if (this._dropper && !this._dropper.destroyed) {
+      gsap.killTweensOf(this._dropper.scale)
+      this._dropper.scale.set(1)
+      this._dropperTween?.kill()
+      this._dropperTween = breathe(this._dropper, { scale: 1.12, duration: 0.7 })
+    }
+  },
+
+  // Mjuk vink: highlight fickan rakt under fingret (där myntet "lutar åt").
+  _drawHint(ctx, x) {
+    const idx = clamp(Math.floor(x / this._binW), 0, this._binCount - 1)
+    const x0 = idx * this._binW
+    const g = this._hint
+    g.visible = true
+    g.clear()
+      .roundRect(x0 + 10, BOARD_TOP, this._binW - 20, DESIGN_H - BOARD_TOP, 18)
+      .fill({ color: COLORS.white, alpha: 0.1 })
+    // Pricklinje rakt ner från droppar-myntet.
+    for (let yy = TOP_Y + 60; yy < BINS_TOP; yy += 34) {
+      g.circle(x, yy, 4).fill({ color: COLORS.white, alpha: 0.45 })
+    }
+  },
+
+  _hideHint() {
+    if (this._hint && !this._hint.destroyed) {
+      this._hint.clear()
+      this._hint.visible = false
+    }
+  },
+
+  // ---- Släpp ett mynt ------------------------------------------------------
+
+  _drop(ctx, x, demo) {
     if (!this._alive) return
     this._idle = 0
     const r = BALL_R
-    x = Math.max(r + 12, Math.min(ctx.width - r - 12, x))
+    x = clamp(x, r + 12, ctx.width - r - 12)
 
-    const color = randomFrom(PLAYFUL)
+    const color = this._targetColor
     const view = makeBall(r, color)
     view.x = x
     view.y = TOP_Y
-    this._root.addChild(view)
+    this._ballLayer.addChild(view)
 
     const body = this._phys.circle(x, TOP_Y, r, {
       restitution: 0.5,
@@ -115,8 +412,10 @@ export default {
       density: 0.002,
       label: 'ball',
     })
-    // Pytteliten sidoknuff så myntet inte fastnar rakt ovanpå en pinne.
-    body.velocity.x = (Math.random() - 0.5) * 1.6
+    // Liten initial knuff mot målet (bias) + pytte slump så det inte fastnar på en pinne.
+    const dx = this._targetCenterX() - x
+    const bias = clamp(dx * (0.010 + this._missStreak * 0.004), -3.0, 3.0)
+    body.velocity.x = bias + (Math.random() - 0.5) * 1.4
 
     const ball = { body, view, settled: false }
     this._balls.push(ball)
@@ -127,11 +426,12 @@ export default {
     view.scale.set(0.2)
     gsap.to(view.scale, { x: 1, y: 1, duration: 0.28, ease: 'back.out(2)' })
 
-    // Glatt rop ibland (strypt så rösten inte hackar vid snabba tryck).
-    const now = performance.now()
-    if (now - this._lastVoice > VOICE_THROTTLE) {
-      this._lastVoice = now
-      ctx.services.voice.say(randomFrom(DROP_CHEERS))
+    if (!demo) {
+      const now = performance.now()
+      if (now - this._lastVoice > VOICE_THROTTLE) {
+        this._lastVoice = now
+        ctx.services.voice.say(randomFrom(DROP_CHEERS))
+      }
     }
 
     // Tak: tona bort det äldsta myntet.
@@ -141,21 +441,123 @@ export default {
     }
   },
 
+  // ---- Ticker: fysik + snäll "bris" + nedslag + idle -----------------------
+
+  _update(ctx, t) {
+    if (!this._alive) return
+    this._phys.update(t.deltaMS)
+
+    // Snäll, växande bris som styr fallande mynt mot målfickan (no-fail-garanti).
+    const cx = this._targetCenterX()
+    const helpA = 0.012 * (1 + this._missStreak * 0.8)
+    for (const ball of this._balls) {
+      if (ball.settled) continue
+      const pos = ball.body.position
+      if (pos.y > 180 && pos.y < BINS_TOP - 10) {
+        const factor = clamp((cx - pos.x) / 120, -1, 1)
+        Body.applyForce(ball.body, pos, { x: ball.body.mass * helpA * factor, y: 0 })
+      }
+      // Nedslag i en ficka?
+      if (pos.y > SETTLE_Y && ball.body.speed < SETTLE_SPEED) {
+        ball.settled = true
+        this._onSettle(ctx, ball)
+      }
+    }
+
+    // Mild återpåminnelse om ingen rört skärmen på ett tag -> röst + hjälp-släpp.
+    this._idle += t.deltaMS / 1000
+    if (this._idle > 6) {
+      this._idle = 0
+      this._announceTarget(ctx, 0)
+      this._drop(ctx, this._targetCenterX(), true)
+    }
+  },
+
   _onSettle(ctx, ball) {
     if (!this._alive) return
     const p = ball.body.position
-    sparkle(this._root, p.x, p.y, { count: 8 })
-    ctx.services.audio.sfx(randomFrom(['pling', 'correct']))
-    this._settled++
-    if (this._settled % SETTLES_PER_CELEBRATION === 0) {
-      ctx.progress.complete()
+    const idx = clamp(Math.floor(p.x / this._binW), 0, this._binCount - 1)
+    if (idx === this._targetIdx) {
+      this._score(ctx, p.x, p.y)
+    } else {
+      // "Fel" ficka: glatt plopp, ingen poäng, aldrig ett straff.
+      this._missStreak++
+      ctx.services.audio.sfx('plopp')
+      puff(this._root, p.x, p.y, { count: 6 })
+      const now = performance.now()
+      if (now - this._lastVoice > VOICE_THROTTLE) {
+        this._lastVoice = now
+        ctx.services.voice.say(randomFrom(MISS_CHEERS))
+      }
+    }
+  },
+
+  _score(ctx, x, y) {
+    this._missStreak = 0
+    this._collected = Math.min(TARGET_PER_LEVEL, this._collected + 1)
+    ctx.services.audio.sfx('correct')
+    ctx.services.audio.sfx('pling')
+    sparkle(this._root, x, y, { count: 10 })
+    floatText(ctx.fxLayer, x, y - 30, '⭐', { fontSize: 56 })
+
+    // Mätare fylls med en liten studs.
+    const dot = this._meterDots[this._collected - 1]
+    if (dot && !dot.destroyed) {
+      this._drawMeterDot(dot, true, this._targetColor)
+      gsap.killTweensOf(dot.scale)
+      dot.scale.set(0.4)
+      gsap.to(dot.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out(2.4)' })
+    }
+
+    if (this._collected >= TARGET_PER_LEVEL) {
+      this._levelComplete(ctx)
+    } else {
+      const now = performance.now()
+      if (now - this._lastVoice > VOICE_THROTTLE) {
+        this._lastVoice = now
+        ctx.services.voice.say('Rätt ficka!')
+      }
+    }
+  },
+
+  _levelComplete(ctx) {
+    if (!this._alive) return
+    ctx.services.audio.sfx('celebrate')
+    ctx.services.audio.sfx('magi')
+    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    ctx.services.voice.say(randomFrom(PRAISE))
+    this._lastVoice = performance.now()
+
+    this._level += 1
+    ctx.progress.setLevel(this._level)
+    ctx.progress.complete()
+
+    this._levelTimer?.kill()
+    this._levelTimer = gsap.delayedCall(1.7, () => {
+      if (!this._alive) return
+      ctx.services.voice.say('Nästa nivå!')
+      this._loadLevel(ctx, this._level, true)
+    })
+  },
+
+  _announceTarget(ctx, delay) {
+    if (delay > 0) {
+      this._announceTimer?.kill()
+      this._announceTimer = gsap.delayedCall(delay, () => {
+        if (!this._alive) return
+        ctx.services.voice.say(`Släpp i den ${this._targetName} fickan!`)
+        this._lastVoice = performance.now()
+      })
+    } else {
+      ctx.services.voice.say(`Släpp i den ${this._targetName} fickan!`)
+      this._lastVoice = performance.now()
     }
   },
 
   _onCollision(ctx, e) {
     if (!this._alive) return
     const now = performance.now()
-    if (now - this._lastHit < 70) return // strypa ljud-spam
+    if (now - this._lastHit < HIT_THROTTLE) return
     for (const pair of e.pairs) {
       const a = pair.bodyA
       const b = pair.bodyB
@@ -168,6 +570,20 @@ export default {
         break
       }
     }
+  },
+
+  // ---- Städning ------------------------------------------------------------
+
+  _clearBalls() {
+    for (const b of this._balls) {
+      if (b.body) this._phys.removeBody(b.body)
+      if (b.view && !b.view.destroyed) {
+        gsap.killTweensOf(b.view)
+        gsap.killTweensOf(b.view.scale)
+        b.view.destroy()
+      }
+    }
+    this._balls = []
   },
 
   // Exit-säker uttoning: tweena en proxy och rör myntet bara om det lever.
@@ -198,112 +614,23 @@ export default {
     })
   },
 
-  // --- statisk scen (allt dekorativt = eventMode 'none') ---
-
-  _buildBoard(ctx) {
-    const board = new Graphics()
-      .roundRect(72, 140, ctx.width - 144, 410, 28)
-      .fill({ color: COLORS.cream, alpha: 0.7 })
-      .stroke({ width: 4, color: COLORS.inkSoft, alpha: 0.2 })
-    board.eventMode = 'none'
-    this._root.addChild(board)
-
-    // Mjuk markering av toppbandet (där man trycker).
-    const band = new Graphics().roundRect(72, 16, ctx.width - 144, 96, 24).fill({ color: COLORS.yellow, alpha: 0.18 })
-    band.eventMode = 'none'
-    this._root.addChild(band)
-  },
-
-  _buildPegs(ctx) {
-    const rows = 7
-    const top = 196
-    const rowGap = 52
-    const colGap = 112
-    const marginX = 150
-    const layer = new Container()
-    layer.eventMode = 'none'
-    layer.interactiveChildren = false
-
-    for (let row = 0; row < rows; row++) {
-      const y = top + row * rowGap
-      const offset = row % 2 ? colGap / 2 : 0
-      for (let x = marginX + offset; x <= ctx.width - marginX; x += colGap) {
-        // Statisk pinne i fysiken (länkas ej — rör sig aldrig).
-        this._phys.circle(x, y, 10, { isStatic: true, restitution: 0.5, friction: 0.1, label: 'peg' })
-        const peg = new Graphics()
-          .circle(0, 0, 10)
-          .fill(COLORS.white)
-          .stroke({ width: 3, color: COLORS.inkSoft, alpha: 0.35 })
-        const dot = new Graphics().circle(-3, -3, 3).fill({ color: COLORS.white, alpha: 0.9 })
-        dot.eventMode = 'none'
-        peg.addChild(dot)
-        peg.x = x
-        peg.y = y
-        layer.addChild(peg)
-      }
-    }
-    this._root.addChild(layer)
-  },
-
-  _buildBins(ctx) {
-    const count = 5
-    const binW = ctx.width / count
-    const top = 560
-    const floorY = DESIGN_H
-    const h = floorY - top
-
-    const layer = new Container()
-    layer.eventMode = 'none'
-    layer.interactiveChildren = false
-
-    for (let i = 0; i < count; i++) {
-      const x0 = i * binW
-      const fill = new Graphics()
-        .roundRect(x0 + 8, top, binW - 16, h, 16)
-        .fill({ color: BIN_COLORS[i], alpha: 0.85 })
-      layer.addChild(fill)
-    }
-
-    // Fyra inre avdelare (vänster/höger vägg är yttre kanter).
-    for (let i = 1; i < count; i++) {
-      const x = i * binW
-      this._phys.rectangle(x, top + h / 2, 14, h, { isStatic: true, restitution: 0.3, friction: 0.2, label: 'divider' })
-      const post = new Graphics()
-        .roundRect(x - 7, top - 6, 14, h + 6, 7)
-        .fill(COLORS.brown)
-        .stroke({ width: 3, color: COLORS.ink, alpha: 0.3 })
-      layer.addChild(post)
-    }
-
-    this._root.addChild(layer)
-  },
-
-  _buildIndicator(ctx) {
-    const ind = new Container()
-    ind.eventMode = 'none'
-    // Litet glansigt mynt + pil neråt.
-    const coin = new Graphics()
-      .circle(0, 0, 22)
-      .fill(COLORS.yellow)
-      .stroke({ width: 4, color: COLORS.orangeDark, alpha: 0.6 })
-    const gloss = new Graphics().circle(-7, -7, 7).fill({ color: COLORS.white, alpha: 0.7 })
-    const arrow = new Graphics().poly([-14, 30, 14, 30, 0, 50]).fill({ color: COLORS.orange, alpha: 0.9 })
-    ind.addChild(coin, gloss, arrow)
-    ind.x = ctx.width / 2
-    ind.y = 50
-    this._root.addChild(ind)
-    this._indicator = ind
-
-    // Lugn puls (dödas i destroy).
-    gsap.to(ind.scale, { x: 1.14, y: 1.14, duration: 0.7, ease: 'sine.inOut', yoyo: true, repeat: -1 })
-  },
-
   destroy(ctx) {
     this._alive = false
-    ctx.ticker.remove(this._tick)
+    ctx?.ticker?.remove(this._tick)
     this._unbind?.()
+    this._demoTimer?.kill()
+    this._levelTimer?.kill()
+    this._announceTimer?.kill()
+    this._dropperTween?.kill()
+    this._glowTween?.kill()
+    this._detachPointer()
+    if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointerdown', this._onDown)
 
-    if (this._indicator && !this._indicator.destroyed) gsap.killTweensOf(this._indicator.scale)
+    if (this._dropper && !this._dropper.destroyed) gsap.killTweensOf(this._dropper.scale)
+    if (this._glow && !this._glow.destroyed) gsap.killTweensOf(this._glow.scale)
+    for (const dot of this._meterDots || []) {
+      if (dot && !dot.destroyed) gsap.killTweensOf(dot.scale)
+    }
     this._balls.forEach((b) => {
       if (b.view && !b.view.destroyed) {
         gsap.killTweensOf(b.view)
@@ -314,7 +641,7 @@ export default {
 
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
-    ctx.services.voice.cancel()
+    ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
 }

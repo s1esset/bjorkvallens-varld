@@ -194,4 +194,19 @@ Alla tre: no-fail (auto-hjälp garanterar framgång), nivåskalning (highestLeve
 
 **Ljud (riktiga, offline):** 5 nya MOSS-SFX-klipp via `npm run sfx` — `fart`/`plopp`/`boing`/`thwip`/`magi` (21 klipp totalt i `public/audio/sfx`). 35 nya neurala röstrepliker (Spindelhjälten/Elvira/Zacke-rader) → 693 röstklipp totalt. Bygge grönt.
 
-**Gjort kvar (förslag):** retrofitta de äldre fysik-demona (studsbollar, domino, studsa-ner, vippbradan, studsmatta, knuffa-tornet, fyrverkeri, sapbubblor) med mål + kontroller via samma verktyg.
+## v4.1 — Retrofit: 8 fysik-demon → riktiga mål-spel (2026-06-29)
+
+De 8 äldre fysik-demona uppgraderade (bevarad mekanik + exit-säkerhet, pålagt MÅL + utfalls-styrande kontroll + no-fail) via samma verktyg. Byggda av parallella agenter (mekaniken bevarad, headless-testade 0 fel — jag verifierade alla 8 själv med skärmdump + exit-cykel; agenternas slutrapport kapades av en sessionsgräns men filerna var färdigskrivna och rena).
+
+| id | Nytt mål | Ny kontroll | Fysik |
+| --- | --- | --- | --- |
+| `studsbollar` | Få N bollar i korgen (mätare) | sikta+kraft-skott + studsig/tung-knapp | massa/studs/momentum, kollisioner |
+| `domino` | Kedjan ska nå & ringa klockan 🔔 | DRA brickor och brygga luckorna | fall-kedja, kollisioner |
+| `studsa-ner` | Landa myntet i fickan som lyser | DRA släpp-position längs toppen | plinko-studs mot pinnar |
+| `vippbradan` | Katapult: fånga grodan 🐸 i korgen | välj vikt-storlek/massa (liten/mellan/stor) | hävstång (revolute), momentum-överföring |
+| `studsmatta` | Fånga alla morötter/stjärnor på höjd | DRA mattan i sidled + ladda studs | studs/restitution, höjd |
+| `knuffa-tornet` | Knuffa ner alla klossar / kronan 👑 | dra kulan bakåt → sving-kraft+vinkel | pendel, kollisioner, momentum |
+| `fyrverkeri` | Tänd alla mål-stjärnor på himlen | sikta+kraft på raketen (prickbana) | gravitation på raketen |
+| `sapbubblor` | Blås bubblorna in i ringen 🛟 | WIND-fläktar (kraft ∝ massa) | massa/luftmotstånd/momentum, vind |
+
+Alla: no-fail (auto-hjälp), nivåskalning, 96px-träffytor, exit-säkra. **41 spel totalt** (15 äldsta + 3 nya + nu de 8 demona = mål-baserade fysikspel). +68 nya röstrepliker (mål-intron/beröm). [[advanced-physics-toolkit]]-verktyget bevisat över 11 spel.

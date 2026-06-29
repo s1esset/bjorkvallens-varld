@@ -1,0 +1,418 @@
+// Enkelt Pussel — dra 2–4 stora pusselbitar på rätt plats i ramen så att en glad
+// bild blir hel (3–5 år). Pussel. Återanvänder DragController (snäpp/snäpp-tillbaka/
+// tap-tap). Rätt plats = magnetiskt snäpp + 'match' + gnistra. Fel = mjuk vingel +
+// snäpp tillbaka (aldrig en bestraffning). När bilden är klar: firande + ny runda
+// med nytt motiv och fler bitar — oändlig lek.
+import { Container, Graphics, Text, Rectangle } from 'pixi.js'
+import { gsap } from 'gsap'
+import { DragController } from '../../lib/DragController.js'
+import { bounceIn, pop, wiggle, sparkle } from '../../lib/feedback.js'
+import { shuffle, randomFrom } from '../../lib/swedish.js'
+import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+
+// Pusselramen (designkoordinater). Mittpunkt (370, 360).
+const BOARD = { x: 120, y: 110, w: 500, h: 500 }
+
+// Antal bitar per runda cyklar 2 -> 3 -> 4. Rutnät (kolumner × rader) per antal.
+const GRIDS = { 2: { cols: 2, rows: 1 }, 3: { cols: 3, rows: 1 }, 4: { cols: 2, rows: 2 } }
+const PIECE_COUNTS = [2, 3, 4]
+
+// Glada beröm vid varannan rätt bit.
+const NUDGES = ['Så där ja!', 'Den passar!', 'Bra!']
+
+// Fyra motiv. draw(g) ritar i scenens 500×500-rymd; accenter är emoji som Text.
+const THEMES = [
+  {
+    id: 'tradgard',
+    draw(g) {
+      g.rect(0, 0, 500, 280).fill(0x9bd7f2) // ljus himmel
+      g.rect(0, 280, 500, 220).fill(0x7cc86a) // gräs
+      g.circle(105, 95, 55).fill(COLORS.yellow) // sol
+      g.rect(243, 330, 14, 150).fill(COLORS.greenDark) // stjälk
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2
+        g.circle(250 + Math.cos(a) * 72, 300 + Math.sin(a) * 72, 40).fill(COLORS.pink)
+      }
+      g.circle(250, 300, 50).fill(COLORS.yellow) // blomhjärta
+    },
+    accents: [
+      { emoji: '🦋', x: 390, y: 140, size: 74 },
+      { emoji: '🌳', x: 410, y: 372, size: 120 },
+    ],
+  },
+  {
+    id: 'katt',
+    draw(g) {
+      g.rect(0, 0, 500, 500).fill(0xcdeafd)
+      g.poly([120, 150, 190, 70, 215, 185]).fill(COLORS.orange) // vänster öra
+      g.poly([380, 150, 310, 70, 285, 185]).fill(COLORS.orange) // höger öra
+      g.circle(250, 270, 165).fill(COLORS.orange) // ansikte
+      g.circle(205, 250, 18).fill(COLORS.ink) // ögon
+      g.circle(295, 250, 18).fill(COLORS.ink)
+      g.circle(250, 302, 16).fill(COLORS.pink) // nos
+    },
+    accents: [
+      { emoji: '🐾', x: 110, y: 425, size: 78 },
+      { emoji: '🐾', x: 390, y: 425, size: 78 },
+    ],
+  },
+  {
+    id: 'hus',
+    draw(g) {
+      g.rect(0, 0, 500, 300).fill(0x9bd7f2)
+      g.rect(0, 300, 500, 200).fill(0x7cc86a)
+      g.circle(410, 90, 52).fill(COLORS.yellow) // sol
+      g.rect(120, 250, 260, 200).fill(COLORS.cream).stroke({ width: 6, color: COLORS.brown, alpha: 0.4 })
+      g.poly([100, 250, 250, 120, 400, 250]).fill(COLORS.red) // tak
+      g.rect(160, 330, 70, 70).fill(COLORS.blue) // fönster
+      g.rect(290, 330, 70, 120).fill(COLORS.brown) // dörr
+    },
+    accents: [
+      { emoji: '🌳', x: 60, y: 380, size: 120 },
+      { emoji: '☁️', x: 120, y: 90, size: 80 },
+    ],
+  },
+  {
+    id: 'bat',
+    draw(g) {
+      g.rect(0, 0, 500, 300).fill(0xcdeafd)
+      g.rect(0, 300, 500, 200).fill(COLORS.blue) // hav
+      g.circle(100, 90, 52).fill(COLORS.yellow) // sol
+      g.poly([250, 120, 250, 320, 150, 320]).fill(COLORS.white) // segel
+      g.poly([270, 140, 270, 320, 360, 320]).fill(COLORS.red)
+      g.rect(246, 120, 8, 210).fill(COLORS.brown) // mast
+      g.poly([130, 330, 370, 330, 330, 400, 170, 400]).fill(COLORS.brown) // skrov
+    },
+    accents: [
+      { emoji: '🐟', x: 110, y: 435, size: 64 },
+      { emoji: '☁️', x: 400, y: 100, size: 80 },
+    ],
+  },
+]
+
+// Ritar en pusselbit-väg centrerad i (0,0): rektangel w×h med valfria knopp/hål-
+// bulor mitt på varje inre kant (yttre kanter = 'flat'). bezier ≈ halvcirkel.
+function tracePiece(g, w, h, edges = {}) {
+  const r = Math.min(w, h) * 0.16
+  const hw = w / 2
+  const hh = h / 2
+  const TL = [-hw, -hh]
+  const TR = [hw, -hh]
+  const BR = [hw, hh]
+  const BL = [-hw, hh]
+  g.moveTo(TL[0], TL[1])
+  traceEdge(g, TL, TR, [0, -1], edges.top, r)
+  traceEdge(g, TR, BR, [1, 0], edges.right, r)
+  traceEdge(g, BR, BL, [0, 1], edges.bottom, r)
+  traceEdge(g, BL, TL, [-1, 0], edges.left, r)
+  g.closePath()
+  return g
+}
+
+// En kant från S till E med yttre normal N. 'knob' bular utåt, 'hole' inåt.
+function traceEdge(g, S, E, N, type, r) {
+  if (type !== 'knob' && type !== 'hole') {
+    g.lineTo(E[0], E[1])
+    return
+  }
+  const len = Math.hypot(E[0] - S[0], E[1] - S[1])
+  const dx = (E[0] - S[0]) / len
+  const dy = (E[1] - S[1]) / len
+  const mx = (S[0] + E[0]) / 2
+  const my = (S[1] + E[1]) / 2
+  const sign = type === 'knob' ? 1 : -1
+  const k = r * 1.55 // styr-utskjut -> ungefär halvcirkel
+  const p1x = mx - dx * r
+  const p1y = my - dy * r
+  const p2x = mx + dx * r
+  const p2y = my + dy * r
+  g.lineTo(p1x, p1y)
+  g.bezierCurveTo(p1x + N[0] * k * sign, p1y + N[1] * k * sign, p2x + N[0] * k * sign, p2y + N[1] * k * sign, p2x, p2y)
+  g.lineTo(E[0], E[1])
+}
+
+// Delade kanter interlockar: knopp på ena biten, hål på grannen. Yttre = flat.
+function edgesFor(col, row, cols, rows) {
+  return {
+    top: row === 0 ? 'flat' : 'hole',
+    bottom: row === rows - 1 ? 'flat' : 'knob',
+    left: col === 0 ? 'flat' : 'hole',
+    right: col === cols - 1 ? 'flat' : 'knob',
+  }
+}
+
+export default {
+  id: 'enkelt-pussel',
+  titleSv: 'Enkelt Pussel',
+  icon: '🧩',
+  category: 'pussel',
+  input: 'drag',
+  ageRange: [3, 5],
+  bundle: 'enkelt-pussel',
+  voiceIntro: 'Lägg pusselbitarna på rätt plats!',
+
+  init(ctx) {
+    this._alive = true
+    this._root = new Container()
+    ctx.stage.addChild(this._root)
+
+    // Varm rampaltta (statisk — ligger kvar mellan rundor).
+    const plate = new Graphics()
+      .roundRect(BOARD.x, BOARD.y, BOARD.w, BOARD.h, 28)
+      .fill(COLORS.cream)
+      .stroke({ width: 6, color: COLORS.brown, alpha: 0.35 })
+    plate.eventMode = 'none'
+    this._root.addChild(plate)
+
+    // Per-runda-lager (förhandsvisning, spök-slots, bitar) — rensas mellan rundor.
+    this._layer = new Container()
+    this._root.addChild(this._layer)
+
+    this._drag = new DragController({ space: this._layer, services: ctx.services })
+    this._pieces = []
+    this._ghosts = []
+    this._slotViews = []
+    this._timers = []
+    this._placed = 0
+    this._done = false
+
+    this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
+    this._round = Math.max(0, ctx.progress.get().custom?.round | 0)
+
+    // Idle-recue: nollställs vid varje pekning (bubblar upp till root).
+    this._idle = 0
+    this._root.eventMode = 'static'
+    this._resetIdle = () => (this._idle = 0)
+    this._root.on('pointerdown', this._resetIdle)
+    this._tickerRef = ctx.ticker
+    this._tick = (t) => {
+      if (!this._alive) return
+      this._idle += t.deltaMS
+      if (this._idle >= 6000) {
+        this._idle = 0
+        ctx.services.voice.say(this.voiceIntro)
+      }
+    }
+    ctx.ticker.add(this._tick)
+
+    this._newRound(ctx)
+  },
+
+  mount(ctx) {
+    ctx.services.voice.say(this.voiceIntro)
+  },
+
+  _newRound(ctx) {
+    if (!this._alive) return
+    // Avregistrera och städa förra rundans bitar/slots (rampaltta ligger kvar).
+    this._drag.clear()
+    this._timers.forEach((c) => c.kill())
+    this._timers = []
+    this._pieces.forEach((p) => this._killViewTweens(p))
+    this._ghosts.forEach((g) => this._killViewTweens(g))
+    this._slotViews.forEach((s) => this._killViewTweens(s))
+    this._layer.removeChildren().forEach((o) => o.destroy({ children: true }))
+    this._pieces = []
+    this._ghosts = []
+    this._slotViews = []
+    this._placed = 0
+    this._done = false
+    this._idle = 0
+
+    const n = PIECE_COUNTS[this._round % PIECE_COUNTS.length]
+    const grid = GRIDS[n]
+    const theme = THEMES[this._round % THEMES.length]
+    const cellW = BOARD.w / grid.cols
+    const cellH = BOARD.h / grid.rows
+
+    // Förhandsvisning av hela bilden inuti ramen (ledtråd, fångar inga pekningar).
+    const preview = this._buildScene(theme)
+    preview.position.set(BOARD.x, BOARD.y)
+    preview.alpha = 0.12
+    this._layer.addChild(preview)
+
+    // Bygg slot-beskrivningar (rad-major: matchar layouten i specen).
+    const slots = []
+    let idx = 0
+    for (let row = 0; row < grid.rows; row++) {
+      for (let col = 0; col < grid.cols; col++) {
+        const lx = cellW * (col + 0.5)
+        const ly = cellH * (row + 0.5)
+        slots.push({
+          index: idx++,
+          lx,
+          ly,
+          cx: BOARD.x + lx,
+          cy: BOARD.y + ly,
+          w: cellW,
+          h: cellH,
+          edges: edgesFor(col, row, grid.cols, grid.rows),
+        })
+      }
+    }
+
+    // Spök-slots + osynliga drop-mål.
+    const hitRadius = Math.max(cellW, cellH) / 2 + 70
+    slots.forEach((slot) => {
+      const ghost = new Graphics()
+      tracePiece(ghost, slot.w, slot.h, slot.edges)
+      ghost.fill({ color: COLORS.brown, alpha: 0.1 }).stroke({ width: 4, color: COLORS.brown, alpha: 0.25 })
+      ghost.position.set(slot.cx, slot.cy)
+      ghost.eventMode = 'none'
+      this._layer.addChild(ghost)
+      this._ghosts.push(ghost)
+      slot.ghost = ghost
+
+      const slotView = new Container()
+      slotView.position.set(slot.cx, slot.cy)
+      slotView.hitArea = new Rectangle(-slot.w / 2, -slot.h / 2, slot.w, slot.h)
+      this._layer.addChild(slotView)
+      this._slotViews.push(slotView)
+      this._drag.addTarget(slotView, (data) => data.slot === slot.index, { hitRadius })
+    })
+
+    // Bitar i spridningsytan (tray, höger sida). Slumpa vilken bit hamnar var.
+    const spots = shuffle(this._trayPositions(n, grid))
+    ctx.services.audio.sfx('whoosh')
+    slots.forEach((slot, i) => {
+      const piece = this._makePiece(theme, slot)
+      const spot = spots[i]
+      piece.position.set(spot[0], spot[1])
+      // Begränsa träffytan till bitens egen ruta (+halo) så scen-grafiken inte
+      // blir ett gigantiskt träffområde.
+      piece.hitArea = new Rectangle(-slot.w / 2 - 14, -slot.h / 2 - 14, slot.w + 28, slot.h + 28)
+      piece.interactiveChildren = false
+      this._layer.addChild(piece)
+      this._pieces.push(piece)
+      bounceIn(piece, { delay: i * 0.07 })
+      this._drag.addItem(
+        piece,
+        { slot: slot.index },
+        {
+          onCorrect: (rec) => this._onCorrect(ctx, rec, slot),
+          onWrong: (rec) => {
+            if (this._alive) wiggle(rec.view)
+          },
+        }
+      )
+    })
+  },
+
+  // Spridningspunkter i tray:en (x 720..1180). Tall bitar (n=2/3) centreras i höjd.
+  _trayPositions(n, grid) {
+    if (grid.rows === 1) {
+      const y = 360
+      if (n === 2) return [[835, y], [1065, y]]
+      return [[800, y], [950, y], [1100, y]] // n === 3
+    }
+    return [[835, 300], [1065, 300], [835, 540], [1065, 540]] // n === 4
+  },
+
+  // Hela scenen, maskad till bitens form, med vit pussel-kant ovanpå.
+  _makePiece(theme, slot) {
+    const piece = new Container()
+
+    // Maskad scen: förskjut så slot-centret hamnar i bitens origo (0,0).
+    const clip = new Container()
+    const scene = this._buildScene(theme)
+    scene.position.set(-slot.lx, -slot.ly)
+    clip.addChild(scene)
+    const mask = new Graphics()
+    tracePiece(mask, slot.w, slot.h, slot.edges)
+    mask.fill(0xffffff)
+    clip.addChild(mask)
+    clip.mask = mask
+    piece.addChild(clip)
+    piece._clip = clip
+
+    // Vit kant + mjuk skuggkant (omaskad) ger pussel-looken.
+    const edge = new Graphics()
+    tracePiece(edge, slot.w, slot.h, slot.edges)
+    edge.stroke({ width: 7, color: COLORS.white, alpha: 0.95 })
+    const shade = new Graphics()
+    tracePiece(shade, slot.w, slot.h, slot.edges)
+    shade.stroke({ width: 3, color: COLORS.brown, alpha: 0.3 })
+    piece.addChild(edge, shade)
+    return piece
+  },
+
+  _buildScene(theme) {
+    const c = new Container()
+    const g = new Graphics()
+    theme.draw(g)
+    c.addChild(g)
+    for (const a of theme.accents) {
+      const t = new Text({ text: a.emoji, style: { fontFamily: FONT.body, fontSize: a.size } })
+      t.anchor.set(0.5)
+      t.position.set(a.x, a.y)
+      c.addChild(t)
+    }
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    return c
+  },
+
+  _onCorrect(ctx, rec, slot) {
+    if (!this._alive) return
+    ctx.services.audio.sfx('match')
+    sparkle(ctx.fxLayer, slot.cx, slot.cy)
+    pop(rec.view)
+    // Släck spök-konturen under biten.
+    if (slot.ghost && !slot.ghost.destroyed) gsap.to(slot.ghost, { alpha: 0, duration: 0.3 })
+    this._placed += 1
+    if (this._placed % 2 === 0) ctx.services.voice.say(randomFrom(NUDGES))
+    if (this._placed >= this._pieces.length) this._finishRound(ctx)
+  },
+
+  _finishRound(ctx) {
+    if (!this._alive || this._done) return
+    this._done = true
+    ctx.services.audio.sfx('reveal')
+    // Bilden vaknar till liv: en glad studs-våg över bitarna.
+    this._pieces.forEach((p, i) => {
+      this._delay(i * 0.07, () => {
+        if (!p.destroyed) pop(p)
+      })
+    })
+    sparkle(ctx.fxLayer, BOARD.x + BOARD.w / 2, BOARD.y + BOARD.h / 2)
+
+    this._level += 1
+    ctx.progress.setLevel(this._level)
+    this._round += 1
+    ctx.progress.setCustom('round', this._round)
+    ctx.progress.complete() // delat firande + stjärna + klistermärke + konfetti
+    ctx.services.voice.say(randomFrom(PRAISE) + ' Titta, bilden är klar!')
+
+    this._delay(1.6, () => this._newRound(ctx))
+  },
+
+  // gsap.delayedCall som spåras (kan dödas vid exit) och vaktas av _alive.
+  _delay(t, fn) {
+    const call = gsap.delayedCall(t, () => {
+      if (this._alive) fn()
+    })
+    this._timers.push(call)
+    return call
+  },
+
+  _killViewTweens(v) {
+    if (!v || v.destroyed) return
+    gsap.killTweensOf(v)
+    gsap.killTweensOf(v.scale)
+    if (v._clip && !v._clip.destroyed) v._clip.mask = null
+  },
+
+  destroy() {
+    this._alive = false
+    this._timers?.forEach((c) => c.kill())
+    this._tickerRef?.remove(this._tick)
+    if (this._resetIdle) this._root?.off('pointerdown', this._resetIdle)
+    this._drag?.destroy()
+    this._pieces?.forEach((p) => this._killViewTweens(p))
+    this._ghosts?.forEach((g) => this._killViewTweens(g))
+    this._slotViews?.forEach((s) => this._killViewTweens(s))
+    gsap.killTweensOf(this._root)
+    if (this._layer) gsap.killTweensOf(this._layer)
+    this._root?.destroy({ children: true })
+  },
+}

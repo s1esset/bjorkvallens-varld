@@ -1,48 +1,120 @@
-// Klä på Nallen — dra-och-släpp (3–5 år). En glad nalle i mitten väntar på sina
-// plagg. Barnet drar (eller tap-tap:ar via DragController) mössa/tröja/stövlar till
-// rätt kroppsdel. Rätt plats → plagget snäpper fast, blir en del av nallen, glad röst
-// + gnistror. Fel plats → mjuk vingel och snäpp tillbaka (aldrig en bestraffning).
-// När alla plagg sitter → nallen hoppar till, firande (delat complete) + ny runda.
-// Allt ritas programmatiskt (Pixi Graphics + emoji) — inga externa filer.
+// Klä på Nallen — dra-och-släpp (2–5 år). Marknadsmässig uppgradering: en mysig,
+// uttrycksfull nalle (mjuk pälsskuggning, rosiga kinder, BLINKANDE ögon, glad min)
+// står på en levande scen och väntar på sina kläder. Barnet drar — eller tap-tap:ar
+// via DragController — plagg till rätt kroppsdel (huvud/hals/mage/tassar/ben/fötter).
+// Rätt plats → plagget snäpper fast, blir en del av nallen (skugga + bricka tonar bort,
+// bara plagget sitter kvar), popp + gnistor + ring + glad röst, och nallen reagerar
+// (liten studs). Fel plats → mjuk vingel + ring + vänlig ledtråd, snäpp tillbaka
+// (ALDRIG en bestraffning). När hela outfiten sitter → nallen snurrar glatt, delat
+// firande (progress.complete: ljud + beröm + konfetti + stjärna + klistermärke) +
+// mjuk skakning, sedan en NY, varierad runda (annan outfit, scen, färger).
+//
+// DJUP: antalet plagg växer med nivån (2 → upp till 5) och outfiten + scenen roteras
+// varje runda (vinter/sommar/regn/fin/mys) så det aldrig blir samma två gånger.
+// Strikt felfritt, ingen timer, inga poäng. Allt ritas programmatiskt (Pixi + emoji)
+// och all transient-effekt går via lib/feedback.js (exit-säkert).
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle } from '../../lib/feedback.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { createScene } from '../../lib/scene.js'
+import { bounceIn, pop, wiggle, sparkle, ripple, floatText, breathe, shake } from '../../lib/feedback.js'
+import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
-const SHELF_Y = 660 // plagghyllans y (designkoordinater)
+// Nallens center (= pivot, så hon kan studsa OCH snurra runt sin mitt).
+const BEAR_CX = 640
+const BEAR_CY = 405
+const SHELF_Y = 648 // plagghyllans y (designkoordinater)
+const RINGR = 66 // ledtråds-ringens radie
 
 // Nallens färger.
 const BEAR = 0xb07a4a
 const BEAR_DARK = 0x8a5e34
 const EYE = 0x3a2a1a
 
-// Snäppzonernas centrum (= drop-targets, hela kroppsdelen).
-const ZONES = {
-  huvud: [640, 235],
-  kropp: [640, 410],
-  fotter: [640, 560],
+// Anatomiska snäpp-positioner (designkoordinater). En runda använder en delmängd.
+// hander & ben förekommer aldrig i samma outfit (undviker trångt i nedre kroppen).
+const SLOT_POS = {
+  huvud: [640, 196],
+  hals: [640, 300],
+  kropp: [640, 402],
+  hander: [640, 478],
+  ben: [640, 550],
+  fotter: [640, 614],
 }
 
-// Plagg per kroppsdel. emoji = bilden, name = svensk benämning (för röstberöm).
-const CLOTHES = {
-  huvud: [
-    { emoji: '🧢', name: 'mössan' },
-    { emoji: '🎩', name: 'hatten' },
-    { emoji: '👒', name: 'solhatten' },
-  ],
-  kropp: [
-    { emoji: '👕', name: 'tröjan' },
-    { emoji: '🧥', name: 'jackan' },
-    { emoji: '👚', name: 'blusen' },
-  ],
-  fotter: [
-    { emoji: '🥾', name: 'stövlarna' },
-    { emoji: '👟', name: 'skorna' },
-    { emoji: '🧦', name: 'sockorna' },
-  ],
+// Talad svensk plats-ledtråd per kroppsdel (för vänlig redirect/idle-recue).
+const SLOT_PHRASE = {
+  huvud: 'på huvudet',
+  hals: 'runt halsen',
+  kropp: 'på magen',
+  hander: 'på tassarna',
+  ben: 'på benen',
+  fotter: 'på fötterna',
 }
+
+// Outfits (likt vändkortens SETS): scen + talad flavour + slots (ordnade uppifrån
+// och ned, så låga nivåer tar de första) + plagg-alternativ per slot. e=emoji,
+// n=svensk benämning i bestämd form (för "Mössan sitter!"-beröm).
+const OUTFITS = [
+  {
+    say: 'vinterkläder',
+    scene: 'water',
+    slots: ['huvud', 'hals', 'kropp', 'hander', 'fotter'],
+    garments: {
+      huvud: [{ e: '🧢', n: 'mössan' }],
+      hals: [{ e: '🧣', n: 'halsduken' }],
+      kropp: [{ e: '🧥', n: 'jackan' }],
+      hander: [{ e: '🧤', n: 'vantarna' }],
+      fotter: [{ e: '🥾', n: 'stövlarna' }, { e: '⛸️', n: 'skridskorna' }],
+    },
+  },
+  {
+    say: 'sommarkläder',
+    scene: 'meadow',
+    slots: ['huvud', 'kropp', 'ben', 'fotter'],
+    garments: {
+      huvud: [{ e: '👒', n: 'solhatten' }, { e: '🧢', n: 'kepsen' }, { e: '🕶️', n: 'solglasögonen' }],
+      kropp: [{ e: '👕', n: 't-tröjan' }, { e: '👚', n: 'linnet' }],
+      ben: [{ e: '🩳', n: 'shortsen' }],
+      fotter: [{ e: '👟', n: 'skorna' }, { e: '🩴', n: 'sandalerna' }],
+    },
+  },
+  {
+    say: 'regnkläder',
+    scene: 'sky',
+    slots: ['huvud', 'kropp', 'hander', 'fotter'],
+    garments: {
+      huvud: [{ e: '🧢', n: 'regnhatten' }],
+      kropp: [{ e: '🧥', n: 'regnjackan' }],
+      hander: [{ e: '☂️', n: 'paraplyet' }],
+      fotter: [{ e: '🥾', n: 'gummistövlarna' }],
+    },
+  },
+  {
+    say: 'finkläder',
+    scene: 'candy',
+    slots: ['huvud', 'hals', 'kropp', 'ben', 'fotter'],
+    garments: {
+      huvud: [{ e: '🎩', n: 'hatten' }, { e: '👑', n: 'kronan' }],
+      hals: [{ e: '🎀', n: 'rosetten' }, { e: '👔', n: 'slipsen' }],
+      kropp: [{ e: '👕', n: 'skjortan' }, { e: '👗', n: 'klänningen' }],
+      ben: [{ e: '👖', n: 'byxorna' }],
+      fotter: [{ e: '👞', n: 'skorna' }, { e: '🥿', n: 'ballerinaskorna' }],
+    },
+  },
+  {
+    say: 'mysiga kläder',
+    scene: 'sunset',
+    slots: ['huvud', 'kropp', 'ben', 'fotter'],
+    garments: {
+      huvud: [{ e: '🧢', n: 'nattmössan' }],
+      kropp: [{ e: '👕', n: 'tröjan' }],
+      ben: [{ e: '👖', n: 'mysbyxorna' }, { e: '🩳', n: 'pyjamasshortsen' }],
+      fotter: [{ e: '🧦', n: 'sockorna' }, { e: '🥿', n: 'tofflorna' }],
+    },
+  },
+]
 
 export default {
   id: 'kla-pa-nallen',
@@ -50,40 +122,57 @@ export default {
   icon: '🧸',
   category: 'drag',
   input: 'drag',
-  ageRange: [3, 5],
+  ageRange: [2, 5],
   bundle: 'kla-pa-nallen',
-  voiceIntro: 'Hjälp nallen att klä på sig! Dra mössan på huvudet.',
+  voiceIntro: 'Hjälp nallen att klä på sig! Dra plaggen till rätt ställe.',
 
   init(ctx) {
     this._alive = true
+    this._started = false
     this._idle = 0
     this._resolving = false
+    this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
+    this._outfitIdx = (Math.random() * OUTFITS.length) | 0
+    this._calls = []
     this._items = []
-    this._filled = new Set()
-    this._activeSlots = []
+    this._rings = {}
+    this._zones = {}
+    this._parts = {}
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
     this._drag = new DragController({ space: this._root, services: ctx.services })
 
-    this._buildScene(ctx)
-    this._buildBear()
-    this._buildZones()
-
-    this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
-    this._newRound(ctx)
+    this._build(ctx, false)
 
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
   },
 
   mount(ctx) {
+    this._started = true
     this._idle = 0
     ctx.services.voice.say(this.voiceIntro)
   },
 
-  // Bakgrund (fångar tomma tryck mjukt) + en lugn "matta" under nallen.
-  _buildScene(ctx) {
+  // Bygg (eller återuppbygg) en runda: ny outfit, scen, plagg-set och zoner.
+  _build(ctx, announce = false) {
+    if (!this._alive) return
+    this._teardown()
+
+    this._resolving = false
+    this._idle = 0
+    this._filled = new Set()
+    this._items = []
+    this._rings = {}
+    this._zones = {}
+    this._parts = {}
+    this._calls = []
+
+    const outfit = OUTFITS[this._outfitIdx % OUTFITS.length]
+    this._outfitIdx = (this._outfitIdx + 1) % OUTFITS.length // rotera för NÄSTA runda
+
+    // Osynlig botten-yta som fångar tomma tryck mjukt (scenen släpper igenom).
     const bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(COLORS.bg)
     bg.eventMode = 'static'
     bg.on('pointertap', () => {
@@ -93,217 +182,413 @@ export default {
     })
     this._root.addChild(bg)
 
-    const rug = new Graphics().ellipse(640, 605, 360, 80).fill({ color: 0xeadfca, alpha: 0.7 })
-    rug.eventMode = 'none'
-    this._root.addChild(rug)
-  },
+    // Levande bakgrundsscen (varierar med outfiten).
+    this._root.addChild(createScene(outfit.scene))
 
-  // Nallen byggd av Pixi Graphics, i en container på (0,0) så hela nallen kan hoppa.
-  _buildBear() {
-    const bear = new Container()
-    bear.position.set(0, 0)
-    bear.eventMode = 'none' // kroppsdelar är passiva; osynliga zoner sköter tap-tap
-    this._bear = bear
+    // Mjuk markskugga under nallen (grundar henne på scenen).
+    const platform = new Graphics().ellipse(BEAR_CX, 660, 236, 34).fill({ color: 0x16314a, alpha: 0.12 })
+    platform.eventMode = 'none'
+    this._root.addChild(platform)
+
+    // Nallen.
+    const bear = this._buildBear()
     this._root.addChild(bear)
+    this._bear = bear
+    bounceIn(bear, { duration: 0.5 })
+    this._startBlink()
 
-    // Fötter (bakom kroppen så de tittar fram).
-    const feet = this._partContainer(...ZONES.fotter)
-    for (const fx of [-55, 55]) {
-      feet.addChild(new Graphics().ellipse(fx, 0, 48, 38).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
-      feet.addChild(new Graphics().ellipse(fx, 8, 22, 15).fill(lighten(BEAR, 0.42)))
-    }
-
-    // Kropp/mage.
-    const body = this._partContainer(...ZONES.kropp)
-    body.addChild(new Graphics().roundRect(-100, -100, 200, 200, 60).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
-    body.addChild(new Graphics().ellipse(0, 18, 66, 72).fill({ color: lighten(BEAR, 0.45), alpha: 0.9 }))
-
-    // Huvud (öron, ögon, nos, glad mun).
-    const head = this._partContainer(640, 250)
-    for (const ex of [-60, 60]) {
-      head.addChild(new Graphics().circle(ex, -70, 34).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
-      head.addChild(new Graphics().circle(ex, -70, 17).fill(lighten(BEAR, 0.42)))
-    }
-    head.addChild(new Graphics().circle(0, 0, 90).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
-    head.addChild(new Graphics().ellipse(0, 34, 40, 30).fill(lighten(BEAR, 0.5)))
-    head.addChild(new Graphics().ellipse(0, 22, 13, 9).fill(EYE))
-    head.addChild(new Graphics().arc(0, 30, 22, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 6, color: EYE, cap: 'round' }))
-    for (const ex of [-34, 34]) {
-      head.addChild(new Graphics().circle(ex, -8, 11).fill(EYE))
-      head.addChild(new Graphics().circle(ex - 3, -11, 4).fill(COLORS.white))
-    }
-
-    bear.addChild(feet, body, head)
-    this._parts = { huvud: head, kropp: body, fotter: feet }
-  },
-
-  _partContainer(x, y) {
-    const c = new Container()
-    c.position.set(x, y)
-    c.eventMode = 'none'
-    return c
-  },
-
-  // Tre osynliga snäppzoner + svaga ledtråds-ringar, en gång (återanvänds per runda).
-  _buildZones() {
-    this._zones = {}
-    this._rings = {}
-    for (const key of Object.keys(ZONES)) {
-      const [zx, zy] = ZONES[key]
-      const ring = new Graphics().circle(0, 0, 72).stroke({ width: 5, color: COLORS.white, alpha: 0.35 })
-      ring.position.set(zx, zy)
-      ring.eventMode = 'none'
-      ring.visible = false
-      this._root.addChild(ring)
-      this._rings[key] = ring
-
-      const zone = new Container()
-      zone.position.set(zx, zy)
-      zone.hitArea = new Circle(0, 0, 120) // generös träffyta för tap-tap
-      zone.eventMode = 'static'
-      zone.cursor = 'pointer'
-      this._root.addChild(zone)
-      this._zones[key] = zone
-    }
-  },
-
-  // En plagg-bricka: vit rund cirkel + emoji. Hela cirkeln (Ø144) är träffyta.
-  _makeItem(emoji) {
-    const it = new Container()
-    const tray = new Graphics().circle(0, 0, 72).fill({ color: COLORS.white, alpha: 0.9 }).stroke({ width: 4, color: 0xeadfca })
-    const e = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 92 } })
-    e.anchor.set(0.5)
-    it.addChild(tray, e)
-    return it
-  },
-
-  // Bygg en runda: bestäm plagg-set utifrån nivå, registrera targets + items.
-  _newRound(ctx) {
-    if (!this._alive) return
-    this._resolving = false
-    this._idle = 0
-    this._filled = new Set()
-
-    // Rensa förra rundans plagg (även fastsatta — de ligger nu i this._bear).
-    // clear() först (avregistrerar lyssnare + dödar tweens medan vyerna lever), sedan destroy.
-    this._drag.clear()
-    for (const v of this._items) {
-      if (!v.destroyed) v.destroy({ children: true })
-    }
-    this._items = []
-    for (const k of Object.keys(this._rings)) this._rings[k].visible = false
-
-    const three = this._level >= 2
-    const slots = three ? ['huvud', 'kropp', 'fotter'] : ['huvud', 'fotter']
-    const xs = three ? [320, 640, 960] : [430, 850]
+    // DJUP: fler plagg ju högre nivå (men aldrig fler än outfiten har).
+    const nSlots = Math.max(2, Math.min(2 + this._level, outfit.slots.length))
+    const slots = outfit.slots.slice(0, nSlots)
     this._activeSlots = slots
     this._remaining = slots.length
 
+    // Träff-/snäpp-radie krymper när zonerna blir fler (närmast-vinner-logik i drag).
+    const hr = nSlots >= 5 ? 86 : nSlots >= 4 ? 104 : 122
+    const colors = shuffle(PLAYFUL)
+
+    // Hyll-positioner jämnt fördelade.
+    const n = slots.length
+    const x0 = 190
+    const x1 = 1090
+    const xs = slots.map((_, i) => (n === 1 ? 640 : Math.round(x0 + ((x1 - x0) * i) / (n - 1))))
+
     slots.forEach((slot, i) => {
-      this._drag.addTarget(this._zones[slot], (data) => data.slot === slot, { hitRadius: 150 })
+      const [zx, zy] = SLOT_POS[slot]
 
-      const ring = this._rings[slot]
-      ring.visible = true
-      ring.alpha = 0.35
-      ring.scale.set(1)
+      // Ledtråds-ring (mjuk dubbelring) på kroppsdelen.
+      const ring = new Graphics()
+        .circle(0, 0, RINGR)
+        .stroke({ width: 5, color: COLORS.white, alpha: 0.5 })
+        .circle(0, 0, RINGR - 13)
+        .stroke({ width: 3, color: COLORS.white, alpha: 0.28 })
+      ring.position.set(zx, zy)
+      ring.eventMode = 'none'
+      this._root.addChild(ring)
+      this._rings[slot] = ring
+      bounceIn(ring, { delay: 0.05 * i, duration: 0.4 })
 
-      const variant = randomFrom(CLOTHES[slot])
-      const view = this._makeItem(variant.emoji)
+      // Osynlig snäppzon (generös träffyta för tap-tap).
+      const zone = new Container()
+      zone.position.set(zx, zy)
+      zone.hitArea = new Circle(0, 0, hr)
+      zone.eventMode = 'static'
+      zone.cursor = 'pointer'
+      this._root.addChild(zone)
+      this._zones[slot] = zone
+      this._drag.addTarget(zone, (d) => d.slot === slot, { hitRadius: hr + 26 })
+
+      // Plagg-bricka på hyllan.
+      const g = randomFrom(outfit.garments[slot])
+      const accent = colors[i % colors.length]
+      const view = this._makeItem(g, accent)
       view.position.set(xs[i], SHELF_Y)
       this._root.addChild(view)
-      this._items.push(view)
+
+      const item = { view, slot, name: g.n, placed: false }
+      this._items.push(item)
 
       this._drag.addItem(
         view,
-        { slot, emoji: variant.emoji, name: variant.name },
+        { slot, emoji: g.e, name: g.n },
         {
           onSelect: () => {
             this._idle = 0
           },
-          onWrong: (rec) => {
-            if (!this._alive) return
-            this._idle = 0
-            wiggle(rec.view)
-          },
-          onCorrect: (rec) => this._onCorrect(ctx, rec),
+          onWrong: (rec) => this._onWrong(ctx, rec),
+          onCorrect: (rec) => this._onCorrect(ctx, rec, item),
         },
       )
-      bounceIn(view, { delay: 0.06 * i })
+      bounceIn(view, { delay: 0.08 * i })
     })
+
+    this._cue = `Nu klär vi nallen i ${outfit.say}!`
+    if (announce && this._started) ctx.services.voice.say(this._cue)
   },
 
-  // Rätt plats: snäppt på (DragController har redan flyttat plagget till zonen).
-  _onCorrect(ctx, rec) {
-    if (!this._alive) return
+  // En mysig, uttrycksfull nalle byggd av Pixi Graphics. Pivot i mitten så hela
+  // nallen kan studsa och snurra runt sin egen mittpunkt.
+  _buildBear() {
+    const bear = new Container()
+    bear.pivot.set(BEAR_CX, BEAR_CY)
+    bear.position.set(BEAR_CX, BEAR_CY)
+    bear.eventMode = 'none'
+    bear.interactiveChildren = false
+
+    const part = (x, y) => {
+      const c = new Container()
+      c.position.set(x, y)
+      return c
+    }
+
+    // Fötter.
+    const feet = part(...SLOT_POS.fotter)
+    for (const fx of [-64, 64]) {
+      feet.addChild(new Graphics().ellipse(fx, 0, 50, 40).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
+      feet.addChild(new Graphics().ellipse(fx, 9, 24, 14).fill(lighten(BEAR, 0.42)))
+    }
+
+    // Ben.
+    const legs = part(...SLOT_POS.ben)
+    for (const lx of [-44, 44]) {
+      legs.addChild(new Graphics().roundRect(lx - 28, -34, 56, 80, 26).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
+    }
+
+    // Kropp (armar bakom, mage framför).
+    const body = part(...SLOT_POS.kropp)
+    for (const ax of [-106, 106]) {
+      body.addChild(new Graphics().ellipse(ax, 8, 32, 66).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
+    }
+    body.addChild(new Graphics().roundRect(-112, -108, 224, 216, 72).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
+    body.addChild(new Graphics().ellipse(0, 16, 72, 80).fill({ color: lighten(BEAR, 0.45), alpha: 0.9 }))
+
+    // Hals (liten nack-nubb som scarf-mål).
+    const neck = part(...SLOT_POS.hals)
+    neck.addChild(new Graphics().ellipse(0, 6, 48, 34).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
+
+    // Tassar (möts i knät — vantar/paraply-mål).
+    const paws = part(...SLOT_POS.hander)
+    for (const px of [-52, 52]) {
+      paws.addChild(new Graphics().circle(px, 0, 30).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
+      paws.addChild(new Graphics().ellipse(px, 4, 15, 11).fill(lighten(BEAR, 0.42)))
+    }
+
+    // Huvud (öron, kinder, nos, glad mun, ögonbryn) + blinkande ögon.
+    const head = part(...SLOT_POS.huvud)
+    for (const ex of [-62, 62]) {
+      head.addChild(new Graphics().circle(ex, -74, 34).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
+      head.addChild(new Graphics().circle(ex, -74, 17).fill(lighten(BEAR, 0.42)))
+    }
+    head.addChild(new Graphics().circle(0, 0, 92).fill(BEAR).stroke({ width: 8, color: BEAR_DARK }))
+    for (const cx of [-54, 54]) {
+      head.addChild(new Graphics().ellipse(cx, 24, 20, 13).fill({ color: COLORS.pink, alpha: 0.5 }))
+    }
+    head.addChild(new Graphics().ellipse(0, 38, 46, 34).fill(lighten(BEAR, 0.5)))
+    head.addChild(new Graphics().ellipse(0, 26, 15, 10).fill(EYE))
+    head.addChild(new Graphics().arc(0, 34, 20, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 6, color: EYE, cap: 'round' }))
+    for (const bx of [-36, 36]) {
+      head.addChild(new Graphics().arc(bx, -24, 12, 1.12 * Math.PI, 1.88 * Math.PI).stroke({ width: 4, color: BEAR_DARK, alpha: 0.7, cap: 'round' }))
+    }
+    // Ögon i en egen container (pivot på ögonlinjen) så blinkningen squashar på plats.
+    const eyes = new Container()
+    eyes.position.set(0, -6)
+    for (const ex of [-36, 36]) {
+      eyes.addChild(new Graphics().circle(ex, 0, 12).fill(EYE))
+      eyes.addChild(new Graphics().circle(ex - 4, -4, 4.5).fill(COLORS.white))
+    }
+    head.addChild(eyes)
+    this._eyes = eyes
+
+    bear.addChild(feet, legs, body, neck, paws, head)
+    this._parts = { huvud: head, hals: neck, kropp: body, hander: paws, ben: legs, fotter: feet }
+    return bear
+  },
+
+  // En plagg-bricka: mjuk skugga (lyft-känsla) + gräddvit bricka + glans + emoji.
+  // Vid placering tonas skugga/bricka/glans bort så bara plagget sitter kvar.
+  _makeItem(g, accent) {
+    const it = new Container()
+    const shadow = new Graphics().ellipse(0, 62, 52, 15).fill({ color: 0x16314a, alpha: 0.2 })
+    shadow.eventMode = 'none'
+    const tray = new Graphics().circle(0, 0, 66).fill({ color: COLORS.cream, alpha: 0.95 }).stroke({ width: 5, color: accent, alpha: 0.9 })
+    const gloss = new Graphics().ellipse(-16, -22, 30, 16).fill({ color: 0xffffff, alpha: 0.5 })
+    const e = new Text({ text: g.e, style: { fontFamily: FONT.body, fontSize: 86 } })
+    e.anchor.set(0.5)
+    e.y = -2
+    it.addChild(shadow, tray, gloss, e)
+    it._shadow = shadow
+    it._tray = tray
+    it._gloss = gloss
+    it.hitArea = { contains: (px, py) => px * px + py * py <= 92 * 92 } // stor träffyta + halo
+    return it
+  },
+
+  // Rätt plats: plagget har snäppts till zonen (DragController flyttade det).
+  _onCorrect(ctx, rec, item) {
+    if (!this._alive || item.placed) return
+    item.placed = true
     this._idle = 0
-    const { slot, name } = rec.data
+    const slot = item.slot
+    const [zx, zy] = SLOT_POS[slot]
 
     ctx.services.audio.sfx('correct')
-    ctx.services.voice.say(randomFrom([`${cap(name)} sitter!`, 'Vad fin!', 'Så mysigt!', 'Bra jobbat!']))
+    ctx.services.voice.say(randomFrom([`${cap(item.name)} sitter!`, 'Vad fin!', 'Så mysigt!', 'Bra jobbat!', 'Så fin du gör nallen!']))
 
-    const part = this._parts[slot]
-    if (part) pop(part)
-    const z = this._zones[slot]
-    sparkle(ctx.fxLayer, z.x, z.y)
+    // Tona bort bricka/skugga/glans -> bara plagget blir kvar på nallen.
+    const v = rec.view
+    if (v && !v.destroyed) {
+      if (v._shadow) v._shadow.visible = false
+      if (v._tray) v._tray.alpha = 0
+      if (v._gloss) v._gloss.alpha = 0
+      pop(v)
+      // "Fäst" plagget på nallen så det studsar/snurrar med henne och blir passivt.
+      v.eventMode = 'none'
+      if (this._bear && !this._bear.destroyed) this._bear.addChild(v)
+    }
 
-    // "Fäst" plagget på nallen: flytta in i this._bear så det hoppar med och blir passivt.
-    rec.view.eventMode = 'none'
-    if (this._bear && !this._bear.destroyed && !rec.view.destroyed) this._bear.addChild(rec.view)
+    // Nallen reagerar: kroppsdelen poppar + en liten glad studs.
+    const partC = this._parts[slot]
+    if (partC) pop(partC)
+    this._bearReact()
+
+    // Juice på droppunkten.
+    sparkle(ctx.fxLayer, zx, zy, { count: 8 })
+    ripple(ctx.fxLayer, zx, zy, { color: COLORS.white, maxR: 96, width: 5, alpha: 0.6 })
+    floatText(ctx.fxLayer, zx, zy - 54, randomFrom(['💛', '⭐', '✨', '🌟', '😊']), { fontSize: 52 })
+
+    const ring = this._rings[slot]
+    if (ring && !ring.destroyed) ring.visible = false
 
     this._filled.add(slot)
-    this._rings[slot].visible = false
     this._remaining -= 1
     if (this._remaining <= 0) this._roundComplete(ctx)
   },
 
-  // Alla plagg sitter: nallen hoppar, delat firande (ljud + konfetti + stjärna +
-  // klistermärke via complete), mysig fras, sedan ny runda.
+  // Fel plats: aldrig en bestraffning. Mjuk vingel + ring + vänlig talad ledtråd.
+  _onWrong(ctx, rec) {
+    if (!this._alive) return
+    this._idle = 0
+    if (rec.view) {
+      wiggle(rec.view)
+      ripple(ctx.fxLayer, rec.view.x, rec.view.y, { color: COLORS.white, maxR: 70, width: 4, alpha: 0.45 })
+    }
+    if (Math.random() < 0.5) {
+      ctx.services.voice.say(`${cap(rec.data.name)} ska sitta ${SLOT_PHRASE[rec.data.slot]}!`)
+    }
+  },
+
+  // En liten glad studs (translation, ej skala — krockar inte med popp/snurr).
+  _bearReact() {
+    const b = this._bear
+    if (!b || b.destroyed) return
+    gsap.to(b, { y: BEAR_CY - 14, duration: 0.13, yoyo: true, repeat: 1, ease: 'power2.out', overwrite: 'auto' })
+  },
+
+  // Hela outfiten sitter: nallen snurrar glatt, gnist-svep, delat firande
+  // (progress.complete: ljud + beröm + konfetti + stjärna + klistermärke — INTE
+  // duplicerat här) + mjuk skakning, sedan ny varierad runda.
   _roundComplete(ctx) {
     this._resolving = true
     this._idle = 0
+    this._stopHint()
 
-    gsap.killTweensOf(this._bear)
-    gsap.to(this._bear, { y: -28, duration: 0.16, yoyo: true, repeat: 1, ease: 'power2.out' })
+    const b = this._bear
+    if (b && !b.destroyed) {
+      gsap.killTweensOf(b)
+      gsap.killTweensOf(b.scale)
+      b.rotation = 0
+      b.y = BEAR_CY
+      gsap
+        .timeline()
+        .to(b.scale, { x: 1.12, y: 1.12, duration: 0.2, ease: 'back.out(2)' })
+        .to(b, { rotation: Math.PI * 2, duration: 0.75, ease: 'back.inOut(1.4)' }, '<')
+        .to(b.scale, { x: 1, y: 1, duration: 0.28, ease: 'power2.out' })
+        .add(() => {
+          if (this._alive && b && !b.destroyed) b.rotation = 0
+        })
+    }
+
+    // Gnist-svep över den påklädda nallen.
+    this._activeSlots.forEach((slot, i) => {
+      const [zx, zy] = SLOT_POS[slot]
+      const c = gsap.delayedCall(0.06 * i, () => {
+        if (this._alive) sparkle(ctx.fxLayer, zx, zy, { count: 6 })
+      })
+      this._calls.push(c)
+    })
 
     this._level += 1
     ctx.progress.setLevel(this._level)
-    ctx.progress.complete() // celebrate-ljud + beröm + konfetti + stjärna + klistermärke
-    // Mysig nalle-fras (sägs efter complete så den hörs).
-    ctx.services.voice.say(randomFrom(['Nallen är klar! Så fin nalle!', 'Nu är nallen varm och glad!']))
+    ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
 
-    this._celebrate = gsap.delayedCall(1.3, () => this._newRound(ctx))
+    const c1 = gsap.delayedCall(0.45, () => {
+      if (!this._alive) return
+      ctx.progress.complete()
+      shake(this._root, { intensity: 5, duration: 0.5 })
+      // Mysig nalle-fras (sägs efter complete så den hörs över beröm-ljudet).
+      ctx.services.voice.say(randomFrom(['Nallen är klar! Så fin nalle!', 'Titta vad fin nallen blev!', 'Nu är nallen varm och glad!']))
+    })
+    const c2 = gsap.delayedCall(1.9, () => {
+      if (!this._alive) return
+      this._build(ctx, true)
+    })
+    this._calls.push(c1, c2)
   },
 
-  // Idle-recue: efter ~6 s utan handling — upprepa, och pulsera väntande zoner.
+  // Lugn idle-lockelse: efter ~6 s utan handling — namnge ett kvarvarande plagg,
+  // låt det "andas" och pulsera dess ring.
   _update(ctx, ticker) {
-    if (!this._alive) return
+    if (!this._alive || this._resolving) return
     this._idle += ticker.deltaMS / 1000
-    if (this._idle > 6 && !this._resolving) {
+    if (this._idle > 6) {
       this._idle = 0
-      ctx.services.voice.say('Dra ett plagg på nallen!')
-      for (const slot of this._activeSlots) {
-        if (!this._filled.has(slot)) pop(this._rings[slot])
+      this._stopHint()
+      const pending = this._items.filter((it) => !it.placed && it.view && !it.view.destroyed)
+      if (pending.length) {
+        const it = randomFrom(pending)
+        ctx.services.voice.say(`Dra ${it.name} ${SLOT_PHRASE[it.slot]}!`)
+        this._hintView = it.view
+        this._hintTween = breathe(it.view, { scale: 1.1, duration: 0.7 })
+        const ring = this._rings[it.slot]
+        if (ring && !ring.destroyed) pop(ring)
       }
     }
   },
 
-  destroy(ctx) {
-    this._alive = false
-    ctx?.ticker?.remove(this._tick)
-    this._celebrate?.kill()
-    this._drag?.destroy()
-    if (this._bear) gsap.killTweensOf(this._bear)
+  _stopHint() {
+    if (this._hintTween) {
+      this._hintTween.kill()
+      this._hintTween = null
+    }
+    const v = this._hintView
+    if (v && !v.destroyed) {
+      gsap.killTweensOf(v.scale)
+      v.scale.set(1)
+    }
+    this._hintView = null
+  },
+
+  _startBlink() {
+    this._stopBlink()
+    const blink = () => {
+      if (!this._alive || !this._eyes || this._eyes.destroyed) return
+      gsap.killTweensOf(this._eyes.scale)
+      gsap.to(this._eyes.scale, {
+        y: 0.12,
+        duration: 0.08,
+        yoyo: true,
+        repeat: 1,
+        ease: 'power1.inOut',
+        onComplete: () => {
+          if (this._alive && this._eyes && !this._eyes.destroyed) this._eyes.scale.y = 1
+        },
+      })
+      this._blinkCall = gsap.delayedCall(2 + Math.random() * 3.5, blink)
+    }
+    this._blinkCall = gsap.delayedCall(1.5 + Math.random() * 2.5, blink)
+  },
+
+  _stopBlink() {
+    if (this._blinkCall) {
+      this._blinkCall.kill()
+      this._blinkCall = null
+    }
+    if (this._eyes && !this._eyes.destroyed) {
+      gsap.killTweensOf(this._eyes.scale)
+      this._eyes.scale.set(1)
+    }
+  },
+
+  // Riv föregående runda (exit-/rebuild-säkert): döda ALLA tweens på spårade objekt
+  // medan de fortfarande lever, avregistrera drag-lyssnare, förstör sedan vyerna.
+  _teardown() {
+    this._stopHint()
+    this._stopBlink()
+    if (this._calls) {
+      this._calls.forEach((c) => c?.kill())
+      this._calls = []
+    }
+    if (this._bear && !this._bear.destroyed) {
+      gsap.killTweensOf(this._bear)
+      gsap.killTweensOf(this._bear.scale)
+    }
     for (const k of Object.keys(this._parts || {})) {
       const p = this._parts[k]
-      gsap.killTweensOf(p)
-      gsap.killTweensOf(p.scale)
+      if (p && !p.destroyed) {
+        gsap.killTweensOf(p)
+        gsap.killTweensOf(p.scale)
+      }
     }
     for (const k of Object.keys(this._rings || {})) {
-      gsap.killTweensOf(this._rings[k])
-      gsap.killTweensOf(this._rings[k].scale)
+      const r = this._rings[k]
+      if (r && !r.destroyed) {
+        gsap.killTweensOf(r)
+        gsap.killTweensOf(r.scale)
+      }
     }
+    // Avregistrerar drag-lyssnare + dödar item-tweens (medan vyerna lever).
+    this._drag?.clear()
+    if (this._root) {
+      this._root.removeChildren().forEach((o) => o.destroy({ children: true }))
+    }
+    this._bear = null
+    this._eyes = null
+    this._parts = {}
+    this._rings = {}
+    this._zones = {}
+    this._items = []
+  },
+
+  destroy(ctx) {
+    this._alive = false
+    if (ctx?.ticker && this._tick) ctx.ticker.remove(this._tick)
+    this._teardown()
+    this._drag?.destroy()
+    this._drag = null
     gsap.killTweensOf(this._root)
+    ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
+    this._root = null
   },
 }
 

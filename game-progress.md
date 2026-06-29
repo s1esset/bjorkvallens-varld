@@ -118,7 +118,7 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
 - **Fas 1** — klambubblor, poppa-ballonger, kittla-figuren, tryck-och-forvandla — ✅ (alla 0 fel, headless-testade)
 - **Fas 2** — fargregn, rakna-applen, stor-liten, peka-pa-kroppen — ✅ (alla 0 fel, headless-testade; stor-liten även dragtestat)
 - **Fas 3** — vandkort, skuggmatchning, vilket-djur-later, klappa-mullvaden — ✅ (alla 0 fel, headless-testade; skuggmatchning även dragtestat)
-- **Fas 4** — sortera-skrap, mata-monstret, kla-pa-nallen — ⬜
+- **Fas 4** — sortera-skrap, mata-monstret, kla-pa-nallen — ✅ (alla 0 fel, dragtestade)
 - **Fas 5 — Riktiga SFX**: källa designat CC0/genererat ljud, AudioService sample-uppspelning, koppla in överallt — ⬜
 
 ## v3-logg
@@ -142,3 +142,10 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
   - **vilket-djur-later**: meadow-scen, gulliga djurkort m. egen accentfärg-spotlight, tydlig "spela ljud igen"-knapp, 2→6 val/nivå, 12-djurs-pool, distraktorer delar aldrig ljud.
   - **klappa-mullvaden**: meadow-gräsmatta, ritade jordhögar m. djup, 5 kritter-arter (mullvad/kanin/igelkott/mus/groda), tass-framsteg, fler hål + snabbare/nivå, strikt no-fail.
   - +64 röstrepliker (kort-teman, objektnamn, djurljud, klapp-beröm) tillagda + regenererade.
+- **Fas 4**: Uppgraderade 3 dragspel (bevarad mekanik + scen + juice + djup/nivåer). Alla dragtestade = 0 fel.
+  - **sortera-skrap**: meadow-scen, färgkodade tunnor m. ikon-disk (papper/mat/plast/glas-metall, ingen läsning), lyft-skugga, lock-studs; 2→4 tunnor/4→10 saker, jämn fördelning + variation/runda.
+  - **mata-monstret**: meadow-scen, uttrycksfullt monster (pupiller följer maten, mun gapar/tuggar, mage-vobbel, blinkar), 4 monster cyklar, 3→6 mat/nivå, mild favorit-kategori (alltid no-fail).
+  - **kla-pa-nallen**: scen roterar per outfit, gullig nalle (blinkar, slot-ringar), 5 outfits (vinter/sommar/regn/fin/mys) m. varianter, 2→5 plagg/nivå; DragController återanvänd, dragtestat (klar→firande→ny outfit).
+  - +73 röstrepliker (tunnor, monster-repliker/namn, nalle-plagg/outfits) tillagda + regenererade.
+
+**15-spels-uppgraderingen (fas 1–4) KLAR.** Återstår: Fas 5 (riktiga SFX) + avslut (status/minne/PWA-tvångsuppdatering/tjänster/telefontest).

@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 6 / 25**
+**Klara: 7 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -13,7 +13,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 4 | `fargregn` | Färgregn | ✅ Klar | ✔ | ✔ | ✔ | Droppar faller; tryck rätt färg; nivåer; 0 konsolfel |
 | 5 | `mata-monstret` | Mata Monstret | ✅ Klar | ✔ | ✔ | ✔ | Dra/tap-tap mat till munnen; 3-4 rätter; 0 fel; runda sparas |
 | 6 | `rakna-applen` | Räkna Äpplena | ✅ Klar | ✔ | ✔ | ✔ | Räkna 2-5 äpplen, röst räknar; 0 fel; UI-fix: flyttade trädet så progress-raden blev fri |
-| 7 | `klappa-mullvaden` | Klappa Mullvaden | ⬜ Väntar | | | | |
+| 7 | `klappa-mullvaden` | Klappa Mullvaden | ✅ Klar | ✔ | ✔ | ✔ | Snäll whack-a-mole; mullvad kikar upp, klappa; ingen miss/timer; 0 fel |
 | 8 | `peka-pa-kroppen` | Peka på Kroppen | ⬜ Väntar | | | | |
 | 9 | `vilket-djur-later` | Vilket Djur Låter Så? | ⬜ Väntar | | | | |
 | 10 | `stor-liten` | Stor och Liten | ⬜ Väntar | | | | |
@@ -43,3 +43,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **fargregn**: Byggd + testad i Playwright (0 fel, renderar mål-skylt + droppar). Städade poppa-ballonger dubbelkonfetti (complete() äger firandet).
 - **mata-monstret**: Byggd + testad (tap-tap matning slutförde runda, stars+matningar sparades, 0 fel). Plattformsfix: DragController.clear() dödar pågående tweens (exit-säker för ALLA dragspel); sparkle() nu proxy-baserad/exit-säker.
 - **rakna-applen**: Byggd + testad (runda slutförd, sparad, 0 fel). UI-fix: dekorträdet låg mitt i topp-progressraden -> flyttat till gräset nere t.v.
+- **klappa-mullvaden**: Byggd + testad (slutförde runda, level upp, 0 fel). Mullvad maskad så den kommer upp ur hålet. Snäll: omklappad mullvad duckar bara, ingen bestraffning.

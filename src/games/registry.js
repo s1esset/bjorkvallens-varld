@@ -4,8 +4,9 @@
 import klambubblor from './klambubblor/index.js'
 import sorteraSkrap from './sortera-skrap/index.js'
 import vandkort from './vandkort/index.js'
+import poppaBallonger from './poppa-ballonger/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

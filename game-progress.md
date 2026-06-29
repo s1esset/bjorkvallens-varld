@@ -3,11 +3,11 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 0 / 25**
+**Klara: 1 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `poppa-ballonger` | Poppa Ballongerna | ⬜ Väntar | | | | |
+| 1 | `poppa-ballonger` | Poppa Ballongerna | ✅ Klar | ✔ | ✔ | ✔ | Renderar fint; pop→firande→ny runda; 0 konsolfel |
 | 2 | `tryck-och-forvandla` | Tryck och Förvandla | ⬜ Väntar | | | | |
 | 3 | `kittla-figuren` | Kittla Figuren | ⬜ Väntar | | | | |
 | 4 | `fargregn` | Färgregn | ⬜ Väntar | | | | |
@@ -37,3 +37,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
 ## Logg
 (Fylls på per fas: vad som byggdes, vad testet visade, vilka buggar/UI-fix som gjordes.)
+- **poppa-ballonger**: Byggd + förenklad (tog bort död COLORS.sky, dedup spawn-X). Playwright: 5 ballonger poppas, runda klar→ny runda, inga fel.

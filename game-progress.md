@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 22 / 25**
+**Klara: 23 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -29,7 +29,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 20 | `bygg-tornet` | Bygg Tornet | ✅ Klar | ✔ | ✔ | ✔ | Dra klotsar -> snäpper på tornet (förlåtande), räknar högt; aldrig kollaps; 0 fel |
 | 21 | `rulla-bollen-hem` | Rulla Bollen Hem | ✅ Klar | ✔ | ✔ | ✔ | Sikta-knuffa bollen till målet; studsar på väggar; no-fail auto-hjälp; 0 fel |
 | 22 | `siffertaget` | Siffertåget | ✅ Klar | ✔ | ✔ | ✔ | Koppla vagnar 1->N i ordning; nästa-siffran glöder; räknar högt; tut tut; 0 fel |
-| 23 | `spara-linjen` | Spåra Linjen | ⬜ Väntar | | | | |
+| 23 | `spara-linjen` | Spåra Linjen | ✅ Klar | ✔ | ✔ | ✔ | Spåra linjen med fingret; prickar tänds + färgspår; förlåtande; 4 former; 0 fel |
 | 24 | `harma-melodin` | Härma Melodin | ⬜ Väntar | | | | |
 | 25 | `folj-sparet` | Följ Spåret | ⬜ Väntar | | | | |
 
@@ -59,3 +59,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **bygg-tornet**: Byggd + testad (2 torn byggda, stars 2, 0 fel). Drag-stapling med magnetiskt snäpp (radie 1500 -> alltid lyckas), mjuk sway, räknar på svenska, mål-flagga + firande.
 - **rulla-bollen-hem**: Byggd + testad (3 rundor, stars 3, 0 fel). Egen fysik (friktion/studs/hinder), drag=knuff + tap-tap, no-fail auto-hjälp vid stopp, nya banor per nivå.
 - **siffertaget**: Byggd + testad (3 tåg, stars 3, N=3->4, 0 fel). Drag/tap-tap, bara förväntad vagn+slot accepteras, glödande nästa-vagn, dot-count för icke-läsare, tåget rullar iväg vid klart.
+- **spara-linjen**: Byggd + testad (rak linje spårad, runda klar, stars 1, 0 fel). Finger-följ-prick-logik (auto-fyll skippade), färgspår, pencil-följare, former: rak/vågig/triangel/sicksack.

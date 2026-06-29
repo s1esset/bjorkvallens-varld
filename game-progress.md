@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 11 / 25**
+**Klara: 12 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -18,7 +18,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 9 | `vilket-djur-later` | Vilket Djur Låter Så? | ✅ Klar | ✔ | ✔ | ✔ | Ljud-cue -> tryck rätt djur; 2-4 kort skalar med nivå; repetera-knapp; 0 fel |
 | 10 | `stor-liten` | Stor och Liten | ✅ Klar | ✔ | ✔ | ✔ | Dra stora->Stor-lådan, små->Liten-lådan; överdriven storleksskillnad; 0 fel |
 | 11 | `tarta-i-ansiktet` | Tårta i Ansiktet | ✅ Klar | ✔ | ✔ | ✔ | Kasta tårta på clownen; varje tryck = splatt+fniss; torka-knapp; firande+reset; 0 fel |
-| 12 | `kla-pa-nallen` | Klä på Nallen | ⬜ Väntar | | | | |
+| 12 | `kla-pa-nallen` | Klä på Nallen | ✅ Klar | ✔ | ✔ | ✔ | Dra kläder till rätt kroppsdel på nallen; 2-3 plagg; snäpper på; 0 fel |
 | 13 | `plantera-fron` | Plantera Frön | ⬜ Väntar | | | | |
 | 14 | `skuggmatchning` | Skuggmatchning | ⬜ Väntar | | | | |
 | 15 | `enkelt-pussel` | Enkelt Pussel | ⬜ Väntar | | | | |
@@ -48,3 +48,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **vilket-djur-later**: Byggd + testad (rundor 0->5, stjärna vid 5:e rätt = complete() firar, level 2->3 kort, 0 fel). Förtydligade CLAUDE.md om vilka feedback-hjälpare som är självstädande.
 - **stor-liten**: Byggd + testad (3 rundor slutförda, stars 3, 0 fel). Drag via DragController (tap-tap funkar), tydlig stor/liten-kontrast, firande varje runda.
 - **tarta-i-ansiktet**: Byggd + testad (8 tårtor, 2 rundor firade, gräddsplatt syns, 0 fel). Ren orsak-verkan-lek, allt tryck positivt, pooled cake (exit-säker).
+- **kla-pa-nallen**: Byggd + testad (3 rundor, stars 3, 2- och 3-plaggslayouter funkar, 0 fel). DragController, plagg reparentas in i nallen, hint-ringar.

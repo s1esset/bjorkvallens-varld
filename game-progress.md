@@ -3,12 +3,12 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 1 / 25**
+**Klara: 2 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `poppa-ballonger` | Poppa Ballongerna | ✅ Klar | ✔ | ✔ | ✔ | Renderar fint; pop→firande→ny runda; 0 konsolfel |
-| 2 | `tryck-och-forvandla` | Tryck och Förvandla | ⬜ Väntar | | | | |
+| 2 | `tryck-och-forvandla` | Tryck och Förvandla | ✅ Klar | ✔ | ✔ | ✔ | Förvandlas vid tryck; framstegsring fylls; 0 konsolfel |
 | 3 | `kittla-figuren` | Kittla Figuren | ⬜ Väntar | | | | |
 | 4 | `fargregn` | Färgregn | ⬜ Väntar | | | | |
 | 5 | `mata-monstret` | Mata Monstret | ⬜ Väntar | | | | |
@@ -38,3 +38,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 ## Logg
 (Fylls på per fas: vad som byggdes, vad testet visade, vilka buggar/UI-fix som gjordes.)
 - **poppa-ballonger**: Byggd + förenklad (tog bort död COLORS.sky, dedup spawn-X). Playwright: 5 ballonger poppas, runda klar→ny runda, inga fel.
+- **tryck-och-forvandla**: Byggd + förenklad (svensk artikel per emoji, ring/nivå återställs från custom). Playwright: tryck förvandlar figuren, ring fylls, inga fel.

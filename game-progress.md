@@ -115,7 +115,7 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
 
 **Faser:**
 - **Fas 0 — Grundverktyg**: ✅ `lib/scene.js` (gradient-himmel + sol/moln/kullar/bokeh/stjärnor, 7 teman, exit-säker drift) + `lib/feedback.js` utökad (`ripple`, `shake`, `burst`, `breathe`). Testad i appen (0 fel).
-- **Fas 1** — klambubblor, poppa-ballonger, kittla-figuren, tryck-och-forvandla — ⬜
+- **Fas 1** — klambubblor, poppa-ballonger, kittla-figuren, tryck-och-forvandla — ✅ (alla 0 fel, headless-testade)
 - **Fas 2** — fargregn, rakna-applen, stor-liten, peka-pa-kroppen — ⬜
 - **Fas 3** — vandkort, skuggmatchning, vilket-djur-later, klappa-mullvaden — ⬜
 - **Fas 4** — sortera-skrap, mata-monstret, kla-pa-nallen — ⬜
@@ -123,3 +123,10 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
 
 ## v3-logg
 - **Fas 0**: Byggde delat grundverktyg. `scene.js`: drop-in bakgrund (`createScene(theme)`), teman sky/meadow/sunset/candy/water/night/warm. `feedback.js`: ripple (tryck-ring), shake (mjuk skärmskakning), burst (saftig partikelexplosion), breathe (idle-puls) — alla exit-säkra. Verifierat: meadow-scen + juice renderar fint, 0 fel.
+- **Testverktyg**: MCP-webbläsaren tappade anslutningen mitt i fas 1 -> byggde `scripts/test-game.mjs` (Playwright + systemets Chrome, `channel:'chrome'`, huvudlöst) så testning är självförsörjande: navigerar in, trycker brett, kör exit-cykel (spel->bibliotek->spel->meny), rapporterar konsolfel + skärmdump. `npm i -D playwright`.
+- **Fas 1**: Uppgraderade 4 spel (bevarad mekanik, lade på scen-bakgrund + juice + djup/nivåer). Alla headless-testade = 0 fel; produktionsbygge ok.
+  - **klambubblor**: vatten/varierande tema per nivå, glansiga bubblor m. iris-skimmer, överrasknings-emoji, regnbågsbubbla som kedje-poppar grannar, valfritt no-fail färgmål, växande antal/nivå.
+  - **poppa-ballonger**: sky-scen, glansiga ballonger m. knut+snöre, gyllene bonusballong, röst-räkning, fler/snabbare per nivå, squash/stretch-pop.
+  - **kittla-figuren**: candy-scen, 4 söta figurer (klump/björn/kanin/monster) som blinkar+andas, fler zoner, kittel-sekvens på högre nivåer.
+  - **tryck-och-forvandla**: meadow-scen, 10 förvandlingskedjor som nivåer, fler objekt + flerstegs-förvandling på högre nivåer, magisk poff.
+  - Röstrepliker för alla fyra tillagda i `voice-phrases.json` + regenererade.

@@ -27,13 +27,16 @@ export async function createSplashScreen(services) {
   view.addChild(mascot)
 
   const title = new Text({
-    text: 'Barnspel',
-    style: { fontFamily: FONT.display, fontSize: 112, fontWeight: '700', fill: COLORS.orange },
+    text: 'BJÖRKVALLENS VÄRLD',
+    style: { fontFamily: FONT.display, fontSize: 96, fontWeight: '700', fill: COLORS.orange, align: 'center' },
   })
   title.anchor.set(0.5)
   title.x = DESIGN_W / 2
   title.y = DESIGN_H / 2 + 150
   view.addChild(title)
+  // Krymp vid behov så det långa namnet alltid får plats på en rad.
+  const maxTitleW = DESIGN_W - 120
+  if (title.width > maxTitleW) title.scale.set(maxTitleW / title.width)
 
   const hint = new Text({
     text: 'Tryck för att börja',
@@ -57,7 +60,7 @@ export async function createSplashScreen(services) {
     if (started) return
     started = true
     services.audio.sfx('pling')
-    services.voice.say('Välkommen till Barnspel!')
+    services.voice.say('Välkommen till Björkvallens värld!')
     services.nav.go('menu')
   }
   view.on('pointertap', start)

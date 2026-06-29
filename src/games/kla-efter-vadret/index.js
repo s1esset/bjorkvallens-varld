@@ -1,5 +1,5 @@
 // Klä efter Vädret — dra-och-släpp (3–5 år). Uppe visas dagens väder (sol/regn/snö)
-// med stor animerad symbol + fallande regn/snö. En glad figur (Bobo) står i mitten.
+// med stor animerad symbol + fallande regn/snö. En glad figur (Elvira) står i mitten.
 // Barnet drar (eller tap-tap:ar via DragController) rätt plagg till rätt kroppszon
 // (huvud/överkropp/fötter). Passar plagget vädret + zonen → det snäpper fast, figuren
 // hoppar till och rösten säger plaggnamnet. Opassande plagg ger en mjuk vänlig vink
@@ -24,7 +24,7 @@ const ZONE_ORDER = ['overkropp', 'huvud', 'fotter']
 const WEATHERS = {
   sol: {
     key: 'sol', symbol: '☀️', bg: 0xfff3c4, glow: 0xffd35c,
-    intro: 'Det är sol idag. Klä på Bobo så hen blir lagom!',
+    intro: 'Det är sol idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är sol och varmt — vad behöver vi då?',
     good: {
       huvud: { emoji: '👒', namn: 'solhatten' },
@@ -34,7 +34,7 @@ const WEATHERS = {
   },
   regn: {
     key: 'regn', symbol: '🌧️', bg: 0xcfe3ef, glow: 0x9fc4dd,
-    intro: 'Det är regn idag. Klä på Bobo så hen blir lagom!',
+    intro: 'Det är regn idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är regnigt — vad behöver vi då?',
     good: {
       huvud: { emoji: '🧢', namn: 'regnhatten' },
@@ -44,7 +44,7 @@ const WEATHERS = {
   },
   sno: {
     key: 'sno', symbol: '❄️', bg: 0xeaf4fb, glow: 0xbfe6f7,
-    intro: 'Det är snö idag. Klä på Bobo så hen blir lagom!',
+    intro: 'Det är snö idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är kallt och snöigt — vad behöver vi då?',
     good: {
       huvud: { emoji: '🧶', namn: 'vintermössan' },
@@ -74,7 +74,7 @@ export default {
   input: 'mixed',
   ageRange: [3, 5],
   bundle: 'kla-efter-vadret',
-  voiceIntro: 'Vi klär på Bobo efter vädret!',
+  voiceIntro: 'Vi klär på Elvira efter vädret!',
 
   init(ctx) {
     this._alive = true
@@ -181,7 +181,7 @@ export default {
     this._symPulse = gsap.to(symbol.scale, { x: 1.07, y: 1.07, duration: 1.2, yoyo: true, repeat: -1, ease: 'sine.inOut' })
   },
 
-  // Figuren "Bobo" byggd av Pixi Graphics i en container på (0,0) så den kan hoppa.
+  // Figuren "Elvira" byggd av Pixi Graphics i en container på (0,0) så den kan hoppa.
   _buildFigure() {
     const fig = new Container()
     fig.eventMode = 'none'

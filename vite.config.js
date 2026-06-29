@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Barnspel — offline-first PWA för barn 2–5 år.
+// Björkvallens Värld — offline-first PWA för barn 2–5 år.
 // Service worker: generateSW (Workbox) i "prompt"-läge. Vi promptar ALDRIG barnet —
 // uppdateringen läggs på vänt och appliceras först vid biblioteks-/menygränsen (se src/lib/pwa.js).
 export default defineConfig({
@@ -27,8 +27,8 @@ export default defineConfig({
       injectRegister: false, // vi registrerar själva i src/lib/pwa.js
       includeAssets: ['icons/*.png', 'fonts/*.woff2', 'fonts/OFL.txt'],
       manifest: {
-        name: 'Barnspel',
-        short_name: 'Barnspel',
+        name: 'Björkvallens Värld',
+        short_name: 'Björkvallen',
         description: 'Roliga och lärorika minispel för barn 2–5 år. Ingen reklam, ingen spårning.',
         lang: 'sv',
         dir: 'ltr',

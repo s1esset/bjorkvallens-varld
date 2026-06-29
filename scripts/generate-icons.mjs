@@ -1,6 +1,6 @@
 /**
  * Genererar app-ikoner (PNG) helt utan externa bibliotek — endast Nodes
- * inbyggda zlib. Ritar en vänlig maskot ("Bobo") på Barnspels orange platta.
+ * inbyggda zlib. Ritar en vänlig maskot ("Bobo") på orange platta för Björkvallens Värld.
  *
  * Kör:  npm run icons
  * Skapar: public/icons/{icon-192,icon-512,maskable-512,apple-touch-icon}.png

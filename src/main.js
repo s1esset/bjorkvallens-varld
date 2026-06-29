@@ -1,4 +1,4 @@
-// Barnspel — bootstrap. Skapar Pixi-appen, alla tjänster och skärm-routern,
+// Björkvallens Värld — bootstrap. Skapar Pixi-appen, alla tjänster och skärm-routern,
 // och startar på splash-skärmen.
 import './styles.css'
 import { createApp } from './shell/App.js'
@@ -70,7 +70,7 @@ async function boot() {
 }
 
 boot().catch((err) => {
-  console.error('Kunde inte starta Barnspel', err)
+  console.error('Kunde inte starta Björkvallens Värld', err)
   const el = document.getElementById('app')
   if (el) {
     el.innerHTML =

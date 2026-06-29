@@ -1,4 +1,4 @@
-# Barnspel 🐻
+# Björkvallens Värld 🐻
 
 En offline-first **PWA med minispel för barn 2–5 år**, helt på svenska. Tablet-först, **ingen reklam, ingen spårning, inga nätanrop under körning**. Byggd med PixiJS v8 + Vite + vite-plugin-pwa.
 

@@ -1,16 +1,17 @@
 {
-  "name": "barnspel",
+  "name": "bjorkvallens-varld",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Barnspel — PWA med roliga, lärorika minispel för barn 2–5 år (svenska, offline, ingen reklam)",
+  "description": "Björkvallens Värld — PWA med roliga, lärorika minispel för barn 2–5 år (svenska, offline, ingen reklam)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --host",
     "icons": "node scripts/generate-icons.mjs",
     "assets": "node scripts/fetch-fonts.mjs",
-    "voice": "\"C:/repos/storygen/services/narrator/.venv/Scripts/python.exe\" scripts/gen-voice.py --phrases scripts/voice-phrases.json --ref \"C:/repos/storygen/services/narrator/src/narrator/assets/narrator_default.wav\" --ref-text \"Some call me nature, others call me mother nature.\" --out public/audio/voice"
+    "voice": "\"C:/repos/storygen/services/narrator/.venv/Scripts/python.exe\" scripts/gen-voice.py --phrases scripts/voice-phrases.json --ref \"C:/repos/storygen/services/narrator/src/narrator/assets/narrator_default.wav\" --ref-text \"Some call me nature, others call me mother nature.\" --out public/audio/voice",
+    "sfx": "\"C:/repos/storygen/services/narrator/.venv/Scripts/python.exe\" scripts/gen-sfx.py"
   },
   "dependencies": {
     "gsap": "^3.12.5",

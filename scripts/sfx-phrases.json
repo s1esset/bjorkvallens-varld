@@ -1,0 +1,21 @@
+{
+  "_about": "Real game SFX generated offline by the local MOSS-SoundEffect service (see scripts/gen-sfx.py). key -> { prompt (English text-to-sound description), duration seconds }. Tiny UI blips (tap, pling, flip, correct, match, soft) intentionally stay procedural Web Audio in AudioService.js — MOSS is foley/texture-oriented and noisy for crisp musical blips. These textured + animal sounds are where real samples win. Anything missing here falls back to the synth (or, for animals, to spoken onomatopoeia).",
+
+  "pop": { "prompt": "a short soft bubble pop, single clean cartoon plop, no music, no voice", "duration": 1.0 },
+  "whoosh": { "prompt": "a quick gentle whoosh, soft air swoosh, light and short, no music", "duration": 1.0 },
+  "reveal": { "prompt": "a magical sparkle shimmer, gentle twinkling chimes, short and bright, no voice", "duration": 1.5 },
+  "celebrate": { "prompt": "a short happy celebration, party horn with a little confetti pop and sparkle, cheerful, no voice", "duration": 2.0 },
+
+  "djur_ko": { "prompt": "a single cow mooing once, clear farm animal, isolated, no music, no human voice", "duration": 2.0 },
+  "djur_hund": { "prompt": "a friendly small dog barking two or three times, clear, isolated, no music", "duration": 1.8 },
+  "djur_katt": { "prompt": "a single cat meowing once, gentle house cat, isolated, no music", "duration": 1.5 },
+  "djur_gris": { "prompt": "a pig oinking and snorting, farm animal, isolated, no music", "duration": 1.8 },
+  "djur_far": { "prompt": "a sheep baaing once, clear bleat, isolated, no music", "duration": 1.6 },
+  "djur_hast": { "prompt": "a horse neighing, clear whinny, isolated, no music", "duration": 2.0 },
+  "djur_anka": { "prompt": "a duck quacking two or three times, clear, isolated, no music", "duration": 1.8 },
+  "djur_hona": { "prompt": "a hen clucking softly, chicken on a farm, isolated, no music", "duration": 1.8 },
+  "djur_groda": { "prompt": "a frog croaking ribbit twice, clear, isolated, no music", "duration": 1.6 },
+  "djur_bi": { "prompt": "a single bee buzzing, gentle insect buzz, isolated, no music", "duration": 1.6 },
+  "djur_tupp": { "prompt": "a rooster crowing cock-a-doodle-doo once, clear, isolated, no music", "duration": 2.0 },
+  "djur_uggla": { "prompt": "an owl hooting twice at night, clear, isolated, no music", "duration": 2.0 }
+}

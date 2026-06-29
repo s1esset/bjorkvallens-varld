@@ -1,6 +1,6 @@
-// Tårta i Ansiktet — ren slapstick-glädje (3–5 år). En stor, skrattande clown
+// Tårta i Ansiktet — ren slapstick-glädje (3–5 år). Alissa, en stor, skrattande clown,
 // står på scenen; längst ner väntar en gräddtårta. Barnet TRYCKER på tårtan
-// (den flyger i en båge mot ansiktet) eller DRAR den upp mot clownen — båda ger
+// (den flyger i en båge mot ansiktet) eller DRAR den upp mot Alissa — båda ger
 // samma härliga PLASK: grädde-splat, fnitter, konfetti och en glad studs. Inga
 // felsteg, ingen timer, inget slut. Efter några tårtor firar vi (delat firande +
 // stjärna + klistermärke) och en ny, fräsch runda börjar direkt.
@@ -35,7 +35,7 @@ export default {
   input: 'mixed',
   ageRange: [3, 5],
   bundle: 'tarta-i-ansiktet',
-  voiceIntro: 'Kasta tårtan i ansiktet på clownen!',
+  voiceIntro: 'Kasta tårtan i ansiktet på Alissa!',
 
   init(ctx) {
     this._alive = true
@@ -373,7 +373,7 @@ export default {
   _wipe(ctx) {
     if (!this._alive || this._resolving) return
     this._idle = 0
-    ctx.services.voice.say('Nu blir clownen ren igen!')
+    ctx.services.voice.say('Nu blir Alissa ren igen!')
     this._clearCream()
     this._splats = 0
     this._hideWipe()

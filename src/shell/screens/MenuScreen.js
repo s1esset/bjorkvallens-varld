@@ -22,13 +22,15 @@ export async function createMenuScreen(services) {
   gsap.to(mascot, { y: 138, duration: 1.6, yoyo: true, repeat: -1, ease: 'sine.inOut' })
 
   const title = new Text({
-    text: 'Barnspel',
-    style: { fontFamily: FONT.display, fontSize: 72, fontWeight: '700', fill: COLORS.orange },
+    text: 'BJÖRKVALLENS VÄRLD',
+    style: { fontFamily: FONT.display, fontSize: 64, fontWeight: '700', fill: COLORS.orange, align: 'center' },
   })
   title.anchor.set(0.5)
   title.x = DESIGN_W / 2
   title.y = 270
   view.addChild(title)
+  const maxTitleW = DESIGN_W - 160
+  if (title.width > maxTitleW) title.scale.set(maxTitleW / title.width)
 
   // Profil-chip
   const chip = makeProfileChip(services)

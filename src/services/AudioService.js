@@ -1,11 +1,18 @@
-// Ljudeffekter syntetiseras med Web Audio (inga ljudfiler krävs i grundbygget).
-// Produktion: byt till @pixi/sound + förinspelade CC0-klipp — behåll samma sfx()-API.
+// Ljud = hybrid. Förinspelade RIKTIGA klipp (genererade offline av scripts/gen-sfx.py
+// via den lokala MOSS-SoundEffect-tjänsten) spelas när de finns; annars faller vi
+// tillbaka på den procedurella Web Audio-syntesen nedan. Samma sfx()-API oavsett källa.
+// Små UI-blipp (tap/pling/flip/correct/match/soft) är medvetet kvar som syntes —
+// MOSS är foley-/texturinriktad och brusig för knastriga musikaliska blipp.
 // Respekterar inställningarna (sfxEnabled, masterVolume) och låses upp vid första pekningen.
 export class AudioService {
   constructor(save) {
     this.save = save
     this.ctx = null
+    this._samples = new Map() // namn -> AudioBuffer (avkodat, redo att spelas)
+    this._sampleUrls = new Map() // namn -> url (från manifest.json)
+    this._decoding = new Set()
     this._bindUnlock()
+    this._loadSfxManifest()
   }
 
   get _s() {
@@ -24,6 +31,8 @@ export class AudioService {
     const resume = () => {
       const c = this._ensure()
       if (c && c.state === 'suspended') c.resume()
+      // Värm upp avkodningen av riktiga klipp vid första gesten (lågt latens sen).
+      this._predecodeAll()
     }
     window.addEventListener('pointerdown', resume)
     window.addEventListener('touchstart', resume)
@@ -58,6 +67,8 @@ export class AudioService {
     if (!this._s.sfxEnabled) return
     const c = this._ensure()
     if (!c) return
+    // Riktigt klipp om det finns och är avkodat, annars procedurell syntes nedan.
+    if (this._playSample(name)) return
     const rnd = (a, b) => a + Math.random() * (b - a)
     switch (name) {
       case 'tap':
@@ -112,6 +123,78 @@ export class AudioService {
       default:
         this._tone({ freq: 500, dur: 0.1, type: 'sine', vol: 0.2 })
     }
+  }
+
+  // --- förinspelade riktiga klipp (offline, genererade av scripts/gen-sfx.py) ---
+
+  async _loadSfxManifest() {
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}audio/sfx/manifest.json`, { cache: 'no-cache' })
+      if (!res.ok) return
+      const map = await res.json()
+      for (const [k, f] of Object.entries(map)) {
+        this._sampleUrls.set(k, `${import.meta.env.BASE_URL}audio/sfx/${f}`)
+      }
+      if (this.ctx) this._predecodeAll() // ljudet redan upplåst -> värm upp direkt
+    } catch {
+      /* inga klipp -> procedurell syntes / röst-fallback */
+    }
+  }
+
+  _predecodeAll() {
+    for (const name of this._sampleUrls.keys()) this._decodeOne(name)
+  }
+
+  async _decodeOne(name) {
+    if (this._samples.has(name) || this._decoding.has(name)) return
+    const url = this._sampleUrls.get(name)
+    if (!url) return
+    const c = this._ensure()
+    if (!c) return
+    this._decoding.add(name)
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return
+      const ab = await res.arrayBuffer()
+      const buf = await c.decodeAudioData(ab)
+      this._samples.set(name, buf)
+    } catch {
+      /* avkodning misslyckades -> fallback */
+    } finally {
+      this._decoding.delete(name)
+    }
+  }
+
+  // Spela ett förinspelat klipp om det finns OCH är avkodat. Returnerar true om det spelades.
+  _playSample(name) {
+    const buf = this._samples.get(name)
+    if (!buf) {
+      // inte avkodat ännu -> starta avkodningen så det är redo nästa gång
+      if (this._sampleUrls.has(name)) this._decodeOne(name)
+      return false
+    }
+    const c = this.ctx
+    if (!c) return false
+    try {
+      const src = c.createBufferSource()
+      src.buffer = buf
+      const g = c.createGain()
+      g.gain.value = Math.max(0.0001, this._s.masterVolume ?? 0.8)
+      src.connect(g).connect(c.destination)
+      src.start()
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // Publikt: spela ENBART ett förinspelat klipp (t.ex. djurläten). Ingen syntes-fallback —
+  // returnerar true om ett klipp spelades, annars false (spelet kan då falla tillbaka på rösten).
+  sample(name) {
+    if (!this._s.sfxEnabled) return false
+    const c = this._ensure()
+    if (!c) return false
+    return this._playSample(name)
   }
 
   // Musik är en stub i grundbygget (respekterar flaggan). Lägg till en lugn loop senare.

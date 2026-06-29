@@ -1,9 +1,9 @@
-// Peka på Kroppen — lugn lärlek (2–5 år). En gosig figur står på en grön äng;
+// Peka på Kroppen — lugn lärlek (2–5 år). Zacke, en gosig figur, står på en grön äng;
 // rösten ber barnet peka på en kroppsdel ("Var är näsan?") och rätt del lyser
-// upp, studsar och får sitt namn uppläst medan figuren skrattar glatt. Fel tryck
+// upp, studsar och får sitt namn uppläst medan Zacke skrattar glatt. Fel tryck
 // ger bara en vänlig vingel + mjukt ljud och frågan upprepas — ALDRIG en
 // bestraffning. När alla delar i rundan hittats firas det (delat firande +
-// stjärna + klistermärke), figuren BYTER skepnad (barn, nallebjörn, kanin) och en
+// stjärna + klistermärke), Zacke BYTER skepnad (barn, nallebjörn, kanin) och en
 // ny, lite klurigare runda börjar. Allt ritas programmatiskt (Pixi Graphics +
 // emoji) — inga externa tillgångar.
 //
@@ -121,7 +121,7 @@ export default {
   input: 'tap',
   ageRange: [2, 5],
   bundle: 'peka-pa-kroppen',
-  voiceIntro: 'Nu leker vi med kroppen!',
+  voiceIntro: 'Zacke vill leka med kroppen!',
 
   init(ctx) {
     this._alive = true

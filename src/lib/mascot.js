@@ -1,4 +1,4 @@
-// Bobo — Barnspels maskot. Ritas med Pixi Graphics (inga bildtillgångar),
+// Bobo — maskoten i Björkvallens Värld. Ritas med Pixi Graphics (inga bildtillgångar),
 // samma ansikte som app-ikonen. Returnerar en Container centrerad i (0,0).
 import { Container, Graphics } from 'pixi.js'
 import { COLORS } from './theme.js'

@@ -1,4 +1,4 @@
-// Designkonstanter och färgpalett för Barnspel.
+// Designkonstanter och färgpalett för Björkvallens Värld.
 // All layout sker i en fast designupplösning som skalas med "contain"-letterbox.
 
 export const DESIGN_W = 1280
@@ -50,3 +50,8 @@ export const CATEGORIES = {
 
 // Beröm som spelas upp (röst) när ett spel klaras.
 export const PRAISE = ['Bravo!', 'Jättebra!', 'Toppen!', 'Vad duktig du är!', 'Hurra!', 'Fint jobbat!', 'Wow!']
+
+// Namngivna människor i spelen. ALLA avbildade personer/figurer ska heta något av
+// dessa fyra (djur, monster, nallen och maskoten Bobo är undantagna). Lova är
+// reserverad för nästa avbildade flicka. Se CLAUDE.md ("CHARACTERS").
+export const CHARACTERS = ['Zacke', 'Alissa', 'Elvira', 'Lova']

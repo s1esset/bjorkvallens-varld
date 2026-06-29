@@ -267,7 +267,10 @@ export default {
     if (!this._alive || !this._answer) return
     this._idle = 0
     ctx.services.audio.sfx('pling')
-    ctx.services.voice.say(this._answer.fras)
+    // Riktigt förinspelat djurläte om klippet finns — annars säger rösten lätet.
+    if (!ctx.services.audio.sample(`djur_${this._answer.id}`)) {
+      ctx.services.voice.say(this._answer.fras)
+    }
     floatText(ctx.fxLayer, SOUND_X - 30, SOUND_Y - 40, '🎵', { fontSize: 40, rise: 70 })
     floatText(ctx.fxLayer, SOUND_X + 34, SOUND_Y - 30, '🎶', { fontSize: 36, rise: 84 })
 

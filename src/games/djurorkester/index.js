@@ -12,12 +12,12 @@ import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 // Djurdata (delmängd av vilket-djur-later). Vi behöver bara emoji + fras (lätet
 // som rösten "sjunger"). Färg = en distinkt PLAYFUL-färg per kort.
 const DJUR = [
-  { emoji: '🐮', fras: 'Mu! Muu!' },
-  { emoji: '🐶', fras: 'Voff! Voff!' },
-  { emoji: '🐱', fras: 'Mjau! Mjau!' },
-  { emoji: '🐸', fras: 'Kvack! Kvack!' },
-  { emoji: '🐷', fras: 'Nöff! Nöff!' },
-  { emoji: '🦆', fras: 'Kvack kvack!' },
+  { id: 'ko', emoji: '🐮', fras: 'Mu! Muu!' },
+  { id: 'hund', emoji: '🐶', fras: 'Voff! Voff!' },
+  { id: 'katt', emoji: '🐱', fras: 'Mjau! Mjau!' },
+  { id: 'groda', emoji: '🐸', fras: 'Kvack! Kvack!' },
+  { id: 'gris', emoji: '🐷', fras: 'Nöff! Nöff!' },
+  { id: 'anka', emoji: '🦆', fras: 'Kvack kvack!' },
 ]
 
 // Layout (designkoordinater 1280x720): 2 rader x 3 kolumner med stora kort.
@@ -110,8 +110,10 @@ export default {
     // Nottecken stiger upp från kortets topp.
     floatText(this._root, card.x, card.y - CARD_H / 2, '🎵', { fontSize: 64, rise: 110, duration: 1.0 })
 
-    // real animal recording could play here (audio.animal); falls back to neural voice
-    ctx.services.voice.say(card._djur.fras)
+    // Riktigt förinspelat djurläte om klippet finns — annars sjunger rösten lätet.
+    if (!ctx.services.audio.sample(`djur_${card._djur.id}`)) {
+      ctx.services.voice.say(card._djur.fras)
+    }
 
     this._taps++
     if (this._taps % TAPS_PER_CELEBRATION === 0) {

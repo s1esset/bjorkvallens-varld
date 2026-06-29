@@ -73,7 +73,7 @@ Plus: naturlig svensk neural röst (förgenererade klipp) och riktiga CC0-djurlj
 **Grund klar:**
 - ✅ **Röst**: pre-genererade neurala svenska klipp (lokal F5-TTS, EkhoCollective-modell) — 272 klipp, 4,5 MB. `VoiceService` hybrid: exakt klipp → mening-för-mening-kedja → Web Speech-fallback. Testad i appen (0 fel). Byggskript: `scripts/gen-voice.py` + `scripts/voice-phrases.json`. Referensröst bytbar med `--force --ref`.
 - ✅ **Fysikmotor**: `matter-js` + delad brygga `src/lib/physics.js` (PhysicsWorld, exit-säker). Bevisad med studsbollar.
-- ⬜ **Djurljud**: riktiga CC0-inspelningar — väntar på Freesound-token eller "använd lokala generatorn".
+- ✅ **Djurljud**: riktiga läten genereras lokalt med MOSS-SoundEffect (se Fas 5) — 12 `djur_*`-klipp, inkopplade i `vilket-djur-later` + `djurorkester`.
 
 **Spel: 10 / 10 klara**
 
@@ -119,7 +119,7 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
 - **Fas 2** — fargregn, rakna-applen, stor-liten, peka-pa-kroppen — ✅ (alla 0 fel, headless-testade; stor-liten även dragtestat)
 - **Fas 3** — vandkort, skuggmatchning, vilket-djur-later, klappa-mullvaden — ✅ (alla 0 fel, headless-testade; skuggmatchning även dragtestat)
 - **Fas 4** — sortera-skrap, mata-monstret, kla-pa-nallen — ✅ (alla 0 fel, dragtestade)
-- **Fas 5 — Riktiga SFX**: ⏸️ UPPSKJUTEN (användarval 2026-06-29). Båda riktiga-ljud-källorna kräver setup som inte fanns: MOSS-SFX-tjänsten (`C:/repos/storygen/services/moss-sfx`, modell `OpenMOSS-Team/MOSS-SoundEffect`) körde inte + saknar venv + ocachead modell; ingen Freesound-token (`scripts/.freesound-token`). När det görs: skapa venv + kör tjänsten ELLER lägg token, generera/hämta CC0-ljud (spel-SFX + djurläten), lägg sample-uppspelning i `AudioService` (faller tillbaka till procedurellt), koppla in. Tills dess: procedurella Web Audio-SFX + neural röst för djurläten.
+- **Fas 5 — Riktiga SFX**: ✅ KLAR (2026-06-29). MOSS-SoundEffect-tjänsten står uppe lokalt (återanvänder narrator-venv: torch 2.6+cu124 / transformers 5.1 / CUDA). Fixade en Windows-bugg i modellens fjärrkod (`Path()` manglade repo-id → backslash → HF-valideringsfel) genom att ladda den lokala snapshot-katalogen; skrev om `sfx_engine.py` till det riktiga v1-API:t (24 kHz). `scripts/gen-sfx.py` + `sfx-phrases.json` (`npm run sfx`) väljer best-of-N tagningar och bakar **16 riktiga klipp** till `public/audio/sfx/*.mp3` + manifest (pop/whoosh/reveal/celebrate + 12 djurläten). `AudioService` avkodar via Web Audio och spelar dem i `sfx()` (faller tillbaka på syntes); nytt `sample()`-API inkopplat i `vilket-djur-later` + `djurorkester` (faller tillbaka på röst). Små UI-blipp (tap/pling/flip/correct/match/soft) stannar medvetet som syntes. Alla berörda spel headless-testade 0 fel.
 
 ## v3-logg
 - **Fas 0**: Byggde delat grundverktyg. `scene.js`: drop-in bakgrund (`createScene(theme)`), teman sky/meadow/sunset/candy/water/night/warm. `feedback.js`: ripple (tryck-ring), shake (mjuk skärmskakning), burst (saftig partikelexplosion), breathe (idle-puls) — alla exit-säkra. Verifierat: meadow-scen + juice renderar fint, 0 fel.
@@ -148,7 +148,7 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
   - **kla-pa-nallen**: scen roterar per outfit, gullig nalle (blinkar, slot-ringar), 5 outfits (vinter/sommar/regn/fin/mys) m. varianter, 2→5 plagg/nivå; DragController återanvänd, dragtestat (klar→firande→ny outfit).
   - +73 röstrepliker (tunnor, monster-repliker/namn, nalle-plagg/outfits) tillagda + regenererade.
 
-**15-spels-uppgraderingen (fas 1–4) KLAR.** Fas 5 (riktiga SFX) uppskjuten på användarens begäran.
+**15-spels-uppgraderingen (fas 1–4) KLAR.** Fas 5 (riktiga SFX) KLAR 2026-06-29 (se nedan).
 
 ## Avslut (2026-06-29)
 - **Status**: Fas 0–4 klara & commitade (5 commits: foundation + fas 1–4). 38 spel totalt; 15 lyfta till marknadskvalitet. Alla headless-testade 0 fel; produktionsbygge rent.
@@ -157,3 +157,14 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
 - **Tjänster**: dev (5173) + preview (4173, serverar `dist/`) körs; `tailscale serve --bg --https=8445 http://127.0.0.1:4173` återställd.
 - **Telefontest-URL**: https://andreas-psai1.tail4e6703.ts.net:8445/ (HTTPS = PWA-install/offline). Verifierad: index/sw.js/manifest/ljud = 200; prod-bygget bootar 0 fel ("Klar att spela offline").
 - **Testverktyg**: `node scripts/test-game.mjs <id> [--drag "fx,fy>tx,ty;..."] [--shot out.png]` (Playwright + systemets Chrome, oberoende av MCP). Dev-only `window.__barnspel` krävs (funkar ej mot prod-bygget).
+
+---
+
+# Uppdatering (2026-06-29) — Björkvallens Värld + Fas 5 + namngivna barn
+
+- **Namnbyte**: appen heter nu **BJÖRKVALLENS VÄRLD**. In-app-ordmärke i versaler (splash + meny, med auto-krymp så det aldrig spiller över — verifierat med skärmdump); OS/manifest i versalgemener ("Björkvallens Värld", `short_name` "Björkvallen"), HTML-titel, apple-titel, beskrivning, `package.json`, README/CLAUDE/ARCHITECTURE-rubriker, kommentarer. Ny välkomstreplik ("Välkommen till Björkvallens värld!"). Interna id:n orörda (`localStorage`-nyckel `pwagames.save.v1`, dev-globalen `__barnspel`).
+- **Fas 5 — riktiga SFX**: KLAR (se v3-faslistan ovan). MOSS-SoundEffect lokalt + `npm run sfx` → 16 klipp i `public/audio/sfx`; `AudioService` sampel + syntes-fallback; `vilket-djur-later` + `djurorkester` spelar riktiga djurläten. **Tjänsten kräver PowerShell** för `npm run sfx`/`voice` (forward-slash-venv-sökväg knäcks under git-bash→cmd).
+- **Namngivna människor**: alla avbildade personer i spelen heter nu något av **Zacke/Alissa/Elvira/Lova** (ägarens barn). En workflow skannade alla 38 spel → exakt 3 personer: `peka-pa-kroppen`→**Zacke**, `tarta-i-ansiktet` (clown)→**Alissa**, `kla-efter-vadret`→**Elvira** (figuren hette felaktigt "Bobo" = krock med maskoten; omdöpt + "hen"→"hon"). **Lova** reserverad för nästa flickfigur. Regel + `CHARACTERS`-lista i `CLAUDE.md`/`lib/theme.js` för framtida spel. Djur/monster/nallen/Bobo undantagna.
+- **Röst**: 658 neural-klipp (8 nya: välkomst + Zacke/Alissa/Elvira-repliker).
+- **Bygge**: produktionsbygge rent (707 precache-poster, ~11 MiB, inkl. alla nya SFX/röst-klipp).
+- **Telefontest**: `npm run build` → `npm run preview` (4173) → `tailscale serve --bg --https=8445 http://127.0.0.1:4173`. URL: https://andreas-psai1.tail4e6703.ts.net:8445/ — verifierad: index/sw.js/manifest/sfx+röst-ljud = 200, manifest-namn "Björkvallens Värld".

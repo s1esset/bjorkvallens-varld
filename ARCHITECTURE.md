@@ -1,4 +1,4 @@
-# Barnspel — PWA Mini-Games Architecture (Ages 2-5, Swedish)
+# Björkvallens Värld — PWA Mini-Games Architecture (Ages 2-5, Swedish)
 
 > Source of truth produced from 6 parallel research tracks (Market, Assets, Tech, UX, Mechanics, PWA).
 > `CLAUDE.md` distills the operational rules from this document — read both before building games.

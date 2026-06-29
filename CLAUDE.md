@@ -1,4 +1,4 @@
-# CLAUDE.md — Barnspel
+# CLAUDE.md — Björkvallens Värld
 
 Guidance for Claude Code (and humans) working in this repo. **Read this fully before adding or changing a game.** Deeper background lives in `ARCHITECTURE.md`.
 
@@ -20,7 +20,8 @@ npm run assets     # försök hämta egen-hostade typsnitt till public/fonts (kr
 ## Stack
 
 PixiJS v8 (WebGL) · Vite 5 · vite-plugin-pwa (Workbox `generateSW`) · GSAP · vanilla JS (ESM).
-Audio = procedurell Web Audio i grundbygget (uppgradera till `@pixi/sound` + CC0-klipp).
+Audio = hybrid: förinspelade RIKTIGA klipp (offline mp3) + procedurell Web Audio som fallback.
+Riktiga SFX/djurläten genereras lokalt med MOSS-SoundEffect (`npm run sfx` → `scripts/gen-sfx.py`).
 Röst = Web Speech `sv-SE` i grundbygget (uppgradera till förgenererade Piper-klipp, offline).
 
 ## Non-negotiable design rules (P0 — bake into every screen and game)
@@ -37,6 +38,8 @@ NO                = reklam, 3:e-parts-spårning, analytics, nätanrop vid körni
                     felsteg/"game over", poäng-som-sjunker, bestraffande timers
 DATA              = endast localStorage JSON; ingen PII lämnar enheten
 SWEDISH           = full åäö i UI/röst; ASCII-vik (a/a/o) för id:n/filnamn/ljudnycklar
+CHARACTERS        = avbildade människor/personer heter ENDAST Zacke/Alissa/Elvira/Lova
+                    (djur, monster, nallen och maskoten Bobo undantas) — se lib/theme.js
 PWA               = fullscreen/standalone, touch-action:none, ingen user-scalable, orientation-lås,
                     ingen kontextmeny
 PIXI_V8           = await app.init(); app.canvas; eventMode; ticker.deltaMS/deltaTime; preference:'webgl'
@@ -119,7 +122,7 @@ Every game is a folder under `src/games/<id>/` whose `index.js` **default-export
 
 /**
  * @typedef {Object} Services
- * @property {AudioService}   audio    // audio.sfx('pop'|'pling'|'correct'|'match'|'soft'|'flip'|'celebrate'|'whoosh'|'reveal'|'tap')
+ * @property {AudioService}   audio    // audio.sfx(name) riktigt klipp om det finns, annars syntes ('pop'|'pling'|'correct'|'match'|'soft'|'flip'|'celebrate'|'whoosh'|'reveal'|'tap'); audio.sample('djur_ko'…) spelar ENDAST ett riktigt klipp (returnerar true om spelat, annars false → falla tillbaka på rösten)
  * @property {VoiceService}   voice    // voice.say('svensk fras') / voice.replayLast() / voice.cancel()
  * @property {SaveService}    save     // använd hellre ctx.progress
  * @property {AssetService}   assets   // assets.get(key)
@@ -213,6 +216,10 @@ Writes are debounced 500ms + synchronously flushed on `visibilitychange=hidden`/
 ## Assets & licenses
 
 CC0-first (Kenney.nl, Kenney audio, Freesound-CC0). **Ship zero attribution obligations.** Any CC-BY asset must be logged in `ASSET_LICENSES.md` and trigger a "Krediter/Tack" screen. Fonts are SIL OFL (Fredoka/Baloo 2/Nunito), self-hosted in `public/fonts` (never the Google CDN). The first three games draw everything **programmatically** (emoji + Pixi Graphics) so they need no external assets. See `ARCHITECTURE.md §4` for the full source table and AVOID list.
+
+**Audio (real SFX + voice).** Both are pre-generated locally and bundled as offline `.mp3` — no runtime network calls, no third-party attribution.
+- **SFX/djurläten:** `npm run sfx` → `scripts/gen-sfx.py` posts each prompt in `scripts/sfx-phrases.json` to the local **MOSS-SoundEffect** service (`services/moss-sfx`, FastAPI :8003, reuses the narrator `.venv`), picks the best of N takes, normalizes/fades, encodes to `public/audio/sfx/<key>.mp3` + `manifest.json`. Idempotent. `AudioService` decodes them via Web Audio and plays them in `sfx()`/`sample()`, falling back to the procedural synth (tiny UI blips stay synth on purpose). To add/replace a sound: add a key+prompt, run the service, `npm run sfx` (or `--force --only <key>` to re-roll).
+- **Röst:** `npm run voice` (self-generated, MP3  in `public/audio/voice/`) — see neural-voice notes. Both `npm run sfx`/`voice` use a forward-slash venv path; run them from **PowerShell** (cmd/npm chokes on the path under git-bash).
 
 ## Swedish
 

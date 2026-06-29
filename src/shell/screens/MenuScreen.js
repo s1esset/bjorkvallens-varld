@@ -86,6 +86,56 @@ export async function createMenuScreen(services) {
   exit.y = 90
   view.addChild(exit)
 
+  // "Hämta senaste" – grindad förälder-knapp som tvingar fram nyaste versionen.
+  // Liten, nere i högra hörnet, med en diskret versionsstämpel så föräldern kan se
+  // vilken version som körs (och att uppdateringen slog igenom efter omstart).
+  const update = new Button({
+    icon: '🔄',
+    label: 'Senaste',
+    width: 188,
+    height: 92,
+    color: COLORS.teal,
+    stacked: true,
+    services,
+    sound: 'tap',
+    onTap: () => onForceUpdate(),
+  })
+  update.x = DESIGN_W - 116
+  update.y = 626
+  view.addChild(update)
+
+  const versionLabel = new Text({
+    text: services.appVersion?.() || '',
+    style: { fontFamily: FONT.body, fontSize: 16, fontWeight: '700', fill: COLORS.inkSoft, align: 'center' },
+  })
+  versionLabel.anchor.set(0.5, 0)
+  versionLabel.x = DESIGN_W - 116
+  versionLabel.y = 678
+  versionLabel.eventMode = 'none'
+  versionLabel.alpha = 0.7
+  view.addChild(versionLabel)
+
+  async function onForceUpdate() {
+    const ok = await gate.open({ title: 'Hämta senaste versionen' })
+    if (!ok) return
+    const yes = await confirmDialog(services.gateLayer, services, {
+      title: 'Hämta senaste versionen? Appen startas om.',
+      yes: 'Uppdatera',
+      no: 'Avbryt',
+      yesColor: COLORS.teal,
+    })
+    if (!yes) return
+    services.toast?.('Letar efter senaste versionen…')
+    save.flush()
+    try {
+      const res = await services.forceUpdate?.()
+      // Vid 'updating'/'reloaded' laddas sidan om av sig själv; detta är bara en fallback-avi.
+      if (res === undefined) services.toast?.('Uppdatering ej tillgänglig')
+    } catch {
+      services.toast?.('Kunde inte uppdatera nu')
+    }
+  }
+
   async function onExit() {
     const ok = await gate.open({ title: 'Avsluta appen?' })
     if (!ok) return

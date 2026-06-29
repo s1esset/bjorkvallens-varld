@@ -37,6 +37,9 @@ export class AimLauncher {
     this.getOrigin = opts.getOrigin || (() => ({ x: this.target?.x ?? 0, y: this.target?.y ?? 0 }))
     this.previewGravity = opts.previewGravity ?? 0.5
     this.previewWind = opts.previewWind ?? 0
+    // Luftmotstånd i förhandsvisningen (1 = inget). matter.js dämpar farten ~(1-frictionAir)
+    // per steg; utan detta överskattar pricklinjen räckvidden rejält på långa skott.
+    this.previewDamp = opts.previewDamp ?? 1
     this.bounds = opts.bounds || null
     this.defaultAim = opts.defaultAim || null // () => ({x,y}) för tap-fallback
     this.tapPower = opts.tapPower ?? 0.62 // andel av maxPower vid tap
@@ -76,9 +79,10 @@ export class AimLauncher {
     if (!on) this._cancel()
   }
 
-  setPreview({ gravity, wind, bounds } = {}) {
+  setPreview({ gravity, wind, bounds, damp } = {}) {
     if (gravity != null) this.previewGravity = gravity
     if (wind != null) this.previewWind = wind
+    if (damp != null) this.previewDamp = damp
     if (bounds) this.bounds = bounds
   }
 
@@ -161,7 +165,7 @@ export class AimLauncher {
   _drawTrail(vx, vy) {
     const o = this.getOrigin()
     const b = this.bounds || {}
-    const pts = predict(o.x, o.y, vx, vy, this.previewGravity, this.previewWind, b)
+    const pts = predict(o.x, o.y, vx, vy, this.previewGravity, this.previewWind, b, this.previewDamp)
     const g = this._trail
     g.clear()
     if (!pts.length) {
@@ -211,7 +215,8 @@ export class AimLauncher {
 
 // Lättviktig banprediktion (visuell guide) — punktmassa under gravitation + vind, med
 // studs mot golv/väggar. Stannar tidigt om den lämnar skärmen åt sidorna utan väggar.
-function predict(x, y, vx, vy, gy, wx, bounds) {
+// damp (<1) = luftmotstånd per steg så pricklinjen matchar matter.js verkliga inbromsning.
+function predict(x, y, vx, vy, gy, wx, bounds, damp = 1) {
   const pts = []
   const { floorY = null, leftX = null, rightX = null, restitution = 0.55 } = bounds || {}
   let px = x
@@ -222,6 +227,10 @@ function predict(x, y, vx, vy, gy, wx, bounds) {
   for (let i = 0; i < steps; i++) {
     pvy += gy
     pvx += wx
+    if (damp !== 1) {
+      pvx *= damp
+      pvy *= damp
+    }
     px += pvx
     py += pvy
     if (floorY != null && py > floorY) {

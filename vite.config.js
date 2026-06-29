@@ -1,11 +1,23 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+// Version + bygg-id stämplas in vid byggtid så en förälder kan se VILKEN version som
+// körs (och bekräfta att "Hämta senaste" faktiskt hämtade en nyare). Bygg-id = tidsstämpel.
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'))
+const _now = new Date()
+const _p = (n) => String(n).padStart(2, '0')
+const BUILD_ID = `${String(_now.getFullYear()).slice(2)}${_p(_now.getMonth() + 1)}${_p(_now.getDate())}-${_p(_now.getHours())}${_p(_now.getMinutes())}`
 
 // Björkvallens Värld — offline-first PWA för barn 2–5 år.
 // Service worker: generateSW (Workbox) i "prompt"-läge. Vi promptar ALDRIG barnet —
 // uppdateringen läggs på vänt och appliceras först vid biblioteks-/menygränsen (se src/lib/pwa.js).
 export default defineConfig({
   base: './',
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   // Bind till alla nätverkskort så appen går att testa från t.ex. en telefon på
   // samma Tailscale-nät. allowedHosts släpper in MagicDNS-namnet (*.ts.net) som
   // används vid `tailscale serve` (HTTPS -> krävs för PWA-install/offline).

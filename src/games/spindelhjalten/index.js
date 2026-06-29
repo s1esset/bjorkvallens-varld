@@ -25,9 +25,16 @@ import { FONT, COLORS } from '../../lib/theme.js'
 const HERO_R = 46
 const SLING = { x: 240, y: 540 } // slangbellans fasta ankarpunkt
 const PRONG = { dx: 30, dy: 52 } // prong-spetsarnas offset från ankaret
-const BOUNDS = { floorY: 674, leftX: 46, rightX: 1234 } // för prick-förhandsvisning
+const BOUNDS = { floorY: 674, leftX: 46, rightX: 1234, restitution: 0.72 } // för prick-förhandsvisning
 const GRAVITY = 1.0
-const PREVIEW_G = 0.5
+// Kalibrering (uppmätt mot matter.js): med fast 1/60-steg ökar matter farten ~0.2778 px/steg
+// per gravitationsenhet, och frictionAir dämpar ~(1-frictionAir) per steg. Pricklinjen MÅSTE
+// använda samma värden annars pekar den åt fel håll (tidigare gy=0.5 utan dämpning -> ~380px fel).
+const PREVIEW_G = 0.2778 * GRAVITY // verklig per-steg-gravitation i px
+const PREVIEW_DAMP = 1 - 0.004 // matchar hjältens frictionAir (MATERIALS.bouncy)
+// matter-vindens acceleration -> px/steg²-faktor (≈ stegtid² = (1000/60)²). Att dela vind med
+// detta gör att verklig krökning matchar pricklinjen exakt (tidigare /500 -> bara ~0.56×).
+const WIND_DIV = (1000 / 60) ** 2
 const REST_SPEED = 1.2 // matter-fart under detta = "landat"
 const MAX_FLIGHT = 5 // s i luften innan han zippar hem (no-fail)
 const IDLE_DELAY = 6 // s utan handling innan röst-recue
@@ -127,6 +134,7 @@ export default {
       powerScale: 0.18,
       previewGravity: PREVIEW_G,
       previewWind: 0,
+      previewDamp: PREVIEW_DAMP,
       bounds: { ...BOUNDS },
       getOrigin: () => ({ x: SLING.x, y: SLING.y }),
       defaultAim: () => this._nearestTarget() || { x: 900, y: 240 },
@@ -516,11 +524,13 @@ export default {
           vy,
           gy: PREVIEW_G,
           wx,
-          steps: 110,
+          steps: 130,
           every: 1,
           floorY: BOUNDS.floorY,
           leftX: BOUNDS.leftX,
           rightX: BOUNDS.rightX,
+          restitution: BOUNDS.restitution,
+          damp: PREVIEW_DAMP,
         })
         for (const p of pts) {
           const d = Math.hypot(p.x - tgt.x, p.y - tgt.y)
@@ -658,8 +668,9 @@ export default {
     this._windIdx = this._windDirs ? this._windDirs.indexOf(dir) : 0
     if (this._windIdx < 0) this._windIdx = 0
     const pv = dir * this._windMag
-    // matter-vind är accelerations-baserad; ~500× mindre än prick-förhandsvisningen.
-    this._phys?.setWind(pv / 500, 0)
+    // matter-vind är accelerations-baserad; dela med stegtid²-faktorn så VERKLIG krökning
+    // matchar pricklinjen (annars driver bollen bara ~hälften så långt som linjen visar).
+    this._phys?.setWind(pv / WIND_DIV, 0)
     this._launcher?.setPreview({ wind: pv })
     this._updateWindUI()
   },

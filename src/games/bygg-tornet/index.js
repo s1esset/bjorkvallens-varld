@@ -1,57 +1,93 @@
-// Bygg Tornet — bygg-/fysiklek (3–5 år). Barnet drar (eller tap-tap:ar) mjuka
-// klossar från lådan upp till tornets lysande topp-plats. Klossen snäpper magnetiskt
-// på plats, tornet växer en våning och vajar lekfullt. Tornet kan ALDRIG rasa eller
-// "förlora" — det studsar bara glatt och kan alltid byggas vidare. När mål-höjden nås
-// firar vi (delat complete: stjärna + klistermärke) och en ny, högre runda byggs upp.
-// Allt ritas programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
+// Bygg Tornet — bygg-/fysiklek (3–5 år). En vänlig lyftkran bär en kloss fram och
+// tillbaka högt uppe. Barnet TRYCKER var som helst för att SLÄPPA klossen — den faller
+// med RIKTIG fysik (matter.js), landar på stapeln, lutar och vajar och får sätta sig.
+// När den vilat snäpps den fast (statisk) så basen står stadigt medan tornet växer.
+// Tornet kan ALDRIG rasa eller "förlora": en kloss som tippar av puffar bara bort glatt
+// och barnet får en ny — och efter ett par missar lägger kranen klossen rakt på plats av
+// sig själv, så tornet ALLTID når topp-flaggan. Då firar vi (delat complete: stjärna +
+// klistermärke) och en ny, högre runda byggs. Allt ritas programmatiskt (Pixi Graphics
+// + system-emoji) — inga externa filer.
 import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
-import { DragController } from '../../lib/DragController.js'
+import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, puff, sparkle } from '../../lib/feedback.js'
-import { COLORS, PLAYFUL, FONT } from '../../lib/theme.js'
+import { bounceIn, pop, puff, sparkle, breathe, bigCelebration } from '../../lib/feedback.js'
+import { COLORS, PLAYFUL, FONT, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 
-// Layout i designkoordinater (1280×720).
-const BASE_X = 640 // tornets mittlinje
-const GROUND_TOP_Y = 600 // markens ovansida (nedersta klossens botten)
-const BW = 220 // klossbredd (≫96px träffyta)
-const BH = 76 // klosshöjd
-const BOX_X = 250 // lådans/spawn-platsens mitt
-const BOX_BLOCK_Y = 560 // den väntande klossens y i lådan
+// --- Geometri (designkoordinater 1280×720) ---
+const BASE_X = 640 // tornets mittlinje (svepets nominella mitt)
+const GROUND_TOP_Y = 604 // markens ovansida = nedersta klossens vilolinje
+const BW = 190 // klossbredd (≫96px träffyta — fast man tycker var som helst)
+const BH = 64 // klosshöjd
+const RAIL_Y = 28 // kranrälsens höjd (trallan åker här)
+const MIN_CARRIER_Y = 80 // klossen hänger aldrig högre än så (håll på skärmen)
+const DROP_H = 120 // hur högt över stapeln klossen svävar (mjukt fall)
+const SWEEP = 80 // svepets halva bredd kring stödpunkten (< BW/2 ⇒ lutar men tippar sällan)
+const CARRIER_W = 2.4 // svepets vinkelhastighet (rad/s) — lugnt och följbart
+const MAX_DRIFT = 150 // hur långt tornet får luta i sidled från mitten (håll byggbart)
 
-// Slot-center för kloss-index i (0 = nederst): 562, 486, 410, ... (max 8 ryms).
-const slotY = (i) => GROUND_TOP_Y - BH / 2 - i * BH
+// Klossens fysik: hög friktion + statisk friktion och nästan ingen studs ⇒ klossar
+// staplar och glider inte; lite luftmotstånd ⇒ vajet lugnar sig snabbt. Lugnt & förlåtande.
+const BLOCK_OPTS = { density: 0.0018, restitution: 0.03, friction: 0.85, frictionStatic: 1.6, frictionAir: 0.02, label: 'block' }
 
-const NUMBERS = ['ett', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju', 'åtta']
+// Vila-/landningströsklar.
+const REST_SPEED = 1.4 // matter-fart under detta = klossen har lugnat sig
+const ANG_REST = 0.05 // vinkelhastighet under detta = inte längre tippande
+const REST_HOLD = 0.35 // s i vila innan vi snäpper fast
+const MAX_FALL = 3.0 // s innan vi tvångs-sätter klossen (no-fail)
+
+// Acceptans: hamnade klossen PÅ stapeln (annars puff bort + ny kloss).
+const ACCEPT_DX = 120 // sidled från stödpunkten
+const ACCEPT_DY = 58 // hur långt under förväntad höjd den får sjunka
+const ACCEPT_ANGLE = 0.5 // ~29° lutning ok; mer = den har tippat av
+
+const HIT_THROTTLE = 0.08 // s mellan landnings-ljud
+const IDLE_DELAY = 6 // s utan handling → röst-recue
+
+const NUMBERS = ['ett', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju']
 const PLACE_LINES = ['En till!', 'Så högt!', 'Pling!', 'Wow!', 'Mer!']
+const MISS_LINES = ['Hoppsan!', 'Vi provar igen!', 'Nästan!']
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+const slotY = (i) => GROUND_TOP_Y - BH / 2 - i * BH
 
 export default {
   id: 'bygg-tornet',
   titleSv: 'Bygg Tornet',
   icon: '🧱',
   category: 'fysik',
-  input: 'drag',
+  input: 'tap',
   ageRange: [3, 5],
   bundle: 'bygg-tornet',
-  voiceIntro: 'Bygg ett högt torn! Dra en kloss och ställ den överst.',
+  voiceIntro: 'Bygg ett högt torn! Tryck för att släppa klossen på stapeln.',
 
   init(ctx) {
     this._alive = true
     this._t = 0
     this._idle = 0
-    this._sway = 0
-    this._wobble = 0
-    this._placed = []
+    this._fallT = 0
+    this._restT = 0
+    this._lastHit = -1
+    this._lastSay = -2
+    this._carrierX = BASE_X
+
+    this._phase = 'reset' // reset | carry | fall | wait | finish
+    this._placed = [] // fastlåsta klossar { view, body }
+    this._active = null // klossen som bärs/faller just nu { view, body }
     this._count = 0
+    this._misses = 0 // missar på nuvarande våning (no-fail-räknare)
     this._goal = 4
-    this._resolving = false
-    this._celebrating = false
-    this._active = null
+    this._supportX = BASE_X // mitten på stapelns topp (nästa klossens mål)
+    this._stackTopY = GROUND_TOP_Y // stapelns översida (nästa klossens vilolinje)
+    this._expC = slotY(0) // förväntad mitt-y för fallande kloss
+    this._hoverY = MIN_CARRIER_Y // var den bärande klossen svävar
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
     this._buildScene(ctx)
+
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._newTower(ctx)
 
@@ -67,213 +103,351 @@ export default {
   // ---- Statisk scen (byggs en gång, återanvänds mellan torn) --------------
 
   _buildScene(ctx) {
-    // Bakgrund: fångar tomma tryck mjukt (alltid ett svar på varje pekning).
-    const bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(COLORS.bg)
-    bg.eventMode = 'static'
-    bg.on('pointertap', (e) => this._bgTap(ctx, e))
-    this._root.addChild(bg)
+    // Glad himmel (dekorativ, exit-säker via scene.js).
+    this._root.addChild(createScene('sky', { width: ctx.width, height: ctx.height }))
 
-    // Mark/golv med ljus gräskant ovanpå.
+    // Osynlig tryckyta över hela skärmen: tryck var som helst → släpp klossen
+    // (eller en mjuk lekfull puff). Allt annat ligger ovanpå men är icke-interaktivt.
+    this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
+    this._catcher.eventMode = 'static'
+    this._onCatch = (e) => this._onTap(ctx, e)
+    this._catcher.on('pointertap', this._onCatch)
+    this._root.addChild(this._catcher)
+
+    // Fysik: gravitation + golv/väggar.
+    this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'] })
+    this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Egen statisk mark vars ÖVERKANT ligger på GROUND_TOP_Y (klossarna vilar här).
+    this._phys.rectangle(DESIGN_W / 2, GROUND_TOP_Y + 130, DESIGN_W + 400, 260, {
+      isStatic: true,
+      friction: 1,
+      frictionStatic: 2,
+      restitution: 0,
+    })
+
+    // Mark/gräs (dekor).
     const floor = new Graphics()
-      .roundRect(BASE_X - 260, GROUND_TOP_Y, 520, 90, 24)
-      .fill(COLORS.brown)
-    floor.roundRect(BASE_X - 260, GROUND_TOP_Y, 520, 18, 9).fill(COLORS.green)
+    floor.rect(0, GROUND_TOP_Y, DESIGN_W, DESIGN_H - GROUND_TOP_Y).fill(COLORS.brown)
+    floor.rect(0, GROUND_TOP_Y, DESIGN_W, 16).fill(COLORS.green)
     floor.eventMode = 'none'
     this._root.addChild(floor)
 
-    // Tornets staplingskolumn: roterar om basen (mjuk sway). Klossar blir barn här.
-    this._tower = new Container()
-    this._tower.pivot.set(BASE_X, GROUND_TOP_Y)
-    this._tower.position.set(BASE_X, GROUND_TOP_Y)
-    this._tower.eventMode = 'none'
-    this._tower.interactiveChildren = false
-    this._root.addChild(this._tower)
-
-    // Mål-indikator (flagga) som visar hur högt det ska byggas.
+    // Mål-flagga (visar hur högt det ska byggas).
     this._flag = new Text({ text: '🚩', style: { fontFamily: FONT.body, fontSize: 64 } })
     this._flag.anchor.set(0.5)
     this._flag.eventMode = 'none'
     this._root.addChild(this._flag)
 
-    // Platsmarkör (drop-slot): pulsande ljus kontur — DragControllerns target.
-    this._slot = new Graphics()
-      .roundRect(-BW / 2 - 6, -BH / 2 - 6, BW + 12, BH + 12, 20)
-      .fill({ color: COLORS.yellow, alpha: 0.12 })
-      .stroke({ width: 6, color: COLORS.yellow })
-    this._slot.x = BASE_X
-    this._slot.y = slotY(0)
-    this._root.addChild(this._slot)
+    // Spök-markör: lyser där nästa kloss ska landa.
+    this._ghost = new Graphics()
+      .roundRect(-BW / 2, -BH / 2, BW, BH, 14)
+      .fill({ color: COLORS.yellow, alpha: 0.1 })
+      .stroke({ width: 5, color: COLORS.yellow, alpha: 0.9 })
+    this._ghost.eventMode = 'none'
+    this._root.addChild(this._ghost)
+    this._ghostTween = breathe(this._ghost, { scale: 1.06, duration: 1.0 })
 
-    // Lådan/förvaringen runt spawn-platsen (rent visuell).
-    const box = new Graphics()
-      .roundRect(BOX_X - 132, BOX_BLOCK_Y - 8, 264, 112, 20)
-      .fill({ color: COLORS.orange, alpha: 0.16 })
-      .stroke({ width: 8, color: COLORS.orange })
-    box.eventMode = 'none'
-    this._root.addChild(box)
+    // Kranräls (dekor, längst upp).
+    const rail = new Graphics()
+      .roundRect(60, RAIL_Y - 8, DESIGN_W - 120, 16, 8)
+      .fill(COLORS.inkSoft)
+    rail.roundRect(60, RAIL_Y - 8, DESIGN_W - 120, 5, 8).fill({ color: COLORS.white, alpha: 0.25 })
+    rail.eventMode = 'none'
+    this._root.addChild(rail)
+
+    // Klossarnas lager (icke-interaktivt → tryck faller ner till tryckytan).
+    this._blockLayer = new Container()
+    this._blockLayer.eventMode = 'none'
+    this._blockLayer.interactiveChildren = false
+    this._root.addChild(this._blockLayer)
+
+    // Kran-tralla + lina (ritas om varje bildruta medan vi bär).
+    this._crane = new Graphics()
+    this._crane.eventMode = 'none'
+    this._root.addChild(this._crane)
   },
 
   // ---- Torn (runda) -------------------------------------------------------
 
   _newTower(ctx) {
     if (!this._alive) return
+    this._spawnCall?.kill()
+    this._finishCall?.kill()
+    this._clearBlocks()
 
-    // Riv föregående torn: timers, drag-controller och alla placerade klossar.
-    this._spawnTimer?.kill()
-    this._celebrate?.kill()
-    this._flagTween?.kill()
-    this._drag?.destroy()
-    for (const b of this._placed) {
-      gsap.killTweensOf(b)
-      gsap.killTweensOf(b.scale)
-      if (!b.destroyed) b.destroy({ children: true })
-    }
-
-    // Nollställ tillstånd.
-    this._placed = []
     this._count = 0
-    this._sway = 0
-    this._wobble = 0
-    this._resolving = false
-    this._celebrating = false
+    this._misses = 0
+    this._supportX = BASE_X
+    this._stackTopY = GROUND_TOP_Y
     this._idle = 0
-    this._active = null
-    this._goal = Math.min(4 + this._level, 8)
-    if (this._tower && !this._tower.destroyed) this._tower.rotation = 0
+    this._phase = 'reset'
+    this._goal = Math.min(4 + this._level, 7)
 
-    // Platsmarkören tillbaka till nedersta våningen.
-    gsap.killTweensOf(this._slot)
-    this._slot.visible = true
-    this._slot.alpha = 1
-    this._slot.scale.set(1)
-    this._slot.y = slotY(0)
-
-    // Mål-flaggan vid mål-höjden.
-    this._flag.position.set(820, slotY(this._goal - 1) - 10)
+    // Flaggan vid mål-höjden.
+    this._flag.position.set(880, slotY(this._goal - 1) - 8)
     this._flag.scale.set(1)
-    this._flagTween = gsap.to(this._flag, {
-      y: this._flag.y - 12,
-      duration: 1.1,
-      yoyo: true,
-      repeat: -1,
-      ease: 'sine.inOut',
-    })
+    this._flagTween?.kill()
+    this._flagTween = gsap.to(this._flag, { y: this._flag.y - 12, duration: 1.1, yoyo: true, repeat: -1, ease: 'sine.inOut' })
 
-    // Drag-controller: ett enda generöst target (markören) som tar emot ALLT.
-    this._drag = new DragController({ space: this._root, services: ctx.services })
-    this._drag.addTarget(this._slot, () => true, { hitRadius: 1500 })
+    this._ghost.visible = true
+    this._moveGhost()
 
     this._spawnBlock(ctx)
   },
 
+  // Skapa nästa kloss hängande i kranen (statisk; positionen sätts varje bildruta).
   _spawnBlock(ctx) {
     if (!this._alive) return
     if (this._count >= this._goal) {
       this._finishTower(ctx)
       return
     }
-    const i = this._count
-    const block = this._makeBlock(i)
-    block.position.set(BOX_X, BOX_BLOCK_Y)
-    this._root.addChild(block)
-    this._active = block
-    bounceIn(block)
+    this._expC = this._stackTopY - BH / 2
+    this._hoverY = Math.max(MIN_CARRIER_Y, this._expC - DROP_H)
 
-    this._drag.addItem(
-      block,
-      { i },
-      {
-        onSelect: () => {
-          this._idle = 0
-        },
-        onWrong: (rec) => {
-          if (!this._alive) return
-          this._idle = 0
-          ctx.services.audio.sfx('soft')
-          wiggle(rec.view)
-        },
-        onCorrect: (rec) => this._onCorrect(ctx, rec),
-      },
-    )
+    const i = this._count
+    const view = this._makeBlock(i)
+    const cx = this._supportX + Math.sin(this._t * CARRIER_W) * SWEEP
+    this._carrierX = cx
+    view.position.set(cx, this._hoverY)
+    this._blockLayer.addChild(view)
+
+    const body = this._phys.rectangle(cx, this._hoverY, BW, BH, { isStatic: true, ...BLOCK_OPTS })
+    this._phys.link(body, view)
+
+    this._active = { view, body }
+    this._phase = 'carry'
+    this._idle = 0
+    bounceIn(view)
   },
 
-  // Kloss snäppt på markören (DragController har redan flyttat den dit).
-  _onCorrect(ctx, rec) {
-    if (!this._alive || this._resolving) return
-    this._resolving = true
-    this._idle = 0
-    const i = this._count
-    const block = rec.view
+  // ---- Tryck → släpp klossen ----------------------------------------------
 
-    // Fäst klossen i tornet på exakt slot-position (tornet står rakt vid släpp).
-    this._sway = 0
-    if (this._tower && !this._tower.destroyed) {
-      this._tower.rotation = 0
-      if (!block.destroyed) {
-        this._tower.addChild(block)
-        block.position.set(BASE_X, slotY(i))
-        block.rotation = 0
-      }
+  _onTap(ctx, e) {
+    if (!this._alive) return
+    this._idle = 0
+    if (this._phase === 'carry' && this._active) {
+      this._dropActive(ctx)
+      return
     }
+    // Annars: alltid ett glatt svar på pekningen (aldrig "fel").
+    const p = this._root.toLocal(e.global)
+    ctx.services.audio.sfx('soft')
+    puff(ctx.fxLayer, p.x, p.y, { count: 5 })
+  },
+
+  _dropActive(ctx) {
+    if (!this._active) return
+    this._phase = 'fall'
+    this._fallT = 0
+    this._restT = 0
+    const b = this._active.body
+    Body.setStatic(b, false)
+    Body.setVelocity(b, { x: 0, y: 0 })
+    Body.setAngularVelocity(b, 0)
+    ctx.services.audio.sfx('whoosh')
+  },
+
+  // ---- Landning: lägg fast eller (no-fail) puffa bort ---------------------
+
+  _settleActive(ctx) {
+    if (!this._alive || !this._active) return
+    const b = this._active.body
+    const dx = Math.abs(b.position.x - this._supportX)
+    const dy = b.position.y - this._expC // positivt = den sjönk under förväntat
+    const ang = Math.abs(normAngle(b.angle))
+    const landedOnTop = dy < ACCEPT_DY && dx < ACCEPT_DX && ang < ACCEPT_ANGLE
+    if (landedOnTop) this._lockActive(ctx)
+    else this._rejectActive(ctx)
+  },
+
+  // Klossen vilade på stapeln → snäpp fast (statisk) så basen står stadigt.
+  _lockActive(ctx) {
+    const block = this._active
+    Body.setStatic(block.body, true)
+    const i = this._count
+    ctx.services.audio.sfx((i + 1) % 4 === 0 ? 'pop' : 'pling')
+    if (!block.view.destroyed) pop(block.view)
+    sparkle(ctx.fxLayer, block.body.position.x, block.body.position.y - BH / 2, { count: 6 })
+    ctx.services.voice.say(i < NUMBERS.length ? NUMBERS[i] : randomFrom(PLACE_LINES))
+    this._afterPlace(ctx, block)
+  },
+
+  // Klossen tippade av → ALDRIG ett fall: puffa bort den glatt, ge en ny.
+  // Efter ett par missar lägger kranen nästa kloss rakt på plats (auto-hjälp).
+  _rejectActive(ctx) {
+    const block = this._active
+    this._active = null
+    this._misses++
+    ctx.services.audio.sfx('soft')
+    const x = block.body.position.x
+    const y = block.body.position.y
+    if (block.body) this._phys.removeBody(block.body)
+    if (block.view && !block.view.destroyed) {
+      gsap.killTweensOf(block.view)
+      gsap.killTweensOf(block.view.scale)
+      block.view.destroy({ children: true })
+    }
+    puff(ctx.fxLayer, x, y, { count: 8 })
+    if (this._t - this._lastSay > 1.2) {
+      this._lastSay = this._t
+      ctx.services.voice.say(randomFrom(MISS_LINES))
+    }
+    this._phase = 'wait'
+    const helped = this._misses >= 2
+    this._spawnCall = gsap.delayedCall(0.28, () => {
+      if (!this._alive) return
+      if (helped) this._autoPlace(ctx)
+      else this._spawnBlock(ctx)
+    })
+  },
+
+  // Auto-hjälp (no-fail-garanti): lägg en kloss prydligt och statiskt rakt på stapeln.
+  _autoPlace(ctx) {
+    if (!this._alive) return
+    const i = this._count
+    const expC = this._stackTopY - BH / 2
+    const view = this._makeBlock(i)
+    view.position.set(this._supportX, expC)
+    this._blockLayer.addChild(view)
+    const body = this._phys.rectangle(this._supportX, expC, BW, BH, { isStatic: true, ...BLOCK_OPTS })
+    this._phys.link(body, view)
+    bounceIn(view)
+    ctx.services.audio.sfx('magi')
+    sparkle(ctx.fxLayer, this._supportX, expC - BH / 2, { count: 8 })
+    ctx.services.voice.say('Jag hjälper till!')
+    this._afterPlace(ctx, { view, body })
+  },
+
+  // Gemensamt efter att en kloss lagts: uppdatera stödpunkt, räkna, gå vidare.
+  _afterPlace(ctx, block) {
     this._placed.push(block)
     this._active = null
     this._count++
-
-    // Återkoppling < 100ms: ljud + glad puls + gnistror + extra torn-gunga.
-    ctx.services.audio.sfx(this._count % 4 === 0 ? 'pop' : 'pling')
-    if (!block.destroyed) pop(block)
-    this._wobble = 0.05
-    sparkle(ctx.fxLayer, BASE_X, slotY(i))
-    ctx.services.voice.say(this._count <= NUMBERS.length ? NUMBERS[this._count - 1] : randomFrom(PLACE_LINES))
+    this._misses = 0
+    // Ny stödpunkt = klossens topp-mitt (klampad så tornet håller sig byggbart/på skärm).
+    this._supportX = clamp(block.body.position.x, BASE_X - MAX_DRIFT, BASE_X + MAX_DRIFT)
+    this._stackTopY = block.body.position.y - BH / 2
+    this._phase = 'wait'
 
     if (this._count >= this._goal) {
       this._finishTower(ctx)
       return
     }
-
-    // Flytta markören upp och spawna nästa kloss FÖRST när allt landat.
-    gsap.to(this._slot, { y: slotY(this._count), duration: 0.3, ease: 'back.out(1.6)' })
-    this._spawnTimer = gsap.delayedCall(0.18, () => {
+    this._moveGhost()
+    this._spawnCall = gsap.delayedCall(0.22, () => {
       if (!this._alive) return
-      this._resolving = false
       this._spawnBlock(ctx)
     })
   },
 
-  // Mål-höjden nådd: glad flagga, delat firande, "studsa isär"-puff, ny högre runda.
+  _moveGhost() {
+    if (!this._ghost || this._ghost.destroyed) return
+    this._ghost.position.set(this._supportX, this._stackTopY - BH / 2)
+  },
+
+  // ---- Mål-höjden nådd: firande + ny högre runda --------------------------
+
   _finishTower(ctx) {
-    if (!this._alive || this._celebrating) return
-    this._celebrating = true
-    this._resolving = true
-    this._idle = 0
+    if (!this._alive || this._phase === 'finish') return
+    this._phase = 'finish'
+    this._spawnCall?.kill()
+    this._ghost.visible = false
 
-    // Markören vilar; flaggan hoppar glatt.
-    gsap.killTweensOf(this._slot)
-    this._slot.visible = false
+    // Flaggan hoppar glatt.
     this._flagTween?.kill()
-    pop(this._flag)
-    this._flagTween = gsap.to(this._flag, {
-      y: this._flag.y - 26,
-      duration: 0.18,
-      yoyo: true,
-      repeat: 3,
-      ease: 'power1.inOut',
-    })
+    if (!this._flag.destroyed) {
+      pop(this._flag)
+      this._flagTween = gsap.to(this._flag, { y: this._flag.y - 24, duration: 0.18, yoyo: true, repeat: 3, ease: 'power1.inOut' })
+    }
 
-    // Spara förlopp och kör delat firande (celebrate-ljud + beröm + konfetti +
-    // stjärna + klistermärke sköts av ctx.progress.complete()).
+    ctx.services.audio.sfx('correct')
+    ctx.services.audio.sfx('celebrate')
+    ctx.services.voice.say('Hurra! Vilket högt torn!')
+    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    for (const b of this._placed) sparkle(ctx.fxLayer, b.body.position.x, b.body.position.y, { count: 4 })
+
+    // Spara förlopp + delat firande (stjärna + klistermärke).
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('torn', (ctx.progress.get().custom?.torn || 0) + 1)
     ctx.progress.complete()
 
-    // Glad "vinst"-gunga + exit-säkra puffar vid varje våning (aldrig ett fall).
-    this._wobble = 0.13
-    this._placed.forEach((_, idx) => puff(ctx.fxLayer, BASE_X, slotY(idx), { count: 6 }))
-
-    this._celebrate = gsap.delayedCall(1.5, () => {
+    this._finishCall = gsap.delayedCall(2.0, () => {
       if (this._alive) this._newTower(ctx)
     })
+  },
+
+  // ---- Uppdatering --------------------------------------------------------
+
+  _update(ctx, ticker) {
+    if (!this._alive) return
+    const dt = ticker.deltaMS / 1000
+    this._t += dt
+
+    // Bär klossen längs svepet (statisk kropp: vi sätter position/vinkel manuellt).
+    if (this._phase === 'carry' && this._active) {
+      const cx = this._supportX + Math.sin(this._t * CARRIER_W) * SWEEP
+      this._carrierX = cx
+      Body.setPosition(this._active.body, { x: cx, y: this._hoverY })
+      Body.setAngle(this._active.body, 0)
+    }
+
+    // Stega fysiken (fast tidssteg) och synka vyerna.
+    this._phys.update(ticker.deltaMS)
+
+    // Rita kran-tralla + lina endast medan vi bär.
+    this._drawCrane(this._phase === 'carry' && this._active ? this._active.view : null)
+
+    // Faller → vänta tills klossen lugnat sig → lägg fast eller puffa bort.
+    if (this._phase === 'fall' && this._active) {
+      this._fallT += dt
+      const b = this._active.body
+      const slow = b.speed < REST_SPEED && b.angularSpeed < ANG_REST
+      this._restT = slow ? this._restT + dt : 0
+      if ((this._fallT > 0.25 && this._restT > REST_HOLD) || this._fallT > MAX_FALL) {
+        this._settleActive(ctx)
+      }
+    }
+
+    // Idle-recue (endast medan vi bär): upprepa instruktionen + locka klossen.
+    if (this._phase === 'carry') {
+      this._idle += dt
+      if (this._idle > IDLE_DELAY) {
+        this._idle = 0
+        ctx.services.voice.say(this.voiceIntro)
+        if (this._active && !this._active.view.destroyed) pop(this._active.view)
+      }
+    }
+  },
+
+  _drawCrane(blockView) {
+    const g = this._crane
+    if (!g || g.destroyed) return
+    g.clear()
+    if (!blockView || blockView.destroyed) return
+    const cx = this._carrierX
+    // Tralla på rälsen.
+    g.roundRect(cx - 34, RAIL_Y - 12, 68, 24, 8).fill(COLORS.inkSoft)
+    g.circle(cx - 18, RAIL_Y + 13, 6).fill(COLORS.ink)
+    g.circle(cx + 18, RAIL_Y + 13, 6).fill(COLORS.ink)
+    // Lina ner till klossens topp + liten krok.
+    g.moveTo(cx, RAIL_Y + 13).lineTo(blockView.x, blockView.y - BH / 2).stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.9 })
+    g.circle(blockView.x, blockView.y - BH / 2, 6).stroke({ width: 4, color: COLORS.inkSoft })
+  },
+
+  // Mjuk "klack" när en fallande kloss slår i stapeln/marken (strypt mot ljud-spam).
+  _onCollision(ctx, e) {
+    if (!this._alive) return
+    if (this._t - this._lastHit < HIT_THROTTLE) return
+    for (const pair of e.pairs) {
+      const involves = pair.bodyA.label === 'block' || pair.bodyB.label === 'block'
+      if (!involves) continue
+      if (pair.bodyA.speed + pair.bodyB.speed < 2.2) continue
+      this._lastHit = this._t
+      ctx.services.audio.sfx('tap')
+      break
+    }
   },
 
   // En chunky LEGO-aktig kloss: rundad rektangel + två studs-cirklar + skuggrad.
@@ -281,94 +455,80 @@ export default {
     const c = new Container()
     const color = PLAYFUL[i % PLAYFUL.length]
     const g = new Graphics()
-      .roundRect(-BW / 2, -BH / 2, BW, BH, 16)
+      .roundRect(-BW / 2, -BH / 2, BW, BH, 14)
       .fill(color)
       .stroke({ width: 5, color: COLORS.white, alpha: 0.7 })
-    // skuggrad nedtill (volym)
-    g.roundRect(-BW / 2 + 10, BH / 2 - 16, BW - 20, 10, 6).fill({ color: darken(color, 0.22), alpha: 0.55 })
-    // två studs upptill (LEGO-känsla)
+    // Skuggrad nedtill (volym).
+    g.roundRect(-BW / 2 + 10, BH / 2 - 14, BW - 20, 9, 5).fill({ color: darken(color, 0.22), alpha: 0.55 })
+    // Två studs upptill (LEGO-känsla).
     for (const sx of [-50, 50]) {
-      g.circle(sx, -BH / 2 + 9, 12).fill({ color: lighten(color, 0.3) })
+      g.circle(sx, -BH / 2 + 9, 11).fill({ color: lighten(color, 0.3) })
     }
     c.addChild(g)
+    c.eventMode = 'none'
+    c.interactiveChildren = false
     return c
   },
 
-  // ---- Bakgrund, sway & idle ---------------------------------------------
+  // ---- Städning (exit-säkert) --------------------------------------------
 
-  _bgTap(ctx, e) {
-    if (!this._alive) return
-    this._idle = 0
-    ctx.services.audio.sfx('soft')
-    if (this._drag?.selected) return // ett tap-tap-släpp pågår -> markören sköter det
-    const p = this._root.toLocal(e.global)
-    puff(ctx.fxLayer, p.x, p.y, { count: 6 })
-  },
-
-  _update(ctx, ticker) {
-    if (!this._alive) return
-    const dt = ticker.deltaMS / 1000
-    this._t += dt
-    this._idle += dt
-
-    // Tornets sway + glad wobble — EN skrivare av tower.rotation. Sway dämpas under
-    // drag så snäpp-koordinaterna stämmer; wobble är en avtagande extra-gunga.
-    if (this._tower && !this._tower.destroyed) {
-      const dragging = !!(this._drag && this._drag.active)
-      const amp = Math.min(0.004 * this._count, 0.045)
-      const swayTarget = dragging ? 0 : Math.sin(this._t * 1.6) * amp
-      this._sway += (swayTarget - this._sway) * Math.min(1, dt * 5)
-      this._wobble *= Math.exp(-7 * dt)
-      this._tower.rotation = this._sway + Math.sin(this._t * 22) * this._wobble
-    }
-
-    // Markören andas mjukt.
-    if (this._slot && !this._slot.destroyed && this._slot.visible) {
-      this._slot.scale.set(1 + Math.sin(this._t * 4) * 0.06)
-    }
-
-    // Idle-recue efter ~6s: upprepa instruktionen + blinka markören/nudga klossen.
-    if (this._idle > 6 && !this._celebrating) {
-      this._idle = 0
-      ctx.services.voice.say(this.voiceIntro)
-      if (this._slot && !this._slot.destroyed && this._slot.visible) {
-        gsap.fromTo(this._slot, { alpha: 0.35 }, { alpha: 1, duration: 0.45, repeat: 1, yoyo: true })
-      }
-      if (this._active && !this._active.destroyed && !this._drag?.active && !this._drag?.selected) {
-        pop(this._active)
+  _clearBlocks() {
+    const all = [...this._placed]
+    if (this._active) all.push(this._active)
+    for (const b of all) {
+      if (b.body) this._phys.removeBody(b.body)
+      if (b.view && !b.view.destroyed) {
+        gsap.killTweensOf(b.view)
+        gsap.killTweensOf(b.view.scale)
+        b.view.destroy({ children: true })
       }
     }
+    this._placed = []
+    this._active = null
   },
 
   destroy(ctx) {
     this._alive = false
-    ctx?.ticker?.remove(this._tick)
-    this._spawnTimer?.kill()
-    this._celebrate?.kill()
+    if (this._tick) ctx?.ticker?.remove(this._tick)
+    this._unbind?.()
+    this._spawnCall?.kill()
+    this._finishCall?.kill()
     this._flagTween?.kill()
-    this._drag?.destroy()
-    for (const b of this._placed || []) {
-      if (!b.destroyed) {
-        gsap.killTweensOf(b)
-        gsap.killTweensOf(b.scale)
+    this._ghostTween?.kill()
+
+    if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onCatch)
+
+    // Döda tweens på ALLA klossvyer (barnet kan avsluta mitt i ett fall/firande).
+    const all = [...(this._placed || [])]
+    if (this._active) all.push(this._active)
+    for (const b of all) {
+      if (b.view && !b.view.destroyed) {
+        gsap.killTweensOf(b.view)
+        gsap.killTweensOf(b.view.scale)
       }
-    }
-    if (this._active && !this._active.destroyed) {
-      gsap.killTweensOf(this._active)
-      gsap.killTweensOf(this._active.scale)
-    }
-    if (this._tower && !this._tower.destroyed) gsap.killTweensOf(this._tower)
-    if (this._slot && !this._slot.destroyed) {
-      gsap.killTweensOf(this._slot)
-      gsap.killTweensOf(this._slot.scale)
     }
     if (this._flag && !this._flag.destroyed) {
       gsap.killTweensOf(this._flag)
       gsap.killTweensOf(this._flag.scale)
     }
+    if (this._ghost && !this._ghost.destroyed) {
+      gsap.killTweensOf(this._ghost)
+      gsap.killTweensOf(this._ghost.scale)
+    }
+
+    this._phys?.destroy()
     gsap.killTweensOf(this._root)
+    ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// Normalisera vinkel till [-π, π].
+function normAngle(a) {
+  a %= Math.PI * 2
+  if (a > Math.PI) a -= Math.PI * 2
+  if (a < -Math.PI) a += Math.PI * 2
+  return a
 }
 
 function lighten(hex, amt) {

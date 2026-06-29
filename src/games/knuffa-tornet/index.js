@@ -33,6 +33,15 @@ const THETA_REST = 0.9 // vilo-spänning (~51°), standardkraft vid tap
 const THETA_MIN = 0.45 // minsta spänning
 const THETA_MAX = 1.45 // största spänning (~83°)
 
+// Sikt-känslighet: hur mycket pendel-spänning (radianer) varje pixels DRAGRÖRELSE ger.
+// Tidigare användes pekarens ABSOLUTA vinkel runt kranpivoten -> hypersensitivt när
+// fingret kom nära pivoten (toppen). Nu styrs spänningen av hur långt barnet dragit
+// kulan från greppunkten: lugnt, förutsägbart och förlåtande. Dra bakåt/upp (vänster +
+// upp) = mer kraft; dra fram/ner = mindre. Horisontellt drag dominerar; ~150px vänster-
+// drag (eller mindre med lite uppåt) räcker för full kraft. Sänk talen för ännu lugnare.
+const AIM_SENS_X = 0.0038
+const AIM_SENS_Y = 0.0018
+
 const FLOOR_Y = 720
 const LEDGE_Y = 480 // avsatsens översida (klossarna står här)
 const PED = { x1: 640, x2: 1180 } // avsatsens vänster/höger-kant
@@ -376,6 +385,7 @@ export default {
     this._idle = 0
     this._aiming = true
     this._down = this._root.toLocal(e.global)
+    this._grabTheta = this._theta // relativ siktning utgår från spänningen vid grepp
     ctx.services.audio.sfx('tap')
     if (!this._ballView.destroyed) pop(this._ballView)
     this._drawHint(this._theta)
@@ -387,7 +397,7 @@ export default {
   _ballMove(ctx, e) {
     if (!this._aiming) return
     const p = this._root.toLocal(e.global)
-    this._theta = this._angleFromPoint(p)
+    this._theta = this._thetaFromDrag(p)
     this._freezeBall(this._theta)
     this._drawHint(this._theta)
   },
@@ -401,12 +411,14 @@ export default {
     this._release(ctx)
   },
 
-  _angleFromPoint(p) {
-    const dx = p.x - PIVOT.x
-    const dy = p.y - PIVOT.y
-    // vinkel från lodrätt nedåt, positiv åt vänster (mer = mer kraft)
-    const theta = Math.atan2(-dx, dy)
-    return clamp(theta, THETA_MIN, THETA_MAX)
+  // Relativ, förutsägbar siktning: spänningen ändras utifrån hur långt barnet DRAGIT
+  // kulan från greppunkten (inte absolut pekvinkel). Dra bakåt/upp (vänster + upp) ger
+  // mer kraft, dra fram/ner ger mindre. Ingen "jump" vid grepp (delta=0 där).
+  _thetaFromDrag(p) {
+    const ddx = p.x - this._down.x
+    const ddy = p.y - this._down.y
+    const delta = -ddx * AIM_SENS_X + -ddy * AIM_SENS_Y
+    return clamp((this._grabTheta ?? THETA_REST) + delta, THETA_MIN, THETA_MAX)
   },
 
   // Placera den STATISKA kulan på pendelcirkeln vid spänningsvinkel theta.

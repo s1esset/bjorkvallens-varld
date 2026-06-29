@@ -1,40 +1,64 @@
-// Rulla Bollen Hem — mjuk fysik-/motoriklek (3–5 år). Barnet "siktar och knuffar":
-// drar bollen i en riktning och släpper, så bollen får en fart baserad på dragvektorn
-// och rullar med lätt friktion, studsar mjukt mot väggar och hinder och söker sig till
-// målet. Bollen kan ALDRIG misslyckas: stannar den utan mål får den en mjuk auto-knuff,
-// och fastnar den glider den hela vägen hem av sig själv — alltid jubel, aldrig ett
-// "game over". Drag = sikta-knuffa, med tap-tap-fallback (tryck boll, tryck sedan i
-// banan/målet). Allt ritas programmatiskt (Pixi Graphics + system-emoji) — inga filer.
+// Rulla Bollen Hem — minigolf-fysik sedd ovanifrån (3–5 år). Barnet SIKTAR och
+// rullar bollen hem i målet: greppar bollen, drar för att välja riktning + kraft
+// (en prickad bana visar EXAKT var bollen rullar och stannar) och släpper — bollen
+// rullar iväg som en riktig matter.js-kropp utan gravitation (toppvy), bromsas av
+// ytans luftmotstånd (= friktion) och studsar mjukt mot planens väggar tills den
+// stannar. Nästa skott går från det nya viloläget (precis som riktig minigolf), så
+// bollen kommer steg för steg närmare. EXTRA KONTROLL: en yt-knapp växlar Gräs ↔ Is
+// — is glider mycket längre (lägre frictionAir) och pricklinjen uppdateras direkt så
+// förhandsvisningen alltid stämmer. INGET misslyckande: stannar bollen utan mål blir
+// det en glad puff + vingel, och efter ett par stopp får den först ett nästan-perfekt
+// hjälp-skott och sedan en garanterad hemrullning — alltid jubel, aldrig "game over".
+// Allt ritas programmatiskt (Pixi Graphics + system-emoji) — inga filer.
 //
-// OBS: DragControllern passar inte här — släppet ska ge en KNUFF (fart) snarare än en
-// snäpp till ett mål (se spec rad 43–49), så pekar-/tap-tap-logiken är egen men följer
-// samma snäll-principer (stor träffyta, tap-tap, snäll respons på varje pekning).
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+// Kalibrering (uppmätt mot matter vid fast 1/60-steg): toppvy => gravityY = 0, så
+// previewGravity = 0; utrullningen styrs helt av luftmotståndet och matter dämpar
+// farten ~(1 - frictionAir) per steg, så previewDamp = 1 - frictionAir får pricklinjen
+// att stanna på exakt samma punkt som bollen. Skott-farten (Body.setVelocity) är samma
+// vektor som AimLauncher matar förhandsvisningen med -> linjen och bollen följs åt.
+import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bigCelebration, puff, sparkle, pop } from '../../lib/feedback.js'
-import { FONT } from '../../lib/theme.js'
+import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { AimLauncher } from '../../lib/launcher.js'
+import { Button } from '../../lib/Button.js'
+import { bigCelebration, puff, sparkle, pop, wiggle, floatText } from '../../lib/feedback.js'
+import { FONT, COLORS } from '../../lib/theme.js'
+import { randomFrom } from '../../lib/swedish.js'
 
 // Layout i designkoordinater (1280×720).
 const FIELD = { x: 60, y: 120, w: 1160, h: 560, r: 32 }
-const WALL = { l: 60, r: 1220, t: 120, b: 680 } // innerväggar (studsväggar)
+const WALL = { l: 60, r: 1220, t: 120, b: 680 } // planens inre studskanter
 const BALL_R = 56
-const BALL_HALO = 80 // osynlig träffradie
-const BALL_START = { x: 180, y: 400 }
+const BALL_START = { x: 200, y: 400 }
 
-const FRICTION = 0.985 // mjuk inbromsning per frame
-const MAX_V = 28 // hastighetstak (bollen kan aldrig skjutas ut ur banan på ett frame)
-const STILL_SPEED = 0.4 // under detta räknas bollen som stillastående
-const AUTO_HELP_DELAY = 2.5 // s stillastående innan auto-hjälp
-const IDLE_DELAY = 6 // s utan interaktion innan röst-recue
-const BOUNCE_THROTTLE = 0.16 // s mellan studsljud (anti-spam)
+// Ytor (extra kontroll). frictionAir = ytans bromsning: gräs bromsar mer (kort, lugn
+// rull), is bromsar mindre (lång, hal glidning med fler studsar). Bollens utrullning
+// ≈ v0 × (1 - fa) / fa, så is rullar ~2× så långt som gräs vid samma kraft.
+const SURFACES = [
+  { key: 'gras', label: 'Gräs', icon: '🌱', frictionAir: 0.028 },
+  { key: 'is', label: 'Is', icon: '🧊', frictionAir: 0.014 },
+]
 
-// Färger (spec).
+const BALL_REST = 0.55 // bollens (och väggarnas) studsighet — mjuka studsar
+const REST_SPEED = 0.6 // matter-fart under detta = bollen stannar
+const REST_DWELL = 0.28 // s under REST_SPEED innan vi räknar bollen som stilla
+const MAX_ROLL = 6 // s rullning innan vi tvingar stopp (extra säkerhet)
+const IDLE_DELAY = 6 // s utan handling innan röst-recue
+const BOUNCE_THROTTLE = 0.14 // s mellan studsljud (anti-spam)
+
+// Förhandsvisningens väggar (bollens MITT studsar här). predict saknar takvägg, så
+// banorna är gjorda så att direkt-/sido-/golvstudsar räcker — topp-studs behövs aldrig.
+const PREVIEW_BOUNDS = { floorY: WALL.b - BALL_R, leftX: WALL.l + BALL_R, rightX: WALL.r - BALL_R, restitution: BALL_REST }
+
+// Färger.
 const C_GRASS = 0x7ec850
 const C_FIELD = 0x8fd65e
 const C_FIELD_EDGE = 0x5fa83c
-const C_OBST = 0xb5793a
-const C_OBST_EDGE = 0x8a5a28
 const C_GOAL = 0xffd84a
+
+const IDLE_CUES = ['Sikta och rulla bollen hem!', 'Dra i bollen och släpp – rulla hem den!', 'Sikta mot målet och släpp!']
+const MISS_CUES = ['Nästan! Rulla igen.', 'Försök en gång till!', 'Nästan framme – en gång till!']
+const WIN_CUES = ['Mål! Du klarade det!', 'Hurra! Bollen är hemma!', 'Bra rullat! Rakt i mål!']
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -46,32 +70,84 @@ export default {
   input: 'drag',
   ageRange: [3, 5],
   bundle: 'rulla-bollen-hem',
-  voiceIntro: 'Dra bollen till målet och släpp!',
+  voiceIntro: 'Sikta och rulla bollen hem i målet!',
 
   init(ctx) {
     this._alive = true
     this._t = 0
     this._idle = 0
-    this._still = 0
-    this._helpStage = 0
-    this._vx = 0
-    this._vy = 0
-    this._incoming = 0
+    this._restT = 0
+    this._rollT = 0
+    this._mode = 'aim' // aim | rolling | gliding | resolving
+    this._misses = 0
+    this._assisting = false
     this._lastBounce = -1
-    this._aiming = false
-    this._selected = false
-    this._resolving = false
-    this._gliding = false
-    this._touched = false
-    this._obstacles = []
-    this._goalPos = { x: 1090, y: 400 }
-    this._goalR = 110
+    this._surfaceIdx = 0
+    this._home = { x: 1060, y: 400, r: 110 }
+    this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
     this._buildScene(ctx)
-    this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
+
+    // Fysik: toppvy => INGEN gravitation. Egna studsväggar längs planens insida
+    // (inte skärmkanten), så bollen alltid hålls kvar inne på planen (no-fail).
+    this._phys = new PhysicsWorld({ gravityY: 0, walls: [] })
+    this._buildWalls()
+
+    // Boll-kropp (persistent: vilar där den stannar och skjuts om från nya läget).
+    this._ballBody = this._phys.circle(BALL_START.x, BALL_START.y, BALL_R, {
+      restitution: BALL_REST,
+      friction: 0.04,
+      frictionAir: SURFACES[0].frictionAir,
+      density: 0.0012,
+      label: 'ball',
+    })
+    // Toppvy-puck: lås vinkeln (ingen snurr från studsar) så containern står upprätt
+    // och skuggan stannar under bollen — endast emojin roteras (rull-känsla).
+    Body.setInertia(this._ballBody, Infinity)
+    this._phys.link(this._ballBody, this._ball) // synkar bara position (vinkel = 0)
+
+    this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+
+    // Sikt-/skjut-kontroll: dra för riktning + kraft, prickad bana = exakt utrullning.
+    // slingshot:false => man drar ÅT det håll bollen ska rulla (knuff, inte slangbella).
+    this._launcher = new AimLauncher({
+      target: this._ball,
+      root: this._root,
+      audio: ctx.services.audio,
+      slingshot: false,
+      hitRadius: 92,
+      maxPower: 26,
+      minPower: 8,
+      powerScale: 0.16,
+      tapPower: 0.85, // ett litet tap skjuter nästan hela vägen mot målet (snällt)
+      trailColor: 0xffffff,
+      previewGravity: 0, // toppvy: ingen gravitation i pricklinjen
+      previewWind: 0,
+      previewDamp: 1 - SURFACES[0].frictionAir, // = ytans bromsning -> linjen stannar rätt
+      bounds: { ...PREVIEW_BOUNDS },
+      getOrigin: () => ({ x: this._ball.x, y: this._ball.y }),
+      defaultAim: () => ({ x: this._home.x, y: this._home.y }),
+      onGrab: () => {
+        this._idle = 0
+        if (this._ball && !this._ball.destroyed) pop(this._ball)
+      },
+      onAim: () => {
+        this._idle = 0
+      },
+      onLaunch: (v) => {
+        this._assisting = false
+        this._shoot(ctx, v.vx, v.vy)
+      },
+    })
+
+    // Bollen läggs överst (ovanför pricklinjen och målet).
+    this._root.addChild(this._ball)
+
+    this._buildSurfaceUI(ctx)
+
     this._loadLevel(ctx, this._level)
 
     this._tick = (ticker) => this._update(ctx, ticker)
@@ -83,17 +159,17 @@ export default {
     ctx.services.voice.say(this.voiceIntro)
   },
 
-  // ---- Statisk scen (byggs en gång, återanvänds mellan banor) -------------
+  // ---- Statisk scen -------------------------------------------------------
 
   _buildScene(ctx) {
-    // Gräsbakgrund: fångar fält-tap (tap-tap-fallback). Heltäckande.
+    // Gräs-bakgrund: fångar tap utanför bollen -> liten glad puff (varje pekning syns).
     this._bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(C_GRASS)
     this._bg.eventMode = 'static'
-    this._onFieldTap = (e) => this._fieldTap(ctx, e)
-    this._bg.on('pointertap', this._onFieldTap)
+    this._onBgTap = (e) => this._bgTap(ctx, e)
+    this._bg.on('pointertap', this._onBgTap)
     this._root.addChild(this._bg)
 
-    // Banram med rundade hörn (studsväggar) — dekorativ, släpper tap igenom.
+    // Spelplan med rundade hörn (studsväggar) — dekorativ, släpper tap igenom.
     const frame = new Graphics()
       .roundRect(FIELD.x, FIELD.y, FIELD.w, FIELD.h, FIELD.r)
       .fill(C_FIELD)
@@ -103,447 +179,266 @@ export default {
     frame.eventMode = 'none'
     this._root.addChild(frame)
 
-    // Hinderlager (byggs om per nivå).
-    this._obstacleLayer = new Container()
-    this._obstacleLayer.eventMode = 'none'
-    this._obstacleLayer.interactiveChildren = false
-    this._root.addChild(this._obstacleLayer)
+    // Is-overlay (visas mjukt när ytan = is): ljusblå isyta med glansstreck.
+    this._iceOverlay = new Graphics()
+    this._iceOverlay.roundRect(FIELD.x, FIELD.y, FIELD.w, FIELD.h, FIELD.r).fill({ color: 0xcdeeff })
+    this._iceOverlay.roundRect(FIELD.x + 60, FIELD.y + 50, FIELD.w * 0.5, 18, 9).fill({ color: 0xffffff, alpha: 0.5 })
+    this._iceOverlay.roundRect(FIELD.x + 260, FIELD.y + 190, FIELD.w * 0.4, 14, 7).fill({ color: 0xffffff, alpha: 0.4 })
+    this._iceOverlay.roundRect(FIELD.x + 120, FIELD.y + 360, FIELD.w * 0.34, 12, 6).fill({ color: 0xffffff, alpha: 0.35 })
+    this._iceOverlay.alpha = 0
+    this._iceOverlay.eventMode = 'none'
+    this._root.addChild(this._iceOverlay)
 
-    // Mål (persistent — flyttas/ändras per nivå).
-    this._buildGoal()
-
-    // Siktpil (dekorativ, ritas om vid drag).
-    this._aimArrow = new Graphics()
-    this._aimArrow.eventMode = 'none'
-    this._aimArrow.visible = false
-    this._root.addChild(this._aimArrow)
-
-    // Boll (persistent).
-    this._buildBall(ctx)
+    this._buildHome()
+    this._buildBall()
   },
 
-  _buildGoal() {
-    this._goal = new Container()
-    this._goal.eventMode = 'none' // tap passerar till bg (tap-på-mål hanteras i _fieldTap)
-    this._goalGlow = new Graphics() // målzon-glödring, ritas om per nivå
+  _buildHome() {
+    this._homeC = new Container()
+    this._homeC.eventMode = 'none' // tap passerar igenom (bollens skott avgör målet)
+    this._homeC.interactiveChildren = false
+    this._homeGlow = new Graphics() // målzon-ring (ritas om per nivå, andas)
     const net = new Graphics().roundRect(-75, -85, 150, 170, 24).fill({ color: 0xffffff, alpha: 0.5 })
     const e = new Text({ text: '🥅', style: { fontFamily: FONT.body, fontSize: 120 } })
     e.anchor.set(0.5)
-    this._goal.addChild(this._goalGlow, net, e)
-    this._root.addChild(this._goal)
-    // Mjuk andning på glödringen (drar blicken mot målet).
-    this._goalTween = gsap.to(this._goalGlow.scale, { x: 1.12, y: 1.12, duration: 1.2, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    this._homeC.addChild(this._homeGlow, net, e)
+    this._root.addChild(this._homeC)
+    // Mjuk andning på målringen (drar blicken mot målet).
+    this._goalTween = gsap.to(this._homeGlow.scale, { x: 1.12, y: 1.12, duration: 1.2, yoyo: true, repeat: -1, ease: 'sine.inOut' })
   },
 
-  _buildBall(ctx) {
+  _buildBall() {
     this._ball = new Container()
     this._ball.position.set(BALL_START.x, BALL_START.y)
-    // Markskugga (mörk ellips, roterar ej — ligger i containern men containern roterar ej).
     const shadow = new Graphics().ellipse(0, BALL_R * 0.92, BALL_R * 0.9, BALL_R * 0.34).fill({ color: 0x000000, alpha: 0.16 })
-    // Vit skuggcirkel bakom bollen (mjuk halo).
     const disc = new Graphics().circle(0, 0, BALL_R * 0.92).fill({ color: 0xffffff, alpha: 0.9 })
-    // Bollens emoji — ENDAST denna roteras (rull-känsla).
+    // ENDAST emojin roteras (rull-känsla); containern hålls upprätt av link (vinkel 0).
     this._ballEmoji = new Text({ text: '⚽', style: { fontFamily: FONT.body, fontSize: 96 } })
     this._ballEmoji.anchor.set(0.5)
+    shadow.eventMode = 'none'
+    disc.eventMode = 'none'
+    this._ballEmoji.eventMode = 'none'
     this._ball.addChild(shadow, disc, this._ballEmoji)
-    this._ball.eventMode = 'static'
-    this._ball.cursor = 'pointer'
-    this._ball.hitArea = new Circle(0, 0, BALL_HALO)
-    this._onBallDown = (e) => this._ballDown(ctx, e)
-    this._onBallMove = (e) => this._ballMove(e)
-    this._onBallUp = (e) => this._ballUp(ctx, e)
-    this._ball.on('pointerdown', this._onBallDown)
+    // Bollen blir AimLaunchers target (den sätter eventMode + hit-halo själv).
     this._root.addChild(this._ball)
+  },
+
+  // Fyra tjocka, statiska studsväggar vars insidor ligger exakt vid planens kanter.
+  _buildWalls() {
+    const T = 220
+    const W = 1280
+    const H = 720
+    const opt = { isStatic: true, restitution: BALL_REST, friction: 0.04, label: 'wall' }
+    this._phys.rectangle(WALL.l - T / 2, H / 2, T, H + 600, opt) // vänster
+    this._phys.rectangle(WALL.r + T / 2, H / 2, T, H + 600, opt) // höger
+    this._phys.rectangle(W / 2, WALL.t - T / 2, W + 600, T, opt) // topp
+    this._phys.rectangle(W / 2, WALL.b + T / 2, W + 600, T, opt) // botten
   },
 
   // ---- Banor (nivåberoende) -----------------------------------------------
 
   _layoutFor(level) {
-    const O = (x, y) => ({ x, y, w: 120, h: 120 })
-    // Jitter bara på höga nivåer -> oändlig variation utan att bryta fri sikt.
-    const jit = level >= 6 ? () => Math.random() * 60 - 30 : () => 0
-    let goal
-    let obstacles
+    const start = { ...BALL_START }
+    let home
     if (level <= 1) {
-      goal = { x: 1090, y: 400, r: 110 } // rak väg, lär ut knuffen
-      obstacles = []
+      home = { x: 1060, y: 400, r: 110 } // rak väg, lär ut sikt + kraft
     } else if (level <= 3) {
-      goal = { x: 1090, y: 400, r: 110 }
-      obstacles = [O(640, 400)]
+      home = { x: 1090, y: level % 2 ? 260 : 540, r: 100 } // upp/ner -> sikta i vinkel
     } else if (level <= 5) {
-      goal = { x: 1090, y: 240, r: 110 }
-      obstacles = [O(520, 300), O(780, 500)]
+      home = { x: 1130, y: level % 2 ? 232 : 568, r: 95 } // nära hörnet -> studsskott lönar sig
     } else {
-      goal = { x: 1090, y: level % 2 ? 240 : 400, r: 95 } // mindre zon, aldrig under 90
-      obstacles = [O(470, 260), O(680, 460), O(890, 260)] // lätt slalom
+      const yBase = level % 2 ? 232 : 560
+      const jitter = Math.random() * 70 - 35
+      home = { x: clamp(1080 + (level - 6) * 8, 1000, 1150), y: clamp(yBase + jitter, 210, 590), r: 88 }
+      start.y = clamp(400 + (Math.random() * 120 - 60), 280, 520)
     }
-    obstacles.forEach((o) => {
-      o.x += jit()
-      o.y += jit()
-    })
-    return { goal, obstacles }
+    return { home, start }
   },
 
   _loadLevel(ctx, level) {
     if (!this._alive) return
-    // Nollställ tillstånd.
-    this._resolving = false
-    this._gliding = false
-    this._aiming = false
-    this._touched = false
-    this._vx = 0
-    this._vy = 0
-    this._incoming = 0
-    this._still = 0
-    this._helpStage = 0
+    this._mode = 'aim'
+    this._misses = 0
+    this._assisting = false
+    this._restT = 0
+    this._rollT = 0
     this._idle = 0
 
-    this._deselect()
-    this._hideAim()
-    this._detachBall()
+    // Yta tillbaka till gräs vid varje ny bana (tyst — ingen röst/effekt).
+    this._setSurface(ctx, 0, { silent: true })
 
-    // Boll tillbaka till start, rak och full storlek.
+    const lay = this._layoutFor(level)
+    this._home = lay.home
+    this._positionHome()
+
+    // Bollen tillbaka till start, upprätt och full storlek.
     gsap.killTweensOf(this._ball)
     gsap.killTweensOf(this._ball.scale)
-    this._ball.position.set(BALL_START.x, BALL_START.y)
     this._ball.scale.set(1)
     this._ball.alpha = 1
     this._ballEmoji.rotation = 0
+    Body.setVelocity(this._ballBody, { x: 0, y: 0 })
+    Body.setPosition(this._ballBody, { x: lay.start.x, y: lay.start.y })
+    this._ball.position.set(lay.start.x, lay.start.y)
 
-    this._applyLayout(level)
-
-    // Liten "redo"-puls på bollen.
+    this._launcher.setEnabled(true)
     if (!this._ball.destroyed) pop(this._ball)
   },
 
-  _applyLayout(level) {
-    const { goal, obstacles } = this._layoutFor(level)
-    this._goalPos = { x: goal.x, y: goal.y }
-    this._goalR = goal.r
-    this._goal.position.set(goal.x, goal.y)
-    this._goalGlow.clear().circle(0, 0, goal.r).stroke({ width: 6, color: C_GOAL, alpha: 0.55 })
-
-    this._clearObstacles()
-    this._obstacles = obstacles
-    for (const o of obstacles) {
-      const g = new Graphics()
-        .roundRect(o.x - o.w / 2, o.y - o.h / 2, o.w, o.h, 18)
-        .fill(C_OBST)
-        .stroke({ width: 6, color: C_OBST_EDGE })
-      g.eventMode = 'none'
-      this._obstacleLayer.addChild(g)
-    }
+  _positionHome() {
+    this._homeC.position.set(this._home.x, this._home.y)
+    this._homeGlow.clear().circle(0, 0, this._home.r).stroke({ width: 6, color: C_GOAL, alpha: 0.55 })
+    // Mål-sensor (riktig matter-kropp, label 'home'): ploppar bollen "i mål".
+    if (this._homeSensor) this._phys.removeBody(this._homeSensor)
+    this._homeSensor = this._phys.circle(this._home.x, this._home.y, Math.max(24, this._home.r * 0.5), {
+      isStatic: true,
+      isSensor: true,
+      label: 'home',
+    })
   },
 
-  _clearObstacles() {
-    if (!this._obstacleLayer) return
-    for (const c of [...this._obstacleLayer.children]) c.destroy()
-  },
+  // ---- Skott --------------------------------------------------------------
 
-  // ---- Pekare: sikta-knuffa + tap-tap -------------------------------------
-
-  _ballDown(ctx, e) {
-    if (!this._alive || this._resolving || this._gliding) return
+  _shoot(ctx, vx, vy) {
+    if (!this._alive || this._mode === 'rolling' || this._mode === 'gliding' || this._mode === 'resolving') return
+    this._mode = 'rolling'
+    this._rollT = 0
+    this._restT = 0
     this._idle = 0
-    this._still = 0
-    this._touched = true
-    this._aiming = true
-    this._vx = 0
-    this._vy = 0
-    if (this._selected) this._deselect()
-    this._down = this._root.toLocal(e.global)
-    gsap.killTweensOf(this._ball.scale)
-    gsap.to(this._ball.scale, { x: 1.12, y: 1.12, duration: 0.12 })
-    ctx.services.audio.sfx('tap')
-    this._ball.on('globalpointermove', this._onBallMove)
-    this._ball.on('pointerup', this._onBallUp)
-    this._ball.on('pointerupoutside', this._onBallUp)
-  },
-
-  _ballMove(e) {
-    if (!this._aiming) return
-    const p = this._root.toLocal(e.global)
-    const dx = p.x - this._down.x
-    const dy = p.y - this._down.y
-    // Siktpil pekar i den riktning bollen kommer rulla (= mot fingret).
-    this._drawAim(this._ball.x, this._ball.y, this._ball.x + dx, this._ball.y + dy)
-  },
-
-  _ballUp(ctx, e) {
-    if (!this._aiming) return
-    this._aiming = false
-    this._detachBall()
-    this._hideAim()
-    gsap.killTweensOf(this._ball.scale)
-    gsap.to(this._ball.scale, { x: 1, y: 1, duration: 0.2 })
-    const p = this._root.toLocal(e.global)
-    const dx = p.x - this._down.x
-    const dy = p.y - this._down.y
-    this._idle = 0
-    this._still = 0
-    if (Math.hypot(dx, dy) < 14) {
-      // Litet drag = tap -> markera/avmarkera (tap-tap-fallback).
-      if (this._selected) this._deselect()
-      else this._select(ctx)
-      return
-    }
-    // Knuff: fart proportionell mot dragvektorn (clamp så bollen aldrig flyr banan).
-    this._vx = clamp(dx * 0.18, -MAX_V, MAX_V)
-    this._vy = clamp(dy * 0.18, -MAX_V, MAX_V)
-    if (this._selected) this._deselect()
+    this._launcher.setEnabled(false)
+    Body.setVelocity(this._ballBody, { x: vx, y: vy })
     ctx.services.audio.sfx('whoosh')
+    if (this._ball && !this._ball.destroyed) puff(ctx.fxLayer, this._ball.x, this._ball.y, { count: 5 })
   },
 
-  // Tap i banan: med markerad boll -> rulla mot punkten (eller rakt in i målet).
-  // Utan markering -> alltid ett glatt litet svar, men bollen står kvar.
-  _fieldTap(ctx, e) {
-    if (!this._alive || this._resolving || this._gliding || this._aiming) return
-    const p = this._root.toLocal(e.global)
-    this._idle = 0
-    if (!this._selected) {
-      ctx.services.audio.sfx('soft')
-      puff(ctx.fxLayer, p.x, p.y, { count: 5 })
-      return
-    }
-    this._deselect()
-    let tx = p.x
-    let ty = p.y
-    if (Math.hypot(p.x - this._goalPos.x, p.y - this._goalPos.y) < this._goalR) {
-      tx = this._goalPos.x // tap direkt på målet -> rakt mot målet
-      ty = this._goalPos.y
-    }
-    const dx = tx - this._ball.x
-    const dy = ty - this._ball.y
-    const len = Math.hypot(dx, dy) || 1
-    const speed = clamp(len * 0.12, 12, 24)
-    this._vx = (dx / len) * speed
-    this._vy = (dy / len) * speed
-    this._touched = true
-    this._still = 0
-    ctx.services.audio.sfx('whoosh')
-  },
-
-  _select(ctx) {
-    this._selected = true
-    ctx.services.audio.sfx('tap')
-    this._selectTween?.kill()
-    gsap.killTweensOf(this._ball.scale)
-    this._ball.scale.set(1)
-    this._selectTween = gsap.to(this._ball.scale, { x: 1.1, y: 1.1, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' })
-  },
-
-  _deselect() {
-    if (!this._selected && !this._selectTween) return
-    this._selected = false
-    this._selectTween?.kill()
-    this._selectTween = null
-    if (this._ball && !this._ball.destroyed) {
-      gsap.killTweensOf(this._ball.scale)
-      gsap.to(this._ball.scale, { x: 1, y: 1, duration: 0.15 })
-    }
-  },
-
-  _detachBall() {
-    if (this._ball && !this._ball.destroyed) {
-      this._ball.off('globalpointermove', this._onBallMove)
-      this._ball.off('pointerup', this._onBallUp)
-      this._ball.off('pointerupoutside', this._onBallUp)
-    }
-  },
-
-  _drawAim(x0, y0, x1, y1) {
-    const g = this._aimArrow
-    g.clear()
-    const dx = x1 - x0
-    const dy = y1 - y0
-    const len = Math.hypot(dx, dy)
-    if (len < 6) {
-      g.visible = false
-      return
-    }
-    const ux = dx / len
-    const uy = dy / len
-    const maxLen = Math.min(len, 380)
-    g.visible = true
-    for (let d = BALL_R + 16; d < maxLen; d += 32) {
-      const r = Math.max(4, 11 - 6 * (d / maxLen))
-      g.circle(x0 + ux * d, y0 + uy * d, r).fill({ color: 0xffffff, alpha: 0.7 })
-    }
-  },
-
-  _hideAim() {
-    if (this._aimArrow && !this._aimArrow.destroyed) {
-      this._aimArrow.clear()
-      this._aimArrow.visible = false
-    }
-  },
-
-  // ---- Fysik + hjälp + idle (ticker) --------------------------------------
+  // ---- Ticker: fysik + rull-känsla + mål/stopp + idle ---------------------
 
   _update(ctx, ticker) {
     if (!this._alive) return
-    const dtSec = ticker.deltaMS / 1000
-    const dt = ticker.deltaMS / 16.67
-    this._t += dtSec
-    this._idle += dtSec
+    const dt = ticker.deltaMS / 1000
+    this._t += dt
+    this._phys.update(ticker.deltaMS)
 
-    if (this._resolving || this._gliding) return
-    if (this._aiming) {
-      this._idle = 0
-      this._still = 0
-      return
+    // Rull-rotation på emojin (proportionell mot horisontell fart, riktning-medveten).
+    const b = this._ballBody
+    const spd = Math.hypot(b.velocity.x, b.velocity.y)
+    if (spd > 0.05 && this._ballEmoji && !this._ballEmoji.destroyed) {
+      this._ballEmoji.rotation += (b.velocity.x / BALL_R) * (ticker.deltaMS / 16.67)
     }
 
-    // Integrera + friktion.
-    this._incoming = Math.hypot(this._vx, this._vy)
-    this._ball.x += this._vx * dt
-    this._ball.y += this._vy * dt
-    const fr = Math.pow(FRICTION, dt)
-    this._vx *= fr
-    this._vy *= fr
-    if (Math.abs(this._vx) < 0.02) this._vx = 0
-    if (Math.abs(this._vy) < 0.02) this._vy = 0
-
-    this._collideWalls(ctx)
-    this._collideObstacles(ctx)
-
-    // Rull-rotation proportionell mot horisontell fart.
-    this._ballEmoji.rotation += (this._vx / BALL_R) * dt
-
-    // Målträff? (en gång, _resolving skyddar mot dubbeltrigg)
-    if (Math.hypot(this._ball.x - this._goalPos.x, this._ball.y - this._goalPos.y) < this._goalR) {
-      this._reachGoal(ctx)
-      return
-    }
-
-    // Still -> mjuk auto-hjälp (bollen kommer ALLTID hem).
-    const speed = Math.hypot(this._vx, this._vy)
-    if (this._touched && speed < STILL_SPEED) {
-      this._still += dtSec
-      if (this._still >= AUTO_HELP_DELAY) {
-        this._still = 0
-        this._helpStage++
-        if (this._helpStage >= 2) {
-          this._glideHome(ctx)
-        } else {
-          this._deselect()
-          ctx.services.voice.say('Nästan! Jag hjälper till.')
-          this._autoShove(ctx)
-        }
+    if (this._mode === 'rolling' || this._mode === 'gliding') {
+      if (this._inHome()) {
+        this._reachGoal(ctx)
+        return
       }
-    } else {
-      this._still = 0
-    }
-
-    if (this._gliding || this._resolving) return
-
-    // Idle-recue (bara när bollen ligger stilla).
-    if (this._idle >= IDLE_DELAY && speed < STILL_SPEED) {
-      this._idle = 0
-      ctx.services.voice.say(this.voiceIntro)
-      if (!this._selected && !this._ball.destroyed) pop(this._ball)
-    }
-  },
-
-  _collideWalls(ctx) {
-    const R = BALL_R
-    let hit = false
-    if (this._ball.x < WALL.l + R) {
-      this._ball.x = WALL.l + R
-      this._vx = Math.abs(this._vx) * 0.7
-      hit = true
-    } else if (this._ball.x > WALL.r - R) {
-      this._ball.x = WALL.r - R
-      this._vx = -Math.abs(this._vx) * 0.7
-      hit = true
-    }
-    if (this._ball.y < WALL.t + R) {
-      this._ball.y = WALL.t + R
-      this._vy = Math.abs(this._vy) * 0.7
-      hit = true
-    } else if (this._ball.y > WALL.b - R) {
-      this._ball.y = WALL.b - R
-      this._vy = -Math.abs(this._vy) * 0.7
-      hit = true
-    }
-    if (hit && this._incoming > 2.5) this._bounceSfx(ctx, 'pop')
-  },
-
-  _collideObstacles(ctx) {
-    const R = BALL_R
-    for (const o of this._obstacles) {
-      const hw = o.w / 2
-      const hh = o.h / 2
-      const nx = clamp(this._ball.x, o.x - hw, o.x + hw)
-      const ny = clamp(this._ball.y, o.y - hh, o.y + hh)
-      let dx = this._ball.x - nx
-      let dy = this._ball.y - ny
-      const d2 = dx * dx + dy * dy
-      if (d2 >= R * R) continue
-      let d = Math.sqrt(d2)
-      if (d < 0.0001) {
-        // Bollens mitt inne i klossen (sällsynt): knuffa ut längs minsta penetration.
-        const m = Math.min(this._ball.x - (o.x - hw), o.x + hw - this._ball.x, this._ball.y - (o.y - hh), o.y + hh - this._ball.y)
-        if (m === this._ball.x - (o.x - hw)) {
-          dx = -1
-          dy = 0
-        } else if (m === o.x + hw - this._ball.x) {
-          dx = 1
-          dy = 0
-        } else if (m === this._ball.y - (o.y - hh)) {
-          dx = 0
-          dy = -1
-        } else {
-          dx = 0
-          dy = 1
-        }
+      if (this._mode !== 'rolling') return
+      this._rollT += dt
+      if (spd < REST_SPEED) {
+        this._restT += dt
+        if (this._restT >= REST_DWELL || this._rollT > MAX_ROLL) this._settle(ctx)
       } else {
-        dx /= d
-        dy /= d
+        this._restT = 0
+        if (this._rollT > MAX_ROLL) this._settle(ctx)
       }
-      // Knuffa ut ur klossen och spegla hastigheten ×0.6 (mjuk studs).
-      this._ball.x = nx + dx * R
-      this._ball.y = ny + dy * R
-      const vn = this._vx * dx + this._vy * dy
-      this._vx = (this._vx - 2 * vn * dx) * 0.6
-      this._vy = (this._vy - 2 * vn * dy) * 0.6
-      if (this._incoming > 2.5) this._bounceSfx(ctx, 'soft')
+      return
+    }
+
+    if (this._mode === 'aim') {
+      this._idle += dt
+      if (this._idle >= IDLE_DELAY) {
+        this._idle = 0
+        ctx.services.voice.say(randomFrom(IDLE_CUES))
+        if (this._ball && !this._ball.destroyed) pop(this._ball)
+      }
     }
   },
 
-  _bounceSfx(ctx, name) {
-    if (this._t - this._lastBounce > BOUNCE_THROTTLE) {
-      ctx.services.audio.sfx(name)
-      this._lastBounce = this._t
-    }
+  _inHome() {
+    const r = this._home.r + (this._assisting ? 30 : 0) // hjälp-skott = ännu generösare
+    return Math.hypot(this._ball.x - this._home.x, this._ball.y - this._home.y) < r
   },
 
-  // Mjuk auto-knuff mot målet (steg 1 av hjälpen).
-  _autoShove(ctx) {
-    const dx = this._goalPos.x - this._ball.x
-    const dy = this._goalPos.y - this._ball.y
-    const len = Math.hypot(dx, dy) || 1
-    this._vx = (dx / len) * 14
-    this._vy = (dy / len) * 14
+  // Bollen stannade utan mål -> ALLTID roligt, aldrig straff. Snäll upptrappning:
+  // ett par fria försök -> nästan-perfekt hjälp-skott -> garanterad hemrullning.
+  _settle(ctx) {
+    if (!this._alive || this._mode === 'resolving') return
+    Body.setVelocity(this._ballBody, { x: 0, y: 0 })
+    this._mode = 'aim'
+    this._restT = 0
+    this._rollT = 0
+    this._misses++
+
+    if (this._misses >= 3) {
+      this._glideHome(ctx)
+      return
+    }
+    if (this._misses >= 2) {
+      this._autoShot(ctx)
+      return
+    }
+
+    // Normal miss: mjukt ljud + vingel på bollen + liten puff (lekfullt).
     ctx.services.audio.sfx('soft')
-    sparkle(ctx.fxLayer, this._ball.x, this._ball.y, { count: 6 })
+    if (this._ballEmoji && !this._ballEmoji.destroyed) wiggle(this._ballEmoji)
+    if (this._ball && !this._ball.destroyed) puff(ctx.fxLayer, this._ball.x, this._ball.y, { count: 5 })
+    this._launcher.setEnabled(true)
+    this._idle = 0
+    if (Math.random() < 0.55) ctx.services.voice.say(randomFrom(MISS_CUES))
   },
 
-  // Glider hela vägen hem av sig själv (steg 2) — garanterad framgång, inget straff.
+  // Hjälp-skott (steg 1): sikta rakt mot målet med lagom kraft så utrullningen når hem.
+  _autoShot(ctx) {
+    this._assisting = true
+    this._idle = 0
+    ctx.services.voice.say('Nästan! Jag hjälper till lite.')
+    const dx = this._home.x - this._ball.x
+    const dy = this._home.y - this._ball.y
+    const D = Math.hypot(dx, dy) || 1
+    const fa = SURFACES[this._surfaceIdx].frictionAir
+    // Utrullning ≈ v0 × (1 - fa) / fa. Lös v0 så bollen rullar ~1.15×D (lite överskott
+    // in i målet); +30-radien fångar den oavsett. Öppen plan => fri väg, inga hinder.
+    let v0 = (D * 1.15 * fa) / (1 - fa)
+    v0 = clamp(v0, 10, 30)
+    const vx = (dx / D) * v0
+    const vy = (dy / D) * v0
+    ctx.services.audio.sfx('whoosh')
+    if (this._ball && !this._ball.destroyed) sparkle(ctx.fxLayer, this._ball.x, this._ball.y, { count: 6 })
+    this._mode = 'rolling'
+    this._rollT = 0
+    this._restT = 0
+    this._launcher.setEnabled(false)
+    Body.setVelocity(this._ballBody, { x: vx, y: vy })
+  },
+
+  // Garanterad hemrullning (steg 2): bollen glider hela vägen hem (exit-säker {}-proxy).
   _glideHome(ctx) {
-    this._gliding = true
-    this._vx = 0
-    this._vy = 0
-    this._deselect()
-    this._hideAim()
-    gsap.killTweensOf(this._ball)
-    gsap.to(this._ball, {
-      x: this._goalPos.x,
-      y: this._goalPos.y,
+    this._mode = 'gliding'
+    this._assisting = true
+    this._idle = 0
+    this._launcher.setEnabled(false)
+    Body.setVelocity(this._ballBody, { x: 0, y: 0 })
+    ctx.services.audio.sfx('whoosh')
+    ctx.services.voice.say('Jag rullar den hem åt dig!')
+    const sx = this._ball.x
+    const sy = this._ball.y
+    const tx = this._home.x
+    const ty = this._home.y
+    const st = { p: 0 }
+    gsap.killTweensOf(st)
+    this._glideTween = gsap.to(st, {
+      p: 1,
       duration: 1.0,
       ease: 'power1.inOut',
       onUpdate: () => {
-        if (this._ballEmoji && !this._ballEmoji.destroyed) this._ballEmoji.rotation += 0.18
+        if (!this._alive || !this._ballBody) {
+          this._glideTween?.kill()
+          return
+        }
+        const x = sx + (tx - sx) * st.p
+        const y = sy + (ty - sy) * st.p
+        Body.setPosition(this._ballBody, { x, y })
+        Body.setVelocity(this._ballBody, { x: 0, y: 0 })
+        if (this._ballEmoji && !this._ballEmoji.destroyed) this._ballEmoji.rotation += 0.16
       },
       onComplete: () => {
         if (this._alive) this._reachGoal(ctx)
@@ -554,59 +449,158 @@ export default {
   // ---- Mål nått: firande + ny bana ----------------------------------------
 
   _reachGoal(ctx) {
-    if (this._resolving) return
-    this._resolving = true
-    this._gliding = false
-    this._vx = 0
-    this._vy = 0
-    this._still = 0
+    if (this._mode === 'resolving') return
+    this._mode = 'resolving'
+    this._glideTween?.kill()
+    this._launcher.setEnabled(false)
     this._idle = 0
-    this._deselect()
-    this._hideAim()
-    this._detachBall()
+    this._restT = 0
+    Body.setVelocity(this._ballBody, { x: 0, y: 0 })
 
-    const g = this._goalPos
+    const hx = this._home.x
+    const hy = this._home.y
     ctx.services.audio.sfx('correct')
     ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say('Mål! Du klarade det!')
+    ctx.services.voice.say(randomFrom(WIN_CUES))
 
-    // Bollen åker in i målet och krymper lite.
-    gsap.killTweensOf(this._ball)
-    gsap.killTweensOf(this._ball.scale)
-    gsap.to(this._ball, { x: g.x, y: g.y, duration: 0.35, ease: 'power2.in' })
-    gsap.to(this._ball.scale, { x: 0.55, y: 0.55, duration: 0.4, ease: 'power2.in' })
+    // Bollen åker in i målet och krymper. Kroppen flyttas till målet (link följer);
+    // skala tweenas på containern (link rör bara position/vinkel, inte skala).
+    Body.setPosition(this._ballBody, { x: hx, y: hy })
+    Body.setVelocity(this._ballBody, { x: 0, y: 0 })
+    if (this._ball && !this._ball.destroyed) {
+      this._ball.position.set(hx, hy)
+      gsap.killTweensOf(this._ball.scale)
+      gsap.to(this._ball.scale, { x: 0.5, y: 0.5, duration: 0.4, ease: 'power2.in' })
+    }
 
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
-    puff(ctx.fxLayer, g.x, g.y, { count: 14, color: C_GOAL })
-    sparkle(ctx.fxLayer, g.x, g.y, { count: 8 })
+    puff(ctx.fxLayer, hx, hy, { count: 14, color: C_GOAL })
+    sparkle(ctx.fxLayer, hx, hy, { count: 8 })
 
-    // Förlopp: höj nivå, räkna hemrullningar, kör delat firande (stjärna+klistermärke).
+    // Förlopp: höj nivå, räkna hemrullningar, kör delat firande (stjärna + klistermärke).
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('rounds', (ctx.progress.get().custom?.rounds || 0) + 1)
     ctx.progress.complete()
 
-    this._loadTimer = gsap.delayedCall(1.5, () => {
+    this._loadTimer?.kill()
+    this._loadTimer = gsap.delayedCall(1.6, () => {
       if (this._alive) this._loadLevel(ctx, this._level)
     })
   },
 
+  // ---- Kollisioner: mål-sensor + studsljud --------------------------------
+
+  _onCollision(ctx, e) {
+    if (!this._alive) return
+    for (const pair of e.pairs) {
+      const involvesBall = pair.bodyA === this._ballBody || pair.bodyB === this._ballBody
+      if (!involvesBall) continue
+      const other = pair.bodyA === this._ballBody ? pair.bodyB : pair.bodyA
+      if (other.label === 'home') {
+        if (this._mode === 'rolling' || this._mode === 'gliding') this._reachGoal(ctx)
+        return
+      }
+      if (other.label === 'wall') {
+        if (this._t - this._lastBounce > BOUNCE_THROTTLE) {
+          const spd = Math.hypot(this._ballBody.velocity.x, this._ballBody.velocity.y)
+          if (spd > 2) {
+            this._lastBounce = this._t
+            ctx.services.audio.sfx('pop')
+            if (this._ball && !this._ball.destroyed) puff(ctx.fxLayer, this._ball.x, this._ball.y, { count: 4 })
+          }
+        }
+      }
+    }
+  },
+
+  // ---- Extra kontroll: yta (Gräs ↔ Is) ------------------------------------
+
+  _buildSurfaceUI(ctx) {
+    this._surfaceBtn = new Button({
+      icon: '🔄',
+      label: 'Byt yta',
+      width: 200,
+      height: 108,
+      color: COLORS.teal,
+      stacked: true,
+      services: ctx.services,
+      sound: 'pop',
+      onTap: () => this._cycleSurface(ctx),
+    })
+    this._surfaceBtn.position.set(168, 650)
+    this._root.addChild(this._surfaceBtn)
+
+    // Indikator ovanför knappen visar vald yta (emoji + namn) — uppdateras vid byte.
+    this._surfaceLabel = new Text({
+      text: '',
+      style: { fontFamily: FONT.title, fontSize: 34, fontWeight: '800', fill: COLORS.ink, align: 'center' },
+    })
+    this._surfaceLabel.anchor.set(0.5)
+    this._surfaceLabel.position.set(168, 566)
+    this._surfaceLabel.eventMode = 'none'
+    this._root.addChild(this._surfaceLabel)
+  },
+
+  _cycleSurface(ctx) {
+    this._setSurface(ctx, (this._surfaceIdx + 1) % SURFACES.length)
+  },
+
+  // Byter yta: uppdaterar bollens frictionAir OCH pricklinjens damp i takt, så att
+  // förhandsvisningen alltid matchar den nya utrullningen exakt.
+  _setSurface(ctx, idx, { silent = false } = {}) {
+    this._surfaceIdx = idx
+    const s = SURFACES[idx]
+    if (this._ballBody) this._ballBody.frictionAir = s.frictionAir
+    this._launcher?.setPreview({ damp: 1 - s.frictionAir })
+    if (this._surfaceLabel && !this._surfaceLabel.destroyed) this._surfaceLabel.text = `${s.icon} ${s.label}`
+    if (this._iceOverlay && !this._iceOverlay.destroyed) {
+      gsap.killTweensOf(this._iceOverlay)
+      gsap.to(this._iceOverlay, { alpha: s.key === 'is' ? 0.5 : 0, duration: 0.3 })
+    }
+    this._idle = 0
+    if (!silent) {
+      ctx.services.audio.sfx('whoosh')
+      ctx.services.voice.say(s.key === 'is' ? 'Hal is! Bollen glider långt.' : 'Mjukt gräs. Bollen rullar lugnt.')
+      if (this._surfaceBtn && !this._surfaceBtn.destroyed) pop(this._surfaceBtn)
+      floatText(ctx.fxLayer, this._surfaceBtn.x, this._surfaceBtn.y - 84, s.icon, { fontSize: 56 })
+    }
+  },
+
+  // ---- Tom-tap på planen: alltid en glad liten respons -------------------
+
+  _bgTap(ctx, e) {
+    if (!this._alive || this._mode === 'rolling' || this._mode === 'gliding' || this._mode === 'resolving') return
+    const p = this._root.toLocal(e.global)
+    ctx.services.audio.sfx('soft')
+    puff(ctx.fxLayer, p.x, p.y, { count: 4 })
+    this._idle = 0
+  },
+
+  // ---- Städning (exit-säkert) ---------------------------------------------
+
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
+    this._unbind?.()
     this._loadTimer?.kill()
+    this._glideTween?.kill()
     this._goalTween?.kill()
-    this._selectTween?.kill()
-    this._selectTween = null
-    this._detachBall()
-    if (this._bg && !this._bg.destroyed) this._bg.off('pointertap', this._onFieldTap)
+
+    if (this._bg && !this._bg.destroyed) this._bg.off('pointertap', this._onBgTap)
     if (this._ball && !this._ball.destroyed) {
-      this._ball.off('pointerdown', this._onBallDown)
       gsap.killTweensOf(this._ball)
       gsap.killTweensOf(this._ball.scale)
     }
-    if (this._goalGlow && !this._goalGlow.destroyed) gsap.killTweensOf(this._goalGlow.scale)
+    if (this._ballEmoji && !this._ballEmoji.destroyed) gsap.killTweensOf(this._ballEmoji)
+    if (this._homeGlow && !this._homeGlow.destroyed) gsap.killTweensOf(this._homeGlow.scale)
+    if (this._iceOverlay && !this._iceOverlay.destroyed) gsap.killTweensOf(this._iceOverlay)
+    if (this._surfaceBtn && !this._surfaceBtn.destroyed) gsap.killTweensOf(this._surfaceBtn.scale)
+
+    this._launcher?.destroy()
+    this._phys?.destroy()
     gsap.killTweensOf(this._root)
+    ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
 }

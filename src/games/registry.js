@@ -47,8 +47,9 @@ import pruttbad from './pruttbad/index.js'
 import valpensBajs from './valpens-bajs/index.js'
 import enhorningGlitterbajs from './enhorning-glitterbajs/index.js'
 import tvattaDjuret from './tvatta-djuret/index.js'
+import ballonglyft from './ballonglyft/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret, vartTogDetVagen, vadForsvann, byggTornet, rullaBollenHem, siffertaget, sparaLinjen, harmaMelodin, foljSparet, studsbollar, djurorkester, studsaNer, fyrverkeri, fangaFrukten, vippbradan, domino, studsmatta, sapbubblor, knuffaTornet, spindelhjalten, enhorningenElvira, bajsOchKiss, regnbagsmalaren, pruttbad, valpensBajs, enhorningGlitterbajs, tvattaDjuret]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret, vartTogDetVagen, vadForsvann, byggTornet, rullaBollenHem, siffertaget, sparaLinjen, harmaMelodin, foljSparet, studsbollar, djurorkester, studsaNer, fyrverkeri, fangaFrukten, vippbradan, domino, studsmatta, sapbubblor, knuffaTornet, spindelhjalten, enhorningenElvira, bajsOchKiss, regnbagsmalaren, pruttbad, valpensBajs, enhorningGlitterbajs, tvattaDjuret, ballonglyft]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

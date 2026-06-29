@@ -4,7 +4,7 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 5 / 25**
+**Klara: 6 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
@@ -13,7 +13,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 3 | `valpens-bajs` | Valpens Bajs | ✅ | ✅ | ✅ | ✅ | ✅ | Tap-to-walk valp bajsar, dra skyffel→tunna (tap-fallback), flugor dekorativa, mätare; 0 fel |
 | 4 | `enhorning-glitterbajs` | Enhörningens Glitterbajs | ✅ | ✅ | ✅ | ✅ | ✅ | Mata enhörning→matter.js glitterpellets studsar, dra skattkista fångar; gravityY 1.0, bend-auto-hjälp; 0 fel |
 | 5 | `tvatta-djuret` | Tvätta Djuret | ✅ | ✅ | ✅ | ✅ | ✅ | Dra svamp→sudda lera (avtäck päls+skum), dra dusch→skölj; rutnäts-täckning, no-fail auto-clean; 0 fel |
-| 6 | `ballonglyft` | Ballonglyft | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 6 | `ballonglyft` | Ballonglyft | ✅ | ✅ | ✅ | ✅ | ✅ | Tryck→fäst ballonger (räkning), sväv present till Elviras fönster, poppa finjusterar; damp-spring 1D, auto-hjälp; 0 fel |
 | 7 | `gungan` | Gungan | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 8 | `lagerelden` | Lägerelden | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 9 | `spindelnatet` | Spindelnätet | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
@@ -35,6 +35,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#6 ballonglyft** ✅: Byggd (fräsch agent, egen 1D damp-spring-integrator K=0.018/DAMP=0.9) + simplify-agent (döda imports PRAISE/randomFrom) + headless-test 0 fel (broad taps). Mål-höjdfönster + dwell 700ms; auto-hjälp lägger till/poppar ballong = no-fail konvergens. Räknar högt (en..nio). Röstrader (batchas): voiceIntro / tal en–nio / "Vi provar en ballong till!" / "Vi poppar en ballong." NOTERA: build-agenter importerar ofta oanvända PRAISE/randomFrom → be dem låta bli.
 - **#5 tvatta-djuret** ✅: Byggd (fräsch agent, egen lera-rutnäts-mask) + simplify-agent (extraherade `_fadeOut`-hjälpare, ~36→22 rader) + headless-test 0 fel (svamp- + dusch-drag). Två verktyg krävs mekaniskt (skum ≤ skrubbat); idle + no-progress-auto-clean konvergerar till 100%. Röstrader (batchas): voiceIntro / "Så ja, gnugga gnugga!" / "Bra! Ta duschen och skölj." / "Skölj rent!". Committad.
 - **#4 enhorning-glitterbajs** ✅: Byggd (fräsch agent, matter.js PhysicsWorld) + simplify-agent (tog bort dött `emoji`-fält) + headless-test 0 fel (mata-drag + kist-drag). Calib: gravityY 1.0, MAX_FALL 11, ramp restitution 0.5, pellets bouncy 0.86, nivå-beroende bend mot kistan + auto-glid = no-fail. Röstrader (batchas): voiceIntro / "Pruttbajs! Massa glitter!" / "Mer glitter!". Committad.
 - **#3 valpens-bajs** ✅: Byggd (fräsch agent, mixed input) + inline-simplify (tog bort döda imports `PRAISE`/`randomFrom`; extraherade `_scheduleFlies` delad av spawn + släpp-tillbaka) + headless-test 0 fel (skyffel-drag + gå-taps). Egen skyffel-drag (fri placering) m. tap-fallback; auto-vandring+auto-skyffel garanterar full tunna. Röstrader (batchas): voiceIntro / "Skyffla bajset i tunnan!" / "Hurra! Parken är ren!". Committad.

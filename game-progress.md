@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 7 / 25**
+**Klara: 8 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -14,7 +14,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 5 | `mata-monstret` | Mata Monstret | ✅ Klar | ✔ | ✔ | ✔ | Dra/tap-tap mat till munnen; 3-4 rätter; 0 fel; runda sparas |
 | 6 | `rakna-applen` | Räkna Äpplena | ✅ Klar | ✔ | ✔ | ✔ | Räkna 2-5 äpplen, röst räknar; 0 fel; UI-fix: flyttade trädet så progress-raden blev fri |
 | 7 | `klappa-mullvaden` | Klappa Mullvaden | ✅ Klar | ✔ | ✔ | ✔ | Snäll whack-a-mole; mullvad kikar upp, klappa; ingen miss/timer; 0 fel |
-| 8 | `peka-pa-kroppen` | Peka på Kroppen | ⬜ Väntar | | | | |
+| 8 | `peka-pa-kroppen` | Peka på Kroppen | ✅ Klar | ✔ | ✔ | ✔ | Rösten frågar kroppsdel, barnet pekar; 9 zoner; fel = mjuk omfrågning; 0 fel |
 | 9 | `vilket-djur-later` | Vilket Djur Låter Så? | ⬜ Väntar | | | | |
 | 10 | `stor-liten` | Stor och Liten | ⬜ Väntar | | | | |
 | 11 | `tarta-i-ansiktet` | Tårta i Ansiktet | ⬜ Väntar | | | | |
@@ -44,3 +44,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **mata-monstret**: Byggd + testad (tap-tap matning slutförde runda, stars+matningar sparades, 0 fel). Plattformsfix: DragController.clear() dödar pågående tweens (exit-säker för ALLA dragspel); sparkle() nu proxy-baserad/exit-säker.
 - **rakna-applen**: Byggd + testad (runda slutförd, sparad, 0 fel). UI-fix: dekorträdet låg mitt i topp-progressraden -> flyttat till gräset nere t.v.
 - **klappa-mullvaden**: Byggd + testad (slutförde runda, level upp, 0 fel). Mullvad maskad så den kommer upp ur hålet. Snäll: omklappad mullvad duckar bara, ingen bestraffning.
+- **peka-pa-kroppen**: Byggd + testad (runda slutförd via zon-cykling, 0 fel). Programmatisk figur med 9 träffzoner; fel-tryck bestraffar ej (vinglar + frågar om).

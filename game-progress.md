@@ -4,7 +4,7 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 9 / 25**
+**Klara: 10 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
@@ -17,7 +17,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 7 | `gungan` | Gungan | ✅ | ✅ | ✅ | ✅ | ✅ | Tryck i takt→pendel-resonans pumpar Lova till fågeln; 💪-toggle + svep-knuff; auto-assist vid vändpunkt; 0 fel |
 | 8 | `lagerelden` | Lägerelden | ✅ | ✅ | ✅ | ✅ | ✅ | Dra ved + svep bälg→eld-partiklar växer (heat=fuel+air), dra marshmallow→gyllene; aldrig brinner upp; 0 fel |
 | 9 | `spindelnatet` | Spindelnätet | ✅ | ✅ | ✅ | ✅ | ✅ | Tryck nära fallande godis→nättråd fångar+drar in; bred-väv-svep + dra spindeln; gravityY 0.9 ramp, no-fail; 0 fel |
-| 10 | `magnet-fiske` | Magnetfiske | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 10 | `magnet-fiske` | Magnetfiske | ✅ | ✅ | ✅ | ✅ | ✅ | Dra magnet→radiell attraktion drar metall (ej anka), lyft till hink; lär metall vs ej; test nådde firande; 0 fel |
 | 11 | `fallskarmen` | Fallskärmen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 12 | `enhorningen-flyger` | Enhörningen Flyger | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 13 | `spindel-zacke-svingar` | Spindel-Zacke Svingar | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
@@ -35,6 +35,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#10 magnet-fiske** ✅: Byggd (fräsch agent, matter.js + egen radiell attraktion per tick) + simplify-agent (extraherade `_fniss` anka-reaktion) + headless-test 0 fel (test nådde firande/konfetti = full loop verifierad). a=min(STRENGTH/dist,A_MAX)·mass, R_FIELD 300, STICK_R 46; anka (kork-label) puttas undan = aldrig fastnar; idle-nudge = no-fail. Röstrader (batchas): voiceIntro / "Den fastnar! Metall!" / "Fler saker att fiska!". Committad.
 - **#9 spindelnatet** ✅: Byggd (fräsch agent, matter.js fallande, egen cute spindel ej Marvel) + simplify-agent (tog bort skriv-bara slot-fält ring/filled) + headless-test 0 fel (spindel-drag + taps). gravityY 0.9→1.5 ramp, CATCH_R 90, bred-väv WIDE_R 200 m. 6s-laddning, dra spindeln; grundade godis fångbara + idle auto-skott = no-fail. Röstrader (batchas): voiceIntro / "Bra fångat!" / "Titta, jag hjälper till!". Committad.
 - **#8 lagerelden** ✅: Byggd (fräsch agent, egen eld-partikel-integrator heat=BASE+fuel·0.12+air·0.5) + simplify-agent (inga ändringar — ren) + headless-test 0 fel (ved-drag + marshmallow-drag + bälg). Marshmallow tonar vit→gyllene (lerpColor), aldrig svart; air/fuel klampas + BASE_FUEL-golv = brinner aldrig upp/ut; idle-gust + boost = no-fail. Ved via DragController, marshmallow/bälg egen drag. Röstrader (batchas): voiceIntro / "Mer ved gör elden stor!" / "Blås på elden..." / "Gyllene och god! Smaskigt!". Committad.
 - **#7 gungan** ✅: Byggd (fräsch agent, egen pendel-integrator OMEGA0=2.5/DAMP=0.22/THETA_MAX=1.45) + simplify-agent (inga ändringar — redan ren, importerade bara använt) + headless-test 0 fel (broad taps pumpar). Fas-kvalitet q styr stigning (golv 0.35=aldrig broms), 💪-toggle ×1.8, svep-knuff; auto-push vid vändpunkt garanterar mål. Röstrader (batchas): voiceIntro / "Just så — tryck i takt!" / "Nu knuffar vi starkare!". Committad.

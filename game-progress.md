@@ -4,7 +4,7 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 13 / 25**
+**Klara: 14 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
@@ -21,7 +21,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 11 | `fallskarmen` | Fallskärmen | ✅ | ✅ | ✅ | ✅ | ✅ | Dra→styr fallskärm kontra vindbyar, landa mjukt på mattan; tung/lätt-toggle; alltid mjuk landning; test landade+firade; 0 fel |
 | 12 | `enhorningen-flyger` | Enhörningen Flyger | ✅ | ✅ | ✅ | ✅ | ✅ | Dra upp/ner→momentum-glid genom ringar, samla stjärnor; 🐢/🐇-toggle; miss köar ny ring + auto-magnet=no-fail; 0 fel |
 | 13 | `spindel-zacke-svingar` | Spindel-Zacke Svingar | ✅ | ✅ | ✅ | ✅ | ✅ | Tryck=släpp nät i rätt stund→pendel-svinga tak-till-tak till kattungen; kort/lång-toggle; moln fångar=aldrig fall; 0 fel |
-| 14 | `bowling` | Bobos Bowling | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 14 | `bowling` | Bobos Bowling | ✅ | ✅ | ✅ | ✅ | ✅ | Sikta+kraft (AimLauncher, top-down gravityY 0, previewDamp 0.988) rulla klot→välta käglor; bumper-toggle + auto-hjälp; test slog strike; 0 fel |
 | 15 | `flipperspel` | Flipperspel | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 16 | `kulbana` | Kulbanan | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 17 | `snobollen` | Snöbollen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
@@ -35,6 +35,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#14 bowling** ✅: Byggd (fräsch agent, AimLauncher + matter.js käglor, top-down gravityY 0) + simplify-agent (inga ändringar — ren, alla 20 imports använda) + headless-test 0 fel (test slog strike+konfetti). KALIBRERING: previewGravity 0, previewDamp 1−0.012=0.988, bounds + bollradie→pricklinje matchar studs exakt; bumper restitution 0.75-väggar (på=ingen rännsten) + setWind-pust auto-hjälp = alltid strike. Bobo-maskot. Röstrader (batchas): voiceIntro / "...Alla käglor!" / "Nästan! Pust — där föll de!" / "Kantstöd på/av!". Committad.
 - **#13 spindel-zacke-svingar** ✅: Byggd (fräsch agent, egen pendel+projektil-integrator delad G=0.35) + simplify-agent (tog bort dött `_misses`) + headless-test 0 fel (broad taps släpper nät; test visade moln-räddning). SHORT 170/LONG 260 toggle ändrar period; tryck=släpp, projektil→nästa fäste auto-attach; 3-lager no-fail (moln fångar→närmsta fäste + idle auto-släpp + amplitud-golv). Egen masked hero (ej Marvel). Röstrader (batchas): voiceIntro / "Bra svingat!" / "Hoppsan! Molnet fångar dig." / "Du räddade kattungen!". Committad.
 - **#12 enhorningen-flyger** ✅: Byggd (fräsch agent, egen 1D momentum-glid STEER=0.030/DAMP=0.90) + simplify-agent (tog bort dött `_starsPerGap`) + headless-test 0 fel (vertikala styr-drag). Glansiga programmatiska hoops + stjärnor scrollar; 🐢/🐇-toggle halverar fart; varje miss köar en extra ring + auto-magnet (ASSIST_HELP efter 2 missar centrerar nästa ring) = banan tar aldrig slut. Röstrader (batchas): voiceIntro / "Bra fluget!" / "Hoppsan!" / "Fler ringar!". Committad.
 - **#11 fallskarmen** ✅: Byggd (fräsch agent, egen sink/steer/wind-integrator) + simplify-agent (tog bort dött `_steerDir`) + headless-test 0 fel (test landade på målet + firade). SINK_LIGHT 1.5/HEAVY 2.4, STEER 0.45, vind ±0.12–0.30; tung/lätt-toggle byter strategi; alltid mjuk landning, miss→auto-assist homing (0 vid 0 missar = ren skicklighet). Röstrader (batchas): voiceIntro / "Hjälp Zacke/Lova!..." / "Nästan! Jag hjälper till." / "Hoppsan! Vi provar igen!". Committad.

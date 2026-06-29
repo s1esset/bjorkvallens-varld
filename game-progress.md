@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 20 / 25**
+**Klara: 21 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -27,7 +27,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 18 | `vart-tog-det-vagen` | Vart Tog Det Vägen? | ✅ Klar | ✔ | ✔ | ✔ | Kopp-spel: visa leksak -> blanda koppar -> hitta rätt; fel = kika igen; 0 fel |
 | 19 | `vad-forsvann` | Vad Försvann? | ✅ Klar | ✔ | ✔ | ✔ | Titta -> göm (filt) -> en försvinner -> tryck tomma platsen; 3-6 objekt; 0 fel |
 | 20 | `bygg-tornet` | Bygg Tornet | ✅ Klar | ✔ | ✔ | ✔ | Dra klotsar -> snäpper på tornet (förlåtande), räknar högt; aldrig kollaps; 0 fel |
-| 21 | `rulla-bollen-hem` | Rulla Bollen Hem | ⬜ Väntar | | | | |
+| 21 | `rulla-bollen-hem` | Rulla Bollen Hem | ✅ Klar | ✔ | ✔ | ✔ | Sikta-knuffa bollen till målet; studsar på väggar; no-fail auto-hjälp; 0 fel |
 | 22 | `siffertaget` | Siffertåget | ⬜ Väntar | | | | |
 | 23 | `spara-linjen` | Spåra Linjen | ⬜ Väntar | | | | |
 | 24 | `harma-melodin` | Härma Melodin | ⬜ Väntar | | | | |
@@ -57,3 +57,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **vart-tog-det-vagen**: Byggd + testad (3 rundor -> level+stjärna, gissning funkar, fel bestraffar ej, 0 fel). Persistenta koppar, gsap-blandning, leksak följer sin kopp.
 - **vad-forsvann**: Byggd + testad (3 rundor, stars 3, 3/4/5-objektslayouter, 0 fel). Visa/täck/gissa-faser, filt-täckning, fel bestraffar ej.
 - **bygg-tornet**: Byggd + testad (2 torn byggda, stars 2, 0 fel). Drag-stapling med magnetiskt snäpp (radie 1500 -> alltid lyckas), mjuk sway, räknar på svenska, mål-flagga + firande.
+- **rulla-bollen-hem**: Byggd + testad (3 rundor, stars 3, 0 fel). Egen fysik (friktion/studs/hinder), drag=knuff + tap-tap, no-fail auto-hjälp vid stopp, nya banor per nivå.

@@ -1,4 +1,45 @@
-# Bygg-framsteg — 25 nya spel
+# 🚧 AKTIV: Byggplan 2 — 25 NYA spel (vågen efter de 41 första)
+
+Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Plan: `docs/PLAN-2.md`.
+Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
+Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
+
+**Klara: 0 / 25**
+
+| # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
+|---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
+| 1 | `regnbagsmalaren` | Regnbågsmålaren Elvira | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 2 | `pruttbad` | Pruttbubbelbad | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 3 | `valpens-bajs` | Valpens Bajs | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 4 | `enhorning-glitterbajs` | Enhörningens Glitterbajs | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 5 | `tvatta-djuret` | Tvätta Djuret | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 6 | `ballonglyft` | Ballonglyft | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 7 | `gungan` | Gungan | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 8 | `lagerelden` | Lägerelden | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 9 | `spindelnatet` | Spindelnätet | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 10 | `magnet-fiske` | Magnetfiske | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 11 | `fallskarmen` | Fallskärmen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 12 | `enhorningen-flyger` | Enhörningen Flyger | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 13 | `spindel-zacke-svingar` | Spindel-Zacke Svingar | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 14 | `bowling` | Bobos Bowling | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 15 | `flipperspel` | Flipperspel | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 16 | `kulbana` | Kulbanan | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 17 | `snobollen` | Snöbollen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 18 | `glasstornet` | Glasstornet | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 19 | `golvet-ar-lava` | Golvet är Lava | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 20 | `vattenvagen` | Vattenvägen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 21 | `blixt-och-dunder` | Blixt och Dunder | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 22 | `kugghjulen` | Kugghjulen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 23 | `gravmaskinen` | Grävmaskinen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 24 | `trollblandning` | Trollkarlens Blandning | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+
+## Byggplan-2-logg
+- 2026-06-29: `docs/PLAN-2.md` + denna tracker skapade. 25 koncept låsta (teman: element, bajs/kiss, spindel, enhörning; namn Zacke/Elvira/Alissa/Lova). Nästa: skriv 25 byggspecar via fan-out, sen bygg-loop från #1.
+
+---
+
+# (HISTORIK) Bygg-framsteg — första 25 nya spel
 
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.

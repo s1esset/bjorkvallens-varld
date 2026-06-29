@@ -209,4 +209,19 @@ De 8 äldre fysik-demona uppgraderade (bevarad mekanik + exit-säkerhet, pålagt
 | `fyrverkeri` | Tänd alla mål-stjärnor på himlen | sikta+kraft på raketen (prickbana) | gravitation på raketen |
 | `sapbubblor` | Blås bubblorna in i ringen 🛟 | WIND-fläktar (kraft ∝ massa) | massa/luftmotstånd/momentum, vind |
 
-Alla: no-fail (auto-hjälp), nivåskalning, 96px-träffytor, exit-säkra. **41 spel totalt** (15 äldsta + 3 nya + nu de 8 demona = mål-baserade fysikspel). +68 nya röstrepliker (mål-intron/beröm). [[advanced-physics-toolkit]]-verktyget bevisat över 11 spel.
+Alla: no-fail (auto-hjälp), nivåskalning, 96px-träffytor, exit-säkra. **41 spel totalt** (15 äldsta + 3 nya + nu de 8 demona = mål-baserade fysikspel). +68 nya röstrepliker (mål-intron/beröm). Det delade fysik-verktyget (`physics.js` + `launcher.js`) bevisat över 11 spel.
+
+---
+
+# Session-avslut (2026-06-29)
+
+Tre spår klara & commitade denna session:
+1. **Namnbyte → BJÖRKVALLENS VÄRLD** + **Fas 5 riktiga SFX** (lokal MOSS-SoundEffect) + **namngivna människor** (Zacke/Alissa/Elvira/Lova). Commit `f596a2f` (+ MOSS-tjänstfix `storygen@3b092b8`).
+2. **Avancerat fysik-verktyg** (`physics.js` MATERIALS/wind/predict + `launcher.js` AimLauncher) + **3 nya spel** (spindelhjalten, enhorningen-elvira, bajs-och-kiss). Commit `44ee741`.
+3. **Retrofit av 8 fysik-demon → mål-spel** (studsbollar/domino/studsa-ner/vippbradan/studsmatta/knuffa-tornet/fyrverkeri/sapbubblor). Commit `749ecd0`.
+
+**Nuläge:** 41 spel (11 mål-baserade fysikspel på det delade verktyget). Ljud helt offline & egengenererat: **21 riktiga SFX-klipp** (`public/audio/sfx`, inkl. djurläten + fart/plopp/boing/thwip/magi) via `npm run sfx` → lokal MOSS-tjänst; **761 neurala röstklipp** (`public/audio/voice`) via `npm run voice` → F5-TTS. **OBS:** kör `npm run sfx`/`voice` från **PowerShell** (forward-slash-venv-sökväg knäcks under git-bash→cmd). Produktionsbygge rent (815 precache-poster). Båda repona (pwagames + storygen) har rent arbetsträd.
+
+**Telefontest (igång):** `npm run preview` (4173) + `tailscale serve --bg --https=8445` → https://andreas-psai1.tail4e6703.ts.net:8445/ (verifierad 200 + nya spel i bygget). Dev-servern (5173) och MOSS-tjänsten (8003) är stoppade. Installerad PWA hämtar nya SW:n vid menyn/omstart (innehålls-hash, ingen versionsbump).
+
+**Förslag nästa gång:** spela de 11 fysikspelen på telefon och finjustera känsla (siktkänslighet/svårighet/ljud); ev. fler nya spel efter agent-gränsens återställning. Toolkit + mönster: se memory [[advanced-physics-toolkit]], [[real-audio-sfx]], [[character-names]], [[phone-testing-tailscale]].

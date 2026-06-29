@@ -4,11 +4,11 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 0 / 25**
+**Klara: 1 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
-| 1 | `regnbagsmalaren` | Regnbågsmålaren Elvira | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 1 | `regnbagsmalaren` | Regnbågsmålaren Elvira | ✅ | ✅ | ✅ | ✅ | ✅ | Svep målar 6 bågar (snäpp ≥90%), färgburk-val, tap-tap-fallback, dubbel-regnbåge L2, sol+blommor-firande; 0 fel |
 | 2 | `pruttbad` | Pruttbubbelbad | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 3 | `valpens-bajs` | Valpens Bajs | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 4 | `enhorning-glitterbajs` | Enhörningens Glitterbajs | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
@@ -35,6 +35,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#1 regnbagsmalaren** ✅: Byggd (fräsch agent) + simplify (dedup arc-ritning, kollapsad unicorn-move) + headless-test 0 fel (svep målar bågarna, snäpp, exit-cykel). Röstrader (batchas till `npm run voice` sen): "Måla en regnbåge! Dra fingret över himlen." / "Så fint!" / "En till färg!" / "Titta vad fin!". Committad.
 - 2026-06-29: `docs/PLAN-2.md` + denna tracker skapade. 25 koncept låsta (teman: element, bajs/kiss, spindel, enhörning; namn Zacke/Elvira/Alissa/Lova). Nästa: skriv 25 byggspecar via fan-out, sen bygg-loop från #1.
 
 ---

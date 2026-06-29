@@ -4,7 +4,7 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 7 / 25**
+**Klara: 8 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
@@ -15,7 +15,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 5 | `tvatta-djuret` | Tvätta Djuret | ✅ | ✅ | ✅ | ✅ | ✅ | Dra svamp→sudda lera (avtäck päls+skum), dra dusch→skölj; rutnäts-täckning, no-fail auto-clean; 0 fel |
 | 6 | `ballonglyft` | Ballonglyft | ✅ | ✅ | ✅ | ✅ | ✅ | Tryck→fäst ballonger (räkning), sväv present till Elviras fönster, poppa finjusterar; damp-spring 1D, auto-hjälp; 0 fel |
 | 7 | `gungan` | Gungan | ✅ | ✅ | ✅ | ✅ | ✅ | Tryck i takt→pendel-resonans pumpar Lova till fågeln; 💪-toggle + svep-knuff; auto-assist vid vändpunkt; 0 fel |
-| 8 | `lagerelden` | Lägerelden | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 8 | `lagerelden` | Lägerelden | ✅ | ✅ | ✅ | ✅ | ✅ | Dra ved + svep bälg→eld-partiklar växer (heat=fuel+air), dra marshmallow→gyllene; aldrig brinner upp; 0 fel |
 | 9 | `spindelnatet` | Spindelnätet | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 10 | `magnet-fiske` | Magnetfiske | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 11 | `fallskarmen` | Fallskärmen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
@@ -35,6 +35,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#8 lagerelden** ✅: Byggd (fräsch agent, egen eld-partikel-integrator heat=BASE+fuel·0.12+air·0.5) + simplify-agent (inga ändringar — ren) + headless-test 0 fel (ved-drag + marshmallow-drag + bälg). Marshmallow tonar vit→gyllene (lerpColor), aldrig svart; air/fuel klampas + BASE_FUEL-golv = brinner aldrig upp/ut; idle-gust + boost = no-fail. Ved via DragController, marshmallow/bälg egen drag. Röstrader (batchas): voiceIntro / "Mer ved gör elden stor!" / "Blås på elden..." / "Gyllene och god! Smaskigt!". Committad.
 - **#7 gungan** ✅: Byggd (fräsch agent, egen pendel-integrator OMEGA0=2.5/DAMP=0.22/THETA_MAX=1.45) + simplify-agent (inga ändringar — redan ren, importerade bara använt) + headless-test 0 fel (broad taps pumpar). Fas-kvalitet q styr stigning (golv 0.35=aldrig broms), 💪-toggle ×1.8, svep-knuff; auto-push vid vändpunkt garanterar mål. Röstrader (batchas): voiceIntro / "Just så — tryck i takt!" / "Nu knuffar vi starkare!". Committad.
 - **#6 ballonglyft** ✅: Byggd (fräsch agent, egen 1D damp-spring-integrator K=0.018/DAMP=0.9) + simplify-agent (döda imports PRAISE/randomFrom) + headless-test 0 fel (broad taps). Mål-höjdfönster + dwell 700ms; auto-hjälp lägger till/poppar ballong = no-fail konvergens. Räknar högt (en..nio). Röstrader (batchas): voiceIntro / tal en–nio / "Vi provar en ballong till!" / "Vi poppar en ballong." NOTERA: build-agenter importerar ofta oanvända PRAISE/randomFrom → be dem låta bli.
 - **#5 tvatta-djuret** ✅: Byggd (fräsch agent, egen lera-rutnäts-mask) + simplify-agent (extraherade `_fadeOut`-hjälpare, ~36→22 rader) + headless-test 0 fel (svamp- + dusch-drag). Två verktyg krävs mekaniskt (skum ≤ skrubbat); idle + no-progress-auto-clean konvergerar till 100%. Röstrader (batchas): voiceIntro / "Så ja, gnugga gnugga!" / "Bra! Ta duschen och skölj." / "Skölj rent!". Committad.

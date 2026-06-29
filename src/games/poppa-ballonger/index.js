@@ -165,9 +165,7 @@ export default {
 
     if (this._remaining <= 0 && !this._resolving) {
       this._resolving = true
-      ctx.services.voice.say(randomFrom(PRAISE))
-      bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
-      ctx.progress.complete()
+      ctx.progress.complete() // complete() sköter beröm-röst + konfetti + stjärna + klistermärke
       ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
       this._level++
       ctx.progress.setLevel(this._level)

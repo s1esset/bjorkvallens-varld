@@ -7,8 +7,9 @@ import vandkort from './vandkort/index.js'
 import poppaBallonger from './poppa-ballonger/index.js'
 import tryckOchForvandla from './tryck-och-forvandla/index.js'
 import kittlaFiguren from './kittla-figuren/index.js'
+import fargregn from './fargregn/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

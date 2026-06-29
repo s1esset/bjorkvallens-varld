@@ -1,0 +1,915 @@
+// Kulbanan — barnet bygger sin egen kulbana (3–5 år). En glansig gul kula vilar
+// frusen vid utsläppet uppe till vänster. Barnet DRAR ut lutande ramper, en tratt
+// och en studsplatta från "Delar"-hyllan, VRIDER dem (stor ↻-knapp, 15°-steg) och
+// trycker SLÄPP — kulan blir en riktig matter.js-kropp, rullar nedför ramperna,
+// studsar mjukt och plumsar (förhoppningsvis) ner i hinken 🪣. Ren ingenjörsglädje.
+//
+// INGET misslyckande: missar kulan blir det en mjuk "Hoppsan!"-puff och kulan
+// återvänder själv till utsläppet — oändligt många försök. Efter 3 missar lutar
+// spelet närmaste ramp mot hinken (vänlig auto-hjälp); räcker inte det glider kulan
+// hela vägen hem av sig själv och rundan firas ändå. Ingen poäng, ingen straff-timer.
+//
+// Fysik: STATISKA ramp-/studs-/tratt-kroppar som barnet flyttar (vi syncar
+// Body.setPosition/Body.setAngle vid varje drag OCH varje vrid) + en DYNAMISK kula.
+// Allt ritas programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
+import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { gsap } from 'gsap'
+import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
+import { createScene } from '../../lib/scene.js'
+import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, bigCelebration, floatText } from '../../lib/feedback.js'
+import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { randomFrom } from '../../lib/swedish.js'
+
+// --- Geometri (designkoordinater 1280×720) ---
+const CHUTE = { x: 300, y: 168 } // utsläppet uppe till vänster (kulans startläge)
+const BALL_R = 26
+const FIELD = { minX: 80, maxX: 1200, minY: 120, maxY: 690 } // klamp för delarna
+const SHELF_Y = 660 // delarna parkeras här på hyllan
+
+// Vrid-knappens steg: 15° inom [−60°, +60°] (index 4 = 0°).
+const ANGLE_STEPS = [-60, -45, -30, -15, 0, 15, 30, 45, 60].map((d) => (d * Math.PI) / 180)
+
+const REST_SPEED = 0.4 // matter-fart under detta = kulan står still
+const REST_HOLD = 1.2 // s under REST_SPEED innan vi räknar kulan som missad
+const FLOOR_MISS_Y = 690 // nådde golvet utan mål = miss
+const IDLE_DELAY = 6 // s utan handling → röst-recue
+const BOUNCE_THROTTLE = 0.16 // s mellan studsljud (anti-spam)
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+export default {
+  id: 'kulbana',
+  titleSv: 'Kulbanan',
+  icon: '🟡',
+  category: 'pussel',
+  input: 'drag',
+  ageRange: [3, 5],
+  bundle: 'kulbana',
+  voiceIntro: 'Lägg ramperna så kulan rullar ner i hinken! Tryck sedan på släpp.',
+
+  // ---- Livscykel ----------------------------------------------------------
+
+  init(ctx) {
+    this._alive = true
+    this._tnow = 0
+    this._idle = 0
+    this._restT = 0
+    this._attempts = 0
+    this._lastBounceAt = -1
+    this._falling = false
+    this._resolving = false
+    this._gliding = false
+    this._parts = []
+    this._obstacles = []
+    this._selected = null
+    this._drag = null
+    this._lastMoved = false
+    this._bucketPos = { x: 820, y: 558 }
+    this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
+
+    this._root = new Container()
+    ctx.stage.addChild(this._root)
+
+    // Bakgrund FÖRST (dekorativ himmel).
+    this._root.addChild(createScene('sky', { ground: false, width: ctx.width, height: ctx.height }))
+
+    // Fysik: lagom mjukt fall. Ceiling läggs till så en studs aldrig kan kasta
+    // kulan ut ur banan (no-escape) — osynligt, ändrar inget annat.
+    this._phys = new PhysicsWorld({ gravityY: 1.1, walls: ['left', 'right', 'floor', 'ceiling'], wallThickness: 120 })
+    this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+
+    // Osynlig fält-yta: fångar tap i tomrummet → flytta vald del (tap-tap) eller liten puff.
+    this._fieldCatcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
+    this._fieldCatcher.eventMode = 'static'
+    this._onFieldTap = (e) => this._fieldTap(ctx, e)
+    this._fieldCatcher.on('pointertap', this._onFieldTap)
+    this._root.addChild(this._fieldCatcher)
+
+    // Statisk dekor (hylla + utsläpps-spout).
+    this._decor = new Container()
+    this._decor.eventMode = 'none'
+    this._root.addChild(this._decor)
+    this._buildStaticDecor()
+
+    // Lager för hink, hinder, kula och delar (i ritordning).
+    this._bucketLayer = new Container()
+    this._bucketLayer.eventMode = 'none'
+    this._root.addChild(this._bucketLayer)
+    this._obstacleLayer = new Container()
+    this._obstacleLayer.eventMode = 'none'
+    this._root.addChild(this._obstacleLayer)
+
+    this._buildBall()
+    this._root.addChild(this._ballShadow)
+    this._root.addChild(this._ball)
+
+    this._partsLayer = new Container()
+    this._root.addChild(this._partsLayer)
+
+    this._buildReleaseButton(ctx)
+    this._root.addChild(this._releaseBtn)
+
+    // Kul-kropp (dynamisk men startar frusen vid utsläppet).
+    this._ballBody = this._phys.circle(CHUTE.x, CHUTE.y, BALL_R, {
+      restitution: 0.42,
+      friction: 0.03,
+      frictionAir: 0.006,
+      density: 0.0013,
+      label: 'ball',
+      isStatic: true,
+    })
+    this._phys.link(this._ballBody, this._ball) // synkar position + rull-rotation
+
+    this._loadLevel(ctx, this._level)
+
+    this._tick = (t) => this._update(ctx, t)
+    ctx.ticker.add(this._tick)
+  },
+
+  mount(ctx) {
+    this._idle = 0
+    ctx.services.voice.say(this.voiceIntro)
+  },
+
+  // ---- Statisk dekor ------------------------------------------------------
+
+  _buildStaticDecor() {
+    // Delar-hyllan (translucent panel nederst).
+    const shelf = new Graphics()
+      .roundRect(48, 612, 1184, 96, 26)
+      .fill({ color: COLORS.cream, alpha: 0.85 })
+      .stroke({ width: 5, color: COLORS.yellow, alpha: 0.7 })
+    shelf.eventMode = 'none'
+    const tag = new Text({ text: '🧰', style: { fontFamily: FONT.body, fontSize: 40 } })
+    tag.position.set(64, 626)
+    tag.eventMode = 'none'
+    const tagTxt = new Text({ text: 'Delar', style: { fontFamily: FONT.title, fontSize: 26, fontWeight: '800', fill: COLORS.inkSoft } })
+    tagTxt.position.set(112, 634)
+    tagTxt.eventMode = 'none'
+
+    // Utsläpps-spout uppe till vänster (lutande pip med mörk mynning).
+    const spout = new Container()
+    const sg = new Graphics().roundRect(-60, -16, 120, 32, 16).fill(COLORS.brown).stroke({ width: 5, color: 0x6e4429 })
+    sg.roundRect(-60, 4, 120, 12, 8).fill({ color: 0x3a2417, alpha: 0.6 })
+    spout.addChild(sg)
+    spout.position.set(300, 150)
+    spout.rotation = (12 * Math.PI) / 180
+    spout.eventMode = 'none'
+
+    this._decor.addChild(shelf, tag, tagTxt, spout)
+  },
+
+  // ---- Kula ---------------------------------------------------------------
+
+  _buildBall() {
+    // Mjuk markskugga (separat → roterar INTE med kulan).
+    this._ballShadow = new Graphics()
+      .ellipse(0, BALL_R * 0.95, BALL_R * 0.85, BALL_R * 0.32)
+      .fill({ color: 0x000000, alpha: 0.15 })
+    this._ballShadow.eventMode = 'none'
+    this._ballShadow.position.set(CHUTE.x, CHUTE.y)
+
+    // Glansig gul kula (Graphics → skarp kant). Highlight roterar med = rull-känsla.
+    this._ball = new Container()
+    const disc = new Graphics().circle(0, 0, BALL_R).fill(COLORS.yellow).stroke({ width: 4, color: COLORS.orangeDark })
+    const hi = new Graphics().circle(-8, -9, 7).fill({ color: 0xffffff, alpha: 0.7 })
+    disc.eventMode = 'none'
+    hi.eventMode = 'none'
+    this._ball.addChild(disc, hi)
+    this._ball.eventMode = 'none'
+    this._ball.position.set(CHUTE.x, CHUTE.y)
+  },
+
+  // ---- SLÄPP-knapp --------------------------------------------------------
+
+  _buildReleaseButton(ctx) {
+    const btn = new Container()
+    const lip = new Graphics().roundRect(-86, -44, 172, 104, 28).fill(COLORS.greenDark)
+    const face = new Graphics().roundRect(-86, -52, 172, 98, 28).fill(COLORS.green)
+    face.roundRect(-76, -44, 152, 30, 18).fill({ color: 0xffffff, alpha: 0.18 })
+    const label = new Text({ text: 'SLÄPP', style: { fontFamily: FONT.display, fontSize: 34, fontWeight: '800', fill: COLORS.white } })
+    label.anchor.set(0.5)
+    label.position.set(0, -10)
+    const arrow = new Text({ text: '⬇', style: { fontFamily: FONT.body, fontSize: 34, fill: COLORS.white } })
+    arrow.anchor.set(0.5)
+    arrow.position.set(0, 24)
+    btn.addChild(lip, face, label, arrow)
+    btn.position.set(160, 150)
+    btn.eventMode = 'static'
+    btn.cursor = 'pointer'
+    btn.interactiveChildren = false
+    btn.hitArea = new Rectangle(-86 - 24, -52 - 24, 172 + 48, 104 + 48) // ≥96px träffyta
+    this._onRelease = () => this._release(ctx)
+    btn.on('pointertap', this._onRelease)
+    this._releaseBtn = btn
+  },
+
+  _startButtonPulse() {
+    if (!this._releaseBtn || this._releaseBtn.destroyed) return
+    this._stopButtonPulse()
+    this._btnPulse = breathe(this._releaseBtn, { scale: 1.07, duration: 0.9 })
+  },
+
+  _stopButtonPulse() {
+    this._btnPulse?.kill()
+    this._btnPulse = null
+    if (this._releaseBtn && !this._releaseBtn.destroyed) this._releaseBtn.scale.set(1)
+  },
+
+  // ---- Banor (nivåberoende) -----------------------------------------------
+
+  _layoutFor(level) {
+    let bucket
+    let obstacles = []
+    let parts
+    if (level <= 1) {
+      bucket = { x: 820, y: 558 }
+      parts = ['ramp', 'ramp'] // en enda lutande ramp räcker
+    } else if (level <= 3) {
+      bucket = { x: 980, y: 580 }
+      parts = ['ramp', 'ramp', 'bounce']
+      obstacles = [{ x: 600, y: 470, w: 46, h: 160 }]
+    } else if (level <= 5) {
+      bucket = { x: 1080, y: 590 }
+      parts = ['ramp', 'ramp', 'ramp', 'bounce', 'funnel']
+      obstacles = [
+        { x: 520, y: 440, w: 46, h: 170 },
+        { x: 800, y: 510, w: 46, h: 150 },
+      ]
+    } else {
+      const jx = Math.random() * 60 - 30
+      const jy = Math.random() * 40 - 20
+      bucket = { x: clamp(1080 + jx, 980, 1140), y: clamp(580 + jy, 540, 612) }
+      parts = ['ramp', 'ramp', 'ramp', 'bounce', 'funnel']
+      obstacles = [
+        { x: clamp(520 + jx, 440, 620), y: 440, w: 46, h: 170 },
+        { x: clamp(820 + jx, 720, 900), y: 510, w: 46, h: 150 },
+      ]
+    }
+    return { bucket, obstacles, parts }
+  },
+
+  _loadLevel(ctx, level) {
+    if (!this._alive) return
+    this._clearParts()
+    this._clearObstacles()
+    this._clearBucket()
+
+    this._falling = false
+    this._resolving = false
+    this._gliding = false
+    this._attempts = 0
+    this._idle = 0
+    this._restT = 0
+    this._lastMoved = false
+
+    const lay = this._layoutFor(level)
+    this._bucketPos = lay.bucket
+    this._buildBucket(lay.bucket.x, lay.bucket.y)
+    for (const o of lay.obstacles) this._buildObstacle(o)
+
+    // Delarna parkeras jämnt på hyllan; barnet drar upp dem i fältet.
+    const n = lay.parts.length
+    lay.parts.forEach((kind, i) => {
+      const x = 160 + (i + 0.5) * (950 / n)
+      this._makePart(ctx, kind, x, SHELF_Y)
+    })
+
+    // Frys kulan på utsläppet.
+    this._freezeBall()
+    this._setPartsEnabled(true)
+    this._startButtonPulse()
+  },
+
+  _freezeBall() {
+    const b = this._ballBody
+    Body.setStatic(b, true)
+    nudge(b, 0, 0)
+    Body.setPosition(b, { x: CHUTE.x, y: CHUTE.y })
+    Body.setAngle(b, 0)
+    if (this._ball && !this._ball.destroyed) {
+      gsap.killTweensOf(this._ball.scale)
+      this._ball.scale.set(1)
+      this._ball.rotation = 0
+      this._ball.alpha = 1
+      this._ball.position.set(CHUTE.x, CHUTE.y)
+    }
+  },
+
+  // ---- Hink ---------------------------------------------------------------
+
+  _buildBucket(bx, by) {
+    const c = new Container()
+    c.eventMode = 'none'
+    // Mål-glödring (andas → drar blicken). Cirkel ritad i origo, flyttad via position
+    // så breathe skalar runt sin egen mitt.
+    const glow = new Graphics().circle(0, 0, 86).stroke({ width: 5, color: COLORS.yellow, alpha: 0.5 })
+    glow.position.set(0, -30)
+    const body = new Graphics()
+      .roundRect(-78, -40, 156, 110, 18)
+      .fill(COLORS.blue)
+      .stroke({ width: 6, color: 0x2f7fb8 })
+    body.roundRect(-66, -30, 132, 16, 8).fill({ color: 0xffffff, alpha: 0.25 }) // ljus innerkant
+    const emoji = new Text({ text: '🪣', style: { fontFamily: FONT.body, fontSize: 96 } })
+    emoji.anchor.set(0.5)
+    emoji.position.set(0, 6)
+    c.addChild(glow, body, emoji)
+    c.position.set(bx, by)
+    this._bucketLayer.addChild(c)
+    this._bucketView = c
+    this._bucketGlow = glow
+    this._bucketGlowTween = breathe(glow, { scale: 1.1, duration: 1.2 })
+
+    // Fångväggar + mjuk botten (riktiga statiska kroppar) så kulan stannar i hinken.
+    this._bucketWalls = [
+      this._phys.rectangle(bx - 72, by, 14, 100, { isStatic: true, restitution: 0.1, friction: 0.4, label: 'bucketwall' }),
+      this._phys.rectangle(bx + 72, by, 14, 100, { isStatic: true, restitution: 0.1, friction: 0.4, label: 'bucketwall' }),
+      this._phys.rectangle(bx, by + 54, 150, 16, { isStatic: true, restitution: 0.1, friction: 0.6, label: 'bucketwall' }),
+    ]
+  },
+
+  _clearBucket() {
+    if (this._bucketWalls) {
+      for (const w of this._bucketWalls) this._phys.removeBody(w)
+      this._bucketWalls = null
+    }
+    this._bucketGlowTween?.kill()
+    this._bucketGlowTween = null
+    if (this._bucketGlow && !this._bucketGlow.destroyed) gsap.killTweensOf(this._bucketGlow.scale)
+    if (this._bucketView && !this._bucketView.destroyed) {
+      gsap.killTweensOf(this._bucketView)
+      this._bucketView.destroy({ children: true })
+    }
+    this._bucketView = null
+    this._bucketGlow = null
+  },
+
+  // ---- Hinder -------------------------------------------------------------
+
+  _buildObstacle(o) {
+    const g = new Graphics().roundRect(-o.w / 2, -o.h / 2, o.w, o.h, 12).fill(COLORS.brown).stroke({ width: 4, color: 0x6e4429 })
+    g.eventMode = 'none'
+    g.position.set(o.x, o.y)
+    this._obstacleLayer.addChild(g)
+    const body = this._phys.rectangle(o.x, o.y, o.w, o.h, { isStatic: true, restitution: 0.2, friction: 0.4, label: 'obstacle' })
+    this._obstacles.push({ view: g, body })
+  },
+
+  _clearObstacles() {
+    for (const o of this._obstacles) {
+      if (o.body) this._phys.removeBody(o.body)
+      if (o.view && !o.view.destroyed) o.view.destroy({ children: true })
+    }
+    this._obstacles = []
+  },
+
+  // ---- Delar (ramp / studsplatta / tratt) ---------------------------------
+
+  _makePart(ctx, kind, x, y) {
+    const part = new Container()
+    part.position.set(x, y)
+    part._kind = kind
+    part._angleStep = 4 // 0°
+    let hitW
+    let hitH
+
+    if (kind === 'ramp') {
+      const g = new Graphics().roundRect(-100, -15, 200, 30, 14).fill(COLORS.brown).stroke({ width: 5, color: 0x6e4429 })
+      g.roundRect(-92, -12, 184, 7, 4).fill({ color: 0xffffff, alpha: 0.25 })
+      g.eventMode = 'none'
+      part.addChild(g)
+      part._body = this._phys.rectangle(x, y, 200, 30, { isStatic: true, friction: 0.06, restitution: 0.2, label: 'ramp' })
+      hitW = 240
+      hitH = 100
+      this._addKnob(ctx, part, 124)
+    } else if (kind === 'bounce') {
+      const g = new Graphics().roundRect(-70, -16, 140, 32, 14).fill(COLORS.teal).stroke({ width: 5, color: 0x3f9a96 })
+      g.eventMode = 'none'
+      part.addChild(g)
+      // Fjäder-zigzag (signalerar studs).
+      const spr = new Graphics()
+      for (const sx of [-40, 0, 40]) {
+        spr.moveTo(sx - 8, 10).lineTo(sx, 2).lineTo(sx + 8, 10).lineTo(sx, -2).lineTo(sx - 8, -8)
+      }
+      spr.stroke({ width: 3, color: COLORS.pink, alpha: 0.6 })
+      spr.eventMode = 'none'
+      part.addChild(spr)
+      part._body = this._phys.rectangle(x, y, 140, 32, { isStatic: true, friction: 0.04, restitution: 0.95, label: 'bounce' })
+      hitW = 180
+      hitH = 100
+      this._addKnob(ctx, part, 96)
+    } else {
+      // Tratt: två korta plankor i V (centrerar kulan). Ingen vrid-knapp.
+      const planks = [
+        { ox: -50, oy: 0, ang: (35 * Math.PI) / 180 },
+        { ox: 50, oy: 0, ang: (-35 * Math.PI) / 180 },
+      ]
+      part._subBodies = []
+      for (const pl of planks) {
+        const pg = new Graphics().roundRect(-60, -13, 120, 26, 12).fill(COLORS.brown).stroke({ width: 5, color: 0x6e4429 })
+        pg.position.set(pl.ox, pl.oy)
+        pg.rotation = pl.ang
+        pg.eventMode = 'none'
+        part.addChild(pg)
+        const body = this._phys.rectangle(x + pl.ox, y + pl.oy, 120, 26, { isStatic: true, friction: 0.06, restitution: 0.2, label: 'funnel' })
+        Body.setAngle(body, pl.ang)
+        part._subBodies.push({ body, ox: pl.ox, oy: pl.oy, ang: pl.ang })
+      }
+      hitW = 220
+      hitH = 110
+    }
+
+    part.eventMode = 'static'
+    part.cursor = 'pointer'
+    part.hitArea = new Rectangle(-hitW / 2, -hitH / 2, hitW, hitH)
+
+    // Fri-drag (egen pointer-logik — INTE DragController) + tap-tap-fallback.
+    const onDown = (e) => {
+      if (!this._alive || this._falling || this._resolving || this._gliding) return
+      this._idle = 0
+      this._partsLayer.addChild(part) // höj z-index
+      const local = this._root.toLocal(e.global)
+      this._drag = { part, ox: part.x - local.x, oy: part.y - local.y, moved: false, sx: local.x, sy: local.y }
+      gsap.killTweensOf(part.scale)
+      gsap.to(part.scale, { x: 1.08, y: 1.08, duration: 0.12, ease: 'power2.out' })
+      ctx.services.audio.sfx('tap')
+      e.stopPropagation()
+    }
+    const onMove = (e) => {
+      if (!this._drag || this._drag.part !== part) return
+      const local = this._root.toLocal(e.global)
+      part.x = clamp(local.x + this._drag.ox, FIELD.minX, FIELD.maxX)
+      part.y = clamp(local.y + this._drag.oy, FIELD.minY, FIELD.maxY)
+      this._syncPartBodies(part)
+      if (Math.hypot(local.x - this._drag.sx, local.y - this._drag.sy) > 14) this._drag.moved = true
+      this._idle = 0
+    }
+    const onUp = () => {
+      if (!this._drag || this._drag.part !== part) return
+      const moved = this._drag.moved
+      this._lastMoved = moved
+      this._drag = null
+      gsap.killTweensOf(part.scale)
+      gsap.to(part.scale, { x: 1, y: 1, duration: 0.2, ease: 'back.out(2)' })
+      if (moved) {
+        ctx.services.audio.sfx('soft')
+        this._deselect()
+      }
+      this._idle = 0
+    }
+    const onTap = (e) => {
+      e.stopPropagation()
+      if (this._lastMoved) {
+        this._lastMoved = false
+        return
+      }
+      this._togglePartSelect(ctx, part)
+    }
+    part.on('pointerdown', onDown)
+    part.on('globalpointermove', onMove)
+    part.on('pointerup', onUp)
+    part.on('pointerupoutside', onUp)
+    part.on('pointertap', onTap)
+
+    this._partsLayer.addChild(part)
+    this._parts.push(part)
+    bounceIn(part)
+    return part
+  },
+
+  _addKnob(ctx, part, kx) {
+    const knob = new Container()
+    const g = new Graphics().circle(0, 0, 40).fill(COLORS.orange).stroke({ width: 5, color: COLORS.orangeDark })
+    const t = new Text({ text: '↻', style: { fontFamily: FONT.title, fontSize: 44, fontWeight: '800', fill: COLORS.white } })
+    t.anchor.set(0.5)
+    t.eventMode = 'none'
+    knob.addChild(g, t)
+    knob.position.set(kx, 0)
+    knob.eventMode = 'static'
+    knob.cursor = 'pointer'
+    knob.hitArea = new Circle(0, 0, 70) // osynlig hit-halo ≥96px
+    knob.on('pointerdown', (e) => e.stopPropagation()) // greppa knappen ≠ dra delen
+    knob.on('pointertap', (e) => {
+      e.stopPropagation()
+      this._rotatePart(ctx, part)
+    })
+    part._knob = knob
+    part.addChild(knob)
+  },
+
+  // Synka matter-kropparna med delens vy (vid varje drag OCH varje vrid).
+  _syncPartBodies(part) {
+    if (part._kind === 'funnel') {
+      for (const s of part._subBodies) {
+        Body.setPosition(s.body, { x: part.x + s.ox, y: part.y + s.oy })
+        Body.setAngle(s.body, s.ang)
+      }
+    } else if (part._body) {
+      Body.setPosition(part._body, { x: part.x, y: part.y })
+      Body.setAngle(part._body, part.rotation)
+    }
+  },
+
+  _rotatePart(ctx, part) {
+    if (!this._alive || this._falling || this._resolving || this._gliding) return
+    this._idle = 0
+    part._angleStep = (part._angleStep + 1) % ANGLE_STEPS.length
+    const ang = ANGLE_STEPS[part._angleStep]
+    part.rotation = ang
+    if (part._knob && !part._knob.destroyed) part._knob.rotation = -ang // håll ↻ upprätt
+    this._syncPartBodies(part)
+    pop(part)
+    ctx.services.audio.sfx('flip')
+    if (part._knob && !part._knob.destroyed) {
+      const wx = part.x + part._knob.x * Math.cos(ang)
+      const wy = part.y + part._knob.x * Math.sin(ang)
+      sparkle(ctx.fxLayer, wx, wy, { count: 4 })
+    }
+  },
+
+  // Tap-tap-markering: tap på del markerar (puls); tap igen avmarkerar.
+  _togglePartSelect(ctx, part) {
+    if (!this._alive || this._falling || this._resolving || this._gliding) return
+    this._idle = 0
+    if (this._selected === part) {
+      this._deselect()
+      ctx.services.audio.sfx('soft')
+      return
+    }
+    this._deselect()
+    this._selected = part
+    gsap.killTweensOf(part.scale)
+    part.scale.set(1)
+    this._selPulse = breathe(part, { scale: 1.08, duration: 0.7 })
+    ctx.services.audio.sfx('tap')
+  },
+
+  _deselect() {
+    this._selPulse?.kill()
+    this._selPulse = null
+    if (this._selected && !this._selected.destroyed) {
+      gsap.killTweensOf(this._selected.scale)
+      this._selected.scale.set(1)
+    }
+    this._selected = null
+  },
+
+  // Tap i tomrummet: flytta vald del dit (tap-tap-flytt) eller glad puff.
+  _fieldTap(ctx, e) {
+    if (!this._alive || this._falling || this._resolving || this._gliding) return
+    const p = this._root.toLocal(e.global)
+    this._idle = 0
+    if (this._selected && !this._selected.destroyed) {
+      const part = this._selected
+      const tx = clamp(p.x, FIELD.minX, FIELD.maxX)
+      const ty = clamp(p.y, FIELD.minY, FIELD.maxY)
+      this._deselect()
+      const sx = part.x
+      const sy = part.y
+      const st = { p: 0 }
+      this._fieldTween?.kill()
+      this._fieldTween = gsap.to(st, {
+        p: 1,
+        duration: 0.3,
+        ease: 'power2.out',
+        onUpdate: () => {
+          if (!this._alive || part.destroyed) return
+          part.x = sx + (tx - sx) * st.p
+          part.y = sy + (ty - sy) * st.p
+          this._syncPartBodies(part)
+        },
+      })
+      ctx.services.audio.sfx('soft')
+    } else {
+      ctx.services.audio.sfx('soft')
+      puff(ctx.fxLayer, p.x, p.y, { count: 4 })
+    }
+  },
+
+  _setPartsEnabled(on) {
+    for (const part of this._parts) {
+      if (!part || part.destroyed) continue
+      part.eventMode = on ? 'static' : 'none'
+      part.interactiveChildren = on
+      part.alpha = on ? 1 : 0.92
+    }
+    if (!on) this._deselect()
+  },
+
+  // ---- SLÄPP → kulan blir dynamisk ----------------------------------------
+
+  _release(ctx) {
+    if (!this._alive) return
+    if (this._falling || this._resolving || this._gliding) {
+      if (this._releaseBtn && !this._releaseBtn.destroyed) wiggle(this._releaseBtn)
+      return
+    }
+    this._falling = true
+    this._restT = 0
+    this._idle = 0
+    this._deselect()
+    this._setPartsEnabled(false)
+    this._stopButtonPulse()
+    ctx.services.audio.sfx('whoosh')
+    const b = this._ballBody
+    Body.setPosition(b, { x: CHUTE.x, y: CHUTE.y })
+    Body.setAngle(b, 0)
+    Body.setStatic(b, false)
+    nudge(b, 0, 0)
+    if (this._ball && !this._ball.destroyed) puff(ctx.fxLayer, this._ball.x, this._ball.y, { count: 5 })
+  },
+
+  // ---- Ticker -------------------------------------------------------------
+
+  _update(ctx, ticker) {
+    if (!this._alive) return
+    const dt = ticker.deltaMS / 1000
+    this._tnow += dt
+    this._phys.update(ticker.deltaMS)
+
+    // Skuggan följer kulan (utan att rotera).
+    if (this._ballShadow && !this._ballShadow.destroyed && this._ball && !this._ball.destroyed) {
+      this._ballShadow.position.set(this._ball.x, this._ball.y)
+    }
+
+    if (this._falling && !this._resolving && !this._gliding) {
+      const b = this._ballBody
+      if (this._inBucket(b.position.x, b.position.y)) {
+        this._win(ctx)
+        return
+      }
+      const spd = Math.hypot(b.velocity.x, b.velocity.y)
+      if (b.position.y > FLOOR_MISS_Y) {
+        this._returnBall(ctx)
+        return
+      }
+      if (spd < REST_SPEED) {
+        this._restT += dt
+        if (this._restT >= REST_HOLD) this._returnBall(ctx)
+      } else {
+        this._restT = 0
+      }
+      return
+    }
+
+    // Banan väntar på SLÄPP → idle-recue efter ~6 s.
+    if (!this._falling && !this._resolving && !this._gliding) {
+      this._idle += dt
+      if (this._idle >= IDLE_DELAY) {
+        this._idle = 0
+        this._idleRecue(ctx)
+      }
+    }
+  },
+
+  _inBucket(x, y) {
+    const b = this._bucketPos
+    return Math.abs(x - b.x) <= 66 && y >= b.y - 54 && y <= b.y - 6
+  },
+
+  _idleRecue(ctx) {
+    ctx.services.voice.replayLast()
+    if (this._releaseBtn && !this._releaseBtn.destroyed) pop(this._releaseBtn)
+    const ramp = this._parts.find((p) => p && !p.destroyed && p._kind === 'ramp')
+    if (ramp) wiggle(ramp)
+  },
+
+  // ---- Mål: firande + ny bana ---------------------------------------------
+
+  _win(ctx) {
+    if (this._resolving) return
+    this._resolving = true
+    this._gliding = false
+    this._glideTween?.kill()
+    this._setPartsEnabled(false)
+    this._stopButtonPulse()
+    this._idle = 0
+
+    const bx = this._bucketPos.x
+    const by = this._bucketPos.y
+    const b = this._ballBody
+    Body.setStatic(b, true)
+    nudge(b, 0, 0)
+    Body.setPosition(b, { x: bx, y: by - 16 })
+
+    ctx.services.audio.sfx('correct')
+    ctx.services.audio.sfx('celebrate')
+    ctx.services.voice.say(randomFrom(PRAISE))
+
+    // Kulan "plumsar" ner i hinken (kort skala-studs; link rör bara position/vinkel).
+    if (this._ball && !this._ball.destroyed) {
+      this._ball.position.set(bx, by - 16)
+      gsap.killTweensOf(this._ball.scale)
+      gsap.fromTo(this._ball.scale, { x: 1, y: 1 }, { x: 0.7, y: 0.7, duration: 0.32, yoyo: true, repeat: 1, ease: 'power2.inOut' })
+    }
+
+    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    burst(ctx.fxLayer, bx, by - 30, { count: 16 })
+    floatText(ctx.fxLayer, bx, by - 90, '🎉', { fontSize: 72 })
+
+    this._level += 1
+    ctx.progress.setLevel(this._level)
+    ctx.progress.setCustom('banor', (ctx.progress.get().custom?.banor || 0) + 1)
+    ctx.progress.complete()
+
+    this._winTimer?.kill()
+    this._winTimer = gsap.delayedCall(1.5, () => {
+      if (this._alive) this._loadLevel(ctx, this._level)
+    })
+  },
+
+  // ---- Miss = roligt + auto-hjälp (garanterar framgång) -------------------
+
+  _returnBall(ctx) {
+    if (!this._alive || this._resolving || this._gliding) return
+    this._falling = false
+    this._restT = 0
+    this._attempts++
+
+    ctx.services.audio.sfx('soft')
+    if (this._ball && !this._ball.destroyed) {
+      floatText(ctx.fxLayer, this._ball.x, this._ball.y - 30, 'Hoppsan!', { fontSize: 44 })
+      puff(ctx.fxLayer, this._ball.x, this._ball.y, { count: 6 })
+    }
+    this._freezeBall()
+
+    if (this._attempts >= 4) {
+      this._glideHome(ctx) // garanterad hemrullning
+      return
+    }
+    this._setPartsEnabled(true)
+    this._startButtonPulse()
+    this._idle = 0
+    if (this._attempts === 3) {
+      this._assistTiltRamp(ctx) // luta närmaste ramp mot hinken
+      return
+    }
+    if (Math.random() < 0.5) ctx.services.voice.say('Nästan! Prova igen.')
+  },
+
+  // Auto-hjälp steg 1: flytta + luta den ramp som ligger närmast hinken så den pekar dit.
+  _assistTiltRamp(ctx) {
+    ctx.services.voice.say('Nästan! Jag hjälper till.')
+    const bx = this._bucketPos.x
+    let ramp = null
+    let best = Infinity
+    for (const p of this._parts) {
+      if (!p || p.destroyed || p._kind !== 'ramp' || !p._body) continue
+      const d = Math.abs(p.x - bx)
+      if (d < best) {
+        best = d
+        ramp = p
+      }
+    }
+    if (!ramp) return
+    const tx = clamp(CHUTE.x + (bx - CHUTE.x) * 0.45, 220, 980)
+    const ty = 380
+    const dir = bx >= ramp.x ? 1 : -1
+    const ang = dir * ((30 * Math.PI) / 180)
+    ramp._angleStep = dir > 0 ? 6 : 2 // index för +30° / −30°
+    this._deselect()
+    const sx = ramp.x
+    const sy = ramp.y
+    const sr = ramp.rotation
+    const st = { p: 0 }
+    this._assistTween?.kill()
+    this._assistTween = gsap.to(st, {
+      p: 1,
+      duration: 0.5,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        if (!this._alive || ramp.destroyed) return
+        ramp.x = sx + (tx - sx) * st.p
+        ramp.y = sy + (ty - sy) * st.p
+        ramp.rotation = sr + (ang - sr) * st.p
+        if (ramp._knob && !ramp._knob.destroyed) ramp._knob.rotation = -ramp.rotation
+        this._syncPartBodies(ramp)
+      },
+    })
+    ctx.services.audio.sfx('flip')
+    if (this._ball && !this._ball.destroyed) sparkle(ctx.fxLayer, ramp.x, ramp.y, { count: 5 })
+  },
+
+  // Auto-hjälp steg 2: kulan glider hela vägen hem (exit-säker {}-proxy) → fira ändå.
+  _glideHome(ctx) {
+    this._gliding = true
+    this._setPartsEnabled(false)
+    this._stopButtonPulse()
+    ctx.services.audio.sfx('whoosh')
+    ctx.services.voice.say('Jag rullar den hem åt dig!')
+    const b = this._ballBody
+    Body.setStatic(b, true)
+    nudge(b, 0, 0)
+    const sx = b.position.x
+    const sy = b.position.y
+    const tx = this._bucketPos.x
+    const ty = this._bucketPos.y - 24
+    const st = { p: 0 }
+    this._glideTween?.kill()
+    this._glideTween = gsap.to(st, {
+      p: 1,
+      duration: 1.0,
+      ease: 'power1.inOut',
+      onUpdate: () => {
+        if (!this._alive) {
+          this._glideTween?.kill()
+          return
+        }
+        const x = sx + (tx - sx) * st.p
+        const y = sy + (ty - sy) * st.p - Math.sin(st.p * Math.PI) * 60 // mjuk båge
+        Body.setPosition(b, { x, y })
+        nudge(b, 0, 0)
+      },
+      onComplete: () => {
+        if (this._alive) this._win(ctx)
+      },
+    })
+  },
+
+  // ---- Kollisioner: studsljud ---------------------------------------------
+
+  _onCollision(ctx, e) {
+    if (!this._alive) return
+    for (const pair of e.pairs) {
+      const involvesBall = pair.bodyA === this._ballBody || pair.bodyB === this._ballBody
+      if (!involvesBall) continue
+      const other = pair.bodyA === this._ballBody ? pair.bodyB : pair.bodyA
+      if (other.label === 'bounce') {
+        ctx.services.audio.sfx('pling')
+        sparkle(ctx.fxLayer, this._ballBody.position.x, this._ballBody.position.y, { count: 5 })
+        this._lastBounceAt = this._tnow
+        continue
+      }
+      const spd = Math.hypot(this._ballBody.velocity.x, this._ballBody.velocity.y)
+      if (spd > 2 && this._tnow - this._lastBounceAt > BOUNCE_THROTTLE) {
+        this._lastBounceAt = this._tnow
+        ctx.services.audio.sfx('pop')
+      }
+    }
+  },
+
+  // ---- Städning (exit-säkert) ---------------------------------------------
+
+  _removePartBodies(part) {
+    if (part._body) {
+      this._phys.removeBody(part._body)
+      part._body = null
+    }
+    if (part._subBodies) {
+      for (const s of part._subBodies) this._phys.removeBody(s.body)
+      part._subBodies = null
+    }
+  },
+
+  _clearParts() {
+    this._deselect()
+    this._drag = null
+    for (const part of this._parts) {
+      if (!part) continue
+      this._removePartBodies(part)
+      if (!part.destroyed) {
+        gsap.killTweensOf(part)
+        gsap.killTweensOf(part.scale)
+        part.destroy({ children: true })
+      }
+    }
+    this._parts = []
+  },
+
+  destroy(ctx) {
+    this._alive = false
+    if (this._tick) ctx?.ticker?.remove(this._tick)
+    this._unbind?.()
+    this._winTimer?.kill()
+    this._glideTween?.kill()
+    this._assistTween?.kill()
+    this._fieldTween?.kill()
+    this._btnPulse?.kill()
+    this._bucketGlowTween?.kill()
+    this._selPulse?.kill()
+
+    if (this._fieldCatcher && !this._fieldCatcher.destroyed) this._fieldCatcher.off('pointertap', this._onFieldTap)
+    if (this._releaseBtn && !this._releaseBtn.destroyed) {
+      this._releaseBtn.off('pointertap', this._onRelease)
+      gsap.killTweensOf(this._releaseBtn)
+      gsap.killTweensOf(this._releaseBtn.scale)
+    }
+
+    for (const part of this._parts || []) {
+      if (part && !part.destroyed) {
+        gsap.killTweensOf(part)
+        gsap.killTweensOf(part.scale)
+      }
+    }
+    if (this._ball && !this._ball.destroyed) {
+      gsap.killTweensOf(this._ball)
+      gsap.killTweensOf(this._ball.scale)
+    }
+    if (this._bucketGlow && !this._bucketGlow.destroyed) gsap.killTweensOf(this._bucketGlow.scale)
+
+    this._phys?.destroy()
+    gsap.killTweensOf(this._root)
+    ctx?.services?.voice?.cancel()
+    this._root?.destroy({ children: true })
+  },
+}

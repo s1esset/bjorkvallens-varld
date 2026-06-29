@@ -119,7 +119,7 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
 - **Fas 2** — fargregn, rakna-applen, stor-liten, peka-pa-kroppen — ✅ (alla 0 fel, headless-testade; stor-liten även dragtestat)
 - **Fas 3** — vandkort, skuggmatchning, vilket-djur-later, klappa-mullvaden — ✅ (alla 0 fel, headless-testade; skuggmatchning även dragtestat)
 - **Fas 4** — sortera-skrap, mata-monstret, kla-pa-nallen — ✅ (alla 0 fel, dragtestade)
-- **Fas 5 — Riktiga SFX**: källa designat CC0/genererat ljud, AudioService sample-uppspelning, koppla in överallt — ⬜
+- **Fas 5 — Riktiga SFX**: ⏸️ UPPSKJUTEN (användarval 2026-06-29). Båda riktiga-ljud-källorna kräver setup som inte fanns: MOSS-SFX-tjänsten (`C:/repos/storygen/services/moss-sfx`, modell `OpenMOSS-Team/MOSS-SoundEffect`) körde inte + saknar venv + ocachead modell; ingen Freesound-token (`scripts/.freesound-token`). När det görs: skapa venv + kör tjänsten ELLER lägg token, generera/hämta CC0-ljud (spel-SFX + djurläten), lägg sample-uppspelning i `AudioService` (faller tillbaka till procedurellt), koppla in. Tills dess: procedurella Web Audio-SFX + neural röst för djurläten.
 
 ## v3-logg
 - **Fas 0**: Byggde delat grundverktyg. `scene.js`: drop-in bakgrund (`createScene(theme)`), teman sky/meadow/sunset/candy/water/night/warm. `feedback.js`: ripple (tryck-ring), shake (mjuk skärmskakning), burst (saftig partikelexplosion), breathe (idle-puls) — alla exit-säkra. Verifierat: meadow-scen + juice renderar fint, 0 fel.
@@ -148,4 +148,12 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
   - **kla-pa-nallen**: scen roterar per outfit, gullig nalle (blinkar, slot-ringar), 5 outfits (vinter/sommar/regn/fin/mys) m. varianter, 2→5 plagg/nivå; DragController återanvänd, dragtestat (klar→firande→ny outfit).
   - +73 röstrepliker (tunnor, monster-repliker/namn, nalle-plagg/outfits) tillagda + regenererade.
 
-**15-spels-uppgraderingen (fas 1–4) KLAR.** Återstår: Fas 5 (riktiga SFX) + avslut (status/minne/PWA-tvångsuppdatering/tjänster/telefontest).
+**15-spels-uppgraderingen (fas 1–4) KLAR.** Fas 5 (riktiga SFX) uppskjuten på användarens begäran.
+
+## Avslut (2026-06-29)
+- **Status**: Fas 0–4 klara & commitade (5 commits: foundation + fas 1–4). 38 spel totalt; 15 lyfta till marknadskvalitet. Alla headless-testade 0 fel; produktionsbygge rent.
+- **Röst**: 650 neural-klipp (sv) i `public/audio/voice` (precachas offline).
+- **PWA-tvångsuppdatering**: SW är `prompt`-läge + `skipWaiting:false` -> uppdatering läggs på vänt och appliceras vid MENYN (aldrig mitt i spel, by design). Ett nytt bygge ändrar precache-hashen (682 poster, 10,6 MiB) -> installerade klienter hämtar nya SW:n och appliceras nästa gång de når menyn / startar om appen. Ingen versionsbump behövs (innehålls-hash).
+- **Tjänster**: dev (5173) + preview (4173, serverar `dist/`) körs; `tailscale serve --bg --https=8445 http://127.0.0.1:4173` återställd.
+- **Telefontest-URL**: https://andreas-psai1.tail4e6703.ts.net:8445/ (HTTPS = PWA-install/offline). Verifierad: index/sw.js/manifest/ljud = 200; prod-bygget bootar 0 fel ("Klar att spela offline").
+- **Testverktyg**: `node scripts/test-game.mjs <id> [--drag "fx,fy>tx,ty;..."] [--shot out.png]` (Playwright + systemets Chrome, oberoende av MCP). Dev-only `window.__barnspel` krävs (funkar ej mot prod-bygget).

@@ -19,8 +19,9 @@ import klaPaNallen from './kla-pa-nallen/index.js'
 import planteraFron from './plantera-fron/index.js'
 import skuggmatchning from './skuggmatchning/index.js'
 import enkeltPussel from './enkelt-pussel/index.js'
+import plaskIVattnet from './plask-i-vattnet/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

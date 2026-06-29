@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 15 / 25**
+**Klara: 16 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -22,7 +22,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 13 | `plantera-fron` | Plantera Frön | ✅ Klar | ✔ | ✔ | ✔ | Så frö (drag) -> vattna (tap) -> växer frö->grodd->knopp->blomma; fjärilar; 0 fel |
 | 14 | `skuggmatchning` | Skuggmatchning | ✅ Klar | ✔ | ✔ | ✔ | Dra föremål till matchande svart skugga; skuggan blommar till färg; 2-4 par; 0 fel |
 | 15 | `enkelt-pussel` | Enkelt Pussel | ✅ Klar | ✔ | ✔ | ✔ | Dra 2-4 pusselbitar i ramen; riktiga pusselformer (knopp/hål); 4 motiv; 0 fel |
-| 16 | `plask-i-vattnet` | Plask i Vattnet | ⬜ Väntar | | | | |
+| 16 | `plask-i-vattnet` | Plask i Vattnet | ✅ Klar | ✔ | ✔ | ✔ | Dra föremål i vattnet -> flyter/sjunker (fysik); plask+bubblor; tryck-vatten-plask; 0 fel |
 | 17 | `kla-efter-vadret` | Klä efter Vädret | ⬜ Väntar | | | | |
 | 18 | `vart-tog-det-vagen` | Vart Tog Det Vägen? | ⬜ Väntar | | | | |
 | 19 | `vad-forsvann` | Vad Försvann? | ⬜ Väntar | | | | |
@@ -52,3 +52,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **plantera-fron**: Byggd + testad (3 rundor, flowers 4, fjäril+firande, 0 fel). Drag-så + tap-vattna + staged växt-timeline per spec.
 - **skuggmatchning**: Byggd + testad (3 rundor, stars 3, tydliga tint-svarta siluetter, 0 fel). DragController, skugga tonar svart->färg vid match.
 - **enkelt-pussel**: Byggd (agent avbröts av sessionsgräns före registrering -> jag granskade modulen, registrerade, testade). 3 rundor (2/3/4 bitar), stars 3, 0 fel. Maskade scen-bitar, spök-förhandsvisning.
+- **plask-i-vattnet**: Byggd + testad (6 föremål nedsläppta, runda klar, stars 1, 0 fel). Fysik flyter/sjunker per spec, plask-ringar (proxy), ambient bubblor via ticker, extra vatten-tryck-plask.

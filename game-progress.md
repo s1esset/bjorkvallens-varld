@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 13 / 25**
+**Klara: 14 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -20,7 +20,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 11 | `tarta-i-ansiktet` | Tårta i Ansiktet | ✅ Klar | ✔ | ✔ | ✔ | Kasta tårta på clownen; varje tryck = splatt+fniss; torka-knapp; firande+reset; 0 fel |
 | 12 | `kla-pa-nallen` | Klä på Nallen | ✅ Klar | ✔ | ✔ | ✔ | Dra kläder till rätt kroppsdel på nallen; 2-3 plagg; snäpper på; 0 fel |
 | 13 | `plantera-fron` | Plantera Frön | ✅ Klar | ✔ | ✔ | ✔ | Så frö (drag) -> vattna (tap) -> växer frö->grodd->knopp->blomma; fjärilar; 0 fel |
-| 14 | `skuggmatchning` | Skuggmatchning | ⬜ Väntar | | | | |
+| 14 | `skuggmatchning` | Skuggmatchning | ✅ Klar | ✔ | ✔ | ✔ | Dra föremål till matchande svart skugga; skuggan blommar till färg; 2-4 par; 0 fel |
 | 15 | `enkelt-pussel` | Enkelt Pussel | ⬜ Väntar | | | | |
 | 16 | `plask-i-vattnet` | Plask i Vattnet | ⬜ Väntar | | | | |
 | 17 | `kla-efter-vadret` | Klä efter Vädret | ⬜ Väntar | | | | |
@@ -50,3 +50,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **tarta-i-ansiktet**: Byggd + testad (8 tårtor, 2 rundor firade, gräddsplatt syns, 0 fel). Ren orsak-verkan-lek, allt tryck positivt, pooled cake (exit-säker).
 - **kla-pa-nallen**: Byggd + testad (3 rundor, stars 3, 2- och 3-plaggslayouter funkar, 0 fel). DragController, plagg reparentas in i nallen, hint-ringar.
 - **plantera-fron**: Byggd + testad (3 rundor, flowers 4, fjäril+firande, 0 fel). Drag-så + tap-vattna + staged växt-timeline per spec.
+- **skuggmatchning**: Byggd + testad (3 rundor, stars 3, tydliga tint-svarta siluetter, 0 fel). DragController, skugga tonar svart->färg vid match.

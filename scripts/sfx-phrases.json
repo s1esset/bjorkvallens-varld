@@ -17,5 +17,11 @@
   "djur_groda": { "prompt": "a frog croaking ribbit twice, clear, isolated, no music", "duration": 1.6 },
   "djur_bi": { "prompt": "a single bee buzzing, gentle insect buzz, isolated, no music", "duration": 1.6 },
   "djur_tupp": { "prompt": "a rooster crowing cock-a-doodle-doo once, clear, isolated, no music", "duration": 2.0 },
-  "djur_uggla": { "prompt": "an owl hooting twice at night, clear, isolated, no music", "duration": 2.0 }
+  "djur_uggla": { "prompt": "an owl hooting twice at night, clear, isolated, no music", "duration": 2.0 },
+
+  "fart": { "prompt": "a funny short cartoon fart, comedic wet raspberry, single, no music, no voice", "duration": 1.2 },
+  "plopp": { "prompt": "a single wet plop, a small object dropping into toilet water, splash, no music", "duration": 1.2 },
+  "boing": { "prompt": "a cartoon boing, bouncy spring rebound, single, playful, no music, no voice", "duration": 1.0 },
+  "thwip": { "prompt": "a quick web-shooter thwip, short swish whoosh, no music, no voice", "duration": 1.0 },
+  "magi": { "prompt": "a magical sparkle twinkle, gentle ascending chime shimmer, bright, no voice", "duration": 1.3 }
 }

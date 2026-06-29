@@ -11,12 +11,28 @@
 import Matter from 'matter-js'
 import { DESIGN_W, DESIGN_H } from './theme.js'
 
-const { Engine, Composite, Bodies, Body, Events } = Matter
+const { Engine, Composite, Bodies, Body, Vector, Events } = Matter
+
+// Materialförval (kropp-opts) — ger spelen "olika egenskaper" utan magiska tal:
+// studsighet (restitution), täthet/massa (density), friktion, luftmotstånd.
+export const MATERIALS = {
+  // lätt & studsig (boll, gummi)
+  bouncy: { restitution: 0.86, friction: 0.05, frictionAir: 0.004, density: 0.0010 },
+  // standard
+  normal: { restitution: 0.45, friction: 0.25, frictionAir: 0.01, density: 0.0015 },
+  // tung & trög (sten, stor bajskorv) — mer massa = mer momentum, mindre studs
+  heavy: { restitution: 0.18, friction: 0.5, frictionAir: 0.008, density: 0.0045 },
+  // lätt & luftig (fjäder, liten korv) — bromsas av luft, lätt att blåsa iväg
+  light: { restitution: 0.5, friction: 0.2, frictionAir: 0.05, density: 0.0005 },
+  // klistrig (fastnar, studsar nästan inte)
+  sticky: { restitution: 0.02, friction: 0.9, frictionAir: 0.02, density: 0.002 },
+}
 
 export class PhysicsWorld {
   // walls: vilka osynliga väggar som skapas ('floor','left','right','ceiling').
   // wallThickness/extra: tjocklek + hur långt utanför skärmen väggarna sträcker sig.
-  constructor({ gravityY = 1, gravityX = 0, walls = ['floor', 'left', 'right'], wallThickness = 120, wallExtra = 200 } = {}) {
+  // windAx/windAy: konstant vind-ACCELERATION (px/steg²) på alla dynamiska kroppar.
+  constructor({ gravityY = 1, gravityX = 0, walls = ['floor', 'left', 'right'], wallThickness = 120, wallExtra = 200, windAx = 0, windAy = 0 } = {}) {
     this.engine = Engine.create()
     this.engine.gravity.x = gravityX
     this.engine.gravity.y = gravityY
@@ -24,8 +40,25 @@ export class PhysicsWorld {
     this._links = [] // { body, view, onUpdate? }
     this._alive = true
     this._acc = 0 // ackumulerad realtid för fast tidssteg
+    this._windAx = windAx
+    this._windAy = windAy
     this.walls = []
     this._buildWalls(walls, wallThickness, wallExtra)
+  }
+
+  // Sätt vind-acceleration (px/steg²). Verkar på alla dynamiska kroppar oavsett massa
+  // (force = massa × acceleration), så lätta saker blåser iväg lika "naturligt".
+  setWind(ax, ay = 0) {
+    this._windAx = ax
+    this._windAy = ay
+  }
+
+  get gravityY() {
+    return this.engine.gravity.y
+  }
+  setGravity(y, x = this.engine.gravity.x) {
+    this.engine.gravity.y = y
+    this.engine.gravity.x = x
   }
 
   _buildWalls(which, t, ex) {
@@ -105,7 +138,16 @@ export class PhysicsWorld {
     const FIXED = 1000 / 60
     this._acc += Math.min(deltaMS || FIXED, 100) // klamp stora hopp (flik-byte)
     let steps = 0
+    const windy = this._windAx !== 0 || this._windAy !== 0
     while (this._acc >= FIXED && steps < 5) {
+      if (windy) {
+        const bodies = Composite.allBodies(this.world)
+        for (let b = 0; b < bodies.length; b++) {
+          const body = bodies[b]
+          if (body.isStatic || body.isSleeping) continue
+          Body.applyForce(body, body.position, { x: body.mass * this._windAx, y: body.mass * this._windAy })
+        }
+      }
       Engine.update(this.engine, FIXED)
       this._acc -= FIXED
       steps++
@@ -146,4 +188,38 @@ export function applyForce(body, fx, fy) {
   Body.applyForce(body, body.position, { x: fx, y: fy })
 }
 
-export { Matter }
+// Förutsäg en kastbana (för en prickad sikt-förhandsvisning). Lättviktig Euler-sim av
+// en punktmassa under gravitation + vind, med valfri studs mot golv/väggar. Detta är
+// en VISUELL guide (matchar matter ungefär, inte exakt) — spelen är ändå no-fail.
+// gy/wx = px per steg² (tuna gy ~0.4–0.6 så pricklinjen följer kroppens verkliga fall).
+export function predictTrajectory({ x, y, vx, vy, gy = 0.5, wx = 0, steps = 60, every = 3, floorY = null, leftX = null, rightX = null, restitution = 0.55, damp = 0.995 }) {
+  const pts = []
+  let px = x
+  let py = y
+  let pvx = vx
+  let pvy = vy
+  for (let i = 0; i < steps; i++) {
+    pvy += gy
+    pvx += wx
+    pvx *= damp
+    pvy *= damp
+    px += pvx
+    py += pvy
+    if (floorY != null && py > floorY) {
+      py = floorY
+      pvy = -Math.abs(pvy) * restitution
+    }
+    if (leftX != null && px < leftX) {
+      px = leftX
+      pvx = Math.abs(pvx) * restitution
+    }
+    if (rightX != null && px > rightX) {
+      px = rightX
+      pvx = -Math.abs(pvx) * restitution
+    }
+    if (i % every === 0) pts.push({ x: px, y: py })
+  }
+  return pts
+}
+
+export { Matter, Body, Composite, Bodies, Vector }

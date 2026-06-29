@@ -168,3 +168,30 @@ Riktiga SFX som egen fas. Varje fas: bygg grupp → simplify → testa → commi
 - **Röst**: 658 neural-klipp (8 nya: välkomst + Zacke/Alissa/Elvira-repliker).
 - **Bygge**: produktionsbygge rent (707 precache-poster, ~11 MiB, inkl. alla nya SFX/röst-klipp).
 - **Telefontest**: `npm run build` → `npm run preview` (4173) → `tailscale serve --bg --https=8445 http://127.0.0.1:4173`. URL: https://andreas-psai1.tail4e6703.ts.net:8445/ — verifierad: index/sw.js/manifest/sfx+röst-ljud = 200, manifest-namn "Björkvallens Värld".
+
+---
+
+# v4 — Avancerade fysikspel med mål + mer kontroll (2026-06-29)
+
+Mål: de nyaste spelen var mest fysik-demos (spawna/starta). Nu: riktiga SPEL med MÅL och
+mer styrning — placering, riktning + KRAFT (acceleration), och egenskaper som påverkar
+utfallet (massa/täthet, studs/restitution, gravitation, vind, krafter, kollisioner).
+Bibliotek: **matter-js** (fanns redan) — ingen ny dependency.
+
+**Delat fysik-verktyg (återanvänd för alla fysikspel):**
+- `src/lib/physics.js` utökat: `MATERIALS`-förval (bouncy/normal/heavy/light/sticky → restitution/täthet/massa/friktion), `setWind(ax,ay)` (kraftfält på alla dynamiska kroppar ∝ massa), `setGravity(y,x?)`, `predictTrajectory(...)`, re-export `Body`/`Composite`/`Vector`. (Befintliga fysikspel orörda; bygget grönt.)
+- `src/lib/launcher.js` — **`AimLauncher`**: återanvändbar "sikta + kraft"-kontroll (dra för riktning+styrka med PRICKAD banförhandsvisning; slangbella eller kast; tap-fallback mot `defaultAim`; `setWind`/`setPreview` håller pricklinjen ärlig). Exit-säker.
+- Designregel tillagd i `CLAUDE.md` ("Advanced physics"): mål-baserat (nå/samla/fyll) + minst en extra kontroll som ändrar utfallet; ALDRIG fail-state — missar är roliga + mjuk auto-hjälp garanterar framgång.
+
+**3 nya spel (byggda av parallella agenter mot verktyget, headless-testade 0 fel):**
+| id | Titel | Mål + styrning | Fysik |
+| --- | --- | --- | --- |
+| `spindelhjalten` | Spindelhjälten 🕷️ | Slangbella en gullig (egen, ej Marvel) spindelhjälte till alla stjärnor/katten; **vind-knapp** kröker banan | gravitation, studs/momentum, väggar + studs-bumper (kollisioner via label), vind |
+| `enhorningen-elvira` | Enhörningen Elvira 🦄 | **Placera** studsmoln (drag), släpp Elvira → studsar till regnbågen + plockar ädelstenar; **lätt/tung**-knapp ändrar utfallet | gravitation/massa per vikt, studs mot statiska moln, friktion, vind på högre nivå |
+| `bajs-och-kiss` | Bajs och Kiss 💩 | Elvira & Zacke kastar bajs i pottan (sikta+kraft); fyll pott-mätaren; **storlek/massa**- + **pruttvind**-knappar; **prutt-ljud** | kastbåge, massa per storlek, studs mot pottkant/golv, vind, sensor-kollision i pottan |
+
+Alla tre: no-fail (auto-hjälp garanterar framgång), nivåskalning (highestLevel), 96px-träffytor, tap + ett förlåtande drag, exit-säkra. Registrerade i `registry.js` (nu **41 spel**).
+
+**Ljud (riktiga, offline):** 5 nya MOSS-SFX-klipp via `npm run sfx` — `fart`/`plopp`/`boing`/`thwip`/`magi` (21 klipp totalt i `public/audio/sfx`). 35 nya neurala röstrepliker (Spindelhjälten/Elvira/Zacke-rader) → 693 röstklipp totalt. Bygge grönt.
+
+**Gjort kvar (förslag):** retrofitta de äldre fysik-demona (studsbollar, domino, studsa-ner, vippbradan, studsmatta, knuffa-tornet, fyrverkeri, sapbubblor) med mål + kontroller via samma verktyg.

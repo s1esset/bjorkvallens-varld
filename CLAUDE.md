@@ -213,6 +213,10 @@ Writes are debounced 500ms + synchronously flushed on `visibilitychange=hidden`/
 - Buttons/tiles use `pointertap`; drag uses `globalpointermove` on the item (survives finger leaving the sprite). Decorative layers: `eventMode='none'` + `interactiveChildren=false`.
 - Perf: prefer atlases; avoid filters/blur/shadows; explicit `hitArea`; destroy/unload on exit; cap `app.ticker.maxFPS = 60`.
 
+## Advanced physics (goal-based games)
+
+`matter-js` powers the physics games via `src/lib/physics.js` (`PhysicsWorld`): body factories (`circle/rectangle/polygon`) taking full matter opts, `MATERIALS` presets (`bouncy/normal/heavy/light/sticky` → restitution/density/**mass**/friction/frictionAir), `setWind(ax,ay)` (force field), `setGravity(y,x?)`, `link(body,view)`, `onCollision` (match `body.label`), fixed-timestep `update(deltaMS)`, exit-safe `destroy()`, plus `predictTrajectory(...)` and re-exported `Body`/`Composite`/`Vector`. `src/lib/launcher.js` `AimLauncher` is the reusable **"drag to set direction + power, with a live dotted trajectory preview"** control (`slingshot` pull-back or throw; tap-fallback aims at `defaultAim`; `setWind`/`setPreview` keep the preview honest). Build games with a **goal** (reach/collect/fill) + at least one extra control that changes the outcome (placement drag, weight/wind/bounce toggles). **NEVER a fail state** — misses are fun (wiggle/puff/giggle) and gentle auto-help guarantees success. Templates: `rulla-bollen-hem`, `spindelhjalten`, `enhorningen-elvira`, `bajs-och-kiss`.
+
 ## Assets & licenses
 
 CC0-first (Kenney.nl, Kenney audio, Freesound-CC0). **Ship zero attribution obligations.** Any CC-BY asset must be logged in `ASSET_LICENSES.md` and trigger a "Krediter/Tack" screen. Fonts are SIL OFL (Fredoka/Baloo 2/Nunito), self-hosted in `public/fonts` (never the Google CDN). The first three games draw everything **programmatically** (emoji + Pixi Graphics) so they need no external assets. See `ARCHITECTURE.md §4` for the full source table and AVOID list.

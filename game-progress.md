@@ -62,3 +62,34 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **spara-linjen**: Byggd + testad (rak linje spårad, runda klar, stars 1, 0 fel). Finger-följ-prick-logik (auto-fyll skippade), färgspår, pencil-följare, former: rak/vågig/triangel/sicksack.
 - **harma-melodin**: Byggd + testad (4 sekvenser klarade, vaxer 2->6, stars 4, 0 fel). Lyssna/harma-faser, distinkta pad-ljud, fel bestraffar ej (spelar om), Visa-igen-knapp, maskot.
 - **folj-sparet**: Byggd + testad (3 spår klarade, stars 3, 0 fel). Simon-stil fotspårssekvens, figur hoppar längs spåret hem, fel bestraffar ej, Visa-igen-knapp. SISTA SPELET (25/25).
+
+---
+
+# v2 — 10 nya spel + naturlig röst + riktiga djurljud
+
+Mål: 10 nya spel med mer animation, mer avancerad grafik och riktig fysik (matter.js).
+Plus: naturlig svensk neural röst (förgenererade klipp) och riktiga CC0-djurljud.
+
+**Grund klar:**
+- ✅ **Röst**: pre-genererade neurala svenska klipp (lokal F5-TTS, EkhoCollective-modell) — 272 klipp, 4,5 MB. `VoiceService` hybrid: exakt klipp → mening-för-mening-kedja → Web Speech-fallback. Testad i appen (0 fel). Byggskript: `scripts/gen-voice.py` + `scripts/voice-phrases.json`. Referensröst bytbar med `--force --ref`.
+- ✅ **Fysikmotor**: `matter-js` + delad brygga `src/lib/physics.js` (PhysicsWorld, exit-säker). Bevisad med studsbollar.
+- ⬜ **Djurljud**: riktiga CC0-inspelningar — väntar på Freesound-token eller "använd lokala generatorn".
+
+**Spel: 1 / 10 klara**
+
+| # | id | Titel | Type | Status | Testad | Noter |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `studsbollar` | Studsbollar | fysik/tap | ✅ Klar | ✔ | Bollgrop: tryck släpper glansiga bollar som studsar/krockar; 0 fel; exit-säker |
+| 2 | `domino` | Domino | fysik/tap | 🔨 Bygger | | Kedjevältande brickor |
+| 3 | `studsa-ner` | Studsa Ner | fysik/tap | 🔨 Bygger | | Plinko: boll genom pinnar till fack |
+| 4 | `fanga-frukten` | Fånga Frukten | motorik/drag | 🔨 Bygger | | Dra korg, fånga fallande frukt |
+| 5 | `vippbradan` | Vippbrädan | fysik/tap | 🔨 Bygger | | Gungbräda (constraint), balans |
+| 6 | `studsmatta` | Studsmatta | fysik/tap | 🔨 Bygger | | Studsande figur på trampolin |
+| 7 | `knuffa-tornet` | Knuffa Tornet | fysik/tap | 🔨 Bygger | | Rivningskula välter klosstorn |
+| 8 | `fyrverkeri` | Fyrverkeri | roligt/tap | 🔨 Bygger | | Partikelfyrverkeri, glöd/gradient |
+| 9 | `sapbubblor` | Såpbubblor | roligt/tap | 🔨 Bygger | | Sväva + skimrande bubblor, poppa |
+| 10 | `djurorkester` | Djurorkester | pedagogiskt/tap | 🔨 Bygger | | Tryck djur → animation + djurljud |
+
+## v2-logg
+- **Röst**: Hittade lokal F5-TTS svensk TTS i `storygen`-narratorn (EkhoCollective/f5-tts-swedish + röstkloning på RTX 4090, ~1s/klipp). Skrev `scripts/gen-voice.py`, extraherade alla repliker, genererade 272 klipp. Uppgraderade `VoiceService` till hybrid + mening-kedjning. Allt offline i runtime, precachat av SW.
+- **studsbollar**: Byggd + testad. Tryck=släpp boll (fysik), studsar/krockar/staplas inom väggar, glansig look. Cyklade game→library→game→menu mitt i fysik = 0 fel.

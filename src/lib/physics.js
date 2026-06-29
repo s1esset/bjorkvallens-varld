@@ -23,6 +23,7 @@ export class PhysicsWorld {
     this.world = this.engine.world
     this._links = [] // { body, view, onUpdate? }
     this._alive = true
+    this._acc = 0 // ackumulerad realtid för fast tidssteg
     this.walls = []
     this._buildWalls(walls, wallThickness, wallExtra)
   }
@@ -96,11 +97,20 @@ export class PhysicsWorld {
   }
 
   // Stega fysiken och synka rendering. deltaMS från ctx.ticker.
+  // matter.js vill ha ETT FAST tidssteg — variabelt dt gör kollisioner/impulser
+  // opålitliga (t.ex. en domino-kedja som inte fortplantar sig). Vi ackumulerar
+  // realtid och kör fasta 1/60-steg (max 5 per bildruta för att undvika dödsspiral).
   update(deltaMS) {
     if (!this._alive) return
-    // Tak på steget så ett stort hopp (flik-byte/lagg) inte tunnlar genom väggar.
-    const dt = Math.min(32, deltaMS || 16.67)
-    Engine.update(this.engine, dt)
+    const FIXED = 1000 / 60
+    this._acc += Math.min(deltaMS || FIXED, 100) // klamp stora hopp (flik-byte)
+    let steps = 0
+    while (this._acc >= FIXED && steps < 5) {
+      Engine.update(this.engine, FIXED)
+      this._acc -= FIXED
+      steps++
+    }
+    if (steps >= 5) this._acc = 0 // släpp efterskott istället för att spiralera
     const links = this._links
     for (let i = 0; i < links.length; i++) {
       const l = links[i]

@@ -75,21 +75,32 @@ Plus: naturlig svensk neural röst (förgenererade klipp) och riktiga CC0-djurlj
 - ✅ **Fysikmotor**: `matter-js` + delad brygga `src/lib/physics.js` (PhysicsWorld, exit-säker). Bevisad med studsbollar.
 - ⬜ **Djurljud**: riktiga CC0-inspelningar — väntar på Freesound-token eller "använd lokala generatorn".
 
-**Spel: 1 / 10 klara**
+**Spel: 10 / 10 klara**
 
 | # | id | Titel | Type | Status | Testad | Noter |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `studsbollar` | Studsbollar | fysik/tap | ✅ Klar | ✔ | Bollgrop: tryck släpper glansiga bollar som studsar/krockar; 0 fel; exit-säker |
-| 2 | `domino` | Domino | fysik/tap | 🔨 Bygger | | Kedjevältande brickor |
-| 3 | `studsa-ner` | Studsa Ner | fysik/tap | 🔨 Bygger | | Plinko: boll genom pinnar till fack |
-| 4 | `fanga-frukten` | Fånga Frukten | motorik/drag | 🔨 Bygger | | Dra korg, fånga fallande frukt |
-| 5 | `vippbradan` | Vippbrädan | fysik/tap | 🔨 Bygger | | Gungbräda (constraint), balans |
-| 6 | `studsmatta` | Studsmatta | fysik/tap | 🔨 Bygger | | Studsande figur på trampolin |
-| 7 | `knuffa-tornet` | Knuffa Tornet | fysik/tap | 🔨 Bygger | | Rivningskula välter klosstorn |
-| 8 | `fyrverkeri` | Fyrverkeri | roligt/tap | 🔨 Bygger | | Partikelfyrverkeri, glöd/gradient |
-| 9 | `sapbubblor` | Såpbubblor | roligt/tap | 🔨 Bygger | | Sväva + skimrande bubblor, poppa |
-| 10 | `djurorkester` | Djurorkester | pedagogiskt/tap | 🔨 Bygger | | Tryck djur → animation + djurljud |
+| 2 | `domino` | Domino | fysik/tap | ✅ Klar | ✔ | Tryck → garanterad kedja (kodstyrd spridning, riktig fysik-fall); 12/12 välter; 0 fel |
+| 3 | `studsa-ner` | Studsa Ner | fysik/tap | ✅ Klar | ✔ | Plinko: boll pingar genom pinnar till 5 färgfack; 0 fel |
+| 4 | `fanga-frukten` | Fånga Frukten | motorik/drag | ✅ Klar | ✔ | Dra korg (följer fingret), fånga fallande frukt; miss = mjuk puff; 0 fel |
+| 5 | `vippbradan` | Vippbrädan | fysik/tap | ✅ Klar | ✔ | Gungbräda (revolute-constraint), släpp vikter, tippar; clampad vinkel; 0 fel |
+| 6 | `studsmatta` | Studsmatta | fysik/tap | ✅ Klar | ✔ | Kanin studsar på elastisk matta, tryck = högre studs; 0 fel |
+| 7 | `knuffa-tornet` | Knuffa Tornet | fysik/tap | ✅ Klar | ✔ | Rivningskula (pendel-constraint) välter 6-klosstorn → bygger om; 0 fel |
+| 8 | `fyrverkeri` | Fyrverkeri | roligt/tap | ✅ Klar | ✔ | Nattlig himmel, raket→partikelskur (additiv glöd); ticker-partiklar; 0 fel |
+| 9 | `sapbubblor` | Såpbubblor | roligt/tap | ✅ Klar | ✔ | Skimrande bubblor svävar upp, tryck=poppa; tydligt skild från klambubblor; 0 fel |
+| 10 | `djurorkester` | Djurorkester | pedagogiskt/tap | ✅ Klar | ✔ | 2×3 djurkort, tryck → squash/stretch + djurljud (röst nu, riktigt ljud snart); 0 fel |
 
 ## v2-logg
 - **Röst**: Hittade lokal F5-TTS svensk TTS i `storygen`-narratorn (EkhoCollective/f5-tts-swedish + röstkloning på RTX 4090, ~1s/klipp). Skrev `scripts/gen-voice.py`, extraherade alla repliker, genererade 272 klipp. Uppgraderade `VoiceService` till hybrid + mening-kedjning. Allt offline i runtime, precachat av SW.
 - **studsbollar**: Byggd + testad. Tryck=släpp boll (fysik), studsar/krockar/staplas inom väggar, glansig look. Cyklade game→library→game→menu mitt i fysik = 0 fel.
+- **Fysik-fix (plattform)**: `PhysicsWorld.update` använder nu FAST tidssteg (1/60 med ackumulator, max 5 substeg/ruta) i stället för variabelt dt. matter.js kräver fast steg — variabelt gjorde impulser/kollisioner opålitliga. Gynnar alla fysikspel. studsbollar regression-testad = ok.
+- **domino**: Byggd + testad. Första försöket föll bara 1 bricka: (a) `setAngularVelocity` för stor → brickan snurrade som propeller runt sin mitt i st. f. att välta; (b) stel-kropps-kontakt mellan brickor nyckfull. Fix: liten knuff (0.12, gravitationen sköter vältningen) + KODSTYRD kedja (`_cascadeFrom` schemalägger nästa knuff ~100ms senare) → garanterad no-fail kedja där varje bricka ändå faller med riktig fysik. 12/12 välter, firande+reset, 0 fel.
+- **studsa-ner (plinko)**: Byggd + testad. 7 rader statiska pinnar, tryck högst upp släpper boll → 5 färgfack; settle→sparkle; 0 fel.
+- **fanga-frukten**: Byggd + testad. Korg följer fingret (full-screen drag), frukt faller (egen ticker-gravitation), närhetsfångst, miss=mjuk puff; 0 fel.
+- **vippbradan**: Byggd + testad. Plank på revolute-constraint (pivot), tryck vänster/höger släpper vikt, plankan tippar (clampad ±0.55 så den ej slår runt); 0 fel.
+- **studsmatta**: Byggd + testad. Kanin på elastisk matta, statisk hög-restitution-bädd + manuell rebound, tryck=högre studs + squash/stretch; 0 fel.
+- **knuffa-tornet**: Byggd + testad. Rivningskula på pendel-constraint, tryck släpper/skjuter kulan mot 6-klosstorn → välter → firande → bygger om + återställer kulan; 0 fel.
+- **fyrverkeri**: Byggd + testad. Nattlig gradient-himmel + tindrande stjärnor, tryck=raket→partikelskur med additiv glöd; egen ticker-partikelmotor (ej GSAP på Pixi-objekt → exit-säker); 0 fel.
+- **sapbubblor**: Byggd + testad. Skimrande translucenta bubblor svävar upp (sinus-vobbel), tryck=poppa m. droppar; tydligt annorlunda än klambubblor; 0 fel.
+- **djurorkester**: Byggd + testad. 2×3 djurkort (ko/hund/katt/groda/gris/anka), tryck → squash/stretch-studs + 🎵 + djurljud via röst (hook för riktigt djurljud finns); 0 fel.
+- **Röst v2**: La till alla 10 nya spels repliker i `voice-phrases.json` och regenererade (skippar befintliga). Nya intron/ord får nu neural röst; allt annat täcks av kedjning/Web Speech-fallback.

@@ -30,8 +30,17 @@ import sparaLinjen from './spara-linjen/index.js'
 import harmaMelodin from './harma-melodin/index.js'
 import foljSparet from './folj-sparet/index.js'
 import studsbollar from './studsbollar/index.js'
+import djurorkester from './djurorkester/index.js'
+import studsaNer from './studsa-ner/index.js'
+import fyrverkeri from './fyrverkeri/index.js'
+import fangaFrukten from './fanga-frukten/index.js'
+import vippbradan from './vippbradan/index.js'
+import domino from './domino/index.js'
+import studsmatta from './studsmatta/index.js'
+import sapbubblor from './sapbubblor/index.js'
+import knuffaTornet from './knuffa-tornet/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret, vartTogDetVagen, vadForsvann, byggTornet, rullaBollenHem, siffertaget, sparaLinjen, harmaMelodin, foljSparet, studsbollar]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret, vartTogDetVagen, vadForsvann, byggTornet, rullaBollenHem, siffertaget, sparaLinjen, harmaMelodin, foljSparet, studsbollar, djurorkester, studsaNer, fyrverkeri, fangaFrukten, vippbradan, domino, studsmatta, sapbubblor, knuffaTornet]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

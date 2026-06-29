@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 5 / 25**
+**Klara: 6 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -12,7 +12,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 3 | `kittla-figuren` | Kittla Figuren | ✅ Klar | ✔ | ✔ | ✔ | Figur skrattar/sprattlar; 6 zoner; 0 konsolfel efter fixar |
 | 4 | `fargregn` | Färgregn | ✅ Klar | ✔ | ✔ | ✔ | Droppar faller; tryck rätt färg; nivåer; 0 konsolfel |
 | 5 | `mata-monstret` | Mata Monstret | ✅ Klar | ✔ | ✔ | ✔ | Dra/tap-tap mat till munnen; 3-4 rätter; 0 fel; runda sparas |
-| 6 | `rakna-applen` | Räkna Äpplena | ⬜ Väntar | | | | |
+| 6 | `rakna-applen` | Räkna Äpplena | ✅ Klar | ✔ | ✔ | ✔ | Räkna 2-5 äpplen, röst räknar; 0 fel; UI-fix: flyttade trädet så progress-raden blev fri |
 | 7 | `klappa-mullvaden` | Klappa Mullvaden | ⬜ Väntar | | | | |
 | 8 | `peka-pa-kroppen` | Peka på Kroppen | ⬜ Väntar | | | | |
 | 9 | `vilket-djur-later` | Vilket Djur Låter Så? | ⬜ Väntar | | | | |
@@ -42,3 +42,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **kittla-figuren**: Byggd. Hittade+fixade 3 plattformsbuggar: puff & bigCelebration tweenade förstörda objekt (proxy-mönster), splash entré-tweens dödades ej vid snabbtryck. Ny exit-säker floatText-hjälpare + CLAUDE.md-regel. Playwright: full runda + firande + mid-anim exit = 0 fel.
 - **fargregn**: Byggd + testad i Playwright (0 fel, renderar mål-skylt + droppar). Städade poppa-ballonger dubbelkonfetti (complete() äger firandet).
 - **mata-monstret**: Byggd + testad (tap-tap matning slutförde runda, stars+matningar sparades, 0 fel). Plattformsfix: DragController.clear() dödar pågående tweens (exit-säker för ALLA dragspel); sparkle() nu proxy-baserad/exit-säker.
+- **rakna-applen**: Byggd + testad (runda slutförd, sparad, 0 fel). UI-fix: dekorträdet låg mitt i topp-progressraden -> flyttat till gräset nere t.v.

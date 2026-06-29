@@ -178,6 +178,12 @@ export class DragController {
     for (const rec of this.items) {
       this._detach(rec)
       if (rec._down) rec.view.off('pointerdown', rec._down)
+      // Döda ev. pågående snäpp/skala-tweens så ett spel-exit mitt i en förflyttning
+      // aldrig skriver till ett förstört Pixi-objekt (null-transform-krasch).
+      if (!rec.view.destroyed) {
+        gsap.killTweensOf(rec.view)
+        gsap.killTweensOf(rec.view.scale)
+      }
     }
     for (const t of this.targets) if (t._tap) t.view.off('pointertap', t._tap)
     this.items = []

@@ -156,6 +156,24 @@ export function sparkle(layer, x, y, { count = 6 } = {}) {
     s.eventMode = 'none'
     layer.addChild(s)
     const ang = (i / count) * Math.PI * 2
-    gsap.to(s, { x: x + Math.cos(ang) * 50, y: y + Math.sin(ang) * 50, alpha: 0, duration: 0.6, onComplete: () => s.destroy() })
+    const st = { x, y, a: 1 }
+    const tw = gsap.to(st, {
+      x: x + Math.cos(ang) * 50,
+      y: y + Math.sin(ang) * 50,
+      a: 0,
+      duration: 0.6,
+      onUpdate: () => {
+        if (s.destroyed) {
+          tw.kill()
+          return
+        }
+        s.x = st.x
+        s.y = st.y
+        s.alpha = st.a
+      },
+      onComplete: () => {
+        if (!s.destroyed) s.destroy()
+      },
+    })
   }
 }

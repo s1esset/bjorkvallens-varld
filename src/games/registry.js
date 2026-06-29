@@ -8,8 +8,9 @@ import poppaBallonger from './poppa-ballonger/index.js'
 import tryckOchForvandla from './tryck-och-forvandla/index.js'
 import kittlaFiguren from './kittla-figuren/index.js'
 import fargregn from './fargregn/index.js'
+import mataMonstret from './mata-monstret/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

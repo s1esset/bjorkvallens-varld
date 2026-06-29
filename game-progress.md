@@ -4,7 +4,7 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 11 / 25**
+**Klara: 12 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
@@ -19,7 +19,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 9 | `spindelnatet` | Spindelnätet | ✅ | ✅ | ✅ | ✅ | ✅ | Tryck nära fallande godis→nättråd fångar+drar in; bred-väv-svep + dra spindeln; gravityY 0.9 ramp, no-fail; 0 fel |
 | 10 | `magnet-fiske` | Magnetfiske | ✅ | ✅ | ✅ | ✅ | ✅ | Dra magnet→radiell attraktion drar metall (ej anka), lyft till hink; lär metall vs ej; test nådde firande; 0 fel |
 | 11 | `fallskarmen` | Fallskärmen | ✅ | ✅ | ✅ | ✅ | ✅ | Dra→styr fallskärm kontra vindbyar, landa mjukt på mattan; tung/lätt-toggle; alltid mjuk landning; test landade+firade; 0 fel |
-| 12 | `enhorningen-flyger` | Enhörningen Flyger | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 12 | `enhorningen-flyger` | Enhörningen Flyger | ✅ | ✅ | ✅ | ✅ | ✅ | Dra upp/ner→momentum-glid genom ringar, samla stjärnor; 🐢/🐇-toggle; miss köar ny ring + auto-magnet=no-fail; 0 fel |
 | 13 | `spindel-zacke-svingar` | Spindel-Zacke Svingar | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 14 | `bowling` | Bobos Bowling | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 15 | `flipperspel` | Flipperspel | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
@@ -35,6 +35,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#12 enhorningen-flyger** ✅: Byggd (fräsch agent, egen 1D momentum-glid STEER=0.030/DAMP=0.90) + simplify-agent (tog bort dött `_starsPerGap`) + headless-test 0 fel (vertikala styr-drag). Glansiga programmatiska hoops + stjärnor scrollar; 🐢/🐇-toggle halverar fart; varje miss köar en extra ring + auto-magnet (ASSIST_HELP efter 2 missar centrerar nästa ring) = banan tar aldrig slut. Röstrader (batchas): voiceIntro / "Bra fluget!" / "Hoppsan!" / "Fler ringar!". Committad.
 - **#11 fallskarmen** ✅: Byggd (fräsch agent, egen sink/steer/wind-integrator) + simplify-agent (tog bort dött `_steerDir`) + headless-test 0 fel (test landade på målet + firade). SINK_LIGHT 1.5/HEAVY 2.4, STEER 0.45, vind ±0.12–0.30; tung/lätt-toggle byter strategi; alltid mjuk landning, miss→auto-assist homing (0 vid 0 missar = ren skicklighet). Röstrader (batchas): voiceIntro / "Hjälp Zacke/Lova!..." / "Nästan! Jag hjälper till." / "Hoppsan! Vi provar igen!". Committad.
 - **#10 magnet-fiske** ✅: Byggd (fräsch agent, matter.js + egen radiell attraktion per tick) + simplify-agent (extraherade `_fniss` anka-reaktion) + headless-test 0 fel (test nådde firande/konfetti = full loop verifierad). a=min(STRENGTH/dist,A_MAX)·mass, R_FIELD 300, STICK_R 46; anka (kork-label) puttas undan = aldrig fastnar; idle-nudge = no-fail. Röstrader (batchas): voiceIntro / "Den fastnar! Metall!" / "Fler saker att fiska!". Committad.
 - **#9 spindelnatet** ✅: Byggd (fräsch agent, matter.js fallande, egen cute spindel ej Marvel) + simplify-agent (tog bort skriv-bara slot-fält ring/filled) + headless-test 0 fel (spindel-drag + taps). gravityY 0.9→1.5 ramp, CATCH_R 90, bred-väv WIDE_R 200 m. 6s-laddning, dra spindeln; grundade godis fångbara + idle auto-skott = no-fail. Röstrader (batchas): voiceIntro / "Bra fångat!" / "Titta, jag hjälper till!". Committad.

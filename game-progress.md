@@ -3,7 +3,7 @@
 Mål: 25 nya spel byggda, förenklade, testade och buggfixade. En fas per spel.
 Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 
-**Klara: 9 / 25**
+**Klara: 10 / 25**
 
 | # | id | Titel | Status | Byggd | Simplify | Testad | Buggar fixade / noter |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -16,7 +16,7 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 | 7 | `klappa-mullvaden` | Klappa Mullvaden | ✅ Klar | ✔ | ✔ | ✔ | Snäll whack-a-mole; mullvad kikar upp, klappa; ingen miss/timer; 0 fel |
 | 8 | `peka-pa-kroppen` | Peka på Kroppen | ✅ Klar | ✔ | ✔ | ✔ | Rösten frågar kroppsdel, barnet pekar; 9 zoner; fel = mjuk omfrågning; 0 fel |
 | 9 | `vilket-djur-later` | Vilket Djur Låter Så? | ✅ Klar | ✔ | ✔ | ✔ | Ljud-cue -> tryck rätt djur; 2-4 kort skalar med nivå; repetera-knapp; 0 fel |
-| 10 | `stor-liten` | Stor och Liten | ⬜ Väntar | | | | |
+| 10 | `stor-liten` | Stor och Liten | ✅ Klar | ✔ | ✔ | ✔ | Dra stora->Stor-lådan, små->Liten-lådan; överdriven storleksskillnad; 0 fel |
 | 11 | `tarta-i-ansiktet` | Tårta i Ansiktet | ⬜ Väntar | | | | |
 | 12 | `kla-pa-nallen` | Klä på Nallen | ⬜ Väntar | | | | |
 | 13 | `plantera-fron` | Plantera Frön | ⬜ Väntar | | | | |
@@ -46,3 +46,4 @@ Status-symboler: ⬜ Väntar · 🔨 Bygger · ✅ Klar.
 - **klappa-mullvaden**: Byggd + testad (slutförde runda, level upp, 0 fel). Mullvad maskad så den kommer upp ur hålet. Snäll: omklappad mullvad duckar bara, ingen bestraffning.
 - **peka-pa-kroppen**: Byggd + testad (runda slutförd via zon-cykling, 0 fel). Programmatisk figur med 9 träffzoner; fel-tryck bestraffar ej (vinglar + frågar om).
 - **vilket-djur-later**: Byggd + testad (rundor 0->5, stjärna vid 5:e rätt = complete() firar, level 2->3 kort, 0 fel). Förtydligade CLAUDE.md om vilka feedback-hjälpare som är självstädande.
+- **stor-liten**: Byggd + testad (3 rundor slutförda, stars 3, 0 fel). Drag via DragController (tap-tap funkar), tydlig stor/liten-kontrast, firande varje runda.

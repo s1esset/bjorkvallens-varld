@@ -13,8 +13,9 @@ import raknaApplen from './rakna-applen/index.js'
 import klappaMullvaden from './klappa-mullvaden/index.js'
 import pekaPaKroppen from './peka-pa-kroppen/index.js'
 import vilketDjurLater from './vilket-djur-later/index.js'
+import storLiten from './stor-liten/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

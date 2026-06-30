@@ -1,12 +1,12 @@
-// Bygg Tornet — bygg-/fysiklek (3–5 år). En vänlig lyftkran bär en kloss fram och
-// tillbaka högt uppe. Barnet TRYCKER var som helst för att SLÄPPA klossen — den faller
-// med RIKTIG fysik (matter.js), landar på stapeln, lutar och vajar och får sätta sig.
+// Bygg Tornet — bygg-/fysiklek (3–5 år). En vänlig kloss väntar högt uppe. Barnet
+// TRYCKER var som helst — klossen flyttar sig till FINGRET och faller DÄR, rakt ner,
+// med RIKTIG fysik (matter.js). Den landar på stapeln, lutar och vajar och får sätta sig.
 // När den vilat snäpps den fast (statisk) så basen står stadigt medan tornet växer.
-// Tornet kan ALDRIG rasa eller "förlora": en kloss som tippar av puffar bara bort glatt
-// och barnet får en ny — och efter ett par missar lägger kranen klossen rakt på plats av
-// sig själv, så tornet ALLTID når topp-flaggan. Då firar vi (delat complete: stjärna +
-// klistermärke) och en ny, högre runda byggs. Allt ritas programmatiskt (Pixi Graphics
-// + system-emoji) — inga externa filer.
+// FYSIKEN avgör vinsten: när tillräckligt många klossar VILAR på varandra (ingen kloss
+// faller av) har vi byggt ett torn → firande. En kloss som tippar av är ALDRIG ett fall:
+// den puffar bara bort glatt och barnet får en ny. Efter ett par missar lägger kranen
+// nästa kloss rakt på plats av sig själv (auto-hjälp), så tornet ALLTID når topp-flaggan.
+// Allt ritas programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
 import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
@@ -16,16 +16,16 @@ import { bounceIn, pop, puff, sparkle, breathe, bigCelebration } from '../../lib
 import { COLORS, PLAYFUL, FONT, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
-const BASE_X = 640 // tornets mittlinje (svepets nominella mitt)
+const BASE_X = 640 // tornets mittlinje (nästa klossens default-läge)
 const GROUND_TOP_Y = 604 // markens ovansida = nedersta klossens vilolinje
-const BW = 190 // klossbredd (≫96px träffyta — fast man tycker var som helst)
+const BW = 190 // klossbredd (≫96px träffyta — fast man trycker var som helst)
 const BH = 64 // klosshöjd
 const RAIL_Y = 28 // kranrälsens höjd (trallan åker här)
-const MIN_CARRIER_Y = 80 // klossen hänger aldrig högre än så (håll på skärmen)
-const DROP_H = 120 // hur högt över stapeln klossen svävar (mjukt fall)
-const SWEEP = 80 // svepets halva bredd kring stödpunkten (< BW/2 ⇒ lutar men tippar sällan)
-const CARRIER_W = 2.4 // svepets vinkelhastighet (rad/s) — lugnt och följbart
+const READY_Y = 104 // den väntande klossen svävar högt upp och faller härifrån
+const BOB = 7 // mjuk gungning för den väntande klossen
 const MAX_DRIFT = 150 // hur långt tornet får luta i sidled från mitten (håll byggbart)
+const DROP_MIN_X = BW / 2 + 24 // klossen får falla var som helst på skärmen …
+const DROP_MAX_X = DESIGN_W - BW / 2 - 24 // … men aldrig delvis utanför kanten
 
 // Klossens fysik: hög friktion + statisk friktion och nästan ingen studs ⇒ klossar
 // staplar och glider inte; lite luftmotstånd ⇒ vajet lugnar sig snabbt. Lugnt & förlåtande.
@@ -37,7 +37,7 @@ const ANG_REST = 0.05 // vinkelhastighet under detta = inte längre tippande
 const REST_HOLD = 0.35 // s i vila innan vi snäpper fast
 const MAX_FALL = 3.0 // s innan vi tvångs-sätter klossen (no-fail)
 
-// Acceptans: hamnade klossen PÅ stapeln (annars puff bort + ny kloss).
+// Acceptans (FYSIKEN avgör): kom klossen till vila PÅ stapeln (annars puff bort + ny kloss).
 const ACCEPT_DX = 120 // sidled från stödpunkten
 const ACCEPT_DY = 58 // hur långt under förväntad höjd den får sjunka
 const ACCEPT_ANGLE = 0.5 // ~29° lutning ok; mer = den har tippat av
@@ -60,7 +60,7 @@ export default {
   input: 'tap',
   ageRange: [3, 5],
   bundle: 'bygg-tornet',
-  voiceIntro: 'Bygg ett högt torn! Tryck för att släppa klossen på stapeln.',
+  voiceIntro: 'Bygg ett högt torn! Tryck där klossen ska falla.',
 
   init(ctx) {
     this._alive = true
@@ -70,7 +70,8 @@ export default {
     this._restT = 0
     this._lastHit = -1
     this._lastSay = -2
-    this._carrierX = BASE_X
+    this._dropX = BASE_X // var nästa kloss faller (sätts av barnets tryck)
+    this._carrierX = BASE_X // var kran-kroken ritas
 
     this._phase = 'reset' // reset | carry | fall | wait | finish
     this._placed = [] // fastlåsta klossar { view, body }
@@ -81,7 +82,6 @@ export default {
     this._supportX = BASE_X // mitten på stapelns topp (nästa klossens mål)
     this._stackTopY = GROUND_TOP_Y // stapelns översida (nästa klossens vilolinje)
     this._expC = slotY(0) // förväntad mitt-y för fallande kloss
-    this._hoverY = MIN_CARRIER_Y // var den bärande klossen svävar
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -106,7 +106,7 @@ export default {
     // Glad himmel (dekorativ, exit-säker via scene.js).
     this._root.addChild(createScene('sky', { width: ctx.width, height: ctx.height }))
 
-    // Osynlig tryckyta över hela skärmen: tryck var som helst → släpp klossen
+    // Osynlig tryckyta över hela skärmen: tryck var som helst → klossen faller DÄR
     // (eller en mjuk lekfull puff). Allt annat ligger ovanpå men är icke-interaktivt.
     this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
     this._catcher.eventMode = 'static'
@@ -138,7 +138,7 @@ export default {
     this._flag.eventMode = 'none'
     this._root.addChild(this._flag)
 
-    // Spök-markör: lyser där nästa kloss ska landa.
+    // Spök-markör: lyser där nästa kloss helst ska landa (mitt på stapeln).
     this._ghost = new Graphics()
       .roundRect(-BW / 2, -BH / 2, BW, BH, 14)
       .fill({ color: COLORS.yellow, alpha: 0.1 })
@@ -161,7 +161,7 @@ export default {
     this._blockLayer.interactiveChildren = false
     this._root.addChild(this._blockLayer)
 
-    // Kran-tralla + lina (ritas om varje bildruta medan vi bär).
+    // Kran-tralla + lina (ritas om varje bildruta medan klossen väntar).
     this._crane = new Graphics()
     this._crane.eventMode = 'none'
     this._root.addChild(this._crane)
@@ -195,7 +195,8 @@ export default {
     this._spawnBlock(ctx)
   },
 
-  // Skapa nästa kloss hängande i kranen (statisk; positionen sätts varje bildruta).
+  // Skapa nästa kloss högt upp, väntande (statisk; positionen sätts varje bildruta).
+  // Den väntar ovanför stapeln, men barnet bestämmer var den faller genom att trycka.
   _spawnBlock(ctx) {
     if (!this._alive) return
     if (this._count >= this._goal) {
@@ -203,16 +204,14 @@ export default {
       return
     }
     this._expC = this._stackTopY - BH / 2
-    this._hoverY = Math.max(MIN_CARRIER_Y, this._expC - DROP_H)
+    this._dropX = clamp(this._supportX, DROP_MIN_X, DROP_MAX_X)
 
     const i = this._count
     const view = this._makeBlock(i)
-    const cx = this._supportX + Math.sin(this._t * CARRIER_W) * SWEEP
-    this._carrierX = cx
-    view.position.set(cx, this._hoverY)
+    view.position.set(this._dropX, READY_Y)
     this._blockLayer.addChild(view)
 
-    const body = this._phys.rectangle(cx, this._hoverY, BW, BH, { isStatic: true, ...BLOCK_OPTS })
+    const body = this._phys.rectangle(this._dropX, READY_Y, BW, BH, { isStatic: true, ...BLOCK_OPTS })
     this._phys.link(body, view)
 
     this._active = { view, body }
@@ -221,17 +220,24 @@ export default {
     bounceIn(view)
   },
 
-  // ---- Tryck → släpp klossen ----------------------------------------------
+  // ---- Tryck → klossen faller DÄR barnet tryckte --------------------------
 
   _onTap(ctx, e) {
     if (!this._alive) return
     this._idle = 0
+    const p = this._root.toLocal(e.global)
     if (this._phase === 'carry' && this._active) {
+      // Flytta klossen till fingret och släpp den där → den faller rakt ner.
+      this._dropX = clamp(p.x, DROP_MIN_X, DROP_MAX_X)
+      const b = this._active.body
+      Body.setPosition(b, { x: this._dropX, y: READY_Y })
+      Body.setAngle(b, 0)
+      if (!this._active.view.destroyed) this._active.view.position.set(this._dropX, READY_Y)
+      this._carrierX = this._dropX
       this._dropActive(ctx)
       return
     }
-    // Annars: alltid ett glatt svar på pekningen (aldrig "fel").
-    const p = this._root.toLocal(e.global)
+    // Annars (klossen faller redan / firande): alltid ett glatt svar — aldrig "fel".
     ctx.services.audio.sfx('soft')
     puff(ctx.fxLayer, p.x, p.y, { count: 5 })
   },
@@ -248,7 +254,7 @@ export default {
     ctx.services.audio.sfx('whoosh')
   },
 
-  // ---- Landning: lägg fast eller (no-fail) puffa bort ---------------------
+  // ---- Landning: FYSIKEN avgör — lägg fast eller (no-fail) puffa bort ------
 
   _settleActive(ctx) {
     if (!this._alive || !this._active) return
@@ -256,6 +262,7 @@ export default {
     const dx = Math.abs(b.position.x - this._supportX)
     const dy = b.position.y - this._expC // positivt = den sjönk under förväntat
     const ang = Math.abs(normAngle(b.angle))
+    // Vilar klossen PÅ stapeln (inte på marken bredvid, inte tippad)? Det avgör fysiken.
     const landedOnTop = dy < ACCEPT_DY && dx < ACCEPT_DX && ang < ACCEPT_ANGLE
     if (landedOnTop) this._lockActive(ctx)
     else this._rejectActive(ctx)
@@ -273,7 +280,7 @@ export default {
     this._afterPlace(ctx, block)
   },
 
-  // Klossen tippade av → ALDRIG ett fall: puffa bort den glatt, ge en ny.
+  // Klossen tippade av / hamnade bredvid → ALDRIG ett fall: puffa bort den glatt, ge en ny.
   // Efter ett par missar lägger kranen nästa kloss rakt på plats (auto-hjälp).
   _rejectActive(ctx) {
     const block = this._active
@@ -319,17 +326,18 @@ export default {
     this._afterPlace(ctx, { view, body })
   },
 
-  // Gemensamt efter att en kloss lagts: uppdatera stödpunkt, räkna, gå vidare.
+  // Gemensamt efter att en kloss lagts: läs av VAR fysiken la den, räkna, gå vidare.
   _afterPlace(ctx, block) {
     this._placed.push(block)
     this._active = null
     this._count++
     this._misses = 0
-    // Ny stödpunkt = klossens topp-mitt (klampad så tornet håller sig byggbart/på skärm).
+    // Ny stödpunkt = där klossen FAKTISKT vilar (klampad så tornet hålls byggbart/på skärm).
     this._supportX = clamp(block.body.position.x, BASE_X - MAX_DRIFT, BASE_X + MAX_DRIFT)
     this._stackTopY = block.body.position.y - BH / 2
     this._phase = 'wait'
 
+    // Vinst avgjord av fysiken: tillräckligt många klossar vilar på varandra → torn klart.
     if (this._count >= this._goal) {
       this._finishTower(ctx)
       return
@@ -349,7 +357,8 @@ export default {
   // ---- Mål-höjden nådd: firande + ny högre runda --------------------------
 
   _finishTower(ctx) {
-    if (!this._alive || this._phase === 'finish') return
+    if (!this._alive || this._phase === 'finish' || this._resolving) return
+    this._resolving = true
     this._phase = 'finish'
     this._spawnCall?.kill()
     this._ghost.visible = false
@@ -367,14 +376,16 @@ export default {
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     for (const b of this._placed) sparkle(ctx.fxLayer, b.body.position.x, b.body.position.y, { count: 4 })
 
-    // Spara förlopp + delat firande (stjärna + klistermärke).
+    // Spara förlopp + delat firande (stjärna + klistermärke) — exakt en gång.
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('torn', (ctx.progress.get().custom?.torn || 0) + 1)
     ctx.progress.complete()
 
     this._finishCall = gsap.delayedCall(2.0, () => {
-      if (this._alive) this._newTower(ctx)
+      if (!this._alive) return
+      this._resolving = false
+      this._newTower(ctx)
     })
   },
 
@@ -385,32 +396,38 @@ export default {
     const dt = ticker.deltaMS / 1000
     this._t += dt
 
-    // Bär klossen längs svepet (statisk kropp: vi sätter position/vinkel manuellt).
+    // Den väntande klossen svävar högt upp och gungar mjukt vid sitt drop-läge.
     if (this._phase === 'carry' && this._active) {
-      const cx = this._supportX + Math.sin(this._t * CARRIER_W) * SWEEP
-      this._carrierX = cx
-      Body.setPosition(this._active.body, { x: cx, y: this._hoverY })
+      const y = READY_Y + Math.sin(this._t * 2.2) * BOB
+      this._carrierX = this._dropX
+      Body.setPosition(this._active.body, { x: this._dropX, y })
       Body.setAngle(this._active.body, 0)
     }
 
     // Stega fysiken (fast tidssteg) och synka vyerna.
     this._phys.update(ticker.deltaMS)
 
-    // Rita kran-tralla + lina endast medan vi bär.
+    // Rita kran-tralla + lina endast medan klossen väntar (släpps → kroken släpper).
     this._drawCrane(this._phase === 'carry' && this._active ? this._active.view : null)
 
-    // Faller → vänta tills klossen lugnat sig → lägg fast eller puffa bort.
+    // Faller → vänta tills klossen lugnat sig → fysiken avgör om den la sig rätt.
     if (this._phase === 'fall' && this._active) {
       this._fallT += dt
       const b = this._active.body
       const slow = b.speed < REST_SPEED && b.angularSpeed < ANG_REST
+      // Mjuk centrerings-hjälp som växer med antalet missar (no-fail, alltid byggbart):
+      // en svag "magnet" mot stödpunkten medan klossen ännu rör sig.
+      if (this._misses > 0 && !slow) {
+        const pull = 0.0009 * this._misses
+        Body.applyForce(b, b.position, { x: (this._supportX - b.position.x) * pull * b.mass, y: 0 })
+      }
       this._restT = slow ? this._restT + dt : 0
       if ((this._fallT > 0.25 && this._restT > REST_HOLD) || this._fallT > MAX_FALL) {
         this._settleActive(ctx)
       }
     }
 
-    // Idle-recue (endast medan vi bär): upprepa instruktionen + locka klossen.
+    // Idle-recue (endast medan klossen väntar): upprepa instruktionen + locka klossen.
     if (this._phase === 'carry') {
       this._idle += dt
       if (this._idle > IDLE_DELAY) {

@@ -4,7 +4,7 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 17 / 25**
+**Klara: 18 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
@@ -25,7 +25,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 15 | `flipperspel` | Flipperspel | ✅ | ✅ | ✅ | ✅ | ✅ | Tryck vänster/höger→revolute-flippers, kula tänder bumpers; lugnt/snabbt-toggle; dränerad kula serveras om + magic-light=no-fail; 0 fel |
 | 16 | `kulbana` | Kulbanan | ✅ | ✅ | ✅ | ✅ | ✅ | Dra+rotera ramper (synkar matter-kroppar), släpp kula→hink; oändliga försök + assist-tilt/glide-home=no-fail; 0 fel |
 | 17 | `snobollen` | Snöbollen | ✅ | ✅ | ✅ | ✅ | ✅ | Dra→styr rullande snöboll, växer (Body.scale) genom snöfält, välter mål→bygger snögubbe; auto-grow=no-fail; test byggde snögubbe; 0 fel |
-| 18 | `glasstornet` | Glasstornet | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 18 | `glasstornet` | Glasstornet | ✅ | ✅ | ✅ | ✅ | ✅ | Dra glasskula+släpp→stapla på vinglig strut (matter sway), klister-toggle; tappad kula=ny (no-fail), magnet-hjälp når mål; 0 fel |
 | 19 | `golvet-ar-lava` | Golvet är Lava | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 20 | `vattenvagen` | Vattenvägen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 21 | `blixt-och-dunder` | Blixt och Dunder | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
@@ -35,6 +35,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#18 glasstornet** ✅: Byggd (fräsch agent, matter.js dynamiska kulor + gravity-sway) + simplify-agent (inga ändringar — ren) + headless-test 0 fel (drog+släppte 2 kulor staplade). gravityY 1.0, scoops dynamiska (aldrig setStatic) → tornet vinglar; sway amp 0.10–0.20 lutar gravity-x; rest <0.6 i 350ms; klister-toggle (mer friktion); tappad kula=ny (räknar bara liggande); 3 fall el. 8s→magnet-styr nästa kula centrerat = no-fail. Röstrader (batchas): voiceIntro / "En till!" / "Så fint!". Committad.
 - **#17 snobollen** ✅: Byggd (fräsch agent, matter.js + Body.scale-tillväxt) + simplify-agent (tog bort dött `_toppled`) + headless-test 0 fel (test rullade→byggde snögubbe+konfetti). gravityY 1.1, boll r40→110 (+12/snöfält, massa via density auto), styr 0.09/±9 + knuff +6/+1, speed clamp 22; auto-grow vid mål + auto-knuff vid stall = no-fail. Röstrader (batchas): voiceIntro / "Lite mer snö!" / "Jag hjälper till!" / "Titta — en snögubbe! Bravo!". Committad.
 - **#16 kulbana** ✅: Byggd (fräsch agent, matter.js statiska ramper + dynamisk kula) + simplify-agent (inga ändringar — ren) + headless-test 0 fel (dra ramper i fältet). Fri-placering-drag (egen pointer) synkar `Body.setPosition`; tap-↻ roterar 15°/[-60,60] + `Body.setAngle`; oändliga försök, 3 missar→assist-tilt närmsta ramp, 4→glide-home garanterar mål. La till ceiling+bucketwall (no-escape). Röstrader (batchas): voiceIntro / "Nästan! Prova igen." / "Jag rullar den hem åt dig!". Committad.
 - **#15 flipperspel** ✅: Byggd (fräsch agent, matter.js + revolute-constraint flippers m. fjäder-retur) + simplify-agent (ersatte lokal `shade()` med delad `lerpColor`) + headless-test 0 fel (broad taps flippar). GY_NORMAL 1.1/GY_CALM 0.5-toggle, bumper restitution 1.0 tänds+toner, ball-speed clamp 26 (ingen tunneling); dränerad kula serveras om (inga liv) + 12s magic-light = no-fail. Röstrader (batchas): voiceIntro / "Titta, den lyser!" / "Lugnt läge." / "Snabbt läge!". Committad.

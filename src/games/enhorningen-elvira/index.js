@@ -15,9 +15,10 @@
 // spelet henne i en mjuk båge ända fram. Alltid jubel, aldrig "game over".
 //
 // Allt ritas programmatiskt (Pixi Graphics + emoji) — inga filer. Exit-säkert.
-import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, MATERIALS, Body, predictTrajectory } from '../../lib/physics.js'
+import { PhysicsWorld, Body, predictTrajectory } from '../../lib/physics.js'
+import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
 import { Button } from '../../lib/Button.js'
 import { bigCelebration, puff, sparkle, floatText, pop, breathe, ripple } from '../../lib/feedback.js'
@@ -33,26 +34,36 @@ const CLOUD_W = 132
 const CLOUD_H = 46
 const GEM_HIT = 66 // plock-radie för ädelsten
 const GOAL_R = 96 // når-radie för regnbågen
-const LAUNCH_VX = 6.6 // start-fart framåt (höger) vid hopp
-const MAXV = 21 // hastighetstak
-const MINB = 7 // garanterad min-studs uppåt vid molnträff (livfullt + no-fail)
-const SETTLE_SPEED = 0.7
-const SETTLE_HOLD = 0.9 // s stillastående innan "landat"
+const MAXV = 22 // hastighetstak (aldrig flyga vilt ur bild)
+const CLOUD_REST = 0.6 // molnens studsighet — MÅTTLIG, så studsar dör ut (inga evighetsloopar)
+const BOUNCE_UP_BASE = 6.5 // garanterad min-studs uppåt vid FÖRSTA molnträffen (avtar mot 0)
+const MAX_BOUNCES = 5 // tak på molnstudsar; därefter dämpas hon och landar lugnt (no infinite loop)
+const SETTLE_SPEED = 1.1 // px/steg under detta räknas som "nästan stilla"
+const SETTLE_HOLD = 0.6 // s nära-stilla innan "landat"
+const MAX_FLIGHT = 7 // s i luften innan vi tvingar fram en landning (säkerhetsnät)
 const IDLE_DELAY = 6
-const BOING_THROTTLE = 0.12
+const BOUNCE_SFX_THROTTLE = 0.16 // s min-intervall mellan studsljud (>=140ms, aldrig spammigt)
+const BOUNCE_SFX_MIN_SPEED = 5 // spela bara studsljud vid en RIKTIG studs (inte småskvalp)
+// Standard-skott (Hoppa-knapp + litet-barn-tap): lagom kraft mot regnbågen.
+const DEFAULT_POWER = 12
+// Sikt-kontroll (dra Elvira -> välj riktning + kraft/fart).
+const AIM_MAX_POWER = 20
+const AIM_MIN_POWER = 7
+const AIM_POWER_SCALE = 0.12
 
 // Vikt-lägen (extra kontroll). Bara Elvira är dynamisk, så global gravitation
 // påverkar bara henne. Lätt = flygig båge, tung = snabbt fall & längre kast.
 const WEIGHTS = [
-  { key: 'latt', icon: '🪶', label: 'Lätt', color: COLORS.teal, gravity: 0.8, density: 0.0006, frictionAir: 0.02, launchVy: -5.2, voice: 'Nu är Elvira lätt som en fjäder!' },
-  { key: 'tung', icon: '🪨', label: 'Tung', color: COLORS.purple, gravity: 1.55, density: 0.003, frictionAir: 0.008, launchVy: -3.6, voice: 'Nu är Elvira tung och faller snabbt!' },
+  { key: 'latt', icon: '🪶', label: 'Lätt', color: COLORS.teal, gravity: 0.8, density: 0.0006, frictionAir: 0.02, voice: 'Nu är Elvira lätt som en fjäder!' },
+  { key: 'tung', icon: '🪨', label: 'Tung', color: COLORS.purple, gravity: 1.45, density: 0.003, frictionAir: 0.012, voice: 'Nu är Elvira tung och faller snabbt!' },
 ]
 
-// Vind-lägen (mild, dyker upp på högre nivåer).
+// Vind-lägen (mild, dyker upp på högre nivåer). ax = vind-ACCELERATION (px/steg).
+// matter applicerar kraft = massa×ax -> ~ax×277.8 px/steg² fart. 0.0005 ≈ lagom bris.
 const WINDS = [
   { icon: '🍃', label: 'Lugnt', color: COLORS.green, ax: 0, voice: 'Ingen vind nu.' },
-  { icon: '➡️', label: 'Medvind', color: COLORS.blue, ax: 0.16, voice: 'En bris blåser åt höger!' },
-  { icon: '⬅️', label: 'Motvind', color: COLORS.orange, ax: -0.16, voice: 'En bris blåser åt vänster!' },
+  { icon: '➡️', label: 'Medvind', color: COLORS.blue, ax: 0.0005, voice: 'En bris blåser åt höger!' },
+  { icon: '⬅️', label: 'Motvind', color: COLORS.orange, ax: -0.0005, voice: 'En bris blåser åt vänster!' },
 ]
 
 const RAINBOW = [0xff5d5d, 0xffa53d, 0xffe14d, 0x6bd66b, 0x5db4ff, 0xb487ff]
@@ -66,7 +77,7 @@ export default {
   input: 'mixed',
   ageRange: [3, 5],
   bundle: 'enhorningen-elvira',
-  voiceIntro: 'Hjälp Elvira att studsa till regnbågen!',
+  voiceIntro: 'Dra Elvira för att sikta, så studsar hon till regnbågen!',
 
   init(ctx) {
     this._alive = true
@@ -85,7 +96,9 @@ export default {
     this._clouds = []
     this._gems = []
     this._tweens = []
-    this._lastBoing = -1
+    this._lastBounceSfx = -1
+    this._bounces = 0
+    this._cloudBoost = 0 // mål-uppåtfart vid nästa molnstuds (0 = ingen)
     this._elviraBody = null
     this._goalPos = { x: 1040, y: 470 }
 
@@ -168,15 +181,51 @@ export default {
   _buildElvira(ctx) {
     this._elvira = drawUnicorn()
     this._elvira.position.set(START.x, START.y)
-    this._elvira.eventMode = 'static'
-    this._elvira.cursor = 'pointer'
-    this._elvira.hitArea = new Circle(0, 0, ELVIRA_HALO)
-    this._onElviraTap = () => {
-      if (this._state !== 'placing') return
-      this._launch(ctx)
-    }
-    this._elvira.on('pointertap', this._onElviraTap)
     this._root.addChild(this._elvira)
+
+    // SIKT-KONTROLL: barnet drar Elvira för att välja RIKTNING + KRAFT (fart); en
+    // prickad bana visar var hon hamnar. Litet drag/tap -> lagom skott mot regnbågen
+    // (tap-fallback, så även de minsta klarar det). Allt no-fail.
+    this._launcher = new AimLauncher({
+      target: this._elvira,
+      root: this._root,
+      audio: ctx.services.audio,
+      hitRadius: ELVIRA_HALO,
+      slingshot: false, // dra åt det håll du vill att hon ska flyga
+      maxPower: AIM_MAX_POWER,
+      minPower: AIM_MIN_POWER,
+      powerScale: AIM_POWER_SCALE,
+      getOrigin: () => ({ x: START.x, y: START.y }),
+      bounds: { floorY: GROUND_TOP - ELVIRA_R, leftX: ELVIRA_R, rightX: DESIGN_W - ELVIRA_R, restitution: CLOUD_REST },
+      defaultAim: () => ({ x: this._goalPos.x, y: this._goalPos.y }),
+      tapPower: 0.62,
+      trailColor: 0xffffff,
+      onGrab: () => {
+        this._idle = 0
+        this._hidePreview() // göm hint-bågen; den live-prickade banan tar över
+      },
+      onLaunch: (v) => this._launch(ctx, v),
+    })
+    this._applyPreviewCalibration()
+  },
+
+  // Håll både hint-bågen och sikt-kontrollens prickbana ärliga (matchar matter.js vid
+  // det fasta 1/60-steget): gy = 0.2778×gravitation, dämp = 1−frictionAir, vind = ax×277.8.
+  _applyPreviewCalibration() {
+    this._launcher?.setPreview({
+      gravity: this._weight.gravity * 0.2778,
+      damp: 1 - this._weight.frictionAir,
+      wind: this._windAx * 277.8,
+      bounds: { floorY: GROUND_TOP - ELVIRA_R, leftX: ELVIRA_R, rightX: DESIGN_W - ELVIRA_R, restitution: CLOUD_REST },
+    })
+  },
+
+  // Standard-skott: sikta mot regnbågen med lagom kraft + ett litet lyft (fin båge).
+  _defaultLaunchVel() {
+    const dx = this._goalPos.x - START.x
+    const dy = this._goalPos.y - START.y
+    const len = Math.hypot(dx, dy) || 1
+    return { vx: (dx / len) * DEFAULT_POWER, vy: (dy / len) * DEFAULT_POWER - 4.5 }
   },
 
   _buildClouds(ctx) {
@@ -255,6 +304,8 @@ export default {
     this._idle = 0
     this._flyT = 0
     this._settleT = 0
+    this._bounces = 0
+    this._cloudBoost = 0
 
     this._removeElviraBody()
     this._killElviraTweens()
@@ -343,9 +394,12 @@ export default {
     this._state = 'placing'
     this._idle = 0
     this._settleT = 0
+    this._bounces = 0
+    this._cloudBoost = 0
     this._elvira.rotation = 0
     this._elvira.scale.set(1)
     this._hoppa.setEnabled(true)
+    this._launcher?.setEnabled(true)
     this._lockToggles(false)
     this._setCloudsInteractive(true)
     this._startBreathe()
@@ -372,6 +426,7 @@ export default {
     this._weightIdx = idx % WEIGHTS.length
     this._weight = WEIGHTS[this._weightIdx]
     this._phys.setGravity(this._weight.gravity)
+    this._applyPreviewCalibration()
     if (this._state === 'placing') this._drawPreview()
     if (!silent) this._ctx?.services.voice.say(this._weight.voice)
   },
@@ -380,6 +435,7 @@ export default {
     this._windIdx = idx % WINDS.length
     this._windAx = WINDS[this._windIdx].ax
     this._phys.setWind(this._windAx, 0)
+    this._applyPreviewCalibration()
     if (this._state === 'placing') this._drawPreview()
     if (!silent) this._ctx?.services.voice.say(WINDS[this._windIdx].voice)
   },
@@ -404,11 +460,13 @@ export default {
       g.visible = false
       return
     }
+    const v = this._defaultLaunchVel()
     const pts = predictTrajectory({
-      x: START.x, y: START.y, vx: LAUNCH_VX, vy: this._weight.launchVy,
-      gy: this._weight.gravity * 0.5, wx: this._windAx * 0.5,
-      steps: 48, every: 3,
-      floorY: GROUND_TOP - ELVIRA_R, leftX: ELVIRA_R, rightX: DESIGN_W - ELVIRA_R, restitution: 0.4,
+      x: START.x, y: START.y, vx: v.vx, vy: v.vy,
+      gy: this._weight.gravity * 0.2778, wx: this._windAx * 277.8,
+      damp: 1 - this._weight.frictionAir,
+      steps: 54, every: 3,
+      floorY: GROUND_TOP - ELVIRA_R, leftX: ELVIRA_R, rightX: DESIGN_W - ELVIRA_R, restitution: CLOUD_REST,
     })
     g.visible = true
     for (let i = 0; i < pts.length; i++) {
@@ -473,7 +531,7 @@ export default {
       gsap.to(cloud.view, { x: px, y: py, duration: 0.16, ease: 'power2.out' })
       gsap.to(cloud.view.scale, { x: 1, y: 1, duration: 0.2, ease: 'back.out(2)' })
       cloud.body = this._phys.rectangle(px, py, CLOUD_W - 18, CLOUD_H - 8, {
-        ...MATERIALS.bouncy, isStatic: true, restitution: 0.92, friction: 0.08, label: 'cloud',
+        isStatic: true, restitution: CLOUD_REST, friction: 0.1, label: 'cloud',
       })
       cloud.placed = true
       ctx.services.audio.sfx('pling')
@@ -490,14 +548,17 @@ export default {
 
   // ---- Hopp + fysik -------------------------------------------------------
 
-  _launch(ctx) {
+  // vel = { vx, vy } från sikt-kontrollen; utan vel (Hoppa-knappen) -> standard-skott.
+  _launch(ctx, vel) {
     if (!this._alive || this._state !== 'placing') return
     this._state = 'flying'
     this._flyT = 0
     this._settleT = 0
     this._idle = 0
-    this._cloudBoost = false
+    this._bounces = 0
+    this._cloudBoost = 0
     this._hoppa.setEnabled(false)
+    this._launcher?.setEnabled(false)
     this._lockToggles(true)
     this._setCloudsInteractive(false)
     this._hidePreview()
@@ -506,17 +567,24 @@ export default {
     this._elvira.scale.set(1)
     this._elvira.rotation = 0
 
+    let v = vel || this._defaultLaunchVel()
+    // Hastighetstak redan vid avskjutning (aldrig ett vilt skott ur bild).
+    const sp0 = Math.hypot(v.vx, v.vy)
+    if (sp0 > MAXV) {
+      const k = MAXV / sp0
+      v = { vx: v.vx * k, vy: v.vy * k }
+    }
+
     const w = this._weight
     const body = this._phys.circle(this._elvira.x, this._elvira.y, ELVIRA_R, {
-      ...MATERIALS.light, restitution: 0.45, friction: 0.05, frictionAir: w.frictionAir, density: w.density, label: 'elvira',
+      restitution: 0.4, friction: 0.05, frictionAir: w.frictionAir, density: w.density, label: 'elvira',
     })
     Body.setInertia(body, Infinity) // håll henne upprätt (ingen tumling)
     this._elviraBody = body
-    this._phys.link(body, this._elvira, (v, b) => {
-      v.rotation = clamp(b.velocity.x * 0.012, -0.28, 0.28) // liten lutning åt färdriktningen
+    this._phys.link(body, this._elvira, (view, b) => {
+      view.rotation = clamp(b.velocity.x * 0.012, -0.28, 0.28) // liten lutning åt färdriktningen
     })
-    Body.setVelocity(body, { x: LAUNCH_VX, y: w.launchVy })
-    ctx.services.audio.sfx('whoosh')
+    Body.setVelocity(body, { x: v.vx, y: v.vy })
     ctx.services.audio.sfx('pop')
     ctx.services.voice.say('Iväg, Elvira!')
   },
@@ -539,10 +607,12 @@ export default {
         const k = MAXV / sp
         Body.setVelocity(b, { x: b.velocity.x * k, y: b.velocity.y * k })
       }
-      // Garanterad livfull studs efter molnträff.
-      if (this._cloudBoost) {
-        this._cloudBoost = false
-        if (b.velocity.y > -MINB) Body.setVelocity(b, { x: b.velocity.x, y: -MINB })
+      // Garanterad MEN AVTAGANDE studs efter molnträff -> livfullt men strikt avtagande
+      // energi (aldrig en evighetsloop). _cloudBoost sätts i _onCollision.
+      if (this._cloudBoost > 0) {
+        const up = this._cloudBoost
+        this._cloudBoost = 0
+        if (b.velocity.y > -up) Body.setVelocity(b, { x: b.velocity.x, y: -up })
       }
 
       this._checkGems(ctx, b.position.x, b.position.y)
@@ -552,22 +622,20 @@ export default {
         return
       }
 
-      // "Landat"? -> hjälp / tillbaka till start (no-fail).
+      // Avsluta ALLTID rundan (no-fail): nästan stilla en stund, ELLER säkerhetsnät
+      // på flygtid. (Studstaket i _onCollision garanterar att farten dör ut i tid.)
       sp = Math.hypot(b.velocity.x, b.velocity.y)
-      if (this._flyT > 0.5 && sp < SETTLE_SPEED) {
-        this._settleT += dtSec
-        if (this._settleT >= SETTLE_HOLD) {
-          this._onSettle(ctx)
-          return
-        }
-      } else {
-        this._settleT = 0
+      if (this._flyT > 0.4 && sp < SETTLE_SPEED) this._settleT += dtSec
+      else this._settleT = 0
+      if (this._settleT >= SETTLE_HOLD || this._flyT > MAX_FLIGHT) {
+        this._onSettle(ctx)
+        return
       }
     } else if (this._state === 'placing') {
       this._idle += dtSec
       if (this._idle >= IDLE_DELAY) {
         this._idle = 0
-        ctx.services.voice.say('Dra molnen dit du vill och tryck på Hoppa!')
+        ctx.services.voice.say('Dra Elvira för att sikta, eller flytta molnen dit du vill.')
         if (!this._elvira.destroyed) pop(this._elvira)
       }
     }
@@ -601,29 +669,42 @@ export default {
 
   _onCollision(ctx, e) {
     if (!this._alive || this._state !== 'flying' || !this._elviraBody) return
+    const body = this._elviraBody
     for (const pair of e.pairs) {
       const a = pair.bodyA
       const b = pair.bodyB
-      if (a !== this._elviraBody && b !== this._elviraBody) continue
-      const other = a === this._elviraBody ? b : a
+      if (a !== body && b !== body) continue
+      const other = a === body ? b : a
+      const speed = Math.hypot(body.velocity.x, body.velocity.y)
       if (other.label === 'cloud') {
-        this._cloudBoost = true
+        this._bounces++
         const cloud = this._clouds.find((c) => c.body === other)
-        this._boing(ctx, cloud)
-      } else if (other.label === 'ground') {
-        if (this._t - this._lastBoing > BOING_THROTTLE) {
-          this._lastBoing = this._t
-          ctx.services.audio.sfx('soft')
+        if (this._bounces <= MAX_BOUNCES) {
+          // Avtagande garanterad studs (full vid 1:a träffen, 0 vid taket).
+          const frac = 1 - (this._bounces - 1) / MAX_BOUNCES
+          this._cloudBoost = Math.max(0, BOUNCE_UP_BASE * frac)
+        } else {
+          // Tak nått: ingen boost + dämpa farten hårt så hon LUGNT landar (aldrig evig loop).
+          this._cloudBoost = 0
+          Body.setVelocity(body, { x: body.velocity.x * 0.45, y: body.velocity.y * 0.45 })
         }
+        this._bounceFx(ctx, cloud, speed)
+      } else if (other.label === 'ground' || other.label === 'wall') {
+        this._bounceSfx(ctx, 'soft', speed)
       }
     }
   },
 
-  _boing(ctx, cloud) {
-    if (this._t - this._lastBoing > BOING_THROTTLE) {
-      this._lastBoing = this._t
-      ctx.services.audio.sfx('boing')
-    }
+  // Mjukt, sällan, och bara vid en rejäl studs -> aldrig ett spammigt "boing-boing".
+  _bounceSfx(ctx, name, speed) {
+    if (speed < BOUNCE_SFX_MIN_SPEED) return
+    if (this._t - this._lastBounceSfx < BOUNCE_SFX_THROTTLE) return
+    this._lastBounceSfx = this._t
+    ctx.services.audio.sfx(name)
+  },
+
+  _bounceFx(ctx, cloud, speed) {
+    this._bounceSfx(ctx, 'pop', speed) // mjuk "plopp" istället för hårt boing
     if (cloud && cloud.view && !cloud.view.destroyed) {
       gsap.killTweensOf(cloud.view.scale)
       gsap.to(cloud.view.scale, {
@@ -647,7 +728,7 @@ export default {
     }
     this._state = 'returning'
     ctx.services.audio.sfx('soft')
-    ctx.services.voice.say('Hoppsan! Lägg molnen så Elvira studsar uppåt.')
+    ctx.services.voice.say('Hoppsan! Dra Elvira eller flytta molnen och prova igen.')
     this._returnToStart(ctx)
   },
 
@@ -798,10 +879,10 @@ export default {
     this._unbindCollision?.()
     this._removeElviraBody()
     this._phys?.destroy()
+    this._launcher?.destroy()
 
     // Elvira.
     if (this._elvira && !this._elvira.destroyed) {
-      this._elvira.off('pointertap', this._onElviraTap)
       gsap.killTweensOf(this._elvira)
       gsap.killTweensOf(this._elvira.scale)
     }

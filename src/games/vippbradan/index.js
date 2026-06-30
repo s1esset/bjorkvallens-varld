@@ -9,7 +9,7 @@
 // + emoji) och städas exit-säkert.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, MATERIALS, Matter } from '../../lib/physics.js'
+import { PhysicsWorld, MATERIALS, Matter, predictTrajectory } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { Button } from '../../lib/Button.js'
 import { bigCelebration, puff, sparkle, floatText, pop, wiggle } from '../../lib/feedback.js'
@@ -24,9 +24,21 @@ const PLANK_HALF = PLANK_W / 2
 const CX = 640
 const PIVOT_Y = 560
 const FROG_R = 34
-const G_PREVIEW = 1.2 // matter-gravitation (px/steg²) som katapultbågen räknas mot
-const FLIGHT_STEPS = 40 // ungefärlig flygtid i fysiksteg (snabb, läsbar båge)
+// Naturlig, nedåtriktad gravitation. Matter ger per fast 1/60-steg en hastighetsökning
+// ≈ 0.2778×gravityY (px/steg). Katapultbågen OCH den prickade förhandsvisningen räknas
+// mot G_STEP — då matchar grodans verkliga flykt gravitationen (ingen "konstig" båge).
+const GRAVITY_Y = 1.1
+const G_STEP = 0.2778 * GRAVITY_Y // ≈ 0.306 px/steg² (verklig matter-gravitation per steg)
+const FLIGHT_STEPS = 48 // flygtid i fysiksteg för en lugn, läsbar båge
 const FLOOR_Y = 700
+// Var barnet får släppa vikten: längs brädans HÖGER arm. Nära navet = svag skjuts,
+// ytterst = stark skjuts. Barnet drar vikten längs skenan (eller tappar ett ställe).
+const DROP_MIN_X = CX + 60 // 700 (nära navet)
+const DROP_MAX_X = CX + 215 // 855 (ytterst på armen)
+const RAIL_Y = 124 // höjd där den bärbara vikten vilar innan släpp
+const DROP_TOP_Y = 70 // vikten faller från denna höjd ned på brädan
+const FROG_LAUNCH_X = CX - PLANK_HALF // grodans viloläge (vänster tipp) — used by förhandsvisning
+const FROG_LAUNCH_Y = PIVOT_Y - (PLANK_H / 2 + FROG_R * 0.72)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -61,13 +73,18 @@ export default {
     this._frogBody = null
     this._weight = null // { body, view }
     this._timers = []
+    this._dragging = false // drar barnet just nu den bärbara vikten?
+    this._everInteracted = false // dölj dra-ledtråden efter första gången
+    this._dropX = (DROP_MIN_X + DROP_MAX_X) / 2 // valt släpp-läge längs armen
+    this._launchTotal = 1 // total skjutkraft (läge × vikt) som senaste släpp gav
 
-    // Viktstorlekar -> massa/täthet via MATERIALS. Större vikt = mer momentum =
-    // kraftigare skjuts (utfallet beror på barnets val).
+    // Viktstorlekar -> massa/täthet via MATERIALS. Större vikt = kraftigare skjuts.
+    // mul = hur mycket vikten skalar skjutkraften (utfallet beror på barnets val:
+    // både VAR vikten släpps och VILKEN storlek).
     this._sizes = [
-      { key: 'liten', label: 'Liten', r: 26, mat: MATERIALS.light, factor: 0.9 },
-      { key: 'mellan', label: 'Mellan', r: 38, mat: MATERIALS.normal, factor: 1.0 },
-      { key: 'stor', label: 'Stor', r: 52, mat: MATERIALS.heavy, factor: 1.14 },
+      { key: 'liten', label: 'Liten', r: 26, mat: MATERIALS.light, mul: 0.9 },
+      { key: 'mellan', label: 'Mellan', r: 38, mat: MATERIALS.normal, mul: 1.0 },
+      { key: 'stor', label: 'Stor', r: 52, mat: MATERIALS.heavy, mul: 1.12 },
     ]
     this._sizeIdx = 1
 
@@ -77,11 +94,12 @@ export default {
     ctx.stage.addChild(this._root)
 
     // Fysik: golv + sidoväggar så vikten lägger sig till ro och grodan stannar i bild.
-    this._phys = new PhysicsWorld({ gravityY: G_PREVIEW, walls: ['floor', 'left', 'right'] })
+    this._phys = new PhysicsWorld({ gravityY: GRAVITY_Y, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
 
     this._buildScene(ctx)
     this._buildSeesaw(ctx)
+    this._buildDropControl(ctx)
     this._buildUI(ctx)
 
     this._loadLevel(ctx, this._level)
@@ -113,15 +131,16 @@ export default {
     deco.interactiveChildren = false
     this._root.addChild(deco)
 
-    // Heltäckande tryckyta (tap var som helst = släpp vikt på höger ände).
+    // Heltäckande tryckyta: tapp på ett ställe = flytta vikten dit och släpp den
+    // (tap-fallback för den som inte vill dra). Att dra själva vikten hanteras separat.
     this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
     this._catcher.eventMode = 'static'
-    this._onTap = () => this._dropWeight(ctx)
+    this._onTap = (e) => this._handleTap(ctx, e)
     this._catcher.on('pointertap', this._onTap)
     this._root.addChild(this._catcher)
 
-    // Korg/mål (flyttas per nivå).
-    this._target = { x: 980, y: 440, r: 95, sensor: null, rimL: null, rimR: null }
+    // Korg/mål (flyttas per nivå — nära skärmens högra kant).
+    this._target = { x: 1080, y: 440, r: 95, sensor: null, rimL: null, rimR: null }
     this._basket = new Container()
     this._basket.eventMode = 'none'
     this._basketGlow = new Graphics()
@@ -164,18 +183,40 @@ export default {
     this._frog = makeFrog()
     this._frog.eventMode = 'none'
     this._root.addChild(this._frog)
+  },
 
-    // Släpp-ledtråd (pulsande pil över höger ände).
-    this._hint = new Container()
-    const disc = new Graphics().circle(0, 0, 40).fill({ color: COLORS.white, alpha: 0.3 })
-    const arrow = new Text({ text: '👇', style: { fontFamily: FONT.body, fontSize: 46 } })
-    arrow.anchor.set(0.5)
-    this._hint.addChild(disc, arrow)
-    this._hint.position.set(CX + 200, 150)
-    this._hint.eventMode = 'none'
-    this._hint.interactiveChildren = false
-    this._root.addChild(this._hint)
-    this._hintTween = gsap.to(this._hint, { y: 180, duration: 0.8, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+  // Dra-för-att-välja-läge: en skena längs höger arm, en bärbar vikt som barnet drar
+  // (eller tappar ett ställe), och en prickad förhandsvisning av grodans båge.
+  _buildDropControl(ctx) {
+    // Skena (visuell ledtråd: vikten kan glida längs armen).
+    const rail = new Graphics()
+    rail
+      .roundRect(DROP_MIN_X - 30, RAIL_Y - 8, DROP_MAX_X - DROP_MIN_X + 60, 16, 8)
+      .fill({ color: COLORS.brown, alpha: 0.85 })
+      .stroke({ width: 3, color: shade(COLORS.brown, 0.25) })
+    rail.circle(DROP_MIN_X - 30, RAIL_Y, 11).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
+    rail.circle(DROP_MAX_X + 30, RAIL_Y, 11).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
+    rail.eventMode = 'none'
+    rail.interactiveChildren = false
+    this._root.addChild(rail)
+    this._rail = rail
+
+    // Prickad förhandsvisning av grodans flykt (uppdateras när läge/vikt ändras).
+    this._aimGuide = new Graphics()
+    this._aimGuide.eventMode = 'none'
+    this._root.addChild(this._aimGuide)
+
+    // Lager för den bärbara vikten (ovanpå allt utom knapparna).
+    this._carryLayer = new Container()
+    this._root.addChild(this._carryLayer)
+
+    // Dra-ledtråd: ett finger som glider längs skenan tills barnet drar/tappar.
+    this._dragHintView = new Text({ text: '👆', style: { fontFamily: FONT.body, fontSize: 46 } })
+    this._dragHintView.anchor.set(0.5)
+    this._dragHintView.eventMode = 'none'
+    this._dragHintView.position.set(DROP_MIN_X, RAIL_Y + 42)
+    this._root.addChild(this._dragHintView)
+    this._dragHintTween = gsap.to(this._dragHintView, { x: DROP_MAX_X, duration: 1.2, yoyo: true, repeat: -1, ease: 'sine.inOut' })
   },
 
   _buildUI(ctx) {
@@ -212,9 +253,10 @@ export default {
     this._misses = 0
     this._assistNext = false
 
-    // Korgen längre bort + högre för varje nivå (men aldrig orimligt).
-    const tx = clamp(940 + level * 38, 940, 1180)
-    const ty = clamp(450 - level * 14, 320, 450)
+    // Korgen står nära skärmens HÖGRA kant och flyttas högre för varje nivå
+    // (men alltid på skärmen och alltid nåbar).
+    const tx = clamp(1080 + level * 24, 1080, 1180)
+    const ty = clamp(450 - level * 16, 320, 450)
     const r = clamp(100 - level * 4, 72, 100)
     this._setTarget(ctx, tx, ty, r)
 
@@ -274,6 +316,10 @@ export default {
       pop(this._frog)
       this._frogBreathe = gsap.to(this._frog.scale, { x: 1.06, y: 0.94, duration: 0.9, yoyo: true, repeat: -1, ease: 'sine.inOut' })
     }
+
+    // Ny bärbar vikt redo att dras/släppas + uppdaterad bågförhandsvisning.
+    this._setupCarried(ctx)
+    this._updateAim()
   },
 
   // Sätt grodvyn på vänster planktipp (följer plankans vinkel medan den rider).
@@ -293,6 +339,11 @@ export default {
     pop(this._sizeButtons[i])
     sparkle(ctx.fxLayer, this._sizeButtons[i].x, this._sizeButtons[i].y - 30, { count: 5 })
     ctx.services.voice.say(`${this._sizes[i].label} vikt!`)
+    // Byt den bärbara vikten till vald storlek och visa hur bågen ändras.
+    if (!this._busy) {
+      this._setupCarried(ctx)
+      this._updateAim()
+    }
   },
 
   _updateSizeRing() {
@@ -302,27 +353,150 @@ export default {
     this._sizeRing.clear().roundRect(b.x - hw, b.y - 60, hw * 2, 120, 26).stroke({ width: 8, color: COLORS.yellow })
   },
 
-  // Tap var som helst -> släpp vald vikt på höger ände (katapult-änden).
-  _dropWeight(ctx) {
-    if (!this._alive) return
+  // Skapa/ersätt den bärbara vikten (i vald storlek) på skenan vid valt läge.
+  _setupCarried(ctx) {
+    if (this._busy) return
+    if (this._carried && !this._carried.destroyed) {
+      gsap.killTweensOf(this._carried)
+      gsap.killTweensOf(this._carried.scale)
+      this._carried.destroy({ children: true })
+    }
+    const size = this._sizes[this._sizeIdx]
+    const v = makeWeight(size.r)
+    v.position.set(this._dropX, RAIL_Y)
+    v.eventMode = 'static'
+    v.cursor = 'pointer'
+    const pad = size.r + 30 // >=96px tryckmål + osynlig hit-halo
+    v.hitArea = new Rectangle(-pad, -pad, pad * 2, pad * 2)
+    v.on('pointerdown', (e) => this._onCarryDown(ctx, e))
+    v.on('globalpointermove', (e) => this._onCarryMove(ctx, e))
+    v.on('pointerup', (e) => this._onCarryUp(ctx, e))
+    v.on('pointerupoutside', (e) => this._onCarryUp(ctx, e))
+    this._carryLayer.addChild(v)
+    this._carried = v
+    pop(v)
+  },
+
+  // Skjutkraft från släpp-läget: nära navet = svag, ytterst på armen = stark.
+  _powerPos(dropX) {
+    const f = clamp((dropX - DROP_MIN_X) / (DROP_MAX_X - DROP_MIN_X), 0, 1)
+    return 0.74 + f * 0.42 // 0.74 (svag) .. 1.16 (stark)
+  },
+
+  // Grodans utskjutningshastighet (px/steg). Vid total=1 träffar bågen korgen exakt
+  // (ballistik mot målet med RÄTT gravitation). Svagare => kort, starkare => långt.
+  _launchVel(fx, fy, total) {
+    const tx = this._target.x
+    const ty = this._target.y - 30 // sikta strax ovanför korgöppningen
+    const N = FLIGHT_STEPS
+    const vx = ((tx - fx) / N) * total
+    const vy = ((ty - fy) / N - 0.5 * G_STEP * N) * total
+    return { vx, vy }
+  },
+
+  // Rita den prickade förhandsvisningen av grodans båge för nuvarande val.
+  _updateAim() {
+    const g = this._aimGuide
+    if (!g || g.destroyed) return
+    g.clear()
+    if (!this._alive || this._busy) return
+    const size = this._sizes[this._sizeIdx]
+    const total = this._powerPos(this._dropX) * size.mul
+    const fx = this._frog && !this._frog.destroyed ? this._frog.x : FROG_LAUNCH_X
+    const fy = this._frog && !this._frog.destroyed ? this._frog.y : FROG_LAUNCH_Y
+    const { vx, vy } = this._launchVel(fx, fy, total)
+    // damp 0.999 = (1 − frictionAir) för grodkroppen → pricklinjen matchar verklig flykt.
+    const pts = predictTrajectory({ x: fx, y: fy, vx, vy, gy: G_STEP, steps: 84, every: 3, floorY: FLOOR_Y, damp: 0.999 })
+    // Var vikten faller (svag ledtråd nedåt mot brädan).
+    g.rect(this._dropX - 2, RAIL_Y + 20, 4, PIVOT_Y - RAIL_Y - 46).fill({ color: COLORS.yellow, alpha: 0.22 })
+    // Prickad båge (tonar ut mot slutet).
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i]
+      if (p.y > FLOOR_Y - 2) break
+      const a = 0.55 * (1 - i / pts.length) + 0.12
+      g.circle(p.x, p.y, 5).fill({ color: COLORS.white, alpha: a })
+    }
+  },
+
+  // Dra den bärbara vikten -> väljer släpp-läge live; uppdaterar bågen.
+  _onCarryDown(ctx, e) {
+    if (!this._alive || this._busy) return
+    this._dragging = true
     this._idle = 0
+    this._hideDragHint()
+    ctx.services.audio.sfx('tap')
+    const local = this._root.toLocal(e.global)
+    this._dragDX = this._carried.x - local.x // greppoffset så vikten inte hoppar
+  },
+
+  _onCarryMove(ctx, e) {
+    if (!this._dragging || !this._alive || this._busy) return
+    const local = this._root.toLocal(e.global)
+    const x = clamp(local.x + (this._dragDX || 0), DROP_MIN_X, DROP_MAX_X)
+    this._dropX = x
+    if (this._carried && !this._carried.destroyed) this._carried.x = x
+    this._updateAim()
+  },
+
+  _onCarryUp(ctx) {
+    if (!this._dragging || !this._alive) return
+    this._dragging = false
+    if (this._busy) return
+    this._dropWeight(ctx, this._dropX) // släpp = låt vikten falla där den är
+  },
+
+  // Tapp på ett tomt ställe: flytta vikten dit och släpp (tap-fallback för dra).
+  _handleTap(ctx, e) {
+    if (!this._alive || this._dragging) return
     if (this._busy) {
-      // Redan i gång: snällt svar, aldrig en bestraffning.
       ctx.services.audio.sfx('soft')
-      if (!this._frog.destroyed) wiggle(this._frog)
+      if (this._frog && !this._frog.destroyed) wiggle(this._frog)
       return
     }
+    this._hideDragHint()
+    const local = this._root.toLocal(e.global)
+    const x = clamp(local.x, DROP_MIN_X, DROP_MAX_X)
+    this._dropX = x
+    if (this._carried && !this._carried.destroyed) gsap.to(this._carried, { x, duration: 0.12, ease: 'power2.out' })
+    this._updateAim()
+    this._dropWeight(ctx, x)
+  },
+
+  _hideDragHint() {
+    this._everInteracted = true
+    this._dragHintTween?.kill()
+    if (this._dragHintView && !this._dragHintView.destroyed) {
+      gsap.to(this._dragHintView, { alpha: 0, duration: 0.2 })
+    }
+  },
+
+  // Släpp vald vikt vid valt läge på höger arm; läget bestämmer skjutkraften.
+  _dropWeight(ctx, dropX) {
+    if (!this._alive || this._busy) return
+    this._idle = 0
     this._busy = true
-    this._misses = this._misses // (no-op, behåller per-nivå-räknare)
+    this._dragging = false
 
     const size = this._sizes[this._sizeIdx]
-    const x = CX + 190 + (Math.random() * 30 - 15)
-    const y = 60
+    const x = clamp(dropX ?? this._dropX, DROP_MIN_X, DROP_MAX_X)
+    this._dropX = x
+    // Total skjutkraft = läge × viktstorlek. Total≈1 => grodan landar i korgen.
+    this._launchTotal = this._powerPos(x) * size.mul
+
+    // Dölj den bärbara vikten + förhandsvisningen — nu faller en "riktig" vikt.
+    this._aimGuide?.clear()
+    if (this._carried && !this._carried.destroyed) {
+      const c = this._carried
+      c.eventMode = 'none'
+      gsap.to(c, { alpha: 0, duration: 0.14 })
+    }
+
+    const y = DROP_TOP_Y
     const view = makeWeight(size.r)
     view.position.set(x, y)
     this._weightLayer.addChild(view)
     view.scale.set(0.3)
-    gsap.to(view.scale, { x: 1, y: 1, duration: 0.24, ease: 'back.out(2)' })
+    gsap.to(view.scale, { x: 1, y: 1, duration: 0.22, ease: 'back.out(2)' })
 
     const body = this._phys.circle(x, y, size.r, { ...size.mat, label: 'weight' })
     this._phys.link(body, view)
@@ -389,11 +563,8 @@ export default {
     this._launchWatchdog?.kill()
     this._frogBreathe?.kill()
 
-    const size = this._sizes[this._sizeIdx]
     const fx = this._frog.x
     const fy = this._frog.y
-    const tx = this._target.x
-    const ty = this._target.y - 30 // sikta strax ovanför korgöppningen
 
     // Hjälp efter ett par missar: garanterad mjuk båge rakt i korgen.
     if (this._assistNext) {
@@ -402,11 +573,8 @@ export default {
       return
     }
 
-    // Ballistisk hastighet (px/steg) mot korgen, skalad av vald massa (momentum).
-    const N = FLIGHT_STEPS
-    const boost = 1.08 // kompenserar lätt luftmotstånd så bågen når fram
-    let vx = ((tx - fx) / N) * boost * size.factor
-    let vy = ((ty - fy) / N - 0.5 * G_PREVIEW * N) * boost * size.factor
+    // Skjutkraft från barnets val (släpp-läge × viktstorlek). Total≈1 => exakt i korgen.
+    const { vx, vy } = this._launchVel(fx, fy, this._launchTotal ?? 1)
 
     const body = this._phys.circle(fx, fy, FROG_R, { restitution: 0.35, friction: 0.3, frictionAir: 0.001, density: 0.001, label: 'frog' })
     Body.setVelocity(body, { x: vx, y: vy })
@@ -617,7 +785,7 @@ export default {
     this._assistTween?.kill()
     this._basketTween?.kill()
     this._frogBreathe?.kill()
-    this._hintTween?.kill()
+    this._dragHintTween?.kill()
 
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onTap)
 
@@ -629,9 +797,13 @@ export default {
       gsap.killTweensOf(this._weight.view)
       gsap.killTweensOf(this._weight.view.scale)
     }
+    if (this._carried && !this._carried.destroyed) {
+      gsap.killTweensOf(this._carried)
+      gsap.killTweensOf(this._carried.scale)
+    }
+    if (this._dragHintView && !this._dragHintView.destroyed) gsap.killTweensOf(this._dragHintView)
     if (this._basketGlow && !this._basketGlow.destroyed) gsap.killTweensOf(this._basketGlow.scale)
     if (this._basket && !this._basket.destroyed) gsap.killTweensOf(this._basket.scale)
-    if (this._hint && !this._hint.destroyed) gsap.killTweensOf(this._hint)
     if (this._plankView && !this._plankView.destroyed) gsap.killTweensOf(this._plankView.scale)
     this._sizeButtons?.forEach((b) => {
       if (b && !b.destroyed) gsap.killTweensOf(b.scale)

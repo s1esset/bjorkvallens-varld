@@ -50,7 +50,7 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 | 27 | `studsbollar` | Flytta boll-typ-knapp ned-höger; bollar krockar med skott-bollen; fixa irriterande studs-sfx + för många bollar | ✅ |
 | 28 | `studsa-ner` | Naturligare fall (ej magnetisk/konstig gravitation), studsigare | ✅ |
 | 29 | `fyrverkeri` | Inversera sikte (sikta dit du vill, bana följer fingret samma riktning) | ✅ |
-| 30 | `vippbradan` | Fixa gravitation; användaren väljer var vikten släpps; korgen längre ut | ⬜ |
+| 30 | `vippbradan` | Fixa gravitation; användaren väljer var vikten släpps; korgen längre ut | ✅ |
 | 31 | `studsmatta` | Användaren flyttar studsmattan upp/ner för höjd/hastighet | ⬜ |
 | 32 | `knuffa-tornet` | Styr boll-fall mer; rep-fysik; ta bort kollisions-sfx; elastiska rep-val; bättre positioner | ⬜ |
 | 33 | `gungan` | Fler nivåer, svårare per nivå | ⬜ |

@@ -24,8 +24,8 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 | 9 | Röst | Repetitiv/loopad, för tät re-cue-intervall, samma fras för ofta | ✅ |
 | 10 | Vinstljud | Blir snabbt irriterande → varierat/alternerande | ✅ |
 | 11 | Anti-stuck / anti-ljudloop | Skydd globalt | ✅ |
-| 12 | Nivåvariation | Svårare per runda, randomiserade element/positioner/krafter där det passar | ⬜ |
-| 13 | Djurläten | Fel/dåliga → regenerera `djur_*` SFX | ⬜ |
+| 12 | Nivåvariation | Svårare per runda, randomiserade element/positioner/krafter där det passar | ⏭️ |
+| 13 | Djurläten | Fel/dåliga → regenerera `djur_*` SFX | ⏭️ |
 
 ## Prio 3 — UI "inga ikoner / ta bort behållare" + karaktär (blond)
 | # | Spel | Ändring | Status |
@@ -36,7 +36,7 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 | 17 | `kla-pa-nallen` | Inga ikoner — visa riktiga kläder i fullstorlek, dra→klär på/passar | ✅ |
 | 18 | `siffertaget` | Gör tåget mer tåg-likt, ta bort ikon inuti | ✅ |
 | 19 | `bajs-och-kiss` | Gör Elvira blond; hjälp ej för snabbt; spola-ned-"pappa" easter egg + barnskratt | ✅ |
-| 20 | `enhorning-glitterbajs` | Gör flickan blond; enhörning ser konstig ut; platform fel position; random nivåer | ⬜ |
+| 20 | `enhorning-glitterbajs` | Gör flickan blond; enhörning ser konstig ut; platform fel position; random nivåer | ✅ |
 
 ## Prio 4 — Mekanik-omdesign
 | # | Spel | Ändring | Status |
@@ -65,6 +65,8 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 | 38 | `magnet-fiske` | Omtänk spelläge, mer intressanta/svårare nivåer | ⬜ |
 
 ## Logg
+- **#12 Nivåvariation** ⏭️: Vävs in i Prio-4-omdesignerna (varje redesign lägger till slumpad svårighet/positioner där det passar, t.ex. enhorning-glitterbajs random nivåer, rulla-bollen-hem hinder, vart-tog-det-vagen fler koppar). Ingen separat global ändring.
+- **#13 Djurläten** ⏭️ (blockerad): MOSS-SoundEffect-tjänsten (:8003) är NER + "låter terrible" kräver bättre prompts, inte bara regenerering. Åtgärd när MOSS körs: förbättra de 12 `djur_*`-prompterna i `scripts/sfx-phrases.json` → `npm run sfx --force --only djur_X` (se [[real-audio-sfx]]). Deferred.
 - 2026-06-30: Skapade tracker från `docs/bugfixes1.md`. Byggplan 2 (25 spel) klar innan detta. Startar Prio 1.
 - **#9 Röst anti-upprepning** ✅: `VoiceService.say(text, force)` tystar EXAKT samma fras inom 8s (REPEAT_COOLDOWN_MS) — stoppar idle-recue-loopar/tät upprepning; andra repliker spelas direkt. Uttryckliga repetera-knappar (GameHost 🔊 + LibraryScreen) skickar `force=true` så de alltid spelar (ingen död tryckning). Committad.
 - **#8 valpens-bajs** ✅: Rotorsak — `createScene('meadow')` utan groundH→default 96→grästopp 624 medan spelplanen ligger y300–700 (hund/träd "svävade"). Fix: `groundH:420` (grästopp=300=WALK.y0) + träd-bas till gräskanten. Test+screenshot: hund/träd står på gräset, 0 fel. Committad.

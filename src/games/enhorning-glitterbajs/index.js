@@ -22,7 +22,7 @@ import { PhysicsWorld, MATERIALS, Body, nudge, applyForce } from '../../lib/phys
 import { createScene } from '../../lib/scene.js'
 import { bigCelebration, burst, puff, sparkle, floatText, pop, wiggle } from '../../lib/feedback.js'
 import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // ---- Geometri & konstanter (designkoordinater 1280×720) -----------------
 const UNICORN = { x: 320, y: 300 }
@@ -31,7 +31,7 @@ const BUTT = { x: 430, y: 285 } // världspunkt: glitter spawnas här
 const MOUTH_HIT = 120
 
 const CHEST_START = 820
-const CHEST_Y = 600
+const CHEST_Y = 548 // burkens MITT — vald så att burken vilar PÅ marken (markens överkant ≈ y 600), inte halvt nergrävd
 const CHEST_MIN = 540
 const CHEST_MAX = 1150
 const SENSOR_DY = -50 // sensorns y-offset från burkens mitt (öppningen)
@@ -46,28 +46,47 @@ const BOUNCE_SFX_MS = 150 // throttla studs-ljud
 const IDLE_DELAY = 6
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+const rand = (a, b) => a + Math.random() * (b - a)
 
-// Nivå -> glittermängd, mål, rampvinkel, böjning, studs-knubbar.
+// Nivå -> glittermängd, mål, böjning. Plattformarnas antal/läge/vinkel slumpas i
+// makePlatformDefs så varje runda ser olik ut.
 function levelConfig(level) {
   const L = Math.max(0, level | 0)
   const goal = Math.min(8 + L * 4, 24)
   const batch = Math.min(6 + L, 14)
-  let angle, bend, bumps
-  if (L <= 1) {
-    angle = -0.04
-    bend = 0
-    bumps = 0
-  } else if (L <= 3) {
-    angle = -0.08
-    bend = 0.0002
-    bumps = 0
-  } else {
-    angle = -0.1
-    bend = 0.0004
-    bumps = 2
+  // Mjuk auto-böjning mot burken växer med nivån (fortsatt no-fail).
+  const bend = L <= 1 ? 0 : L <= 3 ? 0.0002 : 0.0004
+  return { goal, batch, bend, platforms: makePlatformDefs(L) }
+}
+
+// Slumpa studsplattformar per nivå: olika ANTAL (1–3), LÄGEN och VINKLAR, så varje
+// runda blir olik. De hålls i ett LÖSBART band: alltid till höger om munnen, ovanför
+// burkens öppning och inom burkens sidledsräckvidd. Den exakta uppställningen behöver
+// inte ens träffas — pellets som blir liggande/för gamla glider ändå mjukt in i burken
+// (auto-hjälpen i _update), så vilken slumpad layout som helst är garanterat no-fail.
+function makePlatformDefs(level) {
+  const L = Math.max(0, level | 0)
+  // Fler plattformar på högre nivåer, men aldrig en labyrint (tak 3).
+  const n = clamp(1 + Math.floor(Math.random() * (L >= 2 ? 3 : 2)), 1, 3)
+  // Åtskilda höjdband så plattformarna aldrig staplas ovanpå varandra (och alltid
+  // ligger ovanför burkens öppning vid y ≈ 490).
+  const bands = [
+    [330, 360],
+    [385, 415],
+    [435, 460],
+  ]
+  const chosen = shuffle(bands)
+    .slice(0, n)
+    .sort((a, b) => a[0] - b[0])
+  const defs = []
+  for (const band of chosen) {
+    const y = rand(band[0], band[1])
+    const x = rand(600, 1010) // höger om munnen (x≈210), inom burkens räckvidd (540–1150)
+    const w = rand(170, 290)
+    const angle = rand(0.05, 0.16) * (Math.random() < 0.5 ? -1 : 1) // lekfull lutning åt valfritt håll
+    defs.push({ x, y, w, angle })
   }
-  angle += Math.random() * 0.04 - 0.02 // lekfull jitter
-  return { goal, batch, angle, bend, bumps }
+  return defs
 }
 
 export default {
@@ -96,13 +115,12 @@ export default {
     this._lastBounceSfx = 0
     this._pellets = [] // { body, view, restT, age, caught }
     this._foods = [] // { view, slotX, slotY, _onDown }
-    this._bumps = [] // { body, view }
+    this._platforms = [] // { body, view } — slumpade studsplattformar, byggs om per nivå
     this._timers = [] // gsap delayedCalls
     this._proxyTweens = [] // transienta tuck-tweens
     this._selectedFood = null
     this._dragFood = null
     this._dragChest = false
-    this._rampBody = null
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
@@ -117,8 +135,7 @@ export default {
     this._unbindCollision = this._phys.onCollision((e) => this._onCollision(ctx, e))
 
     this._buildMeter()
-    this._buildRamp()
-    this._buildBumps()
+    this._buildPlatforms()
     this._buildUnicorn(ctx)
     this._buildElvira()
     this._buildTray(ctx)
@@ -166,24 +183,12 @@ export default {
     this._root.addChild(layer)
   },
 
-  _buildRamp() {
-    // Mjukt lutande studsplatta (visuell). Origo i mitten -> roterar snyggt.
-    const view = new Container()
-    view.position.set(730, 483)
-    view.eventMode = 'none'
-    const g = new Graphics()
-    g.roundRect(-260, -13, 520, 26, 14).fill(COLORS.purple).stroke({ width: 4, color: 0x8b6ff0 })
-    g.roundRect(-260, -13, 520, 8, 14).fill({ color: COLORS.white, alpha: 0.25 })
-    view.addChild(g)
-    this._rampView = view
-    this._root.addChild(view)
-  },
-
-  _buildBumps() {
-    this._bumpLayer = new Container()
-    this._bumpLayer.eventMode = 'none'
-    this._bumpLayer.interactiveChildren = false
-    this._root.addChild(this._bumpLayer)
+  _buildPlatforms() {
+    // Lager för de slumpade studsplattformarna (kropp + vy byggs om varje nivå i _setPlatforms).
+    this._platformLayer = new Container()
+    this._platformLayer.eventMode = 'none'
+    this._platformLayer.interactiveChildren = false
+    this._root.addChild(this._platformLayer)
   },
 
   _buildUnicorn(ctx) {
@@ -283,7 +288,7 @@ export default {
     this._selectedFood = null
 
     this._clearPellets()
-    this._setRamp(cfg.angle, cfg.bumps)
+    this._setPlatforms(cfg.platforms)
 
     // Burk till start.
     if (this._chest && !this._chest.destroyed) {
@@ -300,36 +305,31 @@ export default {
     this._paintMeter()
   },
 
-  _setRamp(angle, bumpCount) {
-    if (this._rampBody) this._phys.removeBody(this._rampBody)
-    this._rampBody = this._phys.rectangle(730, 483, 520, 26, {
-      isStatic: true,
-      angle,
-      restitution: 0.5,
-      friction: 0.25, // pellets glider av rampen mot fångstzonen
-      label: 'ramp',
-    })
-    if (this._rampView && !this._rampView.destroyed) this._rampView.rotation = angle
-
-    // Rensa gamla knubbar.
-    for (const b of this._bumps) {
-      if (b.body) this._phys.removeBody(b.body)
-      if (b.view && !b.view.destroyed) b.view.destroy()
-    }
-    this._bumps = []
-    if (bumpCount > 0) {
-      const defs = [
-        { x: 640 + (Math.random() * 80 - 40), y: 545 },
-        { x: 880 + (Math.random() * 80 - 40), y: 560 },
-      ]
-      for (const d of defs) {
-        const body = this._phys.circle(d.x, d.y, 22, { isStatic: true, restitution: 0.6, friction: 0.2, label: 'bump' })
-        const view = new Graphics().circle(0, 0, 22).fill(COLORS.purple).stroke({ width: 3, color: COLORS.white })
-        view.position.set(d.x, d.y)
-        view.eventMode = 'none'
-        this._bumpLayer.addChild(view)
-        this._bumps.push({ body, view })
+  // Bygg om plattformarna för en ny nivå från slumpade defs (olika antal/läge/vinkel).
+  _setPlatforms(defs) {
+    // Rensa förra nivåns plattformar (kropp + vy).
+    for (const p of this._platforms) {
+      if (p.body) this._phys.removeBody(p.body)
+      if (p.view && !p.view.destroyed) {
+        gsap.killTweensOf(p.view)
+        p.view.destroy()
       }
+    }
+    this._platforms = []
+    if (!this._platformLayer || this._platformLayer.destroyed) return
+    for (const d of defs) {
+      const body = this._phys.rectangle(d.x, d.y, d.w, 26, {
+        isStatic: true,
+        angle: d.angle,
+        restitution: 0.5,
+        friction: 0.25, // pellets glider av plattformen mot fångstzonen
+        label: 'ramp',
+      })
+      const view = makePlatform(d.w)
+      view.position.set(d.x, d.y)
+      view.rotation = d.angle
+      this._platformLayer.addChild(view)
+      this._platforms.push({ body, view })
     }
   },
 
@@ -848,83 +848,101 @@ export default {
 
 // ===== Programmatisk konst ===============================================
 
-// Söt enhörning, ankrad i mitten (0,0), vänd åt VÄNSTER (mun till vänster, rumpa till höger).
+// Söt enhörning, ankrad i mitten (0,0), vänd åt VÄNSTER (mun/nos till vänster, rumpa
+// till höger). Plufsig kropp, böjd hals upp till ett mjukt huvud med nos, två öron,
+// gyllene spiralhorn, böljande regnbågsman + -svans, stort vänligt öga och leende.
 function makeUnicorn() {
   const c = new Container()
   const white = 0xfff7fb
-  const edge = 0xffd6ea
+  const shade = 0xffe9f4 // mjuk skuggton på den vita pälsen
+  const edge = 0xffc8e4
+  const hoof = 0xeebcd6
 
-  // Mjuk markskugga.
-  c.addChild(new Graphics().ellipse(0, 92, 120, 24).fill({ color: COLORS.shadow, alpha: 0.12 }))
+  // Mjuk markskugga under hovarna.
+  c.addChild(new Graphics().ellipse(8, 102, 118, 22).fill({ color: COLORS.shadow, alpha: 0.12 }))
 
-  // Svans (regnbåge) bakom kroppen, åt höger (vid rumpan).
+  // Böljande regnbågssvans vid rumpan (höger).
   const tail = new Graphics()
   for (let i = 0; i < PLAYFUL.length; i++) {
-    tail.roundRect(96 + (i % 2) * 6, -30 + i * 9, 30, 9, 5).fill(PLAYFUL[i])
+    tail.roundRect(0, -30 + i * 11, 48, 12, 6).fill(PLAYFUL[i])
   }
-  tail.rotation = -0.15
+  tail.pivot.set(0, 8)
+  tail.position.set(108, 18)
+  tail.rotation = 0.18
   c.addChild(tail)
 
-  // Ben + hovar.
+  // Ben (rundade) + mjuka hovar. Bakbenen i en aning mörkare ton för djup.
   const legs = new Graphics()
-  for (const lx of [-58, -28, 28, 58]) {
-    legs.roundRect(lx - 8, 48, 16, 46, 7).fill(white)
-    legs.roundRect(lx - 9, 86, 18, 12, 5).fill(0xf3d9ea)
+  const legX = [-50, -18, 40, 70]
+  for (let i = 0; i < legX.length; i++) {
+    const lx = legX[i]
+    legs.roundRect(lx - 11, 54, 22, 52, 11).fill(i < 2 ? white : shade)
   }
+  for (const lx of legX) legs.roundRect(lx - 12, 96, 24, 14, 6).fill(hoof)
   c.addChild(legs)
 
-  // Kropp (vit glansig ellips).
-  const body = new Graphics().ellipse(0, 18, 116, 70).fill(white).stroke({ width: 3, color: edge })
-  body.ellipse(-26, -6, 64, 26).fill({ color: COLORS.white, alpha: 0.5 }) // glans
+  // Plufsig glansig kropp.
+  const body = new Graphics().ellipse(10, 24, 112, 70).fill(white).stroke({ width: 4, color: edge })
+  body.ellipse(-12, 2, 72, 30).fill({ color: COLORS.white, alpha: 0.45 }) // glans
   c.addChild(body)
 
-  // Huvud (fram-vänster).
-  const head = new Graphics().circle(-94, -22, 52).fill(white).stroke({ width: 3, color: edge })
+  // Hals upp mot huvudet (fram-vänster).
+  const neck = new Graphics().poly([-50, 10, -42, -34, -86, -44, -94, 2]).fill(white).stroke({ width: 4, color: edge })
+  c.addChild(neck)
+
+  // Huvud + nos.
+  const head = new Graphics().ellipse(-98, -46, 50, 44).fill(white).stroke({ width: 4, color: edge })
+  head.ellipse(-122, -28, 26, 22).fill(white).stroke({ width: 4, color: edge })
   c.addChild(head)
 
-  // Öra.
-  const ear = new Graphics().poly([-78, -64, -64, -58, -76, -46]).fill(white).stroke({ width: 2, color: edge })
-  c.addChild(ear)
+  // Öron (med rosa innerton i det främre).
+  const ears = new Graphics()
+  ears.poly([-120, -82, -132, -58, -106, -66]).fill(white).stroke({ width: 2, color: edge })
+  ears.poly([-78, -84, -66, -60, -92, -68]).fill(white).stroke({ width: 2, color: edge })
+  ears.poly([-118, -76, -126, -60, -110, -66]).fill({ color: 0xffd0e4, alpha: 0.85 })
+  c.addChild(ears)
 
-  // Gyllene horn ovanför pannan.
-  const horn = new Graphics()
-    .poly([-100, -112, -114, -66, -86, -66])
-    .fill(COLORS.yellow)
-    .stroke({ width: 2, color: COLORS.orange })
-  horn.moveTo(-108, -74).lineTo(-92, -78)
-  horn.moveTo(-106, -84).lineTo(-93, -88)
-  horn.moveTo(-104, -94).lineTo(-95, -98)
-  horn.stroke({ width: 2, color: COLORS.orange })
+  // Gyllene spiralhorn över pannan.
+  const horn = new Graphics().poly([-98, -128, -84, -80, -112, -80]).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orange })
+  horn.moveTo(-106, -88).lineTo(-90, -92)
+  horn.moveTo(-104, -98).lineTo(-91, -102)
+  horn.moveTo(-102, -108).lineTo(-93, -112)
+  horn.stroke({ width: 2.5, color: COLORS.orange })
   c.addChild(horn)
 
-  // Regnbågsman från hornbasen ner längs nacken.
+  // Böljande regnbågsman längs nacken + pannlugg vid hornbasen.
   const mane = new Graphics()
-  const manePts = [
-    [-72, -58],
-    [-58, -48],
+  const maneP = [
+    [-66, -76],
+    [-54, -56],
     [-48, -34],
-    [-42, -18],
-    [-44, 0],
+    [-46, -10],
+    [-50, 14],
+    [-58, 34],
   ]
-  for (let i = 0; i < manePts.length; i++) {
-    mane.circle(manePts[i][0], manePts[i][1], 12).fill(PLAYFUL[i % PLAYFUL.length])
-  }
+  for (let i = 0; i < maneP.length; i++) mane.circle(maneP[i][0], maneP[i][1], 15).fill(PLAYFUL[i % PLAYFUL.length])
+  mane.circle(-84, -72, 12).fill(PLAYFUL[4])
+  mane.circle(-98, -66, 11).fill(PLAYFUL[1])
   c.addChild(mane)
 
-  // Stort vänligt öga.
+  // Stort vänligt öga med glittriga reflexer + fransar.
   const eye = new Graphics()
-  eye.ellipse(-104, -26, 8, 10).fill(0x3a2b3f)
-  eye.circle(-101, -29, 2.8).fill(COLORS.white)
-  eye.circle(-107, -23, 1.8).fill({ color: COLORS.white, alpha: 0.8 })
+  eye.ellipse(-106, -46, 9, 12).fill(0x3a2b3f)
+  eye.circle(-103, -50, 3.2).fill(COLORS.white)
+  eye.circle(-109, -42, 2).fill({ color: COLORS.white, alpha: 0.85 })
+  eye.moveTo(-114, -54).lineTo(-119, -58)
+  eye.moveTo(-108, -57).lineTo(-110, -62)
+  eye.stroke({ width: 2, color: 0x3a2b3f, cap: 'round' })
   c.addChild(eye)
 
-  // Kind.
-  c.addChild(new Graphics().circle(-116, -10, 7).fill({ color: 0xffb3d1, alpha: 0.7 }))
+  // Rosig kind.
+  c.addChild(new Graphics().circle(-120, -32, 8).fill({ color: 0xffb3d1, alpha: 0.7 }))
 
-  // Mun (liten rosa båge / muns).
-  const mouth = new Graphics().ellipse(-122, -8, 13, 9).fill(0xffd0e4)
-  mouth.arc(-122, -10, 9, 0.1 * Math.PI, 0.9 * Math.PI).stroke({ width: 3, color: 0xe79bc0, cap: 'round' })
-  c.addChild(mouth)
+  // Näsborre + litet leende på nosen.
+  const face = new Graphics()
+  face.ellipse(-132, -28, 3, 4).fill({ color: 0xd98bb4, alpha: 0.85 })
+  face.arc(-126, -20, 8, 0.12 * Math.PI, 0.88 * Math.PI).stroke({ width: 3, color: 0xe79bc0, cap: 'round' })
+  c.addChild(face)
 
   // Barnen rör hela enhörningen -> stäng av interaktion på barnen.
   c.children.forEach((ch) => (ch.eventMode = 'none'))
@@ -937,7 +955,7 @@ function makeElvira() {
   const skin = 0xffe0bd
   const dress = COLORS.pink
   const dressDark = 0xe87da8
-  const hair = 0x7a4a25
+  const hair = 0xf2cf63 // blont — Elvira är blond (ägaråterkoppling)
 
   // Tofsar bakom huvudet.
   c.addChild(new Graphics().circle(-30, -42, 12).fill(hair).circle(30, -42, 12).fill(hair))
@@ -993,6 +1011,18 @@ function makeElvira() {
   )
 
   return c
+}
+
+// Slumpad studsplattform (rundad lila platta). Origo i mitten -> roterar snyggt kring sin axel.
+function makePlatform(w) {
+  const view = new Container()
+  const half = w / 2
+  const g = new Graphics()
+  g.roundRect(-half, -13, w, 26, 14).fill(COLORS.purple).stroke({ width: 4, color: 0x8b6ff0 })
+  g.roundRect(-half, -13, w, 8, 14).fill({ color: COLORS.white, alpha: 0.25 }) // topp-glans
+  view.addChild(g)
+  view.eventMode = 'none'
+  return view
 }
 
 // Glansig skattkista. Origo = mitten; öppningen upptill (vid y ≈ -58, sensor vid y-50).

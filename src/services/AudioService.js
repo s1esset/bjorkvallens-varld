@@ -67,6 +67,13 @@ export class AudioService {
     if (!this._s.sfxEnabled) return
     const c = this._ensure()
     if (!c) return
+    // Globalt anti-loop-skydd: samma ljud kan inte spela snabbare än var 30:e ms.
+    // Ett ljud som triggas varje frame (~60/s) är alltid en bugg/loop som distar —
+    // 30ms-golvet (~33/s) stoppar det men är omärkbart för riktig lek (tap ≤ ~5/s).
+    const t = c.currentTime * 1000
+    if (!this._lastSfxAt) this._lastSfxAt = new Map()
+    if (t - (this._lastSfxAt.get(name) || -1e9) < 30) return
+    this._lastSfxAt.set(name, t)
     // Vinstljudet varieras varje gång så det inte blir enformigt (se _celebrate).
     if (name === 'celebrate') return this._celebrate()
     // Riktigt klipp om det finns och är avkodat, annars procedurell syntes nedan.

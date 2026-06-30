@@ -23,7 +23,7 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 |---|------|---------|:--:|
 | 9 | Röst | Repetitiv/loopad, för tät re-cue-intervall, samma fras för ofta | ✅ |
 | 10 | Vinstljud | Blir snabbt irriterande → varierat/alternerande | ✅ |
-| 11 | Anti-stuck / anti-ljudloop | Skydd globalt | ⬜ |
+| 11 | Anti-stuck / anti-ljudloop | Skydd globalt | ✅ |
 | 12 | Nivåvariation | Svårare per runda, randomiserade element/positioner/krafter där det passar | ⬜ |
 | 13 | Djurläten | Fel/dåliga → regenerera `djur_*` SFX | ⬜ |
 

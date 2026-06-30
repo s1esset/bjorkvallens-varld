@@ -1,7 +1,8 @@
 // Fyrverkeri — sikta-och-skjut fyrverkeriraketer på natthimlen (2–5 år). Nu ett RIKTIGT
 // spel med ett MÅL: uppe i skyn lyser tomma stjärnringar ✨ — barnet GREPPAR raketen på
-// rampen längst ner, drar för att sikta + välja kraft (en prickad bana visar färdvägen),
-// och släpper. Raketen bågar uppåt under gravitation (och ev. mild vind på högre nivåer)
+// rampen längst ner, drar ÅT DET HÅLL den ska flyga för att sikta + välja kraft (direkt
+// sikte: en prickad bana följer fingret i samma riktning), och släpper. Raketen bågar
+// uppåt under gravitation (och ev. mild vind på högre nivåer)
 // och SMÄLLER vid en stjärna så den tänds och börjar lysa. Tänd ALLA stjärnor → ett stort
 // final-firande + nästa nivå (fler/högre stjärnor, lite vind).
 //
@@ -51,7 +52,7 @@ export default {
   input: 'drag',
   ageRange: [2, 5],
   bundle: 'fyrverkeri',
-  voiceIntro: 'Sikta raketen och tänd alla stjärnorna på himlen!',
+  voiceIntro: 'Dra raketen mot stjärnorna och släpp för att skjuta upp den!',
 
   init(ctx) {
     this._alive = true
@@ -130,12 +131,14 @@ export default {
     this._rocket.position.set(ORIGIN.x, ORIGIN.y)
     this._root.addChild(this._rocket)
 
-    // 8) Sikt-kontroll: greppa raketen, dra bakåt (slangbella) -> skjut framåt. Prickad bana.
+    // 8) Sikt-kontroll: greppa raketen, dra ÅT DET HÅLL den ska FLYGA (direkt sikte) -> skjut.
+    //     Prickad bana följer fingret i SAMMA riktning (drar du upp-vänster åker raketen
+    //     upp-vänster). Kraften = draglängd. (Inte slangbella/bakåtdrag — det förvirrade.)
     this._launcher = new AimLauncher({
       target: this._rocket,
       root: this._root,
       audio: ctx.services.audio,
-      slingshot: true,
+      slingshot: false,
       hitRadius: 100,
       maxPower: 32,
       minPower: 13,
@@ -243,9 +246,9 @@ export default {
 
   _tension(v) {
     const mag = Math.hypot(v.vx, v.vy) || 1
-    const pull = Math.min(mag * 2.2, 46)
-    const hx = ORIGIN.x - (v.vx / mag) * pull // slangbella: dra raketen bakåt
-    const hy = ORIGIN.y - (v.vy / mag) * pull
+    const lean = Math.min(mag * 1.4, 24)
+    const hx = ORIGIN.x + (v.vx / mag) * lean // direkt sikte: luta raketen ÅT skjutriktningen (mot fingret)
+    const hy = ORIGIN.y + (v.vy / mag) * lean
     if (this._rocket && !this._rocket.destroyed) {
       this._rocket.position.set(hx, hy)
       this._rocket.rotation = Math.atan2(v.vy, v.vx) + Math.PI / 2 // nosen pekar dit den flyger
@@ -574,7 +577,7 @@ export default {
       this._idle += dt
       if (this._idle >= IDLE_DELAY) {
         this._idle = 0
-        ctx.services.voice.say('Dra i raketen och släpp för att skjuta upp den!')
+        ctx.services.voice.say('Dra raketen mot en stjärna och släpp för att skjuta!')
         if (this._rocket && !this._rocket.destroyed) pop(this._rocket)
       }
     }

@@ -30,7 +30,7 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 ## Prio 3 — UI "inga ikoner / ta bort behållare" + karaktär (blond)
 | # | Spel | Ändring | Status |
 |---|------|---------|:--:|
-| 14 | `stor-liten` | Ta bort behållare runt föremål (no icons); röst upprepas vid inaktiv | ⬜ |
+| 14 | `stor-liten` | Ta bort behållare runt föremål (no icons); röst upprepas vid inaktiv | ✅ |
 | 15 | `skuggmatchning` | Inga ikon-behållare, separerade föremål | ⬜ |
 | 16 | `kla-efter-vadret` | Inga ikon-behållare; ta bort garnnystan; gör karaktären blond flicka | ⬜ |
 | 17 | `kla-pa-nallen` | Inga ikoner — visa riktiga kläder i fullstorlek, dra→klär på/passar | ⬜ |

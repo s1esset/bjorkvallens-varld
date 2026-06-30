@@ -5,7 +5,7 @@
 // studs tillbaka + vingel (ALDRIG en bestraffning). Oändlig, växande lek: fler
 // föremål, ny gullig figur varje runda, och en tredje "mellan"-korg på högre
 // nivåer. När rundan är klar firar vi (stjärna + klistermärke) och ny runda startar.
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
@@ -22,8 +22,9 @@ const EMOJIS = [
   '🎈', '⭐', '🌟', '🧸', '⚽', '🌸', '🍪', '🎁',
 ]
 
-// Storleksprofiler: tallriks-radie + emoji-grad + korgmått + färg + etikett.
-// Tydligt åtskilda så skillnaden alltid syns direkt.
+// Storleksprofiler: figurens fotavtryck/träffradie + emoji-grad + korgmått + färg
+// + etikett. Tydligt åtskilda så skillnaden alltid syns direkt. (Föremålen visas
+// utan platta — `plate` är nu bara träffytans radie, ingen ritad bakgrund.)
 const SIZES = {
   stor: { plate: 86, font: 120, bw: 322, bh: 240, color: COLORS.blue, label: 'Stor' },
   mellan: { plate: 62, font: 82, bw: 250, bh: 198, color: COLORS.teal, label: 'Mellan' },
@@ -257,20 +258,21 @@ export default {
     this._resetIdle(ctx)
   },
 
-  // Föremål = mjuk skugga + vit cirkel-platta + figur. Storleken bär hela poängen.
+  // Föremål = bara figuren (emoji) + mjuk markskugga — ingen platta/ruta bakom.
+  // Storleken bär hela poängen. En osynlig, generös träffyta (>=96px i diameter)
+  // gör att pekningen alltid funkar trots att den synliga konsten kan vara liten.
   _makeItem(emoji, key) {
     const s = SIZES[key]
     const c = new Container()
-    const shadow = new Graphics().ellipse(0, s.plate + 10, s.plate * 0.82, s.plate * 0.3).fill({ color: 0x000000, alpha: 0.18 })
+    const shadow = new Graphics().ellipse(0, s.font * 0.5 + 8, s.font * 0.4, s.font * 0.15).fill({ color: 0x000000, alpha: 0.18 })
     const body = new Container()
-    const plate = new Graphics()
-      .circle(0, 0, s.plate)
-      .fill({ color: 0xffffff, alpha: 0.9 })
-      .stroke({ width: 4, color: 0xeadfca })
     const e = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: s.font } })
     e.anchor.set(0.5)
-    body.addChild(plate, e)
+    body.addChild(e)
     c.addChild(shadow, body)
+    // Osynlig träffyta runt figuren (minst 96px diameter -> radie >=48) så även
+    // "liten" är lätt att träffa; layout/avstånd är oförändrade.
+    c.hitArea = new Circle(0, 0, Math.max(s.plate, 50))
     return { container: c, body, shadow }
   },
 

@@ -76,36 +76,36 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 67 | Pizzabageriet | `pizzabageriet` | drag | 📝 |
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | 📝 |
 
-### ⚙️ Fysik & rörelse (fysik + motorik)
+### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ alla docs skrivna (Fas 2)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
-| 4 | Poppa Ballongerna | `poppa-ballonger` | tap | ⬜ |
-| 10 | Klappa Mullvaden | `klappa-mullvaden` | tap | ⬜ |
-| 19 | Plask i Vattnet | `plask-i-vattnet` | drag | ⬜ |
-| 23 | Bygg Tornet | `bygg-tornet` | tap | ⬜ |
-| 24 | Rulla Bollen Hem | `rulla-bollen-hem` | drag | ⬜ |
-| 26 | Spåra Linjen | `spara-linjen` | drag | ⬜ |
-| 29 | Studsbollar | `studsbollar` | mixed | ⬜ |
-| 31 | Studsa Ner | `studsa-ner` | mixed | ⬜ |
-| 33 | Fånga Frukten | `fanga-frukten` | drag | ⬜ |
-| 34 | Vippbrädan | `vippbradan` | tap | ⬜ |
-| 35 | Domino | `domino` | mixed | ⬜ |
-| 36 | Studsmatta | `studsmatta` | mixed | ⬜ |
-| 38 | Knuffa Tornet | `knuffa-tornet` | drag | ⬜ |
-| 39 | Spindelhjälten | `spindelhjalten` | drag | ⬜ |
-| 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | ⬜ |
-| 44 | Valpens Bajs | `valpens-bajs` | mixed | ⬜ |
-| 46 | Tvätta Djuret | `tvatta-djuret` | drag | ⬜ |
-| 48 | Gungan | `gungan` | tap | ⬜ |
-| 50 | Spindelnätet | `spindelnatet` | tap | ⬜ |
-| 52 | Fallskärmen | `fallskarmen` | drag | ⬜ |
-| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | ⬜ |
-| 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | ⬜ |
-| 55 | Bobos Bowling | `bowling` | drag | ⬜ |
-| 56 | Flipperspel | `flipperspel` | tap | ⬜ |
-| 58 | Snöbollen | `snobollen` | drag | ⬜ |
-| 59 | Glasstornet | `glasstornet` | drag | ⬜ |
-| 64 | Grävmaskinen | `gravmaskinen` | drag | ⬜ |
+| 4 | Poppa Ballongerna | `poppa-ballonger` | tap | 📝 |
+| 10 | Klappa Mullvaden | `klappa-mullvaden` | tap | 📝 |
+| 19 | Plask i Vattnet | `plask-i-vattnet` | drag | 📝 |
+| 23 | Bygg Tornet | `bygg-tornet` | tap | 📝 |
+| 24 | Rulla Bollen Hem | `rulla-bollen-hem` | drag | 📝 |
+| 26 | Spåra Linjen | `spara-linjen` | drag | 📝 |
+| 29 | Studsbollar | `studsbollar` | mixed | 📝 |
+| 31 | Studsa Ner | `studsa-ner` | mixed | 📝 |
+| 33 | Fånga Frukten | `fanga-frukten` | drag | 📝 |
+| 34 | Vippbrädan | `vippbradan` | tap | 📝 |
+| 35 | Domino | `domino` | mixed | 📝 |
+| 36 | Studsmatta | `studsmatta` | mixed | 📝 |
+| 38 | Knuffa Tornet | `knuffa-tornet` | drag | 📝 |
+| 39 | Spindelhjälten | `spindelhjalten` | drag | 📝 |
+| 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | 📝 |
+| 44 | Valpens Bajs | `valpens-bajs` | mixed | 📝 |
+| 46 | Tvätta Djuret | `tvatta-djuret` | drag | 📝 |
+| 48 | Gungan | `gungan` | tap | 📝 |
+| 50 | Spindelnätet | `spindelnatet` | tap | 📝 |
+| 52 | Fallskärmen | `fallskarmen` | drag | 📝 |
+| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | 📝 |
+| 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | 📝 |
+| 55 | Bobos Bowling | `bowling` | drag | 📝 |
+| 56 | Flipperspel | `flipperspel` | tap | 📝 |
+| 58 | Snöbollen | `snobollen` | drag | 📝 |
+| 59 | Glasstornet | `glasstornet` | drag | 📝 |
+| 64 | Grävmaskinen | `gravmaskinen` | drag | 📝 |
 
 ### 🧩 Pussel (pussel + minne + drag)
 | # | Spel | id | input | status |
@@ -144,9 +144,15 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 
 ## Återkommande mönster (app-breda lyft)
 
-Tvärs över Roligt-fliken återkom samma "lättjefulla" drag — att åtgärda dem en gång ger lyft i
-*många* spel:
+Tvärs över Roligt- och Fysik-flikarna återkom samma "lättjefulla" drag — att åtgärda dem en gång
+ger lyft i *många* spel:
 
+- **Auto-hjälp som spelar banan åt barnet (Fysik-fliken, genomgående).** No-fail är rätt, men
+  hjälpen är ofta så aggressiv att agensen försvinner: auto-magnet (bygg-tornet, fanga-frukten),
+  garanterad vindpust/strike (bowling, gungan, enhorningen-elvira), auto-glid/auto-rita
+  (studsmatta, spara-linjen, rulla-bollen-hem, spindel-zacke-svingar). *Grepp:* mjuka upp/fördröj
+  hjälpen och låt barnets val (sikte/kraft/placering) faktiskt avgöra — hjälpen kickar bara in
+  *sent* och *synligt* ("Jag hjälper till!"). Skicklighet ska kännas, aldrig krävas.
 - **Ingen mottagare/publik.** Skapelser (pizza, burgare, marshmallow, fyrverkeri) görs och
   försvinner — ingen kund/figur som tar emot, äter eller jublar. *App-bret grepp:* en återanvändbar
   "mottagar-maskot" (Bobo/Elvira) som väntar, reagerar och firar.

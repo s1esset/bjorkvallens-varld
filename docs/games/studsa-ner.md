@@ -1,0 +1,96 @@
+# Studsa Ner (`studsa-ner`)
+> ⚙️ fysik · mixed · 2–5 år · status: 📝 plan klar
+
+## 1. Nuläge (sett som spelare)
+
+Ett plinko-bräde: en stor ljus spelyta full av vita pinnar (en förskjuten triangel) och
+nederst en rad färgglada fickor. Högst upp följer ett glansigt mynt mitt finger — jag DRAR
+det i sidled (en prickad linje + kolumn-highlight visar var det "lutar åt") och SLÄPPER.
+Myntet faller helt naturligt under tyngdkraften, pingar livligt mot pinnarna och landar i
+en ficka. En ficka **LYSER** (en utropad färg, "Släpp i den gröna fickan!") och myntet har
+samma färg — landar det i den lysande fickan fylls en mätare (3 prickar uppe till höger).
+
+Full mätare → firande + stjärna + klistermärke, och en ny nivå (fler fickor, målet flyttar,
+fler pinnar). "Fel" ficka ger ett glatt plopp och en liten puff — ingen poäng, aldrig straff.
+Vid mount släpps ett demo-mynt mot målet; idle ~6s → röst + ett hjälp-släpp ovanför målfickan;
+ett mynt som kilar fast får en mjuk slumpknuff loss.
+
+**Funkar bra:** fallet är livligt och tillfredsställande, no-fail är intakt, den talade
+färginstruktionen sår ett pedagogiskt frö (färgord), mätare + nivåstegring finns, exit-säkert.
+
+*(Skärmdump: stort ljust pinnbräde, 4 färgfickor nederst, droppar-mynt med pil högst upp,
+ett mynt mitt på brädet, mätare uppe till höger.)*
+
+## 2. Ursprunglig plan & tankeprocess
+
+Kodhuvudet vill lyfta klassisk plinko från "släpp och titta" till en **lek med mål**: en
+lysande målficka + ett färgmatchat mynt + en sidleds-drag-kontroll innan släpp. Avsikten var
+agens (du *väljer* var myntet faller) utan att fuska bort fysiken — ingen magnetisk styrning,
+myntet faller "precis som ett riktigt plinko-mynt" (bara en pytteliten slumpfart i sidled).
+Färgmålet ger igenkänning och svenska färgord; anti-fastnar-knuffen och hjälp-släppet
+garanterar att det alltid lyckas.
+
+## 3. Vad gör det lättjefullt / tunt
+
+Här bor den ärliga kritiken — för just plinko gör designvalet "ingen styrning" att
+kärnkontrollen knappt betyder något:
+
+- **Drag-kontrollen är nästan en illusion.** Eftersom myntet faller helt naturligt och
+  pingar slumpmässigt mot pinnarna har drop-x:et väldigt liten påverkan på vilken ficka det
+  hamnar i — utfallet är i praktiken **tur**. Den prickade linjen pekar rakt ner, men myntet
+  studsar bort från den. Barnet "siktar" men ser ingen tydlig orsak→verkan. Det är raka
+  motsatsen till en kärnloop med agens.
+- **Auto-hjälpen gör jobbet.** Demo-myntet, idle-släppet (rakt över målfickan) och
+  anti-stall-knuffen betyder att en passiv spelare ändå fyller mätaren. Snällt, men tunt.
+- **Pinnarna är döda prickar.** De lyser inte, studsar inte, låter olika — de är bara vita
+  cirklar. Hela övre brädet är en stor tom cremefärgad yta utan liv.
+- **Fickorna har ingen personlighet.** Platta färgade rektanglar; inget "gap" som slukar,
+  ingen hög av insamlade mynt, ingen reaktion utöver en puff. Det man "samlar" försvinner.
+- **Ingen karaktär/berättelse.** Inget ansikte, ingen maskot, ingen anledning bortom mätaren.
+- **Ljudet är sparsmakat.** `tap` på pinnar (hårt strypt), `pop`/`correct`/`pling`. Ingen
+  stigande pinn-melodi när myntet rasslar ner, inget "jackpott"-ljud i målfickan.
+
+Kort sagt: *vacker rörelse, men spelaren styr knappt utfallet* — och brädet + fickorna är
+livlös rekvisita.
+
+## 4. Förbättringar & förhöjningar (plan)
+
+### Kärnloop & agens
+- **[Deep] Ge drop-läget verklig betydelse.** Inför element som gör placeringen avgörande utan
+  att bli "magnetisk": en **flyttbar tratt/ränna** överst som barnet siktar med, eller 2–3
+  pinnar som barnet kan *dra* åt sidan för att öppna en väg mot målfickan. Då blir "var släpper
+  jag?" ett riktigt val (och fysiken är fortfarande äkta).
+- **[Medium] Sikt-fönster.** Visa en mjuk, ärlig sannolikhets-tratt (var myntet *troligen*
+  landar givet drop-x) i stället för en rak pricklinje som ljuger. Hjälper barnet koppla
+  handling till utfall.
+
+### Variation & överraskning
+- **[Quick] Special-mynt & special-fickor.** Ibland en gyllene "stjärnficka" som ger två
+  mätar-platser, eller ett "studsmynt" som pingar extra. Rotera per nivå.
+- **[Quick] Rörliga pinnar/snurror.** Någon enstaka liten snurrande pinne eller en vimpel som
+  myntet studsar mot — ger banan karaktär och varierar varje fall.
+
+### Juice
+- **[Quick] Pinn-melodi.** Låt varje pinn-träff spela en ton ur en stigande skala medan myntet
+  faller (mjukt, strypt) — ett litet "plink-plink-plong" som klättrar. Jackpott-ljud i målet.
+- **[Quick] Fickan slukar.** Målfickan "gapar" och svälter myntet (öppningen squashar), och
+  fyllda mynt staplas synligt i en glaskruka bredvid mätaren.
+
+### Progression
+- **[Quick] Synlig myntsamling** (krukan ovan) som växer över nivåer — något att återkomma till.
+
+### Karaktär & berättelse
+- **[Deep] En figur under fickorna.** Maskoten Bobo (eller ett djur med öppen mun per ficka)
+  som hejar när myntet rasslar och gör en glädjeskutt när rätt ficka träffas — egen
+  vinst-animation i stället för generisk konfetti.
+
+### Ljud
+- **[Quick] Riktiga SFX** (trä-plink, mynt-plopp) via SFX-pipelinen ([[real-audio-sfx]]);
+  variera vinst-stinget.
+
+## 5. Status / loggar
+
+- 2026-06-30: Doc skriven (granskning + plan). Spelet testat (errorCount 0, skärmdump sedd).
+  Inga kodändringar.
+- Rekommenderad första-omgång: **[Deep] ge drop-läget verklig betydelse** (annars är agensen
+  illusorisk) + **[Quick] pinn-melodi + slukande fickor** för känslan.

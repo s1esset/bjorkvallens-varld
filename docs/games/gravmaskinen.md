@@ -1,136 +1,125 @@
 # Grävmaskinen (`gravmaskinen`)
-> Barnet kör Zackes grävmaskin: drar skopan ner i en stor sandhög så riktig kornig sand rinner ner, svänger över lastbilen och tippar tills flaket är fullt — sanden faller och lägger sig på riktigt, och lastbilen tutar av glädje. Ren skaparglädje utan ett enda sätt att göra fel.
+> ⚙️ fysik · drag · 3–5 år · status: 📝 plan klar
 
-## Metadata
-| id | titleSv | icon | category | input | ageRange | bundle | voiceIntro |
-|---|---|---|---|---|---|---|---|
-| `gravmaskinen` | Grävmaskinen | 🚜 | fysik | drag | [3,5] | `gravmaskinen` | "Hjälp Zacke! Gräv sand och fyll lastbilen!" |
+## 1. Nuläge (sett som spelare)
 
-## Mål & mekanik
-Zacke kör en grävmaskin. Barnet **drar skopan** (med fingret) ner i en oändlig sandhög för att **gräva** (skopan fylls med sand), svänger sedan över **dumpern** och **släpper** (tippar) så sanden rinner ner i flaket. **Mål:** fyll flaket upp till **fyllnadslinjen** → lastbilen tutar, firande, klistermärke.
+En varm bygg-/sandscen. Till vänster en stor sandhög där **Zacke** sitter i en grön
+grävmaskin med gul hytt; en metallskopa hänger i en brun bom. Till höger ett lastbils-flak
+(bruna väggar + golv) med en gul streckad **fyllnadslinje** och en 🎯-markör, och under det
+en liten 🚛-lastbil. Jag **drar skopan** ner i sandhögen → skopan fylls (sandnivån i skopan
+stiger), drar den fyllda skopan över flaket och **släpper** → skopan tippar och **kornig
+sand rinner ut** vid munnen. Sanden faller *granulärt* (en egen cellulär falling-sand-sim,
+inte matter.js) och lägger sig i högar i flaket. Fyll till linjen → lastbilen guppar och
+tutar ("Tuut tuut!"), firande, stjärna + klistermärke, och en ny, större last.
 
-Kärnloop:
-1. Skopan vilar tom vid sandhögen. Bommen (armen) ritas alltid som en stång från grävmaskinens led till skopan.
-2. **Gräv (kontroll 1):** barnet drar skopan ner i sandhögen och sveper. Ju längre/djupare svepet är, desto mer fyller sig skopan (upp till kapacitet **40 korn**). En kort doppning ger lite, ett helt svep fyller den. Skopans sandnivå syns direkt.
-3. **Bär & tippa (kontroll 2):** barnet drar den fyllda skopan över flaket och **släpper fingret** → skopan tippar och häller ut sina korn vid skopans mun. Kornen **faller granulärt** och lägger sig i högar i flaket. **Var** du släpper avgör var sanden landar — för långt ut åt sidan och en del **spiller** bredvid (bara roligt, aldrig straff).
-4. När den vilande sanden i flaket når fyllnadslinjen tvärs över → **klart**: `audio.sfx('celebrate')` + lastbilstut, `voice.say('Full last! Tuut tuut!')`, `bigCelebration`, `ctx.progress.complete()`. Efter ~1,6s töms flaket och en ny (något större) last börjar — oändlig lek.
+Spelet kan aldrig misslyckas: sandhögen är oändlig, spilld sand utanför flaket ger bara en
+😄 + puff, och en mjuk auto-hjälp (vindpust 💨 + extra sand + linjen sänks lite) garanterar
+att flaket alltid blir fullt. Tap-tap-fallback finns: tap vid högen fyller skopan halvvägs,
+tap över flaket flyttar dit + tippar. Idle ~6 s ger röst-recue + en ⬇️-vink mot högen.
 
-Spelet kan **aldrig misslyckas:** sandhögen är oändlig (den är en statisk hög som "aldrig sinar"), spilld sand är bara kul, och en mjuk auto-hjälp (se nedan) garanterar att flaket till slut blir fullt.
+**Funkar bra:** den riktiga kornsimuleringen är spelets stjärna — sand som rinner, rasar och
+lägger sig i naturliga högar är taktilt och fascinerande, och helt exit-säkert (rutnät, inga
+GSAP-tweens på korn). Gräv-medan-du-drar + tippa-vid-släpp är en härligt fysisk loop, Zacke
+ger scenen ett ansikte, och spill-som-kul är perfekt no-fail. Karaktärsfull stillbild.
 
-## Skärm-layout (1280x720)
-GameHost ritar hem-/repetera-knappar i headern — rita INGA egna. Håll spelinnehåll under y≈90. Allt nedan ligger i spelets `_root` (designkoordinater). Bakgrund = `createScene('warm', { ground:true })` som FÖRSTA barn (varm sand-/byggarbetston).
+*(Skärmdump: sandhög med skopa till vänster, Zacke i grön grävmaskin, tomt flak med gul
+fyllnadslinje + 🎯 till höger, liten lastbil under, varm sandbakgrund.)*
 
-- **Markremsa:** scene-temats `ground` ger en sandfärgad mark; toppen av marken ligger ca y≈624. Allt vilar på marken.
-- **Sandhög (oändlig, vänster):** en statisk programmatisk hög-`Graphics` — en mjuk kulle av staplade sandfärgade bågar/triangelform, bas x∈[70,430], topp vid (240, 360). Tre lager i sandtoner `0xe8c98a` (topp), `0xd9b46f`, `0xc89a55` (botten) + en mjuk markskugga (mörk ellips alpha 0.12) under. Eventmode `none`. När man gräver i den spelas en kort "div"-puls (skala-dipp via `pop`/wiggle på högen) men formen återställs — den ser alltid full ut.
-- **Grävmaskin (mitten-vänster):** 🚜 (Text, fontSize 120) vid (430, 560) som maskinkropp; ovanpå en liten hytt-`roundRect` (gul `COLORS.yellow`, stroke `COLORS.orangeDark`) med **förar-Zacke** 🧒 (Text fontSize 52) vid ca (430, 512). **Bom-led (pivot):** punkt vid (480, 458).
-- **Bommen (armen):** ett dedikerat `Graphics` (`this._boom`) som varje frame ritas som en tjock stång från pivot (480,458) till skopans fäste (`width:26`, `cap:'round'`, fyll `COLORS.brown` med en ljusare mittlinje). Den "stretchar/roterar" fritt mot skopan — ingen exakt kinematik (inget toddler-svårt).
-- **Skopan (dra-objektet):** en programmatisk skopa (`this._bucket`, Container) ~110×92px: en U-formad/kvartscirkel-`Graphics` i metallgrått (`0xb8c0c8`, stroke `0x8a939b`) med synlig **sandfyllnad** inuti (en sandfärgad fyllnad vars höjd = `count/40`). Osynlig hit-halo: `hitArea = new Circle(0,0, 78)` (≥96px träffyta). Startläge vid sandhögens kant ca (300, 470).
-- **Dumpern (höger):** 🚛 (Text fontSize 130) vid (905, 558). Ovanpå ett **öppet flak**: en `roundRect`-låda utan topp, väggar i `COLORS.brown`/stroke `0x6b4326`. Flakets **inre** (där sand samlas): x∈[720, 1010], golv vid y≈500, väggtopp vid y≈360. **Fyllnadslinje:** en streckad gul linje (`COLORS.yellow`, alpha 0.8) tvärs flaket vid y≈384 med en liten 🎯/⬆️-markör i kanten.
-- **Sand-grafik (aktiv kornsimulering):** ett dedikerat `Graphics` (`this._sandGfx`) som ligger ÖVER flaket men UNDER skopan; här renderas alla rörliga/vilande korn (se Fysik). Eventmode `none`.
+## 2. Ursprunglig plan & tankeprocess
 
-Marginaler: skopans träffyta ≥96px överallt; fri väg mellan hög och flak så ett rakt svep alltid funkar.
+Designintentionen (ur kodhuvudet) var en **bygg-/fysiklek byggd kring en äkta falling-sand-
+simulering** — den taktila "gräv och häll riktig sand"-fantasin som småbarn älskar i
+sandlådan. Det kännbara fröet är orsak-verkan + grovmotorik: dra ner, fyll, sväng, tippa,
+se sanden rinna. Sim:en kördes medvetet på ett eget Int8Array-rutnät (CELL=10, fast STEP_MS)
+i stället för matter.js, både för prestanda (alla korn i en Graphics per frame) och för att
+sand-rasande beteende är svårt med stela kroppar. No-fail bärs av oändlig hög + roligt spill
++ auto-vindpust. Fyllnadslinjen + 🎯 ger ett tydligt, läsbart mål; Zacke (enda avbildade
+människan) ger föraren ett ansikte.
 
-## Interaktion
-Bara **drag** (med tap-tap-fallback). Egen pointer-logik på skopan (DragController behövs inte — vi vill ha "scoopa medan du drar" + "tippa vid släpp", inte snäpp).
+## 3. Vad gör det lättjefullt / tunt
 
-- `this._bucket.eventMode = 'static'`, `cursor = 'pointer'`, `hitArea = new Circle(0,0,78)`.
-- **`pointerdown` på skopan:** `this._dragging = true`, spara grepp-offset (`_root.toLocal(e.global)` minus skopans pos), `pop(bucket)` + `audio.sfx('tap')`, nollställ `this._idle`.
-- **`globalpointermove`** (lyssnare läggs på skopan/`_root` vid down): om `_dragging`, flytta skopan mot fingret (`_root.toLocal(e.global)` − offset), klampad inom spelytan (y≥130, inom väggar). Rita om bommen mot nya läget. **Medan skopans mun överlappar sandhögens yta** → "gräv": öka `this._bucketCount` (upp till 40) proportionellt mot svepets längd i högen (t.ex. +1 per ~8px rört avstånd inne i högen), spela en kornig `audio.sfx('soft')` (throttlad var ~140ms) + liten `puff(ctx.fxLayer, mun.x, mun.y, {count:3, color:0xd9b46f})`, uppdatera skopans sandfyllnad.
-- **`pointerup` / `pointerupoutside`:** `this._dragging = false`. Om skopan har sand (`_bucketCount>0`) → **tippa**: animera skopans lutning (`gsap` rotation fram/tillbaka), `audio.sfx('whoosh')`, och **spawna `_bucketCount` korn** i kornsimuleringen vid skopans mun-position (sprid över 2–3 celler). Nollställ `_bucketCount` och skopans fyllnad. Kornen faller sedan av sig själva (se Fysik).
-- **Tap-tap-fallback (för de minsta):** ett kort tap (gest <14px) på skopan medan den är vid högen → fyll skopan automatiskt halvvägs (`_bucketCount=24`) + puls; nästa tap var som helst över flaket → flytta skopan dit (gsap) och tippa automatiskt. Så barnet kan **tappa hög → tappa flak** utan att kunna dra.
-- **`_resolving`-skydd:** när flaket når linjen sätts `this._resolving = true`; pointer-callbacks returnerar tidigt tills nästa last byggs (inget dubbelfirande).
+Stark, karaktärsfull kärna, men flera tunna drag:
 
-## Fysik & kalibrering
-Sanden är en **egen cellulär "falling-sand"-simulering** (granulärt, ej matter.js — billigare och pålitligare för många korn på surfplatta). Endast **aktiva/rörliga + vilande korn** simuleras; den oändliga sandhögen är en statisk ritning (gräv = spawna korn i skopan, inte flytta tusentals celler).
+- **Sanden är enfärgad och utan partikel-liv.** Kornen ritas i tre nyanser efter cell-värde
+  men allt är samma beige sand. Ingen grus/guld-ådra, inga stenar, inga skatter att gräva
+  fram, ingen färgvariation att upptäcka. Att gräva ger alltid exakt samma sand.
+- **Bommen är en stel pinne.** `_drawBoom` ritar en rak linje från en fast pivot till
+  skopan — den böjs inte, har inga leder, ingen hydraulik-känsla. Skopan glider fritt i 2D
+  utan att armen begränsar räckvidden trovärdigt; det ser mer ut som en svävande skopa än
+  en grävarm.
+- **Lastbilen är passiv rekvisita.** 🚛-emojin står still tills finalen, då den guppar. Den
+  kör inte fram, väntar inte, har ingen förare som vinkar. Flaket är en abstrakt brun låda
+  *bredvid* lastbilen snarare än *på* den — kopplingen flak↔lastbil är otydlig.
+- **Tippandet är samma gest varje gång.** Dra-släpp över flaket → skopan lutar 0.7 rad och
+  sanden faller. Ingen variation i hur man häller (snabbt/långsamt, hög/låg), ingen
+  precision som belönas — bara "släpp ovanför flaket".
+- **Auto-hjälpen fyller flaket åt mig.** Efter 4 tippningar eller 12 s utan full last sopas
+  26 extra korn in (`_autoPour`) *och* `_target` sänks med 8. Ett barn som bara drar runt
+  får flaket fullt av magi; den egentliga "gräv tillräckligt"-utmaningen kan kringgås helt.
+- **Tap-tap-fallbacken "fuskar" fram sand.** Tap vid högen sätter `_bucketCount = max(…, 24)`
+  rakt av — skopan blir halvfull utan att ha rört högen. Funktionellt men bryter illusionen
+  av att gräva.
+- **Ljudet är tunt.** Gräv = `soft`, tipp = `whoosh`, spill = `soft`, full = `correct`+
+  `celebrate`. Inget kornigt sand-rassel som rinner, inget skrap av skopan i högen, ingen
+  motor-/hydraulik-ljud från grävmaskinen. "Full last! Tuut tuut!" är TTS, inte en riktig tuta.
+- **Tomt mellanrum.** Stora delar av scenen (mitten, ovanför) är tom varm bakgrund —
+  ingen byggarbetsplats, inga koner, ingen kompis-maskin, inga skyltar.
 
-**Rutnät:** cellstorlek `CELL = 10`. Simzonen täcker x∈[600,1120] (52 kolumner) och y∈[200,540] (34 rader) — alltså flaket + marginal för spill. `grid` = `Int8Array(cols*rows)`: `0`=tom, `>0`=sandfärg-index (1–3), och en `WALL`-flagga (t.ex. `9`) för flakets väggar/golv så korn stannar inne:
-- Vänstervägg: celler vid x≈715, rader y 360→500 = `WALL`.
-- Högervägg: celler vid x≈1010, rader y 360→500 = `WALL`.
-- Golv: celler vid y 500→510 över x 715→1010 = `WALL`.
+Kort sagt: simuleringen är fantastisk, men **sanden är enfärgad, bom/lastbil är stela
+rekvisita, och auto-hjälp + tap-fusk kan kringgå själva grävandet**.
 
-**Integration (per sim-steg, ticker-driven):** ackumulera `ctx.ticker.deltaMS`; kör ett steg var `STEP_MS = 28` (≈36 steg/s → ~360 px/s fall, lugnt och tydligt). Per steg, iterera rader **nerifrån och upp**, för varje sandcell:
-1. om cellen rakt under är tom → flytta korn ner ett steg;
-2. annars, i slumpad L/R-ordning, om under-vänster ELLER under-höger är tom → flytta dit (diagonalt → bildar naturliga högar/rasvinkel);
-3. annars vila (ligg kvar). `WALL`-celler blockerar både ner och diagonalt → sand staplas inne i flaket och rasar inte ut.
-Korn som når simzonens **nedre kant utanför flaket** (spill) tas bort och ger en liten `puff` + `floatText(ctx.fxLayer, x, 600, '😄')` (mark-plask), så de inte ackumuleras för evigt.
+## 4. Förbättringar & förhöjningar (plan)
 
-**Spawn vid tippning:** lägg `_bucketCount` korn i tomma celler runt skopans mun (kolumn = `round((mun.x−600)/10)`), staplade uppåt om munnen är låg. Korn med slumpad färg-index 1–3.
+### Kärnloop & agens
+- **[Medium] Belöna *hur* man gräver/häller.** Låt djupare/längre svep i högen fylla skopan
+  mer, och låt en lugn, riktad häll lägga sanden snyggare än ett slarvigt släpp. Då blir
+  drag-gesten en skicklighet, inte en på/av-knapp.
+- **[Medium] Mjuka upp auto-hjälpen.** Låt vindpusten bara ge en sista liten knuff när
+  flaket är *nästan* fullt efter lång idle, i stället för att sänka `_target` och sopa in 26
+  korn — så barnets egna grävtag bär lasten.
+- **[Quick] Ta bort tap-fusket från illusionen.** Låt tap-vid-hög *animera* skopan ner i
+  högen och fylla den medan munnen är i sanden (återanvänd `_inPile`-logiken) i stället för
+  att sätta `_bucketCount` rakt av.
 
-**Rendering (exit-säker):** varje tick `this._sandGfx.clear()`, loopa sandceller och rita `rect(col*CELL+600, row*CELL+200, CELL, CELL).fill(SAND[idx])` (`SAND=[,0xe8c98a,0xd9b46f,0xc89a55]`). Aldrig GSAP på rutnätet/`_sandGfx` — bara ticker + en Graphics som förstörs med `_root`. (Antal korn är litet, ~60–220 per last, så en `clear+rect`-omritning per frame är billig.)
+### Variation & överraskning
+- **[Quick] Färgad/varierad sand & fynd.** Lager av olika sandfärger, enstaka glittrande
+  guldkorn, och ibland en begravd skatt (🦴/💎/snäcka) som dyker upp när man gräver djupt och
+  firas extra — ger en anledning att gräva mer.
+- **[Medium] Olika laster per nivå:** grus, småsten, snö, godis-strössel — varje med lite
+  olika rasvinkel/färg, så nivå 3 inte bara har "mer sand".
+- **[Quick] Befolka bygget:** trafikkoner, en skylt, en kompis-maskin (hjullastare), en
+  liten fågel på sandhögen — fyll det tomma mittfältet.
 
-**Fyllnadsmått:** räkna vilande sandceller inuti flaket vars rad ligger på/ovanför fyllnadslinjen (`y ≤ 384`) ELLER totalt antal sandceller i flaket ≥ `this._target` (level-beroende). När villkoret håller i ~0,3s (stabilt, inte mitt i ett ras) → `_onFull`.
+### Juice
+- **[Quick] Kornigt sand-ljud** ([[real-audio-sfx]]): ett rinnande sand-rassel medan korn
+  faller (intensitet ∝ antal rörliga korn), ett skrap när skopan gräver, en riktig
+  lastbils-tuta vid full last — ersätt `soft`/TTS.
+- **[Quick] Damm & skak.** Dammpuff när sanden landar i flaket, ett litet skärm-skutt när en
+  stor mängd rasar, och en kort skopa-darrning vid grävning.
+- **[Quick] Hydraulik-känsla i bommen.** Låt bommen ha en knäled och en mjuk
+  "sätt-sig"-rörelse vid tipp så den känns som en maskin, inte en pinne.
 
-(Ingen `AimLauncher`/`predictTrajectory` används här, så ingen pricklinje-kalibrering behövs — kornen integreras direkt i rutnätet.)
+### Progression
+- **[Medium] Lastbils-kö / leverans.** Spara `custom.lastbilar` (görs redan) som en rad
+  fyllda lastbilar som kör iväg och en ny som backar in — gör finalen till en leverans med
+  mottagare i stället för en gupp på stället.
+- **[Quick] Tydlig fyllnads-mätare** (utöver linjen) som fylls, så barnet ser framsteg.
 
-## Återkoppling & belöning
-Varje pekning/handling <100ms:
-- Greppa skopan: `audio.sfx('tap')` + `pop(bucket)`.
-- Gräva: throttlad `audio.sfx('soft')` + sandkorns-`puff` vid munnen + skopans fyllnad stiger synligt + en mjuk hög-puls.
-- Tippa/släpp: `audio.sfx('whoosh')` + skop-tippanimation; kornen rasar ner med ett mjukt sand-sus.
-- Korn landar i flaket: enstaka `audio.sfx('tap')` (throttlad ~200ms) när nya korn vilar.
-- **Spill (bredvid flaket):** `audio.sfx('soft')` + `floatText(ctx.fxLayer, x, y, '😄')` + liten `puff`. ALDRIG buzzer/rött. Spill är roligt — "gräv mer!".
-- **Flaket fullt:** `this._resolving=true`; `audio.sfx('correct')` direkt → `audio.sfx('celebrate')`, lastbilen guppar/tutar (gsap-hopp på 🚛 + `voice.say('Full last! Tuut tuut!')`), `bigCelebration(ctx.fxLayer, {width:ctx.width, height:ctx.height})` + `burst(ctx.fxLayer, flak.x, 360)`, sedan `ctx.progress.complete()`.
-- **Idle-recue (~6s utan handling):** `voice.replayLast()` (eller `voice.say(this.voiceIntro)`) + `wiggle(bucket)`/`breathe` på skopan + en pil-puls mot sandhögen.
+### Karaktär & berättelse
+- **[Medium] Zacke reagerar.** Låt Zacke titta mot skopan, luta sig fram vid grävning, och
+  jubla/vinka vid full last; ge lastbilen en förare (Bobo?) som tackar — knyter ihop
+  grävare och mottagare (jfr README:s "ingen mottagare"-mönster).
+- **[Quick] Koppla flaket till lastbilen** visuellt (flaket *sitter på* 🚛, eller rita en
+  egen lastbil i Graphics) så det är tydligt att man fyller *lastbilen*.
 
-Använda sfx: `tap, soft, whoosh, correct, celebrate`. Röst: voiceIntro samt 'Full last! Tuut tuut!', 'Gräv mer sand!'.
+### Ljud
+- **[Quick] Lugn bygg-ambient** (avlägsen maskin-surr) i botten + ersätt "Gräv mer sand!"/
+  "Full last! Tuut tuut!" med riktiga klipp + tuta.
 
-## Progression & nivåer
-- `this._level = Math.max(0, ctx.progress.get().highestLevel | 0)` vid init.
-- Svårighet = **flakets storlek + sandmängd som krävs** (`this._target`):
-  - **Nivå 0–1:** smalt flak (x 740→990), `target ≈ 60` korn, fyllnadslinje lågt.
-  - **Nivå 2–3:** bredare flak (x 720→1010), `target ≈ 90`.
-  - **Nivå 4–5:** högt flak, `target ≈ 130`, linjen högre.
-  - **Nivå 6+:** stort flak, `target ≈ 180+`, mönstren upprepas med liten jitter (`randomFrom`/Math.random ±). Aldrig orimligt — auto-hjälp garanterar full last.
-- Efter `complete()`: `ctx.progress.setLevel(this._level+1)`, `setCustom('lastbilar', n+1)` (räknar fyllda lastbilar, oändligt). Vänta ~1,6s → `_loadLevel(ctx, ++this._level)`: töm flaket (nollställ grid-sandceller), bygg ev. bredare väggar, återställ skopan. Inga sjunkande värden, ingen synlig poäng.
-- **Auto-hjälp (no-fail-garanti):** spåra antal tippningar. Om flaket inte är fullt efter ~4 tippningar ELLER ~12s utan framsteg → en mjuk "vindpust": en `floatText('💨')` + spilld/lös sand intill flaket sopas in (flytta några korn-celler in i flaket) tills `target` nås och firandet sker ändå. Barnet lyckas alltid.
+## 5. Status / loggar
 
-## Tillgångar (programmatiskt)
-Endast emoji (`Text`) + Pixi `Graphics` + `createScene`. Inga externa bild-/ljud-/fontfiler.
-- Emoji: 🚜 (grävmaskin), 🧒 (förar-Zacke), 🚛 (dumper), 💨/😄/🎯 (hjälp/spill/markör), valfri 🌟 i firandet.
-- Graphics: sandhög (staplade bågar i sandtoner + markskugga), hytt-`roundRect`, bommen (tjock stång, redras varje frame), skopan (U-form metallgrå + sandfyllnad), flakets öppna låda (`roundRect`-väggar), streckad fyllnadslinje, och **kornsimuleringens `_sandGfx`** (en `rect` per sandcell).
-- Färger ur `theme.js`: `COLORS.yellow/orangeDark/brown`, sandtoner `0xe8c98a/0xd9b46f/0xc89a55`, metall `0xb8c0c8`. Firande via `feedback.js` (`bigCelebration/burst/puff`).
-
-## Återanvänd dessa
-- `lib/scene.js`: `createScene('warm', { ground:true })` (FÖRSTA barn).
-- `lib/feedback.js`: `pop`, `wiggle`, `breathe`, `puff`, `burst`, `floatText`, `bigCelebration`.
-- `lib/theme.js`: `COLORS`, `FONT`, `PLAYFUL`, `PRAISE`, `DESIGN_W`, `DESIGN_H`.
-- `lib/swedish.js`: `randomFrom`, `shuffle` (sandfärg-/jitterval).
-- `ctx.services.audio.sfx(...)`, `ctx.services.voice.say/replayLast`.
-- `ctx.progress`: `get`, `setLevel`, `setCustom`, `complete`.
-- `ctx.ticker` (sim-loop + idle-timer), `ctx.fxLayer` (firande/spill), `gsap` (skop-/bom-/lastbils-animationer — ALDRIG på kornrutnätet).
-- INTE `physics.js`/`launcher.js` (egen cellulär sand passar bättre); INTE `DragController` (egen "gräv-medan-du-drar"-logik).
-
-## Edge-cases & städning
-- `this._alive = true` i `init`, `false` i `destroy`. Alla `gsap.delayedCall`/`onComplete`/auto-hjälp-callbacks och sim-loopen tidig-returnerar om `!this._alive`.
-- `this._resolving = true` när flaket blir fullt → alla pointer-/tap-callbacks och tippning ignoreras tills nästa last laddas (förhindrar dubbla `complete()`).
-- Klampa skopan inom spelytan så bommen aldrig pekar bisarrt och munnen aldrig hamnar utanför simzonen vid tippning.
-- Begränsa korn-spawn så grid aldrig spillar utanför arrayen (klampa kolumn/rad); ta bort korn som faller under simzonen.
-- Throttla gräv-/landnings-ljud (var ~140–200ms) så snabba rörelser inte spammar audio.
-- Auto-hjälp-/idle-timer nollställs vid varje pointerdown/move så hjälpen aldrig stör mitt i en handling.
-- `destroy(ctx)`: `this._alive=false`; `ctx.ticker.remove(this._tick)`; avregistrera skopans pointer-lyssnare; `gsap.killTweensOf(this._bucket)`, `killTweensOf(this._boom)`, `killTweensOf` på 🚛/hög/skop-rotation; `this._root?.destroy({children:true})`. Inga kvarvarande tweens/timers efter exit.
-
-## Steg-för-steg bygginstruktion
-1. Skapa `src/games/gravmaskinen/index.js`. Importera `Container, Graphics, Text, Circle` från `pixi.js`, `gsap`, `createScene`, feedback-hjälpare, `COLORS, FONT, DESIGN_W, DESIGN_H` från theme, `randomFrom` från swedish.
-2. Default-exportera GameModule-objektet med metadatan ovan.
-3. `init(ctx)`: `this._alive=true`; `this._root = new Container()`, `ctx.stage.addChild(this._root)`. Lägg `createScene('warm',{ground:true})` FÖRST. Bygg sandhög, grävmaskin+hytt+Zacke, dumper+flak+fyllnadslinje. Lägg lager: hög → `_sandGfx` → `_boom` → dumper → skopa. Initiera `grid`/`Int8Array`, sätt `WALL`-celler för flakets väggar/golv. Läs `_level`, `_loadLevel(ctx, _level)` (sätter `_target`, väggbredd, tömmer grid).
-4. Bygg `_makeBucket()` (skopa-Container + hitArea Circle r=78) och koppla `pointerdown`/`globalpointermove`/`pointerup(outside)` enligt Interaktion (gräv-medan-drag + tippa-vid-släpp + tap-tap-fallback).
-5. Skriv kornsimuleringen: `_simStep()` (cellulär falling-sand, nerifrån-upp, ner/diagonal), `_spawnGrains(munX, munY, n)`, `_renderSand()` (`_sandGfx.clear()` + en `rect` per cell), `_countFill()`.
-6. Lägg loop: `this._tick = (t) => this._update(ctx, t)`, `ctx.ticker.add(this._tick)`. I `_update`: ackumulera deltaMS → kör `_simStep` var 28ms, kör `_renderSand`, rita om `_boom`, kolla `_countFill() ≥ _target` (stabilt) → `_onFull`, samt idle-/auto-hjälp-timers (allt bakom `if(!this._alive||this._resolving) return` där relevant).
-7. `_onFull(ctx)`: `_resolving=true`, ljud+tut+voice, `bigCelebration`/`burst`, `ctx.progress.setLevel(_level+1)`, `setCustom('lastbilar', …)`, `ctx.progress.complete()`, `gsap.delayedCall(1.6, ()=> this._alive && this._loadLevel(ctx, ++this._level))`.
-8. `mount(ctx)`: `ctx.services.voice.say(this.voiceIntro)`.
-9. `destroy(ctx)`: enligt "Edge-cases & städning".
-10. Registrera i `src/games/registry.js`: `import gravmaskinen from './gravmaskinen/index.js'` + lägg `gravmaskinen` i `GAMES`.
-11. `npm run dev`, öppna biblioteket, spela: verifiera gräv-vid-drag, tippning, att sanden faller/lägger sig granulärt, spill-roligt, fullt-flak-firande + tut, tap-tap-fallback, auto-hjälp, hem-knapp, röst-repris och att `highestLevel`/`lastbilar` kvarstår efter omladdning.
-
-## Acceptanskriterier (Playwright-test)
-- Spelet monteras och renderar utan konsolfel (navigera bibliotek → "Grävmaskinen"). Canvas finns; inga uncaught errors/warnings i `browser_console_messages`.
-- Vid mount är `voiceIntro` satt/spelas ("Hjälp Zacke! Gräv sand och fyll lastbilen!").
-- Gräv-vid-drag: en pointer down→move som drar skopan genom sandhögen ökar skopans `_bucketCount` (verifierbart via exponerad teststate `window.__barnspel`/`_bucketCount` eller skopans synliga fyllnad).
-- Tippning: släpp över flaket spawnar korn i `_sandGfx`/`grid` och kornantalet i flaket ökar; kornen rör sig nedåt mellan frames (granulär fall verifieras via state eller pixel/snapshot-skillnad).
-- Sanden lägger sig: korn staplas inne i flakets väggar och rinner inte ut genom golv/väggar (grid-`WALL` håller).
-- Spill ger mjuk respons (`soft`/`floatText`) och INGEN buzzer, INGET felmeddelande, ingen poängsänkning.
-- När flaket når `_target`/fyllnadslinjen körs firande + lastbilstut och `ctx.progress.complete()` anropas exakt EN gång (inget dubbelfirande via `_resolving`).
-- Auto-hjälp: även med dåliga/spillande tippningar blir flaket till slut fullt och rundan firas — aldrig en fail-state.
-- Tap-tap-fallback: tap på skopa vid hög + tap över flak fyller och tippar utan drag.
-- Progress sparas: efter en avklarad last är `highestLevel` ökat och `custom.lastbilar` finns kvar i localStorage (`pwagames.save.v1`) efter omladdning.
-- Städning: vid hem-knappen tas `_tick` bort och inga tweens/timers fortsätter logga/kasta fel.
+- 2026-06-30: Doc skriven utifrån kodläsning + playtest (errorCount 0; sandhög, skopa, Zacke
+  och tomt flak renderar). Ersatte den gamla byggspecen. Inga kodändringar.
+- Rekommenderad första-omgång: **[Quick] kornigt sand-ljud + damm/skak + färgad sand/fynd +
+  koppla flak↔lastbil** — bygger direkt på simuleringens styrka och tar bort de tunnaste
+  dragen (enfärgad sand, stel lastbil, TTS) för låg risk.

@@ -28,6 +28,11 @@ const A_MAX = 10 // tak på accelerationen
 const STICK_R = 46 // fastna-radie (== klister-halons radie)
 const DUCK_PUSH_R = 80 // ankan knuffas mjukt undan inom denna radie
 
+// Simning: sakerna vandrar långsamt runt dammen (fisken "simmar") → aktivt fiske av
+// rörliga mål istället för statiska högar. Farten ökar per nivå (svårare).
+const SWIM_BASE = 0.55 // grund-simacceleration (matter-enheter)
+const SWIM_PER_LEVEL = 0.22 // hur mycket snabbare per nivå
+
 const BUCKET = { x: 1150, y: 510 } // hinkens släpp-zon (centrum)
 const BUCKET_R = 130 // släpp-zonens radie
 const PIVOT = { x: 1200, y: 70 } // spöets fasta pivot uppe i högra hörnet
@@ -202,6 +207,9 @@ export default {
     const { metal, kork } = this._counts(this._level)
     this._needed = metal
 
+    // Simfart för den här nivån (sakerna vandrar snabbare ju högre nivå → svårare).
+    this._swim = SWIM_BASE + this._level * SWIM_PER_LEVEL
+
     // Svag ambient ström på höga nivåer → lite mer sikte krävs (no-fail kvarstår).
     this._phys.setWind(this._level >= 3 ? 0.004 : 0, 0)
 
@@ -239,7 +247,7 @@ export default {
     nudge(body, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6) // litet levande gupp
     this._phys.link(body, view)
 
-    const it = { body, view, metal, stuck: false, delivered: false, slot: 0 }
+    const it = { body, view, metal, stuck: false, delivered: false, slot: 0, wt: Math.random() * 1.2, wh: Math.random() * Math.PI * 2 }
     view.on('pointertap', () => {
       if (!this._alive || this._resolving || it.delivered || it.stuck) return
       if (it.metal) {
@@ -295,6 +303,21 @@ export default {
         const dx = tip.x - p.x
         const dy = tip.y - p.y
         const dist = Math.hypot(dx, dy) || 0.0001
+
+        // Vandring (simning): byt riktning ibland, styr in från väggar, mjuk fart.
+        it.wt -= dt
+        if (it.wt <= 0) {
+          it.wh = Math.random() * Math.PI * 2
+          it.wt = 0.8 + Math.random() * 1.6
+        }
+        if (p.x < SPAWN.x0) it.wh = 0
+        else if (p.x > SPAWN.x1) it.wh = Math.PI
+        if (p.y < SPAWN.y0) it.wh = Math.PI / 2
+        else if (p.y > SPAWN.y1) it.wh = -Math.PI / 2
+        // Nära magneten dras metall ändå (nedan) → dämpa simningen så den inte motverkar fångst.
+        const swimA = this._swim * 0.03 * (it.metal && dist < R_FIELD ? 0.3 : 1)
+        Body.applyForce(it.body, p, { x: it.body.mass * swimA * Math.cos(it.wh), y: it.body.mass * swimA * Math.sin(it.wh) })
+
         if (it.metal) {
           if (dist < R_FIELD) {
             const a = Math.min(STRENGTH / Math.max(dist, R_MIN), A_MAX)
@@ -472,16 +495,19 @@ export default {
 
   // ---- Räknar-rad ---------------------------------------------------------
 
+  // Visar MÅLET: en stjärna per metallsak — guld = i hinken, blek = kvar att fiska.
   _drawCounter() {
     const c = this._counter
     if (!c || c.destroyed) return
     for (const ch of [...c.children]) ch.destroy()
-    const n = this._caught
-    const startX = -((n - 1) * 30) / 2
-    for (let i = 0; i < n; i++) {
-      const s = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: 30 } })
+    const total = Math.max(this._needed, this._caught)
+    const startX = -((total - 1) * 32) / 2
+    for (let i = 0; i < total; i++) {
+      const done = i < this._caught
+      const s = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: 32 } })
       s.anchor.set(0.5)
-      s.position.set(startX + i * 30, 0)
+      s.position.set(startX + i * 32, 0)
+      s.alpha = done ? 1 : 0.28
       s.eventMode = 'none'
       c.addChild(s)
     }

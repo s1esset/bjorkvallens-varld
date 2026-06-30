@@ -1,0 +1,480 @@
+// Pizzabageriet — fri skaparlek + "passa färgen" (2–5 år). Barnet PYNTAR en pizza
+// uppifrån: dra valfria ingredienser (mat, fisk, bajs, strumpa, tand … allt går!) från
+// brädan ner på degen och släpp var som helst → fri placering + valfri mängd ger
+// mönster och färgglada former (INGA ikon-behållare, själva saken visas i fullstorlek).
+// Sedan: tryck "Grädda" → pizzan åker in i ugnen och MÖRKNAR långsamt (en ton-gradient
+// över tid: ljus → gyllene → brun → kol). Barnet tittar på färgen och trycker "Ta ut"
+// när den ser god ut. INGET kan bli fel: även becksvart är bara roligt ("Hihi, bränd!"),
+// firande + klistermärke varje gång, sedan en ny pizza. Allt ritas programmatiskt
+// (Pixi Graphics + emoji). Exit-säkert: tweens dödas, ticker tas bort, _root förstörs.
+import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { gsap } from 'gsap'
+import { Button } from '../../lib/Button.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
+import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
+import { randomFrom } from '../../lib/swedish.js'
+import { COLORS, FONT } from '../../lib/theme.js'
+
+// Ingredienser (visas som själva saken — ingen ikon-bricka). Mat + fisk + roliga grejer.
+const ITEMS = ['🍅', '🍄', '🫑', '🧀', '🌽', '🍍', '🐟', '🦐', '💩', '🧦', '🦷', '⭐']
+
+const PIZZA = { x: 430, y: 330, r: 196 }
+const OVEN = { x: 1000, y: 332 }
+const BAKE_SECONDS = 7.5 // tid från rå till becksvart om man aldrig tar ut
+const MAX_TOPPINGS = 60
+
+const RECUE = [
+  'Dra ingredienser på pizzan! Allt får plats.',
+  'Pynta klart och tryck på Grädda!',
+  'Gör ett roligt mönster på pizzan!',
+]
+const PLACE_CHEERS = ['Mums!', 'Fin!', 'En till!', 'Snyggt!', 'Oj!']
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+// Ton-gradient: ljus deg → gyllene → brun → kol. Används som tint på hela pizzan.
+function bakeTint(t) {
+  if (t < 0.3) return lerpColor(0xffffff, 0xfff0c8, t / 0.3)
+  if (t < 0.55) return lerpColor(0xfff0c8, 0xe8b25a, (t - 0.3) / 0.25)
+  if (t < 0.8) return lerpColor(0xe8b25a, 0x9a5a2c, (t - 0.55) / 0.25)
+  return lerpColor(0x9a5a2c, 0x2e241c, (t - 0.8) / 0.2)
+}
+
+function toneSpeech(t) {
+  if (t < 0.22) return 'Nästan rå — men jättefin!'
+  if (t < 0.68) return 'Mums! Gyllene och god!'
+  if (t < 0.9) return 'Lite mörk och knaprig!'
+  return 'Hoppsan, alldeles bränd! Hihi!'
+}
+
+export default {
+  id: 'pizzabageriet',
+  titleSv: 'Pizzabageriet',
+  icon: '🍕',
+  category: 'roligt',
+  input: 'drag',
+  ageRange: [2, 5],
+  voiceIntro: 'Pynta din pizza! Dra ingredienser på degen och grädda den sedan i ugnen.',
+
+  init(ctx) {
+    this._alive = true
+    this._phase = 'decorate' // 'decorate' | 'baking' | 'reveal'
+    this._toppings = []
+    this._idle = 0
+    this._bake = 0 // 0..1 doneness
+    this._lastPlaceCheer = 0
+    this._lastSmoke = 0
+    this._drag = null
+    this._rounds = ctx.progress.get().custom?.pizzor || 0
+
+    this._root = new Container()
+    ctx.stage.addChild(this._root)
+
+    // Varm köks-bakgrund (dekor).
+    this._root.addChild(createScene('warm', { width: ctx.width, height: ctx.height }))
+
+    // Instruktion (uppdateras per fas).
+    this._hint = new Text({ text: '', style: { fontFamily: FONT.title, fontSize: 30, fontWeight: '700', fill: COLORS.ink } })
+    this._hint.anchor.set(0.5)
+    this._hint.position.set(640, 50)
+    this._hint.eventMode = 'none'
+    this._root.addChild(this._hint)
+
+    // Ugnen (höger). Glöd + rök läggs ovanpå när det gräddas.
+    this._oven = this._buildOven()
+    this._root.addChild(this._oven)
+
+    // Fat/peel under pizzan (stannar kvar när pizzan åker in i ugnen).
+    this._plate = new Graphics()
+      .ellipse(PIZZA.x, PIZZA.y + 14, PIZZA.r + 30, PIZZA.r + 18).fill({ color: COLORS.shadow, alpha: 0.1 })
+      .circle(PIZZA.x, PIZZA.y, PIZZA.r + 22).fill(0xf3ead6).stroke({ width: 6, color: 0xe2d4b8 })
+    this._plate.eventMode = 'none'
+    this._root.addChild(this._plate)
+
+    // Pizzan (bas + topping-lager). Flyttas/tintar som EN enhet.
+    this._pizza = new Container()
+    this._pizza.position.set(PIZZA.x, PIZZA.y)
+    this._buildBase()
+    this._toppingLayer = new Container()
+    this._toppingLayer.eventMode = 'none'
+    this._pizza.addChild(this._toppingLayer)
+    this._root.addChild(this._pizza)
+
+    // Ton-mätare (visas under gräddning) — gradient + markör = "titta på färgen".
+    this._meter = this._buildMeter()
+    this._meter.visible = false
+    this._root.addChild(this._meter)
+
+    // Drag-lager överst (kopior som dras ligger här).
+    this._dragLayer = new Container()
+    this._dragLayer.eventMode = 'none'
+    this._root.addChild(this._dragLayer)
+
+    // Ingrediens-bräda nederst (varje ingrediens = själva saken, oändlig påfyllning).
+    this._buildPalette(ctx)
+
+    // Knappar: Grädda (decorate) / Ta ut (baking) — växlar synlighet.
+    this._bakeBtn = new Button({
+      label: 'Grädda', icon: '🔥', width: 250, height: 104, color: COLORS.orange,
+      services: ctx.services, sound: 'whoosh', onTap: () => this._startBake(ctx),
+    })
+    this._bakeBtn.position.set(PIZZA.x, 600)
+    this._root.addChild(this._bakeBtn)
+
+    this._takeBtn = new Button({
+      label: 'Ta ut', icon: '🧤', width: 250, height: 104, color: COLORS.green,
+      services: ctx.services, sound: 'pop', onTap: () => this._takeOut(ctx),
+    })
+    this._takeBtn.position.set(PIZZA.x, 600)
+    this._takeBtn.visible = false
+    this._root.addChild(this._takeBtn)
+
+    this._setHint('Pynta din pizza! 🍕')
+
+    this._tick = (t) => this._update(ctx, t)
+    ctx.ticker.add(this._tick)
+  },
+
+  mount(ctx) {
+    this._idle = 0
+    ctx.services.voice.say(this.voiceIntro)
+  },
+
+  // ---- Bygg-hjälpare ------------------------------------------------------
+
+  _buildBase() {
+    const r = PIZZA.r
+    const base = new Graphics()
+      .circle(0, 0, r).fill(0xe7a85d) // skorpa
+      .circle(0, 0, r - 20).fill(0xefb86b) // inre skorpa
+      .circle(0, 0, r - 30).fill(0xcf4326) // tomatsås
+      .circle(0, 0, r - 44).fill(0xf3cd63) // ost
+    // Lite ost-fläckar för liv.
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2
+      const rr = (r - 70) * (0.3 + Math.random() * 0.6)
+      base.circle(Math.cos(a) * rr, Math.sin(a) * rr, 8 + Math.random() * 6).fill({ color: 0xfbe08a, alpha: 0.7 })
+    }
+    base.eventMode = 'none'
+    this._pizza.addChild(base)
+  },
+
+  _buildOven() {
+    const c = new Container()
+    const { x, y } = OVEN
+    // Kropp.
+    c.addChild(new Graphics().roundRect(x - 210, y - 196, 420, 432, 36).fill(0x55505a).stroke({ width: 8, color: 0x3d3942 }))
+    // Övre kontrollpanel + vred.
+    c.addChild(new Graphics().roundRect(x - 190, y - 188, 380, 52, 18).fill(0x6b6570))
+    c.addChild(new Graphics().circle(x - 130, y - 162, 16).fill(0xd9d2c2).circle(x - 70, y - 162, 16).fill(0xd9d2c2))
+    // Lucka/öppning (mörk håla).
+    c.addChild(new Graphics().roundRect(x - 168, y - 110, 336, 320, 28).fill(0x6b6570))
+    this._cavity = new Graphics().roundRect(x - 150, y - 92, 300, 286, 22).fill(0x1d1a20)
+    c.addChild(this._cavity)
+    // Värmeglöd (alpha höjs under gräddning).
+    this._glow = new Graphics().roundRect(x - 150, y - 92, 300, 286, 22).fill({ color: 0xff7a1a, alpha: 0 })
+    this._glow.eventMode = 'none'
+    c.addChild(this._glow)
+    // Glas (svag reflex).
+    c.addChild(new Graphics().roundRect(x - 150, y - 92, 300, 286, 22).fill({ color: 0xffffff, alpha: 0.06 }).roundRect(x - 140, y - 84, 120, 60, 16).fill({ color: 0xffffff, alpha: 0.08 }))
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    return c
+  },
+
+  _buildMeter() {
+    const c = new Container()
+    c.position.set(OVEN.x, 600)
+    c.eventMode = 'none'
+    const w = 340
+    const h = 30
+    // Gradient-remsa (rå → kol).
+    const bar = new Graphics()
+    const steps = 40
+    for (let i = 0; i < steps; i++) {
+      const t = i / (steps - 1)
+      bar.rect(-w / 2 + (i * w) / steps, -h / 2, w / steps + 1, h).fill(bakeTint(t))
+    }
+    bar.roundRect(-w / 2, -h / 2, w, h, h / 2).stroke({ width: 4, color: COLORS.white })
+    c.addChild(bar)
+    // "Lagom"-hjärta över gyllene zon (mjuk vägledning, inget krav).
+    const yum = new Text({ text: '😋', style: { fontFamily: FONT.body, fontSize: 30 } })
+    yum.anchor.set(0.5)
+    yum.position.set(-w / 2 + w * 0.5, -h - 6)
+    c.addChild(yum)
+    // Markör som rör sig med tonen.
+    this._marker = new Graphics().moveTo(0, -h / 2 - 4).lineTo(-9, -h / 2 - 20).lineTo(9, -h / 2 - 20).closePath().fill(COLORS.ink)
+    this._marker.x = -w / 2
+    c.addChild(this._marker)
+    this._meterW = w
+    return c
+  },
+
+  _buildPalette(ctx) {
+    this._palette = new Container()
+    this._root.addChild(this._palette)
+    const n = ITEMS.length
+    const x0 = 120
+    const x1 = 1160
+    const y = 672
+    // Bricka bakom (mjuk hylla) — dekor, inte runt varje sak.
+    const shelf = new Graphics().roundRect(70, y - 52, 1140, 96, 28).fill({ color: 0xffffff, alpha: 0.5 }).stroke({ width: 4, color: 0xe6d8bf })
+    shelf.eventMode = 'none'
+    this._palette.addChild(shelf)
+    this._paletteItems = []
+    ITEMS.forEach((emoji, i) => {
+      const px = x0 + (n === 1 ? 0 : ((x1 - x0) * i) / (n - 1))
+      const it = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 58 } })
+      it.anchor.set(0.5)
+      it.position.set(px, y)
+      it.eventMode = 'static'
+      it.cursor = 'pointer'
+      it.hitArea = new Circle(0, 0, 50) // ≥96px träff
+      const onDown = (e) => this._startDrag(ctx, emoji, e)
+      it.on('pointerdown', onDown)
+      it._onDown = onDown
+      this._palette.addChild(it)
+      this._paletteItems.push(it)
+    })
+  },
+
+  // ---- Drag: bräda → pizza (fri placering, oändlig påfyllning) -------------
+
+  _startDrag(ctx, emoji, e) {
+    if (!this._alive || this._phase !== 'decorate' || this._drag) return
+    this._idle = 0
+    ctx.services.audio.sfx('tap')
+    const view = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 64 } })
+    view.anchor.set(0.5)
+    view.eventMode = 'none'
+    const p = this._root.toLocal(e.global)
+    view.position.set(p.x, p.y)
+    this._dragLayer.addChild(view)
+    this._drag = { emoji, view, src: e.currentTarget }
+    pop(view)
+    const move = (ev) => this._onDragMove(ev)
+    const up = (ev) => this._onDragUp(ctx, ev)
+    this._drag.move = move
+    this._drag.up = up
+    this._drag.src.on('globalpointermove', move)
+    this._drag.src.on('pointerup', up)
+    this._drag.src.on('pointerupoutside', up)
+  },
+
+  _onDragMove(e) {
+    if (!this._alive || !this._drag) return
+    const p = this._root.toLocal(e.global)
+    this._drag.view.position.set(p.x, p.y)
+  },
+
+  _onDragUp(ctx, e) {
+    if (!this._alive || !this._drag) return
+    const d = this._drag
+    d.src.off('globalpointermove', d.move)
+    d.src.off('pointerup', d.up)
+    d.src.off('pointerupoutside', d.up)
+    this._drag = null
+
+    const local = this._pizza.toLocal(e.global)
+    const dist = Math.hypot(local.x, local.y)
+    if (dist <= PIZZA.r - 14 && this._toppings.length < MAX_TOPPINGS) {
+      // Släpp på degen → fast topping på den lokala punkten.
+      this._placeTopping(ctx, d.emoji, local.x, local.y)
+      if (d.view && !d.view.destroyed) d.view.destroy()
+    } else {
+      // Utanför pizzan → liten puff, ingen straff.
+      puff(ctx.fxLayer, this._root.toLocal(e.global).x, this._root.toLocal(e.global).y, { count: 6 })
+      ctx.services.audio.sfx('soft')
+      if (d.view && !d.view.destroyed) d.view.destroy()
+    }
+  },
+
+  _placeTopping(ctx, emoji, lx, ly) {
+    const t = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 56 } })
+    t.anchor.set(0.5)
+    t.position.set(lx, ly)
+    t.rotation = (Math.random() - 0.5) * 0.5
+    t.eventMode = 'none'
+    this._toppingLayer.addChild(t)
+    this._toppings.push(t)
+    bounceIn(t)
+    sparkle(ctx.fxLayer, this._pizza.x + lx, this._pizza.y + ly, { count: 4 })
+    ctx.services.audio.sfx('pop')
+    const now = performance.now()
+    if (now - this._lastPlaceCheer > 1400 && Math.random() < 0.5) {
+      this._lastPlaceCheer = now
+      ctx.services.voice.say(randomFrom(PLACE_CHEERS))
+    }
+  },
+
+  // ---- Gräddning ----------------------------------------------------------
+
+  _startBake(ctx) {
+    if (!this._alive || this._phase !== 'decorate') return
+    if (this._toppings.length === 0) {
+      // Mjuk knuff: lägg på något först (men aldrig ett "fel").
+      ctx.services.voice.say('Lägg på lite topping först!')
+      this._paletteItems.forEach((it, i) => { if (i % 3 === 0 && !it.destroyed) wiggle(it) })
+      return
+    }
+    this._phase = 'baking'
+    this._bake = 0
+    this._idle = 0
+    this._cancelDrag()
+    this._setPaletteEnabled(false)
+    this._bakeBtn.visible = false
+    this._setHint('Titta på färgen — ta ut när den är klar!')
+    ctx.services.audio.sfx('whoosh')
+    ctx.services.voice.say('In i ugnen! Titta på färgen och ta ut den när den ser god ut.')
+
+    // Pizzan åker in i ugnen (krymper för att passa hålan).
+    gsap.killTweensOf(this._pizza)
+    gsap.killTweensOf(this._pizza.scale)
+    gsap.to(this._pizza, { x: OVEN.x, y: OVEN.y, duration: 0.7, ease: 'power2.inOut' })
+    gsap.to(this._pizza.scale, { x: 0.62, y: 0.62, duration: 0.7, ease: 'power2.inOut' })
+
+    this._meter.visible = true
+    this._takeBtn.visible = true
+    pop(this._takeBtn)
+  },
+
+  _update(ctx, t) {
+    if (!this._alive) return
+    const dt = (t.deltaMS || 16.67) / 1000
+
+    if (this._phase === 'baking') {
+      this._bake = clamp(this._bake + dt / BAKE_SECONDS, 0, 1)
+      this._pizza.tint = bakeTint(this._bake)
+      // Glöd + markör.
+      if (this._glow && !this._glow.destroyed) this._glow.alpha = 0.12 + 0.22 * Math.min(1, this._bake * 1.3)
+      if (this._marker) this._marker.x = -this._meterW / 2 + this._meterW * this._bake
+      // Rök när den börjar bli mörk.
+      if (this._bake > 0.85) {
+        const now = performance.now()
+        if (now - this._lastSmoke > 420) {
+          this._lastSmoke = now
+          floatText(ctx.fxLayer, OVEN.x + (Math.random() * 80 - 40), OVEN.y - 120, '💨', { fontSize: 40, rise: 70 })
+        }
+      }
+      // Becksvart → vänta kort, ta sedan ut automatiskt (no-fail, ingen evig loop).
+      if (this._bake >= 1 && !this._autoOut) {
+        this._autoOut = gsap.delayedCall(1.8, () => { if (this._alive && this._phase === 'baking') this._takeOut(ctx) })
+      }
+      return
+    }
+
+    if (this._phase === 'decorate') {
+      this._idle += dt
+      if (this._idle > 6.5) {
+        this._idle = 0
+        ctx.services.voice.say(randomFrom(RECUE))
+        if (this._toppings.length === 0) this._paletteItems.forEach((it, i) => { if (i % 4 === 0 && !it.destroyed) pop(it) })
+        else pop(this._bakeBtn)
+      }
+    }
+  },
+
+  _takeOut(ctx) {
+    if (!this._alive || this._phase !== 'baking') return
+    this._phase = 'reveal'
+    this._autoOut?.kill()
+    this._autoOut = null
+    this._meter.visible = false
+    this._takeBtn.visible = false
+    if (this._glow && !this._glow.destroyed) this._glow.alpha = 0
+
+    const tone = this._bake
+    ctx.services.audio.sfx('reveal')
+    ctx.services.voice.say(toneSpeech(tone))
+
+    // Pizzan glider ut och fram igen (behåller sin gräddade ton).
+    gsap.killTweensOf(this._pizza)
+    gsap.killTweensOf(this._pizza.scale)
+    gsap.to(this._pizza, { x: PIZZA.x, y: PIZZA.y, duration: 0.6, ease: 'power2.out' })
+    gsap.to(this._pizza.scale, { x: 1, y: 1, duration: 0.6, ease: 'back.out(1.4)' })
+    this._setHint(tone >= 0.9 ? 'Lite bränd — men rolig! 🤭' : 'Klar! Vilken läcker pizza! 🍕')
+
+    sparkle(ctx.fxLayer, PIZZA.x, PIZZA.y, { count: 10 })
+    floatText(ctx.fxLayer, PIZZA.x, PIZZA.y - 60, tone >= 0.9 ? '🤭' : '😋', { fontSize: 60 })
+
+    // Förlopp + delat firande (firar-ljud + beröm + konfetti + stjärna + klistermärke).
+    this._rounds += 1
+    ctx.progress.setCustom('pizzor', this._rounds)
+    ctx.progress.setLevel(this._rounds)
+    ctx.progress.complete()
+
+    this._resetTimer = gsap.delayedCall(2.2, () => { if (this._alive) this._reset(ctx) })
+  },
+
+  _reset(ctx) {
+    if (!this._alive) return
+    this._phase = 'decorate'
+    this._bake = 0
+    this._idle = 0
+    // Töm toppings, återställ ton.
+    for (const t of this._toppings) {
+      gsap.killTweensOf(t)
+      gsap.killTweensOf(t.scale)
+      if (!t.destroyed) t.destroy()
+    }
+    this._toppings = []
+    this._pizza.tint = 0xffffff
+    this._setPaletteEnabled(true)
+    this._bakeBtn.visible = true
+    pop(this._bakeBtn)
+    this._setHint('En ny pizza! Pynta igen 🍕')
+    ctx.services.voice.say('En ny pizza! Pynta igen.')
+  },
+
+  // ---- Hjälpare -----------------------------------------------------------
+
+  _setHint(text) {
+    if (this._hint && !this._hint.destroyed) this._hint.text = text
+  },
+
+  _setPaletteEnabled(on) {
+    for (const it of this._paletteItems) {
+      if (it.destroyed) continue
+      it.eventMode = on ? 'static' : 'none'
+      it.alpha = on ? 1 : 0.4
+    }
+  },
+
+  _cancelDrag() {
+    const d = this._drag
+    if (!d) return
+    d.src.off('globalpointermove', d.move)
+    d.src.off('pointerup', d.up)
+    d.src.off('pointerupoutside', d.up)
+    if (d.view && !d.view.destroyed) d.view.destroy()
+    this._drag = null
+  },
+
+  destroy(ctx) {
+    this._alive = false
+    ctx?.ticker?.remove(this._tick)
+    this._autoOut?.kill()
+    this._resetTimer?.kill()
+    this._cancelDrag()
+    for (const it of this._paletteItems || []) {
+      if (it && !it.destroyed) {
+        it.off('pointerdown', it._onDown)
+        gsap.killTweensOf(it)
+        gsap.killTweensOf(it.scale)
+      }
+    }
+    for (const t of this._toppings || []) {
+      gsap.killTweensOf(t)
+      gsap.killTweensOf(t.scale)
+    }
+    if (this._pizza) {
+      gsap.killTweensOf(this._pizza)
+      gsap.killTweensOf(this._pizza.scale)
+    }
+    if (this._bakeBtn) gsap.killTweensOf(this._bakeBtn.scale)
+    if (this._takeBtn) gsap.killTweensOf(this._takeBtn.scale)
+    gsap.killTweensOf(this._root)
+    ctx?.services?.voice?.cancel()
+    this._root?.destroy({ children: true })
+  },
+}

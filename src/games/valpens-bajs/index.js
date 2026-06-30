@@ -60,8 +60,10 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // 1) Bakgrund (FÖRSTA barn).
-    this._root.addChild(createScene('meadow', { width: 1280, height: 720 }))
+    // 1) Bakgrund (FÖRSTA barn). groundH=420 → gräs-toppen hamnar vid y=300 (= WALK.y0),
+    // så hela parkytan blir gräsmatta. Med default groundH=96 låg gräs-toppen vid y=624,
+    // vilket lät valpen, bajset och trädet sväva över himmelsgradienten ("gå i skyn").
+    this._root.addChild(createScene('meadow', { width: 1280, height: 720, groundH: 420 }))
 
     // 2) Parkdekor (rent pynt).
     this._buildDecor()
@@ -143,7 +145,7 @@ export default {
     // Träd uppe till vänster.
     const tree = new Text({ text: '🌳', style: { fontFamily: FONT.body, fontSize: 110 } })
     tree.anchor.set(0.5)
-    tree.position.set(180, 210)
+    tree.position.set(180, 250) // basen vilar på gräsmattans kant (gräs-topp y=300), inte i skyn
     d.addChild(tree)
 
     // Blomsterrad längs nederkanten.

@@ -47,7 +47,7 @@ const WEATHERS = {
     intro: 'Det är snö idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är kallt och snöigt — vad behöver vi då?',
     good: {
-      huvud: { emoji: '🧶', namn: 'vintermössan' },
+      huvud: { emoji: '🧢', namn: 'vintermössan' },
       overkropp: { emoji: '🧥', namn: 'vinterjackan' },
       fotter: { emoji: '👢', namn: 'vinterstövlarna' },
     },
@@ -181,7 +181,9 @@ export default {
     this._symPulse = gsap.to(symbol.scale, { x: 1.07, y: 1.07, duration: 1.2, yoyo: true, repeat: -1, ease: 'sine.inOut' })
   },
 
-  // Figuren "Elvira" byggd av Pixi Graphics i en container på (0,0) så den kan hoppa.
+  // Figuren "Elvira" — en glad tjej med blont hår, byggd av Pixi Graphics i en
+  // container på (0,0) så den kan hoppa. Håret (blont) + tofsarna ritas i samma
+  // statiska figur (inga egna tweens → städas med figuren, exit-säkert).
   _buildFigure() {
     const fig = new Container()
     fig.eventMode = 'none'
@@ -194,6 +196,8 @@ export default {
     const body = COLORS.teal
     const bodyDark = darken(COLORS.teal, 0.2)
     const ink = 0x4a3526
+    const hair = 0xf6cb45 // blont
+    const hairDark = darken(hair, 0.22)
 
     const feet = new Graphics()
     for (const fx of [-46, 46]) feet.ellipse(640 + fx, 590, 42, 26).fill(skin).stroke({ width: 6, color: skinDark })
@@ -202,7 +206,12 @@ export default {
     const arms = new Graphics()
     for (const ax of [-124, 88]) arms.roundRect(640 + ax, 300, 38, 150, 18).fill(body).stroke({ width: 6, color: bodyDark })
     const torso = new Graphics().roundRect(640 - 90, 290, 180, 220, 40).fill(body).stroke({ width: 8, color: bodyDark })
+    // Blonda tofsar (bakom huvudet) som tittar fram vid sidorna → tydlig tjej.
+    const backHair = new Graphics()
+    for (const hx of [-74, 74]) backHair.ellipse(640 + hx, 282, 24, 46).fill(hair).stroke({ width: 5, color: hairDark })
     const head = new Graphics().circle(640, 250, 70).fill(skin).stroke({ width: 8, color: skinDark })
+    // Blond lugg/topphår ovanpå huvudet (efter head, före face så ögonen syns).
+    const topHair = new Graphics().ellipse(640, 192, 74, 40).fill(hair).stroke({ width: 5, color: hairDark })
     const face = new Graphics()
     face.circle(640 - 40, 262, 9).fill({ color: COLORS.pink, alpha: 0.5 })
     face.circle(640 + 40, 262, 9).fill({ color: COLORS.pink, alpha: 0.5 })
@@ -213,8 +222,11 @@ export default {
     const mouthA0 = 0.15 * Math.PI
     face.moveTo(640 + 26 * Math.cos(mouthA0), 258 + 26 * Math.sin(mouthA0))
     face.arc(640, 258, 26, mouthA0, 0.85 * Math.PI).stroke({ width: 6, color: ink, cap: 'round' })
+    // Små hårsnoddar där tofsarna fästs.
+    const ties = new Graphics()
+    for (const tx of [-70, 70]) ties.circle(640 + tx, 238, 10).fill(COLORS.pink)
 
-    fig.addChild(feet, legs, arms, torso, head, face)
+    fig.addChild(feet, legs, arms, torso, backHair, head, topHair, face, ties)
   },
 
   // Garderobshylla (dekor) längst ner som plaggen ligger på.
@@ -247,13 +259,14 @@ export default {
     }
   },
 
-  // En plagg-bricka: vit rund cirkel (Ø132 träffyta) + stor emoji.
+  // Ett plagg: bara emojin (ingen bricka/bakgrund) + en osynlig generös träffyta
+  // (Ø140 ≥ 96px) så plagget är lätt att träffa fast det visas som ren konst.
   _makeItem(emoji) {
     const it = new Container()
-    const tray = new Graphics().circle(0, 0, 66).fill({ color: COLORS.white, alpha: 0.85 }).stroke({ width: 4, color: 0xeadfca })
     const e = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 84 } })
     e.anchor.set(0.5)
-    it.addChild(tray, e)
+    it.addChild(e)
+    it.hitArea = new Circle(0, 0, 70)
     return it
   },
 

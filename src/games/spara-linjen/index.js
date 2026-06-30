@@ -1,11 +1,19 @@
 // Spåra Linjen — lugn motorik-/rita-själv-lek (3–5 år). Barnet sätter fingret på
-// startpricken (som pulsar) och drar längs en prickad väg. När fingret passerar nära
-// nästa prick i ordning "tänds" den: den fylls med rundans färg, ett färgat segment
-// ritas från föregående prick och ✏️-pennspetsen flyttas dit. Inget kan bli fel:
-// straying ignoreras (pennan stannar på vägen, aldrig omstart), hoppar fingret över en
-// prick fylls den i automatiskt när nästa nås, och allt drivs lika gärna med tap-tap
-// (tappa nästa prick) som med drag. Klart = hela linjen färglagd → firande + ny form
-// (oändlig lek). Allt ritas programmatiskt (Pixi Graphics + emoji) — inga filer.
+// startpricken (som pulsar) och drar längs en prickad väg. ENDAST nästa prick i
+// ordningen är aktiv: når fingret den "tänds" den (fylls med rundans färg, ett färgat
+// segment ritas från föregående prick och ✏️-pennspetsen flyttas dit). Att hoppa till
+// en prick längre fram gör INGET (man kan inte "fuska" sig framåt) — den rätta nästa-
+// pricken vinkar i stället vänligt (mjuk vingel + puls + mjukt ljud). Inget kan bli fel:
+// straying ignoreras (pennan stannar på vägen, aldrig omstart) och allt drivs lika gärna
+// med tap-tap (tappa nästa prick) som med drag. Står barnet stilla en stund tänds nästa
+// prick automatiskt (auto-hjälp) så rundan ALLTID blir klar. Klart = hela linjen färglagd
+// → firande + ny, svårare form (oändlig, stigande lek). Allt ritas programmatiskt
+// (Pixi Graphics + emoji) — inga filer.
+//
+// SVÅRIGHET: varje klarad runda höjer nivån. Tidiga nivåer = få prickar, raka/mjuka vägar;
+// senare nivåer = fler prickar och mer avancerade former (vågor, sicksack, trappor,
+// trianglar, fyrkanter, spiraler, stjärnor). Bortom planen fortsätter leken oändligt med
+// slumpade avancerade former som blir allt tätare.
 //
 // OBS: DragController passar inte här (den snäpper föremål till mål). Spårningen är en
 // egen pekar-lyssnare på själva ritytan, men följer samma snäll-principer (stora
@@ -21,8 +29,121 @@ const PAPER = { x: 120, y: 130, w: 1040, h: 520, r: 40 }
 const DOT_R = 34 // vägpunkts-radie
 const HIT_R = 70 // osynlig träffradie (≥96px Ø träffyta) — generös korridor
 const INK_W = 22 // tjocklek på det färglagda spåret
-const SHAPE_COUNT = 4 // antal formvarianter att rotera mellan
-const IDLE_DELAY = 6 // s utan interaktion innan röst-recue
+const IDLE_DELAY = 6 // s utan interaktion innan röst-recue + puls
+const AUTO_DELAY = 11 // s utan interaktion → auto-tänd nästa prick (garanterar klart, no-fail)
+
+// Logisk ruta som alla formgeneratorer ritar inom (med marginal till papperskanten).
+const BOX = { x0: 250, x1: 1030, cx: 640, top: 250, bot: 555, cy: 402 }
+
+// ---- Formgeneratorer (rena funktioner; arrays av {x,y} i ordning) ----------
+const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
+
+// Rak vågrät linje.
+function genLine(n, B) {
+  return Array.from({ length: n }, (_, i) => ({ x: B.x0 + ((B.x1 - B.x0) * i) / (n - 1), y: B.cy }))
+}
+// Diagonal (nedre vänster → övre höger).
+function genDiagonal(n, B) {
+  return Array.from({ length: n }, (_, i) => {
+    const t = i / (n - 1)
+    return { x: B.x0 + (B.x1 - B.x0) * t, y: B.bot - (B.bot - B.top) * t }
+  })
+}
+// Vågig linje (sinus) — mjuka kurvor.
+function genWave(n, B, cycles = 1, amp = 110) {
+  const phase = Math.random() < 0.5 ? 0 : Math.PI
+  return Array.from({ length: n }, (_, i) => {
+    const t = i / (n - 1)
+    return { x: B.x0 + (B.x1 - B.x0) * t, y: B.cy + Math.sin(phase + t * Math.PI * 2 * cycles) * amp }
+  })
+}
+// Sicksack — skarpa upp/ner-vändningar (svårare än sinus).
+function genZigzag(n, B) {
+  return Array.from({ length: n }, (_, i) => ({
+    x: B.x0 + ((B.x1 - B.x0) * i) / (n - 1),
+    y: i % 2 === 0 ? B.bot : B.top,
+  }))
+}
+// Båge (kulle uppåt) eller dal (sänka nedåt) — en mjuk parabel.
+function genArch(n, B, down = false) {
+  return Array.from({ length: n }, (_, i) => {
+    const t = i / (n - 1)
+    const h = 4 * t * (1 - t) // 0 → 1 → 0
+    const y = down ? B.top + (B.bot - B.top) * h : B.bot - (B.bot - B.top) * h
+    return { x: B.x0 + (B.x1 - B.x0) * t, y }
+  })
+}
+// Trappa som klättrar uppåt-höger (höger-steg, upp-steg, ...).
+function genStairs(n, B) {
+  const steps = Math.max(2, Math.floor(n / 2))
+  const dx = (B.x1 - B.x0) / steps
+  const dy = (B.bot - B.top) / steps
+  let x = B.x0
+  let y = B.bot
+  const pts = [{ x, y }]
+  for (let s = 0; s < steps; s++) {
+    x += dx
+    pts.push({ x, y }) // höger
+    y -= dy
+    pts.push({ x, y }) // upp
+  }
+  return pts
+}
+// Sluten triangel — sista pricken vinklar tillbaka mot första.
+function genTriangle(B) {
+  const corners = [
+    { x: B.cx, y: B.top },
+    { x: B.x1 - 40, y: B.bot },
+    { x: B.x0 + 40, y: B.bot },
+  ]
+  return [...corners, lerp(corners[corners.length - 1], corners[0], 0.7)]
+}
+// Sluten fyrkant — sista pricken vinklar tillbaka mot första.
+function genSquare(B) {
+  const corners = [
+    { x: B.x0 + 40, y: B.top },
+    { x: B.x1 - 40, y: B.top },
+    { x: B.x1 - 40, y: B.bot },
+    { x: B.x0 + 40, y: B.bot },
+  ]
+  return [...corners, lerp(corners[corners.length - 1], corners[0], 0.6)]
+}
+// Spiral som växer utåt från mitten (avancerad, lång väg).
+function genSpiral(n, B) {
+  const rx = (B.x1 - B.x0) / 2 - 20
+  const ry = (B.bot - B.top) / 2 - 2
+  const turns = 2.2
+  return Array.from({ length: n }, (_, i) => {
+    const t = i / (n - 1)
+    const ang = t * turns * 2 * Math.PI
+    const r = 0.18 + 0.82 * t
+    return { x: B.cx + Math.cos(ang) * rx * r, y: B.cy + Math.sin(ang) * ry * r }
+  })
+}
+// Femuddig stjärna i ett drag (hoppordning 0,2,4,1,3,0 → korsande linjer, svårast).
+function genStar(B) {
+  const rx = (B.x1 - B.x0) / 2 - 30
+  const ry = (B.bot - B.top) / 2
+  const outer = Array.from({ length: 5 }, (_, k) => {
+    const a = -Math.PI / 2 + (k * 2 * Math.PI) / 5
+    return { x: B.cx + Math.cos(a) * rx, y: B.cy + Math.sin(a) * ry }
+  })
+  return [0, 2, 4, 1, 3, 0].map((k) => outer[k])
+}
+// Lägg in `extra` mellanprickar på varje segment (gör en form tätare/svårare).
+function subdivide(points, extra) {
+  if (!extra) return points
+  const out = []
+  for (let i = 0; i < points.length; i++) {
+    out.push(points[i])
+    if (i < points.length - 1) {
+      const a = points[i]
+      const b = points[i + 1]
+      for (let k = 1; k <= extra; k++) out.push(lerp(a, b, k / (extra + 1)))
+    }
+  }
+  return out
+}
 
 export default {
   id: 'spara-linjen',
@@ -32,11 +153,12 @@ export default {
   input: 'drag',
   ageRange: [3, 5],
   bundle: 'spara-linjen',
-  voiceIntro: 'Dra fingret längs prickarna!',
+  voiceIntro: 'Dra fingret längs prickarna i ordning!',
 
   init(ctx) {
     this._alive = true
     this._idle = 0
+    this._cued = false
     this._dots = []
     this._next = 0
     this._tracing = false
@@ -89,10 +211,11 @@ export default {
 
   mount(ctx) {
     this._idle = 0
+    this._cued = false
     ctx.services.voice.say(this.voiceIntro)
   },
 
-  // ---- Rundor: bygg en ny form (oändlig lek) ------------------------------
+  // ---- Rundor: bygg en ny form (oändlig, stigande lek) --------------------
 
   _buildRound(ctx) {
     if (!this._alive) return
@@ -111,9 +234,9 @@ export default {
     this._dotsLayer.removeChildren().forEach((d) => d.destroy())
     this._ink.clear()
 
-    // Ny form + slumpfärg.
+    // Ny form (svårare ju högre nivå) + slumpfärg.
     this._color = randomFrom(PLAYFUL)
-    const points = this._genShape(this._round % SHAPE_COUNT)
+    const points = this._genShape()
 
     this._dots = []
     this._next = 0
@@ -122,6 +245,7 @@ export default {
     this._resolving = false
     this._tracing = false
     this._idle = 0
+    this._cued = false
 
     points.forEach((pt, i) => {
       const d = this._makeDot(pt.x, pt.y)
@@ -137,51 +261,41 @@ export default {
     this._pulseNext()
   },
 
-  // Formgeneratorer — arrays av {x,y} inom logiska rutan [180,1100]×[200,590].
-  _genShape(variation) {
-    const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
+  // Väljer form utifrån nivå (this._round). Tidigt = lätt; sent = avancerat/tätt.
+  _genShape() {
+    const r = this._round
+    const B = BOX
+    // Stigande svårighetsplan (en form per nivå de första rundorna).
+    const plan = [
+      () => genLine(4, B),
+      () => genDiagonal(4, B),
+      () => genWave(5, B, 1, 110),
+      () => genArch(5, B, false),
+      () => genZigzag(5, B),
+      () => genArch(6, B, true),
+      () => genWave(6, B, 1.5, 120),
+      () => genStairs(7, B),
+      () => genTriangle(B),
+      () => genZigzag(7, B),
+      () => genWave(7, B, 2, 130),
+      () => genSquare(B),
+      () => genSpiral(8, B),
+      () => genStar(B),
+    ]
+    if (r < plan.length) return plan[r]()
 
-    if (variation === 0) {
-      // 1. Rak vågrät linje, 4 prickar.
-      const n = 4
-      const y = 395
-      const x0 = 260
-      const x1 = 1020
-      return Array.from({ length: n }, (_, i) => ({ x: x0 + ((x1 - x0) * i) / (n - 1), y }))
-    }
-
-    if (variation === 1) {
-      // 2. Vågig linje (sinus), 5–6 prickar.
-      const n = 5 + Math.min((this._round / 8) | 0, 1)
-      const x0 = 240
-      const x1 = 1040
-      const amp = 110 + Math.random() * 30
-      const phase = randomFrom([0, Math.PI])
-      const cycles = 1.5 + Math.random() * 0.5
-      return Array.from({ length: n }, (_, i) => {
-        const t = i / (n - 1)
-        return { x: x0 + (x1 - x0) * t, y: 395 + Math.sin(phase + t * Math.PI * cycles) * amp }
-      })
-    }
-
-    if (variation === 2) {
-      // 3. Enkel form (triangel/fyrkant), sluten väg — sista pricken nära första.
-      const corners =
-        Math.random() < 0.5
-          ? [{ x: 640, y: 235 }, { x: 980, y: 560 }, { x: 300, y: 560 }]
-          : [{ x: 350, y: 250 }, { x: 930, y: 250 }, { x: 930, y: 560 }, { x: 350, y: 560 }]
-      const close = lerp(corners[corners.length - 1], corners[0], 0.7)
-      return [...corners, close]
-    }
-
-    // 4. Sicksack-berg, 6–8 prickar.
-    const n = 6 + Math.min((this._round / 4) | 0, 2)
-    const x0 = 240
-    const x1 = 1040
-    return Array.from({ length: n }, (_, i) => ({
-      x: x0 + ((x1 - x0) * i) / (n - 1),
-      y: i % 2 === 0 ? 560 : 250,
-    }))
+    // Bortom planen: oändlig lek med slumpade avancerade former som blir tätare.
+    const extra = Math.min(3, 1 + Math.floor((r - plan.length) / 3))
+    const advanced = [
+      () => genWave(7 + extra, B, 2 + Math.random(), 120 + Math.random() * 20),
+      () => genZigzag(7 + extra, B),
+      () => genSpiral(8 + extra, B),
+      () => subdivide(genStar(B), 1),
+      () => subdivide(genSquare(B), extra),
+      () => subdivide(genTriangle(B), extra),
+      () => genStairs(7 + extra, B),
+    ]
+    return randomFrom(advanced)()
   },
 
   _makeDot(x, y) {
@@ -195,7 +309,7 @@ export default {
     return g
   },
 
-  // Mjuk puls på nästa otända prick (lockar fingret framåt).
+  // Mjuk puls på nästa otända prick (lockar fingret framåt; visar tydligt VAR man ska).
   _pulseNext() {
     this._pulseTween?.kill()
     this._pulseTween = null
@@ -219,6 +333,7 @@ export default {
     if (!this._alive || this._resolving) return
     this._tracing = true
     this._idle = 0
+    this._cued = false
     this._checkPoint(ctx, this._root.toLocal(e.global), true)
   },
 
@@ -227,42 +342,41 @@ export default {
     this._checkPoint(ctx, this._root.toLocal(e.global), false)
   },
 
-  // Tänd nästa prick(ar) inom träffradien. Hoppar fingret över en prick fylls de
-  // överhoppade i på vägen (barnet fastnar aldrig). Strayar fingret händer inget
-  // störande — pennan stannar kvar på vägen, ALDRIG en omstart.
+  // ENDAST nästa prick i ordningen accepteras (ingen fusk-genväg framåt). Träffar
+  // fingret en prick längre fram händer inget störande — den RÄTTA nästa-pricken vinkar
+  // i stället (mjuk vingel + puls + mjukt ljud). Strayar fingret: pennan stannar kvar,
+  // ALDRIG en omstart.
   _checkPoint(ctx, p, isTap) {
     if (this._resolving || !this._alive || this._next >= this._dots.length) return
 
-    let target = -1
-    for (let i = this._next; i < this._dots.length; i++) {
-      const d = this._dots[i]
-      if (Math.hypot(p.x - d.x, p.y - d.y) < HIT_R) target = i
-    }
-
-    if (target < 0) {
-      // Endast på ett friskt tryck (inte under själva draget) ger vi en mjuk respons,
-      // så varje pekning får återkoppling utan att tjattra under draget.
-      if (isTap) {
-        for (let i = this._next + 1; i < this._dots.length; i++) {
-          const d = this._dots[i]
-          if (Math.hypot(p.x - d.x, p.y - d.y) < HIT_R) {
-            // Tappade en prick längre fram — vänlig vink mot rätt nästa-prick.
-            ctx.services.audio.sfx('soft')
-            wiggle(this._dots[this._next])
-            return
-          }
-        }
-        // Tomt tryck på ritytan: liten gnista (aldrig en bestraffning).
-        ctx.services.audio.sfx('soft')
-        sparkle(ctx.fxLayer, p.x, p.y, { count: 4 })
-      }
+    const nextDot = this._dots[this._next]
+    if (Math.hypot(p.x - nextDot.x, p.y - nextDot.y) < HIT_R) {
+      // Rätt prick i tur och ordning → tänd den och gå ett steg framåt.
+      this._idle = 0
+      this._cued = false
+      this._lightDot(ctx, this._next)
+      this._next += 1
+      this._afterLight(ctx)
       return
     }
 
-    this._idle = 0
-    for (let i = this._next; i <= target; i++) this._lightDot(ctx, i)
-    this._next = target + 1
-    this._afterLight(ctx)
+    // Inte nästa pricken. Endast på ett friskt tryck (inte under själva draget) ger vi en
+    // mjuk respons, så varje pekning får återkoppling utan att tjattra under draget.
+    if (!isTap) return
+
+    for (let i = this._next + 1; i < this._dots.length; i++) {
+      const d = this._dots[i]
+      if (Math.hypot(p.x - d.x, p.y - d.y) < HIT_R) {
+        // Tappade en prick längre fram (fusk-försök) — gör inget; vinka mot rätt nästa-prick.
+        ctx.services.audio.sfx('soft')
+        wiggle(this._dots[this._next])
+        this._pulseNext()
+        return
+      }
+    }
+    // Tomt tryck på ritytan: liten gnista (aldrig en bestraffning).
+    ctx.services.audio.sfx('soft')
+    sparkle(ctx.fxLayer, p.x, p.y, { count: 4 })
   },
 
   // Tänd EN prick: fyll med färg + ljud + puls + gnista (<100ms).
@@ -282,7 +396,7 @@ export default {
     sparkle(ctx.fxLayer, d.x, d.y)
   },
 
-  // Efter att en eller flera prickar tänts: rita spåret, flytta pennan, kolla klart.
+  // Efter att en prick tänts: rita spåret, flytta pennan, kolla klart.
   _afterLight(ctx) {
     this._redrawInk()
     const last = this._dots[this._next - 1]
@@ -305,6 +419,14 @@ export default {
     this._ink.moveTo(this._dots[0].x, this._dots[0].y)
     for (let i = 1; i < this._next; i++) this._ink.lineTo(this._dots[i].x, this._dots[i].y)
     this._ink.stroke({ width: INK_W, color: this._color, cap: 'round', join: 'round' })
+  },
+
+  // Auto-hjälp: tänd nästa prick själv (no-fail-garanti om barnet kör fast).
+  _autoAdvance(ctx) {
+    if (!this._alive || this._resolving || this._next >= this._dots.length) return
+    this._lightDot(ctx, this._next)
+    this._next += 1
+    this._afterLight(ctx)
   },
 
   // Hela linjen klar: firande + ny form. _resolving skyddar mot dubbel-trigg.
@@ -339,16 +461,24 @@ export default {
     })
   },
 
-  // ---- Idle-recue ----------------------------------------------------------
+  // ---- Idle-recue + auto-hjälp ---------------------------------------------
 
   _update(ctx, ticker) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive || this._resolving || this._tracing) return
     this._idle += ticker.deltaMS / 1000
-    if (this._idle >= IDLE_DELAY) {
-      this._idle = 0
+
+    // 1) Första stillastående: vänlig röst-recue + vink mot rätt nästa-prick.
+    if (!this._cued && this._idle >= IDLE_DELAY) {
+      this._cued = true
       ctx.services.voice.say(this.voiceIntro)
       const d = this._dots[this._next]
-      if (d && !d.destroyed) wiggle(d) // vänlig vink om var man fortsätter
+      if (d && !d.destroyed) wiggle(d)
+      this._pulseNext()
+    }
+    // 2) Fortsatt stillastående: tänd nästa prick automatiskt (garanterar klart).
+    if (this._idle >= AUTO_DELAY) {
+      this._idle = IDLE_DELAY // åter-armera: nästa auto-steg om ~(AUTO_DELAY−IDLE_DELAY)s
+      this._autoAdvance(ctx)
     }
   },
 

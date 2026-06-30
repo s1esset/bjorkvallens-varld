@@ -85,22 +85,52 @@ export default {
     return rail
   },
 
-  // Ånglok: röd kropp + skorsten + gult fönster + hjul, med 🚂 som glad dekor.
+  // Ånglok ritat helt med Pixi Graphics så det tydligt läses som ett tåg:
+  // kofångare + panna (boiler) med skorsten och ångdom till vänster (fronten),
+  // hytt med tak och fönster till höger (mot vagnarna) och runda hjul under.
+  // Ingen emoji/ikon inuti — bara loket.
   _buildEngine() {
     const eng = new Container()
     eng.position.set(ENGINE_X, ENGINE_Y)
     eng.eventMode = 'none'
     const g = new Graphics()
-    g.roundRect(-62, -112, 34, 52, 8).fill(COLORS.red) // skorsten
-    g.roundRect(-90, -70, 180, 120, 24).fill(COLORS.red).stroke({ width: 6, color: COLORS.white, alpha: 0.5 })
-    g.roundRect(18, -52, 60, 52, 12).fill(COLORS.yellow) // hytt-fönster
-    g.circle(-45, 55, 26).fill(COLORS.ink) // hjul
-    g.circle(45, 55, 26).fill(COLORS.ink)
-    const face = new Text({ text: '🚂', style: { fontFamily: FONT.body, fontSize: 80 } })
-    face.anchor.set(0.5)
-    face.position.set(-12, -8)
-    face.eventMode = 'none'
-    eng.addChild(g, face)
+
+    // Hjul (ritas först; chassi och kropp täcker överkanten så de "rullar" på rälsen).
+    const wheel = (cx, cy, r) => {
+      g.circle(cx, cy, r).fill(COLORS.ink).stroke({ width: 3, color: COLORS.white, alpha: 0.3 })
+      g.circle(cx, cy, r * 0.45).fill(COLORS.inkSoft)
+      g.circle(cx, cy, 4).fill(COLORS.ink)
+    }
+    wheel(-70, 48, 16) // litet löphjul fram
+    wheel(-28, 50, 28) // drivhjul
+    wheel(44, 50, 28) // drivhjul
+
+    // Kofångare (pilot) längst fram till vänster.
+    g.poly([-96, 22, -120, 52, -96, 52]).fill(COLORS.orangeDark)
+    // Chassi/fotplåt.
+    g.roundRect(-98, 24, 200, 18, 7).fill(COLORS.ink)
+
+    // Pannans kropp (boiler) + mörkare smokebox-ring + strålkastare fram.
+    g.roundRect(-100, -34, 150, 64, 22).fill(COLORS.red).stroke({ width: 5, color: COLORS.white, alpha: 0.45 })
+    g.roundRect(-99, -30, 24, 56, 13).fill(COLORS.orangeDark)
+    g.circle(-89, -2, 11).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.white, alpha: 0.6 })
+
+    // Hytt (cab) bak till höger, med tak-överhäng och fönster mot vagnarna.
+    g.roundRect(36, -60, 60, 90, 16).fill(COLORS.red).stroke({ width: 5, color: COLORS.white, alpha: 0.45 })
+    g.roundRect(28, -68, 80, 16, 8).fill(COLORS.orangeDark) // tak
+    g.roundRect(50, -46, 38, 34, 9).fill(COLORS.yellow).stroke({ width: 4, color: COLORS.white, alpha: 0.5 })
+
+    // Skorsten (funnel) på pannan, vidare upptill.
+    g.poly([-78, -34, -84, -66, -54, -66, -60, -34]).fill(COLORS.ink)
+    g.roundRect(-86, -74, 36, 13, 6).fill(COLORS.ink)
+    // Ångdom mitt på pannan.
+    g.roundRect(-30, -50, 32, 20, 9).fill(COLORS.yellow)
+    g.circle(-14, -50, 9).fill(COLORS.yellow)
+
+    // Koppel mot första vagnen.
+    g.roundRect(94, 6, 16, 12, 4).fill(COLORS.ink)
+
+    eng.addChild(g)
     return eng
   },
 
@@ -125,11 +155,22 @@ export default {
     glow.alpha = 0
     glow.eventMode = 'none'
     const body = new Graphics()
-      .roundRect(-85, -75, 170, 150, 20)
+    // Hjul med nav (ritas först).
+    ;[-45, 45].forEach((wx) => {
+      body.circle(wx, 70, 24).fill(COLORS.ink).stroke({ width: 3, color: COLORS.white, alpha: 0.3 })
+      body.circle(wx, 70, 11).fill(COLORS.inkSoft)
+      body.circle(wx, 70, 4).fill(COLORS.ink)
+    })
+    // Chassi + koppel-stumpar på sidorna (kopplar ihop vagnarna).
+    body.roundRect(-82, 52, 164, 16, 6).fill(COLORS.ink)
+    body.roundRect(-94, 54, 14, 10, 3).fill(COLORS.ink)
+    body.roundRect(80, 54, 14, 10, 3).fill(COLORS.ink)
+    // Vagnskorg + lätt takdager.
+    body
+      .roundRect(-85, -75, 170, 132, 20)
       .fill(PLAYFUL[(n - 1) % PLAYFUL.length])
       .stroke({ width: 6, color: COLORS.white, alpha: 0.7 })
-    body.circle(-45, 70, 22).fill(COLORS.ink)
-    body.circle(45, 70, 22).fill(COLORS.ink)
+    body.roundRect(-78, -70, 156, 24, 12).fill({ color: COLORS.white, alpha: 0.16 })
     body.eventMode = 'none'
     const num = new Text({
       text: String(n),
@@ -247,7 +288,7 @@ export default {
 
     ctx.services.audio.sfx('celebrate')
     ctx.services.audio.sfx('whoosh')
-    puff(ctx.fxLayer, ENGINE_X - 45, ENGINE_Y - 116, { color: COLORS.inkSoft })
+    puff(ctx.fxLayer, ENGINE_X - 68, ENGINE_Y - 82, { color: COLORS.inkSoft })
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // Lok + alla vagnar rullar långsamt ut åt höger (chuggar iväg).

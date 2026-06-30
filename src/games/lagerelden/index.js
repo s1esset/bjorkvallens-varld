@@ -48,7 +48,7 @@ export default {
   input: 'mixed',
   ageRange: [2, 4],
   bundle: 'lagerelden',
-  voiceIntro: 'Lägg på ved och pumpa bälgen — så blir elden stor!',
+  voiceIntro: 'Rosta marshmallows gyllene! Håll den över elden tills den blir gyllene.',
 
   init(ctx) {
     this._alive = true
@@ -86,6 +86,13 @@ export default {
     this._fuelMax = cfg.fuelMax
     this._hotR = cfg.hotR
     this._theme = cfg.theme
+    this._order = cfg.order
+    this._filled = 0
+    this._windAmp = cfg.windAmp
+    this._windFreq = cfg.windFreq
+    this._windPhase = Math.random() * Math.PI * 2
+    this._time = 0
+    this._hotX = FIRE_X // lågans heta zon (svajar i sidled med vinden)
 
     this._flameTopY = FIRE_BASE_Y - 100
 
@@ -187,6 +194,13 @@ export default {
     this._marsh.on('pointerdown', this._onMarshDown)
     this._root.addChild(this._marsh)
 
+    // 10) Order-fat uppe i mitten: tomma platser som fylls med gyllene marshmallows.
+    this._orderLayer = new Container()
+    this._orderLayer.eventMode = 'none'
+    this._orderLayer.interactiveChildren = false
+    this._root.addChild(this._orderLayer)
+    this._buildOrder()
+
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
   },
@@ -197,11 +211,71 @@ export default {
   },
 
   // ---- Nivå-konfiguration -------------------------------------------------
+  // MÅL: rosta `order` marshmallows GYLLENE (syns som tomma platser på fatet uppe).
+  // Slumpad svårighet per nivå: antal i ordern + hur mycket vinden får lågan att
+  // svaja i sidled (man håller marshmallowen där lågan ÄR just nu). Allt förlåtande.
 
   _levelConfig(level) {
-    if (level <= 1) return { fuelMax: 4, hotR: 140, theme: 'sunset' }
-    if (level <= 3) return { fuelMax: 6, hotR: 160, theme: 'night' }
-    return { fuelMax: 6, hotR: 175, theme: 'night' }
+    const theme = level <= 1 ? 'sunset' : 'night'
+    const fuelMax = level <= 1 ? 4 : 6
+    const hotR = level <= 1 ? 150 : level <= 3 ? 160 : 172
+    // Order växer med nivån men med slump: 1–2 lågt, upp mot 3–4 senare.
+    const base = 1 + Math.floor(level / 2)
+    const order = clamp(base + (Math.random() < 0.5 ? 0 : 1), 1, 4)
+    // Vind: ingen på nivå 0, sedan slumpad amplitud/fart som ökar lugnt med nivån.
+    const windAmp = level === 0 ? 0 : clamp(24 + level * 12 + Math.random() * 30, 0, 120)
+    const windFreq = 0.5 + Math.random() * 0.5 // svängningar/sek (lugnt)
+    return { fuelMax, hotR, theme, order, windAmp, windFreq }
+  },
+
+  // ---- Order-fat (synligt mål) --------------------------------------------
+
+  _buildOrder() {
+    if (!this._orderLayer || this._orderLayer.destroyed) return
+    this._orderLayer.removeChildren().forEach((c) => c.destroy({ children: true }))
+    this._slots = []
+    const n = this._order
+    const gap = 64
+    const totalW = (n - 1) * gap
+    const x0 = FIRE_X - totalW / 2
+    const y = 96
+    // Fat (en mjuk avlång bricka under platserna).
+    const plate = new Graphics()
+      .roundRect(x0 - 46, y - 30, totalW + 92, 60, 30)
+      .fill({ color: 0x6b4326, alpha: 0.85 })
+      .roundRect(x0 - 38, y - 24, totalW + 76, 20, 14)
+      .fill({ color: 0xffffff, alpha: 0.12 })
+    plate.eventMode = 'none'
+    this._orderLayer.addChild(plate)
+    for (let i = 0; i < n; i++) {
+      const slot = new Container()
+      slot.position.set(x0 + i * gap, y)
+      // Tom plats = streckad/blek marshmallow-kontur.
+      const ghost = new Graphics().roundRect(-18, -24, 36, 48, 14).fill({ color: 0xffffff, alpha: 0.18 }).stroke({ width: 2, color: 0xffffff, alpha: 0.5 })
+      ghost.label = 'ghost'
+      const fill = new Graphics() // ritas gyllene när platsen fylls
+      fill.label = 'fill'
+      fill.visible = false
+      slot.addChild(ghost, fill)
+      this._orderLayer.addChild(slot)
+      this._slots.push(slot)
+    }
+  },
+
+  _fillSlot(ctx, i) {
+    const slot = this._slots?.[i]
+    if (!slot || slot.destroyed) return
+    const ghost = slot.getChildByLabel('ghost')
+    const fill = slot.getChildByLabel('fill')
+    if (ghost) ghost.visible = false
+    if (fill && !fill.destroyed) {
+      fill.clear()
+        .roundRect(-18, -24, 36, 48, 14).fill(0xe8a93c).stroke({ width: 3, color: 0xb9842b })
+        .roundRect(-11, -18, 10, 20, 6).fill({ color: 0xffffff, alpha: 0.25 })
+      fill.visible = true
+      pop(slot, { scale: 1.35 })
+    }
+    sparkle(ctx.fxLayer, slot.x, slot.y, { count: 6 })
   },
 
   // ---- Ved → bål ----------------------------------------------------------
@@ -334,10 +408,10 @@ export default {
     this._detachMarsh()
     gsap.to(this._marsh.scale, { x: 1, y: 1, duration: 0.15 })
     const hotY = this._flameTopY + 20
-    const d = Math.hypot(this._marsh.x - FIRE_X, this._marsh.y - hotY)
+    const d = Math.hypot(this._marsh.x - this._hotX, this._marsh.y - hotY)
     if (d < this._hotR) {
       // Släppt nära den heta zonen → hänger kvar och fortsätter rostas (auto-hjälp).
-      gsap.to(this._marsh, { x: FIRE_X + 60, y: this._flameTopY + 10, duration: 0.3, ease: 'power2.out' })
+      gsap.to(this._marsh, { x: this._hotX + 50, y: this._flameTopY + 10, duration: 0.3, ease: 'power2.out' })
     } else {
       // Annars glider den mjukt tillbaka till vilopositionen (men _toast behålls).
       gsap.to(this._marsh, { x: MARSH_REST.x, y: MARSH_REST.y, duration: 0.5, ease: 'power2.inOut' })
@@ -410,10 +484,22 @@ export default {
     const target = FIRE_BASE_Y - flameH
     this._flameTopY += (target - this._flameTopY) * Math.min(1, 0.1 * dt)
 
-    // Glöd + het-zon-markör lyser med värmen.
+    // Vind: lågans heta zon svajar mjukt i sidled (man håller marshmallowen DÄR lågan är).
+    this._time += ticker.deltaMS / 1000
+    const windX = this._windAmp * Math.sin(this._time * this._windFreq * Math.PI * 2 + this._windPhase)
+    this._hotX += (FIRE_X + windX - this._hotX) * Math.min(1, 0.15 * dt)
+    if (this._fireLayer && !this._fireLayer.destroyed) this._fireLayer.x = this._hotX
+    // Lågan lutar i vindens riktning (utöver pust-flickret).
+    if (this._windAmp > 0) {
+      const lean = Math.cos(this._time * this._windFreq * Math.PI * 2 + this._windPhase) * (this._windAmp / 120) * 0.5
+      this._airLean += (lean - this._airLean) * Math.min(1, 0.1 * dt)
+    }
+
+    // Glöd + het-zon-markör lyser med värmen och följer den heta zonen.
     const hot = clamp((heat - BASE_HEAT) / 2.2, 0, 1)
     if (this._glow && !this._glow.destroyed) this._glow.alpha = 0.16 + hot * 0.12
     if (this._hotMark && !this._hotMark.destroyed) {
+      this._hotMark.x = this._hotX
       this._hotMark.y = this._flameTopY + 6
       this._hotMark.alpha = 0.08 + hot * 0.18
     }
@@ -448,17 +534,21 @@ export default {
       g.position.set(p.x, p.y)
     }
 
-    // Rita om Zacke's pinne (hand → marshmallow) varje frame.
+    // Rita om Zacke's pinne (hand → marshmallow) varje frame. Göms medan en
+    // gyllene marshmallow flyger till fatet (_resolving) så pinnen inte sträcks dit upp.
     if (this._stick && !this._stick.destroyed) {
       this._stick.clear()
-        .moveTo(HAND.x, HAND.y).lineTo(this._marsh.x, this._marsh.y).stroke({ width: 7, color: COLORS.brown })
-      this._stick.moveTo(HAND.x, HAND.y).lineTo(this._marsh.x, this._marsh.y).stroke({ width: 2.5, color: 0xb98a5c, alpha: 0.7 })
+      if (!this._resolving) {
+        this._stick
+          .moveTo(HAND.x, HAND.y).lineTo(this._marsh.x, this._marsh.y).stroke({ width: 7, color: COLORS.brown })
+          .moveTo(HAND.x, HAND.y).lineTo(this._marsh.x, this._marsh.y).stroke({ width: 2.5, color: 0xb98a5c, alpha: 0.7 })
+      }
     }
 
-    // Marshmallow-rostning: nära + het = snabbare. _toast sjunker ALDRIG.
+    // Marshmallow-rostning: nära den (svajande) heta zonen + het eld = snabbare. _toast sjunker ALDRIG.
     if (!this._resolving) {
       const hotY = this._flameTopY + 20
-      const dist = Math.hypot(this._marsh.x - FIRE_X, this._marsh.y - hotY)
+      const dist = Math.hypot(this._marsh.x - this._hotX, this._marsh.y - hotY)
       if (dist < this._hotR) {
         const proximity = 1 - dist / this._hotR
         this._toast = Math.min(1, this._toast + (0.1 + heat * 0.18) * proximity * (dt / 60))
@@ -500,27 +590,65 @@ export default {
     }
   },
 
-  // ---- Mål: gyllene marshmallow → firande + nästa eld ---------------------
+  // ---- Mål: en marshmallow gyllene → flyger till fatet; hela ordern klar → firande ---
 
   _onGolden(ctx) {
     if (this._resolving) return
     this._resolving = true
+    this._holding = false
+    this._detachMarsh()
     this._drawMarsh(1)
 
+    if (!this._marsh.destroyed) pop(this._marsh, { scale: 1.25 })
+    sparkle(ctx.fxLayer, this._marsh.x, this._marsh.y, { count: 8 })
+    ctx.services.audio.sfx('reveal')
+    ctx.services.voice.say(randomFrom(['Gyllene!', 'Den är klar!', 'Mums, gyllene!']))
+
+    // Marshmallowen flyger upp till sin plats på fatet.
+    const slot = this._slots?.[this._filled]
+    const tx = slot ? slot.x : FIRE_X
+    const ty = slot ? slot.y : 96
+    gsap.killTweensOf(this._marsh)
+    this._flyTimer = gsap.to(this._marsh, {
+      x: tx, y: ty, duration: 0.6, ease: 'power2.inOut',
+      onComplete: () => {
+        if (!this._alive) return
+        this._fillSlot(ctx, this._filled)
+        this._filled++
+        if (this._filled >= this._order) {
+          this._winOrder(ctx)
+        } else {
+          // Ny vit marshmallow att rosta för nästa plats.
+          this._toast = 0
+          this._lastMarshDraw = -1
+          this._drawMarsh(0)
+          this._saidHalf = false
+          if (!this._marsh.destroyed) {
+            this._marsh.position.set(MARSH_REST.x, MARSH_REST.y)
+            this._marsh.scale.set(1)
+            pop(this._marsh)
+          }
+          this._resolving = false
+          this._idle = 0
+          ctx.services.voice.say('En till! Rosta nästa.')
+        }
+      },
+    })
+  },
+
+  // Hela ordern klar → stort firande + ny (svårare, slumpad) eld/order.
+  _winOrder(ctx) {
     ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say(randomFrom(PRAISE))
-    gsap.delayedCall(0.8, () => { if (this._alive) ctx.services.voice.say('Gyllene och god! Smaskigt!') })
-
-    if (!this._marsh.destroyed) pop(this._marsh, { scale: 1.3 })
-    burst(ctx.fxLayer, this._marsh.x, this._marsh.y, { count: 16 })
-    floatText(ctx.fxLayer, this._marsh.x, this._marsh.y - 40, '😋', { fontSize: 64 })
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    burst(ctx.fxLayer, FIRE_X, 110, { count: 16 })
+    floatText(ctx.fxLayer, FIRE_X, 64, '😋', { fontSize: 64 })
 
     ctx.progress.setLevel(this._level + 1)
-    ctx.progress.setCustom('marshmallows', (ctx.progress.get().custom?.marshmallows || 0) + 1)
+    ctx.progress.setCustom('marshmallows', (ctx.progress.get().custom?.marshmallows || 0) + this._order)
     ctx.progress.complete()
 
-    this._goldenTimer = gsap.delayedCall(1.6, () => {
+    this._goldenTimer = gsap.delayedCall(1.8, () => {
       if (this._alive) this._nextFire(ctx)
     })
   },
@@ -539,6 +667,14 @@ export default {
     }
     this._fuelMax = cfg.fuelMax
     this._hotR = cfg.hotR
+
+    // Ny, slumpad order + vind för den här nivån.
+    this._order = cfg.order
+    this._filled = 0
+    this._windAmp = cfg.windAmp
+    this._windFreq = cfg.windFreq
+    this._windPhase = Math.random() * Math.PI * 2
+    this._buildOrder()
 
     // Nollställ rosten — en ny, vit marshmallow. Inga sjunkande värden, ingen poäng.
     this._toast = 0
@@ -569,6 +705,7 @@ export default {
     ctx?.ticker?.remove(this._tick)
 
     this._goldenTimer?.kill?.()
+    this._flyTimer?.kill?.()
     this._glowBreathe?.kill?.()
 
     this._detachBellows()

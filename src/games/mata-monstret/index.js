@@ -426,6 +426,7 @@ export default {
     made.phys = b
     this._flightFood = made
     this._stuckT = 0
+    this._nudgeT = 0
     ctx.services.audio.sfx('whoosh')
   },
 
@@ -455,16 +456,21 @@ export default {
   },
 
   _buildPegs(ctx) {
-    // Pinnfältet hålls ovanför monstrets huvud (lägsta raden ~374, kroppstopp ~417).
+    // GLESARE pinnfält så maten ALDRIG kilas fast i en V mellan pinnar. Kolumn-avstånd
+    // 140 (förskjutet 70 varannan rad) ger en diagonal lucka ~91px center-till-center;
+    // matens diameter är nu ~56px (radie 28) → passerar med god marginal (krav: lucka >
+    // 2·(pegR+foodR) = 2·(12+28) = 80 < 91). Lägre friktion = maten griper inte pinnen.
+    // Pinnfältet hålls ovanför monstrets huvud (lägsta raden ~374).
     const rows = 4
     const top = 200
     const gap = 58
-    const pegR = 13
+    const pegR = 12
+    const colGap = 140
     for (let r = 0; r < rows; r++) {
       const y = top + r * gap
-      const off = r % 2 ? 55 : 0
-      for (let x = 300 + off; x <= 980; x += 110) {
-        this._phys.circle(x, y, pegR, { isStatic: true, restitution: 0.6, friction: 0.2, label: 'peg' })
+      const off = r % 2 ? colGap / 2 : 0
+      for (let x = 300 + off; x <= 980; x += colGap) {
+        this._phys.circle(x, y, pegR, { isStatic: true, restitution: 0.5, friction: 0.06, label: 'peg' })
         const v = makePeg(pegR)
         v.position.set(x, y)
         this._fgLayer.addChild(v)
@@ -506,7 +512,7 @@ export default {
     this._idle = 0
     this._enableSlots(false)
     const pick = this._picks[this._servedIdx % this._picks.length]
-    const made = this._makeFood(pick.key, 0.78)
+    const made = this._makeFood(pick.key, 0.6)
     made.shadow.visible = false
     const px = clamp(x + (Math.random() * 2 - 1) * 8, 80, 1200)
     made.container.position.set(px, 110)
@@ -514,30 +520,40 @@ export default {
     this._fgLayer.addChild(made.container)
     this._foods.push(made)
     bounceIn(made.container, { duration: 0.2 })
-    const b = this._phys.circle(px, 118, 40, { restitution: 0.55, friction: 0.2, frictionAir: 0.004, density: 0.001, label: 'food' })
-    Body.setVelocity(b, { x: (Math.random() * 2 - 1) * 1.0, y: 1.5 })
+    // Mindre fysik-radie (28) + låg friktion + måttlig studs = trillar igenom det glesare
+    // pinnfältet utan att fastna eller studsa kaotiskt.
+    const b = this._phys.circle(px, 118, 28, { restitution: 0.45, friction: 0.05, frictionAir: 0.004, density: 0.001, label: 'food' })
+    Body.setVelocity(b, { x: (Math.random() * 2 - 1) * 1.0, y: 1.8 })
     this._phys.link(b, made.container)
     made.phys = b
     this._flightFood = made
     this._servedIdx++
     this._stuckT = 0
+    this._nudgeT = 0
     ctx.services.audio.sfx('whoosh')
   },
 
   _onBounce(ctx, e) {
     if (!this._alive) return
+    const f = this._flightFood
+    if (!f || f.container.destroyed) return
+    // Strypt till >=120ms OCH bara när maten faktiskt studsar: en vilande/fastkilad mat
+    // mot en pinne triggar annars collisionStart om och om → ändlöst ljud-loop. Är farten
+    // låg (mat ligger still) håller vi TYST (stuck-detektorn i _updateFlight ordnar resten).
+    if (this._t - this._lastBounce < 0.12) return
+    const b = f.phys
+    const spd = b ? Math.hypot(b.velocity.x, b.velocity.y) : 0
+    if (spd < 1.4) return
     for (const pair of e.pairs) {
       const la = pair.bodyA.label
       const lb = pair.bodyB.label
       if (la !== 'food' && lb !== 'food') continue
       const other = la === 'food' ? lb : la
       if (other !== 'peg' && other !== 'wall') continue
-      if (this._t - this._lastBounce > 0.08) {
-        this._lastBounce = this._t
-        ctx.services.audio.sfx('boing')
-        const f = this._flightFood
-        if (f && !f.container.destroyed) puff(ctx.fxLayer, f.container.x, f.container.y, { count: 3 })
-      }
+      this._lastBounce = this._t
+      ctx.services.audio.sfx('boing')
+      if (!f.container.destroyed) puff(ctx.fxLayer, f.container.x, f.container.y, { count: 3 })
+      return
     }
   },
 
@@ -1004,7 +1020,11 @@ export default {
       this._shelfFood.container.x = this._shelfX
       this._shelfFood.container.y = this._shelfTopY
     }
-    this._catchX = this._flightFood ? this._flightFood.container.x : this._shelfFood ? this._shelfFood.container.x : this._mx
+    // DECOUPLA monstret från den glidande hyllan: innan släpp står monstret kvar (glider
+    // INTE i synk med plattformen), och först när maten är släppt glider det in och fångar.
+    // Slipper "monstret rör sig synkat med plattformen" + kravet på exakt timing — den
+    // y-baserade fångsten i _updateFlight gör att maten ändå alltid hamnar i munnen.
+    this._catchX = this._flightFood ? this._flightFood.container.x : this._mx
   },
 
   _plinkoStep() {
@@ -1019,7 +1039,8 @@ export default {
     if (this._shadow && !this._shadow.destroyed) this._shadow.x = this._mx
   },
 
-  // Fallande mat: nudga om den fastnar; fånga (TUGG) när den nått munnens höjd.
+  // Fallande mat: nudga loss om den fastnar; GARANTERA att den alltid trillar ner till
+  // munnen (rundan kan aldrig hänga sig). Fånga (TUGG) när maten nått munnens höjd.
   _updateFlight(ctx, dt) {
     const f = this._flightFood
     if (!f || f._eaten || f.container.destroyed) return
@@ -1027,13 +1048,26 @@ export default {
     const b = f.phys
     if (b) {
       const spd = Math.hypot(b.velocity.x, b.velocity.y)
-      if (spd < 0.7) {
+      if (spd < 0.8) {
         this._stuckT += dt
-        if (this._stuckT > 1.0) {
-          Body.setVelocity(b, { x: (Math.random() * 2 - 1) * 1.5, y: 3.5 })
+        this._nudgeT = (this._nudgeT || 0) + dt
+        if (this._stuckT > 2.0) {
+          // Hård garanti: lyft maten ur pinnfältet och släpp den rakt ner mot munnen.
+          const tx = clamp(this._catchX, 360, 920)
+          Body.setPosition(b, { x: tx, y: m.y - 120 })
+          Body.setVelocity(b, { x: 0, y: 5 })
           this._stuckT = 0
+          this._nudgeT = 0
+        } else if (this._nudgeT > 0.4) {
+          // Mjuk, upprepad knuff (sidled + nedåt) för att vicka loss ur en pinn-kil.
+          Body.setPosition(b, { x: b.position.x + (Math.random() * 2 - 1) * 6, y: b.position.y + 3 })
+          Body.setVelocity(b, { x: (Math.random() * 2 - 1) * 2.6, y: 4.4 })
+          this._nudgeT = 0
         }
-      } else this._stuckT = 0
+      } else {
+        this._stuckT = 0
+        this._nudgeT = 0
+      }
     }
     if (f.container.y >= m.y - 8) this._eatPhysics(ctx, f)
   },

@@ -43,7 +43,7 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 |---|------|---------|:--:|
 | 21 | `tarta-i-ansiktet` | Svamp att dra över ansiktet (ersätt torka-knapp); tårtkast = fysik-flick | ⬜ |
 | 22 | `plantera-fron` | Vattenslang/kanna, häll vatten→plantor växer över tid | ⬜ |
-| 23 | `vart-tog-det-vagen` | Fler koppar var 3:e nivå; kopparna samma röda färg efter 3 rundor | ⬜ |
+| 23 | `vart-tog-det-vagen` | Fler koppar var 3:e nivå; kopparna samma röda färg efter 3 rundor | ✅ |
 | 24 | `rulla-bollen-hem` | Hinder, svårare per stage (annan boll, ytor, vind, hinder) | ⬜ |
 | 25 | `spara-linjen` | Anti-fusk (ej klicka annan prick), fler nivåer, svårare | ⬜ |
 | 26 | `enkelt-pussel` | Fler pussel, +1 bit per nivå | ⬜ |

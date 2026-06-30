@@ -1,8 +1,15 @@
 // Vart Tog Det Vägen? — det klassiska kopp-spelet ("hitta bollen") för 3–5 år.
-// En leksak göms under en av tre koppar, kopparna byter plats i lugna svep och
+// En leksak göms under en av kopparna, kopparna byter plats i lugna svep och
 // barnet följer med blicken och trycker på rätt kopp. Rätt kopp lyfts och
 // leksaken hoppar fram (firande); fel kopp lyfts lite, visar tom plats och får
 // trycka igen — aldrig ett "fel". Ingen poäng, ingen timer, inget slut.
+//
+// Svårigheten växer med nivån (var 3:e lyckad runda):
+//   • FLER KOPPAR: 3 från start, +1 var tredje nivå (nivå 3 -> 4, nivå 6 -> 5).
+//   • SAMMA RÖDA FÄRG: från nivå 3 är alla koppar likadant röda, så barnet inte
+//     längre kan följa en kopp på dess färg utan måste följa rörelsen.
+//   • FLER/SNABBARE BYTEN: antal byten och tempo ökar mjukt med nivån.
+// Allt är fortfarande no-fail: fel tryck är lekfullt och idle ger auto-hjälp.
 // Allt ritas programmatiskt (Pixi Graphics + emoji), inga externa filer.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
@@ -10,22 +17,28 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle } from '../../lib/feedback.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 
-const SLOT_X = [400, 640, 880] // kopparnas tre platser (mellanrum 240px)
 const BASE_Y = 470 // y-referenslinje: koppen nedsänkt på bordet
 const LIFT_Y = BASE_Y - 120 // koppens y i lyft-läge (visa/kika)
 const PEEK_Y = BASE_Y - 60 // litet lyft vid fel gissning (visar tom plats)
 const ROUNDS_PER_LEVEL = 3
 
-// Svårigheten växer via fler/snabbare byten — aldrig fler koppar.
-const LEVELS = [
-  { swaps: 2, swapDur: 0.7 }, // nivå 0 (lättast, 3-åring)
-  { swaps: 3, swapDur: 0.6 },
-  { swaps: 4, swapDur: 0.5 },
-  { swaps: 6, swapDur: 0.42 }, // svårast
-]
+// Layout: koppar centreras kring CENTER och sprids med jämnt mellanrum (max
+// MAX_SPACING) men hålls inom bordets bredd (SPAN) även när det blir fler.
+const CENTER = 640
+const MAX_SPACING = 240
+const SPAN = 840
+
+// Svårighetsparametrar per nivå (saturerar — högre nivå gör inte spelet hårdare).
+const BASE_CUPS = 3 // antal koppar på nivå 0–2
+const MAX_CUPS = 5 // tak (håller pekytor och layout rena)
+const MAX_SWAPS = 7
+const MIN_SWAP_DUR = 0.36
+const RED_LEVEL = 3 // från denna nivå: alla koppar samma röda färg
+const MAX_LEVEL = 9 // tak på sparad nivå (parametrarna är ändå maxade här)
 
 const PRIZES = ['🐥', '⭐', '🍓', '🐸', '🚗', '🎈', '🐱', '🌟', '🦋', '🍎']
-const CUP_COLORS = [COLORS.red, COLORS.blue, COLORS.yellow]
+// Distinkta färger används bara på nivå 0–2 (3 koppar). Från nivå 3 blir alla röda.
+const CUP_COLORS = [COLORS.red, COLORS.blue, COLORS.yellow, COLORS.green, COLORS.purple]
 const TABLE = 0xf2d6a8 // varm bordsyta
 
 export default {
@@ -44,6 +57,7 @@ export default {
     this._phase = 'reveal' // reveal | shuffle | guess | resolving
     this._resolving = false
     this._roundsDone = 0
+    this._idleCues = 0
     this._lastInteract = performance.now()
     this._level = clampLevel(ctx.progress.get().highestLevel | 0)
 
@@ -62,7 +76,8 @@ export default {
     ctx.services.voice.say(this.voiceIntro)
   },
 
-  // Bygg den persistenta scenen en gång: bakgrund, bord, skuggor, leksak, 3 koppar.
+  // Bygg den persistenta scenen en gång: bakgrund, bord, skuggor, leksak.
+  // Själva kopparna (antal + färg) byggs/ombyggs av _ensureLayout per nivå.
   _build(ctx) {
     // Bakgrund: fångar "tomt tryck" -> mjukt ljud (aldrig "fel").
     const bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(COLORS.bg)
@@ -78,28 +93,55 @@ export default {
     table.eventMode = 'none'
     this._root.addChild(table)
 
-    // Mjuka skuggor under varje plats (dekorativa).
-    const shadows = new Graphics()
-    shadows.eventMode = 'none'
-    shadows.interactiveChildren = false
-    for (const x of SLOT_X) shadows.ellipse(x, BASE_Y + 58, 96, 20).fill({ color: COLORS.shadow, alpha: 0.12 })
-    this._root.addChild(shadows)
+    // Mjuka skuggor under varje plats (ritas om per layout).
+    this._shadows = new Graphics()
+    this._shadows.eventMode = 'none'
+    this._shadows.interactiveChildren = false
+    this._root.addChild(this._shadows)
 
     // Leksaken: en Text-emoji, BAKOM kopparna i z-led (döljs när koppen är nere,
     // syns när koppen lyfts). Återanvänds varje runda (byter bara text/plats).
     this._prize = new Text({ text: PRIZES[0], style: { fontFamily: FONT.body, fontSize: 96, align: 'center' } })
     this._prize.anchor.set(0.5)
     this._prize.eventMode = 'none'
-    this._prize.position.set(SLOT_X[0], BASE_Y)
+    this._prize.position.set(CENTER, BASE_Y)
     this._root.addChild(this._prize)
 
-    // Tre koppar (en fast färg var, så barnet kan följa både plats och färg).
     this._cups = []
-    for (let i = 0; i < 3; i++) {
-      const cup = this._makeCup(CUP_COLORS[i])
+    this._slots = []
+    this._layoutKey = null
+  },
+
+  // Bygg om kopparna om antal/färg ändrats sedan förra rundan. Kopparna ligger
+  // alltid överst i z-led (framför skuggor + leksak), så leksaken döljs när koppen
+  // är nere och syns när den lyfts.
+  _ensureLayout(ctx, params) {
+    const key = params.cups + (params.allRed ? ':r' : ':c')
+    if (this._layoutKey === key && this._cups.length === params.cups) return
+    this._layoutKey = key
+    this._slots = computeSlots(params.cups)
+
+    // Riv gamla koppar (döda tweens först — spelaren kan ha hunnit avsluta).
+    this._cups.forEach((cup) => {
+      gsap.killTweensOf(cup)
+      gsap.killTweensOf(cup.scale)
+      cup.destroy({ children: true })
+    })
+    this._cups = []
+
+    // Rita om skuggorna under de nya platserna.
+    this._shadows.clear()
+    for (const x of this._slots) {
+      this._shadows.ellipse(x, BASE_Y + 58, 96, 20).fill({ color: COLORS.shadow, alpha: 0.12 })
+    }
+
+    // Bygg kopparna. Från RED_LEVEL är alla samma röda; annars distinkta färger.
+    for (let i = 0; i < params.cups; i++) {
+      const color = params.allRed ? COLORS.red : CUP_COLORS[i % CUP_COLORS.length]
+      const cup = this._makeCup(color)
       cup._slot = i
       cup._peeking = false
-      cup.position.set(SLOT_X[i], BASE_Y)
+      cup.position.set(this._slots[i], BASE_Y)
       cup.eventMode = 'static'
       cup.cursor = 'pointer'
       // Generös träffyta (230x280 ≫ 96px) så även kanttryck registreras.
@@ -135,11 +177,14 @@ export default {
     return cup
   },
 
-  // Ny runda: nollställ koppar till hemplats, slumpa göm-plats + leksak, visa, blanda.
+  // Ny runda: säkerställ layout, nollställ koppar, slumpa göm-plats + leksak, visa, blanda.
   _newRound(ctx) {
     if (!this._alive) return
     this._resolving = false
     this._phase = 'reveal'
+    this._params = levelParams(this._level)
+    this._ensureLayout(ctx, this._params)
+    const n = this._cups.length
 
     // Återställ koppar till sina hemplatser (snäppt, inga kvardröjande tweens).
     this._cups.forEach((cup, i) => {
@@ -147,17 +192,17 @@ export default {
       gsap.killTweensOf(cup.scale)
       cup._slot = i
       cup._peeking = false
-      cup.x = SLOT_X[i]
+      cup.x = this._slots[i]
       cup.y = BASE_Y
       cup.rotation = 0
       cup.scale.set(1)
     })
 
     // Slumpa göm-plats och leksak. Prize-koppen följs via identitet.
-    this._prizeSlot = (Math.random() * 3) | 0
+    this._prizeSlot = (Math.random() * n) | 0
     this._prizeCup = this._cups[this._prizeSlot]
     this._prize.text = randomFrom(PRIZES)
-    this._prize.x = SLOT_X[this._prizeSlot]
+    this._prize.x = this._slots[this._prizeSlot]
     this._prize.y = BASE_Y
     this._prize.scale.set(1)
     this._prize.visible = true
@@ -175,11 +220,13 @@ export default {
     })
   },
 
-  // Blanda: utför LEVELS[lvl].swaps sekventiella parbyten med lugna svep.
+  // Blanda: utför params.swaps sekventiella parbyten med lugna svep.
   _shuffle(ctx) {
     if (!this._alive) return
     this._phase = 'shuffle'
-    const lvl = LEVELS[this._level]
+    const params = this._params
+    const n = this._cups.length
+    const indices = this._cups.map((_, i) => i)
 
     // order[slot] = kopp som just nu står på den platsen (uppdateras vid bygget).
     const order = []
@@ -193,30 +240,30 @@ export default {
     this._shuffleTl = tl
 
     let prev = -1
-    for (let s = 0; s < lvl.swaps; s++) {
+    for (let s = 0; s < params.swaps; s++) {
       // Två olika platser, undvik att direkt ångra föregående byte.
       let pair
       do {
-        pair = shuffle([0, 1, 2]).slice(0, 2).sort((a, b) => a - b)
-      } while (pair[0] === prev >> 4 && pair[1] === (prev & 0xf))
+        pair = shuffle([...indices]).slice(0, 2).sort((a, b) => a - b)
+      } while (n > 2 && pair[0] === prev >> 4 && pair[1] === (prev & 0xf))
       prev = (pair[0] << 4) | pair[1]
       const [i, j] = pair
       const cupA = order[i]
       const cupB = order[j]
-      const xA = SLOT_X[i]
-      const xB = SLOT_X[j]
+      const xA = this._slots[i]
+      const xB = this._slots[j]
 
       const sub = gsap.timeline()
       sub.call(() => {
         if (this._alive) ctx.services.audio.sfx('whoosh')
       })
-      sub.to(cupA, { x: xB, duration: lvl.swapDur, ease: 'power1.inOut' }, 0)
-      sub.to(cupB, { x: xA, duration: lvl.swapDur, ease: 'power1.inOut' }, 0)
+      sub.to(cupA, { x: xB, duration: params.swapDur, ease: 'power1.inOut' }, 0)
+      sub.to(cupB, { x: xA, duration: params.swapDur, ease: 'power1.inOut' }, 0)
       // cupA bågar lätt över cupB (läser som att den passerar framför).
-      sub.to(cupA, { y: BASE_Y - 36, duration: lvl.swapDur / 2, ease: 'sine.out', yoyo: true, repeat: 1 }, 0)
+      sub.to(cupA, { y: BASE_Y - 36, duration: params.swapDur / 2, ease: 'sine.out', yoyo: true, repeat: 1 }, 0)
       // Leksaken följer med sin kopp (den rör sig MED koppen, inte kvar på bordet).
-      if (cupA === this._prizeCup) sub.to(this._prize, { x: xB, duration: lvl.swapDur, ease: 'power1.inOut' }, 0)
-      if (cupB === this._prizeCup) sub.to(this._prize, { x: xA, duration: lvl.swapDur, ease: 'power1.inOut' }, 0)
+      if (cupA === this._prizeCup) sub.to(this._prize, { x: xB, duration: params.swapDur, ease: 'power1.inOut' }, 0)
+      if (cupB === this._prizeCup) sub.to(this._prize, { x: xA, duration: params.swapDur, ease: 'power1.inOut' }, 0)
       sub.call(() => {
         if (!this._alive) return
         cupA._slot = j
@@ -233,6 +280,7 @@ export default {
   _beginGuess(ctx) {
     if (!this._alive) return
     this._phase = 'guess'
+    this._idleCues = 0
     this._lastInteract = performance.now()
     ctx.services.voice.say('Var tog den vägen? Tryck på koppen!')
   },
@@ -241,6 +289,7 @@ export default {
   _onTap(ctx, cup) {
     if (!this._alive) return
     this._lastInteract = performance.now()
+    this._idleCues = 0
 
     // Utanför gissa-fasen (eller mitt i upplösning): lekfullt, ingen rundlogik.
     if (this._phase !== 'guess' || this._resolving) {
@@ -338,12 +387,42 @@ export default {
     ctx.services.audio.sfx('soft')
   },
 
-  // Idle-recue: i gissa-fasen, efter ~6s tystnad, upprepa uppmaningen.
+  // Auto-hjälp: lyft rätt kopp en stund så barnet ser var leksaken är, sänk igen.
+  // Aldrig ett "fel" — bara en snäll knuff. Koppen är fortfarande tryckbar efteråt.
+  _hintPrize(ctx) {
+    if (!this._alive || this._phase !== 'guess' || this._resolving) return
+    const cup = this._prizeCup
+    if (!cup || cup._peeking) return
+    ctx.services.audio.sfx('pling')
+    ctx.services.voice.say('Titta, här är den!')
+    gsap.killTweensOf(cup, 'y')
+    gsap.to(cup, {
+      y: LIFT_Y,
+      duration: 0.4,
+      ease: 'back.out(1.3)',
+      onComplete: () => {
+        if (!this._alive) return
+        this._later(0.9, () => {
+          if (!this._alive || this._phase !== 'guess') return
+          gsap.to(cup, { y: BASE_Y, duration: 0.3, ease: 'power2.in' })
+        })
+      },
+    })
+  },
+
+  // Idle-recue: i gissa-fasen efter ~6s tystnad — först upprepa uppmaningen,
+  // andra gången auto-hjälp (lyft rätt kopp). Aldrig bestraffande.
   _update(ctx) {
-    if (!this._alive || this._phase !== 'guess') return
+    if (!this._alive || this._phase !== 'guess' || this._resolving) return
     if (performance.now() - this._lastInteract > 6000) {
       this._lastInteract = performance.now()
-      ctx.services.voice.say('Var tog den vägen? Tryck på koppen!')
+      this._idleCues++
+      if (this._idleCues >= 2) {
+        this._idleCues = 0
+        this._hintPrize(ctx)
+      } else {
+        ctx.services.voice.say('Var tog den vägen? Tryck på koppen!')
+      }
     }
   },
 
@@ -375,8 +454,29 @@ export default {
   },
 }
 
+// Svårighetsparametrar för en nivå. Parametrarna saturerar vid taken ovan.
+function levelParams(level) {
+  return {
+    cups: Math.min(BASE_CUPS + Math.floor(level / 3), MAX_CUPS),
+    swaps: Math.min(2 + level, MAX_SWAPS),
+    swapDur: Math.max(MIN_SWAP_DUR, 0.7 - level * 0.05),
+    allRed: level >= RED_LEVEL,
+  }
+}
+
+// Jämnt fördelade kopp-platser, centrerade kring CENTER, inom bordets bredd.
+function computeSlots(n) {
+  if (n <= 1) return [CENTER]
+  const spacing = Math.min(MAX_SPACING, SPAN / (n - 1))
+  const total = spacing * (n - 1)
+  const start = CENTER - total / 2
+  const slots = []
+  for (let i = 0; i < n; i++) slots.push(Math.round(start + spacing * i))
+  return slots
+}
+
 function clampLevel(l) {
-  return Math.max(0, Math.min(LEVELS.length - 1, l))
+  return Math.max(0, Math.min(MAX_LEVEL, l | 0))
 }
 
 function darken(hex, amt) {

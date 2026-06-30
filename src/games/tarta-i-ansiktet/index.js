@@ -1,14 +1,15 @@
 // Tårta i Ansiktet — ren slapstick-glädje (3–5 år). Alissa, en stor, skrattande clown,
-// står på scenen; längst ner väntar en gräddtårta. Barnet TRYCKER på tårtan
-// (den flyger i en båge mot ansiktet) eller DRAR den upp mot Alissa — båda ger
-// samma härliga PLASK: grädde-splat, fnitter, konfetti och en glad studs. Inga
-// felsteg, ingen timer, inget slut. Efter några tårtor firar vi (delat firande +
-// stjärna + klistermärke) och en ny, fräsch runda börjar direkt.
-// Allt ritas programmatiskt (Pixi Graphics); enda emoji är 🧽 på torka-knappen.
+// står på scenen; längst ner väntar en gräddtårta. Barnet DRAR tårtan och SLÄPPER
+// med fart (flick) — den flyger i en fysik-båge mot ansiktet och PLASKAR: grädde-splat,
+// fnitter, konfetti och en glad studs. När ansiktet blir kladdigt dyker en SVAMP upp:
+// barnet drar svampen fram och tillbaka över ansiktet och grädden torkas bort där
+// svampen gnuggar (skrubba-rent). Inga felsteg, ingen timer, inget slut. En svag flick
+// når ändå fram (mjuk auto-hjälp) och torkningen blir alltid klar. Efter några tårtor
+// firar vi (delat firande + stjärna + klistermärke) och en ny, fräsch runda börjar.
+// Allt ritas programmatiskt (Pixi Graphics) — inga externa assets.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { puff, pop, wiggle, bounceIn, sparkle } from '../../lib/feedback.js'
-import { Button } from '../../lib/Button.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -18,6 +19,21 @@ const CAKE_X = 640 // tårtans viloplats (brickan)
 const CAKE_Y = 620
 const MAX_LEVEL = 3 // mjuk tak: håller rundan kort (max 6 tårtor) så den aldrig tjatar
 const MAX_CREAM = 16 // cappa grädde-klumpar så ansiktet inte växer i oändlighet
+
+// Flick-fysik (designkoordinater, px och px/s). Tårtan integreras i tickern med en
+// enkel gravitation + mjuk styrning mot ansiktet så den ALLTID når fram (no-fail).
+const GRAVITY = 1300 // px/s² nedåt under flygning
+const STEER = 26 // styrkraft mot ansiktet (garanterar träff, även vid sned flick)
+const DAMP = 3 // dämpning så tårtan inte kretsar runt ansiktet
+const FLICK_MIN = 300 // px/s — under detta räknas släppet inte som en flick
+const FLICK_MAX = 1700 // px/s — cappa farten så tårtan inte skjuter förbi
+const VEL_WINDOW = 90 // ms — fönster som flick-hastigheten mäts över
+
+// Svampens viloplats (nere till höger, stor träffyta).
+const SPONGE_HOME_X = 1130
+const SPONGE_HOME_Y = 600
+const WIPE_RADIUS = 70 // hur långt svampen torkar runt sin mitt
+const RUB_PER_TOUCH = 0.12 // hur mycket en klump rensas per gnugg-bildruta (skrubba-rent)
 
 // Korta, busiga ropp vid varje träff (slumpas, aldrig samma tjat).
 const SPLATS = ['Plask!', 'Mums!', 'Hihi!', 'Pang!', 'En till!', 'Oj då!', 'Kladd!']
@@ -35,13 +51,18 @@ export default {
   input: 'mixed',
   ageRange: [3, 5],
   bundle: 'tarta-i-ansiktet',
-  voiceIntro: 'Kasta tårtan i ansiktet på Alissa!',
+  voiceIntro: 'Dra tårtan och släpp — kasta den i ansiktet på Alissa!',
 
   init(ctx) {
     this._alive = true
     this._idle = 0
     this._resolving = false // sant under flygning + firande -> ignorera nya kast
     this._holding = false // sant medan tårtan hålls/dras
+    this._flying = false // sant medan tårtan flyger (integreras i tickern)
+    this._cakeVel = { x: 0, y: 0 }
+    this._flightElapsed = 0
+    this._vSamples = [] // peksamplingar {x,y,t} för att mäta flick-hastighet
+    this._rubCount = 0 // räknare för att stryppa gnugg-ljud
     this._splats = 0 // antal grädde-lager på ansiktet just nu
     this._throws = 0 // kast i den pågående rundan
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
@@ -69,26 +90,9 @@ export default {
     this._buildClown(ctx)
     this._buildCake(ctx)
     this._buildDots(ctx)
+    this._buildSponge(ctx)
 
-    // Svampknapp: visas först när ansiktet blivit kladdigt (_splats > 0).
-    this._wipeBtn = new Button({
-      icon: '🧽',
-      label: 'Torka',
-      width: 200,
-      height: 120,
-      color: COLORS.blue,
-      services: ctx.services,
-      sound: 'whoosh',
-      radius: 28,
-      stacked: true,
-      onTap: () => this._wipe(ctx),
-    })
-    this._wipeBtn.position.set(1120, 620)
-    this._wipeBtn.visible = false
-    this._wipeBtn.eventMode = 'none'
-    this._root.addChild(this._wipeBtn)
-
-    // Bundna peklyssnare för dra/släpp på tårtan (av/på vid varje gest).
+    // Bundna peklyssnare för dra/släpp (flick) på tårtan (av/på vid varje gest).
     this._cakeDown = (e) => this._onCakeDown(ctx, e)
     this._cakeMove = (e) => this._onCakeMove(ctx, e)
     this._cakeUp = () => this._onCakeUp(ctx)
@@ -144,7 +148,7 @@ export default {
     hat.circle(0, -240, 22).fill(COLORS.yellow)
     hat.eventMode = 'none'
 
-    // Grädde-lager (på ansiktet, men under svampknappen). Lokala koordinater.
+    // Grädde-lager (på ansiktet, men under svampen). Lokala koordinater.
     this._splatLayer = new Container()
     this._splatLayer.eventMode = 'none'
 
@@ -168,6 +172,33 @@ export default {
     cake.cursor = 'pointer'
     this._cake = cake
     this._root.addChild(cake)
+  },
+
+  // Svamp: dras fram och tillbaka över ansiktet för att torka bort grädden. Stor
+  // träffyta (r=84) och stor kropp (>=96px). Visas först när ansiktet blivit kladdigt.
+  _buildSponge(ctx) {
+    const s = new Container()
+    s.position.set(SPONGE_HOME_X, SPONGE_HOME_Y)
+    const g = new Graphics()
+    g.ellipse(0, 54, 60, 12).fill({ color: COLORS.shadow, alpha: 0.12 }) // skugga
+    g.roundRect(-66, -46, 132, 92, 22).fill(0xffd24a).stroke({ width: 5, color: 0xe8a92e }) // svampkropp
+    g.roundRect(-66, -46, 132, 34, 22).fill(0xeaf6ff) // ljus skumkant upptill
+    for (const [hx, hy, hr] of [[-30, 18, 9], [6, 28, 7], [34, 8, 8], [-8, 4, 6], [40, 30, 6]]) {
+      g.circle(hx, hy, hr).fill({ color: 0xe8a92e, alpha: 0.6 }) // hål i svampen
+    }
+    g.eventMode = 'none'
+    s.addChild(g)
+    s.hitArea = new Circle(0, 0, 84)
+    s.cursor = 'pointer'
+    s.eventMode = 'none' // aktiveras vid _showSponge
+    s.visible = false
+    this._sponge = s
+
+    this._spongeDown = (e) => this._onSpongeDown(ctx, e)
+    this._spongeMove = (e) => this._onSpongeMove(ctx, e)
+    this._spongeUp = () => this._onSpongeUp(ctx)
+    s.on('pointerdown', this._spongeDown)
+    this._root.addChild(s)
   },
 
   // Räknar-prickar (en per tårta i rundan) — visuell progress utan läsning.
@@ -203,7 +234,7 @@ export default {
     }
   },
 
-  // ---- Interaktion --------------------------------------------------------
+  // ---- Tårt-flick (dra + släpp med fart) ----------------------------------
 
   // Pekning på tårtan: starta gest. Omedelbar feedback (<100ms): ljud + studs.
   _onCakeDown(ctx, e) {
@@ -216,6 +247,7 @@ export default {
     this._grabDY = this._cake.y - p.y
     this._startX = p.x
     this._startY = p.y
+    this._vSamples = [{ x: p.x, y: p.y, t: performance.now() }]
     ctx.services.audio.sfx('tap')
     pop(this._cake)
     this._cake.on('globalpointermove', this._cakeMove)
@@ -230,6 +262,10 @@ export default {
     if (this._dragMoved) {
       this._cake.x = p.x + this._grabDX
       this._cake.y = p.y + this._grabDY
+      // Spara peksamplingar i ett kort tidsfönster -> ger flick-hastigheten vid släpp.
+      const now = performance.now()
+      this._vSamples.push({ x: p.x, y: p.y, t: now })
+      while (this._vSamples.length > 2 && now - this._vSamples[0].t > VEL_WINDOW) this._vSamples.shift()
     }
   },
 
@@ -239,33 +275,109 @@ export default {
     this._holding = false
     if (this._resolving) return
     if (!this._dragMoved) {
-      // Ren tryckning -> tårtan flyger i en båge upp mot ansiktet.
-      this._launch(ctx, true)
+      // Ren tryckning (tap-fallback för de minsta) -> mjuk auto-flick mot ansiktet.
+      const a = this._assistVel()
+      this._flick(ctx, a.x, a.y)
+      return
+    }
+    const v = this._measureFlick()
+    if (v.speed >= FLICK_MIN) {
+      // En riktig flick: använd dragets fart, cappad så den inte skjuter förbi.
+      let vx = v.x
+      let vy = v.y
+      if (v.speed > FLICK_MAX) {
+        vx *= FLICK_MAX / v.speed
+        vy *= FLICK_MAX / v.speed
+      }
+      this._flick(ctx, vx, vy)
     } else if (Math.hypot(this._cake.x - FACE_X, this._cake.y - FACE_Y) < 220) {
-      // Släppt nära ansiktet -> kort nedslag -> PLASK.
-      this._launch(ctx, false)
+      // Långsamt släppt nära ansiktet -> mjuk auto-flick (no-fail).
+      const a = this._assistVel()
+      this._flick(ctx, a.x, a.y)
     } else {
-      // Släppt långt bredvid -> mjuk vingel + snäpp tillbaka (aldrig "fel").
+      // Långsamt släppt långt bredvid -> vänlig vingel + snäpp tillbaka (aldrig "fel").
       ctx.services.audio.sfx('soft')
       wiggle(this._cake)
-      gsap.to(this._cake, { x: CAKE_X, y: CAKE_Y, duration: 0.32, ease: 'back.out(1.4)' })
+      gsap.to(this._cake, { x: CAKE_X, y: CAKE_Y, rotation: 0, duration: 0.32, ease: 'back.out(1.4)' })
     }
   },
 
-  _detachCake() {
-    const cake = this._cake
-    if (!cake) return
-    cake.off('globalpointermove', this._cakeMove)
-    cake.off('pointerup', this._cakeUp)
-    cake.off('pointerupoutside', this._cakeUp)
+  // Mät flick-hastighet (px/s) från peksamplingarna i tidsfönstret.
+  _measureFlick() {
+    const s = this._vSamples
+    if (!s || s.length < 2) return { x: 0, y: 0, speed: 0 }
+    const a = s[0]
+    const b = s[s.length - 1]
+    const dt = (b.t - a.t) / 1000
+    if (dt <= 0) return { x: 0, y: 0, speed: 0 }
+    const vx = (b.x - a.x) / dt
+    const vy = (b.y - a.y) / dt
+    return { x: vx, y: vy, speed: Math.hypot(vx, vy) }
   },
 
-  // Tryck på clownen = kasta den väntande tårtan direkt (stor träffyta).
+  // Mjuk auto-hjälp-hastighet: riktad mot ansiktet (lite ovanför -> fin båge).
+  _assistVel() {
+    const dx = FACE_X - this._cake.x
+    const dy = FACE_Y - 60 - this._cake.y
+    const d = Math.hypot(dx, dy) || 1
+    const speed = 880
+    return { x: (dx / d) * speed, y: (dy / d) * speed }
+  },
+
+  // Skicka iväg tårtan i en fysik-båge. Hastigheten integreras i tickern med
+  // gravitation + mjuk styrning mot ansiktet (garanterar träff). Tårtan är poolad
+  // (persistent) -> vi flyttar Pixi-objektet direkt och dödar tweens i destroy.
+  _flick(ctx, vx, vy) {
+    if (!this._alive || this._resolving) return
+    this._resolving = true
+    this._flying = true
+    this._idle = 0
+    this._flightElapsed = 0
+    this._cakeVel = { x: vx, y: vy }
+    const cake = this._cake
+    cake.eventMode = 'none'
+    gsap.killTweensOf(cake)
+    gsap.killTweensOf(cake.scale)
+    ctx.services.audio.sfx('whoosh')
+    gsap.to(cake.scale, { x: 1.25, y: 1.25, duration: 0.5, ease: 'power1.out' })
+  },
+
+  // Ett integrationssteg av tårtans flygning (anropas från _update varje bildruta).
+  _stepFlight(ctx, dt) {
+    const cake = this._cake
+    const vel = this._cakeVel
+    this._flightElapsed += dt
+    vel.y += GRAVITY * dt
+    // Mjuk styrning mot ansiktet — svag i början (flicken syns), starkare med tiden
+    // så tårtan ALLTID når fram, oavsett hur den kastades.
+    const dx = FACE_X - cake.x
+    const dy = FACE_Y - cake.y
+    const dist = Math.hypot(dx, dy)
+    const steer = Math.min(1, Math.max(0, (this._flightElapsed - 0.1) / 0.45))
+    const pull = STEER * steer
+    vel.x += dx * pull * dt
+    vel.y += dy * pull * dt
+    const damp = 1 - DAMP * steer * dt
+    vel.x *= damp
+    vel.y *= damp
+    cake.x += vel.x * dt
+    cake.y += vel.y * dt
+    cake.rotation += vel.x * 0.0008 + 4 * dt // glad snurr i luften
+    if (dist < 62 || this._flightElapsed > 1.5) {
+      this._flying = false
+      cake.x = FACE_X
+      cake.y = FACE_Y - 10
+      this._land(ctx)
+    }
+  },
+
+  // Tryck på clownen = mjuk auto-flick av den väntande tårtan (stor träffyta).
   _onClownTap(ctx) {
     if (!this._alive || this._resolving || this._holding) return
     ctx.services.audio.sfx('tap')
     pop(this._cake)
-    this._launch(ctx, true)
+    const a = this._assistVel()
+    this._flick(ctx, a.x, a.y)
   },
 
   // Tomt tryck bredvid allt: lekfull vingel + mjukt ljud. Aldrig en bestraffning.
@@ -276,26 +388,12 @@ export default {
     wiggle(this._cake)
   },
 
-  // Skicka iväg tårtan mot ansiktet. `arc` = hög båge (tryck) eller kort släpp (drag).
-  // Persistent tårta (poolad) -> vi tweenar Pixi-objektet direkt och dödar tweens i
-  // destroy; onComplete är skyddad med this._alive. Inga objekt förstörs mid-tween.
-  _launch(ctx, arc) {
-    if (!this._alive || this._resolving) return
-    this._resolving = true
-    this._idle = 0
+  _detachCake() {
     const cake = this._cake
-    cake.eventMode = 'none'
-    gsap.killTweensOf(cake)
-    gsap.killTweensOf(cake.scale)
-    const tl = gsap.timeline({
-      onComplete: () => {
-        if (this._alive) this._land(ctx)
-      },
-    })
-    if (arc) tl.to(cake, { x: FACE_X, y: 230, duration: 0.16, ease: 'power1.out' })
-    tl.to(cake, { x: FACE_X, y: 320, duration: arc ? 0.12 : 0.1, ease: 'power2.in' })
-    tl.to(cake.scale, { x: 1.3, y: 1.3, duration: 0.26, ease: 'power1.out' }, 0)
-    this._flight = tl
+    if (!cake) return
+    cake.off('globalpointermove', this._cakeMove)
+    cake.off('pointerup', this._cakeUp)
+    cake.off('pointerupoutside', this._cakeUp)
   },
 
   // Nedslag: PLASK! grädde, partiklar, fnitter, clownen vinglar glatt.
@@ -317,7 +415,7 @@ export default {
     }
   },
 
-  // Själva PLASK-effekten (delas av tryck och drag).
+  // Själva PLASK-effekten.
   _splat(ctx) {
     if (!this._alive) return
     ctx.services.audio.sfx('pop')
@@ -328,10 +426,11 @@ export default {
     pop(this._clown)
     ctx.services.voice.say(randomFrom(SPLATS))
     this._splats++
-    if (this._splats === 1) this._showWipe()
+    if (this._splats === 1) this._showSponge(ctx)
   },
 
   // Lägg 3–5 ojämna vita grädde-klumpar på ansiktet (cappat antal, exit-säkert).
+  // Varje klump bär `_r` (radie) och `_clean` (0..1, hur bortskrubbad den är).
   _addCream() {
     const n = 3 + ((Math.random() * 3) | 0)
     for (let i = 0; i < n; i++) {
@@ -341,6 +440,8 @@ export default {
       const blob = new Graphics().circle(0, 0, r).fill(0xffffff).stroke({ width: 3, color: 0xeaf2f6 })
       blob.position.set(Math.cos(ang) * dist, 15 + Math.sin(ang) * dist * 0.7)
       blob.eventMode = 'none'
+      blob._r = r
+      blob._clean = 0
       this._splatLayer.addChild(blob)
       bounceIn(blob, { duration: 0.35 })
     }
@@ -352,33 +453,118 @@ export default {
     }
   },
 
-  _showWipe() {
-    if (!this._wipeBtn) return
-    this._wipeBtn.visible = true
-    this._wipeBtn.eventMode = 'static'
-    this._wipeBtn.scale.set(1)
-    bounceIn(this._wipeBtn)
+  // ---- Svamp-torkning (dra svampen över ansiktet) -------------------------
+
+  _showSponge(ctx) {
+    const s = this._sponge
+    if (!s) return
+    s.visible = true
+    s.eventMode = 'static'
+    s.position.set(SPONGE_HOME_X, SPONGE_HOME_Y)
+    s.scale.set(1)
+    s.rotation = 0
+    bounceIn(s)
+    ctx.services.voice.say('Ta svampen och torka Alissa ren!')
   },
 
-  _hideWipe() {
-    if (!this._wipeBtn) return
-    gsap.killTweensOf(this._wipeBtn)
-    gsap.killTweensOf(this._wipeBtn.scale)
-    this._wipeBtn.visible = false
-    this._wipeBtn.eventMode = 'none'
-    this._wipeBtn.scale.set(1)
+  _hideSponge() {
+    const s = this._sponge
+    if (!s) return
+    this._detachSponge()
+    gsap.killTweensOf(s)
+    gsap.killTweensOf(s.scale)
+    s.visible = false
+    s.eventMode = 'none'
+    s.scale.set(1)
+    s.rotation = 0
+    s.position.set(SPONGE_HOME_X, SPONGE_HOME_Y)
   },
 
-  // Torka rent: ta bort all grädde, dölj svampknappen (ljudet sköts av Button).
-  _wipe(ctx) {
-    if (!this._alive || this._resolving) return
+  _onSpongeDown(ctx, e) {
+    if (!this._alive || !this._sponge.visible) return
     this._idle = 0
-    ctx.services.voice.say('Nu blir Alissa ren igen!')
-    this._clearCream()
-    this._splats = 0
-    this._hideWipe()
+    const s = this._sponge
+    gsap.killTweensOf(s)
+    gsap.killTweensOf(s.scale)
+    s.scale.set(1)
+    const p = this._root.toLocal(e.global)
+    this._spongeDX = s.x - p.x
+    this._spongeDY = s.y - p.y
+    ctx.services.audio.sfx('soft')
+    pop(s)
+    s.on('globalpointermove', this._spongeMove)
+    s.on('pointerup', this._spongeUp)
+    s.on('pointerupoutside', this._spongeUp)
+    this._rub(ctx)
   },
 
+  _onSpongeMove(ctx, e) {
+    if (!this._alive) return
+    this._idle = 0
+    const p = this._root.toLocal(e.global)
+    this._sponge.x = p.x + this._spongeDX
+    this._sponge.y = p.y + this._spongeDY
+    this._rub(ctx)
+  },
+
+  _onSpongeUp() {
+    if (!this._alive) return
+    this._detachSponge()
+    // Fortfarande kladdigt? Lämna svampen där den släpptes (redo att gnugga vidare).
+  },
+
+  _detachSponge() {
+    const s = this._sponge
+    if (!s) return
+    s.off('globalpointermove', this._spongeMove)
+    s.off('pointerup', this._spongeUp)
+    s.off('pointerupoutside', this._spongeUp)
+  },
+
+  // Skrubba-rent: varje grädde-klump under svampen rensas en aning per bildruta
+  // (alpha + skala krymper) tills den försvinner. Exit-säkert (poolade Graphics).
+  _rub(ctx) {
+    const layer = this._splatLayer
+    if (!layer || layer.children.length === 0) return
+    const sx = this._sponge.x
+    const sy = this._sponge.y
+    const cx = this._clown.x // FACE_X
+    const cy = this._clown.y // FACE_Y
+    let wipedAny = false
+    for (let i = layer.children.length - 1; i >= 0; i--) {
+      const blob = layer.children[i]
+      const bx = cx + blob.x
+      const by = cy + blob.y
+      if (Math.hypot(sx - bx, sy - by) < WIPE_RADIUS + (blob._r || 22)) {
+        gsap.killTweensOf(blob.scale)
+        blob._clean = (blob._clean || 0) + RUB_PER_TOUCH
+        const k = Math.max(0, 1 - blob._clean)
+        blob.alpha = k
+        blob.scale.set(0.5 + 0.5 * k)
+        wipedAny = true
+        if (blob._clean >= 1) blob.destroy()
+      }
+    }
+    if (wipedAny) {
+      this._rubCount++
+      if (this._rubCount % 6 === 0) ctx.services.audio.sfx('soft')
+      if (Math.random() < 0.12) sparkle(ctx.fxLayer, sx, sy, { count: 4 })
+    }
+    if (layer.children.length === 0 && this._splats > 0) this._finishWipe(ctx)
+  },
+
+  // All grädde borttorkad -> glad belöning + dölj svampen.
+  _finishWipe(ctx) {
+    if (this._splats <= 0) return
+    this._splats = 0
+    ctx.services.audio.sfx('pling')
+    ctx.services.voice.say('Nu blir Alissa ren igen!')
+    pop(this._clown)
+    sparkle(ctx.fxLayer, FACE_X, FACE_Y, { count: 8 })
+    this._hideSponge()
+  },
+
+  // Töm grädde-lagret direkt (vid ny runda / städning) — utan belöning.
   _clearCream() {
     if (!this._splatLayer) return
     this._splatLayer.children.forEach((c) => {
@@ -396,6 +582,7 @@ export default {
     gsap.killTweensOf(cake.scale)
     cake.position.set(CAKE_X, CAKE_Y)
     cake.scale.set(1)
+    cake.rotation = 0
     cake.alpha = 1
     cake.visible = true
     cake.eventMode = 'static'
@@ -408,6 +595,7 @@ export default {
   // complete() sköter celebrate-ljud, beröm-röst, konfetti och stjärna -> ingen dubblering.
   _finishRound(ctx) {
     this._resolving = true
+    this._flying = false
     this._idle = 0
     this._cake.visible = false
     this._level = Math.min(this._level + 1, MAX_LEVEL)
@@ -429,30 +617,60 @@ export default {
     this._idle = 0
     this._perRound = throwsForLevel(this._level)
     this._clearCream()
-    this._hideWipe()
+    this._hideSponge()
     this._buildDots(ctx)
     this._resetCake()
     pop(this._clown)
   },
 
-  // Idle-recue: efter ~6s tystnad upprepa instruktionen + locka med en studs.
+  // Idle-recue: efter ~6s tystnad locka mjukt. Kontextkänslig: kladdigt -> torka,
+  // annars -> kasta. Vid kladd ger vi även mjuk auto-hjälp (börjar torka en klump).
   _update(ctx, ticker) {
     if (!this._alive) return
+    if (this._flying) {
+      const dt = Math.min(0.05, ticker.deltaMS / 1000)
+      this._stepFlight(ctx, dt)
+      return
+    }
     this._idle += ticker.deltaMS / 1000
     if (this._idle > 6 && !this._resolving) {
       this._idle = 0
-      ctx.services.voice.say('Kasta en tårta till!')
-      pop(this._cake)
+      if (this._splats > 0 && this._sponge?.visible) {
+        ctx.services.voice.say('Ta svampen och torka Alissa ren!')
+        pop(this._sponge)
+        this._autoHelpWipe(ctx) // mjuk auto-hjälp så torkningen aldrig fastnar
+      } else {
+        ctx.services.voice.say('Kasta en tårta till!')
+        pop(this._cake)
+      }
+    }
+  },
+
+  // Mjuk auto-hjälp vid idle: börja torka bort en klump som ledtråd. Upprepade
+  // idle-cykler rensar till slut ansiktet helt -> spelet kan aldrig låsa sig.
+  _autoHelpWipe(ctx) {
+    const layer = this._splatLayer
+    if (!layer || layer.children.length === 0) return
+    const blob = layer.children[layer.children.length - 1]
+    gsap.killTweensOf(blob.scale)
+    blob._clean = (blob._clean || 0) + 0.34
+    const k = Math.max(0, 1 - blob._clean)
+    blob.alpha = k
+    blob.scale.set(0.5 + 0.5 * k)
+    if (blob._clean >= 1) {
+      blob.destroy()
+      if (layer.children.length === 0) this._finishWipe(ctx)
     }
   },
 
   destroy(ctx) {
     this._alive = false
+    this._flying = false
     ctx.ticker.remove(this._tick)
-    this._flight?.kill()
     this._celebrate?.kill()
     this._detachCake()
-    for (const o of [this._cake, this._clown, this._wipeBtn]) {
+    this._detachSponge()
+    for (const o of [this._cake, this._clown, this._sponge]) {
       if (!o) continue
       gsap.killTweensOf(o)
       gsap.killTweensOf(o.scale)

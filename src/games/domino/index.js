@@ -1,11 +1,12 @@
 // Domino — bygg vägen till klockan (2–5 år). En rad domino-brickor leder från vänster
-// fram till en KLOCKA 🔔 längst till höger. I raden finns LUCKOR — barnet DRAR extra
-// brickor från brickfacket upp/ner i luckorna (förlåtande snäpp) för att bygga vägen
-// hel. Sedan TRYCKER barnet på den första brickan: hela kedjan ramlar med riktig fysik
-// (matter.js) och ringer i klockan -> firande + ny, längre bana. INGET misslyckande:
-// trycker barnet innan alla luckor är fyllda hoppar kedjan magiskt över gluggen och når
-// ALLTID fram till klockan. Fel/tomma tryck ger en mjuk, lekfull studs. Allt ritas
-// programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
+// fram till en KLOCKA 🔔 längst till höger. I raden finns LUCKOR — barnet DRAR (eller
+// tap-tap) extra brickor från brickfacket ner i luckorna (förlåtande snäpp) för att bygga
+// vägen HEL. Sedan TRYCKER barnet på FÖRSTA brickan: kedjan ramlar bricka för bricka.
+// Vid en TOM lucka stannar raset där — inget misslyckande, bara "lägg en bricka till";
+// när barnet lägger i brickan fortsätter raset av sig självt. Når raset ända fram ringer
+// klockan -> firande + ny, längre bana. Mjuk auto-hjälp efter en stund fyller nästa lucka
+// så banan ALLTID blir klar. Tryck utanför start ger bara en mjuk, lekfull gnista. Allt
+// ritas programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Matter } from '../../lib/physics.js'
@@ -50,6 +51,9 @@ export default {
     this._resetting = false // mellan firande och ny bana
     this._rung = false // klockan har ringt denna omgång
     this._helped = false // sa "jag hjälper till" denna omgång
+    this._resolving = false // firande + complete() körs (EXAKT en gång per bana)
+    this._stalledAt = null // index där raset stannade vid en tom lucka (väntar på bricka)
+    this._waitingStart = false // vägen är hel, väntar på att barnet puttar
     this._lastHit = 0
     this._lastSay = 0
     this._slots = [] // { x, index, isGap, filled, tile:{view,body}|null, ghost }
@@ -99,12 +103,22 @@ export default {
     this._startGlow.visible = false
     this._root.addChild(this._startGlow)
 
-    // --- Osynlig tryckyta: tryck var som helst (utom brickfacket) -> starta kedjan.
+    // --- Osynlig yta: tryck UTANFÖR start/brickfack -> ENBART en mjuk, positiv gnista.
+    //     (Startar ALDRIG raset — det gör bara start-brickan här under.)
     this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
     this._catcher.eventMode = 'static'
     this._onCatch = (ev) => this._onTap(ctx, ev)
     this._catcher.on('pointertap', this._onCatch)
     this._root.addChild(this._catcher)
+
+    // --- Tryckyta ENBART över start-brickan (stor träffhalo, >=96px) -> välter kedjan.
+    //     Ligger ovanpå catchern så bara denna ruta startar raset; positioneras per nivå.
+    this._startHit = new Graphics().rect(-72, -118, 144, 236).fill({ color: 0x000000, alpha: 0 })
+    this._startHit.eventMode = 'none'
+    this._startHit.cursor = 'pointer'
+    this._onStart = () => this._onStartTap(ctx)
+    this._startHit.on('pointertap', this._onStart)
+    this._root.addChild(this._startHit)
 
     // --- Brickfack (överst) — reservbrickorna byggs per nivå.
     this._trayLayer = new Container()
@@ -115,11 +129,15 @@ export default {
     this._tick = (t) => {
       if (!this._alive) return
       this._phys.update(t.deltaMS)
+      // Medan raset rullar / firandet pågår: rör inte auto-hjälpen.
+      if (this._running || this._resetting) {
+        this._idle = 0
+        return
+      }
       this._idle += t.deltaMS / 1000
       if (this._idle > IDLE_DELAY) {
         this._idle = 0
-        ctx.services.voice.say(this.voiceIntro)
-        if (!this._running && !this._resetting) this._pulseHints()
+        this._idleHelp(ctx)
       }
     }
     ctx.ticker.add(this._tick)
@@ -181,7 +199,10 @@ export default {
     this._running = false
     this._resetting = false
     this._rung = false
+    this._resolving = false
     this._helped = false
+    this._stalledAt = null
+    this._waitingStart = false
     this._idle = 0
 
     const { nSlots, gapSet } = this._layoutFor(level)
@@ -222,12 +243,16 @@ export default {
       this._makeTrayTile(ctx, home, color)
     })
 
-    // Startglöd vid första brickan + andning.
+    // Startglöd + tryckyta vid första brickan (placeras dit; aktiveras för tryck).
     const first = this._slots[0]
     this._startGlow.position.set(first.x, TILE_Y)
     this._startGlow.visible = true
     this._startGlowTween?.kill()
     this._startGlowTween = breathe(this._startGlow, { scale: 1.25, duration: 0.9 })
+    if (this._startHit) {
+      this._startHit.position.set(first.x, TILE_Y)
+      this._startHit.eventMode = 'static'
+    }
   },
 
   // Skapa en fysik-bricka (kropp + vy) som står på golvet.
@@ -414,23 +439,42 @@ export default {
       this._lastSay = now
       ctx.services.voice.say(randomFrom(PLACE_WORDS))
     }
+    // Fyllde vi just den lucka där raset stannade? Då fortsätter kedjan av sig själv.
+    if (this._stalledAt === slot.index) {
+      const from = this._stalledAt
+      this._stalledAt = null
+      this._waitingStart = false
+      this._running = true
+      ctx.services.voice.say('Och vidare!')
+      const call = gsap.delayedCall(0.16, () => this._cascadeFrom(ctx, from))
+      this._cascadeCalls.push(call)
+      return
+    }
     // Alla luckor fyllda? Vägen är hel.
     if (!this._slots.some((s) => s.isGap && !s.filled)) {
+      this._waitingStart = false
       ctx.services.audio.sfx('pling')
       ctx.services.voice.say('Nu är vägen klar! Putta den första brickan.')
     }
   },
 
-  // ---- Tryck -> starta kedjan ---------------------------------------------
+  // ---- Tryck utanför start: bara mjuk, positiv respons (startar ALDRIG raset) ----
 
   _onTap(ctx, ev) {
     if (!this._alive) return
     this._idle = 0
+    const p = this._root.toLocal(ev.global)
+    ctx.services.audio.sfx('soft')
+    sparkle(ctx.fxLayer, p.x, p.y, { count: 4 })
+  },
+
+  // ---- Tryck på START-brickan -> välter kedjan ---------------------------------
+
+  _onStartTap(ctx) {
+    if (!this._alive) return
+    this._idle = 0
     if (this._running || this._resetting) {
-      // Mjuk lekfull respons medan kedjan rullar / återställs.
-      const p = this._root.toLocal(ev.global)
       ctx.services.audio.sfx('soft')
-      sparkle(ctx.fxLayer, p.x, p.y, { count: 4 })
       return
     }
     this._startCascade(ctx)
@@ -438,11 +482,15 @@ export default {
 
   _startCascade(ctx) {
     this._running = true
+    this._resolving = false
     this._rung = false
     this._helped = false
-    // Släck start-lockbete.
+    this._stalledAt = null
+    this._waitingStart = false
+    // Släck start-lockbete + stäng av start-tryckytan medan raset rullar.
     this._startGlowTween?.kill()
     this._startGlow.visible = false
+    if (this._startHit) this._startHit.eventMode = 'none'
     ctx.services.audio.sfx('pop')
     const now = performance.now()
     if (now - this._lastSay > 1000) {
@@ -452,23 +500,20 @@ export default {
     this._cascadeFrom(ctx, 0)
   },
 
-  // Garanterad kedja vänster -> höger. Vid varje slot: putta brickan om den finns,
-  // annars (tom lucka) hoppa magiskt över gluggen — kedjan når ALLTID fram.
+  // Raset vänster -> höger. Vid varje slot: putta brickan om den FINNS och fortsätt.
+  // Vid en TOM lucka stannar raset där (no-fail) — barnet lägger i en bricka och då
+  // fortsätter det av sig självt (se _placeTile). Når raset slutet ringer klockan.
   _cascadeFrom(ctx, index) {
     if (!this._alive || !this._running) return
     const slot = this._slots[index]
     if (!slot) return
+    // Tom lucka bryter kedjan här — mjukt, "lägg en bricka till".
+    if (slot.isGap && !slot.filled) {
+      this._stallAtGap(ctx, slot)
+      return
+    }
     if (slot.tile && Math.abs(slot.tile.body.angle) < STAND_ANGLE) {
       Body.setAngularVelocity(slot.tile.body, PUSH_AV)
-    } else if (slot.isGap && !slot.filled) {
-      // Auto-hjälp: magisk gnista bryggar gluggen (no-fail).
-      ctx.services.audio.sfx('magi')
-      sparkle(ctx.fxLayer, slot.x, TILE_Y - 10, { count: 7 })
-      floatText(ctx.fxLayer, slot.x, TILE_Y - 60, '✨', { fontSize: 44 })
-      if (!this._helped) {
-        this._helped = true
-        ctx.services.voice.say('Jag hjälper till!')
-      }
     }
     const next = index + 1
     if (next < this._slots.length) {
@@ -481,6 +526,26 @@ export default {
     }
   },
 
+  // En tom lucka stoppade raset: ingen bestraffning — bara en vänlig "lägg en till".
+  // Raset pausar (running=false); idle-hjälpen (eller barnet) fyller luckan och då
+  // återupptas det automatiskt i _placeTile.
+  _stallAtGap(ctx, slot) {
+    if (!this._alive) return
+    this._running = false
+    this._stalledAt = slot.index
+    this._idle = 0 // räkna mot mjuk auto-hjälp
+    ctx.services.audio.sfx('soft')
+    if (slot.ghost && !slot.ghost.destroyed) pop(slot.ghost, { scale: 1.22 })
+    sparkle(ctx.fxLayer, slot.x, TILE_Y - 10, { count: 6 })
+    floatText(ctx.fxLayer, slot.x, TILE_Y - 64, '⬇️', { fontSize: 44 })
+    const now = performance.now()
+    if (now - this._lastSay > 1100) {
+      this._lastSay = now
+      ctx.services.voice.say('Lägg en bricka till!')
+    }
+    this._pulseHints()
+  },
+
   _killCascade() {
     this._cascadeCalls?.forEach((c) => c.kill())
     this._cascadeCalls = []
@@ -489,7 +554,8 @@ export default {
   // ---- Klockan ringer: mål nått -------------------------------------------
 
   _ringBell(ctx) {
-    if (!this._alive || this._rung) return
+    if (!this._alive || this._resolving || this._rung) return
+    this._resolving = true // firande + complete() körs nu, exakt en gång
     this._rung = true
     this._killCascade()
 
@@ -537,6 +603,55 @@ export default {
     }
   },
 
+  // ---- Mjuk auto-hjälp (no-fail): banan blir ALLTID klar -----------------------
+  // Finns en tom lucka kvar -> fyll nästa (en bricka flyger dit). Är vägen redan hel
+  // -> påminn om att putta, och om barnet ändå väntar: putta åt det. Inget kan fastna.
+  _idleHelp(ctx) {
+    if (!this._alive || this._running || this._resetting) return
+    const gap = this._firstUnfilledGap()
+    if (gap) {
+      ctx.services.voice.say('Jag hjälper till!')
+      this._autoFillGap(ctx, gap)
+      return
+    }
+    // Vägen är hel.
+    if (this._waitingStart) {
+      this._waitingStart = false
+      this._startCascade(ctx) // garanterar att en passiv lekare också når klockan
+    } else {
+      this._waitingStart = true
+      ctx.services.voice.say('Putta den första brickan!')
+      this._pulseHints()
+    }
+  },
+
+  _firstUnfilledGap() {
+    return this._slots.find((s) => s.isGap && !s.filled) || null
+  },
+
+  // Flyg en reservbricka mjukt ner i luckan och placera den (samma väg som drag).
+  // Fyller det den lucka som stoppade raset fortsätter kedjan automatiskt (_placeTile).
+  _autoFillGap(ctx, slot) {
+    const tile = this._tray.find((t) => !t.placed && !t._auto)
+    if (!tile || tile.view.destroyed) return
+    tile._auto = true
+    this._detachTray(tile) // ev. pågående drag-lyssnare bort
+    tile.view.eventMode = 'none'
+    gsap.killTweensOf(tile.view)
+    gsap.killTweensOf(tile.view.scale)
+    sparkle(ctx.fxLayer, tile.view.x, tile.view.y, { count: 5 })
+    gsap.to(tile.view, {
+      x: slot.x,
+      y: TILE_Y,
+      rotation: 0,
+      duration: 0.55,
+      ease: 'power2.inOut',
+      onComplete: () => {
+        if (this._alive && !tile.view.destroyed && !slot.filled) this._placeTile(ctx, tile, slot)
+      },
+    })
+  },
+
   // Mjuk "klack" när en bricka slår i nästa (strypt mot ljud-spam).
   _onCollision(ctx, e) {
     if (!this._alive) return
@@ -566,6 +681,7 @@ export default {
     if (this._bellEmoji && !this._bellEmoji.destroyed) gsap.killTweensOf(this._bellEmoji)
     if (this._startGlow && !this._startGlow.destroyed) gsap.killTweensOf(this._startGlow.scale)
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onCatch)
+    if (this._startHit && !this._startHit.destroyed) this._startHit.off('pointertap', this._onStart)
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()

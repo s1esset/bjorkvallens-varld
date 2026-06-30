@@ -44,11 +44,11 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 | 21 | `tarta-i-ansiktet` | Svamp att dra över ansiktet (ersätt torka-knapp); tårtkast = fysik-flick | ⬜ |
 | 22 | `plantera-fron` | Vattenslang/kanna, häll vatten→plantor växer över tid | ⬜ |
 | 23 | `vart-tog-det-vagen` | Fler koppar var 3:e nivå; kopparna samma röda färg efter 3 rundor | ✅ |
-| 24 | `rulla-bollen-hem` | Hinder, svårare per stage (annan boll, ytor, vind, hinder) | ⬜ |
+| 24 | `rulla-bollen-hem` | Hinder, svårare per stage (annan boll, ytor, vind, hinder) | ✅ |
 | 25 | `spara-linjen` | Anti-fusk (ej klicka annan prick), fler nivåer, svårare | ✅ |
 | 26 | `enkelt-pussel` | Fler pussel, +1 bit per nivå | ✅ |
 | 27 | `studsbollar` | Flytta boll-typ-knapp ned-höger; bollar krockar med skott-bollen; fixa irriterande studs-sfx + för många bollar | ⬜ |
-| 28 | `studsa-ner` | Naturligare fall (ej magnetisk/konstig gravitation), studsigare | ⬜ |
+| 28 | `studsa-ner` | Naturligare fall (ej magnetisk/konstig gravitation), studsigare | ✅ |
 | 29 | `fyrverkeri` | Inversera sikte (sikta dit du vill, bana följer fingret samma riktning) | ✅ |
 | 30 | `vippbradan` | Fixa gravitation; användaren väljer var vikten släpps; korgen längre ut | ⬜ |
 | 31 | `studsmatta` | Användaren flyttar studsmattan upp/ner för höjd/hastighet | ⬜ |

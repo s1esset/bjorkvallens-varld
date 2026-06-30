@@ -3,9 +3,11 @@
 // ett MÅL: en ficka LYSER (en utropad färg) och myntet du släpper har samma färg —
 // landa i den lysande fickan så fylls en mätare; full mätare = firande + nästa nivå.
 // KONTROLL: innan du släpper DRAR du myntet i sidled högst upp för att välja var det
-// faller (med en mjuk vink om vilken ficka det lutar åt). Inget kan misslyckas: en
-// snäll, växande "bris" styr myntet mot målfickan så det alltid går att lyckas, och en
-// "fel" ficka ger ändå ett glatt plopp (bara ingen poäng) — aldrig ett straff.
+// faller (med en mjuk vink om vilken ficka det lutar åt). Myntet faller HELT naturligt
+// under normal tyngdkraft och studsar livligt mot pinnarna — ingen magnetisk styrning.
+// Inget kan misslyckas: sikta över den lysande fickan, och en "fel" ficka ger ändå ett
+// glatt plopp (bara ingen poäng) — aldrig ett straff. Hjälp-släpp (demo/idle) faller
+// ovanför målfickan, och en mjuk slump-knuff lossar mynt som råkar fastna på en pinne.
 // Nivåer: fler fickor, målet flyttar, fler pinnar. Allt ritas programmatiskt
 // (matter.js + Pixi v8), exit-säkert.
 import { Container, Graphics } from 'pixi.js'
@@ -18,7 +20,7 @@ import { COLORS, DESIGN_W, DESIGN_H, PRAISE } from '../../lib/theme.js'
 
 const MAX_BALLS = 6 // tak för prestanda; äldsta myntet tonar bort över detta
 const TARGET_PER_LEVEL = 3 // antal träffar i målfickan för att fylla mätaren
-const BALL_R = 22
+const BALL_R = 20 // myntradie; lite mindre än pinngapet så det aldrig kilas fast
 const TOP_Y = 56 // var myntet föds (i toppbandet) + var droppar-myntet vilar
 const BOARD_TOP = 140
 const BINS_TOP = 560 // fickornas överkant
@@ -78,8 +80,9 @@ export default {
     this._scene = createScene('candy', { width: ctx.width, height: ctx.height })
     this._root.addChild(this._scene)
 
-    // Fysik: golv + sidoväggar (myntet ramlar in uppifrån).
-    this._phys = new PhysicsWorld({ gravityY: 1.3, walls: ['floor', 'left', 'right'] })
+    // Fysik: golv + sidoväggar (myntet ramlar in uppifrån). Normal nedåtgravitation —
+    // ingen konstig/förstärkt tyngdkraft, myntet faller naturligt.
+    this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
 
     this._buildStatic(ctx)
@@ -406,16 +409,16 @@ export default {
     this._ballLayer.addChild(view)
 
     const body = this._phys.circle(x, TOP_Y, r, {
-      restitution: 0.5,
-      friction: 0.02,
-      frictionAir: 0.003,
+      restitution: 0.72, // livligare studs mot pinnarna (var 0.5)
+      friction: 0.04,
+      frictionAir: 0.006, // lätt luftmotstånd så de livliga studsarna lugnar ner sig och lägger sig
       density: 0.002,
       label: 'ball',
     })
-    // Liten initial knuff mot målet (bias) + pytte slump så det inte fastnar på en pinne.
-    const dx = this._targetCenterX() - x
-    const bias = clamp(dx * (0.010 + this._missStreak * 0.004), -3.0, 3.0)
-    body.velocity.x = bias + (Math.random() - 0.5) * 1.4
+    // INGEN styrning mot målet — myntet faller helt naturligt under tyngdkraften.
+    // Bara en pytteliten slumpfart i sidled så det inte balanserar perfekt rakt
+    // ovanpå första pinnen (precis som ett riktigt plinko-mynt).
+    Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.2, y: 0 })
 
     const ball = { body, view, settled: false }
     this._balls.push(ball)
@@ -441,21 +444,30 @@ export default {
     }
   },
 
-  // ---- Ticker: fysik + snäll "bris" + nedslag + idle -----------------------
+  // ---- Ticker: naturlig fysik + anti-fastnar-knuff + nedslag + idle --------
 
   _update(ctx, t) {
     if (!this._alive) return
     this._phys.update(t.deltaMS)
 
-    // Snäll, växande bris som styr fallande mynt mot målfickan (no-fail-garanti).
-    const cx = this._targetCenterX()
-    const helpA = 0.012 * (1 + this._missStreak * 0.8)
     for (const ball of this._balls) {
       if (ball.settled) continue
       const pos = ball.body.position
-      if (pos.y > 180 && pos.y < BINS_TOP - 10) {
-        const factor = clamp((cx - pos.x) / 120, -1, 1)
-        Body.applyForce(ball.body, pos, { x: ball.body.mass * helpA * factor, y: 0 })
+      // Mjuk anti-fastnar-knuff (ingen styrning): om ett mynt blir nästan stilla
+      // ovanför fickorna (kilat mellan pinnar) får det efter en stund en pytteliten
+      // SLUMPMÄSSIG sidoknuff + en nedåt-nudd så det alltid kommer loss och faller
+      // vidare. Riktningen är slumpad, aldrig mot målet — så det känns naturligt.
+      if (pos.y < SETTLE_Y && ball.body.speed < 0.3) {
+        ball._stall = (ball._stall || 0) + t.deltaMS
+        if (ball._stall > 320) {
+          ball._stall = 0
+          Body.setVelocity(ball.body, {
+            x: (Math.random() - 0.5) * 2.6,
+            y: Math.max(ball.body.velocity.y, 1.4),
+          })
+        }
+      } else {
+        ball._stall = 0
       }
       // Nedslag i en ficka?
       if (pos.y > SETTLE_Y && ball.body.speed < SETTLE_SPEED) {

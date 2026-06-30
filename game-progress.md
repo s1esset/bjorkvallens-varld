@@ -4,7 +4,7 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 22 / 25**
+**Klara: 23 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
@@ -30,11 +30,12 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 20 | `vattenvagen` | Vattenvägen | ✅ | ✅ | ✅ | ✅ | ✅ | Dra rörbitar→rutnät, tap-vrid 90°, lyft sten; flood-fill väg kran→Elviras mugg, droppar fyller→planta blommar; 6s glöd-hint+14s auto-place=no-fail; 0 fel |
 | 21 | `blixt-och-dunder` | Blixt och Dunder | ✅ | ✅ | ✅ | ✅ | ✅ | Dra åskmoln + tap/gnid→ladda; två fulla moln nuddar→ritad blixt böjer till närmsta otända lampa→tänds; Bobo auto-hjälp 7s=no-fail; 0 fel |
 | 22 | `kugghjulen` | Kugghjulen | ✅ | ✅ | ✅ | ✅ | ✅ | Dra kugghjul→pinnar, mesh (dist≈r1+r2), BFS-rotation (depth-paritet, fart∝1/r) veva→hissar Elviras flagga; ghost-hint+auto-fly-in+ratchet=no-fail; +DragController onMiss-hook; test byggde full kedja+flagga; 0 fel |
-| 23 | `gravmaskinen` | Grävmaskinen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 23 | `gravmaskinen` | Grävmaskinen | ✅ | ✅ | ✅ | ✅ | ✅ | Dra skopa→gräv oändlig sandhög, bär+tippa över flak; cellulär falling-sand-sim (CELL10/STEP28) fyller till linjen; auto-pour=no-fail; test fyllde flaket; 0 fel |
 | 24 | `trollblandning` | Trollkarlens Blandning | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#23 gravmaskinen** ✅: Byggd (fräsch agent, egen cellulär falling-sand-sim, ingen matter.js) + simplify-agent (tog bort dött `_lastLandSfx`) + headless-test 0 fel (test grävde+tippade→sand i flaket). CELL 10, Int8Array 52×34, STEP_MS 28, scan nerifrån-upp (ner→diagonal), WALL=9 håller sand i flaket; allt renderas i EN `_sandGfx` per frame (inga per-korn-objekt → exit-säkert i sig). Skopa fyller +movedPx/8≤40, tippa vid släpp→`_spawnGrains`; oändlig hög (statisk ritning); `_autoPour` efter 4 tipp/12s + target ease-down=no-fail. Egen skopa-drag (ej DragController). Röstrader (batchas): voiceIntro / "Full last! Tuut tuut!" / "Gräv mer sand!". Committad.
 - **#22 kugghjulen** ✅: Byggd (fräsch agent, ingen matter.js — geometrisk mesh + analytisk BFS-rotation) + simplify-agent (tog bort döda `_helpFly`+`_decoys`, 4 rader) + headless-test 0 fel (test byggde full kedja röd-vev→grå→lila-mål + hissade flaggan). Mesh: |dist−(rA+rB)|<14; BFS från vev, factor=(depth%2?−1:1)×(R0/r) → fart∝1/r, riktning växlar. No-fail: ghost-gear pulsar på frontier-pinne + 14s/3-miss auto-fly-in rätt hjul + vinsch-ratchet (abs Δ→flaggan stiger båda vevriktningar). Ritar tandade hjul (S50/M66/L84, färgkodade). **Delad lib-tillägg:** DragController fick optional `onMiss?.()`-hook (matchar onCorrect/onWrong-mönstret; `?.`→no-op för 40 andra spel, verifierat säkert). Röstrader (batchas): voiceIntro / "Den greppar! Veva nu!" / "Titta!". Committad.
 - **#21 blixt-och-dunder** ✅: Byggd (fräsch agent, mixed input, ingen matter.js — ritad blixt + laddning + tänd-lampor) + simplify-agent (tog bort dött `_autoHelping`) + headless-test 0 fel (drog moln). Charge +0.34/tap, +0.02/gnid; två fulla moln överlapp (r1+r2−20)→`_strike` ritar 7-segment sicksack-blixt (`{}`-proxy-tween, aldrig GSAP på Graphics), auto-böjer till `_nearestUnlitLamp`; 7s→`_autoHelp` glider 2 mest-laddade ihop=garanterad tändning. makeMascot(54) som Bobo (mascot.js exporterar ej makeBobo). Röstrader (batchas): voiceIntro / "Blixten tände lampan!" / "Titta, Bobo hjälper till!" / "Hela byn lyser nu!". Committad.
 - **#20 vattenvagen** ✅: Byggd (fräsch agent — slog i session-limit innan självverifiering; jag la till i GAMES-array + verifierade själv). Rörrutnät (Where's My Water-stil): DragController tray→cell + tap-vrid 90° + lyft sten; `portsFor`+flood-fill `_recomputePath` kran→mugg; ticker-droppar fyller mugg→`_bloom` (planta→🌸/🌻). No-fail: 6s glöd-hint "Prova ett rör här!" + 14s `_autoHelp` (`_findNextFix`→place/replace/rotate) garanterar väg. Inline-simplify: alla imports/konstanter använda, 0 debug, la till `voice.cancel()` i destroy. Headless-test 0 fel. Röstrader (batchas): voiceIntro / "Nu rinner det!" / "Prova ett rör här!". Committad.

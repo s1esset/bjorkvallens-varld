@@ -15,7 +15,7 @@
 import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration } from '../../lib/feedback.js'
+import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -46,7 +46,7 @@ export default {
   input: 'tap',
   ageRange: [2, 4],
   bundle: 'pruttbad',
-  voiceIntro: 'Tryck på Zackes mage så pruttar det bubblor!',
+  voiceIntro: 'Tryck på Zackes mage så bubblar det! Fyll badet med skum ända upp till linjen.',
 
   // ---- Livscykel ----------------------------------------------------------
 
@@ -58,14 +58,14 @@ export default {
     this._charging = null
     this._resolving = false
     this._idle = 0
+    this._sinceFoam = 0 // anti-stuck-vakt: sekunder sedan skummet senast växte
     this._firstPrutt = false
     this._duckPhase = 0
     this._duckActive = false
     this._duckMoved = false
     this._duckSelected = false
     this._duckBase = { x: DUCK_HOME.x, y: DUCK_HOME.y }
-    this._lastBoing = 0
-    this._lastQuack = 0
+    this._lastSfx = {} // per-ljud strypning (min-intervall) → aldrig sfx varje tick
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._applyLevel()
@@ -79,6 +79,7 @@ export default {
 
     this._buildTub()
     this._buildGoal()
+    this._buildProgress()
     this._buildFoam()
     this._buildWaterTap(ctx)
     this._buildZacke(ctx)
@@ -101,6 +102,20 @@ export default {
     this._levelBoost = Math.min(this._level * 4, 20) // större standardbubblor på högre nivå
   },
 
+  // ---- Ljud med min-intervall (anti-distorsion) ---------------------------
+  // Strypt per nyckel så att tick-/kontakt-ljud (pop, studs) ALDRIG kan staplas
+  // 60 ggr/s till klippning/distorsion. sample-klipp först, annars syntes-fallback.
+  _sound(ctx, sampleKey, fallback, key = sampleKey || fallback, minMs = 120) {
+    if (!this._alive) return
+    const now = performance.now()
+    const last = this._lastSfx[key] || 0
+    if (now - last < minMs) return
+    this._lastSfx[key] = now
+    const a = ctx?.services?.audio
+    if (!a) return
+    if (!sampleKey || !a.sample(sampleKey)) a.sfx(fallback)
+  },
+
   // ---- Scenbyggen ---------------------------------------------------------
 
   _buildTub() {
@@ -119,19 +134,56 @@ export default {
     this._goalGfx = new Graphics()
     this._goalGfx.eventMode = 'none'
     this._root.addChild(this._goalGfx)
-    this._goalMarker = new Text({ text: '🫧', style: { fontFamily: FONT.body, fontSize: 40 } })
+    this._goalMarker = new Text({ text: '🏁', style: { fontFamily: FONT.body, fontSize: 46 } })
     this._goalMarker.anchor.set(0.5)
     this._goalMarker.eventMode = 'none'
     this._root.addChild(this._goalMarker)
     this._drawGoal()
+    this._goalPulse = breathe(this._goalMarker, { scale: 1.16, duration: 1 }) // drar blicken till mållinjen
   },
 
   _drawGoal() {
     const g = this._goalGfx
     if (!g || g.destroyed) return
     g.clear()
-    for (let x = 240; x <= 1010; x += 34) g.circle(x, this._goalY, 5).fill({ color: COLORS.white, alpha: 0.85 })
-    if (!this._goalMarker.destroyed) this._goalMarker.position.set(1042, this._goalY)
+    // Tydlig prickad mållinje "fyll skummet hit".
+    for (let x = 240; x <= 1010; x += 30) {
+      g.circle(x, this._goalY, 6).fill({ color: COLORS.teal, alpha: 0.35 })
+      g.circle(x, this._goalY, 4.5).fill({ color: COLORS.white, alpha: 0.95 })
+    }
+    if (this._goalMarker && !this._goalMarker.destroyed) this._goalMarker.position.set(1046, this._goalY)
+  },
+
+  // Skum-mätare till höger om karet: en tydlig "hur full är jag"-stapel utan läsning.
+  // Stjärnan i toppen = målet; den vita fyllningen stiger mot den när skummet växer.
+  _buildProgress() {
+    this._progGfx = new Graphics()
+    this._progGfx.eventMode = 'none'
+    this._root.addChild(this._progGfx)
+    this._progStar = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: 48 } })
+    this._progStar.anchor.set(0.5)
+    this._progStar.eventMode = 'none'
+    this._progStar.position.set(1163, 232)
+    this._root.addChild(this._progStar)
+    this._drawProgress()
+  },
+
+  _drawProgress() {
+    const g = this._progGfx
+    if (!g || g.destroyed) return
+    const X = 1146,
+      W = 36,
+      TOP = 262,
+      BOT = 604,
+      H = BOT - TOP
+    g.clear()
+    g.roundRect(X, TOP, W, H, 18).fill({ color: COLORS.blue, alpha: 0.16 }).stroke({ width: 5, color: COLORS.teal, alpha: 0.6 })
+    const frac = clamp((this._foam.level || 0) / (this._goalFoam || 1), 0, 1)
+    const fh = H * frac
+    if (fh > 3) {
+      g.roundRect(X + 4, BOT - fh, W - 8, fh, 12).fill({ color: COLORS.white, alpha: 0.95 })
+      g.circle(X + W / 2, BOT - fh, 12).fill({ color: COLORS.white, alpha: 0.98 }) // bubblig topp
+    }
   },
 
   _buildFoam() {
@@ -142,6 +194,7 @@ export default {
   },
 
   _drawFoam() {
+    this._drawProgress()
     const g = this._foamGfx
     if (!g || g.destroyed) return
     g.clear()
@@ -231,8 +284,8 @@ export default {
     view.position.set(x, FLOOR - 30)
     this._root.addChild(view)
     this._charging = { x, r, view }
-    // Riktig prutt (<100ms) eller mjuk syntes.
-    if (!ctx.services.audio.sample('fart')) ctx.services.audio.sfx('soft')
+    // Riktig prutt (<100ms) eller mjuk syntes — strypt så snabba tryck inte staplas.
+    this._sound(ctx, 'fart', 'soft', 'fart', 70)
     pop(this._zacke)
     if (!this._firstPrutt) {
       this._firstPrutt = true
@@ -254,7 +307,7 @@ export default {
     if (this._level >= 2 && Math.random() < 0.35) {
       this._spawnBubble(clamp(c.x + (Math.random() - 0.5) * 120, WALL_L + 30, WALL_R - 30), Math.max(R_MIN, c.r * 0.7))
     }
-    ctx.services.audio.sfx('whoosh')
+    this._sound(ctx, null, 'whoosh', 'whoosh', 90)
   },
 
   _makeBubbleView() {
@@ -313,11 +366,8 @@ export default {
     if (!this._duckMoved && Math.hypot(p.x - this._duckStart.x, p.y - this._duckStart.y) > 12) this._duckMoved = true
     if (this._duckMoved) {
       this._setDuckPos(p.x + this._duckGrab.dx, p.y + this._duckGrab.dy)
-      const now = performance.now()
-      if (now - this._lastQuack > 220) {
-        this._lastQuack = now
-        const a = this._duckCtx?.services?.audio
-        if (a && !a.sample('djur_anka')) a.sfx('pop')
+      if (!this._lastSfx['quack'] || performance.now() - this._lastSfx['quack'] >= 220) {
+        this._sound(this._duckCtx, 'djur_anka', 'pop', 'quack', 220)
         if (this._duck && !this._duck.destroyed) pop(this._duck)
       }
       this._idle = 0
@@ -333,7 +383,7 @@ export default {
     if (!this._duckMoved) {
       // Tap → tap-tap: markera ankan, nästa vatten-tryck glider den dit.
       this._duckSelected = !this._duckSelected
-      if (!ctx.services.audio.sample('djur_anka')) ctx.services.audio.sfx('pop')
+      this._sound(ctx, 'djur_anka', 'pop', 'quack', 180)
       pop(this._duck)
     } else {
       this._duckSelected = false
@@ -360,11 +410,11 @@ export default {
         ease: 'power2.out',
         onUpdate: () => this._setDuckPos(st.x, st.y),
       })
-      if (!ctx.services.audio.sample('djur_anka')) ctx.services.audio.sfx('pop')
+      this._sound(ctx, 'djur_anka', 'pop', 'quack', 180)
       return
     }
     ripple(ctx.fxLayer, p.x, p.y, { color: COLORS.white, maxR: 64 })
-    if (!ctx.services.audio.sample('plopp')) ctx.services.audio.sfx('pop')
+    this._sound(ctx, 'plopp', 'pop', 'plopp', 110)
     // Närliggande bubblor får en liten knuff.
     for (const b of this._bubbles) {
       if (Math.abs(b.x - p.x) < 120 && Math.abs(b.y - p.y) < 140) {
@@ -436,10 +486,11 @@ export default {
         const dot = b.vx * nx + b.vy * ny
         b.vx = (b.vx - 2 * dot * nx) * 0.6
         b.vy = (b.vy - 2 * dot * ny) * 0.6
-        const now = performance.now()
-        if (now - this._lastBoing > 150) {
-          this._lastBoing = now
-          if (!ctx.services.audio.sample('boing')) ctx.services.audio.sfx('soft')
+        // Ljud ENDAST vid en verklig stöt (bubblan är på väg in mot ankan), inte när
+        // en instängd bubbla skaver mot ankan varje frame → ingen distorsion. Plus
+        // strypning som backstop.
+        if (dot < -0.6) {
+          this._sound(ctx, 'boing', 'soft', 'boing', 150)
           if (this._duck && !this._duck.destroyed) wiggle(this._duck)
         }
       }
@@ -458,6 +509,18 @@ export default {
       this._idle = 0
       this._autoHelp(ctx)
     }
+
+    // Anti-stuck-vakt: om skummet inte vuxit på ~4s (t.ex. bubblor fastnat under
+    // ankan) garanterar vi framsteg — poppa den äldsta bubblan, annars fyll lite
+    // skum direkt. Badet kan därför ALDRIG köra fast → når alltid mållinjen.
+    if (!this._resolving) {
+      this._sinceFoam += dt / 60
+      if (this._sinceFoam > 4 && this._foam.level < this._goalFoam) {
+        this._sinceFoam = 0
+        if (this._bubbles.length) this._popBubble(ctx, this._bubbles[0], 0)
+        else this._addFoam(ctx, R_MIN)
+      }
+    }
   },
 
   _popBubble(ctx, b, i) {
@@ -468,13 +531,14 @@ export default {
     puff(ctx.fxLayer, b.x, SURFACE_Y, { count: 6 + (big | 0), color: 0xffffff })
     sparkle(ctx.fxLayer, b.x, SURFACE_Y)
     ripple(ctx.fxLayer, b.x, SURFACE_Y, { color: COLORS.white, maxR: 40 + b.r * 1.4, alpha: 0.6 }) // större bubbla plaskar högre
-    if (!ctx.services.audio.sample('plopp')) ctx.services.audio.sfx('pop')
+    this._sound(ctx, 'plopp', 'pop', 'plopp', 110)
     if (Math.random() < 0.3) floatText(ctx.fxLayer, b.x, SURFACE_Y - 10, randomFrom(['Hihi!', 'Pluff!', '😄', '🫧']))
     this._addFoam(ctx, b.r)
   },
 
   _addFoam(ctx, r) {
     this._foam.level += r * FOAM_K
+    this._sinceFoam = 0 // skummet växte → nollställ anti-stuck-vakten
     this._drawFoam()
     if (!this._resolving && this._foam.level >= this._goalFoam) this._onComplete(ctx)
   },
@@ -486,7 +550,7 @@ export default {
     const x = WALL_L + 80 + Math.random() * (WALL_R - WALL_L - 160)
     const r = 36 + Math.random() * 24 + this._levelBoost
     this._spawnBubble(x, r)
-    if (!ctx.services.audio.sample('fart')) ctx.services.audio.sfx('soft')
+    this._sound(ctx, 'fart', 'soft', 'fart', 70)
   },
 
   // ---- Klart → firande → nytt bad ----------------------------------------
@@ -497,11 +561,12 @@ export default {
     this._held = false
     if (this._charging?.view && !this._charging.view.destroyed) this._charging.view.destroy()
     this._charging = null
-    ctx.services.audio.sfx('celebrate')
+    this._sound(ctx, null, 'celebrate', 'celebrate', 300)
     ctx.services.voice.say(randomFrom(PRAISE))
     if (this._zacke && !this._zacke.destroyed) pop(this._zacke)
     // En glad pruttsvärm.
     this._foam.level = this._goalFoam // håll skummet på linjen under firandet
+    this._drawFoam()
     for (let i = 0; i < 8; i++) {
       const r = 30 + Math.random() * 30
       const x = WALL_L + 60 + Math.random() * (WALL_R - WALL_L - 120)
@@ -519,7 +584,12 @@ export default {
     if (!this._alive) return
     this._applyLevel()
     this._drawGoal()
-    // Töm skummet mjukt.
+    // Rensa kvarvarande firande-bubblor så de inte direkt poppar och fyller det nya
+    // badet igen (det skapade en re-complete-loop = upprepade firanden + ljud-distorsion).
+    this._bubbles.forEach((b) => b.view && !b.view.destroyed && b.view.destroy())
+    this._bubbles.length = 0
+    // Töm skummet mjukt — och RE-ARMA rundan (resolving=false) först NÄR det är tomt,
+    // så en sen pop under tömningen inte kan trigga _onComplete på nytt.
     this._foamTween?.kill()
     const st = { v: this._foam.level }
     this._foamTween = gsap.to(st, {
@@ -530,10 +600,16 @@ export default {
         this._foam.level = st.v
         this._drawFoam()
       },
+      onComplete: () => {
+        if (!this._alive) return
+        this._foam.level = 0
+        this._drawFoam()
+        this._idle = 0
+        this._sinceFoam = 0
+        this._firstPrutt = true // röst-cue redan given denna session
+        this._resolving = false
+      },
     })
-    this._idle = 0
-    this._firstPrutt = true // röst-cue redan given denna session
-    this._resolving = false
   },
 
   // ---- Städning -----------------------------------------------------------
@@ -547,6 +623,7 @@ export default {
     this._roundTimer?.kill()
     this._foamTween?.kill()
     this._duckGlide?.kill()
+    this._goalPulse?.kill() // breathe() tweenar en proxy → måste dödas explicit
 
     // Bubblor är bara ticker-styrda Pixi-objekt → räcker att förstöra dem.
     this._bubbles?.forEach((b) => b.view && !b.view.destroyed && b.view.destroy())

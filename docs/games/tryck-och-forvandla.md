@@ -1,98 +1,111 @@
 # Tryck och Förvandla (`tryck-och-forvandla`)
-> En glad figur står mitt på skärmen och förvandlas till något nytt vid varje tryck — ren orsak-verkan-magi som 2-5-åringar älskar att upprepa i det oändliga.
+> 🎉 roligt · tap · 2–5 år · status: 📝 plan klar
 
-## Metadata
-| id | titleSv | icon | category | input | ageRange | bundle | voiceIntro |
-|----|---------|------|----------|-------|----------|--------|------------|
-| `tryck-och-forvandla` | Tryck och Förvandla | ✨ | roligt | tap | [2, 5] | `tryck-och-forvandla` | Tryck på figuren så förvandlas den! |
+## 1. Nuläge (sett som spelare)
 
-## Mål & mekanik
-Det finns inget mål i traditionell mening — spelet är ren upptäckarlek (orsak-verkan). En stor, glad figur (en emoji renderad i `Text`) står mitt på skärmen i en mjuk "scen-platta". Varje gång barnet trycker på figuren:
-1. Figuren gör en kort puff + studs ('pop'-ljud).
-2. Den byts ut mot nästa emoji i en blandad förvandlingslista (groda → stjärna → katt → …).
-3. Ibland (var n:te förvandling) säger rösten figurens namn ("En katt!").
+På en mjuk ängsscen (sol, kullar, moln) står några "förtrollade" saker på var sin
+rund platta — ett moln, en bil, en stjärna, en måne. Sakerna guppar lugnt (sin-sväv)
+och "andas" (breathe-tween) som en lockelse. Jag trycker på en sak → den squashar ihop,
+en vit poff + ring spricker ut, emojin byts till nästa steg i sin kedja (☁️→🌧️→🌈,
+🚗→🚌→🚀, 🌰→🌱→🌿→🌻 …), en liten emoji flyter uppåt, och saken studsar upp igen.
+Vid sista steget ropar rösten resultatet ("En regnbåge!"), gnistor yr, och en prick
+fylls i raden längst upp. När ALLA saker i omgången är fullt förvandlade kommer
+konfetti + beröm + stjärna + klistermärke, scenen får en mjuk skak, och en ny, lite
+större/längre omgång dyker upp (fler saker, längre kedjor med nivån, tak vid nivå 6).
 
-**Kärnloop:** tryck → pop + förvandling → tryck → pop + förvandling … oändligt.
+Tomt tryck bredvid sakerna ger ett mjukt ljud + ring + gnistor och en slumpsak vinglar
+lekfullt — aldrig "fel". Idle ~7s → en lugn uppmaning ("Vad blir det här?") + en sak
+poppar som ledtråd. Röst är strypt (650ms) så snabba tryck inte staplar tal.
 
-**"Klart"-tillfälle:** Spelet har inget fail-state. För att ge ett tillfredsställande firande räknar vi antal förvandlingar; efter var 8:e förvandling kör vi `ctx.progress.complete()` (firande 1-2s + stjärna + klistermärke) och fortsätter sedan direkt med nästa figur — leken avbryts aldrig. En subtil ring av "stjärnprickar" runt scenplattan fylls i takt med förvandlingarna så barnet ser firandet närma sig (helt utan siffror/läsning).
+**Funkar bra:** kärnan är ren och begriplig (tryck → något blir något nyare/finare,
+alltid), övergångs-animationen (squash→byt→studs) är saftig, no-fail är intakt, och
+progressionen (fler saker + längre kedjor) ger lugn växt. En stark, korrekt MVP.
 
-## Skärm-layout (1280x720)
-Header-knappar (hem/högtalare) ritas av GameHost — rita INTE egna.
-- **Bakgrund:** hela `_root` får en mjuk pastellbakgrund via en `Graphics`-rektangel `0,0 → 1280,720` fylld `COLORS.bg` (0xfdf6e3). Dekorativ, `eventMode='none'`.
-- **Scenplatta:** en rundad `Graphics`-platta centrerad i `(640, 380)`, storlek `420 x 420`, `roundRect(-210,-210,420,420,48).fill(COLORS.cream).stroke({width:8,color:COLORS.orange})`. Ger figuren en tydlig "scen". `eventMode='none'`.
-- **Figur (emoji):** `Text` med `fontSize: 240`, `anchor.set(0.5)`, placerad i `(640, 380)`. Detta är den enda interaktiva ytan. Hit-area utökas (se Interaktion).
-- **Förloppsring:** 8 små `Graphics`-cirklar (radie 12) jämnt fördelade på en cirkel med radie 250 runt `(640, 380)` (vinkel `i/8 * 2π - π/2`). Tomma = `COLORS.inkSoft` alpha 0.25; fyllda = `PLAYFUL[i]`. Dekorativa, `eventMode='none'`.
-- **Marginaler:** minst 120px från headern (toppen). Scenplattan (380±210 = 170…590) håller sig väl innanför 720 och under headern.
+*(Skärmdump: ängsscen, moln/bil/stjärna/måne på pads, konfetti efter klar omgång.)*
 
-## Interaktion
-Endast **TAP**. Inget drag.
-- Figuren (`Text`) får `eventMode='static'`, `cursor='pointer'` och en explicit, generös `hitArea = new Rectangle(-200, -200, 400, 400)` (>=96px med stor marginal) så även små/smala emojier är lätta att träffa.
-- Lyssnare: `figure.on('pointertap', () => this._transform(ctx))`.
-- **Tomt tryck (utanför figuren):** scenplattan och bakgrunden är `eventMode='none'`, så tryck utanför figuren gör inget skadligt. Valfritt (rekommenderas): lägg en heltäckande osynlig bakgrunds-hitruta `eventMode='static'` under figuren som vid tryck ger en mjuk `wiggle(this._figure)` + `audio.sfx('soft')` — så varje pekning får respons <100ms men bara figuren förvandlar.
-- **Ingen dubbeltryck/långtryck/pinch** — endast `pointertap`. Under den korta förvandlingsanimationen (~250ms) sätts `this._resolving = true` så snabba upprepade tryck inte staplar tweens; nya tryck ignoreras tills `false`. (Detta är inte ett "fel" — barnet märker bara att figuren hinner studsa klart.)
+## 2. Ursprunglig plan & tankeprocess
 
-## Återkoppling & belöning
-**Per tryck (<100ms):**
-- Ljud: `ctx.services.audio.sfx('pop')` direkt vid tryck (ibland `'pling'` ~20% för variation).
-- Bild: `puff(this._root, 640, 380, { count: 9 })` + `pop(this._figure)` (studs-puls). Emoji-texten byts mitt i puffen (när skalan är minst) för en "magisk" övergång.
-- Röst: var 3:e förvandling `voice.say('En ' + namn + '!')` (t.ex. "En groda!", "En katt!", "En stjärna!"). Inte varje gång — annars blir det pratigt.
+Enligt kodens header: en "magisk orsak-verkan-lek". Tanken är samma trygga 2-årings-loop
+som Klämbubblor (tryck → kul, alltid) men med ett frö av **berättelse och pedagogik**:
+varje sak har en *livscykel/förvandling* (frö blir blomma, larv blir fjäril, ägg blir
+höna) och rösten sätter ord på svenska på varje resultat. Djupet skruvas no-fail: högre
+nivå = fler saker och längre kedjor (2→3→4 tryck), aldrig svårare på ett bestraffande
+sätt. Blandade kedjelängder gör att korta belöningar finns lågt och längre "bygg upp"
+finns högt.
 
-**Korrekt vs fel:** Det finns inga felsteg. Varje tryck på figuren är "rätt". Tryck bredvid figuren = mjuk `wiggle` + `'soft'` (lekfullt, ALDRIG buzzer/rött/scolding).
+## 3. Vad gör det lättjefullt / tunt
 
-**`ctx.progress.complete()`:** anropas när förvandlingsräknaren når en multipel av 8. Då: fyll sista ringpricken, kör `complete()` (delat firande + stjärna + klistermärke), `voice.say(randomFrom(PRAISE))`, nollställ ringen efter firandet och fortsätt direkt. Inget avbrott, ingen "nästa nivå"-skärm.
+Grunden är gedigen, men en kräsen spelare/förälder ser snabbt det billiga:
 
-**SFX-namn som används:** `'pop'`, `'pling'`, `'soft'`, `'celebrate'` (valfritt vid firande). **Voice:** `voiceIntro` vid mount + idle, figurnamn-fraser, `PRAISE` vid complete.
+- **Varje tryck är en deterministisk emoji-swap.** Trycket avancerar ALLTID till exakt
+  nästa emoji i kedjan — det finns inget val, ingen gren, inget "vad ska det bli?".
+  Spelaren utför en på förhand bestämd sekvens; ingen agens utöver att peka.
+- **Magin är generisk — samma poff för allt.** Ett frö som gror och en bil som blir raket
+  får den *identiska* vita ringen + puffen (`_poof` skiljer bara på stor/liten, inte på
+  *vad*). Inget kedjespecifikt: inga gröna blad när plantan växer, inget regn ur molnet,
+  ingen rök/eld när raketen tänds, inga hjärtan vid djuren. Förvandlingen *berättas* (röst)
+  men *visas* inte med egen karaktär.
+- **Inget förvandlat stannar kvar i världen.** Den färdiga blomman/regnbågen/raketen
+  flyter upp som en liten emoji och försvinner. Ängen blir aldrig en äng *full av blommor*,
+  himlen behåller aldrig regnbågen. Det finns inget att samla, ingen "trädgård som växer".
+- **Sakerna lever inte tillsammans.** De guppar var för sig på sina pads. En klar sol
+  bredvid en planta gör ingenting; en fjäril flyger inte iväg. Scenen är en statisk tapet
+  bakom ett centrerat rutnät av pads.
+- **Pods + prickrad ser "genererat" ut.** Jämn rutnätslayout (`_layout`) med likadana
+  cirkelpads och en abstrakt grå/färgad prickrad — funktionellt men inte lekfullt eller
+  tematiskt.
+- **Ingen figur/maskot.** CLAUDE.md har Bobo; här tittar ingen på, ingen reagerar, ingen
+  "samlar in" det förvandlade. Belöningen är den generiska, delade konfettin.
+- **Tunn ljudpalett.** `pop`/`reveal`/`pling` — inga förvandlingsljud, ingen stigande
+  tonhöjd när kedjan klättrar, ingen ambient.
 
-## Progression & nivåer
-- **Oändlig lek:** aldrig något slut. Efter complete fortsätter samma loop.
-- **`custom.forvandlingar`:** total räknare över förvandlingar (sparas via `ctx.progress.setCustom('forvandlingar', n)`). Driver complete-var-8:e-logiken och kan visas i framtida statistik.
-- **Mjuk svårighetstrappa via `highestLevel`** (helt osynlig för barnet, ändrar bara variation):
-  - Nivå 1 (start): en handfull bekanta figurer (groda, katt, hund, stjärna, blomma).
-  - När `forvandlingar` passerar trösklar (t.ex. 16, 40) höjs nivån med `ctx.progress.setLevel(n)` och fler emojier läggs till i poolen (fordon, frukt, väder) → mer överraskning, aldrig svårare att lyckas.
-- Emoji-sekvensen `shuffle()`:as så samma figur inte upprepas direkt; nästa väljs så den skiljer sig från nuvarande.
+Kort sagt: *snyggt och pedagogiskt korrekt*, men förvandlingen är en **scriptad
+bildbyte utan eget uttryck**, och världen minns inget av det jag skapat.
 
-## Tillgångar (programmatiskt)
-INGA externa filer. Allt ritas med Pixi Graphics + systememoji i `Text`.
-- **Förvandlingsemojier (figurpool):** 🐸 (groda), 🐱 (katt), 🐶 (hund), ⭐ (stjärna), 🌸 (blomma), 🐰 (kanin), 🦋 (fjäril), 🐢 (sköldpadda), 🐝 (bi), 🚗 (bil), 🍎 (äpple), 🌈 (regnbåge), 🐥 (kyckling), 🌟 (glittstjärna), ☀️ (sol). Varje emoji har ett svenskt namn (med åäö) för röst: groda, katt, hund, stjärna, blomma, kanin, fjäril, sköldpadda, bi, bil, äpple, regnbåge, kyckling, stjärna, sol.
-- **Scenplatta:** `Graphics` rundad rektangel (cream-fyll, orange kant).
-- **Bakgrund:** `Graphics` heltäckande rektangel `COLORS.bg`.
-- **Förloppsring:** 8 `Graphics`-cirklar (`PLAYFUL`-färger / `inkSoft`).
-- **Partiklar:** via `puff()`/`bigCelebration()` (genereras programmatiskt).
+## 4. Förbättringar & förhöjningar (plan)
 
-## Återanvänd dessa
-- `lib/feedback.js`: `puff` (förvandlingspuff), `pop` (figurstuds), `wiggle` (tomt tryck), `sparkle`/`bigCelebration` (firande — `complete()` kör redan delat firande).
-- `lib/theme.js`: `COLORS`, `PLAYFUL`, `PRAISE`.
-- `lib/swedish.js`: `randomFrom`, `shuffle`.
-- `ctx.services.audio.sfx`, `ctx.services.voice.say/replayLast`.
-- `ctx.progress`: `complete()`, `setCustom('forvandlingar', n)`, `setLevel(n)`, `get()`.
-- `ctx.ticker` för idle-timern; `gsap` för tweens. Ingen DragController (rent tap-spel), ingen Button (header sköts av GameHost).
+### Kärnloop & agens
+- **[Medium] Det förvandlade stannar i världen.** Sista steget "lämnar pad:en" och blir
+  en del av scenen: blomman planteras i en ängsrad längst ner, regnbågen bågar kvar på
+  himlen, raketen flyger iväg med en svans. Bygg en liten "samling" som fylls över
+  omgångar → en anledning att återkomma och en känsla av att *jag byggde det här*.
+- **[Deep] Grenande förvandlingar = riktigt val.** Vissa saker erbjuder två utfall: tryck
+  på vänster/höger halva (eller varannan tryckning slumpar) → ägg→kyckling *eller*
+  ägg→ankunge, moln→regn *eller* moln→snö. Inget blir fel, men *mitt* tryck avgör vad det
+  blev — agens utan svårighet.
 
-## Edge-cases & städning
-- Sätt `this._alive = true` i `init`, `this._alive = false` först i `destroy`. Alla `gsap.delayedCall`/`onComplete`-callbacks börjar med `if (!this._alive) return`.
-- `this._resolving`-flagga hindrar staplade tweens vid snabba upprepade tryck (undviker "dubbeltryck"-glitch). Återställs i tween-`onComplete`.
-- Vid byte av emoji-text: ändra `figure.text` när skalan är 0 (mitt i pop-timeline) så övergången ser ren ut; återanvänd samma `Text`-objekt (skapa inte nya varje gång → ingen läcka).
-- `destroy(ctx)`: `this._alive = false`; `ctx.ticker.remove(this._tick)`; `gsap.killTweensOf(this._figure)`; `gsap.killTweensOf(this._root)`; döda ev. idle-/delayedCalls; `this._root?.destroy({ children: true })`.
-- Idle-recue: om ingen interaktion på ~6s, `voice.say(this.voiceIntro)` + en liten `pop(this._figure)` som "vinkar". Nollställ idle-timern vid varje tryck.
-- Profilbyte/återinträde: läs `ctx.progress.get().custom.forvandlingar` i `init` för att fortsätta ringfyllningen korrekt (modulo 8).
+### Variation & överraskning
+- **[Quick] Kedjespecifik poff.** Egna partiklar/färg per kedja: gröna blad när växten
+  gror, blå droppar ur molnet, rök + gnistor när raketen tänds, hjärtan vid djuren,
+  stjärnstoft vid måne/stjärna. Direkt mycket mer "magi" för låg insats.
+- **[Quick] Fler kedjor + temarundor.** Utöka poolen och kör ibland tematiska omgångar
+  (en "djur"-runda, en "väder"-runda) så två rundor aldrig känns lika.
+- **[Medium] Grannreaktion.** När en sak blir klar puttar den grannen lite (en klar sol
+  får grannblomman att blomma snabbare / gnistra). Saker som *känns* sammanlänkade.
 
-## Steg-för-steg bygginstruktion
-1. Skapa `src/games/tryck-och-forvandla/index.js`, `export default { ... }` enligt modulkontraktet (kopiera strukturen från `src/games/klambubblor/index.js`).
-2. Fyll metadata: `id`, `titleSv`, `icon: '✨'`, `category: 'roligt'`, `input: 'tap'`, `ageRange: [2,5]`, `bundle: 'tryck-och-forvandla'`, `voiceIntro`.
-3. Definiera figurpoolen som array `[{ emoji: '🐸', namn: 'groda' }, …]` (se Tillgångar).
-4. `init(ctx)`: `this._alive = true`; skapa `this._root = new Container()` + `ctx.stage.addChild(this._root)`. Rita bakgrund, scenplatta, förloppsring (spara cirkel-refs i `this._dots`), och figuren (`this._figure = new Text({...fontSize:240})`, `anchor.set(0.5)`, position `(640,380)`, `hitArea`, `eventMode='static'`, `pointertap`-lyssnare). Läs `forvandlingar` från `ctx.progress.get().custom` och fyll ringen modulo 8.
-5. Implementera `_transform(ctx)`: returnera om `!this._alive || this._resolving`; sätt `_resolving=true`; `audio.sfx('pop'/'pling')`; `puff(...)`; `pop(this._figure)`; välj nästa emoji (skiljt från nuvarande via `shuffle`/`randomFrom`); byt `figure.text` vid skal-botten; öka räknaren + `setCustom`; fyll nästa ringprick; var 3:e → `voice.say('En '+namn+'!')`; var 8:e → `ctx.progress.complete()` + `voice.say(randomFrom(PRAISE))` + nollställ ring; återställ `_resolving=false` i `onComplete`. Höj `setLevel`/utöka pool vid trösklar.
-6. `mount(ctx)`: `ctx.services.voice.say(this.voiceIntro)`.
-7. Idle-tick: `this._tick = (t) => { if(!this._alive) return; this._idle += t.deltaMS/1000; if(this._idle>6){ this._idle=0; voice.say(voiceIntro); pop(this._figure) } }`; `ctx.ticker.add(this._tick)`. Nollställ `this._idle=0` vid varje tryck.
-8. `destroy(ctx)`: enligt Städning ovan.
-9. Registrera i `src/games/registry.js`: `import tryckOchForvandla from './tryck-och-forvandla/index.js'` och lägg till i `GAMES`-arrayen.
-10. `npm run dev`, öppna biblioteket, spela: verifiera hem-knapp, röst-repris, förvandling vid varje tryck, firande var 8:e, och att `forvandlingar` finns kvar efter omladdning.
+### Juice
+- **[Quick] Förvandlingsljud med stigande tonhöjd** — varje steg uppåt i kedjan låter en
+  ton högre, sista steget = ett litet "ta-da". Egen klang per kedjetyp (sprätt för växt,
+  whoosh för raket).
+- **[Quick] Starkare slutpose per sak.** Vid sista steget: stjärnan tindrar, månen får
+  ett mjukt sken, blomman vajar — en kort egen "klar"-animation utöver floatText.
 
-## Acceptanskriterier (Playwright-test)
-- Spelet renderas utan konsolfel (inga felmeddelanden/uncaught i `browser_console_messages`).
-- Vid mount visas en figur centrerad runt (640, 380) och `voiceIntro` triggas (Web Speech anropas / mockas utan fel).
-- Tap på figuren förvandlar den: emoji-texten ändras och ett `'pop'`-ljud + puff-partiklar uppstår (DOM/Pixi-state observerbart, inget fel).
-- Tap utanför figuren ger mjuk respons (`wiggle`/`'soft'`) och förvandlar INTE — ingen buzzer, inget fail-state, inga felmeddelanden.
-- Snabba upprepade tap staplar inte tweens (ingen krasch; `_resolving` hindrar dubbelförvandling under animation).
-- Efter 8 förvandlingar anropas `ctx.progress.complete()` (firande + stjärna + klistermärke registreras) och leken fortsätter direkt utan avbrottsskärm.
-- Progress sparas: `custom.forvandlingar` ökar och kvarstår i localStorage (`pwagames.save.v1`) efter omladdning; ringfyllning återupptas korrekt.
-- Hem-knappen (GameHost) avslutar till biblioteket och `destroy` körs utan kvarvarande tickers/tweens (inga "leak"-fel vid återinträde).
+### Progression
+- **[Medium] Stegtrappa per pod.** Visa små punkter ovanför varje pad (t.ex. ●○○ för en
+  3-stegskedja) så barnet *ser* hur många tryck som är kvar → förväntan och "en till!".
+
+### Karaktär & berättelse
+- **[Deep] Bobo i ängen.** Maskoten vandrar bakom sakerna, säger "Oooh!" när något
+  förvandlas, och vid klar omgång springer fram och "planterar"/samlar det skapade i
+  samlingen — egen vinst-animation istället för generisk konfetti.
+
+### Ljud
+- **[Quick] Varierad resultat-röst** (fler formuleringar per resultat) + en lugn
+  ängs-ambient (fågel/vind) i bakgrunden.
+
+## 5. Status / loggar
+
+- 2026-06-30: Doc skriven (ersätter den gamla bygg-specen med en spelar-granskning).
+  Speltestad (errorCount 0, skärmdump granskad). Inga kodändringar ännu.
+- Rekommenderad första-omgång: **[Quick] kedjespecifik poff + stigande förvandlingsljud +
+  stegtrappa per pod** — störst upplevd magi för minst risk, rör inte kärnloopen.

@@ -1,143 +1,98 @@
 # Tårta i Ansiktet (`tarta-i-ansiktet`)
-> Barnet trycker eller drar en gräddtårta rätt i ansiktet på en skrattande clown som blir härligt kladdig — ren slapstick-glädje utan mål eller fel, och 3-5-åringar älskar den tillåtna busigheten och det stora "PLASK!".
+> 🎉 roligt · mixed · 3–5 år · status: 📝 plan klar
 
-## Metadata
-| Fält | Värde |
-|---|---|
-| id | `tarta-i-ansiktet` |
-| titleSv | `Tårta i Ansiktet` |
-| icon | `🎂` |
-| category | `roligt` |
-| input | `mixed` (tap ELLER enkel drag) |
-| ageRange | `[3, 5]` |
-| bundle | `tarta-i-ansiktet` |
-| voiceIntro | `Kasta tårtan i ansiktet på clownen!` |
+## 1. Nuläge (sett som spelare)
 
-## Mål & mekanik
-Kärnloop (oändlig, helt utan felsteg):
-1. En stor, skrattande clown står mitt på scenen. Längst ner ligger en "tårtbricka" med en gräddtårta som väntar.
-2. Barnet kan antingen **trycka** på tårtan (den flyger automatiskt mot clownens ansikte) eller **dra** tårtan upp mot ansiktet. Båda leder till samma roliga PLASK.
-3. När tårtan träffar ansiktet: grädde-splat täcker ansiktet, clownen skrattar och vinglar, konfetti/gnistror, ljud `pop`+`celebrate`-känsla. Ansiktet blir kladdigare för varje träff (1 -> 2 -> 3 lager grädde).
-4. En **svamp/trasa-knapp** (🧽) dyker upp när ansiktet är kladdigt. Tryck på den -> ansiktet torkas rent med ett `whoosh`, och en ny tårta läggs fram. Barnet kan kasta hur många gånger som helst.
-5. En "runda blir klar" efter att barnet kastat ett visst antal tårtor (se Progression). Då anropas `ctx.progress.complete()` (delat firande + klistermärke), clownen jublar, och en ny färsk runda startar automatiskt.
+Alissa — en stor, glad clown (rött hår/öron, röd näsa, fest-hatt, brett leende) — står på
+en scen med röda ridåer. Längst ner väntar en gräddtårta på en bricka. Jag GREPPAR tårtan,
+drar och SLÄPPER med fart (flick); den flyger i en fysik-båge (gravitation + mjuk styrning
+mot ansiktet) och PLASKAR: 3–5 vita grädde-klumpar studsar fram på ansiktet, en vit puff,
+clownen vinglar + studsar, rösten ropar något busigt ("Plask!", "Mums!", "Oj då!"). En
+prickrad fylls per tårta. När ansiktet blivit kladdigt dyker en SVAMP upp nere till höger:
+jag drar svampen fram och tillbaka över ansiktet och grädden skrubbas bort där den gnuggar,
+tills ansiktet är rent (mjukt "pling" + gnistor). Efter rundans tårtor → firande + stjärna +
+klistermärke, en extra skvätt grädde som guldkant, och en ny fräsch runda.
 
-Det finns inget rätt/fel: varje tryck/drag som når ansiktet är en succé. Tomt tryck (bredvid) ger bara en lekfull liten studs/vingel på tårtan och ett mjukt `soft`-ljud — aldrig en bestraffning.
+No-fail är ordentligt genomtänkt: en svag flick får mjuk auto-hjälp, ren tryckning på tårtan
+*eller* på clownen auto-kastar, ett släpp långt bredvid vinglar och snäpper tillbaka, och vid
+idle börjar svampen auto-torka en klump så det aldrig kan låsa sig. Två leksaker i en: kasta-
+kladda och torka-rent.
 
-## Skärm-layout (1280x720)
-Designkoordinater. GameHost ritar hem-/högtalarknappar i headern — rita INGA egna sådana.
+**Funkar bra:** flick-fysiken känns rolig och "kasta" är intuitivt, splat-ögonblicket är
+tillfredsställande, svamp-skrubbningen är en genuint annorlunda andra-mekanik, och no-fail-
+hjälpen är osynligt generös. En polerad slapstick-loop.
 
-- **Bakgrund**: hel `Graphics` rect 0,0 -> 1280,720, fyll `COLORS.bg` (0xfdf6e3). Dekorativ "scen-golv"-rect y=560..720 i ljus `COLORS.cream`, samt två "ridå"-rektanglar i `COLORS.red` vid vänster (x 0..90) och höger (x 1190..1280), `eventMode='none'`. interaktiva barn av: `interactiveChildren=false` på dekorlagret.
-- **Clown (`_clown` Container)**: centrerad horisontellt, x=640, y=300.
-  - Huvud: `Graphics().circle(0,0,150).fill(0xfff0e0).stroke({width:8,color:0xe8c9b0})`.
-  - Hår: två röda `circle` r=70 vid (-130,-40) och (130,-40), fyll `COLORS.red`.
-  - Röd näsa: `circle(0,40,34).fill(COLORS.red)`.
-  - Ögon: två vita `circle` r=26 vid (-55,-25)/(55,-25) med svarta pupiller r=12.
-  - Leende: emoji-Text `🤡` är INTE huvudkroppen — clownen byggs av Graphics; men en glad mun ritas med `g.arc`/roundRect (en bred röd båge). Alternativt enkelt: använd ansiktsemoji-Text `😄` (fontSize 120) som munuttryck centrerad vid (0,55). Håll det programmatiskt (emoji = Text).
-  - Hatt: liten `roundRect` + `circle` topp ovanpå huvudet (y -150), valfri färg ur `PLAYFUL`.
-  - `_clown.eventMode='static'` så att tap på clownen också registrerar en kastträff (stor träffyta).
-- **Gräddlager (`_splatLayer` Container)** ligger framför clownens ansikte men under svampknappen. Här adderas grädde-splats (vita ojämna `circle`-klumpar) vid varje träff, centrerade kring ansiktet (lokala koordinater i clownen).
-- **Tårtbricka / aktiv tårta (`_cake` Container)**: startposition x=640, y=620. Storlek ~140px bred.
-  - Tårta byggs av: botten `roundRect(-70,-30,140,60,16).fill(0xc98a5a)` (botten), grädde-topp `roundRect(-72,-46,144,30,14).fill(0xffffff)`, ett körsbär `circle(0,-52,14).fill(COLORS.red)`, plus emoji-Text `🍰` (fontSize 90) ovanpå för tydlighet. Hela tårtan har hit-halo: sätt `_cake.hitArea` till en generös rektangel/cirkel (radie ~90).
-- **Svampknapp (`_wipeBtn`)**: visas endast när `_splats > 0`. Placeras nere till höger, x=1120, y=620. Byggs med `lib/Button.js`: `new Button({ icon:'🧽', label:'Torka', width:200, height:120, color:COLORS.blue, services, sound:'whoosh', onTap:()=>this._wipe(ctx), radius:28, stacked:true })`. Minst 96px träffyta uppfylls (200x120).
-- **Räknar-prickar (valfritt, ingen siffra krävs)**: små stjärnor 🌟 uppe (y=70, centrerade) som tänds per kast i rundan för att visa progress utan läsning. Max ~4 prickar.
+*(Skärmdump: clownen Alissa med grädde över nosen, fest-hatt, svamp nere till höger, konfetti.)*
 
-Marginaler: allt interaktivt minst 24px från kanter; tårta och svampknapp minst 96px stora.
+## 2. Ursprunglig plan & tankeprocess
 
-## Interaktion
-Spelet stödjer BÅDA inmatningssätten samtidigt (input: `mixed`):
+Kodens header: "ren slapstick-glädje (3–5 år)". Idén är den tillåtna busigheten — att få
+kasta tårta i ansiktet på någon är förbjuden-rolig för en 4-åring — paketerad helt no-fail
+med en lugnande motpol (torka rent) så leken har både kaos och ordning. Flicken ger äldre barn
+en motorisk gest medan tap-fallback + auto-styrning gör att de minsta alltid träffar. Den
+depicterade människan heter Alissa enligt namnreglerna.
 
-**Tap-läge (enklast, för de minsta):**
-- Tryck på `_cake` (eller på `_clown`) -> `pointertap` -> `this._throw(ctx)`: tårtan animeras (gsap) i en båge från sin position upp till clownens ansikte (mål ~x=640, y=300), skala upp lite, sedan splat. Under flygningen sätts `this._resolving=true` så att inga nya kast triggas förrän träffen är klar.
+## 3. Vad gör det lättjefullt / tunt
 
-**Drag-läge (för de äldre):**
-- Använd `lib/DragController.js`: `this._drag = new DragController({ space:this._root, services:ctx.services })`.
-- `this._drag.addItem(this._cake, { kind:'cake' }, { onCorrect, onWrong })`.
-- `this._drag.addTarget(this._clown, (data)=>data.kind==='cake', { hitRadius:180 })` — stor snäppzon runt ansiktet.
-- `onCorrect(rec, target)` -> samma `_splat`-logik som tap, sedan lägg fram ny tårta. DragController ger tap-tap-fallback gratis (tryck tårta, tryck clown).
-- `onWrong(rec)` -> `wiggle(rec.view)` + `soft`-ljud (DragController spelar redan `soft`), snäpp tillbaka. Aldrig bestraffning.
+Loopen är stark, men slapstickens själva poäng underutnyttjas:
 
-Eftersom DragController redan hanterar pointerdown/up och har tap-tap, kan ren-tap-på-tårtan ses som "tap-tap utan mål". För enkel "tryck = kasta direkt"-känsla: lägg dessutom en separat `pointertap` på `_clown` som direkt kastar närmaste väntande tårta. Dubbelhantering undviks via `this._resolving`-flaggan.
+- **Offret reagerar inte.** Alissa har EN min — samma breda leende — vare sig hon är ren eller
+  helt täckt av grädde. Hon blinkar inte, följer inte tårtan med blicken, blir aldrig förvånad,
+  kisar aldrig, skrattar aldrig till. Ett slapstickspel där den träffade har ett fruset ansikte
+  tappar 80 % av komiken. Hela reaktionen är `wiggle` + `pop`.
+- **Auto-styrningen äter upp siktet.** `_stepFlight` drar tårtan mot ansiktets mitt oavsett hur
+  jag kastar — en flick upp-vänster kröker ändå till samma punkt. "Dra och flicka" har därför
+  nästan noll skicklighetsuttryck; det blir i praktiken ett tap. Jag kan inte sikta på hatten,
+  nosen, eller missa på skoj.
+- **En enda projektil, en enda splat.** Alltid samma gräddtårta, alltid vita cirkel-klumpar i
+  samma slumpkluster. Ingen variation (choklad, bär, vaniljkräm, vattenballong), ingen
+  splat-form utöver cirklar. Träff nummer sex ser likadan ut som träff nummer ett.
+- **Tom scen.** Clownen står ensam mellan två röda ridå-rektanglar. Ingen publik, ingen
+  medspelare, ingen uppbyggnad — slapstick utan reaktion *runt omkring* känns platt.
+- **Torkningen är mekanisk.** Klumparna krymper/tonar bort under svampen — skönt, men ingen
+  squeegee-strimma, inga tvål-bubblor, ingen blank "ren"-glans som följer svampen.
+- **Tunt, generiskt ljud.** `pop`/`pling`/`whoosh`/`soft` + talade splat-ord. Inget riktigt
+  "squelch/plask", ingen komisk boing, inget gnissel när man torkar.
 
-Hit-areor: `_cake.hitArea` cirkel r≈90; `_clown` target hitRadius 180; svampknapp 200x120.
+Kort sagt: mekaniken är gedigen men **slapsticken är enkelriktad** — Alissa är ett orörligt mål,
+inte en medspelare, och flicken har inget att sikta på.
 
-## Återkoppling & belöning
-Per-tryck (<100ms): varje `pointertap`/pickup ger omedelbart `audio.sfx('tap')` och en liten `pop(_cake)`-puls innan flygbågen startar.
+## 4. Förbättringar & förhöjningar (plan)
 
-Lyckad träff (`_splat`):
-- Ljud: `audio.sfx('pop')` vid nedslag, ibland `audio.sfx('pling')` (25% chans) som krydda.
-- Bild: lägg 3-5 vita grädde-`circle`-klumpar i `_splatLayer` runt ansiktet (slumpad offset inom r≈120), `bounceIn` på varje. `puff(ctx.fxLayer, 640, 300, {count:12, color:0xffffff})`. Clownen `wiggle()` + en glad studs (`pop(_clown)`).
-- Röst: slumpa korta glada fraser via `voice.say(randomFrom(['Plask!','Mums!','Hihi!','Pang!','En till!']))`.
-- `_splats++`. När `_splats===1` visas svampknappen (`bounceIn`).
+### Kärnloop & agens
+- **[Medium] Reaktivt ansikte.** Vid träff: ögonen knips, munnen blir ett förvånat "O", hon
+  blinkar bort grädde, kikar fram mellan klumparna. Ögonen FÖLJER tårtan under flygningen.
+  Detta är det enskilt största komiska lyftet och rör inte fysiken.
+- **[Deep] Låt siktet betyda något (fortsatt no-fail).** Dämpa auto-styrningen så flick-
+  riktningen avgör var den landar; missar plaskar på ridån/hatten med ett roligt ljud
+  (aldrig "fel"), och olika träffpunkter belönas: nosen → tut, hatten → den snurrar av.
 
-Torka (`_wipe`):
-- `audio.sfx('whoosh')`, `voice.say('Nu blir clownen ren igen!')`. Töm `_splatLayer` (kill tweens, destroy children), `_splats=0`, dölj svampknappen, lägg fram ny tårta.
+### Variation & överraskning
+- **[Medium] Fler kastobjekt** som roterar per runda — gräddpaj, gul vaniljkräm, rosa bär,
+  vattenballong (blöter, kräver annan torkning). [Quick] varierad splat-färg och -form.
+- **[Quick] Grädden droppar** sakta nedför ansiktet över tid → levande kladd istället för
+  frysta klumpar.
 
-"Fel"/tomt (drag som missar, tap bredvid): `audio.sfx('soft')` (DragController gör detta) + `wiggle(_cake)`. Aldrig buzzer, rött kryss eller tillrättavisning.
+### Juice
+- **[Quick] Riktiga SFX:** squelch/plask vid träff + komisk boing, mikroskak på skärmen
+  skalad efter träffen. Inspelat fniss istället för TTS-ord.
+- **[Quick] Skrubb-känsla:** svampen lämnar en blank, ren strimma + några tvålbubblor medan
+  den gnuggar, och ett mjukt gnissel-ljud.
 
-Runda klar: efter `THROWS_PER_ROUND` kast -> `ctx.progress.complete()` (delat firande 1-2s + stjärna + klistermärke) + `bigCelebration(ctx.fxLayer, {width:1280,height:720})` + `voice.say(randomFrom(PRAISE))`. Därefter `gsap.delayedCall(1.4, ()=>this._newRound(ctx))`.
+### Progression
+- **[Medium] Skrattande publik.** Små ansikten i kanten som fnissar/jublar mer ju kladdigare
+  Alissa blir och kastar konfetti vid rundans slut — ger slapsticken en medskrattande omgivning.
 
-## Progression & nivåer
-- `THROWS_PER_ROUND = 3 + level` där `level = Math.max(0, ctx.progress.get().highestLevel|0)` (clamp till max ~6 så rundan aldrig blir tjatig).
-- Vid runda klar: `ctx.progress.setLevel(level+1)` (höjer highestLevel), `ctx.progress.addStars(1)` sker implicit via `complete()` — använd `complete()` som primär belöning, undvik dubbel-stjärna.
-- `ctx.progress.setCustom('tartor', totalThrows)` — räkna totalt antal kastade tårtor (rolig statistik, ingen press).
-- Svårighet växer mjukt: fler tårtor per runda och (valfritt) clownen guppar lite snabbare i sidled så drag-läget blir lite mer utmanande för 5-åringar. Aldrig snabbare än lekfullt; tap-läge förblir trivialt.
-- Oändlig lek: efter firande startar `_newRound` automatiskt — inget slutläge, ingen game over.
+### Karaktär & berättelse
+- **[Medium] Alissa "svarar".** Busiga repliker med matchande ansiktsanimation ("Hihi, en till!"),
+  och hon duckar ibland på skoj (träffas ändå — no-fail) så hon känns som en lekkamrat.
 
-## Tillgångar (programmatiskt)
-Emoji (renderas som `Text`, full färg, inga filer):
-- 🍰 (tårta på brickan), 🧽 (svampknapp), 😄 (clownens glada mun), 🌟 (progress-prickar), valfritt 🤡 endast som dekor.
+### Ljud
+- **[Quick] Dedikerade plask/skratt-klipp** ersätter de talade orden; lugn cirkus-ambient.
 
-Pixi `Graphics`-former:
-- Clown: `circle` (huvud, hår, näsa, ögon, pupiller), `roundRect`/`circle` (hatt), `arc`/`roundRect` (mun om ej emoji).
-- Tårta: `roundRect` (botten + grädde), `circle` (körsbär).
-- Grädde-splat: flera `circle` i vitt (0xffffff) med slumpad radie/offset.
-- Bakgrund: `rect` (bg, golv, ridåer).
-- Partiklar/konfetti via `feedback.js` (puff/bigCelebration/sparkle).
+## 5. Status / loggar
 
-INGA externa bild- eller ljudfiler. Allt ljud via `ctx.services.audio.sfx(...)`.
-
-## Återanvänd dessa
-- `lib/DragController.js` — drag + tap-tap-fallback (addItem/addTarget med stor hitRadius).
-- `lib/Button.js` — svampknappen (stor träffyta, studs, inbyggt ljud).
-- `lib/feedback.js` — `pop`, `wiggle`, `bounceIn`, `puff`, `sparkle`, `bigCelebration`.
-- `lib/swedish.js` — `randomFrom` (fraser), ev. `shuffle`.
-- `lib/theme.js` — `COLORS`, `FONT`, `PLAYFUL`, `PRAISE`, `DESIGN_W/H`.
-- `ctx.services.audio.sfx` ('tap','pop','pling','whoosh','soft'), `ctx.services.voice.say/replayLast`.
-- `ctx.progress` — `get`, `setLevel`, `setCustom`, `complete`.
-- `ctx.fxLayer` — konfetti/puff ovanpå scenen. `gsap` för all animation.
-
-## Edge-cases & städning
-- Sätt `this._alive=true` i `init`, `this._alive=false` först i `destroy`. Skydda ALLA `gsap.delayedCall`/onComplete-callbacks med `if(!this._alive) return`.
-- `this._resolving`-flagga under tårtans flygning och under firande -> ignorera nya tap/kast så att snabba dubbeltryck inte staplar flera kast eller dubbel-`complete()`.
-- Användaren kan avsluta mitt i en flygbåge eller firande: i `destroy` kör `gsap.killTweensOf` på `_cake`, `_clown`, `_splatLayer` och scenen; `this._drag?.destroy()`; töm pågående splats.
-- Svampknappen ska tas bort/döljas vid `_newRound` och vid `destroy` (Button kan ha egen cleanup — anropa dess destroy om sådan finns, annars `destroy({children:true})`).
-- Undvik att lägga oändligt många grädde-klumpar: cappa `_splatLayer.children` (t.ex. max ~15) eller töm vid varje torka.
-- `destroy(ctx)`: `this._alive=false; ctx.ticker.remove(this._tick); this._drag?.destroy(); gsap.killTweensOf(this._root); this._root?.destroy({ children:true })`.
-
-## Steg-för-steg bygginstruktion
-1. Skapa `src/games/tarta-i-ansiktet/index.js`. Default-exportera GameModule-objektet med metadata enligt tabellen ovan.
-2. `init(ctx)`: sätt `this._alive=true`; skapa `this._root=new Container()` och `ctx.stage.addChild(this._root)`; bygg bakgrund + golv + ridåer (dekorlager, `eventMode='none'`, `interactiveChildren=false`).
-3. Bygg `_buildClown(ctx)` (Graphics-huvud + emoji-mun) på x=640,y=300; `_splatLayer` ovanpå ansiktet; lägg till i `_root`.
-4. Skapa `this._drag = new DragController({ space:this._root, services:ctx.services })`; `addTarget(this._clown, d=>d.kind==='cake', {hitRadius:180})`.
-5. Implementera `_spawnCake(ctx)`: bygg tårtan vid (640,620), sätt generös `hitArea`, `bounceIn`; registrera `_drag.addItem(...)` med `onCorrect`/`onWrong`; lägg dessutom `pointertap` på `_clown` som kastar väntande tårta direkt.
-6. Implementera `_throw(ctx)` (tap-bana, gsap-båge -> `_splat`) och dela splat-logik via `_splat(ctx)`: grädde-klumpar, `puff`, ljud, röst, `wiggle(_clown)`, `_splats++`, visa svampknapp.
-7. Implementera `_wipe(ctx)`: rensa `_splatLayer`, dölj svampknapp, `whoosh`, spawna ny tårta.
-8. Räkna kast; vid `THROWS_PER_ROUND` -> `_finishRound(ctx)`: `setLevel`, `complete()`, `bigCelebration`, röst-beröm, `gsap.delayedCall(1.4, _newRound)`.
-9. `_newRound(ctx)`: nollställ räknare/splats, beräkna ny `THROWS_PER_ROUND` från level, spawna tårta.
-10. Lägg en idle-ticker (`this._tick`) som efter ~6s utan handling kör `voice.say(this.voiceIntro)` + en liten `pop(_cake)` som lockelse; återställ idle vid varje interaktion.
-11. `mount(ctx)`: `ctx.services.voice.say(this.voiceIntro)`.
-12. `destroy(ctx)`: enligt städsektionen.
-13. Registrera i `src/games/registry.js`: `import tartaIAnsiktet from './tarta-i-ansiktet/index.js'` och lägg `tartaIAnsiktet` i `GAMES`-arrayen.
-14. `npm run dev`, öppna biblioteket, spela: verifiera hem-knapp, röst-repris, kast (tap + drag), torka, firande och att progress (highestLevel/tartor) finns kvar efter omladdning.
-
-## Acceptanskriterier (Playwright-test)
-- Spelet monterar utan konsolfel (inga uncaught errors/warnings från Pixi/gsap).
-- Canvas renderas; clownen och en tårta finns i scenen efter `init`/`mount`.
-- Tap på tårtan (eller clownen) utlöser ett kast: efter animationen finns minst ett grädde-objekt i `_splatLayer` (kontrollera via exponerad teststate eller pixeländring/screenshot-diff på ansiktet).
-- Drag av tårtan till clownens ansikte resolvar som korrekt (splat läggs till); drag som släpps långt bredvid snäpper tillbaka utan att lägga splat och utan fel i konsolen (mjuk respons).
-- Svampknappen dyker upp efter första träffen och tar bort grädden vid tryck (`_splats` -> 0).
-- Efter `THROWS_PER_ROUND` kast anropas `ctx.progress.complete()` (firande/konfetti syns; stjärna/klistermärke registreras) och en ny runda startar automatiskt.
-- Progress persisterar: `highestLevel` och `custom.tartor` finns i localStorage (`pwagames.save.v1`) efter en runda och överlever sidomladdning.
-- Inga felsteg: tomt/missat tryck ger aldrig buzzer/rött kryss; endast `soft`-ljud + vingel.
-- Snabba upprepade tap under pågående flygning/firande skapar inte dubbla kast eller dubbel `complete()` (verifiera via `_resolving`-flagga / oförändrat antal kast).
-- `destroy()` körs utan fel vid hem-knapp mitt i en animation (inga kvarvarande tickers/tweens som loggar efter unmount).
+- 2026-06-30: Doc skriven (ersätter den gamla bygg-specen med en spelar-granskning).
+  Speltestad (errorCount 0, skärmdump granskad — Alissa med grädde + svamp). Inga kodändringar.
+- Rekommenderad första-omgång: **[Medium] reaktivt ansikte + [Quick] riktiga plask-SFX** — gör
+  Alissa till en medspelare och får slapsticken att landa. Siktet (Deep) kan vänta.

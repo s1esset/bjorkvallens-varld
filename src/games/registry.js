@@ -63,8 +63,9 @@ import glasstornet from './glasstornet/index.js'
 import golvetArLava from './golvet-ar-lava/index.js'
 import vattenvagen from './vattenvagen/index.js'
 import blixtOchDunder from './blixt-och-dunder/index.js'
+import kugghjulen from './kugghjulen/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret, vartTogDetVagen, vadForsvann, byggTornet, rullaBollenHem, siffertaget, sparaLinjen, harmaMelodin, foljSparet, studsbollar, djurorkester, studsaNer, fyrverkeri, fangaFrukten, vippbradan, domino, studsmatta, sapbubblor, knuffaTornet, spindelhjalten, enhorningenElvira, bajsOchKiss, regnbagsmalaren, pruttbad, valpensBajs, enhorningGlitterbajs, tvattaDjuret, ballonglyft, gungan, lagerelden, spindelnatet, magnetFiske, fallskarmen, enhorningenFlyger, spindelZackeSvingar, bowling, flipperspel, kulbana, snobollen, glasstornet, golvetArLava, vattenvagen, blixtOchDunder]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret, vartTogDetVagen, vadForsvann, byggTornet, rullaBollenHem, siffertaget, sparaLinjen, harmaMelodin, foljSparet, studsbollar, djurorkester, studsaNer, fyrverkeri, fangaFrukten, vippbradan, domino, studsmatta, sapbubblor, knuffaTornet, spindelhjalten, enhorningenElvira, bajsOchKiss, regnbagsmalaren, pruttbad, valpensBajs, enhorningGlitterbajs, tvattaDjuret, ballonglyft, gungan, lagerelden, spindelnatet, magnetFiske, fallskarmen, enhorningenFlyger, spindelZackeSvingar, bowling, flipperspel, kulbana, snobollen, glasstornet, golvetArLava, vattenvagen, blixtOchDunder, kugghjulen]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

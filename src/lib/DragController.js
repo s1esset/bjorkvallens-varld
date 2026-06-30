@@ -133,6 +133,7 @@ export class DragController {
       this._snapHome(rec)
     } else {
       this._snapHome(rec)
+      rec.hooks.onMiss?.(rec)
     }
   }
 

@@ -4,7 +4,7 @@ Mål: 25 helt nya, mer polerade spel med bättre fysik & mer spelarpåverkan. Pl
 Specar: `docs/games/<id>.md`. 1 spel/fas (färsk session) → bygg → simplify → test → fix → commit.
 Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 
-**Klara: 19 / 25**
+**Klara: 20 / 25**
 
 | # | id | Titel | Spec | Bygg | Simplify | Test | Commit | Anteckningar |
 |---|----|-------|:----:|:----:|:--------:|:----:|:------:|--------------|
@@ -27,7 +27,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 17 | `snobollen` | Snöbollen | ✅ | ✅ | ✅ | ✅ | ✅ | Dra→styr rullande snöboll, växer (Body.scale) genom snöfält, välter mål→bygger snögubbe; auto-grow=no-fail; test byggde snögubbe; 0 fel |
 | 18 | `glasstornet` | Glasstornet | ✅ | ✅ | ✅ | ✅ | ✅ | Dra glasskula+släpp→stapla på vinglig strut (matter sway), klister-toggle; tappad kula=ny (no-fail), magnet-hjälp når mål; 0 fel |
 | 19 | `golvet-ar-lava` | Golvet är Lava | ✅ | ✅ | ✅ | ✅ | ✅ | Dra trampstenar över lava→Zacke/Alissa auto-hoppar (parabel) till skatten; studs-sten räckvidd 460; moln räddar=no-fail; namn-fix; 0 fel |
-| 20 | `vattenvagen` | Vattenvägen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 20 | `vattenvagen` | Vattenvägen | ✅ | ✅ | ✅ | ✅ | ✅ | Dra rörbitar→rutnät, tap-vrid 90°, lyft sten; flood-fill väg kran→Elviras mugg, droppar fyller→planta blommar; 6s glöd-hint+14s auto-place=no-fail; 0 fel |
 | 21 | `blixt-och-dunder` | Blixt och Dunder | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 22 | `kugghjulen` | Kugghjulen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 | 23 | `gravmaskinen` | Grävmaskinen | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
@@ -35,6 +35,7 @@ Status: ⬜ ej påbörjad · 🟦 spec klar · 🟨 byggs/testas · ✅ klar.
 | 25 | `loopdjuren` | Loopdjuren | 🟦 | ⬜ | ⬜ | ⬜ | ⬜ | |
 
 ## Byggplan-2-logg
+- **#20 vattenvagen** ✅: Byggd (fräsch agent — slog i session-limit innan självverifiering; jag la till i GAMES-array + verifierade själv). Rörrutnät (Where's My Water-stil): DragController tray→cell + tap-vrid 90° + lyft sten; `portsFor`+flood-fill `_recomputePath` kran→mugg; ticker-droppar fyller mugg→`_bloom` (planta→🌸/🌻). No-fail: 6s glöd-hint "Prova ett rör här!" + 14s `_autoHelp` (`_findNextFix`→place/replace/rotate) garanterar väg. Inline-simplify: alla imports/konstanter använda, 0 debug, la till `voice.cancel()` i destroy. Headless-test 0 fel. Röstrader (batchas): voiceIntro / "Nu rinner det!" / "Prova ett rör här!". Committad.
 - **#19 golvet-ar-lava** ✅: Byggd (fräsch agent, egna ticker-integratorer: parabel-hopp + lavabubbel-pool, ej matter.js) + min namn-fix (mount säger rätt nivå-namn Zacke/Alissa istället för hårdkodad Zacke) + simplify-agent (extraherade `_settleStone`) + headless-test 0 fel (drog 2 stenar). Räckvidd 280 (studs-sten 460), gap för stort→moln lyfter över (fniss)=ingen fall-i-lava-gren alls. Stenar fri-placering/snäpp 72px. Röstrader (batchas): dyn. intro / "Hej hopp!". Committad.
 - **#18 glasstornet** ✅: Byggd (fräsch agent, matter.js dynamiska kulor + gravity-sway) + simplify-agent (inga ändringar — ren) + headless-test 0 fel (drog+släppte 2 kulor staplade). gravityY 1.0, scoops dynamiska (aldrig setStatic) → tornet vinglar; sway amp 0.10–0.20 lutar gravity-x; rest <0.6 i 350ms; klister-toggle (mer friktion); tappad kula=ny (räknar bara liggande); 3 fall el. 8s→magnet-styr nästa kula centrerat = no-fail. Röstrader (batchas): voiceIntro / "En till!" / "Så fint!". Committad.
 - **#17 snobollen** ✅: Byggd (fräsch agent, matter.js + Body.scale-tillväxt) + simplify-agent (tog bort dött `_toppled`) + headless-test 0 fel (test rullade→byggde snögubbe+konfetti). gravityY 1.1, boll r40→110 (+12/snöfält, massa via density auto), styr 0.09/±9 + knuff +6/+1, speed clamp 22; auto-grow vid mål + auto-knuff vid stall = no-fail. Röstrader (batchas): voiceIntro / "Lite mer snö!" / "Jag hjälper till!" / "Titta — en snögubbe! Bravo!". Committad.

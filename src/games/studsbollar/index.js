@@ -1,15 +1,16 @@
-// Studsbollar — fysik-korgspel (2–5 år). KÄRNAN bevarad: tryck var som helst så
-// släpps en glad, glansig boll som faller, studsar och krockar med de andra och
-// väggarna (matter.js). NU med ett MÅL: en glödande korg står på planen — få N
-// bollar i korgen så fylls korg-mätaren; full mätare => stort firande + nästa nivå.
+// Studsbollar — fysik-korgspel (2–5 år). EN boll i taget skjuts: barnet siktar &
+// skjuter den enda redo-bollen mot en glödande korg. I fältet vilar några mål-/hinder-
+// bollar som skottet KROCKAR med (riktig matter.js-kollision) — de kan knuffas och
+// studsa vidare in i korgen för en bonuspoäng. INGEN ändlös spawn på klick längre.
+// MÅL: få N bollar i korgen så fylls korg-mätaren; full mätare => firande + nästa nivå.
 // Två kontroller styr utfallet (riktig fysik):
-//   (a) SIKTA & SKJUT: barnet greppar en boll på avskjutningsplattan och drar för att
+//   (a) SIKTA & SKJUT: barnet greppar redo-bollen på avskjutningsplattan och drar för att
 //       välja riktning + kraft (prickad kastbåge via AimLauncher); vid släpp flyger
-//       bollen som en matter-kropp i en båge mot korgen. Litet drag = tap -> lagom
-//       skott mot korgen (tap-fallback för de minsta).
-//   (b) BOLL-TYP: en stor knapp växlar "Studsig 🤾" (MATERIALS.bouncy: hög studs, lätt)
-//       <-> "Tung 🪨" (MATERIALS.heavy: tung, låg studs, mer momentum) — valet syns
-//       direkt på både skjutna OCH nedsläppta bollar.
+//       bollen som en matter-kropp i en båge mot korgen och studsar mot hinder-bollarna.
+//       Litet drag = tap -> lagom skott mot korgen (tap-fallback för de minsta).
+//   (b) BOLL-TYP: en stor knapp NERE TILL HÖGER växlar "Studsig 🤾" (MATERIALS.bouncy:
+//       hög studs, lätt) <-> "Tung 🪨" (MATERIALS.heavy: tung, låg studs, mer momentum)
+//       — valet syns direkt på skottet.
 // INGET game-over: missar studsar bara vidare i gropen (mjukt ljud + studs), och efter
 // ett par missade skott hjälper spelet till med en garanterad lobb rakt i korgen.
 // Mätaren går bara UPP. Allt ritas programmatiskt (Pixi Graphics + emoji), exit-säkert.
@@ -31,7 +32,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const SCORE_PRAISE = ['I korgen! Bravo!', 'Pang i korgen!', 'Vilket skott!', 'Mitt i korgen!']
 const MISS_SAY = ['Hoppsan! Försök igen!', 'Nästan! En gång till!', 'Studs studs – kör igen!']
 const FULL_SAY = ['Korgen är full! Hurra!', 'Korgmästare! Bravo!', 'Vilket korg-rekord!']
-const IDLE_CUES = ['Sikta och skjut bollen i korgen!', 'Dra bollen och släpp mot korgen!', 'Tryck också var som helst för fler bollar!']
+const IDLE_CUES = ['Sikta och skjut bollen i korgen!', 'Dra bollen och släpp mot korgen!', 'Studsa bollen mot de andra bollarna!']
 
 export default {
   id: 'studsbollar',
@@ -90,9 +91,7 @@ export default {
   mount(ctx) {
     this._idle = 0
     ctx.services.voice.say(this.voiceIntro)
-    // Ett par fria bollar direkt så gropen lever (visar kärn-mekaniken).
-    this._drop(ctx, ctx.width * 0.55)
-    this._dropTimer = gsap.delayedCall(0.4, () => this._alive && this._drop(ctx, ctx.width * 0.72))
+    // Mål-/hinder-bollarna seedas i _loadLevel (init) — ingen spawn på klick längre.
   },
 
   // ---- Scen (byggs en gång) -----------------------------------------------
@@ -101,17 +100,11 @@ export default {
     // Glad himmel-bakgrund (egen golvgrop ritas separat).
     this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height, ground: false }))
 
-    // Heltäckande, osynlig "fångare": tryck var som helst -> släpp en fri boll.
-    this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
-    this._catcher.eventMode = 'static'
-    this._onFieldTap = (ev) => {
-      const p = this._root.toLocal(ev.global)
-      this._drop(ctx, p.x)
-    }
-    this._catcher.on('pointertap', this._onFieldTap)
-    this._root.addChild(this._catcher)
+    // (Tidigare fanns här en heltäckande "fångare" som släppte en ny boll vid varje
+    // klick — den gav alldeles för många bollar. Borttagen: nu skjuts EN boll i taget
+    // och mål-/hinder-bollarna seedas per nivå.)
 
-    // Golvgrop (visuell) — eventMode none (tap faller igenom till fångaren).
+    // Golvgrop (visuell) — eventMode none (skottet ägs av redo-bollen/launchern).
     const floor = new Graphics()
     floor.rect(0, FLOOR_Y, ctx.width, ctx.height - FLOOR_Y).fill(0x86d27a)
     floor.rect(0, FLOOR_Y, ctx.width, 12).fill({ color: 0x5bbf6a, alpha: 0.8 })
@@ -199,7 +192,9 @@ export default {
       sound: 'tap',
       onTap: () => this._toggleMaterial(ctx),
     })
-    this._matBtn.position.set(440, 656)
+    // Nere till HÖGER (ägarfeedback). Center-origo + 24px hit-halo -> ryms i hörnet
+    // (210x104: halo-höger = 1150+105+24 = 1279, halo-botten = 626+52+24+8 = 710).
+    this._matBtn.position.set(1150, 626)
     this._root.addChild(this._matBtn)
   },
 
@@ -223,7 +218,17 @@ export default {
     this._setBasket(x, scale)
     this._drawMeter()
     this._clearBalls()
+    this._seedTargets(ctx)
     this._readyNext(ctx)
+  },
+
+  // Några vilande mål-/hinder-bollar i fältet (mellan plattan och korgen) som skottet
+  // KROCKAR med (riktig matter.js-kollision). De kan knuffas/studsa in i korgen för en
+  // bonuspoäng. Fast antal per nivå — ALDRIG ändlös spawn. (x:520/650/780 ligger alltid
+  // till vänster om korgen vars x ≥ 820, så de auto-poängar aldrig av sig själva.)
+  _seedTargets(ctx) {
+    if (!this._alive) return
+    for (const x of [520, 650, 780]) this._drop(ctx, x)
   },
 
   _setBasket(x, scale) {
@@ -312,7 +317,7 @@ export default {
     this._buildMatButton(ctx)
     pop(this._matBtn)
     sparkle(ctx.fxLayer, this._matBtn.x, this._matBtn.y - 30, { count: 5 })
-    ctx.services.audio.sfx(m.key === 'bouncy' ? 'boing' : 'soft')
+    ctx.services.audio.sfx(m.key === 'bouncy' ? 'pop' : 'soft')
     ctx.services.voice.say(`${m.label} boll!`)
     if (this._ready && !this._flying) this._redrawReady()
   },
@@ -335,7 +340,7 @@ export default {
     this._flying = true
     this._flightTime = 0
     this._restTime = 0
-    ctx.services.audio.sfx(m.key === 'bouncy' ? 'boing' : 'whoosh')
+    ctx.services.audio.sfx('whoosh')
 
     // Garanterad lobb efter ett par missar (snäll hjälp, aldrig straff).
     if (this._assistNext) {
@@ -443,13 +448,16 @@ export default {
         continue
       }
       if (a.label === 'ball' || b.label === 'ball') {
+        // Studsljud: HÅRT strypt + bara på rejäla studsar + MJUKT ljud (ägarfeedback:
+        // det gamla "boing" vid varje kontakt var irriterande). >=140ms mellan ljud,
+        // hög fart-tröskel, och 'pop'/'soft' istället för den hårda boingen.
         const now = performance.now()
-        if (now - this._lastBounce > 90) {
+        if (now - this._lastBounce >= 140) {
           const sp = (a.speed || 0) + (b.speed || 0)
-          if (sp > 3.4) {
+          if (sp > 6) {
             this._lastBounce = now
             const ball = a.label === 'ball' ? a : b
-            ctx.services.audio.sfx(ball.barnMaterial === 'heavy' ? 'soft' : 'boing')
+            ctx.services.audio.sfx(ball.barnMaterial === 'heavy' ? 'soft' : 'pop')
           }
         }
       }
@@ -653,7 +661,6 @@ export default {
     this._readyBreathe?.kill()
     this._basketTween?.kill()
 
-    if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onFieldTap)
     if (this._readyBall && !this._readyBall.destroyed) {
       gsap.killTweensOf(this._readyBall)
       gsap.killTweensOf(this._readyBall.scale)

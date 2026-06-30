@@ -313,9 +313,15 @@ export default {
     this._unicorn.position.set(p.x, p.y)
   },
 
-  // Svep-fraktion: vänster kant → 0, höger kant → 1 (förlåtande, även plant svep fyller).
+  // Svep-fraktion = VINKEL runt regnbågens centrum (vänster fäste → 0, topp → 0.5,
+  // höger fäste → 1). Vinkel-baserat (inte x-baserat) gör fyllningen radie-oberoende:
+  // ett svep längs VILKEN båge som helst — även de innersta, smala — täcker 0→1 helt.
   _fracAt(p) {
-    return Math.max(0, Math.min(1, (p.x - (CX - RMAX)) / (2 * RMAX)))
+    const dx = p.x - CX
+    const dy = p.y - CY
+    let theta = Math.atan2(dy, dx) // -π..π; ovanför centrum (dy<0) → -π..0
+    if (theta > 0) theta = dx >= 0 ? 0 : -Math.PI // under centrumlinjen → snäpp till närmsta fäste
+    return Math.max(0, Math.min(1, (theta + Math.PI) / Math.PI))
   },
 
   _paintAt(ctx, p) {
@@ -502,8 +508,10 @@ export default {
     while (start < this._K && arc.covered.has(start)) start++
     const cells = [start, start + 1, start + 2, start + 3]
     const f = (start + 1.5) / this._K
-    const px = CX - RMAX + f * 2 * RMAX
-    const py = CY - arc.R
+    // Placera enhörningen PÅ den aktiva bågens egen radie (vinkel π→2π).
+    const ang = Math.PI + f * Math.PI
+    const px = CX + arc.R * Math.cos(ang)
+    const py = CY + arc.R * Math.sin(ang)
     if (this._unicorn && !this._unicorn.destroyed) {
       gsap.killTweensOf(this._unicorn)
       gsap.to(this._unicorn, { x: px, y: py, duration: 0.4, ease: 'power2.inOut' })

@@ -67,6 +67,8 @@ export class AudioService {
     if (!this._s.sfxEnabled) return
     const c = this._ensure()
     if (!c) return
+    // Vinstljudet varieras varje gång så det inte blir enformigt (se _celebrate).
+    if (name === 'celebrate') return this._celebrate()
     // Riktigt klipp om det finns och är avkodat, annars procedurell syntes nedan.
     if (this._playSample(name)) return
     const rnd = (a, b) => a + Math.random() * (b - a)
@@ -123,6 +125,49 @@ export class AudioService {
       default:
         this._tone({ freq: 500, dur: 0.1, type: 'sine', vol: 0.2 })
     }
+  }
+
+  // Vinstljud med variation så det inte tröttar ut (användarfeedback: "win sound
+  // getts annoying fast"). Riktigt klipp → lätt pitch/tempo-variation + ibland en
+  // glittertopp; annars slumpas en glad fanfar bland flera tonarter/mönster.
+  _celebrate() {
+    const c = this.ctx
+    if (!c) return
+    const rnd = (a, b) => a + Math.random() * (b - a)
+    const master = Math.max(0.0001, this._s.masterVolume ?? 0.8)
+    const buf = this._samples.get('celebrate')
+    if (buf) {
+      try {
+        const src = c.createBufferSource()
+        src.buffer = buf
+        src.playbackRate.value = rnd(0.92, 1.12) // varierad tonhöjd/tempo
+        const g = c.createGain()
+        g.gain.value = master
+        src.connect(g).connect(c.destination)
+        src.start()
+        if (Math.random() < 0.5) this._tone({ freq: rnd(1500, 2100), dur: 0.18, type: 'sine', vol: 0.13, delay: rnd(0.18, 0.4) })
+        return
+      } catch {
+        /* falla till syntes nedan */
+      }
+    } else if (this._sampleUrls.has('celebrate')) {
+      this._decodeOne('celebrate') // värm upp till nästa gång
+    }
+    // Syntes-fallback: slumpa tonart + arpeggio-mönster så varje vinst låter ny.
+    const root = [523.25, 587.33, 659.25, 698.46][Math.floor(Math.random() * 4)] // C/D/E/F-dur-ish
+    const patterns = [[0, 4, 7, 12], [0, 7, 4, 12], [0, 4, 7, 11], [0, 5, 9, 12], [7, 4, 0, 12], [0, 4, 9, 12]]
+    const pat = patterns[Math.floor(Math.random() * patterns.length)]
+    const type = Math.random() < 0.5 ? 'triangle' : 'sine'
+    const step = rnd(0.1, 0.14)
+    this._seq(
+      pat.map((s, i) => ({
+        freq: root * Math.pow(2, s / 12),
+        dur: i === pat.length - 1 ? 0.34 : 0.16,
+        type,
+        vol: 0.32,
+        delay: i * step,
+      }))
+    )
   }
 
   // --- förinspelade riktiga klipp (offline, genererade av scripts/gen-sfx.py) ---

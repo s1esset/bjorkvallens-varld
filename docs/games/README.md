@@ -107,40 +107,43 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 59 | Glasstornet | `glasstornet` | drag | 📝 |
 | 64 | Grävmaskinen | `gravmaskinen` | drag | 📝 |
 
-### 🧩 Pussel (pussel + minne + drag)
+### 🧩 Pussel (pussel + minne + drag) — ✅ alla docs skrivna (Fas 3)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
-| 2 | Sortera Skräp | `sortera-skrap` | drag | ⬜ |
-| 3 | Vändkort | `vandkort` | tap | ⬜ |
-| 8 | Mata Monstret | `mata-monstret` | mixed | ⬜ |
-| 13 | Stor och Liten | `stor-liten` | drag | ⬜ |
-| 15 | Klä på Nallen | `kla-pa-nallen` | drag | ⬜ |
-| 16 | Plantera Frön | `plantera-fron` | drag | ⬜ |
-| 17 | Skuggmatchning | `skuggmatchning` | drag | ⬜ |
-| 18 | Enkelt Pussel | `enkelt-pussel` | drag | ⬜ |
-| 21 | Vart Tog Det Vägen? | `vart-tog-det-vagen` | tap | ⬜ |
-| 22 | Vad Försvann? | `vad-forsvann` | tap | ⬜ |
-| 27 | Härma Melodin | `harma-melodin` | tap | ⬜ |
-| 28 | Följ Spåret | `folj-sparet` | tap | ⬜ |
-| 51 | Magnetfiske | `magnet-fiske` | drag | ⬜ |
-| 57 | Kulbanan | `kulbana` | drag | ⬜ |
-| 60 | Golvet är Lava | `golvet-ar-lava` | drag | ⬜ |
-| 61 | Vattenvägen | `vattenvagen` | drag | ⬜ |
-| 63 | Kugghjulen | `kugghjulen` | drag | ⬜ |
-| 65 | Trollkarlens Blandning | `trollblandning` | drag | ⬜ |
+| 2 | Sortera Skräp | `sortera-skrap` | drag | 📝 |
+| 3 | Vändkort | `vandkort` | tap | 📝 |
+| 8 | Mata Monstret | `mata-monstret` | mixed | 📝 |
+| 13 | Stor och Liten | `stor-liten` | drag | 📝 |
+| 15 | Klä på Nallen | `kla-pa-nallen` | drag | 📝 |
+| 16 | Plantera Frön | `plantera-fron` | drag | 📝 |
+| 17 | Skuggmatchning | `skuggmatchning` | drag | 📝 |
+| 18 | Enkelt Pussel | `enkelt-pussel` | drag | 📝 |
+| 21 | Vart Tog Det Vägen? | `vart-tog-det-vagen` | tap | 📝 |
+| 22 | Vad Försvann? | `vad-forsvann` | tap | 📝 |
+| 27 | Härma Melodin | `harma-melodin` | tap | 📝 |
+| 28 | Följ Spåret | `folj-sparet` | tap | 📝 |
+| 51 | Magnetfiske | `magnet-fiske` | drag | 📝 |
+| 57 | Kulbanan | `kulbana` | drag | 📝 |
+| 60 | Golvet är Lava | `golvet-ar-lava` | drag | 📝 |
+| 61 | Vattenvägen | `vattenvagen` | drag | 📝 |
+| 63 | Kugghjulen | `kugghjulen` | drag | 📝 |
+| 65 | Trollkarlens Blandning | `trollblandning` | drag | 📝 |
 
-### 🔤 Lära (larande + pedagogiskt)
+### 🔤 Lära (larande + pedagogiskt) — ✅ alla docs skrivna (Fas 4)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
-| 7 | Färgregn | `fargregn` | tap | ⬜ |
-| 9 | Räkna Äpplena | `rakna-applen` | tap | ⬜ |
-| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | ⬜ |
-| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | ⬜ |
-| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | ⬜ |
-| 25 | Siffertåget | `siffertaget` | mixed | ⬜ |
-| 30 | Djurorkester | `djurorkester` | tap | ⬜ |
-| 47 | Ballonglyft | `ballonglyft` | tap | ⬜ |
-| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | ⬜ |
+| 7 | Färgregn | `fargregn` | tap | 📝 |
+| 9 | Räkna Äpplena | `rakna-applen` | tap | 📝 |
+| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | 📝 |
+| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | 📝 |
+| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | 📝 |
+| 25 | Siffertåget | `siffertaget` | mixed | 📝 |
+| 30 | Djurorkester | `djurorkester` | tap | 📝 |
+| 47 | Ballonglyft | `ballonglyft` | tap | 📝 |
+| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | 📝 |
+
+**✅ Alla 68 spel granskade (Fas 1–4 klara). Nästa steg: genomför förbättringarna spel för spel
+(samma redigera→test→screenshot→commit-loop), prioriterat efter de app-breda mönstren nedan.**
 
 ## Återkommande mönster (app-breda lyft)
 
@@ -166,6 +169,12 @@ ger lyft i *många* spel:
   maskot per scen.
 - **Generisk belöning.** Samma konfetti+stjärna överallt. *Grepp:* spel-specifik finish (skära &
   servera, samla i en bok, publik som reser sig).
+- **"Musik"-spel utan riktig ton.** harma-melodin, folj-sparet, loopdjuren, djurorkester använder
+  generiska UI-blipp (`pling/pop/flip`) utan tonhöjd → låter aldrig som musik. *Grepp:* ge
+  plattor/klossar en stämd skala (pentatonisk/dur) så sekvens/staplar bildar verklig melodi.
+- **Oanvända riktiga ljud-klipp.** `audio.sample('djur_…')` (12 djurläten) finns men anropas inte i
+  flera spel (t.ex. skuggmatchning, vandkort) — `vilket-djur-later` bevisar att de funkar. *Grepp:*
+  koppla på de riktiga klippen där djur/föremål förekommer (genomgående [Quick] när de finns).
 
 ## Faser
 

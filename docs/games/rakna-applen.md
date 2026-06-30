@@ -1,108 +1,97 @@
 # Räkna Äpplena (`rakna-applen`)
-> Äpplen ramlar mjukt ner i en korg och barnet trycker på ett i taget medan rösten räknar 1–2–3–4–5; 2–5-åringar älskar att "fylla" korgen och höra sin egen räkning bekräftad med pling och firande.
+> 🔤 larande · tap · 2–5 år · status: 📝 plan klar
 
-## Metadata
-| Fält | Värde |
-|---|---|
-| id | `rakna-applen` |
-| titleSv | Räkna Äpplena |
-| icon | 🍎 |
-| category | larande |
-| input | tap |
-| ageRange | [3, 5] |
-| bundle | `rakna-applen` |
-| voiceIntro | "Tryck på äpplena och räkna med mig!" |
+## 1. Nuläge (sett som spelare)
 
-## Mål & mekanik
-- **Vad barnet gör:** Ett gäng äpplen (lika många som rundans mål, 1–5) ligger/studsar in på ett träd-/markområde. Barnet trycker på äpplena ett i taget. Varje tryck "plockar" äpplet, det flyger ner i korgen längst ner, och rösten säger nästa räkneord ("ett", "två", "tre"...).
-- **Kärnloop:** mål N äpplen → barnet trycker → räkna upp → när alla N är i korgen visas/hörs totalen ("Fem äpplen!") → `ctx.progress.complete()` (firande + klistermärke) → ny runda med (ev. fler) äpplen.
-- **Räkning är ordnings­oberoende:** vilket äpple som helst kan tryckas; räknaren går 1,2,3… i tryck­ordning. Det finns inget "fel äpple".
-- **Lyckad handling:** äpplet poppar lätt, susar in i korgen (whoosh), korgens äpple-räknare uppdateras, en stor siffra pulserar fram i mitten.
-- **Runda klar:** när antal plockade == målet. Inget tidskrav, ingen poäng som sjunker.
+En charmig fruktträdgård: programmatiskt ritat träd med en lummig grön krona, en
+flätad korg nedanför och en mjuk äng med sol och kullar bakom. Frukter (äpple/päron/
+apelsin/plommon/citron, en typ per runda) hänger i kronan, varje med glans, blad och
+skugga. Rösten säger "Tryck på frukterna och räkna med mig — ett, två, tre!". Jag
+trycker en frukt → 'pop' + ring + en stor svävande siffra stiger, en **jättesiffra**
+i mitten studsar in, en progress-prick fylls, och rösten räknar "ett… två… tre…"
+medan frukten susar ner och staplas i korgen. Tomt tryck bredvid = mjukt ljud +
+vänlig vingel på en oplockad frukt. När rundans mål nås sägs **totalen** ("Tre äpplen!"),
+en lokal burst + mjuk skak, sedan firande + stjärna + klistermärke och en ny, lite
+större runda. Från nivå 5 dyker ibland ett "tryck på N stycken"-mål upp bland fler frukter.
 
-## Skärm-layout (1280x720)
-Bygg allt i `ctx.stage` (designkoordinater). GameHost ritar hem-/repetera-knappar i headern — rita INGA egna sådana.
+**Funkar bra:** räkningen är *äkta* pedagogik — ett-till-ett-räkning med talad siffra
+per plock + kardinaltal-bekräftelse ("Tre äpplen!") på slutet. Den stora siffran +
+svävtalet + progress-prickarna ger tre samtidiga representationer av talet. Frukttypen
+byts varje runda, hitytan är generös (radie 72 ≈ 144px), idle-recue och exit-säkerhet finns.
 
-- **Bakgrund:** en lugn äng. Valfri `Graphics`: ljusgrön mark-remsa nedtill (`rect(0,560,1280,160).fill(COLORS.green)`), resten bakgrundsfärg `COLORS.bg`. Ett stort träd-emoji 🌳 (`Text`, fontSize 220) centrerat upptill kring (640, 230) som dekor (`eventMode='none'`).
-- **Spelyta för äpplen (plockzon):** rektangel x∈[180,1100], y∈[150,470]. Äpplen placeras på ett glest rutnät i denna zon (se Interaktion), aldrig så nära varandra att hit-halo överlappar.
-- **Äpple-bricka:** Container med vit cirkel `circle(0,0,70).fill({color:0xffffff,alpha:0.85}).stroke({width:4,color:0xeadfca})` + 🍎 `Text` fontSize 96, `anchor 0.5`. Effektiv träffyta ≥ 140px (radie 70 + osynlig hitArea-halo till 96).
-- **Korg:** nere till höger, container vid (980, 620). Rita korg programmatiskt: `roundRect(-150,-60,300,120,30).fill(COLORS.brown)` + vävmönster (några horisontella linjer via `stroke`). Plockade äpplen staplas synligt ovanpå korgkanten.
-- **Stor räknesiffra:** `Text` i mitten kring (640, 360), fontFamily `FONT.display`, fontSize 220, fill `COLORS.orangeDark`, `anchor 0.5`, börjar dold (alpha 0). Visar senast räknade tal och pulserar vid varje tryck.
-- **Liten progress-rad (valfri):** N tomma cirkel-konturer kring (640, 150) som fylls med 🍎 i takt med plockning — extra visuellt stöd, noll läsning.
+*(Skärmdump: äppleträd med tre röda äpplen, tom korg, tre tomma progress-prickar.)*
 
-## Interaktion
-- **Input:** enbart TAP. Varje äpple: `eventMode='static'`, `cursor='pointer'`, explicit `hitArea = new Circle(0,0,96)` (Pixi `Circle` från 'pixi.js') så även de minsta träffar. Lyssna på `'pointertap'`.
-- **Placering:** spawna N äpplen på slumpade men icke-överlappande positioner inom plockzonen (enkel rutnäts­placering: dela zonen i celler ≥160px och slumpa lite inom cellen). Studsa in med `bounceIn(apple)` eller `gsap.to(scale, back.out)` med liten stagger.
-- **Vid tryck på äpple:**
-  1. Markera `apple._picked = true`, sätt `apple.eventMode='none'` (förhindra dubbelräkning/dubbeltryck).
-  2. Öka `this._count`.
-  3. Spela ljud + säg räkneordet (se nedan), pulsa stora siffran.
-  4. Flyg äpplet till en stapelplats i korgen med `gsap.to(apple,{x,y,duration:0.45})` + `whoosh`.
-- **Tomt tryck (på bakgrund/redan plockat):** ingen räkning; spela `soft` och låt närmaste äpple `wiggle()` som vänlig vink. Aldrig negativ feedback.
-- **Ingen DragController behövs** (rent tap-spel). Ingen tap-tap-fallback krävs eftersom det inte är drag.
-- **Idle ~6s:** om `this._count < target` och ingen aktivitet, upprepa en mjuk ledtråd: säg "Tryck på ett äpple till!" och `wiggle` ett oplockat äpple. Återställ idle-timern vid varje tryck.
+## 2. Ursprunglig plan & tankeprocess
 
-## Återkoppling & belöning
-- **Per-tryck (<100ms):** omedelbart `ctx.services.audio.sfx('pop')` vid plock + visuell puls på stora siffran och äpplets bounce. Direkt efter: `ctx.services.voice.say(RAKNEORD[this._count-1])` där `RAKNEORD = ['ett','två','tre','fyra','fem']`.
-- **Korrekt (alla plockade):** 
-  - Säg totalen som hel fras: `voice.say(this._count + ' äpplen! ' + randomFrom(PRAISE))` (t.ex. "Fem äpplen! Bravo!"). För 1 äpple: "Ett äpple!".
-  - `ctx.services.audio.sfx('correct')` följt av `'celebrate'`.
-  - `sparkle(ctx.fxLayer, 980, 600)` vid korgen + `bigCelebration(ctx.fxLayer, {width:ctx.width,height:ctx.height})`.
-  - `ctx.progress.complete()` (delat firande + klistermärke hanteras av plattformen).
-- **Fel finns inte.** Tomt tryck = `'soft'` + `wiggle`. Inget rött, ingen buzzer, ingen "game over".
-- **Ljudnamn som används:** `'pop'`, `'whoosh'`, `'soft'`, `'correct'`, `'celebrate'`, ev. `'pling'` vid sista äpplet.
-- **Röstfraser:** voiceIntro, räkneorden ett–fem, total-frasen, idle-ledtråden "Tryck på ett äpple till!".
+Tänkt (kodkommentar) som kärn-**räknespelet** i Lära-fliken: barnet ska bygga
+ett-till-ett-korrespondens (en frukt = ett räkneord) och kardinalitet (sista ordet =
+hur många det blev). Frukten susar synligt till korgen så räkningen "samlar" något
+konkret, jättesiffran knyter räkneordet till siffran, och variation (frukttyp per
+runda + "tryck på N"-läge från nivå 5) håller det fräscht. NO-FAIL: tomt tryck är
+bara en lekfull vingel, ingen poäng, ingen timer.
 
-## Progression & nivåer
-- Läs `this._level = Math.max(0, ctx.progress.get().highestLevel|0)`.
-- **Mål per runda:** `target = Math.min(5, 2 + this._level)` (runda 1 → 2 äpplen som mjukstart; växer till 5 och stannar där). Alternativt börja på 3 om man vill. Håll alltid `target ≤ 5` (räknespannet 1–5).
-- Vid klar runda: `ctx.progress.setLevel(this._level + 1)` (höjer highestLevel om större), `ctx.progress.addStars(1)` sker via `complete()`s firande/klistermärke — använd `complete()` som det enda "klart".
-- `ctx.progress.setCustom('rundor', (get().custom?.rundor||0)+1)` för statistik.
-- **Oändlig lek:** efter `complete()`, `gsap.delayedCall(1.4, () => this._newRound(ctx))` (skydda med `_alive`). När target nått 5 fortsätter rundorna på 5 (alltid firande, aldrig slut).
+## 3. Vad gör det lättjefullt / tunt
 
-## Tillgångar (programmatiskt)
-- **Emoji (renderas som `Text`):** 🍎 (äpplen), 🌳 (träd, dekor), valfritt 🧺 om man hellre vill ha korg som emoji istället för Graphics.
-- **Pixi Graphics-former:** mark-remsa (`rect`), äpple-brickans vita cirkel (`circle` + `stroke`), korgen (`roundRect` + linjer), tomma progress-konturer (`circle` stroke), stora räknesiffran (`Text`).
-- **Partiklar/firande:** via `feedback.js` (`sparkle`, `bigCelebration`, `wiggle`, `bounceIn`, `pop`).
-- INGA externa bild- eller ljudfiler. Ingen bundle att ladda (bundle-id finns men är tom).
+- **Räkningen är alltid 1→N i ordning genom att trycka *vilken* frukt som helst.**
+  Barnet hör siffrorna men *identifierar* aldrig en mängd eller en siffra själv. Det
+  finns ingen "Hur många?"-fråga, ingen subitisering (känna igen 3 utan att räkna),
+  ingen siffer-igenkänning (peka på *trean*). Det är guidad uppräkning, inte räkneförståelse.
+- **"Tryck på N stycken"-läget kommer för sent och för sällan** (`lvl >= 5 && lvl % 2 === 1`).
+  Hela den tidiga upplevelsen — där 2–4-åringarna faktiskt är — är "tryck på alla", där
+  målet = antalet frukter, så barnet behöver aldrig stanna vid rätt antal.
+- **Jättesiffran och svävsiffran säger samma sak samtidigt** men kopplas aldrig tillbaka:
+  ingen "titta — det blev TRE" där barnet ser tre frukter i korgen *och* siffran 3 ihop.
+  Korgen fylls men räknas aldrig om på slutet ("ett, två, tre äpplen i korgen!").
+- **Ljudet är syntetiskt och tunt:** 'pop'/'whoosh'/'correct'. Ingen riktig plock/knäpp
+  eller "plums i korgen"-klang — just de ljuden som skulle göra plockandet taktilt.
+- **Generisk belöning + statisk värld.** Trädet och korgen står helt stilla; ingen figur
+  som bär korgen, ingen ekorre/fågel som reagerar, ingen som tar emot frukten. Firandet är
+  samma konfetti överallt.
 
-## Återanvänd dessa
-- `lib/feedback.js`: `bounceIn`, `pop`, `wiggle`, `sparkle`, `bigCelebration`.
-- `lib/theme.js`: `COLORS`, `FONT`, `PRAISE`.
-- `lib/swedish.js`: `randomFrom`, `shuffle` (för positions-/ordnings­slump).
-- `ctx.services.audio.sfx`, `ctx.services.voice.say` / `replayLast`.
-- `ctx.progress`: `get`, `setLevel`, `setCustom`, `complete`.
-- `ctx.fxLayer` för konfetti. `ctx.ticker` för idle-timer.
-- `gsap` för tweens. Pixi `Container`, `Graphics`, `Text`, `Circle` (hitArea).
-- Behöver INTE `DragController` (rent tap) eller `Button` (header sköts av GameHost).
+Kort sagt: en *välbyggd uppräknings-loop* som låter barnet höra siffror, men som sällan
+ber barnet *förstå* mängd, känna igen siffran eller stanna vid rätt antal.
 
-## Edge-cases & städning
-- Sätt `this._alive = true` i `init`, `false` först i `destroy`. Skydda ALLA `gsap.delayedCall`/timeout/`onComplete`-callbacks med `if (!this._alive) return`.
-- **Förhindra dubbelräkning/dubbeltryck:** sätt `apple.eventMode='none'` och `apple._picked=true` direkt i klick-handlern; ignorera tryck när `this._resolving` (perioden mellan sista plock och ny runda) är sant.
-- Idle-timer ackumuleras i ticker-callbacken (`this._idle += ticker.deltaMS/1000`), nollställs vid varje plock; pausa idle-cue när `this._resolving`.
-- `destroy(ctx)`: `this._alive=false`; `ctx.ticker.remove(this._tick)`; `gsap.killTweensOf(this._root)` och kill per-äpple-tweens; `this._root?.destroy({children:true})`. Användaren kan lämna mitt i en in-flygning — guards förhindrar krasch.
-- Bygg nya rundan genom att rensa gamla äpplen (`removeChildren().forEach(o=>o.destroy({children:true}))` på äpple-lagret) innan spawn.
+## 4. Förbättringar & förhöjningar (plan)
 
-## Steg-för-steg bygginstruktion
-1. Skapa `src/games/rakna-applen/index.js` med default-export enligt GameModule-kontraktet (kopiera struktur från `klambubblor/index.js`).
-2. Fyll metadata: `id:'rakna-applen'`, `titleSv:'Räkna Äpplena'`, `icon:'🍎'`, `category:'larande'`, `input:'tap'`, `ageRange:[3,5]`, `bundle:'rakna-applen'`, `voiceIntro:'Tryck på äpplena och räkna med mig!'`.
-3. I `init(ctx)`: sätt `_alive=true`, skapa `_root` Container + addChild till `ctx.stage`; rita bakgrund (mark, träd-dekor med `eventMode='none'`), korgen, stora siffran (dold), progress-konturer; skapa ett separat `_appleLayer` för äpplen; läs `_level` från `ctx.progress.get().highestLevel`; anropa `_newRound(ctx)`; registrera idle-ticker `this._tick = (t)=>this._update(ctx,t); ctx.ticker.add(this._tick)`.
-4. `_newRound(ctx)`: beräkna `target=Math.min(5,2+_level)`, nollställ `_count`, `_resolving=false`, rensa `_appleLayer`, spawna `target` äpplen på icke-överlappande positioner med `bounceIn` + stagger, koppla `pointertap` → `_pick(ctx, apple)`, sätt explicit `hitArea` Circle(0,0,96).
-5. `_pick(ctx, apple)`: guarda (`!_alive || _resolving || apple._picked`), markera plockad, öka `_count`, `audio.sfx('pop')`, pulsa stora siffran (visa `_count`, `pop()`), `voice.say(RAKNEORD[_count-1])`, flyg äpplet till korgstapel med `whoosh`; om `_count===target` → `_finish(ctx)`.
-6. `_finish(ctx)`: `_resolving=true`, säg total-fras + `randomFrom(PRAISE)`, `audio.sfx('correct')`→`'celebrate'`, `sparkle`+`bigCelebration` på `ctx.fxLayer`, `ctx.progress.setLevel(_level+1)`, `setCustom('rundor',...)`, `ctx.progress.complete()`, `gsap.delayedCall(1.4, ()=>{ if(_alive){ _level++; _newRound(ctx) } })`.
-7. Bakgrundstryck (på `_root` eller mark): om inget äpple träffas → `audio.sfx('soft')` + `wiggle` på ett oplockat äpple.
-8. `_update(ctx,t)`: ackumulera idle; vid >6s och `_count<target && !_resolving` → upprepa idle-cue och `wiggle` ett oplockat äpple; nollställ idle.
-9. `mount(ctx)`: `ctx.services.voice.say(this.voiceIntro)`.
-10. `destroy(ctx)`: enligt städ-sektionen ovan.
-11. Registrera i `src/games/registry.js`: `import raknaApplen from './rakna-applen/index.js'` och lägg `raknaApplen` i `GAMES`-arrayen.
-12. `npm run dev`, öppna biblioteket, spela: verifiera plock-räkning, korg fylls, firande, hem-knapp, röst-repris, och att `highestLevel` kvarstår efter omladdning.
+### Kärnloop & agens
+- **[Medium] Inför "Hur många?"-beat tidigt.** Efter en uppräknad korg: visa frukten +
+  en stor **siffra att välja** (eller fingrar att räkna) och låt barnet bekräfta antalet
+  — kopplar mängd→siffra aktivt. No-fail: fel val ger bara "Vi räknar igen!" + omräkning.
+- **[Quick] Flytta in "tryck på N"-läget tidigare och oftare**, gärna med en synlig
+  mål-siffra ("Tryck på **2** äpplen") så barnet övar att stanna vid rätt antal redan
+  från nivå 2 — det är där den verkliga räkneförståelsen sitter.
 
-## Acceptanskriterier (Playwright-test)
-- Spelet renderas utan konsolfel (canvas finns, inga uncaught errors) efter att man startar `rakna-applen` från biblioteket.
-- Vid mount sägs/triggas `voiceIntro` (VoiceService anropas) och `target` äpplen syns på skärmen.
-- Tryck (`pointertap`/klick) på ett äpple → ljud (`pop`) + visuell respons inom ~100ms; räknaren ökar med 1 och äpplet flyttas mot korgen; samma äpple kan inte räknas två gånger (dubbeltryck ignoreras).
-- När alla `target` äpplen plockats → `ctx.progress.complete()` anropas (firande/konfetti på fxLayer, klistermärke), och total-frasen sägs.
-- Tryck på tom yta → mjuk respons (`soft` + wiggle), ingen räkning, inget felljud, ingen "game over".
-- Efter klar runda startar en ny runda automatiskt (äpplen spawnar igen) → oändlig lek.
-- Progress sparas: efter en avklarad runda och sidomladdning är `highestLevel` ≥ tidigare värde (kontroll via localStorage `pwagames.save.v1` på aktiv profil under `games['rakna-applen']`).
-- Idle ~6s utan input triggar en upprepad röst-ledtråd (idle-cue) och en vänlig wiggle.
+### Variation & överraskning
+- **[Quick] Subitiserings-runda:** visa korta stunder en grupp om 1–3 frukter och fråga
+  "Hur många ser du?" innan de räknas — bygger taluppfattning utan att räkna ett-och-ett.
+- **[Medium] Olika behållare/teman:** korg → fruktfat → saftpress (frukten pressas till
+  saft) som payoff. Roterar känslan utan att ändra mekaniken.
+
+### Juice
+- **[Quick] Riktigt plock + "plums"-ljud** när frukten lossnar och landar i korgen
+  (taktilt), plus en liten studs på korgen vid varje landning.
+- **[Quick] Korgen reagerar:** den gungar/svämmar lite mer ju fullare den blir, och
+  prickraden "blinkar" klart när den fylls.
+
+### Progression
+- **[Medium] Avsluta med en omräkning.** På slutet: kameran/blicken går till korgen och
+  rösten räknar de samlade frukterna igen ("ett, två, tre — tre äpplen!") medan var och en
+  studsar — sluter kardinalitets-loopen visuellt.
+- **[Quick] Sifferigenkänning som mild krydda:** låt jättesiffran ibland visas *före* sista
+  plocket ("Vi ska ha **3**") så barnet siktar mot ett tal.
+
+### Karaktär & berättelse
+- **[Deep] En mottagar-figur (Bobo/ekorre)** som håller korgen, räknar med, och blir
+  gladare ju fler frukter den får — ger en anledning att plocka och en egen finish istället
+  för generisk konfetti.
+
+### Ljud
+- **[Quick] Riktiga frukt/korg-klipp via SFX-pipelinen** ([[real-audio-sfx]]): plock-knäpp,
+  plums, en mjuk "full korg"-klang. Behåll den talade räkningen som bär pedagogiken.
+
+## 5. Status / loggar
+
+- 2026-06-30: Doc skriven (granskning + plan; gammal byggspec överskriven). Inga kodändringar.
+- Rekommenderad första-omgång: **[Quick] tidigare "tryck på N"-mål med synlig siffra +
+  plums-ljud** och **[Medium] avslutande omräkning av korgen** — störst räkne-pedagogiskt
+  lyft för minst risk.

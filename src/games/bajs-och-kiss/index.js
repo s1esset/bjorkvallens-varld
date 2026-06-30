@@ -11,7 +11,7 @@
 // INGET game-over: missar landar roligt (puff + fniss), och efter ett par missar
 // hjälper kompisen till med ett garanterat plopp. Mätaren går bara UPP. Allt ritas
 // programmatiskt (Pixi Graphics + emoji) och städas exit-säkert.
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
@@ -23,6 +23,11 @@ import { randomFrom } from '../../lib/swedish.js'
 
 const FLOOR_Y = 600 // golvets ovansida (design-y)
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+// Snäll auto-hjälp: garantera ett plopp först efter så här många missar. Höjt från 2 → 4
+// (ca dubbelt) så barnet hinner försöka mer själv innan kompisen hjälper. Fortfarande
+// no-fail — hjälpen kommer alltid till slut.
+const ASSIST_AFTER_MISSES = 4
 
 const IDLE_CUES = [
   'Dra bajset mot pottan och släpp!',
@@ -115,6 +120,13 @@ export default {
     this._toiletView.eventMode = 'none'
     this._root.addChild(this._toiletView)
     this._toilet = { x: 950, bowlY: 440, scale: 1, sensor: null, rimL: null, rimR: null }
+
+    // Spol-knopp på toalettlådan: en busig överraskning (pappa spolas ner!). Egen
+    // interaktiv knapp med stort träffområde (>=96px); flyttas per nivå i _setToilet.
+    this._pappa = null
+    this._flushKnob = makeFlushKnob()
+    this._flushKnob.on('pointertap', () => this._flushPappa(ctx))
+    this._root.addChild(this._flushKnob)
 
     // Barnen (Elvira + Zacke).
     this._kids = [makeKid('elvira'), makeKid('zacke')]
@@ -253,6 +265,12 @@ export default {
     this._toiletView.addChild(makeToilet(scale))
     this._toiletView.position.set(x, this._toilet.bowlY)
 
+    // Spol-knoppen sitter ovanpå spollådan. Behåll knappens egen skala = 1 så träffytan
+    // alltid är >=96px, även när pottan krymper på högre nivåer.
+    if (this._flushKnob && !this._flushKnob.destroyed) {
+      this._flushKnob.position.set(x, this._toilet.bowlY - 150 * scale)
+    }
+
     // Fysik-kroppar: en sensor i skålöppningen + två studskanter.
     const { sensor, rimL, rimR } = this._toilet
     if (sensor) this._phys.removeBody(sensor)
@@ -387,6 +405,65 @@ export default {
         gsap.to(this._windFlag, { x: 700, duration: 1.1, yoyo: true, repeat: -1, ease: 'sine.inOut' })
       }
     }
+  },
+
+  // ---- Spol-knopp: busigt påsk-ägg (pappa spolas ner i en virvel) -----------
+
+  // Tryck på spol-knoppen → "pappa" ramlar ner uppifrån och spolas ner i en snurrig
+  // virvel medan barn skrattar. Helt positivt, ingen miss. Exit-säkert: vi tweenar en
+  // {}-proxy och skriver bara till pappa om den inte hunnit förstöras (spelet kan
+  // avslutas mitt i snurren).
+  _flushPappa(ctx) {
+    if (!this._alive) return
+    if (this._pappa) return // en pappa i taget
+
+    pop(this._flushKnob)
+    ctx.services.audio.sfx('whoosh')
+    // Barnskratt om klipp finns, annars glad fallback + rolig svensk röst.
+    if (!ctx.services.audio.sample('skratt')) ctx.services.audio.sfx('celebrate')
+    ctx.services.voice.say(randomFrom(['Hihihi! Hej då pappa!', 'Hahaha! Pappa åker ner i pottan!', 'Hihi! Spola ner pappa!']))
+
+    const tx = this._toilet.x
+    const by = this._toilet.bowlY
+    const pappa = new Text({ text: '👨', style: { fontFamily: FONT.body, fontSize: 96 } })
+    pappa.anchor.set(0.5)
+    pappa.eventMode = 'none'
+    pappa.position.set(tx, -140)
+    this._playLayer.addChild(pappa)
+    this._pappa = pappa
+
+    // Proxy som tweenas; kopieras till pappa endast om den lever (exit-säkert).
+    const st = { cx: tx, angle: 0, radius: 0, y: -140, rot: 0, scale: 1.15 }
+    const apply = () => {
+      if (!pappa || pappa.destroyed) {
+        this._pappaTween?.kill()
+        return
+      }
+      pappa.x = st.cx + Math.cos(st.angle) * st.radius
+      pappa.y = st.y
+      pappa.rotation = st.rot
+      pappa.scale.set(Math.max(0.001, st.scale))
+    }
+    const finish = () => {
+      if (pappa && !pappa.destroyed) {
+        puff(ctx.fxLayer, tx, by, { count: 10, color: 0x9fd6e8 })
+        pappa.destroy()
+      }
+      this._pappa = null
+      this._pappaTween = null
+    }
+
+    this._pappaTween?.kill()
+    this._pappaTween = gsap
+      .timeline({ onUpdate: apply, onComplete: finish })
+      // 1) faller ner uppifrån till skålkanten (snurrar redan lite).
+      .to(st, { y: by - 6, rot: Math.PI * 1.5, scale: 1, duration: 0.6, ease: 'power1.in' })
+      // 2) virveln bullrar ut lite åt sidan.
+      .to(st, { radius: 42, duration: 0.18, ease: 'sine.out' }, 'swirl')
+      // 3) snurrar runt och ner i hålet medan den krymper bort.
+      .to(st, { angle: Math.PI * 10, duration: 1.1, ease: 'power1.in' }, 'swirl')
+      .to(st, { y: by + 26, duration: 1.1, ease: 'power2.in' }, 'swirl')
+      .to(st, { radius: 0, scale: 0.05, rot: '+=' + Math.PI * 6, duration: 0.95, ease: 'power2.in' }, 'swirl+=0.18')
   },
 
   // ---- Kast ----------------------------------------------------------------
@@ -574,7 +651,7 @@ export default {
     floatText(ctx.fxLayer, lx, ly - 30, randomFrom(['Hihi!', 'Hoppsan!', 'Pruttig!']), { fontSize: 46 })
 
     this._misses++
-    if (this._misses >= 2) {
+    if (this._misses >= ASSIST_AFTER_MISSES) {
       this._assistNext = true
       ctx.services.voice.say('Nästa gång hjälper jag dig!')
     } else if (Math.random() < 0.6) {
@@ -721,6 +798,12 @@ export default {
     this._breatheTween?.kill()
     this._kidBobTween?.kill()
     this._toiletTween?.kill()
+    this._pappaTween?.kill()
+    if (this._pappa && !this._pappa.destroyed) {
+      gsap.killTweensOf(this._pappa)
+      this._pappa.destroy()
+    }
+    if (this._flushKnob && !this._flushKnob.destroyed) gsap.killTweensOf(this._flushKnob.scale)
 
     if (this._held && !this._held.destroyed) {
       gsap.killTweensOf(this._held)
@@ -797,6 +880,28 @@ function makeToilet(scale = 1) {
   return c
 }
 
+// Spol-knopp: en grön spol-platta med stort osynligt träffområde (radie 58 = 116px,
+// väl över 96px-kravet). Egen interaktiv container; håll dess skala = 1.
+function makeFlushKnob() {
+  const c = new Container()
+  c.eventMode = 'static'
+  c.cursor = 'pointer'
+  c.hitArea = new Circle(0, 0, 58)
+  // Osynlig träff-halo (säkrar pekytan även mellan grafikens kanter).
+  const halo = new Graphics().circle(0, 0, 58).fill({ color: 0xffffff, alpha: 0.001 })
+  halo.eventMode = 'none'
+  // Synlig spol-platta + tryck-prick.
+  const plate = new Graphics()
+    .roundRect(-32, -17, 64, 34, 14)
+    .fill(0x6fbf73)
+    .stroke({ width: 4, color: 0x3f9a4a })
+    .circle(0, 0, 9)
+    .fill({ color: 0xffffff, alpha: 0.92 })
+  plate.eventMode = 'none'
+  c.addChild(halo, plate)
+  return c
+}
+
 // Söt unge (programmatisk). kind: 'elvira' (rosett + tofsar) | 'zacke' (keps).
 function makeKid(kind) {
   const c = new Container()
@@ -804,7 +909,8 @@ function makeKid(kind) {
   const elvira = kind === 'elvira'
   const shirt = elvira ? COLORS.pink : COLORS.blue
   const shirtDark = elvira ? 0xe87da8 : 0x3a85c2
-  const hair = 0x7a4a25
+  // Elvira är blond (ägarens önskemål); Zacke har brunt hår (göms ändå under kepsen).
+  const hair = elvira ? 0xf4cf63 : 0x7a4a25
 
   // Tofsar bakom huvudet (Elvira).
   if (elvira) {

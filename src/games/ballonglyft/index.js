@@ -216,7 +216,6 @@ export default {
     this._n = 0
     this._idleMs = 0
     this._resolving = false
-    this._sayCount = false
 
     // Töm ballonger.
     this._balloons.forEach((b) => {
@@ -254,15 +253,14 @@ export default {
 
   _addBalloon(ctx, opts = {}) {
     if (!this._alive || this._resolving) return
+    if (!opts.auto) this._idleMs = 0
     if (this._n >= this._N) {
       // Alla ballonger sitter redan — bara lekfullt, aldrig "fel".
       wiggle(this._box)
       ctx.services.audio.sfx('soft')
-      if (!opts.auto) this._idleMs = 0
       return
     }
     this._n++
-    if (!opts.auto) this._idleMs = 0
 
     const b = new Text({ text: '🎈', style: { fontFamily: FONT.body, fontSize: 72 } })
     b.anchor.set(0.5, 1)

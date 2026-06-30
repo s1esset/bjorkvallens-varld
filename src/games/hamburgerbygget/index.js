@@ -10,17 +10,20 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
-import { createScene, lerpColor } from '../../lib/scene.js'
+import { createScene } from '../../lib/scene.js'
+import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 const BUILD = { x: 410, y: 596 } // _burger-origo: fatets yta (underbullens botten)
 const GRILL = { x: 1000, y: 430 }
-const BAKE_SECONDS = 7.5
 const BOTTOM_BUN_H = 50
 const TOP_BUN_H = 62
 const STACK_CAP_Y = -358 // sluta lägga på när stapeln är så här hög (no-fail "fullt")
+
+// Ton-gradient för burgaren: ljus → grillad → mörk → kol.
+const bakeTint = makeBakeTint([0xffffff, 0xfbe6bf, 0xd99a44, 0x8a5024, 0x2a2018])
 
 const RECUE = [
   'Dra ingredienser mellan bröden!',
@@ -31,19 +34,8 @@ const PLACE_CHEERS = ['Mums!', 'En till!', 'Snyggt!', 'Oj!', 'Hög!']
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
-// Ton-gradient (samma som ugnen): ljus → grillad → mörk → kol. Tint på hela burgaren.
-function bakeTint(t) {
-  if (t < 0.3) return lerpColor(0xffffff, 0xfbe6bf, t / 0.3)
-  if (t < 0.55) return lerpColor(0xfbe6bf, 0xd99a44, (t - 0.3) / 0.25)
-  if (t < 0.8) return lerpColor(0xd99a44, 0x8a5024, (t - 0.55) / 0.25)
-  return lerpColor(0x8a5024, 0x2a2018, (t - 0.8) / 0.2)
-}
-function toneSpeech(t) {
-  if (t < 0.22) return 'Nästan rå — men jättefin!'
-  if (t < 0.68) return 'Saftig och nygrillad! Mums!'
-  if (t < 0.9) return 'Lite mörk och knaprig!'
-  return 'Hoppsan, alldeles bränd! Hihi!'
-}
+// En vy för en ingrediens: ritad sidoprofil (make) eller emoji-grej.
+const viewFor = (ing) => (ing.make ? ing.make() : makeEmoji(ing.emoji, ing.th))
 
 // --- Ingredienser i SIDOPROFIL (ritade) + roliga emoji-grejer ---
 const FOODS = [
@@ -80,6 +72,7 @@ export default {
     this._bake = 0
     this._lastPlaceCheer = 0
     this._lastSmoke = 0
+    this._flameAcc = 0
     this._drag = null
     this._rounds = ctx.progress.get().custom?.burgare || 0
 
@@ -116,7 +109,10 @@ export default {
     this._root.addChild(this._burger)
 
     // Ton-mätare (visas vid grillning), placeras i den tomma vänsterytan.
-    this._meter = this._buildMeter()
+    const meter = buildToneMeter({ width: 320, tint: bakeTint })
+    this._meter = meter.container
+    this._setMeterProgress = meter.setProgress
+    this._meter.position.set(BUILD.x, 470)
     this._meter.visible = false
     this._root.addChild(this._meter)
 
@@ -197,31 +193,6 @@ export default {
     }
   },
 
-  _buildMeter() {
-    const c = new Container()
-    c.position.set(BUILD.x, 470)
-    c.eventMode = 'none'
-    const w = 320
-    const h = 30
-    const bar = new Graphics()
-    const steps = 40
-    for (let i = 0; i < steps; i++) {
-      const t = i / (steps - 1)
-      bar.rect(-w / 2 + (i * w) / steps, -h / 2, w / steps + 1, h).fill(bakeTint(t))
-    }
-    bar.roundRect(-w / 2, -h / 2, w, h, h / 2).stroke({ width: 4, color: COLORS.white })
-    c.addChild(bar)
-    const yum = new Text({ text: '😋', style: { fontFamily: FONT.body, fontSize: 30 } })
-    yum.anchor.set(0.5)
-    yum.position.set(0, -h - 6)
-    c.addChild(yum)
-    this._marker = new Graphics().moveTo(0, -h / 2 - 4).lineTo(-9, -h / 2 - 20).lineTo(9, -h / 2 - 20).closePath().fill(COLORS.ink)
-    this._marker.x = -w / 2
-    c.addChild(this._marker)
-    this._meterW = w
-    return c
-  },
-
   _buildPalette(ctx) {
     this._palette = new Container()
     this._root.addChild(this._palette)
@@ -237,7 +208,7 @@ export default {
       const px = x0 + (n === 1 ? 0 : ((x1 - x0) * i) / (n - 1))
       const slot = new Container()
       slot.position.set(px, y)
-      const view = ing.make ? ing.make() : makeEmoji(ing.emoji, ing.th)
+      const view = viewFor(ing)
       // Skala ner till brädan (sidoprofiler är breda).
       const s = ing.make ? 0.42 : 0.78
       view.scale.set(s)
@@ -260,7 +231,7 @@ export default {
     if (!this._alive || this._phase !== 'decorate' || this._drag) return
     this._idle = 0
     ctx.services.audio.sfx('tap')
-    const view = ing.make ? ing.make() : makeEmoji(ing.emoji, ing.th)
+    const view = viewFor(ing)
     view.eventMode = 'none'
     const p = this._root.toLocal(e.global)
     view.position.set(p.x, p.y)
@@ -305,7 +276,7 @@ export default {
   },
 
   _addLayer(ctx, ing) {
-    const view = ing.make ? ing.make() : makeEmoji(ing.emoji, ing.th)
+    const view = viewFor(ing)
     view.x = (Math.random() - 0.5) * 26
     view.y = this._stackTopY - ing.th / 2
     view.rotation = (Math.random() - 0.5) * 0.05
@@ -361,13 +332,19 @@ export default {
     if (!this._alive) return
     const dt = (t.deltaMS || 16.67) / 1000
 
+    // Lågorna ritas om med fast intervall (~120 ms), inte varje frame; intensiteten
+    // följer värmen vid grillning, lugnt flimmer annars.
+    this._flameAcc += dt
+    if (this._flameAcc >= 0.12) {
+      this._flameAcc = 0
+      this._drawFlames(this._phase === 'grilling' ? 0.3 + this._bake * 0.7 : 0.25)
+    }
+
     if (this._phase === 'grilling') {
       this._bake = clamp(this._bake + dt / BAKE_SECONDS, 0, 1)
       this._burger.tint = bakeTint(this._bake)
-      // Lågor + glöd reagerar på värmen.
-      this._drawFlames(0.3 + this._bake * 0.7)
       if (this._coals && !this._coals.destroyed) this._coals.alpha = 0.25 + this._bake * 0.5
-      if (this._marker) this._marker.x = -this._meterW / 2 + this._meterW * this._bake
+      this._setMeterProgress(this._bake)
       if (this._bake > 0.85) {
         const now = performance.now()
         if (now - this._lastSmoke > 420) {
@@ -382,8 +359,6 @@ export default {
     }
 
     if (this._phase === 'decorate') {
-      // Lugn idle-flimmer på grillen.
-      if ((performance.now() | 0) % 6 === 0) this._drawFlames(0.25)
       this._idle += dt
       if (this._idle > 6.5) {
         this._idle = 0
@@ -406,7 +381,7 @@ export default {
 
     const tone = this._bake
     ctx.services.audio.sfx('reveal')
-    ctx.services.voice.say(toneSpeech(tone))
+    ctx.services.voice.say(toneSpeech(tone, 'Saftig och nygrillad! Mums!'))
 
     gsap.killTweensOf(this._burger)
     gsap.killTweensOf(this._burger.scale)

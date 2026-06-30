@@ -10,7 +10,8 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
-import { createScene, lerpColor } from '../../lib/scene.js'
+import { createScene } from '../../lib/scene.js'
+import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
@@ -20,8 +21,10 @@ const ITEMS = ['🍅', '🍄', '🫑', '🧀', '🌽', '🍍', '🐟', '🦐', '
 
 const PIZZA = { x: 430, y: 330, r: 196 }
 const OVEN = { x: 1000, y: 332 }
-const BAKE_SECONDS = 7.5 // tid från rå till becksvart om man aldrig tar ut
 const MAX_TOPPINGS = 60
+
+// Ton-gradient för degen: ljus → gyllene → brun → kol.
+const bakeTint = makeBakeTint([0xffffff, 0xfff0c8, 0xe8b25a, 0x9a5a2c, 0x2e241c])
 
 const RECUE = [
   'Dra ingredienser på pizzan! Allt får plats.',
@@ -31,21 +34,6 @@ const RECUE = [
 const PLACE_CHEERS = ['Mums!', 'Fin!', 'En till!', 'Snyggt!', 'Oj!']
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
-
-// Ton-gradient: ljus deg → gyllene → brun → kol. Används som tint på hela pizzan.
-function bakeTint(t) {
-  if (t < 0.3) return lerpColor(0xffffff, 0xfff0c8, t / 0.3)
-  if (t < 0.55) return lerpColor(0xfff0c8, 0xe8b25a, (t - 0.3) / 0.25)
-  if (t < 0.8) return lerpColor(0xe8b25a, 0x9a5a2c, (t - 0.55) / 0.25)
-  return lerpColor(0x9a5a2c, 0x2e241c, (t - 0.8) / 0.2)
-}
-
-function toneSpeech(t) {
-  if (t < 0.22) return 'Nästan rå — men jättefin!'
-  if (t < 0.68) return 'Mums! Gyllene och god!'
-  if (t < 0.9) return 'Lite mörk och knaprig!'
-  return 'Hoppsan, alldeles bränd! Hihi!'
-}
 
 export default {
   id: 'pizzabageriet',
@@ -101,7 +89,10 @@ export default {
     this._root.addChild(this._pizza)
 
     // Ton-mätare (visas under gräddning) — gradient + markör = "titta på färgen".
-    this._meter = this._buildMeter()
+    const meter = buildToneMeter({ width: 340, tint: bakeTint })
+    this._meter = meter.container
+    this._setMeterProgress = meter.setProgress
+    this._meter.position.set(OVEN.x, 600)
     this._meter.visible = false
     this._root.addChild(this._meter)
 
@@ -182,34 +173,6 @@ export default {
     return c
   },
 
-  _buildMeter() {
-    const c = new Container()
-    c.position.set(OVEN.x, 600)
-    c.eventMode = 'none'
-    const w = 340
-    const h = 30
-    // Gradient-remsa (rå → kol).
-    const bar = new Graphics()
-    const steps = 40
-    for (let i = 0; i < steps; i++) {
-      const t = i / (steps - 1)
-      bar.rect(-w / 2 + (i * w) / steps, -h / 2, w / steps + 1, h).fill(bakeTint(t))
-    }
-    bar.roundRect(-w / 2, -h / 2, w, h, h / 2).stroke({ width: 4, color: COLORS.white })
-    c.addChild(bar)
-    // "Lagom"-hjärta över gyllene zon (mjuk vägledning, inget krav).
-    const yum = new Text({ text: '😋', style: { fontFamily: FONT.body, fontSize: 30 } })
-    yum.anchor.set(0.5)
-    yum.position.set(-w / 2 + w * 0.5, -h - 6)
-    c.addChild(yum)
-    // Markör som rör sig med tonen.
-    this._marker = new Graphics().moveTo(0, -h / 2 - 4).lineTo(-9, -h / 2 - 20).lineTo(9, -h / 2 - 20).closePath().fill(COLORS.ink)
-    this._marker.x = -w / 2
-    c.addChild(this._marker)
-    this._meterW = w
-    return c
-  },
-
   _buildPalette(ctx) {
     this._palette = new Container()
     this._root.addChild(this._palette)
@@ -283,7 +246,8 @@ export default {
       if (d.view && !d.view.destroyed) d.view.destroy()
     } else {
       // Utanför pizzan → liten puff, ingen straff.
-      puff(ctx.fxLayer, this._root.toLocal(e.global).x, this._root.toLocal(e.global).y, { count: 6 })
+      const rp = this._root.toLocal(e.global)
+      puff(ctx.fxLayer, rp.x, rp.y, { count: 6 })
       ctx.services.audio.sfx('soft')
       if (d.view && !d.view.destroyed) d.view.destroy()
     }
@@ -347,7 +311,7 @@ export default {
       this._pizza.tint = bakeTint(this._bake)
       // Glöd + markör.
       if (this._glow && !this._glow.destroyed) this._glow.alpha = 0.12 + 0.22 * Math.min(1, this._bake * 1.3)
-      if (this._marker) this._marker.x = -this._meterW / 2 + this._meterW * this._bake
+      this._setMeterProgress(this._bake)
       // Rök när den börjar bli mörk.
       if (this._bake > 0.85) {
         const now = performance.now()

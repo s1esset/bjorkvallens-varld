@@ -10,6 +10,14 @@ import { bounceIn } from '../../lib/feedback.js'
 import { GAMES } from '../../games/registry.js'
 import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H, TAB_GROUPS } from '../../lib/theme.js'
 
+// Säkerhet: varje spel-kategori MÅSTE ingå i någon fliks `cats`, annars göms de spelen
+// (filtreras bort ur alla flikar). Varna högt i dev så att en ny kategori inte tappas bort.
+if (import.meta.env?.DEV) {
+  const covered = new Set(TAB_GROUPS.flatMap((g) => g.cats))
+  const missing = [...new Set(GAMES.map((g) => g.category))].filter((c) => !covered.has(c))
+  if (missing.length) console.warn('[bibliotek] kategorier utan flik (spelen göms!):', missing)
+}
+
 // Bibliotekets UI-läge (vald flik + sortering) minns över besök/omladdning.
 const UI_KEY = 'pwagames.library.ui'
 function loadUI() {

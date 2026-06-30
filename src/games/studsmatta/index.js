@@ -83,6 +83,11 @@ export default {
     this._collected = 0
     this._goals = []
     this._bedProxy = { dip: 0 }
+    // Cache för change-guards (rita om matta/mätare bara när något ändrats).
+    this._lastDip = NaN
+    this._lastRigX = NaN
+    this._lastRigY = NaN
+    this._lastPower = NaN
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -575,6 +580,8 @@ export default {
     const g = this._meterFill
     if (!g || g.destroyed) return
     const c = this._power()
+    if (c === this._lastPower) return // ändras bara när mattan dras → hoppa över annars
+    this._lastPower = c
     const hgt = c * 200
     const color = c > 0.66 ? COLORS.orange : c > 0.33 ? COLORS.yellow : COLORS.teal
     g.clear()
@@ -586,6 +593,12 @@ export default {
   _drawRig(dip) {
     const g = this._rigG
     if (!g || g.destroyed) return
+    // Geometrin ändras bara vid studs-dip eller när mattan flyttas → annars hoppa över
+    // (sparar en full re-tessellering varje frame medan kaninen är i luften).
+    if (dip === this._lastDip && this._bedX === this._lastRigX && this._bedY === this._lastRigY) return
+    this._lastDip = dip
+    this._lastRigX = this._bedX
+    this._lastRigY = this._bedY
     const by = this._bedY
     const lx = -HALF_SPAN
     const rx = HALF_SPAN

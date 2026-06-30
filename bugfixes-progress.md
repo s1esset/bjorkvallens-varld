@@ -6,6 +6,19 @@ Status: ⬜ ej påbörjad · 🟨 pågår · ✅ klar · ⏭️ delvis (resteran
 
 Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseende/redesign) bestämmer jag själv inom befintlig konst + P0-regler.
 
+## ▶️ NÄSTA SESSION — fortsätt här (sparat 2026-06-30, session-limit nådd, återställs 13:20 Sthlm)
+**Klart hittills: 31 / 36 åtgärder** (Prio 1: 8/8 ✅ · Prio 2: #9/#10/#11 ✅, #12 invävt, #13 deferred · Prio 3: 7/7 ✅ · Prio 4: 13/15 ✅ · Prio 5: 0/3). Allt klart är **committat** (senast `33178c3`). Arbetsträdet rent (bara denna tracker + otrackade `docs/bugfixes1.md`).
+
+**ÅTERSTÅR (5 spel + 1 deferred) — gör i denna ordning:**
+1. **#31 `studsmatta`** (Prio 4) — agenten kraschade vid session-limit, lämnade spelet TRASIGT (`TypeError: this._drawFrame is not a function` vid `init` rad ~135 + `undefined.x`-läsningar). Jag **återställde filen** till senast fungerande (HEAD). Gör om från grunden: dra studsmattan vertikalt (klampa y-intervall) → mappar till studshöjd/hastighet; synka matter-kropp via `Body.setPosition`; throttla studs-sfx; behåll mål + no-fail. Bygg→test→commit.
+2. **#35 `regnbagsmalaren`** (Prio 4) — EJ påbörjad (agenten skrev aldrig filen). Bugg: "the 2-3 inner arches cant be painted fully" — inre/kortaste bågarna når inte 100%. Fixa snäpp-/täcknings-tröskeln så ALLA bågar kan målas helt.
+3. **#36 `lagerelden`** (Prio 5, omtänk) — "omtänk hela spelet, bättre mål, varje nivå mer slumpad svårighet."
+4. **#37 `ballonglyft`** (Prio 5, omtänk) — "omdesigna, jag fattar inte vad man gör/vad som händer" — gör syftet tydligt.
+5. **#38 `magnet-fiske`** (Prio 5, omtänk) — "omtänk spelläget, varje nivå mer intressant/svårare."
+6. **#13 Djurläten** (deferred) — kräver MOSS-tjänsten (:8003, NER) + bättre prompts. Se [[real-audio-sfx]].
+
+**Process:** färsk build-agent per spel (ge item-texten ovan + spelfilen + CLAUDE.md + "importera bara det du använder; ingen PRAISE/randomFrom om oanvänt") → headless-test (`node scripts/test-game.mjs <id> [--drag "fx,fy>tx,ty;..."] --shot out.png`) + screenshot → ev. simplify-agent → commit per spel. Dev-server :5173 (starta om färsk om HMR förvirrar screenshots: döda PID på 5173 → `npm run dev` → vänta på 200). Globala fixar (röst-anti-upprepning, varierat vinstljud, global ljud-throttle) hjälper redan alla spel.
+
 ## Prio 1 — Kritiska spel-brytande buggar
 | # | Spel | Problem | Status |
 |---|------|---------|:--:|
@@ -52,8 +65,8 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 | 29 | `fyrverkeri` | Inversera sikte (sikta dit du vill, bana följer fingret samma riktning) | ✅ |
 | 30 | `vippbradan` | Fixa gravitation; användaren väljer var vikten släpps; korgen längre ut | ✅ |
 | 31 | `studsmatta` | Användaren flyttar studsmattan upp/ner för höjd/hastighet | ⬜ |
-| 32 | `knuffa-tornet` | Styr boll-fall mer; rep-fysik; ta bort kollisions-sfx; elastiska rep-val; bättre positioner | ⬜ |
-| 33 | `gungan` | Fler nivåer, svårare per nivå | ⬜ |
+| 32 | `knuffa-tornet` | Styr boll-fall mer; rep-fysik; ta bort kollisions-sfx; elastiska rep-val; bättre positioner | ✅ |
+| 33 | `gungan` | Fler nivåer, svårare per nivå | ✅ |
 | 34 | `spindelnatet` | Spindel→liten Spider-karaktär (röd dräkt, svarta linjer, vita ögon) som skjuter nät | ✅ |
 | 35 | `regnbagsmalaren` | Inre 2–3 bågar kan ej målas helt | ⬜ |
 

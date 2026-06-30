@@ -13,9 +13,13 @@ import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 // Pusselramen (designkoordinater). Mittpunkt (370, 360).
 const BOARD = { x: 120, y: 110, w: 500, h: 500 }
 
-// Antal bitar per runda cyklar 2 -> 3 -> 4. Rutnät (kolumner × rader) per antal.
-const GRIDS = { 2: { cols: 2, rows: 1 }, 3: { cols: 3, rows: 1 }, 4: { cols: 2, rows: 2 } }
-const PIECE_COUNTS = [2, 3, 4]
+// Spridningsyta (tray) till höger där bitarna börjar varje runda.
+const TRAY = { x: 700, y: 90, w: 500, h: 540 }
+
+// Svårighet växer: en bit MER för varje runda (2, 3, 4, 5 …) upp till MAX_PIECES.
+// Klamras vid 9 (3×3) så bitarna förblir stora (>=96px) och småbarnsvänliga.
+const MIN_PIECES = 2
+const MAX_PIECES = 9
 
 // Glada beröm vid varannan rätt bit.
 const NUDGES = ['Så där ja!', 'Den passar!', 'Bra!']
@@ -88,6 +92,73 @@ const THEMES = [
       { emoji: '☁️', x: 400, y: 100, size: 80 },
     ],
   },
+  {
+    id: 'tag',
+    draw(g) {
+      g.rect(0, 0, 500, 320).fill(0x9bd7f2) // himmel
+      g.rect(0, 320, 500, 180).fill(0x7cc86a) // gräs
+      g.rect(0, 388, 500, 12).fill(COLORS.brown) // räls
+    },
+    accents: [
+      { emoji: '🚂', x: 250, y: 250, size: 240 },
+      { emoji: '☁️', x: 95, y: 95, size: 78 },
+      { emoji: '☁️', x: 410, y: 130, size: 60 },
+    ],
+  },
+  {
+    id: 'raket',
+    draw(g) {
+      g.rect(0, 0, 500, 500).fill(0x2b2b5e) // natthimmel
+      // små stjärnprickar
+      const stars = [[60, 70], [150, 130], [420, 80], [470, 200], [80, 380], [430, 430], [360, 60], [120, 250]]
+      for (const [sx, sy] of stars) g.circle(sx, sy, 5).fill(COLORS.yellow)
+    },
+    accents: [
+      { emoji: '🚀', x: 250, y: 255, size: 250 },
+      { emoji: '⭐', x: 110, y: 150, size: 56 },
+      { emoji: '🪐', x: 400, y: 360, size: 74 },
+    ],
+  },
+  {
+    id: 'regnbage',
+    draw(g) {
+      g.rect(0, 0, 500, 500).fill(0xcdeafd) // ljus himmel
+      const bands = [COLORS.red, COLORS.orange, COLORS.yellow, COLORS.green, COLORS.blue, COLORS.purple]
+      bands.forEach((c, i) => g.circle(250, 470, 300 - i * 30).fill(c))
+      g.circle(250, 470, 300 - bands.length * 30).fill(0xcdeafd) // ihåligt mitt -> bågar
+      g.rect(0, 470, 500, 60).fill(0xcdeafd) // platt nederkant
+    },
+    accents: [
+      { emoji: '☀️', x: 410, y: 110, size: 78 },
+      { emoji: '☁️', x: 95, y: 430, size: 84 },
+      { emoji: '☁️', x: 405, y: 430, size: 72 },
+    ],
+  },
+  {
+    id: 'glass',
+    draw(g) {
+      g.rect(0, 0, 500, 500).fill(0xfff0f6) // pastellrosa
+      g.circle(250, 250, 230).fill({ color: 0xffe1ee, alpha: 0.6 }) // mjuk ring
+    },
+    accents: [
+      { emoji: '🍦', x: 250, y: 255, size: 270 },
+      { emoji: '🍓', x: 100, y: 410, size: 64 },
+      { emoji: '⭐', x: 405, y: 110, size: 60 },
+    ],
+  },
+  {
+    id: 'hav',
+    draw(g) {
+      g.rect(0, 0, 500, 110).fill(0xcdeafd) // ovanför ytan
+      g.rect(0, 110, 500, 330).fill(COLORS.blue) // hav
+      g.rect(0, 440, 500, 60).fill(COLORS.yellow) // sandbotten
+    },
+    accents: [
+      { emoji: '🐠', x: 250, y: 260, size: 200 },
+      { emoji: '🐚', x: 110, y: 455, size: 60 },
+      { emoji: '🫧', x: 370, y: 175, size: 56 },
+    ],
+  },
 ]
 
 // Ritar en pusselbit-väg centrerad i (0,0): rektangel w×h med valfria knopp/hål-
@@ -132,10 +203,13 @@ function traceEdge(g, S, E, N, type, r) {
 }
 
 // Delade kanter interlockar: knopp på ena biten, hål på grannen. Yttre = flat.
-function edgesFor(col, row, cols, rows) {
+// `cols` är antal kolumner på just den här raden. Topp/botten-knoppar bara när
+// rutnätet är regelbundet (alla rader lika många kolumner) så de möter en granne;
+// i ojämna rad-layouter (t.ex. 5 = 3+2) hålls topp/botten platta -> rena remsor.
+function edgesFor(col, row, cols, rows, regular) {
   return {
-    top: row === 0 ? 'flat' : 'hole',
-    bottom: row === rows - 1 ? 'flat' : 'knob',
+    top: row === 0 ? 'flat' : regular ? 'hole' : 'flat',
+    bottom: row === rows - 1 ? 'flat' : regular ? 'knob' : 'flat',
     left: col === 0 ? 'flat' : 'hole',
     right: col === cols - 1 ? 'flat' : 'knob',
   }
@@ -219,11 +293,9 @@ export default {
     this._done = false
     this._idle = 0
 
-    const n = PIECE_COUNTS[this._round % PIECE_COUNTS.length]
-    const grid = GRIDS[n]
+    // En bit mer för varje runda (klamrad), cykla motiv genom hela THEMES-listan.
+    const n = Math.min(MIN_PIECES + this._round, MAX_PIECES)
     const theme = THEMES[this._round % THEMES.length]
-    const cellW = BOARD.w / grid.cols
-    const cellH = BOARD.h / grid.rows
 
     // Förhandsvisning av hela bilden inuti ramen (ledtråd, fångar inga pekningar).
     const preview = this._buildScene(theme)
@@ -231,28 +303,10 @@ export default {
     preview.alpha = 0.12
     this._layer.addChild(preview)
 
-    // Bygg slot-beskrivningar (rad-major: matchar layouten i specen).
-    const slots = []
-    let idx = 0
-    for (let row = 0; row < grid.rows; row++) {
-      for (let col = 0; col < grid.cols; col++) {
-        const lx = cellW * (col + 0.5)
-        const ly = cellH * (row + 0.5)
-        slots.push({
-          index: idx++,
-          lx,
-          ly,
-          cx: BOARD.x + lx,
-          cy: BOARD.y + ly,
-          w: cellW,
-          h: cellH,
-          edges: edgesFor(col, row, grid.cols, grid.rows),
-        })
-      }
-    }
+    // Bygg slot-beskrivningar för n bitar (rad-baserad layout som alltid täcker ramen).
+    const slots = this._layoutSlots(n)
 
     // Spök-slots + osynliga drop-mål.
-    const hitRadius = Math.max(cellW, cellH) / 2 + 70
     slots.forEach((slot) => {
       const ghost = new Graphics()
       tracePiece(ghost, slot.w, slot.h, slot.edges)
@@ -268,11 +322,13 @@ export default {
       slotView.hitArea = new Rectangle(-slot.w / 2, -slot.h / 2, slot.w, slot.h)
       this._layer.addChild(slotView)
       this._slotViews.push(slotView)
+      // Generös snäpp-radie kring varje slot (skalar med bitens egen storlek).
+      const hitRadius = Math.max(slot.w, slot.h) / 2 + 70
       this._drag.addTarget(slotView, (data) => data.slot === slot.index, { hitRadius })
     })
 
     // Bitar i spridningsytan (tray, höger sida). Slumpa vilken bit hamnar var.
-    const spots = shuffle(this._trayPositions(n, grid))
+    const spots = shuffle(this._trayPositions(n))
     ctx.services.audio.sfx('whoosh')
     slots.forEach((slot, i) => {
       const piece = this._makePiece(theme, slot)
@@ -298,14 +354,63 @@ export default {
     })
   },
 
-  // Spridningspunkter i tray:en (x 720..1180). Tall bitar (n=2/3) centreras i höjd.
-  _trayPositions(n, grid) {
-    if (grid.rows === 1) {
-      const y = 360
-      if (n === 2) return [[835, y], [1065, y]]
-      return [[800, y], [950, y], [1100, y]] // n === 3
+  // Antal kolumner per rad för n bitar. Hålls nästan kvadratiskt så bitarna förblir
+  // stora: <=3 -> 1 rad, <=6 -> 2 rader, annars 3 rader; n fördelas jämnt över raderna.
+  // Exempel: 5 -> [3,2], 7 -> [3,2,2], 8 -> [3,3,2], 9 -> [3,3,3].
+  _rowCounts(n) {
+    const rows = n <= 3 ? 1 : n <= 6 ? 2 : 3
+    const base = Math.floor(n / rows)
+    const extra = n % rows
+    const counts = []
+    for (let r = 0; r < rows; r++) counts.push(base + (r < extra ? 1 : 0))
+    return counts
+  },
+
+  // Bygger slot-beskrivningar som alltid täcker hela ramen (rad-baserat rutnät).
+  _layoutSlots(n) {
+    const rowCounts = this._rowCounts(n)
+    const rows = rowCounts.length
+    const regular = rowCounts.every((c) => c === rowCounts[0])
+    const cellH = BOARD.h / rows
+    const slots = []
+    let idx = 0
+    for (let row = 0; row < rows; row++) {
+      const cols = rowCounts[row]
+      const cellW = BOARD.w / cols
+      for (let col = 0; col < cols; col++) {
+        const lx = cellW * (col + 0.5)
+        const ly = cellH * (row + 0.5)
+        slots.push({
+          index: idx++,
+          lx,
+          ly,
+          cx: BOARD.x + lx,
+          cy: BOARD.y + ly,
+          w: cellW,
+          h: cellH,
+          edges: edgesFor(col, row, cols, rows, regular),
+        })
+      }
     }
-    return [[835, 300], [1065, 300], [835, 540], [1065, 540]] // n === 4
+    return slots
+  },
+
+  // Spridningspunkter i tray:en — ett nästan kvadratiskt rutnät; sista (kortare)
+  // raden centreras. Bitstorleken krymper med antalet så de ryms utan att klumpa ihop.
+  _trayPositions(n) {
+    const cols = Math.ceil(Math.sqrt(n))
+    const rows = Math.ceil(n / cols)
+    const cellW = TRAY.w / cols
+    const cellH = TRAY.h / rows
+    const pts = []
+    for (let j = 0; j < n; j++) {
+      const row = Math.floor(j / cols)
+      const col = j % cols
+      const inRow = row === rows - 1 ? n - row * cols : cols
+      const offset = ((cols - inRow) * cellW) / 2 // centrera sista raden
+      pts.push([TRAY.x + cellW * (col + 0.5) + offset, TRAY.y + cellH * (row + 0.5)])
+    }
+    return pts
   },
 
   // Hela scenen, maskad till bitens form, med vit pussel-kant ovanpå.

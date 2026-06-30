@@ -33,7 +33,7 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 | 14 | `stor-liten` | Ta bort behållare runt föremål (no icons); röst upprepas vid inaktiv | ✅ |
 | 15 | `skuggmatchning` | Inga ikon-behållare, separerade föremål | ✅ |
 | 16 | `kla-efter-vadret` | Inga ikon-behållare; ta bort garnnystan; gör karaktären blond flicka | ⬜ |
-| 17 | `kla-pa-nallen` | Inga ikoner — visa riktiga kläder i fullstorlek, dra→klär på/passar | ⬜ |
+| 17 | `kla-pa-nallen` | Inga ikoner — visa riktiga kläder i fullstorlek, dra→klär på/passar | ✅ |
 | 18 | `siffertaget` | Gör tåget mer tåg-likt, ta bort ikon inuti | ⬜ |
 | 19 | `bajs-och-kiss` | Gör Elvira blond; hjälp ej för snabbt; spola-ned-"pappa" easter egg + barnskratt | ⬜ |
 | 20 | `enhorning-glitterbajs` | Gör flickan blond; enhörning ser konstig ut; platform fel position; random nivåer | ⬜ |

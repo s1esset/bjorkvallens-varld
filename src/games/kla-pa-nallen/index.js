@@ -16,10 +16,10 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { randomFrom } from '../../lib/swedish.js'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, sparkle, ripple, floatText, breathe, shake } from '../../lib/feedback.js'
-import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
+import { COLORS, FONT } from '../../lib/theme.js'
 
 // Nallens center (= pivot, så hon kan studsa OCH snurra runt sin mitt).
 const BEAR_CX = 640
@@ -51,6 +51,18 @@ const SLOT_PHRASE = {
   hander: 'på tassarna',
   ben: 'på benen',
   fotter: 'på fötterna',
+}
+
+// Hur ett plagg SITTER när det är påklätt: passforms-skala + offset från slot-mitten,
+// så själva plagget klär rätt kroppsdel (mössan uppe på huvudet, tröjan över magen,
+// skorna på fötterna ...). Skalan förstorar shelf-plagget så det täcker kroppsdelen.
+const WORN = {
+  huvud: { scale: 1.26, dx: 0, dy: -52 },
+  hals: { scale: 1.12, dx: 0, dy: 8 },
+  kropp: { scale: 1.55, dx: 0, dy: 8 },
+  hander: { scale: 1.18, dx: 0, dy: 2 },
+  ben: { scale: 1.4, dx: 0, dy: 8 },
+  fotter: { scale: 1.34, dx: 0, dy: 6 },
 }
 
 // Outfits (likt vändkortens SETS): scen + talad flavour + slots (ordnade uppifrån
@@ -205,7 +217,6 @@ export default {
 
     // Träff-/snäpp-radie krymper när zonerna blir fler (närmast-vinner-logik i drag).
     const hr = nSlots >= 5 ? 86 : nSlots >= 4 ? 104 : 122
-    const colors = shuffle(PLAYFUL)
 
     // Hyll-positioner jämnt fördelade.
     const n = slots.length
@@ -238,10 +249,9 @@ export default {
       this._zones[slot] = zone
       this._drag.addTarget(zone, (d) => d.slot === slot, { hitRadius: hr + 26 })
 
-      // Plagg-bricka på hyllan.
+      // Själva klädesplagget i full storlek på hyllan (ingen bricka/ram bakom).
       const g = randomFrom(outfit.garments[slot])
-      const accent = colors[i % colors.length]
-      const view = this._makeItem(g, accent)
+      const view = this._makeItem(g)
       view.position.set(xs[i], SHELF_Y)
       this._root.addChild(view)
 
@@ -344,22 +354,15 @@ export default {
     return bear
   },
 
-  // En plagg-bricka: mjuk skugga (lyft-känsla) + gräddvit bricka + glans + emoji.
-  // Vid placering tonas skugga/bricka/glans bort så bara plagget sitter kvar.
-  _makeItem(g, accent) {
+  // Ett plagg = SJÄLVA klädesplagget i full storlek (ingen bricka/ram/skugga bakom),
+  // bara den stora emoji-konsten. Osynlig, generös träffyta (>=96px) + hit-halo.
+  _makeItem(g) {
     const it = new Container()
-    const shadow = new Graphics().ellipse(0, 62, 52, 15).fill({ color: 0x16314a, alpha: 0.2 })
-    shadow.eventMode = 'none'
-    const tray = new Graphics().circle(0, 0, 66).fill({ color: COLORS.cream, alpha: 0.95 }).stroke({ width: 5, color: accent, alpha: 0.9 })
-    const gloss = new Graphics().ellipse(-16, -22, 30, 16).fill({ color: 0xffffff, alpha: 0.5 })
-    const e = new Text({ text: g.e, style: { fontFamily: FONT.body, fontSize: 86 } })
+    const e = new Text({ text: g.e, style: { fontFamily: FONT.body, fontSize: 116 } })
     e.anchor.set(0.5)
-    e.y = -2
-    it.addChild(shadow, tray, gloss, e)
-    it._shadow = shadow
-    it._tray = tray
-    it._gloss = gloss
-    it.hitArea = { contains: (px, py) => px * px + py * py <= 92 * 92 } // stor träffyta + halo
+    it.addChild(e)
+    it._art = e
+    it.hitArea = { contains: (px, py) => px * px + py * py <= 80 * 80 } // osynlig hit-halo (160px)
     return it
   },
 
@@ -374,16 +377,22 @@ export default {
     ctx.services.audio.sfx('correct')
     ctx.services.voice.say(randomFrom([`${cap(item.name)} sitter!`, 'Vad fin!', 'Så mysigt!', 'Bra jobbat!', 'Så fin du gör nallen!']))
 
-    // Tona bort bricka/skugga/glans -> bara plagget blir kvar på nallen.
+    // Klä nallen: flytta in plagget i nallens container (så det studsar/snurrar med
+    // henne) och skala/justera det så det PASSAR rätt kroppsdel — nallen bär nu plagget.
+    // (Tweens på vyn dödas av this._drag.clear() i _teardown innan vyn förstörs.)
     const v = rec.view
     if (v && !v.destroyed) {
-      if (v._shadow) v._shadow.visible = false
-      if (v._tray) v._tray.alpha = 0
-      if (v._gloss) v._gloss.alpha = 0
-      pop(v)
-      // "Fäst" plagget på nallen så det studsar/snurrar med henne och blir passivt.
       v.eventMode = 'none'
+      gsap.killTweensOf(v)
+      gsap.killTweensOf(v.scale)
       if (this._bear && !this._bear.destroyed) this._bear.addChild(v)
+      const fit = WORN[slot] || { scale: 1, dx: 0, dy: 0 }
+      // Snäpp på kroppsdelen med en mjuk passforms-studs (DragController har redan
+      // flyttat vyn till slot-mitten i nallens 1:1-rymd).
+      v.position.set(zx, zy)
+      gsap.to(v, { x: zx + fit.dx, y: zy + fit.dy, duration: 0.22, ease: 'back.out(1.5)' })
+      v.scale.set(fit.scale * 0.7)
+      gsap.to(v.scale, { x: fit.scale, y: fit.scale, duration: 0.28, ease: 'back.out(2)' })
     }
 
     // Nallen reagerar: kroppsdelen poppar + en liten glad studs.

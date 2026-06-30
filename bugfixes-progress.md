@@ -31,7 +31,7 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 | # | Spel | Ändring | Status |
 |---|------|---------|:--:|
 | 14 | `stor-liten` | Ta bort behållare runt föremål (no icons); röst upprepas vid inaktiv | ✅ |
-| 15 | `skuggmatchning` | Inga ikon-behållare, separerade föremål | ⬜ |
+| 15 | `skuggmatchning` | Inga ikon-behållare, separerade föremål | ✅ |
 | 16 | `kla-efter-vadret` | Inga ikon-behållare; ta bort garnnystan; gör karaktären blond flicka | ⬜ |
 | 17 | `kla-pa-nallen` | Inga ikoner — visa riktiga kläder i fullstorlek, dra→klär på/passar | ⬜ |
 | 18 | `siffertaget` | Gör tåget mer tåg-likt, ta bort ikon inuti | ⬜ |

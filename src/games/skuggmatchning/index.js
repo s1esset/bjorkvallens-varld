@@ -6,7 +6,7 @@
 // vi (stjärna + klistermärke) och en ny, något större runda startar — oändlig lek.
 // Djupet växer med nivån: 2 → 6 föremål och bred variation (djur, frukt, fordon,
 // verktyg, former) så varje runda känns fräsch. Inget fel-läge, ingen tidspress.
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
@@ -249,8 +249,9 @@ export default {
     return xs
   },
 
-  // En skugg-plats: markskugga + en svag "fördjupning" (slot) + ett gömt varmt
-  // sken (tänds vid rätt) + svart silhuett + färgföremål (börjar osynligt, litet).
+  // En skugg-plats: en svag markskugga + ett gömt varmt sken (tänds vid rätt) +
+  // svart silhuett + färgföremål (börjar osynligt, litet). INGEN platta/ring bakom —
+  // silhuetten ÄR målet (ägaråterkoppling: bara figuren, separerad).
   _makeShadow(pick, scale) {
     const plateR = 78 * scale
     const slotR = plateR + 12
@@ -258,12 +259,6 @@ export default {
 
     const oval = new Graphics().ellipse(0, slotR * 0.78, slotR * 0.95, slotR * 0.34).fill({ color: 0x000000, alpha: 0.14 })
     oval.eventMode = 'none'
-    const slot = new Graphics()
-      .circle(0, 0, slotR)
-      .fill({ color: 0x2a2a2a, alpha: 0.12 })
-      .circle(0, 0, slotR)
-      .stroke({ width: 3, color: 0xffffff, alpha: 0.3 })
-    slot.eventMode = 'none'
     const glow = new Graphics().circle(0, 0, slotR * 1.05).fill({ color: 0xfff3b0 })
     glow.alpha = 0
     glow.eventMode = 'none'
@@ -279,15 +274,18 @@ export default {
     color.alpha = 0
     color.scale.set(0.55)
 
-    s.addChild(oval, slot, glow, dark, color)
+    s.addChild(oval, glow, dark, color)
     s._dark = dark
     s._color = color
     s._glow = glow
+    // Osynlig släpp-/tap-yta (>=96px). Drop-radien styrs separat via addTarget(hitRadius).
+    s.hitArea = new Circle(0, 0, slotR)
     return s
   },
 
-  // Ett glansigt föremål: mjuk markskugga (sibling, ligger kvar på marken) + en
-  // vit "platta" med blank dager + emojin.
+  // Bara figuren — INGEN platta/kort bakom (ägaråterkoppling: föremålet separerat,
+  // endast själva saken/figuren). En mjuk markskugga (sibling) ligger kvar på marken
+  // och ger lyft-känsla när föremålet plockas upp.
   _makeItem(pick, scale) {
     const plateR = 78 * scale
     const c = new Container()
@@ -297,19 +295,13 @@ export default {
     shadow.eventMode = 'none'
 
     const body = new Container()
-    const plate = new Graphics()
-      .circle(0, 0, plateR)
-      .fill({ color: 0xffffff, alpha: 0.95 })
-      .stroke({ width: 4, color: 0xeadfca })
-    const gloss = new Graphics()
-      .ellipse(-plateR * 0.26, -plateR * 0.4, plateR * 0.5, plateR * 0.3)
-      .fill({ color: 0xffffff, alpha: 0.5 })
-    gloss.eventMode = 'none'
     const e = new Text({ text: pick.emoji, style: { fontFamily: FONT.body, fontSize: 104 * scale } })
     e.anchor.set(0.5)
-    body.addChild(plate, gloss, e)
+    body.addChild(e)
     c.addChild(shadow, body)
 
+    // Osynlig träffyta (>=96px) så små fingrar lätt får tag i den bara figuren.
+    c.hitArea = new Circle(0, 0, Math.max(56, plateR + 12))
     return { container: c, body, shadow, emoji: e, key: pick.key, name: pick.name }
   },
 

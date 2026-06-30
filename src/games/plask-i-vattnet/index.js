@@ -43,7 +43,7 @@ const FLOOR_TOP = 672 // golvets ovansida (föremål vilar med center ~ FLOOR_TO
 // ---- Föremål --------------------------------------------------------------
 const BODY_R = 38 // fysikradie
 const EMOJI_SIZE = 80
-const PLATE_R = 58 // hyll-brickans radie -> träffyta ~116px ≥ 96px
+const HIT_R = 56 // osynlig cirkel-träffyta, radie 56 -> Ø112px ≥ 96px (24px lucka kvar till grannen)
 
 // ---- Flytkraftskonstanter (lugnt inställda) -------------------------------
 const GRAV_Y = 0.9 // tankens gravitation (matter: kraft = massa·GRAV_Y·0.001 per steg)
@@ -51,8 +51,8 @@ const BUOY_BASE = GRAV_Y * 0.001 // flytkraftens bas = exakt neutral vid frac·f
 const FLOAT_FACTOR = 1.6 // flytare: netto uppåt -> gungar med ~62% nedsänkt vid ytan
 const SINK_FACTOR = 0.4 // sjunkare: netto nedåt -> glider sakta till botten
 const DRAG = 0.93 // vattenmotstånd per bildruta -> lugnt, aldrig studsigt/skakigt
-const BOB_AMP = 0.0006 // litet guppande lyft vid ytan
-const BOB_W = 2.3
+const BOB_AMP = 0.0007 // litet guppande lyft vid ytan (bara flytare)
+const BOB_W = 1.8 // långsammare gupp -> lugnare, mjukare vattenkänsla
 const SWAY_AMP = 0.00025 // mjuk sidledsvaggning (liv)
 const SWAY_W = 1.4
 const SPRING_K = 0.00003 // svag "hitta din plats"-fjäder mot tilldelad bana
@@ -211,18 +211,18 @@ export default {
     b.y = spread ? SURFACE_Y + 16 + Math.random() * (WATER.h - 36) : WATER.y + WATER.h - 12
   },
 
-  // Ett hyllföremål: vit bricka (träffyta) + emoji. Brickan tonas bort när föremålet
-  // hamnar i vattnet så bara emojin flyter/sjunker (ren vattenbild).
+  // Ett hyllföremål: BARA figuren (emoji) — ingen bricka/bakgrund. En osynlig
+  // cirkel-hitArea (≥96px) gör hela föremålet dragbart/tryckbart.
+  // VIKTIGT: en tom Container UTAN hitArea är OKLICKBAR i Pixi v8 när alla barn har
+  // eventMode 'none' (det var därför inget gick att flytta). hitArea löser detta.
   _makeItem(data) {
     const it = new Container()
-    const plate = new Graphics().circle(0, 0, PLATE_R).fill({ color: 0xffffff, alpha: 0.85 }).stroke({ width: 4, color: 0xeadfca })
-    plate.eventMode = 'none'
     const e = new Text({ text: data.emoji, style: { fontFamily: FONT.body, fontSize: EMOJI_SIZE } })
     e.anchor.set(0.5)
     e.eventMode = 'none'
-    it.addChild(plate, e)
-    it._plate = plate
+    it.addChild(e)
     it._emoji = e
+    it.hitArea = new Circle(0, 0, HIT_R)
     return it
   },
 
@@ -277,7 +277,6 @@ export default {
       if (!v || v.destroyed) return
       gsap.killTweensOf(v)
       gsap.killTweensOf(v.scale)
-      if (v._plate && !v._plate.destroyed) gsap.killTweensOf(v._plate.scale)
       v.destroy({ children: true })
     })
     this._itemViews = []
@@ -291,8 +290,9 @@ export default {
     const view = rec.view // har snäppt till tankens mitt (TANK_CX, TANK_CY)
     const data = rec.data
 
-    // Tona bort brickan -> bara emojin flyter/sjunker (exit-säkert via proxy).
-    this._fadePlate(view._plate)
+    // Ingen bricka längre — bara figuren plaskar i. En liten puls ger en mjuk
+    // "plopp"-känsla när den lämnar handen och blir en fysikkropp (exit-säker via scale).
+    if (!view.destroyed) pop(view, { scale: 1.12 })
 
     // Liten slumpoffset så två föremål aldrig föds exakt på varandra (= ingen jitter).
     const x = TANK_CX + (Math.random() - 0.5) * 44
@@ -312,45 +312,40 @@ export default {
       density: 0.0012,
       label: data.floats ? 'floater' : 'sinker',
     })
-    Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.4, y: 2 + Math.random() * 2 }) // mjuk "plopp ner"
+    Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.2, y: 1.6 + Math.random() * 1.6 }) // mjuk "plopp ner"
     this._phys.link(body, view)
 
     this._objects.push({ body, view, floats: data.floats, floatFactor: data.floatFactor, r: BODY_R, homeX, phase: Math.random() * Math.PI * 2 })
 
     this._splash(ctx, x, data)
+    this._surfaceWave(x, body) // ytsvall: redan flytande saker guppar mjukt när något nytt plaskar i
 
     this._dropped++
     if (this._dropped >= ROUND_SIZE) this._finishRound(ctx)
   },
 
-  // Exit-säker brick-uttoning: tweena en proxy, rör Pixi-objektet bara om det lever.
-  _fadePlate(plate) {
-    if (!plate || plate.destroyed) return
-    const st = { a: plate.alpha, s: plate.scale.x || 1 }
-    const tw = gsap.to(st, {
-      a: 0,
-      s: 0.6,
-      duration: 0.45,
-      ease: 'power1.out',
-      onUpdate: () => {
-        if (plate.destroyed) {
-          tw.kill()
-          return
-        }
-        plate.alpha = st.a
-        plate.scale.set(st.s)
-      },
-      onComplete: () => {
-        if (!plate.destroyed) plate.visible = false
-      },
-    })
+  // Ytsvall vid ett nytt plask: flytare i närheten får en mjuk uppåt-knuff och guppar
+  // till, så vattnet känns sammanhängande. Kraften taklas av MAX_V -> alltid lugnt.
+  _surfaceWave(x, exceptBody) {
+    for (const o of this._objects) {
+      if (!o.floats || !o.body || o.body === exceptBody) continue
+      const b = o.body
+      const d = Math.abs(b.position.x - x)
+      if (d < 230 && b.position.y < SURFACE_Y + 130) {
+        const k = 1 - d / 230
+        Body.setVelocity(b, { x: b.velocity.x + (Math.random() - 0.5) * 0.6 * k, y: b.velocity.y - 1.8 * k })
+        if (o.view && !o.view.destroyed) pop(o.view, { scale: 1.06 })
+      }
+    }
   },
 
   // Plask vid ytan: ljud + ring + bubbelpuff + glad röst som namnger flyt/sjunk.
   _splash(ctx, x, data) {
     if (!this._alive) return
     ctx.services.audio.sfx('splash') // riktigt klipp om det finns, annars syntes
+    // Dubbel ytring -> tydligt "plask vid vattenytan".
     ripple(ctx.fxLayer, x, SURFACE_Y, { color: 0xbfeefa, maxR: 86, width: 7, alpha: 0.7 })
+    ripple(ctx.fxLayer, x, SURFACE_Y, { color: 0xffffff, maxR: 52, width: 4, alpha: 0.5, duration: 0.42 })
     puff(ctx.fxLayer, x, SURFACE_Y, { count: 12, color: 0x9fd8f0 })
     if (data.floats) {
       ctx.services.audio.sfx('pling')
@@ -400,13 +395,22 @@ export default {
       if (frac > 0) {
         // Flytkraft uppåt (accel · massa). Massoberoende eftersom gravitationen också ∝ massa.
         const buoyA = BUOY_BASE * frac * o.floatFactor
-        const bobA = BOB_AMP * Math.sin(this._t * BOB_W + o.phase) // litet gupp
-        // Sidled: svag fjäder mot tilldelad bana + mjuk vaggning (taklad acceleration).
-        let swayA = SPRING_K * (o.homeX - pos.x) + SWAY_AMP * Math.sin(this._t * SWAY_W + o.phase * 1.3)
+        // Vertikalt: flytare GUPPAR mjukt vid ytan; sjunkare glider rakt och lugnt nedåt.
+        let vAcc = -buoyA
+        // Sidled: svag fjäder mot tilldelad bana (gäller alla -> ingen stapling).
+        let swayA = SPRING_K * (o.homeX - pos.x)
+        if (o.floats) {
+          vAcc += BOB_AMP * Math.sin(this._t * BOB_W + o.phase) // litet gupp
+          swayA += SWAY_AMP * Math.sin(this._t * SWAY_W + o.phase * 1.3) // mjuk vaggning
+        }
         swayA = clamp(swayA, -MAXF_A, MAXF_A)
-        Body.applyForce(b, pos, { x: b.mass * swayA, y: b.mass * (-buoyA + bobA) })
+        Body.applyForce(b, pos, { x: b.mass * swayA, y: b.mass * vAcc })
         // Vattenmotstånd: dämpa farten -> lugnt, aldrig studsigt.
         Body.setVelocity(b, { x: b.velocity.x * DRAG, y: b.velocity.y * DRAG })
+      }
+      // Sjunkare som nått botten lugnas extra -> de lägger sig stilla utan jitter.
+      if (!o.floats && pos.y > FLOOR_TOP - o.r - 8) {
+        Body.setVelocity(b, { x: b.velocity.x * 0.7, y: b.velocity.y * 0.7 })
       }
       // Håll föremålet ~upprätt.
       if (b.angularVelocity) Body.setAngularVelocity(b, b.angularVelocity * ANG_DAMP)
@@ -495,7 +499,6 @@ export default {
       if (!v || v.destroyed) return
       gsap.killTweensOf(v)
       gsap.killTweensOf(v.scale)
-      if (v._plate && !v._plate.destroyed) gsap.killTweensOf(v._plate.scale)
     })
     if (this._tankView && !this._tankView.destroyed && this._waterTapHandler) {
       this._tankView.off('pointertap', this._waterTapHandler)

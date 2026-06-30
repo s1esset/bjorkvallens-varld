@@ -1,114 +1,204 @@
-// Spelbibliotek: rutnät av stora färgglada brickor (ikon + svensk titel).
-// Ingen läsning krävs — rösten säger "Välj ett spel!" och ikonen visar vad det är.
-// Med många spel blir rutnätet högre än skärmen -> dra lodrätt för att skrolla
-// (mjuk drag, inget snabb-svep). Brickorna behåller en bekväm, läsbar storlek.
+// Spelbibliotek: spelen är indelade i 4 färgglada flikar (Roligt / Fysik / Pussel /
+// Lära). En sorteringsknapp växlar mellan "Nyast" (senast tillagda först) och "A–Ö"
+// (alfabetisk). Ingen läsning krävs — flikarna har ikon + kort ord, rösten säger
+// "Välj ett spel!". Rutnätet av stora brickor skrollas lodrätt om det blir högre än
+// ytan (mjuk drag, inget snabb-svep). Vald flik + sortering minns mellan besök.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
 import { bounceIn } from '../../lib/feedback.js'
 import { GAMES } from '../../games/registry.js'
-import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H, TAB_GROUPS } from '../../lib/theme.js'
+
+// Bibliotekets UI-läge (vald flik + sortering) minns över besök/omladdning.
+const UI_KEY = 'pwagames.library.ui'
+function loadUI() {
+  try {
+    const v = JSON.parse(localStorage.getItem(UI_KEY) || '{}')
+    return {
+      tab: Number.isInteger(v.tab) && v.tab >= 0 && v.tab < TAB_GROUPS.length ? v.tab : 0,
+      sort: v.sort === 'alpha' ? 'alpha' : 'added',
+    }
+  } catch {
+    return { tab: 0, sort: 'added' }
+  }
+}
+function saveUI(ui) {
+  try {
+    localStorage.setItem(UI_KEY, JSON.stringify(ui))
+  } catch {
+    /* UI-pref är inte kritisk */
+  }
+}
 
 export async function createLibraryScreen(services) {
   const view = new Container()
-  const { nav, audio, voice, stickers } = services
+  const { nav, voice, stickers } = services
+  const ui = loadUI()
 
-  // Hem-knapp (tillbaka till menyn)
+  // --- Topp-rad: hem · titel · sortering · högtalare ---
   const home = new Button({
-    icon: '🏠',
-    width: 100,
-    height: 100,
-    color: COLORS.orange,
-    services,
-    sound: 'tap',
+    icon: '🏠', width: 100, height: 100, color: COLORS.orange, services, sound: 'tap',
     onTap: () => nav.go('menu'),
   })
-  home.x = 80
-  home.y = 80
+  home.position.set(80, 80)
   view.addChild(home)
 
   const title = new Text({
     text: 'Välj ett spel',
-    style: { fontFamily: FONT.title, fontSize: 52, fontWeight: '700', fill: COLORS.ink },
+    style: { fontFamily: FONT.title, fontSize: 48, fontWeight: '700', fill: COLORS.ink },
   })
   title.anchor.set(0.5)
-  title.x = DESIGN_W / 2
-  title.y = 78
+  title.position.set(DESIGN_W / 2, 70)
   view.addChild(title)
 
-  // Repetera röst-instruktion
   const speaker = new Button({
-    icon: '🔊',
-    width: 100,
-    height: 100,
-    color: COLORS.purple,
-    services,
-    sound: 'tap',
-    onTap: () => voice.say('Välj ett spel!', true), // uttrycklig knapp: kringgå anti-upprepning
+    icon: '🔊', width: 100, height: 100, color: COLORS.purple, services, sound: 'tap',
+    onTap: () => voice.say('Välj ett spel!', true),
   })
-  speaker.x = DESIGN_W - 80
-  speaker.y = 80
+  speaker.position.set(DESIGN_W - 80, 80)
   view.addChild(speaker)
 
-  // --- rutnät (skrollbart) ---
+  // Sorteringsknapp (växlar Nyast <-> A–Ö). Etiketten visar AKTUELLT läge.
+  const sortBtn = new Button({
+    width: 188, height: 92, color: COLORS.teal, services, sound: 'flip',
+    onTap: () => {
+      ui.sort = ui.sort === 'added' ? 'alpha' : 'added'
+      saveUI(ui)
+      updateSortLabel()
+      rebuildGrid(true)
+      voice.say(ui.sort === 'alpha' ? 'A till Ö' : 'Nyast först', true)
+    },
+  })
+  sortBtn.position.set(DESIGN_W - 250, 80)
+  view.addChild(sortBtn)
+  // Egen etikett (ikon + text) som vi kan byta vid växling.
+  const sortText = new Text({ text: '', style: { fontFamily: FONT.title, fontSize: 32, fontWeight: '700', fill: COLORS.white, align: 'center' } })
+  sortText.anchor.set(0.5)
+  sortText.eventMode = 'none'
+  sortBtn.addChild(sortText)
+  function updateSortLabel() {
+    sortText.text = ui.sort === 'alpha' ? '🔤 A–Ö' : '🆕 Nyast'
+  }
+  updateSortLabel()
+
+  // --- Flik-rad (4 grupper) ---
+  const tabBar = new Container()
+  view.addChild(tabBar)
+  const tabW = 250
+  const tabGap = 20
+  const tabsTotalW = TAB_GROUPS.length * tabW + (TAB_GROUPS.length - 1) * tabGap
+  const tabs = TAB_GROUPS.map((group, i) => {
+    const b = new Button({
+      label: group.label, icon: group.icon, width: tabW, height: 92, color: group.color,
+      services, sound: 'tap',
+      onTap: () => {
+        if (ui.tab === i) return
+        ui.tab = i
+        saveUI(ui)
+        updateTabs()
+        rebuildGrid(true)
+        voice.say(group.label, true)
+      },
+    })
+    b.x = (DESIGN_W - tabsTotalW) / 2 + i * (tabW + tabGap) + tabW / 2
+    b.y = 164
+    tabBar.addChild(b)
+    return b
+  })
+  function updateTabs() {
+    tabs.forEach((b, i) => {
+      const active = i === ui.tab
+      b.alpha = active ? 1 : 0.5
+      gsap.killTweensOf(b.scale)
+      b.scale.set(active ? 1 : 0.94)
+    })
+  }
+  updateTabs()
+
+  // --- Rutnät (skrollbart), byggs om vid flik-/sorterings-byte ---
+  const areaTop = 232
+  const areaH = DESIGN_H - areaTop - 24
+
   const grid = new Container()
   view.addChild(grid)
 
-  const N = GAMES.length
-  const cols = Math.max(1, Math.min(4, N))
-  const rows = Math.ceil(N / cols)
-  const areaTop = 156
-  const areaH = DESIGN_H - areaTop - 24
-  const gap = 28
-  const tileW = Math.min(280, (1180 - gap * (cols - 1)) / cols)
-  const tileH = 150 // bekväm fast höjd (läsbar titel + ikon), oberoende av antal spel
-  const gridW = cols * tileW + (cols - 1) * gap
-  const gridTotalH = rows * tileH + (rows - 1) * gap
-
-  // Skroll-tillstånd: delas med brickorna så ett skroll-drag inte råkar starta ett spel.
-  const scroll = { dragging: false, moved: false }
-  const scrolling = () => scroll.moved
-
-  GAMES.forEach((game, i) => {
-    const col = i % cols
-    const row = Math.floor(i / cols)
-    const x = (DESIGN_W - gridW) / 2 + col * (tileW + gap) + tileW / 2
-    const y = row * (tileH + gap) + tileH / 2
-    const tile = makeTile(game, tileW, tileH, services, stickers.has(game.id), scrolling)
-    tile.x = x
-    tile.y = y
-    grid.addChild(tile)
-    bounceIn(tile, { delay: Math.min(0.6, 0.04 * i) })
-  })
-
-  // Vertikal placering: centrera om allt får plats, annars skrolla.
-  const fits = gridTotalH <= areaH
-  const maxY = fits ? areaTop + (areaH - gridTotalH) / 2 : areaTop
-  const minY = fits ? maxY : areaTop - (gridTotalH - areaH)
-  grid.y = maxY
-
-  // Klipp rutnätet till ytan (så brickor inte ritas över titeln/knapparna).
   const mask = new Graphics().rect(0, areaTop - 8, DESIGN_W, areaH + 16).fill(0xffffff)
   view.addChild(mask)
   grid.mask = mask
 
-  // Liten "mer nedanför"-pil när det går att skrolla.
-  let hint = null
-  if (!fits) {
-    hint = new Text({ text: '⬇', style: { fontFamily: FONT.body, fontSize: 40, fill: COLORS.inkSoft } })
-    hint.anchor.set(0.5)
-    hint.x = DESIGN_W / 2
-    hint.y = DESIGN_H - 26
-    hint.eventMode = 'none'
-    view.addChild(hint)
-    gsap.to(hint, { y: hint.y - 8, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+  // "mer nedanför"-pil (visas bara när det går att skrolla).
+  const hint = new Text({ text: '⬇', style: { fontFamily: FONT.body, fontSize: 40, fill: COLORS.inkSoft } })
+  hint.anchor.set(0.5)
+  hint.position.set(DESIGN_W / 2, DESIGN_H - 26)
+  hint.eventMode = 'none'
+  hint.visible = false
+  view.addChild(hint)
+  gsap.to(hint, { y: DESIGN_H - 34, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+
+  // Skroll-tillstånd (delas med brickorna så ett skroll-drag inte startar ett spel).
+  const scroll = { dragging: false, moved: false, fits: true, minY: areaTop, maxY: areaTop }
+  const scrolling = () => scroll.moved
+
+  // Aktuell flik + sortering → lista av spel.
+  function orderedGames() {
+    const group = TAB_GROUPS[ui.tab]
+    const list = GAMES.filter((g) => group.cats.includes(g.category))
+    if (ui.sort === 'alpha') {
+      return [...list].sort((a, b) => a.titleSv.localeCompare(b.titleSv, 'sv'))
+    }
+    return [...list].reverse() // 'added' = senast tillagda först
   }
 
-  // Drag-att-skrolla (endast om det behövs). Spårar i designkoordinater.
+  function clearGrid() {
+    for (const child of [...grid.children]) {
+      gsap.killTweensOf(child)
+      gsap.killTweensOf(child.scale)
+      child.destroy({ children: true })
+    }
+  }
+
+  function rebuildGrid(animate = false) {
+    clearGrid()
+    const list = orderedGames()
+    const N = list.length
+    const cols = Math.max(1, Math.min(4, N))
+    const rows = Math.ceil(N / cols)
+    const gap = 28
+    const tileW = Math.min(280, (1180 - gap * (cols - 1)) / cols)
+    const tileH = 150
+    const gridW = cols * tileW + (cols - 1) * gap
+    const gridTotalH = rows * tileH + (rows - 1) * gap
+
+    list.forEach((game, i) => {
+      const col = i % cols
+      const row = Math.floor(i / cols)
+      const x = (DESIGN_W - gridW) / 2 + col * (tileW + gap) + tileW / 2
+      const y = row * (tileH + gap) + tileH / 2
+      const tile = makeTile(game, tileW, tileH, services, stickers.has(game.id), scrolling)
+      tile.position.set(x, y)
+      grid.addChild(tile)
+      if (animate) bounceIn(tile, { delay: Math.min(0.4, 0.03 * i) })
+    })
+
+    // Vertikal placering: centrera om allt får plats, annars skrolla (uppifrån).
+    const fits = gridTotalH <= areaH
+    const maxY = fits ? areaTop + (areaH - gridTotalH) / 2 : areaTop
+    const minY = fits ? maxY : areaTop - (gridTotalH - areaH)
+    scroll.fits = fits
+    scroll.maxY = maxY
+    scroll.minY = minY
+    grid.y = maxY
+    hint.visible = !fits
+    if (!fits) hint.alpha = 1
+  }
+  rebuildGrid(true)
+
+  // Drag-att-skrolla. Spårar i designkoordinater; bounds läses från `scroll`.
   let startPy = 0
   let startGridY = 0
   const onDown = (e) => {
-    if (fits) return
+    if (scroll.fits) return
     scroll.dragging = true
     scroll.moved = false
     startPy = view.toLocal(e.global).y
@@ -118,17 +208,13 @@ export async function createLibraryScreen(services) {
     if (!scroll.dragging) return
     const dy = view.toLocal(e.global).y - startPy
     if (Math.abs(dy) > 8) scroll.moved = true
-    grid.y = Math.max(minY, Math.min(maxY, startGridY + dy))
-    if (hint) hint.alpha = grid.y <= minY + 4 ? 0 : 1
+    grid.y = Math.max(scroll.minY, Math.min(scroll.maxY, startGridY + dy))
+    hint.alpha = grid.y <= scroll.minY + 4 ? 0 : 1
   }
   const onUp = () => {
     scroll.dragging = false
-    // moved-flaggan ligger kvar tills nästa pointerdown, så pointertap (som kommer
-    // direkt efter pointerup) ser ett genomfört skroll och hoppar över start.
   }
   view.eventMode = 'static'
-  // Explicit hitArea så pointerdown fångas även i mellanrummen mellan brickorna
-  // (en Container utan hitArea träffas bara där dess barn ligger).
   view.hitArea = new Rectangle(0, 0, DESIGN_W, DESIGN_H)
   view.on('pointerdown', onDown)
   view.on('globalpointermove', onMove)
@@ -144,8 +230,13 @@ export async function createLibraryScreen(services) {
       view.off('globalpointermove', onMove)
       view.off('pointerup', onUp)
       view.off('pointerupoutside', onUp)
-      if (hint) gsap.killTweensOf(hint)
+      gsap.killTweensOf(hint)
       gsap.killTweensOf(grid)
+      for (const child of grid.children) {
+        gsap.killTweensOf(child)
+        gsap.killTweensOf(child.scale)
+      }
+      for (const b of tabs) gsap.killTweensOf(b.scale)
       grid.mask = null
     },
   }

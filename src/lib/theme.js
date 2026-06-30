@@ -48,6 +48,15 @@ export const CATEGORIES = {
   minne: { label: 'Minne', color: 0xff9ec4 },
 }
 
+// Flik-grupper i biblioteket: de 8 kategorierna samlas i 4 barnvänliga flikar.
+// `cats` mappar GameModule.category -> flik. `color` matchar en representativ kategori.
+export const TAB_GROUPS = [
+  { key: 'roligt', label: 'Roligt', icon: '🎉', color: 0xff8a3d, cats: ['roligt'] },
+  { key: 'fysik', label: 'Fysik', icon: '⚙️', color: 0x5bbf6a, cats: ['fysik', 'motorik'] },
+  { key: 'pussel', label: 'Pussel', icon: '🧩', color: 0x4aa3df, cats: ['pussel', 'minne', 'drag'] },
+  { key: 'lara', label: 'Lära', icon: '🔤', color: 0xa78bfa, cats: ['larande', 'pedagogiskt'] },
+]
+
 // Beröm som spelas upp (röst) när ett spel klaras.
 export const PRAISE = ['Bravo!', 'Jättebra!', 'Toppen!', 'Vad duktig du är!', 'Hurra!', 'Fint jobbat!', 'Wow!']
 

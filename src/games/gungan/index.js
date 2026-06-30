@@ -1,8 +1,12 @@
 // Gungan — fysik-GAME (2–4 år). Lova sitter på en gunga (pendel) som hänger i en
 // A-ram. Barnet TRYCKER i takt med gungandet för att pumpa henne högre och högre
-// (resonans: en knuff i rätt fas tillför mest energi) tills hon når toppen och
-// NUDDAR fågeln/äpplet på grenen → firande. Hon faller ALDRIG av, och en mjuk
-// auto-medvind garanterar att målet alltid nås även om barnet inte trycker rätt.
+// (resonans: en knuff i rätt fas tillför mest energi) tills hon NUDDAR målen på
+// grenarna (fågel/äpple/ballong …) → firande. Hon faller ALDRIG av, och en mjuk
+// auto-medvind garanterar att målen alltid nås även om barnet inte trycker rätt.
+//
+// STIGANDE SVÅRIGHET (per nivå, oändligt): längre rep + högre toppmål + FLER mål
+// att samla i samma nivå (1 → 2 → 3, på olika höjder och sidor) + auto-medvinden
+// dröjer längre innan den hjälper. Lägsta målet nås först, det högsta klarar nivån.
 //
 // TVÅ kontroller som ändrar utfallet (krav ≥2):
 //   1) TIMING av trycken — fas-kvaliteten q (nära ytterläget = full knuff, i botten
@@ -17,7 +21,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { pop, wiggle, sparkle, floatText, burst, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // --- Pendel-konstanter (egen integrator, px/sekund) ---
 const OMEGA0 = 2.5 // rad/s naturlig vinkelfrekvens → period ≈ 2,5 s (lugn, lärbar rytm)
@@ -27,9 +31,12 @@ const PIVOT_X = 640 // upphängningspunkt x
 const PIVOT_Y = 150 // upphängningspunkt y
 const OMEGA_CAP = 3.2 // tak på vinkelhastighet → kan aldrig skjutas över THETA_MAX
 
-const GOAL_EMOJIS = ['🐦', '🍎', '🎈']
+const GOAL_EMOJIS = ['🐦', '🍎', '🎈', '🦋', '🌟', '🍏']
 const RHYTHM_LINE = 'Just så — tryck i takt!'
 const STRONG_LINE = 'Nu knuffar vi starkare!'
+// Korta talade rader när en ny (svårare) nivå laddas. Noll läsning för barnet.
+const LEVEL_LINES_MULTI = ['Gunga och nudda allihop!', 'Pumpa i takt — fler kompisar!', 'Nu når vi ännu fler!']
+const LEVEL_LINES_SOLO = ['Nu gungar vi ännu högre!', 'Pumpa i takt så når vi toppen!']
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -58,9 +65,10 @@ export default {
     this._maxAbs = 0
     this._lastSoft = 0
     this._lastReveal = 0
-    this._goalSign = -1
-    this._goalAmp = 0.85
-    this._goalEmoji = '🐦'
+    this._targets = [] // [{ sign, amp, char, collected, pos, ring, emoji, glowTween }]
+    this._topAmp = 0.85
+    this._assistDelay = 5 // sekunder innan auto-medvinden börjar (stiger med nivån)
+    this._assistStrongDelay = 12 // sekunder innan auto-medvinden blir stark (garanterar mål)
     this._L = 300
     this._pumpStart = null
     this._pumpDist = 0
@@ -119,14 +127,34 @@ export default {
   },
 
   // ----------------------------------------------------------------- nivåer
-  _levelParams(level) {
-    if (level <= 1) return { L: 300, goal: 0.85 }
-    if (level <= 3) return { L: 330, goal: 1.0 }
-    if (level <= 5) return { L: 360, goal: 1.15 }
-    return { L: 390, goal: 1.3 }
+  // Stigande svårighet: längre rep + högre toppmål + FLER mål att nudda (fågel
+  // OCH ballong OCH … på olika höjder/sidor) + auto-medvinden dröjer längre.
+  _levelDef(level) {
+    const n = Math.max(0, level | 0)
+    // Replängd växer långsamt (längre pendel = långsammare, kräver mer takt).
+    const L = clamp(290 + n * 14, 290, 400)
+    // Antal mål att samla i EN nivå: 1 (nivå 0–1), 2 (2–4), 3 (5+).
+    const count = n <= 1 ? 1 : n <= 4 ? 2 : 3
+    // Toppmålets amplitud stiger med nivån (men aldrig över det bevisat nåbara).
+    const topAmp = clamp(0.82 + n * 0.07, 0.82, 1.3)
+    const STEP = 0.27 // höjdskillnad mellan målen i samma nivå
+    // Slumpad startsida från nivå 2 (mål kan byta sida); målen alternerar sida.
+    const startSign = n <= 1 ? -1 : Math.random() < 0.5 ? -1 : 1
+    const chars = shuffle(GOAL_EMOJIS)
+    const targets = []
+    for (let i = 0; i < count; i++) {
+      const amp = clamp(topAmp - STEP * (count - 1 - i), 0.5, topAmp)
+      const sign = startSign * (i % 2 === 0 ? 1 : -1)
+      targets.push({ sign, amp, char: chars[i % chars.length], collected: false, pos: null, ring: null, emoji: null, glowTween: null })
+    }
+    // Auto-medvinden börjar (svag) senare och blir stark (garanterar mål) senare
+    // ju högre nivå → barnet får pumpa själv längre = "mer att göra".
+    const assistDelay = clamp(5 + n * 0.7, 5, 10)
+    const assistStrongDelay = clamp(12 + n * 0.7, 12, 19)
+    return { L, count, topAmp, targets, assistDelay, assistStrongDelay }
   },
 
-  _loadLevel(ctx, level) {
+  _loadLevel(ctx, level, announce = false) {
     if (!this._alive) return
     this._resolving = false
     this._sinceTap = 0
@@ -134,26 +162,26 @@ export default {
     this._maxAbs = 0
     this._prevOmega = 0
 
-    const p = this._levelParams(level)
-    this._L = p.L
-    this._goalAmp = p.goal
-    if (level >= 2) {
-      this._goalSign = Math.random() < 0.5 ? -1 : 1 // målet kan byta sida
-      this._goalEmoji = randomFrom(GOAL_EMOJIS)
-    } else {
-      this._goalSign = -1
-      this._goalEmoji = '🐦'
-    }
-    if (level >= 6) this._goalAmp = clamp(this._goalAmp + randomFrom([-0.05, 0, 0.05]), 0.85, 1.32)
+    const def = this._levelDef(level)
+    this._L = def.L
+    this._topAmp = def.topAmp
+    this._targets = def.targets
+    this._assistDelay = def.assistDelay
+    this._assistStrongDelay = def.assistStrongDelay
 
     this._buildSwing()
-    this._buildTarget()
+    this._buildTargets()
 
-    // Litet startutslag, ingen rörelse.
-    this._theta = this._goalSign * 0.22
+    // Litet startutslag mot det lägsta (första) målets sida, ingen rörelse.
+    const first = this._targets.reduce((a, b) => (a.amp <= b.amp ? a : b))
+    this._theta = first.sign * 0.22
     this._omega = 0
     this._arc.clear()
     this._drawArc()
+
+    if (announce && this._alive) {
+      ctx.services.voice.say(randomFrom(this._targets.length > 1 ? LEVEL_LINES_MULTI : LEVEL_LINES_SOLO))
+    }
   },
 
   // ----------------------------------------------------------------- ritning
@@ -230,35 +258,49 @@ export default {
     return c
   },
 
-  _buildTarget() {
+  _buildTargets() {
+    for (const t of this._targets) t.glowTween?.kill()
     for (const c of this._target.removeChildren()) {
       gsap.killTweensOf(c)
       if (c.scale) gsap.killTweensOf(c.scale)
       c.destroy({ children: true })
     }
-    this._glowTween?.kill()
+    for (const t of this._targets) {
+      const pos = this._bobWorld(t.sign * t.amp, this._L - 118) // strax ovanför Lovas huvud i toppläget
+      t.pos = pos
 
-    const gt = this._goalSign * this._goalAmp
-    const pos = this._bobWorld(gt, this._L - 118) // strax ovanför Lovas huvud i toppläget
-    this._targetPos = pos
+      const branch = new Graphics().roundRect(-48, -8, 96, 16, 8).fill(COLORS.brown).stroke({ width: 3, color: 0x6f4428 })
+      branch.position.set(pos.x, pos.y + 34)
+      branch.eventMode = 'none'
 
-    const branch = new Graphics().roundRect(-48, -8, 96, 16, 8).fill(COLORS.brown).stroke({ width: 3, color: 0x6f4428 })
-    branch.position.set(pos.x, pos.y + 34)
-    branch.eventMode = 'none'
+      const ring = new Graphics().circle(0, 0, 58).stroke({ width: 6, color: COLORS.yellow, alpha: 0.4 })
+      ring.position.set(pos.x, pos.y)
+      ring.eventMode = 'none'
+      t.ring = ring
 
-    const ring = new Graphics().circle(0, 0, 58).stroke({ width: 6, color: COLORS.yellow, alpha: 0.4 })
-    ring.position.set(pos.x, pos.y)
-    ring.eventMode = 'none'
-    this._targetRing = ring
+      const emo = new Text({ text: t.char, style: { fontFamily: FONT.body, fontSize: 90 } })
+      emo.anchor.set(0.5)
+      emo.position.set(pos.x, pos.y)
+      emo.eventMode = 'none'
+      t.emoji = emo
 
-    const emo = new Text({ text: this._goalEmoji, style: { fontFamily: FONT.body, fontSize: 90 } })
-    emo.anchor.set(0.5)
-    emo.position.set(pos.x, pos.y)
-    emo.eventMode = 'none'
-    this._targetEmoji = emo
+      this._target.addChild(branch, ring, emo)
+      t.glowTween = breathe(ring, { scale: 1.12, duration: 1.0 })
+    }
+  },
 
-    this._target.addChild(branch, ring, emo)
-    this._glowTween = breathe(ring, { scale: 1.12, duration: 1.0 })
+  // Nästa mål att nå = det lägsta ännu osamlade (gungan når låga höjder först).
+  _nextTarget() {
+    let best = null
+    for (const t of this._targets) if (!t.collected && (!best || t.amp < best.amp)) best = t
+    return best
+  },
+
+  // Högsta osamlade mål-amplitud på en given sida (för bågspåret).
+  _maxAmpForSign(sign) {
+    let m = 0
+    for (const t of this._targets) if (t.sign === sign && !t.collected && t.amp > m) m = t.amp
+    return m
   },
 
   _drawArc() {
@@ -266,12 +308,16 @@ export default {
     if (!g || g.destroyed) return
     g.clear()
     const L = this._L
-    const steps = 18
-    for (let i = 1; i <= steps; i++) {
-      const phi = (i / steps) * this._goalAmp
-      const w = this._bobWorld(this._goalSign * phi, L)
-      const reached = phi <= this._maxAbs + 0.001
-      g.circle(w.x, w.y, reached ? 6 : 3).fill({ color: reached ? COLORS.yellow : COLORS.white, alpha: reached ? 0.5 : 0.22 })
+    const steps = 16
+    for (const sign of [-1, 1]) {
+      const top = this._maxAmpForSign(sign)
+      if (top <= 0) continue
+      for (let i = 1; i <= steps; i++) {
+        const phi = (i / steps) * top
+        const w = this._bobWorld(sign * phi, L)
+        const reached = phi <= this._maxAbs + 0.001
+        g.circle(w.x, w.y, reached ? 6 : 3).fill({ color: reached ? COLORS.yellow : COLORS.white, alpha: reached ? 0.5 : 0.22 })
+      }
     }
   },
 
@@ -410,7 +456,7 @@ export default {
       this._theta += this._omega * h
     }
     if (!Number.isFinite(this._theta) || !Number.isFinite(this._omega)) {
-      this._theta = this._goalSign * 0.2
+      this._theta = (this._targets[0]?.sign || -1) * 0.2
       this._omega = 0
     }
     // Mjuk men hård spärr — går aldrig över toppen.
@@ -428,33 +474,37 @@ export default {
     }
 
     if (!this._resolving) {
-      // Målet "lockar" när hon närmar sig.
-      if (this._goalSign * this._theta > 0.7 * this._goalAmp) {
-        const now = performance.now()
-        if (now - this._lastReveal > 600) {
-          this._lastReveal = now
-          ctx.services.audio.sfx('reveal')
-          if (this._targetPos) sparkle(ctx.fxLayer, this._targetPos.x, this._targetPos.y, { count: 5 })
-        }
+      // Samla alla mål som nåtts denna tick (rätt sida, rätt höjd). Det sista
+      // målet sätter _resolving via _levelComplete → nivån är klar.
+      for (const tg of this._targets) {
+        if (!tg.collected && tg.sign * this._theta >= tg.amp - 0.015) this._collectTarget(ctx, tg)
       }
 
-      // Mål nått (rätt sida, rätt höjd) → firande.
-      if (this._goalSign * this._theta >= this._goalAmp - 0.015) {
-        this._win(ctx)
-      } else {
-        // Idle-om-cue + auto-hjälp.
+      if (!this._resolving) {
+        // Nästa mål "lockar" när hon närmar sig.
+        const next = this._nextTarget()
+        if (next && next.sign * this._theta > 0.7 * next.amp) {
+          const now = performance.now()
+          if (now - this._lastReveal > 600) {
+            this._lastReveal = now
+            ctx.services.audio.sfx('reveal')
+            sparkle(ctx.fxLayer, next.pos.x, next.pos.y, { count: 5 })
+          }
+        }
+
+        // Idle-om-cue + auto-hjälp (medvinden dröjer längre på högre nivåer).
         this._sinceTap += dt
-        if (this._sinceTap > 6 && !this._didIdleCue) {
+        if (this._sinceTap > this._assistDelay + 1 && !this._didIdleCue) {
           this._didIdleCue = true
           ctx.services.voice.say(this.voiceIntro)
           if (this._toggle && !this._toggle.destroyed) wiggle(this._toggle)
           const b = this._bobWorld(this._theta, this._L - 90)
           sparkle(ctx.fxLayer, b.x, b.y)
         }
-        if (this._sinceTap > 5) {
+        if (this._sinceTap > this._assistDelay) {
           // Lägg en auto-knuff varje gång gungan vänder (omega passerar noll = bästa fas).
           const crossed = this._prevOmega !== 0 && Math.sign(this._omega) !== Math.sign(this._prevOmega)
-          if (crossed) this._autoPush(ctx, this._sinceTap > 12 ? 0.7 : 0.35)
+          if (crossed) this._autoPush(ctx, this._sinceTap > this._assistStrongDelay ? 0.7 : 0.35)
         }
       }
     }
@@ -462,19 +512,34 @@ export default {
     this._prevOmega = this._omega
   },
 
-  _win(ctx) {
+  // Ett mål nuddas → liten plock-fest. Sista målet kallar _levelComplete.
+  _collectTarget(ctx, tg) {
+    if (tg.collected) return
+    tg.collected = true
+    tg.glowTween?.kill()
+
+    // Plockas: göm originalet, låt en kopia flaxa/hoppa iväg (exit-säkert via floatText).
+    if (tg.emoji && !tg.emoji.destroyed) tg.emoji.alpha = 0
+    if (tg.ring && !tg.ring.destroyed) tg.ring.alpha = 0
+    floatText(ctx.fxLayer, tg.pos.x, tg.pos.y, tg.char, { rise: 110, duration: 1.0, fontSize: 78 })
+    sparkle(ctx.fxLayer, tg.pos.x, tg.pos.y, { count: 8 })
+    this._drawArc() // bågspåret syftar nu mot nästa, högre mål
+
+    const remaining = this._targets.filter((x) => !x.collected).length
+    if (remaining === 0) {
+      this._levelComplete(ctx)
+    } else {
+      // Mellan-mål: glatt men kort, ingen ny nivå än.
+      ctx.services.audio.sfx('pling')
+      floatText(ctx.fxLayer, tg.pos.x, tg.pos.y - 54, randomFrom(['Bra!', 'Ja!', '⭐']))
+    }
+  },
+
+  _levelComplete(ctx) {
     if (this._resolving) return
     this._resolving = true
     this._sinceTap = 0
-    this._glowTween?.kill()
 
-    ctx.services.audio.sfx('correct')
-
-    // Fågeln/äpplet plockas: göm originalet, låt en kopia flaxa/hoppa iväg.
-    const pos = this._targetPos || this._bobWorld(this._goalSign * this._goalAmp, this._L - 118)
-    if (this._targetEmoji && !this._targetEmoji.destroyed) this._targetEmoji.alpha = 0
-    if (this._targetRing && !this._targetRing.destroyed) this._targetRing.alpha = 0
-    floatText(ctx.fxLayer, pos.x, pos.y, this._goalEmoji, { rise: 120, duration: 1.1, fontSize: 80 })
     const b = this._bobWorld(this._theta, this._L - 90)
     burst(ctx.fxLayer, b.x, b.y, { count: 16 })
 
@@ -485,8 +550,8 @@ export default {
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('gungor', (ctx.progress.get().custom?.gungor || 0) + 1)
 
-    this._winTimer = gsap.delayedCall(1.6, () => {
-      if (this._alive) this._loadLevel(ctx, this._level)
+    this._winTimer = gsap.delayedCall(1.7, () => {
+      if (this._alive) this._loadLevel(ctx, this._level, true)
     })
   },
 
@@ -495,7 +560,6 @@ export default {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
     this._winTimer?.kill()
-    this._glowTween?.kill()
     this._detachPump()
     if (this._pump && !this._pump.destroyed) this._pump.off('pointerdown', this._hPumpDown)
     if (this._toggle && !this._toggle.destroyed) {
@@ -507,11 +571,14 @@ export default {
       gsap.killTweensOf(this._lova)
       gsap.killTweensOf(this._lova.scale)
     }
-    if (this._targetEmoji && !this._targetEmoji.destroyed) {
-      gsap.killTweensOf(this._targetEmoji)
-      gsap.killTweensOf(this._targetEmoji.scale)
+    for (const tg of this._targets || []) {
+      tg.glowTween?.kill()
+      if (tg.emoji && !tg.emoji.destroyed) {
+        gsap.killTweensOf(tg.emoji)
+        gsap.killTweensOf(tg.emoji.scale)
+      }
+      if (tg.ring && !tg.ring.destroyed) gsap.killTweensOf(tg.ring)
     }
-    if (this._targetRing && !this._targetRing.destroyed) gsap.killTweensOf(this._targetRing)
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })

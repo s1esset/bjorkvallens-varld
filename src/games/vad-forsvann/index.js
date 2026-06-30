@@ -1,14 +1,18 @@
 // Vad Försvann? — en lugn minneslek (3–5 år). Några gulliga saker studsar in,
 // barnet tittar i lugn takt och trycker på en stor "Göm dem!"-knapp. En mjuk
 // filt glider över sakerna, EN sak försvinner i smyg, och filten glider undan
-// igen — en tom platshållare lyser där saken fanns. Barnet trycker på den tomma
-// platsen → saken studsar tillbaka, säger sitt namn, gnistror + beröm. Tryck på
-// en sak som syns = lekfull vingel + mjuk vink, aldrig ett "fel". Ingen poäng,
-// ingen timer, inget slut. Allt ritas programmatiskt (Pixi Graphics + emoji).
+// igen — en tom platshållare lyser där saken fanns. NU måste barnet komma ihåg
+// VILKEN sak som försvann: en rad svarskort dyker upp nedtill (den borta saken +
+// ett par "lurar" bland de som fortfarande syns). Barnet trycker på rätt kort →
+// saken studsar tillbaka på sin plats, säger sitt namn, gnistror + beröm. Fel
+// kort = lekfull vingel + mjukt ljud + ny mild ledtråd (ALDRIG ett "fel"); efter
+// ett par försök (eller om barnet väntar) lyser rätt kort upp och väljs till slut
+// så det aldrig kan misslyckas. Ingen poäng, ingen timer, inget slut. Allt ritas
+// programmatiskt (Pixi Graphics + emoji).
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, breathe } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 
@@ -68,21 +72,31 @@ export default {
     this._killSceneTweens()
     this._root.removeChildren().forEach((o) => o.destroy({ children: true }))
     this._slots = []
+    this._choices = []
+    this._choiceLayer = null
     this._blanket = null
     this._missing = null
     this._busy = false
-    this._errored = false
+    this._misses = 0
+    this._helped = false
+    this._resolving = false
     this._idle = 0
+    this._idleNudges = 0
     this._phase = 'show'
 
     const lvl = LEVELS[this._level]
+    // Rutnätet bor i ett eget lager så vi kan glida upp det när svarskorten kommer.
+    this._gridShift = lvl.rows > 1 ? 90 : 0
+    this._gridLayer = new Container()
+    this._root.addChild(this._gridLayer)
+
     const motifs = shuffle(MOTIFS).slice(0, lvl.count)
     const positions = layout(lvl)
 
     motifs.forEach((motif, i) => {
       const slot = this._makeSlot(ctx, motif)
       slot.position.set(positions[i].x, positions[i].y)
-      this._root.addChild(slot)
+      this._gridLayer.addChild(slot)
       this._slots.push(slot)
       slot.scale.set(0)
       gsap.to(slot.scale, {
@@ -164,7 +178,6 @@ export default {
     slot._isGap = true
     slot._emoji.visible = false
     slot._placeholder.visible = true
-    this._errored = false
 
     ctx.services.audio.sfx('reveal')
     gsap.to(blanket, {
@@ -175,55 +188,155 @@ export default {
         if (this._blanket === blanket) this._blanket = null
         this._phase = 'answer'
         this._busy = false
+        this._misses = 0
+        this._helped = false
         this._idle = 0
-        ctx.services.voice.say('Vad försvann? Tryck på den tomma platsen!')
+        this._idleNudges = 0
+        // Glid upp rutnätet (på 2-radsnivån) så svarskorten får plats nedtill.
+        if (this._gridShift) gsap.to(this._gridLayer, { y: -this._gridShift, duration: 0.4, ease: 'power2.out' })
         pop(slot) // liten puls på den tomma platsen
+        this._showChoices(ctx)
+        ctx.services.voice.say('Vad försvann? Tryck på saken som är borta!')
       },
     })
   },
 
-  // Tap på en slot.
+  // Visa svarsraden: rätt (borta) sak + ett par "lurar" bland de som SYNS kvar.
+  // Eftersom lurarna fortfarande finns kvar uppe är den borta saken det enda
+  // kortet som inte längre syns — ett äkta igenkännings-/minnesval (inte "tryck
+  // på den tomma rutan"). Korten studsar in en efter en.
+  _showChoices(ctx) {
+    if (!this._alive || !this._missing) return
+    const remaining = this._slots.filter((s) => s !== this._missing)
+    const lureCount = Math.min(this._level >= 2 ? 3 : 2, remaining.length)
+    const lures = shuffle(remaining.map((s) => s._motif)).slice(0, lureCount)
+    const motifs = shuffle([this._missing._motif, ...lures])
+
+    const layer = new Container()
+    this._root.addChild(layer)
+    this._choiceLayer = layer
+    this._choices = []
+
+    const positions = choiceLayout(motifs.length)
+    motifs.forEach((motif, i) => {
+      const card = this._makeChoice(ctx, motif)
+      card.position.set(positions[i].x, positions[i].y)
+      layer.addChild(card)
+      this._choices.push(card)
+      card.scale.set(0)
+      gsap.to(card.scale, {
+        x: 1, y: 1, duration: 0.32, delay: 0.1 + i * 0.08, ease: 'back.out(1.7)',
+        onStart: () => { if (this._alive && i === 0) ctx.services.audio.sfx('pling') },
+      })
+    })
+  },
+
+  // Ett svarskort = stort tryckbart kort med en emoji. Träffyta ≫ 96px.
+  _makeChoice(ctx, motif) {
+    const card = makeChoiceCard(motif)
+    card.on('pointertap', () => this._onChoice(ctx, card, motif))
+    return card
+  },
+
+  // Tap på ett svarskort.
+  _onChoice(ctx, card, motif) {
+    if (!this._alive || this._busy || this._phase !== 'answer') return
+    this._idle = 0
+    this._idleNudges = 0
+
+    if (motif === this._missing._motif) {
+      this._resolveCorrect(ctx, card) // RÄTT
+      return
+    }
+    // FEL: aldrig en bestraffning — lekfull vingel + mjukt ljud + ny mild ledtråd.
+    ctx.services.audio.sfx('soft')
+    wiggle(card)
+    this._misses = (this._misses || 0) + 1
+    if (this._misses === 1) {
+      ctx.services.voice.say('Nästan! Titta vad som finns kvar — vilken sak är borta?')
+    } else {
+      ctx.services.voice.say('Prova igen! Leta efter saken som inte syns längre.')
+    }
+    if (this._misses >= 2) this._autoHelp(ctx) // mjuk auto-hjälp -> kan aldrig fastna
+  },
+
+  // RÄTT svar: firande EN gång (guard _resolving). Saken studsar tillbaka på sin
+  // plats, säger sitt namn, gnistror + beröm, framsteg + delat firande.
+  _resolveCorrect(ctx, card) {
+    if (this._resolving) return
+    this._resolving = true
+    this._busy = true
+    this._phase = 'resolved'
+    this._idle = 0
+    this._killHelpTween()
+
+    ctx.services.audio.sfx('correct')
+    if (card && !card.destroyed) {
+      gsap.killTweensOf(card.scale)
+      card.scale.set(1)
+      pop(card)
+    }
+    // Tona ned de andra korten + lås alla kort.
+    this._choices.forEach((c) => {
+      c.eventMode = 'none'
+      if (c !== card && !c.destroyed) gsap.to(c, { alpha: 0.3, duration: 0.3 })
+    })
+
+    // Saken kommer tillbaka på sin plats i rutnätet.
+    const slot = this._missing
+    slot._isGap = false
+    slot._placeholder.visible = false
+    slot._emoji.visible = true
+    bounceIn(slot._emoji)
+    pop(slot)
+    const gp = ctx.fxLayer.toLocal(slot.getGlobalPosition())
+    sparkle(ctx.fxLayer, gp.x, gp.y)
+    const namn = NAMES[slot._motif] || 'den'
+    ctx.services.voice.say(`Ja! Det var ju ${namn}! ${randomFrom(PRAISE)}`)
+
+    ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
+    this._level = clampLevel(this._level + 1)
+    ctx.progress.setLevel(this._level)
+    ctx.progress.complete()
+    this._later(1.7, () => this._newRound(ctx))
+  },
+
+  // Mjuk auto-hjälp (efter ~2 fel eller om barnet väntar): rätt kort får en grön
+  // glödring + lugn andnings-puls och en vänlig ledtråd; väljs sedan automatiskt
+  // efter en stund om barnet inte hinner -> rundan kan ALDRIG misslyckas.
+  _autoHelp(ctx) {
+    if (!this._alive || this._helped || this._resolving) return
+    this._helped = true
+    const card = this._choices.find((c) => c._motif === this._missing._motif)
+    if (!card || card.destroyed) return
+    if (!card._glow) {
+      const ring = new Graphics().roundRect(-84, -84, 168, 168, 30).stroke({ width: 8, color: COLORS.green, alpha: 0.95 })
+      ring.eventMode = 'none'
+      card.addChildAt(ring, 0)
+      card._glow = ring
+    }
+    this._killHelpTween()
+    this._helpTween = breathe(card, { scale: 1.12, duration: 0.7 })
+    const namn = NAMES[this._missing._motif] || 'den'
+    ctx.services.voice.say(`Titta — det var ${namn} som försvann. Tryck på den!`)
+    this._later(2.8, () => {
+      if (this._alive && this._phase === 'answer' && !this._resolving) this._resolveCorrect(ctx, card)
+    })
+  },
+
+  _killHelpTween() {
+    if (this._helpTween) { this._helpTween.kill(); this._helpTween = null }
+  },
+
+  // Tap på en sak i rutnätet = ALLTID bara en lekfull poke (feedback < 100ms).
+  // Själva svaret ges på svarskorten (_onChoice), aldrig genom att trycka på
+  // rutorna — så det går inte längre att "ha rätt" utan att välja rätt sak.
   _onTap(ctx, slot) {
     if (!this._alive || this._busy) return
     this._idle = 0
-
-    // Visa-fasen: en lekfull poke (alltid feedback < 100ms), ingen rundlogik.
-    if (this._phase === 'show') {
-      ctx.services.audio.sfx('pop')
-      pop(slot)
-      return
-    }
-    if (this._phase !== 'answer') return
-
-    if (slot._isGap) {
-      // RÄTT: saken studsar tillbaka, säger sitt namn, gnistror + beröm.
-      this._busy = true
-      this._phase = 'resolved'
-      ctx.services.audio.sfx('correct')
-      slot._placeholder.visible = false
-      slot._emoji.visible = true
-      bounceIn(slot._emoji)
-      pop(slot)
-      const gp = ctx.fxLayer.toLocal(slot.getGlobalPosition())
-      sparkle(ctx.fxLayer, gp.x, gp.y)
-      const namn = NAMES[slot._motif] || 'den'
-      ctx.services.voice.say(`Ja! Det var ju ${namn}! ${randomFrom(PRAISE)}`)
-
-      // Spara framsteg + höj nivå + delat firande (en gång).
-      ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
-      this._level = clampLevel(this._level + 1)
-      ctx.progress.setLevel(this._level)
-      ctx.progress.complete()
-      this._later(1.4, () => this._newRound(ctx))
-    } else {
-      // FEL: aldrig bestraffning — lekfull vingel + mjukt ljud + mild vink (1:a ggn).
-      ctx.services.audio.sfx('soft')
-      wiggle(slot)
-      if (!this._errored) {
-        this._errored = true
-        ctx.services.voice.say('Den är ju kvar! Vilken sak syns inte?')
-      }
-    }
+    if (this._phase !== 'show' && this._phase !== 'answer') return
+    ctx.services.audio.sfx('pop')
+    pop(slot)
   },
 
   _newRound(ctx) {
@@ -239,8 +352,13 @@ export default {
     if (this._idle < 6) return
     this._idle = 0
     if (this._phase === 'answer' && this._missing) {
-      ctx.services.voice.say('Titta igen — vad är borta? Tryck på den tomma platsen!')
-      pop(this._missing)
+      this._idleNudges = (this._idleNudges || 0) + 1
+      if (this._idleNudges >= 2 || this._helped) {
+        this._autoHelp(ctx) // har väntat ett tag -> visa & välj rätt kort
+      } else {
+        ctx.services.voice.say('Titta igen — vilken sak är borta? Välj rätt kort här nere.')
+        this._choices.forEach((c) => { if (c && !c.destroyed) pop(c) })
+      }
     } else if (this._phase === 'show' && this._button && this._button.visible) {
       ctx.services.voice.say('Tryck på Göm dem! när du har tittat klart.')
       pop(this._button)
@@ -266,6 +384,12 @@ export default {
       gsap.killTweensOf(s.scale)
       if (s._emoji) gsap.killTweensOf(s._emoji.scale)
     })
+    this._choices?.forEach((c) => {
+      gsap.killTweensOf(c)
+      gsap.killTweensOf(c.scale)
+    })
+    this._killHelpTween()
+    if (this._gridLayer) gsap.killTweensOf(this._gridLayer)
     if (this._button) {
       gsap.killTweensOf(this._button)
       gsap.killTweensOf(this._button.scale)
@@ -326,6 +450,37 @@ function makePlaceholder() {
   q.eventMode = 'none'
   c.addChild(g, q)
   return c
+}
+
+// Positioner (center) för svarsraden nedtill, centrerad kring x=640.
+function choiceLayout(n, { y = 632, cardW = 150, gap = 56 } = {}) {
+  const step = cardW + gap
+  const totalW = n * cardW + (n - 1) * gap
+  const startX = 640 - totalW / 2 + cardW / 2
+  const out = []
+  for (let i = 0; i < n; i++) out.push({ x: startX + i * step, y })
+  return out
+}
+
+// Ett svarskort: rundad cream-bricka (150×150) med en stor emoji. Generös
+// träffyta (156px ≫ 96px + osynlig halo). Emoji fångar inte tryck själv.
+function makeChoiceCard(motif) {
+  const card = new Container()
+  const bg = new Graphics()
+    .roundRect(-75, -75, 150, 150, 28)
+    .fill(COLORS.cream)
+    .stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.4 })
+  bg.eventMode = 'none'
+  const emoji = new Text({ text: motif, style: { fontFamily: FONT.body, fontSize: 92, align: 'center' } })
+  emoji.anchor.set(0.5)
+  emoji.eventMode = 'none'
+  card.addChild(bg, emoji)
+  card._motif = motif
+  card._emoji = emoji
+  card.eventMode = 'static'
+  card.cursor = 'pointer'
+  card.hitArea = new Rectangle(-78, -78, 156, 156)
+  return card
 }
 
 // Mjuk filt: rundad lila rektangel (lokalt origo 0,0) med ljus kant + 🧺-motiv.

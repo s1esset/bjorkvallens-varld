@@ -5,6 +5,10 @@
 // say()-API:t är oförändrat så spel/skärmar inte behöver veta vilken motor som körs.
 const MANIFEST_URL = `${import.meta.env.BASE_URL}audio/voice/manifest.json`
 const CLIP_BASE = `${import.meta.env.BASE_URL}audio/voice/`
+// Anti-upprepning: säg INTE exakt samma fras igen inom detta fönster (ms). Skyddar
+// mot idle-recue-loopar / spel som råkar kalla say() i tät takt med samma replik.
+const REPEAT_COOLDOWN_MS = 8000
+const _now = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now())
 
 export class VoiceService {
   constructor(save) {
@@ -63,9 +67,16 @@ export class VoiceService {
   }
 
   // Säg en svensk fras. (text kan innehålla å/ä/ö.)
-  say(text) {
+  // force=true (uttrycklig repetera-knapp) kringgår anti-upprepnings-fönstret.
+  say(text, force = false) {
     if (!text) return
+    // Undertryck exakt samma fras om den nyss sades (anti-upprepning/loop-skydd).
+    // Andra repliker spelas direkt; bara identisk text inom fönstret hoppas över.
+    // Auto-recue (replayLast utan force) tystas; en uttrycklig knapp-tryckning gör det inte.
+    const now = _now()
+    if (!force && text === this.last && now - (this._lastSayAt || 0) < REPEAT_COOLDOWN_MS) return
     this.last = text
+    this._lastSayAt = now
     if (!this.enabled) return
     this.cancel()
     const exact = this._clips.get(text)
@@ -145,8 +156,10 @@ export class VoiceService {
     }
   }
 
-  replayLast() {
-    if (this.last) this.say(this.last)
+  // force=true för den uttryckliga repetera-knappen (alltid spela); utan force
+  // (spelens idle-recue) gäller anti-upprepnings-fönstret.
+  replayLast(force = false) {
+    if (this.last) this.say(this.last, force)
   }
 
   cancel() {

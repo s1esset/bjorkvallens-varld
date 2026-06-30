@@ -79,7 +79,7 @@ export async function createGameHost(services, params) {
     color: COLORS.purple,
     services,
     sound: 'tap',
-    onTap: () => voice.replayLast(),
+    onTap: () => voice.replayLast(true), // uttrycklig knapp: kringgå anti-upprepning
   })
   speaker.x = DESIGN_W - 70
   speaker.y = 64

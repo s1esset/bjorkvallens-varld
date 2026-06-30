@@ -44,7 +44,7 @@ export async function createLibraryScreen(services) {
     color: COLORS.purple,
     services,
     sound: 'tap',
-    onTap: () => voice.say('Välj ett spel!'),
+    onTap: () => voice.say('Välj ett spel!', true), // uttrycklig knapp: kringgå anti-upprepning
   })
   speaker.x = DESIGN_W - 80
   speaker.y = 80

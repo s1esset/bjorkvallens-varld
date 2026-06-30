@@ -6,18 +6,18 @@ Status: ⬜ ej påbörjad · 🟨 pågår · ✅ klar · ⏭️ delvis (resteran
 
 Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseende/redesign) bestämmer jag själv inom befintlig konst + P0-regler.
 
-## ▶️ NÄSTA SESSION — fortsätt här (uppdaterad 2026-06-30)
-**Klart hittills: 33 / 36 åtgärder** (Prio 1: 8/8 ✅ · Prio 2: #9/#10/#11 ✅, #12 invävt, #13 deferred · Prio 3: 7/7 ✅ · Prio 4: 15/15 ✅ · Prio 5: 0/3). Allt klart är **committat** (senast `aa00941`). Arbetsträdet rent (bara denna tracker + otrackade `docs/bugfixes1.md`).
+## ✅ KLART — alla åtgärdbara punkter gjorda (uppdaterad 2026-06-30)
+**Klart: 36 / 36 åtgärder** (Prio 1: 8/8 ✅ · Prio 2: #9/#10/#11 ✅, #12 invävt, #13 deferred · Prio 3: 7/7 ✅ · Prio 4: 15/15 ✅ · Prio 5: 3/3 ✅). Allt **committat** (senast `bee1c78`). Arbetsträdet rent (bara denna tracker + otrackade `docs/bugfixes1.md`).
 
-**ÅTERSTÅR (3 redesigns + 1 deferred) — gör i denna ordning:**
-1. **#36 `lagerelden`** (Prio 5, omtänk) — "omtänk hela spelet, bättre mål, varje nivå mer slumpad svårighet."
-2. **#37 `ballonglyft`** (Prio 5, omtänk) — "omdesigna, jag fattar inte vad man gör/vad som händer" — gör syftet tydligt.
-3. **#38 `magnet-fiske`** (Prio 5, omtänk) — "omtänk spelläget, varje nivå mer intressant/svårare."
-4. **#13 Djurläten** (deferred) — kräver MOSS-tjänsten (:8003, NER) + bättre prompts. Se [[real-audio-sfx]].
+**ENDA ÅTERSTÅENDE = deferred:**
+- **#13 Djurläten** (deferred, blockerad) — kräver MOSS-SoundEffect-tjänsten (:8003, NER) + bättre prompts. När MOSS körs: förbättra de 12 `djur_*`-prompterna i `scripts/sfx-phrases.json` → `npm run sfx --force --only djur_X`. Se [[real-audio-sfx]].
 
-**KLART denna session:**
-- **#31 `studsmatta`** ✅ — byggde om kontrollen: dra studsmattan i sidled = sikta, dra NER = spänn (mer studs-höjd/-fart), höjden DU sätter blir kvar; ben/bädd ritas om dynamiskt vid ny y, matter-bädd-kropp följer; tap = förlåtande fallback. No-fail intakt (verifierat L0→L1, 0 fel 30s). Commit `fbc569c`.
-- **#35 `regnbagsmalaren`** ✅ — fyllnads-fraktionen var x-baserad → inre bågar (R ner till 60px) kunde aldrig nå snäpp-tröskeln. Nu VINKEL-baserad runt regnbågscentrum (radie-oberoende) → svep längs vilken båge som helst täcker 0→1. Verifierat: dubbel-regnbåge inkl. alla inre bågar målas helt → nivå 3, 0 fel. Commit `aa00941`.
+**KLART denna session (5 spel):**
+- **#31 `studsmatta`** ✅ — dra studsmattan i sidled = sikta, dra NER = spänn (höjd/fart), höjden blir kvar; dynamisk ben/bädd-ritning; tap-fallback. Verifierat L0→L1, 0 fel. Commit `fbc569c`.
+- **#35 `regnbagsmalaren`** ✅ — fyllnad nu VINKEL-baserad (radie-oberoende) → inre bågar kan målas helt. Verifierat nivå 3, 0 fel. Commit `aa00941`.
+- **#36 `lagerelden`** ✅ — synligt order-mål (rosta N marshmallows till fatet) + slumpad vind som svajar heta zonen + slumpad order-storlek/nivå. Verifierat L0→L1, 0 fel. Commit `2b91b9d`.
+- **#37 `ballonglyft`** ✅ — omdesignad till tydligt "räkna ballonger som lyfter": Elvira-bubbla visar mål-antal, spök-present visar vart, en knapp lyfter ETT steg/ballong (räknas på svenska), inget fjäder/fönster. Verifierat L1→L2, 0 fel. Commit `87f0cd0`.
+- **#38 `magnet-fiske`** ✅ — sakerna SIMMAR nu (vandring), aktivt fiske av rörliga mål; simfart/antal/ström skalar per nivå; mål visas som spök-stjärnor över hinken. Verifierat L0→L1, 0 fel. Commit `bee1c78`.
 
 **Process:** färsk build-agent per spel (ge item-texten ovan + spelfilen + CLAUDE.md + "importera bara det du använder; ingen PRAISE/randomFrom om oanvänt") → headless-test (`node scripts/test-game.mjs <id> [--drag "fx,fy>tx,ty;..."] --shot out.png`) + screenshot → ev. simplify-agent → commit per spel. Dev-server :5173 (starta om färsk om HMR förvirrar screenshots: döda PID på 5173 → `npm run dev` → vänta på 200). Globala fixar (röst-anti-upprepning, varierat vinstljud, global ljud-throttle) hjälper redan alla spel.
 
@@ -75,9 +75,9 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 ## Prio 5 — Omtänk helt
 | # | Spel | Ändring | Status |
 |---|------|---------|:--:|
-| 36 | `lagerelden` | Omtänk hela spelet, bättre mål, slumpad svårighet | ⬜ |
-| 37 | `ballonglyft` | Omdesigna, oklart vad man gör | ⬜ |
-| 38 | `magnet-fiske` | Omtänk spelläge, mer intressanta/svårare nivåer | ⬜ |
+| 36 | `lagerelden` | Omtänk hela spelet, bättre mål, slumpad svårighet | ✅ |
+| 37 | `ballonglyft` | Omdesigna, oklart vad man gör | ✅ |
+| 38 | `magnet-fiske` | Omtänk spelläge, mer intressanta/svårare nivåer | ✅ |
 
 ## Logg
 - **#12 Nivåvariation** ⏭️: Vävs in i Prio-4-omdesignerna (varje redesign lägger till slumpad svårighet/positioner där det passar, t.ex. enhorning-glitterbajs random nivåer, rulla-bollen-hem hinder, vart-tog-det-vagen fler koppar). Ingen separat global ändring.

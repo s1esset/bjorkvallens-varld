@@ -1,6 +1,7 @@
 // Spindelnätet — motorik-/fysik-lek (2–4 år). Godis och små krypljus regnar ner från
 // natthimlen som RIKTIGA matter.js-kroppar under mjuk gravitation. En gosig, helt
-// EGEN liten spindel (rund, snäll, åtta ben — INTE Spider-Man) sitter mitt i sitt nät.
+// EGEN liten webb-hjälte (pytteliten figur i röd dräkt med svarta nät-linjer och stora
+// vita ögon — INTE Marvels Spindelmannen) sitter mitt i sitt nät och skjuter nättrådar.
 // Barnet trycker nära ett fallande föremål -> en vit nättråd skjuts ut med ett "tjong",
 // fångar kroppen (tas bort ur fysiken) och drar in den glidande i nätet; nät-mätaren
 // tickar upp ett steg. Kontroller som ändrar utfallet: (A) VAR/NÄR man trycker (sikte +
@@ -700,49 +701,94 @@ function makeWeb() {
   return g
 }
 
-// En gosig, HELT egen liten spindel: rund kropp, snälla ögon, leende, 8 mjuka ben.
+// En gosig, HELT EGEN liten webb-hjälte (INTE Marvels Spindelmannen): en pytteliten
+// figur i RÖD dräkt med SVARTA nät-linjer, stora vänliga VITA ögon (tunn svart kant)
+// och enkla armar/ben. Den ena armen är lyft i en glad "skjut-nätet"-pose — hjälten
+// skjuter fortfarande ut samma vita nättråd för att fånga godiset.
 function makeSpider() {
   const c = new Container()
-  const ink = COLORS.ink
-  const dark = 0x2a2018
+  const RED = 0xe23b3b // röd dräkt
+  const REDDARK = 0xb02a2a // mörkröd kontur/skuggning
+  const BLACK = 0x1a1a1a // svarta nät-linjer + handskar/stövlar
+  const headCx = 0
+  const headCy = -20
+  const headR = 28
 
-  // Ben (bakom kroppen): 4 per sida, upp-och-ut-böjda (klassisk spindelbåge).
+  // Mjuk skugga under hjälten.
+  const shadow = new Graphics().ellipse(0, 52, 36, 11).fill({ color: 0x000000, alpha: 0.16 })
+  shadow.eventMode = 'none'
+  c.addChild(shadow)
+
+  // Armar (bakom kroppen): vänster sänkt, höger lyft i "skjut-nätet"-pose.
+  const arms = new Graphics()
+  arms.moveTo(-15, 6).quadraticCurveTo(-32, 14, -33, 30)
+  arms.moveTo(15, 4).quadraticCurveTo(33, -8, 29, -30)
+  arms.stroke({ width: 10, color: RED, cap: 'round' })
+  arms.eventMode = 'none'
+  c.addChild(arms)
+  // Svarta handskar (knytnävar) i båda handändar.
+  const hands = new Graphics()
+  hands.circle(-33, 31, 7).fill(BLACK)
+  hands.circle(29, -31, 7).fill(BLACK)
+  hands.eventMode = 'none'
+  c.addChild(hands)
+
+  // Ben (röda) + små svarta stövlar.
   const legs = new Graphics()
-  for (const s of [-1, 1]) {
-    for (let i = 0; i < 4; i++) {
-      const tt = i / 3
-      const hy = -14 + tt * 30
-      const hx = s * 26
-      const kx = s * 60
-      const ky = hy - 16 - i * 2
-      const fx = s * 84
-      const fy = hy + 20
-      legs.moveTo(hx, hy).lineTo(kx, ky).lineTo(fx, fy)
-    }
-  }
-  legs.stroke({ width: 5, color: ink, cap: 'round', join: 'round' })
+  legs.moveTo(-9, 32).lineTo(-11, 50)
+  legs.moveTo(9, 32).lineTo(11, 50)
+  legs.stroke({ width: 11, color: RED, cap: 'round' })
+  legs.circle(-11, 51, 7).fill(BLACK)
+  legs.circle(11, 51, 7).fill(BLACK)
+  legs.eventMode = 'none'
   c.addChild(legs)
 
-  // Glansig kropp + höjdljus.
-  const body = new Graphics()
-  body.circle(0, 0, 40).fill(ink)
-  body.circle(-13, -14, 13).fill({ color: 0xffffff, alpha: 0.22 })
+  // Kropp (torso) i röd dräkt.
+  const body = new Graphics().ellipse(0, 12, 21, 22).fill(RED).stroke({ width: 3, color: REDDARK })
+  body.eventMode = 'none'
   c.addChild(body)
+  // Svarta nät-linjer på bröstet (radiella ekrar + mjuka bågar).
+  const bodyWeb = new Graphics()
+  for (let i = -2; i <= 2; i++) {
+    const a = Math.PI / 2 + i * 0.5
+    bodyWeb.moveTo(0, 2).lineTo(Math.cos(a) * 19, 4 + Math.sin(a) * 22)
+  }
+  for (const r of [8, 14, 20]) bodyWeb.arc(0, 2, r, 0.16 * Math.PI, 0.84 * Math.PI)
+  bodyWeb.stroke({ width: 1.3, color: BLACK, alpha: 0.5 })
+  bodyWeb.eventMode = 'none'
+  c.addChild(bodyWeb)
 
-  // Ansikte: ögon, pupiller, rosa kinder.
-  const face = new Graphics()
-  face.circle(-13, -6, 9).fill(0xffffff)
-  face.circle(13, -6, 9).fill(0xffffff)
-  face.circle(-11, -4, 4.5).fill(dark)
-  face.circle(15, -4, 4.5).fill(dark)
-  face.circle(-23, 10, 7).fill({ color: COLORS.pink, alpha: 0.5 })
-  face.circle(23, 10, 7).fill({ color: COLORS.pink, alpha: 0.5 })
-  c.addChild(face)
+  // Huvud i röd mask.
+  const head = new Graphics().circle(headCx, headCy, headR).fill(RED).stroke({ width: 3, color: REDDARK })
+  head.eventMode = 'none'
+  c.addChild(head)
+  // Svarta nät-linjer på masken (ekrar från mitten + koncentriska ringar).
+  const headWeb = new Graphics()
+  const spokes = 8
+  for (let i = 0; i < spokes; i++) {
+    const a = (i / spokes) * Math.PI * 2
+    headWeb.moveTo(headCx, headCy).lineTo(headCx + Math.cos(a) * headR, headCy + Math.sin(a) * headR)
+  }
+  for (const r of [9, 18, 27]) headWeb.circle(headCx, headCy, r)
+  headWeb.stroke({ width: 1.3, color: BLACK, alpha: 0.5 })
+  headWeb.eventMode = 'none'
+  c.addChild(headWeb)
 
-  // Leende.
-  const smile = new Graphics()
-  smile.arc(0, 6, 13, 0.18 * Math.PI, 0.82 * Math.PI).stroke({ width: 4, color: dark, cap: 'round' })
-  c.addChild(smile)
+  // Stora vänliga VITA ögon (tunn svart kant), lätt lutade som en klassisk mask.
+  const eyeL = new Graphics().ellipse(0, 0, 10, 14).fill(0xffffff).stroke({ width: 2, color: BLACK })
+  eyeL.position.set(-12, -16)
+  eyeL.rotation = 0.42
+  eyeL.eventMode = 'none'
+  const eyeR = new Graphics().ellipse(0, 0, 10, 14).fill(0xffffff).stroke({ width: 2, color: BLACK })
+  eyeR.position.set(12, -16)
+  eyeR.rotation = -0.42
+  eyeR.eventMode = 'none'
+  // Liten glaslins-glans uppe i varje öga.
+  const shine = new Graphics()
+  shine.ellipse(-13, -20, 3.5, 5).fill({ color: 0xeaf3ff, alpha: 0.9 })
+  shine.ellipse(11, -20, 3.5, 5).fill({ color: 0xeaf3ff, alpha: 0.9 })
+  shine.eventMode = 'none'
+  c.addChild(eyeL, eyeR, shine)
 
   return c
 }

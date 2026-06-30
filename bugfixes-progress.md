@@ -54,7 +54,7 @@ Beslut (användaren): autonomt hela listan i prioordning; subjektiva val (utseen
 | 31 | `studsmatta` | Användaren flyttar studsmattan upp/ner för höjd/hastighet | ⬜ |
 | 32 | `knuffa-tornet` | Styr boll-fall mer; rep-fysik; ta bort kollisions-sfx; elastiska rep-val; bättre positioner | ⬜ |
 | 33 | `gungan` | Fler nivåer, svårare per nivå | ⬜ |
-| 34 | `spindelnatet` | Spindel→liten Spider-karaktär (röd dräkt, svarta linjer, vita ögon) som skjuter nät | ⬜ |
+| 34 | `spindelnatet` | Spindel→liten Spider-karaktär (röd dräkt, svarta linjer, vita ögon) som skjuter nät | ✅ |
 | 35 | `regnbagsmalaren` | Inre 2–3 bågar kan ej målas helt | ⬜ |
 
 ## Prio 5 — Omtänk helt

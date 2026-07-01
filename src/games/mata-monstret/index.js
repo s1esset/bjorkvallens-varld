@@ -15,14 +15,14 @@
 //
 // Allt ritas programmatiskt. Återanvänder lib/DragController, lib/physics, lib/scene,
 // lib/feedback (exit-säkra partiklar) och de delade firande/ljud-tjänsterna.
-import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, ripple, shake, burst, breathe, floatText, bigCelebration } from '../../lib/feedback.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
-import { COLORS } from '../../lib/theme.js'
+import { COLORS, FONT } from '../../lib/theme.js'
 import { FOODS, makeFood, foodCat } from './food.js'
 
 // --- layout (designkoordinater 1280×720) -----------------------------------
@@ -37,6 +37,9 @@ const TABLE_Y = 602 // tallrik-bordets y (drag-lägen)
 const EAT_R = 150 // snäpp/ät-radie runt munnen
 const ANTIC_R = 300 // munnen börjar gapa när maten är så här nära
 const MOUTH_OPEN = 1.0 // fullt gap
+const CATCH_CLEAN_R = 155 // hylla/plinko: så här nära munnens x = REN fångst (valet räknas);
+// längre bort → monstret sträcker sig synligt (mjuk assist, fortfarande no-fail)
+const BELLY_FULL = 0.42 // hur mycket magen växer (skala) från tom till mätt under en runda
 
 const MODES = ['classic', 'walk', 'shelf', 'plinko']
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -56,6 +59,8 @@ const PREF_PRAISE = {
   gronsaker: ['Goda grönsaker! Nyttigt!', 'Knapriga grönsaker, mums!'],
   godis: ['Åh, något sött! Jättegott!', 'Så sött och gott!'],
 }
+// Synlig favorit-önskan (tankebubbla) — begriplig utan att lyssna på rösten.
+const PREF_ICON = { frukt: '🍎', gronsaker: '🥕', godis: '🍬' }
 
 // Monster-skepnader: ny per runda (färg, form, öron, namn).
 const MONSTERS = [
@@ -112,6 +117,11 @@ export default {
     this._mouthFloor = 0.42
     this._flightFood = null
     this._lastBounce = -1
+    this._homeX = 640 // monstrets vilo-x (hylla/plinko) — glider bara HIT när det behövs
+    this._reaching = false // sträcker sig efter en mat som annars skulle missa
+    this._reachSaid = false // "Jag sträcker mig!" sagd en gång per mat
+    this._bellyScale = 1 // magen växer per uppäten bit (nollställs per runda)
+    this._prefBubble = null // synlig favorit-tankebubbla
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -172,10 +182,15 @@ export default {
     this._idle = 0
     this._miss = 0
     this._holding = false
+    this._reaching = false
+    this._reachSaid = false
+    this._bellyScale = 1
+    this._prefBubble = null
     this._mode = MODES[this._round % MODES.length]
 
     // Meny + favorit (djup som växer med nivån).
     const count = this._countFor(this._mode)
+    this._roundCount = count
     this._picks = shuffle(FOODS).slice(0, count).map((f) => ({ key: f.key, cat: f.cat }))
     this._remaining = count
     this._prefCat = null
@@ -207,9 +222,21 @@ export default {
       this._setupPlinko(ctx)
     }
 
+    // Synlig favorit-tankebubbla (begriplig utan ljud) + monstrets namn som skylt.
+    if (this._prefCat) {
+      this._prefBubble = makePrefBubble(this._prefCat)
+      this._fgLayer.addChild(this._prefBubble)
+      bounceIn(this._prefBubble, { delay: 0.3 })
+    }
+    const mon = MONSTERS[this._monsterIdx]
+    floatText(ctx.fxLayer, this._mx, this._my + (EYE_Y - 150) * this._mscale, mon.name, {
+      fontSize: 48,
+      rise: 40,
+      duration: 1.6,
+    })
+
     // Röst: första rundan säger mount() introt; därefter monstrets replik + läge + favorit.
     if (!first) {
-      const mon = MONSTERS[this._monsterIdx]
       const pref = this._prefCat ? ' ' + PREF_INTRO[this._prefCat] : ''
       ctx.services.voice.say(mon.intro + ' ' + modeIntro(this._mode) + pref)
     }
@@ -218,6 +245,7 @@ export default {
   _placeMonster(mx, my, scale) {
     this._mx = mx
     this._my = my
+    this._homeX = mx
     this._mscale = scale
     const mn = this._monster
     gsap.killTweensOf(mn)
@@ -427,6 +455,8 @@ export default {
     this._flightFood = made
     this._stuckT = 0
     this._nudgeT = 0
+    this._reaching = false
+    this._reachSaid = false
     ctx.services.audio.sfx('whoosh')
   },
 
@@ -530,6 +560,8 @@ export default {
     this._servedIdx++
     this._stuckT = 0
     this._nudgeT = 0
+    this._reaching = false
+    this._reachSaid = false
     ctx.services.audio.sfx('whoosh')
   },
 
@@ -587,11 +619,19 @@ export default {
     const pref = this._prefCat && cat === this._prefCat
     ctx.services.audio.sfx('match') // saftigt "krasch/mums"
     ctx.services.voice.say(pref ? randomFrom(PREF_PRAISE[this._prefCat]) : randomFrom(MUMS))
-    this._reactEat(ctx, pref, m.x, m.y)
-    this._shrinkInto(made, m.x, m.y)
+    // Rätt favorit-kategori → tankebubblan studsar (begriplig belöning, aldrig straff för fel).
+    if (pref && this._prefBubble && !this._prefBubble.destroyed) {
+      pop(this._prefBubble)
+      sparkle(ctx.fxLayer, this._prefBubble.x, this._prefBubble.y, { count: 6 })
+    }
     this._fed++
     ctx.progress.setCustom('matningar', this._fed)
     this._remaining--
+    // Magen växer ett synligt snäpp per bit (tom → rund vid "mätt"). Wobbeln landar på nya basen.
+    const eaten = this._roundCount - this._remaining
+    this._bellyScale = 1 + BELLY_FULL * (this._roundCount ? eaten / this._roundCount : 1)
+    this._reactEat(ctx, pref, m.x, m.y)
+    this._shrinkInto(made, m.x, m.y)
     if (this._remaining <= 0) this._finishRound(ctx)
   },
 
@@ -824,6 +864,14 @@ export default {
     return { x: this._monster.x, y: this._monster.y + MOUTH_DY * this._mscale }
   },
 
+  // Favorit-tankebubblan svävar strax ovanför/bredvid monstrets huvud (följer skepnaden).
+  _positionPrefBubble() {
+    const bub = this._prefBubble
+    if (!bub || bub.destroyed) return
+    const s = this._mscale
+    bub.position.set(this._monster.x + 122 * s, this._monster.y + (EYE_Y - 122) * s)
+  },
+
   // ---- monster-reaktioner -------------------------------------------------
 
   _chomp() {
@@ -841,10 +889,11 @@ export default {
   _bellyWobble() {
     const b = this._parts.belly
     if (!b || b.destroyed) return
+    const base = this._bellyScale || 1 // växande mage: skvalpet landar på nuvarande mättnad
     gsap.killTweensOf(b.scale)
     gsap.timeline()
-      .to(b.scale, { y: 1.2, x: 0.9, duration: 0.12 })
-      .to(b.scale, { y: 1, x: 1, duration: 0.5, ease: 'elastic.out(1, 0.45)' })
+      .to(b.scale, { y: base * 1.2, x: base * 0.9, duration: 0.12 })
+      .to(b.scale, { y: base, x: base, duration: 0.5, ease: 'elastic.out(1, 0.45)' })
   },
 
   _happyEyes() {
@@ -968,6 +1017,7 @@ export default {
     else food = this._flightFood && !this._flightFood.container.destroyed ? this._flightFood.container : null
     this._gaze(food)
     this._mouthFollow(food)
+    this._positionPrefBubble()
 
     if (!this._resolving && (mode === 'shelf' || mode === 'plinko') && this._flightFood) this._updateFlight(ctx, dt)
 
@@ -1031,20 +1081,26 @@ export default {
     this._catchX = this._flightFood ? this._flightFood.container.x : this._mx
   },
 
-  // Monstret glider mjukt i x mot matens läge (garanterad fångst).
+  // Monstret STÅR kvar vid sitt vilo-x (så luckval/släpp-timing avgör var maten landar) och
+  // glider bara HIT när det behöver sträcka sig efter en mat som annars skulle missa (no-fail).
   _slideMonster() {
-    const tx = clamp(this._catchX, 210, 1070)
-    this._mx += (tx - this._mx) * 0.16
+    const tx = this._reaching ? clamp(this._reachX, 210, 1070) : this._homeX
+    const k = this._reaching ? 0.22 : 0.1 // mjuk återgång hem; snabbare när det sträcker sig
+    this._mx += (tx - this._mx) * k
     this._monster.x = this._mx
     if (this._shadow && !this._shadow.destroyed) this._shadow.x = this._mx
   },
 
-  // Fallande mat: nudga loss om den fastnar; GARANTERA att den alltid trillar ner till
-  // munnen (rundan kan aldrig hänga sig). Fånga (TUGG) när maten nått munnens höjd.
+  // Fallande mat: nudga loss om den fastnar; GARANTERA att den alltid trillar ner (rundan kan
+  // aldrig hänga sig). VALET RÄKNAS: nära munnens x = REN fångst (monstret står kvar); annars
+  // sträcker sig monstret synligt dit (mjuk assist) — fortfarande no-fail. Fånga (TUGG) vid munhöjd.
   _updateFlight(ctx, dt) {
     const f = this._flightFood
     if (!f || f._eaten || f.container.destroyed) return
     const m = this._mouthWorld()
+    const fx = f.container.x
+    const fy = f.container.y
+    this._catchX = fx
     const b = f.phys
     if (b) {
       const spd = Math.hypot(b.velocity.x, b.velocity.y)
@@ -1069,7 +1125,40 @@ export default {
         this._nudgeT = 0
       }
     }
-    if (f.container.y >= m.y - 8) this._eatPhysics(ctx, f)
+
+    // Föraning: monstret LUTAR sig lite mot inkommande mat (utan att flytta sig) medan den faller.
+    if (!this._reaching && fy < m.y - 40) {
+      const lean = clamp((fx - this._monster.x) / 900, -0.13, 0.13)
+      this._monster.rotation += (lean - this._monster.rotation) * 0.1
+    }
+
+    // Fångst-beslut vid munhöjd.
+    if (fy >= m.y - 8) {
+      const dx = fx - m.x
+      if (this._reaching) {
+        // Redan på väg dit — fånga när munnen glidit fram under maten.
+        this._reachX = fx
+        if (Math.abs(fx - this._monster.x) <= CATCH_CLEAN_R) this._catchEat(ctx, f)
+      } else if (Math.abs(dx) <= CATCH_CLEAN_R) {
+        // REN fångst: valet/timingen träffade — belöna med ett litet nöjt skutt.
+        this._hop(12)
+        this._catchEat(ctx, f)
+      } else {
+        // Skulle missa → synlig, vänlig sträckning (sagd en gång). Ingen bestraffning.
+        this._reaching = true
+        this._reachX = fx
+        if (!this._reachSaid) {
+          this._reachSaid = true
+          ctx.services.voice.say('Jag sträcker mig!')
+        }
+      }
+    }
+  },
+
+  _catchEat(ctx, f) {
+    this._reaching = false
+    if (this._monster && !this._monster.destroyed) gsap.to(this._monster, { rotation: 0, duration: 0.2 })
+    this._eatPhysics(ctx, f)
   },
 
   _recue(ctx) {
@@ -1217,9 +1306,11 @@ export default {
   _teardownRound() {
     this._resolving = false
     this._holding = false
+    this._reaching = false
     this._flightFood = null
     this._shelfFood = null
     this._shelf = null
+    this._prefBubble = null // ligger i _fgLayer och rensas av _clearLayer nedan
     this._serveCall?.kill()
     this._serveCall = null
     this._killHint()
@@ -1320,6 +1411,22 @@ function makePeg(r) {
   const c = new Container()
   c.addChild(new Graphics().circle(0, 0, r).fill(0xffffff).stroke({ width: 3, color: 0xbcd6e8 }))
   c.addChild(new Graphics().circle(-r * 0.3, -r * 0.3, r * 0.35).fill({ color: 0xffffff, alpha: 0.8 }))
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// Favorit-tankebubbla: vit moln-bubbla med kategori-ikon + små "tanke"-prickar mot monstret.
+function makePrefBubble(cat) {
+  const c = new Container()
+  const cloud = new Graphics().roundRect(-48, -42, 96, 74, 30).fill(0xffffff).stroke({ width: 5, color: 0xbcd6e8 })
+  const dots = new Graphics()
+    .circle(-34, 40, 11).fill(0xffffff).stroke({ width: 4, color: 0xbcd6e8 })
+    .circle(-52, 58, 7).fill(0xffffff).stroke({ width: 3, color: 0xbcd6e8 })
+  const icon = new Text({ text: PREF_ICON[cat] || '🍎', style: { fontFamily: FONT.body, fontSize: 50 } })
+  icon.anchor.set(0.5)
+  icon.position.set(0, -6)
+  c.addChild(cloud, dots, icon)
   c.eventMode = 'none'
   c.interactiveChildren = false
   return c

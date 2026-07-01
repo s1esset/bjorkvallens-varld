@@ -93,3 +93,29 @@ detta spel beskrev en enklare 3-bitars en-läges-mun; den är nu överspelad av 
 - Rekommenderad första-omgång: **[Medium] dämpa plinko/hylla-auto-glidet så luckval/timing
   räknas + [Quick] synlig favorit-bubbla + [Quick] mage som fylls** — återför agens och gör
   favoriten begriplig, utan att röra no-fail.
+- 2026-07-02: **Första-omgången implementerad** (hela rekommendationen + en billig identitets-touch).
+  - **[Medium] Agens i hylla/plinko — valet räknas.** `_slideMonster` glider inte längre alltid
+    till maten; monstret STÅR vid sitt vilo-x (`_homeX`, satt i `_placeMonster`) och glider bara
+    hit när det behöver `_reaching`. Nytt fångst-beslut i `_updateFlight` vid munhöjd: inom
+    `CATCH_CLEAN_R` (155px) = REN fångst (monstret står kvar, `_hop(12)` som nöjd belöning →
+    luckval/släpp-timing avgör träffen); längre bort → monstret sträcker sig synligt mot `_reachX`
+    och säger "Jag sträcker mig!" en gång (`_reachSaid`), sedan `_catchEat` (nollar rotation +
+    äter). Ny föraning: monstret lutar sig (`_monster.rotation`) mot inkommande mat medan den
+    faller. Den hårda stuck-garantin i `_updateFlight` är oförändrad → fortfarande strikt no-fail.
+    `_reaching`/`_reachSaid` nollas per serverad mat (`_dropShelf`/`_dropSlot`) och i teardown.
+  - **[Quick] Synlig favorit-bubbla.** Ny `makePrefBubble(cat)` (moln + `PREF_ICON`
+    🍎/🥕/🍬 + tanke-prickar) skapas i `_startRound` när `_prefCat` finns, positioneras varje
+    frame ovanför huvudet av `_positionPrefBubble` (följer skepnadens skala/läge). Rätt kategori
+    → bubblan `pop`:ar + `sparkle` i `_onEatMade` (aldrig straff för fel). Röjs via `_fgLayer`.
+  - **[Quick] Mage som fylls.** `_bellyScale` (nollställs per runda i `_startRound`) växer
+    `BELLY_FULL` (0.42) i steg per uppäten bit i `_onEatMade` (`eaten/_roundCount`); `_bellyWobble`
+    landar nu på den nya basen istället för 1 → magen är tom vid start och rund vid "mätt".
+  - **[Quick, extra] Namn-skylt.** `_startRound` visar `mon.name` som exit-säker `floatText`
+    över monstret vid varje rund-start → varje skepnad får synlig identitet (namnet sägs redan).
+  - Test: `node scripts/test-game.mjs mata-monstret --url http://localhost:5173 --drag
+    "640,602>640,366;200,602>640,366"` → errorCount 0. Skärmdump (klassiskt läge) visar Lurvas
+    med rund, fylld mage efter två uppätna bitar och kvarvarande tomat — inga strida barer.
+  - Deferred: [Medium] smak-grimas/hjärtögon per utfall, [Medium] mättnad som egen rap+klapp-
+    vinstanimation (magen är nu mätaren men firandet är ännu delat bigCelebration), [Quick]
+    jätte-godbit, [Quick] riktig mat-SFX (mums/krasch/slurp/rap — kräver MOSS, se real-audio-sfx),
+    [Deep] personlighetsrepliker per monster, [Quick] lugn ambient mellan rundor.

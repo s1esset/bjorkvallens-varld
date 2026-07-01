@@ -16,9 +16,9 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, sparkle, ripple, floatText, breathe, shake } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, ripple, floatText, breathe, shake, puff } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 // Nallens center (= pivot, så hon kan studsa OCH snurra runt sin mitt).
@@ -72,6 +72,7 @@ const OUTFITS = [
   {
     say: 'vinterkläder',
     scene: 'water',
+    weather: 'snow',
     slots: ['huvud', 'hals', 'kropp', 'hander', 'fotter'],
     garments: {
       huvud: [{ e: '🧢', n: 'mössan' }],
@@ -84,6 +85,7 @@ const OUTFITS = [
   {
     say: 'sommarkläder',
     scene: 'meadow',
+    weather: 'sun',
     slots: ['huvud', 'kropp', 'ben', 'fotter'],
     garments: {
       huvud: [{ e: '👒', n: 'solhatten' }, { e: '🧢', n: 'kepsen' }, { e: '🕶️', n: 'solglasögonen' }],
@@ -95,6 +97,7 @@ const OUTFITS = [
   {
     say: 'regnkläder',
     scene: 'sky',
+    weather: 'rain',
     slots: ['huvud', 'kropp', 'hander', 'fotter'],
     garments: {
       huvud: [{ e: '🧢', n: 'regnhatten' }],
@@ -106,6 +109,7 @@ const OUTFITS = [
   {
     say: 'finkläder',
     scene: 'candy',
+    weather: 'petals',
     slots: ['huvud', 'hals', 'kropp', 'ben', 'fotter'],
     garments: {
       huvud: [{ e: '🎩', n: 'hatten' }, { e: '👑', n: 'kronan' }],
@@ -118,6 +122,7 @@ const OUTFITS = [
   {
     say: 'mysiga kläder',
     scene: 'sunset',
+    weather: 'cozy',
     slots: ['huvud', 'kropp', 'ben', 'fotter'],
     garments: {
       huvud: [{ e: '🧢', n: 'nattmössan' }],
@@ -127,6 +132,44 @@ const OUTFITS = [
     },
   },
 ]
+
+// Plagg-specifik "textur"-ton ovanpå 'correct' (dragkedja/prassel/plopp) — syntetiserad
+// via audio.tone så inget nytt ljudklipp behövs. Mjuk och kort (aldrig hård).
+const GARMENT_TONE = {
+  huvud: { freq: 680, dur: 0.1, type: 'triangle', vol: 0.16 }, // lätt "pip" på huvudet
+  hals: { freq: 420, dur: 0.13, type: 'sine', vol: 0.16, slideTo: 640 }, // mjuk "ploj"
+  kropp: { freq: 520, dur: 0.16, type: 'sawtooth', vol: 0.11, slideTo: 240 }, // dragkedja
+  hander: { freq: 300, dur: 0.12, type: 'sine', vol: 0.16 }, // mjuk vante-puff
+  ben: { freq: 360, dur: 0.13, type: 'sine', vol: 0.14, slideTo: 300 }, // byx-svisch
+  fotter: { freq: 300, dur: 0.15, type: 'sine', vol: 0.18, slideTo: 170 }, // stövel-plopp
+}
+
+// Liten glad reaktions-emoji som svävar upp när ett visst plagg sätts på (poserings-
+// ögonblick). Faller tillbaka på en slumpad hjärta/stjärna om plagget inte finns här.
+const REACT_EMOJI = {
+  '🕶️': '😎', '👑': '✨', '🎩': '🤩', '🧣': '🥰', '🎀': '🥰', '👔': '😊',
+  '👒': '☀️', '☂️': '💧', '🥾': '👣', '🧤': '👏', '⛸️': '⭐', '🩴': '🌊',
+}
+
+// Väder-"payoff" när hela outfiten sitter: ett kort väder som visar VARFÖR man klädde
+// nallen (regn/snö/sol...) + en talad fras. Nallen står nöjd mitt i det.
+const WEATHER_SAY = {
+  snow: ['Nu snöar det, men nallen är varm och mysig!', 'Titta, snöflingor! Nallen fryser inte alls!'],
+  sun: ['Solen skiner på den fina nallen!', 'Vilken härlig sommardag för nallen!'],
+  rain: ['Nu regnar det, men nallen håller sig torr!', 'Plopp, plopp! Regnet stör inte nallen alls!'],
+  petals: ['Så fin nallen blev! Titta, blomblad!', 'Vad fin och fin nallen är!'],
+  cozy: ['God natt, mysiga nalle!', 'Nu är nallen varm och redo för mys!'],
+}
+
+// Fallande väder-glyfer som ramlar mjukt över scenen som payoff (visar VARFÖR man
+// klädde nallen). Sol/mys "faller" som milda strålar/gnistror snarare än nederbörd.
+const WEATHER_GLYPH = {
+  snow: ['❄️', '❄️', '⛄'],
+  sun: ['☀️', '✨', '🌻'],
+  rain: ['💧', '💧', '☔'],
+  petals: ['🌸', '🌸', '🌼'],
+  cozy: ['💤', '⭐', '🌙'],
+}
 
 export default {
   id: 'kla-pa-nallen',
@@ -218,12 +261,9 @@ export default {
     // Träff-/snäpp-radie krymper när zonerna blir fler (närmast-vinner-logik i drag).
     const hr = nSlots >= 5 ? 86 : nSlots >= 4 ? 104 : 122
 
-    // Hyll-positioner jämnt fördelade.
-    const n = slots.length
-    const x0 = 190
-    const x1 = 1090
-    const xs = slots.map((_, i) => (n === 1 ? 640 : Math.round(x0 + ((x1 - x0) * i) / (n - 1))))
+    this._weather = outfit.weather
 
+    // Ledtråds-ringar + snäppzoner per kroppsdel.
     slots.forEach((slot, i) => {
       const [zx, zy] = SLOT_POS[slot]
 
@@ -239,7 +279,8 @@ export default {
       this._rings[slot] = ring
       bounceIn(ring, { delay: 0.05 * i, duration: 0.4 })
 
-      // Osynlig snäppzon (generös träffyta för tap-tap).
+      // Osynlig snäppzon (generös träffyta för tap-tap). Slutar acceptera när
+      // kroppsdelen redan är klädd (så ett andra val aldrig dubbel-placeras).
       const zone = new Container()
       zone.position.set(zx, zy)
       zone.hitArea = new Circle(0, 0, hr)
@@ -247,20 +288,48 @@ export default {
       zone.cursor = 'pointer'
       this._root.addChild(zone)
       this._zones[slot] = zone
-      this._drag.addTarget(zone, (d) => d.slot === slot, { hitRadius: hr + 26 })
+      this._drag.addTarget(zone, (d) => d.slot === slot && !this._filled.has(slot), { hitRadius: hr + 26 })
+    })
+
+    // AGENS: erbjud 2 alternativ (BÅDA rätt) för några kroppsdelar så barnet VÄLJER
+    // — keps eller solhatt, klänning eller skjorta. Antalet totalplagg hålls lagom
+    // (budget 6) så hyllan aldrig blir trång; vilka slots som får ett val roteras.
+    const chosen = {}
+    const pool = {}
+    slots.forEach((slot) => {
+      pool[slot] = shuffle(outfit.garments[slot].slice())
+      chosen[slot] = [pool[slot][0]]
+    })
+    let extra = Math.max(0, 6 - slots.length)
+    for (const slot of shuffle(slots.filter((s) => outfit.garments[s].length >= 2))) {
+      if (extra <= 0) break
+      chosen[slot].push(pool[slot][1])
+      extra -= 1
+    }
+    // Platta ut (grupperat per slot så alternativen ligger bredvid varandra på hyllan).
+    const picks = []
+    slots.forEach((slot) => chosen[slot].forEach((g) => picks.push({ slot, g })))
+
+    // Hyll-positioner jämnt fördelade över ALLA plagg-alternativ.
+    const m = picks.length
+    const x0 = 190
+    const x1 = 1090
+    const pxs = picks.map((_, i) => (m === 1 ? 640 : Math.round(x0 + ((x1 - x0) * i) / (m - 1))))
+
+    picks.forEach((pk, i) => {
+      const g = pk.g
 
       // Själva klädesplagget i full storlek på hyllan (ingen bricka/ram bakom).
-      const g = randomFrom(outfit.garments[slot])
       const view = this._makeItem(g)
-      view.position.set(xs[i], SHELF_Y)
+      view.position.set(pxs[i], SHELF_Y)
       this._root.addChild(view)
 
-      const item = { view, slot, name: g.n, placed: false }
+      const item = { view, slot: pk.slot, name: g.n, placed: false, rec: null }
       this._items.push(item)
 
-      this._drag.addItem(
+      item.rec = this._drag.addItem(
         view,
-        { slot, emoji: g.e, name: g.n },
+        { slot: pk.slot, emoji: g.e, name: g.n },
         {
           onSelect: () => {
             this._idle = 0
@@ -269,10 +338,10 @@ export default {
           onCorrect: (rec) => this._onCorrect(ctx, rec, item),
         },
       )
-      bounceIn(view, { delay: 0.08 * i })
+      bounceIn(view, { delay: 0.06 * i })
     })
 
-    this._cue = `Nu klär vi nallen i ${outfit.say}!`
+    this._cue = `Nu klär vi nallen i ${outfit.say}! Välj vad nallen ska ha på sig.`
     if (announce && this._started) ctx.services.voice.say(this._cue)
   },
 
@@ -368,14 +437,16 @@ export default {
 
   // Rätt plats: plagget har snäppts till zonen (DragController flyttade det).
   _onCorrect(ctx, rec, item) {
-    if (!this._alive || item.placed) return
+    if (!this._alive || item.placed || this._filled.has(item.slot)) return
     item.placed = true
-    this._idle = 0
     const slot = item.slot
+    this._filled.add(slot) // markera tidigt så ett andra val inte dubbel-placeras
+    this._idle = 0
     const [zx, zy] = SLOT_POS[slot]
 
     ctx.services.audio.sfx('correct')
-    ctx.services.voice.say(randomFrom([`${cap(item.name)} sitter!`, 'Vad fin!', 'Så mysigt!', 'Bra jobbat!', 'Så fin du gör nallen!']))
+    this._garmentSound(ctx, slot) // plagg-specifik textur (dragkedja/prassel/plopp)
+    ctx.services.voice.say(randomFrom([`${cap(item.name)} sitter!`, 'Vad fin!', 'Så mysigt!', 'Bra jobbat!', 'Så fin du gör nallen!', 'Bra val!']))
 
     // Klä nallen: flytta in plagget i nallens container (så det studsar/snurrar med
     // henne) och skala/justera det så det PASSAR rätt kroppsdel — nallen bär nu plagget.
@@ -400,10 +471,13 @@ export default {
     if (partC) pop(partC)
     this._bearReact()
 
-    // Juice på droppunkten.
+    // Juice på droppunkten — en mjuk tyg-puff + gnistor + ring, och en plagg-egen
+    // reaktions-emoji (solglasögon → 😎, krona → ✨ ...) som poserings-ögonblick.
+    puff(ctx.fxLayer, zx, zy, { count: 6, color: COLORS.white })
     sparkle(ctx.fxLayer, zx, zy, { count: 8 })
     ripple(ctx.fxLayer, zx, zy, { color: COLORS.white, maxR: 96, width: 5, alpha: 0.6 })
-    floatText(ctx.fxLayer, zx, zy - 54, randomFrom(['💛', '⭐', '✨', '🌟', '😊']), { fontSize: 52 })
+    const react = REACT_EMOJI[rec.data.emoji] || randomFrom(['💛', '⭐', '✨', '🌟', '😊'])
+    floatText(ctx.fxLayer, zx, zy - 54, react, { fontSize: 52 })
 
     const ring = this._rings[slot]
     if (ring && !ring.destroyed) ring.visible = false
@@ -431,6 +505,66 @@ export default {
     const b = this._bear
     if (!b || b.destroyed) return
     gsap.to(b, { y: BEAR_CY - 14, duration: 0.13, yoyo: true, repeat: 1, ease: 'power2.out', overwrite: 'auto' })
+  },
+
+  // Plagg-specifik "textur"-ton ovanpå 'correct' (dragkedja/prassel/plopp), helt
+  // syntetiserad via audio.tone → inget nytt ljudklipp krävs. Endast ljud = inget
+  // Pixi-objekt att städa.
+  _garmentSound(ctx, slot) {
+    const t = GARMENT_TONE[slot]
+    if (t) ctx.services.audio.tone(t)
+  },
+
+  // Väder-payoff när hela outfiten sitter: mjuka väder-glyfer ramlar över scenen
+  // (snö/regn/blomblad/gnistror) + en talad "därför klädde vi nallen"-fras. Visar
+  // barnet VARFÖR outfiten valdes. Exit-säkert: delayedCalls i this._calls (dödas i
+  // _teardown), varje glyf tweenar en proxy och rör Pixi-objektet bara om det lever.
+  _weatherPayoff(ctx) {
+    const glyphs = WEATHER_GLYPH[this._weather] || ['✨']
+    const n = 16
+    for (let i = 0; i < n; i++) {
+      const call = gsap.delayedCall((i / n) * 1.0, () => {
+        if (this._alive) this._fallGlyph(ctx, randomFrom(glyphs))
+      })
+      this._calls.push(call)
+    }
+    const say = WEATHER_SAY[this._weather]
+    if (say) ctx.services.voice.say(randomFrom(say))
+  },
+
+  // En enskild fallande väder-glyf (exit-säker proxy-tween: skriver bara till Pixi-
+  // objektet om det lever, dödar tweenen om det förstörts, städar sig själv i slutet).
+  _fallGlyph(ctx, glyph) {
+    const layer = ctx.fxLayer
+    const t = new Text({ text: glyph, style: { fontFamily: FONT.body, fontSize: 32 + Math.random() * 22 } })
+    t.anchor.set(0.5)
+    const x0 = 70 + Math.random() * (ctx.width - 140)
+    t.position.set(x0, -40)
+    t.alpha = 0
+    t.eventMode = 'none'
+    layer.addChild(t)
+    const sway = (Math.random() * 2 - 1) * 60
+    const spin = (Math.random() * 2 - 1) * 0.9
+    const st = { y: -40 }
+    const tw = gsap.to(st, {
+      y: ctx.height + 50,
+      duration: 2.4 + Math.random() * 1.3,
+      ease: 'none',
+      onUpdate: () => {
+        if (t.destroyed) {
+          tw.kill()
+          return
+        }
+        t.y = st.y
+        t.x = x0 + Math.sin(st.y / 55) * sway
+        t.rotation = (st.y / (ctx.height + 90)) * spin
+        const p = (st.y + 40) / (ctx.height + 90) // 0..1 längs fallet
+        t.alpha = Math.sin(Math.min(1, Math.max(0, p)) * Math.PI) // tona in och ut
+      },
+      onComplete: () => {
+        if (!t.destroyed) t.destroy()
+      },
+    })
   },
 
   // Hela outfiten sitter: nallen snurrar glatt, gnist-svep, delat firande
@@ -474,8 +608,9 @@ export default {
       if (!this._alive) return
       ctx.progress.complete()
       shake(this._root, { intensity: 5, duration: 0.5 })
-      // Mysig nalle-fras (sägs efter complete så den hörs över beröm-ljudet).
-      ctx.services.voice.say(randomFrom(['Nallen är klar! Så fin nalle!', 'Titta vad fin nallen blev!', 'Nu är nallen varm och glad!']))
+      // Väder-payoff: glyfer ramlar (snö/regn/blomblad ...) + talad "därför"-fras
+      // som visar barnet varför just den här outfiten passade.
+      this._weatherPayoff(ctx)
     })
     const c2 = gsap.delayedCall(1.9, () => {
       if (!this._alive) return

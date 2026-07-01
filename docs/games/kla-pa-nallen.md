@@ -91,3 +91,25 @@ Strikt felfritt, allt ritat programmatiskt, all transient-effekt exit-säker via
 - Rekommenderad första-omgång: **[Medium] välj bland 2–3 plagg per zon + [Medium] väder-payoff
   (regn/snö efter rätt outfit) + [Quick] tyg-/dragkedje-SFX** — ger spelet agens (uttryck) och
   ett *varför* utan att röra no-fail.
+- 2026-07-02: **Första-omgång genomförd** — hela rekommendationen byggd + en latent krasch
+  lagad:
+  - **[Medium] Välj bland 2–3 plagg per zon** (`chosen`/`pool` i `_build`): flera kroppsdelar
+    erbjuder nu TVÅ rätta alternativ (keps *eller* solhatt, klänning *eller* skjorta) — barnet
+    väljer stil. Total-antalet plagg hålls på budget 6 så hyllan aldrig blir trång, och vilka
+    slots som får ett extra val roteras per runda.
+  - **[Medium] Väder-payoff** (`_weatherPayoff`/`_fallGlyph` + `WEATHER_SAY`/`WEATHER_GLYPH`):
+    när hela outfiten sitter ramlar mjuka väder-glyfer över scenen (❄️ snö, 💧 regn, 🌸 blomblad,
+    ✨ sol, 💤 mys) + en talad "därför-klädde-vi-nallen"-fras. Ger påklädningen ett synligt
+    *varför*. Glyferna är exit-säkra (proxy-tween, rör Pixi-objektet bara om det lever, städar
+    sig själv; delayedCalls i `this._calls` dödas i `_teardown`).
+  - **[Quick] Plagg-specifik SFX** (`_garmentSound` + `GARMENT_TONE`): varje kroppsdel får en
+    egen mjuk textur-ton ovanpå 'correct' (dragkedja för jackan, "ploj" för halsduken,
+    stövel-plopp för fötterna ...), helt via `audio.tone` → inget nytt klipp. **Denna metod var
+    anropad men ALDRIG definierad → kraschade vid första rätta placeringen; nu lagad och
+    verifierad med drag-test.**
+  - **[Quick] Reaktion per plagg** (`REACT_EMOJI`): en plagg-egen reaktions-emoji svävar upp vid
+    påklädning (🕶️→😎, 👑→✨, 🎩→🤩 ...) + en liten tyg-`puff` — poserings-ögonblick.
+  - Test: `errorCount 0` (statisk + **drag-test som la kepsen på huvudet** → övar `_onCorrect`/
+    `_garmentSound` utan krasch); skärmdump bekräftar blå keps på den uttrycksfulla nallen.
+  - **Deferred:** [Medium] garderob/album; [Medium] nallen *känner* klädseln (huttrar→nöjd);
+    [Deep] handritade vektor-plagg i nallens stil; [Quick] lugn ambient-loop (central hantering).

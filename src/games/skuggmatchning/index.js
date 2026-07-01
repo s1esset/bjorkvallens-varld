@@ -74,6 +74,25 @@ const HAPPY = ['😄', '🎉', '⭐', '💛', '✨', '🌟']
 // Mjuka, ALLTID positiva uppmuntringar vid fel skugga (talas ibland).
 const WRONG = ['Prova en annan skugga!', 'Hoppsan, försök igen!', 'Den passar nån annanstans!']
 
+// Föremåls-EGEN reaktion när det landar i sin skugga — bryter "en-utfalls"-känslan:
+// grodan hoppar, bilen rullar, fjärilen fladdrar upp, stjärnan snurrar. Nyckel -> typ;
+// allt annat (de flesta djur, frukt, verktyg) får en glad "squish"-studs. Rör bara
+// figuren (sh._color) i skugg-slotten; exit-säkert via _killShadowTweens.
+const REACTION = {
+  groda: 'hop', kanin: 'hop',
+  bi: 'fly', fjaril: 'fly', fagel: 'fly', flygplan: 'fly', raket: 'fly', ballong: 'fly',
+  bil: 'roll', buss: 'roll', traktor: 'roll', tag: 'roll', cykel: 'roll',
+  stjarna: 'spin', sol: 'spin', mane: 'spin', boll: 'spin', klocka: 'spin',
+}
+
+// Riktiga förinspelade djurläten (offline mp3, se scripts/gen-sfx.py). audio.sample()
+// returnerar true om klippet spelades, annars false -> vi faller tillbaka på ett
+// passande syntes-ljud och/eller det talade namnet.
+const SAMPLE = {
+  hund: 'djur_hund', katt: 'djur_katt', gris: 'djur_gris',
+  groda: 'djur_groda', bi: 'djur_bi', uggla: 'djur_uggla',
+}
+
 const ITEM_Y = 235 // föremålsraden (källor) upptill
 const SHADOW_Y = 560 // skuggraden (mål) på gräset
 
@@ -311,8 +330,12 @@ export default {
     if (!this._alive || made._done) return
     made._done = true
     const sh = target.view
+    const combo = this._placed // 0-baserat: hur många som redan satts denna runda
 
-    ctx.services.audio.sfx('match')
+    // Ljud i lager: tydligt "snäpp" när silhuetten morfar + stigande kombo-ton medan
+    // raden fylls + föremålets EGET ljud (djurläte om klipp finns, annars passande
+    // syntes). Namnet sägs alltid (ordinlärning), går i parallell med ljudet.
+    this._matchSound(ctx, made.key, combo)
     ctx.services.voice.say(made.name)
     ripple(ctx.fxLayer, sh.x, sh.y, { color: 0xfff3b0, maxR: 130 })
     sparkle(ctx.fxLayer, sh.x, sh.y)
@@ -326,6 +349,9 @@ export default {
     gsap.to(sh._dark, { alpha: 0, duration: 0.22 })
     gsap.to(sh._color, { alpha: 1, duration: 0.22 })
     gsap.to(sh._color.scale, { x: 1, y: 1, duration: 0.4, ease: 'back.out(2.2)' })
+
+    // Föremålets egen lilla reaktion (hoppar/rullar/fladdrar/snurrar) efter blomningen.
+    this._reactFigure(sh, made.key)
 
     // Det dragna föremålet: glad puls, sedan göm/destruera (färgen sitter i skuggan).
     pop(rec.view)
@@ -341,6 +367,100 @@ export default {
     this._placed++
     this._resetIdle()
     if (this._placed >= this._shadows.length) this._finishRound(ctx)
+  },
+
+  // Lagrat matchljud: (1) kort "snäpp"-klick i takt med morfen, (2) stigande kombo-ton
+  // som klättrar medan raden fylls (combo 0..n → högre tonhöjd), (3) föremålets eget
+  // ljud. Endast ljud — inget Pixi, alltså inget att städa.
+  _matchSound(ctx, key, combo) {
+    const audio = ctx.services.audio
+    // (1) snäpp — silhuetten snäpper till färg
+    audio.tone({ freq: 620, dur: 0.06, type: 'square', vol: 0.16, slideTo: 940 })
+    // (2) stigande kombo-ton (C-dur-trappa, klingar högre för varje matchning i rundan)
+    const semis = [0, 2, 4, 5, 7, 9] // pentatonisk-ish, glad
+    const st = semis[Math.min(combo, semis.length - 1)]
+    audio.tone({ freq: 523.25 * Math.pow(2, st / 12), dur: 0.16, type: 'sine', vol: 0.24, delay: 0.06 })
+    // (3) föremålets eget ljud (djurläte/fordonston) — annars den vanliga glada 'match'
+    if (!this._objectSound(audio, key)) audio.sfx('match')
+  },
+
+  // Föremåls-specifikt ljud. Riktigt djurläte om ett klipp finns (audio.sample →
+  // true), annars en passande liten syntes (fordon tutar, båt tuter, fågel kvittrar).
+  // Returnerar true om något föremåls-eget spelades; false → fall tillbaka på 'match'.
+  _objectSound(audio, key) {
+    const sample = SAMPLE[key]
+    if (sample && audio.sample(sample)) return true
+    switch (key) {
+      case 'bil':
+      case 'buss':
+      case 'traktor':
+        // tut-tut
+        audio.tone({ freq: 392, dur: 0.14, type: 'square', vol: 0.2 })
+        audio.tone({ freq: 330, dur: 0.16, type: 'square', vol: 0.2, delay: 0.16 })
+        return true
+      case 'tag':
+        audio.tone({ freq: 300, dur: 0.32, type: 'sawtooth', vol: 0.16, slideTo: 520 })
+        return true
+      case 'cykel':
+        audio.sfx('pling') // ringklocka
+        return true
+      case 'flygplan':
+      case 'raket':
+        audio.sfx('whoosh')
+        return true
+      case 'bat':
+        audio.tone({ freq: 180, dur: 0.36, type: 'sine', vol: 0.2 }) // mistlur
+        return true
+      case 'fagel':
+        audio.tone({ freq: 1200, dur: 0.08, type: 'sine', vol: 0.16, slideTo: 1700 })
+        audio.tone({ freq: 1500, dur: 0.08, type: 'sine', vol: 0.14, slideTo: 2000, delay: 0.1 })
+        return true
+      default:
+        return false
+    }
+  },
+
+  // Föremålets egen reaktion i skugg-slotten efter blomningen. Rör bara figuren
+  // (sh._color): y/x/rotation eller en squish på skalan. Direkt gsap på Pixi-objektet
+  // är OK här — _killShadowTweens dödar sh._color + sh._color.scale i destroy/_newRound
+  // FÖRE objektet rivs (samma mönster som morfen ovan). Delayen ligger efter blomningen.
+  _reactFigure(sh, key) {
+    const c = sh?._color
+    if (!c || c.destroyed) return
+    const type = REACTION[key] || 'squish'
+    if (type === 'hop') {
+      gsap
+        .timeline({ delay: 0.28 })
+        .to(c, { y: -48, duration: 0.18, ease: 'power2.out' })
+        .to(c, { y: 0, duration: 0.26, ease: 'bounce.out' })
+        .to(c, { y: -28, duration: 0.15, ease: 'power2.out' })
+        .to(c, { y: 0, duration: 0.22, ease: 'bounce.out' })
+    } else if (type === 'roll') {
+      gsap
+        .timeline({ delay: 0.28 })
+        .to(c, { x: -26, rotation: -0.5, duration: 0.22, ease: 'sine.inOut' })
+        .to(c, { x: 32, rotation: 0.6, duration: 0.4, ease: 'sine.inOut' })
+        .to(c, { x: 0, rotation: 0, duration: 0.3, ease: 'sine.inOut' })
+    } else if (type === 'fly') {
+      gsap
+        .timeline({ delay: 0.28 })
+        .to(c, { y: -42, x: 14, rotation: 0.2, duration: 0.3, ease: 'sine.inOut' })
+        .to(c, { y: -22, x: -14, rotation: -0.2, duration: 0.3, ease: 'sine.inOut' })
+        .to(c, { y: 0, x: 0, rotation: 0, duration: 0.34, ease: 'sine.inOut' })
+    } else if (type === 'spin') {
+      gsap
+        .timeline({ delay: 0.28 })
+        .to(c, { rotation: Math.PI * 2, duration: 0.6, ease: 'power2.inOut' })
+        .set(c, { rotation: 0 })
+    } else {
+      // squish — glad studs. Delay > blomningens skal-tween (0.4s) så de inte krockar.
+      gsap
+        .timeline({ delay: 0.44 })
+        .to(c.scale, { x: 1.24, y: 0.8, duration: 0.12, ease: 'power2.out' })
+        .to(c.scale, { x: 0.86, y: 1.18, duration: 0.12 })
+        .to(c.scale, { x: 1.06, y: 0.96, duration: 0.12 })
+        .to(c.scale, { x: 1, y: 1, duration: 0.18, ease: 'back.out(2)' })
+    }
   },
 
   // Fel skugga: DragController gav redan 'soft' + snäpper hem. Lägg lekfull

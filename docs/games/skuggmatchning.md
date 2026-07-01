@@ -106,4 +106,27 @@ håller det utmanande utan att bli svårt.
 - Rekommenderad första-omgång: **[Quick] per-objekt-reaktion vid match + riktiga föremåls-/
   djurljud** — slår direkt mot den tydligaste svagheten (en-utfalls-match) och utnyttjar redan
   byggd `audio.sample`-infrastruktur.
+- 2026-07-01: **Första-omgång genomförd** — bröt "en-utfalls-matchen" med föremåls-EGEN
+  återkoppling i både bild och ljud:
+  - **[Quick] Per-objekt-reaktion vid match** (`REACTION`-tabell + `_reactFigure`): den
+    framblommade figuren gör nu något eget i sin skugg-slott — grodan/kaninen **hoppar**
+    (dubbelstuds), fordon (bil/buss/traktor/tåg/cykel) **rullar** (x-skift + rotation),
+    flygare (bi/fjäril/fågel/flygplan/raket/ballong) **fladdrar upp**, stjärna/sol/måne/boll/
+    klocka **snurrar** ett varv, allt annat får en glad **squish**-studs. Rör bara `sh._color`
+    (y/x/rotation eller skala) → exit-säkert via befintliga `_killShadowTweens` (killTweensOf
+    på `sh._color` + `sh._color.scale`, samma mönster som morfen). Squish-delayen (0.44s) ligger
+    efter blomningens skal-tween (0.4s) så de inte krockar.
+  - **[Quick] Riktiga föremåls-/djurljud** (`SAMPLE`-tabell + `_objectSound`): hund/katt/gris/
+    groda/bi/uggla spelar sitt riktiga `audio.sample('djur_…')`-klipp (faller tillbaka på
+    'match' + talat namn om klippet ännu inte avkodats). Fordon får passande syntes via
+    `audio.tone`/`sfx` (tut-tut för bil/buss/traktor, tåg-vissla, cykel-ringklocka, whoosh för
+    flygplan/raket, mistlur för båt) och fågel ett kvitter. Namnet sägs alltid (ordinlärning).
+  - **[Quick] Stigande kombo-ton + "snäpp"** (`_matchSound`): ett kort square-wave-"snäpp"
+    klingar när silhuetten morfar, och en pentatonisk kombo-ton klättrar (`523·2^(semi/12)`)
+    för varje matchning i rundan — raden som fylls "sjunger uppåt".
+  - Test: `errorCount 0` (statisk + drag-match); skärmdump bekräftar bloom (svart silhuett →
+    full färg) + rullande/snurrande figur i slotten.
+  - **Deferred:** [Quick] gyllene skugga; [Medium] skuggorna lever (vandra/byta plats);
+    [Medium] ängen fylls över rundor (samlade figurer stannar kvar); [Deep] kategori-läge;
+    [Deep] mottagar-maskot (Bobo); [Quick] äng-ambient (kräver ny ljud-loop → central hantering).
 </content>

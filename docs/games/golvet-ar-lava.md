@@ -108,4 +108,26 @@ loopen är "töm bricka → bredare flod".**
   Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Medium] sent/synligt moln + [Quick] distinkt sten-arsenal +
   [Quick] lava-reaktion** — störst lyft för agens och liv, låg risk.
+- 2026-07-02: Första-omgång implementerad (errorCount 0, skärmdump läst).
+  - **[Medium] Sent, synligt, vinkande moln.** `_beginStep` cloud-grenen sätter nu
+    `this._hesitate = 0.7` — figuren tvekar synligt på kanten (`_updateWalk` ny hesitations-
+    gren lutar `_heroEmoji.rotation` med sin-våg) medan `_spawnCloud` bygger en Container med
+    `☁️` + vinkande `👋` (`this._cloudHand`, sin-roterad) som glider ner ovanifrån. Text bytt
+    från "Hihi!" vid start → "Jag hjälper till!" (`floatText`); "Hihi!"-fnisset flyttat till
+    `_onLand` när molnet faktiskt lyft klart. Hjälpen känns nu som ett tydligt, sällsynt
+    ingripande, inte en osynlig auto-lösning.
+  - **[Quick] Distinkt sten-arsenal per nivå.** Ny `_stoneKindsFor(level)` (studs → bro →
+    lilja: nivå 0–1 = 3 normal+studs, 2–3 = +bro, 4+ = +lilja). `_makeStone` generaliserad
+    till fyra kinds; ny `REACH`-tabell (`normal 280`, `bounce 460`, `bro 360`, `lilja 300`)
+    driver hoppet via `c._reach` (seq/`_beginStep` läser `a.reach` i st.f. hårdkodat
+    `isBounce?460:280`). Bro = bred plank-Graphics, lilja = näckros-ellips + `🌸`.
+  - **[Quick] Lava reagerar.** Ny `_lavaReact(x)` (stänk-`puff` + glöd-`ripple` vid ytan) körs
+    i `_settleStone` när en sten läggs; `_onLand` ger glöd-`ripple` + mjuk `shake(this._root)`
+    (skalar med fallhöjd `this._H`) när figuren landar över floden.
+  - **Billiga extrafynd som passade:** varierat skatt-fynd per nivå (`FYND`-array, `this._gem`
+    text-byte i `_buildLevel`, fyndet flyger ut via `floatText` i `_onWin`); armar-upp-pose
+    (`🙌`) på vinst; mjukt fjäder-"boing" (`audio.tone`) vid avstamp från studs-stenen.
+  - Deferred: [Deep] förhandsvisad hoppbåge före Gå!, [Deep] väntande mottagare (Bobo/drake)
+    vid skatten, [Medium] mjuk scen-cykel (vulkan→grotta→natt), vinglig sten, samt riktiga
+    MOSS-SFX (lava-blubb/boing/duns/ambient) och barnfniss — alla utanför denna låg-risk-omgång.
 </content>

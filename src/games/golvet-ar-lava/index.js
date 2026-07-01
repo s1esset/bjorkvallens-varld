@@ -19,7 +19,7 @@
 import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, bigCelebration, floatText } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, bigCelebration, floatText, ripple, shake } from '../../lib/feedback.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -36,6 +36,11 @@ const TRAY_HOMES = [360, 540, 720, 860] // 3 vanliga + 1 studs (längst till hö
 const IDLE_DELAY = 6 // s utan handling → röst-recue
 const BUBBLE_N = 14
 const BUBBLE_THROTTLE = 0.22 // s mellan mjuka blubb-ljud
+// Räckvidd (px) för hoppet FRÅN en stentyp → gör VILKEN sten till ett val, inte
+// bara var: studs kastar långt, bron ett hyfsat kliv, liljan ~vanlig men gullig.
+const REACH = { normal: 280, bounce: 460, bro: 360, lilja: 300 }
+// Skatten varierar per nivå → liten överraskning i st.f. samma 💎 varje gång.
+const FYND = ['💎', '👑', '🏆', '🪙', '💍']
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 export default {
@@ -177,6 +182,7 @@ export default {
     gem.position.set(0, -62)
     c.addChild(glow, chest, gem)
     this._treasure = c
+    this._gem = gem
     this._treasureGlow = glow
     this._treasureGlowTween = breathe(glow, { scale: 1.1, duration: 1.3 })
   },
@@ -247,8 +253,10 @@ export default {
     this._lavaBase.rect(L, SURFACE_Y, R - L, 300).fill(0x7a1500)
     this._lavaBase.rect(L, SURFACE_Y, R - L, 40).fill(0xff5a1e)
 
-    // Skatt på höger klippa.
+    // Skatt på höger klippa — varierat fynd per nivå (flyger ut vid vinst).
     this._treasure.position.set(R + 140, 360)
+    this._fynd = FYND[level % FYND.length]
+    if (this._gem && !this._gem.destroyed) this._gem.text = this._fynd
 
     // Bubblor in i nya flod-bredden.
     for (const b of this._bubbles) this._respawnBubble(b)
@@ -268,6 +276,7 @@ export default {
       this._heroEmoji.text = even ? '👧' : '🧒'
       gsap.killTweensOf(this._heroEmoji.scale)
       this._heroEmoji.scale.set(1)
+      this._heroEmoji.rotation = 0
     }
     gsap.killTweensOf(this._hero)
     gsap.killTweensOf(this._hero.scale)
@@ -320,11 +329,19 @@ export default {
   _buildStones(ctx) {
     this._clearStones()
     this._stones = []
-    const kinds = ['normal', 'normal', 'normal', 'bounce']
+    const kinds = this._stoneKindsFor(this._level)
     kinds.forEach((kind, i) => {
       const st = this._makeStone(ctx, kind, TRAY_HOMES[i])
       bounceIn(st, { delay: 0.05 * i })
     })
+  },
+
+  // Stigande sten-arsenal: en ny stentyp introduceras vartannat nivåsteg
+  // (studs → bro → lilja) så brickan känns rikare ju längre man kommer.
+  _stoneKindsFor(level) {
+    if (level <= 1) return ['normal', 'normal', 'normal', 'bounce']
+    if (level <= 3) return ['normal', 'normal', 'bounce', 'bro']
+    return ['normal', 'bounce', 'bro', 'lilja']
   },
 
   _clearStones() {
@@ -342,33 +359,59 @@ export default {
   },
 
   _makeStone(ctx, kind, homeX) {
-    const isBounce = kind === 'bounce'
     const c = new Container()
     c.position.set(homeX, TRAY_Y)
-    const shadow = new Graphics().circle(0, 6, STONE_R).fill({ color: 0x000000, alpha: 0.18 })
-    shadow.eventMode = 'none'
-    const body = new Graphics().circle(0, 0, STONE_R)
-    if (isBounce) body.fill(0x5bbf6a).stroke({ width: 5, color: 0x49a657 })
-    else body.fill(0x9a8474).stroke({ width: 5, color: 0x6f5d4e })
-    body.eventMode = 'none'
-    const spots = new Graphics()
-    spots.circle(-15, -14, 8).fill({ color: 0xffffff, alpha: 0.25 })
-    spots.circle(13, 10, 5).fill({ color: 0xffffff, alpha: 0.18 })
-    spots.eventMode = 'none'
-    c.addChild(shadow, body, spots)
-    if (isBounce) {
-      // Fjäder-glans + uppåtpil → "studs"-känsla.
-      const spring = new Graphics()
-      for (const sx of [-16, 0, 16]) spring.moveTo(sx - 7, 9).lineTo(sx, 2).lineTo(sx + 7, 9).lineTo(sx, -3).lineTo(sx - 7, -8)
-      spring.stroke({ width: 3, color: 0xffffff, alpha: 0.7 })
-      spring.eventMode = 'none'
-      const up = new Text({ text: '⤴', style: { fontFamily: FONT.body, fontSize: 30, fill: 0xffffff } })
-      up.anchor.set(0.5)
-      up.position.set(0, -3)
-      up.eventMode = 'none'
-      c.addChild(spring, up)
+    if (kind === 'bro') {
+      // Bro-platta: bred plank som täcker ett längre kliv (räckvidd 360).
+      const shadow = new Graphics().ellipse(0, 12, 80, 22).fill({ color: 0x000000, alpha: 0.18 })
+      shadow.eventMode = 'none'
+      const body = new Graphics().roundRect(-74, -20, 148, 40, 12).fill(0x8a7666).stroke({ width: 5, color: 0x6f5d4e })
+      for (const px of [-40, 0, 40]) body.moveTo(px, -20).lineTo(px, 20)
+      body.stroke({ width: 3, color: 0x6f5d4e, alpha: 0.5 })
+      body.eventMode = 'none'
+      c.addChild(shadow, body)
+    } else if (kind === 'lilja') {
+      // Flyt-lilja: gullig näckrosplatta med blomma (räckvidd 300).
+      const shadow = new Graphics().ellipse(0, 8, STONE_R, 16).fill({ color: 0x000000, alpha: 0.15 })
+      shadow.eventMode = 'none'
+      const pad = new Graphics().ellipse(0, 0, 50, 36).fill(0x5aa653).stroke({ width: 5, color: 0x3f8a44 })
+      pad.moveTo(6, 0).lineTo(46, -10).stroke({ width: 4, color: 0x3f8a44, alpha: 0.6 })
+      pad.eventMode = 'none'
+      const flower = new Text({ text: '🌸', style: { fontFamily: FONT.body, fontSize: 30 } })
+      flower.anchor.set(0.5)
+      flower.position.set(-14, -6)
+      flower.eventMode = 'none'
+      c.addChild(shadow, pad, flower)
+    } else {
+      // normal (grå cirkel) + bounce (grön fjäder-sten).
+      const isBounce = kind === 'bounce'
+      const shadow = new Graphics().circle(0, 6, STONE_R).fill({ color: 0x000000, alpha: 0.18 })
+      shadow.eventMode = 'none'
+      const body = new Graphics().circle(0, 0, STONE_R)
+      if (isBounce) body.fill(0x5bbf6a).stroke({ width: 5, color: 0x49a657 })
+      else body.fill(0x9a8474).stroke({ width: 5, color: 0x6f5d4e })
+      body.eventMode = 'none'
+      const spots = new Graphics()
+      spots.circle(-15, -14, 8).fill({ color: 0xffffff, alpha: 0.25 })
+      spots.circle(13, 10, 5).fill({ color: 0xffffff, alpha: 0.18 })
+      spots.eventMode = 'none'
+      c.addChild(shadow, body, spots)
+      if (isBounce) {
+        // Fjäder-glans + uppåtpil → "studs"-känsla.
+        const spring = new Graphics()
+        for (const sx of [-16, 0, 16]) spring.moveTo(sx - 7, 9).lineTo(sx, 2).lineTo(sx + 7, 9).lineTo(sx, -3).lineTo(sx - 7, -8)
+        spring.stroke({ width: 3, color: 0xffffff, alpha: 0.7 })
+        spring.eventMode = 'none'
+        const up = new Text({ text: '⤴', style: { fontFamily: FONT.body, fontSize: 30, fill: 0xffffff } })
+        up.anchor.set(0.5)
+        up.position.set(0, -3)
+        up.eventMode = 'none'
+        c.addChild(spring, up)
+      }
     }
-    c._isBounce = isBounce
+    c._kind = kind
+    c._isBounce = kind === 'bounce'
+    c._reach = REACH[kind] || 280
     c._home = { x: homeX, y: TRAY_Y }
     c._placed = false
     c._slot = null
@@ -476,6 +519,14 @@ export default {
     ctx.services.audio.sfx('pop')
     pop(stone)
     sparkle(ctx.fxLayer, tx, ty)
+    this._lavaReact(tx) // stänk + glödring där stenen möter lavan
+  },
+
+  // Lavan reagerar: ett litet stänk + en glödring vid ytan (juice, no-fail).
+  _lavaReact(x) {
+    if (!this._lavaFx || this._lavaFx.destroyed) return
+    puff(this._lavaFx, x, SURFACE_Y, { count: 5, color: 0xff7a2e })
+    ripple(this._lavaFx, x, SURFACE_Y, { color: 0xffd35c, maxR: 60, duration: 0.5, width: 4, alpha: 0.7 })
   },
 
   _placeInSlot(ctx, stone, slot) {
@@ -591,8 +642,8 @@ export default {
       return
     }
 
-    const seq = [{ x: this._heroStartX, y: EDGE_Y, isBounce: false }]
-    for (const s of placed) seq.push({ x: s.x, y: STONE_TOP, isBounce: !!s._isBounce })
+    const seq = [{ x: this._heroStartX, y: EDGE_Y, isBounce: false, reach: 280 }]
+    for (const s of placed) seq.push({ x: s.x, y: STONE_TOP, isBounce: !!s._isBounce, reach: s._reach || 280 })
     seq.push({ x: this._rightLandingX, y: EDGE_Y, isBounce: false })
     seq.push({ x: this._treasureNodeX, y: EDGE_Y, isTreasure: true })
 
@@ -615,32 +666,43 @@ export default {
     this._segBx = b.x
     this._segBy = b.y
     const gap = Math.max(0, b.x - a.x)
-    const reach = a.isBounce ? 460 : 280
+    const reach = a.reach || 280
     this._hopT = 0
     if (gap <= reach) {
       // Vanligt parabel-hopp.
       this._mode = 'hop'
       this._dur = clamp(0.38 + gap / 1400, 0.4, 0.8)
       this._H = clamp(70 + gap * 0.35, 90, 210) + (a.isBounce ? 90 : 0)
+      // Hopp-juice: extra fjäder-"boing" när avstampet är från studs-stenen.
+      if (a.isBounce) ctx.services.audio.tone({ freq: 300, dur: 0.18, type: 'sine', slideTo: 640, vol: 0.5 })
     } else {
-      // Gapet för stort → snällt moln lyfter över (auto-hjälp, aldrig fail).
+      // Gapet för stort → figuren tvekar synligt på kanten, sedan sveper ett
+      // snällt VINKANDE moln in och lyfter över (auto-hjälp, aldrig fail).
       this._mode = 'cloud'
+      this._hesitate = 0.7 // s: figuren tittar på gapet innan molnet hjälper
       this._dur = clamp(0.5 + gap / 1600, 0.55, 0.95)
       this._H = 150
       this._spawnCloud(a.x, a.y)
       ctx.services.audio.sfx('whoosh')
-      floatText(ctx.fxLayer, a.x, a.y - 60, 'Hihi!', { fontSize: 44 })
+      floatText(ctx.fxLayer, a.x, a.y - 100, 'Jag hjälper till!', { fontSize: 38 })
     }
   },
 
   _spawnCloud(x, y) {
     if (this._cloud && !this._cloud.destroyed) this._cloud.destroy()
-    const c = new Text({ text: '☁️', style: { fontFamily: FONT.body, fontSize: 96 } })
-    c.anchor.set(0.5)
-    c.position.set(x, y - 66)
+    const c = new Container()
     c.eventMode = 'none'
+    const body = new Text({ text: '☁️', style: { fontFamily: FONT.body, fontSize: 100 } })
+    body.anchor.set(0.5)
+    const hand = new Text({ text: '👋', style: { fontFamily: FONT.body, fontSize: 40 } })
+    hand.anchor.set(0.5)
+    hand.position.set(48, 8)
+    c.addChild(body, hand)
+    // Startar högt uppe → glider ner under tvekan (positioneras i tickern).
+    c.position.set(x, y - 140)
     this._root.addChild(c)
     this._cloud = c
+    this._cloudHand = hand
   },
 
   _onLand(ctx) {
@@ -650,12 +712,23 @@ export default {
         this._cloud.destroy()
       }
       this._cloud = null
+      this._cloudHand = null
+      if (this._hero && !this._hero.destroyed) {
+        if (this._heroEmoji && !this._heroEmoji.destroyed) this._heroEmoji.rotation = 0
+        floatText(ctx.fxLayer, this._hero.x, this._hero.y - 70, 'Hihi!', { fontSize: 40 })
+      }
     } else {
       ctx.services.audio.sfx('pop')
       if (this._hero && !this._hero.destroyed) {
         puff(ctx.fxLayer, this._hero.x, this._hero.y, { count: 5, color: 0xcdbfae })
         pop(this._hero)
       }
+      // Lava reagerar när figuren landar över floden: glödring + mikroskak som
+      // skalar med fallhöjden (aldrig hård).
+      if (this._segBx >= this._lavaLeft && this._segBx <= this._lavaRight) {
+        ripple(this._lavaFx, this._segBx, SURFACE_Y, { color: 0xffd35c, maxR: 54, duration: 0.5, width: 4, alpha: 0.6 })
+      }
+      shake(this._root, { intensity: clamp(this._H / 40, 2, 6), duration: 0.22 })
     }
     if (this._stepTo >= this._seq.length - 1) {
       this._walking = false
@@ -683,9 +756,11 @@ export default {
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, tx, 360, { count: 18 })
     sparkle(ctx.fxLayer, tx, 360, { count: 8 })
+    floatText(ctx.fxLayer, tx, 320, this._fynd || '💎', { fontSize: 72, rise: 130 }) // fyndet flyger ut
     if (this._hero && !this._hero.destroyed) {
       gsap.killTweensOf(this._hero.scale)
       pop(this._hero, { scale: 1.25 })
+      if (this._heroEmoji && !this._heroEmoji.destroyed) this._heroEmoji.text = '🙌' // armar-upp-pose
     }
 
     this._level += 1
@@ -731,6 +806,16 @@ export default {
   },
 
   _updateWalk(ctx, dt) {
+    // Snäll-moln-tvekan: figuren väntar synligt på kanten medan molnet vinkar
+    // in ovanifrån — hoppet börjar först när tvekan är slut.
+    if (this._mode === 'cloud' && this._hesitate > 0) {
+      this._hesitate -= dt
+      const p = clamp(1 - this._hesitate / 0.7, 0, 1) // 0→1 medan molnet glider ner
+      if (this._cloud && !this._cloud.destroyed) this._cloud.position.set(this._segAx, this._segAy - 140 + 74 * p)
+      if (this._cloudHand && !this._cloudHand.destroyed) this._cloudHand.rotation = Math.sin(this._tnow * 16) * 0.5
+      if (this._heroEmoji && !this._heroEmoji.destroyed) this._heroEmoji.rotation = Math.sin(this._tnow * 9) * 0.06
+      return
+    }
     this._hopT = Math.min(1, this._hopT + dt / this._dur)
     const t = this._hopT
     const ax = this._segAx
@@ -744,6 +829,7 @@ export default {
     if (this._heroEmoji && !this._heroEmoji.destroyed) {
       const k = Math.sin(t * Math.PI) // 0 vid avstamp/landning, 1 i toppen → mjuk sträck
       this._heroEmoji.scale.set(1 - 0.06 * k, 1 + 0.12 * k)
+      this._heroEmoji.rotation = 0 // nollställ ev. tvekan-lutning
     }
     const lift = arc / Math.max(this._H, 1)
     if (this._heroShadow && !this._heroShadow.destroyed) {
@@ -751,7 +837,10 @@ export default {
       this._heroShadow.scale.set(Math.max(0.4, 1 - 0.5 * lift))
       this._heroShadow.alpha = 0.18 * (1 - 0.4 * lift)
     }
-    if (this._mode === 'cloud' && this._cloud && !this._cloud.destroyed) this._cloud.position.set(x, y - 66)
+    if (this._mode === 'cloud' && this._cloud && !this._cloud.destroyed) {
+      this._cloud.position.set(x, y - 66)
+      if (this._cloudHand && !this._cloudHand.destroyed) this._cloudHand.rotation = Math.sin(this._tnow * 16) * 0.5
+    }
     if (t >= 1) this._onLand(ctx)
   },
 
@@ -818,6 +907,8 @@ export default {
 
     this._deselect()
     this._drag = null
+    this._cloud = null
+    this._cloudHand = null
 
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onFieldTap)
     if (this._goBtn && !this._goBtn.destroyed) {

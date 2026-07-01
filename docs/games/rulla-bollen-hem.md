@@ -95,3 +95,8 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
   Spelet testat (errorCount 0; drag rullade bollen ända in i målet — fysik + sikte fungerar).
 - Rekommenderad första-omgång: **[Quick] mindre perfekt tap-fallback + rikare banor + riktigt
   rull/mål-jubel** — återinför sikt-agens och fyller den tomma planen för låg risk.
+- 2026-07-01 🔧 **Mönster #1 (auto-hjälp) mjukad [Medium+Quick]:** hjälp-trappan skjuten senare
+  — aim-hjälp (nästan-perfekt skott) vid 3 stopp (var 2), garanterad glid-hem först vid 4 (var 3);
+  barnet får fler egna skott. tapPower sänkt 0.85→0.62 så ett tap ger en lekfull knuff (faller
+  kort på längre banor → dra för kraft) i stället för ett facit-skott. No-fail intakt (glide kvar
+  som sista utväg). Verifierat: aim-drag rullade bollen hem, errorCount 0.

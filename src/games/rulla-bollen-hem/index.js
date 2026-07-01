@@ -17,7 +17,7 @@
 //    och AV när bollen nästan stannat, så den alltid kan vila inför nästa skott.
 //
 // INGET misslyckande: stannar bollen utan mål blir det en glad puff + vingel, och efter
-// ett par stopp får den först ett nästan-perfekt hjälp-skott och sedan en garanterad
+// FLERA egna stopp får den först ett nästan-perfekt hjälp-skott och sist en garanterad
 // hemrullning (glider rakt hem som spöke/sensor genom ev. hinder) — alltid jubel,
 // aldrig "game over". Allt ritas programmatiskt (Pixi Graphics + system-emoji).
 //
@@ -159,7 +159,7 @@ export default {
       maxPower: 26,
       minPower: 8,
       powerScale: 0.16,
-      tapPower: 0.85, // ett litet tap skjuter nästan hela vägen mot målet (snällt)
+      tapPower: 0.62, // ett litet tap ger en lekfull knuff mot målet (inte ett facit-skott — dra för kraft)
       trailColor: 0xffffff,
       previewGravity: 0, // toppvy: ingen gravitation i pricklinjen
       previewWind: 0,
@@ -612,11 +612,13 @@ export default {
     this._rollT = 0
     this._misses++
 
-    if (this._misses >= 3) {
+    // Snällt men SENT: barnet får flera egna skott innan hjälpen. Aim-hjälp (nästan-
+    // perfekt skott) vid 3 stopp, garanterad glid-hem som absolut sista utväg vid 4.
+    if (this._misses >= 4) {
       this._glideHome(ctx)
       return
     }
-    if (this._misses >= 2) {
+    if (this._misses >= 3) {
       this._autoShot(ctx)
       return
     }

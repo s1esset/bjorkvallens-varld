@@ -25,17 +25,24 @@ const LEVELS = [
 // det aldrig blir samma bräde två gånger. name = talad svensk form, scene = bakgrund,
 // back/accent = kortfärger, emblem = liten symbol på baksidan.
 const SETS = [
-  { name: 'djuren', scene: 'meadow', back: COLORS.green, accent: COLORS.greenDark, emblem: '🐾',
+  { name: 'djuren', kind: 'animal', scene: 'meadow', back: COLORS.green, accent: COLORS.greenDark, emblem: '🐾',
     symbols: ['🐶', '🐱', '🦊', '🐰', '🐻', '🦁', '🐸', '🐵', '🐼', '🐧', '🐮', '🐷'] },
-  { name: 'frukterna', scene: 'warm', back: COLORS.red, accent: COLORS.orangeDark, emblem: '🍃',
+  { name: 'frukterna', kind: 'fruit', scene: 'warm', back: COLORS.red, accent: COLORS.orangeDark, emblem: '🍃',
     symbols: ['🍎', '🍌', '🍓', '🍇', '🍊', '🍉', '🍐', '🍒', '🥝', '🍑', '🥥', '🍍'] },
-  { name: 'fordonen', scene: 'sky', back: COLORS.blue, accent: COLORS.teal, emblem: '⭐',
+  { name: 'fordonen', kind: 'vehicle', scene: 'sky', back: COLORS.blue, accent: COLORS.teal, emblem: '⭐',
     symbols: ['🚗', '🚒', '🚜', '🚌', '🚲', '🚁', '🚂', '🚀', '⛵', '🚓', '🚑', '🚕'] },
-  { name: 'figurerna', scene: 'candy', back: COLORS.purple, accent: COLORS.pink, emblem: '✨',
+  { name: 'figurerna', kind: 'figure', scene: 'candy', back: COLORS.purple, accent: COLORS.pink, emblem: '✨',
     symbols: ['⭐', '❤️', '🔵', '🟢', '🟡', '🟣', '🔶', '🌸', '🌙', '🍀', '🔺', '💎'] },
-  { name: 'havsdjuren', scene: 'water', back: COLORS.teal, accent: COLORS.blue, emblem: '🐚',
+  { name: 'havsdjuren', kind: 'sea', scene: 'water', back: COLORS.teal, accent: COLORS.blue, emblem: '🐚',
     symbols: ['🐠', '🐙', '🐳', '🦀', '🐬', '🐡', '🐢', '🦈', '🦐', '🐚', '🦑', '🪼'] },
 ]
+
+// TEMA-BELÖNING: när ett par hittas ska symbolen "göra något". För djur/havsdjur knyter vi
+// an till riktiga offline-klipp (audio.sample) där de finns, annars talas djurets namn.
+// ASCII-nycklar (asciiFold) matchar public/audio/sfx/djur_*.mp3.
+const ANIMAL_SOUND = { '🐶': 'djur_hund', '🐱': 'djur_katt', '🐮': 'djur_ko', '🐷': 'djur_gris', '🐸': 'djur_groda' }
+const ANIMAL_NAME = { '🦊': 'Räv', '🐰': 'Kanin', '🐻': 'Björn', '🦁': 'Lejon', '🐵': 'Apa', '🐼': 'Panda', '🐧': 'Pingvin' }
+const SEA_NAME = { '🐠': 'Fisk', '🐙': 'Bläckfisk', '🐳': 'Val', '🦀': 'Krabba', '🐬': 'Delfin', '🐡': 'Blåsfisk', '🐢': 'Sköldpadda', '🦈': 'Haj', '🦐': 'Räka', '🐚': 'Snäcka', '🦑': 'Bläckfisk', '🪼': 'Manet' }
 
 export default {
   id: 'vandkort',
@@ -84,6 +91,7 @@ export default {
     this._idle = 0
 
     const set = SETS[this._setIdx]
+    this._set = set // aktivt tema (används av tema-belöningen när ett par hittas)
 
     // Bakgrundsscen (varierar med temat).
     this._root.addChild(createScene(set.scene))
@@ -138,6 +146,32 @@ export default {
 
     // Rotera temat för NÄSTA runda (garanterar variation).
     this._setIdx = (this._setIdx + 1) % SETS.length
+
+    // "Titta först"-peek för de yngsta (nivå 0–1): visa alla kort en stund, vänd
+    // ner mjukt och säg "kom ihåg!" — sänker tröskeln utan att bli svårare.
+    if (this._level <= 1) this._peekBoard(ctx)
+  },
+
+  // Kort förhandstitt: efter att korten delats ut vänds alla upp ~1,5s, sedan ner.
+  // Blockerar tryck under tiden (inget negativt — bara "titta"). Exit-/rebuild-säkert.
+  _peekBoard(ctx) {
+    this._busy = true
+    gsap.delayedCall(1.1, () => {
+      if (!this._alive || this._cleared) return
+      this._cards?.forEach((c) => this._showFace(c, true))
+      ctx.services.voice.say('Titta noga på korten!')
+      gsap.delayedCall(1.5, () => {
+        if (!this._alive || this._cleared) return
+        this._cards?.forEach((c) => {
+          if (!c.destroyed && !c._done) this._showFace(c, false)
+        })
+        this._busy = false
+        this._idle = 0
+        gsap.delayedCall(0.35, () => {
+          if (this._alive && !this._cleared) ctx.services.voice.say('Kom ihåg!')
+        })
+      })
+    })
   },
 
   _makeCard(ctx, symbol, w, h, set) {
@@ -192,11 +226,14 @@ export default {
       gsap.delayedCall(0.4, () => {
         if (!this._alive || a.destroyed || b.destroyed) return
         a._done = b._done = true
-        ctx.services.audio.sfx('match')
+        this._matched++
+        // Stigande kombo-pling: tonhöjden klättrar för varje funnet par mot tomt bräde.
+        const freq = 440 + (this._matched - 1) * 90
+        ctx.services.audio.tone({ freq, dur: 0.16, type: 'sine', vol: 0.32, slideTo: freq * 1.5 })
         this._celebratePair(a)
         this._celebratePair(b)
+        this._rewardPair(ctx, a, b) // temat får mening: djurläte / mums / vroom / magi
         floatText(this._fx, (a.x + b.x) / 2, Math.min(a.y, b.y) - a._h * 0.35, '⭐', { fontSize: a._h * 0.4, rise: 70 })
-        this._matched++
         this._busy = false
         if (this._matched >= LEVELS[this._level].pairs) this._onCleared(ctx)
       })
@@ -205,6 +242,11 @@ export default {
       gsap.delayedCall(0.85, () => {
         if (!this._alive || a.destroyed || b.destroyed) return
         ctx.services.audio.sfx('soft')
+        // Saftigare (men vänlig) miss: korten "skakar nej" mot varandra + vinglar,
+        // vänds sedan tillbaka. Aldrig en bestraffning — bara lekfullt.
+        const dir = Math.sign(b.x - a.x) || 1
+        gsap.to(a, { x: a.x + dir * 10, duration: 0.07, yoyo: true, repeat: 3, ease: 'sine.inOut' })
+        gsap.to(b, { x: b.x - dir * 10, duration: 0.07, yoyo: true, repeat: 3, ease: 'sine.inOut' })
         wiggle(a)
         wiggle(b)
         this._showFace(a, false)
@@ -243,6 +285,43 @@ export default {
     card._frontView.addChild(new Graphics().roundRect(-w / 2, -h / 2, w, h, r).stroke({ width: 6, color: COLORS.green, alpha: 0.95 }))
     pop(card)
     sparkle(this._fx, card.x, card.y, { count: 8 })
+  },
+
+  // Tema-belöning: paret GÖR något så "två lika bilder" blir en liten belöningsscen.
+  // Djur/havsdjur hörs (riktigt klipp via sample, annars talat namn), frukt "mumsas",
+  // fordon kör iväg (whoosh), figurer glittrar (magi/reveal). Ett glatt skutt på båda korten.
+  // Ljudet läggs strax efter kombo-pling:t så de inte krockar. Exit-säkert (killTweensOf i destroy).
+  _rewardPair(ctx, a, b) {
+    if (!this._alive) return
+    const set = this._set
+    const sym = a._symbol
+    // Litet glädjeskutt på båda korten (yoyo -> tillbaka exakt; kort dödas i destroy).
+    ;[a, b].forEach((c) => {
+      if (c.destroyed) return
+      gsap.to(c, { y: c.y - c._h * 0.16, duration: 0.16, yoyo: true, repeat: 1, ease: 'power2.out' })
+    })
+    gsap.delayedCall(0.22, () => {
+      if (!this._alive || a.destroyed) return
+      const audio = ctx.services.audio
+      const voice = ctx.services.voice
+      if (set.kind === 'animal') {
+        const key = ANIMAL_SOUND[sym]
+        if (key && audio.sample(key)) return // riktigt djurläte spelades
+        const nm = ANIMAL_NAME[sym]
+        if (nm) voice.say(`${nm}!`)
+        else audio.sfx('reveal')
+      } else if (set.kind === 'sea') {
+        const nm = SEA_NAME[sym]
+        if (nm) voice.say(`${nm}!`)
+        else audio.sfx('reveal')
+      } else if (set.kind === 'fruit') {
+        voice.say('Mums!')
+      } else if (set.kind === 'vehicle') {
+        audio.sfx('whoosh')
+      } else {
+        audio.sfx('reveal')
+      }
+    })
   },
 
   // Brädet tomt: höj nivå, fira (delat: celebrate-sfx + beröm + konfetti + stjärna +

@@ -85,3 +85,21 @@ progression. Strikt felfritt — fel par vänds vänligt tillbaka, ingen timer, 
 - Rekommenderad första-omgång: **[Medium] paret spelar tema-belöning (djurläte/mums) + [Quick]
   titta-först-peek + [Quick] stigande kombo-ljud** — ger temat mening och gör minnesleken till
   en belöningsscen.
+- 2026-07-02: Första-omgång implementerad (index.js).
+  - **Tema-belöning (`_rewardPair`)**: varje SET fick `kind` (`animal`/`fruit`/`vehicle`/`figure`/
+    `sea`). När ett par hittas gör symbolen något: djur spelar riktigt offline-klipp via
+    `audio.sample()` (nya emoji→nyckel-mappen `ANIMAL_SOUND`: 🐶→djur_hund, 🐱→katt, 🐮→ko,
+    🐷→gris, 🐸→groda), övriga djur talas via `ANIMAL_NAME`; havsdjur talas via `SEA_NAME`
+    (sample saknas → röst); frukt säger "Mums!"; fordon `sfx('whoosh')`; figurer `sfx('reveal')`.
+    Båda korten gör dessutom ett litet glädjeskutt (yoyo på y, exit-säkert via `killTweensOf` i
+    `destroy`). `this._set` sparas i `_build` så belöningen känner aktivt tema.
+  - **Titta-först-peek (`_peekBoard`)**: på nivå 0–1 vänds alla kort upp ~1,5s efter utdelning
+    ("Titta noga på korten!"), vänds sedan ner ("Kom ihåg!"). `_busy` blockerar tryck under
+    tiden (inget negativt). Alla delayedCalls guardade med `_alive`/`_cleared`.
+  - **Stigande kombo-pling**: `sfx('match')` ersatt av `audio.tone({freq, slideTo})` där freq
+    klättrar `440 + (matched-1)*90` per funnet par mot tomt bräde.
+  - **Saftigare miss** (bonus [Quick] från §4): de två icke-paren "skakar nej" mot varandra
+    (yoyo x mot mitten, repeat:3 → tillbaka exakt) utöver den befintliga vänliga vingeln.
+  - Test: `node scripts/test-game.mjs vandkort --url http://localhost:5173 --taps "430,400;640,400;430,400;850,400"` → errorCount 0; skärmdump verifierad (2×2 figurer-bräde, fyra stora premiumkort, inga strökrängar).
+  - Deferred: [Deep] Bobo-medspelare, [Medium] par-galleri/bilderbok, [Quick] gyllene kort,
+    [Quick] mjuk scen-cross-fade vid temabyte, tema-specifikt avslöjande-ljud i `_showFace`.

@@ -1,5 +1,5 @@
 # Poppa Ballongerna (`poppa-ballonger`)
-> 🎈 motorik · tap · 2–4 år · status: 📝 plan klar
+> 🎈 motorik · tap · 2–4 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -94,3 +94,10 @@ det någonsin blir svårt på ett bestraffande sätt.
   Spelet testat (errorCount 0; himmelsscen + 4 ballonger renderar korrekt).
 - Rekommenderad första-omgång: **[Quick] synlig räknerad + fler ballongtyper + stigande
   kombo-ton** — störst upplevd lyft för minst risk.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). (1) Synlig räknerad — en rad
+  pluppar (1..N) i HUD:en fylls med färg + studs per pop under räknerundor, så räkningen
+  syns utan ljud. (2) Fler ballongtyper som roteras/skalas per nivå: **vatten** (blå skvätt +
+  fallande 💧-droppar + låg ton), **kluster** (släpper 3 miniballonger + tre stigande pling),
+  **jätte** (kräver en extra kram — första trycket = stor wobble + låg ton, inte en pop).
+  (3) Stigande kombo-ton via `audio.tone()` — snabba pop i rad klättrar uppför en pentatonik
+  och svalnar efter ~0,7s. `sfx('pop')` auto-uppgraderar till riktigt klipp när MOSS kört.

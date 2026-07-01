@@ -8,8 +8,8 @@ import { Container, Graphics, Circle, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
-import { PLAYFUL, FONT } from '../../lib/theme.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { PLAYFUL, FONT, COLORS } from '../../lib/theme.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // Gör en mörkare nyans av en 0xRRGGBB-färg (kontur/skuggning).
 function darken(hex, amt) {
@@ -23,9 +23,14 @@ function darken(hex, amt) {
 const SIDE_MARGIN = 130 // ballonger håller sig i x ∈ [130, 1150]
 const GOLD = 0xffd24a
 const GOLD_BITS = [0xffe27a, 0xffd24a, 0xfff3b0, 0xffb347]
+const WATER = 0x5ec8f0 // vattenballong
+const WATER_BITS = [0x5ec8f0, 0x8fe0f6, 0xbdeefa, 0x4aa3df]
 const SIZES = [0.78, 0.92, 0.92, 1.06, 1.06, 1.22] // viktat mot mitten
 const NUM = ['ett', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju', 'åtta', 'nio', 'tio']
 const NUDGES = ['Poppa fler ballonger!', 'Tryck på en ballong!', 'Titta, så många ballonger!']
+// Stigande kombo-ton: snabba pop i rad klättrar uppför en C-dur-pentatonik (mönster #7).
+const COMBO_ROOT = 523.25 // C5
+const COMBO_STEP = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]
 
 export default {
   id: 'poppa-ballonger',
@@ -44,6 +49,9 @@ export default {
     this._attractTween = null
     this._attractBalloon = null
     this._respawnCall = null
+    this._combo = 0
+    this._comboDecay = 0
+    this._pips = []
 
     this._layer = new Container()
     ctx.stage.addChild(this._layer)
@@ -63,6 +71,11 @@ export default {
     // Ballonglager ovanpå tap-lagret.
     this._balloonLayer = new Container()
     this._layer.addChild(this._balloonLayer)
+
+    // HUD ovanpå allt: synlig räknerad (fylls per pop under en räknerunda).
+    this._hud = new Container()
+    this._hud.eventMode = 'none'
+    this._layer.addChild(this._hud)
 
     this._balloons = []
     this._build(ctx)
@@ -101,16 +114,35 @@ export default {
     this._resolving = false
     this._idle = 0
     this._popCount = 0
+    this._combo = 0
+    this._comboDecay = 0
     // Räkne-känsla: säg poppen på svenska — vanligare för de yngsta/låga nivåer.
     this._countingRound = Math.random() < (level <= 3 ? 0.7 : 0.4)
     // En enstaka guldballong då och då (oftare högre upp), men aldrig garanterat.
     const goldenIndex = Math.random() < Math.min(0.6, 0.28 + level * 0.05) ? (Math.random() * count) | 0 : -1
 
+    // Ballongtyper som kryddar rundan (roteras/skalas per nivå så tur 2 ≠ tur 1). No-fail —
+    // varje typ poppar fortfarande glatt, bara med sin egen poff. vatten (blå skvätt),
+    // kluster (släpper 3 miniballonger), jätte (kräver en extra kram innan den brister).
+    const specials = []
+    if (level >= 2) specials.push('vatten')
+    if (level >= 3) specials.push('kluster')
+    if (level >= 4 && Math.random() < 0.7) specials.push('jatte')
+    if (level >= 6 && Math.random() < 0.5) specials.push(randomFrom(['vatten', 'kluster']))
+    const typeAt = {}
+    const freeSlots = shuffle([...Array(count).keys()].filter((i) => i !== goldenIndex))
+    specials.forEach((t, k) => { if (freeSlots[k] != null) typeAt[freeSlots[k]] = t })
+
+    // Synlig räknerad: en rad tomma pluppar (1..N) som fylls per pop — gör räkningen
+    // begriplig UTAN ljud (mönster: progression synlig). Bara under räknerundor.
+    this._buildCountRow(count)
+
     for (let i = 0; i < count; i++) {
       const golden = i === goldenIndex
-      const color = golden ? GOLD : PLAYFUL[i % PLAYFUL.length]
-      const size = golden ? 1.12 : randomFrom(SIZES)
-      const b = this._makeBalloon(ctx, color, size, golden)
+      const type = golden ? 'guld' : typeAt[i] || 'normal'
+      const color = type === 'vatten' ? WATER : golden ? GOLD : PLAYFUL[i % PLAYFUL.length]
+      const size = golden ? 1.12 : type === 'jatte' ? 1.5 : randomFrom(SIZES)
+      const b = this._makeBalloon(ctx, color, size, golden, type)
       b._baseX = this._spawnX(ctx)
       b.x = b._baseX
       b.y = 160 + Math.random() * 640 // spridda, en del syns direkt
@@ -121,8 +153,35 @@ export default {
     }
   },
 
+  // Bygg räknerad-pluppar i HUD:en. Bara synliga i en räknerunda; annars tom rad.
+  _buildCountRow(count) {
+    this._pips.forEach((p) => { gsap.killTweensOf(p.scale); if (!p.destroyed) p.destroy() })
+    this._pips = []
+    if (!this._countingRound || !this._hud || this._hud.destroyed) return
+    const gap = 46
+    const x0 = 640 - ((count - 1) * gap) / 2
+    for (let i = 0; i < count; i++) {
+      const pip = new Graphics()
+      pip.circle(0, 0, 16).fill({ color: 0xffffff, alpha: 0.5 }).stroke({ width: 3, color: COLORS.ink, alpha: 0.35 })
+      pip.position.set(x0 + i * gap, 52)
+      pip.eventMode = 'none'
+      this._hud.addChild(pip)
+      this._pips.push(pip)
+    }
+  },
+
+  // Fyll nästa plupp (vid pop under räknerunda) med en glad puls.
+  _fillPip(idx) {
+    const pip = this._pips[idx]
+    if (!pip || pip.destroyed) return
+    const col = PLAYFUL[idx % PLAYFUL.length]
+    pip.clear().circle(0, 0, 17).fill(col).stroke({ width: 3, color: 0xffffff, alpha: 0.9 })
+    gsap.killTweensOf(pip.scale)
+    gsap.fromTo(pip.scale, { x: 0.3, y: 0.3 }, { x: 1, y: 1, duration: 0.34, ease: 'back.out(2.4)' })
+  },
+
   // Bygg en glansig ballong-Container (ankare i kroppens centrum).
-  _makeBalloon(ctx, color, size, golden) {
+  _makeBalloon(ctx, color, size, golden, type = 'normal') {
     const b = new Container()
     const g = new Graphics()
     const rx = 56 * size
@@ -159,10 +218,25 @@ export default {
       star.y = ry * 0.06
       star.eventMode = 'none'
       b.addChild(star)
+    } else if (type === 'vatten') {
+      // liten vattendroppe-markör så vattenballongen känns igen
+      const drop = new Text({ text: '💧', style: { fontFamily: FONT.body, fontSize: 34 * size } })
+      drop.anchor.set(0.5)
+      drop.y = ry * 0.04
+      drop.eventMode = 'none'
+      b.addChild(drop)
+    } else if (type === 'kluster') {
+      // tre små pluppar antyder att den släpper flera
+      const dots = new Graphics()
+      for (let k = -1; k <= 1; k++) dots.circle(k * 14 * size, ry * 0.06, 6 * size).fill({ color: 0xffffff, alpha: 0.85 })
+      dots.eventMode = 'none'
+      b.addChild(dots)
     }
 
     b._color = color
     b._golden = golden
+    b._type = type
+    b._tapsLeft = type === 'jatte' ? 2 : 1 // jätten behöver en extra kram
     b._size = size
     b._popped = false
     b._swayOffset = 0
@@ -194,16 +268,33 @@ export default {
   // Poppa en ballong (endast positivt; dubbeltryck-säkrat).
   _pop(ctx, b) {
     if (!this._alive || b._popped) return
+    this._idle = 0
+
+    // Jätteballongen behöver en extra kram: första trycket ger en stor wobble + mjuk
+    // låg ton, inte en pop. Aldrig ett "fel" — bara mer att göra innan den brister.
+    if (b._tapsLeft > 1) {
+      b._tapsLeft--
+      ctx.services.audio.tone({ freq: 150, dur: 0.18, type: 'sine', vol: 0.22, slideTo: 120 })
+      ripple(this._layer, b.x, b.y, { color: 0xffffff, maxR: 90 * b._size, alpha: 0.4 })
+      gsap.killTweensOf(b.scale)
+      gsap.to(b.scale, { x: 1.16, y: 0.9, duration: 0.1, yoyo: true, repeat: 3, ease: 'sine.inOut', onComplete: () => { if (!b.destroyed && !b._popped) b.scale.set(1) } })
+      return
+    }
+
     b._popped = true
     b.eventMode = 'none'
     b._sway?.kill()
     gsap.killTweensOf(b) // stoppa vagga/tilt
     if (this._attractBalloon === b) this._stopAttract()
     this._remaining--
-    this._idle = 0
 
     // Ljud + ring + skur < 100ms.
     ctx.services.audio.sfx(b._golden ? 'reveal' : Math.random() < 0.25 ? 'pling' : 'pop')
+    // Stigande kombo-ton: snabba pop i rad klättrar uppför pentatoniken (juice #7).
+    const semi = COMBO_STEP[Math.min(this._combo, COMBO_STEP.length - 1)]
+    ctx.services.audio.tone({ freq: COMBO_ROOT * Math.pow(2, semi / 12), dur: 0.14, type: 'triangle', vol: 0.16 })
+    this._combo++
+    this._comboDecay = 0.7
     ripple(this._layer, b.x, b.y, { color: 0xffffff, maxR: 70 * b._size, alpha: 0.55 })
 
     if (b._golden) {
@@ -212,13 +303,27 @@ export default {
       sparkle(ctx.fxLayer, b.x, b.y, { count: 9 })
       floatText(ctx.fxLayer, b.x, b.y - 10, '⭐', { fontSize: 64, rise: 110 })
       ctx.progress.addStars(1) // liten bonusstjärna
+    } else if (b._type === 'vatten') {
+      // vattenballong: blå skvätt + flera mini-droppar + två ringar
+      ctx.services.audio.tone({ freq: 320, dur: 0.22, type: 'sine', vol: 0.2, slideTo: 140 })
+      burst(this._layer, b.x, b.y, { count: 18, colors: WATER_BITS, power: b._size * 1.2 })
+      ripple(this._layer, b.x, b.y, { color: 0x9fe4f8, maxR: 96 * b._size, alpha: 0.7 })
+      for (let d = 0; d < 5; d++) floatText(ctx.fxLayer, b.x + (Math.random() * 60 - 30), b.y, '💧', { fontSize: 22 + Math.random() * 14, rise: -50 - Math.random() * 40, duration: 0.7 })
+    } else if (b._type === 'kluster') {
+      // klusterballong: släpper 3 miniballonger som studsar bort + tre stigande pling
+      burst(this._layer, b.x, b.y, { count: 14, colors: PLAYFUL, power: b._size })
+      for (let m = 0; m < 3; m++) {
+        floatText(ctx.fxLayer, b.x + (m - 1) * 26, b.y, '🎈', { fontSize: 34, rise: 70 + Math.random() * 40, duration: 0.9 })
+        ctx.services.audio.tone({ freq: COMBO_ROOT * Math.pow(2, (4 + m * 3) / 12), dur: 0.12, type: 'triangle', vol: 0.14, delay: m * 0.08 })
+      }
     } else {
       burst(this._layer, b.x, b.y, { count: b._size > 1 ? 14 : 11, colors: [b._color, ...GOLD_BITS.slice(2)], power: b._size })
     }
 
-    // Räkne-känsla: säg poppen ("ett, två, tre…").
+    // Räkne-känsla: säg poppen ("ett, två, tre…") + fyll motsvarande plupp i raden.
     if (this._countingRound) {
       this._popCount++
+      this._fillPip(this._popCount - 1)
       const word = NUM[this._popCount - 1]
       if (word) ctx.services.voice.say(word)
     }
@@ -328,6 +433,12 @@ export default {
       }
     }
 
+    // Kombo-ton svalnar: ingen pop på ~0,7s → nästa pop börjar om nerifrån.
+    if (this._comboDecay > 0) {
+      this._comboDecay -= dt
+      if (this._comboDecay <= 0) this._combo = 0
+    }
+
     this._idle += dt
     if (this._idle > 6 && this._remaining > 0 && !this._resolving) {
       this._idle = 0
@@ -342,6 +453,7 @@ export default {
     ctx.services.voice.cancel()
     this._respawnCall?.kill()
     this._stopAttract()
+    this._pips?.forEach((p) => gsap.killTweensOf(p.scale))
     this._balloons?.forEach((b) => {
       b._sway?.kill()
       gsap.killTweensOf(b)

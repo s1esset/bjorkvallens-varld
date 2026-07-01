@@ -1,5 +1,5 @@
 # Studsa Ner (`studsa-ner`)
-> ⚙️ fysik · mixed · 2–5 år · status: 📝 plan klar
+> ⚙️ fysik · mixed · 2–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -94,3 +94,22 @@ livlös rekvisita.
   Inga kodändringar.
 - Rekommenderad första-omgång: **[Deep] ge drop-läget verklig betydelse** (annars är agensen
   illusorisk) + **[Quick] pinn-melodi + slukande fickor** för känslan.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0, skärmdump sedd — mynt faller & lägger
+  sig, ingen jam). Implementerat:
+  - **[Deep] Verklig betydelse via flyttbar tratt/ränna.** En fysisk ∨-tratt (två sluttande
+    statiska väggar + trä-grafik) sitter överst och FÖLJER siktdraget; myntet faller *in* i
+    tratten och styrs rent ner till spouten precis ovanför första pinnraden. Nu börjar fallet
+    exakt under fingret (i stället för efter en lång slumpartad rutsch) — sikten är ett synligt,
+    fysiskt val, fortfarande äkta plink (ingen magnetisk styrning). Spout-gapet (68px) är rejält
+    större än myntet (40px) → kan aldrig fastna; anti-stall-knuffen täcker även trattzonen.
+  - **[Quick] Pinn-melodi.** Varje pinn-träff klättrar uppför en pentaton-skala (`PEG_SCALE`,
+    per-mynt `_pegHits`) via `audio.tone` — mjukt "plink-plink-plong" — plus en stigande
+    jackpott-flärp när myntet når målfickan (skild från pinn-melodin).
+  - **[Quick] Slukande fickor.** Fickorna är nu botten-ankrade och gör en snabb squash-"gulp"
+    när ett mynt landar (`_gulpBin`): stor glad gulp i målfickan, liten i en "fel" ficka —
+    per-ficka-reaktion i stället för en enda utgång.
+  - **[Pattern #1] Mjukare auto-hjälp.** Idle ger nu bara en vänlig röst-vink vid ~6s;
+    hjälp-släppet kommer först efter ~12s (och nollställs vid minsta beröring) så barnets egen
+    sikt hinner betyda något. Demo-släppet vid mount kvar (engångs, instruktivt).
+  - FOKUSERAT, inga delade filer rörda. Exit-säkert: trattväggar städas av `phys.destroy()`,
+    fick-squash-tweens dödas vid rebuild/destroy, alla callbacks `_alive`-vaktade.

@@ -28,6 +28,20 @@ const SETTLE_Y = 600 // myntet räknas som "nere i en ficka" under denna y
 const SETTLE_SPEED = 0.6 // ... och långsammare än så här
 const VOICE_THROTTLE = 2500 // ms mellan glada röst-rop (annars hackar rösten)
 const HIT_THROTTLE = 70 // ms mellan pinn-ljud (anti-spam)
+const AIM_EDGE = 96 // hur nära kanten man får sikta (så tratten stannar på brädet)
+
+// Flyttbar TRATT överst: en mjuk ∨ av två sluttande väggar som myntet faller IN i och
+// styrs rent ner till spouten precis ovanför pinnarna. Detta gör "var släpper jag?" till
+// ett verkligt val — myntet börjar sitt fall exakt under fingret, inte efter en lång
+// slumpartad rutsch. Gapet (68px) är rejält större än myntet (40px) så inget kan fastna.
+const SPOUT_Y = 188 // trattens spout-höjd (strax ovanför första pinnraden vid y=200)
+const FUNNEL_DX = 87.5 // sido-offset från trattmitten till varje sluttande väggs mitt
+const FUNNEL_CY = 160.8 // väggarnas mitt-y
+const FUNNEL_ANG = 0.47 // väggarnas lutning (rad, ~27°)
+
+// Stigande pentaton-skala: varje pinn-träff spelar nästa ton medan myntet rasslar ner
+// — ett litet "plink-plink-plong" som klättrar. Jackpott-flärp när det når målet.
+const PEG_SCALE = [523, 587, 659, 784, 880, 988, 1175]
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -71,6 +85,8 @@ export default {
     this._targetIdx = 1
     this._targetColor = PALETTE[1].color
     this._aiming = false
+    this._helpCued = false // mjukare auto-hjälp: röst-vink först, hjälp-släpp först senare
+    this._binFills = [] // fickornas fyllnads-grafik (för "slukande" squash)
     this._dropX = DESIGN_W / 2
 
     this._root = new Container()
@@ -128,6 +144,26 @@ export default {
     this._binLayer.eventMode = 'none'
     this._binLayer.interactiveChildren = false
     this._root.addChild(this._binLayer)
+
+    // Flyttbar tratt: två sluttande statiska väggar (∨) + trä-grafik. Myntet faller in
+    // överst och styrs rent ner till spouten precis under fingret. Låg studsighet så
+    // myntet rutschar ner i stället för att studsa ut ur mynningen.
+    this._funnelL = this._phys.rectangle(this._dropX - FUNNEL_DX, FUNNEL_CY, 120, 12, {
+      isStatic: true, angle: FUNNEL_ANG, restitution: 0.1, friction: 0.1, label: 'funnel',
+    })
+    this._funnelR = this._phys.rectangle(this._dropX + FUNNEL_DX, FUNNEL_CY, 120, 12, {
+      isStatic: true, angle: -FUNNEL_ANG, restitution: 0.1, friction: 0.1, label: 'funnel',
+    })
+    this._funnel = new Container()
+    this._funnel.eventMode = 'none'
+    const fg = new Graphics()
+    fg.moveTo(-140.9, -54.5).lineTo(-34, 0).stroke({ width: 13, color: COLORS.brown, cap: 'round' })
+    fg.moveTo(140.9, -54.5).lineTo(34, 0).stroke({ width: 13, color: COLORS.brown, cap: 'round' })
+    fg.moveTo(-140.9, -57.5).lineTo(-34, -3).stroke({ width: 4, color: COLORS.white, alpha: 0.5, cap: 'round' })
+    fg.moveTo(140.9, -57.5).lineTo(34, -3).stroke({ width: 4, color: COLORS.white, alpha: 0.5, cap: 'round' })
+    this._funnel.addChild(fg)
+    this._funnel.position.set(this._dropX, SPOUT_Y)
+    this._root.addChild(this._funnel)
 
     // Glöd över målfickan (positioneras per nivå; andas för att dra blicken).
     this._glow = new Container()
@@ -219,7 +255,11 @@ export default {
     // Rensa gamla väggar + grafik.
     for (const b of this._dividerBodies) this._phys.removeBody(b)
     this._dividerBodies = []
-    for (const c of [...this._binLayer.children]) c.destroy()
+    for (const c of [...this._binLayer.children]) {
+      gsap.killTweensOf(c.scale)
+      c.destroy()
+    }
+    this._binFills = []
 
     const binW = ctx.width / count
     const top = BINS_TOP
@@ -229,10 +269,14 @@ export default {
       const x0 = i * binW
       const isTarget = i === this._targetIdx
       const col = PALETTE[i % PALETTE.length].color
+      // Botten-ankrad grafik (origo vid mitten-botten) så en squash läser som att
+      // fickan "gapar och slukar" myntet — kanten dippar utan att lossna från golvet.
       const fill = new Graphics()
-        .roundRect(x0 + 8, top, binW - 16, h, 16)
+        .roundRect(-(binW - 16) / 2, -h, binW - 16, h, 16)
         .fill({ color: col, alpha: isTarget ? 0.95 : 0.8 })
+      fill.position.set(x0 + binW / 2, top + h)
       this._binLayer.addChild(fill)
+      this._binFills.push(fill)
     }
 
     // Inre avdelare (yttre kanter = fysikväggarna).
@@ -289,6 +333,15 @@ export default {
     return (this._targetIdx + 0.5) * this._binW
   },
 
+  // Flytta tratten (grafik + båda väggarna) till sikt-x. Statiska kroppar flyttas med
+  // setPosition; vinkeln är oförändrad, så ∨:et behåller formen.
+  _positionFunnel(fx) {
+    if (!this._alive) return
+    if (this._funnel && !this._funnel.destroyed) this._funnel.x = fx
+    if (this._funnelL) Body.setPosition(this._funnelL, { x: fx - FUNNEL_DX, y: FUNNEL_CY })
+    if (this._funnelR) Body.setPosition(this._funnelR, { x: fx + FUNNEL_DX, y: FUNNEL_CY })
+  },
+
   _positionGlow() {
     const cx = this._targetCenterX()
     const top = BINS_TOP
@@ -301,6 +354,27 @@ export default {
     this._glowTween?.kill()
     this._glow.scale.set(1)
     this._glowTween = breathe(this._glow, { scale: 1.05, duration: 0.9 })
+  },
+
+  // "Slukande ficka": fickan gapar och gulpar myntet (en snabb squash). Målfickan
+  // tar en stor glad gulp, en "fel" ficka en liten. Grafiken är botten-ankrad så
+  // squashen läser som en mun. Exit-säkert: vaktad + tweens dödas vid rebuild/destroy.
+  _gulpBin(idx, isTarget) {
+    const fill = this._binFills[idx]
+    if (!fill || fill.destroyed) return
+    gsap.killTweensOf(fill.scale)
+    fill.scale.set(1, 1)
+    gsap.to(fill.scale, {
+      x: isTarget ? 1.08 : 1.03,
+      y: isTarget ? 0.78 : 0.9,
+      duration: 0.12,
+      yoyo: true,
+      repeat: 1,
+      ease: 'sine.inOut',
+      onComplete: () => {
+        if (!fill.destroyed) fill.scale.set(1, 1)
+      },
+    })
   },
 
   // ---- Mätare --------------------------------------------------------------
@@ -324,10 +398,12 @@ export default {
   _pointerDown(ctx, e) {
     if (!this._alive) return
     this._idle = 0
+    this._helpCued = false
     this._aiming = true
     const p = this._root.toLocal(e.global)
-    this._dropX = clamp(p.x, BALL_R + 12, ctx.width - BALL_R - 12)
+    this._dropX = clamp(p.x, AIM_EDGE, ctx.width - AIM_EDGE)
     this._dropper.x = this._dropX
+    this._positionFunnel(this._dropX)
     this._drawHint(ctx, this._dropX)
     ctx.services.audio.sfx('tap')
     gsap.killTweensOf(this._dropper.scale)
@@ -340,10 +416,12 @@ export default {
   _pointerMove(ctx, e) {
     if (!this._aiming) return
     const p = this._root.toLocal(e.global)
-    this._dropX = clamp(p.x, BALL_R + 12, ctx.width - BALL_R - 12)
+    this._dropX = clamp(p.x, AIM_EDGE, ctx.width - AIM_EDGE)
     this._dropper.x = this._dropX
+    this._positionFunnel(this._dropX)
     this._drawHint(ctx, this._dropX)
     this._idle = 0
+    this._helpCued = false
   },
 
   _pointerUp(ctx, e) {
@@ -400,7 +478,9 @@ export default {
     if (!this._alive) return
     this._idle = 0
     const r = BALL_R
-    x = clamp(x, r + 12, ctx.width - r - 12)
+    x = clamp(x, AIM_EDGE, ctx.width - AIM_EDGE)
+    // Rikta tratten mot släpp-punkten (även vid demo/hjälp-släpp) så myntet faller in.
+    this._positionFunnel(x)
 
     const color = this._targetColor
     const view = makeBall(r, color)
@@ -476,11 +556,16 @@ export default {
       }
     }
 
-    // Mild återpåminnelse om ingen rört skärmen på ett tag -> röst + hjälp-släpp.
+    // Mjukare auto-hjälp (låt barnets egen sikt betyda något): först en vänlig röst-
+    // vink vid ~6s, och bara om ingen rör skärmen ännu en stund kommer ett hjälp-släpp.
     this._idle += t.deltaMS / 1000
-    if (this._idle > 6) {
-      this._idle = 0
+    if (!this._helpCued && this._idle > 6) {
+      this._helpCued = true
       this._announceTarget(ctx, 0)
+    }
+    if (this._idle > 12) {
+      this._idle = 0
+      this._helpCued = false
       this._drop(ctx, this._targetCenterX(), true)
     }
   },
@@ -489,6 +574,7 @@ export default {
     if (!this._alive) return
     const p = ball.body.position
     const idx = clamp(Math.floor(p.x / this._binW), 0, this._binCount - 1)
+    this._gulpBin(idx, idx === this._targetIdx)
     if (idx === this._targetIdx) {
       this._score(ctx, p.x, p.y)
     } else {
@@ -509,6 +595,9 @@ export default {
     this._collected = Math.min(TARGET_PER_LEVEL, this._collected + 1)
     ctx.services.audio.sfx('correct')
     ctx.services.audio.sfx('pling')
+    // Liten jackpott-flärp (stigande), skild från pinn-melodin.
+    ctx.services.audio.tone({ freq: 784, dur: 0.12, type: 'triangle', vol: 0.18 })
+    ctx.services.audio.tone({ freq: 1046, dur: 0.16, type: 'triangle', vol: 0.16, delay: 0.1 })
     sparkle(this._root, x, y, { count: 10 })
     floatText(ctx.fxLayer, x, y - 30, '⭐', { fontSize: 56 })
 
@@ -578,7 +667,11 @@ export default {
       const ballBody = a.label === 'peg' ? b : a
       if (ballBody.speed > 1.6) {
         this._lastHit = now
-        ctx.services.audio.sfx('tap')
+        // Pinn-melodi: klättra uppför pentaton-skalan för varje träff detta mynt gör.
+        const ball = this._balls.find((bl) => bl.body === ballBody)
+        const n = ball ? (ball._pegHits = (ball._pegHits || 0) + 1) : 1
+        const freq = PEG_SCALE[Math.min(n - 1, PEG_SCALE.length - 1)]
+        ctx.services.audio.tone({ freq, dur: 0.09, type: 'sine', vol: 0.14 })
         break
       }
     }
@@ -642,6 +735,9 @@ export default {
     if (this._glow && !this._glow.destroyed) gsap.killTweensOf(this._glow.scale)
     for (const dot of this._meterDots || []) {
       if (dot && !dot.destroyed) gsap.killTweensOf(dot.scale)
+    }
+    for (const f of this._binFills || []) {
+      if (f && !f.destroyed) gsap.killTweensOf(f.scale)
     }
     this._balls.forEach((b) => {
       if (b.view && !b.view.destroyed) {

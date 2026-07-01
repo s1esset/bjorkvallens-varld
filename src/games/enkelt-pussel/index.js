@@ -6,7 +6,7 @@
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, wiggle, sparkle } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, puff } from '../../lib/feedback.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 
@@ -161,6 +161,22 @@ const THEMES = [
   },
 ]
 
+// "Bilden vaknar"-final per motiv: när pusslet är klart spelar en stor hjälte-emoji
+// en kort, motiv-specifik liten scen ovanpå ramen (solen stiger, tåget rullar in och
+// visslar, raketen lyfter med rök, fisken simmar, regnbågen skimrar ...). Nyckeln är
+// THEME.id. Allt är exit-säkert (proxy-tween + destroyed-vakt i _wakePicture).
+const WAKE = {
+  tradgard: { emoji: '🦋', motion: 'flutter', size: 120, sound: 'pling' },
+  katt: { emoji: '😻', motion: 'pop', size: 150, sound: 'pling' },
+  hus: { emoji: '☀️', motion: 'rise', size: 130, sound: 'reveal' },
+  bat: { emoji: '⛵', motion: 'swim', size: 150, sound: 'whoosh' },
+  tag: { emoji: '🚂', motion: 'slide', size: 160, sound: 'whoosh', tone: { freq: 300, dur: 0.32, type: 'sawtooth', vol: 0.16, slideTo: 520 } },
+  raket: { emoji: '🚀', motion: 'rise', size: 150, sound: 'whoosh', smoke: true },
+  regnbage: { emoji: '🌈', motion: 'shimmer', size: 200, sound: 'reveal' },
+  glass: { emoji: '🍦', motion: 'pop', size: 150, sound: 'pling' },
+  hav: { emoji: '🐠', motion: 'swim', size: 150, sound: 'whoosh' },
+}
+
 // Ritar en pusselbit-väg centrerad i (0,0): rektangel w×h med valfria knopp/hål-
 // bulor mitt på varje inre kant (yttre kanter = 'flat'). bezier ≈ halvcirkel.
 function tracePiece(g, w, h, edges = {}) {
@@ -296,11 +312,17 @@ export default {
     // En bit mer för varje runda (klamrad), cykla motiv genom hela THEMES-listan.
     const n = Math.min(MIN_PIECES + this._round, MAX_PIECES)
     const theme = THEMES[this._round % THEMES.length]
+    this._theme = theme
 
     // Förhandsvisning av hela bilden inuti ramen (ledtråd, fångar inga pekningar).
+    // GRADVIS DÄMPAD ledtråd: ju fler rundor barnet klarat desto svagare förhands-
+    // visning (0.16 → ner mot 0.05) → mer verkligt tankearbete för de äldre, utan att
+    // bli svårare för de yngsta. Dämpas dessutom inom rundan när bitar placeras.
+    this._previewAlpha = Math.max(0.05, 0.16 - this._round * 0.012)
     const preview = this._buildScene(theme)
     preview.position.set(BOARD.x, BOARD.y)
-    preview.alpha = 0.12
+    preview.alpha = this._previewAlpha
+    this._preview = preview
     this._layer.addChild(preview)
 
     // Bygg slot-beskrivningar för n bitar (rad-baserad layout som alltid täcker ramen).
@@ -465,6 +487,12 @@ export default {
     // Släck spök-konturen under biten.
     if (slot.ghost && !slot.ghost.destroyed) gsap.to(slot.ghost, { alpha: 0, duration: 0.3 })
     this._placed += 1
+    // Dämpa förhandsvisnings-ledtråden gradvis medan bitarna hamnar rätt (mot ~30 %
+    // av start vid sista biten) så hjälpen tonar bort när barnet redan är på gång.
+    if (this._preview && !this._preview.destroyed && this._pieces.length) {
+      const frac = 1 - (this._placed / this._pieces.length) * 0.7
+      gsap.to(this._preview, { alpha: this._previewAlpha * frac, duration: 0.3 })
+    }
     if (this._placed % 2 === 0) ctx.services.voice.say(randomFrom(NUDGES))
     if (this._placed >= this._pieces.length) this._finishRound(ctx)
   },
@@ -473,13 +501,16 @@ export default {
     if (!this._alive || this._done) return
     this._done = true
     ctx.services.audio.sfx('reveal')
-    // Bilden vaknar till liv: en glad studs-våg över bitarna.
+    // Bilden vaknar till liv: en glad studs-våg över bitarna ...
     this._pieces.forEach((p, i) => {
       this._delay(i * 0.07, () => {
         if (!p.destroyed) pop(p)
       })
     })
     sparkle(ctx.fxLayer, BOARD.x + BOARD.w / 2, BOARD.y + BOARD.h / 2)
+    // ... och en MOTIV-SPECIFIK liten scen ovanpå (solen stiger, tåget visslar in,
+    // raketen lyfter med rök, fisken simmar, regnbågen skimrar) — spelets klimax.
+    this._delay(0.24, () => this._wakePicture(ctx, this._theme))
 
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -489,6 +520,77 @@ export default {
     ctx.services.voice.say(randomFrom(PRAISE) + ' Titta, bilden är klar!')
 
     this._delay(1.6, () => this._newRound(ctx))
+  },
+
+  // Motiv-specifik "bilden vaknar"-flärd: en stor hjälte-emoji spelar en kort scen
+  // ovanpå ramen (via WAKE[theme.id]). Exit-säkert: en plain proxy tweenas och kopieras
+  // till Text-objektet BARA om det lever; objektet destrueras i onComplete om det lever.
+  _wakePicture(ctx, theme) {
+    const w = theme && WAKE[theme.id]
+    if (!w) return
+    const cx = BOARD.x + BOARD.w / 2
+    const cy = BOARD.y + BOARD.h / 2
+    if (w.sound) ctx.services.audio.sfx(w.sound)
+    if (w.tone) ctx.services.audio.tone(w.tone)
+
+    const t = new Text({ text: w.emoji, style: { fontFamily: FONT.body, fontSize: w.size || 150 } })
+    t.anchor.set(0.5)
+    t.eventMode = 'none'
+    t.position.set(cx, cy)
+    ctx.fxLayer.addChild(t)
+
+    const motion = w.motion
+    const st = { p: 0 }
+    const tw = gsap.to(st, {
+      p: 1,
+      duration: w.dur || 1.5,
+      ease: 'none',
+      onUpdate: () => {
+        if (t.destroyed) {
+          tw.kill()
+          return
+        }
+        const p = st.p
+        if (motion === 'rise') {
+          t.x = cx
+          t.y = cy + 120 - p * 320
+          t.alpha = p < 0.15 ? p / 0.15 : 1 - Math.max(0, (p - 0.7) / 0.3)
+        } else if (motion === 'slide') {
+          t.x = BOARD.x - 130 + p * (BOARD.w + 260)
+          t.y = cy
+          t.alpha = 1
+        } else if (motion === 'swim') {
+          t.x = BOARD.x - 110 + p * (BOARD.w + 220)
+          t.y = cy + Math.sin(p * Math.PI * 3) * 60
+          t.scale.x = -1 // vänd i färdriktningen (emojin pekar annars vänster)
+          t.alpha = p < 0.1 ? p / 0.1 : 1 - Math.max(0, (p - 0.85) / 0.15)
+        } else if (motion === 'shimmer') {
+          t.x = cx
+          t.y = cy
+          t.scale.set(1 + Math.sin(p * Math.PI * 4) * 0.12)
+          t.alpha = 1 - Math.max(0, (p - 0.6) / 0.4)
+        } else {
+          // pop/flutter — mjuk studs uppåt med lite sidled + intoning/uttoning.
+          t.x = cx + Math.sin(p * Math.PI * 3) * 40
+          t.y = cy - p * 150
+          t.alpha = 1 - Math.max(0, (p - 0.5) / 0.5)
+        }
+      },
+      onComplete: () => {
+        if (!t.destroyed) t.destroy()
+      },
+    })
+
+    // Raket-rök: små puffar vid basen medan den lyfter.
+    if (w.smoke) {
+      for (let i = 0; i < 5; i++) {
+        this._delay(0.1 + i * 0.12, () => puff(ctx.fxLayer, cx + (Math.random() * 44 - 22), cy + 90, { count: 4, color: 0xdedede }))
+      }
+    }
+    // Regnbåge/skimmer: extra gnist-svep.
+    if (motion === 'shimmer') {
+      for (let i = 0; i < 3; i++) this._delay(0.16 * i, () => sparkle(ctx.fxLayer, cx, cy - 40, { count: 8 }))
+    }
   },
 
   // gsap.delayedCall som spåras (kan dödas vid exit) och vaktas av _alive.

@@ -105,4 +105,24 @@ blomman, katten ta form. Tema-cykeln ger variation över rundor.
 - Rekommenderad första-omgång: **[Medium] motiv-specifik "bilden vaknar"-final + [Quick]
   gradvis dämpad ledtråd** — lyfter den generiska finalen till spelets höjdpunkt och ger de
   äldre barnen verkligt tankearbete, utan att göra det svårare för de yngsta.
+- 2026-07-02: **Första-omgång genomförd.** Kärnan (9 motiv, +1 bit per runda 2→9, snäpp,
+  förhandsvisning, oändlig cykel — inkl. ägarens "fler pussel + en bit till per nivå") var redan
+  byggd; denna omgång lyfte finalen och ledtråden:
+  - **[Medium] Motiv-specifik "bilden vaknar"-final** (`_wakePicture` + `WAKE`-map per
+    `theme.id`): när pusslet är klart spelar en stor hjälte-emoji en kort scen ovanpå ramen —
+    **solen stiger** (hus), **tåget rullar in och visslar** (tåg: slide + sågtands-vissla),
+    **raketen lyfter med rök** (raket: rise + puff-rök), **fisken/båten simmar över** (hav/båt:
+    sine-swim), **regnbågen skimrar** (shimmer + gnist-svep), **fjärilen fladdrar upp** (trädgård),
+    katten/glassen studsar. Ersätter den generiska studs-vågen (som finns kvar som grund).
+    Exit-säkert: proxy-tween kopieras till Text-objektet bara om det lever, destrueras i
+    onComplete om det lever.
+  - **[Quick] Gradvis dämpad ledtråd**: förhandsvisningen inne i ramen startar svagare för varje
+    klarad runda (`0.16 − round·0.012`, golv 0.05) OCH tonar ytterligare ned inom rundan när
+    bitar placeras (mot ~30 % vid sista biten) → mer verkligt tankearbete för de äldre barnen,
+    utan att bli svårare för de yngsta.
+  - Test: `errorCount 0`; **drag-test som la båda bitarna** → skärmdump bekräftar hel
+    trädgårds-bild + konfetti-firande + fjärilen mitt i sin "vakna"-flykt.
+  - **Deferred:** [Quick] "min pusselbok" (klarade motiv som miniatyrer); [Medium] fler/rikare
+    motiv (djur/fordon/årstider); [Deep] pussel-kompis (Bobo som tittar/hejar); [Quick] motiv-
+    anpassad ambient + stigande snäpp-ton.
 </content>

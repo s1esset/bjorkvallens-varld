@@ -23,7 +23,7 @@ import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration, ripple } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -56,6 +56,7 @@ const ELEMENTS = {
   sten: { emoji: '🪨', color: 0x9b9088, namn: 'Sten' },
   kruka: { emoji: '🏺', color: 0xc77c4a, namn: 'Kruka' },
   regnbage: { emoji: '🌈', color: 0xa78bfa, namn: 'Regnbåge' },
+  enhorning: { emoji: '🦄', color: 0xf7b9e4, namn: 'Enhörning' }, // hemligt recept (ej i boken)
 }
 
 const BASE_IDS = ['eld', 'vatten', 'jord', 'luft', 'is']
@@ -75,6 +76,7 @@ const RAW_RECIPES = [
   ['sol', 'vatten', 'regnbage'],
   ['moln', 'is', 'sno'],
   ['sol', 'sno', 'vatten'],
+  ['sol', 'regnbage', 'enhorning'], // hemligt: står inte i receptboken → "en till!"-jakt
 ]
 const recipeKey = (a, b) => [a, b].sort().join('+')
 const RECIPES = new Map(RAW_RECIPES.map(([a, b, r]) => [recipeKey(a, b), r]))
@@ -120,6 +122,7 @@ export default {
     this._hintCount = 0
     this._lastHintKey = null
     this._drag = null
+    this._fxCalls = [] // spårade delayedCalls för signatur-effekter (dödas i destroy)
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -203,6 +206,8 @@ export default {
     star.position.set(0, -92)
     w.addChild(star)
     this._wizard = w
+    this._wizStar = star // stjärn-stav — studsar när trollkarlen hejar
+    this._wizardBase = { x: 180, y: 210 } // hemma-pose (gesterna återgår hit)
     this._root.addChild(w)
 
     // 7) Töm-knapp (barnvänlig kontroll — INTE bakom föräldra-grind).
@@ -261,6 +266,8 @@ export default {
     this._autoCall?.kill()
     this._winTimer?.kill()
     this._brewTween?.kill()
+    for (const c of this._fxCalls || []) c?.kill()
+    this._fxCalls = []
     this._drag?.destroy()
     for (const b of this._bubbles || []) if (b.g && !b.g.destroyed) b.g.destroy()
     this._bubbles = []
@@ -274,6 +281,7 @@ export default {
       gsap.killTweensOf(this._wizard)
       gsap.killTweensOf(this._wizard.scale)
     }
+    if (this._wizStar && !this._wizStar.destroyed) gsap.killTweensOf(this._wizStar.scale)
     if (this._cauldron && !this._cauldron.destroyed) gsap.killTweensOf(this._cauldron)
     if (this._brew && !this._brew.destroyed) gsap.killTweensOf(this._brew)
     if (this._emptyBtn && !this._emptyBtn.destroyed) {
@@ -300,6 +308,9 @@ export default {
     this._autoCall?.kill()
     this._winTimer?.kill()
     this._brewTween?.kill()
+    for (const c of this._fxCalls || []) c?.kill()
+    this._fxCalls = []
+    this._paths = new Map() // resultat-id → Set av använda par-nycklar (för "en till väg!")
     this._clearHintLine()
     this._renderSlots()
 
@@ -482,6 +493,7 @@ export default {
     this._idle = 0
     if (this._inCauldron.length === 2) {
       this._resolving = true // ingen tredje ingrediens under omrörningen
+      this._wizardGesture('lean') // trollkarlen lutar sig fram och rör om
       this._reactCall?.kill()
       this._reactCall = gsap.delayedCall(0.4, () => {
         if (this._alive) this._react(ctx)
@@ -522,12 +534,16 @@ export default {
     const already = this._shelfElems.has(resId)
     const isGoal = this._goals.includes(resId) && !this._rowDone(resId)
 
-    // Pys: brygd-färg-tween + reaktions-partiklar + stigande resultat-emoji.
+    // Spåra vilka par som ger detta resultat → fira när barnet hittar en NY väg.
+    const pk = recipeKey(pair[0], pair[1])
+    const known = this._paths.get(resId) || new Set()
+    const newPath = already && !known.has(pk)
+    known.add(pk)
+    this._paths.set(resId, known)
+
+    // Brygd-färg-tween + element-egen "föreställning" (signatur eller generisk).
     this._setBrew(E.color)
-    burst(ctx.fxLayer, CX, BREW_Y, { count: 16, power: 1.1 })
-    puff(ctx.fxLayer, CX, BREW_Y, { count: 10, color: E.color })
-    floatText(ctx.fxLayer, CX, BREW_Y - 20, E.emoji, { fontSize: 80, rise: 140 })
-    pop(this._wizard)
+    this._reactShow(ctx, resId, E.color)
 
     if (!already) {
       this._shelfElems.add(resId)
@@ -535,17 +551,30 @@ export default {
       this._spawnResultDrop(ctx, resId)
     }
 
-    if (isGoal) {
+    // Hemligt recept (enhörning) — extra stor överraskning, oavsett bok-mål.
+    if (resId === 'enhorning' && !already) {
+      this._wizardGesture('cheer')
+      ctx.services.audio.sfx('celebrate')
+      bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+      ctx.services.voice.say('En hemlig enhörning! Wow!')
+    } else if (isGoal) {
+      this._wizardGesture('cheer')
       ctx.services.audio.sfx('reveal')
-      gsap.delayedCall(0.18, () => {
-        if (this._alive) ctx.services.audio.sfx('celebrate')
-      })
+      this._fxDelay(0.18, () => ctx.services.audio.sfx('celebrate'))
       this._fillRow(ctx, resId)
       ctx.services.voice.say(`${E.namn}! Vad fint!`)
     } else if (!already) {
+      this._wizardGesture('cheer')
       ctx.services.audio.sfx('match')
       ctx.services.voice.say(`${E.namn}!`)
+    } else if (newPath) {
+      // En annan väg till ett redan upptäckt element — belöna experimentet.
+      this._wizardGesture('cheer')
+      ctx.services.audio.sfx('reveal')
+      sparkle(ctx.fxLayer, CX, BREW_Y, { count: 10 })
+      ctx.services.voice.say(`En till väg till ${E.namn}!`)
     } else {
+      this._wizardGesture('lean')
       ctx.services.audio.sfx('pling')
       sparkle(ctx.fxLayer, CX, BREW_Y)
     }
@@ -555,13 +584,21 @@ export default {
   },
 
   _onNoRecipe(ctx, pair) {
+    // Lekfullt "fel"-svar: kitteln ryker grått, trollkarlen rycker på axlarna,
+    // en mjuk komisk "plopp" — fortfarande positivt, aldrig en bestraffning.
     ctx.services.audio.sfx('soft')
+    ctx.services.audio.tone({ freq: 300, slideTo: 150, dur: 0.2, type: 'sine', vol: 0.5 })
     puff(ctx.fxLayer, CX, BREW_Y, { count: 8, color: 0xb9b2c9 })
+    // Grå rök bolmar upp ur kitteln.
+    for (let i = 0; i < 3; i++) {
+      this._fxDelay(0.1 * i, () => floatText(ctx.fxLayer, CX + (i - 1) * 26, BREW_Y - 6, '💨', { fontSize: 40, rise: 150 }))
+    }
     if (this._cauldron && !this._cauldron.destroyed) wiggle(this._cauldron)
+    this._wizardGesture('shrug') // rycker på axlarna / kliar hatten
     // Ingredienserna studsar ut igen (inget förbrukas).
     floatText(ctx.fxLayer, CX - 30, BREW_Y, ELEMENTS[pair[0]].emoji, { fontSize: 46, rise: 90 })
     floatText(ctx.fxLayer, CX + 30, BREW_Y, ELEMENTS[pair[1]].emoji, { fontSize: 46, rise: 90 })
-    ctx.services.voice.say('Hmm... prova en annan!')
+    ctx.services.voice.say(randomFrom(['Hmm... prova en annan!', 'Oj, det blev ingenting. Prova igen!', 'Hihi, prova ett annat par!']))
     this._idle = 0
   },
 
@@ -585,7 +622,10 @@ export default {
       row.resultText.text = ELEMENTS[resId].emoji
       pop(row.resultText)
     }
+    // Boken firar: gyllene lyse-ring + en grön bock-stämpel som studsar upp.
+    ripple(ctx.fxLayer, row.wx, row.wy, { color: COLORS.yellow, maxR: 46, duration: 0.5 })
     sparkle(ctx.fxLayer, row.wx, row.wy)
+    floatText(ctx.fxLayer, row.wx + 40, row.wy, '✅', { fontSize: 34, rise: 42, duration: 0.8 })
     this._updateCounter()
   },
 
@@ -613,12 +653,16 @@ export default {
     this._resolving = true
     this._clearHintLine()
 
+    // Hela receptboken lyser upp när sista raden klaras (innan över-kok-firandet).
+    ripple(ctx.fxLayer, 1090, 330, { color: COLORS.yellow, maxR: 190, duration: 0.7, width: 10 })
+    sparkle(ctx.fxLayer, 1090, 330, { count: 10 })
+
     floatText(ctx.fxLayer, CX, BREW_Y - 10, '🧪', { fontSize: 120, rise: 220 })
     ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say(randomFrom(PRAISE))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, CX, BREW_Y, { count: 22, power: 1.3 })
-    pop(this._wizard, { scale: 1.25 })
+    this._wizardGesture('cheer')
 
     // Spara framsteg (höj nivå, ackumulera upptäckta recept, räkna rundor).
     this._level += 1
@@ -705,6 +749,7 @@ export default {
     if (da) pop(da.view)
     if (db) pop(db.view)
     if (da && db) this._drawHintLine(da.view.x, da.view.y, db.view.x, db.view.y)
+    this._wizardGesture('point') // pekar uppmuntrande mot hyllan
     ctx.services.voice.say(`Prova ${ELEMENTS[step.a].namn} och ${ELEMENTS[step.b].namn}!`)
   },
 
@@ -712,7 +757,7 @@ export default {
     if (this._resolving || this._completed) return
     this._inCauldron = []
     this._renderSlots()
-    pop(this._wizard)
+    this._wizardGesture('lean')
     ctx.services.voice.say(`Titta, jag provar ${ELEMENTS[step.a].namn} och ${ELEMENTS[step.b].namn}!`)
     this._addToCauldron(ctx, step.a)
     this._autoCall?.kill()
@@ -734,6 +779,172 @@ export default {
 
   _clearHintLine() {
     if (this._hintLine && !this._hintLine.destroyed) this._hintLine.clear()
+  },
+
+  // ---- Levande trollkarl (gester i stället för bara pop) ------------------
+
+  // Fyra korta poser: 'cheer' (höjer staven), 'lean' (lutar sig mot kitteln),
+  // 'shrug' (rycker på axlarna vid fel), 'point' (pekar mot hyllan vid ledtråd).
+  // Tweenar this._wizard direkt (en bestående barn-container → exit-säker: destroy
+  // dödar dess tweens). Återgår alltid till hemma-posen.
+  _wizardGesture(kind) {
+    const w = this._wizard
+    if (!w || w.destroyed) return
+    const bx = this._wizardBase.x
+    const by = this._wizardBase.y
+    gsap.killTweensOf(w)
+    if (kind === 'cheer') {
+      gsap.timeline()
+        .to(w, { y: by - 20, rotation: -0.06, duration: 0.16, ease: 'power2.out' })
+        .to(w, { y: by, rotation: 0, duration: 0.55, ease: 'bounce.out' })
+      pop(w, { scale: 1.14 })
+      if (this._wizStar && !this._wizStar.destroyed) pop(this._wizStar, { scale: 1.45 })
+    } else if (kind === 'lean') {
+      gsap.timeline()
+        .to(w, { x: bx + 26, rotation: 0.12, duration: 0.22, ease: 'power2.out' })
+        .to(w, { x: bx, rotation: 0, duration: 0.5, ease: 'back.out(1.6)' })
+    } else if (kind === 'shrug') {
+      gsap.timeline()
+        .to(w, { y: by - 8, rotation: -0.09, duration: 0.14 })
+        .to(w, { rotation: 0.09, duration: 0.14 })
+        .to(w, { y: by, rotation: 0, duration: 0.22, ease: 'sine.inOut' })
+    } else if (kind === 'point') {
+      gsap.timeline()
+        .to(w, { y: by + 12, rotation: 0.1, duration: 0.2, ease: 'power2.out' })
+        .to(w, { y: by, rotation: 0, duration: 0.42, ease: 'back.out(1.6)' })
+    }
+  },
+
+  // Spårad, exit-säker fördröjd callback (för staplade signatur-partiklar).
+  _fxDelay(t, fn) {
+    const call = gsap.delayedCall(t, () => {
+      if (this._alive) fn()
+    })
+    ;(this._fxCalls ||= []).push(call)
+    return call
+  },
+
+  // ---- Per-element-reaktioner (varje upptäckt får sin egen föreställning) --
+
+  // Väljer en signatur-show för kända element; annars den generiska pysningen.
+  _reactShow(ctx, resId, color) {
+    if (this._signatureReact(ctx, resId, color)) return
+    const fx = ctx.fxLayer
+    burst(fx, CX, BREW_Y, { count: 16, power: 1.1 })
+    puff(fx, CX, BREW_Y, { count: 10, color })
+    floatText(fx, CX, BREW_Y - 20, ELEMENTS[resId].emoji, { fontSize: 80, rise: 140 })
+  },
+
+  // Signatur-effekter för utvalda element. Returnerar true om ett spelades.
+  _signatureReact(ctx, resId, color) {
+    const fx = ctx.fxLayer
+    switch (resId) {
+      case 'anga':
+      case 'moln': {
+        // Ånga/moln bolmar UPPÅT i tre staplade vita puffar.
+        for (let i = 0; i < 3; i++) {
+          this._fxDelay(0.12 * i, () => {
+            puff(fx, CX + (i - 1) * 30, BREW_Y - 8, { count: 6, color: 0xeef4f8 })
+            floatText(fx, CX + (i - 1) * 26, BREW_Y - 10, ELEMENTS[resId].emoji, { fontSize: 52, rise: 180, duration: 1.1 })
+          })
+        }
+        ctx.services.audio.tone({ freq: 520, slideTo: 900, dur: 0.5, type: 'sine', vol: 0.35 })
+        return true
+      }
+      case 'lava': {
+        // Lava bubblar trögt och glöder i varma toner.
+        burst(fx, CX, BREW_Y, { count: 14, colors: [0xf5731e, 0xff6b6b, 0xffd35c], power: 0.85 })
+        for (let i = 0; i < 4; i++) {
+          this._fxDelay(0.14 * i, () => floatText(fx, CX + (Math.random() * 90 - 45), BREW_Y, '🫧', { fontSize: 26 + Math.random() * 18, rise: 60, duration: 0.7 }))
+        }
+        floatText(fx, CX, BREW_Y - 20, '🌋', { fontSize: 80, rise: 130 })
+        ctx.services.audio.tone({ freq: 160, slideTo: 90, dur: 0.6, type: 'sawtooth', vol: 0.3 })
+        return true
+      }
+      case 'is':
+      case 'sno': {
+        // Is/snö fryser kittelns kant med en kristall-ring.
+        this._frostRim(ctx, resId === 'sno' ? 0xffffff : 0xbdeefa)
+        sparkle(fx, CX, BREW_Y, { count: 12 })
+        floatText(fx, CX, BREW_Y - 20, ELEMENTS[resId].emoji, { fontSize: 80, rise: 120 })
+        ctx.services.audio.tone({ freq: 1400, slideTo: 1900, dur: 0.35, type: 'triangle', vol: 0.3 })
+        return true
+      }
+      case 'regnbage': {
+        // Regnbågen spänner en färgbåge över kitteln.
+        this._rainbowArc(ctx)
+        floatText(fx, CX, BREW_Y - 20, '🌈', { fontSize: 80, rise: 120 })
+        sparkle(fx, CX, BREW_Y, { count: 10 })
+        return true
+      }
+      default:
+        return false
+    }
+  },
+
+  // Frost-ring runt kittelkanten (blinkar in/ut). Ritad med mitten BAKAD i
+  // geometrin (position 0,0) — se PIXI-gotcha. Exit-säker via {}-proxy.
+  _frostRim(ctx, tint) {
+    const g = new Graphics()
+    g.eventMode = 'none'
+    g.ellipse(CX, CY - 70, 150, 40).stroke({ width: 10, color: tint, alpha: 0.95 })
+    for (let a = 0; a < 12; a++) {
+      const ang = (a / 12) * Math.PI * 2
+      const px = CX + Math.cos(ang) * 150
+      const py = CY - 70 + Math.sin(ang) * 38
+      if (g.star) g.star(px, py, 6, 9, 4).fill({ color: tint, alpha: 0.95 })
+      else g.circle(px, py, 6).fill({ color: tint, alpha: 0.95 })
+    }
+    ctx.fxLayer.addChild(g)
+    const st = { a: 0 }
+    const tw = gsap.to(st, {
+      a: 1,
+      duration: 0.25,
+      yoyo: true,
+      repeat: 1,
+      repeatDelay: 0.7,
+      ease: 'sine.inOut',
+      onUpdate: () => {
+        if (g.destroyed) {
+          tw.kill()
+          return
+        }
+        g.alpha = st.a
+      },
+      onComplete: () => {
+        if (!g.destroyed) g.destroy()
+      },
+    })
+  },
+
+  // Regnbågsbåge över kitteln (blinkar in/ut). Mitten bakad i geometrin. Exit-säker.
+  _rainbowArc(ctx) {
+    const g = new Graphics()
+    g.eventMode = 'none'
+    const bands = [0xff6b6b, 0xff8a3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa]
+    bands.forEach((col, i) => {
+      g.arc(CX, CY - 40, 118 + i * 13, Math.PI * 1.06, Math.PI * 1.94).stroke({ width: 11, color: col, alpha: 0.92 })
+    })
+    ctx.fxLayer.addChild(g)
+    const st = { a: 0 }
+    const tw = gsap.to(st, {
+      a: 1,
+      duration: 0.35,
+      yoyo: true,
+      repeat: 1,
+      repeatDelay: 0.9,
+      ease: 'sine.inOut',
+      onUpdate: () => {
+        if (g.destroyed) {
+          tw.kill()
+          return
+        }
+        g.alpha = st.a
+      },
+      onComplete: () => {
+        if (!g.destroyed) g.destroy()
+      },
+    })
   },
 
   // ---- Ticker: bubbel-emitter + idle/ledtråd ------------------------------

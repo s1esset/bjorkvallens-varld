@@ -110,4 +110,30 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
 - Rekommenderad första-omgång: **[Deep/Quick uppdelat] per-element-reaktioner (börja med 3–4
   signatur-element) + [Quick] lekfullt fel-svar + [Medium] levande trollkarl** — gör varje
   upptäckt unik och ger figuren en roll.
+- 2026-07-02: Första-omgång IMPLEMENTERAD (speltest grönt, errorCount 0, skärmdump läst).
+  - **Per-element-reaktioner** (`_reactShow` → `_signatureReact`): varje reaktion väljer nu en
+    signatur-show, annars den generiska pysningen. Signaturer: **ånga/moln** bolmar uppåt i tre
+    staplade vita puffar + stigande shimmer-ton; **lava** bubblar trögt med varma `burst`-toner +
+    uppbubblande 🫧 + låg sågtands-ton; **is/snö** fryser kittelkanten via en kristall-ring
+    (`_frostRim`, mitten bakad i geometrin per PIXI-gotcha, exit-säker {}-proxy) + hög triangel-ton;
+    **regnbåge** spänner en färgbåge över kitteln (`_rainbowArc`, samma exit-säkra mönster).
+  - **Levande trollkarl** (`_wizardGesture` med 4 poser: `cheer`/`lean`/`shrug`/`point`):
+    lutar sig mot kitteln när barnet rör om (`_addToCauldron`), höjer staven + studsar
+    stjärnan vid lyckad upptäckt (`_onRecipe`, `_checkComplete`), rycker på axlarna vid
+    saknat recept (`_onNoRecipe`), pekar mot hyllan vid ledtråd (`_hint`/`_autoCombine`).
+    `_wizStar` + `_wizardBase` sparade i `init`; tweens dödas i `destroy`.
+  - **Lekfullt fel-svar** (`_onNoRecipe`): grå rök bolmar upp (3 staplade 💨 via `_fxDelay`),
+    trollkarlen rycker på axlarna, en mjuk komisk nedåt-`tone`-plopp, roterande replik
+    (`randomFrom` av tre snälla fraser). Fortfarande enbart positivt.
+  - **Boken firar** (`_fillRow`): gyllene `ripple`-ring + grön ✅ bock-stämpel som studsar upp
+    per fylld rad; hela boken lyser (stor `ripple`+`sparkle` vid 1090,330) i `_checkComplete`.
+  - **[Quick] Hemligt recept**: `sol`+`regnbåge`=`enhorning` 🦄 (ej i boken) → extra `bigCelebration`
+    + egen replik. **[Quick] Alternativ väg**: `_paths`-Map spårar par per resultat; en NY väg till
+    ett redan upptäckt element firas med "En till väg till X!" (belönar experiment).
+  - Nya exit-säkra hjälpare: `_fxDelay` (spårad delayedCall, vaktad av `_alive`, dödas i
+    `destroy`/`_buildRound` via `_fxCalls`). Ingen gsap direkt på transienta partiklar.
+  - Deferred: [Deep] fullt immande/glödande skärm-shaders per element; [Medium] bestående
+    encyklopedi-galleri över upptäckta element på menyn; [Quick] riktig MOSS-ljudbild (bubblande
+    ambient + element-läten) — kräver MOSS-pipelinen; [Quick] hyll-sidindelning vid många element
+    (nuvarande min-spacing räcker för första-omgångens nivåer).
 </content>

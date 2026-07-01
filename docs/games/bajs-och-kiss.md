@@ -111,3 +111,10 @@ Kort sagt: *mekaniskt rikt, scenografiskt och karaktärsmässigt fattigt*. Humor
 - Rekommenderad första-omgång: **[Medium] knip-anticipation + reaktiva barn + [Quick] tematisk
   pott-mätare** — lyfter humorn och karaktären där spelet är som tunnast, utan att röra den
   redan starka kast-mekaniken.
+- 2026-07-01 🔧 **Första-omgången byggd (karaktär, scoped):** (1) **Knip-anticipation [Medium]** —
+  `_stankaPose`: den aktiva kompisen gör en fnissig squash + 💨-pip (synt) precis när korven dyker
+  upp → varje kast får en komisk uppladdning. (2) **Reaktiva barn [scoped]** — `_reactKid` flyter en
+  reaktions-emoji över den aktiva kompisen: 😮 vid kast, 😄/❤️/🎉 vid plopp, 🤭/😆 vid miss (ansikts-
+  refaktor/Deep lämnad). (3) **Saftigare plopp [Quick]** — stigande plopp-kombo-ton via `audio.tone()`,
+  nollas vid miss. Mätaren är redan halv-tematisk (🚽 + 💩-platser, pulsar vid plopp). Städning:
+  oanvänd `ctx`-param bort ur `_setToilet`. errorCount 0.

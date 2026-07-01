@@ -58,6 +58,8 @@ export default {
     this._restTime = 0
     this._lastBounce = 0
     this._misses = 0
+    this._ploppCombo = 0 // plopp-i-rad → stigande kombo-ton
+    this._lastPloppAt = 0
     this._assistNext = false
     this._activeKid = 0 // 0 = Elvira, 1 = Zacke
     this._turd = null // { body, view }
@@ -241,7 +243,7 @@ export default {
 
     const toiletX = clamp(900 + level * 48, 900, 1150)
     const scale = clamp(1.0 - level * 0.05, 0.72, 1.0)
-    this._setToilet(ctx, toiletX, scale)
+    this._setToilet(toiletX, scale)
 
     // Pruttvind: knappen dyker upp från nivå 1, och slås på automatiskt från nivå 2.
     const windAvail = level >= 1
@@ -256,7 +258,7 @@ export default {
     this._readyThrow(ctx)
   },
 
-  _setToilet(ctx, x, scale) {
+  _setToilet(x, scale) {
     this._toilet.x = x
     this._toilet.scale = scale
     this._toilet.bowlY = 460 - 16 * scale
@@ -323,6 +325,7 @@ export default {
 
     this._launcher.setEnabled(true)
     this._ready = true
+    this._stankaPose(ctx, this._activeKid) // knip-anticipation när korven dyker upp
 
     if (Math.random() < 0.4) {
       const name = this._activeKid === 0 ? 'Elvira' : 'Zacke'
@@ -477,6 +480,7 @@ export default {
 
     ctx.services.audio.sfx('fart') // hela poängen med leken
     if (Math.random() < 0.5) ctx.services.voice.say('Pruttprutt!')
+    this._reactKid(ctx, '😮') // kompisen ser korven flyga
 
     const start = { x: this._held.x, y: this._held.y }
     const size = this._sizes[this._sizeIdx]
@@ -564,7 +568,13 @@ export default {
     const by = this._toilet.bowlY
 
     ctx.services.audio.sfx('plopp')
+    // Stigande plopp-kombo: varje plopp i rad klättrar ett halvtonsteg.
+    const nowMs = performance.now()
+    this._ploppCombo = nowMs - this._lastPloppAt < 3500 ? Math.min(this._ploppCombo + 1, 8) : 0
+    this._lastPloppAt = nowMs
+    ctx.services.audio.tone({ freq: 300 * Math.pow(2, this._ploppCombo / 12), dur: 0.14, type: 'sine', vol: 0.16 })
     ctx.services.voice.say(randomFrom(PLOPP_PRAISE))
+    this._reactKid(ctx, randomFrom(['😄', '❤️', '🎉']))
 
     if (v && !v.destroyed) {
       gsap.killTweensOf(v)
@@ -622,6 +632,8 @@ export default {
     const v = turd?.view
 
     ctx.services.audio.sfx('soft')
+    this._ploppCombo = 0
+    this._reactKid(ctx, randomFrom(['🤭', '😆', '😮']))
     if (v && !v.destroyed) {
       gsap.killTweensOf(v)
       gsap.killTweensOf(v.scale)
@@ -662,6 +674,29 @@ export default {
     this._afterShotTimer = gsap.delayedCall(0.7, () => {
       if (this._alive) this._nextThrow(ctx)
     })
+  },
+
+  // Reaktivt barn: en liten reaktions-emoji över den aktiva kompisen (😮/😄/🤭).
+  _reactKid(ctx, emoji) {
+    const k = this._kids?.[this._activeKid]
+    if (!k || k.destroyed) return
+    floatText(ctx.fxLayer, k.x, k.y - 96, emoji, { fontSize: 44 })
+  },
+
+  // Knip-anticipation: den aktiva kompisen gör en kort, fnissig "stånka" (squash + 💨-pip)
+  // precis när korven dyker upp i handen — varje kast får en liten komisk uppladdning.
+  _stankaPose(ctx, i) {
+    const k = this._kids?.[i]
+    if (!k || k.destroyed) return
+    gsap.killTweensOf(k.scale)
+    gsap
+      .timeline()
+      .to(k.scale, { x: 1.14, y: 0.86, duration: 0.14, ease: 'power2.out' })
+      .to(k.scale, { x: 0.94, y: 1.08, duration: 0.12, ease: 'power2.out' })
+      .to(k.scale, { x: 1, y: 1, duration: 0.34, ease: 'elastic.out(1, 0.5)' })
+    const hand = this._kidHands[i]
+    floatText(ctx.fxLayer, hand.x - 8, hand.y + 6, '💨', { fontSize: 34 })
+    if (!ctx.services.audio.sample?.('prutt')) ctx.services.audio.tone({ freq: 190, dur: 0.14, type: 'sawtooth', vol: 0.08, slideTo: 90 })
   },
 
   _cheerActive() {

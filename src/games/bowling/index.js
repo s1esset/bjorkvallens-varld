@@ -5,9 +5,9 @@
 //   (a) sikte + kraft via dragvektorn (AimLauncher, prickad bana visar flykten),
 //   (b) en BUMPER-knapp (Kantstöd): på = lysande studsräcken längs kanterna så
 //       klotet aldrig hamnar i rännstenen; av = öppen bana men mjuk auto-hjälp.
-// INGET misslyckande: med bumper PÅ studsar klotet tillbaka in mot käglorna; med
-// bumper AV räddar en glad "vindpust" + knuff de sista käglorna. Varje kast slutar
-// i en fullträff att fira. Maskoten Bobo hejar vid kast och jublar vid strike.
+// INGET misslyckande: står käglor kvar efter kastet SERVERAS klotet igen för ett glatt
+// andra kast (spare) — barnets sikte avgör. Står de kvar även då räddar en glad "vindpust"
+// + knuff de sista (backstop). Bobo hejar vid kast och jublar vid strike.
 //
 // Kalibrering (uppmätt mot matter vid fast 1/60-steg): top-down => gravityY = 0, så
 // previewGravity = 0.2778 × 0 = 0 (rak pricklinje). Klotets frictionAir = 0.012 dämpar
@@ -59,6 +59,7 @@ export default {
     this._idle = 0
     this._rollT = 0
     this._restT = 0
+    this._throws = 0 // kast på nuvarande triangel (spare = andra kastet, sen backstop)
     this._lastPinSound = 0
     this._pinSoundN = 0
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
@@ -264,6 +265,7 @@ export default {
     this._rollT = 0
     this._restT = 0
     this._idle = 0
+    this._throws = 0
     this._helpTimer?.kill()
     this._phys.setWind(0, 0)
 
@@ -389,6 +391,7 @@ export default {
   _fire(ctx, v) {
     if (!this._alive || this._phase !== 'aim') return
     this._phase = 'rolling'
+    this._throws++
     this._rollT = 0
     this._restT = 0
     this._idle = 0
@@ -431,9 +434,40 @@ export default {
     if (this._standingCount <= 0) this._strike(ctx)
   },
 
-  // Auto-hjälp (no-fail): kastet är klart men käglor står kvar -> en glad vindpust mot de
-  // kvarvarande + en knuff som garanterat välter dem. Knock-detektionen fångar fallet ->
-  // strike firas ändå. Ser ut som en rolig pust, känns aldrig som fusk.
+  // Spare: käglor kvar efter kastet → servera klotet igen för ett glatt ANDRA kast så
+  // barnet får sikta en gång till mot den kvarvarande klungan (i stället för att vinden
+  // gör jobbet). Tap-fallback + pricklinje riktas mot käglorna som står kvar.
+  _serveSpare(ctx) {
+    if (!this._alive) return
+    this._phase = 'aim'
+    this._rollT = 0
+    this._restT = 0
+    this._idle = 0
+
+    const standing = this._pins.filter((p) => !p.down)
+    if (standing.length) {
+      this._pinCenter = {
+        x: standing.reduce((s, p) => s + p.body.position.x, 0) / standing.length,
+        y: standing.reduce((s, p) => s + p.body.position.y, 0) / standing.length,
+      }
+    }
+
+    // Återställ klotet till start.
+    Body.setVelocity(this._ballBody, { x: 0, y: 0 })
+    Body.setPosition(this._ballBody, { x: BALL_START.x, y: BALL_START.y })
+    if (this._ball && !this._ball.destroyed) {
+      this._ball.position.set(BALL_START.x, BALL_START.y)
+      pop(this._ball)
+    }
+
+    ctx.services.audio.sfx('pop')
+    ctx.services.voice.say('Ett kast till! Sikta på käglorna som står kvar.')
+    this._launcher?.setEnabled(true)
+  },
+
+  // Auto-hjälp (no-fail-backstop efter andra kastet): käglor står kvar -> en glad vindpust
+  // mot de kvarvarande + en knuff som garanterat välter dem. Knock-detektionen fångar
+  // fallet -> strike firas ändå. Ser ut som en rolig pust, känns aldrig som fusk.
   _autoHelp(ctx) {
     if (!this._alive || this._phase === 'strike') return
     this._phase = 'helping'
@@ -535,7 +569,12 @@ export default {
       if (spd < 0.4) this._restT += dt
       else this._restT = 0
       if (b.position.y < 110 || this._restT > 0.6 || this._rollT > 6) {
-        if (this._standingCount > 0) this._autoHelp(ctx)
+        // Käglor kvar? Första kastet → servera klotet igen (spare, barnet siktar om);
+        // efter andra kastet träder auto-hjälpen in som backstop (no-fail).
+        if (this._standingCount > 0) {
+          if (this._throws >= 2) this._autoHelp(ctx)
+          else this._serveSpare(ctx)
+        }
       }
     }
 

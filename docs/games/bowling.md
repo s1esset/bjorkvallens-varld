@@ -121,3 +121,9 @@ auto-hjälpen gör siktet kosmetiskt**.
 - Rekommenderad första-omgång: **[Quick] bankägla-riktmärken + STRIKE-skylt/skärmskak +
   synlig Kantstöd-stämpel** + **[Medium] mjuka upp auto-hjälpen till spare-andrakast** —
   störst lyft (tar bort tom-matta-känslan *och* ger siktet betydelse) för rimlig risk.
+- 2026-07-01 🔧 **Mönster #1 (auto-hjälp) mjukad [Medium]:** auto-hjälpen (garanterad strike
+  varje kast) ersatt av en **spare-mekanik** — står käglor kvar efter kastet serveras klotet
+  igen för ett ANDRA kast (`_serveSpare`; tap-fallback + pricklinje riktas mot resterande
+  klunga). Vindpust-/knuff-backstopet träder in FÖRST efter andra kastet (`_throws>=2`), så
+  bra sikte = strike på första, svagt sikte = fortfarande lyckat efter ett kast till. No-fail
+  intakt. Verifierat: drag-test lämnade käglor kvar (siktet betyder nu något), errorCount 0.

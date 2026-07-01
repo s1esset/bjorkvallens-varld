@@ -109,3 +109,11 @@ ljudet saknar den magi titeln lovar — och den fasta mallen begränsar agensen.
   samma fil med review-format enligt mallen.)
 - Rekommenderad första-omgång: **[Quick] regnbågen sjunger (stigande skala) + magiskt
   penselspår + skimrande band** — billigast väg till den magi titeln lovar.
+- 2026-07-01 🔧 **Första-omgången byggd (alla tre [Quick]):** (1) **Regnbågen sjunger** —
+  `RAINBOW_NOTES` (C D E G A B); varje snäppt båge spelar sin ton via `audio.tone()` (ersätter
+  slump-`match`), och full regnbåge spelar hela den stigande melodin i `_onComplete`. (2) **Magiskt
+  penselspår** — throttlat ✨ som driver upp bakom enhörningen under svepet (`_paintAt`), plus
+  skimrande gnistor som vandrar längs de färdiga bågarna i tickern. (3) **Skimrande band** — en vit
+  glans-rand längs bandets utsida i `_strokeBand` → våt-magisk look. Städning: oanvända `ctx`/`e`-
+  params bort ur `_setActive`/`_pointerUp`/`_buildRound`. Verifierat: svep målade röda bågen med
+  glans, errorCount 0.

@@ -11,7 +11,7 @@
 // OBS: använder INTE DragController — egen spårnings-lyssnare på himlen (likt spara-linjen).
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, pop, breathe, sparkle, burst, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, pop, breathe, sparkle, burst, floatText, bigCelebration } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
@@ -24,6 +24,8 @@ const TAU0 = Math.PI // vänster fäste (φ=π) → höger fäste (φ=2π)
 
 // Färgordning: röd → orange → gul → grön → blå → lila.
 const COLOR_LIST = [COLORS.red, COLORS.orange, COLORS.yellow, COLORS.green, COLORS.blue, COLORS.purple]
+// Regnbågen "sjunger": varje färg en ton högre (röd = låg → lila = hög), pentatonisk-glad.
+const RAINBOW_NOTES = [523, 587, 659, 784, 880, 988] // C D E G A B
 const CAN_X = [350, 466, 582, 698, 814, 930]
 const CAN_Y = 668
 
@@ -126,16 +128,27 @@ export default {
     // Pekar-lyssnare på himlen (drag överlever att fingret lämnar ytan).
     this._onDown = (e) => this._pointerDown(ctx, e)
     this._onMove = (e) => this._pointerMove(ctx, e)
-    this._onUp = (e) => this._pointerUp(ctx, e)
+    this._onUp = () => this._pointerUp(ctx)
     this._sky.on('pointerdown', this._onDown)
     this._sky.on('globalpointermove', this._onMove)
     this._sky.on('pointerup', this._onUp)
     this._sky.on('pointerupoutside', this._onUp)
 
-    this._buildRound(ctx)
+    this._buildRound()
 
     this._tick = (t) => {
       if (!this._alive || this._resolving) return
+      // Skimrande gnistor vandrar längs de färdiga bågarna (våt-magisk look).
+      this._shimmerT = (this._shimmerT || 0) + t.deltaMS
+      if (this._shimmerT > 380 && this._arcs) {
+        this._shimmerT = 0
+        const done = this._arcs.filter((a) => a.done && a.bandG && !a.bandG.destroyed)
+        if (done.length) {
+          const a = randomFrom(done)
+          const ang = Math.PI + Math.random() * Math.PI
+          sparkle(ctx.fxLayer, CX + a.R * Math.cos(ang), CY + a.R * Math.sin(ang), { count: 2 })
+        }
+      }
       this._idle += t.deltaMS
       if (this._idle > IDLE_DELAY) this._idleHelp(ctx)
     }
@@ -161,7 +174,7 @@ export default {
     return defs
   },
 
-  _buildRound(ctx) {
+  _buildRound() {
     if (!this._alive) return
     // Städa förra rundans tweens + noder.
     this._killSnapTweens()
@@ -234,12 +247,12 @@ export default {
     this._resolving = false
     this._painting = false
     this._idle = 0
-    this._setActive(ctx, 0)
+    this._setActive(0)
   },
 
   // ---- Aktiv färg / glödring ----------------------------------------------
 
-  _setActive(ctx, arcIndex) {
+  _setActive(arcIndex) {
     this._active = arcIndex
     const arc = this._arcs[arcIndex]
     if (!arc) return
@@ -265,7 +278,7 @@ export default {
       if (can && !can.destroyed) pop(can) // redan klar: vänligt, aldrig fel
       return
     }
-    this._setActive(ctx, idx)
+    this._setActive(idx)
     if (can && !can.destroyed) pop(can)
   },
 
@@ -292,7 +305,7 @@ export default {
     this._paintAt(ctx, p)
   },
 
-  _pointerUp(ctx, e) {
+  _pointerUp(ctx) {
     if (!this._painting) return
     this._painting = false
     if (this._resolving || !this._alive) return
@@ -331,6 +344,10 @@ export default {
     const cell = Math.min(this._K - 1, Math.floor(f * this._K))
     this._applyCells(ctx, this._active, [cell - 1, cell, cell + 1], p)
     this._tryPaintClouds(ctx, p)
+    // Magiskt penselspår: glittrande ✨ driver upp bakom enhörningen.
+    this._throttle('_lastTrail', 110, () => {
+      if (this._unicorn && !this._unicorn.destroyed) floatText(ctx.fxLayer, this._unicorn.x + (Math.random() * 24 - 12), this._unicorn.y + 8, '✨', { fontSize: 24, rise: 40 })
+    })
   },
 
   // Lägg celler i en båges täckning, rita om, ge juice, snäpp vid ≥0.9.
@@ -360,6 +377,9 @@ export default {
       .clear()
       .arc(CX, CY, arc.R, TAU0 + fMin * Math.PI, TAU0 + fMax * Math.PI)
       .stroke({ width: arc.width, color: arc.color, cap: 'round' })
+      // Skimrande glans-rand längs bandets utsida (våt-magisk look).
+      .arc(CX, CY, arc.R + arc.width * 0.24, TAU0 + fMin * Math.PI, TAU0 + fMax * Math.PI)
+      .stroke({ width: arc.width * 0.26, color: 0xffffff, alpha: 0.4, cap: 'round' })
   },
 
   _redrawBand(arc) {
@@ -408,7 +428,7 @@ export default {
     this._snapTweens.push(tw)
 
     ctx.services.audio.sfx('reveal')
-    ctx.services.audio.sfx('match')
+    ctx.services.audio.tone({ freq: RAINBOW_NOTES[arc.colorIndex] || 660, dur: 0.34, type: 'sine', vol: 0.2 }) // bågen sjunger sin ton
     sparkle(ctx.fxLayer, CX, CY - arc.R, { count: 8 })
     burst(ctx.fxLayer, CX, CY - arc.R, { count: 10, colors: [arc.color] })
     const can = this._cans[arc.colorIndex]
@@ -422,7 +442,7 @@ export default {
     if (next < 0) {
       this._onComplete(ctx)
     } else {
-      this._setActive(ctx, next)
+      this._setActive(next)
     }
   },
 
@@ -479,6 +499,8 @@ export default {
 
     ctx.services.audio.sfx('correct')
     ctx.services.audio.sfx('celebrate')
+    // Full regnbåge → hela den stigande melodin spelas.
+    RAINBOW_NOTES.forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.22, type: 'triangle', vol: 0.18, delay: i * 0.11 }))
     ctx.services.voice.say(randomFrom(PRAISE))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
@@ -488,7 +510,7 @@ export default {
     ctx.progress.setCustom('regnbagar', (ctx.progress.get().custom?.regnbagar || 0) + 1)
 
     this._nextRoundCall = gsap.delayedCall(1.8, () => {
-      if (this._alive) this._buildRound(ctx)
+      if (this._alive) this._buildRound()
     })
   },
 

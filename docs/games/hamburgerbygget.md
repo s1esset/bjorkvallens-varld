@@ -107,4 +107,10 @@ likadant, placeringen är meningslös och ingen äter** — payoff och realism o
   första-omgång: **[Medium] per-lager grill-respons + [Medium] kund med order + [Quick] sizzel/rök**
   — adresserar den största bristen (allt kolnar likadant och ingen äter), höjer trovärdighet och
   payoff på en gång.
-</content>
+- 2026-07-01 🔧 **Första-omgången byggd (scoped, mönster #2):** (1) **Hungrig kund [Medium]** — en
+  `makeMascot`-Bobo uppe till vänster; vid "Ta av" flyger burgaren (med sin grillade ton) till kunden
+  som mumsar (`_serveToCustomer`: pop + 😋/Mums! + röst) → man bygger åt NÅGON. (2) **Sizzel/grill-
+  ambient [Quick]** — litet sizzel när ett lager läggs på + subtil grill-fräs (tätare ju hetare) via
+  `audio.tone()`. (3) **Mätaren till grillen [Quick]** — ton-mätaren flyttad från tomma vänsterytan
+  till grillen (blick + färg på samma sida). Per-lager grillning + kund-order + skär&servera (Deep)
+  lämnade till senare. errorCount 0, skärmdump bekräftar kunden.

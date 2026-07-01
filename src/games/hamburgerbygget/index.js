@@ -13,6 +13,7 @@ import { Button } from '../../lib/Button.js'
 import { createScene } from '../../lib/scene.js'
 import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
+import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
@@ -72,6 +73,7 @@ export default {
     this._bake = 0
     this._lastPlaceCheer = 0
     this._lastSmoke = 0
+    this._lastSizzle = 0
     this._flameAcc = 0
     this._drag = null
     this._rounds = ctx.progress.get().custom?.burgare || 0
@@ -112,9 +114,17 @@ export default {
     const meter = buildToneMeter({ width: 320, tint: bakeTint })
     this._meter = meter.container
     this._setMeterProgress = meter.setProgress
-    this._meter.position.set(BUILD.x, 470)
+    // Ton-mätaren flyttad till grillen (blick + färg på samma sida som burgaren).
+    this._meter.position.set(GRILL.x, 190)
     this._meter.visible = false
     this._root.addChild(this._meter)
+
+    // Hungrig kund (Bobo): väntar och mumsar burgaren när den serveras (pattern #2).
+    this._customerBase = { x: 185, y: 150 }
+    this._customer = makeMascot(56)
+    this._customer.position.set(this._customerBase.x, this._customerBase.y)
+    this._customer.eventMode = 'none'
+    this._root.addChild(this._customer)
 
     this._dragLayer = new Container()
     this._dragLayer.eventMode = 'none'
@@ -288,6 +298,7 @@ export default {
     bounceIn(view)
     sparkle(ctx.fxLayer, BUILD.x + view.x, BUILD.y + view.y, { count: 4 })
     ctx.services.audio.sfx('pop')
+    if (!ctx.services.audio.sample?.('sizzle')) ctx.services.audio.tone({ freq: 240, dur: 0.12, type: 'sawtooth', vol: 0.05, slideTo: 520 }) // litet sizzel
     const now = performance.now()
     if (now - this._lastPlaceCheer > 1400 && Math.random() < 0.5) {
       this._lastPlaceCheer = now
@@ -345,6 +356,12 @@ export default {
       this._burger.tint = bakeTint(this._bake)
       if (this._coals && !this._coals.destroyed) this._coals.alpha = 0.25 + this._bake * 0.5
       this._setMeterProgress(this._bake)
+      // Grill-fräs (subtil ambient): sizzle-brus, tätare ju hetare.
+      const nowS = performance.now()
+      if (nowS - this._lastSizzle > 260 - this._bake * 120) {
+        this._lastSizzle = nowS
+        ctx.services.audio.tone({ freq: 600 + Math.random() * 800, dur: 0.03, type: 'square', vol: 0.03 })
+      }
       if (this._bake > 0.85) {
         const now = performance.now()
         if (now - this._lastSmoke > 420) {
@@ -391,6 +408,7 @@ export default {
 
     sparkle(ctx.fxLayer, BUILD.x, BUILD.y - 120, { count: 10 })
     floatText(ctx.fxLayer, BUILD.x, BUILD.y - 200, tone >= 0.9 ? '🤭' : '😋', { fontSize: 60 })
+    this._serveToCustomer(ctx, tone) // burgaren flyger till den hungriga kunden
 
     this._rounds += 1
     ctx.progress.setCustom('burgare', this._rounds)
@@ -398,6 +416,35 @@ export default {
     ctx.progress.complete()
 
     this._resetTimer = gsap.delayedCall(2.2, () => { if (this._alive) this._reset(ctx) })
+  },
+
+  // Burgaren flyger till kunden (Bobo) som mumsar — mottagaren för det man byggt.
+  _serveToCustomer(ctx, tone) {
+    const c = this._customer
+    if (!c || c.destroyed) return
+    const item = new Text({ text: '🍔', style: { fontFamily: FONT.body, fontSize: 56 } })
+    item.anchor.set(0.5)
+    item.position.set(BUILD.x, BUILD.y - 120)
+    item.tint = bakeTint(tone) // burgaren har sin grillade ton
+    item.eventMode = 'none'
+    this._root.addChild(item)
+    const st = { x: BUILD.x, y: BUILD.y - 120, s: 1 }
+    this._serveTween = gsap.to(st, {
+      x: c.x, y: c.y, s: 0.42, duration: 0.6, ease: 'power2.in',
+      onUpdate: () => {
+        if (item.destroyed) { this._serveTween?.kill(); return }
+        item.position.set(st.x, st.y)
+        item.scale.set(st.s)
+      },
+      onComplete: () => {
+        if (!item.destroyed) item.destroy()
+        if (this._alive && c && !c.destroyed) {
+          pop(c, { scale: 1.2 })
+          floatText(ctx.fxLayer, c.x, c.y - 52, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 42 })
+          ctx.services.voice.say(randomFrom(['Mums, tack!', 'Så god burgare!', 'Jättegott!']))
+        }
+      },
+    })
   },
 
   _reset(ctx) {
@@ -450,6 +497,11 @@ export default {
     ctx?.ticker?.remove(this._tick)
     this._autoOff?.kill()
     this._resetTimer?.kill()
+    this._serveTween?.kill()
+    if (this._customer && !this._customer.destroyed) {
+      gsap.killTweensOf(this._customer)
+      gsap.killTweensOf(this._customer.scale)
+    }
     this._cancelDrag()
     for (const it of this._paletteItems || []) {
       if (it && !it.destroyed) {

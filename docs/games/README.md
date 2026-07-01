@@ -58,23 +58,23 @@ Klart-bockar; commits när förbättringar genomförs.
 Status: ⬜ ej granskat · 📝 doc skriven (plan klar) · 🔧 förbättringar pågår · ✅ marknadsklar.
 Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 
-### 🎉 Roligt — ✅ alla docs skrivna (Fas 1)
+### 🎉 Roligt — ✅ HELA fliken byggd (första-omgång, 2026-07-01)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
-| 1 | Klämbubblor | `klambubblor` | tap | 📝 |
-| 5 | Tryck och Förvandla | `tryck-och-forvandla` | tap | 📝 |
-| 6 | Kittla Figuren | `kittla-figuren` | tap | 📝 |
-| 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | 📝 |
-| 32 | Fyrverkeri | `fyrverkeri` | drag | 📝 |
-| 37 | Såpbubblor | `sapbubblor` | tap | 📝 |
-| 41 | Bajs och Kiss | `bajs-och-kiss` | drag | 📝 |
-| 42 | Regnbågsmålaren Elvira | `regnbagsmalaren` | drag | 📝 |
-| 43 | Pruttbubbelbad | `pruttbad` | tap | 📝 |
-| 45 | Enhörningens Glitterbajs | `enhorning-glitterbajs` | drag | 📝 |
-| 49 | Lägerelden | `lagerelden` | mixed | 📝 |
-| 66 | Loopdjuren | `loopdjuren` | drag | 📝 |
-| 67 | Pizzabageriet | `pizzabageriet` | drag | 📝 |
-| 68 | Hamburgerbygget | `hamburgerbygget` | drag | 📝 |
+| 1 | Klämbubblor | `klambubblor` | tap | 🔧 |
+| 5 | Tryck och Förvandla | `tryck-och-forvandla` | tap | 🔧 |
+| 6 | Kittla Figuren | `kittla-figuren` | tap | 🔧 |
+| 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | 🔧 |
+| 32 | Fyrverkeri | `fyrverkeri` | drag | 🔧 |
+| 37 | Såpbubblor | `sapbubblor` | tap | 🔧 |
+| 41 | Bajs och Kiss | `bajs-och-kiss` | drag | 🔧 |
+| 42 | Regnbågsmålaren Elvira | `regnbagsmalaren` | drag | 🔧 |
+| 43 | Pruttbubbelbad | `pruttbad` | tap | 🔧 |
+| 45 | Enhörningens Glitterbajs | `enhorning-glitterbajs` | drag | 🔧 |
+| 49 | Lägerelden | `lagerelden` | mixed | 🔧 |
+| 66 | Loopdjuren | `loopdjuren` | drag | 🔧 |
+| 67 | Pizzabageriet | `pizzabageriet` | drag | 🔧 |
+| 68 | Hamburgerbygget | `hamburgerbygget` | drag | 🔧 |
 
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ alla docs skrivna (Fas 2)
 | # | Spel | id | input | status |
@@ -149,6 +149,13 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 
 Tvärs över Roligt- och Fysik-flikarna återkom samma "lättjefulla" drag — att åtgärda dem en gång
 ger lyft i *många* spel:
+
+> **Framsteg 2026-07-01:** ny delad primitiv `AudioService.tone({freq,dur,type,vol,slideTo,delay})`
+> (pitchad synt-blip) tillagd — grunden för mönster #7 (riktig ton) och alla stigande kombo-/
+> förvandlings-/rostnings-ljud. Mönster **#2** (mottagare) påbörjat: `lagerelden`, `pizzabageriet`,
+> `hamburgerbygget` har nu en hungrig Bobo som tar emot & mumsar. Mönster **#7** påbörjat:
+> `loopdjuren` har stämda pentatoniska instrument per djur; `klambubblor`/`regnbagsmalaren` sjunger.
+> `sample('…')`-hookar inlagda i flera spel så riktiga MOSS-klipp (#3) auto-uppgraderar när de finns.
 
 - **Auto-hjälp som spelar banan åt barnet (Fysik-fliken, genomgående).** No-fail är rätt, men
   hjälpen är ofta så aggressiv att agensen försvinner: auto-magnet (bygg-tornet, fanga-frukten),

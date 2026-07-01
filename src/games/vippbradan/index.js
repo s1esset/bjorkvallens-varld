@@ -11,8 +11,9 @@ import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Matter, predictTrajectory } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
+import { makeMascot } from '../../lib/mascot.js'
 import { Button } from '../../lib/Button.js'
-import { bigCelebration, puff, sparkle, floatText, pop, wiggle } from '../../lib/feedback.js'
+import { bigCelebration, puff, sparkle, floatText, pop, wiggle, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -35,8 +36,9 @@ const FLOOR_Y = 700
 // ytterst = stark skjuts. Barnet drar vikten längs skenan (eller tappar ett ställe).
 const DROP_MIN_X = CX + 60 // 700 (nära navet)
 const DROP_MAX_X = CX + 215 // 855 (ytterst på armen)
-const RAIL_Y = 124 // höjd där den bärbara vikten vilar innan släpp
-const DROP_TOP_Y = 70 // vikten faller från denna höjd ned på brädan
+const RAIL_Y = 470 // skenan sitter strax OVANFÖR brädans höger arm — barnet ser att
+// vikten hör ihop med plankan (kopplingen kontroll→fysik blir spatialt tydlig).
+const DROP_TOP_Y = RAIL_Y // vikten släpps där den vilar och faller det korta stycket ned på armen
 const FROG_LAUNCH_X = CX - PLANK_HALF // grodans viloläge (vänster tipp) — used by förhandsvisning
 const FROG_LAUNCH_Y = PIVOT_Y - (PLANK_H / 2 + FROG_R * 0.72)
 
@@ -147,6 +149,13 @@ export default {
     this._basket.addChild(this._basketGlow)
     this._basket.addChild(makeBasket())
     this._root.addChild(this._basket)
+
+    // Mottagare: Bobo står vid korgen, hejar (andas) medan barnet siktar och
+    // kramar grodan med en liten vinst-dans när den landar (pattern #2 — ger varje
+    // skott ett "varför"). Placeras per nivå i _setTarget, pulsen startas i _resetSeesaw.
+    this._bobo = makeMascot(50)
+    this._bobo.eventMode = 'none'
+    this._root.addChild(this._bobo)
   },
 
   _buildSeesaw(ctx) {
@@ -190,6 +199,12 @@ export default {
   _buildDropControl(ctx) {
     // Skena (visuell ledtråd: vikten kan glida längs armen).
     const rail = new Graphics()
+    // Stödben ner till brädans höger arm — skenan vilar tydligt PÅ plankan.
+    const legTop = RAIL_Y + 4
+    const legBot = PIVOT_Y - PLANK_H / 2 + 2
+    for (const lx of [DROP_MIN_X - 6, DROP_MAX_X + 6]) {
+      rail.roundRect(lx - 5, legTop, 10, legBot - legTop, 4).fill(shade(COLORS.brown, 0.1)).stroke({ width: 2, color: shade(COLORS.brown, 0.35) })
+    }
     rail
       .roundRect(DROP_MIN_X - 30, RAIL_Y - 8, DROP_MAX_X - DROP_MIN_X + 60, 16, 8)
       .fill({ color: COLORS.brown, alpha: 0.85 })
@@ -268,6 +283,8 @@ export default {
     this._target.y = y
     this._target.r = r
     this._basket.position.set(x, y)
+    // Mottagaren står strax intill korgen (mot skärmkanten), i höjd med öppningen.
+    if (this._bobo && !this._bobo.destroyed) this._bobo.position.set(Math.min(x + 98, 1236), y + 40)
     this._basketGlow.clear().circle(0, 0, r).stroke({ width: 6, color: COLORS.yellow, alpha: 0.55 })
 
     // Fysik-kroppar: sensor i korgöppningen + två studskanter.
@@ -320,6 +337,10 @@ export default {
     // Ny bärbar vikt redo att dras/släppas + uppdaterad bågförhandsvisning.
     this._setupCarried(ctx)
     this._updateAim()
+
+    // Mottagaren hejar igen (mjuk andnings-puls) medan barnet siktar.
+    this._boboCheer?.kill()
+    if (this._bobo && !this._bobo.destroyed) this._boboCheer = breathe(this._bobo, { scale: 1.06, duration: 0.8 })
   },
 
   // Sätt grodvyn på vänster planktipp (följer plankans vinkel medan den rider).
@@ -583,8 +604,13 @@ export default {
     })
     this._frogBody = body
 
+    // Grodan sträcker på benen i flykten (link styr bara position/rotation, inte skala).
+    gsap.killTweensOf(this._frog.scale)
+    this._frog.scale.set(0.86, 1.18)
+
     ctx.services.audio.sfx('boing')
     if (Math.random() < 0.6) ctx.services.voice.say(randomFrom(LAUNCH_SAY))
+    floatText(ctx.fxLayer, fx, fy - 30, randomFrom(['Wheee!', 'Ihuu!', 'Hoppla!']), { fontSize: 40 })
     sparkle(ctx.fxLayer, fx, fy, { count: 6 })
   },
 
@@ -638,14 +664,25 @@ export default {
     ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say(randomFrom(LAND_PRAISE))
 
-    // Grodan plumsar ner i korgen och krymper lite.
+    // Grodan plumsar ner i korgen med en glad squash-studs (i stället för bara krymp).
     if (this._frog && !this._frog.destroyed) {
       gsap.killTweensOf(this._frog)
       gsap.killTweensOf(this._frog.scale)
       gsap.to(this._frog, { x: tx, y: ty + 10, rotation: 0, duration: 0.25, ease: 'power2.in' })
-      gsap.to(this._frog.scale, { x: 0.55, y: 0.55, duration: 0.32, ease: 'power2.in' })
+      gsap
+        .timeline()
+        .to(this._frog.scale, { x: 0.78, y: 0.42, duration: 0.16, ease: 'power2.in' })
+        .to(this._frog.scale, { x: 0.55, y: 0.6, duration: 0.2, ease: 'back.out(2.2)' })
     }
     if (!this._basket.destroyed) pop(this._basket, { scale: 1.1 })
+
+    // Mottagaren fångar grodan: kram-puls + liten vinst-dans + hjärta.
+    if (this._bobo && !this._bobo.destroyed) {
+      this._boboCheer?.kill()
+      pop(this._bobo, { scale: 1.3 })
+      wiggle(this._bobo)
+      floatText(ctx.fxLayer, this._bobo.x, this._bobo.y - 66, randomFrom(['❤️', 'Bravo!', 'Hurra!']), { fontSize: 44 })
+    }
 
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     puff(ctx.fxLayer, tx, ty, { count: 14, color: COLORS.yellow })
@@ -729,8 +766,12 @@ export default {
     this._idle += t.deltaMS / 1000
 
     if (!this._launched && !this._resolving) {
-      // Grodan rider på vänster planktipp tills den skjuts iväg.
+      // Grodan rider på vänster planktipp tills den skjuts iväg och lutar sig ivrigt
+      // mot korgen (tittar mot målet) — högre korg = lite större lutning.
       this._positionFrogOnPlank()
+      if (this._frog && !this._frog.destroyed) {
+        this._frog.rotation = clamp(0.08 + (this._frog.y - this._target.y) / 2600, 0.06, 0.18)
+      }
     } else if (this._launched && this._frogBody && !this._resolving) {
       const fb = this._frogBody
       const dx = fb.position.x - this._target.x
@@ -786,6 +827,11 @@ export default {
     this._basketTween?.kill()
     this._frogBreathe?.kill()
     this._dragHintTween?.kill()
+    this._boboCheer?.kill()
+    if (this._bobo && !this._bobo.destroyed) {
+      gsap.killTweensOf(this._bobo)
+      gsap.killTweensOf(this._bobo.scale)
+    }
 
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onTap)
 

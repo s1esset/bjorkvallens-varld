@@ -1,5 +1,5 @@
 # Vippbrädan (`vippbradan`)
-> ⚙️ fysik · tap · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · tap · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -95,3 +95,10 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
   Nyligen fixat (riktig revolut-fysik, dra-läge, kalibrerad båge) — därför enrichment, inte räddning.
 - Rekommenderad första-omgång: **[Medium] knyt skenan till armen + [Quick] levande groda &
   mottagare** — gör den spatialt tydlig och själfull utan att röra den fina fysiken.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Skenan flyttad ned till strax ovanför
+  brädans HÖGER arm (RAIL_Y 124→470) med stödben ner till plankan + vikten släpps därifrån
+  (kort, tydligt fall på armen) → kopplingen kontroll→fysik blir spatialt begriplig utan ord.
+  Grodan lever: lutar sig ivrigt mot korgen medan den siktar (tittar mot målet), sträcker på
+  benen + "Wheee!" i flykten, glad squash-studs ner i korgen. Mottagare tillagd: Bobo står vid
+  korgen, hejar (andas) medan barnet siktar och fångar grodan med kram-puls + vinst-dans + hjärta
+  (pattern #2 — ger varje skott ett "varför"). Fysik/kalibrering + no-fail (assist/magnet) orörda.

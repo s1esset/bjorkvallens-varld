@@ -194,7 +194,7 @@ export default {
     this._mode = cfg.mode
     this._goal = cfg.goal
 
-    this._buildChar(ctx)
+    this._buildChar()
     this._buildZones(cfg.zoneLevel)
     this._buildDots(this._goal)
     this._fillDots(0)
@@ -214,7 +214,7 @@ export default {
     pop(this._figure) // liten "fräsch start"-studs
   },
 
-  _buildChar(ctx) {
+  _buildChar() {
     const sp = SPECIES[this._speciesIdx]
     this._species = sp
     const pool = sp.colors.filter((c) => c !== this._lastColor)
@@ -437,11 +437,14 @@ export default {
     zon._until = now + 200
     this._idle = 0
 
-    // Omedelbart ljud (<100 ms).
-    this.services.audio.sfx(randomFrom(['pop', 'pop', 'pling']))
+    // Crescendo-intensitet: skrattet blir HÅRDARE ju fullare mätaren är.
+    const prog = clamp((this._mode === 'sequence' ? this._seqStep : this._count) / this._goal, 0, 1)
 
-    // Saftig kropps-reaktion + ansikte + zon-specifik krydda.
-    this._giggle()
+    // Omedelbart skratt-ljud (<100 ms): riktigt klipp om det finns, annars synt-"hi-hi".
+    this._giggleSound(prog)
+
+    // Saftig kropps-reaktion (skalar med intensiteten) + ansikte + zon-specifik krydda.
+    this._giggle(prog)
     this._react(zon._kind)
 
     // Partiklar vid själva trycket (i layer-koordinater).
@@ -449,7 +452,11 @@ export default {
     ripple(this._layer, lp.x, lp.y, { color: lighten(this._lastColor, 0.4), maxR: 92, alpha: 0.55 })
     puff(this._layer, lp.x, lp.y, { count: 7 })
     if (Math.random() < 0.6) sparkle(this._layer, lp.x, lp.y, { count: 5 })
-    if (Math.random() < 0.5) floatText(this._layer, lp.x, lp.y - 18, randomFrom(LAUGH_EMOJI), { fontSize: 56 })
+    // Skratt-emoji-skur som skalar med intensiteten (fler + större ju gladare).
+    const emo = 1 + Math.round(prog * 2)
+    for (let k = 0; k < emo; k++) {
+      floatText(this._layer, lp.x + (Math.random() * 44 - 22), lp.y - 18 - k * 12, randomFrom(LAUGH_EMOJI), { fontSize: 44 + prog * 26 })
+    }
 
     if (this._mode === 'sequence') {
       const target = this._seq[this._seqStep]
@@ -480,20 +487,39 @@ export default {
     if (this._count >= this._goal) this._celebrateRound(ctx)
   },
 
-  // Hela giggel-paketet: skvätt-skala + skutt + vingel + skrattande ansikte.
-  _giggle() {
-    this._squash()
-    this._hop()
+  // Hela giggel-paketet, skalat av intensiteten (crescendo): skvätt + skutt + vingel + skratt.
+  _giggle(intensity = 0) {
+    this._squash(intensity)
+    this._hop(intensity > 0.5)
     wiggle(this._figure)
-    this._laugh()
+    this._laugh(intensity)
   },
 
-  _laugh() {
+  // Skratt-ljud: riktigt inspelat klipp om det finns (genereras senare via MOSS-pipelinen,
+  // [[real-audio-sfx]]), annars en lekfull synt-"hi-hi" av snabba blipp som klättrar med
+  // intensiteten — bättre än robot-TTS och kräver ingen MOSS.
+  _giggleSound(intensity = 0) {
+    if (this.services.audio.sample?.('skratt')) return
+    const base = 620 + intensity * 340
+    const n = 2 + Math.round(intensity * 2)
+    for (let i = 0; i < n; i++) {
+      this.services.audio.tone({ freq: base * (1 + i * 0.13), dur: 0.09, type: 'sine', vol: 0.16, delay: i * 0.1 })
+    }
+  },
+
+  _laugh(intensity = 0) {
     this._drawMouth(true)
     const eyes = [this._parts.eyeL?.scale, this._parts.eyeR?.scale].filter(Boolean)
     if (eyes.length) {
       gsap.killTweensOf(eyes)
-      gsap.to(eyes, { y: 0.18, duration: 0.1, yoyo: true, repeat: 1, ease: 'power2.inOut' })
+      // Ögonen knips hårdare (lägre y) ju gladare figuren är.
+      gsap.to(eyes, { y: Math.max(0.06, 0.18 - intensity * 0.12), duration: 0.1, yoyo: true, repeat: 1, ease: 'power2.inOut' })
+    }
+    // Munnen slås upp bredare vid högre intensitet (skrattar hårdare).
+    const m = this._parts.mouth
+    if (m && !m.destroyed && intensity > 0.3) {
+      gsap.killTweensOf(m.scale)
+      gsap.to(m.scale, { x: 1 + intensity * 0.45, y: 1 + intensity * 0.45, duration: 0.12, yoyo: true, repeat: 1, ease: 'power2.out', onComplete: () => { if (!m.destroyed) m.scale.set(1) } })
     }
     this._mouthTimer?.kill()
     this._mouthTimer = gsap.delayedCall(0.5, () => {
@@ -501,14 +527,15 @@ export default {
     })
   },
 
-  // Squash & stretch på den persistenta figuren.
-  _squash() {
+  // Squash & stretch på den persistenta figuren — skvätter mer ju gladare (crescendo).
+  _squash(intensity = 0) {
     const f = this._figure
+    const amp = 0.1 + intensity * 0.12
     gsap.killTweensOf(f.scale)
     gsap
       .timeline()
-      .to(f.scale, { x: 1.1, y: 0.9, duration: 0.09, ease: 'power2.out' })
-      .to(f.scale, { x: 0.95, y: 1.06, duration: 0.1, ease: 'power2.out' })
+      .to(f.scale, { x: 1 + amp, y: 1 - amp, duration: 0.09, ease: 'power2.out' })
+      .to(f.scale, { x: 1 - amp * 0.5, y: 1 + amp * 0.6, duration: 0.1, ease: 'power2.out' })
       .to(f.scale, { x: 1, y: 1, duration: 0.45, ease: 'elastic.out(1, 0.45)' })
   },
 

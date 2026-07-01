@@ -97,3 +97,10 @@ fyra skepnader som beter sig likadant.
   Speltestad (errorCount 0, skärmdump granskad — monster-skepnad). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] riktiga skratt-SFX + [Medium] skratt-crescendo** —
   tillsammans förvandlar de "fin men frusen" till "den skrattar på riktigt".
+- 2026-07-01 🔧 **Första-omgången byggd:** (1) **Skratt-crescendo [Medium]** — en `prog`-
+  intensitet (mätarens fyllnad) skalar nu squash-amplitud (`_squash`), skutt-storlek, mun-bredd +
+  ögon-knip (`_laugh`) och skratt-emoji-skuren (fler + större ju gladare) → slutet känns intjänat.
+  (2) **Skratt-ljud [Quick]** — robot-TTS-tappet ersatt av en synt-"hi-hi" (`_giggleSound` via
+  `audio.tone()`) som klättrar i tonhöjd/antal med intensiteten; en `audio.sample('skratt')`-hook
+  spelar RIKTIGA inspelade fniss automatiskt när MOSS-pipelinen ([[real-audio-sfx]], #3) kört.
+  Städning: oanvänd `ctx`-param bort ur `_buildChar`. errorCount 0, skärmdump bekräftar figuren.

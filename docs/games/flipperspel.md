@@ -1,5 +1,5 @@
 # Flipperspel (`flipperspel`)
-> ⚙️ fysik · tap · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · tap · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -116,3 +116,12 @@ passiva en gång tända**.
 - Rekommenderad första-omgång: **[Deep/Medium] maskot i maskinen + aktiva mål** + **[Quick]
   riktiga flipper-ljud + tänd-mätare** — adresserar de två kärnbristerna (ingen karaktär,
   passiva mål) och ger störst upplevd lyft.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). (1) Bobo bor i maskinen (mönster
+  #2): sitter på toppen, rycker till vid varje tändning, "kastar in" nya kulan vid serve och
+  gör ett stort glädjehopp när allt lyser — bordet har äntligen ett ansikte och en publik.
+  (2) Aktiva mål: en tändning får alla redan tända bumprar att blinka med i en liten kedja +
+  ibland en bonus-⭐ — målen reagerar på varandra i stället för att bli passiva när de tänts.
+  (3) Tänd-mätare: en lodrät stjärnrad (höger, utanför bordet) fylls per tänd bumper så barnet
+  ser hur nära rundan är klar. (4) Saftigare träff: expanderande ljusring + mjuk skärm-mikroskak.
+  (5) Auto-hjälpen mjukad (mönster #1): magin tänder bara den SISTA envisa bumpern, och först
+  efter längre idle — paddel-skickligheten bär rundan. Riktiga flipper-klipp (#13) väntar på MOSS.

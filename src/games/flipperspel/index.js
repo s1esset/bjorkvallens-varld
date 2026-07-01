@@ -19,7 +19,8 @@ import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Matter, Body } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { pop, bounceIn, breathe, sparkle, puff, floatText, bigCelebration } from '../../lib/feedback.js'
+import { pop, bounceIn, breathe, sparkle, puff, floatText, bigCelebration, ripple, shake } from '../../lib/feedback.js'
+import { makeMascot } from '../../lib/mascot.js'
 import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -125,6 +126,22 @@ export default {
 
     // Lutnings-knapp (ligger UTANFÖR bordet, ovanpå zonerna i z-led).
     this._buildTiltButton(ctx)
+
+    // Bobo bor i maskinen (mönster #2): sitter på toppen, rycker till vid varje
+    // tändning, "kastar in" nya kulan och hoppar av glädje när allt lyser.
+    this._bobo = makeMascot(46)
+    this._boboBaseY = 78
+    this._bobo.position.set(640, this._boboBaseY)
+    this._bobo.eventMode = 'none'
+    this._root.addChild(this._bobo)
+
+    // Tänd-mätare: en lodrät rad stjärnor UTANFÖR bordet (höger) som fylls per tänd
+    // bumper — barnet ser hur nära rundan är klar (positiv inramning, ingen sjunkande siffra).
+    this._meter = new Container()
+    this._meter.eventMode = 'none'
+    this._meter.interactiveChildren = false
+    this._meterPips = []
+    this._root.addChild(this._meter)
 
     // Kollisioner + ticker.
     this._offCollision = this._phys.onCollision((e) => this._onHit(ctx, e))
@@ -253,6 +270,7 @@ export default {
     this._litCount = 0
     this._resolving = false
     this._sinceLit = 0
+    this._buildMeter()
 
     layout.forEach((pt, i) => {
       const [x, y, kind] = pt
@@ -268,6 +286,51 @@ export default {
     this._serveBall(ctx)
   },
 
+  // Bygg tänd-mätaren (en stjärna per bumper). Otända = dämpade, fylls vid tändning.
+  _buildMeter() {
+    for (const s of this._meterPips) {
+      gsap.killTweensOf(s.scale)
+      if (!s.destroyed) s.destroy()
+    }
+    this._meterPips = []
+    if (!this._meter || this._meter.destroyed) return
+    const n = this._total
+    const gap = 62
+    const y0 = 360 - ((n - 1) * gap) / 2
+    for (let i = 0; i < n; i++) {
+      const s = new Graphics().star(0, 0, 5, 19, 9).fill({ color: COLORS.inkSoft, alpha: 0.5 }).stroke({ width: 3, color: 0x3a2f6b })
+      s.position.set(1008, y0 + i * gap)
+      s.eventMode = 'none'
+      this._meter.addChild(s)
+      this._meterPips.push(s)
+    }
+  },
+
+  // Fyll nästa stjärna i mätaren med bumperns färg + en glad studs.
+  _fillMeter(idx, color) {
+    const s = this._meterPips[idx]
+    if (!s || s.destroyed) return
+    s.clear().star(0, 0, 5, 22, 11).fill(color).stroke({ width: 3, color: 0xffffff, alpha: 0.9 })
+    gsap.killTweensOf(s.scale)
+    gsap.fromTo(s.scale, { x: 0.3, y: 0.3 }, { x: 1, y: 1, duration: 0.36, ease: 'back.out(2.6)' })
+  },
+
+  // Bobo reagerar: ett litet hopp vid tändning, ett stort glädjehopp när allt lyser.
+  _boboReact(big = false) {
+    const b = this._bobo
+    if (!b || b.destroyed) return
+    gsap.killTweensOf(b)
+    gsap.to(b, {
+      y: this._boboBaseY - (big ? 42 : 14),
+      duration: big ? 0.22 : 0.12,
+      yoyo: true,
+      repeat: big ? 3 : 1,
+      ease: 'power2.out',
+      onComplete: () => { if (!b.destroyed) b.y = this._boboBaseY },
+    })
+    pop(b, { scale: big ? 1.25 : 1.12 })
+  },
+
   _serveBall(ctx) {
     if (!this._ball) return
     Body.setPosition(this._ball, { x: 640, y: 150 })
@@ -275,6 +338,7 @@ export default {
     Body.setAngularVelocity(this._ball, 0)
     ctx.services.audio.sfx('pop')
     puff(ctx.fxLayer, 640, 160, { count: 6 })
+    this._boboReact(false) // Bobo "kastar in" nya kulan
     if (Math.random() < 0.25) floatText(ctx.fxLayer, 640, 210, '😄', { fontSize: 46 })
   },
 
@@ -337,7 +401,9 @@ export default {
       const unlit = this._bumpers.find((b) => !b.lit)
       if (unlit && unlit.view && !unlit.view.destroyed) pop(unlit.view)
     }
-    if (this._sinceLit > 12000 && this._litCount < this._total) this._magicLight(ctx)
+    // Auto-hjälp mjukad (mönster #1): tänder bara den SISTA envisa bumpern, och först
+    // efter längre idle — paddel-skickligheten bär rundan, magin räddar bara slutklämmen.
+    if (this._sinceLit > 16000 && this._total - this._litCount === 1) this._magicLight(ctx)
   },
 
   // ---- Kollisioner: tänd bumpers ------------------------------------------
@@ -387,10 +453,22 @@ export default {
     bump.glowTween = breathe(bump.glow, { scale: 1.18, duration: 0.9 })
     if (bump.view && !bump.view.destroyed) pop(bump.view)
     sparkle(ctx.fxLayer, bump.x, bump.y)
+    // Saftigare träff: expanderande ljusring + kort mjuk skärm-mikroskak.
+    ripple(ctx.fxLayer, bump.x, bump.y, { color: bump.color, maxR: 92, alpha: 0.7 })
+    shake(this._root, { intensity: 4, duration: 0.28 })
     // Ton ur "skalan" (stigande pling-känsla).
     ctx.services.audio.sfx(NOTES[this._litCount % NOTES.length])
     this._litCount++
     this._sinceLit = 0
+    // Tänd-mätaren fylls + Bobo rycker till.
+    this._fillMeter(this._litCount - 1, bump.color)
+    this._boboReact(false)
+    // Aktiva mål: de redan tända bumprarna blinkar med i en liten kedja — målen
+    // reagerar på varandra i stället för att bli passiva studsytor när de tänts.
+    for (const other of this._bumpers) {
+      if (other.lit && other !== bump && other.view && !other.view.destroyed) pop(other.view, { scale: 1.1 })
+    }
+    if (Math.random() < 0.4) floatText(ctx.fxLayer, bump.x, bump.y - 42, '⭐', { fontSize: 40 })
     if (this._litCount === 1) ctx.services.voice.say('Titta, den lyser!')
     if (this._litCount >= this._total) this._celebrate(ctx)
   },
@@ -411,6 +489,7 @@ export default {
     ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say(randomFrom(PRAISE))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    this._boboReact(true) // Bobo hoppar av glädje när allt lyser
     ctx.progress.complete()
 
     // Bumpers pulsar i tur och ordning.
@@ -458,6 +537,11 @@ export default {
       if (b.view && !b.view.destroyed) gsap.killTweensOf(b.view.scale)
     }
     if (this._ballView && !this._ballView.destroyed) gsap.killTweensOf(this._ballView.scale)
+    if (this._bobo && !this._bobo.destroyed) {
+      gsap.killTweensOf(this._bobo)
+      gsap.killTweensOf(this._bobo.scale)
+    }
+    for (const s of this._meterPips || []) gsap.killTweensOf(s.scale)
 
     gsap.killTweensOf(this._root)
     this._phys?.destroy()

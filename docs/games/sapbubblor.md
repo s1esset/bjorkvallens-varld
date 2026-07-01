@@ -97,3 +97,11 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
   Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Deep] lutande/flyttbar fläkt (dämpa auto-suget) + [Quick]
   specialbubblor + bubbel-SFX** — ger styrningen verklig agens och scenen liv.
+- 2026-07-01 🔧 **Första-omgången byggd (scoped):** (1) **Dämpat auto-sug [Medium]** — sug-bandet
+  smalnat (hoopR·1.9→1.2), auto-hjälpen senare + mildare (10→14 s, boost 2.2→1.6) så fläktens
+  styrning avgör mer. (2) **Specialbubblor [Quick]** — `_spawn` ger ibland regnbågsbubbla (extra
+  fest vid pop), överraskningsbubbla (gömd emoji flyter ut) och trög jättebubbla. (3) **Bubbel-SFX
+  [Quick]** — synt "blubb" vid pop, fläkt-virr vid blås, "shloop" vid infångning via `audio.tone()`,
+  med `sample('blubb'/'flakt')`-hookar för MOSS ([[real-audio-sfx]], #3). Städning: oanvänd
+  `ctx`-param bort ur `_buildHoop`. Den fulla flyttbara fläkten (Deep) lämnad till senare.
+  errorCount 0.

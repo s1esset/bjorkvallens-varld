@@ -18,7 +18,7 @@ import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { sparkle, puff, floatText, bigCelebration, pop } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
-import { FONT, COLORS } from '../../lib/theme.js'
+import { FONT, COLORS, PLAYFUL } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 const TARGET_BUBBLES = 9 // håll ~7–10 bubblor i luften
@@ -32,12 +32,14 @@ const GUST_DECAY = 0.94 // per bildruta -> vinden mojnar på ~1s
 const VX_DRAG = 0.93 // luftmotstånd per bildruta på sidledsfart
 const VX_MAX = 470 // hastighetstak i sidled (px/s)
 const PULL = 720 // mjuk "sug" mot ringen (förlåtande infångning)
-const AUTO_HELP_AFTER = 10 // s utan poäng -> starkare auto-sug (no-fail)
+const AUTO_HELP_AFTER = 14 // s utan poäng -> mild sista-knuff (no-fail); senare = mer eget spel
 
 // Korta, glada repliker.
 const POP_PHRASES = ['Pang!', 'Plopp!', 'Pop!', 'Hihi!', 'Så fint!', 'Där!']
 const SCORE_PHRASES = ['Ja! In i ringen!', 'Pang i ringen!', 'Mitt i prick!', 'Vilken fin!']
 const SHEEN = [0xff9ec4, 0x9ad0ff, 0xa78bfa, 0x9ff0d0, 0xffe08a]
+// Gömda överraskningar i "surprise"-bubblor — flyter ut när de poppas.
+const SURPRISES = ['⭐', '🦋', '🐠', '🌸', '🐝', '🍓', '🌈', '🐥']
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -91,7 +93,7 @@ export default {
     this._root.addChild(this._bubbleLayer)
 
     // Ringen (målet) — ritas om per nivå.
-    this._buildHoop(ctx)
+    this._buildHoop()
 
     // Två stora fläktar (vänster blåser höger, höger blåser vänster).
     this._buildFans(ctx)
@@ -118,7 +120,7 @@ export default {
 
   // ---- Ring (mål) ----------------------------------------------------------
 
-  _buildHoop(ctx) {
+  _buildHoop() {
     this._hoop = new Container()
     this._hoop.eventMode = 'none' // ringen tar inga tryck (bubblor passerar in)
     this._hoopGlow = new Graphics()
@@ -203,6 +205,8 @@ export default {
     this._idle = 0
     // Ljud + bild direkt (< 100ms): fläkten snurrar, vinddrag puffar, vind tar fart.
     ctx.services.audio.sfx('whoosh')
+    // Fläkt-virr (synt) — riktigt klipp om det finns (MOSS, #3).
+    if (!ctx.services.audio.sample?.('flakt')) ctx.services.audio.tone({ freq: 140, dur: 0.26, type: 'sawtooth', vol: 0.07, slideTo: 230 })
     this._gust = clamp(this._gust + dir * GUST_KICK, -GUST_MAX, GUST_MAX)
     gsap.killTweensOf(blade)
     gsap.to(blade, { rotation: blade.rotation + dir * Math.PI * 2.2, duration: 0.6, ease: 'power2.out' })
@@ -330,12 +334,14 @@ export default {
 
   // ---- Bubblor -------------------------------------------------------------
 
-  _makeBubble(ctx, r) {
+  _makeBubble(ctx, r, kind = 'normal') {
     const b = new Container()
+    const rainbow = kind === 'rainbow'
     const g = new Graphics()
-    g.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.12 })
+    g.circle(0, 0, r).fill({ color: 0xffffff, alpha: rainbow ? 0.16 : 0.12 })
     g.circle(0, 0, r).stroke({ width: Math.max(2, r * 0.05), color: 0xffffff, alpha: 0.85 })
     const o = Math.random() * Math.PI * 2
+    const palette = rainbow ? PLAYFUL : SHEEN // regnbågsbubbla = starka regnbågs-bågar
     const arcs = [
       { rad: r * 0.88, a0: -2.5, a1: -1.7 },
       { rad: r * 0.88, a0: 0.55, a1: 1.45 },
@@ -343,9 +349,9 @@ export default {
     ]
     arcs.forEach((arc, i) => {
       g.arc(0, 0, arc.rad, arc.a0 + o, arc.a1 + o).stroke({
-        width: Math.max(2, r * 0.06),
-        color: SHEEN[(i + ((Math.random() * SHEEN.length) | 0)) % SHEEN.length],
-        alpha: 0.5,
+        width: Math.max(2, r * (rainbow ? 0.09 : 0.06)),
+        color: palette[(i + ((Math.random() * palette.length) | 0)) % palette.length],
+        alpha: rainbow ? 0.75 : 0.5,
         cap: 'round',
       })
     })
@@ -353,6 +359,8 @@ export default {
     g.circle(-r * 0.12, -r * 0.46, r * 0.07).fill({ color: 0xffffff, alpha: 0.8 })
 
     b.addChild(g)
+    if (kind === 'surprise') b._surprise = randomFrom(SURPRISES) // gömd emoji flyter ut vid pop
+    b._kind = kind
     b.eventMode = 'static'
     b.cursor = 'pointer'
     b.hitArea = new Circle(0, 0, r + 20) // osynlig hit-halo
@@ -363,8 +371,16 @@ export default {
 
   _spawn(ctx, seed = false) {
     if (!this._alive) return
-    const r = 30 + Math.random() * 40 // ~30..70
-    const b = this._makeBubble(ctx, r)
+    // Specialbubblor (aldrig på seed): regnbåge (fest), överraskning (gömd emoji), trög jätte.
+    let kind = 'normal'
+    if (!seed) {
+      const roll = Math.random()
+      if (roll < 0.06) kind = 'rainbow'
+      else if (roll < 0.14) kind = 'surprise'
+      else if (roll < 0.2) kind = 'giant'
+    }
+    const r = kind === 'giant' ? 80 + Math.random() * 14 : 30 + Math.random() * 40 // ~30..70 (jätte ~80..94)
+    const b = this._makeBubble(ctx, r, kind)
     b._r = r
     b._mass = (r * r) / (48 * 48) // riktig massa: stora bubblor = tunga, små = lätta
     // Bias en del bubblor mot ringens x så det alltid finns något att styra in.
@@ -397,9 +413,16 @@ export default {
     b.eventMode = 'none'
     this._idle = 0
 
-    ctx.services.audio.sfx(Math.random() < 0.2 ? 'pling' : 'pop')
+    // Bubbel-"blubb" (synt nedåt-plopp) — riktigt klipp om det finns (MOSS, #3).
+    if (!ctx.services.audio.sample?.('blubb')) ctx.services.audio.tone({ freq: 600 + Math.random() * 180, dur: 0.12, type: 'sine', vol: 0.2, slideTo: 150 })
     this._droplets(ctx, b.x, b.y, b._r)
     sparkle(ctx.fxLayer, b.x, b.y, { count: 5 })
+    // Specialbubblor: regnbåge = extra fest; överraskning = gömd emoji flyter ut.
+    if (b._kind === 'rainbow') {
+      ctx.services.audio.sfx('pling')
+      sparkle(ctx.fxLayer, b.x, b.y, { count: 12 })
+    }
+    if (b._surprise) floatText(ctx.fxLayer, b.x, b.y - 8, b._surprise, { fontSize: 54 })
 
     const now = performance.now()
     if (now - this._lastSay > SAY_THROTTLE_MS) {
@@ -418,6 +441,7 @@ export default {
     this._sinceScore = 0
 
     ctx.services.audio.sfx('correct')
+    ctx.services.audio.tone({ freq: 320, dur: 0.18, type: 'sine', vol: 0.16, slideTo: 920 }) // "shloop" in i ringen
     sparkle(ctx.fxLayer, this._hoopX, this._hoopY, { count: 8 })
     puff(ctx.fxLayer, this._hoopX, this._hoopY, { count: 8, color: COLORS.yellow })
     floatText(ctx.fxLayer, this._hoopX, this._hoopY - 20, '⭐', { fontSize: 56 })
@@ -547,7 +571,7 @@ export default {
     }
     this._sinceScore += dt
     const wind = this._gust + this._breeze
-    const helpBoost = this._sinceScore > AUTO_HELP_AFTER ? 2.2 : 1 // mild auto-hjälp (no-fail)
+    const helpBoost = this._sinceScore > AUTO_HELP_AFTER ? 1.6 : 1 // mild sista-knuff (no-fail); fläkten avgör mer
 
     for (let i = this._bubbles.length - 1; i >= 0; i--) {
       const b = this._bubbles[i]
@@ -563,10 +587,10 @@ export default {
 
       // Mjuk "sug" mot ringen när bubblan närmar sig (förlåtande infångning).
       const dxh = this._hoopX - b.x
-      const inBandX = Math.abs(dxh) < this._hoopR * 1.9
+      const inBandX = Math.abs(dxh) < this._hoopR * 1.2
       const inBandY = b.y < this._hoopY + 240 && b.y > this._hoopY - 70
       if (inBandX && inBandY) {
-        const near = 1 - Math.min(1, Math.abs(dxh) / (this._hoopR * 1.9))
+        const near = 1 - Math.min(1, Math.abs(dxh) / (this._hoopR * 1.2))
         b._vx += Math.sign(dxh) * PULL * (0.4 + near) * helpBoost * dt
       }
 

@@ -14,10 +14,12 @@ import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
-import { sparkle, pop, wiggle, puff, floatText, breathe, bigCelebration } from '../../lib/feedback.js'
+import { sparkle, pop, wiggle, puff, floatText, breathe, bigCelebration, ripple, bounceIn } from '../../lib/feedback.js'
 
 const METAL = ['🐟', '🔑', '🪙', '🔩', '🥫']
 const NONMETAL = ['🦆', '🛟', '⛵']
+// Vilket material varje icke-metall är av → pedagogisk kontrast ("Magneten gillar inte trä!").
+const MATERIAL = { '🦆': 'Trä', '🛟': 'Gummi', '⛵': 'Trä' }
 
 // Radiell magnet-attraktion (kalibrerad mot matters fasta 1/60-steg, se docs):
 // a = min(STRENGTH/max(dist,R_MIN), A_MAX). Långt bort (300) → len drift, nära → snabb snäpp.
@@ -66,6 +68,8 @@ export default {
     this._caught = 0
     this._needed = 0
     this._lastFniss = 0
+    this._lastWhy = 0 // strypning: förklara "trä/gummi" i lugn takt, inte varje knuff
+    this._inWater = false // för plask-ljud när magneten doppas i dammen
     this._items = [] // { body, view, metal, stuck, delivered, slot }
     this._stuck = []
     this._proxyTweens = []
@@ -101,6 +105,13 @@ export default {
     this._bucketText.position.set(1150, 540)
     this._bucketText.eventMode = 'none'
     this._root.addChild(this._bucketText)
+
+    // Synlig hög av fångade saker OVANPÅ hinken (fylls konkret per runda i stället
+    // för att bara försvinna). Dekorativ; barnen ser vad de har fiskat upp.
+    this._bucketPile = new Container()
+    this._bucketPile.eventMode = 'none'
+    this._bucketPile.interactiveChildren = false
+    this._root.addChild(this._bucketPile)
 
     // Räknar-rad (små ⭐ visar hur många som ligger i hinken — aldrig en sjunkande siffra).
     this._counter = new Container()
@@ -198,6 +209,7 @@ export default {
   _buildPond(ctx) {
     if (!this._alive) return
     this._clearItems()
+    this._clearBucketPile()
     this._caught = 0
     this._resolving = false
     this._dragging = false
@@ -247,7 +259,7 @@ export default {
     nudge(body, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6) // litet levande gupp
     this._phys.link(body, view)
 
-    const it = { body, view, metal, stuck: false, delivered: false, slot: 0, wt: Math.random() * 1.2, wh: Math.random() * Math.PI * 2 }
+    const it = { body, view, metal, emoji, stuck: false, delivered: false, slot: 0, wt: Math.random() * 1.2, wh: Math.random() * Math.PI * 2 }
     view.on('pointertap', () => {
       if (!this._alive || this._resolving || it.delivered || it.stuck) return
       if (it.metal) {
@@ -263,11 +275,21 @@ export default {
     this._items.push(it)
   },
 
-  // Lekfull anka-reaktion (mjukt ljud + vingel + "Hihi!") — aldrig en bestraffning.
+  // Lekfull anka-reaktion (mjukt ljud + vingel) — aldrig en bestraffning. Då och då
+  // förklaras VARFÖR sakerna inte fastnar ("Trä!"/"Gummi!") → pedagogisk kontrast till metall.
   _fniss(ctx, it) {
     ctx.services.audio.sfx('soft')
     if (!it.view.destroyed) wiggle(it.view)
-    floatText(ctx.fxLayer, it.view.x, it.view.y - 24, 'Hihi!', { fontSize: 42 })
+    const mat = MATERIAL[it.emoji] || 'Trä'
+    const now = performance.now()
+    // Håll förklaringen lugn (var ~3,5 s), annars bara ett glatt "Hihi!".
+    if (now - this._lastWhy > 3500) {
+      this._lastWhy = now
+      floatText(ctx.fxLayer, it.view.x, it.view.y - 24, mat + '!', { fontSize: 46 })
+      ctx.services.voice.say(mat === 'Gummi' ? 'Gummi! Magneten gillar inte gummi.' : 'Trä! Magneten gillar inte trä.')
+    } else {
+      floatText(ctx.fxLayer, it.view.x, it.view.y - 24, 'Hihi!', { fontSize: 42 })
+    }
   },
 
   // ---- Ticker -------------------------------------------------------------
@@ -288,6 +310,14 @@ export default {
     this._rod.clear()
     this._rod.moveTo(PIVOT.x, PIVOT.y).lineTo(tip.x, tip.y).stroke({ width: 12, color: COLORS.brown, cap: 'round' })
     this._rod.circle(PIVOT.x, PIVOT.y, 14).fill(COLORS.brown)
+
+    // Plask + krusning när magneten doppas i dammen (bara vid övergången torr→våt).
+    const inWater = tip.x > POND.x0 && tip.x < POND.x1 && tip.y > POND.y0 && tip.y < POND.y1
+    if (inWater && !this._inWater && !this._resolving) {
+      ctx.services.audio.tone({ freq: 200, dur: 0.18, type: 'sine', vol: 0.14, slideTo: 90 })
+      ripple(ctx.fxLayer, tip.x, tip.y, { color: COLORS.white, maxR: 70, alpha: 0.5 })
+    }
+    this._inWater = inWater
 
     // Per-tick krafter FÖRE fysiksteget: pinna fastklistrade, dra metall, knuffa ankor.
     if (!this._resolving) {
@@ -372,7 +402,10 @@ export default {
     this._clearHint()
 
     ctx.services.audio.sfx('match')
+    // Metalliskt "kläck" ovanpå match-tonen — känseln av metall som snäpper mot magneten.
+    ctx.services.audio.tone({ freq: 240, dur: 0.08, type: 'square', vol: 0.16, slideTo: 560 })
     sparkle(ctx.fxLayer, it.view.x, it.view.y)
+    ripple(ctx.fxLayer, it.view.x, it.view.y, { color: COLORS.white, maxR: 54, alpha: 0.45, duration: 0.4 })
     if (!it.view.destroyed) pop(it.view)
     floatText(ctx.fxLayer, it.view.x, it.view.y - 20, '✨', { fontSize: 46 })
     if (!this._saidFirst) {
@@ -392,9 +425,13 @@ export default {
     if (it.body) this._phys.removeBody(it.body)
 
     ctx.services.audio.sfx('pling')
+    // Mjukt "plopp" i vattnet + krusning i hinken (vatten-respons vid släpp).
+    ctx.services.audio.tone({ freq: 320, dur: 0.14, type: 'sine', vol: 0.16, slideTo: 130 })
     puff(ctx.fxLayer, BUCKET.x, BUCKET.y, { color: COLORS.yellow })
+    ripple(ctx.fxLayer, BUCKET.x, BUCKET.y, { color: COLORS.yellow, maxR: 66, alpha: 0.5 })
     this._caught++
     this._drawCounter()
+    this._addToBucketPile(it.emoji) // saken syns nu ligga kvar i hinken
 
     // Vyn ploppar ner i hinken (exit-säker proxy-tween).
     const v = it.view
@@ -513,6 +550,32 @@ export default {
     }
   },
 
+  // ---- Synlig hink-hög ----------------------------------------------------
+
+  // Lägg en liten kopia av den fångade saken i högen ovanpå hinken (staplas i rader).
+  _addToBucketPile(emoji) {
+    const p = this._bucketPile
+    if (!p || p.destroyed) return
+    const i = p.children.length
+    const col = i % 3 // 3 saker per rad
+    const row = (i / 3) | 0
+    const t = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 42 } })
+    t.anchor.set(0.5)
+    t.position.set(BUCKET.x + (col - 1) * 32, 516 - row * 26 + (Math.random() * 6 - 3))
+    t.eventMode = 'none'
+    p.addChild(t)
+    bounceIn(t, { duration: 0.32 }) // liten studs in (dödas i destroy/clear)
+  },
+
+  _clearBucketPile() {
+    const p = this._bucketPile
+    if (!p || p.destroyed) return
+    for (const ch of [...p.children]) {
+      gsap.killTweensOf(ch.scale)
+      ch.destroy()
+    }
+  },
+
   // ---- Städning -----------------------------------------------------------
 
   _clearItems() {
@@ -557,6 +620,9 @@ export default {
     this._proxyTweens.forEach((t) => t.kill())
     this._proxyTweens = []
     if (this._bucketText && !this._bucketText.destroyed) gsap.killTweensOf(this._bucketText.scale)
+    if (this._bucketPile && !this._bucketPile.destroyed) {
+      for (const ch of this._bucketPile.children) gsap.killTweensOf(ch.scale)
+    }
 
     this._phys?.destroy()
     gsap.killTweensOf(this._root)

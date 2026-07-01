@@ -102,6 +102,26 @@ Stark, polerad kärna — men några tunna kanter återstår:
 - 2026-06-30: Doc skriven (granskning + plan). Speltestat med drag (errorCount 0; skärmdump
   verifierad: spö + magnet mitt i fångst, anka guppar undan, hink + ⭐-räknare). Inga
   kodändringar ännu.
+- 2026-07-02: Första-omgång implementerad (rekommenderad omfattning + billig juice):
+  - **[Medium] Förstärkt metall/trä-lärande.** Ny `MATERIAL`-karta (`🦆/⛵ → 'Trä'`, `🛟 → 'Gummi'`).
+    `_fniss` säger nu i lugn takt (strypt via `this._lastWhy`, ~3,5 s) VARFÖR saken inte
+    fastnar — röst "Trä! Magneten gillar inte trä." / "Gummi! Magneten gillar inte gummi." +
+    `floatText` med materialordet; däremellan bara ett glatt "Hihi!". `it.emoji` sparas nu på
+    varje sak. Behåller no-fail (bara röst/vingel, aldrig straff).
+  - **[Quick] Riktiga vatten-/metall-ljud.** Plask via `audio.tone` + `ripple` när magnetspetsen
+    doppas i dammen (övergång torr→våt, `this._inWater` i `_update`). Metalliskt "kläck"
+    (`tone` square 240→560 Hz) + `ripple` ovanpå `match` i `_stick`. Mjukt "plopp" (`tone`
+    320→130 Hz) + gul `ripple` i hinken i `_deliver`.
+  - **[Medium] Synligt fylld hink.** Ny `_bucketPile`-container; `_addToBucketPile(emoji)` lägger
+    en liten kopia av fångsten i staplade rader (3/rad) ovanpå hinken med `bounceIn`. Rensas per
+    runda i `_buildPond` via `_clearBucketPile()`; tweens dödas i `destroy`.
+  - Nya imports: `ripple`, `bounceIn`. Testat: `node scripts/test-game.mjs magnet-fiske --url
+    http://localhost:5173 --drag "560,130>400,400;400,400>1150,510"` → errorCount 0, samt
+    `--taps "560,130"` → errorCount 0 (skärmdump verifierad: damm, spö+magnet fångar 🐟/🥫,
+    🦆 guppar, hink + glödring + ⭐-räknare; inga stray-bars).
+  - Deferred: [Deep] sorterings-final (två hinkar), [Deep] fiskare/mottagare (Bobo på brygga),
+    [Medium] skämt-/skattfångster (🥾/🧰/guldfisk), [Quick] per-typ egen rörelse (S-kurva/snurr),
+    [Quick] cross-fade damm-övergång, förinspelade MOSS-SFX (nu procedurell `tone`).
 - Rekommenderad första-omgång: **[Medium] förstärkt metall/trä-lärande + [Quick] riktiga
   vatten-/metall-ljud + [Medium] synligt fylld hink** — knyter ihop pedagogiken, ljudet och
   "samlat"-känslan kring en redan mycket stark mekanik.

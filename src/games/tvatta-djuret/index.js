@@ -31,6 +31,9 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 // Geometri (designkoordinater).
 const CX = 640
 const CY = 430
+const FACE_X = 470 // ansiktets mitt (== huvud-ellipsen)
+const FACE_Y = 330
+const FACE_R = 82 // lerfri ruta runt ansiktet så minen ALLTID syns under tvätten
 const MUD = 0x8a5a3b // lera (== COLORS.brown)
 const DARKMUD = 0x6b4429 // mörkare lera (prickar + dubbel-lager)
 
@@ -65,6 +68,10 @@ export default {
     this._drops = []
     this._foam = []
     this._flakes = []
+    this._bubbles = [] // stigande tvålbubblor i karet (ritas i this._tubFx)
+    this._waterT = 0 // fas för skvalpande vattenskimmer
+    this._face = null // ansikts-emoji (djurets min) — reagerar på beröring
+    this._lastScrubPt = null // för "kittlad"-hopp när man gnuggar samma ställe
     this._tweens = []
     this._totalMud = 0
     this._scrubbed = 0
@@ -102,7 +109,11 @@ export default {
     this._foamLayer.eventMode = 'none'
     this._spray = new Graphics()
     this._spray.eventMode = 'none'
-    this._root.addChild(this._clean, this._mudLayer, this._foamLayer, this._spray)
+    // Levande bad-kuliss: skvalpande vattenskimmer + stigande tvålbubblor vid vattenlinjen.
+    // Ett enda Graphics ovanpå djuret (men under verktygen), ritas om i _update — exit-säkert.
+    this._tubFx = new Graphics()
+    this._tubFx.eventMode = 'none'
+    this._root.addChild(this._clean, this._mudLayer, this._foamLayer, this._spray, this._tubFx)
 
     // Verktyg (svamp/dusch) ovanför djuret.
     this._sponge = { kind: 'sponge', view: this._makeSponge(), home: { x: 165, y: 630 } }
@@ -283,8 +294,9 @@ export default {
     // Ansikts-emoji som karaktär på huvudet.
     const face = new Text({ text: t.emoji, style: { fontFamily: FONT.body, fontSize: 120 } })
     face.anchor.set(0.5)
-    face.position.set(470, 330)
+    face.position.set(FACE_X, FACE_Y)
     face.eventMode = 'none'
+    this._face = face // spara minen så den kan reagera på beröring
 
     c.addChild(shadow, g, face)
   },
@@ -321,6 +333,8 @@ export default {
         const jx = x + (Math.random() * 20 - 10)
         const jy = y + (Math.random() * 20 - 10)
         if (!this._onAnimal(jx, jy)) continue
+        // Håll en lerfri ruta runt ansiktet — minen ska alltid synas.
+        if (Math.hypot(jx - FACE_X, jy - FACE_Y) < FACE_R) continue
         const need = t.doubles && Math.random() < 0.3 ? 2 : 1
         const r = 24 + Math.random() * 6
         const view = new Graphics()
@@ -458,6 +472,60 @@ export default {
     }
   },
 
+  // ---- Djuret reagerar på beröring ---------------------------------------
+
+  // Gör tvättobjektet till en varelse: minen rys/njuter under svampen ('happy'),
+  // blundar vid sköljning ('blink') och gör ett kittlat hopp om man gnuggar samma
+  // ställe ('giggle'). Allt via {}-proxy kopierat bara om minen lever + spårat i
+  // this._tweens (dödas i _clearRound/destroy) → exit-säkert.
+  _reactFace(kind, ctx) {
+    const f = this._face
+    if (!f || f.destroyed || this._resolving) return
+    const now = performance.now()
+    if (kind === 'giggle') {
+      if (now - (this._lastGiggle || 0) < 1400) return
+      this._lastGiggle = now
+      floatText(ctx.fxLayer, FACE_X, FACE_Y - 84, randomFrom(['Hihi!', 'Kittlas!', 'Hehe!']), { fontSize: 40 })
+      const st = { dy: 0 }
+      const tw = gsap.to(st, {
+        dy: -16,
+        duration: 0.14,
+        yoyo: true,
+        repeat: 1,
+        ease: 'sine.inOut',
+        onUpdate: () => {
+          if (f.destroyed) return tw.kill()
+          f.y = FACE_Y + st.dy
+        },
+        onComplete: () => {
+          if (!f.destroyed) f.y = FACE_Y
+        },
+      })
+      this._tweens.push(tw)
+      return
+    }
+    if (now - (this._lastFaceReact || 0) < 280) return
+    this._lastFaceReact = now
+    const blink = kind === 'blink'
+    const st = { s: 1 }
+    const tw = gsap.to(st, {
+      s: blink ? 0.2 : 1.12,
+      duration: blink ? 0.1 : 0.13,
+      yoyo: true,
+      repeat: 1,
+      ease: 'sine.inOut',
+      onUpdate: () => {
+        if (f.destroyed) return tw.kill()
+        if (blink) f.scale.set(1, st.s) // ögonblink = lodrät hopklämning
+        else f.scale.set(st.s) // njutande liten puls
+      },
+      onComplete: () => {
+        if (!f.destroyed) f.scale.set(1)
+      },
+    })
+    this._tweens.push(tw)
+  },
+
   // ---- Skrubba / skölj ----------------------------------------------------
 
   _scrubAt(ctx, p, radius) {
@@ -489,6 +557,10 @@ export default {
     }
     if (!did) return
     this._idle = 0
+    // Minen reagerar: kittlat hopp om man gnuggar samma ställe, annars njutande puls.
+    const lp = this._lastScrubPt
+    this._lastScrubPt = { x: p.x, y: p.y }
+    this._reactFace(lp && Math.hypot(p.x - lp.x, p.y - lp.y) < 46 ? 'giggle' : 'happy', ctx)
     this._updateGauge()
     if (now - this._lastScrubSnd > 140) {
       this._lastScrubSnd = now
@@ -564,6 +636,7 @@ export default {
     }
     if (!did) return
     this._idle = 0
+    this._reactFace('blink', ctx) // djuret blundar njutande i sköljvattnet
     this._updateGauge()
     const now = performance.now()
     if (now - this._lastRinseSnd > 160) {
@@ -683,6 +756,43 @@ export default {
       for (const d of this._drops) {
         g.circle(d.x, d.y, d.r).fill({ color: 0x9ed8f5, alpha: 0.8 })
         g.circle(d.x - d.r * 0.3, d.y - d.r * 0.3, d.r * 0.4).fill({ color: 0xffffff, alpha: 0.7 })
+      }
+    }
+
+    // Levande kar: skvalpande vattenskimmer + stigande tvålbubblor vid vattenlinjen.
+    this._waterT += dt
+    if (this._bubbles.length < 12 && Math.random() < 0.07 * dt) {
+      this._bubbles.push({
+        x: 400 + Math.random() * 480,
+        y: 560 + Math.random() * 25,
+        vy: 0.4 + Math.random() * 0.7,
+        r: 4 + Math.random() * 8,
+        ph: Math.random() * Math.PI * 2,
+      })
+    }
+    for (let i = this._bubbles.length - 1; i >= 0; i--) {
+      const b = this._bubbles[i]
+      b.y -= b.vy * dt
+      b.ph += 0.07 * dt
+      if (b.y < 486) {
+        // Poppar mjukt vid vattenytan.
+        if (Math.random() < 0.4) puff(ctx.fxLayer, b.x, b.y, { count: 2, color: 0xeaf6ff })
+        this._bubbles.splice(i, 1)
+      }
+    }
+    const tg = this._tubFx
+    if (tg && !tg.destroyed) {
+      tg.clear()
+      for (let i = 0; i < 3; i++) {
+        const hx = 470 + i * 150 + Math.sin(this._waterT * 0.03 + i) * 22
+        const hy = 496 + Math.sin(this._waterT * 0.05 + i * 2) * 3
+        tg.ellipse(hx, hy, 72, 9).fill({ color: 0xffffff, alpha: 0.14 })
+      }
+      for (const b of this._bubbles) {
+        const bx = b.x + Math.sin(b.ph) * 8
+        const a = clamp((b.y - 476) / 60, 0, 1) // tona in nära ytan
+        tg.circle(bx, b.y, b.r).fill({ color: 0xcdeffb, alpha: 0.5 * a })
+        tg.circle(bx - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.4).fill({ color: 0xffffff, alpha: 0.85 * a })
       }
     }
 

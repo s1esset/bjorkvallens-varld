@@ -1,5 +1,5 @@
 # Tvätta Djuret (`tvatta-djuret`)
-> ⚙️ motorik · drag · 2–4 år · status: 📝 plan klar
+> ⚙️ motorik · drag · 2–4 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -113,3 +113,17 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   visar tät lera över hela djuret och dold min). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] djuret reagerar på beröring + [Quick] ansiktet
   alltid synligt + skvalpande kar/bubblor** — gör tvättobjektet till en varelse och scenen levande.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Tvättobjektet är nu en varelse och
+  karet lever:
+  - **Djuret reagerar på beröring** (`_reactFace`): njutande liten puls i minen under svampen,
+    ögonblink (lodrät hopklämning) vid sköljning, och ett kittlat hopp + "Hihi!/Kittlas!/Hehe!"
+    (`floatText`) när man gnuggar samma ställe. Allt via {}-proxy kopierat bara om minen lever +
+    spårat i `this._tweens` (dödas i `_clearRound`/`destroy`) → exit-säkert.
+  - **Ansiktet alltid synligt**: `_genMud` hoppar över lerklumpar inom `FACE_R` (82px) runt
+    ansiktets mitt, så minen syns under hela tvätten (döldes tidigare helt av lera).
+  - **Skvalpande kar + stigande tvålbubblor**: nytt `this._tubFx`-Graphics (framför djuret, under
+    verktygen) ritas om i `_update` — mjukt vattenskimmer vid vattenlinjen + bubblor som stiger,
+    wobblar i sidled, tonar in nära ytan och poppar med en liten puff. Ren data-integrator (inga
+    per-objekt-tweens) → exit-säkert.
+  - Kvar till nästa omgång: svampens materialitet (samla lera/skölj ren), djur-specifik finish,
+    riktiga skrubb-/dusch-klipp, synlig innan/efter-miniatyr.

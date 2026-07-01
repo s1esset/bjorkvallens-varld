@@ -107,3 +107,26 @@ Grunden är korrekt och snäll, men loopen är en läroboks-Simon utan egen sjä
   2×2-plattor + blundande maskot + nedtonad "Visa igen"). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Medium] riktiga stigande toner + [Quick] ingen-repeat-sekvens
   + [Medium] Bobo som nickar i takt** — gör det till faktisk *musik* och infriar titeln.
+- 2026-07-02: Första-omgång implementerad.
+  - **Riktig musikalisk tonhöjd [Medium].** Ersatte återanvänd UI-SFX (`PAD_SFX`) med en
+    stigande C-durs pentaton: `BASE_FREQ = 523.25` (C5), `PENTATONIC = [0,2,4,7]` (C–D–E–G),
+    `PAD_FREQ = PENTATONIC.map(semi => BASE_FREQ * 2^(semi/12))`. `_lightPad()` spelar nu
+    `ctx.services.audio.tone({ freq: PAD_FREQ[index], dur:0.42, type:'sine', vol:0.32 })` så
+    grön→röd→blå→gul stiger i tonhöjd och sekvensen LÅTER som en melodi. Barnet som härmar
+    hör exakt samma toner (ingen pitch-drift). Glöd/studs skalar en gnutta med index (`lift`,
+    glow-alpha) så ögat följer melodin.
+  - **Ingen-repeat-sekvens [Quick].** `_newSequence()` undviker att samma platta upprepas
+    direkt (annars kan `2,2,2,2` kännas som bugg) — vald ton skjuts vidare med
+    `(n+1+rand(0..2))%4` om den matchar föregående.
+  - **Maskoten nickar i takt [Medium, förenklad].** Ny `_nod()` guppar den (persistenta)
+    maskoten nedåt (`y:320→332`, yoyo) vid varje tänd platta, både vid uppspelning och rätt
+    härmning → nickar i takt. (Behöll den befintliga humör-maskoten i stället för full
+    Bobo-swap; tweens dödas redan i `destroy` via `killTweensOf(this._mascot)`.)
+  - **Slut-ackord [Quick, bonus].** `_onRoundComplete()` spelar nu alla fyra toner samtidigt
+    (`PAD_FREQ.forEach(... tone ...)`) som ett glatt "klart!"-ackord ovanpå `bigCelebration`.
+  - Test: `node scripts/test-game.mjs harma-melodin --url http://localhost:5173 --taps
+    "480,160;800,160;480,480;800,480"` → errorCount 0; skärmdump verifierad (2×2-plattor,
+    blundande maskot, nedtonad "Visa igen", inga stray-bars).
+  - Deferred: [Deep] fri-spel-läge mellan rundor · [Medium] tema-rundor (djur/frukt/väder-set)
+    · [Quick] tempo-charm-runda · [Medium] mildare fel-omtag (från några steg bakåt) · [Quick]
+    synlig melodi-bok · [Medium] full Bobo-identitet (lib/mascot.js) · [Quick] bakgrunds-ambient.

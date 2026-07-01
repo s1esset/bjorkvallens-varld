@@ -16,8 +16,12 @@ const PAD_DEFS = [
   { color: COLORS.blue, x: 480, y: 480, icon: '💧' }, // 2 blå
   { color: COLORS.yellow, x: 800, y: 480, icon: '⭐' }, // 3 gul
 ]
-// Varje platta sin egen distinkta ton -> sekvensen upplevs som musik.
-const PAD_SFX = ['pling', 'pop', 'reveal', 'flip']
+// RIKTIG musikalisk tonhöjd: varje platta spelar en ton ur en glad C-durs pentaton
+// (C–D–E–G), STIGANDE med plattans index -> en sekvens LÅTER som en liten melodi och
+// barnet som härmar hör exakt samma toner. freq = BAS * 2^(halvtoner/12).
+const BASE_FREQ = 523.25 // C5 — ljus och barnvänlig
+const PENTATONIC = [0, 2, 4, 7] // C, D, E, G (halvtonssteg) -> stigande grön→röd→blå→gul
+const PAD_FREQ = PENTATONIC.map((semi) => BASE_FREQ * Math.pow(2, semi / 12))
 
 const START_LEN = 2 // startsekvensens längd
 const MAX_LEN = 6 // längden slutar växa här (men nya slumpsekvenser fortsätter)
@@ -149,19 +153,34 @@ export default {
     this._mouth = mouth
   },
 
-  // Tänd en platta: studs + glöd + plattans egen ton. Killbara tweens (persistent).
+  // Tänd en platta: studs + glöd + plattans RIKTIGA ton. Glöd/studs skalar en aning med
+  // tonhöjden (ljusare ton = lite piggare) så ögat följer melodin. Bobo nickar i takt.
+  // Killbara tweens (persistent).
   _lightPad(ctx, index) {
     const pad = this._pads?.[index]
     if (!pad || pad.destroyed) return
-    ctx.services.audio.sfx(PAD_SFX[index])
+    // Äkta pitchad ton (mjuk sinus) -> sekvensen upplevs som en melodi.
+    ctx.services.audio.tone({ freq: PAD_FREQ[index], dur: 0.42, type: 'sine', vol: 0.32 })
+    const lift = 1.1 + index * 0.02 // högre ton studsar en gnutta mer
     gsap.killTweensOf(pad.scale)
-    gsap.to(pad.scale, { x: 1.12, y: 1.12, duration: 0.12, yoyo: true, repeat: 1, ease: 'power2.out' })
+    gsap.to(pad.scale, { x: lift, y: lift, duration: 0.12, yoyo: true, repeat: 1, ease: 'power2.out' })
     const glow = pad._glow
     if (glow && !glow.destroyed) {
       gsap.killTweensOf(glow)
       glow.alpha = 0
-      gsap.to(glow, { alpha: 0.5, duration: 0.12, yoyo: true, repeat: 1, ease: 'sine.inOut' })
+      gsap.to(glow, { alpha: 0.45 + index * 0.04, duration: 0.12, yoyo: true, repeat: 1, ease: 'sine.inOut' })
     }
+    this._nod()
+  },
+
+  // Bobo nickar i takt med melodin (liten guppning nedåt). Exit-säkert: persistent maskot,
+  // tweens dödas i destroy.
+  _nod() {
+    const m = this._mascot
+    if (!m || m.destroyed) return
+    gsap.killTweensOf(m, 'y')
+    m.y = 320
+    gsap.to(m, { y: 332, duration: 0.11, yoyo: true, repeat: 1, ease: 'sine.inOut' })
   },
 
   // VISA: spela upp hela sekvensen, sedan växla till barnets tur ("din tur").
@@ -221,6 +240,8 @@ export default {
     this._btn?.setEnabled(false)
     this._setMood('happy')
     pop(this._mascot)
+    // Slut-ackord: alla fyra toner samtidigt -> ett litet glatt "klart!"-ackord.
+    PAD_FREQ.forEach((freq) => ctx.services.audio.tone({ freq, dur: 0.7, type: 'sine', vol: 0.24 }))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     ctx.progress.complete() // delat firande (celebrate + beröm) + stjärna + klistermärke
 
@@ -306,8 +327,16 @@ export default {
     }
   },
 
+  // Bygg sekvensen utan att samma platta upprepas direkt (undvik 2,2,2,2 -> känns
+  // avsiktlig, inte som en bugg, och blir en riktig liten melodi att härma).
   _newSequence() {
-    this._sequence = Array.from({ length: this._len }, () => Math.floor(Math.random() * 4))
+    const seq = []
+    for (let i = 0; i < this._len; i++) {
+      let n = Math.floor(Math.random() * 4)
+      if (i > 0 && n === seq[i - 1]) n = (n + 1 + Math.floor(Math.random() * 3)) % 4
+      seq.push(n)
+    }
+    this._sequence = seq
   },
 
   // Schemalägg en guardad fördröjd callback (samlas så destroy kan döda dem).

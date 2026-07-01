@@ -9,7 +9,7 @@
 // All async är skyddad med this._alive (exit-säkert).
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, pop, wiggle, sparkle, puff } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { Button } from '../../lib/Button.js'
@@ -24,6 +24,19 @@ const RAB_DY = -14 // figuren står strax ovanför fotspåret
 const IDLE_DELAY = 6 // s utan tap innan röst-recue + hint-puls
 
 const FIGURES = ['🐰', '🐶', '🐱', '🦊']
+
+// Melodisk ledtråd: varje fotspår i sekvensen får en egen stigande ton ur en
+// C-dur pentatonisk skala, så att FÖLJA spåret låter som en liten melodi (steg 1
+// låg, steg N hög → örat får hjälp att minnas ordningen + ett litet crescendo hem).
+const TONE_BASE = 523.25 // C5
+const PENTA = [0, 2, 4, 7, 9, 12, 14, 16] // halvtonssteg, ett per fotspår (upp till 8)
+function toneFreq(k) {
+  return TONE_BASE * Math.pow(2, PENTA[Math.min(k, PENTA.length - 1)] / 12)
+}
+
+// Små gömda fynd som ligger under vart 3:e fotspår och plockas upp när figuren
+// skuttar dit (flyger till en liten samling uppe till höger) → "en till!"-känsla.
+const FINDS = ['🌼', '🥕', '⭐', '🍓', '🌸']
 
 // Sekvenslängd (== antal fotspår) växer med nivån.
 const LEVELS = [{ steps: 3 }, { steps: 4 }, { steps: 5 }, { steps: 6 }, { steps: 7 }]
@@ -52,6 +65,8 @@ export default {
     this._idle = 0
     this._saidJa = false
     this._hintFoot = null
+    this._eagerTween = null
+    this._findTweens = []
     this._level = clampLevel(ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -73,6 +88,11 @@ export default {
     // Fotspårslager (rundans föränderliga innehåll).
     this._field = new Container()
     this._root.addChild(this._field)
+
+    // Uppsamlade fynd (blommor/morötter/stjärnor) landar här, uppe till höger.
+    this._finds = new Container()
+    this._finds.eventMode = 'none'
+    this._root.addChild(this._finds)
 
     // Hus (mål) + figur (start) — persistenta, flyttas/byts per runda.
     this._house = new Text({ text: '🏠', style: { fontFamily: FONT.body, fontSize: 96 } })
@@ -132,6 +152,13 @@ export default {
     this._hintTween?.kill()
     this._hintTween = null
     this._hintFoot = null
+    this._eagerTween?.kill()
+    this._eagerTween = null
+
+    // Töm förra rundans uppsamlade fynd + deras flyg-tweens.
+    for (const t of this._findTweens) t?.kill?.()
+    this._findTweens = []
+    this._finds.removeChildren().forEach((o) => o.destroy())
 
     for (const fp of this._foots) {
       if (fp && !fp.destroyed) {
@@ -164,9 +191,10 @@ export default {
       }
     }
 
-    // Fotspår i banordning (index === pathIndex).
+    // Fotspår i banordning (index === pathIndex). Vart 3:e fotspår gömmer ett fynd.
     pts.forEach((p, i) => {
       const fp = this._makeFoot(ctx, p.x, p.y, i)
+      if (i % 3 === 2) fp.find = randomFrom(FINDS)
       this._field.addChild(fp)
       this._foots.push(fp)
       bounceIn(fp, { delay: i * 0.05 })
@@ -181,6 +209,7 @@ export default {
     gsap.killTweensOf(this._rabbit)
     gsap.killTweensOf(this._rabbit.scale)
     this._rabbit.scale.set(1)
+    this._rabbit.rotation = 0
     this._rabbit.visible = true
     this._rabbit.position.set(START.x, START.y)
 
@@ -230,6 +259,7 @@ export default {
     fp.cursor = 'pointer'
     fp.pathIndex = pathIndex
     fp.lit = false
+    fp.find = null // ev. gömt fynd (sätts i _build)
     fp.on('pointertap', () => this._onTap(ctx, fp))
     return fp
   },
@@ -257,10 +287,13 @@ export default {
     this._idle = 0
 
     // Figuren tillbaka till start (man får titta på vägen på nytt).
+    this._eagerTween?.kill()
+    this._eagerTween = null
     this._hopTl?.kill()
     gsap.killTweensOf(this._rabbit)
     gsap.killTweensOf(this._rabbit.scale)
     this._rabbit.scale.set(1)
+    this._rabbit.rotation = 0
     this._rabbit.visible = true
     this._rabbit.position.set(START.x, START.y)
 
@@ -290,6 +323,7 @@ export default {
         this._expected = 0
         this._wrongStreak = 0
         this._idle = 0
+        this._lookEager() // figuren spanar mot första fotspåret
       },
     })
     this._demoTl = tl
@@ -301,7 +335,8 @@ export default {
         if (!this._alive || !fp || fp.destroyed) return
         this._paintFoot(fp, 'demo')
         pop(fp)
-        ctx.services.audio.sfx('pling')
+        // Stigande pentatonisk ton per sekvenssteg → demon spelar en liten melodi.
+        ctx.services.audio.tone({ freq: toneFreq(k), dur: 0.24, type: 'triangle', vol: 0.3 })
       }, tOn)
       tl.add(() => {
         if (!this._alive || !fp || fp.destroyed) return
@@ -327,14 +362,18 @@ export default {
       this._paintFoot(fp, 'done')
       pop(fp)
       sparkle(ctx.fxLayer, fp.x, fp.y)
-      ctx.services.audio.sfx('correct')
+      // Samma stigande ton som i demon (+ oktav-glitter) → härmningen blir melodisk.
+      const k = this._expected
+      ctx.services.audio.tone({ freq: toneFreq(k), dur: 0.26, type: 'triangle', vol: 0.32 })
+      ctx.services.audio.tone({ freq: toneFreq(k) * 2, dur: 0.16, type: 'sine', vol: 0.12, delay: 0.05 })
       if (!this._saidJa) {
         this._saidJa = true
         ctx.services.voice.say('Ja!') // sparsamt beröm, en gång per runda
       }
+      this._collectFind(ctx, fp) // ev. gömt fynd flyger till samlingen
       this._expected++
       if (this._expected >= this._sequence.length) this._win(ctx, fp)
-      else this._hopRabbit(fp)
+      else this._hopRabbit(ctx, fp)
     } else {
       // FEL fotspår eller redan tänt: mjukt vingel, ALDRIG nollställning/bestraffning.
       ctx.services.audio.sfx('soft')
@@ -348,18 +387,91 @@ export default {
     }
   },
 
-  // Figuren hoppar fram till ett fotspår (litet skutt: y dippar upp och ned).
-  _hopRabbit(fp) {
+  // Figuren hoppar fram till ett fotspår (litet skutt: y dippar upp och ned) med
+  // ett glatt "!" och en liten studs — en levande kompis, inte en bricka som glider.
+  _hopRabbit(ctx, fp) {
     if (!this._rabbit || this._rabbit.destroyed) return
+    this._eagerTween?.kill()
+    this._eagerTween = null
     this._hopTl?.kill()
     gsap.killTweensOf(this._rabbit)
+    gsap.killTweensOf(this._rabbit.scale)
+    this._rabbit.rotation = 0
+    floatText(ctx.fxLayer, fp.x, fp.y + RAB_DY - 60, '!', { fontSize: 52, rise: 60 })
     const tx = fp.x
     const ty = fp.y + RAB_DY
-    const tl = gsap.timeline()
+    const tl = gsap.timeline({
+      onComplete: () => {
+        if (this._alive) this._lookEager() // spanar mot nästa fotspår
+      },
+    })
     tl.to(this._rabbit, { x: tx, duration: 0.34, ease: 'power1.inOut' }, 0)
     tl.to(this._rabbit, { y: ty - 55, duration: 0.17, ease: 'power2.out' }, 0)
     tl.to(this._rabbit, { y: ty, duration: 0.17, ease: 'power2.in' }, 0.17)
+    // Glad studs i landningen (squash & stretch).
+    tl.to(this._rabbit.scale, { x: 1.16, y: 0.86, duration: 0.12, ease: 'power2.out' }, 0.24)
+    tl.to(this._rabbit.scale, { x: 1, y: 1, duration: 0.18, ease: 'back.out(2)' }, 0.36)
     this._hopTl = tl
+  },
+
+  // Figuren spanar ivrigt mot nästa förväntade fotspår (mjuk lutning fram och åter).
+  _lookEager() {
+    this._eagerTween?.kill()
+    this._eagerTween = null
+    if (!this._alive || this._busy || this._winning) return
+    if (!this._rabbit || this._rabbit.destroyed) return
+    if (this._expected >= this._sequence.length) return
+    const fp = this._foots[this._sequence[this._expected]]
+    if (!fp || fp.destroyed) return
+    const dir = fp.x >= this._rabbit.x ? 1 : -1
+    gsap.killTweensOf(this._rabbit)
+    this._rabbit.rotation = 0
+    this._eagerTween = gsap.to(this._rabbit, {
+      rotation: dir * 0.11,
+      duration: 0.75,
+      yoyo: true,
+      repeat: -1,
+      ease: 'sine.inOut',
+    })
+  },
+
+  // Plocka upp ett ev. gömt fynd: det dyker upp vid fotspåret och flyger till
+  // samlingen uppe till höger (exit-säkert: proxy-tween + destroyed-guard).
+  _collectFind(ctx, fp) {
+    if (!fp.find) return
+    const emoji = fp.find
+    fp.find = null
+    const item = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 52 } })
+    item.anchor.set(0.5)
+    item.position.set(fp.x, fp.y + RAB_DY)
+    item.scale.set(0.5)
+    this._finds.addChild(item)
+    const slot = this._finds.children.length - 1
+    const tx = 1112 - slot * 46
+    const ty = 178
+    const p = { x: item.x, y: item.y, s: 0.5 }
+    const tw = gsap.to(p, {
+      x: tx,
+      y: ty,
+      s: 0.82,
+      duration: 0.7,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        if (!item.destroyed) {
+          item.position.set(p.x, p.y)
+          item.scale.set(p.s)
+        }
+      },
+      onComplete: () => {
+        if (!item.destroyed) {
+          item.scale.set(0.82)
+          pop(item)
+        }
+      },
+    })
+    this._findTweens.push(tw)
+    ctx.services.audio.sfx('reveal')
+    floatText(ctx.fxLayer, fp.x, fp.y - 44, 'En till!', { fontSize: 34 })
   },
 
   // Hela sekvensen klar: figuren hoppar in i huset, firande, ny (längre) runda.
@@ -368,9 +480,12 @@ export default {
     this._winning = true
     this._idle = 0
     this._clearHint()
+    this._eagerTween?.kill()
+    this._eagerTween = null
     this._hopTl?.kill()
     gsap.killTweensOf(this._rabbit)
     gsap.killTweensOf(this._rabbit.scale)
+    this._rabbit.rotation = 0
 
     const lx = lastFp.x
     const ly = lastFp.y + RAB_DY
@@ -458,6 +573,8 @@ export default {
     this._hopTl?.kill()
     this._nextCall?.kill?.()
     this._hintTween?.kill()
+    this._eagerTween?.kill()
+    for (const t of this._findTweens || []) t?.kill?.()
     if (this._rabbit && !this._rabbit.destroyed) {
       gsap.killTweensOf(this._rabbit)
       gsap.killTweensOf(this._rabbit.scale)

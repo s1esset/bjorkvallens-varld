@@ -106,3 +106,19 @@ Stark grund, men flera billiga drag som en kräsen förälder märker:
 - Rekommenderad första-omgång: **[Quick] stigande tonhöjd på fotspåren + [Quick] gömda fynd
   + [Medium] levande figur som tittar/jublar** — gör "hjälp kompisen hem" känslomässig och
   ger örat en melodisk minnes-ledtråd.
+- 2026-07-02: Första-omgången implementerad (errorCount 0, skärmdump verifierad).
+  - **[Quick] Stigande tonhöjd:** ny `toneFreq(k)` mappar sekvenssteg → C-dur pentatonisk skala
+    (`TONE_BASE` C5 + `PENTA`-halvtonssteg). Demon spelar `ctx.services.audio.tone(...)` per steg
+    i `_playDemo` (ersätter platt `pling`), och rätt tryck i `_onTap` spelar samma ton + en
+    oktav-glitter-ton — att följa spåret låter nu som en liten melodi som crescendo:ar mot huset.
+  - **[Quick] Gömda fynd:** nya `FINDS` + `_collectFind(ctx, fp)`. Vart 3:e fotspår (`i % 3 === 2`
+    i `_build`) får ett dolt `fp.find`; vid rätt skutt dyker det upp och flyger (exit-säker
+    proxy-tween + `destroyed`-guard, spårat i `this._findTweens`) till en samling i `this._finds`
+    uppe till höger, med `reveal`-ljud + `floatText('En till!')`. Töms/dödas per runda + i `destroy`.
+  - **[Medium] Levande figur:** `_hopRabbit` tar nu `ctx`, kastar ett glatt `floatText('!')` och
+    en squash-&-stretch-studs i landningen; ny `_lookEager()` lutar figuren mjukt (yoyo-rotation)
+    mot nästa förväntade fotspår efter demon och efter varje skutt (killad vid tap/win/build/destroy,
+    `rotation` nollställd överallt figuren återställs).
+  - Deferred: [Deep] riktig slingrande bezier-stig, [Medium] tema per nivå (strand/snö/skog),
+    [Medium] aktiv "tryck-med"-demo, [Medium] huset firar (dörr/ljus/rök), [Quick] hus-ljus-mätare,
+    [Quick] riktiga SFX-klipp + ängs-ambient via SFX-pipelinen.

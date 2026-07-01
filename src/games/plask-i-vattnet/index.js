@@ -21,7 +21,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { DragController } from '../../lib/DragController.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { puff, ripple, wiggle, pop, bounceIn } from '../../lib/feedback.js'
+import { puff, ripple, wiggle, pop, bounceIn, sparkle } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -61,6 +61,23 @@ const MAX_V = 10 // hastighetstak -> kan ALDRIG skjuta ur tanken
 const ANG_DAMP = 0.9 // rotationsdämpning -> föremål håller sig ~upprätta
 
 const ROUND_SIZE = 6 // antal föremål per runda (fyller hyllans 6 platser)
+
+// ---- Upptäckts-logg (två sidohyllor "Flyter"/"Sjunker") -------------------
+// Varje testat föremål lägger EN miniatyr i rätt hylla och STANNAR där över
+// rundor (och sessioner, via progress.custom) -> ett växande, ordlöst mönster.
+const LOG_FLOAT_X = 82 // vänster sidohylla (utanför tanken)
+const LOG_SINK_X = 1198 // höger sidohylla
+const LOG_HEAD_Y = 214 // rubrik-y
+const LOG_FIRST_Y = 300 // första miniatyrens y
+const LOG_STEP = 46 // radavstånd mellan miniatyrer
+const LOG_MAX = 8 // en hylla svämmar aldrig över (poolen har 8 av varje)
+
+// ---- Gissa först (valfritt, no-fail) -------------------------------------
+// När ett föremål TAP-markeras dyker en liten tankebubbla + två stora ikon-
+// knappar upp: 🔼 flyter / 🔽 sjunker. Rätt gissning -> extra gnistor + jubel;
+// fel -> mjukt "Vi ser efter!" och plasket avslöjar svaret. Aldrig straff; den
+// som bara drar-och-släpper ser aldrig knapparna (ren plask-lek för de yngsta).
+const GUESS_Y = 196 // knapparnas y (fri mitt-topp ovanför tanken)
 
 // Föremålspooler med svenska NAMN (bestämd form -> "Anden flyter!", "Stenen sjunker!").
 const POOL_FLOAT = [
@@ -105,6 +122,9 @@ export default {
     this._celebrating = false
     this._itemViews = [] // alla rundans föremåls-containrar (hylla + i vatten)
     this._objects = [] // i-vatten-objekt: { body, view, floats, floatFactor, r, homeX, phase }
+    this._logIcons = [] // alla miniatyrer i upptäckts-hyllorna (för tween-städ)
+    this._guessItem = null // vilket markerat föremål gissningen gäller
+    this._guess = null // 'float' | 'sink' | null
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -182,6 +202,140 @@ export default {
     target.on('pointertap', this._waterTapHandler) // registreras FÖRE drag-målets _tap
     this._tankView = target
     this._root.addChild(target)
+
+    this._buildLogs(ctx) // två sidohyllor "Flyter"/"Sjunker" (upptäckts-logg)
+    this._buildGuessUi(ctx) // gissa-först-knappar (dolda tills ett föremål markeras)
+  },
+
+  // ---- Upptäckts-logg (sidohyllor) ----------------------------------------
+
+  _buildLogs(ctx) {
+    this._logFloat = this._makeLogPanel(LOG_FLOAT_X, 'Flyter', '🔼', COLORS.green)
+    this._logSink = this._makeLogPanel(LOG_SINK_X, 'Sjunker', '🔽', COLORS.blue)
+    // Fyll från sparad logg -> upptäckter stannar mellan rundor OCH sessioner.
+    const cust = ctx.progress.get().custom || {}
+    ;(cust.floatLog || []).forEach((e) => this._addLogIcon(this._logFloat, e, false))
+    ;(cust.sinkLog || []).forEach((e) => this._addLogIcon(this._logSink, e, false))
+  },
+
+  _makeLogPanel(cx, label, arrow, color) {
+    const panel = new Container()
+    panel.position.set(cx, 0)
+    panel.eventMode = 'none'
+    panel.interactiveChildren = false
+    const bg = new Graphics()
+      .roundRect(-56, 196, 112, 466, 22)
+      .fill({ color, alpha: 0.14 })
+      .stroke({ width: 3, color, alpha: 0.5 })
+    const head = new Text({
+      text: `${arrow}\n${label}`,
+      style: { fontFamily: FONT.display, fontSize: 24, fontWeight: '700', fill: COLORS.inkSoft, align: 'center' },
+    })
+    head.anchor.set(0.5, 0)
+    head.position.set(0, LOG_HEAD_Y)
+    panel.addChild(bg, head)
+    panel._items = []
+    this._root.addChild(panel)
+    return panel
+  },
+
+  _addLogIcon(panel, emoji, animate = true) {
+    if (!panel || panel.destroyed || panel._items.length >= LOG_MAX) return
+    const t = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 40 } })
+    t.anchor.set(0.5)
+    t.position.set(0, LOG_FIRST_Y + panel._items.length * LOG_STEP)
+    t.eventMode = 'none'
+    panel.addChild(t)
+    panel._items.push(t)
+    this._logIcons.push(t)
+    if (animate) bounceIn(t)
+  },
+
+  // Lägg (om ny) det testade föremålet i rätt hylla. Varje sak visas EN gång ->
+  // mönstret "vad flyter / vad sjunker" byggs upp lugnt över rundor.
+  _logItem(ctx, data) {
+    const panel = data.floats ? this._logFloat : this._logSink
+    const key = data.floats ? 'floatLog' : 'sinkLog'
+    const list = (ctx.progress.get().custom || {})[key] || []
+    if (list.includes(data.emoji)) return
+    ctx.progress.setCustom(key, [...list, data.emoji].slice(-LOG_MAX))
+    this._addLogIcon(panel, data.emoji, true)
+  },
+
+  // ---- Gissa först (valfri tankebubbla + två ikon-knappar) ----------------
+
+  _buildGuessUi(ctx) {
+    const ui = new Container()
+    ui.visible = false // syns bara medan ett föremål är TAP-markerat
+    ui.eventMode = 'passive'
+    this._root.addChild(ui)
+    this._guessUi = ui
+
+    const bubble = new Graphics()
+      .roundRect(494, 104, 292, 52, 26)
+      .fill({ color: COLORS.white, alpha: 0.92 })
+      .stroke({ width: 3, color: 0xbfeefa, alpha: 0.9 })
+    bubble.eventMode = 'none'
+    const q = new Text({
+      text: 'Flyter eller sjunker?',
+      style: { fontFamily: FONT.display, fontSize: 26, fontWeight: '700', fill: COLORS.inkSoft },
+    })
+    q.anchor.set(0.5)
+    q.position.set(640, 130)
+    q.eventMode = 'none'
+    ui.addChild(bubble, q)
+
+    this._guessBtnFloat = this._makeGuessBtn(ctx, 566, '🔼', COLORS.green, 'float')
+    this._guessBtnSink = this._makeGuessBtn(ctx, 714, '🔽', COLORS.blue, 'sink')
+    ui.addChild(this._guessBtnFloat, this._guessBtnSink)
+  },
+
+  _makeGuessBtn(ctx, x, arrow, color, kind) {
+    const b = new Container()
+    b.position.set(x, GUESS_Y)
+    const disc = new Graphics().circle(0, 0, 52).fill({ color, alpha: 0.92 }).stroke({ width: 5, color: 0xffffff, alpha: 0.9 })
+    disc.eventMode = 'none'
+    const a = new Text({ text: arrow, style: { fontFamily: FONT.body, fontSize: 52 } })
+    a.anchor.set(0.5)
+    a.eventMode = 'none'
+    b.addChild(disc, a)
+    b.eventMode = 'static'
+    b.cursor = 'pointer'
+    b.hitArea = new Circle(0, 0, 60) // Ø120 ≥ 96px
+    b._tap = () => this._onGuess(ctx, kind, b)
+    b.on('pointertap', b._tap)
+    return b
+  },
+
+  _showGuessUi(ctx, rec) {
+    if (!this._alive || this._celebrating || !this._guessUi) return
+    this._guessItem = rec
+    this._guess = null
+    for (const b of [this._guessBtnFloat, this._guessBtnSink]) {
+      if (!b || b.destroyed) continue
+      gsap.killTweensOf(b)
+      gsap.killTweensOf(b.scale)
+      b.scale.set(1)
+      b.alpha = 1
+    }
+    this._guessUi.visible = true
+    ctx.services.voice.say('Flyter eller sjunker?')
+  },
+
+  _hideGuessUi() {
+    if (this._guessUi && !this._guessUi.destroyed) this._guessUi.visible = false
+  },
+
+  _onGuess(ctx, kind, btn) {
+    if (!this._alive || !this._guessUi?.visible) return
+    this._guess = kind
+    this._idle = 0
+    ctx.services.audio.sfx('tap')
+    if (btn && !btn.destroyed) pop(btn)
+    // Tona ut det andra valet så barnets gissning känns bekräftad.
+    const other = kind === 'float' ? this._guessBtnSink : this._guessBtnFloat
+    if (other && !other.destroyed) gsap.to(other, { alpha: 0.35, duration: 0.15 })
+    // Knapparna stannar synliga tills släppet (då avslöjas svaret).
   },
 
   _buildBubbles() {
@@ -257,7 +411,10 @@ export default {
       this._root.addChild(view)
       this._itemViews.push(view)
       this._drag.addItem(view, data, {
-        onSelect: () => (this._idle = 0),
+        onSelect: (rec) => {
+          this._idle = 0
+          this._showGuessUi(ctx, rec) // fires ENDAST vid tap-markering (inte vid drag)
+        },
         onCorrect: (rec) => this._onDrop(ctx, rec),
         onWrong: (rec) => this._alive && wiggle(rec.view),
       })
@@ -267,6 +424,9 @@ export default {
 
   // Riv föregående runda: drag-controller, alla fysikkroppar och alla föremåls-vyer.
   _clearRound() {
+    this._hideGuessUi() // rundans föremål försvinner -> ingen dinglande gissning
+    this._guessItem = null
+    this._guess = null
     this._drag?.destroy()
     this._drag = null
     for (const o of this._objects) {
@@ -289,6 +449,12 @@ export default {
     this._idle = 0
     const view = rec.view // har snäppt till tankens mitt (TANK_CX, TANK_CY)
     const data = rec.data
+
+    // Gissningen (om någon) gällde just det här föremålet; hämta + nollställ + göm.
+    const guessed = this._guessItem === rec ? this._guess : null
+    this._guessItem = null
+    this._guess = null
+    this._hideGuessUi()
 
     // Ingen bricka längre — bara figuren plaskar i. En liten puls ger en mjuk
     // "plopp"-känsla när den lämnar handen och blir en fysikkropp (exit-säker via scale).
@@ -317,7 +483,8 @@ export default {
 
     this._objects.push({ body, view, floats: data.floats, floatFactor: data.floatFactor, r: BODY_R, homeX, phase: Math.random() * Math.PI * 2 })
 
-    this._splash(ctx, x, data)
+    this._splash(ctx, x, data, guessed)
+    this._logItem(ctx, data) // lägg en miniatyr i rätt upptäckts-hylla (om ny)
     this._surfaceWave(x, body) // ytsvall: redan flytande saker guppar mjukt när något nytt plaskar i
 
     this._dropped++
@@ -339,20 +506,34 @@ export default {
     }
   },
 
-  // Plask vid ytan: ljud + ring + bubbelpuff + glad röst som namnger flyt/sjunk.
-  _splash(ctx, x, data) {
+  // Plask vid ytan: ljud + ring + bubbelpuff + glad röst som namnger flyt/sjunk
+  // (och en positiv reaktion på ev. gissning).
+  _splash(ctx, x, data, guessed) {
     if (!this._alive) return
-    ctx.services.audio.sfx('splash') // riktigt klipp om det finns, annars syntes
+    const a = ctx.services.audio
+    // Riktigt vatten via SFX-pipelinen: LÄTT plask (pop) för flytare, DJUP plopp
+    // för sjunkare — faller mjukt till en ton om klippet inte hunnit avkodas.
+    if (data.floats) {
+      if (!a.sample('pop')) a.tone({ freq: 720, dur: 0.14, type: 'sine', vol: 0.22, slideTo: 1200 })
+      a.tone({ freq: 1500, dur: 0.12, type: 'sine', vol: 0.1, delay: 0.05 }) // ljus stänk-topp
+    } else {
+      if (!a.sample('plopp')) a.tone({ freq: 300, dur: 0.24, type: 'sine', vol: 0.3, slideTo: 90 })
+    }
     // Dubbel ytring -> tydligt "plask vid vattenytan".
     ripple(ctx.fxLayer, x, SURFACE_Y, { color: 0xbfeefa, maxR: 86, width: 7, alpha: 0.7 })
     ripple(ctx.fxLayer, x, SURFACE_Y, { color: 0xffffff, maxR: 52, width: 4, alpha: 0.5, duration: 0.42 })
     puff(ctx.fxLayer, x, SURFACE_Y, { count: 12, color: 0x9fd8f0 })
-    if (data.floats) {
-      ctx.services.audio.sfx('pling')
-      ctx.services.voice.say(`${data.name} flyter!`)
+    // Namngivning (bestämd form) + positiv gissnings-reaktion. ALDRIG straff.
+    const verb = data.floats ? 'flyter' : 'sjunker'
+    if (guessed && (guessed === 'float') === data.floats) {
+      sparkle(ctx.fxLayer, x, SURFACE_Y - 10, { count: 10 }) // rätt gissat -> extra gnistor
+      a.sfx('correct')
+      ctx.services.voice.say(`Ja! ${data.name} ${verb}!`)
+    } else if (guessed) {
+      a.sfx('soft') // fel gissat -> mjukt, avslöja svaret (aldrig buzzer)
+      ctx.services.voice.say(`Vi ser efter! ${data.name} ${verb}!`)
     } else {
-      ctx.services.audio.sfx('reveal')
-      ctx.services.voice.say(`${data.name} sjunker!`)
+      ctx.services.voice.say(`${data.name} ${verb}!`)
     }
   },
 
@@ -361,6 +542,7 @@ export default {
   _waterTap(ctx, e) {
     if (!this._alive || this._celebrating) return
     if (this._drag?.selected) return // ett tap-tap-släpp pågår -> plasket sköts av onDrop
+    this._hideGuessUi() // inget markerat -> städa ev. dinglande gissningsbubbla
     const p = this._root.toLocal(e.global)
     const x = clamp(p.x, WATER.x + 30, WATER.x + WATER.w - 30)
     const y = clamp(p.y, SURFACE_Y, WATER.y + WATER.h - 20)
@@ -499,6 +681,16 @@ export default {
       if (!v || v.destroyed) return
       gsap.killTweensOf(v)
       gsap.killTweensOf(v.scale)
+    })
+    // Upptäckts-hyllornas miniatyrer (bounceIn på scale) + gissningsknapparna.
+    this._logIcons?.forEach((t) => {
+      if (t && !t.destroyed) gsap.killTweensOf(t.scale)
+    })
+    ;[this._guessBtnFloat, this._guessBtnSink].forEach((b) => {
+      if (!b || b.destroyed) return
+      gsap.killTweensOf(b)
+      gsap.killTweensOf(b.scale)
+      if (b._tap) b.off('pointertap', b._tap)
     })
     if (this._tankView && !this._tankView.destroyed && this._waterTapHandler) {
       this._tankView.off('pointertap', this._waterTapHandler)

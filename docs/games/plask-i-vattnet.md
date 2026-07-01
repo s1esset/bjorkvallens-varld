@@ -1,5 +1,5 @@
 # Plask i Vattnet (`plask-i-vattnet`)
-> 💧 fysik · drag · 3–5 år · status: 📝 plan klar
+> 💧 fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -97,3 +97,20 @@ garanterar minst 2 av varje så mönstret framträder över tid.
   Spelet testat (errorCount 0; drag av föremål → trästock flyter vid ytan, korrekt).
 - Rekommenderad första-omgång: **[Medium] valfri gissa-först + [Medium] synlig flyt/sjunk-logg
   + [Quick] riktigt plask** — lyfter spelet från titta-på till tänka-och-samla.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Alla tre rekommenderade lyft byggda,
+  ingen omskrivning (fokuserad ändring):
+  - **[Medium] Valfri gissa-först (no-fail).** Tap-markering av ett föremål fäller upp en
+    tankebubbla "Flyter eller sjunker?" + två stora ikon-knappar (🔼 flyter / 🔽 sjunker,
+    Ø120 ≥ 96px) i den fria mitt-toppen. Rätt gissning → extra gnistor + `sfx('correct')`
+    + "Ja! Anden flyter!"; fel → mjukt `sfx('soft')` + "Vi ser efter! Stenen sjunker!" (aldrig
+    straff). onSelect fires ENDAST vid tap (inte vid drag) → den som bara drar-och-släpper
+    ser aldrig knapparna = ren plask-lek för de yngsta (kravet "kan slås av" uppfyllt utan
+    inställning). Bubblan göms vid släpp/avmarkering/ny runda; exit-säkra tweens.
+  - **[Medium] Synlig upptäckts-logg.** Två sidohyllor "Flyter" (v.) / "Sjunker" (h.); varje
+    testat föremål lägger EN miniatyr (dedupe på emoji) som STANNAR över rundor OCH sessioner
+    (`progress.setCustom('floatLog'/'sinkLog')`) → ett växande ordlöst mönster, max 8/hylla.
+  - **[Quick] Riktigt plask + plopp.** `splash`-syntesen ersatt med inspelade vatten-klipp via
+    SFX-pipelinen: lätt `sample('pop')` för flytare (+ ljus stänk-topp), djup `sample('plopp')`
+    för sjunkare; mjuk ton-fallback om klippet ännu inte avkodats.
+  - Testat drag (6 släpp → firande) + tap-tap-gissning; båda errorCount 0, skärmdumpar
+    bekräftar flyt/sjunk, ifyllda loggar (även efter sessions-omstart) och gissningsbubblan.

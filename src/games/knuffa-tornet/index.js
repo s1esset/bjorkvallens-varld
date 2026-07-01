@@ -23,7 +23,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Matter } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { Button } from '../../lib/Button.js'
-import { puff, floatText, sparkle, burst, bounceIn, bigCelebration, pop } from '../../lib/feedback.js'
+import { puff, floatText, sparkle, burst, bounceIn, bigCelebration, pop, shake } from '../../lib/feedback.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
 const { Constraint, Composite, Body } = Matter
@@ -67,6 +67,9 @@ const REST_SPEED = 1.6 // matter-fart under detta = svinget har lugnat sig
 const MAX_FLIGHT = 3.6 // s innan en sving avbryts (no-fail)
 const IDLE_DELAY = 6 // s utan handling -> röst-recue
 const HIT_THROTTLE = 0.07 // s mellan kloss-nere-ljud (plopp)
+
+// Små "hoppsan"-emoji som pipar upp när en kloss ramlar (ger klossarna karaktär).
+const PIPS = ['😮', '😆', '😲', '🙃', '😵']
 
 export default {
   id: 'knuffa-tornet',
@@ -401,7 +404,7 @@ export default {
           label: 'block',
         })
         this._phys.link(body, view)
-        this._blocks.push({ body, view, cleared: false, isCrown: false })
+        this._blocks.push({ body, view, cleared: false, isCrown: false, nervous: false })
         bounceIn(view, { delay: i * 0.04 })
         if (cx === xs[0] && y < topCenterY + 1) topCenterY = y
       }
@@ -421,7 +424,7 @@ export default {
       label: 'block',
     })
     this._phys.link(cbody, cview)
-    this._blocks.push({ body: cbody, view: cview, cleared: false, isCrown: true })
+    this._blocks.push({ body: cbody, view: cview, cleared: false, isCrown: true, nervous: false })
     bounceIn(cview, { delay: rows * 0.04 })
 
     this._total = this._blocks.length
@@ -685,6 +688,7 @@ export default {
     if (this._phase === 'swing' || this._phase === 'assist') {
       this._checkClears(ctx)
       if (this._won) return
+      this._spookBlocks()
     }
 
     if (this._phase === 'swing') {
@@ -735,9 +739,17 @@ export default {
     b.cleared = true
     this._cleared++
     this._updateMeter()
+    // Snabb squash när klossen ramlar (skala — fysik-länken rör inte scale).
+    const v = b.view
+    if (v && !v.destroyed) {
+      gsap.killTweensOf(v.scale)
+      gsap.to(v.scale, { x: 1.34, y: 0.66, duration: 0.1, yoyo: true, repeat: 1, ease: 'sine.out' })
+    }
+    let pinged = false
     if (this._t - this._lastHit > HIT_THROTTLE) {
       this._lastHit = this._t
       ctx.services.audio.sfx('plopp')
+      pinged = true
     }
     if (b.isCrown && !this._crownDown) {
       this._crownDown = true
@@ -746,6 +758,10 @@ export default {
       sparkle(ctx.fxLayer, b.view?.x ?? this._pivot.x, b.view?.y ?? this._pivot.y, { count: 10 })
     } else {
       sparkle(ctx.fxLayer, b.view?.x ?? 0, b.view?.y ?? 0, { count: 4 })
+      // Liten "hoppsan"-pip ger klossen karaktär (samma strypning som plopp = ingen spam).
+      if (pinged && v && !v.destroyed) {
+        floatText(ctx.fxLayer, v.x, v.y - 24, PIPS[(Math.random() * PIPS.length) | 0], { fontSize: 32, rise: 62, duration: 0.7 })
+      }
     }
     if (this._cleared >= this._total) this._win(ctx)
   },
@@ -848,27 +864,75 @@ export default {
     })
   },
 
-  // ---- Krock: TYST (inga krock-ljud) men rolig visuell puff ---------------
+  // ---- Krock: en SNÄLL smäll (mjuk träduns + mikroskak) + rolig puff -------
 
   _onCollision(ctx, e) {
     if (!this._alive) return
-    // Krock-LJUDEN är borttagna (på begäran). Endast en tyst, lekfull puff när kulan
-    // slår in i tornet — håller känslan rolig utan irriterande slagljud.
+    // En rivningskula som krossar ett torn SKA få sitt "duns" — men snällt: en mjuk,
+    // rundad träklots-ton (ingen buzzer) vars kraft växer med slagfarten. Behåll
+    // strypningen så det aldrig distar/loopar.
     if (this._t - this._lastPuff <= 0.12) return
-    let ballHit = false
+    let hitSpeed = 0
     for (const pair of e.pairs) {
       const la = pair.bodyA.label
       const lb = pair.bodyB.label
       const involvesBall = la === 'ball' || lb === 'ball'
       const involvesBlock = la === 'block' || lb === 'block'
-      if (involvesBall && involvesBlock && pair.bodyA.speed + pair.bodyB.speed > 3) {
-        ballHit = true
-        break
+      if (involvesBall && involvesBlock) {
+        const sp = pair.bodyA.speed + pair.bodyB.speed
+        if (sp > hitSpeed) hitSpeed = sp
       }
     }
-    if (ballHit && this._ballView && !this._ballView.destroyed) {
+    if (hitSpeed > 3 && this._ballView && !this._ballView.destroyed) {
       this._lastPuff = this._t
       puff(ctx.fxLayer, this._ballView.x, this._ballView.y, { count: 5 })
+      // Snäll smäll: mjuk, rundad träduns; volym ∝ slagkraft.
+      const strength = clamp((hitSpeed - 3) / 16, 0, 1)
+      ctx.services.audio.tone({ freq: 150, slideTo: 78, dur: 0.14, type: 'sine', vol: 0.16 + strength * 0.3 })
+      // Liten skärm-mikroskak i takt med kraften — aldrig hård.
+      this._screenShake(4 + strength * 6)
+    }
+  },
+
+  // Mjuk skärm-mikroskak (ALDRIG hård) skalad med slagkraften. Skakar hela scenroten
+  // via den exit-säkra shake-hjälparen (tweenar en proxy, inte roten direkt).
+  _screenShake(power) {
+    const r = this._root
+    if (!r || r.destroyed) return
+    this._shakeTw?.kill()
+    r.x = 0
+    r.y = 0
+    this._shakeTw = shake(r, { intensity: clamp(power, 3, 10), duration: 0.3 })
+  },
+
+  // Klossarna lever inför slaget: en stående kloss darrar av förväntan när kulan
+  // närmar sig. Darret sker på SCALE (fysik-länken rör bara position+rotation), så det
+  // krockar aldrig med motorn. Varje kloss darrar bara en gång per sving-runda.
+  _spookBlocks() {
+    if (this._phase !== 'swing') return
+    const b0 = this._ballBody
+    if (!b0) return
+    const bx = b0.position.x
+    const by = b0.position.y
+    for (const b of this._blocks) {
+      if (b.cleared || b.nervous) continue
+      const v = b.view
+      if (!v || v.destroyed) continue
+      if (Math.hypot(v.x - bx, v.y - by) < 155) {
+        b.nervous = true
+        gsap.killTweensOf(v.scale)
+        gsap.to(v.scale, {
+          x: 1.1,
+          y: 0.9,
+          duration: 0.08,
+          yoyo: true,
+          repeat: 3,
+          ease: 'sine.inOut',
+          onComplete: () => {
+            if (!v.destroyed) v.scale.set(1)
+          },
+        })
+      }
     }
   },
 
@@ -913,6 +977,7 @@ export default {
     this._unbind?.()
     this._reloadCall?.kill()
     this._assistCall?.kill()
+    this._shakeTw?.kill()
     this._detachBall()
 
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onFieldTap)
@@ -959,7 +1024,8 @@ function makeBall(r) {
   return c
 }
 
-// Färgglad kloss (rundad rektangel + mjuk highlight).
+// Färgglad kloss (rundad rektangel + mjuk highlight + glatt ansikte). Ansiktet gör
+// tornet till "gänget" man knuffar — mer charm, noll fysik-risk.
 function makeBlock(w, h, color) {
   const c = new Container()
   const g = new Graphics()
@@ -968,7 +1034,13 @@ function makeBlock(w, h, color) {
     .stroke({ width: 4, color: shade(color, 0.22), alpha: 0.7 })
   const hi = new Graphics().roundRect(-w / 2 + 10, -h / 2 + 8, w * 0.4, h * 0.22, 6).fill({ color: COLORS.white, alpha: 0.28 })
   hi.eventMode = 'none'
-  c.addChild(g, hi)
+  // Ansikte: två prickögon + ett litet leende.
+  const face = new Graphics()
+  face.circle(-15, -6, 4.5).fill(COLORS.ink)
+  face.circle(15, -6, 4.5).fill(COLORS.ink)
+  face.arc(0, -1, 12, 0.18 * Math.PI, 0.82 * Math.PI).stroke({ width: 3, color: COLORS.ink })
+  face.eventMode = 'none'
+  c.addChild(g, hi, face)
   c.eventMode = 'none'
   c.interactiveChildren = false
   return c

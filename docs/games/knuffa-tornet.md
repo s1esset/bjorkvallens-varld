@@ -1,5 +1,5 @@
 # Knuffa Tornet (`knuffa-tornet`)
-> ⚙️ fysik · drag · 2–5 år · status: 📝 plan klar
+> ⚙️ fysik · drag · 2–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -119,3 +119,12 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
   kodändringar i denna omgång.
 - Rekommenderad första-omgång: **[Quick] snäll smäll + skärmskak + klossar med ansikten/
   vinglar** — återinför spelets saknade kärn-belöning och ger tornet själ till låg risk.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Återinförde en *snäll* smäll i
+  `_onCollision`: en mjuk, rundad träduns via `audio.tone` (sine 150→78 Hz) vars volym
+  skalar med slagfarten, plus en mjuk skärm-mikroskak (`_screenShake` → exit-säkra
+  `shake` på scenroten, intensitet ∝ kraft, kappad ≤10px) — behåller 0,12s-strypningen så
+  inget distar. Gav klossarna själ: `makeBlock` ritar nu ett glatt ansikte (två prickögon
+  + leende); nya `_spookBlocks` låter närmaste stående kloss darra av förväntan (SCALE-tween
+  — fysik-länken rör bara position/rotation) när kulan svingar nära; `_onClear` ger en snabb
+  squash + en liten "hoppsan"-emoji (strypt som plopp). Allt exit-säkert (shake-tween dödas
+  i `destroy`, scale-tweens städas via befintlig `killTweensOf` i `_clearTower`/`destroy`).

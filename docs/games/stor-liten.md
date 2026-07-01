@@ -85,3 +85,28 @@ inget distraherar från storleksjämförelsen.
 - Rekommenderad första-omgång: **[Quick] storleksbunden SFX/studs + [Deep/Medium] mottagar-
   figurer (stor & liten kompis)** — kopplar begreppet till ljud och ger sorteringen ett *varför*
   och en publik.
+- 2026-07-01: **Första-omgång genomförd** — lådorna ersattes med **levande mottagar-kompisar**
+  och sorteringen fick ljud + agens:
+  - **[Deep] Mottagar-figurer i stället för lådor** (`_makeFriend`/`_buildFriends`): en stor
+    gosig kompis (blå, stor kropp) vill ha *stora* saker och en liten (orange, liten kropp) vill
+    ha *små*; på nivå ≥5 dyker en **mellan**-kompis (teal) upp → tre storlekar. Kroppsmåtten
+    skalas efter storleken (`SIZES.bw/bh`) så "stor kompis = stor kropp" syns direkt. Varje
+    kompis lever: långsam **andning** på önske-figuren + slumpvisa **blinkningar**
+    (`_startFriendLife`/`_scheduleBlink`).
+  - **Önske-ledtråd utan läsning** (`_ghost`): en genomskinlig figur i exakt den storlek
+    kompisen vill ha ligger på magen — barnet ser *vad* och *hur stort* utan att läsa etiketten.
+  - **[Quick] Storleksbunden SFX + "svälj"** (`_reactReceive` + `SIZES.tone`): rätt storlek →
+    djup *bom* (stor), mellan-ton, eller hög *tink* (liten) via `audio.tone`, munnen öppnas,
+    kroppen skvätter proportionellt (stor = tung squash + större skärmskak, liten = lätt), glada
+    ögon. Kopplar begreppet stor/liten till örat.
+  - **[Quick] Räkna upp innehållet** (`_dots`/`_fillNextDot`): en prickrad ovanför varje kompis
+    fylls upp (frö → antal) allteftersom den får rätt saker — räknar bara UPP, sjunker aldrig,
+    inget poängsystem.
+  - Fel kompis = vänlig "nej tack"-vingel på både föremål och kompis + mjuk ring (aldrig
+    bestraffning). Ny gullig emoji-figur varje runda (`EMOJIS`) → alltid ren storleks-uppgift.
+    Fler föremål per runda + tredje kompis skalar svårigheten mjukt.
+  - Test: `errorCount 0`; skärmdump bekräftar stor blå "Stor" + liten orange "Liten" med
+    storleksmatchade spök-kakor på magen och prickräknare över huvudet.
+  - **Deferred:** [Medium] jämförelse-/superlativ-runda (störst/minst i rad); [Quick] sällsynt
+    "jätte"/"pytte"-figur; [Medium] Bobo som domare; [Quick] lugn ambient-loop (central ljud-
+    hantering).

@@ -1,10 +1,14 @@
 // Stor och Liten — dra och släpp (2–5 år). Lär begreppen "stor"/"liten" (och på
-// högre nivåer "mellan") genom att sortera samma sorts gulliga föremål efter
-// STORLEK i rätt korg. Bygger vidare på den återanvändbara DragController (stor
-// träffyta, snäpp, snäpp-tillbaka, tap-tap-fallback för de minsta). Fel = mjuk
-// studs tillbaka + vingel (ALDRIG en bestraffning). Oändlig, växande lek: fler
-// föremål, ny gullig figur varje runda, och en tredje "mellan"-korg på högre
-// nivåer. När rundan är klar firar vi (stjärna + klistermärke) och ny runda startar.
+// högre nivåer "mellan") genom att GE samma sorts gulliga föremål efter STORLEK
+// till rätt KOMPIS: en stor mjukisfigur som vill ha stora saker och en liten som
+// vill ha små (och en mellanstor på högre nivåer). Kompisarna lever — de blinkar,
+// öppnar munnen och "sväljer" tungt/lätt efter storleken, med storleksbundet ljud
+// (djup *bom* för stort, hög *tink* för litet). En prickrad ovanför varje kompis
+// räknar upp vad den fått (frö till antal, sjunker aldrig). Bygger på den
+// återanvändbara DragController (stor träffyta, snäpp, snäpp-tillbaka, tap-tap).
+// Fel = mjuk vingel på kompisen (ALDRIG en bestraffning). Oändlig, växande lek:
+// fler föremål, ny gullig figur varje runda, och en tredje kompis på högre nivåer.
+// När rundan är klar firar vi (stjärna + klistermärke) och en ny runda startar.
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
@@ -22,26 +26,39 @@ const EMOJIS = [
   '🎈', '⭐', '🌟', '🧸', '⚽', '🌸', '🍪', '🎁',
 ]
 
-// Storleksprofiler: figurens fotavtryck/träffradie + emoji-grad + korgmått + färg
-// + etikett. Tydligt åtskilda så skillnaden alltid syns direkt. (Föremålen visas
-// utan platta — `plate` är nu bara träffytans radie, ingen ritad bakgrund.)
+// Storleksprofiler: figurens fotavtryck/träffradie + emoji-grad + kompisens
+// kroppsmått + färg + etikett + storleksbunden reaktion (skvätt/skak/ton). Tydligt
+// åtskilda så skillnaden alltid syns OCH hörs direkt. (`plate` = föremålets
+// osynliga träffradie; föremålen visas helt utan platta.)
 const SIZES = {
-  stor: { plate: 86, font: 120, bw: 322, bh: 240, color: COLORS.blue, label: 'Stor' },
-  mellan: { plate: 62, font: 82, bw: 250, bh: 198, color: COLORS.teal, label: 'Mellan' },
-  liten: { plate: 44, font: 54, bw: 196, bh: 162, color: COLORS.orange, label: 'Liten' },
+  stor: {
+    plate: 86, font: 120, bw: 232, bh: 216, color: COLORS.blue, label: 'Stor',
+    shakeAmt: 8, squashY: 0.78, stretchX: 1.16,
+    tone: { freq: 150, slideTo: 90, dur: 0.3, type: 'sine', vol: 0.34 }, // djup *bom*
+  },
+  mellan: {
+    plate: 62, font: 82, bw: 176, bh: 168, color: COLORS.teal, label: 'Mellan',
+    shakeAmt: 4, squashY: 0.86, stretchX: 1.1,
+    tone: { freq: 340, slideTo: 250, dur: 0.22, type: 'sine', vol: 0.3 },
+  },
+  liten: {
+    plate: 44, font: 54, bw: 130, bh: 128, color: COLORS.orange, label: 'Liten',
+    shakeAmt: 2, squashY: 0.92, stretchX: 1.06,
+    tone: { freq: 1180, slideTo: 1560, dur: 0.14, type: 'triangle', vol: 0.24 }, // hög *tink*
+  },
 }
 
-// Röstvariation per storlek (full svenska, alltid positivt).
+// Röstvariation per storlek (full svenska, alltid positivt) — nu med kompis-flärd.
 const WORDS = {
-  stor: ['Stor!', 'En stor!', 'Bra!', 'Precis!'],
-  mellan: ['Mellan!', 'Mellanstor!', 'Fint!', 'Bra!'],
-  liten: ['Liten!', 'En liten!', 'Toppen!', 'Fint!'],
+  stor: ['Stor!', 'En stor sak!', 'Till den stora!', 'Bra!', 'Precis!'],
+  mellan: ['Mellan!', 'Mellanstor!', 'Lagom stor!', 'Fint!', 'Bra!'],
+  liten: ['Liten!', 'En liten!', 'Till den lilla!', 'Toppen!', 'Fint!'],
 }
-const WRONG = ['Prova en annan korg!', 'Hoppsan, prova en annan korg!']
+const WRONG = ['Prova en annan kompis!', 'Hoppsan, prova en annan kompis!']
 const HAPPY = ['😄', '🎉', '⭐', '💛', '✨']
 
-const INTRO_TWO = 'Dra de stora sakerna till den stora korgen och de små till den lilla korgen!'
-const INTRO_THREE = 'Sortera sakerna i rätt korg: stor, mellan och liten!'
+const INTRO_TWO = 'Ge de stora sakerna till den stora kompisen och de små till den lilla kompisen!'
+const INTRO_THREE = 'Ge sakerna till rätt kompis: stor, mellan och liten!'
 
 export default {
   id: 'stor-liten',
@@ -58,7 +75,7 @@ export default {
     this._resolving = false
     this._mode = null
     this._itemRecs = []
-    this._boxes = null
+    this._friends = null
     this._rounds = ctx.progress.get().custom?.rounds || 0
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._intro = INTRO_TWO
@@ -79,8 +96,8 @@ export default {
     })
     this._root.addChild(tapCatcher)
 
-    // Spel-lager (korgar + föremål) — separat från bakgrunden så vi kan skaka det
-    // milt vid firande utan att hela scenen guppar.
+    // Spel-lager (kompisar + föremål) — separat från bakgrunden så vi kan skaka det
+    // milt vid en tung "svälj" utan att hela scenen guppar.
     this._play = new Container()
     this._root.addChild(this._play)
 
@@ -93,40 +110,41 @@ export default {
     this._resetIdle(ctx)
   },
 
-  // --- Korgar -------------------------------------------------------------
+  // --- Kompisar (mottagare) ----------------------------------------------
 
-  // Bygg korgarna för aktuellt läge (två eller tre storlekar). Anropas bara när
-  // läget ändras; annars återanvänds samma korgar mellan rundor.
-  _buildBoxes(ctx, sizeKeys) {
-    if (this._boxes) {
-      for (const b of this._boxes) {
-        gsap.killTweensOf(b)
-        gsap.killTweensOf(b.scale)
-        if (!b.destroyed) b.destroy({ children: true })
+  // Bygg mottagar-kompisarna för aktuellt läge (två eller tre storlekar). Anropas
+  // bara när läget ändras; annars återanvänds samma kompisar mellan rundor.
+  _buildFriends(ctx, sizeKeys) {
+    if (this._friends) {
+      for (const f of this._friends) {
+        this._killFriendTweens(f)
+        if (!f.destroyed) f.destroy({ children: true })
       }
     }
-    this._boxes = []
+    this._friends = []
 
-    const baskets = sizeKeys.map((k) => this._makeBasket(k))
-    const n = baskets.length
+    const friends = sizeKeys.map((k) => this._makeFriend(k))
+    const n = friends.length
     const left = 330
     const right = 950
-    const groundY = ctx.height - 66 // korgens botten vilar på gräset
+    const groundY = ctx.height - 66 // kompisens fötter vilar på gräset
 
-    baskets.forEach((b, i) => {
-      b.x = n === 1 ? ctx.width / 2 : left + ((right - left) * i) / (n - 1)
-      b.y = groundY - b._h / 2
-      this._play.addChild(b)
-      this._boxes.push(b)
-      b.scale.set(0)
-      bounceIn(b, { duration: 0.42, delay: 0.05 * i })
+    friends.forEach((f, i) => {
+      f.x = n === 1 ? ctx.width / 2 : left + ((right - left) * i) / (n - 1)
+      f.y = groundY - f._h / 2
+      this._play.addChild(f)
+      this._friends.push(f)
+      f.scale.set(0)
+      bounceIn(f, { duration: 0.42, delay: 0.05 * i })
+      this._startFriendLife(f) // blink + andning -> känns levande
     })
   },
 
-  // En gullig "korg": mjuk skugga, kropp med ljus kant, mörkare öppning, lätt
-  // flätmönster, främre kant och en GENOMSKINLIG figur i exakt rätt storlek som
-  // ikon-ledtråd (ingen läsning krävs) + liten textetikett som extra stöd.
-  _makeBasket(key) {
+  // En gullig mottagar-KOMPIS i exakt sin storlek (stor kompis = stor kropp): mjuk
+  // markskugga, rund kropp med ljus kant, öron, blinkande ögon, en mun som öppnas
+  // och "sväljer", en GENOMSKINLIG figur på magen som önske-ledtråd (ingen läsning
+  // krävs), en textetikett + en prickrad ovanför huvudet som räknar upp vad den fått.
+  _makeFriend(key) {
     const s = SIZES[key]
     const w = s.bw
     const h = s.bh
@@ -135,37 +153,113 @@ export default {
     c._w = w
     c._h = h
 
-    const shadow = new Graphics().ellipse(0, h / 2 + 8, w * 0.5, 22).fill({ color: 0x000000, alpha: 0.16 })
-    const body = new Graphics()
-      .roundRect(-w / 2, -h / 2, w, h, 28)
-      .fill(s.color)
-      .stroke({ width: 6, color: 0xffffff, alpha: 0.55 })
-    const mouth = new Graphics().roundRect(-w / 2 + 18, -h / 2 + 14, w - 36, h * 0.4, 18).fill({ color: 0x000000, alpha: 0.18 })
-    const weave = new Graphics()
-    for (let i = 0; i < 3; i++) {
-      weave.roundRect(-w / 2 + 16, h * 0.02 + i * (h * 0.16), w - 32, 8, 4).fill({ color: 0xffffff, alpha: 0.1 })
-    }
-    const lip = new Graphics()
-      .roundRect(-w / 2 - 8, -h / 2 - 8, w + 16, 30, 14)
-      .fill(shade(s.color, 0.18))
-      .stroke({ width: 4, color: 0xffffff, alpha: 0.4 })
+    const shadow = new Graphics().ellipse(0, h / 2 + 12, w * 0.48, 18).fill({ color: 0x000000, alpha: 0.15 })
 
-    // Ikon-ledtråd: en genomskinlig figur i exakt den storlek korgen tar emot.
-    const ghost = new Text({ text: '', style: { fontFamily: FONT.body, fontSize: s.font * 0.7 } })
+    // Kropps-container (allt som ska "svälja"/skvätta) — skala animeras vid mottag.
+    const body = new Container()
+
+    const ears = new Graphics()
+      .circle(-w * 0.3, -h * 0.42, w * 0.13)
+      .fill(s.color)
+      .circle(w * 0.3, -h * 0.42, w * 0.13)
+      .fill(s.color)
+    const shell = new Graphics()
+      .roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.44)
+      .fill(s.color)
+      .stroke({ width: 6, color: 0xffffff, alpha: 0.5 })
+    const belly = new Graphics().ellipse(0, h * 0.22, w * 0.34, h * 0.28).fill({ color: 0xffffff, alpha: 0.2 })
+
+    const eyes = []
+    for (const sx of [-1, 1]) {
+      const eye = new Container()
+      eye.position.set(sx * w * 0.19, -h * 0.16)
+      const white = new Graphics().circle(0, 0, w * 0.12).fill(0xffffff)
+      const pupil = new Graphics().circle(sx * w * 0.02, w * 0.03, w * 0.055).fill(0x333333)
+      eye.addChild(white, pupil)
+      eyes.push(eye)
+    }
+
+    const mouth = new Graphics().ellipse(0, 0, w * 0.14, h * 0.05).fill({ color: 0x3a2a2a, alpha: 0.55 })
+    mouth.position.set(0, h * 0.02) // öppnas via scale.y
+
+    // Önske-ledtråd: genomskinlig figur i exakt den storlek kompisen vill ha.
+    const ghost = new Text({ text: '', style: { fontFamily: FONT.body, fontSize: s.font * 0.5 } })
     ghost.anchor.set(0.5)
-    ghost.y = -h / 2 + h * 0.24
-    ghost.alpha = 0.34
+    ghost.position.set(0, h * 0.3)
+    ghost.alpha = 0.5
+
+    body.addChild(ears, shell, belly, ...eyes, mouth, ghost)
 
     const label = new Text({
       text: s.label,
-      style: { fontFamily: FONT.title, fontSize: key === 'liten' ? 24 : key === 'mellan' ? 28 : 36, fontWeight: '700', fill: COLORS.white },
+      style: { fontFamily: FONT.title, fontSize: key === 'liten' ? 22 : key === 'mellan' ? 26 : 32, fontWeight: '700', fill: COLORS.white },
     })
     label.anchor.set(0.5)
-    label.y = h / 2 - 28
+    label.position.set(0, h / 2 + 20)
 
-    c.addChild(shadow, body, weave, mouth, lip, ghost, label)
+    // Prickrad ovanför huvudet — räknar upp vad kompisen fått denna runda.
+    const dots = new Container()
+    dots.position.set(0, -h / 2 - 24)
+
+    c.addChild(shadow, body, label, dots)
+    c._body = body
+    c._mouth = mouth
+    c._eyes = eyes
     c._ghost = ghost
+    c._dots = dots
+    c._dotR = Math.max(6, w * 0.045)
+    c._filled = 0
     return c
+  },
+
+  // Levande kompis: långsam andning på önske-figuren + slumpvisa blinkningar.
+  _startFriendLife(friend) {
+    friend._ghostBreathe = breathe(friend._ghost, { scale: 1.06, duration: 1.8 })
+    this._scheduleBlink(friend)
+  },
+
+  _scheduleBlink(friend) {
+    if (!this._alive || friend.destroyed) return
+    friend._blinkCall = gsap.delayedCall(1.5 + Math.random() * 3.5, () => {
+      if (!this._alive || friend.destroyed) return
+      for (const eye of friend._eyes) {
+        if (eye.destroyed) continue
+        gsap.killTweensOf(eye.scale)
+        gsap.timeline().to(eye.scale, { y: 0.12, duration: 0.07 }).to(eye.scale, { y: 1, duration: 0.09 })
+      }
+      this._scheduleBlink(friend)
+    })
+  },
+
+  // Storleksbunden reaktion när rätt storlek når rätt kompis: ton (bom/tink),
+  // munnen öppnas, kroppen skvätter proportionellt (stor = tung, liten = lätt),
+  // glada ögon och en proportionell skärmskak.
+  _reactReceive(ctx, friend, key) {
+    const s = SIZES[key]
+    ctx.services.audio.tone(s.tone)
+
+    if (!friend.destroyed) {
+      gsap.killTweensOf(friend._mouth.scale)
+      gsap.timeline().to(friend._mouth.scale, { y: 2, duration: 0.12, ease: 'power2.out' }).to(friend._mouth.scale, { y: 1, duration: 0.24, ease: 'power2.inOut' }, '+=0.05')
+
+      gsap.killTweensOf(friend._body.scale)
+      gsap.timeline().to(friend._body.scale, { x: s.stretchX, y: s.squashY, duration: 0.12, ease: 'power2.out' }).to(friend._body.scale, { x: 1, y: 1, duration: 0.42, ease: 'back.out(2.2)' })
+
+      for (const eye of friend._eyes) {
+        if (eye.destroyed) continue
+        gsap.killTweensOf(eye.scale)
+        gsap.timeline().to(eye.scale, { y: 0.35, duration: 0.12 }).to(eye.scale, { y: 1, duration: 0.28 }, '+=0.1')
+      }
+    }
+    this._shakePlay(s.shakeAmt, 0.35)
+  },
+
+  // Reset + skaka spel-lagret (undviker drift om två släpp överlappar).
+  _shakePlay(intensity, duration) {
+    if (!this._play || this._play.destroyed) return
+    gsap.killTweensOf(this._play)
+    this._play.position.set(0, 0)
+    shake(this._play, { intensity, duration })
   },
 
   // --- Runda --------------------------------------------------------------
@@ -185,21 +279,21 @@ export default {
     const mode = three ? 'three' : 'two'
     this._intro = three ? INTRO_THREE : INTRO_TWO
 
-    if (mode !== this._mode || !this._boxes) {
-      this._buildBoxes(ctx, sizeKeys)
+    if (mode !== this._mode || !this._friends) {
+      this._buildFriends(ctx, sizeKeys)
       this._mode = mode
     }
 
     const emoji = randomFrom(EMOJIS)
 
-    // Uppdatera korgarnas ledtrådsfigur + re-registrera som drop-mål (clear() tog
-    // bort lyssnarna). Generös träffradie efter korgens storlek.
-    for (const box of this._boxes) {
-      box._ghost.text = emoji
-      gsap.killTweensOf(box.scale)
-      box.scale.set(1)
-      const key = box._size
-      this._drag.addTarget(box, (d) => d.size === key, { hitRadius: Math.max(box._w, box._h) * 0.62 })
+    // Uppdatera varje kompis önske-figur + prickrad, och re-registrera som drop-mål
+    // (clear() tog bort lyssnarna). Generös träffradie efter kompisens storlek.
+    for (const friend of this._friends) {
+      this._setupFriendRound(friend, emoji, perSize)
+      gsap.killTweensOf(friend.scale)
+      friend.scale.set(1)
+      const key = friend._size
+      this._drag.addTarget(friend, (d) => d.size === key, { hitRadius: Math.max(friend._w, friend._h) * 0.62 })
     }
 
     const sizes = shuffle(sizeKeys.flatMap((k) => Array.from({ length: perSize }, () => k)))
@@ -258,6 +352,35 @@ export default {
     this._resetIdle(ctx)
   },
 
+  // Uppdatera kompisens rundspecifika delar: önske-figur + töm/rita prickraden.
+  _setupFriendRound(friend, emoji, perSize) {
+    friend._ghost.text = emoji
+    friend._filled = 0
+    const dots = friend._dots
+    for (const ch of dots.children) gsap.killTweensOf(ch.scale)
+    for (const ch of dots.removeChildren()) if (!ch.destroyed) ch.destroy()
+    const r = friend._dotR
+    const gap = r * 2.6
+    const start = -((perSize - 1) * gap) / 2
+    for (let i = 0; i < perSize; i++) {
+      const d = new Graphics().circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.28 }).stroke({ width: 2, color: 0xffffff, alpha: 0.6 })
+      d.position.set(start + i * gap, 0)
+      dots.addChild(d)
+    }
+  },
+
+  // Lys upp nästa prick (räknar upp — sjunker aldrig).
+  _fillNextDot(friend) {
+    if (friend.destroyed) return
+    const dots = friend._dots
+    const d = dots.children[friend._filled]
+    friend._filled = Math.min(friend._filled + 1, dots.children.length)
+    if (!d || d.destroyed) return
+    const r = friend._dotR
+    d.clear().circle(0, 0, r).fill(0xfff3b0).stroke({ width: 2, color: 0xffffff, alpha: 0.9 })
+    pop(d)
+  },
+
   // Föremål = bara figuren (emoji) + mjuk markskugga — ingen platta/ruta bakom.
   // Storleken bär hela poängen. En osynlig, generös träffyta (>=96px i diameter)
   // gör att pekningen alltid funkar trots att den synliga konsten kan vara liten.
@@ -276,15 +399,15 @@ export default {
     return { container: c, body, shadow }
   },
 
-  // Rätt korg: glad röst + ljud, korgen studsar, ring + gnistror, figuren poppar
-  // och krymper ner i korgen.
+  // Rätt kompis: glad röst + storleksbundet ljud/skvätt, prickraden fylls, ring +
+  // gnistror, och figuren poppar och krymper ner i kompisen (blir "uppäten").
   _onCorrect(ctx, rec, target, made) {
     if (!this._alive || rec._done) return
     rec._done = true
     const key = target.view._size
-    ctx.services.audio.sfx(Math.random() < 0.5 ? 'correct' : 'match')
+    this._reactReceive(ctx, target.view, key) // storleksbunden ton + mun + skvätt + skak
     ctx.services.voice.say(randomFrom(WORDS[key]))
-    pop(target.view)
+    this._fillNextDot(target.view)
     ripple(ctx.fxLayer, target.view.x, target.view.y - 12, { color: 0xffffff, maxR: 120 })
     sparkle(ctx.fxLayer, rec.view.x, rec.view.y)
     if (Math.random() < 0.4) floatText(ctx.fxLayer, rec.view.x, rec.view.y - 40, randomFrom(HAPPY))
@@ -309,11 +432,13 @@ export default {
     if (this._remaining <= 0) this._finishRound(ctx)
   },
 
-  // Fel korg: DragController gav redan 'soft' + snäpp hem. Lägg på vänlig vingel +
-  // mjuk ring (aldrig en bestraffning) och då och då en uppmuntrande ledtråd.
+  // Fel kompis: DragController gav redan 'soft' + snäpp hem. Lägg på en vänlig
+  // "nej tack"-vingel på kompisen + mjuk ring (aldrig en bestraffning) och då och
+  // då en uppmuntrande ledtråd.
   _onWrong(ctx, rec, target, made) {
     if (!this._alive) return
     wiggle(made.body)
+    if (!target.view.destroyed) wiggle(target.view._body)
     ripple(ctx.fxLayer, target.view.x, target.view.y - 12, { color: 0xffffff, maxR: 90, alpha: 0.4 })
     this._resetIdle(ctx)
     if (Math.random() < 0.35) ctx.services.voice.say(randomFrom(WRONG))
@@ -330,7 +455,7 @@ export default {
     this._level++
     ctx.progress.setCustom('rounds', this._rounds)
     ctx.progress.setLevel(this._level)
-    shake(this._play, { intensity: 6, duration: 0.4 })
+    this._shakePlay(6, 0.4)
     ctx.progress.complete() // celebrate + beröm + konfetti + stjärna + klistermärke
     this._next = gsap.delayedCall(1.5, () => {
       if (!this._alive) return
@@ -340,7 +465,7 @@ export default {
 
   // --- Hjälp/idle ---------------------------------------------------------
 
-  // Rutnät i spawn-zonen (ovanför korgarna), blandat så placeringen känns ny.
+  // Rutnät i spawn-zonen (ovanför kompisarna), blandat så placeringen känns ny.
   _gridSlots(count) {
     const x0 = 250
     const x1 = 1030
@@ -415,6 +540,23 @@ export default {
     this._itemRecs = []
   },
 
+  // Döda alla tweens/schemata på en kompis (blink, andning, mun, ögon, kropp, prickar).
+  _killFriendTweens(friend) {
+    if (!friend) return
+    friend._blinkCall?.kill()
+    friend._ghostBreathe?.kill()
+    gsap.killTweensOf(friend)
+    gsap.killTweensOf(friend.scale)
+    if (friend._body) {
+      gsap.killTweensOf(friend._body)
+      gsap.killTweensOf(friend._body.scale)
+    }
+    if (friend._mouth) gsap.killTweensOf(friend._mouth.scale)
+    if (friend._ghost) gsap.killTweensOf(friend._ghost.scale)
+    if (friend._eyes) for (const eye of friend._eyes) gsap.killTweensOf(eye.scale)
+    if (friend._dots) for (const ch of friend._dots.children) gsap.killTweensOf(ch.scale)
+  },
+
   destroy(ctx) {
     this._alive = false
     this._idle?.kill()
@@ -433,24 +575,12 @@ export default {
         gsap.killTweensOf(m.container.scale)
       }
     }
-    if (this._boxes) {
-      for (const b of this._boxes) {
-        gsap.killTweensOf(b)
-        gsap.killTweensOf(b.scale)
-      }
+    if (this._friends) {
+      for (const f of this._friends) this._killFriendTweens(f)
     }
     gsap.killTweensOf(this._play)
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
-}
-
-// Mörkare nyans av en hex-färg (för korgens främre kant).
-function shade(hex, amt) {
-  const r = (hex >> 16) & 0xff
-  const g = (hex >> 8) & 0xff
-  const b = hex & 0xff
-  const d = (v) => Math.max(0, Math.round(v * (1 - amt)))
-  return (d(r) << 16) | (d(g) << 8) | d(b)
 }

@@ -129,7 +129,6 @@ export default {
     const L = this._level
     this._cap = L >= 4 ? 5 : L >= 2 ? 4 : 3
     this._speed = L >= 4 ? 330 : L >= 2 ? 300 : 260
-    this._poopChance = L >= 2 ? 0.7 : 0.55
   },
 
   // ---- Scenbyggen ---------------------------------------------------------
@@ -215,17 +214,59 @@ export default {
     bin.eventMode = 'none'
     const g = new Graphics()
     g.roundRect(-70, -90, 140, 170, 22).fill(COLORS.green).stroke({ width: 8, color: COLORS.greenDark })
-    g.roundRect(-78, -98, 156, 24, 11).fill(COLORS.greenDark) // lock-streck
     g.roundRect(-12, -120, 24, 22, 8).fill(COLORS.greenDark) // handtag
     // Vertikala revben.
     for (const rx of [-36, 0, 36]) g.roundRect(rx - 3, -70, 6, 140, 3).fill({ color: COLORS.greenDark, alpha: 0.5 })
     bin.addChild(g)
+
+    // Synlig fyllnad inuti (växer per hög) — ritas under locket, bakom etiketten.
+    this._binFill = new Graphics()
+    this._binFill.eventMode = 'none'
+    bin.addChild(this._binFill)
+
     const label = new Text({ text: '♻️', style: { fontFamily: FONT.body, fontSize: 54 } })
     label.anchor.set(0.5)
     label.position.set(0, -6)
     bin.addChild(label)
+
+    // Lock som öppnas när skyffeln närmar sig (levande tunna). Eget barn med gångjärn
+    // bak-vänster så det vinklar upp; rotation = 0 stängt, negativ = öppet.
+    const lid = new Container()
+    lid.position.set(-78, -86)
+    lid.addChild(new Graphics().roundRect(0, -12, 156, 24, 11).fill(COLORS.greenDark))
+    lid.eventMode = 'none'
+    bin.addChild(lid)
+    this._binLid = lid
+    this._lidOpen = false
+
     this._bin = bin
     this._root.addChild(bin)
+  },
+
+  // Ritar den synliga bajshögen inuti tunnan (växer med insamlade högar).
+  _drawBinFill() {
+    const g = this._binFill
+    if (!g || g.destroyed) return
+    g.clear()
+    const frac = clamp(this._needed ? this._collected / this._needed : 0, 0, 1)
+    if (frac <= 0) return
+    const bot = 64
+    const top = -64
+    const h = (bot - top) * frac
+    g.roundRect(-50, bot - h, 100, h, 10).fill({ color: 0x8a5a3a, alpha: 0.92 })
+    g.ellipse(0, bot - h, 44, 9).fill({ color: 0x6f4530, alpha: 0.95 }) // gullig topp-puckel
+  },
+
+  // Öppnar/stänger locket mjukt (kallas från tickern efter skyffelns avstånd).
+  _setLid(open) {
+    if (this._lidOpen === open || !this._binLid || this._binLid.destroyed) return
+    this._lidOpen = open
+    this._lidTween?.kill()
+    this._lidTween = gsap.to(this._binLid, {
+      rotation: open ? -0.9 : 0,
+      duration: 0.26,
+      ease: open ? 'back.out(2)' : 'power2.in',
+    })
   },
 
   _buildMeter() {
@@ -369,7 +410,11 @@ export default {
     if (!this._alive || this._resolving) return
     const now = performance.now()
     const canPoop = this._poops.length < this._cap && now - this._lastPoop > 2500
-    if (canPoop && (opts.force || Math.random() < this._poopChance)) {
+    // Barnets egna "gå-hit"-tap → valpen bajsar ALLTID där den stannar (tydlig, repeterbar
+    // orsak-verkan som 2-åringar älskar). Auto-vandringen är reserv: bajsar bara när den
+    // tvingas (inget kvar att skyffla), aldrig som spelets motor.
+    const wantPoop = !opts.auto || opts.force
+    if (canPoop && wantPoop) {
       this._poop(ctx)
     } else if (this._dogTail && !this._dogTail.destroyed) {
       pop(this._dogTail) // glad svans-vift
@@ -391,7 +436,8 @@ export default {
     tl.add(() => {
       if (!this._alive || this._resolving) return
       ctx.services.audio.sfx('soft')
-      ctx.services.audio.sfx('pop') // plopp
+      if (!ctx.services.audio.sample('plopp')) ctx.services.audio.sfx('pop') // mjukt plopp (riktigt klipp om det finns)
+      this._yip(ctx) // valp-gläfs
       this._spawnPoop(ctx, px, py)
       floatText(ctx.fxLayer, this._dog.x, this._dog.y - 70, '💨')
       this._lastPoop = performance.now()
@@ -643,6 +689,7 @@ export default {
 
     this._collected++
     this._litSlot(this._collected - 1)
+    this._drawBinFill() // tunnan fylls synligt inuti
     this._meterTween?.kill()
     const target = Math.min(1, this._collected / this._needed)
     const ms = { v: this._meter.v }
@@ -658,9 +705,11 @@ export default {
 
     ctx.services.audio.sfx('whoosh')
     ctx.services.audio.sfx('correct')
+    ctx.services.audio.tone({ freq: 300, slideTo: 90, dur: 0.2, type: 'sine', vol: 0.4 }) // glufs/plask ner i tunnan
     sparkle(ctx.fxLayer, DROP.x, DROP.y)
     floatText(ctx.fxLayer, DROP.x, DROP.y - 30, '💩', { fontSize: 40, rise: 60 })
     if (this._bin && !this._bin.destroyed) pop(this._bin)
+    if (this._binLid && !this._binLid.destroyed) pop(this._binLid) // locket "glufsar"
 
     if (this._collected >= this._needed) this._finish(ctx)
   },
@@ -687,6 +736,12 @@ export default {
         f._ang += f._spd * dt
         f.position.set(pile.x + Math.cos(f._ang) * f._r, pile.y - 6 + Math.sin(f._ang) * f._r * 0.6)
       }
+    }
+
+    // Levande tunna: locket gläntar upp när skyffeln (eller en buren hög) närmar sig munnen.
+    if (this._scooper && !this._scooper.destroyed) {
+      const near = Math.hypot(this._scooper.x - DROP.x, this._scooper.y - DROP.y) < DROP.r + 40
+      this._setLid(near)
     }
 
     if (this._resolving) return
@@ -763,12 +818,20 @@ export default {
     if (!this._alive || this._resolving || this._walking) return
     const tx = 220 + Math.random() * 720 // håll auto-vandring borta från tunnan
     const ty = WALK.y0 + 20 + Math.random() * (WALK.y1 - WALK.y0 - 40)
-    this._walkTo(ctx, tx, ty, { force: !!force || this._poops.length < 1 })
+    this._walkTo(ctx, tx, ty, { auto: true, force: !!force || this._poops.length < 1 })
   },
 
   _poke() {
     this._idle = 0
     this._idleHelps = 0
+  },
+
+  // Valp-gläfs: spela ett riktigt hundklipp om det finns, annars en mjuk syntetisk tjut.
+  _yip(ctx) {
+    if (!this._alive) return
+    if (!ctx.services.audio.sample('djur_hund')) {
+      ctx.services.audio.tone({ freq: 640, slideTo: 900, dur: 0.12, type: 'triangle', vol: 0.28 })
+    }
   },
 
   // ---- Runda klar → firande → ny runda -----------------------------------
@@ -779,6 +842,7 @@ export default {
     this._scooping = false
 
     ctx.services.audio.sfx('celebrate')
+    this._yip(ctx) // valpen gläfser av glädje
     ctx.services.voice.say('Hurra! Parken är ren!')
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
@@ -819,6 +883,7 @@ export default {
     this._meterTween?.kill()
     this._hintTween?.kill()
     this._hopTl?.kill()
+    this._lidTween?.kill()
     this._scoopCueCall?.kill?.()
     this._loose.forEach((t) => t?.kill?.())
     this._loose = []
@@ -847,8 +912,16 @@ export default {
     this._collected = 0
     this._meter.v = 0
     this._drawMeter()
+    this._drawBinFill()
     this._layoutSlots()
     if (this._hintGfx && !this._hintGfx.destroyed) this._hintGfx.clear()
+
+    // Stäng locket inför ny runda.
+    if (this._binLid && !this._binLid.destroyed) {
+      gsap.killTweensOf(this._binLid)
+      this._binLid.rotation = 0
+    }
+    this._lidOpen = false
 
     // Valpen till mitten.
     gsap.killTweensOf(this._dog)
@@ -896,9 +969,11 @@ export default {
     this._meterTween?.kill()
     this._hintTween?.kill()
     this._hopTl?.kill()
+    this._lidTween?.kill()
     this._finishCall?.kill?.()
     this._scoopCueCall?.kill?.()
     this._loose?.forEach((t) => t?.kill?.())
+    if (this._binLid && !this._binLid.destroyed) gsap.killTweensOf(this._binLid)
 
     for (const pile of this._poops || []) {
       if (!pile) continue

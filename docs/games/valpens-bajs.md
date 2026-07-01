@@ -1,5 +1,5 @@
 # Valpens Bajs (`valpens-bajs`)
-> ⚙️ motorik · mixed · 2–4 år · status: 📝 plan klar
+> ⚙️ motorik · mixed · 2–4 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -110,3 +110,13 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
   playtest som bekräftar rätt skalad gräsyta). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] alltid-bajs-där-valpen-stannar + [Quick] levande tunna
   + [Quick] valp-gläfs** — gör kärn-orsak-verkan tydlig och finishen mysig.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). (1) **Alltid-bajs där valpen stannar:**
+  slumpen (`_poopChance`) borttagen — barnets egna "gå-hit"-tap ger ALLTID en hög (behåller cap +
+  2,5s cooldown), medan auto-vandringen märks `{auto:true}` och bajsar bara när den tvingas → tydlig,
+  repeterbar orsak-verkan; auto blir reserv, inte motor. (2) **Levande tunna:** locket är nu ett eget
+  gångjärns-barn som gläntar upp när skyffeln närmar sig munnen (tick-avstånd), en synlig bajshög växer
+  inuti tunnan per insamlad hög (`_drawBinFill`), plus en "glufs" (lock-pop) + plask-ton vid nedsläpp.
+  (3) **Valp-gläfs:** riktigt hundklipp `sample('djur_hund')` (mjuk synt-tjut som fallback) vid varje
+  bajs och vid vinst; bajs-plopp uppgraderat till riktigt `sample('plopp')`-klipp. Allt exit-säkert
+  (lock-tween dödas i reset/destroy, fill/lock nollställs per runda). Verifierat i scen: allt grundat,
+  ingen svävar i skyn; deposit tänder mätaren och fyller tunnan synligt.

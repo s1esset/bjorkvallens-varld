@@ -32,12 +32,18 @@ const IDLE = [
   'Titta, någon kikar upp! Klappa försiktigt.',
   'Var är djuren? Klappa när de tittar upp!',
 ]
-const GENTLE = ['Vad fint du klappar!', 'Mjukt och snällt!', 'Klapp klapp!', 'Så bra klappat!', 'Hihi!']
+// Beröm (talad svenska) — INGET "Hihi!" längre: fnisset är nu ett riktigt djurläte (se _critterSound).
+const GENTLE = ['Vad fint du klappar!', 'Mjukt och snällt!', 'Klapp klapp!', 'Så bra klappat!']
 // Glada bilder som flyter upp vid en klapp (emoji = ingen läsning krävs).
 const JOY = ['😄', '🥰', '✨', '💛', '🐾', '😊']
 
 // De djur som kan dyka upp (introduceras gradvis med nivån). ASCII-id:n.
 const SPECIES = ['mullvad', 'kanin', 'igelkott', 'mus', 'groda']
+
+// Riktigt inspelat läte per art om det finns (SFX-pipelinen, sample('djur_…')).
+const SAMPLE_FOR = { groda: 'djur_groda' }
+// Annars ett sött litet "pip" per art med egen tonhöjd (mus = ljusast, mullvad = mörkast).
+const PIP_FOR = { mullvad: 520, kanin: 680, igelkott: 600, mus: 900, groda: 440 }
 
 // Mjuk nivåtrappa: aldrig stressig, alltid generös uppe-tid (golv 1,8 s). Fler hål,
 // fler djur-arter och något snabbare uppdyk när nivån stiger.
@@ -153,10 +159,16 @@ export default {
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const x = cols > 1 ? FX0 + (c * (FX1 - FX0)) / (cols - 1) : (FX0 + FX1) / 2
-        const y = rows > 1 ? FY0 + (r * (FY1 - FY0)) / (rows - 1) : (FY0 + FY1) / 2
+        let x = cols > 1 ? FX0 + (c * (FX1 - FX0)) / (cols - 1) : (FX0 + FX1) / 2
+        let y = rows > 1 ? FY0 + (r * (FY1 - FY0)) / (rows - 1) : (FY0 + FY1) / 2
+        // Organisk placering: liten jitter + storlek/rotation-variation så ängen ser
+        // handgjord ut, inte som ett exakt rutnät (varje hög blir sin egen).
+        x += (Math.random() * 2 - 1) * 30
+        y += (Math.random() * 2 - 1) * 18
         const hole = this._makeHole(ctx)
         hole.position.set(x, y)
+        hole.scale.set(0.93 + Math.random() * 0.14)
+        hole.rotation = (Math.random() * 2 - 1) * 0.05
         this._field.addChild(hole)
         this._holes.push(hole)
       }
@@ -212,7 +224,8 @@ export default {
     lip.eventMode = 'none'
     hole.addChild(lip)
 
-    hole._state = 'down' // 'down' | 'rising' | 'up' | 'patted' | 'ducking'
+    hole._state = 'down' // 'down' | 'telling' | 'rising' | 'up' | 'patted' | 'ducking'
+    hole._mound = mound
     hole._wrap = wrap
     hole._critter = null
     hole._eyes = null
@@ -241,7 +254,9 @@ export default {
       this._killCritterTweens(hole)
       hole._critter.destroy({ children: true })
     }
-    const cr = makeCritter(this._pickSpecies())
+    const species = this._pickSpecies()
+    hole._species = species
+    const cr = makeCritter(species)
     hole._critter = cr.node
     hole._eyes = cr.eyes
     hole._mouth = cr.mouth
@@ -253,6 +268,28 @@ export default {
   _pickSpecies() {
     if (Math.random() < 0.4) return 'mullvad'
     return randomFrom(SPECIES.slice(0, this._p.variety))
+  },
+
+  // "Tell" innan uppdyk: jorden buktar/skakar ~0,4 s så barnet hinner förvänta sig och
+  // sikta (bygger spänning utan tidspress). Efteråt reser sig djuret ur just det hålet.
+  _tell(hole) {
+    if (!this._alive || hole._state !== 'down') return
+    hole._state = 'telling'
+    const m = hole._mound
+    gsap.killTweensOf(m.scale)
+    gsap.to(m.scale, { x: 0.95, y: 1.14, duration: 0.1, yoyo: true, repeat: 3, ease: 'sine.inOut' })
+    puff(this._fx, hole.x, hole.y + 10, { count: 3, color: DIRT })
+    const call = gsap.delayedCall(0.4, () => {
+      if (!this._alive) return
+      if (m && !m.destroyed) m.scale.set(1)
+      if (hole._state !== 'telling') return
+      if (this._roundDone) hole._state = 'down'
+      else {
+        hole._state = 'down' // _raise kräver 'down'
+        this._raise(hole)
+      }
+    })
+    this._calls.push(call)
   },
 
   // Res ett gömt djur lugnt upp med liten squash/stretch + jordpuff.
@@ -335,6 +372,15 @@ export default {
     }
   },
 
+  // Artens egen röst vid klapp: riktigt inspelat läte om det finns (t.ex. grodan), annars
+  // ett sött litet stigande "pip" med egen tonhöjd per art — aldrig TTS "Hihi!".
+  _critterSound(ctx, species) {
+    const key = SAMPLE_FOR[species]
+    if (key && ctx.services.audio.sample(key)) return
+    const base = PIP_FOR[species] || 660
+    ctx.services.audio.tone({ freq: base, dur: 0.14, type: 'triangle', vol: 0.5, slideTo: base * 1.5 })
+  },
+
   // Lyckad klapp på ett uppe-djur: direkt-juice (<100ms) + glatt fniss + nerdyk. Allt är "rätt".
   _whack(ctx, hole) {
     if (!this._alive || this._roundDone || hole._state !== 'up') return
@@ -346,7 +392,8 @@ export default {
     const cx = hole.x
     const cy = hole.y + MOLE_UP_Y
 
-    ctx.services.audio.sfx(Math.random() < 0.3 ? 'pling' : 'pop')
+    ctx.services.audio.sfx('pop') // taktil klapp-plopp
+    this._critterSound(ctx, hole._species) // + riktigt djurläte/pip som "fniss"
     ripple(this._fx, cx, cy, { color: 0xffffff, maxR: 84 })
     pop(hole._critter)
     wiggle(hole._critter)
@@ -440,7 +487,7 @@ export default {
     const occupied = this._holes.filter((h) => h._state !== 'down').length
     if (occupied >= this._p.cap) return
     const down = this._holes.filter((h) => h._state === 'down')
-    if (down.length) this._raise(randomFrom(down))
+    if (down.length) this._tell(randomFrom(down))
   },
 
   _update(ctx, ticker) {
@@ -500,6 +547,7 @@ export default {
     gsap.killTweensOf(hole)
     gsap.killTweensOf(hole.scale)
     if (hole._wrap) gsap.killTweensOf(hole._wrap)
+    if (hole._mound) gsap.killTweensOf(hole._mound.scale)
     this._killCritterTweens(hole)
   },
 

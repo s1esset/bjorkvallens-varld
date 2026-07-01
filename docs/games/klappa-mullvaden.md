@@ -1,5 +1,5 @@
 # Klappa Mullvaden (`klappa-mullvaden`)
-> 🐹 motorik · tap · 2–5 år · status: 📝 plan klar
+> 🐹 motorik · tap · 2–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -92,3 +92,16 @@ ger upptäckarglädje utan att någonsin bli stressande.
   Spelet testat (errorCount 0; äng + 6 hål + mullvad renderar korrekt).
 - Rekommenderad första-omgång: **[Quick] tell före uppdyk + organisk hålplacering + riktiga
   djurläten** — gör scenen levande och spänningen begriplig för minst risk.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Implementerade de tre rekommenderade
+  [Quick]-punkterna ur §4:
+  - **Tell före uppdyk:** nytt `telling`-tillstånd — jorden i det utvalda hålet buktar/skakar
+    (`_mound.scale`-throb, yoyo ×3 ≈ 0,4 s) + liten jordpuff INNAN djuret reser sig, så barnet
+    hinner förvänta sig och sikta (spänning utan tidspress). `_trySpawn` → `_tell` → `_raise`.
+  - **Organisk hålplacering:** rutnätet fick jitter (±30 px x / ±18 px y) + per-hål storleks-
+    (0,93–1,07) och rotationsvariation (±0,05 rad) → ängen ser handgjord ut, inte genererad.
+  - **Riktiga djurläten (inte TTS "Hihi!"):** ny `_critterSound` spelar ett äkta inspelat läte
+    när det finns (grodan → `sample('djur_groda')`, [[real-audio-sfx]]), annars ett sött litet
+    stigande "pip" med **egen tonhöjd per art** (`audio.tone`, mus ljusast → mullvad mörkast) —
+    ger varje art eget ljud. "Hihi!" borttaget ur GENTLE-fraserna.
+  - Exit-säkerhet bevarad: mound-tweens dödas i `_killHoleTweens`, tell-`delayedCall` läggs i
+    `this._calls`, alla onComplete guardade med `_alive`/tillståndskoll.

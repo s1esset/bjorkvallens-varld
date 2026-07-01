@@ -109,3 +109,10 @@ bildbyte utan eget uttryck**, och världen minns inget av det jag skapat.
   Speltestad (errorCount 0, skärmdump granskad). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] kedjespecifik poff + stigande förvandlingsljud +
   stegtrappa per pod** — störst upplevd magi för minst risk, rör inte kärnloopen.
+- 2026-07-01 🔧 **Första-omgången byggd (alla tre [Quick]):** (1) **kedjespecifik poff** —
+  ny `FLAVORS`-karta (per kedjas första-emoji) ger egna partikelfärger + en flöts-emoji
+  (🍃 blad, 💧 droppe, 💨 rök, ❤️ hjärta, ⭐ stjärnstoft …) i `_poof(obj)`. (2) **Stigande
+  förvandlingston** via `audio.tone()` — varje steg klättrar ett halvtonsteg (440·2^(steg/12)),
+  sista steget ett litet "ta-da" (784→1047 Hz). (3) **Stegtrappa per pod** — små punkter ovanför
+  varje pad (`chain.length−1` st) fylls med `_refreshSteps` så barnet ser hur många tryck som är
+  kvar. Städning: oanvänd `puff`-import bort. errorCount 0.

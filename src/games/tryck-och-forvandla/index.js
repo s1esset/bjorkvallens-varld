@@ -12,7 +12,7 @@
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, puff, sparkle, burst, ripple, floatText, breathe, shake } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, burst, ripple, floatText, breathe, shake } from '../../lib/feedback.js'
 import { COLORS, PLAYFUL, FONT } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -34,6 +34,21 @@ const CHAINS = [
 
 // Lugna idle-uppmuntringar (sägs efter ~7s tystnad).
 const HINTS = ['Tryck på en sak till!', 'Vad blir det här?', 'Tryck så förvandlas de!', 'Förvandla mer!']
+
+// Kedjespecifik poff-smak (nyckel = kedjans FÖRSTA emoji): egna partikelfärger + en
+// liten flöts-emoji (blad/droppe/hjärta/stjärnstoft). Ger varje förvandling eget uttryck.
+const FLAVORS = {
+  '🌰': { colors: [0x5bbf6a, 0x3f9e52], puff: '🍃' },
+  '🥚': { colors: [0xffd35c, 0xffe08a], puff: '💛' },
+  '☁️': { colors: [0x4aa3df, 0x9ad0f0], puff: '💧' },
+  '🚗': { colors: [0x9aa7b0, 0xff8a3d], puff: '💨' },
+  '🐛': { colors: [0xff9ec4, 0xa78bfa, 0xffd35c], puff: '🦋' },
+  '❄️': { colors: [0xcfeeff, 0xffffff], puff: '❄️' },
+  '🐶': { colors: [0xff6b6b, 0xff9ec4], puff: '❤️' },
+  '🐱': { colors: [0xff6b6b, 0xff9ec4], puff: '❤️' },
+  '✨': { colors: [0xffd35c, 0xfff3b0], puff: '⭐' },
+  '🌙': { colors: [0xa78bfa, 0xfff3b0], puff: '✨' },
+}
 
 const MAX_LEVEL = 6
 const MAX_OBJ = 6
@@ -174,13 +189,23 @@ export default {
     label.anchor.set(0.5)
     label.eventMode = 'none'
 
-    cont.addChild(shadow, pad, label)
+    // Stegtrappa: små punkter ovanför pod:en visar hur många tryck som är kvar.
+    const taps = chain.length - 1
+    const stepDots = new Container()
+    stepDots.eventMode = 'none'
+    for (let s = 0; s < taps; s++) {
+      const dot = new Graphics().circle(0, 0, 7).fill({ color: tint, alpha: 0.3 }).stroke({ width: 2, color: tint, alpha: 0.6 })
+      dot.position.set((s - (taps - 1) / 2) * 22, -podR - 20)
+      stepDots.addChild(dot)
+    }
+
+    cont.addChild(shadow, pad, stepDots, label)
     const halo = podR + 26 // generös, osynlig hit-halo (>=96px mål)
     cont.hitArea = new Rectangle(-halo, -halo, halo * 2, halo * 2)
     cont.eventMode = 'static'
     cont.cursor = 'pointer'
 
-    const obj = { chain, stage: 0, cont, label, shadow, x: pt.x, y: pt.y, done: false, busy: false, breatheT: null, phase: Math.random() * Math.PI * 2 }
+    const obj = { chain, stage: 0, cont, label, shadow, stepDots, tint, x: pt.x, y: pt.y, done: false, busy: false, breatheT: null, phase: Math.random() * Math.PI * 2 }
     cont.on('pointertap', () => this._advance(ctx, obj))
     this._play.addChild(cont)
 
@@ -210,9 +235,17 @@ export default {
     const st = obj.chain[obj.stage]
     const final = obj.stage === obj.chain.length - 1
 
-    // Direkt återkoppling (<100ms): ljud + ring + poff.
-    ctx.services.audio.sfx(final ? 'reveal' : 'pop')
-    this._poof(obj.x, obj.y, final)
+    // Direkt återkoppling (<100ms): kedjespecifik poff + STIGANDE förvandlingston.
+    if (final) {
+      ctx.services.audio.sfx('reveal')
+      ctx.services.audio.tone({ freq: 784, dur: 0.16, type: 'triangle', vol: 0.2 }) // litet "ta-da"
+      ctx.services.audio.tone({ freq: 1047, dur: 0.24, type: 'triangle', vol: 0.2, delay: 0.13 })
+    } else {
+      ctx.services.audio.sfx('pop')
+      ctx.services.audio.tone({ freq: 440 * Math.pow(2, obj.stage / 12), dur: 0.14, type: 'sine', vol: 0.18 })
+    }
+    this._poof(obj, final)
+    this._refreshSteps(obj)
 
     this._count++
     ctx.progress.setCustom('forvandlingar', this._count)
@@ -268,10 +301,26 @@ export default {
     if (un.length) wiggle(randomFrom(un).cont)
   },
 
-  _poof(x, y, big) {
-    ripple(this._fx, x, y, { maxR: big ? 110 : 80, color: 0xffffff, width: 6 })
-    if (big) burst(this._fx, x, y, { count: 16, power: 1.1 })
-    else puff(this._fx, x, y, { count: 10 })
+  // Kedjespecifik poff: egna partikelfärger + en liten flöts-emoji (blad/droppe/hjärta …).
+  _poof(obj, big) {
+    const x = obj.x
+    const y = obj.y
+    const fl = FLAVORS[obj.chain[0].e] || { colors: PLAYFUL, puff: '✨' }
+    ripple(this._fx, x, y, { maxR: big ? 110 : 80, color: fl.colors[0], width: 6 })
+    burst(this._fx, x, y, { count: big ? 16 : 10, power: big ? 1.1 : 0.9, colors: fl.colors })
+    floatText(this._fx, x + (Math.random() * 36 - 18), y - 6, fl.puff, { fontSize: big ? 40 : 30, rise: 52 })
+  },
+
+  // Fyll pod:ens stegprickar upp till aktuellt steg (visar hur många tryck som är kvar).
+  _refreshSteps(obj) {
+    const sd = obj.stepDots
+    if (!sd || sd.destroyed) return
+    const kids = sd.children
+    for (let s = 0; s < kids.length; s++) {
+      const d = kids[s].clear()
+      if (s < obj.stage) d.circle(0, 0, 8).fill(PLAYFUL[s % PLAYFUL.length])
+      else d.circle(0, 0, 7).fill({ color: obj.tint, alpha: 0.3 }).stroke({ width: 2, color: obj.tint, alpha: 0.6 })
+    }
   },
 
   // --- omgångs-slut + nivå ------------------------------------------------

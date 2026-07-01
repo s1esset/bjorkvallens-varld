@@ -94,4 +94,10 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
   Spelet testat (errorCount 0; drag tände prickar och ritade färgat segment till pennan).
 - Rekommenderad första-omgång: **[Medium] prickar som bildar ett motiv + [Quick] krit-ljud/
   stigande melodi + [Quick] mjukare auto-hjälp** — gör spårandet till att rita NÅGOT.
+- 2026-07-01 🔧 **Mönster #1 (auto-hjälp) mjukad [Quick]:** auto-hjälpen ritade förut hela
+  formen själv vid passivitet (tände en prick var ~5:e s via `_idle = IDLE_DELAY`-återarmering).
+  Nu tänds bara EN prick, sedan full idle-reset (`_idle=0`, `_cued=false`) → ny recue och lång
+  väntan på barnet igen; AUTO_DELAY 11→14 s. Teckningen ritar inte längre sig själv, men rundan
+  går ändå alltid att slutföra (no-fail). Städning: oanvänd `ctx`-param bort ur `_buildRound`.
+  errorCount 0.
 

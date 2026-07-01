@@ -30,7 +30,7 @@ const DOT_R = 34 // vägpunkts-radie
 const HIT_R = 70 // osynlig träffradie (≥96px Ø träffyta) — generös korridor
 const INK_W = 22 // tjocklek på det färglagda spåret
 const IDLE_DELAY = 6 // s utan interaktion innan röst-recue + puls
-const AUTO_DELAY = 11 // s utan interaktion → auto-tänd nästa prick (garanterar klart, no-fail)
+const AUTO_DELAY = 14 // s utan interaktion → auto-tänd EN prick, vänta sedan på barnet igen (no-fail)
 
 // Logisk ruta som alla formgeneratorer ritar inom (med marginal till papperskanten).
 const BOX = { x0: 250, x1: 1030, cx: 640, top: 250, bot: 555, cy: 402 }
@@ -203,7 +203,7 @@ export default {
     this._paper.on('pointerup', this._onUp)
     this._paper.on('pointerupoutside', this._onUp)
 
-    this._buildRound(ctx)
+    this._buildRound()
 
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
@@ -217,7 +217,7 @@ export default {
 
   // ---- Rundor: bygg en ny form (oändlig, stigande lek) --------------------
 
-  _buildRound(ctx) {
+  _buildRound() {
     if (!this._alive) return
     // Städa förra rundans tweens + prickar.
     this._celebrateTL?.kill()
@@ -457,7 +457,7 @@ export default {
     ctx.progress.complete()
 
     this._nextRoundCall = gsap.delayedCall(1.4, () => {
-      if (this._alive) this._buildRound(ctx)
+      if (this._alive) this._buildRound()
     })
   },
 
@@ -475,9 +475,12 @@ export default {
       if (d && !d.destroyed) wiggle(d)
       this._pulseNext()
     }
-    // 2) Fortsatt stillastående: tänd nästa prick automatiskt (garanterar klart).
+    // 2) Fortsatt stillastående: tänd EN prick automatiskt och vänta sedan på barnet igen
+    //    (full idle-reset + ny recue) — teckningen ritar INTE sig själv vid passivitet,
+    //    men rundan går ändå alltid att slutföra (no-fail).
     if (this._idle >= AUTO_DELAY) {
-      this._idle = IDLE_DELAY // åter-armera: nästa auto-steg om ~(AUTO_DELAY−IDLE_DELAY)s
+      this._idle = 0
+      this._cued = false
       this._autoAdvance(ctx)
     }
   },

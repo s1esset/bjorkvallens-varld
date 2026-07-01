@@ -1,5 +1,5 @@
 # Spindelhjälten (`spindelhjalten`)
-> ⚙️ fysik · drag · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -107,3 +107,16 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   avsnittet). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] infria kattung-räddningen + [Quick] fler studsmoln
   + kombo-pling** — ger mål-känsla och fyller den tomma luften, störst upplevd lyft.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). (1) *Kattung-räddningen infriad*:
+  kattungen sitter nu bakom ett litet galler (bur) som **svänger upp** vid räddning, ett
+  riktigt "mjau" (`audio.sample('djur_katt')`, faller till talad "Mjau!"), och kattungen
+  (bara emojin, inte molnledgen) **hoppar i en båge ner i hjältens famn**. Den är nu banans
+  FINALmål — kan inte tas förrän alla stjärnor är samlade (gate i `_checkCollect` +
+  `_nearestTarget`, så även hjälp-skotten tar den sist). (2) *Fler studsmoln*: 1–2 passiva,
+  slumpplacerade `makeCloudBumper`-moln per nivå (statiska matter-kroppar, label `bumper`)
+  fyller den tomma luften mellan slangbella och stjärnor → fler boing, mer bana. Studsknopp-
+  hanteringen generaliserad till en `_bumpers`-lista (rätt knopp poppar vid krock). (3)
+  *Kombo-pling + gnistsvans*: varje stjärna i SAMMA skott klättrar i tonhöjd
+  (`audio.tone`, +130 Hz/steg) med en `×N`-flyttext, och en liten självstädande gnistsvans
+  ritar hjältens flygbana. Kombot nollas vid varje nytt skott/glid. Alla nya tweens är
+  exit-säkra (proxy-`{}` eller spårade i destroy). Ingen fail-state rörd; hjälp-trappan intakt.

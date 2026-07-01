@@ -71,9 +71,12 @@ export default {
     this._collectedThisThrow = false
     this._heroBody = null
     this._targets = []
+    this._bumpers = [] // studsknopp + passiva studsmoln (statiska matter-kroppar)
     this._chevrons = []
     this._windDir = 0
     this._windMag = 0.16
+    this._combo = 0 // stjärnor tagna i SAMMA skott (driver kombo-plinget)
+    this._trailT = 0 // gnistsvans-timer under flykt
 
     this._root = new Container()
     this._root.sortableChildren = false
@@ -190,9 +193,21 @@ export default {
     const kitten = level >= 2 ? { x: clamp(1080 + level * 8, 1080, 1190), y: clamp(220 - level * 12, 150, 220), kind: 'kitten', r: 40 } : null
     // Flytande studsknopp från nivå 1 (att studsa runt).
     const bumper = level >= 1 ? { x: clamp(620 + rnd(-40, 60), 560, 760), y: clamp(rnd(360, 440), 340, 460), r: clamp(46 + level * 4, 46, 78) } : null
+    // 1–2 passiva studsmoln som fyller den tomma luften på vägen till stjärnorna
+    // (fler "boing", mer bana). Slumpad placering + antal ger mjuk variation per nivå.
+    const clouds = []
+    const cloudCount = 1 + (Math.random() < 0.6 ? 1 : 0)
+    for (let i = 0; i < cloudCount; i++) {
+      clouds.push({
+        kind: 'cloud',
+        x: clamp(rnd(380, 560) + i * 240, 340, 960),
+        y: clamp(rnd(270, 470), 250, 480),
+        r: clamp(42 + rnd(-6, 12), 34, 58),
+      })
+    }
     // Vindstyrka växer med nivån.
     const windMag = 0.15 + Math.min(level, 4) * 0.035
-    return { stars, kitten, bumper, windMag }
+    return { stars, kitten, bumper, clouds, windMag }
   },
 
   _loadLevel(ctx, level) {
@@ -204,6 +219,7 @@ export default {
     this._misses = 0
     this._assisting = false
     this._collectedThisThrow = false
+    this._combo = 0
     this._flightT = 0
     this._restT = 0
     this._idle = 0
@@ -216,8 +232,9 @@ export default {
     for (const s of lay.stars) this._addTarget(s)
     if (lay.kitten) this._addTarget(lay.kitten)
 
-    // Studsknopp (statisk matter-kropp + grafik).
+    // Studsknopp (statisk matter-kropp + grafik) + passiva studsmoln.
     if (lay.bumper) this._addBumper(lay.bumper)
+    for (const cl of lay.clouds) this._addBumper(cl)
 
     // Hjälten tillbaka i slangbellan, upprätt och full storlek.
     gsap.killTweensOf(this._hero)
@@ -244,10 +261,11 @@ export default {
       }
     }
     this._targets = []
-    if (this._bumperBody) {
-      this._phys.removeBody(this._bumperBody)
-      this._bumperBody = null
+    for (const bm of this._bumpers) {
+      if (bm.view && !bm.view.destroyed) gsap.killTweensOf(bm.view.scale)
+      this._phys.removeBody(bm.body)
     }
+    this._bumpers = []
     if (this._bumperLayer) {
       for (const c of [...this._bumperLayer.children]) c.destroy({ children: true })
     }
@@ -262,12 +280,12 @@ export default {
   },
 
   _addBumper(def) {
-    const view = makeBumper(def.r)
+    const view = def.kind === 'cloud' ? makeCloudBumper(def.r) : makeBumper(def.r)
     view.position.set(def.x, def.y)
     view.eventMode = 'none'
     this._bumperLayer.addChild(view)
-    this._bumperView = view
-    this._bumperBody = this._phys.circle(def.x, def.y, def.r, { isStatic: true, restitution: 1.0, friction: 0.2, label: 'bumper' })
+    const body = this._phys.circle(def.x, def.y, def.r, { isStatic: true, restitution: 1.0, friction: 0.2, label: 'bumper' })
+    this._bumpers.push({ body, view })
   },
 
   // ---- Skott + flyg -------------------------------------------------------
@@ -277,6 +295,8 @@ export default {
     this._mode = 'flying'
     this._flightT = 0
     this._restT = 0
+    this._combo = 0 // nytt skott -> kombo-räknaren nollas
+    this._trailT = 0
     this._launcher.setEnabled(false)
     this._clearBand()
 
@@ -306,6 +326,12 @@ export default {
 
     if (this._mode === 'flying' || this._mode === 'gliding') {
       if (this._mode === 'flying') this._flightT += dt
+      // Gnistsvans efter hjälten så flygbanan han ritar syns i luften.
+      this._trailT += dt
+      if (this._trailT >= 0.05) {
+        this._trailT = 0
+        this._dropTrail(ctx)
+      }
       this._checkCollect(ctx)
       if (this._won) return
       const b = this._heroBody
@@ -345,8 +371,11 @@ export default {
   _checkCollect(ctx) {
     const hx = this._hero.x
     const hy = this._hero.y
+    // Kattungen räddas SIST — den kan inte tas förrän alla stjärnor är samlade.
+    const starsLeft = this._targets.some((s) => s.kind !== 'kitten' && !s.collected)
     for (const t of this._targets) {
       if (t.collected) continue
+      if (t.kind === 'kitten' && starsLeft) continue
       const base = t.kind === 'kitten' ? KITTEN_HIT : STAR_HIT
       const cr = base + (this._assisting ? ASSIST_BONUS : 0)
       if (Math.hypot(hx - t.x, hy - t.y) < cr) this._collect(ctx, t)
@@ -357,25 +386,106 @@ export default {
     if (t.collected) return
     t.collected = true
     this._collectedThisThrow = true
+
+    if (t.kind === 'kitten') return this._rescueKitten(ctx, t)
+
+    // Kombo-pling: varje stjärna i SAMMA skott klättrar i tonhöjd (stigande glädje).
+    this._combo++
     ctx.services.audio.sfx('reveal')
-    ctx.services.audio.sfx('pling')
+    ctx.services.audio.tone({ freq: 620 + this._combo * 130, dur: 0.16, type: 'triangle', vol: 0.34 })
     sparkle(ctx.fxLayer, t.x, t.y, { count: 8 })
     burst(ctx.fxLayer, t.x, t.y, { count: 10 })
-    floatText(ctx.fxLayer, t.x, t.y - 12, t.kind === 'kitten' ? '🐱' : '⭐', { fontSize: 58 })
+    floatText(ctx.fxLayer, t.x, t.y - 12, '⭐', { fontSize: 58 })
+    if (this._combo >= 2) floatText(ctx.fxLayer, t.x, t.y - 58, `×${this._combo}`, { fontSize: 40 })
+    this._shrinkAway(t.view)
+    if (this._targets.every((x) => x.collected)) this._win(ctx)
+  },
+
+  // Infria "instängd kattunge": buren öppnas, ett mjau, och kattungen hoppar ner i
+  // Spindelhjältens famn. Banans FINALmål (räddas sist, se _checkCollect).
+  _rescueKitten(ctx, t) {
     const v = t.view
-    if (v && !v.destroyed) {
-      gsap.killTweensOf(v.scale)
-      gsap.to(v.scale, {
-        x: 0,
-        y: 0,
-        duration: 0.3,
-        ease: 'back.in(2)',
+    if (v && !v.destroyed && v.openCage) v.openCage()
+    // Riktigt kattläte om klippet finns, annars talad "Mjau!".
+    if (!ctx.services.audio.sample('djur_katt')) ctx.services.voice.say('Mjau!')
+    ctx.services.audio.sfx('reveal')
+    sparkle(ctx.fxLayer, t.x, t.y, { count: 10 })
+    floatText(ctx.fxLayer, t.x + 44, t.y - 28, '💛', { fontSize: 40 })
+    // Bara kattungen (inte molnledgen) hoppar i en båge mot hjälten.
+    const cat = v && !v.destroyed ? v.cat : null
+    if (cat && !cat.destroyed) {
+      const hx = this._hero?.x ?? t.x
+      const hy = this._hero?.y ?? t.y
+      const sx = cat.x
+      const sy = cat.y
+      const ex = hx - t.x // hjälten i kattungens lokala rymd (lagren är oskalade)
+      const ey = hy - t.y
+      const mx = (sx + ex) / 2
+      const my = Math.min(sy, ey) - 90
+      const st = { p: 0 }
+      gsap.killTweensOf(cat)
+      this._kittenTween = gsap.to(st, {
+        p: 1,
+        duration: 0.6,
+        ease: 'power1.in',
+        onUpdate: () => {
+          if (cat.destroyed) {
+            this._kittenTween?.kill()
+            return
+          }
+          const p = st.p
+          const q = 1 - p
+          cat.x = q * q * sx + 2 * q * p * mx + p * p * ex
+          cat.y = q * q * sy + 2 * q * p * my + p * p * ey
+        },
         onComplete: () => {
-          if (!v.destroyed) v.visible = false
+          if (!cat.destroyed) cat.visible = false
         },
       })
     }
     if (this._targets.every((x) => x.collected)) this._win(ctx)
+  },
+
+  // Krymper bort en insamlad stjärna (exit-säkert; scale-tweens dödas i destroy/_clearLevel).
+  _shrinkAway(v) {
+    if (!v || v.destroyed) return
+    gsap.killTweensOf(v.scale)
+    gsap.to(v.scale, {
+      x: 0,
+      y: 0,
+      duration: 0.3,
+      ease: 'back.in(2)',
+      onComplete: () => {
+        if (!v.destroyed) v.visible = false
+      },
+    })
+  },
+
+  // Liten fadande gnistpunkt vid hjälten under flykt (exit-säker proxy-tween).
+  _dropTrail(ctx) {
+    if (!this._hero || this._hero.destroyed) return
+    const g = new Graphics().circle(0, 0, 7).fill({ color: 0xffe27a, alpha: 0.85 })
+    g.position.set(this._hero.x, this._hero.y)
+    g.eventMode = 'none'
+    ctx.fxLayer.addChild(g)
+    const st = { s: 1, a: 0.85 }
+    const tw = gsap.to(st, {
+      s: 0.2,
+      a: 0,
+      duration: 0.5,
+      ease: 'power1.out',
+      onUpdate: () => {
+        if (g.destroyed) {
+          tw.kill()
+          return
+        }
+        g.scale.set(st.s)
+        g.alpha = st.a
+      },
+      onComplete: () => {
+        if (!g.destroyed) g.destroy()
+      },
+    })
   },
 
   _returnHero(ctx) {
@@ -451,6 +561,8 @@ export default {
     const tgt = this._nearestTarget()
     if (!tgt) return
     this._mode = 'gliding'
+    this._combo = 0 // ny insamlingsflykt -> nollställ kombot
+    this._trailT = 0
     this._launcher.setEnabled(false)
     this._assisting = true
     this._clearBand()
@@ -494,10 +606,14 @@ export default {
   },
 
   _nearestTarget() {
+    // Samma regel som insamlingen: hjälpen siktar aldrig på kattungen förrän
+    // stjärnorna är tagna (kattungen är finalmål).
+    const starsLeft = this._targets.some((s) => s.kind !== 'kitten' && !s.collected)
     let best = null
     let bestD = Infinity
     for (const t of this._targets) {
       if (t.collected) continue
+      if (t.kind === 'kitten' && starsLeft) continue
       const d = Math.hypot(t.x - SLING.x, t.y - SLING.y)
       if (d < bestD) {
         bestD = d
@@ -595,7 +711,10 @@ export default {
         ctx.services.audio.sfx('boing')
         if (this._hero && !this._hero.destroyed) {
           puff(ctx.fxLayer, this._hero.x, this._hero.y, { count: 5 })
-          if (other === 'bumper' && this._bumperView && !this._bumperView.destroyed) pop(this._bumperView)
+          if (other === 'bumper') {
+            const bm = this._bumpers.find((b) => b.body === pair.bodyA || b.body === pair.bodyB)
+            if (bm && bm.view && !bm.view.destroyed) pop(bm.view)
+          }
         }
       }
     }
@@ -752,6 +871,7 @@ export default {
     this._loadTimer?.kill()
     this._returnTween?.kill()
     this._glideTween?.kill()
+    this._kittenTween?.kill()
 
     for (const t of this._targets) {
       if (t.view && !t.view.destroyed) {
@@ -766,7 +886,9 @@ export default {
       gsap.killTweensOf(this._hero.scale)
     }
     if (this._flagCloth && !this._flagCloth.destroyed) gsap.killTweensOf(this._flagCloth)
-    if (this._bumperView && !this._bumperView.destroyed) gsap.killTweensOf(this._bumperView.scale)
+    for (const bm of this._bumpers) {
+      if (bm.view && !bm.view.destroyed) gsap.killTweensOf(bm.view.scale)
+    }
 
     this._launcher?.destroy()
     this._phys?.destroy()
@@ -862,19 +984,67 @@ function makeStar(r = 30) {
   return c
 }
 
-// Instängd kattunge på en liten molnledge.
+// Instängd kattunge på en liten molnledge, bakom ett litet galler (buren) som
+// svänger upp när hon räddas. `c.cat` = kattunge-emojin (hoppar ensam till hjälten),
+// `c.openCage()` öppnar buren (exit-säker proxy-tween).
 function makeKitten() {
   const c = new Container()
+  const glow = new Graphics().circle(0, -6, 52).fill({ color: 0xffe27a, alpha: 0.22 })
+  glow.eventMode = 'none'
   const ledge = new Graphics()
   ledge.roundRect(-58, 24, 116, 26, 14).fill(0xffffff)
   ledge.roundRect(-58, 24, 116, 10, 14).fill({ color: 0xdfeefc, alpha: 0.8 })
   ledge.eventMode = 'none'
-  const glow = new Graphics().circle(0, -6, 52).fill({ color: 0xffe27a, alpha: 0.22 })
-  glow.eventMode = 'none'
-  const e = new Text({ text: '🐱', style: { fontFamily: FONT.body, fontSize: 72 } })
-  e.anchor.set(0.5)
-  e.y = -8
-  c.addChild(glow, ledge, e)
+  const cat = new Text({ text: '🐱', style: { fontFamily: FONT.body, fontSize: 72 } })
+  cat.anchor.set(0.5)
+  cat.y = -8
+  // Bur (galler) framför kattungen.
+  const cage = new Container()
+  const bars = new Graphics()
+  for (let i = -2; i <= 2; i++) bars.moveTo(i * 17, -44).lineTo(i * 17, 22)
+  bars.moveTo(-40, -44).lineTo(40, -44)
+  bars.moveTo(-40, 22).lineTo(40, 22)
+  bars.stroke({ width: 5, color: 0xbfa46a, cap: 'round' })
+  cage.addChild(bars)
+  cage.eventMode = 'none'
+  c.addChild(glow, ledge, cat, cage)
+  c.cat = cat
+  c.openCage = () => {
+    if (cage.destroyed) return
+    const st = { rot: 0, a: 1 }
+    const tw = gsap.to(st, {
+      rot: -1.0,
+      a: 0,
+      duration: 0.4,
+      ease: 'back.in(1.4)',
+      onUpdate: () => {
+        if (cage.destroyed) {
+          tw.kill()
+          return
+        }
+        cage.rotation = st.rot
+        cage.alpha = st.a
+      },
+      onComplete: () => {
+        if (!cage.destroyed) cage.visible = false
+      },
+    })
+  }
+  return c
+}
+
+// Passivt studsmoln (mjukt vitt moln som hjälten studsar på — fyller luften).
+function makeCloudBumper(r) {
+  const c = new Container()
+  const shade = new Graphics().circle(0, r * 0.28, r * 0.72).fill({ color: 0xcfe4fa, alpha: 0.7 })
+  const puffAt = (dx, dy, rr) => new Graphics().circle(dx, dy, rr).fill(0xffffff)
+  c.addChild(
+    shade,
+    puffAt(-r * 0.52, r * 0.1, r * 0.58),
+    puffAt(r * 0.52, r * 0.14, r * 0.54),
+    puffAt(0, -r * 0.18, r * 0.82),
+    puffAt(0, r * 0.24, r * 0.72),
+  )
   return c
 }
 

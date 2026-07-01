@@ -323,7 +323,11 @@ export default {
     const T = this._T
     this._targetWheel.position.set(T.x, T.y)
     this._carousel.position.set(T.x + 96, T.y + 96)
-    this._elvira.position.set(T.x + 150, T.y + 96)
+    this._elviraHome = { x: T.x + 150, y: T.y + 96 }
+    if (this._elvira && !this._elvira.destroyed) {
+      this._elvira.text = '👧'
+      this._elvira.position.set(this._elviraHome.x, this._elviraHome.y)
+    }
     this._pole.clear()
     this._pole.moveTo(T.x, T.y - 30).lineTo(T.x, FLAG_TOP_Y).stroke({ width: 10, color: COLORS.inkSoft })
     this._flagBottom = T.y - 40
@@ -343,6 +347,8 @@ export default {
     ctx.services.audio.sfx('pop')
     this._spawnGear(ctx, peg, rec.data.size, {})
     sparkle(ctx.fxLayer, peg.x, peg.y, { count: 5 })
+    // Elvira följer bygget med blicken (liten nyfiken puls per hjul).
+    if (!this._chainComplete) this._setElvira('😊')
     this._rebuildMesh(ctx)
     const after = this._frontierIndex()
     if (after > before) this._stuck = 0
@@ -437,13 +443,22 @@ export default {
     }
   },
 
+  // Puls som ALLTID utgår från basskala 1 — annars kan pop() fånga en pågående
+  // bounceIn/pop-skala som "bas" och lämna hjulet krympt (t.ex. 0.19).
+  _popScale(view, scale = 1.14) {
+    if (!view || view.destroyed) return
+    gsap.killTweensOf(view.scale)
+    view.scale.set(1)
+    pop(view, { scale })
+  },
+
   // Tap på ett placerat hjul: drivet → glad puls; fritt (greppar ej) → liten egen
   // snurr-impuls + mjukt ljud + spök-hinten pulsar (vänlig vink, aldrig fel).
   _tapGear(ctx, gear) {
     if (!this._alive || this._resolving || gear.view.destroyed) return
     this._idle = 0
     if (gear.driven) {
-      pop(gear.view)
+      this._popScale(gear.view, 1.18)
       ctx.services.audio.sfx('tap')
     } else {
       gear.freeVel += 0.25
@@ -519,15 +534,55 @@ export default {
   _onChainGrips(ctx) {
     ctx.services.audio.sfx('match')
     ctx.services.audio.sfx('reveal')
-    // Glödpuls längs kedjan (i djupordning).
+    // Greppa-juice: ett distinkt "klonk"-klick-i-läge när kuggarna faller i grepp.
+    ctx.services.audio.tone?.({ freq: 300, slideTo: 150, dur: 0.14, type: 'triangle', vol: 0.5 })
+    // Glödpuls + gnistra längs kedjan (i djupordning) — mjukt ryck som vandrar hela raden.
     const chain = this._gears.filter((g) => g.driven).sort((a, b) => a.depth - b.depth)
     chain.forEach((g, i) => {
       gsap.delayedCall(0.08 * i, () => {
-        if (this._alive && g.view && !g.view.destroyed) pop(g.view, { scale: 1.14 })
+        if (!this._alive || !g.view || g.view.destroyed) return
+        this._popScale(g.view, 1.14)
+        sparkle(ctx.fxLayer, g.peg.x, g.peg.y, { count: 5 })
+        ctx.services.audio.tone?.({ freq: 520 + i * 40, dur: 0.05, type: 'triangle', vol: 0.16 })
       })
     })
-    if (this._targetWheel && !this._targetWheel.destroyed) pop(this._targetWheel, { scale: 1.14 })
+    if (this._targetWheel && !this._targetWheel.destroyed) this._popScale(this._targetWheel, 1.14)
+    // Elvira ser att det greppar och klappar i händerna.
+    this._setElvira('🙌', { hop: true })
+    // Fira storleks-skillnaden: det minsta hjulet snurrar fortast ("Vroom!").
+    gsap.delayedCall(0.08 * chain.length + 0.15, () => this._alive && this._celebrateSpeed(ctx))
     ctx.services.voice.say('Den greppar! Veva nu!')
+  },
+
+  // Elvira är en levande mottagare: byt uttryck + liten hopp/puls (aldrig bara dekor).
+  _setElvira(emoji, { hop = false } = {}) {
+    if (!this._alive || !this._elvira || this._elvira.destroyed) return
+    this._elvira.text = emoji
+    this._popScale(this._elvira, 1.2)
+    if (hop && this._elviraHome) {
+      const base = this._elviraHome.y
+      const st = { y: base }
+      gsap.to(st, {
+        y: base - 24, duration: 0.18, yoyo: true, repeat: 1, ease: 'power2.out',
+        onUpdate: () => { if (this._alive && this._elvira && !this._elvira.destroyed) this._elvira.y = st.y },
+        onComplete: () => { if (this._alive && this._elvira && !this._elvira.destroyed) this._elvira.y = base },
+      })
+    }
+  },
+
+  // Fira den smartaste idén: hitta det snabbaste (minsta) drivna hjulet och lyft
+  // fram fart-skillnaden med en synlig "Vroom!" + gnistor + snabb piggpuls.
+  _celebrateSpeed(ctx) {
+    if (!this._alive) return
+    const driven = this._gears.filter((g) => g.driven && g.view && !g.view.destroyed)
+    if (!driven.length) return
+    let fast = driven[0]
+    for (const g of driven) if (Math.abs(g.factor) > Math.abs(fast.factor)) fast = g
+    if (Math.abs(fast.factor) <= 1.05) return // inget hjul mindre än veven → inget att fira
+    floatText(ctx.fxLayer, fast.peg.x, fast.peg.y - fast.r - 18, 'Vroom!', { fontSize: 46 })
+    sparkle(ctx.fxLayer, fast.peg.x, fast.peg.y, { count: 8 })
+    this._popScale(fast.view, 1.22)
+    ctx.services.audio.tone?.({ freq: 520, slideTo: 920, dur: 0.18, type: 'triangle', vol: 0.32 })
   },
 
   // Första lösningspinnen utan rätt-storleks-hjul (frontier).
@@ -741,10 +796,19 @@ export default {
     ctx.services.audio.sfx('correct')
     ctx.services.voice.say(randomFrom(PRAISE))
 
-    if (this._elvira && !this._elvira.destroyed) {
-      pop(this._elvira, { scale: 1.25 })
-      gsap.delayedCall(0.2, () => {
-        if (this._alive && this._elvira && !this._elvira.destroyed) pop(this._elvira, { scale: 1.25 })
+    // Elvira firar och åker karusellen: byt till glad min och guppa runt på hjulet.
+    this._setElvira('🥳')
+    if (this._elvira && !this._elvira.destroyed && this._carousel && !this._carousel.destroyed) {
+      const cx = this._carousel.x
+      const cy = this._carousel.y - 24
+      const st = { t: 0 }
+      gsap.to(st, {
+        t: 1, duration: 1.5, ease: 'power1.out',
+        onUpdate: () => {
+          if (!this._alive || !this._elvira || this._elvira.destroyed) return
+          const a = st.t * Math.PI * 4
+          this._elvira.position.set(cx + Math.cos(a) * 14, cy + Math.sin(a) * 10)
+        },
       })
     }
     if (this._carousel && !this._carousel.destroyed) {

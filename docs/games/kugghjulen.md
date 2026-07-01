@@ -106,4 +106,28 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] fira storleks-skillnaden + [Quick] greppa-ryck +
   [Medium] Elvira som hejar** — lyfter spelets smartaste idé och dess karaktär till låg risk.
+- 2026-07-02: Första-omgång implementerad (allt errorCount 0).
+  - **[Quick] Fira storleks-skillnaden:** ny `_celebrateSpeed(ctx)` — hittar det snabbaste
+    (minsta) drivna hjulet (störst `|factor|`) och lyfter fart-skillnaden med en flytande
+    "Vroom!" (`floatText`), gnistor (`sparkle`) och en piggpuls; hoppar över om inget hjul är
+    mindre än veven (`|factor| ≤ 1.05`). Schemaläggs från `_onChainGrips` efter glödvågen.
+  - **[Quick] Greppa-ryck/juice:** `_onChainGrips` fick ett distinkt "klonk"-klick-i-läge
+    (`audio.tone` 300→150 Hz) plus en gnistrande, stigande-tonad ryck-våg (`sparkle` + korta
+    toner) som vandrar längs kedjan i djupordning ovanpå den befintliga glödpulsen.
+  - **[Medium] Elvira som hejar:** ny `_setElvira(emoji,{hop})` (byter uttryck + puls + valfritt
+    hopp via proxy-tween). Hon tittar på bygget (😊 per placerat hjul i `_placeFromDispenser`),
+    klappar 🙌 med hopp när kedjan greppar (`_onChainGrips`), och åker karusellen (🥳 + guppande
+    orbit runt `_carousel` i `_onComplete`). `_positionMachine` lagrar `_elviraHome` och återställer
+    minen till 👧 per nivå.
+  - **Bugfix (upptäckt av speltestet):** ny `_popScale(view,scale)` som alltid pulsar från
+    basskala 1. `pop()` läser nuvarande skala som "bas", så när `_onChainGrips` pulsade det
+    precis placerade hjulet mitt i dess `bounceIn` fastnade hjulet på ~0.19× (renderades pyttelitet).
+    Alla hjul-/Elvira-pulser i grepp-/fart-/tap-vägarna går nu via `_popScale`. Verifierat via
+    scen-dump: placerat hjul `sx:1, w:153` (tidigare 0.19/29).
+  - Test: `node scripts/test-game.mjs kugghjulen --url http://localhost:5173 --drag "700,660>362,367"`
+    → errorCount 0; skärmdump visar full-stort glödande orange M-hjul i grepp mellan vev och mål,
+    Elvira 🙌, karusell + flagga. Inga stray-bars.
+  - Deferred: [Medium] verkligt decoy-val, [Medium] sammanslagen senare auto-hjälp, [Quick]
+    veva-fart→karusell-uttryck, [Deep] special-hjul (rem/dubbelhjul/back), [Quick] varierade
+    mål-belöningar, [Quick] maskin-galleri/verkstads-rekvisita, [Quick] riktiga maskin-SFX (MOSS).
 </content>

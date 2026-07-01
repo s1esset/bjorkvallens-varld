@@ -75,6 +75,12 @@ export default {
     this._targets = []
     this._snowParts = []
     this._flakes = []
+    this._decorTweens = []
+    this._rollT = 0 // nedräkning till nästa rull-knaster
+    this._prevX = START.x // förra frames position (för rull-distans)
+    this._prevY = START.y
+    this._lastTrailX = START.x // senast utlagda spår-prick
+    this._lastTrailY = START.y
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -95,6 +101,7 @@ export default {
     this._root.addChild(this._backdrop)
 
     this._buildHill()
+    this._buildDecor(ctx) // granar, stenar, stuga med rök -> levande backe
     this._buildFlakes(ctx)
 
     // Lager i rätt z-ordning (bak -> fram).
@@ -107,6 +114,11 @@ export default {
       layer.eventMode = 'passive'
       this._root.addChild(layer)
     }
+
+    // Rull-spår: ett brett ljust släp ritas här (bakom fält/boll), nollställs per bana.
+    this._trail = new Graphics()
+    this._trail.eventMode = 'none'
+    this._root.addChildAt(this._trail, this._root.getChildIndex(this._fieldLayer))
 
     // Fysik: gravitation drar nedåt; väggar håller bollen kvar på banan.
     this._phys = new PhysicsWorld({ gravityY: 1.1, walls: ['floor', 'left', 'right'] })
@@ -170,6 +182,88 @@ export default {
       this._flakes.push(f)
     }
     this._root.addChild(this._flakeLayer)
+  },
+
+  // Befolka backen: fjärran gran-siluetter, snöiga stenar, granar och en stuga
+  // med rykande skorsten. Allt dekorativt (eventMode 'none'), bakom fält/boll.
+  _buildDecor(ctx) {
+    const decor = new Container()
+    decor.eventMode = 'none'
+    decor.interactiveChildren = false
+
+    // Fjärran gran-siluetter (djup/dis) längs backens topp.
+    const far = new Graphics()
+    for (let i = 0; i < 7; i++) {
+      const x = 30 + i * 180 + (Math.random() * 40 - 20)
+      const by = this._surfaceY(x) - 4
+      const h = 40 + Math.random() * 26
+      far.moveTo(x - h * 0.4, by).lineTo(x + h * 0.4, by).lineTo(x, by - h).closePath().fill({ color: 0xb9cfe0, alpha: 0.5 })
+    }
+    decor.addChild(far)
+
+    // Snöklädda stenar.
+    for (const [x, s] of [[300, 1], [870, 0.8]]) {
+      const rock = new Graphics().ellipse(0, 0, 30 * s, 20 * s).fill(0xa7b8c8).ellipse(0, -7 * s, 25 * s, 11 * s).fill(0xffffff)
+      rock.position.set(x, this._surfaceY(x) - 8)
+      decor.addChild(rock)
+    }
+
+    // Snöiga granar längs backen.
+    for (const [x, s] of [[95, 1.2], [455, 0.9], [770, 1.05], [1000, 0.8]]) decor.addChild(this._makeTree(x, s))
+
+    // Stuga med rykande skorsten (uppe till vänster).
+    const cx = 165
+    const cot = new Container()
+    cot.position.set(cx, this._surfaceY(cx))
+    const cg = new Graphics()
+    cg.roundRect(-38, -46, 76, 50, 6).fill(0xd98b6a) // vägg
+    cg.roundRect(-14, -26, 20, 30, 3).fill(0x8a5a3b) // dörr
+    cg.roundRect(12, -34, 16, 16, 3).fill(0xfff2c0) // fönster (varmt ljus)
+    cg.rect(20, -78, 12, 22).fill(0xb5654a) // skorsten
+    cg.moveTo(-48, -44).lineTo(0, -82).lineTo(48, -44).closePath().fill(0xffffff) // snötak
+    cot.addChild(cg)
+    const smoke = new Graphics()
+    smoke.eventMode = 'none'
+    cot.addChild(smoke)
+    const st = { t: 0 }
+    const stw = gsap.to(st, {
+      t: 1,
+      duration: 2.8,
+      repeat: -1,
+      ease: 'none',
+      onUpdate: () => {
+        if (smoke.destroyed) {
+          stw.kill()
+          return
+        }
+        smoke.clear()
+        for (let i = 0; i < 3; i++) {
+          const p = (st.t + i / 3) % 1
+          smoke.circle(26 + p * 12, -78 - p * 44, 4 + p * 9).fill({ color: 0xffffff, alpha: 0.45 * (1 - p) })
+        }
+      },
+    })
+    this._decorTweens.push(stw)
+    decor.addChild(cot)
+
+    this._decor = decor
+    this._root.addChild(decor) // efter backen, före flingor + fält/boll
+  },
+
+  // En liten snötäckt gran vid backens yta (stam + tre grantoppar + snötopp).
+  _makeTree(x, s = 1) {
+    const g = new Graphics()
+    g.roundRect(-4 * s, -16 * s, 8 * s, 22 * s, 2).fill(0x8a5a3b)
+    const tri = (by, hw, h) => g.moveTo(-hw * s, by * s).lineTo(hw * s, by * s).lineTo(0, (by - h) * s).closePath()
+    tri(-8, 30, 34).fill(0x3f7d54)
+    tri(-28, 25, 32).fill(0x3f7d54)
+    tri(-46, 19, 28).fill(0x3f7d54)
+    g.circle(0, -72 * s, 7 * s).fill(0xffffff)
+    g.circle(-13 * s, -22 * s, 5 * s).fill({ color: 0xffffff, alpha: 0.85 })
+    g.circle(11 * s, -36 * s, 5 * s).fill({ color: 0xffffff, alpha: 0.85 })
+    g.position.set(x, this._surfaceY(x) - 2)
+    g.eventMode = 'none'
+    return g
   },
 
   _surfaceY(x) {
@@ -406,6 +500,12 @@ export default {
       this._ball.scale.set(1)
       this._ball.position.set(x, y)
     }
+    // Nollställ rull-distans + spår så bollens teleport inte ger ett falskt hopp.
+    this._prevX = x
+    this._prevY = y
+    this._lastTrailX = x
+    this._lastTrailY = y
+    this._trail?.clear()
     this._updateMeter()
   },
 
@@ -509,6 +609,36 @@ export default {
     const cvy = clamp(b.velocity.y, -MAX_V, MAX_V)
     if (cvx !== b.velocity.x || cvy !== b.velocity.y) Body.setVelocity(b, { x: cvx, y: cvy })
 
+    // Fart + läge mot backens yta (delas av spår, rull-ljud och rull-tillväxt).
+    const spd = Math.hypot(b.velocity.x, b.velocity.y)
+    const surfY = this._surfaceY(b.position.x)
+    const onGround = b.position.y > surfY - this._r - 26
+    const frameDist = Math.hypot(b.position.x - this._prevX, b.position.y - this._prevY)
+    this._prevX = b.position.x
+    this._prevY = b.position.y
+
+    // Rull-spår: lägg en bred, ljus prick där bollen rullar (visar fart + väg).
+    if (onGround && this._trail && !this._trail.destroyed) {
+      if (Math.hypot(b.position.x - this._lastTrailX, b.position.y - this._lastTrailY) > 15) {
+        this._lastTrailX = b.position.x
+        this._lastTrailY = b.position.y
+        this._trail.circle(b.position.x, surfY + 5, this._r * 0.6).fill({ color: 0xf1f8ff, alpha: 0.5 })
+      }
+    }
+
+    // Kontinuerlig rull-tillväxt: bollen samlar en aning snö hela tiden den rullar,
+    // så att HÅLLA farten uppe via styrning/knuff blir en verklig strategi. Fälten
+    // är bara feta bonus-klumpar ovanpå detta.
+    if (onGround && frameDist > 1.5 && this._r < MAX_R) this._growBall(Math.min(frameDist * 0.01, 0.5))
+
+    // Rull-ljud: ett mjukt knaster som stiger i tonhöjd/styrka med fart + storlek.
+    this._rollT -= dt
+    if (onGround && spd > 1.2 && this._rollT <= 0) {
+      const f = clamp(spd / MAX_V, 0, 1)
+      this._rollT = 0.16 - f * 0.08
+      ctx.services.audio.tone({ freq: 90 + f * 110 + this._r * 0.4, dur: 0.07, type: 'triangle', vol: 0.05 + f * 0.06 })
+    }
+
     // Snöfält -> växt (markera ätet direkt så samma fält bara växer en gång).
     for (const f of this._fields) {
       if (f._eaten) continue
@@ -527,8 +657,7 @@ export default {
       return
     }
 
-    // Stillastående -> mjuk auto-knuff (no-fail).
-    const spd = Math.hypot(b.velocity.x, b.velocity.y)
+    // Stillastående -> mjuk auto-knuff (no-fail). (spd beräknas ovan.)
     if (spd < 0.8 && !this._steering && this._tapSteerT <= 0) {
       this._stillT += dt
       if (this._stillT >= STUCK) {
@@ -561,14 +690,19 @@ export default {
     }
   },
 
-  _grow(ctx, field) {
+  // Väx radien med `delta`, skala fysikkroppen så massan/momentumet följer med.
+  _growBall(delta) {
     const prev = this._r
-    this._r = Math.min(MAX_R, this._r + 12)
+    this._r = Math.min(MAX_R, this._r + delta)
     if (this._r > prev) {
       const f = this._r / prev
       Body.scale(this._ballBody, f, f) // matter räknar om massan från density -> mer momentum
+      this._updateMeter()
     }
-    this._updateMeter()
+  },
+
+  _grow(ctx, field) {
+    this._growBall(14) // feta bonus-klumpar (mer än den kontinuerliga rull-växten)
     if (this._gt - this._lastGrowSound > 0.12) {
       this._lastGrowSound = this._gt
       ctx.services.audio.sfx('reveal')
@@ -798,6 +932,7 @@ export default {
     this._helpTimer?.kill()
     this._nextTimer?.kill()
     this._zoneTween?.kill()
+    for (const tw of this._decorTweens || []) tw?.kill()
 
     if (this._ball && !this._ball.destroyed) {
       gsap.killTweensOf(this._ball)

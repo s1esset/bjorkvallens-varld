@@ -1,5 +1,5 @@
 # Snöbollen (`snobollen`)
-> ⚙️ fysik · drag · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -121,3 +121,13 @@ auto-hjälpen kan spela banan åt barnet**.
 - Rekommenderad första-omgång: **[Quick] befolka backen + rull-spår + rull-ljud** +
   **[Medium] kontinuerlig rull-tillväxt** — gör backen levande *och* ger styrningen riktig
   betydelse, för rimlig risk.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Byggde en levande backe:
+  fjärran gran-siluetter, snöiga stenar, fyra snötäckta granar och en stuga med
+  rykande skorsten (`_buildDecor`/`_makeTree`, allt dekorativt bakom fält/boll, rök =
+  exit-säker repeterande tween i `_decorTweens`). La till ett brett ljust **rull-spår**
+  (`_trail`, ritas per frame där bollen rör backen, nollställs per bana i `_resetBall`),
+  **kontinuerlig rull-tillväxt** (bollen samlar lite snö hela tiden den rullar via nya
+  `_growBall`; snöfälten blev feta bonus-klumpar +14 i stället för +12), och ett mjukt
+  **rull-ljud** (`audio.tone`, tonhöjd/styrka stiger med fart + storlek). Ingen ändrad
+  auto-hjälp — kontinuerlig växt gör den till en verklig sista utväg av sig själv.
+  Rörde bara `src/games/snobollen/`.

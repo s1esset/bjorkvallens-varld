@@ -115,4 +115,11 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
   kodändringar. Rekommenderad första-omgång: **[Medium] hungrig mottagare-kompis + [Quick] synlig
   het zon + [Quick] eld-ambient** — störst upplevd själ för låg risk, och adresserar den enda
   största bristen (man rostar åt ett spöke).
-</content>
+- 2026-07-01 🔧 **Första-omgången byggd (alla tre + mönster #2):** (1) **Hungrig mottagare [Medium]**
+  — `makeMascot`-Bobo väntar vid orderfatet och mumsar (`_boboChomp`: pop + 😋/Mums! + röst) varje
+  levererad gyllene marshmallow, och hoppar av glädje vid full order → man rostar åt NÅGON (pattern
+  #2). (2) **Synlig het zon [Quick]** — `_hotMark` är nu en tydlig glödande "rosta här"-ring som
+  pulsar och följer vinden (alpha 0.5–0.85, inte 0.08). (3) **Eld-ambient [Quick]** — subtil
+  sprakande knaster-crackle (täthet ∝ värme) + rostnings-fräs som STIGER i tonhöjd mot gyllene, via
+  `audio.tone()`. Städning: oanvänd `e`-param bort ur `_marshDown`. errorCount 0, skärmdump bekräftar
+  Bobo + ring.

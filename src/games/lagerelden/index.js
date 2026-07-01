@@ -20,6 +20,7 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { puff, sparkle, burst, pop, wiggle, breathe, floatText, bigCelebration } from '../../lib/feedback.js'
+import { makeMascot } from '../../lib/mascot.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -132,8 +133,13 @@ export default {
     this._root.addChild(this._fireLayer)
     this._glowBreathe = breathe(this._glow, { scale: 1.12, duration: 1.1 })
 
-    // 6) "Het zon"-markör: svag gul oval över lågans topp (lyser starkare när elden är het).
-    this._hotMark = new Graphics().ellipse(0, 0, 70, 34).fill({ color: 0xffe27a, alpha: 0.1 })
+    // 6) "Het zon"-markör: en TYDLIG glödande "rosta här"-ring över lågans topp som följer
+    //    vinden och pulsar — barnet ser vart marshmallowen ska.
+    this._hotMark = new Graphics()
+      .ellipse(0, 0, 66, 32)
+      .fill({ color: 0xffe27a, alpha: 0.14 })
+      .ellipse(0, 0, 66, 32)
+      .stroke({ width: 5, color: 0xffd35c, alpha: 0.85 })
     this._hotMark.position.set(FIRE_X, 470)
     this._hotMark.eventMode = 'none'
     this._root.addChild(this._hotMark)
@@ -190,7 +196,7 @@ export default {
     this._marsh.hitArea = new Circle(0, 0, 64) // ≥96px träffyta
     this._marsh.eventMode = 'static'
     this._marsh.cursor = 'pointer'
-    this._onMarshDown = (e) => this._marshDown(ctx, e)
+    this._onMarshDown = () => this._marshDown(ctx)
     this._marsh.on('pointerdown', this._onMarshDown)
     this._root.addChild(this._marsh)
 
@@ -200,6 +206,16 @@ export default {
     this._orderLayer.interactiveChildren = false
     this._root.addChild(this._orderLayer)
     this._buildOrder()
+
+    // 11) Hungrig mottagare: Bobo väntar vid fatet och mumsar varje gyllene marshmallow
+    //     (pattern #2 — en adressat för det man rostar).
+    this._boboBase = { x: 980, y: 120 }
+    this._bobo = makeMascot(54)
+    this._bobo.position.set(this._boboBase.x, this._boboBase.y)
+    this._bobo.eventMode = 'none'
+    this._root.addChild(this._bobo)
+
+    this._lastCrackle = 0
 
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
@@ -276,6 +292,16 @@ export default {
       pop(slot, { scale: 1.35 })
     }
     sparkle(ctx.fxLayer, slot.x, slot.y, { count: 6 })
+    this._boboChomp(ctx) // Bobo mumsar den gyllene marshmallowen
+  },
+
+  // Hungriga Bobo mumsar en levererad marshmallow (mottagaren för det man rostat).
+  _boboChomp(ctx) {
+    const b = this._bobo
+    if (!b || b.destroyed) return
+    pop(b, { scale: 1.18 })
+    floatText(ctx.fxLayer, b.x, b.y - 44, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 40 })
+    if (Math.random() < 0.6) ctx.services.voice.say(randomFrom(['Mums!', 'Så gott!', 'Tack!']))
   },
 
   // ---- Ved → bål ----------------------------------------------------------
@@ -382,7 +408,7 @@ export default {
 
   // ---- Marshmallow: eget pekar-grepp (fri placering över elden) -----------
 
-  _marshDown(ctx, e) {
+  _marshDown(ctx) {
     if (!this._alive || this._resolving) return
     this._idle = 0
     this._holding = true
@@ -501,7 +527,15 @@ export default {
     if (this._hotMark && !this._hotMark.destroyed) {
       this._hotMark.x = this._hotX
       this._hotMark.y = this._flameTopY + 6
-      this._hotMark.alpha = 0.08 + hot * 0.18
+      this._hotMark.alpha = 0.5 + hot * 0.35
+      this._hotMark.scale.set(1 + Math.sin(this._time * 4) * 0.06) // lugn puls
+    }
+
+    // Sprakande eld (subtil ambient): små knaster-blipp vars täthet skalar med värmen.
+    const nowC = performance.now()
+    if (hot > 0.12 && nowC - this._lastCrackle > 300 - hot * 130) {
+      this._lastCrackle = nowC
+      ctx.services.audio.tone({ freq: 700 + Math.random() * 700, dur: 0.025, type: 'square', vol: 0.03 })
     }
 
     // Spawna nya partiklar (mängd skalar med värmen, klampat av PART_CAP).
@@ -562,9 +596,9 @@ export default {
           this._lastSparkle = now
           sparkle(ctx.fxLayer, this._marsh.x, this._marsh.y, { count: 4 })
         }
-        if (now - this._lastRoastSfx > 1400) {
+        if (now - this._lastRoastSfx > 900) {
           this._lastRoastSfx = now
-          ctx.services.audio.sfx('soft')
+          ctx.services.audio.tone({ freq: 380 + this._toast * 480, dur: 0.16, type: 'sine', vol: 0.12 }) // rostnings-fräs stiger mot gyllene
         }
         if (!this._saidHalf && this._toast >= 0.5) {
           this._saidHalf = true
@@ -643,6 +677,10 @@ export default {
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, FIRE_X, 110, { count: 16 })
     floatText(ctx.fxLayer, FIRE_X, 64, '😋', { fontSize: 64 })
+    if (this._bobo && !this._bobo.destroyed) {
+      gsap.killTweensOf(this._bobo)
+      gsap.to(this._bobo, { y: this._boboBase.y - 40, duration: 0.24, yoyo: true, repeat: 3, ease: 'power2.out', onComplete: () => { if (this._bobo && !this._bobo.destroyed) this._bobo.y = this._boboBase.y } })
+    }
 
     ctx.progress.setLevel(this._level + 1)
     ctx.progress.setCustom('marshmallows', (ctx.progress.get().custom?.marshmallows || 0) + this._order)
@@ -720,6 +758,10 @@ export default {
       gsap.killTweensOf(this._marsh.scale)
     }
     if (this._glow && !this._glow.destroyed) gsap.killTweensOf(this._glow)
+    if (this._bobo && !this._bobo.destroyed) {
+      gsap.killTweensOf(this._bobo)
+      gsap.killTweensOf(this._bobo.scale)
+    }
     for (const rec of this._logs || []) {
       if (rec.view && !rec.view.destroyed) gsap.killTweensOf(rec.view)
     }

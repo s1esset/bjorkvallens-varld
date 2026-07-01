@@ -16,6 +16,7 @@ import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, puff, sparkle, ripple, burst, bigCelebration, floatText } from '../../lib/feedback.js'
+import { makeMascot } from '../../lib/mascot.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 
 // ---- Konstanter (designkoordinater 1280×720) ----------------------------
@@ -43,7 +44,14 @@ const SETTLE_MAX = 1600 // ms → tvinga fram utvärdering (spelet "hänger" ald
 const GROUND_Y = 600 // body.position.y >= detta = nådde marken (ramlade av)
 const IDLE_MS = 6000 // ms utan handling → röst-recue
 
-const FLAVORS = [COLORS.pink, COLORS.yellow, COLORS.teal, COLORS.purple, COLORS.orange, COLORS.green]
+// Riktiga glass-smaker: varje smak har egen färg OCH egen dekor (frön/strössel/chips/swirl).
+const FLAVORS = [
+  { color: 0xff9ec4, kind: 'strawberry' }, // jordgubb (röda frön)
+  { color: 0x8a5a3b, kind: 'chocolate' }, // choklad (färgglatt strössel)
+  { color: 0x9fe3c9, kind: 'mint' }, // mint (mörka chokladchips)
+  { color: 0xfdf2d0, kind: 'vanilla' }, // vanilj (gyllene swirl)
+  { color: 0xb7a6ef, kind: 'blueberry' }, // blåbär (blå prickar)
+]
 const PLACE_LINES = ['En till!', 'Så fint!', 'Pling!']
 const GIGGLES = ['Hihi!', 'Hoppsan!']
 
@@ -80,6 +88,7 @@ export default {
     this._lastDropped = null // nyaste kroppen (settle-bevakas)
     this._lastRec = null
     this._level = 0
+    this._serveItem = null // glass som flyger till mottagaren vid finalen
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -154,6 +163,19 @@ export default {
     this._handG.eventMode = 'none'
     this._root.addChild(this._handG)
 
+    // Balans-lod (pendel): visar svajet så barnet SER när tornet är balanserat —
+    // lodet hänger rakt ner + blir grönt = bra läge att släppa (läsbart svaj).
+    this._tiltG = new Graphics()
+    this._tiltG.eventMode = 'none'
+    this._root.addChild(this._tiltG)
+
+    // Glassugen mottagare (Bobo) vid sidan: tittar på tornet, blir sugnare ju högre
+    // det blir, och MUMSAR glassen vid finalen — bygget får ett syfte (mönster #2).
+    this._customer = makeMascot(60)
+    this._customer.position.set(150, 300)
+    this._customer.eventMode = 'none'
+    this._root.addChild(this._customer)
+
     this._buildStickyButton()
   },
 
@@ -196,11 +218,17 @@ export default {
     if (!this._alive) return
     this._finishCall?.kill()
     this._cherryTween?.kill()
+    this._serveTween?.kill()
     if (this._cherry && !this._cherry.destroyed) {
       gsap.killTweensOf(this._cherry)
       this._cherry.destroy()
     }
     this._cherry = null
+    if (this._serveItem && !this._serveItem.destroyed) {
+      gsap.killTweensOf(this._serveItem)
+      this._serveItem.destroy()
+    }
+    this._serveItem = null
 
     this._clearLive()
 
@@ -340,15 +368,19 @@ export default {
     if (!this._alive) return
     const dms = ticker.deltaMS
 
-    // Svaj: oscillera gravitationens x-komponent → hela tornet "andas".
+    // Svaj: oscillera gravitationens x-komponent → hela tornet "andas". Tydligt men
+    // snällt (kapat) så barnet hinner se när det är balanserat och släppa i rätt läge.
     this._swayT += dms
-    const amp = Math.min(0.1 + 0.02 * this._count, 0.2) // högre torn lutar mer (kapat)
+    const amp = Math.min(0.13 + 0.025 * this._count, 0.24) // högre torn lutar mer (kapat)
     const period = Math.max(2000, 2600 - this._level * 150)
     this._lean = amp * Math.sin((this._swayT * (2 * Math.PI)) / period)
     this._phys.setGravity(GRAV_Y, this._lean)
 
     // Stega fysiken (fast tidssteg) + synka vyer.
     this._phys.update(dms)
+
+    // Balans-lodet följer svajet varje frame (grönt vid ~lodrätt = "släpp nu").
+    this._drawTilt()
 
     // Medan vi bär: rita hand + guide, idle-recue, stall-timer.
     if (this._carrier && !this._falling && !this._resolving) {
@@ -438,13 +470,40 @@ export default {
     this._spawnCarrier(ctx)
   },
 
-  // En kula blev liggande: glatt ljud + puls + gnistror + (sparsamt) röst.
+  // En kula blev liggande: mjukt "plopp" + STIGANDE pling per våning, nestle-squash,
+  // gnistror, sugen mottagare + (sparsamt) röst.
   _placeReward(ctx, rec) {
     this._placeN++
-    ctx.services.audio.sfx(this._placeN % 3 === 0 ? 'pop' : 'pling')
-    if (rec.view && !rec.view.destroyed) pop(rec.view)
+    ctx.services.audio.sfx('pop') // mjukt plopp/smask när kulan nestlar sig
+    // Stigande pling per våning (pentatoniskt) → tornet "sjunger" högre ju högre det blir.
+    const semis = [0, 2, 4, 7, 9, 12]
+    const idx = Math.max(0, Math.min(this._count - 1, semis.length - 1))
+    ctx.services.audio.tone({ freq: 523.25 * Math.pow(2, semis[idx] / 12), dur: 0.16, type: 'sine', vol: 0.26 })
+    this._nestleSquash(rec.view) // squasha/stretcha mjukt som riktig mjukglass
     sparkle(ctx.fxLayer, rec.body.position.x, rec.body.position.y, { count: 6 })
+    this._reactCustomer(ctx)
     if (Math.random() < 0.5) ctx.services.voice.say(randomFrom(PLACE_LINES))
+  },
+
+  // Nestle-squash: en landande kula plattas till och studsar tillbaka (taktil stapling).
+  _nestleSquash(view) {
+    if (!view || view.destroyed) return
+    gsap.killTweensOf(view.scale)
+    gsap
+      .timeline()
+      .to(view.scale, { x: 1.22, y: 0.82, duration: 0.1, ease: 'power2.out' })
+      .to(view.scale, { x: 0.93, y: 1.08, duration: 0.12, ease: 'sine.inOut' })
+      .to(view.scale, { x: 1, y: 1, duration: 0.24, ease: 'back.out(2.2)' })
+  },
+
+  // Mottagaren blir sugen: studsar till (större ju högre tornet är) + gör stora ögon nära mål.
+  _reactCustomer(ctx) {
+    const c = this._customer
+    if (!c || c.destroyed) return
+    pop(c, { scale: 1.1 + 0.03 * this._count })
+    if (this._count >= Math.max(2, this._goal - 1)) {
+      floatText(ctx.fxLayer, c.x, c.y - 68, randomFrom(['😋', '👀', '❤️']), { fontSize: 40 })
+    }
   },
 
   // ---- Mål nått: körsbär + firande + nytt torn ---------------------------
@@ -486,6 +545,7 @@ export default {
     ctx.services.voice.say(randomFrom(PRAISE))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, topX, topY - 40, { count: 16 })
+    this._serveToCustomer(ctx, topX, topY - 40) // glassen flyger till den hungriga mottagaren
 
     // Spara förlopp + delat firande (stjärna + klistermärke) — exakt en gång.
     ctx.progress.setLevel(this._level + 1)
@@ -497,7 +557,68 @@ export default {
     })
   },
 
+  // Glassen flyger från tornets topp till mottagaren som mumsar ("Mums! Tack!").
+  // Exit-säkert: tweena en {}-proxy, rör Pixi-objektet bara om det lever.
+  _serveToCustomer(ctx, fromX, fromY) {
+    const c = this._customer
+    if (!c || c.destroyed) return
+    const item = new Text({ text: '🍦', style: { fontFamily: FONT.body, fontSize: 60 } })
+    item.anchor.set(0.5)
+    item.position.set(fromX, fromY)
+    item.eventMode = 'none'
+    this._root.addChild(item)
+    this._serveItem = item
+    const st = { x: fromX, y: fromY, s: 1 }
+    this._serveTween = gsap.to(st, {
+      x: c.x,
+      y: c.y - 26,
+      s: 0.5,
+      duration: 0.7,
+      delay: 0.5,
+      ease: 'power2.in',
+      onUpdate: () => {
+        if (item.destroyed) {
+          this._serveTween?.kill()
+          return
+        }
+        item.position.set(st.x, st.y)
+        item.scale.set(st.s)
+      },
+      onComplete: () => {
+        if (!item.destroyed) item.destroy()
+        this._serveItem = null
+        if (this._alive && c && !c.destroyed) {
+          pop(c, { scale: 1.3 })
+          floatText(ctx.fxLayer, c.x, c.y - 64, randomFrom(['Mums!', '😋', '❤️']), { fontSize: 44 })
+          ctx.services.voice.say('Mums! Tack!')
+          ctx.services.audio.tone({ freq: 660, dur: 0.14, type: 'sine', vol: 0.26 })
+          ctx.services.audio.tone({ freq: 990, dur: 0.18, type: 'sine', vol: 0.22, delay: 0.12 })
+        }
+      },
+    })
+  },
+
   // ---- Ritning ------------------------------------------------------------
+
+  // Balans-lod (pendel) uppe till höger: hänger rakt ner vid lean=0 och blir grönt =
+  // "tornet är balanserat, släpp nu". Amplifierad vinkel så svajet syns tydligt.
+  _drawTilt() {
+    const g = this._tiltG
+    if (!g || g.destroyed) return
+    g.clear()
+    const px = 1086
+    const py = 214
+    const len = 74
+    const ang = Math.PI / 2 + this._lean * 4.2
+    const bx = px + Math.cos(ang) * len
+    const by = py + Math.sin(ang) * len
+    const level = Math.abs(this._lean) < 0.045
+    // lodrät referens (prickad) + fäste + arm + lod
+    for (let i = 1; i <= 5; i++) g.circle(px, py + (len / 5) * i, 2).fill({ color: COLORS.inkSoft, alpha: 0.22 })
+    g.circle(px, py, 7).fill(COLORS.inkSoft)
+    g.moveTo(px, py).lineTo(bx, by).stroke({ width: 5, color: COLORS.inkSoft, cap: 'round' })
+    g.circle(bx, by, 16).fill(level ? COLORS.green : COLORS.orange).stroke({ width: 3, color: COLORS.white, alpha: 0.7 })
+  },
 
   _drawHand() {
     const g = this._handG
@@ -530,17 +651,51 @@ export default {
     g.circle(xLand, yTop, 40).stroke({ width: 5, color: COLORS.yellow, alpha: 0.6 })
   },
 
-  // Glansig glasskula: skugg-cirkel + (dold) klister-ring + färgcirkel + glansfläck.
-  _makeScoop(color) {
+  // Glansig glasskula: skugg-cirkel + (dold) klister-ring + färgcirkel + smak-dekor + glansfläck.
+  _makeScoop(flavor) {
     const c = new Container()
+    c._flavor = flavor
     c.addChild(new Graphics().circle(0, 8, SCOOP_VR).fill({ color: 0x000000, alpha: 0.18 }))
     const ring = new Graphics().circle(0, 0, SCOOP_VR + 5).stroke({ width: 5, color: 0xffcf3f, alpha: 0.95 })
     ring.visible = false
     c.addChild(ring)
     c._stickyRing = ring
-    c.addChild(new Graphics().circle(0, 0, SCOOP_VR).fill(color).stroke({ width: 3, color: COLORS.white, alpha: 0.5 }))
+    c.addChild(new Graphics().circle(0, 0, SCOOP_VR).fill(flavor.color).stroke({ width: 3, color: COLORS.white, alpha: 0.5 }))
+    this._decorateScoop(c, flavor)
     c.addChild(new Graphics().circle(-16, -16, 12).fill({ color: 0xffffff, alpha: 0.6 }))
     return c
+  },
+
+  // Smak-specifik dekor ovanpå färgcirkeln: frön/strössel/chips/swirl → varje kula
+  // ser ut som EN riktig smak i stället för en anonym cirkel.
+  _decorateScoop(c, flavor) {
+    const g = new Graphics()
+    g.eventMode = 'none'
+    switch (flavor.kind) {
+      case 'strawberry':
+        for (const [dx, dy] of [[-18, -6], [8, -18], [22, 6], [-4, 16], [-24, 12], [12, 22]]) g.ellipse(dx, dy, 3.5, 5).fill(0xc0392b)
+        break
+      case 'blueberry':
+        for (const [dx, dy] of [[-16, -8], [10, -16], [20, 10], [-8, 18], [-22, 8], [6, 4]]) g.circle(dx, dy, 5).fill(0x5a3fa0)
+        break
+      case 'chocolate': {
+        const cols = [0xff9ec4, 0xffd35c, 0x57c8c3, 0xffffff, 0x5bbf6a, 0xa78bfa]
+        const pts = [[-20, -6], [-4, -18], [14, -12], [22, 6], [6, 16], [-16, 14], [-2, 2], [18, -2], [-10, -10]]
+        pts.forEach(([dx, dy], i) => {
+          if (i % 2) g.roundRect(dx - 6, dy - 2, 12, 4, 2).fill(cols[i % cols.length])
+          else g.roundRect(dx - 2, dy - 6, 4, 12, 2).fill(cols[i % cols.length])
+        })
+        break
+      }
+      case 'mint':
+        for (const [dx, dy] of [[-16, -6], [10, -14], [18, 8], [-6, 16], [-22, 10], [4, 0]]) g.circle(dx, dy, 5).fill(0x3a2a1e)
+        break
+      case 'vanilla':
+        g.arc(0, 0, 30, -0.4, 2.4).stroke({ width: 5, color: 0xe8c37a, alpha: 0.8 })
+        g.arc(2, 2, 15, 0.4, 3.2).stroke({ width: 5, color: 0xe8c37a, alpha: 0.7 })
+        break
+    }
+    c.addChild(g)
   },
 
   _applyStickyLook(view, on) {
@@ -585,6 +740,12 @@ export default {
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._finishCall?.kill()
     this._cherryTween?.kill()
+    this._serveTween?.kill()
+    if (this._customer && !this._customer.destroyed) {
+      gsap.killTweensOf(this._customer)
+      gsap.killTweensOf(this._customer.scale)
+    }
+    if (this._serveItem && !this._serveItem.destroyed) gsap.killTweensOf(this._serveItem)
 
     if (this._plate && !this._plate.destroyed) this._plate.off('pointertap', this._onPlateTapBound)
     if (this._stickyBtn && !this._stickyBtn.destroyed) {

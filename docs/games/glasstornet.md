@@ -1,5 +1,5 @@
 # Glasstornet (`glasstornet`)
-> ⚙️ fysik · drag · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -113,3 +113,15 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
 - Rekommenderad första-omgång: **[Quick] riktiga glass-smaker + nestle-squash + plopp/smask-
   ljud + läsbart svaj** + **[Medium] en glassugen mottagare** — gör världen levande och
   staplingen taktil, för låg risk.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). (1) Riktiga glass-smaker:
+  `FLAVORS` är nu smak-objekt med egen dekor — jordgubb-frön, färgglatt choklad-strössel,
+  mint-chokladchips, vanilj-swirl, blåbär-prickar (`_decorateScoop`). (2) Nestle-squash:
+  landande kula plattas till och studsar tillbaka som mjukglass (`_nestleSquash`) i stället
+  för bara `pop`. (3) Ljud: mjukt "plopp" (`sfx('pop')`) + STIGANDE pentatoniskt pling per
+  våning (`audio.tone`) när en kula nestlar sig; glatt "mums"-ton när mottagaren äter. (4)
+  Läsbart svaj: amplitud höjd (0.13→0.24 kapat) + nytt balans-lod/pendel uppe till höger
+  (`_drawTilt`) som hänger rakt ner och blir grönt vid ~lodrätt = "släpp nu". (5) Glassugen
+  mottagare (Bobo, `makeMascot`) vid vänster kant som studsar/gör stora ögon ju högre tornet
+  blir (`_reactCustomer`) och MUMSAR glassen vid finalen (🍦 flyger dit, "Mums! Tack!",
+  `_serveToCustomer`). Exit-säkert: alla nya tweens (customer.scale, serveTween, squash)
+  dödas i destroy; serve-item tweenas via {}-proxy. Ingen fail-state ändrad; ~90 rader.

@@ -93,3 +93,7 @@ garanterar att flaggan alltid nås. Räkneorden gör stapeln till en mjuk siffer
   Spelet testat (errorCount 0; kran + kloss + spök-markör + flagga renderar korrekt).
 - Rekommenderad första-omgång: **[Quick] varierade klossar + tyngd-ljud + bredare (icke-facit)
   markör** — återinför lite bedömning och taktil tyngd för minst risk.
+- 2026-07-01 🔧 **Mönster #1 (auto-hjälp) mjukad:** centrerings-magneten träder in senare
+  (från misses≥2, inte ≥1) och svagare (0.0006·(m−1)); kranens auto-placering först vid
+  misses≥3 (inte ≥2) → barnet får sikta helt själv de två första försöken. Barnets egen träff
+  firas nu tydligt mer än en hjälpt (12 vs 5–7 gnistor; ren förstaträff = extra). errorCount 0.

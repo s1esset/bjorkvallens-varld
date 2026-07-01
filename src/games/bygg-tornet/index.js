@@ -4,8 +4,10 @@
 // När den vilat snäpps den fast (statisk) så basen står stadigt medan tornet växer.
 // FYSIKEN avgör vinsten: när tillräckligt många klossar VILAR på varandra (ingen kloss
 // faller av) har vi byggt ett torn → firande. En kloss som tippar av är ALDRIG ett fall:
-// den puffar bara bort glatt och barnet får en ny. Efter ett par missar lägger kranen
-// nästa kloss rakt på plats av sig själv (auto-hjälp), så tornet ALLTID når topp-flaggan.
+// den puffar bara bort glatt och barnet får en ny. Barnet får sikta själv de första
+// försöken; först efter FLERA missar smyger en svag centrerings-hjälp in, och efter ännu
+// en lägger kranen nästa kloss på plats själv — så tornet ALLTID når topp-flaggan, men
+// barnets egen träff är alltid det som firas mest.
 // Allt ritas programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
 import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
@@ -273,15 +275,17 @@ export default {
     const block = this._active
     Body.setStatic(block.body, true)
     const i = this._count
+    const clean = this._misses === 0 // barnet prickade rätt på första försöket → fira extra
     ctx.services.audio.sfx((i + 1) % 4 === 0 ? 'pop' : 'pling')
     if (!block.view.destroyed) pop(block.view)
-    sparkle(ctx.fxLayer, block.body.position.x, block.body.position.y - BH / 2, { count: 6 })
+    // Barnets EGEN träff firas tydligt — extra gnistor när klossen satt direkt.
+    sparkle(ctx.fxLayer, block.body.position.x, block.body.position.y - BH / 2, { count: clean ? 12 : 7 })
     ctx.services.voice.say(i < NUMBERS.length ? NUMBERS[i] : randomFrom(PLACE_LINES))
     this._afterPlace(ctx, block)
   },
 
   // Klossen tippade av / hamnade bredvid → ALDRIG ett fall: puffa bort den glatt, ge en ny.
-  // Efter ett par missar lägger kranen nästa kloss rakt på plats (auto-hjälp).
+  // Först efter FLERA missar (3) lägger kranen nästa kloss rakt på plats (auto-hjälp).
   _rejectActive(ctx) {
     const block = this._active
     this._active = null
@@ -301,7 +305,7 @@ export default {
       ctx.services.voice.say(randomFrom(MISS_LINES))
     }
     this._phase = 'wait'
-    const helped = this._misses >= 2
+    const helped = this._misses >= 3
     this._spawnCall = gsap.delayedCall(0.28, () => {
       if (!this._alive) return
       if (helped) this._autoPlace(ctx)
@@ -321,7 +325,9 @@ export default {
     this._phys.link(body, view)
     bounceIn(view)
     ctx.services.audio.sfx('magi')
-    sparkle(ctx.fxLayer, this._supportX, expC - BH / 2, { count: 8 })
+    // Hjälpen firas ödmjukt (färre gnistor än barnets egen träff) — den ska inte kännas
+    // som barnets triumf.
+    sparkle(ctx.fxLayer, this._supportX, expC - BH / 2, { count: 5 })
     ctx.services.voice.say('Jag hjälper till!')
     this._afterPlace(ctx, { view, body })
   },
@@ -415,10 +421,11 @@ export default {
       this._fallT += dt
       const b = this._active.body
       const slow = b.speed < REST_SPEED && b.angularSpeed < ANG_REST
-      // Mjuk centrerings-hjälp som växer med antalet missar (no-fail, alltid byggbart):
-      // en svag "magnet" mot stödpunkten medan klossen ännu rör sig.
-      if (this._misses > 0 && !slow) {
-        const pull = 0.0009 * this._misses
+      // Mjuk centrerings-hjälp — men den träder in SENT: barnet får sikta helt själv de
+      // första försöken. Först från tredje försöket (misses>=2) smyger en svag "magnet"
+      // in mot stödpunkten. Skicklighet ska kännas, aldrig krävas.
+      if (this._misses >= 2 && !slow) {
+        const pull = 0.0006 * (this._misses - 1)
         Body.applyForce(b, b.position, { x: (this._supportX - b.position.x) * pull * b.mass, y: 0 })
       }
       this._restT = slow ? this._restT + dt : 0

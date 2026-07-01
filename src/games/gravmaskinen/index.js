@@ -16,7 +16,7 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, puff, burst, floatText, bigCelebration } from '../../lib/feedback.js'
+import { pop, wiggle, puff, burst, floatText, bigCelebration, sparkle, shake } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 // --- Sandrutnät (designkoordinater) ---
@@ -28,7 +28,8 @@ const ROWS = 34 // (540-200)/10
 const WALL = 9 // väggcell-flagga
 const CAP = 40 // skopans kapacitet (korn)
 const STEP_MS = 28 // ms mellan sim-steg (~36 steg/s)
-const SAND = [0, 0xe8c98a, 0xd9b46f, 0xc89a55] // [tom, topp, mitt, botten]
+const SAND = [0, 0xe8c98a, 0xd9b46f, 0xc89a55, 0xffd24a] // [tom, topp, mitt, botten, guldkorn]
+const GOLD = 4 // glittrande guldkorn (variation) — faller som vanlig sand
 
 // --- Skopans geometri / spelyta ---
 const PIVOT_X = 480 // bom-led
@@ -68,6 +69,9 @@ export default {
     this._bucketCount = 0
     this._lastScoopSfx = -1
     this._lastSpillFx = -1
+    this._lastHiss = -1 // senaste kornrassel-ljud
+    this._lastFynd = -100 // senaste skatt-fynd
+    this._moved = 0 // rörliga korn senaste frame (rassel-intensitet)
     this._pilePulsing = false
 
     this.grid = new Int8Array(COLS * ROWS)
@@ -303,6 +307,13 @@ export default {
     g.roundRect(lwx - 8, top, CELL + 8, h + CELL, 6).fill(COLORS.brown).stroke({ width: 3, color: 0x6b4326 })
     // Höger vägg.
     g.roundRect(rwx, top, CELL + 8, h + CELL, 6).fill(COLORS.brown).stroke({ width: 3, color: 0x6b4326 })
+    // Chassi-balk under flaket — kopplar ihop flaket med lastbilen (flaket sitter PÅ 🚛).
+    g.roundRect(lwx - 6, fy + 2 * CELL, rwx - lwx + CELL + 12, 12, 5).fill(0x3a3f45)
+    // Centrera 🚛 under flaket och skala den mot flakets bredd så det läser som EN dumper.
+    if (this._truck && !this._truck.destroyed) {
+      this._truck.position.set((lwx + rwx) / 2, fy + 78)
+      this._truck.scale.set(clamp((rwx - lwx) / 210, 1, 1.5))
+    }
   },
 
   _drawFillLine(cfg) {
@@ -349,19 +360,37 @@ export default {
     // Gräv medan munnen sveper genom sandhögen (+1 korn per ~8px rört avstånd).
     const munX = nx
     const munY = ny + MOUTH_DY
-    if (this._bucketCount < CAP && this._inPile(munX, munY)) {
+    const digging = this._bucketCount < CAP && this._inPile(munX, munY)
+    if (digging) {
       const moved = Math.hypot(munX - this._lastScoopX, munY - this._lastScoopY)
       this._bucketCount = Math.min(CAP, this._bucketCount + moved / 8)
       this._updateBucketSand(this._bucketCount)
       if (this._t - this._lastScoopSfx > 0.14) {
         this._lastScoopSfx = this._t
-        ctx.services.audio.sfx('soft')
+        // Kornigt skrap när skopan gräver (ersätter mjuk 'soft').
+        ctx.services.audio.tone({ freq: 130, dur: 0.11, type: 'sawtooth', vol: 0.13, slideTo: 80 })
         puff(ctx.fxLayer, munX, munY, { count: 3, color: 0xd9b46f })
         this._pulsePile()
+        this._maybeFynd(ctx, munX, munY)
       }
     }
+    // Kort skopa-darrning medan man gräver (annars rakt hängande).
+    this._bucket.rotation = digging ? (Math.random() * 2 - 1) * 0.045 : 0
     this._lastScoopX = munX
     this._lastScoopY = munY
+  },
+
+  // Gräver man djupt kan en begravd skatt (💎/🦴/🐚/⭐) dyka upp — extra fynd-glädje.
+  _maybeFynd(ctx, x, y) {
+    if (!this._alive || y < 470) return // bara djupa grävtag
+    if (this._t - this._lastFynd < 7 || Math.random() > 0.16) return
+    this._lastFynd = this._t
+    const tok = ['💎', '🦴', '🐚', '⭐'][(Math.random() * 4) | 0]
+    sparkle(ctx.fxLayer, x, y - 10, { count: 8 })
+    floatText(ctx.fxLayer, x, y - 20, tok, { fontSize: 64, rise: 120 })
+    ctx.services.audio.sfx('reveal')
+    ctx.services.audio.tone({ freq: 1200, dur: 0.18, type: 'sine', vol: 0.18, slideTo: 1800 })
+    ctx.services.voice.say('Titta, en skatt!')
   },
 
   _onUp(ctx, e) {
@@ -430,6 +459,9 @@ export default {
     this._updateBucketSand(0)
     ctx.services.audio.sfx('whoosh')
     this._spawnGrains(this._bucket.x, this._bucket.y + MOUTH_DY, n)
+    // Damm när sanden rinner ut + ett litet skärm-skutt när en stor mängd rasar.
+    puff(ctx.fxLayer, this._bucket.x, this._bucket.y + MOUTH_DY, { count: 6, color: 0xe8c98a })
+    if (n >= 18) shake(this._root, { intensity: 5, duration: 0.32 })
     this._tips++
     this._helpT = 0
     // Tipp-animation (luta fram & tillbaka). Position orörd → bommen håller ihop.
@@ -479,22 +511,25 @@ export default {
       let row = baseRow
       while (row >= 0 && grid[row * COLS + col] !== 0) row--
       if (row < 0) continue
-      grid[row * COLS + col] = 1 + ((Math.random() * 3) | 0)
+      // ~9% guldkorn — sprider glittrande färgvariation i lasten.
+      grid[row * COLS + col] = Math.random() < 0.09 ? GOLD : 1 + ((Math.random() * 3) | 0)
     }
   },
 
   // ETT sim-steg: nerifrån-upp; varje korn faller ner / ner-vänster / ner-höger.
   _simStep(ctx) {
     const grid = this.grid
+    let moved = 0 // räkna rörliga korn → rassel-intensitet
     for (let row = ROWS - 2; row >= 0; row--) {
       for (let col = 0; col < COLS; col++) {
         const i = row * COLS + col
         const v = grid[i]
-        if (v < 1 || v > 3) continue // tom eller WALL
+        if (v < 1 || v > GOLD) continue // tom eller WALL (guldkorn faller som sand)
         const below = i + COLS
         if (grid[below] === 0) {
           grid[below] = v
           grid[i] = 0
+          moved++
           continue
         }
         const d1 = Math.random() < 0.5 ? -1 : 1
@@ -502,21 +537,24 @@ export default {
         if (col + d1 >= 0 && col + d1 < COLS && grid[below + d1] === 0) {
           grid[below + d1] = v
           grid[i] = 0
+          moved++
           continue
         }
         if (col + d2 >= 0 && col + d2 < COLS && grid[below + d2] === 0) {
           grid[below + d2] = v
           grid[i] = 0
+          moved++
           continue
         }
         // annars vila
       }
     }
+    this._moved += moved
     // Dränera nedersta raden (spill utanför flaket) — bara kul, aldrig straff.
     const base = (ROWS - 1) * COLS
     for (let col = 0; col < COLS; col++) {
       const v = grid[base + col]
-      if (v >= 1 && v <= 3) {
+      if (v >= 1 && v <= GOLD) {
         grid[base + col] = 0
         if (this._t - this._lastSpillFx > 0.25) {
           this._lastSpillFx = this._t
@@ -539,7 +577,7 @@ export default {
       const rb = row * COLS
       for (let col = 0; col < COLS; col++) {
         const v = grid[rb + col]
-        if (v >= 1 && v <= 3) g.rect(col * CELL + ZX, ry, CELL, CELL).fill(SAND[v])
+        if (v >= 1 && v <= GOLD) g.rect(col * CELL + ZX, ry, CELL, CELL).fill(SAND[v])
       }
     }
   },
@@ -552,7 +590,7 @@ export default {
     for (let col = this._leftCol + 1; col < this._rightCol; col++) {
       for (let row = 0; row < this._floorRow; row++) {
         const v = grid[row * COLS + col]
-        if (v >= 1 && v <= 3) {
+        if (v >= 1 && v <= GOLD) {
           total++
           if (row <= this._fillRow) aboveLine++
         }
@@ -578,6 +616,14 @@ export default {
     }
     this._renderSand()
     this._drawBoom()
+
+    // Kornigt sand-rassel medan korn rinner (intensitet ∝ antal rörliga korn).
+    if (this._moved > 2 && this._t - this._lastHiss > 0.08) {
+      this._lastHiss = this._t
+      const intensity = clamp(this._moved / 30, 0.15, 1)
+      ctx.services.audio.tone({ freq: 2200 + Math.random() * 900, dur: 0.05, type: 'sawtooth', vol: 0.05 * intensity })
+    }
+    this._moved = 0
 
     if (this._resolving) return
 
@@ -654,7 +700,10 @@ export default {
         },
       })
     }
-    ctx.services.voice.say('Full last! Tuut tuut!')
+    // Riktig två-tons lastbils-tuta (ersätter TTS "tuut tuut").
+    ctx.services.audio.tone({ freq: 320, dur: 0.3, type: 'square', vol: 0.22 })
+    ctx.services.audio.tone({ freq: 250, dur: 0.45, type: 'square', vol: 0.22, delay: 0.28 })
+    ctx.services.voice.say('Full last! Bra jobbat!')
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, (this._cfg.leftX + this._cfg.rightX) / 2, 360)
 

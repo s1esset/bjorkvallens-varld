@@ -1,5 +1,5 @@
 # Grävmaskinen (`gravmaskinen`)
-> ⚙️ fysik · drag · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -123,3 +123,19 @@ rekvisita, och auto-hjälp + tap-fusk kan kringgå själva grävandet**.
 - Rekommenderad första-omgång: **[Quick] kornigt sand-ljud + damm/skak + färgad sand/fynd +
   koppla flak↔lastbil** — bygger direkt på simuleringens styrka och tar bort de tunnaste
   dragen (enfärgad sand, stel lastbil, TTS) för låg risk.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Implementerade hela den
+  rekommenderade första-omgången:
+  - **Kornigt sand-ljud:** ett rinnande rassel medan korn faller (kort sawtooth-`tone`,
+    intensitet ∝ antal rörliga korn räknade i `_simStep`), ett gruskornigt skrap-`tone` när
+    skopan gräver (ersätter `soft`), och en riktig två-tons lastbils-tuta (`tone`×2) vid full
+    last i stället för TTS "tuut tuut".
+  - **Damm & skak:** dammpuff när sanden rinner ut vid tipp, och ett litet exit-säkert
+    skärm-skutt (`shake` på roten) när en stor mängd (≥18 korn) rasar, plus en kort
+    skopa-darrning (liten rotation) medan man gräver.
+  - **Färgad sand & fynd:** guldkorn (nytt cellvärde `GOLD=4`, faller som vanlig sand,
+    ~9 % av spawnade korn) ger glittrande färgvariation i lasten; sim/render/räkning
+    utökade till v≤4. Gräver man djupt kan en begravd skatt (💎/🦴/🐚/⭐) dyka upp
+    (`_maybeFynd`: sparkle + svävande emoji + `reveal` + röst-beröm, snålt rate-limitad).
+  - **Koppla flak↔lastbil:** 🚛 centreras nu under flaket och skalas mot flakets bredd, och
+    en mörk chassi-balk ritas under golvet — flaket läser som att det sitter PÅ dumpern.
+    Bekräftat i skärmdump (guldkorn syns i lasten, dumpern hänger ihop).

@@ -29,6 +29,7 @@ const MAX_FALL = 9 // px/steg-tak på fallfart (lugnt för små barn)
 const GROUND_MARK_Y = 606 // y då ett föremål räknas som "i marken"
 const SPIDER_MIN_X = 200
 const SPIDER_MAX_X = 1080
+const HAND_LOCAL = { x: 14, y: -35 } // skjut-handens läge i skjut-armens container (tråd-ursprung)
 
 // Nivåtabeller (cykliskt, oändlig lek) — index = nivå-1, klampat till sista.
 const GOALS = [4, 5, 6, 7, 8]
@@ -111,6 +112,7 @@ export default {
 
     // Spindeln (drag i sidled).
     this._spider = makeSpider()
+    this._shootArm = this._spider.shootArm // flaxande skjut-arm (tråden skjuts från handen)
     this._spider.position.set(this._baseX, BASE_Y)
     this._spider.eventMode = 'static'
     this._spider.cursor = 'pointer'
@@ -288,7 +290,34 @@ export default {
     }
   },
 
-  _capture(ctx, obj) {
+  // Handens världsposition (i root-koordinater) — tråden skjuts härifrån, inte från basen.
+  // Följer både sidled-drag, luta-mot-byte och den flaxande armen.
+  _handPos() {
+    const a = this._shootArm
+    if (!a || a.destroyed) return { x: this._baseX, y: BASE_Y }
+    return this._root.toLocal(a.toGlobal(HAND_LOCAL))
+  },
+
+  // Snabb flax med skjut-armen (pivå vid axeln) vid varje skott — jägaren "kastar" nätet.
+  _flapArm() {
+    const a = this._shootArm
+    if (!a || a.destroyed) return
+    gsap.killTweensOf(a)
+    a.rotation = 0
+    const tw = gsap.to(a, {
+      rotation: -0.55,
+      duration: 0.09,
+      yoyo: true,
+      repeat: 1,
+      ease: 'power2.out',
+      onComplete: () => {
+        if (a && !a.destroyed) a.rotation = 0
+      },
+    })
+    this._tweens.push(tw)
+  },
+
+  _capture(ctx, obj, opts = {}) {
     if (!this._alive || obj._caught) return
     obj._caught = true
     if (obj === this._luredItem) this._clearLure()
@@ -298,6 +327,7 @@ export default {
     this._idle = 0
 
     ctx.services.audio.sfx('whoosh')
+    this._flapArm() // jägaren kastar nätet
     const v = obj.view
     const targetX = v && !v.destroyed ? v.x : this._baseX
     const targetY = v && !v.destroyed ? v.y : BASE_Y
@@ -314,6 +344,9 @@ export default {
           this._removeStrand(strand)
           return
         }
+        // Klistrigt "tjong/sproing" när tråden fäster (ej i bred-kaskaden — den har egen
+        // stigande ton per fångst så det inte blir rörigt).
+        if (!opts.cascade) ctx.services.audio.tone({ freq: 190, slideTo: 540, dur: 0.17, type: 'triangle', vol: 0.42 })
         strand.reeling = true
         this._reelIn(ctx, strand)
       },
@@ -364,6 +397,8 @@ export default {
     if (!this._alive) return
     this._addedTotal++
     ctx.services.audio.sfx(this._addedTotal % 3 === 0 ? 'pop' : 'pling')
+    // Mjukt "mums/plopp" när bytet landar i nätet.
+    ctx.services.audio.tone({ freq: 320, slideTo: 150, dur: 0.12, type: 'sine', vol: 0.32 })
     if (this._spider && !this._spider.destroyed) pop(this._spider)
     sparkle(ctx.fxLayer, this._baseX, BASE_Y - 10, { count: 6 })
     if (Math.random() < 0.5) floatText(ctx.fxLayer, this._baseX, BASE_Y - 60, '🍬', { fontSize: 40 })
@@ -412,7 +447,10 @@ export default {
     if (this._wideFace && !this._wideFace.destroyed) pop(this._wideFace)
     targets.forEach((it, k) => {
       const dc = gsap.delayedCall(k * 0.06, () => {
-        if (this._alive) this._capture(ctx, it)
+        if (!this._alive) return
+        // Stigande ton per fångst — bred-svepet blir en glad liten kaskad.
+        ctx.services.audio.tone({ freq: 330 + k * 80, dur: 0.12, type: 'triangle', vol: 0.34 })
+        this._capture(ctx, it, { cascade: true })
       })
       this._tweens.push(dc)
     })
@@ -535,13 +573,24 @@ export default {
     this._phys.update(t.deltaMS)
     const dt = Math.min(0.05, (t.deltaMS || 16.67) / 1000)
 
+    // Levande jägare: luta hjälten mjukt mot närmaste (lägsta) fallande föremål (billig lerp
+    // av rotation). Låter honom kännas närvarande — han tittar/vänder sig mot bytet.
+    const sp = this._spider
+    if (sp && !sp.destroyed) {
+      const aim = this._lowestItem()
+      let targetRot = 0
+      if (aim && aim.view && !aim.view.destroyed) targetRot = clamp((aim.view.x - this._baseX) * 0.00045, -0.14, 0.14)
+      sp.rotation += (targetRot - sp.rotation) * Math.min(1, dt * 6)
+    }
+
     // Rita om nättrådar (skjut-ut-fas: tip vandrar ut; indrag: följ föremålet).
     const th = this._thread
     if (th && !th.destroyed) {
       th.clear()
       if (this._strands.length) {
-        const bx = this._baseX
-        const by = BASE_Y
+        const hp = this._handPos() // tråden skjuts från handen, inte basen
+        const bx = hp.x
+        const by = hp.y
         let drew = false
         for (const s of this._strands) {
           let tx
@@ -661,6 +710,7 @@ export default {
       gsap.killTweensOf(this._spider)
       gsap.killTweensOf(this._spider.scale)
     }
+    if (this._shootArm && !this._shootArm.destroyed) gsap.killTweensOf(this._shootArm)
     if (this._wideBtn && !this._wideBtn.destroyed) this._wideBtn.off('pointertap', this._onWideTap)
     if (this._wideFace && !this._wideFace.destroyed) gsap.killTweensOf(this._wideFace.scale)
     if (this._meterLayer && !this._meterLayer.destroyed) gsap.killTweensOf(this._meterLayer.scale)
@@ -719,19 +769,30 @@ function makeSpider() {
   shadow.eventMode = 'none'
   c.addChild(shadow)
 
-  // Armar (bakom kroppen): vänster sänkt, höger lyft i "skjut-nätet"-pose.
+  // Vänster arm (sänkt, stilla) + svart handske.
   const arms = new Graphics()
   arms.moveTo(-15, 6).quadraticCurveTo(-32, 14, -33, 30)
-  arms.moveTo(15, 4).quadraticCurveTo(33, -8, 29, -30)
   arms.stroke({ width: 10, color: RED, cap: 'round' })
   arms.eventMode = 'none'
   c.addChild(arms)
-  // Svarta handskar (knytnävar) i båda handändar.
   const hands = new Graphics()
   hands.circle(-33, 31, 7).fill(BLACK)
-  hands.circle(29, -31, 7).fill(BLACK)
   hands.eventMode = 'none'
   c.addChild(hands)
+
+  // Höger "skjut-arm" i EGEN container med pivå vid axeln (15,4) så den kan FLAXA vid
+  // varje skott — och tråden skjuts ut från handens (14,-35 lokalt) världsposition.
+  const shootArm = new Container()
+  shootArm.position.set(15, 4)
+  const shootG = new Graphics()
+  shootG.moveTo(0, 0).quadraticCurveTo(18, -12, 14, -34)
+  shootG.stroke({ width: 10, color: RED, cap: 'round' })
+  shootG.circle(14, -35, 7).fill(BLACK)
+  shootG.eventMode = 'none'
+  shootArm.addChild(shootG)
+  shootArm.eventMode = 'none'
+  c.addChild(shootArm)
+  c.shootArm = shootArm // exponeras för flax + hand-position
 
   // Ben (röda) + små svarta stövlar.
   const legs = new Graphics()

@@ -1,5 +1,5 @@
 # Spindelnätet (`spindelnatet`)
-> ⚙️ motorik · tap · 2–4 år · status: 📝 plan klar
+> ⚙️ motorik · tap · 2–4 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -107,3 +107,12 @@ fångar försvinner in i abstrakta prickar.
   (errorCount 0), skärmdump läst. Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] levande jägare (vrid mot byte + flaxa armen, skjut från
   handen) + [Quick] klistrigt tråd-/mums-ljud** — ger jägaren och fångsten det liv kärnloopen saknar.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Levande jägare: hjälten lutar sig nu mjukt
+  (billig rotations-lerp i ticker) mot närmaste/lägsta fallande föremål, och skjut-armen bröts ut i
+  en egen container med pivå vid axeln så den **flaxar** vid varje skott. Nättråden ritas nu från
+  **handens världsposition** (`_handPos` via toGlobal/toLocal) i stället för basen — den följer drag,
+  luta och flax live. Klistrigt ljud: ett stigande "tjong/sproing" (`audio.tone`) när tråden fäster,
+  ett mjukt "mums/plopp" när bytet landar i nätet, och en stigande ton per fångst i bred-kaskaden
+  (`_capture({cascade})` tystar då per-fäste-tjonget så det inte blir rörigt). Allt exit-säkert:
+  arm-tween pushad i `_tweens` + `gsap.killTweensOf(this._shootArm)` i destroy. Testat headless med
+  taps + spindel-drag (errorCount 0), skärmdump läst.

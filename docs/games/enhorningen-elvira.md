@@ -109,3 +109,9 @@ Allt programmatiskt, exit-säkert.
   med playtest — scenen är märkbart glest komponerad). Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] fyll scenen + regnbågen vaknar + klättrings-ljud**,
   följt av **[Medium] gör molnen nödvändiga** — adresserar tomheten och kortslutningen.
+- 2026-07-01 🔧 **Mönster #1 (auto-hjälp) mjukad [Deep-lite]:** det scriptade hjälp-glidet
+  (`_autoHelpGlide` vid `_tries>=2`) BJUDER nu IN i stället för att spela banan: efter 2 egna
+  försök lägger `_placeHelperCloud` automatiskt ETT extra hjälp-moln som stegsten mitt i banan
+  och lämnar tillbaka kontrollen — barnet trycker Hoppa självt. Glid-bågen är kvar men FÖRST
+  som sista utväg (`_tries>=3`). Städning: tog bort oanvänd `DESIGN_H`-import + oanvända
+  `ctx`/`e`-params i `_loadLevel`/`_buildGems`/`_enterPlacing`/`_cloudUp`. errorCount 0.

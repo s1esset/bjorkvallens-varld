@@ -11,8 +11,9 @@
 // På högre nivåer dyker en mild vind-knapp upp (medvind/motvind).
 //
 // INGET MISSLYCKANDE: landar hon utan att nå målet svävar hon mjukt tillbaka till
-// start så barnet kan flytta molnen och prova igen; efter ett par försök hjälper
-// spelet henne i en mjuk båge ända fram. Alltid jubel, aldrig "game over".
+// start så barnet kan flytta molnen och prova igen; efter ett par försök lägger spelet
+// ett extra hjälp-moln och låter BARNET hoppa självt, och som sista utväg glider hon i
+// en mjuk båge ända fram. Alltid jubel, aldrig "game over".
 //
 // Allt ritas programmatiskt (Pixi Graphics + emoji) — inga filer. Exit-säkert.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
@@ -22,7 +23,7 @@ import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
 import { Button } from '../../lib/Button.js'
 import { bigCelebration, puff, sparkle, floatText, pop, breathe, ripple } from '../../lib/feedback.js'
-import { COLORS, FONT, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { COLORS, FONT, DESIGN_W } from '../../lib/theme.js'
 
 // --- Layout (designkoordinater 1280×720) ---------------------------------
 const START = { x: 185, y: 165 } // Elviras starthörn (uppe till vänster)
@@ -87,6 +88,7 @@ export default {
     this._flyT = 0
     this._settleT = 0
     this._tries = 0
+    this._helperGiven = false // hjälp-molnet läggs bara en gång per nivå
     this._state = 'placing' // placing | flying | returning | help | win
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._weightIdx = 0
@@ -116,7 +118,7 @@ export default {
     this._buildClouds(ctx)
     this._buildControls(ctx)
 
-    this._loadLevel(ctx, this._level)
+    this._loadLevel(this._level)
 
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
@@ -233,7 +235,7 @@ export default {
     this._root.addChild(this._cloudLayer)
     // En fast pool på 3 moln; nivån visar så många som tillåts.
     this._onCloudMove = (e) => this._cloudMove(e)
-    this._onCloudUp = (e) => this._cloudUp(ctx, e)
+    this._onCloudUp = () => this._cloudUp(ctx)
     for (let i = 0; i < 3; i++) {
       const view = makeCloudView()
       view.eventMode = 'static'
@@ -296,7 +298,7 @@ export default {
     return { goal: { x: gx, y: gy }, gems, cloudCount, wind }
   },
 
-  _loadLevel(ctx, level) {
+  _loadLevel(level) {
     if (!this._alive) return
     this._level = level
     this._tries = 0
@@ -328,7 +330,7 @@ export default {
     this._windToggle.visible = cfg.wind
 
     // Ädelstenar.
-    this._buildGems(ctx, cfg.gems)
+    this._buildGems(cfg.gems)
 
     // Moln tillbaka i facket (rätt antal synliga).
     this._resetClouds(cfg.cloudCount)
@@ -339,10 +341,10 @@ export default {
     this._elvira.scale.set(1)
     this._elvira.visible = true
 
-    this._enterPlacing(ctx, true)
+    this._enterPlacing(true)
   },
 
-  _buildGems(ctx, defs) {
+  _buildGems(defs) {
     // Rensa gamla.
     for (const g of this._gems) {
       g.tw?.kill()
@@ -389,7 +391,7 @@ export default {
 
   // ---- Placerings-läge ----------------------------------------------------
 
-  _enterPlacing(ctx, fresh = false) {
+  _enterPlacing(fresh = false) {
     if (!this._alive) return
     this._state = 'placing'
     this._idle = 0
@@ -515,7 +517,7 @@ export default {
     cloud.view.y = clamp(p.y + this._dragOffset.y, 150, 700)
   },
 
-  _cloudUp(ctx, e) {
+  _cloudUp(ctx) {
     const cloud = this._dragCloud
     if (!cloud) return
     this._dragCloud = null
@@ -722,7 +724,19 @@ export default {
   _onSettle(ctx) {
     this._tries++
     this._removeElviraBody()
-    if (this._tries >= 2) {
+    // Efter 2 egna försök BJUDER hjälpen IN: lägg ett extra hjälp-moln som stegsten och
+    // lämna tillbaka kontrollen — barnet trycker Hoppa självt i stället för att spelet
+    // glider banan åt det. Handlingen stannar hos barnet.
+    if (this._tries === 2 && !this._helperGiven && this._placeHelperCloud(ctx)) {
+      this._helperGiven = true
+      this._state = 'returning'
+      ctx.services.audio.sfx('pling')
+      ctx.services.voice.say('Här är ett moln till — prova igen!')
+      this._returnToStart(ctx)
+      return
+    }
+    // Sista utväg (efter hjälp-molnet): mjuk garanterad glid-båge fram.
+    if (this._tries >= 3) {
       this._autoHelpGlide(ctx)
       return
     }
@@ -730,6 +744,28 @@ export default {
     ctx.services.audio.sfx('soft')
     ctx.services.voice.say('Hoppsan! Dra Elvira eller flytta molnen och prova igen.')
     this._returnToStart(ctx)
+  },
+
+  // Lägg automatiskt ETT extra hjälp-moln som stegsten mitt i banan (en molnstuds lyfter
+  // henne mot regnbågen). Återanvänder ett ledigt moln ur poolen. true om ett kunde läggas.
+  _placeHelperCloud(ctx) {
+    const cloud = this._clouds.find((c) => c.view && !c.view.destroyed && !c.placed)
+    if (!cloud) return false
+    const px = clamp((START.x + this._goalPos.x) / 2, 100, DESIGN_W - 100)
+    const py = clamp((START.y + this._goalPos.y) / 2 + 90, 190, PLACE_LINE_Y - 4)
+    if (cloud.body) {
+      this._phys.removeBody(cloud.body)
+      cloud.body = null
+    }
+    cloud.view.visible = true
+    cloud.view.position.set(px, py)
+    gsap.killTweensOf(cloud.view.scale)
+    cloud.view.scale.set(0.6)
+    gsap.to(cloud.view.scale, { x: 1, y: 1, duration: 0.25, ease: 'back.out(2)' })
+    cloud.body = this._phys.rectangle(px, py, CLOUD_W - 18, CLOUD_H - 8, { isStatic: true, restitution: CLOUD_REST, friction: 0.1, label: 'cloud' })
+    cloud.placed = true
+    sparkle(ctx.fxLayer, px, py, { count: 6 })
+    return true
   },
 
   _returnToStart(ctx) {
@@ -748,7 +784,7 @@ export default {
         v.rotation = st.r
       },
       onComplete: () => {
-        if (this._alive) this._enterPlacing(ctx)
+        if (this._alive) this._enterPlacing()
       },
     })
   },
@@ -841,7 +877,7 @@ export default {
     ctx.progress.complete()
 
     this._loadTimer = gsap.delayedCall(1.9, () => {
-      if (this._alive) this._loadLevel(ctx, this._level)
+      if (this._alive) this._loadLevel(this._level)
     })
   },
 

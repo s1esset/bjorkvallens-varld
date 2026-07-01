@@ -100,4 +100,10 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
   granskad). Inga kodändringar. Rekommenderad första-omgång: **[Deep] stämda instrument per djur +
   [Quick] beat-puls på rutnätet** — det enda som gör skillnaden mellan "rytm-leksak" och riktig
   musiklek, plus att takten äntligen syns.
-</content>
+- 2026-07-01 🔧 **Första-omgången byggd (mönster #7):** (1) **Stämda instrument per djur [Deep]** —
+  `INSTRUMENTS` (ko bas/sine C3, hund triangle C4, katt marimba C5, gris G3) på gemensam
+  pentatonik (`PENTA`); `_noteFreq(id, slot)` → block spelar nu en STÄMD ton via `audio.tone()`
+  där skalsteget följer slot-index. Block på olika djur harmoniserar alltid; en rad block stiger
+  till en melodi. Röst-blocket kvar som djurets läte ovanpå. (2) **Beat-puls [Quick]** — hela den
+  aktiva kolumnens slots studsar mjukt när playheaden når dem → takten syns. Städning: slot-scale-
+  tweens dödas i destroy. errorCount 0.

@@ -39,6 +39,17 @@ const STAMP_ORDER = ['hopp', 'snurr', 'tut', 'klapp', 'rost']
 // Slot-tap cyklar tomt → hopp → … → röst → tomt.
 const CYCLE = [null, 'hopp', 'snurr', 'tut', 'klapp', 'rost']
 
+// Stämda instrument per djur (mönster #7): samma pentatoniska skala, olika oktav + klang.
+// Block på olika djur klingar därför ALLTID ihop till harmoni, och en rad block stiger
+// till en liten melodi (ton = skalsteg efter slot-index). Röst-blocket = djurets eget läte.
+const PENTA = [0, 2, 4, 7, 9] // C-dur-pentatonik (semitonsteg)
+const INSTRUMENTS = {
+  ko: { base: 131, type: 'sine' }, // bas (C3)
+  hund: { base: 262, type: 'triangle' }, // mellanregister (C4)
+  katt: { base: 523, type: 'triangle' }, // ljus marimba (C5)
+  gris: { base: 196, type: 'sine' }, // (G3)
+}
+
 // Loop-banans x-utbredning (slot-mitt) och playhead-svep.
 const TRACK_X0 = 280
 const TRACK_X1 = 1150
@@ -392,8 +403,16 @@ export default {
         if (!row.active) continue
         const type = row.slots[beat]
         if (type) {
-          this._perform(ctx, row, type)
+          this._perform(ctx, row, type, beat)
           row._playedThisLoop = true
+        }
+      }
+      // Beat-puls: hela den aktiva kolumnen studsar mjukt så takten SYNS.
+      for (const row of this._rows) {
+        const sc = row.slotC[beat]
+        if (sc && !sc.destroyed) {
+          gsap.killTweensOf(sc.scale)
+          gsap.to(sc.scale, { x: 1.12, y: 1.12, duration: 0.09, yoyo: true, repeat: 1, ease: 'power2.out', onComplete: () => { if (!sc.destroyed) sc.scale.set(1) } })
         }
       }
       this._lastBeat = beat
@@ -429,30 +448,41 @@ export default {
     ctx.progress.setCustom('arrangemang', n + 1)
   },
 
+  // Tonen för ett djur vid ett slot-index: djurets instrument på pentatonisk skala,
+  // skalsteget bestäms av slot-index (rad av block stiger till en melodi).
+  _noteFreq(id, slotIdx) {
+    const ins = INSTRUMENTS[id] || INSTRUMENTS.ko
+    const semi = PENTA[slotIdx % PENTA.length] + 12 * Math.floor(slotIdx / PENTA.length)
+    return { freq: ins.base * Math.pow(2, semi / 12), type: ins.type }
+  },
+
   // Utför ett blocks rörelse + ljud på djurets PERSISTENTA avatar-vy (exit-säkert).
-  _perform(ctx, row, type) {
+  // Blocken spelar nu en STÄMD ton (harmoniserar mellan djur); röst = djurets läte.
+  _perform(ctx, row, type, slotIdx = 0) {
     const view = row.view
     if (!view || view.destroyed) return
     const audio = ctx.services.audio
+    const note = this._noteFreq(row.id, slotIdx)
     switch (type) {
       case 'hopp':
         gsap.killTweensOf(view, 'y')
         view.y = row.yc
         gsap.to(view, { y: row.yc - 26, duration: 0.12, yoyo: true, repeat: 1, ease: 'power2.out' })
-        audio.sfx('boing')
+        audio.tone({ freq: note.freq, dur: 0.18, type: note.type, vol: 0.2 })
         break
       case 'snurr':
         gsap.to(view, { rotation: view.rotation + Math.PI * 2, duration: 0.4, ease: 'power1.inOut' })
-        audio.sfx('whoosh')
+        audio.tone({ freq: note.freq, dur: 0.22, type: note.type, vol: 0.18, slideTo: note.freq * 1.5 }) // liten upp-svirr
         break
       case 'tut':
         pop(view, { scale: 1.3 })
-        audio.sfx('pling')
+        audio.tone({ freq: note.freq, dur: 0.34, type: note.type, vol: 0.2 })
         break
       case 'klapp':
         pop(view)
         this._later(0.13, () => pop(view)) // snabb dubbel-squash
-        audio.sfx('pop')
+        audio.tone({ freq: note.freq, dur: 0.1, type: note.type, vol: 0.2 })
+        this._later(0.13, () => audio.tone({ freq: note.freq, dur: 0.1, type: note.type, vol: 0.16 }))
         break
       case 'rost': {
         pop(view, { scale: 1.22 })
@@ -499,6 +529,9 @@ export default {
           gsap.killTweensOf(bv)
           gsap.killTweensOf(bv.scale)
         }
+      }
+      for (const sc of row.slotC || []) {
+        if (sc && !sc.destroyed) gsap.killTweensOf(sc.scale)
       }
     }
     if (this._playhead && !this._playhead.destroyed) gsap.killTweensOf(this._playhead)

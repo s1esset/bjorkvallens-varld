@@ -107,27 +107,27 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 59 | Glasstornet | `glasstornet` | drag | 🔧 |
 | 64 | Grävmaskinen | `gravmaskinen` | drag | 🔧 |
 
-### 🧩 Pussel (pussel + minne + drag) — ✅ alla docs skrivna (Fas 3)
+### 🧩 Pussel (pussel + minne + drag) — ✅ HELA fliken (första-omgång, 2026-07-02)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
-| 2 | Sortera Skräp | `sortera-skrap` | drag | 📝 |
-| 3 | Vändkort | `vandkort` | tap | 📝 |
-| 8 | Mata Monstret | `mata-monstret` | mixed | 📝 |
-| 13 | Stor och Liten | `stor-liten` | drag | 📝 |
-| 15 | Klä på Nallen | `kla-pa-nallen` | drag | 📝 |
-| 16 | Plantera Frön | `plantera-fron` | drag | 📝 |
-| 17 | Skuggmatchning | `skuggmatchning` | drag | 📝 |
-| 18 | Enkelt Pussel | `enkelt-pussel` | drag | 📝 |
-| 21 | Vart Tog Det Vägen? | `vart-tog-det-vagen` | tap | 📝 |
-| 22 | Vad Försvann? | `vad-forsvann` | tap | 📝 |
-| 27 | Härma Melodin | `harma-melodin` | tap | 📝 |
-| 28 | Följ Spåret | `folj-sparet` | tap | 📝 |
-| 51 | Magnetfiske | `magnet-fiske` | drag | 📝 |
-| 57 | Kulbanan | `kulbana` | drag | 📝 |
-| 60 | Golvet är Lava | `golvet-ar-lava` | drag | 📝 |
-| 61 | Vattenvägen | `vattenvagen` | drag | 📝 |
-| 63 | Kugghjulen | `kugghjulen` | drag | 📝 |
-| 65 | Trollkarlens Blandning | `trollblandning` | drag | 📝 |
+| 2 | Sortera Skräp | `sortera-skrap` | drag | ✅ |
+| 3 | Vändkort | `vandkort` | tap | ✅ |
+| 8 | Mata Monstret | `mata-monstret` | mixed | ✅ |
+| 13 | Stor och Liten | `stor-liten` | drag | ✅ |
+| 15 | Klä på Nallen | `kla-pa-nallen` | drag | ✅ |
+| 16 | Plantera Frön | `plantera-fron` | drag | ✅ |
+| 17 | Skuggmatchning | `skuggmatchning` | drag | ✅ |
+| 18 | Enkelt Pussel | `enkelt-pussel` | drag | ✅ |
+| 21 | Vart Tog Det Vägen? | `vart-tog-det-vagen` | tap | ✅ |
+| 22 | Vad Försvann? | `vad-forsvann` | tap | ✅ |
+| 27 | Härma Melodin | `harma-melodin` | tap | ✅ |
+| 28 | Följ Spåret | `folj-sparet` | tap | ✅ |
+| 51 | Magnetfiske | `magnet-fiske` | drag | ✅ |
+| 57 | Kulbanan | `kulbana` | drag | ✅ |
+| 60 | Golvet är Lava | `golvet-ar-lava` | drag | ✅ |
+| 61 | Vattenvägen | `vattenvagen` | drag | ✅ |
+| 63 | Kugghjulen | `kugghjulen` | drag | ✅ |
+| 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ |
 
 ### 🔤 Lära (larande + pedagogiskt) — ✅ alla docs skrivna (Fas 4)
 | # | Spel | id | input | status |

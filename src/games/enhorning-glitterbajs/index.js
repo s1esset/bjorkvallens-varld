@@ -48,6 +48,9 @@ const IDLE_DELAY = 6
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const rand = (a, b) => a + Math.random() * (b - a)
 
+// Varje mat ger sin EGEN sorts glitter → "vilken mat" blir ett verkligt val.
+const FOOD_GLITTER = { '🍓': 'heart', '🧁': 'sprinkle', '🍪': 'coin' }
+
 // Nivå -> glittermängd, mål, böjning. Plattformarnas antal/läge/vinkel slumpas i
 // makePlatformDefs så varje runda ser olik ut.
 function levelConfig(level) {
@@ -121,6 +124,7 @@ export default {
     this._selectedFood = null
     this._dragFood = null
     this._dragChest = false
+    this._glitterKind = 'coin' // sätts av senast matade mat (FOOD_GLITTER)
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
@@ -151,7 +155,7 @@ export default {
     this._tick = (t) => this._update(ctx, t)
     ctx.ticker.add(this._tick)
 
-    this._loadLevel(ctx, this._level)
+    this._loadLevel(this._level)
   },
 
   mount(ctx) {
@@ -233,7 +237,7 @@ export default {
     for (let i = 0; i < emojis.length; i++) {
       const view = makeFood(emojis[i])
       view.position.set(slots[i], 624)
-      const food = { view, slotX: slots[i], slotY: 624 }
+      const food = { view, slotX: slots[i], slotY: 624, emoji: emojis[i] }
       const onDown = (ev) => this._foodDown(ctx, food, ev)
       food._onDown = onDown
       view.on('pointerdown', onDown)
@@ -258,11 +262,15 @@ export default {
     chest.eventMode = 'static'
     chest.cursor = 'pointer'
     chest.hitArea = new Rectangle(-110, -90, 220, 180) // rejäl drag-halo
-    this._chestDownH = (ev) => this._chestDown(ctx, ev)
+    this._chestDownH = (ev) => this._chestDown(ev)
     this._onChestMove = (ev) => this._chestMove(ev)
     this._onChestUp = () => this._chestUp(ctx)
     chest.on('pointerdown', this._chestDownH)
     this._chest = chest
+    // Synlig glitter-hög som växer inuti kistan (ovanpå den mörka öppningen).
+    this._chestFill = new Graphics()
+    this._chestFill.eventMode = 'none'
+    chest.addChild(this._chestFill)
     this._root.addChild(chest)
 
     // Sensor-kropp i burkens öppning.
@@ -275,7 +283,7 @@ export default {
 
   // ---- Nivå ---------------------------------------------------------------
 
-  _loadLevel(ctx, level) {
+  _loadLevel(level) {
     if (!this._alive) return
     this._level = level
     const cfg = levelConfig(level)
@@ -303,6 +311,7 @@ export default {
 
     this._meterFrac = 0
     this._paintMeter()
+    this._drawChestFill()
   },
 
   // Bygg om plattformarna för en ny nivå från slumpade defs (olika antal/läge/vinkel).
@@ -422,6 +431,7 @@ export default {
     if (!this._alive || this._resolving) return
     this._idle = 0
     this._selectedFood = null
+    this._glitterKind = FOOD_GLITTER[food.emoji] || 'coin' // maten bestämmer glittersorten
     if (this._unicorn && !this._unicorn.destroyed) pop(this._unicorn, { scale: 1.12 })
     ctx.services.audio.sfx('soft')
     this._eatFood(food)
@@ -477,8 +487,11 @@ export default {
   _fart(ctx) {
     if (!this._alive || this._resolving) return
     this._idle = 0
-    ctx.services.audio.sfx('whoosh')
+    // Riktig prutt: fart-sampel om det finns (MOSS, #3), annars en synt-sawtooth-prutt.
+    if (!ctx.services.audio.sample?.('fart')) ctx.services.audio.tone({ freq: 200, dur: 0.24, type: 'sawtooth', vol: 0.15, slideTo: 75 })
     floatText(ctx.fxLayer, BUTT.x + 30, BUTT.y, '💨', { fontSize: 56 })
+    puff(ctx.fxLayer, BUTT.x + 18, BUTT.y, { count: 6, color: 0xd9b8ff }) // liten rök-puff
+    if (this._unicorn && !this._unicorn.destroyed) pop(this._unicorn, { scale: 1.06 }) // enhörningen skuttar
     if (this._elvira && !this._elvira.destroyed) pop(this._elvira, { scale: 1.16 })
     sparkle(ctx.fxLayer, BUTT.x, BUTT.y, { count: 6 })
 
@@ -490,7 +503,7 @@ export default {
   },
 
   _spawnPellet() {
-    const view = makePelletView()
+    const view = makePelletView(this._glitterKind)
     view.position.set(BUTT.x, BUTT.y)
     this._pelletLayer.addChild(view)
     const body = this._phys.circle(BUTT.x, BUTT.y, PELLET_R, { ...MATERIALS.bouncy, label: 'pellet' })
@@ -557,8 +570,24 @@ export default {
 
     if (!this._resolving) {
       this._caught++
+      this._drawChestFill()
       this._drawMeter(true)
       if (this._caught >= this._goal) this._onComplete(ctx)
+    }
+  },
+
+  // Synlig glitter-hög som växer inuti kistan per fångst (samlandet blir synligt).
+  _drawChestFill() {
+    const g = this._chestFill
+    if (!g || g.destroyed) return
+    g.clear()
+    const frac = clamp(this._goal ? this._caught / this._goal : 0, 0, 1)
+    const n = Math.round(frac * 16)
+    const cols = [COLORS.yellow, COLORS.pink, COLORS.blue, COLORS.green, COLORS.orange]
+    for (let i = 0; i < n; i++) {
+      const gx = -58 + (i % 7) * 19
+      const gy = -54 - Math.floor(i / 7) * 11
+      g.circle(gx, gy, 6).fill(cols[i % cols.length])
     }
   },
 
@@ -598,7 +627,7 @@ export default {
 
   // ---- Burk-drag (fri-följande) -------------------------------------------
 
-  _chestDown(ctx, e) {
+  _chestDown(e) {
     if (!this._alive) return
     this._idle = 0
     const p = this._root.toLocal(e.global)
@@ -764,7 +793,7 @@ export default {
     const tw = gsap.delayedCall(1.5, () => {
       if (!this._alive) return
       ctx.services.voice.say('Mer glitter!')
-      this._loadLevel(ctx, ++this._level)
+      this._loadLevel(++this._level)
     })
     this._timers.push(tw)
   },

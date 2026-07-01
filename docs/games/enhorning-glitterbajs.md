@@ -104,3 +104,11 @@ glittret blir ett osynligt nummer* — agensen och samlandet är tunnare än det
 - Rekommenderad första-omgång: **[Medium] mat → olika glitter + [Quick] synlig kista som fylls +
   riktig prutt-sfx** — gör det illusoriska matvalet äkta och samlandet synligt, där spelet är som
   tunnast trots sin polish.
+- 2026-07-01 🔧 **Första-omgången byggd (alla tre):** (1) **Mat → olika glitter [Medium]** —
+  `FOOD_GLITTER` (🍓→hjärtan/rosa, 🧁→regnbågs-strössel, 🍪→guldmynt); `_feed` sätter
+  `_glitterKind`, `makePelletView(kind)` färgar/emojar pelletsen → matvalet är nu ett verkligt val.
+  (2) **Synlig kista [Quick]** — `_chestFill` ritar en färgglad glitter-hög som växer inuti kistan
+  per fångst (`_drawChestFill`). (3) **Riktig prutt [Quick]** — synt-sawtooth-prutt (`audio.tone`)
+  med `sample('fart')`-hook, + rök-puff och en enhörnings-skutt. Städning: oanvända `ctx`-params
+  bort ur `_loadLevel`/`_chestDown`. Verifierat: mata→prutt→glitterregn→fångst med synlig hög,
+  errorCount 0.

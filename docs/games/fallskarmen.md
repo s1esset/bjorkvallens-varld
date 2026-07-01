@@ -1,5 +1,5 @@
 # Fallskärmen (`fallskarmen`)
-> ⚙️ fysik · drag · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -106,3 +106,14 @@ styrs hem, men det berättas ingen liten resa.
   drag (errorCount 0), skärmdump läst. Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] vind-lut på fallskärmen + dinglande ben/skratt + stigande
   vind-sus** — gör vinden och föraren kännbara, störst lyft för minst risk.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). (1) **Vind-lut:** kupolen lutar nu även i
+  *vindens* riktning (`windLean = this._wind * windFactor * 0.8`, clampad) ovanpå styr-luten — barnet
+  ser att vinden puttar och att styra rätar upp den; Tung biter mindre (windFactor) så luten blir
+  mindre, vilket gör tyngd-valet lite synligare. (2) **Dinglande ben + skratt:** föraren fick ett par
+  pendlande ben (Graphics kring en höft-pivot, roteras i ticker efter sidofart + vind + lugn
+  grundsväng) och ett litet "iiih!" (floatText + två stigande sine-toner + glad puls på emojin) vid
+  den mjuka landningen. (3) **Stigande vind-sus:** en mjuk luft-svallning (två `audio.tone`-lager)
+  vars volym OCH täthet följer `Math.abs(this._wind)` — tyst i stiltje, hörbart starkare i byarna.
+  Exit-säkert: `this._kid.scale`-tween dödas i destroy; benen är barn till chute (städas med
+  `children:true`); vind-sus är ren syntes utan loop. Testat headless (drag, errorCount 0), skärmdump
+  läst. Inga shared/lib-ändringar.

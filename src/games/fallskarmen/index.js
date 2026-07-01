@@ -63,6 +63,8 @@ export default {
     this._windTimer = 0
     this._leafTimer = 0
     this._leaves = []
+    this._susTimer = 0 // stigande vind-sus (mjuk luft-svallning vars volym följer byn)
+    this._legPhase = 0 // dinglande ben-pendel (fas)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -191,6 +193,20 @@ export default {
     // Sele (liten båge) + barn.
     const harness = new Graphics().roundRect(-22, -42, 44, 16, 8).fill(COLORS.brown)
     chute.addChild(harness)
+
+    // Dinglande ben (pendel kring höften) — byggs en gång, roteras i ticker så
+    // föraren känns levande: svänger med sidofart + vind + en lugn grundsväng.
+    const legs = new Graphics()
+    legs.moveTo(-9, 0).lineTo(-9, 20)
+    legs.moveTo(9, 0).lineTo(9, 20)
+    legs.stroke({ width: 8, color: COLORS.brown, cap: 'round' })
+    legs.circle(-9, 22, 6).fill(COLORS.red) // små skor
+    legs.circle(9, 22, 6).fill(COLORS.red)
+    legs.position.set(0, 4) // höft-pivot strax under emojin
+    legs.eventMode = 'none'
+    this._legs = legs
+    chute.addChild(legs)
+
     this._kid = new Text({ text: '🧒', style: { fontFamily: FONT.body, fontSize: 70 } })
     this._kid.anchor.set(0.5)
     this._kid.y = -18 // barnets fötter ≈ origo (landar på mattan vid GROUND_Y)
@@ -342,8 +358,18 @@ export default {
     chute.x += this._vx * dt
     chute.x = clamp(chute.x, X_MIN, X_MAX) // mjuka väggar (ingen studs-straff)
 
-    // Mjuk lutning i styrriktningen.
-    chute.rotation += (dir * 0.13 - chute.rotation) * Math.min(1, 0.15 * dt)
+    // Mjuk lutning: styrningen lutar åt sitt håll OCH vinden drar kupolen åt sitt
+    // (barnet SER/känner att vinden puttar — och att styra rätar upp den igen).
+    const windLean = clamp(this._wind * windFactor * 0.8, -0.3, 0.3)
+    const targetRot = clamp(dir * 0.13 + windLean, -0.34, 0.34)
+    chute.rotation += (targetRot - chute.rotation) * Math.min(1, 0.15 * dt)
+
+    // Dinglande ben pendlar med sidofart + vind + en lugn grundsväng.
+    this._legPhase += 0.11 * dt
+    if (this._legs && !this._legs.destroyed) {
+      const vxN = clamp(this._vx / VX_MAX, -1, 1)
+      this._legs.rotation = Math.sin(this._legPhase) * 0.16 + vxN * 0.35 + this._wind * 0.9
+    }
 
     // Chevroner tänds/dämpas mjukt.
     this._chevL.alpha += ((dir < 0 ? 0.95 : 0.12) - this._chevL.alpha) * Math.min(1, 0.25 * dt)
@@ -368,6 +394,18 @@ export default {
     if (this._leafTimer >= leafEvery) {
       this._leafTimer = 0
       this._spawnLeaf(ctx)
+    }
+
+    // Stigande vind-sus: en mjuk luft-svallning vars volym OCH täthet följer hur
+    // hårt det blåser (Math.abs(this._wind)) — vinden HÖRS starkare i byarna. Tyst
+    // när det nästan står stilla (ingen påträngande loop). tone() = ren syntes.
+    this._susTimer += ds
+    const wmag = clamp(Math.abs(this._wind) / 0.3, 0, 1)
+    if (wmag > 0.1 && this._susTimer >= 1.3 - wmag * 0.7) {
+      this._susTimer = 0
+      const v = 0.04 + wmag * 0.1
+      ctx.services.audio.tone({ freq: 150 + wmag * 70, dur: 0.6 + wmag * 0.5, type: 'sawtooth', vol: v, slideTo: 90 })
+      ctx.services.audio.tone({ freq: 600, dur: 0.5, type: 'sine', vol: v * 0.4, slideTo: 360, delay: 0.04 })
     }
 
     // 5. Landningskoll.
@@ -577,6 +615,12 @@ export default {
     ctx.services.audio.sfx('correct')
     if (this._target && !this._target.destroyed) pop(this._target, { scale: 1.12 })
 
+    // Föraren skrattar till vid den mjuka landningen (litet "iiih!" + glad puls).
+    floatText(ctx.fxLayer, chute.x, GROUND_Y - 150, 'Iiih!', { fontSize: 46 })
+    ctx.services.audio.tone({ freq: 700, dur: 0.1, type: 'sine', vol: 0.22, slideTo: 1020 })
+    ctx.services.audio.tone({ freq: 880, dur: 0.12, type: 'sine', vol: 0.2, slideTo: 1240, delay: 0.11 })
+    if (this._kid && !this._kid.destroyed) pop(this._kid, { scale: 1.18 })
+
     // Mjuk studs-sekvens (direkt på fallskärmen; dödas i destroy).
     this._landTl?.kill()
     this._landTl = gsap
@@ -627,6 +671,7 @@ export default {
       gsap.killTweensOf(this._chute)
       gsap.killTweensOf(this._chute.scale)
     }
+    if (this._kid && !this._kid.destroyed) gsap.killTweensOf(this._kid.scale)
     if (this._glow && !this._glow.destroyed) gsap.killTweensOf(this._glow.scale)
     if (this._target && !this._target.destroyed) gsap.killTweensOf(this._target.scale)
     if (this._chevL && !this._chevL.destroyed) gsap.killTweensOf(this._chevL)

@@ -106,4 +106,34 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
 - Rekommenderad första-omgång: **[Medium] varierad uppgiftstyp (vad är nytt / bytte plats) +
   [Quick] magiskt försvinnande & sak-specifika ljud** — angriper den strukturellt identiska
   rundan och inerta rekvisitan, de två tydligaste tunnheterna.
+
+- 2026-07-02: **Första-omgången implementerad.**
+  - **[Medium] Varierad uppgiftstyp.** Ny `this._mode` sätts i `_build`: `'gone'` (grund — en
+    sak försvinner) eller `'added'` (en NY sak dyker upp). Nivå 0 är alltid `'gone'` (yngsta);
+    från nivå 1 slumpas läget (`Math.random() < 0.5`). I `'added'`-läget märks sista rutan
+    (`newcomerIndex = lvl.count - 1`) som `this._newcomer`: den ligger gömd i visa-fasen
+    (ingen studs-in, `_emoji.visible = false`) och *dyker upp* bakom filten i `_removeOne`.
+    Samma kort-svarsmekanik: `_showChoices` filtrerar `remaining = slots ≠ _missing` och drar
+    lurar därifrån, så `_missing` = svarsrutan funkar för båda lägena (nykomlingen är
+    svaret i `'added'`). Fas-/röst-texterna följer läget via nya `_introLine()` (mount +
+    `_newRound`), `_askLine()` (svarsfasen), samt mode-grenar i `_onChoice` (fel-ledtrådar),
+    `_resolveCorrect` (beröm) och `_autoHelp`. `_onTap` guardar den gömda nykomlingen så en
+    tryckning på dess tomma ruta i visa-fasen ignoreras.
+  - **[Quick] Magiskt försvinnande.** I `_removeOne` spelas nu ett fallande "poff" via
+    `audio.tone({freq:320, slideTo:150})` medan filten täcker, och när filten glidit undan
+    läggs en `sparkle(ctx.fxLayer, …)` på platsen där saken försvann/dök upp.
+  - **[Quick] Sak-specifika ljud + tydligare rätt-ögonblick.** Ny `SAMPLES`-karta
+    (🐶→`djur_hund`, 🐱→`djur_katt`, 🐸→`djur_groda`, 🚗→`bil_tut`); i `_resolveCorrect`
+    försöker `audio.sample()` spela läten ovanpå namn-TTS (faller tyst bort om klippet saknas).
+    Dessutom en stigande "rätt"-`audio.tone({freq:520, slideTo:900})` + en grön triumf-`ripple`
+    (ny import) kring rutan när saken kommer tillbaka.
+  - Test: `node scripts/test-game.mjs vad-forsvann --url http://localhost:5173 --taps "…"`
+    (visa→göm→svara→välj-kort samt visa-fas + svars-fas separat) → **errorCount 0** i samtliga
+    körningar; skärmdumpar bekräftade täck-fasen (filt utan strö-staplar) och svars-fasen (3
+    stora kort, ren platshållare). Enstaka blanka rutor = övergående HMR-omladdning av
+    dev-servern (bekräftat av transient `__barnspel`-undefined, ej spel-fel).
+  - Deferred: [Deep] figur som gömmer sakerna (Bobo/skata) + [Deep] två saker försvinner;
+    [Medium] dämpa platshållar-spoilern på högre nivåer; [Quick] "liv medan man memorerar"
+    (idle-rörelse per sak); [Quick] synlig "rundor klarade"-räknare; [Quick] tyg-frasande
+    filtljud + lugn bakgrunds-ambient; [Medium] "vad bytte plats?"-varianten.
 </content>

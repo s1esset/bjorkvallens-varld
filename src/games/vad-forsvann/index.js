@@ -9,10 +9,13 @@
 // ett par försök (eller om barnet väntar) lyser rätt kort upp och väljs till slut
 // så det aldrig kan misslyckas. Ingen poäng, ingen timer, inget slut. Allt ritas
 // programmatiskt (Pixi Graphics + emoji).
+// Uppgiftstypen varieras (_mode): 'gone' = en sak försvinner (grund), 'added' = en
+// NY sak dyker upp bakom filten och barnet väljer vilken som är ny — samma
+// kort-svarsmekanik, men bryter den strukturellt identiska rundan.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle, breathe } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, breathe, ripple } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 
@@ -24,6 +27,12 @@ const NAMES = {
   '🍎': 'äpplet', '🐶': 'hunden', '⭐': 'stjärnan', '🚗': 'bilen', '🌸': 'blomman',
   '🧸': 'nallen', '🎈': 'ballongen', '🍌': 'bananen', '🐱': 'katten', '🦋': 'fjärilen',
   '🍓': 'jordgubben', '🎩': 'hatten', '🐸': 'grodan', '⚽': 'bollen', '🌈': 'regnbågen', '🍰': 'tårtan',
+}
+
+// Emoji -> ev. riktigt sak-läte (spelas ovanpå namn-TTS via audio.sample). Saknas
+// klippet faller det tyst bort (sample() returnerar false) — helt ofarligt.
+const SAMPLES = {
+  '🐶': 'djur_hund', '🐱': 'djur_katt', '🐸': 'djur_groda', '🚗': 'bil_tut',
 }
 
 // Svårigheten växer via fler saker (3→6) och 2-radsuppställning på sista nivån.
@@ -61,7 +70,14 @@ export default {
   },
 
   mount(ctx) {
-    ctx.services.voice.say(this.voiceIntro)
+    ctx.services.voice.say(this._introLine())
+  },
+
+  // Talad intro beror på uppgiftstypen (satt i _build).
+  _introLine() {
+    return this._mode === 'added'
+      ? 'Titta noga på sakerna! Snart dyker en ny sak upp — vilken?'
+      : 'Titta noga på sakerna! Snart försvinner en — vilken?'
   },
 
   // Bygg en runda: städa gammalt, slumpa saker, lägg ut rutnät, skapa knapp,
@@ -84,6 +100,12 @@ export default {
     this._idleNudges = 0
     this._phase = 'show'
 
+    // Varierad uppgiftstyp bryter den strukturellt identiska rundan: 'gone' = en
+    // sak försvinner (grund), 'added' = en NY sak dyker upp. De yngsta (nivå 0)
+    // får alltid grundvarianten; från nivå 1 slumpas läget.
+    this._mode = this._level === 0 ? 'gone' : (Math.random() < 0.5 ? 'added' : 'gone')
+    this._newcomer = null
+
     const lvl = LEVELS[this._level]
     // Rutnätet bor i ett eget lager så vi kan glida upp det när svarskorten kommer.
     this._gridShift = lvl.rows > 1 ? 90 : 0
@@ -92,6 +114,10 @@ export default {
 
     const motifs = shuffle(MOTIFS).slice(0, lvl.count)
     const positions = layout(lvl)
+    // I 'added'-läget är sista rutan "nykomlingen": den ligger gömd i visa-fasen
+    // (ingen studs-in) och dyker fram bakom filten. Sista rutan -> luckan hamnar i
+    // radens slut, inte som ett hål mitt bland sakerna.
+    const newcomerIndex = this._mode === 'added' ? lvl.count - 1 : -1
 
     motifs.forEach((motif, i) => {
       const slot = this._makeSlot(ctx, motif)
@@ -99,6 +125,11 @@ export default {
       this._gridLayer.addChild(slot)
       this._slots.push(slot)
       slot.scale.set(0)
+      if (i === newcomerIndex) {
+        this._newcomer = slot
+        slot._emoji.visible = false // syns inte förrän den dyker upp bakom filten
+        return
+      }
       gsap.to(slot.scale, {
         x: 1, y: 1, duration: 0.34, delay: 0.05 + i * 0.08, ease: 'back.out(1.7)',
         onStart: () => { if (this._alive) ctx.services.audio.sfx('pop') },
@@ -170,16 +201,27 @@ export default {
     })
   },
 
-  // Bakom filten: göm EN slumpvald sak, visa platshållare, glid undan filten.
+  // Bakom filten: byt en sak i smyg. 'gone' -> göm en slumpvald sak (platshållare
+  // fram). 'added' -> låt nykomlingen dyka upp. Glid sedan undan filten. Ett litet
+  // "poff" (reveal + fallande ton) gör bytet trolskt medan filten täcker.
   _removeOne(ctx, blanket) {
     if (!this._alive) return
-    const slot = randomFrom(this._slots)
+    let slot
+    if (this._mode === 'added') {
+      slot = this._newcomer
+      slot._emoji.visible = true
+      gsap.killTweensOf(slot.scale)
+      slot.scale.set(1) // saken dyker upp bakom filten
+    } else {
+      slot = randomFrom(this._slots)
+      slot._isGap = true
+      slot._emoji.visible = false
+      slot._placeholder.visible = true
+    }
     this._missing = slot
-    slot._isGap = true
-    slot._emoji.visible = false
-    slot._placeholder.visible = true
 
     ctx.services.audio.sfx('reveal')
+    ctx.services.audio.tone({ freq: 320, dur: 0.18, type: 'sine', vol: 0.18, slideTo: 150 }) // magiskt "poff"
     gsap.to(blanket, {
       x: 1280 + 60, duration: 0.5, ease: 'power2.in',
       onComplete: () => {
@@ -194,11 +236,21 @@ export default {
         this._idleNudges = 0
         // Glid upp rutnätet (på 2-radsnivån) så svarskorten får plats nedtill.
         if (this._gridShift) gsap.to(this._gridLayer, { y: -this._gridShift, duration: 0.4, ease: 'power2.out' })
-        pop(slot) // liten puls på den tomma platsen
+        pop(slot) // liten puls på platsen som ändrats
+        // Magisk gnist-pluff där saken försvann/dök upp (nu synlig).
+        const gp = ctx.fxLayer.toLocal(slot.getGlobalPosition())
+        sparkle(ctx.fxLayer, gp.x, gp.y)
         this._showChoices(ctx)
-        ctx.services.voice.say('Vad försvann? Tryck på saken som är borta!')
+        ctx.services.voice.say(this._askLine())
       },
     })
+  },
+
+  // Frågan i svarsfasen beror på uppgiftstypen.
+  _askLine() {
+    return this._mode === 'added'
+      ? 'Vad är nytt? Tryck på saken som kom till!'
+      : 'Vad försvann? Tryck på saken som är borta!'
   },
 
   // Visa svarsraden: rätt (borta) sak + ett par "lurar" bland de som SYNS kvar.
@@ -252,10 +304,14 @@ export default {
     ctx.services.audio.sfx('soft')
     wiggle(card)
     this._misses = (this._misses || 0) + 1
-    if (this._misses === 1) {
-      ctx.services.voice.say('Nästan! Titta vad som finns kvar — vilken sak är borta?')
+    if (this._mode === 'added') {
+      ctx.services.voice.say(this._misses === 1
+        ? 'Nästan! Vilken sak fanns inte där förut?'
+        : 'Prova igen! Leta efter saken som är ny.')
     } else {
-      ctx.services.voice.say('Prova igen! Leta efter saken som inte syns längre.')
+      ctx.services.voice.say(this._misses === 1
+        ? 'Nästan! Titta vad som finns kvar — vilken sak är borta?'
+        : 'Prova igen! Leta efter saken som inte syns längre.')
     }
     if (this._misses >= 2) this._autoHelp(ctx) // mjuk auto-hjälp -> kan aldrig fastna
   },
@@ -291,8 +347,16 @@ export default {
     pop(slot)
     const gp = ctx.fxLayer.toLocal(slot.getGlobalPosition())
     sparkle(ctx.fxLayer, gp.x, gp.y)
+    ripple(ctx.fxLayer, gp.x, gp.y, { color: COLORS.green, maxR: 120 }) // triumf-ring kring rutan
+    // Stigande "rätt"-pling + ev. sak-specifikt läte (voff/tut) ovanpå namn-TTS.
+    ctx.services.audio.tone({ freq: 520, dur: 0.14, type: 'triangle', vol: 0.22, slideTo: 900 })
+    const sample = SAMPLES[slot._motif]
+    if (sample) ctx.services.audio.sample(sample)
     const namn = NAMES[slot._motif] || 'den'
-    ctx.services.voice.say(`Ja! Det var ju ${namn}! ${randomFrom(PRAISE)}`)
+    const line = this._mode === 'added'
+      ? `Ja! ${cap(namn)} kom till! ${randomFrom(PRAISE)}`
+      : `Ja! Det var ju ${namn}! ${randomFrom(PRAISE)}`
+    ctx.services.voice.say(line)
 
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
     this._level = clampLevel(this._level + 1)
@@ -318,7 +382,9 @@ export default {
     this._killHelpTween()
     this._helpTween = breathe(card, { scale: 1.12, duration: 0.7 })
     const namn = NAMES[this._missing._motif] || 'den'
-    ctx.services.voice.say(`Titta — det var ${namn} som försvann. Tryck på den!`)
+    ctx.services.voice.say(this._mode === 'added'
+      ? `Titta — det var ${namn} som kom till. Tryck på den!`
+      : `Titta — det var ${namn} som försvann. Tryck på den!`)
     this._later(2.8, () => {
       if (this._alive && this._phase === 'answer' && !this._resolving) this._resolveCorrect(ctx, card)
     })
@@ -335,6 +401,7 @@ export default {
     if (!this._alive || this._busy) return
     this._idle = 0
     if (this._phase !== 'show' && this._phase !== 'answer') return
+    if (slot === this._newcomer && !slot._emoji.visible) return // gömd tills den dyker upp
     ctx.services.audio.sfx('pop')
     pop(slot)
   },
@@ -342,7 +409,7 @@ export default {
   _newRound(ctx) {
     if (!this._alive) return
     this._build(ctx)
-    ctx.services.voice.say(this.voiceIntro)
+    ctx.services.voice.say(this._introLine())
   },
 
   // Idle ~6s: locka vänligt vidare beroende på fas (aldrig press).
@@ -412,6 +479,11 @@ export default {
 
 function clampLevel(l) {
   return Math.max(0, Math.min(LEVELS.length - 1, l))
+}
+
+// Versal första bokstav (svensk mening: "Äpplet kom till!").
+function cap(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 // Cellpositioner (center) för en nivå.

@@ -96,3 +96,11 @@ inte en medspelare, och flicken har inget att sikta på.
   Speltestad (errorCount 0, skärmdump granskad — Alissa med grädde + svamp). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] reaktivt ansikte + [Quick] riktiga plask-SFX** — gör
   Alissa till en medspelare och får slapsticken att landa. Siktet (Deep) kan vänta.
+- 2026-07-01 🔧 **Första-omgången byggd:** (1) **Reaktivt ansikte [Medium]** — ansiktet
+  refaktorerat till separata delar: ögon med rörliga pupiller (`_makeClownEye`) som FÖLJER
+  tårtan under flygningen (`_lookAt` i `_stepFlight`), knips ihop + munnen blir ett förvånat "O"
+  vid träff (`_faceSplat`), och en lugn idle-blink (`_scheduleBlink`). (2) **Plask-ljud [Quick]** —
+  synt-"squelch" nedåt + komisk boing via `audio.tone()`, med `audio.sample('plask')`-hook som
+  spelar riktiga klipp när MOSS ([[real-audio-sfx]], #3) kört. Städning: oanvänd `ctx`-param bort
+  ur `_onCakeMove`. Siktet (Deep) lämnat till senare. Verifierat: flick → splat → reaktivt
+  ansikte + svamp, errorCount 0.

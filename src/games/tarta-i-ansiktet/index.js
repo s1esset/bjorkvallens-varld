@@ -94,9 +94,11 @@ export default {
 
     // Bundna peklyssnare för dra/släpp (flick) på tårtan (av/på vid varje gest).
     this._cakeDown = (e) => this._onCakeDown(ctx, e)
-    this._cakeMove = (e) => this._onCakeMove(ctx, e)
+    this._cakeMove = (e) => this._onCakeMove(e)
     this._cakeUp = () => this._onCakeUp(ctx)
     this._cake.on('pointerdown', this._cakeDown)
+
+    this._scheduleBlink() // Alissa blinkar lite då och då (levande ansikte)
 
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
@@ -127,18 +129,20 @@ export default {
     const head = new Graphics().circle(0, 0, 150).fill(0xfff0e0).stroke({ width: 8, color: 0xe8c9b0 })
     head.eventMode = 'none'
 
-    // Ansikte: rosa kinder, ögon m. pupiller, röd näsa, brett glatt leende.
+    // Ansikte: rosa kinder (statiska) + SEPARATA ögon/mun/näsa så Alissa kan REAGERA
+    // (ögonen följer tårtan, knips ihop och munnen blir ett förvånat "O" vid träff).
     const face = new Graphics()
     face.circle(-95, 35, 26).fill({ color: COLORS.pink, alpha: 0.75 })
     face.circle(95, 35, 26).fill({ color: COLORS.pink, alpha: 0.75 })
-    face.circle(-58, -45, 28).fill(0xffffff).stroke({ width: 3, color: 0x33271f })
-    face.circle(58, -45, 28).fill(0xffffff).stroke({ width: 3, color: 0x33271f })
-    face.circle(-56, -40, 13).fill(0x33271f)
-    face.circle(56, -40, 13).fill(0x33271f)
-    face.arc(0, 60, 60, 0.08 * Math.PI, 0.92 * Math.PI).fill(0x7a2b22) // öppen skratt-mun
-    face.circle(0, 104, 22).fill(COLORS.red) // tunga
-    face.circle(0, 25, 36).fill(COLORS.red) // röd näsa (ritas sist -> ovanpå)
     face.eventMode = 'none'
+
+    this._eyeL = this._makeClownEye(-58, -45)
+    this._eyeR = this._makeClownEye(58, -45)
+    this._mouth = new Graphics()
+    this._mouth.eventMode = 'none'
+    this._drawClownMouthOn(this._mouth, 'smile')
+    const nose = new Graphics().circle(0, 25, 36).fill(COLORS.red)
+    nose.eventMode = 'none'
 
     // Hatt (liten kon + pompom ovanpå huvudet).
     const hatColor = randomFrom(PLAYFUL)
@@ -152,8 +156,80 @@ export default {
     this._splatLayer = new Container()
     this._splatLayer.eventMode = 'none'
 
-    c.addChild(hair, head, face, hat, this._splatLayer)
+    c.addChild(hair, head, face, this._eyeL, this._eyeR, this._mouth, nose, hat, this._splatLayer)
     this._root.addChild(c)
+  },
+
+  // Ett clown-öga: vit boll + rörlig pupill (följer tårtan). Skalas i y för blink/knip.
+  _makeClownEye(x, y) {
+    const e = new Container()
+    e.position.set(x, y)
+    e.eventMode = 'none'
+    const w = new Graphics().circle(0, 0, 28).fill(0xffffff).stroke({ width: 3, color: 0x33271f })
+    const pupil = new Graphics().circle(0, 0, 13).fill(0x33271f)
+    w.eventMode = 'none'
+    pupil.eventMode = 'none'
+    e.addChild(w, pupil)
+    e._pupil = pupil
+    return e
+  },
+
+  // Mun: brett leende eller förvånat "O".
+  _drawClownMouthOn(m, mode) {
+    if (!m || m.destroyed) return
+    m.clear()
+    if (mode === 'o') {
+      m.circle(0, 74, 34).fill(0x7a2b22)
+      m.circle(0, 86, 13).fill(COLORS.red)
+    } else {
+      m.arc(0, 60, 60, 0.08 * Math.PI, 0.92 * Math.PI).fill(0x7a2b22)
+      m.circle(0, 104, 22).fill(COLORS.red)
+    }
+  },
+
+  // Pupillerna följer en punkt (tårtan) under flygningen — ger "hon ser den komma".
+  _lookAt(x, y) {
+    const dx = x - FACE_X
+    const dy = y - FACE_Y
+    const d = Math.hypot(dx, dy) || 1
+    const off = Math.min(10, d / 22)
+    for (const e of [this._eyeL, this._eyeR]) {
+      if (e && e._pupil && !e._pupil.destroyed) e._pupil.position.set((dx / d) * off, (dy / d) * off)
+    }
+  },
+
+  // Träff-reaktion: ögonen knips + munnen blir ett "O", återgår sen till leendet.
+  _faceSplat() {
+    this._drawClownMouthOn(this._mouth, 'o')
+    for (const e of [this._eyeL, this._eyeR]) {
+      if (!e || e.destroyed) continue
+      gsap.killTweensOf(e.scale)
+      e.scale.set(1)
+      gsap.to(e.scale, { y: 0.2, duration: 0.09, yoyo: true, repeat: 1, ease: 'power2.inOut' })
+      if (e._pupil && !e._pupil.destroyed) e._pupil.position.set(0, 0)
+    }
+    this._faceTimer?.kill()
+    this._faceTimer = gsap.delayedCall(0.55, () => {
+      if (this._alive) this._drawClownMouthOn(this._mouth, 'smile')
+    })
+  },
+
+  _scheduleBlink() {
+    this._blinkTimer?.kill()
+    this._blinkTimer = gsap.delayedCall(2 + Math.random() * 3, () => {
+      if (!this._alive) return
+      this._blink()
+      this._scheduleBlink()
+    })
+  },
+
+  _blink() {
+    for (const e of [this._eyeL, this._eyeR]) {
+      if (!e || e.destroyed) continue
+      gsap.killTweensOf(e.scale)
+      e.scale.set(1)
+      gsap.to(e.scale, { y: 0.14, duration: 0.08, yoyo: true, repeat: 1, ease: 'power2.inOut' })
+    }
   },
 
   // Gräddtårta på brickan: tårtbotten + grädde + körsbär. Generös träffyta r=90.
@@ -255,7 +331,7 @@ export default {
     this._cake.on('pointerupoutside', this._cakeUp)
   },
 
-  _onCakeMove(ctx, e) {
+  _onCakeMove(e) {
     if (!this._alive || this._resolving) return
     const p = this._root.toLocal(e.global)
     if (!this._dragMoved && Math.hypot(p.x - this._startX, p.y - this._startY) > 14) this._dragMoved = true
@@ -363,6 +439,7 @@ export default {
     cake.x += vel.x * dt
     cake.y += vel.y * dt
     cake.rotation += vel.x * 0.0008 + 4 * dt // glad snurr i luften
+    this._lookAt(cake.x, cake.y) // Alissa följer tårtan med blicken
     if (dist < 62 || this._flightElapsed > 1.5) {
       this._flying = false
       cake.x = FACE_X
@@ -418,10 +495,15 @@ export default {
   // Själva PLASK-effekten.
   _splat(ctx) {
     if (!this._alive) return
-    ctx.services.audio.sfx('pop')
-    if (Math.random() < 0.25) ctx.services.audio.sfx('pling')
+    // Riktigt plask-klipp om det finns (genereras senare via MOSS, [[real-audio-sfx]]),
+    // annars en synt-"squelch" nedåt + en liten komisk boing.
+    if (!ctx.services.audio.sample?.('plask')) {
+      ctx.services.audio.tone({ freq: 520, dur: 0.16, type: 'sawtooth', vol: 0.16, slideTo: 90 })
+      ctx.services.audio.tone({ freq: 170, dur: 0.2, type: 'sine', vol: 0.13, slideTo: 340, delay: 0.05 })
+    }
     this._addCream()
     puff(ctx.fxLayer, FACE_X, FACE_Y, { count: 12, color: 0xffffff })
+    this._faceSplat() // ögon knips + förvånat "O"
     wiggle(this._clown)
     pop(this._clown)
     ctx.services.voice.say(randomFrom(SPLATS))
@@ -668,9 +750,11 @@ export default {
     this._flying = false
     ctx.ticker.remove(this._tick)
     this._celebrate?.kill()
+    this._blinkTimer?.kill()
+    this._faceTimer?.kill()
     this._detachCake()
     this._detachSponge()
-    for (const o of [this._cake, this._clown, this._sponge]) {
+    for (const o of [this._cake, this._clown, this._sponge, this._eyeL, this._eyeR]) {
       if (!o) continue
       gsap.killTweensOf(o)
       gsap.killTweensOf(o.scale)

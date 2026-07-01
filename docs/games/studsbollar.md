@@ -1,5 +1,5 @@
 # Studsbollar (`studsbollar`)
-> ⚙️ fysik · mixed · 2–5 år · status: 📝 plan klar
+> ⚙️ fysik · mixed · 2–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -99,3 +99,15 @@ betyder något, och korgen saknar mottagare/själ.
   Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] kombo-ljud + korg-reaktion + specialboll** — störst
   upplevd lyft för minst risk; sedan **[Medium] meningsfulla hinder/bolltyp** för riktig agens.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Alla tre Quick-punkterna byggda:
+  (1) **Stigande kombo-ljud** — bollar som går i korgen tätt efter varandra (t.ex. en knuffad
+  hinder-boll) triggar en uppåtklättrande pentatonisk pling-kaskad (`audio.tone`) + en
+  mjuk skärm-mikroskak (`shake` på `_root`) som skalar med bollens fart in i korgen, med en
+  "Kombo!"-text vid ≥2 i rad. (2) **Korg-reaktion** — korgen "slukar" bollen: öppningen
+  squashar och studsar tillbaka (`_basketGulp`), en nät-ring krusar (`ripple`) och en liten
+  sandfärgad dammpuff far upp, i stället för bara ett svävande emoji. (3) **Specialbollar** —
+  `SPECIAL_CYCLE` roterar per nivå (tur 2 ≠ tur 1): en **stjärnboll** (gyllene, vit stjärna)
+  som knuffas i korgen fyller en EXTRA mätar-plats (+2 + burst + egen röstberöm), och en stor
+  **ballong-boll** (rosa, med knut) som studsar extra högt (låg täthet, hög restitution).
+  No-fail intakt, exit-säkert (nya tweens dödas i `destroy`, `killTweensOf(_basketView.scale)`).
+  Testad (errorCount 0, skärmdump sedd: stjärnboll i fältet, glödande korg, mätare fyller).

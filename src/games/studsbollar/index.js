@@ -19,7 +19,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
-import { bigCelebration, puff, sparkle, floatText, pop } from '../../lib/feedback.js'
+import { bigCelebration, puff, sparkle, floatText, pop, ripple, shake, burst } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -28,6 +28,17 @@ const FLOOR_Y = 648 // golvets ovansida (design-y)
 const LAUNCH = { x: 205, y: 512 } // avskjutningsplattans boll-position
 const MAX_BALLS = 26 // tak för nedsläppta bollar (prestanda)
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+// Specialbollar roteras per nivå så tur 2 ≠ tur 1. 'star' = stjärnboll (fyller en EXTRA
+// mätar-plats när den knuffas i korgen), 'balloon' = stor ballong-boll (studsar extra högt).
+const SPECIAL_CYCLE = [
+  ['star', null, null],
+  ['balloon', null, 'star'],
+  [null, 'balloon', null],
+  ['star', 'balloon', null],
+]
+// Uppåtklättrande pentatonisk kaskad (alltid glad) för kombo-plingen i korgen.
+const COMBO_SCALE = [523, 587, 659, 784, 880, 1047]
 
 const SCORE_PRAISE = ['I korgen! Bravo!', 'Pang i korgen!', 'Vilket skott!', 'Mitt i korgen!']
 const MISS_SAY = ['Hoppsan! Försök igen!', 'Nästan! En gång till!', 'Studs studs – kör igen!']
@@ -56,6 +67,9 @@ export default {
     this._misses = 0
     this._assistNext = false
     this._lastBounce = 0
+    this._combo = 0 // stigande kombo-räknare (bollar i korgen tätt efter varandra)
+    this._comboAt = 0
+    this._lastShakeAt = 0
     this._matIdx = 0
     this._meter = 0
     this._need = 3
@@ -211,6 +225,7 @@ export default {
     this._need = clamp(3 + level, 3, 6)
     this._meter = 0
     this._misses = 0
+    this._combo = 0
     this._assistNext = false
     this._flying = false
 
@@ -218,7 +233,7 @@ export default {
     this._setBasket(x, scale)
     this._drawMeter()
     this._clearBalls()
-    this._seedTargets(ctx)
+    this._seedTargets(ctx, level)
     this._readyNext(ctx)
   },
 
@@ -226,9 +241,11 @@ export default {
   // KROCKAR med (riktig matter.js-kollision). De kan knuffas/studsa in i korgen för en
   // bonuspoäng. Fast antal per nivå — ALDRIG ändlös spawn. (x:520/650/780 ligger alltid
   // till vänster om korgen vars x ≥ 820, så de auto-poängar aldrig av sig själva.)
-  _seedTargets(ctx) {
+  _seedTargets(ctx, level) {
     if (!this._alive) return
-    for (const x of [520, 650, 780]) this._drop(ctx, x)
+    const specials = SPECIAL_CYCLE[level % SPECIAL_CYCLE.length]
+    const xs = [520, 650, 780]
+    xs.forEach((x, i) => this._drop(ctx, x, specials[i] || null))
   },
 
   _setBasket(x, scale) {
@@ -382,29 +399,46 @@ export default {
         if (!this._alive) return
         this._shot = null
         this._flying = false
-        this._registerScore(ctx, view, true)
+        this._registerScore(ctx, view, { isShot: true, speed: 6 })
       },
     })
   },
 
   // ---- Fri boll (kärn-mekaniken bevarad) -----------------------------------
 
-  _drop(ctx, x) {
+  _drop(ctx, x, special = null) {
     if (!this._alive) return
     this._idle = 0
-    const m = this._materials[this._matIdx]
-    const r = m.r
-    const color = m.key === 'bouncy' ? randomFrom(PLAYFUL) : m.color
+    // Specialbollar (stjärn-/ballong-boll) har egen storlek/fysik/utseende; vanliga
+    // bollar följer vald boll-typ. Alla är knuffbara mål i gropen.
+    let r, view, mat, barnMat
+    if (special === 'star') {
+      r = 30
+      view = makeStarBall(r)
+      mat = { ...MATERIALS.bouncy, label: 'ball' }
+      barnMat = 'bouncy'
+    } else if (special === 'balloon') {
+      r = 40
+      view = makeBalloonBall(r)
+      mat = { ...MATERIALS.bouncy, restitution: 0.94, density: MATERIALS.light.density, label: 'ball' } // studsar extra högt
+      barnMat = 'bouncy'
+    } else {
+      const m = this._materials[this._matIdx]
+      r = m.r
+      view = makeBall(r, m.key === 'bouncy' ? randomFrom(PLAYFUL) : m.color, m.key)
+      mat = { ...m.mat, label: 'ball' }
+      barnMat = m.key
+    }
     x = clamp(x, r + 16, ctx.width - r - 16)
-    const view = makeBall(r, color, m.key)
     view.position.set(x, -r - 10)
     this._playLayer.addChild(view)
-    const body = this._phys.circle(x, -r - 10, r, { ...m.mat, label: 'ball' })
-    body.barnMaterial = m.key
+    const body = this._phys.circle(x, -r - 10, r, mat)
+    body.barnMaterial = barnMat
+    body.special = special
     Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: 0 })
     this._phys.link(body, view)
     this._balls.push({ body, view })
-    ctx.services.audio.sfx('pop')
+    ctx.services.audio.sfx(special ? 'pling' : 'pop')
     view.scale.set(0.2)
     gsap.to(view.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out(2)' })
 
@@ -468,6 +502,8 @@ export default {
     if (!this._alive || body._scored) return
     body._scored = true
     const isShot = this._shot && body === this._shot.body
+    const speed = body.speed || Math.hypot(body.velocity?.x || 0, body.velocity?.y || 0)
+    const special = body.special || null
     let view = null
     if (isShot) {
       view = this._shot.view
@@ -481,18 +517,38 @@ export default {
       }
     }
     this._phys.removeBody(body)
-    this._registerScore(ctx, view, isShot)
+    this._registerScore(ctx, view, { isShot, speed, special })
   },
 
   // Gemensam "boll i korgen"-hantering (skott, fri boll eller hjälp-lobb).
-  _registerScore(ctx, view, isShot) {
+  _registerScore(ctx, view, { isShot = false, speed = 0, special = null } = {}) {
     if (!this._alive) return
     const bx = this._basket.x
     const by = this._basket.openingY
 
+    // Kombo: bollar som går i korgen tätt efter varandra (en boll knuffar en boll)
+    // ger en UPPÅTklättrande pling-kaskad i stället för tystade studsar.
+    const now = performance.now()
+    this._combo = now - this._comboAt < 1400 ? Math.min(this._combo + 1, COMBO_SCALE.length - 1) : 0
+    this._comboAt = now
+    const f = COMBO_SCALE[this._combo]
+    ctx.services.audio.tone({ freq: f, dur: 0.16, type: 'sine', vol: 0.3 })
+    ctx.services.audio.tone({ freq: f * 2, dur: 0.1, type: 'triangle', vol: 0.1, delay: 0.05 })
+
     ctx.services.audio.sfx('plopp')
     ctx.services.audio.sfx('correct')
-    ctx.services.voice.say(randomFrom(SCORE_PRAISE))
+    ctx.services.voice.say(special === 'star' ? 'Stjärnboll! Extra poäng!' : randomFrom(SCORE_PRAISE))
+
+    // Korg-reaktion: korgen "slukar" bollen (öppningen squashar), en nät-ring krusar och
+    // en liten dammpuff far upp — mycket mer än bara ett svävande emoji. Mikroskak i
+    // skärmen skalar med bollens fart in i korgen.
+    this._basketGulp()
+    ripple(ctx.fxLayer, bx, by, { color: COLORS.yellow, maxR: 92 * this._basket.scale, width: 7 })
+    puff(ctx.fxLayer, bx, by - 6, { count: 8, color: 0xe8d8b0 }) // dammpuff (sandfärg)
+    sparkle(ctx.fxLayer, bx, by - 8, { count: 6 })
+    floatText(ctx.fxLayer, bx, by - 56, special === 'star' ? '⭐' : '🏀', { fontSize: 52 })
+    this._screenShake(speed)
+    if (this._combo >= 2) floatText(ctx.fxLayer, bx + 34, by - 92, 'Kombo!', { fontSize: 34, rise: 70 })
 
     if (view && !view.destroyed) {
       gsap.killTweensOf(view)
@@ -508,15 +564,15 @@ export default {
         },
       })
     }
-    puff(ctx.fxLayer, bx, by, { count: 10, color: COLORS.yellow })
-    sparkle(ctx.fxLayer, bx, by - 8, { count: 6 })
-    floatText(ctx.fxLayer, bx, by - 56, '🏀', { fontSize: 50 })
 
     if (isShot) {
       this._misses = 0
       this._assistNext = false
     }
-    this._meter++
+    // Stjärnboll fyller en EXTRA mätar-plats (bonus) — extra saftigt firande.
+    const gain = special === 'star' ? 2 : 1
+    if (special === 'star') burst(ctx.fxLayer, bx, by - 10, { count: 14, power: 1.1 })
+    this._meter = Math.min(this._meter + gain, this._need)
     this._drawMeter()
     if (this._meterLayer && !this._meterLayer.destroyed) pop(this._meterLayer, { scale: 1.12 })
 
@@ -528,6 +584,27 @@ export default {
         if (this._alive) this._readyNext(ctx)
       })
     }
+  },
+
+  // Korgen "slukar" bollen: öppningen squashar snabbt och studsar tillbaka. Direkt
+  // tween på en beständig scale (dödas i destroy) — samma mönster som glöd/redo-bollen.
+  _basketGulp() {
+    const v = this._basketView
+    if (!v || v.destroyed) return
+    gsap.killTweensOf(v.scale)
+    gsap
+      .timeline()
+      .to(v.scale, { x: 1.14, y: 0.82, duration: 0.09, ease: 'power2.out' })
+      .to(v.scale, { x: 1, y: 1, duration: 0.3, ease: 'elastic.out(1, 0.45)' })
+  },
+
+  // Mjuk skärm-mikroskak som skalar med bollens fart. En skakning i taget (ingen drift).
+  _screenShake(speed) {
+    if (!this._alive || !this._root || this._root.destroyed) return
+    const now = performance.now()
+    if (now - this._lastShakeAt < 260) return
+    this._lastShakeAt = now
+    shake(this._root, { intensity: clamp(4 + speed * 0.5, 4, 12), duration: 0.3 })
   },
 
   // ---- Missat skott (aldrig straff) ----------------------------------------
@@ -665,6 +742,7 @@ export default {
       gsap.killTweensOf(this._readyBall)
       gsap.killTweensOf(this._readyBall.scale)
     }
+    if (this._basketView && !this._basketView.destroyed) gsap.killTweensOf(this._basketView.scale)
     if (this._basketGlow && !this._basketGlow.destroyed) gsap.killTweensOf(this._basketGlow.scale)
     if (this._meterLayer && !this._meterLayer.destroyed) gsap.killTweensOf(this._meterLayer.scale)
     if (this._matBtn && !this._matBtn.destroyed) gsap.killTweensOf(this._matBtn.scale)
@@ -714,6 +792,28 @@ function makeBall(r, color, kind) {
     gloss.eventMode = 'none'
     c.addChild(body, gloss)
   }
+  return c
+}
+
+// Stjärnboll: gyllene glansboll med en vit stjärna på — den ger en EXTRA mätar-plats.
+function makeStarBall(r) {
+  const c = new Container()
+  c.addChild(makeBall(r, 0xffd23f, 'bouncy'))
+  const st = new Graphics()
+  if (st.star) st.star(0, 0, 5, r * 0.6, r * 0.28).fill(0xffffff).stroke({ width: 2, color: 0xffb020 })
+  else st.circle(0, 0, r * 0.4).fill(0xffffff)
+  st.eventMode = 'none'
+  c.addChild(st)
+  return c
+}
+
+// Ballong-boll: stor rosa glansboll med en liten knut nedtill (studsar extra högt).
+function makeBalloonBall(r) {
+  const c = new Container()
+  c.addChild(makeBall(r, 0xff7ec8, 'bouncy'))
+  const knot = new Graphics().poly([-5, r - 2, 5, r - 2, 0, r + 9]).fill(0xe14fae)
+  knot.eventMode = 'none'
+  c.addChild(knot)
   return c
 }
 

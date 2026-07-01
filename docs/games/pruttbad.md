@@ -100,3 +100,10 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
   äldre bygg-specen i samma fil med review-format enligt mallen.)
 - Rekommenderad första-omgång: **[Deep] bygg en riktig Zacke + [Medium] ge ankan roll** —
   åtgärdar de två tydligaste svagheterna (platshållar-karaktär och konsekvenslös kontroll).
+- 2026-07-01 🔧 **Första-omgången byggd (scoped):** (1) **Ankan fick en roll [Medium]** — en bubbla
+  som studsar på ankan sparkas upp (`vy -= 3`) och märks `duckBoost` → bonus-skum vid pop, så
+  ankans placering nu påverkar utfallet. (2) **Bubbeltyper + belöna-håll [Quick]** — en hålld/stor
+  bubbla blir en `giant` (regnbågs-sheen, **dubbelt skum**); ~10 % blir `glitter` (poppar till ✨,
+  1.5× skum) via `_makeBubbleView(kind)`. (3) **Stigande crescendo [Quick]** — poppet klättrar i
+  tonhöjd (`audio.tone`, 360→880 Hz) ju fullare badet är. Städning: oanvänd `ctx`-param bort ur
+  `_newRound`. Den fulla Zacke-figuren (Deep) + skum-textur lämnade till senare. errorCount 0.

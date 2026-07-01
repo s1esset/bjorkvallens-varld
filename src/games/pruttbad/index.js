@@ -310,12 +310,20 @@ export default {
     this._sound(ctx, null, 'whoosh', 'whoosh', 90)
   },
 
-  _makeBubbleView() {
+  _makeBubbleView(kind = 'normal') {
     const v = new Container()
     const g = new Graphics()
       .circle(0, 0, BASE)
-      .fill({ color: 0xbfefff, alpha: 0.5 })
+      .fill({ color: kind === 'glitter' ? 0xfff0b8 : 0xbfefff, alpha: kind === 'glitter' ? 0.55 : 0.5 })
       .stroke({ width: 3, color: 0xffffff, alpha: 0.8 })
+    // Giant-bubbla (belönar att HÅLLA): regnbågs-sheen-bågar → syns tydligt värd besväret.
+    if (kind === 'giant') {
+      const hues = [COLORS.red, COLORS.yellow, COLORS.green, COLORS.blue, COLORS.purple]
+      for (let i = 0; i < hues.length; i++) {
+        const a0 = -2.4 + i * 0.5
+        g.arc(0, 0, BASE * 0.86, a0, a0 + 0.42).stroke({ width: 5, color: hues[i], alpha: 0.6, cap: 'round' })
+      }
+    }
     g.circle(-BASE * 0.34, -BASE * 0.34, BASE * 0.22).fill({ color: 0xffffff, alpha: 0.85 }) // glansprick
     v.addChild(g)
     v.eventMode = 'none'
@@ -326,17 +334,19 @@ export default {
     if (!this._alive || this._resolving) return
     r = clamp(r, R_MIN, R_MAX + this._levelBoost)
     x = clamp(x, WALL_L + r, WALL_R - r)
-    this._pushBubble(x, r)
+    // En hålld/stor bubbla blir en GIANT (dubbelt skum); annars ibland en glitterbubbla.
+    const kind = r >= (R_MAX + this._levelBoost) * 0.86 ? 'giant' : Math.random() < 0.1 ? 'glitter' : 'normal'
+    this._pushBubble(x, r, 0, kind)
   },
 
   // Skapa en bubbel-view + lägg i listan (delas av _spawnBubble och firande-svärmen,
   // som kör medan _resolving=true och därför inte kan gå via _spawnBubble-gardet).
-  _pushBubble(x, r, vy = 0) {
-    const view = this._makeBubbleView()
+  _pushBubble(x, r, vy = 0, kind = 'normal') {
+    const view = this._makeBubbleView(kind)
     view.scale.set(r / BASE)
     view.position.set(x, FLOOR - 30)
     this._root.addChild(view)
-    this._bubbles.push({ view, x, y: FLOOR - 30, r, vx: 0, vy, phase: Math.random() * 6, age: 0 })
+    this._bubbles.push({ view, x, y: FLOOR - 30, r, vx: 0, vy, phase: Math.random() * 6, age: 0, kind })
   },
 
   // ---- Anka: dra → flytta studshindret -----------------------------------
@@ -492,6 +502,8 @@ export default {
         if (dot < -0.6) {
           this._sound(ctx, 'boing', 'soft', 'boing', 150)
           if (this._duck && !this._duck.destroyed) wiggle(this._duck)
+          b.vy -= 3 // ankan sparkar upp bubblan …
+          b.duckBoost = true // … och ger bonus-skum vid pop → placeringen betyder något
         }
       }
 
@@ -531,9 +543,22 @@ export default {
     puff(ctx.fxLayer, b.x, SURFACE_Y, { count: 6 + (big | 0), color: 0xffffff })
     sparkle(ctx.fxLayer, b.x, SURFACE_Y)
     ripple(ctx.fxLayer, b.x, SURFACE_Y, { color: COLORS.white, maxR: 40 + b.r * 1.4, alpha: 0.6 }) // större bubbla plaskar högre
+    // Stigande crescendo: poppet klättrar i tonhöjd ju fullare badet är.
+    const frac = clamp((this._foam.level || 0) / (this._goalFoam || 1), 0, 1)
+    ctx.services.audio.tone({ freq: 360 + frac * 520, dur: 0.12, type: 'sine', vol: 0.16, slideTo: 180 })
     this._sound(ctx, 'plopp', 'pop', 'plopp', 110)
+    // Specialbubblor: giant = dubbelt skum + regnbågsplask; glitter = stjärnor; anka-boost = bonus.
+    let mul = 1
+    if (b.kind === 'giant') {
+      mul = 2
+      sparkle(ctx.fxLayer, b.x, SURFACE_Y, { count: 10 })
+    } else if (b.kind === 'glitter') {
+      mul = 1.5
+      floatText(ctx.fxLayer, b.x, SURFACE_Y - 10, '✨', { fontSize: 44 })
+    }
+    if (b.duckBoost) mul += 0.5
     if (Math.random() < 0.3) floatText(ctx.fxLayer, b.x, SURFACE_Y - 10, randomFrom(['Hihi!', 'Pluff!', '😄', '🫧']))
-    this._addFoam(ctx, b.r)
+    this._addFoam(ctx, b.r * mul)
   },
 
   _addFoam(ctx, r) {
@@ -577,10 +602,10 @@ export default {
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('bad', (ctx.progress.get().custom?.bad | 0) + 1)
-    this._roundTimer = gsap.delayedCall(1.5, () => this._alive && this._newRound(ctx))
+    this._roundTimer = gsap.delayedCall(1.5, () => this._alive && this._newRound())
   },
 
-  _newRound(ctx) {
+  _newRound() {
     if (!this._alive) return
     this._applyLevel()
     this._drawGoal()

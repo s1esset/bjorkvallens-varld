@@ -1,8 +1,9 @@
 // Domino — bygg vägen till klockan (2–5 år). En rad domino-brickor leder från vänster
 // fram till en KLOCKA 🔔 längst till höger. I raden finns LUCKOR — barnet DRAR (eller
 // tap-tap) extra brickor från brickfacket ner i luckorna (förlåtande snäpp) för att bygga
-// vägen HEL. Sedan TRYCKER barnet på FÖRSTA brickan: kedjan ramlar bricka för bricka.
-// Vid en TOM lucka stannar raset där — inget misslyckande, bara "lägg en bricka till";
+// vägen HEL. Sedan TRYCKER barnet på FÖRSTA brickan: BARA den puttas — matter-fysiken
+// låter varje bricka fälla nästa (äkta kedjereaktion) med ett accelererande klick-ljud.
+// Vid en TOM lucka stannar raset naturligt (ingen kropp att träffa) — inget misslyckande,
 // när barnet lägger i brickan fortsätter raset av sig självt. Når raset ända fram ringer
 // klockan -> firande + ny, längre bana. Mjuk auto-hjälp efter en stund fyller nästa lucka
 // så banan ALLTID blir klar. Tryck utanför start ger bara en mjuk, lekfull gnista. Allt
@@ -12,7 +13,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Matter } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { pop, wiggle, sparkle, burst, breathe, bigCelebration, floatText } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, burst, breathe, bigCelebration, floatText, puff, shake } from '../../lib/feedback.js'
 import { COLORS, PLAYFUL, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 
 const { Body } = Matter
@@ -27,7 +28,8 @@ const BELL_X = 1168 // klockans x
 const BELL_Y = 432 // klockans hängpunkt (svingar härifrån)
 const PUSH_AV = 0.12 // liten knuff förbi tipppunkten -> gravitationen välter brickan
 const STAND_ANGLE = 0.6 // |vinkel| under detta = brickan står fortfarande
-const CASCADE_STEP = 0.12 // s mellan brickorna i kedjan
+const FALL_GUARANTEE = 0.45 // s: väntar fysiken för länge på nästa bricka -> mjuk knuff-garanti
+const STALL_CONFIRM = 0.4 // s: bekräfta att raset stannat vid en tom lucka (låt fallet lugna sig)
 const SNAP_R = 135 // förlåtande snäpp-radie när en bricka släpps nära en lucka
 const TRAY_Y = 150 // brickfackets rad (uppe)
 const IDLE_DELAY = 6
@@ -54,6 +56,10 @@ export default {
     this._resolving = false // firande + complete() körs (EXAKT en gång per bana)
     this._stalledAt = null // index där raset stannade vid en tom lucka (väntar på bricka)
     this._waitingStart = false // vägen är hel, väntar på att barnet puttar
+    this._frontier = -1 // sista slot-index som HAR fallit (kedjan bevakas i tickern)
+    this._fallWait = 0 // s: väntat på att nästa bricka ska välta (mot knuff-garantin)
+    this._stallWait = 0 // s: väntat vid en tom lucka innan raset bekräftas stoppat
+    this._fallCount = 0 // antal fallna brickor denna omgång (driver accelererande ras-ljud)
     this._lastHit = 0
     this._lastSay = 0
     this._slots = [] // { x, index, isGap, filled, tile:{view,body}|null, ghost }
@@ -70,7 +76,6 @@ export default {
 
     // --- Fysik: golv + sidoväggar.
     this._phys = new PhysicsWorld({ gravityY: 1.5, walls: ['floor', 'left', 'right'] })
-    this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
     // Egen statisk mark vars ÖVERKANT ligger på FLOOR_Y (brickorna vilar här).
     this._phys.rectangle(DESIGN_W / 2, FLOOR_Y + 130, DESIGN_W + 600, 260, {
       isStatic: true,
@@ -129,6 +134,8 @@ export default {
     this._tick = (t) => {
       if (!this._alive) return
       this._phys.update(t.deltaMS)
+      // Bevaka den ÄKTA kedjereaktionen medan raset rullar (fysiken fäller brickorna).
+      if (this._running) this._stepCascade(ctx, t.deltaMS / 1000)
       // Medan raset rullar / firandet pågår: rör inte auto-hjälpen.
       if (this._running || this._resetting) {
         this._idle = 0
@@ -169,6 +176,27 @@ export default {
     this._bellTween = breathe(this._bellEmoji, { scale: 1.08, duration: 1.1 })
   },
 
+  // ---- Flagga längs banan (dekorativ, byggs om per nivå) -------------------
+
+  _buildFlag(x) {
+    const H = 128 // stångens höjd (vimpeln uppe, ovanför brickorna)
+    this._flag = new Container()
+    this._flag.position.set(x, FLOOR_Y - H)
+    this._flag.eventMode = 'none'
+    const pole = new Graphics().roundRect(-3, 0, 6, H, 3).fill(COLORS.brown)
+    // Vimpel med spets i (0,0) -> wiggle roterar runt fästpunkten = "flaggan flaxar".
+    const pennant = new Graphics()
+      .poly([0, 0, 40, 13, 0, 26]).fill(COLORS.red).stroke({ width: 2, color: shade(COLORS.red, 0.25) })
+    this._flagPennant = pennant
+    this._flag.addChild(pole, pennant)
+    this._ghostLayer.addChild(this._flag) // bakom brickorna
+    this._flagBreathe = breathe(pennant, { scale: 1.06, duration: 1.2 })
+  },
+
+  _waveFlag() {
+    if (this._flagPennant && !this._flagPennant.destroyed) wiggle(this._flagPennant)
+  },
+
   // ---- Nivå-uppbyggnad ----------------------------------------------------
 
   _layoutFor(level) {
@@ -203,6 +231,10 @@ export default {
     this._helped = false
     this._stalledAt = null
     this._waitingStart = false
+    this._frontier = -1
+    this._fallWait = 0
+    this._stallWait = 0
+    this._fallCount = 0
     this._idle = 0
 
     const { nSlots, gapSet } = this._layoutFor(level)
@@ -232,6 +264,11 @@ export default {
       }
       this._slots.push(slot)
     }
+
+    // Objekt längs banan: en liten flagga mitt på vägen som VINKAR när raset passerar
+    // — ett litet Rube-Goldberg-ögonblick (rent dekorativt, stör inte fysiken).
+    this._flagIndex = Math.max(1, Math.floor(nSlots / 2))
+    this._buildFlag(startX + this._flagIndex * SPACING + SPACING / 2)
 
     // Brickfack: en reservbricka per lucka, jämnt utlagda upptill.
     const gaps = [...gapSet]
@@ -289,6 +326,19 @@ export default {
     this._killCascade()
     this._startGlowTween?.kill()
     this._startGlow.visible = false
+    // Flagga (döda tweens FÖRE destroy -> aldrig skrivning på förstört objekt).
+    this._flagBreathe?.kill()
+    if (this._flagPennant && !this._flagPennant.destroyed) {
+      gsap.killTweensOf(this._flagPennant)
+      gsap.killTweensOf(this._flagPennant.scale)
+    }
+    if (this._flag && !this._flag.destroyed) {
+      gsap.killTweensOf(this._flag)
+      this._flag.destroy({ children: true })
+    }
+    this._flag = null
+    this._flagPennant = null
+    this._flagBreathe = null
     // Brickor (vyer + kroppar).
     for (const t of this._tiles) {
       if (t.body) this._phys.removeBody(t.body)
@@ -439,14 +489,21 @@ export default {
       this._lastSay = now
       ctx.services.voice.say(randomFrom(PLACE_WORDS))
     }
-    // Fyllde vi just den lucka där raset stannade? Då fortsätter kedjan av sig själv.
+    // Fyllde vi just den lucka där raset stannade? Ge den nya brickan en mjuk knuff
+    // (den föregående ligger redan ner) så fysik-kedjan fortsätter av sig själv.
     if (this._stalledAt === slot.index) {
-      const from = this._stalledAt
       this._stalledAt = null
       this._waitingStart = false
+      this._frontier = slot.index - 1 // nästa förväntade = den just lagda brickan
+      this._fallWait = 0
+      this._stallWait = 0
       this._running = true
       ctx.services.voice.say('Och vidare!')
-      const call = gsap.delayedCall(0.16, () => this._cascadeFrom(ctx, from))
+      const call = gsap.delayedCall(0.16, () => {
+        if (this._alive && this._running && slot.tile && Math.abs(slot.tile.body.angle) < STAND_ANGLE) {
+          Body.setAngularVelocity(slot.tile.body, PUSH_AV)
+        }
+      })
       this._cascadeCalls.push(call)
       return
     }
@@ -487,6 +544,10 @@ export default {
     this._helped = false
     this._stalledAt = null
     this._waitingStart = false
+    this._frontier = -1 // ännu har inget fallit denna omgång
+    this._fallWait = 0
+    this._stallWait = 0
+    this._fallCount = 0
     // Släck start-lockbete + stäng av start-tryckytan medan raset rullar.
     this._startGlowTween?.kill()
     this._startGlow.visible = false
@@ -497,33 +558,64 @@ export default {
       this._lastSay = now
       ctx.services.voice.say(randomFrom(PUSH_WORDS))
     }
-    this._cascadeFrom(ctx, 0)
+    // ÄKTA kedjereaktion: putta BARA första brickan — resten fäller fysiken (se _stepCascade).
+    const first = this._slots[0]
+    if (first?.tile && Math.abs(first.tile.body.angle) < STAND_ANGLE) {
+      Body.setAngularVelocity(first.tile.body, PUSH_AV)
+    }
   },
 
-  // Raset vänster -> höger. Vid varje slot: putta brickan om den FINNS och fortsätt.
-  // Vid en TOM lucka stannar raset där (no-fail) — barnet lägger i en bricka och då
-  // fortsätter det av sig självt (se _placeTile). Når raset slutet ringer klockan.
-  _cascadeFrom(ctx, index) {
-    if (!this._alive || !this._running) return
-    const slot = this._slots[index]
-    if (!slot) return
-    // Tom lucka bryter kedjan här — mjukt, "lägg en bricka till".
+  // Bevakar den fysik-drivna kedjan varje bildruta (kallas medan _running). Går vänster
+  // -> höger: när brickan efter fronten HAR fallit (fälld av den föregående) räknas den
+  // in med accelererande klick. Tom lucka framför -> raset stannar naturligt (no-fail).
+  // Vägrar en bricka falla (glipa/vinkel) inom FALL_GUARANTEE ges en mjuk knuff-garanti.
+  _stepCascade(ctx, dt) {
+    if (!this._alive) return
+    const n = this._slots.length
+    const nextIdx = this._frontier + 1
+    if (nextIdx >= n) return
+    const slot = this._slots[nextIdx]
+    // Tom lucka framför: ingen kropp att fälla -> raset stannar av sig självt.
     if (slot.isGap && !slot.filled) {
-      this._stallAtGap(ctx, slot)
+      this._stallWait += dt
+      if (this._stallWait > STALL_CONFIRM) this._stallAtGap(ctx, slot)
       return
     }
-    if (slot.tile && Math.abs(slot.tile.body.angle) < STAND_ANGLE) {
-      Body.setAngularVelocity(slot.tile.body, PUSH_AV)
+    const body = slot.tile?.body
+    if (body && Math.abs(body.angle) > STAND_ANGLE) {
+      // Denna bricka har vält — driven av den föregående. Äkta domino.
+      this._frontier = nextIdx
+      this._fallWait = 0
+      this._stallWait = 0
+      this._onTileFell(ctx, slot)
+      if (nextIdx >= n - 1) {
+        // Sista brickan nere -> klockan ringer strax.
+        this._running = false
+        const call = gsap.delayedCall(0.28, () => this._ringBell(ctx))
+        this._cascadeCalls.push(call)
+      }
+      return
     }
-    const next = index + 1
-    if (next < this._slots.length) {
-      const call = gsap.delayedCall(CASCADE_STEP, () => this._cascadeFrom(ctx, next))
-      this._cascadeCalls.push(call)
-    } else {
-      // Sista brickan puttad -> klockan ringer strax.
-      const call = gsap.delayedCall(0.32, () => this._ringBell(ctx))
-      this._cascadeCalls.push(call)
+    // Brickan står ännu — vänta på fysiken; dröjer den för länge, mjuk knuff-garanti.
+    this._fallWait += dt
+    if (this._fallWait > FALL_GUARANTEE && body && Math.abs(body.angle) < STAND_ANGLE) {
+      Body.setAngularVelocity(body, PUSH_AV)
+      this._fallWait = 0
     }
+  },
+
+  // En bricka har just fallit: accelererande klick-ljud (stiger i tonhöjd med raset),
+  // en liten dammpuff vid marken och flaggan flaxar när raset passerar den.
+  _onTileFell(ctx, slot) {
+    this._fallCount++
+    const now = performance.now()
+    if (now - this._lastHit > 40) {
+      this._lastHit = now
+      const step = Math.min(this._fallCount, 14)
+      ctx.services.audio.tone({ freq: 300 + step * 42, dur: 0.06, type: 'triangle', vol: 0.2 })
+    }
+    puff(ctx.fxLayer, slot.x + 22, FLOOR_Y - 4, { count: 4, color: COLORS.white })
+    if (slot.index === this._flagIndex) this._waveFlag()
   },
 
   // En tom lucka stoppade raset: ingen bestraffning — bara en vänlig "lägg en till".
@@ -562,6 +654,8 @@ export default {
     ctx.services.audio.sfx('pling')
     ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say('Klockan ringer! Pling!')
+    // Liten skärm-mikroskak i takt med klock-slaget (mjuk, aldrig hård).
+    shake(this._root, { intensity: 6, duration: 0.4 })
 
     // Klockan svingar (runt sin topp).
     if (this._bellEmoji && !this._bellEmoji.destroyed) {
@@ -652,25 +746,9 @@ export default {
     })
   },
 
-  // Mjuk "klack" när en bricka slår i nästa (strypt mot ljud-spam).
-  _onCollision(ctx, e) {
-    if (!this._alive) return
-    const now = performance.now()
-    if (now - this._lastHit < 55) return
-    for (const pair of e.pairs) {
-      const speed = pair.bodyA.speed + pair.bodyB.speed
-      if (speed > 1.6) {
-        this._lastHit = now
-        ctx.services.audio.sfx('tap')
-        break
-      }
-    }
-  },
-
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
-    this._unbind?.()
     this._resetCall?.kill()
     this._startGlowTween?.kill()
     this._bellTween?.kill()

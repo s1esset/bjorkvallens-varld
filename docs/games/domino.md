@@ -1,5 +1,5 @@
 # Domino (`domino`)
-> ⚙️ fysik · mixed · 2–5 år · status: 📝 plan klar
+> ⚙️ fysik · mixed · 2–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -95,3 +95,14 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
   Nyligen fixat (drag-snäpp, stall-vid-lucka) — bygg-loopen är solid; rasfysiken är dock fasad.
 - Rekommenderad första-omgång: **[Deep] riktig kedjereaktion** (gör fysiken ärlig) +
   **[Quick] accelererande ras-ljud + objekt längs banan** för show och själ.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). (1) **Äkta kedjereaktion** — det
+  skriptade tim-raset (`_cascadeFrom` med fast `CASCADE_STEP`) borta; nu puttas BARA första
+  brickan och matter-fysiken fäller resten. Kedjan bevakas i tickern (`_stepCascade`): när
+  brickan efter fronten passerat `STAND_ANGLE` räknas den in, tom lucka framför stoppar raset
+  naturligt (ingen kropp att träffa → samma no-fail), och en mjuk knuff-garanti (`FALL_GUARANTEE`)
+  puttar en bricka som råkat stanna i en vinkel/glipa. (2) **Accelererande ras-ljud** — varje
+  fallen bricka ger en `audio.tone` som stiger i tonhöjd med rasets längd (klick-klick-klickklick
+  crescendo) i stället för strypta `tap`; kollisions-SFX-spammet (`_onCollision`) borttaget. Liten
+  skärm-mikroskak (`shake`) när klockan ringer + dammpuff vid varje bricka som slår i marken.
+  (3) **Objekt längs banan** — en liten flagga mitt på vägen som flaxar (`wiggle`) när raset
+  passerar den. Exit-säkert: flagg-tweens dödas före destroy, alla nya callbacks `_alive`-vaktade.

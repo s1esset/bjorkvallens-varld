@@ -76,36 +76,36 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 67 | Pizzabageriet | `pizzabageriet` | drag | 🔧 |
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | 🔧 |
 
-### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ alla docs skrivna (Fas 2)
+### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ HELA fliken (första-omgång, 2026-07-01)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
-| 4 | Poppa Ballongerna | `poppa-ballonger` | tap | 📝 |
-| 10 | Klappa Mullvaden | `klappa-mullvaden` | tap | 📝 |
-| 19 | Plask i Vattnet | `plask-i-vattnet` | drag | 📝 |
+| 4 | Poppa Ballongerna | `poppa-ballonger` | tap | 🔧 |
+| 10 | Klappa Mullvaden | `klappa-mullvaden` | tap | 🔧 |
+| 19 | Plask i Vattnet | `plask-i-vattnet` | drag | 🔧 |
 | 23 | Bygg Tornet | `bygg-tornet` | tap | 🔧 |
 | 24 | Rulla Bollen Hem | `rulla-bollen-hem` | drag | 🔧 |
 | 26 | Spåra Linjen | `spara-linjen` | drag | 🔧 |
-| 29 | Studsbollar | `studsbollar` | mixed | 📝 |
-| 31 | Studsa Ner | `studsa-ner` | mixed | 📝 |
+| 29 | Studsbollar | `studsbollar` | mixed | 🔧 |
+| 31 | Studsa Ner | `studsa-ner` | mixed | 🔧 |
 | 33 | Fånga Frukten | `fanga-frukten` | drag | 🔧 |
-| 34 | Vippbrädan | `vippbradan` | tap | 📝 |
-| 35 | Domino | `domino` | mixed | 📝 |
+| 34 | Vippbrädan | `vippbradan` | tap | 🔧 |
+| 35 | Domino | `domino` | mixed | 🔧 |
 | 36 | Studsmatta | `studsmatta` | mixed | 🔧 |
-| 38 | Knuffa Tornet | `knuffa-tornet` | drag | 📝 |
-| 39 | Spindelhjälten | `spindelhjalten` | drag | 📝 |
+| 38 | Knuffa Tornet | `knuffa-tornet` | drag | 🔧 |
+| 39 | Spindelhjälten | `spindelhjalten` | drag | 🔧 |
 | 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | 🔧 |
-| 44 | Valpens Bajs | `valpens-bajs` | mixed | 📝 |
-| 46 | Tvätta Djuret | `tvatta-djuret` | drag | 📝 |
+| 44 | Valpens Bajs | `valpens-bajs` | mixed | 🔧 |
+| 46 | Tvätta Djuret | `tvatta-djuret` | drag | 🔧 |
 | 48 | Gungan | `gungan` | tap | 🔧 |
-| 50 | Spindelnätet | `spindelnatet` | tap | 📝 |
-| 52 | Fallskärmen | `fallskarmen` | drag | 📝 |
-| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | 📝 |
+| 50 | Spindelnätet | `spindelnatet` | tap | 🔧 |
+| 52 | Fallskärmen | `fallskarmen` | drag | 🔧 |
+| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | 🔧 |
 | 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | 🔧 |
 | 55 | Bobos Bowling | `bowling` | drag | 🔧 |
-| 56 | Flipperspel | `flipperspel` | tap | 📝 |
-| 58 | Snöbollen | `snobollen` | drag | 📝 |
-| 59 | Glasstornet | `glasstornet` | drag | 📝 |
-| 64 | Grävmaskinen | `gravmaskinen` | drag | 📝 |
+| 56 | Flipperspel | `flipperspel` | tap | 🔧 |
+| 58 | Snöbollen | `snobollen` | drag | 🔧 |
+| 59 | Glasstornet | `glasstornet` | drag | 🔧 |
+| 64 | Grävmaskinen | `gravmaskinen` | drag | 🔧 |
 
 ### 🧩 Pussel (pussel + minne + drag) — ✅ alla docs skrivna (Fas 3)
 | # | Spel | id | input | status |
@@ -156,6 +156,17 @@ ger lyft i *många* spel:
 > `hamburgerbygget` har nu en hungrig Bobo som tar emot & mumsar. Mönster **#7** påbörjat:
 > `loopdjuren` har stämda pentatoniska instrument per djur; `klambubblor`/`regnbagsmalaren` sjunger.
 > `sample('…')`-hookar inlagda i flera spel så riktiga MOSS-klipp (#3) auto-uppgraderar när de finns.
+>
+> **Framsteg 2026-07-01 (⚙️ Fysik-fliken — HELA fliken första-omgång, 27 spel):** alla 18 tidigare
+> `📝`-spel fick en genomförd första-omgång (de 9 auto-hjälp-spelen var redan `🔧` sen mönster #1).
+> Mönster **#2** (mottagare) rejält utbyggt: Bobo/mottagare i `flipperspel` (bor i maskinen),
+> `vippbradan` (fångar grodan), `glasstornet` (äter glassen), `spindelhjalten` (kattung-räddning);
+> **#7** (riktig tonhöjd via `tone()`): stigande kombo/skala i `poppa-ballonger`, `studsbollar`,
+> `studsa-ner`, `glasstornet`. **#1** (mjukare auto-hjälp) fördjupat i `flipperspel`/`studsa-ner`.
+> Fler `sample('djur_…')`/`plopp`-hookar (`klappa-mullvaden`, `valpens-bajs`, `plask-i-vattnet`).
+> Ärligare fysik + agens: `domino` (riktig kedjereaktion, gap stannar naturligt), `studsa-ner`
+> (flyttbar tratt = riktigt sikte), `snobollen` (kontinuerlig rull-tillväxt). Varje spel = egen commit,
+> errorCount 0 (inkl. exit-mitt-i-animation-cykel).
 
 - **Auto-hjälp som spelar banan åt barnet (Fysik-fliken, genomgående).** No-fail är rätt, men
   hjälpen är ofta så aggressiv att agensen försvinner: auto-magnet (bygg-tornet, fanga-frukten),

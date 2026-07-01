@@ -106,3 +106,9 @@ upplevelsen runt den.
   (errorCount 0), skärmdump läst. Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] synlig knuff-puff + Lova-hår i farten + stigande
   vind-/knuff-ljud** — gör barnets input synlig och hörbar, störst lyft för minst risk.
+- 2026-07-01 🔧 **Mönster #1 (auto-hjälp) mjukad [Medium]:** auto-medvinden dröjer längre
+  (assistDelay 5→6,5 s bas, strong 12→15 s), och EGEN takt belönas nu: bra knuffar nära
+  ytterläget (q≥0.7) bygger `_goodStreak` som ger auto-hjälpen en negativ "head start"-idle
+  (−upp till 3 s) → den som taktar själv skjuter hjälpen längre bort. Kombo-cue (pling + större
+  pop på Lova) vid 2–3 bra i rad gör skillnaden mellan egen rytm och auto-hjälp kännbar.
+  Städning: tog bort oanvänd `ctx`-param i `_pumpDown`. errorCount 0.

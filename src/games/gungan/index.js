@@ -57,6 +57,7 @@ export default {
     this._strong = false
     this._toldStrong = false
     this._toldRhythm = false
+    this._goodStreak = 0 // bra pump-i-takt i rad → skjuter auto-medvinden längre bort
     this._theta = 0.22
     this._omega = 0
     this._prevOmega = 0
@@ -103,7 +104,7 @@ export default {
     this._pump = new Graphics().rect(0, 90, ctx.width, ctx.height - 90).fill({ color: 0x000000, alpha: 0 })
     this._pump.eventMode = 'static'
     this._pump.hitArea = new Rectangle(0, 90, ctx.width, ctx.height - 90)
-    this._hPumpDown = (e) => this._pumpDown(ctx, e)
+    this._hPumpDown = (e) => this._pumpDown(e)
     this._hPumpMove = (e) => this._pumpMove(e)
     this._hPumpUp = (e) => this._pumpUp(ctx, e)
     this._pump.on('pointerdown', this._hPumpDown)
@@ -149,8 +150,10 @@ export default {
     }
     // Auto-medvinden börjar (svag) senare och blir stark (garanterar mål) senare
     // ju högre nivå → barnet får pumpa själv längre = "mer att göra".
-    const assistDelay = clamp(5 + n * 0.7, 5, 10)
-    const assistStrongDelay = clamp(12 + n * 0.7, 12, 19)
+    // Auto-medvinden dröjer längre nu (barnet får pumpa själv längre); bra takt skjuter
+    // den ytterligare bort via _goodStreak (se _pump_).
+    const assistDelay = clamp(6.5 + n * 0.7, 6.5, 12)
+    const assistStrongDelay = clamp(15 + n * 0.7, 15, 22)
     return { L, count, topAmp, targets, assistDelay, assistStrongDelay }
   },
 
@@ -161,6 +164,7 @@ export default {
     this._didIdleCue = false
     this._maxAbs = 0
     this._prevOmega = 0
+    this._goodStreak = 0
 
     const def = this._levelDef(level)
     this._L = def.L
@@ -371,7 +375,7 @@ export default {
   },
 
   // ----------------------------------------------------------------- pumpa
-  _pumpDown(ctx, e) {
+  _pumpDown(e) {
     if (!this._alive || this._resolving) return
     this._pumpStart = this._root.toLocal(e.global)
     this._pumpDist = 0
@@ -406,7 +410,6 @@ export default {
   // Energi-injektion: ALLTID med rörelsen (ΔE ≥ 0) → fel fas gör inget illa.
   _pump_(ctx, strengthScale = 1) {
     if (!this._alive || this._resolving) return
-    this._sinceTap = 0
     this._didIdleCue = false
 
     // Knuff-riktning = pendelns kommande rörelse; i ytterläget in mot mitten.
@@ -416,12 +419,24 @@ export default {
     const base = (this._strong ? 0.9 : 0.5) * strengthScale
     this._omega = clamp(this._omega + dir * q * base, -OMEGA_CAP, OMEGA_CAP)
 
+    // Belöna EGEN takt: bra knuffar nära ytterläget (q hög) bygger en streak. Den ger
+    // auto-medvinden en "head start"-fördröjning (negativ idle-tid) → den som taktar själv
+    // skjuter hjälpen längre bort. En svag/otaktad knuff nollar streaken.
+    if (q >= 0.7) this._goodStreak++
+    else this._goodStreak = 0
+    this._sinceTap = -Math.min(this._goodStreak, 3)
+
     // Omedelbar respons (<100ms).
     if (this._lova && !this._lova.destroyed) pop(this._lova, { scale: 1.08 })
     const b = this._bobWorld(this._theta, this._L - 20)
     ctx.services.audio.sfx(q >= 0.7 ? 'whoosh' : 'soft')
     sparkle(ctx.fxLayer, b.x, b.y, { count: q >= 0.7 ? 7 : 4 })
     if (q >= 0.85) floatText(ctx.fxLayer, b.x, b.y - 60, randomFrom(['⭐', 'Höögre!']))
+    // Kombo-känsla när barnet taktar flera bra i rad — gör egen rytm hörbart/synligt bättre.
+    if (this._goodStreak === 2 || this._goodStreak === 3) {
+      ctx.services.audio.sfx('pling')
+      if (this._lova && !this._lova.destroyed) pop(this._lova, { scale: 1.14 })
+    }
     if (!this._toldRhythm && q >= 0.6) {
       this._toldRhythm = true
       ctx.services.voice.say(RHYTHM_LINE)

@@ -94,3 +94,10 @@ loopen är "töm rutnät → töm större rutnät".
 - 2026-06-30: Doc skriven (exempel-doc, sätter kvalitetsribban). Inga kodändringar ännu.
 - Rekommenderad första-omgång om vi bygger: **[Quick] kluster-layout + stigande kombo-ljud +
   visuell måltavla** — störst upplevd lyft för minst risk.
+- 2026-07-01 🔧 **Första-omgången byggd (alla tre [Quick]):** (1) **kluster-layout** — hex-
+  förskjutna rader + större slumphopp (jitter 0.08→0.24·cell) + bredare radie-spridning
+  (0.68–1.22·baseR), klampat på skärmen → rutnäts-känslan borta. (2) **Stigande kombo-ton** —
+  ny publik `AudioService.tone()` (pitchad synt-blip); varje snabb pop i rad klättrar ett
+  halvtonsteg (392 Hz · 2^(kombo/12), upp till oktav), ersätter den slumpade pling-variationen.
+  (3) **Visuell måltavla** — mål-bubbla i målfärgen + pil uppe i mitten (nivå ≥2), studsar när
+  rätt färg poppas. Testat errorCount 0, skärmdump bekräftar kluster-layouten.

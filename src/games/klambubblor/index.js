@@ -45,6 +45,8 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
     this._idle = 0
+    this._combo = 0 // snabba pop i rad → stigande kombo-ton
+    this._lastPopAt = -9999
     this._build(ctx, false)
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
@@ -64,6 +66,8 @@ export default {
       this._idleBreath.kill()
       this._idleBreath = null
     }
+    if (this._targetView && !this._targetView.destroyed) gsap.killTweensOf(this._targetView.scale)
+    this._targetView = null
     this._hintBubble = null
     this._bubbles?.forEach((b) => {
       b._bob?.kill()
@@ -88,6 +92,7 @@ export default {
     this._remaining = 0
     this._cleared = false
     this._idle = 0
+    this._combo = 0
 
     // --- DJUP: fältet växer med nivån ---
     const cols = Math.min(4 + Math.floor(L * 0.8), 9)
@@ -98,7 +103,7 @@ export default {
     const stepY = rows > 1 ? (ctx.height - marginY * 2) / (rows - 1) : 0
     const cell = Math.min(stepX || 9999, stepY || 9999)
     const baseR = Math.max(30, Math.min(60, cell * 0.4))
-    const jitter = cell * 0.08
+    const jitter = cell * 0.24 // större slumphopp → lekfull kluster-känsla (inte ett rutnät)
 
     // Regnbågsbubbla (sällsynt): chans + position väljs först.
     const total = cols * rows
@@ -109,12 +114,17 @@ export default {
       for (let c = 0; c < cols; c++, idx++) {
         const isRainbow = idx === rainbowIdx
         const color = PLAYFUL[(r + c) % PLAYFUL.length]
-        const rad = isRainbow ? baseR * 1.12 : baseR * (0.82 + Math.random() * 0.32)
+        const rad = isRainbow ? baseR * 1.12 : baseR * (0.68 + Math.random() * 0.54) // bredare storleksspridning
         const surprise = !isRainbow && Math.random() < 0.125 ? SURPRISES[(Math.random() * SURPRISES.length) | 0] : null
 
         const b = this._makeBubble(ctx, { color, r: rad, rainbow: isRainbow, surprise })
-        b.x = marginX + c * stepX + (Math.random() * 2 - 1) * jitter
-        b.y = marginY + r * stepY + (Math.random() * 2 - 1) * jitter
+        // Kluster-layout: hex-förskjutna rader + stort slumphopp bryter rutnäts-känslan;
+        // klampas kvar på skärmen (under topp-knapparna).
+        const hexOff = (r % 2) * stepX * 0.34
+        const jx = marginX + c * stepX + hexOff + (Math.random() * 2 - 1) * jitter
+        const jy = marginY + r * stepY + (Math.random() * 2 - 1) * jitter
+        b.x = Math.max(rad + 12, Math.min(ctx.width - rad - 12, jx))
+        b.y = Math.max(rad + 120, Math.min(ctx.height - rad - 24, jy))
         this._layer.addChild(b)
         this._bubbles.push(b)
         this._remaining++
@@ -148,6 +158,14 @@ export default {
       this._goalColor != null
         ? `Tryck på de ${COLOR_WORDS[this._goalColor] || ''} bubblorna!`
         : this.voiceIntro
+
+    // Visuell måltavla (talat + SYNLIGT): en liten mål-bubbla i målfärgen uppe i mitten,
+    // så barnet ser vilken färg som gäller även utan ljud. Fortfarande helt felfritt.
+    if (this._goalColor != null) {
+      this._targetView = this._makeTarget(this._goalColor)
+      this._targetView.position.set(ctx.width / 2, 78)
+      this._fx.addChild(this._targetView)
+    }
 
     if (announce && this._started) ctx.services.voice.say(this._cue)
   },
@@ -204,6 +222,18 @@ export default {
     return b
   },
 
+  // Liten visuell måltavla: en mål-bubbla i målfärgen + en pil, uppe i mitten (noll läsning).
+  _makeTarget(color) {
+    const c = new Container()
+    c.addChild(new Graphics().roundRect(-44, -40, 88, 82, 20).fill({ color: 0x16314a, alpha: 0.16 }))
+    const bub = new Graphics().circle(0, -6, 26).fill({ color, alpha: 0.5 }).stroke({ width: 5, color, alpha: 0.95 })
+    bub.circle(-8, -14, 7).fill({ color: 0xffffff, alpha: 0.85 })
+    c.addChild(bub)
+    c.addChild(new Graphics().poly([0, 34, -10, 20, 10, 20]).fill({ color: 0xffffff, alpha: 0.9 }))
+    c.eventMode = 'none'
+    return c
+  },
+
   // Tappet: alltid roligt, aldrig fel. Regnbåge -> kedjepopp. Mål-färg -> extra gnistor.
   _pop(ctx, b) {
     if (!this._alive || b._popped) return
@@ -245,7 +275,14 @@ export default {
     b._spin?.kill()
     b.eventMode = 'none'
 
-    ctx.services.audio.sfx(special ? 'reveal' : matched ? 'pling' : Math.random() < 0.22 ? 'pling' : 'pop')
+    // Stigande kombo: snabba pop i rad klättrar ett halvtonsteg (upp till en oktav).
+    const nowMs = performance.now()
+    this._combo = nowMs - this._lastPopAt < 1100 ? Math.min(this._combo + 1, 12) : 0
+    this._lastPopAt = nowMs
+
+    ctx.services.audio.sfx(special ? 'reveal' : matched ? 'pling' : 'pop')
+    // Mjuk musikalisk "blubb" som klättrar med kombon (ersätter den slumpade pling-variationen).
+    if (!special) ctx.services.audio.tone({ freq: 392 * Math.pow(2, this._combo / 12), dur: 0.13, type: 'sine', vol: 0.16 })
 
     // Direkt vattenring + saftig partikel-burst.
     ripple(this._fx, b.x, b.y, { color: b._color, maxR: b._r * 2.3, width: 5, alpha: 0.7 })
@@ -257,6 +294,11 @@ export default {
     if (matched) {
       sparkle(this._fx, b.x, b.y, { count: 10 })
       ctx.services.audio.sfx('match')
+      // Måltavlan studsar när rätt färg poppas (synlig koppling mål → handling).
+      if (this._targetView && !this._targetView.destroyed) {
+        gsap.killTweensOf(this._targetView.scale)
+        gsap.fromTo(this._targetView.scale, { x: 1, y: 1 }, { x: 1.28, y: 1.28, duration: 0.12, yoyo: true, repeat: 1, ease: 'power2.out' })
+      }
     }
     if (b._surprise) floatText(this._fx, b.x, b.y - 8, b._surprise, { fontSize: 64 })
 
@@ -338,6 +380,7 @@ export default {
       gsap.killTweensOf(b)
       gsap.killTweensOf(b.scale)
     })
+    if (this._targetView && !this._targetView.destroyed) gsap.killTweensOf(this._targetView.scale)
     gsap.killTweensOf(this._root)
     gsap.killTweensOf(this._layer)
     ctx?.services?.voice?.cancel()

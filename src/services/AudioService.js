@@ -62,6 +62,15 @@ export class AudioService {
     notes.forEach((n) => this._tone(n))
   }
 
+  // Publikt: en enkel pitchad ton (musikalisk blip). För kombo-stegar/melodi-spel som
+  // vill ha ÄKTA tonhöjd (ren syntes; inga sample-klipp behövs). Respekterar sfxEnabled +
+  // masterVolume. Går förbi sfx()-anti-loop-skyddet med flit (varje ton har egen tonhöjd).
+  tone(opts) {
+    if (!this._s.sfxEnabled) return
+    if (!this._ensure()) return
+    this._tone(opts)
+  }
+
   // Spela en namngiven effekt. Många är medvetet "snälla" — aldrig en hård buzzer.
   sfx(name) {
     if (!this._s.sfxEnabled) return

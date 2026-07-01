@@ -237,11 +237,34 @@ export default {
     this._dist = 0
     this._resolving = false
 
-    // Bygg spawn-kö: ringar med stjärnor emellan.
+    // Bygg spawn-kö: tätare, mer varierad rytm i stället för glesa ensam-ringar.
+    // Ringarna siktar mot VÄXLANDE höjder (sicksack), var tredje får ett tätt
+    // syskon-par på kontrasterande höjd, och stjärnorna bildar en BÅGE man skördar
+    // genom att glida i en kurva mellan ringarna. Höjd-hint följer med i kön (y).
+    const LO = 300
+    const HI = 500
+    let zig = Math.random() < 0.5
     const q = []
+    // Stjärn-båge från höjd a till höjd b (böjer mjukt uppåt på mitten).
+    const arc = (a, b, n) => {
+      for (let s = 0; s < n; s++) {
+        const t = (s + 1) / (n + 1)
+        q.push({ type: 'star', gap: 130, y: a + (b - a) * t - Math.sin(t * Math.PI) * 80 })
+      }
+    }
     for (let i = 0; i < target; i++) {
-      q.push({ type: 'ring', gap: i === 0 ? 220 : 520 })
-      for (let s = 0; s < stars; s++) q.push({ type: 'star', gap: 520 / (stars + 1) })
+      const y = zig ? LO : HI
+      q.push({ type: 'ring', gap: i === 0 ? 220 : 380, y })
+      zig = !zig
+      let lastY = y
+      // Var tredje ring (ej första/sista): ett tätt syskon-par på motsatt höjd.
+      if (i > 0 && i < target - 1 && i % 3 === 0) {
+        lastY = zig ? LO : HI
+        q.push({ type: 'ring', gap: 280, y: lastY })
+        zig = !zig
+      }
+      // Stjärn-båge som leder från senaste ringen mot nästa rings höjd.
+      if (stars > 0) arc(lastY, zig ? LO : HI, stars + 1)
     }
     this._toSpawn = q
 
@@ -281,7 +304,7 @@ export default {
 
   // ---- Spawn ---------------------------------------------------------------
 
-  _spawnRing(ctx) {
+  _spawnRing(ctx, hintY) {
     if (!this._alive) return
     const color = randomFrom(PLAYFUL)
     const R = this._R
@@ -296,7 +319,13 @@ export default {
     ring.addChild(acc)
     ring.eventMode = 'none'
     // Efter ett par missar: centrera ringen på enhörningen -> garanterad passage.
-    const ry0 = this._missStreak >= 2 ? clamp(this._uni.y, 240, 540) : 240 + Math.random() * 300
+    // Annars sikta mot köns höjd-hint (sicksack) med lite slump; utan hint = fritt.
+    const ry0 =
+      this._missStreak >= 2
+        ? clamp(this._uni.y, 240, 540)
+        : hintY != null
+          ? clamp(hintY + (Math.random() * 60 - 30), 240, 540)
+          : 240 + Math.random() * 300
     ring.x = SPAWN_X
     ring.y = ry0
     this._field.addChild(ring)
@@ -312,12 +341,12 @@ export default {
     })
   },
 
-  _spawnStar(ctx) {
+  _spawnStar(ctx, hintY) {
     if (!this._alive) return
     const view = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: 56 } })
     view.anchor.set(0.5)
     view.x = SPAWN_X
-    view.y = 220 + Math.random() * 340
+    view.y = hintY != null ? clamp(hintY, 200, 560) : 220 + Math.random() * 340
     view.eventMode = 'none'
     this._field.addChild(view)
     bounceIn(view, { duration: 0.3 })
@@ -360,8 +389,14 @@ export default {
       this._vy *= -0.4
       this._edgePuff(ctx, uni.y)
     }
-    // 8. Vinge-bob (kosmetiskt).
-    this._uniEmoji.rotation = clamp(this._vy * 0.012, -0.18, 0.18)
+    // 8. Enhörningen LEVER: galopp-bob (mjuk y-oscillation kopplad till _t),
+    //    vingslag (liten höjd-puls) och huvudet lutar mot NÄSTA ring (blick framåt)
+    //    utöver farten. Allt kosmetiskt — rör inte kollisions-y (uni.y).
+    const gallop = this._t * 0.28
+    this._uniEmoji.y = Math.sin(gallop) * 4
+    this._uniEmoji.scale.set(1, 1 + Math.sin(gallop) * 0.05)
+    const aim = nextRing ? clamp((nextRing.ry - uni.y) * 0.0016, -0.13, 0.13) : 0
+    this._uniEmoji.rotation = clamp(this._vy * 0.01 + aim, -0.22, 0.22)
 
     // 7. Världs-scroll.
     const speed = (this._slow ? 1.5 : 2.6) * dt
@@ -424,15 +459,16 @@ export default {
     if (this._toSpawn.length && this._dist >= this._toSpawn[0].gap) {
       const item = this._toSpawn.shift()
       this._dist = 0
-      if (item.type === 'ring') this._spawnRing(ctx)
-      else this._spawnStar(ctx)
+      if (item.type === 'ring') this._spawnRing(ctx, item.y)
+      else this._spawnStar(ctx, item.y)
     }
 
-    // Glitter-svans bakom henne när hon rör sig.
+    // Glitter-svans bakom henne när hon rör sig — tätare/bredare vid hög fart.
     this._tailT += tk.deltaMS || 16.67
-    if ((this._steering || Math.abs(this._vy) > 1.5) && this._tailT > 250) {
+    const fast = Math.abs(this._vy) > 6
+    if ((this._steering || Math.abs(this._vy) > 1.5) && this._tailT > (fast ? 130 : 250)) {
       this._tailT = 0
-      sparkle(this._tail, UNI_X - 52, uni.y + (Math.random() - 0.5) * 24, { count: 3 })
+      sparkle(this._tail, UNI_X - 52, uni.y + (Math.random() - 0.5) * (fast ? 40 : 24), { count: fast ? 5 : 3 })
     }
 
     // Tyst om-cue om ingen rört skärmen på ett tag.
@@ -469,7 +505,11 @@ export default {
     const uni = this._uni
     this._missStreak = 0
     this._idle = 0
-    ctx.services.audio.sfx('pling')
+    // Magiskt genomflygnings-ljud: ljus attack + två uppåt-glidande skimmer-toner.
+    const au = ctx.services.audio
+    au.sfx('pling')
+    au.tone({ freq: 700, slideTo: 1180, dur: 0.2, type: 'sine', vol: 0.34 })
+    au.tone({ freq: 1050, slideTo: 1760, dur: 0.24, type: 'sine', vol: 0.2, delay: 0.05 })
     sparkle(ctx.fxLayer, UNI_X, uni.y, { count: 8 })
     floatText(ctx.fxLayer, UNI_X, uni.y - 60, '⭐', { fontSize: 56 })
     pop(r.view, { scale: 1.16 })

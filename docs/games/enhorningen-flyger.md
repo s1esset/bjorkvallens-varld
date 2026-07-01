@@ -1,5 +1,5 @@
 # Enhörningen Flyger (`enhorningen-flyger`)
-> ⚙️ fysik · drag · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 
@@ -107,3 +107,12 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
 - Rekommenderad första-omgång: **[Medium] tätare/varierad bana + [Quick] levande enhörning
   (vingslag/blick mot ring) + magiskt genomflygnings-ljud** — fyller den glesa himlen och ger
   djuret liv.
+- 2026-07-01: **Första-omgång genomförd** (errorCount 0). Byggde om spawn-kön till en tätare,
+  varierad rytm: ringar siktar mot växlande höjder (sicksack via höjd-hint i kön), var tredje ring
+  får ett tätt syskon-par på motsatt höjd, och stjärnorna bildar en böjd båge man skördar genom att
+  glida i en kurva mellan ringarna (ring-gap 520→380, ring-till-ring ~640 vs 780). Enhörningen
+  lever nu: galopp-bob (mjuk y-oscillation på emojin kopplad till `_t`), vingslags-höjdpuls, och
+  huvudet lutar mot NÄSTA rings höjd (blick framåt) utöver farten; glitter-svansen förstärks
+  (tätare/bredare) vid hög fart. Genomflygning spelar ett magiskt uppåt-glidande skimmer-ljud
+  (två `audio.tone`-sinusar som glider uppåt) ovanpå attacken i stället för bara `pling`. Allt
+  kosmetiskt hålls borta från kollisions-y; exit-säkert (inga nya råa tweens på Pixi-objekt).

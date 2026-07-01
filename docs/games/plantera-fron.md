@@ -123,4 +123,26 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
 - Rekommenderad första-omgång: **[Quick] riktigt vatten-/blom-ljud + steg-för-steg-blomning +
   mjukare auto-hjälp** — störst lyft för minst risk, och adresserar de tre tydligaste
   "lättjefulla" dragen (tunt ljud, generisk blom-pop, för ivrig auto-hjälp).
+- 2026-07-02: **Första-omgång genomförd.** Kärnan (så → vattenkanna dyker upp → dra + håll för
+  att vattna → plantan växer kontinuerligt → blomning → fjärilar → firande) var redan byggd av
+  den avbrutna passagen; denna omgång slutförde de kvarvarande rekommendationerna + snyggade
+  växten:
+  - **[Quick] Mjukare, TRAPPAD auto-hjälp** (`_autoHelp` + `_helpStage`): scaffoldet fanns men
+    var oanvänt — hjälpen vattnade förr direkt vid varje idle. Nu: idle-tröskeln höjd 6 → **9s**,
+    och första idle-stöten **vinkar bara kannan + röst** ("Håll kannan över blomman!") utan att
+    vattna — barnet får chansen. Först vid **stadie ≥2** vattnar auto-hjälpen på riktigt, synligt
+    och uttalat ("Jag hjälper till lite!") med en **svagare dos** (0.22 → 0.16). `_helpStage`
+    nollställs så fort barnet greppar kannan, så barnets eget hållande avgör — men det blir
+    alltid klart (aldrig ett felsteg).
+  - **[Quick] Organisk växt** (`_renderPlant`): stjälk/blad/knopp-faserna smoothstep:as
+    (`smooth()`) så plantan skjuter upp med mjuk start/stopp i stället för linjärt; knoppen når
+    ändå FULL vid grow=1 (`smooth(1)=1`) så blomningens tajming är oförändrad.
+  - Redan på plats sedan tidigare (bekräftat): riktigt "plopp"-klipp vid sådd, porlande
+    vatten-ton medan man vattnar, växande/mörknande fuktfläck, och steg-för-steg-blomning
+    (knoppen spricker → kronbladen vecklar ut ett i taget med stigande pling → blomman poppar in
+    med magi-klipp + gnistror + pollen-pluff).
+  - Test: `errorCount 0` (statisk + drag-test som sår ett frö → vattenkannan dyker upp).
+  - **Deferred:** [Medium] trädgård som minns (`custom.flowers` som faktisk rabatt/samlarskärm);
+    [Deep] trädgårdsmästare/Bobo som pekar + luktar i finalen; [Quick] lugn trädgårds-ambient
+    (fågelkvitter/vind — central ljud-hantering).
 </content>

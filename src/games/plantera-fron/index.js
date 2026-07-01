@@ -1,11 +1,18 @@
 // Plantera Frön — lugn dra + vattna-lek (2–4 år). Tre steg utan press:
 //   1. Så:    dra (eller tap-tap) frön ner i jordhålen → de snäpper ner, jordhög.
+//             Riktigt "plopp"-klipp när fröet landar i jorden.
 //   2. Vattna: när allt är sått dyker vattenkannan upp. Barnet DRAR kannan över en
-//              planta och håller kvar → kannan lutar, vattendroppar rinner och plantan
-//              VÄXER över tid (grodd → stjälk → blad → knopp → blomma).
-//   3. Klart: när alla plantor blommat fladdrar fjärilar in → firande + klistermärke,
-//              ny runda. Inga felsteg: vattnet växer alltid, och om barnet pausar
-//              vattnar en mjuk auto-hjälp lite så det alltid blir klart.
+//              planta och håller kvar → kannan lutar, vattendroppar rinner (mjukt
+//              porlande vattenljud), jorden mörknar av fukt och plantan VÄXER över tid
+//              (grodd → stjälk → blad → svällande knopp).
+//   3. Blomning: när en planta vattnats klart är knoppen full → den SPRICKER och
+//              kronbladen vecklar ut sig ETT i taget (stigande ton) innan blomman
+//              poppar in med ett magi-klipp, gnistror och pollen-pluff — klimax.
+//   4. Klart: när alla plantor blommat fladdrar fjärilar in → firande + klistermärke,
+//              ny runda. Inga felsteg: vattnet växer alltid. Pausar barnet vinkar
+//              kannan först (bara röst+gest); först SENARE hjälper en mjuk auto-vattning
+//              lite (svagare dos), så barnets hållande faktiskt avgör — men det blir
+//              alltid klart.
 // Inga felsteg, ingen timer, ingen poäng. Allt ritas programmatiskt (Pixi + emoji).
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
@@ -19,6 +26,9 @@ const HOLE_Y = 560 // jordhålens y (i jordrabatten)
 const SEED_Y = 210 // fröförrådets y (uppe i himlen)
 const FLOWERS = ['🌸', '🌺', '🌻', '🌷', '🌼', '🌹']
 const BUD_COLORS = [0x6fbf73, 0x88c98a, 0x7bc043]
+// Kronbladsfärger (programmatiska petals som vecklar ut vid blomning).
+const PETAL_COLORS = [0xff8ab0, 0xffd35c, 0xff6b6b, 0xa78bfa, 0xff9ec4, 0xffb84d, 0xff8a3d]
+const POLLEN = 0xffe08a
 const DROP_BLUE = 0x6fc3ef
 const STEM_H = 150 // full stjälkhöjd
 const POUR_MS = 2600 // ms sammanhängande vattning för att blomma en planta
@@ -199,11 +209,7 @@ export default {
     const hole = target.view
     hole._filled = true
     this._idle = 0
-    ctx.services.audio.sfx('pop')
-    if (!this._saidPlopp) {
-      this._saidPlopp = true
-      ctx.services.voice.say('Plopp!')
-    }
+    ctx.services.audio.sfx('plopp') // riktigt "plopp"-klipp i jorden (ersätter TTS-"Plopp!")
 
     const mound = new Graphics()
       .ellipse(0, 0, 60, 26)
@@ -241,6 +247,7 @@ export default {
     this._phase = 'water'
     this._cuePhrase = 'Dra vattenkannan över blommorna!'
     this._idle = 0
+    this._helpStage = 0 // 0=ingen hjälp, 1=vinkat, 2+=auto-vattnat (mjuk trappa)
     this._bloomed = 0
 
     // Plantor (kollapsade, liten startgrodd).
@@ -277,6 +284,10 @@ export default {
     node.eventMode = 'none'
     const dark = shade(COLORS.green, 0.22)
 
+    // Fuktig jord: mörk fläck runt basen som växer/mörknar medan man vattnar (bakom allt).
+    const damp = new Graphics().ellipse(0, 10, 52, 18).fill(shade(COLORS.brown, 0.42))
+    damp.alpha = 0
+
     const stem = new Graphics().roundRect(-7, -STEM_H, 14, STEM_H + 2, 7).fill(COLORS.green).stroke({ width: 3, color: dark })
     stem.scale.set(1, 0) // växer uppåt (skala y 0→1)
 
@@ -290,27 +301,45 @@ export default {
     const bud = new Graphics().circle(0, 0, 20).fill(randomFrom(BUD_COLORS)).stroke({ width: 3, color: dark })
     bud.scale.set(0)
 
+    // Programmatiska kronblad (petals) som vecklar ut sig ett i taget vid blomning.
+    // Ellipsen ritas med basen i (0,0) och spetsen uppåt → rotation pekar utåt,
+    // scale 0→1 växer ut från blomcentrum.
+    const petals = new Container()
+    petals.eventMode = 'none'
+    const petalColor = randomFrom(PETAL_COLORS)
+    const petalDark = shade(petalColor, 0.24)
+    const petalN = 5 + ((Math.random() * 3) | 0) // 5–7 kronblad
+    for (let i = 0; i < petalN; i++) {
+      const pet = new Graphics().ellipse(0, -24, 13, 24).fill(petalColor).stroke({ width: 2, color: petalDark })
+      pet.rotation = (i / petalN) * Math.PI * 2
+      pet.scale.set(0)
+      petals.addChild(pet)
+      this._track(pet)
+    }
+
     const flower = new Text({ text: randomFrom(FLOWERS), style: { fontFamily: FONT.body, fontSize: 92, align: 'center' } })
     flower.anchor.set(0.5)
     flower.scale.set(0)
 
-    node.addChild(stem, leftLeaf, rightLeaf, bud, flower)
+    node.addChild(damp, stem, leftLeaf, rightLeaf, bud, petals, flower)
     this._round.addChild(node)
     this._track(stem)
     this._track(leftLeaf)
     this._track(rightLeaf)
     this._track(bud)
     this._track(flower)
-    return { node, stem, leftLeaf, rightLeaf, bud, flower, hy: h.y, x: h.x, flowerY: h.y - 8 - STEM_H, grow: 0, done: false }
+    return { node, damp, stem, leftLeaf, rightLeaf, bud, petals, flower, hy: h.y, x: h.x, flowerY: h.y - 8 - STEM_H, grow: 0, done: false }
   },
 
-  // Rita plantan utifrån dess grow-värde (0→1). Kontinuerligt: stjälk → blad → knopp → blomma.
+  // Rita plantan utifrån dess grow-värde (0→1). Kontinuerligt: stjälk → blad → svällande
+  // knopp. Kronbladen/blomman styrs INTE här — de vecklar ut sig i _bloom (klimax).
   _renderPlant(p) {
     const g = p.grow
-    const stemFrac = clamp01(g / 0.55)
-    const leafFrac = clamp01((g - 0.28) / 0.34)
-    const budFrac = clamp01((g - 0.5) / 0.26)
-    const flowerFrac = clamp01((g - 0.78) / 0.22)
+    // Smoothstep varje delfas så växten skjuter upp organiskt (mjuk start/stopp)
+    // i stället för linjärt — knoppen når ändå FULL vid grow=1 (smooth(1)=1).
+    const stemFrac = smooth(clamp01(g / 0.5))
+    const leafFrac = smooth(clamp01((g - 0.25) / 0.35))
+    const budFrac = smooth(clamp01((g - 0.42) / 0.58)) // knoppen sväller till FULL vid grow=1
     const topY = -STEM_H * stemFrac
 
     p.stem.scale.y = stemFrac
@@ -323,13 +352,18 @@ export default {
     p.rightLeaf.x = 4
     p.rightLeaf.scale.set(leafFrac)
 
-    p.bud.y = topY
-    p.bud.alpha = 1 - flowerFrac
-    p.bud.scale.set(budFrac * (1 - flowerFrac))
+    // Fuktig jord: växer och mörknar med vattnandet.
+    p.damp.scale.set(0.5 + g * 0.85)
+    p.damp.alpha = Math.min(0.5, g * 0.62)
 
+    // Toppnoderna följer stjälkspetsen.
+    p.bud.y = topY
+    p.petals.y = topY
     p.flower.y = topY
-    const fs = smooth(flowerFrac)
-    p.flower.scale.set(fs)
+    if (!p.done) {
+      p.bud.alpha = 1
+      p.bud.scale.set(budFrac)
+    }
 
     p.flowerY = p.node.y + topY // för gnistror i toppen
   },
@@ -372,7 +406,9 @@ export default {
     if (!this._can || this._can.destroyed) return
     this._pouring = true
     this._idle = 0
+    this._helpStage = 0 // barnet vattnar själv → nollställ auto-hjälpstrappan
     this._pourAccum = 0
+    this._gurgleAccum = 0
     this._canBob?.kill()
     this._canBob = null
 
@@ -426,6 +462,14 @@ export default {
     while (this._pourAccum >= 45) {
       this._pourAccum -= 45
       this._spawnDrop(sp.x, sp.y)
+    }
+
+    // Mjukt porlande vattenljud medan kannan hålls (låg, lätt slumpad ton).
+    this._gurgleAccum += dt
+    if (this._gurgleAccum >= 190) {
+      this._gurgleAccum -= 190
+      const wf = 190 + Math.random() * 170
+      ctx.services.audio.tone({ freq: wf, dur: 0.17, type: 'sine', vol: 0.06, slideTo: wf * 0.65 })
     }
 
     // Närmaste ovattnade planta vars hål ligger nedanför pipen.
@@ -482,15 +526,51 @@ export default {
     this._drops = keep
   },
 
-  // En planta är fullvuxen → blomma: pling, gnistror, liten studs. Räkna mot firande.
+  // En planta är fullvuxen → BLOMNING som ett litet skådespel (spelets klimax):
+  // knoppen spricker, kronbladen vecklar ut sig ett i taget (stigande ton), och
+  // blomman poppar in med magi-klipp + gnistror + pollen-pluff. Räkna mot firande.
+  // Exit/round-säkert: alla objekt är _track:ade (tweens dödas vid clear/destroy);
+  // fxLayer-hjälparna (sparkle/puff) är exit-säkra av sig själva.
   _bloom(ctx, p) {
     if (p.done) return
-    p.done = true
     p.grow = 1
-    this._renderPlant(p)
-    ctx.services.audio.sfx('pling')
-    sparkle(ctx.fxLayer, p.node.x, p.flowerY)
-    pop(p.flower)
+    this._renderPlant(p) // stjälk/blad/knopp/fukt till fullt (done ännu false)
+    p.done = true
+
+    // 1) Knoppen spricker: en snabb squash, sedan tonar den bort.
+    ctx.services.audio.sfx('pop')
+    gsap.killTweensOf(p.bud.scale)
+    gsap.to(p.bud.scale, { x: 1.35, y: 0.7, duration: 0.12, ease: 'power2.out' })
+    gsap.to(p.bud, { alpha: 0, duration: 0.28, delay: 0.12 })
+
+    // 2) Kronbladen vecklar ut sig ETT i taget, med en stigande liten "pling".
+    const petals = p.petals.children
+    petals.forEach((pet, i) => {
+      gsap.killTweensOf(pet.scale)
+      pet.scale.set(0)
+      const d = 0.16 + i * 0.09
+      gsap.to(pet.scale, { x: 1, y: 1, duration: 0.34, delay: d, ease: 'back.out(2.4)' })
+      ctx.services.audio.tone({ freq: 480 + i * 70, dur: 0.13, type: 'sine', vol: 0.13, delay: d })
+    })
+
+    // 3) Blomman (ansiktet) poppar in överst + magi-klipp, gnistror och pollen-pluff.
+    const faceDelay = 0.16 + petals.length * 0.09 + 0.06
+    gsap.killTweensOf(p.flower.scale)
+    p.flower.scale.set(0)
+    gsap.to(p.flower.scale, {
+      x: 1,
+      y: 1,
+      duration: 0.42,
+      delay: faceDelay,
+      ease: 'back.out(2.6)',
+      onStart: () => {
+        if (!this._alive) return
+        ctx.services.audio.sfx('magi')
+        sparkle(ctx.fxLayer, p.node.x, p.flowerY)
+        puff(ctx.fxLayer, p.node.x, p.flowerY, { count: 8, color: POLLEN })
+      },
+    })
+
     this._bloomed++
     if (this._bloomed >= this._holeCount) this._finishRound(ctx)
   },
@@ -516,11 +596,12 @@ export default {
     })
   },
 
-  // Mjuk auto-hjälp: om barnet pausar vattnar vi minst vuxna plantan en skvätt så
-  // det ALLTID blir klart. Aldrig ett felsteg — bara en hjälpande hand.
+  // Mjuk, TRAPPAD auto-hjälp så barnets eget hållande avgör: första idle-stöten
+  // vinkar bara kannan + röst (ingen vattning) — barnet får chansen. Först SENARE
+  // (stadie ≥2) vattnar vi på riktigt, synligt och uttalat, med en SVAGARE dos.
+  // Aldrig ett felsteg — bara en hjälpande hand, och det blir alltid klart.
   _autoHelp(ctx) {
     if (!this._alive || this._phase !== 'water' || this._resolving || this._pouring) return
-    ctx.services.voice.say(this._cuePhrase)
     let best = null
     for (const p of this._plants) {
       if (p.done) continue
@@ -528,7 +609,9 @@ export default {
     }
     if (!best) return
 
-    // Vinka kannan mot plantan och luta den lite (rent visuellt).
+    this._helpStage = (this._helpStage || 0) + 1
+
+    // Vinka kannan mot plantan och luta den lite (rent visuellt) — i alla stadier.
     if (this._can && !this._can.destroyed) {
       this._canBob?.kill()
       this._canBob = null
@@ -536,9 +619,19 @@ export default {
       gsap.to(this._can, { x: best.x, y: 380, duration: 0.5, ease: 'power2.inOut' })
       gsap.to(this._can, { rotation: -0.28, duration: 0.3, yoyo: true, repeat: 1, ease: 'sine.inOut' })
     }
+
+    // Stadie 1: BARA en vinkande kanna + röst — ge barnet chansen att vattna själv.
+    if (this._helpStage < 2) {
+      ctx.services.voice.say('Håll kannan över blomman!')
+      return
+    }
+
+    // Stadie ≥2: nu hjälper vi till på riktigt — synligt och uttalat, men med en
+    // svagare dos än förr (0.16) så barnets eget hållande fortfarande avgör mest.
+    ctx.services.voice.say('Jag hjälper till lite!')
     for (let i = 0; i < 6; i++) this._spawnDrop(best.x + (Math.random() * 30 - 15), 400)
     ctx.services.audio.sfx('whoosh')
-    best.grow = Math.min(1, best.grow + 0.22)
+    best.grow = Math.min(1, best.grow + 0.16)
     this._renderPlant(best)
     if (best.grow >= 1) this._bloom(ctx, best)
   },
@@ -589,7 +682,8 @@ export default {
         this._pourTick(ctx, dt)
       } else {
         this._idle += dt / 1000
-        if (this._idle > 6) {
+        if (this._idle > 9) {
+          // Högre tröskel (9s) så barnet hinner engagera sig innan hjälpen vinkar.
           this._idle = 0
           this._autoHelp(ctx)
         }

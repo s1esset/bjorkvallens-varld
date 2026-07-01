@@ -81,6 +81,78 @@ function drawPipe(g, dirs) {
   g.roundRect(-9, -52, 5, 30, 3).fill({ color: COLORS.white, alpha: 0.5 })
 }
 
+// Rita ENBART innerkanalen i stark vattenblå — läggs som overlay ovanpå röret och
+// tonas in (alpha) allteftersom vattnet passerar → barnet SER flödet hitta vägen.
+function drawPipeWet(g, dirs) {
+  const HALF = 58
+  const WATER = COLORS.blue
+  for (const d of dirs) {
+    const [x, y, w, h] = armRect(d, HALF, 26)
+    g.roundRect(x, y, w, h, 8).fill(WATER)
+  }
+  g.circle(0, 0, 14).fill(WATER)
+}
+
+// Elvira — den törstiga mottagaren som väntar bredvid muggen (helt programmatisk,
+// speglar kid-figuren i bajs-och-kiss). Symmetrisk, så ingen spegling behövs.
+// Avbildad person: ENDAST Elvira (se CLAUDE.md CHARACTERS).
+function makeElvira() {
+  const c = new Container()
+  const skin = 0xffe0bd
+  const shirt = COLORS.pink
+  const shirtDark = 0xe87da8
+  const hair = 0xf4cf63 // Elvira är blond (ägarens önskemål)
+
+  // Tofsar bakom huvudet.
+  c.addChild(new Graphics().circle(-40, -56, 16).fill(hair).circle(40, -56, 16).fill(hair))
+
+  // Ben + skor.
+  c.addChild(
+    new Graphics()
+      .roundRect(-24, 44, 18, 44, 8).fill(0x5a6b8c)
+      .roundRect(6, 44, 18, 44, 8).fill(0x5a6b8c)
+      .roundRect(-28, 82, 26, 16, 8).fill(0x3a3a3a)
+      .roundRect(2, 82, 26, 16, 8).fill(0x3a3a3a)
+  )
+
+  // Klänning.
+  c.addChild(
+    new Graphics()
+      .moveTo(-28, -22).lineTo(28, -22).lineTo(46, 56).lineTo(-46, 56).closePath()
+      .fill(shirt).stroke({ width: 3, color: shirtDark })
+  )
+
+  // Armar sträcker sig framåt/nedåt (mot muggen) + händer.
+  c.addChild(
+    new Graphics()
+      .roundRect(-52, -8, 20, 42, 10).fill(shirt)
+      .roundRect(32, -8, 20, 42, 10).fill(shirt)
+      .circle(-42, 36, 10).fill(skin)
+      .circle(42, 36, 10).fill(skin)
+  )
+
+  // Huvud + ansikte.
+  const head = new Graphics().circle(0, -56, 34).fill(skin)
+  head.circle(-12, -58, 4).fill(0x3a2a1a) // ögon
+  head.circle(12, -58, 4).fill(0x3a2a1a)
+  head.circle(-20, -48, 6).fill({ color: 0xffb0b0, alpha: 0.7 }) // kinder
+  head.circle(20, -48, 6).fill({ color: 0xffb0b0, alpha: 0.7 })
+  c.addChild(head)
+  const mouth = new Graphics().arc(0, -50, 13, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 4, color: 0x9a5b3b })
+  c.addChild(mouth)
+  c._mouth = mouth
+
+  // Lugg + rosett.
+  c.addChild(new Graphics().roundRect(-32, -86, 64, 22, 12).fill(hair))
+  c.addChild(
+    new Graphics()
+      .circle(-11, -90, 11).fill(COLORS.red)
+      .circle(11, -90, 11).fill(COLORS.red)
+      .circle(0, -90, 6).fill(0xd64a4a)
+  )
+  return c
+}
+
 // Position längs en polylinje vid avståndet d (px). ended=true när d nått slutet.
 function pointAt(pts, d) {
   if (!pts || pts.length < 2) return null
@@ -172,6 +244,9 @@ export default {
     this._drops = []
     this._pipes.forEach((p) => this._killViewTweens(p))
     this._stones.forEach((s) => this._killViewTweens(s))
+    this._elviraBreath?.kill()
+    if (this._elvira) this._killViewTweens(this._elvira)
+    this._elvira = null
     this._board.removeChildren().forEach((o) => o.destroy({ children: true }))
     this._pipes = []
     this._stones = []
@@ -201,10 +276,14 @@ export default {
       return { col: c.col, row: c.row, type, rot }
     })
 
-    // Vilka rör ligger redan vs. ska barnet lägga?
-    const missingCount = Math.min(path.length, plan.missing)
-    const order = shuffle(this._solution.map((_, i) => i))
-    const missingSet = new Set(order.slice(0, missingCount))
+    // Vilka rör ligger redan vs. ska barnet lägga? Förplacera BARA käll-biten
+    // (index 0) + mugg-biten (sista) — barnet bygger HELA resten av ledningen
+    // själv (mer agens; docs §4 "fler tomma celler, färre förplacerade").
+    const lastIdx = this._solution.length - 1
+    const missingSet = new Set()
+    this._solution.forEach((_, i) => {
+      if (i !== 0 && i !== lastIdx) missingSet.add(i)
+    })
 
     // Käll-/mugg-koordinater.
     this._sourceX = cellCenter(this._sourceCol, 0).x
@@ -249,6 +328,19 @@ export default {
 
     // Mugg + planta (mål).
     this._buildMug()
+
+    // Elvira väntar törstig BREDVID muggen (mot närmaste kant så hon inte skymmer
+    // rutnätet). Hon "andas" (lever) och jublar/dricker när vattnet kommer.
+    this._elvira = makeElvira()
+    const ey = Math.min(this._mugY, 560)
+    const side = this._mugX >= 640 ? 1 : -1 // stå mot den närmaste skärmkanten
+    const ex = Math.max(190, Math.min(1105, this._mugX + side * 150))
+    this._elvira.position.set(ex, ey)
+    this._elvira.scale.set(0.78)
+    this._elvira.eventMode = 'none'
+    this._propLayer.addChild(this._elvira)
+    // Lugn "andning" så hon känns levande (breathe multiplicerar basskalan 0.78).
+    this._elviraBreath = breathe(this._elvira, { scale: 1.03, duration: 1.4 })
 
     // Förplacerade rör (rätt typ + rotation → kopplar redan).
     this._solution.forEach((s, i) => {
@@ -393,7 +485,13 @@ export default {
     const g = new Graphics()
     drawPipe(g, BASE[type] || BASE.rak)
     g.eventMode = 'none'
-    view.addChild(g)
+    // Vattenblå kanal-overlay (tonas in när flödet når röret) — se _paintFlow.
+    const wet = new Graphics()
+    drawPipeWet(wet, BASE[type] || BASE.rak)
+    wet.eventMode = 'none'
+    wet.alpha = 0
+    view.addChild(g, wet)
+    view._wet = wet
     return view
   },
 
@@ -409,6 +507,7 @@ export default {
     view.hitArea = new Circle(0, 0, 70)
     view._tap = () => this._rotatePipe(ctx, cell)
     view.on('pointertap', view._tap)
+    view._cell = cell
     this._pipeLayer.addChild(view)
     cell.pipe = view
     this._pipes.push(view)
@@ -563,6 +662,9 @@ export default {
     if (res.connected) pts.push({ x: this._mugX, y: this._mugY - 58 })
     this._path = pts
 
+    // Synligt rör-flöde: färga innerkanalen blå så långt vattnet nått (även läckande).
+    this._paintFlow(res.cells)
+
     const was = this._connected
     this._connected = res.connected
     if (this._connected && !was && !this._resolving && announce) {
@@ -574,7 +676,43 @@ export default {
           sparkle(ctx.fxLayer, cc.x, cc.y)
         })
       )
+      this._cheerElvira(ctx, false) // Elvira ser att vattnet är på väg
     }
+  },
+
+  // Tona in/ut kanal-overlayen per rör: "vått" = ligger på vattnets aktuella väg.
+  // Fördröjning per steg → en löpande fyllning som följer vattnet ner mot muggen.
+  _paintFlow(cells) {
+    const wetKeys = new Set(cells.map((c) => c.col + ',' + c.row))
+    for (const p of this._pipes) {
+      if (!p || p.destroyed || !p._wet) continue
+      const key = p._cell && p._cell.col + ',' + p._cell.row
+      const on = key != null && wetKeys.has(key)
+      if (on && !p._wetOn) {
+        p._wetOn = true
+        const idx = cells.findIndex((c) => c.col + ',' + c.row === key)
+        gsap.killTweensOf(p._wet)
+        gsap.to(p._wet, { alpha: 0.92, duration: 0.28, delay: Math.max(0, idx) * 0.07, ease: 'sine.out' })
+      } else if (!on && p._wetOn) {
+        p._wetOn = false
+        gsap.killTweensOf(p._wet)
+        gsap.to(p._wet, { alpha: 0, duration: 0.18 })
+      }
+    }
+  },
+
+  // Elvira reagerar: ett glatt litet hopp (via y, krockar ej med skal-andningen) +
+  // ett hjärta/vatten-emoji ovanför henne.
+  _cheerElvira(ctx, drink) {
+    const e = this._elvira
+    if (!e || e.destroyed) return
+    const by = e.y
+    gsap.killTweensOf(e, 'y')
+    gsap
+      .timeline()
+      .to(e, { y: by - 22, duration: 0.16, ease: 'power2.out' })
+      .to(e, { y: by, duration: 0.36, ease: 'bounce.out' })
+    floatText(ctx.fxLayer, e.x, by - 130, drink ? randomFrom(['💗', '😋', '🥰']) : '💧')
   },
 
   // ---- ticker: vatten + idle/auto-hjälp ----
@@ -727,6 +865,7 @@ export default {
     ctx.services.audio.sfx('reveal')
     burst(ctx.fxLayer, this._mugX, this._mugY - 20, { count: 16 })
     sparkle(ctx.fxLayer, this._mugX, this._mugY - 40)
+    this._cheerElvira(ctx, true) // Elvira dricker & jublar — muggen är full!
     ctx.progress.setLevel(this._level + 1)
     ctx.progress.setCustom('banor', ((ctx.progress.get().custom?.banor) | 0) + 1)
     ctx.progress.complete() // delat firande: celebrate + beröm + bigCelebration + klistermärke
@@ -746,6 +885,7 @@ export default {
     if (!v || v.destroyed) return
     gsap.killTweensOf(v)
     gsap.killTweensOf(v.scale)
+    if (v._wet) gsap.killTweensOf(v._wet)
   },
 
   destroy(ctx) {
@@ -759,6 +899,8 @@ export default {
     this._drops?.forEach((d) => !d.g.destroyed && d.g.destroy())
     this._pipes?.forEach((p) => this._killViewTweens(p))
     this._stones?.forEach((s) => this._killViewTweens(s))
+    this._elviraBreath?.kill()
+    if (this._elvira) this._killViewTweens(this._elvira)
     if (this._mugContainer) this._killViewTweens(this._mugContainer)
     if (this._plant) this._killViewTweens(this._plant)
     gsap.killTweensOf(this._root)

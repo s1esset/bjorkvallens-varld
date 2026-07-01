@@ -100,4 +100,32 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
   Notering: utlovade Elvira renderas inte i nuläget. Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] visa & drickande Elvira + [Quick] synligt rör-flöde +
   [Medium] fler tomma celler** — ger karaktär, tydligt flöde och äkta agens till låg risk.
+- 2026-07-02: Första-omgången implementerad (errorCount 0 i två speltest: enbart-load + drag).
+  - **Elvira-buggen (rot-orsak + fix).** Elvira "fanns" bara i kodhuvudet, titeln och
+    `voiceIntro` — hon ritades ALDRIG. `_buildMug` skapade enbart glas/vatten/glans/fyll-linje/
+    planta; ingen figur lades någonsin till scengrafen. Fix: ny modul-funktion `makeElvira()`
+    (speglar `makeKid('elvira')` i bajs-och-kiss — blond med röd rosett, rosa klänning, armar som
+    sträcker sig mot muggen, helt Pixi Graphics). I `_buildLevel` skapas `this._elvira` efter
+    `_buildMug()`, placeras BREDVID muggen (`ex = mugX ± 150` mot närmaste skärmkant så hon inte
+    skymmer rutnätet, `ey = min(mugY, 560)`, `scale 0.78`) i `_propLayer`, och får en lugn
+    "andning" via `breathe()` (`this._elviraBreath`). Bekräftat visuell i båda skärmdumparna.
+  - **Levande & drickande Elvira.** `_cheerElvira(ctx, drink)` gör ett glatt litet hopp (tween på
+    `e.y` — krockar ej med skal-andningen) + `floatText` (💧 när vattnet börjar rinna, 💗/😋/🥰 när
+    muggen är full). Anropas från `_recomputePath` vid nyss-kopplad väg och från `_bloom` (drick).
+  - **Synligt rör-flöde.** Ny `drawPipeWet()` ritar en vattenblå kanal-overlay; `_makePipe` lägger
+    den som `view._wet` (alpha 0). `_placePipeInCell` sätter `view._cell`. Nya `_paintFlow(cells)`
+    (anropad i `_recomputePath` med `_traverse().cells`) tonar in overlayen per rör som vattnet
+    nått — med `delay` per steg → en löpande fyllning som följer flödet ner mot muggen (syns även
+    när banan läcker/är ofullständig, från källan så långt vattnet når). Verifierat i drag-testet:
+    hela kolumnen fylls blå.
+  - **Fler tomma celler (mer agens).** `_buildLevel` förplacerar nu BARA käll-biten (index 0) +
+    mugg-biten (sista); alla mellanceller är tomma och barnet bygger hela resten själv (ersatte
+    den shuffle-baserade `missingCount`-logiken; `plan.missing` numera oanvänt men kvar).
+  - **Exit-säkerhet.** `_killViewTweens` dödar nu även `v._wet`-tweens; `_buildLevel`-städningen
+    och `destroy` dödar `_elviraBreath` + Elviras egna tweens innan brädet förstörs.
+  - Deferred: [Medium] mjukare auto-hjälp (visa "Jag hjälper lite!"), [Medium] T-rör/grenval till
+    två muggar, [Quick] ventil/kran-klimax, [Quick] mugg-fyllning med våg/bubblor + "glugg"-ljud,
+    [Quick] trädgård/karta-progression, [Quick] riktiga vatten-SFX (MOSS), [Deep] växande planta
+    över banor. Not: för höga banor (rows=4) hamnar muggen lågt (mugY≈690) och beskärs något i
+    nederkant — pre-existerande, ej rört här (skulle bryta nedförs-flödet om muggen lyfts).
 </content>

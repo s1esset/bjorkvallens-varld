@@ -95,3 +95,25 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
 - Rekommenderad första-omgång: **[Medium] tunnor med ögon/tugg + [Quick] materialspecifik SFX +
   [Quick] klustrad hög** — störst upplevd lyft (gör tunnorna till varelser och varje sort
   kännbar) för rimlig insats.
+- 2026-07-02: **Första-omgång genomförd** — hela rekommendationen byggd (den avbrutna passagen
+  hade bara skrivit om header-kommentaren; ingen kod fanns):
+  - **[Medium] Tunnor som GLADA VARELSER** (`_makeBin`): varje tunna har nu stora ögon vars
+    **pupiller följer det man håller** (gaze i `_update`), en **mun som GAPAR** när en sak
+    närmar sig öppningen och **TUGGAR belåtet** vid rätt släpp (`_chew`), och kategori-ikonen
+    sitter som en **mage-bricka** (ingen läsning). Fel sort → tunnan **skakar vänligt på
+    huvudet** ("inte min sort!", `_headShake`) — aldrig en bestraffning.
+  - **[Quick] Materialspecifik SFX** (`_materialSound`): glas klingar ljust (två pling), papper
+    prasslar i korta triangelblip, plast studsar ("boing"), mat dunsar mjukt — allt via
+    `audio.tone`, plus ett lock-"klonk". Juice (ring/puff) i materialets egen färg.
+  - **[Quick] Klustrad "slängd" hög** (`layoutItems` + föremåls-rotation): jitter i x/y +
+    tydligare lutning så högen ser ut som riktigt skräp, inte en prydlig tabell.
+  - **Pixi v8-gotcha lagad under vägen:** pupillerna byggdes först som *bara* Graphics
+    (`circle(0,0,r)`) med en stor `.position.set(cx, eyeY)` → renderade som ett **helskärmsbrett
+    svart streck** (getBounds 2625×28 trots scale 1 i hela kedjan). Fix: linda varje öga i en
+    egen container med **bakad mitt** i geometrin (samma mönster som nallen/kompisarna) och
+    flytta pupillen med små offset. → se minnet om detta.
+  - Test: `errorCount 0` (statisk + drag-test som sorterar i båda tunnorna); skärmdump bekräftar
+    två tunn-varelser med följande ögon + mage-brickor och en klustrad hög.
+  - **Deferred:** [Deep] mottagar-maskot (Bobo som sopgubbe/återvinningsbil); [Medium] städad-
+    värld-mätare (skräp på marken som krymper); [Medium] per-material-partiklar (fluga vid mat,
+    blad-fall vid papper); [Quick] sällsynt guld-skräp; [Quick] scen-crossfade + ambient.

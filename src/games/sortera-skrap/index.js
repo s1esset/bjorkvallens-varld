@@ -1,13 +1,16 @@
 // Sortera Skräp — dra och släpp (2–5 år). MARKNADSMÄSSIG uppgradering som behåller
 // mekaniken (dra varje sak till rätt tunna) men lyfter känslan rejält:
-//  • Levande scen (createScene) + färgkodade, inbjudande tunnor med tydlig ikon
-//    (INGEN läsning krävs), mjuk skugga, lock som studsar och en mörk "mun".
+//  • Levande scen (createScene) + färgkodade tunnor som är GLADA VARELSER: stort huvud
+//    med ögon vars pupiller FÖLJER det man håller, en mun som GAPAR när saken närmar sig
+//    och TUGGAR belåtet vid rätt material; fel tunna skakar vänligt på huvudet ("inte
+//    min sort!") — aldrig en bestraffning. Kategori-ikon som mage-bricka (INGEN läsning).
 //  • Charmiga föremål med mjuk skugga som VÄXER när de lyfts (lyft + skala vid grepp).
-//  • Juice: rätt släpp = popp + gnistor + ring + chime + lock-studs + plopp NER i tunnan;
-//    fel = mjuk studs tillbaka + vänlig vingel + mjukt ljud (ALDRIG en bestraffning).
+//  • Materialspecifik juice: rätt släpp ger en ljudtextur som PASSAR sorten (glasklang,
+//    pappersprassel, plast-studs, mjuk mat-duns) + huvud-tugg med "klonk" + gnistor/ring/
+//    puff i materialets färg + plopp NER bakom tunnan. Fel = mjuk studs hem + vingel.
 //  • Djup: läser progress.highestLevel och växer — börjar med 2 tunnor/få saker och
 //    ökar upp till 4 tunnor (papper, mat, plast, glas/metall) och fler saker per runda.
-//    VARIERAR vilka exakta saker som dyker upp varje runda. Strikt FELFRITT.
+//    VARIERAR vilka exakta saker som dyker upp varje runda; slängd/klustrad hög. FELFRITT.
 //  • All transient-effekt går via lib/feedback.js (exit-säkert). Drag via DragController.
 import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
@@ -164,8 +167,8 @@ export default {
           this._idle = 0
           this._clearHint()
         },
-        onCorrect: (rec, target) => this._onCorrect(ctx, it, target),
-        onWrong: () => this._onWrong(ctx, it),
+        onCorrect: (_rec, target) => this._onCorrect(ctx, it, target),
+        onWrong: (_rec, target) => this._onWrong(ctx, it, target),
       })
       // Extra: vilken pekning som helst nollställer idle + släcker en lockande puls.
       c.on('pointerdown', () => {
@@ -206,11 +209,17 @@ export default {
     const bin = target.view
     const mx = bin.x
     const my = bin.y - bin._mouthDY
+    const matColor = CATS[bin._cat].color
 
-    ctx.services.audio.sfx('pling')
+    // Materialspecifik ljudtextur (glasklang/pappersprassel/plast-studs/mjuk mat-duns)
+    // + lock-"klonk" + huvudet TUGGAR belåtet. Juice i materialets egen färg.
+    this._materialSound(ctx, bin._cat)
     sparkle(this._fx, mx, my, { count: 8 })
-    ripple(this._fx, mx, my, { color: 0xffffff, maxR: bin._w * 0.6, width: 5, alpha: 0.5 })
+    ripple(this._fx, mx, my, { color: matColor, maxR: bin._w * 0.6, width: 5, alpha: 0.55 })
+    puff(this._fx, mx, my, { count: 6, color: matColor })
     this._popLid(bin)
+    ctx.services.audio.tone({ freq: 150, dur: 0.06, type: 'square', vol: 0.12 }) // lock-"klonk"
+    this._chew(bin)
     pop(bin, { scale: 1.05 })
     if (Math.random() < 0.55) ctx.services.voice.say(randomFrom(PRAISE_SV))
     if (Math.random() < 0.4) floatText(this._fx, mx, my - 10, '⭐', { fontSize: 44, rise: 64 })
@@ -222,12 +231,14 @@ export default {
   },
 
   // FEL tunna: DragController har redan spelat 'soft' + snäppt hem. Lägg på vänlig
-  // vingel + liten puff. Aldrig en bestraffning.
-  _onWrong(ctx, it) {
+  // vingel + liten puff, och tunnan SKAKAR PÅ HUVUDET ("inte min sort!"). Aldrig en
+  // bestraffning.
+  _onWrong(ctx, it, target) {
     if (!this._alive || it.sorted) return
     this._idle = 0
     wiggle(it.container)
     puff(this._fx, it.container.x, it.container.y, { count: 6 })
+    if (target && target.view && !target.view.destroyed) this._headShake(target.view)
     if (Math.random() < 0.4) ctx.services.voice.say(VOICE.tryAgain)
   },
 
@@ -258,6 +269,63 @@ export default {
       .timeline()
       .to(lid, { y: baseY - 16, rotation: -0.06, duration: 0.1, ease: 'power2.out' })
       .to(lid, { y: baseY, rotation: 0, duration: 0.28, ease: 'bounce.out' })
+  },
+
+  // Materialspecifik ljudtextur (helt syntetiserad via audio.tone → inget nytt klipp):
+  // glas klingar ljust, papper prasslar i korta blip, plast studsar, mat dunsar mjukt.
+  _materialSound(ctx, key) {
+    const a = ctx.services.audio
+    switch (key) {
+      case 'glasmetall': // glasklang: två ljusa pling
+        a.tone({ freq: 1320, dur: 0.12, type: 'sine', vol: 0.16, slideTo: 1760 })
+        a.tone({ freq: 1980, dur: 0.14, type: 'sine', vol: 0.1, delay: 0.06 })
+        break
+      case 'papper': // pappersprassel: korta ljusa triangelblip
+        a.tone({ freq: 760, dur: 0.05, type: 'triangle', vol: 0.1 })
+        a.tone({ freq: 900, dur: 0.05, type: 'triangle', vol: 0.09, delay: 0.05 })
+        a.tone({ freq: 680, dur: 0.05, type: 'triangle', vol: 0.08, delay: 0.1 })
+        break
+      case 'plast': // plast-studs: liten "boing"
+        a.tone({ freq: 300, dur: 0.16, type: 'square', vol: 0.14, slideTo: 620 })
+        break
+      case 'mat': // mjuk duns
+        a.tone({ freq: 200, dur: 0.16, type: 'sine', vol: 0.2, slideTo: 120 })
+        break
+      default:
+        a.sfx('pling')
+    }
+  },
+
+  // Huvudet TUGGAR belåtet vid rätt släpp (munnen gapar och tuggar ihop). Flaggan
+  // _chewing pausar den gaze-drivna gapningen i _update medan tuggningen spelar.
+  _chew(bin) {
+    const m = bin._mouth
+    if (!m || m.destroyed) return
+    bin._chewing = true
+    gsap.killTweensOf(m.scale)
+    gsap
+      .timeline({
+        onComplete: () => {
+          if (!bin.destroyed) bin._chewing = false
+        },
+      })
+      .to(m.scale, { y: 2.4, duration: 0.1, ease: 'power2.out' })
+      .to(m.scale, { y: 1.2, duration: 0.12, ease: 'power2.in' })
+      .to(m.scale, { y: 2.0, duration: 0.1 })
+      .to(m.scale, { y: 1, duration: 0.16, ease: 'power2.inOut' })
+  },
+
+  // Tunnan skakar vänligt på huvudet vid fel sort ("inte min sort!") — aldrig en
+  // bestraffning, bara en gullig "nej tack". Rotation dödas i killBinTweens/destroy.
+  _headShake(bin) {
+    if (!bin || bin.destroyed) return
+    gsap.killTweensOf(bin)
+    gsap
+      .timeline()
+      .to(bin, { rotation: 0.12, duration: 0.08 })
+      .to(bin, { rotation: -0.12, duration: 0.1 })
+      .to(bin, { rotation: 0.08, duration: 0.09 })
+      .to(bin, { rotation: 0, duration: 0.12 })
   },
 
   // Rundan klar: höj nivå, gnist-svep över tunnorna, sedan delat firande
@@ -307,6 +375,41 @@ export default {
         const s = 1 + 0.5 * it.lift
         c._shadow.scale.set(s)
         c._shadow.alpha = 0.26 - 0.1 * it.lift
+      }
+    }
+
+    // Tunn-varelser: pupillerna FÖLJER det man håller, och munnen GAPAR när saken
+    // närmar sig öppningen (pausas medan en tugg-animation spelar). Rent per-bild-
+    // satta värden (inga tweens) → exit-säkert; tunnan förstörs med sina barn.
+    const held = this._drag?.active?.view || this._drag?.selected?.view || null
+    const heldLive = held && !held.destroyed ? held : null
+    for (const bin of this._bins) {
+      if (!bin || bin.destroyed) continue
+      let tx = 0
+      let ty = 3 // vila: titta lite nedåt mot magen
+      if (heldLive) {
+        const dx = heldLive.x - bin.x
+        const dy = heldLive.y - (bin.y + bin._eyeY)
+        const d = Math.hypot(dx, dy) || 1
+        tx = (dx / d) * bin._eyeMax
+        ty = (dy / d) * bin._eyeMax
+      }
+      if (bin._pupils) {
+        for (const pu of bin._pupils) {
+          if (pu.destroyed) continue
+          pu.x += (tx - pu.x) * k
+          pu.y += (ty - pu.y) * k
+        }
+      }
+      if (bin._mouth && !bin._mouth.destroyed && !bin._chewing) {
+        let gape = 0
+        if (heldLive) {
+          const dx = heldLive.x - bin.x
+          const dyv = heldLive.y - (bin.y - bin._mouthDY)
+          gape = Math.max(0, 1 - Math.hypot(dx, dyv) / 260)
+        }
+        bin._gapeCur += (gape - bin._gapeCur) * k
+        bin._mouth.scale.y = 1 + bin._gapeCur * 1.4
       }
     }
 
@@ -368,13 +471,45 @@ export default {
     const panel = new Graphics().roundRect(-w / 2 + 12, -h / 2 + 34, w - 24, h - 50, 16).fill({ color: light, alpha: 0.22 })
     // Vänster ljus-stripe.
     const hi = new Graphics().roundRect(-w / 2 + 12, -h / 2 + 14, 13, h - 28, 6).fill({ color: 0xffffff, alpha: 0.18 })
-    // Mörk "mun" (öppning) nära toppen.
-    const mouth = new Graphics().roundRect(-w * 0.32, -h / 2 + 8, w * 0.64, 20, 10).fill({ color: 0x000000, alpha: 0.3 })
-    // Kategori-ikon: vit skiva + emoji (ingen läsning krävs).
-    const iconDisc = new Graphics().circle(0, h * 0.07, w * 0.2).fill({ color: 0xffffff, alpha: 0.92 })
-    const iconEmoji = new Text({ text: cat.icon, style: { fontFamily: FONT.body, fontSize: w * 0.27 } })
+    // Gapande "mun" (öppning) nära toppen — egen container så den kan GAPA nedåt
+    // (scale.y) när en sak närmar sig och TUGGA belåtet vid rätt släpp, utan att
+    // själva öppningen flyttar sig (pivot i munnens överkant).
+    const mouth = new Container()
+    mouth.position.set(0, -h / 2 + 8)
+    mouth.addChild(new Graphics().roundRect(-w * 0.32, 0, w * 0.64, 18, 9).fill({ color: 0x201814, alpha: 0.42 }))
+    mouth.addChild(new Graphics().roundRect(-w * 0.24, 3, w * 0.48, 9, 5).fill({ color: 0x000000, alpha: 0.3 }))
+    bin._mouth = mouth
+    bin._gapeCur = 0
+    bin._chewing = false
+
+    // Ögon (varelse-känsla): vita + pupiller som FÖLJER det man håller (se _update).
+    const eyeY = -h * 0.16
+    const eyeDX = w * 0.2
+    const eyeWR = Math.max(12, w * 0.1)
+    const pupilR = eyeWR * 0.46
+    const eyes = new Container()
+    bin._pupils = []
+    bin._eyeY = eyeY
+    bin._eyeMax = eyeWR * 0.42
+    for (const sx of [-1, 1]) {
+      // Varje öga är en egen container (vita + pupill med bakad mitt), positionerad i
+      // ögonhålan. Pupillen flyttas med SMÅ offset kring sin bakade mitt (0,2) — samma
+      // beprövade mönster som nallen/kompisarna; undviker bounds-glitchen som uppstod
+      // när en bar Graphics fick en stor .position.
+      const eye = new Container()
+      eye.position.set(sx * eyeDX, eyeY)
+      eye.addChild(new Graphics().circle(0, 0, eyeWR).fill(0xffffff).stroke({ width: 3, color: dark, alpha: 0.5 }))
+      const pupil = new Graphics().circle(0, 2, pupilR).fill(0x2a2320)
+      eye.addChild(pupil)
+      eyes.addChild(eye)
+      bin._pupils.push(pupil)
+    }
+
+    // Kategori-ikon som mage-bricka: vit skiva + emoji (ingen läsning krävs).
+    const iconDisc = new Graphics().circle(0, h * 0.2, w * 0.17).fill({ color: 0xffffff, alpha: 0.92 })
+    const iconEmoji = new Text({ text: cat.icon, style: { fontFamily: FONT.body, fontSize: w * 0.23 } })
     iconEmoji.anchor.set(0.5)
-    iconEmoji.position.set(0, h * 0.07)
+    iconEmoji.position.set(0, h * 0.2)
     // Lock (studsar vid rätt släpp) med liten knopp.
     const lidW = w * 0.96
     const lidH = 24
@@ -387,7 +522,7 @@ export default {
     bin._lid = lid
     bin._lidBaseY = lid.y
 
-    bin.addChild(shadow, body, panel, hi, mouth, iconDisc, iconEmoji, lid)
+    bin.addChild(shadow, body, panel, hi, mouth, eyes, iconDisc, iconEmoji, lid)
 
     // Generös, exakt träffyta (mjukt utökad).
     bin.hitArea = { contains: (px, py) => Math.abs(px) <= w / 2 + 14 && py >= -h / 2 - 18 && py <= h / 2 + 14 }
@@ -412,7 +547,7 @@ export default {
     c.addChild(shadow, content)
     c._shadow = shadow
     c._content = content
-    c.rotation = (Math.random() * 2 - 1) * 0.05
+    c.rotation = (Math.random() * 2 - 1) * 0.22 // slängd hög → tydligare lutning
     // Stor, stabil träffyta (oberoende av lyft-offset).
     c.hitArea = { contains: (px, py) => px * px + py * py <= (r + 18) * (r + 18) }
     return c
@@ -456,9 +591,11 @@ function killBinTweens(b) {
   gsap.killTweensOf(b)
   gsap.killTweensOf(b.scale)
   if (b._lid && !b._lid.destroyed) gsap.killTweensOf(b._lid)
+  if (b._mouth && !b._mouth.destroyed) gsap.killTweensOf(b._mouth.scale)
 }
 
-// Lägg ut föremålen i en prydlig hög (1–2 rader, centrerade) ovanför tunnorna.
+// Lägg ut föremålen i en lätt klustrad, "slängd" hög (1–2 rader, centrerade) ovanför
+// tunnorna, med jitter i x/y så det ser ut som riktigt skräp — inte en prydlig tabell.
 function layoutItems(ctx, n) {
   const perRow = n <= 5 ? n : Math.ceil(n / 2)
   const rows = Math.ceil(n / perRow)
@@ -466,13 +603,14 @@ function layoutItems(ctx, n) {
   const spacingY = 150
   const centerY = 255
   const yTop = centerY - ((rows - 1) * spacingY) / 2
+  const jit = (m) => (Math.random() * 2 - 1) * m
   const spots = []
   for (let i = 0; i < n; i++) {
     const row = Math.floor(i / perRow)
     const cols = row < rows - 1 ? perRow : n - perRow * (rows - 1)
     const idx = i - row * perRow
     const rowW = (cols - 1) * spacingX
-    spots.push({ x: ctx.width / 2 - rowW / 2 + idx * spacingX, y: yTop + row * spacingY })
+    spots.push({ x: ctx.width / 2 - rowW / 2 + idx * spacingX + jit(30), y: yTop + row * spacingY + jit(22) })
   }
   return spots
 }

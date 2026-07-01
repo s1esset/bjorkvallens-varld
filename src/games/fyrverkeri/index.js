@@ -16,11 +16,11 @@
 // eller dödas i destroy(). Tickern tas bort och this._root.destroy({children:true}) körs i
 // destroy(), så ingen uppdatering kan skriva till ett förstört objekt; loopen kollar ändå
 // .destroyed defensivt.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { AimLauncher } from '../../lib/launcher.js'
 import { predictTrajectory } from '../../lib/physics.js'
-import { bigCelebration, puff, sparkle, pop, floatText } from '../../lib/feedback.js'
+import { bigCelebration, sparkle, pop, floatText } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { PLAYFUL, FONT } from '../../lib/theme.js'
 
@@ -121,6 +121,16 @@ export default {
     this._fx.interactiveChildren = false
     this._root.addChild(this._fx)
 
+    // Smäll-blixt: heltäckande additiv vit ruta som ljusnar KORT vid varje smäll (+ mikroskak
+    // på _fx). Drivs av tickern (ingen gsap) -> alltid exit-säker.
+    this._flash = 0
+    this._shakeAmt = 0
+    this._flashG = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0xffffff })
+    this._flashG.blendMode = 'add'
+    this._flashG.eventMode = 'none'
+    this._flashG.alpha = 0
+    this._root.addChild(this._flashG)
+
     // 7) Ramp + grippbar raket.
     this._pad = makeLaunchPad()
     this._pad.position.set(ORIGIN.x, ORIGIN.y + 26)
@@ -163,7 +173,7 @@ export default {
     })
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
-    this._loadLevel(ctx, this._level)
+    this._loadLevel(this._level)
 
     this._tick = (ticker) => this._update(ctx, ticker)
     ctx.ticker.add(this._tick)
@@ -196,7 +206,7 @@ export default {
     return { stars, windX: windDir * windMag, windDir }
   },
 
-  _loadLevel(ctx, level) {
+  _loadLevel(level) {
     if (!this._alive) return
     this._clearTargets()
 
@@ -282,6 +292,8 @@ export default {
 
     this._flight = { x: ORIGIN.x, y: ORIGIN.y, vx, vy, prevVy: vy, color, steps: 0, trail: 0 }
     ctx.services.audio.sfx('whoosh')
+    // Uppskjutnings-vissel: en stigande ton (riktigt klipp om det finns via MOSS, #3).
+    if (!ctx.services.audio.sample?.('vissel')) ctx.services.audio.tone({ freq: 380, dur: 0.5, type: 'sine', vol: 0.1, slideTo: 1300 })
   },
 
   // Ett fast fysiksteg för raketen (matchar prick-banan exakt).
@@ -369,21 +381,74 @@ export default {
     }))
   },
 
-  // Smällen: 18–30 gnistor radiellt utåt, bågar nedåt och tonar ut (exit-säkert via ticker).
-  _explode(ctx, x, y, color) {
-    ctx.services.audio.sfx('pop')
-    const n = 18 + ((Math.random() * 13) | 0)
-    for (let i = 0; i < n; i++) {
-      const ang = (i / n) * Math.PI * 2 + Math.random() * 0.25
-      const speed = 140 + Math.random() * 280
-      const r = 4 + Math.random() * 5
-      const c = Math.random() < 0.18 ? 0xffffff : color
+  // Smällen: flera MÖNSTER (burst/ring/willow/heart/crackle) + dovt bom, sprak, blixt & skak.
+  // Varje tändning blir ett eget litet skådespel. Exit-säkert via ticker-drivna partiklar.
+  _explode(ctx, x, y, color, shape) {
+    if (!this._alive) return
+    shape = shape || randomFrom(['burst', 'ring', 'willow', 'heart', 'crackle'])
+
+    // Ljud: riktigt "bom"-klipp om det finns (MOSS senare, #3), annars synt-bom + sprak.
+    if (!ctx.services.audio.sample?.('bom')) {
+      ctx.services.audio.tone({ freq: 95, dur: 0.34, type: 'sine', vol: 0.26, slideTo: 46 })
+      for (let i = 0; i < 3; i++) {
+        ctx.services.audio.tone({ freq: 1100 + Math.random() * 700, dur: 0.04, type: 'square', vol: 0.05, delay: 0.06 + i * 0.05 })
+      }
+    }
+    // Kort, subtil smäll-blixt (hela skyn ljusnar) + mikroskak på _fx.
+    this._flash = Math.min(0.22, Math.max(this._flash, 0.13 + Math.random() * 0.06))
+    this._shakeAmt = 3
+
+    const spark = (vx, vy, opts = {}) => {
+      const r = opts.r ?? 4 + Math.random() * 5
+      const c = opts.c ?? (Math.random() < 0.18 ? 0xffffff : color)
       const g = new Graphics().circle(0, 0, r).fill({ color: c })
       g.blendMode = 'add'
       g.eventMode = 'none'
       g.position.set(x, y)
       this._fx.addChild(g)
-      this._pushParticle({ g, x, y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, grav: PART_GRAVITY, life: 0, maxLife: 0.8 + Math.random() * 0.4 })
+      this._pushParticle({ g, x, y, vx, vy, grav: opts.grav ?? PART_GRAVITY, life: 0, maxLife: opts.maxLife ?? 0.8 + Math.random() * 0.4 })
+    }
+
+    if (shape === 'ring') {
+      const n = 28
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2
+        spark(Math.cos(a) * 240, Math.sin(a) * 240, { grav: 120, maxLife: 0.9 })
+      }
+    } else if (shape === 'willow') {
+      const n = 22
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2
+        const sp = 80 + Math.random() * 90
+        spark(Math.cos(a) * sp, Math.sin(a) * sp - 60, { grav: 360, maxLife: 1.4 + Math.random() * 0.5 })
+      }
+    } else if (shape === 'heart') {
+      const n = 26
+      for (let i = 0; i < n; i++) {
+        const t = (i / n) * Math.PI * 2
+        const hx = 16 * Math.pow(Math.sin(t), 3)
+        const hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)
+        spark(hx * 13, -hy * 13, { grav: 90, maxLife: 1.1 + Math.random() * 0.3 })
+      }
+    } else if (shape === 'crackle') {
+      const n = 16 + ((Math.random() * 10) | 0)
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2
+        const sp = 120 + Math.random() * 300
+        spark(Math.cos(a) * sp, Math.sin(a) * sp, { r: 2 + Math.random() * 3, maxLife: 0.5 + Math.random() * 0.3 })
+      }
+      for (let i = 0; i < 8; i++) {
+        const a = Math.random() * Math.PI * 2
+        const sp = 60 + Math.random() * 160
+        spark(Math.cos(a) * sp, Math.sin(a) * sp, { r: 2, c: 0xffffff, maxLife: 0.4 })
+      }
+    } else {
+      const n = 18 + ((Math.random() * 13) | 0)
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + Math.random() * 0.25
+        const sp = 140 + Math.random() * 280
+        spark(Math.cos(a) * sp, Math.sin(a) * sp)
+      }
     }
   },
 
@@ -515,7 +580,7 @@ export default {
     ctx.progress.complete()
 
     this._pushTimer(gsap.delayedCall(2.2, () => {
-      if (this._alive) this._loadLevel(ctx, this._level)
+      if (this._alive) this._loadLevel(this._level)
     }))
   },
 
@@ -525,6 +590,24 @@ export default {
     if (!this._alive) return
     const dt = Math.min(ticker.deltaMS, 50) / 1000
     this._t += dt
+
+    // Smäll-blixt tonar ut + _fx mikroskak (exit-säkert, ingen gsap).
+    if (this._flash > 0.003) {
+      this._flash *= 0.82
+      if (this._flashG && !this._flashG.destroyed) this._flashG.alpha = this._flash
+    } else if (this._flashG && !this._flashG.destroyed && this._flashG.alpha !== 0) {
+      this._flash = 0
+      this._flashG.alpha = 0
+    }
+    if (this._fx && !this._fx.destroyed) {
+      if (this._shakeAmt > 0.15) {
+        this._shakeAmt *= 0.8
+        this._fx.position.set((Math.random() * 2 - 1) * this._shakeAmt, (Math.random() * 2 - 1) * this._shakeAmt)
+      } else if (this._fx.x !== 0 || this._fx.y !== 0) {
+        this._shakeAmt = 0
+        this._fx.position.set(0, 0)
+      }
+    }
 
     // Bakgrundsstjärnor tindrar.
     for (const s of this._stars) {

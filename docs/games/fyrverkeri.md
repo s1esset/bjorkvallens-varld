@@ -100,3 +100,11 @@ inget ljud-"bom" och ingen som tittar på.
   Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] riktiga fyrverkeri-SFX + smäll-blixt + [Medium] smäll-
   former** — gör själva fyrverkeriet lika bra som siktet redan är.
+- 2026-07-01 🔧 **Första-omgången byggd (alla tre):** (1) **Smäll-former [Medium]** — `_explode`
+  har nu fem mönster (burst/ring/willow/heart/crackle), slumpat per smäll via en `spark()`-hjälpare
+  → varje tändning blir ett eget skådespel. (2) **Fyrverkeri-SFX [Quick]** — synt uppskjutnings-
+  vissel (stigande ton) + dovt "bom" + sprakande crackle via `audio.tone()`, med
+  `audio.sample('vissel'/'bom')`-hookar för riktiga klipp när MOSS ([[real-audio-sfx]], #3) kört.
+  (3) **Smäll-blixt + mikroskak [Quick]** — kort, subtil additiv sky-ljusning (`_flashG`, cap 0.22)
+  + `_fx`-skak, båda ticker-drivna (ingen gsap → exit-säkert). Städning: oanvända `Circle`/`puff`-
+  importer + `ctx`-param i `_loadLevel` bort. errorCount 0.

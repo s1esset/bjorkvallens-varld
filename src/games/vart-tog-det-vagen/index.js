@@ -204,6 +204,7 @@ export default {
     this._prize.text = randomFrom(PRIZES)
     this._prize.x = this._slots[this._prizeSlot]
     this._prize.y = BASE_Y
+    this._prize.rotation = 0
     this._prize.scale.set(1)
     this._prize.visible = true
 
@@ -213,22 +214,25 @@ export default {
     this._cups.forEach((cup) => this._liftCup(cup, LIFT_Y))
     pop(this._prize)
 
-    // Efter ~1,5s: sänk kopparna och börja blanda.
+    // Efter ~1,5s: sänk kopparna (mjukt "tock" mot bordet) och börja blanda.
     this._later(1.5, () => {
       this._cups.forEach((cup) => this._lowerCup(cup))
+      this._tock(ctx)
       this._later(0.45, () => this._shuffle(ctx))
     })
   },
 
-  // Blanda: utför params.swaps sekventiella parbyten med lugna svep.
+  // Blanda: en sekvens av "drag" som VARIERAR (par-byte i olika stilar, cyklisk
+  // virvel om 3 koppar, ofarlig fint) så ingen blandning ser exakt likadan ut.
+  // Variationen växer med nivån (se planMoves). Glid-ljudet stiger i tonhöjd mot
+  // slutet -> en mjuk spännings-crescendo. Leksaken följer alltid MED sin kopp.
   _shuffle(ctx) {
     if (!this._alive) return
     this._phase = 'shuffle'
     const params = this._params
     const n = this._cups.length
-    const indices = this._cups.map((_, i) => i)
 
-    // order[slot] = kopp som just nu står på den platsen (uppdateras vid bygget).
+    // order[slot] = kopp som just nu står på den platsen (uppdateras per drag).
     const order = []
     this._cups.forEach((c) => (order[c._slot] = c))
 
@@ -239,41 +243,91 @@ export default {
     })
     this._shuffleTl = tl
 
-    let prev = -1
-    for (let s = 0; s < params.swaps; s++) {
-      // Två olika platser, undvik att direkt ångra föregående byte.
-      let pair
-      do {
-        pair = shuffle([...indices]).slice(0, 2).sort((a, b) => a - b)
-      } while (n > 2 && pair[0] === prev >> 4 && pair[1] === (prev & 0xf))
-      prev = (pair[0] << 4) | pair[1]
-      const [i, j] = pair
-      const cupA = order[i]
-      const cupB = order[j]
-      const xA = this._slots[i]
-      const xB = this._slots[j]
+    const moves = planMoves(params.swaps, n, this._level)
+    moves.forEach((mv, mi) => {
+      const prog = moves.length > 1 ? mi / (moves.length - 1) : 0
+      this._addMove(ctx, tl, order, mv, params, prog)
+    })
+  },
 
-      const sub = gsap.timeline()
-      sub.call(() => {
-        if (this._alive) ctx.services.audio.sfx('whoosh')
+  // Lägg ETT drag till blandnings-tidslinjen. Uppdaterar order[]/_slot löpande.
+  // mv = { type:'swap'|'swirl', slots:[…], style, feint }. prog 0..1 = hur långt in
+  // i blandningen (styr glid-ljudets tonhöjd). Leksaken följer sin kopp via identitet.
+  _addMove(ctx, tl, order, mv, params, prog) {
+    const dur = params.swapDur
+    const sub = gsap.timeline()
+
+    // Glid/svisch under draget — stigande tonhöjd mot slutet (spänning).
+    sub.call(() => {
+      if (!this._alive) return
+      const base = 280 + prog * 260
+      ctx.services.audio.tone({ freq: base, slideTo: base * 0.68, dur: dur * 0.8, type: 'sine', vol: 0.12 })
+    })
+
+    if (mv.type === 'swirl') {
+      // Cyklisk virvel: tre koppar roterar ett steg (i->j->k->i eller baklänges).
+      const [i, j, k] = mv.slots
+      const cA = order[i]
+      const cB = order[j]
+      const cC = order[k]
+      const fwd = Math.random() < 0.5
+      // [kopp, mål-x, mål-slot]
+      const map = fwd
+        ? [[cA, this._slots[j], j], [cB, this._slots[k], k], [cC, this._slots[i], i]]
+        : [[cA, this._slots[k], k], [cB, this._slots[i], i], [cC, this._slots[j], j]]
+      map.forEach(([cup, tx], idx) => {
+        sub.to(cup, { x: tx, duration: dur * 1.15, ease: 'power1.inOut' }, 0)
+        sub.to(cup, { y: BASE_Y - 30 - idx * 8, duration: dur * 0.6, ease: 'sine.out', yoyo: true, repeat: 1 }, 0)
+        if (cup === this._prizeCup) sub.to(this._prize, { x: tx, duration: dur * 1.15, ease: 'power1.inOut' }, 0)
       })
-      sub.to(cupA, { x: xB, duration: params.swapDur, ease: 'power1.inOut' }, 0)
-      sub.to(cupB, { x: xA, duration: params.swapDur, ease: 'power1.inOut' }, 0)
-      // cupA bågar lätt över cupB (läser som att den passerar framför).
-      sub.to(cupA, { y: BASE_Y - 36, duration: params.swapDur / 2, ease: 'sine.out', yoyo: true, repeat: 1 }, 0)
-      // Leksaken följer med sin kopp (den rör sig MED koppen, inte kvar på bordet).
-      if (cupA === this._prizeCup) sub.to(this._prize, { x: xB, duration: params.swapDur, ease: 'power1.inOut' }, 0)
-      if (cupB === this._prizeCup) sub.to(this._prize, { x: xA, duration: params.swapDur, ease: 'power1.inOut' }, 0)
       sub.call(() => {
         if (!this._alive) return
-        cupA._slot = j
-        cupB._slot = i
+        map.forEach(([cup, , slot]) => (cup._slot = slot))
         this._prizeSlot = this._prizeCup._slot
       })
+      map.forEach(([cup, , slot]) => (order[slot] = cup))
       tl.add(sub)
-      order[i] = cupB
-      order[j] = cupA
+      return
     }
+
+    // Par-byte i vald stil.
+    const [i, j] = mv.slots
+    const cupA = order[i]
+    const cupB = order[j]
+    const xA = this._slots[i]
+    const xB = this._slots[j]
+
+    // Ofarlig "fint": en kopp gör en liten falsk rörelse innan det riktiga bytet.
+    if (mv.feint) {
+      const feint = Math.random() < 0.5 ? cupA : cupB
+      const dx = (Math.random() < 0.5 ? -1 : 1) * 60
+      sub.to(feint, { x: feint.x + dx, duration: dur * 0.35, ease: 'sine.inOut', yoyo: true, repeat: 1 }, 0)
+    }
+    const t0 = mv.feint ? dur * 0.7 : 0
+
+    sub.to(cupA, { x: xB, duration: dur, ease: 'power1.inOut' }, t0)
+    sub.to(cupB, { x: xA, duration: dur, ease: 'power1.inOut' }, t0)
+    // Vem som bågar över (passerar framför) beror på stilen.
+    if (mv.style === 'under') {
+      sub.to(cupB, { y: BASE_Y - 40, duration: dur / 2, ease: 'sine.out', yoyo: true, repeat: 1 }, t0)
+    } else if (mv.style === 'cross') {
+      sub.to(cupA, { y: BASE_Y - 48, duration: dur / 2, ease: 'sine.out', yoyo: true, repeat: 1 }, t0)
+      sub.to(cupB, { y: BASE_Y - 20, duration: dur / 2, ease: 'sine.out', yoyo: true, repeat: 1 }, t0)
+    } else {
+      sub.to(cupA, { y: BASE_Y - 40, duration: dur / 2, ease: 'sine.out', yoyo: true, repeat: 1 }, t0)
+    }
+    // Leksaken följer med sin kopp (rör sig MED koppen, inte kvar på bordet).
+    if (cupA === this._prizeCup) sub.to(this._prize, { x: xB, duration: dur, ease: 'power1.inOut' }, t0)
+    if (cupB === this._prizeCup) sub.to(this._prize, { x: xA, duration: dur, ease: 'power1.inOut' }, t0)
+    sub.call(() => {
+      if (!this._alive) return
+      cupA._slot = j
+      cupB._slot = i
+      this._prizeSlot = this._prizeCup._slot
+    })
+    tl.add(sub)
+    order[i] = cupB
+    order[j] = cupA
   },
 
   // Gissa-fasen: nu är kopparna tryckbara.
@@ -282,6 +336,8 @@ export default {
     this._phase = 'guess'
     this._idleCues = 0
     this._lastInteract = performance.now()
+    // Kopparna "landar" — ett sista mjukt tock innan gissningen.
+    this._tock(ctx, 0.13)
     ctx.services.voice.say('Var tog den vägen? Tryck på koppen!')
   },
 
@@ -307,9 +363,10 @@ export default {
         if (!this._alive) return
         ctx.services.audio.sfx('correct')
         pop(cup)
-        pop(this._prize)
         const gp = ctx.fxLayer.toLocal(this._prize.getGlobalPosition())
         sparkle(ctx.fxLayer, gp.x, gp.y)
+        // Leksaken gör SITT eget (anka kvackar, groda hoppar, stjärna snurrar…).
+        this._reactPrize(ctx)
         ctx.services.voice.say(randomFrom(PRAISE))
         this._roundsDone++
         this._later(1.3, () => this._finishRound(ctx))
@@ -378,6 +435,78 @@ export default {
   _lowerCup(cup) {
     gsap.killTweensOf(cup, 'y')
     gsap.to(cup, { y: BASE_Y, duration: 0.35, ease: 'power2.in' })
+  },
+
+  // Mjukt "tock" när en kopp möter bordet (ren syntes, ingen sample behövs).
+  _tock(ctx, vol = 0.16) {
+    if (!this._alive) return
+    ctx.services.audio.tone({ freq: 150, slideTo: 90, dur: 0.09, type: 'sine', vol })
+  },
+
+  // Leksaks-reaktion vid fynd: varje sorts leksak gör sitt egna lilla nummer
+  // (rörelse + eget ljud). this._prize är ett persistent objekt -> gsap direkt är
+  // ok (dödas i destroy); tonerna är fire-and-forget. Rotation/skala nollställs i
+  // _newRound, så reaktionerna får lämna dem påverkade.
+  _reactPrize(ctx) {
+    if (!this._alive) return
+    const p = this._prize
+    const a = ctx.services.audio
+    const fx = ctx.fxLayer
+    const gp = fx.toLocal(p.getGlobalPosition())
+    gsap.killTweensOf(p)
+    gsap.killTweensOf(p.scale)
+    const y0 = p.y
+    switch (p.text) {
+      case '🐥': // anka: vaggar + kvackar
+        wiggle(p)
+        a.tone({ freq: 620, dur: 0.1, type: 'square', vol: 0.16, slideTo: 470 })
+        this._later(0.14, () => a.tone({ freq: 560, dur: 0.1, type: 'square', vol: 0.16, slideTo: 420 }))
+        break
+      case '🐸': // groda: hoppar med "boing"
+        gsap.timeline()
+          .to(p, { y: y0 - 80, duration: 0.24, ease: 'power2.out' })
+          .to(p, { y: y0, duration: 0.34, ease: 'bounce.out' })
+        a.tone({ freq: 200, dur: 0.2, type: 'sine', vol: 0.18, slideTo: 560 })
+        break
+      case '🚗': // bil: kör iväg och tillbaka med "vroom"
+        gsap.timeline()
+          .to(p, { x: p.x + 80, duration: 0.28, ease: 'power2.out' })
+          .to(p, { x: p.x, duration: 0.4, ease: 'power2.inOut' })
+        a.tone({ freq: 120, dur: 0.4, type: 'sawtooth', vol: 0.12, slideTo: 240 })
+        break
+      case '🎈': // ballong: guppar upp lätt + högt pip
+        gsap.timeline()
+          .to(p, { y: y0 - 60, duration: 0.5, ease: 'sine.out' })
+          .to(p, { y: y0, duration: 0.4, ease: 'sine.in' })
+        a.tone({ freq: 900, dur: 0.16, type: 'sine', vol: 0.13, slideTo: 1200 })
+        break
+      case '🐱': // katt: vinglar + jamar (två toner)
+        wiggle(p)
+        a.tone({ freq: 700, dur: 0.14, type: 'sawtooth', vol: 0.12, slideTo: 520 })
+        this._later(0.16, () => a.tone({ freq: 520, dur: 0.16, type: 'sawtooth', vol: 0.12, slideTo: 660 }))
+        break
+      case '🦋': // fjäril: fladdrar (snabba vinglingar) + ljus klang + gnistror
+        wiggle(p)
+        sparkle(fx, gp.x, gp.y, { count: 8 })
+        a.tone({ freq: 1000, dur: 0.1, type: 'sine', vol: 0.1, slideTo: 1400 })
+        break
+      case '⭐':
+      case '🌟': // stjärna: snurrar ett varv + gnistror + skimmer
+        gsap.to(p, { rotation: p.rotation + Math.PI * 2, duration: 0.6, ease: 'power1.inOut' })
+        pop(p)
+        sparkle(fx, gp.x, gp.y, { count: 9 })
+        a.tone({ freq: 1100, dur: 0.14, type: 'triangle', vol: 0.12, slideTo: 1650 })
+        break
+      case '🍓':
+      case '🍎': // frukt: saftig kläm-puls
+        pop(p, { scale: 1.32 })
+        a.tone({ freq: 420, dur: 0.12, type: 'sine', vol: 0.16, slideTo: 300 })
+        break
+      default: // övrigt: glad puls + gnistror
+        pop(p)
+        sparkle(fx, gp.x, gp.y)
+        break
+    }
   },
 
   // Tomt tryck bredvid kopparna: lekfullt mjukt ljud. Aldrig "fel".
@@ -462,6 +591,38 @@ function levelParams(level) {
     swapDur: Math.max(MIN_SWAP_DUR, 0.7 - level * 0.05),
     allRed: level >= RED_LEVEL,
   }
+}
+
+// Planera blandnings-dragen. Variationen VÄXER med nivån: nivå 0 = bara "over"-
+// byten, nivå 1 lägger "under", nivå 2 "cross" + cyklisk virvel (om ≥3 koppar),
+// nivå 3 ofarliga finter. Så svårare nivåer är inte bara fler/snabbare utan även
+// visuellt rikare. Undviker att direkt upprepa exakt samma par-byte.
+function planMoves(count, n, level) {
+  const moves = []
+  let prevKey = ''
+  const swirlOk = n >= 3 && level >= 2
+  const styles = ['over']
+  if (level >= 1) styles.push('under')
+  if (level >= 2) styles.push('cross')
+  for (let m = 0; m < count; m++) {
+    let mv
+    if (swirlOk && Math.random() < 0.28) {
+      const pick = shuffle([...Array(n).keys()]).slice(0, 3).sort((a, b) => a - b)
+      mv = { type: 'swirl', slots: pick, style: 'over' }
+      prevKey = ''
+    } else {
+      let pair
+      do {
+        pair = shuffle([...Array(n).keys()]).slice(0, 2).sort((a, b) => a - b)
+      } while (n > 2 && pair.join(',') === prevKey)
+      prevKey = pair.join(',')
+      mv = { type: 'swap', slots: pair, style: randomFrom(styles) }
+    }
+    // Ofarlig fint (falsk rörelse) blir möjlig från nivå 3.
+    mv.feint = level >= 3 && Math.random() < 0.22
+    moves.push(mv)
+  }
+  return moves
 }
 
 // Jämnt fördelade kopp-platser, centrerade kring CENTER, inom bordets bredd.

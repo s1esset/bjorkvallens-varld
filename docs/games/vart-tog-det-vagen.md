@@ -104,4 +104,30 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
 - Rekommenderad första-omgång: **[Medium] varierade blandningsbanor + [Quick] leksaks-reaktion
   & riktiga kopp-/glids-ljud** — angriper den största tunnheten (enformig blandning + inert
   rekvisita) och gör varje runda visuellt och ljudmässigt distinkt.
+
+- 2026-07-02: **Första-omgång implementerad** (rekommendationen ovan, hela paketet).
+  - **Varierade blandningsbanor.** `_shuffle` bygger inte längre likadana par-byten i loop utan
+    kallar `planMoves(count, n, level)` som planerar en lista av VARIERADE drag; varje drag läggs
+    till tidslinjen av nya `_addMove`. Stilar: `over`/`under`/`cross` (vem som bågar framför),
+    cyklisk `swirl` (tre koppar roterar ett steg, `fwd`/baklänges), samt ofarlig `feint` (falsk
+    delrörelse). Variationen VÄXER med nivån (nivå 0 bara `over`; 1 lägger `under`; 2 `cross` +
+    virvel om ≥3 koppar; 3 finter) i stället för bara fler/snabbare byten. Leksaken följer fortsatt
+    sin kopp via identitet (`_prizeCup`) i alla drag; `order[]`/`_slot`/`_prizeSlot` uppdateras per
+    drag som förr. Anti-upprepning av exakt samma par behållen (nu via `prevKey`-sträng).
+  - **Leksaks-reaktion vid fynd.** Nytt `_reactPrize(ctx)` anropas i `_onTap`s rätt-gren (ersätter
+    den gamla `pop(this._prize)`): `switch` på emoji ger eget nummer + eget ljud — 🐥 vaggar+kvackar,
+    🐸 hoppar med boing, 🚗 kör iväg+vroom, 🎈 guppar upp+pip, 🐱 jamar, 🦋 fladdrar+gnistror,
+    ⭐/🌟 snurrar ett varv+skimmer, 🍓/🍎 saftig kläm-puls, default puls+gnistror. Alla toner är
+    `audio.tone(...)` (fire-and-forget); `this._prize` är persistent (gsap direkt ok, dödas i
+    `destroy`); `_newRound` nollställer nu även `this._prize.rotation`.
+  - **Riktiga kopp-/glids-ljud.** Nytt `_tock(ctx, vol)` (mjuk 150→90 Hz sinus) spelas när kopparna
+    sänks efter reveal och när de "landar" i `_beginGuess`. Glid-ljudet per drag bytt från monoton
+    `sfx('whoosh')` till `audio.tone` med tonhöjd som STIGER med `prog` (0..1 genom blandningen) —
+    en mjuk spännings-crescendo i stället för samma svisch × 7.
+  - Test: `node scripts/test-game.mjs vart-tog-det-vagen --url http://localhost:5173` samt med
+    `--taps "640,400;400,400;880,400"` → **errorCount 0** i båda. Skärmdumpar bekräftar reveal
+    (koppar lyfta, 🐥 syns) och pågående korsande byte (gul kopp bågar över blå) — inga stray-bars.
+  - Deferred: [Medium] kika-före-blandning + barn-styrt tempo (agens), [Medium] skattkista-hylla,
+    [Quick] mjukare tvåstegs-auto-hjälp, [Quick] trumvirvel/ambient före gissa-fas, [Deep] gycklare/
+    Bobo som blandar (värd/föreställning), samt leksaks-specifika sample-klipp (kvack) om MOSS-SFX.
 </content>

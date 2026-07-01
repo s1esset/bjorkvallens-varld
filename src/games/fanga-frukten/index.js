@@ -137,7 +137,7 @@ export default {
 
     // Starta på sparad nivå.
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
-    this._loadLevel(ctx, this._level)
+    this._loadLevel(this._level)
 
     this._tick = (t) => this._update(ctx, t)
     ctx.ticker.add(this._tick)
@@ -153,7 +153,7 @@ export default {
 
   // ---- Nivå ---------------------------------------------------------------
 
-  _loadLevel(ctx, level) {
+  _loadLevel(level) {
     if (!this._alive) return
     this._busy = false
     this._caught = 0
@@ -196,15 +196,16 @@ export default {
       }
     }
 
-    // Snäll, växande magnet drar fallande frukt mot korgen (no-fail-garanti). Liten
-    // vid 0 missar (barnet styr själv), starkare efter missar så det alltid lyckas.
+    // Barnet fångar HELT själv de första försöken — ingen magnet. Först efter ett par
+    // missar smyger en svag, växande "magnet" in mot korgen som no-fail-backstop, så det
+    // alltid går att lyckas till slut. Skicklighet ska kännas, aldrig krävas.
     const m = Math.min(this._misses, 6)
-    const assistA = 0.0005 * (1 + m * 1.3)
+    const assistA = m >= 2 ? 0.00045 * (m - 1) : 0
     for (let i = this._fruit.length - 1; i >= 0; i--) {
       const f = this._fruit[i]
       if (!f.body || f.caught) continue
       const pos = f.body.position
-      if (pos.y > 100 && pos.y < this._mouthY - 6) {
+      if (assistA > 0 && pos.y > 100 && pos.y < this._mouthY - 6) {
         const factor = clamp((bx - pos.x) / 220, -1, 1)
         Body.applyForce(f.body, pos, { x: f.body.mass * assistA * factor, y: 0 })
       }
@@ -406,7 +407,7 @@ export default {
     this._levelTimer = gsap.delayedCall(1.9, () => {
       if (!this._alive) return
       ctx.services.voice.say('Fler frukter!')
-      this._loadLevel(ctx, this._level)
+      this._loadLevel(this._level)
     })
   },
 

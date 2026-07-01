@@ -88,3 +88,7 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
   Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] hungrig mottagare (väljer frukt) + [Quick] specialfrukt
   + mums-ljud** — ger både agens, variation och en själ åt en idag funktionell men tom lek.
+- 2026-07-01 🔧 **Mönster #1 (auto-hjälp) mjukad [Quick]:** magneten är nu HELT av de första
+  försöken (ingen baslinje-dragning vid 0 missar); den smyger in först från misses≥2 och svagt
+  (0.00045·(m−1)) som backstop. Över-korg-spawn kvar vid misses≥3 som sista garanti → barnet
+  fångar själv först. Städning: tog bort oanvänd `ctx`-param i `_loadLevel`. errorCount 0.

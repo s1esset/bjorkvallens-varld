@@ -112,3 +112,32 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
 - Rekommenderad första-omgång: **[Medium] mjukare/synlig auto-hjälp + [Quick] material-ljud &
   plums + [Medium] roliga banelement** — bevarar den fina ingenjörs-agensen och gör bygget
   saftigare och mer varierat.
+- 2026-07-02: Första-omgång implementerad (errorCount 0).
+  - **[Medium] Mjukare/synlig auto-hjälp.** Den tysta trappan (luta ramp vid 3 missar, glid hem
+    vid 4) borttagen. Ny frivillig **"Hjälp mig?"**-knapp (`_buildHelpButton`/`_showHelpButton`/
+    `_hideHelpButton`/`_useHelp`, orange, 🤚, ≥96px hit-halo) dyker upp efter `HELP_AFTER=3` missar
+    med studs + puls. FÖRSTA trycket lutar närmaste ramp (`_assistTiltRamp`, nu röst *"Jag putar
+    lite!"* + svävande 🤚-gest via `floatText` så barnet vet att det var hjälp). ANDRA trycket
+    glider kulan hem (`_glideHome`). Sista skyddsnätet (no-fail): `AUTO_HELP_AT=8` missar → glid
+    hem ändå. `_helpStage` styr stegen; hjälp-knappen döljs vid släpp/mål/ny bana. `destroy` av-
+    registrerar `_onHelp` + dödar `_helpPulse`.
+  - **[Quick] Material-ljud + plums + skvätt + mikroskak.** `_onCollision` ger nu trä-"klonk"
+    (`tone` 160→96 Hz square, throttlat via `_lastWoodAt`) på ramp/tratt/hinder, metallisk "boing"
+    (`sfx('pling')` + `tone` 210→660 Hz) på studsplatta, och klock-pling på 🔔. Mål: saftigt
+    "plums" (två nedåt-`tone`) + blå vattenskvätt (`burst` med blå/teal-färger) + hink-gupp
+    ({}-proxy, exit-säkert) + mjuk `shake(this._root)` (rot nollas först → ingen kvar-offset).
+  - **[Quick] Studsplatta med personlighet.** `_squashPart` trycker ihop plattan (scale 1.14×0.7
+    → elastic tillbaka) när kulan studsar; liten `shake` + gnistor.
+  - **[Medium] Roliga banelement — klockor.** `_buildBell`/`_ringBell`/`_clearBells`: 🔔-sensorer
+    (isSensor matter-kroppar, `label:'bell'`) placerade i fallbanan (1 st bana 2–3, 2 st bana 4+,
+    med jitter från bana 6). Kulan passerar igenom och *ringer* dem (pling + `wiggle` + `sparkle`,
+    per-klocka-throttle). Lagda i `_layoutFor().bells`.
+  - **[Quick] Målet lyser vid "nästan".** `_update` intensifierar hinkens glödring (alpha +
+    tween-`timeScale`) med `NEAR_TARGET=210` px närhet under fall; nollas vid miss.
+  - Test: `node scripts/test-game.mjs kulbana --url http://localhost:5173 --drag "600,660>500,360;900,660>800,420"`
+    → errorCount 0; skärmdump verifierad (himmel, SLÄPP + kula, ramp med ↻, hink m. glödring,
+    Delar-hylla). Andra körningen med släpp-tryck också errorCount 0.
+  - Deferred: [Deep] replay av lyckad rullning, [Deep] Bobo som byggkompis/mottagare vid hinken,
+    [Medium] spara favoritbana ("min maskin"), [Medium] fler banelement (propeller/loop/studs-
+    kedja), [Quick] kul-svans + rull-damm, [Quick] riktiga SFX-klipp via pipelinen + ambient,
+    [Quick] ta bort "SLÄPP"-texten (pil + puls räcker).

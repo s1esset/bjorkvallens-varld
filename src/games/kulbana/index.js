@@ -16,7 +16,7 @@ import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, bigCelebration, floatText } from '../../lib/feedback.js'
+import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, bigCelebration, floatText, shake } from '../../lib/feedback.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -34,6 +34,9 @@ const REST_HOLD = 1.2 // s under REST_SPEED innan vi räknar kulan som missad
 const FLOOR_MISS_Y = 690 // nådde golvet utan mål = miss
 const IDLE_DELAY = 6 // s utan handling → röst-recue
 const BOUNCE_THROTTLE = 0.16 // s mellan studsljud (anti-spam)
+const HELP_AFTER = 3 // missar innan den FRIVILLIGA "Hjälp mig?"-knappen dyker upp
+const AUTO_HELP_AT = 8 // sista skyddsnätet: efter så många missar glider kulan hem ändå (no-fail)
+const NEAR_TARGET = 210 // px till hinken då glödringen intensifieras ("nästan!")
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -61,6 +64,9 @@ export default {
     this._gliding = false
     this._parts = []
     this._obstacles = []
+    this._bells = []
+    this._helpStage = 0 // 0 = ingen hjälp än, 1 = ramp redan lutad → nästa tryck glider hem
+    this._lastWoodAt = -1
     this._selected = null
     this._drag = null
     this._lastMoved = false
@@ -108,6 +114,9 @@ export default {
 
     this._buildReleaseButton(ctx)
     this._root.addChild(this._releaseBtn)
+
+    this._buildHelpButton(ctx)
+    this._root.addChild(this._helpBtn)
 
     // Kul-kropp (dynamisk men startar frusen vid utsläppet).
     this._ballBody = this._phys.circle(CHUTE.x, CHUTE.y, BALL_R, {
@@ -216,12 +225,72 @@ export default {
     if (this._releaseBtn && !this._releaseBtn.destroyed) this._releaseBtn.scale.set(1)
   },
 
+  // ---- FRIVILLIG "Hjälp mig?"-knapp (synlig auto-hjälp — tar aldrig bygget själv) ----
+
+  _buildHelpButton(ctx) {
+    const btn = new Container()
+    const lip = new Graphics().roundRect(-84, -38, 168, 92, 26).fill(0xd98a2b)
+    const face = new Graphics().roundRect(-84, -46, 168, 88, 26).fill(COLORS.orange)
+    face.roundRect(-74, -38, 148, 26, 16).fill({ color: 0xffffff, alpha: 0.18 })
+    const hand = new Text({ text: '🤚', style: { fontFamily: FONT.body, fontSize: 40 } })
+    hand.anchor.set(0.5)
+    hand.position.set(-52, 0)
+    const label = new Text({ text: 'Hjälp mig?', style: { fontFamily: FONT.display, fontSize: 26, fontWeight: '800', fill: COLORS.white } })
+    label.anchor.set(0.5)
+    label.position.set(14, 0)
+    btn.addChild(lip, face, hand, label)
+    btn.position.set(160, 300)
+    btn.eventMode = 'static'
+    btn.cursor = 'pointer'
+    btn.interactiveChildren = false
+    btn.hitArea = new Rectangle(-84 - 24, -46 - 24, 168 + 48, 92 + 48) // ≥96px träffyta
+    btn.visible = false
+    this._onHelp = () => this._useHelp(ctx)
+    btn.on('pointertap', this._onHelp)
+    this._helpBtn = btn
+  },
+
+  // Visa hjälp-knappen (bara första gången per bana) med studs + lugn puls.
+  _showHelpButton() {
+    const btn = this._helpBtn
+    if (!btn || btn.destroyed || btn.visible) return
+    btn.visible = true
+    bounceIn(btn)
+    this._helpPulse?.kill()
+    this._helpPulse = breathe(btn, { scale: 1.08, duration: 0.85 })
+  },
+
+  _hideHelpButton() {
+    this._helpPulse?.kill()
+    this._helpPulse = null
+    if (this._helpBtn && !this._helpBtn.destroyed) {
+      gsap.killTweensOf(this._helpBtn.scale)
+      this._helpBtn.scale.set(1)
+      this._helpBtn.visible = false
+    }
+  },
+
+  // Frivillig hjälp: FÖRSTA trycket lutar närmaste ramp (synligt "putt"), ANDRA
+  // trycket glider kulan hem. Barnet väljer själv — bygget löser sig aldrig i tysthet.
+  _useHelp(ctx) {
+    if (!this._alive || this._falling || this._resolving || this._gliding) return
+    this._idle = 0
+    if (this._helpStage === 0) {
+      this._helpStage = 1
+      this._assistTiltRamp(ctx)
+    } else {
+      this._hideHelpButton()
+      this._glideHome(ctx)
+    }
+  },
+
   // ---- Banor (nivåberoende) -----------------------------------------------
 
   _layoutFor(level) {
     let bucket
     let obstacles = []
     let parts
+    let bells = [] // roliga, poäng-fria "slå-till"-klockor (sensorer) som kulan kan ringa i förbi
     if (level <= 1) {
       bucket = { x: 820, y: 558 }
       parts = ['ramp', 'ramp'] // en enda lutande ramp räcker
@@ -229,12 +298,17 @@ export default {
       bucket = { x: 980, y: 580 }
       parts = ['ramp', 'ramp', 'bounce']
       obstacles = [{ x: 600, y: 470, w: 46, h: 160 }]
+      bells = [{ x: 720, y: 350 }]
     } else if (level <= 5) {
       bucket = { x: 1080, y: 590 }
       parts = ['ramp', 'ramp', 'ramp', 'bounce', 'funnel']
       obstacles = [
         { x: 520, y: 440, w: 46, h: 170 },
         { x: 800, y: 510, w: 46, h: 150 },
+      ]
+      bells = [
+        { x: 680, y: 320 },
+        { x: 940, y: 430 },
       ]
     } else {
       const jx = Math.random() * 60 - 30
@@ -245,28 +319,36 @@ export default {
         { x: clamp(520 + jx, 440, 620), y: 440, w: 46, h: 170 },
         { x: clamp(820 + jx, 720, 900), y: 510, w: 46, h: 150 },
       ]
+      bells = [
+        { x: clamp(680 + jx, 600, 760), y: 320 },
+        { x: clamp(940 + jx, 860, 1000), y: 430 },
+      ]
     }
-    return { bucket, obstacles, parts }
+    return { bucket, obstacles, parts, bells }
   },
 
   _loadLevel(ctx, level) {
     if (!this._alive) return
     this._clearParts()
     this._clearObstacles()
+    this._clearBells()
     this._clearBucket()
 
     this._falling = false
     this._resolving = false
     this._gliding = false
     this._attempts = 0
+    this._helpStage = 0
     this._idle = 0
     this._restT = 0
     this._lastMoved = false
+    this._hideHelpButton()
 
     const lay = this._layoutFor(level)
     this._bucketPos = lay.bucket
     this._buildBucket(lay.bucket.x, lay.bucket.y)
     for (const o of lay.obstacles) this._buildObstacle(o)
+    for (const bl of lay.bells) this._buildBell(bl.x, bl.y)
 
     // Delarna parkeras jämnt på hyllan; barnet drar upp dem i fältet.
     const n = lay.parts.length
@@ -361,6 +443,44 @@ export default {
       if (o.view && !o.view.destroyed) o.view.destroy({ children: true })
     }
     this._obstacles = []
+  },
+
+  // ---- Klockor (roliga sensor-mål: kulan ringer i dem när den rullar förbi) ----
+
+  _buildBell(bx, by) {
+    // Vy: en liten upphängning + 🔔. Cirkeln ritas i origo, containern flyttas (Pixi v8:
+    // aldrig stor .position på bar Graphics ritad i origo → wrap i container).
+    const c = new Container()
+    c.eventMode = 'none'
+    const string = new Graphics().roundRect(-3, -46, 6, 22, 3).fill({ color: COLORS.inkSoft, alpha: 0.7 })
+    const halo = new Graphics().circle(0, 0, 30).fill({ color: COLORS.yellow, alpha: 0.16 })
+    const emoji = new Text({ text: '🔔', style: { fontFamily: FONT.body, fontSize: 52 } })
+    emoji.anchor.set(0.5)
+    c.addChild(halo, string, emoji)
+    c.position.set(bx, by)
+    this._obstacleLayer.addChild(c)
+    // Sensor-kropp: kulan passerar igenom (blockerar inte banan) men triggar collisionStart.
+    const body = this._phys.circle(bx, by, 26, { isStatic: true, isSensor: true, label: 'bell' })
+    this._bells.push({ view: c, emoji, body, lastRungAt: -1 })
+  },
+
+  _ringBell(ctx, rec) {
+    if (!rec || !rec.view || rec.view.destroyed) return
+    if (this._tnow - rec.lastRungAt < 0.4) return // en klocka ringer inte i ett kör
+    rec.lastRungAt = this._tnow
+    ctx.services.audio.sfx('pling')
+    ctx.services.audio.tone({ freq: 1180, dur: 0.16, type: 'sine', vol: 0.14, delay: 0.03 })
+    if (rec.emoji && !rec.emoji.destroyed) wiggle(rec.emoji)
+    sparkle(ctx.fxLayer, rec.view.x, rec.view.y, { count: 6 })
+  },
+
+  _clearBells() {
+    for (const bl of this._bells) {
+      if (bl.body) this._phys.removeBody(bl.body)
+      if (bl.emoji && !bl.emoji.destroyed) gsap.killTweensOf(bl.emoji)
+      if (bl.view && !bl.view.destroyed) bl.view.destroy({ children: true })
+    }
+    this._bells = []
   },
 
   // ---- Delar (ramp / studsplatta / tratt) ---------------------------------
@@ -610,6 +730,7 @@ export default {
     this._deselect()
     this._setPartsEnabled(false)
     this._stopButtonPulse()
+    this._hideHelpButton()
     ctx.services.audio.sfx('whoosh')
     const b = this._ballBody
     Body.setPosition(b, { x: CHUTE.x, y: CHUTE.y })
@@ -634,6 +755,13 @@ export default {
 
     if (this._falling && !this._resolving && !this._gliding) {
       const b = this._ballBody
+      // Målet lyser starkare ju närmare kulan är → tydlig "nästan!"-känsla (no-fail).
+      if (this._bucketGlow && !this._bucketGlow.destroyed && this._bucketGlowTween) {
+        const d = Math.hypot(b.position.x - this._bucketPos.x, b.position.y - this._bucketPos.y)
+        const near = clamp(1 - d / NEAR_TARGET, 0, 1)
+        this._bucketGlow.alpha = 0.5 + near * 0.45
+        this._bucketGlowTween.timeScale(1 + near * 2.2)
+      }
       if (this._inBucket(b.position.x, b.position.y)) {
         this._win(ctx)
         return
@@ -683,6 +811,7 @@ export default {
     this._glideTween?.kill()
     this._setPartsEnabled(false)
     this._stopButtonPulse()
+    this._hideHelpButton()
     this._idle = 0
 
     const bx = this._bucketPos.x
@@ -694,7 +823,13 @@ export default {
 
     ctx.services.audio.sfx('correct')
     ctx.services.audio.sfx('celebrate')
+    // Saftigt "plums" i vattnet (två snabba nedåt-toner) + mjuk mikroskak.
+    ctx.services.audio.tone({ freq: 520, dur: 0.12, type: 'sine', vol: 0.22, slideTo: 180 })
+    ctx.services.audio.tone({ freq: 300, dur: 0.18, type: 'sine', vol: 0.16, slideTo: 120, delay: 0.06 })
     ctx.services.voice.say(randomFrom(PRAISE))
+    gsap.killTweensOf(this._root) // nolla ev. pågående studs-skak innan mål-skaket (undvik kvar-offset)
+    this._root.position.set(0, 0)
+    shake(this._root, { intensity: 9, duration: 0.4 })
 
     // Kulan "plumsar" ner i hinken (kort skala-studs; link rör bara position/vinkel).
     if (this._ball && !this._ball.destroyed) {
@@ -703,8 +838,31 @@ export default {
       gsap.fromTo(this._ball.scale, { x: 1, y: 1 }, { x: 0.7, y: 0.7, duration: 0.32, yoyo: true, repeat: 1, ease: 'power2.inOut' })
     }
 
+    // Hinken guppar till av plumset (via {}-proxy → exit-säkert).
+    if (this._bucketView && !this._bucketView.destroyed) {
+      const bv = this._bucketView
+      const y0 = bv.y
+      gsap.killTweensOf(bv)
+      const st = { y: y0 }
+      gsap.to(st, {
+        y: y0 + 12,
+        duration: 0.12,
+        yoyo: true,
+        repeat: 1,
+        ease: 'power2.inOut',
+        onUpdate: () => {
+          if (!bv.destroyed) bv.y = st.y
+        },
+        onComplete: () => {
+          if (!bv.destroyed) bv.y = y0
+        },
+      })
+    }
+
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, bx, by - 30, { count: 16 })
+    // Vattenskvätt: blå droppar spritter upp ur hinken.
+    burst(ctx.fxLayer, bx, by - 40, { count: 12, colors: [COLORS.blue, COLORS.teal, 0xbfe6ff], power: 0.8 })
     floatText(ctx.fxLayer, bx, by - 90, '🎉', { fontSize: 72 })
 
     this._level += 1
@@ -732,16 +890,27 @@ export default {
       puff(ctx.fxLayer, this._ball.x, this._ball.y, { count: 6 })
     }
     this._freezeBall()
+    // Nollställ glödringen (den intensifieras under fall).
+    if (this._bucketGlow && !this._bucketGlow.destroyed) this._bucketGlow.alpha = 0.5
+    this._bucketGlowTween?.timeScale(1)
 
-    if (this._attempts >= 4) {
-      this._glideHome(ctx) // garanterad hemrullning
+    // Sista skyddsnätet (no-fail): efter väldigt många missar glider kulan hem ändå,
+    // även om barnet aldrig rör hjälp-knappen. Ligger MYCKET senare än förr (var 4).
+    if (this._attempts >= AUTO_HELP_AT) {
+      this._hideHelpButton()
+      this._glideHome(ctx)
       return
     }
+
     this._setPartsEnabled(true)
     this._startButtonPulse()
     this._idle = 0
-    if (this._attempts === 3) {
-      this._assistTiltRamp(ctx) // luta närmaste ramp mot hinken
+
+    // Hjälpen är nu FRIVILLIG och SYNLIG: efter några missar dyker en "Hjälp mig?"-
+    // knapp upp — banan löser sig aldrig i tysthet, barnets egen lösning tas inte ifrån det.
+    if (this._attempts >= HELP_AFTER) {
+      this._showHelpButton()
+      if (this._attempts === HELP_AFTER) ctx.services.voice.say('Prova igen! Tryck på handen om du vill ha hjälp.')
       return
     }
     if (Math.random() < 0.5) ctx.services.voice.say('Nästan! Prova igen.')
@@ -749,7 +918,7 @@ export default {
 
   // Auto-hjälp steg 1: flytta + luta den ramp som ligger närmast hinken så den pekar dit.
   _assistTiltRamp(ctx) {
-    ctx.services.voice.say('Nästan! Jag hjälper till.')
+    ctx.services.voice.say('Jag putar lite!')
     const bx = this._bucketPos.x
     let ramp = null
     let best = Infinity
@@ -787,6 +956,8 @@ export default {
       },
     })
     ctx.services.audio.sfx('flip')
+    // Tydlig "det var jag som puttade"-gest så barnet vet att det var hjälp, inte deras bygge.
+    floatText(ctx.fxLayer, ramp.x, ramp.y - 46, '🤚', { fontSize: 52 })
     if (this._ball && !this._ball.destroyed) sparkle(ctx.fxLayer, ramp.x, ramp.y, { count: 5 })
   },
 
@@ -834,18 +1005,52 @@ export default {
       const involvesBall = pair.bodyA === this._ballBody || pair.bodyB === this._ballBody
       if (!involvesBall) continue
       const other = pair.bodyA === this._ballBody ? pair.bodyB : pair.bodyA
+
+      // Klocka: ringer glatt när kulan rullar förbi (sensor → blockerar inte).
+      if (other.label === 'bell') {
+        const rec = this._bells.find((bl) => bl.body === other)
+        if (rec) this._ringBell(ctx, rec)
+        continue
+      }
+
+      // Studsplatta: metallisk "boing" + squash på plattan + gnistor.
       if (other.label === 'bounce') {
         ctx.services.audio.sfx('pling')
+        ctx.services.audio.tone({ freq: 210, dur: 0.22, type: 'sine', vol: 0.2, slideTo: 660 })
+        const part = this._parts.find((p) => p && !p.destroyed && p._body === other)
+        if (part) this._squashPart(part)
+        gsap.killTweensOf(this._root)
+        this._root.position.set(0, 0)
+        shake(this._root, { intensity: 5, duration: 0.22 })
         sparkle(ctx.fxLayer, this._ballBody.position.x, this._ballBody.position.y, { count: 5 })
         this._lastBounceAt = this._tnow
         continue
       }
+
       const spd = Math.hypot(this._ballBody.velocity.x, this._ballBody.velocity.y)
+      // Trä (ramp/tratt/hinder): mjukt "klonk"; övrigt: neutralt pop. Throttlat.
       if (spd > 2 && this._tnow - this._lastBounceAt > BOUNCE_THROTTLE) {
         this._lastBounceAt = this._tnow
-        ctx.services.audio.sfx('pop')
+        const wood = other.label === 'ramp' || other.label === 'funnel' || other.label === 'obstacle'
+        if (wood && this._tnow - this._lastWoodAt > BOUNCE_THROTTLE) {
+          this._lastWoodAt = this._tnow
+          ctx.services.audio.tone({ freq: 160, dur: 0.09, type: 'square', vol: 0.13, slideTo: 96 })
+        } else {
+          ctx.services.audio.sfx('pop')
+        }
       }
     }
+  },
+
+  // Squash på en del (studsplatta trycks ihop och fjädrar tillbaka). Delarna är
+  // låsta under släpp så scale-tween krockar inte med drag/markering.
+  _squashPart(part) {
+    if (!part || part.destroyed) return
+    gsap.killTweensOf(part.scale)
+    gsap
+      .timeline()
+      .to(part.scale, { x: 1.14, y: 0.7, duration: 0.08, ease: 'power2.out' })
+      .to(part.scale, { x: 1, y: 1, duration: 0.34, ease: 'elastic.out(1,0.45)' })
   },
 
   // ---- Städning (exit-säkert) ---------------------------------------------
@@ -885,6 +1090,7 @@ export default {
     this._assistTween?.kill()
     this._fieldTween?.kill()
     this._btnPulse?.kill()
+    this._helpPulse?.kill()
     this._bucketGlowTween?.kill()
     this._selPulse?.kill()
 
@@ -893,6 +1099,14 @@ export default {
       this._releaseBtn.off('pointertap', this._onRelease)
       gsap.killTweensOf(this._releaseBtn)
       gsap.killTweensOf(this._releaseBtn.scale)
+    }
+    if (this._helpBtn && !this._helpBtn.destroyed) {
+      this._helpBtn.off('pointertap', this._onHelp)
+      gsap.killTweensOf(this._helpBtn)
+      gsap.killTweensOf(this._helpBtn.scale)
+    }
+    for (const bl of this._bells || []) {
+      if (bl.emoji && !bl.emoji.destroyed) gsap.killTweensOf(bl.emoji)
     }
 
     for (const part of this._parts || []) {

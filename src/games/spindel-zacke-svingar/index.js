@@ -112,7 +112,7 @@ export default {
 
     // Nivå från sparad progress → oändlig variation.
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
-    this._buildLevel(ctx, this._level)
+    this._buildLevel(this._level)
 
     this._tick = (t) => this._update(ctx, t)
     ctx.ticker.add(this._tick)
@@ -132,7 +132,7 @@ export default {
     return { count: 6, gap: 300, mode: 'jitter', yvar: 30 }
   },
 
-  _buildLevel(ctx, level) {
+  _buildLevel(level) {
     if (!this._alive) return
     this._resolving = false
     this._state = 'swing'
@@ -313,6 +313,12 @@ export default {
       const vt = this._omega * this._L // tangentiell fart
       this.vx = vt * Math.cos(this._theta)
       this.vy = vt * -Math.sin(this._theta)
+      // Belöna ett väl TAJMAT släpp (högt i framåt-bågen) — barnets skicklighet ska
+      // kännas tydligt bättre än ett slumpsläpp/auto-släpp.
+      if (this._omega > 0 && this._theta >= 0.45 && this._theta <= 1.05) {
+        sparkle(ctx.fxLayer, this._zacke.x, this._zacke.y, { count: 6 })
+        floatText(ctx.fxLayer, this._zacke.x, this._zacke.y - 60, randomFrom(SWING_WORDS))
+      }
     }
     this._state = 'flight'
     ctx.services.audio.sfx('whoosh')
@@ -457,7 +463,7 @@ export default {
     ctx.progress.setCustom('svingar', (ctx.progress.get().custom?.svingar || 0) + 1)
 
     this._goalTimer2 = gsap.delayedCall(1.6, () => {
-      if (this._alive) this._buildLevel(ctx, this._level)
+      if (this._alive) this._buildLevel(this._level)
     })
   },
 
@@ -506,13 +512,14 @@ export default {
       z.y = this._anchor.y + this._L * Math.cos(this._theta)
       z.rotation = this._theta * 0.5
 
-      // Idle: om-cue ~6s, sedan auto-släpp i bästa stund ~8s (garanterar framsteg).
+      // Idle: om-cue ~6s, sedan auto-släpp i bästa stund FÖRST ~11s (barnet ska hinna
+      // släppa själv länge först) och bara i den goda framåt-stunden.
       this._idle += ticker.deltaMS
       if (this._idle > 6000 && !this._didCue) {
         this._didCue = true
         this._idleCue(ctx)
       }
-      if (this._idle > 8000 && this._omega > 0 && this._theta >= 0.5) {
+      if (this._idle > 11000 && this._omega > 0 && this._theta >= 0.5) {
         this._release(ctx, true)
       }
     } else if (this._state === 'flight') {

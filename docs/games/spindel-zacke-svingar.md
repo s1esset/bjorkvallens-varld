@@ -109,3 +109,8 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
 - Rekommenderad första-omgång: **[Medium] synligt släpp-fönster + belöning för bra timing +
   [Quick] superhjälte-pose & nät-thwip** — gör timing-kontrollen läsbar och flykten saftig, så
   agensen inte drunknar i auto-hjälp.
+- 2026-07-01 🔧 **Mönster #1 (auto-hjälp) mjukad [Medium]:** idle-auto-släppet (garanterat
+  sikt-kast) skjutet 8→11 s så barnet hinner släppa själv länge först. Ett väl TAJMAT eget släpp
+  (högt i framåt-bågen, θ≈0.45–1.05) belönas nu med extra gnistor + "Wii!" så skicklighet känns
+  tydligt bättre än auto/slump. Moln-räddning + garanterat kast kvar som no-fail-backstop.
+  Städning: oanvänd `ctx`-param bort ur `_buildLevel`. errorCount 0.

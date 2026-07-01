@@ -92,3 +92,8 @@ Kort sagt: *en riktigt fin kontroll som spelet både motarbetar (centrering) och
   Nyligen ombyggt (dra-matta x/y-kontroll) — kontrollen är stark men motarbetas av auto-centrering.
 - Rekommenderad första-omgång: **[Medium] lätta på auto-centreringen** (frigör den fina
   sidledskontrollen) + **[Quick] höjd-ton + rörliga mål + levande kanin** för känsla och liv.
+- 2026-07-01 🔧 **Mönster #1 (auto-hjälp) mjukad [Medium+Quick]:** auto-centreringen lättad
+  från autopilot till anti-vingel (per-frame-drag 0.012→0.008; landnings-mittdrag 0.03→0.018 +
+  behåll mer egen sidled-fart 0.4→0.5) så barnets sidled-drag på mattan ger en kännbar
+  sidled-studs. Auto-glidet skjutet senare (ASSIST 7→10 s, GLIDE 13→18 s) → fler egna studsar
+  innan spelet tar över. Räddnings-studsen kvar → no-fail intakt. errorCount 0.

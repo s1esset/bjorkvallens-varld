@@ -41,8 +41,8 @@ const CEIL_Y = 110 // mjukt tak: studsar tillbaka ned om kaninen ändå kommer f
 const COLLECT_R = 72 // generös fångst-radie (barnvänlig)
 
 // --- Auto-hjälp (no-fail) ---
-const ASSIST_DELAY = 7 // s utan fångst -> sänk mattan (mer kraft) åt barnet
-const GLIDE_DELAY = 13 // s utan fångst -> garanterad glid-fångst
+const ASSIST_DELAY = 10 // s utan fångst -> sänk mattan (mer kraft) åt barnet (senare = mer eget spel)
+const GLIDE_DELAY = 18 // s utan fångst -> garanterad glid-fångst (sista utväg)
 const IDLE_DELAY = 6 // s utan tryck -> tyst röst-recue
 
 const RECUE = [
@@ -205,10 +205,12 @@ export default {
       nudge(char, char.velocity.x, Math.abs(char.velocity.y) * 0.35 + 1)
     }
 
-    // Mjuk centrering mot mattans mitt (så att flytta mattan flyttar studs-pelaren).
+    // Lätt centrering mot mattans mitt — bara som ANTI-VINGEL, inte autopilot. Svag nog
+    // att barnets sidled-drag på mattan faktiskt ger en kännbar sidled-studs (målen
+    // spänner över hela banan; sikte ska betyda något).
     const dx = this._bedX - char.position.x
     if (Math.abs(dx) > 20) {
-      let vx = char.velocity.x + dx * 0.012
+      let vx = char.velocity.x + dx * 0.008
       vx = clamp(vx, -8, 8)
       nudge(char, vx, char.velocity.y)
     }
@@ -281,8 +283,9 @@ export default {
     this._tapBoost = false
     const up = MIN_UP + power * (MAX_UP - MIN_UP)
     const big = power > 0.5
-    // Lite av den vågräta farten bevaras + en mjuk dragning mot mattans mitt.
-    let vx = char.velocity.x * 0.4 + (this._bedX - char.position.x) * 0.03
+    // Behåll MER av kaninens egen vågräta fart (kännbar sidled-studs) + en svagare mitt-
+    // dragning (bara anti-vingel, ingen autopilot).
+    let vx = char.velocity.x * 0.5 + (this._bedX - char.position.x) * 0.018
     vx = clamp(vx, -7, 7)
     nudge(char, vx, -up)
 

@@ -103,4 +103,9 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
   placerade toppings, skärmdump granskad). Inga kodändringar. Rekommenderad första-omgång:
   **[Medium] kund med bild-order + [Deep] skär & servera + [Quick] mätaren till pizzan** — ger
   loopen en mottagare och en payoff, vilket är den största bristen.
-</content>
+- 2026-07-01 🔧 **Första-omgången byggd (scoped, mönster #2):** (1) **Hungrig kund [Medium]** — en
+  `makeMascot`-Bobo uppe till vänster; vid "Ta ut" flyger en bit pizza (med rätt gräddad ton) till
+  kunden som mumsar (`_serveToCustomer`: pop + 😋/Mums! + röst) → man bakar åt NÅGON. (2) **Färgen
+  på pizzan [Quick]** — en doneness-ring ritas runt pizzan i ugnen i den aktuella tonen (`bakeTint`),
+  så blick + färg är på samma plats (utöver ton-mätaren). Kund-order (bild) + skär&servera (Deep)
+  lämnade till senare. errorCount 0, skärmdump bekräftar kunden.

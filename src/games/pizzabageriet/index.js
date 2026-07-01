@@ -13,6 +13,7 @@ import { Button } from '../../lib/Button.js'
 import { createScene } from '../../lib/scene.js'
 import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
+import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
@@ -95,6 +96,19 @@ export default {
     this._meter.position.set(OVEN.x, 600)
     this._meter.visible = false
     this._root.addChild(this._meter)
+
+    // Doneness-ring runt pizzan i ugnen: färgen visas PÅ pizzan (blick + färg på samma plats).
+    this._doneRing = new Graphics()
+    this._doneRing.eventMode = 'none'
+    this._doneRing.visible = false
+    this._root.addChild(this._doneRing)
+
+    // Hungrig kund (Bobo): väntar och mumsar en bit pizza när den serveras (pattern #2).
+    this._customerBase = { x: 195, y: 150 }
+    this._customer = makeMascot(56)
+    this._customer.position.set(this._customerBase.x, this._customerBase.y)
+    this._customer.eventMode = 'none'
+    this._root.addChild(this._customer)
 
     // Drag-lager överst (kopior som dras ligger här).
     this._dragLayer = new Container()
@@ -298,6 +312,7 @@ export default {
     gsap.to(this._pizza.scale, { x: 0.62, y: 0.62, duration: 0.7, ease: 'power2.inOut' })
 
     this._meter.visible = true
+    this._doneRing.visible = true
     this._takeBtn.visible = true
     pop(this._takeBtn)
   },
@@ -312,6 +327,12 @@ export default {
       // Glöd + markör.
       if (this._glow && !this._glow.destroyed) this._glow.alpha = 0.12 + 0.22 * Math.min(1, this._bake * 1.3)
       this._setMeterProgress(this._bake)
+      // Doneness-ring runt pizzan — färgen visas PÅ pizzan (blick + färg samlas).
+      if (this._doneRing && !this._doneRing.destroyed) {
+        this._doneRing.clear()
+        const rr = PIZZA.r * (this._pizza.scale.x || 1) + 14
+        this._doneRing.circle(this._pizza.x, this._pizza.y, rr).stroke({ width: 8, color: bakeTint(this._bake), alpha: 0.9 })
+      }
       // Rök när den börjar bli mörk.
       if (this._bake > 0.85) {
         const now = performance.now()
@@ -346,6 +367,10 @@ export default {
     this._meter.visible = false
     this._takeBtn.visible = false
     if (this._glow && !this._glow.destroyed) this._glow.alpha = 0
+    if (this._doneRing && !this._doneRing.destroyed) {
+      this._doneRing.clear()
+      this._doneRing.visible = false
+    }
 
     const tone = this._bake
     ctx.services.audio.sfx('reveal')
@@ -360,6 +385,7 @@ export default {
 
     sparkle(ctx.fxLayer, PIZZA.x, PIZZA.y, { count: 10 })
     floatText(ctx.fxLayer, PIZZA.x, PIZZA.y - 60, tone >= 0.9 ? '🤭' : '😋', { fontSize: 60 })
+    this._serveToCustomer(ctx, tone) // en bit flyger till den hungriga kunden som mumsar
 
     // Förlopp + delat firande (firar-ljud + beröm + konfetti + stjärna + klistermärke).
     this._rounds += 1
@@ -368,6 +394,35 @@ export default {
     ctx.progress.complete()
 
     this._resetTimer = gsap.delayedCall(2.2, () => { if (this._alive) this._reset(ctx) })
+  },
+
+  // En bit pizza flyger till kunden (Bobo) som mumsar — mottagaren för det man bakat.
+  _serveToCustomer(ctx, tone) {
+    const c = this._customer
+    if (!c || c.destroyed) return
+    const slice = new Text({ text: '🍕', style: { fontFamily: FONT.body, fontSize: 52 } })
+    slice.anchor.set(0.5)
+    slice.position.set(PIZZA.x, PIZZA.y)
+    slice.tint = bakeTint(tone) // biten har pizzans gräddade ton
+    slice.eventMode = 'none'
+    this._root.addChild(slice)
+    const st = { x: PIZZA.x, y: PIZZA.y, s: 1 }
+    this._serveTween = gsap.to(st, {
+      x: c.x, y: c.y, s: 0.42, duration: 0.6, ease: 'power2.in',
+      onUpdate: () => {
+        if (slice.destroyed) { this._serveTween?.kill(); return }
+        slice.position.set(st.x, st.y)
+        slice.scale.set(st.s)
+      },
+      onComplete: () => {
+        if (!slice.destroyed) slice.destroy()
+        if (this._alive && c && !c.destroyed) {
+          pop(c, { scale: 1.2 })
+          floatText(ctx.fxLayer, c.x, c.y - 52, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 42 })
+          ctx.services.voice.say(randomFrom(['Mums, tack!', 'Så god pizza!', 'Jättegott!']))
+        }
+      },
+    })
   },
 
   _reset(ctx) {
@@ -419,6 +474,11 @@ export default {
     ctx?.ticker?.remove(this._tick)
     this._autoOut?.kill()
     this._resetTimer?.kill()
+    this._serveTween?.kill()
+    if (this._customer && !this._customer.destroyed) {
+      gsap.killTweensOf(this._customer)
+      gsap.killTweensOf(this._customer.scale)
+    }
     this._cancelDrag()
     for (const it of this._paletteItems || []) {
       if (it && !it.destroyed) {

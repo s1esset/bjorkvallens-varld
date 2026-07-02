@@ -14,7 +14,7 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, sparkle, burst, floatText, shake } from '../../lib/feedback.js'
+import { bounceIn, pop, sparkle, burst, floatText, shake, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -29,6 +29,10 @@ const HELP_DELAY = 7 // s utan ny tändning → Bobos auto-hjälp
 const BASE_Y = 660 // husens fot
 
 const LIT_LINES = ['Blixten tände lampan!', 'Titta, den lyser!', 'Ljus i byn!', 'En lampa till lyser!']
+// Röst-räkning per laddningssteg (Lära-fliken RÄKNAR nu).
+const CHARGE_WORDS = ['Ett', 'Två', 'Tre — fullt!']
+// Räkna lamporna högt vid varje tändning ("En lampa! …Två lampor!").
+const LAMP_COUNT = ['En lampa!', 'Två lampor!', 'Tre lampor!', 'Fyra lampor!', 'Fem lampor!', 'Sex lampor!']
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -230,26 +234,53 @@ export default {
     c._autoHelp = false
 
     // Blå laddnings-glöd (bakom kroppen → haloar runt molnet). Alpha sätts per frame.
-    const glow = new Graphics().circle(0, 6, 86).fill(COLORS.blue)
+    const glow = new Graphics().circle(0, 6, 92).fill(COLORS.blue)
     glow.alpha = 0
     glow.eventMode = 'none'
     c.addChild(glow)
 
-    // Vit molnkropp (samma stil som scene.js makeCloud, större).
-    const body = makeCloudBody(1.25)
+    // Distinkt ÅSKMOLN-kropp: mörkare grå-blå & plufsigare så det ALDRIG förväxlas
+    // med scenens dekorativa vita moln (den enskilt viktigaste läsbarhets-fixen).
+    const body = makeThunderCloudBody(1.25)
     body.eventMode = 'none'
     c.addChild(body)
+
+    // Tre laddnings-prickar som fylls per tryck (synligt "hur nära fullt?").
+    const pipBox = new Container()
+    pipBox.position.set(0, 30)
+    pipBox.eventMode = 'none'
+    const pips = []
+    for (let i = 0; i < 3; i++) {
+      const px = (i - 1) * 30
+      const ring = new Graphics().circle(0, 0, 11).fill({ color: 0xffffff, alpha: 0.22 }).stroke({ width: 3, color: 0xffffff, alpha: 0.9 })
+      ring.position.set(px, 0)
+      const fill = new Graphics().circle(0, 0, 8).fill(COLORS.yellow)
+      fill.position.set(px, 0)
+      fill.alpha = 0
+      fill.eventMode = 'none'
+      ring.eventMode = 'none'
+      pipBox.addChild(ring, fill)
+      pips.push({ ring, fill })
+    }
+    c.addChild(pipBox)
+    c._pipBox = pipBox
+    c._pips = pips
+    c._litPips = 0
+    c._full = false
 
     // ⚡ tonar in vid full laddning.
     const zap = new Text({ text: '⚡', style: { fontFamily: FONT.body, fontSize: 54 } })
     zap.anchor.set(0.5)
-    zap.position.set(0, -4)
+    zap.position.set(0, -10)
     zap.alpha = 0
     zap.eventMode = 'none'
     c.addChild(zap)
 
     c._glow = glow
     c._zap = zap
+
+    // Mjuk "tryck mig"-puls på prickarna tills barnet börjar ladda (stannar vid 1:a).
+    c._hintTween = breathe(pipBox, { scale: 1.18, duration: 0.7 })
 
     c._moveHandler = (e) => this._onCloudMove(ctx, c, e)
     c._downHandler = (e) => this._onCloudDown(ctx, c, e)
@@ -264,6 +295,9 @@ export default {
     if (!c || c.destroyed) return
     c.off('globalpointermove', c._moveHandler)
     c.removeAllListeners()
+    c._hintTween?.kill()
+    if (c._pipBox && !c._pipBox.destroyed) gsap.killTweensOf(c._pipBox.scale)
+    if (c._pips) for (const p of c._pips) if (p.fill && !p.fill.destroyed) gsap.killTweensOf(p.fill.scale)
     gsap.killTweensOf(c.scale)
     gsap.killTweensOf(c)
   },
@@ -321,7 +355,7 @@ export default {
     if (now - (cloud._lastRub || 0) < 35) return
     cloud._lastRub = now
     cloud.charge = Math.min(1, cloud.charge + 0.02)
-    if (cloud.charge >= 1) this._becameFull(ctx, cloud)
+    this._afterCharge(ctx, cloud, true)
   },
 
   _chargeTap(ctx, cloud) {
@@ -331,21 +365,75 @@ export default {
       sparkle(ctx.fxLayer, cloud.x, cloud.y, { count: 4 })
       return
     }
-    cloud.charge = Math.min(1, cloud.charge + 0.34) // 3 tryck = fullt
-    if (cloud.charge < 1) {
-      // "Missen" som är rolig: mjukt regn + mjukt ljud.
-      this._rain(ctx, cloud)
-      ctx.services.audio.sfx('soft')
-    } else {
-      this._becameFull(ctx, cloud)
+    cloud.charge = Math.min(1, cloud.charge + 1 / 3) // 3 tryck = fullt
+    if (cloud.charge < 1) this._rain(ctx, cloud) // rolig liten "miss": mjukt regn
+    this._afterCharge(ctx, cloud, true)
+  },
+
+  // Fyll synliga prickar upp till aktuell laddning + räkna högt ("ett… två… tre").
+  _afterCharge(ctx, cloud, speak) {
+    if (!this._alive || cloud.destroyed) return
+    const target = clamp(Math.round(cloud.charge * 3), 0, 3)
+    while (cloud._litPips < target) {
+      const idx = cloud._litPips
+      const pip = cloud._pips?.[idx]
+      if (pip && !pip.fill.destroyed) {
+        pip.fill.alpha = 1
+        pop(pip.fill)
+      }
+      cloud._litPips++
+      // Sluta pulsa "tryck mig" så fort barnet laddat första gången.
+      cloud._hintTween?.kill()
+      cloud._hintTween = null
+      if (cloud._pipBox && !cloud._pipBox.destroyed) cloud._pipBox.scale.set(1)
+      // Stigande laddningston per tryck (hörbar trappa upp mot fullt).
+      ctx.services.audio.tone({ freq: 380 + idx * 150, dur: 0.14, type: 'triangle', vol: 0.26, slideTo: 470 + idx * 170 })
+      if (speak) ctx.services.voice.say(CHARGE_WORDS[cloud._litPips - 1])
+    }
+    if (cloud.charge >= 1 && !cloud._full) this._becameFull(ctx, cloud)
+  },
+
+  // Fyll alla prickar utan röst/ton (används av Bobos auto-hjälp).
+  _setPipsFull(cloud) {
+    if (cloud.destroyed) return
+    cloud._litPips = 3
+    cloud._full = true
+    cloud._hintTween?.kill()
+    cloud._hintTween = null
+    if (cloud._pipBox && !cloud._pipBox.destroyed) cloud._pipBox.scale.set(1)
+    if (cloud._pips) for (const p of cloud._pips) if (p.fill && !p.fill.destroyed) { p.fill.alpha = 1; pop(p.fill) }
+  },
+
+  // Nollställ prickar vid urladdning.
+  _resetPips(cloud) {
+    if (!cloud || cloud.destroyed) return
+    cloud._litPips = 0
+    cloud._full = false
+    if (cloud._pips) for (const p of cloud._pips) if (p.fill && !p.fill.destroyed) {
+      gsap.killTweensOf(p.fill.scale)
+      p.fill.alpha = 0
+      p.fill.scale.set(1)
     }
   },
 
   _becameFull(ctx, cloud) {
     cloud.charge = 1
+    cloud._full = true
     ctx.services.audio.sfx('pling')
+    // Litet "fräs" när molnet blir fullt — kort stigande fizz.
+    ctx.services.audio.tone({ freq: 520, slideTo: 1500, dur: 0.2, type: 'sawtooth', vol: 0.12 })
     sparkle(ctx.fxLayer, cloud.x, cloud.y, { count: 8 })
     if (!cloud.destroyed) pop(cloud)
+  },
+
+  // Mjukt varmt mullrande dunder (temats bärande ljud) — lagrade låga toner med
+  // liten slump-variation, i stället för whoosh+pop.
+  _thunderRumble(ctx) {
+    const a = ctx.services.audio
+    const base = 58 + Math.random() * 26
+    a.tone({ freq: base * 2, slideTo: base, dur: 0.7, type: 'sawtooth', vol: 0.14 })
+    a.tone({ freq: base * 3.1, slideTo: base * 1.3, dur: 0.55, type: 'triangle', vol: 0.1, delay: 0.05 })
+    a.tone({ freq: base, slideTo: base * 0.6, dur: 0.95, type: 'sine', vol: 0.12, delay: 0.12 })
   },
 
   // ---- Tick: drift + glöd + kollision + timers ----------------------------
@@ -435,6 +523,8 @@ export default {
     // Ladda ur molnen direkt (paret kan inte återutlösa) + litet regn.
     a.charge = 0
     b.charge = 0
+    this._resetPips(a)
+    this._resetPips(b)
     a._autoHelp = false
     b._autoHelp = false
     this._autoTimer?.kill()
@@ -448,8 +538,7 @@ export default {
     this._drawBolt(1)
 
     // Dunder + mjuk vänlig ljusblixt + lätt skak.
-    ctx.services.audio.sfx('whoosh')
-    ctx.services.audio.sfx('pop')
+    this._thunderRumble(ctx)
     this._lightFlash(ctx)
     shake(this._root, { intensity: 5, duration: 0.25 })
 
@@ -573,7 +662,9 @@ export default {
     ctx.services.audio.sfx('correct')
     burst(ctx.fxLayer, lamp.cx, lamp.cy, { colors: [COLORS.yellow, 0xffffff] })
     floatText(ctx.fxLayer, lamp.cx, lamp.cy - 50, '💡', { fontSize: 56 })
-    if (Math.random() < 0.7) ctx.services.voice.say(randomFrom(LIT_LINES))
+    // Räkna lamporna högt — knyt ljud + siffra + bild ("En lampa! …Två lampor!").
+    const line = this._litCount <= LAMP_COUNT.length ? LAMP_COUNT[this._litCount - 1] : randomFrom(LIT_LINES)
+    ctx.services.voice.say(line)
   },
 
   // ---- Auto-hjälp (garanterad framgång) -----------------------------------
@@ -589,6 +680,8 @@ export default {
     // Toppa båda till fullt och glid ihop mot mötespunkten.
     a.charge = 1
     b.charge = 1
+    this._setPipsFull(a)
+    this._setPipsFull(b)
     ctx.services.audio.sfx('pling')
     sparkle(ctx.fxLayer, a.x, a.y, { count: 6 })
     sparkle(ctx.fxLayer, b.x, b.y, { count: 6 })
@@ -757,14 +850,20 @@ export default {
 
 // =================== Programmatisk grafik ===================
 
-// Vit molnkropp (samma form som scene.js makeCloud, skalad).
-function makeCloudBody(scale = 1) {
+// Distinkt ÅSKMOLN-kropp: mörkare grå-blå & plufsigare (fler, större lobber) med
+// en mörkare undersida — omöjlig att förväxla med scenens dekorativa VITA moln.
+function makeThunderCloudBody(scale = 1) {
   const g = new Graphics()
-  const w = 70 * scale
-  g.circle(-w * 0.7, 6 * scale, 26 * scale).fill(0xffffff)
-  g.circle(0, -8 * scale, 38 * scale).fill(0xffffff)
-  g.circle(w * 0.7, 6 * scale, 30 * scale).fill(0xffffff)
-  g.roundRect(-w, 10 * scale, w * 2, 30 * scale, 18 * scale).fill(0xffffff)
+  const w = 76 * scale
+  const mid = 0x8b98b3 // grå-blå kropp
+  const dark = 0x5f6d8a // skuggad undersida
+  g.circle(-w * 0.78, 10 * scale, 30 * scale).fill(mid)
+  g.circle(-w * 0.25, -14 * scale, 42 * scale).fill(mid)
+  g.circle(w * 0.4, -8 * scale, 40 * scale).fill(mid)
+  g.circle(w * 0.86, 10 * scale, 30 * scale).fill(mid)
+  g.roundRect(-w * 1.05, 12 * scale, w * 2.1, 36 * scale, 20 * scale).fill(mid)
+  // Mörkare, tyngre undersida ger "åska på gång"-känsla.
+  g.roundRect(-w * 0.95, 30 * scale, w * 1.9, 16 * scale, 10 * scale).fill({ color: dark, alpha: 0.55 })
   return g
 }
 

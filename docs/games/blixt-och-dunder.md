@@ -1,5 +1,5 @@
 # Blixt och Dunder (`blixt-och-dunder`)
-> 🔤 larande · mixed · 3–5 år · status: 📝 plan klar
+> 🔤 larande · mixed · 3–5 år · status: ✅ första-omgång klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -121,3 +121,14 @@ räknar ingenting, auto-hjälpen kortsluter agensen och byn vaknar aldrig till l
 - Rekommenderad första-omgång: **[Quick] distinkta åskmoln (läsbarhet) + [Medium] synliga
   laddningssteg med röst-räkning + [Quick] riktigt åskljud** — fixar den enskilt största
   läsbarhets-bristen, gör det till ett verkligt räknespel och bär temat i ljudet.
+- 2026-07-02: **Första-omgång IMPLEMENTERAD** (errorCount 0, drag + tap headless-testat).
+  (1) **Distinkta åskmoln:** ny `makeThunderCloudBody` — mörkare grå-blå & plufsigare kropp
+  med skuggad undersida (ersatte den vita `makeCloudBody`, nu borttagen). Nu omöjliga att
+  förväxla med scenens dekorativa vita moln. (2) **Synliga laddningssteg + röst-räkning:** tre
+  vita ring-prickar per moln som fylls (gul) per tryck/gnid; rösten räknar "Ett / Två / Tre —
+  fullt!"; stigande laddningston per steg; mjuk "tryck mig"-puls på prickarna tills första
+  laddningen. (3) **Riktigt åskljud:** `_thunderRumble` — lagrade låga toner med slump-variation
+  (ersatte whoosh+pop); "fräs" (stigande fizz-ton) när ett moln blir fullt. (4) **Mätar-räkning:**
+  varje tänd lampa säger antalet högt ("En lampa! …Två lampor!"). Auto-hjälpen fyller prickarna
+  visuellt (tyst) via `_setPipsFull`; urladdning nollställer via `_resetPips`. Allt exit-säkert
+  (hint-tween + pip-scale-tweens dödas i `_teardownCloud`).

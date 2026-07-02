@@ -36,6 +36,10 @@ const DJUR = [
 
 // Svårighet = antal svarsalternativ (osynligt för barnet, växer långsamt).
 const LEVELS = [2, 3, 4, 6]
+// Golv: minst 3 kort (utom allra första rundan i en session, som får vara 2 som
+// mjuk introduktion) — med bara 2 kort blir det ett myntkast, valet ska kräva
+// att man faktiskt LYSSNAR.
+const MIN_CARDS = 3
 
 // Korta, varierade rundinstruktioner (rösten) så det aldrig blir enformigt.
 const ROUND_PROMPTS = [
@@ -183,8 +187,30 @@ export default {
     face.position.set(0, -8)
     face.eventMode = 'none'
 
-    card.addChild(shadow, body, disc, face)
+    // Fri-lyssna-ikon ("öra") uppe till höger: tryck = hör DETTA djurs läte utan att
+    // det räknas som svar (nyfikenhet ska belönas, ALDRIG vinglas bort). Tydligt skild
+    // från kort-trycket: tap på kortet = svara, tap på örat = bara lyssna.
+    const earR = 34
+    const ear = new Container()
+    ear.position.set(cardW / 2 - earR - 6, -cardH / 2 + earR + 6)
+    ear.addChild(new Graphics().circle(0, 2, earR).fill({ color: 0x000000, alpha: 0.12 }))
+    ear.addChild(new Graphics().circle(0, 0, earR).fill(COLORS.white).stroke({ width: 4, color: djur.color, alpha: 0.9 }))
+    const earIcon = new Text({ text: '👂', style: { fontFamily: FONT.body, fontSize: earR + 8 } })
+    earIcon.anchor.set(0.5)
+    earIcon.eventMode = 'none'
+    ear.addChild(earIcon)
+    ear.eventMode = 'static'
+    ear.cursor = 'pointer'
+    ear.hitArea = new Circle(0, 0, 50) // 100px träffyta (>=96)
+    ear.on('pointertap', (e) => {
+      e.stopPropagation() // örat är inte ett svar
+      this._listen(ctx, card)
+    })
+
+    card.addChild(shadow, body, disc, face, ear)
     card._face = face
+    card._disc = disc
+    card._ear = ear
     card._baseY = 0 // sätts av anroparen efter positionering
 
     card.eventMode = 'static'
@@ -216,7 +242,9 @@ export default {
     this._idle = 0
     this._killCalls()
 
-    const n = LEVELS[this._level]
+    // Allra första rundan får vara 2 kort (mjuk start); alla följande minst 3 så
+    // barnet måste lyssna för att välja rätt.
+    const n = this._first ? 2 : Math.max(MIN_CARDS, LEVELS[this._level])
 
     // Färskt svar (aldrig samma som förra rundan).
     let pool = DJUR.filter((d) => d.id !== this._lastAnswerId)
@@ -285,6 +313,73 @@ export default {
     }
   },
 
+  // Fri-lyssna: barnet tryckte på örat på ett kort -> spela DET djurets läte och låt
+  // djuret röra sig med ljudet. Räknas ALDRIG som svar (ingen vingel, inget "fel").
+  _listen(ctx, card) {
+    if (!this._alive || this._busy) return
+    if (!card || card.destroyed) return
+    this._idle = 0
+    pop(card._ear)
+    // Riktigt klipp om det finns, annars säger rösten lätet (inte namnet — örat är
+    // ren nyfikenhet: "hör hur det låter", inte en avslöjande ledtråd).
+    if (!ctx.services.audio.sample(`djur_${card._djur.id}`)) {
+      ctx.services.voice.say(card._djur.fras)
+    }
+    this._speak(ctx, card)
+  },
+
+  // Låt djuret VISUELLT "göra" sitt läte: munnen/skivan öppnas och kortet studsar i
+  // takt några gånger, + ljudvågs-ring ut från kortet. Kopplar ihop ljud och djur.
+  // Exit-säkert: tweens dödas i _killCardTweens (anropas i _clearCards/destroy).
+  _speak(ctx, card) {
+    if (!card || card.destroyed) return
+    const face = card._face
+    const disc = card._disc
+    if (face && !face.destroyed) {
+      gsap.killTweensOf(face.scale)
+      face.scale.set(1)
+      gsap.to(face.scale, {
+        x: 1.16, y: 0.86, duration: 0.15, repeat: 5, yoyo: true, ease: 'sine.inOut',
+        onComplete: () => { if (!face.destroyed) face.scale.set(1) },
+      })
+    }
+    if (disc && !disc.destroyed) {
+      gsap.killTweensOf(disc.scale)
+      disc.scale.set(1)
+      gsap.to(disc.scale, {
+        x: 1.1, y: 1.1, duration: 0.15, repeat: 5, yoyo: true, ease: 'sine.inOut',
+        onComplete: () => { if (!disc.destroyed) disc.scale.set(1) },
+      })
+    }
+    ripple(ctx.fxLayer, card.x, card.y - 8, { color: card._djur.color, maxR: 104 })
+  },
+
+  // Skicka "ljudvågor" (svävande noter) från ljudknappen mot ett kort — används vid
+  // idle-ledtråden (då rätt kort redan andas/avslöjas) för att koppla ljud->djur.
+  // Exit-säker: tweenar ett vanligt objekt och rör Pixi-texten bara om den lever.
+  _noteTo(ctx, card) {
+    if (!card || card.destroyed) return
+    for (let i = 0; i < 2; i++) {
+      const t = new Text({ text: '🎵', style: { fontFamily: FONT.body, fontSize: 34 } })
+      t.anchor.set(0.5)
+      t.eventMode = 'none'
+      const x0 = SOUND_X, y0 = SOUND_Y + 44, x1 = card.x, y1 = card.y - 40
+      t.position.set(x0, y0)
+      ctx.fxLayer.addChild(t)
+      const st = { x: x0, y: y0, a: 1 }
+      const tw = gsap.to(st, {
+        x: x1, y: y1, a: 0, duration: 0.9, delay: i * 0.18, ease: 'sine.in',
+        onUpdate: () => {
+          if (t.destroyed) { tw.kill(); return }
+          t.x = st.x
+          t.y = st.y
+          t.alpha = st.a
+        },
+        onComplete: () => { if (!t.destroyed) t.destroy() },
+      })
+    }
+  },
+
   _choose(ctx, card) {
     if (!this._alive || this._busy) return
     this._idle = 0
@@ -309,10 +404,22 @@ export default {
     sparkle(ctx.fxLayer, card.x, card.y - 8)
     burst(ctx.fxLayer, card.x, card.y - 8, { count: 14, power: 1 })
     floatText(ctx.fxLayer, card.x, card.y - 70, randomFrom(HAPPY), { fontSize: 60, rise: 90 })
-    ctx.services.voice.say(`Det är ${card._djur.art} ${card._djur.namn}! ${card._djur.best} säger ${card._djur.late}!`)
+    ctx.services.voice.say(`Det är ${card._djur.art} ${card._djur.namn}!`)
 
     // Glad hopp-animation på vinnarkortet; tona de andra mjukt.
     this._celebrateCard(card)
+
+    // Stolt, multisensorisk belöning: spela det RIKTIGA klippet IGEN — nu tillsammans
+    // med djurets namn ("Det är en ko!" ... *muu*) — och låt djuret själv "göra" lätet
+    // (mun/kort studsar i takt) så ljud↔djur kopplas ihop. Klippet finns förinspelat;
+    // saknas det säger rösten lätet i stället.
+    this._schedule(0.85, () => {
+      if (!card || card.destroyed) return
+      if (!ctx.services.audio.sample(`djur_${card._djur.id}`)) {
+        ctx.services.voice.say(`${card._djur.best} säger ${card._djur.late}!`)
+      }
+      this._speak(ctx, card)
+    })
 
     // Spara framsteg + höj svårighet långsamt.
     const rundor = (ctx.progress.get().custom?.rundor || 0) + 1
@@ -389,6 +496,8 @@ export default {
         this._clearHint()
         this._hintCard = answerCard
         this._hintTween = breathe(answerCard, { scale: 1.1, duration: 0.85 })
+        // Ljudvågor från knappen mot rätt kort (kortet avslöjas redan av andningen).
+        this._noteTo(ctx, answerCard)
       }
     }
   },
@@ -423,14 +532,26 @@ export default {
     this._hintCard = null
   },
 
+  // Döda varje tween som kan sitta på ett kort (kortet, dess skala, ansiktets bob +
+  // "prat"-skala, skivans pulsering, örat). Exit-säkert mellan rundor och vid destroy.
+  _killCardTweens(c) {
+    gsap.killTweensOf(c)
+    gsap.killTweensOf(c.scale)
+    if (c._face) {
+      gsap.killTweensOf(c._face)
+      gsap.killTweensOf(c._face.scale)
+    }
+    if (c._disc) gsap.killTweensOf(c._disc.scale)
+    if (c._ear) {
+      gsap.killTweensOf(c._ear)
+      gsap.killTweensOf(c._ear.scale)
+    }
+  },
+
   // Döda alla tweens på nuvarande kort och förstör dem (exit-säkert mellan rundor).
   _clearCards() {
     this._clearHint()
-    this._cards.forEach((c) => {
-      gsap.killTweensOf(c)
-      gsap.killTweensOf(c.scale)
-      if (c._face) gsap.killTweensOf(c._face)
-    })
+    this._cards.forEach((c) => this._killCardTweens(c))
     this._cardLayer?.removeChildren().forEach((o) => o.destroy({ children: true }))
     this._cards = []
   },
@@ -442,12 +563,8 @@ export default {
     this._shakeTween?.kill()
     this._killCalls()
     this._clearHint()
-    // Döda kort-tweens (och gung/skala) innan trädet rivs.
-    this._cards?.forEach((c) => {
-      gsap.killTweensOf(c)
-      gsap.killTweensOf(c.scale)
-      if (c._face) gsap.killTweensOf(c._face)
-    })
+    // Döda kort-tweens (gung/skala/prat/öra) innan trädet rivs.
+    this._cards?.forEach((c) => this._killCardTweens(c))
     if (this._soundBtn) {
       gsap.killTweensOf(this._soundBtn)
       gsap.killTweensOf(this._soundBtn.scale)

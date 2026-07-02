@@ -1,5 +1,5 @@
 # Vilket Djur Låter Så? (`vilket-djur-later`)
-> 🔤 pedagogiskt · tap · 2–5 år · status: 📝 plan klar
+> 🔤 pedagogiskt · tap · 2–5 år · status: ✅ första-omgång byggd
 
 ## 1. Nuläge (sett som spelare)
 
@@ -92,3 +92,17 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
   12 djurläten finns som mp3 i `public/audio/sfx/` + manifest. Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] 3-korts-golv + spela riktiga klippet igen vid rätt**
   och **[Medium] djuret rör sig med ljudet + fri-lyssna-ikon** — störst lyft för minst risk.
+- 2026-07-02: ✅ FÖRSTA-OMGÅNG BYGGD (self-test errorCount 0).
+  - **[Quick] 3-korts-golv:** `MIN_CARDS = 3`; antal kort = `Math.max(3, LEVELS[level])` utom
+    allra första rundan i sessionen som får vara 2 (mjuk start). Valet kräver nu lyssning.
+  - **[Quick] Riktiga klippet spelas IGEN vid rätt** + namnet: rösten säger "Det är en ko!",
+    sedan (0,85 s) `audio.sample('djur_<id>')` (fallback: "Kon säger muu!"). Multisensoriskt.
+  - **[Medium] Djuret rör sig med ljudet** (`_speak`): ansikte/spotlight-skiva pulsar (mun
+    öppnas) + kort-studs i takt + ljudvågs-ring ut från kortet. Körs vid rätt svar, vid
+    fri-lyssna, och som riktade "ljudvågor" (`_noteTo`) från knappen mot rätt kort i idle-hinten
+    (då rätt kort redan avslöjas av andnings-pulsen — inget läckage under vanligt spel).
+  - **[Medium] Fri-lyssna-ikon (👂) per kort:** tydligt skild från kort-trycket (tap = svara,
+    öra = lyssna via `stopPropagation`). Spelar djurets läte utan att räknas som svar, ALDRIG
+    en vingel (nyfikenhet belönas). 100px träffyta.
+  - Exit-säkert: alla nya tweens (`face.scale`/`disc.scale`/öra) samlas i `_killCardTweens`,
+    fördröjda anrop är `_alive`-vaktade och proxy-tweens rör Pixi-objekt bara om `!destroyed`.

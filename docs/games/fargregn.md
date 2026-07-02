@@ -1,5 +1,5 @@
 # Färgregn (`fargregn`)
-> 🔤 larande · tap · 2–5 år · status: 📝 plan klar
+> 🔤 larande · tap · 2–5 år · status: ✅ första-omgång klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -98,3 +98,13 @@ Kort sagt: *snyggt och korrekt färg-matchning*, men det **lär inte färgord** 
 - 2026-06-30: Doc skriven (granskning + plan; gammal byggspec överskriven). Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] pöl-plask med ljud + kombo-ton + "samla regnbågen"-tavla**
   och **[Medium] ord-runda utan droppe-matchning** — störst pedagogiskt lyft för minst risk.
+- 2026-07-02: Första-omgång IMPLEMENTERAD (self-test errorCount 0):
+  - Pöl-plask hörs nu (mjukt vått `audio.tone`-plopp, strypt mot spam) + syns (krusning
+    + närmsta pöl studsar via `pop`).
+  - Stigande kombo-ton: rätt droppar i snabb följd (<1,6s) klättrar uppför en dur-
+    pentatonisk stege (COMBO_LADDER) via `audio.tone`; nollställs vid rundslut/paus.
+  - "Samla regnbågen"-tavla i vänstermarginalen: 6 tomma prickar som fylls med riktig
+    färg + `pop`+`sparkle` när en färg bemästras; persistas i `progress.custom.mastered`.
+  - [Medium] Ord-runda (var 3:e runda från runda-index 2): skylten visar BARA färgordet
+    stort i färgen (ingen droppe att matcha mot). Vid ~6s tvekan avslöjas droppe-formen
+    som stödhjul. Fortsatt helt no-fail.

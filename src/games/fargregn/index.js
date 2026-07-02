@@ -5,22 +5,25 @@
 // vidare (ALDRIG en bestraffning). Ibland faller en regnbågsdroppe som sprutar
 // alla färger. Inga felsteg, ingen timer, inget slut — när målet nås firar vi
 // (complete) och en ny, lite svårare runda startar (oändlig lek).
-import { Container, Graphics, Circle } from 'pixi.js'
+import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { pop, wiggle, sparkle, bounceIn, puff, ripple, burst, shake, breathe, floatText } from '../../lib/feedback.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE, FONT } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
-// Färgpalett: ASCII-nyckel + 0xRRGGBB + svensk plural-fras (böjd).
+// Färgpalett: ASCII-nyckel + 0xRRGGBB + svensk plural-fras (böjd) + grundord (för ord-rundan).
 const COLOR_DEFS = [
-  { key: 'rod', color: 0xff6b6b, plural: 'röda' },
-  { key: 'gul', color: 0xffd35c, plural: 'gula' },
-  { key: 'bla', color: 0x4aa3df, plural: 'blåa' },
-  { key: 'gron', color: 0x5bbf6a, plural: 'gröna' },
-  { key: 'lila', color: 0xa78bfa, plural: 'lila' },
-  { key: 'rosa', color: 0xff9ec4, plural: 'rosa' },
+  { key: 'rod', color: 0xff6b6b, plural: 'röda', word: 'röd' },
+  { key: 'gul', color: 0xffd35c, plural: 'gula', word: 'gul' },
+  { key: 'bla', color: 0x4aa3df, plural: 'blåa', word: 'blå' },
+  { key: 'gron', color: 0x5bbf6a, plural: 'gröna', word: 'grön' },
+  { key: 'lila', color: 0xa78bfa, plural: 'lila', word: 'lila' },
+  { key: 'rosa', color: 0xff9ec4, plural: 'rosa', word: 'rosa' },
 ]
+
+// Stigande kombo-ton: klar dur-pentatonisk stege (flera rätt i snabb följd klättrar).
+const COMBO_LADDER = [523.25, 587.33, 659.25, 783.99, 880, 987.77, 1174.66, 1318.51]
 const RAINBOW = [0xff6b6b, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa, 0xff9ec4]
 
 const SIDE_MARGIN = 120 // droppar håller sig i x ∈ [120, 1160]
@@ -57,8 +60,13 @@ export default {
     this._paused = true
     this._t = 0
     this._lastTargetKey = null
+    this._combo = 0
+    this._lastCorrectAt = -999
+    this._lastPlop = -999
     const prog = ctx.progress.get()
     this._rounds = prog.highestLevel || prog.custom?.rundor || 0
+    // Bemästrade färger (fyller "samla regnbågen"-tavlan) — persistas via progress.
+    this._mastered = new Set(Array.isArray(prog.custom?.mastered) ? prog.custom.mastered : [])
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -109,14 +117,21 @@ export default {
     this._sign.position.set(640, 96)
     this._signBox = new Graphics()
     this._signDrop = new Graphics()
-    this._sign.addChild(this._signBox, this._signDrop)
+    // Stort färgord (visas i ord-rundan i stället för droppe-formen).
+    this._signWord = new Text({
+      text: '',
+      style: { fontFamily: FONT.display, fontSize: 66, fontWeight: '800', fill: 0x333333 },
+    })
+    this._signWord.anchor.set(0.5)
+    this._signWord.visible = false
+    this._sign.addChild(this._signBox, this._signDrop, this._signWord)
     this._sign.eventMode = 'static'
     this._sign.cursor = 'pointer'
     this._sign.on('pointertap', () => {
       if (!this._alive) return
       this._idle = 0
       ctx.services.voice.say(this._introPhrase)
-      pop(this._signDrop)
+      pop(this._signWord.visible ? this._signWord : this._signDrop)
     })
     this._hud.addChild(this._sign)
 
@@ -128,6 +143,43 @@ export default {
     this._dotsRoot.eventMode = 'none'
     this._hud.addChild(this._dotsRoot)
     this._dots = []
+
+    // 6) "Samla regnbågen"-tavla i vänstra marginalen: en klick per bemästrad färg.
+    this._buildRainbowBoard()
+  },
+
+  // Liten färgtavla i vänsterkanten (drop-fri marginal). Tomma prickar fylls med
+  // riktig färg när barnet bemästrat den — något att återvända till och minnas orden.
+  _buildRainbowBoard() {
+    this._board = new Container()
+    this._board.position.set(50, 360)
+    this._board.eventMode = 'none'
+    this._board.interactiveChildren = false
+    const gap = 66
+    const total = (COLOR_DEFS.length - 1) * gap
+    const panel = new Graphics().roundRect(-32, -total / 2 - 34, 64, total + 68, 28).fill({ color: 0xffffff, alpha: 0.28 })
+    this._board.addChild(panel)
+    this._swatches = new Map()
+    COLOR_DEFS.forEach((def, i) => {
+      const g = new Graphics()
+      g.y = -total / 2 + i * gap
+      this._board.addChild(g)
+      this._swatches.set(def.key, g)
+      this._paintSwatch(def, this._mastered.has(def.key))
+    })
+    this._hud.addChild(this._board)
+  },
+
+  _paintSwatch(def, filled) {
+    const g = this._swatches?.get(def.key)
+    if (!g || g.destroyed) return
+    g.clear()
+    if (filled) {
+      g.circle(0, 0, 20).fill(def.color).stroke({ width: 3, color: darken(def.color, 0.25) })
+      g.ellipse(-6, -7, 7, 5).fill({ color: 0xffffff, alpha: 0.55 })
+    } else {
+      g.circle(0, 0, 20).fill({ color: 0xffffff, alpha: 0.45 }).stroke({ width: 3, color: 0xcbe6f4 })
+    }
   },
 
   _buildPuddles(ctx) {
@@ -174,6 +226,11 @@ export default {
     this._lastTargetKey = this._target.key
     this._introPhrase = 'Tryck på de ' + this._target.plural + ' dropparna!'
 
+    // Ord-runda: efter ett par vanliga rundor visar skylten BARA färgordet stort i
+    // färgen (ingen droppe-form att matcha mot) → barnet kopplar ord→färg.
+    this._wordRound = this._rounds >= 2 && this._rounds % 3 === 2
+    this._wordHintShown = false
+
     this._updateSign()
     this._buildDots()
 
@@ -181,12 +238,38 @@ export default {
   },
 
   _updateSign() {
+    const t = this._target
     this._signBox
       .clear()
       .roundRect(-150, -58, 300, 116, 30)
       .fill(COLORS.cream)
-      .stroke({ width: 6, color: this._target.color })
-    this._drawDrop(this._signDrop, 36, this._target.color)
+      .stroke({ width: 6, color: t.color })
+
+    if (this._wordRound && !this._wordHintShown) {
+      // Bara ordet, stort och i färgen — ingen droppe att matcha mot.
+      this._signDrop.visible = false
+      this._signWord.visible = true
+      this._signWord.text = t.word
+      this._signWord.style.fontSize = 66
+      this._signWord.style.fill = t.color
+      this._signWord.position.set(0, 0)
+    } else if (this._wordRound) {
+      // Barnet tvekade → visa ordet mindre PLUS droppe-formen som hjälp.
+      this._signWord.visible = true
+      this._signWord.text = t.word
+      this._signWord.style.fontSize = 50
+      this._signWord.style.fill = t.color
+      this._signWord.position.set(-64, 0)
+      this._signDrop.visible = true
+      this._signDrop.position.set(96, 0)
+      this._drawDrop(this._signDrop, 30, t.color)
+    } else {
+      // Vanlig runda: droppe-formen i målfärgen.
+      this._signWord.visible = false
+      this._signDrop.visible = true
+      this._signDrop.position.set(0, 0)
+      this._drawDrop(this._signDrop, 36, t.color)
+    }
   },
 
   _buildDots() {
@@ -325,6 +408,11 @@ export default {
       drop._resolved = true
       drop.eventMode = 'none'
 
+      // Stigande kombo-ton: flera rätt i snabb följd klättrar uppför stegen.
+      if (this._t - this._lastCorrectAt < 1.6) this._combo = Math.min(this._combo + 1, COMBO_LADDER.length - 1)
+      else this._combo = 0
+      this._lastCorrectAt = this._t
+
       if (drop._def.rainbow) {
         // Regnbåge: sprutar alla färger + chime + glad emoji.
         ctx.services.audio.sfx('match')
@@ -333,8 +421,10 @@ export default {
         floatText(ctx.fxLayer, x, y - 30, '🌈', { fontSize: 64 })
         ctx.services.voice.say('Regnbåge!')
       } else {
-        // Rätt färg: chime + extra gnistor + färgglatt plask.
-        ctx.services.audio.sfx('pling')
+        // Rätt färg: klättrande pling (kombo-ton) + extra gnistor + färgglatt plask.
+        const f = COMBO_LADDER[this._combo]
+        ctx.services.audio.tone({ freq: f, dur: 0.16, type: 'sine', vol: 0.3 })
+        ctx.services.audio.tone({ freq: f * 1.5, dur: 0.14, type: 'sine', vol: 0.12, delay: 0.03 })
         sparkle(ctx.fxLayer, x, y)
         burst(this._splashLayer, x, y, { count: 8, colors: [drop._def.color] })
       }
@@ -360,10 +450,24 @@ export default {
   _finishRound(ctx) {
     if (!this._alive) return
     this._paused = true
+    this._combo = 0
     // complete() = celebrate-ljud + beröm + konfetti + stjärna + klistermärke (GameHost).
     ctx.progress.complete()
     shake(this._content, { intensity: 7, duration: 0.5 }) // mjukt, glatt firande-skak
     ctx.services.voice.say('Du hittade alla ' + this._target.plural + '!')
+
+    // Fyll färgen på "samla regnbågen"-tavlan (första gången den bemästras).
+    if (!this._mastered.has(this._target.key)) {
+      this._mastered.add(this._target.key)
+      ctx.progress.setCustom('mastered', [...this._mastered])
+      this._paintSwatch(this._target, true)
+      const sw = this._swatches?.get(this._target.key)
+      if (sw && !sw.destroyed) {
+        pop(sw, { scale: 1.4 })
+        sparkle(ctx.fxLayer, this._board.x + sw.x, this._board.y + sw.y, { count: 8 })
+      }
+    }
+
     this._rounds++
     ctx.progress.setCustom('rundor', this._rounds)
     ctx.progress.setLevel(this._rounds)
@@ -408,9 +512,11 @@ export default {
         this._drops.splice(i, 1)
         gsap.killTweensOf(d)
         gsap.killTweensOf(d.scale)
-        // Lugnt plask i pölen (endast bild — inget ljudspam).
+        // Pöl-plask: nu BÅDE hört (mjukt vått plopp) OCH sett (krusning + närmsta pöl studsar).
         ripple(this._splashLayer, d.x, PUDDLE_Y, { color: 0xbfe9ff, maxR: 46, duration: 0.5, width: 4, alpha: 0.5 })
         puff(this._splashLayer, d.x, PUDDLE_Y - 4, { count: 5, color: d._def.rainbow ? randomFrom(RAINBOW) : d._def.color })
+        this._plop(ctx)
+        this._rippleNearestPuddle(d.x)
         if (!d.destroyed) d.destroy({ children: true })
       }
     }
@@ -429,10 +535,40 @@ export default {
     if (this._idle > 6 && !this._paused) {
       this._idle = 0
       ctx.services.voice.say(this._introPhrase)
+      // Tvekar barnet i en ord-runda? Avslöja droppe-formen som stödhjul.
+      if (this._wordRound && !this._wordHintShown) {
+        this._wordHintShown = true
+        this._updateSign()
+        pop(this._signDrop)
+      }
       const targets = this._drops.filter((d) => !d._resolved && d._def.key === this._target.key)
       if (targets.length) pop(randomFrom(targets))
       else this._spawnDrop(ctx, true)
     }
+  },
+
+  // Mjukt vått "plopp" när en droppe landar i pölen (lätt strypt så det inte spammar).
+  _plop(ctx) {
+    if (this._t - this._lastPlop < 0.05) return
+    this._lastPlop = this._t
+    const base = 150 + Math.random() * 70
+    ctx.services.audio.tone({ freq: base, dur: 0.14, type: 'sine', vol: 0.16, slideTo: base * 0.5 })
+  },
+
+  // Närmaste pöl studsar mjukt när en droppe landar (exit-säkert via feedback.pop).
+  _rippleNearestPuddle(x) {
+    if (!this._puddles) return
+    let nearest = null
+    let best = Infinity
+    for (const p of this._puddles) {
+      if (p.destroyed) continue
+      const dx = Math.abs(p.x - x)
+      if (dx < best) {
+        best = dx
+        nearest = p
+      }
+    }
+    if (nearest && !nearest.destroyed) pop(nearest, { scale: 1.12 })
   },
 
   destroy(ctx) {
@@ -445,8 +581,11 @@ export default {
       gsap.killTweensOf(d.scale)
     })
     this._dots?.forEach((d) => gsap.killTweensOf(d.scale))
+    this._puddles?.forEach((p) => gsap.killTweensOf(p.scale))
+    this._swatches?.forEach((g) => gsap.killTweensOf(g.scale))
     if (this._sign) gsap.killTweensOf(this._sign.scale)
     if (this._signDrop) gsap.killTweensOf(this._signDrop.scale)
+    if (this._signWord) gsap.killTweensOf(this._signWord.scale)
     gsap.killTweensOf(this._content)
     gsap.killTweensOf(this._root)
     ctx.services.voice?.cancel?.()

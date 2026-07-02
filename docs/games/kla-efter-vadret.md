@@ -94,3 +94,14 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
 - 2026-06-30: Doc skriven (granskning + plan; gammal byggspec överskriven). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] "gå ut"-payoff + flera dugliga plagg per zon** och
   **[Quick] snäpp-klick + väder-ambient** — kopplar belöningen till lärandet, störst lyft för minst risk.
+- 2026-07-02: Första-omgång IMPLEMENTERAD ✅. (1) **"Gå ut"-payoff**: när alla zoner
+  fyllts säger Elvira "Nu går Elvira ut!", tar två små steg-bobbar ut i vädret och visar
+  sedan att hon blivit lagom (vädersspecifik replik + svävande bevis-emoji 😎/☂️/⛄ + gnistor
+  + glädjehopp) innan nytt väder. (2) **Flera dugliga plagg per zon**: `good`→`valid`-listor
+  (sol-huvud solhatt/keps, sol-kropp tröja/klänning, sol-fötter sandaler/skor; regn-kropp
+  regnjacka/paraply, regn-fötter gummistövlar/stövlar; snö-fötter vinterstövlar/kängor). En
+  slumpad zon per runda får ETT extra dugligt plagg på hyllan → barnet resonerar. Target
+  godkänner tills zonen är fylld (ingen dubbelfyllning); uppenbart fel = mjuk vingel som förr.
+  (3) **Snäpp-"klick" + tyg-fras** (audio.tone) + **zon-studs** (pop på ringen) vid fastsättning.
+  (4) **Lugn väder-ambient** via audio.tone: fågelkvitter (sol), mjuka droppar (regn), vind-sus
+  (snö) — låg volym, gles takt. Självtest: errorCount 0.

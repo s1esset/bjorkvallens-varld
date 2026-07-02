@@ -10,7 +10,7 @@ import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, floatText } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 // Kroppszonernas centrum (= snäpp-mål). Huvud-zonen ligger strax ovanför huvudet
@@ -20,36 +20,44 @@ const ZONE_NAMES = { huvud: 'huvudet', overkropp: 'kroppen', fotter: 'fötterna'
 // Prioritetsordning när antal obligatoriska zoner växer med nivån.
 const ZONE_ORDER = ['overkropp', 'huvud', 'fotter']
 
-// Väderdata. key = ascii-nyckel, namn/intro behåller åäö. good = rätt plagg per zon.
+// Väderdata. key = ascii-nyckel, namn/intro/lagom behåller åäö. valid = LISTA av
+// dugliga plagg per zon (flera funkar → barnet resonerar i stället för att hitta det
+// enda rätta). lagom/proof = "gå ut"-payoffen (kopplar belöningen till lärandet).
 const WEATHERS = {
   sol: {
     key: 'sol', symbol: '☀️', bg: 0xfff3c4, glow: 0xffd35c,
     intro: 'Det är sol idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är sol och varmt — vad behöver vi då?',
-    good: {
-      huvud: { emoji: '👒', namn: 'solhatten' },
-      overkropp: { emoji: '👕', namn: 'tröjan' },
-      fotter: { emoji: '🩴', namn: 'sandalerna' },
+    lagom: 'Nu blir jag lagom sval i solen!',
+    proof: '😎',
+    valid: {
+      huvud: [{ emoji: '👒', namn: 'solhatten' }, { emoji: '🧢', namn: 'kepsen' }],
+      overkropp: [{ emoji: '👕', namn: 'tröjan' }, { emoji: '👗', namn: 'klänningen' }],
+      fotter: [{ emoji: '🩴', namn: 'sandalerna' }, { emoji: '👟', namn: 'skorna' }],
     },
   },
   regn: {
     key: 'regn', symbol: '🌧️', bg: 0xcfe3ef, glow: 0x9fc4dd,
     intro: 'Det är regn idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är regnigt — vad behöver vi då?',
-    good: {
-      huvud: { emoji: '🧢', namn: 'regnhatten' },
-      overkropp: { emoji: '🧥', namn: 'regnjackan' },
-      fotter: { emoji: '🥾', namn: 'gummistövlarna' },
+    lagom: 'Nu blir jag lagom torr i regnet!',
+    proof: '☂️',
+    valid: {
+      huvud: [{ emoji: '🧢', namn: 'regnhatten' }],
+      overkropp: [{ emoji: '🧥', namn: 'regnjackan' }, { emoji: '🌂', namn: 'paraplyet' }],
+      fotter: [{ emoji: '🥾', namn: 'gummistövlarna' }, { emoji: '👢', namn: 'stövlarna' }],
     },
   },
   sno: {
     key: 'sno', symbol: '❄️', bg: 0xeaf4fb, glow: 0xbfe6f7,
     intro: 'Det är snö idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är kallt och snöigt — vad behöver vi då?',
-    good: {
-      huvud: { emoji: '🧢', namn: 'vintermössan' },
-      overkropp: { emoji: '🧥', namn: 'vinterjackan' },
-      fotter: { emoji: '👢', namn: 'vinterstövlarna' },
+    lagom: 'Nu blir jag lagom varm i snön!',
+    proof: '⛄',
+    valid: {
+      huvud: [{ emoji: '🧢', namn: 'vintermössan' }],
+      overkropp: [{ emoji: '🧥', namn: 'vinterjackan' }],
+      fotter: [{ emoji: '👢', namn: 'vinterstövlarna' }, { emoji: '🥾', namn: 'kängorna' }],
     },
   },
 }
@@ -84,6 +92,8 @@ export default {
     this._filled = new Set()
     this._reqZones = []
     this._seq = 0
+    this._ambT = 1200 // ms till nästa väder-ambient (fågel/regn/vind)
+    this._payoff = null
     this._lastWeather = ctx.progress.get().custom?.lastWeather || null
 
     this._root = new Container()
@@ -310,6 +320,7 @@ export default {
     for (const d of this._rain) d.visible = rainOn
     for (const s of this._snow) s.visible = snowOn
     this._activeFx = rainOn ? 'rain' : snowOn ? 'snow' : null
+    this._ambT = 1200 // mjuk start på nya vädrets ambient
   },
 
   // Bygg en runda: nytt väder, obligatoriska zoner + plagg utifrån nivå.
@@ -318,6 +329,15 @@ export default {
     this._resolving = false
     this._idle = 0
     this._filled = new Set()
+
+    // Nollställ figuren (kan ha "gått ut" i förra rundans payoff).
+    this._payoff?.kill()
+    this._payoff = null
+    if (this._figure && !this._figure.destroyed) {
+      gsap.killTweensOf(this._figure)
+      this._figure.position.set(0, 0)
+      this._figure.rotation = 0
+    }
 
     // Rensa förra rundans plagg (clear() avregistrerar lyssnare + dödar tweens först).
     this._drag.clear()
@@ -341,14 +361,22 @@ export default {
     this._needed = reqZones.length
     this._placed = 0
 
-    // Passande plagg (ett per obligatorisk zon) + distraktorer.
+    // Passande plagg: minst ETT per obligatorisk zon, och för en slumpad zon (som har
+    // fler dugliga val) läggs ETT extra dugligt plagg ut → barnet resonerar "vilket
+    // funkar?" i stället för att leta det enda rätta. Sedan fylls hyllan med distraktorer.
     const usedEmoji = new Set()
-    const fitting = reqZones.map((slot) => {
-      const g = this._weather.good[slot]
-      usedEmoji.add(g.emoji)
-      return { slot, fits: true, emoji: g.emoji, namn: g.namn, from: key }
-    })
-    const distractors = distractorPool(key, usedEmoji).slice(0, Math.max(0, shelfCount - reqCount))
+    const fitting = []
+    const choiceZones = reqZones.filter((s) => this._weather.valid[s].length >= 2)
+    const choiceZone = choiceZones.length ? randomFrom(choiceZones) : null
+    for (const slot of reqZones) {
+      const opts = shuffle(this._weather.valid[slot].slice())
+      const take = slot === choiceZone ? 2 : 1
+      for (let i = 0; i < take && i < opts.length; i++) {
+        usedEmoji.add(opts[i].emoji)
+        fitting.push({ slot, fits: true, emoji: opts[i].emoji, namn: opts[i].namn, from: key })
+      }
+    }
+    const distractors = distractorPool(key, usedEmoji).slice(0, Math.max(1, shelfCount - fitting.length))
     const deck = shuffle([...fitting, ...distractors])
 
     // Lägg ut på hyllan, jämnt centrerade.
@@ -370,7 +398,9 @@ export default {
 
     // Registrera snäpp-mål för dagens obligatoriska zoner + visa ledtrådsringar.
     for (const slot of reqZones) {
-      this._drag.addTarget(this._zones[slot], (data) => data.slot === slot && data.fits, { hitRadius: 130 })
+      // Godkänn valfritt dugligt plagg för zonen — men bara tills zonen är fylld
+      // (så ett andra dugligt plagg inte dubbel-fyller den).
+      this._drag.addTarget(this._zones[slot], (data) => this._alive && data.slot === slot && data.fits && !this._filled.has(slot), { hitRadius: 130 })
       this._rings[slot].alpha = 0.32
     }
 
@@ -384,6 +414,9 @@ export default {
     const { slot, namn } = rec.data
 
     ctx.services.audio.sfx('correct')
+    // Snäpp-"klick" + mjukt tyg-fras när plagget sätter sig (fastsättningen var platt).
+    ctx.services.audio.tone({ freq: 880, dur: 0.045, type: 'square', vol: 0.1 })
+    ctx.services.audio.tone({ freq: 300, dur: 0.16, type: 'sine', vol: 0.09, slideTo: 170, delay: 0.04 })
     ctx.services.voice.say(randomFrom([`${cap(namn)}!`, `${cap(namn)} sitter!`, 'Så fin!', 'Vad bra!']))
 
     pop(rec.view)
@@ -392,7 +425,9 @@ export default {
 
     const ring = this._rings[slot]
     gsap.killTweensOf(ring)
+    gsap.killTweensOf(ring.scale)
     ring.alpha = 0.95
+    pop(ring) // liten zon-studs när plagget snäpper fast
     gsap.to(ring, { alpha: 0, duration: 0.5, ease: 'sine.out' })
 
     // Fäst plagget på figuren (flytta in i this._figure) så det bobbar med hoppet.
@@ -414,24 +449,57 @@ export default {
     this._idle = 0
     wiggle(rec.view)
     const d = rec.data
-    const line = d.fits ? `${cap(d.namn)} hör på ${ZONE_NAMES[d.slot]}!` : mismatchHint(this._weather.key, d.from)
+    let line
+    if (d.fits && this._filled.has(d.slot)) line = 'Där sitter det redan något bra!'
+    else if (d.fits) line = `${cap(d.namn)} hör på ${ZONE_NAMES[d.slot]}!`
+    else line = mismatchHint(this._weather.key, d.from)
     ctx.services.voice.say(line || this._weather.recue)
   },
 
-  // Alla obligatoriska zoner fyllda: figuren hoppar, delat firande (firande-ljud,
-  // beröm, konfetti, stjärna, klistermärke via complete()), sedan nytt väder.
+  // Alla obligatoriska zoner fyllda: delat firande + "gå ut"-payoff (Elvira går ut i
+  // vädret och visar att hon nu är lagom → kopplar belöningen TILL lärandet), nytt väder.
   _roundComplete(ctx) {
     this._resolving = true
     this._idle = 0
     this._level += 1
     ctx.progress.setLevel(this._level)
 
-    gsap.killTweensOf(this._figure)
-    gsap.to(this._figure, { y: -26, duration: 0.18, yoyo: true, repeat: 1, ease: 'power2.out' })
-
     ctx.progress.complete() // celebrate-ljud + beröm + konfetti + stjärna + klistermärke
+    this._goOutside(ctx)
+  },
 
-    this._celebrate = gsap.delayedCall(1.3, () => {
+  // Payoff: Elvira tar ett par steg ut i vädret (små steg-bobbar) och visar sedan att
+  // hon blivit lagom (torr i regn / varm i snö / sval i sol) med en glad replik + bevis.
+  _goOutside(ctx) {
+    const fig = this._figure
+    if (!fig || fig.destroyed) return
+    gsap.killTweensOf(fig)
+    ctx.services.voice.say('Nu går Elvira ut!')
+    ctx.services.audio.sfx('whoosh')
+    this._payoff?.kill()
+    const tl = gsap.timeline()
+    this._payoff = tl
+    tl.to(fig, { x: 70, duration: 0.34, ease: 'sine.inOut' })
+      .to(fig, { y: -16, duration: 0.15, yoyo: true, repeat: 1, ease: 'power2.out' }, '<')
+      .to(fig, { x: 130, duration: 0.34, ease: 'sine.inOut' })
+      .to(fig, { y: -16, duration: 0.15, yoyo: true, repeat: 1, ease: 'power2.out' }, '<')
+      .call(() => this._showLagom(ctx))
+  },
+
+  // Visa "lagom"-beviset: glad replik + vädersspecifik emoji som svävar upp + gnistor +
+  // ett litet glädjehopp. Sedan (efter en paus) nytt väder.
+  _showLagom(ctx) {
+    if (!this._alive) return
+    const w = this._weather
+    ctx.services.voice.say(w.lagom)
+    ctx.services.audio.sfx('reveal')
+    const hx = 640 + (this._figure?.x || 0)
+    floatText(ctx.fxLayer, hx, 150, w.proof, { fontSize: 76, rise: 74, duration: 1.4 })
+    sparkle(ctx.fxLayer, hx, 230, { count: 8 })
+    if (this._figure && !this._figure.destroyed) {
+      gsap.to(this._figure, { y: -22, duration: 0.16, yoyo: true, repeat: 1, ease: 'power2.out' })
+    }
+    this._celebrate = gsap.delayedCall(1.7, () => {
       if (this._alive) this._newRound(ctx)
     })
   },
@@ -460,6 +528,10 @@ export default {
       }
     }
 
+    // Lugn väder-ambient: fågelkvitter (sol) / mjuka droppar (regn) / vind-sus (snö).
+    this._ambT -= ticker.deltaMS
+    if (this._ambT <= 0) this._playAmbient(ctx)
+
     this._idle += ticker.deltaMS / 1000
     if (this._idle > 6 && !this._resolving) {
       this._idle = 0
@@ -468,10 +540,31 @@ export default {
     }
   },
 
+  // Spela en kort, LÅG väder-ambient och schemalägg nästa (håll den lugn — aldrig påträngande).
+  _playAmbient(ctx) {
+    const a = ctx.services.audio
+    const rnd = (lo, hi) => lo + Math.random() * (hi - lo)
+    const k = this._weather?.key
+    if (k === 'regn') {
+      a.tone({ freq: rnd(520, 820), dur: 0.06, type: 'sine', vol: 0.045, slideTo: rnd(200, 300) })
+      if (Math.random() < 0.5) a.tone({ freq: rnd(400, 700), dur: 0.05, type: 'sine', vol: 0.03, slideTo: rnd(180, 260), delay: rnd(0.12, 0.3) })
+      this._ambT = rnd(380, 820)
+    } else if (k === 'sno') {
+      a.tone({ freq: rnd(240, 340), dur: rnd(1.0, 1.6), type: 'sine', vol: 0.05, slideTo: rnd(180, 240) })
+      this._ambT = rnd(3800, 6000)
+    } else {
+      const f = rnd(1900, 2500)
+      a.tone({ freq: f, dur: 0.07, type: 'sine', vol: 0.05, slideTo: f * 1.25 })
+      a.tone({ freq: f * 1.2, dur: 0.06, type: 'sine', vol: 0.04, slideTo: f * 0.9, delay: 0.09 })
+      this._ambT = rnd(2600, 4800)
+    }
+  },
+
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
     this._celebrate?.kill()
+    this._payoff?.kill()
     this._drag?.destroy()
     this._symPulse?.kill()
     this._glowPulse?.kill()
@@ -508,7 +601,8 @@ function distractorPool(curKey, usedEmoji) {
     const ow = WEATHERS[okey]
     const cands = []
     for (const z of ['huvud', 'overkropp', 'fotter']) {
-      cands.push({ slot: z, emoji: ow.good[z].emoji, namn: ow.good[z].namn })
+      const first = ow.valid[z][0]
+      cands.push({ slot: z, emoji: first.emoji, namn: first.namn })
     }
     for (const ex of EXTRAS[okey] || []) cands.push(ex)
     for (const c of cands) {

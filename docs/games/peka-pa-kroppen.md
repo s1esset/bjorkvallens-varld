@@ -1,5 +1,5 @@
 # Peka på Kroppen (`peka-pa-kroppen`)
-> 🔤 pedagogiskt · tap · 2–5 år · status: 📝 plan klar
+> 🔤 pedagogiskt · tap · 2–5 år · status: ✅ första-omgång klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -93,3 +93,19 @@ Kort sagt: en *stark igenkännings-loop med fin karaktär*, men teaching är enk
 - 2026-06-30: Doc skriven (granskning + plan; gammal byggspec överskriven). Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] matcha bubbel-emoji + mildra huvud-zonen + riktigt
   skratt-klipp** och **[Medium] "Peka på DIN…"-beat** — störst pedagogiskt/charm-lyft för minst risk.
+- 2026-07-02: **Första-omgång implementerad** (self-test errorCount 0).
+  - **[Quick] Skepnads-matchande bubbel-emoji:** `KIND_EMOJI` ger nallen 🧸/kaninen 🐰 eget
+    huvud (+ 🐻/🐰 för näsa/öra på djuren); barnet behåller 🧒. Stödet pekar nu mot rätt bild.
+  - **[Quick] Mildrad huvud-zon:** på låg nivå (`highestLevel ≤ 3`, `_softHead`) godkänns hela
+    huvudet även med aktivt ansikte — och ett pek på näsa/öga/mun/öra vid "huvud" räknas som
+    huvudet (`HEAD_REGION` i `_onPart`), ingen vingel längre. Beröm/float namnger alltid den
+    EFTERFRÅGADE delen (`PARTS[this._target]`), inte det tryckta smådelen.
+  - **[Quick] "Zacke skrattar glatt":** ny `_joy()` — `audio.sample('skratt')` om ett riktigt
+    skratt-klipp nånsin finns, annars en varm liten hehehe-gigg via `audio.tone` + röst-beröm.
+    Spelas vid varje rätt + vid DIN-bekräftelse.
+  - **[Medium] "Peka på DIN…"-beat:** varannan fråga (`_step % 2 === 1`) knyter an till barnets
+    egna kropp ("Kan du peka på din mage?" / "din"/"ditt" böjt korrekt via `poss`/`bas`). Kort
+    paus (`_ownDelay`) → glad bekräftelse OAVSETT (auto-timer eller vilket pek som helst), med
+    en glow på samma del hos Zacke som brygga. Alltid firande, aldrig fel.
+  - Exit-säkert: `_ownTimer` dödas i `_nextQuestion`/`_clearCharacter`/`destroy`; gigg-tonerna är
+    audio-context-schemalagda (inga Pixi-objekt att krascha).

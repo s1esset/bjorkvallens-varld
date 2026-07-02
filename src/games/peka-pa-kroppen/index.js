@@ -44,21 +44,50 @@ const MAX_LEVEL = 6
 const clampLevel = (n) => Math.min(MAX_LEVEL, Math.max(1, n || 1))
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
 
-// Kroppsdelar: svensk bestämd form (till frågan), namn (till beröm/float) och en
-// emoji som visas i prompt-bubblan som visuellt stöd. key:n är ASCII.
+// Kroppsdelar: svensk bestämd form (till frågan), namn (till beröm/float), en
+// emoji som visas i prompt-bubblan som visuellt stöd, samt bas (obestämd form) +
+// poss (din/ditt) för "peka på DIN …"-frågor. key:n är ASCII.
 const PARTS = {
-  huvud: { def: 'huvudet', namn: 'Huvud', emoji: '🧒' },
-  mage: { def: 'magen', namn: 'Mage', emoji: '🫄' },
-  fot: { def: 'foten', namn: 'Fot', emoji: '🦶' },
-  hand: { def: 'handen', namn: 'Hand', emoji: '✋' },
-  nasa: { def: 'näsan', namn: 'Näsa', emoji: '👃' },
-  mun: { def: 'munnen', namn: 'Mun', emoji: '👄' },
-  ora: { def: 'örat', namn: 'Öra', emoji: '👂' },
-  oga: { def: 'ögat', namn: 'Öga', emoji: '👁️' },
-  arm: { def: 'armen', namn: 'Arm', emoji: '💪' },
-  ben: { def: 'benet', namn: 'Ben', emoji: '🦵' },
-  kna: { def: 'knät', namn: 'Knä', emoji: '🦵' },
+  huvud: { def: 'huvudet', namn: 'Huvud', emoji: '🧒', bas: 'huvud', poss: 'ditt' },
+  mage: { def: 'magen', namn: 'Mage', emoji: '🫄', bas: 'mage', poss: 'din' },
+  fot: { def: 'foten', namn: 'Fot', emoji: '🦶', bas: 'fot', poss: 'din' },
+  hand: { def: 'handen', namn: 'Hand', emoji: '✋', bas: 'hand', poss: 'din' },
+  nasa: { def: 'näsan', namn: 'Näsa', emoji: '👃', bas: 'näsa', poss: 'din' },
+  mun: { def: 'munnen', namn: 'Mun', emoji: '👄', bas: 'mun', poss: 'din' },
+  ora: { def: 'örat', namn: 'Öra', emoji: '👂', bas: 'öra', poss: 'ditt' },
+  oga: { def: 'ögat', namn: 'Öga', emoji: '👁️', bas: 'öga', poss: 'ditt' },
+  arm: { def: 'armen', namn: 'Arm', emoji: '💪', bas: 'arm', poss: 'din' },
+  ben: { def: 'benet', namn: 'Ben', emoji: '🦵', bas: 'ben', poss: 'ditt' },
+  kna: { def: 'knät', namn: 'Knä', emoji: '🦵', bas: 'knä', poss: 'ditt' },
 }
+
+// Bubbel-emoji som matchar den AKTUELLA skepnaden (barn/nalle/kanin). Framför allt
+// huvudet klingar fel med en människo-emoji på nallen/kaninen — ge varje skepnad
+// sin egen. Övriga delar (näsa/öra/hand…) är generiska nog och faller tillbaka på
+// PARTS[key].emoji.
+const KIND_EMOJI = {
+  barn: { huvud: '🧒' },
+  nalle: { huvud: '🧸', nasa: '🐻', ora: '🐻' },
+  kanin: { huvud: '🐰', nasa: '🐰', ora: '🐰' },
+}
+const emojiFor = (key, charKey) => KIND_EMOJI[charKey]?.[key] || PARTS[key].emoji
+
+// Delar som räknas som "på huvudet" — så ett pek på näsan/ögat/munnen/örat vid
+// frågan "huvud" godkänns på låga nivåer (generöst för de yngsta).
+const HEAD_REGION = new Set(['huvud', 'nasa', 'oga', 'mun', 'ora'])
+const SOFT_HEAD_MAX_LEVEL = 3
+
+// "Peka på DIN …"-frågor (kroppslig koppling) + glad bekräftelse OAVSETT — kameran
+// kan inte se barnet, så vi firar alltid. {p} = din/ditt, {b} = obestämd bas.
+const OWN_QFORMS = ['Kan du peka på {p} {b}?', 'Var är {p} {b}?', 'Klappa {p} {b}!', 'Visa {p} {b}!']
+const ownPraiseFor = (part) =>
+  randomFrom([
+    `Ja! Där är ${part.poss} ${part.bas}!`,
+    `Duktigt! Det är ${part.poss} ${part.bas}!`,
+    `Bravo! Du hittade ${part.poss} ${part.bas}!`,
+    'Så bra!',
+    'Precis så!',
+  ])
 
 // Osynlig svårighetstrappa: stora, tydliga delar först; fler/finare vid högre nivå.
 const POOL_BY_LEVEL = {
@@ -216,6 +245,8 @@ export default {
     }
 
     this._level = clampLevel(ctx.progress.get().highestLevel)
+    // De yngsta (låg nivå): hela huvudet godkänns även när ansiktet är aktivt.
+    this._softHead = this._level <= SOFT_HEAD_MAX_LEVEL
     const pool = POOL_BY_LEVEL[this._level]
     this._goal = GOAL_BY_LEVEL[this._level] || 5
     this._plan = buildPlan(pool, this._goal)
@@ -224,6 +255,8 @@ export default {
     this._advanceDelay = clamp(1.2 - (this._level - 1) * 0.1, 0.7, 1.2)
     this._reaskDelay = clamp(0.95 - (this._level - 1) * 0.05, 0.65, 0.95)
     this._idleLimit = clamp(6.5 - (this._level - 1) * 0.35, 4.5, 6.5)
+    // "Peka på DIN …": en kort paus så barnet hinner peka på sig själv innan vi firar.
+    this._ownDelay = clamp(2.6 - (this._level - 1) * 0.1, 2.0, 2.6)
 
     this._mountCharacter(ctx)
     this._buildZones(pool)
@@ -236,6 +269,7 @@ export default {
   _mountCharacter(ctx) {
     this._clearCharacter()
     const spec = CHARACTERS[this._rounds % CHARACTERS.length]
+    this._charKey = spec.key // 'barn' | 'nalle' | 'kanin' (för matchande bubbel-emoji)
     this._char = this._resolveColors(spec)
     this._buildChar()
     // Lugn "andning" på hela skepnaden -> levande känsla (subtil, stör inte zoner).
@@ -444,7 +478,9 @@ export default {
     }
 
     if (has('huvud')) {
-      if (faceActive) add('huvud', 0, HEAD_Y - 60, 56, p.head) // pannan
+      // Krymp till pannan bara på HÖGRE nivåer när ansiktet är aktivt; för de
+      // yngsta godkänns hela huvudet (kompletteras av HEAD_REGION-logiken i _onPart).
+      if (faceActive && !this._softHead) add('huvud', 0, HEAD_Y - 60, 56, p.head) // pannan
       else add('huvud', 0, HEAD_Y, 104, p.head) // hela huvudet
     }
     if (has('mage')) add('mage', 0, BELLY_Y, 70, p.belly)
@@ -518,14 +554,25 @@ export default {
     this._resolving = false
     this._idle = 0
     this._clearHint()
+    this._ownTimer?.kill()
     const key = this._plan[this._step]
     this._target = key
     this._targetZones = this._zones.filter((z) => z.key === key)
     const part = PARTS[key]
-    this._currentPrompt = randomFrom(QFORMS).replace('{d}', part.def)
-    this._bubbleEmoji.text = part.emoji
+    // Varannan fråga knyter an till barnets EGNA kropp ("Peka på DIN mage?").
+    this._ownBody = this._step % 2 === 1
+    if (this._ownBody) {
+      this._currentPrompt = randomFrom(OWN_QFORMS).replace('{p}', part.poss).replace('{b}', part.bas)
+    } else {
+      this._currentPrompt = randomFrom(QFORMS).replace('{d}', part.def)
+    }
+    this._bubbleEmoji.text = emojiFor(key, this._charKey)
     pop(this._bubble)
     if (speak) ctx.services.voice.say(this._currentPrompt)
+    // DIN-frågan: efter en kort paus firar vi ALLTID (kameran ser inte barnet).
+    if (this._ownBody) {
+      this._ownTimer = gsap.delayedCall(this._ownDelay, () => this._confirmOwnBody(ctx))
+    }
   },
 
   // --- pekningar ------------------------------------------------------------
@@ -536,7 +583,14 @@ export default {
     this._idle = 0
     this._clearHint()
     const fp = ctx.fxLayer.toLocal(e.global)
-    if (zone.key === this._target) {
+    // DIN-fråga: barnet ska peka på sig självt — vilket pek på Zacke som helst firas.
+    if (this._ownBody) {
+      this._confirmOwnBody(ctx, fp)
+      return
+    }
+    // Låg nivå: ett pek på näsan/ögat/munnen/örat vid "huvud" räknas som huvudet.
+    const headOk = this._target === 'huvud' && this._softHead && HEAD_REGION.has(zone.key)
+    if (zone.key === this._target || headOk) {
       ctx.services.audio.sfx(Math.random() < 0.3 ? 'pling' : 'correct')
       ripple(ctx.fxLayer, fp.x, fp.y, { color: COLORS.yellow, maxR: 96, alpha: 0.6 })
       this._correct(ctx, zone, fp)
@@ -551,12 +605,13 @@ export default {
   _correct(ctx, zone, fp) {
     this._resolving = true
     this._idle = 0
-    const part = PARTS[zone.key]
+    const part = PARTS[this._target] // namnge alltid den EFTERFRÅGADE delen
     pop(zone._react)
     this._glowRing(ctx, zone)
     sparkle(ctx.fxLayer, fp.x, fp.y, { count: 9 })
     floatText(ctx.fxLayer, fp.x, fp.y - 30, `${part.namn}!`, { fontSize: 52, fontFamily: FONT.title })
     this._happyReact()
+    this._joy(ctx) // Zacke skrattar glatt
     ctx.services.voice.say(praiseFor(part))
 
     this._step++
@@ -586,12 +641,65 @@ export default {
     })
   },
 
+  // DIN-fråga besvarad (av paus-timern eller av vilket pek som helst): glad
+  // bekräftelse OAVSETT — vi firar alltid, och visar delen på Zacke som brygga.
+  _confirmOwnBody(ctx, fp) {
+    if (!this._alive || this._resolving) return
+    this._resolving = true
+    this._idle = 0
+    this._ownTimer?.kill()
+    this._clearHint()
+    const part = PARTS[this._target]
+    ctx.services.audio.sfx('pling')
+    this._joy(ctx) // Zacke skrattar glatt med barnet
+    this._happyReact()
+    const z = this._targetZones?.[0]
+    if (z) this._glowRing(ctx, z) // "…och där sitter den på Zacke!"
+    let ex = fp?.x
+    let ey = fp?.y
+    if (ex == null) {
+      const hp = ctx.fxLayer.toLocal((this._parts.head || this._figure).getGlobalPosition())
+      ex = hp.x
+      ey = hp.y
+    }
+    sparkle(ctx.fxLayer, ex, ey, { count: 9 })
+    floatText(ctx.fxLayer, ex, ey - 30, `${part.namn}!`, { fontSize: 52, fontFamily: FONT.title })
+    ctx.services.voice.say(ownPraiseFor(part))
+
+    this._step++
+    this._fillDots(this._step)
+    if (this._dots[this._step - 1]) pop(this._dots[this._step - 1])
+
+    this._resolveTimer?.kill()
+    this._resolveTimer = gsap.delayedCall(this._advanceDelay, () => {
+      if (!this._alive) return
+      if (this._step >= this._goal) this._completeRound(ctx)
+      else this._nextQuestion(ctx, true)
+    })
+  },
+
+  // Zacke skrattar glatt: riktigt skratt-klipp om det finns, annars en varm liten
+  // "hehehe"-gigg via toner (audio-context-schemalagd -> exit-säker, inga Pixi-objekt).
+  _joy(ctx) {
+    const a = ctx.services.audio
+    if (a.sample('skratt')) return
+    a.tone({ freq: 620, dur: 0.09, type: 'sine', vol: 0.22 })
+    a.tone({ freq: 780, dur: 0.09, type: 'sine', vol: 0.22, delay: 0.11 })
+    a.tone({ freq: 700, dur: 0.08, type: 'sine', vol: 0.2, delay: 0.22 })
+    a.tone({ freq: 880, dur: 0.1, type: 'sine', vol: 0.2, delay: 0.33 })
+  },
+
   // Tomt tryck (bredvid delarna): lekfull vingel + mjukt ljud + ring. Aldrig fel.
   _emptyTap(ctx, e) {
     if (!this._alive || this._resolving) return
     this._idle = 0
-    ctx.services.audio.sfx('soft')
     const fp = ctx.fxLayer.toLocal(e.global)
+    // DIN-fråga: barnet pekar på sig självt bredvid skärmen — fira ändå.
+    if (this._ownBody) {
+      this._confirmOwnBody(ctx, fp)
+      return
+    }
+    ctx.services.audio.sfx('soft')
     ripple(ctx.fxLayer, fp.x, fp.y, { color: COLORS.white, maxR: 70, alpha: 0.45 })
     wiggle(this._figure)
   },
@@ -762,7 +870,7 @@ export default {
 
   // Idle-recue: efter en stunds tystnad upprepar vi frågan och visar en ledtråd.
   _update(ctx, ticker) {
-    if (!this._alive || this._resolving || !this._target) return
+    if (!this._alive || this._resolving || this._ownBody || !this._target) return
     this._idle += ticker.deltaMS / 1000
     if (this._idle > this._idleLimit) {
       this._idle = 0
@@ -816,6 +924,8 @@ export default {
   // Riv nuvarande skepnad (tweens + timers) inför ny runda.
   _clearCharacter() {
     this._clearHint()
+    this._ownTimer?.kill()
+    this._ownTimer = null
     this._breatheTween?.kill()
     this._breatheTween = null
     this._blinkTimer?.kill()
@@ -839,6 +949,7 @@ export default {
     this._resolveTimer?.kill()
     this._reaskTimer?.kill()
     this._roundTimer?.kill()
+    this._ownTimer?.kill()
     this._blinkTimer?.kill()
     this._mouthTimer?.kill()
     this._breatheTween?.kill()

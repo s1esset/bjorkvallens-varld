@@ -1,11 +1,13 @@
 // Räkna Frukten ("Räkna Äpplena") — räkne-/lärande-tap-spel (2–5 år).
 // En charmig frukt-trädgård: programmatiskt ritat träd med glansig frukt i kronan,
 // en flätad korg nedanför och en stor, vänlig sifferräknare i mitten. Barnet
-// trycker på en frukt i taget, frukten susar ner i korgen och rösten räknar
-// "ett, två, tre…". När rundans mål är nått sägs totalen ("Tre äpplen!"), vi firar
-// och startar en ny (gradvis svårare) runda. Frukttypen varieras per runda
-// (äpple/päron/apelsin/plommon/citron) så det aldrig blir enformigt, och på högre
-// nivåer kommer ibland ett "tryck på N stycken"-mål bland fler frukter.
+// trycker på en frukt i taget, frukten susar ner i korgen (plums-ljud + korg-studs)
+// och rösten räknar "ett, två, tre…". Redan från runda 2 blir det oftast ett
+// "tryck på N stycken"-mål med en SYNLIG mål-siffra ("Tryck på 3") så barnet övar
+// att stanna vid rätt antal. När målet är nått räknar vi OM korgen ("ett, två, tre
+// — tre äpplen!") medan varje frukt studsar (sluter kardinalitets-loopen), sedan
+// firande och en ny runda. Frukttypen varieras per runda (äpple/päron/apelsin/
+// plommon/citron) så det aldrig blir enformigt.
 //
 // Inga felsteg, ingen timer, ingen poäng som sjunker — tomt tryck är bara en
 // lekfull vingel + mjukt ljud. ALL async är skyddad med this._alive (exit-säkert):
@@ -40,6 +42,8 @@ const goalIntro = (n, f) => `Kan du trycka på ${numWord(n)} ${nounOf(n, f)}?`
 const countAllIntro = (f) => `Räkna alla ${f.many}!`
 // Bekräftelse efter ett mål: "Du tryckte på fyra äpplen!"
 const goalFinish = (n, f) => `Du tryckte på ${numWord(n)} ${nounOf(n, f)}!`
+// Inled den avslutande omräkningen av korgen.
+const recountIntro = 'Nu räknar vi i korgen!'
 
 export default {
   id: 'rakna-applen',
@@ -78,6 +82,8 @@ export default {
 
     // 4) Korg (bakdel bakom frukten, framkant ovanpå så plockad frukt tuckas in).
     const basket = this._makeBasket()
+    this._basketBack = basket.back
+    this._basketFront = basket.front
     this._root.addChild(basket.back)
 
     // 5) Stor, vänlig räknesiffra (dold tills första plocket, studsar in per plock).
@@ -97,6 +103,40 @@ export default {
     this._bigNum.alpha = 0
     this._bigNum.eventMode = 'none'
     this._root.addChild(this._bigNum)
+
+    // 5b) Synlig MÅL-siffra ("Tryck på 3"): visas i "tryck på N"-läget så barnet
+    //     ser vilket antal det siktar mot och kan öva att stanna vid rätt siffra.
+    this._goalBanner = new Container()
+    this._goalBanner.eventMode = 'none'
+    this._goalBanner.interactiveChildren = false
+    this._goalBanner.visible = false
+    this._goalBanner.position.set(640, 74)
+    const pill = new Graphics()
+      .roundRect(-190, -48, 380, 96, 48)
+      .fill({ color: COLORS.cream, alpha: 0.94 })
+      .stroke({ width: 6, color: COLORS.orangeDark })
+    this._goalBanner.addChild(pill)
+    this._goalLabel = new Text({
+      text: 'Tryck på',
+      style: { fontFamily: FONT.display, fontSize: 44, fontWeight: '700', fill: COLORS.ink },
+    })
+    this._goalLabel.anchor.set(0, 0.5)
+    this._goalLabel.position.set(-160, 0)
+    this._goalBanner.addChild(this._goalLabel)
+    this._goalNum = new Text({
+      text: '',
+      style: {
+        fontFamily: FONT.display,
+        fontSize: 78,
+        fontWeight: '700',
+        fill: COLORS.orange,
+        stroke: { color: COLORS.orangeDark, width: 6, join: 'round' },
+      },
+    })
+    this._goalNum.anchor.set(0.5)
+    this._goalNum.position.set(120, 0)
+    this._goalBanner.addChild(this._goalNum)
+    this._root.addChild(this._goalBanner)
 
     // 6) Progress-rad: tomma konturer som fylls med en mini-frukt per plock.
     this._progLayer = new Container()
@@ -250,7 +290,7 @@ export default {
     const totalW = (n - 1) * gap
     for (let i = 0; i < n; i++) {
       const d = new Graphics().circle(0, 0, 20).fill({ color: 0xffffff, alpha: 0.5 }).stroke({ width: 4, color: COLORS.inkSoft })
-      d.position.set(640 - totalW / 2 + i * gap, 110)
+      d.position.set(640 - totalW / 2 + i * gap, 160)
       d.eventMode = 'none'
       this._progLayer.addChild(d)
       this._progDots.push(d)
@@ -286,15 +326,18 @@ export default {
     this._count = 0
     this._resolving = false
     this._idle = 0
+    this._picked = []
 
-    // Djup: målet växer 3 -> 10 med nivån. Från nivå 5 dyker ibland ett
-    // "tryck på N av flera"-mål upp (gentle subset-räkning) för variation.
+    // Runda 1 (lvl 0) är en mjuk "räkna alla"-intro (3 frukter). Redan från
+    // runda 2 blir det oftast ett "tryck på N stycken"-mål med en SYNLIG mål-
+    // siffra så barnet övar att stanna vid rätt antal — där räkneförståelsen
+    // sitter. Var fjärde runda blir "räkna alla" igen för variation.
     const lvl = this._level
     const grow = Math.min(10, 3 + lvl)
-    this._goalMode = lvl >= 5 && lvl % 2 === 1
+    this._goalMode = lvl >= 1 && lvl % 4 !== 0
     if (this._goalMode) {
-      this._target = 3 + (lvl % 4) // 3..6 att trycka på
-      this._onTree = Math.min(10, this._target + 2 + (lvl % 3)) // några extra i trädet
+      this._target = 2 + ((lvl - 1) % 4) // 2..5 att trycka på (börjar på 2)
+      this._onTree = Math.min(10, this._target + 2 + (lvl % 2)) // några extra i trädet
     } else {
       this._target = grow
       this._onTree = grow
@@ -323,6 +366,25 @@ export default {
     this._bigNum.text = ''
 
     this._buildProgress(this._target)
+
+    // Synlig mål-siffra: bara i "tryck på N"-läget (i "räkna alla" finns inget
+    // förbestämt tal att sikta mot).
+    gsap.killTweensOf(this._goalBanner.scale)
+    this._goalBanner.scale.set(1)
+    if (this._goalMode) {
+      this._goalNum.text = String(this._target)
+      this._goalNum.style.fill = this._fruit.body
+      this._goalBanner.visible = true
+      bounceIn(this._goalBanner, { duration: 0.4 })
+    } else {
+      this._goalBanner.visible = false
+    }
+
+    // Återställ korgens studs-skala inför ny runda.
+    gsap.killTweensOf(this._basketBack.scale)
+    gsap.killTweensOf(this._basketFront.scale)
+    this._basketBack.scale.set(1)
+    this._basketFront.scale.set(1)
 
     const cells = shuffle(this._cells()).slice(0, this._onTree)
     cells.forEach((pos, i) => {
@@ -366,6 +428,7 @@ export default {
     this._idle = 0
     this._breathTween?.kill()
     const n = ++this._count
+    this._picked.push(a)
 
     // Omedelbar återkoppling (<100ms): ljud + ring + svävande siffra + stor siffra.
     ctx.services.audio.sfx('pop')
@@ -391,7 +454,11 @@ export default {
       ease: 'power2.inOut',
       delay: 0.06,
       onComplete: () => {
-        if (this._alive && !a.destroyed) puff(ctx.fxLayer, stack.x, stack.y + 8, { count: 5, color: this._fruit.body })
+        if (!this._alive) return
+        if (!a.destroyed) puff(ctx.fxLayer, stack.x, stack.y + 8, { count: 5, color: this._fruit.body })
+        // Taktil landning: "plums"-ljud + en liten studs på korgen.
+        this._plums(ctx)
+        this._basketBounce(0.9, 1.06)
       },
     })
     ctx.services.audio.sfx('whoosh')
@@ -415,29 +482,100 @@ export default {
     gsap.to(this._bigNum.scale, { x: 1, y: 1, duration: 0.4, ease: 'back.out(2.2)' })
   },
 
-  // Runda klar: lokal saft (ljud+burst+mjuk skak) -> totalfras -> firande -> ny runda.
+  // "Plums": mjuk nedåt-glidande ton när frukten landar i korgen (taktilt).
+  _plums(ctx) {
+    ctx.services.audio.tone({ freq: 400, slideTo: 165, dur: 0.17, type: 'sine', vol: 0.5 })
+  },
+
+  // Liten studs på korgen (squash-and-stretch) vid varje landning / firande.
+  _basketBounce(sy = 0.9, sx = 1.06) {
+    ;[this._basketBack, this._basketFront].forEach((b) => {
+      if (!b || b.destroyed) return
+      gsap.killTweensOf(b.scale)
+      gsap
+        .timeline()
+        .to(b.scale, { x: sx, y: sy, duration: 0.08, ease: 'power2.out' })
+        .to(b.scale, { x: 1, y: 1, duration: 0.5, ease: 'elastic.out(1, 0.4)' })
+    })
+  },
+
+  // Studsa en frukt som redan ligger i korgen (används vid omräkningen).
+  _bounceFruit(a) {
+    if (!a || a.destroyed) return
+    const base = 0.42 // vilo-skala efter plocket
+    gsap.killTweensOf(a.scale)
+    gsap
+      .timeline()
+      .to(a.scale, { x: base * 1.45, y: base * 1.45, duration: 0.15, ease: 'power2.out' })
+      .to(a.scale, { x: base, y: base, duration: 0.3, ease: 'bounce.out' })
+  },
+
+  // Runda klar: räkna OM korgen (sluter kardinalitets-loopen) -> total -> firande.
   _finish(ctx) {
     if (!this._alive) return
     this._resolving = true
     this._idle = 0
     this._breathTween?.kill()
+    this._cueCall?.kill()
 
-    ctx.services.audio.sfx('correct')
-    burst(ctx.fxLayer, 1000, 560, { count: 18, power: 1.1 })
-    this._shakeTween = shake(this._root, { intensity: 6, duration: 0.4 })
+    // Låt de kvarvarande (oplockade) frukterna tona bort så blicken går till korgen.
+    ;(this._apples || []).forEach((a) => {
+      if (!a._picked && !a.destroyed) {
+        gsap.killTweensOf(a)
+        gsap.to(a, { alpha: 0, duration: 0.3 })
+      }
+    })
 
-    // Pedagogisk total ("Tre äpplen!" / "Du tryckte på fyra äpplen!").
-    ctx.services.voice.say(this._goalMode ? goalFinish(this._target, this._fruit) : totalPhrase(this._target, this._fruit))
+    ctx.services.audio.sfx('pling')
+    ctx.services.voice.say(recountIntro)
+
+    // Avslutande omräkning: peka blicken mot korgen och räkna de samlade
+    // frukterna EN gång till ("ett, två, tre — tre äpplen!") medan var och en
+    // studsar — barnet ser mängden OCH hör talet ihop.
+    const step = 0.6
+    const lead = 1.1
+    this._recountTl?.kill()
+    this._recountTl = gsap.timeline()
+    this._picked.forEach((a, i) => {
+      this._recountTl.call(
+        () => {
+          if (!this._alive) return
+          this._bounceFruit(a)
+          this._basketBounce(0.94, 1.04)
+          ctx.services.audio.tone({ freq: 520 + i * 40, dur: 0.12, type: 'triangle', vol: 0.3 })
+          this._showBig(i + 1)
+          ctx.services.voice.say(numWord(i + 1))
+        },
+        null,
+        lead + i * step,
+      )
+    })
+
+    const endAt = lead + this._picked.length * step + 0.2
+    this._recountTl.call(
+      () => {
+        if (!this._alive) return
+        this._showBig(this._target)
+        ctx.services.audio.sfx('correct')
+        burst(ctx.fxLayer, 1000, 500, { count: 18, power: 1.1 })
+        this._basketBounce(0.84, 1.1)
+        this._shakeTween = shake(this._root, { intensity: 6, duration: 0.4 })
+        // Pedagogisk total ("Tre äpplen!" / "Du tryckte på fyra äpplen!").
+        ctx.services.voice.say(this._goalMode ? goalFinish(this._target, this._fruit) : totalPhrase(this._target, this._fruit))
+      },
+      null,
+      endAt,
+    )
 
     ctx.progress.setLevel(this._level + 1)
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
 
     // Stora firandet (konfetti + beröm + stjärna + klistermärke) EFTER att totalen
     // hörts — complete() sköter allt det, vi dubblerar det inte.
-    this._complete = gsap.delayedCall(1.0, () => {
+    this._complete = gsap.delayedCall(endAt + 1.2, () => {
       if (this._alive) ctx.progress.complete()
     })
-    this._next = gsap.delayedCall(2.4, () => {
+    this._next = gsap.delayedCall(endAt + 2.9, () => {
       if (!this._alive) return
       this._level++
       this._newRound(ctx)
@@ -477,11 +615,15 @@ export default {
     this._cueCall?.kill()
     this._breathTween?.kill()
     this._shakeTween?.kill()
+    this._recountTl?.kill()
     ;(this._apples || []).forEach((a) => {
       gsap.killTweensOf(a)
       gsap.killTweensOf(a.scale)
     })
     gsap.killTweensOf(this._bigNum?.scale)
+    gsap.killTweensOf(this._goalBanner?.scale)
+    gsap.killTweensOf(this._basketBack?.scale)
+    gsap.killTweensOf(this._basketFront?.scale)
     gsap.killTweensOf(this._root)
     ctx.services.voice.cancel()
     this._root?.destroy({ children: true })

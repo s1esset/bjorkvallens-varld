@@ -1,5 +1,5 @@
 # Räkna Äpplena (`rakna-applen`)
-> 🔤 larande · tap · 2–5 år · status: 📝 plan klar
+> 🔤 larande · tap · 2–5 år · status: ✅ första-omgång klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -95,3 +95,16 @@ ber barnet *förstå* mängd, känna igen siffran eller stanna vid rätt antal.
 - Rekommenderad första-omgång: **[Quick] tidigare "tryck på N"-mål med synlig siffra +
   plums-ljud** och **[Medium] avslutande omräkning av korgen** — störst räkne-pedagogiskt
   lyft för minst risk.
+- 2026-07-02: ✅ Första-omgång IMPLEMENTERAD.
+  - **[Quick] "Tryck på N" tidigt + synlig mål-siffra:** goalMode flyttat från `lvl>=5 && lvl%2===1`
+    till `lvl>=1 && lvl%4!==0` (start redan runda 2, mestadels; var 4:e runda "räkna alla").
+    Mål börjar på 2 och växer 2..5. Ny mål-banner ("Tryck på **N**") med stor färgad siffra
+    visas i goalMode så barnet ser och siktar mot antalet. Progress-prickar flyttade till y=160
+    så de inte krockar med bannern.
+  - **[Quick] Plums + korg-studs:** ny `_plums()` (nedåt-glidande ton 400→165 Hz) + `_basketBounce()`
+    squash-and-stretch på korgens båda delar vid varje landning.
+  - **[Medium] Avslutande omräkning:** `_finish()` tonar bort kvarvarande frukt, säger "Nu räknar
+    vi i korgen!", och kör en exit-säker gsap-timeline som studsar varje plockad frukt medan rösten
+    räknar om ("ett, två, tre…") + stor siffra, avslutar med totalen och firandet.
+  - Exit-säkert: alla nya tweens/timeline (recountTl, banner/korg/frukt-scale) dödas i `destroy`,
+    alla timeline-callbacks guardade med `_alive`/`!destroyed`. Self-test: errorCount 0.

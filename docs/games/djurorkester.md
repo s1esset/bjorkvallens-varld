@@ -1,5 +1,5 @@
 # Djurorkester (`djurorkester`)
-> 🔤 pedagogiskt · tap · 2–4 år · status: 📝 plan klar
+> 🔤 pedagogiskt · tap · 2–4 år · status: ✅ första-omgång klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -102,3 +102,21 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
 - Rekommenderad första-omgång: **[Medium] takt/groove + [Medium] sekvens-kör + [Quick]
   instrument-emoji** — uppfyller titelns löfte (orkester + kör) och lyfter det från
   ljudknapps-bräda till musiklek, helt inom no-fail.
+- 2026-07-02: **Första-omgång IMPLEMENTERAD** (errorCount 0, skärmdump verifierad —
+  6 djurkort med instrument-rekvisita, kör-sväng + konfetti syns):
+  - **[Medium] Takt/groove.** Lugn bakgrundstakt (~80 bpm, `BEAT=0.75s`) drivs i
+    `_update`: ett mjukt bas-slag varannan takt (C3/G3, `audio.tone` vol 0.05) och
+    alla korts inre behållare (`card._inner`) "andas" med en liten accent-puls i
+    början av varje slag → barnet känner pulsen och tryck hamnar i en groove.
+  - **[Medium] Sekvens-kör.** `_trackSequence` håller ett glidande fönster; tre OLIKA
+    djur i följd → `_chorus`: de tre kortens `_inner` gungar synkront (proxy-tween,
+    exit-säkert), deras pentatoniska toner staplas i ett litet ackord (grundton +
+    oktav-glans, arpeggierat), extra gnistor + 🎶 + beröm ("Wow, de sjunger ihop!").
+  - **[Quick] Instrument-emoji.** Varje kort har nu en rekvisita i hörnet
+    (ko 🎺, hund 🥁, katt 🎹, groda 🪇, gris 🎷, anka 🎻) — läser som en orkester.
+  - **[Quick, bonus] Varierad tonhöjd + not kopplad till ljudet.** Varje tryck spelar
+    djurets pentatonton via `audio.tone` med ±3% slumpvariation (aldrig mekaniskt
+    likadant); 🎵-notens storlek/stig-höjd följer tonhöjden (låg ton = stort tecken
+    lågt, hög = litet högt).
+  - Kvar till senare (ej i denna omgång): djur-rotation per konsert, synlig
+    konsert-mätare, Dirigent Bobo + scen, grannkort-vibration.

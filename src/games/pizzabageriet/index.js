@@ -2,6 +2,8 @@
 // uppifrån: dra valfria ingredienser (mat, fisk, bajs, strumpa, tand … allt går!) från
 // brädan ner på degen och släpp var som helst → fri placering + valfri mängd ger
 // mönster och färgglada former (INGA ikon-behållare, själva saken visas i fullstorlek).
+// Ingredienshyllan har MÅNGA saker → svep/dra i hyllan (eller pilarna) för att bläddra;
+// ett tryck lägger på pizzan direkt (tap-fallback). Placerade ingredienser blir STORA.
 // Sedan: tryck "Grädda" → pizzan åker in i ugnen och MÖRKNAR långsamt (en ton-gradient
 // över tid: ljus → gyllene → brun → kol). Barnet tittar på färgen och trycker "Ta ut"
 // när den ser god ut. INGET kan bli fel: även becksvart är bara roligt ("Hihi, bränd!"),
@@ -14,15 +16,29 @@ import { createScene } from '../../lib/scene.js'
 import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 // Ingredienser (visas som själva saken — ingen ikon-bricka). Mat + fisk + roliga grejer.
-const ITEMS = ['🍅', '🍄', '🫑', '🧀', '🌽', '🍍', '🐟', '🦐', '💩', '🧦', '🦷', '⭐']
+// Grunduppsättning + 25 extra "slumpiga" toppings → svepbar hylla.
+const BASE_ITEMS = ['🍅', '🍄', '🫑', '🧀', '🌽', '🍍', '🐟', '🦐', '💩', '🧦', '🦷', '⭐']
+const EXTRA_ITEMS = [
+  '🥓', '🥦', '🥕', '🌶️', '🫒', '🧅', '🧄', '🥚', '🍗', '🍖', '🥩', '🍳', '🦑',
+  '🦀', '🐙', '🍋', '🍇', '🍫', '🍬', '🍩', '🥨', '🥜', '🌰', '🐛', '🦴',
+]
+const ALL_ITEMS = [...BASE_ITEMS, ...EXTRA_ITEMS]
 
 const PIZZA = { x: 430, y: 330, r: 196 }
-const OVEN = { x: 1000, y: 332 }
+const OVEN = { x: 1060, y: 332 }
+const BTN = { x: 749, y: 330 } // Grädda/Ta ut: mellan pizzan och ugnen (ej över hyllan)
 const MAX_TOPPINGS = 60
+const PLACED_FONT = 140 // ~2.5× hyllstorleken (56) — stora, tydliga toppings på pizzan
+
+// Svepbar hylla.
+const SHELF_Y = 672
+const SHELF_VX0 = 150 // synligt fönster (vänster)
+const SHELF_VX1 = 1130 // synligt fönster (höger)
+const ITEM_STEP = 104
 
 // Ton-gradient för degen: ljus → gyllene → brun → kol.
 const bakeTint = makeBakeTint([0xffffff, 0xfff0c8, 0xe8b25a, 0x9a5a2c, 0x2e241c])
@@ -53,8 +69,10 @@ export default {
     this._bake = 0 // 0..1 doneness
     this._lastPlaceCheer = 0
     this._lastSmoke = 0
-    this._drag = null
+    this._grab = null
     this._rounds = ctx.progress.get().custom?.pizzor || 0
+    // Slumpad ordning på hyllan så två sessioner inte ser lika ut.
+    this._items = shuffle(ALL_ITEMS.slice())
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -110,27 +128,27 @@ export default {
     this._customer.eventMode = 'none'
     this._root.addChild(this._customer)
 
+    // Ingrediens-bräda nederst (svepbar hylla, oändlig påfyllning).
+    this._buildPalette(ctx)
+
     // Drag-lager överst (kopior som dras ligger här).
     this._dragLayer = new Container()
     this._dragLayer.eventMode = 'none'
     this._root.addChild(this._dragLayer)
 
-    // Ingrediens-bräda nederst (varje ingrediens = själva saken, oändlig påfyllning).
-    this._buildPalette(ctx)
-
-    // Knappar: Grädda (decorate) / Ta ut (baking) — växlar synlighet.
+    // Knappar: Grädda (decorate) / Ta ut (baking) — växlar synlighet. Mellan pizza & ugn.
     this._bakeBtn = new Button({
-      label: 'Grädda', icon: '🔥', width: 250, height: 104, color: COLORS.orange,
+      label: 'Grädda', icon: '🔥', width: 190, height: 100, color: COLORS.orange,
       services: ctx.services, sound: 'whoosh', onTap: () => this._startBake(ctx),
     })
-    this._bakeBtn.position.set(PIZZA.x, 600)
+    this._bakeBtn.position.set(BTN.x, BTN.y)
     this._root.addChild(this._bakeBtn)
 
     this._takeBtn = new Button({
-      label: 'Ta ut', icon: '🧤', width: 250, height: 104, color: COLORS.green,
+      label: 'Ta ut', icon: '🧤', width: 190, height: 100, color: COLORS.green,
       services: ctx.services, sound: 'pop', onTap: () => this._takeOut(ctx),
     })
-    this._takeBtn.position.set(PIZZA.x, 600)
+    this._takeBtn.position.set(BTN.x, BTN.y)
     this._takeBtn.visible = false
     this._root.addChild(this._takeBtn)
 
@@ -187,88 +205,163 @@ export default {
     return c
   },
 
+  // ---- Svepbar ingredienshylla -------------------------------------------
+
   _buildPalette(ctx) {
-    this._palette = new Container()
-    this._root.addChild(this._palette)
-    const n = ITEMS.length
-    const x0 = 120
-    const x1 = 1160
-    const y = 672
-    // Bricka bakom (mjuk hylla) — dekor, inte runt varje sak.
-    const shelf = new Graphics().roundRect(70, y - 52, 1140, 96, 28).fill({ color: 0xffffff, alpha: 0.5 }).stroke({ width: 4, color: 0xe6d8bf })
+    // Hyll-dekor (mjuk bakgrund, hela bredden).
+    const shelf = new Graphics().roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill({ color: 0xffffff, alpha: 0.5 }).stroke({ width: 4, color: 0xe6d8bf })
     shelf.eventMode = 'none'
-    this._palette.addChild(shelf)
+    this._root.addChild(shelf)
+
+    // Klippt fönster (mask) så saker utanför hyllan inte syns.
+    this._paletteViewport = new Container()
+    this._root.addChild(this._paletteViewport)
+    const maskG = new Graphics().roundRect(SHELF_VX0, SHELF_Y - 50, SHELF_VX1 - SHELF_VX0, 100, 22).fill(0xffffff)
+    this._paletteViewport.addChild(maskG)
+    this._paletteViewport.mask = maskG
+
+    // Strippen som scrollas (alla ingredienser i en lång rad).
+    this._paletteStrip = new Container()
+    this._paletteViewport.addChild(this._paletteStrip)
+
     this._paletteItems = []
-    ITEMS.forEach((emoji, i) => {
-      const px = x0 + (n === 1 ? 0 : ((x1 - x0) * i) / (n - 1))
-      const it = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 58 } })
+    this._items.forEach((emoji, i) => {
+      const it = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 56 } })
       it.anchor.set(0.5)
-      it.position.set(px, y)
+      it.position.set(i * ITEM_STEP, SHELF_Y) // lokal x i strippen
       it.eventMode = 'static'
       it.cursor = 'pointer'
       it.hitArea = new Circle(0, 0, 50) // ≥96px träff
-      const onDown = (e) => this._startDrag(ctx, emoji, e)
+      const onDown = (e) => this._onItemDown(ctx, emoji, it, e)
       it.on('pointerdown', onDown)
       it._onDown = onDown
-      this._palette.addChild(it)
+      this._paletteStrip.addChild(it)
       this._paletteItems.push(it)
     })
+
+    // Scroll-gränser (strip.x).
+    const contentW = (this._items.length - 1) * ITEM_STEP
+    this._scrollMax = SHELF_VX0 + 40 // första saken vid vänsterkanten
+    this._scrollMin = Math.min(this._scrollMax, SHELF_VX1 - 40 - contentW)
+    this._paletteStrip.x = this._scrollMax
+    this._paletteStrip.y = 0
+
+    // Pilar för att bläddra (tap) — komplement till svep.
+    this._arrows = []
+    const mkArrow = (x, char, dir) => {
+      const a = new Container()
+      a.position.set(x, SHELF_Y)
+      a.addChild(new Graphics().circle(0, 0, 34).fill({ color: COLORS.orange, alpha: 0.95 }).stroke({ width: 4, color: 0xffffff }))
+      const t = new Text({ text: char, style: { fontFamily: FONT.body, fontSize: 34, fontWeight: '900', fill: 0xffffff } })
+      t.anchor.set(0.5)
+      a.addChild(t)
+      a.eventMode = 'static'
+      a.cursor = 'pointer'
+      a.hitArea = new Circle(0, 0, 48)
+      const onTap = () => this._pageShelf(ctx, dir)
+      a.on('pointertap', onTap)
+      a._onTap = onTap
+      this._root.addChild(a)
+      this._arrows.push(a)
+    }
+    mkArrow(102, '◀', +1) // visa tidigare
+    mkArrow(1178, '▶', -1) // visa senare
   },
 
-  // ---- Drag: bräda → pizza (fri placering, oändlig påfyllning) -------------
-
-  _startDrag(ctx, emoji, e) {
-    if (!this._alive || this._phase !== 'decorate' || this._drag) return
+  _pageShelf(ctx, dir) {
+    if (!this._alive || this._phase !== 'decorate') return
     this._idle = 0
+    const target = clamp(this._paletteStrip.x + dir * 560, this._scrollMin, this._scrollMax)
+    gsap.killTweensOf(this._paletteStrip)
+    gsap.to(this._paletteStrip, { x: target, duration: 0.32, ease: 'power2.out' })
     ctx.services.audio.sfx('tap')
-    const view = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 64 } })
-    view.anchor.set(0.5)
-    view.eventMode = 'none'
-    const p = this._root.toLocal(e.global)
-    view.position.set(p.x, p.y)
-    this._dragLayer.addChild(view)
-    this._drag = { emoji, view, src: e.currentTarget }
-    pop(view)
-    const move = (ev) => this._onDragMove(ev)
-    const up = (ev) => this._onDragUp(ctx, ev)
-    this._drag.move = move
-    this._drag.up = up
-    this._drag.src.on('globalpointermove', move)
-    this._drag.src.on('pointerup', up)
-    this._drag.src.on('pointerupoutside', up)
   },
 
-  _onDragMove(e) {
-    if (!this._alive || !this._drag) return
-    const p = this._root.toLocal(e.global)
-    this._drag.view.position.set(p.x, p.y)
+  // ---- Gest: tap / drag-till-pizza / svep-scroll (disambiguering) ----------
+
+  _onItemDown(ctx, emoji, item, e) {
+    if (!this._alive || this._phase !== 'decorate' || this._grab) return
+    this._idle = 0
+    gsap.killTweensOf(this._paletteStrip)
+    const move = (ev) => this._onGrabMove(ctx, ev)
+    const up = (ev) => this._onGrabUp(ctx, ev)
+    this._grab = {
+      emoji, src: item, mode: 'undecided', ghost: null,
+      startX: e.global.x, startY: e.global.y, startScroll: this._paletteStrip.x, move, up,
+    }
+    item.on('globalpointermove', move)
+    item.on('pointerup', up)
+    item.on('pointerupoutside', up)
   },
 
-  _onDragUp(ctx, e) {
-    if (!this._alive || !this._drag) return
-    const d = this._drag
-    d.src.off('globalpointermove', d.move)
-    d.src.off('pointerup', d.up)
-    d.src.off('pointerupoutside', d.up)
-    this._drag = null
-
-    const local = this._pizza.toLocal(e.global)
-    const dist = Math.hypot(local.x, local.y)
-    if (dist <= PIZZA.r - 14 && this._toppings.length < MAX_TOPPINGS) {
-      // Släpp på degen → fast topping på den lokala punkten.
-      this._placeTopping(ctx, d.emoji, local.x, local.y)
-      if (d.view && !d.view.destroyed) d.view.destroy()
-    } else {
-      // Utanför pizzan → liten puff, ingen straff.
-      const rp = this._root.toLocal(e.global)
-      puff(ctx.fxLayer, rp.x, rp.y, { count: 6 })
-      ctx.services.audio.sfx('soft')
-      if (d.view && !d.view.destroyed) d.view.destroy()
+  _onGrabMove(ctx, e) {
+    const g = this._grab
+    if (!g) return
+    const dx = e.global.x - g.startX
+    const dy = e.global.y - g.startY
+    if (g.mode === 'undecided') {
+      if (Math.hypot(dx, dy) < 14) return
+      if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+        g.mode = 'scroll' // vågrätt drag → bläddra hyllan
+      } else {
+        g.mode = 'drag' // uppåt/lodrätt → dra ut en ingrediens
+        ctx.services.audio.sfx('tap')
+        const view = new Text({ text: g.emoji, style: { fontFamily: FONT.body, fontSize: 64 } })
+        view.anchor.set(0.5)
+        view.eventMode = 'none'
+        const p = this._root.toLocal(e.global)
+        view.position.set(p.x, p.y)
+        this._dragLayer.addChild(view)
+        g.ghost = view
+        pop(view)
+      }
+    }
+    if (g.mode === 'scroll') {
+      this._paletteStrip.x = clamp(g.startScroll + dx, this._scrollMin, this._scrollMax)
+    } else if (g.mode === 'drag' && g.ghost && !g.ghost.destroyed) {
+      const p = this._root.toLocal(e.global)
+      g.ghost.position.set(p.x, p.y)
     }
   },
 
+  _onGrabUp(ctx, e) {
+    const g = this._grab
+    if (!g) return
+    g.src.off('globalpointermove', g.move)
+    g.src.off('pointerup', g.up)
+    g.src.off('pointerupoutside', g.up)
+    this._grab = null
+
+    if (g.mode === 'drag') {
+      const local = this._pizza.toLocal(e.global)
+      const dist = Math.hypot(local.x, local.y)
+      if (dist <= PIZZA.r - 14 && this._toppings.length < MAX_TOPPINGS) {
+        this._placeTopping(ctx, g.emoji, local.x, local.y)
+      } else {
+        const rp = this._root.toLocal(e.global)
+        puff(ctx.fxLayer, rp.x, rp.y, { count: 6 })
+        ctx.services.audio.sfx('soft')
+      }
+      if (g.ghost && !g.ghost.destroyed) g.ghost.destroy()
+    } else if (g.mode === 'undecided') {
+      // Rent tryck (ingen rörelse) = tap-fallback: lägg på pizzan på en slumpad plats.
+      this._tapPlace(ctx, g.emoji)
+    } else {
+      // scroll settle
+      ctx.services.audio.sfx('soft')
+    }
+  },
+
+  _tapPlace(ctx, emoji) {
+    if (this._toppings.length >= MAX_TOPPINGS) return
+    const a = Math.random() * Math.PI * 2
+    const rr = (PIZZA.r - 60) * Math.sqrt(Math.random()) * 0.9
+    this._placeTopping(ctx, emoji, Math.cos(a) * rr, Math.sin(a) * rr)
+  },
+
   _placeTopping(ctx, emoji, lx, ly) {
-    const t = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 56 } })
+    // Placerad ingrediens = STOR (2.5× hyllstorleken) för tydliga, saftiga former.
+    const t = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: PLACED_FONT } })
     t.anchor.set(0.5)
     t.position.set(lx, ly)
     t.rotation = (Math.random() - 0.5) * 0.5
@@ -276,7 +369,7 @@ export default {
     this._toppingLayer.addChild(t)
     this._toppings.push(t)
     bounceIn(t)
-    sparkle(ctx.fxLayer, this._pizza.x + lx, this._pizza.y + ly, { count: 4 })
+    sparkle(ctx.fxLayer, this._pizza.x + lx, this._pizza.y + ly, { count: 5 })
     ctx.services.audio.sfx('pop')
     const now = performance.now()
     if (now - this._lastPlaceCheer > 1400 && Math.random() < 0.5) {
@@ -298,7 +391,6 @@ export default {
     this._phase = 'baking'
     this._bake = 0
     this._idle = 0
-    this._cancelDrag()
     this._setPaletteEnabled(false)
     this._bakeBtn.visible = false
     this._setHint('Titta på färgen — ta ut när den är klar!')
@@ -452,21 +544,27 @@ export default {
   },
 
   _setPaletteEnabled(on) {
+    if (!on) this._cancelGrab()
     for (const it of this._paletteItems) {
       if (it.destroyed) continue
       it.eventMode = on ? 'static' : 'none'
       it.alpha = on ? 1 : 0.4
     }
+    for (const a of this._arrows || []) {
+      if (a.destroyed) continue
+      a.eventMode = on ? 'static' : 'none'
+      a.alpha = on ? 1 : 0.35
+    }
   },
 
-  _cancelDrag() {
-    const d = this._drag
-    if (!d) return
-    d.src.off('globalpointermove', d.move)
-    d.src.off('pointerup', d.up)
-    d.src.off('pointerupoutside', d.up)
-    if (d.view && !d.view.destroyed) d.view.destroy()
-    this._drag = null
+  _cancelGrab() {
+    const g = this._grab
+    if (!g) return
+    g.src.off('globalpointermove', g.move)
+    g.src.off('pointerup', g.up)
+    g.src.off('pointerupoutside', g.up)
+    if (g.ghost && !g.ghost.destroyed) g.ghost.destroy()
+    this._grab = null
   },
 
   destroy(ctx) {
@@ -479,13 +577,17 @@ export default {
       gsap.killTweensOf(this._customer)
       gsap.killTweensOf(this._customer.scale)
     }
-    this._cancelDrag()
+    this._cancelGrab()
+    gsap.killTweensOf(this._paletteStrip)
     for (const it of this._paletteItems || []) {
       if (it && !it.destroyed) {
         it.off('pointerdown', it._onDown)
         gsap.killTweensOf(it)
         gsap.killTweensOf(it.scale)
       }
+    }
+    for (const a of this._arrows || []) {
+      if (a && !a.destroyed) a.off('pointertap', a._onTap)
     }
     for (const t of this._toppings || []) {
       gsap.killTweensOf(t)

@@ -129,21 +129,22 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 63 | Kugghjulen | `kugghjulen` | drag | ✅ |
 | 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ |
 
-### 🔤 Lära (larande + pedagogiskt) — ✅ alla docs skrivna (Fas 4)
+### 🔤 Lära (larande + pedagogiskt) — ✅ HELA fliken (första-omgång, 2026-07-02)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
-| 7 | Färgregn | `fargregn` | tap | 📝 |
-| 9 | Räkna Äpplena | `rakna-applen` | tap | 📝 |
-| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | 📝 |
-| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | 📝 |
-| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | 📝 |
-| 25 | Siffertåget | `siffertaget` | mixed | 📝 |
-| 30 | Djurorkester | `djurorkester` | tap | 📝 |
-| 47 | Ballonglyft | `ballonglyft` | tap | 📝 |
-| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | 📝 |
+| 7 | Färgregn | `fargregn` | tap | 🔧 |
+| 9 | Räkna Äpplena | `rakna-applen` | tap | 🔧 |
+| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | 🔧 |
+| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | 🔧 |
+| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | 🔧 |
+| 25 | Siffertåget | `siffertaget` | mixed | 🔧 |
+| 30 | Djurorkester | `djurorkester` | tap | 🔧 |
+| 47 | Ballonglyft | `ballonglyft` | tap | 🔧 |
+| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | 🔧 |
 
-**✅ Alla 68 spel granskade (Fas 1–4 klara). Nästa steg: genomför förbättringarna spel för spel
-(samma redigera→test→screenshot→commit-loop), prioriterat efter de app-breda mönstren nedan.**
+**✅ Alla 68 spel granskade (Fas 1–4 klara) OCH alla 4 flikar har fått en genomförd första-omgång
+(Roligt · Fysik · Pussel · Lära). Nästa steg: en andra polerings-omgång / de kvarvarande
+[Deep]-förslagen per spel, prioriterat efter de app-breda mönstren nedan.**
 
 ## Återkommande mönster (app-breda lyft)
 

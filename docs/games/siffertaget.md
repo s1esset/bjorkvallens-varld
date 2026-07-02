@@ -108,3 +108,15 @@ vägg, och glöden tänker åt barnet.**
 - Rekommenderad första-omgång: **[Medium] lasta vagnarna med n föremål + [Quick] riktigt
   tågtut/chuff + [Quick] levande ång-lok** — gör räknandet meningsfullt och scenen levande
   utan att röra den vattentäta no-fail-mekaniken.
+- 2026-07-02: **Första-omgång IMPLEMENTERAD** (errorCount 0, exit-cykel ren):
+  - **Lastade vagnar.** Prickraden ersatt med `n` tematiska föremål per vagn (`LAST_ORD`):
+    1🌸 blomma, 2🐟 fiskar, 3🍎 äpplen, 4🐤 ankungar, 5⭐ stjärnor — barnet kan räkna
+    sakerna, inte bara jaga glöden. Siffran flyttad upp (78px) för att ge plats.
+  - **Riktigt tågljud** via `audio.tone`: mjukt "tut" (två stämmor) vid varje koppling med
+    tonhöjd som KLÄTTRAR per vagn (`base = 220 + placedCount*34`, kombo-känsla) + en stolt,
+    hållen ångvissel (620/930 Hz, stiger) när tåget är fullt. Räkne-rösten knyter nu siffran
+    till antalet: "Tre! Tre äpplen!".
+  - **Levande lok:** hjulen (egen behållare `eng._wheels`) guppar lätt, loket vaggar svagt
+    (y-gupp + pytteliten rotation, `_startRock`, startas om per runda), och ång-puffar stiger
+    ur skorstenen i loop (`_steamLayer` + `_emitSteam`, exit-säker proxy-tween). Alla nya
+    tweens (`_steam`/`_rock`/`_wheelBob`) dödas i `destroy`. No-fail-kopplingen orörd.

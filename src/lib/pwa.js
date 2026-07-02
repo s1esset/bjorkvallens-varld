@@ -39,9 +39,17 @@ export function applyPendingUpdateAtMenu() {
   }
 }
 
-// Kort version-/byggstämpel (sätts i vite.config.js via define). Visas i menyn så en
-// förälder kan se vilken version som körs och bekräfta att en uppdatering slog igenom.
+// Kort versionsstämpel "vM.NN" (MINOR zero-paddat, se docs/DESIGN.md §9). Visas som
+// etikett på menyns uppdateringsknapp så en förälder med en blick ser om "Hämta
+// senaste" gav en ny version. Källa: package.json version (via define i vite.config.js).
 export function appVersion() {
+  const v = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'
+  const [major = '0', minor = '0'] = v.split('.')
+  return `v${major}.${minor.padStart(2, '0')}`
+}
+
+// Full teknisk stämpel (semver + byggtidsstämpel) för felsökning/vuxenytor.
+export function appVersionFull() {
   const v = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'
   const b = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev'
   return `v${v} · ${b}`

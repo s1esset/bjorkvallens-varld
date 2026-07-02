@@ -6,7 +6,7 @@ import { Button } from '../../lib/Button.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { confirmDialog } from '../../lib/confirm.js'
 import { avatarEmoji } from '../../lib/swedish.js'
-import { COLORS, FONT, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { COLORS, FONT, DESIGN_W, DESIGN_H, SPACING } from '../../lib/theme.js'
 
 export async function createMenuScreen(services) {
   const view = new Container()
@@ -53,7 +53,13 @@ export async function createMenuScreen(services) {
   play.x = DESIGN_W / 2
   play.y = 520
   view.addChild(play)
-  gsap.from(play.scale, { x: 0, y: 0, duration: 0.5, ease: 'back.out(1.7)', delay: 0.1 })
+  gsap.from(play.scale, {
+    x: 0, y: 0, duration: 0.5, ease: 'back.out(1.7)', delay: 0.1,
+    onComplete: () => {
+      // mjuk "andning" som bjuder in till tryck (DESIGN.md §7 breathe)
+      gsap.to(play.scale, { x: 1.03, y: 1.03, duration: 1.6, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    },
+  })
 
   // Kugghjul (inställningar) – grindat
   const gear = new Button({
@@ -68,8 +74,8 @@ export async function createMenuScreen(services) {
       if (ok) nav.go('settings')
     },
   })
-  gear.x = DESIGN_W - 90
-  gear.y = 90
+  gear.x = DESIGN_W - SPACING.edge - 52
+  gear.y = SPACING.edge + 52
   view.addChild(gear)
 
   // Avsluta – grindat
@@ -82,38 +88,27 @@ export async function createMenuScreen(services) {
     sound: 'tap',
     onTap: () => onExit(),
   })
-  exit.x = 90
-  exit.y = 90
+  exit.x = SPACING.edge + 52
+  exit.y = SPACING.edge + 52
   view.addChild(exit)
 
   // "Hämta senaste" – grindad förälder-knapp som tvingar fram nyaste versionen.
-  // Liten, nere i högra hörnet, med en diskret versionsstämpel så föräldern kan se
-  // vilken version som körs (och att uppdateringen slog igenom efter omstart).
+  // Liten pill nere i högra hörnet vars etikett ÄR versionsnumret ("v1.00", se
+  // docs/DESIGN.md §9) — så föräldern med en blick ser om uppdateringen slog igenom.
   const update = new Button({
-    icon: '🔄',
-    label: 'Senaste',
-    width: 188,
-    height: 92,
+    label: services.appVersion?.() || 'v?',
+    width: 124,
+    height: 60,
     color: COLORS.teal,
-    stacked: true,
+    fontSize: 26,
     services,
     sound: 'tap',
     onTap: () => onForceUpdate(),
   })
-  update.x = DESIGN_W - 116
-  update.y = 626
+  update.x = DESIGN_W - SPACING.edge - 62
+  update.y = DESIGN_H - SPACING.edge - 30
+  update.alpha = 0.85
   view.addChild(update)
-
-  const versionLabel = new Text({
-    text: services.appVersion?.() || '',
-    style: { fontFamily: FONT.body, fontSize: 16, fontWeight: '700', fill: COLORS.inkSoft, align: 'center' },
-  })
-  versionLabel.anchor.set(0.5, 0)
-  versionLabel.x = DESIGN_W - 116
-  versionLabel.y = 678
-  versionLabel.eventMode = 'none'
-  versionLabel.alpha = 0.7
-  view.addChild(versionLabel)
 
   async function onForceUpdate() {
     const ok = await gate.open({ title: 'Hämta senaste versionen' })

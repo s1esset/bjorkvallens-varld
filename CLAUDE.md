@@ -24,6 +24,11 @@ Audio = hybrid: förinspelade RIKTIGA klipp (offline mp3) + procedurell Web Audi
 Riktiga SFX/djurläten genereras lokalt med MOSS-SoundEffect (`npm run sfx` → `scripts/gen-sfx.py`).
 Röst = Web Speech `sv-SE` i grundbygget (uppgradera till förgenererade Piper-klipp, offline).
 
+## Design system & versioning
+
+- **`docs/DESIGN.md` är appens globala UI-designsystem** (spacing/färgroller/typografi/radier/rörelse/komponenter). Tokens finns i `src/lib/theme.js` (`SPACING`, `RADIUS`, `ANIM`, `shade()`, `tint()`). Följ det för allt skal-/UI-arbete; hårdkoda inte värden som har en token.
+- **Versionsnummer:** menyns uppdateringsknapp visar `vM.NN` (från `package.json` `version`, MINOR zero-paddat — se `docs/DESIGN.md §9`). **Bumpa MINOR i `package.json` vid varje hopslagen ändringsomgång** (fler steg vid större omgångar; MAJOR vid milstolpar) — annars kan föräldern inte se att uppdateringen slog igenom.
+
 ## Non-negotiable design rules (P0 — bake into every screen and game)
 
 ```

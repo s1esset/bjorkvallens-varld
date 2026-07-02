@@ -1,14 +1,16 @@
 // Spelbibliotek: spelen är indelade i 4 färgglada flikar (Roligt / Fysik / Pussel /
-// Lära). En sorteringsknapp växlar mellan "Nyast" (senast tillagda först) och "A–Ö"
-// (alfabetisk). Ingen läsning krävs — flikarna har ikon + kort ord, rösten säger
-// "Välj ett spel!". Rutnätet av stora brickor skrollas lodrätt om det blir högre än
-// ytan (mjuk drag, inget snabb-svep). Vald flik + sortering minns mellan besök.
+// Lära). Flikarna är stora "riktiga" flikar över hela bredden och sitter ovanpå en
+// innehållspanel vars ram får den aktiva flikens färg. Byt flik genom att trycka på
+// fliken ELLER svepa vågrätt på spelytan (axellåst mot den lodräta skrollen).
+// En liten ikon-knapp växlar sortering "Nyast" (🆕) <-> "A–Ö" (🔤). Ingen läsning
+// krävs — rösten säger "Välj ett spel!". Rutnätet skrollas lodrätt om det blir högre
+// än panelen (mjukt drag). Vald flik + sortering minns mellan besök.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
 import { bounceIn } from '../../lib/feedback.js'
 import { GAMES } from '../../games/registry.js'
-import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H, TAB_GROUPS } from '../../lib/theme.js'
+import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H, TAB_GROUPS, SPACING, RADIUS, shade, tint } from '../../lib/theme.js'
 
 // Säkerhet: varje spel-kategori MÅSTE ingå i någon fliks `cats`, annars göms de spelen
 // (filtreras bort ur alla flikar). Varna högt i dev så att en ny kategori inte tappas bort.
@@ -39,17 +41,38 @@ function saveUI(ui) {
   }
 }
 
+// Layoutkonstanter (designrymd, se docs/DESIGN.md §2 + §8)
+const TAB_Y = 172 // flikarnas överkant — ger >=40px luft under topp-bandet (slutar ~128)
+const TAB_H = 92
+const TAB_GAP = 12
+const PANEL_TOP = TAB_Y + TAB_H // panelen börjar där flikarna slutar
+const PANEL_MARGIN = SPACING.sm // panelens avstånd till skärmkant vänster/höger/ner
+const SWIPE_THRESHOLD = 70 // px vågrätt drag som räknas som flikbyte
+
 export async function createLibraryScreen(services) {
   const view = new Container()
   const { nav, voice, stickers } = services
   const ui = loadUI()
+
+  // --- Innehållspanel (under flikarna; ramfärg = aktiv flik) ---
+  const panel = new Graphics()
+  panel.eventMode = 'none'
+  view.addChild(panel)
+  function redrawPanel() {
+    const color = TAB_GROUPS[ui.tab].color
+    panel
+      .clear()
+      .roundRect(PANEL_MARGIN, PANEL_TOP, DESIGN_W - PANEL_MARGIN * 2, DESIGN_H - PANEL_TOP - PANEL_MARGIN, RADIUS.panel)
+      .fill(COLORS.cream)
+      .stroke({ width: 5, color })
+  }
 
   // --- Topp-rad: hem · titel · sortering · högtalare ---
   const home = new Button({
     icon: '🏠', width: 100, height: 100, color: COLORS.orange, services, sound: 'tap',
     onTap: () => nav.go('menu'),
   })
-  home.position.set(80, 80)
+  home.position.set(SPACING.edge + 52, SPACING.edge + 52)
   view.addChild(home)
 
   const title = new Text({
@@ -64,69 +87,59 @@ export async function createLibraryScreen(services) {
     icon: '🔊', width: 100, height: 100, color: COLORS.purple, services, sound: 'tap',
     onTap: () => voice.say('Välj ett spel!', true),
   })
-  speaker.position.set(DESIGN_W - 80, 80)
+  speaker.position.set(DESIGN_W - SPACING.edge - 52, SPACING.edge + 52)
   view.addChild(speaker)
 
-  // Sorteringsknapp (växlar Nyast <-> A–Ö). Etiketten visar AKTUELLT läge.
+  // Liten ikon-knapp som växlar sortering (Nyast <-> A–Ö). Ikonen visar AKTUELLT läge,
+  // rösten bekräftar bytet.
   const sortBtn = new Button({
-    width: 188, height: 92, color: COLORS.teal, services, sound: 'flip',
+    icon: '🆕', width: 96, height: 96, color: COLORS.teal, services, sound: 'flip',
     onTap: () => {
       ui.sort = ui.sort === 'added' ? 'alpha' : 'added'
       saveUI(ui)
-      updateSortLabel()
+      updateSortIcon()
       rebuildGrid(true)
       voice.say(ui.sort === 'alpha' ? 'A till Ö' : 'Nyast först', true)
     },
   })
-  sortBtn.position.set(DESIGN_W - 250, 80)
+  sortBtn.position.set(DESIGN_W - SPACING.edge - 104 - SPACING.md - 48, SPACING.edge + 52)
   view.addChild(sortBtn)
-  // Egen etikett (ikon + text) som vi kan byta vid växling.
-  const sortText = new Text({ text: '', style: { fontFamily: FONT.title, fontSize: 32, fontWeight: '700', fill: COLORS.white, align: 'center' } })
-  sortText.anchor.set(0.5)
-  sortText.eventMode = 'none'
-  sortBtn.addChild(sortText)
-  function updateSortLabel() {
-    sortText.text = ui.sort === 'alpha' ? '🔤 A–Ö' : '🆕 Nyast'
+  const sortIcon = sortBtn.children.find((ch) => ch instanceof Text)
+  function updateSortIcon() {
+    if (sortIcon) sortIcon.text = ui.sort === 'alpha' ? '🔤' : '🆕'
   }
-  updateSortLabel()
+  updateSortIcon()
 
-  // --- Flik-rad (4 grupper) ---
+  // --- Flikar: hela bredden, aktiv = full färg + lite högre, inaktiv = urblekt ---
   const tabBar = new Container()
   view.addChild(tabBar)
-  const tabW = 250
-  const tabGap = 20
-  const tabsTotalW = TAB_GROUPS.length * tabW + (TAB_GROUPS.length - 1) * tabGap
+  const tabW = (DESIGN_W - SPACING.edge * 2 - TAB_GAP * (TAB_GROUPS.length - 1)) / TAB_GROUPS.length
   const tabs = TAB_GROUPS.map((group, i) => {
-    const b = new Button({
-      label: group.label, icon: group.icon, width: tabW, height: 92, color: group.color,
-      services, sound: 'tap',
-      onTap: () => {
-        if (ui.tab === i) return
-        ui.tab = i
-        saveUI(ui)
-        updateTabs()
-        rebuildGrid(true)
-        voice.say(group.label, true)
-      },
-    })
-    b.x = (DESIGN_W - tabsTotalW) / 2 + i * (tabW + tabGap) + tabW / 2
-    b.y = 164
-    tabBar.addChild(b)
-    return b
+    const t = makeTab(group, tabW, TAB_H, services, () => selectTab(i, 0))
+    t.x = SPACING.edge + i * (tabW + TAB_GAP) + tabW / 2
+    t.y = TAB_Y + TAB_H / 2
+    tabBar.addChild(t)
+    return t
   })
   function updateTabs() {
-    tabs.forEach((b, i) => {
-      const active = i === ui.tab
-      b.alpha = active ? 1 : 0.5
-      gsap.killTweensOf(b.scale)
-      b.scale.set(active ? 1 : 0.94)
-    })
+    tabs.forEach((t, i) => t.setActive(i === ui.tab))
+    redrawPanel()
   }
-  updateTabs()
+
+  // Flikbyte från tap eller svep. dir: -1 = nya rutnätet glider in från vänster,
+  // +1 = från höger, 0 = ingen glid (tap).
+  function selectTab(i, dir) {
+    if (ui.tab === i || i < 0 || i >= TAB_GROUPS.length) return
+    ui.tab = i
+    saveUI(ui)
+    updateTabs()
+    rebuildGrid(true, dir)
+    voice.say(TAB_GROUPS[i].label, true)
+  }
 
   // --- Rutnät (skrollbart), byggs om vid flik-/sorterings-byte ---
-  const areaTop = 232
-  const areaH = DESIGN_H - areaTop - 24
+  const areaTop = PANEL_TOP + SPACING.sm
+  const areaH = DESIGN_H - areaTop - PANEL_MARGIN - SPACING.sm
 
   const grid = new Container()
   view.addChild(grid)
@@ -138,14 +151,14 @@ export async function createLibraryScreen(services) {
   // "mer nedanför"-pil (visas bara när det går att skrolla).
   const hint = new Text({ text: '⬇', style: { fontFamily: FONT.body, fontSize: 40, fill: COLORS.inkSoft } })
   hint.anchor.set(0.5)
-  hint.position.set(DESIGN_W / 2, DESIGN_H - 26)
+  hint.position.set(DESIGN_W / 2, DESIGN_H - 30)
   hint.eventMode = 'none'
   hint.visible = false
   view.addChild(hint)
-  gsap.to(hint, { y: DESIGN_H - 34, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+  gsap.to(hint, { y: DESIGN_H - 38, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' })
 
-  // Skroll-tillstånd (delas med brickorna så ett skroll-drag inte startar ett spel).
-  const scroll = { dragging: false, moved: false, fits: true, minY: areaTop, maxY: areaTop }
+  // Skroll-/svep-tillstånd (delas med brickorna så ett drag inte startar ett spel).
+  const scroll = { dragging: false, moved: false, axis: null, fits: true, minY: areaTop, maxY: areaTop }
   const scrolling = () => scroll.moved
 
   // Aktuell flik + sortering → lista av spel.
@@ -159,6 +172,7 @@ export async function createLibraryScreen(services) {
   }
 
   function clearGrid() {
+    gsap.killTweensOf(grid)
     for (const child of [...grid.children]) {
       gsap.killTweensOf(child)
       gsap.killTweensOf(child.scale)
@@ -166,14 +180,15 @@ export async function createLibraryScreen(services) {
     }
   }
 
-  function rebuildGrid(animate = false) {
+  function rebuildGrid(animate = false, slideDir = 0) {
     clearGrid()
     const list = orderedGames()
     const N = list.length
     const cols = Math.max(1, Math.min(4, N))
     const rows = Math.ceil(N / cols)
     const gap = 28
-    const tileW = Math.min(280, (1180 - gap * (cols - 1)) / cols)
+    const innerW = DESIGN_W - (PANEL_MARGIN + SPACING.lg) * 2
+    const tileW = Math.min(280, (innerW - gap * (cols - 1)) / cols)
     const tileH = 150
     const gridW = cols * tileW + (cols - 1) * gap
     const gridTotalH = rows * tileH + (rows - 1) * gap
@@ -186,7 +201,7 @@ export async function createLibraryScreen(services) {
       const tile = makeTile(game, tileW, tileH, services, stickers.has(game.id), scrolling)
       tile.position.set(x, y)
       grid.addChild(tile)
-      if (animate) bounceIn(tile, { delay: Math.min(0.4, 0.03 * i) })
+      if (animate && !slideDir) bounceIn(tile, { delay: Math.min(0.4, 0.03 * i) })
     })
 
     // Vertikal placering: centrera om allt får plats, annars skrolla (uppifrån).
@@ -199,28 +214,70 @@ export async function createLibraryScreen(services) {
     grid.y = maxY
     hint.visible = !fits
     if (!fits) hint.alpha = 1
+
+    // Svep-glid: nya rutnätet kommer in från den sida barnet drog mot.
+    if (slideDir) {
+      grid.x = slideDir * 90
+      grid.alpha = 0
+      gsap.to(grid, { x: 0, alpha: 1, duration: 0.28, ease: 'power2.out' })
+    } else {
+      grid.x = 0
+      grid.alpha = 1
+    }
   }
+  updateTabs()
   rebuildGrid(true)
 
-  // Drag-att-skrolla. Spårar i designkoordinater; bounds läses från `scroll`.
+  // Drag: lodrätt = skrolla rutnätet, vågrätt = svep mellan flikar (axellås vid ~12px).
+  let startPx = 0
   let startPy = 0
   let startGridY = 0
+  let dragDx = 0
   const onDown = (e) => {
-    if (scroll.fits) return
+    const p = view.toLocal(e.global)
+    if (p.y < PANEL_TOP) return // svep/skroll gäller spelytan, inte topp-band/flikar
     scroll.dragging = true
     scroll.moved = false
-    startPy = view.toLocal(e.global).y
+    scroll.axis = null
+    startPx = p.x
+    startPy = p.y
     startGridY = grid.y
+    dragDx = 0
   }
   const onMove = (e) => {
     if (!scroll.dragging) return
-    const dy = view.toLocal(e.global).y - startPy
-    if (Math.abs(dy) > 8) scroll.moved = true
-    grid.y = Math.max(scroll.minY, Math.min(scroll.maxY, startGridY + dy))
-    hint.alpha = grid.y <= scroll.minY + 4 ? 0 : 1
+    const p = view.toLocal(e.global)
+    const dx = p.x - startPx
+    const dy = p.y - startPy
+    if (!scroll.axis && Math.hypot(dx, dy) > 12) {
+      scroll.axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+      scroll.moved = true
+    }
+    if (scroll.axis === 'v' && !scroll.fits) {
+      grid.y = Math.max(scroll.minY, Math.min(scroll.maxY, startGridY + dy))
+      hint.alpha = grid.y <= scroll.minY + 4 ? 0 : 1
+    } else if (scroll.axis === 'h') {
+      dragDx = dx
+      // rutnätet följer fingret med motstånd; extra trögt om det inte finns fler flikar åt hållet
+      const target = ui.tab + (dx < 0 ? 1 : -1)
+      const hasNext = target >= 0 && target < TAB_GROUPS.length
+      const limit = hasNext ? 90 : 26
+      grid.x = Math.max(-limit, Math.min(limit, dx * 0.35))
+    }
   }
   const onUp = () => {
+    if (!scroll.dragging) return
     scroll.dragging = false
+    if (scroll.axis !== 'h') return
+    const dx = dragDx
+    const target = ui.tab + (dx < 0 ? 1 : -1)
+    if (Math.abs(dx) > SWIPE_THRESHOLD && target >= 0 && target < TAB_GROUPS.length) {
+      // nya rutnätet glider in från hållet barnet drog mot
+      selectTab(target, dx < 0 ? 1 : -1)
+    } else {
+      // för kort drag eller ingen flik åt det hållet -> mjukt tillbaka (roligt, inte fel)
+      gsap.to(grid, { x: 0, duration: 0.3, ease: 'back.out(2)' })
+    }
   }
   view.eventMode = 'static'
   view.hitArea = new Rectangle(0, 0, DESIGN_W, DESIGN_H)
@@ -244,10 +301,58 @@ export async function createLibraryScreen(services) {
         gsap.killTweensOf(child)
         gsap.killTweensOf(child.scale)
       }
-      for (const b of tabs) gsap.killTweensOf(b.scale)
+      for (const t of tabs) t.kill()
       grid.mask = null
     },
   }
+}
+
+// --- flik-knapp: godis-look som Button men med aktiv/inaktiv-tillstånd som ritas om ---
+function makeTab(group, w, h, services, onSelect) {
+  const c = new Container()
+  c.eventMode = 'static'
+  c.cursor = 'pointer'
+  c.hitArea = new Rectangle(-w / 2 - 12, -h / 2 - 16, w + 24, h + 32)
+
+  const g = new Graphics()
+  const label = new Text({
+    text: `${group.icon}  ${group.label}`,
+    style: { fontFamily: FONT.title, fontSize: 30, fontWeight: '700', fill: COLORS.white, align: 'center' },
+  })
+  label.anchor.set(0.5)
+  label.eventMode = 'none'
+  c.addChild(g, label)
+
+  let active = false
+  c.setActive = (on) => {
+    active = on
+    const r = RADIUS.card
+    g.clear()
+    if (on) {
+      g.roundRect(-w / 2, -h / 2 + 8, w, h, r).fill(shade(group.color, 0.2))
+      g.roundRect(-w / 2, -h / 2, w, h - 6, r).fill(group.color)
+      g.roundRect(-w / 2 + 10, -h / 2 + 8, w - 20, h * 0.3, r * 0.7).fill({ color: COLORS.white, alpha: 0.18 })
+    } else {
+      g.roundRect(-w / 2, -h / 2 + 8, w, h - 8, r).fill(tint(group.color, 0.62))
+    }
+    label.style.fill = on ? COLORS.white : COLORS.inkSoft
+    gsap.killTweensOf(c.scale)
+    gsap.to(c.scale, { x: on ? 1 : 0.92, y: on ? 1 : 0.92, duration: 0.22, ease: 'back.out(2)' })
+    gsap.to(c, { y: TAB_Y + h / 2 + (on ? 0 : 8), duration: 0.22, ease: 'power2.out' })
+  }
+
+  c.on('pointerdown', () => gsap.to(c.scale, { x: 0.88, y: 0.88, duration: 0.08, ease: 'power2.out' }))
+  c.on('pointerup', () => gsap.to(c.scale, { x: active ? 1 : 0.92, y: active ? 1 : 0.92, duration: 0.28, ease: 'back.out(3)' }))
+  c.on('pointerupoutside', () => gsap.to(c.scale, { x: active ? 1 : 0.92, y: active ? 1 : 0.92, duration: 0.2 }))
+  c.on('pointertap', () => {
+    services.audio.sfx('tap')
+    onSelect()
+  })
+  c.kill = () => {
+    gsap.killTweensOf(c.scale)
+    gsap.killTweensOf(c)
+  }
+  return c
 }
 
 function makeTile(game, w, h, services, earned, scrolling) {
@@ -257,8 +362,8 @@ function makeTile(game, w, h, services, earned, scrolling) {
   c.eventMode = 'static'
   c.cursor = 'pointer'
 
-  const lip = new Graphics().roundRect(-w / 2, -h / 2 + 8, w, h, 28).fill({ color: shade(cat.color, 0.2) })
-  const face = new Graphics().roundRect(-w / 2, -h / 2, w, h - 6, 28).fill(cat.color)
+  const lip = new Graphics().roundRect(-w / 2, -h / 2 + 8, w, h, RADIUS.card).fill({ color: shade(cat.color, 0.2) })
+  const face = new Graphics().roundRect(-w / 2, -h / 2, w, h - 6, RADIUS.card).fill(cat.color)
   c.addChild(lip, face)
 
   const icon = new Text({ text: game.icon || '🎮', style: { fontFamily: FONT.body, fontSize: h * 0.36 } })
@@ -300,17 +405,9 @@ function makeTile(game, w, h, services, earned, scrolling) {
   c.on('pointerup', () => gsap.to(c.scale, { x: 1, y: 1, duration: 0.2, ease: 'back.out(3)' }))
   c.on('pointerupoutside', () => gsap.to(c.scale, { x: 1, y: 1, duration: 0.2 }))
   c.on('pointertap', () => {
-    if (scrolling && scrolling()) return // det var ett skroll-drag, inte ett val
+    if (scrolling && scrolling()) return // det var ett skroll-/svep-drag, inte ett val
     audio.sfx('pling')
     nav.go('game', { id: game.id })
   })
   return c
-}
-
-function shade(hex, amt) {
-  const r = (hex >> 16) & 0xff
-  const g = (hex >> 8) & 0xff
-  const b = hex & 0xff
-  const d = (v) => Math.max(0, Math.round(v * (1 - amt)))
-  return (d(r) << 16) | (d(g) << 8) | d(b)
 }

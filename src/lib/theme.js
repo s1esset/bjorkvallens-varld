@@ -31,6 +31,41 @@ export const COLORS = {
   shadow: 0x000000,
 }
 
+// Spacing-skala (px i designrymden). Se docs/DESIGN.md §3.
+export const SPACING = { xs: 8, sm: 16, md: 24, lg: 32, xl: 48, xxl: 64, edge: 24 }
+
+// Hörnradier. Knappar räknar sin egen (min(h/2, 36)). Se docs/DESIGN.md §6.
+export const RADIUS = { chip: 16, card: 28, panel: 36 }
+
+// Rörelse-tokens (sekunder / GSAP-easar). Se docs/DESIGN.md §7.
+export const ANIM = {
+  press: { duration: 0.08, ease: 'power2.out', scale: 0.92 },
+  release: { duration: 0.28, ease: 'back.out(3)' },
+  enter: { duration: 0.5, ease: 'back.out(1.7)' },
+  stagger: { per: 0.03, max: 0.4 },
+  fade: 0.18,
+  breathe: { duration: 1.6, ease: 'sine.inOut' },
+}
+
+// Mörkna en 0xRRGGBB-färg med amt (0..1) — används till knapp-"lip" och djup.
+export function shade(hex, amt) {
+  const r = (hex >> 16) & 0xff
+  const g = (hex >> 8) & 0xff
+  const b = hex & 0xff
+  const d = (v) => Math.max(0, Math.round(v * (1 - amt)))
+  return (d(r) << 16) | (d(g) << 8) | d(b)
+}
+
+// Blanda en färg mot cream (t 0..1, 1 = helt cream) — för urblekta/inaktiva ytor.
+export function tint(hex, t) {
+  const cr = 0xff, cg = 0xfd, cb = 0xf7
+  const r = (hex >> 16) & 0xff
+  const g = (hex >> 8) & 0xff
+  const b = hex & 0xff
+  const mix = (v, c) => Math.round(v + (c - v) * t)
+  return (mix(r, cr) << 16) | (mix(g, cg) << 8) | mix(b, cb)
+}
+
 // Glada accentfärger till spelbrickor/bubblor m.m.
 export const PLAYFUL = [
   0xff8a3d, 0x5bbf6a, 0x4aa3df, 0xffd35c, 0xa78bfa, 0xff6b6b, 0xff9ec4, 0x57c8c3,

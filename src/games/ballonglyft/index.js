@@ -1,28 +1,42 @@
-// Ballonglyft — räkna ballonger som lyfter (2–4 år). Elvira står på sin balkong och
-// önskar sig ett antal ballonger (visas som en tankebubbla: "3 🎈"). Bobos present 🎁
-// står på marken. Barnet TRYCKER (på presenten eller den stora knappen) för att fästa
-// en helium­ballong i taget — varje ballong syns fästa ovanför presenten och lyfter den
-// ETT TYDLIGT STEG uppåt (vi räknar högt på svenska). När presenten nått upp till Elvira
-// tar hon emot den → firande, klistermärke, ny (fler ballonger) nivå. En blek "spök­present"
-// vid balkongen visar HELA tiden vart den ska. Inget kan bli fel: trycker man när alla
-// ballonger redan sitter vinglar det bara lite, och en mjuk auto-hjälp fäster en ballong
-// åt barnet om det dröjer. Rörelsen är enkla gsap-steg (ingen fjäder/studs) → lätt att
-// förstå vad som händer. Allt ritas programmatiskt (emoji + Pixi Graphics). Exit-säkert.
+// Ballonglyft — räkna RIKTIGA ballonger som lyfter (2–4 år). Elvira står på sin balkong
+// och önskar sig ett antal ballonger (tankebubbla: "3 🎈"). Bobos present 🎁 vilar på
+// marken. Ett antal LÖSA, färgglada heliumballonger flyter nere i bilden — barnet TRYCKER
+// på en ballong i taget för att skicka upp den (ett-till-ett-korrespondens: barnet räknar
+// FÖREMÅL, inte knapptryck). Varje ballong fäster ovanför paketet, lyfter det ETT TYDLIGT
+// steg (vi räknar högt på svenska) och spelar en STIGANDE lyft-ton + ett mjukt helium-"fffp".
+// När sista ballongen sitter glider paketet upp i Elviras famn → det ÖPPNAS och en
+// överraskning (djur/leksak ur en pool) hoppar ut som hon kramar → firande, klistermärke,
+// ny nivå (fler ballonger). En blek "spök-present" vid balkongen visar hela tiden vart det
+// ska. Inget kan bli fel: trycker man på paketet vinglar det bara lite, och efter ~9s utan
+// tryck LOCKAR en mjuk auto-hjälp först (Elvira vinkar, en ballong studsar) innan den till
+// slut fäster en åt barnet. Allt ritas programmatiskt (Pixi Graphics + emoji). Exit-säkert.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { Button } from '../../lib/Button.js'
 import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe } from '../../lib/feedback.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
 // Räkneord (index = antal ballonger). n=1 -> 'en', n=2 -> 'två' ...
 const SVENSKA_TAL = ['noll', 'en', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju', 'åtta']
+
+// Överraskningar som hoppar ur paketet (alla "en"-ord för rösten). Djur/leksak.
+const SURPRISES = [
+  { e: '🐻', namn: 'björn' },
+  { e: '🐰', namn: 'kanin' },
+  { e: '🐤', namn: 'kyckling' },
+  { e: '🐶', namn: 'hund' },
+  { e: '🐱', namn: 'katt' },
+  { e: '🦊', namn: 'räv' },
+  { e: '🧸', namn: 'nalle' },
+  { e: '🐧', namn: 'pingvin' },
+]
 
 // Layout (designkoordinater 1280×720) — presenten lyfts rakt upp i kolumnen vid Elvira.
 const BOX_X = 820
 const GROUND_BOX_Y = 600 // presentens center när den vilar på marken
 
-const IDLE_MS = 5500 // ms utan tryck → mjuk auto-hjälp (fäster en ballong åt barnet)
+const IDLE_MS = 9000 // ms utan tryck → mjuk auto-hjälp LOCKAR först
+const HELP_MS = 3500 // ytterligare tid efter lockandet → fäster då en ballong åt barnet
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -34,10 +48,11 @@ export default {
   input: 'tap',
   ageRange: [2, 4],
   bundle: 'ballonglyft',
-  voiceIntro: 'Tryck för att fästa ballonger — räkna så lyfter paketet upp till Elvira!',
+  voiceIntro: 'Tryck på ballongerna en i taget — räkna så lyfter paketet upp till Elvira!',
 
   init(ctx) {
     this._alive = true
+    this._ctx = ctx
     this._level = Math.max(1, (ctx.progress.get().highestLevel | 0) || 1)
     this._t = 0
 
@@ -47,7 +62,7 @@ export default {
     // Bakgrund (gradient + sol + moln + mark) som FÖRSTA barn, dekorativ.
     this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
 
-    // Lager: balkong+Elvira+bubbla → spök-present (mål) → snören → ballonger → present → räknare → knapp.
+    // Lager: balkong+Elvira+bubbla → spök-present (mål) → snören → ballonger → present → räknare.
     this._balcony = this._makeBalcony()
     this._root.addChild(this._balcony)
 
@@ -58,10 +73,12 @@ export default {
     this._ghost.eventMode = 'none'
     this._root.addChild(this._ghost)
 
+    // Snören som binder de fästa ballongerna till paketet (en "bukett").
     this._strings = new Graphics()
     this._strings.eventMode = 'none'
     this._root.addChild(this._strings)
 
+    // Ballonglager (både lösa nere och fästa ovanför paketet).
     this._balloonLayer = new Container()
     this._root.addChild(this._balloonLayer)
 
@@ -71,21 +88,9 @@ export default {
     this._counter = this._makeCounter()
     this._root.addChild(this._counter)
 
-    this._addBtn = new Button({
-      label: 'Fäst ballong',
-      icon: '🎈',
-      width: 340,
-      height: 124,
-      color: COLORS.green,
-      services: ctx.services,
-      sound: 'pop',
-      onTap: () => this._addBalloon(ctx),
-    })
-    this._addBtn.position.set(330, 650)
-    this._root.addChild(this._addBtn)
-
-    this._balloons = []
-    this._loadLevel(this._level)
+    this._loose = []
+    this._attached = []
+    this._loadLevel(ctx, this._level)
 
     this._tick = () => this._update(ctx)
     ctx.ticker.add(this._tick)
@@ -148,6 +153,20 @@ export default {
     return c
   },
 
+  // En färgglad ballong ritad i Pixi Graphics (kropp + glans + knut + kort snöre).
+  // Lokala koordinater: kroppens center = (0,0).
+  _makeBalloon(color) {
+    const b = new Container()
+    const g = new Graphics()
+    g.ellipse(0, 0, 34, 42).fill(color)
+    g.ellipse(-12, -14, 8, 12).fill({ color: 0xffffff, alpha: 0.4 }) // glansfläck
+    g.moveTo(-8, 40).lineTo(8, 40).lineTo(0, 52).closePath().fill(color) // knut
+    g.moveTo(0, 52).quadraticCurveTo(10, 66, 2, 80).stroke({ width: 3, color: 0x8a7766, alpha: 0.8 }) // snöre
+    g.eventMode = 'none'
+    b.addChild(g)
+    return b
+  },
+
   _makeBox(ctx) {
     const box = new Container()
 
@@ -173,12 +192,13 @@ export default {
     gift.position.set(0, -2)
     gift.eventMode = 'none'
     box.addChild(gift)
+    this._gift = gift
 
-    // Hela presenten är en tap-yta (fäst en ballong vid tryck), generös träff ≥96px.
+    // Att trycka på paketet är bara lekfullt (vinglar + lockar) — aldrig "fel".
     box.eventMode = 'static'
     box.cursor = 'pointer'
     box.hitArea = new Rectangle(-80, -90, 160, 180)
-    box.on('pointertap', () => this._addBalloon(ctx))
+    box.on('pointertap', () => this._pokeBox(ctx))
     return box
   },
 
@@ -202,46 +222,87 @@ export default {
 
   // --- Nivå-laddning ---------------------------------------------------------
 
-  _loadLevel(level) {
+  _loadLevel(ctx, level) {
     if (!this._alive) return
     this._level = level
 
-    // Slumpad svårighet: antal ballonger som krävs växer med nivån (3→8).
+    // Antal ballonger som krävs växer med nivån (3→8) — lika många LÖSA ballonger spawnas.
     this._N = clamp(2 + level + (Math.random() < 0.5 ? 0 : 1), 3, 8)
-    // Balkongen sitter högt så lyftet syns tydligt; lite högre per nivå (förblir lösbar; steget = total/N).
+    // Balkongen sitter högt så lyftet syns; lite högre per nivå (förblir lösbar; steget = total/N).
     this._balconyY = 250 - Math.min(level - 1, 5) * 16
     this._targetY = this._balconyY + 40 // dit presentens center når när Elvira tar emot
 
     // Nollställ tillstånd.
     this._n = 0
     this._idleMs = 0
+    this._enticed = false
     this._resolving = false
 
-    // Töm ballonger.
-    this._balloons.forEach((b) => {
-      gsap.killTweensOf(b)
-      gsap.killTweensOf(b.scale)
-      if (!b.destroyed) b.destroy()
-    })
-    this._balloons = []
-    this._balloonLayer.removeChildren()
+    // Töm ballonger (både lösa och fästa) + eventuell överraskning.
+    this._clearBalloons()
+    this._clearSurprise()
 
-    // Present tillbaka på marken; lite större look per nivå.
+    // Present tillbaka på marken; lock/glans synlig igen.
     gsap.killTweensOf(this._box)
     gsap.killTweensOf(this._box.scale)
     this._box.position.set(BOX_X, GROUND_BOX_Y)
     this._box.rotation = 0
     this._box.visible = true
     this._box.scale.set(1)
+    if (this._gift && !this._gift.destroyed) this._gift.visible = true
 
     // Balkong/Elvira till nivåns höjd; mål-bubbla + spök-present.
     this._balcony.y = this._balconyY
+    this._elvira.rotation = 0
     if (this._wantText && !this._wantText.destroyed) this._wantText.text = String(this._N)
     this._ghost.position.set(BOX_X, this._targetY)
     this._ghostBreathe?.kill()
     this._ghostBreathe = breathe(this._ghost, { scale: 1.06, duration: 1.2 })
     this._updateCounter(false)
     this._strings.clear()
+
+    // Spawna N LÖSA, färgglada ballonger längs nederkanten — en per önskad ballong.
+    const margin = 130
+    const span = ctx.width - margin * 2
+    for (let i = 0; i < this._N; i++) {
+      const x = this._N === 1 ? ctx.width / 2 : margin + span * (i / (this._N - 1))
+      const y = 648 + (i % 2) * 30
+      const color = PLAYFUL[(i + level) % PLAYFUL.length]
+      const b = this._makeBalloon(color)
+      b.position.set(x, y)
+      b._baseX = x
+      b._baseY = y
+      b._phase = i * 0.7
+      b._taken = false
+      b._flying = false
+      b.eventMode = 'static'
+      b.cursor = 'pointer'
+      b.hitArea = new Rectangle(-52, -56, 104, 130) // generös träffyta ≥96px
+      b.on('pointertap', () => this._attachLoose(ctx, b))
+      this._balloonLayer.addChild(b)
+      this._loose.push(b)
+      bounceIn(b, { delay: i * 0.05 })
+    }
+  },
+
+  _clearBalloons() {
+    const all = [...(this._loose || []), ...(this._attached || [])]
+    all.forEach((b) => {
+      gsap.killTweensOf(b)
+      gsap.killTweensOf(b.position)
+      gsap.killTweensOf(b.scale)
+      if (!b.destroyed) b.destroy({ children: true })
+    })
+    this._loose = []
+    this._attached = []
+    this._balloonLayer.removeChildren()
+  },
+
+  _clearSurprise() {
+    this._surpriseTl?.kill()
+    this._surpriseTl = null
+    if (this._surprise && !this._surprise.destroyed) this._surprise.destroy()
+    this._surprise = null
   },
 
   // Presentens center-y för c fästa ballonger (0 → marken, N → uppe hos Elvira).
@@ -249,46 +310,90 @@ export default {
     return GROUND_BOX_Y - (GROUND_BOX_Y - this._targetY) * (c / this._N)
   },
 
-  // --- Kontroll: fäst en ballong ---------------------------------------------
+  // Solfjäder-punkt för fäst ballong nr i (av n) när paketet står på boxY.
+  _fanPoint(i, n, boxY) {
+    const angle = -Math.PI / 2 + (i - (n - 1) / 2) * 0.3
+    const radius = 92
+    return { x: BOX_X + Math.cos(angle) * radius, y: boxY - 92 + Math.sin(angle) * radius }
+  },
 
-  _addBalloon(ctx, opts = {}) {
+  // --- Kontroll: skicka upp en LÖS ballong -----------------------------------
+
+  _attachLoose(ctx, b, opts = {}) {
     if (!this._alive || this._resolving) return
-    if (!opts.auto) this._idleMs = 0
-    if (this._n >= this._N) {
-      // Alla ballonger sitter redan — bara lekfullt, aldrig "fel".
-      wiggle(this._box)
-      ctx.services.audio.sfx('soft')
-      return
-    }
-    this._n++
-
-    const b = new Text({ text: '🎈', style: { fontFamily: FONT.body, fontSize: 72 } })
-    b.anchor.set(0.5, 1)
+    if (!b || b.destroyed || b._taken) return
+    b._taken = true
+    b._flying = true
     b.eventMode = 'none'
-    this._balloonLayer.addChild(b)
-    this._balloons.push(b)
-    this._layoutBalloons()
-    bounceIn(b)
+    this._idleMs = 0
+    this._enticed = false
 
+    this._n++
+    const idx = this._n - 1
+    this._attached.push(b)
     this._updateCounter()
+    pop(b)
+
+    // Ljud: pop + mjukt helium-"fffp" + STIGANDE lyft-ton (klättrar mot målet).
     ctx.services.audio.sfx('pop')
-    if (Math.random() < 0.4) ctx.services.audio.sfx('pling')
+    this._heliumFffp(ctx)
+    this._liftTone(ctx, this._n)
 
     // Räkna högt på svenska (varje gång — räkning är poängen).
     if (SVENSKA_TAL[this._n]) ctx.services.voice.say(SVENSKA_TAL[this._n])
 
-    // Presenten lyfts ett tydligt steg uppåt. Sista ballongen → upp till Elvira.
+    // Ballongen flyger upp till sin plats i buketten ovanför paketet.
     const reached = this._n >= this._N
+    const boxTargetY = this._riseY(this._n)
+    const slot = this._fanPoint(idx, this._n, boxTargetY)
+    gsap.killTweensOf(b.position)
+    gsap.to(b.position, {
+      x: slot.x,
+      y: slot.y,
+      duration: 0.5,
+      ease: 'back.out(1.3)',
+      onComplete: () => {
+        if (!b.destroyed) b._flying = false
+      },
+    })
+
+    // Presenten lyfts ett tydligt steg uppåt. Sista ballongen → upp till Elvira.
     gsap.killTweensOf(this._box)
     this._riseTween = gsap.to(this._box, {
-      y: this._riseY(this._n),
+      y: boxTargetY,
       duration: 0.55,
       ease: reached ? 'power2.inOut' : 'back.out(1.3)',
       onComplete: () => {
         if (this._alive && reached) this._succeed(ctx)
       },
     })
-    sparkle(ctx.fxLayer, this._box.x, this._box.y - 110, { count: 4 })
+    sparkle(ctx.fxLayer, BOX_X, boxTargetY - 110, { count: 4 })
+  },
+
+  // Mjukt helium-"fffp" när en ballong fäster (kort uppåt-chirp).
+  _heliumFffp(ctx) {
+    ctx.services.audio.tone({ freq: 680, slideTo: 1500, dur: 0.11, type: 'sine', vol: 0.1 })
+  },
+
+  // Stigande lyft-ton: tonhöjden klättrar med antalet ballonger mot målet.
+  _liftTone(ctx, n) {
+    const frac = clamp(n / this._N, 0, 1)
+    const base = 380 + frac * 520 // ~380 → ~900 Hz
+    ctx.services.audio.tone({ freq: base, slideTo: base * 1.18, dur: 0.22, type: 'triangle', vol: 0.16 })
+  },
+
+  // Trycka på paketet: bara lekfullt + en vänlig knuff mot att räkna ballonger.
+  _pokeBox(ctx) {
+    if (!this._alive || this._resolving) return
+    wiggle(this._box)
+    ctx.services.audio.sfx('soft')
+    const next = this._loose.find((x) => !x._taken)
+    if (next) {
+      pop(next)
+      ctx.services.voice.say('Tryck på en ballong!')
+      this._idleMs = 0
+      this._enticed = false
+    }
   },
 
   _updateCounter(animate = true) {
@@ -297,33 +402,36 @@ export default {
     if (animate) pop(this._counter)
   },
 
-  // Solfjäder-placering: ballongerna fäster ovanför presenten och bobbar lugnt.
-  _layoutBalloons() {
-    const box = this._box
-    const n = this._balloons.length
-    for (let i = 0; i < n; i++) {
-      const b = this._balloons[i]
-      if (b.destroyed) continue
-      const angle = -Math.PI / 2 + (i - (n - 1) / 2) * 0.3
-      const radius = 92
-      b.x = box.x + Math.cos(angle) * radius
-      b.y = box.y - 92 + Math.sin(angle) * radius + Math.sin(this._t * 0.003 + i) * 5
-    }
-  },
-
+  // Rita bukett-snören från paketets knut till varje fäst ballong.
   _drawStrings() {
     const box = this._box
     const topX = box.x
     const topY = box.y - 66
     this._strings.clear()
-    for (const b of this._balloons) {
-      if (b.destroyed) continue
-      this._strings.moveTo(topX, topY).lineTo(b.x, b.y)
+    for (const b of this._attached) {
+      if (b.destroyed || b._flying) continue
+      this._strings.moveTo(topX, topY).lineTo(b.x, b.y + 44)
     }
     this._strings.stroke({ width: 3, color: 0x8a7766, alpha: 0.7 })
   },
 
-  // --- Huvudloop: ballong-bobb + snören + idle/auto-hjälp ---------------------
+  // Håll fästa ballonger i solfjäder + låt lösa ballonger bobba lugnt.
+  _layoutBalloons() {
+    const n = this._attached.length
+    for (let i = 0; i < n; i++) {
+      const b = this._attached[i]
+      if (b.destroyed || b._flying) continue
+      const p = this._fanPoint(i, n, this._box.y)
+      b.x = p.x
+      b.y = p.y + Math.sin(this._t * 0.003 + i) * 5
+    }
+    for (const b of this._loose) {
+      if (b.destroyed || b._taken) continue
+      b.y = b._baseY + Math.sin(this._t * 0.002 + b._phase) * 8
+    }
+  },
+
+  // --- Huvudloop: bobb + snören + idle/auto-hjälp -----------------------------
 
   _update(ctx) {
     if (!this._alive) return
@@ -332,17 +440,29 @@ export default {
     this._drawStrings()
 
     if (this._resolving) return
+    if (this._n >= this._N) return
 
-    // Idle → mjuk auto-hjälp som fäster en ballong åt barnet (garanterad framgång).
     this._idleMs += ctx.ticker.deltaMS
-    if (this._idleMs >= IDLE_MS) {
-      this._idleMs = 0
-      if (this._n < this._N) {
-        ctx.services.voice.say('Vi fäster en ballong till!')
-        pop(this._addBtn)
-        this._addBalloon(ctx, { auto: true })
-      } else {
-        ctx.services.voice.replayLast()
+
+    // Fas 1 (~9s): LOCKA först — Elvira vinkar, en ballong studsar, röst uppmuntrar.
+    if (!this._enticed && this._idleMs >= IDLE_MS) {
+      this._enticed = true
+      const next = this._loose.find((x) => !x._taken)
+      if (next) {
+        wiggle(this._elvira)
+        pop(next)
+        floatText(ctx.fxLayer, next.x, next.y - 70, '👆', { fontSize: 48, rise: 40 })
+        ctx.services.voice.say('Tryck på en ballong till!')
+      }
+      return
+    }
+
+    // Fas 2 (~+3,5s): om barnet ändå väntar, fäst en ballong åt det (garanterad framgång).
+    if (this._enticed && this._idleMs >= IDLE_MS + HELP_MS) {
+      const next = this._loose.find((x) => !x._taken)
+      if (next) {
+        ctx.services.voice.say('Jag hjälper dig — en ballong till!')
+        this._attachLoose(ctx, next, { auto: true })
       }
     }
   },
@@ -351,14 +471,19 @@ export default {
     if (!this._alive || this._resolving) return
     this._resolving = true
 
-    pop(this._elvira)
     ctx.services.audio.sfx('correct')
-    burst(ctx.fxLayer, this._box.x, this._box.y, { power: 1.2 })
-    floatText(ctx.fxLayer, this._box.x, this._box.y - 120, '🎈', { fontSize: 56 })
 
-    // Presenten glider de sista pixlarna in i Elviras famn.
+    // Presenten glider de sista pixlarna in i Elviras famn → öppnas där.
     gsap.killTweensOf(this._box)
-    gsap.to(this._box, { y: this._balconyY - 10, duration: 0.5, ease: 'power2.out' })
+    gsap.to(this._box, {
+      y: this._balconyY - 6,
+      duration: 0.45,
+      ease: 'power2.out',
+      onComplete: () => {
+        if (this._alive) this._openPackage(ctx)
+      },
+    })
+    pop(this._elvira)
 
     // Förlopp + delat firande (firar-ljud + beröm-röst + konfetti + stjärna + klistermärke).
     ctx.progress.setLevel(this._level + 1)
@@ -366,9 +491,61 @@ export default {
     ctx.progress.setCustom('leveranser', got + 1)
     ctx.progress.complete()
 
-    this._levelCall = gsap.delayedCall(1.7, () => {
-      if (this._alive) this._loadLevel(this._level + 1)
+    this._levelCall = gsap.delayedCall(2.7, () => {
+      if (this._alive) this._loadLevel(ctx, this._level + 1)
     })
+  },
+
+  // Paketet spricker upp och en överraskning hoppar ut → Elvira kramar den.
+  _openPackage(ctx) {
+    if (!this._alive || this._box?.destroyed) return
+    const pick = SURPRISES[(Math.random() * SURPRISES.length) | 0]
+
+    const bx = this._box.x
+    const by = this._box.y
+    if (this._gift && !this._gift.destroyed) this._gift.visible = false
+    pop(this._box)
+    ctx.services.audio.sfx('reveal')
+    sparkle(ctx.fxLayer, bx, by - 30, { count: 8 })
+    burst(ctx.fxLayer, bx, by - 20, { power: 1 })
+
+    // Överraskningen: hoppar upp ur paketet och sedan in i Elviras famn.
+    const s = new Text({ text: pick.e, style: { fontFamily: FONT.body, fontSize: 84 } })
+    s.anchor.set(0.5)
+    s.position.set(bx, by - 20)
+    s.scale.set(0.2)
+    s.eventMode = 'none'
+    this._root.addChild(s)
+    this._surprise = s
+
+    const armX = BOX_X
+    const armY = this._balconyY - 30
+    const st = { x: bx, y: by - 20, s: 0.2, rot: 0 }
+    const apply = () => {
+      if (s.destroyed) return
+      s.x = st.x
+      s.y = st.y
+      s.rotation = st.rot
+      s.scale.set(st.s)
+    }
+    this._surpriseTl?.kill()
+    this._surpriseTl = gsap.timeline()
+      .to(st, { s: 1, y: by - 120, duration: 0.4, ease: 'back.out(2)', onUpdate: apply })
+      .to(st, {
+        x: armX,
+        y: armY,
+        rot: 0.12,
+        duration: 0.5,
+        ease: 'power1.inOut',
+        onUpdate: apply,
+        onComplete: () => {
+          if (!this._alive) return
+          pop(this._elvira)
+          if (!s.destroyed) burst(ctx.fxLayer, armX, armY, { power: 0.9 })
+        },
+      })
+
+    ctx.services.voice.say(`Titta, en ${pick.namn}! Tack så mycket!`)
   },
 
   destroy(ctx) {
@@ -378,6 +555,7 @@ export default {
     this._levelCall?.kill()
     this._riseTween?.kill()
     this._ghostBreathe?.kill()
+    this._surpriseTl?.kill()
     if (this._box) {
       gsap.killTweensOf(this._box)
       gsap.killTweensOf(this._box.scale)
@@ -385,11 +563,12 @@ export default {
     if (this._ghost) gsap.killTweensOf(this._ghost.scale)
     if (this._counter) gsap.killTweensOf(this._counter.scale)
     if (this._elvira) gsap.killTweensOf(this._elvira.scale)
-    if (this._addBtn) gsap.killTweensOf(this._addBtn.scale)
-    this._balloons?.forEach((b) => {
+    ;[...(this._loose || []), ...(this._attached || [])].forEach((b) => {
       gsap.killTweensOf(b)
+      gsap.killTweensOf(b.position)
       gsap.killTweensOf(b.scale)
     })
+    if (this._surprise && !this._surprise.destroyed) gsap.killTweensOf(this._surprise)
     this._root?.destroy({ children: true })
   },
 }

@@ -1,5 +1,5 @@
 # Ballonglyft (`ballonglyft`)
-> 🔤 larande · tap · 2–4 år · status: 📝 plan klar
+> 🔤 larande · tap · 2–4 år · status: ✅ första-omgång klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -110,3 +110,21 @@ aldrig.
 - Rekommenderad första-omgång: **[Medium] räkna lösa ballonger (ett-till-ett) + [Medium]
   paketet öppnas med överraskning + [Quick] stigande lyft-ljud** — gör räknandet riktigt
   matematiskt och leveransen meningsfull, helt inom no-fail.
+- 2026-07-02: **Första-omgång IMPLEMENTERAD** (errorCount 0, skärmdump verifierad):
+  - **Räkna riktiga ballonger (ett-till-ett).** Den gröna "Fäst ballong"-knappen är borttagen.
+    Nu spawnas N *lösa, färgglada* ballonger (ritade i Pixi Graphics, färger ur `PLAYFUL`)
+    längs nederkanten — en per önskad ballong. Barnet trycker på en ballong i taget (generös
+    hitArea 104×130 ≥96px); den flyger upp och fäster i buketten ovanför paketet, räknaren
+    tickar, rösten räknar på svenska och paketet lyfts ett steg. Barnet räknar nu FÖREMÅL.
+  - **Paketet öppnas med överraskning.** Vid mottagning glider paketet in i Elviras famn,
+    `🎁` göms, `reveal`+burst+sparkle spelas, och en överraskning ur en pool (🐻🐰🐤🐶🐱🦊🧸🐧)
+    hoppar upp ur paketet och in i Elviras famn — hon poppar/kramar. Röst: "Titta, en <djur>!
+    Tack så mycket!" Nivåbytet skjuts till 2,7s så överraskningen hinner spelas.
+  - **Stigande lyft-ljud.** Per fäst ballong: mjukt helium-"fffp" (`audio.tone` 680→1500 Hz)
+    + en STIGANDE lyft-ton vars tonhöjd klättrar med antalet mot målet (~380→900 Hz).
+  - **Mjukare, senare auto-hjälp.** Skjuten från 5,5s till 9s och tvåfasad: LOCKAR först
+    (Elvira vinklar, en ballong studsar, 👆 + röst "Tryck på en ballong till!"), och först
+    efter ytterligare 3,5s fäster den en ballong åt barnet ("Jag hjälper dig — en ballong
+    till!"). Att trycka på paketet är rent lekfullt (wiggle + soft + "Tryck på en ballong!").
+    Allt exit-säkert (proxy-tweenad överraskning, `_alive`/`destroyed`-vakter, städat i
+    destroy + vid nivåbyte).

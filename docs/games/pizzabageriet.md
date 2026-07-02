@@ -1,6 +1,15 @@
 # Pizzabageriet (`pizzabageriet`)
 > 🎉 roligt · drag · 2–5 år · status: 📝 plan klar
 
+> **Uppdatering (v1.0 UX-svep):** Ny layout — Bobo-loggan centrerad högst upp, pizzan till
+> vänster, mindre ugn till höger, gräddaknappen (nu **ikon ➡️🔥** utan text) i kolumnen mitt
+> emellan med en **soptunna 🗑️** rakt under. Placerade toppings kan nu **dras om** på pizzan,
+> dras till soptunnan för att tas bort (puff + glad tunna), eller släppas utanför → studsar
+> tillbaka med en vingel. Hyllan **slumpas** varje start och har utökats till 65 ingredienser
+> (+10 goda toppings, +10 äckligt-roliga, + specialarna Pappa/Mamma/Fluga/Gulligt monster/
+> Kissdroppe/Använd blöja/Potta/Prutt). Verifierad i webbläsare: placering, omflytt, soptunna,
+> gräddning och exit-mid-animation utan fel.
+
 ## 1. Nuläge (sett som spelare)
 
 Ett varmt kök. Till vänster ligger en rund pizza på ett fat (skorpa, tomatsås, ost med små

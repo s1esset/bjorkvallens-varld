@@ -1,6 +1,16 @@
 # Hamburgerbygget (`hamburgerbygget`)
 > 🎉 roligt · drag · 2–5 år · status: 📝 plan klar
 
+> **Uppdatering (v1.0 UX-svep):** Ny spegelvänd layout — Bobo-loggan centrerad högst upp,
+> bygget till höger, mindre grill till vänster, grillknappen (nu **ikon 🔥⬅️** utan text) i
+> kolumnen mitt emellan med en **soptunna 🗑️** rakt under. Staplade lager kan nu **dras om**
+> (dras ut ur stapeln och läggas tillbaka på ny höjd), dras till soptunnan för att tas bort
+> (puff + glad tunna), eller släppas utanför → snäpper tillbaka med en vingel. Hyllan
+> **slumpas** varje start och har utökats (+10 goda ingredienser, +10 äckligt-roliga, +
+> specialarna Pappa/Mamma/Fluga/Gulligt monster/Kissdroppe/Använd blöja/Potta/Prutt).
+> Verifierad i webbläsare: stapling (tap + drag), omflytt, soptunna, grillning och
+> exit-mid-animation utan fel.
+
 ## 1. Nuläge (sett som spelare)
 
 Ett varmt kök, sett **från sidan**. På ett fat till vänster ligger en underbulle; till höger en

@@ -1,12 +1,13 @@
 // Hamburgerbygget — bygg & grilla (2–5 år). Sett FRÅN SIDAN: en underbulle ligger på
 // fatet. Barnet DRAR ingredienser (sallad, ost, biff, tomat, bacon … och roliga grejer
 // som bajs, strumpa, fisk, ben, stjärna!) från brädan och släpper på bygget → de STAPLAS
-// mellan bröden, lager på lager. Locket (överbullen) lägger sig alltid överst. Sedan:
-// tryck "Grilla" → hamburgaren åker till grillen och MÖRKNAR längs en ton-gradient över
-// tid (rå → grillad → mörk → kol). Barnet tittar på färgen och trycker "Ta av" när den
-// ser god ut. INGET kan bli fel: även becksvart är bara roligt, firande + klistermärke
-// varje gång, sedan en ny burgare. Maten ritas i sidoprofil med Pixi Graphics (inga
-// ikon-behållare); roliga grejer är emoji. Exit-säkert: tweens dödas, ticker tas bort.
+// mellan bröden, lager på lager. Locket (överbullen) lägger sig alltid överst. Hyllan har
+// MÅNGA saker → svep/dra i hyllan (eller pilarna) för att bläddra; ett tryck staplar
+// direkt (tap-fallback). Sedan: tryck "Grilla" → hamburgaren åker till grillen och
+// MÖRKNAR längs en ton-gradient över tid (rå → grillad → mörk → kol). Barnet tittar på
+// färgen och trycker "Ta av" när den ser god ut. INGET kan bli fel: även becksvart är bara
+// roligt, firande + klistermärke varje gång, sedan en ny burgare. Maten ritas i sidoprofil
+// med Pixi Graphics (inga ikon-behållare); roliga grejer är emoji. Exit-säkert.
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
@@ -14,14 +15,21 @@ import { createScene } from '../../lib/scene.js'
 import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 const BUILD = { x: 410, y: 596 } // _burger-origo: fatets yta (underbullens botten)
-const GRILL = { x: 1000, y: 430 }
+const GRILL = { x: 1040, y: 430 } // flyttad högerut → mer luft mellan bygge & grill
+const BTN = { x: 715, y: 430 } // Grilla/Ta av: mellan bygget och grillen (ej över hyllan)
 const BOTTOM_BUN_H = 50
 const TOP_BUN_H = 62
 const STACK_CAP_Y = -358 // sluta lägga på när stapeln är så här hög (no-fail "fullt")
+
+// Svepbar hylla.
+const SHELF_Y = 672
+const SHELF_VX0 = 150
+const SHELF_VX1 = 1130
+const ITEM_STEP = 120
 
 // Ton-gradient för burgaren: ljus → grillad → mörk → kol.
 const bakeTint = makeBakeTint([0xffffff, 0xfbe6bf, 0xd99a44, 0x8a5024, 0x2a2018])
@@ -53,7 +61,19 @@ const FUN = [
   { id: 'ben', th: 46, emoji: '🦴' },
   { id: 'stjarna', th: 46, emoji: '⭐' },
 ]
-const PALETTE = [...FOODS, ...FUN]
+// 25 extra "slumpiga" ingredienser (emoji) → mycket att bläddra bland.
+const EXTRA = [
+  { id: 'raka', th: 44, emoji: '🍤' }, { id: 'lok', th: 40, emoji: '🧅' }, { id: 'gurka', th: 34, emoji: '🥒' },
+  { id: 'stekt_agg', th: 40, emoji: '🍳' }, { id: 'agg', th: 44, emoji: '🥚' }, { id: 'chili', th: 40, emoji: '🌶️' },
+  { id: 'paprika', th: 42, emoji: '🫑' }, { id: 'svamp', th: 42, emoji: '🍄' }, { id: 'broccoli', th: 46, emoji: '🥦' },
+  { id: 'ananas', th: 44, emoji: '🍍' }, { id: 'banan', th: 44, emoji: '🍌' }, { id: 'jordgubbe', th: 40, emoji: '🍓' },
+  { id: 'pizza', th: 44, emoji: '🍕' }, { id: 'korv', th: 40, emoji: '🌭' }, { id: 'pommes', th: 46, emoji: '🍟' },
+  { id: 'kringla', th: 44, emoji: '🥨' }, { id: 'munk', th: 46, emoji: '🍩' }, { id: 'kaka', th: 40, emoji: '🍪' },
+  { id: 'choklad', th: 38, emoji: '🍫' }, { id: 'is', th: 40, emoji: '🧊' }, { id: 'mask', th: 38, emoji: '🐛' },
+  { id: 'blackfisk', th: 48, emoji: '🐙' }, { id: 'krabba', th: 46, emoji: '🦀' }, { id: 'groda', th: 44, emoji: '🐸' },
+  { id: 'godis', th: 38, emoji: '🍬' },
+]
+const PALETTE = [...FOODS, ...FUN, ...EXTRA]
 
 export default {
   id: 'hamburgerbygget',
@@ -75,8 +95,10 @@ export default {
     this._lastSmoke = 0
     this._lastSizzle = 0
     this._flameAcc = 0
-    this._drag = null
+    this._grab = null
     this._rounds = ctx.progress.get().custom?.burgare || 0
+    // Slumpad hyll-ordning så två sessioner inte ser lika ut.
+    this._items = shuffle(PALETTE.slice())
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -110,11 +132,10 @@ export default {
     this._repositionTopBun()
     this._root.addChild(this._burger)
 
-    // Ton-mätare (visas vid grillning), placeras i den tomma vänsterytan.
+    // Ton-mätare (visas vid grillning), placeras vid grillen (blick + färg samlas).
     const meter = buildToneMeter({ width: 320, tint: bakeTint })
     this._meter = meter.container
     this._setMeterProgress = meter.setProgress
-    // Ton-mätaren flyttad till grillen (blick + färg på samma sida som burgaren).
     this._meter.position.set(GRILL.x, 190)
     this._meter.visible = false
     this._root.addChild(this._meter)
@@ -126,24 +147,26 @@ export default {
     this._customer.eventMode = 'none'
     this._root.addChild(this._customer)
 
+    // Ingrediens-bräda nederst (svepbar hylla).
+    this._buildPalette(ctx)
+
+    // Drag-lager överst.
     this._dragLayer = new Container()
     this._dragLayer.eventMode = 'none'
     this._root.addChild(this._dragLayer)
 
-    this._buildPalette(ctx)
-
     this._grillBtn = new Button({
-      label: 'Grilla', icon: '🔥', width: 240, height: 100, color: COLORS.orange,
+      label: 'Grilla', icon: '🔥', width: 210, height: 100, color: COLORS.orange,
       services: ctx.services, sound: 'whoosh', onTap: () => this._startGrill(ctx),
     })
-    this._grillBtn.position.set(GRILL.x, 600)
+    this._grillBtn.position.set(BTN.x, BTN.y)
     this._root.addChild(this._grillBtn)
 
     this._takeBtn = new Button({
-      label: 'Ta av', icon: '🧤', width: 240, height: 100, color: COLORS.green,
+      label: 'Ta av', icon: '🧤', width: 210, height: 100, color: COLORS.green,
       services: ctx.services, sound: 'pop', onTap: () => this._takeOff(ctx),
     })
-    this._takeBtn.position.set(GRILL.x, 600)
+    this._takeBtn.position.set(BTN.x, BTN.y)
     this._takeBtn.visible = false
     this._root.addChild(this._takeBtn)
 
@@ -203,21 +226,27 @@ export default {
     }
   },
 
+  // ---- Svepbar ingredienshylla -------------------------------------------
+
   _buildPalette(ctx) {
-    this._palette = new Container()
-    this._root.addChild(this._palette)
-    const n = PALETTE.length
-    const x0 = 130
-    const x1 = 1150
-    const y = 672
-    const shelf = new Graphics().roundRect(70, y - 52, 1140, 96, 28).fill({ color: 0xffffff, alpha: 0.5 }).stroke({ width: 4, color: 0xe6d8bf })
+    const shelf = new Graphics().roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill({ color: 0xffffff, alpha: 0.5 }).stroke({ width: 4, color: 0xe6d8bf })
     shelf.eventMode = 'none'
-    this._palette.addChild(shelf)
+    this._root.addChild(shelf)
+
+    // Klippt fönster (mask).
+    this._paletteViewport = new Container()
+    this._root.addChild(this._paletteViewport)
+    const maskG = new Graphics().roundRect(SHELF_VX0, SHELF_Y - 50, SHELF_VX1 - SHELF_VX0, 100, 22).fill(0xffffff)
+    this._paletteViewport.addChild(maskG)
+    this._paletteViewport.mask = maskG
+
+    this._paletteStrip = new Container()
+    this._paletteViewport.addChild(this._paletteStrip)
+
     this._paletteItems = []
-    PALETTE.forEach((ing, i) => {
-      const px = x0 + (n === 1 ? 0 : ((x1 - x0) * i) / (n - 1))
+    this._items.forEach((ing, i) => {
       const slot = new Container()
-      slot.position.set(px, y)
+      slot.position.set(i * ITEM_STEP, SHELF_Y) // lokal x i strippen
       const view = viewFor(ing)
       // Skala ner till brädan (sidoprofiler är breda).
       const s = ing.make ? 0.42 : 0.78
@@ -227,60 +256,126 @@ export default {
       slot.eventMode = 'static'
       slot.cursor = 'pointer'
       slot.hitArea = new Circle(0, 0, 50)
-      const onDown = (e) => this._startDrag(ctx, ing, e)
+      const onDown = (e) => this._onItemDown(ctx, ing, slot, e)
       slot.on('pointerdown', onDown)
       slot._onDown = onDown
-      this._palette.addChild(slot)
+      this._paletteStrip.addChild(slot)
       this._paletteItems.push(slot)
     })
+
+    const contentW = (this._items.length - 1) * ITEM_STEP
+    this._scrollMax = SHELF_VX0 + 40
+    this._scrollMin = Math.min(this._scrollMax, SHELF_VX1 - 40 - contentW)
+    this._paletteStrip.x = this._scrollMax
+    this._paletteStrip.y = 0
+
+    // Pilar (tap) — komplement till svep.
+    this._arrows = []
+    const mkArrow = (x, char, dir) => {
+      const a = new Container()
+      a.position.set(x, SHELF_Y)
+      a.addChild(new Graphics().circle(0, 0, 34).fill({ color: COLORS.orange, alpha: 0.95 }).stroke({ width: 4, color: 0xffffff }))
+      const t = new Text({ text: char, style: { fontFamily: FONT.body, fontSize: 34, fontWeight: '900', fill: 0xffffff } })
+      t.anchor.set(0.5)
+      a.addChild(t)
+      a.eventMode = 'static'
+      a.cursor = 'pointer'
+      a.hitArea = new Circle(0, 0, 48)
+      const onTap = () => this._pageShelf(ctx, dir)
+      a.on('pointertap', onTap)
+      a._onTap = onTap
+      this._root.addChild(a)
+      this._arrows.push(a)
+    }
+    mkArrow(102, '◀', +1)
+    mkArrow(1178, '▶', -1)
   },
 
-  // ---- Drag: bräda → stapel ----------------------------------------------
-
-  _startDrag(ctx, ing, e) {
-    if (!this._alive || this._phase !== 'decorate' || this._drag) return
+  _pageShelf(ctx, dir) {
+    if (!this._alive || this._phase !== 'decorate') return
     this._idle = 0
+    const target = clamp(this._paletteStrip.x + dir * 560, this._scrollMin, this._scrollMax)
+    gsap.killTweensOf(this._paletteStrip)
+    gsap.to(this._paletteStrip, { x: target, duration: 0.32, ease: 'power2.out' })
     ctx.services.audio.sfx('tap')
-    const view = viewFor(ing)
-    view.eventMode = 'none'
-    const p = this._root.toLocal(e.global)
-    view.position.set(p.x, p.y)
-    this._dragLayer.addChild(view)
-    this._drag = { ing, view, src: e.currentTarget }
-    pop(view)
-    const move = (ev) => this._onDragMove(ev)
-    const up = (ev) => this._onDragUp(ctx, ev)
-    this._drag.move = move
-    this._drag.up = up
-    this._drag.src.on('globalpointermove', move)
-    this._drag.src.on('pointerup', up)
-    this._drag.src.on('pointerupoutside', up)
   },
 
-  _onDragMove(e) {
-    if (!this._alive || !this._drag) return
-    const p = this._root.toLocal(e.global)
-    this._drag.view.position.set(p.x, p.y)
+  // ---- Gest: tap / drag-till-stapel / svep-scroll (disambiguering) --------
+
+  _onItemDown(ctx, ing, slot, e) {
+    if (!this._alive || this._phase !== 'decorate' || this._grab) return
+    this._idle = 0
+    gsap.killTweensOf(this._paletteStrip)
+    const move = (ev) => this._onGrabMove(ctx, ev)
+    const up = (ev) => this._onGrabUp(ctx, ev)
+    this._grab = {
+      ing, src: slot, mode: 'undecided', ghost: null,
+      startX: e.global.x, startY: e.global.y, startScroll: this._paletteStrip.x, move, up,
+    }
+    slot.on('globalpointermove', move)
+    slot.on('pointerup', up)
+    slot.on('pointerupoutside', up)
   },
 
-  _onDragUp(ctx, e) {
-    if (!this._alive || !this._drag) return
-    const d = this._drag
-    d.src.off('globalpointermove', d.move)
-    d.src.off('pointerup', d.up)
-    d.src.off('pointerupoutside', d.up)
-    this._drag = null
-    if (d.view && !d.view.destroyed) d.view.destroy()
+  _onGrabMove(ctx, e) {
+    const g = this._grab
+    if (!g) return
+    const dx = e.global.x - g.startX
+    const dy = e.global.y - g.startY
+    if (g.mode === 'undecided') {
+      if (Math.hypot(dx, dy) < 14) return
+      if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+        g.mode = 'scroll'
+      } else {
+        g.mode = 'drag'
+        ctx.services.audio.sfx('tap')
+        const view = viewFor(g.ing)
+        view.eventMode = 'none'
+        const p = this._root.toLocal(e.global)
+        view.position.set(p.x, p.y)
+        this._dragLayer.addChild(view)
+        g.ghost = view
+        pop(view)
+      }
+    }
+    if (g.mode === 'scroll') {
+      this._paletteStrip.x = clamp(g.startScroll + dx, this._scrollMin, this._scrollMax)
+    } else if (g.mode === 'drag' && g.ghost && !g.ghost.destroyed) {
+      const p = this._root.toLocal(e.global)
+      g.ghost.position.set(p.x, p.y)
+    }
+  },
 
-    const p = this._root.toLocal(e.global)
-    const nearColumn = Math.abs(p.x - BUILD.x) < 170 && p.y < 640
-    if (nearColumn && this._stackTopY > STACK_CAP_Y) {
-      this._addLayer(ctx, d.ing)
-    } else if (this._stackTopY <= STACK_CAP_Y) {
-      ctx.services.voice.say('Den är jättehög! Dags att grilla?')
-      pop(this._grillBtn)
+  _onGrabUp(ctx, e) {
+    const g = this._grab
+    if (!g) return
+    g.src.off('globalpointermove', g.move)
+    g.src.off('pointerup', g.up)
+    g.src.off('pointerupoutside', g.up)
+    this._grab = null
+
+    if (g.mode === 'drag') {
+      const p = this._root.toLocal(e.global)
+      const nearColumn = Math.abs(p.x - BUILD.x) < 170 && p.y < 640
+      if (nearColumn && this._stackTopY > STACK_CAP_Y) {
+        this._addLayer(ctx, g.ing)
+      } else if (this._stackTopY <= STACK_CAP_Y) {
+        ctx.services.voice.say('Den är jättehög! Dags att grilla?')
+        pop(this._grillBtn)
+      } else {
+        puff(ctx.fxLayer, p.x, p.y, { count: 6 })
+        ctx.services.audio.sfx('soft')
+      }
+      if (g.ghost && !g.ghost.destroyed) g.ghost.destroy()
+    } else if (g.mode === 'undecided') {
+      // Rent tryck = tap-fallback: stapla direkt på bygget.
+      if (this._stackTopY > STACK_CAP_Y) {
+        this._addLayer(ctx, g.ing)
+      } else {
+        ctx.services.voice.say('Den är jättehög! Dags att grilla?')
+        pop(this._grillBtn)
+      }
     } else {
-      puff(ctx.fxLayer, p.x, p.y, { count: 6 })
       ctx.services.audio.sfx('soft')
     }
   },
@@ -322,7 +417,6 @@ export default {
     this._phase = 'grilling'
     this._bake = 0
     this._idle = 0
-    this._cancelDrag()
     this._setPaletteEnabled(false)
     this._grillBtn.visible = false
     this._setHint('Titta på färgen — ta av när den är klar!')
@@ -475,21 +569,27 @@ export default {
   },
 
   _setPaletteEnabled(on) {
+    if (!on) this._cancelGrab()
     for (const it of this._paletteItems) {
       if (it.destroyed) continue
       it.eventMode = on ? 'static' : 'none'
       it.alpha = on ? 1 : 0.4
     }
+    for (const a of this._arrows || []) {
+      if (a.destroyed) continue
+      a.eventMode = on ? 'static' : 'none'
+      a.alpha = on ? 1 : 0.35
+    }
   },
 
-  _cancelDrag() {
-    const d = this._drag
-    if (!d) return
-    d.src.off('globalpointermove', d.move)
-    d.src.off('pointerup', d.up)
-    d.src.off('pointerupoutside', d.up)
-    if (d.view && !d.view.destroyed) d.view.destroy()
-    this._drag = null
+  _cancelGrab() {
+    const g = this._grab
+    if (!g) return
+    g.src.off('globalpointermove', g.move)
+    g.src.off('pointerup', g.up)
+    g.src.off('pointerupoutside', g.up)
+    if (g.ghost && !g.ghost.destroyed) g.ghost.destroy()
+    this._grab = null
   },
 
   destroy(ctx) {
@@ -502,13 +602,17 @@ export default {
       gsap.killTweensOf(this._customer)
       gsap.killTweensOf(this._customer.scale)
     }
-    this._cancelDrag()
+    this._cancelGrab()
+    gsap.killTweensOf(this._paletteStrip)
     for (const it of this._paletteItems || []) {
       if (it && !it.destroyed) {
         it.off('pointerdown', it._onDown)
         gsap.killTweensOf(it)
         gsap.killTweensOf(it.scale)
       }
+    }
+    for (const a of this._arrows || []) {
+      if (a && !a.destroyed) a.off('pointertap', a._onTap)
     }
     for (const v of this._stack || []) {
       gsap.killTweensOf(v)

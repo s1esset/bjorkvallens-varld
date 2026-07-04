@@ -19,7 +19,7 @@ npm run assets     # försök hämta egen-hostade typsnitt till public/fonts (kr
 
 ## Stack
 
-PixiJS v8 (WebGL) · Vite 5 · vite-plugin-pwa (Workbox `generateSW`) · GSAP · vanilla JS (ESM).
+PixiJS v8 (WebGL) · three.js (3D-spel, dynamiskt laddad) · Vite 5 · vite-plugin-pwa (Workbox `generateSW`) · GSAP · vanilla JS (ESM).
 Audio = hybrid: förinspelade RIKTIGA klipp (offline mp3) + procedurell Web Audio som fallback.
 Riktiga SFX/djurläten genereras lokalt med MOSS-SoundEffect (`npm run sfx` → `scripts/gen-sfx.py`).
 Röst = Web Speech `sv-SE` i grundbygget (uppgradera till förgenererade Piper-klipp, offline).
@@ -81,6 +81,9 @@ src/
     DragController.js  återanvändbar drag m. snäpp/snäpp-tillbaka/tap-tap
     feedback.js     bounceIn/pop/wiggle (på egna objekt — döda tweens i destroy) · puff/sparkle/bigCelebration/floatText (självstädande/exit-säkra)
     mascot.js       maskoten "Bobo" (Pixi Graphics)
+    three3d.js      3D-stöd: ThreeLayer (three.js-canvas bakom Pixi), designToWorld/pick,
+                    addKidLighting, toonMat — ladda DYNAMISKT i spelets init (egen chunk)
+    three-shaders.js  shaderMat + backdrops (sky/night/…) + rainbowMat/glitterMat/gradientMat
     confirm.js      Ja/Nej-dialog
     domModal.js     DOM-textinmatning (namnge profil)
     toast.js        lugn avi-text
@@ -158,7 +161,7 @@ Every game is a folder under `src/games/<id>/` whose `index.js` **default-export
 
 ### How to add a new game (checklist)
 
-1. `src/games/<id>/index.js` — default-export a GameModule (`id` is ASCII, matches the folder). Copy `klambubblor` as the template.
+1. `src/games/<id>/index.js` — default-export a GameModule (`id` is ASCII, matches the folder). Copy `klambubblor` as the template (or `glittergrottan` for a 3D game).
 2. Pick a `category` from the CATEGORIES list (drives the library tile color) and an `icon` emoji.
 3. Build the scene in `init(ctx)`; speak `voiceIntro` in `mount(ctx)`; tear down in `destroy(ctx)`.
 4. Drag-and-drop? Reuse `lib/DragController.js` (don't reinvent — it has the snap/snap-back/tap-tap fallback under-4s need).
@@ -223,6 +226,22 @@ Writes are debounced 500ms + synchronously flushed on `visibilitychange=hidden`/
 `matter-js` powers the physics games via `src/lib/physics.js` (`PhysicsWorld`): body factories (`circle/rectangle/polygon`) taking full matter opts, `MATERIALS` presets (`bouncy/normal/heavy/light/sticky` → restitution/density/**mass**/friction/frictionAir), `setWind(ax,ay)` (force field), `setGravity(y,x?)`, `link(body,view)`, `onCollision` (match `body.label`), fixed-timestep `update(deltaMS)`, exit-safe `destroy()`, plus `predictTrajectory(...)` and re-exported `Body`/`Composite`/`Vector`. `src/lib/launcher.js` `AimLauncher` is the reusable **"drag to set direction + power, with a live dotted trajectory preview"** control (`slingshot` pull-back or throw; tap-fallback aims at `defaultAim`; `setWind`/`setPreview` keep the preview honest). Build games with a **goal** (reach/collect/fill) + at least one extra control that changes the outcome (placement drag, weight/wind/bounce toggles). **NEVER a fail state** — misses are fun (wiggle/puff/giggle) and gentle auto-help guarantees success. Templates: `rulla-bollen-hem` (top-down minigolf, surface toggle), `spindelhjalten`, `enhorningen-elvira`, `bajs-och-kiss`, `fanga-frukten` (catch), `bygg-tornet` (crane-drop stacking), `plask-i-vattnet` (buoyancy float/sink), `mata-monstret` (4 modes: drag/walk/shelf-drop/plinko).
 
 **Preview calibration (so the dotted line matches the real flight — measured against matter.js at the fixed 1/60 step):** matter's per-step downward velocity gain ≈ `0.2778 × gravityY` px/step, and air friction damps velocity ≈ `(1 − frictionAir)` per step. So for `AimLauncher`/`predictTrajectory` set `previewGravity = 0.2778 × gravityY` and `previewDamp = 1 − frictionAir` (launcher now takes a `previewDamp` opt; default 1). For `setWind(ax)` to match the preview's `previewWind` (px/step²), use `ax = previewWind / (1000/60)²` (≈ `/277.8`). Getting this wrong (e.g. the old `gy=0.5`, no damp) made spider's preview point ~380px off and its auto-assist miss; the calibrated values match to ~2px. The launcher games that predate this (`bajs-och-kiss` 0.42, `studsbollar` 0.44) were hand-tuned to roughly-correct `previewGravity` for their higher `gravityY` — don't blindly retune them; measure first (`fyrverkeri` integrates its own motion at `GY` so its preview is exact by construction).
+
+## 3D games (three.js + shaders)
+
+`src/lib/three3d.js` (`ThreeLayer`) ger spelmoduler en riktig 3D-scen: en **egen transparent
+WebGL-canvas bakom Pixi-canvasen** — Pixi ritar UI/feedback/firande ovanpå som vanligt och
+**all input går via Pixi** (P0-reglerna gäller oförändrat). Med `autoFrame` mappas designrymden
+1280×720 **1:1 på planet z=0** (origo i mitten, +y upp); `designToWorld`/`worldToDesign`/`pick`
+översätter mellan Pixi- och 3D-värld (tap → raycast). `layer.destroy()` i spelets `destroy` städar
+allt (GPU-dispose, canvas, återställd bgLayer). **Ladda ALLTID `three3d.js` med dynamisk
+`await import(...)` i `init`** — statisk import drar in hela three.js i huvudbundlen.
+Shaders: `src/lib/three-shaders.js` (re-exporteras av three3d) — `shaderMat` (uTime/uResolution
+tickas via `layer.animate`), `makeBackdrop(layer,'sky'|'sunset'|'night'|'meadow'|'water'|'candy')`
+och själv-registrerande objektmaterial (`rainbowMat`/`glitterMat`/`gradientMat`), plus
+`toonMat`/`addKidLighting` för klassisk tecknad look. Mobilbudget: pixelRatio ≤2, inga skuggor
+per default, <50k trianglar, ingen postprocessing. Mall: `glittergrottan`. Djupare guide:
+`.claude/skills/threejs-games` + `.claude/skills/threejs-shaders`.
 
 ## Assets & licenses
 

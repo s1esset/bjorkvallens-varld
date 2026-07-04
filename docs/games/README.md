@@ -53,7 +53,7 @@ Grupperad: Kärnloop · Variation · Juice · Progression · Karaktär · Ljud.
 Klart-bockar; commits när förbättringar genomförs.
 ```
 
-## Index — 68 spel
+## Index — 69 spel
 
 Status: ⬜ ej granskat · 📝 doc skriven (plan klar) · 🔧 förbättringar pågår · ✅ marknadsklar.
 Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
@@ -75,6 +75,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 66 | Loopdjuren | `loopdjuren` | drag | 🔧 |
 | 67 | Pizzabageriet | `pizzabageriet` | drag | 🔧 |
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | 🔧 |
+| 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 |
 
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ HELA fliken (första-omgång, 2026-07-01)
 | # | Spel | id | input | status |

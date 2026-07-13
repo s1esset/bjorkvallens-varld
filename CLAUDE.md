@@ -6,6 +6,10 @@ Guidance for Claude Code (and humans) working in this repo. **Read this fully be
 
 **Barnspel** is an offline-first, installable **PWA of mini-games for children aged 2–5**, fully in **Swedish** (UI, voice, text). Tablet-first. **No ads, no third-party tracking, no runtime network calls.** A thin shell (splash → menu → settings/library → game) hosts hot-swappable, self-contained **game modules** that all implement one contract and use shared services.
 
+> **`old/` is archived residue — IGNORE it.** It is `.gitignore`d and stale. Never read, grep, glob, or cite anything under `old/`. Live sources of truth: this file, `ARCHITECTURE.md`, `docs/DESIGN.md`, `docs/games/`.
+
+> **Browser automation — pick one, don't load both into a task.** Default to the node harness (`scripts/test-game.mjs`, `npm run` preview) for verifying games. When you need a *live* browser, use **claude-in-chrome** first. Only fall back to the **playwright** MCP for the specific thing claude-in-chrome can't see or reach — don't drive both in the same task.
+
 ## Commands
 
 ```bash

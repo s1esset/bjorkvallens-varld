@@ -10,3 +10,9 @@ dev-dist/
 
 .playwright-mcp/
 /*.png
+
+# Archived/stale — see old/README.md. Do not read or search in here.
+old/
+
+# Runtime marker written by scripts/start.ps1 (server window PID)
+.server.pid

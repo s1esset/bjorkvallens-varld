@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --host",
+    "serve": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start.ps1",
+    "serve:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1",
     "icons": "node scripts/generate-icons.mjs",
     "assets": "node scripts/fetch-fonts.mjs",
     "voice": "\"C:/repos/storygen/services/narrator/.venv/Scripts/python.exe\" scripts/gen-voice.py --phrases scripts/voice-phrases.json --ref \"C:/repos/storygen/services/narrator/src/narrator/assets/narrator_default.wav\" --ref-text \"Some call me nature, others call me mother nature.\" --out public/audio/voice",

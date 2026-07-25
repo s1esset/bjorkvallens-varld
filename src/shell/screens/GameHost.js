@@ -2,6 +2,7 @@
 // monterar modulen och städar vid utgång. Ger hem- och högtalarknapp.
 // Se GameModule-kontraktet i CLAUDE.md.
 import { Container } from 'pixi.js'
+import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
 import { bigCelebration } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -36,6 +37,26 @@ export async function createGameHost(services, params) {
 
   const exitToLibrary = () => nav.go('library')
 
+  // Fördröjda anrop som ALLTID dör med spelomgången.
+  //
+  // Spelmodulerna är singletons (registry.js exporterar objekt, inte klasser). En
+  // `gsap.delayedCall` från förra omgången överlever därför `destroy`, och när samma spel
+  // startas igen är `this._alive` åter `true` — vakten `if (!this._alive) return` SLÄPPER
+  // alltså igenom den gamla callbacken, som kör mitt i den nya omgången. Fönstret är exakt
+  // så långt som ens fördröjning, och att gå ut och in snabbt är precis vad ett barn gör.
+  //
+  // ctx.later() knyter varje fördröjt anrop till DEN HÄR omgången: vid destroy dödas de,
+  // och en callback från en tidigare omgång kan aldrig köra.
+  const timers = new Set()
+  const later = (delaySeconds, fn) => {
+    const call = gsap.delayedCall(delaySeconds, () => {
+      timers.delete(call)
+      fn()
+    })
+    timers.add(call)
+    return call
+  }
+
   const ctx = {
     stage,
     ticker: services.app.ticker,
@@ -44,6 +65,7 @@ export async function createGameHost(services, params) {
     services,
     progress,
     exitToLibrary,
+    later,
     fxLayer: services.fxLayer,
   }
 
@@ -88,6 +110,10 @@ export async function createGameHost(services, params) {
   return {
     view,
     destroy() {
+      // Döda omgångens fördröjda anrop FÖRE spelets egen städning, så inget hinner
+      // köra mot halvrivna objekt (och inget överlever till nästa omgång).
+      for (const t of timers) t.kill()
+      timers.clear()
       try {
         game.destroy?.(ctx)
       } catch (err) {

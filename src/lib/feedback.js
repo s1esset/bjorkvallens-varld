@@ -4,35 +4,82 @@ import { Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PLAYFUL, FONT } from './theme.js'
 
+// --- Vilolägen -------------------------------------------------------------
+// Effekterna nedan (pop/wiggle/shake/breathe) återgår till objektets VILOLÄGE när de
+// är klara. Läser man viloläget medan en effekt redan pågår blir det uppblåsta/
+// förskjutna värdet den nya basen, och objektet drar iväg för varje ny trigger:
+// pop gav 1.18 -> 1.39 -> 1.64 -> 1.94 ... tills objektet täckte skärmen (rapporterat
+// i enhorning-glitterbajs och loopdjuren; pop används i 64 av spelen).
+// Därför: basen läses BARA när ingen effekt av samma sort pågår. Ett spel som
+// medvetet ändrar vilo-skalan (t.ex. en snöboll som växer) fångas alltså upp
+// nästa gång objektet står stilla.
+function restScale(target) {
+  if (!target._fxScaleBusy || !target._fxRestScale) {
+    target._fxRestScale = { x: target.scale.x || 1, y: target.scale.y || 1 }
+  }
+  return target._fxRestScale
+}
+
 // Studsar in ett objekt (skala 0 -> 1).
 export function bounceIn(target, { delay = 0, duration = 0.45 } = {}) {
-  const sx = target.scale.x || 1
-  const sy = target.scale.y || 1
+  if (!target || target.destroyed) return
+  const base = restScale(target)
+  target._fxScaleBusy = true
   target.scale.set(0)
-  return gsap.to(target.scale, { x: sx, y: sy, duration, delay, ease: 'back.out(1.7)' })
+  return gsap.to(target.scale, {
+    x: base.x, y: base.y, duration, delay, ease: 'back.out(1.7)',
+    onComplete: () => { target._fxScaleBusy = false },
+  })
 }
 
 // Snabb glad puls (vid lyckad handling).
 export function pop(target, { scale = 1.18 } = {}) {
-  const sx = target.scale.x || 1
-  const sy = target.scale.y || 1
+  if (!target || target.destroyed) return
+  // VIKTIGT: döda den FÖRRA timelinen explicit. gsap.killTweensOf(scale) dödar bara
+  // barn-tweensen — timelinen lever vidare och fyrar sin onComplete mitt under nästa
+  // puls, nollställer "pågår"-flaggan, och då läses den uppblåsta skalan som ny bas.
+  target._fxPopTl?.kill()
+  const base = restScale(target)
   gsap.killTweensOf(target.scale)
-  gsap
-    .timeline()
-    .to(target.scale, { x: sx * scale, y: sy * scale, duration: 0.12, ease: 'power2.out' })
-    .to(target.scale, { x: sx, y: sy, duration: 0.22, ease: 'back.out(2.4)' })
+  target._fxScaleBusy = true
+  const tl = gsap
+    .timeline({
+      onComplete: () => {
+        target._fxScaleBusy = false
+        target._fxPopTl = null
+        if (!target.destroyed) target.scale.set(base.x, base.y)
+      },
+    })
+    .to(target.scale, { x: base.x * scale, y: base.y * scale, duration: 0.12, ease: 'power2.out' })
+    .to(target.scale, { x: base.x, y: base.y, duration: 0.22, ease: 'back.out(2.4)' })
+  target._fxPopTl = tl
+  return tl
 }
 
 // Vänlig vingel (vid "fel"/tomt — aldrig en bestraffning, bara lekfullt).
 export function wiggle(target) {
-  const r = target.rotation
+  if (!target || target.destroyed) return
+  // Samma fälla som pop: mitt i en vingel är rotationen förskjuten, och att läsa den
+  // som bas gör att objektet vrider sig längre och längre för varje tryck.
+  target._fxWiggleTl?.kill()
+  if (!target._fxWiggleBusy) target._fxRestRot = target.rotation
+  const r = target._fxRestRot || 0
   gsap.killTweensOf(target, 'rotation')
-  gsap
-    .timeline({ onComplete: () => (target.rotation = r) })
+  target._fxWiggleBusy = true
+  const wtl = gsap
+    .timeline({
+      onComplete: () => {
+        target._fxWiggleBusy = false
+        target._fxWiggleTl = null
+        if (!target.destroyed) target.rotation = r
+      },
+    })
     .to(target, { rotation: r + 0.12, duration: 0.06 })
     .to(target, { rotation: r - 0.12, duration: 0.06 })
     .to(target, { rotation: r + 0.08, duration: 0.06 })
     .to(target, { rotation: r, duration: 0.06 })
+  target._fxWiggleTl = wtl
+  return wtl
 }
 
 // Liten partikelpuff på en plats (t.ex. när en bubbla poppas).
@@ -171,8 +218,15 @@ export function ripple(layer, x, y, { color = 0xffffff, maxR = 80, duration = 0.
 // Mjuk, kort skärmskakning (ALDRIG hård) — för en stor krock/firande. Exit-säker.
 export function shake(target, { intensity = 8, duration = 0.4 } = {}) {
   if (!target || target.destroyed) return
-  const bx = target.x
-  const by = target.y
+  // Samma fälla igen: mitt i en skakning ligger objektet på en förskjuten position.
+  // Läses den som bas vandrar objektet iväg lite för varje ny skakning.
+  // Shakes tween ligger på ett lokalt proxy-objekt, så killTweensOf(target) rör den inte —
+  // överlappande skakningar slåss annars om target.x/y och basen vandrar.
+  target._fxShakeTw?.kill()
+  if (!target._fxShakeBusy) target._fxRestPos = { x: target.x, y: target.y }
+  const bx = target._fxRestPos.x
+  const by = target._fxRestPos.y
+  target._fxShakeBusy = true
   const st = { p: 1 }
   const tw = gsap.to(st, {
     p: 0,
@@ -188,12 +242,15 @@ export function shake(target, { intensity = 8, duration = 0.4 } = {}) {
       target.y = by + (Math.random() * 2 - 1) * m
     },
     onComplete: () => {
+      target._fxShakeBusy = false
+      target._fxShakeTw = null
       if (!target.destroyed) {
         target.x = bx
         target.y = by
       }
     },
   })
+  target._fxShakeTw = tw
   return tw
 }
 
@@ -241,8 +298,11 @@ export function burst(layer, x, y, { count = 14, colors = PLAYFUL, power = 1 } =
 // Lugn idle-puls (skala andas) för att locka pekning på rätt objekt. Returnerar
 // tween:en så anroparen kan döda den (eller låt exit-vakten döda den). Exit-säker.
 export function breathe(target, { scale = 1.08, duration = 0.9 } = {}) {
-  const sx = target.scale.x || 1
-  const sy = target.scale.y || 1
+  if (!target || target.destroyed) return
+  // Andningen loopar för alltid, så den får INTE ärva ett pågående pop-läge som bas.
+  const base = restScale(target)
+  const sx = base.x
+  const sy = base.y
   const st = { s: 1 }
   const tw = gsap.to(st, {
     s: scale,

@@ -13,12 +13,29 @@
 | **kategori** | `roligt` → flik 🎉 Roligt |
 | **input** | `mixed` (drag med svamp/slang + tap-tap-fallback + tryck på fåglar) |
 | **ålder** | [2, 5] |
-| **kärnloop** | En smutsig bil rullar in. Barnet drar **svampen** över fläckar (skrubbar) eller **slangen** (spolar rent + skrämmer fåglar). Fåglar flyger förbi och bajsar → nya fläckar. Allt rent → bilen glänser och kör iväg. |
-| **mål** | Alla fläckar borta → bilen tutar, kör genom glansbågen, ägaren vinkar. `progress.complete()` per bil. |
-| **agens** | Två verktyg med olika styrka. Svampen tar tjock smuts och stora klickar snabbt; slangen sköljer brett, är svagare på tjockt — men **skrämmer bort fåglar innan de hinner bajsa**. Barnet väljer hela tiden: förebygga eller städa efter. |
-| **variation** | 6 fordon (bil, buss, brandbil, traktor, glassbil, lastbil) · 4 fågeltyper med olika storlek och bajsnyans · sällsynt regnbågsfågel som bajsar glitter · smutsmönster slumpas · fler fläckar och tätare fåglar för varje bil |
-| **mottagare** | Bilens ägare väntar vid glansbågen (Bobo, ibland ett djur). Hejar under tvätten, inspekterar, jublar och åker med. |
-| **finish** | Bilen blir blank med en glimt-svep, **tutar** (riktig tvåtons-ton), ägaren hoppar in och vinkar, bilen rullar ut genom glansbågen. Varje ren fläck spelar nästa ton i en pentatonisk skala → en hel bil = en liten melodi. |
+| **kärnloop** | En smutsig bil rullar in. **Två faser, båda verktygen krävs:** barnet drar **svampen** fram och tillbaka över en fläck tills smutsen lossnat till **skum** — sedan drar det i **munstycket** på den riktiga slangen och **spolar bort löddret**. Först då är ytan ren. `smuts/bajs --svamp--> skum --slang--> ren`. Fåglar flyger förbi och bajsar → nya fläckar (som går samma väg). |
+| **mål** | Alla ytor rena (skrubbade OCH spolade) → bilen tutar, kör genom glansbågen, ägaren jublar. `progress.complete()` per bil. |
+| **agens** | Verktygen är inte utbytbara — de gör olika saker i en kedja. Svampen skrubbar loss smuts till skum (och gör ingenting på skum). Slangen spolar bort skum (och gör bara smutsen *blöt* — blött smuts lossnar 30 % lättare, en dold vänlighet) och **skrämmer bort fåglar innan de hinner bajsa**. Barnet väljer hela tiden: skrubba vidare, spola rent, eller spola en fågel för att slippa jobb. |
+| **variation** | 6 fordon med egna ritade detaljer (glasstrut, blåljusramp, avgasrör, skylt, lastbox) · 4 fågeltyper med olika storlek, bajsnyans och **seghet** (gås = 6 skrubbsteg, sparv = 2) · sällsynt regnbågsfågel som bajsar glitterskum · smutsmönster och skumbubblor slumpas · fler fläckar och tätare fåglar för varje bil |
+| **mottagare** | Bilens ägare väntar vid glansbågen (Bobo, annars ett **ritat** djur: hund/ko/gris/kanin). Guppar under tvätten, jublar och åker med. |
+| **finish** | Bilen blir blank med en glimt-svep, **tutar** (riktig tvåtons-ton), ägaren hoppar till och vinkar, bilen rullar ut genom glansbågen. Varje **helt ren** yta spelar nästa ton i en pentatonisk skala → en hel bil = en liten melodi. |
+
+**Slangen är riktig fysik.** En vattenpost står fast i scenen; slangen är en **verlet-kedja
+(20 punkter × 42 px, gravitation + dämpning, 8 relaxationsiterationer/substeg, 1–3 substeg per
+frame)**. Barnet greppar **näst sista punkten** (fingret) och munstycket **dinglar fritt i sista
+segmentet** — därför pekar strålen naturligt nedåt när handen står still, och släpar bakåt när
+man sveper. Vattnet sprutar så länge man håller i munstycket, längs sista segmentets riktning
+(kon: 235 px lång, breddas utåt). Räckvidden är kedjans längd: målpunkten klipps till
+`18 × 42 × 0,94 ≈ 710 px` från posten, så slangen **tar mjukt stopp** i stället för att tänjas.
+Släpper man faller munstycket mjukt ner mot golvet och blir liggande där. Tap-tap: tryck
+munstycket → tryck en yta → greppet ställer sig 205 px ovanför punkten och spolar ner på den
+i 1,9 s.
+
+**Skrubbmotstånd.** Ett skrubbsteg kostar ~78 px svamprörelse (+ 0,5 steg/s bara av att hålla
+still, som säkerhetsnät — inget kan låsa sig). Smuts = 2–3 steg, bajs = fågelns seghet × 2
+(2/2/4/6). Varje steg krymper och bleknar fläcken **och lägger till tre skumbubblor**, så man
+ser löddret byggas upp. Tap-tap-fallbacken tar exakt **ett** steg per tryck (svampen blir
+otryckbar medan den är ute, annars lägger den sig ovanpå fläcken och äter nästa tryck).
 
 **Motgångsdesign (P0 `MOTGÅNG`)**
 
@@ -29,29 +46,53 @@
 - **Ursprungssmutsen kommer aldrig tillbaka** — bara fågelbajs tillkommer. Arbetet kan alltså
   bara *sakta ner*, aldrig växa ifrån barnet. Ingen timer, ingen poäng, inget misslyckande.
 
+**Fristående objekt (P0 `ASSETS` / DESIGN.md §8.1).** Inget spelobjekt bor i en bricka och ingen
+emoji utgör ett föremål. Svampen är en ritad disksvamp (gul kropp med porer, grön skursida, mjuk
+skugga), munstycket ett ritat sprutmunstycke (grepp, avtryckare, metallpip, gummikrage), slangen
+en ritad slang, vattenposten en ritad hydrant, hinken en ritad hink med lödder, ägarna ritade
+djur. Träffytorna är osynliga `hitArea`-halon (svamp 152×136, munstycke 132×120). Enda emoji som
+finns kvar är transienta feedback-partiklar (`floatText` 💦 💨 🎉 ✨) och regnbågsdetaljen 🌈
+ovanpå den ritade regnbågsfågeln.
+
 **Röstrepliker**
 ```
-"Zacke tvättar bilar! Ta svampen och skrubba bort smutsen."
+"Zacke tvättar bilar! Skrubba med svampen och spola sedan bort skummet."   (voiceIntro, NY)
+"Titta! Smutsen blev skum. Ta slangen och spola bort det!"                 (NY)
+"Ta slangen och spola bort skummet!"                                       (NY)
+"Skrubba med svampen först, sedan spolar du!"                              (NY)
+"Dra i munstycket så sprutar vattnet!"                                     (NY)
+"Skrubba smutsen med svampen!"
+"Skrubba bort bajset med svampen!"
+"Ta svampen och skrubba!"
 "Spola med slangen!"
-"Akta! Fågeln bajsade på bilen!"
 "Spola på fågeln så flyger den iväg!"
+"Bra spolat! Den hann inte bajsa."
+"Akta! Fågeln bajsade på bilen!"
 "Puh! Den missade bilen!"
-"Titta så blank den blir!"
-"Bilen är skinande ren! Bra jobbat!"
 "En regnbågsfågel! Den bajsade glitter!"
+"Här kommer bilen/bussen/brandbilen/traktorn/glassbilen/lastbilen! Tvätta den ren."
+"Bilen är skinande ren! Bra jobbat!"
 ```
 
 ## 1. Nuläge (sett som spelare)
 
-Byggd 2026-07-25 direkt mot kvalitetsgrinden. Scenen är en tvätthall på en äng: bilen står mitt
-i bilden, verktygsstället (svamp + slang) längst ner, ägaren väntar till höger vid glansbågen,
-Zacke står till vänster och hejar. Fåglar korsar himlen uppe.
+Byggd 2026-07-25, byggd om 2026-07-25 (tvåfas-loop + riktig slangfysik + fristående objekt).
 
-Barnet drar svampen över bilen — fläckar bleknar i lager och poppar bort med en stigande ton.
-Slangen sprutar en vattenstråle: mildare på tjock smuts men träffar brett, och en fågel som
-träffas av strålen flyger iväg skräckslaget kacklande utan att hinna bajsa. Trycker man på en
-fågel flaxar den till och skyndar på. När sista fläcken är borta svepar en glans över lacken,
-bilen tutar, ägaren jublar och de rullar ut genom bågen.
+Scenen är en tvätthall på en äng: bilen mitt i bilden, Zacke till vänster, en **vattenpost** i
+nedre vänstra hörnet med en lång slang som ringlar över golvet fram till munstycket, en **hink**
+med tvålvatten där **svampen** ligger och guppar, och ägaren som väntar till höger vid
+glansbågen. Fåglar korsar himlen.
+
+Barnet tar svampen och gnuggar. Fläcken ger motstånd — den krymper, bleknar och får fler och
+fler skumbubblor för varje drag, tills den plötsligt *poppar* om till en riktig lödderklick av
+tjugotalet överlappande halvgenomskinliga bubblor med glansprickar. Bilen är nu skummig men inte
+ren. Barnet greppar munstycket, slangen släpar efter som ett rep, vattnet sprutar och skummet
+sköljs bort i klungor med små plopp — tills plåten är blank och en pentatonisk ton klingar.
+Drar man för långt tar slangen mjukt stopp. Träffas en fågel av strålen flyr den utan att hinna
+bajsa; trycker man på den missar den bilen.
+
+När sista ytan är ren svepar en glans över lacken, bilen tutar tvåtonigt, ägaren hoppar till och
+de rullar ut genom bågen.
 
 (+ skärmdump: `.test-shots/zackes-biltvatt.png`)
 
@@ -73,14 +114,18 @@ kan aldrig springa ifrån barnet.
 
 ## 3. Vad gör det lättjefullt / tunt
 
-Nyskrivet — den här sektionen fylls när spelet har spelats av riktiga barn. Kända risker att
-hålla ögonen på:
+Ägarens fyra krav efter första speltestet (2026-07-25) är åtgärdade: verktygen krävs **båda**
+(tvåfas-loop), svampen har **motstånd**, slangen är **riktig repfysik från en vattenpost**, och
+inga spelobjekt är emoji-i-en-ruta längre. Kvarstående risker:
 
-- Slangens roll kan bli otydlig om barnet aldrig råkar spola en fågel — den upptäcks kanske
-  inte utan röst-cue.
+- Slangens vilo-läge bestäms av fysiken; munstycket blir liggande där barnet släppte det. Det är
+  realistiskt men kan hamna undanskymt (t.ex. bakom bilen) — det syns alltid, men en mjuk
+  "krypa hem"-kraft efter ~15 s vila vore vänligare.
+- Skummet på tjock gåsbajs kräver en hel del gnuggande. Taket (3 bajsfläckar) håller det i
+  schack, men på bil 5–6 kan det bli mycket arbete samtidigt.
 - 6 fordon räcker en stund men blir förutsägbart; fler karosser/färger är en billig påfyllning.
-- Ägaren reagerar men deltar inte — hen skulle kunna räcka över en trasa eller peka på en missad
-  fläck.
+- Ägaren reagerar men deltar inte — hen skulle kunna peka på en missad fläck.
+- Strålens ljud är fortfarande upprepade `whoosh` — ett loopande vattenljud saknas.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
@@ -93,8 +138,10 @@ hålla ögonen på:
 - [Medium] Väder: regnskur som sköljer bilen halvvägs (gratis hjälp) eller lera som stänker upp.
 
 **Juice**
-- [Quick] Skum som byggs upp där svampen gnuggat och sköljs bort av slangen.
+- ~~[Quick] Skum som byggs upp där svampen gnuggat och sköljs bort av slangen.~~ **GJORT** — det
+  är numera hela kärnloopen.
 - [Medium] Vattenpöl som växer under bilen medan man spolar.
+- [Quick] Munstycket kryper långsamt hem mot posten efter lång vila.
 
 **Progression**
 - [Medium] Låt fordonstypen avgöra tvättytan (buss = större yta, fler fläckar men lugnare fåglar).
@@ -111,3 +158,22 @@ hålla ögonen på:
 
 - `2026-07-25` · byggd från spec via `/spel`, första körningen av pipelinen. Kvalitetsgrindens
   7 punkter genomgångna, `npm run check --game` grön, headless-test 0 fel inkl. exit-cykel.
+- `2026-07-25` · **ombyggd efter ägarens speltest** (fyra krav):
+  1. **Tvåfas-loop** — svampen skrubbar smuts/bajs till **skum**, slangen spolar bort skummet.
+     Båda verktygen krävs, i ordning. Fel verktyg ger rolig reaktion + röst-cue, aldrig ett stopp
+     (svamp på skum = bubblorna guppar; vatten på smuts = den blir blöt och lossnar 30 % lättare).
+  2. **Skrubbmotstånd** — arbete mäts i svamprörelse (~78 px/steg). Smuts 2–3 steg, bajs 2–6 steg
+     efter fågelns storlek. Fläcken krymper, bleknar och samlar skumbubblor för varje steg.
+     Tap-tap ger exakt ett steg per tryck.
+  3. **Riktig slang** — vattenpost + verlet-kedja (20 punkter × 42 px, gravitation, dämpning,
+     8 relaxationsiterationer). Barnet greppar strax bakom munstycket, som dinglar fritt →
+     strålen pekar dit man siktar. Räckviddsstopp via målklippning (~710 px), munstycket faller
+     mjukt till golvet när man släpper. Tap-tap spolar en punkt i 1,9 s.
+  4. **Fristående objekt** — svamp, munstycke, slang, vattenpost, hink, ägardjur och
+     fordonsdetaljer är nu ritade föremål med osynliga hitArea-halon; verktygsbrickorna med
+     🧽/🚿 och ägarens emoji-huvud är borta.
+  Även: hela input-hanteringen går via en osynlig helskärms-träffyta (tap-tap fungerar överallt),
+  fläckarnas skala lerpas i tickern i stället för per-fläck-tweens (färre tweens att döda), och
+  slangfysiken nollställs explicit i `destroy`. `npm run check --game` grön, `npm run test`
+  0 konsolfel inkl. exit-cykel; extra manuella Playwright-körningar för drag, tap-tap,
+  räckviddsstopp och exit mitt i sprutandet.

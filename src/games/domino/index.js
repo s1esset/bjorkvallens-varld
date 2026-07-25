@@ -1,20 +1,25 @@
-// Domino — bygg vägen till klockan (2–5 år). En rad domino-brickor leder från vänster
-// fram till en KLOCKA 🔔 längst till höger. I raden finns LUCKOR — barnet DRAR (eller
-// tap-tap) extra brickor från brickfacket ner i luckorna (förlåtande snäpp) för att bygga
-// vägen HEL. Sedan TRYCKER barnet på FÖRSTA brickan: BARA den puttas — matter-fysiken
-// låter varje bricka fälla nästa (äkta kedjereaktion) med ett accelererande klick-ljud.
-// Vid en TOM lucka stannar raset naturligt (ingen kropp att träffa) — inget misslyckande,
-// när barnet lägger i brickan fortsätter raset av sig självt. Når raset ända fram ringer
-// klockan -> firande + ny, längre bana. Mjuk auto-hjälp efter en stund fyller nästa lucka
-// så banan ALLTID blir klar. Tryck utanför start ger bara en mjuk, lekfull gnista. Allt
-// ritas programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+// Domino — bygg REGNBÅGSVÄGEN till klockan (2–5 år). En rad domino-brickor leder från
+// vänster fram till en KLOCKA längst till höger, och hela raden är en mjuk regnbågs-
+// gradient: varje plats i kedjan har sin egen färg. I raden finns LUCKOR — varje lucka
+// visar ett blekt spöke i DEN FÄRG som söks, och i brickfacket ligger brickor i just de
+// färgerna (blandade). Barnet DRAR en bricka till luckan med SAMMA FÄRG (förlåtande snäpp
+// 135px). Fel lucka = brickan glider snällt hem igen med ett vänligt ljud och rätt lucka
+// pulserar — aldrig en summer. Är vägen hel spelar regnbågen en liten fanfar.
+// Sedan TRYCKER barnet på FÖRSTA brickan: BARA den puttas — matter-fysiken låter varje
+// bricka fälla nästa (äkta kedjereaktion) med en stigande pentatonisk skala. Vid en TOM
+// lucka stannar raset naturligt (ingen kropp att träffa) — inget misslyckande; när brickan
+// läggs i fortsätter raset av sig självt. Når raset fram ringer klockan, Bobo hoppar av
+// glädje -> firande + ny, längre bana (regnbågen vänder håll varannan nivå). Mjuk hjälp:
+// först en färg-ledtråd (rätt lucka lyser), sedan auto-fyllning — banan blir ALLTID klar.
+// Allt ritas programmatiskt (Pixi Graphics) — inga externa filer, inga emoji-i-ruta-objekt.
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Matter } from '../../lib/physics.js'
-import { createScene } from '../../lib/scene.js'
-import { randomFrom } from '../../lib/swedish.js'
-import { pop, wiggle, sparkle, burst, breathe, bigCelebration, floatText, puff, shake } from '../../lib/feedback.js'
-import { COLORS, PLAYFUL, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { pop, wiggle, sparkle, burst, breathe, bigCelebration, ripple, puff, shake } from '../../lib/feedback.js'
+import { makeMascot } from '../../lib/mascot.js'
+import { COLORS, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
 
 const { Body } = Matter
 
@@ -24,17 +29,47 @@ const SPACING = 80 // satt så en fallande bricka träffar nästa vid ~35° — 
 const FLOOR_Y = DESIGN_H - 40 // 680 — brickornas vilolinje / markens överkant
 const TILE_Y = FLOOR_Y - TILE_H / 2 // brickans mittpunkt så underkanten vilar på golvet
 const LAST_SLOT_X = 1040 // sista brickans x — strax till vänster om klockan
-const BELL_X = 1168 // klockans x
+const BELL_X = 1168 // klockstolpens x
 const BELL_Y = 432 // klockans hängpunkt (svingar härifrån)
 const PUSH_AV = 0.12 // liten knuff förbi tipppunkten -> gravitationen välter brickan
 const STAND_ANGLE = 0.6 // |vinkel| under detta = brickan står fortfarande
 const FALL_GUARANTEE = 0.45 // s: väntar fysiken för länge på nästa bricka -> mjuk knuff-garanti
 const STALL_CONFIRM = 0.4 // s: bekräfta att raset stannat vid en tom lucka (låt fallet lugna sig)
-const SNAP_R = 135 // förlåtande snäpp-radie när en bricka släpps nära en lucka
+const SNAP_R = 135 // förlåtande snäpp-radie när en bricka släpps nära SIN lucka
 const TRAY_Y = 150 // brickfackets rad (uppe)
 const IDLE_DELAY = 6
+
+// Regnbågens hållpunkter (glada, barnvänliga nyanser). Färgen för plats i i en rad om n
+// interpoleras mjukt mellan dessa -> hela den färdiga raden läser som en regnbåge, men
+// två grannbrickor skiljer sig alltid tydligt (max 13 brickor över 7 hållpunkter).
+const RAINBOW = [0xff5a5a, 0xff9d3d, 0xffd35c, 0x5bbf6a, 0x57c8c3, 0x4aa3df, 0xa78bfa]
+// Pentatonisk skala (halvtonssteg från C4) — raset spelar en STÄMD stigande melodi.
+const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28]
+const BASE_HZ = 261.63 // C4
+
+// --- Röstbank ------------------------------------------------------------------
+// ALLA repliker bor här (inte som strängar inne i say-anropen) så de är lätta att hitta
+// och lägga in i scripts/voice-phrases.json när nya klipp genereras.
+const SAY = {
+  intro2: 'Lägg varje bricka i luckan med samma färg!',
+  goOn: 'Och vidare!',
+  oneMore: 'Lägg en bricka till!',
+  pushFirst: 'Putta den första brickan!',
+  pathDone: 'Nu är vägen klar! Putta den första brickan.',
+  rainbow: 'Titta, en hel regnbåge!',
+  ring: 'Klockan ringer! Pling!',
+  help: 'Jag hjälper till!',
+}
 const PUSH_WORDS = ['Putta!', 'Titta!', 'Oj!']
 const PLACE_WORDS = ['Bra!', 'Fint!', 'Så där ja!']
+const WRONG_WORDS = [
+  'Nästan! Leta efter luckan med samma färg.',
+  'Den luckan har en annan färg — prova igen!',
+]
+const HINT_WORDS = [
+  'Titta på färgen — där ska brickan stå!',
+  'Vilken lucka har samma färg som brickan?',
+]
 
 export default {
   id: 'domino',
@@ -52,19 +87,22 @@ export default {
     this._running = false // kedjan faller
     this._resetting = false // mellan firande och ny bana
     this._rung = false // klockan har ringt denna omgång
-    this._helped = false // sa "jag hjälper till" denna omgång
     this._resolving = false // firande + complete() körs (EXAKT en gång per bana)
     this._stalledAt = null // index där raset stannade vid en tom lucka (väntar på bricka)
     this._waitingStart = false // vägen är hel, väntar på att barnet puttar
     this._frontier = -1 // sista slot-index som HAR fallit (kedjan bevakas i tickern)
     this._fallWait = 0 // s: väntat på att nästa bricka ska välta (mot knuff-garantin)
     this._stallWait = 0 // s: väntat vid en tom lucka innan raset bekräftas stoppat
-    this._fallCount = 0 // antal fallna brickor denna omgång (driver accelererande ras-ljud)
+    this._fallCount = 0 // antal fallna brickor denna omgång
+    this._hintStage = 0 // 0 = nästa idle ger färg-ledtråd, 1 = nästa idle fyller åt barnet
     this._lastHit = 0
     this._lastSay = 0
-    this._slots = [] // { x, index, isGap, filled, tile:{view,body}|null, ghost }
+    this._time = 0 // s, driver brickfackets mjuka guppning
+    this._nSlots = 0
+    this._reverse = false
+    this._slots = [] // { x, y, index, isGap, filled, color, tile, ghost }
     this._tiles = [] // alla aktiva brick-vyer med kropp { view, body }
-    this._tray = [] // draggbara reservbrickor { view, home, placed }
+    this._tray = [] // draggbara reservbrickor { view, home, placed, targetIndex, color }
     this._cascadeCalls = []
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
@@ -99,7 +137,7 @@ export default {
     this._tilesLayer.interactiveChildren = false
     this._root.addChild(this._ghostLayer, this._tilesLayer)
 
-    // --- Klocka (mål) på en stolpe.
+    // --- Klocka (mål) på en stolpe + Bobo som väntar och hejar.
     this._buildBell()
 
     // --- Startglöd bakom första brickan (lockar tryck).
@@ -134,6 +172,8 @@ export default {
     this._tick = (t) => {
       if (!this._alive) return
       this._phys.update(t.deltaMS)
+      this._time += t.deltaMS / 1000
+      this._bobTray()
       // Bevaka den ÄKTA kedjereaktionen medan raset rullar (fysiken fäller brickorna).
       if (this._running) this._stepCascade(ctx, t.deltaMS / 1000)
       // Medan raset rullar / firandet pågår: rör inte auto-hjälpen.
@@ -153,9 +193,28 @@ export default {
   mount(ctx) {
     this._idle = 0
     ctx.services.voice.say(this.voiceIntro)
+    const call = gsap.delayedCall(3.6, () => {
+      if (this._alive && !this._running && this._firstUnfilledGap()) ctx.services.voice.say(SAY.intro2)
+    })
+    this._cascadeCalls.push(call)
   },
 
-  // ---- Klocka -------------------------------------------------------------
+  // ---- Regnbågsfärger -----------------------------------------------------
+
+  // Färgen för plats i i en rad om n: mjuk interpolation genom RAINBOW-hållpunkterna.
+  // Ovanpå gradienten läggs ett litet ljus/mörk-sicksack (±8%) så att TVÅ GRANNAR alltid
+  // går att skilja åt även i en lång rad — helheten läser ändå som en regnbåge.
+  // Varannan nivå vänds regnbågen (variation utan att regeln ändras).
+  _colorAt(i, n = this._nSlots) {
+    let t = n > 1 ? i / (n - 1) : 0
+    if (this._reverse) t = 1 - t
+    const s = t * (RAINBOW.length - 1)
+    const k = Math.min(RAINBOW.length - 2, Math.floor(s))
+    const base = lerpColor(RAINBOW[k], RAINBOW[k + 1], s - k)
+    return i % 2 ? shade(base, 0.08) : tint(base, 0.08)
+  },
+
+  // ---- Klocka + Bobo (mottagaren) -----------------------------------------
 
   _buildBell() {
     this._bell = new Container()
@@ -166,19 +225,26 @@ export default {
     post.roundRect(-10, 0, 20, FLOOR_Y - BELL_Y, 8).fill(COLORS.brown)
     post.roundRect(-70, -6, 80, 16, 8).fill(COLORS.brown) // arm åt vänster (mot raden)
     post.eventMode = 'none'
-    // Själva klockan (emoji) — svingar runt sin topp.
-    this._bellEmoji = new Text({ text: '🔔', style: { fontFamily: 'system-ui', fontSize: 96 } })
-    this._bellEmoji.anchor.set(0.5, 0.08)
-    this._bellEmoji.position.set(-44, 6)
-    this._bell.addChild(post, this._bellEmoji)
+    // Själva klockan: ett riktigt ritat föremål (mässingsklocka med ögla, rand och kläpp)
+    // som svingar runt sin ögla — ingen emoji.
+    this._bellObj = makeBell()
+    this._bellObj.position.set(-44, -2)
+    this._bell.addChild(post, this._bellObj)
     this._root.addChild(this._bell)
     // Lugn andning som lockar blicken mot målet.
-    this._bellTween = breathe(this._bellEmoji, { scale: 1.08, duration: 1.1 })
+    this._bellTween = breathe(this._bellObj, { scale: 1.06, duration: 1.1 })
+
+    // Bobo väntar under klockan och tar emot raset.
+    this._bobo = makeMascot(40)
+    this._bobo.position.set(1222, FLOOR_Y - 54)
+    this._bobo.eventMode = 'none'
+    this._root.addChild(this._bobo)
+    this._boboTween = breathe(this._bobo, { scale: 1.05, duration: 1.4 })
   },
 
   // ---- Flagga längs banan (dekorativ, byggs om per nivå) -------------------
 
-  _buildFlag(x) {
+  _buildFlag(x, color) {
     const H = 128 // stångens höjd (vimpeln uppe, ovanför brickorna)
     this._flag = new Container()
     this._flag.position.set(x, FLOOR_Y - H)
@@ -186,7 +252,7 @@ export default {
     const pole = new Graphics().roundRect(-3, 0, 6, H, 3).fill(COLORS.brown)
     // Vimpel med spets i (0,0) -> wiggle roterar runt fästpunkten = "flaggan flaxar".
     const pennant = new Graphics()
-      .poly([0, 0, 40, 13, 0, 26]).fill(COLORS.red).stroke({ width: 2, color: shade(COLORS.red, 0.25) })
+      .poly([0, 0, 40, 13, 0, 26]).fill(color).stroke({ width: 2, color: shade(color, 0.25) })
     this._flagPennant = pennant
     this._flag.addChild(pole, pennant)
     this._ghostLayer.addChild(this._flag) // bakom brickorna
@@ -228,34 +294,38 @@ export default {
     this._resetting = false
     this._rung = false
     this._resolving = false
-    this._helped = false
     this._stalledAt = null
     this._waitingStart = false
     this._frontier = -1
     this._fallWait = 0
     this._stallWait = 0
     this._fallCount = 0
+    this._hintStage = 0
     this._idle = 0
 
     const { nSlots, gapSet } = this._layoutFor(level)
+    this._nSlots = nSlots
+    this._reverse = level % 2 === 1
     const startX = LAST_SLOT_X - (nSlots - 1) * SPACING
 
     // Slots vänster -> höger (index 0 = första, alltid en fast bricka att putta).
+    // Varje plats får sin färg ur regnbågsgradienten — färgen är spelets regel.
     for (let i = 0; i < nSlots; i++) {
       const x = startX + i * SPACING
       const isGap = gapSet.has(i)
-      const slot = { x, index: i, isGap, filled: !isGap, tile: null, ghost: null }
+      const color = this._colorAt(i, nSlots)
+      const slot = { x, y: TILE_Y, index: i, isGap, filled: !isGap, color, tile: null, ghost: null }
       if (isGap) {
-        // Spöke som visar var en bricka ska placeras.
-        const ghost = makeGhost(TILE_W, TILE_H)
+        // Blekt spöke i DEN FÄRG som söks — barnet kan lösa det utan att läsa eller minnas.
+        const ghost = makeGhost(TILE_W, TILE_H, color)
         ghost.position.set(x, TILE_Y)
         ghost.eventMode = 'none'
+        ghost.alpha = 0.85
         this._ghostLayer.addChild(ghost)
         slot.ghost = ghost
-        slot._ghostTween = breathe(ghost, { scale: 1.12, duration: 0.95 })
+        slot._ghostTween = breathe(ghost.arrow, { scale: 1.22, duration: 0.95 })
       } else {
-        // Fast stående bricka.
-        const color = PLAYFUL[i % PLAYFUL.length]
+        // Fast stående bricka i platsens regnbågsfärg.
         const { view, body } = this._spawnTile(x, color)
         slot.tile = { view, body }
         this._tiles.push(slot.tile)
@@ -268,16 +338,15 @@ export default {
     // Objekt längs banan: en liten flagga mitt på vägen som VINKAR när raset passerar
     // — ett litet Rube-Goldberg-ögonblick (rent dekorativt, stör inte fysiken).
     this._flagIndex = Math.max(1, Math.floor(nSlots / 2))
-    this._buildFlag(startX + this._flagIndex * SPACING + SPACING / 2)
+    this._buildFlag(startX + this._flagIndex * SPACING + SPACING / 2, this._colorAt(this._flagIndex, nSlots))
 
-    // Brickfack: en reservbricka per lucka, jämnt utlagda upptill.
-    const gaps = [...gapSet]
-    const trayN = gaps.length
-    const trayStart = (DESIGN_W - (trayN - 1) * 120) / 2
-    gaps.forEach((gi, k) => {
-      const home = { x: trayStart + k * 120, y: TRAY_Y }
-      const color = PLAYFUL[gi % PLAYFUL.length]
-      this._makeTrayTile(ctx, home, color)
+    // Brickfack: en reservbricka per lucka i luckans färg, i BLANDAD ordning (annars
+    // skulle vänster-till-höger räcka — nu måste barnet titta på färgen).
+    const gaps = [...gapSet].sort((a, b) => a - b)
+    const homes = gaps.map((_, k) => (DESIGN_W - (gaps.length - 1) * 130) / 2 + k * 130)
+    const order = shuffle(gaps.slice())
+    order.forEach((gi, k) => {
+      this._makeTrayTile(ctx, { x: homes[k], y: TRAY_Y }, gi, this._colorAt(gi, nSlots))
     })
 
     // Startglöd + tryckyta vid första brickan (placeras dit; aktiveras för tryck).
@@ -306,13 +375,13 @@ export default {
     return { view, body }
   },
 
-  _makeTrayTile(ctx, home, color) {
+  _makeTrayTile(ctx, home, targetIndex, color) {
     const view = makeTile(TILE_W, TILE_H, color)
     view.position.set(home.x, home.y)
     view.eventMode = 'static'
     view.cursor = 'pointer'
-    view.hitArea = new Circle(0, 0, 80) // stor träffhalo
-    const tile = { view, home, placed: false }
+    view.hitArea = new Circle(0, 0, 80) // stor träffhalo (>=96px diameter)
+    const tile = { view, home, placed: false, targetIndex, color, phase: Math.random() * 6.28 }
     view.scale.set(0)
     gsap.fromTo(view.scale, { x: 0, y: 0 }, { x: 1, y: 1, duration: 0.4, ease: 'back.out(1.7)' })
     const onDown = (e) => this._trayDown(ctx, tile, e)
@@ -320,6 +389,29 @@ export default {
     tile._onDown = onDown
     this._trayLayer.addChild(view)
     this._tray.push(tile)
+  },
+
+  // Brickorna i facket guppar mjukt (eget liv) — men aldrig den som dras eller
+  // den som är på väg tillbaka/ner (då äger tweenen positionen).
+  _bobTray() {
+    for (const t of this._tray) {
+      if (t.placed || t._auto || t._returning || t === this._dragTile) continue
+      if (!t.view || t.view.destroyed) continue
+      t.view.y = t.home.y + Math.sin(this._time * 1.9 + t.phase) * 5
+    }
+  },
+
+  // Mjuk hemglidning till facket (aldrig ett "fel" — bara en vänlig retur).
+  _returnHome(tile, { duration = 0.3, ease = 'power2.out' } = {}) {
+    tile._returning = true
+    gsap.to(tile.view, {
+      x: tile.home.x,
+      y: tile.home.y,
+      rotation: 0,
+      duration,
+      ease,
+      onComplete: () => { tile._returning = false },
+    })
   },
 
   _clearLevel() {
@@ -355,11 +447,13 @@ export default {
       if (s.ghost && !s.ghost.destroyed) {
         gsap.killTweensOf(s.ghost)
         gsap.killTweensOf(s.ghost.scale)
-        s.ghost.destroy()
+        if (s.ghost.arrow && !s.ghost.arrow.destroyed) gsap.killTweensOf(s.ghost.arrow.scale)
+        s.ghost.destroy({ children: true })
       }
     }
     this._slots = []
     // Brickfack.
+    this._dragTile = null
     for (const t of this._tray) {
       if (t.view && !t.view.destroyed) {
         t.view.off('pointerdown', t._onDown)
@@ -372,7 +466,7 @@ export default {
     this._tray = []
   },
 
-  // ---- Brickfack: dra en bricka till en lucka -----------------------------
+  // ---- Brickfack: dra en bricka till luckan med SAMMA FÄRG ----------------
 
   _trayDown(ctx, tile, e) {
     if (!this._alive || tile.placed) return
@@ -383,31 +477,53 @@ export default {
       return
     }
     this._idle = 0
+    this._hintStage = 0
     this._dragTile = tile
+    tile._wasNear = false
+    tile._returning = false
+    gsap.killTweensOf(tile.view) // ev. pågående hemglidning släpper taget
     const p = this._root.toLocal(e.global)
     this._dragOff = { x: tile.view.x - p.x, y: tile.view.y - p.y }
     this._trayLayer.addChild(tile.view) // till toppen
     gsap.killTweensOf(tile.view.scale)
     gsap.to(tile.view.scale, { x: 1.16, y: 1.16, duration: 0.12 })
     ctx.services.audio.sfx('tap')
-    tile._onMove = (ev) => this._trayMove(ev)
+    // Rätt lucka svarar direkt (<100ms): den lyser upp, de andra bleknar.
+    this._highlightGhosts(tile, Infinity)
+    tile._onMove = (ev) => this._trayMove(ctx, ev)
     tile._onUp = (ev) => this._trayUp(ctx, tile, ev)
     tile.view.on('globalpointermove', tile._onMove)
     tile.view.on('pointerup', tile._onUp)
     tile.view.on('pointerupoutside', tile._onUp)
   },
 
-  _trayMove(e) {
+  _trayMove(ctx, e) {
     const tile = this._dragTile
     if (!tile || tile.view.destroyed) return
     const p = this._root.toLocal(e.global)
     tile.view.position.set(p.x + this._dragOff.x, p.y + this._dragOff.y)
-    // Lyft fram närmaste lediga lucka (lockande puls).
-    const slot = this._nearestGap(tile.view.x, tile.view.y)
-    for (const s of this._slots) {
-      if (s.isGap && !s.filled && s.ghost && !s.ghost.destroyed) {
-        s.ghost.alpha = s === slot ? 1 : 0.6
+    const target = this._slotFor(tile)
+    const d = target ? dist(tile.view, target) : Infinity
+    this._highlightGhosts(tile, d)
+    // Liten "klick, här passar jag"-signal när brickan kommer inom snäpp-radien.
+    const near = d < SNAP_R
+    if (near !== tile._wasNear) {
+      tile._wasNear = near
+      if (near && target?.ghost) {
+        pop(target.ghost, { scale: 1.14 })
+        ctx.services.audio.tone({ freq: 880, dur: 0.05, type: 'triangle', vol: 0.12 })
       }
+    }
+  },
+
+  // Rätt lucka lyser (starkast när brickan är nära), övriga bleknar tillbaka.
+  _highlightGhosts(tile, d) {
+    const ti = tile?.targetIndex
+    for (const s of this._slots) {
+      if (!s.isGap || s.filled || !s.ghost || s.ghost.destroyed) continue
+      if (tile == null) s.ghost.alpha = 0.85
+      else if (s.index === ti) s.ghost.alpha = d < SNAP_R ? 1 : 0.9
+      else s.ghost.alpha = 0.38
     }
   },
 
@@ -415,16 +531,60 @@ export default {
     if (this._dragTile !== tile) return
     this._detachTray(tile)
     this._dragTile = null
+    tile._wasNear = false
+    this._highlightGhosts(null, 0)
     gsap.killTweensOf(tile.view.scale)
     gsap.to(tile.view.scale, { x: 1, y: 1, duration: 0.18 })
-    const slot = this._nearestGap(tile.view.x, tile.view.y)
-    if (slot && Math.hypot(tile.view.x - slot.x, tile.view.y - slot.y) < SNAP_R) {
-      this._placeTile(ctx, tile, slot)
-    } else {
-      // Inte nära en lucka: glid snällt tillbaka till facket (aldrig fel).
-      ctx.services.audio.sfx('soft')
-      gsap.to(tile.view, { x: tile.home.x, y: tile.home.y, duration: 0.3, ease: 'power2.out' })
+
+    // 1) Egen färg-lucka inom snäpp-radien -> snäpp fast (förlåtande).
+    const target = this._slotFor(tile)
+    if (target && dist(tile.view, target) < SNAP_R) {
+      this._placeTile(ctx, tile, target)
+      return
     }
+    // 2) Släppt vid NÅGON lucka men fel färg -> vänlig retur + rätt lucka pulserar.
+    const near = this._nearestGap(tile.view.x, tile.view.y)
+    if (near && dist(tile.view, near) < SNAP_R) {
+      // Har barnets egen lucka redan blivit fylld (auto-hjälp)? Då får brickan
+      // byta färg och passa här — inget kan fastna.
+      if (!target) {
+        tile.targetIndex = near.index
+        tile.color = near.color
+        paintTile(tile.view, TILE_W, TILE_H, near.color)
+        this._placeTile(ctx, tile, near)
+        return
+      }
+      this._wrongSlot(ctx, tile, target)
+      return
+    }
+    // 3) Inte nära någon lucka: glid snällt tillbaka till facket (aldrig fel).
+    ctx.services.audio.sfx('soft')
+    this._returnHome(tile)
+  },
+
+  // Fel lucka: INGET misslyckande — brickan glider hem med ett vänligt ljud och
+  // rätt lucka pulserar så barnet ser vart den ska.
+  _wrongSlot(ctx, tile, target) {
+    ctx.services.audio.sfx('soft')
+    ctx.services.audio.tone({ freq: 523, dur: 0.09, type: 'sine', vol: 0.14 })
+    ctx.services.audio.tone({ freq: 659, dur: 0.11, type: 'sine', vol: 0.14, delay: 0.08 })
+    wiggle(tile.view)
+    this._returnHome(tile, { duration: 0.42, ease: 'back.out(1.1)' })
+    this._flashSlot(ctx, target)
+    const now = performance.now()
+    if (now - this._lastSay > 1400) {
+      this._lastSay = now
+      ctx.services.voice.say(randomFrom(WRONG_WORDS))
+    }
+  },
+
+  // Pulserar en lucka i sin färg: "hit ska den".
+  _flashSlot(ctx, slot) {
+    if (!slot?.ghost || slot.ghost.destroyed) return
+    pop(slot.ghost, { scale: 1.3 })
+    if (slot.ghost.arrow && !slot.ghost.arrow.destroyed) wiggle(slot.ghost.arrow)
+    sparkle(ctx.fxLayer, slot.x, TILE_Y - 30, { count: 6 })
+    ripple(ctx.fxLayer, slot.x, TILE_Y, { color: slot.color, maxR: 90, width: 8 })
   },
 
   _detachTray(tile) {
@@ -437,6 +597,12 @@ export default {
     }
   },
 
+  // Luckan som HÖR IHOP med brickans färg (om den fortfarande är tom).
+  _slotFor(tile) {
+    return this._slots.find((s) => s.isGap && !s.filled && s.index === tile.targetIndex) || null
+  },
+
+  // Närmaste lediga lucka (slots har ett riktigt y -> hypot ger ett tal, inte NaN).
   _nearestGap(x, y) {
     let best = null
     let bestD = Infinity
@@ -455,11 +621,14 @@ export default {
   _placeTile(ctx, tile, slot) {
     tile.placed = true
     slot.filled = true
+    this._hintStage = 0
     // Spöket bort.
     slot._ghostTween?.kill()
     if (slot.ghost && !slot.ghost.destroyed) {
+      gsap.killTweensOf(slot.ghost)
       gsap.killTweensOf(slot.ghost.scale)
-      slot.ghost.destroy()
+      if (slot.ghost.arrow && !slot.ghost.arrow.destroyed) gsap.killTweensOf(slot.ghost.arrow.scale)
+      slot.ghost.destroy({ children: true })
       slot.ghost = null
     }
     // Bricka på plats, görs till fysik-bricka.
@@ -482,8 +651,11 @@ export default {
 
     this._idle = 0
     ctx.services.audio.sfx('plopp')
+    // Tonen är platsens ton i skalan -> rätt färg låter som rätt ton.
+    ctx.services.audio.tone({ freq: noteFor(slot.index), dur: 0.16, type: 'triangle', vol: 0.2 })
     pop(tile.view, { scale: 1.18 })
     sparkle(ctx.fxLayer, slot.x, TILE_Y - 20, { count: 6 })
+    ripple(ctx.fxLayer, slot.x, TILE_Y, { color: slot.color, maxR: 80, width: 7 })
     const now = performance.now()
     if (now - this._lastSay > 1100) {
       this._lastSay = now
@@ -498,7 +670,7 @@ export default {
       this._fallWait = 0
       this._stallWait = 0
       this._running = true
-      ctx.services.voice.say('Och vidare!')
+      ctx.services.voice.say(SAY.goOn)
       const call = gsap.delayedCall(0.16, () => {
         if (this._alive && this._running && slot.tile && Math.abs(slot.tile.body.angle) < STAND_ANGLE) {
           Body.setAngularVelocity(slot.tile.body, PUSH_AV)
@@ -507,12 +679,29 @@ export default {
       this._cascadeCalls.push(call)
       return
     }
-    // Alla luckor fyllda? Vägen är hel.
+    // Alla luckor fyllda? Regnbågen är hel — liten fanfar längs hela raden.
     if (!this._slots.some((s) => s.isGap && !s.filled)) {
       this._waitingStart = false
-      ctx.services.audio.sfx('pling')
-      ctx.services.voice.say('Nu är vägen klar! Putta den första brickan.')
+      this._rainbowFanfare(ctx)
     }
+  },
+
+  // Regnbågen är komplett: en gnistrande våg vänster->höger med stigande skala.
+  _rainbowFanfare(ctx) {
+    ctx.services.voice.say(SAY.rainbow)
+    this._slots.forEach((s, i) => {
+      const call = gsap.delayedCall(0.05 * i, () => {
+        if (!this._alive || this._resetting) return
+        if (s.tile?.view && !s.tile.view.destroyed) pop(s.tile.view, { scale: 1.22 })
+        sparkle(ctx.fxLayer, s.x, TILE_Y - 40, { count: 4 })
+        ctx.services.audio.tone({ freq: noteFor(i), dur: 0.12, type: 'triangle', vol: 0.17 })
+      })
+      this._cascadeCalls.push(call)
+    })
+    const call = gsap.delayedCall(0.05 * this._slots.length + 0.35, () => {
+      if (this._alive && !this._running) ctx.services.voice.say(SAY.pathDone)
+    })
+    this._cascadeCalls.push(call)
   },
 
   // ---- Tryck utanför start: bara mjuk, positiv respons (startar ALDRIG raset) ----
@@ -541,7 +730,6 @@ export default {
     this._running = true
     this._resolving = false
     this._rung = false
-    this._helped = false
     this._stalledAt = null
     this._waitingStart = false
     this._frontier = -1 // ännu har inget fallit denna omgång
@@ -552,6 +740,7 @@ export default {
     this._startGlowTween?.kill()
     this._startGlow.visible = false
     if (this._startHit) this._startHit.eventMode = 'none'
+    this._highlightGhosts(null, 0)
     ctx.services.audio.sfx('pop')
     const now = performance.now()
     if (now - this._lastSay > 1000) {
@@ -567,7 +756,7 @@ export default {
 
   // Bevakar den fysik-drivna kedjan varje bildruta (kallas medan _running). Går vänster
   // -> höger: när brickan efter fronten HAR fallit (fälld av den föregående) räknas den
-  // in med accelererande klick. Tom lucka framför -> raset stannar naturligt (no-fail).
+  // in med sin ton i skalan. Tom lucka framför -> raset stannar naturligt (no-fail).
   // Vägrar en bricka falla (glipa/vinkel) inom FALL_GUARANTEE ges en mjuk knuff-garanti.
   _stepCascade(ctx, dt) {
     if (!this._alive) return
@@ -604,36 +793,34 @@ export default {
     }
   },
 
-  // En bricka har just fallit: accelererande klick-ljud (stiger i tonhöjd med raset),
-  // en liten dammpuff vid marken och flaggan flaxar när raset passerar den.
+  // En bricka har just fallit: dess ton i den pentatoniska skalan (raset spelar en
+  // stigande melodi vänster->höger), en dammpuff i brickans egen färg vid marken och
+  // flaggan flaxar när raset passerar den.
   _onTileFell(ctx, slot) {
     this._fallCount++
     const now = performance.now()
     if (now - this._lastHit > 40) {
       this._lastHit = now
-      const step = Math.min(this._fallCount, 14)
-      ctx.services.audio.tone({ freq: 300 + step * 42, dur: 0.06, type: 'triangle', vol: 0.2 })
+      ctx.services.audio.tone({ freq: noteFor(slot.index), dur: 0.07, type: 'triangle', vol: 0.2 })
     }
-    puff(ctx.fxLayer, slot.x + 22, FLOOR_Y - 4, { count: 4, color: COLORS.white })
+    puff(ctx.fxLayer, slot.x + 22, FLOOR_Y - 4, { count: 4, color: tint(slot.color, 0.4) })
     if (slot.index === this._flagIndex) this._waveFlag()
   },
 
-  // En tom lucka stoppade raset: ingen bestraffning — bara en vänlig "lägg en till".
-  // Raset pausar (running=false); idle-hjälpen (eller barnet) fyller luckan och då
-  // återupptas det automatiskt i _placeTile.
+  // En tom lucka stoppade raset: ingen bestraffning — bara en vänlig "lägg en till"
+  // med luckans färg tydligt markerad.
   _stallAtGap(ctx, slot) {
     if (!this._alive) return
     this._running = false
     this._stalledAt = slot.index
     this._idle = 0 // räkna mot mjuk auto-hjälp
+    this._hintStage = 0
     ctx.services.audio.sfx('soft')
-    if (slot.ghost && !slot.ghost.destroyed) pop(slot.ghost, { scale: 1.22 })
-    sparkle(ctx.fxLayer, slot.x, TILE_Y - 10, { count: 6 })
-    floatText(ctx.fxLayer, slot.x, TILE_Y - 64, '⬇️', { fontSize: 44 })
+    this._flashSlot(ctx, slot)
     const now = performance.now()
     if (now - this._lastSay > 1100) {
       this._lastSay = now
-      ctx.services.voice.say('Lägg en bricka till!')
+      ctx.services.voice.say(SAY.oneMore)
     }
     this._pulseHints()
   },
@@ -652,26 +839,42 @@ export default {
     this._killCascade()
 
     ctx.services.audio.sfx('pling')
+    // Klockklang: en ren treklang ovanpå (riktig tonhöjd, inte bara brus).
+    ctx.services.audio.tone({ freq: 1046.5, dur: 0.9, type: 'sine', vol: 0.18 })
+    ctx.services.audio.tone({ freq: 1568, dur: 0.7, type: 'sine', vol: 0.12, delay: 0.06 })
+    ctx.services.audio.tone({ freq: 2093, dur: 0.5, type: 'sine', vol: 0.08, delay: 0.12 })
     ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say('Klockan ringer! Pling!')
+    ctx.services.voice.say(SAY.ring)
     // Liten skärm-mikroskak i takt med klock-slaget (mjuk, aldrig hård).
     shake(this._root, { intensity: 6, duration: 0.4 })
 
-    // Klockan svingar (runt sin topp).
-    if (this._bellEmoji && !this._bellEmoji.destroyed) {
+    // Klockan svingar (runt sin ögla).
+    if (this._bellObj && !this._bellObj.destroyed) {
       this._bellTween?.kill()
-      gsap.killTweensOf(this._bellEmoji)
-      const r0 = this._bellEmoji.rotation
-      gsap.timeline({ onComplete: () => { if (!this._bellEmoji?.destroyed) this._bellEmoji.rotation = r0 } })
-        .to(this._bellEmoji, { rotation: 0.4, duration: 0.12 })
-        .to(this._bellEmoji, { rotation: -0.34, duration: 0.16 })
-        .to(this._bellEmoji, { rotation: 0.24, duration: 0.16 })
-        .to(this._bellEmoji, { rotation: -0.14, duration: 0.16 })
-        .to(this._bellEmoji, { rotation: 0, duration: 0.16 })
+      gsap.killTweensOf(this._bellObj)
+      const r0 = this._bellObj.rotation
+      gsap.timeline({ onComplete: () => { if (!this._bellObj?.destroyed) this._bellObj.rotation = r0 } })
+        .to(this._bellObj, { rotation: 0.4, duration: 0.12 })
+        .to(this._bellObj, { rotation: -0.34, duration: 0.16 })
+        .to(this._bellObj, { rotation: 0.24, duration: 0.16 })
+        .to(this._bellObj, { rotation: -0.14, duration: 0.16 })
+        .to(this._bellObj, { rotation: 0, duration: 0.16 })
     }
-    sparkle(ctx.fxLayer, BELL_X, BELL_Y + 40, { count: 10 })
-    burst(ctx.fxLayer, BELL_X, BELL_Y + 40, { count: 14 })
-    floatText(ctx.fxLayer, BELL_X, BELL_Y - 30, '🔔', { fontSize: 64 })
+    // Bobo tar emot raset och hoppar av glädje.
+    if (this._bobo && !this._bobo.destroyed) {
+      this._boboTween?.kill()
+      gsap.killTweensOf(this._bobo)
+      const y0 = this._bobo.y
+      gsap.timeline({ onComplete: () => { if (!this._bobo?.destroyed) this._bobo.y = y0 } })
+        .to(this._bobo, { y: y0 - 52, duration: 0.2, ease: 'power2.out' })
+        .to(this._bobo, { y: y0, duration: 0.22, ease: 'bounce.out' })
+        .to(this._bobo, { y: y0 - 34, duration: 0.18, ease: 'power2.out' })
+        .to(this._bobo, { y: y0, duration: 0.2, ease: 'bounce.out' })
+      pop(this._bobo, { scale: 1.15 })
+    }
+    sparkle(ctx.fxLayer, BELL_X - 44, BELL_Y + 60, { count: 10 })
+    burst(ctx.fxLayer, BELL_X - 44, BELL_Y + 60, { count: 14, colors: RAINBOW })
+    ripple(ctx.fxLayer, BELL_X - 44, BELL_Y + 60, { color: COLORS.yellow, maxR: 160, width: 10 })
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // Förlopp: höj nivå + delat firande (stjärna + klistermärke).
@@ -698,13 +901,33 @@ export default {
   },
 
   // ---- Mjuk auto-hjälp (no-fail): banan blir ALLTID klar -----------------------
-  // Finns en tom lucka kvar -> fyll nästa (en bricka flyger dit). Är vägen redan hel
-  // -> påminn om att putta, och om barnet ändå väntar: putta åt det. Inget kan fastna.
+  // Steg 1: färg-ledtråd — brickan i facket vinkar och DESS lucka lyser/pulserar.
+  // Steg 2 (om barnet väntar igen): brickan flyger dit själv. Är vägen redan hel
+  // -> påminn om att putta, och om barnet ändå väntar: putta åt det.
   _idleHelp(ctx) {
     if (!this._alive || this._running || this._resetting) return
     const gap = this._firstUnfilledGap()
     if (gap) {
-      ctx.services.voice.say('Jag hjälper till!')
+      const tile = this._tileFor(gap)
+      if (this._hintStage === 0 && tile) {
+        this._hintStage = 1
+        ctx.services.voice.say(randomFrom(HINT_WORDS))
+        wiggle(tile.view)
+        pop(tile.view, { scale: 1.2 })
+        this._flashSlot(ctx, gap)
+        // Gnist-spår från brickan ner mot rätt lucka (visar vägen utan ord).
+        for (let k = 1; k <= 3; k++) {
+          const call = gsap.delayedCall(0.12 * k, () => {
+            if (!this._alive || tile.placed) return
+            const f = k / 4
+            sparkle(ctx.fxLayer, tile.view.x + (gap.x - tile.view.x) * f, tile.view.y + (TILE_Y - tile.view.y) * f, { count: 3 })
+          })
+          this._cascadeCalls.push(call)
+        }
+        return
+      }
+      this._hintStage = 0
+      ctx.services.voice.say(SAY.help)
       this._autoFillGap(ctx, gap)
       return
     }
@@ -714,7 +937,7 @@ export default {
       this._startCascade(ctx) // garanterar att en passiv lekare också når klockan
     } else {
       this._waitingStart = true
-      ctx.services.voice.say('Putta den första brickan!')
+      ctx.services.voice.say(SAY.pushFirst)
       this._pulseHints()
     }
   },
@@ -723,14 +946,30 @@ export default {
     return this._slots.find((s) => s.isGap && !s.filled) || null
   },
 
-  // Flyg en reservbricka mjukt ner i luckan och placera den (samma väg som drag).
+  // Brickan som matchar luckans färg (faller tillbaka på vilken ledig som helst).
+  _tileFor(slot) {
+    return (
+      this._tray.find((t) => !t.placed && !t._auto && t.targetIndex === slot.index) ||
+      this._tray.find((t) => !t.placed && !t._auto) ||
+      null
+    )
+  },
+
+  // Flyg rätt reservbricka mjukt ner i luckan och placera den (samma väg som drag).
   // Fyller det den lucka som stoppade raset fortsätter kedjan automatiskt (_placeTile).
   _autoFillGap(ctx, slot) {
-    const tile = this._tray.find((t) => !t.placed && !t._auto)
+    const tile = this._tileFor(slot)
     if (!tile || tile.view.destroyed) return
     tile._auto = true
     this._detachTray(tile) // ev. pågående drag-lyssnare bort
+    if (this._dragTile === tile) this._dragTile = null
     tile.view.eventMode = 'none'
+    // Färgen ska alltid stämma med luckan (om brickorna hunnit hamna i otakt).
+    if (tile.targetIndex !== slot.index) {
+      tile.targetIndex = slot.index
+      tile.color = slot.color
+      paintTile(tile.view, TILE_W, TILE_H, slot.color)
+    }
     gsap.killTweensOf(tile.view)
     gsap.killTweensOf(tile.view.scale)
     sparkle(ctx.fxLayer, tile.view.x, tile.view.y, { count: 5 })
@@ -752,11 +991,19 @@ export default {
     this._resetCall?.kill()
     this._startGlowTween?.kill()
     this._bellTween?.kill()
+    this._boboTween?.kill()
     this._killCascade()
     this._dragTile = null
     // Brickor / spöken / brickfack.
     this._clearLevel()
-    if (this._bellEmoji && !this._bellEmoji.destroyed) gsap.killTweensOf(this._bellEmoji)
+    if (this._bellObj && !this._bellObj.destroyed) {
+      gsap.killTweensOf(this._bellObj)
+      gsap.killTweensOf(this._bellObj.scale)
+    }
+    if (this._bobo && !this._bobo.destroyed) {
+      gsap.killTweensOf(this._bobo)
+      gsap.killTweensOf(this._bobo.scale)
+    }
     if (this._startGlow && !this._startGlow.destroyed) gsap.killTweensOf(this._startGlow.scale)
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onCatch)
     if (this._startHit && !this._startHit.destroyed) this._startHit.off('pointertap', this._onStart)
@@ -767,31 +1014,77 @@ export default {
   },
 }
 
-// Domino-bricka: avrundad rektangel i glad färg, mittlinje + två vita prickar.
-// Ritad runt origo (0,0) = kroppens mitt.
+// ---- Ritade föremål (P0: fristående objekt, aldrig emoji i en ruta) ----------
+
+// Avstånd från en vy till en lucka (luckan har både x och y — utan y blir det NaN
+// och ingenting kan någonsin snäppa; det var den ursprungliga buggen).
+function dist(view, slot) {
+  return Math.hypot(view.x - slot.x, view.y - slot.y)
+}
+
+// Ton för en plats i kedjan (pentatonisk skala -> alltid välklingande).
+function noteFor(i) {
+  return BASE_HZ * Math.pow(2, PENTA[Math.min(i, PENTA.length - 1)] / 12)
+}
+
+// Domino-bricka: ett riktigt föremål med volym — färgad kropp, ljus kant på ena sidan,
+// mörk fot, mittlinje och två prickar. Ritad runt origo (0,0) = kroppens mitt.
+function paintTile(g, w, h, color) {
+  g.clear()
+  const edge = shade(color, 0.3)
+  const light = tint(color, 0.4)
+  g.roundRect(-w / 2, -h / 2, w, h, 8).fill(color).stroke({ width: 3, color: edge })
+  g.roundRect(-w / 2 + 4, -h / 2 + 7, 5, h - 14, 3).fill({ color: light, alpha: 0.8 }) // ljusstrimma
+  g.roundRect(-w / 2 + 2, h / 2 - 9, w - 4, 7, 3).fill({ color: edge, alpha: 0.55 }) // fot/skugga
+  g.moveTo(-w / 2 + 4, 0).lineTo(w / 2 - 4, 0).stroke({ width: 2, color: edge, alpha: 0.75 })
+  g.circle(0, -h * 0.24, 4.5).fill({ color: COLORS.white })
+  g.circle(0, h * 0.24, 4.5).fill({ color: COLORS.white })
+  return g
+}
+
 function makeTile(w, h, color) {
-  const g = new Graphics()
-  const edge = shade(color, 0.22)
-  g.roundRect(-w / 2, -h / 2, w, h, 7).fill(color).stroke({ width: 3, color: edge })
-  g.moveTo(-w / 2 + 3, 0).lineTo(w / 2 - 3, 0).stroke({ width: 2, color: edge, alpha: 0.7 })
-  g.circle(0, -h * 0.24, 4).fill({ color: COLORS.white })
-  g.circle(0, h * 0.24, 4).fill({ color: COLORS.white })
-  return g
+  return paintTile(new Graphics(), w, h, color)
 }
 
-// Spök-bricka: visar var en bricka ska placeras (genomskinlig, streckad känsla).
-function makeGhost(w, h) {
-  const g = new Graphics()
-  g.roundRect(-w / 2, -h / 2, w, h, 7).fill({ color: COLORS.white, alpha: 0.14 }).stroke({ width: 3, color: COLORS.white, alpha: 0.7 })
-  // Liten nedåtpil som säger "lägg här".
-  g.moveTo(-9, -h / 2 - 22).lineTo(9, -h / 2 - 22).lineTo(0, -h / 2 - 8).closePath().fill({ color: COLORS.white, alpha: 0.8 })
-  return g
+// Spök-bricka: visar VILKEN FÄRG som söks (blek variant av målfärgen) + en pil.
+// Container så pilen kan andas utan att slåss med pulsen på hela spöket.
+function makeGhost(w, h, color) {
+  const c = new Container()
+  const pale = tint(color, 0.5)
+  const plate = new Graphics()
+  plate.roundRect(-w / 2, -h / 2, w, h, 8).fill({ color: pale, alpha: 0.55 }).stroke({ width: 3, color, alpha: 0.9 })
+  plate.circle(0, -h * 0.24, 4.5).fill({ color: COLORS.white, alpha: 0.8 })
+  plate.circle(0, h * 0.24, 4.5).fill({ color: COLORS.white, alpha: 0.8 })
+  // Färgklick uppe (samma färg, mättad) så matchningen syns även på håll.
+  const arrow = new Graphics()
+  arrow.circle(0, -h / 2 - 34, 13).fill(color).stroke({ width: 3, color: shade(color, 0.3) })
+  arrow.moveTo(-10, -h / 2 - 20).lineTo(10, -h / 2 - 20).lineTo(0, -h / 2 - 6).closePath().fill(color)
+  c.addChild(plate, arrow)
+  c.arrow = arrow
+  return c
 }
 
-function shade(hex, amt) {
-  const r = (hex >> 16) & 0xff
-  const g = (hex >> 8) & 0xff
-  const b = hex & 0xff
-  const d = (v) => Math.max(0, Math.round(v * (1 - amt)))
-  return (d(r) << 16) | (d(g) << 8) | d(b)
+// Klocka: ritad mässingsklocka (ögla, kupa, rand, kläpp) som hänger i sin ögla i (0,0).
+function makeBell() {
+  const c = new Container()
+  const gold = 0xffc93c
+  const goldDark = shade(gold, 0.32)
+  const g = new Graphics()
+  // ögla
+  g.circle(0, 8, 10).stroke({ width: 6, color: goldDark })
+  // kupa
+  g.moveTo(-46, 76)
+    .quadraticCurveTo(-46, 14, 0, 14)
+    .quadraticCurveTo(46, 14, 46, 76)
+    .closePath()
+    .fill(gold)
+    .stroke({ width: 3, color: goldDark })
+  // rand (nedre kant)
+  g.roundRect(-54, 72, 108, 18, 9).fill(gold).stroke({ width: 3, color: goldDark })
+  // kläpp
+  g.circle(0, 100, 11).fill(goldDark)
+  // ljusreflex
+  g.ellipse(-18, 44, 7, 20).fill({ color: COLORS.white, alpha: 0.35 })
+  c.addChild(g)
+  return c
 }

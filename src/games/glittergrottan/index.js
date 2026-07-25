@@ -82,7 +82,9 @@ export default {
   id: 'glittergrottan',
   titleSv: 'Glittergrottan',
   icon: '💎',
-  category: 'roligt',
+  // Sekvenspussel (tryck kristallerna i rätt ordning) -> hör hemma i 🧩 Pussel-fliken,
+  // inte Roligt. Ägarbeslut 2026-07-25 efter ombyggnaden från teknikdemo.
+  category: 'pussel',
   input: 'tap',
   ageRange: [2, 5],
   bundle: 'glittergrottan',

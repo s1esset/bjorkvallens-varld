@@ -1,5 +1,5 @@
 # Glittergrottan (`glittergrottan`)
-> 🎉 roligt · tap · 2–5 år · status: 🔧 ombyggt till ordningsspel (2026-07-25)
+> 🧩 pussel · tap · 2–5 år · status: 🔧 ombyggt till ordningsspel (2026-07-25)
 
 > **Appens första 3D-spel** och **mallen för nya 3D-spel** (three.js via `lib/three3d.js` +
 > shaders i `lib/three-shaders.js`). Byggt direkt mot mönstret i `.claude/skills/threejs-games`:

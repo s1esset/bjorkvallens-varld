@@ -65,7 +65,6 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 66 | Loopdjuren | `loopdjuren` | drag | 🔧 |
 | 67 | Pizzabageriet | `pizzabageriet` | drag | 🔧 |
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | 🔧 |
-| 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 |
 | 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ |
 
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ HELA fliken (första-omgång, 2026-07-01)
@@ -120,6 +119,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 61 | Vattenvägen | `vattenvagen` | drag | ✅ |
 | 63 | Kugghjulen | `kugghjulen` | drag | ✅ |
 | 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ |
+| 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 |
 
 ### 🔤 Lära (larande + pedagogiskt) — ✅ HELA fliken (första-omgång, 2026-07-02)
 | # | Spel | id | input | status |

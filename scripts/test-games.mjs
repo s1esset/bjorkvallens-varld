@@ -30,7 +30,17 @@ const allGames = () => readdirSync(gamesDir)
   .sort()
 
 const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--url', '--jobs'].includes(argv[i - 1])))
-const ids = flag('--all') || !positional.length ? allGames() : positional
+// npm run kan kasta om flaggor så ett flagg-värde hamnar bland spel-id:na. Ett okänt id
+// ska ge ett tydligt meddelande, inte en ENOENT-stacktrace mitt i körningen.
+const known = new Set(allGames())
+const okand = positional.filter((p) => !known.has(p))
+const valda = positional.filter((p) => known.has(p))
+if (okand.length) console.log(`  ⚠ hoppar över okänt: ${okand.join(', ')}`)
+if (positional.length && !valda.length) {
+  console.error(`\n  ✗ inga giltiga spel-id angivna (${positional.join(', ')})\n`)
+  process.exit(2)
+}
+const ids = flag('--all') || !valda.length ? allGames() : valda
 
 mkdirSync(shotDir, { recursive: true })
 

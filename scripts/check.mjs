@@ -150,12 +150,32 @@ const phraseSet = new Set(phrases.map((p) => String(p).trim()))
 let manifest = {}
 try { manifest = JSON.parse(read(join(ROOT, 'public/audio/voice/manifest.json')) || '{}') } catch { /* inga klipp än */ }
 
+// Kommentarer bort, annars matchar all svensk kodkommentar som "replik".
+const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+
+// En sträng som LÅTER som en talad replik: innehåller mellanslag och antingen åäö
+// eller slutar som en mening. Fångar repliker som ligger i en konstant-bank i stället
+// för direkt i voice.say(...) — annars slinker de igenom utan att någonsin få ett klipp.
+const looksSpoken = (s) =>
+  s.length >= 10 && s.length <= 160 && /\s/.test(s) && /[a-zåäö]/i.test(s) &&
+  (/[åäöÅÄÖ]/.test(s) || /[.!?]$/.test(s)) &&
+  !/^[a-z]+\.[a-z]+/i.test(s) && !/https?:|\/\//.test(s)
+
 let pendingClips = 0
 for (const g of games) {
   const spoken = new Set()
+  const clean = stripComments(g.src)
   if (g.meta.voiceIntro) spoken.add(g.meta.voiceIntro)
-  for (const m of g.src.matchAll(/voice\.say\(\s*'((?:[^'\\]|\\.)*)'/g)) spoken.add(m[1].replace(/\\'/g, "'"))
-  for (const m of g.src.matchAll(/voice\.say\(\s*"((?:[^"\\]|\\.)*)"/g)) spoken.add(m[1].replace(/\\"/g, '"'))
+  for (const m of clean.matchAll(/voice\.say\(\s*'((?:[^'\\]|\\.)*)'/g)) spoken.add(m[1].replace(/\\'/g, "'"))
+  for (const m of clean.matchAll(/voice\.say\(\s*"((?:[^"\\]|\\.)*)"/g)) spoken.add(m[1].replace(/\\"/g, '"'))
+  // Meningsliknande literaler var som helst i filen (repliksbanker, ordlistor).
+  for (const m of clean.matchAll(/'((?:[^'\\\n]|\\.)*)'/g)) {
+    const s = m[1].replace(/\\'/g, "'")
+    if (looksSpoken(s)) spoken.add(s)
+  }
+  // Metadata är inte tal. En flerordstitel med åäö ("Zackes Biltvätt") matchar annars
+  // heuristiken och skulle kräva ett röstklipp som aldrig sägs.
+  if (g.meta.titleSv) spoken.delete(g.meta.titleSv)
   for (const t of spoken) {
     if (!phraseSet.has(t)) warn(g.id, `repliken "${t.slice(0, 48)}…" saknas i scripts/voice-phrases.json (får aldrig ett klipp)`)
     else if (!manifest[t]) pendingClips++

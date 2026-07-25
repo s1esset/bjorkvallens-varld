@@ -14,6 +14,48 @@ Format:
 
 ---
 
+## 2026-07-25 · v1.4.0
+
+**Byggt:** Ägarens speltest-runda: en ny P0-regel, **två systemiska buggar i delad kod**, och
+sju spel åtgärdade av fem parallella agenter.
+
+- **Ny P0-regel `ASSETS`** — spelobjekt ritas fristående med egen silhuett och eget liv;
+  aldrig en emoji i en ruta eller bricka. Kort och paneler är för text och UI. Inskriven i
+  `CLAUDE.md`, `docs/DESIGN.md §8.1`, kvalitetsgrinden (punkt 8), skill `spelkontrakt` och
+  båda bygg-/kritiker-agenterna. Heuristik: 22 av 70 spel har kvarvarande skuld (ej åtgärdad).
+- **Systemisk bugg 1 — objekt växte vid upprepade tryck.** `pop()` läste sitt eget pågående
+  läge som bas → 1.18, 1.39, 1.64 … utan tak. Samma felklass i `wiggle` och `shake`.
+  `pop()` används i **64 av 70 spel, 291 ställen**. Första fixen räckte inte (4.11× kvar på
+  12 tryck) — `gsap.killTweensOf()` dödar timelinens barn-tweens men inte timelinen, vars
+  `onComplete` nollställde flaggan mitt i nästa puls. Nytt regressionstest `npm run test:fx`.
+- **Systemisk bugg 2 — fördröjda anrop läckte mellan spelomgångar.** Modulerna är singletons,
+  så en `gsap.delayedCall` överlever `destroy`; vid nästa start är `_alive` åter `true` och
+  vakten släpper igenom den gamla callbacken. **69 av 70 spel** använder `delayedCall`.
+  Nytt `ctx.later(sekunder, fn)` i `GameHost` knyter fördröjda anrop till spelomgången.
+- **Sju spel:** `zackes-biltvatt` (tvåfas-loop svamp→skum→slang, skrubbmotstånd, verlet-slang
+  från hydrant, fristående objekt) · `domino` (snäppet returnerade **alltid `null`** pga `NaN`
+  i avståndet — ingen bricka har någonsin kunnat fastna; + regnbågsgradient styr placeringen) ·
+  `siffertaget` (tåget backade iväg; sättet ompositionerat) · `flipperspel` (`Body.setAngle`
+  roterade kring masscentrum → 30–90 px paddeldrift; kulan nådde dessutom aldrig ner till
+  paddlarna; +42 % bordsbredd) · `snobollen` (banan var **matematiskt omöjlig** att klara —
+  uppmätt x=656 mot mål 1085; hindren välter nu) · `glasstornet` (körsbäret och pendeln hade
+  ingen begriplig roll — nu mål respektive vind; layout rättad) · `glittergrottan`
+  (teknikdemo → ordningsspel med sex regler och facit-rad).
+- **`check.mjs`** hittade inte repliker som ligger i konstant-banker → 199 saknade repliker
+  upptäckta mot tidigare 50 (189 efter att speltitlar undantagits).
+
+**Commits:** `80a4a6d` lib-fixar · `4e03f80` ASSETS-regel · `839abd0` check · `54431b9`
+biltvätt · `c92f751` domino · `6c31558` siffertåget · `e58ec67` flipper · `09bcead` snöbollen ·
+`8effc24` glasstornet · `623ed87` glittergrottan · `a6ac26a` röst
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **70/70 gröna** · `npm run test:fx`
+grön · bygge rent.
+**Öppet:** 189 repliker väntar på klipp (`/rost`). ASSETS-skulden i 22 spel. Retroanpassning
+av `ctx.later()` i de 69 spel som fortfarande använder `delayedCall` direkt. Snöbollens banor
+är nu snabba (~2 s för en van spelare), och `glittergrottan` hör mekaniskt hemma i
+Pussel-fliken snarare än Roligt.
+
+---
+
 ## 2026-07-25 · v1.3.0
 
 **Byggt:** **Zackes Biltvätt** (`zackes-biltvatt`, 70:e spelet) — pipelinens första skarpa

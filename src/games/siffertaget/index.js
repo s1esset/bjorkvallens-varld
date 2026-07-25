@@ -26,13 +26,21 @@ const LAST_ORD = {
 }
 
 // Layout (designkoordinater 1280x720).
+// VIKTIGT om riktningen: loket ritas med kofångare, panna och skorsten till VÄNSTER om
+// sitt origo — fronten pekar alltså åt vänster — och vagnarna hängs på åt HÖGER. Därför
+// måste tåget rulla iväg åt VÄNSTER (loket först ur bild, sista vagnen sist). Allt som
+// rör avfärden nedan utgår från det.
 const RAIL_Y = 300
-const ENGINE_X = 150
 const ENGINE_Y = 250
+const ENGINE_NOSE = 122 // hur långt loket sticker ut till vänster om sitt origo (kofångaren)
+const ENGINE_GAP = 200 // lok-origo -> första kopplingsplatsens centrum (koppel möter koppel)
+const CAR_HALF = 85 // halva vagnskorgen
 const SLOT_Y = 245
-const SLOT0_X = 290 // första kopplingsplatsens centrum (efter loket)
-const SLOT_STEP = 194 // 170 bredd + 24 gap
+const SLOT_STEP = 188 // 170 vagnsbredd + 18 -> kopplingsstumparna möts snyggt
 const POOL_Y = 560
+const DEPART_DX = 1500 // hur långt tågsättet rullar (åt vänster) vid avfärd
+const DEPART_TIME = 1.5
+const DEPART_STAGGER = 0.035 // stafett: varje vagn rycker med strax efter den framför
 
 export default {
   id: 'siffertaget',
@@ -61,19 +69,22 @@ export default {
     this._root.addChild(bg)
 
     // Statisk räls + lok byggs en gång; vagnar/slots byggs om per runda.
+    this._engineX = this._engineXFor(3)
     this._root.addChild(this._buildRail())
+
+    // Rundans föränderliga innehåll (slots + lösa vagnar) ligger UNDER loket, så att
+    // loket kör snyggt förbi de halvgenomskinliga spökrutorna när det rullar in.
+    this._roundLayer = new Container()
+    this._root.addChild(this._roundLayer)
+
     this._engine = this._buildEngine()
     this._root.addChild(this._engine)
 
-    // Egen behållare för ångpuffarna ur skorstenen (ovanpå loket, under vagnarna
-    // som ändå står lägre). Förstörs med _root vid exit -> ingen läcka.
+    // Egen behållare för ångpuffarna ur skorstenen (överst — röken syns alltid).
+    // Förstörs med _root vid exit -> ingen läcka.
     this._steamLayer = new Container()
     this._steamLayer.eventMode = 'none'
     this._root.addChild(this._steamLayer)
-
-    // Rundans föränderliga innehåll (slots + lösa vagnar).
-    this._roundLayer = new Container()
-    this._root.addChild(this._roundLayer)
 
     this._drag = new DragController({ space: this._root, services: ctx.services })
 
@@ -102,13 +113,21 @@ export default {
     return rail
   },
 
+  // Centrera hela tågsättet (lok + n vagnsplatser) i bilden och returnera lokets x.
+  // Med n=5 blir loket x≈183 (vänsterkant 61) och sista vagnens högerkant ≈1220 —
+  // balanserat, inget under hem-/högtalarknapparna, och gott om räls kvar att rulla på.
+  _engineXFor(n) {
+    const span = ENGINE_NOSE + ENGINE_GAP + (n - 1) * SLOT_STEP + CAR_HALF
+    return Math.round(640 - span / 2 + ENGINE_NOSE)
+  },
+
   // Ånglok ritat helt med Pixi Graphics så det tydligt läses som ett tåg:
   // kofångare + panna (boiler) med skorsten och ångdom till vänster (fronten),
   // hytt med tak och fönster till höger (mot vagnarna) och runda hjul under.
   // Ingen emoji/ikon inuti — bara loket.
   _buildEngine() {
     const eng = new Container()
-    eng.position.set(ENGINE_X, ENGINE_Y)
+    eng.position.set(this._engineX, ENGINE_Y)
     eng.eventMode = 'none'
 
     // Hjulen i en egen behållare så de kan gunga lätt (levande lok) utan att röra
@@ -199,14 +218,17 @@ export default {
   // _steamLayer/_root vid exit -> kan aldrig krascha på null-transform).
   _emitSteam(ctx) {
     if (!this._alive || !this._steamLayer || this._steamLayer.destroyed) return
-    const x0 = ENGINE_X - 68 + (Math.random() * 10 - 5)
-    const y0 = ENGINE_Y - 80
+    if (!this._engine || this._engine.destroyed) return
+    // Följ skorstenen där loket FAKTISKT är just nu (det rullar in och ut ur bild).
+    const x0 = this._engine.x - 68 + (Math.random() * 10 - 5)
+    const y0 = this._engine.y - 80
     const p = new Graphics().circle(0, 0, 9 + Math.random() * 5).fill({ color: COLORS.white, alpha: 0.75 })
     p.position.set(x0, y0)
     p.eventMode = 'none'
     this._steamLayer.addChild(p)
     const st = { x: x0, y: y0, s: 0.6, a: 0.7 }
     const tw = gsap.to(st, {
+      // Ångan driver BAKÅT (åt höger) — tåget kör åt vänster, så röken hamnar efter det.
       x: x0 + 24 + Math.random() * 20,
       y: y0 - 70 - Math.random() * 30,
       s: 1.7,
@@ -315,6 +337,11 @@ export default {
   // blandade vagnar, markera vagn 1 som aktiv.
   _newRound(ctx) {
     if (!this._alive) return
+    this._depart?.kill()
+    this._depart = null
+    this._rollIn?.kill()
+    this._rollIn = null
+    this._wheelBob?.timeScale(1)
     this._clearRound()
     this._placedCount = 0
     this._expected = 1
@@ -324,14 +351,18 @@ export default {
     this._N = N
 
     gsap.killTweensOf(this._engine)
-    this._engine.x = ENGINE_X
+    this._engineX = this._engineXFor(N) // tågsättet centreras efter hur många vagnar rundan har
     this._startRock() // vaggan dödas ovan -> starta om (återställer även y/rotation)
+    // Ett nytt lok rullar in från HÖGER och bromsar in på sin plats — fronten pekar åt
+    // vänster, så det kör framlänges in precis som det strax kör framlänges ut.
+    this._engine.x = ctx.width + 240
+    this._rollIn = gsap.to(this._engine, { x: this._engineX, duration: 1.1, ease: 'power2.out' })
 
     // Kopplingsplatser: en target per slot, men accepts kräver rätt siffra OCH att
     // sloten är den näst lediga -> omöjligt att placera i fel ordning.
     for (let i = 0; i < N; i++) {
       const slot = this._makeSlot()
-      slot.position.set(SLOT0_X + i * SLOT_STEP, SLOT_Y)
+      slot.position.set(this._engineX + ENGINE_GAP + i * SLOT_STEP, SLOT_Y)
       slot._index = i
       this._roundLayer.addChild(slot)
       this._slots.push(slot)
@@ -382,6 +413,13 @@ export default {
     ctx.services.voice.say(`${SIFFROR[n] || n}! ${n === 1 ? 'En' : SIFFROR[n]} ${n === 1 ? lo.ental : lo.flertal}!`)
     sparkle(ctx.fxLayer, target.view.x, target.view.y)
     pop(rec.view)
+    // Spökrutan har gjort sitt när vagnen sitter i — tona bort den, annars står tomma
+    // streckade rutor kvar på rälsen när tåget rullar iväg.
+    const ghost = target.view
+    if (ghost && !ghost.destroyed) {
+      gsap.killTweensOf(ghost)
+      gsap.to(ghost, { alpha: 0, duration: 0.3, ease: 'sine.out' })
+    }
 
     this._placedCount++
     this._expected++
@@ -404,14 +442,25 @@ export default {
     // hålls (två stämmor = ångvisslans övertoner).
     ctx.services.audio.tone({ freq: 620, dur: 0.75, type: 'sawtooth', vol: 0.2, slideTo: 720 })
     ctx.services.audio.tone({ freq: 930, dur: 0.75, type: 'sine', vol: 0.1, slideTo: 1080 })
-    puff(ctx.fxLayer, ENGINE_X - 68, ENGINE_Y - 82, { color: COLORS.inkSoft })
+    this._rollIn?.kill()
+    this._rollIn = null
+    puff(ctx.fxLayer, this._engine.x - 68, this._engine.y - 82, { color: COLORS.inkSoft })
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
-    // Lok + alla vagnar rullar långsamt ut åt höger (chuggar iväg).
-    gsap.to(this._engine, { x: '+=1500', duration: 1.4, ease: 'power1.in' })
+    // AVFÄRD ÅT VÄNSTER. Loket har fronten (kofångare/skorsten) åt vänster och vagnarna
+    // åt höger, så tåget måste rulla åt VÄNSTER för att köra framlänges: loket lämnar
+    // bilden först, sista vagnen sist. Varje vagn rycker med en aning efter den framför
+    // (stafett) så man känner att kopplen tas upp ett i taget.
+    this._depart = gsap.timeline()
+    this._depart.to(this._engine, { x: `-=${DEPART_DX}`, duration: DEPART_TIME, ease: 'power1.in' }, 0)
     this._cars.forEach((c) => {
-      if (!c.destroyed) gsap.to(c, { x: '+=1500', duration: 1.4, ease: 'power1.in' })
+      if (c.destroyed) return
+      const place = Math.max(0, (c._n | 0) - 1) // vagn 1 sitter närmast loket och rycker först
+      this._depart.to(c, { x: `-=${DEPART_DX}`, duration: DEPART_TIME, ease: 'power1.in' }, (place + 1) * DEPART_STAGGER)
     })
+    // Hjulen snurrar snabbare och skorstenen chuffar när tåget drar iväg.
+    this._wheelBob?.timeScale(3.2)
+    ;[0, 0.16, 0.34, 0.56, 0.82].forEach((t) => this._depart.call(() => this._emitSteam(ctx), null, t))
 
     ctx.progress.setLevel(this._level + 1)
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
@@ -419,7 +468,9 @@ export default {
     // Sista (hörbara) frasen: glatt tut + beröm medan tåget åker.
     ctx.services.voice.say(`Tut tut! ${randomFrom(PRAISE)}`)
 
-    this._next = gsap.delayedCall(1.6, () => {
+    // Vänta tills hela tågsättet (inkl. stafett-fördröjningen på sista vagnen) lämnat
+    // bilden innan nästa lok rullar in från höger.
+    this._next = gsap.delayedCall(DEPART_TIME + 0.45, () => {
       if (!this._alive) return
       this._level++
       this._newRound(ctx)
@@ -444,6 +495,9 @@ export default {
     this._pulse = null
     this._activeCar = null
     this._drag.clear()
+    this._slots.forEach((s) => {
+      if (!s.destroyed) gsap.killTweensOf(s)
+    })
     this._cars.forEach((c) => {
       if (!c.destroyed) {
         gsap.killTweensOf(c)
@@ -461,10 +515,15 @@ export default {
     ctx?.ticker?.remove(this._tick)
     this._next?.kill()
     this._pulse?.kill()
+    this._depart?.kill()
+    this._rollIn?.kill()
     this._steam?.kill()
     this._rock?.kill()
     this._wheelBob?.kill()
     this._drag?.destroy()
+    this._slots.forEach((s) => {
+      if (!s.destroyed) gsap.killTweensOf(s)
+    })
     this._cars.forEach((c) => {
       if (!c.destroyed) {
         gsap.killTweensOf(c)

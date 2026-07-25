@@ -10,8 +10,8 @@ vagn upp till en spök-ruta vid loket — men en kopplingsplats *accepterar bara
 **och** att den är näst lediga, så fel ordning kan aldrig fastna: en felaktig vagn pyser
 mjukt tillbaka med en wiggle. Rätt vagn → `correct`+`pling`, en gnistra, rösten räknar
 ("Ett!", "Två!"), och nästa vagn börjar lysa. När tåget är fullt: `celebrate`+`whoosh`,
-ångpuff, "Tut tut!" + beröm, loket + alla vagnar rullar ut åt höger, konfetti + stjärna +
-klistermärke. En ny, ev. längre runda (N växer 3→4→5 med nivån) startar. Idle ~6s →
+ångpuff, "Tut tut!" + beröm, loket drar iväg **åt vänster** (dit fronten pekar) med vagnarna
+efter sig i ordning, konfetti + stjärna + klistermärke. En ny, ev. längre runda (N växer 3→4→5 med nivån) startar. Idle ~6s →
 "Vilken kommer efter ett?" + vink på den aktiva vagnen.
 
 **Funkar bra:** loket är charmigt och *läses* tydligt som tåg (kofångare, panna, skorsten,
@@ -120,3 +120,34 @@ vägg, och glöden tänker åt barnet.**
     (y-gupp + pytteliten rotation, `_startRock`, startas om per runda), och ång-puffar stiger
     ur skorstenen i loop (`_steamLayer` + `_emitSteam`, exit-säker proxy-tween). Alla nya
     tweens (`_steam`/`_rock`/`_wheelBob`) dödas i `destroy`. No-fail-kopplingen orörd.
+- 2026-07-25: **BUGGFIX — tåget backade iväg + omgjord tågkomposition** (`check` grön,
+  `npm run test siffertaget` 0 fel, hela rundan spelad till avfärd i harnessen).
+  - **Grundorsak.** Loket ritas med kofångare, panna, strålkastare och skorsten till
+    *vänster* om sitt origo — **fronten pekar åt vänster** — medan vagnsplatserna ligger åt
+    höger. Avfärden gjorde ändå `gsap.to(engine/cars, { x: '+=1500' })`, alltså åt **höger**:
+    tåget backade iväg med sista vagnen först. Rent riktningsfel, ingen annan logik inblandad.
+  - **Kör åt rätt håll.** Avfärden är nu en egen timeline (`this._depart`) som rullar lok +
+    alla vagnar `x: '-=1500'` (`DEPART_DX`) på `DEPART_TIME = 1.5 s`, `power1.in`. Loket startar
+    på t=0 och vagn *n* på `n × DEPART_STAGGER (0,035 s)` — vagn 1 (närmast loket) rycker med
+    först, sista vagnen sist, så man ser kopplen tas upp ett i taget utan att tågsättet dras
+    isär. Loket lämnar bilden först, sista vagnen sist.
+  - **Ny, centrerad tågkomposition.** `ENGINE_X = 150` / `SLOT0_X = 290` (spökrutorna
+    överlappade dessutom lokets hytt med ~55 px) är borta. Nya konstanter: `ENGINE_NOSE = 122`,
+    `ENGINE_GAP = 200` (lok-origo → första platsen; koppel möter koppel), `CAR_HALF = 85`,
+    `SLOT_STEP = 188` (170 vagnsbredd + 18 → kopplingsstumparna möts). `_engineXFor(n)`
+    centrerar *hela* tågsättet efter rundans vagnantal: lok-x ≈ **371** vid 3 vagnar, **277**
+    vid 4, **183** vid 5. Vid maxlängden (5) går tåget från x≈61 till x≈1220 — inom bild, långt
+    under hem-/högtalarknapparna (y≥158 mot deras y≤110) och med ordentlig startsträcka kvar.
+    Slotarna beräknas från `this._engineX`, inte från en hårdkodad konstant.
+  - **Resten av sekvensen granskad och rättad.** Ångpuffarna följer nu skorstenen där loket
+    *faktiskt* är (`this._engine.x/y` i stället för konstanten) och driver bakåt/åt höger =
+    korrekt för ett vänsterkörande tåg; fem extra chuff-puffar läggs in i avfärds-timelinen och
+    hjulgungningen får `timeScale(3.2)` medan tåget drar iväg (återställs per runda).
+    Spökrutan **tonas bort** när vagnen kopplats på — tidigare stod tomma streckade rutor kvar
+    på rälsen efter att tåget lämnat bilden. `_roundLayer` ligger nu under loket så loket kör
+    snyggt förbi rutorna. Nästa runda startar efter `DEPART_TIME + 0,45 s` (hela sättet ute).
+  - **Nytt: loket rullar in.** Varje runda börjar med att ett lok kommer in från *höger* och
+    bromsar in på plats (1,1 s, `power2.out`) — framlänges, eftersom fronten pekar åt vänster.
+    `this._rollIn`/`this._depart` dödas i både `_newRound` och `destroy`, och slot-tweens dödas
+    innan `_roundLayer` rensas → exit-säkert (exit-cykel testad, 0 konsolfel).
+  - Pedagogiken (siffror, last-räkning, accept-villkoret) och no-fail-beteendet är orörda.

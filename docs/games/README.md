@@ -28,30 +28,16 @@ Ett bra barnspel 2–5 är inte *svårare* — det är **rikare**. Mätstickan p
 Varje förbättringsförslag taggas: **[Quick]** (timmar), **[Medium]** (en pass), **[Deep]**
 (omdesign/nya system). Vi jobbar i faser, ett spel i taget, och bockar av nedan.
 
+De sju punkterna ovan är **kvalitetsgrinden** i `docs/PIPELINE.md`. Ett spel som byggs eller
+poleras idag får inte landa som 🔧 — det passerar grinden eller är inte klart.
+
 ## Doc-mall (varje spel följer denna)
 
-```
-# <Titel> (`<id>`)
-> kategori · input · ålder · status-emoji
-
-## 1. Nuläge (sett som spelare)
-Vad möter spelaren? Kärnloop, kontroller, visuellt, ljud, progression. Vad funkar.
-(+ skärmdump-referens)
-
-## 2. Ursprunglig plan & tankeprocess
-Designintention (ur kodkommentar + kontrakt): det pedagogiska/lek-målet, varför mekaniken.
-
-## 3. Vad gör det lättjefullt / tunt
-Ärlig spelar-kritik: var det är en minimal MVP, var loopen är grund, saknad juice/variation/
-djup/karaktär, repetition, billiga lösningar.
-
-## 4. Förbättringar & förhöjningar (plan)
-Prioriterad, taggad ([Quick]/[Medium]/[Deep]) lista som tar spelet till marknadskvalitet.
-Grupperad: Kärnloop · Variation · Juice · Progression · Karaktär · Ljud.
-
-## 5. Status / loggar
-Klart-bockar; commits när förbättringar genomförs.
-```
+Mallen ligger i **`docs/games/_MALL.md`** — kopiera den för nya spel (`/spel` gör det åt dig).
+Struktur: **§0 Spec** (ifylld innan kod skrivs) · **§1 Nuläge** sett som spelare ·
+**§2 Ursprunglig plan & tankeprocess** · **§3 Vad som är lättjefullt/tunt** (ärlig kritik) ·
+**§4 Förbättringsplan** ([Quick]/[Medium]/[Deep], grupperad: Kärnloop · Variation · Juice ·
+Progression · Karaktär · Ljud) · **§5 Status/loggar** (bockar + commits).
 
 ## Index — 69 spel
 
@@ -143,9 +129,10 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 47 | Ballonglyft | `ballonglyft` | tap | 🔧 |
 | 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | 🔧 |
 
-**✅ Alla 68 spel granskade (Fas 1–4 klara) OCH alla 4 flikar har fått en genomförd första-omgång
-(Roligt · Fysik · Pussel · Lära). Nästa steg: en andra polerings-omgång / de kvarvarande
-[Deep]-förslagen per spel, prioriterat efter de app-breda mönstren nedan.**
+**✅ Alla 69 spel granskade OCH alla 4 flikar har fått en genomförd första-omgång
+(Roligt · Fysik · Pussel · Lära).** Kvar: de 🔧-märkta spelen har en andra omgång / kvarvarande
+[Deep]-förslag i sin egen doc §4. Kör `/polera <id>` på det som förtjänar det — prioritera efter
+de app-breda mönstren nedan, de lyfter många spel åt gången.
 
 ## Återkommande mönster (app-breda lyft)
 

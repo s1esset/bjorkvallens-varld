@@ -16,3 +16,9 @@ old/
 
 # Runtime marker written by scripts/start.ps1 (server window PID)
 .server.pid
+
+# Skärmdumpar från npm run test (arbetsmaterial, inte historik)
+.test-shots/
+
+# Pipeline-checkpoint (arbetsläge; historiken bor i docs/SESSIONS.md)
+.claude/state/

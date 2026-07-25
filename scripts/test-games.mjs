@@ -1,0 +1,86 @@
+// Kör headless-harnessen över ett, flera eller alla spel — parallellt — och
+// skriver en sammanfattningstabell. Wrappar scripts/test-game.mjs.
+//
+//   npm run test <id>            # ett spel
+//   npm run test:all             # alla spel i registret
+//   npm run test -- a b c        # flera
+//   ... [--jobs 4] [--url http://localhost:5173] [--keep-shots]
+//
+// Dragspel får automatiskt några generiska musdrag utöver standardtrycken.
+// Skärmdumpar hamnar i .test-shots/ (gitignorerad).
+// Exit 0 = alla gröna, 1 = minst ett spel har konsolfel.
+import { spawn } from 'node:child_process'
+import { readdirSync, statSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { join, resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const argv = process.argv.slice(2)
+const flag = (n) => argv.includes(n)
+const arg = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d }
+
+const url = arg('--url', 'http://localhost:5173')
+const jobs = Math.max(1, Number(arg('--jobs', 4)))
+const shotDir = join(ROOT, '.test-shots')
+const gamesDir = join(ROOT, 'src/games')
+
+const allGames = () => readdirSync(gamesDir)
+  .filter((f) => statSync(join(gamesDir, f)).isDirectory())
+  .filter((f) => existsSync(join(gamesDir, f, 'index.js')))
+  .sort()
+
+const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--url', '--jobs'].includes(argv[i - 1])))
+const ids = flag('--all') || !positional.length ? allGames() : positional
+
+mkdirSync(shotDir, { recursive: true })
+
+// Dragspel behöver riktiga musdrag för att kärnloopen ska köras.
+const inputOf = (id) => {
+  const src = readFileSync(join(gamesDir, id, 'index.js'), 'utf8')
+  const head = src.slice(Math.max(0, src.search(/export\s+default\s*\{/)))
+  const m = head.match(/input\s*:\s*'(\w+)'/)
+  return m ? m[1] : 'tap'
+}
+const GENERIC_DRAGS = '640,360>420,240;300,500>800,360;900,300>640,520'
+
+const runOne = (id) => new Promise((done) => {
+  const input = inputOf(id)
+  const args = ['scripts/test-game.mjs', id, '--url', url, '--shot', join(shotDir, `${id}.png`)]
+  if (input === 'drag' || input === 'mixed') args.push('--drag', GENERIC_DRAGS)
+  const t0 = Date.now()
+  let out = ''
+  const p = spawn(process.execPath, args, { cwd: ROOT })
+  p.stdout.on('data', (d) => { out += d })
+  p.stderr.on('data', (d) => { out += d })
+  p.on('close', (code) => {
+    let errors = []
+    try { errors = JSON.parse(out.slice(out.indexOf('{'))).errors || [] }
+    catch { errors = code === 0 ? [] : [out.trim().split('\n').pop()?.slice(0, 160) || 'okänt fel'] }
+    done({ id, input, errors, ms: Date.now() - t0 })
+  })
+})
+
+console.log(`\n  Testar ${ids.length} spel mot ${url} (${jobs} parallellt)\n`)
+
+const results = []
+const queue = [...ids]
+await Promise.all(Array.from({ length: Math.min(jobs, queue.length) }, async () => {
+  while (queue.length) {
+    const id = queue.shift()
+    const r = await runOne(id)
+    results.push(r)
+    const mark = r.errors.length ? '✗' : '✓'
+    console.log(`  ${mark} ${r.id.padEnd(26)} ${String(r.ms / 1000).padStart(5)}s  ${r.errors.length ? r.errors.length + ' fel' : ''}`)
+  }
+}))
+
+const failed = results.filter((r) => r.errors.length).sort((a, b) => a.id.localeCompare(b.id))
+if (failed.length) {
+  console.log('\n  Fel:\n')
+  for (const f of failed) {
+    console.log(`  ✗ ${f.id}`)
+    for (const e of f.errors.slice(0, 4)) console.log(`      ${e}`)
+  }
+}
+console.log(`\n  ${failed.length ? '✗' : '✓'} ${results.length - failed.length}/${results.length} gröna · skärmdumpar i .test-shots/\n`)
+process.exit(failed.length ? 1 : 0)

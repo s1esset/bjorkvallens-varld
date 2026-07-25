@@ -3,5 +3,31 @@
     "frontend-design@claude-plugins-official": true,
     "php-lsp@claude-plugins-official": false,
     "game-development@claude-code-workflows": false
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/session-start.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run check*)",
+      "Bash(npm run test*)",
+      "Bash(npm run build*)",
+      "Bash(npm run backup*)",
+      "Bash(node scripts/check.mjs*)",
+      "Bash(node scripts/test-game.mjs*)",
+      "Bash(node scripts/test-games.mjs*)",
+      "Bash(node scripts/korning.mjs*)",
+      "Bash(node scripts/session-start.mjs*)"
+    ]
   }
 }

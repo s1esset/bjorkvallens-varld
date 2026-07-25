@@ -131,3 +131,35 @@ auto-hjälpen kan spela banan åt barnet**.
   **rull-ljud** (`audio.tone`, tonhöjd/styrka stiger med fart + storlek). Ingen ändrad
   auto-hjälp — kontinuerlig växt gör den till en verklig sista utväg av sig själv.
   Rörde bara `src/games/snobollen/`.
+- 2026-07-25: **Buggfix — spelet gick inte att klara** (ägarrapport: "bollen fastnar
+  till höger på alla pingviner och sakerna i vägen"). Grundorsak uppmätt i en
+  huvudlös matter.js-repro av exakt spelets uppsättning, inte gissad:
+  1. Målen var **lätta dynamiska kroppar** som bollen sköt framför sig i stället för
+     att passera. Ball + låda malde ner till **0,13 px/steg**; efter 30 s var bollen
+     vid x=656 (mål x=1085) — banan gick alltså **aldrig** att klara utan input.
+     Med spelets egen auto-knuff (13 knuffar på 40 s) nådde den x=1059 med 2 hinder
+     och x=771 med 4. Statiskt underläge: fyra hinder blev till slut en vägg.
+  2. **Fri rullning var alldeles för trög**: `gravityY 1.1` + `frictionAir 0.012` gav
+     ~1 px/steg. Därför nådde bollen aldrig `frameDist > 1.5` som den kontinuerliga
+     rull-tillväxten krävde → radien satt kvar på ~40 → aldrig "stark" (krävde r≥70
+     eller fart>6) → målen flög aldrig undan. Cirkeln var sluten.
+  3. **"Fastnat"-detektorn var avstängd när barnet höll fingret nere**
+     (`!this._steering`) — alltså precis när man kämpade mot ett hinder.
+  Fix: hindren är nu **statiska kroppar som VÄLTER och tas bort** (press byggs upp vid
+  kontakt, snabbare med storlek/fart/att barnet håller emot eller *bankar* med tap;
+  välter efter ~0,6–1,4 s), spillrorna får en dynamisk kropp med kollisionsfilter så
+  de aldrig kan blockera igen. Momentum (fart × storlek) avgör om bollen **plöjer rakt
+  igenom** (behåller farten, +6 snö, "Pang!") eller **pressar sig förbi** (stannar en
+  stund, tappar 6 i radie). Rullfysiken kalibrerad om till `gravityY 2.0` /
+  `frictionAir 0.003` (~5 px/steg fri rullning), tillväxten är distansbaserad
+  (0,022/px, ackumulerad), stuck-detektorn gäller även under drag, bara ETT hinder kan
+  pressas åt gången och hinderavståndet är garanterat ≥150 px.
+  **Bevis att det går att klara:** telemetri i webbläsaren (modulen läst live) —
+  *helt utan input* klarades nivå 0→4 på 26 s (varje hinder välte på 0,6–0,9 s,
+  noll auto-knuffar); med barnlikt drag+tap klarades nivå 0→6 på 24 s. 0 konsolfel.
+  Dessutom P0-`ASSETS`: emoji-målen 🐧/📦 ersattes av **ritade** fristående föremål
+  (pingvin, trälåda, liten snögubbe att plöja igenom), snögubbens 🥕/🎩 av ritad morot
+  och hatt + slumpad halsduksfärg, mätarens ⛄ av en ritad minisnögubbe och mål-ringens
+  ❄ av en ritad snöflinga. Ny **mottagare**: en vakt-pingvin vid mållinjen som andas i
+  vila, hoppar och ropar "Hurra!" när snögubben står. Mätaren flyttad under ljudknappen.
+  Rörde bara `src/games/snobollen/`.

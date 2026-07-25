@@ -1,20 +1,24 @@
-// Snöbollen — rulla en liten snöboll nerför en vinterbacke och se den VÄXA genom
-// snön, välta pingviner/lådor/små snögubbar och till slut klumpa ihop sig till en
-// glad snögubbe medan vakt-pingvinen vid mållinjen hejar.
+// Snöbollen — rulla en liten snöboll nerför en LÅNG vinterbacke (kameran följer med),
+// samla snö, ta dig förbi pingviner, lådor och små snögubbar, flyg på hoppkullarna och
+// bygg till slut en snögubbe medan vakt-pingvinen vid mållinjen hejar.
 //
-// Två barnvänliga kontroller som tydligt ändrar utfallet:
-//   STYR  — håll och dra i sidled (eller tappa en punkt): snöbollen följer fingret
-//           i x medan gravitationen sköter nedförsfarten -> styr fart + var den hamnar.
+// Två barnvänliga kontroller — och det är BARNET som driver bollen framåt:
+//   STYR  — håll och dra i sidled (eller tappa en punkt): snöbollen dras mot fingret.
+//           Backen lutar svagt, så gravitationen ger en långsam rullning; farten kommer
+//           nästan helt från styrningen.
 //   KNUFF — snabbt tap på snöbollen: en fart-knuff nedför backen. Står bollen och
-//           pressar mot ett hinder blir samma tap ett BANK som välter hindret snabbare.
+//           pressar mot ett hinder blir samma tap ett BANK som välter hindret.
 //
 // MOTGÅNG (aldrig stopp): hindren står stilla som riktiga hinder (statiska kroppar) —
 // men de VÄLTER alltid. Kommer bollen stor OCH snabb plöjer den rakt igenom, behåller
-// farten och får extra snö. Kommer den liten och långsam bromsas den, pressar sig
-// igenom på ~1 s (snabbare om barnet håller/bankar) och tappar lite snö på kuppen.
-// Hindret tar alltså bort SIG SJÄLVT ur vägen — ett kilat läge är strukturellt omöjligt.
-// Bara ett hinder kan pressas åt gången, och en stillastående boll får ändå en mjuk
-// auto-knuff som sista utväg. Varje runda slutar med en snögubbe + firande.
+// farten och får extra snö. Annars måste barnet pressa på (hålla fingret framför) eller
+// banka med tap. "Pressen" byggs BARA av barnets fart/tryck/tap — en boll som lämnas
+// ensam mot ett hinder tar sig inte förbi av sig själv. Kilning är strukturellt omöjlig:
+// när hindret välter tas kroppen bort, och spillran får ett kollisionsfilter som gör att
+// den aldrig kan blockera igen.
+// AUTOHJÄLP: sent och synligt. Står bollen still i 3,5 s kommer "Jag hjälper till!" med
+// gnistror + en knuff (som växer för varje gång), så att den aldrig kan låsa sig — men
+// hjälpen ligger så långt bak att barnets eget drag alltid är det som klarar banan.
 // Ingen poäng, ingen timer, inget "game over".
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
@@ -24,34 +28,48 @@ import { puff, sparkle, burst, bigCelebration, floatText, pop, bounceIn, breathe
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
-// --- Backens geometri (statisk sluttning) i designkoordinater (1280×720) ---------
-const HILL = { cx: 640, cy: 470, w: 1480, h: 120, angle: 0.16 } // vänster högt, höger lågt
+// --- Backens geometri: EN lång sluttning i världskoordinater (0 .. WORLD_LEN) ------
+// Ytan är linjen y = SURF0 + TAN * x. Kameran panorerar i x, så ytan ligger alltid i
+// skärmens mittband oavsett hur långt man kommit.
+const WORLD_LEN = 5700
+const VIEW_W = 1280
+const HILL = { angle: 0.1, len: 6600, thick: 900 } // tjock: backen täcker alltid skärmens nederdel
 const SIN = Math.sin(HILL.angle)
 const COS = Math.cos(HILL.angle)
 const TAN = Math.tan(HILL.angle)
-// Backens topp-yta är en linje genom denna punkt med lutning TAN (uppmätt från kroppen).
-const SURF_X = HILL.cx + (HILL.h / 2) * SIN // 649.6
-const SURF_Y = HILL.cy - (HILL.h / 2) * COS // 410.8
+const SURF0 = 250 // ytans y vid världens x = 0
+const MIDX = 2750 // backens mitt i x
+const HILL_CX = MIDX + SIN * (HILL.thick / 2)
+const HILL_CY = SURF0 + TAN * MIDX + COS * (HILL.thick / 2)
 
-const START = { x: 215, y: 250 } // snöbollens startläge, högt upp till vänster
+const START = { x: 215, y: 210 } // snöbollens startläge, högt upp till vänster
 const BASE_R = 40 // start-radie
-const MAX_R = 110 // maxradie
-const ZONE_X = 1085 // når bollen hit (längst ned-höger) -> bygg snögubbe
-const ZONE = { x: 1140, r: 120 } // snögubbe-platsens visuella ring
-const MAX_V = 22 // hastighets-clamp (px/steg) så bollen aldrig skjuts genom en vägg
-const IDLE = 6 // s utan handling -> röst-recue
-const STUCK = 2 // s stillastående (och INTE mot ett hinder) -> mjuk auto-knuff
+const MAX_R = 115 // maxradie
+const CAM_LEAD = 430 // bollens läge på skärmen (x) när kameran hunnit ifatt
+const CAM_Y = 430 // ytans skärm-y under bollen (kameran följer även i höjd)
 
-// Rullfysik. Uppmätt mot matter.js fasta 1/60-steg: med den gamla gravitationen 1.1
-// och luftfriktionen 0.012 rullade bollen bara ~1 px/steg — för lite för att någonsin
-// ta sig förbi ett hinder. 2.0/0.003 ger ~5 px/steg fri rullning (backen på ~6 s utan
-// input) och lämnar gott om utrymme för styrningens ±9 px/steg.
+// Rullfysik. Svag lutning + luftmotstånd => gravitationen ger en långsam rullning
+// men bär ALDRIG hela vägen; farten kommer från barnets drag.
 const GRAVITY_Y = 2.0
-const AIR = 0.003
-const GROW_PER_PX = 0.022 // snö som samlas per rullad px
-const FIELD_GROW = 11 // fet bonus-klump per snöfält
+const AIR = 0.01
+const STEER_GAIN = 0.05 // hur hårt bollen dras mot fingret (px/steg per px avstånd)
+const STEER_MAX = 4.4 // taket på styrfarten (px/steg)
+const STEER_BLEND = 0.14 // hur snabbt bollen når styrfarten
+const KNUFF_V = 4.5 // fart-knuff vid tap
+const KNUFF_GAP = 0.3 // s mellan knuffar (tap-spam ska inte bli en raket)
+const MAX_V = 22 // hastighets-clamp (px/steg) så bollen aldrig skjuts genom en vägg
+const GROW_PER_PX = 0.006 // snö som samlas per rullad px
+const FIELD_GROW = 6 // bonus-klump per snöfält
 const SMASH_GROW = 6 // extra snö när man plöjer rakt igenom ett hinder
-const GRIND_LOSS = 6 // snö som ramlar av när man pressar sig igenom långsamt
+const GRIND_LOSS = 5 // snö som ramlar av när man pressar sig igenom långsamt
+const IDLE = 6 // s utan handling -> röst-recue
+const STUCK = 4.5 // s stillastående -> SEN, synlig autohjälp
+
+// Pressen mot ett hinder byggs bara av barnets insats.
+const PRESS_SPEED = 1 / 3.2 // per px/steg fart
+const PRESS_PUSH = 0.7 // per sekund när barnet håller fingret framför bollen
+const PRESS_TAP = 0.34 // per bank (tap på bollen)
+const PRESS_HELP = 0.25 // autohjälpens grundknuff mot hindret (växer för varje gång)
 
 // Kollisionsfilter: bollen krockar med allt, men VÄLTA hinder (spillror) krockar bara
 // med backen/väggarna — de kan alltså aldrig bli en ny vägg framför bollen.
@@ -59,15 +77,20 @@ const CAT_BALL = 0x0002
 const CAT_DEBRIS = 0x0004
 const MASK_DEBRIS = 0x0001
 
-// Hindren. tip = hur mycket "press" som krävs innan det välter (sekunder vid press 1,0).
+// Hindren. tip = hur mycket "press" som krävs innan det välter.
 const OBSTACLES = {
   penguin: { tip: 1.0, halfW: 33, h: 86, words: ['Oj!', 'Piip!', 'Hoppsan!'], snow: 0 },
   crate: { tip: 1.35, halfW: 38, h: 80, words: ['Pang!', 'Krasch!', 'Oj!'], snow: 0 },
-  snoman: { tip: 0.8, halfW: 32, h: 86, words: ['Puff!', 'Hihi!', 'Wii!'], snow: 10 },
+  snoman: { tip: 0.8, halfW: 32, h: 86, words: ['Puff!', 'Hihi!', 'Wii!'], snow: 8 },
 }
 const OB_TYPES = Object.keys(OBSTACLES)
 
+// C-durskala: varje passerad vimpel spelar nästa ton -> hörbar framfart.
+const SCALE = [523.25, 587.33, 659.25, 698.46, 783.99, 880, 987.77, 1046.5]
+const FLAG_COLORS = [0xe4572e, 0x4aa3df, 0x7bc043, 0xf3b61f, 0xb56bd6, 0x35b5a5]
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+const surfaceY = (x) => SURF0 + TAN * x
 
 export default {
   id: 'snobollen',
@@ -84,6 +107,7 @@ export default {
     this._gt = 0 // speltid (s)
     this._idle = 0
     this._stillT = 0
+    this._helpCount = 0
     this._r = BASE_R
     this._growAcc = 0
     this._steering = false
@@ -101,10 +125,17 @@ export default {
     this._lastCreak = -1
     this._lastSpray = -1
     this._vxPrev = 0
+    this._camX = 0
+    this._camY = 0
+    this._helpPushT = 0
+    this._helpFromX = -9999
+    this._lastHelpFx = -1
     this._pressing = null // hindret som bollen pressar mot just nu (max ETT åt gången)
-    this._saidBlocked = false
+    this._wasOnGround = true
     this._fields = []
     this._targets = []
+    this._ramps = []
+    this._flags = []
     this._debris = []
     this._snowParts = []
     this._flakes = []
@@ -112,15 +143,16 @@ export default {
     this._rollT = 0 // nedräkning till nästa rull-knaster
     this._prevX = START.x // förra frames position (för rull-distans)
     this._prevY = START.y
-    this._lastTrailX = START.x // senast utlagda spår-prick
+    this._lastTrailX = START.x
     this._lastTrailY = START.y
+    this._goalX = 2900
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Vinterbakgrund som FÖRSTA barn (snöig himmel + vit markremsa).
-    const winter = { top: 0xcfe9ff, bottom: 0xeaf6ff, ground: 0xffffff, groundDark: 0xdce8f2, sun: true, clouds: 2 }
+    // Vinterbakgrund i SKÄRMRYMD (himmel + sol + moln följer inte med kameran).
+    const winter = { top: 0x9fd2f7, bottom: 0xd8eeff, ground: 0xdceefb, groundDark: 0xc3ddf1, sun: true, clouds: 2 }
     this._root.addChild(createScene(winter, { width: ctx.width, height: ctx.height }))
 
     // Stor osynlig styr-yta: pekning var som helst "tar tag" i leken.
@@ -133,40 +165,54 @@ export default {
     this._backdrop.on('pointerupoutside', this._onUpEv)
     this._root.addChild(this._backdrop)
 
-    this._buildHill()
-    this._buildDecor(ctx) // granar, stenar, stuga med rök -> levande backe
-    this._buildFlakes(ctx)
+    // Fjärran siluetter i egen container med parallax (rör sig långsammare).
+    this._far = new Container()
+    this._far.eventMode = 'none'
+    this._far.interactiveChildren = false
+    this._root.addChild(this._far)
 
-    // Lager i rätt z-ordning (bak -> fram).
+    // VÄRLDEN: allt som hör till backen ligger här och panoreras av kameran.
+    this._buildHill() // backen i skärmrymd, bakom världen
+
+    this._world = new Container()
+    this._world.eventMode = 'passive'
+    this._root.addChild(this._world)
+
+    this._buildDecor()
+
+    // Lager i rätt z-ordning (bak -> fram), alla inuti världen.
+    this._trail = new Graphics()
+    this._trail.eventMode = 'none'
+    this._world.addChild(this._trail)
+    this._zoneLayer = new Container()
+    this._flagLayer = new Container()
     this._fieldLayer = new Container()
+    this._rampLayer = new Container()
     this._debrisLayer = new Container()
     this._targetLayer = new Container()
     this._ballLayer = new Container()
     this._snowLayer = new Container()
     this._hintLayer = new Container()
-    for (const layer of [this._fieldLayer, this._debrisLayer, this._targetLayer, this._ballLayer, this._snowLayer, this._hintLayer]) {
+    for (const layer of [this._zoneLayer, this._flagLayer, this._fieldLayer, this._rampLayer, this._debrisLayer, this._targetLayer, this._ballLayer, this._snowLayer, this._hintLayer]) {
       layer.eventMode = 'passive'
-      this._root.addChild(layer)
+      this._world.addChild(layer)
     }
 
-    // Rull-spår: ett brett ljust släp ritas här (bakom fält/boll), nollställs per bana.
-    this._trail = new Graphics()
-    this._trail.eventMode = 'none'
-    this._root.addChildAt(this._trail, this._root.getChildIndex(this._fieldLayer))
-
-    // Fysik: gravitation drar nedåt; väggar håller bollen kvar på banan.
-    this._phys = new PhysicsWorld({ gravityY: GRAVITY_Y, walls: ['floor', 'left', 'right'] })
-    // Backen som statiskt fysik-golv (samma transform som grafiken).
-    this._hillBody = this._phys.rectangle(HILL.cx, HILL.cy, HILL.w, HILL.h, {
+    // Fysik: gravitation drar nedåt; egna väggar (världen är bredare än designytan).
+    this._phys = new PhysicsWorld({ gravityY: GRAVITY_Y, walls: [] })
+    this._hillBody = this._phys.rectangle(HILL_CX, HILL_CY, HILL.len, HILL.thick, {
       isStatic: true,
       angle: HILL.angle,
       friction: 0.4,
       label: 'hill',
     })
+    this._phys.rectangle(-60, 300, 120, 1400, { isStatic: true, friction: 0.4, label: 'wall' })
+    this._phys.rectangle(WORLD_LEN + 160, 600, 120, 1400, { isStatic: true, friction: 0.4, label: 'wall' })
 
     this._makeBall(ctx)
     this._buildZone()
     this._buildMeter()
+    this._buildFlakes(ctx) // faller i skärmrymd, framför världen
 
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
 
@@ -193,29 +239,51 @@ export default {
     ctx.services.voice.say(text)
   },
 
+  // Världs- -> skärmkoordinat (fxLayer ligger i skärmrymd, världen panoreras i x OCH y).
+  _fx(x) {
+    return x + (this._world ? this._world.x : 0)
+  },
+
+  _fy(y) {
+    return y + (this._world ? this._world.y : 0)
+  },
+
   // ---- Statisk scen -------------------------------------------------------
 
+  // Backen ritas i SKÄRMRYMD. Kameran håller ytan på exakt samma skärmlinje hela
+  // banan (y = CAM_Y + TAN*(x - CAM_LEAD)), så en enda statisk polygon räcker — och
+  // det slipper en 6600x900 px roterad Graphics (den ritade inte ut sin fyllning alls,
+  // så bakgrundens gradientremsor lyste igenom och allt såg mjölkigt ut).
+  _hillLineY(sx) {
+    return CAM_Y + TAN * (sx - CAM_LEAD)
+  },
+
   _buildHill() {
-    const c = new Container()
-    c.position.set(HILL.cx, HILL.cy)
-    c.rotation = HILL.angle
-    c.eventMode = 'none'
-    const hw = HILL.w / 2
-    const hh = HILL.h / 2
     const g = new Graphics()
-    g.roundRect(-hw - 20, hh - 18, HILL.w + 40, 60, 30).fill({ color: 0xb9cfe0, alpha: 0.35 }) // markskugga under backen
-    g.roundRect(-hw, -hh, HILL.w, HILL.h, 42).fill(COLORS.white) // själva backen
-    g.roundRect(-hw, -hh, HILL.w, 26, 42).fill({ color: 0xeaf2fb }) // snö-glans uppe
-    g.roundRect(-hw, -hh, HILL.w, 7, 6).fill({ color: 0xd3e5f6 }) // tunn kant: gör lutningen läsbar mot vit himmel
-    g.roundRect(-hw, hh - 22, HILL.w, 22, 42).fill({ color: 0xdce8f2, alpha: 0.8 }) // mjuk skugg-kant
-    c.addChild(g)
-    this._root.addChild(c)
+    g.eventMode = 'none'
+    const x0 = -40
+    const x1 = VIEW_W + 40
+    const y0 = this._hillLineY(x0)
+    const y1 = this._hillLineY(x1)
+    const band = (off, h, color, alpha = 1) =>
+      g.moveTo(x0, y0 + off).lineTo(x1, y1 + off).lineTo(x1, y1 + off + h).lineTo(x0, y0 + off + h).closePath().fill({ color, alpha })
+    // Själva backen ner till (långt under) skärmkanten. Djupet ligger i att snön blir
+    // allt blåare nedåt — annars blir det vitt på vitt och bollen försvinner.
+    g.moveTo(x0, y0).lineTo(x1, y1).lineTo(x1, 1000).lineTo(x0, 1000).closePath().fill(0xdceefb)
+    band(0, 5, 0x9dc4e4) // skarp kant: gör lutningen omedelbart läsbar
+    band(5, 60, COLORS.white) // solbelyst snöyta närmast kanten
+    band(65, 40, 0xf4fafe)
+    band(105, 70, 0xeaf4fd)
+    band(175, 90, 0xe3f0fb)
+    band(265, 120, 0xdceefb)
+    this._hillVis = g
+    this._root.addChild(g)
   },
 
   _buildFlakes(ctx) {
     this._flakeLayer = new Container()
     this._flakeLayer.eventMode = 'none'
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 18; i++) {
       const f = new Graphics().circle(0, 0, 2 + Math.random() * 3).fill({ color: 0xffffff, alpha: 0.8 })
       f.x = Math.random() * ctx.width
       f.y = Math.random() * ctx.height
@@ -227,37 +295,45 @@ export default {
     this._root.addChild(this._flakeLayer)
   },
 
-  // Befolka backen: fjärran gran-siluetter, snöiga stenar, granar och en stuga
-  // med rykande skorsten. Allt dekorativt (eventMode 'none'), bakom fält/boll.
-  _buildDecor(ctx) {
+  // Befolka HELA den långa backen: fjärran gran-siluetter (parallax), snöiga stenar,
+  // granar och stugor med rykande skorsten. Allt dekorativt, bakom fält/boll.
+  _buildDecor() {
+    const far = new Graphics()
+    for (let i = 0; i < 26; i++) {
+      const x = i * 190 + (Math.random() * 60 - 30)
+      const by = 300 + Math.sin(i * 1.7) * 14 // fast baslinje; parallaxen sköter rörelsen
+      const h = 42 + Math.random() * 30
+      far.moveTo(x - h * 0.4, by).lineTo(x + h * 0.4, by).lineTo(x, by - h).closePath().fill({ color: 0xb9cfe0, alpha: 0.45 })
+    }
+    this._far.addChild(far)
+
     const decor = new Container()
     decor.eventMode = 'none'
     decor.interactiveChildren = false
-
-    // Fjärran gran-siluetter (djup/dis) längs backens topp.
-    const far = new Graphics()
-    for (let i = 0; i < 7; i++) {
-      const x = 30 + i * 180 + (Math.random() * 40 - 20)
-      const by = this._surfaceY(x) - 4
-      const h = 40 + Math.random() * 26
-      far.moveTo(x - h * 0.4, by).lineTo(x + h * 0.4, by).lineTo(x, by - h).closePath().fill({ color: 0xb9cfe0, alpha: 0.5 })
-    }
-    decor.addChild(far)
-
-    // Snöklädda stenar.
-    for (const [x, s] of [[300, 1], [870, 0.8]]) {
-      const rock = new Graphics().ellipse(0, 0, 30 * s, 20 * s).fill(0xa7b8c8).ellipse(0, -7 * s, 25 * s, 11 * s).fill(0xffffff)
-      rock.position.set(x, this._surfaceY(x) - 8)
-      decor.addChild(rock)
+    decor.addChild(this._makeCottage(150)) // stugan vid starten
+    for (let x = 420; x < WORLD_LEN; x += 300 + Math.random() * 240) {
+      const kind = Math.random()
+      if (kind < 0.62) {
+        decor.addChild(this._makeTree(x, 0.8 + Math.random() * 0.5))
+      } else if (kind < 0.85) {
+        const s = 0.75 + Math.random() * 0.45
+        const rock = new Graphics().ellipse(0, 0, 30 * s, 20 * s).fill(0xa7b8c8).ellipse(0, -7 * s, 25 * s, 11 * s).fill(0xffffff)
+        rock.position.set(x, surfaceY(x) - 8)
+        rock.eventMode = 'none'
+        decor.addChild(rock)
+      } else {
+        decor.addChild(this._makeCottage(x))
+      }
     }
 
-    // Snöiga granar längs backen.
-    for (const [x, s] of [[95, 1.2], [455, 0.9], [770, 1.05], [1000, 0.8]]) decor.addChild(this._makeTree(x, s))
+    this._decor = decor
+    this._world.addChild(decor)
+  },
 
-    // Stuga med rykande skorsten (uppe till vänster).
-    const cx = 165
+  _makeCottage(cx) {
     const cot = new Container()
-    cot.position.set(cx, this._surfaceY(cx))
+    cot.position.set(cx, surfaceY(cx))
+    cot.eventMode = 'none'
     const cg = new Graphics()
     cg.roundRect(-38, -46, 76, 50, 6).fill(0xd98b6a) // vägg
     cg.roundRect(-14, -26, 20, 30, 3).fill(0x8a5a3b) // dörr
@@ -287,10 +363,7 @@ export default {
       },
     })
     this._decorTweens.push(stw)
-    decor.addChild(cot)
-
-    this._decor = decor
-    this._root.addChild(decor) // efter backen, före flingor + fält/boll
+    return cot
   },
 
   // En liten snötäckt gran vid backens yta (stam + tre grantoppar + snötopp).
@@ -304,13 +377,9 @@ export default {
     g.circle(0, -72 * s, 7 * s).fill(0xffffff)
     g.circle(-13 * s, -22 * s, 5 * s).fill({ color: 0xffffff, alpha: 0.85 })
     g.circle(11 * s, -36 * s, 5 * s).fill({ color: 0xffffff, alpha: 0.85 })
-    g.position.set(x, this._surfaceY(x) - 2)
+    g.position.set(x, surfaceY(x) - 2)
     g.eventMode = 'none'
     return g
-  },
-
-  _surfaceY(x) {
-    return SURF_Y + TAN * (x - SURF_X)
   },
 
   // ---- Ritade fristående föremål (P0 ASSETS: aldrig emoji-i-bricka) --------
@@ -387,13 +456,18 @@ export default {
     this._ballShadow.eventMode = 'none'
     this._ballLayer.addChild(this._ballShadow)
 
-    // Bollens container: glanscirkel + highlight + kant + dekor-prick (rotationen syns).
+    // Bollens container skalas med radien; grafiken ligger i ett BARN så att pop/squash
+    // kan spela utan att slåss med tillväxt-skalningen.
     this._ball = new Container()
+    this._ballArt = new Container()
     const main = new Graphics().circle(0, 0, BASE_R).fill(0xffffff).stroke({ width: 3, color: 0xdfeaf4 })
     const hi = new Graphics().circle(-BASE_R * 0.32, -BASE_R * 0.32, BASE_R * 0.34).fill({ color: 0xf2f8ff, alpha: 0.9 })
     const dot = new Graphics().circle(BASE_R * 0.32, -BASE_R * 0.12, BASE_R * 0.14).fill({ color: 0xbfe0f5, alpha: 0.8 })
-    for (const ch of [main, hi, dot]) ch.eventMode = 'none'
-    this._ball.addChild(main, hi, dot)
+    const dot2 = new Graphics().circle(-BASE_R * 0.1, BASE_R * 0.42, BASE_R * 0.1).fill({ color: 0xd9ecfa, alpha: 0.8 })
+    for (const ch of [main, hi, dot, dot2]) ch.eventMode = 'none'
+    this._ballArt.addChild(main, hi, dot, dot2)
+    this._ballArt.eventMode = 'none'
+    this._ball.addChild(this._ballArt)
     this._ball.position.set(START.x, START.y)
     this._ball.eventMode = 'static'
     this._ball.cursor = 'pointer'
@@ -437,32 +511,35 @@ export default {
   _buildZone() {
     this._zoneC = new Container()
     this._zoneC.eventMode = 'none'
-    this._zoneC.position.set(ZONE.x, this._surfaceY(ZONE.x) - 70)
     const ring = new Graphics()
-    // Streckad ring = rad av små bågar/prickar runt cirkeln.
     const n = 26
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2
-      ring.circle(Math.cos(a) * ZONE.r, Math.sin(a) * ZONE.r, 5).fill({ color: COLORS.blue, alpha: 0.4 })
+      ring.circle(Math.cos(a) * 120, Math.sin(a) * 120, 5).fill({ color: COLORS.blue, alpha: 0.4 })
     }
     const mark = this._makeFlake(44, COLORS.blue)
     mark.alpha = 0.45
     this._zoneC.addChild(ring, mark)
-    this._root.addChildAt(this._zoneC, this._root.getChildIndex(this._fieldLayer)) // bakom fält/boll
+    this._zoneLayer.addChild(this._zoneC)
     this._zoneTween = gsap.to(this._zoneC.scale, { x: 1.07, y: 1.07, duration: 1.3, yoyo: true, repeat: -1, ease: 'sine.inOut' })
 
     // MOTTAGAREN: en vakt-pingvin som står och väntar vid snögubbe-platsen och
     // hejar när snöbollen kommer fram.
-    const gx = 1238
     this._greeter = new Container()
     this._greeter.eventMode = 'none'
-    this._greeter.position.set(gx, this._surfaceY(gx) - 40)
     const shadow = new Graphics().ellipse(0, 46, 30, 9).fill({ color: 0x6f86a0, alpha: 0.2 })
     shadow.eventMode = 'none'
-    this._greeterBody = this._makePenguin(0.9)
-    this._greeter.addChild(shadow, this._greeterBody)
-    this._root.addChild(this._greeter)
+    this._greeter.addChild(shadow, this._makePenguin(0.9))
+    this._zoneLayer.addChild(this._greeter)
     this._greetTween = breathe(this._greeter, { scale: 1.05, duration: 1.6 })
+  },
+
+  _placeZone(goalX) {
+    const zx = goalX + 55
+    this._zoneC.position.set(zx, surfaceY(zx) - 70)
+    const gx = goalX + 185
+    this._greeterY = surfaceY(gx) - 40
+    this._greeter.position.set(gx, this._greeterY)
   },
 
   _buildMeter() {
@@ -494,43 +571,44 @@ export default {
   // ---- Banor (nivåberoende, cykliska) -------------------------------------
 
   _layoutFor(level) {
-    let nF
-    let nT
-    let bigEnough
-    if (level <= 1) {
-      nF = 5
-      nT = 1
-      bigEnough = 80
-    } else if (level <= 3) {
-      nF = 6
-      nT = 2
-      bigEnough = 90
-    } else if (level <= 5) {
-      nF = 7
-      nT = 3
-      bigEnough = 95
-    } else {
-      nF = 9
-      nT = 4
-      bigEnough = 100
-    }
+    const lv = Math.min(level, 5)
+    const goalX = 4100 + lv * 280 // 4100 -> 5500 px lång backe
+    const nF = 9 + lv // snöfält
+    const nT = 4 + lv // hinder
+    const nR = 1 + Math.floor(lv / 2) // hoppkullar
+    const bigEnough = [80, 85, 90, 95, 100, 100][lv]
+
     const lerp = (a, b, n, i) => (n <= 1 ? (a + b) / 2 : a + (b - a) * (i / (n - 1)))
     const jit = (m) => Math.random() * m * 2 - m
+    const from = 420
+    const to = goalX - 240
 
-    const fields = []
-    for (let i = 0; i < nF; i++) {
-      const x = clamp(lerp(320, 1010, nF, i) + jit(28), 300, 1030)
-      fields.push({ x, y: this._surfaceY(x) - 30 })
-    }
-    // Hindren sprids jämnt med garanterat glapp (>=150 px) så två aldrig kan bilda
-    // en vägg, och typerna blandas så omgång 2 inte ser ut som omgång 1.
-    const types = shuffle([...OB_TYPES, ...OB_TYPES]).slice(0, Math.max(1, nT))
     const targets = []
+    const types = shuffle([...OB_TYPES, ...OB_TYPES, ...OB_TYPES]).slice(0, nT)
     for (let i = 0; i < nT; i++) {
-      const x = clamp(lerp(430, 995, nT, i) + (nT > 1 ? jit(20) : jit(60)), 400, 1010)
+      const x = clamp(lerp(from + 180, to, nT, i) + jit(60), from, to)
       targets.push({ x, type: types[i % types.length] || randomFrom(OB_TYPES) })
     }
-    return { fields, targets, bigEnough, start: { ...START } }
+    const fields = []
+    for (let i = 0; i < nF; i++) {
+      let x = clamp(lerp(from, to, nF, i) + jit(70), 330, to + 120)
+      // Håll snöfälten borta från hindren så man inte "äter" mitt i en press.
+      for (const t of targets) if (Math.abs(t.x - x) < 110) x = t.x - 150
+      fields.push({ x, y: surfaceY(x) - 26 })
+    }
+    // Hoppkullar mitt emellan hindren (aldrig närmare än 220 px från ett hinder).
+    const ramps = []
+    for (let i = 0; i < nR; i++) {
+      const x = clamp(lerp(from + 320, to - 160, nR, i) + jit(90), from, to)
+      if (targets.some((t) => Math.abs(t.x - x) < 220)) continue
+      ramps.push({ x })
+    }
+    // Vimplar längs hela sträckan = hörbar framfart (C-durskala).
+    const flags = []
+    const step = (goalX - 500) / 8
+    for (let i = 0; i < 8; i++) flags.push({ x: 500 + step * i, note: SCALE[i] })
+
+    return { goalX, fields, targets, ramps, flags, bigEnough, start: { ...START } }
   },
 
   _loadLevel(ctx, level) {
@@ -540,20 +618,36 @@ export default {
     this._resolving = false
     this._idle = 0
     this._stillT = 0
+    this._helpCount = 0
+    this._helpPushT = 0
+    this._helpFromX = -9999
     this._tapSteerT = 0
     this._steering = false
     this._pressing = null
-    this._saidBlocked = false
     this._growAcc = 0
     this._clearHint()
 
     const lay = this._layoutFor(level)
+    this._goalX = lay.goalX
     this._bigEnough = lay.bigEnough
+    this._placeZone(lay.goalX)
     for (const f of lay.fields) this._addField(f.x, f.y)
     for (const t of lay.targets) this._addTarget(t.x, t.type)
+    for (const r of lay.ramps) this._addRamp(r.x)
+    for (const f of lay.flags) this._addFlag(f.x, f.note)
 
     this._resetBall(lay.start.x, lay.start.y)
-    if (this._ball && !this._ball.destroyed) pop(this._ball)
+    this._camX = 0
+    this._camY = surfaceY(CAM_LEAD) - CAM_Y
+    if (this._world && !this._world.destroyed) {
+      this._world.x = 0
+      this._world.y = -Math.round(this._camY)
+    }
+    if (this._far && !this._far.destroyed) {
+      this._far.x = 0
+      this._far.y = -Math.round(this._camY * 0.35)
+    }
+    if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt)
   },
 
   _clearDynamic() {
@@ -570,6 +664,17 @@ export default {
       if (t.view && !t.view.destroyed) t.view.destroy()
     }
     this._targets = []
+    for (const r of this._ramps) {
+      if (r.body) this._phys.removeBody(r.body)
+      gsap.killTweensOf(r.view?.scale)
+      if (r.view && !r.view.destroyed) r.view.destroy()
+    }
+    this._ramps = []
+    for (const f of this._flags) {
+      gsap.killTweensOf(f.pennant?.scale)
+      if (f.view && !f.view.destroyed) f.view.destroy()
+    }
+    this._flags = []
     for (const d of this._debris) {
       if (d.body) this._phys.removeBody(d.body)
       if (d.view && !d.view.destroyed) d.view.destroy()
@@ -591,7 +696,7 @@ export default {
     for (let i = 0; i < blobs; i++) {
       const ox = Math.random() * 56 - 28
       const oy = Math.random() * 26 - 13
-      const r = 34 + Math.random() * 22
+      const r = 30 + Math.random() * 20
       f.circle(ox, oy, r).fill({ color: 0xffffff, alpha: 0.95 }).stroke({ width: 3, color: 0xeaf2fb, alpha: 0.6 })
     }
     f.position.set(x, y)
@@ -605,11 +710,11 @@ export default {
 
   // Ett hinder = ritat föremål + STATISK kropp. Statisk (inte lätt-dynamisk) är hela
   // poängen: en dynamisk låda sköts framför bollen som en bulldozer och båda malde
-  // ner i 0,13 px/steg — spelet gick inte att klara. Nu står hindret stilla tills
-  // det VÄLTER, och då tas kroppen bort helt.
+  // ner i 0,13 px/steg. Nu står hindret stilla tills det VÄLTER — och det gör det bara
+  // av barnets fart, tryck eller tap (eller, sent och synligt, av autohjälpen).
   _addTarget(x, type) {
     const spec = OBSTACLES[type] || OBSTACLES.penguin
-    const sy = this._surfaceY(x)
+    const sy = surfaceY(x)
     const cy = sy - spec.h / 2 - 2
     const view = new Container()
     const shadow = new Graphics().ellipse(0, spec.h / 2 - 2, spec.halfW * 0.95, 10).fill({ color: 0x6f86a0, alpha: 0.22 })
@@ -633,6 +738,50 @@ export default {
     return t
   },
 
+  // Hoppkulle: en snöramp som kastar en snabb boll i en glad båge (och över nästa
+  // hinder om man har fart nog). En långsam boll rullar bara uppför och tillbaka ner.
+  _addRamp(x) {
+    const sy = surfaceY(x)
+    const L = 170
+    const H = 46
+    const view = new Container()
+    view.position.set(x, sy)
+    view.eventMode = 'none'
+    const g = new Graphics()
+    g.moveTo(-L / 2, 8).lineTo(L / 2, 8 - H).lineTo(L / 2, 26).lineTo(-L / 2, 26).closePath().fill(0xe8f2fb)
+    g.moveTo(-L / 2, 8).lineTo(L / 2, 8 - H).lineTo(L / 2, 2 - H).lineTo(-L / 2, 2).closePath().fill(0xffffff)
+    g.circle(L / 2 - 8, 4 - H, 8).fill(0xffffff)
+    g.rect(-L / 2 + 24, 14, 8, 12).fill({ color: 0xcfe0ee, alpha: 0.8 })
+    g.rotation = HILL.angle
+    g.eventMode = 'none'
+    view.addChild(g)
+    this._rampLayer.addChild(view)
+
+    // Fysik: en tunn sluttande platta ovanpå backen (nedre änden nere i snön).
+    const ang = HILL.angle - 0.3
+    const body = this._phys.rectangle(x, sy - H / 2 + 12, L, 26, { isStatic: true, angle: ang, friction: 0.02, label: 'ramp' })
+    this._ramps.push({ x, view, body })
+    bounceIn(view, { duration: 0.35 })
+  },
+
+  // Vimpel: ritad stolpe + pennant. Passeras den spelas nästa ton i skalan.
+  _addFlag(x, note) {
+    const view = new Container()
+    view.position.set(x, surfaceY(x) - 2)
+    view.eventMode = 'none'
+    const pole = new Graphics()
+    pole.roundRect(-3, -96, 6, 98, 3).fill(0x9a7a5c)
+    pole.circle(0, -98, 5).fill(0xffffff)
+    pole.eventMode = 'none'
+    const pennant = new Graphics()
+    const col = randomFrom(FLAG_COLORS)
+    pennant.moveTo(0, -92).lineTo(46, -76).lineTo(0, -60).closePath().fill(col)
+    pennant.eventMode = 'none'
+    view.addChild(pole, pennant)
+    this._flagLayer.addChild(view)
+    this._flags.push({ x, view, pennant, note, hit: false })
+  },
+
   _resetBall(x, y) {
     const b = this._ballBody
     Body.setStatic(b, false)
@@ -649,12 +798,17 @@ export default {
       this._ball.scale.set(1)
       this._ball.position.set(x, y)
     }
+    if (this._ballArt && !this._ballArt.destroyed) {
+      gsap.killTweensOf(this._ballArt.scale)
+      this._ballArt.scale.set(1)
+    }
     // Nollställ rull-distans + spår så bollens teleport inte ger ett falskt hopp.
     this._prevX = x
     this._prevY = y
     this._lastTrailX = x
     this._lastTrailY = y
     this._vxPrev = 0
+    this._wasOnGround = true
     this._trail?.clear()
     this._updateMeter()
   },
@@ -663,7 +817,7 @@ export default {
 
   _onDown(ctx, e, onBall) {
     if (!this._alive || this._resolving) return
-    const p = this._root.toLocal(e.global)
+    const p = this._world.toLocal(e.global)
     this._steering = true
     this._downOnBall = onBall
     this._downX = p.x
@@ -673,13 +827,13 @@ export default {
     this._idle = 0
     this._stillT = 0
     ctx.services.audio.sfx('tap')
-    if (this._ball && !this._ball.destroyed) pop(this._ball)
+    if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt, { scale: 1.1 })
     this._drawHint()
   },
 
   _onMove(ctx, e) {
     if (!this._alive || this._resolving || !this._steering) return
-    const p = this._root.toLocal(e.global)
+    const p = this._world.toLocal(e.global)
     this._fingerX = p.x
     if (Math.abs(p.x - this._downX) > 14) this._moved = true
     this._idle = 0
@@ -694,33 +848,33 @@ export default {
     this._clearHint()
     // Tap-tap-fallback: ett kort tap UTANFÖR bollen -> styr mjukt mot tappade x en stund.
     if (wasSteer && !this._downOnBall && !this._moved && this._gt - this._downTime < 0.4) {
-      this._tapSteerT = 0.8
+      this._tapSteerT = 1.1
     }
   },
 
   // Tap på bollen: fart-knuff nedför — ELLER ett rejält BANK om bollen just nu
-  // pressar mot ett hinder (då är knuffen det som får hindret att välta fortare).
+  // pressar mot ett hinder (då är knuffen det som får hindret att välta).
   _onKnuff(ctx) {
     if (!this._alive || this._resolving) return
-    if (this._gt - this._lastKnuff < 0.15) return // throttle
+    if (this._gt - this._lastKnuff < KNUFF_GAP) return // throttle
     this._lastKnuff = this._gt
     const b = this._ballBody
     const t = this._pressing
     if (t && !t.down) {
-      t.press += 0.34
+      t.press += PRESS_TAP
       ctx.services.audio.sfx('pop')
-      ctx.services.audio.tone({ freq: 150 + t.press * 120, dur: 0.09, type: 'square', vol: 0.1 })
+      ctx.services.audio.tone({ freq: 150 + (t.press / t.spec.tip) * 220, dur: 0.09, type: 'square', vol: 0.11 })
       if (t.view && !t.view.destroyed) {
         t.view.x = t.x + (Math.random() * 8 - 4)
-        puff(ctx.fxLayer, t.view.x, t.view.y + 20, { count: 5, color: 0xffffff })
+        puff(ctx.fxLayer, this._fx(t.view.x), this._fy(t.view.y + 20), { count: 5, color: 0xffffff })
       }
     } else {
-      Body.setVelocity(b, { x: b.velocity.x + 6, y: b.velocity.y + 1 }) // ned-höger längs backen
+      Body.setVelocity(b, { x: b.velocity.x + KNUFF_V, y: b.velocity.y + 1 }) // ned-höger längs backen
       ctx.services.audio.sfx('whoosh')
     }
     if (this._ball && !this._ball.destroyed) {
-      pop(this._ball)
-      puff(ctx.fxLayer, this._ball.x - this._r * 0.6, this._ball.y, { count: 8, color: 0xffffff })
+      if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt)
+      puff(ctx.fxLayer, this._fx(this._ball.x - this._r * 0.6), this._fy(this._ball.y), { count: 8, color: 0xffffff })
     }
     this._idle = 0
     this._stillT = 0
@@ -748,24 +902,42 @@ export default {
     if (this._hint && !this._hint.destroyed) this._hint.clear()
   },
 
-  // ---- Spel-loop: styrning, växt, hinder, mål-zon, idle/auto-hjälp --------
+  // ---- Spel-loop ----------------------------------------------------------
 
   _gameTick(ctx, ticker) {
     const dt = Math.min(ticker.deltaMS / 1000, 0.05)
     this._gt += dt
     this._updateFlakes(dt, ctx)
     this._updateDebris(dt)
+    this._updateCamera(dt)
     if (!this._alive || this._resolving) return
 
     const b = this._ballBody
 
-    // Mjuk sidledsstyrning mot fingret (eller tap-tap-fönstret).
+    // Mjuk sidledsstyrning mot fingret (eller tap-tap-fönstret). DETTA är motorn:
+    // gravitationen ensam bär inte hela vägen.
     if (this._tapSteerT > 0) this._tapSteerT -= dt
     const steeringNow = this._steering || this._tapSteerT > 0
+
+    // Autohjälpens SKJUTS: en kort, synlig puff i ryggen (inte bara en impuls — en
+    // impuls kan inte ta sig uppför en hoppkulle, energin räcker helt enkelt inte).
+    // Barnets eget drag tar alltid över direkt.
+    if (this._helpPushT > 0) {
+      this._helpPushT -= dt
+      if (!steeringNow) {
+        const d = 2.8 + this._helpCount * 0.4
+        Body.setVelocity(b, { x: b.velocity.x + (d - b.velocity.x) * 0.12, y: b.velocity.y })
+        if (this._gt - this._lastHelpFx > 0.22) {
+          this._lastHelpFx = this._gt
+          sparkle(ctx.fxLayer, this._fx(b.position.x - this._r * 0.9), this._fy(b.position.y), { count: 4 })
+        }
+      }
+    }
+    if (this._helpCount && b.position.x > this._helpFromX + 160) this._helpCount = 0 // hjälpen "kvitterad" först när bollen tagit sig vidare
     if (steeringNow) {
-      const desired = clamp((this._fingerX - b.position.x) * 0.09, -9, 9)
+      const desired = clamp((this._fingerX - b.position.x) * STEER_GAIN, -STEER_MAX, STEER_MAX)
       const vx = b.velocity.x
-      Body.setVelocity(b, { x: vx + (desired - vx) * 0.25, y: b.velocity.y })
+      Body.setVelocity(b, { x: vx + (desired - vx) * STEER_BLEND, y: b.velocity.y })
       if (this._steering) this._drawHint()
     }
 
@@ -774,25 +946,35 @@ export default {
     const cvy = clamp(b.velocity.y, -MAX_V, MAX_V)
     if (cvx !== b.velocity.x || cvy !== b.velocity.y) Body.setVelocity(b, { x: cvx, y: cvy })
 
-    // Fart + läge mot backens yta (delas av spår, rull-ljud och rull-tillväxt).
     const spd = Math.hypot(b.velocity.x, b.velocity.y)
-    const surfY = this._surfaceY(b.position.x)
-    const onGround = b.position.y > surfY - this._r - 26
+    const surfY = surfaceY(b.position.x)
+    const onGround = b.position.y > surfY - this._r - 30
     const frameDist = Math.hypot(b.position.x - this._prevX, b.position.y - this._prevY)
     this._prevX = b.position.x
     this._prevY = b.position.y
 
+    // Luftfärd (hoppkulle): fira det med ett "Wii!" och en stigande ton.
+    if (this._wasOnGround && !onGround && b.velocity.y < -2.5 && spd > 3) {
+      floatText(ctx.fxLayer, this._fx(b.position.x), this._fy(b.position.y - this._r - 20), 'Wii!', { fontSize: 46 })
+      ctx.services.audio.tone({ freq: 520, dur: 0.22, type: 'sine', vol: 0.16, slideTo: 1040 })
+      sparkle(ctx.fxLayer, this._fx(b.position.x), this._fy(b.position.y), { count: 8 })
+      this._idle = 0
+    } else if (!this._wasOnGround && onGround && spd > 2) {
+      ctx.services.audio.sfx('soft')
+      puff(ctx.fxLayer, this._fx(b.position.x), this._fy(b.position.y + this._r * 0.7), { count: 8, color: 0xffffff })
+    }
+    this._wasOnGround = onGround
+
     // Rull-spår: lägg en bred, ljus prick där bollen rullar (visar fart + väg).
     if (onGround && this._trail && !this._trail.destroyed) {
-      if (Math.hypot(b.position.x - this._lastTrailX, b.position.y - this._lastTrailY) > 15) {
+      if (Math.hypot(b.position.x - this._lastTrailX, b.position.y - this._lastTrailY) > 22) {
         this._lastTrailX = b.position.x
         this._lastTrailY = b.position.y
         this._trail.circle(b.position.x, surfY + 5, this._r * 0.6).fill({ color: 0xf1f8ff, alpha: 0.5 })
       }
     }
 
-    // Kontinuerlig rull-tillväxt: bollen samlar snö per rullad px (ackumuleras och
-    // appliceras i små kliv så fysikkroppen inte skalas om varje bildruta).
+    // Kontinuerlig rull-tillväxt (ackumulerad, appliceras i små kliv).
     if (onGround && frameDist > 0.05 && this._r < MAX_R) {
       this._growAcc += frameDist * GROW_PER_PX
       if (this._growAcc >= 0.3) {
@@ -803,39 +985,37 @@ export default {
 
     // Rull-ljud: ett mjukt knaster som stiger i tonhöjd/styrka med fart + storlek.
     this._rollT -= dt
-    if (onGround && spd > 1.2 && this._rollT <= 0) {
-      const f = clamp(spd / 10, 0, 1)
-      this._rollT = 0.16 - f * 0.08
+    if (onGround && spd > 1 && this._rollT <= 0) {
+      const f = clamp(spd / 8, 0, 1)
+      this._rollT = 0.17 - f * 0.09
       ctx.services.audio.tone({ freq: 90 + f * 110 + this._r * 0.4, dur: 0.07, type: 'triangle', vol: 0.05 + f * 0.06 })
     }
 
-    // Snöfält -> växt (markera ätet direkt så samma fält bara växer en gång).
+    // Snöfält -> växt.
     for (const f of this._fields) {
       if (f._eaten) continue
       const dx = f._cx - b.position.x
       const dy = f._cy - b.position.y
-      const reach = 70 + this._r * 0.5
+      const reach = 60 + this._r * 0.5
       if (dx * dx + dy * dy < reach * reach) {
         f._eaten = true
         this._grow(ctx, f)
       }
     }
 
-    // Hinder: press/välta.
+    this._updateFlags(ctx, b.position.x)
     this._updateTargets(ctx, dt, spd, steeringNow)
     this._vxPrev = b.velocity.x
 
     // Når bollen snögubbe-platsen?
-    if (b.position.x >= ZONE_X) {
+    if (b.position.x >= this._goalX) {
       this._reachZone(ctx)
       return
     }
 
-    // Stillastående -> mjuk auto-knuff (no-fail). Gäller ÄVEN när barnet håller kvar
-    // fingret (det var förr avstängt då, alltså precis när man behövde det som mest).
-    // Pressar bollen mot ett hinder räknas det inte som stillastående — hindret
-    // välter av sig självt inom ~1 s och är alltså ingen fälla.
-    if (spd < 0.8 && !this._pressing) {
+    // Stillastående -> SEN, synlig autohjälp (gäller även mot ett hinder och även
+    // när barnet håller fingret nere; annars skulle bollen kunna låsa sig).
+    if (spd < 0.8) {
       this._stillT += dt
       if (this._stillT >= STUCK) {
         this._stillT = 0
@@ -853,21 +1033,53 @@ export default {
     }
   },
 
-  // Pressa mot hindret framför: leta upp det hinder bollen rör vid, låt "press"
-  // byggas upp (snabbare ju större/snabbare bollen är och om barnet håller emot),
-  // och välta det när press >= spec.tip. Kommer bollen tillräckligt stor OCH snabb
-  // plöjer den rakt igenom direkt.
+  // Kameran följer bollen i x (mjukt) och klampas till banans ändar. Höjden HÄRLEDS
+  // ur den utjämnade x-positionen, så ytan alltid ligger på samma skärmhöjd — men ett
+  // hopp från en hoppkulle syns tydligt eftersom bollen då lyfter FRÅN ytan.
+  _updateCamera(dt) {
+    if (!this._world || this._world.destroyed || !this._ballBody) return
+    const maxCam = Math.max(0, this._goalX + 320 - VIEW_W)
+    const target = clamp(this._ballBody.position.x - CAM_LEAD, 0, maxCam)
+    this._camX += (target - this._camX) * Math.min(1, dt * 6)
+    this._camY = surfaceY(this._camX + CAM_LEAD) - CAM_Y
+    this._world.x = -Math.round(this._camX)
+    this._world.y = -Math.round(this._camY)
+    if (this._far && !this._far.destroyed) {
+      this._far.x = -Math.round(this._camX * 0.35)
+      this._far.y = -Math.round(this._camY * 0.35)
+    }
+  },
+
+  // Vimplar: passeras en spelas nästa ton i C-durskalan + en liten vinkning.
+  _updateFlags(ctx, ballX) {
+    for (const f of this._flags) {
+      if (f.hit || ballX < f.x) continue
+      f.hit = true
+      ctx.services.audio.tone({ freq: f.note, dur: 0.2, type: 'triangle', vol: 0.15 })
+      sparkle(ctx.fxLayer, this._fx(f.x), this._fy(surfaceY(f.x) - 80), { count: 6 })
+      if (f.pennant && !f.pennant.destroyed) {
+        gsap.killTweensOf(f.pennant.scale)
+        f.pennant.scale.set(1)
+        gsap.to(f.pennant.scale, { x: 1.35, y: 0.75, duration: 0.14, yoyo: true, repeat: 3, ease: 'sine.inOut' })
+      }
+    }
+  },
+
+  // Pressa mot hindret framför. Pressen byggs BARA av barnets insats: fart in i
+  // hindret, att hålla fingret framför bollen, och tap-bank. En boll som lämnas
+  // stilla mot ett hinder tar sig inte förbi av sig själv — då (och först då) går
+  // autohjälpen in, sent och synligt.
   _updateTargets(ctx, dt, spd, steeringNow) {
     const b = this._ballBody
     let touching = null
     for (const t of this._targets) {
       if (t.down) continue
       const dx = t.x - b.position.x
-      const contact = dx > -this._r * 0.6 && dx < this._r + t.spec.halfW + 8 && b.position.y + this._r > this._surfaceY(t.x) - t.spec.h + 8
+      const contact = dx > -this._r * 0.6 && dx < this._r + t.spec.halfW + 8 && b.position.y + this._r > surfaceY(t.x) - t.spec.h + 8
       // Bara ETT hinder åt gången kan pressas (tak på hur mycket som kan gå fel).
       if (!touching && contact && b.velocity.x > -1.2) touching = t
       else if (t.press > 0) {
-        t.press = Math.max(0, t.press - dt * 1.2) // reser sig igen om bollen backar undan
+        t.press = Math.max(0, t.press - dt * 0.8) // reser sig igen om bollen backar undan
         this._leanTarget(t)
       }
     }
@@ -875,39 +1087,35 @@ export default {
     if (!touching) return
 
     const t = touching
-    // "Plöja igenom" avgörs av MOMENTUM (fart × storlek), inte fart ensam: en
-    // fullvuxen snöboll valsar rakt igenom, en liten måste kämpa sig förbi.
+    // "Plöja igenom" avgörs av MOMENTUM (fart × storlek): en fullvuxen eller rejält
+    // knuffad snöboll valsar rakt igenom, annars måste man pressa/banka.
     const incoming = Math.max(this._vxPrev, b.velocity.x)
     const power = incoming * (this._r / 70)
-    const smash = incoming >= 8.5 || (power >= 5.5 && incoming >= 2.5)
+    const smash = incoming >= 8.5 || (power >= 5 && incoming >= 2.5)
     if (t.press === 0) {
       // Första kontakten: ljud + snöspray direkt (<100 ms).
       ctx.services.audio.sfx('soft')
-      if (this._ball && !this._ball.destroyed) pop(this._ball, { scale: 1.1 })
-      puff(ctx.fxLayer, b.position.x + this._r * 0.7, b.position.y, { count: 6, color: 0xffffff })
-      if (!smash && !this._saidBlocked) {
-        this._saidBlocked = true
-        this._say(ctx, 'Oj då!')
-      }
+      if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt, { scale: 1.1 })
+      puff(ctx.fxLayer, this._fx(b.position.x + this._r * 0.7), this._fy(b.position.y), { count: 6, color: 0xffffff })
+      if (!smash) this._say(ctx, 'Oj då!')
     }
     if (smash) {
       this._toppleTarget(ctx, t, true, incoming)
       return
     }
-    // Press-takt: storlek + fart + att barnet aktivt trycker på (styr mot hindret).
     const pushing = steeringNow && this._fingerX > b.position.x + 10
-    t.press += dt * (0.55 + this._r / 90 + spd / 6 + (pushing ? 0.55 : 0))
+    t.press += dt * (spd * PRESS_SPEED + (pushing ? PRESS_PUSH : 0))
     this._leanTarget(t)
 
     // Knastrande press-ljud som stiger mot vältningen + snöspray.
-    if (this._gt - this._lastCreak > 0.16) {
+    if (t.press > 0.02 && this._gt - this._lastCreak > 0.16) {
       this._lastCreak = this._gt
       const p = clamp(t.press / t.spec.tip, 0, 1)
       ctx.services.audio.tone({ freq: 120 + p * 190, dur: 0.08, type: 'triangle', vol: 0.06 + p * 0.05 })
     }
-    if (this._gt - this._lastSpray > 0.25) {
+    if (t.press > 0.02 && this._gt - this._lastSpray > 0.25) {
       this._lastSpray = this._gt
-      puff(ctx.fxLayer, b.position.x + this._r * 0.75, b.position.y + this._r * 0.4, { count: 4, color: 0xffffff })
+      puff(ctx.fxLayer, this._fx(b.position.x + this._r * 0.75), this._fy(b.position.y + this._r * 0.4), { count: 4, color: 0xffffff })
     }
     if (t.press >= t.spec.tip) this._toppleTarget(ctx, t, false, incoming)
   },
@@ -926,6 +1134,7 @@ export default {
     if (!this._alive || t.down) return
     t.down = true
     this._pressing = null
+    this._helpCount = 0
     if (t.body) {
       this._phys.removeBody(t.body)
       t.body = null
@@ -949,8 +1158,8 @@ export default {
       this._phys.link(body, view)
       this._debrisLayer.addChild(view)
       this._debris.push({ body, view, age: 0, life: smash ? 1.9 : 1.4 })
-      puff(ctx.fxLayer, view.x, view.y, { count: smash ? 14 : 8, color: t.color })
-      floatText(ctx.fxLayer, view.x, view.y - 46, randomFrom(t.spec.words), { fontSize: smash ? 54 : 44 })
+      puff(ctx.fxLayer, this._fx(view.x), this._fy(view.y), { count: smash ? 14 : 8, color: t.color })
+      floatText(ctx.fxLayer, this._fx(view.x), this._fy(view.y - 46), randomFrom(t.spec.words), { fontSize: smash ? 54 : 44 })
     }
 
     const b = this._ballBody
@@ -961,20 +1170,18 @@ export default {
       ctx.services.audio.tone({ freq: 220, dur: 0.18, type: 'square', vol: 0.14, slideTo: 90 })
       Body.setVelocity(b, { x: Math.max(b.velocity.x, incoming * 0.85), y: b.velocity.y })
       this._growBall(SMASH_GROW + (t.spec.snow || 0))
-      if (this._ball && !this._ball.destroyed) {
-        pop(this._ball, { scale: 1.24 })
-        sparkle(ctx.fxLayer, this._ball.x, this._ball.y, { count: 10 })
-      }
+      if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt, { scale: 1.24 })
+      sparkle(ctx.fxLayer, this._fx(b.position.x), this._fy(b.position.y), { count: 10 })
       this._say(ctx, 'Pang!', 3.5)
     } else {
       // Pressade sig igenom: hindret välter, men lite snö ramlade av bollen.
       ctx.services.audio.sfx('pop')
       ctx.services.audio.sfx('soft')
-      Body.setVelocity(b, { x: b.velocity.x + 2.2, y: b.velocity.y })
+      Body.setVelocity(b, { x: b.velocity.x + 2.4, y: b.velocity.y })
       const loss = Math.min(GRIND_LOSS - (t.spec.snow || 0), Math.max(0, this._r - BASE_R))
       if (loss > 0) this._shrinkBall(ctx, loss)
       else this._growBall(t.spec.snow || 0)
-      if (this._ball && !this._ball.destroyed) pop(this._ball)
+      if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt)
       this._say(ctx, 'Bra jobbat!', 3.5)
     }
     this._idle = 0
@@ -992,7 +1199,7 @@ export default {
         this._debris.splice(i, 1)
         continue
       }
-      const off = v.x > 1400 || v.x < -120 || v.y > 820
+      const off = v.y > 1000
       if (d.age > d.life || off) {
         v.alpha -= dt * 1.8
         if (v.alpha <= 0 || off) {
@@ -1039,20 +1246,20 @@ export default {
       const f = this._r / prev
       Body.scale(this._ballBody, f, f)
       this._updateMeter()
-      if (this._ball && !this._ball.destroyed) puff(ctx.fxLayer, this._ball.x, this._ball.y + this._r * 0.4, { count: 7, color: 0xffffff })
+      if (this._ball && !this._ball.destroyed) puff(ctx.fxLayer, this._fx(this._ball.x), this._fy(this._ball.y + this._r * 0.4), { count: 7, color: 0xffffff })
     }
   },
 
   _grow(ctx, field) {
-    this._growBall(FIELD_GROW) // feta bonus-klumpar (mer än den kontinuerliga rull-växten)
+    this._growBall(FIELD_GROW)
     if (this._gt - this._lastGrowSound > 0.12) {
       this._lastGrowSound = this._gt
       ctx.services.audio.sfx('reveal')
       ctx.services.audio.tone({ freq: 420 + clamp((this._r - BASE_R) * 6, 0, 460), dur: 0.12, type: 'sine', vol: 0.14 })
     }
     if (this._ball && !this._ball.destroyed) {
-      pop(this._ball)
-      sparkle(ctx.fxLayer, this._ball.x, this._ball.y, { count: 7 })
+      if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt)
+      sparkle(ctx.fxLayer, this._fx(this._ball.x), this._fy(this._ball.y), { count: 7 })
     }
     this._fadeField(field)
     this._idle = 0
@@ -1079,13 +1286,24 @@ export default {
     f._fadeTw = tw
   },
 
+  // SEN och SYNLIG autohjälp: röst + gnistror + en knuff som växer för varje gång.
+  // Den ska kännas som hjälp — inte som att spelet spelar banan åt barnet.
   _autoNudge(ctx) {
     if (!this._alive || this._resolving) return
     const b = this._ballBody
-    Body.setVelocity(b, { x: b.velocity.x + 5, y: b.velocity.y + 0.8 })
+    this._helpCount = Math.min(this._helpCount + 1, 5)
+    this._helpFromX = b.position.x
+    this._helpPushT = 0.8 + 0.2 * this._helpCount // skjutsen växer om samma ställe krånglar
+    Body.setVelocity(b, { x: b.velocity.x + 2.5 + this._helpCount * 0.8, y: b.velocity.y + 0.5 })
+    const t = this._pressing
+    if (t && !t.down) t.press += PRESS_HELP + 0.15 * (this._helpCount - 1)
     ctx.services.audio.sfx('whoosh')
-    this._say(ctx, 'Jag hjälper till!')
-    if (this._ball && !this._ball.destroyed) puff(ctx.fxLayer, this._ball.x, this._ball.y, { count: 6, color: 0xffffff })
+    ctx.services.voice.say('Jag hjälper till!')
+    this._lastVoice = this._gt
+    if (this._ball && !this._ball.destroyed) {
+      sparkle(ctx.fxLayer, this._fx(this._ball.x), this._fy(this._ball.y - this._r * 0.5), { count: 10 })
+      puff(ctx.fxLayer, this._fx(this._ball.x - this._r * 0.5), this._fy(this._ball.y), { count: 8, color: 0xffffff })
+    }
   },
 
   _idleCue(ctx) {
@@ -1094,25 +1312,25 @@ export default {
     if (v.replayLast) v.replayLast()
     else v.say(this.voiceIntro)
     this._lastVoice = this._gt
-    if (this._ball && !this._ball.destroyed) pop(this._ball)
+    if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt)
     // Pressar bollen mot ett hinder: ordlös "tryck här"-vink på bollen (barnet kan
-    // banka sig igenom snabbare) — ikon först, ingen läsning.
+    // banka sig igenom) — ikon först, ingen läsning.
     if (this._pressing && this._ball && !this._ball.destroyed) {
-      floatText(ctx.fxLayer, this._ball.x, this._ball.y - this._r - 26, '👆', { fontSize: 58, rise: 60 })
+      floatText(ctx.fxLayer, this._fx(this._ball.x), this._fy(this._ball.y - this._r - 26), '👆', { fontSize: 58, rise: 60 })
       return
     }
-    // Vink mot närmaste oätna snöfält.
+    // Vink mot närmaste oätna snöfält framför bollen.
     let near = null
     let best = Infinity
     for (const f of this._fields) {
-      if (f._eaten) continue
-      const d = Math.abs(f._cx - this._ball.x)
+      if (f._eaten || f._cx < this._ball.x) continue
+      const d = f._cx - this._ball.x
       if (d < best) {
         best = d
         near = f
       }
     }
-    if (near) sparkle(ctx.fxLayer, near._cx, near._cy - 20, { count: 8 })
+    if (near) sparkle(ctx.fxLayer, this._fx(near._cx), this._fy(near._cy - 20), { count: 8 })
   },
 
   // ---- Kollisioner: väggstuds-ljud ---------------------------------------
@@ -1160,9 +1378,9 @@ export default {
     ctx.services.voice.say('Lite mer snö!')
     this._lastVoice = this._gt
     ctx.services.audio.sfx('reveal')
-    if (this._ball && !this._ball.destroyed) sparkle(ctx.fxLayer, this._ball.x, this._ball.y, { count: 10 })
-    this._helpTimer = gsap.delayedCall(0.45, () => {
-      if (this._alive && this._ball && !this._ball.destroyed) sparkle(ctx.fxLayer, this._ball.x, this._ball.y, { count: 8 })
+    if (this._ball && !this._ball.destroyed) sparkle(ctx.fxLayer, this._fx(this._ball.x), this._fy(this._ball.y), { count: 10 })
+    this._helpTimer = ctx.later(0.45, () => {
+      if (this._alive && this._ball && !this._ball.destroyed) sparkle(ctx.fxLayer, this._fx(this._ball.x), this._fy(this._ball.y), { count: 8 })
     })
     const proxy = { r: this._r }
     this._growTween = gsap.to(proxy, {
@@ -1187,8 +1405,8 @@ export default {
 
   _buildSnowman(ctx) {
     if (!this._alive) return
-    const bx = this._ball && !this._ball.destroyed ? this._ball.x : ZONE.x
-    const by = this._ball && !this._ball.destroyed ? this._ball.y : this._surfaceY(ZONE.x) - 60
+    const bx = this._ball && !this._ball.destroyed ? this._ball.x : this._goalX
+    const by = this._ball && !this._ball.destroyed ? this._ball.y : surfaceY(this._goalX) - 60
     const R = this._r
     const big = R >= (this._bigEnough || 80)
 
@@ -1251,7 +1469,7 @@ export default {
     this._snowParts.forEach((p, i) => bounceIn(p, { delay: 0.06 * i }))
 
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
-    burst(ctx.fxLayer, bx, by, { count: 16 })
+    burst(ctx.fxLayer, this._fx(bx), this._fy(by), { count: 16 })
 
     // MOTTAGAREN hejar: vakt-pingvinen hoppar och jublar.
     this._cheerGreeter(ctx)
@@ -1263,7 +1481,7 @@ export default {
     ctx.progress.setCustom('snogubbar', (ctx.progress.get().custom?.snogubbar || 0) + 1)
 
     this._nextTimer?.kill()
-    this._nextTimer = gsap.delayedCall(1.9, () => {
+    this._nextTimer = ctx.later(2.1, () => {
       if (this._alive) this._loadLevel(ctx, this._level)
     })
   },
@@ -1274,7 +1492,7 @@ export default {
     this._greetTween?.kill()
     gsap.killTweensOf(g)
     gsap.killTweensOf(g.scale)
-    const baseY = this._surfaceY(1238) - 40
+    const baseY = this._greeterY ?? g.y
     this._cheerTl?.kill()
     this._cheerTl = gsap
       .timeline({
@@ -1287,12 +1505,14 @@ export default {
       .to(g, { y: baseY - 34, duration: 0.2, ease: 'power2.out' })
       .to(g, { y: baseY, duration: 0.24, ease: 'bounce.out' })
     this._cheerTimer?.kill()
-    this._cheerTimer = gsap.delayedCall(0.5, () => {
+    this._cheerTimer = ctx.later(0.5, () => {
       if (!this._alive) return
       ctx.services.audio.tone({ freq: 880, dur: 0.1, type: 'sine', vol: 0.18 })
       ctx.services.audio.tone({ freq: 1174, dur: 0.14, type: 'sine', vol: 0.16, delay: 0.1 })
-      // Hålls innanför skärmkanten (annars klipps texten av till höger).
-      if (this._greeter && !this._greeter.destroyed) floatText(ctx.fxLayer, Math.min(this._greeter.x, 1170), this._greeter.y - 80, 'Hurra!', { fontSize: 44 })
+      // Hålls innanför skärmkanten (annars klipps texten av).
+      if (this._greeter && !this._greeter.destroyed) {
+        floatText(ctx.fxLayer, clamp(this._fx(this._greeter.x), 90, 1170), this._fy(this._greeter.y - 80), 'Hurra!', { fontSize: 44 })
+      }
     })
   },
 
@@ -1324,6 +1544,10 @@ export default {
       this._ball.off('pointerupoutside')
       this._ball.off('pointertap')
     }
+    if (this._ballArt) {
+      gsap.killTweensOf(this._ballArt)
+      gsap.killTweensOf(this._ballArt.scale)
+    }
     if (this._backdrop && !this._backdrop.destroyed) {
       this._backdrop.off('pointerdown')
       this._backdrop.off('pointerup')
@@ -1337,6 +1561,11 @@ export default {
       gsap.killTweensOf(t.view)
       gsap.killTweensOf(t.view?.scale)
     }
+    for (const f of this._flags) {
+      gsap.killTweensOf(f.pennant?.scale)
+      gsap.killTweensOf(f.view?.scale)
+    }
+    for (const r of this._ramps) gsap.killTweensOf(r.view?.scale)
     for (const d of this._debris) {
       gsap.killTweensOf(d.view)
       gsap.killTweensOf(d.view?.scale)

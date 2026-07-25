@@ -163,3 +163,39 @@ auto-hjälpen kan spela banan åt barnet**.
   ❄ av en ritad snöflinga. Ny **mottagare**: en vakt-pingvin vid mållinjen som andas i
   vila, hoppar och ropar "Hurra!" när snögubben står. Mätaren flyttad under ljudknappen.
   Rörde bara `src/games/snobollen/`.
+- 2026-07-25 (2): **Längre banor + åtstramad agens** (ägarbeslut efter fixen ovan: banorna
+  var ~2 s långa och bollen klarade sig själv). Två mätvärden ur förra omgången drev
+  ändringen: aktivt spel klarade en bana på ~2 s, och passivt spel tog nivå 0→4 på 26 s
+  helt utan input (mönster #1 i `docs/games/README.md`).
+  - **Rullande kamera + lång backe.** Backen är nu en enda sluttning i världskoordinater
+    (0…5700 px); allt bandbundet ligger i `this._world` som kameran panorerar i x, medan
+    höjden härleds ur den utjämnade x-positionen (`_updateCamera`) så ytan alltid ligger
+    på samma skärmlinje — ett hopp från en hoppkulle syns därför tydligt. Banan är
+    **4100 px (nivå 0) → 5500 px (nivå 5+)** med 9–14 snöfält, 4–9 hinder, 1–3
+    **hoppkullar** (ny elementtyp: en snöramp som kastar en snabb boll i en båge) och 8
+    **vimplar** som spelar varsin ton i C-durskalan när man passerar dem (hörbar framfart).
+    Backen ritas i SKÄRMRYMD som en statisk polygon (kameran håller ju linjen konstant) och
+    fick en blå djupgradient — förut var det vit boll på vit backe.
+  - **Barnet driver bollen.** Lutning 0,16 → 0,10 rad och `frictionAir` 0,003 → 0,010:
+    gravitationen ger en långsam rullning (~1,5 px/steg) men bär aldrig hela vägen.
+    Styrningen (tak 4,4 px/steg) + knuffen (+4,5, som mest var 0,3 s) är motorn.
+  - **Pressen mot ett hinder byggs bara av barnets insats** (fart in i hindret + att hålla
+    fingret framför + tap-bank). En boll som lämnas ensam mot ett hinder kommer inte förbi
+    av sig själv.
+  - **Autohjälpen: sen och synlig.** 4,5 s stillastående → "Jag hjälper till!" + gnistror
+    + en KORT SKJUTS (inte bara en impuls — en impuls kan inte ta sig uppför en hoppkulle,
+    energin räcker inte; det låste bollen i en tidig mätning). Skjutsen växer om samma
+    ställe krånglar och "kvitteras" först när bollen tagit sig 160 px vidare.
+  - Alla fördröjda anrop bytta till `ctx.later()`; bollens grafik flyttad till ett barn
+    (`_ballArt`) så `pop`-squashen inte slåss med tillväxt-skalningen.
+
+  **Uppmätt (telemetri i webbläsaren, spelmodulen läst live):**
+
+  | Mätning | Resultat |
+  |---|---|
+  | Passivt, 60 s (noll input) | **x = 2637 / 4100 (64 %), banan EJ klarad** — tydliga stopp mot 2 hinder + en hoppkulle, men bollen rullade alltid vidare efter hjälpen |
+  | Aktivt barnlikt spel (drag + tap) | **15,6 s · 21,7 s · 24,5 s** för nivå 0, 1, 2 (banan växer med nivån) |
+  | Går banan att klara? | Ja — 3 banor i rad i mål: snögubbe + konfetti + vakt-pingvinen hoppar och ropar "Hurra!" |
+  | Kilning med längre banor/fler hinder | Ingen. Hindren tas bort när de välter, spillrorna har kollisionsfilter. Längsta stopp i alla körningar: ~10 s vid en hoppkulle under passivt spel, löst av skjutsen |
+
+  0 konsolfel i samtliga körningar. Rörde bara `src/games/snobollen/`.

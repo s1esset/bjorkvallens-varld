@@ -40,7 +40,7 @@ Struktur: **§0 Spec** (ifylld innan kod skrivs) · **§1 Nuläge** sett som spe
 **§4 Förbättringsplan** ([Quick]/[Medium]/[Deep], grupperad: Kärnloop · Variation · Juice ·
 Progression · Karaktär · Ljud) · **§5 Status/loggar** (bockar + commits).
 
-## Index — 69 spel
+## Index — 70 spel
 
 Status: ⬜ ej granskat · 📝 doc skriven (plan klar) · 🔧 förbättringar pågår · ✅ marknadsklar.
 Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
@@ -63,6 +63,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 67 | Pizzabageriet | `pizzabageriet` | drag | 🔧 |
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | 🔧 |
 | 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 |
+| 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ |
 
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ HELA fliken (första-omgång, 2026-07-01)
 | # | Spel | id | input | status |

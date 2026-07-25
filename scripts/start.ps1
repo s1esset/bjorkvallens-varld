@@ -1,4 +1,4 @@
-# start.ps1 — Björkvallens Värld
+﻿# start.ps1 — Björkvallens Värld
 # Startar servern (produktionsbygge -> vite preview) och exponerar den på Tailscale-nätet.
 # Servern körs i ett EGET terminalfönster döpt efter projektet, med URL:en synlig.
 #   - Rensar först gamla/stale serverprocesser (via stop.ps1)

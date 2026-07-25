@@ -1,4 +1,4 @@
-# stop.ps1 — Björkvallens Värld
+﻿# stop.ps1 — Björkvallens Värld
 # Dödar ENDAST detta projekts server (nuvarande + gamla/stale processer):
 #   - serverfönster vi startat (titel innehåller "Björkvallens")
 #   - allt som lyssnar på preview-porten 4173 (Tailscale-URL:en pekar hit)

@@ -59,7 +59,8 @@ bättre. Därför måste varje nytt eller polerat spel klara sju punkter innan c
 3. **Juice** — ljud+bild under 100 ms, squash/stretch, partiklar.
 4. **Mottagare** — någon tar emot skapelsen och blir glad.
 5. **Riktig ton/SFX** — stämd skala för musik, riktiga klipp där de finns.
-6. **Mjuk progression** — växer lugnt, alltid nytt att upptäcka, aldrig bestraffande.
+6. **Mjuk progression + motstånd** — växer lugnt, alltid nytt att upptäcka. Hinder som går att
+   anpassa sig runt hör hit; de får sakta ner, aldrig stoppa, och ska ha ett tak + lagom takt.
 7. **Spel-specifik finish** — inte samma konfetti som alla andra.
 
 Plus P0 (`CLAUDE.md`) och exit-säkerhet. `npm run check` bevakar det som går att mäta

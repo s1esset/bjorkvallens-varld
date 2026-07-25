@@ -3,7 +3,7 @@
 Per-spel designgenomgång **sett ur spelarens ögon** (barn 2–5 + förälder bredvid). Varje
 `docs/games/<id>.md` fångar spelets **nuläge**, den **ursprungliga tanken**, **vad som gör
 det lättjefullt/tunt**, och en konkret **förbättringsplan** för att lyfta spelet till en
-riktig, marknadsfärdig kvalitet — utan att bryta P0-reglerna (no-fail, ingen poäng/timer,
+riktig, marknadsfärdig kvalitet — utan att bryta P0-reglerna (inget "game over", ingen poäng/timer,
 ≥96px träffytor, bara positiv feedback, exit-säkert).
 
 ## Vad "marknadsfärdig kvalitet" betyder här
@@ -16,8 +16,9 @@ Ett bra barnspel 2–5 är inte *svårare* — det är **rikare**. Mätstickan p
    inte är identisk med tur 1. Sällsynta "wow"-ögonblick (regnbågsbubbla, gömd överraskning).
 3. **Saftig feedback ("juice")** — ljud+bild <100ms, squash/stretch, partiklar, skärmskak,
    efterklang. Varje handling belönas multisensoriskt.
-4. **Mjuk progression** — fältet/utmaningen växer lugnt med nivån; aldrig svårare på ett
-   bestraffande sätt, men *nytt* att upptäcka.
+4. **Mjuk progression & motstånd** — fältet/utmaningen växer lugnt med nivån, alltid med *nytt*
+   att upptäcka. Hinder som barnet kan anpassa sig runt hör hit och gör spelet bättre; de får
+   sakta ner, aldrig stoppa, och ska ha ett tak (hur mycket kan gå fel samtidigt) + lagom takt.
 5. **Karaktär & berättelse** — en maskot/figur som reagerar, en liten värld, en anledning
    att bry sig (Bobo/Zacke/Elvira). Tomma scener känns billiga.
 6. **Ljud & röst** — varierat vinstljud, talad svensk instruktion + om-tilltal, riktiga

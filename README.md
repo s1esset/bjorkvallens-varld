@@ -1,7 +1,7 @@
 # Björkvallens Värld 🐻
 
 En offline-first, installerbar **PWA med 69 minispel för barn 2–5 år**, helt på svenska.
-Tablet-först. **Ingen reklam, ingen spårning, inga nätanrop under körning, inga fel-lägen.**
+Tablet-först. **Ingen reklam, ingen spårning, inga nätanrop under körning, inget "game over".**
 Byggd med PixiJS v8 + three.js + matter.js + Vite.
 
 > Ett tunt skal (splash → meny → bibliotek → spel) kör fristående **spelmoduler** som alla
@@ -70,7 +70,7 @@ npm run icons        # app-ikoner
 
 ## Designlagar (urval)
 
-Inga fel-lägen · ingen reklam · ingen läsning krävs · träffytor ≥96px · talad svenska ·
+Inget "game over" · ingen reklam · ingen läsning krävs · träffytor ≥96px · talad svenska ·
 varje pekning ger positiv återkoppling <100 ms · all data stannar på enheten.
 Fullständig lista i **`CLAUDE.md`**.
 

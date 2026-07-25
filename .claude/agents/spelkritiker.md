@@ -32,7 +32,10 @@ Ställ de obekväma frågorna:
 finish.** För varje: **håller / håller inte**, med den konkreta raden eller det konkreta
 beteendet som bevis.
 
-Kolla också P0-brott (träffytor <96px, fail-state, poäng, timer, negativ återkoppling) och
+Kolla också P0-brott (träffytor <96px, misslyckande som avslutar/nollställer, poäng, timer,
+tillrättavisande återkoppling). **Hinder och bakslag är däremot tillåtna och önskvärda** — de
+ska gå att anpassa sig runt, som mest sakta ner, och ha ett tak på hur mycket som kan gå fel
+samtidigt. Flagga alltså *avsaknad* av motstånd lika gärna som för mycket. Dessutom
 uppenbara exit-säkerhetsrisker (rå `gsap.to()` på objekt som förstörs i sin egen `onComplete`,
 fördröjda callbacks utan `_alive`).
 

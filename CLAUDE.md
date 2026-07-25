@@ -11,12 +11,16 @@ TRÄFFYTA      ≥96px (2cm), avstånd ≥24px, +24px osynlig hit-halo
 UPPLÖSNING    1280×720 landskap, Math.min letterbox (contain)
 GESTER        JA: tap, enkel drag (snäpp + tap-tap-fallback). NEJ: dubbeltryck, långtryck,
               pinch, rotation, multitouch, snabbsvep-nav
-ÅTERKOPPLING  varje pekning → ljud+bild <100 ms, ENDAST positivt. Fel tryck = roligt, aldrig
-              summer/rött kryss. Belöning = 1–2 s firande + svenskt beröm + klistermärke
+ÅTERKOPPLING  varje pekning → ljud+bild <100 ms. Fel tryck = roligt, aldrig summer, rött kryss
+              eller tillsägelse. Belöning = 1–2 s firande + svenskt beröm + klistermärke
+MOTGÅNG       hinder och bakslag är TILLÅTNA och gör spelet bättre (något blir smutsigt igen,
+              välter, kommer i vägen). De ska gå att anpassa sig runt och som mest SAKTA NER.
+              Krav: rolig ton, tydlig orsak, går att åtgärda direkt, TAK på hur mycket som kan
+              gå fel samtidigt, lagom takt. Svårighet = eftertanke, aldrig stress eller skam.
 NAVIGATION    ikon-först, noll läsning; talad svensk instruktion + repetera-knapp per skärm
 GRIND         tryck-och-håll 2,5 s före inställningar/avsluta/ta bort/nollställ/länkar
-ALDRIG        reklam, spårning, analytics, nätanrop vid körning, fail-state, "game over",
-              poäng som sjunker, bestraffande timers, FOMO
+ALDRIG        reklam, spårning, analytics, nätanrop vid körning, misslyckande som avslutar
+              eller nollställer, "game over", poäng som sjunker, bestraffande timers, FOMO
 DATA          endast localStorage JSON, ingen PII lämnar enheten
 SVENSKA       å/ä/ö i UI/röst; asciiFold (a/a/o) för id:n, filnamn, ljudnycklar
 KARAKTÄRER    avbildade människor heter ENDAST Zacke/Alissa/Elvira/Lova (djur, monster och

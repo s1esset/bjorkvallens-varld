@@ -55,9 +55,16 @@ Detaljer: skill `spelkontrakt` (kontrakt), `skal-och-data` (skal + spardata),
 ## Designlagen bakom allt
 
 Från varje framgångsrik 2–5-titel (Toca Boca, Sago Mini, Pok Pok, Endless Alphabet):
-**inga fel-lägen, inga bestraffande timers, ingen poäng som sjunker, ingen läsning.**
-Röst och animation *är* belöningen. Uppgifter tar 3–10 s. Varje pekning ger positiv eller
-neutral multisensorisk återkoppling under 100 ms.
+**inget misslyckande som avslutar spelet, inga bestraffande timers, ingen poäng som sjunker,
+ingen läsning.** Röst och animation *är* belöningen. Uppgifter tar 3–10 s. Varje pekning ger
+positiv eller neutral multisensorisk återkoppling under 100 ms.
+
+Det betyder **inte** att allt ska gå av sig självt. Motstånd — hinder man kan anpassa sig runt,
+saker som blir smutsiga igen, något som kommer i vägen — gör spelet bättre och är uttryckligen
+tillåtet (se `MOTGÅNG` i `CLAUDE.md`). Gränsen går vid att *förlora*: motgång får sakta ner och
+kräva eftertanke, aldrig avsluta, nollställa eller skämma ut. Motsatt drift är ett verkligt
+problem i det här projektet — se mönster #1 i `docs/games/README.md` (autohjälp som spelar
+banan åt barnet).
 
 Det som gör ett spel *bra* snarare än bara korrekt — agens, variation, juice, mottagare,
 riktig ton, mjuk progression, egen finish — är formaliserat som kvalitetsgrinden i

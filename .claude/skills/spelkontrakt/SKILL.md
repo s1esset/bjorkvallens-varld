@@ -65,8 +65,12 @@ complete()            // ETT tillfredsställande "klart": firande 1–2 s + stj�
 
 - Rita i **designkoordinater 1280×720**. `ctx.stage` är redan skalad — bygg bara barn.
 - **Aldrig `localStorage` direkt** → `ctx.progress`. Aldrig egen ljudmotor → `ctx.services.audio`.
-- **Ingen synlig poäng, inget fail-state, ingen tidspress.** `ctx.progress.complete()` vid ett
-  tillfredsställande "klart".
+- **Ingen synlig poäng, ingen tidspress, inget misslyckande som avslutar eller nollställer.**
+  `ctx.progress.complete()` vid ett tillfredsställande "klart".
+- **Motgång är tillåten och önskvärd.** Hinder som barnet kan anpassa sig runt — något blir
+  smutsigt igen, välter, kommer i vägen — gör spelet bättre. De får som mest **sakta ner**,
+  aldrig stoppa. Krav: rolig ton, tydlig orsak, går att åtgärda direkt, och ett **tak** på hur
+  mycket som kan gå fel samtidigt (t.ex. max 3 aktiva fläckar; därutöver missar hindret).
 - Fel/tomma tryck ska ändå vara **roliga** (wiggle + mjukt neutralt ljud) — aldrig sur summer,
   rött kryss eller tillrättavisning.
 - Talad svenska vid `mount`; mjuk om-cue vid ~6 s inaktivitet; positiv reaktion på VARJE tryck.

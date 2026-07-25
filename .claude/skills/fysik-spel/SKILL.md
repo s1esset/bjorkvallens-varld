@@ -49,8 +49,11 @@ vid `GY` och har därför en exakt förhandsvisning per konstruktion.
 
 - Bygg kring ett **mål** (nå/samla/fylla) **plus minst en extra kontroll** som ändrar utfallet:
   placeringsdrag, vikt-/vind-/studsväxling, underlagsbyte.
-- **Aldrig fail-state.** Missar är roliga (wiggle, puff, fniss) och mjuk autohjälp garanterar
-  att det till slut lyckas.
+- **Aldrig ett misslyckande som avslutar eller nollställer.** Missar är roliga (wiggle, puff,
+  fniss) och mjuk autohjälp garanterar att det till slut lyckas. Men missen ska *märkas* —
+  hinder och bakslag som barnet kan anpassa sig runt (vind, studsande föremål, något som
+  kommer i vägen) hör hemma här; de får sakta ner, aldrig stoppa. Sätt alltid ett tak på hur
+  mycket som kan gå fel samtidigt.
 - **Men autohjälpen får inte spela banan åt barnet** — det var appens vanligaste designfel.
   Hjälpen ska komma **sent och synligt** ("Jag hjälper till!") så att barnets sikte/kraft/
   placering faktiskt avgör. Skicklighet ska kännas, aldrig krävas.

@@ -19,8 +19,9 @@ Läs skill `spelkontrakt` innan du börjar. Ladda `fysik-spel`, `ljud-och-rost`,
    städas i `destroy`.
 3. **Tillståndsfel** — variabler som inte nollställs mellan omgångar/nivåer, off-by-one,
    hjälp/auto-assist som aldrig triggar eller triggar direkt.
-4. **P0-brott** — träffytor <96px, fail-state, synlig poäng, timer, negativ återkoppling,
-   ogrindad vuxenhandling.
+4. **P0-brott** — träffytor <96px, misslyckande som avslutar/nollställer, synlig poäng, timer,
+   tillrättavisande återkoppling, ogrindad vuxenhandling. (Hinder och bakslag som går att
+   anpassa sig runt är TILLÅTNA — rapportera dem bara om de saknar tak eller kan låsa spelet.)
 5. **Kontraktsbrott** — `localStorage` direkt, egen ljudmotor, statisk three-import, metadata
    som inte matchar mappen.
 6. **Prestanda** — allokering varje frame, omritning utan förändringsvakt, filter/blur.

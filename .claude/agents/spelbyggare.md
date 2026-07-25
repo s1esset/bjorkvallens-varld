@@ -17,8 +17,11 @@ Läs **alltid** först: skill `spelkontrakt`. Läs `fysik-spel`, `ljud-och-rost`
   spel. Behöver du något delat: bygg det lokalt i ditt spel och **rapportera** att det borde
   lyftas till `lib/` — gör det inte själv.
 - **`src/games/registry.js` rör du inte.** Den som startade dig registrerar spelet.
-- Följ P0 i `CLAUDE.md`: ≥96px träffytor, inga förbjudna gester, ingen poäng/timer/fail-state,
-  bara positiv återkoppling, talad svenska, ingen `localStorage`, inga nätanrop.
+- Följ P0 i `CLAUDE.md`: ≥96px träffytor, inga förbjudna gester, ingen poäng/timer, inget
+  misslyckande som avslutar eller nollställer, talad svenska, ingen `localStorage`, inga nätanrop.
+- **Motgång är tillåten och önskvärd** (se `MOTGÅNG` i P0): hinder barnet kan anpassa sig runt
+  gör spelet bättre. De får sakta ner, aldrig stoppa — och ska ha ett **tak** på hur mycket som
+  kan gå fel samtidigt, plus lagom takt.
 - **Exit-säkerhet är inte förhandlingsbar.** `_alive`-flagga + `lib/feedback.js`-hjälparna för
   transienta partiklar. Spelaren kan lämna mitt i vilken animation som helst.
 - Återanvänd verktygslådan (`feedback.js`, `scene.js`, `DragController.js`, `Button.js`,

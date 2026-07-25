@@ -43,7 +43,10 @@ Ur `docs/games/README.md`-rubriken. Alla sju ska vara sanna, annars är spelet i
 4. **Mottagare** — någon tar emot skapelsen och jublar (Bobo/Elvira/figur). Tomma scener = billigt.
 5. **Riktig ton/SFX** — `audio.tone()` stämd skala för musik, `audio.sample()` där riktiga klipp
    finns. Aldrig generiska UI-blipp som "musik".
-6. **Mjuk progression** — fältet växer lugnt, alltid *nytt att upptäcka*, aldrig bestraffande.
+6. **Mjuk progression + motstånd** — fältet växer lugnt och har alltid *nytt att upptäcka*.
+   Hinder som barnet kan anpassa sig runt hör hit och gör spelet bättre; de får sakta ner,
+   aldrig stoppa, och ska ha ett tak (hur mycket kan gå fel samtidigt?) och lagom takt.
+   Aldrig ett misslyckande som avslutar eller nollställer.
 7. **Spel-specifik finish** — inte samma konfetti+stjärna som alla andra.
 
 Plus P0 (se CLAUDE.md) och exit-säkerhet (se skill **spelkontrakt**).
@@ -74,7 +77,8 @@ Commit: `feat(<id>): <vad som lyftes>`. Uppdatera §5 Status/loggar + indexstatu
 ## `/felsok <id>` — granskning + fixa allt som hittas
 
 Ingen ny funktionalitet. Fan-out över dimensioner: **exit-säkerhet** (tweens/timeouts utan
-`_alive`), **P0-brott** (träffytor <96px, fail-state, poäng, timer), **Pixi-läckor** (ticker/
+`_alive`), **P0-brott** (träffytor <96px, misslyckande som avslutar, poäng, timer, hinder utan
+tak), **Pixi-läckor** (ticker/
 lyssnare/tweens som inte städas), **kontrakt**, **prestanda** (per-frame-allokering, ostrypta
 omritningar), **ljud/röst** (saknade klipp, TTS-uttalade ljudeffekter). Verifiera varje fynd
 adversariellt innan fix — plausibla men falska fynd får inte generera ändringar.

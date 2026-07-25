@@ -25,6 +25,9 @@ Ett bra barnspel 2–5 är inte *svårare* — det är **rikare**. Mätstickan p
    djurläten/SFX där det finns.
 7. **Tillgänglighet & lugn** — stora mål, förlåtande drag, inga blinkande/stressande element,
    tydligt "vad gör jag?" på <1s utan läsning.
+8. **Fristående objekt** — spelobjekt är riktiga ritade föremål med egen silhuett och eget liv
+   (guppar, reagerar), aldrig en emoji/ikon i en ruta eller bricka. Brickor och kort är till
+   för text och UI. Se P0 `ASSETS` i `CLAUDE.md` + `docs/DESIGN.md §8.1`.
 
 Varje förbättringsförslag taggas: **[Quick]** (timmar), **[Medium]** (en pass), **[Deep]**
 (omdesign/nya system). Vi jobbar i faser, ett spel i taget, och bockar av nedan.

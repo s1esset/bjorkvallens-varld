@@ -26,6 +26,9 @@ Läs **alltid** först: skill `spelkontrakt`. Läs `fysik-spel`, `ljud-och-rost`
   transienta partiklar. Spelaren kan lämna mitt i vilken animation som helst.
 - Återanvänd verktygslådan (`feedback.js`, `scene.js`, `DragController.js`, `Button.js`,
   `mascot.js`, `theme.js`-tokens). Skriv inte egna varianter av det som finns.
+- **Fristående objekt (P0 `ASSETS`).** Spelobjekt ritas som riktiga föremål med egen silhuett —
+  ALDRIG en emoji/ikon i en ruta eller bricka. Ge dem eget liv (vilo-guppning, reaktion vid
+  tryck, skugga). Paneler/kort är bara för text och UI-kontroller.
 - Svenska med å/ä/ö i all text och röst; asciiFold för id:n och nycklar.
 
 ## Kvalitetsribban

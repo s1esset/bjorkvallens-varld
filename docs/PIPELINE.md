@@ -62,6 +62,8 @@ bättre. Därför måste varje nytt eller polerat spel klara sju punkter innan c
 6. **Mjuk progression + motstånd** — växer lugnt, alltid nytt att upptäcka. Hinder som går att
    anpassa sig runt hör hit; de får sakta ner, aldrig stoppa, och ska ha ett tak + lagom takt.
 7. **Spel-specifik finish** — inte samma konfetti som alla andra.
+8. **Fristående objekt** — spelobjekt är riktiga ritade föremål med egen silhuett och eget
+   liv, aldrig en emoji i en ruta (P0 `ASSETS`, `docs/DESIGN.md §8.1`).
 
 Plus P0 (`CLAUDE.md`) och exit-säkerhet. `npm run check` bevakar det som går att mäta
 maskinellt; `spelkritiker` bevakar resten.

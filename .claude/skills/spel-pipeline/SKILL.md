@@ -48,6 +48,8 @@ Ur `docs/games/README.md`-rubriken. Alla sju ska vara sanna, annars är spelet i
    aldrig stoppa, och ska ha ett tak (hur mycket kan gå fel samtidigt?) och lagom takt.
    Aldrig ett misslyckande som avslutar eller nollställer.
 7. **Spel-specifik finish** — inte samma konfetti+stjärna som alla andra.
+8. **Fristående objekt** (P0 `ASSETS`) — spelobjekt är riktiga ritade föremål med egen
+   silhuett och eget liv, aldrig en emoji/ikon i en ruta eller bricka.
 
 Plus P0 (se CLAUDE.md) och exit-säkerhet (se skill **spelkontrakt**).
 

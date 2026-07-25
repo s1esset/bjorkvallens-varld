@@ -127,6 +127,21 @@ skärmzon. Döda alla tweens i `destroy` (P0).
 - **Versionsknapp** (meny, nere höger): liten teal-pill som visar `vM.NN` — se §9. Grindad;
   tvingar fram senaste versionen.
 
+### 8.1 Fristående spelobjekt (P0 `ASSETS`)
+
+Komponenterna ovan är **skalets UI**. Inne i ett spel gäller motsatsen: **spelobjekt får inte
+bo i rutor.**
+
+- Ett föremål ritas som sig självt, med **egen silhuett** — en svamp har rundade hörn, porer
+  och en ljusare ovansida; en slang är en slang. Inte 🧽 i en `roundRect`.
+- **Eget liv:** vilo-guppning eller andning (`breathe`), tydlig reaktion vid tryck (`pop`,
+  `wiggle`), mjuk skugga för djup. Ett stilla föremål ser ut som en knapp.
+- **Ingen bricka bakom** för att markera träffytan — använd `hitArea` med osynlig halo i
+  stället. Träffytan ska vara stor, inte synlig.
+- Kort och paneler är till för **text och UI-kontroller** (knappar, flikar, dialoger).
+- Emoji får ligga som **detalj ovanpå** ett ritat föremål (glassen på glassbilen), aldrig
+  utgöra hela föremålet.
+
 ## 9. Versionsnummer
 
 - **Format:** `v` + `MAJOR.MINOR` där MINOR alltid skrivs med två siffror: `v1.00`, `v1.01`,

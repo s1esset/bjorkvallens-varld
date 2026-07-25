@@ -41,6 +41,8 @@ fördröjda callbacks utan `_alive`).
 
 ## Regler för din kritik
 
+- **Fristående objekt (P0 `ASSETS`).** Flagga alltid spelobjekt som bara är en emoji/ikon i en
+  ruta eller bricka. Föremål ska ha egen silhuett och eget liv. Det är ett `[blockerar]`-fynd.
 - **Var specifik.** "Tunt" är värdelöst. "Varje pizza-topping ger samma poff och samma
   pling — inget skiljer ost från ananas" är användbart.
 - **Var ärlig åt båda hållen.** Är spelet bra: säg det, och säg varför. Uppfinn inte fel för

@@ -39,9 +39,27 @@ ctx.width     // 1280
 ctx.height    // 720
 ctx.fxLayer   // för konfetti/firande OVANPÅ spelet
 ctx.exitToLibrary()
+ctx.later(sekunder, fn)  // fördröjt anrop som DÖR med spelomgången — använd i stället
+                         // för gsap.delayedCall/setTimeout (se nedan)
 ctx.services  // se nedan
 ctx.progress  // se nedan
 ```
+
+### `ctx.later()` — obligatoriskt för fördröjda anrop
+
+Spelmodulerna är **singletons** (`registry.js` exporterar objekt, inte klasser). En
+`gsap.delayedCall` eller `setTimeout` från förra omgången överlever därför `destroy`, och när
+samma spel startas igen är `this._alive` åter `true` — vakten `if (!this._alive) return`
+**släpper alltså igenom** den gamla callbacken, som kör mitt i den nya omgången (bygger om
+rundan, dubblerar objekt, talar fel replik). Fönstret är precis så långt som fördröjningen,
+och att gå ut och in snabbt är exakt vad ett barn gör.
+
+```js
+ctx.later(1.3, () => this._nextRound(ctx))   // dör automatiskt vid exit
+```
+
+`_alive` behövs fortfarande för tweens och andra callbacks — men för fördröjda anrop är
+`ctx.later()` det enda som är säkert.
 
 ### ctx.services
 
@@ -73,6 +91,11 @@ complete()            // ETT tillfredsställande "klart": firande 1–2 s + stj�
   mycket som kan gå fel samtidigt (t.ex. max 3 aktiva fläckar; därutöver missar hindret).
 - Fel/tomma tryck ska ändå vara **roliga** (wiggle + mjukt neutralt ljud) — aldrig sur summer,
   rött kryss eller tillrättavisning.
+- **Fristående objekt (P0 `ASSETS`).** Rita spelobjekt som riktiga föremål med egen silhuett —
+  aldrig en emoji i en `roundRect`. En svamp är en svamp med porer och rundade hörn, inte en
+  bricka med 🧽 i. Ge dem eget liv: vilo-guppning (`breathe`), reaktion vid tryck (`pop`,
+  `wiggle`), skugga för djup. Paneler/kort är till för TEXT och UI-kontroller, inte för
+  spelobjekt. Emoji får ligga som detalj *ovanpå* ett ritat föremål, aldrig vara föremålet.
 - Talad svenska vid `mount`; mjuk om-cue vid ~6 s inaktivitet; positiv reaktion på VARJE tryck.
 
 ## Exit-säkerhet (den vanligaste kraschkällan)

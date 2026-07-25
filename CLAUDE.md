@@ -17,6 +17,10 @@ MOTGÅNG       hinder och bakslag är TILLÅTNA och gör spelet bättre (något 
               välter, kommer i vägen). De ska gå att anpassa sig runt och som mest SAKTA NER.
               Krav: rolig ton, tydlig orsak, går att åtgärda direkt, TAK på hur mycket som kan
               gå fel samtidigt, lagom takt. Svårighet = eftertanke, aldrig stress eller skam.
+ASSETS        spelobjekt ritas FRISTÅENDE — aldrig en emoji/ikon i en ruta, bricka eller box.
+              Egen silhuett, egen form, eget liv (vilo-guppning, reaktion vid tryck). Paneler
+              och kort får bära TEXT och UI-kontroller, aldrig spelobjekt. En emoji duger som
+              detalj ovanpå ett riktigt ritat föremål, aldrig som hela föremålet.
 NAVIGATION    ikon-först, noll läsning; talad svensk instruktion + repetera-knapp per skärm
 GRIND         tryck-och-håll 2,5 s före inställningar/avsluta/ta bort/nollställ/länkar
 ALDRIG        reklam, spårning, analytics, nätanrop vid körning, misslyckande som avslutar

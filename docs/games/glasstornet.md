@@ -3,28 +3,42 @@
 
 ## 1. Nuläge (sett som spelare)
 
-En pastell glass-värld. Mitt på skärmen står en brun våffelstrut; högst upp svävar en
-färgglad glasskula i en liten orange hand. Jag drar kulan i sidled (eller tap-tap:ar
-rälsen) — en prickad lodlinje + en gul landningsring visar var den hamnar — och **släpper**
-(lyfter fingret) för att tappa den. Kulan faller med riktig matter.js-fysik, landar mjukt
-på struten, vobblar och nestlar sig. Hela tornet **svajar** lugnt (gravitationens
-x-komponent oscillerar), så *när* jag släpper spelar roll lika mycket som *var*. En
-klister-glass-knapp (💧→🍯) gör nästa kula klistrigare (mer friktion, lättare) = stabilare.
+En pastell glass-värld i tydliga zoner. Överst går en **räls** tvärs över skärmen; på den
+åker en liten vagn med en kopa som håller nästa glasskula. Jag drar kopan i sidled (eller
+tap-tap:ar var som helst) — en **simulerad prickbana + landningsring** visar exakt var kulan
+hamnar — och **släpper** för att tappa den. Ringen blir **grön** när kulan kommer att landa
+på glassen, och **faller ner till marken** när den kommer att missa hela struten. Kulan
+faller med riktig matter.js-fysik ner i en **våffelstrut med utsvängd kant** (en tratt med
+smal hals, så kulorna hamnar i EN kolumn — aldrig två i bredd), squashar till och nestlar sig.
 
-Ingen game over: en kula som ramlar av studsar mjukt, fnissar ("Hihi!"/"Hoppsan!") och tas
-bort — en ny dyker upp direkt. Bara kulor som blir liggande räknas. När `goal` kulor (3–5,
-växer med nivån) ligger kvar dråsar ett **körsbär** ner på toppen och vi firar (stjärna +
-klistermärke), sedan byggs ett nytt, snäpp högre torn. Faller tre kulor i rad, eller om
-tornet står ett steg från mål för länge, blir nästa kula auto-klistrig med en mjuk magnet
-mot mitten (no-fail-garanti). Idle ~6 s ger röst-recue.
+**Motgången är vinden.** En bris växlar riktning fram och tillbaka och blåser både den
+fallande kulan och tornet i sidled. Den är SYNLIG: en **vimpel på en flaggstång** står rakt
+ut och lyser orange när det blåser, och hänger slak + blir grön när det är lugnt; dessutom
+drar vindstreck genom himlen. Prickbanan simuleras med samma vind → guiden ljuger aldrig.
+**Honungsburken** på marken (tryck → locket åker av, en droppe rinner) gör nästa kula
+klistrig: kulan får en ritad honungsglasyr, mer friktion och lättare massa = tål vinden
+bättre. Två kontroller (var/när + klistrig), ett mål.
 
-**Funkar bra:** släpp-timing mot ett svajande torn är en genuint fin agens-mekanik, den
-kalibrerade landningsringen + prickade lodlinjen lär ut sikte utan ord, klister-toggeln är
-en begriplig utfalls-ändrare, fniss-vid-fall gör misslyckanden roliga, och körsbärs-finalen
-är spel-specifik. Settle-logiken (vila-fart + tids-tak) gör att spelet aldrig hänger.
+**Målet är körsbäret.** Till höger står en **måttstock** med lika många rutor som kulor som
+behövs; en ruta tänds gult per landad kula och överst sitter körsbäret. När tornet nått upp
+hoppar körsbäret ner och kröner glassen, vinden mojnar, tornet fryser, och hela glassen
+flyger till **Bobo** som mumsar ("Mums! Tack för glassen!"). Sedan byggs ett nytt, en kula
+högre torn (3 → 4).
 
-*(Skärmdump: grön kula i handen upptill, prickad lodlinje + gul landningsring, en teal kula
-med gnistor på struten, blekt körsbär-mål till höger, droppknapp nere till vänster.)*
+Ingen game over: en kula som blåser av, eller som blir hängande på våffelkanten i stället
+för i glassen, glider av med ett fniss ("Hihi!"/"Hoppsan!") och en ny dyker upp direkt.
+Kulor som ligger stilla kryper mycket långsamt mot mittlinjen (mjukglass som sätter sig) så
+högen tidar upp sig till ett torn. Efter tre bortblåsta i rad, eller lång stiltje ett steg
+från mål, kommer hjälpen **sent och synligt** ("Jag hjälper till!" + gnistror): klistrig
+kula + mjuk magnet. Idle ~6 s ger röst-recue.
+
+**Funkar bra:** släpp-timing mot vinden är en genuint fin agens-mekanik med tre synliga
+lager feedback (vimpel → prickbana → grön/gul/markring), tratten gör att bygget ser ut som
+en riktig glass, måttstocken visar höjden utan siffror, och finalen (körsbär → servering →
+Bobo mumsar) är helt spel-specifik.
+
+*(Skärmdump: räls + kopa upptill, grön prickbana ner i våffelstruten, honungsburk och Bobo
+till vänster, måttstock med körsbär och vindflagga till höger.)*
 
 ## 2. Ursprunglig plan & tankeprocess
 
@@ -125,3 +139,37 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
   blir (`_reactCustomer`) och MUMSAR glassen vid finalen (🍦 flyger dit, "Mums! Tack!",
   `_serveToCustomer`). Exit-säkert: alla nya tweens (customer.scale, serveTween, squash)
   dödas i destroy; serve-item tweenas via {}-proxy. Ingen fail-state ändrad; ~90 rader.
+- 2026-07-25: **Utredning + omgörning efter ägarens rapport** ("saker inte på rätt plats —
+  vad är körsbäret? vad gör pendeln?"). Skärmdumpad och kodläst. Fynden:
+  1. **Körsbäret hade två halva roller och ingen begriplig.** `_goalMark` var en blek 🍒-emoji
+     som svävade fritt på (820, STACK_Y[goal-1]) — 180 px vid sidan av tornet, utan koppling
+     till marken, struten eller något barnet kunde göra. Det gick inte att trycka på och
+     ändrade ingenting. Vid finalen skapades ett ANNAT körsbär som dråsade ner. För barnet:
+     ett svävande bär mitt i luften som plötsligt får en dubbelgångare.
+  2. **Pendeln hade ingen funktion i loopen.** `_drawTilt` ritade ett balans-lod på (1086,214)
+     som visade `this._lean` (gravitationens x-komponent) ×4,2. Men lutningen syntes ingen
+     annanstans: struten och marken ritades statiskt, så pendeln var en avläsare av en osynlig
+     kraft. Den gick inte att påverka, förklarade inte sig själv och stod dessutom och svängde
+     i tomma luften.
+  3. **Felplaceringar:** bärkulan låg på y=120 med `X_MIN=130`/`X_MAX=1150` → den gled in
+     ÖVER hem- och högtalarknappen (deras träffytor når x≤140 resp. x≥1140, y≤134) i
+     ytterlägena; `STACK_Y` gick upp till y=144 vilket är ovanför bärkulan och delvis under
+     topp-knapparna; "rälsen" som koden och röstrepliken pratar om ritades aldrig; handen
+     under kulan var helt dold bakom den; maskoten svävade utan kropp på (150,300).
+  **Åtgärder:** (a) Layouten ritad om — synlig räls på y=104 med vagn+kopa, bärkula y=176,
+  drag 330–950 (fritt från hörnknapparna), stapel 480/396/312/228, mål max 4 kulor.
+  (b) Körsbäret = MÅLET: sitter överst på en ny **måttstock** (en ruta per kula som behövs,
+  tänds gult i takt med tornet, prickrad ut till tornet vid målhöjden) och hoppar ner och
+  kröner glassen när tornet nått upp; ritat som riktigt föremål, ingen emoji.
+  (c) Pendeln BORTTAGEN och ersatt av **vind**: samma fysik (gravitations-x) men nu förklarad
+  av en vimpel på flaggstång (rakt ut + orange = blåser, slak + grön = lugnt) och vindstreck
+  i himlen. (d) Guiden simulerar nu fallet steg för steg med samma vind → ringen är grön vid
+  träff och åker ner till MARKEN när kulan skulle missa struten. (e) Struten är en tratt med
+  utsvängd våffelkant och smal hals → kulorna hamnar i en kolumn; kulor som blir hängande
+  utanför kolumnen (>78 px) glider av med fniss. (f) P0 ASSETS: alla emoji-`Text` borta —
+  körsbär, honungsburk (ersätter 💧/🍯-knappen), honungsglasyr, mini-glass och Bobos kropp
+  ritas nu som föremål; kulorna har lätt vågig glass-silhuett. (g) Finalen fryser tornet och
+  mojnar vinden så firandet inte blåser sönder bygget. `check` grön, `test` 0 fel.
+  Nya repliker: "Bygg upp till körsbäret!", "Det blåser! Släpp när flaggan hänger stilla.",
+  "Nu blir kulan klistrig!", "Nu är kulan vanlig igen.", "Ett körsbär på toppen!",
+  "Mums! Tack för glassen!" (tillagda i `scripts/voice-phrases.json`, väntar på klipp).

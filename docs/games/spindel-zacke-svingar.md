@@ -114,3 +114,6 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   (högt i framåt-bågen, θ≈0.45–1.05) belönas nu med extra gnistor + "Wii!" så skicklighet känns
   tydligt bättre än auto/slump. Moln-räddning + garanterat kast kvar som no-fail-backstop.
   Städning: oanvänd `ctx`-param bort ur `_buildLevel`. errorCount 0.
+- 2026-08-04: **P0 ASSETS.** Nätfästena (var 🕸️), kattungen på taket (var 🐱) och startmolnet
+  (var ☁️) ritas nu som riktiga föremål med egen silhuett — nätet med åtta ekrar och två
+  spiralringar, kattungen med öron, svans, nos, morrhår och kinder. errorCount 0.

@@ -170,8 +170,24 @@ export default {
       const knob = new Graphics().circle(0, 0, 16).fill(COLORS.inkSoft).stroke({ width: 4, color: COLORS.white })
       knob.position.set(a.x, a.y)
       knob.eventMode = 'none'
-      const web = new Text({ text: '🕸️', style: { fontFamily: FONT.body, fontSize: 30 } })
-      web.anchor.set(0.5)
+      // RITAT nätfäste (P0 ASSETS) — var en 🕸️-emoji.
+      const web = new Graphics()
+      for (let k = 0; k < 8; k++) {
+        const ang = (k / 8) * Math.PI * 2
+        web.moveTo(0, 0).lineTo(Math.cos(ang) * 15, Math.sin(ang) * 15)
+      }
+      web.stroke({ width: 2.2, color: 0xffffff, alpha: 0.9 })
+      for (let ring = 1; ring <= 2; ring++) {
+        const rr = (15 * ring) / 2
+        for (let k = 0; k < 8; k++) {
+          const a1 = (k / 8) * Math.PI * 2
+          const a2 = ((k + 1) / 8) * Math.PI * 2
+          web.moveTo(Math.cos(a1) * rr, Math.sin(a1) * rr)
+            .quadraticCurveTo(Math.cos((a1 + a2) / 2) * rr * 0.8, Math.sin((a1 + a2) / 2) * rr * 0.8,
+              Math.cos(a2) * rr, Math.sin(a2) * rr)
+        }
+      }
+      web.stroke({ width: 1.8, color: 0xffffff, alpha: 0.75 })
       web.position.set(a.x, a.y - 4)
       web.eventMode = 'none'
       this._anchorLayer.addChild(knob, web)
@@ -179,8 +195,36 @@ export default {
 
       // Mål-fästet (sista): kattunge på taket + Elvira vinkar bredvid.
       if (i === count - 1) {
-        const kitten = new Text({ text: '🐱', style: { fontFamily: FONT.body, fontSize: 96 } })
-        kitten.anchor.set(0.5)
+        // RITAD kattunge (P0 ASSETS) — var en 🐱-emoji.
+        const kitten = new Container()
+        const kg = new Graphics()
+        const KR = 40
+        kg.moveTo(-KR * 0.62, -KR * 0.4).lineTo(-KR * 0.34, -KR * 1.06).lineTo(-KR * 0.04, -KR * 0.42)
+          .closePath().fill(0xffb15c)
+        kg.moveTo(KR * 0.62, -KR * 0.4).lineTo(KR * 0.34, -KR * 1.06).lineTo(KR * 0.04, -KR * 0.42)
+          .closePath().fill(0xffb15c)
+        kg.moveTo(-KR * 0.5, -KR * 0.48).lineTo(-KR * 0.34, -KR * 0.88).lineTo(-KR * 0.16, -KR * 0.5)
+          .closePath().fill(0xf6c2d3)
+        kg.moveTo(KR * 0.5, -KR * 0.48).lineTo(KR * 0.34, -KR * 0.88).lineTo(KR * 0.16, -KR * 0.5)
+          .closePath().fill(0xf6c2d3)
+        kg.ellipse(0, KR * 0.5, KR * 0.58, KR * 0.48).fill(0xffb15c)
+        kg.moveTo(KR * 0.48, KR * 0.6).quadraticCurveTo(KR * 1.1, KR * 0.36, KR * 0.9, -KR * 0.2)
+          .stroke({ width: KR * 0.2, color: 0xf59042, cap: 'round' })
+        kg.circle(0, -KR * 0.12, KR * 0.66).fill(0xffc888)
+        kg.circle(-KR * 0.26, -KR * 0.18, KR * 0.11).fill(0x33291f)
+        kg.circle(KR * 0.26, -KR * 0.18, KR * 0.11).fill(0x33291f)
+        kg.circle(-KR * 0.21, -KR * 0.24, KR * 0.045).fill(0xffffff)
+        kg.circle(KR * 0.31, -KR * 0.24, KR * 0.045).fill(0xffffff)
+        kg.moveTo(-KR * 0.1, KR * 0.02).lineTo(KR * 0.1, KR * 0.02).lineTo(0, KR * 0.14)
+          .closePath().fill(0xe79ab0)
+        kg.moveTo(-KR * 0.06, KR * 0.14).quadraticCurveTo(-KR * 0.2, KR * 0.26, -KR * 0.3, KR * 0.16)
+          .moveTo(KR * 0.06, KR * 0.14).quadraticCurveTo(KR * 0.2, KR * 0.26, KR * 0.3, KR * 0.16)
+          .stroke({ width: 3, color: 0x8a5a3b, cap: 'round' })
+        kg.circle(-KR * 0.44, KR * 0.06, KR * 0.13).fill({ color: 0xff9ec4, alpha: 0.7 })
+        kg.circle(KR * 0.44, KR * 0.06, KR * 0.13).fill({ color: 0xff9ec4, alpha: 0.7 })
+        kg.eventMode = 'none'
+        kitten.addChild(kg)
+        kitten.interactiveChildren = false
         kitten.position.set(a.x, ROOF_Y - 46)
         kitten.eventMode = 'none'
         this._anchorLayer.addChild(kitten)
@@ -397,8 +441,13 @@ export default {
     ctx.services.voice.say('Hoppsan! Molnet fångar dig.')
     floatText(ctx.fxLayer, z.x, z.y - 40, '😄', { fontSize: 48 })
 
-    const cloud = new Text({ text: '☁️', style: { fontFamily: FONT.body, fontSize: 118 } })
-    cloud.anchor.set(0.5)
+    // RITAT moln (P0 ASSETS) — var en ☁️-emoji.
+    const cloud = new Graphics()
+    cloud.circle(-38, 6, 30).fill(0xfffdf7)
+    cloud.circle(0, -14, 40).fill(0xfffdf7)
+    cloud.circle(40, 4, 32).fill(0xfffdf7)
+    cloud.roundRect(-56, 2, 112, 34, 17).fill(0xfffdf7)
+    cloud.circle(-14, -20, 22).fill({ color: 0xffffff, alpha: 0.85 })
     cloud.position.set(z.x, z.y + 64)
     cloud.eventMode = 'none'
     ctx.fxLayer.addChild(cloud)

@@ -97,3 +97,12 @@ Kort sagt: *en riktigt fin kontroll som spelet både motarbetar (centrering) och
   behåll mer egen sidled-fart 0.4→0.5) så barnets sidled-drag på mattan ger en kännbar
   sidled-studs. Auto-glidet skjutet senare (ASSIST 7→10 s, GLIDE 13→18 s) → fler egna studsar
   innan spelet tar över. Räddnings-studsen kvar → no-fail intakt. errorCount 0.
+- 2026-08-04: **Andra omgången** (errorCount 0) — P0 ASSETS och en äng med liv.
+  - **Kaninen ritas** (var 🐰-emoji): öron med rosa insida, ljus mage, tassar, morrhår, kinder
+    och ett leende. **Buggfix i samma veva:** fysikkroppen snurrar fritt, så den ritade kaninen
+    hamnade upp-och-ner och blev oigenkännlig — vyn hålls nu ~upprätt med en liten lutning åt
+    färdriktningen (`link`-onUpdate), precis som en figur ska bete sig.
+  - **Målen ritas** (var ⭐/🥕-emoji): morot med blast och årsringar, guldstjärna med glans.
+    Kraftmätarens ⬆️-emoji är ersatt av en ritad pil.
+  - **Ängen lever** (§3 "tom värld"): staket, tre träd, blommor och grässtrån bakom
+    studsmattan i stället för bara en gradient med två kullar.

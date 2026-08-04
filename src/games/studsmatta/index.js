@@ -10,7 +10,7 @@
 // INGET misslyckande: kaninen studsar oändligt vidare, missar är roliga, och en
 // mjuk auto-hjälp (sänk mattan + glid) gör att varje mål ALLTID nås.
 // matter.js sköter fysiken via lib/physics.js.
-import { Container, Graphics, Text, Rectangle } from 'pixi.js'
+import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, nudge, Matter } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
@@ -95,6 +95,40 @@ export default {
     // Bakgrund: glad äng med himmel/sol/moln/kullar (dekor, aldrig tryckbar).
     this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
 
+    // Levande äng bakom studsmattan: staket, träd, blommor och grässtrån. Scenen var
+    // tidigare bara en gradient med två kullar.
+    const world = new Graphics()
+    for (let x = -20; x < ctx.width + 40; x += 76) {
+      world.roundRect(x, FLOOR_Y - 78, 16, 78, 5).fill({ color: 0xc79a68, alpha: 0.9 })
+    }
+    world.rect(-20, FLOOR_Y - 62, ctx.width + 60, 9).fill({ color: 0xb98a5f, alpha: 0.9 })
+    world.rect(-20, FLOOR_Y - 36, ctx.width + 60, 9).fill({ color: 0xb98a5f, alpha: 0.9 })
+    for (const [tx, ts] of [[110, 1], [1080, 0.85], [300, 0.6]]) {
+      world.rect(tx - 10 * ts, FLOOR_Y - 150 * ts, 20 * ts, 150 * ts).fill(0x8a5a3b)
+      world.circle(tx, FLOOR_Y - 176 * ts, 68 * ts).fill(0x5bbf6a)
+      world.circle(tx - 46 * ts, FLOOR_Y - 140 * ts, 48 * ts).fill(0x4fae51)
+      world.circle(tx + 48 * ts, FLOOR_Y - 144 * ts, 50 * ts).fill(0x6ac96a)
+    }
+    for (let i = 0; i < 34; i++) {
+      const gx = Math.random() * ctx.width
+      const gy = FLOOR_Y + 4 + Math.random() * (ctx.height - FLOOR_Y - 10)
+      world.moveTo(gx, gy).quadraticCurveTo(gx + 4, gy - 9, gx + (Math.random() * 8 - 4), gy - 17)
+        .stroke({ width: 3, color: 0x49a657, alpha: 0.55 })
+    }
+    for (let i = 0; i < 9; i++) {
+      const fx = 40 + Math.random() * (ctx.width - 80)
+      const fy = FLOOR_Y + 12 + Math.random() * 40
+      const col = [0xff9ec4, 0xffd35c, 0xffffff, 0xa78bfa][i % 4]
+      world.moveTo(fx, fy + 12).lineTo(fx, fy).stroke({ width: 3, color: 0x49a657 })
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2
+        world.circle(fx + Math.cos(a) * 6, fy + Math.sin(a) * 6, 4.5).fill(col)
+      }
+      world.circle(fx, fy, 3.4).fill(0xffd35c)
+    }
+    world.eventMode = 'none'
+    this._root.addChild(world)
+
     // Heltäckande, osynlig fångare BAKOM allt spel: tryck var som helst = liten studs.
     this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
     this._catcher.eventMode = 'static'
@@ -127,10 +161,8 @@ export default {
     this._rig.on('pointerdown', this._onRigDown)
     this._root.addChild(this._rig)
 
-    // Kaninen (emoji) kopplad till en fysik-kropp.
-    this._charView = new Text({ text: '🐰', style: { fontFamily: FONT.body, fontSize: 74 } })
-    this._charView.anchor.set(0.5)
-    this._charView.eventMode = 'none'
+    // Kaninen RITAS (P0 ASSETS) — egen silhuett med öron, mage, tass och ett leende.
+    this._charView = makeBunny()
     this._root.addChild(this._charView)
 
     // Kraftmätare (dekor) — visar hur spänd/hög mattan är.
@@ -154,7 +186,12 @@ export default {
       frictionAir: 0.002,
       label: 'char',
     })
-    this._phys.link(this._char, this._charView)
+    // Kaninen är en FIGUR, inte en boll. Fysikkroppen snurrar fritt, men vyn hålls
+    // ~upprätt med en liten lutning åt färdriktningen — ett upp-och-nedvänt ansikte
+    // läser fel och gjorde kaninen oigenkännlig när den ritades i stället för emoji.
+    this._phys.link(this._char, this._charView, (view, body) => {
+      view.rotation = Math.max(-0.42, Math.min(0.42, body.velocity.x * 0.05))
+    })
 
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
 
@@ -398,10 +435,8 @@ export default {
   },
 
   _addGoal(x, y, kind) {
-    const view = new Text({ text: kind === 'star' ? '⭐' : '🥕', style: { fontFamily: FONT.body, fontSize: 60 } })
-    view.anchor.set(0.5)
+    const view = kind === 'star' ? makeStar() : makeCarrot()
     view.position.set(x, y)
-    view.eventMode = 'none'
     this._goalLayer.addChild(view)
     // Lugn andning + mjuk gunga (drar blicken; exit-säkert via gsap-tween på view).
     const tween = gsap.to(view.scale, { x: 1.14, y: 1.14, duration: 0.9, yoyo: true, repeat: -1, ease: 'sine.inOut' })
@@ -572,9 +607,11 @@ export default {
       .fill({ color: 0x000000, alpha: 0.12 })
       .stroke({ width: 4, color: COLORS.white, alpha: 0.7 })
     this._meterFill = new Graphics()
-    const cap = new Text({ text: '⬆️', style: { fontFamily: FONT.body, fontSize: 34 } })
-    cap.anchor.set(0.5)
-    cap.y = -140
+    // Ritad pil-topp (P0 ASSETS) i stället för ⬆️-emoji.
+    const cap = new Graphics()
+    cap.moveTo(-17, -132).lineTo(17, -132).lineTo(0, -156).closePath().fill(COLORS.white)
+    cap.rect(-7, -132, 14, 12).fill(COLORS.white)
+    cap.eventMode = 'none'
     this._meter.addChild(track, this._meterFill, cap)
     this._root.addChild(this._meter)
   },
@@ -675,4 +712,85 @@ export default {
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// --- Ritade figurer (P0 ASSETS: egen silhuett, aldrig en emoji som hela föremålet) ---
+
+// Kaninen: öron med rosa insida, kropp, ljus mage, tassar, morrhår och ett leende.
+function makeBunny() {
+  const c = new Container()
+  const g = new Graphics()
+  const R = 30
+  g.ellipse(0, R * 1.15, R * 0.85, R * 0.22).fill({ color: 0x000000, alpha: 0.14 })
+  for (const s of [-1, 1]) {
+    g.ellipse(s * R * 0.34, -R * 1.32, R * 0.19, R * 0.74).fill(0xf4ede3)
+    g.ellipse(s * R * 0.34, -R * 1.3, R * 0.1, R * 0.54).fill(0xf6c2d3)
+  }
+  g.ellipse(0, R * 0.3, R * 0.78, R * 0.72).fill(0xf4ede3) // kropp
+  g.ellipse(0, R * 0.48, R * 0.46, R * 0.44).fill(0xfffaf3) // mage
+  g.ellipse(-R * 0.62, R * 0.86, R * 0.3, R * 0.16).fill(0xe8ded0) // fötter
+  g.ellipse(R * 0.62, R * 0.86, R * 0.3, R * 0.16).fill(0xe8ded0)
+  g.circle(0, -R * 0.32, R * 0.66).fill(0xf4ede3) // huvud
+  g.circle(-R * 0.24, -R * 0.4, R * 0.11).fill(0x33291f)
+  g.circle(R * 0.24, -R * 0.4, R * 0.11).fill(0x33291f)
+  g.circle(-R * 0.2, -R * 0.45, R * 0.04).fill(0xffffff)
+  g.circle(R * 0.28, -R * 0.45, R * 0.04).fill(0xffffff)
+  g.ellipse(0, -R * 0.16, R * 0.1, R * 0.08).fill(0xe79ab0) // nos
+  g.moveTo(-R * 0.14, -R * 0.06).quadraticCurveTo(0, R * 0.06, R * 0.14, -R * 0.06)
+    .stroke({ width: 2.6, color: 0x8a685a, cap: 'round' })
+  g.circle(-R * 0.46, -R * 0.1, R * 0.13).fill({ color: 0xff9ec4, alpha: 0.7 })
+  g.circle(R * 0.46, -R * 0.1, R * 0.13).fill({ color: 0xff9ec4, alpha: 0.7 })
+  for (const s of [-1, 1]) {
+    g.moveTo(s * R * 0.14, -R * 0.14).lineTo(s * R * 0.72, -R * 0.22)
+      .moveTo(s * R * 0.14, -R * 0.08).lineTo(s * R * 0.72, -R * 0.02)
+      .stroke({ width: 1.6, color: 0xb9ada0 })
+  }
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// Morot med blast.
+function makeCarrot() {
+  const c = new Container()
+  const g = new Graphics()
+  g.moveTo(-16, -14).lineTo(16, -14).lineTo(0, 32).closePath().fill(0xff8a3d)
+  for (let i = 1; i <= 3; i++) {
+    const t = i / 4
+    g.moveTo(-16 + 32 * t * 0.5 - 8 * (1 - t), -14 + 46 * t).lineTo(16 - 32 * t * 0.5 + 8 * (1 - t), -14 + 46 * t)
+      .stroke({ width: 2.4, color: 0xd9661f, alpha: 0.7 })
+  }
+  for (const [dx, rot] of [[-11, -0.5], [0, 0], [11, 0.5]]) {
+    const leaf = new Graphics()
+    leaf.ellipse(0, -14, 6, 16).fill(0x5bbf6a)
+    leaf.position.set(dx, -14)
+    leaf.rotation = rot
+    leaf.eventMode = 'none'
+    c.addChild(leaf)
+  }
+  g.eventMode = 'none'
+  c.addChildAt(g, 0)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// Guldstjärna med glans.
+function makeStar() {
+  const c = new Container()
+  const g = new Graphics()
+  const pts = []
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i / 10) * Math.PI * 2
+    const r = i % 2 ? 12 : 28
+    pts.push(Math.cos(a) * r, Math.sin(a) * r)
+  }
+  g.poly(pts).fill(0xffd24a).stroke({ width: 3, color: 0xd9a021 })
+  g.circle(-8, -8, 5).fill({ color: 0xffffff, alpha: 0.6 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
 }

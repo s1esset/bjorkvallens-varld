@@ -101,3 +101,22 @@ det någonsin blir svårt på ett bestraffande sätt.
   **jätte** (kräver en extra kram — första trycket = stor wobble + låg ton, inte en pop).
   (3) Stigande kombo-ton via `audio.tone()` — snabba pop i rad klättrar uppför en pentatonik
   och svalnar efter ~0,7s. `sfx('pop')` auto-uppgraderar till riktigt klipp när MOSS kört.
+- 2026-08-04: **Andra omgången** (errorCount 0) — mottagare, samlande och levande mål.
+  (1) **Bobo står på ängen** med egen ritad kropp och uppsträckt arm: han puffar till vid varje
+  pop, pekar uppåt vid idle-cue och hoppar högt i finishen. Markremsan är inte längre en tom
+  platta — grässtrån och blommor. Löser gate-punkt 4 (mottagare) + 5 (karaktär).
+  (2) **Gömda kompisar att samla** — en ballong per runda kan bära en vän (katt · groda · bi ·
+  uggla · anka) som syns som en *rörlig skugga inuti ballongen*, så barnet kan välja att trycka
+  just där (agens, inte tur). Den befriade vännen snurrar, seglar ner till raden bredvid Bobo och
+  **stannar kvar mellan omgångar** (`custom.vanner`). Riktigt djurläte via `audio.sample('djur_…')`.
+  Ger spelet ett mål över tid: hitta alla fem.
+  (3) **Ballonger som knuffar varandra** (billig cirkelstöt, ingen matter.js) — en pop mitt i
+  klungan får grannarna att guppa undan, så varje tryck kräver ett nytt sikte i stället för att
+  vara rekvisita på räls.
+  (4) **Egen finish** i stället för generisk konfetti: Bobo hoppar, kompisraden studsar i en
+  pentatonisk våg och en regnbågsbåge ritar sig själv över himlen.
+  (5) **P0 ASSETS-fixar:** klusterballongens miniballonger och vattenballongens droppar är nu
+  riktiga ritade föremål med egen silhuett, inte 🎈/💧-emoji.
+  (6) **Bugg:** `gsap.delayedCall` för respawn bytt mot `ctx.later()` (överlevde spelomgången);
+  den nya kompis-silhuettens oändliga tween använder proxy-mönstret så en ny runda mitt i
+  animationen inte kan skriva till en nollställd transform.

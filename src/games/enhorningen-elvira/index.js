@@ -134,6 +134,37 @@ export default {
   _buildScene(ctx) {
     this._root.addChild(createScene('candy', { width: ctx.width, height: ctx.height }))
 
+    // Bakgrunden var en nästan tom pastellyta (§3). Nu finns ett djup: svävande
+    // godis-öar med vattenfall av glitter, fjärran molnbankar och en stjärnström.
+    const back = new Graphics()
+    for (const [ix, iy, isc] of [[210, 236, 1], [520, 148, 0.66], [980, 216, 0.8], [760, 330, 0.5]]) {
+      back.ellipse(ix, iy, 96 * isc, 26 * isc).fill({ color: 0xffc4e0, alpha: 0.5 })
+      back.moveTo(ix - 92 * isc, iy).quadraticCurveTo(ix - 40 * isc, iy + 78 * isc, ix, iy + 96 * isc)
+        .quadraticCurveTo(ix + 40 * isc, iy + 78 * isc, ix + 92 * isc, iy).closePath()
+        .fill({ color: 0xe9a7c8, alpha: 0.34 })
+      back.ellipse(ix - 30 * isc, iy - 12 * isc, 40 * isc, 16 * isc).fill({ color: 0xfff0f7, alpha: 0.5 })
+      for (let k = 0; k < 3; k++) {
+        back.circle(ix - 40 * isc + k * 40 * isc, iy - 22 * isc, 12 * isc).fill({ color: 0xffffff, alpha: 0.42 })
+      }
+    }
+    for (const [cx2, cy2, cs] of [[120, 430, 1], [430, 500, 0.8], [1160, 430, 0.9]]) {
+      back.circle(cx2, cy2, 54 * cs).fill({ color: 0xffffff, alpha: 0.3 })
+      back.circle(cx2 - 44 * cs, cy2 + 12 * cs, 38 * cs).fill({ color: 0xffffff, alpha: 0.26 })
+      back.circle(cx2 + 46 * cs, cy2 + 10 * cs, 40 * cs).fill({ color: 0xffffff, alpha: 0.26 })
+    }
+    for (let i = 0; i < 26; i++) {
+      const sx = Math.random() * ctx.width
+      const sy = 40 + Math.random() * 520
+      const r = 2 + Math.random() * 4
+      back.moveTo(sx, sy - r * 2.4).quadraticCurveTo(sx + r * 0.4, sy - r * 0.5, sx + r * 2.2, sy)
+        .quadraticCurveTo(sx + r * 0.4, sy + r * 0.5, sx, sy + r * 2.4)
+        .quadraticCurveTo(sx - r * 0.4, sy + r * 0.5, sx - r * 2.2, sy)
+        .quadraticCurveTo(sx - r * 0.4, sy - r * 0.5, sx, sy - r * 2.4)
+        .fill({ color: 0xffffff, alpha: 0.5 })
+    }
+    back.eventMode = 'none'
+    this._root.addChild(back)
+
     // Osynlig fångare för tomma tryck (mjuk ring + ljud, aldrig en bestraffning).
     this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
     this._catcher.eventMode = 'static'
@@ -293,7 +324,7 @@ export default {
       let y = 380 + (gy - 380) * t + (i % 2 ? -54 : 46)
       x = clamp(x, 300, gx - 50)
       y = clamp(y, 150, 540)
-      gems.push({ x, y, icon: i % 2 ? '⭐' : '💎' })
+      gems.push({ x, y, icon: i % 2 ? 'star' : 'gem' })
     }
     return { goal: { x: gx, y: gy }, gems, cloudCount, wind }
   },
@@ -655,7 +686,9 @@ export default {
     this._gemGot++
     ctx.services.audio.sfx('magi')
     sparkle(ctx.fxLayer, g.x, g.y, { count: 8 })
-    floatText(ctx.fxLayer, g.x, g.y, g.icon, { fontSize: 56, rise: 70 })
+    // Den insamlade stenen ritas och stiger — floatText skrev tidigare ut ikon-STRÄNGEN
+    // ("gem"/"star") som text över scenen efter att emojin bytts mot ritade föremål.
+    this._floatGem(ctx, g.x, g.y, g.icon)
     g.tw?.kill()
     if (g.view && !g.view.destroyed) {
       gsap.killTweensOf(g.view.scale)
@@ -902,6 +935,26 @@ export default {
     this._returnTween?.kill()
   },
 
+  // En liten ritad kopia av den insamlade stenen som stiger och tonar bort (exit-säker).
+  // floatText skrev tidigare ut ikon-STRÄNGEN ("gem"/"star") som text över scenen efter
+  // att emojin bytts mot ritade föremål.
+  _floatGem(ctx, x, y, kind) {
+    const v = makeGem(kind)
+    v.position.set(x, y)
+    ctx.fxLayer.addChild(v)
+    const st = { y, a: 1, s: 1 }
+    const tw = gsap.to(st, {
+      y: y - 70, a: 0, s: 1.35, duration: 0.8, ease: 'power1.out',
+      onUpdate: () => {
+        if (v.destroyed) { tw.kill(); return }
+        v.y = st.y
+        v.alpha = st.a
+        v.scale.set(st.s)
+      },
+      onComplete: () => { if (!v.destroyed) v.destroy({ children: true }) },
+    })
+  },
+
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
@@ -1064,12 +1117,31 @@ function makeCloudView() {
 }
 
 // Glittrande ädelsten med mjuk gloria.
-function makeGem(icon) {
+// RITAD ädelsten/stjärna (P0 ASSETS) — var 💎/⭐-emoji.
+function makeGem(kind) {
   const c = new Container()
   const glow = new Graphics().circle(0, 0, 30).fill({ color: 0xfff3b0, alpha: 0.4 })
   glow.eventMode = 'none'
-  const t = new Text({ text: icon, style: { fontFamily: FONT.body, fontSize: 48 } })
-  t.anchor.set(0.5)
+  const t = new Graphics()
+  if (kind === 'star') {
+    const pts = []
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i / 10) * Math.PI * 2
+      const rr = i % 2 ? 10 : 23
+      pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
+    }
+    t.poly(pts).fill(0xffd24a).stroke({ width: 3, color: 0xd9a021 })
+    t.circle(-6, -7, 4).fill({ color: 0xffffff, alpha: 0.7 })
+  } else {
+    // slipad ädelsten: krona, tavla och pavillon
+    t.moveTo(-20, -8).lineTo(-11, -20).lineTo(11, -20).lineTo(20, -8).lineTo(0, 22).closePath()
+      .fill(0x57c8c3).stroke({ width: 3, color: 0x2f9c98 })
+    t.moveTo(-20, -8).lineTo(20, -8).stroke({ width: 3, color: 0x9beae7 })
+    t.moveTo(-11, -20).lineTo(-6, -8).lineTo(0, 22).moveTo(11, -20).lineTo(6, -8).lineTo(0, 22)
+      .stroke({ width: 2.5, color: 0xd6fbf9, alpha: 0.85 })
+    t.moveTo(-11, -20).lineTo(11, -20).lineTo(6, -8).lineTo(-6, -8).closePath()
+      .fill({ color: 0xd6fbf9, alpha: 0.55 })
+  }
   t.eventMode = 'none'
   c.addChild(glow, t)
   c.eventMode = 'none'
@@ -1107,8 +1179,10 @@ function makeRainbow() {
   rc.position.set(baseR - 6, 8)
   c.addChild(lc, rc)
 
-  const star = new Text({ text: '✨', style: { fontFamily: FONT.body, fontSize: 40 } })
-  star.anchor.set(0.5)
+  const star = new Graphics()
+  star.moveTo(0, -18).quadraticCurveTo(3, -4, 17, 0).quadraticCurveTo(3, 4, 0, 18)
+    .quadraticCurveTo(-3, 4, -17, 0).quadraticCurveTo(-3, -4, 0, -18).fill(0xffd24a)
+  star.circle(0, 0, 4).fill(0xfff3b0)
   star.position.set(0, -44)
   star.eventMode = 'none'
   c.addChild(star)

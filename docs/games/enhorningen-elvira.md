@@ -115,3 +115,10 @@ Allt programmatiskt, exit-säkert.
   och lämnar tillbaka kontrollen — barnet trycker Hoppa självt. Glid-bågen är kvar men FÖRST
   som sista utväg (`_tries>=3`). Städning: tog bort oanvänd `DESIGN_H`-import + oanvända
   `ctx`/`e`-params i `_loadLevel`/`_buildGems`/`_enterPlacing`/`_cloudUp`. errorCount 0.
+- 2026-08-04: **P0 ASSETS + bakgrundsdjup.** (1) Ädelstenarna och stjärnorna ritas nu (slipad
+  sten med krona/tavla/pavillon respektive tiouddig guldstjärna) i stället för 💎/⭐-emoji,
+  och regnbågens glitter är en ritad fyrudd. **Bugg i samma veva:** insamlings-effekten
+  skickade ikon-strängen till `floatText`, så efter bytet skrev spelet ut ordet "gem" som
+  text över scenen — den stigande effekten ritar nu en riktig kopia av stenen (`_floatGem`).
+  (2) Bakgrunden var en nästan tom pastellyta (§3 första punkten); nu finns djup: svävande
+  godis-öar, fjärran molnbankar och en ström av glitterstjärnor. errorCount 0.

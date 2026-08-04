@@ -97,3 +97,26 @@ garanterar att flaggan alltid nås. Räkneorden gör stapeln till en mjuk siffer
   (från misses≥2, inte ≥1) och svagare (0.0006·(m−1)); kranens auto-placering först vid
   misses≥3 (inte ≥2) → barnet får sikta helt själv de två första försöken. Barnets egen träff
   firas nu tydligt mer än en hjälpt (12 vs 5–7 gnistor; ren förstaträff = extra). errorCount 0.
+- 2026-08-04: **Andra omgången** (errorCount 0) — bygget fick ett syfte, en plats och en tyngd.
+  - **Kattungen som ska räddas** (§4 [Deep]/[Medium]): en ritad kattunge sitter på flaggans
+    avsats vid mål-höjden. När tornet når upp **hoppar den över till toppen, klättrar ner
+    våning för våning och landar hos Bobo** med riktigt kattläte (`sample('djur_katt')`).
+    Det är spelets egen slutscen — inte generisk konfetti — och ger bygget en anledning.
+  - **Byggaren Bobo** står vid foten med hjälm, hejar med armarna vid varje våning och
+    jublar extra vid räddningen. Gate-punkt 4 (mottagare) + 5 (karaktär).
+  - **Bestående stad** (§4 [Medium]): varje färdigt torn lägger till en siluett i
+    horisontens skyline (`custom.torn`, tak 14) — man river inte bara sitt bygge längre,
+    man bygger en stad som växer över omgångar.
+  - **Varierade klossar** (§4 [Quick]): `SPECS` ger fyra typer — vanlig kloss, bred **planka**
+    (250 px, träådring), **smal** (140 px) och en **trätunna** med lägre friktion som kan glida
+    en aning. Balansen blir ett riktigt val; höjden är konstant så toleranserna är oförändrade.
+  - **Tyngd-ljud + hörbar höjd** (§4 [Quick]): en låg duns vid varje landning plus en ton per
+    våning som klättrar uppför en pentatonik — man hör hur högt tornet är. Dammpuff när
+    klossen sätter sig.
+  - **Markören är vägledning, inte facit** (§4 [Quick]): spökrutan visar nu den **breda trygga
+    zonen** (1,7 × ACCEPT_DX) i stället för en exakt klossruta.
+  - **Byggarbetsplats** i stället för tom brun platta: grus, gräskant, gul-svart avspärrning
+    och en verktygslåda. Mål-flaggan är **ritad** (P0 ASSETS) i stället för 🚩-emoji.
+  - **Bugg:** alla tre `gsap.delayedCall` → `ctx.later()`. Hjälmen ritades först som en `arc()`
+    i samma Graphics som ansiktet — fyllningen drog en kil från förra punkten och täckte hela
+    ansiktet; hjälmen ligger nu i en egen Graphics.

@@ -9,13 +9,13 @@
 // en lägger kranen nästa kloss på plats själv — så tornet ALLTID når topp-flaggan, men
 // barnets egen träff är alltid det som firas mest.
 // Allt ritas programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, puff, sparkle, breathe, bigCelebration } from '../../lib/feedback.js'
-import { COLORS, PLAYFUL, FONT, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { COLORS, PLAYFUL, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const BASE_X = 640 // tornets mittlinje (nästa klossens default-läge)
@@ -50,6 +50,19 @@ const IDLE_DELAY = 6 // s utan handling → röst-recue
 const NUMBERS = ['ett', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju']
 const PLACE_LINES = ['En till!', 'Så högt!', 'Pling!', 'Wow!', 'Mer!']
 const MISS_LINES = ['Hoppsan!', 'Vi provar igen!', 'Nästan!']
+
+// Klosstyper: bredden varierar så balansen blir ett riktigt val. Höjden hålls konstant
+// (BH) så stapelns matematik och de generösa toleranserna är oförändrade.
+const SPECS = [
+  { kind: 'kloss', w: 190 },
+  { kind: 'kloss', w: 190 },
+  { kind: 'planka', w: 250 },
+  { kind: 'smal', w: 140 },
+  { kind: 'tunna', w: 170 },
+]
+
+// Stigande ton per våning — tornet får en HÖRBAR höjd (C-dur-pentatonik).
+const STOREY_TONE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66]
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const slotY = (i) => GROUND_TOP_Y - BH / 2 - i * BH
@@ -127,18 +140,60 @@ export default {
       restitution: 0,
     })
 
-    // Mark/gräs (dekor).
+    // Stadens siluett: ETT torn per färdigbyggt torn, sparat mellan omgångar. Skylinen
+    // växer alltså över tid — man river inte längre bara sitt bygge, man bygger en stad.
+    this._skyline = new Graphics()
+    this._skyline.eventMode = 'none'
+    this._root.addChild(this._skyline)
+    this._drawSkyline(ctx.progress.get().custom?.torn || 0)
+
+    // Byggarbetsplats: grus, gräskant, avspärrningsstaket och en verktygslåda —
+    // marken var tidigare en tom brun platta.
     const floor = new Graphics()
     floor.rect(0, GROUND_TOP_Y, DESIGN_W, DESIGN_H - GROUND_TOP_Y).fill(COLORS.brown)
     floor.rect(0, GROUND_TOP_Y, DESIGN_W, 16).fill(COLORS.green)
+    floor.rect(0, GROUND_TOP_Y + 16, DESIGN_W, 6).fill({ color: 0x6f452c, alpha: 0.5 })
+    for (let i = 0; i < 46; i++) {
+      const gx = Math.random() * DESIGN_W
+      const gy = GROUND_TOP_Y + 30 + Math.random() * (DESIGN_H - GROUND_TOP_Y - 40)
+      floor.ellipse(gx, gy, 4 + Math.random() * 7, 3 + Math.random() * 4).fill({ color: 0xa5714c, alpha: 0.55 })
+    }
+    // gul-svart avspärrning längs nederkanten
+    for (let x = -20; x < DESIGN_W + 20; x += 52) {
+      floor.moveTo(x, DESIGN_H - 30).lineTo(x + 26, DESIGN_H - 30).stroke({ width: 12, color: COLORS.yellow })
+      floor.moveTo(x + 26, DESIGN_H - 30).lineTo(x + 52, DESIGN_H - 30).stroke({ width: 12, color: 0x4a3526 })
+    }
+    // verktygslåda till höger
+    floor.roundRect(1090, GROUND_TOP_Y + 26, 120, 58, 10).fill(0xff8a3d)
+    floor.roundRect(1090, GROUND_TOP_Y + 26, 120, 14, 8).fill(0xffa763)
+    floor.roundRect(1132, GROUND_TOP_Y + 14, 36, 16, 8).stroke({ width: 7, color: 0x8a939b })
     floor.eventMode = 'none'
     this._root.addChild(floor)
 
-    // Mål-flagga (visar hur högt det ska byggas).
-    this._flag = new Text({ text: '🚩', style: { fontFamily: FONT.body, fontSize: 64 } })
-    this._flag.anchor.set(0.5)
+    // Mål-flagga (RITAD — visar hur högt det ska byggas) på en liten avsats.
+    this._flag = new Container()
+    const fg = new Graphics()
+    fg.roundRect(-42, 26, 84, 14, 6).fill(0x8a5a3b) // avsats som kattungen sitter på
+    fg.roundRect(-42, 26, 84, 5, 5).fill(0xa5714c)
+    fg.moveTo(0, 26).lineTo(0, -44).stroke({ width: 6, color: 0xdcb388, cap: 'round' })
+    fg.moveTo(3, -44).lineTo(52, -30).lineTo(3, -14).closePath().fill(COLORS.red)
+    fg.moveTo(3, -44).lineTo(52, -30).lineTo(3, -30).closePath().fill({ color: 0xffffff, alpha: 0.25 })
+    fg.eventMode = 'none'
+    this._flag.addChild(fg)
     this._flag.eventMode = 'none'
     this._root.addChild(this._flag)
+
+    // Kattungen som sitter fast där uppe: BYGG upp till den så den kan ta sig ner.
+    // Det ger bygget ett syfte och spelet en egen slutscen.
+    this._kitten = makeKitten()
+    this._kitten.eventMode = 'none'
+    this._root.addChild(this._kitten)
+
+    // Bobo står vid foten och hejar på varje våning.
+    this._bobo = makeBuilder()
+    this._bobo.position.set(196, GROUND_TOP_Y - 4)
+    this._root.addChild(this._bobo)
+    this._boboIdle = gsap.to(this._bobo, { y: GROUND_TOP_Y - 12, duration: 1.4, yoyo: true, repeat: -1, ease: 'sine.inOut' })
 
     // Spök-markör: lyser där nästa kloss helst ska landa (mitt på stapeln).
     this._ghost = new Graphics()
@@ -185,11 +240,21 @@ export default {
     this._phase = 'reset'
     this._goal = Math.min(4 + this._level, 7)
 
-    // Flaggan vid mål-höjden.
-    this._flag.position.set(880, slotY(this._goal - 1) - 8)
+    // Flaggan + kattungens avsats vid mål-höjden.
+    const goalY = slotY(this._goal - 1) - 8
+    this._flag.position.set(912, goalY)
     this._flag.scale.set(1)
     this._flagTween?.kill()
-    this._flagTween = gsap.to(this._flag, { y: this._flag.y - 12, duration: 1.1, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    this._flagTween = gsap.to(this._flag, { y: goalY - 10, duration: 1.1, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    // Kattungen sitter på avsatsen och väntar på att tornet ska nå upp.
+    this._kittenTw?.kill()
+    if (this._kitten && !this._kitten.destroyed) {
+      this._kitten.visible = true
+      this._kitten.scale.set(1)
+      this._kitten.rotation = 0
+      this._kitten.position.set(912, goalY + 12)
+      this._kittenTw = breathe(this._kitten, { scale: 1.05, duration: 1.3 })
+    }
 
     this._ghost.visible = true
     this._moveGhost()
@@ -209,16 +274,23 @@ export default {
     this._dropX = clamp(this._supportX, DROP_MIN_X, DROP_MAX_X)
 
     const i = this._count
-    const view = this._makeBlock(i)
+    // Första klossen är alltid en vanlig, stadig kloss (trygg bas); därefter varieras
+    // bredden så barnet får något att bedöma.
+    const spec = i === 0 ? SPECS[0] : randomFrom(SPECS)
+    this._spec = spec
+    const view = this._makeBlock(i, spec)
     view.position.set(this._dropX, READY_Y)
     this._blockLayer.addChild(view)
 
-    const body = this._phys.rectangle(this._dropX, READY_Y, BW, BH, { isStatic: true, ...BLOCK_OPTS })
+    const opts = { isStatic: true, ...BLOCK_OPTS }
+    if (spec.kind === 'tunna') { opts.friction = 0.5; opts.frictionStatic = 0.9 }
+    const body = this._phys.rectangle(this._dropX, READY_Y, spec.w, BH, opts)
     this._phys.link(body, view)
 
-    this._active = { view, body }
+    this._active = { view, body, w: spec.w }
     this._phase = 'carry'
     this._idle = 0
+    this._moveGhost()
     bounceIn(view)
   },
 
@@ -277,7 +349,14 @@ export default {
     const i = this._count
     const clean = this._misses === 0 // barnet prickade rätt på första försöket → fira extra
     ctx.services.audio.sfx((i + 1) % 4 === 0 ? 'pop' : 'pling')
+    // Tyngd + hörbar höjd: en duns som skalar med fallfarten, och en ton per våning
+    // som klättrar uppför pentatoniken — man HÖR hur högt tornet är.
+    ctx.services.audio.tone({ freq: 110, dur: 0.14, type: 'sine', vol: 0.22, slideTo: 70 })
+    ctx.services.audio.tone({ freq: STOREY_TONE[Math.min(i, STOREY_TONE.length - 1)], dur: 0.2, type: 'triangle', vol: 0.16, delay: 0.05 })
     if (!block.view.destroyed) pop(block.view)
+    // Dammpuff när den tunga klossen sätter sig.
+    puff(ctx.fxLayer, block.body.position.x, block.body.position.y + BH / 2, { count: 6, color: 0xc9a06a })
+    this._boboCheer()
     // Barnets EGEN träff firas tydligt — extra gnistor när klossen satt direkt.
     sparkle(ctx.fxLayer, block.body.position.x, block.body.position.y - BH / 2, { count: clean ? 12 : 7 })
     ctx.services.voice.say(i < NUMBERS.length ? NUMBERS[i] : randomFrom(PLACE_LINES))
@@ -306,7 +385,7 @@ export default {
     }
     this._phase = 'wait'
     const helped = this._misses >= 3
-    this._spawnCall = gsap.delayedCall(0.28, () => {
+    this._spawnCall = ctx.later(0.28, () => {
       if (!this._alive) return
       if (helped) this._autoPlace(ctx)
       else this._spawnBlock(ctx)
@@ -349,14 +428,21 @@ export default {
       return
     }
     this._moveGhost()
-    this._spawnCall = gsap.delayedCall(0.22, () => {
+    this._spawnCall = ctx.later(0.22, () => {
       if (!this._alive) return
       this._spawnBlock(ctx)
     })
   },
 
+  // Spök-markören visar en BRED trygg zon (inte en exakt klossruta) — vägledning,
+  // inte facit: det finns fortfarande en bedömning kvar för barnet.
   _moveGhost() {
     if (!this._ghost || this._ghost.destroyed) return
+    const w = ACCEPT_DX * 1.7
+    this._ghost.clear()
+      .roundRect(-w / 2, -BH / 2, w, BH, 18)
+      .fill({ color: COLORS.yellow, alpha: 0.09 })
+      .stroke({ width: 5, color: COLORS.yellow, alpha: 0.75 })
     this._ghost.position.set(this._supportX, this._stackTopY - BH / 2)
   },
 
@@ -377,22 +463,88 @@ export default {
     }
 
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say('Hurra! Vilket högt torn!')
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    ctx.services.voice.say('Hurra! Nu kan kattungen komma ner!')
     for (const b of this._placed) sparkle(ctx.fxLayer, b.body.position.x, b.body.position.y, { count: 4 })
 
     // Spara förlopp + delat firande (stjärna + klistermärke) — exakt en gång.
     this._level += 1
     ctx.progress.setLevel(this._level)
-    ctx.progress.setCustom('torn', (ctx.progress.get().custom?.torn || 0) + 1)
+    const torn = (ctx.progress.get().custom?.torn || 0) + 1
+    ctx.progress.setCustom('torn', torn)
+    this._drawSkyline(torn) // stadens siluett växer med ett torn
     ctx.progress.complete()
 
-    this._finishCall = gsap.delayedCall(2.0, () => {
+    // Spelets EGEN slutscen: kattungen hoppar över på tornet, klättrar ner våning för
+    // våning och landar hos Bobo. Bygget hade ett SYFTE.
+    this._rescueKitten(ctx)
+
+    this._finishCall = ctx.later(3.4, () => {
       if (!this._alive) return
       this._resolving = false
       this._newTower(ctx)
     })
+  },
+
+  // Kattungen tar sig ner via tornet till Bobo.
+  _rescueKitten(ctx) {
+    const k = this._kitten
+    if (!k || k.destroyed) return
+    this._kittenTw?.kill()
+    const steps = [...this._placed]
+      .sort((a, b) => a.body.position.y - b.body.position.y)
+      .map((b) => ({ x: b.body.position.x, y: b.body.position.y - BH / 2 - 22 }))
+    const st = { x: k.x, y: k.y, r: 0 }
+    const tl = gsap.timeline({
+      onUpdate: () => {
+        if (k.destroyed) return
+        k.position.set(st.x, st.y)
+        k.rotation = st.r
+      },
+    })
+    // Hoppet över från avsatsen till tornets topp.
+    if (steps.length) {
+      tl.to(st, { x: (st.x + steps[0].x) / 2, y: st.y - 46, r: -0.3, duration: 0.22, ease: 'power2.out' })
+      tl.to(st, { x: steps[0].x, y: steps[0].y, r: 0, duration: 0.24, ease: 'power2.in' })
+      tl.add(() => { if (this._alive) ctx.services.audio.sfx('pop') })
+    }
+    // Ett litet skutt per våning ner.
+    steps.slice(1).forEach((s) => {
+      tl.to(st, { x: s.x, y: s.y - 26, duration: 0.13, ease: 'power2.out' })
+      tl.to(st, { x: s.x, y: s.y, duration: 0.15, ease: 'bounce.out' })
+      tl.add(() => {
+        if (!this._alive) return
+        ctx.services.audio.tone({ freq: 440, dur: 0.08, type: 'triangle', vol: 0.12 })
+        puff(ctx.fxLayer, s.x, s.y + 20, { count: 3, color: 0xc9a06a })
+      })
+    })
+    // Sista skuttet ner till Bobo + jubel.
+    tl.to(st, { x: 300, y: GROUND_TOP_Y - 90, r: 0.4, duration: 0.26, ease: 'power2.out' })
+    tl.to(st, { x: 268, y: GROUND_TOP_Y - 24, r: 0, duration: 0.26, ease: 'power2.in' })
+    tl.add(() => {
+      if (!this._alive) return
+      if (!ctx.services.audio.sample('djur_katt')) ctx.services.audio.sfx('pling')
+      ctx.services.audio.sfx('celebrate')
+      puff(ctx.fxLayer, 268, GROUND_TOP_Y - 8, { count: 8, color: 0xc9a06a })
+      sparkle(ctx.fxLayer, 268, GROUND_TOP_Y - 52, { count: 12 })
+      bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+      this._boboCheer(true)
+      ctx.services.voice.say('Tack för hjälpen!')
+    })
+    this._kittenTw = tl
+  },
+
+  // Bobo hejar: armarna upp + ett litet hopp (dubbelt så stort vid räddningen).
+  _boboCheer(big = false) {
+    const b = this._bobo
+    if (!b || b.destroyed) return
+    pop(b, { scale: big ? 1.14 : 1.06 })
+    if (b._arms && !b._arms.destroyed) {
+      gsap.killTweensOf(b._arms)
+      gsap.to(b._arms, {
+        rotation: 0.2, duration: 0.14, yoyo: true, repeat: big ? 5 : 1, ease: 'sine.inOut',
+        onComplete: () => { if (b._arms && !b._arms.destroyed) b._arms.rotation = 0 },
+      })
+    }
   },
 
   // ---- Uppdatering --------------------------------------------------------
@@ -474,24 +626,61 @@ export default {
     }
   },
 
-  // En chunky LEGO-aktig kloss: rundad rektangel + två studs-cirklar + skuggrad.
-  _makeBlock(i) {
+  // En chunky kloss. Bredden varierar per typ (kloss/planka/smal/tunna) så balansen
+  // blir ett riktigt val — höjden är alltid BH så stapelmatematiken är oförändrad.
+  _makeBlock(i, spec = SPECS[0]) {
     const c = new Container()
     const color = PLAYFUL[i % PLAYFUL.length]
+    const w = spec.w
     const g = new Graphics()
-      .roundRect(-BW / 2, -BH / 2, BW, BH, 14)
-      .fill(color)
-      .stroke({ width: 5, color: COLORS.white, alpha: 0.7 })
+    if (spec.kind === 'tunna') {
+      // Trätunna: rundade sidor + två stålband. Lite lägre friktion = den kan glida
+      // en aning, ett hinder man kan anpassa sig runt (aldrig ett misslyckande).
+      g.roundRect(-w / 2, -BH / 2, w, BH, 22).fill(0xb98a5f).stroke({ width: 5, color: 0x8a5a3b })
+      g.roundRect(-w / 2 + 6, -BH / 2 + 5, w - 12, 10, 6).fill({ color: 0xd2a877, alpha: 0.8 })
+      for (const bx of [-w * 0.22, w * 0.22]) g.rect(bx - 5, -BH / 2, 10, BH).fill({ color: 0x8a939b, alpha: 0.85 })
+    } else if (spec.kind === 'planka') {
+      // Bred planka med träådring.
+      g.roundRect(-w / 2, -BH / 2, w, BH, 10).fill(color).stroke({ width: 5, color: COLORS.white, alpha: 0.7 })
+      for (let k = -1; k <= 1; k++) {
+        g.moveTo(-w / 2 + 16, k * 16).quadraticCurveTo(0, k * 16 + 6, w / 2 - 16, k * 16)
+          .stroke({ width: 2.5, color: darken(color, 0.25), alpha: 0.5 })
+      }
+    } else {
+      g.roundRect(-w / 2, -BH / 2, w, BH, 14).fill(color).stroke({ width: 5, color: COLORS.white, alpha: 0.7 })
+    }
     // Skuggrad nedtill (volym).
-    g.roundRect(-BW / 2 + 10, BH / 2 - 14, BW - 20, 9, 5).fill({ color: darken(color, 0.22), alpha: 0.55 })
-    // Två studs upptill (LEGO-känsla).
-    for (const sx of [-50, 50]) {
-      g.circle(sx, -BH / 2 + 9, 11).fill({ color: lighten(color, 0.3) })
+    g.roundRect(-w / 2 + 10, BH / 2 - 14, w - 20, 9, 5).fill({ color: darken(color, 0.22), alpha: 0.55 })
+    // Studs upptill (LEGO-känsla) — antal följer bredden.
+    if (spec.kind !== 'tunna') {
+      const studs = Math.max(1, Math.round(w / 95))
+      for (let s = 0; s < studs; s++) {
+        const sx = studs === 1 ? 0 : -w / 2 + 26 + (s * (w - 52)) / (studs - 1)
+        g.circle(sx, -BH / 2 + 9, 11).fill({ color: lighten(color, 0.3) })
+      }
     }
     c.addChild(g)
     c.eventMode = 'none'
     c.interactiveChildren = false
     return c
+  },
+
+  // Stadens siluett i fjärran: ett torn per färdigbyggt torn (sparat i custom.torn).
+  _drawSkyline(count) {
+    const g = this._skyline
+    if (!g || g.destroyed) return
+    g.clear()
+    const n = Math.min(14, count)
+    for (let i = 0; i < n; i++) {
+      const x = 44 + i * 88 + ((i * 37) % 17)
+      const floors = 2 + ((i * 5) % 4)
+      const w = 46 + ((i * 13) % 22)
+      const h = floors * 34
+      g.roundRect(x, GROUND_TOP_Y - h, w, h, 8).fill({ color: 0x7fb3d5, alpha: 0.42 })
+      for (let f = 0; f < floors; f++) {
+        g.rect(x + 10, GROUND_TOP_Y - h + 12 + f * 34, w - 20, 12).fill({ color: 0xfff3b0, alpha: 0.4 })
+      }
+    }
   },
 
   // ---- Städning (exit-säkert) --------------------------------------------
@@ -519,6 +708,14 @@ export default {
     this._finishCall?.kill()
     this._flagTween?.kill()
     this._ghostTween?.kill()
+    this._kittenTw?.kill()
+    this._boboIdle?.kill()
+    if (this._kitten && !this._kitten.destroyed) { gsap.killTweensOf(this._kitten); gsap.killTweensOf(this._kitten.scale) }
+    if (this._bobo && !this._bobo.destroyed) {
+      gsap.killTweensOf(this._bobo)
+      gsap.killTweensOf(this._bobo.scale)
+      if (this._bobo._arms) gsap.killTweensOf(this._bobo._arms)
+    }
 
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onCatch)
 
@@ -545,6 +742,66 @@ export default {
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// --- Ritade figurer (P0 ASSETS: egen silhuett, aldrig en emoji som hela föremålet) ---
+
+// Byggaren Bobo vid tornets fot: hjälm, kropp, armar som kan lyftas.
+function makeBuilder() {
+  const c = new Container()
+  const g = new Graphics()
+  g.ellipse(0, 4, 34, 12).fill({ color: 0x4a3526, alpha: 0.18 }) // markskugga
+  g.ellipse(-16, -8, 13, 9).fill(0xf5731e) // fötter
+  g.ellipse(16, -8, 13, 9).fill(0xf5731e)
+  g.ellipse(0, -44, 30, 34).fill(COLORS.orange) // kropp
+  g.ellipse(0, -38, 19, 20).fill({ color: COLORS.cream, alpha: 0.92 })
+  c.addChild(g)
+  const arms = new Graphics()
+  arms.moveTo(-24, -56).quadraticCurveTo(-42, -66, -46, -92).stroke({ width: 12, color: COLORS.orange, cap: 'round' })
+  arms.moveTo(24, -56).quadraticCurveTo(42, -66, 46, -92).stroke({ width: 12, color: COLORS.orange, cap: 'round' })
+  arms.circle(-46, -92, 9).fill(COLORS.cream)
+  arms.circle(46, -92, 9).fill(COLORS.cream)
+  c.addChild(arms)
+  const head = new Graphics()
+  head.circle(0, -90, 26).fill(COLORS.cream)
+  head.circle(-9, -86, 4).fill(COLORS.ink)
+  head.circle(9, -86, 4).fill(COLORS.ink)
+  head.moveTo(-10, -78).quadraticCurveTo(0, -70, 10, -78).stroke({ width: 3.5, color: COLORS.ink, cap: 'round' })
+  head.circle(-17, -78, 5).fill({ color: COLORS.pink, alpha: 0.8 })
+  head.circle(17, -78, 5).fill({ color: COLORS.pink, alpha: 0.8 })
+  c.addChild(head)
+  // Hjälmen ritas i EGEN Graphics ovanpå — en arc som fylls i samma Graphics som
+  // ansiktet drar en kil från förra punkten och lägger sig över hela ansiktet.
+  const helmet = new Graphics()
+  helmet.ellipse(0, -108, 28, 17).fill(COLORS.yellow)
+  helmet.roundRect(-33, -104, 66, 9, 4).fill(0xf5c518)
+  helmet.rect(-2, -132, 4, 24).fill(0xf5c518)
+  c.addChild(helmet)
+  c._arms = arms
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// Kattungen som väntar högst upp.
+function makeKitten() {
+  const c = new Container()
+  const g = new Graphics()
+  g.moveTo(-17, -12).lineTo(-9, -30).lineTo(0, -11).closePath().fill(0xffb15c) // öron
+  g.moveTo(17, -12).lineTo(9, -30).lineTo(0, -11).closePath().fill(0xffb15c)
+  g.ellipse(0, 12, 18, 15).fill(0xffb15c) // kropp
+  g.moveTo(15, 16).quadraticCurveTo(34, 10, 28, -8).stroke({ width: 6, color: 0xf59042, cap: 'round' }) // svans
+  g.circle(0, -6, 18).fill(0xffc888) // huvud
+  g.circle(-7, -8, 3.4).fill(COLORS.ink)
+  g.circle(7, -8, 3.4).fill(COLORS.ink)
+  g.moveTo(-3, -1).lineTo(3, -1).lineTo(0, 2).closePath().fill(0xe79ab0) // nos
+  g.moveTo(-22, -3).lineTo(-7, -1).moveTo(-22, 3).lineTo(-7, 2)
+    .moveTo(22, -3).lineTo(7, -1).moveTo(22, 3).lineTo(7, 2)
+    .stroke({ width: 1.6, color: 0xfffdf7, alpha: 0.9 })
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
 }
 
 // Normalisera vinkel till [-π, π].

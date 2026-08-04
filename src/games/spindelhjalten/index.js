@@ -764,6 +764,16 @@ export default {
     this._fanBtn.position.set(1130, 648)
     this._root.addChild(this._fanBtn)
 
+    // Ljus pill bakom vind-etiketten: mörk text mot ljus himmel/kulle var svårläst
+    // och etiketten svävade bortkopplad från knappen.
+    const windPill = new Graphics()
+      .roundRect(-64, -26, 128, 52, 26)
+      .fill({ color: 0xfffdf7, alpha: 0.92 })
+      .stroke({ width: 3, color: 0x000000, alpha: 0.08 })
+    windPill.position.set(1130, 566)
+    windPill.eventMode = 'none'
+    this._root.addChild(windPill)
+
     this._windArrow = new Text({
       text: 'Av',
       style: { fontFamily: FONT.title, fontSize: 40, fontWeight: '800', fill: COLORS.ink, align: 'center' },
@@ -978,8 +988,17 @@ function makeStar(r = 30) {
   const c = new Container()
   const glow = new Graphics().circle(0, 0, r * 1.5).fill({ color: 0xffe27a, alpha: 0.28 })
   glow.eventMode = 'none'
-  const e = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: r * 2 } })
-  e.anchor.set(0.5)
+  // RITAD stjärna (P0 ASSETS) — var en ⭐-emoji.
+  const e = new Graphics()
+  const pts = []
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i / 10) * Math.PI * 2
+    const rr = i % 2 ? r * 0.44 : r
+    pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
+  }
+  e.poly(pts).fill(0xffd24a).stroke({ width: r * 0.1, color: 0xd9a021 })
+  e.circle(-r * 0.28, -r * 0.3, r * 0.16).fill({ color: 0xffffff, alpha: 0.65 })
+  e.eventMode = 'none'
   c.addChild(glow, e)
   return c
 }
@@ -995,8 +1014,32 @@ function makeKitten() {
   ledge.roundRect(-58, 24, 116, 26, 14).fill(0xffffff)
   ledge.roundRect(-58, 24, 116, 10, 14).fill({ color: 0xdfeefc, alpha: 0.8 })
   ledge.eventMode = 'none'
-  const cat = new Text({ text: '🐱', style: { fontFamily: FONT.body, fontSize: 72 } })
-  cat.anchor.set(0.5)
+  // RITAD kattunge (P0 ASSETS) — var en 🐱-emoji.
+  const cat = new Container()
+  const cg = new Graphics()
+  const R = 30
+  cg.moveTo(-R * 0.62, -R * 0.4).lineTo(-R * 0.34, -R * 1.06).lineTo(-R * 0.04, -R * 0.42).closePath().fill(0xffb15c)
+  cg.moveTo(R * 0.62, -R * 0.4).lineTo(R * 0.34, -R * 1.06).lineTo(R * 0.04, -R * 0.42).closePath().fill(0xffb15c)
+  cg.moveTo(-R * 0.5, -R * 0.48).lineTo(-R * 0.34, -R * 0.88).lineTo(-R * 0.16, -R * 0.5).closePath().fill(0xf6c2d3)
+  cg.moveTo(R * 0.5, -R * 0.48).lineTo(R * 0.34, -R * 0.88).lineTo(R * 0.16, -R * 0.5).closePath().fill(0xf6c2d3)
+  cg.ellipse(0, R * 0.52, R * 0.6, R * 0.5).fill(0xffb15c) // kropp
+  cg.moveTo(R * 0.5, R * 0.62).quadraticCurveTo(R * 1.12, R * 0.38, R * 0.92, -R * 0.2)
+    .stroke({ width: R * 0.2, color: 0xf59042, cap: 'round' }) // svans
+  cg.circle(0, -R * 0.12, R * 0.66).fill(0xffc888) // huvud
+  cg.circle(-R * 0.26, -R * 0.18, R * 0.12).fill(0x33291f)
+  cg.circle(R * 0.26, -R * 0.18, R * 0.12).fill(0x33291f)
+  cg.circle(-R * 0.21, -R * 0.24, R * 0.05).fill(0xffffff)
+  cg.circle(R * 0.31, -R * 0.24, R * 0.05).fill(0xffffff)
+  cg.moveTo(-R * 0.1, R * 0.02).lineTo(R * 0.1, R * 0.02).lineTo(0, R * 0.14).closePath().fill(0xe79ab0)
+  cg.moveTo(-R * 0.06, R * 0.14).quadraticCurveTo(-R * 0.2, R * 0.26, -R * 0.3, R * 0.16)
+    .moveTo(R * 0.06, R * 0.14).quadraticCurveTo(R * 0.2, R * 0.26, R * 0.3, R * 0.16)
+    .stroke({ width: 3, color: 0x8a5a3b, cap: 'round' })
+  cg.circle(-R * 0.44, R * 0.06, R * 0.14).fill({ color: 0xff9ec4, alpha: 0.7 })
+  cg.circle(R * 0.44, R * 0.06, R * 0.14).fill({ color: 0xff9ec4, alpha: 0.7 })
+  cg.eventMode = 'none'
+  cat.addChild(cg)
+  cat.eventMode = 'none'
+  cat.interactiveChildren = false
   cat.y = -8
   // Bur (galler) framför kattungen.
   const cage = new Container()

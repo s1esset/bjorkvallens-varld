@@ -120,3 +120,9 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   (`audio.tone`, +130 Hz/steg) med en `×N`-flyttext, och en liten självstädande gnistsvans
   ritar hjältens flygbana. Kombot nollas vid varje nytt skott/glid. Alla nya tweens är
   exit-säkra (proxy-`{}` eller spårade i destroy). Ingen fail-state rörd; hjälp-trappan intakt.
+- 2026-08-04: **P0 ASSETS + läsbarhet.** (1) Stjärnorna ritas nu (tio hörn, guldkant, glansprick)
+  i stället för ⭐-emoji, och den instängda **kattungen ritas** (öron med rosa insida, svans,
+  nos, morrhår, kinder) i stället för 🐱 — buren och räddningsanimationen var redan på plats,
+  men själva figuren var en emoji. (2) Vind-etiketten ("Av/→/←") var mörk text direkt mot
+  himmel/kulle och svävade bortkopplad från knappen; den har nu en ljus pill bakom sig.
+  errorCount 0.

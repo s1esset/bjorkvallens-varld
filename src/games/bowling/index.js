@@ -33,7 +33,13 @@ const BALL_START = { x: 640, y: 600 }
 const BALL_FA = 0.012 // klotets frictionAir -> previewDamp = 1 - BALL_FA
 const PIN_R = 26 // kägel-kroppens radie (mindre än emojin, men välter realistiskt)
 const KNOCK_DIST = 38 // förskjutning (px) innan en kägla räknas som vält
-const BOBO_POS = { x: 150, y: 612 }
+const STRIKE_SAY = [
+  'Bravo! Alla käglor!',
+  'Hurra! Alla käglor!',
+  'Toppen! Alla käglor!',
+  'Wow! Alla käglor!',
+]
+const BOBO_POS = { x: 150, y: 540 }
 
 export default {
   id: 'bowling',
@@ -200,7 +206,23 @@ export default {
     this._root.addChild(this._bumperBtn)
 
     // Maskoten Bobo nere till vänster (hejar/jublar).
-    this._bobo = makeMascot(58)
+    // Bobo hade bara ett svävande huvud i hörnet. Nu står han med ritad kropp och
+    // hejar på kastet.
+    this._bobo = new Container()
+    const bbody = new Graphics()
+    bbody.ellipse(0, 122, 36, 11).fill({ color: 0x000000, alpha: 0.16 })
+    bbody.ellipse(-18, 112, 15, 9).fill(COLORS.orangeDark)
+    bbody.ellipse(18, 112, 15, 9).fill(COLORS.orangeDark)
+    bbody.ellipse(0, 70, 38, 44).fill(COLORS.orange)
+    bbody.ellipse(0, 76, 24, 24).fill({ color: COLORS.cream, alpha: 0.92 })
+    bbody.moveTo(-30, 52).quadraticCurveTo(-52, 40, -56, 10).stroke({ width: 14, color: COLORS.orange, cap: 'round' })
+    bbody.moveTo(30, 52).quadraticCurveTo(52, 40, 56, 10).stroke({ width: 14, color: COLORS.orange, cap: 'round' })
+    bbody.circle(-56, 10, 11).fill(COLORS.cream)
+    bbody.circle(56, 10, 11).fill(COLORS.cream)
+    bbody.eventMode = 'none'
+    this._bobo.addChild(bbody)
+    this._bobo.addChild(makeMascot(58))
+    this._bobo.interactiveChildren = false
     this._bobo.position.set(BOBO_POS.x, BOBO_POS.y)
     this._root.addChild(this._bobo)
   },
@@ -335,8 +357,9 @@ export default {
       const row = Math.floor(i / perRow)
       const inRow = Math.min(perRow, total - row * perRow)
       const col = i % perRow
-      const d = new Text({ text: '🎳', style: { fontFamily: FONT.body, fontSize: 30 } })
-      d.anchor.set(0.5)
+      // RITAD mini-kägla i poängraden (P0 ASSETS) — var en 🎳-emoji.
+      const d = makePin()
+      d.scale.set(0.42)
       d.position.set((col - (inRow - 1) / 2) * gap, row * rowGap)
       d.eventMode = 'none'
       d.alpha = this._pins[i].down ? 0.26 : 1
@@ -509,7 +532,9 @@ export default {
 
     ctx.services.audio.sfx('correct')
     ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE) + ' Alla käglor!')
+    // Hela repliken som literal (inte konkatenerad) så check.mjs hittar den och /rost
+    // kan generera ett klipp.
+    ctx.services.voice.say(randomFrom(STRIKE_SAY))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, 640, 300, { count: 18 })
     this._boboJump()
@@ -647,13 +672,27 @@ function makeBall() {
   return c
 }
 
-// En kägla: mjuk skuggellips + 🎳 emoji. Containern roteras av matter-länken när den välts.
-function makePin() {
+// En RITAD kägla (P0 ASSETS): flaskform med halsband och glans. 🎳-emojin visade
+// dessutom en boll OCH käglor i varje "kägla" — helt fel föremål.
+// Containern roteras av matter-länken när den välts.
+export function makePin() {
   const c = new Container()
-  const shadow = new Graphics().ellipse(0, 28, 24, 10).fill({ color: 0x000000, alpha: 0.16 })
+  const shadow = new Graphics().ellipse(0, 30, 22, 9).fill({ color: 0x000000, alpha: 0.16 })
   shadow.eventMode = 'none'
-  const e = new Text({ text: '🎳', style: { fontFamily: FONT.body, fontSize: 72 } })
-  e.anchor.set(0.5)
+  const e = new Graphics()
+  e.moveTo(-9, -30)
+    .quadraticCurveTo(-13, -18, -8, -10)
+    .quadraticCurveTo(-22, 4, -16, 20)
+    .quadraticCurveTo(-14, 28, 0, 28)
+    .quadraticCurveTo(14, 28, 16, 20)
+    .quadraticCurveTo(22, 4, 8, -10)
+    .quadraticCurveTo(13, -18, 9, -30)
+    .quadraticCurveTo(0, -35, -9, -30)
+    .fill(0xfffdf7)
+    .stroke({ width: 2.5, color: 0xd8d2c6 })
+  e.moveTo(-11, -6).quadraticCurveTo(0, -2, 11, -6).stroke({ width: 5, color: 0xff6b6b })
+  e.moveTo(-12, 2).quadraticCurveTo(0, 6, 12, 2).stroke({ width: 5, color: 0xff6b6b })
+  e.moveTo(-8, -24).quadraticCurveTo(-12, -8, -9, 6).stroke({ width: 3, color: 0xffffff, alpha: 0.85 })
   e.eventMode = 'none'
   c.addChild(shadow, e)
   c.eventMode = 'none'

@@ -127,3 +127,10 @@ auto-hjälpen gör siktet kosmetiskt**.
   klunga). Vindpust-/knuff-backstopet träder in FÖRST efter andra kastet (`_throws>=2`), så
   bra sikte = strike på första, svagt sikte = fortfarande lyckat efter ett kast till. No-fail
   intakt. Verifierat: drag-test lämnade käglor kvar (siktet betyder nu något), errorCount 0.
+- 2026-08-04: **P0 ASSETS + två fixar.** (1) Käglorna var 🎳-emoji, som visar en boll OCH
+  käglor i varje "kägla" — helt fel föremål; de ritas nu som riktiga käglor (flaskform,
+  två röda halsband, glansstrimma), både på banan och i poängraden. (2) Bobo hade bara ett
+  svävande huvud i hörnet — han har nu ritad kropp, fötter och armar och står på golvet.
+  (3) Strike-repliken var konkatenerad (`randomFrom(PRAISE) + ' Alla käglor!'`) så
+  `check.mjs` inte kunde hitta den och `/rost` aldrig kunde klippa den; den är nu fyra hela
+  literaler i `STRIKE_SAY`. errorCount 0.

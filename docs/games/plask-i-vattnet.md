@@ -114,3 +114,21 @@ garanterar minst 2 av varje så mönstret framträder över tid.
     för sjunkare; mjuk ton-fallback om klippet ännu inte avkodats.
   - Testat drag (6 släpp → firande) + tap-tap-gissning; båda errorCount 0, skärmdumpar
     bekräftar flyt/sjunk, ifyllda loggar (även efter sessions-omstart) och gissningsbubblan.
+- 2026-08-04: **Andra omgången** (errorCount 0) — spelet såg ut som en emoji-hylla; nu är det
+  en riktig scen med riktiga föremål.
+  - **P0 ASSETS — alla 16 föremål ritas** (`makeThing`): gummianka med öga och näbb, löv med
+    nerver, trästock med årsringar, livboj, segelbåt med skrov/mast/två segel, äpple, kork,
+    fotboll · sten, nyckel, sked, mynt, ankare, skruv, hammare, kugghjul. Även upptäckts-loggens
+    miniatyrer och gissningsknapparnas pilar är ritade. **Noll emoji-rekvisita kvar.**
+    Sparformatet bytte från emoji till ascii-`kind`; gamla sparposter filtreras bort tyst.
+  - **Riktig miljö** i stället för platt cremeplatta: ljus rumsbakgrund med fönstervy,
+    **trähyllor** som sakerna faktiskt ligger på (de svävade förut i luften), och ett **bord**
+    som tanken står på.
+  - **En invånare i tanken** (§4 [Deep]): en ritad fisk som simmar omkring, **flyr undan när
+    något plaskar i**, och nosar nyfiket på det som sjunkit till botten. Den ersätter också
+    firandets emoji-fisk — nu är det tankens EGEN fisk som hoppar i en båge upp ur vattnet
+    och plaskar ner (spelspecifik finish).
+  - **Trycka ner en flytare** (§4 [Quick]): ett tryck rakt på något som flyter trycker ner det
+    under ytan så det studsar upp igen med plask och ringar — agens på det som redan flyter.
+  - **Bugg:** `gsap.delayedCall` för nästa runda → `ctx.later()`; `_logIcons` nollställs i
+    `destroy` så listan inte växer över spelomgångar.

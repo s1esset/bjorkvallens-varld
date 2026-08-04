@@ -70,15 +70,15 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ HELA fliken (första-omgång, 2026-07-01)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
-| 4 | Poppa Ballongerna | `poppa-ballonger` | tap | 🔧 |
-| 10 | Klappa Mullvaden | `klappa-mullvaden` | tap | 🔧 |
-| 19 | Plask i Vattnet | `plask-i-vattnet` | drag | 🔧 |
-| 23 | Bygg Tornet | `bygg-tornet` | tap | 🔧 |
-| 24 | Rulla Bollen Hem | `rulla-bollen-hem` | drag | 🔧 |
-| 26 | Spåra Linjen | `spara-linjen` | drag | 🔧 |
-| 29 | Studsbollar | `studsbollar` | mixed | 🔧 |
-| 31 | Studsa Ner | `studsa-ner` | mixed | 🔧 |
-| 33 | Fånga Frukten | `fanga-frukten` | drag | 🔧 |
+| 4 | Poppa Ballongerna | `poppa-ballonger` | tap | ✅ |
+| 10 | Klappa Mullvaden | `klappa-mullvaden` | tap | ✅ |
+| 19 | Plask i Vattnet | `plask-i-vattnet` | drag | ✅ |
+| 23 | Bygg Tornet | `bygg-tornet` | tap | ✅ |
+| 24 | Rulla Bollen Hem | `rulla-bollen-hem` | drag | ✅ |
+| 26 | Spåra Linjen | `spara-linjen` | drag | ✅ |
+| 29 | Studsbollar | `studsbollar` | mixed | ✅ |
+| 31 | Studsa Ner | `studsa-ner` | mixed | ✅ |
+| 33 | Fånga Frukten | `fanga-frukten` | drag | ✅ |
 | 34 | Vippbrädan | `vippbradan` | tap | 🔧 |
 | 35 | Domino | `domino` | mixed | 🔧 |
 | 36 | Studsmatta | `studsmatta` | mixed | 🔧 |

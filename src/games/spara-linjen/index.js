@@ -18,11 +18,11 @@
 // OBS: DragController passar inte här (den snäpper föremål till mål). Spårningen är en
 // egen pekar-lyssnare på själva ritytan, men följer samma snäll-principer (stora
 // träffytor, tap-tap-fallback, snäll respons på varje pekning).
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { bounceIn, pop, wiggle, sparkle, bigCelebration } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { COLORS, FONT, PLAYFUL, PRAISE } from '../../lib/theme.js'
+import { COLORS, PLAYFUL, PRAISE } from '../../lib/theme.js'
 
 // Layout i designkoordinater (1280×720).
 const PAPER = { x: 120, y: 130, w: 1040, h: 520, r: 40 }
@@ -130,6 +130,112 @@ function genStar(B) {
   })
   return [0, 2, 4, 1, 3, 0].map((k) => outer[k])
 }
+// ---- MOTIV: prickarna bildar en BILD ---------------------------------------
+// Det viktigaste lyftet i spelet: i stället för en abstrakt form spårar barnet
+// konturen av något — ett berg, ett hus, en fisk — och när linjen sluts fylls
+// motivet med färg och får ögon och ett leende. Man ritar NÅGOT.
+// Koordinater är normaliserade i [-1, 1] och skalas in i MOTIF_BOX.
+const MOTIF_BOX = { cx: 640, cy: 400, w: 580, h: 300 }
+
+const MOTIFS = [
+  {
+    key: 'berg', say: 'Titta, ett berg!', close: 'base',
+    pts: [[-1, 0.9], [-0.56, -0.15], [-0.2, 0.35], [0.16, -0.85], [0.62, 0.2], [1, 0.9]],
+    eyes: [[-0.3, 0.45], [0.06, 0.45]], mouth: [-0.12, 0.66],
+    detail: (g, P, col) => {
+      // snötopp på den höga toppen
+      g.moveTo(...P(-0.02, -0.4)).lineTo(...P(0.16, -0.85)).lineTo(...P(0.34, -0.4))
+        .quadraticCurveTo(...P(0.16, -0.24), ...P(-0.02, -0.4)).fill(0xfffdf7)
+    },
+  },
+  {
+    key: 'hus', say: 'Titta, ett hus!', close: 'polygon',
+    pts: [[-0.82, 0.9], [-0.82, -0.08], [0, -0.9], [0.82, -0.08], [0.82, 0.9], [-0.3, 0.9]],
+    eyes: null, mouth: null,
+    detail: (g, P, col) => {
+      g.rect(...P(-0.2, 0.1), 0.4 * MOTIF_BOX.w / 2, 0.8 * MOTIF_BOX.h / 2).fill(0x8a5a3b) // dörr
+      g.circle(...P(-0.06, 0.5), 7).fill(0xffd35c)
+      g.rect(...P(-0.62, 0.06), 0.28 * MOTIF_BOX.w / 2, 0.34 * MOTIF_BOX.h / 2).fill(0xbfe9ff) // fönster
+      g.rect(...P(0.34, 0.06), 0.28 * MOTIF_BOX.w / 2, 0.34 * MOTIF_BOX.h / 2).fill(0xbfe9ff)
+    },
+  },
+  {
+    key: 'fisk', say: 'Titta, en fisk!', close: 'polygon',
+    pts: [[-0.9, 0], [-0.35, -0.55], [0.3, -0.45], [0.72, -0.75], [0.72, 0.75], [0.3, 0.45], [-0.35, 0.55]],
+    eyes: [[-0.52, -0.16]], mouth: [-0.78, 0.1],
+  },
+  {
+    key: 'hjarta', say: 'Titta, ett hjärta!', close: 'polygon',
+    pts: [[0, 0.92], [-0.86, 0.02], [-0.76, -0.62], [-0.3, -0.78], [0, -0.36], [0.3, -0.78], [0.76, -0.62], [0.86, 0.02]],
+    eyes: [[-0.28, -0.1], [0.28, -0.1]], mouth: [0, 0.2],
+  },
+  {
+    key: 'moln', say: 'Titta, ett moln!', close: 'base',
+    pts: [[-0.95, 0.55], [-0.78, -0.18], [-0.32, -0.6], [0.2, -0.75], [0.66, -0.38], [0.95, 0.1], [0.95, 0.55]],
+    eyes: [[-0.26, -0.02], [0.14, -0.02]], mouth: [-0.06, 0.24],
+  },
+  {
+    key: 'katt', say: 'Titta, en katt!', close: 'polygon',
+    pts: [[-0.76, -0.2], [-0.56, -0.92], [-0.2, -0.52], [0.2, -0.52], [0.56, -0.92], [0.76, -0.2], [0.52, 0.7], [-0.52, 0.7]],
+    eyes: [[-0.3, -0.1], [0.3, -0.1]], mouth: [0, 0.3],
+    detail: (g, P, col) => {
+      g.moveTo(...P(-0.1, 0.16)).lineTo(...P(0.1, 0.16)).lineTo(...P(0, 0.3)).closePath().fill(0xe79ab0) // nos
+      for (const s of [-1, 1]) {
+        g.moveTo(...P(s * 0.16, 0.24)).lineTo(...P(s * 0.68, 0.14))
+          .moveTo(...P(s * 0.16, 0.34)).lineTo(...P(s * 0.68, 0.4))
+          .stroke({ width: 3, color: 0xfffdf7, alpha: 0.9 })
+      }
+    },
+  },
+  {
+    key: 'blomma', say: 'Titta, en blomma!', close: 'polygon',
+    pts: (() => {
+      const out = []
+      for (let k = 0; k < 5; k++) {
+        const a = -Math.PI / 2 + (k / 5) * Math.PI * 2
+        const b = a + Math.PI / 5
+        out.push([Math.cos(a), Math.sin(a)])
+        out.push([Math.cos(b) * 0.42, Math.sin(b) * 0.42])
+      }
+      return out
+    })(),
+    eyes: [[-0.18, -0.06], [0.18, -0.06]], mouth: [0, 0.16],
+  },
+  {
+    key: 'stjarna', say: 'Titta, en stjärna!', close: 'polygon',
+    pts: [0, 2, 4, 1, 3].map((k) => {
+      const a = -Math.PI / 2 + (k * 2 * Math.PI) / 5
+      return [Math.cos(a), Math.sin(a)]
+    }),
+    eyes: [[-0.2, -0.04], [0.2, -0.04]], mouth: [0, 0.2],
+  },
+]
+
+// Skala normaliserade motiv-punkter till designkoordinater.
+function motifPoints(m) {
+  const B = MOTIF_BOX
+  return m.pts.map(([x, y]) => ({ x: B.cx + x * (B.w / 2), y: B.cy + y * (B.h / 2) }))
+}
+
+// Rita en tecknad penna (ersätter ✏️-emojin). Spetsen pekar nedåt-vänster.
+function makePencil() {
+  const c = new Container()
+  const g = new Graphics()
+  g.moveTo(-26, 26).lineTo(-14, 8).lineTo(-2, 20).closePath().fill(0xf0d0a8) // träspets
+  g.moveTo(-26, 26).lineTo(-19, 17).lineTo(-14, 22).closePath().fill(0x33291f) // stift
+  g.moveTo(-14, 8).lineTo(-2, 20).lineTo(18, -6).lineTo(6, -18).closePath().fill(0xffa63d) // kropp
+  g.moveTo(-8, 14).lineTo(12, -12).stroke({ width: 2, color: 0xe07f16, alpha: 0.7 })
+  g.moveTo(6, -18).lineTo(18, -6).lineTo(24, -12).lineTo(12, -24).closePath().fill(0xb8c2ca) // hylsa
+  g.moveTo(12, -24).lineTo(24, -12).lineTo(30, -18).lineTo(18, -30).closePath().fill(0xff9ec4) // suddgummi
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// Stigande pentatonik: varje tänd prick spelar nästa ton -> linjen blir en melodi.
+const MELODY = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760]
+
 // Lägg in `extra` mellanprickar på varje segment (gör en form tätare/svårare).
 function subdivide(points, extra) {
   if (!extra) return points
@@ -177,6 +283,11 @@ export default {
     this._paper.cursor = 'pointer'
     this._root.addChild(this._paper)
 
+    // Motiv-siluett: blek kontur av det man ska rita (fylls vid completion).
+    this._silhouette = new Graphics()
+    this._silhouette.eventMode = 'none'
+    this._root.addChild(this._silhouette)
+
     // Färglagt spår (under prickarna).
     this._ink = new Graphics()
     this._ink.eventMode = 'none'
@@ -188,10 +299,8 @@ export default {
     this._dotsLayer.interactiveChildren = false
     this._root.addChild(this._dotsLayer)
 
-    // ✏️-pennspets (ovanpå allt).
-    this._pencil = new Text({ text: '✏️', style: { fontFamily: FONT.body, fontSize: 64 } })
-    this._pencil.anchor.set(0.5)
-    this._pencil.eventMode = 'none'
+    // Ritad pennspets (ovanpå allt) — P0 ASSETS: eget föremål, inte en ✏️-emoji.
+    this._pencil = makePencil()
     this._root.addChild(this._pencil)
 
     // Pekar-lyssnare på ritytan (drag OCH tap-tap går genom samma _checkPoint).
@@ -232,11 +341,23 @@ export default {
       }
     }
     this._dotsLayer.removeChildren().forEach((d) => d.destroy())
+    gsap.killTweensOf(this._dotsLayer)
+    this._dotsLayer.alpha = 1
     this._ink.clear()
+    if (this._silhouette && !this._silhouette.destroyed) {
+      gsap.killTweensOf(this._silhouette.scale)
+      this._silhouette.clear()
+      this._silhouette.scale.set(1)
+      this._silhouette.pivot.set(0, 0)
+      this._silhouette.position.set(0, 0)
+    }
 
-    // Ny form (svårare ju högre nivå) + slumpfärg.
+    // Ny form (svårare ju högre nivå) + slumpfärg. Är det ett MOTIV ritas en blek
+    // kontur bakom prickarna så barnet ser vad det ska bli.
     this._color = randomFrom(PLAYFUL)
-    const points = this._genShape()
+    const { points, motif } = this._genShape()
+    this._motif = motif || null
+    this._drawSilhouette()
 
     this._dots = []
     this._next = 0
@@ -256,46 +377,112 @@ export default {
 
     // Pennspets vid första pricken; pulsa nästa otända prick som inbjudan.
     const first = this._dots[0]
-    this._pencil.position.set(first.x, first.y - 6)
+    this._pencil.position.set(first.x + 20, first.y - 22)
     this._pencil.visible = true
     this._pulseNext()
   },
 
-  // Väljer form utifrån nivå (this._round). Tidigt = lätt; sent = avancerat/tätt.
+  // Väljer form utifrån nivå (this._round). Tidigt = lätt; sedan varvas MOTIV in så att
+  // varannan runda blir en riktig bild att rita. Returnerar { points, motif }.
   _genShape() {
     const r = this._round
     const B = BOX
-    // Stigande svårighetsplan (en form per nivå de första rundorna).
+    // Stigande svårighetsplan: två uppvärmningsformer, sedan motiv varvat med kurvor.
     const plan = [
-      () => genLine(4, B),
-      () => genDiagonal(4, B),
-      () => genWave(5, B, 1, 110),
-      () => genArch(5, B, false),
-      () => genZigzag(5, B),
-      () => genArch(6, B, true),
-      () => genWave(6, B, 1.5, 120),
-      () => genStairs(7, B),
-      () => genTriangle(B),
-      () => genZigzag(7, B),
-      () => genWave(7, B, 2, 130),
-      () => genSquare(B),
-      () => genSpiral(8, B),
-      () => genStar(B),
+      () => ({ points: genLine(4, B) }),
+      () => ({ points: genDiagonal(4, B) }),
+      () => this._motifShape('berg'),
+      () => ({ points: genWave(5, B, 1, 110) }),
+      () => this._motifShape('hus'),
+      () => ({ points: genArch(5, B, false) }),
+      () => this._motifShape('moln'),
+      () => ({ points: genZigzag(5, B) }),
+      () => this._motifShape('fisk'),
+      () => ({ points: genStairs(7, B) }),
+      () => this._motifShape('hjarta'),
+      () => ({ points: genWave(7, B, 2, 130) }),
+      () => this._motifShape('katt'),
+      () => ({ points: genSpiral(8, B) }),
+      () => this._motifShape('stjarna'),
+      () => ({ points: genTriangle(B) }),
+      () => this._motifShape('blomma'),
+      () => ({ points: genSquare(B) }),
     ]
     if (r < plan.length) return plan[r]()
 
-    // Bortom planen: oändlig lek med slumpade avancerade former som blir tätare.
-    const extra = Math.min(3, 1 + Math.floor((r - plan.length) / 3))
+    // Bortom planen: oändlig lek. Övervägande motiv (det är dem barnet vill rita),
+    // ibland en tätare kurva som handträning.
+    const extra = Math.min(3, 1 + Math.floor((r - plan.length) / 4))
+    if (Math.random() < 0.65) return this._motifShape(randomFrom(MOTIFS).key)
     const advanced = [
-      () => genWave(7 + extra, B, 2 + Math.random(), 120 + Math.random() * 20),
-      () => genZigzag(7 + extra, B),
-      () => genSpiral(8 + extra, B),
-      () => subdivide(genStar(B), 1),
-      () => subdivide(genSquare(B), extra),
-      () => subdivide(genTriangle(B), extra),
-      () => genStairs(7 + extra, B),
+      () => ({ points: genWave(7 + extra, B, 2 + Math.random(), 120 + Math.random() * 20) }),
+      () => ({ points: genZigzag(7 + extra, B) }),
+      () => ({ points: genSpiral(8 + extra, B) }),
+      () => ({ points: subdivide(genSquare(B), extra) }),
+      () => ({ points: genStairs(7 + extra, B) }),
     ]
     return randomFrom(advanced)()
+  },
+
+  _motifShape(key) {
+    const m = MOTIFS.find((x) => x.key === key) || MOTIFS[0]
+    return { points: motifPoints(m), motif: m }
+  },
+
+  // Blek konturskiss av motivet bakom prickarna — barnet SER vad det ska bli.
+  _drawSilhouette() {
+    const g = this._silhouette
+    if (!g || g.destroyed) return
+    g.clear()
+    const m = this._motif
+    if (!m) return
+    const pts = motifPoints(m)
+    g.moveTo(pts[0].x, pts[0].y)
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y)
+    if (m.close === 'polygon') g.closePath()
+    g.fill({ color: this._color, alpha: 0.07 })
+    g.stroke({ width: 6, color: this._color, alpha: 0.22 })
+  },
+
+  // Motivet vaknar: konturen fylls med färg, får ögon och ett leende, och hoppar till.
+  _revealMotif(ctx) {
+    const m = this._motif
+    const g = this._silhouette
+    if (!m || !g || g.destroyed) return
+    const B = MOTIF_BOX
+    const P = (x, y) => [B.cx + x * (B.w / 2), B.cy + y * (B.h / 2)]
+    const pts = motifPoints(m)
+    g.clear()
+    g.moveTo(pts[0].x, pts[0].y)
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y)
+    if (m.close === 'polygon') g.closePath()
+    g.fill(this._color)
+    m.detail?.(g, P, this._color)
+    // ögon + leende
+    for (const [ex, ey] of m.eyes || []) {
+      const [px, py] = P(ex, ey)
+      g.ellipse(px, py, 15, 18).fill(0xfffdf7)
+      g.circle(px + 2, py + 2, 7).fill(0x33291f)
+      g.circle(px - 1, py - 3, 3).fill(0xfffdf7)
+    }
+    if (m.mouth) {
+      const [mx, my] = P(m.mouth[0], m.mouth[1])
+      g.moveTo(mx - 16, my).quadraticCurveTo(mx, my + 18, mx + 16, my)
+        .stroke({ width: 5, color: 0x33291f, cap: 'round' })
+    }
+    // hoppa till av glädje (proxy-tween via scale på en pivot i motivets mitt)
+    g.pivot.set(B.cx, B.cy)
+    g.position.set(B.cx, B.cy)
+    gsap.killTweensOf(g.scale)
+    gsap.fromTo(g.scale, { x: 0.86, y: 0.86 }, { x: 1, y: 1, duration: 0.6, ease: 'elastic.out(1,0.5)' })
+    // Prickarna var bara vägvisare — nu när bilden är klar tonar de bort så motivet
+    // syns rent (annars ligger de mitt i ansiktet på figuren).
+    if (this._dotsLayer && !this._dotsLayer.destroyed) {
+      gsap.killTweensOf(this._dotsLayer)
+      gsap.to(this._dotsLayer, { alpha: 0, duration: 0.5, delay: 0.55 })
+    }
+    ctx.services.voice.say(m.say)
+    sparkle(ctx.fxLayer, B.cx, B.cy, { count: 14 })
   },
 
   _makeDot(x, y) {
@@ -392,8 +579,13 @@ export default {
       .stroke({ width: 4, color: COLORS.white, alpha: 0.85 })
     this._litCount++
     ctx.services.audio.sfx(this._litCount % 3 === 0 ? 'pop' : 'pling')
+    // Stigande melodi: varje tänd prick spelar nästa ton i en pentatonisk slinga, så
+    // en färdig linje låter som en liten låt i stället för samma blipp gång på gång.
+    ctx.services.audio.tone({ freq: MELODY[(this._litCount - 1) % MELODY.length], dur: 0.18, type: 'triangle', vol: 0.16 })
     pop(d)
     sparkle(ctx.fxLayer, d.x, d.y)
+    // Kritdamm från pennspetsen.
+    for (let k = 0; k < 4; k++) sparkle(ctx.fxLayer, d.x + (Math.random() * 30 - 15), d.y + (Math.random() * 20 - 10), { count: 1 })
   },
 
   // Efter att en prick tänts: rita spåret, flytta pennan, kolla klart.
@@ -402,7 +594,7 @@ export default {
     const last = this._dots[this._next - 1]
     if (last && this._pencil && !this._pencil.destroyed) {
       gsap.killTweensOf(this._pencil)
-      gsap.to(this._pencil, { x: last.x, y: last.y - 6, duration: 0.18, ease: 'power2.out' })
+      gsap.to(this._pencil, { x: last.x + 20, y: last.y - 22, duration: 0.18, ease: 'power2.out' })
     }
     if (!this._saidGo) {
       this._saidGo = true
@@ -439,7 +631,6 @@ export default {
 
     ctx.services.audio.sfx('correct')
     ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
 
     // Linjen "vaknar": varje prick pulsar i följd (städbar timeline).
     this._celebrateTL = gsap.timeline()
@@ -448,6 +639,10 @@ export default {
         if (this._alive && !d.destroyed) pop(d)
       }, i * 0.08)
     })
+    // Motivet vaknar: konturen fylls, får ögon och ett leende. Är det ingen motivrunda
+    // faller vi tillbaka på det generella firandet.
+    if (this._motif) this._revealMotif(ctx)
+    else ctx.services.voice.say(randomFrom(PRAISE))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // Förlopp: höj nivå/svårighet + räkna rundor (oändligt) + delat firande.
@@ -456,7 +651,7 @@ export default {
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
     ctx.progress.complete()
 
-    this._nextRoundCall = gsap.delayedCall(1.4, () => {
+    this._nextRoundCall = ctx.later(2.2, () => {
       if (this._alive) this._buildRound()
     })
   },
@@ -504,6 +699,8 @@ export default {
       }
     }
     if (this._pencil && !this._pencil.destroyed) gsap.killTweensOf(this._pencil)
+    if (this._dotsLayer && !this._dotsLayer.destroyed) gsap.killTweensOf(this._dotsLayer)
+    if (this._silhouette && !this._silhouette.destroyed) gsap.killTweensOf(this._silhouette.scale)
     gsap.killTweensOf(this._root)
     this._root?.destroy({ children: true })
   },

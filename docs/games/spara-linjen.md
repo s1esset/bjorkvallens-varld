@@ -100,4 +100,21 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
   väntan på barnet igen; AUTO_DELAY 11→14 s. Teckningen ritar inte längre sig själv, men rundan
   går ändå alltid att slutföra (no-fail). Städning: oanvänd `ctx`-param bort ur `_buildRound`.
   errorCount 0.
+- 2026-08-04: **Andra omgången** (errorCount 0) — **linjen blir en bild**. Detta var §3:s
+  tyngsta punkt och är nu åtgärdad.
+  - **Motiv** (§4 [Medium], det stora lyftet): åtta motiv (`MOTIFS`) vars kontur barnet
+    spårar — **berg · hus · moln · fisk · hjärta · katt · stjärna · blomma**. En blek
+    konturskiss ligger bakom prickarna så man ser vad det ska bli. När linjen sluts
+    **fylls motivet med färg, får ögon och ett leende, hoppar till och säger vad det är**
+    ("Titta, ett berg!"). Vägledningsprickarna tonar bort så bilden syns ren.
+    Berget får snötopp, huset dörr och fönster, katten nos och morrhår.
+  - **Svårighetsplanen varvar** nu motiv med kurvor (18 steg), och bortom planen är ~65 %
+    av rundorna motiv — det är dem barnet vill rita. Handträningen finns kvar i vågor,
+    sicksack, spiral och trappa.
+  - **Stigande melodi** (§4 [Quick]): varje tänd prick spelar nästa ton i en pentatonisk
+    slinga, så en färdig linje låter som en liten låt i stället för samma blipp.
+    Kritdamm gnistrar vid pennspetsen.
+  - **P0 ASSETS:** pennan ritas nu (trä, stift, hylsa, suddgummi) i stället för ✏️-emoji.
+  - **Bugg:** `gsap.delayedCall` → `ctx.later()`; `_dotsLayer.alpha` nollställs vid ny runda
+    så borttoningen inte följer med in i nästa bild.
 

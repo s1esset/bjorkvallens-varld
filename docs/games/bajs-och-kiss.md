@@ -1,5 +1,5 @@
 # Bajs och Kiss (`bajs-och-kiss`)
-> 🎉 roligt · drag · 3–5 år · status: 📝 plan klar
+> 🎉 roligt · drag · 3–5 år · status: ✅ polerad (2026-08-05)
 
 ## 1. Nuläge (sett som spelare)
 
@@ -111,6 +111,45 @@ Kort sagt: *mekaniskt rikt, scenografiskt och karaktärsmässigt fattigt*. Humor
 - Rekommenderad första-omgång: **[Medium] knip-anticipation + reaktiva barn + [Quick] tematisk
   pott-mätare** — lyfter humorn och karaktären där spelet är som tunnast, utan att röra den
   redan starka kast-mekaniken.
+- 2026-08-05 ✅ **Andra omgången — scenografi, assets och karaktär (poleringsrundan, Kö 1 #1).**
+  Alla emoji-spelobjekt bort; spelet ritas nu helt programmatiskt.
+  - **Ritad bajskorv [P0 ASSETS]** — `makeTurd()` bygger en riktig korv (tre avsmalnande lager,
+    mörk kontur, glansdrag, eget ansikte) i tre typer: **vanlig / glitter / regnbåge** med
+    vikterna 0.62/0.21/0.17, så tur 2 ≠ tur 1 och de sällsynta ger extra gnistor + egen replik.
+    Ersätter `new Text({ text: '💩' })`.
+  - **Levande badrum [Medium]** — `makeBathroom()`: kaklad nedre vägg med list, fönster med
+    himmel/sol/moln, spegel, handfat med **droppande kran** (ambiens var ~5–11 s via `ctx.later`),
+    handdukshängare, toarullehållare, hylla med badflaskor, badmatta och en **nyfiken katt** som
+    tittar upp vid varje plopp. Väggtonen glider mjukt mellan nivåerna (`WALL_TINTS` + `lerpColor`).
+  - **Reaktiva barn [Deep, nu gjort]** — `drawKidFace()` ger Elvira/Zacke fyra riktiga miner:
+    glad (vila) · wow (korven flyger) · jubel (plopp, blundande ögon + tunga) · fniss (miss).
+    Ersätter de flytande emoji-bubblorna från §5-posten 2026-07-01.
+  - **Tematisk mätare [Quick]** — `makePotty()`: en ritad barnpotta med ryggstöd och ansikte som
+    fylls korv för korv (den riktiga typen per plopp) och vars mun blir bredare ju fullare den är.
+    Ersätter 🚽 + 💩-cirklarna.
+  - **Spol-gaget knutet till loopen [Medium]** — `👨`-pappan (bröt P0 KARAKTÄRER: avbildade
+    människor får bara heta Zacke/Alissa/Elvira/Lova) är ersatt av fyra **ritade busgäster** —
+    badanka, strumpa, leksaksbil och maskoten Bobo — som roterar utan direkt upprepning. Efter
+    full potta **lyser spolknappen** (glow-ring + röstinbjudan) så alla hittar gaget.
+  - **Pruttvinden är ett val igen [Medium]** — auto-på från nivå 2 borttaget; knappen guppar och
+    bjuder in efter en miss från nivå 2 (`_maybeInviteWind`). Auto-assist efter 4 missar kvar.
+  - **Spel-specifik finish [Quick]** — `_flushCelebrate()`: vattenvirvel som snurrar ner i skålen,
+    bubblor och en spol-svisch som faller i tonhöjd, ovanpå `bigCelebration`.
+  - **Buggar fixade:** (a) toaletten **svävade** när den krympte — `bowlY` härleds nu ur
+    `FLOOR_Y - PED_H * scale` så foten alltid står på golvet; (b) dubbel spolknapp (spollådans
+    egen grå knapp bort, den gröna knoppen är enda); (c) `arc()` i en delad `Graphics` utan
+    `moveTo` drog **ett brunt streck tvärs över båda barnen** → hjälparen `arcPath()`;
+    (d) `gsap.from` på mätarkorvar levde kvar efter `destroy()` och skrev till `null.y` →
+    tweens dödas före destroy; (e) konkatenerade repliker (`` `Nu är det ${namn}s tur!` ``,
+    `` `${label} bajskorv!` ``) är literaler (`TURN_SAY`/`SIZE_SAY`) så `check` ser dem;
+    (f) storleksknapparna stod 20px isär → hit-halorna överlappade; nu 440/640/840 (50px).
+  - **Efter `spelkritiker`:** korven låg 68px ovanför den ritade handen → `_kidHands` sänkta till
+    y 514; spolgästens skratt-fallback var samma `celebrate`-fanfar som nivåvinsten → `pling`;
+    mätarens tomma platser syntes nästan lika mycket som de fyllda → alpha 0.16 → 0.09.
+  - 8 nya repliker i `scripts/voice-phrases.json` (väntar på `/rost`). `check` 0 fel,
+    `test` 0 konsolfel i tre körningar (standard, riktade drag, spolknapp).
+  - **Kvar [Deep]:** fler siktemål och lekfulla hinder (gungande potta, pall att studsa över,
+    två pottor att välja mellan) — mekanikändring, egen omgång.
 - 2026-07-01 🔧 **Första-omgången byggd (karaktär, scoped):** (1) **Knip-anticipation [Medium]** —
   `_stankaPose`: den aktiva kompisen gör en fnissig squash + 💨-pip (synt) precis när korven dyker
   upp → varje kast får en komisk uppladdning. (2) **Reaktiva barn [scoped]** — `_reactKid` flyter en

@@ -57,7 +57,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | 🔧 |
 | 32 | Fyrverkeri | `fyrverkeri` | drag | 🔧 |
 | 37 | Såpbubblor | `sapbubblor` | tap | 🔧 |
-| 41 | Bajs och Kiss | `bajs-och-kiss` | drag | 🔧 |
+| 41 | Bajs och Kiss | `bajs-och-kiss` | drag | ✅ |
 | 42 | Regnbågsmålaren Elvira | `regnbagsmalaren` | drag | 🔧 |
 | 43 | Pruttbubbelbad | `pruttbad` | tap | 🔧 |
 | 45 | Enhörningens Glitterbajs | `enhorning-glitterbajs` | drag | 🔧 |

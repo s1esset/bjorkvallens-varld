@@ -4,8 +4,13 @@
 på ⚙️ Fysik-fliken 2026-08-04 (v1.7.0). Leta buggar och problem, fixa dem, och lyft
 **design, assets och omspelsvärde**. En commit per spel.
 
-> ⚙️ **Fysik-fliken är KLAR** (27/27, v1.7.0). Kvar: 🎉 Roligt (14) → 🧩 Pussel (19) →
-> 🔤 Lära (9) = **42 spel**. Bocka av i tabellerna nedan när ett spel är committat.
+> ⚙️ **Fysik-fliken är KLAR** (27/27, v1.7.0). Kvar: 🎉 Roligt (13) → 🧩 Pussel (19) →
+> 🔤 Lära (9) = **41 spel**. Bocka av i tabellerna nedan när ett spel är committat.
+
+> 💡 **Sjätte läckan, hittad i `bajs-och-kiss`:** `arc()` i en **delad** `Graphics` fortsätter
+> den aktuella vägen — utan `moveTo` till bågens startpunkt först ritas ett streck från förra
+> formen till bågen (här: ett brunt streck tvärs över båda barnen). Syns bara i skärmdumpen.
+> Leta efter `.arc(` som följer på en `.fill(`/`.stroke(` i samma `Graphics`.
 
 ---
 
@@ -69,7 +74,7 @@ Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-
 
 | # | id | skuld | status |
 |--:|----|------:|:--:|
-| 1 | `bajs-och-kiss` | 17 | ⬜ |
+| 1 | `bajs-och-kiss` | 17 | ✅ |
 | 2 | `pizzabageriet` | 11 | ⬜ |
 | 3 | `hamburgerbygget` | 11 | ⬜ |
 | 4 | `sapbubblor` | 10 | ⬜ |

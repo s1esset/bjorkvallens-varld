@@ -138,22 +138,57 @@ export default {
     d.eventMode = 'none'
     d.interactiveChildren = false
 
-    // Grusgång (mjuk slinga mitt på planen).
-    d.addChild(new Graphics().roundRect(290, 380, 720, 190, 96).fill({ color: 0xe9dcc0, alpha: 0.7 }))
+    // Grusgång: låg tidigare som en platt, blek rundad ruta mitt i bilden och läste som
+    // en bortglömd panel. Nu en riktig grusstig med kant och strödda småstenar.
+    const path = new Graphics()
+    path.roundRect(286, 376, 728, 198, 99).fill({ color: 0xd9c79f, alpha: 0.85 })
+    path.roundRect(298, 388, 704, 174, 87).fill({ color: 0xeadfc2, alpha: 0.95 })
+    for (let i = 0; i < 90; i++) {
+      const a = Math.random() * Math.PI * 2
+      const rr = Math.sqrt(Math.random())
+      const px = 650 + Math.cos(a) * rr * 330
+      const py = 476 + Math.sin(a) * rr * 78
+      path.ellipse(px, py, 3 + Math.random() * 5, 2 + Math.random() * 3.5)
+        .fill({ color: 0xc9b88a, alpha: 0.5 })
+    }
+    d.addChild(path)
 
-    // Träd uppe till vänster.
-    const tree = new Text({ text: '🌳', style: { fontFamily: FONT.body, fontSize: 110 } })
-    tree.anchor.set(0.5)
-    tree.position.set(180, 250) // basen vilar på gräsmattans kant (gräs-topp y=300), inte i skyn
+    // RITAT träd uppe till vänster (P0 ASSETS) — var en 🌳-emoji.
+    const tree = new Graphics()
+    tree.rect(-11, -18, 22, 74).fill(0x8a5a3b)
+    tree.moveTo(-11, 12).quadraticCurveTo(-26, 0, -30, -10).stroke({ width: 7, color: 0x8a5a3b, cap: 'round' })
+    tree.circle(0, -46, 46).fill(0x5bbf6a)
+    tree.circle(-34, -18, 32).fill(0x4fae51)
+    tree.circle(35, -22, 34).fill(0x6ac96a)
+    tree.circle(-12, -66, 30).fill(0x6ac96a)
+    tree.circle(-18, -40, 12).fill({ color: 0x8fe07a, alpha: 0.55 })
+    tree.position.set(180, 250)
+    tree.eventMode = 'none'
     d.addChild(tree)
 
-    // Blomsterrad längs nederkanten.
+    // RITAD blomsterrad längs nederkanten (var 🌼/🌷-emoji).
+    const flowers = new Graphics()
     for (let x = 80, i = 0; x <= 1200; x += 118, i++) {
-      const f = new Text({ text: i % 2 ? '🌼' : '🌷', style: { fontFamily: FONT.body, fontSize: 40 } })
-      f.anchor.set(0.5)
-      f.position.set(x, 696)
-      d.addChild(f)
+      const y = 696
+      flowers.moveTo(x, y + 18).quadraticCurveTo(x + 5, y + 4, x, y - 4)
+        .stroke({ width: 4, color: 0x4fae51, cap: 'round' })
+      flowers.ellipse(x + 13, y + 8, 12, 6).fill(0x4fae51)
+      if (i % 2) {
+        for (let k = 0; k < 6; k++) {
+          const a = (k / 6) * Math.PI * 2
+          flowers.ellipse(x + Math.cos(a) * 11, y - 4 + Math.sin(a) * 11, 8, 6).fill(0xfffdf7)
+        }
+        flowers.circle(x, y - 4, 6).fill(0xffd35c)
+      } else {
+        flowers.moveTo(x - 12, y - 4).quadraticCurveTo(x - 14, y - 26, x, y - 30)
+          .quadraticCurveTo(x + 14, y - 26, x + 12, y - 4)
+          .quadraticCurveTo(x, y + 4, x - 12, y - 4).fill(0xff6b9d)
+        flowers.moveTo(x - 4, y - 6).quadraticCurveTo(x - 6, y - 24, x, y - 29)
+          .stroke({ width: 2, color: 0xffffff, alpha: 0.35 })
+      }
     }
+    flowers.eventMode = 'none'
+    d.addChild(flowers)
 
     this._root.addChild(d)
   },
@@ -224,8 +259,18 @@ export default {
     this._binFill.eventMode = 'none'
     bin.addChild(this._binFill)
 
-    const label = new Text({ text: '♻️', style: { fontFamily: FONT.body, fontSize: 54 } })
-    label.anchor.set(0.5)
+    // RITAD återvinningssymbol (P0 ASSETS) — tre tjocka pilar i en ring; var en ♻️-emoji.
+    const label = new Graphics()
+    for (let i = 0; i < 3; i++) {
+      const a = -Math.PI / 2 + (i / 3) * Math.PI * 2
+      const arm = new Graphics()
+      arm.roundRect(-7, -24, 14, 26, 5).fill(0x2f9c4f)
+      arm.moveTo(-15, -22).lineTo(15, -22).lineTo(0, -40).closePath().fill(0x2f9c4f)
+      arm.rotation = a + Math.PI / 2
+      arm.eventMode = 'none'
+      label.addChild(arm)
+    }
+    label.circle(0, 0, 7).fill({ color: 0x2f9c4f, alpha: 0.35 })
     label.position.set(0, -6)
     bin.addChild(label)
 
@@ -496,8 +541,14 @@ export default {
     if (!this._alive || pile.destroyed || pile._taken) return
     const n = 1 + (Math.random() < 0.5 ? 1 : 0)
     for (let i = 0; i < n; i++) {
-      const f = new Text({ text: '🪰', style: { fontFamily: FONT.body, fontSize: 28 } })
-      f.anchor.set(0.5)
+      // RITAD fluga (P0 ASSETS) — var en 🪰-emoji.
+      const f = new Graphics()
+      f.ellipse(-5, -4, 6, 4).fill({ color: 0xffffff, alpha: 0.65 })
+      f.ellipse(5, -4, 6, 4).fill({ color: 0xffffff, alpha: 0.65 })
+      f.ellipse(0, 0, 5, 7).fill(0x4a4038)
+      f.circle(0, -6, 4).fill(0x2f2820)
+      f.circle(-1.5, -7, 1.4).fill(0xff6b6b)
+      f.circle(1.5, -7, 1.4).fill(0xff6b6b)
       f.eventMode = 'none'
       f._ang = Math.random() * Math.PI * 2
       f._spd = 0.06 + Math.random() * 0.04

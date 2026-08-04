@@ -120,3 +120,8 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
   bajs och vid vinst; bajs-plopp uppgraderat till riktigt `sample('plopp')`-klipp. Allt exit-säkert
   (lock-tween dödas i reset/destroy, fill/lock nollställs per runda). Verifierat i scen: allt grundat,
   ingen svävar i skyn; deposit tänder mätaren och fyller tunnan synligt.
+- 2026-08-04: **P0 ASSETS + en grusgång som ser ut som en grusgång.** (1) Grusgången var en
+  platt, blek rundad ruta mitt i bilden och läste som en bortglömd UI-panel; den har nu kant,
+  ljusare mitt och ~90 strödda småstenar. (2) Trädet (var 🌳), blomsterraden (var 🌼/🌷),
+  tunnans återvinningssymbol (var ♻️) och flugorna (var 🪰) ritas nu som riktiga föremål med
+  egen silhuett. Inga emoji-rekvisita kvar i scenen. errorCount 0.

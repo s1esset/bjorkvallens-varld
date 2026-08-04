@@ -116,3 +116,8 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
   (tätare/bredare) vid hög fart. Genomflygning spelar ett magiskt uppåt-glidande skimmer-ljud
   (två `audio.tone`-sinusar som glider uppåt) ovanpå attacken i stället för bara `pling`. Allt
   kosmetiskt hålls borta från kollisions-y; exit-säkert (inga nya råa tweens på Pixi-objekt).
+- 2026-08-04: **P0 ASSETS.** Enhörningen ritas nu (kropp, fyra ben, **flaxande vinge**,
+  regnbågsman och -svans, guldhorn, mule och öga) i stället för en 🦄-emoji — och är
+  **vänd åt höger**, dit hon faktiskt flyger (emojin tittade bakåt). Stjärnorna (var ⭐),
+  ringens glitter (var ✨) och fart-knappens sköldpadda/hare (var 🐢/🐇) ritas också.
+  Fart-ikonen ritas nu även vid bygget, inte bara vid växling. errorCount 0.

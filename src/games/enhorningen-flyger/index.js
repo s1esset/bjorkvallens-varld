@@ -155,8 +155,8 @@ export default {
     shadow.alpha = 0.12
     uni.addChild(shadow)
     // Enhörnings-emoji (roteras lätt mot vy).
-    this._uniEmoji = new Text({ text: '🦄', style: { fontFamily: FONT.body, fontSize: 110 } })
-    this._uniEmoji.anchor.set(0.5)
+    // RITAD flygande enhörning (P0 ASSETS) — var en 🦄-emoji.
+    this._uniEmoji = makeUnicorn()
     uni.addChild(this._uniEmoji)
     uni.eventMode = 'none'
     uni.interactiveChildren = false
@@ -170,8 +170,9 @@ export default {
     btn.position.set(120, 650)
     const plate = new Graphics().circle(0, 0, 55).fill(COLORS.teal).stroke({ width: 6, color: 0xffffff, alpha: 0.85 })
     const gloss = new Graphics().ellipse(0, -18, 34, 16).fill({ color: 0xffffff, alpha: 0.25 })
-    this._slowIco = new Text({ text: this._slow ? '🐢' : '🐇', style: { fontFamily: FONT.body, fontSize: 54 } })
-    this._slowIco.anchor.set(0.5)
+    // Ritad sköldpadda/hare (P0 ASSETS) — ritas om i _drawSpeedIcon.
+    this._slowIco = new Graphics()
+    this._drawSpeedIcon()
     this._slowLabel = new Text({
       text: this._slow ? 'Långsam' : 'Normal',
       style: { fontFamily: FONT.title, fontSize: 23, fontWeight: '700', fill: 0xffffff },
@@ -191,7 +192,7 @@ export default {
   _toggleSlow(ctx) {
     if (!this._alive) return
     this._slow = !this._slow
-    this._slowIco.text = this._slow ? '🐢' : '🐇'
+    this._drawSpeedIcon()
     this._slowLabel.text = this._slow ? 'Långsam' : 'Normal'
     pop(this._slowBtn)
     ctx.services.audio.sfx('pop')
@@ -313,8 +314,11 @@ export default {
     g.circle(0, 0, R + 16).stroke({ width: 18, color })
     g.circle(0, 0, R + 16).stroke({ width: 6, color: 0xffffff, alpha: 0.5 })
     ring.addChild(g)
-    const acc = new Text({ text: '✨', style: { fontFamily: FONT.body, fontSize: 40 } })
-    acc.anchor.set(0.5)
+    // Ritad glitter-fyrudd (P0 ASSETS) — var en ✨-emoji.
+    const acc = new Graphics()
+    acc.moveTo(0, -20).quadraticCurveTo(3, -5, 19, 0).quadraticCurveTo(3, 5, 0, 20)
+      .quadraticCurveTo(-3, 5, -19, 0).quadraticCurveTo(-3, -5, 0, -20).fill(0xffd24a)
+    acc.circle(0, 0, 4).fill(0xfff3b0)
     acc.y = -(R + 16)
     ring.addChild(acc)
     ring.eventMode = 'none'
@@ -343,8 +347,16 @@ export default {
 
   _spawnStar(ctx, hintY) {
     if (!this._alive) return
-    const view = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: 56 } })
-    view.anchor.set(0.5)
+    // RITAD stjärna (P0 ASSETS) — var en ⭐-emoji.
+    const view = new Graphics()
+    const spts = []
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i / 10) * Math.PI * 2
+      const rr = i % 2 ? 12 : 27
+      spts.push(Math.cos(a) * rr, Math.sin(a) * rr)
+    }
+    view.poly(spts).fill(0xffd24a).stroke({ width: 3, color: 0xd9a021 })
+    view.circle(-7, -8, 5).fill({ color: 0xffffff, alpha: 0.65 })
     view.x = SPAWN_X
     view.y = hintY != null ? clamp(hintY, 200, 560) : 220 + Math.random() * 340
     view.eventMode = 'none'
@@ -676,6 +688,32 @@ export default {
     this._stars = []
   },
 
+  // Ritar fart-ikonen: sköldpadda (långsamt) eller hare (snabbt). Anropas vid bygget
+  // och vid varje växling — var tidigare 🐢/🐇-emoji.
+  _drawSpeedIcon() {
+    const g = this._slowIco
+    if (!g || g.destroyed) return
+    g.clear()
+    if (this._slow) {
+      g.ellipse(-24, 10, 9, 6).fill(0x8fd67a) // fötter
+      g.ellipse(16, 12, 9, 6).fill(0x8fd67a)
+      g.moveTo(-26, 2).quadraticCurveTo(0, -30, 26, 2).quadraticCurveTo(0, 12, -26, 2).fill(0x6f9c3f)
+      for (let i = -1; i <= 1; i++) g.circle(i * 13, -6, 6).fill({ color: 0x9ec96a, alpha: 0.9 })
+      g.circle(-32, -2, 10).fill(0x8fd67a) // huvud
+      g.circle(-35, -4, 2.6).fill(0x33291f)
+    } else {
+      g.ellipse(-6, 12, 20, 13).fill(0xf4ede3) // kropp
+      g.circle(10, 0, 13).fill(0xf4ede3) // huvud
+      g.ellipse(8, -20, 5, 15).fill(0xf4ede3) // öron
+      g.ellipse(18, -19, 5, 15).fill(0xf4ede3)
+      g.ellipse(8, -20, 2.5, 10).fill(0xf6c2d3)
+      g.ellipse(18, -19, 2.5, 10).fill(0xf6c2d3)
+      g.circle(14, -2, 2.6).fill(0x33291f)
+      g.circle(20, 3, 3).fill(0xe79ab0) // nos
+      g.circle(-24, 12, 7).fill(0xfffaf3) // svans
+    }
+  },
+
   destroy(ctx) {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
@@ -745,4 +783,67 @@ function drawPip(g, lit, color) {
   } else {
     g.circle(0, 0, 16).stroke({ width: 6, color: 0xffffff, alpha: 0.85 })
   }
+}
+
+// RITAD flygande enhörning (P0 ASSETS): kropp, ben, vingar, regnbågsman, horn och ansikte.
+function makeUnicorn() {
+  const c = new Container()
+  const g = new Graphics()
+  const R = 40
+  g.ellipse(0, R * 1.5, R * 0.9, R * 0.22).fill({ color: 0x000000, alpha: 0.12 })
+  // bakre vinge
+  g.moveTo(-R * 0.2, -R * 0.15).quadraticCurveTo(-R * 1.2, -R * 1.15, -R * 1.5, -R * 0.35)
+    .quadraticCurveTo(-R * 0.95, -R * 0.1, -R * 0.2, -R * 0.15).fill(0xbfe9ff)
+  // ben
+  for (const bx of [-0.55, -0.22, 0.22, 0.55]) {
+    g.roundRect(bx * R - R * 0.09, R * 0.55, R * 0.18, R * 0.68, R * 0.09).fill(0xfffdf7)
+    g.roundRect(bx * R - R * 0.1, R * 1.08, R * 0.2, R * 0.18, R * 0.06).fill(0xf0c8e0)
+  }
+  g.ellipse(0, R * 0.28, R * 0.94, R * 0.6).fill(0xfffdf7) // kropp
+  // svans i regnbågsfärger
+  const RB = [0xff6b6b, 0xff8a3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa]
+  RB.forEach((col, i) => {
+    g.moveTo(R * 0.85, R * 0.1 + i * 3)
+      .quadraticCurveTo(R * 1.45, R * 0.1 + i * 6, R * 1.3, R * 0.85 + i * 3)
+      .stroke({ width: 7, color: col, cap: 'round' })
+  })
+  g.ellipse(-R * 0.72, -R * 0.32, R * 0.44, R * 0.5).fill(0xfffdf7) // huvud
+  g.moveTo(-R * 0.62, -R * 0.72).lineTo(-R * 0.5, -R * 1.24).lineTo(-R * 0.34, -R * 0.68)
+    .closePath().fill(0xffd24a) // horn
+  g.moveTo(-R * 0.56, -R * 0.86).lineTo(-R * 0.42, -R * 0.9)
+    .moveTo(-R * 0.52, -R * 1.02).lineTo(-R * 0.42, -R * 1.04)
+    .stroke({ width: 2, color: 0xd9a021 })
+  g.moveTo(-R * 0.3, -R * 0.7).lineTo(-R * 0.16, -R * 0.98).lineTo(-R * 0.06, -R * 0.62)
+    .closePath().fill(0xfffdf7) // öra
+  // man
+  RB.forEach((col, i) => {
+    g.moveTo(-R * 0.34, -R * 0.66 + i * 5)
+      .quadraticCurveTo(R * 0.1, -R * 0.8 + i * 5, R * 0.32, -R * 0.1 + i * 4)
+      .stroke({ width: 8, color: col, cap: 'round' })
+  })
+  g.ellipse(-R * 1.02, -R * 0.16, R * 0.16, R * 0.12).fill(0xf0c8e0) // mule
+  g.circle(-R * 1.06, -R * 0.2, R * 0.04).fill(0xd49ec0)
+  g.circle(-R * 0.78, -R * 0.38, R * 0.09).fill(0x33291f) // öga
+  g.circle(-R * 0.8, -R * 0.42, R * 0.035).fill(0xffffff)
+  g.circle(-R * 0.62, -R * 0.16, R * 0.1).fill({ color: 0xff9ec4, alpha: 0.7 })
+  // Enhörningen ritas vänstervänd men FLYGER åt höger — spegla i en inre container
+  // så yttre tweens (skala/rotation) inte påverkas.
+  const flip = new Container()
+  flip.scale.x = -1
+  flip.eventMode = 'none'
+  flip.addChild(g)
+  c.addChild(flip)
+  // främre vinge (egen container så den kan flaxa)
+  const wing = new Graphics()
+  wing.moveTo(0, 0).quadraticCurveTo(-R * 0.95, -R * 1.25, -R * 1.35, -R * 0.3)
+    .quadraticCurveTo(-R * 0.7, -R * 0.15, 0, 0).fill(0xdff0ff)
+  wing.moveTo(-R * 0.2, -R * 0.16).quadraticCurveTo(-R * 0.8, -R * 0.7, -R * 1.15, -R * 0.34)
+    .stroke({ width: 3, color: 0xa9d8ef, alpha: 0.9 })
+  wing.position.set(R * 0.06, -R * 0.05)
+  wing.eventMode = 'none'
+  flip.addChild(wing)
+  c._wing = wing
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
 }

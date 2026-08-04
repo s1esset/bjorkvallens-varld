@@ -276,6 +276,37 @@ export default {
     band(105, 70, 0xeaf4fd)
     band(175, 90, 0xe3f0fb)
     band(265, 120, 0xdceefb)
+    // Snöstruktur: mjuka drivor och glittrande korn. Nedre halvan av skärmen var
+    // tidigare en helt slät vit platta där man tappade känslan av en backe.
+    for (let i = 0; i < 22; i++) {
+      const dx = x0 + Math.random() * (x1 - x0)
+      const off = 70 + Math.random() * 380
+      const w = 60 + Math.random() * 150
+      const h = 10 + Math.random() * 16
+      const dy = y0 + (y1 - y0) * ((dx - x0) / (x1 - x0)) + off
+      g.ellipse(dx, dy, w, h).fill({ color: 0xc3ddf1, alpha: 0.55 })
+      g.ellipse(dx - w * 0.14, dy - h * 0.3, w * 0.82, h * 0.7).fill({ color: 0xffffff, alpha: 0.9 })
+    }
+    for (let i = 0; i < 70; i++) {
+      const dx = x0 + Math.random() * (x1 - x0)
+      const off = 40 + Math.random() * 460
+      const dy = y0 + (y1 - y0) * ((dx - x0) / (x1 - x0)) + off
+      g.circle(dx, dy, 1.6 + Math.random() * 2.4).fill({ color: 0xa9cde8, alpha: 0.55 })
+    }
+    // Små granar längs nedre delen av backen (djup + en plats).
+    for (let i = 0; i < 7; i++) {
+      const tx = x0 + 60 + Math.random() * (x1 - x0 - 120)
+      const off = 150 + Math.random() * 330
+      const ty = y0 + (y1 - y0) * ((tx - x0) / (x1 - x0)) + off
+      const ts = 0.5 + Math.random() * 0.8
+      g.rect(tx - 4 * ts, ty - 12 * ts, 8 * ts, 24 * ts).fill({ color: 0x8a6a4f, alpha: 0.55 })
+      for (let k = 0; k < 3; k++) {
+        const ly = ty - 16 * ts - k * 20 * ts
+        const lw = (34 - k * 8) * ts
+        g.moveTo(tx - lw, ly).lineTo(tx + lw, ly).lineTo(tx, ly - 30 * ts).closePath()
+          .fill({ color: 0x7fb8a0, alpha: 0.4 })
+      }
+    }
     this._hillVis = g
     this._root.addChild(g)
   },

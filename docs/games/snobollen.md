@@ -199,3 +199,7 @@ auto-hjälpen kan spela banan åt barnet**.
   | Kilning med längre banor/fler hinder | Ingen. Hindren tas bort när de välter, spillrorna har kollisionsfilter. Längsta stopp i alla körningar: ~10 s vid en hoppkulle under passivt spel, löst av skjutsen |
 
   0 konsolfel i samtliga körningar. Rörde bara `src/games/snobollen/`.
+- 2026-08-04: **Snöstruktur i backen.** Nedre halvan av skärmen var en helt slät vit platta
+  där känslan av en backe försvann. Backen har nu mjuka drivor (blå skugga + vit ovansida),
+  glittrande snökorn och sju små granar längs den nedre delen — djup och en plats, utan att
+  konkurrera med snöbollen. errorCount 0.

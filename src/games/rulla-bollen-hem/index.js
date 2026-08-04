@@ -61,9 +61,93 @@ const SURFACE_VOICE = {
 // Bollar (ibland en annan boll). rest = studsighet (mot väggar/hinder), dragAdd = extra
 // luftmotstånd ovanpå ytan (tung boll rullar kortare, studsboll lite längre).
 const BALLS = {
-  normal: { emoji: '⚽', rest: 0.55, dragAdd: 0 },
-  bouncy: { emoji: '🏀', rest: 0.82, dragAdd: -0.005 },
-  heavy: { emoji: '🎳', rest: 0.4, dragAdd: 0.012 },
+  normal: { rest: 0.55, dragAdd: 0 },
+  bouncy: { rest: 0.82, dragAdd: -0.005 },
+  heavy: { rest: 0.4, dragAdd: 0.012 },
+}
+
+// --- Ritade bollar (P0 ASSETS) ---------------------------------------------
+// Mönstret ligger i en egen container som roteras; ansiktet ligger utanför så
+// bollen tittar rakt fram medan den rullar.
+function makeBallSkin(kind, r) {
+  const c = new Container()
+  const g = new Graphics()
+  if (kind === 'bouncy') {
+    g.circle(0, 0, r).fill(0xff8a3d).stroke({ width: 3, color: 0xd9661f })
+    g.moveTo(-r, 0).lineTo(r, 0).stroke({ width: 4, color: 0x8a4a15 })
+    g.moveTo(0, -r).lineTo(0, r).stroke({ width: 4, color: 0x8a4a15 })
+    g.moveTo(-r * 0.72, -r * 0.72).quadraticCurveTo(0, 0, -r * 0.72, r * 0.72).stroke({ width: 4, color: 0x8a4a15 })
+    g.moveTo(r * 0.72, -r * 0.72).quadraticCurveTo(0, 0, r * 0.72, r * 0.72).stroke({ width: 4, color: 0x8a4a15 })
+  } else if (kind === 'heavy') {
+    g.circle(0, 0, r).fill(0x4a3f6b).stroke({ width: 3, color: 0x2f2748 })
+    g.circle(-r * 0.28, -r * 0.3, r * 0.13).fill(0x241d38)
+    g.circle(r * 0.1, -r * 0.4, r * 0.13).fill(0x241d38)
+    g.circle(-r * 0.05, -r * 0.05, r * 0.13).fill(0x241d38)
+    g.ellipse(-r * 0.34, r * 0.3, r * 0.3, r * 0.18).fill({ color: 0xffffff, alpha: 0.14 })
+  } else {
+    // Fotboll: fälten ligger LÄNGS KANTEN så ansiktet i mitten alltid syns.
+    g.circle(0, 0, r).fill(0xfffdf7).stroke({ width: 3, color: 0xd8d2c6 })
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 2 + (i / 6) * Math.PI * 2
+      g.circle(Math.cos(a) * r * 0.78, Math.sin(a) * r * 0.78, r * 0.19).fill(0x33291f)
+      const a2 = a + Math.PI / 6
+      g.moveTo(Math.cos(a) * r * 0.78, Math.sin(a) * r * 0.78)
+        .lineTo(Math.cos(a2) * r, Math.sin(a2) * r)
+        .stroke({ width: 3, color: 0x33291f, alpha: 0.6 })
+    }
+  }
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// Bollens ansikte: ögon + leende, alltid upprätt. Sitter ovanpå mönstret.
+function makeBallFace(r) {
+  const c = new Container()
+  const g = new Graphics()
+  g.ellipse(-r * 0.3, -r * 0.16, r * 0.17, r * 0.2).fill(0xfffdf7)
+  g.ellipse(r * 0.3, -r * 0.16, r * 0.17, r * 0.2).fill(0xfffdf7)
+  g.circle(-r * 0.28, -r * 0.13, r * 0.09).fill(0x33291f)
+  g.circle(r * 0.32, -r * 0.13, r * 0.09).fill(0x33291f)
+  g.moveTo(-r * 0.22, r * 0.24).quadraticCurveTo(0, r * 0.46, r * 0.22, r * 0.24)
+    .stroke({ width: 4, color: 0x33291f, cap: 'round' })
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// Målvakten Bobo: står i målet, vinkar och fångar bollen.
+function makeKeeper() {
+  const c = new Container()
+  const g = new Graphics()
+  g.ellipse(0, 44, 30, 9).fill({ color: 0x000000, alpha: 0.16 })
+  g.ellipse(-13, 36, 12, 8).fill(0x3f8f43)
+  g.ellipse(13, 36, 12, 8).fill(0x3f8f43)
+  g.ellipse(0, 8, 26, 30).fill(0x5bbf6a) // matchtröja
+  g.rect(-26, 2, 52, 9).fill({ color: 0xfffdf7, alpha: 0.75 })
+  c.addChild(g)
+  const arms = new Graphics()
+  arms.moveTo(-20, -4).quadraticCurveTo(-38, -14, -42, -38).stroke({ width: 11, color: 0x5bbf6a, cap: 'round' })
+  arms.moveTo(20, -4).quadraticCurveTo(38, -14, 42, -38).stroke({ width: 11, color: 0x5bbf6a, cap: 'round' })
+  arms.circle(-42, -38, 10).fill(0xffd35c) // handskar
+  arms.circle(42, -38, 10).fill(0xffd35c)
+  c.addChild(arms)
+  const head = new Graphics()
+  head.circle(0, -38, 22).fill(0xfffdf7)
+  head.circle(-8, -41, 3.6).fill(0x33291f)
+  head.circle(8, -41, 3.6).fill(0x33291f)
+  head.moveTo(-8, -31).quadraticCurveTo(0, -24, 8, -31).stroke({ width: 3, color: 0x33291f, cap: 'round' })
+  head.circle(-15, -32, 4.5).fill({ color: 0xff9ec4, alpha: 0.8 })
+  head.circle(15, -32, 4.5).fill({ color: 0xff9ec4, alpha: 0.8 })
+  c.addChild(head)
+  c._arms = arms
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
 }
 
 const WALL_REST = 0.55 // planens väggars studsighet (effektiv studs = max(boll, vägg))
@@ -213,8 +297,33 @@ export default {
       .stroke({ width: 10, color: C_FIELD_EDGE })
     frame.roundRect(FIELD.x, FIELD.y, FIELD.w, 60, FIELD.r).fill({ color: 0xa6e36f, alpha: 0.5 })
     frame.roundRect(FIELD.x, FIELD.y + FIELD.h - 50, FIELD.w, 50, FIELD.r).fill({ color: 0x4f9a36, alpha: 0.3 })
+    // Klippta gräsränder + riktiga planlinjer: mittcirkel, mittlinje, straffområde och
+    // hörnbågar. Planen var tidigare en helt tom grön yta.
+    for (let i = 0; i < 8; i++) {
+      frame.rect(FIELD.x, FIELD.y + i * 70, FIELD.w, 35).fill({ color: 0x86cf56, alpha: 0.35 })
+    }
+    const L = { width: 5, color: 0xffffff, alpha: 0.5 }
+    frame.moveTo(640, FIELD.y + 14).lineTo(640, FIELD.y + FIELD.h - 14).stroke(L)
+    frame.circle(640, 400, 96).stroke(L)
+    frame.circle(640, 400, 9).fill({ color: 0xffffff, alpha: 0.5 })
+    frame.rect(FIELD.x + 14, 250, 130, 300).stroke(L)
+    frame.rect(FIELD.x + FIELD.w - 144, 250, 130, 300).stroke(L)
+    frame.arc(FIELD.x + 14, FIELD.y + 14, 34, 0, Math.PI / 2).stroke(L)
+    frame.arc(FIELD.x + FIELD.w - 14, FIELD.y + 14, 34, Math.PI / 2, Math.PI).stroke(L)
     frame.eventMode = 'none'
     this._root.addChild(frame)
+
+    // Spår efter bollen: ett bleknande gräsavtryck så skottet får ett synligt efterspel.
+    this._trail = new Graphics()
+    this._trail.eventMode = 'none'
+    this._root.addChild(this._trail)
+    this._trailPts = []
+
+    // Hål-rad upptill (bana 1, 2, 3 …) — konkret framsteg utan läsning.
+    this._holeRow = new Graphics()
+    this._holeRow.eventMode = 'none'
+    this._root.addChild(this._holeRow)
+    this._drawHoleRow(this._level)
 
     // Is-overlay (visas mjukt när ytan = is): ljusblå isyta med glansstreck.
     this._iceOverlay = new Graphics()
@@ -270,27 +379,39 @@ export default {
     this._homeC.eventMode = 'none' // tap passerar igenom (bollens skott avgör målet)
     this._homeC.interactiveChildren = false
     this._homeGlow = new Graphics() // målzon-ring (ritas om per nivå, andas)
-    const net = new Graphics().roundRect(-75, -85, 150, 170, 24).fill({ color: 0xffffff, alpha: 0.5 })
-    const e = new Text({ text: '🥅', style: { fontFamily: FONT.body, fontSize: 120 } })
-    e.anchor.set(0.5)
-    this._homeC.addChild(this._homeGlow, net, e)
+
+    // RITAT mål (P0 ASSETS): stolpar, ribba och nät — inte en 🥅-emoji i en vit ruta.
+    const goal = new Graphics()
+    goal.roundRect(-86, -88, 172, 156, 10).fill({ color: 0x2a3f55, alpha: 0.14 }) // måldjup
+    for (let i = -3; i <= 3; i++) goal.moveTo(i * 25, -80).lineTo(i * 25, 60).stroke({ width: 2, color: 0xffffff, alpha: 0.55 })
+    for (let j = 0; j < 6; j++) goal.moveTo(-80, -80 + j * 28).lineTo(80, -80 + j * 28).stroke({ width: 2, color: 0xffffff, alpha: 0.55 })
+    goal.roundRect(-90, -92, 12, 164, 6).fill(0xfffdf7) // vänster stolpe
+    goal.roundRect(78, -92, 12, 164, 6).fill(0xfffdf7) // höger stolpe
+    goal.roundRect(-90, -92, 180, 12, 6).fill(0xfffdf7) // ribba
+    goal.roundRect(-90, 60, 180, 12, 6).fill({ color: 0xe4e0d8, alpha: 0.9 })
+    goal.eventMode = 'none'
+
+    // Målvakten Bobo bor i målet: han vinkar när man siktar, fångar bollen och jublar.
+    this._keeper = makeKeeper()
+    this._keeper.position.set(0, 22)
+    this._homeC.addChild(this._homeGlow, goal, this._keeper)
     this._root.addChild(this._homeC)
     // Mjuk andning på målringen (drar blicken mot målet).
     this._goalTween = gsap.to(this._homeGlow.scale, { x: 1.12, y: 1.12, duration: 1.2, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    // Målvakten vaggar lugnt i väntan.
+    this._keeperIdle = gsap.to(this._keeper, { x: 16, duration: 1.6, yoyo: true, repeat: -1, ease: 'sine.inOut' })
   },
 
   _buildBall() {
     this._ball = new Container()
     this._ball.position.set(BALL_START.x, BALL_START.y)
     const shadow = new Graphics().ellipse(0, BALL_R * 0.92, BALL_R * 0.9, BALL_R * 0.34).fill({ color: 0x000000, alpha: 0.16 })
-    const disc = new Graphics().circle(0, 0, BALL_R * 0.92).fill({ color: 0xffffff, alpha: 0.9 })
-    // ENDAST emojin roteras (rull-känsla); containern hålls upprätt av link (vinkel 0).
-    this._ballEmoji = new Text({ text: '⚽', style: { fontFamily: FONT.body, fontSize: 96 } })
-    this._ballEmoji.anchor.set(0.5)
+    // Mönstret roteras (rull-känsla) medan ANSIKTET hålls upprätt — bollen är en figur,
+    // inte en puck. Båda ritas (P0 ASSETS), ingen emoji.
+    this._ballSkin = makeBallSkin('normal', BALL_R * 0.92)
+    this._ballFace = makeBallFace(BALL_R * 0.92)
     shadow.eventMode = 'none'
-    disc.eventMode = 'none'
-    this._ballEmoji.eventMode = 'none'
-    this._ball.addChild(shadow, disc, this._ballEmoji)
+    this._ball.addChild(shadow, this._ballSkin, this._ballFace)
     // Bollen blir AimLaunchers target (den sätter eventMode + hit-halo själv).
     this._root.addChild(this._ball)
   },
@@ -455,7 +576,7 @@ export default {
     gsap.killTweensOf(this._ball.scale)
     this._ball.scale.set(1)
     this._ball.alpha = 1
-    this._ballEmoji.rotation = 0
+    this._ballSkin.rotation = 0
     this._ballBody.isSensor = false
     Body.setVelocity(this._ballBody, { x: 0, y: 0 })
     Body.setPosition(this._ballBody, { x: lay.start.x, y: lay.start.y })
@@ -473,7 +594,7 @@ export default {
       if (this._obstacleBodies.length) hints.push('Akta hindren och rulla runt dem!')
       if (hints.length) {
         this._hintTimer?.kill()
-        this._hintTimer = gsap.delayedCall(0.6, () => {
+        this._hintTimer = ctx.later(0.6, () => {
           if (this._alive) ctx.services.voice.say(randomFrom(hints))
         })
       }
@@ -509,7 +630,15 @@ export default {
     this._previewBounds = { ...PREVIEW_BOUNDS, restitution: Math.max(ball.rest, WALL_REST) }
     this._launcher?.setPreview({ damp: 1 - fa, bounds: this._previewBounds })
 
-    if (this._ballEmoji && !this._ballEmoji.destroyed) this._ballEmoji.text = ball.emoji
+    // Byt bollens ritade mönster (mönstret roteras; ansiktet ligger kvar upprätt).
+    if (this._ballKey !== this._skinKey && this._ball && !this._ball.destroyed) {
+      this._skinKey = this._ballKey
+      const oldSkin = this._ballSkin
+      this._ballSkin = makeBallSkin(this._ballKey, BALL_R * 0.92)
+      this._ball.addChildAt(this._ballSkin, this._ball.getChildIndex(oldSkin))
+      gsap.killTweensOf(oldSkin)
+      if (!oldSkin.destroyed) oldSkin.destroy({ children: true })
+    }
     if (this._surfaceLabel && !this._surfaceLabel.destroyed) this._surfaceLabel.text = `${s.icon} ${s.label}`
     if (this._iceOverlay && !this._iceOverlay.destroyed) {
       gsap.killTweensOf(this._iceOverlay)
@@ -559,9 +688,12 @@ export default {
     // Rull-rotation på emojin (proportionell mot horisontell fart, riktning-medveten).
     const b = this._ballBody
     const spd = Math.hypot(b.velocity.x, b.velocity.y)
-    if (spd > 0.05 && this._ballEmoji && !this._ballEmoji.destroyed) {
-      this._ballEmoji.rotation += (b.velocity.x / BALL_R) * (ticker.deltaMS / 16.67)
+    if (spd > 0.05 && this._ballSkin && !this._ballSkin.destroyed) {
+      this._ballSkin.rotation += (b.velocity.x / BALL_R) * (ticker.deltaMS / 16.67)
     }
+
+    // Spårlinje: lägg en punkt medan bollen rullar och låt hela spåret blekna bort.
+    this._updateTrail(dt, spd)
 
     if (this._mode === 'rolling' || this._mode === 'gliding') {
       if (this._inHome()) {
@@ -595,6 +727,28 @@ export default {
     }
   },
 
+  // Bleknande spår efter bollen (ritas om varje bildruta, max 46 punkter).
+  _updateTrail(dt, spd) {
+    const g = this._trail
+    if (!g || g.destroyed) return
+    const pts = this._trailPts
+    if (spd > 1.2 && this._ball && !this._ball.destroyed) {
+      const last = pts[pts.length - 1]
+      if (!last || Math.hypot(this._ball.x - last.x, this._ball.y - last.y) > 20) {
+        pts.push({ x: this._ball.x, y: this._ball.y, a: 0.42 })
+        if (pts.length > 46) pts.shift()
+      }
+    }
+    if (!pts.length) return
+    for (const p of pts) p.a -= dt * 0.22
+    while (pts.length && pts[0].a <= 0) pts.shift()
+    g.clear()
+    for (const p of pts) {
+      if (p.a <= 0) continue
+      g.circle(p.x, p.y, 13).fill({ color: 0x4f9a36, alpha: p.a * 0.55 })
+    }
+  },
+
   _inHome() {
     const r = this._home.r + (this._assisting ? 30 : 0) // hjälp-skott = ännu generösare
     return Math.hypot(this._ball.x - this._home.x, this._ball.y - this._home.y) < r
@@ -625,7 +779,7 @@ export default {
 
     // Normal miss: mjukt ljud + vingel på bollen + liten puff (lekfullt).
     ctx.services.audio.sfx('soft')
-    if (this._ballEmoji && !this._ballEmoji.destroyed) wiggle(this._ballEmoji)
+    if (this._ballFace && !this._ballFace.destroyed) wiggle(this._ballFace)
     if (this._ball && !this._ball.destroyed) puff(ctx.fxLayer, this._ball.x, this._ball.y, { count: 5 })
     this._launcher.setEnabled(true)
     this._idle = 0
@@ -692,7 +846,7 @@ export default {
         const y = sy + (ty - sy) * st.p
         Body.setPosition(this._ballBody, { x, y })
         Body.setVelocity(this._ballBody, { x: 0, y: 0 })
-        if (this._ballEmoji && !this._ballEmoji.destroyed) this._ballEmoji.rotation += 0.16
+        if (this._ballSkin && !this._ballSkin.destroyed) this._ballSkin.rotation += 0.16
       },
       onComplete: () => {
         if (this._alive) this._reachGoal(ctx)
@@ -732,17 +886,60 @@ export default {
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     puff(ctx.fxLayer, hx, hy, { count: 14, color: C_GOAL })
     sparkle(ctx.fxLayer, hx, hy, { count: 8 })
+    // Målvakten fångar bollen och hoppar av glädje — spelets EGEN slutbild.
+    this._keeperCatch(ctx)
 
     // Förlopp: höj nivå, räkna hemrullningar, kör delat firande (stjärna + klistermärke).
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('rounds', (ctx.progress.get().custom?.rounds || 0) + 1)
+    this._drawHoleRow(this._level)
     ctx.progress.complete()
 
-    this._loadTimer?.kill()
-    this._loadTimer = gsap.delayedCall(1.6, () => {
+    this._loadTimer = ctx.later(1.9, () => {
       if (this._alive) this._loadLevel(ctx, this._level)
     })
+  },
+
+  // Målvakten kastar upp armarna, hoppar och jublar när bollen kommer hem.
+  _keeperCatch(ctx) {
+    const k = this._keeper
+    if (!k || k.destroyed) return
+    this._keeperIdle?.pause()
+    const ky = k.y
+    gsap.killTweensOf(k)
+    gsap.to(k, {
+      y: ky - 40, duration: 0.2, ease: 'power2.out', yoyo: true, repeat: 3,
+      onComplete: () => {
+        if (!k.destroyed) { k.y = ky; this._keeperIdle?.resume() }
+      },
+    })
+    if (k._arms && !k._arms.destroyed) {
+      gsap.killTweensOf(k._arms)
+      gsap.to(k._arms, {
+        rotation: 0.26, duration: 0.16, yoyo: true, repeat: 5, ease: 'sine.inOut',
+        onComplete: () => { if (k._arms && !k._arms.destroyed) k._arms.rotation = 0 },
+      })
+    }
+    ctx.services.audio.tone({ freq: 523.25, dur: 0.14, type: 'triangle', vol: 0.16 })
+    ctx.services.audio.tone({ freq: 659.25, dur: 0.14, type: 'triangle', vol: 0.16, delay: 0.12 })
+    ctx.services.audio.tone({ freq: 783.99, dur: 0.22, type: 'triangle', vol: 0.18, delay: 0.24 })
+  },
+
+  // Hål-raden upptill: en plupp per klarad bana (max 12) — konkret framsteg utan text.
+  _drawHoleRow(level) {
+    const g = this._holeRow
+    if (!g || g.destroyed) return
+    g.clear()
+    const shown = Math.min(12, level + 3)
+    const x0 = 640 - ((shown - 1) * 44) / 2
+    for (let i = 0; i < shown; i++) {
+      const done = i < level
+      const x = x0 + i * 44
+      g.circle(x, 64, 15).fill({ color: done ? C_GOAL : 0xffffff, alpha: done ? 0.95 : 0.35 })
+        .stroke({ width: 3, color: done ? 0xd9a021 : 0xffffff, alpha: 0.8 })
+      if (done) g.circle(x, 64, 6).fill(0xd9a021)
+    }
   },
 
   // ---- Kollisioner: mål-sensor + hinder/studs-ljud ------------------------
@@ -803,7 +1000,7 @@ export default {
       sound: 'pop',
       onTap: () => this._cycleSurface(ctx),
     })
-    this._surfaceBtn.position.set(168, 650)
+    this._surfaceBtn.position.set(168, 616)
     this._root.addChild(this._surfaceBtn)
 
     // Indikator ovanför knappen visar vald yta (emoji + namn) — uppdateras vid byte.
@@ -812,7 +1009,7 @@ export default {
       style: { fontFamily: FONT.title, fontSize: 34, fontWeight: '800', fill: COLORS.ink, align: 'center' },
     })
     this._surfaceLabel.anchor.set(0.5)
-    this._surfaceLabel.position.set(168, 566)
+    this._surfaceLabel.position.set(168, 534)
     this._surfaceLabel.eventMode = 'none'
     this._root.addChild(this._surfaceLabel)
   },
@@ -851,7 +1048,18 @@ export default {
       gsap.killTweensOf(this._ball)
       gsap.killTweensOf(this._ball.scale)
     }
-    if (this._ballEmoji && !this._ballEmoji.destroyed) gsap.killTweensOf(this._ballEmoji)
+    if (this._ballSkin && !this._ballSkin.destroyed) gsap.killTweensOf(this._ballSkin)
+    if (this._ballFace && !this._ballFace.destroyed) {
+      gsap.killTweensOf(this._ballFace)
+      gsap.killTweensOf(this._ballFace.scale)
+    }
+    this._keeperIdle?.kill()
+    if (this._keeper && !this._keeper.destroyed) {
+      gsap.killTweensOf(this._keeper)
+      gsap.killTweensOf(this._keeper.scale)
+      if (this._keeper._arms) gsap.killTweensOf(this._keeper._arms)
+    }
+    this._trailPts = []
     if (this._homeGlow && !this._homeGlow.destroyed) gsap.killTweensOf(this._homeGlow.scale)
     if (this._iceOverlay && !this._iceOverlay.destroyed) gsap.killTweensOf(this._iceOverlay)
     if (this._sandOverlay && !this._sandOverlay.destroyed) gsap.killTweensOf(this._sandOverlay)

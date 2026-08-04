@@ -100,3 +100,18 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
   barnet får fler egna skott. tapPower sänkt 0.85→0.62 så ett tap ger en lekfull knuff (faller
   kort på längre banor → dra för kraft) i stället för ett facit-skott. No-fail intakt (glide kvar
   som sista utväg). Verifierat: aim-drag rullade bollen hem, errorCount 0.
+- 2026-08-04: **Andra omgången** (errorCount 0) — planen blev en riktig plan och målet fick liv.
+  - **Målvakten Bobo bor i målet** (§4 [Deep]): ritad målvakt i grön matchtröja och gula
+    handskar som vaggar i väntan, och som **kastar upp armarna, hoppar och jublar** när bollen
+    kommer hem — med en stigande treklang. Gate-punkt 4 (mottagare) + 7 (egen finish).
+  - **P0 ASSETS:** målet ritas nu med stolpar, ribba och nät (var 🥅-emoji i en vit ruta —
+    exakt det regeln förbjuder). Bollarna ritas: fotboll, studsboll och tung klotboll, var
+    och en med **eget ansikte som hålls upprätt medan mönstret rullar** — bollen är en figur,
+    inte en puck.
+  - **Planen fylld** (§3 "stor tom plan"): klippta gräsränder, mittlinje, mittcirkel,
+    straffområden och hörnbågar. Det ser ut som en fotbollsplan, inte en grön platta.
+  - **Spårlinje efter bollen** (§4 [Quick]): ett bleknande gräsavtryck visar var skottet gick.
+  - **Synlig bankarta** (§4 [Medium]): en rad hål-pluppar upptill fylls per klarad bana.
+  - **Layoutbugg:** "Byt yta"-knappen låg på y=650 med höjd 108 → nederkanten hamnade utanför
+    designytan och klipptes. Flyttad till 616 (etiketten till 534).
+  - **Bugg:** båda `gsap.delayedCall` → `ctx.later()`.

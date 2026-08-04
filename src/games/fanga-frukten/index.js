@@ -7,15 +7,85 @@
 // och bestraffas ALDRIG. En snäll, växande "magnet" drar fallande frukt mot korgen så
 // målet alltid går att nå. Fånga N frukter (växer med nivån) -> delat firande + ny nivå.
 // Allt ritas programmatiskt (Pixi Graphics + emoji) och städas exit-säkert.
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { puff, sparkle, floatText, bounceIn, pop, bigCelebration } from '../../lib/feedback.js'
 
-const FRUITS = ['🍎', '🍌', '🍓', '🍐', '🍊', '🍇']
+// Frukterna RITAS (P0 ASSETS): egen silhuett, egen färg, egna detaljer — aldrig en emoji
+// som hela föremålet. `kind` är ascii-id:t som ekorrens önskan pekar på.
+const FRUITS = ['apple', 'banan', 'jordgubbe', 'paron', 'apelsin', 'vindruvor']
+const FRUIT_WISH = {
+  apple: 'Jag vill ha ett äpple!', banan: 'Jag vill ha en banan!',
+  jordgubbe: 'Jag vill ha en jordgubbe!', paron: 'Jag vill ha ett päron!',
+  apelsin: 'Jag vill ha en apelsin!', vindruvor: 'Jag vill ha vindruvor!',
+}
+
+// Rita en frukt med egen silhuett. `s` skalar (radie ≈ 26·s).
+function makeFruit(kind, s = 1) {
+  const c = new Container()
+  const g = new Graphics()
+  const R = 26 * s
+  g.ellipse(0, R * 1.1, R * 0.8, R * 0.22).fill({ color: 0x2f6b34, alpha: 0.16 }) // markskugga
+  if (kind === 'apple') {
+    g.circle(-R * 0.34, 0, R * 0.82).fill(0xff6b6b)
+    g.circle(R * 0.34, 0, R * 0.82).fill(0xff6b6b)
+    g.ellipse(0, R * 0.14, R * 0.96, R * 0.86).fill(0xff6b6b)
+    g.moveTo(0, -R * 0.7).quadraticCurveTo(R * 0.12, -R * 1.1, R * 0.4, -R * 1.24)
+      .stroke({ width: 4 * s, color: 0x6f452c, cap: 'round' })
+    g.ellipse(-R * 0.42, -R * 1, R * 0.48, R * 0.26).fill(0x5bbf6a)
+    g.ellipse(-R * 0.36, -R * 0.24, R * 0.26, R * 0.4).fill({ color: 0xffffff, alpha: 0.35 })
+  } else if (kind === 'banan') {
+    g.moveTo(-R * 0.9, -R * 0.5).quadraticCurveTo(0, R * 1.1, R * 0.95, -R * 0.2)
+      .quadraticCurveTo(R * 0.2, R * 0.7, -R * 0.66, -R * 0.32).closePath().fill(0xffd35c)
+    g.moveTo(-R * 0.9, -R * 0.5).quadraticCurveTo(-R * 0.5, R * 0.1, -R * 0.66, -R * 0.32)
+      .fill(0x8a5a3b)
+    g.moveTo(R * 0.95, -R * 0.2).lineTo(R * 1.16, -R * 0.5).stroke({ width: 5 * s, color: 0x8a5a3b, cap: 'round' })
+    g.moveTo(-R * 0.5, -R * 0.16).quadraticCurveTo(0, R * 0.5, R * 0.62, -R * 0.06)
+      .stroke({ width: 2.5 * s, color: 0xf0b93c, alpha: 0.8 })
+  } else if (kind === 'jordgubbe') {
+    g.moveTo(-R * 0.86, -R * 0.44).quadraticCurveTo(0, R * 1.3, R * 0.86, -R * 0.44)
+      .quadraticCurveTo(0, -R * 0.9, -R * 0.86, -R * 0.44).fill(0xe63950)
+    for (let i = 0; i < 9; i++) {
+      g.circle(-R * 0.5 + (i % 3) * R * 0.5, -R * 0.2 + Math.floor(i / 3) * R * 0.42, R * 0.08).fill(0xfff3b0)
+    }
+    for (let k = -2; k <= 2; k++) {
+      g.ellipse(k * R * 0.3, -R * 0.62, R * 0.24, R * 0.14).fill(0x4fae51)
+    }
+    g.moveTo(0, -R * 0.7).lineTo(0, -R * 1.1).stroke({ width: 4 * s, color: 0x4fae51, cap: 'round' })
+  } else if (kind === 'paron') {
+    g.circle(0, R * 0.34, R * 0.78).fill(0xc7d94a)
+    g.ellipse(0, -R * 0.36, R * 0.52, R * 0.6).fill(0xc7d94a)
+    g.moveTo(0, -R * 0.9).quadraticCurveTo(R * 0.1, -R * 1.2, R * 0.3, -R * 1.3)
+      .stroke({ width: 4 * s, color: 0x6f452c, cap: 'round' })
+    g.ellipse(R * 0.4, -R * 1.06, R * 0.4, R * 0.22).fill(0x5bbf6a)
+    g.ellipse(-R * 0.3, R * 0.2, R * 0.2, R * 0.34).fill({ color: 0xffffff, alpha: 0.32 })
+  } else if (kind === 'apelsin') {
+    g.circle(0, 0, R * 0.94).fill(0xff8a3d)
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2
+      g.circle(Math.cos(a) * R * 0.6, Math.sin(a) * R * 0.6, R * 0.1).fill({ color: 0xe0731f, alpha: 0.5 })
+    }
+    g.circle(0, -R * 0.92, R * 0.14).fill(0x6f452c)
+    g.ellipse(R * 0.3, -R * 0.98, R * 0.36, R * 0.2).fill(0x5bbf6a)
+    g.ellipse(-R * 0.36, -R * 0.3, R * 0.24, R * 0.34).fill({ color: 0xffffff, alpha: 0.3 })
+  } else {
+    // vindruvor
+    for (const [gx, gy] of [[-0.44, 0.1], [0.44, 0.1], [0, 0.1], [-0.22, 0.62], [0.22, 0.62], [0, -0.4], [-0.4, -0.3], [0.4, -0.3]]) {
+      g.circle(gx * R, gy * R, R * 0.34).fill(0xa78bfa)
+      g.circle(gx * R - R * 0.1, gy * R - R * 0.1, R * 0.11).fill({ color: 0xffffff, alpha: 0.35 })
+    }
+    g.moveTo(0, -R * 0.66).lineTo(R * 0.1, -R * 1.14).stroke({ width: 4 * s, color: 0x6f452c, cap: 'round' })
+    g.ellipse(R * 0.42, -R * 1.06, R * 0.42, R * 0.2).fill(0x4fae51)
+  }
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
 const HAPPY_FX = ['😋', '😄', '🎉', '⭐', '🍓']
 const CATCH_PRAISE = ['Mums!', 'Nam nam!', 'Vad gott!', 'En till!']
 const FULL_SAY = ['Hela korgen är full! Hurra!', 'Vilken fruktplockare!', 'Bravo! Så många frukter!']
@@ -69,12 +139,59 @@ export default {
     // Glad äng (gradient-himmel + sol/moln/mark) — dekorativ.
     this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
 
-    // Lövverk i toppen så frukten ser ut att falla ur trädet.
-    const foliage = new Graphics()
-    for (let x = -40; x <= ctx.width + 40; x += 108) foliage.circle(x, -6, 56).fill(0x6fb662)
-    for (let x = 14; x <= ctx.width + 40; x += 108) foliage.circle(x, 22, 44).fill(0x5aa752)
-    foliage.eventMode = 'none'
-    this._root.addChild(foliage)
+    // RIKTIGT träd i stället för en rad gröna cirklar i kanten: en tjock stam till vänster,
+    // grenar ut över scenen och ett lövverk som guppar. Grenen SKAKAR när frukten släpps,
+    // så fallet får en synlig orsak.
+    const trunk = new Graphics()
+    trunk.moveTo(-30, ctx.height).lineTo(6, 300).quadraticCurveTo(30, 190, 92, 150)
+      .lineTo(126, 186).quadraticCurveTo(66, 232, 62, 320).lineTo(74, ctx.height).closePath()
+      .fill(0x8a5a3b)
+    trunk.moveTo(20, 300).quadraticCurveTo(60, 268, 74, 224).stroke({ width: 8, color: 0x6f452c, alpha: 0.5 })
+    // grenar ut i bild
+    trunk.moveTo(80, 200).quadraticCurveTo(300, 110, 520, 132).stroke({ width: 20, color: 0x8a5a3b, cap: 'round' })
+    trunk.moveTo(300, 158).quadraticCurveTo(620, 96, 980, 128).stroke({ width: 16, color: 0x8a5a3b, cap: 'round' })
+    trunk.moveTo(700, 116).quadraticCurveTo(900, 150, 1010, 208).stroke({ width: 11, color: 0x8a5a3b, cap: 'round' })
+    trunk.eventMode = 'none'
+    this._root.addChild(trunk)
+
+    this._foliage = new Container()
+    this._foliage.eventMode = 'none'
+    this._foliage.interactiveChildren = false
+    const fol = new Graphics()
+    for (const [fx, fy, fr, fc] of [
+      [90, 96, 92, 0x5aa752], [250, 60, 104, 0x6fb662], [430, 90, 96, 0x5aa752],
+      [600, 52, 110, 0x6fb662], [790, 84, 98, 0x5aa752], [960, 58, 92, 0x6fb662],
+      [1130, 92, 100, 0x5aa752], [1250, 52, 86, 0x6fb662], [-20, 60, 88, 0x6fb662],
+    ]) fol.circle(fx, fy, fr).fill(fc)
+    for (const [fx, fy, fr] of [[180, 132, 46], [520, 140, 40], [880, 136, 44], [1060, 140, 38]]) {
+      fol.circle(fx, fy, fr).fill(0x4f9a48)
+    }
+    fol.eventMode = 'none'
+    this._foliage.addChild(fol)
+    this._root.addChild(this._foliage)
+    // lövverket andas lugnt
+    this._folTween = gsap.to(this._foliage, { y: 10, duration: 2.4, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+
+    // Den hungriga kompisen: en ekorre på grenen som ÖNSKAR sig en viss frukt. Att välja
+    // vilken frukt man fångar blir därmed ett riktigt val — och korgen fylls åt någon.
+    this._friend = makeSquirrel()
+    this._friend.position.set(1006, 186)
+    this._root.addChild(this._friend)
+    this._friendIdle = gsap.to(this._friend, { y: 178, duration: 1.5, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+
+    // Önskebubbla (UI-panel) med den ritade frukten inuti.
+    this._wishBubble = new Container()
+    this._wishBubble.eventMode = 'none'
+    this._wishBubble.interactiveChildren = false
+    const wb = new Graphics()
+    wb.circle(0, 0, 44).fill({ color: 0xfffdf7, alpha: 0.95 }).stroke({ width: 4, color: 0x8a5a3b, alpha: 0.5 })
+    wb.circle(-34, 30, 11).fill({ color: 0xfffdf7, alpha: 0.95 })
+    wb.circle(-46, 44, 6).fill({ color: 0xfffdf7, alpha: 0.9 })
+    this._wishBubble.addChild(wb)
+    this._wishIcon = new Container()
+    this._wishBubble.addChild(this._wishIcon)
+    this._wishBubble.position.set(1104, 112)
+    this._root.addChild(this._wishBubble)
 
     this._mouthY = ctx.height - 150
     this._groundY = ctx.height - 24
@@ -141,6 +258,7 @@ export default {
 
     this._tick = (t) => this._update(ctx, t)
     ctx.ticker.add(this._tick)
+    this._newWish(ctx, 2.2)
   },
 
   mount(ctx) {
@@ -231,7 +349,8 @@ export default {
     if (!this._alive || this._busy) return
     if (this._fruit.length >= MAX_FRUIT) return
     const def = randomFrom(SIZES)
-    const emoji = randomFrom(FRUITS)
+    // Mottagaren önskar sig en sort — den sorten dyker upp oftare så önskan går att uppfylla.
+    const kind = this._wish && Math.random() < 0.42 ? this._wish : randomFrom(FRUITS)
     const bx = this._basket && !this._basket.destroyed ? this._basket.x : ctx.width / 2
     // Efter ett par missar: släpp frukten rakt över korgen (extra snäll hjälp).
     let x
@@ -239,13 +358,13 @@ export default {
     else x = 120 + Math.random() * (ctx.width - 240)
 
     const r = def.fs * 0.4
-    const view = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: def.fs } })
-    view.anchor.set(0.5)
-    view.eventMode = 'none'
+    const view = makeFruit(kind, def.fs / 62)
     view.x = x
     view.y = -40
     this._fruitLayer.addChild(view)
     bounceIn(view, { duration: 0.35 })
+    // Grenen skakar där frukten släpper + en liten bladpuff: fallet får en synlig orsak.
+    this._shakeBranch(x)
 
     const body = this._phys.circle(x, -40, r, {
       restitution: 0.32,
@@ -256,7 +375,7 @@ export default {
     })
     Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.12) // gullig långsam snurr
     this._phys.link(body, view)
-    this._fruit.push({ body, view, emoji, caught: false })
+    this._fruit.push({ body, view, kind, caught: false })
   },
 
   // ---- Kollisioner: fångst (sensor) + lekfull kant-studs (rim) -------------
@@ -297,6 +416,59 @@ export default {
 
   // ---- Fångad frukt: plopp, räkna upp, ploppa ner i korgen ----------------
 
+  // Grenen skakar där frukten släpper + en liten bladpuff — fallet får en synlig orsak.
+  _shakeBranch(x) {
+    if (!this._foliage || this._foliage.destroyed) return
+    const fx = this._foliage
+    gsap.killTweensOf(fx, 'rotation')
+    fx.pivot.set(0, 0)
+    gsap.fromTo(fx, { rotation: 0.006 }, {
+      rotation: -0.006, duration: 0.09, yoyo: true, repeat: 3, ease: 'sine.inOut',
+      onComplete: () => { if (!fx.destroyed) fx.rotation = 0 },
+    })
+    puff(this._root, x, 108, { count: 5, color: 0x5aa752 })
+  },
+
+  // Ekorren önskar sig en ny sort (visas som ritad frukt i önskebubblan + sägs).
+  _newWish(ctx, delay = 0) {
+    const pick = randomFrom(FRUITS.filter((k) => k !== this._wish))
+    this._wish = pick
+    if (this._wishIcon && !this._wishIcon.destroyed) {
+      for (const c of [...this._wishIcon.children]) c.destroy({ children: true })
+      const icon = makeFruit(pick, 0.86)
+      this._wishIcon.addChild(icon)
+      gsap.killTweensOf(this._wishIcon.scale)
+      gsap.fromTo(this._wishIcon.scale, { x: 0.2, y: 0.2 }, { x: 1, y: 1, duration: 0.42, ease: 'back.out(2.4)' })
+    }
+    ctx.later(delay, () => {
+      if (this._alive) ctx.services.voice.say(FRUIT_WISH[pick])
+    })
+  },
+
+  // Ekorren reagerar: stort hopp + mums vid önskad frukt, litet fniss annars.
+  _feedFriend(ctx, wished) {
+    const fr = this._friend
+    if (!fr || fr.destroyed) return
+    this._friendIdle?.pause()
+    const by = 186
+    gsap.killTweensOf(fr)
+    gsap.to(fr, {
+      y: by - (wished ? 44 : 18), duration: 0.16, ease: 'power2.out', yoyo: true, repeat: wished ? 3 : 1,
+      onComplete: () => { if (!fr.destroyed) { fr.y = by; this._friendIdle?.resume() } },
+    })
+    if (fr._tail && !fr._tail.destroyed) {
+      gsap.killTweensOf(fr._tail)
+      gsap.to(fr._tail, {
+        rotation: 0.4, duration: 0.13, yoyo: true, repeat: wished ? 5 : 1, ease: 'sine.inOut',
+        onComplete: () => { if (fr._tail && !fr._tail.destroyed) fr._tail.rotation = 0 },
+      })
+    }
+    if (wished) {
+      ctx.services.audio.tone({ freq: 523, dur: 0.12, type: 'triangle', vol: 0.16 })
+      ctx.services.audio.tone({ freq: 784, dur: 0.16, type: 'triangle', vol: 0.16, delay: 0.1 })
+    }
+  },
+
   _catchFruit(ctx, f) {
     if (!this._alive || f.caught) return
     f.caught = true
@@ -314,17 +486,28 @@ export default {
     // Frukten ploppar ner i korgen (exit-säker proxy-tween).
     this._tuck(f, bx)
 
+    // Mottagaren: fångade barnet den ÖNSKADE sorten blir djuret extra glatt (mums + hopp
+    // + gnistor) och önskar sig något nytt. Fel sort är fortfarande kul — djuret fnissar,
+    // ingenting går förlorat. Att välja VILKEN frukt man fångar blir ett riktigt val.
+    const wished = f.kind === this._wish
+    this._feedFriend(ctx, wished)
+
     // Lite glad krydda ibland — utan att spamma.
     if (Math.random() < 0.5) floatText(ctx.fxLayer, bx, this._mouthY - 16, randomFrom(HAPPY_FX), { fontSize: 46 })
     const now = performance.now()
-    if (Math.random() < 0.35 && now - this._lastVoice > 2200) {
+    if (wished) {
+      this._lastVoice = now
+      ctx.services.voice.say('Mums, precis vad jag ville ha!')
+      sparkle(ctx.fxLayer, bx, this._mouthY - 40, { count: 12 })
+      this._newWish(ctx, 1.1)
+    } else if (Math.random() < 0.35 && now - this._lastVoice > 2200) {
       this._lastVoice = now
       ctx.services.voice.say(randomFrom(CATCH_PRAISE))
     }
 
     if (this._busy) return // under firande: visa fångsten men räkna inte mot nästa nivå
     this._caught++
-    this._caughtEmojis.push(f.emoji)
+    this._caughtEmojis.push(f.kind)
     this._drawMeter()
     if (this._meterLayer && !this._meterLayer.destroyed) pop(this._meterLayer, { scale: 1.06 })
     if (this._caught >= this._goal) this._levelComplete(ctx)
@@ -404,7 +587,7 @@ export default {
     ctx.progress.complete()
 
     this._levelTimer?.kill()
-    this._levelTimer = gsap.delayedCall(1.9, () => {
+    this._levelTimer = ctx.later(1.9, () => {
       if (!this._alive) return
       ctx.services.voice.say('Fler frukter!')
       this._loadLevel(this._level)
@@ -433,9 +616,9 @@ export default {
     const bg = new Graphics().roundRect(startX - 96, -34, (n - 1) * gap + 96 + 40, 68, 34).fill({ color: 0x000000, alpha: 0.18 })
     layer.addChild(bg)
 
-    const basket = new Text({ text: '🧺', style: { fontFamily: FONT.body, fontSize: 44 } })
-    basket.anchor.set(0.5)
-    basket.position.set(startX - 66, 0)
+    // Korgikonen RITAS (P0 ASSETS) — var en 🧺-emoji.
+    const basket = makeBasket(0.28)
+    basket.position.set(startX - 66, 18)
     layer.addChild(basket)
 
     for (let i = 0; i < n; i++) {
@@ -443,9 +626,7 @@ export default {
       const slot = new Graphics().circle(x, 0, 24).fill({ color: 0xffffff, alpha: 0.85 }).stroke({ width: 4, color: COLORS.green })
       layer.addChild(slot)
       if (i < this._caught) {
-        const e = this._caughtEmojis[i] || '🍎'
-        const t = new Text({ text: e, style: { fontFamily: FONT.body, fontSize: 34 } })
-        t.anchor.set(0.5)
+        const t = makeFruit(this._caughtEmojis[i] || 'apple', 0.62)
         t.position.set(x, 0)
         layer.addChild(t)
       }
@@ -469,6 +650,14 @@ export default {
 
   destroy(ctx) {
     this._alive = false
+    this._folTween?.kill()
+    this._friendIdle?.kill()
+    if (this._foliage && !this._foliage.destroyed) gsap.killTweensOf(this._foliage)
+    if (this._friend && !this._friend.destroyed) {
+      gsap.killTweensOf(this._friend)
+      if (this._friend._tail) gsap.killTweensOf(this._friend._tail)
+    }
+    if (this._wishIcon && !this._wishIcon.destroyed) gsap.killTweensOf(this._wishIcon.scale)
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._unbind?.()
     this._levelTimer?.kill()
@@ -504,8 +693,38 @@ export default {
 
 // Söt flätad korg ritad programmatiskt. Origo (0,0) = mitten av öppningen (munnen);
 // kroppen sträcker sig nedåt därifrån.
-function makeBasket() {
+// Ekorren på grenen: kropp, buskig svans (roteras vid glädje), öron och ansikte.
+function makeSquirrel() {
   const c = new Container()
+  const tail = new Graphics()
+  tail.moveTo(0, 0).quadraticCurveTo(52, -8, 46, -62).quadraticCurveTo(40, -96, 8, -84)
+    .quadraticCurveTo(30, -66, 26, -34).quadraticCurveTo(22, -10, 0, 0).fill(0xd08a4a)
+  tail.moveTo(6, -6).quadraticCurveTo(40, -20, 34, -60).stroke({ width: 4, color: 0xb5713a, alpha: 0.6 })
+  tail.position.set(20, 6)
+  c.addChild(tail)
+  const g = new Graphics()
+  g.ellipse(0, -6, 24, 28).fill(0xe09a55) // kropp
+  g.ellipse(0, 0, 14, 17).fill(0xf7d7ac) // ljus mage
+  g.ellipse(-12, 18, 11, 7).fill(0xd08a4a) // fötter
+  g.ellipse(12, 18, 11, 7).fill(0xd08a4a)
+  g.moveTo(-16, -44).lineTo(-9, -62).lineTo(-2, -44).closePath().fill(0xd08a4a) // öron
+  g.moveTo(16, -44).lineTo(9, -62).lineTo(2, -44).closePath().fill(0xd08a4a)
+  g.circle(0, -38, 20).fill(0xe09a55) // huvud
+  g.circle(-7, -41, 3.6).fill(0x33291f)
+  g.circle(7, -41, 3.6).fill(0x33291f)
+  g.circle(0, -32, 3.2).fill(0x8a4a55) // nos
+  g.moveTo(-16, -30).lineTo(-5, -32).moveTo(16, -30).lineTo(5, -32)
+    .stroke({ width: 1.6, color: 0xfffdf7, alpha: 0.9 })
+  c.addChild(g)
+  c._tail = tail
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+function makeBasket(scale = 1) {
+  const c = new Container()
+  c.scale.set(scale)
   const brown = COLORS.brown // 0x8a5a3b
   const dark = 0x6e4527
   const light = 0xa9744f

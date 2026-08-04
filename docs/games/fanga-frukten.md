@@ -92,3 +92,18 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
   försöken (ingen baslinje-dragning vid 0 missar); den smyger in först från misses≥2 och svagt
   (0.00045·(m−1)) som backstop. Över-korg-spawn kvar vid misses≥3 som sista garanti → barnet
   fångar själv först. Städning: tog bort oanvänd `ctx`-param i `_loadLevel`. errorCount 0.
+- 2026-08-04: **Andra omgången** (errorCount 0) — mottagare, riktigt träd och ritade frukter.
+  - **En hungrig kompis** (§4 [Medium], det stora lyftet): en ritad **ekorre sitter på grenen**
+    och önskar sig en sort ("Jag vill ha en banan!") som visas som ritad frukt i en önskebubbla.
+    Den önskade sorten faller oftare (42 %) så önskan går att uppfylla; fångar man rätt sort
+    hoppar ekorren högt, viftar på svansen och får en glad treklang, sedan önskar den sig något
+    nytt. Fel sort är fortfarande kul — ekorren guppar till, ingenting går förlorat.
+    Att välja VILKEN frukt man fångar blev därmed ett riktigt val.
+  - **P0 ASSETS:** alla sex frukter ritas nu med egen silhuett (äpple, banan, jordgubbe med
+    frön, päron, apelsin med skalstruktur, vindruvsklase) — även mätarens frukt- och korgikon.
+    Inga emoji-rekvisita kvar bland spelobjekten.
+  - **Trädet är ett riktigt träd** (§3 "trädet är en bluff"): tjock stam till vänster, tre
+    grenar ut över scenen och ett lövverk som andas. **Grenen skakar + en bladpuff** vid varje
+    släpp, så fallet får en synlig orsak.
+  - **Bugg:** `gsap.delayedCall` → `ctx.later()`; lövverkets, ekorrens och önskebubblans
+    tweens dödas i `destroy`.

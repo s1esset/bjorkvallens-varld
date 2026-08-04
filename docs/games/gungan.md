@@ -112,3 +112,7 @@ upplevelsen runt den.
   (−upp till 3 s) → den som taktar själv skjuter hjälpen längre bort. Kombo-cue (pling + större
   pop på Lova) vid 2–3 bra i rad gör skillnaden mellan egen rytm och auto-hjälp kännbar.
   Städning: tog bort oanvänd `ctx`-param i `_pumpDown`. errorCount 0.
+- 2026-08-04: **P0 ASSETS + en lekplats i stället för en tom äng.** (1) Kraft-knappens ikon var
+  en 💪-emoji **inuti en grå cirkel** — exakt det ASSETS-regeln förbjuder; den ritas nu som en
+  arm med ärm, biceps och knytnäve. (2) Scenen var en helt tom äng (§3 "ingen publik"): nu finns
+  två träd, en sandlåda med sandkorn och grässtrån runt gungställningen. errorCount 0.

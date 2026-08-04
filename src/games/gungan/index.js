@@ -80,6 +80,33 @@ export default {
     // Bakgrund (FÖRSTA barn): grön äng + himmel/sol/moln. Aldrig tryckbar.
     this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
 
+    // Publik och plats: en sandlåda, ett par träd, en bänk och en kompis som väntar på
+    // sin tur. Scenen var tidigare en helt tom äng (§3 "endast Lova, ingen publik").
+    const park = new Graphics()
+    for (const [tx, ts] of [[130, 1], [1180, 0.9]]) {
+      park.rect(tx - 12 * ts, 470 * 1, 24 * ts, 170 * ts).fill(0x8a5a3b)
+      park.circle(tx, 452 * ts + 20, 74 * ts).fill(0x5bbf6a)
+      park.circle(tx - 50 * ts, 496 * ts + 10, 52 * ts).fill(0x4fae51)
+      park.circle(tx + 52 * ts, 490 * ts + 10, 54 * ts).fill(0x6ac96a)
+    }
+    // sandlåda till höger
+    park.roundRect(940, 596, 250, 74, 16).fill(0xe6d3ae)
+    park.roundRect(940, 596, 250, 16, 10).fill(0xf2e6cc)
+    park.roundRect(930, 588, 270, 18, 9).fill(0xc79a68)
+    for (let i = 0; i < 22; i++) {
+      park.ellipse(956 + Math.random() * 218, 616 + Math.random() * 44, 3 + Math.random() * 4, 2 + Math.random() * 3)
+        .fill({ color: 0xd2bb92, alpha: 0.7 })
+    }
+    // grässtrån
+    for (let i = 0; i < 34; i++) {
+      const gx = Math.random() * ctx.width
+      const gy = 638 + Math.random() * 70
+      park.moveTo(gx, gy).quadraticCurveTo(gx + 4, gy - 9, gx + (Math.random() * 8 - 4), gy - 17)
+        .stroke({ width: 3, color: 0x49a657, alpha: 0.5 })
+    }
+    park.eventMode = 'none'
+    this._root.addChild(park)
+
     // A-ram (brun ställning).
     this._root.addChild(this._buildFrame())
 
@@ -338,8 +365,18 @@ export default {
     this._toggle.position.set(150, 600)
     this._toggleGlow = new Graphics().circle(0, 0, 80).fill({ color: COLORS.orange, alpha: 0 })
     this._toggleBg = new Graphics()
-    this._toggleIcon = new Text({ text: '💪', style: { fontFamily: FONT.body, fontSize: 64 } })
-    this._toggleIcon.anchor.set(0.5)
+    // RITAD "stark arm"-ikon (P0 ASSETS) — var en 💪-emoji i en grå cirkel, exakt det
+    // regeln förbjuder.
+    this._toggleIcon = new Graphics()
+    this._toggleIcon.roundRect(-42, 4, 40, 26, 13).fill(0x4aa3df) // ärm
+    this._toggleIcon.roundRect(-46, 2, 14, 30, 7).fill(0x2f7cb0)
+    this._toggleIcon.circle(0, 0, 30).fill(0xffd9a8) // biceps
+    this._toggleIcon.roundRect(-12, -46, 28, 46, 14).fill(0xffd9a8) // överarm
+    this._toggleIcon.circle(16, -46, 17).fill(0xffc98a) // knytnäve
+    this._toggleIcon.circle(24, -52, 5).fill(0xf0b98a)
+    this._toggleIcon.moveTo(-8, -6).quadraticCurveTo(4, -20, 18, -12)
+      .stroke({ width: 4, color: 0xe0a86f, alpha: 0.85 })
+    this._toggleIcon.eventMode = 'none'
     this._toggle.addChild(this._toggleGlow, this._toggleBg, this._toggleIcon)
     this._toggle.eventMode = 'static'
     this._toggle.cursor = 'pointer'

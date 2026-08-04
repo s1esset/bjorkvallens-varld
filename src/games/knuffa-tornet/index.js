@@ -209,6 +209,19 @@ export default {
     g.roundRect(PED.x1, LEDGE_Y, PED.x2 - PED.x1, FLOOR_Y - LEDGE_Y + 30, 22).fill(COLORS.brown)
     g.roundRect(PED.x1, LEDGE_Y, PED.x2 - PED.x1, 16, 22).fill({ color: 0xffffff, alpha: 0.18 })
     g.roundRect(PED.x1 + 12, LEDGE_Y + 30, PED.x2 - PED.x1 - 24, 10, 6).fill({ color: 0x000000, alpha: 0.12 })
+    // Stenblock i avsatsen (den var en helt tom brun platta som täckte en fjärdedel av skärmen).
+    for (let r = 0; r < 4; r++) {
+      const yy = LEDGE_Y + 56 + r * 46
+      for (let cx = PED.x1 + 18 + (r % 2 ? 46 : 0); cx < PED.x2 - 40; cx += 92) {
+        g.roundRect(cx, yy, 78, 34, 8).fill({ color: 0x9a6a45, alpha: 0.45 })
+        g.roundRect(cx, yy, 78, 8, 6).fill({ color: 0xb98a5f, alpha: 0.5 })
+      }
+    }
+    // gräs som växer över avsatsens kant
+    for (let x = PED.x1 + 10; x < PED.x2 - 10; x += 22) {
+      g.moveTo(x, LEDGE_Y + 2).quadraticCurveTo(x + 4, LEDGE_Y - 8, x + (x % 7) - 3, LEDGE_Y - 15)
+        .stroke({ width: 3, color: 0x5bbf6a, alpha: 0.8 })
+    }
     g.eventMode = 'none'
     this._root.addChild(g)
   },
@@ -254,14 +267,22 @@ export default {
 
   _buildMeter(ctx) {
     this._meter = new Container()
-    this._meter.position.set(ctx.width / 2, ctx.height - 40)
+    // Mätaren låg tidigare på y = height-40, alltså BAKOM tornets sockel och delvis under
+    // de två stora knapparna. Flyttad till den fria toppmitten mellan hem- och ljudknappen.
+    this._meter.position.set(ctx.width / 2, 64)
     this._meter.eventMode = 'none'
     const bw = 360
     const bg = new Graphics().roundRect(-bw / 2, -18, bw, 36, 18).fill({ color: 0x000000, alpha: 0.18 })
     this._meterFill = new Graphics()
-    const crown = new Text({ text: '👑', style: { fontFamily: FONT.body, fontSize: 40 } })
-    crown.anchor.set(0.5)
-    crown.position.set(-bw / 2 - 30, 0)
+    // Ritad krona (P0 ASSETS) i stället för 👑-emoji.
+    const crown = new Graphics()
+    crown.moveTo(-20, 10).lineTo(-20, -8).lineTo(-10, 1).lineTo(0, -13).lineTo(10, 1).lineTo(20, -8).lineTo(20, 10)
+      .closePath().fill(0xffd24a).stroke({ width: 2, color: 0xd9a021 })
+    crown.circle(0, -13, 3.4).fill(0xff6b6b)
+    crown.circle(-20, -8, 2.8).fill(0x57c8c3)
+    crown.circle(20, -8, 2.8).fill(0x57c8c3)
+    crown.position.set(-bw / 2 - 34, 0)
+    crown.eventMode = 'none'
     this._meterW = bw
     this._meter.addChild(bg, this._meterFill, crown)
     this._root.addChild(this._meter)
@@ -290,7 +311,7 @@ export default {
     })
     this._sizeBtn.position.set(150, 624)
     this._root.addChild(this._sizeBtn)
-    this._sizeTag = this._makeTag(150, 700, SIZES[this._sizeIdx].label, COLORS.ink)
+    this._sizeTag = this._makeTag(150, 546, SIZES[this._sizeIdx].label, COLORS.ink)
   },
 
   _buildRopeButton(ctx) {
@@ -307,10 +328,19 @@ export default {
     })
     this._ropeBtn.position.set(1120, 624)
     this._root.addChild(this._ropeBtn)
-    this._ropeTag = this._makeTag(1120, 700, this._rope.label, this._rope.color)
+    this._ropeTag = this._makeTag(1120, 546, this._rope.label, this._rope.color)
   },
 
   _makeTag(x, y, text, color) {
+    // Ljus pill bakom etiketten: den låg tidigare mot avsatsens bruna sten och var
+    // i praktiken oläsbar.
+    const pill = new Graphics()
+      .roundRect(-70, -20, 140, 40, 20)
+      .fill({ color: 0xfffdf7, alpha: 0.9 })
+      .stroke({ width: 3, color: 0x000000, alpha: 0.08 })
+    pill.position.set(x, y)
+    pill.eventMode = 'none'
+    this._root.addChild(pill)
     const t = new Text({
       text,
       style: { fontFamily: FONT.title, fontSize: 24, fontWeight: '700', fill: color, align: 'center' },
@@ -1046,13 +1076,20 @@ function makeBlock(w, h, color) {
   return c
 }
 
-// Krona på toppen (emoji + mjuk glöd).
+// RITAD krona på toppen (P0 ASSETS) med mjuk glöd — var en 👑-emoji.
 function makeCrown() {
   const c = new Container()
   const glow = new Graphics().circle(0, 0, 40).fill({ color: 0xffe27a, alpha: 0.3 })
   glow.eventMode = 'none'
-  const e = new Text({ text: '👑', style: { fontFamily: FONT.body, fontSize: 54 } })
-  e.anchor.set(0.5)
+  const e = new Graphics()
+  e.moveTo(-27, 16).lineTo(-27, -12).lineTo(-13, 2).lineTo(0, -20).lineTo(13, 2).lineTo(27, -12).lineTo(27, 16)
+    .closePath().fill(0xffd24a).stroke({ width: 3, color: 0xd9a021 })
+  e.rect(-27, 10, 54, 8).fill(0xe8b53a)
+  e.circle(0, -20, 5).fill(0xff6b6b)
+  e.circle(-27, -12, 4).fill(0x57c8c3)
+  e.circle(27, -12, 4).fill(0x57c8c3)
+  e.circle(0, 14, 3.4).fill(0xfffdf7)
+  e.eventMode = 'none'
   c.addChild(glow, e)
   c.eventMode = 'none'
   c.interactiveChildren = false

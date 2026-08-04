@@ -128,3 +128,15 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
   — fysik-länken rör bara position/rotation) när kulan svingar nära; `_onClear` ger en snabb
   squash + en liten "hoppsan"-emoji (strypt som plopp). Allt exit-säkert (shake-tween dödas
   i `destroy`, scale-tweens städas via befintlig `killTweensOf` i `_clearTower`/`destroy`).
+- 2026-08-04: **Andra omgången** (errorCount 0) — tre layoutbuggar och P0 ASSETS.
+  - **Layoutbugg 1:** kloss-mätaren låg på `y = height − 40`, alltså **bakom avsatsen** och
+    delvis under de två stora knapparna — den var i praktiken osynlig. Flyttad till den fria
+    toppmitten (y=64) mellan hem- och ljudknappen.
+  - **Layoutbugg 2:** etiketterna "Mellan"/"Styvt" satt UNDER knapparna på y=700, där
+    avsatsen täckte den högra helt. De sitter nu ovanför knapparna (y=546).
+  - **Layoutbugg 3:** etiketterna var mörk text direkt mot avsatsens bruna sten och gick inte
+    att läsa — de har nu en ljus pill bakom sig.
+  - **P0 ASSETS:** båda kronorna (tornets topp + mätarens ikon) ritas nu med spetsar, band och
+    ädelstenar i stället för 👑-emoji.
+  - **Avsatsen** var en tom brun platta över en fjärdedel av skärmen; den har nu murade
+    stenblock och gräs som växer över kanten.

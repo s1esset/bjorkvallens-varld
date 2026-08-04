@@ -55,6 +55,9 @@ Stark grund, men en kräsen blick ser genvägarna:
 Kort sagt: ett *kompetent* siktespel där den andra kontrollen (bolltyp) och hindren ännu inte
 betyder något, och korgen saknar mottagare/själ.
 
+> **2026-08-04 — andra omgången genomförd** (errorCount 0). Se §5 för vad som gjordes;
+> flera punkter nedan är därmed avbockade.
+
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
@@ -111,3 +114,18 @@ betyder något, och korgen saknar mottagare/själ.
   **ballong-boll** (rosa, med knut) som studsar extra högt (låg täthet, hög restitution).
   No-fail intakt, exit-säkert (nya tweens dödas i `destroy`, `killTweensOf(_basketView.scale)`).
   Testad (errorCount 0, skärmdump sedd: stjärnboll i fältet, glödande korg, mätare fyller).
+- 2026-08-04: **Tredje omgången** (errorCount 0) — mottagare, levande grop och en scen.
+  - **Mottagaren Bobo vid korgen** (§4 [Deep]): ritad figur som vaggar bredvid korgen (och
+    **flyttar med den** mellan nivåerna), sträcker upp armarna och hoppar vid varje boll i
+    korgen, och gör en längre vinstdans när mätaren blir full. Gate-punkt 4 var den enda
+    kvarvarande — nu uppfylld.
+  - **Levande gropbollar** (§4 [Deep]): målbollarna som ligger i gropen får en svag,
+    långsam sidkraft så de rullar fram och tillbaka. De är rörliga mål i stället för dekor —
+    kraften är så liten att träffytan förblir generös och en boll i rörelse aldrig störs.
+  - **Scenen fylld** (§3 "tom tapet"): trästaket längs gropkanten, tre träd, en vimpelrad
+    högt uppe (publikkänsla) och grässtrån i gropen.
+  - **P0-brott åtgärdat:** repliken "Stjärnboll! Extra poäng!" nämnde poäng — utbytt mot
+    "Stjärnboll! Så fin!".
+  - **P0 ASSETS:** mätarens korg- och bollikoner ritas nu (var 🧺/🏀-emoji i cirklar, exakt
+    det regeln förbjuder); det svävande 🏀 vid varje korg är borttaget (⭐ kvar för stjärnboll).
+  - **Bugg:** `gsap.delayedCall` för nivåbytet → `ctx.later()`.

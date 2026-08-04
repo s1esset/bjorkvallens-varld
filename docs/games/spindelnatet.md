@@ -116,3 +116,9 @@ fångar försvinner in i abstrakta prickar.
   (`_capture({cascade})` tystar då per-fäste-tjonget så det inte blir rörigt). Allt exit-säkert:
   arm-tween pushad i `_tweens` + `gsap.killTweensOf(this._shootArm)` i destroy. Testat headless med
   taps + spindel-drag (errorCount 0), skärmdump läst.
+- 2026-08-04: **P0 ASSETS — bytena är riktiga föremål.** Alla fem byten ritas nu (`makeTreat`):
+  karamell med snurrade ändar, **klubba med färgspiral**, chokladkaka med rutor och omslag,
+  larv med antenner och skalbagge med prickar — de var 🍬/🍭/🍫/🐛/🪲-emoji. Även den breda
+  fångstknappens nät-emblem och mätarens nät-ikon ritas (åtta ekrar + tre spiralringar) i
+  stället för 🕸️, och mätarens fångst-prickar är ritade karameller i stället för 🍬.
+  errorCount 0.

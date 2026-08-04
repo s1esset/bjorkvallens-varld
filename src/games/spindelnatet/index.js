@@ -18,7 +18,8 @@ import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, burst, floatText, bigCelebration, bounceIn, breathe } from '../../lib/feedback.js'
 
-const TREATS = ['🍬', '🍭', '🍫', '🐛', '🪲']
+// Bytena RITAS (P0 ASSETS) — ascii-id:n, aldrig emoji som hela föremålet.
+const TREATS = ['karamell', 'klubba', 'choklad', 'larv', 'skalbagge']
 const GROUND_FX = ['😄', '🌟', '🍬']
 
 const BASE_Y = 600 // nät-/spindelbas (y)
@@ -157,8 +158,7 @@ export default {
     this._wideFace = new Container()
     this._wideFace.addChild(new Graphics().circle(0, 0, 70).fill(COLORS.purple).stroke({ width: 6, color: 0xffffff, alpha: 0.85 }))
     this._wideFace.addChild(new Graphics().circle(-20, -22, 22).fill({ color: 0xffffff, alpha: 0.22 }))
-    const wIcon = new Text({ text: '🕸️', style: { fontFamily: FONT.body, fontSize: 56 } })
-    wIcon.anchor.set(0.5)
+    const wIcon = makeWebIcon(27)
     this._wideFace.addChild(wIcon)
     this._wideBtn.addChild(this._wideFace)
     this._wideRing = new Graphics()
@@ -220,8 +220,7 @@ export default {
     const gap = 56
     const panel = new Graphics().roundRect(-78, -34, n * gap + 40, 68, 34).fill({ color: 0x000000, alpha: 0.22 })
     layer.addChild(panel)
-    const label = new Text({ text: '🕸️', style: { fontFamily: FONT.body, fontSize: 40 } })
-    label.anchor.set(0.5)
+    const label = makeWebIcon(19)
     label.position.set(-48, 0)
     layer.addChild(label)
     for (let i = 0; i < n; i++) {
@@ -244,8 +243,7 @@ export default {
     const shadow = new Graphics().circle(0, 8, 28).fill({ color: 0x000000, alpha: 0.12 })
     shadow.eventMode = 'none'
     view.addChild(shadow)
-    const face = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 64 } })
-    face.anchor.set(0.5)
+    const face = makeTreat(emoji)
     view.addChild(face)
     view.eventMode = 'none'
     view.x = x
@@ -415,8 +413,12 @@ export default {
     this._caughtCount++
     if (idx < this._slots.length) {
       const slot = this._slots[idx]
-      const candy = new Text({ text: '🍬', style: { fontFamily: FONT.body, fontSize: 30 } })
-      candy.anchor.set(0.5)
+      // RITAD karamell (P0 ASSETS) — var en 🍬-emoji.
+      const candy = new Graphics()
+      candy.ellipse(0, 0, 11, 9).fill(0xff6b9d)
+      candy.moveTo(-11, 0).lineTo(-21, -8).lineTo(-19, 8).closePath().fill(0xff9ec4)
+      candy.moveTo(11, 0).lineTo(21, -8).lineTo(19, 8).closePath().fill(0xff9ec4)
+      candy.circle(-3, -3, 3).fill({ color: 0xffffff, alpha: 0.7 })
       candy.position.set(slot.x, 0)
       candy.eventMode = 'none'
       this._meterLayer.addChild(candy)
@@ -851,5 +853,91 @@ function makeSpider() {
   shine.eventMode = 'none'
   c.addChild(eyeL, eyeR, shine)
 
+  return c
+}
+
+// RITAT spindelnät-emblem (P0 ASSETS) — var en 🕸️-emoji.
+function makeWebIcon(r = 28) {
+  const g = new Graphics()
+  const spokes = 8
+  for (let i = 0; i < spokes; i++) {
+    const a = (i / spokes) * Math.PI * 2
+    g.moveTo(0, 0).lineTo(Math.cos(a) * r, Math.sin(a) * r)
+  }
+  g.stroke({ width: 3, color: 0xffffff, alpha: 0.92 })
+  for (let ring = 1; ring <= 3; ring++) {
+    const rr = (r * ring) / 3
+    for (let i = 0; i < spokes; i++) {
+      const a1 = (i / spokes) * Math.PI * 2
+      const a2 = ((i + 1) / spokes) * Math.PI * 2
+      g.moveTo(Math.cos(a1) * rr, Math.sin(a1) * rr)
+        .quadraticCurveTo(Math.cos((a1 + a2) / 2) * rr * 0.82, Math.sin((a1 + a2) / 2) * rr * 0.82,
+          Math.cos(a2) * rr, Math.sin(a2) * rr)
+    }
+  }
+  g.stroke({ width: 2.4, color: 0xffffff, alpha: 0.8 })
+  g.eventMode = 'none'
+  return g
+}
+
+// RITAT byte (P0 ASSETS): karamell, klubba, chokladkaka, larv eller skalbagge.
+function makeTreat(kind) {
+  const c = new Container()
+  const g = new Graphics()
+  if (kind === 'karamell') {
+    g.ellipse(0, 0, 22, 17).fill(0xff6b9d)
+    g.moveTo(-22, 0).lineTo(-40, -15).lineTo(-36, 15).closePath().fill(0xff9ec4)
+    g.moveTo(22, 0).lineTo(40, -15).lineTo(36, 15).closePath().fill(0xff9ec4)
+    g.moveTo(-12, -12).quadraticCurveTo(0, 0, -12, 12).stroke({ width: 4, color: 0xfffdf7, alpha: 0.75 })
+    g.circle(-6, -6, 5).fill({ color: 0xffffff, alpha: 0.6 })
+  } else if (kind === 'klubba') {
+    g.moveTo(0, 18).lineTo(0, 44).stroke({ width: 7, color: 0xfffdf7, cap: 'round' })
+    g.circle(0, 0, 24).fill(0xffd35c)
+    for (let i = 0; i < 3; i++) {
+      const a0 = i * 2.1
+      g.moveTo(0, 0)
+      for (let t = 0; t < 22; t++) {
+        const a = a0 + t * 0.22
+        const r = t * 1.05
+        g.lineTo(Math.cos(a) * r, Math.sin(a) * r)
+      }
+      g.stroke({ width: 5, color: [0xff6b9d, 0x57c8c3, 0xa78bfa][i], alpha: 0.95 })
+    }
+    g.circle(0, 0, 24).stroke({ width: 3, color: 0xe0a92c })
+  } else if (kind === 'choklad') {
+    g.roundRect(-26, -20, 52, 40, 6).fill(0x6f452c)
+    for (let r = 0; r < 2; r++) {
+      for (let k = 0; k < 3; k++) {
+        g.roundRect(-23 + k * 16, -17 + r * 18, 13, 15, 3).fill({ color: 0x8a5a3b, alpha: 0.95 })
+      }
+    }
+    g.roundRect(-30, -24, 26, 48, 6).fill(0xff6b6b)
+    g.roundRect(-30, -24, 26, 10, 5).fill({ color: 0xff9e9e, alpha: 0.9 })
+  } else if (kind === 'larv') {
+    for (let i = 0; i < 4; i++) {
+      g.circle(-24 + i * 16, i % 2 ? -3 : 3, 13).fill(i % 2 ? 0x6ac96a : 0x8fd67a)
+    }
+    g.circle(28, 0, 15).fill(0x5bbf6a)
+    g.circle(33, -4, 4).fill(0x33291f)
+    g.circle(24, -4, 4).fill(0x33291f)
+    g.moveTo(24, -14).lineTo(20, -24).moveTo(33, -14).lineTo(37, -24)
+      .stroke({ width: 2.6, color: 0x3f8f43, cap: 'round' })
+    g.circle(20, -24, 3).fill(0x3f8f43)
+    g.circle(37, -24, 3).fill(0x3f8f43)
+  } else {
+    // skalbagge
+    g.ellipse(0, 2, 24, 20).fill(0x57c8c3)
+    g.moveTo(0, -16).lineTo(0, 20).stroke({ width: 3, color: 0x2f7c78 })
+    for (const [dx, dy] of [[-12, -2], [12, -2], [-8, 11], [8, 11]]) g.circle(dx, dy, 4.5).fill(0x2f7c78)
+    g.circle(0, -18, 12).fill(0x33291f)
+    g.circle(-5, -22, 2.4).fill(0xffd35c)
+    g.circle(5, -22, 2.4).fill(0xffd35c)
+    g.moveTo(-6, -28).lineTo(-11, -36).moveTo(6, -28).lineTo(11, -36)
+      .stroke({ width: 2.6, color: 0x33291f, cap: 'round' })
+  }
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
   return c
 }

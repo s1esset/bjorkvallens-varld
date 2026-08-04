@@ -113,3 +113,16 @@ livlös rekvisita.
     sikt hinner betyda något. Demo-släppet vid mount kvar (engångs, instruktivt).
   - FOKUSERAT, inga delade filer rörda. Exit-säkert: trattväggar städas av `phys.destroy()`,
     fick-squash-tweens dödas vid rebuild/destroy, alla callbacks `_alive`-vaktade.
+- 2026-08-04: **Tredje omgången** (errorCount 0) — mottagare, levande bräde och en layoutbugg.
+  - **Layoutbugg (allvarlig):** mätaren låg på `y=56, x = width-56-i*64` → platserna på x 1224
+    och 1160 hamnade **rakt under ljudknappen** (1164–1256) och var helt dolda. Mätaren är nu
+    en lodrät kolumn längs vänsterkanten (x 36, y 200/274/348) och alla tre platser syns.
+  - **Fickorna är varelser** (§4 [Deep], "en figur under fickorna"): varje ficka har ögon och
+    mun. **Målfickan gapar hungrigt** (öppen mun + tunga) medan de andra ler lugnt — mottagaren
+    som scenen saknade, utan att ta någon extra plats. Gulpen läser nu som att den äter myntet.
+  - **Pinnarna tänds** (§3 "döda prickar"): varje pinnträff blixtrar gult, pulsar upp och
+    slocknar igen. Brädet lever medan myntet rasslar ner.
+  - **Myntkruka** (§4 [Quick] "synlig myntsamling"): en glasburk längs högerkanten där varje
+    insamlat mynt stannar kvar — också mellan spelomgångar (`custom.mynt`, 40 syns).
+  - **Bugg:** alla tre `gsap.delayedCall` → `ctx.later()`; pinn-vyerna och krukans tweens
+    dödas i `destroy` och vid nivåbyte.

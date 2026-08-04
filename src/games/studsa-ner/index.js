@@ -74,6 +74,7 @@ export default {
     this._idle = 0
     this._balls = [] // { body, view, settled }
     this._pegBodies = []
+    this._pegViews = []
     this._dividerBodies = []
     this._lastHit = 0
     this._lastVoice = 0
@@ -115,7 +116,7 @@ export default {
     this._lastVoice = performance.now()
     this._announceTarget(ctx, 1.2)
     // Ett mynt direkt mot målet för att visa idén.
-    this._demoTimer = gsap.delayedCall(0.6, () => this._alive && this._drop(ctx, this._targetCenterX(), true))
+    this._demoTimer = ctx.later(0.6, () => this._alive && this._drop(ctx, this._targetCenterX(), true))
   },
 
   // ---- Statisk scen (byggs en gång) ---------------------------------------
@@ -176,15 +177,29 @@ export default {
     this._meter = new Container()
     this._meter.eventMode = 'none'
     this._meterDots = []
+    // LODRÄT kolumn längs vänsterkanten. Låg tidigare på y=56 i högerhörnet, RAKT UNDER
+    // ljudknappen (1164–1256) — två av tre platser var helt dolda.
     for (let i = 0; i < TARGET_PER_LEVEL; i++) {
       const slot = new Graphics()
-      slot.x = ctx.width - 56 - i * 64
-      slot.y = 56
+      slot.x = 36
+      slot.y = 200 + i * 74
       this._drawMeterDot(slot, false, COLORS.inkSoft)
       this._meter.addChild(slot)
       this._meterDots.push(slot)
     }
     this._root.addChild(this._meter)
+
+    // Myntkruka längs högerkanten: varje insamlat mynt STANNAR i krukan, också mellan
+    // spelomgångar (custom.mynt) — något som växer att komma tillbaka till.
+    this._jar = new Container()
+    this._jar.eventMode = 'none'
+    this._jar.interactiveChildren = false
+    this._jarG = new Graphics()
+    this._jar.addChild(this._jarG)
+    this._jar.position.set(1236, 396)
+    this._root.addChild(this._jar)
+    this._coins = ctx.progress.get().custom?.mynt || 0
+    this._drawJar()
 
     // Bollager (mynten i fysiken) — under den genomskinliga fångaren.
     this._ballLayer = new Container()
@@ -274,6 +289,25 @@ export default {
       const fill = new Graphics()
         .roundRect(-(binW - 16) / 2, -h, binW - 16, h, 16)
         .fill({ color: col, alpha: isTarget ? 0.95 : 0.8 })
+      // Varje ficka är en liten VARELSE med ögon och mun — målfickan gapar och väntar
+      // hungrigt, de andra ler lugnt. Det ger mottagaren som scenen saknade, utan att
+      // ta någon extra plats.
+      const face = new Graphics()
+      const ey = -h + 54
+      for (const s of [-1, 1]) {
+        face.ellipse(s * 26, ey, 15, 17).fill(0xfffdf7)
+        face.circle(s * 26 + s * 3, ey + 3, 7).fill(0x33291f)
+        face.circle(s * 26 - 2, ey - 3, 3).fill(0xfffdf7)
+      }
+      if (isTarget) {
+        face.ellipse(0, ey + 44, 26, 20).fill(0x6b3b2a) // öppen, hungrig mun
+        face.ellipse(0, ey + 52, 15, 9).fill(0xe0736f) // tunga
+      } else {
+        face.moveTo(-20, ey + 36).quadraticCurveTo(0, ey + 54, 20, ey + 36)
+          .stroke({ width: 5, color: 0x4a3526, alpha: 0.75, cap: 'round' })
+      }
+      face.eventMode = 'none'
+      fill.addChild(face)
       fill.position.set(x0 + binW / 2, top + h)
       this._binLayer.addChild(fill)
       this._binFills.push(fill)
@@ -295,7 +329,8 @@ export default {
   _buildPegs(ctx, rows) {
     for (const b of this._pegBodies) this._phys.removeBody(b)
     this._pegBodies = []
-    for (const c of [...this._pegLayer.children]) c.destroy()
+    for (const c of [...this._pegLayer.children]) { gsap.killTweensOf(c.scale); c.destroy() }
+    this._pegViews = []
 
     const top = 200
     const rowGap = 46
@@ -316,8 +351,69 @@ export default {
         peg.addChild(dot)
         peg.x = x
         peg.y = y
+        peg._base = { x, y }
         this._pegLayer.addChild(peg)
+        this._pegViews.push(peg)
       }
+    }
+  },
+
+  // Pinnen TÄNDS när myntet slår i den: en snabb ljusblixt + puls + en krusning.
+  // Brädet var tidigare en tom yta med döda vita prickar.
+  _flashPeg(x, y) {
+    let best = null
+    let bestD = 40 * 40
+    for (const p of this._pegViews) {
+      if (p.destroyed) continue
+      const d = (p._base.x - x) ** 2 + (p._base.y - y) ** 2
+      if (d < bestD) {
+        bestD = d
+        best = p
+      }
+    }
+    if (!best) return
+    gsap.killTweensOf(best.scale)
+    best.clear().circle(0, 0, 10).fill(COLORS.yellow).stroke({ width: 3, color: 0xffffff, alpha: 0.9 })
+    gsap.fromTo(best.scale, { x: 1.9, y: 1.9 }, {
+      x: 1, y: 1, duration: 0.34, ease: 'power2.out',
+      onComplete: () => {
+        if (best.destroyed) return
+        best.clear().circle(0, 0, 10).fill(COLORS.white).stroke({ width: 3, color: COLORS.inkSoft, alpha: 0.35 })
+      },
+    })
+  },
+
+  // Myntkrukan: en glasburk vars mynthög växer med antalet insamlade mynt (tak 40 syns).
+  _drawJar() {
+    const g = this._jarG
+    if (!g || g.destroyed) return
+    g.clear()
+    const W = 58
+    const H = 150
+    g.roundRect(-W / 2, -H / 2, W, H, 16).fill({ color: 0xbfeefa, alpha: 0.3 })
+    const n = Math.min(40, this._coins || 0)
+    const rows = Math.ceil(n / 4)
+    for (let r = 0; r < rows; r++) {
+      const inRow = Math.min(4, n - r * 4)
+      for (let k = 0; k < inRow; k++) {
+        const cx = -W / 2 + 12 + k * 12 + (r % 2 ? 5 : 0)
+        const cy = H / 2 - 12 - r * 9
+        g.circle(cx, cy, 7).fill(PALETTE[(r * 4 + k) % PALETTE.length].color)
+        g.circle(cx - 2, cy - 2, 2.4).fill({ color: 0xffffff, alpha: 0.6 })
+      }
+    }
+    g.roundRect(-W / 2, -H / 2, W, H, 16).stroke({ width: 5, color: 0x8fc9de, alpha: 0.9 })
+    g.roundRect(-W / 2 - 5, -H / 2 - 12, W + 10, 18, 9).fill(0xc79a68) // lock/kant
+    g.roundRect(-W / 2 + 9, -H / 2 + 10, 9, H - 40, 5).fill({ color: 0xffffff, alpha: 0.35 }) // glansstreck
+  },
+
+  _addCoinToJar(ctx) {
+    this._coins = (this._coins || 0) + 1
+    ctx.progress.setCustom('mynt', this._coins)
+    this._drawJar()
+    if (this._jar && !this._jar.destroyed) {
+      gsap.killTweensOf(this._jar.scale)
+      gsap.fromTo(this._jar.scale, { x: 1.12, y: 0.9 }, { x: 1, y: 1, duration: 0.4, ease: 'back.out(2.4)' })
     }
   },
 
@@ -601,6 +697,8 @@ export default {
     sparkle(this._root, x, y, { count: 10 })
     floatText(ctx.fxLayer, x, y - 30, '⭐', { fontSize: 56 })
 
+    this._addCoinToJar(ctx) // myntet läggs i krukan och stannar där
+
     // Mätare fylls med en liten studs.
     const dot = this._meterDots[this._collected - 1]
     if (dot && !dot.destroyed) {
@@ -634,7 +732,7 @@ export default {
     ctx.progress.complete()
 
     this._levelTimer?.kill()
-    this._levelTimer = gsap.delayedCall(1.7, () => {
+    this._levelTimer = ctx.later(1.7, () => {
       if (!this._alive) return
       ctx.services.voice.say('Nästa nivå!')
       this._loadLevel(ctx, this._level, true)
@@ -644,7 +742,7 @@ export default {
   _announceTarget(ctx, delay) {
     if (delay > 0) {
       this._announceTimer?.kill()
-      this._announceTimer = gsap.delayedCall(delay, () => {
+      this._announceTimer = ctx.later(delay, () => {
         if (!this._alive) return
         ctx.services.voice.say(`Släpp i den ${this._targetName} fickan!`)
         this._lastVoice = performance.now()
@@ -664,9 +762,11 @@ export default {
       const b = pair.bodyB
       const hitsPeg = a.label === 'peg' || b.label === 'peg'
       if (!hitsPeg) continue
+      const pegBody = a.label === 'peg' ? a : b
       const ballBody = a.label === 'peg' ? b : a
       if (ballBody.speed > 1.6) {
         this._lastHit = now
+        this._flashPeg(pegBody.position.x, pegBody.position.y)
         // Pinn-melodi: klättra uppför pentaton-skalan för varje träff detta mynt gör.
         const ball = this._balls.find((bl) => bl.body === ballBody)
         const n = ball ? (ball._pegHits = (ball._pegHits || 0) + 1) : 1
@@ -739,6 +839,11 @@ export default {
     for (const f of this._binFills || []) {
       if (f && !f.destroyed) gsap.killTweensOf(f.scale)
     }
+    for (const p of this._pegViews || []) {
+      if (p && !p.destroyed) gsap.killTweensOf(p.scale)
+    }
+    this._pegViews = []
+    if (this._jar && !this._jar.destroyed) gsap.killTweensOf(this._jar.scale)
     this._balls.forEach((b) => {
       if (b.view && !b.view.destroyed) {
         gsap.killTweensOf(b.view)

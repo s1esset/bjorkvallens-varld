@@ -147,3 +147,8 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
   `Nästan! Leta efter luckan med samma färg.` · `Den luckan har en annan färg — prova igen!` ·
   `Titta på färgen — där ska brickan stå!` · `Vilken lucka har samma färg som brickan?`
   (Alla repliker bor i `SAY`/ord-listor högst upp i `index.js`.)
+- 2026-08-04: **Scen och mottagare.** (1) Banan låg tidigare i en tom himmel med en grön remsa;
+  nu finns kullar, tre träd, ett staket i fjärran och grässtrån — banan har en plats.
+  (2) Bobo var bara ett svävande huvud, dessutom halvt utanför högerkanten (x=1222); han har
+  nu ritad kropp med fötter och utsträckta armar och står intill klockstället och väntar på
+  att raset ska nå fram. errorCount 0.

@@ -121,10 +121,36 @@ export default {
       restitution: 0,
     })
 
+    // --- Bakgrundsvärld: kullar, träd och ett staket i fjärran. Scenen var tidigare
+    // en tom himmel med en grön remsa längst ner.
+    const world = new Graphics()
+    world.circle(200, FLOOR_Y + 40, 190).fill({ color: 0x8ed16a, alpha: 0.55 })
+    world.circle(560, FLOOR_Y + 66, 230).fill({ color: 0x86cf62, alpha: 0.45 })
+    world.circle(980, FLOOR_Y + 34, 170).fill({ color: 0x8ed16a, alpha: 0.5 })
+    for (let x = -20; x < DESIGN_W + 40; x += 76) {
+      world.roundRect(x, FLOOR_Y - 66, 16, 66, 5).fill({ color: 0xc79a68, alpha: 0.85 })
+    }
+    world.rect(-20, FLOOR_Y - 52, DESIGN_W + 60, 9).fill({ color: 0xb98a5f, alpha: 0.85 })
+    world.rect(-20, FLOOR_Y - 28, DESIGN_W + 60, 9).fill({ color: 0xb98a5f, alpha: 0.85 })
+    for (const [tx, ts] of [[92, 1], [372, 0.8], [1120, 0.9]]) {
+      world.rect(tx - 10 * ts, FLOOR_Y - 138 * ts, 20 * ts, 138 * ts).fill(0x8a5a3b)
+      world.circle(tx, FLOOR_Y - 162 * ts, 66 * ts).fill(0x5bbf6a)
+      world.circle(tx - 44 * ts, FLOOR_Y - 128 * ts, 46 * ts).fill(0x4fae51)
+      world.circle(tx + 46 * ts, FLOOR_Y - 132 * ts, 48 * ts).fill(0x6ac96a)
+    }
+    world.eventMode = 'none'
+    this._root.addChild(world)
+
     // --- Dekorativ gräsremsa.
     const deco = new Graphics()
     deco.rect(0, FLOOR_Y, DESIGN_W, DESIGN_H - FLOOR_Y).fill(COLORS.green)
     deco.moveTo(0, FLOOR_Y).lineTo(DESIGN_W, FLOOR_Y).stroke({ width: 4, color: COLORS.greenDark })
+    for (let i = 0; i < 40; i++) {
+      const gx = Math.random() * DESIGN_W
+      const gy = FLOOR_Y + 12 + Math.random() * (DESIGN_H - FLOOR_Y - 20)
+      deco.moveTo(gx, gy).quadraticCurveTo(gx + 4, gy - 8, gx + (Math.random() * 8 - 4), gy - 15)
+        .stroke({ width: 3, color: COLORS.greenDark, alpha: 0.5 })
+    }
     deco.eventMode = 'none'
     this._root.addChild(deco)
 
@@ -235,9 +261,27 @@ export default {
     this._bellTween = breathe(this._bellObj, { scale: 1.06, duration: 1.1 })
 
     // Bobo väntar under klockan och tar emot raset.
-    this._bobo = makeMascot(40)
-    this._bobo.position.set(1222, FLOOR_Y - 54)
+    // Bobo hade bara ett svävande huvud, dessutom halvt utanför högerkanten. Nu står han
+    // med ritad kropp intill klockstället och väntar på att raset ska nå fram.
+    this._bobo = new Container()
+    const bg2 = new Graphics()
+    bg2.ellipse(0, 46, 30, 10).fill({ color: 0x000000, alpha: 0.16 })
+    bg2.ellipse(-14, 38, 12, 8).fill(COLORS.orangeDark)
+    bg2.ellipse(14, 38, 12, 8).fill(COLORS.orangeDark)
+    bg2.ellipse(0, 6, 28, 34).fill(COLORS.orange)
+    bg2.ellipse(0, 12, 18, 19).fill({ color: COLORS.cream, alpha: 0.92 })
+    bg2.moveTo(-22, -6).quadraticCurveTo(-40, -18, -44, -42).stroke({ width: 11, color: COLORS.orange, cap: 'round' })
+    bg2.moveTo(22, -6).quadraticCurveTo(40, -18, 44, -42).stroke({ width: 11, color: COLORS.orange, cap: 'round' })
+    bg2.circle(-44, -42, 9).fill(COLORS.cream)
+    bg2.circle(44, -42, 9).fill(COLORS.cream)
+    bg2.eventMode = 'none'
+    this._bobo.addChild(bg2)
+    const head2 = makeMascot(40)
+    head2.y = -48
+    this._bobo.addChild(head2)
+    this._bobo.position.set(1206, FLOOR_Y - 52)
     this._bobo.eventMode = 'none'
+    this._bobo.interactiveChildren = false
     this._root.addChild(this._bobo)
     this._boboTween = breathe(this._bobo, { scale: 1.05, duration: 1.4 })
   },

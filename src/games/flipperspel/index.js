@@ -194,7 +194,18 @@ export default {
 
     // Bobo bor i maskinen: tittar fram över bordets överkant, rycker till vid varje
     // tändning, "kastar in" nya kulan och hoppar av glädje när allt lyser.
-    this._bobo = makeMascot(46)
+    // Bobo TITTAR över maskinens kant — nu med händer som greppar kanten, så det läser
+    // som en figur bakom maskinen i stället för ett svävande huvud.
+    this._bobo = new Container()
+    this._bobo.addChild(makeMascot(46))
+    const paws = new Graphics()
+    paws.circle(-52, 40, 15).fill(COLORS.orange)
+    paws.circle(52, 40, 15).fill(COLORS.orange)
+    paws.circle(-52, 34, 13).fill(COLORS.cream)
+    paws.circle(52, 34, 13).fill(COLORS.cream)
+    paws.eventMode = 'none'
+    this._bobo.addChild(paws)
+    this._bobo.interactiveChildren = false
     this._boboBaseY = 84
     this._bobo.position.set(MID, this._boboBaseY)
     this._bobo.eventMode = 'none'
@@ -298,8 +309,10 @@ export default {
     btn.position.set(140, 585)
     const lip = new Graphics()
     const face = new Graphics()
-    const icon = new Text({ text: '⚡', style: { fontFamily: FONT.body, fontSize: 56 } })
-    icon.anchor.set(0.5)
+    // RITAD blixt (P0 ASSETS) — var en ⚡-emoji.
+    const icon = new Graphics()
+    icon.moveTo(6, -30).lineTo(-16, 4).lineTo(-1, 4).lineTo(-7, 30).lineTo(16, -6).lineTo(1, -6)
+      .closePath().fill(0xffd24a).stroke({ width: 3, color: 0xe0a92c })
     icon.position.set(0, -8)
     icon.eventMode = 'none'
     const label = new Text({ text: 'Snabbt', style: { fontFamily: FONT.title, fontSize: 22, fontWeight: '700', fill: COLORS.white } })

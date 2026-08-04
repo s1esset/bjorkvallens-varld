@@ -176,3 +176,7 @@ passiva en gång tända**.
   aldrig registrerade "Lugnt läge." / "Snabbt läge!") — tillagda i `scripts/voice-phrases.json`,
   väntar på klipp.
 - Kvar att göra: riktiga flipper-klipp (#13, MOSS), synlig serve-ränna, multiboll.
+- 2026-08-04: **P0 ASSETS + Bobo får händer.** (1) Fart-knappens ⚡-emoji är ersatt av en
+  ritad blixt. (2) Bobo var ett svävande huvud ovanför maskinen; han **greppar nu maskinens
+  kant med två tassar**, så bilden läser som en figur som står bakom flipperspelet och tittar
+  ner på bollen. errorCount 0.

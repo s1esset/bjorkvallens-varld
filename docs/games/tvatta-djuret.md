@@ -127,3 +127,9 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
     per-objekt-tweens) → exit-säkert.
   - Kvar till nästa omgång: svampens materialitet (samla lera/skölj ren), djur-specifik finish,
     riktiga skrubb-/dusch-klipp, synlig innan/efter-miniatyr.
+- 2026-08-04: **P0 ASSETS — djuret är inte längre en form med en klistermärkes-min.**
+  Ansiktet ritas nu per art (`makeFace`): ponnyn med öron, mule, näsborrar och man, grisen med
+  tryne och spetsöron, valpen med hängöron och nosparti — alla med egna ögon, glansprickar och
+  kinder i stället för en 🐴/🐷/🐶-emoji. Även **svampen** (porer + skumkant), **duschen**
+  (blått munstycke med strålar och slang) och **tvålen** i mätaren ritas i stället för
+  🧽/🚿/🧼. errorCount 0.

@@ -160,8 +160,11 @@ export default {
     c.addChild(new Graphics().roundRect(470, 90, 340, 28, 14).fill({ color: 0x000000, alpha: 0.12 }))
     this._gaugeFill = new Graphics()
     c.addChild(this._gaugeFill)
-    const icon = new Text({ text: '🧼', style: { fontFamily: FONT.body, fontSize: 40 } })
-    icon.anchor.set(0.5)
+    // RITAD tvål (P0 ASSETS) — var en 🧼-emoji.
+    const icon = new Graphics()
+    icon.roundRect(-20, -13, 40, 26, 9).fill(0xbfe9ff).stroke({ width: 3, color: 0x8fc9de })
+    icon.roundRect(-20, -13, 40, 9, 6).fill({ color: 0xffffff, alpha: 0.6 })
+    icon.circle(9, 3, 5).fill({ color: 0xffffff, alpha: 0.7 })
     icon.position.set(444, 104)
     c.addChild(icon)
     this._gauge = c
@@ -182,8 +185,15 @@ export default {
     c.addChild(new Graphics().ellipse(0, 42, 54, 14).fill({ color: 0x000000, alpha: 0.15 }))
     c.addChild(new Graphics().roundRect(-50, -36, 100, 72, 18).fill(0xe9e36a).stroke({ width: 5, color: 0x7fbf4d }))
     c.addChild(new Graphics().roundRect(-50, 2, 100, 34, 16).fill({ color: 0xa9d96a, alpha: 0.9 }))
-    const e = new Text({ text: '🧽', style: { fontFamily: FONT.body, fontSize: 84 } })
-    e.anchor.set(0.5)
+    // RITAD svamp (P0 ASSETS) med porer och en skumkant — var en 🧽-emoji.
+    const e = new Graphics()
+    e.roundRect(-42, -30, 84, 60, 14).fill(0xffd35c)
+    e.roundRect(-42, -30, 84, 22, 12).fill(0xffe9a8)
+    for (let i = 0; i < 16; i++) {
+      e.circle(-34 + Math.random() * 68, -18 + Math.random() * 42, 3 + Math.random() * 4)
+        .fill({ color: 0xe0a92c, alpha: 0.6 })
+    }
+    e.roundRect(-42, 16, 84, 14, 8).fill({ color: 0xff9ec4, alpha: 0.9 })
     e.eventMode = 'none'
     c.addChild(e)
     c.eventMode = 'static'
@@ -197,8 +207,18 @@ export default {
     const c = new Container()
     c.addChild(new Graphics().ellipse(0, 48, 46, 12).fill({ color: 0x000000, alpha: 0.15 }))
     c.addChild(new Graphics().roundRect(-8, -42, 16, 40, 6).fill(0xb8c4cc))
-    const e = new Text({ text: '🚿', style: { fontFamily: FONT.body, fontSize: 90 } })
-    e.anchor.set(0.5)
+    // RITAT duschmunstycke (P0 ASSETS) — var en 🚿-emoji.
+    const e = new Graphics()
+    e.moveTo(30, -44).quadraticCurveTo(56, -22, 48, 12).stroke({ width: 13, color: 0x6f7880, cap: 'round' })
+    e.roundRect(-44, -50, 82, 26, 12).fill(0x4aa3df).stroke({ width: 4, color: 0x2f7cb0 })
+    e.moveTo(-44, -26).lineTo(38, -26).lineTo(28, 4).lineTo(-34, 4).closePath()
+      .fill(0x57c8c3).stroke({ width: 4, color: 0x2f9c98 })
+    e.roundRect(-36, 0, 64, 16, 8).fill(0x2f7cb0)
+    for (let i = 0; i < 5; i++) e.circle(-24 + i * 12, 20, 4).fill(0x1f5f8a)
+    e.roundRect(-40, -47, 74, 8, 4).fill({ color: 0xffffff, alpha: 0.45 })
+    for (let i = 0; i < 5; i++) {
+      e.moveTo(-24 + i * 12, 26).lineTo(-26 + i * 12, 44).stroke({ width: 3, color: 0x9fe4f8, alpha: 0.8, cap: 'round' })
+    }
     e.eventMode = 'none'
     c.addChild(e)
     c.eventMode = 'static'
@@ -291,11 +311,10 @@ export default {
     g.circle(560, 380, 72).fill({ color: 0xffffff, alpha: 0.18 })
     g.eventMode = 'none'
 
-    // Ansikts-emoji som karaktär på huvudet.
-    const face = new Text({ text: t.emoji, style: { fontFamily: FONT.body, fontSize: 120 } })
-    face.anchor.set(0.5)
+    // RITAT ansikte (P0 ASSETS) — var en 🐴/🐷/🐶-emoji. Djuret ska vara en varelse,
+    // inte en form med en klistermärkes-min.
+    const face = makeFace(t.kind, t.color, t.dark)
     face.position.set(FACE_X, FACE_Y)
-    face.eventMode = 'none'
     this._face = face // spara minen så den kan reagera på beröring
 
     c.addChild(shadow, g, face)
@@ -982,4 +1001,50 @@ export default {
     this._root?.destroy({ children: true })
     this._root = null
   },
+}
+
+// Ritat ansikte per art (P0 ASSETS). Djuret var tidigare en form med en emoji-min;
+// nu har det egna ögon, nos och öron som kan blinka och le.
+function makeFace(kind, color, dark) {
+  const c = new Container()
+  const g = new Graphics()
+  const R = 56
+  if (kind === 'pig') {
+    g.moveTo(-R * 0.86, -R * 0.5).lineTo(-R * 0.5, -R * 1.02).lineTo(-R * 0.22, -R * 0.5).closePath().fill(dark)
+    g.moveTo(R * 0.86, -R * 0.5).lineTo(R * 0.5, -R * 1.02).lineTo(R * 0.22, -R * 0.5).closePath().fill(dark)
+    g.circle(0, 0, R * 0.88).fill(color)
+    g.ellipse(0, R * 0.3, R * 0.42, R * 0.32).fill(dark) // tryne
+    g.circle(-R * 0.14, R * 0.3, R * 0.08).fill(0x8a4a55)
+    g.circle(R * 0.14, R * 0.3, R * 0.08).fill(0x8a4a55)
+  } else if (kind === 'puppy') {
+    g.ellipse(-R * 0.86, -R * 0.06, R * 0.3, R * 0.56).fill(dark) // hängöron
+    g.ellipse(R * 0.86, -R * 0.06, R * 0.3, R * 0.56).fill(dark)
+    g.circle(0, 0, R * 0.88).fill(color)
+    g.ellipse(0, R * 0.34, R * 0.4, R * 0.3).fill(0xf0e2cc) // nosparti
+    g.ellipse(0, R * 0.2, R * 0.16, R * 0.12).fill(0x33291f)
+  } else {
+    // ponny
+    g.moveTo(-R * 0.72, -R * 0.6).lineTo(-R * 0.46, -R * 1.1).lineTo(-R * 0.2, -R * 0.56).closePath().fill(dark)
+    g.moveTo(R * 0.72, -R * 0.6).lineTo(R * 0.46, -R * 1.1).lineTo(R * 0.2, -R * 0.56).closePath().fill(dark)
+    g.ellipse(0, -R * 0.1, R * 0.8, R * 0.86).fill(color)
+    g.ellipse(0, R * 0.5, R * 0.44, R * 0.34).fill(dark) // mule
+    g.circle(-R * 0.16, R * 0.48, R * 0.08).fill(0x5a4326)
+    g.circle(R * 0.16, R * 0.48, R * 0.08).fill(0x5a4326)
+    g.moveTo(-R * 0.5, -R * 0.9).quadraticCurveTo(R * 0.1, -R * 1.2, R * 0.4, -R * 0.5)
+      .stroke({ width: R * 0.22, color: 0x8a5a3b, cap: 'round' }) // man
+  }
+  // ögon + leende (samma för alla)
+  g.circle(-R * 0.3, -R * 0.16, R * 0.15).fill(0xfffdf7)
+  g.circle(R * 0.3, -R * 0.16, R * 0.15).fill(0xfffdf7)
+  g.circle(-R * 0.28, -R * 0.14, R * 0.09).fill(0x33291f)
+  g.circle(R * 0.32, -R * 0.14, R * 0.09).fill(0x33291f)
+  g.circle(-R * 0.31, -R * 0.18, R * 0.035).fill(0xffffff)
+  g.circle(R * 0.29, -R * 0.18, R * 0.035).fill(0xffffff)
+  g.circle(-R * 0.56, R * 0.1, R * 0.13).fill({ color: 0xff9ec4, alpha: 0.6 })
+  g.circle(R * 0.56, R * 0.1, R * 0.13).fill({ color: 0xff9ec4, alpha: 0.6 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
 }

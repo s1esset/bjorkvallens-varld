@@ -152,6 +152,37 @@ export default {
   _buildScene(ctx) {
     // Pastell glass-bakgrund (markens ovankant hamnar vid y=624).
     const bg = createScene('candy', { width: ctx.width, height: ctx.height, ground: true, groundH: 96 })
+    // Glasskiosk i stället för en tom pastellyta: randig markis, en hylla med
+    // sirapsflaskor till vänster och en disk längs golvet.
+    const shop = new Graphics()
+    for (let x = -20; x < ctx.width + 40; x += 92) {
+      shop.moveTo(x, 0).lineTo(x + 46, 0).lineTo(x + 46, 56).lineTo(x, 56).closePath()
+        .fill({ color: 0xff9ec4, alpha: 0.55 })
+      shop.moveTo(x + 46, 0).lineTo(x + 92, 0).lineTo(x + 92, 56).lineTo(x + 46, 56).closePath()
+        .fill({ color: 0xfffdf7, alpha: 0.6 })
+    }
+    for (let x = -20; x < ctx.width + 40; x += 46) {
+      shop.moveTo(x, 56).lineTo(x + 46, 56).lineTo(x + 23, 82).closePath()
+        .fill({ color: (x / 46) % 2 ? 0xfffdf7 : 0xff9ec4, alpha: 0.55 })
+    }
+    // hylla med sirapsflaskor
+    shop.roundRect(60, 330, 250, 12, 6).fill({ color: 0xdcb388, alpha: 0.75 })
+    const BOT = [0xff6b6b, 0x57c8c3, 0xffd35c, 0xa78bfa]
+    for (let i = 0; i < 4; i++) {
+      const bx = 84 + i * 58
+      shop.roundRect(bx, 272, 30, 58, 8).fill({ color: BOT[i], alpha: 0.7 })
+      shop.roundRect(bx + 9, 256, 12, 20, 5).fill({ color: BOT[i], alpha: 0.55 })
+      shop.roundRect(bx + 6, 250, 18, 9, 4).fill({ color: 0xfffdf7, alpha: 0.8 })
+      shop.roundRect(bx + 3, 286, 24, 16, 4).fill({ color: 0xfffdf7, alpha: 0.55 })
+    }
+    // disk längs golvet
+    shop.roundRect(-20, GROUND_TOP - 22, ctx.width + 60, 30, 12).fill({ color: 0xffc4e0, alpha: 0.55 })
+    shop.rect(-20, GROUND_TOP - 22, ctx.width + 60, 8).fill({ color: 0xfffdf7, alpha: 0.5 })
+    for (let x = 20; x < ctx.width; x += 64) {
+      shop.circle(x, GROUND_TOP + 40, 9).fill({ color: 0xffffff, alpha: 0.35 })
+    }
+    shop.eventMode = 'none'
+    bg.addChild(shop)
     bg.eventMode = 'none'
     this._root.addChild(bg)
 

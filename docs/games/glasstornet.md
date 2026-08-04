@@ -173,3 +173,7 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
   Nya repliker: "Bygg upp till körsbäret!", "Det blåser! Släpp när flaggan hänger stilla.",
   "Nu blir kulan klistrig!", "Nu är kulan vanlig igen.", "Ett körsbär på toppen!",
   "Mums! Tack för glassen!" (tillagda i `scripts/voice-phrases.json`, väntar på klipp).
+- 2026-08-04: **En glasskiosk i stället för tom pastell.** Bakgrunden var en slät
+  gradient med några svaga bubblor; nu finns en **randig markis med uddkant** längs
+  överkanten, en **hylla med fyra sirapsflaskor** till vänster och en prickig disk längs
+  golvet. Scenen har en plats — mekaniken är orörd. errorCount 0.

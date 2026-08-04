@@ -105,3 +105,23 @@ ger upptäckarglädje utan att någonsin bli stressande.
     ger varje art eget ljud. "Hihi!" borttaget ur GENTLE-fraserna.
   - Exit-säkerhet bevarad: mound-tweens dödas i `_killHoleTweens`, tell-`delayedCall` läggs i
     `this._calls`, alla onComplete guardade med `_alive`/tillståndskoll.
+- 2026-08-04: **Andra omgången** (errorCount 0) — personlighet, samling och riktiga föremål.
+  - **Artspecifikt beteende** (§4 [Medium]): ny `BEHAVIOR`-tabell ger varje art eget uppdyk och
+    eget temperament — kaninen skuttar högt och studsar två gånger, grodan hoppar över hålkanten,
+    **musen kikar blixtsnabbt** fram (0,2 s res, 62 % uppe-tid), igelkotten kommer långsamt och
+    dröjer kvar längst, mullvaden lugnt mittemellan. *Vilken* art som kommer betyder nu något.
+    Igelkotten **reser taggarna** när den klappas.
+  - **Vänbok som består** (§4 [Medium]): en trätavla längs högerkanten med fem platser. Varje
+    art man klappat första gången hängs upp med namn-replik och **stannar kvar mellan
+    spelomgångar** (`custom.arter`); tomma platser visas som skuggsilhuetter så man ser vad som
+    fattas. Fältet smalnades till FX1=1000 för att ge tavlan plats.
+  - **Sällsynt kunglig varelse** (§4 [Medium]): ~9 % chans att djuret bär en ritad guldkrona —
+    klappen ger extra gnistor, `reveal` och en bonusstjärna.
+  - **P0 ASSETS**: all ängsdekor är nu ritade föremål med egen silhuett — tulpan, prästkrage,
+    klöver, grodd, **fjäril med fladdrande vingar** och **krypande nyckelpiga** (båda rör sig, så
+    scenen lever mellan uppdyken) — plus ritade tassavtryck i räknar-raden. Inga emoji-rekvisita.
+  - **Djup i scenen**: trästaket vid horisonten + klippta gräsränder i stället för en platt kant.
+  - **Buggar:** `gsap.delayedCall` (tell + rundbyte) → `ctx.later()`; `this._calls` växte obegränsat
+    under en lång session (ett spawn-anrop per uppdyk, aldrig rensat) och är borttaget.
+    `_tell`/`_raise`/`_duck`/`_whack` guardar nu mot `hole.destroyed`, så ett hål som rivs mitt
+    i ett uppdyk inte kan skriva till en nollställd transform.

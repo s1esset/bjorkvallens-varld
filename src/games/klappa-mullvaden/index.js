@@ -5,18 +5,23 @@
 // bara mjukt ner av sig själv. Var N:te klapp firar vi (delat firande + stjärna +
 // klistermärke) och en ny, lite livligare runda startar. Djuren varieras (mullvad,
 // kanin, igelkott, mus, groda) och nivån växer mjukt med antal hål/uppdyk.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { pop, wiggle, puff, ripple, sparkle, floatText, burst, breathe, shake } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
-import { FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // Lekfältets area (designkoordinater) — hålen placeras i ett rutnät här inne.
-const FX0 = 250
-const FX1 = 1030
+// FX1 lämnar plats åt vänboken (den lodräta samlingen) längs högerkanten.
+const FX0 = 240
+const FX1 = 1000
 const FY0 = 240
 const FY1 = 600
+
+// Vänboken: en trätavla längs högerkanten där ett ansikte per klappad art hänger kvar.
+const BOOK_X = 1196
+const BOOK_Y0 = 196
+const BOOK_GAP = 78
 
 // Hål- och djurgeometri (lokalt i varje hål-container, origo = hålets mitt).
 const HOLE_RX = 90
@@ -39,6 +44,19 @@ const JOY = ['😄', '🥰', '✨', '💛', '🐾', '😊']
 
 // De djur som kan dyka upp (introduceras gradvis med nivån). ASCII-id:n.
 const SPECIES = ['mullvad', 'kanin', 'igelkott', 'mus', 'groda']
+const SPECIES_NAME = { mullvad: 'mullvaden', kanin: 'kaninen', igelkott: 'igelkotten', mus: 'musen', groda: 'grodan' }
+
+// Varje art har eget SÄTT att komma upp — det är inte bara olika päls. Det gör *vilken*
+// art som dyker upp till något att känna igen och vänta på (agens, inte utbytbar grafik).
+//   rise  = hur snabbt/högt den reser sig     up = multiplikator på uppe-tiden
+//   hops  = extra studsar när den står uppe   peek = kikar snabbt ner-och-upp igen
+const BEHAVIOR = {
+  mullvad: { rise: 0.46, ease: 'back.out(1.3)', lift: 0, up: 1.15, hops: 0 },
+  kanin: { rise: 0.34, ease: 'back.out(2.6)', lift: 26, up: 0.95, hops: 2 },
+  igelkott: { rise: 0.55, ease: 'power2.out', lift: 0, up: 1.25, hops: 0 },
+  mus: { rise: 0.2, ease: 'power3.out', lift: 8, up: 0.62, hops: 0, peek: true },
+  groda: { rise: 0.3, ease: 'back.out(3)', lift: 40, up: 0.85, hops: 1 },
+}
 
 // Riktigt inspelat läte per art om det finns (SFX-pipelinen, sample('djur_…')).
 const SAMPLE_FOR = { groda: 'djur_groda' }
@@ -75,7 +93,6 @@ export default {
     this._idle = 0
     this._spawnAcc = 0
     this._roundDone = false
-    this._calls = []
     this._level = ctx.progress.get().highestLevel || 1
 
     this._root = new Container()
@@ -84,10 +101,25 @@ export default {
     // Marknadsmässig äng-bakgrund (sol, moln, kullar) — dekorativ, fångar inga tryck.
     this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
 
+    // Trästaket vid horisonten — ger ängen ett bakre plan i stället för en tom kant.
+    const fence = new Graphics()
+    for (let x = -20; x < ctx.width + 40; x += 74) {
+      fence.roundRect(x, 132, 22, 74, 6).fill(0xc79a68)
+      fence.roundRect(x, 132, 22, 10, 6).fill(0xdcb388)
+    }
+    fence.rect(-20, 152, ctx.width + 60, 11).fill(0xb98a5f)
+    fence.rect(-20, 180, ctx.width + 60, 11).fill(0xb98a5f)
+    fence.eventMode = 'none'
+    this._root.addChild(fence)
+
     // Gräsmatta för lekfältet (rundad topp) ovanpå scenens nedre del.
     const lawn = new Graphics()
     lawn.roundRect(-40, 195, ctx.width + 80, ctx.height - 195 + 80, 90).fill(0x8ed16a)
     lawn.roundRect(-40, 195, ctx.width + 80, 18, 90).fill({ color: 0xa6dd7f, alpha: 0.6 })
+    // Klippta gräsränder ger djup och en känsla av verklig gräsmatta.
+    for (let i = 0; i < 6; i++) {
+      lawn.rect(-40, 214 + i * 88, ctx.width + 80, 44).fill({ color: 0x84c962, alpha: 0.28 })
+    }
     // Mjuka gräs-plättar för djup.
     for (const [px, py, pr] of [[330, 360, 70], [900, 320, 84], [640, 540, 96], [200, 560, 60], [1080, 520, 72]]) {
       lawn.ellipse(px, py, pr, pr * 0.5).fill({ color: 0x7cc25c, alpha: 0.35 })
@@ -95,21 +127,23 @@ export default {
     lawn.eventMode = 'none'
     this._root.addChild(lawn)
 
-    // Liten spridd dekor (blommor, fjäril, nyckelpiga) längs kanterna — eventMode none.
+    // Spridd dekor längs kanterna — RITADE föremål med egen silhuett (P0 ASSETS),
+    // inte emoji. Fjärilen och nyckelpigan rör sig så ängen lever mellan uppdyken.
     const deco = new Container()
     deco.eventMode = 'none'
     deco.interactiveChildren = false
-    for (const [dx, dy, em] of [
-      [120, 300, '🌷'], [80, 470, '🌼'], [1170, 320, '🌱'], [1180, 510, '🌷'],
-      [1130, 215, '🌼'], [100, 640, '🍀'], [1170, 660, '🌼'], [600, 168, '🌼'],
-      [300, 175, '🦋'], [980, 172, '🐞'], [700, 660, '🍀'],
-    ]) {
-      const f = new Text({ text: em, style: { fontFamily: FONT.body, fontSize: 44 } })
-      f.anchor.set(0.5)
-      f.position.set(dx, dy)
-      deco.addChild(f)
-    }
+    for (const [dx, dy, kind, col] of [
+      [116, 300, 'tulpan', 0xff6b9d], [78, 470, 'prastkrage', 0xffffff],
+      [1148, 626, 'grodd', 0x5bbf6a], [1116, 690, 'tulpan', 0xff8a3d],
+      [96, 640, 'klover', 0x4fae51], [612, 172, 'prastkrage', 0xfff3b0],
+      [700, 664, 'klover', 0x4fae51], [176, 214, 'tulpan', 0xa78bfa],
+      [1052, 208, 'prastkrage', 0xffffff], [430, 668, 'grodd', 0x5bbf6a],
+    ]) deco.addChild(makePlant(kind, col, dx, dy))
     this._root.addChild(deco)
+    this._bugs = [makeButterfly(300, 176), makeLadybug(980, 174)]
+    this._bugs.forEach((b) => deco.addChild(b))
+    this._flutter(this._bugs[0], ctx)
+    this._crawl(this._bugs[1], ctx)
 
     // Osynlig heltäckande träffyta: tomt tryck på ängen -> mjuk respons.
     const tapCatcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
@@ -123,7 +157,7 @@ export default {
 
     // Räknar-rad (tassavtryck), under headern (y<96 reserverad).
     this._pawRow = new Container()
-    this._pawRow.position.set(140, 132)
+    this._pawRow.position.set(140, 114)
     this._pawRow.eventMode = 'none'
     this._root.addChild(this._pawRow)
 
@@ -133,6 +167,7 @@ export default {
     this._fx.interactiveChildren = false
     this._root.addChild(this._fx)
 
+    this._buildBook(ctx)
     this._buildField(ctx)
 
     this._tick = (ticker) => this._update(ctx, ticker)
@@ -174,17 +209,115 @@ export default {
       }
     }
 
-    // Räknar-rad: ett 🐾 per mål-klapp, tonat tills det klappas.
+    // Räknar-rad: ett RITAT tassavtryck per mål-klapp, tonat tills det klappas.
     this._pawRow.removeChildren().forEach((o) => o.destroy())
     this._paws = []
     for (let i = 0; i < goal; i++) {
-      const paw = new Text({ text: '🐾', style: { fontFamily: FONT.body, fontSize: 38 } })
-      paw.anchor.set(0.5)
+      const paw = makePaw()
       paw.position.set(i * 46, 0)
       paw.alpha = 0.25
       this._pawRow.addChild(paw)
       this._paws.push(paw)
     }
+  },
+
+  // Vänboken: en trätavla längs högerkanten. Varje art man klappat hänger kvar där —
+  // också nästa gång man startar spelet (custom.arter). Ger en anledning att komma
+  // tillbaka: hitta alla fem.
+  _buildBook(ctx) {
+    const board = new Container()
+    board.eventMode = 'none'
+    board.interactiveChildren = false
+    const g = new Graphics()
+    const h = BOOK_GAP * SPECIES.length + 26
+    g.roundRect(-46, -44, 92, h, 20).fill(0xc79a68).stroke({ width: 5, color: 0x9a6f45 })
+    g.roundRect(-38, -36, 76, h - 16, 14).fill({ color: 0xe6c79c, alpha: 0.75 })
+    g.position.set(BOOK_X, BOOK_Y0)
+    board.addChild(g)
+    this._root.addChild(board)
+    this._book = board
+
+    const saved = ctx.progress.get().custom?.arter
+    this._found = new Set(Array.isArray(saved) ? saved.filter((s) => SPECIES.includes(s)) : [])
+    this._bookSlots = {}
+    SPECIES.forEach((sp, i) => {
+      const slot = new Container()
+      slot.position.set(BOOK_X, BOOK_Y0 + i * BOOK_GAP)
+      slot.eventMode = 'none'
+      // tom plats = en mjuk skugg-silhuett, så man ser vad som fattas
+      const ghost = new Graphics()
+      ghost.circle(0, 0, 26).fill({ color: 0x8a6a4f, alpha: 0.22 })
+      slot.addChild(ghost)
+      slot._ghost = ghost
+      board.addChild(slot)
+      this._bookSlots[sp] = slot
+      if (this._found.has(sp)) this._fillBookSlot(sp, false)
+    })
+  },
+
+  // Sätt in artens ansikte i vänboken (animerat första gången den klappas).
+  _fillBookSlot(species, celebrate = true) {
+    const slot = this._bookSlots?.[species]
+    if (!slot || slot.destroyed || slot._face) return
+    const { node } = makeCritter(species)
+    node.scale.set(0.5)
+    node.y = 4
+    slot.addChild(node)
+    slot._face = node
+    if (slot._ghost && !slot._ghost.destroyed) slot._ghost.alpha = 0
+    if (celebrate) {
+      gsap.fromTo(node.scale, { x: 0.1, y: 0.1 }, { x: 0.5, y: 0.5, duration: 0.45, ease: 'back.out(2.6)' })
+      gsap.fromTo(slot, { rotation: -0.4 }, { rotation: 0, duration: 0.5, ease: 'back.out(2)' })
+    }
+  },
+
+  // Fjärilen fladdrar längs staketet; nyckelpigan kryper. Båda exit-säkra proxy-tweens.
+  _flutter(bf, ctx) {
+    if (!bf) return
+    const st = { x: bf.x, y: bf.y, w: 1 }
+    const wing = gsap.to(st, {
+      w: 0.35, duration: 0.16, yoyo: true, repeat: -1, ease: 'sine.inOut',
+      onUpdate: () => { if (bf.destroyed) { wing.kill(); return } if (bf._wings) bf._wings.scale.x = st.w },
+    })
+    const hop = () => {
+      if (!this._alive || bf.destroyed) return
+      const tx = 120 + Math.random() * (ctx.width - 320)
+      const ty = 150 + Math.random() * 70
+      const tw = gsap.to(st, {
+        x: tx, y: ty, duration: 2.4 + Math.random() * 2.2, ease: 'sine.inOut',
+        onUpdate: () => {
+          if (bf.destroyed) { tw.kill(); return }
+          bf.position.set(st.x, st.y + Math.sin(st.x * 0.05) * 7)
+          bf.scale.x = st.x > bf.x ? 1 : -1
+        },
+        onComplete: hop,
+      })
+      this._bugTweens.push(tw)
+    }
+    this._bugTweens = this._bugTweens || []
+    this._bugTweens.push(wing)
+    hop()
+  },
+
+  _crawl(lb, ctx) {
+    if (!lb) return
+    const st = { x: lb.x, y: lb.y }
+    const step = () => {
+      if (!this._alive || lb.destroyed) return
+      const tx = 200 + Math.random() * (ctx.width - 420)
+      const tw = gsap.to(st, {
+        x: tx, duration: 3 + Math.random() * 3, ease: 'none', delay: 0.6 + Math.random(),
+        onUpdate: () => {
+          if (lb.destroyed) { tw.kill(); return }
+          lb.x = st.x
+          lb.rotation = Math.sin(st.x * 0.2) * 0.08
+        },
+        onComplete: step,
+      })
+      this._bugTweens.push(tw)
+    }
+    this._bugTweens = this._bugTweens || []
+    step()
   },
 
   // Ett hål: rest jordhög med mjuk kant, mörk öppning och en (gömd) djur-wrap som
@@ -257,10 +390,22 @@ export default {
     const species = this._pickSpecies()
     hole._species = species
     const cr = makeCritter(species)
+    // Sällsynt: en KUNGLIG varelse med guldkrona. Klappen ger extra gnistor + bonusstjärna.
+    hole._royal = Math.random() < 0.09
+    if (hole._royal) {
+      const crown = makeCrown()
+      crown.y = species === 'kanin' ? -74 : species === 'groda' ? -52 : -46
+      cr.node.addChild(crown)
+      gsap.to(crown, { rotation: 0.12, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+      hole._crown = crown
+    } else {
+      hole._crown = null
+    }
     hole._critter = cr.node
     hole._eyes = cr.eyes
     hole._mouth = cr.mouth
     hole._cheeks = cr.cheeks
+    hole._back = cr.back
     hole._wrap.addChild(cr.node)
   },
 
@@ -272,15 +417,17 @@ export default {
 
   // "Tell" innan uppdyk: jorden buktar/skakar ~0,4 s så barnet hinner förvänta sig och
   // sikta (bygger spänning utan tidspress). Efteråt reser sig djuret ur just det hålet.
-  _tell(hole) {
-    if (!this._alive || hole._state !== 'down') return
+  _tell(ctx, hole) {
+    if (!this._alive || hole.destroyed || hole._state !== 'down') return
     hole._state = 'telling'
     const m = hole._mound
     gsap.killTweensOf(m.scale)
     gsap.to(m.scale, { x: 0.95, y: 1.14, duration: 0.1, yoyo: true, repeat: 3, ease: 'sine.inOut' })
     puff(this._fx, hole.x, hole.y + 10, { count: 3, color: DIRT })
-    const call = gsap.delayedCall(0.4, () => {
-      if (!this._alive) return
+    // ctx.later: dör med spelomgången (en delayedCall skulle överleva destroy och köra
+    // mot ett förstört hål när samma spel startas igen).
+    ctx.later(0.4, () => {
+      if (!this._alive || hole.destroyed) return
       if (m && !m.destroyed) m.scale.set(1)
       if (hole._state !== 'telling') return
       if (this._roundDone) hole._state = 'down'
@@ -289,18 +436,21 @@ export default {
         this._raise(hole)
       }
     })
-    this._calls.push(call)
   },
 
-  // Res ett gömt djur lugnt upp med liten squash/stretch + jordpuff.
+  // Res ett gömt djur upp — VARJE ART PÅ SITT SÄTT (se BEHAVIOR): kaninen skuttar högt
+  // och studsar två gånger, musen kikar blixtsnabbt fram, grodan hoppar över hålkanten,
+  // igelkotten kommer långsamt och stannar länge, mullvaden lugnt mittemellan.
   _raise(hole) {
-    if (!this._alive || hole._state !== 'down') return
+    if (!this._alive || hole.destroyed || hole._state !== 'down') return
     this._setCritter(hole)
     hole._state = 'rising'
     hole._upElapsed = 0
     hole._blinkAcc = 0
     hole._blinkNext = 1.4 + Math.random() * 2.4
 
+    const bh = BEHAVIOR[hole._species] || BEHAVIOR.mullvad
+    hole._bh = bh
     puff(this._fx, hole.x, hole.y + 12, { count: 5, color: DIRT })
 
     // Squash -> stretch -> vila (livfullt uppdyk).
@@ -308,30 +458,36 @@ export default {
     gsap.killTweensOf(hole._critter.scale)
     gsap
       .timeline()
-      .to(hole._critter.scale, { x: 1.06, y: 1.08, duration: 0.26, ease: 'back.out(2)' })
+      .to(hole._critter.scale, { x: 1.06, y: 1.08, duration: bh.rise * 0.62, ease: 'back.out(2)' })
       .to(hole._critter.scale, { x: 1, y: 1, duration: 0.14, ease: 'sine.out' })
 
+    const upY = MOLE_UP_Y - bh.lift
     gsap.killTweensOf(hole._wrap)
-    gsap.to(hole._wrap, {
-      y: MOLE_UP_Y,
-      duration: 0.42,
-      ease: 'back.out(1.4)',
+    const tl = gsap.timeline({
       onComplete: () => {
-        if (!this._alive) return
-        if (hole._state === 'rising') {
-          hole._state = 'up'
-          hole._upElapsed = 0
-          // Lugn andning för att locka en klapp.
-          hole._breatheTw = breathe(hole._critter, { scale: 1.05, duration: 1.0 })
-        }
+        if (!this._alive || hole.destroyed) return
+        if (hole._state !== 'rising') return
+        hole._state = 'up'
+        hole._upElapsed = 0
+        // Lugn andning för att locka en klapp.
+        hole._breatheTw = breathe(hole._critter, { scale: 1.05, duration: 1.0 })
       },
     })
+    tl.to(hole._wrap, { y: upY, duration: bh.rise, ease: bh.ease })
+    // Kaninen/grodan studsar ett par gånger innan de står stilla.
+    for (let i = 0; i < (bh.hops || 0); i++) {
+      tl.to(hole._wrap, { y: upY - 18, duration: 0.16, ease: 'power2.out' })
+      tl.to(hole._wrap, { y: upY, duration: 0.2, ease: 'bounce.out' })
+    }
+    hole._riseTl = tl
   },
 
   // Dyk ner igen (auto efter uppe-tid). Aldrig en "miss".
   _duck(hole, { delay = 0, duration = 0.34 } = {}) {
+    if (!hole || hole.destroyed) return
     hole._breatheTw?.kill()
     hole._breatheTw = null
+    hole._riseTl?.kill()
     hole._state = 'ducking'
     gsap.killTweensOf(hole._wrap)
     gsap.to(hole._wrap, {
@@ -383,14 +539,15 @@ export default {
 
   // Lyckad klapp på ett uppe-djur: direkt-juice (<100ms) + glatt fniss + nerdyk. Allt är "rätt".
   _whack(ctx, hole) {
-    if (!this._alive || this._roundDone || hole._state !== 'up') return
+    if (!this._alive || hole.destroyed || this._roundDone || hole._state !== 'up') return
     this._idle = 0
     hole._breatheTw?.kill()
     hole._breatheTw = null
+    hole._riseTl?.kill()
     hole._state = 'patted'
 
     const cx = hole.x
-    const cy = hole.y + MOLE_UP_Y
+    const cy = hole.y + MOLE_UP_Y - (hole._bh?.lift || 0)
 
     ctx.services.audio.sfx('pop') // taktil klapp-plopp
     this._critterSound(ctx, hole._species) // + riktigt djurläte/pip som "fniss"
@@ -402,11 +559,43 @@ export default {
     floatText(this._fx, cx, cy - 42, randomFrom(JOY), { fontSize: 46, rise: 72 })
     puff(this._fx, hole.x, hole.y + 8, { count: 7, color: DIRT })
 
+    // Igelkotten reser taggarna när den klappas — artens egen reaktion.
+    if (hole._species === 'igelkott' && hole._back && !hole._back.destroyed) {
+      gsap.killTweensOf(hole._back.scale)
+      gsap.to(hole._back.scale, {
+        x: 1.16, y: 1.3, duration: 0.12, yoyo: true, repeat: 1, ease: 'back.out(3)',
+        onComplete: () => { if (hole._back && !hole._back.destroyed) hole._back.scale.set(1) },
+      })
+    }
+
+    // Kunglig varelse: eget wow-ögonblick (extra gnistor + bonusstjärna + gladare ton).
+    if (hole._royal) {
+      ctx.services.audio.sfx('reveal')
+      sparkle(ctx.fxLayer, cx, cy - 30, { count: 14 })
+      burst(this._fx, cx, cy - 10, { count: 16, colors: [0xffd24a, 0xffe27a, 0xfff3b0], power: 1.2 })
+      ctx.progress.addStars(1)
+      hole._royal = false
+    }
+
+    // Vänboken: första gången en art klappas hänger dess ansikte upp på tavlan — och
+    // stannar där mellan spelomgångar.
+    const sp = hole._species
+    if (sp && !this._found.has(sp)) {
+      this._found.add(sp)
+      ctx.progress.setCustom('arter', [...this._found])
+      this._fillBookSlot(sp, true)
+      ctx.services.voice.say(`Du hittade ${SPECIES_NAME[sp]}!`)
+      sparkle(ctx.fxLayer, BOOK_X, BOOK_Y0 + SPECIES.indexOf(sp) * BOOK_GAP, { count: 10 })
+      if (this._found.size === SPECIES.length) {
+        ctx.later(1.2, () => { if (this._alive) ctx.services.voice.say('Alla djuren är med i boken!') })
+      }
+    }
+
     // Glad liten studs uppåt -> dyk lugnt ner igen.
     gsap.killTweensOf(hole._wrap)
     gsap
       .timeline()
-      .to(hole._wrap, { y: MOLE_UP_Y - 22, duration: 0.16, ease: 'power2.out' })
+      .to(hole._wrap, { y: MOLE_UP_Y - (hole._bh?.lift || 0) - 22, duration: 0.16, ease: 'power2.out' })
       .to(hole._wrap, {
         y: MOLE_DOWN_Y,
         duration: 0.34,
@@ -475,19 +664,18 @@ export default {
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
-    const call = gsap.delayedCall(1.8, () => {
+    ctx.later(1.8, () => {
       if (this._alive) this._buildField(ctx)
     })
-    this._calls.push(call)
   },
 
   // Försök resa ett djur upp (respekterar "samtidigt uppe"-cap).
-  _trySpawn() {
+  _trySpawn(ctx) {
     if (!this._alive || this._roundDone) return
     const occupied = this._holes.filter((h) => h._state !== 'down').length
     if (occupied >= this._p.cap) return
     const down = this._holes.filter((h) => h._state === 'down')
-    if (down.length) this._tell(randomFrom(down))
+    if (down.length) this._tell(ctx, randomFrom(down))
   },
 
   _update(ctx, ticker) {
@@ -499,7 +687,7 @@ export default {
     if (this._idle > 6 && !this._roundDone) {
       this._idle = 0
       ctx.services.voice.say(randomFrom(IDLE))
-      this._trySpawn()
+      this._trySpawn(ctx)
     }
 
     if (this._roundDone) return // pausa spawn medan vi firar
@@ -514,7 +702,8 @@ export default {
           h._blinkNext = 2.4 + Math.random() * 3
           this._blink(h)
         }
-        if (h._upElapsed >= this._p.upTime) this._duck(h)
+        // Uppe-tiden skalas av artens temperament: musen kikar snabbt, igelkotten dröjer.
+        if (h._upElapsed >= this._p.upTime * (h._bh?.up || 1)) this._duck(h)
       }
     }
 
@@ -522,7 +711,7 @@ export default {
     this._spawnAcc += dt
     if (this._spawnAcc >= this._p.spawnEvery) {
       this._spawnAcc = 0
-      this._trySpawn()
+      this._trySpawn(ctx)
     }
   },
 
@@ -541,11 +730,14 @@ export default {
       gsap.killTweensOf(hole._mouth.scale)
     }
     if (hole._cheeks) gsap.killTweensOf(hole._cheeks)
+    if (hole._back) gsap.killTweensOf(hole._back.scale)
+    if (hole._crown) gsap.killTweensOf(hole._crown)
   },
 
   _killHoleTweens(hole) {
     gsap.killTweensOf(hole)
     gsap.killTweensOf(hole.scale)
+    hole._riseTl?.kill()
     if (hole._wrap) gsap.killTweensOf(hole._wrap)
     if (hole._mound) gsap.killTweensOf(hole._mound.scale)
     this._killCritterTweens(hole)
@@ -554,17 +746,124 @@ export default {
   destroy(ctx) {
     this._alive = false
     if (this._tick) ctx.ticker.remove(this._tick)
-    this._calls?.forEach((c) => c?.kill())
-    this._calls = []
     this._holes?.forEach((h) => this._killHoleTweens(h))
     this._paws?.forEach((p) => {
       gsap.killTweensOf(p)
       gsap.killTweensOf(p.scale)
     })
+    // Fjäril/nyckelpiga går i oändliga kedjor — deras tweens måste dödas explicit.
+    this._bugTweens?.forEach((t) => t?.kill())
+    this._bugTweens = []
+    this._bugs?.forEach((b) => { gsap.killTweensOf(b); if (b._wings) gsap.killTweensOf(b._wings.scale) })
+    this._bugs = []
+    Object.values(this._bookSlots || {}).forEach((s) => {
+      gsap.killTweensOf(s)
+      if (s._face) gsap.killTweensOf(s._face.scale)
+    })
+    this._bookSlots = {}
     gsap.killTweensOf(this._root)
     ctx.services.voice.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// --- Ritad ängsdekor (P0 ASSETS: riktiga föremål, aldrig en emoji som hela föremålet) ---
+
+// En växt med egen silhuett: tulpan, prästkrage, klöver eller liten grodd.
+function makePlant(kind, color, x, y) {
+  const g = new Graphics()
+  if (kind === 'tulpan') {
+    g.moveTo(0, 34).quadraticCurveTo(-6, 12, 0, -4).stroke({ width: 5, color: 0x4fae51, cap: 'round' })
+    g.ellipse(-13, 16, 12, 6).fill(0x4fae51)
+    g.ellipse(13, 22, 12, 6).fill(0x4fae51)
+    g.moveTo(-13, -4).quadraticCurveTo(-15, -30, 0, -34).quadraticCurveTo(15, -30, 13, -4)
+      .quadraticCurveTo(0, 6, -13, -4).fill(color)
+    g.moveTo(-4, -6).quadraticCurveTo(-6, -28, 0, -33).stroke({ width: 2, color: 0xffffff, alpha: 0.35 })
+  } else if (kind === 'prastkrage') {
+    g.moveTo(0, 36).quadraticCurveTo(5, 14, 0, -2).stroke({ width: 5, color: 0x4fae51, cap: 'round' })
+    g.ellipse(12, 18, 11, 6).fill(0x4fae51)
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2
+      g.ellipse(Math.cos(a) * 15, -4 + Math.sin(a) * 15, 9, 6).fill(color)
+    }
+    g.circle(0, -4, 8).fill(0xffd35c)
+  } else if (kind === 'klover') {
+    g.moveTo(0, 32).quadraticCurveTo(-5, 14, 0, 2).stroke({ width: 4, color: 0x3f8f43, cap: 'round' })
+    for (const [hx, hy] of [[-12, -8], [12, -8], [0, -20], [0, 4]]) {
+      g.circle(hx, hy, 10).fill(color)
+      g.circle(hx, hy, 5).fill({ color: 0x8fd67a, alpha: 0.5 })
+    }
+  } else {
+    // liten grodd i en jordkulle
+    g.ellipse(0, 22, 22, 9).fill(0xb98a5f)
+    g.moveTo(0, 22).lineTo(0, -6).stroke({ width: 4, color: color, cap: 'round' })
+    g.ellipse(-12, -2, 13, 8).fill(color)
+    g.ellipse(12, -10, 13, 8).fill(color)
+  }
+  g.position.set(x, y)
+  g.eventMode = 'none'
+  return g
+}
+
+// Fjäril med egna vingar (två par + kropp + antenner).
+function makeButterfly(x, y) {
+  const c = new Container()
+  const wings = new Graphics()
+  wings.ellipse(-15, -8, 15, 12).fill(0xff8a3d)
+  wings.ellipse(15, -8, 15, 12).fill(0xff8a3d)
+  wings.ellipse(-12, 9, 11, 9).fill(0xffb37a)
+  wings.ellipse(12, 9, 11, 9).fill(0xffb37a)
+  wings.circle(-16, -9, 4).fill({ color: 0x4a3526, alpha: 0.55 })
+  wings.circle(16, -9, 4).fill({ color: 0x4a3526, alpha: 0.55 })
+  const body = new Graphics()
+  body.ellipse(0, 0, 4, 15).fill(0x4a3526)
+  body.moveTo(-2, -13).quadraticCurveTo(-9, -24, -11, -26).stroke({ width: 1.6, color: 0x4a3526 })
+  body.moveTo(2, -13).quadraticCurveTo(9, -24, 11, -26).stroke({ width: 1.6, color: 0x4a3526 })
+  c.addChild(wings, body)
+  c._wings = wings
+  c.position.set(x, y)
+  c.eventMode = 'none'
+  return c
+}
+
+// Nyckelpiga med skal, prickar och delningslinje.
+function makeLadybug(x, y) {
+  const c = new Container()
+  const g = new Graphics()
+  g.ellipse(0, 2, 17, 14).fill(0xd93b4a)
+  g.circle(0, -10, 9).fill(0x33291f)
+  g.moveTo(0, -6).lineTo(0, 15).stroke({ width: 2, color: 0x33291f })
+  for (const [dx, dy] of [[-9, -1], [9, -1], [-6, 9], [6, 9], [0, 4]]) g.circle(dx, dy, 3.4).fill(0x33291f)
+  g.circle(-4, -15, 1.8).fill(0xffffff)
+  g.circle(4, -15, 1.8).fill(0xffffff)
+  c.addChild(g)
+  c.position.set(x, y)
+  c.eventMode = 'none'
+  return c
+}
+
+// Ett ritat tassavtryck (ersätter 🐾-emojin i räknar-raden).
+function makePaw(color = 0x8a6a4f) {
+  const g = new Graphics()
+  g.ellipse(0, 6, 11, 9).fill(color)
+  g.ellipse(-11, -6, 5, 6).fill(color)
+  g.ellipse(-4, -11, 5, 6).fill(color)
+  g.ellipse(4, -11, 5, 6).fill(color)
+  g.ellipse(11, -6, 5, 6).fill(color)
+  g.eventMode = 'none'
+  return g
+}
+
+// En liten guldkrona som den sällsynta "kungliga" varelsen bär.
+function makeCrown() {
+  const g = new Graphics()
+  g.moveTo(-20, 0).lineTo(-20, -14).lineTo(-10, -5).lineTo(0, -19).lineTo(10, -5).lineTo(20, -14).lineTo(20, 0)
+    .closePath().fill(0xffd24a).stroke({ width: 2, color: 0xd9a021 })
+  g.circle(0, -19, 3.6).fill(0xff6b6b)
+  g.circle(-20, -14, 3).fill(0x57c8c3)
+  g.circle(20, -14, 3).fill(0x57c8c3)
+  g.eventMode = 'none'
+  return g
 }
 
 // --- Söta djur, ritade med Pixi Graphics (inga bildtillgångar krävs) ---
@@ -693,5 +992,5 @@ function makeCritter(type) {
     face.addChild(snout, cheeks, eyes)
   }
 
-  return { node, eyes, mouth, cheeks }
+  return { node, eyes, mouth, cheeks, back }
 }

@@ -139,3 +139,9 @@ rekvisita, och auto-hjälp + tap-fusk kan kringgå själva grävandet**.
   - **Koppla flak↔lastbil:** 🚛 centreras nu under flaket och skalas mot flakets bredd, och
     en mörk chassi-balk ritas under golvet — flaket läser som att det sitter PÅ dumpern.
     Bekräftat i skärmdump (guldkorn syns i lasten, dumpern hänger ihop).
+- 2026-08-04: **P0 ASSETS — hela maskinparken ritad.** Grävmaskinen var en 🚜-emoji med en
+  **gul ruta med ett 🧒 i** ovanpå (exakt det ASSETS-regeln förbjuder). Nu ritas maskinen
+  med larvband, drivhjul, chassi och en **öppen hytt med fönsterruta** där Zacke sitter —
+  ritad, med hjälm, och synlig genom rutan i stället för instoppad i en bricka. Dumpern
+  (var 🚛) ritas med flak, hytt, tre hjul och strålkastare, och fyllnadsmarkören (var 🎯)
+  som en riktig måltavla. errorCount 0.

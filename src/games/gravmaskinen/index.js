@@ -115,8 +115,8 @@ export default {
     this._root.addChild(this._makeMachine())
 
     // Dumper (🚛) + flak (väggar) + fyllnadslinje + sand-grafik.
-    this._truck = new Text({ text: '🚛', style: { fontFamily: FONT.body, fontSize: 130 } })
-    this._truck.anchor.set(0.5)
+    // RITAD dumper (P0 ASSETS) — var en 🚛-emoji.
+    this._truck = makeTruck()
     this._truck.position.set(905, 558)
     this._truck.eventMode = 'none'
     this._root.addChild(this._truck)
@@ -129,8 +129,12 @@ export default {
     this._fillLineGfx.eventMode = 'none'
     this._root.addChild(this._fillLineGfx)
 
-    this._fillMarker = new Text({ text: '🎯', style: { fontFamily: FONT.body, fontSize: 40 } })
-    this._fillMarker.anchor.set(0.5)
+    // RITAD måltavla (P0 ASSETS) — var en 🎯-emoji.
+    this._fillMarker = new Graphics()
+    this._fillMarker.circle(0, 0, 19).fill(0xff6b6b)
+    this._fillMarker.circle(0, 0, 13).fill(0xfffdf7)
+    this._fillMarker.circle(0, 0, 8).fill(0xff6b6b)
+    this._fillMarker.circle(0, 0, 3.5).fill(0xfffdf7)
     this._fillMarker.eventMode = 'none'
     this._root.addChild(this._fillMarker)
 
@@ -176,22 +180,39 @@ export default {
   _makeMachine() {
     const c = new Container()
     c.eventMode = 'none'
-    // Maskinkropp.
-    const body = new Text({ text: '🚜', style: { fontFamily: FONT.body, fontSize: 120 } })
-    body.anchor.set(0.5)
-    body.position.set(430, 560)
+    // RITAD grävmaskin (P0 ASSETS): larvband, hjul, chassi och en öppen hytt där
+    // Zacke sitter. Tidigare var det en 🚜-emoji + en gul ruta med ett 🧒 i — exakt
+    // det ASSETS-regeln förbjuder.
+    const body = new Graphics()
+    body.ellipse(430, 614, 108, 14).fill({ color: 0x000000, alpha: 0.14 })
+    body.roundRect(352, 570, 156, 40, 20).fill(0x4a5560) // larvband
+    body.roundRect(358, 576, 144, 28, 14).fill(0x6f7880)
+    for (let i = 0; i < 6; i++) body.circle(378 + i * 21, 590, 9).fill(0x4a5560)
+    body.circle(378, 590, 14).fill(0x8a939b)
+    body.circle(482, 590, 14).fill(0x8a939b)
+    body.roundRect(366, 528, 132, 46, 12).fill(0xffd35c).stroke({ width: 4, color: 0xe0a92c }) // chassi
+    body.roundRect(372, 534, 120, 12, 6).fill({ color: 0xffe9a8, alpha: 0.9 })
+    body.roundRect(486, 540, 26, 22, 6).fill(0x8a939b) // motorhuv bak
     c.addChild(body)
-    // Hytt (gul roundRect, stroke orange).
+    // Hytt: ram + fönsterruta (Zacke syns genom rutan, inte i en bricka).
     const cab = new Graphics()
-      .roundRect(-38, -36, 76, 66, 14)
-      .fill(COLORS.yellow)
-      .stroke({ width: 5, color: COLORS.orangeDark })
-    cab.position.set(430, 502)
+    cab.roundRect(392, 462, 78, 70, 12).fill(0xffd35c).stroke({ width: 5, color: 0xe0a92c })
+    cab.roundRect(400, 470, 62, 48, 8).fill({ color: 0xbfe9ff, alpha: 0.55 })
+    cab.moveTo(462, 470).lineTo(462, 518).stroke({ width: 3, color: 0xe0a92c, alpha: 0.6 })
     c.addChild(cab)
-    // Förar-Zacke (enda avbildade människan).
-    const zacke = new Text({ text: '🧒', style: { fontFamily: FONT.body, fontSize: 52 } })
-    zacke.anchor.set(0.5)
-    zacke.position.set(430, 512)
+    // Förar-Zacke (enda avbildade människan) — ritad, sitter i hytten.
+    const zacke = new Graphics()
+    zacke.roundRect(415, 498, 30, 24, 8).fill(0x4aa3df) // överkropp
+    zacke.circle(430, 486, 17).fill(0xffd9a8) // huvud
+    zacke.moveTo(413, 480).quadraticCurveTo(430, 466, 447, 480).quadraticCurveTo(430, 474, 413, 480).fill(0xf5a623)
+    zacke.circle(424, 486, 3).fill(0x33291f)
+    zacke.circle(436, 486, 3).fill(0x33291f)
+    zacke.moveTo(424, 494).quadraticCurveTo(430, 499, 436, 494).stroke({ width: 2.6, color: 0x33291f, cap: 'round' })
+    zacke.circle(418, 491, 3.5).fill({ color: 0xff9ec4, alpha: 0.7 })
+    zacke.circle(442, 491, 3.5).fill({ color: 0xff9ec4, alpha: 0.7 })
+    // hjälm
+    zacke.moveTo(411, 480).quadraticCurveTo(430, 458, 449, 480).closePath().fill(COLORS.orange)
+    zacke.roundRect(408, 477, 44, 7, 3).fill(COLORS.orangeDark)
     c.addChild(zacke)
     return c
   },
@@ -741,4 +762,28 @@ export default {
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// RITAD dumper (P0 ASSETS): hytt, flak, hjul och strålkastare — var en 🚛-emoji.
+function makeTruck() {
+  const c = new Container()
+  const g = new Graphics()
+  g.ellipse(0, 60, 118, 14).fill({ color: 0x000000, alpha: 0.14 })
+  g.roundRect(-104, -34, 92, 78, 10).fill(0x8a939b) // flak
+  g.roundRect(-104, -34, 92, 12, 6).fill(0xb8c2ca)
+  for (let i = 0; i < 3; i++) g.rect(-92 + i * 28, -22, 8, 60).fill({ color: 0x6f7880, alpha: 0.8 })
+  g.roundRect(-8, -18, 74, 62, 10).fill(0x5bbf6a) // hytt
+  g.roundRect(2, -8, 44, 30, 7).fill({ color: 0xbfe9ff, alpha: 0.7 }) // ruta
+  g.roundRect(-8, 30, 74, 14, 6).fill(0x3f8f43)
+  g.circle(62, 16, 7).fill(0xffd35c) // strålkastare
+  g.roundRect(-110, 30, 176, 16, 8).fill(0x4a5560) // chassibalk
+  for (const wx of [-78, -34, 40]) {
+    g.circle(wx, 46, 20).fill(0x33291f)
+    g.circle(wx, 46, 10).fill(0xb8c2ca)
+  }
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
 }

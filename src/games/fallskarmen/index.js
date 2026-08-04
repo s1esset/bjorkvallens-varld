@@ -106,7 +106,7 @@ export default {
 
     // Välj barn (endast Zacke/Lova) + matchande emoji.
     this._kidName = randomFrom(['Zacke', 'Lova'])
-    this._kid.text = this._kidName === 'Zacke' ? '👦' : '👧'
+    this._kid.setName?.(this._kidName)
 
     // Starta på sparad nivå.
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
@@ -118,7 +118,13 @@ export default {
 
   mount(ctx) {
     this._idle = 0
-    ctx.services.voice.say('Hjälp ' + this._kidName + '! ' + this.voiceIntro)
+    // Hela repliken som literal (inte konkatenerad) så check.mjs kan hitta den och
+    // /rost kan generera ett klipp.
+    ctx.services.voice.say(
+      this._kidName === 'Zacke'
+        ? 'Hjälp Zacke! Styr fallskärmen till mattan!'
+        : 'Hjälp Lova! Styr fallskärmen till mattan!',
+    )
   },
 
   // ---- Bygg scen-noder -----------------------------------------------------
@@ -128,8 +134,12 @@ export default {
     this._target.eventMode = 'none'
     this._glow = new Graphics()
     this._mat = new Graphics()
-    this._bull = new Text({ text: '🎯', style: { fontFamily: FONT.body, fontSize: 56 } })
-    this._bull.anchor.set(0.5)
+    // RITAD måltavla (P0 ASSETS) — var en 🎯-emoji.
+    this._bull = new Graphics()
+    this._bull.circle(0, 0, 26).fill(0xff6b6b)
+    this._bull.circle(0, 0, 18).fill(0xfffdf7)
+    this._bull.circle(0, 0, 11).fill(0xff6b6b)
+    this._bull.circle(0, 0, 5).fill(0xfffdf7)
     this._bull.y = -46
     this._target.addChild(this._glow, this._mat, this._bull)
     this._target.position.set(700, GROUND_Y)
@@ -207,16 +217,17 @@ export default {
     this._legs = legs
     chute.addChild(legs)
 
-    this._kid = new Text({ text: '🧒', style: { fontFamily: FONT.body, fontSize: 70 } })
-    this._kid.anchor.set(0.5)
+    // RITAT barn (P0 ASSETS) med kropp och dinglande ben — var bara ett 🧒-ansikte.
+    this._kid = makeKid()
     this._kid.y = -18 // barnets fötter ≈ origo (landar på mattan vid GROUND_Y)
     chute.addChild(this._kid)
 
     // Styr-chevroner (◀ ▶) som tänds när barnet håller åt det hållet.
-    this._chevL = new Text({ text: '◀', style: { fontFamily: FONT.body, fontSize: 48, fill: COLORS.blue } })
-    this._chevR = new Text({ text: '▶', style: { fontFamily: FONT.body, fontSize: 48, fill: COLORS.blue } })
-    this._chevL.anchor.set(0.5)
-    this._chevR.anchor.set(0.5)
+    // Ritade riktningspilar i stället för ◀▶-tecken.
+    this._chevL = new Graphics()
+    this._chevL.moveTo(10, -20).lineTo(10, 20).lineTo(-14, 0).closePath().fill(COLORS.blue)
+    this._chevR = new Graphics()
+    this._chevR.moveTo(-10, -20).lineTo(-10, 20).lineTo(14, 0).closePath().fill(COLORS.blue)
     this._chevL.position.set(-92, -40)
     this._chevR.position.set(92, -40)
     this._chevL.alpha = 0.12
@@ -236,8 +247,7 @@ export default {
     this._windUi.position.set(ctx.width / 2, 90)
     this._windUi.eventMode = 'none'
     const panel = new Graphics().roundRect(-160, -28, 320, 56, 28).fill({ color: 0xffffff, alpha: 0.82 }).stroke({ width: 4, color: COLORS.blue, alpha: 0.6 })
-    const leaf = new Text({ text: '🍃', style: { fontFamily: FONT.body, fontSize: 32 } })
-    leaf.anchor.set(0.5)
+    const leaf = makeLeaf(1)
     leaf.position.set(-126, 0)
     this._bannerText = new Text({ text: 'Vinden blåser', style: { fontFamily: FONT.title, fontSize: 26, fontWeight: '700', fill: COLORS.ink } })
     this._bannerText.anchor.set(0.5)
@@ -250,11 +260,11 @@ export default {
 
   _makeWeightBtn(ctx) {
     const btn = new Container()
-    btn.position.set(140, 640)
+    btn.position.set(140, 600)
     const plate = new Graphics().circle(0, 0, 60).fill(COLORS.teal).stroke({ width: 6, color: 0xffffff, alpha: 0.85 })
     const gloss = new Graphics().ellipse(0, -20, 38, 18).fill({ color: 0xffffff, alpha: 0.25 })
-    this._wIco = new Text({ text: '🪶', style: { fontFamily: FONT.body, fontSize: 54 } })
-    this._wIco.anchor.set(0.5)
+    // Ritad fjäder/sten-ikon (P0 ASSETS) — byts i _applyWeight.
+    this._wIco = new Graphics()
     this._wLabel = new Text({ text: 'Lätt', style: { fontFamily: FONT.title, fontSize: 24, fontWeight: '700', fill: 0xffffff } })
     this._wLabel.anchor.set(0.5)
     this._wLabel.y = 80
@@ -266,6 +276,7 @@ export default {
     btn.on('pointertap', this._onWeight)
     this._weightBtn = btn
     this._root.addChild(btn)
+    this._drawWeightIcon()
   },
 
   // ---- Nivå ----------------------------------------------------------------
@@ -458,8 +469,7 @@ export default {
     if (!this._alive) return
     const dir = Math.sign(this._wind) || 1
     const strong = Math.abs(this._wind) > 0.2
-    const leaf = new Text({ text: '🍃', style: { fontFamily: FONT.body, fontSize: 24 + Math.random() * 14 } })
-    leaf.anchor.set(0.5)
+    const leaf = makeLeaf(0.7 + Math.random() * 0.5)
     leaf.x = dir > 0 ? -30 - Math.random() * 60 : 1310 + Math.random() * 60
     leaf.y = 140 + Math.random() * 360
     leaf.alpha = 0.9
@@ -543,11 +553,27 @@ export default {
 
   // ---- Tyngd-knapp ---------------------------------------------------------
 
+  // Ritar vikt-ikonen: fjäder (lätt) eller sten (tung). Anropas både vid bygge och
+  // växling — ikonen var tidigare tom tills man tryckt en gång.
+  _drawWeightIcon() {
+    const wi = this._wIco
+    if (!wi || wi.destroyed) return
+    wi.clear()
+    if (this._heavy) {
+      wi.poly([-22, 4, -15, -13, -1, -18, 15, -12, 22, 3, 14, 16, -9, 17]).fill(0x9aa6b0)
+      wi.poly([-15, -13, -1, -18, 4, -8, -9, -4]).fill({ color: 0xb8c2ca, alpha: 0.8 })
+    } else {
+      wi.moveTo(-6, 24).quadraticCurveTo(4, 4, 14, -22).stroke({ width: 4, color: 0xe8dfc8, cap: 'round' })
+      wi.moveTo(12, -20).quadraticCurveTo(-16, -12, -6, 14).quadraticCurveTo(14, 2, 12, -20).fill(0xfffdf7)
+      wi.moveTo(12, -20).quadraticCurveTo(24, -4, 2, 18).quadraticCurveTo(8, -2, 12, -20).fill(0xdff0f7)
+    }
+  },
+
   _toggleWeight(ctx) {
     if (!this._alive) return
     this._heavy = !this._heavy
     this._idle = 0
-    this._wIco.text = this._heavy ? '🪨' : '🪶'
+    this._drawWeightIcon()
     this._wLabel.text = this._heavy ? 'Tung' : 'Lätt'
     ctx.services.audio.sfx('pling')
     pop(this._weightBtn)
@@ -687,4 +713,58 @@ export default {
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// RITAT barn i selen (P0 ASSETS): huvud, kropp, armar och dinglande ben.
+function makeKid() {
+  const c = new Container()
+  const g = new Graphics()
+  g.roundRect(-9, 16, 8, 24, 4).fill(0x4aa3df) // ben
+  g.roundRect(1, 16, 8, 24, 4).fill(0x4aa3df)
+  g.roundRect(-12, 38, 12, 8, 4).fill(0xff6b6b) // skor
+  g.roundRect(0, 38, 12, 8, 4).fill(0xff6b6b)
+  g.roundRect(-16, -6, 32, 26, 10).fill(0xffd35c) // kropp
+  g.moveTo(-15, 0).quadraticCurveTo(-27, -8, -25, -22).stroke({ width: 7, color: 0xffd9a8, cap: 'round' })
+  g.moveTo(15, 0).quadraticCurveTo(27, -8, 25, -22).stroke({ width: 7, color: 0xffd9a8, cap: 'round' })
+  g.circle(0, -24, 19).fill(0xffd9a8) // huvud
+  g.eventMode = 'none'
+  c.addChild(g)
+  // Håret ritas separat så figuren kan byta frisyr med namnet (Zacke/Lova).
+  const hair = new Graphics()
+  c.addChild(hair)
+  c.setName = (name) => {
+    if (hair.destroyed) return
+    hair.clear()
+    hair.moveTo(-19, -30).quadraticCurveTo(0, -50, 19, -30).quadraticCurveTo(0, -40, -19, -30).fill(0xf5a623)
+    if (name === 'Lova') {
+      hair.ellipse(-20, -22, 9, 15).fill(0xf5a623) // längre hår
+      hair.ellipse(20, -22, 9, 15).fill(0xf5a623)
+      hair.circle(15, -38, 6).fill(0xff6b9d) // rosett
+      hair.circle(23, -35, 5).fill(0xff6b9d)
+    }
+  }
+  c.setName('Zacke')
+  g.circle(-7, -26, 3.4).fill(0x33291f)
+  g.circle(7, -26, 3.4).fill(0x33291f)
+  g.moveTo(-7, -17).quadraticCurveTo(0, -10, 7, -17).stroke({ width: 3, color: 0x33291f, cap: 'round' })
+  g.circle(-13, -19, 4).fill({ color: 0xff9ec4, alpha: 0.75 })
+  g.circle(13, -19, 4).fill({ color: 0xff9ec4, alpha: 0.75 })
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// RITAT löv (P0 ASSETS) — var en 🍃-emoji.
+function makeLeaf(s = 1) {
+  const c = new Container()
+  const g = new Graphics()
+  const R = 16 * s
+  g.moveTo(-R, R * 0.4).quadraticCurveTo(-R * 0.3, -R * 1.1, R, -R * 0.4)
+    .quadraticCurveTo(R * 0.2, R * 0.9, -R, R * 0.4).fill(0x6ac96a)
+  g.moveTo(-R, R * 0.4).quadraticCurveTo(0, -R * 0.1, R, -R * 0.4)
+    .stroke({ width: 2 * s, color: 0x3f8f43, alpha: 0.8 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  return c
 }

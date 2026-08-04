@@ -117,3 +117,13 @@ styrs hem, men det berättas ingen liten resa.
   Exit-säkert: `this._kid.scale`-tween dödas i destroy; benen är barn till chute (städas med
   `children:true`); vind-sus är ren syntes utan loop. Testat headless (drag, errorCount 0), skärmdump
   läst. Inga shared/lib-ändringar.
+- 2026-08-04: **P0 ASSETS + två synliga buggar.** (1) Barnet var **bara ett 🧒-ansikte i selen**
+  (§3 första punkten); det ritas nu med kropp, armar, **dinglande ben och skor**, och byter
+  frisyr med namnet (Zacke/Lova, rosett för Lova). Måltavlan (var 🎯), löven (var 🍃),
+  vikt-ikonen (fjäder/sten, var 🪶/🪨) och riktningspilarna ritas också.
+  (2) **Bugg:** vikt-knappens ikon ritades bara i `_toggleWeight`, så den var **tom tills man
+  tryckt en gång** — ritningen är utbruten till `_drawWeightIcon()` och körs vid bygget.
+  (3) **Layoutbugg:** knappen låg på y=640 med etiketten på +80, alltså y=720 — etiketten
+  klipptes av nederkanten. Knappen flyttad till y=600.
+  (4) Introrepliken var konkatenerad (`'Hjälp ' + namn + ...`), så `check.mjs` kunde inte hitta
+  den och `/rost` kunde aldrig generera ett klipp; den är nu två hela literaler.

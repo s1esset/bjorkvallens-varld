@@ -102,3 +102,14 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
   benen + "Wheee!" i flykten, glad squash-studs ner i korgen. Mottagare tillagd: Bobo står vid
   korgen, hejar (andas) medan barnet siktar och fångar grodan med kram-puls + vinst-dans + hjärta
   (pattern #2 — ger varje skott ett "varför"). Fysik/kalibrering + no-fail (assist/magnet) orörda.
+- 2026-08-04: **Andra omgången** (errorCount 0) — P0 ASSETS och en mottagare med kropp.
+  - **Vikt-variation** (§4 [Quick]): de tre identiska stenarna är utbytta mot **fjäder ·
+    äpple · städ**, alla ritade med egen silhuett. Etiketterna heter nu **Lätt / Mellan /
+    Tung** i stället för Liten/Mellan/Stor — barnet kopplar *sak → tyngd → hur högt grodan
+    flyger*, vilket är precis vad mekaniken lär ut.
+  - **P0 ASSETS:** grodan ritas nu (ögonkullar, ljus mage, ben, leende) i stället för 🐸-emoji;
+    vikterna var 🪨-emoji **inuti en grå cirkel** — exakt det regeln förbjuder; korgens
+    🧺-dekal är ersatt av en ritad rosett. Det svävande 🐸 vid landning är borttaget
+    (grodan själv syns ju i korgen).
+  - **Bobo hade bara ett svävande huvud** bredvid korgen. Han har nu ritad kropp, fötter och
+    utsträckta armar och står stadigt på marken — mottagaren läser som en figur som väntar.

@@ -84,9 +84,11 @@ export default {
     // mul = hur mycket vikten skalar skjutkraften (utfallet beror på barnets val:
     // både VAR vikten släpps och VILKEN storlek).
     this._sizes = [
-      { key: 'liten', label: 'Liten', r: 26, mat: MATERIALS.light, mul: 0.9 },
-      { key: 'mellan', label: 'Mellan', r: 38, mat: MATERIALS.normal, mul: 1.0 },
-      { key: 'stor', label: 'Stor', r: 52, mat: MATERIALS.heavy, mul: 1.12 },
+      // Vikterna är RIKTIGA föremål med igenkännbar tyngd: en fjäder är lätt, ett äpple
+      // lagom, ett städ tungt. Barnet kopplar sak -> tyngd -> hur högt grodan flyger.
+      { key: 'liten', label: 'Lätt', icon: '🪶', kind: 'fjader', r: 26, mat: MATERIALS.light, mul: 0.9 },
+      { key: 'mellan', label: 'Mellan', icon: '🍎', kind: 'apple', r: 38, mat: MATERIALS.normal, mul: 1.0 },
+      { key: 'stor', label: 'Tung', icon: '🧱', kind: 'stad', r: 52, mat: MATERIALS.heavy, mul: 1.12 },
     ]
     this._sizeIdx = 1
 
@@ -153,8 +155,24 @@ export default {
     // Mottagare: Bobo står vid korgen, hejar (andas) medan barnet siktar och
     // kramar grodan med en liten vinst-dans när den landar (pattern #2 — ger varje
     // skott ett "varför"). Placeras per nivå i _setTarget, pulsen startas i _resetSeesaw.
-    this._bobo = makeMascot(50)
+    // Bobo hade tidigare bara ett svävande huvud bredvid korgen. Nu står han där med en
+    // ritad kropp, fötter och utsträckta armar — han VÄNTAR på grodan.
+    this._bobo = new Container()
+    const bod = new Graphics()
+    bod.ellipse(0, 118, 34, 11).fill({ color: 0x000000, alpha: 0.16 })
+    bod.ellipse(-17, 108, 14, 9).fill(COLORS.orangeDark)
+    bod.ellipse(17, 108, 14, 9).fill(COLORS.orangeDark)
+    bod.ellipse(0, 68, 34, 40).fill(COLORS.orange)
+    bod.ellipse(0, 74, 21, 22).fill({ color: COLORS.cream, alpha: 0.92 })
+    bod.moveTo(-27, 52).quadraticCurveTo(-48, 40, -52, 12).stroke({ width: 13, color: COLORS.orange, cap: 'round' })
+    bod.moveTo(27, 52).quadraticCurveTo(48, 40, 52, 12).stroke({ width: 13, color: COLORS.orange, cap: 'round' })
+    bod.circle(-52, 12, 10).fill(COLORS.cream)
+    bod.circle(52, 12, 10).fill(COLORS.cream)
+    bod.eventMode = 'none'
+    this._bobo.addChild(bod)
+    this._bobo.addChild(makeMascot(50))
     this._bobo.eventMode = 'none'
+    this._bobo.interactiveChildren = false
     this._root.addChild(this._bobo)
   },
 
@@ -244,7 +262,7 @@ export default {
     const bw = [140, 150, 168]
     this._sizes.forEach((s, i) => {
       const b = new Button({
-        icon: '🪨',
+        icon: s.icon,
         label: s.label,
         width: bw[i],
         height: 96,
@@ -284,7 +302,7 @@ export default {
     this._target.r = r
     this._basket.position.set(x, y)
     // Mottagaren står strax intill korgen (mot skärmkanten), i höjd med öppningen.
-    if (this._bobo && !this._bobo.destroyed) this._bobo.position.set(Math.min(x + 98, 1236), y + 40)
+    if (this._bobo && !this._bobo.destroyed) this._bobo.position.set(Math.min(x + 128, 1226), y + 26)
     this._basketGlow.clear().circle(0, 0, r).stroke({ width: 6, color: COLORS.yellow, alpha: 0.55 })
 
     // Fysik-kroppar: sensor i korgöppningen + två studskanter.
@@ -383,7 +401,7 @@ export default {
       this._carried.destroy({ children: true })
     }
     const size = this._sizes[this._sizeIdx]
-    const v = makeWeight(size.r)
+    const v = makeWeight(size.r, size.kind)
     v.position.set(this._dropX, RAIL_Y)
     v.eventMode = 'static'
     v.cursor = 'pointer'
@@ -513,7 +531,7 @@ export default {
     }
 
     const y = DROP_TOP_Y
-    const view = makeWeight(size.r)
+    const view = makeWeight(size.r, size.kind)
     view.position.set(x, y)
     this._weightLayer.addChild(view)
     view.scale.set(0.3)
@@ -687,7 +705,6 @@ export default {
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     puff(ctx.fxLayer, tx, ty, { count: 14, color: COLORS.yellow })
     sparkle(ctx.fxLayer, tx, ty, { count: 8 })
-    floatText(ctx.fxLayer, tx, ty - 60, '🐸', { fontSize: 56 })
 
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -879,33 +896,72 @@ function makePlank() {
   return c
 }
 
-// Grå "vikt": glansig sten med liten skugga.
-function makeWeight(r) {
+// RITAD vikt (P0 ASSETS): fjäder, äpple eller städ — egen silhuett, aldrig en emoji
+// i en grå cirkel. Radien r styr storleken (och därmed massan i fysiken).
+function makeWeight(r, kind = 'apple') {
   const c = new Container()
-  const shadow = new Graphics().ellipse(0, r * 0.82, r * 0.85, r * 0.28).fill({ color: 0x000000, alpha: 0.14 })
+  const shadow = new Graphics().ellipse(0, r * 0.9, r * 0.8, r * 0.26).fill({ color: 0x000000, alpha: 0.14 })
   shadow.eventMode = 'none'
-  const disc = new Graphics()
-    .circle(0, 0, r)
-    .fill(0x9aa3ab)
-    .stroke({ width: 3, color: 0x6c757d })
-  const gloss = new Graphics().circle(-r * 0.32, -r * 0.34, r * 0.3).fill({ color: COLORS.white, alpha: 0.45 })
-  gloss.eventMode = 'none'
-  const t = new Text({ text: '🪨', style: { fontFamily: FONT.body, fontSize: r * 1.15 } })
-  t.anchor.set(0.5)
-  t.eventMode = 'none'
-  c.addChild(shadow, disc, gloss, t)
+  const g = new Graphics()
+  if (kind === 'fjader') {
+    g.moveTo(-r * 0.2, r).quadraticCurveTo(r * 0.2, r * 0.1, r * 0.55, -r * 0.95)
+      .stroke({ width: r * 0.14, color: 0xe8dfc8, cap: 'round' })
+    g.moveTo(r * 0.5, -r * 0.85).quadraticCurveTo(-r * 0.55, -r * 0.5, -r * 0.15, r * 0.55)
+      .quadraticCurveTo(r * 0.55, r * 0.1, r * 0.5, -r * 0.85).fill(0xfffdf7)
+    g.moveTo(r * 0.5, -r * 0.85).quadraticCurveTo(r * 0.95, -r * 0.2, r * 0.1, r * 0.7)
+      .quadraticCurveTo(r * 0.3, r * 0.05, r * 0.5, -r * 0.85).fill(0xdff0f7)
+    for (let i = 1; i <= 5; i++) {
+      const t = i / 6
+      g.moveTo(r * (0.5 - 0.7 * t), -r * (0.85 - 1.4 * t))
+        .lineTo(r * (0.5 - 0.2 * t), -r * (0.85 - 1.5 * t))
+        .stroke({ width: 1.6, color: 0xb9cfd9, alpha: 0.8 })
+    }
+  } else if (kind === 'stad') {
+    // städ: tung svart kloss med horn och fot
+    g.roundRect(-r * 0.42, r * 0.42, r * 0.84, r * 0.42, r * 0.12).fill(0x4a5560)
+    g.roundRect(-r * 0.28, r * 0.02, r * 0.56, r * 0.46, r * 0.08).fill(0x5b6773)
+    g.moveTo(-r * 0.92, -r * 0.5).lineTo(r * 0.78, -r * 0.5).quadraticCurveTo(r * 1.06, -r * 0.24, r * 0.66, -r * 0.06)
+      .lineTo(-r * 0.72, -r * 0.06).quadraticCurveTo(-r * 0.96, -r * 0.28, -r * 0.92, -r * 0.5).fill(0x5b6773)
+    g.moveTo(-r * 0.92, -r * 0.5).lineTo(r * 0.78, -r * 0.5).lineTo(r * 0.7, -r * 0.34).lineTo(-r * 0.84, -r * 0.34)
+      .closePath().fill({ color: 0x8b98a4, alpha: 0.9 })
+  } else {
+    // äpple
+    g.circle(-r * 0.3, 0, r * 0.76).fill(0xff6b6b)
+    g.circle(r * 0.3, 0, r * 0.76).fill(0xff6b6b)
+    g.ellipse(0, r * 0.12, r * 0.9, r * 0.82).fill(0xff6b6b)
+    g.moveTo(0, -r * 0.66).quadraticCurveTo(r * 0.1, -r * 1.0, r * 0.36, -r * 1.14)
+      .stroke({ width: r * 0.13, color: 0x6f452c, cap: 'round' })
+    g.ellipse(-r * 0.38, -r * 0.92, r * 0.44, r * 0.24).fill(0x5bbf6a)
+    g.ellipse(-r * 0.34, -r * 0.22, r * 0.24, r * 0.36).fill({ color: 0xffffff, alpha: 0.35 })
+  }
+  g.eventMode = 'none'
+  c.addChild(shadow, g)
   return c
 }
 
-// Glad groda (emoji + mjuk skugga). Ankrad i mitten.
+// RITAD groda (P0 ASSETS): egen silhuett med ögonkullar, ljus mage, ben och ett leende.
 function makeFrog() {
   const c = new Container()
-  const shadow = new Graphics().ellipse(0, FROG_R * 0.8, FROG_R * 0.9, FROG_R * 0.28).fill({ color: 0x000000, alpha: 0.14 })
+  const R = FROG_R
+  const shadow = new Graphics().ellipse(0, R * 0.9, R * 0.9, R * 0.26).fill({ color: 0x000000, alpha: 0.14 })
   shadow.eventMode = 'none'
-  const t = new Text({ text: '🐸', style: { fontFamily: FONT.body, fontSize: FROG_R * 2.1 } })
-  t.anchor.set(0.5)
-  t.eventMode = 'none'
-  c.addChild(shadow, t)
+  const g = new Graphics()
+  g.ellipse(-R * 0.78, R * 0.55, R * 0.34, R * 0.18).fill(0x4fae51) // bakben
+  g.ellipse(R * 0.78, R * 0.55, R * 0.34, R * 0.18).fill(0x4fae51)
+  g.ellipse(0, R * 0.16, R * 0.92, R * 0.78).fill(0x6ac96a) // kropp
+  g.ellipse(0, R * 0.42, R * 0.58, R * 0.36).fill(0xdff6c8) // ljus mage
+  g.circle(-R * 0.44, -R * 0.62, R * 0.3).fill(0x6ac96a) // ögonkullar
+  g.circle(R * 0.44, -R * 0.62, R * 0.3).fill(0x6ac96a)
+  g.circle(-R * 0.44, -R * 0.66, R * 0.19).fill(0xfffdf7)
+  g.circle(R * 0.44, -R * 0.66, R * 0.19).fill(0xfffdf7)
+  g.circle(-R * 0.4, -R * 0.62, R * 0.1).fill(0x33291f)
+  g.circle(R * 0.48, -R * 0.62, R * 0.1).fill(0x33291f)
+  g.circle(-R * 0.12, -R * 0.22, R * 0.05).fill(0x3a6b2f) // näsborrar
+  g.circle(R * 0.12, -R * 0.22, R * 0.05).fill(0x3a6b2f)
+  g.moveTo(-R * 0.4, R * 0.02).quadraticCurveTo(0, R * 0.34, R * 0.4, R * 0.02)
+    .stroke({ width: R * 0.09, color: 0x2f6b2a, cap: 'round' })
+  g.eventMode = 'none'
+  c.addChild(shadow, g)
   return c
 }
 
@@ -929,9 +985,11 @@ function makeBasket() {
   // Öppningskant (ellips).
   const rim = new Graphics().ellipse(0, 0, 80, 22).fill(0xd8a566).stroke({ width: 5, color: dark })
   const inner = new Graphics().ellipse(0, 0, 66, 15).fill({ color: 0x6b4a2a, alpha: 0.5 })
-  const tag = new Text({ text: '🧺', style: { fontFamily: FONT.body, fontSize: 40 } })
-  tag.anchor.set(0.5)
-  tag.position.set(0, 66)
+  // Liten ritad rosett på korgen (P0 ASSETS — var en 🧺-emoji ovanpå korgen).
+  const tag = new Graphics()
+  tag.moveTo(0, 66).lineTo(-22, 52).lineTo(-22, 80).closePath().fill(0xff9ec4)
+  tag.moveTo(0, 66).lineTo(22, 52).lineTo(22, 80).closePath().fill(0xff9ec4)
+  tag.circle(0, 66, 8).fill(0xff6b9d)
   tag.eventMode = 'none'
   c.addChild(body, inner, rim, tag)
   return c

@@ -62,6 +62,14 @@ markerade ✅ i indexet (hel omgång: mottagare + assets + variation); de övrig
 assets-/scen-/buggrundor och står kvar som 🔧 med kvarvarande [Deep]-punkter i sin doc §4
 (bl.a. riktiga SFX-klipp, mjukare auto-hjälp i några spel, och samlingar som består).
 
+**➡️ NÄSTA SESSION:** samma omgång ska köras för de tre återstående flikarna —
+🎉 Roligt (14) → 🧩 Pussel (19) → 🔤 Lära (9) = **42 spel kvar av 70**.
+Metod, de fem läckorna, verktyg och en **ordnad kö sorterad efter uppmätt asset-skuld**
+ligger i **`docs/POLERINGSRUNDA.md`**. En checkpoint i `.claude/state/korning.json` gör att
+SessionStart-hooken lyfter det automatiskt — kör **`/aterta`** för att fortsätta.
+Kö 2 (Pussel) är märkt ✅ i indexet, men den bedömningen gjordes 2026-07-02, **innan P0-regeln
+`ASSETS` fanns** (2026-07-25) — skulden är uppmätt och verklig, så kör dem ändå.
+
 ---
 
 ## 2026-07-25 · v1.4.0

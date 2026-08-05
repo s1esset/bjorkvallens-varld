@@ -22,6 +22,7 @@
   "fart": { "prompt": "a funny short cartoon fart, comedic wet raspberry, single, no music, no voice", "duration": 1.2 },
   "plopp": { "prompt": "a single wet plop, a small object dropping into toilet water, splash, no music", "duration": 1.2 },
   "boing": { "prompt": "a cartoon boing, bouncy spring rebound, single, playful, no music, no voice", "duration": 1.0 },
+  "duns": { "prompt": "a soft cartoon landing thud, small feet hitting stone, muffled and gentle, single, no music, no voice", "duration": 1.0 },
   "thwip": { "prompt": "a quick web-shooter thwip, short swish whoosh, no music, no voice", "duration": 1.0 },
   "magi": { "prompt": "a magical sparkle twinkle, gentle ascending chime shimmer, bright, no voice", "duration": 1.3 }
 }

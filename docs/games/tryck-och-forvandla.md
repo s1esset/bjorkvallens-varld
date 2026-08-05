@@ -1,5 +1,5 @@
 # Tryck och Förvandla (`tryck-och-forvandla`)
-> 🎉 roligt · tap · 2–5 år · status: 📝 plan klar
+> 🎉 roligt · tap · 2–5 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -116,3 +116,18 @@ bildbyte utan eget uttryck**, och världen minns inget av det jag skapat.
   sista steget ett litet "ta-da" (784→1047 Hz). (3) **Stegtrappa per pod** — små punkter ovanför
   varje pad (`chain.length−1` st) fylls med `_refreshSteps` så barnet ser hur många tryck som är
   kvar. Städning: oanvänd `puff`-import bort. errorCount 0.
+- 2026-08-05 ✅ **Andra omgången (poleringsrundan, Roligt-fliken).**
+  - **P0 ASSETS:** hela spelet bestod av emoji. Varje steg i varje kedja (25 stycken: frö →
+    grodd → planta → blomma, ägg → kyckling → höna, moln → regnmoln → regnbåge, bil → buss →
+    raket, larv → fjäril, snöflinga → snögubbe, valp → hund, kattunge → katt, gnista → stjärna,
+    måne → fullmåne) är nu ritat som ett fristående föremål med egen silhuett via `drawThing`.
+    `CHAINS` och `FLAVORS` nycklas på ritnyckel i stället för emoji; inga `Text`-noder kvar.
+  - **Plattan var en cirkel RUNT föremålet** och läste som "ikon i en bubbla". Nu en ellipsformad
+    platta som föremålet står **på**.
+  - **Läcka #4 (konkatenerade repliker):** resultatet ropades ut med `` `${st.a} ${st.n}!` `` —
+    en mall-sträng som `check.mjs` aldrig hittar, så `/rost` kunde inte generera ett enda klipp
+    för de tio resultaten. Nu `_sayResult(k)` med hela literaler.
+  - **Spelet skrev framsteg vid INGÅNG:** `progress.setLevel()` låg i `init`, före första
+    trycket — `_idleprobe` gav `idleFramsteg: 1` utan en enda beröring. Nivån sparas nu bara när
+    en runda faktiskt är klar. Efter fixen: `idleFramsteg: 0`, `efterSpel: 2`.
+  - **Grind:** `npm run check --game tryck-och-forvandla` 0 fel · `npm run test` grönt.

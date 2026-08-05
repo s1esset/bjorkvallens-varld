@@ -100,16 +100,50 @@ export default {
     decor.addChild(new Graphics().roundRect(-20, 440, ctx.width + 40, 300, 36).fill(COLORS.brown))
     decor.addChild(new Graphics().roundRect(-20, 432, ctx.width + 40, 46, 24).fill(shade(COLORS.brown, 0.18)))
 
-    const sun = new Text({ text: '☀️', style: { fontFamily: FONT.body, fontSize: 96 } })
-    sun.anchor.set(0.5)
+    // Ritad sol med strålar och ansikte (var en ☀️-emoji).
+    const sun = new Graphics()
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2
+      sun.moveTo(Math.cos(a) * 38, Math.sin(a) * 38).lineTo(Math.cos(a) * 54, Math.sin(a) * 54)
+      sun.stroke({ width: 7, color: 0xffc93c, cap: 'round' })
+    }
+    sun.circle(0, 0, 38).fill(0xffd35c).stroke({ width: 4, color: 0xe0a94f })
+    sun.circle(-13, -6, 4).fill(0x8a6a2a)
+    sun.circle(13, -6, 4).fill(0x8a6a2a)
+    sun.arc(0, 2, 14, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3.5, color: 0x8a6a2a })
+    sun.circle(-24, 8, 6).fill({ color: 0xff9d9d, alpha: 0.5 })
+    sun.circle(24, 8, 6).fill({ color: 0xff9d9d, alpha: 0.5 })
     sun.position.set(1080, 132) // medvetet undan hörn-knapparna
     decor.addChild(sun)
 
+    // Riktiga puffiga moln (var rundade rektanglar som läste som tomma etiketter).
     const clouds = new Graphics()
     for (const [cx, cy, s] of [[330, 120, 1], [640, 90, 0.8], [880, 150, 0.7]]) {
-      clouds.roundRect(cx - 70 * s, cy - 26 * s, 140 * s, 52 * s, 26 * s).fill({ color: COLORS.white, alpha: 0.9 })
+      clouds.circle(cx - 42 * s, cy + 6 * s, 24 * s).fill({ color: COLORS.white, alpha: 0.92 })
+      clouds.circle(cx, cy - 12 * s, 34 * s).fill({ color: COLORS.white, alpha: 0.92 })
+      clouds.circle(cx + 44 * s, cy + 6 * s, 26 * s).fill({ color: COLORS.white, alpha: 0.92 })
+      clouds.roundRect(cx - 66 * s, cy, 132 * s, 28 * s, 14 * s).fill({ color: COLORS.white, alpha: 0.92 })
     }
     decor.addChild(clouds)
+
+    // Trädgården fick en värld: kullar bakom rabatten, gräskant och småsten i
+    // jorden. Marken var förut en platt brun platta utan ett enda kännetecken.
+    const hills = new Graphics()
+    hills.ellipse(180, 500, 260, 90).fill(0x8fd07a)
+    hills.ellipse(640, 512, 320, 100).fill(0x9fd88a)
+    hills.ellipse(1120, 498, 240, 86).fill(0x8fd07a)
+    decor.addChildAt(hills, 1)
+
+    const soil = new Graphics()
+    for (const [gx, gh] of [[60, 20], [150, 15], [255, 22], [400, 16], [520, 19], [760, 17], [900, 22], [1030, 15], [1180, 20]]) {
+      soil.moveTo(gx, 452).quadraticCurveTo(gx - 5, 452 - gh, gx - 11, 452 - gh + 4)
+      soil.moveTo(gx, 452).quadraticCurveTo(gx + 2, 452 - gh - 3, gx + 8, 452 - gh + 2)
+      soil.stroke({ width: 4, color: 0x6fb85c, cap: 'round' })
+    }
+    for (const [px, py, pr] of [[190, 560, 7], [420, 640, 5], [880, 590, 6], [1090, 660, 8], [330, 690, 5], [720, 700, 6]]) {
+      soil.ellipse(px, py, pr, pr * 0.7).fill({ color: 0x6f4a2e, alpha: 0.55 })
+    }
+    decor.addChild(soil)
 
     this._root.addChild(decor)
   },
@@ -127,11 +161,10 @@ export default {
     this._idle = 0
     this._holeCount = Math.min(3, 1 + Math.floor(this._level / 2)) // 1–3 hål, mjuk trappa
 
-    // Mjuk "frökorg"-panel bakom fröraden (dekor).
-    const panW = this._holeCount * 120 + 60
-    const basket = new Graphics().roundRect(640 - panW / 2, SEED_Y - 64, panW, 128, 30).fill({ color: COLORS.white, alpha: 0.35 })
-    basket.eventMode = 'none'
-    this._round.addChild(basket)
+    // INGEN panel bakom fröna. Här låg förut en vit rundad ruta — spelobjekt i en
+    // bricka, vilket P0 ASSETS förbjuder. En ritad korg testades men svävade
+    // synligt i himlen (fröraden ligger på y≈210, högt över marken). Fröna står
+    // nu fritt med sin egen skugga, som ett riktigt föremål ska.
 
     // Jordhål (mål): jämnt fördelade kring x=640 med 230px mellanrum.
     this._holes = []
@@ -186,12 +219,23 @@ export default {
     return obj
   },
 
+  // P0 ASSETS: fröet är ett FRISTÅENDE ritat ollon — låg tidigare som en
+  // 🌰-emoji inuti en vit cirkel, alltså en ikon i en bricka.
   _makeSeed() {
     const c = new Container()
-    const bg = new Graphics().circle(0, 0, 46).fill({ color: 0xffffff, alpha: 0.9 }).stroke({ width: 4, color: 0xeadfca })
-    const e = new Text({ text: '🌰', style: { fontFamily: FONT.body, fontSize: 70 } })
-    e.anchor.set(0.5)
-    c.addChild(bg, e)
+    const sh = new Graphics().ellipse(0, 34, 30, 9).fill({ color: 0x000000, alpha: 0.15 })
+    const g = new Graphics()
+    g.ellipse(0, 6, 26, 30).fill(0xc98a4b).stroke({ width: 4, color: 0x9a5c33 }) // nöten
+    g.ellipse(-8, -2, 9, 13).fill({ color: 0xe0aa72, alpha: 0.7 }) // glans
+    g.moveTo(-27, -12).quadraticCurveTo(0, -34, 27, -12).quadraticCurveTo(0, 0, -27, -12).closePath()
+    g.fill(0x7a4a28).stroke({ width: 4, color: 0x5c3720 }) // hattens brätte
+    g.roundRect(-5, -40, 10, 12, 5).fill(0x5c3720) // stjälk
+    for (let i = -2; i <= 2; i++) g.circle(i * 9, -18, 2.2).fill({ color: 0x5c3720, alpha: 0.55 })
+    // Litet ansikte → eget liv (P0: egen silhuett OCH egen personlighet).
+    g.circle(-8, 8, 3.5).fill(0x3a2616)
+    g.circle(8, 8, 3.5).fill(0x3a2616)
+    g.arc(0, 12, 7, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: 0x3a2616 })
+    c.addChild(sh, g)
     c.hitArea = new Circle(0, 0, 70) // hit-halo ≥96px Ø
     return c
   },
@@ -639,8 +683,16 @@ export default {
   // Fjärilar som fladdrar in i fxLayer (exit-säkert: proxy + kopiera bara om levande).
   _flyButterflies(ctx, n) {
     for (let i = 0; i < n; i++) {
-      const b = new Text({ text: '🦋', style: { fontFamily: FONT.body, fontSize: 64 } })
-      b.anchor.set(0.5)
+      // Ritad fjäril (var 🦋): fyra vingar, kropp och antenner.
+      const b = new Graphics()
+      const wing = [0xa78bfa, 0xf7b9e4, 0x6ad0ff, 0xffd35c][i % 4]
+      b.ellipse(-13, -8, 13, 15).fill(wing).stroke({ width: 2.5, color: 0x6b4fc4 })
+      b.ellipse(13, -8, 13, 15).fill(wing).stroke({ width: 2.5, color: 0x6b4fc4 })
+      b.ellipse(-11, 9, 10, 11).fill(wing).stroke({ width: 2.5, color: 0x6b4fc4 })
+      b.ellipse(11, 9, 10, 11).fill(wing).stroke({ width: 2.5, color: 0x6b4fc4 })
+      b.roundRect(-3, -14, 6, 30, 3).fill(0x4a3728)
+      b.moveTo(-2, -14).quadraticCurveTo(-8, -24, -12, -22).stroke({ width: 2, color: 0x4a3728 })
+      b.moveTo(2, -14).quadraticCurveTo(8, -24, 12, -22).stroke({ width: 2, color: 0x4a3728 })
       b.eventMode = 'none'
       const startX = 180 + Math.random() * 220
       const baseY = 300 + Math.random() * 150

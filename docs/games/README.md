@@ -122,7 +122,7 @@ Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
 | 8 | Mata Monstret | `mata-monstret` | mixed | ✅ | ⬜ |
 | 13 | Stor och Liten | `stor-liten` | drag | ✅ | ⬜ |
 | 15 | Klä på Nallen | `kla-pa-nallen` | drag | ✅ | ⬜ |
-| 16 | Plantera Frön | `plantera-fron` | drag | ✅ | ⬜ |
+| 16 | Plantera Frön | `plantera-fron` | drag | ✅ | ✅ |
 | 17 | Skuggmatchning | `skuggmatchning` | drag | ✅ | ⬜ |
 | 18 | Enkelt Pussel | `enkelt-pussel` | drag | ✅ | ⬜ |
 | 21 | Vart Tog Det Vägen? | `vart-tog-det-vagen` | tap | ✅ | ⬜ |

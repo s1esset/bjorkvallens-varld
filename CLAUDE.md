@@ -57,6 +57,7 @@ EXIT-SÄKERT   spelaren kan lämna mitt i en animation → _alive-flagga + feedb
 | UI-design, tokens, versionspill | `docs/DESIGN.md` |
 | ett specifikt spels nuläge + plan | `docs/games/<id>.md` (index: `docs/games/README.md`) |
 | vad som hände senast | `docs/SESSIONS.md` |
+| spelidéer som väntar på planering | `docs/IDEER.md` |
 
 ## Arbetsregler
 

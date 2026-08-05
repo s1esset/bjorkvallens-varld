@@ -37,6 +37,124 @@ const SHELF_X0 = 150
 const SHELF_X1 = 850
 const HINT_MS = 6000 // ms utan handling → eskalerande ledtråd
 
+// P0 ASSETS: varje element RITAS som ett eget föremål med egen silhuett.
+// Låg tidigare som en emoji inuti en färgad cirkel på hyllan — precis det
+// regeln förbjuder. Allt centreras i (0,0) och håller sig inom ~±28 px.
+function drawElement(id) {
+  const g = new Graphics()
+  const E = {
+    eld: () => {
+      g.moveTo(0, 26).quadraticCurveTo(-22, 8, -12, -8).quadraticCurveTo(-8, -2, -4, -6)
+      g.quadraticCurveTo(-6, -20, 4, -28).quadraticCurveTo(2, -12, 12, -6)
+      g.quadraticCurveTo(18, -12, 17, -18).quadraticCurveTo(26, -2, 0, 26).closePath()
+      g.fill(0xff8a3d)
+      g.moveTo(0, 22).quadraticCurveTo(-11, 6, -3, -4).quadraticCurveTo(2, -12, 6, -2)
+      g.quadraticCurveTo(13, 6, 0, 22).closePath().fill(0xffd35c)
+    },
+    vatten: () => {
+      g.moveTo(0, -26).quadraticCurveTo(20, -2, 20, 8).arc(0, 8, 20, 0, Math.PI).quadraticCurveTo(-20, -2, 0, -26)
+      g.fill(0x4aa3df).stroke({ width: 3, color: 0x2f7fb8 })
+      g.ellipse(-7, 6, 5, 8).fill({ color: 0xffffff, alpha: 0.5 })
+    },
+    jord: () => {
+      g.ellipse(0, 18, 24, 10).fill(0x8a5a3b)
+      g.roundRect(-3, -8, 6, 26, 3).fill(0x5bbf6a)
+      g.ellipse(-13, -6, 12, 8).fill(0x6fd07a).stroke({ width: 2.5, color: 0x3f8a44 })
+      g.ellipse(13, -12, 12, 8).fill(0x6fd07a).stroke({ width: 2.5, color: 0x3f8a44 })
+    },
+    luft: () => {
+      for (const [y, w] of [[-10, 22], [2, 26], [14, 18]]) {
+        g.moveTo(-w, y).lineTo(w - 8, y)
+        g.arc(w - 8, y + 6, 6, -Math.PI / 2, Math.PI / 2)
+        g.stroke({ width: 5, color: 0x57c8c3, cap: 'round' })
+      }
+    },
+    is: () => {
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI
+        g.moveTo(-Math.cos(a) * 24, -Math.sin(a) * 24).lineTo(Math.cos(a) * 24, Math.sin(a) * 24)
+        g.stroke({ width: 6, color: 0xbdeefa, cap: 'round' })
+      }
+      g.circle(0, 0, 6).fill(0xeafaff)
+    },
+    anga: () => {
+      for (const [x, y, r] of [[-10, 6, 11], [4, 0, 13], [14, 8, 9]]) g.circle(x, y, r).fill({ color: 0xd8e6ee, alpha: 0.92 })
+      g.moveTo(-14, -12).quadraticCurveTo(-4, -20, -10, -26).stroke({ width: 4, color: 0xd8e6ee, alpha: 0.8 })
+      g.moveTo(6, -14).quadraticCurveTo(16, -22, 10, -28).stroke({ width: 4, color: 0xd8e6ee, alpha: 0.8 })
+    },
+    lera: () => {
+      g.ellipse(0, 10, 26, 16).fill(0x8a5a3b).stroke({ width: 3, color: 0x6f4a2e })
+      g.ellipse(-8, 2, 9, 6).fill({ color: 0xa9714a, alpha: 0.8 })
+      g.circle(10, -8, 6).fill(0x8a5a3b)
+      g.circle(-4, -14, 4).fill(0x8a5a3b)
+    },
+    lava: () => {
+      g.moveTo(-26, 20).lineTo(-10, -14).lineTo(10, -14).lineTo(26, 20).closePath()
+      g.fill(0x6f4a2e).stroke({ width: 3, color: 0x4a2f1c })
+      g.moveTo(-10, -14).lineTo(-4, -2).lineTo(2, -12).lineTo(10, -14).lineTo(7, 8).lineTo(-7, 8).closePath()
+      g.fill(0xf5731e)
+      g.circle(-6, -22, 5).fill({ color: 0xff9d3d, alpha: 0.85 })
+      g.circle(6, -27, 4).fill({ color: 0xffd35c, alpha: 0.85 })
+    },
+    sno: () => {
+      g.circle(0, 12, 15).fill(0xffffff).stroke({ width: 3, color: 0xc9d8e0 })
+      g.circle(0, -10, 11).fill(0xffffff).stroke({ width: 3, color: 0xc9d8e0 })
+      g.circle(-4, -12, 2.5).fill(0x2b2b2b)
+      g.circle(4, -12, 2.5).fill(0x2b2b2b)
+      g.moveTo(0, -7).lineTo(7, -5).lineTo(0, -3).closePath().fill(0xff9d3d)
+      g.circle(0, 6, 2.5).fill(0x2b2b2b)
+    },
+    moln: () => {
+      g.circle(-13, 4, 12).fill(0xe8eef2)
+      g.circle(2, -6, 16).fill(0xe8eef2)
+      g.circle(16, 4, 12).fill(0xe8eef2)
+      g.roundRect(-24, 2, 48, 14, 7).fill(0xe8eef2)
+    },
+    sol: () => {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2
+        g.moveTo(Math.cos(a) * 17, Math.sin(a) * 17).lineTo(Math.cos(a) * 27, Math.sin(a) * 27)
+        g.stroke({ width: 5, color: 0xffd35c, cap: 'round' })
+      }
+      g.circle(0, 0, 16).fill(0xffd35c).stroke({ width: 3, color: 0xe0a94f })
+    },
+    regn: () => {
+      g.circle(-11, -8, 11).fill(0x9fb8c9)
+      g.circle(2, -15, 14).fill(0x9fb8c9)
+      g.circle(14, -8, 10).fill(0x9fb8c9)
+      g.roundRect(-21, -10, 42, 12, 6).fill(0x9fb8c9)
+      for (const dx of [-12, 0, 12]) g.moveTo(dx, 6).lineTo(dx - 4, 22).stroke({ width: 4, color: 0x6fa8d6, cap: 'round' })
+    },
+    sten: () => {
+      g.moveTo(-24, 14).lineTo(-16, -10).lineTo(2, -18).lineTo(20, -6).lineTo(22, 14).closePath()
+      g.fill(0x9b9088).stroke({ width: 3, color: 0x74695f })
+      g.moveTo(-10, 12).lineTo(-6, -6).lineTo(6, -12).stroke({ width: 2.5, color: 0x74695f, alpha: 0.6 })
+    },
+    kruka: () => {
+      g.moveTo(-14, -18).quadraticCurveTo(-24, 0, -16, 18).lineTo(16, 18).quadraticCurveTo(24, 0, 14, -18).closePath()
+      g.fill(0xc77c4a).stroke({ width: 3, color: 0x9a5c33 })
+      g.roundRect(-17, -24, 34, 9, 4).fill(0xd9925e).stroke({ width: 3, color: 0x9a5c33 })
+      g.moveTo(-10, -4).lineTo(10, -4).stroke({ width: 3, color: 0x9a5c33, alpha: 0.6 })
+    },
+    regnbage: () => {
+      const cols = [0xff6b6b, 0xffb347, 0xffe08a, 0x7ed06a, 0x6ad0ff, 0xa78bfa]
+      cols.forEach((c, i) => {
+        g.arc(0, 16, 26 - i * 4, Math.PI, 0).stroke({ width: 4, color: c })
+      })
+    },
+    enhorning: () => {
+      g.ellipse(-2, 6, 20, 16).fill(0xfff0f7).stroke({ width: 3, color: 0xe4b8d4})
+      g.circle(8, -12, 13).fill(0xfff0f7).stroke({ width: 3, color: 0xe4b8d4 })
+      g.moveTo(4, -24).lineTo(11, -40).lineTo(16, -22).closePath().fill(0xffd35c)
+      g.moveTo(-6, -20).quadraticCurveTo(-20, -12, -14, 2).stroke({ width: 6, color: 0xf7b9e4, cap: 'round' })
+      g.circle(12, -14, 3).fill(0x2b2b2b)
+    },
+  }
+  ;(E[id] || E.sten)()
+  g.eventMode = 'none'
+  return g
+}
+
 // --- Element-register: id → { emoji, color, namn } ---
 const ELEMENTS = {
   // baser
@@ -184,27 +302,65 @@ export default {
         ring.circle(Math.cos(ang) * 34, Math.sin(ang) * 34, 2.5).fill({ color: 0xffffff, alpha: 0.25 })
       }
       const fill = new Graphics()
-      const emoji = new Text({ text: '', style: { fontFamily: FONT.body, fontSize: 38 } })
-      emoji.anchor.set(0.5)
+      // Behållare för det RITADE elementet (var en Text vars .text byttes).
+      const emoji = new Container()
+      emoji.eventMode = 'none'
       emoji.visible = false
       c.addChild(ring, fill, emoji)
       this._root.addChild(c)
       this._slots.push({ fill, emoji })
     }
 
-    // 6) Trollkarl Bobo (maskot) + egenritad spetshatt.
+    // 6) Trollkarl Bobo + egenritad spetshatt. makeMascot() ger BARA ett huvud —
+    // han svävade tidigare som ett löst huvud i luften. Nu mantel, armar och en
+    // stav han faktiskt håller i.
     const w = new Container()
     w.position.set(180, 210)
     w.eventMode = 'none'
-    w.addChild(makeMascot(80))
+    // Huvudet krymps till faceR 46 — med 80 täckte ansiktscirkeln (160 px bred)
+    // hela kroppen, så mantel, armar och stav ritades men syntes aldrig.
+    const robe = new Graphics()
+    robe.moveTo(-52, 84).lineTo(-30, -2).lineTo(30, -2).lineTo(52, 84).closePath()
+    robe.fill(COLORS.purple).stroke({ width: 5, color: 0x6b4fc4 })
+    robe.moveTo(-52, 84).quadraticCurveTo(0, 98, 52, 84).stroke({ width: 5, color: 0x6b4fc4 })
+    for (const sx of [-24, 0, 24]) robe.circle(sx, 46, 4.5).fill({ color: 0xffd35c, alpha: 0.85 })
+    const armL = new Graphics()
+    armL.roundRect(-8, -4, 16, 46, 8).fill(COLORS.purple).stroke({ width: 4, color: 0x6b4fc4 })
+    armL.circle(0, 44, 9).fill(COLORS.cream)
+    armL.position.set(-32, 8)
+    armL.rotation = 0.4
+    const armR = new Graphics()
+    armR.roundRect(-8, -4, 16, 46, 8).fill(COLORS.purple).stroke({ width: 4, color: 0x6b4fc4 })
+    armR.circle(0, 44, 9).fill(COLORS.cream)
+    armR.position.set(32, 8)
+    armR.rotation = -0.4
+    // Staven i höger hand, med en liten ritad stjärna i toppen.
+    const staff = new Graphics()
+    staff.roundRect(-4, -84, 8, 148, 4).fill(0x8a5a3b).stroke({ width: 3, color: 0x6f4a2e })
+    staff.position.set(66, 18)
+    const head = makeMascot(46)
+    head.position.set(0, -44)
+    w.addChild(robe, armL, armR, staff, head)
     const hat = new Graphics()
-    hat.poly([0, -150, -70, -30, 70, -30]).fill(COLORS.purple).stroke({ width: 6, color: 0x6b4fc4 })
-    hat.ellipse(0, -26, 82, 18).fill(COLORS.purple).stroke({ width: 6, color: 0x6b4fc4 })
+    hat.poly([0, -164, -46, -76, 46, -76]).fill(COLORS.purple).stroke({ width: 5, color: 0x6b4fc4 })
+    hat.ellipse(0, -72, 54, 13).fill(COLORS.purple).stroke({ width: 5, color: 0x6b4fc4 })
     w.addChild(hat)
-    const star = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: 40 } })
-    star.anchor.set(0.5)
-    star.position.set(0, -92)
+    // RITAD stjärna (var ⭐) — sitter i hattens spets.
+    const star = new Graphics()
+    const sp = []
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2 - Math.PI / 2
+      const r = k % 2 === 0 ? 20 : 8.5
+      sp.push(Math.cos(a) * r, Math.sin(a) * r)
+    }
+    star.poly(sp).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orangeDark })
+    star.position.set(0, -132)
     w.addChild(star)
+    // En likadan liten stjärna i stavens topp.
+    const staffStar = new Graphics()
+    staffStar.poly(sp.map((v) => v * 0.6)).fill(COLORS.yellow).stroke({ width: 2.5, color: COLORS.orangeDark })
+    staffStar.position.set(66, -70)
+    w.addChild(staffStar)
     this._wizard = w
     this._wizStar = star // stjärn-stav — studsar när trollkarlen hejar
     this._wizardBase = { x: 180, y: 210 } // hemma-pose (gesterna återgår hit)
@@ -216,8 +372,22 @@ export default {
     const lip = new Graphics().circle(0, 6, 48).fill(0x6b4fc4)
     const face = new Graphics().circle(0, 0, 48).fill(COLORS.purple).stroke({ width: 4, color: 0x6b4fc4 })
     face.circle(-14, -14, 12).fill({ color: 0xffffff, alpha: 0.25 })
-    const ic = new Text({ text: '🌀', style: { fontFamily: FONT.body, fontSize: 44 } })
-    ic.anchor.set(0.5)
+    // Ritad virvel (var 🌀) — spiral som läser som "töm/rör om".
+    const ic = new Graphics()
+    let px = 0
+    let py = 0
+    for (let i = 0; i <= 90; i++) {
+      const a = (i / 90) * Math.PI * 4
+      const r = 3 + (i / 90) * 22
+      const nx = Math.cos(a) * r
+      const ny = Math.sin(a) * r
+      if (i === 0) ic.moveTo(nx, ny)
+      else ic.lineTo(nx, ny)
+      px = nx
+      py = ny
+    }
+    ic.stroke({ width: 6, color: COLORS.white, cap: 'round' })
+    ic.circle(px, py, 5).fill(COLORS.white)
     btn.addChild(lip, face, ic)
     btn.eventMode = 'static'
     btn.cursor = 'pointer'
@@ -282,6 +452,8 @@ export default {
       gsap.killTweensOf(this._wizard.scale)
     }
     if (this._wizStar && !this._wizStar.destroyed) gsap.killTweensOf(this._wizStar.scale)
+    for (const t of this._floatTweens || []) t.kill()
+    this._floatTweens = null
     if (this._cauldron && !this._cauldron.destroyed) gsap.killTweensOf(this._cauldron)
     if (this._brew && !this._brew.destroyed) gsap.killTweensOf(this._brew)
     if (this._emptyBtn && !this._emptyBtn.destroyed) {
@@ -383,8 +555,15 @@ export default {
       eq.anchor.set(0.5)
       eq.position.set(1108, 0)
       row.addChild(eq)
-      const resT = new Text({ text: '❓', style: { fontFamily: FONT.body, fontSize: 40 } })
-      resT.anchor.set(0.5)
+      // Behållare för resultatet: ritat frågetecken tills receptet hittats, sedan
+      // det ritade elementet (var ❓ resp. en emoji-sträng).
+      const resT = new Container()
+      resT.eventMode = 'none'
+      const q = new Graphics()
+      q.arc(0, -9, 9, Math.PI, Math.PI * 0.15).stroke({ width: 5, color: 0xe0397a, cap: 'round' })
+      q.moveTo(3.5, -3).lineTo(0, 7).stroke({ width: 5, color: 0xe0397a, cap: 'round' })
+      q.circle(0, 16, 3.5).fill(0xe0397a)
+      resT.addChild(q)
       resT.position.set(1158, 0)
       row.addChild(resT)
       this._rowLayer.addChild(row)
@@ -393,14 +572,36 @@ export default {
     this._updateCounter()
   },
 
+  // Låter ett RITAT element sväva upp (ersätter floatText med en emoji-sträng).
+  // Lever i _root så det städas med spelet; tweenen spåras och dödas i destroy.
+  _floatElem(elemId, x, y, opts = {}) {
+    if (!this._alive || !this._root || this._root.destroyed) return
+    const art = drawElement(elemId)
+    art.position.set(x, y)
+    art.scale.set(opts.scale ?? 1.2)
+    this._root.addChild(art)
+    const tw = gsap.to(art, {
+      y: y - (opts.rise ?? 110),
+      alpha: 0,
+      duration: opts.duration ?? 0.9,
+      ease: 'power1.out',
+      onComplete: () => {
+        if (!art.destroyed) art.destroy()
+        this._floatTweens = (this._floatTweens || []).filter((t) => t !== tw)
+      },
+    })
+    this._floatTweens = [...(this._floatTweens || []), tw]
+  },
+
   _miniIcon(elemId, x) {
     const E = ELEMENTS[elemId]
     const c = new Container()
     c.position.set(x, 0)
     c.eventMode = 'none'
-    c.addChild(new Graphics().circle(0, 0, 18).fill(E.color).stroke({ width: 3, color: 0xffffff, alpha: 0.6 }))
-    const t = new Text({ text: E.emoji, style: { fontFamily: FONT.body, fontSize: 24 } })
-    t.anchor.set(0.5)
+    // Mjuk färgglugg BAKOM det ritade elementet (inte en ruta det ligger i).
+    c.addChild(new Graphics().circle(0, 0, 17).fill({ color: E.color, alpha: 0.22 }))
+    const t = drawElement(elemId)
+    t.scale.set(0.55)
     c.addChild(t)
     return c
   },
@@ -420,14 +621,15 @@ export default {
     c.position.set(500, SHELF_Y) // tillfälligt; _layoutShelf sätter hemmaplats
     const shadow = new Graphics().ellipse(0, 42, 40, 12).fill({ color: 0x000000, alpha: 0.18 })
     shadow.eventMode = 'none'
-    const body = new Graphics().circle(0, 0, 52).fill(E.color).stroke({ width: 5, color: 0xffffff, alpha: 0.5 })
+    // P0 ASSETS: elementet är ett FRISTÅENDE ritat föremål. Den gamla lösningen
+    // var en emoji inuti en fylld färgcirkel — en ikon i en bricka. Cirkeln är
+    // nu bara ett mjukt sken bakom, inte en behållare.
+    const body = new Graphics().circle(0, 0, 50).fill({ color: E.color, alpha: 0.2 })
+    body.circle(0, 0, 50).stroke({ width: 4, color: E.color, alpha: 0.4 })
     body.eventMode = 'none'
-    const gloss = new Graphics().circle(-18, -18, 12).fill({ color: 0xffffff, alpha: 0.6 })
-    gloss.eventMode = 'none'
-    const emoji = new Text({ text: E.emoji, style: { fontFamily: FONT.body, fontSize: 60 } })
-    emoji.anchor.set(0.5)
-    emoji.eventMode = 'none'
-    c.addChild(shadow, body, gloss, emoji)
+    const emoji = drawElement(elemId)
+    emoji.scale.set(1.5)
+    c.addChild(shadow, body, emoji)
     c.interactiveChildren = false
     c.hitArea = new Circle(0, 0, 80) // ≥160px träffyta
     this._dropLayer.addChild(c)
@@ -507,11 +709,15 @@ export default {
       const elem = this._inCauldron[i]
       if (elem) {
         const E = ELEMENTS[elem]
-        s.fill.clear().circle(0, 0, 28).fill(E.color).stroke({ width: 3, color: 0xffffff, alpha: 0.5 })
-        s.emoji.text = E.emoji
+        s.fill.clear().circle(0, 0, 28).fill({ color: E.color, alpha: 0.25 })
+        for (const ch of s.emoji.removeChildren()) ch.destroy({ children: true })
+        const art = drawElement(elem)
+        art.scale.set(0.92)
+        s.emoji.addChild(art)
         s.emoji.visible = true
       } else {
         s.fill.clear()
+        for (const ch of s.emoji.removeChildren()) ch.destroy({ children: true })
         s.emoji.visible = false
       }
     }
@@ -596,8 +802,8 @@ export default {
     if (this._cauldron && !this._cauldron.destroyed) wiggle(this._cauldron)
     this._wizardGesture('shrug') // rycker på axlarna / kliar hatten
     // Ingredienserna studsar ut igen (inget förbrukas).
-    floatText(ctx.fxLayer, CX - 30, BREW_Y, ELEMENTS[pair[0]].emoji, { fontSize: 46, rise: 90 })
-    floatText(ctx.fxLayer, CX + 30, BREW_Y, ELEMENTS[pair[1]].emoji, { fontSize: 46, rise: 90 })
+    this._floatElem(pair[0], CX - 30, BREW_Y, { scale: 0.95, rise: 90 })
+    this._floatElem(pair[1], CX + 30, BREW_Y, { scale: 0.95, rise: 90 })
     ctx.services.voice.say(randomFrom(['Hmm... prova en annan!', 'Oj, det blev ingenting. Prova igen!', 'Hihi, prova ett annat par!']))
     this._idle = 0
   },
@@ -619,7 +825,10 @@ export default {
     if (!row) return
     row.done = true
     if (row.resultText && !row.resultText.destroyed) {
-      row.resultText.text = ELEMENTS[resId].emoji
+      for (const ch of row.resultText.removeChildren()) ch.destroy({ children: true })
+      const art = drawElement(resId)
+      art.scale.set(0.72)
+      row.resultText.addChild(art)
       pop(row.resultText)
     }
     // Boken firar: gyllene lyse-ring + en grön bock-stämpel som studsar upp.
@@ -832,7 +1041,7 @@ export default {
     const fx = ctx.fxLayer
     burst(fx, CX, BREW_Y, { count: 16, power: 1.1 })
     puff(fx, CX, BREW_Y, { count: 10, color })
-    floatText(fx, CX, BREW_Y - 20, ELEMENTS[resId].emoji, { fontSize: 80, rise: 140 })
+    this._floatElem(resId, CX, BREW_Y - 20, { scale: 1.7, rise: 140 })
   },
 
   // Signatur-effekter för utvalda element. Returnerar true om ett spelades.
@@ -845,7 +1054,7 @@ export default {
         for (let i = 0; i < 3; i++) {
           this._fxDelay(0.12 * i, () => {
             puff(fx, CX + (i - 1) * 30, BREW_Y - 8, { count: 6, color: 0xeef4f8 })
-            floatText(fx, CX + (i - 1) * 26, BREW_Y - 10, ELEMENTS[resId].emoji, { fontSize: 52, rise: 180, duration: 1.1 })
+            this._floatElem(resId, CX + (i - 1) * 26, BREW_Y - 10, { scale: 1.1, rise: 180, duration: 1.1 })
           })
         }
         ctx.services.audio.tone({ freq: 520, slideTo: 900, dur: 0.5, type: 'sine', vol: 0.35 })
@@ -866,7 +1075,7 @@ export default {
         // Is/snö fryser kittelns kant med en kristall-ring.
         this._frostRim(ctx, resId === 'sno' ? 0xffffff : 0xbdeefa)
         sparkle(fx, CX, BREW_Y, { count: 12 })
-        floatText(fx, CX, BREW_Y - 20, ELEMENTS[resId].emoji, { fontSize: 80, rise: 120 })
+        this._floatElem(resId, CX, BREW_Y - 20, { scale: 1.7, rise: 120 })
         ctx.services.audio.tone({ freq: 1400, slideTo: 1900, dur: 0.35, type: 'triangle', vol: 0.3 })
         return true
       }

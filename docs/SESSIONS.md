@@ -14,6 +14,52 @@ Format:
 
 ---
 
+## 2026-08-05 · v1.9.0 · 🔊 Röstkön tömd — 343 nya klipp
+
+**Byggt:** `/rost` körd skarpt. Hela kön av svenska repliker har nu riktiga F5-TTS-klipp.
+
+- **Var pipelinen faktiskt finns.** Utgångsfrågan var om Holodeck-projektet har en F5-pipeline
+  vi kan låna på psai3. Det har det **inte**: Holodecks TTS är **Chatterbox** (devnen-servern,
+  Turbo-engine) på **PC 2 "andreas-hem"** `192.168.1.125:8004`, och V3 är **engelska only** sedan
+  2026-06-26. `HoloDeck_V2/TTS_RESEARCH_2026-06-26.md` utvärderade F5-TTS och valde bort det.
+  psai3 förekommer bara som filutdelning i de dokumenten. **Den svenska F5-pipelinen låg redan
+  där `npm run voice` pekade**: storygen-narratorns venv här på psai1 (torch 2.6.0+cu124, RTX
+  4090, `EkhoCollective/f5-tts-swedish` 3,2 GB i HF-cachen — inget nätanrop behövs).
+- **72 repliker som spelen säger** men som saknades i `voice-phrases.json` lades till först, så
+  de kom med i samma körning. Resultat: **351 gjorda, 1051 överhoppade, 0 misslyckade.**
+- **Skräp rensat.** `_addphrases.mjs` lägger till precis vad `check` rapporterar — även bitar av
+  mall-strängar (`" dropparna!"`, `"Hurra! "`) och rena **platshållare** (`"Hitta {d}!"` från
+  `peka-pa-kroppen`). Åtta platshållare hann få klipp där rösten läser upp `{d}` högt innan de
+  upptäcktes. Klipp, manifest-poster och repliker borttagna; fällan dokumenterad i
+  `docs/POLERINGSRUNDA.md` intill verktyget.
+- **Kvalitetskontroll:** alla 351 nya klipp mätta med `ffprobe` — 0,98–8,47 s, median 2,60 s,
+  inga avhuggna eller skenande, 0 manifest-poster utan fil. Täckning nu **1394 repliker /
+  1395 klipp, 0 utan klipp**.
+
+**Buggfix i verktygskedjan:** `npm run voice` och `npm run sfx` var **trasiga på Windows**. npm
+kör sina scripts genom cmd.exe, och cmd klarar inte en kommandorad som *börjar* med en citerad
+sökväg och sedan har fler citerade argument — den svarade "Felaktig syntax för filnamn,
+katalognamn eller volymetikett" och körde aldrig något. Varken snedstreck eller bakstreck
+hjälpte (skill-dokumentationens råd "kör från PowerShell" räckte alltså inte). Ersatta med
+`scripts/run-tts.mjs`, som spawnar python med en riktig **argv-array** — ingen shell-citering
+alls. Fungerar nu från både PowerShell och git-bash, kör `python -u` så framstegsraderna
+strömmar live i stället för att buffras till slutet, och ger ett begripligt fel om venven saknas.
+
+**Commits:** `b6f1d8a` feat(voice) · `11f4de9` chore v1.9.0
+**Kontroll:** `npm run check` 0 fel · 16 varningar · bygge rent (precache 1450 poster, 25 MB,
+1395 röstklipp i `dist/`).
+
+**Öppet:**
+- De 16 varningarna är **läcka #4-skuld i opolerade spel**: `fargregn`, `enkelt-pussel`,
+  `folj-sparet`, `mata-monstret` och `peka-pa-kroppen` bygger repliker ur mall-strängar, och
+  `sortera-skrap` + `stor-liten` saknar `voiceIntro`. Fixas i respektive spels poleringsomgång
+  (Kö 2 🧩 Pussel och Kö 3 🔤 Lära, 28 spel kvar) — inte genom att lägga fragment i röstlistan.
+- MOSS-SoundEffect (:8003) är fortfarande nere → 21 sfx-klipp, `npm run sfx` väntar. Modellen
+  ligger cachad lokalt, så det är bara tjänsten som behöver startas.
+- Referensrösten är fortfarande `narrator_default.wav` med ett **engelskt** transkript. Det har
+  gett 1395 dugliga svenska klipp, men en svensk referens är den enda kvarvarande kvalitetsspaken
+  — och den kräver att **alla** klipp görs om, inte bara nya.
+
 ## 2026-08-05 · v1.8.0 · 🎉 **Roligt-fliken KLAR** (14/14)
 
 **Byggt:** poleringsrundans Kö 1 färdig — de nio återstående spelen i 🎉 Roligt, ett i taget med

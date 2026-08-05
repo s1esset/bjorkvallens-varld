@@ -27,6 +27,15 @@ på ⚙️ Fysik-fliken 2026-08-04 (v1.7.0). Leta buggar och problem, fixa dem, 
 > eller i skärmdumpen — bara när man faktiskt drar. Leta i spel som flyttar objekt mellan
 > containrar under ett drag.
 
+> 💡 **Nionde läckan, hittad i `sapbubblor`:** **spelet spelar sig självt.** No-fail hade glidit
+> över i att mätaren fylls medan barnet tittar på — en hel nivå klarades på **10 sekunder utan ett
+> enda tryck**. Två samverkande orsaker, båda osynliga i kod *och* i skärmdumpen: objekt som föds
+> i målets bana (här: var tredje bubbla i ringens lodräta korridor) plus en förlåtande "sug"-radie
+> som är bredare än den ser ut. En 4-sekunders testkörning missar det helt — det syns först när
+> man låter spelet stå. Använd **`node scripts/_idleprobe.mjs <id> 60`**: den nollställer progress,
+> rör inget på 60 s och spelar sedan riktat. Utfallet ska vara `utanInput: 0` och `efterSpel > 0`.
+> Gäller varje spel med ett mål som objekt kan driva in i av sig själva.
+
 ---
 
 ## Metoden (per spel — ~30–60 min)
@@ -92,7 +101,7 @@ Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-
 | 1 | `bajs-och-kiss` | 17 | ✅ |
 | 2 | `pizzabageriet` | 11 | ✅ |
 | 3 | `hamburgerbygget` | 11 | ✅ |
-| 4 | `sapbubblor` | 10 | ⬜ |
+| 4 | `sapbubblor` | 10 | ✅ |
 | 5 | `pruttbad` | 10 | ⬜ |
 | 6 | `lagerelden` | 10 | ⬜ |
 | 7 | `enhorning-glitterbajs` | 9 | ⬜ |

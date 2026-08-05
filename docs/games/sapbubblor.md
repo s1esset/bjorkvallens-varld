@@ -1,14 +1,16 @@
 # Såpbubblor (`sapbubblor`)
-> 🎉 roligt · tap · 2–5 år · status: 📝 plan klar
+> 🎉 roligt · tap · 2–5 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
 En mjuk himmelsscen. Skimrande såpbubblor (vit kontur + färgade glans-bågar + högdager) stiger
 UPPÅT, vagglar och driver. Jag kan trycka på vilken bubbla som helst → den spricker med ett
 "pop", droppar yr och små gnistor flyger (ren glädje, ger ingen poäng — bara kul). Mitt på
-skärmen lyser en tjock blå RING (målet). Längst ner i hörnen står två stora FLÄKTAR: vänster
-blåser åt höger, höger blåser åt vänster. Jag trycker på en fläkt → den snurrar upp, vindstreck
-driver inåt, och en vindkraft accelererar bubblorna i sidled. Bubblorna har riktig MASSA (stora
+skärmen lyser en tjock blå RING (målet) — och **Bobo håller den**, gapar och sväljer varje bubbla
+han får, hoppar när mätaren blir full. Längst ner i hörnen står två stora FLÄKTAR med munstycken
+vars blad alltid idlar. **Jag trycker var som helst i himlen → närmaste fläkt vrider sig mot
+punkten och skickar en synlig vindpuff dit**, som färdas längs siktlinjen och knuffar de bubblor
+den sveper förbi — i både sid- och höjdled, så jag kan blåsa upp-och-över in i en högt sittande ring. Bubblorna har riktig MASSA (stora
 = tunga, små = lätta), luftmotstånd och momentum, så lätta bubblor blåser längre. En förlåtande
 "sug" drar bubblor som närmar sig in i ringen. Varje bubbla i ringen fyller en prick i mätaren
 uppe; full mätare → firande + stjärna + klistermärke + nästa nivå (ringen flyttar/krymper, fler
@@ -32,6 +34,10 @@ no-fail: poppning straffar aldrig progress, fläkten hjälper alltid, auto-sug g
 ringen fylls. Nivåerna växer lugnt (ringen flyttar/krymper, ambient bris högre upp).
 
 ## 3. Vad gör det lättjefullt / tunt
+
+> **Historik:** kritiken nedan skrevs 2026-06-30 och gäller läget FÖRE omgången 2026-08-05.
+> Punkterna om fastnitade hörnfläktar, auto-sug som spelar nivån åt en, livlös ring och tom
+> himmel är åtgärdade — se §4 och §5. Kvar: bubblornas likformighet är bara delvis löst.
 
 Två fina halvor, men styrningen och kopplingen mellan dem är tunnare än de verkar:
 
@@ -62,12 +68,10 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Deep] Riktig sikt-styrning.** Låt fläkten LUTA mot där jag trycker (eller gör en flyttbar
-  fläkt jag drar), så jag kan blåsa upp-och-över in i en högt sittande ring. Då blir varje blås
-  ett *val* med synlig effekt — och auto-suget kan dras ner till en mild sista-knuff.
-- **[Medium] Koppla ihop halvorna.** Låt poppning bidra mjukt: en poppad bubbla släpper en liten
-  bubbla eller en gnista som driver mot mätaren, eller laddar "extra blås". Då känns båda
-  aktiviteterna som samma spel (fortfarande no-fail).
+- ~~**[Deep] Riktig sikt-styrning.**~~ ✅ 2026-08-05. Fläkten lutar mot tryckpunkten och föder en
+  vindpuff längs siktlinjen; auto-suget nedskruvat till en nästan-träff-hjälp.
+- ~~**[Medium] Koppla ihop halvorna.**~~ ✅ 2026-08-05. En poppad bubbla släpper en barnbubbla
+  som stiger och går att blåsa in i ringen.
 
 ### Variation & överraskning
 - **[Quick] Specialbubblor:** regnbågsbubbla (firar en bonusprick), trög jättebubbla, en bubbla
@@ -81,15 +85,18 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
   en mjuk "svälj"-squash när en bubbla åker in.
 
 ### Progression
-- **[Medium] Ringen blir en karaktär.** En vänlig figurs öppna mun / Bobo som håller en håv, som
-  ler när den matas; flyttande ring på högre nivåer ger naturlig variation.
+- ~~**[Medium] Ringen blir en karaktär.**~~ ✅ 2026-08-05. Bobo håller ringen, gapar och sväljer
+  vid varje poäng och hoppar när mätaren är full.
+- **[Quick] Motstånd tidigare.** `breezeAmp` är 0 under nivå 3, så de tre första nivåerna har inget
+  annat motstånd än siktet självt. Överväg en mycket svag bris redan från nivå 1.
 
 ### Karaktär & berättelse
-- **[Deep] En maskot blåser bubblorna.** Bobo (eller Elvira) på ena sidan som blåser fram
-  bubblorna och jublar vid varje fångad — ger scenen liv och en anledning att bry sig.
+- **[Deep] Någon som BLÅSER fram bubblorna.** Bobo tar numera emot vid ringen; källan är fortfarande
+  anonym (bubblor föds ur nederkanten). En figur som blåser dem ur en pipa skulle sluta cirkeln.
 
 ### Ljud
-- **[Quick] Dedikerade bubbel- + vind-SFX** ersätter TTS-blåset; varierat beröm vid full ring.
+- ~~**[Quick] Dedikerade bubbel- + vind-SFX**~~ ✅ 2026-08-05 som syntes (poppets tonhöjd följer
+  bubbelns storlek). Riktiga MOSS-klipp för `blubb`/`flakt` väntar fortfarande på att tjänsten är uppe.
 
 ## 5. Status / loggar
 
@@ -105,3 +112,32 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
   med `sample('blubb'/'flakt')`-hookar för MOSS ([[real-audio-sfx]], #3). Städning: oanvänd
   `ctx`-param bort ur `_buildHoop`. Den fulla flyttbara fläkten (Deep) lämnad till senare.
   errorCount 0.
+- 2026-08-05 ✅ **Andra omgången — styrningen fick agens och scenen en mottagare.**
+  1. **Riktat blås [Deep].** Tryck var som helst i himlen vrider närmaste fläkt mot punkten och
+     föder en **vindpuff** som färdas längs siktlinjen, breddas och tonar ut (`_addGust`). Puffen
+     ger kraft i BÅDA axlarna delat med bubblans massa, så man kan blåsa upp-och-över in i en högt
+     sittande ring, och en jättebubbla knappt rör sig. Fläkthuvudet har ett munstycke som roterar
+     mot siktet, bladen idlar alltid och snurrar upp vid blås. Tak: `MAX_GUSTS` 5.
+  2. **Bobo håller ringen [Medium].** Ritad maskot med grepp om ringbandet, andning i vila, gapande
+     mun som sväljer vid poäng och hopp vid full mätare. Byter sida när ringen flyttar.
+  3. **Poppa föder målet [Medium].** En poppad bubbla släpper en barnbubbla som stiger.
+  4. **Noll emoji-spelobjekt (P0 ASSETS).** 💨 → ritade chevroner, 🛟 → ritad miniring i mätaren,
+     ⭐ → ritad stjärna, och de 8 överraskningarna → `overraskningar.js` (fjäril, fisk, blomma, bi,
+     jordgubbe, stjärna, regnbåge, fågelunge), med en svag siluett inuti bubblan som lockbete.
+     Död, dold `🛟`-Text i `_buildHoop` (skapades, adderades aldrig, städades aldrig) borttagen.
+  5. **Buggar hittade i skärmdumpen/mätning:**
+     • *Sjätte läckan igen* — glans-bågarna saknade `moveTo` före `arc()` och drog streck tvärs
+       över varje bubbla ("krokar" i skärmdumpen). Fixat i `_drawBubble` och i `overraskningar.js`.
+     • *Sjunde läckan* — bubblorna försvann mot den ljusa himlen; fick en mörkare ytterkontur.
+     • Fläktstativen klipptes av nederkanten (y + 100 = 724 > 720) — flyttade upp.
+     • **Spelet spelade sig självt.** Kritikern mätte en hel nivå klar på **10 s utan ett enda
+       tryck**. Orsak: var tredje bubbla föddes i ringens lodräta korridor och suget (`PULL_RANGE`
+       1.9→1.2 räckte inte) drog in allt som drev förbi. Nu föds ALLA bubblor utanför korridoren
+       utom när auto-hjälpen slagit på, och `PULL_RANGE` är 1.15 (infångning sker vid 0.8).
+       Mätt efteråt med `scripts/_idleprobe.mjs`: **20 s utan input = 0 framsteg**, 30 s riktat
+       spel = en ring full, och no-fail-ventilen fyller ringen själv först runt 40–50 s.
+     • Barnbubblornas träffyta var 80–96 px (P0 kräver ≥96) — golv på `Math.max(48, r + 20)`.
+     • Bobos arm låg i ringens container och lossnade från kroppen när han hoppade — flyttad in
+       i hans egen container, där handen alltid sitter 96 px från mitten oavsett ringradie.
+  Grind: `npm run check --game sapbubblor` grön · `npm run test sapbubblor` errorCount 0.
+  Kvar: riktiga MOSS-klipp, en figur som *blåser fram* bubblorna, bris tidigare än nivå 3.

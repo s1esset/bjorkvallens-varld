@@ -120,7 +120,7 @@ Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-
 | 5 | `pruttbad` | 10 | ✅ |
 | 6 | `lagerelden` | 10 | ✅ |
 | 7 | `enhorning-glitterbajs` | 9 | ✅ |
-| 8 | `loopdjuren` | 9 | ⬜ |
+| 8 | `loopdjuren` | 9 | ✅ |
 | 9 | `regnbagsmalaren` | 6 | ⬜ |
 | 10 | `fyrverkeri` | 3 | ⬜ |
 | 11 | `tryck-och-forvandla` | 2 | ⬜ |

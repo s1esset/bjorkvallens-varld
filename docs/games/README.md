@@ -62,7 +62,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 43 | Pruttbubbelbad | `pruttbad` | tap | 🔧 |
 | 45 | Enhörningens Glitterbajs | `enhorning-glitterbajs` | drag | ✅ |
 | 49 | Lägerelden | `lagerelden` | mixed | ✅ |
-| 66 | Loopdjuren | `loopdjuren` | drag | 🔧 |
+| 66 | Loopdjuren | `loopdjuren` | drag | ✅ |
 | 67 | Pizzabageriet | `pizzabageriet` | drag | ✅ |
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | ✅ |
 | 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ |

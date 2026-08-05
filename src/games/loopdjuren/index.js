@@ -12,28 +12,28 @@
 // Exit-säkerhet: loop-logiken är ren ticker-matte (ALDRIG GSAP). Djur-animationer
 // kör GSAP på de PERSISTENTA avatar-vyerna (dödas i destroy). Partiklar via de
 // exit-säkra hjälparna i lib/feedback.js. Allt gömt bakom this._alive.
-import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { bounceIn, pop, wiggle, puff, sparkle, floatText } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 
 // Djur som har riktiga förinspelade läten (djur_<id> i sfx-manifestet).
 const ANIMALS = [
-  { id: 'ko', emoji: '🐮', cry: 'Mu! Muu!', color: COLORS.pink },
-  { id: 'hund', emoji: '🐶', cry: 'Voff! Voff!', color: COLORS.orange },
-  { id: 'katt', emoji: '🐱', cry: 'Mjau!', color: COLORS.purple },
-  { id: 'gris', emoji: '🐷', cry: 'Nöff! Nöff!', color: COLORS.teal },
+  { id: 'ko', cry: 'Mu! Muu!', color: COLORS.pink },
+  { id: 'hund', cry: 'Voff! Voff!', color: COLORS.orange },
+  { id: 'katt', cry: 'Mjau!', color: COLORS.purple },
+  { id: 'gris', cry: 'Nöff! Nöff!', color: COLORS.teal },
 ]
 
 // Block-typer: rörelse + ljud. 'rost' (röst) säger djurets eget läte.
 const BLOCKS = {
-  hopp: { emoji: '⬆️', color: COLORS.green },
-  snurr: { emoji: '🌀', color: COLORS.blue },
-  tut: { emoji: '🎺', color: COLORS.orange },
-  klapp: { emoji: '👏', color: COLORS.red },
-  rost: { emoji: '🎵', color: COLORS.purple },
+  hopp: { color: COLORS.green }, // studsfjäder
+  snurr: { color: COLORS.blue }, // snurra
+  tut: { color: COLORS.orange }, // trumpet
+  klapp: { color: COLORS.red }, // klappande händer
+  rost: { color: COLORS.purple }, // musiknot = djurets egen röst
 }
 const STAMP_ORDER = ['hopp', 'snurr', 'tut', 'klapp', 'rost']
 // Slot-tap cyklar tomt → hopp → … → röst → tomt.
@@ -185,12 +185,13 @@ export default {
     const c = new Container()
     c.x = 130
     c.y = yc
-    c.addChild(new Graphics().circle(0, 8, 56).fill({ color: COLORS.shadow, alpha: 0.1 }))
-    c.addChild(new Graphics().circle(0, 0, 58).fill(COLORS.cream).stroke({ width: 5, color: animal.color }))
-    c.addChild(new Graphics().circle(-18, -20, 13).fill({ color: COLORS.white, alpha: 0.6 }))
-    const face = new Text({ text: animal.emoji, style: { fontFamily: FONT.body, fontSize: 84 } })
-    face.anchor.set(0.5)
-    c.addChild(face)
+    // RITAT djurhuvud med egen silhuett (öron, horn, nos sticker ut) — förut satt en
+    // emoji i en gräddvit cirkel, precis det P0 ASSETS förbjuder.
+    c.addChild(new Graphics().ellipse(0, 52, 52, 12).fill({ color: COLORS.shadow, alpha: 0.12 }))
+    const g = new Graphics()
+    drawAnimalHead(g, animal.id)
+    g.eventMode = 'none'
+    c.addChild(g)
     c.eventMode = 'static'
     c.cursor = 'pointer'
     c.hitArea = new Circle(0, 0, 80)
@@ -215,15 +216,9 @@ export default {
 
   // En blockvy som ligger i en slot (icke-interaktiv — tap går till sloten under).
   _makeBlockView(type) {
-    const b = BLOCKS[type]
     const c = new Container()
     c.eventMode = 'none'
-    c.addChild(
-      new Graphics().roundRect(-44, -44, 88, 88, 16).fill(b.color).stroke({ width: 4, color: COLORS.white, alpha: 0.95 }),
-    )
-    const t = new Text({ text: b.emoji, style: { fontFamily: FONT.body, fontSize: 50 } })
-    t.anchor.set(0.5)
-    c.addChild(t)
+    c.addChild(makeBlockArt(type))
     return c
   },
 
@@ -267,14 +262,8 @@ export default {
   },
 
   _makeStamp(type) {
-    const b = BLOCKS[type]
     const c = new Container()
-    c.addChild(
-      new Graphics().roundRect(-46, -46, 92, 92, 18).fill(b.color).stroke({ width: 4, color: COLORS.white, alpha: 0.95 }),
-    )
-    const t = new Text({ text: b.emoji, style: { fontFamily: FONT.body, fontSize: 54 } })
-    t.anchor.set(0.5)
-    c.addChild(t)
+    c.addChild(makeBlockArt(type))
     c.hitArea = new Rectangle(-58, -58, 116, 116)
     return c
   },
@@ -298,9 +287,11 @@ export default {
     c.x = 1150
     c.y = 666
     c.addChild(new Graphics().circle(0, 0, 46).fill(COLORS.yellow).stroke({ width: 4, color: COLORS.white }))
-    const t = new Text({ text: '🐢', style: { fontFamily: FONT.body, fontSize: 48 } })
-    t.anchor.set(0.5)
-    c.addChild(t)
+    // Ritad sköldpadda/hare — takt-knappen är en UI-kontroll, men den ritas ändå.
+    const icon = new Graphics()
+    icon.eventMode = 'none'
+    drawTempoIcon(icon, false)
+    c.addChild(icon)
     c.eventMode = 'static'
     c.cursor = 'pointer'
     c.hitArea = new Circle(0, 0, 60)
@@ -308,7 +299,7 @@ export default {
       if (!this._alive) return
       this._idle = 0
       this._beatMs = this._beatMs === 900 ? 640 : 900
-      t.text = this._beatMs === 640 ? '🐇' : '🐢'
+      drawTempoIcon(icon, this._beatMs === 640)
       ctx.services.audio.sfx('flip')
       pop(c)
     })
@@ -550,4 +541,148 @@ export default {
     ctx.services.voice.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// =================== Programmatisk grafik ===================
+
+// Djurhuvuden med EGEN silhuett — öron, horn och nosar sticker ut ur konturen, så de
+// aldrig blir "en ikon i en cirkel". Origo = mitten av huvudet.
+function drawAnimalHead(g, id) {
+  g.clear()
+  if (id === 'ko') {
+    g.ellipse(-48, -32, 15, 9).fill(0xefe0c2).stroke({ width: 3, color: 0xc9b48a }) // horn
+    g.ellipse(48, -32, 15, 9).fill(0xefe0c2).stroke({ width: 3, color: 0xc9b48a })
+    g.ellipse(-57, -6, 20, 13).fill(0xf4f0ea).stroke({ width: 3, color: 0xc0b8ac }) // öron
+    g.ellipse(57, -6, 20, 13).fill(0xf4f0ea).stroke({ width: 3, color: 0xc0b8ac })
+    g.ellipse(0, 0, 50, 46).fill(0xfbf8f4).stroke({ width: 4, color: 0xb0a89c })
+    g.ellipse(-29, -18, 16, 12).fill(0x4a4038) // fläckar
+    g.ellipse(31, 9, 13, 10).fill(0x4a4038)
+    g.ellipse(0, 21, 30, 20).fill(0xffb9cf).stroke({ width: 3, color: 0xe08bad }) // mule
+    g.ellipse(-10, 19, 4.5, 6).fill(0xd8749b)
+    g.ellipse(10, 19, 4.5, 6).fill(0xd8749b)
+    g.circle(-18, -9, 5.5).fill(0x2f2823)
+    g.circle(18, -9, 5.5).fill(0x2f2823)
+    g.circle(-16, -11, 2).fill(0xffffff)
+    g.circle(20, -11, 2).fill(0xffffff)
+  } else if (id === 'hund') {
+    g.ellipse(-46, 8, 17, 33).fill(0x8a5a3b).stroke({ width: 3, color: 0x5e3720 }) // hängöron
+    g.ellipse(46, 8, 17, 33).fill(0x8a5a3b).stroke({ width: 3, color: 0x5e3720 })
+    g.ellipse(0, -2, 48, 44).fill(0xd7a06a).stroke({ width: 4, color: 0xa8763c })
+    g.ellipse(0, -32, 34, 16).fill(0xc08a52) // lugg
+    g.ellipse(0, 22, 27, 19).fill(0xf0d3ae).stroke({ width: 3, color: 0xc59f74 }) // nosparti
+    g.ellipse(0, 13, 11, 8).fill(0x3a2a20)
+    g.roundRect(-7, 30, 14, 15, 7).fill(0xff8fae) // tunga
+    g.circle(-17, -8, 5.5).fill(0x2f2823)
+    g.circle(17, -8, 5.5).fill(0x2f2823)
+    g.circle(-15, -10, 2).fill(0xffffff)
+    g.circle(19, -10, 2).fill(0xffffff)
+  } else if (id === 'katt') {
+    g.poly([-46, -54, -18, -28, -54, -16]).fill(0xf2a34a).stroke({ width: 3, color: 0xc07a24 }) // öron
+    g.poly([46, -54, 18, -28, 54, -16]).fill(0xf2a34a).stroke({ width: 3, color: 0xc07a24 })
+    g.poly([-42, -45, -25, -29, -46, -22]).fill(0xffc9d8)
+    g.poly([42, -45, 25, -29, 46, -22]).fill(0xffc9d8)
+    g.ellipse(0, 2, 46, 42).fill(0xf2a34a).stroke({ width: 4, color: 0xc07a24 })
+    g.roundRect(-11, -34, 5, 15, 2.5).fill(0xc07a24) // pannränder
+    g.roundRect(2, -36, 5, 15, 2.5).fill(0xc07a24)
+    g.poly([0, 12, -8, 4, 8, 4]).fill(0xff8fae)
+    g.moveTo(-14, 16).lineTo(-48, 10).stroke({ width: 2.5, color: 0xfffdf7, cap: 'round' }) // morrhår
+    g.moveTo(-14, 20).lineTo(-46, 24).stroke({ width: 2.5, color: 0xfffdf7, cap: 'round' })
+    g.moveTo(14, 16).lineTo(48, 10).stroke({ width: 2.5, color: 0xfffdf7, cap: 'round' })
+    g.moveTo(14, 20).lineTo(46, 24).stroke({ width: 2.5, color: 0xfffdf7, cap: 'round' })
+    g.ellipse(-17, -6, 6, 8).fill(0x2f2823)
+    g.ellipse(17, -6, 6, 8).fill(0x2f2823)
+    g.circle(-15, -9, 2.2).fill(0xffffff)
+    g.circle(19, -9, 2.2).fill(0xffffff)
+  } else {
+    g.poly([-44, -40, -14, -30, -34, -6]).fill(0xffb3c8).stroke({ width: 3, color: 0xe0709b }) // öron
+    g.poly([44, -40, 14, -30, 34, -6]).fill(0xffb3c8).stroke({ width: 3, color: 0xe0709b })
+    g.ellipse(0, 0, 48, 42).fill(0xffc3d4).stroke({ width: 4, color: 0xe0709b })
+    g.ellipse(0, 17, 25, 18).fill(0xff9ec4).stroke({ width: 3, color: 0xd45f8c }) // tryne
+    g.ellipse(-8, 16, 4, 6).fill(0xc44a7a)
+    g.ellipse(8, 16, 4, 6).fill(0xc44a7a)
+    g.circle(-17, -10, 5.5).fill(0x2f2823)
+    g.circle(17, -10, 5.5).fill(0x2f2823)
+    g.circle(-15, -12, 2).fill(0xffffff)
+    g.circle(19, -12, 2).fill(0xffffff)
+  }
+}
+
+// Blockens konst: ett RIKTIGT ritat föremål med en mjuk färgglöd bakom (rund glöd,
+// aldrig en ruta) — förut satt en emoji i en färgad fyrkant.
+function makeBlockArt(type) {
+  const b = BLOCKS[type]
+  const c = new Container()
+  c.eventMode = 'none'
+  c.addChild(new Graphics()
+    .circle(0, 5, 45).fill({ color: b.color, alpha: 0.2 })
+    .circle(0, 0, 38).fill({ color: b.color, alpha: 0.3 }))
+  const g = new Graphics()
+  g.eventMode = 'none'
+  if (type === 'hopp') {
+    // Studsfjäder med platta.
+    g.roundRect(-24, 26, 48, 11, 5.5).fill(0x3f8a4f)
+    for (let i = 0; i < 4; i++) {
+      const y = 20 - i * 11
+      g.moveTo(-18, y).quadraticCurveTo(0, y - 13, 18, y - 4)
+        .stroke({ width: 8, color: COLORS.green, cap: 'round' })
+    }
+    g.circle(0, -30, 13).fill(COLORS.green).stroke({ width: 3, color: 0x3f8a4f })
+    g.circle(-4, -34, 4).fill({ color: COLORS.white, alpha: 0.6 })
+  } else if (type === 'snurr') {
+    // Snurra: kon nedåt, knopp upptill, virvel.
+    g.moveTo(-29, -14).lineTo(29, -14).lineTo(0, 35).closePath().fill(COLORS.blue).stroke({ width: 3, color: 0x2f7cb0 })
+    g.ellipse(0, -14, 29, 10).fill(0x7bc4ea).stroke({ width: 3, color: 0x2f7cb0 })
+    g.roundRect(-5, -35, 10, 21, 5).fill(0x2f7cb0)
+    g.circle(0, -39, 8).fill(COLORS.white).stroke({ width: 3, color: 0x2f7cb0 })
+    g.moveTo(-17, -12).quadraticCurveTo(0, 6, 15, -6).stroke({ width: 3.5, color: COLORS.white, alpha: 0.85, cap: 'round' })
+  } else if (type === 'tut') {
+    // Trumpet med klockstycke och ventiler.
+    g.roundRect(-36, -7, 50, 15, 7.5).fill(COLORS.yellow).stroke({ width: 3, color: 0xc98a2e })
+    g.moveTo(12, -24).lineTo(34, -32).lineTo(34, 32).lineTo(12, 24).closePath().fill(COLORS.yellow).stroke({ width: 3, color: 0xc98a2e })
+    g.ellipse(34, 0, 8, 32).fill(0xffe9a8).stroke({ width: 3, color: 0xc98a2e })
+    for (let i = 0; i < 3; i++) g.roundRect(-24 + i * 13, -22, 8, 17, 4).fill(0xc98a2e)
+    g.roundRect(-44, -9, 12, 19, 6).fill(0xc98a2e)
+  } else if (type === 'klapp') {
+    // Två händer som möts + rörelsestreck.
+    g.roundRect(-35, -16, 29, 37, 13).fill(0xf6c396).stroke({ width: 3, color: 0xcf9a68 })
+    g.roundRect(-31, -29, 10, 21, 5).fill(0xf6c396).stroke({ width: 2.5, color: 0xcf9a68 })
+    g.roundRect(6, -16, 29, 37, 13).fill(0xffd7ae).stroke({ width: 3, color: 0xcf9a68 })
+    g.roundRect(21, -29, 10, 21, 5).fill(0xffd7ae).stroke({ width: 2.5, color: 0xcf9a68 })
+    for (const [x0, y0, x1, y1] of [[-38, -30, -46, -40], [0, -36, 0, -48], [38, -30, 46, -40]]) {
+      g.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 4, color: COLORS.red, alpha: 0.85, cap: 'round' })
+    }
+  } else {
+    // Musiknot — djurets egen röst.
+    g.ellipse(-11, 25, 17, 13).fill(COLORS.purple).stroke({ width: 3, color: 0x7a5fd0 })
+    g.roundRect(2, -32, 7, 58, 3.5).fill(COLORS.purple)
+    g.moveTo(9, -32).quadraticCurveTo(36, -24, 27, 4).quadraticCurveTo(31, -15, 9, -13).closePath()
+      .fill(COLORS.purple).stroke({ width: 3, color: 0x7a5fd0 })
+  }
+  c.addChild(g)
+  return c
+}
+
+// Takt-knappens ikon: sköldpadda (lugnt) eller hare (snabbt).
+function drawTempoIcon(g, fast) {
+  g.clear()
+  if (fast) {
+    g.ellipse(-8, -25, 6, 18).fill(0xfffdf7).stroke({ width: 2.5, color: 0xb9a98f })
+    g.ellipse(9, -27, 6, 18).fill(0xfffdf7).stroke({ width: 2.5, color: 0xb9a98f })
+    g.ellipse(-8, -25, 3, 11).fill(0xffc9d8)
+    g.ellipse(9, -27, 3, 11).fill(0xffc9d8)
+    g.ellipse(0, 3, 21, 18).fill(0xfffdf7).stroke({ width: 3, color: 0xb9a98f })
+    g.circle(-7, 0, 3).fill(0x3a2f28)
+    g.circle(7, 0, 3).fill(0x3a2f28)
+    g.ellipse(0, 9, 5, 4).fill(0xff9ec4)
+  } else {
+    g.ellipse(-22, 16, 9, 6).fill(0x8ec96e).stroke({ width: 2.5, color: 0x3f6f2c }) // fötter
+    g.ellipse(16, 17, 9, 6).fill(0x8ec96e).stroke({ width: 2.5, color: 0x3f6f2c })
+    g.ellipse(-30, -3, 8, 7).fill(0x8ec96e).stroke({ width: 2.5, color: 0x3f6f2c }) // svans
+    g.ellipse(26, -6, 13, 11).fill(0x8ec96e).stroke({ width: 2.5, color: 0x3f6f2c }) // huvud
+    g.circle(30, -9, 2.6).fill(0x2f2823)
+    g.ellipse(0, 0, 28, 21).fill(0x6fae52).stroke({ width: 3.5, color: 0x3f6f2c }) // skal
+    for (const [hx, hy, rr] of [[0, -6, 9], [-14, 3, 7], [13, 4, 7], [-2, 10, 6]]) {
+      g.circle(hx, hy, rr).fill(0x8ec96e).stroke({ width: 2, color: 0x3f6f2c })
+    }
+  }
 }

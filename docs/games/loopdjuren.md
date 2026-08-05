@@ -1,5 +1,5 @@
 # Loopdjuren (`loopdjuren`)
-> 🎉 roligt · drag · 2–5 år · status: 📝 plan klar
+> 🎉 roligt · drag · 2–5 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -107,3 +107,16 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
   till en melodi. Röst-blocket kvar som djurets läte ovanpå. (2) **Beat-puls [Quick]** — hela den
   aktiva kolumnens slots studsar mjukt när playheaden når dem → takten syns. Städning: slot-scale-
   tweens dödas i destroy. errorCount 0.
+- 2026-08-05 ✅ **Andra omgången (poleringsrundan, Roligt-fliken).** Musik-kritiken från §3 var
+  redan åtgärdad (stämda instrument per djur på en gemensam pentatonik, beat-puls på rutnätet,
+  tonhöjd per slot-index). Det som återstod var **P0 ASSETS**, och det gällde hela spelet:
+  - **Djuren var emoji i en gräddvit cirkel** (🐮🐶🐱🐷, 84 px `Text`). Nu ritade huvuden med
+    egen silhuett — kons horn och öron, hundens hängöron och tunga, kattens spetsiga öron och
+    morrhår, grisens tryne — utan cirkel omkring.
+  - **Blocken var emoji i färgade fyrkanter** (⬆️🌀🎺👏🎵). Nu riktiga ritade föremål:
+    studsfjäder, snurra, trumpet, två klappande händer och en musiknot. Färgkodningen ligger kvar
+    som en mjuk rund glöd bakom föremålet i stället för en ruta.
+  - **Takt-knappens 🐢/🐇** är ritad sköldpadda respektive hare.
+  - `emoji`-fälten är borta ur `ANIMALS` och `BLOCKS`; spelet har inga `Text`-noder kvar.
+  - **Grind:** `npm run check --game loopdjuren` 0 fel · `npm run test` grönt ·
+    `_idleprobe 20s` → `idleFramsteg: 0`.

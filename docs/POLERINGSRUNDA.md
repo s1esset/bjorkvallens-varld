@@ -168,7 +168,7 @@ och sänk till 🔧 om något visar sig inte hålla.
 | 9 | `kla-pa-nallen` | 10 | ✅ |
 | 10 | `vandkort` | 9 | ✅ |
 | 11 | `kugghjulen` | 9 | ✅ |
-| 12 | `sortera-skrap` | 8 | ⬜ |
+| 12 | `sortera-skrap` | 8 | ✅ |
 | 13 | `skuggmatchning` | 7 | ⬜ |
 | 14 | `stor-liten` | 5 | ⬜ |
 | 15 | `enkelt-pussel` | 4 | ⬜ |

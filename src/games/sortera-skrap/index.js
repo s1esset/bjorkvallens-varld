@@ -12,7 +12,7 @@
 //    ökar upp till 4 tunnor (papper, mat, plast, glas/metall) och fler saker per runda.
 //    VARIERAR vilka exakta saker som dyker upp varje runda; slängd/klustrad hög. FELFRITT.
 //  • All transient-effekt går via lib/feedback.js (exit-säkert). Drag via DragController.
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
@@ -51,6 +51,173 @@ const LEVELS = [
 
 const ITEM_R = 58 // föremålets skivradie (designkoordinater)
 
+// P0 ASSETS: alla 32 föremål + de 4 kategori-ikonerna RITAS. De låg tidigare som
+// emoji inuti vita skivor — en ikon i en bricka. Emoji-strängen är kvar som
+// NYCKEL (CATS-tabellerna slår upp på den). Tabellen: nyckel → [form, färg].
+const TRASH_ART = {
+  // papper (blått)
+  '📄': ['sheet', 0xffffff], '📰': ['news', 0xf0f0e8], '📦': ['box', 0xc98a4b], '✉️': ['env', 0xfff0d8],
+  '📒': ['book', 0xf0c33c], '🗞️': ['roll', 0xe8e8e0], '📕': ['book', 0xe0392b], '📃': ['sheet', 0xf5f5f0],
+  // mat (grönt)
+  '🍌': ['banana', 0xffd35c], '🍎': ['apple', 0xe0392b], '🥕': ['carrot', 0xff9d3d], '🍂': ['leaf', 0xd9922b],
+  '🍐': ['pear', 0xc9e05a], '🌽': ['corn', 0xf0c33c], '🍞': ['bread', 0xd9a56b], '🥚': ['egg', 0xfff0e0],
+  // plast (orange)
+  '🥤': ['cup', 0xe0574f], '🧴': ['bottle', 0xf7b9e4], '🍶': ['bottle', 0xbfe6ff], '🛍️': ['bag', 0x6ad0ff],
+  '🧃': ['carton', 0xffb14a], '🪣': ['bucket', 0x4aa3df], '🥡': ['box', 0xfff0d8], '🪥': ['brush', 0x6ad0ff],
+  // glas/metall (grått)
+  '🍾': ['bottle', 0x5aa653], '🫙': ['jar', 0xd8f0ff], '🥫': ['can', 0xc3ccd4], '🥃': ['cup', 0xd8f0ff],
+  '🔩': ['screw', 0xa9b3bd], '🪙': ['coin', 0xf0c33c], '🥄': ['spoon', 0xc3ccd4], '🔋': ['battery', 0x5bbf6a],
+  // kategori-ikoner (magen på tunnan)
+  '🧴 ': ['bottle', 0xf7b9e4],
+}
+
+function drawTrash(key) {
+  const g = new Graphics()
+  const a = TRASH_ART[key]
+  if (!a) {
+    g.roundRect(-24, -24, 48, 48, 8).fill(0xc3ccd4).stroke({ width: 4, color: 0x8d99a6 })
+    g.eventMode = 'none'
+    return g
+  }
+  const [form, col] = a
+  const dk = lerpColor(col, 0x000000, 0.28)
+  switch (form) {
+    case 'sheet':
+      g.roundRect(-22, -30, 44, 60, 4).fill(col).stroke({ width: 3, color: dk })
+      for (const y of [-18, -8, 2, 12]) g.moveTo(-14, y).lineTo(14, y).stroke({ width: 3, color: dk, alpha: 0.5 })
+      g.moveTo(10, -30).lineTo(22, -18).stroke({ width: 3, color: dk })
+      break
+    case 'news':
+      g.roundRect(-28, -24, 56, 48, 4).fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-22, -18, 24, 14, 2).fill(dk)
+      for (const y of [2, 10, 18]) g.moveTo(-22, y).lineTo(22, y).stroke({ width: 3, color: dk, alpha: 0.45 })
+      break
+    case 'roll':
+      g.roundRect(-30, -12, 60, 26, 13).fill(col).stroke({ width: 3, color: dk })
+      g.ellipse(-30, 1, 7, 13).fill(dk)
+      g.moveTo(-16, -12).lineTo(-16, 14).moveTo(4, -12).lineTo(4, 14).stroke({ width: 2.5, color: dk, alpha: 0.4 })
+      break
+    case 'box':
+      g.roundRect(-28, -18, 56, 42, 5).fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(-28, -18).lineTo(0, -32).lineTo(28, -18).stroke({ width: 3, color: dk })
+      g.moveTo(0, -32).lineTo(0, 24).stroke({ width: 3, color: dk, alpha: 0.5 })
+      g.roundRect(-8, -22, 16, 10, 2).fill({ color: 0xffffff, alpha: 0.5 })
+      break
+    case 'env':
+      g.roundRect(-30, -20, 60, 40, 5).fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(-30, -20).lineTo(0, 4).lineTo(30, -20).stroke({ width: 3, color: dk })
+      break
+    case 'book':
+      g.roundRect(-24, -30, 48, 60, 4).fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-24, -30, 10, 60, 4).fill(dk)
+      g.roundRect(-8, -18, 26, 5, 2).fill({ color: 0xffffff, alpha: 0.7 })
+      break
+    case 'banana':
+      g.moveTo(-30, -12).quadraticCurveTo(-4, 30, 30, 10).quadraticCurveTo(4, 18, -18, -16).closePath()
+      g.fill(col).stroke({ width: 3, color: dk })
+      break
+    case 'apple':
+      g.circle(0, 6, 26).fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-3, -26, 6, 12, 3).fill(0x6f4a2e)
+      g.ellipse(13, -22, 11, 7).fill(0x5bbf6a)
+      break
+    case 'pear':
+      g.circle(0, 12, 22).fill(col).stroke({ width: 3, color: dk })
+      g.ellipse(0, -10, 14, 17).fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-3, -30, 6, 10, 3).fill(0x6f4a2e)
+      break
+    case 'carrot':
+      g.moveTo(-13, -8).lineTo(13, -8).lineTo(0, 30).closePath().fill(col).stroke({ width: 3, color: dk })
+      for (const dx of [-9, 0, 9]) g.moveTo(0, -8).quadraticCurveTo(dx * 0.6, -20, dx, -28).stroke({ width: 5, color: 0x5bbf6a, cap: 'round' })
+      break
+    case 'leaf':
+      g.moveTo(-26, 20).quadraticCurveTo(-16, -26, 26, -20).quadraticCurveTo(22, 20, -26, 20).closePath()
+      g.fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(-22, 16).quadraticCurveTo(2, 0, 22, -16).stroke({ width: 3, color: dk, alpha: 0.6 })
+      break
+    case 'corn':
+      g.ellipse(0, 0, 16, 30).fill(col).stroke({ width: 3, color: dk })
+      for (let r = -22; r <= 22; r += 9) g.moveTo(-14, r).lineTo(14, r).stroke({ width: 2, color: dk, alpha: 0.5 })
+      g.ellipse(-18, 6, 8, 22).fill(0x5bbf6a)
+      g.ellipse(18, 6, 8, 22).fill(0x5bbf6a)
+      break
+    case 'bread':
+      g.moveTo(-26, 22).lineTo(-26, -6).quadraticCurveTo(0, -32, 26, -6).lineTo(26, 22).closePath()
+      g.fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(-20, 6).quadraticCurveTo(0, -14, 20, 6).stroke({ width: 3, color: dk, alpha: 0.5 })
+      break
+    case 'egg':
+      g.ellipse(0, 4, 21, 27).fill(col).stroke({ width: 3, color: dk })
+      g.ellipse(-7, -6, 6, 9).fill({ color: 0xffffff, alpha: 0.7 })
+      break
+    case 'cup':
+      g.moveTo(-20, -24).lineTo(20, -24).lineTo(14, 28).lineTo(-14, 28).closePath()
+      g.fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-23, -30, 46, 10, 4).fill(dk)
+      g.roundRect(-4, -46, 6, 18, 3).fill({ color: 0xffffff, alpha: 0.8 })
+      break
+    case 'bottle':
+      g.roundRect(-15, -8, 30, 40, 7).fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(-15, -8).quadraticCurveTo(-8, -22, -7, -30).lineTo(7, -30).quadraticCurveTo(8, -22, 15, -8).closePath()
+      g.fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-9, -40, 18, 12, 4).fill(dk)
+      g.roundRect(-12, 2, 24, 12, 2).fill({ color: 0xffffff, alpha: 0.55 })
+      break
+    case 'jar':
+      g.roundRect(-19, -14, 38, 42, 7).fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-15, -26, 30, 14, 4).fill(dk)
+      g.roundRect(-13, -6, 12, 22, 3).fill({ color: 0xffffff, alpha: 0.5 })
+      break
+    case 'bag':
+      g.moveTo(-22, -8).lineTo(22, -8).lineTo(26, 30).lineTo(-26, 30).closePath()
+      g.fill(col).stroke({ width: 3, color: dk })
+      g.arc(0, -8, 13, Math.PI, 0).stroke({ width: 4, color: dk })
+      break
+    case 'carton':
+      g.moveTo(-16, -18).lineTo(16, -18).lineTo(16, 28).lineTo(-16, 28).closePath()
+      g.fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(-16, -18).lineTo(0, -30).lineTo(16, -18).stroke({ width: 3, color: dk })
+      g.roundRect(4, -40, 5, 16, 2).fill(0xffffff)
+      break
+    case 'bucket':
+      g.moveTo(-22, -14).lineTo(22, -14).lineTo(16, 28).lineTo(-16, 28).closePath()
+      g.fill(col).stroke({ width: 3, color: dk })
+      g.arc(0, -16, 22, Math.PI, 0).stroke({ width: 4, color: dk })
+      break
+    case 'brush':
+      g.roundRect(-5, -30, 10, 52, 5).fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-9, 18, 18, 14, 5).fill(0xffffff).stroke({ width: 3, color: dk })
+      for (const bx of [-5, 0, 5]) g.moveTo(bx, 32).lineTo(bx, 40).stroke({ width: 3, color: dk })
+      break
+    case 'can':
+      g.roundRect(-17, -24, 34, 50, 6).fill(col).stroke({ width: 3, color: dk })
+      g.ellipse(0, -24, 17, 6).fill({ color: 0xffffff, alpha: 0.6 }).stroke({ width: 3, color: dk })
+      g.roundRect(-17, -8, 34, 18, 2).fill(0xe0392b)
+      break
+    case 'screw':
+      g.roundRect(-6, -6, 38, 13, 3).fill(col).stroke({ width: 3, color: dk })
+      for (const sx of [2, 10, 18, 26]) g.moveTo(sx, -6).lineTo(sx - 4, 7).stroke({ width: 2, color: dk })
+      g.moveTo(-8, -16).lineTo(-24, -10).lineTo(-24, 11).lineTo(-8, 17).closePath().fill(col).stroke({ width: 3, color: dk })
+      break
+    case 'coin':
+      g.circle(0, 0, 24).fill(col).stroke({ width: 4, color: dk })
+      g.circle(0, 0, 15).stroke({ width: 3, color: dk, alpha: 0.7 })
+      break
+    case 'spoon':
+      g.ellipse(0, -18, 12, 17).fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-4, -4, 8, 36, 4).fill(col).stroke({ width: 3, color: dk })
+      break
+    default: // battery
+      g.roundRect(-14, -24, 28, 50, 4).fill(col).stroke({ width: 3, color: dk })
+      g.roundRect(-7, -30, 14, 8, 3).fill(0xc3ccd4)
+      g.roundRect(-10, -10, 20, 22, 2).fill({ color: 0xffffff, alpha: 0.35 })
+      g.moveTo(-3, -6).lineTo(3, 0).lineTo(-3, 2).lineTo(3, 8).stroke({ width: 3, color: dk })
+      break
+  }
+  g.eventMode = 'none'
+  return g
+}
+
 export default {
   id: 'sortera-skrap',
   titleSv: 'Sortera Skräp',
@@ -59,7 +226,9 @@ export default {
   input: 'drag',
   ageRange: [2, 5],
   bundle: 'sortera-skrap',
-  voiceIntro: VOICE.intro,
+  // Literal, inte VOICE.intro: check.mjs (och därmed /rost) ser bara strängar som
+  // står skrivna på plats — en referens gjorde att spelet räknades som röstlöst.
+  voiceIntro: 'Hjälp mig sortera skräpet! Dra varje sak till tunnan som passar.',
 
   init(ctx) {
     this._alive = true
@@ -507,8 +676,8 @@ export default {
 
     // Kategori-ikon som mage-bricka: vit skiva + emoji (ingen läsning krävs).
     const iconDisc = new Graphics().circle(0, h * 0.2, w * 0.17).fill({ color: 0xffffff, alpha: 0.92 })
-    const iconEmoji = new Text({ text: cat.icon, style: { fontFamily: FONT.body, fontSize: w * 0.23 } })
-    iconEmoji.anchor.set(0.5)
+    const iconEmoji = drawTrash(cat.icon)
+    iconEmoji.scale.set(w * 0.0042)
     iconEmoji.position.set(0, h * 0.2)
     // Lock (studsar vid rätt släpp) med liten knopp.
     const lidW = w * 0.96
@@ -537,12 +706,13 @@ export default {
     shadow.eventMode = 'none'
     // Innehåll (lyfts uppåt vid grepp).
     const content = new Container()
-    const disc = new Graphics().circle(0, 0, r).fill(COLORS.cream).stroke({ width: 5, color: 0xece0c8 })
-    const ring = new Graphics().circle(0, 0, r - 7).stroke({ width: 3, color: 0xffffff, alpha: 0.7 })
-    const gloss = new Graphics().ellipse(-r * 0.28, -r * 0.34, r * 0.4, r * 0.22).fill({ color: 0xffffff, alpha: 0.5 })
-    const emoji = new Text({ text: data.emoji, style: { fontFamily: FONT.body, fontSize: r * 1.2 } })
-    emoji.anchor.set(0.5)
-    content.addChild(disc, ring, gloss, emoji)
+    // P0 ASSETS: föremålet står FRITT. Den opaka cream-skivan bakom var precis
+    // den bricka regeln förbjuder; kvar är ett svagt sken så saken syns mot både
+    // himmel och gräs.
+    const disc = new Graphics().circle(0, 0, r * 0.9).fill({ color: 0xffffff, alpha: 0.25 })
+    const emoji = drawTrash(data.emoji)
+    emoji.scale.set(r / 50)
+    content.addChild(disc, emoji)
 
     c.addChild(shadow, content)
     c._shadow = shadow

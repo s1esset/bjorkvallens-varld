@@ -117,7 +117,7 @@ kvalitet-kolumnen är därför provisorisk; sänks till 🔧 när rundan visar a
 Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
 | # | Spel | id | input | kvalitet | polerad |
 |---|------|----|-------|:--:|:--:|
-| 2 | Sortera Skräp | `sortera-skrap` | drag | ✅ | ⬜ |
+| 2 | Sortera Skräp | `sortera-skrap` | drag | ✅ | ✅ |
 | 3 | Vändkort | `vandkort` | tap | ✅ | ✅ |
 | 8 | Mata Monstret | `mata-monstret` | mixed | ✅ | ⬜ |
 | 13 | Stor och Liten | `stor-liten` | drag | ✅ | ⬜ |

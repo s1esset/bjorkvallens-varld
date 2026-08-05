@@ -1,5 +1,5 @@
 # Bobos Bowling (`bowling`)
-> ⚙️ fysik · drag · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 

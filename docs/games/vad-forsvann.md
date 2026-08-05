@@ -1,5 +1,5 @@
 # Vad Försvann? (`vad-forsvann`)
-> 🔍 minne · tap · 3–5 år · status: 📝 plan klar
+> 🔍 minne · tap · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

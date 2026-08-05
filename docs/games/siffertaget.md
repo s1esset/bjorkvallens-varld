@@ -1,5 +1,5 @@
 # Siffertåget (`siffertaget`)
-> 🔤 larande · mixed · 3–5 år · status: 📝 plan klar
+> 🔤 larande · mixed · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 

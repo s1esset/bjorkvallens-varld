@@ -1,5 +1,5 @@
 # Stor och Liten (`stor-liten`)
-> 🧩 pussel · drag · 2–5 år · status: 📝 plan klar
+> 🧩 pussel · drag · 2–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

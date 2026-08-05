@@ -1,5 +1,5 @@
 # Trollkarlens Blandning (`trollblandning`)
-> 🧩 pussel · drag · 3–5 år · status: 📝 plan klar
+> 🧩 pussel · drag · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

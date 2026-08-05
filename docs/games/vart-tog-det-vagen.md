@@ -1,5 +1,5 @@
 # Vart Tog Det Vägen? (`vart-tog-det-vagen`)
-> 🥤 minne · tap · 3–5 år · status: 📝 plan klar
+> 🥤 minne · tap · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

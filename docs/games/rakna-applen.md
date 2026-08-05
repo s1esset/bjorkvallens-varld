@@ -1,5 +1,5 @@
 # Räkna Äpplena (`rakna-applen`)
-> 🔤 larande · tap · 2–5 år · status: ✅ första-omgång klar
+> 🔤 larande · tap · 2–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 

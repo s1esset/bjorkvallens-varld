@@ -45,99 +45,119 @@ Progression · Karaktär · Ljud) · **§5 Status/loggar** (bockar + commits).
 
 ## Index — 70 spel
 
-Status: ⬜ ej granskat · 📝 doc skriven (plan klar) · 🔧 förbättringar pågår · ✅ marknadsklar.
+Två **olika** kolumner — de blandades ihop tidigare och gjorde indexet omöjligt att läsa:
+
+- **kvalitet** = spelets eget omdöme mot de 8 grindpunkterna.
+  ⬜ ej granskat · 📝 doc skriven (plan klar) · 🔧 förbättringar pågår · ✅ marknadsklar.
+- **polerad** = har spelet gått igenom **poleringsrundan** (metoden i `docs/POLERINGSRUNDA.md`
+  — de tolv läckorna, P0 `ASSETS`, skärmdumpsgranskning)? ✅ körd · ⬜ står i kö.
+
+Ett ✅ i *polerad* och 🔧 i *kvalitet* betyder alltså: rundan är körd, men spelet har kvar
+[Deep]-punkter i sin doc §4. Det är ett ärligt läge, inte en efterblivet uppdaterad rad.
+Varje spels egen statusrad (`docs/games/<id>.md`, rad 2) speglar **kvalitet**-kolumnen.
+
 Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 
-### 🎉 Roligt — ✅ **HELA fliken poleringsklar** (14/14, v1.8.0, 2026-08-05)
-| # | Spel | id | input | status |
-|---|------|----|-------|:--:|
-| 1 | Klämbubblor | `klambubblor` | tap | ✅ |
-| 5 | Tryck och Förvandla | `tryck-och-forvandla` | tap | ✅ |
-| 6 | Kittla Figuren | `kittla-figuren` | tap | ✅ |
-| 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | ✅ |
-| 32 | Fyrverkeri | `fyrverkeri` | drag | ✅ |
-| 37 | Såpbubblor | `sapbubblor` | tap | ✅ |
-| 41 | Bajs och Kiss | `bajs-och-kiss` | drag | ✅ |
-| 42 | Regnbågsmålaren Elvira | `regnbagsmalaren` | drag | ✅ |
-| 43 | Pruttbubbelbad | `pruttbad` | tap | 🔧 |
-| 45 | Enhörningens Glitterbajs | `enhorning-glitterbajs` | drag | ✅ |
-| 49 | Lägerelden | `lagerelden` | mixed | ✅ |
-| 66 | Loopdjuren | `loopdjuren` | drag | ✅ |
-| 67 | Pizzabageriet | `pizzabageriet` | drag | ✅ |
-| 68 | Hamburgerbygget | `hamburgerbygget` | drag | ✅ |
-| 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ |
+### 🎉 Roligt — ✅ **poleringsrundan KLAR** (15/15, v1.8.0, 2026-08-05)
+*14 spel i kön + `zackes-biltvatt` som redan var klart.*
+| # | Spel | id | input | kvalitet | polerad |
+|---|------|----|-------|:--:|:--:|
+| 1 | Klämbubblor | `klambubblor` | tap | ✅ | ✅ |
+| 5 | Tryck och Förvandla | `tryck-och-forvandla` | tap | ✅ | ✅ |
+| 6 | Kittla Figuren | `kittla-figuren` | tap | ✅ | ✅ |
+| 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | ✅ | ✅ |
+| 32 | Fyrverkeri | `fyrverkeri` | drag | ✅ | ✅ |
+| 37 | Såpbubblor | `sapbubblor` | tap | ✅ | ✅ |
+| 41 | Bajs och Kiss | `bajs-och-kiss` | drag | ✅ | ✅ |
+| 42 | Regnbågsmålaren Elvira | `regnbagsmalaren` | drag | ✅ | ✅ |
+| 43 | Pruttbubbelbad | `pruttbad` | tap | 🔧 | ✅ |
+| 45 | Enhörningens Glitterbajs | `enhorning-glitterbajs` | drag | ✅ | ✅ |
+| 49 | Lägerelden | `lagerelden` | mixed | ✅ | ✅ |
+| 66 | Loopdjuren | `loopdjuren` | drag | ✅ | ✅ |
+| 67 | Pizzabageriet | `pizzabageriet` | drag | ✅ | ✅ |
+| 68 | Hamburgerbygget | `hamburgerbygget` | drag | ✅ | ✅ |
+| 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ | ✅ |
 
-### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ HELA fliken (första-omgång, 2026-07-01)
-| # | Spel | id | input | status |
-|---|------|----|-------|:--:|
-| 4 | Poppa Ballongerna | `poppa-ballonger` | tap | ✅ |
-| 10 | Klappa Mullvaden | `klappa-mullvaden` | tap | ✅ |
-| 19 | Plask i Vattnet | `plask-i-vattnet` | drag | ✅ |
-| 23 | Bygg Tornet | `bygg-tornet` | tap | ✅ |
-| 24 | Rulla Bollen Hem | `rulla-bollen-hem` | drag | ✅ |
-| 26 | Spåra Linjen | `spara-linjen` | drag | ✅ |
-| 29 | Studsbollar | `studsbollar` | mixed | ✅ |
-| 31 | Studsa Ner | `studsa-ner` | mixed | ✅ |
-| 33 | Fånga Frukten | `fanga-frukten` | drag | ✅ |
-| 34 | Vippbrädan | `vippbradan` | tap | 🔧 |
-| 35 | Domino | `domino` | mixed | 🔧 |
-| 36 | Studsmatta | `studsmatta` | mixed | 🔧 |
-| 38 | Knuffa Tornet | `knuffa-tornet` | drag | 🔧 |
-| 39 | Spindelhjälten | `spindelhjalten` | drag | 🔧 |
-| 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | 🔧 |
-| 44 | Valpens Bajs | `valpens-bajs` | mixed | 🔧 |
-| 46 | Tvätta Djuret | `tvatta-djuret` | drag | 🔧 |
-| 48 | Gungan | `gungan` | tap | 🔧 |
-| 50 | Spindelnätet | `spindelnatet` | tap | 🔧 |
-| 52 | Fallskärmen | `fallskarmen` | drag | 🔧 |
-| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | 🔧 |
-| 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | 🔧 |
-| 55 | Bobos Bowling | `bowling` | drag | 🔧 |
-| 56 | Flipperspel | `flipperspel` | tap | 🔧 |
-| 58 | Snöbollen | `snobollen` | drag | 🔧 |
-| 59 | Glasstornet | `glasstornet` | drag | 🔧 |
-| 64 | Grävmaskinen | `gravmaskinen` | drag | 🔧 |
+### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ **poleringsrundan KLAR** (27/27, v1.7.0, 2026-08-04)
+*Första-omgången 2026-07-01. Poleringsrundan lyfte 9 spel till ✅ kvalitet; de övriga 18 fick
+assets-/scen-/buggrundor och står kvar som 🔧 med kvarvarande [Deep]-punkter i sin doc §4.*
+| # | Spel | id | input | kvalitet | polerad |
+|---|------|----|-------|:--:|:--:|
+| 4 | Poppa Ballongerna | `poppa-ballonger` | tap | ✅ | ✅ |
+| 10 | Klappa Mullvaden | `klappa-mullvaden` | tap | ✅ | ✅ |
+| 19 | Plask i Vattnet | `plask-i-vattnet` | drag | ✅ | ✅ |
+| 23 | Bygg Tornet | `bygg-tornet` | tap | ✅ | ✅ |
+| 24 | Rulla Bollen Hem | `rulla-bollen-hem` | drag | ✅ | ✅ |
+| 26 | Spåra Linjen | `spara-linjen` | drag | ✅ | ✅ |
+| 29 | Studsbollar | `studsbollar` | mixed | ✅ | ✅ |
+| 31 | Studsa Ner | `studsa-ner` | mixed | ✅ | ✅ |
+| 33 | Fånga Frukten | `fanga-frukten` | drag | ✅ | ✅ |
+| 34 | Vippbrädan | `vippbradan` | tap | 🔧 | ✅ |
+| 35 | Domino | `domino` | mixed | 🔧 | ✅ |
+| 36 | Studsmatta | `studsmatta` | mixed | 🔧 | ✅ |
+| 38 | Knuffa Tornet | `knuffa-tornet` | drag | 🔧 | ✅ |
+| 39 | Spindelhjälten | `spindelhjalten` | drag | 🔧 | ✅ |
+| 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | 🔧 | ✅ |
+| 44 | Valpens Bajs | `valpens-bajs` | mixed | 🔧 | ✅ |
+| 46 | Tvätta Djuret | `tvatta-djuret` | drag | 🔧 | ✅ |
+| 48 | Gungan | `gungan` | tap | 🔧 | ✅ |
+| 50 | Spindelnätet | `spindelnatet` | tap | 🔧 | ✅ |
+| 52 | Fallskärmen | `fallskarmen` | drag | 🔧 | ✅ |
+| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | 🔧 | ✅ |
+| 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | 🔧 | ✅ |
+| 55 | Bobos Bowling | `bowling` | drag | 🔧 | ✅ |
+| 56 | Flipperspel | `flipperspel` | tap | 🔧 | ✅ |
+| 58 | Snöbollen | `snobollen` | drag | 🔧 | ✅ |
+| 59 | Glasstornet | `glasstornet` | drag | 🔧 | ✅ |
+| 64 | Grävmaskinen | `gravmaskinen` | drag | 🔧 | ✅ |
 
-### 🧩 Pussel (pussel + minne + drag) — ✅ HELA fliken (första-omgång, 2026-07-02)
-| # | Spel | id | input | status |
-|---|------|----|-------|:--:|
-| 2 | Sortera Skräp | `sortera-skrap` | drag | ✅ |
-| 3 | Vändkort | `vandkort` | tap | ✅ |
-| 8 | Mata Monstret | `mata-monstret` | mixed | ✅ |
-| 13 | Stor och Liten | `stor-liten` | drag | ✅ |
-| 15 | Klä på Nallen | `kla-pa-nallen` | drag | ✅ |
-| 16 | Plantera Frön | `plantera-fron` | drag | ✅ |
-| 17 | Skuggmatchning | `skuggmatchning` | drag | ✅ |
-| 18 | Enkelt Pussel | `enkelt-pussel` | drag | ✅ |
-| 21 | Vart Tog Det Vägen? | `vart-tog-det-vagen` | tap | ✅ |
-| 22 | Vad Försvann? | `vad-forsvann` | tap | ✅ |
-| 27 | Härma Melodin | `harma-melodin` | tap | ✅ |
-| 28 | Följ Spåret | `folj-sparet` | tap | ✅ |
-| 51 | Magnetfiske | `magnet-fiske` | drag | ✅ |
-| 57 | Kulbanan | `kulbana` | drag | ✅ |
-| 60 | Golvet är Lava | `golvet-ar-lava` | drag | ✅ |
-| 61 | Vattenvägen | `vattenvagen` | drag | ✅ |
-| 63 | Kugghjulen | `kugghjulen` | drag | ✅ |
-| 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ |
-| 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 |
+### 🧩 Pussel (pussel + minne + drag) — ⬜ **poleringsrundan PÅGÅR** (0/19) ← vi är här
+*Första-omgången 2026-07-02 — **innan** P0-regeln `ASSETS` fanns (2026-07-25). ✅ i
+kvalitet-kolumnen är därför provisorisk; sänks till 🔧 när rundan visar att den inte håller.
+Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
+| # | Spel | id | input | kvalitet | polerad |
+|---|------|----|-------|:--:|:--:|
+| 2 | Sortera Skräp | `sortera-skrap` | drag | ✅ | ⬜ |
+| 3 | Vändkort | `vandkort` | tap | ✅ | ⬜ |
+| 8 | Mata Monstret | `mata-monstret` | mixed | ✅ | ⬜ |
+| 13 | Stor och Liten | `stor-liten` | drag | ✅ | ⬜ |
+| 15 | Klä på Nallen | `kla-pa-nallen` | drag | ✅ | ⬜ |
+| 16 | Plantera Frön | `plantera-fron` | drag | ✅ | ⬜ |
+| 17 | Skuggmatchning | `skuggmatchning` | drag | ✅ | ⬜ |
+| 18 | Enkelt Pussel | `enkelt-pussel` | drag | ✅ | ⬜ |
+| 21 | Vart Tog Det Vägen? | `vart-tog-det-vagen` | tap | ✅ | ⬜ |
+| 22 | Vad Försvann? | `vad-forsvann` | tap | ✅ | ⬜ |
+| 27 | Härma Melodin | `harma-melodin` | tap | ✅ | ⬜ |
+| 28 | Följ Spåret | `folj-sparet` | tap | ✅ | ⬜ |
+| 51 | Magnetfiske | `magnet-fiske` | drag | ✅ | ⬜ |
+| 57 | Kulbanan | `kulbana` | drag | ✅ | ⬜ |
+| 60 | Golvet är Lava | `golvet-ar-lava` | drag | ✅ | ⬜ |
+| 61 | Vattenvägen | `vattenvagen` | drag | ✅ | ⬜ |
+| 63 | Kugghjulen | `kugghjulen` | drag | ✅ | ⬜ |
+| 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ | ⬜ |
+| 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 | ⬜ |
 
-### 🔤 Lära (larande + pedagogiskt) — ✅ HELA fliken (första-omgång, 2026-07-02)
-| # | Spel | id | input | status |
-|---|------|----|-------|:--:|
-| 7 | Färgregn | `fargregn` | tap | 🔧 |
-| 9 | Räkna Äpplena | `rakna-applen` | tap | 🔧 |
-| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | 🔧 |
-| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | 🔧 |
-| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | 🔧 |
-| 25 | Siffertåget | `siffertaget` | mixed | 🔧 |
-| 30 | Djurorkester | `djurorkester` | tap | 🔧 |
-| 47 | Ballonglyft | `ballonglyft` | tap | 🔧 |
-| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | 🔧 |
+### 🔤 Lära (larande + pedagogiskt) — ⬜ **poleringsrundan i kö** (0/9)
+*Första-omgången 2026-07-02. Sista fliken i poleringsrundan.*
+| # | Spel | id | input | kvalitet | polerad |
+|---|------|----|-------|:--:|:--:|
+| 7 | Färgregn | `fargregn` | tap | 🔧 | ⬜ |
+| 9 | Räkna Äpplena | `rakna-applen` | tap | 🔧 | ⬜ |
+| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | 🔧 | ⬜ |
+| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | 🔧 | ⬜ |
+| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | 🔧 | ⬜ |
+| 25 | Siffertåget | `siffertaget` | mixed | 🔧 | ⬜ |
+| 30 | Djurorkester | `djurorkester` | tap | 🔧 | ⬜ |
+| 47 | Ballonglyft | `ballonglyft` | tap | 🔧 | ⬜ |
+| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | 🔧 | ⬜ |
 
-**✅ Alla 69 spel granskade OCH alla 4 flikar har fått en genomförd första-omgång
-(Roligt · Fysik · Pussel · Lära).** Kvar: de 🔧-märkta spelen har en andra omgång / kvarvarande
-[Deep]-förslag i sin egen doc §4. Kör `/polera <id>` på det som förtjänar det — prioritera efter
-de app-breda mönstren nedan, de lyfter många spel åt gången.
+**Läget just nu:** alla **70** spel är granskade och alla 4 flikar har fått en genomförd
+första-omgång. **Poleringsrundan: 42/70 klara** (🎉 Roligt 15 · ⚙️ Fysik 27) — **28 kvar**
+(🧩 Pussel 19 → 🔤 Lära 9). Kön och metoden ligger i `docs/POLERINGSRUNDA.md`; kör `/aterta`
+för att fortsätta där rundan stannade.
+
+Utöver rundan: de 🔧-märkta spelen har kvarvarande [Deep]-förslag i sin egen doc §4 — prioritera
+efter de app-breda mönstren nedan, de lyfter många spel åt gången.
 
 ## Återkommande mönster (app-breda lyft)
 

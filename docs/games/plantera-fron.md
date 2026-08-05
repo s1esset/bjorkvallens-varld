@@ -1,5 +1,5 @@
 # Plantera Frön (`plantera-fron`)
-> 🌿 drag · drag · 2–4 år · status: 📝 plan klar
+> 🌿 drag · drag · 2–4 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

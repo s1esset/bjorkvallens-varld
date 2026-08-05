@@ -1,5 +1,5 @@
 # Studsa Ner (`studsa-ner`)
-> ⚙️ fysik · mixed · 2–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · mixed · 2–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

@@ -1,5 +1,5 @@
 # Pizzabageriet (`pizzabageriet`)
-> 🎉 roligt · drag · 2–5 år · status: 📝 plan klar
+> 🎉 roligt · drag · 2–5 år · status: ✅ marknadsklar
 
 > **Uppdatering (v1.0 UX-svep):** Ny layout — Bobo-loggan centrerad högst upp, pizzan till
 > vänster, mindre ugn till höger, gräddaknappen (nu **ikon ➡️🔥** utan text) i kolumnen mitt

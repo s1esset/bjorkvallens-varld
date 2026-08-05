@@ -1,5 +1,5 @@
 # Klappa Mullvaden (`klappa-mullvaden`)
-> 🐹 motorik · tap · 2–5 år · status: 🔧 förbättringar pågår
+> 🐹 motorik · tap · 2–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

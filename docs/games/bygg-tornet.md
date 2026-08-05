@@ -1,5 +1,5 @@
 # Bygg Tornet (`bygg-tornet`)
-> 🧱 fysik · tap · 3–5 år · status: 📝 plan klar
+> 🧱 fysik · tap · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

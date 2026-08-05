@@ -1,5 +1,5 @@
 # Plask i Vattnet (`plask-i-vattnet`)
-> 💧 fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
+> 💧 fysik · drag · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

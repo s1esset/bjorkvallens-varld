@@ -1,5 +1,5 @@
 # Gungan (`gungan`)
-> ⚙️ fysik · tap · 2–4 år · status: 📝 plan klar
+> ⚙️ fysik · tap · 2–4 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 

@@ -1,5 +1,5 @@
 # Klä efter Vädret (`kla-efter-vadret`)
-> 🔤 pedagogiskt · mixed · 3–5 år · status: 📝 plan klar
+> 🔤 pedagogiskt · mixed · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 

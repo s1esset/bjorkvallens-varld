@@ -1,5 +1,5 @@
 # Poppa Ballongerna (`poppa-ballonger`)
-> 🎈 motorik · tap · 2–4 år · status: 🔧 förbättringar pågår
+> 🎈 motorik · tap · 2–4 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

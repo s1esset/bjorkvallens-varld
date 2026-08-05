@@ -1,5 +1,5 @@
 # Spindel-Zacke Svingar (`spindel-zacke-svingar`)
-> ⚙️ fysik · tap · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · tap · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 

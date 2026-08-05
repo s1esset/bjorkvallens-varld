@@ -1,5 +1,5 @@
 # Rulla Bollen Hem (`rulla-bollen-hem`)
-> ⚽ fysik · drag · 3–5 år · status: 📝 plan klar
+> ⚽ fysik · drag · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

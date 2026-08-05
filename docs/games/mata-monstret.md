@@ -1,5 +1,5 @@
 # Mata Monstret (`mata-monstret`)
-> 🧩 drag · mixed · 2–5 år · status: 📝 plan klar
+> 🧩 drag · mixed · 2–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

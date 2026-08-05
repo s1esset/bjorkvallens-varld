@@ -1,5 +1,5 @@
 # Spåra Linjen (`spara-linjen`)
-> ✏️ motorik · drag · 3–5 år · status: 📝 plan klar
+> ✏️ motorik · drag · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 

@@ -1,5 +1,5 @@
 # Enhörningen Elvira (`enhorningen-elvira`)
-> ⚙️ fysik · mixed · 3–5 år · status: 📝 plan klar
+> ⚙️ fysik · mixed · 3–5 år · status: 🔧 förbättringar pågår
 
 ## 1. Nuläge (sett som spelare)
 

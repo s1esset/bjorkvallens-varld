@@ -318,9 +318,16 @@ export default {
     }
 
     // Kran + pip.
-    const tap = new Text({ text: '🚰', style: { fontFamily: FONT.body, fontSize: 96 } })
-    tap.anchor.set(0.5)
-    tap.position.set(this._sourceX, GRIDY0 - 110)
+    // RITAD kran (var en 🚰-emoji i en blå ruta): vägghållare, böjt rör och pip.
+    const tap = new Graphics()
+    tap.roundRect(-34, -34, 26, 68, 8).fill(0xb6c0cc).stroke({ width: 4, color: 0x8d99a6 }) // vägghållare
+    tap.roundRect(-8, -14, 44, 18, 8).fill(0xc3ccd4).stroke({ width: 4, color: 0x8d99a6 })  // horisontellt rör
+    tap.roundRect(26, -6, 18, 32, 6).fill(0xc3ccd4).stroke({ width: 4, color: 0x8d99a6 })   // nedåtpip
+    tap.roundRect(-2, -42, 30, 12, 6).fill(0x4aa3df).stroke({ width: 4, color: 0x2f7fb8 })  // vred
+    tap.circle(13, -36, 9).fill(0x6ac0f0).stroke({ width: 4, color: 0x2f7fb8 })
+    tap.roundRect(-30, -24, 8, 48, 4).fill({ color: 0xffffff, alpha: 0.35 })
+    tap.position.set(this._sourceX - 22, GRIDY0 - 116)
+    tap.scale.set(1.35) // matchar den 96px-emoji den ersatte i visuell tyngd
     tap.eventMode = 'none'
     const spout = new Graphics().roundRect(this._sourceX - 8, GRIDY0 - 78, 16, 46, 6).fill({ color: COLORS.white, alpha: 0.85 })
     spout.eventMode = 'none'
@@ -423,8 +430,14 @@ export default {
     const glans = new Graphics().roundRect(-58, -70, 16, 120, 8).fill({ color: COLORS.white, alpha: 0.45 })
     const line = new Graphics() // streckad gul fyll-linje (mål-nivå)
     for (let x = -54; x < 54; x += 18) line.roundRect(x, -44, 10, 4, 2).fill({ color: COLORS.yellow, alpha: 0.95 })
-    const plant = new Text({ text: '🌱', style: { fontFamily: FONT.body, fontSize: 64 } })
-    plant.anchor.set(0.5)
+    // RITAD grodd i kruka (var en 🌱-emoji).
+    const plant = new Graphics()
+    plant.moveTo(-20, 4).lineTo(20, 4).lineTo(15, 26).lineTo(-15, 26).closePath()
+    plant.fill(0x9a5c33).stroke({ width: 3, color: 0x6f4a2e })
+    plant.roundRect(-23, -4, 46, 11, 4).fill(0xc98a4b).stroke({ width: 3, color: 0x6f4a2e })
+    plant.roundRect(-3, -30, 6, 30, 3).fill(0x5bbf6a)
+    plant.ellipse(-15, -26, 14, 9).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
+    plant.ellipse(15, -34, 14, 9).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
     plant.position.set(0, -92)
     this._plant = plant
     mug.addChild(glass, water, glans, line, plant)
@@ -564,8 +577,12 @@ export default {
     c.position.set(cell.x, cell.y)
     const sh = new Graphics().ellipse(0, 42, 46, 14).fill({ color: COLORS.shadow, alpha: 0.14 })
     sh.eventMode = 'none'
-    const e = new Text({ text: '🪨', style: { fontFamily: FONT.body, fontSize: 80 } })
-    e.anchor.set(0.5)
+    // RITAD sten (var en 🪨-emoji).
+    const e = new Graphics()
+    e.moveTo(-38, 26).lineTo(-28, -14).lineTo(-4, -30).lineTo(28, -14).lineTo(36, 26).closePath()
+    e.fill(0x9b9088).stroke({ width: 4, color: 0x74695f })
+    e.moveTo(-16, 24).lineTo(-10, -8).lineTo(8, -20).stroke({ width: 3, color: 0x74695f, alpha: 0.55 })
+    e.ellipse(-14, 4, 8, 5).fill({ color: 0xb6ada4, alpha: 0.7 })
     c.addChild(sh, e)
     c.eventMode = 'static'
     c.cursor = 'pointer'

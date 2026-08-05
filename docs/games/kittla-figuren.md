@@ -1,5 +1,5 @@
 # Kittla Figuren (`kittla-figuren`)
-> 🎉 roligt · tap · 2–5 år · status: 📝 plan klar
+> 🎉 roligt · tap · 2–5 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -104,3 +104,15 @@ fyra skepnader som beter sig likadant.
   `audio.tone()`) som klättrar i tonhöjd/antal med intensiteten; en `audio.sample('skratt')`-hook
   spelar RIKTIGA inspelade fniss automatiskt när MOSS-pipelinen ([[real-audio-sfx]], #3) kört.
   Städning: oanvänd `ctx`-param bort ur `_buildChar`. errorCount 0, skärmdump bekräftar figuren.
+- 2026-08-05 ✅ **Andra omgången (poleringsrundan, Roligt-fliken).**
+  - **"Fri kittling saknar mål"** — i fritt läge fanns ingen visuell ledtråd alls, så de allra
+    minsta petade planlöst. Nu visas en **mjukare** version av glöd-ringen (`_setGlow(z, true)`)
+    på en zon, och den hoppar vidare efter varje kittling. Fortfarande helt fritt: alla zoner
+    fungerar lika bra, ringen pekar bara ut en plats att börja på.
+  - **Skrattårar vid högt crescendo:** över 60 % fyllnad sprutar små ljusblå tårar ut vid båda
+    ögonen — figuren kan inte hålla sig längre. Tidigare stannade crescendot vid squash, skutt
+    och munbredd.
+  - **Läcka #4:** `` `${sp.short} Kittla där det lyser!` `` var en mall-sträng som `check.mjs`
+    aldrig hittar — repliken kunde aldrig få ett röstklipp. Skriven som hel literal.
+  - **Grind:** `npm run check --game kittla-figuren` 0 fel · `npm run test` grönt ·
+    `_idleprobe 20s` → `idleFramsteg: 0`, `efterSpel: 1`. 1 ny replik väntar på röstklipp.

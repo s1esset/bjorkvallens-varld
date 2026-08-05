@@ -204,11 +204,18 @@ export default {
     if (this._mode === 'sequence') {
       this._seq = shuffle(this._zones).slice(0, this._goal)
       this._setGlow(this._seq[0])
+    } else {
+      // Fritt läge saknade ALL visuell ledtråd — de allra minsta petade planlöst.
+      // En mjukare ring pekar ut en plats att börja på och hoppar vidare efter varje
+      // kittling. Det är fortfarande fritt: alla zoner fungerar lika bra.
+      this._hintZone()
     }
 
     const sp = this._species
     if (first) ctx.services.voice.say(this.voiceIntro)
-    else if (this._mode === 'sequence') ctx.services.voice.say(`${sp.short} Kittla där det lyser!`)
+    // Hel literal, inte en mall-sträng: check.mjs hittar bara literaler, så en
+    // konkatenerad replik kan aldrig få ett röstklipp via /rost (läcka #4).
+    else if (this._mode === 'sequence') ctx.services.voice.say('Kittla där det lyser!')
     else ctx.services.voice.say(sp.intro)
 
     pop(this._figure) // liten "fräsch start"-studs
@@ -477,8 +484,16 @@ export default {
       return
     }
 
+    // Skrattårar när figuren inte kan hålla sig längre.
+    if (prog > 0.6) {
+      const hp = this._layer.toLocal(this._parts.head?.getGlobalPosition?.() || zon.getGlobalPosition())
+      burst(this._layer, hp.x - 46, hp.y - 6, { count: 4, colors: [0x9be3ff, 0xd7f0ff], power: 0.7 })
+      burst(this._layer, hp.x + 46, hp.y - 6, { count: 4, colors: [0x9be3ff, 0xd7f0ff], power: 0.7 })
+    }
+
     // Fri kittling: räkna upp tills rundan är full.
     this._count++
+    this._hintZone()
     this._fillDots(this._count)
     if (this._dots[this._count - 1]) pop(this._dots[this._count - 1])
     if (Math.random() < 0.3 && this._count < this._goal) {
@@ -644,7 +659,7 @@ export default {
   },
 
   // Flytta/visa glöd-ringen runt nästa kittel-mål (andas för att locka).
-  _setGlow(zon) {
+  _setGlow(zon, soft = false) {
     const g = this._glow
     if (!g || g.destroyed || !zon) return
     this._glowTween?.kill()
@@ -653,10 +668,19 @@ export default {
     g.scale.set(1)
     g.clear()
       .circle(0, 0, ZONE_R + 4)
-      .fill({ color: COLORS.yellow, alpha: 0.18 })
+      .fill({ color: COLORS.yellow, alpha: soft ? 0.1 : 0.18 })
       .circle(0, 0, ZONE_R + 4)
-      .stroke({ width: 10, color: 0xffffff, alpha: 0.9 })
-    this._glowTween = breathe(g, { scale: 1.16, duration: 0.7 })
+      .stroke({ width: soft ? 7 : 10, color: 0xffffff, alpha: soft ? 0.55 : 0.9 })
+    this._glowTween = breathe(g, { scale: soft ? 1.1 : 1.16, duration: soft ? 1 : 0.7 })
+  },
+
+  // Mjuk "börja här"-ring i fritt läge; flyttar sig till en ny zon efter varje kittling.
+  _hintZone() {
+    if (!this._alive || this._mode !== 'free' || !this._zones?.length) return
+    const pool = this._zones.filter((z) => z !== this._lastHint)
+    const z = (pool.length ? pool : this._zones)[(Math.random() * (pool.length || this._zones.length)) | 0]
+    this._lastHint = z
+    this._setGlow(z, true)
   },
 
   // ---- liv & idle ---------------------------------------------------------

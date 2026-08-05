@@ -125,7 +125,7 @@ Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-
 | 10 | `fyrverkeri` | 3 | ✅ |
 | 11 | `tryck-och-forvandla` | 2 | ✅ |
 | 12 | `klambubblor` | 1 | ✅ |
-| 13 | `kittla-figuren` | 1 | ⬜ |
+| 13 | `kittla-figuren` | 1 | ✅ |
 | 14 | `tarta-i-ansiktet` | 0 | ⬜ |
 
 ## Kö 2 — 🧩 Pussel (19 spel)

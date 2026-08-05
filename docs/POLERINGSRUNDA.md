@@ -105,6 +105,14 @@ växer obegränsat under en lång session.
 - `node scripts/_addphrases.mjs <id>` — läser `check`-utdata och lägger de saknade
   replikerna i `scripts/voice-phrases.json` (hämtar hela strängen ur källan, eftersom
   check trunkerar vid 48 tecken).
+  > ⚠️ **Den lägger till precis vad check rapporterar — även skräp.** I ett spel med
+  > läcka #4 är "repliken" ofta bara en *bit* av en mall-sträng (`"Tryck på de "`,
+  > `" dropparna!"`) eller en ren **platshållare** (`"Hitta {d}!"`). Körs `/rost` efter
+  > det får du klipp där rösten läser upp "dropparna!" eller "{d}" högt. **Granska alltid
+  > diffen mot `voice-phrases.json` efteråt** — allt som börjar/slutar med blanksteg eller
+  > innehåller `{ } $` ska bort, och den riktiga fixen är att skriva om repliken som en
+  > hel literal i spelet. (Hände 2026-08-05: 8 platshållare från `peka-pa-kroppen` hann få
+  > klipp innan de rensades.)
 - `node scripts/test-game.mjs <id> --shot .test-shots/<id>.png --taps "x,y;…"` /
   `--drag "fx,fy>tx,ty;…"` — riktad körning när standardtrycken inte når mekaniken.
   **Obs:** skärmdumpen tas 900 ms efter sista trycket, så ett objekt kan fångas mitt i en

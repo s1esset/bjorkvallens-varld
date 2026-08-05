@@ -1,5 +1,5 @@
 # Enhörningens Glitterbajs (`enhorning-glitterbajs`)
-> 🎉 roligt · drag · 2–4 år · status: 📝 plan klar
+> 🎉 roligt · drag · 2–4 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -112,3 +112,25 @@ glittret blir ett osynligt nummer* — agensen och samlandet är tunnare än det
   med `sample('fart')`-hook, + rök-puff och en enhörnings-skutt. Städning: oanvända `ctx`-params
   bort ur `_loadLevel`/`_chestDown`. Verifierat: mata→prutt→glitterregn→fångst med synlig hög,
   errorCount 0.
+- 2026-08-05 ✅ **Andra omgången (poleringsrundan, Roligt-fliken).**
+  - **P0 ASSETS:** 🍓/🧁/🍪 låg som emoji-`Text` i en vit ruta — exakt det regeln förbjuder.
+    Nu ritade (jordgubbe med blast och frön, muffins med pappersform, strössel och körsbär,
+    chokladkaka med chips) på en ritad träbricka. `✨`-detaljen på pelletsen är också ritad;
+    spelet har inga `Text`-noder kvar.
+  - **Matvalet var fortfarande en illusion.** Loggen från 2026-07-01 påstod att maten ger olika
+    glitter, men `makePelletView()` tog **inget argument** och ignorerade `_glitterKind` — alla
+    tre gav identiska gula prickar. Nu ritas rosa hjärtan / regnbågsströssel (slumpad färg och
+    rotation) / guldmynt beroende på maten.
+  - **Mätaren låg delvis bakom ljudknappen:** `⭐` på y 116 mot knappens hörnruta som når y 112.
+    Stjärnan är nu ritad Graphics på y 166 och tuben börjar på y 196.
+  - **Läcka #6 igen, i enhörningens ansikte:** `face.arc(...)` utan föregående `moveTo` ritade
+    ett långt streck från containerns origo ut till nosen — tvärs över hela enhörningen. Samma
+    fel i Elviras mun. Båda fixade med `moveTo` till bågens startpunkt.
+  - **Elvira svävade** ~80 px ovanför marklinjen; hon står nu på marken, och brickan flyttades
+    höger så hon inte döljs av den.
+  - **Enhörningen** fick chibi-proportioner (mindre kropp, större huvud), kraftigare kontur som
+    syns mot godishimlen, magskugga, och manen ligger nu BAKOM huvudet — kulorna bildade förut
+    en mur mellan huvud och kropp.
+  - **Studsdynorna** är randiga godisbitar med studsknoppar och `pop`:ar när glittret träffar.
+  - **Grind:** `npm run check --game enhorning-glitterbajs` 0 fel · `npm run test` grönt ·
+    `_idleprobe 30s` → `idleFramsteg: 0`.

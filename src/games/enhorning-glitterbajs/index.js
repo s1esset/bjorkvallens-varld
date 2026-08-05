@@ -16,12 +16,12 @@
 //
 // Drag är fri-följande (mat till mun, burk i sidled) → egen pointerdown/globalpointermove/
 // pointerup-logik med tap-tap-fallback (DragController stödjer bara snäpp-hem/snäpp-mål).
-import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body, nudge, applyForce } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { bigCelebration, burst, puff, sparkle, floatText, pop, wiggle } from '../../lib/feedback.js'
-import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PLAYFUL, PRAISE } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // ---- Geometri & konstanter (designkoordinater 1280×720) -----------------
@@ -49,7 +49,12 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const rand = (a, b) => a + Math.random() * (b - a)
 
 // Varje mat ger sin EGEN sorts glitter → "vilken mat" blir ett verkligt val.
-const FOOD_GLITTER = { '🍓': 'heart', '🧁': 'sprinkle', '🍪': 'coin' }
+// Maten är RITAD (P0 ASSETS) — tidigare låg 🍓/🧁/🍪 som emoji i en vit ruta.
+const FOODS = [
+  { kind: 'jordgubbe', glitter: 'heart' },
+  { kind: 'muffins', glitter: 'sprinkle' },
+  { kind: 'kaka', glitter: 'coin' },
+]
 
 // Nivå -> glittermängd, mål, böjning. Plattformarnas antal/läge/vinkel slumpas i
 // makePlatformDefs så varje runda ser olik ut.
@@ -169,18 +174,24 @@ export default {
     const layer = new Container()
     layer.eventMode = 'none'
     layer.interactiveChildren = false
-    // Tub.
+    // Tub. Börjar under ljudknappens hörnruta (den går ner till ~y 112) — förut låg
+    // mätarens stjärna på y 116 och hamnade DELVIS BAKOM knappen.
     const tube = new Graphics()
-    tube.roundRect(1180, 140, 40, 440, 20).fill({ color: COLORS.white, alpha: 0.5 }).stroke({ width: 5, color: COLORS.purple })
+    tube.roundRect(1180, 196, 40, 400, 20).fill({ color: COLORS.white, alpha: 0.5 }).stroke({ width: 5, color: COLORS.purple })
     layer.addChild(tube)
     // Stigande guldfyllning.
     this._meterFill = new Graphics()
     this._meterFill.eventMode = 'none'
     layer.addChild(this._meterFill)
-    // Stjärna ovanpå.
-    const star = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: 48 } })
-    star.anchor.set(0.5)
-    star.position.set(1200, 116)
+    // Ritad stjärna ovanpå (fri från ljudknappen).
+    const star = new Graphics()
+    const pts = []
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5
+      const rr = i % 2 ? 10 : 24
+      pts.push(1200 + Math.cos(a) * rr, 166 + Math.sin(a) * rr)
+    }
+    star.poly(pts).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orange })
     star.eventMode = 'none'
     layer.addChild(star)
     this._meterLayer = layer
@@ -212,7 +223,9 @@ export default {
 
   _buildElvira() {
     const e = makeElvira()
-    e.position.set(165, 470)
+    // Fötterna (lokalt y ≈ +72) ska stå PÅ marken (överkant y ≈ 624) — förut svävade
+    // hon nästan 80 px ovanför marklinjen.
+    e.position.set(84, 548)
     e.eventMode = 'none'
     e.interactiveChildren = false
     this._elvira = e
@@ -220,11 +233,16 @@ export default {
   },
 
   _buildTray(ctx) {
-    // Matbricka-panel nere till vänster.
-    const panel = new Graphics()
-    panel.roundRect(60, 560, 360, 130, 28).fill(COLORS.cream).stroke({ width: 6, color: COLORS.pink })
-    panel.eventMode = 'none'
-    this._root.addChild(panel)
+    // Picknick-filt med en ritad träbricka — maten är riktiga ritade föremål som ligger
+    // PÅ brickan, inte ikoner inuti en ruta.
+    const tray = new Graphics()
+      .ellipse(300, 676, 214, 34).fill({ color: COLORS.shadow, alpha: 0.12 })
+      .roundRect(126, 606, 348, 74, 22).fill(0x8a5a3b)
+      .roundRect(126, 598, 348, 62, 20).fill(0xa9744c)
+      .roundRect(140, 606, 320, 14, 8).fill({ color: 0xffffff, alpha: 0.18 })
+      .roundRect(140, 642, 320, 8, 5).fill({ color: 0x5e3720, alpha: 0.3 })
+    tray.eventMode = 'none'
+    this._root.addChild(tray)
 
     this._foodLayer = new Container()
     this._root.addChild(this._foodLayer)
@@ -232,12 +250,11 @@ export default {
     this._onFoodMove = (ev) => this._foodMove(ev)
     this._onFoodUp = (ev) => this._foodUp(ev)
 
-    const emojis = ['🍓', '🧁', '🍪']
-    const slots = [130, 240, 350]
-    for (let i = 0; i < emojis.length; i++) {
-      const view = makeFood(emojis[i])
+    const slots = [190, 300, 410]
+    for (let i = 0; i < FOODS.length; i++) {
+      const view = makeFood(FOODS[i].kind)
       view.position.set(slots[i], 624)
-      const food = { view, slotX: slots[i], slotY: 624, emoji: emojis[i] }
+      const food = { view, slotX: slots[i], slotY: 624, kind: FOODS[i].kind, glitter: FOODS[i].glitter }
       const onDown = (ev) => this._foodDown(ctx, food, ev)
       food._onDown = onDown
       view.on('pointerdown', onDown)
@@ -431,7 +448,7 @@ export default {
     if (!this._alive || this._resolving) return
     this._idle = 0
     this._selectedFood = null
-    this._glitterKind = FOOD_GLITTER[food.emoji] || 'coin' // maten bestämmer glittersorten
+    this._glitterKind = food.glitter || 'coin' // maten bestämmer glittersorten
     if (this._unicorn && !this._unicorn.destroyed) pop(this._unicorn, { scale: 1.12 })
     ctx.services.audio.sfx('soft')
     this._eatFood(food)
@@ -536,6 +553,12 @@ export default {
           if (now - this._lastBounceSfx > BOUNCE_SFX_MS) {
             this._lastBounceSfx = now
             ctx.services.audio.sfx('soft')
+          }
+          // Studsdynan reagerar — plattorna var helt döda att träffa.
+          if (other.label === 'ramp') {
+            for (const p of this._platforms) {
+              if (p.body === other && p.view && !p.view.destroyed) { pop(p.view, { scale: 1.1 }); break }
+            }
           }
         }
       }
@@ -757,8 +780,8 @@ export default {
     g.clear()
     const x = 1184
     const w = 32
-    const top = 146
-    const bottom = 576
+    const top = 202
+    const bottom = 592
     const h = (bottom - top) * clamp(this._meterFrac, 0, 1)
     if (h > 3) {
       g.roundRect(x, bottom - h, w, h, 14).fill(COLORS.yellow)
@@ -884,93 +907,99 @@ function makeUnicorn() {
   const c = new Container()
   const white = 0xfff7fb
   const shade = 0xffe9f4 // mjuk skuggton på den vita pälsen
-  const edge = 0xffc8e4
-  const hoof = 0xeebcd6
+  const edge = 0xef9cc6 // kraftigare kontur — den bleka rosa försvann mot godishimlen
+  const hoof = 0xe0a0c4
 
   // Mjuk markskugga under hovarna.
-  c.addChild(new Graphics().ellipse(8, 102, 118, 22).fill({ color: COLORS.shadow, alpha: 0.12 }))
+  c.addChild(new Graphics().ellipse(6, 100, 100, 20).fill({ color: COLORS.shadow, alpha: 0.14 }))
 
   // Böljande regnbågssvans vid rumpan (höger).
   const tail = new Graphics()
   for (let i = 0; i < PLAYFUL.length; i++) {
-    tail.roundRect(0, -30 + i * 11, 48, 12, 6).fill(PLAYFUL[i])
+    tail.roundRect(0, -26 + i * 10, 44, 11, 5.5).fill(PLAYFUL[i])
   }
   tail.pivot.set(0, 8)
-  tail.position.set(108, 18)
+  tail.position.set(88, 16)
   tail.rotation = 0.18
   c.addChild(tail)
 
   // Ben (rundade) + mjuka hovar. Bakbenen i en aning mörkare ton för djup.
   const legs = new Graphics()
-  const legX = [-50, -18, 40, 70]
+  const legX = [-40, -14, 34, 58]
   for (let i = 0; i < legX.length; i++) {
     const lx = legX[i]
-    legs.roundRect(lx - 11, 54, 22, 52, 11).fill(i < 2 ? white : shade)
+    legs.roundRect(lx - 10, 48, 20, 52, 10).fill(i < 2 ? white : shade)
+    legs.roundRect(lx - 10, 48, 20, 52, 10).stroke({ width: 3, color: edge })
   }
-  for (const lx of legX) legs.roundRect(lx - 12, 96, 24, 14, 6).fill(hoof)
+  for (const lx of legX) legs.roundRect(lx - 11, 90, 22, 14, 6).fill(hoof)
   c.addChild(legs)
 
-  // Plufsig glansig kropp.
-  const body = new Graphics().ellipse(10, 24, 112, 70).fill(white).stroke({ width: 4, color: edge })
-  body.ellipse(-12, 2, 72, 30).fill({ color: COLORS.white, alpha: 0.45 }) // glans
+  // Plufsig glansig kropp — mindre än förut, så huvudet får bära figuren.
+  const body = new Graphics().ellipse(12, 26, 84, 54).fill(white).stroke({ width: 4, color: edge })
+  body.ellipse(20, 46, 62, 22).fill({ color: shade, alpha: 0.8 }) // magskugga ger form
+  body.ellipse(-6, 6, 54, 22).fill({ color: COLORS.white, alpha: 0.5 }) // glans
   c.addChild(body)
 
   // Hals upp mot huvudet (fram-vänster).
-  const neck = new Graphics().poly([-50, 10, -42, -34, -86, -44, -94, 2]).fill(white).stroke({ width: 4, color: edge })
+  const neck = new Graphics().poly([-42, 14, -36, -26, -76, -36, -84, 6]).fill(white).stroke({ width: 4, color: edge })
   c.addChild(neck)
 
-  // Huvud + nos.
-  const head = new Graphics().ellipse(-98, -46, 50, 44).fill(white).stroke({ width: 4, color: edge })
-  head.ellipse(-122, -28, 26, 22).fill(white).stroke({ width: 4, color: edge })
+  // Huvud + nos — större i förhållande till kroppen (chibi-proportion).
+  const head = new Graphics().ellipse(-86, -44, 54, 48).fill(white).stroke({ width: 4, color: edge })
+  head.ellipse(-112, -24, 29, 24).fill(white).stroke({ width: 4, color: edge })
   c.addChild(head)
 
   // Öron (med rosa innerton i det främre).
   const ears = new Graphics()
-  ears.poly([-120, -82, -132, -58, -106, -66]).fill(white).stroke({ width: 2, color: edge })
-  ears.poly([-78, -84, -66, -60, -92, -68]).fill(white).stroke({ width: 2, color: edge })
-  ears.poly([-118, -76, -126, -60, -110, -66]).fill({ color: 0xffd0e4, alpha: 0.85 })
+  ears.poly([-108, -82, -120, -56, -94, -64]).fill(white).stroke({ width: 2.5, color: edge })
+  ears.poly([-64, -84, -52, -58, -78, -66]).fill(white).stroke({ width: 2.5, color: edge })
+  ears.poly([-106, -76, -114, -58, -98, -64]).fill({ color: 0xffd0e4, alpha: 0.9 })
   c.addChild(ears)
 
   // Gyllene spiralhorn över pannan.
-  const horn = new Graphics().poly([-98, -128, -84, -80, -112, -80]).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orange })
-  horn.moveTo(-106, -88).lineTo(-90, -92)
-  horn.moveTo(-104, -98).lineTo(-91, -102)
-  horn.moveTo(-102, -108).lineTo(-93, -112)
+  const horn = new Graphics().poly([-88, -128, -74, -78, -102, -78]).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orange })
+  horn.moveTo(-96, -86).lineTo(-80, -90)
+  horn.moveTo(-94, -96).lineTo(-81, -100)
+  horn.moveTo(-92, -106).lineTo(-83, -110)
   horn.stroke({ width: 2.5, color: COLORS.orange })
   c.addChild(horn)
 
   // Böljande regnbågsman längs nacken + pannlugg vid hornbasen.
   const mane = new Graphics()
   const maneP = [
-    [-66, -76],
-    [-54, -56],
-    [-48, -34],
-    [-46, -10],
-    [-50, 14],
-    [-58, 34],
+    [-56, -70],
+    [-44, -52],
+    [-38, -32],
+    [-36, -10],
+    [-40, 12],
+    [-48, 30],
   ]
-  for (let i = 0; i < maneP.length; i++) mane.circle(maneP[i][0], maneP[i][1], 15).fill(PLAYFUL[i % PLAYFUL.length])
-  mane.circle(-84, -72, 12).fill(PLAYFUL[4])
-  mane.circle(-98, -66, 11).fill(PLAYFUL[1])
-  c.addChild(mane)
+  for (let i = 0; i < maneP.length; i++) mane.circle(maneP[i][0], maneP[i][1], 14).fill(PLAYFUL[i % PLAYFUL.length])
+  mane.circle(-70, -96, 13).fill(PLAYFUL[4]) // pannlugg som tittar upp ovanför huvudet
+  mane.circle(-92, -90, 11).fill(PLAYFUL[1])
+  // Manen ska ligga BAKOM huvudet — annars blir kulorna en mur mellan huvud och kropp.
+  c.addChildAt(mane, c.getChildIndex(head))
 
   // Stort vänligt öga med glittriga reflexer + fransar.
   const eye = new Graphics()
-  eye.ellipse(-106, -46, 9, 12).fill(0x3a2b3f)
-  eye.circle(-103, -50, 3.2).fill(COLORS.white)
-  eye.circle(-109, -42, 2).fill({ color: COLORS.white, alpha: 0.85 })
-  eye.moveTo(-114, -54).lineTo(-119, -58)
-  eye.moveTo(-108, -57).lineTo(-110, -62)
+  eye.ellipse(-96, -44, 10, 13).fill(0x3a2b3f)
+  eye.circle(-93, -49, 3.6).fill(COLORS.white)
+  eye.circle(-99, -39, 2.2).fill({ color: COLORS.white, alpha: 0.85 })
+  eye.moveTo(-105, -53).lineTo(-111, -57)
+  eye.moveTo(-98, -56).lineTo(-100, -62)
   eye.stroke({ width: 2, color: 0x3a2b3f, cap: 'round' })
   c.addChild(eye)
 
   // Rosig kind.
-  c.addChild(new Graphics().circle(-120, -32, 8).fill({ color: 0xffb3d1, alpha: 0.7 }))
+  c.addChild(new Graphics().circle(-110, -30, 9).fill({ color: 0xffb3d1, alpha: 0.7 }))
 
   // Näsborre + litet leende på nosen.
+  // OBS: arc() utan föregående moveTo fortsätter den aktuella vägen från (0,0) och
+  // ritade ett långt streck tvärs över hela enhörningen, från origo ut till nosen.
   const face = new Graphics()
-  face.ellipse(-132, -28, 3, 4).fill({ color: 0xd98bb4, alpha: 0.85 })
-  face.arc(-126, -20, 8, 0.12 * Math.PI, 0.88 * Math.PI).stroke({ width: 3, color: 0xe79bc0, cap: 'round' })
+  face.ellipse(-124, -26, 3.4, 4.4).fill({ color: 0xd98bb4, alpha: 0.9 })
+  face.moveTo(-117 + 9 * Math.cos(0.12 * Math.PI), -16 + 9 * Math.sin(0.12 * Math.PI))
+  face.arc(-117, -16, 9, 0.12 * Math.PI, 0.88 * Math.PI).stroke({ width: 3, color: 0xe79bc0, cap: 'round' })
   c.addChild(face)
 
   // Barnen rör hela enhörningen -> stäng av interaktion på barnen.
@@ -1025,7 +1054,11 @@ function makeElvira() {
   head.circle(-15, -36, 5).fill({ color: 0xffb0b0, alpha: 0.7 })
   head.circle(15, -36, 5).fill({ color: 0xffb0b0, alpha: 0.7 })
   c.addChild(head)
-  c.addChild(new Graphics().arc(0, -38, 10, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3, color: 0x9a5b3b, cap: 'round' }))
+  // moveTo till bågens startpunkt först — annars dras ett streck från (0,0) till munnen.
+  const mouth = new Graphics()
+  mouth.moveTo(10 * Math.cos(0.15 * Math.PI), -38 + 10 * Math.sin(0.15 * Math.PI))
+  mouth.arc(0, -38, 10, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3, color: 0x9a5b3b, cap: 'round' })
+  c.addChild(mouth)
 
   // Lugg + rosett (hårtofs).
   c.addChild(new Graphics().roundRect(-26, -66, 52, 18, 10).fill(hair))
@@ -1042,13 +1075,24 @@ function makeElvira() {
   return c
 }
 
-// Slumpad studsplattform (rundad lila platta). Origo i mitten -> roterar snyggt kring sin axel.
+// Slumpad studsdyna — randig godisbit med studsknoppar, inte en anonym lila platta.
+// Origo i mitten -> roterar snyggt kring sin axel.
 function makePlatform(w) {
   const view = new Container()
   const half = w / 2
   const g = new Graphics()
-  g.roundRect(-half, -13, w, 26, 14).fill(COLORS.purple).stroke({ width: 4, color: 0x8b6ff0 })
-  g.roundRect(-half, -13, w, 8, 14).fill({ color: COLORS.white, alpha: 0.25 }) // topp-glans
+  g.roundRect(-half, -9, w, 26, 13).fill({ color: 0x6f4fd0, alpha: 0.5 }) // undersida/skugga
+  g.roundRect(-half, -13, w, 26, 13).fill(COLORS.purple).stroke({ width: 4, color: 0x6f4fd0 })
+  // Godisränder tvärs över.
+  const stripes = Math.max(2, Math.round(w / 34))
+  for (let i = 0; i < stripes; i++) {
+    const sx = -half + 12 + (i * (w - 24)) / Math.max(1, stripes - 1)
+    g.roundRect(sx - 4, -11, 8, 22, 4).fill({ color: COLORS.white, alpha: 0.34 })
+  }
+  g.roundRect(-half + 6, -12, w - 12, 7, 4).fill({ color: COLORS.white, alpha: 0.3 }) // topp-glans
+  // Studsknoppar i ändarna.
+  g.circle(-half + 8, 0, 7).fill(COLORS.teal).stroke({ width: 2.5, color: 0x3fa6a1 })
+  g.circle(half - 8, 0, 7).fill(COLORS.teal).stroke({ width: 2.5, color: 0x3fa6a1 })
   view.addChild(g)
   view.eventMode = 'none'
   return view
@@ -1092,15 +1136,39 @@ function makeChest() {
   return c
 }
 
-// Liten glansig guld-glitterpellet (+ ibland en ✨).
-function makePelletView() {
+// Glitterpellet — SORTEN styrs av maten (hjärta / strössel / guldmynt). Tidigare
+// ignorerade den här funktionen sitt argument, så alla tre maträtterna gav identiska
+// gula prickar och "vilken mat"-valet var fortfarande en illusion.
+function makePelletView(kind = 'coin') {
   const c = new Container()
-  const g = new Graphics().circle(0, 0, PELLET_R).fill(COLORS.yellow).stroke({ width: 2, color: COLORS.orange })
-  g.circle(-3, -3, 3).fill({ color: COLORS.white, alpha: 0.85 })
+  const g = new Graphics()
+  const r = PELLET_R
+  if (kind === 'heart') {
+    g.moveTo(0, r * 0.92)
+      .quadraticCurveTo(-r * 1.3, r * 0.06, -r * 0.62, -r * 0.62)
+      .quadraticCurveTo(0, -r * 1.08, 0, -r * 0.26)
+      .quadraticCurveTo(0, -r * 1.08, r * 0.62, -r * 0.62)
+      .quadraticCurveTo(r * 1.3, r * 0.06, 0, r * 0.92)
+      .closePath().fill(0xff6fa8).stroke({ width: 2, color: 0xd94b86 })
+    g.circle(-r * 0.42, -r * 0.4, r * 0.22).fill({ color: COLORS.white, alpha: 0.85 })
+  } else if (kind === 'sprinkle') {
+    const col = PLAYFUL[(Math.random() * PLAYFUL.length) | 0]
+    g.roundRect(-r, -r * 0.42, r * 2, r * 0.84, r * 0.42).fill(col).stroke({ width: 1.6, color: COLORS.white, alpha: 0.55 })
+    g.roundRect(-r * 0.7, -r * 0.24, r * 0.8, r * 0.2, r * 0.1).fill({ color: COLORS.white, alpha: 0.5 })
+    c.rotation = Math.random() * Math.PI
+  } else {
+    g.circle(0, 0, r).fill(COLORS.yellow).stroke({ width: 2, color: COLORS.orange })
+    g.circle(0, 0, r * 0.62).stroke({ width: 1.6, color: COLORS.orange, alpha: 0.7 })
+    g.circle(-3, -3, 3).fill({ color: COLORS.white, alpha: 0.85 })
+  }
   c.addChild(g)
+  // Liten ritad gnista ovanpå ibland (detalj på ett riktigt ritat föremål).
   if (Math.random() < 0.3) {
-    const s = new Text({ text: '✨', style: { fontFamily: FONT.body, fontSize: 16 } })
-    s.anchor.set(0.5)
+    const s = new Graphics()
+      .moveTo(0, -8).lineTo(1.8, -1.8).lineTo(8, 0).lineTo(1.8, 1.8)
+      .lineTo(0, 8).lineTo(-1.8, 1.8).lineTo(-8, 0).lineTo(-1.8, -1.8)
+      .closePath().fill({ color: COLORS.white, alpha: 0.9 })
+    s.position.set(r * 0.7, -r * 0.7)
     s.eventMode = 'none'
     c.addChild(s)
   }
@@ -1108,15 +1176,60 @@ function makePelletView() {
   return c
 }
 
-// Mat-emoji i en träffvänlig Container (osynlig hit-halo Circle r=64 -> ≥96px träffyta).
-function makeFood(emoji) {
+// Ritad mat i en träffvänlig Container (osynlig hit-halo Circle r=64 -> ≥96px träffyta).
+function makeFood(kind) {
   const c = new Container()
-  const t = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 76 } })
-  t.anchor.set(0.5)
-  t.eventMode = 'none'
-  c.addChild(t)
+  const g = new Graphics()
+  g.eventMode = 'none'
+  drawFood(g, kind)
+  c.addChild(g)
   c.eventMode = 'static'
   c.cursor = 'pointer'
   c.hitArea = new Circle(0, 0, 64)
   return c
+}
+
+// Jordgubbe, muffins och kaka — riktiga ritade föremål med egen silhuett.
+function drawFood(g, kind) {
+  g.clear()
+  if (kind === 'jordgubbe') {
+    g.ellipse(0, 46, 26, 8).fill({ color: COLORS.shadow, alpha: 0.12 })
+    g.moveTo(-30, -6)
+      .quadraticCurveTo(-30, -34, 0, -34)
+      .quadraticCurveTo(30, -34, 30, -6)
+      .quadraticCurveTo(30, 26, 0, 42)
+      .quadraticCurveTo(-30, 26, -30, -6)
+      .closePath().fill(0xe8354b).stroke({ width: 3, color: 0xa61d30 })
+    g.ellipse(-13, -12, 8, 12).fill({ color: COLORS.white, alpha: 0.3 })
+    for (const [sx, sy] of [[-15, 2], [2, -4], [16, 4], [-6, 16], [10, 20], [0, 30], [-18, -14], [18, -14]]) {
+      g.ellipse(sx, sy, 2.6, 4).fill({ color: 0xffe27a, alpha: 0.95 })
+    }
+    g.moveTo(0, -30).quadraticCurveTo(-26, -44, -34, -28).quadraticCurveTo(-14, -25, 0, -30).fill(0x49a657)
+    g.moveTo(0, -30).quadraticCurveTo(26, -44, 34, -28).quadraticCurveTo(14, -25, 0, -30).fill(0x5bbf6a)
+    g.moveTo(0, -32).quadraticCurveTo(-9, -48, 3, -54).quadraticCurveTo(11, -44, 0, -32).fill(0x49a657)
+    g.roundRect(-3, -60, 6, 14, 3).fill(0x3f8a4f)
+  } else if (kind === 'muffins') {
+    g.ellipse(0, 46, 28, 8).fill({ color: COLORS.shadow, alpha: 0.12 })
+    g.moveTo(-28, 4).lineTo(28, 4).lineTo(21, 42).lineTo(-21, 42).closePath()
+      .fill(0x4aa3df).stroke({ width: 3, color: 0x2f7cb0 })
+    for (let i = -2; i <= 2; i++) g.moveTo(i * 11, 7).lineTo(i * 8.5, 40).stroke({ width: 3, color: 0x2f7cb0, alpha: 0.45 })
+    g.ellipse(0, 2, 33, 15).fill(0xff9ec4)
+    g.ellipse(0, -12, 26, 14).fill(0xffb3d1)
+    g.ellipse(0, -26, 18, 12).fill(0xff9ec4)
+    g.ellipse(-9, -18, 8, 5).fill({ color: COLORS.white, alpha: 0.35 })
+    for (const [sx, sy, col] of [[-17, -4, COLORS.yellow], [9, -8, COLORS.teal], [-4, -22, COLORS.purple], [17, 2, COLORS.green], [1, -33, COLORS.orange]]) {
+      g.roundRect(sx - 4, sy - 1.7, 8, 3.4, 1.7).fill(col)
+    }
+    g.circle(0, -41, 9).fill(0xe8354b).stroke({ width: 2.5, color: 0xa61d30 })
+    g.circle(-3, -44, 3).fill({ color: COLORS.white, alpha: 0.5 })
+  } else {
+    g.ellipse(0, 44, 32, 8).fill({ color: COLORS.shadow, alpha: 0.12 })
+    g.circle(0, 4, 36).fill(0xd9a15c).stroke({ width: 3, color: 0xa8763c })
+    g.circle(0, 1, 32).fill(0xe6b473)
+    for (const [cx, cy, r] of [[-15, -8, 6], [10, -13, 5], [-6, 11, 5.5], [17, 8, 5], [-21, 8, 4], [4, -1, 4.5], [20, -5, 4]]) {
+      g.circle(cx, cy, r).fill(0x5b3a22)
+      g.circle(cx - r * 0.3, cy - r * 0.3, r * 0.35).fill({ color: 0x8a5a3b, alpha: 0.55 })
+    }
+    g.ellipse(-15, -19, 12, 6).fill({ color: COLORS.white, alpha: 0.22 })
+  }
 }

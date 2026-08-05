@@ -4,8 +4,8 @@
 på ⚙️ Fysik-fliken 2026-08-04 (v1.7.0). Leta buggar och problem, fixa dem, och lyft
 **design, assets och omspelsvärde**. En commit per spel.
 
-> ⚙️ **Fysik-fliken är KLAR** (27/27, v1.7.0). Kvar: 🎉 Roligt (13) → 🧩 Pussel (19) →
-> 🔤 Lära (9) = **41 spel**. Bocka av i tabellerna nedan när ett spel är committat.
+> ⚙️ **Fysik-fliken är KLAR** (27/27, v1.7.0). Kvar: 🎉 Roligt (11) → 🧩 Pussel (19) →
+> 🔤 Lära (9) = **39 spel**. Bocka av i tabellerna nedan när ett spel är committat.
 
 > 💡 **Sjätte läckan, hittad i `bajs-och-kiss`:** `arc()` i en **delad** `Graphics` fortsätter
 > den aktuella vägen — utan `moveTo` till bågens startpunkt först ritas ett streck från förra
@@ -17,6 +17,15 @@ på ⚙️ Fysik-fliken 2026-08-04 (v1.7.0). Leta buggar och problem, fixa dem, 
 > hyllor — emojin hade en inbyggd mörk kontur som ritningen saknar. Ge allt som är
 > ljusare än ~0xf0e8d8 en egen kontur (`stroke` eller en något mörkare form under).
 > Syns bara i skärmdumpen, aldrig i koden.
+
+> 💡 **Åttonde läckan, hittad i `hamburgerbygget`:** ett drag-lager med
+> `eventMode = 'none'` skär bort **hela subträdet** från händelser. Flyttar man ett
+> *interaktivt* objekt dit mitt i ett drag (om-drag av ett redan placerat föremål) slutar
+> det följa fingret, och varken `pointerup` eller `pointerupoutside` når fram — greppet kan
+> aldrig avslutas och släpp-målen blir omöjliga att träffa. Använd **`'passive'`**: lagret
+> självt är genomsläppligt, men interaktiva barn får sina händelser. Syns varken i koden
+> eller i skärmdumpen — bara när man faktiskt drar. Leta i spel som flyttar objekt mellan
+> containrar under ett drag.
 
 ---
 
@@ -82,7 +91,7 @@ Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-
 |--:|----|------:|:--:|
 | 1 | `bajs-och-kiss` | 17 | ✅ |
 | 2 | `pizzabageriet` | 11 | ✅ |
-| 3 | `hamburgerbygget` | 11 | ⬜ |
+| 3 | `hamburgerbygget` | 11 | ✅ |
 | 4 | `sapbubblor` | 10 | ⬜ |
 | 5 | `pruttbad` | 10 | ⬜ |
 | 6 | `lagerelden` | 10 | ⬜ |

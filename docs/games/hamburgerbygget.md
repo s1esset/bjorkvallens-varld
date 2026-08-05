@@ -1,5 +1,5 @@
 # Hamburgerbygget (`hamburgerbygget`)
-> 🎉 roligt · drag · 2–5 år · status: 📝 plan klar
+> 🎉 roligt · drag · 2–5 år · status: ✅ marknadskvalitet (2026-08-05)
 
 > **Uppdatering (v1.0 UX-svep):** Ny spegelvänd layout — Bobo-loggan centrerad högst upp,
 > bygget till höger, mindre grill till vänster, grillknappen (nu **ikon 🔥⬅️** utan text) i
@@ -76,6 +76,15 @@ likadant, placeringen är meningslös och ingen äter** — payoff och realism o
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
+- ~~**[Medium] Per-lager grill-respons.**~~ ✅ 2026-08-05
+- ~~**[Medium] En kund med en bild-order.**~~ ✅ 2026-08-05
+- ~~**[Quick] Låt släpp-positionen betyda något.**~~ ✅ v1.0 UX-svep
+- ~~**[Quick] Sizzel + rök vid pålägg.**~~ ✅ (rök nu ritad, inte 💨)
+- ~~**[Quick] Flytta mätaren till grillen.**~~ ✅
+- ~~**[Medium] En grill-maskot.**~~ ✅ 2026-08-05 (Bobo med kropp, förkläde, kockmössa)
+
+Originaltexten för de avbockade punkterna står kvar nedan.
+
 - **[Medium] Per-lager grill-respons.** Tinta lagren individuellt: bara biff/bacon brynas mot mörkt,
   osten *smälter* (rinner ut lite) och bröden rostas svagt — sallad/tomat ändras knappt. Tar bort
   den konstiga "svarta salladen" och gör grillningen trovärdig. (Kräver att stapla vy:erna med egna
@@ -112,6 +121,39 @@ likadant, placeringen är meningslös och ingen äter** — payoff och realism o
 
 ## 5. Status / loggar
 
+- 2026-08-05 ✅ **Poleringsrundan, Roligt #3 — spelet var mekaniskt helt men visuellt tunt.**
+  1. **P0 ASSETS [blockerande]** — 54 av 63 ingredienser var emoji i en `Text`. Ny
+     `ingredienser.js` ritar **alla 63 i sidoprofil** som fristående Graphics (egen silhuett,
+     glans, kontur på allt ljust). Även soptunnan, grillknappens ikon (`🔥⬅️` lästes som en
+     blå ruta), röken (`💨`) och den serverade burgaren är nu ritade. Ingen emoji är längre
+     ett spelobjekt.
+  2. **Per-lager grillning [Medium]** — §3:s största brist är borta. Varje lager har ett eget
+     `bake`-värde: biff/bacon/korv går mot mörkt, sallad och gurka ändras knappt, osten
+     *smälter* (sjunker ihop och breder ut sig), bröden rostas svagt. Ingen becksvart sallad.
+  3. **Bobos önskelista [Medium]** — pratbubbla med 1–2 ritade önskningar ur de 23 "goda"
+     ingredienserna. Träff ger extra fest direkt; uppfylld order ger en gladare servering.
+     Ny önskan varje omgång. Helt frivillig — aldrig ett krav, aldrig ett misslyckande.
+  4. **Riktigt kök [Quick]** — kaklad vägg, fläkt med lampa över grillen, bänkskiva, golv,
+     ketchup-/senapsflaskor, upphängda redskap och en **serveringslucka** bakom Bobo (utan
+     den försvann en cream-färgad björn mot en cream-färgad vägg — sjunde läckan).
+  5. **Grillmästaren Bobo [Medium]** — var ett svävande huvud, har nu kropp, rutigt förkläde,
+     tassar, kockmössa och vilo-guppning.
+  6. **Stapeln läser som EN burgare** — lagertjockleken mäts nu på den *ritade* formen
+     (`layerThickness`, min av mätt höjd × 0,84 och ingrediensens `th`) i stället för en
+     handskriven siffra, och varje ritning centreras kring sin egen massa. Tidigare svävade
+     lagren isär som lösa brickor.
+  7. **Bugg [blockerande, hittad av `spelkritiker`]** — ett redan staplat lager gick inte att
+     dra om eller slänga: `_dragLayer` hade `eventMode = 'none'`, vilket skär bort **hela
+     subträdet** från händelser. Lagret frös mitt i draget och greppet kunde aldrig avslutas.
+     Nu `'passive'` (samma lösning som `pizzabageriet` redan hade). Verifierat: släpp i
+     soptunnan tar bort lagret, släpp utanför snäpper tillbaka, och nästa drag fungerar.
+  8. `gsap.delayedCall` → **`ctx.later()`** (exit-säkerhet) · ton-mätaren flyttad ur
+     redskapshyllans väg · alla 63 ingrediensnamn ligger nu som literaler i
+     `voice-phrases.json` (talas via `item.sv` — check hittar dem inte).
+  Kvar i §4: ketchup-/senapsklämma [Deep], burgar-galleri [Quick], sällsynt specialingrediens
+  [Medium], och ett riktigt fräs-*sample* när MOSS är uppe (i dag procedurell ton).
+  `npm run check -- --game hamburgerbygget` grön · `npm run test hamburgerbygget` 0 fel ·
+  skärmdumpar granskade i alla faser (bygg / stapel / grill / servering) + riktade drag-tester.
 - 2026-06-30: Doc skriven efter källäsning (inkl. `lib/cooking.js`) + playtest (errorCount 0, drag
   staplade sallad/tomat mellan bröden, skärmdump granskad). Inga kodändringar. Rekommenderad
   första-omgång: **[Medium] per-lager grill-respons + [Medium] kund med order + [Quick] sizzel/rök**

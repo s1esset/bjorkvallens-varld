@@ -64,7 +64,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 49 | Lägerelden | `lagerelden` | mixed | 🔧 |
 | 66 | Loopdjuren | `loopdjuren` | drag | 🔧 |
 | 67 | Pizzabageriet | `pizzabageriet` | drag | ✅ |
-| 68 | Hamburgerbygget | `hamburgerbygget` | drag | 🔧 |
+| 68 | Hamburgerbygget | `hamburgerbygget` | drag | ✅ |
 | 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ |
 
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ HELA fliken (första-omgång, 2026-07-01)

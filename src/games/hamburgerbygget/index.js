@@ -1,32 +1,39 @@
-// Hamburgerbygget — bygg & grilla (2–5 år). Sett FRÅN SIDAN: en underbulle ligger på
-// fatet till HÖGER. Barnet DRAR ingredienser (sallad, ost, biff … och roliga grejer som
-// bajs, spindel, blöja, Pappa!) från hyllan och släpper på bygget → de STAPLAS mellan
-// bröden; släpp-höjden väljer VAR i stapeln lagret hamnar. Redan staplade lager kan
-// DRAS OM: flytta dem i stapeln eller släpp dem på PAPPERSKORGEN (under grillknappen)
-// → rolig puff, aldrig fel. Hyllan har MÅNGA saker (slumpad ordning varje start) →
-// svep/dra i hyllan (eller pilarna) för att bläddra; ett tryck staplar direkt
-// (tap-fallback). Grillen står till VÄNSTER; knappen med 🔥⬅️ (pil mot elden) skickar
-// burgaren dit och den MÖRKNAR längs en ton-gradient (rå → grillad → mörk → kol).
-// Barnet trycker "Ta av" när den ser god ut. INGET kan bli fel: även becksvart är bara
-// roligt, firande + klistermärke varje gång, sedan en ny burgare. Maten ritas i
-// sidoprofil med Pixi Graphics; roliga grejer är emoji. Exit-säkert.
+// Hamburgerbygget — bygg & grilla (2–5 år). Sett FRÅN SIDAN i ett riktigt kök: kaklad
+// vägg, fläkt över grillen, bänkskiva och såsflaskor. En underbulle ligger på fatet till
+// HÖGER. Barnet DRAR ingredienser (sallad, ost, biff … och roliga grejer som bajs,
+// spindel, blöja, Pappa!) från hyllan och släpper på bygget → de STAPLAS mellan bröden;
+// släpp-höjden väljer VAR i stapeln lagret hamnar. Redan staplade lager kan DRAS OM:
+// flytta dem i stapeln eller släpp dem på SOPTUNNAN (under grillknappen) → rolig puff,
+// aldrig fel. Hyllan har MÅNGA saker (slumpad ordning varje start) → svep/dra i hyllan
+// (eller pilarna) för att bläddra; ett tryck staplar direkt (tap-fallback). Grillen står
+// till VÄNSTER; eld-knappen skickar burgaren dit och varje LAGER bryns för sig — biffen
+// blir mörk, salladen knappt alls och osten smälter. Barnet trycker "Ta av" när den ser
+// god ut och burgaren serveras till grillmästaren Bobo, som ibland önskat sig något
+// särskilt (bild-order, helt frivillig). INGET kan bli fel: även becksvart är bara
+// roligt, firande + klistermärke varje gång, sedan en ny burgare. ALLT ritas som
+// fristående Pixi Graphics (ingredienserna i ingredienser.js) — ingen emoji är ett
+// spelobjekt. Exit-säkert: tweens dödas, fördröjningar går via ctx.later.
 import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
-import { createScene } from '../../lib/scene.js'
 import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
+import { ITEMS, makeItemView } from './ingredienser.js'
 
 const BUILD = { x: 880, y: 596 } // _burger-origo: fatets yta (underbullens botten) — HÖGER
 const GRILL = { x: 235, y: 430 } // grillen — VÄNSTER, lite mindre än förr
 const GRILL_S = 0.78 // grillens skala (mindre grill)
-const BTN = { x: 560, y: 430 } // 🔥⬅️-knappen: i kolumnen MELLAN grillen och bygget
-const TRASH = { x: 560, y: 556 } // papperskorgen: rakt under grillknappen
+const BTN = { x: 560, y: 430 } // eld-knappen: i kolumnen MELLAN grillen och bygget
+const TRASH = { x: 560, y: 566 } // soptunnan: rakt under grillknappen
+const BOBO = { x: 1124, y: 430 } // grillmästaren till höger om bygget (bakom bänken)
+const ORDER = { x: 1084, y: 246 } // Bobos önskelista, rakt ovanför honom
+const COUNTER_Y = 552 // bänkskivans ovansida — grillens ben står på den
 const BOTTOM_BUN_H = 50
 const TOP_BUN_H = 62
+const BUN_BAKE = 0.55 // bröden rostas svagt, inte som köttet
 const STACK_CAP_Y = -358 // sluta lägga på när stapeln är så här hög (no-fail "fullt")
 
 // Svepbar hylla.
@@ -45,76 +52,27 @@ const RECUE = [
 ]
 const PLACE_CHEERS = ['Mums!', 'En till!', 'Snyggt!', 'Oj!', 'Hög!']
 
+const ORDER_CUES = [
+  'Bobo är hungrig! Han önskar sig något särskilt.',
+  'Titta vad Bobo vill ha i sin burgare!',
+]
+const SERVE_CHEERS = ['Mums, tack!', 'Så god burgare!', 'Jättegott!']
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
-// En vy för en ingrediens: ritad sidoprofil (make) eller emoji-grej.
-const viewFor = (ing) => (ing.make ? ing.make() : makeEmoji(ing.emoji, ing.th))
+// En vy för en ingrediens — alltid ritad (P0 ASSETS). `fit` krymper till hyllans fack.
+const viewFor = (ing, fit = 0) => makeItemView(ing, fit)
 
-// --- Ingredienser i SIDOPROFIL (ritade) + roliga emoji-grejer ---
-const FOODS = [
-  { id: 'sallad', th: 30, make: makeLettuce },
-  { id: 'ost', th: 24, make: makeCheese },
-  { id: 'biff', th: 42, make: makePatty },
-  { id: 'tomat', th: 28, make: makeTomato },
-  { id: 'bacon', th: 22, make: makeBacon },
-]
-const FUN = [
-  { id: 'bajs', th: 54, emoji: '💩' },
-  { id: 'strumpa', th: 50, emoji: '🧦' },
-  { id: 'fisk', th: 48, emoji: '🐟' },
-  { id: 'ben', th: 46, emoji: '🦴' },
-  { id: 'stjarna', th: 46, emoji: '⭐' },
-]
-// 25 extra "slumpiga" ingredienser (emoji) → mycket att bläddra bland.
-const EXTRA = [
-  { id: 'raka', th: 44, emoji: '🍤' }, { id: 'lok', th: 40, emoji: '🧅' }, { id: 'gurka', th: 34, emoji: '🥒' },
-  { id: 'stekt_agg', th: 40, emoji: '🍳' }, { id: 'agg', th: 44, emoji: '🥚' }, { id: 'chili', th: 40, emoji: '🌶️' },
-  { id: 'paprika', th: 42, emoji: '🫑' }, { id: 'svamp', th: 42, emoji: '🍄' }, { id: 'broccoli', th: 46, emoji: '🥦' },
-  { id: 'ananas', th: 44, emoji: '🍍' }, { id: 'banan', th: 44, emoji: '🍌' }, { id: 'jordgubbe', th: 40, emoji: '🍓' },
-  { id: 'pizza', th: 44, emoji: '🍕' }, { id: 'korv', th: 40, emoji: '🌭' }, { id: 'pommes', th: 46, emoji: '🍟' },
-  { id: 'kringla', th: 44, emoji: '🥨' }, { id: 'munk', th: 46, emoji: '🍩' }, { id: 'kaka', th: 40, emoji: '🍪' },
-  { id: 'choklad', th: 38, emoji: '🍫' }, { id: 'is', th: 40, emoji: '🧊' }, { id: 'mask', th: 38, emoji: '🐛' },
-  { id: 'blackfisk', th: 48, emoji: '🐙' }, { id: 'krabba', th: 46, emoji: '🦀' }, { id: 'groda', th: 44, emoji: '🐸' },
-  { id: 'godis', th: 38, emoji: '🍬' },
-]
-// 10 äckligt-roliga (barnkul, aldrig läskigt) — med talbara namn.
-const ICKY = [
-  { id: 'spindel', sv: 'Spindel', th: 44, emoji: '🕷️' },
-  { id: 'snigel', sv: 'Snigel', th: 42, emoji: '🐌' },
-  { id: 'tandborste', sv: 'Tandborste', th: 46, emoji: '🪥' },
-  { id: 'kackerlacka', sv: 'Kackerlacka', th: 40, emoji: '🪳' },
-  { id: 'kalsonger', sv: 'Kalsonger', th: 46, emoji: '🩲' },
-  { id: 'toapapper', sv: 'Toapapper', th: 46, emoji: '🧻' },
-  { id: 'tand', sv: 'Tand', th: 38, emoji: '🦷' },
-  { id: 'mygga', sv: 'Mygga', th: 38, emoji: '🦟' },
-  { id: 'daggmask', sv: 'Daggmask', th: 40, emoji: '🪱' },
-  { id: 'disksvamp', sv: 'Disksvamp', th: 42, emoji: '🧽' },
-]
-// 10 nya GODA burgar-ingredienser.
-const GOODIES = [
-  { id: 'avokado', sv: 'Avokado', th: 42, emoji: '🥑' },
-  { id: 'morot', sv: 'Morot', th: 42, emoji: '🥕' },
-  { id: 'majs', sv: 'Majs', th: 42, emoji: '🌽' },
-  { id: 'aubergine', sv: 'Aubergine', th: 44, emoji: '🍆' },
-  { id: 'potatis', sv: 'Potatis', th: 42, emoji: '🥔' },
-  { id: 'kottbit', sv: 'Köttbit', th: 44, emoji: '🥩' },
-  { id: 'kyckling', sv: 'Kycklingklubba', th: 44, emoji: '🍗' },
-  { id: 'smor', sv: 'Smör', th: 38, emoji: '🧈' },
-  { id: 'oliv', sv: 'Oliv', th: 36, emoji: '🫒' },
-  { id: 'honung', sv: 'Honung', th: 42, emoji: '🍯' },
-]
-// 8 specialare. OBS: Pappa/Mamma är ROLLER (avbildade personer namnges aldrig här).
-const SPECIAL = [
-  { id: 'pappa', sv: 'Pappa', th: 48, emoji: '👨' },
-  { id: 'mamma', sv: 'Mamma', th: 48, emoji: '👩' },
-  { id: 'fluga', sv: 'Fluga', th: 36, emoji: '🪰' },
-  { id: 'monster', sv: 'Gulligt monster', th: 46, emoji: '👾' },
-  { id: 'kissdroppe', sv: 'Kissdroppe', th: 44, make: makePee, shelfScale: 0.78 },
-  { id: 'anvand_bloja', sv: 'Använd blöja', th: 44, make: makeDiaper, shelfScale: 0.62 },
-  { id: 'potta', sv: 'Potta', th: 46, make: makePotty, shelfScale: 0.62 },
-  { id: 'prutt', sv: 'Prutt', th: 42, emoji: '💨' },
-]
-const PALETTE = [...FOODS, ...FUN, ...EXTRA, ...ICKY, ...GOODIES, ...SPECIAL]
+// Lagrets tjocklek i stapeln: det MINSTA av den ritade höjden och ingrediensens
+// tänkta tjocklek — aldrig mer. Annars glappar stapeln (svävande brickor i stället för
+// en burgare), särskilt för saker med utstickande antenner eller stjälkar. Faktorn
+// 0.84 låter lagren nästla i varandra precis som i en riktig burgare.
+const layerThickness = (view, ing) => {
+  const h = view.getLocalBounds().height * (view.scale?.y || 1)
+  // Golvet 26 gör att ett tunt lager (bacon, ost) syns även klämt mellan tjocka grannar.
+  return clamp(Math.round(Math.min(h * 0.84, ing.th)), 26, 78)
+}
+
 
 export default {
   id: 'hamburgerbygget',
@@ -137,13 +95,15 @@ export default {
     this._lastSizzle = 0
     this._flameAcc = 0
     this._grab = null
+    this._order = []
+    this._bob = 0
     this._rounds = ctx.progress.get().custom?.burgare || 0
     // Slumpad hyll-ordning så två sessioner inte ser lika ut.
-    this._items = shuffle(PALETTE.slice())
+    this._items = shuffle(ITEMS.slice())
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
-    this._root.addChild(createScene('warm', { width: ctx.width, height: ctx.height }))
+    this._root.addChild(this._buildKitchen(ctx))
 
     this._hint = new Text({ text: '', style: { fontFamily: FONT.title, fontSize: 30, fontWeight: '700', fill: COLORS.ink } })
     this._hint.anchor.set(0.5)
@@ -177,16 +137,20 @@ export default {
     const meter = buildToneMeter({ width: 320, tint: bakeTint })
     this._meter = meter.container
     this._setMeterProgress = meter.setProgress
-    this._meter.position.set(GRILL.x, 190)
+    this._meter.position.set(BTN.x, 214)
     this._meter.visible = false
     this._root.addChild(this._meter)
 
-    // Restauranglogga & hungrig kund (Bobo): mitt upptill, mumsar burgaren vid servering.
-    this._customerBase = { x: 640, y: 138 }
-    this._customer = makeMascot(56)
-    this._customer.position.set(this._customerBase.x, this._customerBase.y)
-    this._customer.eventMode = 'none'
+    // Grillmästaren Bobo (kropp, förkläde, kockmössa) — tar emot burgaren och mumsar.
+    this._customer = this._buildBobo()
     this._root.addChild(this._customer)
+
+    // Bobos önskelista: pratbubbla med 1–2 ritade ingredienser han vill ha. Frivillig.
+    this._orderBubble = new Container()
+    this._orderBubble.position.set(ORDER.x, ORDER.y)
+    this._orderBubble.eventMode = 'none'
+    this._root.addChild(this._orderBubble)
+    this._newOrder()
 
     // Ingrediens-bräda nederst (svepbar hylla).
     this._buildPalette(ctx)
@@ -194,21 +158,27 @@ export default {
     // Papperskorg (släpp ett staplat lager här → rolig puff, aldrig fel).
     this._buildTrash(ctx)
 
-    // Drag-lager överst.
+    // Drag-lager överst. OBS 'passive', inte 'none': ett OM-draget lager flyttas hit
+    // mitt i draget, och 'none' skär bort HELA subträdet från händelser — då slutade
+    // lagret följa fingret och varken pointerup eller pointerupoutside nådde fram, så
+    // draget kunde aldrig avslutas (soptunnan gick inte att träffa och greppet fastnade).
+    // 'passive' låter lagret självt vara genomsläppligt men interaktiva barn få sina
+    // händelser. Spök-kopian från hyllan är eventMode 'none' och påverkas inte.
     this._dragLayer = new Container()
-    this._dragLayer.eventMode = 'none'
+    this._dragLayer.eventMode = 'passive'
     this._root.addChild(this._dragLayer)
 
-    // Grill-knappen: ingen text — en pil mot elden (grillen står till vänster).
+    // Grill-knappen: ingen text — en RITAD låga med pil mot elden (grillen står vänster).
     this._grillBtn = new Button({
-      icon: '🔥⬅️', width: 170, height: 100, color: COLORS.orange,
+      width: 170, height: 100, color: COLORS.orange,
       services: ctx.services, sound: 'whoosh', onTap: () => this._startGrill(ctx),
     })
+    this._grillBtn.addChild(makeFlameArrow())
     this._grillBtn.position.set(BTN.x, BTN.y)
     this._root.addChild(this._grillBtn)
 
     this._takeBtn = new Button({
-      label: 'Ta av', icon: '🧤', width: 210, height: 100, color: COLORS.green,
+      label: 'Ta av', width: 210, height: 100, color: COLORS.green,
       services: ctx.services, sound: 'pop', onTap: () => this._takeOff(ctx),
     })
     this._takeBtn.position.set(BTN.x, BTN.y)
@@ -227,6 +197,164 @@ export default {
   },
 
   // ---- Bygg-hjälpare ------------------------------------------------------
+
+  // Köket: kaklad vägg, fläkt över grillen, bänkskiva, golv, såsflaskor och redskap.
+  // Ersätter den nakna gradienten (femte läckan: tomma scener).
+  _buildKitchen(ctx) {
+    const c = new Container()
+    const W = ctx.width
+    const H = ctx.height
+
+    // Kaklad vägg med förskjutna rader.
+    const wall = new Graphics().rect(0, 0, W, COUNTER_Y).fill(0xf6dcc0)
+    for (let row = 0; row * 64 < COUNTER_Y; row++) {
+      const y = row * 64
+      const off = row % 2 ? -32 : 0
+      for (let x = off; x < W; x += 64) wall.roundRect(x + 4, y + 4, 56, 56, 11).fill({ color: 0xfdefdb, alpha: 0.9 })
+    }
+    c.addChild(wall)
+
+    // Fläkt/kåpa över grillen — fyller den tomma ytan uppe till vänster.
+    const hood = new Graphics()
+    hood.roundRect(GRILL.x - 26, 0, 52, 120, 8).fill(0x8d96a4)
+    hood.roundRect(GRILL.x - 18, 0, 16, 120, 6).fill({ color: 0xb2bac6, alpha: 0.8 })
+    hood.moveTo(GRILL.x - 172, 232).lineTo(GRILL.x - 96, 112).lineTo(GRILL.x + 96, 112)
+      .lineTo(GRILL.x + 172, 232).closePath().fill(0x9aa3b1)
+    hood.moveTo(GRILL.x - 172, 232).lineTo(GRILL.x - 96, 112).lineTo(GRILL.x - 40, 112)
+      .lineTo(GRILL.x - 92, 232).closePath().fill({ color: 0xb2bac6, alpha: 0.75 })
+    hood.roundRect(GRILL.x - 182, 226, 364, 22, 11).fill(0x7c8593)
+    // Liten lampa under kåpan (varmt sken mot grillen).
+    hood.circle(GRILL.x, 250, 16).fill({ color: 0xffd98a, alpha: 0.95 })
+    hood.circle(GRILL.x, 250, 26).fill({ color: 0xffd98a, alpha: 0.16 })
+    c.addChild(hood)
+
+    // Bänkskiva (stål) med mörkare framkant + golv.
+    c.addChild(new Graphics()
+      .rect(0, COUNTER_Y, W, 92).fill(0xc9a882)
+      .rect(0, COUNTER_Y, W, 13).fill(0xe3c8a4)
+      .rect(0, COUNTER_Y + 78, W, 14).fill(0xa8875f))
+    c.addChild(new Graphics().rect(0, COUNTER_Y + 92, W, H - COUNTER_Y - 92).fill(0xb08a63))
+
+    // Såsflaskor (ketchup + senap) mellan knappkolumnen och bygget.
+    const bottles = new Graphics()
+    for (const [x, body, cap] of [[688, 0xd8402c, 0xf0705c], [734, 0xe8b41e, 0xf7d264]]) {
+      bottles.roundRect(x - 19, COUNTER_Y - 74, 38, 78, 15).fill(body)
+      bottles.roundRect(x - 19, COUNTER_Y - 74, 14, 78, 10).fill({ color: cap, alpha: 0.55 })
+      bottles.moveTo(x - 11, COUNTER_Y - 74).quadraticCurveTo(x, COUNTER_Y - 96, x + 11, COUNTER_Y - 74)
+        .fill(body)
+      bottles.roundRect(x - 7, COUNTER_Y - 104, 14, 14, 6).fill(0xf3ece0)
+      bottles.roundRect(x - 13, COUNTER_Y - 52, 26, 20, 6).fill({ color: 0xfffdf7, alpha: 0.85 })
+    }
+    c.addChild(bottles)
+
+    // Serveringslucka bakom Bobo. Utan den försvinner en cream-färgad björn mot en
+    // cream-färgad kakelvägg (sjunde läckan) — luckan ger honom en mörkare fond.
+    const hatch = new Graphics()
+    hatch.roundRect(BOBO.x - 118, BOBO.y - 136, 236, 136 + (COUNTER_Y - BOBO.y), 26).fill(0x8a6742)
+    hatch.roundRect(BOBO.x - 104, BOBO.y - 122, 208, 122 + (COUNTER_Y - BOBO.y), 18).fill(0x6d4f34)
+    hatch.roundRect(BOBO.x - 104, BOBO.y - 122, 208, 30, 15).fill({ color: 0x5b4029, alpha: 0.8 })
+    // Ljusslinga i luckans överkant.
+    for (let i = -3; i <= 3; i++) {
+      hatch.circle(BOBO.x + i * 30, BOBO.y - 110, 6).fill({ color: 0xffd98a, alpha: 0.95 })
+    }
+    c.addChild(hatch)
+
+    // Upphängda redskap på väggen (stekspade + gaffel). Hänger till HÖGER om
+    // knappkolumnen — ton-mätaren dyker upp vid 560,214 och får inte krocka.
+    const tools = new Graphics()
+    tools.roundRect(700, 96, 190, 9, 4).fill(0x8d96a4)
+    tools.roundRect(740, 105, 11, 74, 5).fill(0x5b5260)
+    tools.roundRect(728, 179, 35, 30, 8).fill(0xb2bac6)
+    tools.roundRect(826, 105, 11, 66, 5).fill(0x5b5260)
+    for (const dx of [0, 11, 22]) tools.roundRect(816 + dx, 171, 6, 30, 3).fill(0xb2bac6)
+    c.addChild(tools)
+
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    return c
+  },
+
+  // Grillmästaren Bobo: maskot-huvudet med kropp, förkläde, tassar och kockmössa.
+  _buildBobo() {
+    const c = new Container()
+    c.position.set(BOBO.x, BOBO.y)
+
+    const body = new Graphics()
+    // Armar bakom bålen.
+    body.roundRect(-78, 42, 38, 20, 10).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    body.roundRect(40, 42, 38, 20, 10).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    body.circle(-78, 52, 15).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    body.circle(78, 52, 15).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    // Tassar nedtill.
+    body.ellipse(-27, 112, 22, 14).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    body.ellipse(27, 112, 22, 14).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    // Bål med skuggkant.
+    body.roundRect(-54, 24, 108, 92, 36).fill(COLORS.orangeDark)
+    body.roundRect(-54, 18, 108, 92, 36).fill(COLORS.cream)
+    // Rutigt grillförkläde med hängslen och band.
+    body.moveTo(-31, 42).lineTo(31, 42).lineTo(28, 100).quadraticCurveTo(0, 110, -28, 100).closePath()
+      .fill(0xfffdf7).stroke({ width: 3, color: 0xe2d4b8 })
+    for (const x of [-20, -4, 12]) body.roundRect(x, 44, 8, 54, 3).fill({ color: 0xf3b0a0, alpha: 0.55 })
+    for (const y of [52, 70, 88]) body.roundRect(-29, y, 58, 7, 3).fill({ color: 0xf3b0a0, alpha: 0.5 })
+    body.moveTo(-18, 42).lineTo(-9, 20).stroke({ width: 7, color: COLORS.orange, cap: 'round' })
+    body.moveTo(18, 42).lineTo(9, 20).stroke({ width: 7, color: COLORS.orange, cap: 'round' })
+    body.roundRect(-34, 54, 68, 11, 6).fill(COLORS.orange)
+    c.addChild(body)
+
+    // Huvudet (maskoten) + kockmössa.
+    c.addChild(makeMascot(46))
+    const hat = new Graphics()
+    hat.roundRect(-35, -64, 70, 23, 9).fill(0xfffdf7).stroke({ width: 3, color: 0xe2d4b8 })
+    hat.circle(-25, -80, 21).fill(0xfffdf7)
+    hat.circle(0, -88, 25).fill(0xfffdf7)
+    hat.circle(25, -80, 21).fill(0xfffdf7)
+    hat.roundRect(-33, -86, 66, 27, 13).fill(0xfffdf7)
+    hat.roundRect(-35, -64, 70, 23, 9).stroke({ width: 3, color: 0xe2d4b8 })
+    c.addChild(hat)
+
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    return c
+  },
+
+  // ---- Bobos önskelista (frivillig order) ---------------------------------
+
+  _newOrder() {
+    const pool = ITEMS.filter((i) => i.good)
+    const n = 1 + (Math.random() < 0.45 ? 1 : 0) // 1–2 önskningar — aldrig övermäktigt
+    this._order = shuffle(pool.slice()).slice(0, n)
+    this._drawOrder()
+  },
+
+  // Pratbubblan med de önskade ingredienserna (bild, ingen läsning).
+  _drawOrder() {
+    const b = this._orderBubble
+    if (!b || b.destroyed) return
+    b.removeChildren().forEach((ch) => ch.destroy({ children: true }))
+    const n = this._order.length
+    const w = 44 + n * 74
+    const h = 100
+    const bg = new Graphics()
+      .roundRect(-w / 2 + 5, -h / 2 + 7, w, h, 28).fill({ color: COLORS.shadow, alpha: 0.08 })
+      .roundRect(-w / 2, -h / 2, w, h, 28).fill(0xfffdf7).stroke({ width: 4, color: COLORS.orange })
+    // Svans nedåt mot Bobo.
+    bg.moveTo(10, h / 2 - 6).lineTo(28, h / 2 + 26).lineTo(44, h / 2 - 10).closePath()
+      .fill(0xfffdf7).stroke({ width: 4, color: COLORS.orange })
+    bg.eventMode = 'none'
+    b.addChild(bg)
+    this._order.forEach((item, i) => {
+      const v = makeItemView(item, 62)
+      v.position.set(-((n - 1) * 74) / 2 + i * 74, 0)
+      b.addChild(v)
+      bounceIn(v, { delay: 0.1 + i * 0.08 })
+    })
+    b.scale.set(1)
+  },
+
+  _orderFilled() {
+    if (!this._order.length) return false
+    return this._order.every((o) => this._stack.some((v) => v._ing?.id === o.id))
+  },
 
   _buildGrill() {
     const c = new Container()
@@ -271,15 +399,25 @@ export default {
     }
   },
 
+  // Ritad soptunna (metall med lock och handtag) — inget emoji.
   _buildTrash(ctx) {
     const c = new Container()
     const plate = new Graphics()
-      .roundRect(-56, -52, 112, 104, 26).fill({ color: 0xffffff, alpha: 0.85 }).stroke({ width: 4, color: 0xe6d8bf })
+      .circle(0, 8, 58).fill({ color: COLORS.shadow, alpha: 0.08 })
+      .circle(0, 0, 56).fill({ color: 0xffffff, alpha: 0.7 }).stroke({ width: 4, color: 0xe6d8bf })
     plate.eventMode = 'none'
-    const t = new Text({ text: '🗑️', style: { fontFamily: FONT.body, fontSize: 58 } })
-    t.anchor.set(0.5)
-    t.eventMode = 'none'
-    c.addChild(plate, t)
+    const bin = new Graphics()
+    bin.moveTo(-32, -18).lineTo(32, -18).lineTo(25, 34).quadraticCurveTo(24, 42, 15, 42)
+      .lineTo(-15, 42).quadraticCurveTo(-24, 42, -25, 34).closePath().fill(0x9aa2b1)
+    bin.moveTo(-32, -18).lineTo(-25, 34).quadraticCurveTo(-24, 42, -15, 42).lineTo(-6, 42)
+      .lineTo(-12, -18).closePath().fill({ color: 0xb6bdc9, alpha: 0.9 })
+    for (const x of [-14, 0, 14]) {
+      bin.moveTo(x, -10).lineTo(x - x * 0.22, 34).stroke({ width: 2.5, color: 0x7c8494, alpha: 0.7 })
+    }
+    bin.roundRect(-38, -30, 76, 16, 8).fill(0xb6bdc9).stroke({ width: 3, color: 0x7c8494 })
+    bin.roundRect(-10, -40, 20, 12, 6).fill(0x7c8494)
+    bin.eventMode = 'none'
+    c.addChild(plate, bin)
     c.position.set(TRASH.x, TRASH.y)
     c.eventMode = 'static'
     c.cursor = 'pointer'
@@ -299,7 +437,9 @@ export default {
   // ---- Svepbar ingredienshylla -------------------------------------------
 
   _buildPalette(ctx) {
-    const shelf = new Graphics().roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill({ color: 0xffffff, alpha: 0.5 }).stroke({ width: 4, color: 0xe6d8bf })
+    const shelf = new Graphics()
+      .roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill({ color: 0xfffaf0, alpha: 0.94 }).stroke({ width: 5, color: 0xd8bf9a })
+      .roundRect(84, SHELF_Y - 44, 1112, 18, 9).fill({ color: 0xf0e2cc, alpha: 0.9 })
     shelf.eventMode = 'none'
     this._root.addChild(shelf)
 
@@ -317,10 +457,8 @@ export default {
     this._items.forEach((ing, i) => {
       const slot = new Container()
       slot.position.set(i * ITEM_STEP, SHELF_Y) // lokal x i strippen
-      const view = viewFor(ing)
-      // Skala ner till brädan (sidoprofiler är breda).
-      const s = ing.shelfScale ?? (ing.make ? 0.42 : 0.78)
-      view.scale.set(s)
+      // Ritad vy nedskalad till hyllfacket (sidoprofiler är breda).
+      const view = viewFor(ing, 96)
       view.eventMode = 'none'
       slot.addChild(view)
       slot.eventMode = 'static'
@@ -549,6 +687,7 @@ export default {
   _insertLayer(ctx, ing, index) {
     const view = viewFor(ing)
     view._ing = ing
+    view._th = layerThickness(view, ing)
     view.x = (Math.random() - 0.5) * 26
     view.rotation = (Math.random() - 0.5) * 0.05
     this._makeStackInteractive(ctx, view)
@@ -559,6 +698,12 @@ export default {
     sparkle(ctx.fxLayer, BUILD.x + view.x, BUILD.y + view.y, { count: 4 })
     ctx.services.audio.sfx('pop')
     if (!ctx.services.audio.sample?.('sizzle')) ctx.services.audio.tone({ freq: 240, dur: 0.12, type: 'sawtooth', vol: 0.05, slideTo: 520 }) // litet sizzel
+    // Önskade sig Bobo just den här? Extra fest — men aldrig ett krav.
+    if (this._order.some((o) => o.id === ing.id)) {
+      sparkle(ctx.fxLayer, BUILD.x, BUILD.y + view.y, { count: 8 })
+      if (this._orderBubble && !this._orderBubble.destroyed) pop(this._orderBubble)
+      if (this._customer && !this._customer.destroyed) pop(this._customer, { scale: 1.12 })
+    }
     if (!this._maybeSayName(ctx, ing) && Math.random() < 0.5) {
       const now = performance.now()
       if (now - this._lastPlaceCheer > 1400) {
@@ -581,8 +726,8 @@ export default {
   // Gör ett staplat lager greppbart (om-drag).
   _makeStackInteractive(ctx, view) {
     const ing = view._ing
-    const w = ing.make ? 240 : ing.th + 44
-    const h = Math.max(ing.th + 26, 54)
+    const w = Math.max(ing.w, 96)
+    const h = Math.max((view._th || ing.th) + 26, 54)
     view.eventMode = 'static'
     view.cursor = 'pointer'
     view.hitArea = new Rectangle(-w / 2, -h / 2, w, h)
@@ -595,7 +740,7 @@ export default {
   _restack() {
     let y = -BOTTOM_BUN_H
     for (const v of this._stack) {
-      const th = v._ing?.th || 40
+      const th = v._th || v._ing?.th || 40
       if (!v.destroyed) v.y = y - th / 2
       y -= th
     }
@@ -607,7 +752,7 @@ export default {
   _indexForDropY(localY) {
     let b = -BOTTOM_BUN_H
     for (let i = 0; i < this._stack.length; i++) {
-      const th = this._stack[i]._ing?.th || 40
+      const th = this._stack[i]._th || this._stack[i]._ing?.th || 40
       if (localY > b - th / 2) return i
       b -= th
     }
@@ -625,7 +770,8 @@ export default {
   },
 
   _repositionTopBun() {
-    if (this._topBun && !this._topBun.destroyed) this._topBun.y = this._stackTopY - TOP_BUN_H / 2
+    // +7: locket vilar PÅ det översta lagret i stället för att sväva ovanför det.
+    if (this._topBun && !this._topBun.destroyed) this._topBun.y = this._stackTopY - TOP_BUN_H / 2 + 7
   },
 
   // ---- Grillning ----------------------------------------------------------
@@ -656,9 +802,38 @@ export default {
     pop(this._takeBtn)
   },
 
+  // Per-lager grillning: VARJE lager bryns efter sin egen känslighet (`bake`), inte
+  // hela burgaren som en klump. Biffen blir mörk, salladen knappt alls, osten smälter
+  // (plattas ut och breder ut sig) och bröden rostas svagt. Exit-säkert: förstörda
+  // vyer hoppas över.
+  _applyBake() {
+    const t = this._bake
+    for (const v of this._stack) {
+      if (!v || v.destroyed) continue
+      const ing = v._ing
+      v.tint = bakeTint(t * (ing?.bake ?? 0.6))
+      if (ing?.id === 'ost') {
+        // Smältande ost: sjunker ihop och rinner ut i sidled.
+        v.scale.set(1 + t * 0.07, 1 - t * 0.3)
+      }
+    }
+    for (const bun of [this._bottomBun, this._topBun]) {
+      if (bun && !bun.destroyed) bun.tint = bakeTint(t * BUN_BAKE)
+    }
+  },
+
   _update(ctx, t) {
     if (!this._alive) return
     const dt = (t.deltaMS || 16.67) / 1000
+
+    // Bobo guppar lugnt i vila (P0 ASSETS: eget liv) — och önskelistan andas med.
+    this._bob += dt
+    if (this._customer && !this._customer.destroyed) {
+      this._customer.y = BOBO.y + Math.sin(this._bob * 1.7) * 4
+    }
+    if (this._orderBubble && !this._orderBubble.destroyed) {
+      this._orderBubble.y = ORDER.y + Math.sin(this._bob * 1.7 + 0.7) * 3
+    }
 
     // Lågorna ritas om med fast intervall (~120 ms), inte varje frame; intensiteten
     // följer värmen vid grillning, lugnt flimmer annars.
@@ -670,7 +845,7 @@ export default {
 
     if (this._phase === 'grilling') {
       this._bake = clamp(this._bake + dt / BAKE_SECONDS, 0, 1)
-      this._burger.tint = bakeTint(this._bake)
+      this._applyBake()
       if (this._coals && !this._coals.destroyed) this._coals.alpha = 0.25 + this._bake * 0.5
       this._setMeterProgress(this._bake)
       // Grill-fräs (subtil ambient): sizzle-brus, tätare ju hetare.
@@ -683,11 +858,11 @@ export default {
         const now = performance.now()
         if (now - this._lastSmoke > 420) {
           this._lastSmoke = now
-          floatText(ctx.fxLayer, GRILL.x + (Math.random() * 90 - 45), GRILL.y - 110, '💨', { fontSize: 40, rise: 70 })
+          puff(ctx.fxLayer, GRILL.x + (Math.random() * 90 - 45), GRILL.y - 110, { count: 5, color: 0xdcd8d0 })
         }
       }
       if (this._bake >= 1 && !this._autoOff) {
-        this._autoOff = gsap.delayedCall(1.8, () => { if (this._alive && this._phase === 'grilling') this._takeOff(ctx) })
+        this._autoOff = ctx.later(1.8, () => { if (this._alive && this._phase === 'grilling') this._takeOff(ctx) })
       }
       return
     }
@@ -725,29 +900,59 @@ export default {
 
     sparkle(ctx.fxLayer, BUILD.x, BUILD.y - 120, { count: 10 })
     floatText(ctx.fxLayer, BUILD.x, BUILD.y - 200, tone >= 0.9 ? '🤭' : '😋', { fontSize: 60 })
-    this._serveToCustomer(ctx, tone) // burgaren flyger till den hungriga kunden
+    this._serveToCustomer(ctx, tone, this._orderFilled()) // burgaren flyger till Bobo
 
     this._rounds += 1
     ctx.progress.setCustom('burgare', this._rounds)
     ctx.progress.setLevel(this._rounds)
     ctx.progress.complete()
 
-    this._resetTimer = gsap.delayedCall(2.2, () => { if (this._alive) this._reset(ctx) })
+    this._resetTimer = ctx.later(2.6, () => { if (this._alive) this._reset(ctx) })
   },
 
-  // Burgaren flyger till kunden (Bobo) som mumsar — mottagaren för det man byggt.
-  _serveToCustomer(ctx, tone) {
+  // En liten kopia av DEN HÄR burgaren (samma lager, samma grillade toner) — ritad,
+  // aldrig en emoji. Den är det som flyger till Bobo.
+  _makeMiniBurger(tone) {
+    const c = new Container()
+    const scale = 0.34
+    const inner = new Container()
+    inner.scale.set(scale)
+    const bottom = makeBunBottom()
+    bottom.y = -BOTTOM_BUN_H / 2
+    bottom.tint = bakeTint(tone * BUN_BAKE)
+    inner.addChild(bottom)
+    let y = -BOTTOM_BUN_H
+    for (const v of this._stack) {
+      const ing = v?._ing
+      if (!ing) continue
+      const layer = makeItemView(ing)
+      const th = v._th || ing.th
+      layer.y = y - th / 2
+      layer.tint = bakeTint(tone * (ing.bake ?? 0.6))
+      inner.addChild(layer)
+      y -= th
+    }
+    const top = makeBunTop()
+    top.y = y - TOP_BUN_H / 2
+    top.tint = bakeTint(tone * BUN_BAKE)
+    inner.addChild(top)
+    // Centrera den hopvikta stapeln kring (0,0) så den flyger snyggt.
+    inner.y = (-y + BOTTOM_BUN_H) * 0.5 * scale
+    c.addChild(inner)
+    c.eventMode = 'none'
+    return c
+  },
+
+  // Burgaren flyger till Bobo som mumsar — mottagaren för det man byggt.
+  _serveToCustomer(ctx, tone, filled) {
     const c = this._customer
     if (!c || c.destroyed) return
-    const item = new Text({ text: '🍔', style: { fontFamily: FONT.body, fontSize: 56 } })
-    item.anchor.set(0.5)
+    const item = this._makeMiniBurger(tone)
     item.position.set(BUILD.x, BUILD.y - 120)
-    item.tint = bakeTint(tone) // burgaren har sin grillade ton
-    item.eventMode = 'none'
     this._root.addChild(item)
     const st = { x: BUILD.x, y: BUILD.y - 120, s: 1 }
     this._serveTween = gsap.to(st, {
-      x: c.x, y: c.y, s: 0.42, duration: 0.6, ease: 'power2.in',
+      x: c.x, y: c.y - 10, s: 0.7, duration: 0.6, ease: 'power2.in',
       onUpdate: () => {
         if (item.destroyed) { this._serveTween?.kill(); return }
         item.position.set(st.x, st.y)
@@ -757,8 +962,9 @@ export default {
         if (!item.destroyed) item.destroy()
         if (this._alive && c && !c.destroyed) {
           pop(c, { scale: 1.2 })
-          floatText(ctx.fxLayer, c.x, c.y - 52, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 42 })
-          ctx.services.voice.say(randomFrom(['Mums, tack!', 'Så god burgare!', 'Jättegott!']))
+          puff(ctx.fxLayer, c.x, c.y - 10, { count: 8 })
+          floatText(ctx.fxLayer, c.x, c.y - 92, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 42 })
+          ctx.services.voice.say(filled ? 'Precis som jag önskade mig! Tack så mycket!' : randomFrom(SERVE_CHEERS))
         }
       },
     })
@@ -780,12 +986,18 @@ export default {
     this._stack = []
     this._stackTopY = -BOTTOM_BUN_H
     this._repositionTopBun()
-    this._burger.tint = 0xffffff
+    // Nollställ rostningen på bröden (lagren är borta med stapeln).
+    for (const bun of [this._bottomBun, this._topBun]) {
+      if (bun && !bun.destroyed) bun.tint = 0xffffff
+    }
     this._setPaletteEnabled(true)
     this._grillBtn.visible = true
     pop(this._grillBtn)
+    // Bobo önskar sig något nytt till nästa burgare.
+    this._newOrder()
+    if (this._orderBubble && !this._orderBubble.destroyed) bounceIn(this._orderBubble)
     this._setHint('En ny burgare! Bygg igen 🍔')
-    ctx.services.voice.say('En ny burgare! Bygg igen.')
+    ctx.services.voice.say(randomFrom(ORDER_CUES))
   },
 
   // ---- Hjälpare -----------------------------------------------------------
@@ -835,6 +1047,14 @@ export default {
     if (this._customer && !this._customer.destroyed) {
       gsap.killTweensOf(this._customer)
       gsap.killTweensOf(this._customer.scale)
+    }
+    if (this._orderBubble && !this._orderBubble.destroyed) {
+      gsap.killTweensOf(this._orderBubble)
+      gsap.killTweensOf(this._orderBubble.scale)
+      for (const ch of this._orderBubble.children) {
+        gsap.killTweensOf(ch)
+        gsap.killTweensOf(ch.scale)
+      }
     }
     this._cancelGrab()
     gsap.killTweensOf(this._paletteStrip)
@@ -898,103 +1118,22 @@ function makeBunTop() {
   return c
 }
 
-function makePatty() {
+// Grillknappens ikon: en ritad låga med en pil åt vänster (mot grillen). Ersätter
+// emoji-paret 🔥⬅️, som lästes som en blå ruta bredvid en låga.
+function makeFlameArrow() {
   const c = new Container()
   const g = new Graphics()
-  g.roundRect(-110, -21, 220, 42, 16).fill(0x6b4226)
-  g.roundRect(-110, -21, 220, 12, 16).fill({ color: 0x8a5a36, alpha: 0.5 })
+  // Pil mot grillen (vänster).
+  g.moveTo(-58, 0).lineTo(-24, -22).lineTo(-24, -8).lineTo(6, -8).lineTo(6, 8).lineTo(-24, 8)
+    .lineTo(-24, 22).closePath().fill(0xfffdf7)
+  // Låga.
+  g.moveTo(40, 30).quadraticCurveTo(4, 12, 34, -30).quadraticCurveTo(42, -8, 54, -18)
+    .quadraticCurveTo(70, 2, 40, 30).fill(0xffd23c)
+  g.moveTo(40, 30).quadraticCurveTo(22, 14, 40, -10).quadraticCurveTo(48, 4, 52, -2)
+    .quadraticCurveTo(60, 12, 40, 30).fill(0xff8a2a)
   g.eventMode = 'none'
   c.addChild(g)
+  c.eventMode = 'none'
   return c
 }
 
-function makeCheese() {
-  const c = new Container()
-  const g = new Graphics()
-  g.roundRect(-116, -11, 232, 22, 7).fill(0xffce4a)
-  // Smältande hörn (droppar).
-  g.moveTo(-86, 11).lineTo(-74, 30).lineTo(-62, 11).fill(0xffce4a)
-  g.moveTo(58, 11).lineTo(70, 28).lineTo(82, 11).fill(0xffce4a)
-  g.roundRect(-116, -11, 232, 7, 7).fill({ color: 0xffe08a, alpha: 0.7 })
-  g.eventMode = 'none'
-  c.addChild(g)
-  return c
-}
-
-function makeLettuce() {
-  const c = new Container()
-  const g = new Graphics()
-  g.roundRect(-120, -4, 240, 24, 12).fill(0x73c34a)
-  for (let i = -110; i <= 110; i += 26) g.circle(i, -6, 17).fill(0x80cf57)
-  g.eventMode = 'none'
-  c.addChild(g)
-  return c
-}
-
-function makeTomato() {
-  const c = new Container()
-  const g = new Graphics()
-  g.ellipse(0, 0, 104, 15).fill(0xff6b6b).stroke({ width: 3, color: 0xe85555 })
-  for (let i = -60; i <= 60; i += 30) g.ellipse(i, 0, 5, 8).fill({ color: 0xffd0c0, alpha: 0.9 })
-  g.eventMode = 'none'
-  c.addChild(g)
-  return c
-}
-
-function makeBacon() {
-  const c = new Container()
-  const g = new Graphics()
-  g.roundRect(-108, -11, 216, 22, 8).fill(0xc0392b)
-  g.roundRect(-108, -8, 216, 5, 4).fill({ color: 0xe8a0a0, alpha: 0.85 })
-  g.roundRect(-108, 4, 216, 4, 4).fill({ color: 0xe8a0a0, alpha: 0.7 })
-  g.eventMode = 'none'
-  c.addChild(g)
-  return c
-}
-
-// Kissdroppe — gul droppe (ritad, så färgen blir tydligt gul).
-function makePee() {
-  const c = new Container()
-  const g = new Graphics()
-  g.poly([0, -26, -11, 4, 11, 4]).fill(0xf5d637)
-  g.circle(0, 8, 15).fill(0xf5d637)
-  g.ellipse(-5, 6, 4, 7).fill({ color: 0xffffff, alpha: 0.5 })
-  g.eventMode = 'none'
-  c.addChild(g)
-  return c
-}
-
-// Använd blöja — vit blöja med tejpkant och en liten rolig fläck (aldrig äckligt på riktigt).
-function makeDiaper() {
-  const c = new Container()
-  const g = new Graphics()
-  g.roundRect(-58, -22, 116, 44, 20).fill(0xf6f2ea).stroke({ width: 4, color: 0xdcd4c4 })
-  g.roundRect(-58, -22, 116, 13, 10).fill({ color: 0xbfe3f0, alpha: 0.9 })
-  g.circle(2, 4, 10).fill(0x8a5a2b)
-  g.circle(16, 9, 6).fill(0x9a682f)
-  g.eventMode = 'none'
-  c.addChild(g)
-  return c
-}
-
-// Potta — liten blå potta med handtag.
-function makePotty() {
-  const c = new Container()
-  const g = new Graphics()
-  g.roundRect(-44, -14, 88, 36, 14).fill(0x7fc8e8).stroke({ width: 4, color: 0x5aa8cc })
-  g.ellipse(0, -14, 44, 10).fill(0xa8ddf2).stroke({ width: 3, color: 0x5aa8cc })
-  g.ellipse(0, -14, 30, 6).fill(0x6fb8d8)
-  g.circle(52, -4, 10).stroke({ width: 7, color: 0x7fc8e8 })
-  g.eventMode = 'none'
-  c.addChild(g)
-  return c
-}
-
-function makeEmoji(emoji, th) {
-  const c = new Container()
-  const t = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: th + 18 } })
-  t.anchor.set(0.5)
-  t.eventMode = 'none'
-  c.addChild(t)
-  return c
-}

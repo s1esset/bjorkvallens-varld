@@ -7,10 +7,10 @@
 // ctx.progress.complete(), sedan byggs en ny (längre) runda. Oändlig lek, ingen poäng,
 // ingen timer, inga felsteg. Allt ritas programmatiskt (Pixi Graphics + emoji).
 // All async är skyddad med this._alive (exit-säkert).
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { Button } from '../../lib/Button.js'
 
@@ -19,11 +19,9 @@ const START = { x: 140, y: 410 } // figurens startpunkt (vänster)
 const HOUSE = { x: 1150, y: 410 } // målet/huset (höger)
 const PLATE_R = 58 // fotspårsplattans radie (Ø116 ≥ 96px)
 const HIT_R = 72 // osynlig träffradie (extra marginal)
-const FOOT_FS = 64 // 👣-storlek
 const RAB_DY = -14 // figuren står strax ovanför fotspåret
 const IDLE_DELAY = 6 // s utan tap innan röst-recue + hint-puls
 
-const FIGURES = ['🐰', '🐶', '🐱', '🦊']
 
 // Melodisk ledtråd: varje fotspår i sekvensen får en egen stigande ton ur en
 // C-dur pentatonisk skala, så att FÖLJA spåret låter som en liten melodi (steg 1
@@ -36,7 +34,51 @@ function toneFreq(k) {
 
 // Små gömda fynd som ligger under vart 3:e fotspår och plockas upp när figuren
 // skuttar dit (flyger till en liten samling uppe till höger) → "en till!"-känsla.
-const FINDS = ['🌼', '🥕', '⭐', '🍓', '🌸']
+// P0 ASSETS: fynden RITAS (var 🌼🥕⭐🍓🌸). Centrerade i (0,0), ~±26 px.
+const FINDS = ['blomma', 'morot', 'stjarna', 'jordgubbe', 'aster']
+function makeFind(kind) {
+  const g = new Graphics()
+  if (kind === 'morot') {
+    g.moveTo(-11, -10).lineTo(11, -10).lineTo(0, 24).closePath().fill(0xff9d3d).stroke({ width: 3, color: 0xd97520 })
+    for (const y of [-2, 6, 13]) g.moveTo(-7 + y * 0.2, y).lineTo(7 - y * 0.2, y).stroke({ width: 2, color: 0xd97520, alpha: 0.7 })
+    for (const [dx, dy] of [[-8, -22], [0, -26], [8, -22]]) {
+      g.moveTo(0, -10).quadraticCurveTo(dx * 0.6, -18, dx, dy).stroke({ width: 5, color: 0x5bbf6a, cap: 'round' })
+    }
+  } else if (kind === 'stjarna') {
+    const pts = []
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2 - Math.PI / 2
+      const r = k % 2 === 0 ? 22 : 9.5
+      pts.push(Math.cos(a) * r, Math.sin(a) * r)
+    }
+    g.poly(pts).fill(0xffd35c).stroke({ width: 3, color: 0xe0a94f })
+  } else if (kind === 'jordgubbe') {
+    g.moveTo(-16, -6).quadraticCurveTo(-18, 20, 0, 24).quadraticCurveTo(18, 20, 16, -6).closePath()
+    g.fill(0xe0392b).stroke({ width: 3, color: 0xb02b20 })
+    for (const [sx, sy] of [[-7, 2], [5, 0], [-2, 10], [8, 10], [-9, 14]]) g.ellipse(sx, sy, 1.8, 3).fill(0xffe08a)
+    for (const dx of [-11, 0, 11]) g.ellipse(dx, -9, 8, 5).fill(0x5bbf6a)
+    g.roundRect(-2, -20, 4, 10, 2).fill(0x3f8a44)
+  } else {
+    // blomma / aster — samma form, olika kronbladsfärg
+    const petal = kind === 'aster' ? 0xf7b9e4 : 0xfff0a8
+    for (let i = 0; i < (kind === 'aster' ? 8 : 6); i++) {
+      const n = kind === 'aster' ? 8 : 6
+      const a = (i / n) * Math.PI * 2
+      g.ellipse(Math.cos(a) * 13, Math.sin(a) * 13, 8, 8).fill(petal).stroke({ width: 2, color: 0xe0a94f, alpha: 0.5 })
+    }
+    g.circle(0, 0, 8).fill(0xffc93c).stroke({ width: 2.5, color: 0xe0a94f })
+  }
+  g.eventMode = 'none'
+  return g
+}
+
+// Hem-repliker som HELA strängar (se _win): check.mjs matchar bara literaler.
+const HOME_PRAISE = [
+  'Hurra, den kom hem!',
+  'Du hittade hela vägen hem!',
+  'Vilket fint spårande!',
+  'Hemma igen, jättebra!',
+]
 
 // Sekvenslängd (== antal fotspår) växer med nivån.
 const LEVELS = [{ steps: 3 }, { steps: 4 }, { steps: 5 }, { steps: 6 }, { steps: 7 }]
@@ -95,17 +137,28 @@ export default {
     this._root.addChild(this._finds)
 
     // Hus (mål) + figur (start) — persistenta, flyttas/byts per runda.
-    this._house = new Text({ text: '🏠', style: { fontFamily: FONT.body, fontSize: 96 } })
-    this._house.anchor.set(0.5)
+    // RITAT hus (var en 🏠-emoji): stomme, tak, dörr, fönster och skorsten.
+    this._house = new Graphics()
+    this._house.roundRect(38, -52, 16, 30, 4).fill(0xb5544a).stroke({ width: 3, color: 0x8a3d36 }) // skorsten
+    this._house.roundRect(-46, -14, 92, 62, 6).fill(0xf0d7ae).stroke({ width: 4, color: 0xb08d62 })
+    this._house.moveTo(-58, -12).lineTo(0, -60).lineTo(58, -12).closePath()
+    this._house.fill(0xe0574f).stroke({ width: 4, color: 0xb03f3a })
+    this._house.roundRect(-14, 6, 28, 42, 4).fill(0x9a5c33).stroke({ width: 3, color: 0x6f4a2e }) // dörr
+    this._house.circle(7, 28, 3.5).fill(0xffd35c)
+    this._house.roundRect(18, 4, 22, 22, 4).fill(0x8ee0ff).stroke({ width: 3, color: 0x5aa6c4 }) // fönster
+    this._house.moveTo(29, 4).lineTo(29, 26).moveTo(18, 15).lineTo(40, 15).stroke({ width: 2.5, color: 0x5aa6c4 })
+    this._house.roundRect(-40, 4, 22, 22, 4).fill(0x8ee0ff).stroke({ width: 3, color: 0x5aa6c4 })
+    this._house.moveTo(-29, 4).lineTo(-29, 26).moveTo(-40, 15).lineTo(-18, 15).stroke({ width: 2.5, color: 0x5aa6c4 })
     this._house.eventMode = 'none'
     this._house.position.set(HOUSE.x, HOUSE.y)
     this._root.addChild(this._house)
 
-    this._rabbit = new Text({ text: FIGURES[0], style: { fontFamily: FONT.body, fontSize: 86 } })
-    this._rabbit.anchor.set(0.5)
+    // RITAD figur med KROPP (var en djur-emoji, alltså ett svävande huvud).
+    this._rabbit = new Container()
     this._rabbit.eventMode = 'none'
     this._rabbit.position.set(START.x, START.y)
     this._root.addChild(this._rabbit)
+    this._paintFigure(0)
 
     // "Visa igen": spelar upp den visuella demofasen på nytt (nere till vänster, fri yta).
     this._showBtn = new Button({
@@ -205,7 +258,7 @@ export default {
     this._sequence = this._level >= 3 ? shuffle(order) : order
 
     // Figur (slumpad) vid start, hus vid mål.
-    this._rabbit.text = randomFrom(FIGURES)
+    this._paintFigure(Math.floor(Math.random() * 4))
     gsap.killTweensOf(this._rabbit)
     gsap.killTweensOf(this._rabbit.scale)
     this._rabbit.scale.set(1)
@@ -240,6 +293,46 @@ export default {
     return pts
   },
 
+  // Fyra ritade djur med KROPP: kanin, hund, katt, räv. Låg tidigare som
+  // 🐰/🐶/🐱/🦊 — emoji-huvuden utan kropp som svävade över ängen.
+  _paintFigure(idx) {
+    const r = this._rabbit
+    if (!r || r.destroyed) return
+    for (const ch of r.removeChildren()) ch.destroy({ children: true })
+    const kind = ['kanin', 'hund', 'katt', 'rav'][idx % 4]
+    const fur = { kanin: 0xf2f2f4, hund: 0xc98a4b, katt: 0x9aa4b0, rav: 0xef8a3d }[kind]
+    const dark = { kanin: 0xd6d6dc, hund: 0x9a5c33, katt: 0x74808e, rav: 0xc4661f }[kind]
+    const g = new Graphics()
+    g.ellipse(0, 34, 26, 8).fill({ color: 0x000000, alpha: 0.15 }) // skugga
+    g.moveTo(20, 16).quadraticCurveTo(42, 8, 34, -12).stroke({ width: kind === 'rav' ? 10 : 7, color: fur, cap: 'round' }) // svans
+    g.ellipse(0, 10, 22, 24).fill(fur).stroke({ width: 3, color: dark }) // kropp
+    g.ellipse(0, 16, 13, 15).fill({ color: 0xffffff, alpha: 0.55 }) // mage
+    g.roundRect(-15, 26, 11, 10, 5).fill(fur).stroke({ width: 2.5, color: dark }) // tassar
+    g.roundRect(4, 26, 11, 10, 5).fill(fur).stroke({ width: 2.5, color: dark })
+    // Öron per art.
+    if (kind === 'kanin') {
+      g.ellipse(-9, -34, 7, 20).fill(fur).stroke({ width: 3, color: dark })
+      g.ellipse(9, -34, 7, 20).fill(fur).stroke({ width: 3, color: dark })
+      g.ellipse(-9, -34, 3.5, 13).fill(0xffc0cb)
+      g.ellipse(9, -34, 3.5, 13).fill(0xffc0cb)
+    } else if (kind === 'hund') {
+      g.ellipse(-17, -14, 8, 15).fill(dark)
+      g.ellipse(17, -14, 8, 15).fill(dark)
+    } else {
+      g.moveTo(-19, -26).lineTo(-13, -44).lineTo(-4, -28).closePath().fill(fur).stroke({ width: 2.5, color: dark })
+      g.moveTo(19, -26).lineTo(13, -44).lineTo(4, -28).closePath().fill(fur).stroke({ width: 2.5, color: dark })
+    }
+    g.circle(0, -20, 20).fill(fur).stroke({ width: 3, color: dark }) // huvud
+    g.circle(-7, -23, 4).fill(0x2b2b2b)
+    g.circle(7, -23, 4).fill(0x2b2b2b)
+    g.circle(-5.5, -24.5, 1.6).fill(0xffffff)
+    g.circle(8.5, -24.5, 1.6).fill(0xffffff)
+    g.moveTo(-3, -14).lineTo(0, -11).lineTo(3, -14).closePath().fill(0xff9d9d) // nos
+    g.arc(-4, -10, 4, 0, Math.PI).stroke({ width: 2, color: dark })
+    g.arc(4, -10, 4, 0, Math.PI).stroke({ width: 2, color: dark })
+    r.addChild(g)
+  },
+
   // Ett fotspår: rund platta (Graphics) + 👣 (Text) + generös träffyta. Aktiveras
   // (eventMode='static') först när demofasen är klar.
   _makeFoot(ctx, x, y, pathIndex) {
@@ -249,8 +342,17 @@ export default {
     plate.eventMode = 'none'
     fp.plate = plate
     fp.addChild(plate)
-    const emoji = new Text({ text: '👣', style: { fontFamily: FONT.body, fontSize: FOOT_FS } })
-    emoji.anchor.set(0.5)
+    // P0 ASSETS: RITADE tass-avtryck (var en 👣-emoji ovanpå plattan). Det är
+    // ett djur som gått här — alltså tassar, inte människofötter.
+    const emoji = new Graphics()
+    for (const [px, py, rot] of [[-11, 4, -0.2], [11, -6, -0.2]]) {
+      const paw = new Graphics()
+      paw.ellipse(0, 4, 9, 11).fill(0x6b4fc4)
+      for (const [tx, ty] of [[-8, -8], [-2.5, -12], [3.5, -12], [9, -7]]) paw.circle(tx, ty, 3.4).fill(0x6b4fc4)
+      paw.position.set(px, py)
+      paw.rotation = rot
+      emoji.addChild(paw)
+    }
     emoji.eventMode = 'none'
     fp.addChild(emoji)
     this._paintFoot(fp, 'base')
@@ -268,10 +370,12 @@ export default {
   _paintFoot(fp, state) {
     const g = fp.plate
     if (!g || g.destroyed) return
+    // Plattan är ett SKEN runt tassavtrycket, inte en bricka det ligger i:
+    // svag fyllning + ring. En opak vit disc gjorde spåret till en ikon i en ruta.
     g.clear().circle(0, 0, PLATE_R)
-    if (state === 'demo') g.fill(COLORS.yellow).stroke({ width: 5, color: COLORS.orange })
-    else if (state === 'done') g.fill({ color: COLORS.green, alpha: 0.5 }).stroke({ width: 5, color: COLORS.greenDark })
-    else g.fill(COLORS.cream).stroke({ width: 5, color: COLORS.green })
+    if (state === 'demo') g.fill({ color: COLORS.yellow, alpha: 0.55 }).stroke({ width: 5, color: COLORS.orange })
+    else if (state === 'done') g.fill({ color: COLORS.green, alpha: 0.35 }).stroke({ width: 5, color: COLORS.greenDark })
+    else g.fill({ color: COLORS.cream, alpha: 0.3 }).stroke({ width: 4, color: COLORS.green, alpha: 0.7 })
   },
 
   // ---- Demofas: tänd fotspåren ett i taget i sekvensordning ----------------
@@ -441,8 +545,7 @@ export default {
     if (!fp.find) return
     const emoji = fp.find
     fp.find = null
-    const item = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 52 } })
-    item.anchor.set(0.5)
+    const item = makeFind(emoji)
     item.position.set(fp.x, fp.y + RAB_DY)
     item.scale.set(0.5)
     this._finds.addChild(item)
@@ -511,7 +614,9 @@ export default {
 
     // Delat firande (celebrate-ljud + konfetti + stjärna + klistermärke) + tema-röst.
     ctx.progress.complete()
-    ctx.services.voice.say('Hurra! ' + randomFrom(PRAISE))
+    // Egna hel-repliker, inte 'Hurra! ' + PRAISE: en konkatenerad sträng kan
+    // check.mjs inte hitta och /rost kan därför aldrig klippa den (POLERINGSRUNDA).
+    ctx.services.voice.say(randomFrom(HOME_PRAISE))
     this._level = clampLevel(this._level + 1)
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)

@@ -162,7 +162,7 @@ och sänk till 🔧 om något visar sig inte hålla.
 | 3 | `magnet-fiske` | 16 | ✅ |
 | 4 | `trollblandning` | 16 | ✅ |
 | 5 | `plantera-fron` | 12 | ✅ |
-| 6 | `folj-sparet` | 12 | ⬜ |
+| 6 | `folj-sparet` | 12 | ✅ |
 | 7 | `vad-forsvann` | 11 | ⬜ |
 | 8 | `vattenvagen` | 11 | ⬜ |
 | 9 | `kla-pa-nallen` | 10 | ⬜ |

@@ -163,7 +163,7 @@ och sänk till 🔧 om något visar sig inte hålla.
 | 4 | `trollblandning` | 16 | ✅ |
 | 5 | `plantera-fron` | 12 | ✅ |
 | 6 | `folj-sparet` | 12 | ✅ |
-| 7 | `vad-forsvann` | 11 | ⬜ |
+| 7 | `vad-forsvann` | 11 | ✅ |
 | 8 | `vattenvagen` | 11 | ⬜ |
 | 9 | `kla-pa-nallen` | 10 | ⬜ |
 | 10 | `vandkort` | 9 | ⬜ |

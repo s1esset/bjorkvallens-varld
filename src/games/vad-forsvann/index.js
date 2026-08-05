@@ -12,15 +12,168 @@
 // Uppgiftstypen varieras (_mode): 'gone' = en sak försvinner (grund), 'added' = en
 // NY sak dyker upp bakom filten och barnet väljer vilken som är ny — samma
 // kort-svarsmekanik, men bryter den strukturellt identiska rundan.
-import { Container, Graphics, Text, Rectangle } from 'pixi.js'
+import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, sparkle, breathe, ripple } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 
-// Saker som slumpas per runda (renderas som stora emoji-Text på rutor).
+// Saker som slumpas per runda. Emoji-strängen är bara NYCKELN (NAMES/SAMPLES
+// slår upp på den) — P0 ASSETS: allt RITAS av drawMotif(), aldrig en emoji på
+// en bricka. Varje motiv centreras i (0,0) och håller sig inom ~±46 px.
 const MOTIFS = ['🍎', '🐶', '⭐', '🚗', '🌸', '🧸', '🎈', '🍌', '🐱', '🦋', '🍓', '🎩', '🐸', '⚽', '🌈', '🍰']
+
+function drawMotif(key) {
+  const g = new Graphics()
+  const star = (R, r, fill, line) => {
+    const pts = []
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2 - Math.PI / 2
+      const rr = k % 2 === 0 ? R : r
+      pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
+    }
+    g.poly(pts).fill(fill).stroke({ width: 4, color: line })
+  }
+  switch (key) {
+    case '🍎':
+      g.circle(-11, 6, 25).fill(0xe0392b)
+      g.circle(11, 6, 25).fill(0xe0392b)
+      g.circle(0, 2, 26).fill(0xe0392b).stroke({ width: 4, color: 0xb02b20 })
+      g.ellipse(-11, -6, 8, 11).fill({ color: 0xffffff, alpha: 0.35 })
+      g.roundRect(-3, -32, 6, 14, 3).fill(0x6f4a2e)
+      g.ellipse(14, -28, 13, 8).fill(0x5bbf6a).stroke({ width: 3, color: 0x3f8a44 })
+      break
+    case '🐶':
+      g.ellipse(-30, -10, 11, 22).fill(0x9a5c33) // öron
+      g.ellipse(30, -10, 11, 22).fill(0x9a5c33)
+      g.circle(0, 0, 30).fill(0xc98a4b).stroke({ width: 4, color: 0x9a5c33 })
+      g.ellipse(0, 14, 17, 13).fill(0xf0d7ae)
+      g.circle(-11, -7, 4.5).fill(0x2b2b2b)
+      g.circle(11, -7, 4.5).fill(0x2b2b2b)
+      g.ellipse(0, 8, 7, 5).fill(0x2b2b2b)
+      g.moveTo(0, 12).lineTo(0, 18).stroke({ width: 2.5, color: 0x6f4a2e })
+      g.arc(-6, 18, 6, 0, Math.PI).arc(6, 18, 6, 0, Math.PI).stroke({ width: 2.5, color: 0x6f4a2e })
+      break
+    case '⭐':
+      star(38, 16, 0xffd35c, 0xe0a94f)
+      break
+    case '🚗':
+      g.roundRect(-42, -4, 84, 26, 10).fill(0x4aa3df).stroke({ width: 4, color: 0x2f7fb8 })
+      g.moveTo(-26, -4).lineTo(-16, -26).lineTo(20, -26).lineTo(30, -4).closePath()
+      g.fill(0x6ac0f0).stroke({ width: 4, color: 0x2f7fb8 })
+      g.roundRect(-14, -22, 14, 16, 3).fill(0xd8f0ff)
+      g.roundRect(4, -22, 14, 16, 3).fill(0xd8f0ff)
+      g.circle(-22, 24, 11).fill(0x3a3a3a).stroke({ width: 3, color: 0x1c1c1c })
+      g.circle(22, 24, 11).fill(0x3a3a3a).stroke({ width: 3, color: 0x1c1c1c })
+      g.circle(-22, 24, 4).fill(0xc3ccd4)
+      g.circle(22, 24, 4).fill(0xc3ccd4)
+      break
+    case '🌸':
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 - Math.PI / 2
+        g.ellipse(Math.cos(a) * 22, Math.sin(a) * 22, 15, 15).fill(0xffb3d1).stroke({ width: 3, color: 0xe48ab4 })
+      }
+      g.circle(0, 0, 12).fill(0xffe08a).stroke({ width: 3, color: 0xe0a94f })
+      break
+    case '🧸':
+      g.circle(-26, -24, 12).fill(0x9a5c33)
+      g.circle(26, -24, 12).fill(0x9a5c33)
+      g.ellipse(0, 22, 26, 22).fill(0xc98a4b).stroke({ width: 4, color: 0x9a5c33 })
+      g.ellipse(0, 26, 15, 13).fill(0xf0d7ae)
+      g.circle(-28, 16, 10).fill(0xc98a4b).stroke({ width: 3, color: 0x9a5c33 })
+      g.circle(28, 16, 10).fill(0xc98a4b).stroke({ width: 3, color: 0x9a5c33 })
+      g.circle(0, -14, 24).fill(0xc98a4b).stroke({ width: 4, color: 0x9a5c33 })
+      g.ellipse(0, -6, 11, 9).fill(0xf0d7ae)
+      g.circle(-9, -18, 4).fill(0x2b2b2b)
+      g.circle(9, -18, 4).fill(0x2b2b2b)
+      g.ellipse(0, -8, 5, 4).fill(0x4a3728)
+      break
+    case '🎈':
+      g.moveTo(0, 22).quadraticCurveTo(-8, 34, 4, 44).stroke({ width: 3, color: 0x8a8a8a })
+      g.ellipse(0, -8, 26, 31).fill(0xe0574f).stroke({ width: 4, color: 0xb03f3a })
+      g.moveTo(-6, 22).lineTo(6, 22).lineTo(0, 30).closePath().fill(0xb03f3a)
+      g.ellipse(-10, -16, 7, 10).fill({ color: 0xffffff, alpha: 0.45 })
+      break
+    case '🍌':
+      g.moveTo(-34, -14).quadraticCurveTo(-6, 34, 34, 12).quadraticCurveTo(6, 22, -22, -18).closePath()
+      g.fill(0xffd35c).stroke({ width: 4, color: 0xd9a52b })
+      g.moveTo(-34, -14).lineTo(-38, -24).stroke({ width: 6, color: 0x8a6a2a, cap: 'round' })
+      g.moveTo(34, 12).lineTo(40, 8).stroke({ width: 5, color: 0x8a6a2a, cap: 'round' })
+      break
+    case '🐱':
+      g.moveTo(-28, -18).lineTo(-22, -44).lineTo(-6, -24).closePath().fill(0x9aa4b0).stroke({ width: 3, color: 0x74808e })
+      g.moveTo(28, -18).lineTo(22, -44).lineTo(6, -24).closePath().fill(0x9aa4b0).stroke({ width: 3, color: 0x74808e })
+      g.circle(0, 0, 29).fill(0xb6c0cc).stroke({ width: 4, color: 0x74808e })
+      g.circle(-11, -5, 5).fill(0x2b2b2b)
+      g.circle(11, -5, 5).fill(0x2b2b2b)
+      g.moveTo(-4, 8).lineTo(0, 12).lineTo(4, 8).closePath().fill(0xff9d9d)
+      g.arc(-5, 15, 5, 0, Math.PI).arc(5, 15, 5, 0, Math.PI).stroke({ width: 2.5, color: 0x74808e })
+      for (const s of [-1, 1]) {
+        g.moveTo(s * 14, 6).lineTo(s * 36, 2).moveTo(s * 14, 12).lineTo(s * 36, 14)
+        g.stroke({ width: 2, color: 0x74808e })
+      }
+      break
+    case '🦋':
+      g.ellipse(-18, -12, 18, 21).fill(0xa78bfa).stroke({ width: 3, color: 0x6b4fc4 })
+      g.ellipse(18, -12, 18, 21).fill(0xa78bfa).stroke({ width: 3, color: 0x6b4fc4 })
+      g.ellipse(-15, 14, 14, 16).fill(0xc4b1ff).stroke({ width: 3, color: 0x6b4fc4 })
+      g.ellipse(15, 14, 14, 16).fill(0xc4b1ff).stroke({ width: 3, color: 0x6b4fc4 })
+      g.roundRect(-4, -22, 8, 44, 4).fill(0x4a3728)
+      g.moveTo(-3, -22).quadraticCurveTo(-11, -36, -17, -33).stroke({ width: 3, color: 0x4a3728 })
+      g.moveTo(3, -22).quadraticCurveTo(11, -36, 17, -33).stroke({ width: 3, color: 0x4a3728 })
+      break
+    case '🍓':
+      g.moveTo(-26, -8).quadraticCurveTo(-30, 30, 0, 38).quadraticCurveTo(30, 30, 26, -8).closePath()
+      g.fill(0xe0392b).stroke({ width: 4, color: 0xb02b20 })
+      for (const [sx, sy] of [[-11, 4], [8, 0], [-3, 16], [13, 16], [-14, 24], [2, 28]]) g.ellipse(sx, sy, 2.4, 4).fill(0xffe08a)
+      for (const dx of [-17, 0, 17]) g.ellipse(dx, -13, 12, 7).fill(0x5bbf6a).stroke({ width: 2.5, color: 0x3f8a44 })
+      g.roundRect(-3, -30, 6, 14, 3).fill(0x3f8a44)
+      break
+    case '🎩':
+      g.ellipse(0, 26, 46, 12).fill(0x3a3a4a).stroke({ width: 4, color: 0x1c1c28 })
+      g.roundRect(-26, -34, 52, 60, 6).fill(0x4a4a5c).stroke({ width: 4, color: 0x1c1c28 })
+      g.roundRect(-27, 8, 54, 14, 3).fill(0xe0392b)
+      break
+    case '🐸':
+      g.circle(-18, -22, 14).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
+      g.circle(18, -22, 14).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
+      g.circle(-18, -22, 6).fill(0x2b2b2b)
+      g.circle(18, -22, 6).fill(0x2b2b2b)
+      g.ellipse(0, 8, 32, 26).fill(0x7ed06a).stroke({ width: 4, color: 0x3f8a44 })
+      g.ellipse(0, 16, 20, 13).fill(0xdff3c4)
+      g.arc(0, 4, 16, 0.1 * Math.PI, 0.9 * Math.PI).stroke({ width: 3.5, color: 0x3f8a44 })
+      g.ellipse(-28, 28, 12, 7).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
+      g.ellipse(28, 28, 12, 7).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
+      break
+    case '⚽':
+      g.circle(0, 0, 34).fill(0xffffff).stroke({ width: 4, color: 0x3a3a3a })
+      g.poly([0, -16, 15, -5, 9, 13, -9, 13, -15, -5]).fill(0x2b2b2b)
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 - Math.PI / 2
+        g.circle(Math.cos(a) * 30, Math.sin(a) * 30, 7).fill(0x2b2b2b)
+      }
+      break
+    case '🌈': {
+      const cols = [0xe0392b, 0xff9d3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa]
+      cols.forEach((c, i) => g.arc(0, 24, 42 - i * 6, Math.PI, 0).stroke({ width: 6, color: c }))
+      g.circle(-40, 26, 11).fill(0xffffff)
+      g.circle(40, 26, 11).fill(0xffffff)
+      break
+    }
+    default: // 🍰
+      g.moveTo(-32, 30).lineTo(-32, -6).lineTo(32, -6).lineTo(32, 30).closePath()
+      g.fill(0xfff0d8).stroke({ width: 4, color: 0xe0c9a8 })
+      g.roundRect(-32, 4, 64, 10, 2).fill(0xf7b9e4)
+      g.moveTo(-34, -6).quadraticCurveTo(0, -22, 34, -6).lineTo(34, 2).quadraticCurveTo(0, -14, -34, 2).closePath()
+      g.fill(0xffb3d1).stroke({ width: 3, color: 0xe48ab4 })
+      g.circle(0, -22, 9).fill(0xe0392b).stroke({ width: 3, color: 0xb02b20 })
+      g.roundRect(-2, -34, 4, 10, 2).fill(0x3f8a44)
+      break
+  }
+  g.eventMode = 'none'
+  return g
+}
 
 // Emoji -> svenskt ord (bestämd form) så rösten blir korrekt: "Det var ju äpplet!".
 const NAMES = {
@@ -155,9 +308,8 @@ export default {
 
     const placeholder = makePlaceholder()
     placeholder.visible = false
-    const emoji = new Text({ text: motif, style: { fontFamily: FONT.body, fontSize: 110, align: 'center' } })
-    emoji.anchor.set(0.5)
-    emoji.eventMode = 'none'
+    const emoji = drawMotif(motif)
+    emoji.scale.set(1.18)
 
     slot.addChild(placeholder, emoji)
     slot._placeholder = placeholder
@@ -516,8 +668,11 @@ function makePlaceholder() {
   const c = new Container()
   const g = new Graphics().circle(0, 0, 80).fill(COLORS.cream).stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.5 })
   g.eventMode = 'none'
-  const q = new Text({ text: '❔', style: { fontFamily: FONT.body, fontSize: 70 } })
-  q.anchor.set(0.5)
+  // Ritat frågetecken (var ❔) — blekt, som en tom plats som väntar.
+  const q = new Graphics()
+  q.arc(0, -14, 15, Math.PI, Math.PI * 0.15).stroke({ width: 9, color: COLORS.inkSoft, cap: 'round' })
+  q.moveTo(6, -4).lineTo(0, 14).stroke({ width: 9, color: COLORS.inkSoft, cap: 'round' })
+  q.circle(0, 30, 6).fill(COLORS.inkSoft)
   q.alpha = 0.4
   q.eventMode = 'none'
   c.addChild(g, q)
@@ -543,9 +698,7 @@ function makeChoiceCard(motif) {
     .fill(COLORS.cream)
     .stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.4 })
   bg.eventMode = 'none'
-  const emoji = new Text({ text: motif, style: { fontFamily: FONT.body, fontSize: 92, align: 'center' } })
-  emoji.anchor.set(0.5)
-  emoji.eventMode = 'none'
+  const emoji = drawMotif(motif)
   card.addChild(bg, emoji)
   card._motif = motif
   card._emoji = emoji
@@ -559,8 +712,17 @@ function makeChoiceCard(motif) {
 function makeBlanket(w, h) {
   const c = new Container()
   const g = new Graphics().roundRect(0, 0, w, h, 40).fill({ color: COLORS.purple, alpha: 0.95 }).stroke({ width: 6, color: 0xffffff, alpha: 0.8 })
-  const motif = new Text({ text: '🧺', style: { fontFamily: FONT.body, fontSize: 96 } })
-  motif.anchor.set(0.5)
+  // Ritad picknickkorg som filtens motiv (var en 🧺-emoji).
+  const motif = new Graphics()
+  motif.arc(0, -14, 34, Math.PI, 0).stroke({ width: 7, color: 0x9a5c33 })
+  motif.moveTo(-42, -14).lineTo(42, -14).lineTo(34, 34).lineTo(-34, 34).closePath()
+  motif.fill(0xc98a4b).stroke({ width: 5, color: 0x9a5c33 })
+  for (let i = 1; i < 4; i++) {
+    const t = i / 4
+    motif.moveTo(-42 + 8 * t, -14 + t * 48).lineTo(42 - 8 * t, -14 + t * 48).stroke({ width: 3, color: 0x9a5c33, alpha: 0.5 })
+  }
+  for (let x = -30; x <= 30; x += 20) motif.moveTo(x, -12).lineTo(x + 6, 32).stroke({ width: 3, color: 0x9a5c33, alpha: 0.4 })
+  motif.roundRect(-46, -22, 92, 14, 7).fill(0xd9925e).stroke({ width: 5, color: 0x9a5c33 })
   motif.position.set(w / 2, h / 2)
   motif.eventMode = 'none'
   c.addChild(g, motif)

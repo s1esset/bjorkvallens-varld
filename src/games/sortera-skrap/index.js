@@ -18,7 +18,6 @@ import { DragController } from '../../lib/DragController.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { bounceIn, sparkle, ripple, pop, wiggle, breathe, shake, floatText, puff } from '../../lib/feedback.js'
-import { COLORS, FONT } from '../../lib/theme.js'
 
 // Talade svenska fraser (TTS). Korta, varma, alltid positiva.
 const VOICE = {

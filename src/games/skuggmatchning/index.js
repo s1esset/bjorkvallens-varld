@@ -7,6 +7,7 @@
 // Djupet växer med nivån: 2 → 6 föremål och bred variation (djur, frukt, fordon,
 // verktyg, former) så varje runda känns fräsch. Inget fel-läge, ingen tidspress.
 import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
@@ -283,13 +284,13 @@ export default {
     glow.eventMode = 'none'
 
     // Svart silhuett (tint -> äkta skugga oavsett emojins egna färger).
-    const dark = new Text({ text: pick.emoji, style: { fontFamily: FONT.body, fontSize: 116 * scale } })
-    dark.anchor.set(0.5)
+    // P0 ASSETS: RITAD figur (var en 116px emoji-Text). tint svartar ut hela
+    // grafiken precis som den gjorde med emojin, så silhuett-mekaniken är oförändrad.
+    const dark = drawIcon(pick.emoji, 116 * scale)
     dark.tint = 0x000000
     dark.alpha = 0.82
     // Samma emoji i full färg, börjar osynlig + liten — blommar ut vid match.
-    const color = new Text({ text: pick.emoji, style: { fontFamily: FONT.body, fontSize: 116 * scale } })
-    color.anchor.set(0.5)
+    const color = drawIcon(pick.emoji, 116 * scale)
     color.alpha = 0
     color.scale.set(0.55)
 
@@ -314,8 +315,7 @@ export default {
     shadow.eventMode = 'none'
 
     const body = new Container()
-    const e = new Text({ text: pick.emoji, style: { fontFamily: FONT.body, fontSize: 104 * scale } })
-    e.anchor.set(0.5)
+    const e = drawIcon(pick.emoji, 104 * scale)
     body.addChild(e)
     c.addChild(shadow, body)
 

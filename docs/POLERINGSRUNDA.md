@@ -118,7 +118,7 @@ Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-
 | 3 | `hamburgerbygget` | 11 | ✅ |
 | 4 | `sapbubblor` | 10 | ✅ |
 | 5 | `pruttbad` | 10 | ✅ |
-| 6 | `lagerelden` | 10 | ⬜ |
+| 6 | `lagerelden` | 10 | ✅ |
 | 7 | `enhorning-glitterbajs` | 9 | ⬜ |
 | 8 | `loopdjuren` | 9 | ⬜ |
 | 9 | `regnbagsmalaren` | 6 | ⬜ |

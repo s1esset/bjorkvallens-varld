@@ -61,7 +61,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 42 | Regnbågsmålaren Elvira | `regnbagsmalaren` | drag | 🔧 |
 | 43 | Pruttbubbelbad | `pruttbad` | tap | 🔧 |
 | 45 | Enhörningens Glitterbajs | `enhorning-glitterbajs` | drag | 🔧 |
-| 49 | Lägerelden | `lagerelden` | mixed | 🔧 |
+| 49 | Lägerelden | `lagerelden` | mixed | ✅ |
 | 66 | Loopdjuren | `loopdjuren` | drag | 🔧 |
 | 67 | Pizzabageriet | `pizzabageriet` | drag | ✅ |
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | ✅ |

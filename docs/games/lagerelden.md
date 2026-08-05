@@ -1,5 +1,5 @@
 # Lägerelden (`lagerelden`)
-> 🎉 roligt · mixed · 2–4 år · status: 📝 plan klar
+> 🎉 roligt · mixed · 2–4 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -123,3 +123,38 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
   sprakande knaster-crackle (täthet ∝ värme) + rostnings-fräs som STIGER i tonhöjd mot gyllene, via
   `audio.tone()`. Städning: oanvänd `e`-param bort ur `_marshDown`. errorCount 0, skärmdump bekräftar
   Bobo + ring.
+- 2026-08-05 ✅ **Andra omgången (poleringsrundan, Roligt-fliken).** Skärmdumpen avslöjade att
+  hela lägerplatsen svävade: `createScene` ger 96px mark (horisont y=624) men bålet stod på
+  y=560, alltså ovanför marklinjen. Marken höjdes till 210px (`GROUND_H`) och allt — bål, ved,
+  bälg, Zacke — flyttades ner på den.
+  - **P0 ASSETS:** de tre dragbara vedpinnarna och varje pinne på högen var `🪵`-emoji. Nu
+    ritade (bark, räfflor, ändträ med årsringar) via `drawLogInto`. `💨`-hinten vid bälgen är
+    ersatt med tre ritade luftstreck. Inga `Text`-noder kvar i spelet.
+  - **Zacke var trasig, inte bara stel:** kroppen låg helt till höger om huvudet (`roundRect`
+    från x=−2), och håret adderades FÖRE huvudet så skinncirkeln täckte det → han såg skallig
+    och tudelad ut. Nu: ben+skor, centrerad kropp, riktig arm ut till handen där pinnen sitter,
+    hår ovanpå huvudet. Och han reagerar — blicken följer maten, leendet växer med rostningen.
+  - **Bälgen** ritades om från långsmala träpaddlar (läste som ännu en vedtrave bredvid
+    vedhögen) till en rund lädersbälg med pip och handtag.
+  - **Orderfatet** är en träbricka med fördjupningar och en blek silhuett av **exakt den mat**
+    ordern gäller; Bobo står bredvid och **håller fram** fatet (arm med kontur och tass, ritad
+    under huvudet — den första versionen läste som en pratbubbla).
+  - **Veden betyder något nu:** `_fuel`-vikten höjd 0.12 → 0.30 (mot luftens 0.45 som pyser ut
+    på sekunder), lågan blir **bredare** med veden, och glödbädden växer i bredd. Bålet startar
+    med två pinnar redan pålagda — en ensam gnista i en stor stenring läste som trasigt.
+  - **Lågan såg ut som konfetti:** partiklarna var små, glesa och tonade mot grått, plus ett
+    alfa-hopp från 0.70 till 0.22 vid t=0.75. Nu feta överlappande partiklar, vit-gul → gul →
+    orange utan grå svans, och en kontinuerlig fade.
+  - **Het zon = sanning:** ringen sitter på exakt den punkt rostningen mäts ifrån
+    (`flameTopY + 20`, tidigare +6) och skalar med lågan.
+  - **Variation:** ordern roterar mellan fyra ritade saker — marshmallow, korv, majskolv, äpple
+    — med egen framrostning (grillränder, förkolnade fläckar, glansig droppe). Egna talade
+    rubriker per sort, skrivna som hela literaler så `/rost` kan generera klipp.
+  - **Värld:** tält, granar, buskar, grässtrån och eldflugor i natten. `sunset`-temats **lila**
+    mark täcks av ett grästäcke med vågig kant.
+  - **P0 GESTER-glapp fixat:** marshmallowen hade eget pekargrepp utan **tap-tap-fallback** —
+    ett barn som bara tryckte kom ingenstans. Ett tryck utan rörelse skickar nu maten till
+    elden, nästa tryck hämtar hem den.
+  - **Grind:** `npm run check --game lagerelden` 0 fel · `npm run test` grönt ·
+    `_idleprobe 60s` → `idleFramsteg: 0`, `efterSpel: 1` (spelar sig inte självt, går att
+    klara med enbart tryck). 11 nya repliker väntar på röstklipp.

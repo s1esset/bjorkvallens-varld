@@ -131,7 +131,7 @@ Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
 | 28 | Följ Spåret | `folj-sparet` | tap | ✅ | ⬜ |
 | 51 | Magnetfiske | `magnet-fiske` | drag | ✅ | ⬜ |
 | 57 | Kulbanan | `kulbana` | drag | ✅ | ⬜ |
-| 60 | Golvet är Lava | `golvet-ar-lava` | drag | ✅ | ⬜ |
+| 60 | Golvet är Lava | `golvet-ar-lava` | drag | ✅ | ✅ |
 | 61 | Vattenvägen | `vattenvagen` | drag | ✅ | ⬜ |
 | 63 | Kugghjulen | `kugghjulen` | drag | ✅ | ⬜ |
 | 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ | ⬜ |

@@ -130,4 +130,34 @@ loopen är "töm bricka → bredare flod".**
   - Deferred: [Deep] förhandsvisad hoppbåge före Gå!, [Deep] väntande mottagare (Bobo/drake)
     vid skatten, [Medium] mjuk scen-cykel (vulkan→grotta→natt), vinglig sten, samt riktiga
     MOSS-SFX (lava-blubb/boing/duns/ambient) och barnfniss — alla utanför denna låg-risk-omgång.
+- 2026-08-06: **Poleringsrundan** (commit `14e8294`). Båda [Deep]-punkterna tagna + hela
+  asset-skulden.
+  - ✅ **[Deep] Förhandsvisad hoppbana.** `_drawPreview()` ritar en prickad bana som ritas om
+    vid varje stenflytt (`_settleStone`, `_returnHome`, `_placeInSlot`, `_stoneDown` på en redan
+    lagd sten, `_buildLevel`). Vit = klarar hoppet själv, blek blå + ritad molnmarkör = molnet
+    bär. Nyckeln till att den inte kan ljuga: `_buildSeq()` och `_arcHeightFor()` delas av
+    förhandsvisningen OCH `_startWalk`/`_beginStep`. `stone._px` (stenens MÅL-x) används i
+    stället för `stone.x`, som ljuger under den 0,16 s långa glidningen.
+  - ✅ **[Deep] Mottagare.** Ritad drake vid kistan: `breathe`-idle, `_dragonCheer()` per klarat
+    hopp (studs + vingslag) och ett större firande + rök-puff i `_onWin`. Yttre container bär
+    position/skala, andningen tweenar den inre — annars skrev `breathe()` över skalan vid varje
+    nivåbygge.
+  - ✅ **P0 ASSETS — all emoji borta ur spelobjekten.** `_buildHeroArt(name)` ritar Zacke/Alissa
+    (ben, bål, armar, hår, blick åt höger mot skatten) med fötterna i y=0, samma ankare som
+    emojin hade, så `_updateWalk`s squash/stretch fungerar oförändrat. `_setHeroPose('cheer')`
+    lyfter armarna vid vinst i st.f. att byta till 🙌. Dessutom ritade: fem fynd (`_makeFynd`),
+    hjälpmolnet med vinkande hand, liljans blomma, studspilen, Gå!-fötterna, brickans vulkan.
+  - ✅ **Tre buggar som bara syntes i skärmdumpen.** (1) Gå!-knappen låg mitt i lavafloden →
+    flyttad till vänstra klippan. (2) **Sista klivet gick bakåt** på breda banor: `treasureNodeX`
+    kunde hamna vänster om `rightLandingX` och `gap = max(0, b.x - a.x)` gjorde steget till en
+    no-op. Floden växer nu åt vänster (`lavaRight` låst på 1040) så högra klippan alltid rymmer
+    landning + kista + drake, och noden tvingas ligga höger om landningen. (3) Bubblorna föddes
+    240 px ner och växte till stora genomskinliga klot som läste som bokeh → grunda (`BUBBLE_DEPTH`
+    110), mindre, med glans och djupdämpad alpha.
+  - ✅ **Riktig ton.** Landningen spelar en stigande pentatonisk skala steg för steg, så vägen
+    över floden bildar en melodi i st.f. samma `pop`. `sample('duns')` hookad + prompt tillagd i
+    `scripts/sfx-phrases.json`. `gsap.delayedCall` → `ctx.later()`.
+  - Kontroll: `check` grön · `test` 0 fel · `_idleprobe 60` = 0 framsteg utan tryck.
+  - Kvar (medvetet): [Medium] scen-cykel vulkan→grotta→natt, vinglig sten, och de riktiga
+    MOSS-klippen (lava-blubb/ambient/barnfniss) som väntar på en samlad `/rost`-körning.
 </content>

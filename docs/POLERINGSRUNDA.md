@@ -157,7 +157,7 @@ och sänk till 🔧 om något visar sig inte hålla.
 
 | # | id | skuld | status |
 |--:|----|------:|:--:|
-| 1 | `golvet-ar-lava` | 22 | ⬜ |
+| 1 | `golvet-ar-lava` | 22 | ✅ |
 | 2 | `kulbana` | 18 | ⬜ |
 | 3 | `magnet-fiske` | 16 | ⬜ |
 | 4 | `trollblandning` | 16 | ⬜ |

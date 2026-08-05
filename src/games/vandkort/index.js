@@ -5,12 +5,12 @@
 // firande (delat via progress.complete) + mjuk skakning, och ett nytt, lite större
 // och TEMA-VARIERAT bräde fylls på. Inga felsteg, ingen timer, inga poäng.
 // All transient-effekt går via lib/feedback.js (exit-säkert).
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle } from '../../lib/swedish.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { bounceIn, sparkle, pop, ripple, breathe, shake, floatText, wiggle } from '../../lib/feedback.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 
 // DJUP: rutnätet växer gradvis. Strikt felfritt — bara större, aldrig svårare-på-fel-sätt.
 const LEVELS = [
@@ -407,6 +407,332 @@ export default {
   },
 }
 
+// --- P0 ASSETS: ritade kortsymboler ------------------------------------------
+// Korten är brickor och FÅR bära text/UI — men symbolen barnet ska KÄNNA IGEN är
+// ett spelobjekt och ska ritas (samma bedömning som djurkorten i POLERINGSRUNDA).
+// 60 symboler för hand vore ohanterligt; i stället är de parametriska: fem mallar
+// (djur · frukt · fordon · form · havsdjur) som drivs av en tabell. Emoji-strängen
+// är kvar som NYCKEL — bara renderingen har bytts.
+const ART = {
+  // djur: [pälsfärg, öronform, nosfärg, extra]
+  '🐶': ['animal', 0xc98a4b, 'flop', 0xf0d7ae], '🐱': ['animal', 0xb6c0cc, 'point', 0xdfe6eb],
+  '🦊': ['animal', 0xef8a3d, 'point', 0xfff0d8], '🐰': ['animal', 0xf2f2f4, 'long', 0xffe0e6],
+  '🐻': ['animal', 0x9a6b45, 'round', 0xd9b48a], '🦁': ['animal', 0xf0b850, 'mane', 0xffe0a8],
+  '🐸': ['animal', 0x7ed06a, 'eyes', 0xdff3c4], '🐵': ['animal', 0xa9714a, 'round', 0xf0d7ae],
+  '🐼': ['animal', 0xf5f5f5, 'panda', 0xffffff], '🐧': ['animal', 0x3a3a4a, 'beak', 0xffffff],
+  '🐮': ['animal', 0xf5f5f5, 'round', 0xffd7d7], '🐷': ['animal', 0xf7b9c4, 'pig', 0xffd0da],
+  // frukt: [kroppsform, färg, bladfärg]
+  '🍎': ['fruit', 'round', 0xe0392b, 0x5bbf6a], '🍌': ['fruit', 'crescent', 0xffd35c, 0x8a6a2a],
+  '🍓': ['fruit', 'berry', 0xe0392b, 0x5bbf6a], '🍇': ['fruit', 'bunch', 0xa78bfa, 0x5bbf6a],
+  '🍊': ['fruit', 'round', 0xff9d3d, 0x5bbf6a], '🍉': ['fruit', 'slice', 0xff6b6b, 0x5bbf6a],
+  '🍐': ['fruit', 'pear', 0xc9e05a, 0x5bbf6a], '🍒': ['fruit', 'cherry', 0xe0392b, 0x5bbf6a],
+  '🥝': ['fruit', 'kiwi', 0x8fbe4a, 0x5bbf6a], '🍑': ['fruit', 'round', 0xffb38a, 0x5bbf6a],
+  '🥥': ['fruit', 'coco', 0x8a5a3b, 0x5bbf6a], '🍍': ['fruit', 'pine', 0xf0c33c, 0x5bbf6a],
+  // fordon: [karossfärg, taktyp]
+  '🚗': ['vehicle', 0x4aa3df, 'cab'], '🚒': ['vehicle', 0xe0392b, 'ladder'],
+  '🚜': ['vehicle', 0x5bbf6a, 'big'], '🚌': ['vehicle', 0xffd35c, 'bus'],
+  '🚲': ['vehicle', 0x8d99a6, 'bike'], '🚁': ['vehicle', 0x6ad0ff, 'heli'],
+  '🚂': ['vehicle', 0x74695f, 'train'], '🚀': ['vehicle', 0xf0f2f5, 'rocket'],
+  '⛵': ['vehicle', 0xc98a4b, 'boat'], '🚓': ['vehicle', 0x3a5a78, 'cab'],
+  '🚑': ['vehicle', 0xffffff, 'bus'], '🚕': ['vehicle', 0xf0c33c, 'cab'],
+  // former: [form, färg]
+  '⭐': ['shape', 'star', 0xffd35c], '❤️': ['shape', 'heart', 0xe0392b],
+  '🔵': ['shape', 'circle', 0x4aa3df], '🟢': ['shape', 'circle', 0x5bbf6a],
+  '🟡': ['shape', 'circle', 0xffd35c], '🟣': ['shape', 'circle', 0xa78bfa],
+  '🔶': ['shape', 'diamond', 0xff9d3d], '🌸': ['shape', 'flower', 0xffb3d1],
+  '🌙': ['shape', 'moon', 0xffe08a], '🍀': ['shape', 'clover', 0x5bbf6a],
+  '🔺': ['shape', 'triangle', 0xe0574f], '💎': ['shape', 'gem', 0x6ad0ff],
+  // havsdjur: [kroppsfärg, form]
+  '🐠': ['sea', 0xffa63d, 'fish'], '🐙': ['sea', 0xd96aa8, 'octo'],
+  '🐳': ['sea', 0x5aa6d6, 'whale'], '🦀': ['sea', 0xe0574f, 'crab'],
+  '🐬': ['sea', 0x8fb8d4, 'whale'], '🐡': ['sea', 0xffd35c, 'puffer'],
+  '🐢': ['sea', 0x7ed06a, 'turtle'], '🦈': ['sea', 0x9aa4b0, 'fish'],
+  '🦐': ['sea', 0xffa08a, 'shrimp'], '🐚': ['sea', 0xffd7c4, 'shell'],
+  '🦑': ['sea', 0xd96a6a, 'octo'], '🪼': ['sea', 0xd0b8f0, 'jelly'],
+  // baksidornas emblem
+  '🐾': ['shape', 'paw', 0xffffff], '🍃': ['shape', 'leaf', 0xffffff], '✨': ['shape', 'sparkle', 0xffffff],
+}
+
+function drawSymbol(key, size = 100) {
+  const g = new Graphics()
+  const a = ART[key]
+  const S = size / 100
+  if (!a) {
+    g.circle(0, 0, 32 * S).fill(0xc3ccd4).stroke({ width: 4, color: 0x8d99a6 })
+    g.eventMode = 'none'
+    return g
+  }
+  const [tpl] = a
+  if (tpl === 'animal') {
+    const [, fur, ear, muzzle] = a
+    const dk = lerpColor(fur, 0x000000, 0.22)
+    if (ear === 'mane') g.circle(0, 0, 44 * S).fill(0xd9922b)
+    if (ear === 'long') {
+      g.ellipse(-14 * S, -46 * S, 9 * S, 26 * S).fill(fur).stroke({ width: 3, color: dk })
+      g.ellipse(14 * S, -46 * S, 9 * S, 26 * S).fill(fur).stroke({ width: 3, color: dk })
+    } else if (ear === 'point') {
+      g.moveTo(-30 * S, -18 * S).lineTo(-24 * S, -48 * S).lineTo(-6 * S, -26 * S).closePath().fill(fur).stroke({ width: 3, color: dk })
+      g.moveTo(30 * S, -18 * S).lineTo(24 * S, -48 * S).lineTo(6 * S, -26 * S).closePath().fill(fur).stroke({ width: 3, color: dk })
+    } else if (ear === 'flop') {
+      g.ellipse(-32 * S, -6 * S, 12 * S, 24 * S).fill(dk)
+      g.ellipse(32 * S, -6 * S, 12 * S, 24 * S).fill(dk)
+    } else if (ear === 'panda') {
+      g.circle(-26 * S, -28 * S, 13 * S).fill(0x2b2b2b)
+      g.circle(26 * S, -28 * S, 13 * S).fill(0x2b2b2b)
+    } else if (ear !== 'beak' && ear !== 'eyes') {
+      g.circle(-26 * S, -26 * S, 13 * S).fill(fur).stroke({ width: 3, color: dk })
+      g.circle(26 * S, -26 * S, 13 * S).fill(fur).stroke({ width: 3, color: dk })
+    }
+    if (ear === 'eyes') {
+      g.circle(-17 * S, -30 * S, 14 * S).fill(fur).stroke({ width: 3, color: dk })
+      g.circle(17 * S, -30 * S, 14 * S).fill(fur).stroke({ width: 3, color: dk })
+      g.circle(-17 * S, -30 * S, 6 * S).fill(0x2b2b2b)
+      g.circle(17 * S, -30 * S, 6 * S).fill(0x2b2b2b)
+    }
+    g.circle(0, 0, 34 * S).fill(fur).stroke({ width: 4, color: dk })
+    g.ellipse(0, 14 * S, 19 * S, 14 * S).fill(muzzle)
+    if (ear === 'panda') {
+      g.ellipse(-13 * S, -6 * S, 10 * S, 12 * S).fill(0x2b2b2b)
+      g.ellipse(13 * S, -6 * S, 10 * S, 12 * S).fill(0x2b2b2b)
+    }
+    if (ear !== 'eyes') {
+      g.circle(-12 * S, -6 * S, 5 * S).fill(0x2b2b2b)
+      g.circle(12 * S, -6 * S, 5 * S).fill(0x2b2b2b)
+    }
+    if (ear === 'beak') g.moveTo(-9 * S, 8 * S).lineTo(0, 20 * S).lineTo(9 * S, 8 * S).closePath().fill(0xff9d3d)
+    else if (ear === 'pig') {
+      g.ellipse(0, 12 * S, 13 * S, 10 * S).fill(0xef8fa4)
+      g.circle(-5 * S, 12 * S, 3 * S).fill(0xc4647c)
+      g.circle(5 * S, 12 * S, 3 * S).fill(0xc4647c)
+    } else g.ellipse(0, 8 * S, 7 * S, 5 * S).fill(0x2b2b2b)
+    g.arc(-5 * S, 18 * S, 6 * S, 0, Math.PI).arc(5 * S, 18 * S, 6 * S, 0, Math.PI).stroke({ width: 3, color: dk })
+  } else if (tpl === 'fruit') {
+    const [, shape, col, leaf] = a
+    const dk = lerpColor(col, 0x000000, 0.2)
+    if (shape === 'crescent') {
+      g.moveTo(-36 * S, -14 * S).quadraticCurveTo(-6 * S, 34 * S, 36 * S, 12 * S).quadraticCurveTo(6 * S, 22 * S, -24 * S, -18 * S).closePath()
+      g.fill(col).stroke({ width: 4, color: dk })
+    } else if (shape === 'bunch') {
+      for (const [bx, by] of [[-16, -8], [0, -14], [16, -8], [-8, 8], [8, 8], [0, 26]]) g.circle(bx * S, by * S, 13 * S).fill(col).stroke({ width: 3, color: dk })
+    } else if (shape === 'pear') {
+      g.circle(0, 14 * S, 26 * S).fill(col).stroke({ width: 4, color: dk })
+      g.ellipse(0, -12 * S, 17 * S, 20 * S).fill(col).stroke({ width: 4, color: dk })
+    } else if (shape === 'cherry') {
+      g.circle(-16 * S, 18 * S, 16 * S).fill(col).stroke({ width: 3, color: dk })
+      g.circle(16 * S, 22 * S, 16 * S).fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(-16 * S, 4 * S).quadraticCurveTo(0, -26 * S, 16 * S, 8 * S).stroke({ width: 4, color: leaf })
+    } else if (shape === 'slice') {
+      g.moveTo(-38 * S, -18 * S).arc(0, -18 * S, 38 * S, Math.PI, 0, true).closePath().fill(col).stroke({ width: 4, color: dk })
+      g.moveTo(-38 * S, -18 * S).arc(0, -18 * S, 38 * S, Math.PI, 0, true).stroke({ width: 8 * S, color: 0x5bbf6a })
+      for (const sx of [-18, 0, 18]) g.circle(sx * S, 2 * S, 3 * S).fill(0x2b2b2b)
+    } else if (shape === 'kiwi') {
+      g.circle(0, 0, 32 * S).fill(0x8a6a4a).stroke({ width: 4, color: 0x6f4a2e })
+      g.circle(0, 0, 25 * S).fill(col)
+      g.circle(0, 0, 9 * S).fill(0xfff0d8)
+      for (let i = 0; i < 8; i++) {
+        const ang = (i / 8) * Math.PI * 2
+        g.circle(Math.cos(ang) * 16 * S, Math.sin(ang) * 16 * S, 2.5 * S).fill(0x2b2b2b)
+      }
+    } else if (shape === 'coco') {
+      g.circle(0, 0, 32 * S).fill(col).stroke({ width: 4, color: 0x6f4a2e })
+      g.circle(-10 * S, -8 * S, 5 * S).fill(0x5c3720)
+      g.circle(6 * S, -12 * S, 5 * S).fill(0x5c3720)
+      g.arc(0, 6 * S, 20 * S, Math.PI, 0).fill(0xfff0e8)
+    } else if (shape === 'pine') {
+      g.ellipse(0, 12 * S, 24 * S, 30 * S).fill(col).stroke({ width: 4, color: dk })
+      for (let r = -14; r <= 30; r += 11) g.moveTo(-22 * S, r * S).lineTo(22 * S, r * S).stroke({ width: 2, color: dk, alpha: 0.6 })
+      for (const dx of [-14, 0, 14]) g.moveTo(0, -14 * S).quadraticCurveTo(dx * S, -34 * S, dx * 1.4 * S, -44 * S).stroke({ width: 6 * S, color: leaf, cap: 'round' })
+    } else if (shape === 'berry') {
+      g.moveTo(-26 * S, -8 * S).quadraticCurveTo(-30 * S, 30 * S, 0, 38 * S).quadraticCurveTo(30 * S, 30 * S, 26 * S, -8 * S).closePath()
+      g.fill(col).stroke({ width: 4, color: dk })
+      for (const [sx, sy] of [[-11, 4], [8, 0], [-3, 16], [13, 16]]) g.ellipse(sx * S, sy * S, 2.4 * S, 4 * S).fill(0xffe08a)
+      for (const dx of [-16, 0, 16]) g.ellipse(dx * S, -13 * S, 11 * S, 7 * S).fill(leaf)
+    } else {
+      g.circle(0, 4 * S, 30 * S).fill(col).stroke({ width: 4, color: dk })
+      g.ellipse(-11 * S, -6 * S, 8 * S, 11 * S).fill({ color: 0xffffff, alpha: 0.3 })
+      g.roundRect(-3 * S, -34 * S, 6 * S, 14 * S, 3 * S).fill(0x6f4a2e)
+      g.ellipse(14 * S, -30 * S, 13 * S, 8 * S).fill(leaf)
+    }
+  } else if (tpl === 'vehicle') {
+    const [, col, top] = a
+    const dk = lerpColor(col, 0x000000, 0.25)
+    if (top === 'bike') {
+      g.circle(-24 * S, 16 * S, 18 * S).stroke({ width: 5, color: dk })
+      g.circle(24 * S, 16 * S, 18 * S).stroke({ width: 5, color: dk })
+      g.moveTo(-24 * S, 16 * S).lineTo(-4 * S, -12 * S).lineTo(24 * S, 16 * S).moveTo(-4 * S, -12 * S).lineTo(10 * S, -12 * S)
+      g.stroke({ width: 5, color: 0xe0392b })
+    } else if (top === 'heli') {
+      g.ellipse(-4 * S, 6 * S, 30 * S, 20 * S).fill(col).stroke({ width: 4, color: dk })
+      g.moveTo(22 * S, 4 * S).lineTo(46 * S, -4 * S).lineTo(46 * S, 8 * S).closePath().fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(-44 * S, -22 * S).lineTo(36 * S, -22 * S).stroke({ width: 6, color: 0x74695f })
+      g.roundRect(-6 * S, -26 * S, 8 * S, 12 * S, 3 * S).fill(0x74695f)
+      g.circle(-14 * S, 2 * S, 10 * S).fill({ color: 0xd8f0ff, alpha: 0.9 })
+    } else if (top === 'rocket') {
+      g.moveTo(0, -46 * S).quadraticCurveTo(20 * S, -10 * S, 16 * S, 24 * S).lineTo(-16 * S, 24 * S).quadraticCurveTo(-20 * S, -10 * S, 0, -46 * S)
+      g.fill(col).stroke({ width: 4, color: 0x9aa4b0 })
+      g.moveTo(-16 * S, 8 * S).lineTo(-32 * S, 32 * S).lineTo(-16 * S, 26 * S).closePath().fill(0xe0392b)
+      g.moveTo(16 * S, 8 * S).lineTo(32 * S, 32 * S).lineTo(16 * S, 26 * S).closePath().fill(0xe0392b)
+      g.circle(0, -12 * S, 10 * S).fill(0x6ad0ff).stroke({ width: 3, color: 0x2f7fb8 })
+      g.moveTo(-10 * S, 26 * S).lineTo(0, 46 * S).lineTo(10 * S, 26 * S).closePath().fill(0xff9d3d)
+    } else if (top === 'boat') {
+      g.moveTo(-38 * S, 12 * S).lineTo(38 * S, 12 * S).lineTo(26 * S, 34 * S).lineTo(-26 * S, 34 * S).closePath()
+      g.fill(col).stroke({ width: 4, color: dk })
+      g.roundRect(-3 * S, -40 * S, 6 * S, 52 * S, 3 * S).fill(0x8a5a3b)
+      g.moveTo(4 * S, -38 * S).lineTo(32 * S, 8 * S).lineTo(4 * S, 8 * S).closePath().fill(0xfff0d8).stroke({ width: 3, color: 0xe0c9a8 })
+    } else if (top === 'train') {
+      g.roundRect(-38 * S, -14 * S, 76 * S, 34 * S, 6 * S).fill(col).stroke({ width: 4, color: dk })
+      g.roundRect(-34 * S, -38 * S, 30 * S, 26 * S, 5 * S).fill(col).stroke({ width: 4, color: dk })
+      g.roundRect(14 * S, -44 * S, 12 * S, 16 * S, 4 * S).fill(0x3a3a3a)
+      g.roundRect(-30 * S, -32 * S, 20 * S, 14 * S, 3 * S).fill(0xd8f0ff)
+      for (const wx of [-24, 0, 24]) g.circle(wx * S, 24 * S, 11 * S).fill(0x3a3a3a).stroke({ width: 3, color: 0x1c1c1c })
+    } else {
+      const isBus = top === 'bus' || top === 'big'
+      g.roundRect(-40 * S, -6 * S, 80 * S, isBus ? 34 * S : 26 * S, 9 * S).fill(col).stroke({ width: 4, color: dk })
+      if (top === 'ladder') g.roundRect(-30 * S, -18 * S, 60 * S, 8 * S, 3 * S).fill(0xc3ccd4)
+      g.moveTo(-26 * S, -6 * S).lineTo(-16 * S, -30 * S).lineTo(20 * S, -30 * S).lineTo(30 * S, -6 * S).closePath()
+      g.fill(lerpColor(col, 0xffffff, 0.25)).stroke({ width: 4, color: dk })
+      g.roundRect(-14 * S, -26 * S, 13 * S, 16 * S, 3 * S).fill(0xd8f0ff)
+      g.roundRect(3 * S, -26 * S, 13 * S, 16 * S, 3 * S).fill(0xd8f0ff)
+      if (top === 'big') {
+        g.circle(-22 * S, 30 * S, 16 * S).fill(0x3a3a3a).stroke({ width: 3, color: 0x1c1c1c })
+        g.circle(24 * S, 32 * S, 10 * S).fill(0x3a3a3a).stroke({ width: 3, color: 0x1c1c1c })
+      } else {
+        g.circle(-22 * S, 28 * S, 11 * S).fill(0x3a3a3a).stroke({ width: 3, color: 0x1c1c1c })
+        g.circle(22 * S, 28 * S, 11 * S).fill(0x3a3a3a).stroke({ width: 3, color: 0x1c1c1c })
+      }
+    }
+  } else if (tpl === 'shape') {
+    const [, shape, col] = a
+    const dk = lerpColor(col, 0x000000, 0.25)
+    if (shape === 'star' || shape === 'gem') {
+      if (shape === 'gem') {
+        g.moveTo(-32 * S, -8 * S).lineTo(-17 * S, -28 * S).lineTo(17 * S, -28 * S).lineTo(32 * S, -8 * S).lineTo(0, 32 * S).closePath()
+        g.fill(col).stroke({ width: 4, color: dk })
+        g.moveTo(-17 * S, -28 * S).lineTo(-8 * S, -8 * S).lineTo(0, -28 * S).closePath().fill({ color: 0xffffff, alpha: 0.5 })
+      } else {
+        const pts = []
+        for (let k = 0; k < 10; k++) {
+          const ang = (k / 10) * Math.PI * 2 - Math.PI / 2
+          const rr = (k % 2 === 0 ? 36 : 15) * S
+          pts.push(Math.cos(ang) * rr, Math.sin(ang) * rr)
+        }
+        g.poly(pts).fill(col).stroke({ width: 4, color: dk })
+      }
+    } else if (shape === 'heart') {
+      g.moveTo(0, 32 * S).quadraticCurveTo(-40 * S, 2 * S, -20 * S, -20 * S).quadraticCurveTo(-4 * S, -30 * S, 0, -10 * S)
+      g.quadraticCurveTo(4 * S, -30 * S, 20 * S, -20 * S).quadraticCurveTo(40 * S, 2 * S, 0, 32 * S).closePath()
+      g.fill(col).stroke({ width: 4, color: dk })
+    } else if (shape === 'diamond') {
+      g.poly([0, -34 * S, 30 * S, 0, 0, 34 * S, -30 * S, 0]).fill(col).stroke({ width: 4, color: dk })
+    } else if (shape === 'triangle') {
+      g.poly([0, -32 * S, 32 * S, 26 * S, -32 * S, 26 * S]).fill(col).stroke({ width: 4, color: dk })
+    } else if (shape === 'moon') {
+      g.circle(0, 0, 32 * S).fill(col).stroke({ width: 4, color: dk })
+      g.circle(16 * S, -8 * S, 27 * S).fill(COLORS.cream)
+    } else if (shape === 'flower') {
+      for (let i = 0; i < 5; i++) {
+        const ang = (i / 5) * Math.PI * 2 - Math.PI / 2
+        g.ellipse(Math.cos(ang) * 20 * S, Math.sin(ang) * 20 * S, 14 * S, 14 * S).fill(col).stroke({ width: 3, color: dk })
+      }
+      g.circle(0, 0, 11 * S).fill(0xffe08a).stroke({ width: 3, color: 0xe0a94f })
+    } else if (shape === 'paw') {
+      g.ellipse(0, 12 * S, 20 * S, 17 * S).fill(col)
+      for (const [tx, ty] of [[-22, -12], [-8, -24], [8, -24], [22, -12]]) g.circle(tx * S, ty * S, 8 * S).fill(col)
+    } else if (shape === 'leaf') {
+      g.moveTo(-26 * S, 22 * S).quadraticCurveTo(-16 * S, -26 * S, 26 * S, -22 * S)
+      g.quadraticCurveTo(22 * S, 20 * S, -26 * S, 22 * S).closePath().fill(col)
+      g.moveTo(-22 * S, 18 * S).quadraticCurveTo(2 * S, 2 * S, 22 * S, -18 * S).stroke({ width: 3, color: dk, alpha: 0.5 })
+    } else if (shape === 'sparkle') {
+      for (const [sx, sy, r] of [[0, 0, 26], [-22, 18, 12], [22, -18, 10]]) {
+        g.moveTo(sx * S, (sy - r) * S).quadraticCurveTo(sx * S, sy * S, (sx + r * 0.45) * S, sy * S)
+        g.quadraticCurveTo(sx * S, sy * S, sx * S, (sy + r) * S)
+        g.quadraticCurveTo(sx * S, sy * S, (sx - r * 0.45) * S, sy * S)
+        g.quadraticCurveTo(sx * S, sy * S, sx * S, (sy - r) * S).closePath().fill(col)
+      }
+    } else if (shape === 'clover') {
+      for (const [cx, cy] of [[-14, -14], [14, -14], [-14, 14], [14, 14]]) g.circle(cx * S, cy * S, 15 * S).fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(0, 10 * S).quadraticCurveTo(8 * S, 30 * S, 0, 38 * S).stroke({ width: 4, color: dk })
+    } else {
+      g.circle(0, 0, 32 * S).fill(col).stroke({ width: 4, color: dk })
+      g.circle(-10 * S, -11 * S, 9 * S).fill({ color: 0xffffff, alpha: 0.35 })
+    }
+  } else {
+    const [, col, form] = a
+    const dk = lerpColor(col, 0x000000, 0.25)
+    if (form === 'octo') {
+      for (let i = 0; i < 5; i++) {
+        const ox = (-24 + i * 12) * S
+        g.moveTo(ox, 6 * S).quadraticCurveTo(ox - 6 * S, 26 * S, ox + 4 * S, 36 * S).stroke({ width: 7 * S, color: col, cap: 'round' })
+      }
+      g.ellipse(0, -8 * S, 28 * S, 26 * S).fill(col).stroke({ width: 4, color: dk })
+      g.circle(-10 * S, -12 * S, 5 * S).fill(0x2b2b2b)
+      g.circle(10 * S, -12 * S, 5 * S).fill(0x2b2b2b)
+    } else if (form === 'whale') {
+      g.ellipse(-4 * S, 4 * S, 34 * S, 22 * S).fill(col).stroke({ width: 4, color: dk })
+      g.moveTo(26 * S, 2 * S).lineTo(44 * S, -14 * S).lineTo(44 * S, 18 * S).closePath().fill(col).stroke({ width: 3, color: dk })
+      g.ellipse(-6 * S, 12 * S, 22 * S, 10 * S).fill({ color: 0xffffff, alpha: 0.5 })
+      g.circle(-18 * S, -2 * S, 4.5 * S).fill(0x2b2b2b)
+      g.moveTo(-8 * S, -18 * S).quadraticCurveTo(-4 * S, -34 * S, 4 * S, -30 * S).stroke({ width: 4, color: 0xbfe6ff })
+    } else if (form === 'crab') {
+      g.ellipse(0, 6 * S, 32 * S, 22 * S).fill(col).stroke({ width: 4, color: dk })
+      for (const s2 of [-1, 1]) {
+        g.moveTo(s2 * 30 * S, 0).quadraticCurveTo(s2 * 46 * S, -12 * S, s2 * 38 * S, -26 * S).stroke({ width: 6 * S, color: col })
+        g.circle(s2 * 38 * S, -30 * S, 10 * S).fill(col).stroke({ width: 3, color: dk })
+        for (let i = 0; i < 3; i++) g.moveTo(s2 * 24 * S, 14 * S + i * 8 * S).lineTo(s2 * 40 * S, 20 * S + i * 8 * S).stroke({ width: 4, color: col })
+      }
+      g.circle(-11 * S, -4 * S, 5 * S).fill(0xffffff)
+      g.circle(11 * S, -4 * S, 5 * S).fill(0xffffff)
+      g.circle(-11 * S, -4 * S, 2.5 * S).fill(0x2b2b2b)
+      g.circle(11 * S, -4 * S, 2.5 * S).fill(0x2b2b2b)
+    } else if (form === 'puffer') {
+      g.circle(0, 0, 28 * S).fill(col).stroke({ width: 4, color: dk })
+      for (let i = 0; i < 12; i++) {
+        const ang = (i / 12) * Math.PI * 2
+        g.moveTo(Math.cos(ang) * 27 * S, Math.sin(ang) * 27 * S).lineTo(Math.cos(ang) * 40 * S, Math.sin(ang) * 40 * S)
+        g.stroke({ width: 4, color: dk, cap: 'round' })
+      }
+      g.circle(-10 * S, -6 * S, 5 * S).fill(0x2b2b2b)
+      g.circle(10 * S, -6 * S, 5 * S).fill(0x2b2b2b)
+    } else if (form === 'turtle') {
+      g.ellipse(-30 * S, 10 * S, 10 * S, 7 * S).fill(0x9bd88a)
+      g.ellipse(30 * S, 10 * S, 10 * S, 7 * S).fill(0x9bd88a)
+      g.circle(34 * S, -8 * S, 12 * S).fill(0x9bd88a).stroke({ width: 3, color: 0x3f8a44 })
+      g.circle(38 * S, -10 * S, 3.5 * S).fill(0x2b2b2b)
+      g.ellipse(0, 0, 32 * S, 26 * S).fill(col).stroke({ width: 4, color: dk })
+      for (const [hx, hy] of [[0, 0], [-16, -8], [16, -8], [-14, 10], [14, 10]]) g.circle(hx * S, hy * S, 8 * S).stroke({ width: 3, color: dk })
+    } else if (form === 'shrimp') {
+      g.moveTo(-30 * S, -6 * S).quadraticCurveTo(10 * S, -26 * S, 30 * S, 6 * S).quadraticCurveTo(6 * S, 30 * S, -26 * S, 12 * S).closePath()
+      g.fill(col).stroke({ width: 4, color: dk })
+      g.moveTo(-26 * S, 2 * S).lineTo(-44 * S, -10 * S).lineTo(-42 * S, 12 * S).closePath().fill(col)
+      g.circle(22 * S, 2 * S, 4 * S).fill(0x2b2b2b)
+      g.moveTo(26 * S, -4 * S).lineTo(40 * S, -18 * S).stroke({ width: 3, color: dk })
+    } else if (form === 'shell') {
+      g.moveTo(-34 * S, 22 * S).arc(0, 22 * S, 34 * S, Math.PI, 0).closePath().fill(col).stroke({ width: 4, color: dk })
+      for (let i = 1; i < 5; i++) {
+        const ang = Math.PI + (i / 5) * Math.PI
+        g.moveTo(0, 22 * S).lineTo(Math.cos(ang) * 34 * S, 22 * S + Math.sin(ang) * 34 * S).stroke({ width: 3, color: dk, alpha: 0.7 })
+      }
+    } else if (form === 'jelly') {
+      g.arc(0, 0, 30 * S, Math.PI, 0).fill(col).stroke({ width: 4, color: dk })
+      g.roundRect(-30 * S, -2 * S, 60 * S, 8 * S, 4 * S).fill(col)
+      for (const tx of [-20, -7, 7, 20]) {
+        g.moveTo(tx * S, 6 * S).quadraticCurveTo(tx * S + 8 * S, 24 * S, tx * S - 4 * S, 38 * S).stroke({ width: 4, color: col, cap: 'round' })
+      }
+      g.circle(-10 * S, -12 * S, 4 * S).fill(0x2b2b2b)
+      g.circle(10 * S, -12 * S, 4 * S).fill(0x2b2b2b)
+    } else {
+      g.ellipse(-2 * S, 0, 30 * S, 20 * S).fill(col).stroke({ width: 4, color: dk })
+      g.moveTo(24 * S, 0).lineTo(42 * S, -16 * S).lineTo(42 * S, 16 * S).closePath().fill(dk)
+      g.moveTo(-6 * S, -18 * S).lineTo(4 * S, -32 * S).lineTo(12 * S, -16 * S).closePath().fill(dk)
+      g.ellipse(-6 * S, 4 * S, 14 * S, 8 * S).fill({ color: 0xffffff, alpha: 0.35 })
+      g.circle(-16 * S, -4 * S, 5 * S).fill(0xffffff)
+      g.circle(-16 * S, -4 * S, 2.5 * S).fill(0x2b2b2b)
+    }
+  }
+  g.eventMode = 'none'
+  return g
+}
+
 // --- kort-grafik (rena Graphics/Text, inga tillgångar) ---
 
 // Mönstrad, premium-känslig baksida: bas + ljusare inre platta + prick-mönster +
@@ -433,8 +759,7 @@ function makeBackView(w, h, radius, set) {
   v.addChild(dots)
   // Centralt emblem (mjuk skiva + symbol).
   v.addChild(new Graphics().circle(0, 0, w * 0.26).fill({ color: 0xffffff, alpha: 0.2 }))
-  const em = new Text({ text: set.emblem, style: { fontFamily: FONT.body, fontSize: h * 0.26 } })
-  em.anchor.set(0.5)
+  const em = drawSymbol(set.emblem, h * 0.26)
   em.alpha = 0.9
   v.addChild(em)
   return v
@@ -447,8 +772,7 @@ function makeFrontView(w, h, radius, symbol, set) {
   // Topp-glans (mjuk vit ellips) för "blank skärm"-känsla.
   const gloss = new Graphics().ellipse(0, -h * 0.26, w * 0.36, h * 0.16).fill({ color: 0xffffff, alpha: 0.55 })
   v.addChild(gloss)
-  const face = new Text({ text: symbol, style: { fontFamily: FONT.body, fontSize: h * 0.46 } })
-  face.anchor.set(0.5)
+  const face = drawSymbol(symbol, h * 0.46)
   v.addChild(face)
   return v
 }

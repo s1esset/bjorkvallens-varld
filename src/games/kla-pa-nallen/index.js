@@ -146,6 +146,149 @@ const GARMENT_TONE = {
 
 // Liten glad reaktions-emoji som svävar upp när ett visst plagg sätts på (poserings-
 // ögonblick). Faller tillbaka på en slumpad hjärta/stjärna om plagget inte finns här.
+// P0 ASSETS: alla 23 plagg RITAS. De renderades tidigare som 116px emoji-Text —
+// emoji-strängen är kvar som NYCKEL (REACT_EMOJI och plagg-tabellerna slår upp på
+// den), men formen ritas här. Allt centreras i (0,0), ~±56 px.
+function drawGarment(key) {
+  const g = new Graphics()
+  const shoe = (col, dark, boot) => {
+    if (boot) g.roundRect(-30, -46, 60, 54, 10).fill(col).stroke({ width: 4, color: dark })
+    g.moveTo(-34, 8).quadraticCurveTo(-38, 34, -10, 36).lineTo(40, 36).quadraticCurveTo(46, 22, 26, 8).closePath()
+    g.fill(col).stroke({ width: 4, color: dark })
+    g.roundRect(-38, 32, 86, 12, 6).fill(dark)
+  }
+  switch (key) {
+    case '🧢': // keps/mössa
+      g.arc(0, 6, 40, Math.PI, 0).fill(0x4a90d9).stroke({ width: 4, color: 0x2f6cab })
+      g.roundRect(-42, 2, 84, 12, 6).fill(0x4a90d9).stroke({ width: 4, color: 0x2f6cab })
+      g.ellipse(44, 12, 30, 10).fill(0x3a7cc0).stroke({ width: 4, color: 0x2f6cab })
+      g.circle(0, -34, 7).fill(0xffd35c)
+      break
+    case '🧣': // halsduk
+      g.roundRect(-46, -18, 92, 26, 13).fill(0xe0392b).stroke({ width: 4, color: 0xb02b20 })
+      g.roundRect(6, 2, 28, 52, 12).fill(0xef5a4c).stroke({ width: 4, color: 0xb02b20 })
+      for (const y of [40, 48]) g.moveTo(8, y).lineTo(32, y).stroke({ width: 3, color: 0xb02b20, alpha: 0.6 })
+      break
+    case '🧥': // jacka
+      g.moveTo(-40, -30).lineTo(40, -30).lineTo(48, 40).lineTo(-48, 40).closePath()
+      g.fill(0x5aa653).stroke({ width: 4, color: 0x3f8a44 })
+      g.moveTo(-40, -30).lineTo(-8, -8).lineTo(0, -30).closePath().fill(0x74c46a)
+      g.moveTo(40, -30).lineTo(8, -8).lineTo(0, -30).closePath().fill(0x74c46a)
+      g.roundRect(-3, -10, 6, 50, 3).fill(0x3f8a44)
+      for (const y of [4, 22]) g.circle(12, y, 4).fill(0xffd35c)
+      break
+    case '🧤': // vantar
+      for (const s of [-1, 1]) {
+        g.roundRect(s * 24 - 15, -22, 30, 44, 12).fill(0xe0574f).stroke({ width: 4, color: 0xb03f3a })
+        g.roundRect(s * 24 - 15, 16, 30, 12, 6).fill(0xfff0d8).stroke({ width: 3, color: 0xd9c9a8 })
+        g.roundRect(s * 24 + (s > 0 ? 12 : -22), -12, 12, 20, 6).fill(0xe0574f).stroke({ width: 4, color: 0xb03f3a })
+      }
+      break
+    case '🥾':
+      shoe(0xc98a4b, 0x8a5a3b, true)
+      break
+    case '⛸️': // skridsko
+      shoe(0xf0f2f5, 0xb6c0cc, true)
+      g.roundRect(-38, 44, 86, 7, 3).fill(0xa9b3bd)
+      g.roundRect(-30, 44, 6, 14, 3).fill(0xa9b3bd)
+      g.roundRect(34, 44, 6, 14, 3).fill(0xa9b3bd)
+      break
+    case '👒': // solhatt
+      g.ellipse(0, 14, 56, 18).fill(0xffe08a).stroke({ width: 4, color: 0xd9a52b })
+      g.arc(0, 16, 30, Math.PI, 0).fill(0xffd35c).stroke({ width: 4, color: 0xd9a52b })
+      g.roundRect(-32, 6, 64, 12, 6).fill(0xff9d9d)
+      break
+    case '🕶️': // solglasögon
+      g.roundRect(-50, -14, 40, 30, 12).fill(0x2b2b3a).stroke({ width: 4, color: 0x14141c })
+      g.roundRect(10, -14, 40, 30, 12).fill(0x2b2b3a).stroke({ width: 4, color: 0x14141c })
+      g.roundRect(-12, -4, 24, 7, 3).fill(0x14141c)
+      g.roundRect(-44, -10, 12, 8, 4).fill({ color: 0xffffff, alpha: 0.35 })
+      break
+    case '👕':
+    case '👚': {
+      const col = key === '👕' ? 0x4aa3df : 0xf7b9e4
+      const dk = key === '👕' ? 0x2f7fb8 : 0xd98ec0
+      g.moveTo(-30, -26).lineTo(30, -26).lineTo(48, -6).lineTo(38, 6).lineTo(32, -2).lineTo(32, 38)
+      g.lineTo(-32, 38).lineTo(-32, -2).lineTo(-38, 6).lineTo(-48, -6).closePath()
+      g.fill(col).stroke({ width: 4, color: dk })
+      g.arc(0, -26, 13, 0, Math.PI).stroke({ width: 4, color: dk })
+      break
+    }
+    case '🩳': // shorts
+      g.moveTo(-36, -22).lineTo(36, -22).lineTo(34, 32).lineTo(6, 32).lineTo(0, 2).lineTo(-6, 32).lineTo(-34, 32).closePath()
+      g.fill(0x6ac0f0).stroke({ width: 4, color: 0x2f7fb8 })
+      g.roundRect(-36, -26, 72, 10, 4).fill(0x2f7fb8)
+      break
+    case '👖': // byxor
+      g.moveTo(-32, -26).lineTo(32, -26).lineTo(30, 46).lineTo(6, 46).lineTo(0, 4).lineTo(-6, 46).lineTo(-30, 46).closePath()
+      g.fill(0x4a6fa5).stroke({ width: 4, color: 0x2f4d78 })
+      g.roundRect(-32, -30, 64, 11, 4).fill(0x2f4d78)
+      g.circle(-18, -14, 4).fill(0xffd35c)
+      break
+    case '👗': // klänning
+      g.moveTo(-24, -28).lineTo(24, -28).lineTo(46, 42).lineTo(-46, 42).closePath()
+      g.fill(0xef6aa8).stroke({ width: 4, color: 0xc4487f })
+      g.roundRect(-26, -6, 52, 8, 4).fill(0xffd35c)
+      g.arc(0, -28, 12, 0, Math.PI).stroke({ width: 4, color: 0xc4487f })
+      break
+    case '👟':
+      shoe(0xffffff, 0x9aa4b0, false)
+      g.moveTo(-20, 14).lineTo(14, 20).stroke({ width: 4, color: 0xe0392b })
+      break
+    case '👞':
+      shoe(0x8a5a3b, 0x5c3720, false)
+      break
+    case '🥿':
+      shoe(0xf7b9e4, 0xd98ec0, false)
+      break
+    case '🩴': // sandal
+      g.moveTo(-30, 10).quadraticCurveTo(-36, 34, -6, 36).lineTo(38, 36).quadraticCurveTo(44, 20, 24, 10).closePath()
+      g.fill(0xffd35c).stroke({ width: 4, color: 0xd9a52b })
+      g.moveTo(-14, 12).lineTo(6, -14).lineTo(26, 12).stroke({ width: 6, color: 0x4aa3df, cap: 'round' })
+      break
+    case '🧦': // socka
+      g.moveTo(-18, -34).lineTo(18, -34).lineTo(18, 8).quadraticCurveTo(44, 12, 42, 32)
+      g.lineTo(-2, 34).quadraticCurveTo(-18, 26, -18, 4).closePath()
+      g.fill(0xffffff).stroke({ width: 4, color: 0xb6c0cc })
+      for (const y of [-26, -18]) g.moveTo(-18, y).lineTo(18, y).stroke({ width: 4, color: 0xe0392b })
+      break
+    case '☂️': // paraply
+      g.arc(0, 4, 48, Math.PI, 0).fill(0xe0392b).stroke({ width: 4, color: 0xb02b20 })
+      for (const dx of [-24, 0, 24]) g.moveTo(dx, 4).lineTo(dx, -30).stroke({ width: 3, color: 0xb02b20, alpha: 0.5 })
+      g.roundRect(-3, 4, 6, 42, 3).fill(0x8a5a3b)
+      g.arc(-10, 46, 10, 0, Math.PI).stroke({ width: 6, color: 0x8a5a3b })
+      break
+    case '🎩': // hög hatt
+      g.ellipse(0, 30, 48, 13).fill(0x3a3a4a).stroke({ width: 4, color: 0x1c1c28 })
+      g.roundRect(-27, -34, 54, 64, 6).fill(0x4a4a5c).stroke({ width: 4, color: 0x1c1c28 })
+      g.roundRect(-28, 10, 56, 15, 3).fill(0xe0392b)
+      break
+    case '👑': // krona
+      g.moveTo(-38, 24).lineTo(-42, -22).lineTo(-18, -2).lineTo(0, -30).lineTo(18, -2).lineTo(42, -22).lineTo(38, 24).closePath()
+      g.fill(0xffd24a).stroke({ width: 4, color: 0xd79a1e })
+      g.circle(-22, 10, 5).fill(0xff6b8a)
+      g.circle(0, 10, 6).fill(0x6ad0ff)
+      g.circle(22, 10, 5).fill(0x8ef08a)
+      break
+    case '🎀': // rosett
+      g.moveTo(-6, 0).lineTo(-44, -22).quadraticCurveTo(-52, 0, -44, 22).closePath()
+      g.fill(0xef6aa8).stroke({ width: 4, color: 0xc4487f })
+      g.moveTo(6, 0).lineTo(44, -22).quadraticCurveTo(52, 0, 44, 22).closePath()
+      g.fill(0xef6aa8).stroke({ width: 4, color: 0xc4487f })
+      g.circle(0, 0, 12).fill(0xf7b9e4).stroke({ width: 4, color: 0xc4487f })
+      break
+    default: // 👔 slips
+      g.moveTo(-16, -34).lineTo(16, -34).lineTo(10, -14).lineTo(-10, -14).closePath()
+      g.fill(0x4a6fa5).stroke({ width: 4, color: 0x2f4d78 })
+      g.moveTo(-10, -14).lineTo(10, -14).lineTo(20, 26).lineTo(0, 46).lineTo(-20, 26).closePath()
+      g.fill(0x4a6fa5).stroke({ width: 4, color: 0x2f4d78 })
+      g.moveTo(-14, 2).lineTo(14, 10).stroke({ width: 4, color: 0x6a8fc5, alpha: 0.7 })
+      break
+  }
+  g.eventMode = 'none'
+  return g
+}
+
 const REACT_EMOJI = {
   '🕶️': '😎', '👑': '✨', '🎩': '🤩', '🧣': '🥰', '🎀': '🥰', '👔': '😊',
   '👒': '☀️', '☂️': '💧', '🥾': '👣', '🧤': '👏', '⛸️': '⭐', '🩴': '🌊',
@@ -427,8 +570,8 @@ export default {
   // bara den stora emoji-konsten. Osynlig, generös träffyta (>=96px) + hit-halo.
   _makeItem(g) {
     const it = new Container()
-    const e = new Text({ text: g.e, style: { fontFamily: FONT.body, fontSize: 116 } })
-    e.anchor.set(0.5)
+    const e = drawGarment(g.e)
+    e.scale.set(1.1)
     it.addChild(e)
     it._art = e
     it.hitArea = { contains: (px, py) => px * px + py * py <= 80 * 80 } // osynlig hit-halo (160px)

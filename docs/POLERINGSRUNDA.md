@@ -165,7 +165,7 @@ och sänk till 🔧 om något visar sig inte hålla.
 | 6 | `folj-sparet` | 12 | ✅ |
 | 7 | `vad-forsvann` | 11 | ✅ |
 | 8 | `vattenvagen` | 11 | ✅ |
-| 9 | `kla-pa-nallen` | 10 | ⬜ |
+| 9 | `kla-pa-nallen` | 10 | ✅ |
 | 10 | `vandkort` | 9 | ⬜ |
 | 11 | `kugghjulen` | 9 | ⬜ |
 | 12 | `sortera-skrap` | 8 | ⬜ |

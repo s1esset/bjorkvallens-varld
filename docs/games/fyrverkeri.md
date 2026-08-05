@@ -1,5 +1,5 @@
 # Fyrverkeri (`fyrverkeri`)
-> 🎉 roligt · drag · 2–5 år · status: 📝 plan klar
+> 🎉 roligt · drag · 2–5 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -108,3 +108,16 @@ inget ljud-"bom" och ingen som tittar på.
   (3) **Smäll-blixt + mikroskak [Quick]** — kort, subtil additiv sky-ljusning (`_flashG`, cap 0.22)
   + `_fx`-skak, båda ticker-drivna (ingen gsap → exit-säkert). Städning: oanvända `Circle`/`puff`-
   importer + `ctx`-param i `_loadLevel` bort. errorCount 0.
+- 2026-08-05 ✅ **Andra omgången (poleringsrundan, Roligt-fliken).**
+  - **P0 ASSETS:** målstjärnorna var `✨`/`⭐` som `Text` — nu ritade femuddiga stjärnor som
+    får gnistkors och ljus kärna när de tänds. Otänd stjärna ritas alltid i samma dova blågrå,
+    annars såg den redan "färgad" ut och tändningen blev ingen synlig förändring. Inga
+    `Text`-noder kvar.
+  - **Vindflaggan låg på (96, 96) och hamnade delvis bakom skalets hemknapp (70, 64)** — syns
+    bara i skärmdumpen. Flyttad till (214, 84).
+  - **[Medium] Levande himmel + [Deep] en publik som tittar:** horisonten har nu måne med
+    kratrar, en stadssiluett med slumpade lysande fönster och två granar. Bobo och Elvira står
+    på marken med armarna i luften, hoppar till vid varje smäll och ropar "Oooh!"/"Aaah!"
+    (throttlat). Hela nedre halvan av skärmen var förut tom.
+  - **Grind:** `npm run check --game fyrverkeri` 0 fel · `npm run test` grönt ·
+    `_idleprobe 20s` → `idleFramsteg: 0`, `efterSpel: 1`. 7 nya repliker väntar på röstklipp.

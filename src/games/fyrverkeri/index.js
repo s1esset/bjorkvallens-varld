@@ -16,13 +16,13 @@
 // eller dödas i destroy(). Tickern tas bort och this._root.destroy({children:true}) körs i
 // destroy(), så ingen uppdatering kan skriva till ett förstört objekt; loopen kollar ändå
 // .destroyed defensivt.
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { AimLauncher } from '../../lib/launcher.js'
 import { predictTrajectory } from '../../lib/physics.js'
 import { bigCelebration, sparkle, pop, floatText } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { PLAYFUL, FONT } from '../../lib/theme.js'
+import { PLAYFUL } from '../../lib/theme.js'
 
 // --- Layout & fysik (designkoordinater 1280×720) ---
 const ORIGIN = { x: 640, y: 648 } // raketens rampe-läge (greppas + skjuts härifrån)
@@ -90,6 +90,24 @@ export default {
       g.eventMode = 'none'
       this._sky.addChild(g)
       this._stars.push({ g, base: 0.35 + Math.random() * 0.4, amp: 0.25 + Math.random() * 0.35, speed: 0.6 + Math.random() * 1.4, phase: Math.random() * Math.PI * 2 })
+    }
+
+    // 1b) Horisont: måne, stadssiluett och granar. Utan dem var hela nedre halvan tom.
+    this._horizon = makeHorizon(ORIGIN.y + 26)
+    this._root.addChild(this._horizon)
+
+    // 1c) Publik som tittar upp — Bobo och Elvira står på marken och ropar "Oooh!"
+    //     när det smäller. Ett fyrverkeri utan någon som ser det känns ensamt.
+    this._crowd = []
+    this._crowdLayer = new Container()
+    this._crowdLayer.eventMode = 'none'
+    this._crowdLayer.interactiveChildren = false
+    this._root.addChild(this._crowdLayer)
+    for (const [cx, kind] of [[300, 'bobo'], [392, 'elvira']]) {
+      const v = kind === 'bobo' ? makeSpectatorBobo() : makeSpectatorElvira()
+      v.position.set(cx, ORIGIN.y + 30)
+      this._crowdLayer.addChild(v)
+      this._crowd.push({ view: v, base: ORIGIN.y + 30 })
     }
 
     // 2) Tryck-fångare (under spelgrafiken): tap på tom himmel ger ett mjukt glitter.
@@ -383,6 +401,21 @@ export default {
 
   // Smällen: flera MÖNSTER (burst/ring/willow/heart/crackle) + dovt bom, sprak, blixt & skak.
   // Varje tändning blir ett eget litet skådespel. Exit-säkert via ticker-drivna partiklar.
+  // Publiken hoppar till och ropar när det smäller (throttlat så det inte blir spam).
+  _cheer(ctx) {
+    const now = performance.now()
+    if (now - (this._lastCheer || 0) < 420) return
+    this._lastCheer = now
+    for (const s of this._crowd || []) {
+      if (!s.view || s.view.destroyed) continue
+      pop(s.view, { scale: 1.12 })
+    }
+    if (Math.random() < 0.35) {
+      const s = this._crowd?.[(Math.random() * this._crowd.length) | 0]
+      if (s && !s.view.destroyed) floatText(ctx.fxLayer, s.view.x, s.base - 96, randomFrom(['Oooh!', 'Aaah!', 'Wow!']), { fontSize: 40 })
+    }
+  },
+
   _explode(ctx, x, y, color, shape) {
     if (!this._alive) return
     shape = shape || randomFrom(['burst', 'ring', 'willow', 'heart', 'crackle'])
@@ -397,6 +430,7 @@ export default {
     // Kort, subtil smäll-blixt (hela skyn ljusnar) + mikroskak på _fx.
     this._flash = Math.min(0.22, Math.max(this._flash, 0.13 + Math.random() * 0.06))
     this._shakeAmt = 3
+    this._cheer(ctx)
 
     const spark = (vx, vy, opts = {}) => {
       const r = opts.r ?? 4 + Math.random() * 5
@@ -727,7 +761,8 @@ export default {
 
   _buildFlag() {
     const c = new Container()
-    c.position.set(96, 96)
+    // Flaggan låg på (96, 96) och hamnade delvis BAKOM skalets hemknapp (70, 64).
+    c.position.set(214, 84)
     c.eventMode = 'none'
     const pole = new Graphics().roundRect(-4, 0, 8, 130, 4).fill(0x9a8a6a)
     const cloth = new Graphics()
@@ -841,7 +876,8 @@ function makeLaunchPad() {
   return c
 }
 
-// En mål-stjärna: otänd = svag ring + blek ✨; tänd = stark glöd + lysande ⭐.
+// En mål-stjärna: otänd = svag ring + blek RITAD stjärna; tänd = stark glöd + lysande
+// femuddig stjärna med gnistkors. Förut var stjärnan en ✨/⭐-emoji (P0 ASSETS).
 function makeTarget(r = 34, hue = 0xffe27a) {
   const c = new Container()
   const glow = new Graphics().circle(0, 0, r * 1.6).fill({ color: hue, alpha: 0.12 })
@@ -849,15 +885,17 @@ function makeTarget(r = 34, hue = 0xffe27a) {
   glow.eventMode = 'none'
   const ring = new Graphics().circle(0, 0, r).stroke({ width: 5, color: 0xffe27a, alpha: 0.6 })
   ring.eventMode = 'none'
-  const star = new Text({ text: '✨', style: { fontFamily: FONT.body, fontSize: r * 1.6 } })
-  star.anchor.set(0.5)
-  star.alpha = 0.45
+  const star = new Graphics()
   star.eventMode = 'none'
+  // Otänd stjärna är alltid samma dova blågrå — annars ser en otänd stjärna redan
+  // "färgad" ut och tändningen blir ingen synlig förändring.
+  drawStar(star, r * 0.78, 0x8e9ac0, false)
+  star.alpha = 0.5
   c.addChild(glow, ring, star)
-  // Tänd-läge: byt till lysande stjärna och starkt sken.
+  // Tänd-läge: full stjärna med gnistkors och starkt sken.
   c.setLit = () => {
     if (star.destroyed) return
-    star.text = '⭐'
+    drawStar(star, r * 0.9, hue, true)
     star.alpha = 1
     if (!glow.destroyed) {
       glow.clear().circle(0, 0, r * 1.9).fill({ color: hue, alpha: 0.4 })
@@ -866,6 +904,64 @@ function makeTarget(r = 34, hue = 0xffe27a) {
       ring.clear().circle(0, 0, r).stroke({ width: 6, color: hue, alpha: 0.95 })
     }
   }
+  return c
+}
+
+// Femuddig stjärna; tänd får dessutom ett gnistkors och en ljus kärna.
+function drawStar(g, R, hue, lit) {
+  g.clear()
+  if (lit) {
+    for (const [len, w] of [[R * 2.2, 3.5], [R * 1.5, 2.5]]) {
+      g.moveTo(-len, 0).lineTo(len, 0).stroke({ width: w, color: 0xfffdf0, alpha: 0.5 })
+      g.moveTo(0, -len).lineTo(0, len).stroke({ width: w, color: 0xfffdf0, alpha: 0.5 })
+      break
+    }
+  }
+  const pts = []
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5
+    const rr = i % 2 ? R * 0.44 : R
+    pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
+  }
+  g.poly(pts).fill(lit ? 0xfff3b0 : hue).stroke({ width: 2.5, color: lit ? 0xffc94d : 0xbfa860, alpha: lit ? 0.95 : 0.6 })
+  if (lit) g.circle(0, -R * 0.12, R * 0.26).fill({ color: 0xffffff, alpha: 0.85 })
+}
+
+// Horisont: måne, stadssiluett och två träd — himlen var helt tom under stjärnorna.
+function makeHorizon(groundY) {
+  const c = new Container()
+  c.eventMode = 'none'
+  // Måne med skuggkrater.
+  c.addChild(new Graphics()
+    .circle(1076, 150, 74).fill({ color: 0xfff3d0, alpha: 0.1 })
+    .circle(1076, 150, 52).fill(0xf7edcf)
+    .circle(1060, 138, 10).fill({ color: 0xe2d6b4, alpha: 0.8 })
+    .circle(1092, 162, 7).fill({ color: 0xe2d6b4, alpha: 0.7 })
+    .circle(1084, 130, 5).fill({ color: 0xe2d6b4, alpha: 0.6 }))
+  // Stadssiluett med lysande fönster.
+  const city = new Graphics()
+  const houses = [[70, 120, 92], [176, 86, 128], [274, 104, 74], [366, 140, 110], [512, 78, 62]]
+  for (const [x, w, h] of houses) {
+    city.roundRect(x, groundY - h, w, h + 30, 6).fill(0x141a38)
+    for (let wy = 0; wy < Math.floor(h / 34); wy++) {
+      for (let wx = 0; wx < Math.floor(w / 30); wx++) {
+        if (Math.random() < 0.55) {
+          city.roundRect(x + 10 + wx * 30, groundY - h + 16 + wy * 34, 13, 16, 3)
+            .fill({ color: 0xffd979, alpha: 0.55 + Math.random() * 0.4 })
+        }
+      }
+    }
+  }
+  // Två granar till höger.
+  for (const [tx, s] of [[880, 1], [962, 0.72]]) {
+    city.roundRect(tx - 7 * s, groundY - 26 * s, 14 * s, 40 * s, 5).fill(0x2a1f14)
+    for (let i = 0; i < 3; i++) {
+      const w = (62 - i * 14) * s
+      const yy = groundY - 30 * s - i * 38 * s
+      city.moveTo(tx, yy - 70 * s).lineTo(tx + w, yy).lineTo(tx - w, yy).closePath().fill(0x16351f)
+    }
+  }
+  c.addChild(city)
   return c
 }
 
@@ -894,4 +990,70 @@ function lerpColor(a, b, t) {
   const gg = Math.round(ag + (bg - ag) * t)
   const bl = Math.round(ab + (bb - ab) * t)
   return (r << 16) | (gg << 8) | bl
+}
+
+// Publik: Bobo sedd bakifrån/underifrån, tittar upp mot himlen.
+function makeSpectatorBobo() {
+  const c = new Container()
+  const cream = 0xfffdf7
+  const dark = 0xf5731e
+  c.addChild(new Graphics().ellipse(0, 4, 40, 10).fill({ color: 0x000000, alpha: 0.25 }))
+  // Kropp (siluett mot natten, men ljus nog att synas).
+  c.addChild(new Graphics()
+    .roundRect(-26, -66, 52, 68, 24).fill(0xe9dcc6)
+    .roundRect(-26, -30, 52, 12, 6).fill({ color: 0xd6c6ab, alpha: 0.7 }))
+  // Armar uppåt i häpnad.
+  c.addChild(new Graphics()
+    .moveTo(-22, -52).lineTo(-42, -86).stroke({ width: 13, color: 0xe9dcc6, cap: 'round' })
+    .moveTo(22, -52).lineTo(42, -86).stroke({ width: 13, color: 0xe9dcc6, cap: 'round' }))
+  // Huvud med öron.
+  c.addChild(new Graphics()
+    .circle(-24, -122, 13).fill(cream)
+    .circle(24, -122, 13).fill(cream)
+    .circle(0, -100, 34).fill(dark)
+    .circle(0, -103, 31).fill(cream))
+  // Ansikte vänt uppåt: ögon högt upp + öppen mun.
+  c.addChild(new Graphics()
+    .circle(-12, -112, 4.5).fill(0x4a3526)
+    .circle(12, -112, 4.5).fill(0x4a3526)
+    .ellipse(0, -93, 9, 11).fill(0x4a3526)
+    .circle(-20, -98, 6).fill({ color: 0xff9ec4, alpha: 0.75 })
+    .circle(20, -98, 6).fill({ color: 0xff9ec4, alpha: 0.75 }))
+  c.children.forEach((ch) => (ch.eventMode = 'none'))
+  return c
+}
+
+// Publik: Elvira, blond, tittar upp och pekar.
+function makeSpectatorElvira() {
+  const c = new Container()
+  const skin = 0xffe0bd
+  const dress = 0xff9ec4
+  const hair = 0xf2cf63
+  c.addChild(new Graphics().ellipse(0, 4, 32, 9).fill({ color: 0x000000, alpha: 0.25 }))
+  c.addChild(new Graphics()
+    .roundRect(-14, -34, 11, 34, 5).fill(0xefb9d2)
+    .roundRect(4, -34, 11, 34, 5).fill(0xefb9d2)
+    .roundRect(-18, -6, 17, 10, 5).fill(0x6a4a8a)
+    .roundRect(2, -6, 17, 10, 5).fill(0x6a4a8a))
+  const body = new Graphics()
+  body.moveTo(-17, -72).lineTo(17, -72).lineTo(28, -30).lineTo(-28, -30).closePath()
+    .fill(dress).stroke({ width: 3, color: 0xe87da8 })
+  c.addChild(body)
+  // En arm pekar upp mot fyrverkeriet.
+  c.addChild(new Graphics()
+    .moveTo(-14, -66).lineTo(-32, -104).stroke({ width: 10, color: dress, cap: 'round' })
+    .circle(-34, -108, 6.5).fill(skin)
+    .moveTo(14, -66).lineTo(26, -40).stroke({ width: 10, color: dress, cap: 'round' })
+    .circle(27, -37, 6.5).fill(skin))
+  c.addChild(new Graphics().circle(-22, -96, 10).fill(hair).circle(22, -96, 10).fill(hair))
+  const head = new Graphics().circle(0, -94, 21).fill(skin)
+  head.circle(-7, -99, 3).fill(0x3a2a1a)
+  head.circle(7, -99, 3).fill(0x3a2a1a)
+  head.ellipse(0, -84, 6, 7).fill(0x9a5b3b)
+  head.circle(-12, -88, 4.5).fill({ color: 0xffb0b0, alpha: 0.7 })
+  head.circle(12, -88, 4.5).fill({ color: 0xffb0b0, alpha: 0.7 })
+  c.addChild(head)
+  c.addChild(new Graphics().roundRect(-21, -114, 42, 15, 8).fill(hair))
+  c.children.forEach((ch) => (ch.eventMode = 'none'))
+  return c
 }

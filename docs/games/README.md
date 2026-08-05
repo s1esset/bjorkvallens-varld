@@ -55,7 +55,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 5 | Tryck och Förvandla | `tryck-och-forvandla` | tap | 🔧 |
 | 6 | Kittla Figuren | `kittla-figuren` | tap | 🔧 |
 | 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | 🔧 |
-| 32 | Fyrverkeri | `fyrverkeri` | drag | 🔧 |
+| 32 | Fyrverkeri | `fyrverkeri` | drag | ✅ |
 | 37 | Såpbubblor | `sapbubblor` | tap | ✅ |
 | 41 | Bajs och Kiss | `bajs-och-kiss` | drag | ✅ |
 | 42 | Regnbågsmålaren Elvira | `regnbagsmalaren` | drag | ✅ |

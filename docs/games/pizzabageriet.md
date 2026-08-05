@@ -112,6 +112,36 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
   placerade toppings, skärmdump granskad). Inga kodändringar. Rekommenderad första-omgång:
   **[Medium] kund med bild-order + [Deep] skär & servera + [Quick] mätaren till pizzan** — ger
   loopen en mottagare och en payoff, vilket är den största bristen.
+- 2026-08-05 ✅ **Poleringsrundan (Roligt #2) — assets, scen och finish.** Spelet var
+  mekaniskt helt men visuellt tunt; skärmdumpen visade en gradient utan kök, ett svävande
+  Bobo-huvud och 65 emoji-ingredienser.
+  1. **P0 `ASSETS` löst helt [Deep]** — ny `src/games/pizzabageriet/ingredienser.js` med
+     **alla 65 ingredienser ritade** som fristående Graphics (egen silhuett, glans,
+     glada ansikten på djuren). Även soptunnan, pizzabiten som serveras och pizzaskäraren
+     är nu ritade. Ingen emoji är längre ett spelobjekt — kvar finns bara knapp-ikoner
+     (➡️🔥, 🧤), hint-text och fx-detaljer (💨/😋), vilket P0 tillåter.
+  2. **Tomma scenen → ett riktigt bageri [Medium]** — kaklad vägg, mjölig bänkskiva med
+     träådring, golv, kavel, mjölsäck och degskål. Ersätter den nakna gradienten.
+  3. **Bagar-Bobo [Medium]** — huvudet har fått kropp, förkläde med hängslen och band,
+     tassar, armar och kockmössa, plus en vilo-guppning (P0: eget liv).
+  4. **Kund med bild-order [Medium]** (planens första punkt, tidigare oskriven) — en
+     pratbubbla visar 1–2 ritade önskade ingredienser. Helt frivilligt: lägger man på en
+     önskad sak jublar Bobo direkt, uppfyller man hela önskan blir serveringen extra glad.
+     Aldrig ett krav, aldrig ett misslyckande. Ny önskan varje omgång = variationsaxel.
+  5. **Ingredienser som lever i ugnen [Medium]** — osten smälter ut, topparna puttrar ur
+     fas, ostbubblor stiger, plus ugnsfräs (`audio.tone`), ugnshum vid start och ett pling
+     när den når gyllene. Köket låter som ett kök [Quick].
+  6. **Spel-specifik finish [Deep]** — en ritad pizzaskärare far över pizzan, den delas i
+     sex bitar med riktiga snitt, och en bit flyger till Bobo som mumsar. Ersätter generisk
+     sparkle-reveal.
+  7. **Layoutfel ur skärmdumpen** — hint-texten låg under hemknappen och bakom Bobos mössa
+     (kortad + flyttad till x=400); det tomma fatet dominerade scenen under gräddningen
+     (tonas nu ner till 0.4 och tillbaka vid reveal); ljusa ingredienser (ben/ägg/vitlök/
+     stekt ägg) försvann mot den ljusa hyllan (fick konturer).
+  8. `gsap.delayedCall` → **`ctx.later()`** genomgående (exit-säkerhet).
+  Kvar i §4: sås-/ostval [Quick] och pizzabok/galleri [Quick].
+  `npm run check -- --game pizzabageriet` grön · `npm run test pizzabageriet` 0 fel ·
+  skärmdumpar granskade i alla tre faser (pynta / ugn / klar).
 - 2026-07-01 🔧 **Första-omgången byggd (scoped, mönster #2):** (1) **Hungrig kund [Medium]** — en
   `makeMascot`-Bobo uppe till vänster; vid "Ta ut" flyger en bit pizza (med rätt gräddad ton) till
   kunden som mumsar (`_serveToCustomer`: pop + 😋/Mums! + röst) → man bakar åt NÅGON. (2) **Färgen

@@ -1,20 +1,29 @@
 // Pizzabageriet — fri skaparlek + "passa färgen" (2–5 år). Barnet PYNTAR en pizza
 // uppifrån: dra valfria ingredienser (mat, fisk, bajs, snor, blöja … allt går!) från
 // hyllan ner på degen och släpp var som helst → fri placering + valfri mängd ger
-// mönster och färgglada former (INGA ikon-behållare, själva saken visas i fullstorlek).
-// Layout: pizzan till VÄNSTER, ugnen (mindre) till HÖGER, gräddaknappen (➡️🔥, ikon
-// utan text) mitt emellan med soptunnan 🗑️ rakt under. Bagerimaskoten Bobo tronar
-// högst upp i mitten och mumsar en bit av varje färdig pizza.
-// Ingredienshyllan har MÅNGA saker (65, slumpad ordning varje start) → svep/dra i
-// hyllan (eller pilarna) för att bläddra; ett tryck lägger på pizzan direkt
-// (tap-fallback). Placerade ingredienser är STORA och kan DRAS OM: flytta dem på
-// pizzan, dra till soptunnan för att ta bort (puff + glad tunna), eller släpp utanför
-// → studsar tillbaka med en vinglig skratt-känsla. Sedan: tryck ➡️🔥 → pizzan åker in
-// i ugnen och MÖRKNAR långsamt (ton-gradient: ljus → gyllene → brun → kol). Barnet
-// tittar på färgen och trycker "Ta ut" när den ser god ut. INGET kan bli fel: även
-// becksvart är bara roligt ("Hihi, bränd!"), firande + klistermärke varje gång, sedan
-// en ny pizza. Allt ritas programmatiskt (Pixi Graphics + emoji). Exit-säkert:
-// tweens dödas, ticker tas bort, _root förstörs.
+// mönster och färgglada former.
+//
+// ALLA ingredienser är RITADE (./ingredienser.js) — ingen emoji är ett spelobjekt
+// (P0 ASSETS). Detsamma gäller soptunnan, pizzabiten som serveras och bagaren.
+//
+// Scenen är ett riktigt bageri: kaklad vägg, mjölig bänkskiva, kavel, mjölsäck och
+// degskål — inte en gradient. Bagaren Bobo står i kockmössa och förkläde högst upp
+// och har en ÖNSKELISTA i en pratbubbla (1–2 ritade ingredienser). Önskan är helt
+// frivillig: uppfyller man den blir Bobo extra lycklig, annars händer inget alls.
+//
+// Layout: pizzan till VÄNSTER, ugnen (mindre) till HÖGER, gräddaknappen (➡️🔥) mitt
+// emellan med soptunnan rakt under. Hyllan har 65 saker i slumpad ordning → svep/dra
+// (eller pilarna) för att bläddra; ett tryck lägger på pizzan direkt (tap-fallback).
+// Placerade ingredienser är STORA och kan DRAS OM: flytta på pizzan, dra till
+// soptunnan (puff + glad tunna), eller släpp utanför → studsar tillbaka.
+//
+// Sedan: tryck ➡️🔥 → pizzan åker in i ugnen och MÖRKNAR långsamt (ton-gradient:
+// ljus → gyllene → brun → kol) medan osten smälter, topparna puttrar och ugnen fräser.
+// Barnet tittar på färgen och trycker "Ta ut" när den ser god ut. INGET kan bli fel:
+// även becksvart är bara roligt ("Hihi, bränd!"). Finishen är spel-specifik: en ritad
+// pizzaskärare far över pizzan, den delas i sex bitar, och en bit flyger till Bobo som
+// mumsar. Firande + klistermärke varje gång, sedan en ny pizza.
+// Exit-säkert: tweens dödas, fördröjningar går via ctx.later, ticker tas bort, _root förstörs.
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
@@ -24,104 +33,41 @@ import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedb
 import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
+import DRAW from './ingredienser.js'
 
-// Egenritade ingredienser (saknar bra emoji). Ritas i en ~100-enheters låda kring
-// (0,0); makeItemView skalar dem till önskad storlek.
-const DRAWN = {
-  // Grön snorklump med glans och droppe.
-  snor: () =>
-    new Graphics()
-      .circle(0, -4, 26).fill(0x8bc34a)
-      .circle(-16, 12, 15).fill(0x8bc34a)
-      .circle(15, 14, 12).fill(0x8bc34a)
-      .circle(8, 34, 7).fill(0x9ccc65)
-      .circle(-8, -12, 7).fill({ color: 0xffffff, alpha: 0.35 }),
-  // Fiskskelett: huvud + ryggrad + revben + stjärtfena.
-  fiskben: () => {
-    const g = new Graphics()
-    g.moveTo(-14, 0).lineTo(30, 0).stroke({ width: 6, color: 0xf2ecd8, cap: 'round' })
-    for (const x of [-4, 6, 16, 26]) g.moveTo(x, -13).lineTo(x, 13).stroke({ width: 5, color: 0xf2ecd8, cap: 'round' })
-    g.poly([30, 0, 44, -13, 44, 13]).fill(0xf2ecd8)
-    g.circle(-24, 0, 13).fill(0xf2ecd8)
-    g.circle(-28, -3, 3).fill(0x3a3430)
-    return g
-  },
-  // Brun lerplask.
-  lera: () =>
-    new Graphics()
-      .circle(0, 2, 26).fill(0x8a5a33)
-      .circle(-22, -4, 12).fill(0x8a5a33)
-      .circle(20, 8, 11).fill(0x8a5a33)
-      .circle(4, -20, 9).fill(0x8a5a33)
-      .circle(-8, 24, 8).fill(0x8a5a33)
-      .circle(-6, -6, 6).fill({ color: 0xa9744a, alpha: 0.8 }),
-  // Gul kissdroppe (💧 går inte att tona gul — ritas i stället).
-  kissdroppe: () =>
-    new Graphics()
-      .moveTo(0, -34)
-      .quadraticCurveTo(18, -4, 18, 10)
-      .arc(0, 10, 18, 0, Math.PI)
-      .quadraticCurveTo(-18, -4, 0, -34)
-      .fill(0xf6d84a)
-      .stroke({ width: 4, color: 0xd9b52e })
-      .circle(-6, 10, 5).fill({ color: 0xffffff, alpha: 0.55 }),
-  // Använd blöja: vit blöja med tejpflikar + brun överraskning.
-  bloja: () =>
-    new Graphics()
-      .roundRect(-36, -18, 12, 12, 4).fill(0xbfe3f0)
-      .roundRect(24, -18, 12, 12, 4).fill(0xbfe3f0)
-      .roundRect(-32, -22, 64, 26, 10).fill(0xfdfcf4).stroke({ width: 4, color: 0xd8d2c0 })
-      .roundRect(-22, -6, 44, 32, 16).fill(0xfdfcf4).stroke({ width: 4, color: 0xd8d2c0 })
-      .circle(0, 10, 8).fill(0xa9743f)
-      .circle(8, 14, 5).fill(0x8a5a33),
-  // Blå potta med handtag.
-  potta: () => {
-    const g = new Graphics()
-      .ellipse(0, 24, 22, 7).fill(0x4a92c8)
-      .roundRect(-26, -8, 52, 32, 14).fill(0x62b1e8).stroke({ width: 4, color: 0x4a92c8 })
-      .ellipse(0, -8, 26, 9).fill(0x8fd0f5).stroke({ width: 4, color: 0x4a92c8 })
-    g.circle(31, 4, 8).stroke({ width: 5, color: 0x4a92c8 })
-    return g
-  },
-}
-
-// Ingredienser (visas som själva saken — ingen ikon-bricka). id = asciiFold-vänligt,
-// label = talad svenska (åäö ok). Mat + fisk + äckligt-roliga + specialare.
+// Ingredienser. `id` = asciiFold-vänligt OCH nyckel i DRAW (ingredienser.js),
+// `label` = talad svenska. `good` = riktig mat, dvs. kan hamna i Bobos önskelista.
 // OBS (CLAUDE.md): avbildade människor är ENDAST rollerna Pappa/Mamma — inga namn.
-const I = (id, label, emoji, opts = {}) => ({ id, label, emoji, ...opts })
+const I = (id, label, good = false) => ({ id, label, good })
 const ITEMS = [
   // Klassiker.
-  I('tomat', 'Tomat', '🍅'), I('svamp', 'Svamp', '🍄'), I('paprika', 'Paprika', '🫑'),
-  I('ost', 'Ost', '🧀'), I('majs', 'Majs', '🌽'), I('ananas', 'Ananas', '🍍'),
-  I('fisk', 'Fisk', '🐟'), I('raka', 'Räka', '🦐'), I('bajs', 'Bajs', '💩'),
-  I('strumpa', 'Strumpa', '🧦'), I('tand', 'Tand', '🦷'), I('stjarna', 'Stjärna', '⭐'),
-  I('bacon', 'Bacon', '🥓'), I('broccoli', 'Broccoli', '🥦'), I('morot', 'Morot', '🥕'),
-  I('chili', 'Chili', '🌶️'), I('oliv', 'Oliv', '🫒'), I('lok', 'Lök', '🧅'),
-  I('vitlok', 'Vitlök', '🧄'), I('agg', 'Ägg', '🥚'), I('kyckling', 'Kyckling', '🍗'),
-  I('kott', 'Kött', '🍖'), I('biff', 'Biff', '🥩'), I('stekt_agg', 'Stekt ägg', '🍳'),
-  I('blackfisk', 'Bläckfisk', '🦑'), I('krabba', 'Krabba', '🦀'), I('atta_armar', 'Bläckfisk', '🐙'),
-  I('citron', 'Citron', '🍋'), I('druvor', 'Druvor', '🍇'), I('choklad', 'Choklad', '🍫'),
-  I('godis', 'Godis', '🍬'), I('munk', 'Munk', '🍩'), I('kringla', 'Kringla', '🥨'),
-  I('jordnot', 'Jordnöt', '🥜'), I('kastanj', 'Kastanj', '🌰'), I('larv', 'Larv', '🐛'),
-  I('ben', 'Ben', '🦴'),
-  // Nya goda toppings.
-  I('aubergine', 'Aubergine', '🍆'), I('zucchini', 'Zucchini', '🥒'), I('basilika', 'Basilika', '🍃'),
-  I('spenat', 'Spenat', '🥬'), I('ruccola', 'Ruccola', '🌿'), I('korv', 'Korv', '🌭'),
-  I('avokado', 'Avokado', '🥑'), I('scampi', 'Scampi', '🍤'), I('banan', 'Banan', '🍌'),
-  I('mango', 'Mango', '🥭'),
-  // Nya äckligt-roliga (aldrig läskiga — bara fnissiga).
-  I('snor', 'Snor', '', { draw: 'snor' }), I('mask', 'Mask', '🪱'),
-  I('smutsig_strumpa', 'Smutsig strumpa', '🧦', { tint: 0x9a8a62 }),
-  I('tandborste', 'Tandborste', '🪥'), I('spindel', 'Spindel', '🕷️'), I('snigel', 'Snigel', '🐌'),
-  I('mogelost', 'Mögelost', '🧀', { tint: 0xa8c46a }),
-  I('fiskben', 'Fiskben', '', { draw: 'fiskben' }), I('lera', 'Lera', '', { draw: 'lera' }),
-  I('groda', 'Groda', '🐸'),
+  I('tomat', 'Tomat', true), I('svamp', 'Svamp', true), I('paprika', 'Paprika', true),
+  I('ost', 'Ost', true), I('majs', 'Majs', true), I('ananas', 'Ananas', true),
+  I('fisk', 'Fisk', true), I('raka', 'Räka', true), I('bajs', 'Bajs'),
+  I('strumpa', 'Strumpa'), I('tand', 'Tand'), I('stjarna', 'Stjärna'),
+  I('bacon', 'Bacon', true), I('broccoli', 'Broccoli', true), I('morot', 'Morot', true),
+  I('chili', 'Chili', true), I('oliv', 'Oliv', true), I('lok', 'Lök', true),
+  I('vitlok', 'Vitlök', true), I('agg', 'Ägg', true), I('kyckling', 'Kyckling', true),
+  I('kott', 'Kött', true), I('biff', 'Biff', true), I('stekt_agg', 'Stekt ägg', true),
+  I('blackfisk', 'Bläckfisk', true), I('krabba', 'Krabba', true), I('atta_armar', 'Bläckfisk'),
+  I('citron', 'Citron', true), I('druvor', 'Druvor'), I('choklad', 'Choklad'),
+  I('godis', 'Godis'), I('munk', 'Munk'), I('kringla', 'Kringla'),
+  I('jordnot', 'Jordnöt'), I('kastanj', 'Kastanj'), I('larv', 'Larv'),
+  I('ben', 'Ben'),
+  // Goda toppings.
+  I('aubergine', 'Aubergine', true), I('zucchini', 'Zucchini', true), I('basilika', 'Basilika', true),
+  I('spenat', 'Spenat', true), I('ruccola', 'Ruccola', true), I('korv', 'Korv', true),
+  I('avokado', 'Avokado', true), I('scampi', 'Scampi', true), I('banan', 'Banan'),
+  I('mango', 'Mango', true),
+  // Äckligt-roliga (aldrig läskiga — bara fnissiga).
+  I('snor', 'Snor'), I('mask', 'Mask'), I('smutsig_strumpa', 'Smutsig strumpa'),
+  I('tandborste', 'Tandborste'), I('spindel', 'Spindel'), I('snigel', 'Snigel'),
+  I('mogelost', 'Mögelost'), I('fiskben', 'Fiskben'), I('lera', 'Lera'),
+  I('groda', 'Groda'),
   // Extra-roliga specialare.
-  I('pappa', 'Pappa', '👨'), I('mamma', 'Mamma', '👩'), I('fluga', 'Fluga', '🪰'),
-  I('gulligt_monster', 'Gulligt monster', '👾'),
-  I('kissdroppe', 'Kissdroppe', '', { draw: 'kissdroppe' }),
-  I('anvand_bloja', 'Använd blöja', '', { draw: 'bloja' }),
-  I('potta', 'Potta', '', { draw: 'potta' }), I('prutt', 'Prutt', '💨'),
+  I('pappa', 'Pappa'), I('mamma', 'Mamma'), I('fluga', 'Fluga'),
+  I('gulligt_monster', 'Gulligt monster'), I('kissdroppe', 'Kissdroppe'),
+  I('anvand_bloja', 'Använd blöja'), I('potta', 'Potta'), I('prutt', 'Prutt'),
 ]
 
 // Layout: pizza VÄNSTER · knappkolumn (grädda + soptunna) MITTEN · ugn (mindre) HÖGER.
@@ -130,10 +76,12 @@ const OVEN = { x: 1085, y: 330 }
 const BTN = { x: 735, y: 330 } // ➡️🔥 / Ta ut: vertikalt centrerad mellan pizza & ugn
 const TRASH = { x: 735, y: 478 } // soptunnan rakt under gräddaknappen
 const TRASH_R = 85 // släpp-radie
-const MASCOT = { x: 640, y: 132 } // bageriets björnlogga (Bobo) högst upp i mitten
+const BAKER = { x: 636, y: 122 } // bagaren Bobo högst upp i mitten
+const ORDER = { x: 828, y: 118 } // önskelistans pratbubbla, mellan Bobo och ugnen
+const COUNTER_Y = 508 // bänkskivans överkant
 const MAX_TOPPINGS = 60
-const PLACED_FONT = 140 // ~2.5× hyllstorleken (56) — stora, tydliga toppings på pizzan
-const SHELF_FONT = 56
+const PLACED_SIZE = 140 // ~2.5× hyllstorleken — stora, tydliga toppings på pizzan
+const SHELF_SIZE = 56
 
 // Svepbar hylla.
 const SHELF_Y = 672
@@ -152,26 +100,43 @@ const RECUE = [
 ]
 const PLACE_CHEERS = ['Mums!', 'Fin!', 'En till!', 'Snyggt!', 'Oj!']
 const TRASH_CHEERS = ['I soporna!', 'Nam nam, sa soptunnan!', 'Hihi, borta!']
+const SERVE_CHEERS = ['Mums, tack!', 'Så god pizza!', 'Jättegott!']
+const ORDER_CUES = [
+  'Titta vad jag önskar mig! Kan du lägga det på pizzan?',
+  'Jag är så hungrig! Det här skulle smaka gott.',
+  'Kan du baka en pizza med det här på?',
+]
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
-// En visningsbild av en ingrediens i given storlek (px). Emoji = Text (ev. tonad),
-// egenritad = Container med skalad grafik. Lokal rymd == skärm-px i båda fallen.
+// En visningsbild av en ingrediens i given storlek (px). ALLTID ritad grafik — DRAW
+// ritar i en 100-enheters låda, så lokal rymd == skärm-px efter skalningen.
 function makeItemView(item, size) {
-  if (item.draw) {
-    const c = new Container()
-    const g = DRAWN[item.draw]()
-    g.scale.set(size / 100)
-    g.eventMode = 'none'
-    c.addChild(g)
-    c.eventMode = 'none'
-    return c
-  }
-  const t = new Text({ text: item.emoji, style: { fontFamily: FONT.body, fontSize: size } })
-  t.anchor.set(0.5)
-  if (item.tint) t.tint = item.tint
-  t.eventMode = 'none'
-  return t
+  const c = new Container()
+  const g = DRAW[item.id]()
+  g.scale.set(size / 100)
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  return c
+}
+
+// En ritad pizzabit (skorpa + ost + toppar) — det som serveras till bagaren.
+function makeSlice(size = 100) {
+  const c = new Container()
+  const g = new Graphics()
+  g.moveTo(0, -48).lineTo(36, 32).quadraticCurveTo(0, 46, -36, 32).closePath().fill(0xf3cd63)
+  g.moveTo(0, -44).lineTo(30, 26).quadraticCurveTo(0, 38, -30, 26).closePath().fill(0xd8402c)
+  g.moveTo(0, -38).lineTo(25, 20).quadraticCurveTo(0, 31, -25, 20).closePath().fill(0xf6d97a)
+  g.moveTo(36, 32).quadraticCurveTo(0, 46, -36, 32).quadraticCurveTo(-40, 44, -36, 48)
+    .quadraticCurveTo(0, 62, 36, 48).quadraticCurveTo(40, 44, 36, 32).closePath().fill(0xe7a85d)
+  g.circle(-9, 12, 7).fill(0xd8402c)
+  g.circle(11, 18, 6).fill(0xb5734a)
+  g.circle(1, -12, 5.5).fill(0x4e9c3f)
+  g.scale.set(size / 100)
+  c.addChild(g)
+  c.eventMode = 'none'
+  return c
 }
 
 export default {
@@ -192,8 +157,11 @@ export default {
     this._lastPlaceCheer = 0
     this._lastTrashCheer = 0
     this._lastSmoke = 0
+    this._lastSizzle = 0
+    this._goldenPinged = false
     this._grab = null // pågående hyll-gest
     this._top = null // pågående omflytt av placerad topping
+    this._order = []
     this._rounds = ctx.progress.get().custom?.pizzor || 0
     // Slumpad ordning på hyllan VARJE start så två sessioner inte ser lika ut.
     this._items = shuffle(ITEMS.slice())
@@ -201,13 +169,15 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Varm köks-bakgrund (dekor).
+    // Varm bakgrund + ett RIKTIGT bageri ovanpå (kakel, bänk, mjöl, kavel, degskål).
     this._root.addChild(createScene('warm', { width: ctx.width, height: ctx.height }))
+    this._root.addChild(this._buildBakery(ctx))
 
     // Instruktion (uppdateras per fas).
-    this._hint = new Text({ text: '', style: { fontFamily: FONT.title, fontSize: 30, fontWeight: '700', fill: COLORS.ink } })
+    // x=400: bred nog för den längsta repliken utan att glida in under hemknappen (70,64).
+    this._hint = new Text({ text: '', style: { fontFamily: FONT.title, fontSize: 28, fontWeight: '700', fill: COLORS.ink } })
     this._hint.anchor.set(0.5)
-    this._hint.position.set(640, 40)
+    this._hint.position.set(400, 38)
     this._hint.eventMode = 'none'
     this._root.addChild(this._hint)
 
@@ -222,12 +192,15 @@ export default {
     this._plate.eventMode = 'none'
     this._root.addChild(this._plate)
 
-    // Pizzan (bas + topping-lager). Flyttas/tintar som EN enhet.
+    // Pizzan (bas + smält-ost + bubblor + topping-lager). Flyttas/tintar som EN enhet.
     this._pizza = new Container()
     this._pizza.position.set(PIZZA.x, PIZZA.y)
     this._buildBase()
     this._toppingLayer = new Container() // barnen är interaktiva (omdragbara)
     this._pizza.addChild(this._toppingLayer)
+    this._cuts = new Graphics() // skärlinjerna ritas vid finishen
+    this._cuts.eventMode = 'none'
+    this._pizza.addChild(this._cuts)
     this._root.addChild(this._pizza)
 
     // Ton-mätare (visas under gräddning) — gradient + markör = "titta på färgen".
@@ -244,13 +217,13 @@ export default {
     this._doneRing.visible = false
     this._root.addChild(this._doneRing)
 
-    // Bageriets logga & hungriga kund (Bobo): tronar högst upp i mitten och mumsar
-    // en bit pizza när den serveras (pattern #2).
-    this._customerBase = { x: MASCOT.x, y: MASCOT.y }
-    this._customer = makeMascot(56)
-    this._customer.position.set(this._customerBase.x, this._customerBase.y)
-    this._customer.eventMode = 'none'
-    this._root.addChild(this._customer)
+    // Bagaren Bobo (kockmössa + förkläde) och hans önskelista.
+    this._baker = this._buildBaker()
+    this._root.addChild(this._baker)
+    this._orderBubble = new Container()
+    this._orderBubble.position.set(ORDER.x, ORDER.y)
+    this._orderBubble.eventMode = 'none'
+    this._root.addChild(this._orderBubble)
 
     // Ingrediens-bräda nederst (svepbar hylla, oändlig påfyllning).
     this._buildPalette(ctx)
@@ -262,6 +235,11 @@ export default {
     this._dragLayer = new Container()
     this._dragLayer.eventMode = 'passive' // själv ej träffbar; barnen får lyssna
     this._root.addChild(this._dragLayer)
+
+    // Pizzaskäraren (ritad) — far över pizzan vid finishen.
+    this._cutter = this._buildCutter()
+    this._cutter.visible = false
+    this._root.addChild(this._cutter)
 
     // Knappar: ➡️🔥 (decorate) / Ta ut (baking) — växlar synlighet. Mellan pizza & ugn.
     this._bakeBtn = new Button({
@@ -280,6 +258,7 @@ export default {
     this._root.addChild(this._takeBtn)
 
     this._setHint('Pynta din pizza! 🍕')
+    this._newOrder()
 
     this._tick = (t) => this._update(ctx, t)
     ctx.ticker.add(this._tick)
@@ -290,15 +269,99 @@ export default {
     ctx.services.voice.say(this.voiceIntro)
   },
 
+  // ---- Bageriet (scen) ----------------------------------------------------
+
+  // Kaklad vägg, mjölig bänkskiva, golv och riktiga bageri-prylar. Ren dekor.
+  _buildBakery(ctx) {
+    const c = new Container()
+    const W = ctx.width
+    const H = ctx.height
+
+    // Kaklad vägg med lätt förskjutna rader.
+    const wall = new Graphics().rect(0, 0, W, COUNTER_Y).fill(0xf7dcb8)
+    for (let row = 0; row * 62 < COUNTER_Y; row++) {
+      const y = row * 62
+      const off = row % 2 ? -31 : 0
+      for (let x = off; x < W; x += 62) {
+        wall.roundRect(x + 4, y + 4, 54, 54, 10).fill({ color: 0xfdefd8, alpha: 0.9 })
+      }
+    }
+    c.addChild(wall)
+
+    // Bänkskiva (trä) med mörkare framkant.
+    const counter = new Graphics()
+      .rect(0, COUNTER_Y, W, 74).fill(0xc98f57)
+      .rect(0, COUNTER_Y, W, 12).fill(0xe0ab73)
+      .rect(0, COUNTER_Y + 62, W, 12).fill(0xa9723f)
+    for (let i = 0; i < 9; i++) {
+      const y = COUNTER_Y + 18 + (i % 3) * 15
+      counter.moveTo(i * 150 - 20, y).quadraticCurveTo(i * 150 + 55, y + 5, i * 150 + 120, y)
+        .stroke({ width: 2, color: 0xb8804c, alpha: 0.5 })
+    }
+    c.addChild(counter)
+
+    // Golv (syns bara i kanterna under hyllan).
+    c.addChild(new Graphics().rect(0, COUNTER_Y + 74, W, H - COUNTER_Y - 74).fill(0xb07a4a))
+
+    // Mjölfläckar på bänken runt pizzan.
+    const flour = new Graphics()
+    for (let i = 0; i < 26; i++) {
+      const x = 60 + Math.random() * 560
+      const y = COUNTER_Y + 8 + Math.random() * 54
+      flour.circle(x, y, 3 + Math.random() * 9).fill({ color: 0xfdf6e6, alpha: 0.35 + Math.random() * 0.35 })
+    }
+    c.addChild(flour)
+
+    // Kavel till vänster på bänken.
+    const pin = new Graphics()
+    pin.roundRect(52, COUNTER_Y + 20, 132, 28, 14).fill(0xf7e3c0).stroke({ width: 4, color: 0x9c6a35 })
+    pin.roundRect(22, COUNTER_Y + 28, 34, 13, 7).fill(0x8a5a33)
+    pin.roundRect(180, COUNTER_Y + 28, 34, 13, 7).fill(0x8a5a33)
+    pin.roundRect(66, COUNTER_Y + 26, 42, 6, 3).fill({ color: 0xffffff, alpha: 0.6 })
+    c.addChild(pin)
+
+    // Mjölsäck mellan pizzan och knappkolumnen.
+    const sack = new Graphics()
+    sack.moveTo(556, COUNTER_Y + 58).lineTo(562, COUNTER_Y - 24).quadraticCurveTo(596, COUNTER_Y - 38, 630, COUNTER_Y - 24)
+      .lineTo(636, COUNTER_Y + 58).closePath().fill(0xf0e2c4).stroke({ width: 3, color: 0xd6c39c })
+    sack.moveTo(566, COUNTER_Y - 22).quadraticCurveTo(596, COUNTER_Y - 4, 626, COUNTER_Y - 22)
+      .stroke({ width: 3, color: 0xd6c39c })
+    sack.roundRect(574, COUNTER_Y + 2, 44, 30, 6).fill({ color: 0xfdf6e6, alpha: 0.8 })
+    sack.circle(596, COUNTER_Y + 17, 9).fill(0xc98f57)
+    c.addChild(sack)
+
+    // Degskål till höger om soptunnan.
+    const bowl = new Graphics()
+    bowl.moveTo(838, COUNTER_Y - 4).quadraticCurveTo(882, COUNTER_Y + 62, 926, COUNTER_Y - 4).closePath().fill(0x6fc4e8)
+    bowl.ellipse(882, COUNTER_Y - 4, 44, 12).fill(0x8fd0f5).stroke({ width: 3, color: 0x4a92c8 })
+    bowl.ellipse(882, COUNTER_Y - 8, 32, 8).fill(0xf3e3c0)
+    c.addChild(bowl)
+
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    return c
+  },
+
   // ---- Bygg-hjälpare ------------------------------------------------------
 
   _buildBase() {
     const r = PIZZA.r
     const base = new Graphics()
-      .circle(0, 0, r).fill(0xe7a85d) // skorpa
-      .circle(0, 0, r - 20).fill(0xefb86b) // inre skorpa
-      .circle(0, 0, r - 30).fill(0xcf4326) // tomatsås
-      .circle(0, 0, r - 44).fill(0xf3cd63) // ost
+    // Bubblig skorpkant (inte en perfekt cirkel) — degkänsla.
+    base.circle(0, 0, r).fill(0xe7a85d)
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2
+      base.circle(Math.cos(a) * (r - 13), Math.sin(a) * (r - 13), 10).fill(0xefb86b)
+    }
+    base.circle(0, 0, r - 20).fill(0xefb86b)
+    base.circle(0, 0, r - 30).fill(0xcf4326) // tomatsås
+    // Såsen får synas ordentligt — osten ligger som en mjukt oregelbunden ö i mitten.
+    base.circle(0, 0, r - 44).fill(0xd94b2c)
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2
+      base.circle(Math.cos(a) * (r - 56), Math.sin(a) * (r - 56), 9).fill(0xf3cd63)
+    }
+    base.circle(0, 0, r - 54).fill(0xf3cd63) // ost
     // Lite ost-fläckar för liv.
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2
@@ -307,6 +370,29 @@ export default {
     }
     base.eventMode = 'none'
     this._pizza.addChild(base)
+
+    // Smält ost: ljusa pölar som tonas in under gräddningen.
+    const melt = new Graphics()
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + 0.3
+      const rr = (r - 80) * (0.25 + Math.random() * 0.75)
+      melt.circle(Math.cos(a) * rr, Math.sin(a) * rr, 16 + Math.random() * 14).fill({ color: 0xffe9a8, alpha: 0.85 })
+    }
+    melt.alpha = 0
+    melt.eventMode = 'none'
+    this._melt = melt
+    this._pizza.addChild(melt)
+
+    // Bubblor som puttrar i osten (ritas om per frame under gräddning).
+    this._bubbles = new Graphics()
+    this._bubbles.eventMode = 'none'
+    this._bubbles.visible = false
+    this._pizza.addChild(this._bubbles)
+    this._bubbleSeeds = Array.from({ length: 9 }, () => {
+      const a = Math.random() * Math.PI * 2
+      const rr = (r - 76) * Math.sqrt(Math.random())
+      return { x: Math.cos(a) * rr, y: Math.sin(a) * rr, ph: Math.random() * Math.PI * 2, r: 6 + Math.random() * 7 }
+    })
   },
 
   _buildOven() {
@@ -332,15 +418,73 @@ export default {
     return c
   },
 
+  // Bagaren Bobo: maskot-huvudet med kropp, förkläde, armar och kockmössa.
+  _buildBaker() {
+    const c = new Container()
+    c.position.set(BAKER.x, BAKER.y)
+
+    // Kropp: björnbål i cream med orange skuggkant, tassar och ett vitt bagarförkläde.
+    const body = new Graphics()
+    // Armar (bakom bålen).
+    body.roundRect(-76, 40, 36, 19, 10).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    body.roundRect(40, 40, 36, 19, 10).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    body.circle(-76, 50, 14).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    body.circle(76, 50, 14).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    // Tassar nedtill så kroppen avslutas (i stället för att sluta tvärt).
+    body.ellipse(-26, 108, 21, 13).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    body.ellipse(26, 108, 21, 13).fill(COLORS.cream).stroke({ width: 4, color: 0xe8cfa8 })
+    // Bål (skuggkant + kropp).
+    body.roundRect(-52, 22, 104, 88, 34).fill(COLORS.orangeDark)
+    body.roundRect(-52, 16, 104, 88, 34).fill(COLORS.cream)
+    // Förkläde med hängslen och band.
+    body.moveTo(-30, 40).lineTo(30, 40).lineTo(27, 96).quadraticCurveTo(0, 106, -27, 96).closePath()
+      .fill(0xfffdf7).stroke({ width: 3, color: 0xe2d4b8 })
+    body.moveTo(-17, 40).lineTo(-9, 18).stroke({ width: 7, color: COLORS.orange, cap: 'round' })
+    body.moveTo(17, 40).lineTo(9, 18).stroke({ width: 7, color: COLORS.orange, cap: 'round' })
+    body.roundRect(-33, 52, 66, 11, 6).fill(COLORS.orange)
+    // Litet mjölhandavtryck på förklädet.
+    body.circle(10, 78, 7).fill({ color: 0xf0e2c4, alpha: 0.9 })
+    c.addChild(body)
+
+    // Huvudet (maskoten).
+    const head = makeMascot(44)
+    c.addChild(head)
+
+    // Kockmössa ovanpå.
+    const hat = new Graphics()
+    hat.roundRect(-34, -62, 68, 22, 9).fill(0xfffdf7).stroke({ width: 3, color: 0xe2d4b8 })
+    hat.circle(-24, -78, 20).fill(0xfffdf7)
+    hat.circle(0, -86, 24).fill(0xfffdf7)
+    hat.circle(24, -78, 20).fill(0xfffdf7)
+    hat.roundRect(-32, -84, 64, 26, 13).fill(0xfffdf7)
+    hat.roundRect(-34, -62, 68, 22, 9).stroke({ width: 3, color: 0xe2d4b8 })
+    c.addChild(hat)
+
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    return c
+  },
+
+  // Ritad soptunna (metall med lock och handtag) — inget emoji.
   _buildTrash() {
     const c = new Container()
     c.position.set(TRASH.x, TRASH.y)
-    // Mjukt runt fat (≥96px mål) + tunnan själv.
+    // Mjukt runt fat (≥96px mål).
     c.addChild(new Graphics()
-      .circle(0, 6, 60).fill({ color: COLORS.shadow, alpha: 0.08 })
-      .circle(0, 0, 58).fill({ color: 0xffffff, alpha: 0.75 }).stroke({ width: 4, color: 0xe6d8bf }))
-    const bin = new Text({ text: '🗑️', style: { fontFamily: FONT.body, fontSize: 64 } })
-    bin.anchor.set(0.5)
+      .circle(0, 8, 60).fill({ color: COLORS.shadow, alpha: 0.08 })
+      .circle(0, 0, 58).fill({ color: 0xffffff, alpha: 0.7 }).stroke({ width: 4, color: 0xe6d8bf }))
+    const bin = new Graphics()
+    // Konisk tunna med räfflor.
+    bin.moveTo(-32, -18).lineTo(32, -18).lineTo(25, 34).quadraticCurveTo(24, 42, 15, 42)
+      .lineTo(-15, 42).quadraticCurveTo(-24, 42, -25, 34).closePath().fill(0x9aa2b1)
+    bin.moveTo(-32, -18).lineTo(-25, 34).quadraticCurveTo(-24, 42, -15, 42).lineTo(-6, 42)
+      .lineTo(-12, -18).closePath().fill({ color: 0xb6bdc9, alpha: 0.9 })
+    for (const x of [-14, 0, 14]) {
+      bin.moveTo(x, -10).lineTo(x - x * 0.22, 34).stroke({ width: 2.5, color: 0x7c8494, alpha: 0.7 })
+    }
+    // Lock + handtag.
+    bin.roundRect(-38, -30, 76, 16, 8).fill(0xb6bdc9).stroke({ width: 3, color: 0x7c8494 })
+    bin.roundRect(-10, -40, 20, 12, 6).fill(0x7c8494)
     bin.eventMode = 'none'
     c.addChild(bin)
     c.eventMode = 'none' // rent släpp-mål (avstånd mäts vid släpp)
@@ -349,11 +493,66 @@ export default {
     this._root.addChild(c)
   },
 
+  // Ritad pizzaskärare: hjul + handtag. Far över pizzan vid finishen.
+  _buildCutter() {
+    const c = new Container()
+    const g = new Graphics()
+    g.roundRect(6, -14, 62, 18, 9).fill(0x8a5a33).stroke({ width: 3, color: 0x6d4425 })
+    g.roundRect(-4, -10, 20, 10, 5).fill(0xb6bdc9)
+    g.circle(-18, 6, 24).fill(0xd7dde6).stroke({ width: 4, color: 0x9aa2b1 })
+    g.circle(-18, 6, 7).fill(0x9aa2b1)
+    g.moveTo(-40, 2).quadraticCurveTo(-18, -8, 4, 2).stroke({ width: 2.5, color: 0xffffff, alpha: 0.6 })
+    c.addChild(g)
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    return c
+  },
+
+  // ---- Bobos önskelista (frivillig order) ---------------------------------
+
+  _newOrder() {
+    const pool = ITEMS.filter((i) => i.good)
+    const n = 1 + (Math.random() < 0.45 ? 1 : 0) // 1–2 önskningar — aldrig övermäktigt
+    this._order = shuffle(pool.slice()).slice(0, n)
+    this._drawOrder()
+  },
+
+  // Ritar pratbubblan med de önskade ingredienserna (bild, ingen läsning).
+  _drawOrder() {
+    const b = this._orderBubble
+    if (!b || b.destroyed) return
+    b.removeChildren().forEach((ch) => ch.destroy({ children: true }))
+    const n = this._order.length
+    const w = 42 + n * 62
+    const h = 92
+    const bg = new Graphics()
+      .roundRect(-w / 2 + 5, -h / 2 + 7, w, h, 26).fill({ color: COLORS.shadow, alpha: 0.08 })
+      .roundRect(-w / 2, -h / 2, w, h, 26).fill(0xfffdf7).stroke({ width: 4, color: COLORS.orange })
+    // Svans mot bagaren (åt vänster).
+    bg.moveTo(-w / 2 + 6, 6).lineTo(-w / 2 - 22, 22).lineTo(-w / 2 + 10, 26).closePath()
+      .fill(0xfffdf7).stroke({ width: 4, color: COLORS.orange })
+    bg.eventMode = 'none'
+    b.addChild(bg)
+    this._order.forEach((item, i) => {
+      const v = makeItemView(item, 54)
+      v.position.set(-((n - 1) * 62) / 2 + i * 62, 0)
+      b.addChild(v)
+      bounceIn(v, { delay: 0.1 + i * 0.08 })
+    })
+    b.scale.set(1)
+  },
+
+  // Hur många av önskningarna ligger på pizzan just nu?
+  _orderFilled() {
+    if (!this._order.length) return false
+    return this._order.every((o) => this._toppings.some((t) => t._itemId === o.id))
+  },
+
   // ---- Svepbar ingredienshylla -------------------------------------------
 
   _buildPalette(ctx) {
     // Hyll-dekor (mjuk bakgrund, hela bredden).
-    const shelf = new Graphics().roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill({ color: 0xffffff, alpha: 0.5 }).stroke({ width: 4, color: 0xe6d8bf })
+    const shelf = new Graphics().roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill({ color: 0xfffdf7, alpha: 0.85 }).stroke({ width: 4, color: 0xe6d8bf })
     shelf.eventMode = 'none'
     this._root.addChild(shelf)
 
@@ -370,7 +569,7 @@ export default {
 
     this._paletteItems = []
     this._items.forEach((item, i) => {
-      const it = makeItemView(item, SHELF_FONT)
+      const it = makeItemView(item, SHELF_SIZE)
       it.position.set(i * ITEM_STEP, SHELF_Y) // lokal x i strippen
       it.eventMode = 'static'
       it.cursor = 'pointer'
@@ -449,7 +648,7 @@ export default {
       } else {
         g.mode = 'drag' // uppåt/lodrätt → dra ut en ingrediens
         ctx.services.audio.sfx('tap')
-        const view = makeItemView(g.item, 64)
+        const view = makeItemView(g.item, 84)
         const p = this._root.toLocal(e.global)
         view.position.set(p.x, p.y)
         this._dragLayer.addChild(view)
@@ -502,9 +701,11 @@ export default {
 
   _placeTopping(ctx, item, lx, ly) {
     // Placerad ingrediens = STOR (2.5× hyllstorleken) för tydliga, saftiga former.
-    const t = makeItemView(item, PLACED_FONT)
+    const t = makeItemView(item, PLACED_SIZE)
     t.position.set(lx, ly)
     t.rotation = (Math.random() - 0.5) * 0.5
+    t._itemId = item.id
+    t._ph = Math.random() * Math.PI * 2 // egen fas i ugns-puttrandet
     // Omdragbar: flytta på pizzan, till soptunnan, eller studsa tillbaka.
     t.eventMode = 'static'
     t.cursor = 'pointer'
@@ -517,6 +718,17 @@ export default {
     bounceIn(t)
     sparkle(ctx.fxLayer, this._pizza.x + lx, this._pizza.y + ly, { count: 5 })
     ctx.services.audio.sfx('pop')
+
+    // Var det något Bobo önskade sig? Då blir han glad direkt.
+    const wanted = this._order.some((o) => o.id === item.id)
+    if (wanted && !t._cheered) {
+      t._cheered = true
+      if (this._baker && !this._baker.destroyed) pop(this._baker, { scale: 1.12 })
+      if (this._orderBubble && !this._orderBubble.destroyed) wiggle(this._orderBubble)
+      ctx.services.audio.sfx('pling')
+      sparkle(ctx.fxLayer, ORDER.x, ORDER.y, { count: 6 })
+    }
+
     const now = performance.now()
     if (now - this._lastPlaceCheer > 1400 && Math.random() < 0.6) {
       this._lastPlaceCheer = now
@@ -596,7 +808,6 @@ export default {
       wiggle(this._trash)
       pop(this._trash, { scale: 1.15 })
     }
-    floatText(ctx.fxLayer, TRASH.x, TRASH.y - 66, '😋', { fontSize: 40 })
     const now = performance.now()
     if (now - this._lastTrashCheer > 1600) {
       this._lastTrashCheer = now
@@ -640,11 +851,16 @@ export default {
     this._phase = 'baking'
     this._bake = 0
     this._idle = 0
+    this._goldenPinged = false
     this._cancelTopDrag()
     this._setPaletteEnabled(false)
     this._bakeBtn.visible = false
-    this._setHint('Titta på färgen — ta ut när den är klar!')
+    // Kort text: utrymmet mellan hemknappen och bagaren är ~460px, och barnet läser
+    // ändå inte — rösten säger hela meningen.
+    this._setHint('Titta på färgen!')
     ctx.services.audio.sfx('whoosh')
+    // Ugnen slår igång: en låg, varm hum.
+    ctx.services.audio.tone({ freq: 78, dur: 1.1, type: 'sawtooth', vol: 0.05 })
     ctx.services.voice.say('In i ugnen! Titta på färgen och ta ut den när den ser god ut.')
 
     // Pizzan åker in i ugnen (krymper för att passa hålan).
@@ -653,6 +869,12 @@ export default {
     gsap.to(this._pizza, { x: OVEN.x, y: OVEN.y, duration: 0.7, ease: 'power2.inOut' })
     gsap.to(this._pizza.scale, { x: 0.48, y: 0.48, duration: 0.7, ease: 'power2.inOut' })
 
+    // Tona ner det tomma fatet — annars är en stor blank cirkel scenens mittpunkt
+    // under hela gräddningen, och blicken ska vara i ugnen.
+    gsap.killTweensOf(this._plate)
+    gsap.to(this._plate, { alpha: 0.4, duration: 0.5, ease: 'power2.out' })
+
+    this._bubbles.visible = true
     this._meter.visible = true
     this._doneRing.visible = true
     this._takeBtn.visible = true
@@ -663,29 +885,62 @@ export default {
     if (!this._alive) return
     const dt = (t.deltaMS || 16.67) / 1000
 
+    // Bagaren andas/guppar i vila (skriver bara y, så pop() på scale kan köra parallellt).
+    if (this._baker && !this._baker.destroyed) {
+      this._baker.y = BAKER.y + Math.sin(performance.now() * 0.0021) * 4
+    }
+
     if (this._phase === 'baking') {
       this._bake = clamp(this._bake + dt / BAKE_SECONDS, 0, 1)
       this._pizza.tint = bakeTint(this._bake)
+      const now = performance.now()
+
       // Glöd + markör.
       if (this._glow && !this._glow.destroyed) this._glow.alpha = 0.12 + 0.22 * Math.min(1, this._bake * 1.3)
       this._setMeterProgress(this._bake)
+
+      // Osten smälter ut och toppen puttrar — ingredienserna LEVER i ugnen.
+      if (this._melt && !this._melt.destroyed) this._melt.alpha = Math.min(0.8, this._bake * 2.2)
+      for (const top of this._toppings) {
+        if (top.destroyed) continue
+        const s = 1 + Math.sin(now * 0.006 + top._ph) * 0.045
+        top.scale.set(s)
+      }
+      if (this._bubbles && !this._bubbles.destroyed) {
+        this._bubbles.clear()
+        for (const b of this._bubbleSeeds) {
+          const k = (Math.sin(now * 0.0035 + b.ph) + 1) / 2 // 0..1
+          this._bubbles.circle(b.x, b.y, b.r * (0.35 + k * 0.9)).fill({ color: 0xfff2c4, alpha: 0.28 + k * 0.3 })
+        }
+      }
+
       // Doneness-ring runt pizzan — färgen visas PÅ pizzan (blick + färg samlas).
       if (this._doneRing && !this._doneRing.destroyed) {
         this._doneRing.clear()
         const rr = PIZZA.r * (this._pizza.scale.x || 1) + 14
         this._doneRing.circle(this._pizza.x, this._pizza.y, rr).stroke({ width: 8, color: bakeTint(this._bake), alpha: 0.9 })
       }
-      // Rök när den börjar bli mörk.
-      if (this._bake > 0.85) {
-        const now = performance.now()
-        if (now - this._lastSmoke > 420) {
-          this._lastSmoke = now
-          floatText(ctx.fxLayer, OVEN.x + (Math.random() * 80 - 40), OVEN.y - 120, '💨', { fontSize: 40, rise: 70 })
-        }
+
+      // Ugnen fräser (kort, ljust brus) — köket låter som ett kök.
+      if (now - this._lastSizzle > 340) {
+        this._lastSizzle = now
+        ctx.services.audio.tone({ freq: 2200 + Math.random() * 1400, dur: 0.07, type: 'sawtooth', vol: 0.025 })
       }
+      // Knaster när den når gyllene: "nu är den fin!"
+      if (!this._goldenPinged && this._bake >= 0.42) {
+        this._goldenPinged = true
+        ctx.services.audio.sfx('pling')
+      }
+
+      // Rök när den börjar bli mörk.
+      if (this._bake > 0.85 && now - this._lastSmoke > 420) {
+        this._lastSmoke = now
+        floatText(ctx.fxLayer, OVEN.x + (Math.random() * 80 - 40), OVEN.y - 120, '💨', { fontSize: 40, rise: 70 })
+      }
+
       // Becksvart → vänta kort, ta sedan ut automatiskt (no-fail, ingen evig loop).
       if (this._bake >= 1 && !this._autoOut) {
-        this._autoOut = gsap.delayedCall(1.8, () => { if (this._alive && this._phase === 'baking') this._takeOut(ctx) })
+        this._autoOut = ctx.later(1.8, () => { if (this._alive && this._phase === 'baking') this._takeOut(ctx) })
       }
       return
     }
@@ -709,14 +964,25 @@ export default {
     this._meter.visible = false
     this._takeBtn.visible = false
     if (this._glow && !this._glow.destroyed) this._glow.alpha = 0
+    if (this._bubbles && !this._bubbles.destroyed) {
+      this._bubbles.clear()
+      this._bubbles.visible = false
+    }
     if (this._doneRing && !this._doneRing.destroyed) {
       this._doneRing.clear()
       this._doneRing.visible = false
     }
+    // Puttrandet slutar — allt tillbaka till full storlek.
+    for (const top of this._toppings) if (!top.destroyed) top.scale.set(1)
 
     const tone = this._bake
+    const filled = this._orderFilled()
     ctx.services.audio.sfx('reveal')
     ctx.services.voice.say(toneSpeech(tone))
+
+    // Fatet fram i full styrka igen — pizzan är tillbaka på bänken.
+    gsap.killTweensOf(this._plate)
+    gsap.to(this._plate, { alpha: 1, duration: 0.4, ease: 'power2.out' })
 
     // Pizzan glider ut och fram igen (behåller sin gräddade ton).
     gsap.killTweensOf(this._pizza)
@@ -727,7 +993,9 @@ export default {
 
     sparkle(ctx.fxLayer, PIZZA.x, PIZZA.y, { count: 10 })
     floatText(ctx.fxLayer, PIZZA.x, PIZZA.y - 60, tone >= 0.9 ? '🤭' : '😋', { fontSize: 60 })
-    this._serveToCustomer(ctx, tone) // en bit flyger till den hungriga kunden som mumsar
+
+    // Spel-specifik finish: skär pizzan i bitar, servera en till bagaren.
+    this._sliceTimer = ctx.later(0.65, () => this._cutPizza(ctx, tone, filled))
 
     // Förlopp + delat firande (firar-ljud + beröm + konfetti + stjärna + klistermärke).
     this._rounds += 1
@@ -735,33 +1003,89 @@ export default {
     ctx.progress.setLevel(this._rounds)
     ctx.progress.complete()
 
-    this._resetTimer = gsap.delayedCall(2.2, () => { if (this._alive) this._reset(ctx) })
+    this._resetTimer = ctx.later(3.4, () => { if (this._alive) this._reset(ctx) })
   },
 
-  // En bit pizza flyger till kunden (Bobo) som mumsar — mottagaren för det man bakat.
-  _serveToCustomer(ctx, tone) {
-    const c = this._customer
+  // Pizzaskäraren far över pizzan och delar den i sex bitar — den fysiska payoffen.
+  _cutPizza(ctx, tone, filled) {
+    if (!this._alive || this._phase !== 'reveal') return
+    const cut = this._cutter
+    if (cut && !cut.destroyed) {
+      cut.visible = true
+      cut.alpha = 1
+      cut.position.set(PIZZA.x - PIZZA.r - 60, PIZZA.y - 26)
+      cut.rotation = -0.12
+      // Skäraren tonar bort medan den lämnar pizzan — annars står den kvar och
+      // svävar mitt i den tomma delen av köket.
+      const x0 = cut.x
+      const x1 = PIZZA.x + PIZZA.r + 30
+      const st = { x: x0 }
+      this._cutTween = gsap.to(st, {
+        x: x1, duration: 0.55, ease: 'power1.inOut',
+        onUpdate: () => {
+          if (cut.destroyed) { this._cutTween?.kill(); return }
+          cut.x = st.x
+          const k = (st.x - x0) / (x1 - x0) // 0..1 längs resan
+          cut.alpha = k < 0.72 ? 1 : Math.max(0, 1 - (k - 0.72) / 0.28)
+        },
+        onComplete: () => { if (!cut.destroyed) cut.visible = false },
+      })
+    }
+    ctx.services.audio.tone({ freq: 950, dur: 0.16, type: 'triangle', vol: 0.16, slideTo: 320 })
+
+    // Skärlinjerna tonas in i takt med att skäraren passerar.
+    if (this._cuts && !this._cuts.destroyed) {
+      this._cuts.clear()
+      // Snitten går genom osten, inte ut över skorpan — mörk skåra + ljus kant.
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI + 0.26
+        const r = PIZZA.r - 34
+        const dx = Math.cos(a) * r
+        const dy = Math.sin(a) * r
+        this._cuts.moveTo(-dx, -dy).lineTo(dx, dy).stroke({ width: 5, color: 0xb03a22, alpha: 0.75 })
+        this._cuts.moveTo(-dx, -dy + 2.5).lineTo(dx, dy + 2.5).stroke({ width: 2, color: 0xffe9a8, alpha: 0.5 })
+      }
+      this._cuts.alpha = 0
+      gsap.killTweensOf(this._cuts)
+      gsap.to(this._cuts, { alpha: 1, duration: 0.4, ease: 'power2.out' })
+    }
+
+    this._serveTimer = ctx.later(0.55, () => this._serveToBaker(ctx, tone, filled))
+  },
+
+  // En ritad pizzabit flyger till bagaren som mumsar — mottagaren för det man bakat.
+  _serveToBaker(ctx, tone, filled) {
+    if (!this._alive) return
+    const c = this._baker
     if (!c || c.destroyed) return
-    const slice = new Text({ text: '🍕', style: { fontFamily: FONT.body, fontSize: 52 } })
-    slice.anchor.set(0.5)
+    const slice = makeSlice(96)
     slice.position.set(PIZZA.x, PIZZA.y)
     slice.tint = bakeTint(tone) // biten har pizzans gräddade ton
-    slice.eventMode = 'none'
     this._root.addChild(slice)
-    const st = { x: PIZZA.x, y: PIZZA.y, s: 1 }
+    ctx.services.audio.sfx('whoosh')
+    const st = { x: PIZZA.x, y: PIZZA.y, s: 1, rot: 0 }
     this._serveTween = gsap.to(st, {
-      x: c.x, y: c.y, s: 0.42, duration: 0.6, ease: 'power2.in',
+      x: c.x, y: c.y + 12, s: 0.42, rot: 1.4, duration: 0.6, ease: 'power2.in',
       onUpdate: () => {
         if (slice.destroyed) { this._serveTween?.kill(); return }
         slice.position.set(st.x, st.y)
         slice.scale.set(st.s)
+        slice.rotation = st.rot
       },
       onComplete: () => {
-        if (!slice.destroyed) slice.destroy()
-        if (this._alive && c && !c.destroyed) {
-          pop(c, { scale: 1.2 })
-          floatText(ctx.fxLayer, c.x, c.y - 52, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 42 })
-          ctx.services.voice.say(randomFrom(['Mums, tack!', 'Så god pizza!', 'Jättegott!']))
+        if (!slice.destroyed) slice.destroy({ children: true })
+        if (!this._alive || !c || c.destroyed) return
+        pop(c, { scale: 1.2 })
+        ctx.services.audio.sfx('pop')
+        if (filled) {
+          // Önskan uppfylld → extra lycka (aldrig ett krav, bara en bonus).
+          sparkle(ctx.fxLayer, c.x, c.y, { count: 14 })
+          floatText(ctx.fxLayer, c.x, c.y - 78, '❤️', { fontSize: 48 })
+          ctx.services.audio.sfx('correct')
+          ctx.services.voice.say('Precis som jag önskade mig! Tack så mycket!')
+        } else {
+          floatText(ctx.fxLayer, c.x, c.y - 78, randomFrom(['😋', 'Mums!']), { fontSize: 42 })
+          ctx.services.voice.say(randomFrom(SERVE_CHEERS))
         }
       },
     })
@@ -781,11 +1105,19 @@ export default {
     }
     this._toppings = []
     this._pizza.tint = 0xffffff
+    if (this._melt && !this._melt.destroyed) this._melt.alpha = 0
+    if (this._cuts && !this._cuts.destroyed) {
+      gsap.killTweensOf(this._cuts)
+      this._cuts.clear()
+      this._cuts.alpha = 1
+    }
     this._setPaletteEnabled(true)
     this._bakeBtn.visible = true
     pop(this._bakeBtn)
     this._setHint('En ny pizza! Pynta igen 🍕')
-    ctx.services.voice.say('En ny pizza! Pynta igen.')
+    // Ny önskelista varje omgång = ny variation att upptäcka.
+    this._newOrder()
+    ctx.services.voice.say(randomFrom(ORDER_CUES))
   },
 
   // ---- Hjälpare -----------------------------------------------------------
@@ -824,11 +1156,24 @@ export default {
     ctx?.ticker?.remove(this._tick)
     this._autoOut?.kill()
     this._resetTimer?.kill()
+    this._sliceTimer?.kill()
+    this._serveTimer?.kill()
     this._serveTween?.kill()
-    if (this._customer && !this._customer.destroyed) {
-      gsap.killTweensOf(this._customer)
-      gsap.killTweensOf(this._customer.scale)
+    this._cutTween?.kill()
+    if (this._baker && !this._baker.destroyed) {
+      gsap.killTweensOf(this._baker)
+      gsap.killTweensOf(this._baker.scale)
     }
+    if (this._orderBubble && !this._orderBubble.destroyed) {
+      gsap.killTweensOf(this._orderBubble)
+      gsap.killTweensOf(this._orderBubble.scale)
+      for (const ch of this._orderBubble.children) {
+        gsap.killTweensOf(ch)
+        gsap.killTweensOf(ch.scale)
+      }
+    }
+    if (this._cuts && !this._cuts.destroyed) gsap.killTweensOf(this._cuts)
+    if (this._cutter && !this._cutter.destroyed) gsap.killTweensOf(this._cutter)
     this._cancelGrab()
     this._detachTop()
     gsap.killTweensOf(this._paletteStrip)
@@ -855,6 +1200,7 @@ export default {
       gsap.killTweensOf(this._pizza)
       gsap.killTweensOf(this._pizza.scale)
     }
+    if (this._plate && !this._plate.destroyed) gsap.killTweensOf(this._plate)
     if (this._bakeBtn) gsap.killTweensOf(this._bakeBtn.scale)
     if (this._takeBtn) gsap.killTweensOf(this._takeBtn.scale)
     gsap.killTweensOf(this._root)

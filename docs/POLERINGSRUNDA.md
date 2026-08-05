@@ -12,6 +12,12 @@ på ⚙️ Fysik-fliken 2026-08-04 (v1.7.0). Leta buggar och problem, fixa dem, 
 > formen till bågen (här: ett brunt streck tvärs över båda barnen). Syns bara i skärmdumpen.
 > Leta efter `.arc(` som följer på en `.fill(`/`.stroke(` i samma `Graphics`.
 
+> 💡 **Sjunde läckan, hittad i `pizzabageriet`:** när emoji ersätts med ritade Graphics
+> försvinner de **ljusa** föremålen (ben, ägg, vitlök, stekt ägg) mot ljusa paneler och
+> hyllor — emojin hade en inbyggd mörk kontur som ritningen saknar. Ge allt som är
+> ljusare än ~0xf0e8d8 en egen kontur (`stroke` eller en något mörkare form under).
+> Syns bara i skärmdumpen, aldrig i koden.
+
 ---
 
 ## Metoden (per spel — ~30–60 min)
@@ -75,7 +81,7 @@ Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-
 | # | id | skuld | status |
 |--:|----|------:|:--:|
 | 1 | `bajs-och-kiss` | 17 | ✅ |
-| 2 | `pizzabageriet` | 11 | ⬜ |
+| 2 | `pizzabageriet` | 11 | ✅ |
 | 3 | `hamburgerbygget` | 11 | ⬜ |
 | 4 | `sapbubblor` | 10 | ⬜ |
 | 5 | `pruttbad` | 10 | ⬜ |

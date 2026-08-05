@@ -9,12 +9,12 @@
 // + emoji). Drag OCH tap-tap (för de minsta) fyller bågarna.
 //
 // OBS: använder INTE DragController — egen spårnings-lyssnare på himlen (likt spara-linjen).
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { bounceIn, pop, breathe, sparkle, burst, floatText, bigCelebration } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 
 // Regnbåge-rymd: centrum precis ovanför marken.
 const CX = 640
@@ -96,14 +96,18 @@ export default {
     this._sky.cursor = 'pointer'
     this._root.addChild(this._sky)
 
-    // Enhörningen (följer fingret).
-    this._unicorn = new Container()
-    this._unicorn.addChild(new Graphics().circle(0, 0, 38).fill({ color: 0xffffff, alpha: 0.5 }))
-    const horn = new Text({ text: '🦄', style: { fontFamily: FONT.body, fontSize: 72 } })
-    horn.anchor.set(0.5)
-    this._unicorn.addChild(horn)
+    // Enhörningen (följer fingret) — RITAD med man, horn och blinkande öga. Förut en
+    // 🦄-emoji i en halvgenomskinlig cirkel, precis det P0 ASSETS förbjuder.
+    this._unicorn = makeUnicornHead()
+    this._unicorn.scale.set(1.4) // penseln ska synas tydligt under fingret
     this._unicorn.eventMode = 'none'
     this._root.addChild(this._unicorn)
+    // Mjuk sväv + blink så penseln lever även när den står still.
+    this._uniBob = gsap.to(this._unicorn, { rotation: 0.08, duration: 1.3, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    this._uniEye = this._unicorn.getChildByLabel('eye')
+    this._uniBlink = gsap.to(this._uniEye.scale, {
+      y: 0.1, duration: 0.09, repeat: -1, yoyo: true, repeatDelay: 3.4, ease: 'power1.inOut',
+    })
 
     // Palett (färgburkar) + glödring.
     this._palette = new Container()
@@ -433,7 +437,37 @@ export default {
     burst(ctx.fxLayer, CX, CY - arc.R, { count: 10, colors: [arc.color] })
     const can = this._cans[arc.colorIndex]
     if (can && !can.destroyed) pop(can)
+    this._releaseSurprise(arc)
     if (Math.random() < 0.5) ctx.services.voice.say(randomFrom(['Så fint!', 'En till färg!', 'Titta vad fin!']))
+  },
+
+  // En liten ritad överraskning flyger ut ur bågen som just blev hel — fjäril, fågel
+  // eller stjärna. Varje färdig båge ger en egen liten upptäckt.
+  _releaseSurprise(arc) {
+    if (!this._decor || this._decor.destroyed) return
+    const kind = ['fjaril', 'fagel', 'stjarna'][(Math.random() * 3) | 0]
+    const s = makeSurprise(kind, arc.color)
+    const side = Math.random() < 0.5 ? -1 : 1
+    const a = (0.22 + Math.random() * 0.36) * Math.PI
+    s.position.set(CX + side * Math.cos(a) * arc.R, CY - Math.sin(a) * arc.R)
+    s.eventMode = 'none'
+    this._decor.addChild(s)
+    const st = { x: s.x, y: s.y, a: 1, r: 0 }
+    const tw = gsap.to(st, {
+      x: s.x + side * (70 + Math.random() * 90),
+      y: s.y - (90 + Math.random() * 90),
+      a: 0, r: side * 0.8,
+      duration: 1.7, ease: 'sine.out',
+      onUpdate: () => {
+        if (s.destroyed) { tw.kill(); return }
+        s.position.set(st.x, st.y)
+        s.alpha = st.a
+        s.rotation = st.r
+        s.scale.set(1 + (1 - st.a) * 0.25)
+      },
+      onComplete: () => { if (!s.destroyed) s.destroy({ children: true }) },
+    })
+    this._snapTweens.push(tw)
   },
 
   _afterSnap(ctx) {
@@ -486,16 +520,24 @@ export default {
     gsap.to(this._sun, { y: 150, duration: 1.1, ease: 'back.out(1.2)' })
     gsap.to(this._sun.scale, { x: 1.12, y: 1.12, duration: 0.9, yoyo: true, repeat: -1, ease: 'sine.inOut' })
 
-    // Blommor poppar längs marken.
-    const flowers = ['🌸', '🌷', '🌼']
+    // Ritade blommor poppar upp längs marken (förut 🌸/🌷/🌼 som emoji-Text).
     for (let i = 0; i < 7; i++) {
-      const fl = new Text({ text: randomFrom(flowers), style: { fontFamily: FONT.body, fontSize: 56 } })
-      fl.anchor.set(0.5)
-      fl.position.set(180 + i * 150, 640)
+      const fl = makeFlower(i % 3)
+      fl.position.set(180 + i * 150, 636)
       fl.eventMode = 'none'
       this._decor.addChild(fl)
       bounceIn(fl, { delay: 0.1 + i * 0.08 })
     }
+
+    // Elvira springer in i ängen och jublar när regnbågen är klar.
+    const elvira = makeElviraCheer()
+    elvira.position.set(1090, 604)
+    elvira.eventMode = 'none'
+    this._decor.addChild(elvira)
+    bounceIn(elvira, { delay: 0.35 })
+    this._elviraHop = gsap.to(elvira, {
+      y: 584, duration: 0.34, yoyo: true, repeat: 5, ease: 'power2.out', delay: 0.7,
+    })
 
     ctx.services.audio.sfx('correct')
     ctx.services.audio.sfx('celebrate')
@@ -562,6 +604,11 @@ export default {
     this._nextRoundCall?.kill?.()
     this._killSnapTweens()
     this._breatheTween?.kill()
+    this._uniBob?.kill()
+    this._uniBlink?.kill()
+    this._elviraHop?.kill()
+    if (this._uniEye && !this._uniEye.destroyed) gsap.killTweensOf(this._uniEye.scale)
+    for (const d of this._decor?.children || []) if (!d.destroyed) gsap.killTweensOf(d)
     if (this._sky && !this._sky.destroyed) {
       this._sky.off('pointerdown', this._onDown)
       this._sky.off('globalpointermove', this._onMove)
@@ -579,4 +626,148 @@ export default {
     gsap.killTweensOf(this._root)
     this._root?.destroy({ children: true })
   },
+}
+
+// =================== Programmatisk grafik ===================
+
+// Enhörningshuvudet som är penseln: vitt huvud, regnbågsman, gyllene spiralhorn och
+// ett öga som kan blinka (egen Graphics med label 'eye').
+function makeUnicornHead() {
+  const c = new Container()
+  const white = 0xfffdf9
+  const edge = 0xe89ac4
+  const rainbow = [COLORS.red, COLORS.orange, COLORS.yellow, COLORS.green, COLORS.blue, COLORS.purple]
+
+  // Man bakom huvudet.
+  const mane = new Graphics()
+  for (let i = 0; i < rainbow.length; i++) {
+    mane.circle(15 + i * 3, -32 + i * 11, 14 - i * 1.2).fill(rainbow[i])
+  }
+  c.addChild(mane)
+
+  // Öron.
+  const ears = new Graphics()
+    .poly([-18, -40, -6, -18, -30, -22]).fill(white).stroke({ width: 2.5, color: edge })
+    .poly([16, -42, 26, -20, 4, -22]).fill(white).stroke({ width: 2.5, color: edge })
+  c.addChild(ears)
+
+  // Huvud + nos.
+  const head = new Graphics()
+    .ellipse(0, -4, 30, 27).fill(white).stroke({ width: 3.5, color: edge })
+    .ellipse(-20, 14, 17, 14).fill(white).stroke({ width: 3.5, color: edge })
+  c.addChild(head)
+
+  // Gyllene spiralhorn.
+  const horn = new Graphics()
+    .poly([-2, -72, 9, -36, -14, -36]).fill(COLORS.yellow).stroke({ width: 2.5, color: COLORS.orange })
+  horn.moveTo(-10, -42).lineTo(5, -45)
+  horn.moveTo(-8, -50).lineTo(3, -53)
+  horn.moveTo(-6, -58).lineTo(1, -60)
+  horn.stroke({ width: 2, color: COLORS.orange })
+  c.addChild(horn)
+
+  // Öga (blinkar) + kind + nosborre.
+  const eye = new Graphics()
+    .ellipse(-8, -6, 5, 6.5).fill(0x3a2b3f)
+    .circle(-6, -9, 2).fill(0xffffff)
+  eye.label = 'eye'
+  c.addChild(eye)
+  c.addChild(new Graphics()
+    .circle(-18, 4, 5).fill({ color: 0xffb3d1, alpha: 0.7 })
+    .ellipse(-27, 13, 2.4, 3.2).fill({ color: 0xd98bb4, alpha: 0.9 }))
+
+  c.children.forEach((ch) => (ch.eventMode = 'none'))
+  return c
+}
+
+// Ritad blomma (tre varianter) — kronblad, mitt och stjälk med blad.
+function makeFlower(variant) {
+  const c = new Container()
+  const petal = [0xff9ec4, 0xff6b6b, 0xfff3b0][variant] || 0xff9ec4
+  const petalEdge = [0xe0709b, 0xd94f4f, 0xe8c85a][variant] || 0xe0709b
+  const g = new Graphics()
+  g.roundRect(-3, -6, 6, 44, 3).fill(0x49a657)
+  g.moveTo(0, 14).quadraticCurveTo(-20, 8, -22, 24).quadraticCurveTo(-6, 26, 0, 14).fill(0x5bbf6a)
+  const n = variant === 1 ? 5 : 6
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2
+    g.ellipse(Math.cos(a) * 15, Math.sin(a) * 15 - 8, 11, 9).fill(petal).stroke({ width: 2, color: petalEdge })
+  }
+  g.circle(0, -8, 9).fill(COLORS.yellow).stroke({ width: 2.5, color: 0xd9a12c })
+  g.eventMode = 'none'
+  c.addChild(g)
+  return c
+}
+
+// Liten överraskning som flyger ut ur en färdig båge.
+function makeSurprise(kind, color) {
+  const c = new Container()
+  const g = new Graphics()
+  if (kind === 'fjaril') {
+    g.ellipse(-11, -5, 11, 13).fill(color).stroke({ width: 2, color: 0xffffff, alpha: 0.7 })
+    g.ellipse(11, -5, 11, 13).fill(color).stroke({ width: 2, color: 0xffffff, alpha: 0.7 })
+    g.ellipse(-9, 9, 8, 9).fill({ color, alpha: 0.85 })
+    g.ellipse(9, 9, 8, 9).fill({ color, alpha: 0.85 })
+    g.roundRect(-2.5, -12, 5, 26, 2.5).fill(0x4a3526)
+    g.moveTo(-1, -12).lineTo(-8, -22).stroke({ width: 2, color: 0x4a3526, cap: 'round' })
+    g.moveTo(1, -12).lineTo(8, -22).stroke({ width: 2, color: 0x4a3526, cap: 'round' })
+  } else if (kind === 'fagel') {
+    g.ellipse(0, 0, 16, 11).fill(0x7bc4ea).stroke({ width: 2, color: 0x3f8ec2 })
+    g.circle(13, -7, 8).fill(0x9ad4f2).stroke({ width: 2, color: 0x3f8ec2 })
+    g.poly([20, -7, 30, -4, 20, -1]).fill(COLORS.orange)
+    g.circle(15, -9, 2).fill(0x2f2823)
+    g.moveTo(-4, -4).quadraticCurveTo(-2, -18, 10, -12).quadraticCurveTo(0, -6, -4, -4).fill(0xd7ecfa)
+    g.poly([-14, 0, -26, -6, -24, 5]).fill(0x3f8ec2)
+  } else {
+    const pts = []
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5
+      const rr = i % 2 ? 7 : 17
+      pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
+    }
+    g.poly(pts).fill(COLORS.yellow).stroke({ width: 2.5, color: COLORS.orange })
+    g.circle(-4, -4, 3).fill({ color: 0xffffff, alpha: 0.8 })
+  }
+  g.eventMode = 'none'
+  c.addChild(g)
+  return c
+}
+
+// Elvira i ängen — jublar med armarna uppe när regnbågen är klar.
+function makeElviraCheer() {
+  const c = new Container()
+  const skin = 0xffe0bd
+  const dress = COLORS.pink
+  const hair = 0xf2cf63
+  c.addChild(new Graphics().ellipse(0, 62, 30, 8).fill({ color: COLORS.shadow, alpha: 0.15 }))
+  c.addChild(new Graphics().circle(-26, -34, 11).fill(hair).circle(26, -34, 11).fill(hair))
+  c.addChild(new Graphics()
+    .roundRect(-15, 28, 12, 28, 6).fill(0xefb9d2)
+    .roundRect(4, 28, 12, 28, 6).fill(0xefb9d2)
+    .roundRect(-19, 52, 18, 11, 5).fill(0x6a4a8a)
+    .roundRect(2, 52, 18, 11, 5).fill(0x6a4a8a))
+  const body = new Graphics()
+  body.moveTo(-19, -12).lineTo(19, -12).lineTo(31, 36).lineTo(-31, 36).closePath()
+    .fill(dress).stroke({ width: 3, color: 0xe87da8 })
+  c.addChild(body)
+  // Armar uppe i jubel.
+  c.addChild(new Graphics()
+    .moveTo(-16, -6).lineTo(-34, -40).stroke({ width: 11, color: dress, cap: 'round' })
+    .moveTo(16, -6).lineTo(34, -40).stroke({ width: 11, color: dress, cap: 'round' })
+    .circle(-36, -44, 7).fill(skin)
+    .circle(36, -44, 7).fill(skin))
+  const head = new Graphics().circle(0, -34, 23).fill(skin)
+  head.circle(-8, -37, 3).fill(0x3a2a1a)
+  head.circle(8, -37, 3).fill(0x3a2a1a)
+  head.circle(-13, -29, 4.5).fill({ color: 0xffb0b0, alpha: 0.7 })
+  head.circle(13, -29, 4.5).fill({ color: 0xffb0b0, alpha: 0.7 })
+  c.addChild(head)
+  // Glad öppen mun — moveTo först, annars dras ett streck från (0,0).
+  const mouth = new Graphics()
+  mouth.moveTo(9 * Math.cos(0.15 * Math.PI), -30 + 9 * Math.sin(0.15 * Math.PI))
+  mouth.arc(0, -30, 9, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3, color: 0x9a5b3b, cap: 'round' })
+  c.addChild(mouth)
+  c.addChild(new Graphics().roundRect(-23, -56, 46, 16, 9).fill(hair))
+  c.children.forEach((ch) => (ch.eventMode = 'none'))
+  return c
 }

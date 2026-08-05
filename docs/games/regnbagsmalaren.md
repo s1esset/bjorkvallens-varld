@@ -1,5 +1,5 @@
 # Regnbågsmålaren Elvira (`regnbagsmalaren`)
-> 🎉 roligt · drag · 2–4 år · status: 📝 plan klar
+> 🎉 roligt · drag · 2–4 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -117,3 +117,15 @@ ljudet saknar den magi titeln lovar — och den fasta mallen begränsar agensen.
   glans-rand längs bandets utsida i `_strokeBand` → våt-magisk look. Städning: oanvända `ctx`/`e`-
   params bort ur `_setActive`/`_pointerUp`/`_buildRound`. Verifierat: svep målade röda bågen med
   glans, errorCount 0.
+- 2026-08-05 ✅ **Andra omgången (poleringsrundan, Roligt-fliken).**
+  - **P0 ASSETS:** penseln var en `🦄`-emoji i en halvgenomskinlig vit cirkel. Nu ett ritat
+    enhörningshuvud med regnbågsman, gyllene spiralhorn, öron, nos och ett öga som **blinkar**
+    — plus en mjuk sväv, så penseln lever även när den står still ([Medium] Levande enhörning).
+  - **Blommorna vid vinsten** var 🌸/🌷/🌼 som `Text`. Nu ritade blommor med kronblad, mitt,
+    stjälk och blad i tre varianter. Inga `Text`-noder kvar i spelet.
+  - **[Quick] Gömda överraskningar i bågarna:** varje båge som snäpper hel släpper ut en liten
+    ritad fjäril, fågel eller stjärna som flyger uppåt och tonar bort — i bågens egen färg.
+  - **[Quick] Elvira i bild:** hon springer in i ängen och hoppar av glädje när regnbågen är
+    klar, i stället för att vinsten bara är generisk konfetti.
+  - **Grind:** `npm run check --game regnbagsmalaren` 0 fel · `npm run test` grönt ·
+    `_idleprobe 20s` → `idleFramsteg: 0`. 2 nya repliker väntar på röstklipp.

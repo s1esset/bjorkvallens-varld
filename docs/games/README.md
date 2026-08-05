@@ -133,7 +133,7 @@ Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
 | 57 | Kulbanan | `kulbana` | drag | ✅ | ✅ |
 | 60 | Golvet är Lava | `golvet-ar-lava` | drag | ✅ | ✅ |
 | 61 | Vattenvägen | `vattenvagen` | drag | ✅ | ✅ |
-| 63 | Kugghjulen | `kugghjulen` | drag | ✅ | ⬜ |
+| 63 | Kugghjulen | `kugghjulen` | drag | ✅ | ✅ |
 | 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ | ✅ |
 | 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 | ⬜ |
 

@@ -36,7 +36,8 @@ const SIZES = {
   M: { r: 66, color: COLORS.orange, x: 700 },
   L: { r: 84, color: COLORS.green, x: 860 },
 }
-const TRAY_Y = 660
+// 660 klippte det stora L-kugghjulet (r=84 + kuggar) mot skärmkanten på 720.
+const TRAY_Y = 624
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const lerp = (a, b, t) => a + (b - a) * t
@@ -157,24 +158,53 @@ export default {
     this._machineLayer.addChild(this._targetWheel)
 
     // Karusell 🎠 + Elvira 👧 (belöning/dekor till höger om målet).
-    this._carousel = new Text({ text: '🎠', style: { fontFamily: FONT.body, fontSize: 96 } })
-    this._carousel.anchor.set(0.5)
+    // RITAD karusell (var 🎠): tak med vimplar, stolpe och en gunghäst.
+    this._carousel = new Graphics()
+    this._carousel.moveTo(-46, -14).lineTo(0, -54).lineTo(46, -14).closePath()
+    this._carousel.fill(0xe0574f).stroke({ width: 4, color: 0xb03f3a })
+    for (let i = -3; i <= 3; i++) this._carousel.moveTo(i * 13, -14).lineTo(i * 13 + 6, -4).lineTo(i * 13 + 12, -14).stroke({ width: 3, color: 0xfff0d8 })
+    this._carousel.circle(0, -58, 6).fill(0xffd35c)
+    this._carousel.roundRect(-4, -14, 8, 56, 4).fill(0xd9925e).stroke({ width: 3, color: 0x9a5c33 })
+    this._carousel.roundRect(-34, 38, 68, 10, 5).fill(0xc98a4b).stroke({ width: 3, color: 0x9a5c33 })
+    this._carousel.ellipse(-22, 16, 17, 12).fill(0xf0d7ae).stroke({ width: 3, color: 0xc98a4b }) // häst
+    this._carousel.circle(-34, 4, 10).fill(0xf0d7ae).stroke({ width: 3, color: 0xc98a4b })
+    this._carousel.circle(-37, 2, 2.5).fill(0x2b2b2b)
+    this._carousel.roundRect(-30, 24, 5, 14, 2).fill(0xf0d7ae)
+    this._carousel.roundRect(-16, 24, 5, 14, 2).fill(0xf0d7ae)
     this._carousel.eventMode = 'none'
     this._machineLayer.addChild(this._carousel)
 
-    this._elvira = new Text({ text: '👧', style: { fontFamily: FONT.body, fontSize: 84 } })
-    this._elvira.anchor.set(0.5)
+    // RITAD Elvira med KROPP (var en 👧-emoji, alltså ett svävande huvud).
+    this._elvira = new Graphics()
+    this._elvira.roundRect(-13, 14, 10, 24, 5).fill(0x7b5bd6)
+    this._elvira.roundRect(3, 14, 10, 24, 5).fill(0x7b5bd6)
+    this._elvira.roundRect(-17, 34, 15, 8, 4).fill(0x5c3720)
+    this._elvira.roundRect(2, 34, 15, 8, 4).fill(0x5c3720)
+    this._elvira.moveTo(-14, -12).lineTo(14, -12).lineTo(21, 18).lineTo(-21, 18).closePath()
+    this._elvira.fill(0xef6aa8).stroke({ width: 3, color: 0xc4487f })
+    this._elvira.roundRect(-25, -10, 9, 26, 4).fill(0xef6aa8).stroke({ width: 3, color: 0xc4487f })
+    this._elvira.roundRect(16, -10, 9, 26, 4).fill(0xef6aa8).stroke({ width: 3, color: 0xc4487f })
+    this._elvira.circle(0, -30, 20).fill(0xffd7b0).stroke({ width: 3, color: 0xe0b48c })
+    this._elvira.arc(0, -30, 21, Math.PI, 0).fill(0xf2c14e)
+    this._elvira.circle(-22, -24, 9).fill(0xf2c14e)
+    this._elvira.circle(22, -24, 9).fill(0xf2c14e)
+    this._elvira.circle(-7, -30, 3.5).fill(0x2b2b2b)
+    this._elvira.circle(7, -30, 3.5).fill(0x2b2b2b)
+    this._elvira.arc(0, -25, 7, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: 0xb5504f })
     this._elvira.eventMode = 'none'
     this._machineLayer.addChild(this._elvira)
 
     // Flagga 🚩 (klättrar längs stången).
-    this._flag = new Text({ text: '🚩', style: { fontFamily: FONT.body, fontSize: 72 } })
-    this._flag.anchor.set(0.5)
+    // RITAD flagga (var 🚩).
+    this._flag = new Graphics()
+    this._flag.roundRect(-4, -30, 7, 60, 3).fill(0x8a5a3b).stroke({ width: 2.5, color: 0x6f4a2e })
+    this._flag.moveTo(3, -28).lineTo(34, -14).lineTo(3, 0).closePath()
+    this._flag.fill(0xe0392b).stroke({ width: 3, color: 0xb02b20 })
     this._flag.eventMode = 'none'
     this._flagLayer.addChild(this._flag)
 
     // Bricka (oändliga dispensrar i tre storlekar).
-    const shelf = new Graphics().roundRect(120, 612, 1040, 96, 24).fill({ color: COLORS.brown, alpha: 0.22 })
+    const shelf = new Graphics().roundRect(120, 596, 1040, 104, 24).fill({ color: COLORS.brown, alpha: 0.22 })
     shelf.eventMode = 'none'
     this._trayLayer.addChild(shelf)
     for (const size of ['S', 'M', 'L']) {

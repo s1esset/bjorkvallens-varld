@@ -58,6 +58,9 @@ const ART = {
   '☂️': ['tool', 'umbrella', 0xe0392b], '🎁': ['tool', 'gift', 0xe0574f],
   '🍦': ['tool', 'icecream', 0xfff0d8], '⏰': ['tool', 'clock', 0xe0574f],
   '☀️': ['shape', 'sun', 0xffd35c], '🎈': ['tool', 'balloon', 0xe0574f],
+  // tillskott för stor-liten
+  '🐥': ['animal', 0xffe08a, 'beak', 0xfff6d8], '🌟': ['shape', 'star', 0xffe14a],
+  '🧸': ['tool', 'teddy', 0xc98a4b], '🍪': ['tool', 'cookie', 0xd9a56b],
 }
 
 export function drawIcon(key, size = 100) {
@@ -322,6 +325,22 @@ export function drawIcon(key, size = 100) {
       g.ellipse(0, -8 * S, 28 * S, 34 * S).fill(col).stroke({ width: 4, color: dk })
       g.moveTo(-7 * S, 26 * S).lineTo(7 * S, 26 * S).lineTo(0, 34 * S).closePath().fill(dk)
       g.ellipse(-11 * S, -18 * S, 7 * S, 11 * S).fill({ color: 0xffffff, alpha: 0.45 })
+    } else if (form === 'teddy') {
+      g.circle(-26 * S, -24 * S, 12 * S).fill(dk)
+      g.circle(26 * S, -24 * S, 12 * S).fill(dk)
+      g.ellipse(0, 22 * S, 26 * S, 22 * S).fill(col).stroke({ width: 4, color: dk })
+      g.ellipse(0, 26 * S, 15 * S, 13 * S).fill(0xf0d7ae)
+      g.circle(-28 * S, 16 * S, 10 * S).fill(col).stroke({ width: 3, color: dk })
+      g.circle(28 * S, 16 * S, 10 * S).fill(col).stroke({ width: 3, color: dk })
+      g.circle(0, -14 * S, 24 * S).fill(col).stroke({ width: 4, color: dk })
+      g.ellipse(0, -6 * S, 11 * S, 9 * S).fill(0xf0d7ae)
+      g.circle(-9 * S, -18 * S, 4 * S).fill(0x2b2b2b)
+      g.circle(9 * S, -18 * S, 4 * S).fill(0x2b2b2b)
+      g.ellipse(0, -8 * S, 5 * S, 4 * S).fill(0x4a3728)
+    } else if (form === 'cookie') {
+      g.circle(0, 0, 30 * S).fill(col).stroke({ width: 4, color: dk })
+      for (const [cx, cy] of [[-12, -10], [8, -14], [14, 6], [-6, 12], [-16, 6]]) g.circle(cx * S, cy * S, 4.5 * S).fill(0x5c3720)
+      g.arc(-14 * S, -18 * S, 8 * S, 0.9 * Math.PI, 1.6 * Math.PI).stroke({ width: 3, color: dk, alpha: 0.5 })
     } else {
       // clock
       g.circle(0, 4 * S, 30 * S).fill(0xfff0d8).stroke({ width: 5, color: col })

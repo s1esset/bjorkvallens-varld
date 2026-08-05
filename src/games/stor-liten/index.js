@@ -10,6 +10,7 @@
 // fler föremål, ny gullig figur varje runda, och en tredje kompis på högre nivåer.
 // När rundan är klar firar vi (stjärna + klistermärke) och en ny runda startar.
 import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
@@ -68,7 +69,9 @@ export default {
   input: 'drag',
   ageRange: [2, 5],
   bundle: 'stor-liten',
-  voiceIntro: INTRO_TWO,
+  // Literal, inte INTRO_TWO: check.mjs (och därmed /rost) ser bara strängar som
+  // står skrivna på plats — en referens gjorde att spelet räknades som röstlöst.
+  voiceIntro: 'Ge de stora sakerna till den stora kompisen och de små till den lilla kompisen!',
 
   init(ctx) {
     this._alive = true
@@ -183,8 +186,9 @@ export default {
     mouth.position.set(0, h * 0.02) // öppnas via scale.y
 
     // Önske-ledtråd: genomskinlig figur i exakt den storlek kompisen vill ha.
-    const ghost = new Text({ text: '', style: { fontFamily: FONT.body, fontSize: s.font * 0.5 } })
-    ghost.anchor.set(0.5)
+    // Behållare för den RITADE önske-figuren (var en Text vars .text byttes).
+    const ghost = new Container()
+    ghost._size = s.font * 0.5
     ghost.position.set(0, h * 0.3)
     ghost.alpha = 0.5
 
@@ -354,7 +358,8 @@ export default {
 
   // Uppdatera kompisens rundspecifika delar: önske-figur + töm/rita prickraden.
   _setupFriendRound(friend, emoji, perSize) {
-    friend._ghost.text = emoji
+    for (const ch of friend._ghost.removeChildren()) ch.destroy({ children: true })
+    friend._ghost.addChild(drawIcon(emoji, friend._ghost._size))
     friend._filled = 0
     const dots = friend._dots
     for (const ch of dots.children) gsap.killTweensOf(ch.scale)
@@ -389,8 +394,8 @@ export default {
     const c = new Container()
     const shadow = new Graphics().ellipse(0, s.font * 0.5 + 8, s.font * 0.4, s.font * 0.15).fill({ color: 0x000000, alpha: 0.18 })
     const body = new Container()
-    const e = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: s.font } })
-    e.anchor.set(0.5)
+    // P0 ASSETS: RITAD figur (var en emoji-Text). Storleken bär hela poängen.
+    const e = drawIcon(emoji, s.font)
     body.addChild(e)
     c.addChild(shadow, body)
     // Osynlig träffyta runt figuren (minst 96px diameter -> radie >=48) så även

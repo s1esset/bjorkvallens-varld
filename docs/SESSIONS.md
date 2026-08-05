@@ -14,6 +14,35 @@ Format:
 
 ---
 
+## 2026-08-05 · v1.7.0 (pågående) · 🎉 Roligt-fliken, spel 4 av 14
+
+**Byggt:** `sapbubblor` polerad — fjärde spelet i poleringsrundans Kö 1. Rundans stora fynd den
+här gången är inte ett assets-brott utan ett **designfel som gröna tester aldrig ser: spelet
+spelade sig självt**. Kritiker-agenten lät spelet stå orört i 60 sekunder och mätte en hel nivå
+klar efter 10 s, utan ett enda tryck. Orsaken var två samverkande saker som är osynliga både i
+koden och i skärmdumpen: var tredje bubbla föddes i ringens lodräta korridor, och "suget" mot
+ringen hade en radie som var bredare än den ser ut. No-fail hade glidit över i att barnets input
+är dekoration. Nytt verktyg `scripts/_idleprobe.mjs` mäter det: nollställer progress, rör inget
+i N sekunder, spelar sedan riktat. Efter fixen: **20 s utan input = 0 framsteg**, 30 s riktat
+spel = full ring, och no-fail-ventilen kliver in först runt 40–50 s.
+
+Själva omgången: blåset är **riktat** (tryck i himlen → närmaste fläkt vrider sig dit och föder
+en vindpuff som färdas längs siktlinjen och knuffar bubblor i båda axlarna, kraft delad med
+massan), **Bobo håller ringen** och gapar/sväljer/hoppar, en **poppad bubbla släpper en
+barnbubbla** så leksaken och målet hänger ihop, och alla emoji-spelobjekt är ritade — inklusive
+åtta överraskningsfigurer i `overraskningar.js`. Dessutom sjätte läckan igen (glans-bågar utan
+`moveTo` drog streck tvärs över varje bubbla), sjunde läckan (bubblor osynliga mot ljus himmel),
+avklippta fläktstativ, träffyta 80–96 px på barnbubblor, och en arm som lossnade när Bobo hoppade.
+
+**Commits:** 3d88ede feat(sapbubblor): riktat blås, Bobo håller ringen, 8 ritade överraskningar
+
+**Öppet:** Kö 1 fortsätter med `pruttbad` (skuld 10) → `lagerelden` → … 10 spel kvar i Roligt,
+sedan Pussel (19) och Lära (9) = **38 av 70 kvar**. Versionsbump, `npm run build`/`serve` och
+`npm run backup` sker när hela Roligt-fliken är klar (se `docs/POLERINGSRUNDA.md`). Två nya
+röstrepliker väntar på klipp — kör `/rost` när F5-TTS-narratorn är uppe.
+
+---
+
 ## 2026-08-04 · v1.7.0
 
 **Byggt:** **Hela ⚙️ Fysik-fliken poleras spel för spel** — alla 27 spel gicks igenom med

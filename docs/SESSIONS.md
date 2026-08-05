@@ -14,6 +14,56 @@ Format:
 
 ---
 
+## 2026-08-05 · v1.8.0 · 🎉 **Roligt-fliken KLAR** (14/14)
+
+**Byggt:** poleringsrundans Kö 1 färdig — de nio återstående spelen i 🎉 Roligt, ett i taget med
+skärmdumpsgranskning, `_idleprobe` och egen commit. Rundans genomgående fynd:
+
+- **P0 `ASSETS` läckte i sex av nio spel, och alltid på samma sätt:** ett spelobjekt var en emoji
+  i en ruta, cirkel eller bricka. `lagerelden` (🪵-ved), `enhorning-glitterbajs` (🍓🧁🍪 i en vit
+  panel), `loopdjuren` (fyra djur i cirklar + fem block i fyrkanter), `regnbagsmalaren` (🦄 som
+  pensel + 🌸🌷🌼), `fyrverkeri` (✨/⭐ som målstjärnor) och `tryck-och-forvandla` (**alla 25
+  förvandlingssteg**). Allt är nu ritat med egen silhuett. Inga `Text`-noder kvar i något av de
+  nio spelen.
+- **Elfte läckan — "loggen ljuger".** `enhorning-glitterbajs` doc §5 påstod sedan 2026-07-01 att
+  maten ger olika glitter. Men `makePelletView()` **tog inget argument** och ignorerade
+  `_glitterKind`, så alla tre maträtterna gav identiska gula prickar. Ett grönt test och en
+  nöjd logg-rad räcker inte: *verifiera att den påstådda kopplingen faktiskt går hela vägen
+  fram till pixlarna.*
+- **Tolfte läckan — framsteg vid INGÅNG.** `tryck-och-forvandla` anropade `progress.setLevel()`
+  i `init`, före första trycket, så `_idleprobe` gav `idleFramsteg: 1` utan en enda beröring.
+  Regel: progress skrivs när barnet klarat något, aldrig när spelet startar.
+- **Läcka #6 (`arc()` efter `fill()`) igen, två gånger.** I `enhorning-glitterbajs` drog den ett
+  långt streck från containerns origo tvärs över hela enhörningen (syns tydligt i skärmdumpen);
+  i `tarta-i-ansiktet` fanns samma fel latent i clownens mun men doldes av näscirkeln som ritas
+  efter. Leta efter `.arc(` som första vägkommando efter `.clear()` eller `.fill()`.
+- **Läcka #4 (konkatenerade repliker) i tre spel** — `tryck-och-forvandla`
+  (`` `${st.a} ${st.n}!` `` för alla tio resultat), `kittla-figuren` och `lagerelden`. Alla
+  omskrivna som hela literaler så `/rost` kan generera klipp.
+- **Element bakom skalets hörnknappar, två fall:** `enhorning-glitterbajs` mätarstjärna på y 116
+  och `fyrverkeri` vindflagga på (96, 96) — båda delvis under knapparna som når y ~112.
+- **Scener som svävade:** `lagerelden` hade hela lägerplatsen 64 px ovanför marklinjen
+  (`createScene` ger 96 px mark), och Elvira i `enhorning-glitterbajs` stod 80 px över marken.
+
+**Utöver P0** fick varje spel ett riktigt lyft: lägerplats med tält och eldflugor och fyra sorters
+mat att rosta; äkta glitterskillnad per mat; stämda instrumentblock med ritade djur; överraskningar
+som flyger ur varje färdig regnbågsbåge; måne, stadssiluett och en publik som ropar "Oooh!" i
+fyrverkeriet; levande, driftande bubblor med Bobo som samlar fångsten i en burk; kittel-ledtråd i
+fritt läge och skrattårar; och en riktig cirkusscen med ridåer, publik och fyra tårtsorter.
+
+**Commits:** `5909607` lagerelden · `ce7d4cc` enhorning-glitterbajs · `4d5fb57` loopdjuren ·
+`2d7bc14` regnbagsmalaren · `ecdd289` fyrverkeri · `1494b6c` tryck-och-forvandla ·
+`b0df504` klambubblor · `ea0d70e` kittla-figuren · `67830b9` tarta-i-ansiktet
+
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **70/70 gröna** · `_idleprobe` på alla
+nio: `idleFramsteg: 0`.
+
+**Öppet:**
+- Poleringsrundan fortsätter med **🧩 Pussel (19 spel)** och **🔤 Lära (9 spel)** = 28 kvar.
+  Tabellerna i `docs/POLERINGSRUNDA.md` är avbockade för hela Kö 1.
+- **199 repliker väntar på röstklipp** (upp från 136) — kör `/rost` när F5-TTS-narratorn är uppe.
+  76 av `npm run check`-varningarna är den kön, samtliga i spel som ännu inte polerats.
+
 ## 2026-08-05 · v1.7.0 (pågående) · 🎉 Roligt-fliken, spel 4 av 14
 
 **Byggt:** `sapbubblor` polerad — fjärde spelet i poleringsrundans Kö 1. Rundans stora fynd den

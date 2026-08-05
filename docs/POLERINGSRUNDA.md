@@ -4,8 +4,21 @@
 på ⚙️ Fysik-fliken 2026-08-04 (v1.7.0). Leta buggar och problem, fixa dem, och lyft
 **design, assets och omspelsvärde**. En commit per spel.
 
-> ⚙️ **Fysik-fliken är KLAR** (27/27, v1.7.0). Kvar: 🎉 Roligt (9) → 🧩 Pussel (19) →
-> 🔤 Lära (9) = **37 spel**. Bocka av i tabellerna nedan när ett spel är committat.
+> ⚙️ **Fysik-fliken är KLAR** (27/27, v1.7.0). 🎉 **Roligt-fliken är KLAR** (14/14, v1.8.0).
+> Kvar: 🧩 Pussel (19) → 🔤 Lära (9) = **28 spel**. Bocka av i tabellerna nedan när ett spel
+> är committat.
+
+> 💡 **Elfte läckan, hittad i `enhorning-glitterbajs`: loggen ljuger.** Doc §5 påstod sedan
+> 2026-07-01 att maten ger olika glitter — men `makePelletView()` **tog inget argument** och
+> ignorerade `_glitterKind`, så alla tre maträtterna gav identiska gula prickar. En grön testkörning
+> och en nöjd logg-rad räcker inte: **verifiera att den påstådda kopplingen går hela vägen fram
+> till pixlarna.** Leta efter funktioner som anropas med ett argument de inte deklarerar.
+
+> 💡 **Tolfte läckan, hittad i `tryck-och-forvandla`: framsteg vid INGÅNG.** `progress.setLevel()`
+> låg i `init`, före första trycket, så `_idleprobe` gav `idleFramsteg: 1` utan en enda beröring.
+> Det är inte ett spel som spelar sig självt — men det förgiftar sonden och döljer riktiga fall.
+> Regel: progress skrivs när barnet klarat något, aldrig när spelet startar. Greppa efter
+> `progress.set*(` inuti `init`.
 
 > 💡 **Sjätte läckan, hittad i `bajs-och-kiss`:** `arc()` i en **delad** `Graphics` fortsätter
 > den aktuella vägen — utan `moveTo` till bågens startpunkt först ritas ett streck från förra
@@ -106,7 +119,7 @@ i sin doc §4. *Var ärlig här; en ✅ som inte håller är värre än ett 🔧
 
 ---
 
-## Kö 1 — 🎉 Roligt (9 spel kvar)
+## Kö 1 — 🎉 Roligt ✅ KLAR (14/14)
 
 Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-listor).
 `zackes-biltvatt` är redan ✅ och hoppas över.

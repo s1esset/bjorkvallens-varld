@@ -48,7 +48,7 @@ Progression · Karaktär · Ljud) · **§5 Status/loggar** (bockar + commits).
 Status: ⬜ ej granskat · 📝 doc skriven (plan klar) · 🔧 förbättringar pågår · ✅ marknadsklar.
 Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 
-### 🎉 Roligt — ✅ HELA fliken byggd (första-omgång, 2026-07-01)
+### 🎉 Roligt — ✅ **HELA fliken poleringsklar** (14/14, v1.8.0, 2026-08-05)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
 | 1 | Klämbubblor | `klambubblor` | tap | ✅ |

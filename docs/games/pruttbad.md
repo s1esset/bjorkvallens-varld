@@ -1,5 +1,8 @@
 # Pruttbubbelbad (`pruttbad`)
-> 🎉 roligt · tap · 2–4 år · status: 📝 plan klar
+> 🎉 roligt · tap · 2–4 år · status: 🔧 andra omgången byggd (2026-08-05)
+
+> ⚠️ **Nuläget nedan beskriver spelet FÖRE omgången 2026-08-05** (orange boll, kalt badrum,
+> emoji-anka). Läs §5 för vad som faktiskt gäller nu.
 
 ## 1. Nuläge (sett som spelare)
 
@@ -61,34 +64,42 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Ge ankan (och fler badleksaker) verklig roll.** Låt en bubbla som studsar på ankan
-  *bära den uppåt* och pop:a till en extra-stor skum-klick, eller låt nya leksaker (båt, val 🐳)
-  som man placerar samla/styra bubblor mot mållinjen. Då blir placeringen ett meningsfullt val.
-- **[Quick] Belöna att hålla.** Gör håll-för-större tydligare värt det: en riktigt stor bubbla
-  ger en hörbar "wobble-upp", en regnbågs-sheen och dubbelt skum — så barnet upptäcker djupet.
+- ~~**[Medium] Ge ankan (och fler badleksaker) verklig roll.**~~ ✅ 2026-07-01 (studs + bonus-skum)
+  och 2026-08-05 (bonusen SYNS: gul puff i ankans färg, gnistor, stigande ton och ankan studsar
+  till — kausaliteten "jag styrde bubblan hit, därför blev det mer skum" fanns förut bara i koden).
+  Fler leksaker som styr bubblor är fortfarande ogjort.
+- ~~**[Quick] Belöna att hålla.**~~ ✅ 2026-07-01. Giant-bubbla med regnbågs-sheen och dubbelt skum.
+- **[Kritisk] ✅ 2026-08-05 — spelet spelade sig självt.** `_idleprobe 60` gav **4 klarade nivåer
+  utan ett enda tryck**: auto-hjälpen födde en riktig bubbla var 6:e sekund och anti-stuck-vakten
+  hällde in skum ur tomma intet var 4:e. Auto-hjälpen är nu en ren *inbjudan* (`_invite`) och
+  vakten lossar bara barnets egna fastnade bubblor. Probe efter fixen: `idleFramsteg: 0`.
 
 ### Variation & överraskning
-- **[Quick] Bubbeltyper.** Sällsynt **glitterbubbla** (poppar till stjärnor), **tvillingbubbla**
-  (delar sig på vägen upp), **jättebubbla** som lyfter ankan. Rotera per nivå.
+- ~~**[Quick] Bubbeltyper.**~~ ✅ 2026-07-01. Glitter- och jättebubbla. Tvillingbubbla är ogjord.
 - **[Medium] Gömda fynd i skummet.** När skummet stiger kan en badleksak/anka/stjärna dyka upp
-  ur det att trycka på — något att upptäcka utöver att bara fylla.
+  ur det att trycka på — något att upptäcka utöver att bara fylla. *(Medvetet sparad 2026-08-05:
+  skummet byggdes om helt i den omgången; fyndet blir billigt och säkert att lägga ovanpå nu.)*
 
 ### Juice
-- **[Quick] Stigande crescendo.** Klättrande tonhöjd ju närmare mållinjen skummet kommer, och en
-  mjuk "blubb"-klang per bubbla istället för bara `pop`.
-- **[Quick] Skummande textur.** Låt skum-ytan bubbla/jäsa (små poppande mikrobubblor) istället
-  för en statisk vit klump.
+- ~~**[Quick] Stigande crescendo.**~~ ✅ 2026-07-01. Poppets tonhöjd klättrar 360→880 Hz med fyllnaden.
+- ~~**[Quick] Skummande textur.**~~ ✅ 2026-08-05. Skum-ytan är en rad jäsande bubbeltoppar vars
+  radier andas, plus mikrobubblor som stiger genom kroppen. Omritning strypt till ~12 fps.
 
 ### Progression
 - **[Quick] Mjuk tema-variation per nivå.** Byt badvattnets färg/skum-doft-tema (jordgubbsbad
-  rosa, blåbärsbad lila) vid nytt mål, så rundorna känns olika.
+  rosa, blåbärsbad lila) vid nytt mål, så rundorna känns olika. *(Kvar 2026-08-05 — kritikern
+  påpekar att omgång 2 och 3 ser identiska ut bortsett från en högre mållinje. Detta är den enda
+  punkten som håller `variation` och `mjuk progression` från att vara helt gröna, dvs. det som
+  står mellan spelet och ✅.)*
 
 ### Karaktär & berättelse
-- **[Deep] Bygg en riktig Zacke.** Ge honom huvud, blött tofsigt hår, armar som plaskar, en
-  badmössa, och uttryck som byter med leken (fniss vid pop, häpen min vid jättebubbla, skum-
-  skägg när badet är fullt). Här bor spelets själ — just nu badar ingen.
-- **[Quick] Kakel-badrum.** Lägg en kaklad vägg, en droppande kran (som matar vatten visuellt),
-  handduk och en gummiankas-flock så scenen får liv och plats.
+- ~~**[Deep] Bygg en riktig Zacke.**~~ ✅ 2026-08-05. Ritad unge: huvud med vått tofsigt hår
+  (kalotten följer skallen), öron, hals, kropp med navel, armar som plaskar vid varje prutt, och
+  fyra riktiga miner — glad (vila), fniss (pop), wow (jättebubbla), jubel (fullt bad) — plus ett
+  skum-skägg som dyker upp vid 78 % fyllnad. Han sitter numera *i* vattnet: kroppen ritas under
+  vattentoningen, kar-kanten framför honom.
+- ~~**[Quick] Kakel-badrum.**~~ ✅ 2026-08-05. Kakelvägg i förskjutna rader, golv, hylla med
+  schampoflaska/tvål/leksaksbåt, handduk på stång och en kran som droppar ner i badet.
 
 ### Ljud
 - **[Quick] Variera fart/pop-klippen + lugn vatten-ambient** (skvalp + droppande kran) för
@@ -107,3 +118,40 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
   1.5× skum) via `_makeBubbleView(kind)`. (3) **Stigande crescendo [Quick]** — poppet klättrar i
   tonhöjd (`audio.tone`, 360→880 Hz) ju fullare badet är. Städning: oanvänd `ctx`-param bort ur
   `_newRound`. Den fulla Zacke-figuren (Deep) + skum-textur lämnade till senare. errorCount 0.
+- 2026-08-05 🔧 **Andra omgången (poleringsrundan, Kö 1 #5).** Commit `feat(pruttbad): …`.
+
+  **Kritisk agens-bugg — spelet spelade sig självt.** `node scripts/_idleprobe.mjs pruttbad 60`
+  gav `idleFramsteg: 4`: badet fylldes och firade **fyra gånger på en minut utan ett enda tryck**.
+  Två samverkande gratis-skum-kranar: `_autoHelp` födde en riktig bubbla var 6:e sekund, och
+  anti-stuck-vakten anropade `_addFoam(R_MIN)` var 4:e sekund när inga bubblor fanns. Fixat:
+  `_autoHelp` → `_invite()` som bara *bjuder in* (prutt-ljud, min-byte, armplask, ren FX-puff,
+  repeterad röst, pekande hand första gången) och aldrig rör `_spawnBubble`/`_addFoam`; vakten
+  kör bara när `_bubbles.length > 0` och poppar då barnets egen äldsta bubbla. Efter fixen:
+  `idleFramsteg: 0`, `efterSpel: 1`. **No-fail betyder att inget straffar barnet — inte att
+  badet fyller sig självt.**
+
+  **Ritad Zacke [Deep] + kaklat badrum [Quick] + skum-textur [Quick]** enligt §4 ovan.
+
+  **P0 ASSETS — noll emoji-spelobjekt kvar.** `🦆` (som dessutom renderades som en **gräsand** —
+  grönt huvud, brun bringa, alltså inte alls den gula badanka spelet lovar), `🏁` och `⭐` är nu
+  ritade. `✨`-floatTexten ersatt av `sparkle()`; utropen är rena svenska ord.
+
+  **Tre buggar hittade på vägen:**
+  1. *Sjätte läckan igen* — giant-bubblans regnbågsbågar använde `g.arc()` efter en `.stroke()`
+     i samma `Graphics` ⇒ ett streck drogs från föregående form in i varje båge. Lokal
+     `arcPath()`-hjälpare införd och använd överallt (även i ansiktets bågar).
+  2. *Skummet såg fullt ut innan det var klart.* `_goalY` bottnade på 220 medan `_goalFoam`
+     fortsatte växa (+18/nivå), så från nivå 3 nådde skummet mållinjen visuellt långt före
+     målet. Skummet ritas nu i **andel** av vägen till linjen, och bubbeltopparnas överskjut
+     (`CROWN = 20`) dras av så att kronan och mätaren når linjen exakt samtidigt.
+  3. *check.mjs var RÖD på master* — `voiceIntro` saknade rad i `scripts/voice-phrases.json` och
+     kunde alltså aldrig få ett klipp. Tillagd via `_addphrases`.
+
+  **Efter kritiken:** armarnas kontur byttes från den ljusa `SKIN_DARK` till kroppens `SKIN_OUT`
+  (armarna smälte ihop med torson till en blek klump under vattentoningen), och anka-boosten fick
+  en egen florish. `check` grön · `test` 0 fel · `idleprobe` 0.
+
+  **Kvar (medvetet):** tema-variation per nivå [Quick] och gömda fynd i skummet [Medium] — båda
+  bygger på skummet som byggdes om här. Vatten-ambient [Quick] väntar på att SFX-pipelinen är
+  uppe. Spelet står kvar som **🔧** just därför: kritikern bedömer `variation` och
+  `mjuk progression` som endast *delvis* uppfyllda så länge rundorna ser identiska ut.

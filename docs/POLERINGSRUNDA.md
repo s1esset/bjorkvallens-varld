@@ -4,8 +4,8 @@
 på ⚙️ Fysik-fliken 2026-08-04 (v1.7.0). Leta buggar och problem, fixa dem, och lyft
 **design, assets och omspelsvärde**. En commit per spel.
 
-> ⚙️ **Fysik-fliken är KLAR** (27/27, v1.7.0). Kvar: 🎉 Roligt (11) → 🧩 Pussel (19) →
-> 🔤 Lära (9) = **39 spel**. Bocka av i tabellerna nedan när ett spel är committat.
+> ⚙️ **Fysik-fliken är KLAR** (27/27, v1.7.0). Kvar: 🎉 Roligt (9) → 🧩 Pussel (19) →
+> 🔤 Lära (9) = **37 spel**. Bocka av i tabellerna nedan när ett spel är committat.
 
 > 💡 **Sjätte läckan, hittad i `bajs-och-kiss`:** `arc()` i en **delad** `Graphics` fortsätter
 > den aktuella vägen — utan `moveTo` till bågens startpunkt först ritas ett streck från förra
@@ -26,6 +26,21 @@ på ⚙️ Fysik-fliken 2026-08-04 (v1.7.0). Leta buggar och problem, fixa dem, 
 > självt är genomsläppligt, men interaktiva barn får sina händelser. Syns varken i koden
 > eller i skärmdumpen — bara när man faktiskt drar. Leta i spel som flyttar objekt mellan
 > containrar under ett drag.
+
+> 💡 **Nionde läckan igen, värre i `pruttbad`:** `idleprobe` gav **4 klarade nivåer på 60 s utan
+> ett tryck**. Två *olika* gratis-skum-kranar samverkade: en idle-"auto-hjälp" som födde ett
+> riktigt spelobjekt, och en **anti-stuck-vakt** som fyllde mätaren direkt när inget fanns att
+> lossa. Vakter som ska garantera att spelet inte kör fast är den farligaste sorten — de ser ut
+> som ren no-fail-hygien i koden. Regeln: en vakt får **lossa** det barnet redan skapat, aldrig
+> **skapa** framsteg. Och idle-hjälp ska bjuda in (min, ljud, pekande hand), inte spela åt barnet.
+> Kör `node scripts/_idleprobe.mjs <id> 60` på varje spel med en mätare som kan fyllas passivt.
+
+> 💡 **Tionde läckan, hittad i `pruttbad`:** **mätaren och scenen är inte samma sanning.** Målet
+> växte per nivå (`goalFoam += 18`) men mållinjens y-värde var `clamp(…, 220, …)` — från nivå 3
+> bottnade linjen medan kravet fortsatte växa, så badet såg **fullt ut långt innan det var klart**.
+> Samma sak i miniatyr: skummets bubbeltoppar sköt 20 px över skumkroppen, så kronan nådde linjen
+> vid 74 %. Rita alltid fyllnaden som **andel av vägen till målet**, och dra av det som sticker
+> upp över ytan. Syns bara om man jämför mätaren med scenen i samma skärmdump.
 
 > 💡 **Nionde läckan, hittad i `sapbubblor`:** **spelet spelar sig självt.** No-fail hade glidit
 > över i att mätaren fylls medan barnet tittar på — en hel nivå klarades på **10 sekunder utan ett
@@ -91,7 +106,7 @@ i sin doc §4. *Var ärlig här; en ✅ som inte håller är värre än ett 🔧
 
 ---
 
-## Kö 1 — 🎉 Roligt (14 spel kvar)
+## Kö 1 — 🎉 Roligt (9 spel kvar)
 
 Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-listor).
 `zackes-biltvatt` är redan ✅ och hoppas över.
@@ -102,7 +117,7 @@ Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-
 | 2 | `pizzabageriet` | 11 | ✅ |
 | 3 | `hamburgerbygget` | 11 | ✅ |
 | 4 | `sapbubblor` | 10 | ✅ |
-| 5 | `pruttbad` | 10 | ⬜ |
+| 5 | `pruttbad` | 10 | ✅ |
 | 6 | `lagerelden` | 10 | ⬜ |
 | 7 | `enhorning-glitterbajs` | 9 | ⬜ |
 | 8 | `loopdjuren` | 9 | ⬜ |

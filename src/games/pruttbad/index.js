@@ -1,25 +1,32 @@
 // Pruttbubbelbad — fnitter-fysik (2–4 år). Zacke sitter i ett skummande bubbelbad;
 // barnet trycker (eller HÅLLER) på hans mage → PRRRT! En luftbubbla föds vid
 // tryckpunkten och stiger gungande genom vattnet, vobblar i sidled och POPPAR vid
-// ytan med ett fniss + skumplask. Ju hårdare/längre man håller, desto större bubbla
+// ytan med ett fniss + skumplask. Ju längre man håller, desto större bubbla
 // (stiger snabbare, poppar högre, mer skum). En gul gummianka man kan DRA gör att
 // bubblorna studsar åt nya håll. Mål: poppa bubblor tills skummet fyller badet upp
 // till den prickade skumlinjen → firande + nytt, lite högre mål (oändlig lek).
 //
-// No-fail: tomma tryck finns inte (vatten ger plopp+ring, magen ger alltid en bubbla),
-// varje pop ökar skummet monotont, och vid idle pruttar Zacke SJÄLV tills badet fylls.
+// No-fail betyder att INGET straffar barnet — inte att badet fyller sig självt.
+// Tomma tryck finns inte (vatten ger plopp+ring, magen ger alltid en bubbla) och
+// skummet växer monotont, men skum kommer ENDAST från bubblor barnet skapat.
+// Vid idle BJUDER Zacke in (prutt, min, pekande hand, upprepad röst) — han spelar
+// aldrig åt barnet. Anti-stuck-vakten lossar bara barnets egna fastnade bubblor.
 //
 // Bubblorna är vanliga Pixi-objekt som ENDAST rörs av ticker-integratorn (ingen matter.js,
 // ingen GSAP på bubbel-objekt) → exit-säkra utan extra skydd. Partiklar/plask går via
 // lib/feedback.js (redan exit-säkra). GSAP rör endast Zacke/anka/skum + {}-proxies.
-import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration, breathe } from '../../lib/feedback.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+// arc() i en Graphics som redan har former fortsätter den AKTUELLA vägen — utan ett
+// moveTo till bågens startpunkt ritas ett streck från förra formen till bågen.
+const arcPath = (g, cx, cy, r, a0, a1) => g.moveTo(cx + Math.cos(a0) * r, cy + Math.sin(a0) * r).arc(cx, cy, r, a0, a1)
 
 // ---- Geometri (designkoordinater) ---------------------------------------
 const SURFACE_Y = 330 // vattenytan = pop-linje + lyftkraftens nollinje
@@ -27,9 +34,10 @@ const WALL_L = 230 // logiska väggar (bubbel-studs)
 const WALL_R = 1050
 const FLOOR = 650
 const ZACKE_X = 430
-const ZACKE_Y = 360
+const ZACKE_Y = SURFACE_Y // Zackes origo ligger i vattenytan → magen hamnar i vattenbrynet
 const DUCK_R = 66 // ankans kollisionsradie
-const DUCK_HOME = { x: 760, y: 430 }
+const DUCK_HOME = { x: 780, y: 430 }
+const SPOUT = { x: 970, y: 248 } // kranens pip — droppen faller härifrån
 
 // ---- Bubblor -------------------------------------------------------------
 const BASE = 40 // ritradie; view.scale = r / BASE
@@ -37,6 +45,12 @@ const R_MIN = 28 // snabbt tap ger ändå en rolig bubbla
 const R_MAX = 70
 const FOAM_K = 0.9 // skum-tillskott per pop = r * FOAM_K
 const MAX_V = 14 // hastighetstak — inget kan skjuta ur karet
+
+// ---- Zacke (ritad karaktär, inte en boll) --------------------------------
+const SKIN = 0xffe0bd
+const SKIN_DARK = 0xefc79c
+const SKIN_OUT = 0xd79f6a // egen kontur — hud mot vitt porslin/skum är annars nästan osynlig
+const HAIR = 0x7a4a25
 
 export default {
   id: 'pruttbad',
@@ -60,11 +74,17 @@ export default {
     this._idle = 0
     this._sinceFoam = 0 // anti-stuck-vakt: sekunder sedan skummet senast växte
     this._firstPrutt = false
+    this._touched = false // har barnet rört spelet? styr inbjudande handen
     this._duckPhase = 0
     this._duckActive = false
     this._duckMoved = false
     this._duckSelected = false
     this._duckBase = { x: DUCK_HOME.x, y: DUCK_HOME.y }
+    this._foamPhase = 0
+    this._foamAcc = 0
+    this._drip = { y: SPOUT.y, wait: 1.2 }
+    this._mood = 'glad'
+    this._moodHold = 0
     this._lastSfx = {} // per-ljud strypning (min-intervall) → aldrig sfx varje tick
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
@@ -73,17 +93,26 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Bakgrund (FÖRSTA barn) — badrums-vatten-gradient.
+    // Bakgrund (FÖRSTA barn) — mjuk badrums-gradient under kaklet.
     const scene = createScene('water', { ground: false })
     this._root.addChild(scene)
 
+    // Z-ordning: badrum → kar+vatten → mållinje → vatten-träffyta → Zacke → anka →
+    // vattentoning → bubblor → skum → kar-kant (framför alla) → mätare.
+    // Mållinjen ligger BAKOM Zacke (annars ritas en prickrad tvärs över hans ansikte)
+    // och kar-kanten ligger FRAMFÖR honom (då sitter han i karet, inte på det).
+    this._buildBathroom()
     this._buildTub()
     this._buildGoal()
-    this._buildProgress()
-    this._buildFoam()
     this._buildWaterTap(ctx)
     this._buildZacke(ctx)
-    this._buildDuck(ctx)
+    this._buildTint()
+    this._buildDuck(ctx) // ovanför toningen: en badanka MÅSTE läsas som gul, inte olivgrön
+    this._buildBubbleLayer()
+    this._buildFoam()
+    this._buildTubRim()
+    this._buildHint()
+    this._buildProgress()
 
     this._tick = (tk) => this._update(ctx, tk)
     ctx.ticker.add(this._tick)
@@ -98,7 +127,11 @@ export default {
 
   _applyLevel() {
     this._goalFoam = 70 + this._level * 18
-    this._goalY = clamp(SURFACE_Y - this._goalFoam, 220, SURFACE_Y - 30)
+    // Linjen får inte krypa upp i kar-kanten. Skummet ritas i ANDEL av vägen hit
+    // (se _drawFoam), så mätaren och skummet når linjen exakt samtidigt — förr
+    // bottnade linjen på hög nivå medan _goalFoam fortsatte växa, och då såg badet
+    // fullt ut långt innan det var klart.
+    this._goalY = clamp(SURFACE_Y - this._goalFoam, 248, SURFACE_Y - 40)
     this._levelBoost = Math.min(this._level * 4, 20) // större standardbubblor på högre nivå
   },
 
@@ -118,26 +151,130 @@ export default {
 
   // ---- Scenbyggen ---------------------------------------------------------
 
-  _buildTub() {
+  // Kaklat badrum: kakelvägg, golv, hylla med badgrejer, handduk och en kran
+  // som droppar ner i badet. Scenen ska kännas som ett rum, inte en gradient.
+  _buildBathroom() {
     const g = new Graphics()
-    // Porslinskar.
-    g.roundRect(170, 250, 940, 430, 90).fill(COLORS.white).stroke({ width: 12, color: COLORS.teal })
-    // Glansremsa upptill.
-    g.roundRect(190, 262, 900, 40, 30).fill({ color: 0xffffff, alpha: 0.6 })
-    // Vatten.
-    g.roundRect(200, 330, 880, 340, 60).fill({ color: COLORS.blue, alpha: 0.55 })
+
+    // Kakelvägg — förskjutna rader, mjuka fogar (gradienten lyser svagt igenom).
+    const TILE = 82
+    for (let row = -2; row * TILE < 660; row++) {
+      const ty = row * TILE
+      const off = (row & 1) * (TILE / 2)
+      for (let col = -1; col * TILE + off < 1300; col++) {
+        const tx = col * TILE + off
+        g.roundRect(tx + 3, ty + 3, TILE - 6, TILE - 6, 10).fill({ color: 0xeaf6fb, alpha: 0.9 })
+      }
+    }
+
+    // Golv.
+    g.rect(0, 622, 1280, 98).fill(0xdfe7ea)
+    g.rect(0, 622, 1280, 9).fill(0xc4d5dc)
+    for (let x = 40; x < 1280; x += 128) g.rect(x, 631, 5, 89).fill({ color: 0xc4d5dc, alpha: 0.7 })
+
+    // Hylla ovanför karet (fri från Zackes hår och mållinjens flagga).
+    g.roundRect(560, 150, 262, 15, 7).fill(0xe8d3b0).stroke({ width: 3, color: 0xc9ac82 })
+    // Schampoflaska.
+    g.roundRect(584, 96, 42, 54, 13).fill(COLORS.purple).stroke({ width: 3, color: 0x8b6fe0 })
+    g.roundRect(596, 82, 18, 16, 6).fill(0x8b6fe0)
+    g.roundRect(592, 112, 26, 20, 6).fill({ color: 0xffffff, alpha: 0.75 })
+    // Tvål med skumglans.
+    g.roundRect(648, 120, 56, 30, 14).fill(0xfff3c4).stroke({ width: 3, color: 0xe2cf8e })
+    g.ellipse(666, 130, 12, 6).fill({ color: 0xffffff, alpha: 0.8 })
+    // Leksaksbåt.
+    g.moveTo(730, 150).lineTo(806, 150).lineTo(794, 126).lineTo(742, 126).closePath().fill(COLORS.red).stroke({ width: 3, color: 0xd8504f })
+    g.roundRect(764, 84, 5, 42, 2).fill(0x9a7a55)
+    g.moveTo(769, 86).lineTo(800, 112).lineTo(769, 122).closePath().fill(COLORS.white).stroke({ width: 3, color: 0xd3dde2 })
+
+    // Handduk på stång (fyller den tomma vänsterväggen).
+    g.roundRect(46, 150, 128, 13, 6).fill(0xc9d6dd).stroke({ width: 3, color: 0xa2b4bd })
+    g.circle(48, 156, 8).fill(0xa2b4bd)
+    g.circle(172, 156, 8).fill(0xa2b4bd)
+    g.roundRect(56, 158, 108, 214, 20).fill(0xffd9e6).stroke({ width: 4, color: 0xf0adc8 })
+    g.roundRect(80, 164, 9, 200, 4).fill({ color: 0xf0adc8, alpha: 0.55 })
+    g.roundRect(112, 164, 9, 200, 4).fill({ color: 0xf0adc8, alpha: 0.55 })
+    g.roundRect(64, 348, 92, 16, 8).fill({ color: 0xf0adc8, alpha: 0.45 })
+
+    // Kran över badet — pip pekar ner i vattnet (droppen ritas separat).
+    g.roundRect(880, 184, 36, 36, 11).fill(0xc9d6dd).stroke({ width: 3, color: 0x9fb2bb })
+    g.roundRect(898, 194, 88, 17, 8).fill(0xe4edf1).stroke({ width: 3, color: 0xb4c4cc })
+    g.roundRect(962, 202, 17, 46, 8).fill(0xe4edf1).stroke({ width: 3, color: 0xb4c4cc })
+    g.circle(898, 176, 16).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
+    g.circle(898, 176, 6).fill({ color: 0xffffff, alpha: 0.6 })
+
     g.eventMode = 'none'
     this._root.addChild(g)
+
+    this._dripGfx = new Graphics()
+    this._dripGfx.eventMode = 'none'
+    this._root.addChild(this._dripGfx)
+  },
+
+  _buildTub() {
+    const g = new Graphics()
+    // Porslinskar (kropp + fötter).
+    g.roundRect(150, 596, 44, 74, 16).fill(0xdfe7ea).stroke({ width: 5, color: 0xb9cbd2 })
+    g.roundRect(1086, 596, 44, 74, 16).fill(0xdfe7ea).stroke({ width: 5, color: 0xb9cbd2 })
+    g.roundRect(170, 250, 940, 430, 90).fill(COLORS.white)
+    // Innerskål i svag blåton. Utan den ritas VITT skum mot VITT porslin och blir
+    // praktiskt taget osynligt — bara skummets bubbeltoppar syntes.
+    g.roundRect(194, 256, 892, 420, 68).fill(0xdaeaf3)
+    // Vatten.
+    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill({ color: COLORS.blue, alpha: 0.5 })
+    g.eventMode = 'none'
+    this._root.addChild(g)
+  },
+
+  // Vattentoning över allt som är UNDER ytan → Zackes kropp och ankan ser
+  // nedsänkta ut, medan huvudet ovanför ytan förblir skarpt.
+  _buildTint() {
+    const g = new Graphics()
+    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill({ color: 0x4aa3df, alpha: 0.28 })
+    g.roundRect(200, SURFACE_Y, 880, 7, 4).fill({ color: 0xffffff, alpha: 0.3 }) // ytlinje (mjuk, inte en vit hylla)
+    g.eventMode = 'none'
+    this._root.addChild(g)
+  },
+
+  // Kar-kanten ritas SIST av kar-delarna, framför Zacke och skummet: då sitter han
+  // i karet och skummet kan inte rinna ut över kanten visuellt.
+  _buildTubRim() {
+    const g = new Graphics()
+    g.roundRect(170, 250, 940, 430, 90).stroke({ width: 13, color: COLORS.teal })
+    g.roundRect(186, 245, 908, 8, 4).fill({ color: 0xffffff, alpha: 0.55 }) // kant-glans (ovanför mållinjen)
+    g.eventMode = 'none'
+    this._root.addChild(g)
+  },
+
+  _buildBubbleLayer() {
+    this._bubbleLayer = new Container()
+    this._bubbleLayer.eventMode = 'passive' // 'none' skär bort hela subträdet från händelser
+    this._root.addChild(this._bubbleLayer)
   },
 
   _buildGoal() {
     this._goalGfx = new Graphics()
     this._goalGfx.eventMode = 'none'
     this._root.addChild(this._goalGfx)
-    this._goalMarker = new Text({ text: '🏁', style: { fontFamily: FONT.body, fontSize: 46 } })
-    this._goalMarker.anchor.set(0.5)
-    this._goalMarker.eventMode = 'none'
-    this._root.addChild(this._goalMarker)
+
+    // Ritad målflagga (rutig duk på stång) i stället för en 🏁-emoji.
+    const flag = new Container()
+    const f = new Graphics()
+    f.roundRect(-3, -56, 6, 62, 3).fill(0xb9832f) // stång
+    const CS = 11
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 4; c++) {
+        const dark = (r + c) % 2 === 0
+        f.rect(3 + c * CS, -54 + r * CS, CS, CS).fill(dark ? COLORS.ink : COLORS.white)
+      }
+    }
+    f.rect(3, -54, 4 * CS, 3 * CS).stroke({ width: 2.5, color: COLORS.ink, alpha: 0.55 })
+    f.circle(0, -58, 5).fill(COLORS.orange)
+    f.eventMode = 'none'
+    flag.addChild(f)
+    flag.eventMode = 'none'
+    this._goalMarker = flag
+    this._root.addChild(flag)
+
     this._drawGoal()
     this._goalPulse = breathe(this._goalMarker, { scale: 1.16, duration: 1 }) // drar blicken till mållinjen
   },
@@ -146,12 +283,12 @@ export default {
     const g = this._goalGfx
     if (!g || g.destroyed) return
     g.clear()
-    // Tydlig prickad mållinje "fyll skummet hit".
-    for (let x = 240; x <= 1010; x += 30) {
-      g.circle(x, this._goalY, 6).fill({ color: COLORS.teal, alpha: 0.35 })
-      g.circle(x, this._goalY, 4.5).fill({ color: COLORS.white, alpha: 0.95 })
+    // Tydlig prickad mållinje "fyll skummet hit" — mörk kärna så den syns mot porslinet.
+    for (let x = 240; x <= 1006; x += 30) {
+      g.circle(x, this._goalY, 7).fill({ color: COLORS.teal, alpha: 0.85 })
+      g.circle(x, this._goalY, 4).fill({ color: COLORS.white, alpha: 0.95 })
     }
-    if (this._goalMarker && !this._goalMarker.destroyed) this._goalMarker.position.set(1046, this._goalY)
+    if (this._goalMarker && !this._goalMarker.destroyed) this._goalMarker.position.set(1042, this._goalY)
   },
 
   // Skum-mätare till höger om karet: en tydlig "hur full är jag"-stapel utan läsning.
@@ -160,11 +297,16 @@ export default {
     this._progGfx = new Graphics()
     this._progGfx.eventMode = 'none'
     this._root.addChild(this._progGfx)
-    this._progStar = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: 48 } })
-    this._progStar.anchor.set(0.5)
-    this._progStar.eventMode = 'none'
-    this._progStar.position.set(1163, 232)
-    this._root.addChild(this._progStar)
+
+    // Ritad stjärna i stället för ⭐-emoji.
+    const s = new Graphics()
+    s.star(0, 0, 5, 25, 12).fill(COLORS.yellow).stroke({ width: 4, color: 0xe0a92c })
+    s.star(0, -3, 5, 12, 6).fill({ color: 0xfff0b8, alpha: 0.85 })
+    s.eventMode = 'none'
+    s.position.set(1164, 230)
+    this._progStar = s
+    this._root.addChild(s)
+
     this._drawProgress()
   },
 
@@ -177,12 +319,13 @@ export default {
       BOT = 604,
       H = BOT - TOP
     g.clear()
-    g.roundRect(X, TOP, W, H, 18).fill({ color: COLORS.blue, alpha: 0.16 }).stroke({ width: 5, color: COLORS.teal, alpha: 0.6 })
+    g.roundRect(X, TOP, W, H, 18).fill({ color: COLORS.white, alpha: 0.55 }).stroke({ width: 5, color: COLORS.teal, alpha: 0.7 })
     const frac = clamp((this._foam.level || 0) / (this._goalFoam || 1), 0, 1)
     const fh = H * frac
     if (fh > 3) {
-      g.roundRect(X + 4, BOT - fh, W - 8, fh, 12).fill({ color: COLORS.white, alpha: 0.95 })
-      g.circle(X + W / 2, BOT - fh, 12).fill({ color: COLORS.white, alpha: 0.98 }) // bubblig topp
+      g.roundRect(X + 4, BOT - fh, W - 8, fh, 12).fill({ color: 0xffffff, alpha: 0.97 })
+      g.circle(X + W / 2, BOT - fh, 12).fill({ color: 0xffffff, alpha: 0.99 }) // bubblig topp
+      g.circle(X + W / 2 - 7, BOT - fh - 6, 6).fill({ color: 0xffffff, alpha: 0.9 })
     }
   },
 
@@ -193,17 +336,39 @@ export default {
     this._drawFoam()
   },
 
+  // Skummet JÄSER: ytan är en rad överlappande bubbeltoppar vars radier andas med
+  // _foamPhase, plus mikrobubblor som poppar upp i kroppen. Aldrig en vit klump.
   _drawFoam() {
     this._drawProgress()
     const g = this._foamGfx
     if (!g || g.destroyed) return
     g.clear()
     if (this._foam.level <= 0) return
-    const top = Math.max(this._goalY, SURFACE_Y - this._foam.level)
+    // Andel av vägen till linjen — samma tal som mätaren visar. CROWN är hur högt
+    // bubbeltopparna sticker upp över skumkroppen; dras av här så att KRONAN (det
+    // öga faktiskt läser som "skummets höjd") möter linjen exakt när mätaren är full.
+    const CROWN = 20
+    const frac = clamp(this._foam.level / (this._goalFoam || 1), 0, 1)
+    const top = SURFACE_Y - (SURFACE_Y - this._goalY - CROWN) * frac
+    const ph = this._foamPhase
+
     // Skumkropp.
-    g.roundRect(208, top, 864, SURFACE_Y - top + 26, 24).fill({ color: 0xffffff, alpha: 0.85 })
-    // Bubbliga toppar.
-    for (let x = 236; x <= 1044; x += 46) g.circle(x, top, 28).fill({ color: 0xffffff, alpha: 0.92 })
+    g.roundRect(208, top, 864, SURFACE_Y - top + 30, 26).fill({ color: 0xffffff, alpha: 0.88 })
+    // Jäsande toppar (håller sig innanför kar-kanten även när badet är fullt).
+    for (let i = 0; i * 42 <= 836; i++) {
+      const x = 232 + i * 42
+      const r = 20 + Math.sin(ph * 1.6 + i * 0.9) * 5
+      g.circle(x, top + 8 + Math.sin(ph + i * 0.55) * 3, r).fill({ color: 0xffffff, alpha: 0.94 })
+    }
+    // Mikrobubblor inuti skummet.
+    const depth = SURFACE_Y - top + 24
+    for (let i = 0; i < 16; i++) {
+      const x = 240 + ((i * 337) % 800)
+      const t = (ph * 0.5 + i * 0.37) % 1
+      const y = top + 12 + t * depth
+      if (y > SURFACE_Y + 26) continue
+      g.circle(x, y, 3.5 + (i % 3)).fill({ color: 0xd8f0fa, alpha: 0.55 * (1 - t) + 0.2 })
+    }
   },
 
   // Osynlig träffzon över vattnet — alltid kul plopp (ligger UNDER Zacke/anka i z).
@@ -217,30 +382,79 @@ export default {
     this._root.addChild(area)
   },
 
+  // ---- Zacke: en riktig unge i badet, inte en orange boll -----------------
+
   _buildZacke(ctx) {
     const z = new Container()
     z.position.set(ZACKE_X, ZACKE_Y)
-    // Skugga.
-    z.addChild(new Graphics().ellipse(0, 130, 96, 22).fill({ color: COLORS.shadow, alpha: 0.12 }))
+
+    const b = new Graphics()
+    const OUT = SKIN_OUT
     // Kropp.
-    z.addChild(new Graphics().circle(0, 0, 120).fill(COLORS.orange))
-    // Mage-glans (huvudknappen).
-    z.addChild(new Graphics().circle(0, 20, 70).fill({ color: 0xffb27a, alpha: 0.9 }))
-    z.addChild(new Graphics().circle(-18, 2, 22).fill({ color: 0xffffff, alpha: 0.4 }))
-    // Kinder.
-    z.addChild(new Graphics().circle(-56, -46, 15).fill({ color: COLORS.pink, alpha: 0.7 }))
-    z.addChild(new Graphics().circle(56, -46, 15).fill({ color: COLORS.pink, alpha: 0.7 }))
-    // Ögon.
-    for (const ex of [-38, 38]) {
-      z.addChild(new Graphics().circle(ex, -80, 16).fill(COLORS.white))
-      z.addChild(new Graphics().circle(ex, -78, 8).fill(COLORS.ink))
-    }
-    // Leende.
-    z.addChild(new Graphics().arc(0, -56, 30, 0.18 * Math.PI, 0.82 * Math.PI).stroke({ width: 6, color: COLORS.ink, cap: 'round' }))
+    b.roundRect(-64, -78, 128, 168, 46).fill(SKIN).stroke({ width: 5, color: OUT })
+    // Mage-glans = "tryck här" (liten och mjuk; en stor ljus fläck blekte ut hela kroppen).
+    b.circle(0, 10, 38).fill({ color: 0xfff3e2, alpha: 0.5 })
+    b.circle(-15, -2, 14).fill({ color: 0xffffff, alpha: 0.4 })
+    // Navel.
+    b.circle(0, 24, 7).fill({ color: OUT, alpha: 0.95 })
+    // Hals.
+    b.roundRect(-21, -104, 42, 40, 15).fill(SKIN_DARK)
+    // Öron (bakom huvudet).
+    b.circle(-54, -134, 15).fill(SKIN).stroke({ width: 4, color: OUT })
+    b.circle(54, -134, 15).fill(SKIN).stroke({ width: 4, color: OUT })
+    // Huvud.
+    b.circle(0, -140, 54).fill(SKIN).stroke({ width: 5, color: OUT })
+    z.addChild(b)
+
+    // Armar FRAMFÖR kroppen (bakom den syntes bara händerna som två nubbar) — egna
+    // containrar med axeln som pivot så de kan plaska.
+    this._armL = this._makeArm(1)
+    this._armL.position.set(-52, -50)
+    this._armL.rotation = 0.5
+    this._armR = this._makeArm(-1)
+    this._armR.position.set(52, -50)
+    this._armR.rotation = -0.5
+    z.addChild(this._armL, this._armR)
+
+    // Ansikte (egen Graphics — ritas om per min).
+    const face = new Graphics()
+    face.eventMode = 'none'
+    z.addChild(face)
+    this._face = face
+
+    // Vått, tofsigt hår. Kalotten följer SKALLEN (en ellips-kalott lägger sig antingen
+    // över ögonen eller lämnar tinningarna kala) och luggen slutar en bit ovanför dem.
+    const h = new Graphics()
+    arcPath(h, 0, -140, 57, 2.79, 6.63)
+      .quadraticCurveTo(30, -152, 6, -172)
+      .quadraticCurveTo(-18, -152, -52, -121)
+      .closePath()
+      .fill(HAIR)
+    h.moveTo(-30, -186).quadraticCurveTo(-30, -222, -4, -200).closePath().fill(HAIR)
+    h.moveTo(-2, -196).quadraticCurveTo(14, -226, 32, -192).closePath().fill(HAIR)
+    h.moveTo(26, -190).quadraticCurveTo(52, -206, 50, -176).closePath().fill(HAIR)
+    h.moveTo(-50, -176).quadraticCurveTo(-56, -202, -32, -190).closePath().fill(HAIR)
+    h.ellipse(-16, -180, 16, 7).fill({ color: 0xffffff, alpha: 0.25 }) // blöt glans
+    h.eventMode = 'none'
+    z.addChild(h)
+
+    // Skum-skägg (visas när badet nästan är fullt).
+    const beard = new Graphics()
+    beard.circle(-36, -94, 17).fill({ color: 0xffffff, alpha: 0.95 })
+    beard.circle(-13, -85, 20).fill({ color: 0xffffff, alpha: 0.95 })
+    beard.circle(13, -85, 20).fill({ color: 0xffffff, alpha: 0.95 })
+    beard.circle(36, -94, 17).fill({ color: 0xffffff, alpha: 0.95 })
+    beard.circle(0, -72, 16).fill({ color: 0xffffff, alpha: 0.95 })
+    beard.eventMode = 'none'
+    beard.visible = false
+    this._beard = beard
+    z.addChild(beard)
+
+    this._drawFace('glad')
 
     z.eventMode = 'static'
     z.cursor = 'pointer'
-    z.hitArea = new Circle(0, 20, 92) // träffyta-diameter 184px ≫ 96px
+    z.hitArea = new Circle(0, -20, 96) // träffyta-diameter 192px ≫ 96px
     this._zackeDown = (e) => this._zackePointerDown(ctx, e)
     this._zackeUp = () => this._releaseBubble(ctx)
     z.on('pointerdown', this._zackeDown)
@@ -250,23 +464,104 @@ export default {
     this._root.addChild(z)
   },
 
-  _buildDuck(ctx) {
-    const d = new Container()
-    d.addChild(new Graphics().ellipse(0, 44, 52, 14).fill({ color: COLORS.shadow, alpha: 0.12 }))
-    const e = new Text({ text: '🦆', style: { fontFamily: FONT.body, fontSize: 84 } })
-    e.anchor.set(0.5)
-    e.eventMode = 'none'
-    d.addChild(e)
-    d.position.set(this._duckBase.x, this._duckBase.y)
-    d.eventMode = 'static'
-    d.cursor = 'pointer'
-    d.hitArea = new Circle(0, 0, 80) // träffyta-diameter 160px
-    this._duckDownH = (ev) => this._duckDown(ctx, ev)
-    this._duckMoveH = (ev) => this._duckMove(ev)
-    this._duckUpH = () => this._duckUp(ctx)
-    d.on('pointerdown', this._duckDownH)
-    this._duck = d
-    this._root.addChild(d)
+  _makeArm(side) {
+    const c = new Container()
+    const g = new Graphics()
+    // Samma konturstyrka som kroppen — en ljusare stroke här gjorde att armarna
+    // smälte ihop med torson till en enda blek klump under vattentoningen.
+    g.roundRect(-12, -12, 24, 78, 12).fill(SKIN).stroke({ width: 5, color: SKIN_OUT })
+    g.circle(0, 72, 16).fill(SKIN).stroke({ width: 5, color: SKIN_OUT })
+    g.circle(side * 4, 70, 5).fill({ color: SKIN_OUT, alpha: 0.6 })
+    g.eventMode = 'none'
+    c.addChild(g)
+    c.eventMode = 'none'
+    return c
+  },
+
+  // Fyra riktiga miner: glad (vila) · fniss (pop) · wow (jättebubbla) · jubel (fullt bad).
+  _drawFace(mood) {
+    const g = this._face
+    if (!g || g.destroyed) return
+    this._mood = mood
+    const ink = COLORS.ink
+    const cheek = { color: 0xffb0b0, alpha: 0.65 }
+    const HY = -140 // huvudets centrum
+    g.clear()
+
+    if (mood === 'wow') {
+      g.circle(-21, HY - 2, 11).fill(COLORS.white).circle(21, HY - 2, 11).fill(COLORS.white)
+      g.circle(-21, HY - 2, 6).fill(ink).circle(21, HY - 2, 6).fill(ink)
+      g.circle(-37, HY + 14, 11).fill(cheek).circle(37, HY + 14, 11).fill(cheek)
+      g.ellipse(0, HY + 22, 11, 14).fill(0x9a5b3b)
+      return
+    }
+
+    if (mood === 'jubel') {
+      arcPath(g, -21, HY, 10, Math.PI, 2 * Math.PI).stroke({ width: 5, color: ink, cap: 'round' })
+      arcPath(g, 21, HY, 10, Math.PI, 2 * Math.PI).stroke({ width: 5, color: ink, cap: 'round' })
+      g.circle(-38, HY + 14, 12).fill(cheek).circle(38, HY + 14, 12).fill(cheek)
+      g.moveTo(-22, HY + 12).quadraticCurveTo(0, HY + 40, 22, HY + 12).closePath().fill(0x9a5b3b)
+      g.moveTo(-11, HY + 26).quadraticCurveTo(0, HY + 36, 11, HY + 26).closePath().fill(COLORS.pink)
+      return
+    }
+
+    if (mood === 'fniss') {
+      arcPath(g, -21, HY, 9, Math.PI, 2 * Math.PI).stroke({ width: 5, color: ink, cap: 'round' })
+      arcPath(g, 21, HY, 9, Math.PI, 2 * Math.PI).stroke({ width: 5, color: ink, cap: 'round' })
+      g.circle(-38, HY + 14, 12).fill(cheek).circle(38, HY + 14, 12).fill(cheek)
+      g.moveTo(-17, HY + 14).quadraticCurveTo(0, HY + 34, 17, HY + 14).closePath().fill(0x9a5b3b)
+      return
+    }
+
+    // glad (vila)
+    g.circle(-21, HY - 2, 10).fill(COLORS.white).circle(21, HY - 2, 10).fill(COLORS.white)
+    g.circle(-20, HY, 6).fill(ink).circle(22, HY, 6).fill(ink)
+    g.circle(-23, HY - 4, 3).fill(COLORS.white).circle(19, HY - 4, 3).fill(COLORS.white)
+    g.circle(-37, HY + 14, 11).fill(cheek).circle(37, HY + 14, 11).fill(cheek)
+    arcPath(g, 0, HY + 10, 19, 0.16 * Math.PI, 0.84 * Math.PI).stroke({ width: 6, color: ink, cap: 'round' })
+  },
+
+  // Sätt min i N sekunder, återgå sedan till glad (tickern räknar ner).
+  _setMood(mood, hold = 1.1) {
+    if (!this._alive) return
+    this._drawFace(mood)
+    this._moodHold = hold
+  },
+
+  // ---- Inbjudande hand (visas vid idle, försvinner vid första trycket) ----
+
+  _buildHint() {
+    const c = new Container()
+    const g = new Graphics()
+    g.circle(0, 0, 46).fill({ color: 0xffffff, alpha: 0.3 })
+    g.circle(0, 0, 46).stroke({ width: 5, color: 0xffffff, alpha: 0.85 })
+    // Pekande hand.
+    g.roundRect(-13, -6, 26, 34, 13).fill(0xffe0bd).stroke({ width: 3.5, color: 0xdca873 })
+    g.roundRect(-7, -34, 14, 30, 7).fill(0xffe0bd).stroke({ width: 3.5, color: 0xdca873 })
+    g.eventMode = 'none'
+    c.addChild(g)
+    c.position.set(ZACKE_X, ZACKE_Y + 10)
+    c.eventMode = 'none'
+    c.visible = false
+    this._hint = c
+    this._root.addChild(c)
+  },
+
+  _showHint() {
+    const h = this._hint
+    if (!h || h.destroyed || h.visible) return
+    h.visible = true
+    h.alpha = 0
+    h.scale.set(0.8)
+    gsap.to(h, { alpha: 1, duration: 0.25 })
+    gsap.to(h.scale, { x: 1.12, y: 1.12, duration: 0.62, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+  },
+
+  _hideHint() {
+    const h = this._hint
+    if (!h || h.destroyed || !h.visible) return
+    gsap.killTweensOf(h.scale)
+    gsap.to(h, { alpha: 0, duration: 0.2, onComplete: () => !h.destroyed && (h.visible = false) })
   },
 
   // ---- Mage: tryck/håll → bubbla -----------------------------------------
@@ -274,6 +569,8 @@ export default {
   _zackePointerDown(ctx, e) {
     if (!this._alive || this._resolving) return
     this._idle = 0
+    this._touched = true
+    this._hideHint()
     const p = this._root.toLocal(e.global)
     const x = clamp(p.x, WALL_L + 30, WALL_R - 30)
     this._held = true
@@ -282,14 +579,28 @@ export default {
     const r = R_MIN + this._levelBoost
     view.scale.set(r / BASE)
     view.position.set(x, FLOOR - 30)
-    this._root.addChild(view)
+    this._bubbleLayer.addChild(view)
     this._charging = { x, r, view }
     // Riktig prutt (<100ms) eller mjuk syntes — strypt så snabba tryck inte staplas.
     this._sound(ctx, 'fart', 'soft', 'fart', 70)
     pop(this._zacke)
+    this._setMood('fniss', 0.9)
+    this._splash()
     if (!this._firstPrutt) {
       this._firstPrutt = true
       ctx.services.voice.say('Pruttbubblor!')
+    }
+  },
+
+  // Armarna plaskar till i vattnet.
+  _splash() {
+    for (const [arm, dir] of [
+      [this._armL, 1],
+      [this._armR, -1],
+    ]) {
+      if (!arm || arm.destroyed) continue
+      gsap.killTweensOf(arm)
+      gsap.fromTo(arm, { rotation: dir * 0.5 }, { rotation: dir * 0.86, duration: 0.16, yoyo: true, repeat: 1, ease: 'sine.inOut' })
     }
   },
 
@@ -317,11 +628,12 @@ export default {
       .fill({ color: kind === 'glitter' ? 0xfff0b8 : 0xbfefff, alpha: kind === 'glitter' ? 0.55 : 0.5 })
       .stroke({ width: 3, color: 0xffffff, alpha: 0.8 })
     // Giant-bubbla (belönar att HÅLLA): regnbågs-sheen-bågar → syns tydligt värd besväret.
+    // arcPath, inte arc — annars dras ett streck från glansprickens väg till varje båge.
     if (kind === 'giant') {
       const hues = [COLORS.red, COLORS.yellow, COLORS.green, COLORS.blue, COLORS.purple]
       for (let i = 0; i < hues.length; i++) {
         const a0 = -2.4 + i * 0.5
-        g.arc(0, 0, BASE * 0.86, a0, a0 + 0.42).stroke({ width: 5, color: hues[i], alpha: 0.6, cap: 'round' })
+        arcPath(g, 0, 0, BASE * 0.86, a0, a0 + 0.42).stroke({ width: 5, color: hues[i], alpha: 0.6, cap: 'round' })
       }
     }
     g.circle(-BASE * 0.34, -BASE * 0.34, BASE * 0.22).fill({ color: 0xffffff, alpha: 0.85 }) // glansprick
@@ -336,6 +648,7 @@ export default {
     x = clamp(x, WALL_L + r, WALL_R - r)
     // En hålld/stor bubbla blir en GIANT (dubbelt skum); annars ibland en glitterbubbla.
     const kind = r >= (R_MAX + this._levelBoost) * 0.86 ? 'giant' : Math.random() < 0.1 ? 'glitter' : 'normal'
+    if (kind === 'giant') this._setMood('wow', 1.3)
     this._pushBubble(x, r, 0, kind)
   },
 
@@ -345,7 +658,7 @@ export default {
     const view = this._makeBubbleView(kind)
     view.scale.set(r / BASE)
     view.position.set(x, FLOOR - 30)
-    this._root.addChild(view)
+    this._bubbleLayer.addChild(view)
     this._bubbles.push({ view, x, y: FLOOR - 30, r, vx: 0, vy, phase: Math.random() * 6, age: 0, kind })
   },
 
@@ -356,9 +669,48 @@ export default {
     this._duckBase.y = clamp(y, SURFACE_Y + 20, FLOOR - DUCK_R)
   },
 
+  // Ritad gul gummianka (🦆-emojin renderas som en GRÄSAND — grönt huvud, brun
+  // bringa — alltså inte alls badankan spelet lovar).
+  _buildDuck(ctx) {
+    const d = new Container()
+    const g = new Graphics()
+    // Stjärt.
+    g.moveTo(-34, 2).lineTo(-62, -26).lineTo(-48, 14).closePath().fill(0xffd93d).stroke({ width: 4, color: 0xe0a91a })
+    // Kropp.
+    g.ellipse(0, 8, 48, 34).fill(0xffd93d).stroke({ width: 4, color: 0xe0a91a })
+    // Vinge.
+    g.ellipse(-6, 12, 22, 15).fill(0xffe98a).stroke({ width: 3.5, color: 0xe0a91a })
+    // Hals + huvud.
+    g.roundRect(14, -30, 26, 34, 13).fill(0xffd93d)
+    g.circle(30, -26, 25).fill(0xffd93d).stroke({ width: 4, color: 0xe0a91a })
+    // Näbb.
+    g.moveTo(50, -30).lineTo(72, -22).lineTo(50, -14).closePath().fill(COLORS.orange).stroke({ width: 3.5, color: COLORS.orangeDark })
+    // Öga.
+    g.circle(36, -32, 7).fill(COLORS.white)
+    g.circle(37, -31, 4.5).fill(COLORS.ink)
+    g.circle(35, -34, 1.8).fill(COLORS.white)
+    // Glans.
+    g.ellipse(-10, -6, 16, 8).fill({ color: 0xffffff, alpha: 0.45 })
+    g.eventMode = 'none'
+    d.addChild(g)
+
+    d.position.set(this._duckBase.x, this._duckBase.y)
+    d.eventMode = 'static'
+    d.cursor = 'pointer'
+    d.hitArea = new Circle(0, 0, 80) // träffyta-diameter 160px
+    this._duckDownH = (ev) => this._duckDown(ctx, ev)
+    this._duckMoveH = (ev) => this._duckMove(ev)
+    this._duckUpH = () => this._duckUp(ctx)
+    d.on('pointerdown', this._duckDownH)
+    this._duck = d
+    this._root.addChild(d)
+  },
+
   _duckDown(ctx, e) {
     if (!this._alive) return
     this._idle = 0
+    this._touched = true
+    this._hideHint()
     const p = this._root.toLocal(e.global)
     this._duckActive = true
     this._duckMoved = false
@@ -405,6 +757,8 @@ export default {
   _waterTap(ctx, e) {
     if (!this._alive || this._resolving) return
     this._idle = 0
+    this._touched = true
+    this._hideHint()
     const p = this._root.toLocal(e.global)
     // Tap-tap-släpp av ankan: glid den till tryckpunkten.
     if (this._duckSelected) {
@@ -434,11 +788,12 @@ export default {
     }
   },
 
-  // ---- Tick: laddning, bubbel-integrator, anka-gupp, idle/auto-hjälp -------
+  // ---- Tick: laddning, bubbel-integrator, anka-gupp, idle-inbjudan --------
 
   _update(ctx, tk) {
     if (!this._alive) return
     const dt = Math.min(2.5, tk.deltaMS / 16.67)
+    const dts = dt / 60 // sekunder
 
     // Håll-laddning: bubblan växer synligt (direktmanipulation, ingen dold gest).
     if (this._held && this._charging) {
@@ -447,10 +802,33 @@ export default {
       if (v && !v.destroyed) v.scale.set(this._charging.r / BASE)
     }
 
+    // Min tillbaka till vila.
+    if (this._moodHold > 0) {
+      this._moodHold -= dts
+      if (this._moodHold <= 0 && this._mood !== 'glad') this._drawFace('glad')
+    }
+
     // Anka guppar lätt på ytan.
     this._duckPhase += 0.05 * dt
     if (this._duck && !this._duck.destroyed) {
       this._duck.position.set(this._duckBase.x, this._duckBase.y + Math.sin(this._duckPhase) * 5)
+      this._duck.rotation = Math.sin(this._duckPhase * 0.7) * 0.06
+    }
+
+    this._updateDrip(dts)
+
+    // Skummet jäser — omritning strypt till ~12 fps (billigt, men tydligt levande).
+    if (this._foam.level > 0) {
+      this._foamPhase += dt * 0.05
+      this._foamAcc += dts
+      if (this._foamAcc > 0.08) {
+        this._foamAcc = 0
+        this._drawFoam()
+      }
+    }
+    // Skum-skägg när badet nästan är fullt.
+    if (this._beard && !this._beard.destroyed) {
+      this._beard.visible = this._foam.level >= this._goalFoam * 0.78
     }
 
     // Bubbel-integrator.
@@ -515,24 +893,59 @@ export default {
       }
     }
 
-    // Idle / auto-hjälp (~6s) — garanterar framgång utan precision.
-    this._idle += dt / 60
-    if (!this._resolving && this._idle > 6) {
+    // Idle → INBJUDAN, aldrig framsteg. Zacke pruttar av sig själv, byter min och
+    // en pekande hand pulserar över magen. Mätaren rör sig inte förrän barnet trycker.
+    this._idle += dts
+    if (!this._resolving && this._idle > 5) {
       this._idle = 0
-      this._autoHelp(ctx)
+      this._invite(ctx)
     }
 
-    // Anti-stuck-vakt: om skummet inte vuxit på ~4s (t.ex. bubblor fastnat under
-    // ankan) garanterar vi framsteg — poppa den äldsta bubblan, annars fyll lite
-    // skum direkt. Badet kan därför ALDRIG köra fast → når alltid mållinjen.
+    // Anti-stuck-vakt: har barnets egna bubblor slutat ge skum på ~4 s (t.ex. fastnat
+    // under ankan) lossar vi den äldsta. Skum trollas ALDRIG fram ur tomma intet —
+    // finns inga bubblor finns inget att lossa, och då står mätaren still (som den ska).
     if (!this._resolving) {
-      this._sinceFoam += dt / 60
-      if (this._sinceFoam > 4 && this._foam.level < this._goalFoam) {
+      if (this._bubbles.length) {
+        this._sinceFoam += dts
+        if (this._sinceFoam > 4 && this._foam.level < this._goalFoam) {
+          this._sinceFoam = 0
+          this._popBubble(ctx, this._bubbles[0], 0)
+        }
+      } else {
         this._sinceFoam = 0
-        if (this._bubbles.length) this._popBubble(ctx, this._bubbles[0], 0)
-        else this._addFoam(ctx, R_MIN)
       }
     }
+  },
+
+  // Droppande kran: ren dekor (aldrig skum) — ger rummet liv och ljudlöst tempo.
+  _updateDrip(dts) {
+    const g = this._dripGfx
+    if (!g || g.destroyed) return
+    const d = this._drip
+    if (d.wait > 0) {
+      d.wait -= dts
+      if (d.wait <= 0) d.y = SPOUT.y
+      g.clear()
+      // En droppe som samlas i pipen mellan fallen.
+      if (d.wait > 0 && d.wait < 0.5) g.circle(SPOUT.x, SPOUT.y - 2, 4 + (0.5 - d.wait) * 6).fill({ color: 0xbfe9fb, alpha: 0.9 })
+      return
+    }
+    d.y += 640 * dts
+    g.clear()
+    if (d.y >= SURFACE_Y) {
+      d.wait = 1.6 + Math.random() * 1.4
+      if (this._alive && this._root && !this._root.destroyed) {
+        const r = new Graphics()
+        r.circle(0, 0, 8).stroke({ width: 3, color: 0xffffff, alpha: 0.7 })
+        r.position.set(SPOUT.x, SURFACE_Y + 4)
+        r.eventMode = 'none'
+        this._root.addChild(r)
+        gsap.to(r.scale, { x: 3.4, y: 1.4, duration: 0.5, ease: 'power2.out' })
+        gsap.to(r, { alpha: 0, duration: 0.5, onComplete: () => !r.destroyed && r.destroy() })
+      }
+      return
+    }
+    g.ellipse(SPOUT.x, d.y, 5, 8).fill({ color: 0xbfe9fb, alpha: 0.9 })
   },
 
   _popBubble(ctx, b, i) {
@@ -547,17 +960,28 @@ export default {
     const frac = clamp((this._foam.level || 0) / (this._goalFoam || 1), 0, 1)
     ctx.services.audio.tone({ freq: 360 + frac * 520, dur: 0.12, type: 'sine', vol: 0.16, slideTo: 180 })
     this._sound(ctx, 'plopp', 'pop', 'plopp', 110)
+    if (this._mood !== 'wow') this._setMood('fniss', 0.7)
     // Specialbubblor: giant = dubbelt skum + regnbågsplask; glitter = stjärnor; anka-boost = bonus.
     let mul = 1
     if (b.kind === 'giant') {
       mul = 2
       sparkle(ctx.fxLayer, b.x, SURFACE_Y, { count: 10 })
+      sparkle(ctx.fxLayer, b.x, SURFACE_Y - 40, { count: 8 })
     } else if (b.kind === 'glitter') {
       mul = 1.5
-      floatText(ctx.fxLayer, b.x, SURFACE_Y - 10, '✨', { fontSize: 44 })
+      sparkle(ctx.fxLayer, b.x, SURFACE_Y - 12, { count: 9 })
     }
-    if (b.duckBoost) mul += 0.5
-    if (Math.random() < 0.3) floatText(ctx.fxLayer, b.x, SURFACE_Y - 10, randomFrom(['Hihi!', 'Pluff!', '😄', '🫧']))
+    // Anka-boosten får en EGEN florish i ankans gula färg, och ankan studsar till.
+    // Utan den syns aldrig att placeringen gav extra skum — kausaliteten "jag styrde
+    // bubblan hit, DÄRFÖR blev det mer skum" fanns bara i koden, inte för barnet.
+    if (b.duckBoost) {
+      mul += 0.5
+      puff(ctx.fxLayer, b.x, SURFACE_Y, { count: 9, color: 0xffd93d })
+      sparkle(ctx.fxLayer, b.x, SURFACE_Y - 8, { count: 7 })
+      ctx.services.audio.tone({ freq: 620, dur: 0.18, type: 'triangle', vol: 0.14, slideTo: 940 })
+      if (this._duck && !this._duck.destroyed) pop(this._duck)
+    }
+    if (Math.random() < 0.3) floatText(ctx.fxLayer, b.x, SURFACE_Y - 10, randomFrom(['Hihi!', 'Pluff!', 'Blubb!', 'Prrt!']))
     this._addFoam(ctx, b.r * mul)
   },
 
@@ -568,14 +992,18 @@ export default {
     if (!this._resolving && this._foam.level >= this._goalFoam) this._onComplete(ctx)
   },
 
-  _autoHelp(ctx) {
+  // Inbjudan vid idle — INGEN bubbla, INGET skum. Zacke gör sig påmind, barnet spelar.
+  _invite(ctx) {
     if (!this._alive || this._resolving) return
     ctx.services.voice.replayLast()
     if (this._zacke && !this._zacke.destroyed) pop(this._zacke)
-    const x = WALL_L + 80 + Math.random() * (WALL_R - WALL_L - 160)
-    const r = 36 + Math.random() * 24 + this._levelBoost
-    this._spawnBubble(x, r)
+    this._setMood('fniss', 1.2)
+    this._splash()
+    // Ren FX-prutt vid magen: bubbelpuff som ser rolig ut men aldrig fyller badet.
+    puff(ctx.fxLayer, ZACKE_X, ZACKE_Y + 30, { count: 7, color: 0xbfefff })
+    ripple(ctx.fxLayer, ZACKE_X, ZACKE_Y + 10, { color: COLORS.white, maxR: 70, alpha: 0.5 })
     this._sound(ctx, 'fart', 'soft', 'fart', 70)
+    if (!this._touched) this._showHint()
   },
 
   // ---- Klart → firande → nytt bad ----------------------------------------
@@ -586,9 +1014,12 @@ export default {
     this._held = false
     if (this._charging?.view && !this._charging.view.destroyed) this._charging.view.destroy()
     this._charging = null
+    this._hideHint()
     this._sound(ctx, null, 'celebrate', 'celebrate', 300)
     ctx.services.voice.say(randomFrom(PRAISE))
     if (this._zacke && !this._zacke.destroyed) pop(this._zacke)
+    this._setMood('jubel', 2.4)
+    this._splash()
     // En glad pruttsvärm.
     this._foam.level = this._goalFoam // håll skummet på linjen under firandet
     this._drawFoam()
@@ -672,6 +1103,10 @@ export default {
     gsap.killTweensOf(this._zacke?.scale)
     gsap.killTweensOf(this._duck)
     gsap.killTweensOf(this._duck?.scale)
+    gsap.killTweensOf(this._armL)
+    gsap.killTweensOf(this._armR)
+    gsap.killTweensOf(this._hint)
+    gsap.killTweensOf(this._hint?.scale)
     gsap.killTweensOf(this._foamGfx)
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })

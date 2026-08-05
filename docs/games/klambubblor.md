@@ -1,5 +1,5 @@
 # Klämbubblor (`klambubblor`)
-> 🎉 roligt · tap · 2–4 år · status: 📝 plan klar
+> 🎉 roligt · tap · 2–4 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -101,3 +101,16 @@ loopen är "töm rutnät → töm större rutnät".
   halvtonsteg (392 Hz · 2^(kombo/12), upp till oktav), ersätter den slumpade pling-variationen.
   (3) **Visuell måltavla** — mål-bubbla i målfärgen + pil uppe i mitten (nivå ≥2), studsar när
   rätt färg poppas. Testat errorCount 0, skärmdump bekräftar kluster-layouten.
+- 2026-08-05 ✅ **Andra omgången (poleringsrundan, Roligt-fliken).** Tog de tre kvarvarande
+  punkterna ur §3 (kluster-layout, kombo-ton och visuell måltavla byggdes 2026-07-01):
+  - **"Bubblorna gör inget förrän jag rör dem"** — den gamla `gsap`-y-bobben rörde dem men gav
+    inget liv. Nu ticker-driven drift: varje bubbla vandrar mjukt i sidled, guppar i egen takt
+    och **studsar mot kanterna**. Ingen gsap på bubblorna alls längre (enklare exit-säkerhet).
+  - **"Statisk tapet"** — 26 små bubblor stiger genom scenen och lindar om längst upp.
+  - **"Inget att samla/återkomma till"** — Bobo står i vattnet nere till vänster med en
+    **glasburk som fylls med en pärla i bubblans färg för varje popp**. Han mumsar till vid
+    varje fångst (throttlat) och hoppar av glädje när hela fältet är tomt. Förut försvann allt
+    man samlade spårlöst och övergången saknade helt en figur som reagerade.
+  - Bubblornas y-clamp höjdes så de aldrig lägger sig över Bobo och burken.
+  - **Grind:** `npm run check --game klambubblor` 0 fel · `npm run test` grönt ·
+    `_idleprobe 20s` → `idleFramsteg: 0`.

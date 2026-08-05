@@ -8,7 +8,8 @@
 import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe } from '../../lib/feedback.js'
+import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe, pop } from '../../lib/feedback.js'
+import { makeMascot } from '../../lib/mascot.js'
 import { PLAYFUL } from '../../lib/theme.js'
 
 // Scen-tema per nivå (alla "bubbel-vänliga"; vatten/himmel passar bäst).
@@ -81,12 +82,43 @@ export default {
 
     // Bakgrundsscen (varierar per nivå).
     this._root.addChild(createScene(THEME_CYCLE[L % THEME_CYCLE.length]))
+
+    // Små bubblor som stiger i bakgrunden — scenen var stillastående tapet.
+    this._miniLayer = new Container()
+    this._miniLayer.eventMode = 'none'
+    this._miniLayer.interactiveChildren = false
+    this._root.addChild(this._miniLayer)
+    this._minis = []
+    for (let i = 0; i < 26; i++) {
+      const rr = 3 + Math.random() * 9
+      const g = new Graphics()
+        .circle(0, 0, rr).fill({ color: 0xffffff, alpha: 0.16 })
+        .circle(-rr * 0.3, -rr * 0.3, rr * 0.32).fill({ color: 0xffffff, alpha: 0.35 })
+      g.eventMode = 'none'
+      this._miniLayer.addChild(g)
+      this._minis.push({ g, x: Math.random() * ctx.width, y: Math.random() * ctx.height, sp: 12 + Math.random() * 26, amp: 8 + Math.random() * 20, ph: Math.random() * Math.PI * 2 })
+    }
+
     // Bubbel-lager + ett fx-lager ovanpå för poppar/ringar/text (städas med roten).
     this._layer = new Container()
     this._fx = new Container()
     this._fx.eventMode = 'none'
     this._fx.interactiveChildren = false
     this._root.addChild(this._layer, this._fx)
+
+    // Mottagare: Bobo står i vattnet nere till vänster med en burk som fylls för
+    // varje bubbla man poppar — förut försvann allt man "samlade" spårlöst.
+    this._boboBase = { x: 128, y: 636 }
+    this._bobo = makeMascot(46)
+    this._bobo.position.set(this._boboBase.x, this._boboBase.y)
+    this._bobo.eventMode = 'none'
+    this._root.addChild(this._bobo)
+    this._jarG = new Graphics()
+    this._jarG.position.set(232, 660)
+    this._jarG.eventMode = 'none'
+    this._root.addChild(this._jarG)
+    this._caught = []
+    this._drawJar()
 
     this._bubbles = []
     this._remaining = 0
@@ -124,22 +156,20 @@ export default {
         const jx = marginX + c * stepX + hexOff + (Math.random() * 2 - 1) * jitter
         const jy = marginY + r * stepY + (Math.random() * 2 - 1) * jitter
         b.x = Math.max(rad + 12, Math.min(ctx.width - rad - 12, jx))
-        b.y = Math.max(rad + 120, Math.min(ctx.height - rad - 24, jy))
+        b.y = Math.max(rad + 120, Math.min(ctx.height - rad - 96, jy))
         this._layer.addChild(b)
         this._bubbles.push(b)
         this._remaining++
 
         // Studsande entré.
         bounceIn(b, { delay: Math.min(idx * 0.012, 0.6), duration: 0.34 })
-        // Mjuk flyt-bob.
-        b._bob = gsap.to(b, {
-          y: '+=' + (5 + Math.random() * 6),
-          duration: 1 + Math.random() * 0.7,
-          yoyo: true,
-          repeat: -1,
-          ease: 'sine.inOut',
-          delay: Math.random() * 0.5,
-        })
+        // Levande drift: bubblorna vandrar mjukt i sidled, guppar och studsar mot
+        // kanterna. Förut var det en ren gsap-y-bob — de rörde sig men LEVDE inte.
+        b._vx = (Math.random() * 2 - 1) * 10
+        b._baseY = b.y
+        b._bobAmp = 5 + Math.random() * 7
+        b._bobSp = 0.6 + Math.random() * 0.5
+        b._ph = Math.random() * Math.PI * 2
       }
     }
 
@@ -302,6 +332,9 @@ export default {
     }
     if (b._surprise) floatText(this._fx, b.x, b.y - 8, b._surprise, { fontSize: 64 })
 
+    // Bobo tar emot: burken fylls med en pärla i bubblans färg och han mumsar till.
+    this._catch(b._color)
+
     // Squash/stretch -> krymp och försvinn.
     gsap.killTweensOf(b.scale)
     gsap
@@ -326,6 +359,14 @@ export default {
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
     ctx.progress.complete() // delat firande: celebrate-sfx + beröm + konfetti + stjärna + klistermärke
     shake(this._root, { intensity: 5, duration: 0.5 }) // mjuk, glad "duns"
+    // Bobo jublar över hela fångsten.
+    if (this._bobo && !this._bobo.destroyed) {
+      gsap.killTweensOf(this._bobo)
+      gsap.to(this._bobo, {
+        y: this._boboBase.y - 40, duration: 0.26, yoyo: true, repeat: 3, ease: 'power2.out',
+        onComplete: () => { if (this._bobo && !this._bobo.destroyed) this._bobo.y = this._boboBase.y },
+      })
+    }
     gsap.delayedCall(1.3, () => {
       if (!this._alive) return
       this._build(ctx, true)
@@ -335,6 +376,27 @@ export default {
   // Lugn idle-lockelse: upprepa instruktionen och låt en bubbla "andas".
   _update(ctx, ticker) {
     if (!this._alive) return
+    const dt = Math.min(ticker.deltaMS, 50) / 1000
+    this._t = (this._t || 0) + dt
+
+    // Små bubblor stiger och lindar om — ger vatten-känsla i en annars stilla scen.
+    for (const m of this._minis || []) {
+      if (!m.g || m.g.destroyed) continue
+      m.y -= m.sp * dt
+      if (m.y < -20) { m.y = ctx.height + 20; m.x = Math.random() * ctx.width }
+      m.g.position.set(m.x + Math.sin(this._t * 0.8 + m.ph) * m.amp, m.y)
+    }
+
+    // Bubblorna vandrar mjukt och studsar mot kanterna.
+    for (const b of this._bubbles || []) {
+      if (!b || b.destroyed || b._popped) continue
+      b.x += b._vx * dt
+      const r = b._r || 40
+      if (b.x < r + 10) { b.x = r + 10; b._vx = Math.abs(b._vx) }
+      if (b.x > ctx.width - r - 10) { b.x = ctx.width - r - 10; b._vx = -Math.abs(b._vx) }
+      b.y = b._baseY + Math.sin(this._t * b._bobSp * Math.PI + b._ph) * b._bobAmp
+    }
+
     this._idle += ticker.deltaMS / 1000
     if (this._idle > 6 && this._remaining > 0 && !this._cleared) {
       this._idle = 0
@@ -351,6 +413,40 @@ export default {
         this._hintBubble = b
         this._idleBreath = breathe(b, { scale: 1.12, duration: 0.7 })
       }
+    }
+  },
+
+  // En poppad bubbla landar som en pärla i Bobos burk (synligt samlande).
+  _catch(color) {
+    if (!this._caught) return
+    this._caught.push(color)
+    if (this._caught.length > 26) this._caught.shift()
+    this._drawJar()
+    const now = performance.now()
+    if (now - (this._lastChomp || 0) > 380) {
+      this._lastChomp = now
+      if (this._bobo && !this._bobo.destroyed) pop(this._bobo, { scale: 1.12 })
+    }
+  },
+
+  _drawJar() {
+    const g = this._jarG
+    if (!g || g.destroyed) return
+    g.clear()
+    // Glasburk med hals och lock.
+    g.roundRect(-34, -56, 68, 84, 16).fill({ color: 0xdff4ff, alpha: 0.45 })
+      .roundRect(-34, -56, 68, 84, 16).stroke({ width: 4, color: 0xa8d6ea })
+    g.roundRect(-22, -70, 44, 16, 7).fill(0xa8d6ea)
+    // Pärlorna staplas nerifrån.
+    const n = this._caught.length
+    for (let i = 0; i < n; i++) {
+      const row = Math.floor(i / 4)
+      const col = i % 4
+      const px = -22 + col * 15 + (row % 2 ? 7 : 0)
+      const py = 18 - row * 13
+      if (py < -46) break
+      g.circle(px, py, 7).fill({ color: this._caught[i], alpha: 0.95 })
+      g.circle(px - 2, py - 2, 2.4).fill({ color: 0xffffff, alpha: 0.7 })
     }
   },
 

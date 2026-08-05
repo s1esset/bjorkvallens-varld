@@ -51,7 +51,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 ### 🎉 Roligt — ✅ HELA fliken byggd (första-omgång, 2026-07-01)
 | # | Spel | id | input | status |
 |---|------|----|-------|:--:|
-| 1 | Klämbubblor | `klambubblor` | tap | 🔧 |
+| 1 | Klämbubblor | `klambubblor` | tap | ✅ |
 | 5 | Tryck och Förvandla | `tryck-och-forvandla` | tap | ✅ |
 | 6 | Kittla Figuren | `kittla-figuren` | tap | 🔧 |
 | 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | 🔧 |

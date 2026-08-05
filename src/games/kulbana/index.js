@@ -16,6 +16,7 @@ import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
+import { makeMascot } from '../../lib/mascot.js'
 import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, bigCelebration, floatText, shake } from '../../lib/feedback.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -149,8 +150,13 @@ export default {
       .fill({ color: COLORS.cream, alpha: 0.85 })
       .stroke({ width: 5, color: COLORS.yellow, alpha: 0.7 })
     shelf.eventMode = 'none'
-    const tag = new Text({ text: '🧰', style: { fontFamily: FONT.body, fontSize: 40 } })
-    tag.position.set(64, 626)
+    // RITAD verktygslåda (var 🧰).
+    const tag = new Graphics()
+    tag.roundRect(-22, -6, 44, 26, 5).fill(0xe0574f).stroke({ width: 3, color: 0xb03f3a })
+    tag.roundRect(-22, -6, 44, 8, 3).fill(0xf07a72)
+    tag.roundRect(-7, -18, 14, 12, 3).stroke({ width: 4, color: 0x8d99a6 })
+    tag.roundRect(-5, 2, 10, 6, 2).fill(0xffd35c)
+    tag.position.set(86, 646)
     tag.eventMode = 'none'
     const tagTxt = new Text({ text: 'Delar', style: { fontFamily: FONT.title, fontSize: 26, fontWeight: '800', fill: COLORS.inkSoft } })
     tagTxt.position.set(112, 634)
@@ -165,6 +171,15 @@ export default {
     spout.rotation = (12 * Math.PI) / 180
     spout.eventMode = 'none'
 
+    // Bakgrundskullar + gräsremsa vid horisonten — himlen var ren tapet, och
+    // hinken svävade i tomma intet. Ligger BAKOM hyllan och stör inte bygget.
+    const hills = new Graphics()
+    hills.ellipse(240, 660, 300, 120).fill({ color: 0x9fd88a, alpha: 0.55 })
+    hills.ellipse(720, 672, 380, 130).fill({ color: 0x8fd07a, alpha: 0.5 })
+    hills.ellipse(1120, 656, 260, 110).fill({ color: 0x9fd88a, alpha: 0.55 })
+    hills.rect(0, 596, 1280, 130).fill({ color: 0x7ec46a, alpha: 0.45 })
+    hills.eventMode = 'none'
+    this._decor.addChildAt(hills, 0)
     this._decor.addChild(shelf, tag, tagTxt, spout)
   },
 
@@ -199,9 +214,11 @@ export default {
     const label = new Text({ text: 'SLÄPP', style: { fontFamily: FONT.display, fontSize: 34, fontWeight: '800', fill: COLORS.white } })
     label.anchor.set(0.5)
     label.position.set(0, -10)
-    const arrow = new Text({ text: '⬇', style: { fontFamily: FONT.body, fontSize: 34, fill: COLORS.white } })
-    arrow.anchor.set(0.5)
-    arrow.position.set(0, 24)
+    // Ritad pil (var ⬇-glyf) — bär hela innebörden för den som inte läser.
+    const arrow = new Graphics()
+    arrow.roundRect(-6, -14, 12, 18, 5).fill(COLORS.white)
+    arrow.moveTo(-16, 2).lineTo(0, 20).lineTo(16, 2).closePath().fill(COLORS.white)
+    arrow.position.set(0, 18)
     btn.addChild(lip, face, label, arrow)
     btn.position.set(160, 150)
     btn.eventMode = 'static'
@@ -232,8 +249,13 @@ export default {
     const lip = new Graphics().roundRect(-84, -38, 168, 92, 26).fill(0xd98a2b)
     const face = new Graphics().roundRect(-84, -46, 168, 88, 26).fill(COLORS.orange)
     face.roundRect(-74, -38, 148, 26, 16).fill({ color: 0xffffff, alpha: 0.18 })
-    const hand = new Text({ text: '🤚', style: { fontFamily: FONT.body, fontSize: 40 } })
-    hand.anchor.set(0.5)
+    // Ritad öppen hand (var 🤚).
+    const hand = new Graphics()
+    hand.roundRect(-13, -4, 26, 26, 10).fill(0xffd7b0).stroke({ width: 2.5, color: 0xe0b48c })
+    for (const [hx, hh] of [[-10, 20], [-3, 25], [4, 24], [11, 19]]) {
+      hand.roundRect(hx - 3.5, -hh + 2, 7, hh, 3.5).fill(0xffd7b0).stroke({ width: 2, color: 0xe0b48c })
+    }
+    hand.roundRect(-20, 4, 9, 15, 4).fill(0xffd7b0).stroke({ width: 2, color: 0xe0b48c })
     hand.position.set(-52, 0)
     const label = new Text({ text: 'Hjälp mig?', style: { fontFamily: FONT.display, fontSize: 26, fontWeight: '800', fill: COLORS.white } })
     label.anchor.set(0.5)
@@ -387,16 +409,29 @@ export default {
     // så breathe skalar runt sin egen mitt.
     const glow = new Graphics().circle(0, 0, 86).stroke({ width: 5, color: COLORS.yellow, alpha: 0.5 })
     glow.position.set(0, -30)
+    // RITAD hink (P0 ASSETS) — var en 🪣-emoji inuti en blå rundad ruta, precis
+    // det regeln förbjuder. Nu en egen silhuett: konisk kropp, band, mörkt djup
+    // och en riktig bygel.
+    const handle = new Graphics()
+    handle.arc(0, -38, 62, Math.PI, 0).stroke({ width: 7, color: 0x8d99a6 })
+    // Kroppen slutar vid +40, inte +66 — hinkens botten hamnade annars BAKOM
+    // Delar-hyllan (y=612) och såg avklippt ut.
     const body = new Graphics()
-      .roundRect(-78, -40, 156, 110, 18)
-      .fill(COLORS.blue)
-      .stroke({ width: 6, color: 0x2f7fb8 })
-    body.roundRect(-66, -30, 132, 16, 8).fill({ color: 0xffffff, alpha: 0.25 }) // ljus innerkant
-    const emoji = new Text({ text: '🪣', style: { fontFamily: FONT.body, fontSize: 96 } })
-    emoji.anchor.set(0.5)
-    emoji.position.set(0, 6)
-    c.addChild(glow, body, emoji)
+    body.moveTo(-72, -38).lineTo(72, -38).lineTo(60, 40).lineTo(-60, 40).closePath()
+    body.fill(COLORS.blue).stroke({ width: 6, color: 0x2f7fb8 })
+    body.ellipse(0, -38, 72, 15).fill(0x2f7fb8) // mörk öppning
+    body.ellipse(0, -38, 63, 11).fill(0x1f5d8a) // djup
+    body.moveTo(-67, -12).lineTo(67, -12).stroke({ width: 5, color: 0x2f7fb8, alpha: 0.8 })
+    body.moveTo(-63, 16).lineTo(63, 16).stroke({ width: 5, color: 0x2f7fb8, alpha: 0.8 })
+    body.moveTo(-50, -28).lineTo(-44, 32).stroke({ width: 6, color: 0xffffff, alpha: 0.22 })
+    // Vatten i botten som skvätter när kulan plumsar i.
+    const water = new Graphics()
+    water.moveTo(-57, 18).lineTo(57, 18).lineTo(59, 37).lineTo(-59, 37).closePath()
+    water.fill({ color: 0x6ad0ff, alpha: 0.75 })
+    c.addChild(glow, handle, body, water)
     c.position.set(bx, by)
+    this._bucketWater = water
+    this._buildCatcher(bx, by)
     this._bucketLayer.addChild(c)
     this._bucketView = c
     this._bucketGlow = glow
@@ -410,7 +445,71 @@ export default {
     ]
   },
 
+  // Mottagaren: Bobo står bredvid hinken med utsträckta armar, hejar när kulan
+  // ringer en klocka och firar när den plumsar i. Scenen hade ingen publik alls.
+  // makeMascot() ger bara ett HUVUD — han får en kropp här, som i Fysik-rundan.
+  _buildCatcher(bx, by) {
+    const c = new Container()
+    c.eventMode = 'none'
+    const legs = new Graphics()
+    legs.roundRect(-15, 10, 12, 26, 6).fill(0x4a90d9)
+    legs.roundRect(3, 10, 12, 26, 6).fill(0x4a90d9)
+    legs.roundRect(-19, 32, 18, 9, 4).fill(0x3a5a78)
+    legs.roundRect(1, 32, 18, 9, 4).fill(0x3a5a78)
+    const torso = new Graphics()
+    torso.roundRect(-22, -18, 44, 34, 12).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
+    const armL = new Graphics()
+    armL.roundRect(-6, -4, 12, 30, 6).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
+    armL.circle(0, 27, 7).fill(COLORS.cream)
+    armL.position.set(-22, -14)
+    armL.rotation = 0.5
+    const armR = new Graphics()
+    armR.roundRect(-6, -4, 12, 30, 6).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
+    armR.circle(0, 27, 7).fill(COLORS.cream)
+    armR.position.set(22, -14)
+    armR.rotation = -0.5
+    const head = makeMascot(26)
+    head.position.set(0, -44)
+    // Armarna ritas EFTER bålen — annars täcker bålen dem och Bobo ser armlös ut.
+    c.addChild(legs, torso, armL, armR, head)
+    // Står på hinkens vänstra sida, fötterna ovanför Delar-hyllan (y=612).
+    c.position.set(bx - 138, by - 8)
+    this._bucketLayer.addChild(c)
+    this._catcher = c
+    this._catcherArms = [armL, armR]
+    this._catcherIdle = breathe(c, { scale: 1.04, duration: 1.8 })
+  },
+
+  _catcherCheer(big) {
+    const c = this._catcher
+    if (!c || c.destroyed) return
+    const y0 = c.y
+    gsap.killTweensOf(c.position)
+    gsap.to(c.position, { y: y0 - (big ? 26 : 12), duration: 0.16, yoyo: true, repeat: big ? 3 : 1, ease: 'power2.out' })
+    for (const [i, arm] of (this._catcherArms || []).entries()) {
+      if (!arm || arm.destroyed) continue
+      const sign = i === 0 ? 1 : -1
+      gsap.killTweensOf(arm)
+      gsap.to(arm, { rotation: sign * (big ? 2.6 : 1.1), duration: 0.18, yoyo: true, repeat: 1, ease: 'back.out(2)' })
+    }
+  },
+
+  _clearCatcher() {
+    this._catcherIdle?.kill()
+    this._catcherIdle = null
+    for (const arm of this._catcherArms || []) if (arm && !arm.destroyed) gsap.killTweensOf(arm)
+    this._catcherArms = null
+    if (this._catcher && !this._catcher.destroyed) {
+      gsap.killTweensOf(this._catcher)
+      gsap.killTweensOf(this._catcher.position)
+      gsap.killTweensOf(this._catcher.scale)
+      this._catcher.destroy({ children: true })
+    }
+    this._catcher = null
+  },
+
   _clearBucket() {
+    this._clearCatcher()
     if (this._bucketWalls) {
       for (const w of this._bucketWalls) this._phys.removeBody(w)
       this._bucketWalls = null
@@ -454,8 +553,14 @@ export default {
     c.eventMode = 'none'
     const string = new Graphics().roundRect(-3, -46, 6, 22, 3).fill({ color: COLORS.inkSoft, alpha: 0.7 })
     const halo = new Graphics().circle(0, 0, 30).fill({ color: COLORS.yellow, alpha: 0.16 })
-    const emoji = new Text({ text: '🔔', style: { fontFamily: FONT.body, fontSize: 52 } })
-    emoji.anchor.set(0.5)
+    // RITAD klocka (var 🔔): kupa, kant, kläpp och en glansstrimma.
+    const emoji = new Graphics()
+    emoji.moveTo(-20, 14).quadraticCurveTo(-20, -20, 0, -24).quadraticCurveTo(20, -20, 20, 14).closePath()
+    emoji.fill(0xffc93c).stroke({ width: 3, color: 0xd79a1e })
+    emoji.roundRect(-24, 12, 48, 9, 4).fill(0xffd86b).stroke({ width: 3, color: 0xd79a1e })
+    emoji.circle(0, 25, 6).fill(0xd79a1e)
+    emoji.roundRect(-3, -30, 6, 8, 3).fill(0xd79a1e)
+    emoji.moveTo(-11, 8).quadraticCurveTo(-12, -12, -2, -17).stroke({ width: 3, color: 0xffffff, alpha: 0.55 })
     c.addChild(halo, string, emoji)
     c.position.set(bx, by)
     this._obstacleLayer.addChild(c)
@@ -471,6 +576,7 @@ export default {
     ctx.services.audio.sfx('pling')
     ctx.services.audio.tone({ freq: 1180, dur: 0.16, type: 'sine', vol: 0.14, delay: 0.03 })
     if (rec.emoji && !rec.emoji.destroyed) wiggle(rec.emoji)
+    this._catcherCheer(false) // Bobo hejar när kulan ringer på vägen
     sparkle(ctx.fxLayer, rec.view.x, rec.view.y, { count: 6 })
   },
 
@@ -863,7 +969,14 @@ export default {
     burst(ctx.fxLayer, bx, by - 30, { count: 16 })
     // Vattenskvätt: blå droppar spritter upp ur hinken.
     burst(ctx.fxLayer, bx, by - 40, { count: 12, colors: [COLORS.blue, COLORS.teal, 0xbfe6ff], power: 0.8 })
-    floatText(ctx.fxLayer, bx, by - 90, '🎉', { fontSize: 72 })
+    // Bobo firar med armarna i luften — spel-specifikt slut i st.f. en 🎉-emoji.
+    this._catcherCheer(true)
+    // Vattnet i hinken svallar över kanten av plumset.
+    const w = this._bucketWater
+    if (w && !w.destroyed) {
+      gsap.killTweensOf(w.scale)
+      gsap.fromTo(w.scale, { x: 1, y: 1 }, { x: 1.1, y: 1.5, duration: 0.18, yoyo: true, repeat: 1, ease: 'power2.out' })
+    }
 
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -1093,6 +1206,16 @@ export default {
     this._helpPulse?.kill()
     this._bucketGlowTween?.kill()
     this._selPulse?.kill()
+    this._catcherIdle?.kill()
+
+    // Mottagaren tweenas på position/scale/armar — allt måste dö med omgången.
+    if (this._catcher && !this._catcher.destroyed) {
+      gsap.killTweensOf(this._catcher)
+      gsap.killTweensOf(this._catcher.position)
+      gsap.killTweensOf(this._catcher.scale)
+    }
+    for (const arm of this._catcherArms || []) if (arm && !arm.destroyed) gsap.killTweensOf(arm)
+    if (this._bucketWater && !this._bucketWater.destroyed) gsap.killTweensOf(this._bucketWater.scale)
 
     if (this._fieldCatcher && !this._fieldCatcher.destroyed) this._fieldCatcher.off('pointertap', this._onFieldTap)
     if (this._releaseBtn && !this._releaseBtn.destroyed) {

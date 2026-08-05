@@ -8,18 +8,77 @@
 // firande + ny, lite större damm. Lär ut: magneter gillar metall, inte trä/gummi.
 // Ingen fail-state: fältet når hela dammen, idle-vink + auto-hjälp garanterar framgång.
 // Allt ritas programmatiskt (Pixi Graphics + emoji) och städas exit-säkert.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { sparkle, pop, wiggle, puff, floatText, breathe, bigCelebration, ripple, bounceIn } from '../../lib/feedback.js'
 
-const METAL = ['🐟', '🔑', '🪙', '🔩', '🥫']
-const NONMETAL = ['🦆', '🛟', '⛵']
+// P0 ASSETS: varje sak i dammen är ett RITAT föremål med egen silhuett, aldrig
+// en emoji. Nycklarna nedan är id:n — formen ligger i makeThing().
+const METAL = ['fisk', 'nyckel', 'mynt', 'skruv', 'burk']
+const NONMETAL = ['anka', 'badring', 'batt']
 // Vilket material varje icke-metall är av → pedagogisk kontrast ("Magneten gillar inte trä!").
-const MATERIAL = { '🦆': 'Trä', '🛟': 'Gummi', '⛵': 'Trä' }
+const MATERIAL = { anka: 'Trä', badring: 'Gummi', batt: 'Trä' }
+
+// Ritar en sak. Allt centreras i (0,0) och håller sig inom ~±34 px så att
+// fysikkroppens radie (28) och solfjäder-slottarna under magneten stämmer.
+function makeThing(kind) {
+  const g = new Graphics()
+  if (kind === 'fisk') {
+    g.ellipse(0, 0, 28, 17).fill(0x8fbcd4).stroke({ width: 3, color: 0x5d8ba6 })
+    g.moveTo(22, 0).lineTo(38, -13).lineTo(38, 13).closePath().fill(0x6fa3c0)
+    g.ellipse(-4, -6, 12, 6).fill({ color: 0xffffff, alpha: 0.35 })
+    g.circle(-14, -4, 4.5).fill(0xffffff)
+    g.circle(-14.5, -4, 2.5).fill(0x2b2b2b)
+    g.arc(-24, 2, 6, -0.5, 0.5).stroke({ width: 2, color: 0x5d8ba6 })
+  } else if (kind === 'nyckel') {
+    g.circle(-16, 0, 13).stroke({ width: 7, color: 0xd9b44a })
+    g.roundRect(-4, -4, 34, 8, 4).fill(0xd9b44a)
+    g.roundRect(20, 2, 6, 11, 3).fill(0xd9b44a)
+    g.roundRect(28, 2, 6, 8, 3).fill(0xd9b44a)
+    g.circle(-16, -4, 4).fill({ color: 0xfff0b8, alpha: 0.6 })
+  } else if (kind === 'mynt') {
+    g.circle(0, 0, 22).fill(0xf0c33c).stroke({ width: 4, color: 0xc79a1e })
+    g.circle(0, 0, 14).stroke({ width: 3, color: 0xc79a1e, alpha: 0.75 })
+    g.circle(-7, -8, 5).fill({ color: 0xffffff, alpha: 0.45 })
+  } else if (kind === 'skruv') {
+    g.roundRect(-6, -4, 40, 12, 3).fill(0xa9b3bd).stroke({ width: 3, color: 0x7b858f })
+    for (const sx of [4, 12, 20, 28]) g.moveTo(sx, -4).lineTo(sx - 4, 8).stroke({ width: 2, color: 0x7b858f, alpha: 0.8 })
+    g.moveTo(-8, -14).lineTo(-22, -8).lineTo(-22, 10).lineTo(-8, 16).closePath()
+    g.fill(0xc3ccd4).stroke({ width: 3, color: 0x7b858f })
+  } else if (kind === 'burk') {
+    g.roundRect(-16, -24, 32, 48, 6).fill(0xc3ccd4).stroke({ width: 3, color: 0x7b858f })
+    g.ellipse(0, -24, 16, 6).fill(0xdfe6eb).stroke({ width: 3, color: 0x7b858f })
+    g.roundRect(-16, -8, 32, 18, 2).fill(0xe0574f)
+    g.moveTo(-13, -6).lineTo(13, -6).stroke({ width: 2, color: 0xffffff, alpha: 0.5 })
+    g.moveTo(-11, 22).lineTo(-11, -18).stroke({ width: 4, color: 0xffffff, alpha: 0.28 })
+  } else if (kind === 'anka') {
+    g.ellipse(2, 6, 26, 16).fill(0xffe08a).stroke({ width: 3, color: 0xe0a94f })
+    g.moveTo(20, -2).quadraticCurveTo(34, -6, 30, 8).closePath().fill(0xffd35c) // stjärt
+    g.circle(-14, -10, 14).fill(0xffe08a).stroke({ width: 3, color: 0xe0a94f })
+    g.moveTo(-28, -8).lineTo(-38, -4).lineTo(-28, 1).closePath().fill(0xff9d3d)
+    g.circle(-17, -13, 3.5).fill(0x2b2b2b)
+  } else if (kind === 'badring') {
+    g.circle(0, 0, 24).fill(0xff6b6b).stroke({ width: 4, color: 0xd94f4f })
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+      g.moveTo(Math.cos(a) * 14, Math.sin(a) * 14).lineTo(Math.cos(a) * 26, Math.sin(a) * 26)
+      g.stroke({ width: 9, color: 0xffffff })
+    }
+    g.circle(0, 0, 11).fill(0xbfe6ff)
+  } else {
+    // batt (liten träbåt)
+    g.moveTo(-28, 2).lineTo(28, 2).lineTo(20, 18).lineTo(-20, 18).closePath()
+    g.fill(0xb07a4a).stroke({ width: 3, color: 0x8a5a3b })
+    g.roundRect(-3, -26, 6, 28, 3).fill(0x8a5a3b)
+    g.moveTo(3, -24).lineTo(24, -4).lineTo(3, -4).closePath().fill(0xfff0d8).stroke({ width: 2.5, color: 0xe0c9a8 })
+  }
+  g.eventMode = 'none'
+  return g
+}
 
 // Radiell magnet-attraktion (kalibrerad mot matters fasta 1/60-steg, se docs):
 // a = min(STRENGTH/max(dist,R_MIN), A_MAX). Långt bort (300) → len drift, nära → snabb snäpp.
@@ -37,7 +96,9 @@ const SWIM_PER_LEVEL = 0.22 // hur mycket snabbare per nivå
 
 const BUCKET = { x: 1150, y: 510 } // hinkens släpp-zon (centrum)
 const BUCKET_R = 130 // släpp-zonens radie
-const PIVOT = { x: 1200, y: 70 } // spöets fasta pivot uppe i högra hörnet
+// Spöets fasta pivot. Låg tidigare på (1200, 70) — rakt under ljudknappen, så
+// spöet drogs tvärs igenom den och ut ur bild. Nu klart nedanför knappen.
+const PIVOT = { x: 1222, y: 168 }
 // Fastklistrade saker hänger i en liten solfjäder under magneten (indexerat på fångstordning).
 const SLOTS = [{ x: 0, y: 48 }, { x: -36, y: 60 }, { x: 36, y: 60 }, { x: 0, y: 76 }, { x: -30, y: 86 }]
 
@@ -100,9 +161,41 @@ export default {
     const bsh = new Graphics().ellipse(1150, 624, 84, 20).fill({ color: COLORS.shadow, alpha: 0.12 })
     bsh.eventMode = 'none'
     this._root.addChild(bsh)
-    this._bucketText = new Text({ text: '🪣', style: { fontFamily: FONT.body, fontSize: 130 } })
-    this._bucketText.anchor.set(0.5)
+    // RITAD hink (var en 🪣-emoji): konisk kropp med band, mörk öppning, bygel.
+    this._bucketText = new Graphics()
+    this._bucketText.arc(0, -46, 52, Math.PI, 0).stroke({ width: 6, color: 0x8d99a6 })
+    this._bucketText.moveTo(-58, -46).lineTo(58, -46).lineTo(46, 48).lineTo(-46, 48).closePath()
+    this._bucketText.fill(COLORS.blue).stroke({ width: 5, color: 0x2f7fb8 })
+    this._bucketText.ellipse(0, -46, 58, 12).fill(0x2f7fb8)
+    this._bucketText.ellipse(0, -46, 50, 8).fill(0x1f5d8a)
+    this._bucketText.moveTo(-53, -18).lineTo(53, -18).stroke({ width: 4, color: 0x2f7fb8, alpha: 0.8 })
+    this._bucketText.moveTo(-49, 16).lineTo(49, 16).stroke({ width: 4, color: 0x2f7fb8, alpha: 0.8 })
+    this._bucketText.moveTo(-38, -36).lineTo(-33, 40).stroke({ width: 5, color: 0xffffff, alpha: 0.22 })
     this._bucketText.position.set(1150, 540)
+
+    // Mottagare: en katt sitter vid hinken och väntar på fångsten. Spelet hade
+    // ingen publik alls — saker försvann bara ner i en hink.
+    this._cat = new Container()
+    this._cat.eventMode = 'none'
+    const cg = new Graphics()
+    cg.moveTo(22, 6).quadraticCurveTo(48, 2, 40, -26).stroke({ width: 9, color: 0xf0a860, cap: 'round' }) // svans
+    cg.ellipse(0, 0, 24, 28).fill(0xf7c07a).stroke({ width: 3, color: 0xd99a4f }) // kropp
+    cg.ellipse(0, 8, 15, 17).fill(0xfff0d8)
+    cg.moveTo(-18, -26).lineTo(-13, -44).lineTo(-4, -30).closePath().fill(0xf7c07a).stroke({ width: 2.5, color: 0xd99a4f })
+    cg.moveTo(18, -26).lineTo(13, -44).lineTo(4, -30).closePath().fill(0xf7c07a).stroke({ width: 2.5, color: 0xd99a4f })
+    cg.circle(0, -26, 21).fill(0xf7c07a).stroke({ width: 3, color: 0xd99a4f }) // huvud
+    const ce = new Graphics()
+    ce.circle(-8, -29, 4).fill(0x2b2b2b)
+    ce.circle(8, -29, 4).fill(0x2b2b2b)
+    ce.circle(-6.5, -30.5, 1.5).fill(0xffffff)
+    ce.circle(9.5, -30.5, 1.5).fill(0xffffff)
+    ce.moveTo(-3, -20).lineTo(0, -17).lineTo(3, -20).closePath().fill(0xff9d9d)
+    ce.arc(-4, -16, 4, 0, Math.PI).stroke({ width: 2, color: 0x8a6a4a })
+    ce.arc(4, -16, 4, 0, Math.PI).stroke({ width: 2, color: 0x8a6a4a })
+    this._cat.addChild(cg, ce)
+    this._cat.position.set(1042, 596)
+    this._root.addChild(this._cat)
+    this._catIdle = breathe(this._cat, { scale: 1.05, duration: 1.9 })
     this._bucketText.eventMode = 'none'
     this._root.addChild(this._bucketText)
 
@@ -151,8 +244,14 @@ export default {
 
     this._magnet = new Container()
     this._magnet.addChild(new Graphics().circle(0, 0, 46).fill({ color: COLORS.blue, alpha: 0.18 })) // klister-halo
-    const head = new Text({ text: '🧲', style: { fontFamily: FONT.body, fontSize: 90 } })
-    head.anchor.set(0.5)
+    // RITAD hästskomagnet (var en 🧲-emoji): röd båge med vita poler.
+    const head = new Graphics()
+    head.arc(0, -4, 30, Math.PI, 0).stroke({ width: 22, color: 0xe0392b })
+    head.roundRect(-41, -6, 22, 30, 4).fill(0xe0392b)
+    head.roundRect(19, -6, 22, 30, 4).fill(0xe0392b)
+    head.roundRect(-41, 18, 22, 20, 4).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
+    head.roundRect(19, 18, 22, 20, 4).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
+    head.arc(0, -4, 30, Math.PI + 0.25, Math.PI + 0.75).stroke({ width: 6, color: 0xffffff, alpha: 0.35 })
     this._magnet.addChild(head)
     this._magnet.position.set(PARK.x, PARK.y)
     this._magnet.eventMode = 'static'
@@ -246,8 +345,7 @@ export default {
     const view = new Container()
     const sh = new Graphics().ellipse(0, 30, 34, 12).fill({ color: COLORS.shadow, alpha: 0.12 })
     sh.eventMode = 'none'
-    const t = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 72 } })
-    t.anchor.set(0.5)
+    const t = makeThing(emoji)
     view.addChild(sh, t)
     view.position.set(x, y)
     view.eventMode = 'static'
@@ -432,6 +530,7 @@ export default {
     this._caught++
     this._drawCounter()
     this._addToBucketPile(it.emoji) // saken syns nu ligga kvar i hinken
+    this._catCheer() // katten hoppar till för varje fångst
 
     // Vyn ploppar ner i hinken (exit-säker proxy-tween).
     const v = it.view
@@ -541,8 +640,15 @@ export default {
     const startX = -((total - 1) * 32) / 2
     for (let i = 0; i < total; i++) {
       const done = i < this._caught
-      const s = new Text({ text: '⭐', style: { fontFamily: FONT.body, fontSize: 32 } })
-      s.anchor.set(0.5)
+      // Ritad stjärna (var ⭐) — femuddig, med kontur så den syns mot vattnet.
+      const s = new Graphics()
+      const pts = []
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2 - Math.PI / 2
+        const r = k % 2 === 0 ? 15 : 6.5
+        pts.push(Math.cos(a) * r, Math.sin(a) * r)
+      }
+      s.poly(pts).fill(COLORS.yellow).stroke({ width: 2.5, color: COLORS.orangeDark })
       s.position.set(startX + i * 32, 0)
       s.alpha = done ? 1 : 0.28
       s.eventMode = 'none'
@@ -559,8 +665,8 @@ export default {
     const i = p.children.length
     const col = i % 3 // 3 saker per rad
     const row = (i / 3) | 0
-    const t = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 42 } })
-    t.anchor.set(0.5)
+    const t = makeThing(emoji)
+    t.scale.set(0.58)
     t.position.set(BUCKET.x + (col - 1) * 32, 516 - row * 26 + (Math.random() * 6 - 3))
     t.eventMode = 'none'
     p.addChild(t)
@@ -593,12 +699,28 @@ export default {
     this._stuck = []
   },
 
+  // Katten hoppar till av glädje. Tweenar position (inte scale) så breathe-idlen
+  // på scale får leva vidare ostört.
+  _catCheer() {
+    const c = this._cat
+    if (!c || c.destroyed) return
+    const y0 = 596
+    gsap.killTweensOf(c.position)
+    gsap.fromTo(c.position, { y: y0 }, { y: y0 - 20, duration: 0.16, yoyo: true, repeat: 1, ease: 'power2.out' })
+  },
+
   destroy(ctx) {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._completeTimer?.kill()
+    this._catIdle?.kill()
     this._clearHint()
 
+    if (this._cat && !this._cat.destroyed) {
+      gsap.killTweensOf(this._cat)
+      gsap.killTweensOf(this._cat.position)
+      gsap.killTweensOf(this._cat.scale)
+    }
     if (this._bucketHit && !this._bucketHit.destroyed) this._bucketHit.off('pointertap', this._onBucketTap)
     if (this._magnet && !this._magnet.destroyed) {
       this._magnet.off('pointerdown', this._onDown)

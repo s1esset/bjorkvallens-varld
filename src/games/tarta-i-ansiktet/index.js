@@ -11,7 +11,17 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { puff, pop, wiggle, bounceIn, sparkle } from '../../lib/feedback.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
+import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom } from '../../lib/swedish.js'
+
+// Tårtsorter — projektilen roterar, och splatten får sortens färg. Förut var det
+// alltid samma gräddtårta och alltid vita klumpar: träff sex såg ut som träff ett.
+const PIES = [
+  { name: 'gradde', base: 0xc98a5a, baseEdge: 0xa9703f, cream: 0xffffff, creamEdge: 0xeaf2f6, top: 0xff6b6b },
+  { name: 'choklad', base: 0x6b4326, baseEdge: 0x462a17, cream: 0x8a5a3b, creamEdge: 0x5e3720, top: 0xffd35c },
+  { name: 'blabar', base: 0xd9c3a5, baseEdge: 0xb59d7d, cream: 0x8f8ae0, creamEdge: 0x5f59b8, top: 0x4a3f8a },
+  { name: 'jordgubb', base: 0xe8d3b0, baseEdge: 0xc0a980, cream: 0xff9ec4, creamEdge: 0xe0709b, top: 0xe8354b },
+]
 
 const FACE_X = 640 // clownens ansikte (mitt-x) i designkoordinater
 const FACE_Y = 300
@@ -78,14 +88,50 @@ export default {
     bg.on('pointertap', () => this._emptyTap(ctx))
     this._root.addChild(bg)
 
-    // Dekor: scengolv + röda ridåer i kanterna (ej interaktiva, släpper tap igenom).
+    // Dekor: scengolv + RIKTIGA ridåer. De två platta röda rektanglarna läste som
+    // en trasig ram, inte som en scen.
     const decor = new Graphics()
-    decor.rect(0, 560, ctx.width, 160).fill(COLORS.cream)
-    decor.rect(0, 0, 90, ctx.height).fill(COLORS.red)
-    decor.rect(ctx.width - 90, 0, 90, ctx.height).fill(COLORS.red)
+    // Scengolv med kantlist.
+    decor.rect(0, 560, ctx.width, 160).fill(0xe8d9bf)
+    decor.rect(0, 560, ctx.width, 14).fill(0xcbb392)
+    for (let i = 0; i < 16; i++) decor.rect(i * 80 + 4, 574, 4, 146).fill({ color: 0xcbb392, alpha: 0.5 })
+    // Ridåveck i sidorna.
+    const curtain = (x0, dir) => {
+      for (let i = 0; i < 4; i++) {
+        const w = 30
+        const cx = x0 + dir * i * w
+        decor.moveTo(cx, 0)
+          .quadraticCurveTo(cx + dir * w * 0.6, ctx.height * 0.5, cx, ctx.height)
+          .lineTo(cx + dir * w, ctx.height)
+          .quadraticCurveTo(cx + dir * w * 1.6, ctx.height * 0.5, cx + dir * w, 0)
+          .closePath()
+          .fill(i % 2 ? 0xc9424f : 0xe05563)
+      }
+      // Guldsnodd som håller upp ridån.
+      decor.ellipse(x0 + dir * 58, 300, 22, 13).fill(0xe8c05a)
+      decor.circle(x0 + dir * 58, 316, 9).fill(0xd9a12c)
+    }
+    curtain(0, 1)
+    curtain(ctx.width, -1)
+    // Kappa längs överkanten med tofsar.
+    decor.rect(0, 0, ctx.width, 54).fill(0xc9424f)
+    for (let i = 0; i <= 16; i++) {
+      decor.moveTo(i * 80, 54).quadraticCurveTo(i * 80 + 40, 92, i * 80 + 80, 54).closePath().fill(0xe05563)
+      decor.circle(i * 80 + 40, 88, 7).fill(0xe8c05a)
+    }
     decor.eventMode = 'none'
     decor.interactiveChildren = false
     this._root.addChild(decor)
+
+    // Publik på scengolvet: Bobo och Zacke ser på och jublar när tårtan träffar.
+    this._audience = []
+    for (const [ax, kind] of [[176, 'bobo'], [1104, 'zacke']]) {
+      const v = kind === 'bobo' ? makeMascot(44) : makeAudienceZacke()
+      v.position.set(ax, kind === 'bobo' ? 606 : 596)
+      v.eventMode = 'none'
+      this._root.addChild(v)
+      this._audience.push({ view: v, baseY: v.y })
+    }
 
     this._buildClown(ctx)
     this._buildCake(ctx)
@@ -182,6 +228,8 @@ export default {
       m.circle(0, 74, 34).fill(0x7a2b22)
       m.circle(0, 86, 13).fill(COLORS.red)
     } else {
+      // moveTo till bågens startpunkt först — annars drar arc() en kil från (0,0).
+      m.moveTo(60 * Math.cos(0.08 * Math.PI), 60 + 60 * Math.sin(0.08 * Math.PI))
       m.arc(0, 60, 60, 0.08 * Math.PI, 0.92 * Math.PI).fill(0x7a2b22)
       m.circle(0, 104, 22).fill(COLORS.red)
     }
@@ -199,6 +247,19 @@ export default {
   },
 
   // Träff-reaktion: ögonen knips + munnen blir ett "O", återgår sen till leendet.
+  // Publiken (Bobo + Zacke) hoppar till av skratt när tårtan landar.
+  _audienceCheer() {
+    for (const a of this._audience || []) {
+      const v = a.view
+      if (!v || v.destroyed) continue
+      gsap.killTweensOf(v)
+      gsap.to(v, {
+        y: a.baseY - 28, duration: 0.2, yoyo: true, repeat: 3, ease: 'power2.out',
+        onComplete: () => { if (!v.destroyed) v.y = a.baseY },
+      })
+    }
+  },
+
   _faceSplat() {
     this._drawClownMouthOn(this._mouth, 'o')
     for (const e of [this._eyeL, this._eyeR]) {
@@ -236,12 +297,11 @@ export default {
   _buildCake() {
     const cake = new Container()
     cake.position.set(CAKE_X, CAKE_Y)
+    this._pieIdx = (Math.random() * PIES.length) | 0
     const g = new Graphics()
-    g.ellipse(0, 34, 82, 16).fill({ color: COLORS.shadow, alpha: 0.12 }) // mjuk skugga/fat
-    g.roundRect(-70, -6, 140, 42, 12).fill(0xc98a5a).stroke({ width: 4, color: 0xa9703f }) // botten
-    g.roundRect(-72, -28, 144, 28, 14).fill(0xffffff).stroke({ width: 4, color: 0xede6da }) // grädde
-    g.circle(0, -34, 13).fill(COLORS.red) // körsbär
     g.eventMode = 'none'
+    this._cakeG = g
+    this._drawCake()
     cake.addChild(g)
     cake.hitArea = new Circle(0, 0, 90)
     cake.eventMode = 'static'
@@ -504,6 +564,7 @@ export default {
     this._addCream()
     puff(ctx.fxLayer, FACE_X, FACE_Y, { count: 12, color: 0xffffff })
     this._faceSplat() // ögon knips + förvånat "O"
+    this._audienceCheer() // publiken skrattar och hoppar till
     wiggle(this._clown)
     pop(this._clown)
     ctx.services.voice.say(randomFrom(SPLATS))
@@ -519,7 +580,8 @@ export default {
       const r = 18 + Math.random() * 22
       const ang = Math.random() * Math.PI * 2
       const dist = Math.random() * 100
-      const blob = new Graphics().circle(0, 0, r).fill(0xffffff).stroke({ width: 3, color: 0xeaf2f6 })
+      const p = PIES[this._pieIdx % PIES.length]
+      const blob = new Graphics().circle(0, 0, r).fill(p.cream).stroke({ width: 3, color: p.creamEdge })
       blob.position.set(Math.cos(ang) * dist, 15 + Math.sin(ang) * dist * 0.7)
       blob.eventMode = 'none'
       blob._r = r
@@ -657,9 +719,24 @@ export default {
   },
 
   // Återställ tårtan till brickan med en glad "ny tårta"-studs.
+  // Ritar den aktuella tårtsorten.
+  _drawCake() {
+    const g = this._cakeG
+    if (!g || g.destroyed) return
+    const p = PIES[this._pieIdx % PIES.length]
+    g.clear()
+    g.ellipse(0, 34, 82, 16).fill({ color: COLORS.shadow, alpha: 0.12 }) // mjuk skugga/fat
+    g.roundRect(-70, -6, 140, 42, 12).fill(p.base).stroke({ width: 4, color: p.baseEdge }) // botten
+    g.roundRect(-72, -28, 144, 28, 14).fill(p.cream).stroke({ width: 4, color: p.creamEdge }) // grädde
+    g.circle(0, -34, 13).fill(p.top) // topping
+  },
+
   _resetCake() {
     const cake = this._cake
     if (!cake) return
+    // Ny sort till nästa kast → varje omgång ser ny ut.
+    this._pieIdx = (this._pieIdx + 1 + ((Math.random() * (PIES.length - 1)) | 0)) % PIES.length
+    this._drawCake()
     gsap.killTweensOf(cake)
     gsap.killTweensOf(cake.scale)
     cake.position.set(CAKE_X, CAKE_Y)
@@ -764,7 +841,50 @@ export default {
       gsap.killTweensOf(c.scale)
     })
     this._dots?.forEach((d) => gsap.killTweensOf(d))
+    for (const a of this._audience || []) {
+      if (a.view && !a.view.destroyed) {
+        gsap.killTweensOf(a.view)
+        gsap.killTweensOf(a.view.scale)
+      }
+    }
     gsap.killTweensOf(this._root)
     this._root?.destroy({ children: true })
   },
+}
+
+// Publik-Zacke: liten glad pojke som ser på från scengolvet.
+function makeAudienceZacke() {
+  const c = new Container()
+  const skin = 0xf6b78a
+  const shirt = COLORS.blue
+  c.addChild(new Graphics().ellipse(0, 60, 30, 9).fill({ color: COLORS.shadow, alpha: 0.16 }))
+  c.addChild(new Graphics()
+    .roundRect(-16, 26, 13, 30, 6).fill(0x3f6f9e)
+    .roundRect(4, 26, 13, 30, 6).fill(0x3f6f9e)
+    .roundRect(-21, 52, 21, 11, 5).fill(0x4a3526)
+    .roundRect(1, 52, 21, 11, 5).fill(0x4a3526))
+  c.addChild(new Graphics()
+    .roundRect(-22, -12, 44, 44, 17).fill(shirt)
+    .roundRect(-22, 8, 44, 9, 5).fill({ color: 0xffffff, alpha: 0.18 }))
+  // Armar uppe i jubel.
+  c.addChild(new Graphics()
+    .moveTo(-18, -4).lineTo(-36, -34).stroke({ width: 11, color: shirt, cap: 'round' })
+    .moveTo(18, -4).lineTo(36, -34).stroke({ width: 11, color: shirt, cap: 'round' })
+    .circle(-38, -38, 7).fill(skin)
+    .circle(38, -38, 7).fill(skin))
+  const head = new Graphics().circle(0, -34, 26).fill(skin)
+  head.circle(-9, -38, 3.4).fill(COLORS.ink)
+  head.circle(9, -38, 3.4).fill(COLORS.ink)
+  head.circle(-16, -28, 5).fill({ color: COLORS.pink, alpha: 0.5 })
+  head.circle(16, -28, 5).fill({ color: COLORS.pink, alpha: 0.5 })
+  c.addChild(head)
+  // Skrattande öppen mun.
+  c.addChild(new Graphics().ellipse(0, -24, 9, 7).fill(0x7a2b22))
+  c.addChild(new Graphics()
+    .ellipse(0, -52, 27, 17).fill(0x5a3a23)
+    .ellipse(-19, -42, 9, 11).fill(0x5a3a23)
+    .ellipse(19, -42, 9, 11).fill(0x5a3a23))
+  c.children.forEach((ch) => (ch.eventMode = 'none'))
+  c.eventMode = 'none'
+  return c
 }

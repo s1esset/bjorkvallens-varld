@@ -54,7 +54,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 1 | Klämbubblor | `klambubblor` | tap | ✅ |
 | 5 | Tryck och Förvandla | `tryck-och-forvandla` | tap | ✅ |
 | 6 | Kittla Figuren | `kittla-figuren` | tap | ✅ |
-| 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | 🔧 |
+| 14 | Tårta i Ansiktet | `tarta-i-ansiktet` | mixed | ✅ |
 | 32 | Fyrverkeri | `fyrverkeri` | drag | ✅ |
 | 37 | Såpbubblor | `sapbubblor` | tap | ✅ |
 | 41 | Bajs och Kiss | `bajs-och-kiss` | drag | ✅ |

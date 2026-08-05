@@ -1,5 +1,5 @@
 # Tårta i Ansiktet (`tarta-i-ansiktet`)
-> 🎉 roligt · mixed · 3–5 år · status: 📝 plan klar
+> 🎉 roligt · mixed · 3–5 år · status: ✅ klar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -104,3 +104,17 @@ inte en medspelare, och flicken har inget att sikta på.
   spelar riktiga klipp när MOSS ([[real-audio-sfx]], #3) kört. Städning: oanvänd `ctx`-param bort
   ur `_onCakeMove`. Siktet (Deep) lämnat till senare. Verifierat: flick → splat → reaktivt
   ansikte + svamp, errorCount 0.
+- 2026-08-05 ✅ **Andra omgången (poleringsrundan, Roligt-fliken).**
+  - **"Tom scen. Clownen står ensam mellan två röda ridå-rektanglar."** De platta röda
+    rektanglarna läste som en trasig ram, inte som en scen. Nu riktiga ridåer med veck och
+    guldsnodd, en kappa med tofsar längs överkanten och ett plankgolv.
+  - **Publik:** Bobo och Zacke står på scengolvet och **hoppar till av skratt** varje gång
+    tårtan landar. Slapstick utan reaktion runt omkring kändes platt.
+  - **"En enda projektil, en enda splat":** fyra tårtsorter (grädde, choklad, blåbär, jordgubb)
+    roterar mellan kasten, och **splat-klumparna får sortens färg** — träff sex ser inte längre
+    likadan ut som träff ett.
+  - **Läcka #6 (latent):** `_drawClownMouthOn` körde `.arc()` direkt efter `.clear()`, vilket
+    fyller en kil från (0,0) till bågens start. Den råkade döljas av näscirkeln som ritas efter.
+    Fixad med `moveTo` till bågens startpunkt.
+  - **Grind:** `npm run check --game tarta-i-ansiktet` 0 fel · `npm run test` grönt ·
+    `_idleprobe 20s` → `idleFramsteg: 0`, `efterSpel: 2`. 2 nya repliker väntar på röstklipp.

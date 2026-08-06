@@ -25,7 +25,7 @@ import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { pop, bounceIn, breathe, sparkle, puff, floatText, bigCelebration, ripple, shake } from '../../lib/feedback.js'
+import { pop, bounceIn, breathe, sparkle, puff, floatText, ripple, shake, burst } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -67,6 +67,64 @@ const KICK_MAX = 25 // paddelkick ute vid spetsen
 const BALL_MAT = { restitution: 0.62, friction: 0.02, frictionAir: 0.01, density: 0.001 }
 // Stämd pentatonisk skala (C5 D5 E5 G5 A5 C6) — varje tänd bumper ett steg upp.
 const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]
+
+// ---- Banelement ------------------------------------------------------------
+// Bordet var ett platt fält av dynor: kulan föll rakt ner i dränet och rundan var
+// "nudda varje dyna en gång". De tre elementen nedan ger kulan en RESA. Alla är
+// placerade så att inget par av ytor bildar en NEDÅT SMALNANDE kil — en sådan
+// klämmer kulan (56 px bred) och tvingar fram fastnar-vakten. Måtten nedan är
+// valda så varje passage antingen är bredare än 100 px hela vägen, eller helt
+// tätad (< 56 px), aldrig något däremellan.
+//
+// Snurran sitter rakt ovanför drän-hålet och bryter den raka vägen ner: kulan
+// kastas mot en paddel i stället för att rinna ut. Den TILLFÖR nästan ingen
+// energi (radiell knuff 2,0 mot dynans 3,2) — energibudgeten är uppmätt och
+// paddeln ska förbli kulans främsta energikälla.
+const SPIN = { x: MID, y: 550, r: 32 }
+const SPIN_PUSH = 2.0
+// Två studsfenor i det döda bandet mellan dynorna och paddlarna. De slår kulan
+// UPP-INÅT igen, så ett tapp i sidan blir en ny chans i stället för ett drän.
+// Luckan mot lanväggen är 126 px upptill och 144 px nedtill — den VIDGAS nedåt,
+// alltså ingen kil.
+const FINS = [
+  { x: 452, y: 500, ang: 0.524, nx: 0.5, ny: -0.866 }, // vänster: slår upp-höger
+  { x: 828, y: 500, ang: -0.524, nx: -0.5, ny: -0.866 }, // höger: slår upp-vänster
+]
+const FIN_LEN = 96
+const FIN_T = 24
+// Fenan måste slå HÅRT. Med en svag kick (9,5) lyftes kulan bara ~50 px och föll
+// rakt ner på samma fena igen — uppmätt 27 fen-slag på 40 s och 91 % av tiden i
+// mellanbandet, dvs. kulan studsade på plats i stället för att komma vidare.
+// 17 räcker upp i dyn-fältet (~170 px), och spärrtiden hindrar skurar.
+const FIN_KICK = 17
+const FIN_CD = 250
+// Tunnel: två hål i sidoväggarna. Kulan sugs in i det ena och spottas ut ur det
+// andra — riktad IN mot banan, aldrig mot en mynning — plus en spärrtid så den
+// inte kan studsa fram och tillbaka mellan hålen.
+// Mynningarna sitter på OLIKA höjd med flit. Låg de i linje (båda y=400) flög den
+// utspottade kulan tvärs över banan rakt in i den andra mynningen: uppmätt 17
+// tunnelresor på 40 s, noll paddelkickar — kulan fastnade i en tunnel-loop uppe
+// i banan och kom aldrig ner. 50 px höjdskillnad bryter linjen.
+const TUNNELS = [{ x: 296, y: 380, ejectX: 0.55 }, { x: 984, y: 430, ejectX: -0.55 }]
+const TUNNEL_R = 30
+// Insuget måste ske när kulan VIDRÖR den ritade ringen, inte tidigare: kula r=28
+// + mynning r=30 = centrumavstånd 58. Med 38 försvann kulan ~20 px från hålet och
+// det såg ut som en glitch i stället för ett insug.
+const TUNNEL_CATCH = 54
+const TUNNEL_CD = 1100
+// Serven varvar tre banor i stället för ett band kring mitten. Uppmätt: med bara
+// mitt-servar rörde sig kulan aldrig utanför x 518–762 och tunneln nåddes ALDRIG
+// på 30 s. Ytterbanorna håller sig undan stolparna vid (360,192)/(920,192) —
+// kula r=28 + stolpe r=17 kräver 45 px, banorna ger minst 55.
+const SERVE_LANES = [[415, 520], [550, 730], [760, 865]]
+// Dynetyper: samma dyna i tre skepnader (eget ritat motiv, egen studs, egen
+// klangfärg) så en bana inte är fem kloner av varandra.
+const BUMPER_TYPES = [
+  { kind: 'star', rest: 0.75, wave: 'triangle', over: 1.5, overWave: 'sine' },
+  { kind: 'bell', rest: 0.82, wave: 'sine', over: 2.0, overWave: 'sine' },
+  { kind: 'flower', rest: 0.68, wave: 'triangle', over: 0.5, overWave: 'triangle' },
+]
+const GOAL_TYPE = { kind: 'goal', rest: 0.78, wave: 'sine', over: 3.0, overWave: 'sine' }
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const rand = (a, b) => a + Math.random() * (b - a)
@@ -112,6 +170,10 @@ export default {
     this._pressMs = { left: 0, right: 0 }
     this._paddles = []
     this._bumpers = []
+    this._fins = []
+    this._tunnels = []
+    this._tunnelCd = 0
+    this._spinner = null
     this._level = Math.max(1, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -155,6 +217,12 @@ export default {
     // åt oväntade håll (74 px fri passage till väggen — inget kan fastna).
     this._buildPeg(360, 192)
     this._buildPeg(920, 192)
+
+    // Banelement: tunnel (hål i sidoväggarna), två studsfenor och snurran över
+    // dränet. Tillsammans gör de bordet till en resa i stället för ett platt fält.
+    for (const t of TUNNELS) this._buildTunnel(t)
+    FINS.forEach((f, i) => this._buildFin(f, i))
+    this._buildSpinner()
 
     // Bumper-lager (under paddlar/kula i z-led).
     this._bumperLayer = new Container()
@@ -208,7 +276,20 @@ export default {
     this._bobo.interactiveChildren = false
     this._boboBaseY = 84
     this._bobo.position.set(MID, this._boboBaseY)
-    this._bobo.eventMode = 'none'
+    // Bobo är skärmens mest levande figur — han satt tidigare med eventMode
+    // 'none' ovanför tryckzonerna (som börjar y=116) och var den enda som INTE
+    // svarade när ett barn trycker rakt på honom. Nu skrattar han till.
+    this._bobo.eventMode = 'static'
+    this._bobo.cursor = 'pointer'
+    this._bobo.hitArea = new Circle(0, 0, 62) // 124 px träffyta
+    this._onBobo = () => {
+      if (!this._alive) return
+      this._boboReact(false)
+      ctx.services.audio.sfx('pop')
+      ctx.services.audio.tone({ freq: 660, dur: 0.12, type: 'sine', vol: 0.2, slideTo: 880 })
+      sparkle(ctx.fxLayer, MID, this._boboBaseY)
+    }
+    this._bobo.on('pointertap', this._onBobo)
     this._root.addChild(this._bobo)
 
     // Tänd-mätare: en lodrät rad stjärnor UTANFÖR bordet (höger) som fylls per tänd
@@ -261,6 +342,84 @@ export default {
     this._phys.rectangle(cx, cy, len, 24, { isStatic: true, restitution: 0.4, friction: 0.05, label: 'wall', angle: ang })
   },
 
+  // Snurra ovanför dränet: tre blad kring ett nav. Kulan slår runt den, bladen
+  // snurrar vidare och saktar in — och den raka vägen ner i dränet är bruten.
+  _buildSpinner() {
+    const c = new Container()
+    c.position.set(SPIN.x, SPIN.y)
+    const shadow = new Graphics().ellipse(2, SPIN.r * 0.5, SPIN.r, SPIN.r * 0.34).fill({ color: 0x000000, alpha: 0.32 })
+    const ring = new Graphics()
+      .circle(0, 0, SPIN.r)
+      .fill(lerpColor(COLORS.purple, 0x1a1636, 0.62))
+      .stroke({ width: 5, color: COLORS.purple })
+    // Bladen ligger i en EGEN container som roterar — ringen ska stå stilla.
+    const blades = new Container()
+    const bg = new Graphics()
+    for (let i = 0; i < 3; i++) {
+      const a = (i * Math.PI * 2) / 3
+      const bx = Math.cos(a) * SPIN.r * 0.52
+      const by = Math.sin(a) * SPIN.r * 0.52
+      bg.ellipse(bx, by, SPIN.r * 0.46, SPIN.r * 0.24).fill(i === 0 ? COLORS.yellow : COLORS.teal)
+    }
+    blades.addChild(bg)
+    const hub = new Graphics().circle(0, 0, 9).fill(COLORS.cream).stroke({ width: 3, color: COLORS.inkSoft })
+    c.addChild(shadow, ring, blades, hub)
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    this._root.addChild(c)
+    this._phys.circle(SPIN.x, SPIN.y, SPIN.r, { isStatic: true, restitution: 0.55, friction: 0.02, label: 'spinner' })
+    this._spinner = { view: c, blades, speed: 0 }
+  },
+
+  // Studsfena: en lutad stång som slår tillbaka kulan upp-inåt. Kicken läggs på
+  // explicit vid kollision (som paddelns), så styrkan är känd och kapad.
+  _buildFin(def, idx) {
+    const c = new Container()
+    c.position.set(def.x, def.y)
+    c.rotation = def.ang
+    const shadow = new Graphics().roundRect(-FIN_LEN / 2, -FIN_T / 2 + 6, FIN_LEN, FIN_T, FIN_T / 2).fill({ color: 0x000000, alpha: 0.3 })
+    const body = new Graphics()
+      .roundRect(-FIN_LEN / 2, -FIN_T / 2, FIN_LEN, FIN_T, FIN_T / 2)
+      .fill(COLORS.pink)
+      .stroke({ width: 4, color: lerpColor(COLORS.pink, 0x000000, 0.35) })
+    // Gummibandet på slagsidan — det som lyser till när kulan träffar.
+    const band = new Graphics()
+      .roundRect(-FIN_LEN / 2 + 6, -FIN_T / 2 - 3, FIN_LEN - 12, 8, 4)
+      .fill(COLORS.cream)
+    c.addChild(shadow, body, band)
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    this._root.addChild(c)
+    this._phys.rectangle(def.x, def.y, FIN_LEN, FIN_T, {
+      isStatic: true, restitution: 0.5, friction: 0.02, angle: def.ang, label: 'sling', plugin: { fin: idx },
+    })
+    this._fins.push({ view: c, band, nx: def.nx, ny: def.ny, x: def.x, y: def.y, last: 0 })
+  },
+
+  // Tunnelmynning: ett hål i sidoväggen. Ren grafik — insuget sköts av en
+  // närhets-koll i tickern (ingen sensor-kropp som kulan kan studsa på).
+  _buildTunnel(def) {
+    const c = new Container()
+    c.position.set(def.x, def.y)
+    const rim = new Graphics()
+      .circle(0, 0, TUNNEL_R)
+      .fill(0x120d28)
+      .stroke({ width: 5, color: COLORS.teal })
+    // Chevroner inåt hålet ger djup och pekar ut att något händer här.
+    const arrows = new Graphics()
+    const dir = def.ejectX > 0 ? -1 : 1 // pilarna pekar IN i väggen
+    for (let i = 0; i < 3; i++) {
+      const ax = dir * (-6 + i * 9)
+      arrows.moveTo(ax, -12).lineTo(ax + dir * 8, 0).lineTo(ax, 12)
+        .stroke({ width: 4, color: COLORS.teal, alpha: 0.3 + i * 0.22 })
+    }
+    c.addChild(rim, arrows)
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    this._root.addChild(c)
+    this._tunnels.push({ x: def.x, y: def.y, ejectX: def.ejectX, view: c, rim })
+  },
+
   // Liten kromad stolpe (rent studsobjekt, inget mål).
   _buildPeg(x, y) {
     const g = new Graphics()
@@ -311,8 +470,6 @@ export default {
     const face = new Graphics()
     // RITAD blixt (P0 ASSETS) — var en ⚡-emoji.
     const icon = new Graphics()
-    icon.moveTo(6, -30).lineTo(-16, 4).lineTo(-1, 4).lineTo(-7, 30).lineTo(16, -6).lineTo(1, -6)
-      .closePath().fill(0xffd24a).stroke({ width: 3, color: 0xe0a92c })
     icon.position.set(0, -8)
     icon.eventMode = 'none'
     const label = new Text({ text: 'Snabbt', style: { fontFamily: FONT.title, fontSize: 22, fontWeight: '700', fill: COLORS.white } })
@@ -328,10 +485,28 @@ export default {
     this._tiltFace = face
     this._tiltLip = lip
     this._paintTilt()
+    this._paintTiltIcon()
     this._onTilt = () => this._toggleTilt(ctx)
     btn.on('pointertap', this._onTilt)
     this._tiltBtn = btn
     this._root.addChild(btn)
+  },
+
+  // Knappens ikon RITAS om (blixt <-> moln). Den var en Graphics medan _toggleTilt
+  // fortfarande satte `.text = '☁️'` — en no-op på en Graphics, så Lugnt-läget
+  // visade en blixt och knappen ljög om sitt eget läge.
+  _paintTiltIcon() {
+    const g = this._tiltIcon
+    if (!g || g.destroyed) return
+    g.clear()
+    if (this._calm) {
+      // moln: tre puckar + en platt underkant
+      g.circle(-13, 2, 13).circle(4, -6, 17).circle(19, 3, 12).roundRect(-15, 2, 36, 14, 7)
+        .fill(0xf2fbff).stroke({ width: 3, color: 0xbfe4ef })
+    } else {
+      g.moveTo(6, -30).lineTo(-16, 4).lineTo(-1, 4).lineTo(-7, 30).lineTo(16, -6).lineTo(1, -6)
+        .closePath().fill(0xffd24a).stroke({ width: 3, color: 0xe0a92c })
+    }
   },
 
   // Måla om lutnings-knappen: färgen byter helt (blå blixt / grön-turkos moln) så
@@ -346,17 +521,22 @@ export default {
 
   // ---- Runda / nivå -------------------------------------------------------
 
+  // Dyn-positionerna hålls ovanför banelementen: y max 455 (dyna r=46 -> underkant
+  // 501) mot fenornas överkant 476 och snurrans 518. Luckorna är alltså < 56 px,
+  // dvs. TÄTADE — kulan kan inte ta sig in och klämmas fast mellan två ytor.
   _layoutFor(level) {
     let pts
-    if (level <= 2) pts = [[MID, 270], [460, 420], [820, 420]]
-    else if (level <= 4) pts = [[MID, 270], [460, 420], [820, 420], [MID, 455]]
-    else if (level <= 6) pts = [[MID, 265], [460, 410], [820, 410], [350, 270], [930, 270], [MID, 470, 'goal']]
+    if (level <= 2) pts = [[MID, 270], [460, 410], [820, 410]]
+    else if (level <= 4) pts = [[MID, 270], [460, 410], [820, 410], [MID, 455]]
+    else if (level <= 6) pts = [[MID, 265], [460, 410], [820, 410], [350, 270], [930, 270], [MID, 455, 'goal']]
     else {
       pts = [[MID, 265], [460, 410], [820, 410], [350, 270], [930, 270]]
-      if (level % 2 === 0) pts.push([MID, 470, 'goal'])
+      if (level % 2 === 0) pts.push([MID, 455, 'goal'])
     }
-    // Nivå 7+: lätt jitter så mönstren varieras (aldrig svårare drän).
-    if (level >= 7) pts = pts.map(([x, y, k]) => [clamp(x + rand(-22, 22), 345, 935), clamp(y + rand(-22, 22), 252, 495), k])
+    // Jitter redan från nivå 2 (aldrig svårare drän). Startade det först på nivå 7
+    // blev nivå 1↔2, 3↔4 och 5↔6 bokstavligen identiska banor — "blir runda 2
+    // som runda 1?" hade svaret ja, exakt.
+    if (level >= 2) pts = pts.map(([x, y, k]) => [clamp(x + rand(-22, 22), 345, 935), clamp(y + rand(-22, 22), 252, 428), k])
     return pts
   },
 
@@ -382,12 +562,14 @@ export default {
 
     layout.forEach((pt, i) => {
       const [x, y, kind] = pt
+      // Tre dynetyper varvas -> varje bana är en blandning, aldrig fem kloner.
+      const tdef = kind === 'goal' ? GOAL_TYPE : BUMPER_TYPES[i % BUMPER_TYPES.length]
       const color = kind === 'goal' ? COLORS.yellow : PLAYFUL[i % PLAYFUL.length]
-      const m = makeBumper(color, kind)
+      const m = makeBumper(color, tdef.kind)
       m.container.position.set(x, y)
       this._bumperLayer.addChild(m.container)
-      const body = this._phys.circle(x, y, 46, { isStatic: true, restitution: 0.75, friction: 0.02, label: 'bumper', plugin: { idx: i } })
-      const rec = { view: m.container, glow: m.glow, paint: m.paint, body, color, lit: false, x, y, glowTween: null }
+      const body = this._phys.circle(x, y, 46, { isStatic: true, restitution: tdef.rest, friction: 0.02, label: 'bumper', plugin: { idx: i } })
+      const rec = { view: m.container, glow: m.glow, paint: m.paint, body, color, lit: false, x, y, glowTween: null, tone: tdef }
       // Otänd bumper "andas" svagt i sin glödring — bordet lever även innan man träffat.
       rec.glowTween = breathe(m.glow, { scale: 1.07, duration: 2.2 })
       this._bumpers.push(rec)
@@ -445,7 +627,11 @@ export default {
   // Ny kula uppifrån — på NY plats varje gång (variation) och alltid glatt.
   _serveBall(ctx) {
     if (!this._ball) return
-    const x = MID + rand(-170, 170)
+    // Showläget gör kulan statisk medan den lyfts till Bobo — släpp den fri igen.
+    this._liftTween?.kill()
+    if (this._ball.isStatic) Body.setStatic(this._ball, false)
+    const lane = SERVE_LANES[Math.floor(Math.random() * SERVE_LANES.length)]
+    const x = rand(lane[0], lane[1])
     const y = TABLE_T + 40
     Body.setPosition(this._ball, { x, y })
     Body.setVelocity(this._ball, { x: rand(-3, 3), y: 2.5 })
@@ -467,7 +653,9 @@ export default {
     this._sinceLit = 0
     const p = this._paddles.find((pp) => pp.side === side)
     if (p) p.kicked = false
-    ctx.services.audio.sfx('flip')
+    // 'thwip' är ett RIKTIGT klipp (public/audio/sfx) — 'flip' fanns aldrig i
+    // manifestet och föll igenom till en syntetisk blipp.
+    ctx.services.audio.sfx('thwip')
     ctx.services.audio.tone({ freq: 190, dur: 0.07, type: 'square', vol: 0.16, slideTo: 120 }) // mekanisk klack
     if (p && p.view && !p.view.destroyed) pop(p.view)
   },
@@ -477,9 +665,9 @@ export default {
     this._calm = !this._calm
     this._phys.setGravity(this._calm ? GY_CALM : GY_NORMAL)
     this._maxSpeed = this._calm ? SPEED_CALM : SPEED_NORMAL
-    if (this._tiltIcon && !this._tiltIcon.destroyed) this._tiltIcon.text = this._calm ? '☁️' : '⚡'
     if (this._tiltLabel && !this._tiltLabel.destroyed) this._tiltLabel.text = this._calm ? 'Lugnt' : 'Snabbt'
     this._paintTilt()
+    this._paintTiltIcon()
     ctx.services.audio.sfx('reveal')
     ctx.services.voice.say(this._calm ? 'Nu rullar kulan lugnt.' : 'Nu rullar kulan snabbt!')
     ripple(ctx.fxLayer, 140, 585, { color: this._calm ? COLORS.teal : COLORS.blue, maxR: 120, alpha: 0.6 })
@@ -513,11 +701,30 @@ export default {
 
     this._phys.update(dms)
 
+    // Snurran rullar vidare och saktar in (rent visuellt — ingen fysik hänger på den).
+    const sp2 = this._spinner
+    if (sp2 && sp2.blades && !sp2.blades.destroyed && sp2.speed > 0.0005) {
+      sp2.blades.rotation += sp2.speed * (sp2.dir || 1) * steps
+      sp2.speed *= Math.pow(0.972, steps)
+    }
+
     // Drän: kula ut genom mitten (eller på avvägar) -> mjuk om-serve (ALDRIG en miss).
     const bp = this._ball.position
     if (!this._resolving && (bp.y > TABLE_B + 40 || bp.x < 120 || bp.x > 1160 || bp.y < -60)) this._serveBall(ctx)
 
     if (this._resolving) return
+
+    // Tunnel: nära en mynning -> kulan sugs in och spottas ut ur den andra.
+    // Spärrtiden hindrar att den studsar fram och tillbaka mellan hålen.
+    this._tunnelCd = Math.max(0, this._tunnelCd - dms)
+    if (this._tunnelCd === 0) {
+      for (let i = 0; i < this._tunnels.length; i++) {
+        const t = this._tunnels[i]
+        if (Math.hypot(bp.x - t.x, bp.y - t.y) > TUNNEL_CATCH) continue
+        this._enterTunnel(ctx, i)
+        break
+      }
+    }
 
     // Fastnar-vakt: står kulan nästan stilla länge får den en vänlig knuff.
     const sp = Math.hypot(this._ball.velocity.x, this._ball.velocity.y)
@@ -541,6 +748,34 @@ export default {
     // Auto-hjälpen tänder bara den SISTA envisa bumpern, och först efter lång idle —
     // paddel-skickligheten bär rundan, magin räddar bara slutklämmen.
     if (this._sinceLit > 16000 && this._total - this._litCount === 1) this._magicLight(ctx)
+  },
+
+  // Tunnelresa: in i ena hålet, ut ur det andra riktad IN mot banan. Ljudet är
+  // två toner — en fallande vid insuget, en stigande vid utkastet — så resan hörs.
+  _enterTunnel(ctx, i) {
+    const from = this._tunnels[i]
+    const to = this._tunnels[(i + 1) % this._tunnels.length]
+    if (!from || !to || !this._ball) return
+    this._tunnelCd = TUNNEL_CD
+    puff(ctx.fxLayer, from.x, from.y, { count: 6 })
+    if (from.rim && !from.rim.destroyed) pop(from.rim, { scale: 1.2 })
+    ctx.services.audio.sfx('whoosh') // riktigt klipp — resan ska höras, inte bara pipa
+    ctx.services.audio.tone({ freq: 760, dur: 0.16, type: 'sine', vol: 0.16, slideTo: 260 })
+
+    // Utkastet är riktat IN och NER, och behåller (något dämpad) inkommande fart
+    // i stället för en fast hastighet — annars matar tunneln in energi vid varje
+    // resa och kulan slutar komma ner till paddlarna.
+    const inSpeed = Math.hypot(this._ball.velocity.x, this._ball.velocity.y)
+    const out = clamp(inSpeed * 0.9, 6, 12)
+    Body.setPosition(this._ball, { x: to.x, y: to.y })
+    Body.setVelocity(this._ball, { x: to.ejectX * out, y: 0.835 * out })
+    Body.setAngularVelocity(this._ball, 0)
+    this._stuckMs = 0
+
+    ctx.services.audio.tone({ freq: 300, dur: 0.2, type: 'sine', vol: 0.17, slideTo: 880, delay: 0.13 })
+    ripple(ctx.fxLayer, to.x, to.y, { color: COLORS.teal, maxR: 74, alpha: 0.6 })
+    sparkle(ctx.fxLayer, to.x, to.y)
+    if (to.rim && !to.rim.destroyed) pop(to.rim, { scale: 1.24 })
   },
 
   // Explicit flipper-kick: när paddeln svingar upp och kulan är inom räckhåll får den
@@ -568,7 +803,8 @@ export default {
     Body.setVelocity(b, { x: nx * power + b.velocity.x * 0.15, y: ny * power })
 
     sparkle(ctx.fxLayer, c.x, c.y)
-    ctx.services.audio.sfx('pling')
+    // 'boing' är ett riktigt klipp; 'pling' fanns inte i manifestet.
+    ctx.services.audio.sfx('boing')
     ctx.services.audio.tone({ freq: 330, dur: 0.1, type: 'triangle', vol: 0.24, slideTo: 520 })
   },
 
@@ -586,6 +822,19 @@ export default {
           this._lastPeg = now
           ctx.services.audio.tone({ freq: 1320, dur: 0.09, type: 'sine', vol: 0.14 })
         }
+        continue
+      }
+      // Studsfena: explicit kick längs fenans normal (upp-inåt) — ett tapp i
+      // sidan blir en ny chans i stället för ett drän.
+      const slingBody = a.label === 'sling' && b.label === 'ball' ? a : b.label === 'sling' && a.label === 'ball' ? b : null
+      if (slingBody) {
+        this._fireFin(ctx, this._fins[slingBody.plugin.fin])
+        continue
+      }
+      // Snurra: bladen får fart, kulan en svag radiell knuff + en tangentiell
+      // knyck så två lika träffar inte ger samma utfall.
+      if ((a.label === 'spinner' && b.label === 'ball') || (b.label === 'spinner' && a.label === 'ball')) {
+        this._spinHit(ctx)
         continue
       }
       let bumperBody = null
@@ -606,6 +855,55 @@ export default {
         this._lightBumper(ctx, bump)
       }
     }
+  },
+
+  // Fenan slår till: kick längs normalen (kapas ändå av _maxSpeed), gummibandet
+  // blixtrar och ett kort "smack" hörs. Kicken ersätter farten längs normalen i
+  // stället för att adderas — annars kan upprepade träffar ladda kulan över
+  // energibudgeten och den kommer aldrig ner till paddlarna igen.
+  _fireFin(ctx, fin) {
+    if (!fin || !this._ball) return
+    const now = performance.now()
+    if (now - fin.last < FIN_CD) return
+    fin.last = now
+    const b = this._ball
+    const along = b.velocity.x * fin.nx + b.velocity.y * fin.ny
+    Body.setVelocity(b, {
+      x: b.velocity.x - along * fin.nx + fin.nx * FIN_KICK,
+      y: b.velocity.y - along * fin.ny + fin.ny * FIN_KICK,
+    })
+    if (fin.band && !fin.band.destroyed) {
+      gsap.killTweensOf(fin.band)
+      fin.band.alpha = 1
+      gsap.fromTo(fin.band.scale, { x: 1.25, y: 2.2 }, { x: 1, y: 1, duration: 0.24, ease: 'power2.out' })
+    }
+    if (fin.view && !fin.view.destroyed) pop(fin.view, { scale: 1.14 })
+    sparkle(ctx.fxLayer, fin.x, fin.y)
+    ctx.services.audio.sfx('pop')
+    ctx.services.audio.tone({ freq: 240, dur: 0.09, type: 'square', vol: 0.18, slideTo: 420 })
+  },
+
+  // Snurran träffas: bladen får fart (visuellt), kulan knuffas svagt utåt plus en
+  // slumpad tangentiell knyck — det är den som gör vägen ner oförutsägbar.
+  _spinHit(ctx) {
+    const b = this._ball
+    const sp = this._spinner
+    if (!b || !sp) return
+    const dx = b.position.x - SPIN.x
+    const dy = b.position.y - SPIN.y
+    const d = Math.hypot(dx, dy) || 1
+    const tang = rand(-1, 1) > 0 ? 1 : -1
+    // Tangential-knycken är kraftigare än den radiella knuffen: snurran ska kasta
+    // kulan I SIDLED (mot en paddel, ibland ända bort till en tunnelmynning),
+    // inte mata den med höjd. Uppmätt: 2,4 gav x-spann 518–762, 4,2 vidgar det.
+    Body.setVelocity(b, {
+      x: b.velocity.x + (dx / d) * SPIN_PUSH + (-dy / d) * tang * 4.2,
+      y: b.velocity.y + (dy / d) * SPIN_PUSH + (dx / d) * tang * 4.2,
+    })
+    sp.speed = clamp(sp.speed + 0.34, 0, 0.62) * (tang > 0 ? 1 : 1)
+    sp.dir = tang
+    ctx.services.audio.tone({ freq: 520, dur: 0.12, type: 'sawtooth', vol: 0.12, slideTo: 900 })
+    ripple(ctx.fxLayer, SPIN.x, SPIN.y, { color: COLORS.teal, maxR: 58, alpha: 0.5, duration: 0.35 })
   },
 
   _kickOff(bumperBody) {
@@ -630,11 +928,14 @@ export default {
     // Saftigare träff: expanderande ljusring + kort mjuk skärm-mikroskak.
     ripple(ctx.fxLayer, bump.x, bump.y, { color: bump.color, maxR: 92, alpha: 0.7 })
     shake(this._root, { intensity: 4, duration: 0.28 })
-    // Stämd ton ur pentatoniska skalan (stigande) + en kvint ovanpå.
+    // Stämd ton ur pentatoniska skalan (stigande) — men med DYNETYPENS klangfärg
+    // och överton, så örat hör vilken sorts dyna som tändes: stjärnan ljus,
+    // klockan klingande (oktav), blomman varm (underoktav).
     const f = SCALE[this._litCount % SCALE.length]
+    const td = bump.tone || BUMPER_TYPES[0]
     ctx.services.audio.sfx('match')
-    ctx.services.audio.tone({ freq: f, dur: 0.26, type: 'triangle', vol: 0.3 })
-    ctx.services.audio.tone({ freq: f * 1.5, dur: 0.2, type: 'sine', vol: 0.14, delay: 0.06 })
+    ctx.services.audio.tone({ freq: f, dur: 0.26, type: td.wave, vol: 0.3 })
+    ctx.services.audio.tone({ freq: f * td.over, dur: 0.2, type: td.overWave, vol: 0.14, delay: 0.06 })
     this._litCount++
     this._sinceLit = 0
     // Tänd-mätaren fylls + Bobo rycker till.
@@ -660,27 +961,75 @@ export default {
 
   // ---- Klart: firande + nästa runda ---------------------------------------
 
+  // SHOWLÄGE — bordets eget firande, inte samma konfetti som alla andra spel.
+  // Hela maskinen gör en nummer av det: snurran drar igång, dynorna tänds i en
+  // våg uppifrån och ner medan skalan går uppåt, kulan LYFTS ur banan upp till
+  // Bobo — och det är Bobo som kastar konfettin, inte skärmen.
   _celebrate(ctx) {
     if (this._resolving) return
     this._resolving = true
     ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say(randomFrom(PRAISE))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
-    this._boboReact(true) // Bobo hoppar av glädje när allt lyser
     ctx.progress.complete()
 
-    // Bumpers pulsar i tur och ordning.
+    // Maskinen går igång: snurran rusar, fenornas gummiband blixtrar.
+    if (this._spinner) {
+      this._spinner.speed = 0.62
+      this._spinner.dir = 1
+    }
+    for (const fin of this._fins) {
+      if (fin.view && !fin.view.destroyed) pop(fin.view, { scale: 1.16 })
+    }
+
+    // Vågen: dynorna uppifrån och ner, en ton var, stigande.
     this._celebrateTl?.kill()
     const tl = gsap.timeline()
-    this._bumpers.forEach((b, i) => {
+    const order = [...this._bumpers].sort((a, b) => a.y - b.y)
+    order.forEach((b, i) => {
       tl.add(() => {
-        if (this._alive && b.view && !b.view.destroyed) pop(b.view)
-      }, i * 0.12)
+        if (!this._alive || !b.view || b.view.destroyed) return
+        pop(b.view, { scale: 1.3 })
+        ripple(ctx.fxLayer, b.x, b.y, { color: b.color, maxR: 86, alpha: 0.65, duration: 0.4 })
+        ctx.services.audio.tone({ freq: SCALE[i % SCALE.length] * 2, dur: 0.16, type: 'sine', vol: 0.22 })
+      }, i * 0.1)
     })
     this._celebrateTl = tl
 
+    // Kulan lyfts ur banan upp till Bobo. Kroppen görs statisk under resan så
+    // fysiken inte drar ner den — _serveBall släpper den fri igen.
+    this._liftTween?.kill()
+    const ball = this._ball
+    if (ball) {
+      Body.setVelocity(ball, { x: 0, y: 0 })
+      Body.setStatic(ball, true)
+      const p = { x: ball.position.x, y: ball.position.y }
+      this._liftTween = gsap.to(p, {
+        x: MID,
+        // Strax NEDANFÖR Bobos tassar (y≈124). Kulan ritas före Bobo i z-led, så
+        // stannade den mitt i honom försvann den bakom kroppen — här sticker den
+        // ut under händerna och läser som fångad.
+        y: this._boboBaseY + 58,
+        duration: 0.75,
+        delay: 0.15,
+        ease: 'power2.inOut',
+        onUpdate: () => {
+          if (this._alive && this._ball) Body.setPosition(this._ball, { x: p.x, y: p.y })
+        },
+        onComplete: () => {
+          if (!this._alive) return
+          // Bobo fångar kulan och kastar konfetti — firandet kommer FRÅN honom.
+          this._boboReact(true)
+          ctx.services.audio.sfx('celebrate')
+          ctx.services.audio.tone({ freq: 1046.5, dur: 0.3, type: 'sine', vol: 0.26, slideTo: 1568 })
+          burst(ctx.fxLayer, MID, this._boboBaseY + 20, { count: 22, power: 1.35 })
+          puff(ctx.fxLayer, MID, this._boboBaseY + 30, { count: 10 })
+          ripple(ctx.fxLayer, MID, this._boboBaseY + 20, { color: COLORS.yellow, maxR: 160, alpha: 0.55, duration: 0.6 })
+        },
+      })
+    }
+
     this._nextTimer?.kill()
-    this._nextTimer = gsap.delayedCall(1.5, () => {
+    this._nextTimer = gsap.delayedCall(2.0, () => {
       if (!this._alive) return
       this._level++
       ctx.progress.setLevel(this._level)
@@ -697,6 +1046,18 @@ export default {
     this._offCollision?.()
     this._celebrateTl?.kill()
     this._nextTimer?.kill()
+    this._liftTween?.kill()
+
+    for (const fin of this._fins || []) {
+      if (fin.view && !fin.view.destroyed) gsap.killTweensOf(fin.view.scale)
+      if (fin.band && !fin.band.destroyed) {
+        gsap.killTweensOf(fin.band)
+        gsap.killTweensOf(fin.band.scale)
+      }
+    }
+    for (const t of this._tunnels || []) {
+      if (t.rim && !t.rim.destroyed) gsap.killTweensOf(t.rim.scale)
+    }
 
     if (this._leftZone && !this._leftZone.destroyed) this._leftZone.off('pointerdown', this._onLeft)
     if (this._rightZone && !this._rightZone.destroyed) this._rightZone.off('pointerdown', this._onRight)
@@ -715,6 +1076,7 @@ export default {
     }
     if (this._ballView && !this._ballView.destroyed) gsap.killTweensOf(this._ballView.scale)
     if (this._bobo && !this._bobo.destroyed) {
+      this._bobo.off('pointertap', this._onBobo)
       gsap.killTweensOf(this._bobo)
       gsap.killTweensOf(this._bobo.scale)
     }
@@ -776,16 +1138,45 @@ function makeBumper(color, kind) {
   container.eventMode = 'none'
   container.interactiveChildren = false
 
+  // Varje typ har EGEN silhuett (inte bara eget motiv): klockan har ett ok högst
+  // upp, blomman en snärjd kant, stjärnan den runda standardkupan.
   const paint = (lit) => {
     if (cap.destroyed || motif.destroyed) return
     const capCol = lit ? color : lerpColor(color, 0x1a1636, 0.58)
-    cap.clear().circle(0, -3, 34).fill(capCol).stroke({ width: 3, color: lerpColor(capCol, 0xffffff, lit ? 0.4 : 0.14) })
+    const edge = lerpColor(capCol, 0xffffff, lit ? 0.4 : 0.14)
+    cap.clear()
+    if (kind === 'bell') {
+      cap.roundRect(-9, -42, 18, 14, 7).fill(edge) // upphängningens ok
+      cap.circle(0, -3, 33).fill(capCol).stroke({ width: 3, color: edge })
+    } else if (kind === 'flower') {
+      for (let i = 0; i < 7; i++) {
+        const a = (i * Math.PI * 2) / 7
+        cap.circle(Math.cos(a) * 25, -3 + Math.sin(a) * 25, 13).fill(edge)
+      }
+      cap.circle(0, -3, 27).fill(capCol).stroke({ width: 3, color: edge })
+    } else {
+      cap.circle(0, -3, 34).fill(capCol).stroke({ width: 3, color: edge })
+    }
+
     const mCol = lit ? COLORS.white : lerpColor(color, 0x1a1636, 0.3)
     motif.clear()
     if (kind === 'goal') {
       motif.circle(0, -3, 19).stroke({ width: 5, color: mCol })
       motif.circle(0, -3, 10).stroke({ width: 5, color: mCol })
       motif.circle(0, -3, 3).fill(mCol)
+    } else if (kind === 'bell') {
+      motif.moveTo(-15, 6)
+        .quadraticCurveTo(-14, -16, 0, -22)
+        .quadraticCurveTo(14, -16, 15, 6)
+        .closePath().fill(mCol)
+      motif.roundRect(-18, 4, 36, 7, 3).fill(mCol)
+      motif.circle(0, 15, 4).fill(mCol) // kläppen
+    } else if (kind === 'flower') {
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI * 2) / 5
+        motif.circle(Math.cos(a) * 11, -3 + Math.sin(a) * 11, 7.5).fill(mCol)
+      }
+      motif.circle(0, -3, 6).fill(lit ? color : lerpColor(color, 0x1a1636, 0.05))
     } else {
       motif.star(0, -3, 5, 17, 8).fill(mCol)
     }

@@ -16,11 +16,13 @@
 //
 // Pendeln drivs ENBART av en egen, ticker-driven integrator (theta'' =
 // -(g/L)sinθ - dämpning + knuff). INGEN GSAP rör pendeln → trivialt exit-säker.
-import { Container, Graphics, Text, Rectangle, Circle } from 'pixi.js'
+import { Container, Graphics, Rectangle, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, sparkle, floatText, burst, breathe } from '../../lib/feedback.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { drawIcon } from '../../lib/artikoner.js'
+import { makeBobo } from '../../lib/figurer.js'
+import { pop, wiggle, sparkle, floatText, burst, breathe, puff } from '../../lib/feedback.js'
+import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // --- Pendel-konstanter (egen integrator, px/sekund) ---
@@ -29,6 +31,12 @@ const DAMP = 0.22 // 1/s lätt dämpning → bromsar mjukt utan pumpning (faller
 const THETA_MAX = 1.45 // ~83°, hård spärr — går ALDRIG över toppen
 const PIVOT_X = 640 // upphängningspunkt x
 const PIVOT_Y = 150 // upphängningspunkt y
+const GROUND_Y = 612 // ställningens ben landar här
+// Mellan trädet (x≈130) och ställningens vänstra ben (landar x=560), och till höger om
+// "starkare knuff"-knappen (centrum 150, radie 80 → slutar x=230). x=178 lade honom rakt
+// under knappen. Målen hänger högt (y 225..400) så de korsar honom aldrig.
+const BOBO_X = 300
+const BOBO_R = 48
 const OMEGA_CAP = 3.2 // tak på vinkelhastighet → kan aldrig skjutas över THETA_MAX
 
 const GOAL_EMOJIS = ['🐦', '🍎', '🎈', '🦋', '🌟', '🍏']
@@ -136,6 +144,15 @@ export default {
     this._hPumpUp = (e) => this._pumpUp(ctx, e)
     this._pump.on('pointerdown', this._hPumpDown)
     this._root.addChild(this._pump)
+
+    // Bobo på marken vid stället: han hejar, kastar upp tassarna vid varje knuff och
+    // jublar när ett mål nuddas. Scenen hade ingen alls (gate-punkt 4). Placerad långt
+    // vänster om stället (benen landar x 560..920) och klar av målens båge (x ≥ 368).
+    // makeBobo har origo i HUVUDETS centrum; fötterna hamnar 2,36·r under.
+    this._bobo = makeBobo(BOBO_R)
+    this._bobo.position.set(BOBO_X, GROUND_Y - 2.36 * BOBO_R)
+    this._root.addChild(this._bobo)
+    this._boboIdle = breathe(this._bobo, { scale: 1.03, duration: 2.1 })
 
     // "Starkare knuff"-toggle (ovanpå pump-ytan så den får trycket).
     this._buildToggle(ctx)
@@ -309,15 +326,39 @@ export default {
       ring.eventMode = 'none'
       t.ring = ring
 
-      const emo = new Text({ text: t.char, style: { fontFamily: FONT.body, fontSize: 90 } })
-      emo.anchor.set(0.5)
+      // Målet RITAS (P0 ASSETS) — det är sakerna Lova ska nudda, inte dekor.
+      const emo = drawIcon(t.char, 96)
       emo.position.set(pos.x, pos.y)
-      emo.eventMode = 'none'
       t.emoji = emo
 
       this._target.addChild(branch, ring, emo)
       t.glowTween = breathe(ring, { scale: 1.12, duration: 1.0 })
     }
+  },
+
+  // Bobo kastar upp tassarna vid en knuff. Kraftig knuff = större gest. Exit-säker:
+  // en enda tween på skalan som dödas i destroy.
+  _boboPush(q = 1) {
+    const bo = this._bobo
+    if (!bo || bo.destroyed) return
+    gsap.killTweensOf(bo.scale)
+    const s = 1 + 0.1 * q
+    gsap
+      .timeline()
+      .to(bo.scale, { x: s, y: 1 + 0.16 * q, duration: 0.1, ease: 'power2.out' })
+      .to(bo.scale, { x: 1, y: 1, duration: 0.5, ease: 'elastic.out(1, 0.45)' })
+  },
+
+  // Bobo jublar när ett mål nuddas — en tydligare gest än knuffen.
+  _boboCheer(ctx) {
+    const bo = this._bobo
+    if (!bo || bo.destroyed) return
+    gsap.killTweensOf(bo.scale)
+    gsap
+      .timeline()
+      .to(bo.scale, { x: 1.16, y: 1.24, duration: 0.13, ease: 'power2.out' })
+      .to(bo.scale, { x: 1, y: 1, duration: 0.62, ease: 'elastic.out(1, 0.4)' })
+    sparkle(ctx.fxLayer, bo.x, bo.y - BOBO_R * 1.4, { count: 6 })
   },
 
   // Nästa mål att nå = det lägsta ännu osamlade (gungan når låga höjder först).
@@ -468,6 +509,13 @@ export default {
     const b = this._bobWorld(this._theta, this._L - 20)
     ctx.services.audio.sfx(q >= 0.7 ? 'whoosh' : 'soft')
     sparkle(ctx.fxLayer, b.x, b.y, { count: q >= 0.7 ? 7 : 4 })
+    // Synlig knuff: Bobo kastar upp tassarna och en puff trycker till BAKOM sitsen,
+    // skalad med fas-kvaliteten — barnet ser sin handling driva gungan.
+    this._boboPush(q)
+    puff(ctx.fxLayer, b.x + Math.sign(this._omega || 1) * -46, b.y + 16, {
+      count: q >= 0.7 ? 6 : 3,
+      color: COLORS.cream,
+    })
     if (q >= 0.85) floatText(ctx.fxLayer, b.x, b.y - 60, randomFrom(['⭐', 'Höögre!']))
     // Kombo-känsla när barnet taktar flera bra i rad — gör egen rytm hörbart/synligt bättre.
     if (this._goodStreak === 2 || this._goodStreak === 3) {
@@ -517,6 +565,27 @@ export default {
       this._omega *= -0.4
     }
     this._swing.rotation = this._theta
+
+    // MÅLET LEVER: nästa osamlade mål känner att hon närmar sig. Ju närmare hennes
+    // topphöjd är målets amplitud, desto ivrigare guppar och lutar det — ett MÖTE
+    // i stället för en kollision. Rent per-frame (inga tweens att städa), och helt
+    // no-fail: målet flyttar sig aldrig utom räckhåll, det bara hoppar på stället.
+    this._liveT = (this._liveT || 0) + dt
+    const nxt = this._nextTarget()
+    for (const tg of this._targets) {
+      const art = tg.emoji
+      if (!art || art.destroyed || tg.collected || !tg.pos) continue
+      if (tg !== nxt) {
+        art.y = tg.pos.y
+        art.rotation = 0
+        continue
+      }
+      // 0 vid halva vägen, 1 när hon precis når upp.
+      const near = clamp((this._maxAbs / tg.amp - 0.5) * 2, 0, 1)
+      const speed = 3 + near * 9
+      art.y = tg.pos.y - Math.abs(Math.sin(this._liveT * speed)) * (4 + near * 16)
+      art.rotation = Math.sin(this._liveT * speed * 0.7) * 0.06 * near
+    }
 
     // Bågspår fylls på när ny topphöjd nås (billigt: bara vid ökning).
     const amp = Math.abs(this._theta)
@@ -575,6 +644,7 @@ export default {
     if (tg.ring && !tg.ring.destroyed) tg.ring.alpha = 0
     floatText(ctx.fxLayer, tg.pos.x, tg.pos.y, tg.char, { rise: 110, duration: 1.0, fontSize: 78 })
     sparkle(ctx.fxLayer, tg.pos.x, tg.pos.y, { count: 8 })
+    this._boboCheer(ctx)
     this._drawArc() // bågspåret syftar nu mot nästa, högre mål
 
     const remaining = this._targets.filter((x) => !x.collected).length
@@ -623,6 +693,8 @@ export default {
       gsap.killTweensOf(this._lova)
       gsap.killTweensOf(this._lova.scale)
     }
+    this._boboIdle?.kill()
+    if (this._bobo && !this._bobo.destroyed) gsap.killTweensOf(this._bobo.scale)
     for (const tg of this._targets || []) {
       tg.glowTween?.kill()
       if (tg.emoji && !tg.emoji.destroyed) {

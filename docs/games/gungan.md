@@ -116,3 +116,19 @@ upplevelsen runt den.
   en 💪-emoji **inuti en grå cirkel** — exakt det ASSETS-regeln förbjuder; den ritas nu som en
   arm med ärm, biceps och knytnäve. (2) Scenen var en helt tom äng (§3 "ingen publik"): nu finns
   två träd, en sandlåda med sandkorn och grässtrån runt gungställningen. errorCount 0.
+- 2026-08-06: **Båda [Deep]-punkterna + P0 ASSETS** (spår "20 spel från 🔧 till ✅").
+  - **[Deep] Bobo som puttar.** Scenen hade ingen mottagare alls. Bobo står nu på gräset
+    mellan trädet och ställningens vänstra ben (`BOBO_X = 300`), andas i vila, **kastar upp
+    tassarna vid varje knuff** (`_boboPush(q)` — gesten skalas med fas-kvaliteten) och
+    **jublar när ett mål nuddas** (`_boboCheer`). Han ritas via nya `lib/figurer.js`.
+    *Första placeringen (x=178) lade honom rakt under "starkare knuff"-knappen* (centrum 150,
+    radie 80) — syntes bara i skärmdumpen.
+  - **[Deep] Mål som lever.** Nästa osamlade mål känner att hon närmar sig: `near` beräknas ur
+    `_maxAbs / t.amp` och styr både hoppfrekvens och hopphöjd, plus en liten lutning. Vid
+    halva vägen guppar det lugnt, vid full höjd hoppar det ivrigt — ett *möte* i stället för
+    en kollision. Rent per-frame i `_update` (inga tweens att städa) och helt no-fail: målet
+    flyttar sig aldrig utom räckhåll, det hoppar på stället.
+  - **[Quick] Synlig knuff.** En puff trycker till BAKOM sitsen vid varje pump, skalad med `q`.
+  - **P0 ASSETS:** målen (🐦🍎🎈🦋🌟🍏) var emoji-Text i fontSize 90 — det är sakerna Lova ska
+    nudda, alltså spelobjekt. Nu `drawIcon`. 🍏 saknades i biblioteket och lades till.
+  - Exit-säkert: `_boboIdle` och Bobos skal-tweens dödas i `destroy`.

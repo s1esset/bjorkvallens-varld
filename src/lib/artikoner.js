@@ -91,6 +91,7 @@ const ART = {
   halsduk: ['wear', 'scarf', 0xe0574f, 0xffd35c],
   // vädertecken (kla-efter-vadret) — själva ledtråden, får inte vara en systemfont-emoji
   regnmoln: ['shape', 'raincloud', 0xc9d4dd], snoflinga: ['shape', 'snowflake', 0x9fd8f0],
+  '🍏': ['fruit', 'round', 0x9ccb3b, 0x5bbf6a], // gungans gröna äpple
 }
 
 export function drawIcon(key, size = 100) {

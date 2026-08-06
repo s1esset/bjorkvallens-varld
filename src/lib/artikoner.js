@@ -16,7 +16,7 @@ const ART = {
   '🐻': ['animal', 0x9a6b45, 'round', 0xd9b48a], '🦁': ['animal', 0xf0b850, 'mane', 0xffe0a8],
   '🐸': ['animal', 0x7ed06a, 'eyes', 0xdff3c4], '🐵': ['animal', 0xa9714a, 'round', 0xf0d7ae],
   '🐼': ['animal', 0xf5f5f5, 'panda', 0xffffff], '🐧': ['animal', 0x3a3a4a, 'beak', 0xffffff],
-  '🐮': ['animal', 0xf5f5f5, 'round', 0xffd7d7], '🐷': ['animal', 0xf7b9c4, 'pig', 0xffd0da],
+  '🐮': ['animal', 0xf7f4ef, 'cow', 0xffc9cf], '🐷': ['animal', 0xf7b9c4, 'pig', 0xffd0da],
   // frukt: [kroppsform, färg, bladfärg]
   '🍎': ['fruit', 'round', 0xe0392b, 0x5bbf6a], '🍌': ['fruit', 'crescent', 0xffd35c, 0x8a6a2a],
   '🍓': ['fruit', 'berry', 0xe0392b, 0x5bbf6a], '🍇': ['fruit', 'bunch', 0xa78bfa, 0x5bbf6a],
@@ -72,6 +72,11 @@ const ART = {
   // tillskott för mata-monstret
   '🥕': ['tool', 'carrot', 0xff9d3d], '🍬': ['tool', 'candy', 0xef6aa8],
   '💧': ['fruit', 'drop', 0x4aa3df, 0x5bbf6a],
+  // bondgården: vilket-djur-later + djurorkester slog upp fem djur som saknades
+  // helt (de föll igenom till den grå cirkeln). Kyckling delar mall med 🐥.
+  '🐑': ['animal', 0xf0e6d8, 'wool', 0xfff8f0], '🐴': ['animal', 0xb5764a, 'horse', 0xe8c9a0],
+  '🦆': ['animal', 0xf7f3e8, 'bill', 0xffffff], '🐔': ['animal', 0xfaf6ee, 'comb', 0xfff8f0],
+  '🐓': ['animal', 0xc46a45, 'rooster', 0xf0d7ae], '🐤': ['animal', 0xffe08a, 'beak', 0xfff6d8],
 }
 
 export function drawIcon(key, size = 100) {
@@ -87,20 +92,51 @@ export function drawIcon(key, size = 100) {
   if (tpl === 'animal') {
     const [, fur, ear, muzzle] = a
     const dk = lerpColor(fur, 0x000000, 0.22)
+    // Fjäderfä: näbb i stället för nos, ingen mule och ingen mun-båge.
+    const bird = ear === 'bill' || ear === 'comb' || ear === 'rooster'
     if (ear === 'mane') g.circle(0, 0, 44 * S).fill(0xd9922b)
+    if (ear === 'wool') {
+      // Fåret läses på ullkransen bakom huvudet, inte på ansiktet.
+      for (const [wx, wy] of [[-30, -20], [-11, -34], [11, -34], [30, -20], [-36, 2], [36, 2]]) {
+        g.circle(wx * S, wy * S, 15 * S).fill(0xfffdf8).stroke({ width: 3, color: 0xd9d2c6 })
+      }
+    }
+    if (bird && ear !== 'bill') {
+      // Sammanhängande röd kam som SITTER på huvudet (tuppens är högre och bredare).
+      const r = (ear === 'rooster' ? 12 : 8.5) * S
+      const base = -30 * S
+      g.roundRect(-r * 2.4, base - r * 0.6, r * 4.8, r * 1.4, r * 0.5).fill(0xe0392b)
+      for (let i = -1; i <= 1; i++) g.circle(i * r * 1.55, base - r * 0.9, r).fill(0xe0392b)
+    }
+    if (ear === 'bill') {
+      // Liten tofs så ankan inte bara är en tom cirkel med näbb.
+      for (const [tx, ty] of [[-9, -34], [3, -38], [13, -32]]) {
+        g.circle(tx * S, ty * S, 9 * S).fill(fur).stroke({ width: 3, color: dk })
+      }
+    }
+    if (ear === 'cow') {
+      // Horn ovanför öronen, breda öron rakt ut åt sidorna.
+      g.ellipse(-30 * S, -36 * S, 9 * S, 12 * S).fill(0xf0dfc0).stroke({ width: 3, color: 0xc9b48a })
+      g.ellipse(30 * S, -36 * S, 9 * S, 12 * S).fill(0xf0dfc0).stroke({ width: 3, color: 0xc9b48a })
+      g.ellipse(-40 * S, -12 * S, 15 * S, 10 * S).fill(fur).stroke({ width: 3, color: dk })
+      g.ellipse(40 * S, -12 * S, 15 * S, 10 * S).fill(fur).stroke({ width: 3, color: dk })
+    }
     if (ear === 'long') {
       g.ellipse(-14 * S, -46 * S, 9 * S, 26 * S).fill(fur).stroke({ width: 3, color: dk })
       g.ellipse(14 * S, -46 * S, 9 * S, 26 * S).fill(fur).stroke({ width: 3, color: dk })
-    } else if (ear === 'point') {
+    } else if (ear === 'point' || ear === 'horse') {
       g.moveTo(-30 * S, -18 * S).lineTo(-24 * S, -48 * S).lineTo(-6 * S, -26 * S).closePath().fill(fur).stroke({ width: 3, color: dk })
       g.moveTo(30 * S, -18 * S).lineTo(24 * S, -48 * S).lineTo(6 * S, -26 * S).closePath().fill(fur).stroke({ width: 3, color: dk })
+    } else if (ear === 'wool') {
+      g.ellipse(-40 * S, 6 * S, 14 * S, 9 * S).fill(dk)
+      g.ellipse(40 * S, 6 * S, 14 * S, 9 * S).fill(dk)
     } else if (ear === 'flop') {
       g.ellipse(-32 * S, -6 * S, 12 * S, 24 * S).fill(dk)
       g.ellipse(32 * S, -6 * S, 12 * S, 24 * S).fill(dk)
     } else if (ear === 'panda') {
       g.circle(-26 * S, -28 * S, 13 * S).fill(0x2b2b2b)
       g.circle(26 * S, -28 * S, 13 * S).fill(0x2b2b2b)
-    } else if (ear !== 'beak' && ear !== 'eyes') {
+    } else if (ear !== 'beak' && ear !== 'eyes' && ear !== 'cow' && !bird) {
       g.circle(-26 * S, -26 * S, 13 * S).fill(fur).stroke({ width: 3, color: dk })
       g.circle(26 * S, -26 * S, 13 * S).fill(fur).stroke({ width: 3, color: dk })
     }
@@ -111,7 +147,19 @@ export function drawIcon(key, size = 100) {
       g.circle(17 * S, -30 * S, 6 * S).fill(0x2b2b2b)
     }
     g.circle(0, 0, 34 * S).fill(fur).stroke({ width: 4, color: dk })
-    g.ellipse(0, 14 * S, 19 * S, 14 * S).fill(muzzle)
+    if (ear === 'horse') {
+      g.ellipse(0, 27 * S, 17 * S, 22 * S).fill(muzzle).stroke({ width: 4, color: dk })
+      // Man + lugg ritas OVANPÅ huvudet, annars blir den bara en taggig sky bakom.
+      const mane = lerpColor(fur, 0x000000, 0.45)
+      g.moveTo(-33 * S, -12 * S).quadraticCurveTo(-30 * S, -34 * S, -10 * S, -33 * S)
+      g.quadraticCurveTo(-20 * S, -22 * S, -20 * S, -4 * S).closePath().fill(mane)
+      g.moveTo(-8 * S, -33 * S).quadraticCurveTo(4 * S, -22 * S, -2 * S, -12 * S)
+      g.quadraticCurveTo(10 * S, -24 * S, 8 * S, -34 * S).closePath().fill(mane)
+    } else if (ear === 'cow') {
+      // Fläck (det som gör en vit cirkel till en ko) + stor mule med näsborrar.
+      g.circle(-19 * S, -16 * S, 13 * S).fill(0x6f6257)
+      g.ellipse(0, 17 * S, 23 * S, 16 * S).fill(muzzle).stroke({ width: 3, color: lerpColor(muzzle, 0x000000, 0.25) })
+    } else if (!bird) g.ellipse(0, 14 * S, 19 * S, 14 * S).fill(muzzle)
     if (ear === 'panda') {
       g.ellipse(-13 * S, -6 * S, 10 * S, 12 * S).fill(0x2b2b2b)
       g.ellipse(13 * S, -6 * S, 10 * S, 12 * S).fill(0x2b2b2b)
@@ -121,12 +169,29 @@ export function drawIcon(key, size = 100) {
       g.circle(12 * S, -6 * S, 5 * S).fill(0x2b2b2b)
     }
     if (ear === 'beak') g.moveTo(-9 * S, 8 * S).lineTo(0, 20 * S).lineTo(9 * S, 8 * S).closePath().fill(0xff9d3d)
-    else if (ear === 'pig') {
+    else if (ear === 'bill') {
+      // Ankans platta breda näbb — den enskilt tydligaste ank-signalen.
+      g.ellipse(0, 18 * S, 25 * S, 11 * S).fill(0xff9d3d).stroke({ width: 3, color: 0xd97a22 })
+      g.moveTo(-17 * S, 18 * S).lineTo(17 * S, 18 * S).stroke({ width: 2, color: 0xd97a22, alpha: 0.6 })
+      g.circle(-7 * S, 13 * S, 2 * S).fill(0xd97a22)
+      g.circle(7 * S, 13 * S, 2 * S).fill(0xd97a22)
+    } else if (bird) {
+      g.moveTo(-8 * S, 8 * S).lineTo(0, 21 * S).lineTo(8 * S, 8 * S).closePath().fill(0xffb03a)
+      g.circle(0, 27 * S, 7 * S).fill(0xe0392b) // slör
+    } else if (ear === 'horse') {
+      g.ellipse(-7 * S, 31 * S, 4 * S, 5 * S).fill(0x3a2a1e)
+      g.ellipse(7 * S, 31 * S, 4 * S, 5 * S).fill(0x3a2a1e)
+    } else if (ear === 'cow') {
+      g.ellipse(-8 * S, 14 * S, 4.5 * S, 6 * S).fill(0xc4647c)
+      g.ellipse(8 * S, 14 * S, 4.5 * S, 6 * S).fill(0xc4647c)
+    } else if (ear === 'pig') {
       g.ellipse(0, 12 * S, 13 * S, 10 * S).fill(0xef8fa4)
       g.circle(-5 * S, 12 * S, 3 * S).fill(0xc4647c)
       g.circle(5 * S, 12 * S, 3 * S).fill(0xc4647c)
     } else g.ellipse(0, 8 * S, 7 * S, 5 * S).fill(0x2b2b2b)
-    g.arc(-5 * S, 18 * S, 6 * S, 0, Math.PI).arc(5 * S, 18 * S, 6 * S, 0, Math.PI).stroke({ width: 3, color: dk })
+    if (!bird && ear !== 'horse' && ear !== 'cow') {
+      g.arc(-5 * S, 18 * S, 6 * S, 0, Math.PI).arc(5 * S, 18 * S, 6 * S, 0, Math.PI).stroke({ width: 3, color: dk })
+    }
   } else if (tpl === 'fruit') {
     const [, shape, col, leaf] = a
     const dk = lerpColor(col, 0x000000, 0.2)

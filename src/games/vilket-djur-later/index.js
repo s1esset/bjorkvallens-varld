@@ -13,7 +13,8 @@ import { Container, Graphics, Text, Rectangle, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, sparkle, floatText, ripple, shake, burst, breathe } from '../../lib/feedback.js'
-import { createScene } from '../../lib/scene.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 // Djurdata: emoji + svenskt namn (rätt artikel + bestämd form) för en grammatiskt
@@ -176,16 +177,19 @@ export default {
     body.roundRect(-cardW / 2 + 12, -cardH / 2 + 12, cardW - 24, cardH * 0.34, 22).fill({ color: COLORS.white, alpha: 0.45 })
     body.eventMode = 'none'
 
-    // Färgad spotlight-skiva som gör djuret tydligt och varje kort distinkt.
-    const disc = new Graphics().circle(0, -8, discR).fill(djur.color)
-    disc.circle(-discR * 0.32, -8 - discR * 0.34, discR * 0.4).fill({ color: COLORS.white, alpha: 0.22 })
+    // Spotlight-skiva: BLEK botten + färgad ring. Full färg bakom gjorde att djur i
+    // samma färgfamilj (grön groda på grön skiva) föll ihop med sin egen platta.
+    const disc = new Graphics()
+      .circle(0, -8, discR)
+      .fill(lerpColor(djur.color, 0xffffff, 0.66))
+      .stroke({ width: 7, color: djur.color })
+    disc.circle(-discR * 0.32, -8 - discR * 0.34, discR * 0.4).fill({ color: COLORS.white, alpha: 0.3 })
     disc.eventMode = 'none'
 
-    // Djuret (emoji) — gungar lugnt (idle-bob) för liv.
-    const face = new Text({ text: djur.emoji, style: { fontFamily: FONT.body, fontSize: faceSize } })
-    face.anchor.set(0.5)
+    // Djuret — ett RITAT djur (P0 ASSETS), inte en emoji i en bricka. Emoji-strängen
+    // är fortfarande nyckeln (namn, läte, ljudklipp slås upp på den). Gungar lugnt.
+    const face = drawIcon(djur.emoji, faceSize)
     face.position.set(0, -8)
-    face.eventMode = 'none'
 
     // Fri-lyssna-ikon ("öra") uppe till höger: tryck = hör DETTA djurs läte utan att
     // det räknas som svar (nyfikenhet ska belönas, ALDRIG vinglas bort). Tydligt skild
@@ -262,7 +266,7 @@ export default {
     const rows = Math.ceil(n / cols)
     const cardW = rows === 1 ? 226 : 210
     const cardH = rows === 1 ? 256 : 192
-    const faceSize = rows === 1 ? 120 : 100
+    const faceSize = rows === 1 ? 148 : 124 // ritade djur är smalare än en emoji-glyf
     const discR = rows === 1 ? 80 : 70
     const gridW = cols * cardW + (cols - 1) * GAP_X
     const gridH = rows * cardH + (rows - 1) * GAP_Y

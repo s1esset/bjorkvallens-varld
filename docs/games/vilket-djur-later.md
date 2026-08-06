@@ -106,3 +106,21 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
     en vingel (nyfikenhet belönas). 100px träffyta.
   - Exit-säkert: alla nya tweens (`face.scale`/`disc.scale`/öra) samlas i `_killCardTweens`,
     fördröjda anrop är `_alive`-vaktade och proxy-tweens rör Pixi-objekt bara om `!destroyed`.
+- 2026-08-06: **P0 ASSETS — alla 12 djur ritas nu** (poleringsrundan, 🔤 Lära-fliken).
+  - **Emoji-Text ersatt med `drawIcon`** ur `src/lib/artikoner.js`. Emoji-strängen är
+    fortfarande NYCKELN (namn, läte, `djur_<id>`-klipp och distraktor-filtret slår upp på
+    den) — bara renderingen bytte. `faceSize` höjd 120→148 / 100→124 eftersom en ritad
+    figur är smalare än en emoji-glyf.
+  - **Fem nya nycklar i ikonbiblioteket:** 🐑 får (ullkrans + hängöron), 🐴 häst (lång nos,
+    man ritad OVANPÅ huvudet, näsborrar), 🦆 anka (platt bred näbb + tofs), 🐔 höna och
+    🐓 tupp (sammanhängande röd kam, tuppens högre; näbb + slör). Utan dem hade fem av
+    tolv djur fallit igenom till `drawIcon`s grå cirkel.
+  - **🐮 kon ritades om** (`round` → egen `cow`-mall): horn, breda öron rakt ut, mörk fläck
+    och stor rosa mule med näsborrar. Den gamla kon var en vit cirkel med runda öron —
+    den läste som isbjörn. Ändringen syns även i vandkort/skuggmatchning/stor-liten.
+  - **Skivan bakom djuret bleks** (`lerpColor(färg, vitt, 0.66)` + 7px färgad ring) i
+    stället för full färg. Grön groda på grön skiva föll ihop med sin egen platta —
+    samma fel som harma-melodin hade.
+  - Nytt verktyg `scripts/_ikoner.mjs` — ritar valda nycklar i ett rutnät och tar en
+    skärmdump. Det var det som avslöjade att kon, hästmanen, kammen och ankan var svaga.
+  - `npm run test` 0 fel; de sju andra artikoner-spelen omtestade gröna efter ko-ändringen.

@@ -5,13 +5,15 @@
 // hoppar till och rösten säger plaggnamnet. Opassande plagg ger en mjuk vänlig vink
 // ("Brr, då fryser vi!") och snäpper tillbaka — aldrig en bestraffning. Alla zoner
 // fyllda → delat firande + klistermärke, sedan nytt väder. Oändlig omsorgslek.
-// Allt ritas programmatiskt (Pixi Graphics + emoji) — inga externa filer.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+// Allt ritas programmatiskt i Pixi Graphics — plagg och vädertecken via drawIcon
+// (src/lib/artikoner.js), inga externa filer och ingen emoji som spelobjekt.
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, sparkle, floatText } from '../../lib/feedback.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { drawIcon } from '../../lib/artikoner.js'
+import { COLORS } from '../../lib/theme.js'
 
 // Kroppszonernas centrum (= snäpp-mål). Huvud-zonen ligger strax ovanför huvudet
 // (en hatt sitter på toppen), fot-zonen strax ovanför fötterna.
@@ -31,33 +33,33 @@ const WEATHERS = {
     lagom: 'Nu blir jag lagom sval i solen!',
     proof: '😎',
     valid: {
-      huvud: [{ emoji: '👒', namn: 'solhatten' }, { emoji: '🧢', namn: 'kepsen' }],
-      overkropp: [{ emoji: '👕', namn: 'tröjan' }, { emoji: '👗', namn: 'klänningen' }],
-      fotter: [{ emoji: '🩴', namn: 'sandalerna' }, { emoji: '👟', namn: 'skorna' }],
+      huvud: [{ art: 'solhatt', namn: 'solhatten' }, { art: 'keps', namn: 'kepsen' }],
+      overkropp: [{ art: 'troja', namn: 'tröjan' }, { art: 'klanning', namn: 'klänningen' }],
+      fotter: [{ art: 'sandaler', namn: 'sandalerna' }, { art: 'skor', namn: 'skorna' }],
     },
   },
   regn: {
-    key: 'regn', symbol: '🌧️', bg: 0xcfe3ef, glow: 0x9fc4dd,
+    key: 'regn', symbol: 'regnmoln', bg: 0xcfe3ef, glow: 0x9fc4dd,
     intro: 'Det är regn idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är regnigt — vad behöver vi då?',
     lagom: 'Nu blir jag lagom torr i regnet!',
     proof: '☂️',
     valid: {
-      huvud: [{ emoji: '🧢', namn: 'regnhatten' }],
-      overkropp: [{ emoji: '🧥', namn: 'regnjackan' }, { emoji: '🌂', namn: 'paraplyet' }],
-      fotter: [{ emoji: '🥾', namn: 'gummistövlarna' }, { emoji: '👢', namn: 'stövlarna' }],
+      huvud: [{ art: 'regnhatt', namn: 'regnhatten' }],
+      overkropp: [{ art: 'regnjacka', namn: 'regnjackan' }, { art: '☂️', namn: 'paraplyet' }],
+      fotter: [{ art: 'gummistovlar', namn: 'gummistövlarna' }, { art: 'stovlar', namn: 'stövlarna' }],
     },
   },
   sno: {
-    key: 'sno', symbol: '❄️', bg: 0xeaf4fb, glow: 0xbfe6f7,
+    key: 'sno', symbol: 'snoflinga', bg: 0xeaf4fb, glow: 0xbfe6f7,
     intro: 'Det är snö idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är kallt och snöigt — vad behöver vi då?',
     lagom: 'Nu blir jag lagom varm i snön!',
     proof: '⛄',
     valid: {
-      huvud: [{ emoji: '🧢', namn: 'vintermössan' }],
-      overkropp: [{ emoji: '🧥', namn: 'vinterjackan' }],
-      fotter: [{ emoji: '👢', namn: 'vinterstövlarna' }, { emoji: '🥾', namn: 'kängorna' }],
+      huvud: [{ art: 'vintermossa', namn: 'vintermössan' }],
+      overkropp: [{ art: 'vinterjacka', namn: 'vinterjackan' }],
+      fotter: [{ art: 'vinterstovlar', namn: 'vinterstövlarna' }, { art: 'kangor', namn: 'kängorna' }],
     },
   },
 }
@@ -65,14 +67,20 @@ const WEATHERS = {
 // Extra "tydliga säsongs"-plagg som bara används som distraktorer (fel väder).
 const EXTRAS = {
   sol: [
-    { slot: 'huvud', emoji: '🕶️', namn: 'solglasögonen' },
-    { slot: 'overkropp', emoji: '🩳', namn: 'badbyxorna' },
+    { slot: 'huvud', art: 'solglasogon', namn: 'solglasögonen' },
+    { slot: 'overkropp', art: 'badbyxor', namn: 'badbyxorna' },
   ],
-  regn: [{ slot: 'overkropp', emoji: '🌂', namn: 'paraplyet' }],
-  sno: [{ slot: 'overkropp', emoji: '🧣', namn: 'halsduken' }],
+  regn: [{ slot: 'overkropp', art: '☂️', namn: 'paraplyet' }],
+  sno: [{ slot: 'overkropp', art: 'halsduk', namn: 'halsduken' }],
 }
 
-const SHELF_Y = 600 // plaggens y på hyllan (designkoordinater)
+// Plaggens y på hyllan (designkoordinater). Låg nog att ligga PÅ hyllplanet
+// (626..718) i stället för att sväva ovanför det och krocka med Elviras fötter.
+const SHELF_Y = 668
+// Mittkolumnen är Elviras — inga plagg får läggas där. Se _layoutShelf.
+const SHELF_LEFT_END = 470
+const SHELF_RIGHT_START = 810
+const SHELF_STEP = 168
 
 export default {
   id: 'kla-efter-vadret',
@@ -168,7 +176,9 @@ export default {
     }
   },
 
-  // Vädersymbol upptill (undviker knapphörnen): mjuk glow + vit panel + stor emoji.
+  // Vädersymbol upptill (undviker knapphörnen): mjuk glow + vit panel + stort RITAT
+  // vädertecken. Symbolen är hela ledtråden i spelet — den får inte vara en emoji
+  // som ritas av systemfonten.
   _buildHeader() {
     const group = new Container()
     group.position.set(640, 96)
@@ -179,8 +189,10 @@ export default {
     glow.alpha = 0.55
     glow.tint = COLORS.yellow
     const panel = new Graphics().circle(0, 0, 80).fill({ color: 0xffffff, alpha: 0.5 })
-    const symbol = new Text({ text: '☀️', style: { fontFamily: FONT.body, fontSize: 120 } })
-    symbol.anchor.set(0.5)
+    // Egen behållare: tecknet byts genom att rita om, inte genom att byta .text.
+    const symbol = new Container()
+    symbol.eventMode = 'none'
+    symbol.addChild(drawIcon('☀️', 120))
 
     group.addChild(glow, panel, symbol)
     this._root.addChild(group)
@@ -241,7 +253,8 @@ export default {
 
   // Garderobshylla (dekor) längst ner som plaggen ligger på.
   _buildShelf() {
-    const shelf = new Graphics().roundRect(140, 620, 1000, 90, 24).fill({ color: 0xffffff, alpha: 0.6 })
+    // Bred nog att bära sex plagg i två grupper (yttersta centrum 134 resp. 1146).
+    const shelf = new Graphics().roundRect(80, 626, 1120, 92, 24).fill({ color: 0xffffff, alpha: 0.6 })
     shelf.eventMode = 'none'
     this._root.addChild(shelf)
   },
@@ -269,13 +282,21 @@ export default {
     }
   },
 
-  // Ett plagg: bara emojin (ingen bricka/bakgrund) + en osynlig generös träffyta
-  // (Ø140 ≥ 96px) så plagget är lätt att träffa fast det visas som ren konst.
-  _makeItem(emoji) {
+  // x-positioner för n plagg: halva vänster om Elvira, halva höger, mitten fri.
+  // Vänstergruppen fylls högerifrån så den alltid slutar vid SHELF_LEFT_END.
+  _layoutShelf(n) {
+    const leftN = Math.ceil(n / 2)
+    const xs = []
+    for (let i = 0; i < leftN; i++) xs.push(SHELF_LEFT_END - (leftN - 1 - i) * SHELF_STEP)
+    for (let j = 0; j < n - leftN; j++) xs.push(SHELF_RIGHT_START + j * SHELF_STEP)
+    return xs
+  },
+
+  // Ett plagg: ett RITAT plagg (P0 ASSETS — de dras runt, de är spelobjekt) utan
+  // bricka/bakgrund + en osynlig generös träffyta (Ø140 ≥ 96px).
+  _makeItem(art) {
     const it = new Container()
-    const e = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: 84 } })
-    e.anchor.set(0.5)
-    it.addChild(e)
+    it.addChild(drawIcon(art, 104))
     it.hitArea = new Circle(0, 0, 70)
     return it
   },
@@ -313,7 +334,8 @@ export default {
         }
       },
     })
-    this._symbol.text = w.symbol
+    this._symbol.removeChildren().forEach((c) => c.destroy())
+    this._symbol.addChild(drawIcon(w.symbol, 120))
     this._glow.tint = w.glow
     const rainOn = key === 'regn'
     const snowOn = key === 'sno'
@@ -364,7 +386,7 @@ export default {
     // Passande plagg: minst ETT per obligatorisk zon, och för en slumpad zon (som har
     // fler dugliga val) läggs ETT extra dugligt plagg ut → barnet resonerar "vilket
     // funkar?" i stället för att leta det enda rätta. Sedan fylls hyllan med distraktorer.
-    const usedEmoji = new Set()
+    const usedArt = new Set()
     const fitting = []
     const choiceZones = reqZones.filter((s) => this._weather.valid[s].length >= 2)
     const choiceZone = choiceZones.length ? randomFrom(choiceZones) : null
@@ -372,20 +394,20 @@ export default {
       const opts = shuffle(this._weather.valid[slot].slice())
       const take = slot === choiceZone ? 2 : 1
       for (let i = 0; i < take && i < opts.length; i++) {
-        usedEmoji.add(opts[i].emoji)
-        fitting.push({ slot, fits: true, emoji: opts[i].emoji, namn: opts[i].namn, from: key })
+        usedArt.add(opts[i].art)
+        fitting.push({ slot, fits: true, art: opts[i].art, namn: opts[i].namn, from: key })
       }
     }
-    const distractors = distractorPool(key, usedEmoji).slice(0, Math.max(1, shelfCount - fitting.length))
+    const distractors = distractorPool(key, usedArt).slice(0, Math.max(1, shelfCount - fitting.length))
     const deck = shuffle([...fitting, ...distractors])
 
-    // Lägg ut på hyllan, jämnt centrerade.
-    const n = deck.length
-    const total = n * 150 + (n - 1) * 40
-    const startX = (1280 - total) / 2 + 75
+    // Lägg ut på hyllan i TVÅ grupper med mittkolumnen fri. Jämnt centrerat gav
+    // alltid ett plagg på x=640 — ovanpå Elvira och inuti fot-zonens träffyta
+    // (Ø260), så en liten knuff kunde räknas som en placering barnet aldrig gjort.
+    const xs = this._layoutShelf(deck.length)
     deck.forEach((data, i) => {
-      const view = this._makeItem(data.emoji)
-      view.position.set(startX + i * 190, SHELF_Y)
+      const view = this._makeItem(data.art)
+      view.position.set(xs[i], SHELF_Y)
       this._root.addChild(view)
       this._items.push(view)
       this._drag.addItem(view, data, {
@@ -592,9 +614,10 @@ export default {
 }
 
 // Distraktor-pool: passande plagg från de ANDRA vädren + säsongs-extras, alla
-// fits:false. Hoppar över emoji som krockar med rundans passande plagg (samma jacka).
-function distractorPool(curKey, usedEmoji) {
-  const seen = new Set(usedEmoji)
+// fits:false. Hoppar över plagg som krockar med rundans passande (paraplyet finns
+// både som regn-plagg och regn-extra).
+function distractorPool(curKey, usedArt) {
+  const seen = new Set(usedArt)
   const pool = []
   for (const okey of Object.keys(WEATHERS)) {
     if (okey === curKey) continue
@@ -602,13 +625,13 @@ function distractorPool(curKey, usedEmoji) {
     const cands = []
     for (const z of ['huvud', 'overkropp', 'fotter']) {
       const first = ow.valid[z][0]
-      cands.push({ slot: z, emoji: first.emoji, namn: first.namn })
+      cands.push({ slot: z, art: first.art, namn: first.namn })
     }
     for (const ex of EXTRAS[okey] || []) cands.push(ex)
     for (const c of cands) {
-      if (seen.has(c.emoji)) continue
-      seen.add(c.emoji)
-      pool.push({ slot: c.slot, fits: false, emoji: c.emoji, namn: c.namn, from: okey })
+      if (seen.has(c.art)) continue
+      seen.add(c.art)
+      pool.push({ slot: c.slot, fits: false, art: c.art, namn: c.namn, from: okey })
     }
   }
   return shuffle(pool)

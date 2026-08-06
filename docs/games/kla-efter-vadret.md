@@ -105,3 +105,24 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
   (3) **Snäpp-"klick" + tyg-fras** (audio.tone) + **zon-studs** (pop på ringen) vid fastsättning.
   (4) **Lugn väder-ambient** via audio.tone: fågelkvitter (sol), mjuka droppar (regn), vind-sus
   (snö) — låg volym, gles takt. Självtest: errorCount 0.
+- 2026-08-06: **P0 ASSETS + två layoutfel** (poleringsrundan, 🔤 Lära-fliken).
+  - **Alla 13 plagg ritas nu** via `drawIcon` — de dras runt, de ÄR spelobjekt, och var
+    tidigare naken emoji-Text. Ny `wear`-mall i `src/lib/artikoner.js` med 17 nycklar
+    (12 former): solhatt · keps · regnhatt · vintermössa · tröja · klänning · regnjacka ·
+    vinterjacka · sandaler · skor · gummistövlar · stövlar · vinterstövlar · kängor ·
+    solglasögon · badbyxor · halsduk. Paraplyet återanvänder befintliga ☂️.
+  - **Nyckelkrock rättad.** `🧢` var nyckel för TRE olika plagg (keps, regnhatt,
+    vintermössa) och `🧥` för två jackor — en emoji-nyckel kunde omöjligt skilja dem åt,
+    och distraktor-poolens dedup (`seen.has`) slog därför bort giltiga plagg. Fältet
+    heter nu `art` och nycklarna är ord, inte emoji.
+  - **Vädertecknet ritas** (`☀️` / nya `regnmoln` / `snoflinga`). Det är hela ledtråden i
+    spelet och renderades av systemfonten. `_symbol` är nu en Container som ritas om vid
+    väderbyte i stället för en Text vars `.text` byttes.
+  - **Layoutfel 1 — plaggen låg ovanpå Elvira.** Jämnt centrerad utläggning gav alltid ett
+    plagg på x=640. Värre än det ser ut: fot-zonens träffyta är Ø260 med centrum (640,560),
+    så ett plagg som SPAWNADE där låg redan inuti släppzonen och en liten knuff kunde
+    räknas som en placering barnet aldrig gjort. Ny `_layoutShelf(n)` lägger halva
+    gruppen vänster om Elvira (slutar x=470) och halva höger (börjar x=810) — mitten fri.
+  - **Layoutfel 2 — plaggen svävade ovanför hyllan.** `SHELF_Y` 600 → 668 och hyllplanet
+    breddat till x 80..1200 så sex plagg ryms i två grupper. Nu ligger de PÅ hyllan.
+  - `npm run test` 0 fel; skärmdump verifierad i alla tre väder.

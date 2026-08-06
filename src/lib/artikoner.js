@@ -77,6 +77,20 @@ const ART = {
   '🐑': ['animal', 0xf0e6d8, 'wool', 0xfff8f0], '🐴': ['animal', 0xb5764a, 'horse', 0xe8c9a0],
   '🦆': ['animal', 0xf7f3e8, 'bill', 0xffffff], '🐔': ['animal', 0xfaf6ee, 'comb', 0xfff8f0],
   '🐓': ['animal', 0xc46a45, 'rooster', 0xf0d7ae], '🐤': ['animal', 0xffe08a, 'beak', 0xfff6d8],
+  // kläder: [form, huvudfärg, accentfärg]. Nycklarna är ORD, inte emoji — kla-efter-vadret
+  // hade tre olika huvudbonader på samma 🧢 och två jackor på samma 🧥, så en emoji-nyckel
+  // kunde omöjligt skilja dem åt.
+  solhatt: ['wear', 'sunhat', 0xf0d9a0, 0xff9ec4], keps: ['wear', 'cap', 0x4aa3df, 0xffffff],
+  regnhatt: ['wear', 'rainhat', 0xffd35c, 0xe0a94f], vintermossa: ['wear', 'beanie', 0xa78bfa, 0xfff0d8],
+  troja: ['wear', 'shirt', 0x5bbf6a, 0xffffff], klanning: ['wear', 'dress', 0xff9ec4, 0xffffff],
+  regnjacka: ['wear', 'coat', 0xffd35c, 0xe0a94f], vinterjacka: ['wear', 'puffer', 0x4aa3df, 0xfff0d8],
+  sandaler: ['wear', 'sandal', 0xd9a56b, 0x8a5a3b], skor: ['wear', 'shoe', 0xe0574f, 0xffffff],
+  gummistovlar: ['wear', 'boot', 0xffd35c, 0xe0a94f], stovlar: ['wear', 'boot', 0x8a5a3b, 0x6f4a2e],
+  vinterstovlar: ['wear', 'snowboot', 0x4a6a8a, 0xfff0d8], kangor: ['wear', 'snowboot', 0x8a5a3b, 0xd9c0a0],
+  solglasogon: ['wear', 'shades', 0x2b2b2b, 0x6ad0ff], badbyxor: ['wear', 'trunks', 0x4aa3df, 0xffd35c],
+  halsduk: ['wear', 'scarf', 0xe0574f, 0xffd35c],
+  // vädertecken (kla-efter-vadret) — själva ledtråden, får inte vara en systemfont-emoji
+  regnmoln: ['shape', 'raincloud', 0xc9d4dd], snoflinga: ['shape', 'snowflake', 0x9fd8f0],
 }
 
 export function drawIcon(key, size = 100) {
@@ -357,6 +371,32 @@ export function drawIcon(key, size = 100) {
       g.circle(2 * S, -8 * S, 24 * S).fill(col)
       g.circle(24 * S, 6 * S, 18 * S).fill(col)
       g.roundRect(-36 * S, 2 * S, 72 * S, 22 * S, 11 * S).fill(col)
+    } else if (shape === 'raincloud') {
+      for (const [dx, dy] of [[-20, 26], [0, 34], [20, 26]]) {
+        g.moveTo(dx * S, (dy - 12) * S).quadraticCurveTo((dx + 8) * S, (dy + 2) * S, dx * S, (dy + 8) * S)
+        g.quadraticCurveTo((dx - 8) * S, (dy + 2) * S, dx * S, (dy - 12) * S).closePath().fill(0x6ab0e0)
+      }
+      g.circle(-20 * S, -2 * S, 18 * S).fill(col)
+      g.circle(2 * S, -16 * S, 24 * S).fill(col)
+      g.circle(24 * S, -2 * S, 18 * S).fill(col)
+      g.roundRect(-36 * S, -6 * S, 72 * S, 22 * S, 11 * S).fill(col)
+      g.roundRect(-32 * S, 8 * S, 64 * S, 8 * S, 4 * S).fill({ color: dk, alpha: 0.35 })
+    } else if (shape === 'snowflake') {
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI * 2
+        const cx = Math.cos(ang), cy = Math.sin(ang)
+        g.moveTo(0, 0).lineTo(cx * 36 * S, cy * 36 * S).stroke({ width: 7, color: col, cap: 'round' })
+        // grenar
+        for (const t of [0.5, 0.78]) {
+          const bx = cx * 36 * t * S, by = cy * 36 * t * S
+          for (const s2 of [-0.5, 0.5]) {
+            const ba = ang + s2
+            g.moveTo(bx, by).lineTo(bx + Math.cos(ba) * 12 * S, by + Math.sin(ba) * 12 * S)
+            g.stroke({ width: 5, color: col, cap: 'round' })
+          }
+        }
+      }
+      g.circle(0, 0, 8 * S).fill(0xffffff).stroke({ width: 4, color: col })
     } else if (shape === 'bubbles') {
       for (const [bx, by, br] of [[-14, 10, 16], [12, -4, 20], [22, 22, 11], [-22, -16, 10]]) {
         g.circle(bx * S, by * S, br * S).fill({ color: col, alpha: 0.55 }).stroke({ width: 3, color: 0xffffff, alpha: 0.85 })
@@ -375,6 +415,107 @@ export function drawIcon(key, size = 100) {
     } else {
       g.circle(0, 0, 32 * S).fill(col).stroke({ width: 4, color: dk })
       g.circle(-10 * S, -11 * S, 9 * S).fill({ color: 0xffffff, alpha: 0.35 })
+    }
+  } else if (tpl === 'wear') {
+    const [, form, col, acc] = a
+    const dk = lerpColor(col, 0x000000, 0.28)
+    const ad = lerpColor(acc, 0x000000, 0.22)
+    if (form === 'sunhat') {
+      g.ellipse(0, 14 * S, 46 * S, 15 * S).fill(col).stroke({ width: 4, color: dk })
+      g.moveTo(-24 * S, 15 * S).quadraticCurveTo(-22 * S, -28 * S, 0, -28 * S)
+      g.quadraticCurveTo(22 * S, -28 * S, 24 * S, 15 * S).closePath().fill(col).stroke({ width: 4, color: dk })
+      g.roundRect(-25 * S, 2 * S, 50 * S, 12 * S, 6 * S).fill(acc).stroke({ width: 3, color: ad })
+    } else if (form === 'cap') {
+      g.moveTo(-30 * S, 8 * S).quadraticCurveTo(-30 * S, -30 * S, 0, -30 * S)
+      g.quadraticCurveTo(30 * S, -30 * S, 30 * S, 8 * S).closePath().fill(col).stroke({ width: 4, color: dk })
+      g.ellipse(26 * S, 10 * S, 26 * S, 9 * S).fill(dk)
+      g.circle(0, -30 * S, 6 * S).fill(acc).stroke({ width: 3, color: ad })
+    } else if (form === 'rainhat') {
+      // Sydväst: brätte som viker NER i sidorna + hakband. Skiljer den från solhatten,
+      // som har platt brätte och rosett.
+      g.moveTo(-43 * S, 0).quadraticCurveTo(-41 * S, 20 * S, -20 * S, 19 * S).lineTo(20 * S, 19 * S)
+      g.quadraticCurveTo(41 * S, 20 * S, 43 * S, 0).quadraticCurveTo(0, 12 * S, -43 * S, 0).closePath()
+      g.fill(col).stroke({ width: 4, color: dk })
+      g.moveTo(-27 * S, 6 * S).quadraticCurveTo(-26 * S, -28 * S, 0, -28 * S)
+      g.quadraticCurveTo(26 * S, -28 * S, 27 * S, 6 * S).closePath().fill(col).stroke({ width: 4, color: dk })
+      g.roundRect(-27 * S, -6 * S, 54 * S, 10 * S, 5 * S).fill(acc)
+      g.moveTo(-24 * S, 16 * S).quadraticCurveTo(0, 34 * S, 24 * S, 16 * S).stroke({ width: 4, color: ad })
+    } else if (form === 'beanie') {
+      g.circle(0, -32 * S, 11 * S).fill(acc).stroke({ width: 3, color: ad })
+      g.moveTo(-30 * S, 12 * S).quadraticCurveTo(-30 * S, -22 * S, 0, -22 * S)
+      g.quadraticCurveTo(30 * S, -22 * S, 30 * S, 12 * S).closePath().fill(col).stroke({ width: 4, color: dk })
+      for (const rx of [-16, 0, 16]) g.moveTo(rx * S, -20 * S).lineTo(rx * S, 12 * S).stroke({ width: 3, color: dk, alpha: 0.4 })
+      g.roundRect(-33 * S, 8 * S, 66 * S, 17 * S, 8 * S).fill(acc).stroke({ width: 3, color: ad })
+    } else if (form === 'shirt' || form === 'dress') {
+      const dress = form === 'dress'
+      g.moveTo(-17 * S, -26 * S).lineTo(-37 * S, -13 * S).lineTo(-27 * S, 3 * S).lineTo(-19 * S, -3 * S)
+      if (dress) g.lineTo(-32 * S, 34 * S).lineTo(32 * S, 34 * S).lineTo(19 * S, -3 * S)
+      else g.lineTo(-19 * S, 30 * S).lineTo(19 * S, 30 * S).lineTo(19 * S, -3 * S)
+      g.lineTo(27 * S, 3 * S).lineTo(37 * S, -13 * S).lineTo(17 * S, -26 * S)
+      g.quadraticCurveTo(0, -15 * S, -17 * S, -26 * S).closePath().fill(col).stroke({ width: 4, color: dk })
+      if (dress) g.roundRect(-19 * S, 0, 38 * S, 8 * S, 4 * S).fill(acc).stroke({ width: 2, color: ad })
+      else g.moveTo(-11 * S, -21 * S).quadraticCurveTo(0, -11 * S, 11 * S, -21 * S).stroke({ width: 4, color: acc })
+    } else if (form === 'coat' || form === 'puffer') {
+      if (form === 'coat') {
+        // Huvan måste synas OVANFÖR axlarna, annars är regnjackan bara en trapets.
+        g.moveTo(-25 * S, -14 * S).quadraticCurveTo(0, -48 * S, 25 * S, -14 * S)
+        g.quadraticCurveTo(0, -26 * S, -25 * S, -14 * S).closePath()
+        g.fill(lerpColor(col, 0x000000, 0.17)).stroke({ width: 4, color: dk })
+      }
+      g.moveTo(-20 * S, -20 * S).lineTo(-37 * S, -6 * S).lineTo(-31 * S, 32 * S).lineTo(31 * S, 32 * S)
+      g.lineTo(37 * S, -6 * S).lineTo(20 * S, -20 * S).closePath().fill(col).stroke({ width: 4, color: dk })
+      if (form === 'puffer') {
+        for (const qy of [-6, 6, 18]) g.moveTo(-33 * S, qy * S).lineTo(33 * S, qy * S).stroke({ width: 3, color: dk, alpha: 0.45 })
+        g.ellipse(0, -19 * S, 23 * S, 10 * S).fill(acc).stroke({ width: 3, color: ad })
+      } else {
+        g.moveTo(0, -16 * S).lineTo(0, 32 * S).stroke({ width: 4, color: acc })
+        g.circle(-13 * S, 12 * S, 4 * S).fill(acc)
+      }
+    } else if (form === 'sandal') {
+      // OVANIFRÅN, till skillnad från de andra skorna. Sidovy testades i två varianter
+      // och läste båda som en bänk/korg — lösa remmar bredvid en sula binds inte ihop
+      // av ögat. Y-remmen uppifrån är entydig även för en 2-åring.
+      g.ellipse(0, 2 * S, 22 * S, 34 * S).fill(col).stroke({ width: 4, color: dk })
+      g.ellipse(0, 2 * S, 15 * S, 27 * S).fill(lerpColor(col, 0xffffff, 0.28))
+      g.moveTo(0, -15 * S).quadraticCurveTo(-11 * S, -4 * S, -16 * S, 9 * S).stroke({ width: 8, color: acc, cap: 'round' })
+      g.moveTo(0, -15 * S).quadraticCurveTo(11 * S, -4 * S, 16 * S, 9 * S).stroke({ width: 8, color: acc, cap: 'round' })
+      g.circle(0, -16 * S, 6 * S).fill(acc).stroke({ width: 3, color: ad })
+    } else if (form === 'shoe') {
+      g.moveTo(-34 * S, 18 * S).lineTo(-34 * S, -2 * S).quadraticCurveTo(-30 * S, -18 * S, -8 * S, -16 * S)
+      g.lineTo(8 * S, 2 * S).quadraticCurveTo(30 * S, 6 * S, 34 * S, 18 * S).closePath().fill(col).stroke({ width: 4, color: dk })
+      g.roundRect(-37 * S, 16 * S, 74 * S, 12 * S, 6 * S).fill(acc).stroke({ width: 3, color: 0xc3ccd4 })
+      for (let i = 0; i < 3; i++) g.moveTo((-24 + i * 9) * S, (-9 + i * 4) * S).lineTo((-14 + i * 9) * S, (-3 + i * 4) * S).stroke({ width: 3, color: acc })
+    } else if (form === 'boot' || form === 'snowboot') {
+      g.moveTo(-16 * S, -30 * S).lineTo(16 * S, -30 * S).lineTo(16 * S, 6 * S)
+      g.quadraticCurveTo(20 * S, 13 * S, 34 * S, 15 * S).quadraticCurveTo(41 * S, 19 * S, 34 * S, 26 * S)
+      g.lineTo(-16 * S, 26 * S).closePath().fill(col).stroke({ width: 4, color: dk })
+      if (form === 'snowboot') {
+        for (const fx of [-14, -2, 10]) g.circle(fx * S, -28 * S, 10 * S).fill(acc).stroke({ width: 3, color: ad })
+      } else {
+        g.roundRect(-17 * S, -32 * S, 34 * S, 11 * S, 5 * S).fill(acc).stroke({ width: 3, color: ad })
+      }
+      g.roundRect(-17 * S, 24 * S, 53 * S, 8 * S, 4 * S).fill(dk)
+    } else if (form === 'shades') {
+      g.roundRect(-40 * S, -13 * S, 32 * S, 26 * S, 11 * S).fill(acc).stroke({ width: 5, color: col })
+      g.roundRect(8 * S, -13 * S, 32 * S, 26 * S, 11 * S).fill(acc).stroke({ width: 5, color: col })
+      g.moveTo(-8 * S, -5 * S).lineTo(8 * S, -5 * S).stroke({ width: 5, color: col })
+      g.moveTo(-40 * S, -8 * S).lineTo(-50 * S, -16 * S).stroke({ width: 5, color: col, cap: 'round' })
+      g.moveTo(40 * S, -8 * S).lineTo(50 * S, -16 * S).stroke({ width: 5, color: col, cap: 'round' })
+      g.ellipse(-30 * S, -6 * S, 7 * S, 4 * S).fill({ color: 0xffffff, alpha: 0.5 })
+    } else if (form === 'trunks') {
+      g.moveTo(-30 * S, -14 * S).lineTo(30 * S, -14 * S).lineTo(30 * S, 20 * S).lineTo(7 * S, 20 * S)
+      g.lineTo(0, -2 * S).lineTo(-7 * S, 20 * S).lineTo(-30 * S, 20 * S).closePath().fill(col).stroke({ width: 4, color: dk })
+      g.roundRect(-31 * S, -17 * S, 62 * S, 10 * S, 5 * S).fill(acc).stroke({ width: 3, color: ad })
+    } else {
+      // scarf — band över axlarna + TVÅ hängande ändar. Ett enda band läste som rosett.
+      g.roundRect(-21 * S, -8 * S, 17 * S, 40 * S, 7 * S).fill(col).stroke({ width: 4, color: dk })
+      g.roundRect(4 * S, -8 * S, 17 * S, 32 * S, 7 * S).fill(col).stroke({ width: 4, color: dk })
+      g.moveTo(-36 * S, -22 * S).quadraticCurveTo(0, -4 * S, 36 * S, -22 * S)
+      g.quadraticCurveTo(36 * S, -10 * S, 36 * S, -8 * S).quadraticCurveTo(0, 10 * S, -36 * S, -8 * S)
+      g.closePath().fill(col).stroke({ width: 4, color: dk })
+      for (const [fx, fy] of [[-20, 26], [5, 18]]) {
+        for (let i = 0; i < 3; i++) g.moveTo((fx + i * 6) * S, fy * S).lineTo((fx + i * 6) * S, (fy + 7) * S).stroke({ width: 3, color: acc })
+      }
     }
   } else if (tpl === 'tool') {
     const [, form, col] = a

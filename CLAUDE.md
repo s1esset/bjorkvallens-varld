@@ -71,3 +71,6 @@ EXIT-SÄKERT   spelaren kan lämna mitt i en animation → _alive-flagga + feedb
 - **Nya spel landar som ✅, aldrig 🔧** — kvalitetsgrindens 7 punkter i skill **spel-pipeline**.
 - **Webbläsare:** använd node-harnessen (`npm run test`) i första hand. Behövs en *levande*
   webbläsare: claude-in-chrome. Playwright-MCP endast som fallback — kör aldrig båda i samma uppgift.
+- **Agenter:** upp till **3 subagenter** får startas oombett när uppgiften tjänar på det
+  (pipelinens `spelbyggare` · `spelkritiker` · `felsokare`). Fler än 3 — fråga först.
+  Workflows och deep-research kräver alltid att ägaren ber om det.

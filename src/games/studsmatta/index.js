@@ -16,6 +16,7 @@ import { PhysicsWorld, nudge, Matter } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { floatText, sparkle, puff, burst, bigCelebration, pop } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { makeBobo } from '../../lib/figurer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 const { Body } = Matter
@@ -29,6 +30,12 @@ const BED_MAX_X = 950 // hur långt åt höger mattan får dras
 const BED_MIN_Y = 350 // högst upp mattan får dras (mjukast studs)
 const BED_MAX_Y = 560 // längst ner mattan får dras (spändast = högst studs)
 const DEFAULT_BED_Y = 470 // start: lagom spänning
+// Picknicken i högerkanten. Klar av kraftmätaren (x=1206) och av målens spawn-yta
+// (x 360..920). Studsmattans högra stolpe kan nå x=1150 vid full högerdragning, så
+// picknicken ritas SIST = i förgrunden och mattan glider snyggt bakom den.
+const PICNIC_X = 1052
+const PICNIC_GROUND = 690
+const PICNIC_R = 42
 const FLOOR_RESCUE_Y = 624 // föll kaninen bredvid mattan? mjuk räddnings-studs
 
 // --- Fysik-trimning (matter.js-enheter; finjustera vid speltest) ---
@@ -167,6 +174,11 @@ export default {
 
     // Kraftmätare (dekor) — visar hur spänd/hög mattan är.
     this._buildMeter()
+
+    // VARFÖRET (gate-punkt 4): en picknick i högerkanten. Kaninen samlar inte i tomma
+    // luften längre — allt hon fångar flyger till Bobos korg, och han jublar. Byggs
+    // SIST så picknicken ligger i förgrunden och studsmattan glider bakom den.
+    this._buildPicnic()
 
     // Fysik: golv + sidoväggar (mjukt tak hanteras manuellt i ticken).
     this._phys = new PhysicsWorld({ gravityY: GRAVITY_Y, walls: ['floor', 'left', 'right'] })
@@ -434,6 +446,106 @@ export default {
     }
   },
 
+  // Picknick i högerkanten: filt, korg och Bobo som väntar på maten.
+  _buildPicnic() {
+    const p = new Container()
+    p.eventMode = 'none'
+    p.interactiveChildren = false
+
+    const blanket = new Graphics()
+    blanket.ellipse(PICNIC_X, PICNIC_GROUND + 8, 118, 26).fill({ color: 0xe0574f, alpha: 0.9 })
+    for (let i = -2; i <= 2; i++) {
+      blanket.moveTo(PICNIC_X + i * 38, PICNIC_GROUND - 12).lineTo(PICNIC_X + i * 38, PICNIC_GROUND + 26)
+    }
+    blanket.stroke({ width: 3, color: 0xfff0d8, alpha: 0.55 })
+    p.addChild(blanket)
+
+    // Korgen som fylls. Innehållet ritas om i _fillBasket.
+    const basket = new Graphics()
+    basket.moveTo(-42, -20).lineTo(42, -20).lineTo(34, 26).lineTo(-34, 26).closePath()
+    basket.fill(0xc98a4b).stroke({ width: 4, color: 0x8a5a3b })
+    for (let i = -1; i <= 1; i++) basket.moveTo(i * 22, -18).lineTo(i * 18, 24)
+    basket.moveTo(-38, 2).lineTo(38, 2)
+    basket.stroke({ width: 3, color: 0x8a5a3b, alpha: 0.5 })
+    basket.arc(0, -20, 30, Math.PI, 0).stroke({ width: 6, color: 0x8a5a3b })
+    basket.position.set(PICNIC_X - 74, PICNIC_GROUND - 22)
+    p.addChild(basket)
+    this._basket = basket
+
+    // Det uppsamlade som syns i korgen (fylls på per fångat mål).
+    this._basketFill = new Graphics()
+    this._basketFill.position.set(PICNIC_X - 74, PICNIC_GROUND - 22)
+    p.addChild(this._basketFill)
+
+    this._bobo = makeBobo(PICNIC_R)
+    this._bobo.position.set(PICNIC_X + 44, PICNIC_GROUND - 2.36 * PICNIC_R)
+    p.addChild(this._bobo)
+    this._boboIdle = gsap.to(this._bobo.scale, {
+      x: 1.03, y: 1.03, duration: 2.0, yoyo: true, repeat: -1, ease: 'sine.inOut',
+    })
+
+    this._root.addChild(p)
+  },
+
+  // Rita om korgens innehåll: n prickar i mål-färgerna, staplade i två rader.
+  _fillBasket(n) {
+    const g = this._basketFill
+    if (!g || g.destroyed) return
+    g.clear()
+    for (let i = 0; i < Math.min(n, 8); i++) {
+      const col = i % 2 === 0 ? COLORS.orange : COLORS.yellow
+      const cx = -26 + (i % 4) * 17
+      const cy = 4 - Math.floor(i / 4) * 15
+      g.circle(cx, cy, 8).fill(col).stroke({ width: 2, color: 0x8a5a3b, alpha: 0.6 })
+    }
+  },
+
+  // Fångad sak flyger till korgen; Bobo studsar när den landar. Exit-säker:
+  // tweenar ett vanligt objekt och rör Pixi-noden bara om den lever.
+  _toBasket(ctx, fromX, fromY, kind) {
+    const bx = PICNIC_X - 74
+    const by = PICNIC_GROUND - 22
+    const view = kind === 'star' ? makeStar() : makeCarrot()
+    view.position.set(fromX, fromY)
+    view.scale.set(0.7)
+    view.eventMode = 'none'
+    this._root.addChild(view)
+    const st = { x: fromX, y: fromY, s: 0.7 }
+    this._flyTweens = this._flyTweens || []
+    const tw = gsap.to(st, {
+      x: bx,
+      y: by,
+      s: 0.34,
+      duration: 0.55,
+      ease: 'power2.in',
+      onUpdate: () => {
+        if (view.destroyed) return
+        view.position.set(st.x, st.y)
+        view.scale.set(st.s)
+      },
+      onComplete: () => {
+        if (!view.destroyed) view.destroy()
+        if (!this._alive) return
+        this._fillBasket(this._collected)
+        if (this._basket && !this._basket.destroyed) pop(this._basket, { scale: 1.12 })
+        this._boboMunch(ctx)
+      },
+    })
+    this._flyTweens.push(tw)
+  },
+
+  // Bobo tar emot: studs + gnistor (och en glad ton).
+  _boboMunch(ctx, big = false) {
+    const bo = this._bobo
+    if (!bo || bo.destroyed) return
+    gsap.killTweensOf(bo.scale)
+    gsap
+      .timeline()
+      .to(bo.scale, { x: big ? 1.2 : 1.1, y: big ? 1.28 : 1.15, duration: 0.12, ease: 'power2.out' })
+      .to(bo.scale, { x: 1, y: 1, duration: big ? 0.66 : 0.5, ease: 'elastic.out(1, 0.42)' })
+    sparkle(ctx.fxLayer, bo.x, bo.y - PICNIC_R * 1.4, { count: big ? 10 : 5 })
+  },
+
   _addGoal(x, y, kind) {
     const view = kind === 'star' ? makeStar() : makeCarrot()
     view.position.set(x, y)
@@ -490,8 +602,10 @@ export default {
 
     sparkle(ctx.fxLayer, g.x, g.view.y, { count: 7 })
     puff(ctx.fxLayer, g.x, g.view.y, { count: 8, color: g.kind === 'star' ? COLORS.yellow : COLORS.orange })
-    floatText(ctx.fxLayer, g.x, g.view.y - 24, g.kind === 'star' ? '⭐' : '🥕')
     ctx.services.audio.sfx(g.kind === 'star' ? 'magi' : 'pling')
+    // Flyger till Bobos picknickkorg i stället för att bara försvinna — det är
+    // DÄRFÖR kaninen samlar. (Ersätter den svävande emoji-texten.)
+    this._toBasket(ctx, g.x, g.view.y, g.kind)
     if (Math.random() < 0.6) this._say(ctx, randomFrom(COLLECT_CHEERS), 800)
 
     g.tween?.kill()
@@ -573,6 +687,7 @@ export default {
     this._say(ctx, randomFrom(WIN_CHEERS), 0)
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, this._charView.x, this._charView.y, { count: 16 })
+    this._boboMunch(ctx, true) // picknicken är serverad
 
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -698,6 +813,10 @@ export default {
     this._loadTimer?.kill()
     this._assistTween?.kill()
     this._glideTween?.kill()
+    this._boboIdle?.kill()
+    ;(this._flyTweens || []).forEach((t) => t.kill())
+    if (this._bobo && !this._bobo.destroyed) gsap.killTweensOf(this._bobo.scale)
+    if (this._basket && !this._basket.destroyed) gsap.killTweensOf(this._basket.scale)
     this._detachRig()
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onCatcherTap)
     if (this._rig && !this._rig.destroyed) this._rig.off('pointerdown', this._onRigDown)

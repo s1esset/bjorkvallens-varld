@@ -106,3 +106,15 @@ Kort sagt: *en riktigt fin kontroll som spelet både motarbetar (centrering) och
     Kraftmätarens ⬆️-emoji är ersatt av en ritad pil.
   - **Ängen lever** (§3 "tom värld"): staket, tre träd, blommor och grässtrån bakom
     studsmattan i stället för bara en gradient med två kullar.
+- 2026-08-06: **[Deep] Kaninen fick ett varför** (spår "20 spel från 🔧 till ✅").
+  - Ny **picknick i högerkanten**: filt, korg och Bobo som väntar på maten. Varje fångad
+    morot/stjärna **flyger till korgen** (`_toBasket`) i stället för att bara försvinna,
+    korgen **fylls synligt** (`_fillBasket` ritar det insamlade) och Bobo studsar och
+    gnistrar varje gång (`_boboMunch`). Vid nivåvinst gör han en större gest — picknicken
+    är serverad. Kaninen samlar inte längre i tomma luften.
+  - **Placeringen krävde två försök.** Första läget (x=1140) lade Bobo rakt på kraftmätaren
+    (x=1206). Nu x=1052, och picknicken byggs **sist** så den ligger i förgrunden —
+    studsmattans högra stolpe kan nå x=1150 vid full högerdragning och glider nu snyggt
+    bakom picknicken i stället för att ritas ovanpå Bobo.
+  - Den svävande `🥕`/`⭐`-texten vid fångst är borta — saken flyger till korgen i stället.
+  - Exit-säkert: `_boboIdle`, flyg-tweens (`_flyTweens`) och skal-tweens dödas i `destroy`.

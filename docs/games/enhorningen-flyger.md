@@ -121,3 +121,14 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
   **vänd åt höger**, dit hon faktiskt flyger (emojin tittade bakåt). Stjärnorna (var ⭐),
   ringens glitter (var ✨) och fart-knappens sköldpadda/hare (var 🐢/🐇) ritas också.
   Fart-ikonen ritas nu även vid bygget, inte bara vid växling. errorCount 0.
+- 2026-08-06: **Båda [Deep]-punkterna** (spår "20 spel från 🔧 till ✅").
+  - **[Deep] Elvira med.** Hon **rider enhörningen** — berättelsen hade inget ansikte.
+    Ritad via `lib/figurer.js` (`makeElvira`), nedskalad till 58 px och satt en bit bak på
+    ryggen med fötterna strax under kroppens ovansida, så benen försvinner in i silhuetten
+    och hon läser som *sittande* i stället för stående på ryggen (första försöket, 72 px vid
+    y=-8, såg ut som att hon stod på halsen). Hon **studsar till vid varje ringpassage**.
+  - **[Deep] Ringen reagerar på passage.** Ny `_ringBurst`: ringen snäpper till, skickar ut
+    en **färgvåg i sin egen färg** (egen kortlivad Graphics i fxLayer, exit-säker
+    proxy-tween) och konfetti i samma ton. Ringens färg sparas nu i ring-posten. Tidigare
+    var det en generisk `pop` — varje ring får nu ett eget litet ögonblick.
+  - Exit-säkert: `_waveTweens` och ryttarens skal-tween dödas i `destroy`.

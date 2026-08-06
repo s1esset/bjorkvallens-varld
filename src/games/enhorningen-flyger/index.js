@@ -15,6 +15,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { makeElvira } from '../../lib/figurer.js'
 import { sparkle, puff, wiggle, pop, bounceIn, breathe, floatText, burst, bigCelebration } from '../../lib/feedback.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -149,6 +150,16 @@ export default {
 
   _makeUnicorn(ctx) {
     const uni = new Container()
+    // Elvira rider enhörningen — berättelsen hade inget ansikte (gate-punkt 4).
+    // makeElvira har origo vid FÖTTERNA. Hon sätts en bit bak på ryggen med fötterna
+    // strax under kroppens ovansida (y=-13 vid R=40), så benen försvinner in i
+    // silhuetten och hon läser som sittande i stället för stående på ryggen.
+    const rider = makeElvira(58)
+    rider.position.set(13, 4)
+    rider.scale.x = -1 // vänd åt flygriktningen (enhörningen ser åt vänster)
+    uni.addChild(rider)
+    this._rider = rider
+
     uni.position.set(UNI_X, 360)
     // Mjuk skuggellips under.
     const shadow = new Graphics().ellipse(0, 56, 46, 14).fill({ color: COLORS.shadow, alpha: 1 })
@@ -336,6 +347,7 @@ export default {
     bounceIn(ring, { duration: 0.3 })
     this._rings.push({
       view: ring,
+      color,
       R,
       ry0,
       ry: ry0,
@@ -524,7 +536,8 @@ export default {
     au.tone({ freq: 1050, slideTo: 1760, dur: 0.24, type: 'sine', vol: 0.2, delay: 0.05 })
     sparkle(ctx.fxLayer, UNI_X, uni.y, { count: 8 })
     floatText(ctx.fxLayer, UNI_X, uni.y - 60, '⭐', { fontSize: 56 })
-    pop(r.view, { scale: 1.16 })
+    this._ringBurst(ctx, r)
+    if (this._rider && !this._rider.destroyed) pop(this._rider, { scale: 1.14 })
     this._lightPip(this._ringsDone)
     this._ringsDone++
     // Variation + sparsamt beröm var 3:e ring.
@@ -533,6 +546,35 @@ export default {
       ctx.services.voice.say(randomFrom(['Wow!', 'Bra fluget!', 'Hurra!']))
     }
     if (this._ringsDone >= this._target) this._win(ctx)
+  },
+
+  // Ringen får ett EGET ögonblick vid genomflygning: den snäpper till, skickar ut en
+  // färgvåg i sin egen färg och konfetti i samma ton — i stället för en generisk pop.
+  // Vågen är en egen kortlivad Graphics i fxLayer (exit-säker proxy-tween).
+  _ringBurst(ctx, r) {
+    if (!r?.view || r.view.destroyed) return
+    pop(r.view, { scale: 1.22 })
+    const col = r.color ?? COLORS.purple
+    const wave = new Graphics().circle(0, 0, r.R + 16).stroke({ width: 14, color: col })
+    wave.position.set(r.view.x, r.ry)
+    wave.eventMode = 'none'
+    ctx.fxLayer.addChild(wave)
+    const st = { s: 1, a: 0.85 }
+    const tw = gsap.to(st, {
+      s: 2.1,
+      a: 0,
+      duration: 0.45,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (wave.destroyed) return
+        wave.scale.set(st.s)
+        wave.alpha = st.a
+      },
+      onComplete: () => { if (!wave.destroyed) wave.destroy() },
+    })
+    this._waveTweens = this._waveTweens || []
+    this._waveTweens.push(tw)
+    burst(ctx.fxLayer, r.view.x, r.ry, { count: 10, color: col })
   },
 
   _onRingMiss(ctx, r) {
@@ -719,6 +761,8 @@ export default {
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._winTimer?.kill()
     this._breatheTw?.kill()
+    ;(this._waveTweens || []).forEach((t) => t.kill())
+    if (this._rider && !this._rider.destroyed) gsap.killTweensOf(this._rider.scale)
 
     if (this._pad && !this._pad.destroyed) {
       this._pad.off('pointerdown', this._onDown)

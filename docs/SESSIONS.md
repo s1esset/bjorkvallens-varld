@@ -14,6 +14,48 @@ Format:
 
 ---
 
+## 2026-08-06 · v1.14.0 · 🎰 Flipperspelet fick en bana (polerings-hög 2, 2/6)
+
+**Byggt:**
+- **Återupptagen körning.** 17 okommitterade filer visade sig vara en **`FONT`/`Text`-
+  importrensning** i 15 spel (uppföljning på lärdomen att `FONT` är ett *objekt*, så en
+  kvarglömd import lockar till `fontFamily: FONT` som kraschar `Text` först vid rendering)
+  plus två riktiga layoutfixar: **knuffa-tornet** (kranens mast slutade i luften på y≈492)
+  och **saftbaren** (ytterflaskorna låg bakom hem-/ljudknappen, flaskhalsarna kapades av
+  skärmkanten). Allt verifierat och committat.
+- **`flipperspel` — 🔧 → ✅.** Bordet var ett platt fält av identiska stjärndynor; nu är det
+  en bana: **snurra** ovanför dränet, **två studsfenor** i det döda bandet, **tunnel** (två
+  hål i sidoväggarna), **tre ritade dynetyper** (stjärna/klocka/blomma med egen silhuett,
+  studs och klangfärg) och ett **eget showläge** som finish — kulan lyfts ur banan upp till
+  Bobo som fångar den och kastar konfettin. `bigCelebration` är borta.
+- **Buggar hittade på vägen:** `_toggleTilt` satte `.text` på `_tiltIcon`, som blev en
+  `Graphics` 2026-08-04 — en no-op, så Lugnt-läget visade en blixt. Och `sfx('flip')` /
+  `sfx('pling')` fanns aldrig i ljudmanifestet; nu används de riktiga klippen `thwip`,
+  `boing` och `whoosh` som redan låg oanvända.
+
+**Lärdomar (fysik med banelement):**
+- Tunnelmynningar på **samma höjd** gör tunneln till en loop — den utspottade kulan flyger
+  tvärs över rakt in i den andra. 17 tunnelresor och **noll** paddelkickar på 40 s.
+- En **svag** studsfena är värre än ingen: 9,5 i kick lyfte kulan ~50 px och den föll rakt
+  ner på samma fena igen. Fenan måste nå upp i dyn-fältet (17).
+- Placeringsregeln allt vilar på: inget par av ytor får bilda en **nedåt smalnande kil**.
+  Varje passage ska vara bredare än 100 px hela vägen eller helt tätad (< 56 px = kulans
+  bredd). Mellanlägen klämmer fast kulan.
+- **Sond-gotcha:** `import('/src/games/<id>/index.js')` i webbläsaren ger en EGEN
+  modulinstans i Vite dev. Den levande hämtas via
+  `(await import('/src/games/registry.js')).getGame(id)`.
+
+**Commits:** `80fa204` fix(knuffa-tornet) · `23ee542` fix(saftbaren) · `c68113c` chore:
+FONT/Text-rensning i 15 spel · `bafa0a0` feat(flipperspel) · `1c4be18` docs(flipperspel) ·
+`97913e5` chore: v1.14.0
+
+**Öppet:** Polerings-hög 2 fortsätter — kvar: **snobollen, glasstornet, gravmaskinen,
+knuffa-tornet** (alla har "mjuka upp auto-hjälpen" + nivåvariation i sin doc §4). Sedan
+hög 3 (finish, ~3 spel). `.claude/settings.json` är ändrad (plugin-konfig) men medvetet
+inte committad. 29 röstrepliker väntar på `/rost`.
+
+---
+
 ## 2026-08-06 · v1.13.0 · 💧 Vätskemotor + Saftbaren (spel 71)
 
 **Byggt:**

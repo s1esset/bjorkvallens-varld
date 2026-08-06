@@ -14,6 +14,54 @@ Format:
 
 ---
 
+## 2026-08-06 · v1.16.0 · 🔍 Diagnostiklogg + snöbollens banvariation (polerings-hög 2, 3/6)
+
+**Byggt:**
+- **Diagnostiklogg (`src/lib/gamelog.js`) — ny, DEV-only.** Spelar in input, utdata, fysik,
+  rendering, motorernas interna läge (matter · Pixi · GSAP · three) och fel, kopplad på de
+  **delade chokepoints** så att inget av de 71 spelen behövde ändras: GameHost (livscykel,
+  progress, timers), en global pointer-capture på `window` (fångstfas — Pixis egen lyssnare
+  ligger på canvasen och kör annars FÖRE oss, vilket förskjuter varje svarstid ett helt
+  tryck), `PhysicsWorld`, `DragController`, `drawIcon`, `AimLauncher`, `ThreeLayer`
+  (`renderer.info`) och en patch på `gsap.to/from/fromTo/timeline/delayedCall`.
+  Ovanpå råloggen ligger **16 härledda fynd**: `dod-traffyta`, `tryck-utan-ljud`,
+  `sen-aterkoppling`, `saknad-ikon`, `rost-utan-klipp`, `saknat-ljudklipp`, `tween-lacka`
+  (animation som lever efter destroy), `forstort-i-scen`, `nan-transform`, `utanfor-bild`,
+  `tom-scen`, `snal-snappyta`, `kropp-rymde`, `fysik-svalt`, `tween-per-ruta`, `scen-svall`.
+  Harnessen hämtar loggen efter varje körning → `.test-logs/<id>.json`, och `npm run test`
+  listar fynden per spel. **Noll kostnad i produktion:** `import.meta.env.DEV` foldas till
+  `false` och minifieraren slänger kroppen — grep efter diagnostiksträngar i `dist/assets`
+  ger noll träffar. Inga nätanrop, inget till localStorage (P0 "ingen spårning").
+- **Första skörden (71/71 gröna, alltså osynligt för konsolfel):** 15 spel med
+  `rost-utan-klipp`, `sapbubblor` 9× `saknat-ljudklipp`, 10 spel med `tryck-utan-ljud`,
+  3 med `dod-traffyta`, `fallskarmen` 175 nya tweens/500 ms.
+- **`vandkort` — tyst tryck fixat.** `_flip()` bortade tidigt på `_busy`/`_flipped`/`_done`
+  **före** ripple och flip-ljudet: under jämförelsepausen och på redan vända/färdiga kort
+  gav ett tryck ingenting alls (P0-brott). Nu svarar kortet med `wiggle` + mjuk ton, och
+  ett glatt pling på ett färdigt par.
+- **`snobollen` — banvariation + rotorsaken till den vita backen.** Varje bana lottar väder
+  (sol/snöyra/kvällsljus/gryning) och layoutprofil (jämn/myllrande/öppen/snörik), aldrig
+  samma två i rad. **Och:** backens djupgradient har aldrig synts — inte för att den
+  saknades, utan för att **snöfälten var upp till 476 000 px breda** (naken `Graphics`
+  ritad kring origo + stor `.position`, samma fälla som minnesnotisen
+  `pixi-graphics-position-bar-bug`) och lade en vit matta över hela skärmen; dessutom
+  ritades de fem djupbanden i EN `Graphics`, vilket gav hela backen det första bandets färg.
+  Båda fixade. Snöfältets `sparkle` bytt mot en snö-virvel som sugs in i bollen.
+
+**Commits:** dfa5189 diagnostiklogg · 6587680 vandkort-fix · 13a8cbd snobollen banvariation ·
+ecb6f97 docs v1.16.0
+
+**Öppet:**
+- Polerings-hög 2 fortsätter: **4/6 glasstornet**, sedan gravmaskinen och knuffa-tornet
+  (alla "mjuka upp auto-hjälpen + nivåvariation" — kontrollera först mot koden, snöbollens
+  auto-hjälp visade sig redan vara gjord och docens §1/§3 var inaktuell).
+- Loggens fynd är **inte** åtgärdade: `tryck-utan-ljud` i 10 spel och `dod-traffyta` i
+  `harma-melodin`, `vad-forsvann`, `vilket-djur-later` är obekräftade ledtrådar som behöver
+  läsas mot koden (vandkort-fyndet visade sig vara äkta).
+- `sapbubblor` spelar `audio.sample()` utan klipp 9 gånger → helt tyst; kör `/rost`.
+- `spelkritiker`-steget hoppades över i den här omgången (subagent ej körd) — kör det gärna
+  på `snobollen` innan hög 2 fortsätter.
+
 ## 2026-08-06 · v1.14.0 · 🎰 Flipperspelet fick en bana (polerings-hög 2, 2/6)
 
 **Byggt:**

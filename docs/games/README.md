@@ -137,24 +137,23 @@ stor del via det nya delade `src/lib/artikoner.js`.*
 | 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ | ✅ |
 | 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 | ✅ |
 
-### 🔤 Lära (larande + pedagogiskt) — ⬜ **poleringsrundan i kö** (0/9)
-*Första-omgången 2026-07-02. Sista fliken i poleringsrundan.*
+### 🔤 Lära (larande + pedagogiskt) — ✅ **polerad** (9/9)
+*Första-omgången 2026-07-02, poleringsrundan 2026-08-06. Sista fliken — rundan är klar.*
 | # | Spel | id | input | kvalitet | polerad |
 |---|------|----|-------|:--:|:--:|
-| 7 | Färgregn | `fargregn` | tap | 🔧 | ⬜ |
-| 9 | Räkna Äpplena | `rakna-applen` | tap | 🔧 | ⬜ |
-| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | 🔧 | ⬜ |
-| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | 🔧 | ⬜ |
-| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | 🔧 | ⬜ |
-| 25 | Siffertåget | `siffertaget` | mixed | 🔧 | ⬜ |
-| 30 | Djurorkester | `djurorkester` | tap | 🔧 | ⬜ |
-| 47 | Ballonglyft | `ballonglyft` | tap | 🔧 | ⬜ |
-| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | 🔧 | ⬜ |
+| 7 | Färgregn | `fargregn` | tap | ✅ | ✅ |
+| 9 | Räkna Äpplena | `rakna-applen` | tap | ✅ | ✅ |
+| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | ✅ | ✅ |
+| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | ✅ | ✅ |
+| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | ✅ | ✅ |
+| 25 | Siffertåget | `siffertaget` | mixed | ✅ | ✅ |
+| 30 | Djurorkester | `djurorkester` | tap | ✅ | ✅ |
+| 47 | Ballonglyft | `ballonglyft` | tap | ✅ | ✅ |
+| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | ✅ | ✅ |
 
 **Läget just nu:** alla **70** spel är granskade och alla 4 flikar har fått en genomförd
-första-omgång. **Poleringsrundan: 61/70 klara** (🎉 Roligt 15 · ⚙️ Fysik 27 · 🧩 Pussel 19) —
-**9 kvar**, hela 🔤 Lära-fliken. Kön och metoden ligger i `docs/POLERINGSRUNDA.md`; kör
-`/aterta` för att fortsätta där rundan stannade.
+första-omgång. **Poleringsrundan: 70/70 KLARA** (🎉 Roligt 15 · ⚙️ Fysik 27 · 🧩 Pussel 19 · 🔤 Lära 9) —
+**inget kvar** — rundan är avslutad 2026-08-06. Metoden ligger i `docs/POLERINGSRUNDA.md`.
 
 Utöver rundan: de 🔧-märkta spelen har kvarvarande [Deep]-förslag i sin egen doc §4 — prioritera
 efter de app-breda mönstren nedan, de lyfter många spel åt gången.

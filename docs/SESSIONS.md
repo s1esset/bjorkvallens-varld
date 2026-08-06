@@ -14,6 +14,57 @@ Format:
 
 ---
 
+## 2026-08-06 · v1.11.0 · 🔤 Lära-fliken polerad — **poleringsrundan 70/70 KLAR**
+
+**Byggt:** hela 🔤 Lära-kön (9 spel) körd i ett svep med checkpoint mellan varje. Därmed är
+**hela poleringsrundan avslutad**: alla 70 spel är genomgångna (🎉 15 · ⚙️ 27 · 🧩 19 · 🔤 9).
+
+- **P0 ASSETS i sex av nio spel.** `vilket-djur-later` (12 djur), `kla-efter-vadret` (13 plagg
+  + vädertecknet), `ballonglyft` (Elvira, presenten, 8 överraskningar), `siffertaget`
+  (vagnslasten), `blixt-och-dunder` (lamporna + mätaren) och `djurorkester` (6 djur) ritade
+  emoji som spelobjekt. Greppet från Pussel-rundan höll: **behåll emoji-strängen som NYCKEL**,
+  byt bara renderingen.
+- **`artikoner.js` växte med 25 nycklar.** Fem bondgårdsdjur (får · häst · anka · höna · tupp),
+  kyckling, en helt ny `wear`-mall med 17 plagg i 12 former, och två vädertecken (regnmoln,
+  snöflinga). **🐮 kon ritades om** från grunden — den gamla var en vit cirkel med runda öron
+  och läste som isbjörn; nu horn, breda öron, fläck och mule. Den syns i fem spel.
+- **Nytt verktyg `scripts/_ikoner.mjs`** — ritar valda nycklar i ett rutnät och skärmdumpar.
+  Det var det som avslöjade att kon, hästmanen, hönskammen, ankan, regnhatten, regnjackan,
+  sandalen och halsduken var svaga. Sandalen fick tre försök innan den slutade läsa som en
+  bänk; lösningen blev att rita den **ovanifrån** medan övriga skor är sidovy.
+- **Fyra äkta spelbuggar** som gröna test aldrig sett, alla hittade i skärmdumpen:
+  - `kla-efter-vadret`: ett plagg spawnade alltid på x=640 — ovanpå Elvira OCH inuti
+    fot-zonens Ø260 träffyta. En liten knuff kunde räknas som en placering barnet aldrig gjort.
+  - `ballonglyft`: en ballong spawnade bakom presenten och gick inte att hitta — rundan kunde
+    då bara lösas av auto-hjälpen. Dessutom klipptes ballongsnörena av nederkanten.
+  - `rakna-applen`: två frukter hängde i ren himmel, 192 px från närmaste lövboll (radie 156).
+  - `blixt-och-dunder`: Bobos fötter hamnade på y=731 — utanför 720-skärmen.
+- **Bobo var ett svävande huvud** i `blixt-och-dunder` (`makeMascot()` ger bara ett huvud —
+  samma fynd som i fem Pussel-spel). Ny `makeBoboBody()`.
+- **Två mottagare tillagda** (gate-punkt 4): en ritad **ekorre** i `rakna-applen` vars kinder
+  rodnar gradvis mot antalet i korgen, och en ritad **Elvira med kropp** i `ballonglyft`.
+- **Röstbuggarna borta — repo-kontrollen är 0 fel och 0 varningar för första gången.**
+  `peka-pa-kroppen` byggde alla sina frågor med `.replace()` på mallsträngar och `fargregn`
+  med strängkonkatenering; klipp-manifestet slår upp på exakt text, så spelens KÄRNREPLIKER
+  föll tillbaka på Web Speech. **Alla 100 fanns redan i `voice-phrases.json`** — det var
+  källkoden som gjorde dem onåbara. Nu fulla literaler i uppslagstabeller. 11 → 0 varningar.
+- **`fargregn` fick sin [Medium]-punkt:** pölarna bär nu färgen som landade i dem, och två
+  OLIKA grundfärger i samma pöl blandas synligt (gul+blå→grön, röd+blå→lila, röd+gul→orange)
+  med gnistor, stigande ton och talad förklaring. Sällsynt eftersom målfärgen dominerar regnet
+  — ett wow-ögonblick, inte en mekanik barnet måste hantera.
+
+**Commits:** `35bf5ab` vilket-djur-later · `208e6fe` kla-efter-vadret · `ef49053` ballonglyft ·
+`e6d75a8` siffertaget · `fee4f68` blixt-och-dunder · `17cd80e` djurorkester · `a39c26a`
+rakna-applen · `a6b0d75` peka-pa-kroppen · `81b1b7f` fargregn
+**Kontroll:** `npm run check` **0 fel · 0 varningar** · `npm run test:all --jobs 2` **70/70
+gröna** · bygge rent.
+**Öppet:** 15 repliker väntar på `/rost` (12 sedan tidigare + 3 nya färgblandnings-repliker).
+Fyra `sfx`-prompter väntar fortfarande på att MOSS är uppe. `ballonglyft`s
+`_attachLoose(ctx, b, opts)` tar emot `{ auto: true }` men läser aldrig `opts` — auto-hjälpens
+fäste går inte att skilja från barnets eget tryck; noterat i spelets doc §4, inte ändrat.
+
+---
+
 ## 2026-08-06 · v1.10.0 · 🧩 Pussel-fliken polerad — 19 spel, ett delat ikonbibliotek
 
 **Byggt:** hela 🧩 Pussel-kön körd i ett svep, ett spel i taget med checkpoint mellan varje.

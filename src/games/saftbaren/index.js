@@ -216,12 +216,16 @@ export default {
     // hylla högst upp med saftflaskor (dekor, ger baren ett rum)
     g.rect(0, 70, DESIGN_W, 18).fill(0xa9714a)
     g.rect(0, 88, DESIGN_W, 8).fill(shade(0xa9714a, 0.25))
-    for (let i = 0; i < 9; i++) {
-      const x = 60 + i * 140
+    // 7 flaskor mellan x=200 och x=1082: de gamla ytterlägena (60 och 1180) låg rakt
+    // bakom hem- och ljudknappen i hörnen.
+    for (let i = 0; i < 7; i++) {
+      const x = 200 + i * 147
       const c = PAL[i % 6].hex
-      g.roundRect(x - 20, 8, 40, 62, 10).fill({ color: c, alpha: 0.85 })
-      g.roundRect(x - 7, -6, 14, 20, 5).fill(shade(c, 0.3))
-      g.roundRect(x - 16, 16, 12, 26, 6).fill({ color: 0xffffff, alpha: 0.3 })
+      // Halsen låg tidigare på y=-6 och kapades av skärmkanten. Hela flaskan ryms nu
+      // mellan y=2 och hyllplanet (y=70), så korkarna syns.
+      g.roundRect(x - 20, 14, 40, 56, 10).fill({ color: c, alpha: 0.85 })
+      g.roundRect(x - 7, 2, 14, 18, 5).fill(shade(c, 0.3))
+      g.roundRect(x - 16, 22, 12, 22, 6).fill({ color: 0xffffff, alpha: 0.3 })
     }
     // bänkskiva
     g.rect(0, GRATE_Y - 8, DESIGN_W, 16).fill(0xc2a07d)

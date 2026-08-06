@@ -23,7 +23,7 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, MATERIALS } from '../../lib/physics.js'
-import { createScene } from '../../lib/scene.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
 import { puff, sparkle, burst, bigCelebration, floatText, pop, bounceIn, breathe } from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -76,6 +76,46 @@ const PRESS_HELP = 0.25 // autohjälpens grundknuff mot hindret (växer för var
 const CAT_BALL = 0x0002
 const CAT_DEBRIS = 0x0004
 const MASK_DEBRIS = 0x0001
+
+// --- Banvariation ------------------------------------------------------------
+// Tidigare var varje bana samma mall: samma himmel, samma vita snö, samma jämnt
+// utspridda hinder — bara lite längre för varje nivå. Nu lottas ett VÄDER och en
+// LAYOUTPROFIL per bana (aldrig samma två gånger i rad), så en tur kan vara en kort
+// myllrande backe i snöyra och nästa en lång öppen sträcka i kvällsljus.
+//
+// vader: sky går rakt in i createScene. Backen målas som en ramp från `yta` (solbelyst
+// snö närmast kanten) ner till `djup` — DJUPET ÄR HELA POÄNGEN: utan den mörknande
+// ramp blir det vit boll på vit backe och lutningen försvinner. Vädret får alltså
+// byta ramp-FÄRG men aldrig platta ut den. `ljus` är en tunn färgton över scenen.
+const VADER = [
+  { id: 'sol', sky: { top: 0x9fd2f7, bottom: 0xd8eeff, sun: 0xffe27a, clouds: 2 },
+    yta: 0xffffff, djup: 0xbcd8ef, kant: 0x8fb8dc, korn: 0xa9cde8, gran: 0x7fb8a0,
+    flingor: 14, flingAlpha: 0.75, ljus: null },
+  { id: 'yra', sky: { top: 0x8ea6bd, bottom: 0xccdae8, clouds: 4 },
+    yta: 0xf2f7fc, djup: 0x9cbcd8, kant: 0x7ba0c2, korn: 0x8fb0cc, gran: 0x6f9e8c,
+    flingor: 46, flingAlpha: 0.95, ljus: { color: 0xa8bccf, alpha: 0.1 } },
+  { id: 'kvall', sky: { top: 0x6d7ab0, bottom: 0xf7c49a, sun: 0xffb06a, clouds: 3 },
+    yta: 0xfdeee2, djup: 0xa895c0, kant: 0x8f7cad, korn: 0xb9a4d0, gran: 0x6a7fa0,
+    flingor: 10, flingAlpha: 0.6, ljus: { color: 0xff9a5c, alpha: 0.1 } },
+  // Gryningens djup hålls dammrosa, inte brunt — brun snö läser som grus, inte snö.
+  { id: 'gryning', sky: { top: 0xa9c6ef, bottom: 0xffd9c0, sun: 0xfff0a8, clouds: 2 },
+    yta: 0xfffaf4, djup: 0xd9bcc4, kant: 0xbfa0a8, korn: 0xd8bfc4, gran: 0x86ad9c,
+    flingor: 18, flingAlpha: 0.7, ljus: { color: 0xffc890, alpha: 0.09 } },
+]
+
+// langd/falt/hinder/kullar är multiplikatorer på nivåns grundvärden.
+const PROFILER = [
+  { id: 'jamn', langd: 1.0, falt: 1.0, hinder: 1.0, kullar: 1.0 },
+  { id: 'myllrande', langd: 0.82, falt: 1.15, hinder: 1.45, kullar: 0.6 },
+  { id: 'oppen', langd: 1.18, falt: 0.95, hinder: 0.65, kullar: 1.7 },
+  { id: 'snorik', langd: 1.0, falt: 1.5, hinder: 0.8, kullar: 1.0 },
+]
+
+// Lotta nästa ur en lista, men aldrig samma som förra gången.
+function nastaVariant(lista, forra) {
+  const val = lista.filter((v) => v.id !== forra)
+  return randomFrom(val.length ? val : lista)
+}
 
 // Hindren. tip = hur mycket "press" som krävs innan det välter.
 const OBSTACLES = {
@@ -138,6 +178,7 @@ export default {
     this._flags = []
     this._debris = []
     this._snowParts = []
+    this._swirls = []
     this._flakes = []
     this._decorTweens = []
     this._rollT = 0 // nedräkning till nästa rull-knaster
@@ -152,8 +193,11 @@ export default {
     ctx.stage.addChild(this._root)
 
     // Vinterbakgrund i SKÄRMRYMD (himmel + sol + moln följer inte med kameran).
-    const winter = { top: 0x9fd2f7, bottom: 0xd8eeff, ground: 0xdceefb, groundDark: 0xc3ddf1, sun: true, clouds: 2 }
-    this._root.addChild(createScene(winter, { width: ctx.width, height: ctx.height }))
+    // Ligger i en egen hållare så att vädret kan bytas per bana utan att röra z-ordningen.
+    this._skyHolder = new Container()
+    this._skyHolder.eventMode = 'none'
+    this._skyHolder.interactiveChildren = false
+    this._root.addChild(this._skyHolder)
 
     // Stor osynlig styr-yta: pekning var som helst "tar tag" i leken.
     this._backdrop = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0xffffff, alpha: 0 })
@@ -177,6 +221,13 @@ export default {
     this._world = new Container()
     this._world.eventMode = 'passive'
     this._root.addChild(this._world)
+
+    // Väder-ljus: en tunn färgton ÖVER backen och världen (men under flingor och
+    // mätare) så att kvällssol och snöyra färgar hela scenen, inte bara himlen.
+    this._light = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(0xffffff)
+    this._light.eventMode = 'none'
+    this._light.alpha = 0
+    this._root.addChild(this._light)
 
     this._buildDecor()
 
@@ -259,39 +310,64 @@ export default {
   },
 
   _buildHill() {
-    const g = new Graphics()
-    g.eventMode = 'none'
+    this._hillVis = new Container()
+    this._hillVis.eventMode = 'none'
+    this._hillVis.interactiveChildren = false
+    this._root.addChild(this._hillVis)
+    this._paintHill(VADER[0])
+  },
+
+  // Målar om backen i banans väderfärger. Snön blir allt mörkare nedåt — annars
+  // blir det vitt på vitt och bollen försvinner. Drivor, korn och granar lottas om
+  // vid varje ommålning, så inte ens samma väder ger exakt samma backe.
+  _paintHill(w) {
+    const holder = this._hillVis
+    if (!holder || holder.destroyed) return
+    holder.removeChildren().forEach((o) => o.destroy())
+    const mix = (t) => lerpColor(w.djup, w.yta, t) // t=1 solbelyst yta, t=0 djupast
     const x0 = -40
     const x1 = VIEW_W + 40
     const y0 = this._hillLineY(x0)
     const y1 = this._hillLineY(x1)
-    const band = (off, h, color, alpha = 1) =>
-      g.moveTo(x0, y0 + off).lineTo(x1, y1 + off).lineTo(x1, y1 + off + h).lineTo(x0, y0 + off + h).closePath().fill({ color, alpha })
+    // VARJE band får en EGEN Graphics. Alla band i samma Graphics gav bara det
+    // första bandets färg över hela backen — därför har sluttningen sett ut som en
+    // slät vit platta ända sedan djupgradienten lades in, oavsett vilka färger som
+    // stod i koden. Geometrin är statisk (ritas en gång per bana), så kostnaden är noll.
+    const band = (off, h, color, alpha = 1) => {
+      const b = new Graphics()
+      b.eventMode = 'none'
+      b.poly([x0, y0 + off, x1, y1 + off, x1, y1 + off + h, x0, y0 + off + h]).fill({ color, alpha })
+      holder.addChild(b)
+      return b
+    }
     // Själva backen ner till (långt under) skärmkanten. Djupet ligger i att snön blir
-    // allt blåare nedåt — annars blir det vitt på vitt och bollen försvinner.
-    g.moveTo(x0, y0).lineTo(x1, y1).lineTo(x1, 1000).lineTo(x0, 1000).closePath().fill(0xdceefb)
-    band(0, 5, 0x9dc4e4) // skarp kant: gör lutningen omedelbart läsbar
-    band(5, 60, COLORS.white) // solbelyst snöyta närmast kanten
-    band(65, 40, 0xf4fafe)
-    band(105, 70, 0xeaf4fd)
-    band(175, 90, 0xe3f0fb)
-    band(265, 120, 0xdceefb)
+    // allt mörkare nedåt — annars blir det vitt på vitt och bollen försvinner.
+    band(0, 1000, mix(0)) // botten: djupast, syns där inget annat band når
+    band(0, 5, w.kant) // skarp kant: gör lutningen omedelbart läsbar
+    band(5, 60, mix(1)) // solbelyst snöyta närmast kanten
+    band(65, 40, mix(0.82))
+    band(105, 70, mix(0.62))
+    band(175, 90, mix(0.42))
+    band(265, 120, mix(0.22))
+    const g = new Graphics()
+    g.eventMode = 'none'
+    holder.addChild(g)
     // Snöstruktur: mjuka drivor och glittrande korn. Nedre halvan av skärmen var
     // tidigare en helt slät vit platta där man tappade känslan av en backe.
     for (let i = 0; i < 22; i++) {
       const dx = x0 + Math.random() * (x1 - x0)
       const off = 70 + Math.random() * 380
-      const w = 60 + Math.random() * 150
+      const dw = 60 + Math.random() * 150
       const h = 10 + Math.random() * 16
       const dy = y0 + (y1 - y0) * ((dx - x0) / (x1 - x0)) + off
-      g.ellipse(dx, dy, w, h).fill({ color: 0xc3ddf1, alpha: 0.55 })
-      g.ellipse(dx - w * 0.14, dy - h * 0.3, w * 0.82, h * 0.7).fill({ color: 0xffffff, alpha: 0.9 })
+      g.ellipse(dx, dy, dw, h).fill({ color: w.korn, alpha: 0.5 })
+      g.ellipse(dx - dw * 0.14, dy - h * 0.3, dw * 0.82, h * 0.7).fill({ color: mix(1), alpha: 0.9 })
     }
     for (let i = 0; i < 70; i++) {
       const dx = x0 + Math.random() * (x1 - x0)
       const off = 40 + Math.random() * 460
       const dy = y0 + (y1 - y0) * ((dx - x0) / (x1 - x0)) + off
-      g.circle(dx, dy, 1.6 + Math.random() * 2.4).fill({ color: 0xa9cde8, alpha: 0.55 })
+      g.circle(dx, dy, 1.6 + Math.random() * 2.4).fill({ color: w.korn, alpha: 0.55 })
     }
     // Små granar längs nedre delen av backen (djup + en plats).
     for (let i = 0; i < 7; i++) {
@@ -304,18 +380,19 @@ export default {
         const ly = ty - 16 * ts - k * 20 * ts
         const lw = (34 - k * 8) * ts
         g.moveTo(tx - lw, ly).lineTo(tx + lw, ly).lineTo(tx, ly - 30 * ts).closePath()
-          .fill({ color: 0x7fb8a0, alpha: 0.4 })
+          .fill({ color: w.gran, alpha: 0.4 })
       }
     }
-    this._hillVis = g
-    this._root.addChild(g)
   },
 
   _buildFlakes(ctx) {
     this._flakeLayer = new Container()
     this._flakeLayer.eventMode = 'none'
-    for (let i = 0; i < 18; i++) {
+    // Poolen rymmer det tätaste vädret (snöyra); _applyVader visar bara så många
+    // som banans väder ber om, så snöfallet kan bytas utan att skapa nya objekt.
+    for (let i = 0; i < 48; i++) {
       const f = new Graphics().circle(0, 0, 2 + Math.random() * 3).fill({ color: 0xffffff, alpha: 0.8 })
+      f.visible = i < 14
       f.x = Math.random() * ctx.width
       f.y = Math.random() * ctx.height
       f.vy = 14 + Math.random() * 20
@@ -348,8 +425,9 @@ export default {
         decor.addChild(this._makeTree(x, 0.8 + Math.random() * 0.5))
       } else if (kind < 0.85) {
         const s = 0.75 + Math.random() * 0.45
-        const rock = new Graphics().ellipse(0, 0, 30 * s, 20 * s).fill(0xa7b8c8).ellipse(0, -7 * s, 25 * s, 11 * s).fill(0xffffff)
-        rock.position.set(x, surfaceY(x) - 8)
+        // Bakad position, samma skäl som i _addField.
+        const ry = surfaceY(x) - 8
+        const rock = new Graphics().ellipse(x, ry, 30 * s, 20 * s).fill(0xa7b8c8).ellipse(x, ry - 7 * s, 25 * s, 11 * s).fill(0xffffff)
         rock.eventMode = 'none'
         decor.addChild(rock)
       } else {
@@ -601,12 +679,15 @@ export default {
 
   // ---- Banor (nivåberoende, cykliska) -------------------------------------
 
-  _layoutFor(level) {
+  _layoutFor(level, profil) {
     const lv = Math.min(level, 5)
-    const goalX = 4100 + lv * 280 // 4100 -> 5500 px lång backe
-    const nF = 9 + lv // snöfält
-    const nT = 4 + lv // hinder
-    const nR = 1 + Math.floor(lv / 2) // hoppkullar
+    const p = profil || PROFILER[0]
+    // Nivån sätter grunden, profilen formar banan: en kort myllrande backe och en
+    // lång öppen sträcka kan alltså komma på samma nivå.
+    const goalX = clamp(Math.round((4100 + lv * 280) * p.langd), 3200, WORLD_LEN - 300)
+    const nF = Math.max(6, Math.round((9 + lv) * p.falt)) // snöfält
+    const nT = Math.max(2, Math.round((4 + lv) * p.hinder)) // hinder
+    const nR = Math.max(1, Math.round((1 + Math.floor(lv / 2)) * p.kullar)) // hoppkullar
     const bigEnough = [80, 85, 90, 95, 100, 100][lv]
 
     const lerp = (a, b, n, i) => (n <= 1 ? (a + b) / 2 : a + (b - a) * (i / (n - 1)))
@@ -658,7 +739,12 @@ export default {
     this._growAcc = 0
     this._clearHint()
 
-    const lay = this._layoutFor(level)
+    // Lotta banans väder och form (aldrig samma som förra banan) och klä om scenen.
+    this._vader = nastaVariant(VADER, this._vader?.id)
+    this._profil = nastaVariant(PROFILER, this._profil?.id)
+    this._applyVader(ctx, this._vader)
+
+    const lay = this._layoutFor(level, this._profil)
     this._goalX = lay.goalX
     this._bigEnough = lay.bigEnough
     this._placeZone(lay.goalX)
@@ -679,6 +765,32 @@ export default {
       this._far.y = -Math.round(this._camY * 0.35)
     }
     if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt)
+  },
+
+  // Klä om scenen efter banans väder: ny himmel, ommålad backe, färgat ljus över
+  // världen och tätare eller glesare snöfall. Byter INTE ut några objekt i världen,
+  // så inget kan hamna i fel z-ordning eller tappa sin kropp.
+  _applyVader(ctx, w) {
+    if (!this._alive || !w) return
+    if (this._skyHolder && !this._skyHolder.destroyed) {
+      this._skyHolder.removeChildren().forEach((o) => o.destroy({ children: true }))
+      this._skyHolder.addChild(createScene(w.sky, { width: ctx.width, height: ctx.height }))
+    }
+    this._paintHill(w)
+    if (this._light && !this._light.destroyed) {
+      gsap.killTweensOf(this._light)
+      this._light.tint = w.ljus?.color ?? 0xffffff
+      gsap.to(this._light, { alpha: w.ljus?.alpha ?? 0, duration: 0.5, ease: 'sine.out' })
+    }
+    // Flingorna finns redan — vi visar bara så många som vädret ber om.
+    for (let i = 0; i < this._flakes.length; i++) {
+      const f = this._flakes[i]
+      if (!f || f.destroyed) continue
+      f.visible = i < w.flingor
+      f.alpha = w.flingAlpha
+      f.vy = (14 + Math.random() * 20) * (w.id === 'yra' ? 2.1 : 1)
+      f.vx = w.id === 'yra' ? -20 - Math.random() * 26 : Math.random() * 8 - 4
+    }
   },
 
   _clearDynamic() {
@@ -717,20 +829,29 @@ export default {
       if (!p.destroyed) p.destroy()
     }
     this._snowParts = []
+    for (const g of this._swirls) {
+      gsap.killTweensOf(g)
+      if (!g.destroyed) g.destroy()
+    }
+    this._swirls = []
     this._growTween?.kill()
     this._helpTimer?.kill()
   },
 
+  // Snöfältets geometri ritas på sin VÄRLDSPOSITION, inte kring origo med .position.
+  // En naken Graphics som ritas kring (0,0) och sedan flyttas långt bort renderas som
+  // en skärmbred stapel (mätt: fälten var upp till 476 000 px breda och lade en vit
+  // matta över hela backen, vilket dolde hela djupgradienten). Logiken använder ändå
+  // _cx/_cy, inte f.x/f.y, så inget annat behöver ändras.
   _addField(x, y) {
     const f = new Graphics()
     const blobs = 3 + (Math.random() < 0.5 ? 1 : 0)
     for (let i = 0; i < blobs; i++) {
-      const ox = Math.random() * 56 - 28
-      const oy = Math.random() * 26 - 13
+      const ox = x + Math.random() * 56 - 28
+      const oy = y + Math.random() * 26 - 13
       const r = 30 + Math.random() * 20
       f.circle(ox, oy, r).fill({ color: 0xffffff, alpha: 0.95 }).stroke({ width: 3, color: 0xeaf2fb, alpha: 0.6 })
     }
-    f.position.set(x, y)
     f.eventMode = 'none'
     f._cx = x
     f._cy = y
@@ -1244,7 +1365,7 @@ export default {
 
   _updateFlakes(dt, ctx) {
     for (const f of this._flakes) {
-      if (f.destroyed) continue
+      if (f.destroyed || !f.visible) continue // gömda flingor tillhör ett tätare väder
       f.y += f.vy * dt
       f.x += f.vx * dt
       if (f.y > ctx.height + 8) {
@@ -1290,11 +1411,51 @@ export default {
     }
     if (this._ball && !this._ball.destroyed) {
       if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt)
-      sparkle(ctx.fxLayer, this._fx(this._ball.x), this._fy(this._ball.y), { count: 7 })
+      this._snowSwirl(ctx)
     }
     this._fadeField(field)
     this._idle = 0
     this._stillT = 0
+  },
+
+  // Snö-virvel: snökornen sugs IN i bollen i en spiral i stället för att bara blänka
+  // till. Kornen FÖLJER bollen medan de dras in, så det ser ut som att den äter snön.
+  // Ligger i fxLayer (skärmrymd); varje korn städas av sin egen tween och alla dödas
+  // i _clearDynamic/destroy, så ett exit mitt i virveln är ofarligt.
+  _snowSwirl(ctx) {
+    const layer = ctx.fxLayer
+    if (!layer || layer.destroyed || !this._ball || this._ball.destroyed) return
+    const N = 10
+    for (let i = 0; i < N; i++) {
+      const a0 = (i / N) * Math.PI * 2 + Math.random() * 0.6
+      const d0 = this._r + 44 + Math.random() * 44
+      const g = new Graphics().circle(0, 0, 2.5 + Math.random() * 3).fill({ color: 0xffffff, alpha: 0.95 })
+      g.eventMode = 'none'
+      layer.addChild(g)
+      this._swirls.push(g)
+      const st = { a: a0, d: d0 }
+      const tw = gsap.to(st, {
+        a: a0 + 2.4,
+        d: 0,
+        duration: 0.3 + Math.random() * 0.14,
+        ease: 'power2.in',
+        onUpdate: () => {
+          if (g.destroyed) {
+            tw.kill()
+            return
+          }
+          const bx = this._ball && !this._ball.destroyed ? this._fx(this._ball.x) : 0
+          const by = this._ball && !this._ball.destroyed ? this._fy(this._ball.y) : 0
+          g.position.set(bx + Math.cos(st.a) * st.d, by + Math.sin(st.a) * st.d)
+          g.alpha = Math.max(0, Math.min(1, st.d / d0))
+        },
+        onComplete: () => {
+          const k = this._swirls.indexOf(g)
+          if (k >= 0) this._swirls.splice(k, 1)
+          if (!g.destroyed) g.destroy()
+        },
+      })
+    }
   },
 
   // Tonar bort fältet till "uppskrapad mark" (exit-säker {}-proxy).
@@ -1606,6 +1767,14 @@ export default {
       gsap.killTweensOf(p.scale)
     }
     if (this._zoneC) gsap.killTweensOf(this._zoneC.scale)
+    // Virvel-kornen ligger i fxLayer, alltså UTANFÖR spelets root — de måste
+    // städas för hand, annars lever de vidare in i nästa skärm.
+    for (const g of this._swirls || []) {
+      gsap.killTweensOf(g)
+      if (!g.destroyed) g.destroy()
+    }
+    this._swirls = []
+    if (this._light) gsap.killTweensOf(this._light)
 
     this._phys?.destroy()
     gsap.killTweensOf(this._root)

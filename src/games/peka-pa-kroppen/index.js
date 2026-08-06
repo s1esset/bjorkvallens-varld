@@ -78,8 +78,7 @@ const HEAD_REGION = new Set(['huvud', 'nasa', 'oga', 'mun', 'ora'])
 const SOFT_HEAD_MAX_LEVEL = 3
 
 // "Peka på DIN …"-frågor (kroppslig koppling) + glad bekräftelse OAVSETT — kameran
-// kan inte se barnet, så vi firar alltid. {p} = din/ditt, {b} = obestämd bas.
-const OWN_QFORMS = ['Kan du peka på {p} {b}?', 'Var är {p} {b}?', 'Klappa {p} {b}!', 'Visa {p} {b}!']
+// kan inte se barnet, så vi firar alltid.
 const ownPraiseFor = (part) =>
   randomFrom([
     `Ja! Där är ${part.poss} ${part.bas}!`,
@@ -104,8 +103,39 @@ const GOAL_BY_LEVEL = { 1: 3, 2: 4, 3: 4, 4: 5, 5: 5, 6: 6 }
 // träffzonerna alltid stämmer; bara färg/öron/päls/hår skiljer.
 const CHARACTERS = [{ key: 'barn' }, { key: 'nalle' }, { key: 'kanin' }]
 
-// Frågeformer (alla med bestämd form) och beröm-fraser.
-const QFORMS = ['Var är {d}?', 'Kan du peka på {d}?', 'Hitta {d}!', 'Visa var {d} är!']
+// Frågorna skrivs ut som FULLA LITERALER per kroppsdel. En mallsträng ('Var är {d}?')
+// kan aldrig få ett röstklipp: klipp-manifestet slår upp på exakt text och check.mjs
+// matchar bara literaler. Fyra varianter per del och läge — alla fanns redan i
+// manifestet, det var källkoden som dolde dem.
+const QUESTIONS = {
+  huvud: ['Var är huvudet?', 'Kan du peka på huvudet?', 'Hitta huvudet!', 'Visa var huvudet är!'],
+  mage: ['Var är magen?', 'Kan du peka på magen?', 'Hitta magen!', 'Visa var magen är!'],
+  fot: ['Var är foten?', 'Kan du peka på foten?', 'Hitta foten!', 'Visa var foten är!'],
+  hand: ['Var är handen?', 'Kan du peka på handen?', 'Hitta handen!', 'Visa var handen är!'],
+  nasa: ['Var är näsan?', 'Kan du peka på näsan?', 'Hitta näsan!', 'Visa var näsan är!'],
+  mun: ['Var är munnen?', 'Kan du peka på munnen?', 'Hitta munnen!', 'Visa var munnen är!'],
+  ora: ['Var är örat?', 'Kan du peka på örat?', 'Hitta örat!', 'Visa var örat är!'],
+  oga: ['Var är ögat?', 'Kan du peka på ögat?', 'Hitta ögat!', 'Visa var ögat är!'],
+  arm: ['Var är armen?', 'Kan du peka på armen?', 'Hitta armen!', 'Visa var armen är!'],
+  ben: ['Var är benet?', 'Kan du peka på benet?', 'Hitta benet!', 'Visa var benet är!'],
+  kna: ['Var är knät?', 'Kan du peka på knät?', 'Hitta knät!', 'Visa var knät är!'],
+}
+
+// Samma sak för DIN-frågorna (barnets egen kropp).
+const OWN_QUESTIONS = {
+  huvud: ['Kan du peka på ditt huvud?', 'Var är ditt huvud?', 'Klappa ditt huvud!', 'Visa ditt huvud!'],
+  mage: ['Kan du peka på din mage?', 'Var är din mage?', 'Klappa din mage!', 'Visa din mage!'],
+  fot: ['Kan du peka på din fot?', 'Var är din fot?', 'Klappa din fot!', 'Visa din fot!'],
+  hand: ['Kan du peka på din hand?', 'Var är din hand?', 'Klappa din hand!', 'Visa din hand!'],
+  nasa: ['Kan du peka på din näsa?', 'Var är din näsa?', 'Klappa din näsa!', 'Visa din näsa!'],
+  mun: ['Kan du peka på din mun?', 'Var är din mun?', 'Klappa din mun!', 'Visa din mun!'],
+  ora: ['Kan du peka på ditt öra?', 'Var är ditt öra?', 'Klappa ditt öra!', 'Visa ditt öra!'],
+  oga: ['Kan du peka på ditt öga?', 'Var är ditt öga?', 'Klappa ditt öga!', 'Visa ditt öga!'],
+  arm: ['Kan du peka på din arm?', 'Var är din arm?', 'Klappa din arm!', 'Visa din arm!'],
+  ben: ['Kan du peka på ditt ben?', 'Var är ditt ben?', 'Klappa ditt ben!', 'Visa ditt ben!'],
+  kna: ['Kan du peka på ditt knä?', 'Var är ditt knä?', 'Klappa ditt knä!', 'Visa ditt knä!'],
+}
+
 const praiseFor = (part) =>
   randomFrom([`${part.namn}! Bra!`, `Ja, det är ${part.def}!`, `Du hittade ${part.def}!`, 'Duktigt!', 'Bravo!', 'Wow!'])
 
@@ -562,9 +592,9 @@ export default {
     // Varannan fråga knyter an till barnets EGNA kropp ("Peka på DIN mage?").
     this._ownBody = this._step % 2 === 1
     if (this._ownBody) {
-      this._currentPrompt = randomFrom(OWN_QFORMS).replace('{p}', part.poss).replace('{b}', part.bas)
+      this._currentPrompt = randomFrom(OWN_QUESTIONS[key] || OWN_QUESTIONS.huvud)
     } else {
-      this._currentPrompt = randomFrom(QFORMS).replace('{d}', part.def)
+      this._currentPrompt = randomFrom(QUESTIONS[key] || QUESTIONS.huvud)
     }
     this._bubbleEmoji.text = emojiFor(key, this._charKey)
     pop(this._bubble)

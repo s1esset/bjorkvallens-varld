@@ -109,3 +109,16 @@ Kort sagt: en *stark igenkännings-loop med fin karaktär*, men teaching är enk
     en glow på samma del hos Zacke som brygga. Alltid firande, aldrig fel.
   - Exit-säkert: `_ownTimer` dödas i `_nextQuestion`/`_clearCharacter`/`destroy`; gigg-tonerna är
     audio-context-schemalagda (inga Pixi-objekt att krascha).
+- 2026-08-06: **Röstbugg — åtta repliker kunde aldrig få ett klipp** (🔤 Lära-fliken).
+  - `QFORMS`/`OWN_QFORMS` var mallsträngar (`'Var är {d}?'`) som fylldes i med
+    `.replace()` vid körning. Klipp-manifestet slår upp på EXAKT text och `check.mjs`
+    matchar bara literaler, så alla frågor i spelet — själva kärnan — föll tillbaka på
+    Web Speech. Åtta varningar i repo-kontrollen kom härifrån.
+  - Ersatta av två uppslagstabeller, `QUESTIONS` och `OWN_QUESTIONS`, med **fyra fulla
+    literaler per kroppsdel** (11 delar × 4 × 2 lägen = 88 repliker). Variationen är
+    oförändrad; `randomFrom(QUESTIONS[key])` i stället för `randomFrom(QFORMS).replace()`.
+  - **Alla 88 fanns redan i `scripts/voice-phrases.json`** — klippen var alltså generade
+    hela tiden, det var källkoden som gjorde dem oanträffbara. Repo-varningarna gick från
+    11 till 3.
+  - Bubbel-emojin (✋/👃/🧸) är kvar: den är en bildledtråd i en stödpanel, inte ett
+    spelobjekt — figuren är spelobjektet och den ritas redan.

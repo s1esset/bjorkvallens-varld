@@ -79,8 +79,10 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ | ✅ |
 
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ **poleringsrundan KLAR** (27/27, v1.7.0, 2026-08-04)
-*Första-omgången 2026-07-01. Poleringsrundan lyfte 9 spel till ✅ kvalitet; de övriga 18 fick
-assets-/scen-/buggrundor och står kvar som 🔧 med kvarvarande [Deep]-punkter i sin doc §4.*
+*Första-omgången 2026-07-01. Poleringsrundan lyfte 9 spel till ✅. Kvalitetsspåret 2026-08-06
+(mottagar-högen) lyfte 7 till: `gungan` · `fallskarmen` · `valpens-bajs` · `studsmatta` ·
+`spindelnatet` · `enhorningen-flyger` (+ `knuffa-tornet`/`spindelhjalten` fick sin mottagare
+men har en [Deep]-punkt kvar var). Resterande 🔧 har kvarvarande [Deep]-punkter i sin doc §4.*
 | # | Spel | id | input | kvalitet | polerad |
 |---|------|----|-------|:--:|:--:|
 | 4 | Poppa Ballongerna | `poppa-ballonger` | tap | ✅ | ✅ |
@@ -94,16 +96,16 @@ assets-/scen-/buggrundor och står kvar som 🔧 med kvarvarande [Deep]-punkter 
 | 33 | Fånga Frukten | `fanga-frukten` | drag | ✅ | ✅ |
 | 34 | Vippbrädan | `vippbradan` | tap | 🔧 | ✅ |
 | 35 | Domino | `domino` | mixed | 🔧 | ✅ |
-| 36 | Studsmatta | `studsmatta` | mixed | 🔧 | ✅ |
+| 36 | Studsmatta | `studsmatta` | mixed | ✅ | ✅ |
 | 38 | Knuffa Tornet | `knuffa-tornet` | drag | 🔧 | ✅ |
 | 39 | Spindelhjälten | `spindelhjalten` | drag | 🔧 | ✅ |
 | 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | 🔧 | ✅ |
-| 44 | Valpens Bajs | `valpens-bajs` | mixed | 🔧 | ✅ |
+| 44 | Valpens Bajs | `valpens-bajs` | mixed | ✅ | ✅ |
 | 46 | Tvätta Djuret | `tvatta-djuret` | drag | 🔧 | ✅ |
-| 48 | Gungan | `gungan` | tap | 🔧 | ✅ |
-| 50 | Spindelnätet | `spindelnatet` | tap | 🔧 | ✅ |
-| 52 | Fallskärmen | `fallskarmen` | drag | 🔧 | ✅ |
-| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | 🔧 | ✅ |
+| 48 | Gungan | `gungan` | tap | ✅ | ✅ |
+| 50 | Spindelnätet | `spindelnatet` | tap | ✅ | ✅ |
+| 52 | Fallskärmen | `fallskarmen` | drag | ✅ | ✅ |
+| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | ✅ | ✅ |
 | 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | 🔧 | ✅ |
 | 55 | Bobos Bowling | `bowling` | drag | 🔧 | ✅ |
 | 56 | Flipperspel | `flipperspel` | tap | 🔧 | ✅ |

@@ -14,6 +14,49 @@ Format:
 
 ---
 
+## 2026-08-06 · v1.12.0 · ⚙️ Mottagar-högen — 8 spel fick någon som bryr sig
+
+**Byggt:** start på kvalitetsspåret "20 spel från 🔧 till ✅". De 20 spelen visade sig falla i
+tre arbetshögar i stället för att vara 20 separata jobb; **hög 1 (mottagare) är nu klar** och
+lyfte 6 spel hela vägen till ✅ kvalitet.
+
+- **Nytt delat `src/lib/figurer.js`.** `makeMascot()` ger bara ett HUVUD, så fem spel hade
+  hunnit rita var sin Bobo-kropp med nästan samma geometri. Biblioteket har nu `makeBobo`
+  (proportioner tagna ur vippbradans kropp, den renaste av dem), `makeElvira` och
+  `makeSquirrel`. De fyra äldre spelen migrerades medvetet INTE — deras kroppar är handtrimmade
+  mot sin scen och en omskrivning riskerar regression utan vinst för spelaren.
+- **Åtta spel fick en mottagare eller en egen reaktion:** Bobo som puttar gungan och mål som
+  *hoppar* när Lova närmar sig (`gungan`) · Bobo som vinkar in föraren och fångar, och som
+  följer mattan när den flyttar sig per nivå (`fallskarmen`) · parkgrind + Lova som hejar
+  (`valpens-bajs`) · picknick där varje fångad morot flyger till korgen som fylls synligt
+  (`studsmatta`) · arbetar-Bobo med bygghjälm (`knuffa-tornet`) · kryp som kryper mot en
+  spricka i stället för att rycka slumpmässigt, plus hjälten som hoppar i nätet
+  (`spindelnatet`) · Elvira som RIDER enhörningen och ringar som brister i sin egen färg
+  (`enhorningen-flyger`) · "Uff!" vid väggstuds och en hjälte som hänger upp-och-ner i sin
+  egen tråd vid vinst (`spindelhjalten`).
+- **Skärmdumpen fångade tre placeringsfel** som ett grönt test aldrig ser: figuren hamnade
+  bakom "starkare knuff"-knappen (`gungan`), helt bakom "Tyngd"-knappen (`knuffa-tornet`) och
+  ovanpå kraftmätaren (`studsmatta`). Efter de två första blev det rutin att slå upp
+  UI-knapparnas koordinater INNAN figuren placeras.
+- **Två doc-punkter var redan gjorda** och ströks i stället för att byggas om: `fallskarmen`s
+  "[Quick] föraren får en kropp" (`makeKid` ritade redan hela figuren) och `flipperspel`s
+  "[Deep] maskot bor i maskinen". Verkligheten vinner över dokumentet.
+- **P0-fynd på köpet:** `gungan`s mål (🐦🍎🎈🦋🌟🍏) var emoji-Text trots att de är spelobjekt
+  → `drawIcon`; 🍏 saknades i ikonbiblioteket.
+
+**Commits:** `b2d8b64` figurer.js · `0e9f3ab` gungan · `f6dc893` fallskarmen · `e5be0a8`
+valpens-bajs · `8644e4b` studsmatta · `7257aa2` knuffa-tornet · `0d3b52e` spindelnatet ·
+`9963161` enhorningen-flyger · `d5b273d` spindelhjalten
+**Kontroll:** `npm run check` 0 fel · 0 varningar · `npm run test:all --jobs 2` **70/70 gröna**
+· bygge rent.
+**Öppet:** kvalitetsspåret fortsätter med **hög 2 — variation & agens** (bowling specialkäglor,
+flipperspel banelement, snobollen gömda fynd, glasstornet smak-mål, knuffa-tornet
+specialklossar, tvatta-djuret smutszoner, ~2,5 tim) och **hög 3 — egen finish**
+(tvatta-djuret, enhorningen-elvira, ~1 tim). `gravmaskinen` och `pruttbad` har inga
+[Deep]-punkter kvar alls och behöver troligen bara omgraderas. 15 repliker väntar på `/rost`.
+
+---
+
 ## 2026-08-06 · v1.11.0 · 🔤 Lära-fliken polerad — **poleringsrundan 70/70 KLAR**
 
 **Byggt:** hela 🔤 Lära-kön (9 spel) körd i ett svep med checkpoint mellan varje. Därmed är

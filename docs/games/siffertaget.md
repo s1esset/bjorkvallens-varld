@@ -151,3 +151,14 @@ vägg, och glöden tänker åt barnet.**
     `this._rollIn`/`this._depart` dödas i både `_newRound` och `destroy`, och slot-tweens dödas
     innan `_roundLayer` rensas → exit-säkert (exit-cykel testad, 0 konsolfel).
   - Pedagogiken (siffror, last-räkning, accept-villkoret) och no-fail-beteendet är orörda.
+- 2026-08-06: **P0 ASSETS — vagnslasten ritas** (poleringsrundan, 🔤 Lära-fliken).
+  - `LAST_ORD`-föremålen (🌸 blomma · 🐟 fisk · 🍎 äpple · 🐤 ankunge · ⭐ stjärna) var
+    emoji-Text. Det är just de här föremålen barnet ska RÄKNA för att koppla siffra till
+    antal — de fick inte vara glyfer ur systemfonten. Nu `drawIcon`; emoji-strängen är
+    kvar som nyckel. 🐤 saknades i biblioteket och lades till i samma runda.
+  - **Lasten låg utanför korgen.** y=40 med föremålens underkant på ~58 mot korgens
+    botten 57 — de klipptes av chassit. Flyttad till y=36.
+  - **Ny lastbädd:** en mörkare remsa (`alpha 0.13`) i korgens botten som lasten vilar på.
+    Utan den flöt föremålen fritt i vagnsfärgen — blomman försvann nästan mot den orange
+    vagnen. Storleken höjd 26/30 → 30/36 nu när det finns kontrast att synas mot.
+  - `npm run test` 0 fel; alla fem lastikoner verifierade i `scripts/_ikoner.mjs`.

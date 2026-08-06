@@ -11,6 +11,7 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, sparkle, puff, bigCelebration } from '../../lib/feedback.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT, PLAYFUL, PRAISE } from '../../lib/theme.js'
 
 // Räkneorden 1–5 (rundans vagnar håller sig alltid inom 1–5).
@@ -287,6 +288,9 @@ export default {
       .fill(PLAYFUL[(n - 1) % PLAYFUL.length])
       .stroke({ width: 6, color: COLORS.white, alpha: 0.7 })
     body.roundRect(-78, -70, 156, 24, 12).fill({ color: COLORS.white, alpha: 0.16 })
+    // Lastbädd: en mörkare remsa i korgens botten som lasten vilar på. Utan den
+    // flyter föremålen i vagnsfärgen (blomman försvann nästan mot den orange vagnen).
+    body.roundRect(-74, 18, 148, 36, 12).fill({ color: 0x000000, alpha: 0.13 })
     body.eventMode = 'none'
     const num = new Text({
       text: String(n),
@@ -300,14 +304,14 @@ export default {
     // jaga glöden. En liten rad längst ned i korgen; skalas ned när det blir trångt.
     const cargo = new Container()
     cargo.eventMode = 'none'
-    const emoji = (LAST_ORD[n] || LAST_ORD[1]).emoji
-    const size = n >= 4 ? 26 : 30
-    const spacing = n >= 4 ? 30 : 34
+    // Lasten RITAS (P0 ASSETS) — det är de här föremålen barnet ska räkna, så de får
+    // inte vara emoji-glyfer. Emoji-strängen är kvar som nyckel in i artikoner.js.
+    const key = (LAST_ORD[n] || LAST_ORD[1]).emoji
+    const size = n >= 4 ? 30 : 36
+    const spacing = n >= 4 ? 31 : 37
     for (let i = 0; i < n; i++) {
-      const it = new Text({ text: emoji, style: { fontFamily: FONT.body, fontSize: size } })
-      it.anchor.set(0.5)
-      it.position.set(-((n - 1) * spacing) / 2 + i * spacing, 40)
-      it.eventMode = 'none'
+      const it = drawIcon(key, size)
+      it.position.set(-((n - 1) * spacing) / 2 + i * spacing, 36)
       cargo.addChild(it)
     }
     car.addChild(glow, body, num, cargo)

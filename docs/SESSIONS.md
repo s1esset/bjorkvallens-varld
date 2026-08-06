@@ -14,6 +14,53 @@ Format:
 
 ---
 
+## 2026-08-06 · v1.18.0 · 🚜 Grävmaskinen: fem laster, och två mätare som ljög (polerings-hög 2, 5/6)
+
+**Byggt:**
+- **Fem laster i stället för en** — sand · grus · snö · småsten · godisströssel turas om per
+  nivå. Varje last har egen palett (**även högen man gräver ur byter färg** — snönivån har en
+  snöhög, godisnivån en regnbågshög), egen kornform, egna skatter, egna ljud och egna
+  repliker. Sandens fyra repliker är oförändrade strängar eftersom de redan hade klipp.
+- **Egen rasvinkel per last.** Branta laster (snö, småsten) kräver **två cellers fall** för
+  att glida i sidled och bygger spetsiga koner; lösa laster lägger sig platt. Regeln är
+  deterministisk med flit — en *sannolikhet* hade bara fördröjt utplaningen, eftersom ett
+  vilande korn får ett nytt tärningskast varje simsteg.
+- **Auto-hjälpen mjukad + tap-fusket borta.** Triggern "4 tippningar" sköt in magi mitt i
+  aktivt spel och är borttagen; kvar är 14 s **helt** utan handling **och** lasten minst 55 %
+  färdig → högst 14 korn, målet sänks aldrig. Tap vid högen gräver nu på riktigt.
+- **Agens i gesten:** fyllnaden skalar med svepets längd *och* djupet (djupt tag ≈ 3× ett
+  ytskrap); lugn hand vid släpp ger tät stråle, ryck ger bred spridning — aldrig en
+  tillsägelse när det blir slarvigt.
+- **Ny finish + mottagare:** fylld dumper kör iväg med lasten, en tom **backar in från höger**
+  (från vänster hade den kört rakt genom grävmaskinen), Bobo vinkar från hytten. Bommen är nu
+  bom + knäled + sticka med hydraulcylinder som sjunker med lastens vikt; Zacke andas och
+  lutar sig mot grävtaget. Grävmaskinen 🔧 → ✅.
+
+**Fyra fynd som gröna tester aldrig hade visat:**
+1. **Fyllnadslinjen ljög.** Målet var 55 korn ≈ 2,4 rader medan linjen satt 6 rader upp —
+   `total >= target` slog alltid först och linjen var ren dekoration. Linjen härleds nu ur
+   målet.
+2. **"Full last" räknade korn i LUFTEN.** `_countFill` räknade fallande korn, så en enda hög
+   tippning kunde klara nivån direkt — harnessen klarade nivå 0 på **3,4 sekunder** och
+   rapporterade ändå grönt. Nu räknas bara korn som vilar.
+3. **Mätaren var osynlig på snönivån** — den ärvde lastens färg, och vitt på gräddvitt syns
+   inte. Hittad i skärmdumpen, inte i något test.
+4. **Mätaren stod på 45 % när spelet sa "full last"** — två indikatorer som säger olika saker
+   är värre än en som ljuger. Den visar nu den av de två vägarna till full last som kommit
+   längst.
+
+**Metod:** `scripts/_lastprobe.mjs` (sond som *spelar*: gräver, kör över flaket, släpper) gav
+balansen sand 4 lass · grus 4 · snö 3 · småsten 3 · godis 6, och en bild per last.
+`scripts/_exitprobe.mjs` testar det harnessens standardcykel aldrig hinner till: att lämna
+spelet **mitt i** den 3 s långa leveransen (rent i alla tre faser).
+
+**Commits:** 6f2195d feat(gravmaskinen) · a0d538c chore(rost): 48 röstklipp genererade
+
+**Öppet:** hög 2 har **1 kvar: knuffa-tornet**. Därefter hög 3 (finish, ~3 spel). Rapporterade
+buggar i `docs/ATGARDER.md` väntar fortfarande (magnet-fiske, saftbaren).
+
+---
+
 ## 2026-08-06 · v1.17.0 · 🍦 Glasstornet: kärlet byter per nivå (polerings-hög 2, 4/6)
 
 **Byggt:**

@@ -24,7 +24,7 @@ import { createScene } from '../../lib/scene.js'
 import { bigCelebration, burst, puff, sparkle, pop } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { makeMascot } from '../../lib/mascot.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Layout (designkoordinater 1280×720) ---
@@ -40,6 +40,28 @@ const STRIKE_SAY = [
   'Wow! Alla käglor!',
 ]
 const BOBO_POS = { x: 150, y: 540 }
+
+// Banans mått (används av markeringar, räcken och stämplar).
+const LANE = { x: 340, y: 110, w: 600, h: 580 }
+const LANE_X2 = LANE.x + LANE.w // 940
+const LANE_Y2 = LANE.y + LANE.h // 690
+const FOUL_Y = 648 // fellinjen — klotet startar bakom den
+const DECK_Y = 372 // kägeldäckets nedre kant (området käglorna står på)
+
+// Banteman per nivå: bakgrunden OCH banans accentfärg byts, så nivå 4 inte ser
+// identisk ut med nivå 1. Cyklas i _themeFor(); scenen korsfadas i _setTheme().
+const THEMES = [
+  { scene: 'warm', accent: COLORS.yellow, lane: COLORS.cream, mark: 0xe0b877 },
+  { scene: 'candy', accent: 0xff9ec4, lane: 0xfff4fa, mark: 0xf0a8c8 },
+  { scene: 'water', accent: 0x4aa3df, lane: 0xf2fbff, mark: 0x8fc9e8 },
+  { scene: 'night', accent: 0x8b7dd8, lane: 0xf4f1ff, mark: 0xb3a6e8 },
+]
+
+const MAX_TROPHIES = 8 // pokalhyllans bredd (fler strikes fyller på från början igen)
+
+// Pentatonisk C-dur-stege, en ton per kägla i samma ras (10 käglor = hela stegen).
+// Pentatonik kan aldrig låta fel oavsett i vilken ordning käglorna faller.
+const PENTA = [523, 587, 659, 784, 880, 1047, 1175, 1319, 1568, 1760]
 
 export default {
   id: 'bowling',
@@ -68,6 +90,11 @@ export default {
     this._throws = 0 // kast på nuvarande triangel (spare = andra kastet, sen backstop)
     this._lastPinSound = 0
     this._pinSoundN = 0
+    this._themeI = -1 // aktivt bantema (index i THEMES); -1 = inget satt än
+    this._sceneNode = null // aktiv bakgrund (korsfadas vid temabyte)
+    this._oldScenes = [] // bakgrunder på väg ut — måste kunna dödas vid exit
+    this._trophies = [] // pokalhyllans stjärnor bredvid Bobo
+    this._shakeAmp = 0 // skärmskak-amplitud (dämpas i _update)
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -134,8 +161,10 @@ export default {
   // ---- Statisk scen --------------------------------------------------------
 
   _buildScene(ctx) {
-    // Varm bowlinghall-bakgrund som FÖRSTA barn.
-    this._root.addChild(createScene('warm', { width: ctx.width, height: ctx.height, ground: false }))
+    // Bakgrunden bor i ett eget lager så den kan korsfadas vid temabyte.
+    this._sceneLayer = new Container()
+    this._sceneLayer.eventMode = 'none'
+    this._root.addChild(this._sceneLayer)
 
     // Osynlig fångare: tomma tryck ger en liten glad puff (varje pekning syns).
     this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
@@ -150,29 +179,75 @@ export default {
     this._catcher.on('pointertap', this._onTapField)
     this._root.addChild(this._catcher)
 
+    // Publik på en bänk till höger om banan — hallen ska myllra, inte gapa tom.
+    this._crowd = makeCrowd()
+    this._crowd.position.set(1128, 300)
+    this._root.addChild(this._crowd)
+
     // Rännstenar (dekor) — mörka kanaler utanför banan.
     const gutters = new Graphics()
-    gutters.roundRect(300, 110, 44, 580, 18).fill({ color: COLORS.brown, alpha: 0.3 })
-    gutters.roundRect(936, 110, 44, 580, 18).fill({ color: COLORS.brown, alpha: 0.3 })
+    gutters.roundRect(300, LANE.y, 44, LANE.h, 18).fill({ color: COLORS.brown, alpha: 0.3 })
+    gutters.roundRect(936, LANE.y, 44, LANE.h, 18).fill({ color: COLORS.brown, alpha: 0.3 })
     gutters.eventMode = 'none'
     this._root.addChild(gutters)
 
-    // Banan: ljus, glansig rektangel med mitt-glansstrimma.
-    const lane = new Graphics()
-      .roundRect(340, 110, 600, 580, 28)
-      .fill(COLORS.cream)
-      .stroke({ width: 8, color: COLORS.yellow })
-    lane.roundRect(620, 120, 40, 560, 20).fill({ color: 0xffffff, alpha: 0.35 })
-    lane.eventMode = 'none'
-    this._root.addChild(lane)
+    // Banan: ljus, glansig rektangel med mitt-glansstrimma. Färgen byts per bantema.
+    this._lane = new Graphics()
+    this._lane.eventMode = 'none'
+    this._root.addChild(this._lane)
 
-    // Bumper-räcken (toggle-visuella): lysande staplar precis innanför rännstenarna.
-    const railL = new Graphics().roundRect(346, 130, 14, 540, 7).fill({ color: COLORS.blue })
-    const railR = new Graphics().roundRect(920, 130, 14, 540, 7).fill({ color: COLORS.blue })
-    railL.eventMode = 'none'
-    railR.eventMode = 'none'
-    this._rails = [railL, railR]
-    this._root.addChild(railL, railR)
+    // Banmarkeringar: kägeldäck, fellinje, siktpilar och avståndsprickar. Utan dem är
+    // mittfältet 600×580 px tom yta — och pilarna hjälper faktiskt siktet.
+    this._marks = new Graphics()
+    this._marks.eventMode = 'none'
+    this._root.addChild(this._marks)
+
+    // Mjuk målzon runt huvudkäglan (flyttas per nivå i _loadLevel).
+    this._aimGlow = new Graphics()
+      .circle(0, 0, 58)
+      .fill({ color: 0xffffff, alpha: 0.5 })
+      .circle(0, 0, 40)
+      .fill({ color: 0xffffff, alpha: 0.45 })
+    this._aimGlow.eventMode = 'none'
+    this._root.addChild(this._aimGlow)
+    this._glowTween = gsap.to(this._aimGlow, { alpha: 0.45, duration: 1.3, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+
+    // Bumper-räcken. PÅ = massiv lysande stapel med uppåtpilar (klotet styrs in mot
+    // käglorna). AV = tunn streckad kontur. Två OLIKA former, inte bara alpha, så en
+    // 3-åring utan ljud ser skillnaden i stillbild.
+    this._rails = []
+    for (const x of [346, 920]) {
+      const rail = new Container()
+      rail.eventMode = 'none'
+      const on = new Graphics()
+      on.roundRect(0, 0, 14, 540, 7).fill({ color: COLORS.teal })
+      for (let i = 0; i < 6; i++) {
+        const y = 60 + i * 86
+        on.moveTo(1, y + 13).lineTo(7, y).lineTo(13, y + 13).stroke({ width: 4, color: 0xffffff, alpha: 0.8, cap: 'round' })
+      }
+      const off = new Graphics()
+      for (let i = 0; i < 18; i++) {
+        off.roundRect(4.5, i * 30, 5, 16, 2.5).fill({ color: COLORS.brown, alpha: 0.28 })
+      }
+      rail.addChild(on, off)
+      rail.position.set(x, 130)
+      rail._on = on
+      rail._off = off
+      this._rails.push(rail)
+      this._root.addChild(rail)
+    }
+
+    // Kantstöds-stämpel vid banans nedre ände: två pilar som pekar INÅT när stödet är
+    // på. Läses utan text och utan ljud.
+    this._stamps = []
+    for (const [x, dir] of [[372, 1], [908, -1]]) {
+      const s = new Graphics()
+      s.moveTo(-9 * dir, -12).lineTo(9 * dir, 0).lineTo(-9 * dir, 12).fill({ color: COLORS.teal })
+      s.eventMode = 'none'
+      s.position.set(x, 668)
+      this._stamps.push(s)
+      this._root.addChild(s)
+    }
 
     // Lager för käglor (under klotet, ovanför banan).
     this._pinLayer = new Container()
@@ -215,16 +290,148 @@ export default {
     bbody.ellipse(18, 112, 15, 9).fill(COLORS.orangeDark)
     bbody.ellipse(0, 70, 38, 44).fill(COLORS.orange)
     bbody.ellipse(0, 76, 24, 24).fill({ color: COLORS.cream, alpha: 0.92 })
-    bbody.moveTo(-30, 52).quadraticCurveTo(-52, 40, -56, 10).stroke({ width: 14, color: COLORS.orange, cap: 'round' })
-    bbody.moveTo(30, 52).quadraticCurveTo(52, 40, 56, 10).stroke({ width: 14, color: COLORS.orange, cap: 'round' })
-    bbody.circle(-56, 10, 11).fill(COLORS.cream)
-    bbody.circle(56, 10, 11).fill(COLORS.cream)
+    // Armarna satt tidigare på y≈10 — rakt bakom det 58 px stora huvudet, så Bobo såg
+    // armlös ut. De hänger nu utanför huvudets silhuett och syns.
+    bbody.moveTo(-30, 60).quadraticCurveTo(-52, 58, -58, 42).stroke({ width: 14, color: COLORS.orange, cap: 'round' })
+    bbody.moveTo(30, 60).quadraticCurveTo(52, 58, 58, 42).stroke({ width: 14, color: COLORS.orange, cap: 'round' })
+    bbody.circle(-58, 42, 11).fill(COLORS.cream)
+    bbody.circle(58, 42, 11).fill(COLORS.cream)
     bbody.eventMode = 'none'
     this._bobo.addChild(bbody)
     this._bobo.addChild(makeMascot(58))
     this._bobo.interactiveChildren = false
     this._bobo.position.set(BOBO_POS.x, BOBO_POS.y)
     this._root.addChild(this._bobo)
+
+    // Bobos pokalhylla ovanför honom: en stjärna per strike (custom.strikes), så det
+    // finns något att komma tillbaka till mellan omgångarna.
+    // Hyllan hänger mellan kägelmätaren och Bobo (y 300) — inte ovanpå hans huvud.
+    this._shelfLayer = new Container()
+    this._shelfLayer.eventMode = 'none'
+    this._shelfLayer.position.set(BOBO_POS.x, 300)
+    const plank = new Graphics()
+      .roundRect(-112, 16, 224, 13, 6)
+      .fill(COLORS.brown)
+      .roundRect(-112, 16, 224, 5, 2.5)
+      .fill({ color: 0xffffff, alpha: 0.22 })
+      .roundRect(-96, 29, 10, 16, 4)
+      .fill({ color: 0x6d452c })
+      .roundRect(86, 29, 10, 16, 4)
+      .fill({ color: 0x6d452c })
+    this._shelfLayer.addChild(plank)
+    // Tomma stjärnfack: hyllan ser ut som en samling att fylla, aldrig som en tom bräda.
+    for (let i = 0; i < MAX_TROPHIES; i++) {
+      const socket = makeStar()
+      socket.alpha = 0.22
+      socket.position.set((i - (MAX_TROPHIES - 1) / 2) * 26, 0)
+      this._shelfLayer.addChild(socket)
+    }
+    this._starLayer = new Container()
+    this._shelfLayer.addChild(this._starLayer)
+    this._root.addChild(this._shelfLayer)
+    this._drawTrophies(ctx.progress.get().custom?.strikes || 0)
+
+    // STRIKE-skylt (dold tills alla käglor faller).
+    this._banner = new Container()
+    this._banner.eventMode = 'none'
+    const plate = new Graphics()
+      .roundRect(-150, -52, 300, 104, 30)
+      .fill(COLORS.orange)
+      .stroke({ width: 7, color: 0xffffff })
+    const bannerText = new Text({
+      text: 'ALLA!',
+      style: { fontFamily: FONT.display, fontSize: 62, fill: 0xffffff, fontWeight: '700' },
+    })
+    bannerText.anchor.set(0.5)
+    this._banner.addChild(plate, bannerText)
+    this._banner.position.set(640, 390)
+    this._banner.visible = false
+    this._banner.scale.set(0)
+    this._root.addChild(this._banner)
+  },
+
+  // ---- Bantema (bakgrund + banans färger cyklar per nivå) -------------------
+
+  _themeFor(level) {
+    return THEMES[Math.max(0, level) % THEMES.length]
+  },
+
+  // Måla banan, markeringarna, räckena och stämplarna i temats färger, och korsfada
+  // in en ny bakgrund om temat faktiskt bytts.
+  _setTheme(ctx, level) {
+    const i = Math.max(0, level) % THEMES.length
+    if (i === this._themeI) return
+    this._themeI = i
+    const t = THEMES[i]
+
+    // Ny bakgrund in, gammal ut (och bort).
+    const next = createScene(t.scene, { width: ctx.width, height: ctx.height, ground: false })
+    const prev = this._sceneNode
+    this._sceneNode = next
+    this._sceneLayer.addChild(next)
+    if (prev) {
+      next.alpha = 0
+      gsap.to(next, { alpha: 1, duration: 0.5 })
+      this._oldScenes.push(prev)
+      gsap.to(prev, {
+        alpha: 0,
+        duration: 0.5,
+        onComplete: () => {
+          this._oldScenes = this._oldScenes.filter((s) => s !== prev)
+          if (!prev.destroyed) prev.destroy({ children: true })
+        },
+      })
+    }
+
+    // Banan.
+    this._lane
+      .clear()
+      .roundRect(LANE.x, LANE.y, LANE.w, LANE.h, 28)
+      .fill(t.lane)
+      .stroke({ width: 8, color: t.accent })
+    this._lane.roundRect(620, 120, 40, 560, 20).fill({ color: 0xffffff, alpha: 0.35 })
+
+    // Markeringar: kägeldäck, fellinje, siktpilar, avståndsprickar.
+    const m = this._marks.clear()
+    m.roundRect(LANE.x + 10, LANE.y + 8, LANE.w - 20, DECK_Y - LANE.y, 22).fill({ color: t.mark, alpha: 0.14 })
+    m.moveTo(LANE.x + 14, DECK_Y).lineTo(LANE_X2 - 14, DECK_Y).stroke({ width: 3, color: t.mark, alpha: 0.5 })
+    m.moveTo(LANE.x + 14, FOUL_Y).lineTo(LANE_X2 - 14, FOUL_Y).stroke({ width: 6, color: t.mark, alpha: 0.7 })
+    for (let k = -3; k <= 3; k++) {
+      const x = 640 + k * 66
+      const y = 508 + Math.abs(k) * 16 // klassisk pilbåge: ytterpilarna sitter lägre
+      m.moveTo(x - 13, y + 20).lineTo(x, y).lineTo(x + 13, y + 20).fill({ color: t.mark, alpha: 0.62 })
+    }
+    for (let k = -2; k <= 2; k++) {
+      m.circle(640 + k * 84, 592, 6).fill({ color: t.mark, alpha: 0.45 })
+    }
+
+    // Räcken + stämplar följer temat bara i ljushet — kantstödet behåller sin teal
+    // signalfärg så av/på aldrig förväxlas med "ny nivå".
+    if (this._banner && !this._banner.destroyed) this._banner.children[0].tint = t.accent
+  },
+
+  // ---- Pokalhylla ----------------------------------------------------------
+
+  _drawTrophies(n) {
+    const layer = this._starLayer
+    if (!layer || layer.destroyed) return
+    for (const s of this._trophies) {
+      if (s && !s.destroyed) {
+        gsap.killTweensOf(s)
+        gsap.killTweensOf(s.scale)
+        s.destroy()
+      }
+    }
+    this._trophies = []
+    // Hyllan rymmer MAX_TROPHIES; därefter börjar raden om (och ingen siffra sjunker).
+    const shown = n <= 0 ? 0 : ((n - 1) % MAX_TROPHIES) + 1
+    for (let i = 0; i < shown; i++) {
+      const st = makeStar()
+      // Fyller facken från vänster — samma raster som de tomma stjärnfacken.
+      st.position.set((i - (MAX_TROPHIES - 1) / 2) * 26, 0)
+      layer.addChild(st)
+      this._trophies.push(st)
+    }
   },
 
   // Två tjocka, statiska lane-väggar (alltid på) vid banans yttergräns (rännstenens utsida).
@@ -290,6 +497,7 @@ export default {
     this._throws = 0
     this._helpTimer?.kill()
     this._phys.setWind(0, 0)
+    this._setTheme(ctx, level)
 
     // Rensa gamla käglor (kroppar + vyer).
     for (const p of this._pins) {
@@ -312,12 +520,16 @@ export default {
       this._pinLayer.addChild(view)
       const body = this._phys.circle(pos.x, pos.y, PIN_R, { ...MATERIALS.light, frictionAir: 0.02, label: 'pin' })
       this._phys.link(body, view)
-      this._pins.push({ body, view, sx: pos.x, sy: pos.y, down: false })
+      this._pins.push({ body, view, sx: pos.x, sy: pos.y, down: false, gone: false })
       view.scale.set(0)
       gsap.to(view.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out(2)' })
     }
     this._standingCount = this._pins.length
     this._pinCenter = { x: front.x, y: front.y } // sikta på huvudkäglan vid tap-fallback
+    if (this._aimGlow && !this._aimGlow.destroyed) {
+      this._aimGlow.position.set(front.x, front.y)
+      this._aimGlow.visible = true
+    }
 
     // Återställ klotet till start.
     Body.setVelocity(this._ballBody, { x: 0, y: 0 })
@@ -389,15 +601,31 @@ export default {
       this._bumperBodies = []
     }
 
-    // Räcken: lys upp (alpha 1 + mjuk glöd-puls) när PÅ, tona ned (0.12) när AV.
+    // Räcken: massiv stapel med pilar när PÅ, streckad kontur när AV — två olika
+    // former, så skillnaden syns i en stillbild utan text och utan ljud.
     this._railTween?.kill()
     for (const rail of this._rails) {
       if (!rail || rail.destroyed) continue
       gsap.killTweensOf(rail)
-      gsap.to(rail, { alpha: on ? 1 : 0.12, duration: 0.25 })
+      rail.alpha = 1
+      rail._on.alpha = 1
+      rail._on.visible = on
+      rail._off.visible = !on
     }
     if (on) {
-      this._railTween = gsap.to(this._rails, { alpha: 0.66, duration: 0.9, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 0.25 })
+      this._railTween = gsap.to(
+        this._rails.map((r) => r._on),
+        { alpha: 0.7, duration: 0.9, yoyo: true, repeat: -1, ease: 'sine.inOut' },
+      )
+    } else {
+      for (const rail of this._rails) if (rail && !rail.destroyed) rail._on.alpha = 1
+    }
+
+    // Stämpeln vid banänden: inåtpekande pilar tända när stödet är på.
+    for (const s of this._stamps) {
+      if (!s || s.destroyed) continue
+      gsap.killTweensOf(s)
+      gsap.to(s, { alpha: on ? 1 : 0.16, duration: 0.25 })
     }
 
     // Pricklinjen följer de nya väggarna.
@@ -415,6 +643,7 @@ export default {
     if (!this._alive || this._phase !== 'aim') return
     this._phase = 'rolling'
     this._throws++
+    this._pinSoundN = 0 // kombo-stegen börjar om vid varje nytt kast
     this._rollT = 0
     this._restT = 0
     this._idle = 0
@@ -441,12 +670,21 @@ export default {
     p.down = true
     this._standingCount--
 
+    // Kägel-ljudbild: en låg, kort "trä-klonk" (sågtand som glider nedåt) plus en
+    // KOMBO-ton som klättrar en pentatonisk stege för varje kägla i samma ras — tio
+    // käglor i rad blir en stigande fanfar i stället för tio likadana blipp.
     const now = performance.now()
-    if (now - this._lastPinSound > 110) {
+    if (now - this._lastPinSound > 70) {
       this._lastPinSound = now
-      this._pinSoundN = (this._pinSoundN + 1) % 3
-      ctx.services.audio.sfx(this._pinSoundN === 0 ? 'pling' : 'pop')
+      const step = Math.min(this._pinSoundN, PENTA.length - 1)
+      this._pinSoundN++
+      const audio = ctx.services.audio
+      audio.tone({ freq: 190, slideTo: 96, dur: 0.09, type: 'sawtooth', vol: 0.14 })
+      audio.tone({ freq: PENTA[step], dur: 0.2, type: 'triangle', vol: 0.2, delay: 0.02 })
     }
+    // Kombo: varje kägla i följd skakar rutan lite mer — en massvält KÄNNS.
+    const fallen = this._pins.length - this._standingCount
+    this._shakeAmp = Math.min(9, this._shakeAmp + 2.2 + fallen * 0.25)
     if (p.view && !p.view.destroyed) puff(ctx.fxLayer, p.view.x, p.view.y, { count: 6, color: COLORS.yellow })
     const dot = this._meterDots[i]
     if (dot && !dot.destroyed) {
@@ -473,6 +711,12 @@ export default {
         x: standing.reduce((s, p) => s + p.body.position.x, 0) / standing.length,
         y: standing.reduce((s, p) => s + p.body.position.y, 0) / standing.length,
       }
+    }
+    // Målzonen MÅSTE flytta med — annars lyser den kvar över den fallna frontkäglans
+    // tomma fläck på precis det kast där barnet bäst behöver se vart det ska sikta.
+    if (this._aimGlow && !this._aimGlow.destroyed) {
+      this._aimGlow.visible = standing.length > 0
+      this._aimGlow.position.set(this._pinCenter.x, this._pinCenter.y)
     }
 
     // Återställ klotet till start.
@@ -537,13 +781,30 @@ export default {
     ctx.services.voice.say(randomFrom(STRIKE_SAY))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, 640, 300, { count: 18 })
-    this._boboJump()
+    this._showBanner()
+    this._shakeAmp = Math.min(14, this._shakeAmp + 10)
+    this._boboDance()
+    this._cheerCrowd()
+    if (this._aimGlow && !this._aimGlow.destroyed) this._aimGlow.visible = false
 
     const cur = ctx.progress.get()
+    const strikes = (cur.custom?.strikes || 0) + 1
     ctx.progress.setLevel(this._level + 1)
-    ctx.progress.setCustom('strikes', (cur.custom?.strikes || 0) + 1)
+    ctx.progress.setCustom('strikes', strikes)
     ctx.progress.complete()
     this._level += 1
+    this._drawTrophies(strikes)
+    const fresh = this._trophies[this._trophies.length - 1]
+    if (fresh && !fresh.destroyed) {
+      fresh.scale.set(0)
+      gsap.to(fresh.scale, { x: 1, y: 1, duration: 0.45, ease: 'back.out(3)', delay: 0.25 })
+    }
+    // Hyllan rymmer MAX_TROPHIES. Den nionde strejken börjar en NY hylla — utan en egen
+    // markering ser det ut som att stjärnorna försvann. Fira i stället att hyllan blev full.
+    if (strikes > 1 && strikes % MAX_TROPHIES === 1 && this._shelfLayer && !this._shelfLayer.destroyed) {
+      sparkle(ctx.fxLayer, this._shelfLayer.x, this._shelfLayer.y, { count: 14 })
+      ctx.services.audio.sfx('pling')
+    }
 
     this._nextTimer?.kill()
     this._nextTimer = gsap.delayedCall(1.8, () => {
@@ -551,21 +812,61 @@ export default {
     })
   },
 
-  // ---- Bobo ----------------------------------------------------------------
+  // ---- STRIKE-skylt ---------------------------------------------------------
+
+  _showBanner() {
+    const b = this._banner
+    if (!b || b.destroyed) return
+    this._bannerTl?.kill()
+    gsap.killTweensOf(b.scale)
+    gsap.killTweensOf(b)
+    b.visible = true
+    b.alpha = 1
+    b.scale.set(0)
+    b.rotation = -0.06
+    this._bannerTl = gsap
+      .timeline()
+      .to(b.scale, { x: 1, y: 1, duration: 0.42, ease: 'back.out(3)' })
+      .to(b, { rotation: 0.06, duration: 0.3, yoyo: true, repeat: 3, ease: 'sine.inOut' }, 0.42)
+      .to(b, { alpha: 0, duration: 0.35 }, 1.5)
+      .add(() => {
+        if (b && !b.destroyed) b.visible = false
+      })
+  },
+
+  // ---- Bobo & publik --------------------------------------------------------
 
   _boboCheer() {
     if (this._bobo && !this._bobo.destroyed) pop(this._bobo)
   },
 
-  _boboJump() {
+  // Strike: Bobo reser sig, hoppar och snurrar i en egen liten dans (inte bara ett hopp).
+  _boboDance() {
     const b = this._bobo
     if (!b || b.destroyed) return
+    this._danceTl?.kill()
     gsap.killTweensOf(b)
-    gsap
+    this._danceTl = gsap
       .timeline()
-      .to(b, { y: BOBO_POS.y - 46, duration: 0.22, ease: 'power2.out' })
-      .to(b, { y: BOBO_POS.y, duration: 0.4, ease: 'bounce.out' })
+      .to(b, { y: BOBO_POS.y - 52, rotation: -0.22, duration: 0.22, ease: 'power2.out' })
+      .to(b, { y: BOBO_POS.y, rotation: 0.2, duration: 0.36, ease: 'bounce.out' })
+      .to(b, { y: BOBO_POS.y - 30, rotation: -0.16, duration: 0.2, ease: 'power2.out' })
+      .to(b, { y: BOBO_POS.y, rotation: 0, duration: 0.34, ease: 'bounce.out' })
     pop(b)
+  },
+
+  // Publiken hoppar till på bänken.
+  _cheerCrowd() {
+    const c = this._crowd
+    if (!c || c.destroyed) return
+    for (const [i, f] of c.fans.entries()) {
+      if (!f || f.destroyed) continue
+      gsap.killTweensOf(f)
+      gsap
+        .timeline({ delay: i * 0.08 })
+        .to(f, { y: f._baseY - 26, duration: 0.2, ease: 'power2.out' })
+        .to(f, { y: f._baseY, duration: 0.36, ease: 'bounce.out' })
+    }
   },
 
   // ---- Ticker: fysik, vält-detektion, kast-klart, idle ---------------------
@@ -575,6 +876,39 @@ export default {
     const dt = ticker.deltaMS / 1000
     this._phys.update(ticker.deltaMS)
 
+    // Skärmskak: dämpas mot noll, roten flyttas bara några px. Aldrig under 0.05 px,
+    // annars ligger banan kvar snett efter sista bildrutan.
+    if (this._shakeAmp > 0.05) {
+      this._shakeAmp *= Math.pow(0.0016, dt) // ~halveras var 0,1 s
+      this._root.x = (Math.random() * 2 - 1) * this._shakeAmp
+      this._root.y = (Math.random() * 2 - 1) * this._shakeAmp
+    } else if (this._shakeAmp !== 0) {
+      this._shakeAmp = 0
+      this._root.position.set(0, 0)
+    }
+
+    // Käglorna lever: ögonen följer klotet och spärras upp när det närmar sig.
+    const bx = this._ball && !this._ball.destroyed ? this._ball.x : BALL_START.x
+    const by = this._ball && !this._ball.destroyed ? this._ball.y : BALL_START.y
+    for (const p of this._pins) {
+      const v = p.view
+      if (p.down || !v || v.destroyed || !v.pupils) continue
+      const dx = bx - v.x
+      const dy = by - v.y
+      const d = Math.hypot(dx, dy) || 1
+      v.pupils.position.set((dx / d) * 2.4, (dy / d) * 2.4 - 12)
+      // Nära klot -> uppspärrade ögon. Kroppens skala rörs medvetet INTE: intro-tweenen
+      // (back.out på scale) äger den, och två skrivare om samma värde blir hackigt.
+      const near = Math.max(0, Math.min(1, (240 - d) / 160))
+      v.pupils.scale.set(1 + near * 0.55)
+    }
+
+    // Bobo som domare: följer klotet med hela kroppen medan det rullar.
+    if (this._bobo && !this._bobo.destroyed && this._phase !== 'strike') {
+      const want = Math.max(-0.18, Math.min(0.18, (bx - BOBO_POS.x) / 1400 + (this._phase === 'rolling' ? 0.06 : 0)))
+      this._bobo.rotation += (want - this._bobo.rotation) * Math.min(1, dt * 5)
+    }
+
     // Vält-detektion (under kast eller auto-hjälp): positionsförskjutning = robustast.
     if (this._phase === 'rolling' || this._phase === 'helping') {
       for (let i = 0; i < this._pins.length; i++) {
@@ -583,6 +917,25 @@ export default {
         const dx = p.body.position.x - p.sx
         const dy = p.body.position.y - p.sy
         if (dx * dx + dy * dy > KNOCK_DIST * KNOCK_DIST || p.body.speed > 6.5) this._knockPin(ctx, i)
+      }
+    }
+
+    // Käglor som slungas HELT ut ur banan tonar bort i stället för att bli liggande
+    // ovanpå bakgrunden (och skalets hörnknappar) resten av omgången.
+    for (const p of this._pins) {
+      if (!p.down || p.gone) continue
+      const v = p.view
+      if (!v || v.destroyed) continue
+      if (v.x < 296 || v.x > 984 || v.y < 124 || v.y > 704) {
+        p.gone = true
+        this._phys.removeBody(p.body)
+        gsap.to(v, {
+          alpha: 0,
+          duration: 0.35,
+          onComplete: () => {
+            if (!v.destroyed) v.visible = false
+          },
+        })
       }
     }
 
@@ -623,6 +976,32 @@ export default {
     this._nextTimer?.kill()
     this._helpTimer?.kill()
     this._railTween?.kill()
+    this._glowTween?.kill()
+    this._bannerTl?.kill()
+    this._danceTl?.kill()
+
+    if (this._aimGlow && !this._aimGlow.destroyed) gsap.killTweensOf(this._aimGlow)
+    if (this._banner && !this._banner.destroyed) {
+      gsap.killTweensOf(this._banner)
+      gsap.killTweensOf(this._banner.scale)
+    }
+    for (const s of this._stamps || []) if (s && !s.destroyed) gsap.killTweensOf(s)
+    for (const rail of this._rails) {
+      if (!rail || rail.destroyed) continue
+      gsap.killTweensOf(rail._on)
+      gsap.killTweensOf(rail._off)
+    }
+    for (const st of this._trophies) {
+      if (st && !st.destroyed) {
+        gsap.killTweensOf(st)
+        gsap.killTweensOf(st.scale)
+      }
+    }
+    if (this._crowd && !this._crowd.destroyed) for (const f of this._crowd.fans) if (f && !f.destroyed) gsap.killTweensOf(f)
+    // Bakgrunder: den aktiva + eventuella som korsfadar ut just nu.
+    if (this._sceneNode && !this._sceneNode.destroyed) gsap.killTweensOf(this._sceneNode)
+    for (const s of this._oldScenes) if (s && !s.destroyed) gsap.killTweensOf(s)
+    this._oldScenes = []
 
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onTapField)
     if (this._ball && !this._ball.destroyed) {
@@ -695,6 +1074,80 @@ export function makePin() {
   e.moveTo(-8, -24).quadraticCurveTo(-12, -8, -9, 6).stroke({ width: 3, color: 0xffffff, alpha: 0.85 })
   e.eventMode = 'none'
   c.addChild(shadow, e)
+
+  // Ansikte: ögonvitor sitter still, pupillerna bor i ett eget lager som spelet
+  // riktar mot klotet (och spärrar upp när det närmar sig). Levande mål > rekvisita.
+  const white = new Graphics()
+  white.circle(-4.6, -20, 4.2).fill(0xffffff)
+  white.circle(4.6, -20, 4.2).fill(0xffffff)
+  white.stroke({ width: 1, color: 0xd8d2c6 })
+  white.eventMode = 'none'
+  const pupils = new Graphics()
+  pupils.circle(-4.6, -8, 2.3).fill(0x3a3226)
+  pupils.circle(4.6, -8, 2.3).fill(0x3a3226)
+  pupils.eventMode = 'none'
+  pupils.position.set(0, -12)
+  const mouth = new Graphics()
+  mouth.moveTo(-3.4, -14).quadraticCurveTo(0, -11, 3.4, -14).stroke({ width: 1.6, color: 0x3a3226, cap: 'round' })
+  mouth.eventMode = 'none'
+  c.addChild(white, pupils, mouth)
+  c.pupils = pupils
+
   c.eventMode = 'none'
+  return c
+}
+
+// Publik på en bänk: tre ritade åskådare (kropp, huvud, luva) som hoppar vid strike.
+function makeCrowd() {
+  const c = new Container()
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+
+  const bench = new Graphics()
+  bench.roundRect(-104, 46, 208, 16, 8).fill(COLORS.brown)
+  bench.roundRect(-86, 62, 14, 40, 6).fill(0x8a6a48)
+  bench.roundRect(72, 62, 14, 40, 6).fill(0x8a6a48)
+  bench.roundRect(-104, 6, 208, 12, 6).fill({ color: 0x8a6a48, alpha: 0.85 })
+  c.addChild(bench)
+
+  const fans = []
+  const palette = [COLORS.blue, COLORS.pink, COLORS.teal]
+  for (let i = 0; i < 3; i++) {
+    const f = new Container()
+    f.eventMode = 'none'
+    const g = new Graphics()
+    g.ellipse(0, 30, 20, 24).fill(palette[i % palette.length]) // kropp
+    g.circle(0, -2, 19).fill(0xffe0bd) // huvud
+    g.moveTo(-19, -6).quadraticCurveTo(0, -30, 19, -6).fill(palette[(i + 1) % palette.length]) // mössa
+    g.circle(-6.5, -1, 2.6).fill(0x3a3226)
+    g.circle(6.5, -1, 2.6).fill(0x3a3226)
+    g.moveTo(-5, 7).quadraticCurveTo(0, 12, 5, 7).stroke({ width: 2, color: 0x3a3226, cap: 'round' })
+    g.eventMode = 'none'
+    f.addChild(g)
+    f.position.set((i - 1) * 62, 0)
+    f._baseY = 0
+    c.addChild(f)
+    fans.push(f)
+  }
+  c.fans = fans
+  return c
+}
+
+// En pokal-stjärna till Bobos hylla.
+function makeStar() {
+  const c = new Container()
+  c.eventMode = 'none'
+  const g = new Graphics()
+  const R = 11
+  const r = 4.6
+  g.moveTo(0, -R)
+  for (let i = 1; i < 10; i++) {
+    const a = (Math.PI * i) / 5 - Math.PI / 2
+    const rad = i % 2 ? r : R
+    g.lineTo(Math.cos(a) * rad, Math.sin(a) * rad)
+  }
+  g.fill(COLORS.yellow).stroke({ width: 2, color: 0xe0a83c })
+  g.eventMode = 'none'
+  c.addChild(g)
   return c
 }

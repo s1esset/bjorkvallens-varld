@@ -1,5 +1,5 @@
 # Bobos Bowling (`bowling`)
-> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · drag · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -127,6 +127,34 @@ auto-hjälpen gör siktet kosmetiskt**.
   klunga). Vindpust-/knuff-backstopet träder in FÖRST efter andra kastet (`_throws>=2`), så
   bra sikte = strike på första, svagt sikte = fortfarande lyckat efter ett kast till. No-fail
   intakt. Verifierat: drag-test lämnade käglor kvar (siktet betyder nu något), errorCount 0.
+- 2026-08-06 ✅ **Hög 2 (variation) — banan befolkad, käglorna vaknade.** Åtta punkter ur §4
+  gjorda i en omgång: **banmarkeringar** (kägeldäck, fellinje, klassisk pilbåge, avstånds-
+  prickar) + **målzon-glow** runt siktmålet tar bort tom-matta-känslan och hjälper siktet ·
+  **käglor med ansikten** (ögonvitor + pupiller som riktas mot klotet och spärras upp när det
+  närmar sig) · **kantstödet läses i stillbild**: PÅ/AV är nu två olika FORMER (massiv stapel
+  med uppåtpilar vs streckad kontur) plus inåtpekande stämplar vid banänden · **STRIKE-skylt**
+  ("ALLA!") med studs-timeline + **skärmskak** som skalas mot antal fallna käglor ·
+  **Bobo som domare**: lutar sig efter klotet varje bildruta och dansar en egen koreografi vid
+  strike (armarna flyttades ut ur huvudets silhuett — han såg armlös ut) · **publik på bänk**
+  till höger som hoppar till · **pokalhylla** med 8 stjärnfack bredvid Bobo som visar
+  `custom.strikes` (full hylla firas när den rullar över) · **bantema cyklar per nivå**
+  (warm → candy → water → night) med korsfadad bakgrund och egna banfärger.
+- 2026-08-06: **Tre buggar i samma omgång.** (1) `fontFamily: FONT` kraschade renderingen —
+  `FONT` är ett OBJEKT (`FONT.display`/`.title`/`.body`), inte en sträng; syntes bara vid
+  strike eftersom skylten är dold fram till dess. Ett vanligt test var grönt hela tiden.
+  (2) Käglor som slungades helt ut ur banan blev liggande ovanpå bakgrunden och skalets
+  hörnknappar resten av omgången — de tonar nu bort när de lämnar banan. (3) `spelkritiker`
+  hittade att målzon-glowen inte följde med vid spare-kastet: `_serveSpare` räknade om
+  `_pinCenter` men flyttade aldrig halon, så den lyste över den fallna frontkäglans tomma
+  fläck på precis det kast där ledtråden behövs mest.
+- 2026-08-06: **Grindpunkt 5 (riktig ton) lagad utan SFX-pipelinen.** Käglorna växlade förut
+  mellan fasta `pop`/`pling` — samma UI-blipp som dussintals andra spel. De har nu en egen
+  ljudbild via `audio.tone()`: en låg sågtands-"trä-klonk" som glider 190→96 Hz plus en
+  **kombo-ton som klättrar en pentatonisk C-stege**, en ton per kägla i samma ras (stegen
+  nollställs vid varje nytt kast). Tio käglor i rad blir en stigande fanfar. Pentatonik kan
+  inte låta fel oavsett i vilken ordning käglorna faller. Riktiga inspelade trä-/rassel-klipp
+  ([[real-audio-sfx]]) är fortfarande ett önskemål när MOSS är uppe, men spelet är inte
+  längre beroende av dem för att låta som bowling.
 - 2026-08-04: **P0 ASSETS + två fixar.** (1) Käglorna var 🎳-emoji, som visar en boll OCH
   käglor i varje "kägla" — helt fel föremål; de ritas nu som riktiga käglor (flaskform,
   två röda halsband, glansstrimma), både på banan och i poängraden. (2) Bobo hade bara ett

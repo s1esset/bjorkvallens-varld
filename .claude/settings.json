@@ -2,7 +2,15 @@
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
     "php-lsp@claude-plugins-official": false,
-    "game-development@claude-code-workflows": false
+    "game-development@claude-code-workflows": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-code-workflows": {
+      "source": {
+        "source": "github",
+        "repo": "HermeticOrmus/claude-code-game-development"
+      }
+    }
   },
   "hooks": {
     "SessionStart": [

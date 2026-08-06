@@ -237,6 +237,7 @@ export default {
     for (const cl of lay.clouds) this._addBumper(cl)
 
     // Hjälten tillbaka i slangbellan, upprätt och full storlek.
+    this._hangTl?.kill()
     gsap.killTweensOf(this._hero)
     gsap.killTweensOf(this._hero.scale)
     this._hero.position.set(SLING.x, SLING.y)
@@ -398,6 +399,7 @@ export default {
     floatText(ctx.fxLayer, t.x, t.y - 12, '⭐', { fontSize: 58 })
     if (this._combo >= 2) floatText(ctx.fxLayer, t.x, t.y - 58, `×${this._combo}`, { fontSize: 40 })
     this._shrinkAway(t.view)
+    this._heroYay()
     if (this._targets.every((x) => x.collected)) this._win(ctx)
   },
 
@@ -684,6 +686,7 @@ export default {
     if (this._hero && !this._hero.destroyed) {
       gsap.killTweensOf(this._hero.scale)
       gsap.to(this._hero.scale, { x: 1.25, y: 1.25, duration: 0.25, yoyo: true, repeat: 1, ease: 'sine.inOut' })
+      this._heroHangFinish(ctx) // hänger upp-och-ner i sin egen tråd och vinkar
     }
 
     this._level += 1
@@ -694,6 +697,61 @@ export default {
     this._loadTimer = gsap.delayedCall(1.8, () => {
       if (this._alive) this._loadLevel(ctx, this._level)
     })
+  },
+
+  // Hjälten reagerar SJÄLV — glad snurr vid insamling, plattad "uff" vid väggstuds
+  // och en egen vinst-gest. Alla tre är rena skal/rotations-tweens på hjälte-noden
+  // och dödas i destroy tillsammans med de övriga hjälte-tweenarna.
+  _heroYay() {
+    const h = this._hero
+    if (!h || h.destroyed) return
+    gsap.killTweensOf(h.scale)
+    gsap
+      .timeline()
+      .to(h.scale, { x: 1.22, y: 0.86, duration: 0.09, ease: 'power2.out' })
+      .to(h.scale, { x: 1, y: 1, duration: 0.42, ease: 'elastic.out(1, 0.4)' })
+  },
+
+  _heroOof(ctx) {
+    const h = this._hero
+    if (!h || h.destroyed) return
+    gsap.killTweensOf(h.scale)
+    gsap
+      .timeline()
+      .to(h.scale, { x: 1.3, y: 0.72, duration: 0.07, ease: 'power2.out' })
+      .to(h.scale, { x: 1, y: 1, duration: 0.36, ease: 'elastic.out(1, 0.45)' })
+    floatText(ctx.fxLayer, h.x, h.y - 46, 'Uff!', { fontSize: 34, rise: 40, duration: 0.6 })
+  },
+
+  // Spel-specifik finish: hjälten hissas upp i en egen webbtråd, hänger UPP-OCH-NER
+  // och vinkar — i stället för att bara skalas upp ovanpå den delade konfettin.
+  _heroHangFinish(ctx) {
+    const h = this._hero
+    if (!h || h.destroyed) return
+    const topY = Math.max(120, h.y - 210)
+    const thread = new Graphics()
+    thread.eventMode = 'none'
+    ctx.fxLayer.addChild(thread)
+    const st = { y: h.y, rot: h.rotation, sway: 0 }
+    const draw = () => {
+      if (thread.destroyed) return
+      thread.clear().moveTo(h.x, topY - 90).lineTo(h.x, st.y).stroke({ width: 4, color: 0xffffff, alpha: 0.75 })
+    }
+    this._hangTl?.kill()
+    this._hangTl = gsap
+      .timeline({
+        onUpdate: () => {
+          if (h.destroyed) return
+          h.y = st.y
+          h.rotation = Math.PI + st.sway
+          draw()
+        },
+        onComplete: () => { if (!thread.destroyed) thread.destroy() },
+      })
+      .to(st, { y: topY, rot: Math.PI, duration: 0.5, ease: 'power2.out' })
+      .to(st, { sway: 0.22, duration: 0.5, ease: 'sine.inOut' })
+      .to(st, { sway: -0.22, duration: 0.7, ease: 'sine.inOut' })
+      .to(st, { sway: 0.12, duration: 0.6, ease: 'sine.inOut' })
   },
 
   // ---- Kollisioner (boing) ------------------------------------------------
@@ -709,6 +767,7 @@ export default {
       if (this._t - this._lastBoing > BOING_THROTTLE) {
         this._lastBoing = this._t
         ctx.services.audio.sfx('boing')
+        this._heroOof(ctx)
         if (this._hero && !this._hero.destroyed) {
           puff(ctx.fxLayer, this._hero.x, this._hero.y, { count: 5 })
           if (other === 'bumper') {
@@ -882,6 +941,7 @@ export default {
     this._returnTween?.kill()
     this._glideTween?.kill()
     this._kittenTween?.kill()
+    this._hangTl?.kill()
 
     for (const t of this._targets) {
       if (t.view && !t.view.destroyed) {

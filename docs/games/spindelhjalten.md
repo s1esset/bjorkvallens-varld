@@ -126,3 +126,13 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   men själva figuren var en emoji. (2) Vind-etiketten ("Av/→/←") var mörk text direkt mot
   himmel/kulle och svävade bortkopplad från knappen; den har nu en ljus pill bakom sig.
   errorCount 0.
+- 2026-08-06: **[Deep] Hjälten reagerar och firar eget** (spår "20 spel från 🔧 till ✅").
+  - **Glad gest vid insamling** (`_heroYay` — snabb squash-and-stretch) och **"Uff!" vid
+    väggstuds** (`_heroOof` — plattas till + svävande text). Hjälten var tidigare helt
+    uttryckslös mellan skotten; nu svarar han på det som händer.
+  - **Spel-specifik finish** (`_heroHangFinish`): vid rundvinst hissas han upp i en **egen
+    webbtråd**, hänger **upp-och-ner** och gungar fram och tillbaka — i stället för att bara
+    skalas upp ovanpå den delade konfettin. Tråden ritas per bildruta mot hjältens faktiska
+    x, och `_hangTl` dödas både vid ny runda (annars hänger han kvar) och i `destroy`.
+  - Kvar sedan tidigare: [Deep] hjälpen ska bjuda in i stället för att ersätta (rita
+    hjälp-skottets prickbana och låt barnet trycka "Skjut!" självt).

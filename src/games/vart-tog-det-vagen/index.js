@@ -12,6 +12,7 @@
 // Allt är fortfarande no-fail: fel tryck är lekfullt och idle ger auto-hjälp.
 // Allt ritas programmatiskt (Pixi Graphics + emoji), inga externa filer.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle } from '../../lib/feedback.js'
@@ -101,8 +102,9 @@ export default {
 
     // Leksaken: en Text-emoji, BAKOM kopparna i z-led (döljs när koppen är nere,
     // syns när koppen lyfts). Återanvänds varje runda (byter bara text/plats).
-    this._prize = new Text({ text: PRIZES[0], style: { fontFamily: FONT.body, fontSize: 96, align: 'center' } })
-    this._prize.anchor.set(0.5)
+    // P0 ASSETS: behållare för den RITADE leksaken (var en emoji-Text vars
+    // .text byttes varje runda).
+    this._prize = new Container()
     this._prize.eventMode = 'none'
     this._prize.position.set(CENTER, BASE_Y)
     this._root.addChild(this._prize)
@@ -201,7 +203,8 @@ export default {
     // Slumpa göm-plats och leksak. Prize-koppen följs via identitet.
     this._prizeSlot = (Math.random() * n) | 0
     this._prizeCup = this._cups[this._prizeSlot]
-    this._prize.text = randomFrom(PRIZES)
+    for (const ch of this._prize.removeChildren()) ch.destroy({ children: true })
+    this._prize.addChild(drawIcon(randomFrom(PRIZES), 96))
     this._prize.x = this._slots[this._prizeSlot]
     this._prize.y = BASE_Y
     this._prize.rotation = 0

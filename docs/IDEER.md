@@ -8,7 +8,87 @@ När en idé byggs: flytta den till `docs/games/<id>.md` (§0 Spec) och stryk po
 
 ---
 
-## 1. Nätskott från bilfönstret (arbets-id: `natskott-pa-stan`)
+## 1. Ansiktssektionen — riktiga foton som spelfigur (arbets-id: `ansiktssektionen`)
+
+*Inlagd 2026-08-06. Status: ⬜ ej planerad. Omfattning: **en hel ny sektion**, inte ett spel.*
+
+**Idén, som den beskrevs:** En helt ny sektion i biblioteket där **riktiga foton av ägarens
+ansikte** är spelfiguren. Ansiktet **grimaserar som svar på vad spelaren gör** — grimasen är
+återkopplingen. Fotot är inte en stillbild: det **skärs upp i delar** så att det blir
+interaktivt — **mun och käke** lyfts ut som egna bitar så ansiktet kan se ut att **prata**
+och kunna **äta genom att gapa**.
+
+**Första spelet i sektionen:** dra-och-släpp **mat i munnen**. Munnen gapar när maten närmar
+sig, tuggar, och **ansiktet/grimasen ändras beroende på vad man matade det med** — citron ger
+sur min, chili ger het min, tårta ger lycksalig min, broccoli ger en fundersam min.
+
+### Varför den är intressant
+- **Ingenting i biblioteket ser ut så här.** 70 spel är ritad vektorgrafik. Ett riktigt ansikte
+  som reagerar är en helt annan sorts belöning — och det är *pappas* ansikte, vilket för ett
+  2–5-åring slår varje tecknad figur.
+- **Grimasen ÄR återkopplingen.** P0 kräver ljud+bild <100 ms per pekning; ett ansikte som
+  ändrar min är den mest avläsbara feedback som finns för en 2-åring — noll läsning, noll ikoner.
+- **Motgång blir rolig av sig själv.** P0 `MOTGÅNG` vill hinder som är roliga och aldrig
+  skambelagda: "fel" mat = en jättegrimas + ett spott-ljud, aldrig ett rött kryss. Sur min är
+  en belöning i sig, inte ett misslyckande.
+- **En uppskuren ansiktsrigg är återanvändbar** — samma käke/mun/ögon-rigg driver hela
+  sektionen: mata, härma grimasen, tandborstning, prat-docka, ansiktet som sjunger med.
+
+### Möjliga spel i sektionen (att välja bland senare)
+| Arbets-id | Vad det är |
+|---|---|
+| `mata-munnen` | dra mat till munnen → gap, tugg, grimas efter smak (**först ut**) |
+| `harma-grimasen` | ansiktet gör en min, barnet trycker på rätt min bland tre |
+| `borsta-tanderna` | dra tandborsten i den gapande munnen, ansiktet reagerar på var man är |
+| `prat-ansiktet` | tryck på ord/ikoner → käken rör sig i takt med röstklippet |
+
+### Frågor att svara på i planeringen (INTE nu)
+1. **Fotoshoot-listan.** Vilka miner behövs, och hur många? Grundrigg: neutral · glad · förvånad
+   · sur · äcklad · het/chili · nöjd/mätt + **gap öppet** och **gap stängt**. Allt måste tas i
+   **samma ljus, samma avstånd, samma vinkel**, annars hoppar ansiktet mellan minerna. Detta är
+   en riktig produktionsuppgift för ägaren innan ett spel kan byggas.
+2. **Skära eller byta?** Två helt olika tekniska vägar: (a) *rigg* — ett foto skärs i käke,
+   mun-inre, ögon, ögonbryn som rör sig var för sig; (b) *minbyte* — ett foto per grimas som
+   korsbleknar. Rigg ger prat och gap, minbyte ger äkta miner. **Troligen båda:** riggad käke
+   ovanpå ett minbyte för ögon/bryn. Måste avgöras före första spelet.
+3. **P0 `KARAKTÄRER`.** Avbildade människor får bara heta Zacke/Alissa/Elvira/Lova. Ett foto av
+   ägaren är en avbildad människa — heter han "Pappa" (roll, inte namn), är han namnlös, eller
+   behöver regeln i `lib/theme.js` ett uttryckligt undantag? Bestäm och skriv in i regeln.
+4. **P0 `ASSETS`.** "Spelobjekt ritas fristående — aldrig en emoji/ikon i en ruta." Ett foto är
+   inte en emoji, men det måste vara en **friskuren silhuett** med genomskinlig bakgrund och
+   eget liv (andning, blink i vila) — aldrig ett rektangulärt foto i en ram. Maten som dras
+   ritas som vanligt (`artikoner.js`).
+5. **Integritet.** P0 `DATA`: ingen PII lämnar enheten. Foton i `public/` följer med i bygget
+   och serveras över Tailscale till telefonen. Det är familjens egen app och egna bilder — men
+   bestäm medvetet: bara ägarens ansikte, eller barnens också? Och ska sektionen fungera om
+   fotona saknas (fallback till ritat ansikte), så repot går att dela utan bilderna?
+6. **Egen flik eller inte?** "Sektion" antyder en femte flik i biblioteket (`TAB_GROUPS` i
+   `lib/theme.js`, se skill **skal-och-data**). En flik med ett spel i ser tom ut — bygg 2–3
+   spel först och lyft ut fliken när de finns, eller lägg dem i Roligt tills vidare?
+7. **Vad är målet i `mata-munnen`?** Kvalitetsgrindens punkt 1 kräver agens med utfall. Väg:
+   "mata tills tallriken är tom" · "hitta vilken mat som ger vilken min" (upptäckarloop) ·
+   "gör ansiktet mätt" med en synlig mättnadsmätare. Alltid utan fail.
+8. **Bildbudget.** Hur många MB får sektionen kosta? Foton är tyngre än vektorgrafik och
+   service-workern cachar allt offline. Format (webp), maxbredd och antal miner måste sättas.
+
+### Tekniska hållpunkter
+- **Ansiktsriggen blir en delad modul** (`lib/ansikte.js`-aktig), inte kod i ett spel — käke som
+  roterar kring en pivot vid örat, mun-inre som eget lager under käken, ögonlock för blink.
+  Pixi v8: `Sprite` med `anchor` för pivoten, eller `PerspectiveMesh`/`MeshPlane` om käken
+  behöver deformera i stället för att bara rotera (se skill **pixijs-scene-mesh**).
+- **Uppskärningen görs offline**, inte i körning: ett skript under `scripts/` som klipper ut
+  delarna ur källfotona till färdiga PNG/webp-lager — samma mönster som `npm run voice`/`sfx`.
+- **Käken kan drivas av rösten.** `VoiceService` spelar redan mp3-klipp; enklast är
+  tidsbaserat käkflaxande medan ett klipp spelas, dyrare är amplitud från `AudioService`.
+  Se skill **ljud-och-rost**.
+- **Grimasbyte** = korsblekning över ~120 ms + en liten skalpuff, aldrig ett hårt klipp.
+  `feedback.js`-hjälparna och `_alive`-flaggan gäller som vanligt (P0 `EXIT-SÄKERT`).
+- **Maten** dras med `DragController` (samma som övriga dra-spel) med mun-området som mottagare
+  — träffytan runt munnen måste vara ≥96px även om munnen på fotot är mindre.
+
+---
+
+## 2. Nätskott från bilfönstret (arbets-id: `natskott-pa-stan`)
 
 *Inlagd 2026-08-06. Status: ⬜ ej planerad.*
 

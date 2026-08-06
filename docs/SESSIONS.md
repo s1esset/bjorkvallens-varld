@@ -14,6 +14,38 @@ Format:
 
 ---
 
+## 2026-08-06 · v1.13.0 · 💧 Vätskemotor + Saftbaren (spel 71)
+
+**Byggt:**
+- **`src/lib/vatska.js`** — ny vätskemotor. Partikelvätska (double density relaxation) i
+  px/steg med fast 1/60-steg, spatial hash, typade arrayer, roterbara låd-kollidrar och
+  metaboll-rendering (mjuka klickar → sudd → tröskelfilter). Uppmätt i riktig Chrome:
+  0,25 ms/bildruta vid 200 partiklar · 0,54 vid 400 · 1,12 vid 800 · 5,3 vid 3000, full
+  60 fps hela vägen. Ingen befintlig motor kunde detta (matter/p2 är stelkroppar, three har
+  bara ytshaders, liquidfun är övergivet).
+- **`saftbaren`** (spel 71, Fysik-fliken) — fyra glas, kran på skena, färgspak, hink och Bobo
+  som beställer. Häll mellan glasen → färgerna späds i vätskan: gul + blå blir grön. Bobo
+  dricker upp den beställda färgen (partikel för partikel, stigande ton) och rapar en färgad
+  bubbla. Droppstorleks-toggel för lek.
+- Motorn utökades under bygget med **färg per partikel** (`world.pal` + `FluidView.palette`),
+  **ingrediens-kanaler** (`setChannels` — riktig utspädning, mängden bevaras) och
+  **roterade kärlväggar** (`addBox(..., angle)`).
+
+**Tre buggar som kostade tid (nu dokumenterade i skill fysik-spel):**
+1. `Filter.from` fyller inte i någon vertex-shader — skicka `defaultFilterVert`.
+2. En skenande partikel som blir `NaN` spränger filtrets renderingstextur → 0,5 fps.
+   Fix: hastighetstak, tak på viskositetens kvadratterm, `Number.isFinite`-vakt, låst
+   `boundsArea`.
+3. Ett kärl som flyttas måste **bära med sig sin vätska** (annars står saften kvar i luften),
+   och varje partikel behöver EN ägare — annars stjäl ett glas som flyger förbi innehållet ur
+   ett som står stilla.
+
+**Öppet:**
+- Röstklipp: 11 nya repliker väntar → kör `/rost` när narratorn är uppe (Web Speech täcker upp).
+- `docs/IDEER.md` har två oplanerade idéer: ansiktssektionen (foton som spelfigur) och
+  nätskott från bilfönstret.
+- Oavslutad `/polera figurer`-körning ligger kvar i `.claude/state/korning.json`.
+
 ## 2026-08-06 · v1.12.0 · ⚙️ Mottagar-högen — 8 spel fick någon som bryr sig
 
 **Byggt:** start på kvalitetsspåret "20 spel från 🔧 till ✅". De 20 spelen visade sig falla i

@@ -138,6 +138,7 @@ stor del via det nya delade `src/lib/artikoner.js`.*
 | 63 | Kugghjulen | `kugghjulen` | drag | ✅ | ✅ |
 | 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ | ✅ |
 | 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 | ✅ |
+| 71 | Saftbaren | `saftbaren` | mixed | ✅ | ✅ |
 
 ### 🔤 Lära (larande + pedagogiskt) — ✅ **polerad** (9/9)
 *Första-omgången 2026-07-02, poleringsrundan 2026-08-06. Sista fliken — rundan är klar.*

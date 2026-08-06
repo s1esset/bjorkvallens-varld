@@ -13,6 +13,7 @@ description: Use when building or changing physics-based games in this repo. Cov
 | **matter.js** | *stelkroppsvärlden*: staplade lådor, kedjereaktioner, studs, rullande bollar, kast med sikte | `src/lib/physics.js` → **23 spel**, varav 8 med `AimLauncher` |
 | **p2-es** | det matter är dåligt på: **fjädrar och leder** (`Spring`, `RevoluteConstraint`, `DistanceConstraint`), tyg-/repkedjor, kontinuerlig kollision för snabba små kroppar, per-material friktionspar | *inget spel än — först ut får skriva `src/lib/physics2.js`* |
 | **three.js** | 3D-scenen bakom Pixi | `src/lib/three3d.js` → `glittergrottan`; se skill **threejs-games** |
+| **vätska** | det som **rinner, skvalpar, fyller och stänker**: vatten, saft, gegga, honung | `src/lib/vatska.js` (`FluidWorld` + `FluidView`) → *inget spel än* |
 
 Regler som gäller alla:
 
@@ -54,6 +55,40 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
 Den återanvändbara **"dra för att sätta riktning + kraft, med levande prickad bana"**-kontrollen.
 `slingshot` (dra bakåt) eller kast. Tap-fallback siktar mot `defaultAim` — obligatorisk för
 under-4-år. `setWind` / `setPreview` håller förhandsvisningen ärlig.
+
+## Vätska (`src/lib/vatska.js`)
+
+Partikelvätska (double density relaxation, Clavet) + **metaboll-rendering**: varje partikel
+ritas som en mjuk klick, lagret suddas och tröskeltestas i ett filter → klickarna smälter ihop
+till sammanhängande vätska. Samma enheter som resten av repot: **px/steg**, fast 1/60-steg.
+
+- `new FluidWorld({ max, radius, gravityY, ...FLUIDS.vatten })` — `spawn` · `splash` ·
+  `attract(x,y,r,styrka)` (fingret som rör om) · `addBox(x,y,w,h,angle)/addCircle` (kärl och
+  hinder, **centrerade** som `PhysicsWorld.rectangle`; `c.angle` får ändras i farten → ett
+  lutat glas häller ur sig) · `countIn(x,y,w,h)` (mål: "fyll glaset") · `drain(...)`
+  (avlopp/mun/svamp) · `update(deltaMS)` · `destroy()`.
+- `new FluidView(parent, world, FLUIDS.saft)` → `update()` varje bildruta · `setColor()` ·
+  `setBlobScale(skala, tröskel)` (droppstorlek i farten) · `destroy()`.
+  `FLUIDS`: `vatten · saft · gegga · honung · choklad · tval`.
+- **Färg per partikel:** `new FluidView(..., { palette: [hex, …] })` + `world.pal[i]`.
+  `world.setChannels(3, rate)` ger varje partikel blandbara MÄNGDER (t.ex. rött/gult/blått)
+  som jämnas ut vid kontakt — riktig utspädning, mängden bevaras. Spelet läser `world.ch[k][i]`
+  och skriver visningsfärgen i `world.pal[i]`. **Byt aldrig bara färgnamn vid kontakt**: en enda
+  grön droppe färgar då hela glaset grönt (sedd bugg i `saftbaren`).
+- **Rita kärlet OVANPÅ vätskelagret.** Metabollen sväller ~30 px utanför partiklarna, så
+  vätskan bleder igenom golv och väggar om kärlet ligger under.
+- **Ett kärl som FLYTTAS måste bära med sig sin vätska.** Väggarna hinner svepa förbi
+  partiklarna på en bildruta, och innehållet blir stående kvar i luften. Flytta både
+  `x/y` och `px/py` på partiklarna inuti — och ge varje partikel EN ägare, annars stjäl ett
+  glas som flyger förbi innehållet ur ett som står stilla. Se `_carryAll()` i `saftbaren`.
+- Uppmätt i riktig Chrome (headless, mjukvaru-GL) på 1280×720: solvern kostar **0,25 ms/bildruta
+  vid 200 partiklar · 0,54 vid 400 · 1,12 vid 800 · 5,3 vid 3000**, renderingen ≈0,02 ms JS
+  (resten är GPU, filtret körs i halv upplösning). Full 60 fps hela vägen. **400–600 partiklar
+  räcker för ett kärl eller en rinnande kran** — ta inte mer bara för att det går.
+- Fallgropar som redan kostat tid: `Filter.from` fyller **inte** i någon vertex-shader
+  (skicka `defaultFilterVert`), och en skenande partikel som blir `NaN` spränger filtrets
+  renderingstextur → 0,5 fps. Därför: hastighetstak, tak på viskositetens kvadratterm,
+  `Number.isFinite`-vakt i `_cull()` och låst `boundsArea`. Rör inte de spärrarna.
 
 ## Förhandsvisningens kalibrering (uppmätt mot matter.js vid fast 1/60-steg)
 

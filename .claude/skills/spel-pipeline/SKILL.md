@@ -62,7 +62,7 @@ Plus P0 (se CLAUDE.md) och exit-säkerhet (se skill **spelkontrakt**).
 | 2 | `bygg` | Parallella `spelbyggare`-agenter: **mekanik+mål**, **scen+juice+mottagare**, **ljud+röst**. En äger filen, övriga levererar block. Vid enklare spel: bygg själv. |
 | 3 | `registrera` | Import + rad i `src/games/registry.js`. Nya repliker → `scripts/voice-phrases.json` (pending). |
 | 4 | `kontroll` | `npm run check` — kontrakt, registry, P0, doc, röst-täckning. Måste vara grön. |
-| 5 | `test` | `npm run test <id>` (dragspel: `--drag`). **0 konsolfel**, inkl. exit-mitt-i-animation-cykeln. Loopa fix→test tills grönt. |
+| 5 | `test` | `npm run test <id>` (dragspel: `--drag`). **0 konsolfel** och inga `fel`-nivåfynd, inkl. exit-mitt-i-animation-cykeln. Harnessen kör `bildkoll.mjs` på skärmdumpen (tom scen · heltäckande fält · platt layout) — **öppna bilden själv också**, tre av fyra fel i gravmaskinens polering syntes bara där. Loopa fix→test tills grönt. |
 | 6 | `kritik` | `spelkritiker`-agent: spelar som 3-åring mot skärmdump+kod, listar vad som är tunt mot de 7 punkterna. |
 | 7 | `fix` | Åtgärda kritiken. Om-testa. |
 | 8 | `commit` | `feat(<id>): <kort svensk beskrivning>` — **explicita sökvägar**, aldrig `git add -A`. |

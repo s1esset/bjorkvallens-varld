@@ -53,6 +53,13 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
 
 ## 4. Förbättringar & förhöjningar (plan)
 
+> **Mätt fynd 2026-08-06 (`bildkoll.mjs`):** `gles-scen` — bara **4,3 %** av skärmen har
+> innehåll. Det är repots lägsta av 71 spel (näst lägst: fyrverkeri 9,8 %), och det enda spel
+> som slår ut den nya bildkollen. Skärmdumpen visar en tom vit panel, fyra grå prickar och en
+> ✏️-emoji som *hela* verktyget — alltså både gate-punkt 4 (ingen mottagare, tom scen) och
+> P0 ASSETS. Punkterna nedan (motiv-silhuett bakom prickarna, välj krita) åtgärdar detta;
+> ta dem tillsammans och rita pennan fristående.
+
 ### Kärnloop & agens
 - **[Medium] Prickarna bildar en bild.** Lägg en blek motiv-silhuett (katt, fisk, stjärna,
   hus) bakom prickarna; när linjen sluts fylls motivet med färg + får ögon/liv. Då RITAR man

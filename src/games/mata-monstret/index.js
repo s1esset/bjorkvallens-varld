@@ -16,6 +16,7 @@
 // Allt ritas programmatiskt. Återanvänder lib/DragController, lib/physics, lib/scene,
 // lib/feedback (exit-säkra partiklar) och de delade firande/ljud-tjänsterna.
 import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
@@ -71,12 +72,14 @@ const MONSTERS = [
 ]
 
 // Läges-specifik talad svenska.
+// HELA repliker per läge — 'Mata monstret! ' + modeIntro() var en konkatenering
+// som check.mjs inte kunde hitta, så raden fick aldrig ett röstklipp.
 function modeIntro(mode) {
   return {
-    classic: 'Dra den goda maten upp till munnen!',
-    walk: 'Monstret går omkring – ge det mat när du hinner!',
-    shelf: 'Släpp maten från hyllan, så fångar monstret den!',
-    plinko: 'Tryck högst upp så trillar maten ända ner i munnen!',
+    classic: 'Mata monstret! Dra den goda maten upp till munnen!',
+    walk: 'Mata monstret! Det går omkring – ge det mat när du hinner!',
+    shelf: 'Mata monstret! Släpp maten från hyllan, så fångar det den!',
+    plinko: 'Mata monstret! Tryck högst upp så trillar maten ända ner i munnen!',
   }[mode]
 }
 function modeIdle(mode) {
@@ -163,7 +166,7 @@ export default {
     this._idle = 0
     // Läges-anpassad öppningsfras (rundan 1 kan vara vilket läge som helst för
     // återvändande barn — säg rätt instruktion istället för en fast "dra"-fras).
-    ctx.services.voice.say('Mata monstret! ' + modeIntro(this._mode))
+    ctx.services.voice.say(modeIntro(this._mode))
   },
 
   // ---- rund-livscykel -----------------------------------------------------
@@ -1423,8 +1426,8 @@ function makePrefBubble(cat) {
   const dots = new Graphics()
     .circle(-34, 40, 11).fill(0xffffff).stroke({ width: 4, color: 0xbcd6e8 })
     .circle(-52, 58, 7).fill(0xffffff).stroke({ width: 3, color: 0xbcd6e8 })
-  const icon = new Text({ text: PREF_ICON[cat] || '🍎', style: { fontFamily: FONT.body, fontSize: 50 } })
-  icon.anchor.set(0.5)
+  // P0 ASSETS: RITAT önskemärke (var en emoji-Text i pratbubblan).
+  const icon = drawIcon(PREF_ICON[cat] || '🍎', 50)
   icon.position.set(0, -6)
   c.addChild(cloud, dots, icon)
   c.eventMode = 'none'

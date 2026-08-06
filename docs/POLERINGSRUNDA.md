@@ -172,7 +172,7 @@ och sänk till 🔧 om något visar sig inte hålla.
 | 13 | `skuggmatchning` | 7 | ✅ |
 | 14 | `stor-liten` | 5 | ✅ |
 | 15 | `enkelt-pussel` | 4 | ✅ |
-| 16 | `mata-monstret` | 3 | ⬜ |
+| 16 | `mata-monstret` | 3 | ✅ |
 | 17 | `vart-tog-det-vagen` | 3 | ⬜ |
 | 18 | `harma-melodin` | 2 | ⬜ |
 | 19 | `glittergrottan` | 0 | ⬜ |

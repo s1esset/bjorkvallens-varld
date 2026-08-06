@@ -119,7 +119,7 @@ Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
 |---|------|----|-------|:--:|:--:|
 | 2 | Sortera Skräp | `sortera-skrap` | drag | ✅ | ✅ |
 | 3 | Vändkort | `vandkort` | tap | ✅ | ✅ |
-| 8 | Mata Monstret | `mata-monstret` | mixed | ✅ | ⬜ |
+| 8 | Mata Monstret | `mata-monstret` | mixed | ✅ | ✅ |
 | 13 | Stor och Liten | `stor-liten` | drag | ✅ | ✅ |
 | 15 | Klä på Nallen | `kla-pa-nallen` | drag | ✅ | ✅ |
 | 16 | Plantera Frön | `plantera-fron` | drag | ✅ | ✅ |

@@ -69,6 +69,8 @@ const ART = {
   // aldrig i vandkorts ursprungliga uppsättning.
   '🦋': ['tool', 'butterfly', 0xa78bfa], '🌈': ['shape', 'rainbow', 0xff6b6b],
   '⚽': ['shape', 'ball', 0xffffff],
+  // tillskott för mata-monstret
+  '🥕': ['tool', 'carrot', 0xff9d3d], '🍬': ['tool', 'candy', 0xef6aa8],
 }
 
 export function drawIcon(key, size = 100) {
@@ -355,6 +357,16 @@ export function drawIcon(key, size = 100) {
       g.ellipse(0, -8 * S, 28 * S, 34 * S).fill(col).stroke({ width: 4, color: dk })
       g.moveTo(-7 * S, 26 * S).lineTo(7 * S, 26 * S).lineTo(0, 34 * S).closePath().fill(dk)
       g.ellipse(-11 * S, -18 * S, 7 * S, 11 * S).fill({ color: 0xffffff, alpha: 0.45 })
+    } else if (form === 'carrot') {
+      g.moveTo(-16 * S, -10 * S).lineTo(16 * S, -10 * S).lineTo(0, 36 * S).closePath()
+      g.fill(col).stroke({ width: 4, color: dk })
+      for (const y of [-2, 8, 18]) g.moveTo((-9 + y * 0.2) * S, y * S).lineTo((9 - y * 0.2) * S, y * S).stroke({ width: 2.5, color: dk, alpha: 0.6 })
+      for (const dx of [-11, 0, 11]) g.moveTo(0, -10 * S).quadraticCurveTo(dx * 0.6 * S, -24 * S, dx * S, -34 * S).stroke({ width: 6, color: 0x5bbf6a, cap: 'round' })
+    } else if (form === 'candy') {
+      g.ellipse(0, 0, 20 * S, 17 * S).fill(col).stroke({ width: 4, color: dk })
+      g.moveTo(-18 * S, -4 * S).lineTo(-38 * S, -16 * S).lineTo(-34 * S, 0).lineTo(-38 * S, 16 * S).closePath().fill(col).stroke({ width: 3, color: dk })
+      g.moveTo(18 * S, -4 * S).lineTo(38 * S, -16 * S).lineTo(34 * S, 0).lineTo(38 * S, 16 * S).closePath().fill(col).stroke({ width: 3, color: dk })
+      g.ellipse(-6 * S, -6 * S, 6 * S, 4 * S).fill({ color: 0xffffff, alpha: 0.55 })
     } else if (form === 'butterfly') {
       g.ellipse(-18 * S, -12 * S, 18 * S, 21 * S).fill(col).stroke({ width: 3, color: dk })
       g.ellipse(18 * S, -12 * S, 18 * S, 21 * S).fill(col).stroke({ width: 3, color: dk })

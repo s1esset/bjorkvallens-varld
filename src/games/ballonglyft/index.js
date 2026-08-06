@@ -12,7 +12,8 @@
 // slut fäster en åt barnet. Allt ritas programmatiskt (Pixi Graphics + emoji). Exit-säkert.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { createScene } from '../../lib/scene.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
@@ -39,6 +40,18 @@ const IDLE_MS = 9000 // ms utan tryck → mjuk auto-hjälp LOCKAR först
 const HELP_MS = 3500 // ytterligare tid efter lockandet → fäster då en ballong åt barnet
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+// x-position för lös ballong i av n. Jämnt fördelade över nederkanten MINUS
+// presentens kolumn (700..940): en ballong bakom paketet är osynlig, och rundan
+// kunde då bara lösas av auto-hjälpen. Vänsterbandet fylls först.
+const LOOSE_L0 = 120, LOOSE_L1 = 690, LOOSE_R0 = 950, LOOSE_R1 = 1160
+function looseX(i, n) {
+  const lw = LOOSE_L1 - LOOSE_L0
+  const rw = LOOSE_R1 - LOOSE_R0
+  const t = n <= 1 ? 0.5 : i / (n - 1)
+  const d = t * (lw + rw)
+  return d <= lw ? LOOSE_L0 + d : LOOSE_R0 + (d - lw)
+}
 
 export default {
   id: 'ballonglyft',
@@ -67,8 +80,7 @@ export default {
     this._root.addChild(this._balcony)
 
     // Blek "spök-present" vid balkongen — visar HELA tiden vart presenten ska.
-    this._ghost = new Text({ text: '🎁', style: { fontFamily: FONT.body, fontSize: 96 } })
-    this._ghost.anchor.set(0.5)
+    this._ghost = drawIcon('🎁', 104)
     this._ghost.alpha = 0.28
     this._ghost.eventMode = 'none'
     this._root.addChild(this._ghost)
@@ -119,8 +131,7 @@ export default {
     plate.roundRect(700, 0, 320, 34, 14).fill(COLORS.brown).stroke({ width: 6, color: 0x6f4630 })
     c.addChild(plate)
 
-    const elvira = new Text({ text: '🧒', style: { fontFamily: FONT.body, fontSize: 96 } })
-    elvira.anchor.set(0.5, 1)
+    const elvira = makeElvira()
     elvira.position.set(BOX_X, 2)
     c.addChild(elvira)
     this._elvira = elvira
@@ -142,9 +153,8 @@ export default {
     const want = new Text({ text: '3', style: { fontFamily: FONT.display, fontSize: 52, fontWeight: '700', fill: COLORS.ink } })
     want.anchor.set(0.5)
     want.position.set(-16, 0)
-    const balloon = new Text({ text: '🎈', style: { fontFamily: FONT.body, fontSize: 40 } })
-    balloon.anchor.set(0.5)
-    balloon.position.set(22, 0)
+    const balloon = drawIcon('🎈', 52)
+    balloon.position.set(24, -4)
     bubble.addChild(bg, want, balloon)
     bubble.position.set(BOX_X + 96, -150)
     c.addChild(bubble)
@@ -187,12 +197,19 @@ export default {
     ribbon.eventMode = 'none'
     box.addChild(ribbon)
 
-    const gift = new Text({ text: '🎁', style: { fontFamily: FONT.body, fontSize: 110 } })
-    gift.anchor.set(0.5)
-    gift.position.set(0, -2)
-    gift.eventMode = 'none'
-    box.addChild(gift)
-    this._gift = gift
+    // Locket med rosett är ETT EGET lager — det är det som försvinner när paketet
+    // öppnas. Tidigare låg en 🎁-emoji ovanpå den redan ritade lådan (två presenter
+    // i varandra) och det var emojin som gömdes.
+    const lid = new Graphics()
+    lid.roundRect(-78, -84, 156, 34, 12).fill(COLORS.red).stroke({ width: 6, color: COLORS.orangeDark })
+    lid.roundRect(-68, -80, 136, 10, 5).fill({ color: COLORS.white, alpha: 0.22 })
+    lid.rect(-12, -84, 24, 34).fill(COLORS.yellow)
+    lid.moveTo(-6, -84).quadraticCurveTo(-52, -122, -26, -84).closePath().fill(COLORS.yellow)
+    lid.moveTo(6, -84).quadraticCurveTo(52, -122, 26, -84).closePath().fill(COLORS.yellow)
+    lid.circle(0, -86, 9).fill(COLORS.yellow).stroke({ width: 4, color: COLORS.orangeDark })
+    lid.eventMode = 'none'
+    box.addChild(lid)
+    this._gift = lid
 
     // Att trycka på paketet är bara lekfullt (vinglar + lockar) — aldrig "fel".
     box.eventMode = 'static'
@@ -204,7 +221,8 @@ export default {
 
   _makeCounter() {
     const c = new Container()
-    c.position.set(170, 150)
+    // 170,150 lade räknarens övre vänstra hörn under hemknappen (som slutar 115,112).
+    c.position.set(205, 178)
     c.eventMode = 'none'
     const plate = new Graphics()
     plate.roundRect(-72, -58, 144, 116, 24).fill(COLORS.cream).stroke({ width: 5, color: COLORS.orange })
@@ -262,11 +280,9 @@ export default {
     this._strings.clear()
 
     // Spawna N LÖSA, färgglada ballonger längs nederkanten — en per önskad ballong.
-    const margin = 130
-    const span = ctx.width - margin * 2
     for (let i = 0; i < this._N; i++) {
-      const x = this._N === 1 ? ctx.width / 2 : margin + span * (i / (this._N - 1))
-      const y = 648 + (i % 2) * 30
+      const x = looseX(i, this._N)
+      const y = 610 + (i % 2) * 26
       const color = PLAYFUL[(i + level) % PLAYFUL.length]
       const b = this._makeBalloon(color)
       b.position.set(x, y)
@@ -510,8 +526,7 @@ export default {
     burst(ctx.fxLayer, bx, by - 20, { power: 1 })
 
     // Överraskningen: hoppar upp ur paketet och sedan in i Elviras famn.
-    const s = new Text({ text: pick.e, style: { fontFamily: FONT.body, fontSize: 84 } })
-    s.anchor.set(0.5)
+    const s = drawIcon(pick.e, 96)
     s.position.set(bx, by - 20)
     s.scale.set(0.2)
     s.eventMode = 'none'
@@ -571,4 +586,56 @@ export default {
     if (this._surprise && !this._surprise.destroyed) gsap.killTweensOf(this._surprise)
     this._root?.destroy({ children: true })
   },
+}
+
+// Elvira, ritad och stående — inte en 🧒-emoji. Origo = marken mellan fötterna
+// (y=0), figuren växer uppåt till ca y=-106 så namnskylten på -104 inte krockar.
+// wiggle/pop tweenar containern; pivot i fötterna gör att hon studsar från marken.
+function makeElvira() {
+  const c = new Container()
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+
+  const skin = 0xffe0b2
+  const skinDark = 0xe7c193
+  const hair = 0xf6cb45
+  const hairDark = lerpColor(hair, 0x000000, 0.22)
+  const dress = COLORS.teal
+  const dressDark = lerpColor(COLORS.teal, 0x000000, 0.2)
+  const ink = 0x4a3526
+
+  const g = new Graphics()
+  // skor
+  g.ellipse(-11, -5, 12, 7).fill(0xe0574f)
+  g.ellipse(11, -5, 12, 7).fill(0xe0574f)
+  // ben
+  g.roundRect(-15, -32, 9, 27, 4).fill(skin)
+  g.roundRect(6, -32, 9, 27, 4).fill(skin)
+  // klänning (smal axel → vid fåll)
+  g.moveTo(-15, -70).lineTo(-26, -28).lineTo(26, -28).lineTo(15, -70).closePath()
+  g.fill(dress).stroke({ width: 4, color: dressDark })
+  // armar
+  g.roundRect(-26, -68, 8, 30, 4).fill(skin).stroke({ width: 3, color: skinDark })
+  g.roundRect(18, -68, 8, 30, 4).fill(skin).stroke({ width: 3, color: skinDark })
+  // tofsar bakom huvudet
+  g.ellipse(-22, -84, 8, 15).fill(hair).stroke({ width: 3, color: hairDark })
+  g.ellipse(22, -84, 8, 15).fill(hair).stroke({ width: 3, color: hairDark })
+  // huvud + lugg
+  g.circle(0, -84, 22).fill(skin).stroke({ width: 4, color: skinDark })
+  g.ellipse(0, -101, 23, 12).fill(hair).stroke({ width: 3, color: hairDark })
+  // ansikte
+  g.circle(-12, -80, 4).fill({ color: COLORS.pink, alpha: 0.55 })
+  g.circle(12, -80, 4).fill({ color: COLORS.pink, alpha: 0.55 })
+  g.circle(-7, -86, 3).fill(ink)
+  g.circle(7, -86, 3).fill(ink)
+  // moveTo före arc, annars drar Pixi v8 ett streck från origo till munnens start
+  const a0 = 0.15 * Math.PI
+  g.moveTo(8 * Math.cos(a0), -81 + 8 * Math.sin(a0))
+  g.arc(0, -81, 8, a0, 0.85 * Math.PI).stroke({ width: 3, color: ink, cap: 'round' })
+  // hårsnoddar
+  g.circle(-21, -92, 4).fill(COLORS.pink)
+  g.circle(21, -92, 4).fill(COLORS.pink)
+
+  c.addChild(g)
+  return c
 }

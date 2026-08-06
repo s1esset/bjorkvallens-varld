@@ -128,3 +128,22 @@ aldrig.
     till!"). Att trycka på paketet är rent lekfullt (wiggle + soft + "Tryck på en ballong!").
     Allt exit-säkert (proxy-tweenad överraskning, `_alive`/`destroyed`-vakter, städat i
     destroy + vid nivåbyte).
+- 2026-08-06: **P0 ASSETS + två spelbuggar ur skärmdumpen** (poleringsrundan, 🔤 Lära).
+  - **Elvira ritas** (`makeElvira()`): stående flicka med klänning, ben, armar, tofsar och
+    ansikte, origo mellan fötterna så `wiggle`/`pop` studsar henne från marken. Hon var en
+    `🧒`-emoji — mottagaren i spelet, och därmed den P0 ASSETS träffar hårdast.
+  - **Presenten hade två presenter i sig.** Lådan ritades redan (platta + band) och ovanpå
+    den låg en `🎁`-emoji — och det var *emojin* som gömdes när paketet "öppnades". Nu är
+    locket med rosett ett eget ritat lager (`this._gift`) som försvinner, så lådan faktiskt
+    ser öppen ut. Spök-presenten och de åtta överraskningarna går via `drawIcon`.
+  - **Bugg: en ballong spawnade bakom presenten.** Ballongerna lades jämnt över hela
+    nederkanten, så vid N=4 hamnade en på x≈810 — mitt bakom paketet (x 742..898). Den gick
+    inte att hitta och rundan kunde då bara lösas av auto-hjälpen. Ny `looseX(i, n)`
+    fördelar dem över nederkanten MINUS presentens kolumn (700..940).
+  - **Bugg: ballongsnörena klipptes av nederkanten** (y 648/678 + snöre till +80 = 758 på en
+    720-skärm). Raden höjd till 610/636 — hela ballongen med snöre syns nu.
+  - **Räknaren låg under hemknappen** (170,150 mot knappens 115,112) → flyttad till 205,178.
+  - **Öppet:** `_attachLoose(ctx, b, opts)` tar emot `{ auto: true }` från auto-hjälpen men
+    läser aldrig `opts` — auto-fästet är alltså omöjligt att skilja från barnets eget tryck.
+    Antingen ska hjälpen låta annorlunda/räknas annorlunda, eller så ska parametern bort.
+    Inte ändrat här: det är beteende, inte polering.

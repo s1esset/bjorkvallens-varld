@@ -12,7 +12,7 @@
 // slut fäster en åt barnet. Allt ritas programmatiskt (Pixi Graphics + emoji). Exit-säkert.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { createScene, lerpColor } from '../../lib/scene.js'
+import { createScene } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { makeElvira } from '../../lib/figurer.js'
 import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe } from '../../lib/feedback.js'

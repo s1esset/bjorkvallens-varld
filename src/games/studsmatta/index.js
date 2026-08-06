@@ -17,7 +17,7 @@ import { createScene } from '../../lib/scene.js'
 import { floatText, sparkle, puff, burst, bigCelebration, pop } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { makeBobo } from '../../lib/figurer.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 
 const { Body } = Matter
 

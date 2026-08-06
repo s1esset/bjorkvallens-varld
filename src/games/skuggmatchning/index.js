@@ -6,14 +6,13 @@
 // vi (stjärna + klistermärke) och en ny, något större runda startar — oändlig lek.
 // Djupet växer med nivån: 2 → 6 föremål och bred variation (djur, frukt, fordon,
 // verktyg, former) så varje runda känns fräsch. Inget fel-läge, ingen tidspress.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Circle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, sparkle, ripple, shake, breathe, floatText } from '../../lib/feedback.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { FONT } from '../../lib/theme.js'
 
 // Föremålspool — bred variation så rundorna inte upprepar sig. Varje post har en
 // ASCII-key (id/ljudnyckel), en emoji och ett SVENSKT namn (åäö ok) som talas vid

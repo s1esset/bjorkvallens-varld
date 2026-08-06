@@ -8,12 +8,12 @@
 // Allt ritas programmatiskt (Pixi Graphics + emoji). Firande/partiklar via lib/feedback.js
 // (exit-säkra) eller {}-proxy-mönstret. Flugor flyttas direkt i tickern (ingen GSAP på
 // dem) → exit-säkra. All async är skyddad med this._alive / this._resolving.
-import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, floatText, bigCelebration } from '../../lib/feedback.js'
 import { makeElvira } from '../../lib/figurer.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 

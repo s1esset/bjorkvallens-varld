@@ -22,7 +22,7 @@ import { PhysicsWorld, Body, predictTrajectory } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
 import { Button } from '../../lib/Button.js'
-import { bigCelebration, puff, sparkle, floatText, pop, breathe, ripple } from '../../lib/feedback.js'
+import { bigCelebration, puff, sparkle, pop, breathe, ripple } from '../../lib/feedback.js'
 import { COLORS, FONT, DESIGN_W } from '../../lib/theme.js'
 
 // --- Layout (designkoordinater 1280×720) ---------------------------------

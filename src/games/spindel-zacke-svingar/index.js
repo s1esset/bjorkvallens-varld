@@ -17,12 +17,12 @@
 // stund + generöst fäst-fönster + garanterat kast efter upprepade missar) GARANTERAR
 // att han till slut når kattungen. Egen ticker-driven pendel/projektil-integrator
 // (samma G i båda → kalibrerad av konstruktion); INGEN GSAP på fysik-objekt.
-import { Container, Graphics, Text, Rectangle } from 'pixi.js'
+import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { pop, wiggle, sparkle, floatText, burst, breathe, bounceIn, bigCelebration } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Fysik-konstanter (px/frame, egen integrator) ---

@@ -11,12 +11,12 @@
 //   • FLER/SNABBARE BYTEN: antal byten och tempo ökar mjukt med nivån.
 // Allt är fortfarande no-fail: fel tryck är lekfullt och idle ger auto-hjälp.
 // Allt ritas programmatiskt (Pixi Graphics + emoji), inga externa filer.
-import { Container, Graphics, Text, Rectangle } from 'pixi.js'
+import { Container, Graphics, Rectangle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle } from '../../lib/feedback.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 
 const BASE_Y = 470 // y-referenslinje: koppen nedsänkt på bordet
 const LIFT_Y = BASE_Y - 120 // koppens y i lyft-läge (visa/kika)

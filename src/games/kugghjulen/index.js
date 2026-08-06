@@ -11,12 +11,12 @@
 // idle/missar flyger rätt hjul själv dit. Vinschen hissar flaggan oavsett vevriktning.
 //
 // Endast Pixi Graphics + emoji (inga filer). Elvira = enda avbildade människan.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, puff, sparkle, burst, breathe, bigCelebration, floatText, ripple } from '../../lib/feedback.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Layout & fysikkonstanter (designkoordinater 1280×720) -----------------

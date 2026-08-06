@@ -44,7 +44,6 @@ const BOBO_POS = { x: 150, y: 540 }
 // Banans mått (används av markeringar, räcken och stämplar).
 const LANE = { x: 340, y: 110, w: 600, h: 580 }
 const LANE_X2 = LANE.x + LANE.w // 940
-const LANE_Y2 = LANE.y + LANE.h // 690
 const FOUL_Y = 648 // fellinjen — klotet startar bakom den
 const DECK_Y = 372 // kägeldäckets nedre kant (området käglorna står på)
 

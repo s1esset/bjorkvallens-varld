@@ -13,11 +13,11 @@
 // (slumpad L/R-ordning) → naturliga högar. ALLA korn ritas i EN dedikerad Graphics
 // (this._sandGfx) per frame (clear + en rect per cell), aldrig per-korn-Pixi-objekt.
 // Inget GSAP rör rutnätet → inherent exit-säkert.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { pop, wiggle, puff, burst, floatText, bigCelebration, sparkle, shake } from '../../lib/feedback.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 
 // --- Sandrutnät (designkoordinater) ---
 const CELL = 10 // cellstorlek

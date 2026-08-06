@@ -15,7 +15,7 @@
 //
 // Allt ritas programmatiskt. Återanvänder lib/DragController, lib/physics, lib/scene,
 // lib/feedback (exit-säkra partiklar) och de delade firande/ljud-tjänsterna.
-import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
@@ -23,7 +23,7 @@ import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, ripple, shake, burst, breathe, floatText, bigCelebration } from '../../lib/feedback.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 import { FOODS, makeFood, foodCat } from './food.js'
 
 // --- layout (designkoordinater 1280×720) -----------------------------------

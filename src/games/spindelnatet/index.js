@@ -10,11 +10,11 @@
 // Inget kan misslyckas: missar studsar mjukt i marken och är fortfarande fångbara, och
 // en snäll auto-hjälp fångar själv om barnet väntar för länge. Samla X godis -> delat
 // firande + ny, lite svårare omgång. Allt ritas programmatiskt och städas exit-säkert.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, burst, floatText, bigCelebration, bounceIn, breathe, puff } from '../../lib/feedback.js'
 

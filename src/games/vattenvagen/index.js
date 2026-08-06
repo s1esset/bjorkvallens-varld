@@ -5,12 +5,12 @@
 // banan alltid går att klara. Vatten = droppar längs en beräknad väg (ticker-
 // drivet, exit-säkert) — INTE matter.js. Kontroller: placering + rotation +
 // lyfta bort sten (massor av agens). Avbildad person: bara Elvira (mugg-ägaren).
-import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { bounceIn, pop, puff, sparkle, ripple, burst, floatText, breathe } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // --- rutnäts-geometri (designkoordinater 1280×720) ---

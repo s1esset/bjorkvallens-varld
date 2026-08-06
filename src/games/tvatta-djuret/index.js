@@ -19,11 +19,11 @@
 // Vattendroppar är en egen, exit-säker ticker-integrator (ingen GSAP på droppar; allt
 // ritas i this._spray). Lerklumpar/skum suddas via {}-proxy-mönstret; partiklar/firande
 // går via lib/feedback.js (redan exit-säkra).
-import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, breathe, floatText, shake, bigCelebration } from '../../lib/feedback.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))

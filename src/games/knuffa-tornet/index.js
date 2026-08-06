@@ -281,8 +281,13 @@ export default {
     const x1 = PIVOT_MIN_X - 70
     const x2 = PIVOT_MAX_X + 70
     const g = new Graphics()
-    // vänster mast ner mot marken
-    g.roundRect(x1 - 26, beamY, 26, 470, 8).fill(COLORS.inkSoft)
+    // Vänster mast ner mot marken. Höjden var hårdkodad till 470 och slutade på y≈492 —
+    // mitt i luften, till vänster om avsatsen (PED.x1 = 640), så kranen såg ut att sväva.
+    const mastX = x1 - 26
+    const mastBottom = FLOOR_Y - 24 // marklinjen som arbetar-Bobo står på
+    g.roundRect(mastX, beamY, 26, mastBottom - beamY, 8).fill(COLORS.inkSoft)
+    // fotplatta, så masten läser som förankrad och inte avklippt
+    g.roundRect(mastX - 15, mastBottom - 16, 56, 22, 8).fill(COLORS.ink)
     // horisontell balk (skena) som kärran åker på
     g.roundRect(x1, beamY, x2 - x1, 18, 6).fill(COLORS.inkSoft)
     g.roundRect(x1, beamY + 12, x2 - x1, 5, 3).fill({ color: 0x000000, alpha: 0.15 })

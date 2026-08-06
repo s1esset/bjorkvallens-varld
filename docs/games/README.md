@@ -111,7 +111,7 @@ men har en [Deep]-punkt kvar var). Resterande 🔧 har kvarvarande [Deep]-punkte
 | 56 | Flipperspel | `flipperspel` | tap | ✅ | ✅ |
 | 58 | Snöbollen | `snobollen` | drag | 🔧 | ✅ |
 | 59 | Glasstornet | `glasstornet` | drag | ✅ | ✅ |
-| 64 | Grävmaskinen | `gravmaskinen` | drag | 🔧 | ✅ |
+| 64 | Grävmaskinen | `gravmaskinen` | drag | ✅ | ✅ |
 
 ### 🧩 Pussel (pussel + minne + drag) — ✅ **poleringsrundan KLAR** (19/19, v1.10.0, 2026-08-06)
 *Första-omgången 2026-07-02 var **innan** P0-regeln `ASSETS` fanns (2026-07-25) — och skulden

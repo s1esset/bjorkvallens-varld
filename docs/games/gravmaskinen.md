@@ -1,5 +1,5 @@
 # Grävmaskinen (`gravmaskinen`)
-> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · drag · 3–5 år · status: ✅ marknadskvalitet
 
 ## 1. Nuläge (sett som spelare)
 
@@ -139,6 +139,45 @@ rekvisita, och auto-hjälp + tap-fusk kan kringgå själva grävandet**.
   - **Koppla flak↔lastbil:** 🚛 centreras nu under flaket och skalas mot flakets bredd, och
     en mörk chassi-balk ritas under golvet — flaket läser som att det sitter PÅ dumpern.
     Bekräftat i skärmdump (guldkorn syns i lasten, dumpern hänger ihop).
+- 2026-08-06: **Variationsrundan (hög 2) — 🔧 → ✅.** Kodläsning FÖRE §4 lönade sig igen:
+  två av punkterna nedan var kvar precis som beskrivet, men koden avslöjade två fel till
+  som ingen doc kände till.
+  - **Fem laster i stället för en** ([Medium] "olika laster per nivå"): sand · grus · snö ·
+    småsten · godisströssel turas om per nivå. Varje last har egen palett (**även högen man
+    gräver ur byter färg** — snönivån har en snöhög, godisnivån en regnbågshög), egen
+    kornform/-storlek, egna skatter, egna ljud (skrapets och rasslets klangfärg) och egna
+    repliker. Sandens fyra repliker är oförändrade strängar eftersom de redan har klipp.
+  - **Egen rasvinkel per last.** Branta laster (snö, småsten) kräver TVÅ cellers fall för att
+    glida i sidled och bygger spetsiga koner; lösa laster (sand, grus, godis) lägger sig
+    platt. Deterministisk regel, ingen sannolikhet — en sannolikhet hade bara *fördröjt*
+    utplaningen eftersom ett vilande korn får ett nytt tärningskast varje steg.
+  - **Auto-hjälpen mjukad** ([Medium]): triggern "4 tippningar" är borta — den sköt in magi
+    mitt i aktivt spel. Kvar är: 14 s HELT utan handling **och** lasten minst 55 % färdig →
+    högst 14 korn, exakt så många som fattas. Målet sänks aldrig längre.
+  - **Tap-fusket borta** ([Quick]): tap vid högen animerar nu ner skopan och fyller via samma
+    `_digAt` som drag, i stället för `_bucketCount = max(…, 24)`.
+  - **Grävandet och hällandet belönas** ([Medium]): fyllnaden skalar med svepets längd *och*
+    djupet under högens yta (ett djupt tag ger nästan 3× ett ytskrap). Låg fart vid släpp ger
+    en tät stråle med mindre spill + en liten kvittering; ett ryck ger bred spridning. Aldrig
+    en tillsägelse när det blir slarvigt.
+  - **Fyllnadslinjen ljög** (fynd, ej i §4): målet var 55 korn ≈ 2,4 rader medan linjen satt
+    6 rader upp — `total >= target` slog alltid först och linjen var dekoration. Linjen
+    härleds nu ur målet (`FILL_FACTOR`), och mätt i sond når lasten den faktiskt.
+  - **Full last utlöstes av korn i LUFTEN** (fynd, ej i §4): `_countFill` räknade fallande
+    korn, så en enda hög tippning kunde klara nivån direkt — harnessen klarade nivå 0 på
+    3,4 s. Nu räknas bara korn som vilar (tom cell under = faller), och nivån kan inte klaras
+    medan lasten fortfarande rasar.
+  - **Ny finish + mottagare** ([Medium]): den fyllda dumpern kör iväg med lasten (hela riggen
+    — flak, last och mätare i en behållare) och en tom **backar in från höger** med en ny
+    sorts last. Bobo sitter i hytten och vinkar. Backningspip, damm och tuta.
+  - **Fyllnadsmätare** ([Quick]) vid flakets sida, i fast avläsbar färg — med lastens egen
+    färg blev snönivåns mätare vit på gräddvitt, alltså osynlig. Den visar den av de två
+    vägarna till full last som kommit längst, annars stod den på 45 % när en brant snölast
+    redan nått linjen.
+  - **Prestanda:** lasten ritas bara om när rutnätet faktiskt ändrats (`_dirty`) — en vilande
+    last kostar noll, vilket betalar för de rundade kornen.
+  - Mätt med `scripts/_lastprobe.mjs` (sond som *spelar*): nivå 0 sand 4 lass · grus 4 ·
+    snö 3 · småsten 3 · godis 6. errorCount 0, `npm run check` 0 fel/0 varningar.
 - 2026-08-04: **P0 ASSETS — hela maskinparken ritad.** Grävmaskinen var en 🚜-emoji med en
   **gul ruta med ett 🧒 i** ovanpå (exakt det ASSETS-regeln förbjuder). Nu ritas maskinen
   med larvband, drivhjul, chassi och en **öppen hytt med fönsterruta** där Zacke sitter —

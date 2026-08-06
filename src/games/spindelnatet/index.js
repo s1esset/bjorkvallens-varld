@@ -16,13 +16,16 @@ import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { pop, wiggle, sparkle, burst, floatText, bigCelebration, bounceIn, breathe } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, burst, floatText, bigCelebration, bounceIn, breathe, puff } from '../../lib/feedback.js'
 
 // Bytena RITAS (P0 ASSETS) — ascii-id:n, aldrig emoji som hela föremålet.
 const TREATS = ['karamell', 'klubba', 'choklad', 'larv', 'skalbagge']
 const GROUND_FX = ['😄', '🌟', '🍬']
 
 const BASE_Y = 600 // nät-/spindelbas (y)
+// Sprickorna i marken som krypen kryper mot (vänster/höger), och deras krypfart.
+const HOLES = [96, 1184]
+const BUG_CRAWL = 0.9
 const CATCH_R = 90 // fångstradie vid vanligt tryck
 const WIDE_R = 200 // fångstradie vid bred svep (från basen)
 const WIDE_RECHARGE = 6 // sek att ladda om bred-knappen
@@ -255,7 +258,13 @@ export default {
     Body.setVelocity(body, { x: (Math.random() * 2 - 1) * 1.5, y: 0 })
     Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.1)
     this._phys.link(body, view)
-    this._items.push({ body, view, _caught: false, _onGround: false, _groundAge: 0 })
+    // Kryp VILL iväg, godis ligger still. Krypet får närmaste spricka som mål; det
+    // gör fångsten till ett kapplöp i stället för att plocka stillastående saker.
+    const bug = emoji === 'larv' || emoji === 'skalbagge'
+    this._items.push({
+      body, view, _caught: false, _onGround: false, _groundAge: 0,
+      _bug: bug, _hole: bug ? (x < 640 ? HOLES[0] : HOLES[1]) : null, _glint: Math.random() * 6,
+    })
   },
 
   // --- Tap -> fångst ------------------------------------------------------
@@ -470,12 +479,35 @@ export default {
     ctx.services.voice.say(randomFrom(PRAISE))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     sparkle(ctx.fxLayer, this._baseX, BASE_Y, { count: 10 })
+    // Spelspecifik finish: hjälten HOPPAR I NÄTET tre gånger som på en studsmatta,
+    // i stället för bara två pop-studsar ovanpå den delade konfettin. Exit-säker
+    // proxy-tween — Pixi-noden rörs bara om den lever.
     if (this._spider && !this._spider.destroyed) {
-      pop(this._spider, { scale: 1.2 })
-      const dc = gsap.delayedCall(0.22, () => {
-        if (this._alive && this._spider && !this._spider.destroyed) pop(this._spider, { scale: 1.16 })
-      })
-      this._tweens.push(dc)
+      const sp = this._spider
+      const st = { y: sp.y }
+      gsap.killTweensOf(st)
+      const tl = gsap.timeline()
+      for (const h of [92, 58, 30]) {
+        tl.to(st, {
+          y: BASE_Y - h,
+          duration: 0.24,
+          ease: 'power2.out',
+          onUpdate: () => { if (!sp.destroyed) sp.y = st.y },
+        })
+        tl.to(st, {
+          y: BASE_Y,
+          duration: 0.26,
+          ease: 'bounce.out',
+          onUpdate: () => { if (!sp.destroyed) sp.y = st.y },
+          onComplete: () => {
+            if (!this._alive || sp.destroyed) return
+            pop(sp, { scale: 1.12 })
+            sparkle(ctx.fxLayer, sp.x, BASE_Y - 10, { count: 5 })
+          },
+        })
+      }
+      this._winTl?.kill()
+      this._winTl = tl
     }
 
     ctx.progress.setLevel(this._level + 1)
@@ -643,7 +675,24 @@ export default {
       }
       if (it._onGround) {
         it._groundAge += dt
-        if (Math.random() < 0.008) Body.setVelocity(b, { x: (Math.random() * 2 - 1) * 0.8, y: b.velocity.y })
+        if (it._bug) {
+          // Kryper målmedvetet mot sin spricka (mjuk, låg fart — barnet hinner alltid
+          // ifatt, och auto-hjälpen finns kvar). Ersätter den gamla slump-ryckningen.
+          const dir = Math.sign(it._hole - b.position.x) || 1
+          Body.setVelocity(b, { x: dir * BUG_CRAWL, y: b.velocity.y })
+          if (it.view && !it.view.destroyed) {
+            it.view.scale.x = dir < 0 ? -1 : 1 // vänder nosen åt krypriktningen
+          }
+          // Nådde sprickan: smiter ner (ingen förlust — nya kryp kommer hela tiden).
+          if (Math.abs(b.position.x - it._hole) < 26) {
+            puff(ctx.fxLayer, it._hole, GROUND_MARK_Y + 6, { count: 5, color: 0x8a6a4a })
+            this._retireItem(it)
+            continue
+          }
+        } else if (it.view && !it.view.destroyed) {
+          // Godis ligger still och GLITTRAR i stället för att rycka slumpmässigt.
+          if (Math.random() < 0.012) sparkle(ctx.fxLayer, b.position.x, b.position.y - 12, { count: 2 })
+        }
         if (it._groundAge > 9) {
           this._retireItem(it)
           continue
@@ -701,6 +750,7 @@ export default {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._roundTimer?.kill()
+    this._winTl?.kill()
     this._clearLure()
 
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onTapHandler)

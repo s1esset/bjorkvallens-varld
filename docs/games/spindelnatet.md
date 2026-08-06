@@ -122,3 +122,15 @@ fångar försvinner in i abstrakta prickar.
   fångstknappens nät-emblem och mätarens nät-ikon ritas (åtta ekrar + tre spiralringar) i
   stället för 🕸️, och mätarens fångst-prickar är ritade karameller i stället för 🍬.
   errorCount 0.
+- 2026-08-06: **Båda [Deep]-punkterna** (spår "20 spel från 🔧 till ✅").
+  - **[Deep] Levande byte.** Krypen (larv/skalbagge) **kryper nu målmedvetet mot närmaste
+    spricka** i marken (`HOLES`, `BUG_CRAWL`) och vänder nosen åt färdriktningen; når de
+    sprickan smiter de ner i ett litet dammoln. Godiset (karamell/klubba/choklad) ligger
+    still och **glittrar** i stället. Tidigare ryckte ALLT slumpmässigt
+    (`Math.random() < 0.008` → slumpad hastighet), vilket varken var levande eller läsbart.
+    Fortsatt no-fail: krypfarten är låg, nya kryp faller hela tiden och auto-hjälpen är kvar.
+  - **[Deep] Hjälten firar eget.** Vid rundvinst **hoppar hjälten i nätet tre gånger** som på
+    en studsmatta, med gnistor vid varje landning — en spelspecifik finish i stället för två
+    pop-studsar ovanpå den delade konfettin. Exit-säker proxy-tween: Pixi-noden rörs bara om
+    den lever, och `_winTl` dödas i `destroy`.
+  - Kvar sedan tidigare: [Quick] Bobo/kompis-insekt som hejar från kanten.

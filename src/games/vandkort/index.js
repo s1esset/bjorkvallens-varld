@@ -203,7 +203,14 @@ export default {
   },
 
   _flip(ctx, card) {
-    if (!this._alive || this._busy || this._cleared || card._flipped || card._done) return
+    if (!this._alive || this._cleared) return
+    // Ett tryck får ALDRIG vara stumt (P0). Kortet kan vara upptaget (jämförelse-
+    // pausen), redan vänt eller färdigt — svara med en vänlig knuff i stället för
+    // tystnad. Diagnostikloggen hittade tre sådana döda tryck på nio.
+    if (this._busy || card._flipped || card._done) {
+      this._nudge(ctx, card)
+      return
+    }
     this._idle = 0
     this._clearHint()
 
@@ -258,6 +265,16 @@ export default {
   },
 
   // 3D-aktig vändning: krymp på x, byt synlig sida vid mitten, väx tillbaka.
+  // Svar på ett tryck som inte får vända kortet just nu. Lekfullt, aldrig ett nej:
+  // färdigt par ger ett glatt pling, "vänta lite" en mjuk ton. wiggle() rör bara
+  // rotationen, så den krockar aldrig med vändningens skal-tween.
+  _nudge(ctx, card) {
+    if (!this._alive || card.destroyed) return
+    wiggle(card)
+    ctx.services.audio.sfx(card._done ? 'pling' : 'soft')
+    ripple(this._fx, card.x, card.y, { color: 0xffffff, maxR: card._w * 0.5, width: 3, alpha: 0.3 })
+  },
+
   _showFace(card, faceUp) {
     if (!this._alive || card.destroyed) return
     card._flipped = faceUp

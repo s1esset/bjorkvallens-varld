@@ -14,6 +14,62 @@ Format:
 
 ---
 
+## 2026-08-06 · v1.10.0 · 🧩 Pussel-fliken polerad — 19 spel, ett delat ikonbibliotek
+
+**Byggt:** hela 🧩 Pussel-kön körd i ett svep, ett spel i taget med checkpoint mellan varje.
+Poleringsrundan är därmed **61/70** — bara 🔤 Lära (9) återstår.
+
+- **P0 ASSETS var skulden, och den var värre än mätt.** 18 av 19 spel hade emoji som
+  spelobjekt, oftast som *emoji-Text ovanpå en opak vit skiva* — dubbelt brott mot regeln.
+  Rensat i samtliga: 60 kortsymboler (`vandkort`), 44 figurer (`skuggmatchning`), 32 sopor
+  (`sortera-skrap`), 23 plagg (`kla-pa-nallen`), 16 element (`trollblandning`), 16 motiv
+  (`vad-forsvann`), 33 figurer (`stor-liten`), hela sakkatalogen i `magnet-fiske`, m.fl.
+  Greppet som funkade genomgående: **behåll emoji-strängen som NYCKEL** — spelen slår upp
+  namn, djurläten och kategori på den — och byt bara renderingen.
+- **Nytt delat bibliotek `src/lib/artikoner.js`.** Efter tre spel med överlappande figurer
+  bröts ritmotorn ut ur `vandkort`: `drawIcon(key, size)` med parametriska mallar (djur ·
+  frukt · fordon · form · havsdjur · verktyg) drivna av en tabell, ~110 nycklar. Fem spel
+  använder den. En genomsökning verifierar att varje nyckel spelen slår upp finns i tabellen
+  — saknade nycklar faller igenom till en grå cirkel som ser ut som ett medvetet designval
+  i skärmdumpen. Fjäril, regnbåge och fotboll hann göra just det.
+- **Fem svävande huvuden fick kroppar:** trollkarlen (`trollblandning`), Elvira
+  (`kugghjulen`), de fyra djuren (`folj-sparet`), Zacke/Alissa (`golvet-ar-lava`) och Bobo
+  (`kulbana`). `makeMascot()` ger BARA ett huvud. I `trollblandning` ritades kroppen redan
+  men syntes aldrig: faceR 80 ger en 160 px bred ansiktscirkel som täckte hela bålen.
+- **Tre spel fick en mottagare** (gate-punkt 4): draken vid skatten (`golvet-ar-lava`), Bobo
+  vid hinken (`kulbana`) och katten vid hinken (`magnet-fiske`).
+- **`golvet-ar-lava` fick sin [Deep]-punkt:** en prickad förhandsvisning av hoppbanan som
+  ritas om vid varje stenflytt. `_buildSeq()` och `_arcHeightFor()` delas av förhandsvisningen
+  OCH det verkliga hoppet, så de kan aldrig säga olika saker. Vit bana = figuren klarar det
+  själv, blek blå + molnmarkör = hjälpmolnet får bära.
+- **Sju layoutfel som bara syntes i skärmdumpen:** Gå!-knappen mitt i lavafloden; magnetspöets
+  pivot rakt under ljudknappen (spöet drogs tvärs igenom den); L-kugghjulet klippt av
+  skärmkanten; hinkens botten bakom Delar-hyllan; Bobos armar ritade före bålen så de doldes
+  helt; 3D-mottagaren halvt utanför vänsterkanten; och ett sista kliv som gick **bakåt** på
+  breda banor i `golvet-ar-lava` (`treasureNodeX` kunde hamna vänster om `rightLandingX`).
+- **Fem röstbuggar** där repliker aldrig kunde få klipp: `voiceIntro` som pekade på en konstant
+  i stället för att stå skriven på plats (`sortera-skrap`, `stor-liten`) och konkatenerade
+  strängar (`folj-sparet`, `enkelt-pussel`, `mata-monstret`). check.mjs matchar **bara
+  literaler**. Repo-varningarna gick från 16 → 11.
+
+**Sidospår på begäran:** `p2-es` tillagd som tredje fysikmotor — verifierad funktionellt
+(låda faller och landar i ett röktest) och bundlar till 66 KB, dynamiskt importerad så bygget
+är oförändrat. Skill **fysik-spel** har fått en motorvalstabell först i dokumentet: egen
+ticker-integrator · matter · p2 · three, plus regeln en motor per spel. Spelindexet städat —
+`kvalitet` och `polerad` är nu **två** kolumner i stället för en överlastad emoji, och 42
+spel-docs synkade mot indexet. Ny idébank `docs/IDEER.md` med förstapersons-nätskottsidén.
+
+**Commits:** 19 spel-commits · `a9fd079` idébank · `dbd506a` index · `936c8c3` p2-es
+**Kontroll:** `npm run check` 0 fel · 11 varningar · `npm run test:all --jobs 2` **70/70
+gröna** · `test:fx` grön · bygge rent.
+**Obs för nästa körning:** med `--jobs 4` faller `glittergrottan` på slut på WebGL-kontexter —
+det är harnessen, inte spelet. 3D-spelet behöver ~13 s innan det renderar, så en tom skärmdump
+betyder inte att något är fel.
+**Öppet:** 🔤 Lära-fliken (9 spel) är sista kön i poleringsrundan. 12 repliker väntar på
+`/rost`. Fyra nya `sfx`-prompter (`duns` m.fl.) väntar på att MOSS är uppe.
+
+---
+
 ## 2026-08-05 · v1.9.0 · 🔊 Röstkön tömd — 343 nya klipp
 
 **Byggt:** `/rost` körd skarpt. Hela kön av svenska repliker har nu riktiga F5-TTS-klipp.

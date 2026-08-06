@@ -5,8 +5,33 @@ på ⚙️ Fysik-fliken 2026-08-04 (v1.7.0). Leta buggar och problem, fixa dem, 
 **design, assets och omspelsvärde**. En commit per spel.
 
 > ⚙️ **Fysik-fliken är KLAR** (27/27, v1.7.0). 🎉 **Roligt-fliken är KLAR** (14/14, v1.8.0).
-> Kvar: 🧩 Pussel (19) → 🔤 Lära (9) = **28 spel**. Bocka av i tabellerna nedan när ett spel
-> är committat.
+> 🧩 **Pussel-fliken är KLAR** (19/19, v1.10.0). Kvar: 🔤 Lära (9). Bocka av i tabellerna
+> nedan när ett spel är committat.
+
+> 💡 **Trettonde läckan, genomgående i Pussel-fliken: emoji som spelobjekt i en bricka.**
+> 18 av 19 spel hade det, oftast som *emoji-Text ovanpå en opak vit/cream skiva* — dubbelt
+> brott mot P0 `ASSETS`. Greppet som funkade: behåll emoji-strängen som **nyckel** (spelen
+> slår upp namn, djurläten och kategori på den) och byt bara renderingen. Skivan bakom ska
+> bort helt eller reduceras till ett svagt sken — den ÄR brickan.
+>
+> Efter tre spel med överlappande figurer bröts ritmotorn ut till **`src/lib/artikoner.js`**
+> (`drawIcon(key, size)`): parametriska mallar (djur · frukt · fordon · form · havsdjur ·
+> verktyg) drivna av en tabell, ~110 nycklar. Fem spel använder den nu. **Verifiera alltid
+> att varje nyckel spelet slår upp finns i tabellen** — saknade nycklar faller igenom till en
+> grå platshållarcirkel som ser ut som ett medvetet designval i skärmdumpen. Fjäril, regnbåge
+> och fotboll hann göra just det.
+
+> 💡 **Fjortonde läckan: repliker som check.mjs inte kan se.** Fyra spel i den här fliken
+> hade röst som aldrig kunde få klipp — `voiceIntro: VOICE.intro` (en **referens**, inte en
+> sträng) i `sortera-skrap` och `stor-liten`, och konkatenering (`'Hurra! ' + randomFrom(...)`,
+> `randomFrom(PRAISE) + ' Titta, bilden är klar!'`, `'Mata monstret! ' + modeIntro(mode)`) i
+> `folj-sparet`, `enkelt-pussel` och `mata-monstret`. check.mjs matchar **bara literaler**.
+> Skriv hela repliker på plats, även om det betyder fyra nästan identiska strängar.
+
+> 💡 **Femtonde läckan: `drawIcon()` returnerar en Graphics — den har ingen `.anchor`.**
+> Ett kvarglömt `icon.anchor.set(0.5)` från emoji-versionen sänkte `harma-melodin` vid start.
+> Testet fångade det, skärmdumpen hade inte gjort det. Greppa efter `.anchor.set` intill varje
+> rad du bytt från `new Text(...)`.
 
 > 💡 **Elfte läckan, hittad i `enhorning-glitterbajs`: loggen ljuger.** Doc §5 påstod sedan
 > 2026-07-01 att maten ger olika glitter — men `makePelletView()` **tog inget argument** och
@@ -149,7 +174,7 @@ Sorterad efter uppmätt asset-skuld (emoji-Text ×3 + dynamisk Text ×2 + emoji-
 | 13 | `kittla-figuren` | 1 | ✅ |
 | 14 | `tarta-i-ansiktet` | 0 | ✅ |
 
-## Kö 2 — 🧩 Pussel (19 spel)
+## Kö 2 — 🧩 Pussel ✅ KLAR (19/19, v1.10.0, 2026-08-06)
 
 Alla är märkta ✅ i indexet, men det var **första-omgången 2026-07-02 — före att P0-regeln
 `ASSETS` fanns** (den kom 2026-07-25). Skulden nedan är uppmätt, inte gissad. Kör dem ändå,

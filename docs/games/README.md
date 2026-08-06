@@ -111,10 +111,10 @@ assets-/scen-/buggrundor och står kvar som 🔧 med kvarvarande [Deep]-punkter 
 | 59 | Glasstornet | `glasstornet` | drag | 🔧 | ✅ |
 | 64 | Grävmaskinen | `gravmaskinen` | drag | 🔧 | ✅ |
 
-### 🧩 Pussel (pussel + minne + drag) — ⬜ **poleringsrundan PÅGÅR** (0/19) ← vi är här
-*Första-omgången 2026-07-02 — **innan** P0-regeln `ASSETS` fanns (2026-07-25). ✅ i
-kvalitet-kolumnen är därför provisorisk; sänks till 🔧 när rundan visar att den inte håller.
-Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
+### 🧩 Pussel (pussel + minne + drag) — ✅ **poleringsrundan KLAR** (19/19, v1.10.0, 2026-08-06)
+*Första-omgången 2026-07-02 var **innan** P0-regeln `ASSETS` fanns (2026-07-25) — och skulden
+var verklig: 18 av 19 spel hade emoji som spelobjekt, ofta i en bricka. Allt är nu ritat, till
+stor del via det nya delade `src/lib/artikoner.js`.*
 | # | Spel | id | input | kvalitet | polerad |
 |---|------|----|-------|:--:|:--:|
 | 2 | Sortera Skräp | `sortera-skrap` | drag | ✅ | ✅ |
@@ -152,9 +152,9 @@ Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
 | 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | 🔧 | ⬜ |
 
 **Läget just nu:** alla **70** spel är granskade och alla 4 flikar har fått en genomförd
-första-omgång. **Poleringsrundan: 42/70 klara** (🎉 Roligt 15 · ⚙️ Fysik 27) — **28 kvar**
-(🧩 Pussel 19 → 🔤 Lära 9). Kön och metoden ligger i `docs/POLERINGSRUNDA.md`; kör `/aterta`
-för att fortsätta där rundan stannade.
+första-omgång. **Poleringsrundan: 61/70 klara** (🎉 Roligt 15 · ⚙️ Fysik 27 · 🧩 Pussel 19) —
+**9 kvar**, hela 🔤 Lära-fliken. Kön och metoden ligger i `docs/POLERINGSRUNDA.md`; kör
+`/aterta` för att fortsätta där rundan stannade.
 
 Utöver rundan: de 🔧-märkta spelen har kvarvarande [Deep]-förslag i sin egen doc §4 — prioritera
 efter de app-breda mönstren nedan, de lyfter många spel åt gången.

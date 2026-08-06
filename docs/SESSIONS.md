@@ -50,9 +50,27 @@ med spelets **egen** `_predictLanding` och mäter mot en HEAD-baseline):
 versionen av den mjukare hjälpen kändes rimlig i koden men tog 14 släpp utan att bli klar —
 det syntes bara genom att köra samma sond mot `git show HEAD:...`.
 
-**Commits:** a3628ec feat(glasstornet) · 9031c0c docs v1.17.0
+**Även i denna session (utanför poleringskörningen):**
+- **Agentregeln ändrad** — det tidigare totalförbudet mot att starta subagenter oombett är
+  ersatt av **upp till 3 subagenter**; fler kräver att ägaren frågas. Workflows och
+  deep-research kräver fortfarande en förfrågan. Regeln står nu i `CLAUDE.md` (Arbetsregler).
+  Obs: originalformuleringen ligger inte i någon fil i repot eller i `~/.claude/settings.json`
+  — den injiceras av harnessen vid start, så den kan dyka upp igen; `CLAUDE.md` går före.
+- **`docs/ATGARDER.md` — ny stående åtgärdslista** för buggar ägaren rapporterar när hen
+  spelar (återupptar formatet från den avbetade `bugfixes-progress.md`). Fyra öppna rader:
+  `magnet-fiske` (allt sitter redan fast i magneten vid start · fastklistrade saker skakar)
+  och `saftbaren` (ljudet hakar upp sig efter färgbyte · vätskan följer med glas som dras
+  förbi). Varje rad har ett **första spår** från kodläsning, märkt som ledtråd och inte som
+  diagnos — `/fixa` ska reproducera i harnessen först. Två observationer värda att spara:
+  magnetfiskets spawn-ruta ligger *långt* utanför fastna-radien, så startbuggen är troligen
+  inte överlapp; och saftbarens `_carryAll()` har redan en ägarregel vars egen kommentar
+  säger att den ska hindra exakt det som händer — det är en **trasig** fix, inte en saknad.
+
+**Commits:** a3628ec feat(glasstornet) · 9031c0c docs v1.17.0 · 4c91f11 sessionslogg ·
+f71dbba docs agentregel · cb622fc docs åtgärdslista
 **Öppet:** hög 2 har 2 kvar (`gravmaskinen`, `knuffa-tornet`), sedan hög 3 (finish, ~3 spel).
 Glasstornets kvarvarande §4: [Deep] smak-staplings-mål, [Medium] kund-kö, [Quick] ambient.
+De fyra raderna i `docs/ATGARDER.md` är ett naturligt `/fixa`-pass när som helst.
 6 repliker väntar på klipp — kör `/rost` när narratorn är uppe.
 
 ---

@@ -3,12 +3,13 @@
 // tap-tap). Rätt plats = magnetiskt snäpp + 'match' + gnistra. Fel = mjuk vingel +
 // snäpp tillbaka (aldrig en bestraffning). När bilden är klar: firande + ny runda
 // med nytt motiv och fler bitar — oändlig lek.
-import { Container, Graphics, Text, Rectangle } from 'pixi.js'
+import { Container, Graphics, Rectangle } from 'pixi.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { bounceIn, pop, wiggle, sparkle, puff } from '../../lib/feedback.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 
 // Pusselramen (designkoordinater). Mittpunkt (370, 360).
 const BOARD = { x: 120, y: 110, w: 500, h: 500 }
@@ -23,6 +24,14 @@ const MAX_PIECES = 9
 
 // Glada beröm vid varannan rätt bit.
 const NUDGES = ['Så där ja!', 'Den passar!', 'Bra!']
+
+// Klar-repliker som HELA strängar (se _win): check.mjs matchar bara literaler.
+const DONE_PRAISE = [
+  'Bravo! Titta, bilden är klar!',
+  'Jättebra! Titta, bilden är klar!',
+  'Toppen! Nu är hela bilden hel!',
+  'Wow! Vilken fin bild du gjorde!',
+]
 
 // Fyra motiv. draw(g) ritar i scenens 500×500-rymd; accenter är emoji som Text.
 const THEMES = [
@@ -469,8 +478,8 @@ export default {
     theme.draw(g)
     c.addChild(g)
     for (const a of theme.accents) {
-      const t = new Text({ text: a.emoji, style: { fontFamily: FONT.body, fontSize: a.size } })
-      t.anchor.set(0.5)
+      // P0 ASSETS: motivets accenter RITAS (var emoji-Text ovanpå den ritade scenen).
+      const t = drawIcon(a.emoji, a.size)
       t.position.set(a.x, a.y)
       c.addChild(t)
     }
@@ -517,7 +526,9 @@ export default {
     this._round += 1
     ctx.progress.setCustom('round', this._round)
     ctx.progress.complete() // delat firande + stjärna + klistermärke + konfetti
-    ctx.services.voice.say(randomFrom(PRAISE) + ' Titta, bilden är klar!')
+    // Hela repliker, inte PRAISE + ' Titta, bilden är klar!': en konkatenerad
+    // sträng kan check.mjs inte hitta och /rost kan därför aldrig klippa den.
+    ctx.services.voice.say(randomFrom(DONE_PRAISE))
 
     this._delay(1.6, () => this._newRound(ctx))
   },
@@ -533,8 +544,8 @@ export default {
     if (w.sound) ctx.services.audio.sfx(w.sound)
     if (w.tone) ctx.services.audio.tone(w.tone)
 
-    const t = new Text({ text: w.emoji, style: { fontFamily: FONT.body, fontSize: w.size || 150 } })
-    t.anchor.set(0.5)
+    // RITAD hjälte i "bilden vaknar"-finalen (var en stor emoji-Text).
+    const t = drawIcon(w.emoji, w.size || 150)
     t.eventMode = 'none'
     t.position.set(cx, cy)
     ctx.fxLayer.addChild(t)

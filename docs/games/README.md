@@ -124,7 +124,7 @@ Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
 | 15 | Klä på Nallen | `kla-pa-nallen` | drag | ✅ | ✅ |
 | 16 | Plantera Frön | `plantera-fron` | drag | ✅ | ✅ |
 | 17 | Skuggmatchning | `skuggmatchning` | drag | ✅ | ✅ |
-| 18 | Enkelt Pussel | `enkelt-pussel` | drag | ✅ | ⬜ |
+| 18 | Enkelt Pussel | `enkelt-pussel` | drag | ✅ | ✅ |
 | 21 | Vart Tog Det Vägen? | `vart-tog-det-vagen` | tap | ✅ | ⬜ |
 | 22 | Vad Försvann? | `vad-forsvann` | tap | ✅ | ✅ |
 | 27 | Härma Melodin | `harma-melodin` | tap | ✅ | ⬜ |

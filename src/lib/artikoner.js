@@ -61,6 +61,14 @@ const ART = {
   // tillskott för stor-liten
   '🐥': ['animal', 0xffe08a, 'beak', 0xfff6d8], '🌟': ['shape', 'star', 0xffe14a],
   '🧸': ['tool', 'teddy', 0xc98a4b], '🍪': ['tool', 'cookie', 0xd9a56b],
+  // tillskott för enkelt-pussel
+  '🌳': ['tool', 'tree', 0x5bbf6a], '☁️': ['shape', 'cloud', 0xffffff],
+  '🪐': ['tool', 'planet', 0xd9a56b], '🫧': ['shape', 'bubbles', 0xbfe6ff],
+  '😻': ['animal', 0xffd7b0, 'point', 0xfff0d8],
+  // saknades: fjäril, regnbåge och fotboll används av flera spel men fanns
+  // aldrig i vandkorts ursprungliga uppsättning.
+  '🦋': ['tool', 'butterfly', 0xa78bfa], '🌈': ['shape', 'rainbow', 0xff6b6b],
+  '⚽': ['shape', 'ball', 0xffffff],
 }
 
 export function drawIcon(key, size = 100) {
@@ -259,6 +267,28 @@ export function drawIcon(key, size = 100) {
         g.quadraticCurveTo(sx * S, sy * S, (sx - r * 0.45) * S, sy * S)
         g.quadraticCurveTo(sx * S, sy * S, sx * S, (sy - r) * S).closePath().fill(col)
       }
+    } else if (shape === 'rainbow') {
+      const cols = [0xe0392b, 0xff9d3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa]
+      cols.forEach((c, i) => g.arc(0, 24 * S, (42 - i * 6) * S, Math.PI, 0).stroke({ width: 6, color: c }))
+      g.circle(-40 * S, 26 * S, 11 * S).fill(0xffffff)
+      g.circle(40 * S, 26 * S, 11 * S).fill(0xffffff)
+    } else if (shape === 'ball') {
+      g.circle(0, 0, 34 * S).fill(col).stroke({ width: 4, color: 0x3a3a3a })
+      g.poly([0, -16 * S, 15 * S, -5 * S, 9 * S, 13 * S, -9 * S, 13 * S, -15 * S, -5 * S]).fill(0x2b2b2b)
+      for (let i = 0; i < 5; i++) {
+        const ang = (i / 5) * Math.PI * 2 - Math.PI / 2
+        g.circle(Math.cos(ang) * 30 * S, Math.sin(ang) * 30 * S, 7 * S).fill(0x2b2b2b)
+      }
+    } else if (shape === 'cloud') {
+      g.circle(-20 * S, 6 * S, 18 * S).fill(col)
+      g.circle(2 * S, -8 * S, 24 * S).fill(col)
+      g.circle(24 * S, 6 * S, 18 * S).fill(col)
+      g.roundRect(-36 * S, 2 * S, 72 * S, 22 * S, 11 * S).fill(col)
+    } else if (shape === 'bubbles') {
+      for (const [bx, by, br] of [[-14, 10, 16], [12, -4, 20], [22, 22, 11], [-22, -16, 10]]) {
+        g.circle(bx * S, by * S, br * S).fill({ color: col, alpha: 0.55 }).stroke({ width: 3, color: 0xffffff, alpha: 0.85 })
+        g.circle((bx - br * 0.35) * S, (by - br * 0.35) * S, br * 0.28 * S).fill({ color: 0xffffff, alpha: 0.8 })
+      }
     } else if (shape === 'sun') {
       for (let i = 0; i < 10; i++) {
         const ang = (i / 10) * Math.PI * 2
@@ -325,6 +355,24 @@ export function drawIcon(key, size = 100) {
       g.ellipse(0, -8 * S, 28 * S, 34 * S).fill(col).stroke({ width: 4, color: dk })
       g.moveTo(-7 * S, 26 * S).lineTo(7 * S, 26 * S).lineTo(0, 34 * S).closePath().fill(dk)
       g.ellipse(-11 * S, -18 * S, 7 * S, 11 * S).fill({ color: 0xffffff, alpha: 0.45 })
+    } else if (form === 'butterfly') {
+      g.ellipse(-18 * S, -12 * S, 18 * S, 21 * S).fill(col).stroke({ width: 3, color: dk })
+      g.ellipse(18 * S, -12 * S, 18 * S, 21 * S).fill(col).stroke({ width: 3, color: dk })
+      g.ellipse(-15 * S, 14 * S, 14 * S, 16 * S).fill(lerpColor(col, 0xffffff, 0.3)).stroke({ width: 3, color: dk })
+      g.ellipse(15 * S, 14 * S, 14 * S, 16 * S).fill(lerpColor(col, 0xffffff, 0.3)).stroke({ width: 3, color: dk })
+      g.roundRect(-4 * S, -22 * S, 8 * S, 44 * S, 4 * S).fill(0x4a3728)
+      g.moveTo(-3 * S, -22 * S).quadraticCurveTo(-11 * S, -36 * S, -17 * S, -33 * S).stroke({ width: 3, color: 0x4a3728 })
+      g.moveTo(3 * S, -22 * S).quadraticCurveTo(11 * S, -36 * S, 17 * S, -33 * S).stroke({ width: 3, color: 0x4a3728 })
+    } else if (form === 'tree') {
+      g.roundRect(-8 * S, 8 * S, 16 * S, 36 * S, 4 * S).fill(0x8a5a3b).stroke({ width: 3, color: 0x6f4a2e })
+      g.circle(-18 * S, -2 * S, 22 * S).fill(col)
+      g.circle(18 * S, -2 * S, 22 * S).fill(col)
+      g.circle(0, -24 * S, 26 * S).fill(col).stroke({ width: 4, color: dk })
+      g.circle(-8 * S, -16 * S, 7 * S).fill({ color: 0xffffff, alpha: 0.18 })
+    } else if (form === 'planet') {
+      g.circle(0, 0, 26 * S).fill(col).stroke({ width: 4, color: dk })
+      g.ellipse(-9 * S, -8 * S, 8 * S, 5 * S).fill({ color: 0xffffff, alpha: 0.25 })
+      g.ellipse(0, 4 * S, 44 * S, 11 * S).stroke({ width: 6, color: 0xffd35c })
     } else if (form === 'teddy') {
       g.circle(-26 * S, -24 * S, 12 * S).fill(dk)
       g.circle(26 * S, -24 * S, 12 * S).fill(dk)

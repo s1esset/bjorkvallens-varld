@@ -108,3 +108,16 @@ ber barnet *förstå* mängd, känna igen siffran eller stanna vid rätt antal.
     räknar om ("ett, två, tre…") + stor siffra, avslutar med totalen och firandet.
   - Exit-säkert: alla nya tweens/timeline (recountTl, banner/korg/frukt-scale) dödas i `destroy`,
     alla timeline-callbacks guardade med `_alive`/`!destroyed`. Self-test: errorCount 0.
+- 2026-08-06: **Mottagare + fruktplacering** (poleringsrundan, 🔤 Lära-fliken).
+  Ingen ASSETS-skuld här (frukten ritades redan) — istället togs §4:s [Deep]-punkt.
+  - **[Deep] Ekorren som mottagare.** Scenen hade ingen som tog emot frukten: bara ett
+    träd, en korg och en siffra (gate-punkt 4, "tomma scener = billigt"). Ny
+    `makeSquirrel()` ritar en ekorre med yvig svans som står vid korgen. Ny `_cheer(kraft)`
+    kopplas in på alla tre landningspunkterna (plock, omräkning, firande): hon studsar,
+    och **kinderna rodnar gradvis** mot antalet i korgen (`alpha 0,35 → 0,95`), så barnet
+    ser mottagaren bli gladare i takt med räknandet. Idle-andning via `breathe`.
+  - **Bugg: två frukter hängde i ren himmel.** Cellrutnätets ytterkolumner låg på x=220
+    och 1060 med översta raden på y=210 — 192 px från närmaste lövboll (radie 156), alltså
+    utanför kronan. Kolumnerna indragna till 300..980 och raderna till 250/410.
+  - Exit-säkert: `_squirrelIdle`, skal-tween och kind-tween dödas i `destroy`.
+  - Kvar sedan tidigare: subitiseringsrunda, olika behållare/teman, riktiga SFX-klipp.

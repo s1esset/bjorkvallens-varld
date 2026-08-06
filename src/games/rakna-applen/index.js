@@ -151,6 +151,13 @@ export default {
     // 8) Korgens framkant (ovanpå frukt-lagret).
     this._root.addChild(basket.front)
 
+    // 9) Mottagaren: ekorren som korgen tillhör. Scenen hade ingen som tog emot
+    //    frukten — bara ett träd och en korg (gate-punkt 4, "tomma scener").
+    this._squirrel = makeSquirrel()
+    this._squirrel.position.set(806, 664)
+    this._root.addChild(this._squirrel)
+    this._squirrelIdle = breathe(this._squirrel, { scale: 1.03, duration: 1.9 })
+
     this._newRound(ctx)
 
     this._tick = (ticker) => this._update(ctx, ticker)
@@ -274,9 +281,12 @@ export default {
   },
 
   // Cellrutnät i kronan (upp till 5×2 = 10) med liten slump-jitter.
+  // Ytterkolumnerna låg tidigare på 220/1060 med översta raden på 210 — utanför
+  // lövkronan (närmaste bollen (370,304,r156) är 192 px bort). Hörnäpplena hängde
+  // alltså i ren himmel. Kolumnerna indragna och raderna centrerade i kronan.
   _cells() {
-    const xs = [220, 430, 640, 850, 1060]
-    const ys = [210, 410]
+    const xs = [300, 470, 640, 810, 980]
+    const ys = [250, 410]
     const out = []
     for (const y of ys) for (const x of xs) out.push({ x: x + (Math.random() * 2 - 1) * 10, y: y + (Math.random() * 2 - 1) * 10 })
     return out
@@ -459,6 +469,7 @@ export default {
         // Taktil landning: "plums"-ljud + en liten studs på korgen.
         this._plums(ctx)
         this._basketBounce(0.9, 1.06)
+        this._cheer(1)
       },
     })
     ctx.services.audio.sfx('whoosh')
@@ -485,6 +496,24 @@ export default {
   // "Plums": mjuk nedåt-glidande ton när frukten landar i korgen (taktilt).
   _plums(ctx) {
     ctx.services.audio.tone({ freq: 400, slideTo: 165, dur: 0.17, type: 'sine', vol: 0.5 })
+  },
+
+  // Ekorren jublar: en studs + kinderna rodnar mer ju fullare korgen blir, så
+  // barnet ser mottagaren bli gladare i takt med räknandet.
+  _cheer(strength = 1) {
+    const s = this._squirrel
+    if (!s || s.destroyed) return
+    gsap.killTweensOf(s.scale)
+    gsap
+      .timeline()
+      .to(s.scale, { x: 1 + 0.1 * strength, y: 1 + 0.14 * strength, duration: 0.12, ease: 'power2.out' })
+      .to(s.scale, { x: 1, y: 1, duration: 0.55, ease: 'elastic.out(1, 0.45)' })
+    const ch = s._cheeks
+    if (ch && !ch.destroyed) {
+      const to = Math.min(0.95, 0.35 + (this._count / Math.max(1, this._target)) * 0.6)
+      gsap.killTweensOf(ch)
+      gsap.to(ch, { alpha: to, duration: 0.3 })
+    }
   },
 
   // Liten studs på korgen (squash-and-stretch) vid varje landning / firande.
@@ -542,6 +571,7 @@ export default {
           if (!this._alive) return
           this._bounceFruit(a)
           this._basketBounce(0.94, 1.04)
+          this._cheer(0.6)
           ctx.services.audio.tone({ freq: 520 + i * 40, dur: 0.12, type: 'triangle', vol: 0.3 })
           this._showBig(i + 1)
           ctx.services.voice.say(numWord(i + 1))
@@ -559,6 +589,7 @@ export default {
         ctx.services.audio.sfx('correct')
         burst(ctx.fxLayer, 1000, 500, { count: 18, power: 1.1 })
         this._basketBounce(0.84, 1.1)
+        this._cheer(1.6)
         this._shakeTween = shake(this._root, { intensity: 6, duration: 0.4 })
         // Pedagogisk total ("Tre äpplen!" / "Du tryckte på fyra äpplen!").
         ctx.services.voice.say(this._goalMode ? goalFinish(this._target, this._fruit) : totalPhrase(this._target, this._fruit))
@@ -624,8 +655,64 @@ export default {
     gsap.killTweensOf(this._goalBanner?.scale)
     gsap.killTweensOf(this._basketBack?.scale)
     gsap.killTweensOf(this._basketFront?.scale)
+    this._squirrelIdle?.kill()
+    gsap.killTweensOf(this._squirrel?.scale)
+    if (this._squirrel?._cheeks) gsap.killTweensOf(this._squirrel._cheeks)
     gsap.killTweensOf(this._root)
     ctx.services.voice.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// Ekorren som tar emot frukten (gate-punkt 4: mottagare). Origo mellan fötterna.
+// Kinderna ligger i ett eget lager så de kan rodna mer ju fullare korgen blir.
+function makeSquirrel() {
+  const c = new Container()
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  const fur = 0xc4763f
+  const furDark = 0x8a5030
+  const belly = 0xf0c9a0
+
+  const g = new Graphics()
+  // Svans: stor plym bakom ryggen (ritas först = längst bak).
+  g.moveTo(-24, -12).quadraticCurveTo(-94, -22, -80, -98)
+  g.quadraticCurveTo(-72, -146, -28, -130)
+  g.quadraticCurveTo(-58, -120, -58, -92)
+  g.quadraticCurveTo(-60, -46, -20, -42).closePath()
+  g.fill(fur).stroke({ width: 4, color: furDark })
+  // Fötter.
+  g.ellipse(-14, -6, 14, 9).fill(furDark)
+  g.ellipse(14, -6, 14, 9).fill(furDark)
+  // Armar (bakom kroppen så tassarna sticker fram vid sidorna).
+  g.roundRect(-35, -74, 12, 34, 6).fill(fur).stroke({ width: 3, color: furDark })
+  g.roundRect(23, -74, 12, 34, 6).fill(fur).stroke({ width: 3, color: furDark })
+  // Kropp.
+  g.ellipse(0, -50, 31, 44).fill(fur).stroke({ width: 4, color: furDark })
+  g.ellipse(0, -44, 19, 29).fill(belly)
+  // Öron + huvud.
+  g.ellipse(-19, -116, 10, 14).fill(fur).stroke({ width: 3, color: furDark })
+  g.ellipse(19, -116, 10, 14).fill(fur).stroke({ width: 3, color: furDark })
+  g.circle(0, -100, 28).fill(fur).stroke({ width: 4, color: furDark })
+  g.ellipse(0, -90, 15, 11).fill(belly)
+  g.circle(-10, -104, 5).fill(0x2b2b2b)
+  g.circle(10, -104, 5).fill(0x2b2b2b)
+  g.circle(-8, -106, 2).fill(0xffffff)
+  g.circle(12, -106, 2).fill(0xffffff)
+  g.ellipse(0, -93, 5, 4).fill(0x2b2b2b)
+  // moveTo före arc — annars drar Pixi v8 ett streck från origo till munnens start.
+  const a0 = 0.15 * Math.PI
+  g.moveTo(9 * Math.cos(a0), -89 + 9 * Math.sin(a0))
+  g.arc(0, -89, 9, a0, 0.85 * Math.PI).stroke({ width: 3, color: 0x2b2b2b, cap: 'round' })
+  g.eventMode = 'none'
+
+  const cheeks = new Graphics()
+  cheeks.circle(-19, -95, 7).fill(0xef8fa4)
+  cheeks.circle(19, -95, 7).fill(0xef8fa4)
+  cheeks.alpha = 0.35
+  cheeks.eventMode = 'none'
+
+  c.addChild(g, cheeks)
+  c._cheeks = cheeks
+  return c
 }

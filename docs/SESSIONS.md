@@ -14,6 +14,49 @@ Format:
 
 ---
 
+## 2026-08-06 · v1.17.0 · 🍦 Glasstornet: kärlet byter per nivå (polerings-hög 2, 4/6)
+
+**Byggt:**
+- **Kärl-cykel per nivå** — våffelstrut → bägare → skål. Skillnaden är **fysik**, inte bara
+  utseende: skålen har jättebred mynning men låg kant (nästan omöjligt att missa, men hela
+  tornet står i blåsten), bägaren smalare mynning men höga raka väggar som håller de två
+  nedersta kulorna stilla. `_buildVessel()` river och bygger om de statiska kropparna per
+  torn; `mouthR`/`columnMax` följer med så siktguiden alltid talar sanning. Rösten säger
+  vilket kärl som står framme. Verifierat hela vägen: strut(3) → bägare(4) → skål(4).
+- **Topping-överraskningar** — sällsynt **regnbågskula** (~1/9, egen Graphics per band) som
+  glittrar medan den bärs och smäller av i färgexplosion + treklang; annars ibland
+  **strössel** eller **såsdrypning** som ligger KVAR på kulan. Tak: en per kula.
+  **Strösselregn** över den färdiga glassen — finishen är glass-egen.
+- **Hjälpen delad i två steg (docens hög-2-punkt).** Tre bortblåsta i rad ger bara
+  **klister**; **magneten går bara till den sista kulan** och är kapad. Efter två bortblåsta
+  **blinkar honungsburken** och rösten berättar vad den gör — hjälp som *lär ut kontrollen*
+  i stället för att bygga tornet. Glasstornet 🔧 → ✅ (alla 8 grindpunkter).
+
+**Tre fynd som gröna tester aldrig hade visat** (hittade med en Playwright-sond som spelar
+med spelets **egen** `_predictLanding` och mäter mot en HEAD-baseline):
+1. **`frictionStatic` (matter-default 0,5) är det som håller en kula kvar på en slänt** —
+   låg `friction` ensamt räcker inte. Skålens grunda slänt parkerade kulorna så att två
+   hamnade **i bredd**, vilket bryter hela "ETT torn"-idén.
+2. **En kula som kilar fast på en annans axel** (dy≈63 i stället för 84) låser tornet snett,
+   och sedan finns **ingen giltig plats kvar** för nästa kula. Bygget blev obyggbart utan
+   att något såg trasigt ut — testet var grönt hela tiden. Sådana landningar glider nu av.
+3. **`frictionAir` EFTER nedslaget avgör om kulan stannar**, inte friktionen mot underlaget:
+   det är farten kulan har kvar (plus vinden) som rullar av den. `SCOOP_STICKY` 0,02 →
+   **0,055** gjorde honungen till spelets verkliga lösning. Med honung tar ett torn 5–6
+   släpp (strut 5 · bägare 5 · skål 6) mot HEAD-baselinens 6 för *tre* kulor — alltså
+   snällare än förut, trots att den automatiska magneten dragits tillbaka.
+
+**Metod värd att återanvända:** när en balansändring ska bedömas, **mät mot HEAD**. Första
+versionen av den mjukare hjälpen kändes rimlig i koden men tog 14 släpp utan att bli klar —
+det syntes bara genom att köra samma sond mot `git show HEAD:...`.
+
+**Commits:** a3628ec feat(glasstornet) · 9031c0c docs v1.17.0
+**Öppet:** hög 2 har 2 kvar (`gravmaskinen`, `knuffa-tornet`), sedan hög 3 (finish, ~3 spel).
+Glasstornets kvarvarande §4: [Deep] smak-staplings-mål, [Medium] kund-kö, [Quick] ambient.
+6 repliker väntar på klipp — kör `/rost` när narratorn är uppe.
+
+---
+
 ## 2026-08-06 · v1.16.0 · 🔍 Diagnostiklogg + snöbollens banvariation (polerings-hög 2, 3/6)
 
 **Byggt:**

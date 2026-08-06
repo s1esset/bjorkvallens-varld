@@ -140,3 +140,15 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
     ädelstenar i stället för 👑-emoji.
   - **Avsatsen** var en tom brun platta över en fjärdedel av skärmen; den har nu murade
     stenblock och gräs som växer över kanten.
+- 2026-08-06: **[Deep] En anledning att riva** (spår "20 spel från 🔧 till ✅").
+  - **Arbetar-Bobo med bygghjälm** står nu på marken och väntar på rivningen (gate-punkt 4).
+    Han **hejar vid varje nedknuffad kloss** (`_workerCheer`) och **jublar stort vid vinst**,
+    så firandet får någon som bryr sig i stället för att bara vara konfetti. Hjälmen ritas
+    ovanpå `makeBobo` ur `lib/figurer.js`.
+  - **Placeringen krävde två försök.** x=150 lade honom helt bakom Tyngd-knappen (centrum
+    150,624) — han var praktiskt taget osynlig och det syntes bara i skärmdumpen. x=330
+    ligger mitt emellan knappen och kranmasten (x≈515). Klosslagret ritas efter honom, så en
+    kloss som ramlar dit landar framför honom.
+  - Exit-säkert: `_workerIdle` + skal-tween dödas i `destroy`.
+  - Kvar sedan tidigare: [Deep] specialklossar (tung sockel / studsig / ömtålig) som gör
+    valet av tyngd och rep till ett pussel — den punkten hör till variations-högen.

@@ -24,6 +24,7 @@ import { PhysicsWorld, Matter } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { Button } from '../../lib/Button.js'
 import { puff, floatText, sparkle, burst, bounceIn, bigCelebration, pop, shake } from '../../lib/feedback.js'
+import { makeBobo } from '../../lib/figurer.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
 const { Constraint, Composite, Body } = Matter
@@ -45,6 +46,11 @@ const STRETCH_MAX = 1.5 // elastiskt rep: hur långt kulan kan dras (× CHAIN_LE
 const FLOOR_Y = 720
 const LEDGE_Y = 480 // avsatsens översida (klossarna står här)
 const PED = { x1: 640, x2: 1180 } // avsatsens vänster/höger-kant
+// Arbetar-Bobo på marken. Måste vara klar av BÅDE Tyngd-knappen (centrum 150,624) och
+// kranmasten (x≈515) — x=150 lade honom helt bakom knappen, vilket bara syntes i
+// skärmdumpen. x=330 ligger mitt emellan dem.
+const WORKER_X = 330
+const WORKER_R = 46
 const CLEAR_MARGIN = 80 // kloss räknas "nere" när dess y > LEDGE_Y + detta (ramlat av)
 
 const BLOCK_W = 100
@@ -123,6 +129,9 @@ export default {
 
     // Avsats (pedestal): statisk kropp som klossarna står på; ritas som sten.
     this._buildPedestal(ctx)
+
+    // Arbetar-Bobo på marken till vänster — anledningen att riva (gate-punkt 4).
+    this._buildWorker()
 
     // Fysik: gravitation + golv/väggar.
     this._phys = new PhysicsWorld({ gravityY: 1.2, walls: ['floor', 'left', 'right'] })
@@ -203,6 +212,46 @@ export default {
   },
 
   // ---- Scenbyggen ---------------------------------------------------------
+
+  // Arbetar-Bobo med hjälm på marken till vänster (gate-punkt 4: en anledning att riva).
+  // Avsatsen börjar på x=640 och klossarna ramlar ner strax vänster om den, så x≈150 är
+  // fri yta. Han hejar vid varje nedknuffad kloss och jublar vid vinst.
+  _buildWorker() {
+    const w = new Container()
+    w.eventMode = 'none'
+    w.interactiveChildren = false
+    w.position.set(WORKER_X, FLOOR_Y - 24 - 2.36 * WORKER_R)
+
+    const bobo = makeBobo(WORKER_R)
+    w.addChild(bobo)
+
+    // Bygghjälm ovanpå huvudet (makeBobo har origo i huvudets centrum).
+    const helmet = new Graphics()
+    helmet.arc(0, -WORKER_R * 0.16, WORKER_R * 1.02, Math.PI, 0).fill(COLORS.yellow)
+    helmet.roundRect(-WORKER_R * 1.2, -WORKER_R * 0.24, WORKER_R * 2.4, WORKER_R * 0.24, WORKER_R * 0.12)
+      .fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orangeDark })
+    helmet.roundRect(-WORKER_R * 0.1, -WORKER_R * 1.2, WORKER_R * 0.2, WORKER_R * 1.0, 4)
+      .fill({ color: 0xffffff, alpha: 0.35 })
+    w.addChild(helmet)
+
+    this._worker = w
+    this._root.addChild(w)
+    this._workerIdle = gsap.to(w.scale, {
+      x: 1.03, y: 1.03, duration: 2.0, yoyo: true, repeat: -1, ease: 'sine.inOut',
+    })
+  },
+
+  // Arbetaren hejar (liten gest) respektive jublar (stor) — egen reaktion utöver konfettin.
+  _workerCheer(ctx, big = false) {
+    const w = this._worker
+    if (!w || w.destroyed) return
+    gsap.killTweensOf(w.scale)
+    gsap
+      .timeline()
+      .to(w.scale, { x: big ? 1.2 : 1.09, y: big ? 1.28 : 1.14, duration: 0.12, ease: 'power2.out' })
+      .to(w.scale, { x: 1, y: 1, duration: big ? 0.66 : 0.5, ease: 'elastic.out(1, 0.42)' })
+    sparkle(ctx.fxLayer, w.x, w.y - WORKER_R * 1.6, { count: big ? 10 : 5 })
+  },
 
   _buildPedestal(ctx) {
     const g = new Graphics()
@@ -768,6 +817,7 @@ export default {
     if (b.cleared) return
     b.cleared = true
     this._cleared++
+    this._workerCheer(ctx) // arbetaren hejar vid varje nedknuffad kloss
     this._updateMeter()
     // Snabb squash när klossen ramlar (skala — fysik-länken rör inte scale).
     const v = b.view
@@ -879,6 +929,7 @@ export default {
     ctx.services.voice.say('Hurra! Du knuffade ner alla klossar!')
 
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    this._workerCheer(ctx, true) // rivningen är klar — arbetaren jublar
     burst(ctx.fxLayer, 800, 360, { count: 14 })
     sparkle(ctx.fxLayer, 800, 360, { count: 10 })
 
@@ -1008,6 +1059,8 @@ export default {
     this._reloadCall?.kill()
     this._assistCall?.kill()
     this._shakeTw?.kill()
+    this._workerIdle?.kill()
+    if (this._worker && !this._worker.destroyed) gsap.killTweensOf(this._worker.scale)
     this._detachBall()
 
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onFieldTap)

@@ -132,3 +132,18 @@ räknar ingenting, auto-hjälpen kortsluter agensen och byn vaknar aldrig till l
   varje tänd lampa säger antalet högt ("En lampa! …Två lampor!"). Auto-hjälpen fyller prickarna
   visuellt (tyst) via `_setPipsFull`; urladdning nollställer via `_resetPips`. Allt exit-säkert
   (hint-tween + pip-scale-tweens dödas i `_teardownCloud`).
+- 2026-08-06: **P0 ASSETS + svävande maskot + två layoutfel** (poleringsrundan, 🔤 Lära).
+  - **Målen ritas.** Lamporna/lyktan/trädet — själva sakerna spelet handlar om att tända —
+    var grå-tintad emoji-Text på en ritad stolpe. Ny `makeLampArt(variant)` ritar tre
+    varianter i samma silhuett-storlek: gatlykta (skärm + glödlampa), papperslykta (röd
+    med ribbor) och träd med lyktor. Tänd/otänd-logiken är oförändrad: Graphics bär tint,
+    så samma ritning täcker båda lägena (grå + halv alpha → vitt + full).
+  - **Mätaren ritas också** — samma lykta nedskalad 0,58 i stället för en 💡-emoji. Mätaren
+    ska visa DE HÄR sakerna, inte något som råkar likna dem.
+  - **Bobo var ett svävande huvud.** `makeMascot()` ger bara ett huvud (samma fynd som i
+    fem Pussel-spel). Ny `makeBoboBody(faceR)` ritar bål, armar, fötter och markskugga,
+    lagd FÖRE huvudet. Han stod dessutom så lågt (y=596) att fötterna hamnade på 731 —
+    utanför 720-skärmen. Flyttad till 556.
+  - **Molnbandet låg bakom mätaren.** `BAND.y0` 130 → 168; dekorativa moln drev in bakom
+    lykt-ikonerna på y≈112 och gjorde räknaren oläsbar.
+  - `npm run test` 0 fel (drag + tap), skärmdump verifierad.

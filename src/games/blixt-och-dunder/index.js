@@ -20,7 +20,9 @@ import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // Himmel-band (molnens yta) — molnen klampas hit.
-const BAND = { x0: 120, x1: 1160, y0: 130, y1: 360 }
+// Molnbandet börjar under mätaren (y 95..129) — dekorativa moln drev tidigare in
+// bakom lykt-ikonerna och gjorde räknaren oläsbar.
+const BAND = { x0: 120, x1: 1160, y0: 168, y1: 360 }
 const CLOUD_R = 70 // logisk kollisionsradie
 const TOUCH_GAP = 20 // krav på litet överlapp innan "nudd"
 const STRIKE_COOLDOWN = 0.4 // s mellan blixtar (ingen spam)
@@ -86,9 +88,14 @@ export default {
     this._meterLayer.interactiveChildren = false
     this._root.addChild(this._meterLayer)
 
-    this._bobo = makeMascot(54)
-    this._bobo.position.set(92, 600)
+    // makeMascot ger BARA ett huvud — Bobo stod som ett svävande huvud i gräset.
+    // Kroppen ritas separat och läggs FÖRE huvudet så huvudet vilar på den.
+    this._bobo = new Container()
+    // y=596 lade fötterna på 731 — utanför 720-skärmen. 556 sätter dem på 686.
+    this._bobo.position.set(112, 556)
     this._bobo.eventMode = 'none'
+    this._bobo.interactiveChildren = false
+    this._bobo.addChild(makeBoboBody(54), makeMascot(54))
     this._root.addChild(this._bobo)
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
@@ -154,7 +161,7 @@ export default {
       bounceIn(lamp.container, { delay: 0.05 * i })
     })
 
-    // Mätare: en 💡-ikon per lampa, grå tills lampan tänds.
+    // Mätare: en liten ritad lykta per lampa, grå tills lampan tänds.
     this._buildMeter(ctx, lay.lampXs.length)
 
     // Moln spridda i himmel-bandet med liten drift.
@@ -176,12 +183,13 @@ export default {
     const gap = 52
     const startX = ctx.width / 2 - ((n - 1) * gap) / 2
     for (let i = 0; i < n; i++) {
-      const t = new Text({ text: '💡', style: { fontFamily: FONT.body, fontSize: 40 } })
-      t.anchor.set(0.5)
+      // Samma ritade lykta som i byn, nedskalad — mätaren ska visa DE HÄR sakerna,
+      // inte en emoji som råkar likna dem.
+      const t = makeLampArt('lampa')
+      t.scale.set(0.58)
       t.position.set(startX + i * gap, 112)
       t.tint = 0x888888
       t.alpha = 0.5
-      t.eventMode = 'none'
       this._meterLayer.addChild(t)
       this._meterIcons.push(t)
     }
@@ -199,9 +207,9 @@ export default {
     for (const l of this._lamps) {
       if (l.container && !l.container.destroyed) {
         gsap.killTweensOf(l.container.scale)
-        if (l.emoji && !l.emoji.destroyed) {
-          gsap.killTweensOf(l.emoji.scale)
-          gsap.killTweensOf(l.emoji)
+        if (l.art && !l.art.destroyed) {
+          gsap.killTweensOf(l.art.scale)
+          gsap.killTweensOf(l.art)
         }
         gsap.killTweensOf(l.glow)
       }
@@ -647,10 +655,10 @@ export default {
         },
       })
     }
-    if (lamp.emoji && !lamp.emoji.destroyed) {
-      lamp.emoji.tint = 0xffffff
-      lamp.emoji.alpha = 1
-      pop(lamp.emoji)
+    if (lamp.art && !lamp.art.destroyed) {
+      lamp.art.tint = 0xffffff
+      lamp.art.alpha = 1
+      pop(lamp.art)
     }
     const mi = this._meterIcons[lamp.index]
     if (mi && !mi.destroyed) {
@@ -882,7 +890,36 @@ function makeHouse(cx, baseY, i) {
   return g
 }
 
-// Lampa ovanför ett hus: mjuk glödcirkel (börjar släckt) + emoji (otänd = nedtonad).
+// Målet som ska tändas, RITAT (P0 ASSETS). Tre varianter i samma silhuett-storlek
+// (~±32) så tänd/otänd-logiken är identisk. Otänd = grå tint + halv alpha; tänd
+// sätter tint till vitt. Graphics bär tint, så en enda ritning räcker för båda lägen.
+function makeLampArt(variant) {
+  const g = new Graphics()
+  if (variant === 'lykta') {
+    g.roundRect(-6, -32, 12, 9, 3).fill(0xc9a227)
+    g.ellipse(0, 2, 26, 28).fill(0xe0574f).stroke({ width: 4, color: 0xa8392f })
+    for (const rx of [-13, 0, 13]) g.ellipse(rx, 2, 4, 27).stroke({ width: 2, color: 0xa8392f, alpha: 0.55 })
+    g.roundRect(-7, 26, 14, 9, 3).fill(0xc9a227)
+    g.moveTo(0, 35).lineTo(0, 45).stroke({ width: 3, color: 0xc9a227 })
+  } else if (variant === 'trad') {
+    g.roundRect(-7, 12, 14, 28, 4).fill(0x8a5a3b).stroke({ width: 3, color: 0x6f4a2e })
+    g.circle(-15, 0, 17).fill(0x5bbf6a)
+    g.circle(15, 0, 17).fill(0x5bbf6a)
+    g.circle(0, -16, 20).fill(0x5bbf6a).stroke({ width: 4, color: 0x3f8a44 })
+    for (const [bx, by] of [[-14, -6], [10, -10], [0, 4], [-5, -25], [16, 2]]) g.circle(bx, by, 5).fill(0xffe08a)
+  } else {
+    // gatlykta: skärm + glödlampa
+    g.roundRect(-8, -30, 16, 11, 4).fill(0x4a525c)
+    g.moveTo(-27, 6).lineTo(-14, -20).lineTo(14, -20).lineTo(27, 6).closePath()
+    g.fill(0x6f7883).stroke({ width: 4, color: 0x4a525c })
+    g.ellipse(0, 14, 16, 15).fill(0xfff0c4).stroke({ width: 3, color: 0xe0c07a })
+    g.moveTo(-7, 26).lineTo(7, 26).stroke({ width: 4, color: 0xc9b48a })
+  }
+  g.eventMode = 'none'
+  return g
+}
+
+// Lampa ovanför ett hus: mjuk glödcirkel (börjar släckt) + ritat mål (otänd = nedtonat).
 function makeLamp(cx, cy, i) {
   const container = new Container()
   container.position.set(cx, cy)
@@ -895,14 +932,34 @@ function makeLamp(cx, cy, i) {
   const post = new Graphics().roundRect(-4, 24, 8, 60, 4).fill(COLORS.brown)
   post.eventMode = 'none'
 
-  // Vart 3:e mål varieras (🏮 lykta / 🌳 träd som tänds), samma tänd/otänd-logik.
-  const variant = (i + 1) % 3 === 0 ? (i % 2 ? '🌳' : '🏮') : '💡'
-  const emoji = new Text({ text: variant, style: { fontFamily: FONT.body, fontSize: 64 } })
-  emoji.anchor.set(0.5)
-  emoji.tint = 0x888888
-  emoji.alpha = 0.55
-  emoji.eventMode = 'none'
+  // Vart 3:e mål varieras (lykta / träd som tänds), samma tänd/otänd-logik.
+  const variant = (i + 1) % 3 === 0 ? (i % 2 ? 'trad' : 'lykta') : 'lampa'
+  const art = makeLampArt(variant)
+  art.tint = 0x888888
+  art.alpha = 0.55
 
-  container.addChild(post, glow, emoji)
-  return { container, glow, emoji, variant }
+  container.addChild(post, glow, art)
+  return { container, glow, art, variant }
+}
+
+// Kropp till Bobo. makeMascot() ritar bara ett huvud centrerat i (0,0); den här
+// hänger på bål, armar och fötter under det så maskoten står i scenen i stället
+// för att sväva. faceR = samma radie som skickas till makeMascot.
+function makeBoboBody(faceR = 54) {
+  const g = new Graphics()
+  const r = faceR
+  // markskugga
+  g.ellipse(0, r * 2.5, r * 0.9, r * 0.22).fill({ color: COLORS.shadow, alpha: 0.18 })
+  // fötter
+  g.ellipse(-r * 0.42, r * 2.4, r * 0.3, r * 0.18).fill(COLORS.orangeDark)
+  g.ellipse(r * 0.42, r * 2.4, r * 0.3, r * 0.18).fill(COLORS.orangeDark)
+  // armar (bakom bålen)
+  g.roundRect(-r * 1.02, r * 0.9, r * 0.3, r * 0.9, r * 0.15).fill(COLORS.cream).stroke({ width: 3, color: COLORS.orangeDark })
+  g.roundRect(r * 0.72, r * 0.9, r * 0.3, r * 0.9, r * 0.15).fill(COLORS.cream).stroke({ width: 3, color: COLORS.orangeDark })
+  // bål
+  g.roundRect(-r * 0.75, r * 0.72, r * 1.5, r * 1.62, r * 0.46).fill(COLORS.cream).stroke({ width: 4, color: COLORS.orangeDark })
+  // mage
+  g.ellipse(0, r * 1.62, r * 0.4, r * 0.5).fill({ color: COLORS.orange, alpha: 0.35 })
+  g.eventMode = 'none'
+  return g
 }

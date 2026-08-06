@@ -76,7 +76,10 @@ void main() {
 // x0 håller avstånd till glimmerdjuret i hörnet så träffytorna aldrig krockar.
 const FIELD = { x0: 312, x1: 1046, y0: 268, y1: 566 }
 const FACIT_Y = 86
-const PET = { x: 136, y: 620 }
+// Djuret är ~150 px brett i designkoordinater. Med x=136 klipptes dess vänstra
+// halva av skärmkanten — mottagaren, spelets viktigaste figur, syntes bara till
+// hälften. Flyttat in så hela silhuetten ryms.
+const PET = { x: 196, y: 596 }
 
 export default {
   id: 'glittergrottan',

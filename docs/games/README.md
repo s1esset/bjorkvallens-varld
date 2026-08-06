@@ -135,7 +135,7 @@ Kö sorterad efter uppmätt asset-skuld i `docs/POLERINGSRUNDA.md`.*
 | 61 | Vattenvägen | `vattenvagen` | drag | ✅ | ✅ |
 | 63 | Kugghjulen | `kugghjulen` | drag | ✅ | ✅ |
 | 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ | ✅ |
-| 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 | ⬜ |
+| 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 | ✅ |
 
 ### 🔤 Lära (larande + pedagogiskt) — ⬜ **poleringsrundan i kö** (0/9)
 *Första-omgången 2026-07-02. Sista fliken i poleringsrundan.*

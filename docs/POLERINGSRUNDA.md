@@ -174,7 +174,7 @@ och sänk till 🔧 om något visar sig inte hålla.
 | 15 | `enkelt-pussel` | 4 | ✅ |
 | 16 | `mata-monstret` | 3 | ✅ |
 | 17 | `vart-tog-det-vagen` | 3 | ✅ |
-| 18 | `harma-melodin` | 2 | ⬜ |
+| 18 | `harma-melodin` | 2 | ✅ |
 | 19 | `glittergrottan` | 0 | ⬜ |
 
 ## Kö 3 — 🔤 Lära (9 spel)

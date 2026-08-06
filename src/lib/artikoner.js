@@ -71,6 +71,7 @@ const ART = {
   '⚽': ['shape', 'ball', 0xffffff],
   // tillskott för mata-monstret
   '🥕': ['tool', 'carrot', 0xff9d3d], '🍬': ['tool', 'candy', 0xef6aa8],
+  '💧': ['fruit', 'drop', 0x4aa3df, 0x5bbf6a],
 }
 
 export function drawIcon(key, size = 100) {
@@ -129,7 +130,12 @@ export function drawIcon(key, size = 100) {
   } else if (tpl === 'fruit') {
     const [, shape, col, leaf] = a
     const dk = lerpColor(col, 0x000000, 0.2)
-    if (shape === 'crescent') {
+    if (shape === 'drop') {
+      g.moveTo(0, -34 * S).quadraticCurveTo(26 * S, -4 * S, 26 * S, 8 * S)
+      g.arc(0, 8 * S, 26 * S, 0, Math.PI).quadraticCurveTo(-26 * S, -4 * S, 0, -34 * S)
+      g.fill(col).stroke({ width: 4, color: dk })
+      g.ellipse(-9 * S, 6 * S, 6 * S, 10 * S).fill({ color: 0xffffff, alpha: 0.5 })
+    } else if (shape === 'crescent') {
       g.moveTo(-36 * S, -14 * S).quadraticCurveTo(-6 * S, 34 * S, 36 * S, 12 * S).quadraticCurveTo(6 * S, 22 * S, -24 * S, -18 * S).closePath()
       g.fill(col).stroke({ width: 4, color: dk })
     } else if (shape === 'bunch') {

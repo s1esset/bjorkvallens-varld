@@ -4,6 +4,7 @@
 // kan alltid visas igen ("Visa igen") — man kan ALDRIG "förlora": fel tryck ger
 // mjuk respons och sekvensen visas bara om. Oändlig lek. Allt ritas programmatiskt.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { sparkle, pop, wiggle, bigCelebration } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
@@ -119,11 +120,20 @@ export default {
     glow.alpha = 0
     glow.eventMode = 'none'
 
-    const icon = new Text({ text: def.icon, style: { fontFamily: FONT.body, fontSize: 96 } })
-    icon.anchor.set(0.5)
+    // P0 ASSETS: RITAD platt-ikon (var en 96px emoji-Text).
+    // P0 ASSETS + sjunde läckan (POLERINGSRUNDA): en ritad ikon i samma färgfamilj
+    // som plattan tappar sin silhuett — grodan försvann mot den gröna plattan och
+    // stjärnan mot den gula. En mörk kopia strax bakom ger separation mot VILKEN
+    // platta som helst, utan att lägga ikonen i en bricka.
+    const iconShade = drawIcon(def.icon, 132)
+    iconShade.tint = 0x000000
+    iconShade.alpha = 0.22
+    iconShade.position.set(4, 5)
+    iconShade.eventMode = 'none'
+    const icon = drawIcon(def.icon, 132)
     icon.eventMode = 'none'
 
-    pad.addChild(body, glow, icon)
+    pad.addChild(body, glow, iconShade, icon)
     pad._glow = glow
     pad.eventMode = 'static'
     pad.cursor = 'pointer'

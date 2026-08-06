@@ -12,6 +12,7 @@ import { chromium } from 'playwright'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { granska } from './bildkoll.mjs'
 
 const args = process.argv.slice(2)
 const id = args[0]
@@ -126,8 +127,14 @@ try {
   await page.waitForTimeout(700)
   const cykel = await grabLog(page)
 
-  // Slå ihop fynden från huvudpasset och återinträdes-cykeln.
-  const fynd = mergeFynd(snapshot?.summary?.fynd, cykel?.summary?.fynd)
+  // Bildkoll på skärmdumpen. Tre av fyra fel i gravmaskinens polering hittades i en
+  // BILD, inget av dem av ett grönt test — därför är den här kollen inte valfri.
+  // Baslinje-diffen är opt-in (--baslinje) eftersom spardatan inte nollställs och
+  // spelen är fulla av Math.random(); en rak diff hade tjutit varje körning.
+  const bildFynd = granska(shot, opt('--baslinje', null))
+
+  // Slå ihop fynden från huvudpasset, återinträdes-cykeln och bilden.
+  const fynd = mergeFynd(snapshot?.summary?.fynd, cykel?.summary?.fynd, bildFynd)
   if (snapshot && !noLog) {
     mkdirSync(dirname(logPath), { recursive: true })
     writeFileSync(logPath, JSON.stringify({ id, korning: snapshot, aterintrade: cykel, fynd }, null, 2))

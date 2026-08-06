@@ -5,12 +5,14 @@
 //   npm run test:all             # alla spel i registret
 //   npm run test -- a b c        # flera
 //   ... [--jobs 4] [--url http://localhost:5173] [--keep-shots]
+//   npm run test -- --spara-baslinje    # spara dagens bilder som baslinje
+//   npm run test -- --baslinje          # jämför mot baslinjen (opt-in, se bildkoll.mjs)
 //
 // Dragspel får automatiskt några generiska musdrag utöver standardtrycken.
 // Skärmdumpar hamnar i .test-shots/ (gitignorerad).
 // Exit 0 = alla gröna, 1 = minst ett spel har konsolfel.
 import { spawn } from 'node:child_process'
-import { readdirSync, statSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { readdirSync, statSync, mkdirSync, readFileSync, existsSync, copyFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -53,10 +55,18 @@ const inputOf = (id) => {
 }
 const GENERIC_DRAGS = '640,360>420,240;300,500>800,360;900,300>640,520'
 
+// Baslinje-diff är OPT-IN (--baslinje): spardatan nollställs inte mellan körningar och
+// spelen är fulla av Math.random(), så en diff är bara meningsfull när man medvetet
+// jämför före/efter. Spara en baslinje med --spara-baslinje.
+const baselineDir = join(shotDir, 'baseline')
+const useBaseline = flag('--baslinje')
+if (flag('--spara-baslinje')) mkdirSync(baselineDir, { recursive: true })
+
 const runOne = (id) => new Promise((done) => {
   const input = inputOf(id)
   const args = ['scripts/test-game.mjs', id, '--url', url, '--shot', join(shotDir, `${id}.png`)]
   if (input === 'drag' || input === 'mixed') args.push('--drag', GENERIC_DRAGS)
+  if (useBaseline) args.push('--baslinje', join(baselineDir, `${id}.png`))
   const t0 = Date.now()
   let out = ''
   const p = spawn(process.execPath, args, { cwd: ROOT })
@@ -94,6 +104,16 @@ await Promise.all(Array.from({ length: Math.min(jobs, queue.length) }, async () 
     console.log(`  ${mark} ${r.id.padEnd(26)} ${String(r.ms / 1000).padStart(5)}s  ${notis}`)
   }
 }))
+
+// Spara körningens skärmdumpar som ny baslinje att jämföra mot nästa gång.
+if (flag('--spara-baslinje')) {
+  let n = 0
+  for (const r of results) {
+    const src = join(shotDir, `${r.id}.png`)
+    if (existsSync(src)) { copyFileSync(src, join(baselineDir, `${r.id}.png`)); n++ }
+  }
+  console.log(`\n  ⤓ ${n} skärmdumpar sparade som baslinje i .test-shots/baseline/`)
+}
 
 const failed = results.filter((r) => r.errors.length).sort((a, b) => a.id.localeCompare(b.id))
 if (failed.length) {

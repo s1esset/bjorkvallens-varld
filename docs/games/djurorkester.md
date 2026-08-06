@@ -120,3 +120,16 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
     lågt, hög = litet högt).
   - Kvar till senare (ej i denna omgång): djur-rotation per konsert, synlig
     konsert-mätare, Dirigent Bobo + scen, grannkort-vibration.
+- 2026-08-06: **P0 ASSETS — de sex djuren ritas** (poleringsrundan, 🔤 Lära-fliken).
+  - Djuren var emoji-Text (fontSize 150) ovanpå en heltäckande färgad kortplatta —
+    dubbelt brott: emoji som spelobjekt, och objektet inne i en bricka. Nu `drawIcon`
+    (168 px); emoji-strängen är kvar som nyckel. Anka (🦆) fick sin ritning i samma
+    poleringsrunda som `vilket-djur-later`.
+  - **Kortplattan bleks** (`lerpColor(färg, vitt, 0.68)` + 10px färgad kant + topp-glans)
+    i stället för full färg. Grön groda på grön platta och rosa gris på rosa platta föll
+    annars ihop med sin egen bricka — samma fel som `harma-melodin` och
+    `vilket-djur-later` hade. Varje kort är fortfarande tydligt sin egen färg via kanten.
+  - Instrument-rekvisitan (🥁🎺🎻🎹🪇🎷) är kvar som emoji — P0 tillåter en emoji som
+    *detalj ovanpå* ett riktigt ritat föremål, och det är precis vad den är.
+  - Kvar sedan tidigare (ej i denna omgång): djur-rotation per konsert, synlig
+    konsert-mätare, Dirigent Bobo + scen, grannkort-vibration.

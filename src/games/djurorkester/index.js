@@ -11,6 +11,8 @@ import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { randomFrom } from '../../lib/swedish.js'
 import { pop, floatText, sparkle } from '../../lib/feedback.js'
+import { lerpColor } from '../../lib/scene.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
 // Djurdata (delmängd av vilket-djur-later). emoji + fras (lätet rösten "sjunger" om
@@ -103,12 +105,16 @@ export default {
     card._djur = djur
     const inner = new Container()
     card._inner = inner
+    // BLEK platta + kraftig färgad kant. Full färg bakom ett ritat djur gjorde att
+    // djur i samma färgfamilj (grön groda, rosa gris) föll ihop med sin egen platta.
     const body = new Graphics()
       .roundRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 34)
-      .fill(color)
-      .stroke({ width: 7, color: COLORS.white, alpha: 0.85 })
-    const face = new Text({ text: djur.emoji, style: { fontFamily: FONT.body, fontSize: 150 } })
-    face.anchor.set(0.5)
+      .fill(lerpColor(color, 0xffffff, 0.68))
+      .stroke({ width: 10, color })
+    body.roundRect(-CARD_W / 2 + 16, -CARD_H / 2 + 14, CARD_W - 32, 44, 20).fill({ color: COLORS.white, alpha: 0.5 })
+    // Djuret RITAS (P0 ASSETS) — emoji-strängen är kvar som nyckel.
+    const face = drawIcon(djur.emoji, 168)
+    face.position.set(0, -6)
     // Instrument-rekvisita i nedre högra hörnet — nu ÄR det en orkester.
     const instr = new Text({ text: djur.instr, style: { fontFamily: FONT.body, fontSize: 64 } })
     instr.anchor.set(0.5)

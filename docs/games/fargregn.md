@@ -108,3 +108,19 @@ Kort sagt: *snyggt och korrekt färg-matchning*, men det **lär inte färgord** 
   - [Medium] Ord-runda (var 3:e runda från runda-index 2): skylten visar BARA färgordet
     stort i färgen (ingen droppe att matcha mot). Vid ~6s tvekan avslöjas droppe-formen
     som stödhjul. Fortsatt helt no-fail.
+- 2026-08-06: **Röstbugg + [Medium] blanda färger** (poleringsrundan, 🔤 Lära-fliken).
+  - **Tre repliker kunde aldrig få ett klipp.** Rundans intro och slutreplik byggdes med
+    strängkonkatenering (`'Tryck på de ' + plural + ' dropparna!'`). Klipp-manifestet slår
+    upp på exakt text och `check.mjs` matchar bara literaler, så båda föll tillbaka på Web
+    Speech. Nu ligger `intro` och `done` som fulla literaler i `COLOR_DEFS` — alla tolv
+    fanns redan i `voice-phrases.json`, det var källkoden som gjorde dem onåbara.
+  - **[Medium] Färgblandning i pölarna.** Pölarna var ren dekor. Nu bär varje pöl den färg
+    som senast landade i den (`_paintPuddle`), och landar en ANNAN grundfärg i samma pöl
+    blandas de synligt: gul+blå→grön, röd+blå→lila, röd+gul→orange, med gnistor, en
+    stigande ton och rösten som säger vilket ("Gul och blå blir grön!"). Ordningen spelar
+    ingen roll (`mixKey` sorterar nycklarna). Eftersom målfärgen dominerar regnet är
+    blandningen sällsynt — ett wow-ögonblick, inte en mekanik barnet måste hantera.
+    Fortsatt helt no-fail: inget kan bli fel, ingenting krävs.
+  - Tre nya repliker tillagda i `scripts/voice-phrases.json` (väntar på `/rost`).
+  - Verifierat i en 40-sekunders körning: pölarna färgas löpande, 0 konsolfel.
+  - Kvar sedan tidigare: paraply-figur som mottagare ([Deep]), riktiga regn/plask-klipp.

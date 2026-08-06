@@ -12,15 +12,29 @@ import { pop, wiggle, sparkle, bounceIn, puff, ripple, burst, shake, breathe, fl
 import { COLORS, PRAISE, FONT } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
-// Färgpalett: ASCII-nyckel + 0xRRGGBB + svensk plural-fras (böjd) + grundord (för ord-rundan).
+// Färgpalett: ASCII-nyckel + 0xRRGGBB + svensk plural-fras (böjd) + grundord (för
+// ord-rundan). intro/done skrivs som FULLA LITERALER — de byggdes tidigare med
+// strängkonkatenering ('Tryck på de ' + plural + ' dropparna!'), och då kan varken
+// klipp-manifestet (slår upp på exakt text) eller check.mjs hitta dem. Klippen fanns
+// hela tiden; det var källkoden som gjorde dem onåbara.
 const COLOR_DEFS = [
-  { key: 'rod', color: 0xff6b6b, plural: 'röda', word: 'röd' },
-  { key: 'gul', color: 0xffd35c, plural: 'gula', word: 'gul' },
-  { key: 'bla', color: 0x4aa3df, plural: 'blåa', word: 'blå' },
-  { key: 'gron', color: 0x5bbf6a, plural: 'gröna', word: 'grön' },
-  { key: 'lila', color: 0xa78bfa, plural: 'lila', word: 'lila' },
-  { key: 'rosa', color: 0xff9ec4, plural: 'rosa', word: 'rosa' },
+  { key: 'rod', color: 0xff6b6b, plural: 'röda', word: 'röd', intro: 'Tryck på de röda dropparna!', done: 'Du hittade alla röda!' },
+  { key: 'gul', color: 0xffd35c, plural: 'gula', word: 'gul', intro: 'Tryck på de gula dropparna!', done: 'Du hittade alla gula!' },
+  { key: 'bla', color: 0x4aa3df, plural: 'blåa', word: 'blå', intro: 'Tryck på de blåa dropparna!', done: 'Du hittade alla blåa!' },
+  { key: 'gron', color: 0x5bbf6a, plural: 'gröna', word: 'grön', intro: 'Tryck på de gröna dropparna!', done: 'Du hittade alla gröna!' },
+  { key: 'lila', color: 0xa78bfa, plural: 'lila', word: 'lila', intro: 'Tryck på de lila dropparna!', done: 'Du hittade alla lila!' },
+  { key: 'rosa', color: 0xff9ec4, plural: 'rosa', word: 'rosa', intro: 'Tryck på de rosa dropparna!', done: 'Du hittade alla rosa!' },
 ]
+
+// Färgblandning i pölarna: två OLIKA grundfärger som landar i samma pöl blir en
+// tredje och rösten säger vilken. Nyckeln är de två färgnycklarna i bokstavsordning
+// så ordningen dropparna landar i inte spelar roll. Fraserna är fulla literaler.
+const mixKey = (a, b) => [a, b].sort().join('+')
+const MIXES = {
+  'bla+gul': { key: 'gron', color: 0x5bbf6a, phrase: 'Gul och blå blir grön!' },
+  'bla+rod': { key: 'lila', color: 0xa78bfa, phrase: 'Röd och blå blir lila!' },
+  'gul+rod': { key: 'orange', color: 0xff9d3d, phrase: 'Röd och gul blir orange!' },
+}
 
 // Stigande kombo-ton: klar dur-pentatonisk stege (flera rätt i snabb följd klättrar).
 const COMBO_LADDER = [523.25, 587.33, 659.25, 783.99, 880, 987.77, 1174.66, 1318.51]
@@ -187,13 +201,25 @@ export default {
     for (const fx of [0.16, 0.4, 0.61, 0.84]) {
       const w = 64 + Math.random() * 46
       const p = new Graphics()
-      p.ellipse(0, 7, w, w * 0.26).fill({ color: 0x3f8fc6, alpha: 0.32 }) // skugga
-      p.ellipse(0, 0, w, w * 0.28).fill({ color: 0x8fd6ee, alpha: 0.6 }) // vatten
-      p.ellipse(-w * 0.28, -w * 0.06, w * 0.42, w * 0.1).fill({ color: 0xffffff, alpha: 0.45 }) // glans
+      p._w = w
+      p._tint = null // vilken färg pölen just nu innehåller (null = klart vatten)
       p.position.set(ctx.width * fx, PUDDLE_Y)
+      this._paintPuddle(p, null)
       this._puddleLayer.addChild(p)
       this._puddles.push(p)
     }
+  },
+
+  // Rita om en pöl i en given färg (null = klart regnvatten).
+  _paintPuddle(p, color) {
+    if (!p || p.destroyed) return
+    const w = p._w
+    const water = color ?? 0x8fd6ee
+    const shade = color ? darken(color, 0.3) : 0x3f8fc6
+    p.clear()
+    p.ellipse(0, 7, w, w * 0.26).fill({ color: shade, alpha: 0.32 }) // skugga
+    p.ellipse(0, 0, w, w * 0.28).fill({ color: water, alpha: color ? 0.75 : 0.6 }) // vatten
+    p.ellipse(-w * 0.28, -w * 0.06, w * 0.42, w * 0.1).fill({ color: 0xffffff, alpha: 0.45 }) // glans
   },
 
   // Nivåparametrar växer mjukt med antal klarade rundor: fler färger, snabbare
@@ -224,7 +250,7 @@ export default {
     if (!choices.length) choices = this._palette
     this._target = randomFrom(choices)
     this._lastTargetKey = this._target.key
-    this._introPhrase = 'Tryck på de ' + this._target.plural + ' dropparna!'
+    this._introPhrase = this._target.intro
 
     // Ord-runda: efter ett par vanliga rundor visar skylten BARA färgordet stort i
     // färgen (ingen droppe-form att matcha mot) → barnet kopplar ord→färg.
@@ -454,7 +480,7 @@ export default {
     // complete() = celebrate-ljud + beröm + konfetti + stjärna + klistermärke (GameHost).
     ctx.progress.complete()
     shake(this._content, { intensity: 7, duration: 0.5 }) // mjukt, glatt firande-skak
-    ctx.services.voice.say('Du hittade alla ' + this._target.plural + '!')
+    ctx.services.voice.say(this._target.done)
 
     // Fyll färgen på "samla regnbågen"-tavlan (första gången den bemästras).
     if (!this._mastered.has(this._target.key)) {
@@ -516,7 +542,7 @@ export default {
         ripple(this._splashLayer, d.x, PUDDLE_Y, { color: 0xbfe9ff, maxR: 46, duration: 0.5, width: 4, alpha: 0.5 })
         puff(this._splashLayer, d.x, PUDDLE_Y - 4, { count: 5, color: d._def.rainbow ? randomFrom(RAINBOW) : d._def.color })
         this._plop(ctx)
-        this._rippleNearestPuddle(d.x)
+        this._rippleNearestPuddle(ctx, d.x, d._def)
         if (!d.destroyed) d.destroy({ children: true })
       }
     }
@@ -555,8 +581,9 @@ export default {
     ctx.services.audio.tone({ freq: base, dur: 0.14, type: 'sine', vol: 0.16, slideTo: base * 0.5 })
   },
 
-  // Närmaste pöl studsar mjukt när en droppe landar (exit-säkert via feedback.pop).
-  _rippleNearestPuddle(x) {
+  // Närmaste pöl studsar mjukt när en droppe landar (exit-säkert via feedback.pop),
+  // färgas av droppen — och BLANDAR om den redan höll en annan grundfärg.
+  _rippleNearestPuddle(ctx, x, def) {
     if (!this._puddles) return
     let nearest = null
     let best = Infinity
@@ -568,7 +595,27 @@ export default {
         nearest = p
       }
     }
-    if (nearest && !nearest.destroyed) pop(nearest, { scale: 1.12 })
+    if (!nearest || nearest.destroyed) return
+    pop(nearest, { scale: 1.12 })
+    if (!def || def.rainbow) return
+
+    const mix = nearest._tint && nearest._tint !== def.key ? MIXES[mixKey(nearest._tint, def.key)] : null
+    if (mix) {
+      // Äkta färgbegrepp: två grundfärger i samma pöl blir en tredje, och rösten
+      // säger vilken. Sällsynt (målfärgen dominerar regnet) → ett wow-ögonblick.
+      nearest._tint = mix.key
+      this._paintPuddle(nearest, mix.color)
+      sparkle(this._splashLayer, nearest.x, PUDDLE_Y - 10, { count: 10 })
+      pop(nearest, { scale: 1.3 })
+      ctx.services.audio.tone({ freq: 523.25, slideTo: 784, dur: 0.36, type: 'triangle', vol: 0.3 })
+      this._mixCall?.kill()
+      this._mixCall = gsap.delayedCall(0.25, () => {
+        if (this._alive) ctx.services.voice.say(mix.phrase)
+      })
+    } else {
+      nearest._tint = def.key
+      this._paintPuddle(nearest, def.color)
+    }
   },
 
   destroy(ctx) {
@@ -582,6 +629,7 @@ export default {
     })
     this._dots?.forEach((d) => gsap.killTweensOf(d.scale))
     this._puddles?.forEach((p) => gsap.killTweensOf(p.scale))
+    this._mixCall?.kill()
     this._swatches?.forEach((g) => gsap.killTweensOf(g.scale))
     if (this._sign) gsap.killTweensOf(this._sign.scale)
     if (this._signDrop) gsap.killTweensOf(this._signDrop.scale)

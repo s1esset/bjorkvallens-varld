@@ -1,16 +1,23 @@
 # Flipperspel (`flipperspel`)
-> ⚙️ fysik · tap · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · tap · 3–5 år · status: ✅ marknadsklar
 >
 > **OBS geometri:** bordet ligger i x 250–1030, y 112–708 (inre spelyta x 270–1010, y 152–708).
 > Paddelpivåer (458,596)/(822,596), spetsar i vila (590,668)/(690,668), drän-springa 100 px.
 > Paddlarna är KINEMATISKA (statiska kroppar som räknas om från pivån varje bildruta) — sätt
 > aldrig tillbaka en `Matter.Constraint` här, den drev iväg kropparna 30–90 px.
+>
+> **OBS banelement:** snurra (640,550) r32 · fenor (452,500)/(828,500) 96×24 lutade ±0,524 rad ·
+> tunnelmynningar (296,380)/(984,430) r30. Dyn-positionerna klampas till y ≤ 428 så luckan ner
+> till fenorna/snurran alltid är < 56 px (kulans bredd), dvs. TÄTAD. Regeln som allt vilar på:
+> inget par av ytor får bilda en **nedåt smalnande kil** — varje passage ska antingen vara
+> bredare än 100 px hela vägen eller helt tätad. Mellanlägen klämmer fast kulan.
 
 ## 1. Nuläge (sett som spelare)
 
 Ett mörkt arkad-flipperbord mot en stjärnnatt. En glansig vit kula faller nedåt mot **två
 stora orange paddlar** längst ner. Jag tappar **vänster skärmhalva** → vänster paddel slår
-upp, **höger halva** → höger paddel. Paddlarna är revolute-armar som drivs med
+upp, **höger halva** → höger paddel. *(§1 skrevs 2026-06-30; sedan 2026-08-06 har bordet även
+snurra, studsfenor, tunnel och tre ritade dynetyper — se §5.)* Paddlarna är armar som drivs med
 vinkelhastighet, så de svingar snabbt upp och fjädrar tillbaka — och eftersom de har fart
 *kickar* de kulan på riktigt. Kulan studsar mot **bumpers** (runda ⭐-dynor i färgade
 glödringar) som **tänds** och spelar en ton ur en liten stigande "pling-skala". Tänd ALLA
@@ -71,19 +78,19 @@ passiva en gång tända**.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Aktiva mål, inte bara studsdynor.** Låt en tänd bumper *göra* något: öppna en
+- ✅ **[Medium] Aktiva mål, inte bara studsdynor.** Låt en tänd bumper *göra* något: öppna en
   lucka som släpper en bonus-stjärna, tända en ramp som leder kulan, eller starta en kort
   "alla blinkar"-kedja. Ger tändandet en konsekvens bortom färgbyte.
-- **[Medium] Mjuka upp `_magicLight`.** Hjälp bara med den *sista* envisa bumpern (efter
+- ✅ **[Medium] Mjuka upp `_magicLight`.** Hjälp bara med den *sista* envisa bumpern (efter
   längre idle), inte vilken som helst var 12:e sekund — så paddel-skickligheten faktiskt
   bär rundan.
-- **[Deep] Banelement som ändrar flödet:** en mittspinnare, en lutande ramp, en "tunnel"
+- ✅ **[Deep] Banelement som ändrar flödet:** en mittspinnare, en lutande ramp, en "tunnel"
   som spottar ut kulan på andra sidan. Gör varje runda till en liten resa, inte ett platt
   fält av dynor.
 
 ### Variation & överraskning
-- **[Quick] Variera bumper-utseende & emoji** (🔔, 🍭, 🌟, 🎈) med egen liten ton/animation
-  per typ, så banan inte är fem kloner.
+- ✅ **[Quick] Variera bumper-utseende** med egen liten ton/animation per typ, så banan inte
+  är fem kloner. (Ritade typer, inte emoji — P0 `ASSETS`.)
 - **[Medium] Sällsynt "multiboll"-wow:** en gyllene bumper som, när den tänds, släpper 2–3
   extra kulor en kort stund (no-fail, de bara försvinner i dränet) — ren glädje-explosion.
 - **[Quick] Bantema per nivå** via `createScene`-cykel (night → candy → space) med
@@ -93,19 +100,19 @@ passiva en gång tända**.
 - **[Quick] Riktiga flipper-ljud** ([[real-audio-sfx]]): en mekanisk paddel-"klack", ett
   fett bumper-"donk", ett klingande mål-pling. Behåll den stigande skalan men på riktiga
   klipp.
-- **[Quick] Bumper-träff-skak + ljus-blixt.** En kort skärm-mikroskak och en
+- ✅ **[Quick] Bumper-träff-skak + ljus-blixt.** En kort skärm-mikroskak och en
   expanderande ljusring vid varje tändning gör studsarna saftigare.
 - **[Medium] Synlig serve-ränna.** Animera in nya kulan från en liten ränna upptill (skjuts
   in) i stället för att teleportera den — gör no-fail-serven till en del av världen.
 
 ### Progression
-- **[Quick] "Bumpers tända"-mätare** som fylls (liten rad ⭐ uppe) så barnet ser hur nära
+- ✅ **[Quick] "Bumpers tända"-mätare** som fylls (liten rad ⭐ uppe) så barnet ser hur nära
   rundan är klar — positiv inramning, ingen sjunkande siffra.
 - **[Medium] Spara `custom.rundor`** synligt som en liten medaljrad — något att återkomma
   till.
 
 ### Karaktär & berättelse
-- **[Deep] En maskot bor i maskinen.** Bobo (eller en liten robot) som tittar fram från
+- ✅ **[Deep] En maskot bor i maskinen.** Bobo (eller en liten robot) som tittar fram från
   toppen, rycker till vid varje bumper-tändning och hoppar av glädje när allt lyser — ger
   bordet ett ansikte och en publik. Kan också "kasta in" nya kulan (kopplar serve-rännan).
 
@@ -176,6 +183,44 @@ passiva en gång tända**.
   aldrig registrerade "Lugnt läge." / "Snabbt läge!") — tillagda i `scripts/voice-phrases.json`,
   väntar på klipp.
 - Kvar att göra: riktiga flipper-klipp (#13, MOSS), synlig serve-ränna, multiboll.
+- 2026-08-06: **Banelement + dynetyper + eget showläge** (`bafa0a0`, errorCount 0). Bordet var
+  ett platt fält av identiska stjärndynor — nu är det en bana.
+  (1) **Snurra** rakt ovanför drän-hålet bryter den raka vägen ner och kastar kulan i sidled.
+  (2) **Två studsfenor** i det döda bandet vid y=500 slår tillbaka kulan upp-inåt: ett tapp i
+  sidan blir en ny chans i stället för ett drän. (3) **Tunnel** — två hål i sidoväggarna.
+  (4) **Tre ritade dynetyper** (stjärna/klocka/blomma) med egen silhuett, egen restitution
+  (0,68–0,82) och egen klangfärg + överton. (5) **Showläge** som finish: dynorna tänds i en våg
+  uppifrån och ner med stigande skala, snurran rusar, kulan lyfts ur banan upp till Bobo som
+  fångar den och kastar konfettin — `bigCelebration` är borta. (6) Jitter på dyn-positionerna
+  redan från nivå 2; förut var nivå 1↔2, 3↔4 och 5↔6 bokstavligen identiska banor.
+  (7) Riktiga klipp där de låg oanvända: `thwip` (paddeltryck), `boing` (kick), `whoosh`
+  (tunnel) — `flip` och `pling` fanns aldrig i manifestet och föll igenom till syntes.
+  (8) Bobo svarar nu på tryck. (9) **Bugg:** `_toggleTilt` satte `.text` på `_tiltIcon`, som är
+  en Graphics sedan 2026-08-04 — en no-op, så Lugnt-läget visade en blixt. Ikonen ritas om nu.
+
+  **Tre kalibreringsvarv innan det satt** (headless-sond mot den körande modulen, 40 s):
+
+  | | 1:a försöket | 2:a | LANDAT |
+  |---|---|---|---|
+  | Tunnelmynningar | båda y=400 | y=400, svagare fenor | vänster **380**, höger **430** |
+  | Fen-kick | 11 | 9,5 | **17** + 250 ms spärr |
+  | Utfall | tunneln nåddes ALDRIG (x-spann 518–762) | 17 tunnelresor, **0 paddelkickar** — kulan låst i en tunnel-loop uppe i banan | y 195–620, x 302–979, **16 % vid paddlarna** |
+
+  Lärdomarna: **(a)** mynningar på samma höjd gör tunneln till en loop — den utspottade kulan
+  flyger tvärs över rakt in i den andra. **(b)** En SVAG fenkick är värre än ingen: 9,5 lyfte
+  kulan ~50 px och den föll rakt ner på samma fena igen (27 fen-slag, 91 % av tiden i
+  mellanbandet). Fenan måste nå upp i dyn-fältet. **(c)** Tunneln måste bevara inkommande fart
+  (dämpad ×0,9) i stället för en fast utkasthastighet, annars matar den in energi varje resa.
+  Placeringsregeln som höll: inget par av ytor får bilda en **nedåt smalnande kil** — varje
+  passage är antingen bredare än 100 px hela vägen eller helt tätad (< 56 px, kulans bredd).
+  Längsta stillastående efteråt: 89 ms med spelare, 35 ms utan (fastnar-vakten går vid 2600).
+- **Sond-gotcha:** `import('/src/games/<id>/index.js')` i webbläsarkontexten ger en EGEN
+  modulinstans i Vite dev — inte den som spelet kör. Den levande instansen hämtas via
+  `(await import('/src/games/registry.js')).getGame('<id>')`.
+- Kvar att göra: riktiga flipper-klipp (#13, MOSS), synlig serve-ränna, multiboll, bantema per
+  nivå, arkad-ambient. Noterat: kulan tänder dynor på egen hand, så en runda kan bli klar utan
+  ett enda tryck (uppmätt 1 runda/40 s utan input mot 2 med) — inneboende i flipper, och
+  tryck gör det snabbare, men värt att hålla ögonen på.
 - 2026-08-04: **P0 ASSETS + Bobo får händer.** (1) Fart-knappens ⚡-emoji är ersatt av en
   ritad blixt. (2) Bobo var ett svävande huvud ovanför maskinen; han **greppar nu maskinens
   kant med två tassar**, så bilden läser som en figur som står bakom flipperspelet och tittar

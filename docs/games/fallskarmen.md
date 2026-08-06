@@ -127,3 +127,16 @@ styrs hem, men det berättas ingen liten resa.
   klipptes av nederkanten. Knappen flyttad till y=600.
   (4) Introrepliken var konkatenerad (`'Hjälp ' + namn + ...`), så `check.mjs` kunde inte hitta
   den och `/rost` kunde aldrig generera ett klipp; den är nu två hela literaler.
+- 2026-08-06: **[Deep] Mottagare vid mattan** (spår "20 spel från 🔧 till ✅").
+  - Bobo står nu vid studsmattan, **vinkar in föraren** i vila (`_boboWave`, lugn vaggning)
+    och **fångar/hejar vid träff** (`_boboCatch` — hopp + gnistor), både vid ren träff och
+    efter den snälla auto-gliden. Scenen hade ingen mottagare alls: bara en matta och
+    generisk konfetti.
+  - Han hör till **målet**, inte till scenen: mattan flyttar sig per nivå (tx 200..1080), så
+    `_placeBobo(tx, r)` följer med och väljer den sida som har plats — är det trångt till
+    vänster ställer han sig till höger och vänder sig mot mattan (`scale.x`). Han ligger i
+    `_root`, inte som barn till `_target`, så mattans landnings-squash inte klämmer honom.
+  - **Doc-punkten "[Quick] Föraren får en kropp" var redan gjord** — `makeKid()` ritar ben,
+    skor, bål, armar, huvud och hår sedan tidigare. Stryks som klar i stället för att
+    byggas om.
+  - Exit-säkert: `_boboIdle` + skal-tweens dödas i `destroy`.

@@ -13,12 +13,14 @@ import { createScene } from '../../lib/scene.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, bigCelebration, floatText } from '../../lib/feedback.js'
+import { makeBobo } from '../../lib/figurer.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 // Logiskt luftrum (designkoordinater).
 const START_Y = 150 // fallskärmens (barnets fötter) start-y
 const GROUND_Y = 560 // marknivå: landning triggas här
+const BOBO_R = 44 // mottagarens ansiktsradie (makeBobo: fötterna 2,36·r under origo)
 const X_MIN = 140 // mjuka väggar i sidled
 const X_MAX = 1140
 
@@ -144,8 +146,55 @@ export default {
     this._target.addChild(this._glow, this._mat, this._bull)
     this._target.position.set(700, GROUND_Y)
     this._root.addChild(this._target)
+
+    // Mottagaren vid mattan (gate-punkt 4): Bobo vinkar in föraren och fångar/hejar
+    // vid träff. Scenen hade ingen alls — bara en matta och generisk konfetti.
+    this._bobo = makeBobo(BOBO_R)
+    this._root.addChild(this._bobo)
+    this._placeBobo(700, 150)
+    this._boboWave()
     // Mjuk andning på glödringen (drar blicken mot målet).
     this._glowTw = gsap.to(this._glow.scale, { x: 1.12, y: 1.12, duration: 1.1, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+  },
+
+  // Bobo hör till MÅLET, inte till scenen — mattan flyttar sig per nivå (tx 200..1080)
+  // så han flyttar med. Han står på den sida som har plats; är det trångt till vänster
+  // ställer han sig till höger. Egen container i _root (inte barn till _target) så
+  // mattans landnings-squash inte klämmer honom.
+  _placeBobo(tx, r) {
+    const bo = this._bobo
+    if (!bo || bo.destroyed) return
+    const gap = r + 92
+    const side = tx - gap > 78 ? -1 : 1
+    bo.x = clamp(tx + side * gap, 78, 1202)
+    bo.y = GROUND_Y + 44 - 2.36 * BOBO_R
+    bo.scale.x = side // vänder sig mot mattan
+  },
+
+  // Vinkar in föraren: lugn vaggning i vila.
+  _boboWave() {
+    const bo = this._bobo
+    if (!bo || bo.destroyed) return
+    this._boboIdle?.kill()
+    this._boboIdle = gsap.to(bo, {
+      rotation: 0.1,
+      duration: 1.15,
+      yoyo: true,
+      repeat: -1,
+      ease: 'sine.inOut',
+    })
+  },
+
+  // Fångar/kramar vid träff: hopp + gnistor, egen gest utöver det delade firandet.
+  _boboCatch(ctx) {
+    const bo = this._bobo
+    if (!bo || bo.destroyed) return
+    gsap.killTweensOf(bo.scale)
+    gsap
+      .timeline()
+      .to(bo.scale, { x: bo.scale.x * 1.14, y: 1.22, duration: 0.12, ease: 'power2.out' })
+      .to(bo.scale, { x: Math.sign(bo.scale.x) * 1, y: 1, duration: 0.6, ease: 'elastic.out(1, 0.4)' })
+    sparkle(ctx.fxLayer, bo.x, bo.y - BOBO_R * 1.5, { count: 7 })
   },
 
   _drawTarget(r) {
@@ -311,6 +360,7 @@ export default {
     this._target.position.set(tx, GROUND_Y)
     this._target.scale.set(1)
     this._drawTarget(r)
+    this._placeBobo(tx, r)
 
     // Nollställ fallskärm till start (slumpad x nära mitten).
     const chute = this._chute
@@ -598,6 +648,7 @@ export default {
 
     if (dx <= this._targetR) {
       // Träff: mjuk studs + firande.
+      this._boboCatch(ctx)
       this._celebrate(ctx)
     } else if (dx <= this._targetR * 1.8) {
       // Nära: snäll auto-glid in mot mitten, sedan firas som en träff.
@@ -617,7 +668,9 @@ export default {
           chute.x = st.x
         },
         onComplete: () => {
-          if (this._alive && !chute.destroyed) this._celebrate(ctx)
+          if (!this._alive || chute.destroyed) return
+          this._boboCatch(ctx)
+          this._celebrate(ctx)
         },
       })
     } else {
@@ -682,6 +735,11 @@ export default {
     this._glowTw?.kill()
     this._landTl?.kill()
     this._glideTw?.kill()
+    this._boboIdle?.kill()
+    if (this._bobo && !this._bobo.destroyed) {
+      gsap.killTweensOf(this._bobo)
+      gsap.killTweensOf(this._bobo.scale)
+    }
     this._nextTimer?.kill()
     this._retryTimer?.kill()
 

@@ -73,9 +73,10 @@ auto-hjälpen kan spela banan åt barnet**.
   rullar på backen (inte bara vid fält), och låt fälten vara feta "bonus-klumpar". Då blir
   *att hålla farten uppe* via styrning/knuff en verklig strategi — bollen växer för att jag
   rullar bra, inte bara för att jag nuddade en fläck.
-- **[Medium] Mjuka upp auto-knuffen.** Höj `STUCK`-tröskeln och gör auto-knuffen svagare,
+- ~~**[Medium] Mjuka upp auto-knuffen.** Höj `STUCK`-tröskeln och gör auto-knuffen svagare,
   mer som en "liten puff i ryggen", så barnets egna knuffar bär farten. Behåll garantin men
-  gör den till sista utväg.
+  gör den till sista utväg.~~ **GJORT 2026-07-25 (2)** — `STUCK` 2,5 → 4,5 s, hjälpen är sen
+  och synlig, och pressen mot ett hinder byggs bara av barnets fart/tryck/tap.
 - **[Quick] Knuff-laddning syns.** Visa en fart-svans/glow som växer med upprepade knuffar
   så barnet ser att "fler knuffar = kraftigare smäll" (som kodhuvudet lovar).
 
@@ -92,9 +93,9 @@ auto-hjälpen kan spela banan åt barnet**.
 - **[Quick] Rull-ljud som stiger med farten** ([[real-audio-sfx]]): ett mjukt knastrande
   snö-rull som blir intensivare ju snabbare/större bollen är, + ett "fwomp" när snö samlas
   och ett pip/"pang" när mål flyger.
-- **[Quick] Snö-virvel vid tillväxt.** När bollen äter ett fält, sug in en kort spiral av
-  vita partiklar i bollen (i stället för en stillsam `sparkle`) + ett litet skärm-skutt vid
-  stora smällar.
+- ~~**[Quick] Snö-virvel vid tillväxt.** När bollen äter ett fält, sug in en kort spiral av
+  vita partiklar i bollen (i stället för en stillsam `sparkle`)~~ **GJORT 2026-08-06** —
+  återstår: + ett litet skärm-skutt vid stora smällar.
 - **[Quick] Spår i snön.** Låt bollen lämna ett brett, ljust släpspår på backen — visar fart
   och väg, gör backen mindre tom.
 
@@ -102,8 +103,8 @@ auto-hjälpen kan spela banan åt barnet**.
 - **[Medium] Snögubbe-galleri / samlare.** Spara `custom.snogubbar` (görs redan) som en rad
   små snögubbar på en hylla, och låt insamlade tillbehör (hatt/halsduks-färg) variera nästa
   snögubbe — ett skäl att bygga "en till".
-- **[Quick] Bana-variation:** ibland en längre backe, ibland fler mål, ibland kallare/varmare
-  ljus, så turerna inte är samma layout-mall.
+- ~~**[Quick] Bana-variation:** ibland en längre backe, ibland fler mål, ibland kallare/varmare
+  ljus, så turerna inte är samma layout-mall.~~ **GJORT 2026-08-06** (väder + layoutprofil).
 
 ### Karaktär & berättelse
 - **[Medium] En kompis på backen.** Bobo (eller en pingvin) som åker före, hejar när bollen
@@ -199,6 +200,33 @@ auto-hjälpen kan spela banan åt barnet**.
   | Kilning med längre banor/fler hinder | Ingen. Hindren tas bort när de välter, spillrorna har kollisionsfilter. Längsta stopp i alla körningar: ~10 s vid en hoppkulle under passivt spel, löst av skjutsen |
 
   0 konsolfel i samtliga körningar. Rörde bara `src/games/snobollen/`.
+- 2026-08-06: **Banvariation + backen syntes aldrig (rotorsak hittad).**
+  - **Rotorsaken till "slät vit platta".** Backens djupgradient har aldrig synts — inte för
+    att den saknades, utan för att **snöfälten låg som en vit matta över hela skärmen**.
+    Ett snöfält var en naken `Graphics` med blobbarna ritade kring origo och sedan
+    `position.set(x, y)` långt bort i världen; mätt i webbläsaren blev fälten upp till
+    **476 000 px breda** (samma fälla som `pixi-graphics-position-bar-bug`). Fixat genom
+    att baka världspositionen in i geometrin (`f.circle(x + ox, y + oy, ...)`); logiken
+    använde ändå `_cx/_cy`, så inget annat behövde ändras. Samma bakning gjord på stenarna
+    i dekoren. **Dessutom** ritades backens fem djupband i EN `Graphics` — då fick hela
+    backen det första bandets färg. Varje band har nu en egen `Graphics`.
+    *Metod: pixelmätning i skärmdumpen + lager-för-lager-gömning i en Playwright-probe —
+    inte gissningar. Ingen av buggarna gav ett enda konsolfel.*
+  - **Väder per bana** (`VADER`): klar sol, snöyra, kvällsljus, morgonrodnad. Byter himmel,
+    backens färgramp, ett tunt färgat ljus över hela scenen och hur tätt det snöar
+    (flingpoolen rymmer det tätaste vädret; `_applyVader` visar bara så många som behövs).
+  - **Layoutprofil per bana** (`PROFILER`): jämn, myllrande (kortare backe, 45 % fler
+    hinder), öppen (20 % längre, färre hinder, fler hoppkullar), snörik (50 % fler fält).
+    Nivån sätter grunden, profilen formar banan — samma nivå kan alltså komma som två
+    helt olika turer. Väder och profil lottas om per bana och aldrig samma två gånger i rad.
+  - **Snö-virvel vid tillväxt.** Snöfältets `sparkle` bytt mot tio korn som sugs IN i
+    bollen i en spiral och FÖLJER den under infarten (`_snowSwirl`, i fxLayer, städas i
+    `_clearDynamic` + `destroy`).
+  - Auto-hjälpen rördes INTE: den mjukades redan upp 2026-07-25 (2) (4,5 s, sen och synlig,
+    press byggs bara av barnets insats). Köposten "mjuka upp auto-hjälpen" var alltså
+    redan avklarad — docens §1/§3 beskriver fortfarande versionen före juli-omgångarna.
+  - `npm run check` grön, `npm run test snobollen` 0 fel, diagnostikloggen utan fynd.
+    Rörde bara `src/games/snobollen/`.
 - 2026-08-04: **Snöstruktur i backen.** Nedre halvan av skärmen var en helt slät vit platta
   där känslan av en backe försvann. Backen har nu mjuka drivor (blå skugga + vit ovansida),
   glittrande snökorn och sju små granar längs den nedre delen — djup och en plats, utan att

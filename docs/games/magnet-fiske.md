@@ -61,6 +61,9 @@ Stark, polerad kärna — men några tunna kanter återstår:
 
 ## 4. Förbättringar & förhöjningar (plan)
 
+> 🐛 **Rapporterade buggar väntar i `docs/ATGARDER.md` (#1, #2)** — allt sitter redan fast i
+> magneten vid start, och de fastklistrade sakerna skakar. Fixas före nya förbättringar.
+
 ### Kärnloop & agens
 - **[Medium] Förstärk metall-lärandet.** När en anka knuffas undan: visa kort *varför* med en
   liten ikon/röst ("Trä! Magneten gillar inte trä." / "Gummi!"). Gör kontrasten tydlig och

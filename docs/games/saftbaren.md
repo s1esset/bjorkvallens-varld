@@ -69,6 +69,9 @@ strunta i beställningen hur länge som helst och bara leka.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
+> 🐛 **Rapporterade buggar väntar i `docs/ATGARDER.md` (#3, #4)** — ljudet hakar upp sig efter
+> ett färgbyte, och vätskan följer med glas som dras förbi. Fixas före nya förbättringar.
+
 **Kärnloop**
 - [Quick] Fjärde spakläge: **vatten** som späder färgen ett steg ljusare.
 - [Medium] Olika glasformer (smalt/brett/högt) → samma mängd ser olika ut, mer att upptäcka.

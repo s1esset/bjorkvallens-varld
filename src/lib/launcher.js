@@ -21,6 +21,7 @@
 //   })
 //   ...destroy(): this._launcher.destroy()
 import { Graphics, Circle } from 'pixi.js'
+import { logAim } from './gamelog.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -90,6 +91,7 @@ export class AimLauncher {
     if (!this._alive || !this.enabled || !this.target || this.target.destroyed) return
     this._aiming = true
     this._down = this.root.toLocal(e.global)
+    logAim('sikte-start', { x: Math.round(this._down.x), y: Math.round(this._down.y) })
     this.audio?.sfx('tap')
     this.onGrab?.()
     this.target.on('globalpointermove', this._onMove)
@@ -158,6 +160,17 @@ export class AimLauncher {
   }
 
   _launch(v) {
+    const o = this.getOrigin()
+    logAim('skott', {
+      vx: Math.round(v.vx),
+      vy: Math.round(v.vy),
+      kraft: Math.round(v.power),
+      maxKraft: this.maxPower,
+      fran: { x: Math.round(o.x), y: Math.round(o.y) },
+      slangbella: !!this.slingshot,
+      forhandsGravitation: this.previewGravity,
+      forhandsVind: this.previewWind,
+    })
     this.audio?.sfx('whoosh')
     this.onLaunch?.(v)
   }

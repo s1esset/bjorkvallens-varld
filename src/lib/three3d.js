@@ -18,6 +18,7 @@
 import * as THREE from 'three'
 import { DESIGN_W, DESIGN_H } from './theme.js'
 import { shaderMat as _shaderMat } from './three-shaders.js'
+import { ON as DIAG, logThree } from './gamelog.js'
 
 export { THREE }
 export * from './three-shaders.js'
@@ -99,8 +100,27 @@ export class ThreeLayer {
       }
       for (const fn of this._updates) fn(dt, this._elapsed)
       this.renderer.render(this.scene, this.camera)
+      if (DIAG && ++this._diagFrames % 60 === 0) this._diagSample()
     }
     services.app.ticker.add(this._tick)
+    if (DIAG) {
+      this._diagFrames = 0
+      logThree('skapad', { fov, shadows, pixelRatio: this.renderer.getPixelRatio(), antialias })
+    }
+  }
+
+  // renderer.info är three:s egen sanning om ritanrop, trianglar och GPU-minne.
+  _diagSample() {
+    const i = this.renderer.info
+    logThree('prov', {
+      ritanrop: i.render.calls,
+      trianglar: i.render.triangles,
+      geometrier: i.memory.geometries,
+      texturer: i.memory.textures,
+      program: i.programs?.length ?? 0,
+      objekt: this.scene.children.length,
+      animerade: this._animated.size,
+    })
   }
 
   _layout() {
@@ -189,6 +209,10 @@ export class ThreeLayer {
   /** Fullständig städning — anropa ALLTID i spelets destroy(). Exit-säker. */
   destroy() {
     if (this._destroyed) return
+    if (DIAG) {
+      const i = this.renderer.info
+      logThree('riven', { rutor: this._diagFrames, geometrier: i.memory.geometries, texturer: i.memory.textures })
+    }
     this._destroyed = true
     this.services.app.ticker.remove(this._tick)
     this._unsubResize?.()

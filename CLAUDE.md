@@ -58,6 +58,7 @@ EXIT-SÄKERT   spelaren kan lämna mitt i en animation → _alive-flagga + feedb
 | 3D / shaders | skill **threejs-games** · **threejs-shaders** |
 | UI-design, tokens, versionspill | `docs/DESIGN.md` |
 | ett specifikt spels nuläge + plan | `docs/games/<id>.md` (index: `docs/games/README.md`) |
+| se vad ett spel FAKTISKT gör (input·fysik·render·fel) | `src/lib/gamelog.js` → `.test-logs/<id>.json`, `window.__gamelog` |
 | vad som hände senast | `docs/SESSIONS.md` |
 | spelidéer som väntar på planering | `docs/IDEER.md` |
 

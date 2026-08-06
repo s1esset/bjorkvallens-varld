@@ -3,8 +3,15 @@
 // brett över ytan, kör en exit-cykel (spel->bibliotek->spel->meny) och rapporterar
 // konsolfel + sparar en skärmdump.
 //
+// Hämtar också diagnostikloggen (window.__gamelog, DEV-only) och skriver den till
+// .test-logs/<id>.json — där finns input/utdata/fysik/rendering-tidslinjen och de
+// härledda fynden (död träffyta, saknad ikon, tween-läcka, kropp som rymde ...).
+//
 //   node scripts/test-game.mjs <id> [--shot out.png] [--taps "x,y;x,y"] [--url http://localhost:5173]
 import { chromium } from 'playwright'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join, resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const args = process.argv.slice(2)
 const id = args[0]
@@ -12,8 +19,11 @@ const opt = (name, def) => {
   const i = args.indexOf(name)
   return i >= 0 ? args[i + 1] : def
 }
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const url = opt('--url', 'http://localhost:5173')
 const shot = opt('--shot', `test-${id}.png`)
+const logPath = opt('--log', join(ROOT, '.test-logs', `${id}.json`))
+const noLog = args.includes('--no-log')
 const tapsArg = opt('--taps', '')
 // Dragspel: --drag "fx,fy>tx,ty;fx,fy>tx,ty" gör riktiga musdrag (peka-ner,
 // flytta i steg, släpp). Om --drag anges hoppas standardtrycken över.
@@ -35,6 +45,27 @@ const taps = tapsArg
 if (!id) {
   console.error('usage: node scripts/test-game.mjs <id> [--shot out.png] [--taps "x,y;x,y"]')
   process.exit(2)
+}
+
+// Diagnostikloggen finns bara i dev-bygget; saknas den kör vi vidare utan.
+const grabLog = async (page) => {
+  try {
+    return await page.evaluate(() => (window.__gamelog ? window.__gamelog.snapshot() : null))
+  } catch {
+    return null
+  }
+}
+
+const mergeFynd = (...listor) => {
+  const m = new Map()
+  for (const lista of listor) {
+    for (const f of lista || []) {
+      const prev = m.get(f.kod)
+      if (prev) prev.n += f.n
+      else m.set(f.kod, { ...f })
+    }
+  }
+  return [...m.values()].sort((a, b) => (a.niva === b.niva ? b.n - a.n : a.niva === 'fel' ? -1 : 1))
 }
 
 const errors = []
@@ -85,13 +116,41 @@ try {
 
   // exit-säkerhetscykel: spel -> bibliotek -> spel -> meny (mitt i ev. animationer)
   await page.evaluate(() => window.__barnspel.nav.go('library'))
-  await page.waitForTimeout(500)
+  // Loggens efterkontroll (tweens som lever vidare efter destroy) landar ~400 ms
+  // efter utgången — vänta ut den innan vi läser av, annars missar vi läckorna.
+  await page.waitForTimeout(700)
+  const snapshot = await grabLog(page)
   await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), id)
   await page.waitForTimeout(700)
   await page.evaluate(() => window.__barnspel.nav.go('menu'))
-  await page.waitForTimeout(400)
+  await page.waitForTimeout(700)
+  const cykel = await grabLog(page)
 
-  console.log(JSON.stringify({ id, errors, shot, errorCount: errors.length }, null, 2))
+  // Slå ihop fynden från huvudpasset och återinträdes-cykeln.
+  const fynd = mergeFynd(snapshot?.summary?.fynd, cykel?.summary?.fynd)
+  if (snapshot && !noLog) {
+    mkdirSync(dirname(logPath), { recursive: true })
+    writeFileSync(logPath, JSON.stringify({ id, korning: snapshot, aterintrade: cykel, fynd }, null, 2))
+  }
+
+  console.log(JSON.stringify({
+    id,
+    errors,
+    shot,
+    errorCount: errors.length,
+    logg: snapshot && !noLog ? logPath : null,
+    fynd,
+    fyndFel: fynd.filter((f) => f.niva === 'fel').length,
+    matt: snapshot?.summary
+      ? {
+          rutor: snapshot.summary.rutor,
+          snittRutaMs: snapshot.summary.snittRutaMs,
+          langaRutor: snapshot.summary.langaRutor,
+          handelser: snapshot.summary.handelser,
+          fysik: snapshot.summary.fysik,
+        }
+      : null,
+  }, null, 2))
 } finally {
   await browser.close()
 }

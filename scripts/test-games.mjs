@@ -64,9 +64,13 @@ const runOne = (id) => new Promise((done) => {
   p.stderr.on('data', (d) => { out += d })
   p.on('close', (code) => {
     let errors = []
-    try { errors = JSON.parse(out.slice(out.indexOf('{'))).errors || [] }
-    catch { errors = code === 0 ? [] : [out.trim().split('\n').pop()?.slice(0, 160) || 'okänt fel'] }
-    done({ id, input, errors, ms: Date.now() - t0 })
+    let fynd = []
+    try {
+      const r = JSON.parse(out.slice(out.indexOf('{')))
+      errors = r.errors || []
+      fynd = r.fynd || []
+    } catch { errors = code === 0 ? [] : [out.trim().split('\n').pop()?.slice(0, 160) || 'okänt fel'] }
+    done({ id, input, errors, fynd, ms: Date.now() - t0 })
   })
 })
 
@@ -79,8 +83,15 @@ await Promise.all(Array.from({ length: Math.min(jobs, queue.length) }, async () 
     const id = queue.shift()
     const r = await runOne(id)
     results.push(r)
-    const mark = r.errors.length ? '✗' : '✓'
-    console.log(`  ${mark} ${r.id.padEnd(26)} ${String(r.ms / 1000).padStart(5)}s  ${r.errors.length ? r.errors.length + ' fel' : ''}`)
+    const fel = r.fynd.filter((f) => f.niva === 'fel')
+    const varn = r.fynd.filter((f) => f.niva === 'varning')
+    const mark = r.errors.length ? '✗' : fel.length ? '!' : '✓'
+    const notis = [
+      r.errors.length ? `${r.errors.length} konsolfel` : '',
+      fel.length ? `⚑ ${fel.map((f) => f.kod).join(' ')}` : '',
+      varn.length ? `⚠ ${varn.map((f) => f.kod).join(' ')}` : '',
+    ].filter(Boolean).join('  ')
+    console.log(`  ${mark} ${r.id.padEnd(26)} ${String(r.ms / 1000).padStart(5)}s  ${notis}`)
   }
 }))
 
@@ -92,5 +103,14 @@ if (failed.length) {
     for (const e of f.errors.slice(0, 4)) console.log(`      ${e}`)
   }
 }
-console.log(`\n  ${failed.length ? '✗' : '✓'} ${results.length - failed.length}/${results.length} gröna · skärmdumpar i .test-shots/\n`)
+// Diagnostikloggens fynd: buggar som inte kastar ett enda konsolfel.
+const medFynd = results.filter((r) => r.fynd.length).sort((a, b) => a.id.localeCompare(b.id))
+if (medFynd.length) {
+  console.log('\n  Loggfynd (.test-logs/<id>.json):\n')
+  for (const r of medFynd) {
+    console.log(`  ${r.fynd.some((f) => f.niva === 'fel') ? '⚑' : '⚠'} ${r.id}`)
+    for (const f of r.fynd.slice(0, 5)) console.log(`      ${f.niva === 'fel' ? '✗' : '⚠'} ${f.kod} ×${f.n} — ${f.msg}`)
+  }
+}
+console.log(`\n  ${failed.length ? '✗' : '✓'} ${results.length - failed.length}/${results.length} gröna · skärmdumpar i .test-shots/ · loggar i .test-logs/\n`)
 process.exit(failed.length ? 1 : 0)

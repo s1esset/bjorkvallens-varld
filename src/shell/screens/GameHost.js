@@ -8,6 +8,7 @@ import { bigCelebration } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { GAMES } from '../../games/registry.js'
 import { PRAISE, COLORS, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { startGame, endGame, log as diag, flag as diagFlag, logProgress } from '../../lib/gamelog.js'
 
 export async function createGameHost(services, params) {
   const view = new Container()
@@ -51,9 +52,11 @@ export async function createGameHost(services, params) {
   const later = (delaySeconds, fn) => {
     const call = gsap.delayedCall(delaySeconds, () => {
       timers.delete(call)
+      diag('timer', 'kor', { efter: delaySeconds, kvar: timers.size })
       fn()
     })
     timers.add(call)
+    diag('timer', 'satt', { efter: delaySeconds, aktiva: timers.size })
     return call
   }
 
@@ -69,13 +72,28 @@ export async function createGameHost(services, params) {
     fxLayer: services.fxLayer,
   }
 
+  // Diagnostiklogg för hela omgången (DEV-only, no-op i bygget).
+  startGame(game.id, ctx)
+  for (const k of ['complete', 'update', 'setLevel', 'addStars', 'setCustom']) {
+    const orig = progress[k].bind(progress)
+    progress[k] = (...a) => {
+      logProgress(k, k === 'setCustom' ? { key: a[0] } : a[0])
+      return orig(...a)
+    }
+  }
+
   // Ladda ev. bundle (de första spelen ritar programmatiskt -> ingen).
   await assets.loadBundle(game.bundle)
 
   try {
+    const tInit = performance.now()
     await game.init(ctx)
+    diag('liv', 'init', { ms: Math.round(performance.now() - tInit) })
+    const tMount = performance.now()
     await game.mount?.(ctx)
+    diag('liv', 'mount', { ms: Math.round(performance.now() - tMount), barn: stage.children.length })
   } catch (err) {
+    diagFlag('start-krasch', 'Spelet kastade ett fel i init/mount', { text: String(err?.message || err).slice(0, 200) }, 'fel')
     console.error('Spelet kraschade vid start', game.id, err)
   }
 
@@ -112,13 +130,16 @@ export async function createGameHost(services, params) {
     destroy() {
       // Döda omgångens fördröjda anrop FÖRE spelets egen städning, så inget hinner
       // köra mot halvrivna objekt (och inget överlever till nästa omgång).
+      if (timers.size) diag('timer', 'dodade-vid-exit', { antal: timers.size })
       for (const t of timers) t.kill()
       timers.clear()
       try {
         game.destroy?.(ctx)
       } catch (err) {
+        diagFlag('destroy-krasch', 'Spelet kastade ett fel i destroy — exit-säkerheten brister', { text: String(err?.message || err).slice(0, 200) }, 'fel')
         console.warn('Fel vid städning av spel', game.id, err)
       }
+      endGame('exit')
       assets.unloadBundle(game.bundle)
       voice.cancel()
     },

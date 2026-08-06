@@ -6,6 +6,7 @@
 //
 // Föremål och mål antas ligga i samma container ("space", designkoordinater).
 import { gsap } from 'gsap'
+import { logDrag } from './gamelog.js'
 
 export class DragController {
   constructor({ space, services }) {
@@ -32,6 +33,7 @@ export class DragController {
     rec._down = (e) => this._onDown(rec, e)
     view.on('pointerdown', rec._down)
     this.items.push(rec)
+    logDrag('foremal', { n: this.items.length, x: Math.round(view.x), y: Math.round(view.y), data: kort(data) })
     return rec
   }
 
@@ -85,6 +87,7 @@ export class DragController {
     if (this.active !== rec) return
     this._detach(rec)
     this.active = null
+    logDrag('slapp', { dragen: !!rec.dragging, x: Math.round(rec.view.x), y: Math.round(rec.view.y), data: kort(rec.data) })
     if (!rec.dragging) {
       gsap.to(rec.view.scale, { x: rec.base.x, y: rec.base.y, duration: 0.2 })
       this._toggleSelect(rec)
@@ -102,6 +105,20 @@ export class DragController {
     rec._move = rec._up = null
   }
 
+  // Diagnostik: hur nära var man? Många missar strax utanför radien = för snål snäppyta.
+  _narmastMal(x, y) {
+    let d = Infinity
+    let r = 0
+    for (const t of this.targets) {
+      const dd = Math.hypot(x - t.view.x, y - t.view.y)
+      if (dd < d) {
+        d = dd
+        r = t.hitRadius
+      }
+    }
+    return isFinite(d) ? { avstand: Math.round(d), radie: r, utanfor: Math.round(d - r) } : null
+  }
+
   _targetUnder(x, y) {
     let best = null
     let bestD = Infinity
@@ -117,6 +134,12 @@ export class DragController {
 
   _resolveDrop(rec, target) {
     this._restoreScale(rec)
+    logDrag(target ? (target.accepts(rec.data) ? 'ratt' : 'fel-mal') : 'miss', {
+      data: kort(rec.data),
+      mal: target ? { x: Math.round(target.view.x), y: Math.round(target.view.y), radie: target.hitRadius } : null,
+      slapp: { x: Math.round(rec.view.x), y: Math.round(rec.view.y) },
+      narmast: target ? null : this._narmastMal(rec.view.x, rec.view.y),
+    })
     if (target && target.accepts(rec.data)) {
       rec.placed = true
       rec.view.eventMode = 'none'
@@ -195,4 +218,12 @@ export class DragController {
   destroy() {
     this.clear()
   }
+}
+
+// Kort, ofarlig representation av godtycklig item-data för loggen.
+function kort(d) {
+  if (d == null) return null
+  if (typeof d !== 'object') return String(d).slice(0, 40)
+  const k = d.id ?? d.key ?? d.namn ?? d.name ?? d.typ ?? d.type
+  return k != null ? String(k).slice(0, 40) : Object.keys(d).slice(0, 3).join(',')
 }

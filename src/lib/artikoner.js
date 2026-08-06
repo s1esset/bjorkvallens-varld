@@ -8,6 +8,7 @@
 import { Graphics } from 'pixi.js'
 import { lerpColor } from './scene.js'
 import { COLORS } from './theme.js'
+import { logIcon } from './gamelog.js'
 
 const ART = {
   // djur: [pälsfärg, öronform, nosfärg, extra]
@@ -99,6 +100,7 @@ export function drawIcon(key, size = 100) {
   const a = ART[key]
   const S = size / 100
   if (!a) {
+    logIcon(key, false) // dev-logg: annars är en okänd nyckel helt tyst (grå cirkel)
     g.circle(0, 0, 32 * S).fill(0xc3ccd4).stroke({ width: 4, color: 0x8d99a6 })
     g.eventMode = 'none'
     return g

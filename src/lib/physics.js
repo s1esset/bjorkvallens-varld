@@ -10,6 +10,7 @@
 //   ...destroy(): ctx.ticker.remove(this._tick); this._phys.destroy()
 import Matter from 'matter-js'
 import { DESIGN_W, DESIGN_H } from './theme.js'
+import { ON as DIAG, logPhysics } from './gamelog.js'
 
 const { Engine, Composite, Bodies, Body, Vector, Events } = Matter
 
@@ -44,6 +45,73 @@ export class PhysicsWorld {
     this._windAy = windAy
     this.walls = []
     this._buildWalls(walls, wallThickness, wallExtra)
+    if (DIAG) this._diagInit({ gravityX, gravityY, walls, windAx, windAy })
+  }
+
+  // --- diagnostik (DEV-only; hela blocket viker ihop till inget i bygget) ---
+
+  _diagInit(opts) {
+    this._diag = { frames: 0, bodies: 0, collisions: 0, escaped: new Set(), maxSpeed: 0 }
+    logPhysics('skapad', opts)
+    // Lyssna på ALLA kollisioner, inte bara de spelet självt bryr sig om.
+    Events.on(this.engine, 'collisionStart', (e) => {
+      const d = this._diag
+      d.collisions += e.pairs.length
+      const p = e.pairs[0]
+      if (!p) return
+      const a = p.bodyA
+      const b = p.bodyB
+      const rel = Math.hypot((a.velocity.x - b.velocity.x), (a.velocity.y - b.velocity.y))
+      logPhysics('kollision', {
+        par: e.pairs.length,
+        a: a.label || 'kropp',
+        b: b.label || 'kropp',
+        fartDiff: Number(rel.toFixed(1)),
+        studs: Number(((a.restitution + b.restitution) / 2).toFixed(2)),
+        friktion: Number(((a.friction + b.friction) / 2).toFixed(2)),
+        totalt: d.collisions,
+      })
+    })
+  }
+
+  // Kör var 30:e bildruta: kroppsräkning, sovande, utrymningar, NaN, toppfart.
+  _diagSample() {
+    const d = this._diag
+    const all = Composite.allBodies(this.world)
+    let dyn = 0
+    let sleeping = 0
+    let maxSpeed = 0
+    for (const b of all) {
+      if (b.isStatic) continue
+      dyn++
+      if (b.isSleeping) sleeping++
+      const { x, y } = b.position
+      if (!isFinite(x) || !isFinite(y)) {
+        logPhysics('nan-kropp', { label: b.label || 'kropp', x, y })
+        continue
+      }
+      const s = Math.hypot(b.velocity.x, b.velocity.y)
+      if (s > maxSpeed) maxSpeed = s
+      const ute = x < -600 || x > DESIGN_W + 600 || y > DESIGN_H + 600 || y < -1200
+      if (ute && !d.escaped.has(b.id)) {
+        d.escaped.add(b.id)
+        logPhysics('rymde', { label: b.label || 'kropp', x: Math.round(x), y: Math.round(y) })
+      } else if (!ute && d.escaped.has(b.id)) {
+        d.escaped.delete(b.id)
+      }
+    }
+    if (maxSpeed > d.maxSpeed) d.maxSpeed = maxSpeed
+    // >40 px/steg ≈ 2400 px/s: en boll kan hoppa förbi en tunn vägg mellan två steg.
+    if (maxSpeed > 40) logPhysics('hog-fart', { fart: Math.round(maxSpeed), risk: 'tunnling' })
+    logPhysics('prov', {
+      kroppar: dyn,
+      sovande: sleeping,
+      statiska: all.length - dyn,
+      lankar: this._links.length,
+      toppfart: Math.round(d.maxSpeed),
+      gravitation: this.engine.gravity.y,
+      vind: this._windAx,
+    })
   }
 
   // Sätt vind-acceleration (px/steg²). Verkar på alla dynamiska kroppar oavsett massa
@@ -153,6 +221,10 @@ export class PhysicsWorld {
       steps++
     }
     if (steps >= 5) this._acc = 0 // släpp efterskott istället för att spiralera
+    if (DIAG) {
+      if (steps >= 5) logPhysics('svalt', { steg: steps, deltaMS: Math.round(deltaMS) })
+      if (++this._diag.frames % 30 === 0) this._diagSample()
+    }
     const links = this._links
     for (let i = 0; i < links.length; i++) {
       const l = links[i]
@@ -167,6 +239,9 @@ export class PhysicsWorld {
 
   destroy() {
     this._alive = false
+    if (DIAG && this._diag) {
+      logPhysics('riven', { kollisioner: this._diag.collisions, toppfart: Math.round(this._diag.maxSpeed), rutor: this._diag.frames })
+    }
     try {
       Events.off(this.engine)
       Composite.clear(this.world, false)

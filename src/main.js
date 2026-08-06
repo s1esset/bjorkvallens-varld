@@ -68,7 +68,11 @@ async function boot() {
   await nav.go('splash')
 
   // Praktiskt för felsökning i konsolen.
-  if (import.meta.env?.DEV) window.__barnspel = services
+  if (import.meta.env?.DEV) {
+    window.__barnspel = services
+    const { attach } = await import('./lib/gamelog.js')
+    attach(services) // diagnostiklogg — se window.__gamelog
+  }
 }
 
 boot().catch((err) => {

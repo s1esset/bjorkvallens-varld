@@ -15,10 +15,18 @@
 // behövs; rutorna lyser gult en i taget och överst sitter körsbäret. När tornet nått
 // upp hoppar körsbäret ner och kröner glassen, som serveras till Bobo som mumsar.
 //
+// VARIATION. Kärlet byts per nivå — våffelstrut → bägare → skål — och de skiljer sig
+// i FYSIK, inte bara i utseende: skålen har en jättebred mynning men låg kant (lätt
+// att träffa, allt står i blåsten), bägaren har smalare mynning men höga väggar som
+// håller de nedersta kulorna stilla. Ibland får en landad kula strössel eller en
+// såsdrypning som ligger kvar, och ungefär var nionde kula är en REGNBÅGSKULA som
+// glittrar medan den bärs och smäller av i färgexplosion när den landar.
+//
 // INGEN game over: en kula som blåser av studsar mjukt, fnissar ("Hihi!") och tas bort
 // — en ny dyker upp direkt; bara kulor som blir LIGGANDE räknas (aldrig som siffra).
-// Efter tre bortblåsta kulor i rad kommer hjälpen SENT och SYNLIGT ("Jag hjälper
-// till!": klistrig kula + mjuk magnet). Allt ritas programmatiskt (Pixi Graphics).
+// Hjälpen kommer SENT, SYNLIGT och i TVÅ steg: tre bortblåsta i rad ger KLISTER (kulan
+// tål vinden — men barnet siktar fortfarande själv), och först efter lång stiltje på
+// den SISTA kulan tillkommer en mjuk, kapad magnet. Allt ritas programmatiskt.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
@@ -48,6 +56,24 @@ const FLAG_TOP = 320
 const JAR_X = 300 // honungsburken (klister-kontrollen)
 const JAR_Y = 546
 
+// KÄRLET BYTS PER NIVÅ (våffelstrut → bägare → skål). Alla tre har SAMMA sockel
+// (ovankant y=522 → första kulan vilar vid center 480) så måttstockens höjder gäller
+// för allihop; det som skiljer är hur brett kärlet FÅNGAR och hur högt väggarna
+// SKYDDAR tornet mot vinden — en riktig avvägning, aldrig ett hinder:
+//   strut  — medelbred tratt, djup hals: lagom att sikta på
+//   bägare — smalare mynning, men höga väggar som håller de två nedersta kulorna
+//            stilla i blåsten
+//   skål   — jättebred mynning (nästan omöjligt att missa), men låg kant = hela
+//            tornet står i vinden
+// `mouthR` = hur långt från mittlinjen kulan får hamna och ändå räknas som träff i
+// siktguiden, `columnMax` = hur långt ut en liggande kula får ligga och ändå vara del
+// av glassen. Ritningen ligger exakt där kropparna sitter.
+const VESSELS = [
+  { id: 'strut', line: 'En våffelstrut!', mouthR: 138, columnMax: 78, right: 790, shadowW: 110 },
+  { id: 'bagare', line: 'En bägare!', mouthR: 112, columnMax: 72, right: 800, shadowW: 96 },
+  { id: 'skal', line: 'En skål!', mouthR: 158, columnMax: 78, right: 834, shadowW: 148 },
+]
+
 // Nominella stapelhöjder (kul-centra; fysiken sätter dem exakt) — guide för
 // måttstockens rutor. Första kulan vilar i strut-koppen, sedan 2×radie upp.
 const STACK_Y = [480, 396, 312, 228]
@@ -56,15 +82,19 @@ const MAX_GOAL = STACK_Y.length // fler kulor än så får inte plats under räl
 // Material (kropp-opts, egna blandningar):
 const SCOOP_NORMAL = { restitution: 0.1, friction: 0.7, frictionAir: 0.012, density: 0.0016, label: 'scoop' }
 // klister-glass: griper hårt + lättare massa (mindre vältmoment) = mycket stabilare.
-const SCOOP_STICKY = { restitution: 0.02, friction: 0.95, frictionAir: 0.02, density: 0.001, label: 'scoop' }
+// frictionAir är den viktigaste siffran här: den dämpar farten kulan har KVAR när den
+// nyss landat, och det är den farten (plus vinden) som annars rullar av kulan från
+// toppen. Mätt: 0,02 → 0,055 är skillnaden mellan att fastna ibland och nästan alltid.
+// Kulan faller också synligt trögare = honungen känns som honung.
+const SCOOP_STICKY = { restitution: 0.02, friction: 0.95, frictionAir: 0.055, density: 0.001, label: 'scoop' }
 
 // Vila-/settle-trösklar.
 const REST_SPEED = 0.6 // matter-fart under detta = kulan har lugnat sig
 const REST_HOLD = 350 // ms i vila innan vi utvärderar
 const SETTLE_MAX = 1600 // ms → tvinga fram utvärdering (spelet "hänger" aldrig)
 const GROUND_Y = 600 // body.position.y >= detta = nådde marken (blåste av)
-const COLUMN_MAX = 78 // max avstånd från mittlinjen för att räknas som del av tornet
 const IDLE_MS = 6000 // ms utan handling → röst-recue
+// (max avstånd från mittlinjen för att räknas som del av tornet: VESSELS[].columnMax)
 
 // Riktiga glass-smaker: varje smak har egen färg OCH egen dekor (frön/strössel/chips/swirl).
 const FLAVORS = [
@@ -73,6 +103,17 @@ const FLAVORS = [
   { color: 0x9fe3c9, kind: 'mint' }, // mint (mörka chokladchips)
   { color: 0xfdf2d0, kind: 'vanilla' }, // vanilj (gyllene swirl)
   { color: 0xb7a6ef, kind: 'blueberry' }, // blåbär (blå prickar)
+]
+// Sällsynt regnbågskula (~1 av 9): ringar i regnbågsfärger som glittrar medan den
+// bärs och smäller av i färgexplosion när den landar. Ett wow-ögonblick, inget krav.
+const RAINBOW = { color: 0xffd35c, kind: 'rainbow' }
+const RAINBOW_BANDS = [0xff6b6b, 0xffa94d, 0xffd35c, 0x5bbf6a, 0x57c8c3, 0xa78bfa]
+const SPRINKLE_COLS = [0xff6b6b, 0xffd35c, 0x57c8c3, 0xa78bfa, 0x5bbf6a, 0xffffff]
+// Såser som ibland ringlar över en landad kula (färg + en aning mörkare droppe).
+const SAUCES = [
+  { top: 0x6b4226, drip: 0x4e2f1a }, // choklad
+  { top: 0xe3506e, drip: 0xc23a56 }, // jordgubb
+  { top: 0x63a83f, drip: 0x4d8630 }, // päron/kiwi
 ]
 const HONEY = 0xf1a92c
 const HONEY_LIGHT = 0xf8c657
@@ -95,7 +136,17 @@ export default {
     this._alive = true
     this._live = [] // levande kul-kroppar { body, view, magnet }
     this._sticky = false // honungs-toggle (nästa kula)
-    this._helpNext = false // mjuk auto-hjälp på nästa kula
+    // Auto-hjälpen är UPPDELAD i två steg, så barnets sikte får bära tornet så länge
+    // som möjligt: klistret (steg 1) gör kulan vindtålig men man måste fortfarande
+    // sikta; magneten (steg 2) styr kulan mot mitten och delas bara ut på den SISTA
+    // kulan efter lång stiltje — aldrig som svar på tre bortblåsta i rad.
+    this._stickyHelp = false
+    this._magnetHelp = false
+    this._vesselBodies = [] // kärlets statiska kroppar (byts per nivå)
+    this._vessel = VESSELS[0]
+    this._mouthR = VESSELS[0].mouthR
+    this._columnMax = VESSELS[0].columnMax
+    this._glitterT = 0 // timer för regnbågskulans gnistror
     this._count = 0 // kulor som ligger kvar på tornet just nu
     this._fallStreak = 0
     this._stallT = 0 // ms sedan tornet stod ett steg från mål
@@ -119,6 +170,7 @@ export default {
     this._cherryFlying = false
     this._saidGoal = false // "Bygg upp till körsbäret!" sägs en gång per pass
     this._saidWind = false // vind-förklaringen sägs en gång per pass
+    this._honeyHints = 0 // hur många gånger vi pekat på honungsburken detta torn
     this._serveItem = null // glass som flyger till mottagaren vid finalen
 
     this._root = new Container()
@@ -134,9 +186,8 @@ export default {
     this._buildScene(ctx)
 
     this._phys = new PhysicsWorld({ gravityY: GRAV_Y, walls: ['floor', 'left', 'right'] })
-    this._buildCone()
 
-    this._newTower(ctx)
+    this._newTower(ctx) // bygger också kärlet för aktuell nivå
 
     this._tick = (t) => this._update(ctx, t)
     ctx.ticker.add(this._tick)
@@ -224,7 +275,7 @@ export default {
     this._shadow.eventMode = 'none'
     this._root.addChild(this._shadow)
 
-    // Strut-grafik (fylls i _buildCone).
+    // Kärl-grafik (fylls i _buildVessel, byts per nivå).
     this._coneG = new Graphics()
     this._coneG.eventMode = 'none'
     this._root.addChild(this._coneG)
@@ -234,6 +285,12 @@ export default {
     this._scoopLayer.eventMode = 'none'
     this._scoopLayer.interactiveChildren = false
     this._root.addChild(this._scoopLayer)
+
+    // Kärlets NÄRMASTE kant ritas OVANPÅ kulorna. Utan den ser bägaren och skålen ut
+    // som en dekal bakom glassen; med den ligger kulorna tydligt NERE I kärlet.
+    this._vesselFrontG = new Graphics()
+    this._vesselFrontG.eventMode = 'none'
+    this._root.addChild(this._vesselFrontG)
 
     // Sikt-guide: simulerad prickbana + landningsring (ritas medan vi bär).
     this._guide = new Graphics()
@@ -342,33 +399,100 @@ export default {
     }
   },
 
-  // Brun strut-triangel (spets nedåt) + våffel-linjer + statiska kroppar.
-  _buildCone() {
-    const g = this._coneG
-    g.clear()
-    // Utsvängd våffelkant (tratt) — fångar kulor som landar snett och lotsar ner dem
-    // i koppen i stället för att de studsar bort. Ritas exakt där kropparna sitter.
-    g.moveTo(505, 445).lineTo(590, 510).stroke({ width: 18, color: COLORS.brown, cap: 'round' })
-    g.moveTo(775, 445).lineTo(690, 510).stroke({ width: 18, color: COLORS.brown, cap: 'round' })
-    g.moveTo(586, 508).lineTo(694, 508).lineTo(640, 624).closePath().fill(COLORS.brown).stroke({ width: 5, color: 0x6e4326 })
-    g.moveTo(596, 520).lineTo(642, 606).stroke({ width: 3, color: 0xffe0b0, alpha: 0.25 })
-    g.moveTo(628, 514).lineTo(664, 572).stroke({ width: 3, color: 0xffe0b0, alpha: 0.25 })
-    g.moveTo(684, 516).lineTo(638, 606).stroke({ width: 3, color: 0xffe0b0, alpha: 0.25 })
-    g.moveTo(524, 452).lineTo(538, 462).stroke({ width: 4, color: 0xffe0b0, alpha: 0.3 })
-    g.moveTo(756, 452).lineTo(742, 462).stroke({ width: 4, color: 0xffe0b0, alpha: 0.3 })
+  // Kärlet för aktuell nivå: river förra omgångens statiska kroppar, bygger nya och
+  // ritar dem EXAKT där kropparna sitter. Sockeln (ovankant 522 → första kulan vilar
+  // vid center 480) och den smala halsen är gemensam för alla tre, så kulorna hamnar
+  // alltid i EN kolumn — tornet blir ett torn, aldrig två i bredd.
+  _buildVessel() {
+    for (const b of this._vesselBodies) this._phys.removeBody(b)
+    this._vesselBodies = []
 
-    // Statisk sockel (ovankant 522 → första kulan vilar vid center 480) + två LUTANDE
-    // trattväggar. Halsen (100 px) är bara någon centimeter bredare än en kula, så
-    // kulorna hamnar i EN kolumn — tornet blir ett torn, aldrig två i bredd.
-    this._phys.rectangle(TOWER_CX, 558, 108, 72, { isStatic: true, friction: 0.9, label: 'cone' })
+    const v = VESSELS[this._level % VESSELS.length]
+    this._vessel = v
+    this._mouthR = v.mouthR
+    this._columnMax = v.columnMax
+
+    const add = (x, y, w, h, opts) => this._vesselBodies.push(this._phys.rectangle(x, y, w, h, opts))
     const wall = { isStatic: true, friction: 0.35, restitution: 0.05, label: 'rim' }
-    this._phys.rectangle(547, 477, 108, 16, { ...wall, angle: 0.653 })
-    this._phys.rectangle(733, 477, 108, 16, { ...wall, angle: -0.653 })
+    add(TOWER_CX, 558, 108, 72, { isStatic: true, friction: 0.9, label: 'cone' })
+
+    const g = this._coneG
+    const gf = this._vesselFrontG
+    g.clear()
+    gf?.clear()
+
+    if (v.id === 'strut') {
+      // Utsvängd våffelkant (tratt) — fångar kulor som landar snett och lotsar ner dem
+      // i koppen i stället för att de studsar bort.
+      add(547, 477, 108, 16, { ...wall, angle: 0.653 })
+      add(733, 477, 108, 16, { ...wall, angle: -0.653 })
+      g.moveTo(505, 445).lineTo(590, 510).stroke({ width: 18, color: COLORS.brown, cap: 'round' })
+      g.moveTo(775, 445).lineTo(690, 510).stroke({ width: 18, color: COLORS.brown, cap: 'round' })
+      g.moveTo(586, 508).lineTo(694, 508).lineTo(640, 624).closePath().fill(COLORS.brown).stroke({ width: 5, color: 0x6e4326 })
+      g.moveTo(596, 520).lineTo(642, 606).stroke({ width: 3, color: 0xffe0b0, alpha: 0.25 })
+      g.moveTo(628, 514).lineTo(664, 572).stroke({ width: 3, color: 0xffe0b0, alpha: 0.25 })
+      g.moveTo(684, 516).lineTo(638, 606).stroke({ width: 3, color: 0xffe0b0, alpha: 0.25 })
+      g.moveTo(524, 452).lineTo(538, 462).stroke({ width: 4, color: 0xffe0b0, alpha: 0.3 })
+      g.moveTo(756, 452).lineTo(742, 462).stroke({ width: 4, color: 0xffe0b0, alpha: 0.3 })
+    } else if (v.id === 'bagare') {
+      // Randig pappersbägare: två RAKA väggar (y 400–524) som verkligen håller de
+      // nedersta kulorna stilla när det blåser, plus en kort utsvängd läpp som lotsar in.
+      add(576, 462, 16, 124, wall) // vänstervägg, innerkant x=584
+      add(704, 462, 16, 124, wall) // högervägg, innerkant x=696
+      add(534, 380, 90, 14, { ...wall, angle: 0.563 }) // läpp v: (496,356)→(572,404)
+      add(746, 380, 90, 14, { ...wall, angle: -0.563 }) // läpp h: (784,356)→(708,404)
+      // bägarkropp (smalnar nedåt) + lodräta ränder
+      g.moveTo(568, 404).lineTo(712, 404).lineTo(694, 612).lineTo(586, 612).closePath()
+        .fill(0xfffdf7).stroke({ width: 5, color: 0xe8a0bd })
+      for (const [x0, x1] of [[592, 604], [628, 640], [664, 676]]) {
+        const k = (612 - 404) / 208
+        g.moveTo(x0, 404).lineTo(x1, 404).lineTo(x1 - 9 * k, 612).lineTo(x0 - 9 * k, 612).closePath()
+          .fill({ color: 0xff9ec4, alpha: 0.75 })
+      }
+      // de två läpparna, ritade där kropparna ligger
+      g.moveTo(496, 356).lineTo(572, 404).stroke({ width: 15, color: 0xff9ec4, cap: 'round' })
+      g.moveTo(784, 356).lineTo(708, 404).stroke({ width: 15, color: 0xff9ec4, cap: 'round' })
+      g.roundRect(578, 600, 124, 16, 8).fill(0xe8a0bd)
+      // den rullade kanten ligger FRAMFÖR kulorna → de hamnar nere i bägaren
+      gf?.roundRect(556, 392, 168, 24, 12).fill(0xff9ec4).stroke({ width: 4, color: 0xe8a0bd })
+    } else {
+      // Vid pastellskål: jättebred mynning (nästan omöjligt att missa) men låg kant —
+      // hela tornet står i blåsten. Innerslänten följer de två kropparna exakt.
+      // Slänten är BLANK (friction ~0) och lutar 0,5 rad: annars parkerar en kula på
+      // sluttningen i stället för att glida ner, och då hamnar två kulor i bredd —
+      // vilket bryter hela idén om att bygget ska bli ETT torn.
+      // frictionStatic (matter-default 0.5) är det som HÅLLER en kula på slänten — låg
+      // `friction` ensamt räcker inte. Utan detta parkerar kulan mitt på sluttningen i
+      // stället för att glida ner i mitten, och skålen blir svårast i stället för snällast.
+      const slip = { ...wall, friction: 0.01, frictionStatic: 0.02, restitution: 0.04 }
+      add(530, 485, 150, 16, { ...slip, angle: 0.5 }) // (464,449)→(596,521)
+      add(750, 485, 150, 16, { ...slip, angle: -0.5 }) // (816,449)→(684,521)
+      // Utbågade sidor — annars läses skålen som en tratt.
+      g.moveTo(452, 444).lineTo(828, 444)
+        .quadraticCurveTo(808, 570, 706, 604).quadraticCurveTo(640, 620, 574, 604)
+        .quadraticCurveTo(472, 570, 452, 444).closePath()
+        .fill(0xbfe6f5).stroke({ width: 5, color: 0x7fbdd6 })
+      // innerslänt — visar var kulorna glider ner (diskret, ska inte äta upp skålen)
+      g.moveTo(464, 449).lineTo(596, 521).lineTo(684, 521).lineTo(816, 449).lineTo(816, 462)
+        .lineTo(686, 533).lineTo(594, 533).lineTo(464, 462).closePath()
+        .fill({ color: 0x7fbdd6, alpha: 0.35 })
+      for (let i = 0; i < 5; i++) {
+        g.circle(516 + i * 62, 556, 8).fill({ color: 0xfffdf7, alpha: 0.7 })
+      }
+      g.roundRect(590, 598, 100, 18, 9).fill(0x7fbdd6) // fot
+      // skålens främre kant framför kulorna
+      gf?.roundRect(446, 434, 388, 24, 12).fill(0xdcf2fa).stroke({ width: 4, color: 0x7fbdd6 })
+    }
+
+    // Skuggan under kärlet följer dess bredd.
+    if (this._shadow && !this._shadow.destroyed) {
+      this._shadow.clear().ellipse(TOWER_CX, 612, v.shadowW, 22).fill({ color: 0x000000, alpha: 0.18 })
+    }
   },
 
   // ---- Torn (runda) -------------------------------------------------------
 
-  _newTower(ctx) {
+  _newTower(ctx, announce = false) {
     if (!this._alive) return
     this._finishCall?.kill()
     this._cherryTween?.kill()
@@ -394,13 +518,19 @@ export default {
     this._falling = false
     this._resolving = false
     this._dragging = false
-    this._helpNext = false
+    this._stickyHelp = false
+    this._magnetHelp = false
+    this._honeyHints = 0
     this._swayT = 0
     this._lean = 0
     this._idle = 0
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._goal = Math.min(3 + this._level, MAX_GOAL)
+
+    // Nytt kärl för nivån (strut → bägare → skål) — ny silhuett OCH ny fysik.
+    this._buildVessel()
+    if (announce) ctx.services.voice.say(this._vessel.line)
 
     // Körsbäret sitter överst på måttstocken tills tornet nått upp.
     this._goalTopY = STACK_Y[this._goal - 1] - 30
@@ -422,7 +552,7 @@ export default {
       this._finishTower(ctx)
       return
     }
-    const view = this._makeScoop(randomFrom(FLAVORS))
+    const view = this._makeScoop(this._pickFlavor())
     view.position.set(TOWER_CX, CARRIER_Y)
     view.eventMode = 'static'
     view.cursor = 'pointer'
@@ -436,8 +566,14 @@ export default {
     this._carrier = view
     this._dragging = false
     this._idle = 0
-    this._applyStickyLook(view, this._sticky || this._helpNext)
+    this._glitterT = 0
+    this._applyStickyLook(view, this._sticky || this._stickyHelp || this._magnetHelp)
     bounceIn(view)
+  },
+
+  // Smak: mestadels en av de fem vanliga, ibland (~1/9) den sällsynta regnbågskulan.
+  _pickFlavor() {
+    return Math.random() < 0.11 ? RAINBOW : randomFrom(FLAVORS)
   },
 
   // ---- Peklogik på den burna kulan ---------------------------------------
@@ -491,17 +627,17 @@ export default {
     this._scoopLayer.addChild(view)
     view.position.set(x, CARRIER_Y)
 
-    const help = this._helpNext
-    const mat = this._sticky || help ? SCOOP_STICKY : SCOOP_NORMAL
+    const mat = this._sticky || this._stickyHelp || this._magnetHelp ? SCOOP_STICKY : SCOOP_NORMAL
     const body = this._phys.circle(x, CARRIER_Y, SCOOP_R, { ...mat })
     this._phys.link(body, view)
 
-    const rec = { body, view, magnet: help }
+    const rec = { body, view, magnet: this._magnetHelp }
     this._live.push(rec)
     this._lastDropped = body
     this._lastRec = rec
     this._carrier = null
-    this._helpNext = false
+    this._stickyHelp = false
+    this._magnetHelp = false
     this._falling = true
     this._settle = 0
     this._restAcc = 0
@@ -519,10 +655,12 @@ export default {
     this._drawHoneyJar()
     if (this._jarLid && !this._jarLid.destroyed) {
       gsap.killTweensOf(this._jarLid)
+      // Locket ska landa BREDVID burken på disken. Det gamla läget (x 62, −66°) lade
+      // det tvärs över burkens egen kant, där det läses som ett rött streck.
       gsap.to(this._jarLid, {
-        x: this._sticky ? 62 : 0,
-        y: this._sticky ? -16 : -42,
-        rotation: this._sticky ? -1.15 : 0,
+        x: this._sticky ? 88 : 0,
+        y: this._sticky ? 48 : -42,
+        rotation: this._sticky ? -0.34 : 0,
         duration: 0.26,
         ease: 'back.out(2)',
       })
@@ -532,7 +670,7 @@ export default {
     if (!this._jar.destroyed) pop(this._jar, { scale: 1.09 })
     ctx.services.voice.say(this._sticky ? 'Nu blir kulan klistrig!' : 'Nu är kulan vanlig igen.')
     if (this._carrier && !this._carrier.destroyed && !this._falling) {
-      this._applyStickyLook(this._carrier, this._sticky || this._helpNext)
+      this._applyStickyLook(this._carrier, this._sticky || this._stickyHelp || this._magnetHelp)
     }
     this._idle = 0
   },
@@ -592,9 +730,19 @@ export default {
         else v.say(this.voiceIntro)
         if (this._carrier && !this._carrier.destroyed) pop(this._carrier)
       }
+      // Regnbågskulan glittrar medan den bärs — den syns att den är speciell.
+      if (this._carrier._flavor?.kind === 'rainbow') {
+        this._glitterT += dms
+        if (this._glitterT > 380) {
+          this._glitterT = 0
+          sparkle(ctx.fxLayer, this._carrier.x + (Math.random() * 60 - 30), CARRIER_Y + (Math.random() * 50 - 25), { count: 3 })
+        }
+      }
+      // Magneten (steg 2) delas bara ut på den SISTA kulan, och först efter lång
+      // stiltje — så länge barnet gör framsteg är det siktet som bygger tornet.
       if (this._count === this._goal - 1) {
         this._stallT += dms
-        if (this._stallT > 9000 && !this._helpNext) this._giveHelp(ctx)
+        if (this._stallT > 11000 && !this._magnetHelp) this._giveHelp(ctx, true)
       }
     } else if (this._holderG && !this._holderG.destroyed) {
       this._holderG.clear()
@@ -608,9 +756,16 @@ export default {
         const sp = Math.hypot(b.velocity.x, b.velocity.y)
         if (sp < REST_SPEED) this._restAcc += dms
         else this._restAcc = 0
-        // Mjuk magnet (auto-hjälp): styr lugnt mot mitten så kulan fastnar.
+        // Mjuk magnet (auto-hjälp steg 2): en KNUFF mot mitten, inte ett ryck. Kapad
+        // till ±2 px/steg så kulan aldrig far tvärs över skärmen — den hamnar rätt om
+        // barnet siktade någorlunda, men släpper man vid kanten landar den vid kanten.
+        // Det som faktiskt får kulan att stanna är DÄMPNINGEN av sidled-farten (vinden
+        // slutar knuffa), inte dragningen mot mitten. Därför en tydlig dämpning men en
+        // liten, kapad dragning: kulan hamnar rätt om barnet siktade ungefär rätt,
+        // men släpper man vid kanten landar den fortfarande vid kanten.
         if (this._lastRec && this._lastRec.magnet) {
-          Body.setVelocity(b, { x: b.velocity.x * 0.5 + (TOWER_CX - b.position.x) * 0.03, y: b.velocity.y })
+          const nudge = clamp((TOWER_CX - b.position.x) * 0.02, -3.5, 3.5)
+          Body.setVelocity(b, { x: b.velocity.x * 0.62 + nudge, y: b.velocity.y })
         }
       }
       if ((this._settle > 150 && this._restAcc >= REST_HOLD) || this._settle > SETTLE_MAX) {
@@ -619,27 +774,64 @@ export default {
     }
   },
 
-  // Hjälpen kommer SENT och SYNLIGT — barnets sikte/timing avgör i normalfallet.
-  _giveHelp(ctx) {
-    this._helpNext = true
+  // Burken blinkar och rösten berättar vad den gör — hjälp som lär ut kontrollen.
+  _pointAtHoney(ctx) {
+    if (this._jar && !this._jar.destroyed) pop(this._jar, { scale: 1.16 })
+    ripple(ctx.fxLayer, JAR_X, JAR_Y, { maxR: 120, color: COLORS.yellow, alpha: 0.85 })
+    sparkle(ctx.fxLayer, JAR_X, JAR_Y - 46, { count: 6 })
+    ctx.services.audio.tone({ freq: 587.33, dur: 0.14, type: 'sine', vol: 0.22 })
+    ctx.services.voice.say('Tryck på honungen! Då blir kulan klistrig.')
+  },
+
+  // Hjälpen kommer SENT och SYNLIGT, och i TVÅ steg. Steg 1 (klister) ges efter tre
+  // bortblåsta i rad: kulan blir vindtålig, men barnet måste fortfarande sikta.
+  // Steg 2 (magnet) ges bara på den sista kulan efter lång stiltje.
+  _giveHelp(ctx, magnet = false) {
+    if (magnet) this._magnetHelp = true
+    else this._stickyHelp = true
     this._stallT = 0
     if (this._carrier && !this._carrier.destroyed) {
       this._applyStickyLook(this._carrier, true)
-      pop(this._carrier, { scale: 1.2 })
+      pop(this._carrier, { scale: magnet ? 1.2 : 1.14 })
     }
-    sparkle(ctx.fxLayer, this._carrier ? this._carrier.x : TOWER_CX, CARRIER_Y, { count: 8 })
-    ctx.services.voice.say('Jag hjälper till!')
+    const x = this._carrier ? this._carrier.x : TOWER_CX
+    sparkle(ctx.fxLayer, x, CARRIER_Y, { count: magnet ? 8 : 5 })
+    ctx.services.voice.say(magnet ? 'Jag hjälper till!' : 'Den här är klistrig!')
   },
 
   // Räkna liggande kulor; bortblåsta studsar bort glatt (no-fail) + auto-hjälp.
   _evaluate(ctx) {
     if (!this._alive) return
+    // Kolumn-invarianten, uttalad i stället för framtuggad ur friktionsvärden: glassen
+    // ska bli ETT torn. Har den nya kulan hamnat BREDVID en annan (samma höjd, långt i
+    // sidled) glider den av med ett fniss i stället för att starta en andra stapel.
+    // Två kulor som rör vid varandra ligger alltid 84 px isär (2×radien). Sitter den nya
+    // kulan MINDRE än 70 px högre än en annan har den kilat fast sig på dess axel i
+    // stället för att lägga sig ovanpå — mätt: en sådan kula låser tornet snett och
+    // sedan finns ingen giltig plats kvar för nästa. Bättre att den glider av med ett
+    // fniss direkt och barnet får ett rent försök.
+    const nb = this._lastRec?.body
+    let beside = false
+    if (nb) {
+      for (const other of this._live) {
+        if (other === this._lastRec || !other.body) continue
+        const dy = Math.abs(other.body.position.y - nb.position.y)
+        const dx = Math.abs(other.body.position.x - nb.position.x)
+        if (dy < 70 && dx > 40) {
+          beside = true
+          break
+        }
+      }
+    }
+
     const survivors = []
     let blownOff = false
     for (const rec of this._live) {
-      // Räknas bara som en del av glassen om den ligger I tornet: nere på marken
-      // eller uthängande på våffelkanten → den glider av med ett fniss.
-      const off = rec.body.position.y >= GROUND_Y || Math.abs(rec.body.position.x - TOWER_CX) > COLUMN_MAX
+      // Räknas bara som en del av glassen om den ligger I tornet: nere på marken,
+      // uthängande på kanten eller bredvid en annan kula → den glider av med ett fniss.
+      const off = rec.body.position.y >= GROUND_Y
+        || Math.abs(rec.body.position.x - TOWER_CX) > this._columnMax
+        || (rec === this._lastRec && beside)
       if (off) {
         // Blåste av → studsa mjukt bort + fniss. Räknas aldrig som fel.
         const x = rec.view.x
@@ -672,6 +864,12 @@ export default {
       if (blownOff && !this._saidWind) {
         this._saidWind = true
         ctx.services.voice.say('Det blåser! Släpp när flaggan hänger stilla.')
+      } else if (blownOff && !this._sticky && this._fallStreak >= 2 && this._honeyHints < 2) {
+        // PEKA PÅ KONTROLLEN i stället för att bygga tornet åt barnet. Honungen löser
+        // blåsten helt (mätt: 3 släpp i stället för 10+), och den sitter redan där —
+        // barnet behöver bara hitta den. Max två gånger per torn, annars blir det tjat.
+        this._honeyHints++
+        this._pointAtHoney(ctx)
       }
     }
 
@@ -684,8 +882,16 @@ export default {
       return
     }
     this._spawnCarrier(ctx)
-    // Mjuk auto-hjälp efter tre bortblåsta i rad → garanterad framgång, men synligt.
-    if (this._fallStreak >= 3 && !this._helpNext) this._giveHelp(ctx)
+    // Tre bortblåsta i rad → KLISTER (steg 1): kulan tål vinden, men det är fortfarande
+    // barnets sikte som avgör var den landar. Klistret delas ut på nytt för varje släpp
+    // så länge svit-räknaren står kvar. Först vid FEM i rad kommer magneten — mätt mot
+    // gamla beteendet (magnet redan vid tre) tar ett torn då ungefär lika många släpp,
+    // men de två första motgångarna löser barnet fortfarande själv.
+    // Magneten går BARA till den sista kulan (docens krav) — men den utlöses av
+    // misslyckanden, inte av en väggklocka: ett barn som släpper om och om igen
+    // nollställer stall-timern varje gång och skulle annars aldrig nå den.
+    if (this._count === this._goal - 1 && this._fallStreak >= 3 && !this._magnetHelp) this._giveHelp(ctx, true)
+    else if (this._fallStreak >= 3 && !this._stickyHelp) this._giveHelp(ctx)
   },
 
   // En kula blev liggande: mjukt "plopp" + STIGANDE pling per våning, nestle-squash,
@@ -703,13 +909,79 @@ export default {
     const ry = STACK_Y[Math.min(this._count - 1, STACK_Y.length - 1)]
     sparkle(ctx.fxLayer, GOAL_X, ry, { count: 5 })
     ctx.services.audio.tone({ freq: 880, dur: 0.1, type: 'triangle', vol: 0.16, delay: 0.1 })
+    // Topping-överraskning: HÖGST EN per kula (strössel ELLER sås), och regnbågskulan
+    // firas för sig. Taket gör att tornet varieras utan att bli rörigt.
+    const wow = this._addTopping(ctx, rec, this._count === 1 && !this._saidGoal)
     this._reactCustomer(ctx)
     if (this._count === 1 && !this._saidGoal) {
       this._saidGoal = true
       ctx.services.voice.say('Bygg upp till körsbäret!')
-    } else if (Math.random() < 0.5) {
+    } else if (!wow && Math.random() < 0.5) {
       ctx.services.voice.say(randomFrom(PLACE_LINES))
     }
+  },
+
+  // Överraskningar på en landad kula. Regnbågskulan smäller av i färgexplosion med
+  // en egen treklang; annars ibland strössel, ibland en såsdrypning — båda ligger
+  // KVAR på kulan, så tornet blir olikt varje omgång. Returnerar true om den talade.
+  _addTopping(ctx, rec, quiet) {
+    const view = rec.view
+    if (!view || view.destroyed) return false
+    const { x, y } = rec.body.position
+    if (view._flavor?.kind === 'rainbow') {
+      burst(ctx.fxLayer, x, y, { count: 18, colors: RAINBOW_BANDS })
+      ctx.services.audio.tone({ freq: 659.25, dur: 0.14, type: 'sine', vol: 0.24 })
+      ctx.services.audio.tone({ freq: 783.99, dur: 0.14, type: 'sine', vol: 0.22, delay: 0.1 })
+      ctx.services.audio.tone({ freq: 1046.5, dur: 0.22, type: 'sine', vol: 0.2, delay: 0.2 })
+      if (quiet) return false
+      ctx.services.voice.say('En regnbågskula!')
+      return true
+    }
+    const r = Math.random()
+    if (r < 0.24) {
+      this._addSprinkles(view)
+      burst(ctx.fxLayer, x, y - 20, { count: 10, colors: SPRINKLE_COLS, power: 0.45 })
+      ctx.services.audio.tone({ freq: 1318.5, dur: 0.09, type: 'triangle', vol: 0.15, delay: 0.06 })
+    } else if (r < 0.42) {
+      this._addSauce(view)
+      ctx.services.audio.tone({ freq: 294, dur: 0.2, type: 'sine', vol: 0.18, delay: 0.05 })
+    }
+    return false
+  },
+
+  // Strössel som ligger kvar på kulan.
+  _addSprinkles(view) {
+    const g = new Graphics()
+    g.eventMode = 'none'
+    for (let i = 0; i < 11; i++) {
+      const th = Math.random() * Math.PI * 2
+      const rr = Math.random() * (SCOOP_VR - 16)
+      const dx = Math.cos(th) * rr
+      const dy = Math.sin(th) * rr - 5
+      const col = SPRINKLE_COLS[(Math.random() * SPRINKLE_COLS.length) | 0]
+      if (i % 2) g.roundRect(dx - 7, dy - 2.5, 14, 5, 2.5).fill(col)
+      else g.roundRect(dx - 2.5, dy - 7, 5, 14, 2.5).fill(col)
+    }
+    view.addChild(g)
+  },
+
+  // Såsdrypning över kulans ovansida — ritad form med droppar, ingen ikon.
+  _addSauce(view) {
+    const s = SAUCES[(Math.random() * SAUCES.length) | 0]
+    const g = new Graphics()
+    g.eventMode = 'none'
+    g.moveTo(-34, -18)
+      .quadraticCurveTo(-17, -34, 0, -27)
+      .quadraticCurveTo(17, -20, 34, -25)
+      .lineTo(34, -8)
+      .quadraticCurveTo(17, -2, 0, -9)
+      .quadraticCurveTo(-17, -16, -34, 0)
+      .closePath()
+      .fill(s.top)
+    for (const [dx, dy, r] of [[-25, 4, 7], [3, 11, 8], [26, 2, 6]]) {
+      g.circle(dx, dy, r).fill(s.drip)
+    }
+    view.addChild(g)
   },
 
   // Nestle-squash: en landande kula plattas till och studsar tillbaka (taktil stapling).
@@ -793,6 +1065,7 @@ export default {
 
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, top.x, top.y - 40, { count: 16 })
+    this._sprinkleRain(ctx, top.x, top.y) // glass-eget firande: strössel över tornet
     this._serveToCustomer(ctx, top.x, top.y - 40) // glassen flyger till den hungriga Bobo
 
     // Spara förlopp + delat firande (celebrate-ljud, beröm, stjärna + klistermärke).
@@ -801,8 +1074,45 @@ export default {
     ctx.progress.complete()
 
     this._finishCall = gsap.delayedCall(3.4, () => {
-      if (this._alive) this._newTower(ctx)
+      if (this._alive) this._newTower(ctx, true) // säg vilket kärl som står framme nu
     })
+  },
+
+  // Strösselregn över den färdiga glassen — ett firande som bara det här spelet har.
+  // Exit-säkert enligt husmönstret: tweena en {}-proxy, rör grafiken bara om den lever.
+  _sprinkleRain(ctx, cx, topY) {
+    for (let i = 0; i < 26; i++) {
+      const g = new Graphics()
+      const col = SPRINKLE_COLS[(Math.random() * SPRINKLE_COLS.length) | 0]
+      g.roundRect(-3, -8, 6, 16, 3).fill(col)
+      const x0 = cx + (Math.random() * 280 - 140)
+      const y0 = topY - 230 - Math.random() * 150
+      g.position.set(x0, y0)
+      g.eventMode = 'none'
+      ctx.fxLayer.addChild(g)
+      const st = { x: x0, y: y0, r: Math.random() * Math.PI, a: 1 }
+      const tw = gsap.to(st, {
+        x: x0 + (Math.random() * 44 - 22),
+        y: topY + 30 + Math.random() * 60,
+        r: st.r + (Math.random() * 6 - 3),
+        a: 0,
+        duration: 0.9 + Math.random() * 0.5,
+        delay: 0.15 + Math.random() * 0.55,
+        ease: 'power1.in',
+        onUpdate: () => {
+          if (g.destroyed) {
+            tw.kill()
+            return
+          }
+          g.position.set(st.x, st.y)
+          g.rotation = st.r
+          g.alpha = st.a
+        },
+        onComplete: () => {
+          if (!g.destroyed) g.destroy()
+        },
+      })
+    }
   },
 
   _towerTop() {
@@ -953,7 +1263,7 @@ export default {
 
   // Simulera fallet steg för steg med SAMMA vind som fysiken → ringen ljuger aldrig.
   _predictLanding(x0) {
-    const damp = 1 - (this._sticky || this._helpNext ? SCOOP_STICKY.frictionAir : SCOOP_NORMAL.frictionAir)
+    const damp = 1 - (this._sticky || this._stickyHelp || this._magnetHelp ? SCOOP_STICKY.frictionAir : SCOOP_NORMAL.frictionAir)
     const gy = 0.2778 * GRAV_Y
     const top = this._towerTop()
     const targetY = this._count === 0 ? STACK_Y[0] : top.y - 2 * SCOOP_R
@@ -972,9 +1282,10 @@ export default {
       x += vx
       y += vy
       if (i % 3 === 0) path.push(x, y)
-      // Missar den hela strutmunnen? Då fortsätter kulan ända ner till marken —
-      // ringen hamnar där den FAKTISKT landar, aldrig en falsk träff i luften.
-      if (stop === targetY && y >= targetY && Math.abs(x - TOWER_CX) > 138) stop = 678
+      // Missar den hela kärlmynningen? Då fortsätter kulan ända ner till marken —
+      // ringen hamnar där den FAKTISKT landar, aldrig en falsk träff i luften. Bredden
+      // följer kärlet: skålen förlåter mycket, bägaren kräver bättre sikte.
+      if (stop === targetY && y >= targetY && Math.abs(x - TOWER_CX) > this._mouthR) stop = 678
     }
     return { x: clamp(x, 90, 1190), y: Math.min(y, stop), path, topX: top.x, ground: stop !== targetY }
   },
@@ -1006,12 +1317,24 @@ export default {
     shadow.fill({ color: 0x000000, alpha: 0.18 })
     c.addChild(shadow)
 
-    const ball = new Graphics()
-    this._scoopPath(ball, SCOOP_VR, 0, 0)
-    ball.fill(flavor.color).stroke({ width: 3, color: COLORS.white, alpha: 0.55 })
-    c.addChild(ball)
-
-    this._decorateScoop(c, flavor)
+    if (flavor.kind === 'rainbow') {
+      // Regnbågsringar: EN Graphics per band. (Flera fyllda banor i samma Graphics
+      // kan ta första bandets färg — samma fälla som snöbollens backe gick i.)
+      for (let i = 0; i < RAINBOW_BANDS.length; i++) {
+        const band = new Graphics()
+        this._scoopPath(band, SCOOP_VR * (1 - i / RAINBOW_BANDS.length), 0, 0)
+        band.fill(RAINBOW_BANDS[i])
+        if (i === 0) band.stroke({ width: 3, color: COLORS.white, alpha: 0.55 })
+        band.eventMode = 'none'
+        c.addChild(band)
+      }
+    } else {
+      const ball = new Graphics()
+      this._scoopPath(ball, SCOOP_VR, 0, 0)
+      ball.fill(flavor.color).stroke({ width: 3, color: COLORS.white, alpha: 0.55 })
+      c.addChild(ball)
+      this._decorateScoop(c, flavor)
+    }
     c.addChild(new Graphics().ellipse(-15, -17, 13, 9).fill({ color: 0xffffff, alpha: 0.6 }))
 
     // Honungsglasyr (dold tills kulan är klistrig) — ritad, inte en ikon.

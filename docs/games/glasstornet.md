@@ -1,5 +1,5 @@
 # Glasstornet (`glasstornet`)
-> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · drag · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -7,9 +7,14 @@ En pastell glass-värld i tydliga zoner. Överst går en **räls** tvärs över 
 åker en liten vagn med en kopa som håller nästa glasskula. Jag drar kopan i sidled (eller
 tap-tap:ar var som helst) — en **simulerad prickbana + landningsring** visar exakt var kulan
 hamnar — och **släpper** för att tappa den. Ringen blir **grön** när kulan kommer att landa
-på glassen, och **faller ner till marken** när den kommer att missa hela struten. Kulan
-faller med riktig matter.js-fysik ner i en **våffelstrut med utsvängd kant** (en tratt med
-smal hals, så kulorna hamnar i EN kolumn — aldrig två i bredd), squashar till och nestlar sig.
+på glassen, och **faller ner till marken** när den kommer att missa hela kärlet. Kulan
+faller med riktig matter.js-fysik ner i **kärlet**, squashar till och nestlar sig.
+
+**Kärlet byts per nivå** — våffelstrut → bägare → skål, i cykel — och de skiljer sig i
+*fysik*, inte bara utseende: skålen har en jättebred mynning men låg kant (nästan omöjligt
+att missa, men hela tornet står i blåsten), bägaren en smalare mynning men höga raka väggar
+som håller de två nedersta kulorna stilla. Alla tre har samma smala hals, så kulorna hamnar
+i EN kolumn — aldrig två i bredd. Rösten säger vilket kärl som står framme.
 
 **Motgången är vinden.** En bris växlar riktning fram och tillbaka och blåser både den
 fallande kulan och tornet i sidled. Den är SYNLIG: en **vimpel på en flaggstång** står rakt
@@ -21,16 +26,23 @@ bättre. Två kontroller (var/när + klistrig), ett mål.
 
 **Målet är körsbäret.** Till höger står en **måttstock** med lika många rutor som kulor som
 behövs; en ruta tänds gult per landad kula och överst sitter körsbäret. När tornet nått upp
-hoppar körsbäret ner och kröner glassen, vinden mojnar, tornet fryser, och hela glassen
-flyger till **Bobo** som mumsar ("Mums! Tack för glassen!"). Sedan byggs ett nytt, en kula
-högre torn (3 → 4).
+hoppar körsbäret ner och kröner glassen, vinden mojnar, tornet fryser, **strössel regnar**
+över bygget, och hela glassen flyger till **Bobo** som mumsar ("Mums! Tack för glassen!").
+Sedan byggs ett nytt torn — en kula högre (3 → 4) och i nästa kärl.
 
-Ingen game over: en kula som blåser av, eller som blir hängande på våffelkanten i stället
-för i glassen, glider av med ett fniss ("Hihi!"/"Hoppsan!") och en ny dyker upp direkt.
-Kulor som ligger stilla kryper mycket långsamt mot mittlinjen (mjukglass som sätter sig) så
-högen tidar upp sig till ett torn. Efter tre bortblåsta i rad, eller lång stiltje ett steg
-från mål, kommer hjälpen **sent och synligt** ("Jag hjälper till!" + gnistror): klistrig
-kula + mjuk magnet. Idle ~6 s ger röst-recue.
+**Överraskningar:** ungefär var nionde kula är en **regnbågskula** som glittrar medan den
+bärs och smäller av i färgexplosion när den landar; ibland får en landad kula **strössel**
+eller en **såsdrypning** som ligger kvar. Högst en överraskning per kula, så tornet blir
+olikt varje omgång utan att bli rörigt.
+
+Ingen game over: en kula som blåser av, som blir hängande på kanten, eller som kilar fast
+på en annan kulas axel i stället för att lägga sig ovanpå, glider av med ett fniss
+("Hihi!"/"Hoppsan!") och en ny dyker upp direkt. Kulor som ligger stilla kryper mycket
+långsamt mot mittlinjen (mjukglass som sätter sig) så högen tidar upp sig till ett torn.
+Hjälpen kommer **sent, synligt och i två steg**: efter två bortblåsta **blinkar
+honungsburken** och rösten berättar vad den gör (hjälp som lär ut kontrollen), efter tre i
+rad blir kulan automatiskt klistrig — men **magneten går bara till den sista kulan**, så
+det är barnets sikte som bär tornet. Idle ~6 s ger röst-recue.
 
 **Funkar bra:** släpp-timing mot vinden är en genuint fin agens-mekanik med tre synliga
 lager feedback (vimpel → prickbana → grön/gul/markring), tratten gör att bygget ser ut som
@@ -82,29 +94,22 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Quick] Gör svajet kännbart + läsbart.** Öka amplituden en aning och lägg en diskret
-  lutnings-indikator (struten/marken tippar synligt, eller en pendel/vattenpass-ikon) så
-  barnet *ser* när det är rätt läge att släppa — då blir timing-skickligheten verklig.
-- **[Medium] Mjuka upp auto-magneten.** Låt magneten bara fånga den *sista* kulan efter
-  längre stall, inte var tredje fall, så bra släpp-timing faktiskt bär tornet.
+- ~~**[Quick] Gör svajet kännbart + läsbart.**~~ ✅ 2026-07-01/07-25 (amplitud + vindflagga).
+- ~~**[Medium] Mjuka upp auto-magneten.**~~ ✅ 2026-08-06 — klister och magnet är nu två
+  steg, och magneten går bara till den sista kulan. Se §5.
 - **[Deep] Smak-staplings-mål:** ibland be om en specifik ordning ("jordgubbe överst!")
   eller färgmönster — en lätt pedagogisk twist (färger/sekvens) ovanpå bygget, fortfarande
   no-fail (fel ordning är bara en till glass).
 
 ### Variation & överraskning
-- **[Quick] Riktiga glass-smaker.** Ge varje smak en egen look: jordgubb-prickar, choklad-
-  strössel, mint-chips, vaniljswirl. Liten variation, stort lyft i charm.
-- **[Medium] Topping-överraskningar:** ibland landar en kula med strössel-puff, en sås-
-  drypning eller en flagga; en sällsynt "regnbågskula" som glittrar. Gör varje torn lite
-  olikt.
-- **[Quick] Variera struten/skålen** per nivå (våffelstrut, bägare, skål) via en liten cykel.
+- ~~**[Quick] Riktiga glass-smaker.**~~ ✅ 2026-07-01 (`FLAVORS` med egen dekor).
+- ~~**[Medium] Topping-överraskningar.**~~ ✅ 2026-08-06 — regnbågskula, strössel, sås. Se §5.
+- ~~**[Quick] Variera struten/skålen per nivå.**~~ ✅ 2026-08-06 — och de skiljer sig i
+  fysik, inte bara utseende. Se §5.
 
 ### Juice
-- **[Quick] Mjukt "plopp" + smask** ([[real-audio-sfx]]) när en kula nestlar sig, ett
-  stigande pling per våning, och ett glatt "mums" vid körsbäret — ersätt UI-blipparna.
-- **[Quick] Nestle-squash.** Låt en landande kula squasha/stretcha mjukt som riktig
-  mjukglass (kort scale-tween) i stället för bara `pop` — gör staplingen taktil.
-- **[Quick] Strössel-regn vid finalen** ovanpå `bigCelebration`, så vinsten är glass-specifik.
+- ~~**[Quick] Mjukt "plopp" + smask**~~ ✅ 2026-07-01. ~~**[Quick] Nestle-squash.**~~ ✅ 2026-07-01.
+- ~~**[Quick] Strössel-regn vid finalen**~~ ✅ 2026-08-06 (`_sprinkleRain`).
 
 ### Progression
 - **[Medium] Glass-galleri / kund-kö.** Spara `custom.torn` (görs redan) som en rad
@@ -177,3 +182,39 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
   gradient med några svaga bubblor; nu finns en **randig markis med uddkant** längs
   överkanten, en **hylla med fyra sirapsflaskor** till vänster och en prickig disk längs
   golvet. Scenen har en plats — mekaniken är orörd. errorCount 0.
+- 2026-08-06 (`a3628ec`, v1.17.0): **Variation + en ärligare hjälp** (polerings-hög 2).
+  1. **Kärlet byts per nivå** — våffelstrut → bägare → skål, i cykel. Skillnaden är
+     **fysik**, inte bara utseende: skålen har jättebred mynning men låg kant (nästan
+     omöjligt att missa, men hela tornet står i blåsten), bägaren smalare mynning men
+     höga raka väggar som håller de två nedersta kulorna stilla. `_buildVessel()` river
+     och bygger om de statiska kropparna per torn, och `mouthR`/`columnMax` följer med så
+     siktguiden alltid talar sanning. Rösten säger vilket kärl som står framme.
+  2. **Topping-överraskningar** — sällsynt **regnbågskula** (~1/9) som glittrar medan den
+     bärs och smäller av i färgexplosion + treklang när den landar; annars ibland
+     **strössel** eller en **såsdrypning** som ligger KVAR på kulan, så tornet ser olikt
+     ut varje omgång. Tak: högst en överraskning per kula.
+  3. **Strösselregn** över den färdiga glassen (`_sprinkleRain`) — finishen är glass-egen.
+  4. **Hjälpen delad i två steg.** Tre bortblåsta i rad ger bara **klister** (barnet
+     siktar fortfarande själv); **magneten går bara till den sista kulan**, och den är
+     kapad. Efter två bortblåsta **blinkar honungsburken** i stället och rösten berättar
+     vad den gör — hjälp som lär ut kontrollen i stället för att bygga tornet.
+  5. **Främre kant** (`_vesselFrontG`) ritas ovanpå kulorna, annars ser bägaren och skålen
+     ut som en dekal bakom glassen. Honungslocket landar nu bredvid burken; förr låg det
+     tvärs över dess egen kant och lästes som ett rött streck.
+
+  **Mätt fram med en spelande Playwright-sond, inte gissat** — tre fynd som gröna tester
+  aldrig hade visat:
+  - Skålens grunda slänt **höll kvar** kulorna så två hamnade **i bredd** (bryter hela
+    "ETT torn"-idén). Det är `frictionStatic` (matter-default 0,5) som låser, inte
+    `friction` — låg friktion ensamt räcker inte.
+  - En kula som **kilar fast på en annans axel** (dy≈63 i stället för 84) låste tornet
+    snett, och sedan fanns ingen giltig plats kvar för nästa kula — bygget blev
+    obyggbart utan att något såg trasigt ut. Sådana landningar glider nu av med ett fniss.
+  - `SCOOP_STICKY.frictionAir` 0,02 → **0,055**: det är dämpningen **efter** nedslaget som
+    avgör om kulan stannar (vinden rullar annars av den från toppen). Med honung tar ett
+    torn nu 5–6 släpp (strut 5, bägare 5, skål 6) mot HEAD-baselinens 6 för tre kulor —
+    alltså snällare än förut, trots att den automatiska magneten dragits tillbaka.
+
+  Kvar från §4: [Deep] smak-staplings-mål, [Medium] glass-galleri/kund-kö, [Quick] ambient.
+  Nya repliker (väntar på klipp): "En våffelstrut!", "En bägare!", "En skål!",
+  "Den här är klistrig!", "En regnbågskula!", "Tryck på honungen! Då blir kulan klistrig."

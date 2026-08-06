@@ -12,6 +12,7 @@ import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, floatText, bigCelebration } from '../../lib/feedback.js'
+import { makeElvira } from '../../lib/figurer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -165,6 +166,27 @@ export default {
     tree.position.set(180, 250)
     tree.eventMode = 'none'
     d.addChild(tree)
+
+    // Parkgrind i vänsterkanten — platsen Lova väntar vid. Högarna spawnar från
+    // x=140 och skopan bor på x=200, så staketet håller sig innanför x≈128.
+    const gate = new Graphics()
+    for (const gx of [22, 128]) {
+      gate.roundRect(gx - 8, 486, 16, 148, 7).fill(0x9c6b46).stroke({ width: 3, color: 0x6f4428 })
+      gate.circle(gx, 482, 12).fill(0xb98055).stroke({ width: 3, color: 0x6f4428 })
+    }
+    for (const gy of [524, 570]) gate.roundRect(14, gy, 122, 12, 6).fill({ color: 0xb98055, alpha: 0.95 })
+    for (let i = 0; i < 3; i++) gate.roundRect(40 + i * 30, 494, 11, 132, 5).fill({ color: 0xb98055, alpha: 0.9 })
+    gate.eventMode = 'none'
+    d.addChild(gate)
+
+    // Lova väntar innanför grinden — mottagaren scenen saknade (gate-punkt 4).
+    // makeElvira ritar en flicka; hon är den enda namngivna människan här (P0 KARAKTÄRER).
+    this._lova = makeElvira(120)
+    this._lova.position.set(75, 636)
+    d.addChild(this._lova)
+    this._lovaIdle = gsap.to(this._lova, {
+      rotation: 0.07, duration: 1.5, yoyo: true, repeat: -1, ease: 'sine.inOut',
+    })
 
     // RITAD blomsterrad längs nederkanten (var 🌼/🌷-emoji).
     const flowers = new Graphics()
@@ -762,6 +784,7 @@ export default {
     if (this._bin && !this._bin.destroyed) pop(this._bin)
     if (this._binLid && !this._binLid.destroyed) pop(this._binLid) // locket "glufsar"
 
+    this._lovaCheer(ctx)
     if (this._collected >= this._needed) this._finish(ctx)
   },
 
@@ -887,6 +910,18 @@ export default {
 
   // ---- Runda klar → firande → ny runda -----------------------------------
 
+  // Lova hejar när en hög kommer i tunnan, och jublar större vid vinst.
+  _lovaCheer(ctx, big = false) {
+    const lo = this._lova
+    if (!lo || lo.destroyed) return
+    gsap.killTweensOf(lo.scale)
+    gsap
+      .timeline()
+      .to(lo.scale, { x: big ? 1.18 : 1.09, y: big ? 1.26 : 1.13, duration: 0.12, ease: 'power2.out' })
+      .to(lo.scale, { x: 1, y: 1, duration: big ? 0.66 : 0.5, ease: 'elastic.out(1, 0.42)' })
+    sparkle(ctx.fxLayer, lo.x, lo.y - 118, { count: big ? 9 : 5 })
+  },
+
   _finish(ctx) {
     if (this._resolving) return
     this._resolving = true
@@ -895,6 +930,7 @@ export default {
     ctx.services.audio.sfx('celebrate')
     this._yip(ctx) // valpen gläfser av glädje
     ctx.services.voice.say('Hurra! Parken är ren!')
+    this._lovaCheer(ctx, true)
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // Valpen skuttar glatt, tunnan vickar.
@@ -1014,6 +1050,8 @@ export default {
     this._walkTween?.kill()
     this._bobTween?.kill()
     this._tailTween?.kill()
+    this._lovaIdle?.kill()
+    if (this._lova && !this._lova.destroyed) gsap.killTweensOf(this._lova.scale)
     this._poopTl?.kill()
     this._autoScoopTl?.kill()
     this._returnTween?.kill()

@@ -125,3 +125,13 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
   ljusare mitt och ~90 strödda småstenar. (2) Trädet (var 🌳), blomsterraden (var 🌼/🌷),
   tunnans återvinningssymbol (var ♻️) och flugorna (var 🪰) ritas nu som riktiga föremål med
   egen silhuett. Inga emoji-rekvisita kvar i scenen. errorCount 0.
+- 2026-08-06: **[Deep] Lova i scenen** (spår "20 spel från 🔧 till ✅").
+  - Ny **parkgrind i vänsterkanten** (staket + stolpar, innanför x≈128 så den varken krockar
+    med högarnas spawn-yta som börjar på x=140 eller med skopans hem på x=200), och **Lova
+    väntar innanför den** — ritad via `lib/figurer.js` (`makeElvira`). Hon är den enda
+    namngivna människan i spelet (P0 KARAKTÄRER; valpen är djur och undantaget).
+  - **Hon hejar vid varje hög** som hamnar i tunnan (`_lovaCheer` — studs + gnistor) och
+    **jublar större vid vinst**, så firandet får en mottagare i stället för att bara vara
+    generisk konfetti. Lugn vaggning i vila.
+  - Exit-säkert: `_lovaIdle` och skal-tweenen dödas i `destroy`.
+  - Kvar sedan tidigare: [Quick] park-specifik finish (fåglar lyfter, blommorna öppnar sig).

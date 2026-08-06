@@ -16,7 +16,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, sparkle, burst, floatText, shake, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeBobo } from '../../lib/figurer.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // Himmel-band (molnens yta) — molnen klampas hit.
@@ -95,7 +95,7 @@ export default {
     this._bobo.position.set(112, 556)
     this._bobo.eventMode = 'none'
     this._bobo.interactiveChildren = false
-    this._bobo.addChild(makeBoboBody(54), makeMascot(54))
+    this._bobo.addChild(makeBobo(54))
     this._root.addChild(this._bobo)
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
@@ -942,24 +942,3 @@ function makeLamp(cx, cy, i) {
   return { container, glow, art, variant }
 }
 
-// Kropp till Bobo. makeMascot() ritar bara ett huvud centrerat i (0,0); den här
-// hänger på bål, armar och fötter under det så maskoten står i scenen i stället
-// för att sväva. faceR = samma radie som skickas till makeMascot.
-function makeBoboBody(faceR = 54) {
-  const g = new Graphics()
-  const r = faceR
-  // markskugga
-  g.ellipse(0, r * 2.5, r * 0.9, r * 0.22).fill({ color: COLORS.shadow, alpha: 0.18 })
-  // fötter
-  g.ellipse(-r * 0.42, r * 2.4, r * 0.3, r * 0.18).fill(COLORS.orangeDark)
-  g.ellipse(r * 0.42, r * 2.4, r * 0.3, r * 0.18).fill(COLORS.orangeDark)
-  // armar (bakom bålen)
-  g.roundRect(-r * 1.02, r * 0.9, r * 0.3, r * 0.9, r * 0.15).fill(COLORS.cream).stroke({ width: 3, color: COLORS.orangeDark })
-  g.roundRect(r * 0.72, r * 0.9, r * 0.3, r * 0.9, r * 0.15).fill(COLORS.cream).stroke({ width: 3, color: COLORS.orangeDark })
-  // bål
-  g.roundRect(-r * 0.75, r * 0.72, r * 1.5, r * 1.62, r * 0.46).fill(COLORS.cream).stroke({ width: 4, color: COLORS.orangeDark })
-  // mage
-  g.ellipse(0, r * 1.62, r * 0.4, r * 0.5).fill({ color: COLORS.orange, alpha: 0.35 })
-  g.eventMode = 'none'
-  return g
-}

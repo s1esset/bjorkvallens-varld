@@ -16,6 +16,7 @@ import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { bounceIn, wiggle, floatText, ripple, shake, burst, breathe, puff } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
+import { makeSquirrel } from '../../lib/figurer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -664,55 +665,3 @@ export default {
   },
 }
 
-// Ekorren som tar emot frukten (gate-punkt 4: mottagare). Origo mellan fötterna.
-// Kinderna ligger i ett eget lager så de kan rodna mer ju fullare korgen blir.
-function makeSquirrel() {
-  const c = new Container()
-  c.eventMode = 'none'
-  c.interactiveChildren = false
-  const fur = 0xc4763f
-  const furDark = 0x8a5030
-  const belly = 0xf0c9a0
-
-  const g = new Graphics()
-  // Svans: stor plym bakom ryggen (ritas först = längst bak).
-  g.moveTo(-24, -12).quadraticCurveTo(-94, -22, -80, -98)
-  g.quadraticCurveTo(-72, -146, -28, -130)
-  g.quadraticCurveTo(-58, -120, -58, -92)
-  g.quadraticCurveTo(-60, -46, -20, -42).closePath()
-  g.fill(fur).stroke({ width: 4, color: furDark })
-  // Fötter.
-  g.ellipse(-14, -6, 14, 9).fill(furDark)
-  g.ellipse(14, -6, 14, 9).fill(furDark)
-  // Armar (bakom kroppen så tassarna sticker fram vid sidorna).
-  g.roundRect(-35, -74, 12, 34, 6).fill(fur).stroke({ width: 3, color: furDark })
-  g.roundRect(23, -74, 12, 34, 6).fill(fur).stroke({ width: 3, color: furDark })
-  // Kropp.
-  g.ellipse(0, -50, 31, 44).fill(fur).stroke({ width: 4, color: furDark })
-  g.ellipse(0, -44, 19, 29).fill(belly)
-  // Öron + huvud.
-  g.ellipse(-19, -116, 10, 14).fill(fur).stroke({ width: 3, color: furDark })
-  g.ellipse(19, -116, 10, 14).fill(fur).stroke({ width: 3, color: furDark })
-  g.circle(0, -100, 28).fill(fur).stroke({ width: 4, color: furDark })
-  g.ellipse(0, -90, 15, 11).fill(belly)
-  g.circle(-10, -104, 5).fill(0x2b2b2b)
-  g.circle(10, -104, 5).fill(0x2b2b2b)
-  g.circle(-8, -106, 2).fill(0xffffff)
-  g.circle(12, -106, 2).fill(0xffffff)
-  g.ellipse(0, -93, 5, 4).fill(0x2b2b2b)
-  // moveTo före arc — annars drar Pixi v8 ett streck från origo till munnens start.
-  const a0 = 0.15 * Math.PI
-  g.moveTo(9 * Math.cos(a0), -89 + 9 * Math.sin(a0))
-  g.arc(0, -89, 9, a0, 0.85 * Math.PI).stroke({ width: 3, color: 0x2b2b2b, cap: 'round' })
-  g.eventMode = 'none'
-
-  const cheeks = new Graphics()
-  cheeks.circle(-19, -95, 7).fill(0xef8fa4)
-  cheeks.circle(19, -95, 7).fill(0xef8fa4)
-  cheeks.alpha = 0.35
-  cheeks.eventMode = 'none'
-
-  c.addChild(g, cheeks)
-  c._cheeks = cheeks
-  return c
-}

@@ -14,6 +14,7 @@ import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
+import { makeElvira } from '../../lib/figurer.js'
 import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
@@ -588,54 +589,3 @@ export default {
   },
 }
 
-// Elvira, ritad och stående — inte en 🧒-emoji. Origo = marken mellan fötterna
-// (y=0), figuren växer uppåt till ca y=-106 så namnskylten på -104 inte krockar.
-// wiggle/pop tweenar containern; pivot i fötterna gör att hon studsar från marken.
-function makeElvira() {
-  const c = new Container()
-  c.eventMode = 'none'
-  c.interactiveChildren = false
-
-  const skin = 0xffe0b2
-  const skinDark = 0xe7c193
-  const hair = 0xf6cb45
-  const hairDark = lerpColor(hair, 0x000000, 0.22)
-  const dress = COLORS.teal
-  const dressDark = lerpColor(COLORS.teal, 0x000000, 0.2)
-  const ink = 0x4a3526
-
-  const g = new Graphics()
-  // skor
-  g.ellipse(-11, -5, 12, 7).fill(0xe0574f)
-  g.ellipse(11, -5, 12, 7).fill(0xe0574f)
-  // ben
-  g.roundRect(-15, -32, 9, 27, 4).fill(skin)
-  g.roundRect(6, -32, 9, 27, 4).fill(skin)
-  // klänning (smal axel → vid fåll)
-  g.moveTo(-15, -70).lineTo(-26, -28).lineTo(26, -28).lineTo(15, -70).closePath()
-  g.fill(dress).stroke({ width: 4, color: dressDark })
-  // armar
-  g.roundRect(-26, -68, 8, 30, 4).fill(skin).stroke({ width: 3, color: skinDark })
-  g.roundRect(18, -68, 8, 30, 4).fill(skin).stroke({ width: 3, color: skinDark })
-  // tofsar bakom huvudet
-  g.ellipse(-22, -84, 8, 15).fill(hair).stroke({ width: 3, color: hairDark })
-  g.ellipse(22, -84, 8, 15).fill(hair).stroke({ width: 3, color: hairDark })
-  // huvud + lugg
-  g.circle(0, -84, 22).fill(skin).stroke({ width: 4, color: skinDark })
-  g.ellipse(0, -101, 23, 12).fill(hair).stroke({ width: 3, color: hairDark })
-  // ansikte
-  g.circle(-12, -80, 4).fill({ color: COLORS.pink, alpha: 0.55 })
-  g.circle(12, -80, 4).fill({ color: COLORS.pink, alpha: 0.55 })
-  g.circle(-7, -86, 3).fill(ink)
-  g.circle(7, -86, 3).fill(ink)
-  // moveTo före arc, annars drar Pixi v8 ett streck från origo till munnens start
-  const a0 = 0.15 * Math.PI
-  g.moveTo(8 * Math.cos(a0), -81 + 8 * Math.sin(a0))
-  g.arc(0, -81, 8, a0, 0.85 * Math.PI).stroke({ width: 3, color: ink, cap: 'round' })
-  // hårsnoddar
-  g.circle(-21, -92, 4).fill(COLORS.pink)
-  g.circle(21, -92, 4).fill(COLORS.pink)
-
-  c.addChild(g)
-  return c
-}

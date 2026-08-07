@@ -22,7 +22,8 @@ import { PhysicsWorld, Body, predictTrajectory } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
 import { Button } from '../../lib/Button.js'
-import { bigCelebration, puff, sparkle, pop, breathe, ripple } from '../../lib/feedback.js'
+// bigCelebration medvetet BORTA: vinsten är Elviras egen galopp över regnbågen (grindpunkt 7).
+import { puff, sparkle, pop, breathe, ripple } from '../../lib/feedback.js'
 import { COLORS, FONT, DESIGN_W } from '../../lib/theme.js'
 
 // --- Layout (designkoordinater 1280×720) ---------------------------------
@@ -204,6 +205,14 @@ export default {
     this._rainbowTween = breathe(this._rainbow, { scale: 1.06, duration: 1.3 })
     this._tweens.push(this._rainbowTween)
 
+    // Fölet väntar vid regnbågens högra fot och andas i vila — mottagaren som gör målet
+    // till NÅGON, inte bara en plats. Flyttas med målet i _loadLevel.
+    this._foal = makeFoal()
+    this._root.addChild(this._foal)
+    this._placeFoal()
+    this._foalBreathe = breathe(this._foal, { scale: 1.05, duration: 1.6 })
+    this._tweens.push(this._foalBreathe)
+
     // Lager för ädelstenar (byggs om per nivå).
     this._gemLayer = new Container()
     this._gemLayer.eventMode = 'none'
@@ -271,7 +280,9 @@ export default {
       const view = makeCloudView()
       view.eventMode = 'static'
       view.cursor = 'pointer'
-      view.hitArea = new Rectangle(-CLOUD_W / 2 - 22, -CLOUD_H / 2 - 22, CLOUD_W + 44, CLOUD_H + 44)
+      // Halo 26 (inte 22): molnet är bara 46px högt, så 22 gav 90px träffyta — 6px under
+      // P0:s 96px-golv. 26 ger 98×184. Hittad av spelkritiker, utanför rundans scope men P0.
+      view.hitArea = new Rectangle(-CLOUD_W / 2 - 26, -CLOUD_H / 2 - 26, CLOUD_W + 52, CLOUD_H + 52)
       const cloud = { view, home: { x: 0, y: 0 }, body: null, placed: false }
       const onDown = (e) => this._cloudDown(ctx, cloud, e)
       cloud._onDown = onDown
@@ -352,6 +363,9 @@ export default {
     // Regnbåge.
     this._goalPos = { x: cfg.goal.x, y: cfg.goal.y }
     this._rainbow.position.set(cfg.goal.x, cfg.goal.y)
+    this._rainbow.alpha = 1
+    if (this._rainbow._wstar && !this._rainbow._wstar.destroyed) this._rainbow._wstar.scale.set(1)
+    this._placeFoal()
 
     // Vikt + vind nollställs (lätt, lugnt).
     this._applyWeight(0, true)
@@ -879,42 +893,145 @@ export default {
 
     const goal = this._goalPos
     ctx.services.audio.sfx('reveal')
-    ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say('Bra! Elvira nådde regnbågen!')
 
     const v = this._elvira
     gsap.killTweensOf(v)
     gsap.killTweensOf(v.scale)
-    const st = { x: v.x, y: v.y }
-    this._winTween = gsap.to(st, {
-      x: goal.x, y: goal.y - 10, duration: 0.4, ease: 'power2.out',
-      onUpdate: () => {
-        if (!this._alive || v.destroyed) {
-          this._winTween?.kill()
-          return
-        }
-        v.x = st.x
-        v.y = st.y
-      },
-    })
     if (!v.destroyed) pop(this._elvira, { scale: 1.25 })
 
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
-    puff(ctx.fxLayer, goal.x, goal.y, { count: 16 })
-    sparkle(ctx.fxLayer, goal.x, goal.y, { count: 10 })
+    // Elvira-SPECIFIK finish (ersätter generisk bigCelebration): hon galopperar i en båge
+    // ÖVER regnbågen, drar ett glitterspår, regnbågen tänds under henne och fölet vid foten
+    // hoppar upp och möter henne. Se _galloppOverRainbow.
+    this._gallopOverRainbow(ctx, goal)
 
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('rounds', (ctx.progress.get().custom?.rounds || 0) + 1)
     ctx.progress.complete()
 
-    this._loadTimer = gsap.delayedCall(1.9, () => {
+    this._loadTimer = gsap.delayedCall(3.1, () => {
       if (this._alive) this._loadLevel(this._level)
     })
   },
 
+  // Galoppen: hon åker längs regnbågens egen båge (samma parametrisering som makeRainbow,
+  // a = 0..π ger vänster fot → krön → höger fot) på radien RIDE_R, alltså strax OVANFÖR
+  // bandet. Varje åttondel av bågen spelar nästa ton i en pentatonisk skala, så själva
+  // galoppen ÄR melodin — inte en blipp ovanpå.
+  _gallopOverRainbow(ctx, goal) {
+    const v = this._elvira
+    if (!v || v.destroyed) return
+    const RIDE_R = 142 // baseR 116 + hennes halva höjd
+    const PENTA = [523, 587, 659, 784, 880, 1047, 1175, 1319]
+    const st = { p: 0 }
+    let lastStep = -1
+    let lastSpark = 0
+
+    // Regnbågen tänds medan hon rider över den.
+    if (this._rainbow && !this._rainbow.destroyed) {
+      const glowTw = gsap.to(this._rainbow, {
+        alpha: 1, duration: 0.3, ease: 'sine.out',
+        onStart: () => { if (this._rainbow && !this._rainbow.destroyed) this._rainbow.alpha = 0.82 },
+      })
+      this._tweens.push(glowTw)
+      const star = this._rainbow._wstar
+      if (star && !star.destroyed) {
+        gsap.killTweensOf(star.scale)
+        const starTw = gsap.to(star.scale, { x: 1.9, y: 1.9, duration: 0.42, yoyo: true, repeat: 3, ease: 'sine.inOut' })
+        this._tweens.push(starTw)
+      }
+    }
+
+    // Hoppa fram till vänster fot först, annars startar galoppen i ett hopp i luften.
+    const entry = { x: v.x, y: v.y }
+    const startX = goal.x - RIDE_R
+    const startY = goal.y
+    const inTw = gsap.to(entry, {
+      x: startX, y: startY, duration: 0.32, ease: 'power2.inOut',
+      onUpdate: () => {
+        if (!this._alive || v.destroyed) { inTw.kill(); return }
+        v.x = entry.x
+        v.y = entry.y
+      },
+      onComplete: () => {
+        if (!this._alive || v.destroyed) return
+        ctx.services.audio.sample('djur_hast') || ctx.services.voice.say('Ijaaa!')
+        this._winTween = gsap.to(st, {
+          p: 1, duration: 1.5, ease: 'sine.inOut',
+          onUpdate: () => {
+            if (!this._alive || v.destroyed) { this._winTween?.kill(); return }
+            const a = st.p * Math.PI
+            // Klampad i x: regnbågens högra fot ligger utanför 1280 på höga nivåer
+            // (goal.x når 1170, foten 1286), och då hade hon galopperat ut ur bild.
+            v.x = clamp(goal.x - RIDE_R * Math.cos(a), 60, DESIGN_W - 62)
+            v.y = goal.y - RIDE_R * Math.sin(a)
+            // Lutar med bågen så hon ser ut att FÖLJA den, inte sväva längs den.
+            v.rotation = -Math.cos(a) * 0.5
+            const step = Math.min(PENTA.length - 1, Math.floor(st.p * PENTA.length))
+            if (step !== lastStep) {
+              lastStep = step
+              ctx.services.audio.tone({ freq: PENTA[step], dur: 0.18, type: 'triangle', vol: 0.32 })
+            }
+            if (st.p - lastSpark > 0.09) {
+              lastSpark = st.p
+              sparkle(ctx.fxLayer, v.x, v.y + 8, { count: 3 })
+            }
+          },
+          onComplete: () => {
+            if (!this._alive || v.destroyed) return
+            v.rotation = 0
+            pop(v, { scale: 1.2 })
+            this._foalGreets(ctx, goal)
+          },
+        })
+        this._tweens.push(this._winTween)
+      },
+    })
+    this._tweens.push(inTw)
+  },
+
+  // Fölet vid regnbågens fot hoppar upp och nosar på Elvira — mottagaren som tar emot henne.
+  _foalGreets(ctx, goal) {
+    const f = this._foal
+    const fx = f && !f.destroyed ? f.x : goal.x - 150
+    const fy = f && !f.destroyed ? f.y : goal.y
+    puff(ctx.fxLayer, fx, fy, { count: 12 })
+    sparkle(ctx.fxLayer, fx, fy - 30, { count: 10 })
+    ctx.services.audio.sfx('correct')
+    ctx.services.audio.sfx('celebrate')
+    if (!f || f.destroyed) return
+    gsap.killTweensOf(f)
+    gsap.killTweensOf(f.scale)
+    const base = f.y
+    const hop = gsap.to(f, {
+      y: base - 34, duration: 0.24, ease: 'power2.out', yoyo: true, repeat: 3,
+      onUpdate: () => { if (!this._alive || f.destroyed) hop.kill() },
+      onComplete: () => { if (this._alive && !f.destroyed) f.y = base },
+    })
+    this._tweens.push(hop)
+    const sq = gsap.to(f.scale, { x: 1.15, y: 0.9, duration: 0.16, yoyo: true, repeat: 3, ease: 'sine.inOut' })
+    this._tweens.push(sq)
+  },
+
   // ---- Hjälpare -----------------------------------------------------------
+
+  // Fölet står på MARKEN under regnbågen och tittar upp. Tre placeringar föll först:
+  // höger fot (Elvira dolde det vid landningen), vänster fot (dolde det vid STARTEN — hela
+  // bågen är hennes bana), och en fast offset under målet (regnbågen stiger med nivån, så
+  // fölet blev svävande på nivå 8). Marken är den enda punkt som är oberoende av både bågen
+  // och nivån: avståndet till hennes bana är minst GROUND_TOP − goal.y ≈ 150–370px.
+  _placeFoal() {
+    const f = this._foal
+    if (!f || f.destroyed) return
+    const g = this._goalPos
+    // x-fönstret 570–820 är den enda fria grässträckan: molnfacket äger 70–540 och
+    // vikt-växlaren börjar vid 862 (Hoppa! vid 1150). Rakt under regnbågen stod fölet
+    // bakom kontrollpanelen — bara huvudet stack upp.
+    f.position.set(clamp(g.x - 290, 570, 820), GROUND_TOP + 14)
+    f.rotation = 0
+    f.scale.set(1)
+  },
 
   _removeElviraBody() {
     if (this._elviraBody) {
@@ -1186,8 +1303,45 @@ function makeRainbow() {
   star.position.set(0, -44)
   star.eventMode = 'none'
   c.addChild(star)
+  // Eget prefix — `_cx/_cy/_sx/_sy` är Container-transformens interna cache och får ALDRIG
+  // återanvändas som egna fält (snöbollens osynliga snöfält).
+  c._wstar = star
 
   c.eventMode = 'none'
+  return c
+}
+
+// Fölet som väntar vid regnbågens fot — mottagaren. Ritad varelse med egen siluett
+// (P0 ASSETS), samma pastellpalett som Elvira men mindre, rundare och utan horn.
+function makeFoal() {
+  const c = new Container()
+  const tail = new Graphics().roundRect(-34, -10, 18, 6, 3).fill(0xffc7e2)
+  tail.rotation = 0.3
+  c.addChild(tail)
+  const legs = new Graphics()
+  legs.roundRect(-16, 10, 9, 20, 4).fill(0xfff1f8)
+  legs.roundRect(5, 11, 9, 20, 4).fill(0xfff1f8)
+  legs.roundRect(-17, 27, 11, 6, 3).fill(0xf3d9ea)
+  legs.roundRect(4, 28, 11, 6, 3).fill(0xf3d9ea)
+  c.addChild(legs)
+  const body = new Graphics().roundRect(-28, -12, 52, 32, 16).fill(0xfff6fb).stroke({ width: 3, color: 0xffd6ea })
+  c.addChild(body)
+  const head = new Graphics().circle(24, -18, 17).fill(0xfff6fb).stroke({ width: 3, color: 0xffd6ea })
+  c.addChild(head)
+  const snout = new Graphics().ellipse(37, -12, 8, 6).fill(0xffeaf4)
+  snout.circle(40, -11, 1.8).fill(0xe79bc0)
+  c.addChild(snout)
+  const ear = new Graphics().moveTo(18, -32).lineTo(23, -44).lineTo(28, -31).fill(0xfff6fb)
+  c.addChild(ear)
+  const mane = new Graphics()
+  mane.roundRect(6, -34, 9, 20, 4).fill(0xffc7e2)
+  mane.roundRect(13, -38, 9, 16, 4).fill(0xb487ff)
+  c.addChild(mane)
+  const eye = new Graphics().circle(29, -21, 4.2).fill(0x3a2b35)
+  eye.circle(30.5, -22.5, 1.6).fill(0xffffff)
+  c.addChild(eye)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
   return c
 }
 

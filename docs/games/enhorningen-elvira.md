@@ -1,5 +1,5 @@
 # Enhörningen Elvira (`enhorningen-elvira`)
-> ⚙️ fysik · mixed · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · mixed · 3–5 år · status: ✅ marknadsklar (2026-08-07)
 
 ## 1. Nuläge (sett som spelare)
 
@@ -96,8 +96,15 @@ Allt programmatiskt, exit-säkert.
   och nya banan, så orsak-verkan blir tydlig utan läsning.
 
 ### Karaktär & berättelse
-- **[Deep] Elvira-specifik finish.** Vid mål: hon galopperar i en båge över regnbågen, släpper
-  ett kort glitter-/regnbågsspår, en kompis (Bobo/föl) möter henne — ersätt generisk konfetti.
+- ~~**[Deep] Elvira-specifik finish.**~~ ✅ 2026-08-07 — **den här omgången.** Hon hoppar fram
+  till regnbågens vänstra fot, gnäggar (riktigt `djur_hast`-sample) och **galopperar längs
+  regnbågens egen båge** över krönet — samma parametrisering som `makeRainbow` ritar bandet
+  med, på radien 142 mot bandets 116, så hon rider ovanpå den och lutar med den. Varje
+  åttondel av bågen spelar nästa ton i en pentatonisk skala — galoppen ÄR melodin.
+  Glitterspår längs vägen, regnbågen tänds, krönstjärnan flarar, och ett **föl** på gräset
+  (`makeFoal`, ritad varelse) hoppar och möter henne. Spelets egen `bigCelebration` borttagen
+  (skalets klistermärkes-firande i `GameHost.js:32` är kvar — det ska alla spel ha).
+  Mätt med `scripts/_elviraprobe.mjs`: **10/10**.
 - **[Quick] Elvira reagerar i luften** (glad min vid ädelsten, "ojj" vid väggstuds).
 
 ### Ljud
@@ -130,3 +137,32 @@ Allt programmatiskt, exit-säkert.
   Struken. **Kvar och äkta öppen:** [Deep] Elvira-specifik finish — vinsten är fortfarande en
   0,4 s förflyttning till målet + `pop` + generisk `bigCelebration` (`index.js:890-905`),
   ingen galopp över regnbågen. Spelet står därför kvar som 🔧, nu på rätt grund.
+- 2026-08-07 ✅ **Poleringsomgång: Elvira-specifik finish.** Spelets sista äkta [Deep]-punkt.
+  Vinsten var förut 0,4 s förflyttning + `pop` + samma `bigCelebration` som alla andra 70 spel.
+  Nu: galopp längs regnbågens egen båge med pentatonisk skala per åttondel, glitterspår,
+  tänd regnbåge, flarande krönstjärna och ett föl som möter henne. Se §4.
+  - **Fölets placering tog fyra försök — och tre av dem var osynliga i ett grönt test.**
+    (1) Höger fot: Elvira ritas efter fölet och **dolde det helt vid landningen** (10 px
+    center-till-center). Hittat av `spelkritiker`, inte av sonden — min första sond mätte att
+    fölet fanns och låg innanför skärmen, inte att det SYNTES när hon kom fram.
+    (2) Vänster fot: flyttade bara krocken till galoppens *start*, som börjar där. Mätt: 28 px.
+    (3) Fast offset under målet: regnbågen stiger med nivån (`gy` 470→250), så fölet blev
+    svävande på nivå 8. (4) **Marken** — den enda punkt som är oberoende av både bågen och
+    nivån. Mätt efter: minsta avstånd **206 px** (nivå 0) och **442 px** (nivå 8).
+  - **x-fönstret 570–820.** Rakt under regnbågen står fölet **bakom kontrollpanelen** — bara
+    huvudet stack upp över gräskanten. Molnfacket äger 70–540 och vikt-växlaren börjar vid 862.
+    Detta syntes bara i skärmdumpen; sonden var grön.
+  - **Sonden testade fel nivå i tre körningar.** `goal.x` vandrar 1010→1170, så högra
+    regnbågsfoten (1286) hamnar utanför 1280-ytan och galoppen red ut ur bild — men bara på
+    höga nivåer. Att sätta `highestLevel` via `localStorage` + reload räckte inte: `SaveService`
+    flushar sitt eget doc vid pagehide och skrev tillbaka den gamla nivån, så "hög nivå"-passet
+    körde i själva verket nivå 1. Sonden skriver nu i den **levande** `SaveService`-instansen.
+    Elviras x klampas dessutom till `DESIGN_W - 62`.
+  - **P0-fix utanför rundans scope:** molnens träffyta var `CLOUD_H + 44` = **90 px**, 6 px
+    under P0:s 96 px-golv (hittad av `spelkritiker`). Halon höjd 22 → 26 = 98×184 px.
+  - **Mätt:** `scripts/_elviraprobe.mjs` **10/10** på både nivå 0 och nivå 8 · `npm run check`
+    0/0 · `npm run test:all` **71/71** · 0 fynd i `.test-logs/enhorningen-elvira.json`.
+  - `spelkritiker`: inga blockerare utöver fölet ovan; alla 7 grindpunkter håller.
+    **Kvalitet 🔧 → ✅.**
+  - Kvar som [Quick]/[Medium] i §4: fölet borde reagera under spelets gång (inte bara vid
+    vinst), galoppen saknar gångart/studs (ren cirkelrörelse), stjärn-kluster, riktiga SFX-klipp.

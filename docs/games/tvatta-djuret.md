@@ -1,5 +1,5 @@
 # Tvätta Djuret (`tvatta-djuret`)
-> ⚙️ motorik · drag · 2–4 år · status: 🔧 förbättringar pågår
+> ⚙️ motorik · drag · 2–4 år · status: ✅ marknadsklar (2026-08-07)
 
 ## 1. Nuläge (sett som spelare)
 
@@ -74,8 +74,14 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
 - **[Medium] Ge svampen materialitet.** Låt svampen samla brun lera (blir smutsig), och låt
   duschen även skölja svampen ren — ett litet extra orsak-verkan-moment som motiverar
   två-verktygs-flödet bortom en upplåsningsgräns.
-- **[Deep] Smutsiga zoner med olika behov.** Torr lera (skrubba), kladdig lera (skölj först,
-  sen skrubba), tovor (kamma) — då blir *vilket* verktyg var ett litet val, inte samma svep.
+- ~~**[Deep] Smutsiga zoner med olika behov.**~~ ✅ 2026-08-07 — **den här omgången.** Två
+  lersorter: **torr lera** (varm brun, matt) skrubbas som förut, **kladdlera** (kall skiffer-
+  blå, blank dager + rinnande droppe) biter svampen inte på — den måste **sköljas mjuk** med
+  duschen först, sen skrubbas. Kladden ligger i 1–3 **zoner** på kroppen (inte utspridda
+  prickar), andelen växer med nivån med tak, och nivå 0 är helt kladdfri så svampen lärs in
+  ensam. Duschen är inte längre låst bakom 70 %-regeln när kladd finns. Mätt med
+  `scripts/_tvattprobe.mjs`: **8/8**. *(Tovor/kamma byggdes inte — två material räcker för
+  att göra valet äkta, ett tredje verktyg hade blivit mer att lära sig utan mer djup.)*
 
 ### Variation & överraskning
 - **[Quick] Gömda fynd under leran.** Ibland en fläck som döljer ett hjärta/⭐/en fästing-
@@ -142,3 +148,32 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   "Smutsiga zoner med olika behov" — koden kräver i dag båda verktygen *globalt*
   (`renhet = 0.6·skrubbat + 0.4·sköljt`, filhuvudet `:3-8`), men leran är enhetlig: ingen zon
   kräver skölj-först-sen-skrubba. Valet är alltså "gör båda", inte "läs fläcken". 🔧 kvarstår.
+- 2026-08-07 ✅ **Poleringsomgång: kladdlera gör verktygsvalet äkta.** Spelets sista äkta
+  [Deep]-punkt. Förut krävdes båda verktygen *globalt* (`renhet = 0,6·skrubbat + 0,4·sköljt`)
+  men aldrig ett val om VILKET verktyg som skulle användas VAR — det var samma svep två gånger.
+  - **Kladdlera** (`kind: 'klibb'`): svampen biter inte. Klumpen guppar segt, en egen låg
+    seg ton (inte samma `soft` som en lyckad skrubb — örat ska höra skillnad utan att titta),
+    och ett tips på sin höjd var 2,6 s. Ingen summer, inget kryss, **mätaren går aldrig bakåt**.
+    Duschen mjukar upp den till vanlig lera, och då biter svampen.
+  - **Zoner, inte prickar.** Första versionen slumpade kladd i.i.d. per ruta — `spelkritiker`
+    påpekade att det läste "prickigt" snarare än "ett annat material HÄR", och då är det inget
+    verkligt val. Nu 1–3 zoner per djur (`_genZones`), aldrig över ansiktet.
+  - **Färgen är vald mot en krock:** `DARKMUD` betyder redan "dubbelt lager, skrubba två
+    gånger". Mörkbrun kladd hade alltså burit två olika regler i nästan samma färg — därför
+    kall skifferblå med blank dager. Syns tydligt i `.test-shots/_tvatt-kladd.png`.
+  - **Blockerare från `spelkritiker`, åtgärdad:** `_idleCue` valde närmaste fläck oavsett sort
+    och sa alltid "dra svampen". På en bana med upp till 40 % kladd kunde spelets **egen hjälp
+    säga fel handling** i precis det ögonblick barnet pausat. Den filtrerar nu på torr lera,
+    och pekar på duschen när bara kladd är kvar.
+  - **P0 MOTGÅNG hålls:** tak på andelen, nivå 0 kladdfri, duschen olåst direkt när kladd finns
+    (annars vore fläckarna olösbara), och `_autoHelp` mjukar upp en fläck OCH tar bort en annan
+    torr i samma tick — så sekvensen syns som två handlingar och något försvinner ändå varje
+    tick, även för ett barn som pausar.
+  - **Mätt:** `scripts/_tvattprobe.mjs` **8/8** (nivå 0 kladdfri · nivå 4 = 31 % kladd, under
+    taket · duschen klar direkt · skrubb på kladd ändrar varken antal eller mätare · dusch
+    mjukar 39→15 · svampen biter efter · auto-hjälpen fastnar inte · 0 konsolfel vid exit) ·
+    `npm run check` 0/0 · `npm run test:all` **71/71**. Kvar i loggen: samma pre-existerande
+    `tryck-utan-ljud`-varning som före omgången (varning, inte fel).
+  - `spelkritiker`: inga blockerare kvar. **Kvalitet 🔧 → ✅.**
+  - Kvar som [Quick]/[Medium] i §4: svampen borde bli smutsig, gömda fynd under leran,
+    före/efter-miniatyr, rinnande skum, riktiga SFX-klipp (väntar på MOSS).

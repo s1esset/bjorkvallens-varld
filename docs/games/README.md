@@ -105,7 +105,7 @@ i stället för att avfyra skottet åt barnet (`_offerAssist` + Skjut!-knapp, no
 | 39 | Spindelhjälten | `spindelhjalten` | drag | ✅ | ✅ |
 | 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | ✅ | ✅ |
 | 44 | Valpens Bajs | `valpens-bajs` | mixed | ✅ | ✅ |
-| 46 | Tvätta Djuret | `tvatta-djuret` | drag | 🔧 | ✅ |
+| 46 | Tvätta Djuret | `tvatta-djuret` | drag | ✅ | ✅ |
 | 48 | Gungan | `gungan` | tap | ✅ | ✅ |
 | 50 | Spindelnätet | `spindelnatet` | tap | ✅ | ✅ |
 | 52 | Fallskärmen | `fallskarmen` | drag | ✅ | ✅ |

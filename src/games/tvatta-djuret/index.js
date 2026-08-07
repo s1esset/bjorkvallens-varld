@@ -36,6 +36,15 @@ const FACE_Y = 330
 const FACE_R = 82 // lerfri ruta runt ansiktet så minen ALLTID syns under tvätten
 const MUD = 0x8a5a3b // lera (== COLORS.brown)
 const DARKMUD = 0x6b4429 // mörkare lera (prickar + dubbel-lager)
+// KLADDLERA: blöt, blank och seg. Svampen biter inte på den — den måste sköljas MJUK först,
+// sen skrubbas. Det är det som gör *vilket* verktyg till ett val i stället för samma svep två
+// gånger. Egen färg + blank dager + en rinnande droppe = läsbart utan ett ord text.
+// KALL slate, inte mörkbrun: DARKMUD (0x6b4429) betyder redan "dubbelt lager, skrubba två
+// gånger". En mörkbrun kladd hade alltså burit två olika regler i nästan samma färg. Kall
+// gråblå + stark blank dager läser "blöt och seg" mot den varma leran.
+const CLAY = 0x4f5b64
+const CLAY_GLOSS = 0xbcd6de
+const STICKY_HINT_MS = 2600 // hur ofta kladd-tipset får upprepas (aldrig tjat)
 
 // Djurtyper per nivå.
 const TYPES = [
@@ -73,6 +82,7 @@ export default {
     this._face = null // ansikts-emoji (djurets min) — reagerar på beröring
     this._lastScrubPt = null // för "kittlad"-hopp när man gnuggar samma ställe
     this._tweens = []
+    this._zones = [] // kladd-zoner, sätts per runda i _genZones
     this._totalMud = 0
     this._scrubbed = 0
     this._rinsed = 0
@@ -252,6 +262,9 @@ export default {
     this._scrubCount = 0
     this._firstScrub = false
     this._firstRinse = false
+    this._firstSoften = false
+    this._lastStickyHint = 0
+    this._lastStickySnd = 0
     this._showerReady = false
     this._idle = 0
     this._noProgress = 0
@@ -268,7 +281,9 @@ export default {
     ]
 
     this._drawClean(t)
+    this._genZones()
     this._genMud(t)
+    this._hasSticky = this._flakes.some((f) => f.kind === 'klibb')
 
     // Duschen åter inaktiv/dim tills ~70 % skrubbat.
     this._showerFade?.kill()
@@ -278,6 +293,8 @@ export default {
     gsap.killTweensOf(this._shower.view.scale)
     this._shower.view.scale.set(1)
     this._shower.view.alpha = 0.45
+    // Finns kladdlera på banan är duschen INTE låst bakom 70 %-regeln — den behövs direkt.
+    if (this._hasSticky) this._revealShower(ctx)
 
     // Svampen andas som "börja här".
     this._sponge._breatheTween?.kill()
@@ -343,6 +360,25 @@ export default {
     return false
   },
 
+  // 1–3 kladd-zoner på djurets kropp. Antalet växer med nivån och har ett TAK (P0 MOTGÅNG:
+  // hindret får sakta ner, aldrig stoppa; bara så mycket kan gå fel samtidigt). Nivå 0 får
+  // noll zoner — svampen ska läras in ensam först.
+  _genZones() {
+    this._zones = []
+    if (this._level <= 0) return
+    const n = Math.min(3, 1 + Math.floor(this._level / 2))
+    for (let i = 0; i < n; i++) {
+      const s = this._silh[Math.floor(Math.random() * this._silh.length)]
+      const a = Math.random() * Math.PI * 2
+      const d = Math.random() * 0.55
+      const x = s.cx + Math.cos(a) * s.rx * d
+      const y = s.cy + Math.sin(a) * s.ry * d
+      // Aldrig över ansiktet — minen ska alltid synas (samma regel som lerrutorna).
+      if (Math.hypot(x - FACE_X, y - FACE_Y) < FACE_R + 40) continue
+      this._zones.push({ x, y, r: 62 + Math.random() * 34 })
+    }
+  },
+
   _genMud(t) {
     const bb = this._bbox()
     const step = t.step
@@ -355,6 +391,11 @@ export default {
         // Håll en lerfri ruta runt ansiktet — minen ska alltid synas.
         if (Math.hypot(jx - FACE_X, jy - FACE_Y) < FACE_R) continue
         const need = t.doubles && Math.random() < 0.3 ? 2 : 1
+        // Kladden ligger i ZONER, inte som slumpprickar: en fläck är kladdig om den ligger
+        // inne i en av rundans kladd-zoner (satta i _genZones). I.i.d.-slump per ruta gav
+        // enstaka grå prickar mitt i brunt — det läste "prickigt", inte "ett annat material
+        // HÄR", och då är det inget verkligt val var man tar vilket verktyg.
+        const sticky = this._zones.some((z) => Math.hypot(jx - z.x, jy - z.y) < z.r)
         const r = 24 + Math.random() * 6
         const view = new Graphics()
         view.eventMode = 'none'
@@ -366,6 +407,7 @@ export default {
           y: jy,
           r,
           need,
+          kind: sticky ? 'klibb' : 'torr',
           hits: 0,
           _clean: false,
           _lastHit: 0,
@@ -393,6 +435,15 @@ export default {
     const g = flake.view
     if (!g || g.destroyed) return
     g.clear()
+    if (flake.kind === 'klibb') {
+      // Blank kladd: mörkare bas, ljus dager uppe till vänster och en droppe som rinner.
+      g.circle(0, 0, flake.r).fill(CLAY)
+      for (const b of flake.bumps) g.circle(b.x, b.y, b.r).fill(CLAY)
+      g.ellipse(-flake.r * 0.28, -flake.r * 0.34, flake.r * 0.4, flake.r * 0.24).fill({ color: CLAY_GLOSS, alpha: 0.9 })
+      g.circle(flake.r * 0.16, flake.r * 0.72, flake.r * 0.26).fill(CLAY)
+      g.circle(flake.r * 0.16, flake.r * 0.96, flake.r * 0.15).fill(CLAY)
+      return
+    }
     g.circle(0, 0, flake.r).fill(color)
     for (const b of flake.bumps) g.circle(b.x, b.y, b.r).fill(color)
     for (const d of flake.dots) g.circle(d.x, d.y, d.r).fill(DARKMUD)
@@ -551,12 +602,20 @@ export default {
     if (this._resolving || !this._alive) return
     const now = performance.now()
     let did = false
+    let stuck = null // rörde svampen kladdlera? (då behövs duschen först)
     for (const f of this._flakes) {
       if (f._clean) continue
       const dx = f.x - p.x
       const dy = f.y - p.y
       if (dx * dx + dy * dy > radius * radius) continue
       if (now - f._lastHit < 180) continue
+      // Kladdlera går inte att skrubba bort — den KLIBBAR fast och guppar bara. Roligt,
+      // aldrig en tillsägelse: ingen summer, inget kryss, mätaren rör sig inte bakåt.
+      if (f.kind === 'klibb') {
+        stuck = f
+        this._wobbleFlake(f)
+        continue
+      }
       f._lastHit = now
       f.hits += 1
       if (f.hits < f.need) {
@@ -574,7 +633,25 @@ export default {
       }
       did = true
     }
-    if (!did) return
+    if (!did) {
+      // Bara kladd under svampen: visa VARFÖR och peka på duschen — en gång i taget.
+      if (stuck) {
+        this._idle = 0
+        this._revealShower(ctx)
+        if (now - (this._lastStickySnd || 0) > 320) {
+          this._lastStickySnd = now
+          // EGEN låg, seg ton — inte samma `soft` som en lyckad skrubb. Örat ska kunna
+          // höra skillnad på "det lossnade" och "den sitter fast" utan att titta.
+          ctx.services.audio.tone({ freq: 180, dur: 0.13, type: 'sine', vol: 0.3, slideTo: 148 })
+        }
+        if (now - (this._lastStickyHint || 0) > STICKY_HINT_MS) {
+          this._lastStickyHint = now
+          ctx.services.voice.say('Den är kladdig! Skölj den med duschen först.')
+          this._pulseShower()
+        }
+      }
+      return
+    }
     this._idle = 0
     // Minen reagerar: kittlat hopp om man gnuggar samma ställe, annars njutande puls.
     const lp = this._lastScrubPt
@@ -644,6 +721,25 @@ export default {
   _rinseAt(ctx, p, radius) {
     if (this._resolving || !this._alive) return
     let did = false
+    // Duschen MJUKAR UPP kladdlera till vanlig lera — svampen biter sen. Det är hela
+    // poängen med två verktyg: ordningen spelar roll på just de här fläckarna.
+    let softened = 0
+    for (const f of this._flakes) {
+      if (f._clean || f.kind !== 'klibb') continue
+      const dx = f.x - p.x
+      const dy = f.y - p.y
+      if (dx * dx + dy * dy > radius * radius) continue
+      f.kind = 'torr'
+      this._paintFlake(f, f.need > f.hits + 1 ? DARKMUD : MUD)
+      sparkle(ctx.fxLayer, f.x, f.y)
+      this._wobbleFlake(f)
+      softened += 1
+      did = true
+    }
+    if (softened && !this._firstSoften) {
+      this._firstSoften = true
+      ctx.services.voice.say('Nu blev den mjuk! Ta svampen.')
+    }
     for (const f of this._foam) {
       if (f._rinsed) continue
       const dx = f.x - p.x
@@ -682,12 +778,35 @@ export default {
   _maybeRevealShower(ctx) {
     if (this._showerReady || this._totalMud === 0) return
     if (this._scrubbed / this._totalMud < 0.7) return
+    this._revealShower(ctx, 'Bra! Ta duschen och skölj.')
+  },
+
+  // Duschen tänds. Finns kladdlera på banan MÅSTE den vara tillgänglig direkt — annars
+  // låser 70 %-regeln bort det enda verktyg som biter på just de fläckarna.
+  _revealShower(ctx, line) {
+    if (this._showerReady) return
     this._showerReady = true
     this._showerFade?.kill()
     this._showerFade = gsap.to(this._shower.view, { alpha: 1, duration: 0.4 })
     this._shower._breatheTween?.kill()
     this._shower._breatheTween = breathe(this._shower.view, { scale: 1.08, duration: 0.9 })
-    ctx.services.voice.say('Bra! Ta duschen och skölj.')
+    if (line) ctx.services.voice.say(line)
+  },
+
+  // Liten uppmärksamhetspuls på duschen (utan att döda vilo-andningen).
+  _pulseShower() {
+    const v = this._shower?.view
+    if (!v || v.destroyed) return
+    pop(v, { scale: 1.22 })
+  },
+
+  // Kladdklumpen guppar segt när svampen tar i — "den sitter fast", inte "du gjorde fel".
+  _wobbleFlake(f) {
+    const v = f.view
+    if (!v || v.destroyed) return
+    gsap.killTweensOf(v.scale)
+    const tw = gsap.to(v.scale, { x: 1.16, y: 0.86, duration: 0.12, yoyo: true, repeat: 1, ease: 'sine.inOut' })
+    this._tweens.push(tw)
   },
 
   _renhet() {
@@ -850,11 +969,24 @@ export default {
   _idleCue(ctx) {
     if (this._resolving) return
     const mudLeft = this._flakes.filter((f) => !f._clean)
-    if (mudLeft.length) {
+    // Ledtråden MÅSTE peka på rätt verktyg. Den valde förut närmaste fläck oavsett sort och
+    // sa alltid "dra svampen" — på en bana med upp till 40 % kladd kunde spelets egen hjälp
+    // alltså säga fel handling i precis det ögonblick barnet pausat och behöver den mest.
+    const dryLeft = mudLeft.filter((f) => f.kind !== 'klibb')
+    if (dryLeft.length) {
       ctx.services.voice.say(this.voiceIntro)
-      const f = this._nearestToCenter(mudLeft)
+      const f = this._nearestToCenter(dryLeft)
       if (f?.view && !f.view.destroyed) wiggle(f.view)
       pop(this._sponge.view)
+      return
+    }
+    if (mudLeft.length) {
+      // Bara kladd kvar → peka på duschen, inte svampen.
+      this._revealShower(ctx)
+      ctx.services.voice.say('Den är kladdig! Skölj den med duschen först.')
+      const f = this._nearestToCenter(mudLeft)
+      if (f?.view && !f.view.destroyed) wiggle(f.view)
+      this._pulseShower()
       return
     }
     const foamLeft = this._foam.filter((f) => !f._rinsed)
@@ -869,8 +1001,24 @@ export default {
   _autoHelp(ctx) {
     if (this._resolving || !this._alive) return
     const mudLeft = this._flakes.filter((f) => !f._clean)
-    if (mudLeft.length) {
-      const f = this._nearestToCenter(mudLeft)
+    // Hjälpen VISAR ordningen i stället för att hoppa över den: en kladdfläck sköljs mjuk,
+    // och en redan torr fläck tas bort — i samma tick. Två skilda fläckar, så sekvensen
+    // "skölj → skrubba" syns som två handlingar; och eftersom en fläck faktiskt FÖRSVINNER
+    // varje tick ser ett barn som pausar hela tiden att det går framåt.
+    const stickyLeft = mudLeft.filter((f) => f.kind === 'klibb')
+    let softened = null
+    if (stickyLeft.length) {
+      softened = this._nearestToCenter(stickyLeft)
+      this._revealShower(ctx)
+      softened.kind = 'torr'
+      this._paintFlake(softened, MUD)
+      sparkle(ctx.fxLayer, softened.x, softened.y)
+      this._wobbleFlake(softened)
+      ctx.services.audio.sfx('soft')
+    }
+    const removable = softened ? mudLeft.filter((f) => f !== softened) : mudLeft
+    if (removable.length) {
+      const f = this._nearestToCenter(removable)
       f.hits = f.need
       this._removeFlake(ctx, f)
       this._scrubCount += 1

@@ -43,7 +43,7 @@ Struktur: **§0 Spec** (ifylld innan kod skrivs) · **§1 Nuläge** sett som spe
 **§4 Förbättringsplan** ([Quick]/[Medium]/[Deep], grupperad: Kärnloop · Variation · Juice ·
 Progression · Karaktär · Ljud) · **§5 Status/loggar** (bockar + commits).
 
-## Index — 71 spel
+## Index — 72 spel
 
 Två **olika** kolumner — de blandades ihop tidigare och gjorde indexet omöjligt att läsa:
 
@@ -78,7 +78,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | ✅ | ✅ |
 | 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ | ✅ |
 
-### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ **poleringsrundan KLAR** (27/27, v1.7.0, 2026-08-04)
+### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ **poleringsrundan KLAR** (27/27, v1.7.0, 2026-08-04; +`natskott-pa-stan` byggd ✅ 2026-08-08)
 *Första-omgången 2026-07-01. Poleringsrundan lyfte 9 spel till ✅. Kvalitetsspåret 2026-08-06
 (mottagar-högen) lyfte 7 till: `gungan` · `fallskarmen` · `valpens-bajs` · `studsmatta` ·
 `spindelnatet` · `enhorningen-flyger` (+ `knuffa-tornet`/`spindelhjalten` fick sin mottagare
@@ -116,6 +116,7 @@ i stället för att avfyra skottet åt barnet (`_offerAssist` + Skjut!-knapp, no
 | 58 | Snöbollen | `snobollen` | drag | ✅ | ✅ |
 | 59 | Glasstornet | `glasstornet` | drag | ✅ | ✅ |
 | 64 | Grävmaskinen | `gravmaskinen` | drag | ✅ | ✅ |
+| 72 | Nätskott på stan | `natskott-pa-stan` | tap | ✅ | ✅ |
 
 ### 🧩 Pussel (pussel + minne + drag) — ✅ **poleringsrundan KLAR** (20/20, v1.10.0, 2026-08-06)
 *Första-omgången 2026-07-02 var **innan** P0-regeln `ASSETS` fanns (2026-07-25) — och skulden

@@ -71,15 +71,7 @@ strunta i beställningen hur länge som helst och bara leka.
 
 > ✅ **ATGARDER #3 + #4 fixade 2026-08-07** (se §5).
 >
-> 🐛 **NYTT, hittat under den mätningen och INTE fixat: hällningen flyttar noll vätska.**
-> `TILT = 1,05 rad` räcker inte för att saften ska passera glasets läpp. Uppmätt med
-> `scripts/_tiltprobe.mjs` på ett nästan fullt glas (103 partiklar): 1,05 → **0 rann ur**,
-> 1,2 → 1, **1,35 → 19**, 1,5 → 23, 1,7 → 22. Verifierat på HEAD också, alltså inget nytt
-> fel. Det slår mot spelets kärnloop ("häll ett glas i ett annat → färgerna blandas"): både
-> tryck-tryck (`_autoPour`) och drag-hällningen kör hela sekvensen snyggt — glaset åker till
-> rätt plats och når vinkel 1,02 — men inte en droppe flyttar sig. Ligger som **V4** i
-> `docs/ATGARDER.md`. Fixen är inte bara en större `TILT`: mynningen svänger längre ut vid
-> större vinkel, så `OFFS = 205` måste mätas om i samma veva.
+> ✅ **ATGARDER V4 (hällningen flyttade noll vätska) fixad 2026-08-07** — se §5.
 
 **Kärnloop**
 - [Quick] Fjärde spakläge: **vatten** som späder färgen ett steg ljusare.
@@ -115,10 +107,36 @@ strunta i beställningen hur länge som helst och bara leka.
     i SAMMA höjd — och ett draget glas låg kvar på disken (`g.y` klampades till `GRATE_Y`),
     alltså exakt samma y. Jämförelsen blev falsk varje gång och ägarskapet föll tillbaka på
     ordningen i `_glasses`: drog man glas 0 förbi glas 2 tog glas 0 **hela innehållet, 56 av
-    56 partiklar**. Två ändringar: ett hållet glas **lyfts** från disken (`HALL_Y =
-    GRATE_Y - 150`), och ägaren är nu det glas partikeln ligger **djupast** inne i (minsta
+    56 partiklar**. Två ändringar: ett hållet glas **lyfts** från disken (`HALL_Y`, som
+    senare samma dag blev `SAFE_Y = GRATE_Y - 240`), och ägaren är nu det glas partikeln ligger **djupast** inne i (minsta
     avståndet till kanterna) i stället för det "lägsta". Efter: **0 partiklar stjäls** genom
     hela draget. Lyftet rättar dessutom en tyst bugg till: `_tiltFor` kräver
     `g.y < o.y - 120`, så ett draget glas lutade sig ALDRIG förut.
   - Sond: `scripts/_saftprobe.mjs` (A ljud i vila · B stulen vätska · C hällsekvensen).
     `scripts/_tiltprobe.mjs` mätte lutningströskeln som blev V4.
+- 2026-08-07 (`/fixa`, ATGARDER **V4** — hällningen flyttade noll vätska):
+  - **Grundorsaken var att `TILT` och `OFFS` aldrig var mätta mot varandra.** Mynningen
+    ligger på `(0, IN_TOP)` i glasets egna koordinater, så vid lutningen θ hamnar den
+    `-IN_TOP·sin θ` px åt sidan och `IN_TOP·cos θ` px i höjdled från foten. Vid `TILT = 1,05`
+    (60°) nådde saften **aldrig över läppen** — spelets kärnloop gjorde bokstavligen ingenting.
+  - **Kalibrerat med `scripts/_pourtune.mjs`** (fullt källglas, riktigt målglas, spelets egen
+    geometri). Antal partiklar som hamnar I MÅLET av ~103: `1,05 → 0` · `1,5/205 → 29` ·
+    `1,9/205 → 19` · `2,2/100 → 77 (spill 7)` · `2,4/100 → 81 (spill 11)` ·
+    `2,6/100 → 86 (spill 13)`. Att hålla glaset högre (fot-y 300 i stället för 388) mättes
+    också och blev **sämre** — längre fall ger mer skvätt (59 i målet, 25–38 spill).
+    **Valt `TILT = 2,2` + `OFFS = 100`:** 75 % kommer över, minst spill, minst extrem vinkel.
+  - **Tre vägar delade konstanterna och behövde skiljas åt.** Hinken har bred öppning och vill
+    ha en fritt fallande stråle → `MOUTH_DX` (178, härledd ur TILT). Bobo *dricker* — hans mun
+    är en drain-ruta och saften ska ligga stilla inne i den, inte hällas på golvet → egna
+    `SERVE_TILT/SERVE_OFFS` (de gamla 1,05/205, som gör exakt det).
+  - **Ny bugg som fixen själv skapade, hittad genom mätning:** ett fullt glas på väg till
+    hinken tappade hela innehållet till glas 2 när det gled förbi (52 partiklar blev liggande
+    med medel-x 740 ≈ glas 2:s 750). Orsak: djup-ägarregeln från #4 låter det STÅENDE glaset
+    vinna när ett rörligt glas glider lågt förbi — dess inre överlappar grannens. Fix:
+    `SAFE_Y` + `_moveOver()` — ett glas som flyttar sig i sidled lyfts först, bärs ovanför
+    grannarna och ställs sedan ner. Ser dessutom ut som att glaset lyfts och bärs, inte glider
+    genom disken.
+  - Verifierat med `scripts/_pourprobe.mjs` via spelets egna vägar: **glas→glas** 61 partiklar
+    över och målet blir **grönt, renhet 1,00** (gul i blå — hela poängen med spelet);
+    **glas→hink** 58 av 58 slukade, 0 kvar liggande; **hela beställningen** Bobo serveras,
+    dricker upp och en ny beställning kommer.

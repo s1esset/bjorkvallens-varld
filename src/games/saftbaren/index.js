@@ -72,7 +72,14 @@ const ORDER_ROST = [
 // --- mått ------------------------------------------------------------------
 const GLASS_X = [390, 570, 750, 930]
 const GRATE_Y = 620 // glasen står här
-const HALL_Y = GRATE_Y - 150 // så högt lyfts ett glas man håller i (aldrig kvar på disken)
+// Ett glas som RÖR SIG i sidled måste hålla sig ovanför den här linjen. Under den
+// överlappar dess inre hålrum de stående glasens (deras inre sträcker sig från y 400 till
+// 598), och då går det inte att avgöra vems saft som är vems — se _carryAll. Uppmätt:
+// ett fullt glas som gled diagonalt förbi glas 2 på väg till hinken tappade hela
+// innehållet där (52 partiklar blev liggande med medel-x 740 ≈ glas 2:s 750).
+// GRATE_Y - 240 ger 8 px luft mellan fångstrutorna.
+const SAFE_Y = GRATE_Y - 240
+const HALL_Y = SAFE_Y // så högt lyfts ett glas man håller i (aldrig kvar på disken)
 const RAIL_Y = 150 // kranens skena
 const SPOUT_Y = 236 // där saften lämnar pipen
 const HINK_X = 1100
@@ -89,10 +96,35 @@ const IN_TOP = -220
 const IN_BOT = -22
 const FULLT = 118 // partiklar i ett fullt glas
 const KLART = 64 // så mycket krävs för att en beställning ska räknas som klar
-// Lutningen när man häller. Mynningens ytterkant hamnar då ~OFFS px åt sidan —
-// därför ställs ett hällande glas exakt OFFS px vid sidan om sitt mål.
-const TILT = 1.05
-const OFFS = 205
+// Lutningen när man häller, och hur långt vid sidan om målet ett hällande glas ställs.
+// DE TVÅ HÖR IHOP och får aldrig ändras var för sig: mynningen sitter i glasets egna
+// koordinater på (0, IN_TOP), så vid lutningen θ hamnar den `-IN_TOP·sin θ` px åt sidan
+// och `IN_TOP·cos θ` px i höjdled räknat från foten. Ändrar man θ flyttar sig alltså
+// strålens nedslag, och OFFS måste mätas om.
+//
+// TILT var 1,05 rad (60°) och då rann det **inte en droppe** — saften nådde aldrig över
+// glasets läpp, så spelets kärnloop ("häll ett glas i ett annat") gjorde ingenting alls.
+// Uppmätt med scripts/_pourtune.mjs (fullt källglas, riktigt målglas, spelets egen
+// geometri), antal partiklar som hamnar I MÅLET av ~103:
+//     1,05 → 0     1,5/205 → 29     1,9/205 → 19     2,2/205 → ~19
+//     2,2/100 → 77 (spill 7)   2,4/100 → 81 (spill 11)   2,6/100 → 86 (spill 13)
+// Valt 2,2 + 100: 75 % av saften kommer över, minst spill av kandidaterna, och minst
+// extrem vinkel — glaset tippar förbi vågrätt som en riktig hällning i stället för att
+// vändas upp och ner. Att hålla glaset HÖGRE (fot-y 300 i stället för 388) mättes också
+// och blev sämre: längre fall → mer skvätt (59 i målet, 25–38 spill).
+const TILT = 2.2
+const OFFS = 100
+// Var mynningen (0, IN_TOP) hamnar i förhållande till foten vid lutningen TILT.
+// MOUTH_DX används där saften ska falla FRITT ner i något brett (hinken); OFFS där
+// den ska rinna över kanten på ett smalt glas — de skiljer sig för att en mynning som
+// lutar in över glasets kant träffar bättre än en stråle som faller utanför den.
+const MOUTH_DX = Math.round(-IN_TOP * Math.sin(TILT)) // 178
+// Bobo DRICKER, han får inte ett glas hällt över sig: hans mun är en drain-ruta
+// (190×190 runt BOBO_X-20, BOBO_Y+30) och saften ska ligga stilla INNE i den medan
+// den sugs ur glaset. Den grunda gamla lutningen gör precis det — den lutar saften
+// mot mynningen utan att tömma den på golvet — så drickandet behåller sina egna tal.
+const SERVE_TILT = 1.05
+const SERVE_OFFS = 205
 const DROPP = [
   { scale: 1.0, threshold: 0.56 },
   { scale: 1.38, threshold: 0.42 },
@@ -664,7 +696,8 @@ export default {
     if (this._selected) {
       const g = this._selected
       this._deselect()
-      this._autoPour(g, HINK_X, GRATE_Y - 190, 1800)
+      // Hinken har en bred öppning → låt strålen falla fritt rakt ner i den.
+      this._autoPour(g, HINK_X, GRATE_Y - 190, 1800, MOUTH_DX)
     } else {
       pop(this._hink, { scale: 1.08 })
       this._ctxRef?.services?.audio?.sfx('soft')
@@ -680,40 +713,49 @@ export default {
     if (!g.front.destroyed) gsap.to(g.front.scale, { x: 1, y: 1, duration: 0.15 })
   },
 
-  // Tryck-tryck-hällningen: ställ glaset SNETT VÄNSTER om målet och luta åt höger,
-  // så hamnar mynningen (som svänger ~208 px åt hållet man lutar) rakt över målet.
-  // Därför -195 i x: det är exakt vad lutningen tar tillbaka.
-  _autoPour(g, targetX, targetY, ms) {
+  // Tryck-tryck-hällningen: ställ glaset `offs` px VÄNSTER om målet och luta åt höger,
+  // så hamnar mynningen över målet (se TILT/OFFS/MOUTH_DX för varför de talen hör ihop).
+  _autoPour(g, targetX, targetY, ms, offs = OFFS) {
     if (this._busy) return
     this._busy = true
     this._frontL.setChildIndex(g.front, this._frontL.children.length - 1)
     this._ctxRef?.services?.audio?.sfx('whoosh')
-    gsap.killTweensOf(g)
-    gsap.to(g, {
-      x: targetX - OFFS,
-      y: targetY,
-      duration: 0.4,
-      ease: 'power2.out',
-      onComplete: () => {
+    this._moveOver(g, targetX - offs, targetY, 0.55, () => {
+      g.wantAngle = TILT
+      this._ctxRef?.later(ms / 1000, () => {
         if (!this._alive) return
-        g.wantAngle = TILT
-        this._ctxRef?.later(ms / 1000, () => {
+        g.wantAngle = 0
+        this._ctxRef?.later(0.45, () => {
           if (!this._alive) return
-          g.wantAngle = 0
-          this._ctxRef?.later(0.45, () => {
-            if (!this._alive) return
-            this._busy = false
-            this._sendHome(g)
-          })
+          this._busy = false
+          this._sendHome(g)
         })
-      },
+      })
     })
   },
 
   _sendHome(g) {
-    gsap.killTweensOf(g)
     g.wantAngle = 0
-    gsap.to(g, { x: g.homeX, y: g.homeY, duration: 0.45, ease: 'back.out(1.2)' })
+    this._moveOver(g, g.homeX, g.homeY, 0.6)
+  },
+
+  // Flytta ett glas i sidled UTAN att dra det tvärs genom de stående glasen: upp först,
+  // sedan i sidled ovanför dem, sedan ner. En rak diagonal låter det passera lågt förbi
+  // grannarna, och då byter saften ägare på vägen (se SAFE_Y och _carryAll).
+  // Ser dessutom ut som att glaset lyfts, bärs och ställs ner — inte glider genom bordet.
+  _moveOver(g, x, y, dur, onDone) {
+    gsap.killTweensOf(g)
+    const ner = () => {
+      if (!this._alive) return
+      gsap.to(g, { y, duration: dur * 0.3, ease: 'back.out(1.2)', onComplete: () => this._alive && onDone?.() })
+    }
+    const isidled = () => {
+      if (!this._alive) return
+      if (Math.abs(g.x - x) < 1) return ner()
+      gsap.to(g, { x, duration: dur * 0.45, ease: 'power2.inOut', onComplete: ner })
+    }
+    if (g.y > SAFE_Y) gsap.to(g, { y: SAFE_Y, duration: dur * 0.25, ease: 'power2.out', onComplete: isidled })
+    else isidled()
   },
 
   _prefill(g, pal, rows) {
@@ -867,11 +909,10 @@ export default {
     this._frontL.setChildIndex(g.front, this._frontL.children.length - 1)
     // Foten hamnar OFFS px vänster om Bobo — då pekar mynningen mot munnen när
     // glaset lutas åt höger (samma räkning som _autoPour).
-    gsap.to(g, { x: BOBO_X - OFFS, y: BOBO_Y + 52, duration: 0.5, ease: 'power2.out' })
-    ctx.services.audio.sfx('whoosh')
-    ctx.later(0.5, () => {
-      if (this._alive && this._drink) this._drink.g.wantAngle = TILT
+    this._moveOver(g, BOBO_X - SERVE_OFFS, BOBO_Y + 52, 0.6, () => {
+      if (this._drink) this._drink.g.wantAngle = SERVE_TILT
     })
+    ctx.services.audio.sfx('whoosh')
   },
 
   _finishServe(ctx) {

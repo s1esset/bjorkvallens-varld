@@ -143,15 +143,15 @@ try {
   console.log(`     ► glas 2 hade ${b0.glas[2].n}, har ${kvar} — ${stulet} partiklar flyttade med det dragna glaset\n`)
 
   // ---- C) hällningen ------------------------------------------------------
-  // Regressionsvakt för lyftet i _onGlassDown. OBS: den här mätningen är RÖD även på
-  // HEAD (verifierat 2026-08-07) — spelets TILT = 1,05 rad räcker inte för att saften
-  // ska passera glasets läpp, så tryck-tryck-hällningen flyttar noll partiklar. Det är
-  // ett EGET fel (ATGARDER V4), inte en regress. Se scripts/_tiltprobe.mjs: först vid
-  // ~1,35 rad börjar det rinna. Vad den här fasen vaktar är att sekvensen alls körs:
-  // glaset ska åka till x≈545, y≈388 och nå vinkel ≈1,02.
+  // Regressionsvakt för lyftet i _onGlassDown och för hällkalibreringen (ATGARDER V4,
+  // fixad 2026-08-07: TILT 1,05 → 2,2 och OFFS 205 → 100). Djupare hällmätningar —
+  // glas→glas, glas→hink och hela beställningen — ligger i scripts/_pourprobe.mjs.
   await tom(page)
   await page.waitForTimeout(400)
-  await fyll(page, 1, [0, 1, 0], 13) // gult i glas 1 — nästan fullt (FULLT = 118)
+  // Fyll med en färg Bobo INTE har beställt — annars serveras glaset till honom
+  // (helt korrekt beteende) och man mäter drickandet i stället för hällningen.
+  const order = await page.evaluate(async (gid) => (await import('/src/games/registry.js')).getGame(gid)._order?.pal ?? 0, ID)
+  await fyll(page, 1, order === 1 ? [0, 0, 1] : [0, 1, 0], 13) // nästan fullt (FULLT = 118)
   await page.waitForTimeout(1200)
   const c0 = await glassStats(page)
   // Spelets EGEN hällväg: tryck på glas 1, tryck sedan på glas 2 (_autoPour).

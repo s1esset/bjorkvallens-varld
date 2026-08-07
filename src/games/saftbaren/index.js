@@ -72,6 +72,7 @@ const ORDER_ROST = [
 // --- mått ------------------------------------------------------------------
 const GLASS_X = [390, 570, 750, 930]
 const GRATE_Y = 620 // glasen står här
+const HALL_Y = GRATE_Y - 150 // så högt lyfts ett glas man håller i (aldrig kvar på disken)
 const RAIL_Y = 150 // kranens skena
 const SPOUT_Y = 236 // där saften lämnar pipen
 const HINK_X = 1100
@@ -118,7 +119,7 @@ export default {
     this._frame = 0
     this._toneT = 0
     this._dropp = 1
-    this._lastMix = -1
+    this._mixT = 0 // kylning mellan två färgutrop (ms, performance.now)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -272,6 +273,7 @@ export default {
         angle: 0,
         wantAngle: 0,
         held: false,
+        lastMix: -1, // senast utropade blandfärg för DET HÄR glaset (se _checkGlasses)
         back,
         front,
         walls: [],
@@ -611,7 +613,11 @@ export default {
       }
       if (moved) {
         g.x = Math.max(120, Math.min(DESIGN_W - 120, p.x + g.grabDX))
-        g.y = Math.max(300, Math.min(GRATE_Y, p.y + g.grabDY))
+        // Ett hållet glas LYFTS från disken. Låg det kvar på GRATE_Y stod det i exakt
+        // samma rymd som glasen det drogs förbi — då går det inte att avgöra vems saft
+        // som är vems (se _carryAll), och _tiltFor lutade det aldrig heller eftersom
+        // den kräver g.y < o.y - 120. Nu gör den det.
+        g.y = Math.max(300, Math.min(HALL_Y, p.y + g.grabDY))
       }
     }
     const up = () => {
@@ -724,24 +730,39 @@ export default {
   // förra positionen, annars får partiklarna en falsk hastighet och skvätter ur.
   //
   // Varje partikel får EN ägare, annars stjäl ett glas som flyger förbi innehållet
-  // ur ett glas som står stilla. Ligger partikeln i flera glas vinner det LÄGSTA —
-  // det är där saften faktiskt vilar.
+  // ur ett glas som står stilla. Ägaren är det glas partikeln ligger DJUPAST inne i.
+  //
+  // Tidigare vann "lägsta glaset" (`it.g.y > own.y`). Den regeln kunde aldrig utse en
+  // vinnare mellan två glas i samma höjd — och ett draget glas fick stå kvar på disken,
+  // alltså exakt samma y som de andra. Jämförelsen blev falsk varje gång och ägarskapet
+  // föll tillbaka på ordningen i `_glasses`: drog man glas 0 förbi glas 2 tog glas 0
+  // med sig HELA innehållet (uppmätt: 56 av 56 partiklar). Två saker fixar det: ett
+  // hållet glas lyfts nu från disken (se _onGlassDown), och djupet nedan avgör — den
+  // som håller partikeln längst in från sina kanter äger den.
   _carryAll() {
     const w = this._world
     let anyMoved = false
     for (const g of this._glasses) if (g.x !== g.lastX || g.y !== g.lastY) anyMoved = true
     if (!anyMoved) return
+    const HALF = IN_W / 2 + 8
     const info = this._glasses.map((g) => ({ g, ca: Math.cos(-g.angle), sa: Math.sin(-g.angle) }))
     for (let i = 0; i < w.count; i++) {
       let own = null
+      let bestDjup = 0
       for (let k = 0; k < info.length; k++) {
         const it = info[k]
         const rx = w.x[i] - it.g.lastX
         const ry = w.y[i] - it.g.lastY
         const lx = rx * it.ca - ry * it.sa
         const ly = rx * it.sa + ry * it.ca
-        if (Math.abs(lx) < IN_W / 2 + 8 && ly < IN_BOT + 4 && ly > IN_TOP - 30) {
-          if (!own || it.g.y > own.y) own = it.g
+        const dSida = HALF - Math.abs(lx)
+        const dTopp = ly - (IN_TOP - 30)
+        const dBotten = IN_BOT + 4 - ly
+        if (dSida <= 0 || dTopp <= 0 || dBotten <= 0) continue
+        const djup = Math.min(dSida, dTopp, dBotten)
+        if (djup > bestDjup || (djup === bestDjup && own && it.g.y > own.y)) {
+          bestDjup = djup
+          own = it.g
         }
       }
       if (!own) continue
@@ -990,11 +1011,19 @@ export default {
   },
 
   _checkGlasses(ctx) {
+    const nu = performance.now()
     for (const g of this._glasses) {
       const st = this._stats(g)
-      // ny färg upptäckt → berätta det, en gång per färg
-      if (st.n > 26 && st.frac > 0.86 && st.dom > BLA && st.dom !== this._lastMix) {
-        this._lastMix = st.dom
+      // Töms glaset får det utropa sin färg igen nästa gång den blandas fram.
+      if (st.n < 10) g.lastMix = -1
+      // Ny färg upptäckt → berätta det, EN gång per glas och färg.
+      // Minnet satt förut på spelet i stället för på glaset: två glas med var sin
+      // blandfärg pingpongade `_lastMix` var 12:e bildruta, så spelet skrek "reveal"
+      // + en röstreplik ~10 ggr/s i all evighet (uppmätt 48 ljud + 48 repliker på 5 s
+      // helt utan input). Kylningen håller dessutom två samtidiga upptäckter isär.
+      if (st.n > 26 && st.frac > 0.86 && st.dom > BLA && st.dom !== g.lastMix && nu - this._mixT > 1500) {
+        g.lastMix = st.dom
+        this._mixT = nu
         const rost = MIX_ROST[st.dom]
         if (rost) ctx.services.voice.say(rost)
         sparkle(this._propL, g.x, g.y - 150, { count: 8 })

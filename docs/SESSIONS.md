@@ -14,6 +14,42 @@ Format:
 
 ---
 
+## 2026-08-07 (natt 4) · v1.33.0 · 🕸️ Spindel-Zacke: spök-båge + kramscen — 🔧-backloggen nere på 1
+
+**Byggt:** `/polera spindel-zacke-svingar` — backloggens två kvarvarande [Deep]-punkter
+(spök-båge + nivå-intro). Spelet är nu ✅; kvar som 🔧 är bara `glittergrottan` (kamera-drift).
+
+- **Spök-båge:** 📏-trycket ritar en prickad bana ur **samma integrator som flykten**
+  (G/L/AMP, dt=1 — förhandsvisningen kan inte ljuga) med landnings-ring, tonar bort ~2 s.
+  Sonden mäter Lång maxX 781 vs Kort 676 (+105 px). Längd-valet är äntligen läsbart.
+- **Mini-berättelse + egen vinstscen:** "Kattungen sitter fast på taket!" + riktigt jam vid
+  mount; vid mål landar Zacke på taket, Elvira springer fram i skutt och kramar (❤️ + match),
+  kattungen jamar och hoppar upp i famnen — **sedan** delat firande. `complete()` sist så
+  spelets replik inte klipps (biltvätt-läxan). "En kattunge till behöver hjälp!" driver vidare.
+- **Elvira har hållit i en osynlig käpp sedan hon skapades** — `arc()` efter `fill()` utan
+  `moveTo` strokar en implicit linje från origo (fötterna) till leendets start. Synlig i varje
+  skärmdump, sedd först när kramscenen satte henne i fokus (kritikern hittade + pixelverifierade
+  den). Samma fälla låg i Zackes leende. Ny fallgrop att känna igen.
+- **Skärmdumpen avslöjade en fryst nättråd:** `_update`-ticken som anropar `_attach` fortsätter
+  till `_drawWeb()` längst ner — `_resolving` kollades bara i funktionstoppen, så tråden ritades
+  om EFTER att vinstscenen rensat den. Vakt i `_drawWeb`.
+- **Sonden var trasig först** (probe-before-believing höll): `waitForFunction` med
+  **async**-predikat returnerar en Promise-handle — alltid truthy → falsk träff direkt, 0 släpp.
+  Synkront predikat via en engångs-exponerad singleton-referens. Sedan 7/7: spelaren når målet
+  med 2 riktiga tajmade mustryck, exit mitt i kramscenen 0 fel.
+- **"Kort nät!" har aldrig kunnat få ett klipp** — ternären `say(x ? 'Långt nät!' : 'Kort nät!')`
+  är osynlig för check.mjs statiska literal-läsning. Kritikern fann den; klippet genererat nu
+  (+ de två nya replikerna). P0-fix: tryck under flykt gav gnistor men inget ljud.
+
+**Mätt:** `scripts/_svingprobe.mjs` **7/7** · `npm run check` 0/0 · `npm run test:all` **71/71**
+· bygge rent · serverat på :4173. **Commits:** `fa7e45c` feat(spindel-zacke-svingar)
+**Öppet:** **1 spel kvar som 🔧** — `glittergrottan` (kamera-drift). Röstkön tom. Spec-korten
+`natskott-pa-stan` + `mata-munnen` väntar fortfarande på ägarens ja (mata-munnen även på
+fotoshooten). Medvetet lämnat i spindel-zacke: superhjälte-pose i flykten, vind-sus,
+stigande tak, räddningsgalleri.
+
+---
+
 ## 2026-08-07 (session 4) · v1.32.0 · 🧠 Planering: ansiktssektionen + nätskott — noll kod
 
 **Byggt:** ingen kod — en ren planeringssession, allt landade i `docs/IDEER.md`.

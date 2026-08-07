@@ -14,6 +14,38 @@ Format:
 
 ---
 
+## 2026-08-07 (session 4) · v1.32.0 · 🧠 Planering: ansiktssektionen + nätskott — noll kod
+
+**Byggt:** ingen kod — en ren planeringssession, allt landade i `docs/IDEER.md`.
+
+- **Ansiktssektionen detaljerad av ägaren:** rigg = frilagt porträtt i **två halvor** (delning
+  vid överläppen), nedre halvan translateras för gap/tugg/prat; **endast neutralfotot klipps**,
+  grimaser är helbildsfoton som korsbleknar; ögonlager i 8 riktningar följer det man drar;
+  bus = mat som fastnar på ansiktet och blir gegga. Beslut (via frågerunda med ägaren):
+  karaktären heter **"Pappa"** (roll, inte namn — theme.js-regeln får tillägget i samma commit
+  som sektionen), bara ägarens ansikte nu, mål = mättnadsmätare med tallriksrundor, ligger i
+  Roligt tills sektionen har 2–3 spel, webp ≤3 MB.
+- **Fotoshoot-listan låst:** 19–20 bilder + 9 ljudinspelningar i EN session (stativ, samma
+  ljus/vinkel), leverans till `assets-src/ansikte/pappa/`. **Ägarens uppgift — blockerar
+  bygget av `mata-munnen`.**
+- **`egna-ansikten` utbruten som egen idébankspost** (fota ansikten + spela in röst i
+  telefonen): P0 DATA-lagringsfrågan måste utredas först; byggs tidigast när riggen och minst
+  ett spel finns.
+- **`natskott-pa-stan` planerad:** beslut — fönster **krossas på riktigt** (ägarens uttryckliga
+  val mot rekommendationen; P0-tonen hålls med självlagning ~5 s + monster som vinkar ur
+  hålet), inga människor (djur/monster/föremål), uppdragsrundor som mål, stor växelknapp för
+  klibb/drag, antydd bilram, mottagare = baksätet, matter.js.
+- **Båda spec-korten står i sin helhet i IDEER.md** under respektive post.
+
+**Mätt:** `npm run check` 0/0 (inga spel rörda, ingen versionsbump — inget app-synligt ändrat).
+**Commits:** se git-loggen (docs(ideer) + docs sessionslogg).
+**Öppet:** **Båda spec-korten väntar på ägarens ja.** `natskott-pa-stan` har inga beroenden och
+kan starta med `/spel` direkt vid ja; `mata-munnen` väntar dessutom på fotoshooten. Kvar sedan
+tidigare: 2 spel som 🔧 (`spindel-zacke-svingar` spök-båge + nivå-intro · `glittergrottan`
+kamera-drift). Röstkön tom.
+
+---
+
 ## 2026-08-07 (natt 3) · v1.32.0 · 🛁 Pruttbadet: varje runda ett nytt bad och ett nytt fynd
 
 **Byggt:** `/polera pruttbad`. Spelet hade **inga öppna [Deep]-punkter** — dess 🔧 var ett

@@ -14,6 +14,44 @@ Format:
 
 ---
 
+## 2026-08-07 · v1.26.0 · 💩 Läckan som bara syntes när alla 71 spelen kördes
+
+**Byggt:** `bajs-och-kiss` V5 — det sista röda i `test:all`. **Sviten är 71/71 igen.**
+
+- **Symptomet var lätt att avfärda:** `pageerror ×112` + `tween-mot-forstort ×3` +
+  `tween-lacka ×1`, men BARA i full `test:all`. Ensamt grönt, fyra parallellt grönt, alla 71
+  rött — tre fulla körningar i rad. Det är inte flakigt, det är **lastberoende**.
+- **Reproducerat utan att köra 71 spel:** ny sond `scripts/_bajsprobe.mjs` stryper CPU:n via
+  CDP (`Emulation.setCPUThrottlingRate`) och lämnar spelet vid en rad olika tidpunkter. Det
+  återskapar precis det loggen visade före kraschen — `lang-ruta 100 ms` + `fysik/svalt`, alltså
+  långa bildrutor där teardown förlorar kapplöpningen. Träffbild före fixen: **~1–2 av 20
+  avhopp**. Stacken pekade ut både varianten där en tween *initieras* mot ett rivet mål
+  (`_addPropTween` → `get y`) och den där en *löpande* tween skriver (`render` → `set y`).
+- **Grundorsak:** `destroy()` dödade tweens objekt för objekt ur en **handhållen lista** över de
+  referenser spelet råkade ha kvar. Allt spelet tappat greppet om missades — t.ex. en tidigare
+  bajs-vy vars plopp-tween fortfarande gled — och varje `if (!x.destroyed)`-vakt **hoppade över
+  städningen i precis det läge då den behövs mest**. Kvar blev en tween som skrev `.y` på ett
+  rivet objekt; Pixi v8 nollar `_position` i `destroy()`, så settern kastade varje bildruta.
+  **112 konsolfel ur EN läcka.**
+- **Fix:** `dodaTrad(this._root)` går igenom hela displayträdet och dödar tweens på varje nod
+  (plus `.scale`/`.position`), oavsett om spelet har en referens kvar. De sparade
+  proxy-tweenarna och `ctx.later`-timrarna dödas som förut — de sitter på hjälpobjekt, inte i
+  trädet. Nettot är dessutom **20 rader kortare** än listan den ersätter.
+- **Mätt efter:** 0 fel på 24 strypta avhopp · `npm run test bajs-och-kiss` grönt ·
+  **`test:all` 71/71**.
+
+**Commits:** `fb21221` fix(bajs-och-kiss)
+
+**Öppet:**
+- Bara **V3 `spara-linjen`** kvar i `docs/ATGARDER.md` (tommaste scenen i repot, 4,3 %
+  innehåll). 8 spel kvar med 🔧. Inga öppna ägarrapporter.
+- Kvarvarande varningsnivå-ledtrådar i loggen är oförändrade: `saknat-ljudklipp` (MOSS nere),
+  `tryck-utan-ljud`, `dod-traffyta`, `sen-aterkoppling`.
+- **Metodfynd:** "grönt ensamt, rött i mängd" är ett eget felmönster, inte flakighet. CPU-strypning
+  via CDP är ett billigt sätt att framkalla det — och en `if (!x.destroyed)`-vakt före
+  `killTweensOf` är alltid fel väg: att döda tweens på ett rivet objekt är ofarligt, att låta bli
+  är buggen.
+
 ## 2026-08-07 · v1.25.0 · 🥤 Hällningen som aldrig flyttade en droppe
 
 **Byggt:** `saftbaren` V4 — spelets **kärnloop** gjorde bokstavligen ingenting. "Häll ett glas

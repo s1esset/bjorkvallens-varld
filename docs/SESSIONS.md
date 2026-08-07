@@ -14,6 +14,39 @@ Format:
 
 ---
 
+## 2026-08-08 · v1.34.0 · 🚙 Nätskott på stan — 72:a spelet, bibliotekets första förstapersonsspel
+
+**Byggt:** `/spel natskott-pa-stan` efter ägarens spec-ja (meddelandet "ja" på session 4-korten).
+Alla åtta ägarbeslut ur IDEER.md implementerade ordagrant. `spelbyggare` byggde hela modulen
+(~1900 rader); `spelkritiker` grindade före commit.
+
+- **Spelet:** förstaperson ur bilfönstret — Spindel-Zackes arm i webb-pose, parallax i tre djup
+  (stad→förort), tap → nät (thwip + rekyl <100 ms), stor växelknapp: klibbnät fäster målet där
+  det är, dragnät drar hem det **synligt genom luften** till baksätet (kritikern mätte genom fem
+  skärmdumpar — ingen teleport). Uppdragsrundor ikon-först som kräver båda näten; fönster krossas
+  och självlagas (max 2, monster vinkar ur hålet); vindby + skata med tak; guldpaket ~1/8;
+  hemkomst-parad som final. matter.js.
+- **Kritikerns blockerare:** 0 av 8 röstklipp inspelade — spelet talade robotröst rakt igenom.
+  `npm run voice` genererade alla 8 (inkl. "Hämta hem tre ballonger!" som byggaren korrekt lade
+  till utöver spec-listans 7 — ballonguppdraget saknade replik).
+- **Åtgärdat ur kritiken:** gatan töms när bilen bromsar (strövare stod bredvid paradfigurerna
+  i finalen); vindby-strecken förankras vid paketen och lossningen sker när strecket når fram
+  (orsak → verkan synlig); byggarens sond hade ett **dött fält** (`seen.gust` sattes aldrig —
+  rapporterade alltid false utan att mäta) — mäter nu spelets `loosened`-flagga.
+- **Bildläxa åt andra hållet:** hemkomst-dumpen såg ut att ha kvarglömda strövare kvar TROTS
+  städfixen — mätning (`[hemkomst] mål på gatan: [] säte: 11`) visade att "strövarna" var
+  paradvänner **mitt i språnget** ur sätet. En skärmdump kan även larma falskt; mät innan fix.
+- Kvar i spelets §4 (medvetet): hand-posen läser som V-tecken, dubbelkredit för åter-klibbat
+  paket (gör bara lättare), hemkomst-huset reagerar inte på paraden.
+
+**Mätt:** `scripts/_natprobe.mjs` full runda 40–43 s, exit mitt i finalen + återinträde 0 fel ·
+`_idleprobe` 0 · `npm run check` 0/0 · `npm run test:all` **72/72** · bygge rent · serverat på
+:4173 + Tailscale 8445 (mobiltest). **Commits:** `089bc50` feat(natskott-pa-stan)
+**Öppet:** 🔧-backloggen: `glittergrottan` (kamera-drift). `mata-munnen` väntar på fotoshooten
+(ägarens uppgift — 19–20 bilder + 9 ljud enligt IDEER.md-listan). Röstkön tom.
+
+---
+
 ## 2026-08-07 (natt 4) · v1.33.0 · 🕸️ Spindel-Zacke: spök-båge + kramscen — 🔧-backloggen nere på 1
 
 **Byggt:** `/polera spindel-zacke-svingar` — backloggens två kvarvarande [Deep]-punkter

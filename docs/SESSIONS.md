@@ -14,6 +14,54 @@ Format:
 
 ---
 
+## 2026-08-07 · v1.24.0 · 🧲 Magneten som fiskade själv + 🥤 saften som bytte glas
+
+**Byggt:** ägarens fyra rapporterade buggar i `docs/ATGARDER.md` — alla fyra fixade, mätta
+före och efter, och båda spelen hade **en gemensam grundorsak per spel**, inte fyra separata fel.
+
+- **`magnet-fiske` #1 + #2 — krafterna var aldrig kalibrerade mot matters enheter.**
+  matter räknar `velocity += (force/massa) · steg²` med steg = 16,667 ms, så en acceleration
+  `a` ger `a · 277,78` px/steg direkt och `a · 4629,6` px/steg i längden (mätt mot matter-js,
+  inte hämtat ur minnet). Spelets konstanter var satta som om force vore hastighet — **~280×
+  för starka**.
+  - #1: uppmätt **5 av 5 metallsaker fast innan första provet hann tas**, toppfart 79 px/steg,
+    saker rakt igenom dammens 40 px väggar. Två fel i ett: fältet var absurt starkt OCH
+    påslaget medan magneten hängde **parkerad i luften** 115 px från översta spawn-raden.
+    Nu anges krafterna i px/steg (`SPEED_TO_A`) och fältet verkar bara när magneten är
+    **doppad** — plask-ögonblicket betyder något. Efter: **0 av 5 efter 8 s utan input**,
+    toppfart 2,6, 0 tunnling, `_idleprobe` `idleFramsteg: 0`.
+  - #2: fastklistrade kroppar pinnas till sin slot varje bildruta men **krockade** fortfarande
+    — slottarna ligger 38 px isär, kropparna har 38 px radie, så solvern sprängde isär klasen
+    varje steg och nästa bildruta teleporterades den tillbaka. Uppmätt **53 px svängning,
+    47 px hopp mellan bildrutor** med magneten stilla → **0,1 px** efter `isSensor`.
+- **`saftbaren` #3 + #4 — två tillstånd som satt på fel objekt.**
+  - #3: `_lastMix` satt på SPELET i stället för på glaset, så två glas med var sin blandfärg
+    pingpongade värdet var 12:e bildruta och varje växling utlöste både `reveal` och en
+    röstreplik. Uppmätt **48 ljud + 48 repliker på 5 s helt utan input** → **1 + 1**.
+  - #4: ägarregeln `it.g.y > own.y` ("lägsta glaset vinner") kan aldrig utse en vinnare mellan
+    två glas i **samma** höjd — och ett draget glas låg kvar på disken. Jämförelsen blev falsk
+    varje gång och ägarskapet föll tillbaka på ordningen i `_glasses`: glas 0 draget förbi
+    glas 2 tog **hela innehållet, 56 av 56**. Hållna glas lyfts nu (`HALL_Y`) och ägaren är
+    det glas partikeln ligger **djupast** inne i → **0 stulna**. Lyftet rättade en tyst bugg
+    till: `_tiltFor` kräver `g.y < o.y - 120`, så ett draget glas lutade sig **aldrig** förut.
+
+**Commits:** `1e3f20a` fix(magnet-fiske) · `dd6b3aa` fix(saftbaren)
+
+**Öppet:**
+- **NYTT: `saftbaren` V4 — hällningen flyttar noll vätska.** Spelets kärnloop gör ingenting:
+  hela sekvensen körs snyggt (rätt plats, vinkel 1,02, väntan, hem igen) men inte en droppe
+  lämnar glaset. `TILT = 1,05 rad` ligger under tröskeln för glasets geometri —
+  `scripts/_tiltprobe.mjs` på 103 partiklar: **1,05 → 0 rann ur**, 1,2 → 1, **1,35 → 19**,
+  1,5 → 23. Verifierat på HEAD, alltså inget nytt fel, och medvetet **inte** fixat här
+  (utanför `/fixa`-uppdraget). En större `TILT` kräver att `OFFS = 205` mäts om samtidigt.
+- Oförändrat: V3 `spara-linjen` (tommaste scenen), 8 spel kvar med 🔧 (`pruttbad` ·
+  `vippbradan` · `domino` · `spindelhjalten` · `enhorningen-elvira` · `tvatta-djuret` ·
+  `spindel-zacke-svingar` · `glittergrottan`).
+- **Metodfynd, tredje gången på tre sessioner:** inget av dagens fyra fel syntes i konsolen
+  eller på skärmdumpen. Alla fyra föll ut ur en **sond som spelade spelet och läste siffror**
+  (`_magnetprobe`, `_saftprobe`, `_tiltprobe`, `_idleprobe`). Två av ATGARDERs fyra "första
+  spår" pekade dessutom fel — reproduktionskravet i `/fixa` gjorde nytta.
+
 ## 2026-08-07 · v1.23.0 · ❄️ Snöfälten som aldrig gick att se
 
 **Byggt:**

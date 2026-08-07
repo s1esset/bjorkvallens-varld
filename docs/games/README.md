@@ -97,7 +97,7 @@ men har en [Deep]-punkt kvar var). Resterande 🔧 har kvarvarande [Deep]-punkte
 | 34 | Vippbrädan | `vippbradan` | tap | 🔧 | ✅ |
 | 35 | Domino | `domino` | mixed | 🔧 | ✅ |
 | 36 | Studsmatta | `studsmatta` | mixed | ✅ | ✅ |
-| 38 | Knuffa Tornet | `knuffa-tornet` | drag | 🔧 | ✅ |
+| 38 | Knuffa Tornet | `knuffa-tornet` | drag | ✅ | ✅ |
 | 39 | Spindelhjälten | `spindelhjalten` | drag | 🔧 | ✅ |
 | 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | 🔧 | ✅ |
 | 44 | Valpens Bajs | `valpens-bajs` | mixed | ✅ | ✅ |

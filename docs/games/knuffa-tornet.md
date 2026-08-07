@@ -1,5 +1,5 @@
 # Knuffa Tornet (`knuffa-tornet`)
-> ⚙️ fysik · drag · 2–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · drag · 2–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -152,3 +152,57 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
   - Exit-säkert: `_workerIdle` + skal-tween dödas i `destroy`.
   - Kvar sedan tidigare: [Deep] specialklossar (tung sockel / studsig / ömtålig) som gör
     valet av tyngd och rep till ett pussel — den punkten hör till variations-högen.
+- 2026-08-07: **Variation & agens** (hög 2, spåret "20 spel från 🔧 till ✅") — status 🔧→✅.
+  Fyra §4-punkter avbockade: *hjälpen bjuder in*, *tornform per nivå*, *specialklossar*,
+  *konkret mål-räknare*, plus den spel-specifika finishen ur *En anledning att riva*.
+  - **[Medium] Hjälpen bjuder in i stället för att spela klart.** Efter 2 missar ställer
+    spelet kulan i perfekt läge (styvt rep, stor kula, kranen **siktad på närmaste
+    kvarvarande kloss**) och låter den blinka i en gul ring — barnet gör sista
+    handgreppet självt. Först efter 7 s utan handling svingar spelet (`_autoAssistSwing`),
+    och `_knockAllOff` är sista utvägen vid 3 missar. Vinsten förblir barnets.
+  - **[Quick] Fem tornformer roterar per nivå** (`torn · trappa · port · pyramid · dubbel`)
+    och växer på höjden först när alla visats en gång. `_layoutFor` returnerar celler i
+    stället för rader×kolumner. Port-formen har en bro som vilar 24 px på varje pelare.
+  - **[Deep] Specialklossar** med egen silhuett och eget uttryck: **sten** (grå, sprucken,
+    bistra ögonbryn, 2,2× massa — den kloss tyngdknappen finns till för), **studs**
+    (grönt gummi, restitution 0,72), **glas** (genomskinlig, spricker i gnistror vid en
+    hård träff och räknas som nedknuffad). Står bara sten kvar säger spelet *"Prova den
+    stora kulan!"* och puffar på tyngdknappen — hjälp som pekar, inte tar över.
+  - **[Medium] Mätaren är nu en prick per kloss** (sista pricken är kronan) uppe till
+    vänster. Varje kloss äger sin prick, så räkningen stämmer även när kronan ramlar
+    först. Placering nr 3: toppmitten var upptagen av krankärran som åker på skenan.
+  - **[Deep] Spel-specifik finish:** dammoln rullar längs den tomma avsatsen → en flagga
+    hissas på rivningsplatsen till en durtreklang (C–E–G) → arbetar-Bobo jublar → först
+    därefter konfetti. (Flaggan är hög med flit — en kort flagga hamnade bakom kulan.)
+  - **Balansen är mätt, inte gissad** (`scripts/_tornprobe.mjs` spelar varje nivå med full
+    kraft utan att flytta kranen). Fem fynd som inget grönt test hade visat:
+    1. **Repets längd var hela balansen.** 330 px lade kulans underkant 24 px OVANFÖR
+       understa klossraden — ett fullt sving nöp bara toppen. 348 sveper genom bottenraden
+       och halverade antalet svingar per nivå.
+    2. **Friktion 0,7/1,4 limmade ihop stapeln** så tornet GLED 80 px i sidled per sving i
+       stället för att rasa. Nu 0,4/0,7 (stenen behåller sitt grepp).
+    3. **Springan mellan avsatsen (1180) och skärmkanten var exakt en kloss bred** — en
+       kloss kilade fast där på y≈491 och räknades aldrig som nere. Målet mäts nu i x
+       ("av avsatsen"), inte bara i fallhöjd, och avsatsen slutar vid 1090.
+    4. **En hjälp som siktar på den bortersta klossen flyttar kranen och lämnar den där**,
+       så varje följande sving svepte förbi resten av tornet (nivå 1: 4 → 8 svingar).
+    5. **`_drawChain` måste ritas SIST i bildrutan** — `_freezeBall` teleporterar kulan
+       efter att repet ritats, vilket frös fast på skärmdumpen som ett rep hängande i
+       tomma luften bredvid kulan.
+    Utfall: nivå 0–13 klaras på 2–8 svingar, inget dödläge, garantin behövs sällan.
+  - **P0-fix på vägen:** fältets "tryck bredvid" svarade på `pointertap` (alltså vid
+    släpp) — harnessen mätte 262 ms. Nu `pointerdown`.
+  - **Kritikerns två fynd, båda åtgärdade:** (1) rivningskulan lämnades hängande där
+    sista svinget stannade den — ofta rakt framför den nyresta flaggan; kulan och repet
+    tonar nu bort när finishen börjar och kommer tillbaka med nästa torn. (2) Nedknuffade
+    klossar togs aldrig ur fysiken, gled tvärs över golvet och blev liggande **ovanpå
+    "Byt rep"-knappen**; en sopare i tickern (`_sweepCleared`, tak två klossar per
+    bildruta) plockar bort dem 0,8 s efter fallet. Kritikerns tredje punkt — mätaren blev
+    18 px risgryn vid 13 klossar — löstes med två rader över åtta klossar.
+  - **Medvetet kvar:** kontrollerna låses INTE under den blinkande inbjudan. Ett barn som
+    trycker på Tyngd eller Byt rep där använder spelet; kulan står kvar spänd och redo.
+  - **Känd signal:** loggen flaggar ibland `tween-per-ruta` (~125) i bildrutan där vinsten
+    infaller. Det är firandets engångsskur (rivningsdamm + flagga + konfetti + skalets
+    stjärna), inte en tween per bildruta. Skuren är redan gles-lagd; resten är avsiktlig.
+  - Kvar till en senare omgång: gömda fynd bakom en kloss, rasande-mur-kaskad med stigande
+    pling, rep-spänn-ljud, riktiga SFX-klipp (MOSS) och en lugn bakgrunds-ambient.

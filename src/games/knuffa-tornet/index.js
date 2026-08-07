@@ -35,8 +35,16 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const PIVOT_Y = 80 // repets upphängningshöjd (krankärrans krok)
 const PIVOT_X0 = 800 // kärrans startläge (rakt ovanför tornet)
 const PIVOT_MIN_X = 600 // kärrans vänstra gräns på skenan
-const PIVOT_MAX_X = 1000 // kärrans högra gräns
-const CHAIN_LEN = 330 // repets vilolängd: kulans lägsta punkt = pivot.y + denna (~410)
+// Kärrans högra gräns var 1000. En tung stenkloss som knuffats till x≈1050 stod då
+// UTOM RÄCKHÅLL för varje kranläge (kulans lägsta punkt ligger rakt under kroken) och
+// banan gick bara att avsluta via no-fail-garantin. 1100 täcker hela avsatsen som en
+// kloss realistiskt hamnar på.
+const PIVOT_MAX_X = 1100
+// Repets vilolängd. 330 satte kulans underkant på y=456 — 24 px OVANFÖR understa
+// klossraden (424–480), så ett fullt sving nöp bara toppen av tornet och resten sköts
+// åt sidan. 348 låter kulan svepa genom bottenraden utan att skrapa i avsatsen (474 mot
+// avsatsens 480).
+const CHAIN_LEN = 348
 const BALL_R = 46 // baskula-radie (skalas av tyngd-knappen)
 const THETA_REST = 0.85 // vilo-spänning (~49°), standardläge
 const THETA_MIN = -0.3 // får dras en aning åt höger också
@@ -45,7 +53,10 @@ const STRETCH_MAX = 1.5 // elastiskt rep: hur långt kulan kan dras (× CHAIN_LE
 
 const FLOOR_Y = 720
 const LEDGE_Y = 480 // avsatsens översida (klossarna står här)
-const PED = { x1: 640, x2: 1180 } // avsatsens vänster/höger-kant
+// Avsatsens högerkant var 1180, alltså 330 px startbana från tornet till kanten. Sonden
+// visade vad det gav: kulan sköt hela tornet 80 px åt sidan per sving utan att något
+// ramlade av, tre svingar i rad. 1090 gör kanten till en verklig kant.
+const PED = { x1: 640, x2: 1090 }
 // Arbetar-Bobo på marken. Måste vara klar av BÅDE Tyngd-knappen (centrum 150,624) och
 // kranmasten (x≈515) — x=150 lade honom helt bakom knappen, vilket bara syntes i
 // skärmdumpen. x=330 ligger mitt emellan dem.
@@ -77,6 +88,44 @@ const HIT_THROTTLE = 0.07 // s mellan kloss-nere-ljud (plopp)
 // Små "hoppsan"-emoji som pipar upp när en kloss ramlar (ger klossarna karaktär).
 const PIPS = ['😮', '😆', '😲', '🙃', '😵']
 
+const INVITE_WAIT = 7 // s som den inbjudande hjälpen väntar innan spelet svingar själv
+
+// --- Tornformer -----------------------------------------------------------
+// Avsatsen bär x 640–1180, så varje kloss måste hamna inom ~710–1130 för att inte
+// ramla av direkt vid start. dx = kolumnläge i COL-enheter från tornets mitt.
+const COL = 108 // kolumnavstånd (BLOCK_W + luft: inga överlapp vid spawn)
+const TOWER_X = 850
+const MAX_ROWS = 4 // högre torn än så når kulan inte toppen på ett rimligt sving
+const SHAPES = [
+  { id: 'torn', cols: [{ dx: 0, h: 3 }] },
+  { id: 'trappa', cols: [{ dx: -1, h: 1 }, { dx: 0, h: 2 }, { dx: 1, h: 3 }] },
+  // Port: två pelare med en bro över. Bron vilar 24 px på varje pelare (båda ändarna
+  // stöttade -> den kan inte tippa), och gapet under läser som en öppning.
+  { id: 'port', cols: [{ dx: -0.7, h: 2 }, { dx: 0.7, h: 2 }], lintel: true },
+  { id: 'pyramid', cols: [{ dx: -1, h: 2 }, { dx: 0, h: 3 }, { dx: 1, h: 2 }] },
+  { id: 'dubbel', cols: [{ dx: -1.2, h: 3 }, { dx: 1.2, h: 3 }] },
+]
+
+// Specialklossar gör VALET av tyngd och rep till ett pussel i stället för smak:
+//   sten  tung sockel — en liten kula studsar bara av, en stor välter den
+//   studs gummi — flyger långt, särskilt med elastiskt rep
+//   glas  spricker i gnistror vid en hård träff (räknas som nedknuffad)
+// Friktionen var 0,7/1,4 på ALLA klossar — så hög att stapeln betedde sig som ett enda
+// limmat block och sköts åt sidan i stället för att rasa. Låg friktion mellan klossar gör
+// att de skvätter isär av ett slag; stenen behåller sitt grepp och är fortfarande ankaret.
+const KINDS = {
+  normal: { dens: 1, rest: 0.06, fric: 0.4, fricS: 0.7 },
+  // Stenen var 3,4× massa med frictionStatic 1,4. Mätt: den kröp 20 px per fullträff
+  // även med stora kulan och behövde sju svingar för att nå kanten. 2,2× är fortfarande
+  // tydligt tyngst men går att skjuta iväg — vilket är hela poängen med tyngdknappen.
+  sten: { dens: 2.2, rest: 0.02, fric: 0.8, fricS: 0.9 },
+  studs: { dens: 0.7, rest: 0.72, fric: 0.3, fricS: 0.5 },
+  glas: { dens: 0.6, rest: 0.05, fric: 0.35, fricS: 0.6 },
+}
+// Slagfart som spräcker en glaskloss. Var 9 — men världens uppmätta toppfart ÄR 9, så
+// tröskeln nåddes aldrig och glaset ramlade bara av som vilken kloss som helst.
+const GLAS_SPEED = 6
+
 export default {
   id: 'knuffa-tornet',
   titleSv: 'Knuffa Tornet',
@@ -101,7 +150,11 @@ export default {
     this._aiming = false
     this._theta = THETA_REST
     this._stretch = 1
-    this._blocks = [] // { body, view, cleared, isCrown }
+    this._blocks = [] // { body, view, cleared, isCrown, kind }
+    this._shatter = [] // glasklossar som ska spricka i nästa tick
+    this._invited = false // hjälpen har ställt kulan i läge och väntar på barnet
+    this._inviteT = 0
+    this._finishCalls = [] // fördröjda steg i finishen (måste dö med spelet)
     this._total = 0
     this._cleared = 0
     this._clearedAtStart = 0
@@ -123,8 +176,11 @@ export default {
     // Mjuk fångare för "tryck bredvid" (lugnt ljud + recue) — under kulan i z-led.
     this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
     this._catcher.eventMode = 'static'
+    // pointerDOWN, inte pointertap: tap fyrar först vid släpp, så ett barn som trycker
+    // och håller kvar fingret fick sin puff först en kvarts sekund senare (P0 kräver
+    // <100 ms). Harnessen mätte upp exakt det: 262 ms på ett tryck i gräset.
     this._onFieldTap = (e) => this._fieldTap(ctx, e)
-    this._catcher.on('pointertap', this._onFieldTap)
+    this._catcher.on('pointerdown', this._onFieldTap)
     this._root.addChild(this._catcher)
 
     // Avsats (pedestal): statisk kropp som klossarna står på; ritas som sten.
@@ -141,7 +197,7 @@ export default {
       (LEDGE_Y + FLOOR_Y) / 2,
       PED.x2 - PED.x1,
       FLOOR_Y - LEDGE_Y,
-      { isStatic: true, friction: 0.9, frictionStatic: 1.4, restitution: 0.05, label: 'pedestal' },
+      { isStatic: true, friction: 0.6, frictionStatic: 0.9, restitution: 0.05, label: 'pedestal' },
     )
 
     // Kloss-lager (under rep/kula i z-led).
@@ -321,34 +377,82 @@ export default {
 
   _buildMeter(ctx) {
     this._meter = new Container()
-    // Mätaren låg tidigare på y = height-40, alltså BAKOM tornets sockel och delvis under
-    // de två stora knapparna. Flyttad till den fria toppmitten mellan hem- och ljudknappen.
-    this._meter.position.set(ctx.width / 2, 64)
+    // Placering, tredje försöket: y=height−40 låg BAKOM sockeln, toppmitten (640,64) låg
+    // under krankärran som åker på skenan mellan x=600 och 1000. Den enda ytan som är fri
+    // från hemknapp (x≤116), skena (x≥530) och kärra är luckan uppe till vänster.
+    this._meter.position.set(310, 64)
     this._meter.eventMode = 'none'
-    const bw = 360
-    const bg = new Graphics().roundRect(-bw / 2, -18, bw, 36, 18).fill({ color: 0x000000, alpha: 0.18 })
-    this._meterFill = new Graphics()
-    // Ritad krona (P0 ASSETS) i stället för 👑-emoji.
-    const crown = new Graphics()
-    crown.moveTo(-20, 10).lineTo(-20, -8).lineTo(-10, 1).lineTo(0, -13).lineTo(10, 1).lineTo(20, -8).lineTo(20, 10)
-      .closePath().fill(0xffd24a).stroke({ width: 2, color: 0xd9a021 })
-    crown.circle(0, -13, 3.4).fill(0xff6b6b)
-    crown.circle(-20, -8, 2.8).fill(0x57c8c3)
-    crown.circle(20, -8, 2.8).fill(0x57c8c3)
-    crown.position.set(-bw / 2 - 34, 0)
-    crown.eventMode = 'none'
-    this._meterW = bw
-    this._meter.addChild(bg, this._meterFill, crown)
+    this._pips = []
+    this._meterBg = new Graphics()
+    this._meterBg.eventMode = 'none'
+    this._meter.addChild(this._meterBg)
     this._root.addChild(this._meter)
   },
 
-  _updateMeter() {
-    const g = this._meterFill
+  // EN PRICK PER KLOSS som ska ner, sista pricken är kronan. En abstrakt stapel säger
+  // ingenting till en 2-åring; en rad klossar som tänds en efter en är själva målet,
+  // synligt. Varje kloss äger sin prick, så räkningen är ärlig oavsett fallordning.
+  _rebuildMeter() {
+    const m = this._meter
+    if (!m || m.destroyed) return
+    for (const p of this._pips) {
+      gsap.killTweensOf(p.scale)
+      if (!p.destroyed) p.destroy()
+    }
+    this._pips = []
+    const n = this._total
+    if (!n) return
+    // Raden måste rymmas i luckan (max 330 px) mellan hemknappen (slutar x=116) och
+    // kranmasten (börjar x=504). Ett högt torn ger upp till 13 klossar — pressade in på
+    // en rad blev prickarna 18 px risgryn, och då är "en prick per kloss" ingen mätare
+    // längre. Över åtta klossar bryts raden i två i stället för att krympa vidare.
+    const rader = n > 8 ? 2 : 1
+    const perRad = Math.ceil(n / rader)
+    const gap = perRad > 6 ? 8 : 10
+    const w = clamp(Math.floor((330 - (perRad - 1) * gap) / perRad), 26, 44)
+    this._pipW = rader > 1 ? w * 0.78 : w
+    const total = perRad * w + (perRad - 1) * gap
+    const radH = rader > 1 ? 26 : 0
+    if (this._meterBg && !this._meterBg.destroyed) {
+      const h = rader > 1 ? 62 : 50
+      this._meterBg.clear()
+        .roundRect(-total / 2 - 14, -h / 2, total + 28, h, Math.min(25, h / 2))
+        .fill({ color: 0xfffdf7, alpha: 0.72 })
+        .stroke({ width: 3, color: 0x000000, alpha: 0.07 })
+    }
+    for (let i = 0; i < n; i++) {
+      const rad = Math.floor(i / perRad)
+      const iRad = i % perRad
+      const iRaden = Math.min(perRad, n - rad * perRad) // sista raden kan vara kortare
+      const bredd = iRaden * w + (iRaden - 1) * gap
+      const g = new Graphics()
+      g.position.set(-bredd / 2 + w / 2 + iRad * (w + gap), rader > 1 ? -radH / 2 + rad * radH : 0)
+      g.eventMode = 'none'
+      m.addChild(g)
+      this._pips.push(g)
+      this._paintPip(i, false)
+    }
+  },
+
+  _paintPip(i, lit) {
+    const g = this._pips?.[i]
     if (!g || g.destroyed) return
-    const frac = this._total ? this._cleared / this._total : 0
-    const bw = this._meterW
+    const isCrown = i === this._total - 1
+    const s = (this._pipW || 44) / 44
     g.clear()
-    if (frac > 0) g.roundRect(-bw / 2, -18, Math.max(36, bw * frac), 36, 18).fill(COLORS.green)
+    if (isCrown) {
+      // Ritad krona (P0 ASSETS) — guld när den ligger nere, blek kontur innan.
+      g.moveTo(-17 * s, 9 * s).lineTo(-17 * s, -7 * s).lineTo(-8 * s, 1 * s).lineTo(0, -12 * s)
+        .lineTo(8 * s, 1 * s).lineTo(17 * s, -7 * s).lineTo(17 * s, 9 * s)
+        .closePath()
+        .fill(lit ? 0xffd24a : { color: 0xfffdf7, alpha: 0.75 })
+        .stroke({ width: 3, color: lit ? 0xd9a021 : 0x000000, alpha: lit ? 1 : 0.25 })
+      if (lit) g.circle(0, -12 * s, 3.2 * s).fill(0xff6b6b)
+    } else {
+      g.roundRect(-21 * s, -14 * s, 42 * s, 28 * s, 8 * s)
+        .fill(lit ? COLORS.green : { color: 0xfffdf7, alpha: 0.75 })
+        .stroke({ width: 3, color: lit ? 0x2f9a4d : 0x000000, alpha: lit ? 1 : 0.25 })
+    }
   },
 
   _buildSizeButton(ctx) {
@@ -428,17 +532,59 @@ export default {
 
   // ---- Nivåer -------------------------------------------------------------
 
+  // Banans form OCH innehåll per nivå. Formen roterar (torn → trappa → port → pyramid
+  // → dubbel) och växer på höjden först när alla former visats en gång, så tur 2 aldrig
+  // ser ut som tur 1. Specialklossarna sätts DETERMINISTISKT: banan ska vara en design,
+  // inte ett tärningskast.
   _layoutFor(level) {
-    const rows = clamp(3 + Math.floor(level / 1), 3, 6) // taller
-    const cols = level >= 2 ? 2 : 1 // wider
-    const sturdy = 1 + level * 0.14 // sturdier (mer massa = svårare att stöta)
-    const xs = cols === 1 ? [780] : [760, 880]
-    return { rows, cols, xs, sturdy }
+    const shape = SHAPES[level % SHAPES.length]
+    const grow = clamp(Math.floor(level / SHAPES.length), 0, 2)
+    const sturdy = clamp(1 + level * 0.1, 1, 1.6)
+    const cells = []
+    let topRow = 0
+    for (const c of shape.cols) {
+      const h = clamp(c.h + grow, 1, MAX_ROWS)
+      for (let i = 0; i < h; i++) cells.push({ x: TOWER_X + c.dx * COL, row: i, kind: 'normal' })
+      if (h > topRow) topRow = h
+    }
+    if (shape.lintel) cells.push({ x: TOWER_X, row: topRow, kind: 'normal' })
+
+    const byRow = [...cells].sort((a, b) => a.row - b.row)
+    // Stensockeln hör hemma i ett BRETT torn. I en ensam kolumn blev den i stället en
+    // propp: de lätta klossarna ovanpå försvann på ett sving, och sedan stod en tung
+    // kloss ensam kvar och kröp några pixlar per sving (mätt: 8 svingar utan avslut).
+    if (level >= 2 && shape.cols.length > 1) byRow[0].kind = 'sten'
+    // Glaset LÅGT och gummit HÖGT, inte tvärtom: kulan sveper genom de två understa
+    // raderna, så en glaskloss i toppen träffades i praktiken aldrig — den ramlade bara
+    // av som vilken kloss som helst och krossögonblicket uteblev.
+    if (level >= 3) {
+      const lagt = byRow.find((c) => c.row <= 1 && c.kind === 'normal')
+      if (lagt) lagt.kind = 'glas'
+    }
+    if (level >= 4) {
+      const top = byRow[byRow.length - 1]
+      if (top.kind === 'normal') top.kind = 'studs'
+    }
+
+    // Kronan står överst på den högsta kolumnen (eller på bron).
+    const highest = cells.reduce((a, b) => (b.row > a.row ? b : a), cells[0])
+    return { cells, sturdy, crownX: highest.x, crownRow: highest.row + 1, shape: shape.id }
   },
 
   _loadLevel(ctx, level) {
     if (!this._alive) return
     this._clearTower()
+    this._hideInvite()
+    this._clearFinishCalls()
+    this._removeFlag()
+    this._shatter = []
+    // Kulan och repet tonades bort i finishen — de hör till nästa torn igen.
+    for (const o of [this._ballView, this._chain]) {
+      if (o && !o.destroyed) {
+        gsap.killTweensOf(o)
+        o.alpha = 1
+      }
+    }
 
     this._phase = 'aim'
     this._won = false
@@ -462,54 +608,48 @@ export default {
     this._freezeBall(THETA_REST)
 
     this._buildTower(ctx, level)
-    this._updateMeter()
+    this._rebuildMeter()
 
     this._setControlsEnabled(true)
     if (!this._ballView.destroyed) pop(this._ballView)
   },
 
   _buildTower(ctx, level) {
-    const { rows, xs, sturdy } = this._layoutFor(level)
-    let topCenterX = xs[0]
-    let topCenterY = LEDGE_Y - BLOCK_H / 2 - (rows - 1) * BLOCK_H
-    let n = 0
-    for (const cx of xs) {
-      for (let i = 0; i < rows; i++) {
-        const y = LEDGE_Y - BLOCK_H / 2 - i * BLOCK_H
-        const color = BLOCK_COLORS[(i + n) % BLOCK_COLORS.length]
-        const view = makeBlock(BLOCK_W, BLOCK_H, color)
-        view.position.set(cx, y)
-        this._blockLayer.addChild(view)
-        const body = this._phys.rectangle(cx, y, BLOCK_W, BLOCK_H, {
-          density: 0.0016 * sturdy,
-          restitution: 0.06,
-          friction: 0.7,
-          frictionStatic: 1.4,
-          label: 'block',
-        })
-        this._phys.link(body, view)
-        this._blocks.push({ body, view, cleared: false, isCrown: false, nervous: false })
-        bounceIn(view, { delay: i * 0.04 })
-        if (cx === xs[0] && y < topCenterY + 1) topCenterY = y
-      }
-      n++
-    }
+    const { cells, sturdy, crownX, crownRow } = this._layoutFor(level)
+    cells.forEach((cell, n) => {
+      const y = LEDGE_Y - BLOCK_H / 2 - cell.row * BLOCK_H
+      const k = KINDS[cell.kind]
+      const color = BLOCK_COLORS[(cell.row + n) % BLOCK_COLORS.length]
+      const view = makeBlock(BLOCK_W, BLOCK_H, color, cell.kind)
+      view.position.set(cell.x, y)
+      this._blockLayer.addChild(view)
+      const body = this._phys.rectangle(cell.x, y, BLOCK_W, BLOCK_H, {
+        density: 0.0016 * sturdy * k.dens,
+        restitution: k.rest,
+        friction: k.fric,
+        frictionStatic: k.fricS,
+        label: 'block',
+      })
+      this._phys.link(body, view)
+      this._blocks.push({ body, view, cleared: false, isCrown: false, nervous: false, kind: cell.kind })
+      bounceIn(view, { delay: cell.row * 0.04 })
+    })
 
-    // Krona på toppen av första (vänstra) kolumnen.
-    const crownY = topCenterY - BLOCK_H / 2 - 22
+    // Kronan står överst på den högsta kolumnen (eller på broen i port-formen).
+    const crownY = LEDGE_Y - BLOCK_H / 2 - crownRow * BLOCK_H + BLOCK_H / 2 - 22
     const cview = makeCrown()
-    cview.position.set(topCenterX, crownY)
+    cview.position.set(crownX, crownY)
     this._blockLayer.addChild(cview)
-    const cbody = this._phys.rectangle(topCenterX, crownY, 64, 40, {
+    const cbody = this._phys.rectangle(crownX, crownY, 64, 40, {
       density: 0.0012,
       restitution: 0.1,
-      friction: 0.6,
-      frictionStatic: 1.0,
+      friction: 0.4,
+      frictionStatic: 0.7,
       label: 'block',
     })
     this._phys.link(cbody, cview)
-    this._blocks.push({ body: cbody, view: cview, cleared: false, isCrown: true, nervous: false })
-    bounceIn(cview, { delay: rows * 0.04 })
+    this._blocks.push({ body: cbody, view: cview, cleared: false, isCrown: true, nervous: false, kind: 'krona' })
+    bounceIn(cview, { delay: crownRow * 0.04 })
 
     this._total = this._blocks.length
   },
@@ -669,6 +809,9 @@ export default {
 
   // Placera den STATISKA kulan exakt på (x,y) (drag/vila), nollställ fart & rotation.
   _freezeAt(x, y) {
+    // Aldrig NER I avsatsen: ett elastiskt rep kan töjas rakt ner (theta≈0) och la då
+    // den frusna kulan inuti stenblocket — vid släppet sköt matter ut den som en kork.
+    if (x > PED.x1 - 40 && x < PED.x2 + 40) y = Math.min(y, LEDGE_Y - BALL_R * this._ballFactor - 6)
     const b = this._ballBody
     if (b) {
       Body.setStatic(b, true)
@@ -694,6 +837,7 @@ export default {
   // Släpp kulan: repet (Constraint) + gravitationen svingar/slungar ner den i tornet.
   _release(ctx) {
     if (!this._alive) return
+    this._hideInvite() // barnet tog över — inbjudan har gjort sitt
     this._phase = 'swing'
     this._flightT = 0
     this._restT = 0
@@ -767,7 +911,17 @@ export default {
     const dt = ticker.deltaMS / 1000
     this._t += dt
     this._phys.update(ticker.deltaMS)
+    this._step(ctx, dt)
+    // ALLTID sist i bildrutan: _step kan teleportera kulan (_freezeBall efter ett sving),
+    // och ritades repet före det hamnade det kvar vid förra positionen. Det syntes bara
+    // som en bildrutas glitch i spelet — men skärmdumpen frös just den bildrutan, med
+    // repet hängande i tomma luften bredvid kulan.
     this._drawChain()
+  },
+
+  _step(ctx, dt) {
+    if (this._shatter?.length) this._doShatter(ctx)
+    this._sweepCleared()
 
     if (this._phase === 'swing' || this._phase === 'assist') {
       this._checkClears(ctx)
@@ -800,6 +954,18 @@ export default {
     if (this._phase === 'aim') {
       if (this._aiming || this._trolleyDragging) {
         this._idle = 0
+        this._inviteT = 0
+        return
+      }
+      if (this._invited) {
+        // Inbjudan har sin egen klocka (och tystar den vanliga recuen). Rör barnet
+        // inte kulan i tid svingar spelet ändå — garantin är kvar, men den kommer sist.
+        this._idle = 0
+        this._inviteT += dt
+        if (this._inviteT > INVITE_WAIT) {
+          this._hideInvite()
+          this._autoAssistSwing(ctx)
+        }
         return
       }
       this._idle += dt
@@ -811,10 +977,30 @@ export default {
     }
   },
 
+  // Målet är "av avsatsen" — så mät DET, inte bara fallhöjden. Springan mellan avsatsens
+  // högerkant (1180) och skärmkanten (1280) är exakt en kloss bred: en kloss som halkade
+  // ner där kilade fast på y≈491, långt ovanför fall-tröskeln, och räknades aldrig som
+  // nere. Sonden fastnade på 3/5 i åtta svingar innan no-fail-garantin hann rädda banan.
   _checkClears(ctx) {
     for (const b of this._blocks) {
       if (b.cleared) continue
-      if (b.body.position.y > LEDGE_Y + CLEAR_MARGIN) this._onClear(ctx, b)
+      const p = b.body.position
+      if (p.y > LEDGE_Y + CLEAR_MARGIN || p.x < PED.x1 - 20 || p.x > PED.x2 + 20) this._onClear(ctx, b)
+    }
+  },
+
+  // En nedknuffad kloss får flyga och landa, sedan tas den ur fysiken och tonar bort.
+  // Utan det glider den vidare tvärs över golvet och blir liggande OVANPÅ "Byt rep"-
+  // knappen — skräp fastnat i UI:t, tydligt på skärmdumpen. TAK på två per bildruta:
+  // en mass-rivning ska inte bli en tween-storm i samma ruta som firandet.
+  _sweepCleared() {
+    let n = 0
+    for (const b of this._blocks) {
+      if (b.swept || !b.clearAt || this._t < b.clearAt) continue
+      b.swept = true
+      this._phys.removeBody(b.body)
+      if (b.view && !b.view.destroyed) gsap.to(b.view, { alpha: 0, duration: 0.3 })
+      if (++n >= 2) return
     }
   },
 
@@ -822,29 +1008,44 @@ export default {
     if (b.cleared) return
     b.cleared = true
     this._cleared++
-    this._workerCheer(ctx) // arbetaren hejar vid varje nedknuffad kloss
-    this._updateMeter()
+    // Strypningen avgör de EXTRA effekterna, inte bara ljudet. När garantin knuffar ner
+    // tio klossar i samma bildruta blev det annars tio hejarop och tio gnistskurar på en
+    // gång — 132 nya tweens på en halv sekund (loggen: tween-per-ruta) och en arbetare
+    // som ryckte. Prick och squash är per kloss; jubel och gnistor är per HÄNDELSE.
+    const pinged = this._t - this._lastHit > HIT_THROTTLE
+    if (pinged) {
+      this._lastHit = this._t
+      ctx.services.audio.sfx('plopp')
+      this._workerCheer(ctx)
+    }
+    // Klossens EGEN prick tänds (inte "de N första"), så räkningen stämmer även när
+    // kronan ramlar först.
+    const pi = this._blocks.indexOf(b)
+    if (pi >= 0) {
+      this._paintPip(pi, true)
+      // Pricken tänds ALLTID; puffen bara när händelsen inte är strypt. Vid en mass-
+      // rivning tänds tio prickar i samma bildruta, och tio pop-timelines där är ren
+      // tween-svall som ingen hinner se.
+      const pip = this._pips?.[pi]
+      if (pinged && pip && !pip.destroyed) pop(pip)
+    }
     // Snabb squash när klossen ramlar (skala — fysik-länken rör inte scale).
     const v = b.view
     if (v && !v.destroyed) {
       gsap.killTweensOf(v.scale)
       gsap.to(v.scale, { x: 1.34, y: 0.66, duration: 0.1, yoyo: true, repeat: 1, ease: 'sine.out' })
     }
-    let pinged = false
-    if (this._t - this._lastHit > HIT_THROTTLE) {
-      this._lastHit = this._t
-      ctx.services.audio.sfx('plopp')
-      pinged = true
-    }
+    // Klossen får flyga och landa — men sedan lämnar den scenen (se _sweepCleared).
+    b.clearAt = this._t + 0.8
     if (b.isCrown && !this._crownDown) {
       this._crownDown = true
       ctx.services.audio.sfx('magi')
       ctx.services.voice.say('Kronan ramlar!')
       sparkle(ctx.fxLayer, b.view?.x ?? this._pivot.x, b.view?.y ?? this._pivot.y, { count: 10 })
-    } else {
+    } else if (pinged) {
       sparkle(ctx.fxLayer, b.view?.x ?? 0, b.view?.y ?? 0, { count: 4 })
       // Liten "hoppsan"-pip ger klossen karaktär (samma strypning som plopp = ingen spam).
-      if (pinged && v && !v.destroyed) {
+      if (v && !v.destroyed) {
         floatText(ctx.fxLayer, v.x, v.y - 24, PIPS[(Math.random() * PIPS.length) | 0], { fontSize: 32, rise: 62, duration: 0.7 })
       }
     }
@@ -870,7 +1071,71 @@ export default {
     if (this._misses >= 3) {
       this._knockAllOff(ctx, false)
     } else if (this._misses >= 2) {
-      this._autoAssistSwing(ctx)
+      this._offerAssist(ctx)
+    } else {
+      this._hintTool(ctx)
+    }
+  },
+
+  // Står bara stenklossar kvar och kulan är liten? Peka på verktyget i stället för att
+  // ta över — det är hela poängen med tyngdknappen.
+  _hintTool(ctx) {
+    if (this._sizeIdx >= 2) return
+    const kvar = this._blocks.filter((b) => !b.cleared && !b.isCrown)
+    if (!kvar.length || !kvar.every((b) => b.kind === 'sten')) return
+    ctx.services.voice.say('Prova den stora kulan!')
+    if (this._sizeBtn && !this._sizeBtn.destroyed) pop(this._sizeBtn)
+  },
+
+  // Hjälp steg 1: BJUD IN i stället för att spela klart. Spelet ställer kulan i perfekt
+  // läge (styvt rep, stor kula, kran mitt, full spänning) och låter den blinka — men
+  // barnet gör sista handgreppet självt. Först om ingen rör den på INVITE_WAIT sekunder
+  // svingar spelet (_autoAssistSwing). Så förblir vinsten barnets.
+  // Hjälpen ska SIKTA, inte bara ställa sig i mitten. Kulans lägsta punkt ligger rakt
+  // under kroken, så kranen måste stå vid den kloss som står kvar längst bort — annars
+  // svingar hjälpen i tomma luften när en tung kloss knuffats åt sidan.
+  // Sikta på den NÄRMASTE kloss som står kvar — aldrig på den som står längst bort.
+  // Mätt: en hjälp som siktade på den bortersta klossen flyttade kranen till andra änden
+  // av skenan och LÄMNADE den där, så varje följande sving svepte förbi resten av tornet.
+  // Nivå 1 gick från 4 till 8 svingar och nivå 3–4 blev inte klara alls på tio.
+  _assistPivotX() {
+    const kvar = this._blocks.filter((b) => !b.cleared)
+    if (!kvar.length) return PIVOT_X0
+    const narmast = kvar.reduce((a, b) =>
+      Math.abs(b.body.position.x - this._pivot.x) < Math.abs(a.body.position.x - this._pivot.x) ? b : a)
+    return clamp(narmast.body.position.x - 30, PIVOT_MIN_X, PIVOT_MAX_X)
+  },
+
+  _offerAssist(ctx) {
+    if (!this._alive || this._won || this._invited) return
+    this._setRope(0) // styvt = säker pendel
+    this._setSize(2) // stor & tung
+    this._sizeIdx = 2
+    this._refreshSizeTag()
+    this._setPivotX(this._assistPivotX())
+    this._freezeBall(THETA_MAX)
+    this._invited = true
+    this._inviteT = 0
+    ctx.services.voice.say('Kulan är redo! Släpp den!')
+    ctx.services.audio.sfx('pling')
+
+    this._hideInvite()
+    const ring = new Graphics().circle(0, 0, 76).stroke({ width: 9, color: COLORS.yellow, alpha: 0.95 })
+    ring.eventMode = 'none'
+    ring.position.set(this._ballView.x, this._ballView.y)
+    this._inviteRing = ring
+    this._root.addChild(ring)
+    this._inviteTw = gsap.to(ring.scale, { x: 1.22, y: 1.22, duration: 0.6, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+  },
+
+  _hideInvite() {
+    this._invited = false
+    this._inviteTw?.kill()
+    this._inviteTw = null
+    if (this._inviteRing) {
+      gsap.killTweensOf(this._inviteRing.scale)
+      if (!this._inviteRing.destroyed) this._inviteRing.destroy()
+      this._inviteRing = null
     }
   },
 
@@ -882,7 +1147,7 @@ export default {
     this._setSize(2) // stor & tung
     this._sizeIdx = 2
     this._refreshSizeTag()
-    this._setPivotX(PIVOT_X0)
+    this._setPivotX(this._assistPivotX())
     this._freezeBall(THETA_MAX)
     this._setControlsEnabled(false)
     this._assistCall = gsap.delayedCall(0.35, () => {
@@ -904,8 +1169,10 @@ export default {
       Body.setStatic(b.body, false)
       Body.setVelocity(b.body, { x: 11 + Math.random() * 5, y: -3 - Math.random() * 4 })
       Body.setAngularVelocity(b.body, (Math.random() - 0.5) * 0.4)
-      if (b.view && !b.view.destroyed) sparkle(ctx.fxLayer, b.view.x, b.view.y, { count: 5 })
     }
+    // EN gemensam skur, inte en per kloss: tio klossar × fem gnistor blev femtio tweens
+    // i samma bildruta (loggen: tween-per-ruta) — och läste ändå som ett enda ögonblick.
+    burst(ctx.fxLayer, TOWER_X, LEDGE_Y - 70, { count: 12 })
     if (force) {
       // Sista garanti: räkna dem som nere direkt.
       this._checkAndForce(ctx)
@@ -919,6 +1186,83 @@ export default {
 
   // ---- Mål nått: firande + ny nivå ---------------------------------------
 
+  // Spel-specifik finish (gate-punkt 7): rivningen är KLAR. Dammoln rullar längs den
+  // tomma avsatsen där muren stod, en flagga reser sig på rivningsplatsen till en stämd
+  // durtreklang, och först därefter kommer jublet. Ingen anonym konfetti först.
+  _demolitionFinish(ctx) {
+    const later = (t, fn) => {
+      const c = gsap.delayedCall(t, () => {
+        if (this._alive) fn()
+      })
+      this._finishCalls.push(c)
+      return c
+    }
+
+    // 1. Dammoln rullar vänster → höger längs avsatskanten (muren har rasat). Stegen
+    //    ligger glest: allt på en gång blev 132 nya tweens i samma halvsekund, vilket
+    //    loggen (med rätta) läser som en tween-storm.
+    for (let i = 0; i < 6; i++) {
+      const x = PED.x1 + 60 + i * ((PED.x2 - PED.x1 - 120) / 5)
+      later(i * 0.12, () => puff(ctx.fxLayer, x, LEDGE_Y - 8, { count: 4 }))
+    }
+
+    // 2. Flaggan reser sig på tomten — till en durtreklang (C–E–G), inte ett UI-blipp.
+    later(0.35, () => {
+      this._raiseFlag()
+      const chord = [523.25, 659.25, 783.99]
+      chord.forEach((freq, i) => later(i * 0.13, () => ctx.services.audio.tone({ freq, dur: 0.42, type: 'sine', vol: 0.24 })))
+    })
+
+    // 3. Arbetaren jublar vid sin färdiga rivningsplats, sedan flyger jublet upp.
+    later(0.65, () => {
+      this._workerCheer(ctx, true)
+      burst(ctx.fxLayer, TOWER_X, LEDGE_Y - 90, { count: 10 })
+    })
+    later(1.05, () => {
+      ctx.services.audio.sfx('celebrate')
+      bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    })
+  },
+
+  // Ritad flagga (stång + vimpel) som hissas på den rentrivna avsatsen.
+  _raiseFlag() {
+    this._removeFlag()
+    const f = new Container()
+    // Stången är HÖG med sig: en kort flagga hamnade bakom rivningskulan, som efter
+    // vinsten dinglar kvar på ungefär samma höjd (kulans överkant ligger på y≈367).
+    // Vimpeln sitter i toppen, ovanför kulans svepbana.
+    const pole = new Graphics().roundRect(-4, -178, 8, 182, 4).fill(COLORS.inkSoft)
+    const cloth = new Graphics()
+    cloth.moveTo(4, -174).lineTo(78, -153).lineTo(4, -132).closePath()
+      .fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark, alpha: 0.8 })
+    cloth.circle(28, -153, 7).fill({ color: 0xfffdf7, alpha: 0.9 })
+    const foot = new Graphics().ellipse(0, -2, 22, 8).fill({ color: 0x000000, alpha: 0.16 })
+    f.addChild(foot, pole, cloth)
+    f.position.set(TOWER_X, LEDGE_Y)
+    f.eventMode = 'none'
+    f.interactiveChildren = false
+    f.scale.set(1, 0)
+    this._flag = f
+    this._root.addChild(f)
+    gsap.to(f.scale, { x: 1, y: 1, duration: 0.5, ease: 'back.out(2)' })
+    this._flagTw = gsap.to(cloth.scale, { x: 0.88, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 0.5 })
+  },
+
+  _removeFlag() {
+    this._flagTw?.kill()
+    this._flagTw = null
+    if (this._flag) {
+      gsap.killTweensOf(this._flag.scale)
+      if (!this._flag.destroyed) this._flag.destroy({ children: true })
+      this._flag = null
+    }
+  },
+
+  _clearFinishCalls() {
+    for (const c of this._finishCalls) c?.kill()
+    this._finishCalls = []
+  },
+
   _win(ctx) {
     if (this._won) return
     this._won = true
@@ -926,17 +1270,19 @@ export default {
     this._aiming = false
     this._detachBall()
     this._hideHint()
+    this._hideInvite()
     this._setControlsEnabled(false)
     this._assistCall?.kill()
 
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say('Hurra! Du knuffade ner alla klossar!')
-
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
-    this._workerCheer(ctx, true) // rivningen är klar — arbetaren jublar
-    burst(ctx.fxLayer, 800, 360, { count: 14 })
-    sparkle(ctx.fxLayer, 800, 360, { count: 10 })
+    // Kulan har gjort sitt. Den lämnas annars hängande där sista svinget stannade den —
+    // ofta rakt över tomten, alltså framför flaggan som är hela finishens signaturbild.
+    // Repet tonar med, annars pekar det ut i tomma luften.
+    for (const o of [this._ballView, this._chain]) {
+      if (o && !o.destroyed) gsap.to(o, { alpha: 0, duration: 0.3 })
+    }
+    this._demolitionFinish(ctx)
 
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -954,21 +1300,29 @@ export default {
 
   _onCollision(ctx, e) {
     if (!this._alive) return
-    // En rivningskula som krossar ett torn SKA få sitt "duns" — men snällt: en mjuk,
-    // rundad träklots-ton (ingen buzzer) vars kraft växer med slagfarten. Behåll
-    // strypningen så det aldrig distar/loopar.
-    if (this._t - this._lastPuff <= 0.12) return
     let hitSpeed = 0
     for (const pair of e.pairs) {
       const la = pair.bodyA.label
       const lb = pair.bodyB.label
-      const involvesBall = la === 'ball' || lb === 'ball'
-      const involvesBlock = la === 'block' || lb === 'block'
-      if (involvesBall && involvesBlock) {
-        const sp = pair.bodyA.speed + pair.bodyB.speed
-        if (sp > hitSpeed) hitSpeed = sp
+      if (la !== 'ball' && lb !== 'ball') continue
+      const other = la === 'ball' ? pair.bodyB : pair.bodyA
+      if (other.label !== 'block') continue
+      const sp = pair.bodyA.speed + pair.bodyB.speed
+      if (sp > hitSpeed) hitSpeed = sp
+      // Glaskloss + hård träff = den spricker. Kroppen tas INTE bort här (mitt i matter:s
+      // eget kollisionsevent) utan köas till nästa tick.
+      if (sp > GLAS_SPEED) {
+        const rec = this._blocks.find((x) => x.body === other)
+        if (rec && rec.kind === 'glas' && !rec.cleared && !rec.shattering) {
+          rec.shattering = true
+          this._shatter.push(rec)
+        }
       }
     }
+    // En rivningskula som krossar ett torn SKA få sitt "duns" — men snällt: en mjuk,
+    // rundad träklots-ton (ingen buzzer) vars kraft växer med slagfarten. Behåll
+    // strypningen så det aldrig distar/loopar.
+    if (this._t - this._lastPuff <= 0.12) return
     if (hitSpeed > 3 && this._ballView && !this._ballView.destroyed) {
       this._lastPuff = this._t
       puff(ctx.fxLayer, this._ballView.x, this._ballView.y, { count: 5 })
@@ -977,6 +1331,26 @@ export default {
       ctx.services.audio.tone({ freq: 150, slideTo: 78, dur: 0.14, type: 'sine', vol: 0.16 + strength * 0.3 })
       // Liten skärm-mikroskak i takt med kraften — aldrig hård.
       this._screenShake(4 + strength * 6)
+    }
+  },
+
+  // Glaskloss som spruckit: den räknas som nedknuffad (mätaren rör sig), kroppen lämnar
+  // världen och vyn tonar bort i gnistror. Körs i tickern, aldrig i matter:s event.
+  _doShatter(ctx) {
+    const list = this._shatter
+    this._shatter = []
+    for (const b of list) {
+      if (!this._alive || b.cleared) continue
+      const v = b.view
+      const x = v && !v.destroyed ? v.x : this._pivot.x
+      const y = v && !v.destroyed ? v.y : this._pivot.y
+      ctx.services.audio.tone({ freq: 1500, slideTo: 2600, dur: 0.16, type: 'triangle', vol: 0.26 })
+      ctx.services.voice.say('Pang! Glasklossen sprack!')
+      burst(ctx.fxLayer, x, y, { count: 12 })
+      sparkle(ctx.fxLayer, x, y, { count: 8 })
+      this._onClear(ctx, b)
+      this._phys.removeBody(b.body)
+      if (v && !v.destroyed) gsap.to(v, { alpha: 0, duration: 0.2 })
     }
   },
 
@@ -1053,6 +1427,8 @@ export default {
     }
     // fäst-lug där repet möter kulan
     g.circle(ax, ay, 8 * this._ballFactor).fill(0x3a3d42).stroke({ width: 2, color: 0x23262b })
+    // Inbjudningsringen sitter på kulan så länge den blinkar.
+    if (this._inviteRing && !this._inviteRing.destroyed) this._inviteRing.position.set(bx, by)
   },
 
   // ---- Städning (exit-säkert) --------------------------------------------
@@ -1065,10 +1441,13 @@ export default {
     this._assistCall?.kill()
     this._shakeTw?.kill()
     this._workerIdle?.kill()
+    this._hideInvite()
+    this._clearFinishCalls()
+    this._removeFlag()
     if (this._worker && !this._worker.destroyed) gsap.killTweensOf(this._worker.scale)
     this._detachBall()
 
-    if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onFieldTap)
+    if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointerdown', this._onFieldTap)
     if (this._trolley && !this._trolley.destroyed) {
       this._trolley.off('pointerdown', this._onTrolleyDown)
       this._trolley.off('globalpointermove', this._onTrolleyMove)
@@ -1087,6 +1466,13 @@ export default {
       }
     }
     this._blocks = []
+    // Mätarens prickar puffar när de tänds — en puls som lever kvar mot en förstörd
+    // prick är exakt den exit-bugg P0 varnar för.
+    for (const p of this._pips || []) {
+      p._fxPopTl?.kill()
+      gsap.killTweensOf(p.scale)
+    }
+    this._pips = []
 
     gsap.killTweensOf(this._root)
     this._phys?.destroy()
@@ -1114,21 +1500,53 @@ function makeBall(r) {
 
 // Färgglad kloss (rundad rektangel + mjuk highlight + glatt ansikte). Ansiktet gör
 // tornet till "gänget" man knuffar — mer charm, noll fysik-risk.
-function makeBlock(w, h, color) {
+// `kind` ger specialklossarna en EGEN silhuett och ett eget uttryck, så barnet kan se
+// skillnaden innan det svingar: sten är grå och sprucken med bistra ögonbryn, gummi är
+// grön med ringar och ett brett flin, glas är genomskinligt med en blänk-diagonal.
+function makeBlock(w, h, color, kind = 'normal') {
   const c = new Container()
+  const fill = kind === 'sten' ? 0x9a9ea6 : kind === 'studs' ? 0x4ec26a : kind === 'glas' ? 0xbfe9f5 : color
+  const alpha = kind === 'glas' ? 0.62 : 1
   const g = new Graphics()
-    .roundRect(-w / 2, -h / 2, w, h, 12)
-    .fill(color)
-    .stroke({ width: 4, color: shade(color, 0.22), alpha: 0.7 })
-  const hi = new Graphics().roundRect(-w / 2 + 10, -h / 2 + 8, w * 0.4, h * 0.22, 6).fill({ color: COLORS.white, alpha: 0.28 })
+    .roundRect(-w / 2, -h / 2, w, h, kind === 'sten' ? 6 : 12)
+    .fill({ color: fill, alpha })
+    .stroke({ width: 4, color: shade(fill, kind === 'glas' ? 0.1 : 0.22), alpha: kind === 'glas' ? 0.5 : 0.7 })
+  const hi = new Graphics().roundRect(-w / 2 + 10, -h / 2 + 8, w * 0.4, h * 0.22, 6).fill({ color: COLORS.white, alpha: kind === 'glas' ? 0.5 : 0.28 })
   hi.eventMode = 'none'
-  // Ansikte: två prickögon + ett litet leende.
+  c.addChild(g, hi)
+
+  if (kind === 'sten') {
+    // Sprickor: gör tyngden läsbar utan text.
+    const cr = new Graphics()
+    cr.moveTo(-28, -h / 2 + 4).lineTo(-16, 0).lineTo(-24, h / 2 - 4).stroke({ width: 2.5, color: 0x6f737a, alpha: 0.8 })
+    cr.moveTo(22, -h / 2 + 6).lineTo(30, 2).stroke({ width: 2.5, color: 0x6f737a, alpha: 0.8 })
+    cr.eventMode = 'none'
+    c.addChild(cr)
+  } else if (kind === 'studs') {
+    const ring = new Graphics()
+    ring.roundRect(-w / 2 + 12, -h / 2 + 9, w - 24, h - 18, 10).stroke({ width: 3, color: 0xffffff, alpha: 0.45 })
+    ring.eventMode = 'none'
+    c.addChild(ring)
+  } else if (kind === 'glas') {
+    const shine = new Graphics()
+    shine.moveTo(-w / 2 + 18, h / 2 - 6).lineTo(w / 2 - 30, -h / 2 + 6).stroke({ width: 6, color: 0xffffff, alpha: 0.55 })
+    shine.eventMode = 'none'
+    c.addChild(shine)
+  }
+
+  // Ansikte: två prickögon + ett litet leende (bistert på sten, brett på gummi).
   const face = new Graphics()
   face.circle(-15, -6, 4.5).fill(COLORS.ink)
   face.circle(15, -6, 4.5).fill(COLORS.ink)
-  face.arc(0, -1, 12, 0.18 * Math.PI, 0.82 * Math.PI).stroke({ width: 3, color: COLORS.ink })
+  if (kind === 'sten') {
+    face.moveTo(-22, -15).lineTo(-9, -11).stroke({ width: 3, color: COLORS.ink })
+    face.moveTo(22, -15).lineTo(9, -11).stroke({ width: 3, color: COLORS.ink })
+    face.moveTo(-10, 8).lineTo(10, 8).stroke({ width: 3, color: COLORS.ink })
+  } else {
+    face.arc(0, -1, kind === 'studs' ? 15 : 12, 0.18 * Math.PI, 0.82 * Math.PI).stroke({ width: 3, color: COLORS.ink })
+  }
   face.eventMode = 'none'
-  c.addChild(g, hi, face)
+  c.addChild(face)
   c.eventMode = 'none'
   c.interactiveChildren = false
   return c

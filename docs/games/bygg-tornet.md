@@ -120,3 +120,16 @@ garanterar att flaggan alltid nås. Räkneorden gör stapeln till en mjuk siffer
   - **Bugg:** alla tre `gsap.delayedCall` → `ctx.later()`. Hjälmen ritades först som en `arc()`
     i samma Graphics som ansiktet — fyllningen drog en kil från förra punkten och täckte hela
     ansiktet; hjälmen ligger nu i en egen Graphics.
+- 2026-08-07: **Fix — klossarna försvann i tomma intet** (diagnostikloggen: `nan-kropp ×5`
+  + `nan-transform ×6` per körning, helt utan konsolfel). Grundorsaken låg i det delade
+  biblioteket: en matter-kropp som **skapas** med `{ isStatic: true }` i sina options får
+  flaggan satt som en vanlig egenskap — `Body.setStatic()` körs aldrig, så `_original`
+  (massa · tröghet · densitet) fångas ALDRIG. När klossen sedan släpps
+  (`Body.setStatic(kropp, false)`) finns inget att återställa: den blir dynamisk med massa
+  och tröghet kvar på `Infinity`, och första simsteget räknar `Infinity/Infinity` = NaN.
+  Klossen teleporterades till NaN, dess Pixi-vy följde med, och `_settleActive` jämförde
+  NaN mot tröskeln → varje kloss "missade" → tornet kunde aldrig växa.
+  `PhysicsWorld.rectangle/circle/polygon` skapar nu alltid kroppen dynamisk och sätter
+  `isStatic` **efteråt**, så en kropp alltid går att väcka. Mätt med `scripts/_nanprobe.mjs`
+  (spelar spelet och läser spelets egna fält varje 100 ms): NaN vid första trycket före
+  fixen, inget efter. Hela repot: 0 fel-nivåfynd i `test:all`.

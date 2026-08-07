@@ -149,16 +149,33 @@ export class PhysicsWorld {
   }
 
   // --- kropp-fabriker (designkoordinater) ---
+  //
+  // isStatic HANTERAS SEPARAT, aldrig via options. En kropp som skapas med
+  // `{ isStatic: true }` får flaggan satt som en vanlig egenskap — Body.setStatic()
+  // körs aldrig, så `_original` (massa · tröghet · densitet) fångas ALDRIG. Ett senare
+  // `Body.setStatic(kropp, false)` hittar då inget att återställa: kroppen blir dynamisk
+  // med massa och tröghet kvar på Infinity, och första simsteget ger Infinity/Infinity
+  // = NaN-position. Kroppen försvinner, dess länkade Pixi-vy följer med, och INGET
+  // konsolfel skrivs. Bygg-tornets klossar dog exakt så (mätt: nan-kropp ×5 per körning).
+  // Genom att skapa dynamiskt och sätta statiskt EFTERÅT går kroppen alltid att väcka.
+  _make(body, opts) {
+    if (opts.isStatic) Body.setStatic(body, true)
+    return this._add(body)
+  }
+
   rectangle(x, y, w, h, opts = {}) {
-    return this._add(Bodies.rectangle(x, y, w, h, opts))
+    const { isStatic, ...rest } = opts
+    return this._make(Bodies.rectangle(x, y, w, h, rest), opts)
   }
 
   circle(x, y, r, opts = {}) {
-    return this._add(Bodies.circle(x, y, r, opts))
+    const { isStatic, ...rest } = opts
+    return this._make(Bodies.circle(x, y, r, rest), opts)
   }
 
   polygon(x, y, sides, r, opts = {}) {
-    return this._add(Bodies.polygon(x, y, sides, r, opts))
+    const { isStatic, ...rest } = opts
+    return this._make(Bodies.polygon(x, y, sides, r, rest), opts)
   }
 
   _add(body) {

@@ -1,7 +1,8 @@
 // Magnetfiske — fysik-/upptäckarlek (2–4 år). Barnet drar en magnet på ett spö över en
 // damm sedd ovanifrån. Metallsaker (🐟🔑🪙🔩🥫) lever som RIKTIGA matter.js-kroppar och
-// dras RADIELLT mot magnetpunkten (en egen per-tick-kraft ∝ 1/avstånd → len drift långt
-// bort, snabb snäpp nära) tills de fastnar i en liten klase under magneten. Icke-metall
+// dras RADIELLT mot magnetpunkten när magneten DOPPATS i vattnet (en egen per-tick-kraft
+// ∝ 1/avstånd → len drift långt bort, snabb snäpp nära) tills de fastnar i en liten
+// klase under magneten. Icke-metall
 // (🦆🛟⛵) bryr sig inte alls — kommer magneten för nära knuffas ankan bara mjukt undan
 // med ett fniss (ALDRIG en bestraffning). Barnet lyfter de fastklistrade sakerna till
 // hinken 🪣 på stranden där de släpps (plopp + räknas). Alla metallsaker i hinken →
@@ -80,19 +81,32 @@ function makeThing(kind) {
   return g
 }
 
-// Radiell magnet-attraktion (kalibrerad mot matters fasta 1/60-steg, se docs):
-// a = min(STRENGTH/max(dist,R_MIN), A_MAX). Långt bort (300) → len drift, nära → snabb snäpp.
+// KRAFTENHETER — läs det här innan du rör en konstant nedan.
+// matter räknar `velocity += (force / massa) · steg²` med ett fast steg på 16,667 ms och
+// drar av frictionAir varje steg. En konstant acceleration a ger alltså sluthastigheten
+// v∞ = a · 277,78 / frictionAir — MÄTT, inte gissat: a = 1 ger 277,78 px/steg efter ett
+// steg och 4629,6 px/steg i längden. Konstanterna nedan anges därför i px/steg (den fart
+// de ska ge) och räknas om med SPEED_TO_A.
+// De gamla talen var satta som om force vore hastighet, alltså ~280× för starka: hela
+// dammen sögs in i den PARKERADE magneten på under en sekund (uppmätt toppfart 79 px/steg,
+// saker for rakt igenom dammens 40 px tjocka väggar).
+const FRICTION_AIR = 0.06 // sakernas luftmotstånd (samma värde som kropparna skapas med)
+const SPEED_TO_A = FRICTION_AIR / 277.78 // px/steg → matter-acceleration
+
+// Radiell magnet-attraktion, ∝ 1/avstånd: len drift långt bort, snabb snäpp nära.
+// Verkar BARA när magneten är doppad i dammen — en magnet som hänger i luften fiskar inte.
 const R_FIELD = 300 // kraftfältets radie
 const R_MIN = 28 // golv på avståndet (undvik singularitet nära magneten)
-const STRENGTH = 12 // fältstyrka
-const A_MAX = 10 // tak på accelerationen
+const PULL = 480 // px²/steg: 1,6 px/steg vid fältkanten (300), 10,4 px/steg vid fastna-radien
+const PULL_MAX = 14 // tak på dragfarten (px/steg) — långt under väggarnas 40 px, ingen tunnling
 const STICK_R = 46 // fastna-radie (== klister-halons radie)
 const DUCK_PUSH_R = 80 // ankan knuffas mjukt undan inom denna radie
+const DUCK_PUSH = 4 // px/steg — en mjuk knuff, aldrig en katapult
 
 // Simning: sakerna vandrar långsamt runt dammen (fisken "simmar") → aktivt fiske av
-// rörliga mål istället för statiska högar. Farten ökar per nivå (svårare).
-const SWIM_BASE = 0.55 // grund-simacceleration (matter-enheter)
-const SWIM_PER_LEVEL = 0.22 // hur mycket snabbare per nivå
+// rörliga mål istället för statiska högar. Farten (px/steg) ökar per nivå (svårare).
+const SWIM_BASE = 1.1 // grund-simfart
+const SWIM_PER_LEVEL = 0.3 // hur mycket snabbare per nivå
 
 const BUCKET = { x: 1150, y: 510 } // hinkens släpp-zon (centrum)
 const BUCKET_R = 130 // släpp-zonens radie
@@ -322,7 +336,8 @@ export default {
     this._swim = SWIM_BASE + this._level * SWIM_PER_LEVEL
 
     // Svag ambient ström på höga nivåer → lite mer sikte krävs (no-fail kvarstår).
-    this._phys.setWind(this._level >= 3 ? 0.004 : 0, 0)
+    // 0,7 px/steg drift — samma enhet som resten av krafterna (se SPEED_TO_A).
+    this._phys.setWind(this._level >= 3 ? 0.7 * SPEED_TO_A : 0, 0)
 
     // Tillåtna icke-metall-emojis växer med nivån.
     const korkPool = this._level <= 1 ? ['🦆'] : this._level === 2 ? ['🦆', '🛟'] : NONMETAL
@@ -443,17 +458,22 @@ export default {
         if (p.y < SPAWN.y0) it.wh = Math.PI / 2
         else if (p.y > SPAWN.y1) it.wh = -Math.PI / 2
         // Nära magneten dras metall ändå (nedan) → dämpa simningen så den inte motverkar fångst.
-        const swimA = this._swim * 0.03 * (it.metal && dist < R_FIELD ? 0.3 : 1)
+        const swimA = this._swim * SPEED_TO_A * (it.metal && inWater && dist < R_FIELD ? 0.3 : 1)
         Body.applyForce(it.body, p, { x: it.body.mass * swimA * Math.cos(it.wh), y: it.body.mass * swimA * Math.sin(it.wh) })
+
+        // Magneten fiskar bara när den är DOPPAD. Låg den och drog i luften fångade den
+        // hela dammen av sig själv medan barnet tittade på — inget kvar att fiska upp.
+        if (!inWater) continue
 
         if (it.metal) {
           if (dist < R_FIELD) {
-            const a = Math.min(STRENGTH / Math.max(dist, R_MIN), A_MAX)
+            const a = Math.min(PULL / Math.max(dist, R_MIN), PULL_MAX) * SPEED_TO_A
             Body.applyForce(it.body, p, { x: it.body.mass * a * (dx / dist), y: it.body.mass * a * (dy / dist) })
           }
         } else if (dist < DUCK_PUSH_R) {
           // mjuk knuff BORT — ankan kan aldrig fastna
-          Body.applyForce(it.body, p, { x: it.body.mass * 0.25 * (-dx / dist), y: it.body.mass * 0.25 * (-dy / dist) })
+          const da = DUCK_PUSH * SPEED_TO_A
+          Body.applyForce(it.body, p, { x: it.body.mass * da * (-dx / dist), y: it.body.mass * da * (-dy / dist) })
           const now = performance.now()
           if (now - this._lastFniss > 600) {
             this._lastFniss = now
@@ -497,6 +517,12 @@ export default {
     it.slot = this._stuck.length
     this._stuck.push(it)
     Body.setVelocity(it.body, { x: 0, y: 0 })
+    // En fastklistrad sak pinnas till sin slot varje bildruta (se _update). Låt den
+    // därför sluta KROCKA: solvern knuffade isär klasen varje steg (slottarna ligger
+    // 38 px isär, kropparna är 38 px i radie) och nästa bildruta teleporterades den
+    // tillbaka — uppmätt skakning upp till 53 px. Som sensor behåller den sin plats
+    // och slutar dessutom bråka med de saker som fortfarande simmar fritt.
+    it.body.isSensor = true
     this._clearHint()
 
     ctx.services.audio.sfx('match')

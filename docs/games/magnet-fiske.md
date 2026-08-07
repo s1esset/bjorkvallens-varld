@@ -61,8 +61,11 @@ Stark, polerad kärna — men några tunna kanter återstår:
 
 ## 4. Förbättringar & förhöjningar (plan)
 
-> 🐛 **Rapporterade buggar väntar i `docs/ATGARDER.md` (#1, #2)** — allt sitter redan fast i
-> magneten vid start, och de fastklistrade sakerna skakar. Fixas före nya förbättringar.
+> ✅ **ATGARDER #1 + #2 fixade 2026-08-07** (se §5). Kvar som *observation* från den mätningen,
+> INTE fixad (utanför `/fixa`-uppdraget): fältradien `R_FIELD = 300` täcker en stor del av
+> dammen, så ett doppande mitt i dammen drar in allt inom radien på ~1,5 s. Det är i linje med
+> no-fail-designen, men om det ska kännas mer som *sikte* än *dammsugare*: krymp radien eller
+> låt fältet bara verka i en kon framför/under magneten.
 
 ### Kärnloop & agens
 - **[Medium] Förstärk metall-lärandet.** När en anka knuffas undan: visa kort *varför* med en
@@ -125,6 +128,28 @@ Stark, polerad kärna — men några tunna kanter återstår:
   - Deferred: [Deep] sorterings-final (två hinkar), [Deep] fiskare/mottagare (Bobo på brygga),
     [Medium] skämt-/skattfångster (🥾/🧰/guldfisk), [Quick] per-typ egen rörelse (S-kurva/snurr),
     [Quick] cross-fade damm-övergång, förinspelade MOSS-SFX (nu procedurell `tone`).
+- 2026-08-07 (`/fixa`, ATGARDER #1 + #2): **båda felen hade samma grundorsak — krafterna var
+  aldrig kalibrerade mot matters enheter.** matter räknar `velocity += (force/massa) · steg²`
+  med steg = 16,667 ms, så en acceleration `a` ger `a · 277,78` px/steg direkt och
+  `a · 4629,6` px/steg i längden (mätt mot matter-js, inte gissat). Spelets konstanter var
+  satta som om force vore hastighet → ~280× för starka.
+  - **#1 "allt sitter redan fast vid start".** Uppmätt före: **5 av 5 metallsaker fast innan
+    första bildrutan hann provtas**, toppfart 79 px/steg, saker rakt igenom dammens 40 px
+    väggar. Två fel i ett: fältet var absurt starkt, OCH det var påslaget medan magneten
+    hängde PARKERAD i luften 115 px från översta spawn-raden. Nu: krafterna anges i px/steg
+    och räknas om med `SPEED_TO_A`, och fältet verkar **bara när magneten är doppad**
+    (`inWater`) — plask-ögonblicket betyder något nu. Uppmätt efter: **0 av 5 fast efter 8 s
+    utan input**, toppfart 2,6 px/steg, 0 tunnling. `scripts/_idleprobe.mjs` `idleFramsteg: 0`.
+  - **#2 "de fastklistrade sakerna skakar".** Fastklistrade kroppar pinnas till sin slot varje
+    bildruta men KROCKADE fortfarande: slottarna ligger 38 px isär medan kropparna har 38 px
+    radie, så solvern sprängde isär klasen varje steg och nästa bildruta teleporterades den
+    tillbaka. Uppmätt före: offseten mot magneten svängde **53 px** med **47 px hopp mellan
+    bildrutor** medan magneten hölls stilla. Fix: `it.body.isSensor = true` i `_stick`.
+    Uppmätt efter: **0,1 px spann, 0,1 px hopp**. Bonus: klasen bråkar inte längre med de
+    saker som simmar fritt.
+  - Samma kalibrering gällde simfarten (`SWIM_BASE/PER_LEVEL` nu i px/steg), anka-knuffen
+    (`DUCK_PUSH`) och nivå-3-strömmen. Diagnostikloggen: `maxSpeed 44 → 1`,
+    `collisions 55 → 0`, `fysik/hog-fart risk:tunnling` borta. Sond: `scripts/_magnetprobe.mjs`.
 - Rekommenderad första-omgång: **[Medium] förstärkt metall/trä-lärande + [Quick] riktiga
   vatten-/metall-ljud + [Medium] synligt fylld hink** — knyter ihop pedagogiken, ljudet och
   "samlat"-känslan kring en redan mycket stark mekanik.

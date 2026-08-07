@@ -1122,38 +1122,26 @@ export default {
       gsap.killTweensOf(this._flushGlow.scale)
     }
 
-    if (this._held && !this._held.destroyed) {
-      gsap.killTweensOf(this._held)
-      gsap.killTweensOf(this._held.scale)
+    // Döda tweens på HELA trädet, inte på en handhållen lista över objekt vi råkar ha
+    // referenser till. Den gamla listan missade allt spelet hade tappat greppet om —
+    // t.ex. en tidigare bajs-vy vars plopp-tween fortfarande gled — och dess
+    // `if (!x.destroyed)`-vakter hoppade dessutom över städningen i precis det läge då
+    // den behövs mest. Kvar blev en tween som skrev `.y` på ett rivet objekt: Pixi v8
+    // nollar `_position` i destroy(), så settern kastar "Cannot set properties of null
+    // (setting 'y')" varje bildruta. Syntes bara under full `test:all` (långa bildrutor
+    // → teardown förlorar kapplöpningen), mätt till ~1 avhopp av 15 med strypt CPU.
+    const dodaTrad = (nod) => {
+      if (!nod) return
+      gsap.killTweensOf(nod)
+      if (nod.scale) gsap.killTweensOf(nod.scale)
+      if (nod.position) gsap.killTweensOf(nod.position)
+      const barn = nod.children
+      if (barn) for (let i = 0; i < barn.length; i++) dodaTrad(barn[i])
     }
-    if (this._turd?.view && !this._turd.view.destroyed) {
-      gsap.killTweensOf(this._turd.view)
-      gsap.killTweensOf(this._turd.view.scale)
-    }
-    this._kids?.forEach((k) => {
-      if (k && !k.destroyed) {
-        gsap.killTweensOf(k)
-        gsap.killTweensOf(k.scale)
-      }
-    })
-    this._sizeButtons?.forEach((b) => {
-      if (b && !b.destroyed) gsap.killTweensOf(b.scale)
-    })
-    if (this._cat && !this._cat.destroyed) {
-      gsap.killTweensOf(this._cat)
-      gsap.killTweensOf(this._cat.scale)
-      if (this._cat.tail && !this._cat.tail.destroyed) gsap.killTweensOf(this._cat.tail)
-    }
-    if (this._windButton && !this._windButton.destroyed) gsap.killTweensOf(this._windButton.scale)
-    if (this._windFlag && !this._windFlag.destroyed) gsap.killTweensOf(this._windFlag)
-    if (this._toiletView && !this._toiletView.destroyed) {
-      gsap.killTweensOf(this._toiletView)
-      gsap.killTweensOf(this._toiletView.scale)
-    }
-    if (this._meterLayer && !this._meterLayer.destroyed) gsap.killTweensOf(this._meterLayer.scale)
-    if (this._meterPile && !this._meterPile.destroyed) {
-      this._meterPile.children.forEach((c) => !c.destroyed && gsap.killTweensOf(c.scale))
-    }
+    dodaTrad(this._root)
+    // Katt-svansen och bajset i handen kan ligga utanför _root beroende på lager.
+    if (this._cat?.tail) gsap.killTweensOf(this._cat.tail)
+    if (this._held) gsap.killTweensOf(this._held)
 
     this._phys?.destroy()
     gsap.killTweensOf(this._root)

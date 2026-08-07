@@ -107,6 +107,28 @@ Kort sagt: *mekaniskt rikt, scenografiskt och karaktärsmässigt fattigt*. Humor
 
 ## 5. Status / loggar
 
+- 2026-08-07 (`/fixa`, ATGARDER **V5** — spelet föll BARA i full `test:all`):
+  - **Symptom:** `pageerror ×112`, `tween-mot-forstort ×3`, `tween-lacka ×1` — men bara när
+    alla 71 spel kördes parallellt. Ensamt: grönt. Fyra parallellt: grönt. Det gjorde det lätt
+    att avfärda som flakigt; det var det inte.
+  - **Reproduktion utan att köra 71 spel:** `scripts/_bajsprobe.mjs` stryper CPU:n via CDP
+    (`Emulation.setCPUThrottlingRate`) och lämnar spelet vid en rad olika tidpunkter. Det
+    återskapar exakt det loggen visade före kraschen (`lang-ruta 100 ms` + `fysik/svalt`):
+    långa bildrutor gör att teardown förlorar kapplöpningen. Träffbild före fixen: **~1–2 av
+    20 avhopp**.
+  - **Grundorsak:** `destroy()` dödade tweens objekt för objekt ur en **handhållen lista** över
+    de referenser spelet råkade ha kvar. Allt spelet tappat greppet om missades — t.ex. en
+    tidigare bajs-vy vars plopp-tween fortfarande gled — och varje `if (!x.destroyed)`-vakt
+    **hoppade över städningen i precis det läge då den behövs mest**. Kvar blev en tween som
+    skrev `.y` på ett rivet objekt. Pixi v8 nollar `_position` i `destroy()`, så settern kastar
+    `Cannot set properties of null (setting 'y')` varje bildruta — därav 112 fel av EN läcka.
+  - **Fix:** `dodaTrad(this._root)` går igenom hela displayträdet och dödar tweens på varje nod
+    (plus `.scale`/`.position`), oavsett om spelet har en referens kvar. De sparade
+    proxy-tweenarna (`_wallTween`, `_assistTween`, `_swirlTween` …) och `ctx.later`-timrarna
+    dödas som förut — de sitter på hjälpobjekt, inte i trädet.
+  - **Mätt efter:** 0 fel på 24 strypta avhopp, och **`test:all` 71/71** — sviten hade varit
+    röd på exakt det här spelet tre fulla körningar i rad.
+
 - 2026-06-30: Doc skriven (granskad i spelet, errorCount 0). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Medium] knip-anticipation + reaktiva barn + [Quick] tematisk
   pott-mätare** — lyfter humorn och karaktären där spelet är som tunnast, utan att röra den

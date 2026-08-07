@@ -453,10 +453,19 @@ export function attach(svc) {
 
   // — utdata: röst (och om frasen saknar inspelat klipp) —
   wrap(svc.voice, 'say', (text) => {
-    const har = harKlipp(svc.voice, text)
-    log('rost', 'say', { text: String(text).slice(0, 90), klipp: har })
     noteOutput('voice')
-    if (!har) flag('rost-utan-klipp', 'Replik saknar inspelat klipp → robotrösten (Web Speech) tar över', { text: String(text).slice(0, 120) }, 'varning')
+    // Klipp-manifestet hämtas asynkront. Döms repliken direkt flaggas ALLT som sägs
+    // under appens första millisekunder som klipplöst — 14 av 71 spel gjorde det, fast
+    // klippet fanns. Loggraden skrivs i tid ("vantar"), domen väntar på manifestet.
+    const vantar = svc.voice?._manifestDone === false
+    const har = harKlipp(svc.voice, text)
+    log('rost', 'say', { text: String(text).slice(0, 90), klipp: har || (vantar ? 'vantar' : false) })
+    if (har) return
+    const doma = () => {
+      if (!harKlipp(svc.voice, text)) flag('rost-utan-klipp', 'Replik saknar inspelat klipp → robotrösten (Web Speech) tar över', { text: String(text).slice(0, 120) }, 'varning')
+    }
+    if (vantar && svc.voice._manifestReady?.then) svc.voice._manifestReady.then(doma, doma)
+    else doma()
   })
   wrap(svc.voice, 'replayLast', () => noteOutput('voice'))
 

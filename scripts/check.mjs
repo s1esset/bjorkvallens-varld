@@ -161,13 +161,29 @@ const looksSpoken = (s) =>
   (/[åäöÅÄÖ]/.test(s) || /[.!?]$/.test(s)) &&
   !/^[a-z]+\.[a-z]+/i.test(s) && !/https?:|\/\//.test(s)
 
+// Täckt = frasen finns, ELLER varje mening i den finns var för sig (VoiceService
+// spelar då ett klipp per mening — samma regel som i say()).
+const tackt = (t) => {
+  if (phraseSet.has(t)) return true
+  const delar = t.split(/(?<=[!?.])\s+/).map((s) => s.trim()).filter(Boolean)
+  return delar.length > 1 && delar.every((d) => phraseSet.has(d))
+}
+
 let pendingClips = 0
+let templateSays = 0
 for (const g of games) {
   const spoken = new Set()
   const clean = stripComments(g.src)
   if (g.meta.voiceIntro) spoken.add(g.meta.voiceIntro)
   for (const m of clean.matchAll(/voice\.say\(\s*'((?:[^'\\]|\\.)*)'/g)) spoken.add(m[1].replace(/\\'/g, "'"))
   for (const m of clean.matchAll(/voice\.say\(\s*"((?:[^"\\]|\\.)*)"/g)) spoken.add(m[1].replace(/\\"/g, '"'))
+  // Backtick: utan ${} är det en vanlig literal (annars helt osynlig här). MED ${}
+  // finns texten först vid körning — den kan omöjligt slås upp statiskt, så den
+  // räknas bara, och verifieras i stället mot testkörningens fynd längre ned.
+  for (const m of clean.matchAll(/voice\.say\(\s*`([^`]*)`/g)) {
+    if (m[1].includes('${')) templateSays++
+    else if (m[1].trim()) spoken.add(m[1])
+  }
   // Meningsliknande literaler var som helst i filen (repliksbanker, ordlistor).
   for (const m of clean.matchAll(/'((?:[^'\\\n]|\\.)*)'/g)) {
     const s = m[1].replace(/\\'/g, "'")
@@ -182,12 +198,37 @@ for (const g of games) {
   }
 }
 
+// ---------- röst-fynd ur senaste testkörningen (.test-logs) ----------
+// Den statiska läsningen ovan ser bara literaler. Repliker som byggs vid körning
+// (template literal, tabelluppslag, konkatenering) syns först när spelet KÖRT —
+// och då flaggar gamelog dem som `rost-utan-klipp` med den exakta texten. Vi läser
+// den domen här, så en osynlig replik ändå fångas av grinden i stället för att bara
+// tyst falla till robotrösten. Saknas loggen (inget test kört) hoppas kontrollen över.
+let loggarLasta = 0
+for (const g of games) {
+  const raw = read(join(ROOT, '.test-logs', `${g.id}.json`))
+  if (!raw) continue
+  let logg
+  try { logg = JSON.parse(raw) } catch { continue }
+  loggarLasta++
+  const sedda = new Set()
+  for (const f of logg.fynd || []) {
+    if (f.kod !== 'rost-utan-klipp') continue
+    for (const ex of f.exempel || []) {
+      const t = String(ex?.text || '').trim()
+      if (!t || sedda.has(t) || tackt(t)) continue
+      sedda.add(t)
+      warn(g.id, `körningen sa "${t.slice(0, 48)}" utan klipp — texten byggs vid körning och saknas i scripts/voice-phrases.json`)
+    }
+  }
+}
+
 // ---------- utdata ----------
 const errors = problems.filter((p) => p.level === 'fel')
 const warnings = problems.filter((p) => p.level === 'varning')
 
 if (asJson) {
-  console.log(JSON.stringify({ games: games.length, errors, warnings, pendingClips }, null, 2))
+  console.log(JSON.stringify({ games: games.length, errors, warnings, pendingClips, templateSays, loggarLasta }, null, 2))
 } else {
   const scope = onlyGame ? `spel "${onlyGame}" (strikt)` : `${games.length} spel`
   console.log(`\n  Kontroll av ${scope}\n`)
@@ -195,6 +236,7 @@ if (asJson) {
   if (!problems.length) console.log('  ✓ inga problem')
   console.log('')
   if (pendingClips) console.log(`  ♪ ${pendingClips} repliker väntar på röstklipp — kör /rost när narratorn är uppe (Web Speech täcker upp tills dess)`)
+  if (templateSays) console.log(`  ♪ ${templateSays} repliker byggs vid körning (template literal) — bara en testkörning kan verifiera dem (${loggarLasta} loggar lästa i .test-logs)`)
   console.log(`  ${errors.length ? '✗' : '✓'} ${errors.length} fel · ${warnings.length} varningar\n`)
 }
 

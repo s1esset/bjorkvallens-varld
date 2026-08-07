@@ -81,9 +81,12 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 - **Grönt test betyder bara "0 konsolfel".** Det säger ingenting om målet går att nå, om mätaren
   syns eller om scenen är tom. Grävmaskinen klarade en nivå på 3,4 s och rapporterade grönt.
   `npm run test` kör därför `bildkoll.mjs` på skärmdumpen — **och titta på bilden själv ändå.**
-- **Repliker som inte står som `voice.say('literal')` får aldrig ett klipp.** `check.mjs` läser
-  bara literaler; ligger texten i en tabell eller variabel syns den inte, och varningen uteblir.
-  Lägg in den i `scripts/voice-phrases.json` för hand.
+- **Repliker som inte står som `voice.say('literal')` får aldrig ett klipp.** `check.mjs` kan bara
+  läsa literaler; byggs texten vid körning (template literal, tabelluppslag) syns den inte statiskt.
+  Backstoppen är mätt, inte gissad: `check.mjs` läser `rost-utan-klipp` ur `.test-logs/<id>.json`
+  och varnar för den **exakta** text körningen sa. Den kontrollen kräver alltså att spelet har
+  körts — `npm run check` ensam ser dem fortfarande inte. Lägg in frasen i
+  `scripts/voice-phrases.json` för hand och kör `npm run voice`.
 - **Röstkön är inte permanent.** `npm run voice` fungerar (F5-TTS i `C:\repos\storygen`) — töm kön
   i stället för att lämna repliker på Web Speech.
 - **Sonder måste ligga i repot.** Scratchpad-katalogen kan inte lösa `playwright`; lägg

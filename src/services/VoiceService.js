@@ -8,6 +8,9 @@ const CLIP_BASE = `${import.meta.env.BASE_URL}audio/voice/`
 // Anti-upprepning: säg INTE exakt samma fras igen inom detta fönster (ms). Skyddar
 // mot idle-recue-loopar / spel som råkar kalla say() i tät takt med samma replik.
 const REPEAT_COOLDOWN_MS = 8000
+// Hur länge say() väntar in manifestet innan den ger upp och talar. Hämtningen är
+// lokal (millisekunder); taket finns bara så att en hängande fetch aldrig tystar appen.
+const MANIFEST_WAIT_MS = 1500
 const _now = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now())
 
 export class VoiceService {
@@ -19,6 +22,8 @@ export class VoiceService {
     this._clips = new Map()
     this._audio = null // HTMLAudioElement som spelas just nu (för att kunna avbryta)
     this._queue = [] // återstående klipp-URL:er när en replik spelas mening-för-mening
+    this._manifestDone = false // sant när hämtningen är klar (även om den misslyckades)
+    this._sayId = 0 // löpnummer: en uppskjuten replik som hunnit bli gammal spelas inte
     this._supported = typeof window !== 'undefined' && 'speechSynthesis' in window
     if (this._supported) {
       this._pick()
@@ -28,7 +33,7 @@ export class VoiceService {
         /* äldre webbläsare */
       }
     }
-    this._loadManifest()
+    this._manifestReady = this._loadManifest()
   }
 
   get enabled() {
@@ -54,7 +59,16 @@ export class VoiceService {
       }
     } catch {
       /* inga klipp -> Web Speech-fallback */
+    } finally {
+      this._manifestDone = true
     }
+  }
+
+  // Väntar in manifestet, men aldrig längre än taket — en hängande fetch får
+  // inte betyda att spelet står tyst.
+  _waitManifest() {
+    if (this._manifestDone) return Promise.resolve()
+    return Promise.race([this._manifestReady, new Promise((r) => setTimeout(r, MANIFEST_WAIT_MS))])
   }
 
   _pick() {
@@ -79,6 +93,23 @@ export class VoiceService {
     this._lastSayAt = now
     if (!this.enabled) return
     this.cancel()
+    // Manifestet hämtas asynkront i konstruktorn. Ett spel som mountar under de första
+    // millisekunderna hann annars alltid falla till Web Speech FAST klippet fanns —
+    // därför väntar vi in hämtningen i stället för att döma direkt.
+    if (!this._manifestDone) {
+      const mine = ++this._sayId
+      this._waitManifest().then(() => {
+        // Nyare replik, eller cancel()/avstängd röst under väntan -> släpp den här.
+        if (mine !== this._sayId || !this.enabled) return
+        this._dispatch(text)
+      })
+      return
+    }
+    this._dispatch(text)
+  }
+
+  // Välj klipp (exakt · mening-för-mening) och spela — annars talsyntes.
+  _dispatch(text) {
     const exact = this._clips.get(text)
     if (exact) {
       this._playUrls([exact])
@@ -163,6 +194,9 @@ export class VoiceService {
   }
 
   cancel() {
+    // Ogiltigförklara en replik som väntar på manifestet — annars kan den börja
+    // tala efter att spelet lämnats (exit-säkerhet).
+    this._sayId++
     this._queue = []
     if (this._audio) {
       try {

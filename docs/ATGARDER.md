@@ -27,10 +27,11 @@ regel gäller: reproducera innan du ändrar.
 
 | # | Var | Fynd | Bevis | Status |
 |---|-----|------|-------|:--:|
-| V1 | `VoiceService` (app-brett) | **Introt talas av robotrösten trots att klippet finns.** `mount()` säger `voiceIntro` direkt, men `_loadManifest()` är en `fetch` som startas i konstruktorn — hinner spelet mounta först faller repliken till Web Speech. | `studsbollar` loggar `rost-utan-klipp` vid **t=28 ms** och `vattenvagen` vid **t=3 ms**, fast båda replikerna finns i `public/audio/voice/manifest.json`. | ⬜ |
-| V2 | `vippbradan:380` + `check.mjs` | **Repliker byggda med template literal får aldrig ett klipp och varnar aldrig.** `voice.say(\`${label} vikt!\`)` syns inte för `check.mjs` (som bara matchar strängliteraler), så "Lätt vikt!"/"Tung vikt!" saknas i både `voice-phrases.json` och manifestet. Klassfix: låt `check.mjs` flagga `voice.say(` med backtick. | Loggfynd `rost-utan-klipp` ×2 i `.test-logs/vippbradan.json`; båda texterna saknas i manifestet. | ⬜ |
 | V3 | `spara-linjen` | **Tommaste scenen i repot** — 4,3 % innehåll (näst lägst: 9,8 %). Tom vit panel, fyra grå prickar, ✏️-emoji som hela verktyget. Plan finns i spelets doc §4. | `bildkoll.mjs` `gles-scen`, enda utslaget av 71 spel. | ⬜ |
 
 ## Avklarat
 
-*(tomt — flytta hit med commit-hash när en rad är fixad och testad)*
+| # | Var | Fel | Fix | Commit |
+|---|-----|-----|-----|--------|
+| V1 | `VoiceService` (app-brett) | Introt talades av robotrösten trots att klippet fanns — `mount()` sade `voiceIntro` innan manifest-fetchen i konstruktorn hunnit fram. | `say()` skjuter upp repliken tills manifestet landat (tak 1500 ms); `cancel()` ogiltigförklarar en väntande replik (exit-säkerhet). `gamelog` dömer likadant: loggraden skrivs i tid, fyndet väntar in manifestet. **Mätt: 16 spel / 17 träffar `rost-utan-klipp` → 0 av 71.** | `ec21e80` |
+| V2 | `vippbradan:380` + `check.mjs` | Repliker byggda med template literal fick aldrig ett klipp och varnade aldrig. | Template-repliker kan inte slås upp statiskt — de räknas nu (27 st) och verifieras där sanningen finns: `check.mjs` läser `rost-utan-klipp` ur `.test-logs/<id>.json` och varnar för den **exakta** texten. Backtick utan `${}` läses som vanlig literal. Hittade 4 äkta luckor, noll falska: "Lätt vikt!" + "Tung vikt!" (`vippbradan` — `voice-phrases.json` hade Liten/Stor, etiketterna heter Lätt/Tung), "Nästan!" (`bygg-tornet`), "en" (`ballonglyft`). Alla fyra har klipp nu. | `ec21e80` |

@@ -14,6 +14,35 @@ Format:
 
 ---
 
+## 2026-08-07 (natt 3) · v1.32.0 · 🛁 Pruttbadet: varje runda ett nytt bad och ett nytt fynd
+
+**Byggt:** `/polera pruttbad`. Spelet hade **inga öppna [Deep]-punkter** — dess 🔧 var ett
+**kvalitetsomdöme** från `spelkritiker`: variation och mjuk progression endast delvis uppfyllda
+"så länge rundorna ser identiska ut". Omgången riktade sig rakt mot det omdömet.
+
+- **Badsort per runda:** bubbel (blått) → jordgubb (rosa) → blåbär (lila) → citron (gult) →
+  mint (grönt). Vatten, vattentoning och skum byter färg, och rundan säger sitt namn.
+- **Gömt fynd i skummet:** en ritad badleksak (båt/stjärna/fisk/badboll/krabba, cyklar per
+  nivå) ligger dold 35–80 % upp. Skummet stiger förbi → gnistor, `reveal`-ton, replik.
+- **Skärmdumpen avslöjade en bugg inget test såg:** rosa skum över blått vatten under hela
+  firandet. `_level` ökar direkt när rundan klaras men karet målas om först 1,5 s senare, och
+  skummet läste nivån *live*. Badsorten ligger nu på ett enda ställe och allt byter samtidigt.
+- **Blockeraren `spelkritiker` hittade:** nästa rundas fynd avslöjade sig självt direkt i
+  **3 fall av 4**. Firandets pruttsvärm driver skummet långt förbi målet (mätt 350–450 mot ett
+  nytt mål på 88), och nästa runda placerar sitt fynd innan skummet hunnit tömmas — leksaken
+  gungade synligt i ett tomt kar. Fyndet **armeras** nu: skummet måste först ha setts *under*
+  det. Det är oberoende av all tajming, till skillnad från en `_resolving`-spärr.
+- **Fjärde gången i rad missade min sond den verkliga bristen.** Den testade bara via
+  `setLevel` + sidladdning — alltså alltid via `init()` där skummet är 0 — aldrig en **levande**
+  vinst → ny runda. Kritikern skrev en egen sond som spelade den riktiga vägen och mätte 3/4.
+
+**Mätt:** `scripts/_badprobe.mjs` **8/8 ×3** · `npm run check` 0/0 · `npm run test:all` **71/71**
+· 0 fynd i loggen · bygge rent. **Commits:** `5fda2fe` feat(pruttbad)
+**Öppet:** **2 spel kvar som 🔧** — `spindel-zacke-svingar` (spök-båge + nivå-intro) ·
+`glittergrottan` (kamera-drift). Röstkön tom.
+
+---
+
 ## 2026-08-07 (natt 2) · v1.31.0 · 🛁 Kladdlera gör verktygsvalet äkta
 
 **Byggt:** `/polera tvatta-djuret` — spelets sista äkta [Deep]-punkt, "Smutsiga zoner med olika

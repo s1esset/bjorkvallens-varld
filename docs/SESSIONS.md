@@ -14,6 +14,41 @@ Format:
 
 ---
 
+## 2026-08-07 (natt 2) · v1.31.0 · 🛁 Kladdlera gör verktygsvalet äkta
+
+**Byggt:** `/polera tvatta-djuret` — spelets sista äkta [Deep]-punkt, "Smutsiga zoner med olika
+behov". Förut krävdes båda verktygen *globalt* (`renhet = 0,6·skrubbat + 0,4·sköljt`) men aldrig
+ett val om **vilket** verktyg som skulle användas **var** — det var samma svep två gånger med
+olika partikel.
+
+- **Två lersorter.** Torr lera (varm brun, matt) skrubbas som förut. **Kladdlera** (kall
+  skifferblå, blank dager + rinnande droppe) biter svampen inte på — duschen **mjukar upp** den
+  till vanlig lera, och då biter svampen. Klumpen guppar segt och får en **egen låg ton**, inte
+  samma `soft` som en lyckad skrubb, så örat hör skillnad på "det lossnade" och "den sitter fast".
+- **Zoner, inte prickar.** Första versionen slumpade kladd i.i.d. per ruta. `spelkritiker`:
+  det läser *prickigt* snarare än "ett annat material HÄR" — och då är det inget verkligt val.
+  Nu 1–3 zoner per djur, aldrig över ansiktet. Skillnaden syns direkt i skärmdumpen.
+- **Färgen valdes mot en krock.** `DARKMUD` betyder redan "dubbelt lager, skrubba två gånger".
+  En mörkbrun kladd hade alltså burit **två olika regler i nästan samma färg** — därför kall
+  slate. Första utkastet var mörkbrunt och gick inte att skilja åt i skärmdumpen.
+- **Blockeraren `spelkritiker` hittade:** `_idleCue` valde närmaste fläck oavsett sort och sa
+  alltid "dra svampen". På en bana med upp till 40 % kladd kunde **spelets egen hjälp säga fel
+  handling** i precis det ögonblick barnet pausat och behöver den mest. Åtgärdad.
+- **P0 MOTGÅNG hålls:** tak på andelen, nivå 0 helt kladdfri, duschen inte längre låst bakom
+  70 %-regeln när kladd finns (annars vore fläckarna olösbara), mätaren går aldrig bakåt.
+- **Sonden var fel tre gånger till.** Den grep verktyget 200 ms efter släpp medan det glider
+  hem på 400 ms (→ "svampen biter inte" såg ut som en spelbugg), och den mätte "auto-hjälpen
+  når 100 %" fast hjälpen medvetet tar **en fläck per 9 s** — 128 fläckar = ~19 min. Rätt
+  egenskap att mäta var att kladd inte **låser** hjälpen.
+
+**Mätt:** `scripts/_tvattprobe.mjs` **8/8** · `npm run check` 0/0 · `npm run test:all` **71/71** ·
+bygge rent. `spelkritiker`: inga blockerare kvar.
+**Commits:** `8a55054` feat(tvatta-djuret)
+**Öppet:** **3 spel kvar som 🔧** — `spindel-zacke-svingar` (spök-båge + nivå-intro) ·
+`glittergrottan` (kamera-drift) · `pruttbad` (variation/progression). Röstkön tom.
+
+---
+
 ## 2026-08-07 (natt) · v1.30.0 · 🎠 Elvira galopperar över regnbågen
 
 **Byggt:** `/polera enhorningen-elvira` — spelets sista äkta [Deep]-punkt. Vinsten var en 0,4 s

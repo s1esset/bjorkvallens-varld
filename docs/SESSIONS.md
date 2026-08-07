@@ -14,6 +14,45 @@ Format:
 
 ---
 
+## 2026-08-07 (sent) · v1.29.0 · 🕷️ Hjälpen slutade spela spelet åt barnet
+
+**Byggt:** `/polera spindelhjalten` — spelets sista äkta [Deep]-punkt, och den sista
+**ersättande** formen av auto-hjälp-mönstret i repot.
+
+- **Förr:** efter 2 missar räknade `_autoAssist` ut ett nästan-perfekt skott och **avfyrade
+  det åt barnet**. Ett barn som släppte rakt ner tre gånger fick ändå alla stjärnor.
+- **Nu:** `_offerAssist` ritar ut skottets prickbana och tänder en **Skjut!**-knapp. Hjälten
+  står kvar tills barnet trycker. Slangbellan stängs aldrig av — det går lika bra att sikta
+  själv, och griper barnet hjälten försvinner erbjudandet, så två lägen är aldrig aktiva
+  samtidigt. Mall: `enhorningen-elvira:_placeHelperCloud`.
+- **No-fail-golvet är orört.** 12 s utan tryck → samma garanterade glid som förr. Inbjudan
+  flyttar agensen till barnet **utan** att ta bort garantin att en stjärna alltid samlas.
+- **`spelkritiker` hittade hålet i omgångens egen huvudgaranti.** Inbjudan får inte ljuga, och
+  därför återanvänder `_solveShot` sin egen `predictTrajectory`-bana som prickbana. Men
+  `predictTrajectory` känner golv och väggar — **inte studsmoln**. En bana kunde alltså gå rakt
+  genom ett moln och lova en flykt som i verkligheten studsar bort, precis i det ögonblick
+  erbjudandet ska bygga tillit. Min egen sond mätte fel sak (bandens *förutsagda* slutpunkt),
+  så den var grön. `_solveShot` slutar nu läsa en kandidatbana vid första studskontakten.
+  **Mätt efter: minsta marginal bana↔moln 75 px** (var negativ).
+- **Studsmolnen syns nu.** `makeCloudBumper` ritade ett moln identiskt med ängens dekor-moln —
+  ingen kunde veta vilka som studsade, och jag läste dem själv som bakgrund i skärmdumpen.
+  De har nu en krans av blå studsprickar + två uppåtpilar, och stjärnor spawnar inte längre
+  ovanpå ett moln.
+- **Fjärde gången docen ljög.** Två av tre punkter jag föreslog i omgången (`[Quick]` studsmoln,
+  `[Quick]` kombo-pling) var **redan byggda** — jag hade bara kodkollat [Deep]-punkterna när jag
+  skrev förslaget. Även `[Medium]` kattung-räddningen visade sig klar (`_rescueKitten:460`).
+  Alla strukna med kodbevis i samma commit som bygget, enligt regeln från förra passet.
+
+**Mätt:** `scripts/_offerprobe.mjs` **11/11** · `npm run check` 0 fel/0 varningar ·
+`npm run test:all` **71/71** · 0 fynd i `.test-logs/spindelhjalten.json` · bygge rent
+(1520 precache-poster). `spelkritiker`: **inga blockerare**, alla 7 grindpunkter håller.
+**Commits:** `767b77b` feat(spindelhjalten)
+**Öppet:** **`spindelhjalten` 🔧 → ✅ — 5 spel kvar som 🔧** (`enhorningen-elvira` generisk
+finish · `spindel-zacke-svingar` spök-båge + nivå-intro · `glittergrottan` kamera-drift ·
+`tvatta-djuret` zoner i leran · `pruttbad` variation/progression). Röstkön tom.
+
+---
+
 ## 2026-08-07 (kväll) · v1.28.0 · 🔧 Röstkön tömd + 🔧-backloggen visade sig vara bokföring
 
 **Byggt:** Inga kodändringar alls den här omgången — men repots bild av sig självt är nu sann.

@@ -10,7 +10,8 @@
 //      i botten = flackt, för sent = kort. Förlåtande fönster.
 //   2) NÄT-LÄNGD-knapp (📏 Kort 170 / Lång 260) — ändrar pendelns period OCH
 //      räckvidd: långt nät = långsammare, lägre, snabbare svep (når längre);
-//      kort nät = piggt och högt.
+//      kort nät = piggt och högt. Varje tryck ritar en SPÖK-BÅGE (prickad bana,
+//      samma integrator som flykten) som visar den nya räckvidden.
 //
 // Faller ALDRIG: ett mjukt moln ☁️ glider in och bär tillbaka honom till senast
 // nådda fäste (fniss, inget "game over"). Mjuk auto-hjälp (idle-auto-släpp i bästa
@@ -20,9 +21,9 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, sparkle, floatText, burst, breathe, bounceIn, bigCelebration } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, floatText, burst, breathe, bounceIn } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Fysik-konstanter (px/frame, egen integrator) ---
@@ -82,6 +83,13 @@ export default {
     this._web.eventMode = 'none'
     this._root.addChild(this._web)
 
+    // Spök-båge (ritas vid längd-val, tonar bort själv), över nätet men under Zacke.
+    this._ghost = new Graphics()
+    this._ghost.eventMode = 'none'
+    this._root.addChild(this._ghost)
+    this._ghostTw = null
+    this._winTweens = [] // vinstscenens proxy-tweens — dödas explicit i _buildLevel/destroy
+
     // Zacke (hjälte-figur).
     this._zacke = this._buildZacke()
     this._root.addChild(this._zacke)
@@ -121,7 +129,16 @@ export default {
   mount(ctx) {
     this._idle = 0
     this._didCue = false
-    ctx.services.voice.say(this.voiceIntro)
+    // Mini-berättelse: kattungen ropar först, sedan instruktionen (say avbryter
+    // alltid pågående tal — därför i följd via ctx.later, inte samtidigt).
+    ctx.services.voice.say('Kattungen sitter fast på taket!')
+    ctx.later(0.4, () => {
+      if (this._kitten && !this._kitten.destroyed) {
+        wiggle(this._kitten)
+        if (!ctx.services.audio.sample('djur_katt')) ctx.services.audio.sfx('pop')
+      }
+    })
+    ctx.later(2.3, () => ctx.services.voice.say(this.voiceIntro))
   },
 
   // ------------------------------------------------------------------ nivåer
@@ -139,6 +156,16 @@ export default {
     this._idle = 0
     this._didCue = false
     this._attachCount = 0
+
+    // Döda vinstscenens tweens + spök-bågen (proxy-tweens — killTweensOf når dem inte).
+    for (const t of this._winTweens) t.kill()
+    this._winTweens = []
+    this._ghostTw?.kill()
+    this._ghostTw = null
+    if (this._ghost && !this._ghost.destroyed) {
+      this._ghost.clear()
+      this._ghost.alpha = 1
+    }
 
     // Rensa gamla fästen + mål-dekor.
     for (const c of this._anchorLayer.removeChildren()) {
@@ -277,7 +304,10 @@ export default {
     face.roundRect(-20, -34, 40, 15, 7).fill(COLORS.red) // mask
     face.circle(-8, -27, 4).fill(COLORS.white) // ögon
     face.circle(8, -27, 4).fill(COLORS.white)
-    face.arc(0, -16, 8, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3, color: COLORS.ink }) // leende
+    // moveTo till bågens startpunkt — arc() efter fill() strokar annars en implicit
+    // linje från origo till bågen (Elvira såg ut att hålla en käpp; samma fälla här).
+    face.moveTo(8 * Math.cos(0.15 * Math.PI), -16 + 8 * Math.sin(0.15 * Math.PI))
+      .arc(0, -16, 8, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3, color: COLORS.ink }) // leende
     c.addChild(face)
     return c
   },
@@ -299,7 +329,8 @@ export default {
     face.circle(0, -60, 15).fill(skin)
     face.circle(-5, -62, 2.5).fill(COLORS.ink)
     face.circle(5, -62, 2.5).fill(COLORS.ink)
-    face.arc(0, -57, 6, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: COLORS.ink })
+    face.moveTo(6 * Math.cos(0.15 * Math.PI), -57 + 6 * Math.sin(0.15 * Math.PI))
+      .arc(0, -57, 6, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: COLORS.ink })
     const arm = new Graphics()
     arm.moveTo(16, -44).lineTo(34, -58).stroke({ width: 6, color: skin, cap: 'round' }) // vinkar
     c.addChild(legs, dress, hair, face, arm)
@@ -332,6 +363,64 @@ export default {
     if (this._lenLabel && !this._lenLabel.destroyed) this._lenLabel.text = this._ropeLen === LONG ? 'Lång' : 'Kort'
     if (this._lenBtn && !this._lenBtn.destroyed) pop(this._lenBtn)
     ctx.services.voice.say(this._ropeLen === LONG ? 'Långt nät!' : 'Kort nät!')
+    this._showGhost()
+  },
+
+  // Spök-båge: visar vad den NYA nätlängden ger — banan för ett bra släpp (bästa
+  // stunden i framåt-bågen), simulerad med EXAKT samma konstanter och steg som
+  // flykten (G, L, AMP, dt=1) så förhandsvisningen stämmer av konstruktion.
+  // Ritas som prickar som tonar bort själva; knapp → utfall blir synligt.
+  _showGhost() {
+    if (!this._alive || this._state !== 'swing' || !this._anchor) return
+    const g = this._ghost
+    if (!g || g.destroyed) return
+    this._ghostTw?.kill()
+    g.clear()
+    g.alpha = 1
+    const L = this._ropeLen
+    const a = this._anchor
+    const th = 0.75 // mitt i belönings-fönstret (0.45–1.05)
+    const vt = Math.sqrt(Math.max(0, 2 * G * L * (Math.cos(th) - Math.cos(AMP))))
+    let x = a.x + L * Math.sin(th)
+    let y = a.y + L * Math.cos(th)
+    let vx = vt * Math.cos(th)
+    let vy = -vt * Math.sin(th)
+    // Spök-tråden vid släpp-punkten.
+    g.moveTo(a.x, a.y).lineTo(x, y).stroke({ width: 3, color: 0xffffff, alpha: 0.3 })
+    // Prickad flyktbana fram till taklinjen.
+    let last = { x, y }
+    for (let step = 1; y < ROOF_Y && x < 1300 && step < 240; step++) {
+      vy += G
+      x += vx
+      y += vy
+      if (step % 4 === 0) {
+        g.circle(x, y, 5).fill({ color: 0xfff3b0, alpha: 0.9 - Math.min(1, step / 160) * 0.45 })
+        last = { x, y }
+      }
+    }
+    // Landnings-ring: "hit ungefär når du".
+    g.circle(last.x, Math.min(last.y, ROOF_Y - 10), 13).stroke({ width: 4, color: 0xfff3b0, alpha: 0.9 })
+    const st = { a: 1 }
+    const tw = gsap.to(st, {
+      a: 0,
+      duration: 1.1,
+      delay: 1.0,
+      ease: 'power1.in',
+      onUpdate: () => {
+        if (g.destroyed) {
+          tw.kill()
+          return
+        }
+        g.alpha = st.a
+      },
+      onComplete: () => {
+        if (!g.destroyed) {
+          g.clear()
+          g.alpha = 1
+        }
+      },
+    })
+    this._ghostTw = tw
   },
 
   // ------------------------------------------------------------------ släpp/fäst
@@ -340,7 +429,9 @@ export default {
     if (this._state === 'swing') {
       this._release(ctx, false)
     } else {
-      // Redan i flykt/firande → mjuk gnista där fingret är (aldrig straff).
+      // Redan i flykt/firande → mjukt ljud + gnista där fingret är (aldrig straff;
+      // P0 ÅTERKOPPLING: varje pekning ska ge ljud OCH bild).
+      ctx.services.audio.sfx('soft')
       const p = this._root.toLocal(e.global)
       sparkle(ctx.fxLayer, p.x, p.y, { count: 4 })
     }
@@ -407,13 +498,25 @@ export default {
       return
     }
 
-    ctx.services.audio.sfx(this._attachCount % 2 === 0 ? 'reveal' : 'pop')
+    // Riktigt nät-"thwip" när det nya nätet fäster (klipp finns; syntes som fallback).
+    if (!ctx.services.audio.sample('thwip')) {
+      ctx.services.audio.sfx(this._attachCount % 2 === 0 ? 'reveal' : 'pop')
+    }
     this._attachCount += 1
     sparkle(ctx.fxLayer, anchor.x, anchor.y, { count: 6 })
     floatText(ctx.fxLayer, z.x, z.y - 70, randomFrom(SWING_WORDS))
     if (!this._toldSwing) {
       this._toldSwing = true
       ctx.services.voice.say('Bra svingat!')
+    }
+    // Kattungen ser honom komma: jam + hopp vid näst sista fästet (spänning före målet).
+    if (i === this._anchors.length - 2 && this._kitten && !this._kitten.destroyed) {
+      ctx.later(0.3, () => {
+        if (this._kitten && !this._kitten.destroyed) {
+          pop(this._kitten, { scale: 1.22 })
+          if (!ctx.services.audio.sample('djur_katt')) ctx.services.audio.sfx('pop')
+        }
+      })
     }
   },
 
@@ -487,32 +590,120 @@ export default {
     })
   },
 
-  // Mål nått → firande (en gång), nästa (svårare) bana byggs.
+  // Mål nått → spelets EGEN vinstscen: Zacke landar på taket, Elvira springer fram
+  // och kramar honom, kattungen jamar och hoppar upp i famnen — SEDAN det delade
+  // firandet (complete() säger PRAISE och avbryter allt tal, därför sist, efter att
+  // spelets egen replik hunnit klart). Alla fördröjningar via ctx.later (dör med
+  // omgången), alla tweens på proxys med destroyed-vakter (exit mitt i scenen ofarligt).
   _reachGoal(ctx) {
     if (this._resolving) return
     this._resolving = true
     const z = this._zacke
+    const goal = this._anchors[this._anchors.length - 1]
 
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
-    if (this._kitten && !this._kitten.destroyed) pop(this._kitten, { scale: 1.25 })
-    if (this._elvira && !this._elvira.destroyed) wiggle(this._elvira)
-    ctx.services.voice.say(randomFrom(PRAISE))
-    this._goalTimer1 = gsap.delayedCall(0.9, () => {
-      if (this._alive) ctx.services.voice.say('Du räddade kattungen!')
-    })
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
-    burst(ctx.fxLayer, z.x, z.y, { count: 18 })
-    if (this._kitten) floatText(ctx.fxLayer, this._kitten.x, this._kitten.y - 30, '🐱', { fontSize: 70, rise: 90 })
+    this._web.clear() // han släpper tråden och landar
 
-    // Delat firande + klistermärke (en gång), höj nivå, räkna mål (aldrig sjunkande).
-    ctx.progress.complete()
+    // 1) Zacke landar mjukt på mål-taket bredvid kattungen.
+    const lx = Math.min(goal.x - 64, 1140)
+    const ly = ROOF_Y - 58
+    const st = { x: z.x, y: z.y, r: z.rotation }
+    const tw1 = gsap.to(st, {
+      x: lx,
+      y: ly,
+      r: 0,
+      duration: 0.5,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        if (!this._alive || z.destroyed) {
+          tw1.kill()
+          return
+        }
+        z.position.set(st.x, st.y)
+        z.rotation = st.r
+      },
+    })
+    this._winTweens.push(tw1)
+    ctx.later(0.1, () => ctx.services.voice.say('Du räddade kattungen!'))
+
+    // 2) Elvira springer fram i små skutt och kramar Zacke.
+    const elvira = this._elvira
+    if (elvira && !elvira.destroyed) {
+      const ex0 = elvira.x
+      const es = { p: 0 }
+      const tw2 = gsap.to(es, {
+        p: 1,
+        duration: 0.6,
+        delay: 0.5,
+        ease: 'power1.inOut',
+        onUpdate: () => {
+          if (!this._alive || elvira.destroyed) {
+            tw2.kill()
+            return
+          }
+          elvira.x = ex0 + (lx + 54 - ex0) * es.p
+          elvira.y = ROOF_Y - Math.abs(Math.sin(es.p * Math.PI * 3)) * 14
+        },
+        onComplete: () => {
+          if (!this._alive || elvira.destroyed) return
+          elvira.y = ROOF_Y
+          ctx.services.audio.sfx('match')
+          floatText(ctx.fxLayer, lx + 28, ly - 96, '❤️', { fontSize: 64, rise: 70, duration: 1.2 })
+          wiggle(elvira)
+          if (!z.destroyed) wiggle(z)
+        },
+      })
+      this._winTweens.push(tw2)
+    }
+
+    // 3) Kattungen jamar och hoppar upp i famnen.
+    const kitten = this._kitten
+    if (kitten && !kitten.destroyed) {
+      ctx.later(1.15, () => {
+        if (kitten.destroyed) return
+        if (!ctx.services.audio.sample('djur_katt')) ctx.services.audio.sfx('pop')
+        const kx0 = kitten.x
+        const ky0 = kitten.y
+        const ks = { p: 0 }
+        const tw3 = gsap.to(ks, {
+          p: 1,
+          duration: 0.45,
+          ease: 'power1.in',
+          onUpdate: () => {
+            if (!this._alive || kitten.destroyed) {
+              tw3.kill()
+              return
+            }
+            // Hoppar över Zackes axel till hans VÄNSTRA sida — höger är Elviras,
+            // och mitt framför honom göms kattungen bakom kroppen (Zacke ritas överst).
+            kitten.x = kx0 + (lx - 36 - kx0) * ks.p
+            kitten.y = ky0 + (ly + 6 - ky0) * ks.p - Math.sin(ks.p * Math.PI) * 84
+          },
+          onComplete: () => {
+            if (this._alive && !kitten.destroyed) pop(kitten, { scale: 1.25 })
+          },
+        })
+        this._winTweens.push(tw3)
+      })
+    }
+
+    // 4) Delat firande + klistermärke (en gång), höj nivå, räkna mål (aldrig sjunkande).
+    ctx.later(1.8, () => {
+      ctx.progress.complete()
+      burst(ctx.fxLayer, lx + 20, ly - 20, { count: 18 })
+    })
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('svingar', (ctx.progress.get().custom?.svingar || 0) + 1)
 
-    this._goalTimer2 = gsap.delayedCall(1.6, () => {
-      if (this._alive) this._buildLevel(this._level)
+    ctx.later(3.0, () => this._buildLevel(this._level))
+    // 5) Berättelsen fortsätter: nästa kattunge ropar (efter nybygget, efter PRAISE).
+    ctx.later(4.2, () => {
+      ctx.services.voice.say('En kattunge till behöver hjälp!')
+      if (this._kitten && !this._kitten.destroyed) {
+        wiggle(this._kitten)
+        if (!ctx.services.audio.sample('djur_katt')) ctx.services.audio.sfx('pop')
+      }
     })
   },
 
@@ -520,8 +711,10 @@ export default {
   _drawWeb() {
     const g = this._web
     if (!g || g.destroyed) return
+    // Inget nät i flykt/moln — och inte i vinstscenen (ticken som anropar _attach
+    // fortsätter till _drawWeb längst ner och skulle annars frysa en tråd i luften).
     g.clear()
-    if (this._state !== 'swing' || !this._anchor) return // inget nät i flykt/moln
+    if (this._state !== 'swing' || !this._anchor || this._resolving) return
     const x0 = this._anchor.x
     const y0 = this._anchor.y
     const x1 = this._zacke.x
@@ -603,8 +796,9 @@ export default {
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
-    this._goalTimer1?.kill()
-    this._goalTimer2?.kill()
+    this._ghostTw?.kill()
+    for (const t of this._winTweens || []) t.kill()
+    this._winTweens = []
     if (this._sky && !this._sky.destroyed) this._sky.off('pointertap', this._hRelease)
     if (this._lenBtn && !this._lenBtn.destroyed) {
       gsap.killTweensOf(this._lenBtn)

@@ -110,7 +110,7 @@ i stället för att avfyra skottet åt barnet (`_offerAssist` + Skjut!-knapp, no
 | 50 | Spindelnätet | `spindelnatet` | tap | ✅ | ✅ |
 | 52 | Fallskärmen | `fallskarmen` | drag | ✅ | ✅ |
 | 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | ✅ | ✅ |
-| 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | 🔧 | ✅ |
+| 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | ✅ | ✅ |
 | 55 | Bobos Bowling | `bowling` | drag | ✅ | ✅ |
 | 56 | Flipperspel | `flipperspel` | tap | ✅ | ✅ |
 | 58 | Snöbollen | `snobollen` | drag | ✅ | ✅ |

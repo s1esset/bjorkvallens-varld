@@ -1,5 +1,5 @@
 # Spindel-Zacke Svingar (`spindel-zacke-svingar`)
-> ⚙️ fysik · tap · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · tap · 3–5 år · status: ✅ marknadskvalitet
 
 ## 1. Nuläge (sett som spelare)
 
@@ -70,7 +70,7 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
 - **[Medium] Belöna bra släpp.** Ett släpp i den bästa zonen ger ett tydligt längre, högre kast +
   extra gnista + "Wii!" — så skillnaden mot ett slumpsläpp känns, och auto-hjälpen skjuts upp när
   barnet lyckas.
-- **[Deep] Längd-valet förklarat visuellt.** Vid Kort/Lång: visa kort en spök-båge som visar den
+- ✅ 2026-08-07 **[Deep] Längd-valet förklarat visuellt.** Vid Kort/Lång: visa kort en spök-båge som visar den
   nya räckvidden, så barnet ser att långt nät når längre — koppla knapp → utfall.
 
 ### Variation & överraskning
@@ -82,9 +82,9 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
 ### Juice
 - **[Quick] Superhjälte-pose i flykten.** Sträck ut armarna och böj kroppen i kast-riktningen
   (rotera mot `atan2(vy,vx)`) + fart-streck bakom honom — flykten ska kännas som ett "swoosh".
-- **[Quick] Nät-"thwip" + vind-sus.** Ett klistrigt nätskott vid varje fäste och ett sus vars
-  tonhöjd följer fart i flykten; en mjuk "boing" när pendeln vänder.
-- **[Quick] Kattungen jamar och hoppar** när Zacke närmar sig sista fästet (inte bara vid finalen).
+- 🔶 2026-08-07 **[Quick] Nät-"thwip" + vind-sus.** Ett klistrigt nätskott vid varje fäste och ett sus vars
+  tonhöjd följer fart i flykten; en mjuk "boing" när pendeln vänder. *(thwip klart; vind-sus/boing kvar)*
+- ✅ 2026-08-07 **[Quick] Kattungen jamar och hoppar** när Zacke närmar sig sista fästet (inte bara vid finalen).
 
 ### Progression
 - **[Medium] Räddnings-räknare med ansikte.** `svingar` finns redan — visa de räddade kattungarna
@@ -93,14 +93,15 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   bara vid målet.
 
 ### Karaktär & berättelse
-- **[Deep] Mini-berättelse per nivå.** Kort intro ("kattungen sitter fast på taket!") + Elvira som
+- ✅ 2026-08-07 **[Deep] Mini-berättelse per nivå.** Kort intro ("kattungen sitter fast på taket!") + Elvira som
   springer fram och kramar Zacke vid räddningen — en spelspecifik vinst-scen i stället för generisk
   konfetti.
 - **[Quick] Bobo eller folk i fönstren** som hejar när Zacke svingar förbi (levande stad).
 
 ### Ljud
-- **[Quick] Riktiga SFX från [[real-audio-sfx]]:** nät-thwip, vind-sus, jamande katt, mjuk
+- 🔶 2026-08-07 **[Quick] Riktiga SFX från [[real-audio-sfx]]:** nät-thwip, vind-sus, jamande katt, mjuk
   moln-"pluff" — ersätt syntetblippen; ersätt TTS-fraserna med förgenererade klipp.
+  *(thwip + jamande katt + alla repliker som riktiga klipp klart; vind-sus/moln-pluff kvar)*
 
 ## 5. Status / loggar
 
@@ -117,3 +118,15 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
 - 2026-08-04: **P0 ASSETS.** Nätfästena (var 🕸️), kattungen på taket (var 🐱) och startmolnet
   (var ☁️) ritas nu som riktiga föremål med egen silhuett — nätet med åtta ekrar och två
   spiralringar, kattungen med öron, svans, nos, morrhår och kinder. errorCount 0.
+- 2026-08-07 ✅ **Spök-båge + mini-berättelse (spelets sista 🔧-punkter).** 📏-tryck ritar nu en
+  prickad spökbana ur SAMMA integrator som flykten (G/L/AMP, dt=1 — förhandsvisningen kan inte
+  ljuga) med landnings-ring; sonden mäter Lång maxX 781 vs Kort 676 (+105 px). Nivå-intro:
+  "Kattungen sitter fast på taket!" + jam vid mount, "En kattunge till behöver hjälp!" efter varje
+  klarad nivå. Egen vinstscen i stället för generisk konfetti: Zacke landar på taket, Elvira
+  springer fram i skutt och kramar (❤️ + match), kattungen jamar och hoppar upp i famnen —
+  SEDAN delat firande (complete() sist så spelets replik inte klipps). Dessutom: thwip.mp3 vid
+  nätfäste, jam vid näst sista fästet, P0-fix tryck-under-flykt → ljud, gsap.delayedCall →
+  ctx.later, och en gammal synlig bugg: Elvira "höll i en käpp" — arc() efter fill() utan moveTo
+  strokade en implicit linje från origo (samma i Zackes leende). Kattljudets kallstart vaktas
+  med pop-fallback. Ny sond `scripts/_svingprobe.mjs` (spelar med riktiga mustryck i
+  släpp-fönstret): 7/7 gröna, exit mitt i kramscenen 0 fel. Status → ✅.

@@ -47,6 +47,26 @@ const FOAM_K = 0.9 // skum-tillskott per pop = r * FOAM_K
 const MAX_V = 14 // hastighetstak — inget kan skjuta ur karet
 
 // ---- Zacke (ritad karaktär, inte en boll) --------------------------------
+// Badsorter — en per runda, cyklade på nivån. Rundorna såg tidigare IDENTISKA ut (bara
+// mållinjen flyttades och bubblorna blev några px större), vilket var precis det kritikern
+// underkände: "variation" och "mjuk progression" delvis uppfyllda så länge rundorna ser lika
+// ut. Nu byter vattnet, toningen och skummet färg — skillnaden syns på en halv sekund.
+const BATHS = [
+  { id: 'bubbel', water: COLORS.blue, tint: 0x4aa3df, foam: 0xffffff, say: 'Vanligt bubbelbad!' },
+  { id: 'jordgubb', water: 0xff7ba5, tint: 0xe0518a, foam: 0xffe6f0, say: 'Jordgubbsbad!' },
+  { id: 'blabar', water: 0x8f80e6, tint: 0x6f5fd0, foam: 0xeae4ff, say: 'Blåbärsbad!' },
+  { id: 'citron', water: 0xf5c542, tint: 0xdfa81b, foam: 0xfff7db, say: 'Citronbad!' },
+  { id: 'mint', water: 0x4fd6b8, tint: 0x2fbfa0, foam: 0xe0fbf4, say: 'Mintbad!' },
+]
+
+const TREASURES = [
+  { id: 'boat', say: 'Titta, en båt!' },
+  { id: 'star', say: 'En stjärna i skummet!' },
+  { id: 'fish', say: 'En liten fisk!' },
+  { id: 'ball', say: 'En badboll!' },
+  { id: 'crab', say: 'En krabba!' },
+]
+
 const SKIN = 0xffe0bd
 const SKIN_DARK = 0xefc79c
 const SKIN_OUT = 0xd79f6a // egen kontur — hud mot vitt porslin/skum är annars nästan osynlig
@@ -66,6 +86,7 @@ export default {
 
   init(ctx) {
     this._alive = true
+    this._ctx = ctx // _drawFoam saknar ctx men behöver den för fyndets ljud/röst
     this._bubbles = []
     this._foam = { level: 0 }
     this._held = false
@@ -74,6 +95,9 @@ export default {
     this._idle = 0
     this._sinceFoam = 0 // anti-stuck-vakt: sekunder sedan skummet senast växte
     this._firstPrutt = false
+    this._tweens = [] // fynd-tweens (bl.a. en repeat:-1-gungning som MÅSTE dödas)
+    this._treasure = null
+    this._treasureBob = null
     this._touched = false // har barnet rört spelet? styr inbjudande handen
     this._duckPhase = 0
     this._duckActive = false
@@ -110,6 +134,12 @@ export default {
     this._buildDuck(ctx) // ovanför toningen: en badanka MÅSTE läsas som gul, inte olivgrön
     this._buildBubbleLayer()
     this._buildFoam()
+    // Fynd-lagret ligger FRAMFÖR skummet: leksaken ska se ut att lyftas upp av skummet.
+    this._treasureLayer = new Container()
+    this._treasureLayer.eventMode = 'none'
+    this._treasureLayer.interactiveChildren = false
+    this._root.addChild(this._treasureLayer)
+    this._placeTreasure()
     this._buildTubRim()
     this._buildHint()
     this._buildProgress()
@@ -126,6 +156,7 @@ export default {
   // ---- Nivå-skalning ------------------------------------------------------
 
   _applyLevel() {
+    this._bathNow = BATHS[Math.abs(this._level | 0) % BATHS.length]
     this._goalFoam = 70 + this._level * 18
     // Linjen får inte krypa upp i kar-kanten. Skummet ritas i ANDEL av vägen hit
     // (se _drawFoam), så mätaren och skummet når linjen exakt samtidigt — förr
@@ -133,6 +164,62 @@ export default {
     // fullt ut långt innan det var klart.
     this._goalY = clamp(SURFACE_Y - this._goalFoam, 248, SURFACE_Y - 40)
     this._levelBoost = Math.min(this._level * 4, 20) // större standardbubblor på högre nivå
+    this._drawTub(this._tubGfx)
+    this._drawTint(this._tintGfx)
+    this._placeTreasure()
+  },
+
+  // ---- Gömt fynd i skummet ------------------------------------------------
+  // En badleksak ligger gömd i skummet. När skummet stigit förbi den dyker den upp med
+  // gnistor och flyter kvar resten av rundan. Leksakssorten cyklar per nivå, så varje
+  // runda har NÅGOT NYTT att upptäcka — det var den andra halvan av kritikerns invändning
+  // (rundorna såg likadana ut OCH hade inget nytt i sig).
+  _placeTreasure() {
+    // Döda gungningen FÖRE vyn rivs — annars skriver den .y på ett förstört objekt.
+    this._treasureBob?.kill()
+    this._treasureBob = null
+    if (this._treasure?.view && !this._treasure.view.destroyed) this._treasure.view.destroy()
+    if (!this._treasureLayer || this._treasureLayer.destroyed) return
+    const kind = TREASURES[Math.abs(this._level | 0) % TREASURES.length]
+    const view = makeTreasure(kind.id)
+    // Mellan 35 % och 80 % av vägen upp → alltid efter en stunds spelande, aldrig sist.
+    const f = 0.35 + Math.random() * 0.45
+    const y = SURFACE_Y - (SURFACE_Y - this._goalY) * f
+    // Hoppa över ett band kring Zacke (ZACKE_X 430) — annars ritas leksaken rakt ovanpå
+    // honom i stället för bredvid i skummet i ungefär var femte runda.
+    const x = Math.random() < 0.35 ? 250 + Math.random() * 90 : 545 + Math.random() * 480
+    view.position.set(x, y)
+    view.visible = false
+    view.eventMode = 'none'
+    this._treasureLayer.addChild(view)
+    // `armed` först när skummet setts UNDER fyndet. Utan den triggades nästa rundas fynd
+    // direkt av FÖRRA rundans överskottsskum: _onComplete pumpar in en pruttsvärm som driver
+    // _foam.level långt förbi målet, och _newRound placerar det nya fyndet innan drän-tweenen
+    // hunnit tömma skummet — leksaken avslöjade sig själv i ett tomt kar. Att kräva "först
+    // under, sedan över" är oberoende av tajmingen mellan _resolving, tweens och nivåbytet.
+    this._treasure = { view, y, kind, found: false, armed: false }
+  },
+
+  _checkTreasure(ctx, foamTop) {
+    const t = this._treasure
+    if (!t || t.found || !t.view || t.view.destroyed) return
+    if (foamTop > t.y) {
+      t.armed = true // skummet ligger under fyndet — nu räknas en stigning förbi det
+      return
+    }
+    if (!t.armed) return
+    t.found = true
+    t.view.visible = true
+    t.view.scale.set(0.3)
+    const tw = gsap.to(t.view.scale, { x: 1, y: 1, duration: 0.42, ease: 'back.out(2.2)' })
+    this._tweens?.push(tw)
+    sparkle(ctx.fxLayer, t.view.x, t.view.y, { count: 12 })
+    puff(ctx.fxLayer, t.view.x, t.view.y, { count: 8 })
+    this._sound(ctx, null, 'reveal', 'reveal', 0)
+    ctx.services.voice.say(t.kind.say)
+    const bob = gsap.to(t.view, { y: t.view.y - 10, duration: 1.1, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    this._tweens?.push(bob)
+    this._treasureBob = bob
   },
 
   // ---- Ljud med min-intervall (anti-distorsion) ---------------------------
@@ -210,8 +297,26 @@ export default {
     this._root.addChild(this._dripGfx)
   },
 
+  // Badsorten läses ur ett LAGRAT värde, inte ur this._level direkt. _level ökar i samma
+  // stund rundan klaras, men karet målas om först 1,5 s senare i _newRound — läste skummet
+  // nivån live blev det rosa skum över blått vatten under hela firandet. Nu byter allt
+  // samtidigt, i _applyLevel.
+  _bath() {
+    return this._bathNow || BATHS[0]
+  },
+
   _buildTub() {
     const g = new Graphics()
+    this._tubGfx = g
+    this._drawTub(g)
+    g.eventMode = 'none'
+    this._root.addChild(g)
+  },
+
+  // Bryts ut ur _buildTub så badet kan MÅLAS OM när nivån byts (badsorten cyklar).
+  _drawTub(g) {
+    if (!g || g.destroyed) return
+    g.clear()
     // Porslinskar (kropp + fötter).
     g.roundRect(150, 596, 44, 74, 16).fill(0xdfe7ea).stroke({ width: 5, color: 0xb9cbd2 })
     g.roundRect(1086, 596, 44, 74, 16).fill(0xdfe7ea).stroke({ width: 5, color: 0xb9cbd2 })
@@ -219,20 +324,25 @@ export default {
     // Innerskål i svag blåton. Utan den ritas VITT skum mot VITT porslin och blir
     // praktiskt taget osynligt — bara skummets bubbeltoppar syntes.
     g.roundRect(194, 256, 892, 420, 68).fill(0xdaeaf3)
-    // Vatten.
-    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill({ color: COLORS.blue, alpha: 0.5 })
-    g.eventMode = 'none'
-    this._root.addChild(g)
+    // Vatten — badsortens färg.
+    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill({ color: this._bath().water, alpha: 0.5 })
   },
 
   // Vattentoning över allt som är UNDER ytan → Zackes kropp och ankan ser
   // nedsänkta ut, medan huvudet ovanför ytan förblir skarpt.
   _buildTint() {
     const g = new Graphics()
-    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill({ color: 0x4aa3df, alpha: 0.28 })
-    g.roundRect(200, SURFACE_Y, 880, 7, 4).fill({ color: 0xffffff, alpha: 0.3 }) // ytlinje (mjuk, inte en vit hylla)
+    this._tintGfx = g
+    this._drawTint(g)
     g.eventMode = 'none'
     this._root.addChild(g)
+  },
+
+  _drawTint(g) {
+    if (!g || g.destroyed) return
+    g.clear()
+    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill({ color: this._bath().tint, alpha: 0.28 })
+    g.roundRect(200, SURFACE_Y, 880, 7, 4).fill({ color: 0xffffff, alpha: 0.3 }) // ytlinje (mjuk, inte en vit hylla)
   },
 
   // Kar-kanten ritas SIST av kar-delarna, framför Zacke och skummet: då sitter han
@@ -350,15 +460,17 @@ export default {
     const CROWN = 20
     const frac = clamp(this._foam.level / (this._goalFoam || 1), 0, 1)
     const top = SURFACE_Y - (SURFACE_Y - this._goalY - CROWN) * frac
+    // Har skummet stigit förbi det gömda fyndet? Då dyker det upp.
+    if (this._ctx) this._checkTreasure(this._ctx, top)
     const ph = this._foamPhase
 
     // Skumkropp.
-    g.roundRect(208, top, 864, SURFACE_Y - top + 30, 26).fill({ color: 0xffffff, alpha: 0.88 })
+    g.roundRect(208, top, 864, SURFACE_Y - top + 30, 26).fill({ color: this._bath().foam, alpha: 0.88 })
     // Jäsande toppar (håller sig innanför kar-kanten även när badet är fullt).
     for (let i = 0; i * 42 <= 836; i++) {
       const x = 232 + i * 42
       const r = 20 + Math.sin(ph * 1.6 + i * 0.9) * 5
-      g.circle(x, top + 8 + Math.sin(ph + i * 0.55) * 3, r).fill({ color: 0xffffff, alpha: 0.94 })
+      g.circle(x, top + 8 + Math.sin(ph + i * 0.55) * 3, r).fill({ color: this._bath().foam, alpha: 0.94 })
     }
     // Mikrobubblor inuti skummet.
     const depth = SURFACE_Y - top + 24
@@ -1039,6 +1151,8 @@ export default {
   _newRound() {
     if (!this._alive) return
     this._applyLevel()
+    // Säg vilket bad det blev — den hörbara halvan av "runda 2 ≠ runda 1".
+    this._ctx?.services?.voice?.say(this._bath().say)
     this._drawGoal()
     // Rensa kvarvarande firande-bubblor så de inte direkt poppar och fyller det nya
     // badet igen (det skapade en re-complete-loop = upprepade firanden + ljud-distorsion).
@@ -1080,6 +1194,11 @@ export default {
     this._foamTween?.kill()
     this._duckGlide?.kill()
     this._goalPulse?.kill() // breathe() tweenar en proxy → måste dödas explicit
+    // Fyndets gungning är repeat:-1 och skriver .y på vyn — lever den vidare efter
+    // destroy kastar settern varje bildruta (jfr bajs-och-kiss). OVILLKORLIGT.
+    this._treasureBob?.kill()
+    this._tweens?.forEach((t) => t?.kill())
+    if (this._tweens) this._tweens.length = 0
 
     // Bubblor är bara ticker-styrda Pixi-objekt → räcker att förstöra dem.
     this._bubbles?.forEach((b) => b.view && !b.view.destroyed && b.view.destroy())
@@ -1111,4 +1230,58 @@ export default {
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// Badleksaker att hitta i skummet. Ritade fristående former (P0 ASSETS) — egen silhuett,
+// ingen emoji i en ruta. Hålls små (~34px) så de läser som "leksak i skummet", inte som
+// ett nytt spelobjekt att trycka på.
+function makeTreasure(kind) {
+  const c = new Container()
+  if (kind === 'boat') {
+    const hull = new Graphics()
+    hull.moveTo(-30, 4).lineTo(30, 4).lineTo(20, 22).lineTo(-20, 22).closePath()
+      .fill(0xe8503f).stroke({ width: 3, color: 0xb93a2c })
+    const mast = new Graphics().roundRect(-2, -30, 4, 34, 2).fill(0x9a7a55)
+    const sail = new Graphics()
+    sail.moveTo(2, -28).lineTo(24, -6).lineTo(2, -2).closePath().fill(0xfffdf7).stroke({ width: 3, color: 0xd3dde2 })
+    c.addChild(hull, mast, sail)
+  } else if (kind === 'star') {
+    const g = new Graphics()
+    g.moveTo(0, -26).quadraticCurveTo(6, -8, 25, -8).quadraticCurveTo(10, 4, 16, 24)
+      .quadraticCurveTo(0, 12, -16, 24).quadraticCurveTo(-10, 4, -25, -8)
+      .quadraticCurveTo(-6, -8, 0, -26).fill(0xffd24a).stroke({ width: 3, color: 0xe0ac1e })
+    const gloss = new Graphics().circle(-6, -6, 5).fill({ color: 0xffffff, alpha: 0.75 })
+    c.addChild(g, gloss)
+  } else if (kind === 'fish') {
+    const body = new Graphics().ellipse(0, 0, 26, 17).fill(0xff9f4d).stroke({ width: 3, color: 0xdd7f2e })
+    const tail = new Graphics()
+    tail.moveTo(-24, 0).lineTo(-40, -13).lineTo(-40, 13).closePath().fill(0xff9f4d).stroke({ width: 3, color: 0xdd7f2e })
+    const eye = new Graphics().circle(12, -5, 4.5).fill(0x3a2b35)
+    const dot = new Graphics().circle(13.5, -6.5, 1.7).fill(0xffffff)
+    c.addChild(tail, body, eye, dot)
+  } else if (kind === 'ball') {
+    const g = new Graphics().circle(0, 0, 22).fill(0xfffdf7).stroke({ width: 3, color: 0xd3dde2 })
+    const a = new Graphics().moveTo(0, -22).quadraticCurveTo(14, 0, 0, 22).quadraticCurveTo(6, 0, 0, -22).fill(0xe8503f)
+    const b = new Graphics().moveTo(0, -22).quadraticCurveTo(-14, 0, 0, 22).quadraticCurveTo(-6, 0, 0, -22).fill(0x4aa3df)
+    const gloss = new Graphics().circle(-7, -8, 5).fill({ color: 0xffffff, alpha: 0.8 })
+    c.addChild(g, a, b, gloss)
+  } else {
+    // crab
+    const body = new Graphics().ellipse(0, 0, 24, 17).fill(0xf2603f).stroke({ width: 3, color: 0xc4472b })
+    const legs = new Graphics()
+    for (const sx of [-1, 1]) {
+      legs.roundRect(sx * 16, 8, 4, 12, 2).fill(0xc4472b)
+      legs.roundRect(sx * 24, 4, 4, 12, 2).fill(0xc4472b)
+    }
+    const claw1 = new Graphics().circle(-27, -6, 8).fill(0xf2603f).stroke({ width: 3, color: 0xc4472b })
+    const claw2 = new Graphics().circle(27, -6, 8).fill(0xf2603f).stroke({ width: 3, color: 0xc4472b })
+    const e1 = new Graphics().circle(-8, -8, 4).fill(0xffffff)
+    const e2 = new Graphics().circle(8, -8, 4).fill(0xffffff)
+    const p1 = new Graphics().circle(-8, -8, 2).fill(0x3a2b35)
+    const p2 = new Graphics().circle(8, -8, 2).fill(0x3a2b35)
+    c.addChild(legs, claw1, claw2, body, e1, e2, p1, p2)
+  }
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
 }

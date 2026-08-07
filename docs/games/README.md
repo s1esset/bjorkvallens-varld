@@ -70,7 +70,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 37 | Såpbubblor | `sapbubblor` | tap | ✅ | ✅ |
 | 41 | Bajs och Kiss | `bajs-och-kiss` | drag | ✅ | ✅ |
 | 42 | Regnbågsmålaren Elvira | `regnbagsmalaren` | drag | ✅ | ✅ |
-| 43 | Pruttbubbelbad | `pruttbad` | tap | 🔧 | ✅ |
+| 43 | Pruttbubbelbad | `pruttbad` | tap | ✅ | ✅ |
 | 45 | Enhörningens Glitterbajs | `enhorning-glitterbajs` | drag | ✅ | ✅ |
 | 49 | Lägerelden | `lagerelden` | mixed | ✅ | ✅ |
 | 66 | Loopdjuren | `loopdjuren` | drag | ✅ | ✅ |

@@ -1,5 +1,5 @@
 # Pruttbubbelbad (`pruttbad`)
-> 🎉 roligt · tap · 2–4 år · status: 🔧 andra omgången byggd (2026-08-05)
+> 🎉 roligt · tap · 2–4 år · status: ✅ marknadsklar (2026-08-07)
 
 > ⚠️ **Nuläget nedan beskriver spelet FÖRE omgången 2026-08-05** (orange boll, kalt badrum,
 > emoji-anka). Läs §5 för vad som faktiskt gäller nu.
@@ -76,7 +76,10 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
 
 ### Variation & överraskning
 - ~~**[Quick] Bubbeltyper.**~~ ✅ 2026-07-01. Glitter- och jättebubbla. Tvillingbubbla är ogjord.
-- **[Medium] Gömda fynd i skummet.** När skummet stiger kan en badleksak/anka/stjärna dyka upp
+- ~~**[Medium] Gömda fynd i skummet.**~~ ✅ 2026-08-07 — **den här omgången.** En ritad
+  badleksak (båt · stjärna · fisk · badboll · krabba, cyklar per nivå) ligger dold 35–80 % av
+  vägen upp; när skummet stigit förbi den dyker den upp med gnistor och gungar kvar rundan ut.
+  *(Originaltexten:)* **[Medium] Gömda fynd i skummet.** När skummet stiger kan en badleksak/anka/stjärna dyka upp
   ur det att trycka på — något att upptäcka utöver att bara fylla. *(Medvetet sparad 2026-08-05:
   skummet byggdes om helt i den omgången; fyndet blir billigt och säkert att lägga ovanpå nu.)*
 
@@ -86,7 +89,10 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
   radier andas, plus mikrobubblor som stiger genom kroppen. Omritning strypt till ~12 fps.
 
 ### Progression
-- **[Quick] Mjuk tema-variation per nivå.** Byt badvattnets färg/skum-doft-tema (jordgubbsbad
+- ~~**[Quick] Mjuk tema-variation per nivå.**~~ ✅ 2026-08-07 — **den här omgången.** `BATHS`
+  cyklar per nivå: bubbel (blått) → jordgubb (rosa) → blåbär (lila) → citron (gult) → mint
+  (grönt). Vatten, vattentoning OCH skum byter färg samtidigt, och rundan säger sitt namn.
+  *(Originaltexten:)* **[Quick] Mjuk tema-variation per nivå.** Byt badvattnets färg/skum-doft-tema (jordgubbsbad
   rosa, blåbärsbad lila) vid nytt mål, så rundorna känns olika. *(Kvar 2026-08-05 — kritikern
   påpekar att omgång 2 och 3 ser identiska ut bortsett från en högre mållinje. Detta är den enda
   punkten som håller `variation` och `mjuk progression` från att vara helt gröna, dvs. det som
@@ -155,3 +161,33 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
   bygger på skummet som byggdes om här. Vatten-ambient [Quick] väntar på att SFX-pipelinen är
   uppe. Spelet står kvar som **🔧** just därför: kritikern bedömer `variation` och
   `mjuk progression` som endast *delvis* uppfyllda så länge rundorna ser identiska ut.
+- 2026-08-07 ✅ **Poleringsomgång: rundorna ser inte längre likadana ut.** Spelet hade INGA
+  öppna [Deep]-punkter — dess 🔧 var ett **kvalitetsomdöme** från `spelkritiker` (variation och
+  mjuk progression endast delvis uppfyllda "så länge rundorna ser identiska ut"). Omgången
+  riktade sig rakt mot det omdömet.
+  1. **Badsort per runda** (`BATHS`): bubbel → jordgubb → blåbär → citron → mint. Vatten,
+     vattentoning och skum byter färg, och `_newRound` säger badets namn — skillnaden syns på
+     en halv sekund och hörs även för den som inte tittar.
+  2. **Gömt fynd i skummet:** en ritad badleksak (båt/stjärna/fisk/badboll/krabba, cyklar per
+     nivå) ligger dold 35–80 % upp. Skummet stiger förbi → gnistor, `reveal`-ton, replik, och
+     den gungar kvar rundan ut. Något nytt att upptäcka varje runda.
+  - **Skärmdumpen avslöjade en bugg inget test såg:** rosa skum över blått vatten under hela
+    firandet. `_level` ökar i samma stund rundan klaras, men karet målas om först 1,5 s senare
+    i `_newRound` — och skummet läste nivån *live*. Badsorten ligger nu i `_bathNow`, satt på
+    ett enda ställe (`_applyLevel`), så allt byter samtidigt.
+  - **Blockerare från `spelkritiker`, åtgärdad:** nästa rundas fynd avslöjade sig självt direkt
+    i **3 fall av 4**. `_onComplete` pumpar in en pruttsvärm som driver `_foam.level` långt förbi
+    målet (mätt 350–450 mot ett nytt mål på 88), och `_newRound` placerar det nya fyndet innan
+    drän-tweenen hunnit tömma skummet — leksaken gungade synligt i ett tomt kar. Fyndet måste nu
+    **armeras**: skummet ska först ha setts UNDER det. Det är oberoende av tajmingen mellan
+    `_resolving`, tweens och nivåbytet, till skillnad från en ren `_resolving`-spärr.
+  - **Min sond missade det helt** — den testade bara via `setLevel` + sidladdning, alltså
+    alltid via `init()` där `_foam.level` är 0, aldrig en **levande** vinst → ny runda. Den
+    mäter nu övergången; 8/8 tre körningar i rad på precis det fall som föll 3 av 4.
+  - Fyndets x-spann hoppar över ett band kring Zacke (annars ritades leksaken ovanpå honom i
+    ungefär var femte runda).
+  - **Exit-säkerhet:** spelet hade ingen `_tweens`-lista. Fyndets gungning är `repeat: -1` och
+    skriver `.y` på vyn — den dödas nu både vid nivåbyte (före vyn rivs) och i `destroy`.
+  - **Mätt:** `scripts/_badprobe.mjs` **8/8** ×3 · `npm run check` 0/0 · `npm run test:all`
+    **71/71** · 0 fynd i `.test-logs/pruttbad.json`. **Kvalitet 🔧 → ✅.**
+  - Kvar som [Quick] i §4: variera pop-klippen + lugn vatten-ambient (väntar på SFX-pipelinen).

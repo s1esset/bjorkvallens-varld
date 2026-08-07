@@ -14,6 +14,45 @@ Format:
 
 ---
 
+## 2026-08-07 · v1.27.0 · ✏️ Ritbordet — repots tommaste scen fick kritor
+
+**Byggt:** `spara-linjen` polerad (V3, sista öppna posten i `docs/ATGARDER.md`).
+**Repot har nu noll öppna ägarrapporter och noll öppna verktygsfynd.**
+
+- **Verktygsfyndets första spår var fel i sak.** V3 sa "tom vit panel, fyra grå prickar och en
+  ✏️-emoji som *hela* verktyget". Kodläsningen visade att motiv-silhuetterna OCH den ritade
+  pennan fanns sedan 2026-08-04 — `icon: '✏️'` är bara bibliotekets bricka. Det verkliga felet:
+  svårighetsplanen började på `genLine(4)`, så **det första ett barn såg var fyra grå prickar
+  på tomt papper**. Precis den fälla CLAUDE.md varnar för: läs koden före planen. Fyndets
+  *mätning* (4,3 % innehåll, repots lägsta av 71) var däremot helt korrekt.
+- **Två ändringar räckte:** motiv (berg) redan från runda 1, och en **kritlåda med fem ritade
+  vaxkritor** under pappret. Vald krita lyfts ur lådan och andas; grannarna vilar nedtonade.
+- **Kritvalet är äkta agens, inte dekor:** kritans färg ÄR linjens färg, den kan bytas mitt i
+  en teckning (redan dragna segment behåller sin via `d._wcol`), pennan i handen får samma
+  färg, och valet sparas i `progress.custom.krita` så det minns sig mellan besök. Kritorna är
+  dessutom stämda i samma pentatonik som linjens melodi — lådan är ett litet instrument.
+- **`spelkritiker` hittade en punkt jag missat:** kurv-rundorna (ungefär varannan tidig runda)
+  hade fortfarande ingen mottagare — bara `PRAISE` + konfetti, alltså ett steg tillbaka direkt
+  efter en runda där ett berg vaknar. Fixat med `_celebrateLine`: pennan hoppar till och
+  gnistor vandrar längs spåret. Inga blockerare i övrigt.
+- **V5-lärdomen återanvänd:** `destroy()` dödar tweens på hela displayträdet i stället för en
+  handhållen lista med `if (!x.destroyed)`-vakter. Ny fälla noterad: **`breathe()` tweenar en
+  proxy, inte `.scale`** — `killTweensOf(obj.scale)` biter inte på den, tweenen måste sparas
+  och dödas explicit.
+- **Mätt, inte antaget** (`scripts/_kritprobe.mjs`): kritval ✓ · flerfärgat spår (grön + lila i
+  samma berg) ✓ · runda klar → nivå 1 ✓ · kritan följer med ✓ · minns valet efter återbesök ✓ ·
+  0 konsolfel vid exit mitt i firandet. Bildkoll: `gles-scen` borta.
+
+**Commits:** `77902dd` feat(spara-linjen) · `54a842d` docs(spara-linjen)
+**Kontroll:** `npm run check` 0 fel / 0 varningar · `npm run test:all` **71/71** · bygge rent ·
+serverad på :4173 (Tailscale 8445).
+**Öppet:** 6 repliker väntar på röstklipp — de fem kritfärgerna + "Så fint!" (`sapbubblor` sa
+den vid körning utan klipp; runtime-backstoppen i `check.mjs` fångade den när `test:all` råkade
+ta den vägen). Kör `/rost`. Nästa naturliga steg: `docs/IDEER.md` §1 `ansiktssektionen`, eller
+de 8 spel som fortfarande står 🔧 med [Deep]-punkter kvar i sin doc §4.
+
+---
+
 ## 2026-08-07 · v1.26.0 · 💩 Läckan som bara syntes när alla 71 spelen kördes
 
 **Byggt:** `bajs-och-kiss` V5 — det sista röda i `test:all`. **Sviten är 71/71 igen.**

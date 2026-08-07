@@ -54,6 +54,11 @@ före och efter, och båda spelen hade **en gemensam grundorsak per spel**, inte
   `scripts/_tiltprobe.mjs` på 103 partiklar: **1,05 → 0 rann ur**, 1,2 → 1, **1,35 → 19**,
   1,5 → 23. Verifierat på HEAD, alltså inget nytt fel, och medvetet **inte** fixat här
   (utanför `/fixa`-uppdraget). En större `TILT` kräver att `OFFS = 205` mäts om samtidigt.
+- **NYTT: `bajs-och-kiss` (V5) faller bara i FULL `test:all`** — `pageerror ×3` +
+  `tween-lacka ×2` + `tween-mot-forstort ×2`. Ensamt grönt, fyra parallellt grönt, alla 71
+  rött i två körningar i rad → last-/timingberoende i exit-cykeln, inte slumpflak. Orört av
+  dagens commits (de rör bara `magnet-fiske` + `saftbaren`). **`test:all` står alltså på
+  70/71**, inte 71/71 som efter v1.22.0.
 - Oförändrat: V3 `spara-linjen` (tommaste scenen), 8 spel kvar med 🔧 (`pruttbad` ·
   `vippbradan` · `domino` · `spindelhjalten` · `enhorningen-elvira` · `tvatta-djuret` ·
   `spindel-zacke-svingar` · `glittergrottan`).

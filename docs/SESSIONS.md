@@ -14,6 +14,47 @@ Format:
 
 ---
 
+## 2026-08-07 (natt) · v1.30.0 · 🎠 Elvira galopperar över regnbågen
+
+**Byggt:** `/polera enhorningen-elvira` — spelets sista äkta [Deep]-punkt. Vinsten var en 0,4 s
+förflyttning + `pop` + **samma `bigCelebration` som alla andra 70 spel**; grindpunkt 7 föll
+alltså rakt av efter en genuint fin klättring.
+
+- **Finishen:** hon hoppar fram till regnbågens vänstra fot, gnäggar med ett riktigt
+  `djur_hast`-sample och **galopperar längs regnbågens egen båge** över krönet — samma
+  parametrisering som `makeRainbow` ritar bandet med, radie 142 mot bandets 116, så hon rider
+  ovanpå den och lutar med den. **Varje åttondel av bågen spelar nästa ton i en pentatonisk
+  skala — galoppen ÄR melodin**, inte ett ljud ovanpå en animation. Glitterspår, tänd regnbåge,
+  flarande krönstjärna, och ett **föl** på gräset som hoppar och möter henne.
+- **Fölets placering tog fyra försök — och tre av dem var osynliga i ett grönt test.**
+  Höger fot: Elvira ritas efter fölet och **dolde det helt vid landningen** (10 px). Vänster
+  fot: flyttade bara krocken till galoppens *start*, som börjar där (28 px). Fast offset under
+  målet: regnbågen stiger med nivån, så fölet blev svävande på nivå 8. Till slut **marken** —
+  den enda punkten som är oberoende av både bågen och nivån. Och även då: rakt under regnbågen
+  står fölet **bakom kontrollpanelen**, bara huvudet stack upp. Det syntes bara i skärmdumpen.
+- **Två gånger i rad mätte min sond fel sak.** Förra passet: prickbanans *förutsagda* slutpunkt
+  var 1 px från målet — grönt — medan `predictTrajectory` inte känner studsmoln alls. Den här
+  gången: sonden mätte att fölet *fanns och låg innanför skärmen*, inte att det **syntes** när
+  hon kom fram. Båda gångerna hittade `spelkritiker` hålet. Lärdomen är skriven i minnet:
+  **fråga vad mätningen INTE täcker.**
+- **Sonden testade dessutom fel nivå i tre körningar.** `goal.x` vandrar 1010→1170, så högra
+  regnbågsfoten (1286) hamnar utanför 1280-ytan och galoppen red ut ur bild — men bara på höga
+  nivåer. `highestLevel` via `localStorage` + reload räckte inte: `SaveService` flushar sitt
+  eget doc vid pagehide och skrev tillbaka den gamla nivån, så passet körde i själva verket
+  nivå 1. Sonden skriver nu i den **levande** `SaveService`-instansen.
+- **P0-fix utanför rundans scope** (hittad av `spelkritiker`): molnens träffyta var 90 px,
+  6 px under P0:s 96 px-golv. Halon höjd 22 → 26 = 98×184 px.
+
+**Mätt:** `scripts/_elviraprobe.mjs` **10/10 på både nivå 0 och nivå 8** · `npm run check` 0/0 ·
+`npm run test:all` **71/71** · 0 fynd i loggen · bygge rent. `spelkritiker`: inga blockerare
+utöver fölet ovan, alla 7 grindpunkter håller.
+**Commits:** `33392c1` feat(enhorningen-elvira)
+**Öppet:** **4 spel kvar som 🔧** — `spindel-zacke-svingar` (spök-båge + nivå-intro) ·
+`glittergrottan` (kamera-drift) · `tvatta-djuret` (zoner i leran) · `pruttbad`
+(variation/progression). Röstkön tom.
+
+---
+
 ## 2026-08-07 (sent) · v1.29.0 · 🕷️ Hjälpen slutade spela spelet åt barnet
 
 **Byggt:** `/polera spindelhjalten` — spelets sista äkta [Deep]-punkt, och den sista

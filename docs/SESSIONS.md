@@ -14,6 +14,35 @@ Format:
 
 ---
 
+## 2026-08-07 · v1.22.0 · 🧱 Klossarna som försvann i tomma intet
+
+**Byggt:**
+- **`bygg-tornet` gick inte att spela klart** — diagnostikloggen visade `nan-kropp ×5` och
+  `nan-transform ×6` per körning, helt utan konsolfel, och harnessen sa grönt hela tiden.
+- **Grundorsaken låg i det delade fysikbiblioteket, inte i spelet.** En matter-kropp som
+  *skapas* med `{ isStatic: true }` i sina options får flaggan satt som en vanlig egenskap —
+  `Body.setStatic()` körs aldrig, så `_original` (massa · tröghet · densitet) fångas **aldrig**.
+  Ett senare `Body.setStatic(kropp, false)` hittar då inget att återställa: kroppen blir
+  dynamisk med massa OCH tröghet kvar på `Infinity`, och första simsteget räknar
+  `Infinity/Infinity` = NaN. Kroppen teleporteras till NaN, dess länkade Pixi-vy följer med.
+- I spelet betydde det att **varje kloss försvann i släppet**: `_settleActive` jämförde NaN mot
+  tröskeln, alla jämförelser blev falska, klossen räknades som en miss — tornet kunde aldrig
+  växa. Ett barn hade sett en kloss lyftas upp av kranen och sedan bara upphöra.
+- `PhysicsWorld.rectangle/circle/polygon` skapar nu alltid kroppen dynamisk och sätter
+  `isStatic` **efteråt**. Sex spel skapar statiska kroppar och väcker dem senare:
+  `bygg-tornet` · `flipperspel` · `knuffa-tornet` · `kulbana` · `snobollen` · `studsmatta`.
+- Ny sond: `scripts/_nanprobe.mjs` spelar ett spel med riktiga tryck och läser spelets **egna
+  fält** var 100:e ms — första bildrutan där något blir NaN skrivs ut med hela tillståndet
+  runtomkring. Den pekade ut exakt bildruta och fält på under en minut.
+
+**Commits:** `fe45a2f` fix(fysik): kroppar som skapas statiska gick aldrig att vacka
+
+**Öppet:**
+- Samma som v1.21.0 (hög 3 med 9 🔧-spel, ägarens fyra buggar i `magnet-fiske`/`saftbaren`,
+  V3 `spara-linjen`), minus NaN-fyndet. **Repot har nu 0 fel-nivåfynd i hela `test:all`.**
+- Kvarvarande varningsnivå-ledtrådar i loggen: `tryck-utan-ljud` (9 spel), `dod-traffyta` (4),
+  `sen-aterkoppling` (6), `saknat-ljudklipp` (5, MOSS-pipelinen ligger nere).
+
 ## 2026-08-07 · v1.21.0 · 🔊 Röstklippen som aldrig spelades + 💥 Knuffa Tornet får sitt pussel
 
 **Byggt:**

@@ -87,6 +87,10 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   och varnar för den **exakta** text körningen sa. Den kontrollen kräver alltså att spelet har
   körts — `npm run check` ensam ser dem fortfarande inte. Lägg in frasen i
   `scripts/voice-phrases.json` för hand och kör `npm run voice`.
+- **Egna fält på ett Pixi-objekt får inte heta som Pixis egna.** `f._cx = x` såg ofarligt ut,
+  men `_cx`/`_cy`/`_sx`/`_sy` är Container-transformens interna cache: `lt.a = _cx * scale.x`.
+  Snöbollens snöfält renderades därför med vågrät skala 3660 — osynliga, utan ett enda
+  konsolfel. `check.mjs` felar numera på hela namnlistan; använd ett eget prefix (`_wx`).
 - **Röstkön är inte permanent.** `npm run voice` fungerar (F5-TTS i `C:\repos\storygen`) — töm kön
   i stället för att lämna repliker på Web Speech.
 - **Sonder måste ligga i repot.** Scratchpad-katalogen kan inte lösa `playwright`; lägg

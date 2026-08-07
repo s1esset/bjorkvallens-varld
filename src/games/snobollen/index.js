@@ -842,7 +842,13 @@ export default {
   // En naken Graphics som ritas kring (0,0) och sedan flyttas långt bort renderas som
   // en skärmbred stapel (mätt: fälten var upp till 476 000 px breda och lade en vit
   // matta över hela backen, vilket dolde hela djupgradienten). Logiken använder ändå
-  // _cx/_cy, inte f.x/f.y, så inget annat behöver ändras.
+  // fältets egna världskoordinater, inte f.x/f.y, så inget annat behöver ändras.
+  //
+  // NAMNEN ÄR INTE FRIA: `_cx`/`_cy` är Pixi v8:s EGNA fält i Container — den cachade
+  // cosinus/sinus för rotationen, och `updateLocalTransform()` räknar `lt.a = _cx * sx`
+  // och `lt.c = _cy * sy`. Att lägga fältets världs-x i `_cx` gav varje snöfält en
+  // vågrät skala på flera tusen och en skjuvning på hundratals — mätt: worldTransform
+  // a=3660 (fältets x!), c=591 (fältets y!). Prefixet är därför `_w`.
   _addField(x, y) {
     const f = new Graphics()
     const blobs = 3 + (Math.random() < 0.5 ? 1 : 0)
@@ -853,8 +859,8 @@ export default {
       f.circle(ox, oy, r).fill({ color: 0xffffff, alpha: 0.95 }).stroke({ width: 3, color: 0xeaf2fb, alpha: 0.6 })
     }
     f.eventMode = 'none'
-    f._cx = x
-    f._cy = y
+    f._wx = x
+    f._wy = y
     f._eaten = false
     this._fieldLayer.addChild(f)
     this._fields.push(f)
@@ -1146,8 +1152,8 @@ export default {
     // Snöfält -> växt.
     for (const f of this._fields) {
       if (f._eaten) continue
-      const dx = f._cx - b.position.x
-      const dy = f._cy - b.position.y
+      const dx = f._wx - b.position.x
+      const dy = f._wy - b.position.y
       const reach = 60 + this._r * 0.5
       if (dx * dx + dy * dy < reach * reach) {
         f._eaten = true
@@ -1515,14 +1521,14 @@ export default {
     let near = null
     let best = Infinity
     for (const f of this._fields) {
-      if (f._eaten || f._cx < this._ball.x) continue
-      const d = f._cx - this._ball.x
+      if (f._eaten || f._wx < this._ball.x) continue
+      const d = f._wx - this._ball.x
       if (d < best) {
         best = d
         near = f
       }
     }
-    if (near) sparkle(ctx.fxLayer, this._fx(near._cx), this._fy(near._cy - 20), { count: 8 })
+    if (near) sparkle(ctx.fxLayer, this._fx(near._wx), this._fy(near._wy - 20), { count: 8 })
   },
 
   // ---- Kollisioner: väggstuds-ljud ---------------------------------------

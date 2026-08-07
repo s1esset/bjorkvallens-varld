@@ -119,6 +119,15 @@ for (const id of folders) {
   const removesTick = /ticker\??\.remove\s*\(/.test(src) || /\.remove\s*\(\s*this\._tick/.test(src)
   if (addsTick && !removesTick) warn(id, 'lägger till ticker-callback utan att ta bort den i destroy')
   if (/\bthree\b|three3d/.test(src) && /^import .*three/m.test(src)) err(id, 'statisk three-import — ladda dynamiskt i init (egen chunk)')
+  // Egna fält på ett Pixi-objekt får ALDRIG heta som Pixis interna transform-cache.
+  // Snöbollen la fältets världs-x i `f._cx` — Pixi v8 använder samma namn för cosinus
+  // av rotationen och räknar `lt.a = _cx * scale.x`, så varje snöfält renderades med
+  // vågrät skala 3660 och skjuvning 591. Ingen krasch, inget konsolfel: bara osynliga
+  // spelobjekt. Prefixa egna fält med något eget (`_wx`, `_wy`, `_mitt…`).
+  for (const m of src.matchAll(/\b([A-Za-z_$][\w$]*)\.(_(?:cx|cy|sx|sy|position|scale|pivot|origin|skew|rotation|updateFlags|worldTransform|maskEffect|filterEffect))\s*=[^=]/g)) {
+    if (m[1] === 'this') continue
+    err(id, `\`${m[1]}.${m[2]} =\` skriver över Pixis interna transform-fält — byt namn (t.ex. ${m[2].replace('_', '_w')})`)
+  }
 
   // --- doc ---
   if (!existsSync(join(ROOT, 'docs/games', `${id}.md`))) warn(id, `saknar docs/games/${id}.md`)

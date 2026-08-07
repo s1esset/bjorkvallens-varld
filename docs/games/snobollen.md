@@ -1,5 +1,5 @@
 # Snöbollen (`snobollen`)
-> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · drag · 3–5 år · status: ✅ marknadsklar
 
 ## 1. Nuläge (sett som spelare)
 
@@ -231,3 +231,19 @@ auto-hjälpen kan spela banan åt barnet**.
   där känslan av en backe försvann. Backen har nu mjuka drivor (blå skugga + vit ovansida),
   glittrande snökorn och sju små granar längs den nedre delen — djup och en plats, utan att
   konkurrera med snöbollen. errorCount 0.
+- 2026-08-07: **Snöfälten syntes aldrig — och orsaken var ett namn.** Fälten (spelets enda
+  sätt att växa) ritades med vågrät skala i tusental och en skjuvning på hundratals, så de
+  smetades ut till en blek hinna över backen i stället för att synas som vita fläckar att
+  styra mot. Uppmätt worldTransform på ett fält: **a = 3660 (fältets världs-x!), c = 591
+  (fältets y!)** — trots `scale.x = 1` i hela föräldrakedjan.
+  **Rotorsak:** `_addField` sparade fältets världsposition i `f._cx` / `f._cy`. Det är
+  Pixi v8:s **egna** fält i `Container` — den cachade cosinus/sinus för rotationen — och
+  `updateLocalTransform()` räknar `lt.a = _cx * scale.x`, `lt.c = _cy * scale.y`. Spelet
+  skrev alltså rakt in i renderarens transform-cache. Ingen krasch, inget konsolfel,
+  grönt test: bara osynliga spelobjekt. Omgången 2026-07-30 fixade *symptomet* (bakade in
+  världspositionen i geometrin) men lämnade namnkrocken kvar.
+  Fälten heter nu `_wx`/`_wy`. Efter fixen: worldTransform a=1, c=0; ett fälts bounds
+  126×101 px (var 579 048 px brett), `_fieldLayer` 4 084 px (var 20 395 341).
+  **Klassfix:** `check.mjs` felar nu på varje `<objekt>._cx/_cy/_sx/_sy/_position/_scale/…
+  =` i ett spel — hela repot är rent (snöbollen var enda träffen).
+  Statusen går till ✅: alla åtta grindpunkter höll redan, det var bilden som ljög.

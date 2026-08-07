@@ -14,6 +14,38 @@ Format:
 
 ---
 
+## 2026-08-07 · v1.23.0 · ❄️ Snöfälten som aldrig gick att se
+
+**Byggt:**
+- **`snobollen` 🔧 → ✅.** Frågan var om spelet bara saknade sin ✅-rad i indexet (det
+  polerades i `13a8cbd`). Svaret: nej — dess **enda sätt att växa var osynligt**.
+- Snöfälten renderades med **vågrät skala i tusental** och en skjuvning på hundratals, så de
+  smetades ut till en blek hinna över backen i stället för vita fläckar att styra mot. Uppmätt
+  `worldTransform` på ett fält: **a = 3660 (fältets världs-x!), c = 591 (fältets y!)** — trots
+  `scale.x = 1` i hela föräldrakedjan.
+- **Rotorsak: ett namn.** `_addField` sparade världspositionen i `f._cx` / `f._cy`. Det är Pixi
+  v8:s **egna** fält i `Container` — den cachade cosinus/sinus för rotationen — och
+  `updateLocalTransform()` räknar `lt.a = _cx * scale.x`. Spelet skrev rakt in i renderarens
+  transform-cache. Ingen krasch, inget konsolfel, grönt test: bara osynliga spelobjekt.
+  Omgången 2026-07-30 fixade *symptomet* (bakade in världspositionen i geometrin) men lämnade
+  namnkrocken kvar — därav den återkommande "slät vit platta"-känslan.
+- Efter fixen (`_wx`/`_wy`): `worldTransform` a=1, c=0; ett fälts bounds **126×101 px** (var
+  579 048 px brett), `_fieldLayer` 4 084 px (var 20 395 341), `_root` 5 669 = banans längd.
+- **Klassfix:** `check.mjs` felar nu på varje `<objekt>._cx/_cy/_sx/_sy/_position/_scale/_pivot/
+  _origin/_skew/_rotation/_updateFlags/_worldTransform/_maskEffect/_filterEffect =` i ett spel.
+  Verifierat åt båda håll: regeln faller på den gamla koden, är tyst på den nya. Hela repot är
+  rent — snöbollen var enda träffen.
+
+**Commits:** `8d6d579` fix(snobollen): snofalten var osynliga
+
+**Öppet:**
+- Kvar med 🔧: `pruttbad` · `vippbradan` · `domino` · `spindelhjalten` · `enhorningen-elvira` ·
+  `tvatta-djuret` · `spindel-zacke-svingar` · `glittergrottan` (8 st).
+- Oförändrat: ägarens fyra buggar i `magnet-fiske`/`saftbaren`, V3 `spara-linjen`.
+- **Metodfynd:** två av dagens tre buggar (NaN-kropparna och snöfälten) var osynliga för både
+  konsolen och skärmdumpen men uppenbara i en **bounds-/transform-mätning**. Överväg att lägga
+  en `utanfor-rimligt`-kontroll i `gamelog` (ett objekt vars bounds är tiotusentals px brett).
+
 ## 2026-08-07 · v1.22.0 · 🧱 Klossarna som försvann i tomma intet
 
 **Byggt:**

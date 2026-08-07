@@ -1,16 +1,20 @@
-// Spåra Linjen — lugn motorik-/rita-själv-lek (3–5 år). Barnet sätter fingret på
-// startpricken (som pulsar) och drar längs en prickad väg. ENDAST nästa prick i
-// ordningen är aktiv: når fingret den "tänds" den (fylls med rundans färg, ett färgat
-// segment ritas från föregående prick och ✏️-pennspetsen flyttas dit). Att hoppa till
+// Spåra Linjen — lugn motorik-/rita-själv-lek (3–5 år). Scenen är ett ritbord: ett
+// papper med en blek konturskiss av det man ska rita, och under det en trälåda med
+// fem vaxkritor. Barnet VÄLJER krita (färgen linjen får, bytbar mitt i en teckning,
+// och valet minns sig till nästa gång), sätter fingret på startpricken (som pulsar)
+// och drar längs den prickade vägen. ENDAST nästa prick i ordningen är aktiv: når
+// fingret den "tänds" den (fylls med kritans färg, ett färgat segment ritas från
+// föregående prick och den ritade pennspetsen flyttas dit). Att hoppa till
 // en prick längre fram gör INGET (man kan inte "fuska" sig framåt) — den rätta nästa-
 // pricken vinkar i stället vänligt (mjuk vingel + puls + mjukt ljud). Inget kan bli fel:
 // straying ignoreras (pennan stannar på vägen, aldrig omstart) och allt drivs lika gärna
 // med tap-tap (tappa nästa prick) som med drag. Står barnet stilla en stund tänds nästa
 // prick automatiskt (auto-hjälp) så rundan ALLTID blir klar. Klart = hela linjen färglagd
-// → firande + ny, svårare form (oändlig, stigande lek). Allt ritas programmatiskt
-// (Pixi Graphics + emoji) — inga filer.
+// → motivet vaknar (fylls, får ögon) + ny, svårare form (oändlig, stigande lek). Allt
+// ritas programmatiskt (Pixi Graphics) — inga filer, ingen emoji.
 //
-// SVÅRIGHET: varje klarad runda höjer nivån. Tidiga nivåer = få prickar, raka/mjuka vägar;
+// SVÅRIGHET: varje klarad runda höjer nivån. FÖRSTA rundan är ett motiv (ett berg), så
+// det första barnet ser är en bild att rita. Tidiga nivåer = få prickar, mjuka vägar;
 // senare nivåer = fler prickar och mer avancerade former (vågor, sicksack, trappor,
 // trianglar, fyrkanter, spiraler, stjärnor). Bortom planen fortsätter leken oändligt med
 // slumpade avancerade former som blir allt tätare.
@@ -18,22 +22,37 @@
 // OBS: DragController passar inte här (den snäpper föremål till mål). Spårningen är en
 // egen pekar-lyssnare på själva ritytan, men följer samma snäll-principer (stora
 // träffytor, tap-tap-fallback, snäll respons på varje pekning).
-import { Container, Graphics } from 'pixi.js'
+import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, pop, wiggle, sparkle, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, breathe, pop, wiggle, sparkle, bigCelebration } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { COLORS, PLAYFUL, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE, shade, tint } from '../../lib/theme.js'
 
-// Layout i designkoordinater (1280×720).
-const PAPER = { x: 120, y: 130, w: 1040, h: 520, r: 40 }
+// Layout i designkoordinater (1280×720). Pappret ligger på ett ritbord: under det
+// står kritlådan, så scenen är ett skrivbord med papper och kritor — inte ett
+// ensamt vitt fält.
+const PAPER = { x: 120, y: 86, w: 1040, h: 424, r: 40 }
+const TRAY = { x: 230, y: 566, w: 820, h: 128, r: 24 } // kritlådan under pappret
+const CRAYON_Y = 600 // kritornas mittpunkt (de sticker upp ur lådan)
+const CRAYON_XS = [320, 480, 640, 800, 960] // 160 px isär → 36 px mellan träffytorna
 const DOT_R = 34 // vägpunkts-radie
 const HIT_R = 70 // osynlig träffradie (≥96px Ø träffyta) — generös korridor
 const INK_W = 22 // tjocklek på det färglagda spåret
 const IDLE_DELAY = 6 // s utan interaktion innan röst-recue + puls
 const AUTO_DELAY = 14 // s utan interaktion → auto-tänd EN prick, vänta sedan på barnet igen (no-fail)
 
+// Kritorna barnet väljer mellan. Färgen barnet väljer ÄR färgen linjen får — och
+// den kan bytas mitt i en teckning, så spåret blir barnets eget färgval.
+const CRAYONS = [
+  { color: COLORS.red, say: 'Röd krita!' },
+  { color: COLORS.yellow, say: 'Gul krita!' },
+  { color: COLORS.green, say: 'Grön krita!' },
+  { color: COLORS.blue, say: 'Blå krita!' },
+  { color: COLORS.purple, say: 'Lila krita!' },
+]
+
 // Logisk ruta som alla formgeneratorer ritar inom (med marginal till papperskanten).
-const BOX = { x0: 250, x1: 1030, cx: 640, top: 250, bot: 555, cy: 402 }
+const BOX = { x0: 250, x1: 1030, cx: 640, top: 164, bot: 432, cy: 298 }
 
 // ---- Formgeneratorer (rena funktioner; arrays av {x,y} i ordning) ----------
 const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
@@ -120,22 +139,12 @@ function genSpiral(n, B) {
     return { x: B.cx + Math.cos(ang) * rx * r, y: B.cy + Math.sin(ang) * ry * r }
   })
 }
-// Femuddig stjärna i ett drag (hoppordning 0,2,4,1,3,0 → korsande linjer, svårast).
-function genStar(B) {
-  const rx = (B.x1 - B.x0) / 2 - 30
-  const ry = (B.bot - B.top) / 2
-  const outer = Array.from({ length: 5 }, (_, k) => {
-    const a = -Math.PI / 2 + (k * 2 * Math.PI) / 5
-    return { x: B.cx + Math.cos(a) * rx, y: B.cy + Math.sin(a) * ry }
-  })
-  return [0, 2, 4, 1, 3, 0].map((k) => outer[k])
-}
 // ---- MOTIV: prickarna bildar en BILD ---------------------------------------
 // Det viktigaste lyftet i spelet: i stället för en abstrakt form spårar barnet
 // konturen av något — ett berg, ett hus, en fisk — och när linjen sluts fylls
 // motivet med färg och får ögon och ett leende. Man ritar NÅGOT.
 // Koordinater är normaliserade i [-1, 1] och skalas in i MOTIF_BOX.
-const MOTIF_BOX = { cx: 640, cy: 400, w: 580, h: 300 }
+const MOTIF_BOX = { cx: 640, cy: 298, w: 580, h: 288 }
 
 const MOTIFS = [
   {
@@ -217,20 +226,53 @@ function motifPoints(m) {
   return m.pts.map(([x, y]) => ({ x: B.cx + x * (B.w / 2), y: B.cy + y * (B.h / 2) }))
 }
 
-// Rita en tecknad penna (ersätter ✏️-emojin). Spetsen pekar nedåt-vänster.
-function makePencil() {
-  const c = new Container()
-  const g = new Graphics()
+// Rita en tecknad penna (ersätter ✏️-emojin). Spetsen pekar nedåt-vänster och
+// kroppen bär den valda kritans färg, så pennan i handen ÄR kritan barnet valt.
+function paintPencil(g, color) {
+  g.clear()
   g.moveTo(-26, 26).lineTo(-14, 8).lineTo(-2, 20).closePath().fill(0xf0d0a8) // träspets
-  g.moveTo(-26, 26).lineTo(-19, 17).lineTo(-14, 22).closePath().fill(0x33291f) // stift
-  g.moveTo(-14, 8).lineTo(-2, 20).lineTo(18, -6).lineTo(6, -18).closePath().fill(0xffa63d) // kropp
-  g.moveTo(-8, 14).lineTo(12, -12).stroke({ width: 2, color: 0xe07f16, alpha: 0.7 })
+  g.moveTo(-26, 26).lineTo(-19, 17).lineTo(-14, 22).closePath().fill(shade(color, 0.5)) // stift
+  g.moveTo(-14, 8).lineTo(-2, 20).lineTo(18, -6).lineTo(6, -18).closePath().fill(color) // kropp
+  g.moveTo(-8, 14).lineTo(12, -12).stroke({ width: 2, color: shade(color, 0.28), alpha: 0.7 })
   g.moveTo(6, -18).lineTo(18, -6).lineTo(24, -12).lineTo(12, -24).closePath().fill(0xb8c2ca) // hylsa
   g.moveTo(12, -24).lineTo(24, -12).lineTo(30, -18).lineTo(18, -30).closePath().fill(0xff9ec4) // suddgummi
+}
+
+// En fristående ritad vaxkrita (P0 ASSETS): spets, kropp, pappersetikett, dager.
+function makeCrayon(color) {
+  const c = new Container()
+  const g = new Graphics()
+  const dark = shade(color, 0.32)
+  const deep = shade(color, 0.14)
+  const wrap = tint(color, 0.64)
+  g.roundRect(-26, -46, 52, 98, 12).fill(color) // kropp
+  g.moveTo(-26, -40).lineTo(26, -40).lineTo(5, -78).quadraticCurveTo(0, -84, -5, -78).closePath().fill(deep) // spets
+  g.moveTo(-8, -64).lineTo(5, -78).quadraticCurveTo(0, -84, -5, -78).closePath().fill(dark) // sliten udd
+  g.roundRect(-26, -18, 52, 34, 6).fill(wrap) // pappersetikett
+  g.moveTo(-26, -18).lineTo(26, -18).moveTo(-26, 16).lineTo(26, 16)
+    .stroke({ width: 3, color: dark, alpha: 0.55 })
+  g.roundRect(-18, -36, 7, 76, 4).fill({ color: COLORS.white, alpha: 0.22 }) // glansdager
   c.addChild(g)
-  c.eventMode = 'none'
-  c.interactiveChildren = false
   return c
+}
+
+// Kritlådan i trä — bakstycke (kritorna står i den) och framkant (döljer deras fötter).
+function makeTrayBack() {
+  const g = new Graphics()
+  g.roundRect(TRAY.x, TRAY.y, TRAY.w, TRAY.h, TRAY.r).fill(0xc9945f)
+  g.roundRect(TRAY.x + 16, TRAY.y + 10, TRAY.w - 32, 52, 14).fill({ color: COLORS.brown, alpha: 0.38 })
+  g.eventMode = 'none'
+  return g
+}
+function makeTrayFront() {
+  const g = new Graphics()
+  g.roundRect(TRAY.x, TRAY.y + 58, TRAY.w, TRAY.h - 58, 20).fill(0xdba873)
+  g.moveTo(TRAY.x + 26, TRAY.y + 80).lineTo(TRAY.x + TRAY.w - 26, TRAY.y + 80)
+    .stroke({ width: 5, color: 0xc9945f, alpha: 0.85 })
+  g.moveTo(TRAY.x + 40, TRAY.y + 100).lineTo(TRAY.x + TRAY.w - 40, TRAY.y + 100)
+    .stroke({ width: 3, color: 0xc9945f, alpha: 0.5 })
+  g.eventMode = 'none'
+  return g
 }
 
 // Stigande pentatonik: varje tänd prick spelar nästa ton -> linjen blir en melodi.
@@ -269,7 +311,11 @@ export default {
     this._next = 0
     this._tracing = false
     this._resolving = false
-    this._round = Math.max(0, ctx.progress.get().highestLevel | 0)
+    const saved = ctx.progress.get()
+    this._round = Math.max(0, saved.highestLevel | 0)
+    // Vald krita minns sig mellan besök — barnets favoritfärg är dess egen.
+    this._crayonIx = Math.min(CRAYONS.length - 1, Math.max(0, saved.custom?.krita | 0))
+    this._color = CRAYONS[this._crayonIx].color
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -300,8 +346,15 @@ export default {
     this._root.addChild(this._dotsLayer)
 
     // Ritad pennspets (ovanpå allt) — P0 ASSETS: eget föremål, inte en ✏️-emoji.
-    this._pencil = makePencil()
+    this._pencil = new Container()
+    this._pencilG = new Graphics()
+    this._pencil.addChild(this._pencilG)
+    this._pencil.eventMode = 'none'
+    this._pencil.interactiveChildren = false
+    paintPencil(this._pencilG, this._color)
     this._root.addChild(this._pencil)
+
+    this._buildTray(ctx)
 
     // Pekar-lyssnare på ritytan (drag OCH tap-tap går genom samma _checkPoint).
     this._onDown = (e) => this._pointerDown(ctx, e)
@@ -322,6 +375,70 @@ export default {
     this._idle = 0
     this._cued = false
     ctx.services.voice.say(this.voiceIntro)
+  },
+
+  // ---- Kritlådan: barnet väljer färg (och får byta mitt i en teckning) -----
+
+  _buildTray(ctx) {
+    this._tray = new Container()
+    this._root.addChild(this._tray)
+    this._tray.addChild(makeTrayBack())
+
+    this._crayons = CRAYONS.map((c, i) => {
+      const cr = makeCrayon(c.color)
+      cr.position.set(CRAYON_XS[i], CRAYON_Y)
+      cr.eventMode = 'static'
+      cr.cursor = 'pointer'
+      cr.hitArea = new Rectangle(-62, -90, 124, 180) // 124×180 (P0 ≥96), 26 px emellan
+      cr.on('pointertap', () => this._pickCrayon(ctx, i))
+      this._tray.addChild(cr)
+      return cr
+    })
+
+    this._tray.addChild(makeTrayFront()) // framkanten döljer kritornas fötter
+    this._liftCrayon(false)
+  },
+
+  // Den valda kritan lyfts ur lådan och ANDAS (den lever, alla andra står stilla och
+  // en aning nedtonade) — så det syns utan ett ord vilken färg som är i handen.
+  _liftCrayon(animate = true) {
+    this._breath?.kill() // breathe() tweenar en proxy, inte .scale — måste dödas explicit
+    this._breath = null
+    this._crayons.forEach((cr, i) => {
+      if (!cr || cr.destroyed) return
+      const chosen = i === this._crayonIx
+      const y = CRAYON_Y - (chosen ? 24 : 0)
+      gsap.killTweensOf(cr)
+      gsap.killTweensOf(cr.scale)
+      cr.alpha = chosen ? 1 : 0.84
+      cr.scale.set(1)
+      if (animate) gsap.to(cr, { y, duration: 0.24, ease: 'back.out(2.4)' })
+      else cr.y = y
+      if (chosen) this._breath = breathe(cr, { scale: 1.1, duration: 1.1 })
+    })
+  },
+
+  _pickCrayon(ctx, i) {
+    if (!this._alive) return
+    const c = CRAYONS[i]
+    const changed = i !== this._crayonIx
+    this._crayonIx = i
+    this._color = c.color
+    ctx.progress.setCustom('krita', i)
+    this._idle = 0
+    this._cued = false
+
+    this._liftCrayon()
+    paintPencil(this._pencilG, c.color) // pennan i handen ÄR kritan barnet valde
+    ctx.services.audio.sfx('tap')
+    // Kritorna är stämda i samma pentatonik som linjens melodi — lådan är ett
+    // litet instrument, inte fem UI-blipp.
+    ctx.services.audio.tone({ freq: MELODY[i], dur: 0.18, type: 'triangle', vol: 0.16 })
+    sparkle(ctx.fxLayer, CRAYON_XS[i], CRAYON_Y - 62, { count: 6 })
+    if (changed) ctx.services.voice.say(c.say)
+    // Byte mitt i en teckning: skissen följer den nya färgen, redan dragna streck
+    // behåller sin — spåret blir barnets egen färgblandning.
+    if (!this._resolving) this._drawSilhouette()
   },
 
   // ---- Rundor: bygg en ny form (oändlig, stigande lek) --------------------
@@ -352,9 +469,10 @@ export default {
       this._silhouette.position.set(0, 0)
     }
 
-    // Ny form (svårare ju högre nivå) + slumpfärg. Är det ett MOTIV ritas en blek
-    // kontur bakom prickarna så barnet ser vad det ska bli.
-    this._color = randomFrom(PLAYFUL)
+    // Ny form (svårare ju högre nivå). Färgen är den krita barnet håller — inte
+    // slump. Är det ett MOTIV ritas en blek kontur bakom prickarna så barnet ser
+    // vad det ska bli.
+    this._color = CRAYONS[this._crayonIx].color
     const { points, motif } = this._genShape()
     this._motif = motif || null
     this._drawSilhouette()
@@ -387,25 +505,27 @@ export default {
   _genShape() {
     const r = this._round
     const B = BOX
-    // Stigande svårighetsplan: två uppvärmningsformer, sedan motiv varvat med kurvor.
+    // Stigande svårighetsplan. ALLRA FÖRSTA rundan är ett motiv: det första ett barn
+    // ser ska vara en bild att rita, inte fyra grå prickar på ett tomt papper.
+    // Sedan varvas motiv med kurvor (handträningen), i stigande svårighet.
     const plan = [
-      () => ({ points: genLine(4, B) }),
-      () => ({ points: genDiagonal(4, B) }),
       () => this._motifShape('berg'),
-      () => ({ points: genWave(5, B, 1, 110) }),
+      () => ({ points: genLine(4, B) }),
       () => this._motifShape('hus'),
-      () => ({ points: genArch(5, B, false) }),
+      () => ({ points: genDiagonal(4, B) }),
       () => this._motifShape('moln'),
-      () => ({ points: genZigzag(5, B) }),
+      () => ({ points: genWave(5, B, 1, 110) }),
       () => this._motifShape('fisk'),
-      () => ({ points: genStairs(7, B) }),
+      () => ({ points: genArch(5, B, false) }),
       () => this._motifShape('hjarta'),
-      () => ({ points: genWave(7, B, 2, 130) }),
+      () => ({ points: genZigzag(5, B) }),
       () => this._motifShape('katt'),
-      () => ({ points: genSpiral(8, B) }),
-      () => this._motifShape('stjarna'),
-      () => ({ points: genTriangle(B) }),
+      () => ({ points: genStairs(7, B) }),
       () => this._motifShape('blomma'),
+      () => ({ points: genWave(7, B, 2, 130) }),
+      () => this._motifShape('stjarna'),
+      () => ({ points: genSpiral(8, B) }),
+      () => ({ points: genTriangle(B) }),
       () => ({ points: genSquare(B) }),
     ]
     if (r < plan.length) return plan[r]()
@@ -440,8 +560,8 @@ export default {
     g.moveTo(pts[0].x, pts[0].y)
     for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y)
     if (m.close === 'polygon') g.closePath()
-    g.fill({ color: this._color, alpha: 0.07 })
-    g.stroke({ width: 6, color: this._color, alpha: 0.22 })
+    g.fill({ color: this._color, alpha: 0.1 })
+    g.stroke({ width: 7, color: this._color, alpha: 0.32 })
   },
 
   // Motivet vaknar: konturen fylls med färg, får ögon och ett leende, och hoppar till.
@@ -483,6 +603,31 @@ export default {
     }
     ctx.services.voice.say(m.say)
     sparkle(ctx.fxLayer, B.cx, B.cy, { count: 14 })
+  },
+
+  // Kurv-rundorna har ingen figur som vaknar. Då firar PENNAN i stället: den hoppar
+  // till, snurrar glatt och strör gnistor längs hela spåret barnet just dragit — så
+  // ingen runda känns som ett steg tillbaka efter en runda med ett motiv.
+  _celebrateLine(ctx) {
+    const p = this._pencil
+    if (p && !p.destroyed) {
+      gsap.killTweensOf(p)
+      const y0 = p.y
+      gsap.timeline()
+        .to(p, { y: y0 - 46, rotation: -0.5, duration: 0.22, ease: 'power2.out' })
+        .to(p, { y: y0, rotation: 0.35, duration: 0.34, ease: 'bounce.out' })
+        .to(p, { rotation: 0, duration: 0.25, ease: 'sine.inOut' })
+    }
+    // Gnistor vandrar längs spåret, från start till slut (koordinaterna fångas nu,
+    // så en riven prick senare inte kan läsas).
+    for (let i = 1; i < this._dots.length; i++) {
+      const mx = (this._dots[i - 1].x + this._dots[i].x) / 2
+      const my = (this._dots[i - 1].y + this._dots[i].y) / 2
+      ctx.later(0.06 * i, () => {
+        if (this._alive) sparkle(ctx.fxLayer, mx, my, { count: 5 })
+      })
+    }
+    ctx.services.voice.say(randomFrom(PRAISE))
   },
 
   _makeDot(x, y) {
@@ -571,6 +716,7 @@ export default {
     const d = this._dots[i]
     if (!d || d._lit) return
     d._lit = true
+    d._wcol = this._color // färgen kritan hade JUST DÅ — byter barnet krita står den kvar
     gsap.killTweensOf(d.scale)
     d.scale.set(1)
     d.clear()
@@ -604,13 +750,16 @@ export default {
     else this._pulseNext()
   },
 
-  // Rita om hela det färglagda spåret genom de tända prickarna (kontigt prefix 0.._next-1).
+  // Rita om spåret genom de tända prickarna (kontigt prefix 0.._next-1). Varje segment
+  // bär färgen kritan hade när det ritades, så en teckning kan vara flerfärgad.
   _redrawInk() {
     this._ink.clear()
-    if (this._next < 2) return
-    this._ink.moveTo(this._dots[0].x, this._dots[0].y)
-    for (let i = 1; i < this._next; i++) this._ink.lineTo(this._dots[i].x, this._dots[i].y)
-    this._ink.stroke({ width: INK_W, color: this._color, cap: 'round', join: 'round' })
+    for (let i = 1; i < this._next; i++) {
+      const a = this._dots[i - 1]
+      const b = this._dots[i]
+      this._ink.moveTo(a.x, a.y).lineTo(b.x, b.y)
+        .stroke({ width: INK_W, color: b._wcol ?? this._color, cap: 'round', join: 'round' })
+    }
   },
 
   // Auto-hjälp: tänd nästa prick själv (no-fail-garanti om barnet kör fast).
@@ -642,7 +791,7 @@ export default {
     // Motivet vaknar: konturen fylls, får ögon och ett leende. Är det ingen motivrunda
     // faller vi tillbaka på det generella firandet.
     if (this._motif) this._revealMotif(ctx)
-    else ctx.services.voice.say(randomFrom(PRAISE))
+    else this._celebrateLine(ctx)
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // Förlopp: höj nivå/svårighet + räkna rundor (oändligt) + delat firande.
@@ -686,22 +835,29 @@ export default {
     this._nextRoundCall?.kill?.()
     this._celebrateTL?.kill()
     this._pulseTween?.kill()
+    this._breath?.kill()
+    this._breath = null
     if (this._paper && !this._paper.destroyed) {
       this._paper.off('pointerdown', this._onDown)
       this._paper.off('globalpointermove', this._onMove)
       this._paper.off('pointerup', this._onUp)
       this._paper.off('pointerupoutside', this._onUp)
     }
-    for (const d of this._dots) {
-      if (d && !d.destroyed) {
-        gsap.killTweensOf(d)
-        gsap.killTweensOf(d.scale)
-      }
+    // Döda tweens på HELA trädet, inte på en handhållen lista över de objekt vi råkar
+    // ha referenser till — och utan `if (!x.destroyed)`-vakter, som hoppar över
+    // städningen i precis det läge då den behövs mest (se bajs-och-kiss / V5).
+    const dodaTrad = (nod) => {
+      if (!nod) return
+      gsap.killTweensOf(nod)
+      if (nod.scale) gsap.killTweensOf(nod.scale)
+      if (nod.position) gsap.killTweensOf(nod.position)
+      const barn = nod.children
+      if (barn) for (let i = 0; i < barn.length; i++) dodaTrad(barn[i])
     }
-    if (this._pencil && !this._pencil.destroyed) gsap.killTweensOf(this._pencil)
-    if (this._dotsLayer && !this._dotsLayer.destroyed) gsap.killTweensOf(this._dotsLayer)
-    if (this._silhouette && !this._silhouette.destroyed) gsap.killTweensOf(this._silhouette.scale)
-    gsap.killTweensOf(this._root)
+    dodaTrad(this._root)
+    this._dots = []
+    this._crayons = []
+    ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
 }

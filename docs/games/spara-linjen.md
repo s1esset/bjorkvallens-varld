@@ -3,25 +3,34 @@
 
 ## 1. Nuläge (sett som spelare)
 
-En gräddvit pappersyta med gul ram. På den ligger en rad bleka prickar i ordning och en
-✏️-pennspets vid den första. Jag sätter fingret på startpricken och drar längs vägen:
-ENDAST nästa prick i ordningen är aktiv — när fingret når den "tänds" den (fylls med rundans
-färg), ett färgat segment ritas från föregående prick, och pennan flyttas dit med 'pling' +
-pop + gnista. Att hoppa till en prick längre fram gör INGET (man kan inte fuska framåt) —
-den rätta nästa-pricken vinkar i stället (vingel + puls + mjukt ljud). Strayar fingret
-stannar pennan kvar, aldrig omstart. Funkar lika bra med tap-tap som med drag.
+Ett ritbord: en gräddvit pappersyta med gul ram, och under den en trälåda med fem ritade
+vaxkritor (röd, gul, grön, blå, lila). Den krita som är vald står lyft ur lådan och andas —
+de andra vilar nedtonade. På pappret ligger en blek konturskiss av det jag ska rita och en
+rad prickar i ordning, med en ritad pennspets i kritans färg vid den första.
 
-Står jag stilla ~6s → vänlig recue + vink; ~11s → nästa prick tänds automatiskt
-(auto-hjälp), så rundan ALLTID blir klar. Hela linjen färglagd → "linjen vaknar" (varje
-prick pulsar i följd) + bigCelebration + complete + ny, svårare form. Formerna trappar:
-rak → diagonal → våg → båge → sicksack → trappa → triangel → fyrkant → spiral → stjärna,
-sedan oändligt slumpade tätare former.
+Jag sätter fingret på startpricken och drar längs vägen: ENDAST nästa prick i ordningen är
+aktiv — när fingret når den "tänds" den (fylls med kritans färg), ett färgat segment ritas
+från föregående prick, och pennan flyttas dit med 'pling' + pop + gnista + nästa ton i en
+stigande pentatonisk slinga. Byter jag krita mitt i behåller redan dragna streck sin färg,
+så teckningen blir min egen färgblandning. Att hoppa till en prick längre fram gör INGET
+(man kan inte fuska framåt) — den rätta nästa-pricken vinkar i stället (vingel + puls +
+mjukt ljud). Strayar fingret stannar pennan kvar, aldrig omstart. Funkar lika bra med
+tap-tap som med drag.
+
+Står jag stilla ~6s → vänlig recue + vink; ~14s → EN prick tänds automatiskt (auto-hjälp),
+sedan väntar spelet på mig igen, så rundan ALLTID blir klar utan att rita sig själv. Hela
+linjen färglagd → motivet vaknar (fylls, får ögon och ett leende, hoppar till, säger vad det
+är) eller — i kurv-rundorna — pennan hoppar till och gnistor vandrar längs spåret. Sedan ny,
+svårare form. Trappan börjar på ett **motiv** (berg) och varvar sedan motiv med kurvor i 18
+steg; bortom planen är ~65 % motiv.
 
 **Funkar bra:** "endast nästa prick"-regeln är genialt no-fail (ingen kan rita fel), det
-växande färgade spåret känns som att man RITAR, formbiblioteket är rikt och stigande,
-pennspetsen + pulsen visar tydligt vart man ska, tap-tap-fallbacket gör det tillgängligt.
+växande färgade spåret känns som att man RITAR, motivet som vaknar gör att man ritade NÅGOT,
+kritvalet ger ett eget bestående avtryck, formbiblioteket är rikt och stigande, pennspetsen +
+pulsen visar tydligt vart man ska, tap-tap-fallbacket gör det tillgängligt.
 
-*(Skärmdump: papper med startprick + ett målat segment till pennan, två bleka prickar kvar.)*
+*(Skärmdump: `.test-shots/spara-linjen.png` — berg-skiss på pappret, kritlådan under, röd
+krita lyft. `.test-shots/_krit-klar.png` — färdigt berg med ögon, ritat i grönt + lila.)*
 
 ## 2. Ursprunglig plan & tankeprocess
 
@@ -33,40 +42,45 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
 
 ## 3. Vad gör det lättjefullt / tunt
 
-- **Linjen blir aldrig en bild.** Man spårar en abstrakt form (triangel, spiral) men den
-  fylls aldrig i till NÅGOT — ingen katt, ingen stjärna som tänds, ingen blomma, inget djur
-  som "ritas klart". Belöningen för en klar form är bara samma färgade streck + konfetti.
-- **Auto-hjälpen ritar åt en.** Efter ~11s stillastående tänds nästa prick själv, och den
-  åter-armeras (`_idle = IDLE_DELAY`) så hela formen kan ritas av timern medan barnet inte
-  rör något. Bra skyddsnät men gör att inget engagemang krävs.
+*Kvar (öppet):*
+
 - **Prickarna är identiska grå cirklar.** Ingen siffra, ingen färg-tell, inget som skiljer
   prick 1 från prick 7 — ordningen är osynlig tills man råkar träffa rätt; en yngre tittar
-  bara efter pulsen.
-- **Tom, statisk scen.** Papper på platt bakgrund. Ingen figur som ritar med en, ingen
-  hand/krita-karaktär, inget som händer i kanterna.
-- **Ljudet är UI-blipp.** 'pling'/'pop' per prick — ingen kritklang, ingen stigande melodi
-  längs linjen, inget "krafs" av penna mot papper.
-- **Generisk belöning + inget sparas.** Samma bigCelebration; den färdiga teckningen
-  försvinner direkt vid ny runda — ingen "ritbok"/galleri att spara och bläddra i.
-- **Färgen är slumpad men oförklarad.** En färg per runda utan koppling till motiv eller val
-  — barnet får inte välja kritfärg.
+  bara efter pulsen. (Puls + vingel kompenserar, så låg prioritet.)
+- **Teckningen sparas inte.** Den färdiga bilden försvinner vid ny runda — ingen
+  "ritbok"/galleri att bläddra i och vara stolt över.
+- **Ingen rit-kompis.** Ingen figur som ritar med en och hejar; mottagaren är motivet självt,
+  och kurv-rundorna har bara pennans egen glädjerörelse.
+- **Inget krit-krafs.** Melodin finns, men inget riktigt "krafs" av krita mot papper
+  (väntar på SFX-pipelinen).
+- **Vald krita syns bäst i rörelse.** Lyft + andning + nedtonade grannar är en äkta tell, men
+  i en stillbild är den diskret. Blir det otydligt i verklig speltest: en färgad platta i
+  lådbotten bakom vald krita.
+
+*Åtgärdat:* ~~linjen blir aldrig en bild~~ (motiv, 08-04) · ~~auto-hjälpen ritar åt en~~
+(07-01) · ~~tom, statisk scen~~ (ritbord + kritlåda, 08-07) · ~~ljudet är UI-blipp~~
+(pentatonisk melodi + stämd kritlåda) · ~~generisk belöning~~ (motivet vaknar / pennan firar)
+· ~~färgen är slumpad och oförklarad~~ (barnet väljer krita, 08-07).
 
 ## 4. Förbättringar & förhöjningar (plan)
 
-> **Mätt fynd 2026-08-06 (`bildkoll.mjs`):** `gles-scen` — bara **4,3 %** av skärmen har
-> innehåll. Det är repots lägsta av 71 spel (näst lägst: fyrverkeri 9,8 %), och det enda spel
-> som slår ut den nya bildkollen. Skärmdumpen visar en tom vit panel, fyra grå prickar och en
-> ✏️-emoji som *hela* verktyget — alltså både gate-punkt 4 (ingen mottagare, tom scen) och
-> P0 ASSETS. Punkterna nedan (motiv-silhuett bakom prickarna, välj krita) åtgärdar detta;
-> ta dem tillsammans och rita pennan fristående.
+> **~~Mätt fynd 2026-08-06 (`bildkoll.mjs`)~~ — ÅTGÄRDAT 2026-08-07 (`77902dd`).**
+> `gles-scen`: bara **4,3 %** av skärmen hade innehåll, repots lägsta av 71 spel (näst lägst:
+> fyrverkeri 9,8 %) och det enda spel som slog ut bildkollen. **Rätt diagnos var inte att
+> motiven saknades** — de fanns sedan 2026-08-04, men svårighetsplanen började på
+> `genLine(4)`, så det första ett barn såg var fyra grå prickar på tomt papper. (Noteringen om
+> "✏️-emoji som hela verktyget" var redan inaktuell: pennan ritades fristående sedan 08-04 —
+> `icon: '✏️'` är bara brickan i biblioteket.) Fix: motiv redan från runda 1 + kritlåda under
+> pappret. Mätt efter: inga bildkollsfynd.
 
 ### Kärnloop & agens
-- **[Medium] Prickarna bildar en bild.** Lägg en blek motiv-silhuett (katt, fisk, stjärna,
-  hus) bakom prickarna; när linjen sluts fylls motivet med färg + får ögon/liv. Då RITAR man
-  något, inte bara ett streck — enorm meningsskillnad för 3–5 år.
-- **[Quick] Senarelägg/mjuka auto-hjälpen.** Höj `AUTO_DELAY`, eller låt auto bara tända EN
-  prick och sedan vänta på barnet igen, så teckningen inte ritar sig själv vid passivitet.
-- **[Quick] Välj krita.** 3–4 stora färgknappar så barnet väljer pennfärg — ett litet ägande-val.
+- ✅ **[Medium] Prickarna bildar en bild.** *(2026-08-04)* Blek motiv-silhuett bakom prickarna;
+  vid sluten linje fylls motivet, får ögon och liv.
+- ✅ **[Quick] Senarelägg/mjuka auto-hjälpen.** *(2026-07-01)* Tänder EN prick, sedan full
+  idle-reset. Teckningen ritar inte längre sig själv.
+- ✅ **[Quick] Välj krita.** *(2026-08-07)* Fem ritade vaxkritor i en trälåda under pappret.
+  Vald krita lyfts ur lådan och andas; färgen är linjens färg, bytbar mitt i en teckning,
+  och valet minns sig mellan besök.
 
 ### Variation & överraskning
 - **[Quick] Numrerade/färgtonade prickar.** Visa en svag siffra eller en gradvis ljusnande
@@ -75,11 +89,11 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
   ljud, eller en prick som "släpper" en fjäril när den tänds.
 
 ### Juice
-- **[Quick] Krit-ljud + stigande melodi.** Riktigt krit-/tuschkrafs via SFX-pipelinen
-  ([[real-audio-sfx]]); låt varje tänd prick spela nästa ton i en liten uppåtgående slinga så
-  hela linjen blir en melodi när den är klar.
-- **[Quick] Levande spår.** Lite glitter-damm som faller från pennspetsen medan man drar; det
-  färdiga spåret skimrar till vid completion.
+- ✅ **[Quick] Stigande melodi.** *(2026-08-04)* Varje tänd prick spelar nästa ton i en
+  pentatonisk slinga; kritlådan är stämd i samma skala *(2026-08-07)*. Kvar: riktigt
+  krit-/tuschkrafs via SFX-pipelinen ([[real-audio-sfx]]).
+- ✅ **[Quick] Levande spår.** *(2026-08-04/08-07)* Kritdamm vid pennspetsen; kurv-rundor
+  avslutas med att pennan hoppar till och gnistor vandrar längs hela spåret.
 
 ### Progression
 - **[Deep] Ritbok/galleri.** Spara varje färdig teckning som en miniatyr i en bok (bakom
@@ -124,4 +138,28 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
   - **P0 ASSETS:** pennan ritas nu (trä, stift, hylsa, suddgummi) i stället för ✏️-emoji.
   - **Bugg:** `gsap.delayedCall` → `ctx.later()`; `_dotsLayer.alpha` nollställs vid ny runda
     så borttoningen inte följer med in i nästa bild.
+- 2026-08-07 ✅ **Tredje omgången — ritbord med kritval** (`77902dd`, v1.27.0). Utlöst av
+  bildkollens `gles-scen` (4,3 %, repots lägsta av 71). **Diagnosen i verktygsfyndet var fel i
+  sak:** motiven och den ritade pennan fanns redan sedan 08-04 — felet var att
+  svårighetsplanen började på `genLine(4)`, så det första ett barn såg var fyra grå prickar på
+  tomt papper. (Lärdomen står i CLAUDE.md: läs koden före planen.)
+  - **Motiv redan från runda 1** (berg), sedan motiv/kurva varvat i 18 steg.
+  - **Kritlåda** (§4 [Quick] *Välj krita*): fem ritade vaxkritor — kropp, spets, sliten udd,
+    pappersetikett, dager — i en trälåda under pappret. Vald krita lyfts 24 px, får full
+    opacitet och **andas**; grannarna vilar på alpha 0,84. Träffytor 124×180 px, 36 px isär.
+    `PAPER.h` 520 → 424 för att ge plats (BOX/MOTIF_BOX flyttade med).
+  - **Färgen är barnets:** kritans färg är linjens färg; byte mitt i en teckning låter redan
+    dragna segment behålla sin (`d._wcol` per prick, `_redrawInk` ritar segment för segment),
+    pennan i handen får samma färg, och valet sparas i `progress.custom.krita`.
+  - **Kritorna är stämda** i samma pentatonik som linjens melodi (`MELODY[i]`).
+  - **Kurv-rundorna fick en egen finish** (`_celebrateLine`, spelkritikerns enda BÖR-punkt):
+    pennan hoppar till och gnistor vandrar längs spåret i stället för bara `PRAISE` + konfetti.
+  - **Exit-säkerhet:** `destroy()` dödar tweens på hela displayträdet i stället för en
+    handhållen lista med `if (!x.destroyed)`-vakter — samma lärdom som V5 i `bajs-och-kiss`.
+    `breathe()` tweenar en proxy och inte `.scale`, så dess tween sparas och dödas explicit.
+  - **Mätt** (`scripts/_kritprobe.mjs`): kritval ✓ · flerfärgat spår (grön + lila i samma
+    berg) ✓ · runda klar → nivå 1 ✓ · kritan följer med till nästa runda ✓ · minns valet efter
+    återbesök ✓ · 0 konsolfel vid exit mitt i firandet. Bildkoll: inga fynd (gles-scen borta).
+    `check` 0 fel · `test:all` 71/71.
+  - **Öppet:** 5 nya repliker ("Röd krita!" m.fl.) väntar på röstklipp — kör `/rost`.
 

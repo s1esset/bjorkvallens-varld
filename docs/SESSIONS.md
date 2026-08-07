@@ -14,6 +14,54 @@ Format:
 
 ---
 
+## 2026-08-07 · v1.25.0 · 🥤 Hällningen som aldrig flyttade en droppe
+
+**Byggt:** `saftbaren` V4 — spelets **kärnloop** gjorde bokstavligen ingenting. "Häll ett glas
+i ett annat → färgerna blandas" körde hela sekvensen snyggt (glaset åkte till rätt plats, nådde
+vinkel 1,02, väntade, åkte hem) men inte en droppe lämnade glaset. Hittades i går genom en
+mätning, fixat i dag.
+
+- **Grundorsak: `TILT` och `OFFS` är samma tal sett från två håll och var aldrig mätta mot
+  varandra.** Mynningen ligger på `(0, IN_TOP)` i glasets egna koordinater, så vid lutningen θ
+  hamnar den `-IN_TOP·sin θ` px åt sidan och `IN_TOP·cos θ` px i höjdled från foten. Vid
+  `TILT = 1,05` rad (60°) nådde saften **aldrig över läppen** — och eftersom OFFS var satt för
+  den vinkeln kunde ingen av dem ändras ensam.
+- **Kalibrerat mot det tal som betyder något** (`scripts/_pourtune.mjs`: fullt källglas,
+  riktigt målglas, spelets egen geometri) — partiklar som hamnar **i målet** av ~103:
+  `1,05 → 0` · `1,5/205 → 29` · `1,9/205 → 19` · **`2,2/100 → 77`** (spill 7) ·
+  `2,4/100 → 81` · `2,6/100 → 86` (spill 13). Att hålla glaset högre mättes också och blev
+  **sämre** (längre fall → mer skvätt: 59 i målet, 25–38 spill). Valt **2,2 + 100**: 75 % över,
+  minst spill, minst extrem vinkel — glaset tippar förbi vågrätt som en riktig hällning.
+- **Tre vägar delade konstanterna och behövde skiljas åt.** Hinken har bred öppning och vill ha
+  en fritt fallande stråle → `MOUTH_DX` (178, härledd ur TILT). Bobo *dricker* — hans mun är en
+  drain-ruta där saften ska ligga stilla, inte hällas på golvet → egna `SERVE_TILT/SERVE_OFFS`
+  (de gamla 1,05/205, som gör exakt det).
+- **Fixen skapade en egen bugg, som mätningen fångade direkt.** Ett fullt glas på väg till
+  hinken tappade hela innehållet till glas 2 när det gled förbi lågt (52 partiklar blev
+  liggande med medel-x 740 ≈ glas 2:s 750). Orsaken var gårdagens djup-ägarregel: den låter det
+  **stående** glaset vinna när ett rörligt glas glider lågt förbi, eftersom deras inre överlappar.
+  Fix: `SAFE_Y` + `_moveOver()` — ett glas som flyttar sig i sidled lyfts, bärs ovanför
+  grannarna och ställs sedan ner. Ser dessutom ut som att glaset lyfts och bärs i stället för
+  att glida genom disken, och `_tiltFor` fungerar äntligen för dragna glas.
+- **Verifierat via spelets egna vägar** (`scripts/_pourprobe.mjs`): glas→glas **61 partiklar
+  över och målet blir GRÖNT, renhet 1,00** (gul i blå — hela poängen med spelet) · glas→hink
+  **58 av 58 slukade**, 0 kvar liggande · hela beställningen: Bobo serveras, dricker upp, ny
+  beställning kommer.
+
+**Commits:** `5ee202a` fix(saftbaren)
+
+**Öppet:**
+- V3 `spara-linjen` (tommaste scenen, 4,3 %). 8 spel kvar med 🔧.
+- **V5 `bajs-och-kiss` är nu inringad:** undantaget är `Cannot read properties of null
+  (reading 'y')` kastat **inifrån GSAP** — en tween som skriver `.y` på ett mål vars transform
+  redan är rivet (`tween-mot-forstort ×3`). Föregås i loggen av `lang-ruta 100 ms` +
+  `fysik/svalt steg:5`: under full parallell last blir bildrutorna långa och tweenen hinner
+  före teardown. `test:all` står därför kvar på **70/71** (112 konsolfel i den körningen).
+- **Metodfynd:** två gånger i rad var det *proben* som var trasig, inte spelet — först en
+  hällmätning som siktade fel, sedan en som fyllde glaset med precis den färg Bobo beställt
+  (spelet serverade då glaset till honom, helt korrekt). Bägge gångerna räddades av att köra
+  om mot HEAD respektive isolerat. En röd sond är ett påstående, inte ett bevis.
+
 ## 2026-08-07 · v1.24.0 · 🧲 Magneten som fiskade själv + 🥤 saften som bytte glas
 
 **Byggt:** ägarens fyra rapporterade buggar i `docs/ATGARDER.md` — alla fyra fixade, mätta

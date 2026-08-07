@@ -8,9 +8,32 @@ När en idé byggs: flytta den till `docs/games/<id>.md` (§0 Spec) och stryk po
 
 ---
 
-## 1. Ansiktssektionen — riktiga foton som spelfigur (arbets-id: `ansiktssektionen`)
+## 1. Egna ansikten & röster från telefonen (arbets-id: `egna-ansikten`)
 
-*Inlagd 2026-08-06. Status: ⬜ ej planerad. Omfattning: **en hel ny sektion**, inte ett spel.*
+*Inlagd 2026-08-07. Status: ⬜ ej planerad. Utbruten ur `ansiktssektionen` (beslut 2026-08-07).*
+
+**Idén, som den beskrevs:** kunna **fota ett ansikte och spela in röstljud direkt i telefonen**,
+förbereda dem där, och lägga in **vilken karaktär som helst** (vilket ansikte + vilken röst
+som helst) i ansiktssektionens spel.
+
+### Frågor att svara på i planeringen (INTE nu)
+1. **Lagring.** P0 DATA tillåter endast localStorage JSON (~5 MB). Foton skapade i körning
+   kräver antingen hård komprimering eller en medveten P0-omförhandling (IndexedDB).
+   Ingenting får lämna enheten.
+2. **Friläggning på enheten.** Klippa bort bakgrunden utan nätanrop — telefonens "lyft motiv"
+   ger PNG manuellt, men ett i-appen-flöde kräver egen lösning.
+3. **Delning i lager på enheten.** Halvorna/ögonen måste klippas och riktas in — kräver ett
+   enkelt inriktnings-UI bakom föräldragrinden.
+4. **Grind.** Kamera + mikrofon hör hemma bakom tryck-och-håll-grinden (P0 GRIND).
+5. **Beroende:** ansiktsriggen (`lib/ansikte.js`) och minst ett spel måste finnas först —
+   funktionen är ett påbyggnadslager, inte grunden.
+
+---
+
+## 2. Ansiktssektionen — riktiga foton som spelfigur (arbets-id: `ansiktssektionen`)
+
+*Inlagd 2026-08-06. Status: 🟨 under planering — beslut tagna 2026-08-07, väntar på
+fotoshoot + spec-ja för `mata-munnen`. Omfattning: **en hel ny sektion**, inte ett spel.*
 
 **Idén, som den beskrevs:** En helt ny sektion i biblioteket där **riktiga foton av ägarens
 ansikte** är spelfiguren. Ansiktet **grimaserar som svar på vad spelaren gör** — grimasen är
@@ -21,6 +44,24 @@ och kunna **äta genom att gapa**.
 **Första spelet i sektionen:** dra-och-släpp **mat i munnen**. Munnen gapar när maten närmar
 sig, tuggar, och **ansiktet/grimasen ändras beroende på vad man matade det med** — citron ger
 sur min, chili ger het min, tårta ger lycksalig min, broccoli ger en fundersam min.
+
+### Ägarens detaljering (2026-08-07)
+
+- **Riggen:** ett frilagt porträtt delas i **två halvor** — övre ansiktet (övre läppen och
+  uppåt) och nedre ansiktet (nedre läppen + hakan). Prat/tugg = nedre halvan flyttas upp/ner
+  i 2D; mun-inre som eget lager bakom. Flera foton med olika uttryck/grimaser gör personen
+  levande (minbyte ovanpå riggen).
+- **Ögonen följer** det man drar: ögon-lagret växlar mellan foton som tittar åt olika håll,
+  i ~45°-steg hela varvet runt (8 riktningar).
+- **Matning:** dra-och-släpp mat på munnen → gap, tugg, smask; grimas + uttryck beroende på
+  maten. **Smulor** sprutar ur munnen när den tuggar.
+- **Bus är en feature:** släpper man mat på resten av ansiktet (ögon, näsa, öron, hår) så
+  **fastnar det** och det blir geggigt/kladdigt på ansiktet; ansiktet reagerar med olika miner.
+- **Ljud:** ägaren spelar in många korta uttrycksljud i egen röst (blää, aj, oj, ohh) som hör
+  ihop med vissa miner.
+- **Önskad framtida feature:** kunna **fota ansikten och spela in röst direkt i telefonen** och
+  lägga in vilken karaktär som helst. (Obs: P0 DATA = endast localStorage JSON — foton skapade
+  i körning kräver ett medvetet lagringsbeslut; troligen en egen, senare idé.)
 
 ### Varför den är intressant
 - **Ingenting i biblioteket ser ut så här.** 70 spel är ritad vektorgrafik. Ett riktigt ansikte
@@ -42,40 +83,76 @@ sur min, chili ger het min, tårta ger lycksalig min, broccoli ger en fundersam 
 | `borsta-tanderna` | dra tandborsten i den gapande munnen, ansiktet reagerar på var man är |
 | `prat-ansiktet` | tryck på ord/ikoner → käken rör sig i takt med röstklippet |
 
-### Frågor att svara på i planeringen (INTE nu)
-1. **Fotoshoot-listan.** Vilka miner behövs, och hur många? Grundrigg: neutral · glad · förvånad
-   · sur · äcklad · het/chili · nöjd/mätt + **gap öppet** och **gap stängt**. Allt måste tas i
-   **samma ljus, samma avstånd, samma vinkel**, annars hoppar ansiktet mellan minerna. Detta är
-   en riktig produktionsuppgift för ägaren innan ett spel kan byggas.
-2. **Skära eller byta?** Två helt olika tekniska vägar: (a) *rigg* — ett foto skärs i käke,
-   mun-inre, ögon, ögonbryn som rör sig var för sig; (b) *minbyte* — ett foto per grimas som
-   korsbleknar. Rigg ger prat och gap, minbyte ger äkta miner. **Troligen båda:** riggad käke
-   ovanpå ett minbyte för ögon/bryn. Måste avgöras före första spelet.
-3. **P0 `KARAKTÄRER`.** Avbildade människor får bara heta Zacke/Alissa/Elvira/Lova. Ett foto av
-   ägaren är en avbildad människa — heter han "Pappa" (roll, inte namn), är han namnlös, eller
-   behöver regeln i `lib/theme.js` ett uttryckligt undantag? Bestäm och skriv in i regeln.
-4. **P0 `ASSETS`.** "Spelobjekt ritas fristående — aldrig en emoji/ikon i en ruta." Ett foto är
-   inte en emoji, men det måste vara en **friskuren silhuett** med genomskinlig bakgrund och
-   eget liv (andning, blink i vila) — aldrig ett rektangulärt foto i en ram. Maten som dras
-   ritas som vanligt (`artikoner.js`).
-5. **Integritet.** P0 `DATA`: ingen PII lämnar enheten. Foton i `public/` följer med i bygget
-   och serveras över Tailscale till telefonen. Det är familjens egen app och egna bilder — men
-   bestäm medvetet: bara ägarens ansikte, eller barnens också? Och ska sektionen fungera om
-   fotona saknas (fallback till ritat ansikte), så repot går att dela utan bilderna?
-6. **Egen flik eller inte?** "Sektion" antyder en femte flik i biblioteket (`TAB_GROUPS` i
-   `lib/theme.js`, se skill **skal-och-data**). En flik med ett spel i ser tom ut — bygg 2–3
-   spel först och lyft ut fliken när de finns, eller lägg dem i Roligt tills vidare?
-7. **Vad är målet i `mata-munnen`?** Kvalitetsgrindens punkt 1 kräver agens med utfall. Väg:
-   "mata tills tallriken är tom" · "hitta vilken mat som ger vilken min" (upptäckarloop) ·
-   "gör ansiktet mätt" med en synlig mättnadsmätare. Alltid utan fail.
-8. **Bildbudget.** Hur många MB får sektionen kosta? Foton är tyngre än vektorgrafik och
-   service-workern cachar allt offline. Format (webp), maxbredd och antal miner måste sättas.
+### Beslut (2026-08-07)
+1. **Rigg:** frilagt porträtt i **två halvor** (delning vid överläppen) + mun-inre bakom;
+   nedre halvan translateras upp/ner för gap/tugg/prat. **Endast neutralfotot klipps.**
+   Grimaser är **helbildsfoton** som korsbleknar in efter svalt tugg (~120 ms), hålls ~1,5 s
+   med tillhörande ljud, och bleknar tillbaka. Ögon-följningen (8 riktningar, eget ögonlager)
+   sker bara i neutralläget medan man drar.
+2. **Namn:** karaktären heter **"Pappa"** — en roll, inte ett namn. `lib/theme.js`-regeln får
+   tillägget "roller (Pappa/Mamma) är tillåtna för fotokaraktärer" i samma commit som sektionen.
+3. **Ansikten:** bara ägarens nu; riggen byggs så fler ansikten kan läggas till senare med
+   samma fotolista. Telefon-funktionen är utbruten till egen idé (`egna-ansikten`, post 1).
+4. **Mål i `mata-munnen`:** **mättnadsmätare** — tallrik med 4–6 matbitar per runda, full mage
+   → rap-final → ny tallrik. Bus fyller inte mätaren men geggan sitter kvar till finalen.
+5. **Flik:** spelen ligger i **Roligt** tills sektionen har 2–3 spel; då lyfts en egen flik.
+6. **Fallback/integritet:** fotona checkas in som vanliga assets (repot är lokalt, ingen PII
+   lämnar enheten); ingen ritad fallback byggs.
+7. **Bildbudget:** webp, maxhöjd ~800 px per lager, hela sektionen ≤3 MB.
+8. **P0 `ASSETS`** gäller som noterat: friskuren silhuett med eget liv (andning, blink),
+   aldrig ett rektangulärt foto i en ram. Maten ritas som vanligt (`artikoner.js`).
+
+### Fotoshoot-lista (ägarens produktionsuppgift — allt i EN session)
+Stativ, samma ljus/avstånd/vinkel, huvudet stilla (sätt ett märke att titta på), enfärgad
+bakgrund. Frilägg helst med telefonens "lyft motiv" (sker lokalt på enheten) → PNG; annars
+levereras råbilder så klipper vi här.
+
+| # | Fil | Vad |
+|---|---|---|
+| 1 | `neutral` | mun stängd, ögon mot kameran (klipps i halvor — basriggen) |
+| 2 | `gap` | munnen vidöppen, säg "aaah" (härifrån klipps mun-inre: tänder/tunga) |
+| 3–10 | `ogon-<riktning>` | endast ögonen flyttas: upp · upp-hoger · hoger · ner-hoger · ner · ner-vanster · vanster · upp-vanster |
+| 11 | `ogon-stangda` | för blink i vila |
+| 12 | `sur` | citron |
+| 13 | `acklad` | blää |
+| 14 | `het` | chili — flämtande |
+| 15 | `lycksalig` | tårta/glass |
+| 16 | `fundersam` | broccoli |
+| 17 | `forvanad` | oj! (bus-släpp) |
+| 18 | `aj` | något studsade på näsan (bus) |
+| 19 | `nojd-matt` | stor belåten min (rund-finalen) |
+| 20 | `skratt` | valfri bonus — bus i hår/öron |
+
+**Ljudinspelningar (egen röst, telefonen räcker, tyst rum, ett uttryck per fil):**
+`blaa` · `aj` · `oj` · `ohh` · `mmm` · `nam-nam` · `rap` · `fniss` · `aaah`.
+Tugg/smask kan tas ur sfx-pipelinen om egna inte blir bra.
+
+**Leverans:** lägg allt i `assets-src/ansikte/pappa/` (utanför `public/`) — ett skript under
+`scripts/` klipper, komprimerar till webp och genererar lager + manifest med ankarpunkter.
+
+### Kvarvarande öppna punkter
+- Exakt matlista + mat→min-mappning (avgörs i spec/bygge mot `artikoner.js`).
+- Klippskriptets form: helautomatiskt eller skript + handsatta koordinater i en JSON.
+
+### Spec-kort `mata-munnen` (framlagt 2026-08-07 — väntar på ägarens ja)
+`mata-munnen` · **Mata Pappa** · 😋 · Roligt · drag (tap-tap-fallback) · 2–5 · ingen
+fysikmotor (DragController + GSAP). **Kärnloop:** tallrik med 4–6 matbitar → dra (ögonen
+följer i 8 riktningar, munnen gapar när maten närmar sig) → släpp på munnen → tugg + smask +
+smulor → helbilds-grimas per mat + ägarens inspelade ljud (~1,5 s) → mättnadsmätaren fyller.
+Bus: släpp på ögon/näsa/öron/hår → fastnar + gegga (tak 6 samtidigt, äldsta ploppar av),
+fyller inte mätaren. **Variation:** matpool ~14, 4–6 slumpas per tallrik; sällsynt wow
+(~1 på 8): jättegrimas/dubbelrap. **Finish:** rap-finalen — nöjd-mätt-minen, inspelat rap,
+fniss, smul-konfetti, geggan kvar. Klistermärke. **Repliker (7 literaler):** "Mata pappa med
+maten på tallriken!" · "Mmm, det där var gott!" · "Oj! Vad surt det var!" · "Titta, pappa
+tuggar och tuggar!" · "Hihi, nu blev det kladdigt!" · "Vad tror du händer om pappa smakar
+chilin?" · "Nu är pappa mätt och belåten!" — pappas egna uttrycksljud är **samples**
+(`audio.sample()`), inte narrator-repliker.
 
 ### Tekniska hållpunkter
-- **Ansiktsriggen blir en delad modul** (`lib/ansikte.js`-aktig), inte kod i ett spel — käke som
-  roterar kring en pivot vid örat, mun-inre som eget lager under käken, ögonlock för blink.
-  Pixi v8: `Sprite` med `anchor` för pivoten, eller `PerspectiveMesh`/`MeshPlane` om käken
-  behöver deformera i stället för att bara rotera (se skill **pixijs-scene-mesh**).
+- **Ansiktsriggen blir en delad modul** (`lib/ansikte.js`-aktig), inte kod i ett spel — lager:
+  övre halva · nedre halva (translateras vertikalt för gap/tugg/prat) · mun-inre bakom ·
+  ögonlager (8 riktningar + stängda) · helbilds-grimaslager för korsblekning · dekal-lager
+  för gegga/fastnad mat. Pixi v8: vanliga `Sprite`-lager räcker; ingen mesh-deformation behövs.
 - **Uppskärningen görs offline**, inte i körning: ett skript under `scripts/` som klipper ut
   delarna ur källfotona till färdiga PNG/webp-lager — samma mönster som `npm run voice`/`sfx`.
 - **Käken kan drivas av rösten.** `VoiceService` spelar redan mp3-klipp; enklast är
@@ -88,9 +165,10 @@ sur min, chili ger het min, tårta ger lycksalig min, broccoli ger en fundersam 
 
 ---
 
-## 2. Nätskott från bilfönstret (arbets-id: `natskott-pa-stan`)
+## 3. Nätskott från bilfönstret (arbets-id: `natskott-pa-stan`)
 
-*Inlagd 2026-08-06. Status: ⬜ ej planerad.*
+*Inlagd 2026-08-06. Status: 🟨 under planering — beslut tagna 2026-08-07, spec-kort
+framtaget, väntar på spec-ja.*
 
 **Idén, som den beskrevs:** Förstapersonsvy där man ser **sin egen arm och hand** nere i bild,
 i webb-skjutar-posen (pek- och lillfinger ut, mellanfingrarna in mot handflatan), med
@@ -119,24 +197,43 @@ blomkrukor i fönsterbleck, brevlådor, fåglar, paket, fönster som går sönde
 | `spindel-zacke-svingar` | pendel, timing-släpp mellan hustak | här ingen svingning, ingen timing-press |
 | `spindelnatet` | står still, fångar fallande föremål i ett nät | här rullar världen förbi och nätet påverkar *världen* |
 
-### Frågor att svara på i planeringen (INTE nu)
-1. **Varumärke.** Repot har konsekvent egna hjältar ("INTE Spider-Man", se `spindelnatet`,
-   `spindel-zacke-svingar`). Armen/dräkten måste bli **vår egen** — t.ex. Spindel-Zackes
-   färger — inte Marvels design. Beskriv dräkten i speccen så ingen ritar fel.
-2. **Fönster som går sönder.** Passar det P0 (`fel tryck = roligt, aldrig tillsägelse`) eller
-   läser en förälder det som skadegörelse? Alternativ: rutan blir *målad med nät* / får ett
-   roligt klistermärke i stället för att krossas.
-3. **Gummorna.** P0 `KARAKTÄRER`: avbildade människor får bara heta Zacke/Alissa/Elvira/Lova.
-   Antingen är fotgängarna **namnlösa**, eller så blir de djur/monster i stället.
-4. **Vad är målet?** Fritt lek-läge räcker inte för kvalitetsgrindens punkt 1 (agens med utfall).
-   Förslag att väga: "hämta hem X saker med dragnät" · "fånga katten som sprungit iväg" ·
-   "fäst alla paket innan de blåser bort" — alltid utan fail.
-5. **Bilen.** Ser man fönsterkarmen/dörren i bild (ram runt scenen) eller är det ren
-   förstaperson? Ramen ger djup men äter skärmyta i 1280×720.
-6. **Lägesbytet klibb/drag.** En stor knapp (≥96px) nere i hörnet, eller växlar det automatiskt
-   per mål? Knapp är mer agens, auto är mindre att lära sig.
-7. **Fysikbudget.** matter.js med rullande bakgrund → kropparna måste följa med i scrollen och
-   städas bort utanför bild. Se skill **fysik-spel** + `PhysicsWorld`.
+### Beslut (2026-08-07)
+1. **Varumärke:** armen/dräkten är **Spindel-Zackes** — röd/blå med svarta nät-linjer, egna
+   designen (INTE Marvels). Samma hjälte som i `spindel-zacke-svingar`.
+2. **Fönster krossas på riktigt** (ägarens val). Tonram som håller P0: tecknat glitter-splitter
+   + glatt "hoppsan"-ljud, rutan **självlagas med ett skimmer efter ~5 s** (världen förblir
+   aldrig trasig = tak), och ibland tittar ett **litet monster ut ur den trasiga rutan och
+   vinkar** — mottagar-ögonblick, aldrig tillsägelse.
+3. **Inga människor** — målen är djur, monster och föremål (katter, hundar, fåglar, paket,
+   blomkrukor, ballonger). KARAKTÄRER-frågan bortfaller helt.
+4. **Mål: uppdragsrundor** som roterar och använder båda näten — "fånga katten som rymt"
+   (dragnät) · "fäst paketen innan de blåser iväg" (klibbnät) · "hämta hem 3 ballonger".
+   Fri lek mellan uppdragen; alltid utan fail.
+5. **Nätval: stor växelknapp** (≥96px) med egna ritade ikoner. Båda näten gör alltid NÅGOT
+   roligt på varje mål — inget felval, bara olika utfall.
+6. **Bilen: antydd ram** — smal dörrkant/fönsterkarm nertill där armen vilar, inte full ram
+   (skärmytan i 1280×720 ska gå till gatan).
+7. **Mottagare:** hemdragna djur/saker landar i **baksätet** och jublar där; rund-finalen är
+   **hemkomsten** — bilen stannar, alla hoppar ur och firar.
+8. **Fysik:** matter.js (`PhysicsWorld`); kroppar följer scrollen och städas utanför bild.
+   Klibbnät = kroppen blir statisk i bakgrundslagret (scrollar med). Dragnät = constraint mot
+   kameran; kroppen plockas ur fysiken nära bilen och landar i baksätet.
+
+### Spec-kort `natskott-pa-stan` (framlagt 2026-08-07 — väntar på ägarens ja)
+`natskott-pa-stan` · **Nätskott på stan** · 🚙 (byggaren verifierar unikhet i registryt) ·
+Fysik · tap + stor växelknapp (inga drag alls) · 2–5 · matter.js. **Kärnloop:** bilen rullar
+(parallax hus · trottoar · vägkant, stad→förort), Spindel-Zacke-armen nere i bild med
+vilo-guppning; tryck var som helst → nät dit med whoosh + rekyl <100 ms; klibbnät fäster
+saker där de är, dragnät drar hem dem till baksätet som jublar. Uppdragsrundor roterar
+("fånga katten" · "fäst paketen" · "hämta 3 ballonger"); fri lek emellan, aldrig fail.
+Fönster krossas i glitter-splitter, självlagas ~5 s, ibland vinkar ett monster ur hålet.
+**Motgång:** vindby (max 2 lösa samtidigt) + skata som knycker paket (1 åt gången, går att
+näta). **Variation:** kuliss + målpool roterar; sällsynt wow (~1 på 8): guldpaket som regnar
+stjärnor. **Finish:** hemkomsten — bilen stannar vid huset, alla insamlade hoppar ur och
+firar. Klistermärke. **Repliker (7 literaler):** "Tryck där du vill skjuta nätet!" · "Byt nät
+med den stora knappen!" · "Fånga katten med dragnätet!" · "Fäst paketen så de inte blåser
+iväg!" · "Hoppsan! Där rök en ruta!" · "Titta, baksätet blir fullt med vänner!" · "Nu är vi
+hemma — vilket äventyr!"
 
 ### Tekniska hållpunkter
 - matter.js (`PhysicsWorld`) för de påverkade föremålen; bakgrunden som parallax-lager

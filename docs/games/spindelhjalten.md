@@ -1,5 +1,5 @@
 # Spindelhjälten (`spindelhjalten`)
-> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · drag · 3–5 år · status: ✅ marknadsklar (2026-08-07)
 
 ## 1. Nuläge (sett som spelare)
 
@@ -37,6 +37,11 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
 
 ## 3. Vad gör det lättjefullt / tunt
 
+> **Ögonblicksbild 2026-06-30 — flera punkter är åtgärdade sedan dess.** Kattung-räddningen,
+> hjälp-trappan, den tomma luften, den generiska vinsten och det tunna ljudet är alla fixade
+> (se §4 och §5). Kvar av kritiken nedan: studsknoppen som passivt pynt och insamlingen som
+> avstånds-magi. Kritiken står som historik, inte som nuläge.
+
 - **Studsknoppen och kattungen är "pynt" mer än spelmål.** Studsknoppen är en statisk
   cirkel man råkar studsa på; den gör inget eget (rör sig inte, växlar inte, ger ingen
   bonus). Kattungen samlas på exakt samma sätt som en stjärna (avstånds-träff) — den
@@ -66,16 +71,22 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
 - **[Medium] Gör studsknoppen till ett *aktivt* val.** Låt den röra sig långsamt
   (sin-bana), eller bli en knapp som barnet kan **dra för att placera** innan skottet — då
   blir den ett verktyg som ändrar utfallet (som molnen i `enhorningen-elvira`), inte pynt.
-- **[Medium] Infria kattung-räddningen.** Ge kattungen en liten bur/molnkant som **öppnas**
-  vid träff, ett "mjau" + hopp ner i hjältens famn, och låt den vara banans *finalmål*
-  (samlas sist). Då betyder "instängd kattunge" något.
-- **[Deep] Låt hjälpen bjuda in, inte ersätta.** Vid miss 2: rita hjälp-skottets prickbana
-  och låt barnet trycka "Skjut!" självt; glid-bågen (miss 3) blir sista utväg. Behåll no-fail
-  men flytta tillbaka handlingen till barnet.
+- ~~**[Medium] Infria kattung-räddningen.**~~ ✅ 2026-08-07 (verifierad i kod, byggd tidigare).
+  `_rescueKitten` (`index.js:460`) öppnar buren (`:1204`), spelar ett riktigt `djur_katt`-läte
+  (`:464`) och låter kattungen hoppa ner i hjältens famn. Hon är banans finalmål.
+- ~~**[Deep] Låt hjälpen bjuda in, inte ersätta.**~~ ✅ 2026-08-07 — **den här omgången.**
+  Vid miss 2 ritas hjälp-skottets prickbana ut och en **Skjut!**-knapp tänds; hjälten rör sig
+  inte förrän barnet trycker (`_offerAssist`/`_takeOffer`). Slangbellan stängs aldrig av, så
+  det går lika bra att sikta själv — griper barnet hjälten försvinner erbjudandet. Rör ingen
+  knappen på 12 s (`OFFER_PATIENCE`) tar det garanterade glidet vid, så no-fail-golvet är
+  orört. Mätt med `scripts/_offerprobe.mjs`: **11/11**.
 
 ### Variation & överraskning
-- **[Quick] Fyll luften med studsmoln/hinder.** Strö in 1–2 passiva studsmoln per nivå att
-  studsa runt på vägen till stjärnorna — fler "boing", mer bana, mindre tomhet.
+- ~~**[Quick] Fyll luften med studsmoln/hinder.**~~ ✅ 2026-08-07 (byggd tidigare; 1–2 moln per
+  bana i `_layoutFor`). **Men de gick inte att SE:** `makeCloudBumper` ritade ett moln identiskt
+  med ängens dekor-moln, så ingen kunde veta vilka moln som studsade — jag läste dem själv som
+  bakgrund i skärmdumpen. Åtgärdat den här omgången: krans av blå studsprickar + två uppåtpilar,
+  och stjärnor spawnar inte längre ovanpå ett moln (`_layoutFor` kastar om en gång).
 - **[Quick] Stjärn-kluster i former.** Lägg ibland stjärnorna i en båge/hjärta/trappa så ett
   enda välsiktat skott kan ta flera — belönar skicklighet utan att kräva den.
 - **[Medium] Sällsynt regnbågs-stjärna** som zippar hjälten vidare i en gnistsvans (kedje-tag).
@@ -143,3 +154,32 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   `_ready` fortfarande `_autoAssist`, som räknar ut skottet och **avfyrar det åt barnet**
   (`index.js:542-559`). Det är den sista kvarvarande *ersättande* formen av auto-hjälp-mönstret
   i repot; `enhorningen-elvira:757-794` är mallen för hur den ska bjuda in i stället.
+- 2026-08-07 ✅ **Poleringsomgång: hjälpen bjuder in i stället för att ersätta.** Spelets sista
+  äkta [Deep]-punkt — och den sista *ersättande* formen av auto-hjälp-mönstret i repot.
+  1. **`_autoAssist` → `_offerAssist`.** Förr räknade spelet ut ett nästan-perfekt skott vid
+     miss 2 och **avfyrade det åt barnet**. Nu ritas skottets prickbana ut och en Skjut!-knapp
+     (210×112 + Buttons 24px halo) tänds mitt nere — hjälten står kvar tills BARNET trycker.
+     Slangbellan stängs aldrig av; `onGrab` plockar bort erbjudandet så det aldrig finns två
+     aktiva lägen. Mall: `enhorningen-elvira:_placeHelperCloud`.
+  2. **No-fail-golvet är orört.** `OFFER_PATIENCE` 12 s utan tryck → samma garanterade
+     `_glideToTarget` som förr. Inbjudan flyttar agensen till barnet utan att ta bort garantin.
+  3. **Inbjudan kan inte ljuga.** `_solveShot` behåller den vinnande kandidatens egna
+     `predictTrajectory`-punkter, så prickbanan ÄR den bana skottet flyger — ingen andra
+     kalibrering att glida isär. `spelkritiker` hittade hålet i just den garantin:
+     `predictTrajectory` känner golv/väggar men **inte studsmoln**, så en bana kunde gå rakt
+     genom ett moln och lova en flykt som i verkligheten studsar bort. `_solveShot` slutar nu
+     läsa en kandidatbana vid första studskontakten (`_hitsBumper`, hjälteradie inräknad).
+     Mätt efter: minsta marginal bana↔moln **75 px** (var negativ).
+  4. **Studsmolnen syns.** Se §4 — egen siluett + ingen stjärna ovanpå.
+  5. **Prickarna växer mot målet** i stället för att tona bort, och banan pulserar svagt, så
+     inbjudan läses även med ljudet av (kritikerns påpekande att 🎯 ensam bär lite).
+     Steget skalas mot banans längd — ett fast steg gav bara 4 prickar på ett kort skott.
+  - **Mätt:** `scripts/_offerprobe.mjs` **11/11** (erbjudande efter exakt 2 missar · hjälten
+    stilla på (240,540) · banans närmaste punkt 2 px från ett mål · banan ≥0 px från alla moln ·
+    slangbellan påslagen · tryck på Skjut samlar en stjärna · utan tryck samlar glidet ändå ·
+    0 konsolfel vid exit). `npm run check` 0/0 · `npm run test:all` **71/71** · 0 fynd i
+    `.test-logs/spindelhjalten.json`.
+  - `spelkritiker`: **inga blockerare**, alla 7 grindpunkter håller. **Kvalitet 🔧 → ✅.**
+  - Kvar som [Medium]/[Quick] i §4: studsknoppen som dragbart verktyg, stjärn-kluster i former,
+    sällsynt regnbågsstjärna, stjärnhimmel som fylls, vilo-guppning på studsmoln, riktiga
+    SFX-klipp (väntar på MOSS).

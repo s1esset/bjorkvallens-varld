@@ -38,6 +38,7 @@ const WIND_DIV = (1000 / 60) ** 2
 const REST_SPEED = 1.2 // matter-fart under detta = "landat"
 const MAX_FLIGHT = 5 // s i luften innan han zippar hem (no-fail)
 const IDLE_DELAY = 6 // s utan handling innan röst-recue
+const OFFER_PATIENCE = 12 // s med Skjut!-erbjudandet uppe innan no-fail-glidet tar vid
 const BOING_THROTTLE = 0.12
 
 // Insamlingsradier (generösa träffytor — barnvänligt).
@@ -117,6 +118,14 @@ export default {
     this._band.eventMode = 'none'
     this._root.addChild(this._band)
 
+    // Hjälp-erbjudandets prickbana (egen Graphics, ritas bara när erbjudandet är uppe).
+    this._offer = null
+    this._offerT = 0
+    this._offerPath = new Graphics()
+    this._offerPath.eventMode = 'none'
+    this._offerPath.visible = false
+    this._root.addChild(this._offerPath)
+
     this._hero = makeHero()
     this._hero.position.set(SLING.x, SLING.y)
     this._root.addChild(this._hero)
@@ -143,6 +152,8 @@ export default {
       defaultAim: () => this._nearestTarget() || { x: 900, y: 240 },
       onGrab: () => {
         this._idle = 0
+        // Barnet siktar själv -> erbjudandet försvinner. Missar det igen får det ett nytt.
+        this._clearOffer()
         if (this._hero && !this._hero.destroyed) pop(this._hero)
       },
       onAim: (v) => {
@@ -157,6 +168,25 @@ export default {
 
     // UI: stor vind-fläkt-knapp + riktnings-etikett (tillagd sist = överst).
     this._buildWindUI(ctx)
+
+    // Skjut!-knappen syns bara när hjälpen erbjuds. 210×112 + Buttons 24px hit-halo ligger
+    // en bra bit över P0:s 96px. Placerad mitt nere: x=240 krockar med hjältens greppradie
+    // (hitRadius 100 kring SLING.y 540 når ner till 640), och Vind-knappen äger högerkanten.
+    this._shootBtn = new Button({
+      icon: '🎯',
+      label: 'Skjut',
+      width: 210,
+      height: 112,
+      color: COLORS.orange,
+      stacked: true,
+      services: ctx.services,
+      sound: 'pop',
+      onTap: () => this._takeOffer(ctx),
+    })
+    this._shootBtn.position.set(640, 648)
+    this._shootBtn.visible = false
+    this._shootBtn.setEnabled(false)
+    this._root.addChild(this._shootBtn)
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._loadLevel(ctx, this._level)
@@ -198,12 +228,19 @@ export default {
     const clouds = []
     const cloudCount = 1 + (Math.random() < 0.6 ? 1 : 0)
     for (let i = 0; i < cloudCount; i++) {
-      clouds.push({
+      const mk = () => ({
         kind: 'cloud',
         x: clamp(rnd(380, 560) + i * 240, 340, 960),
         y: clamp(rnd(270, 470), 250, 480),
         r: clamp(42 + rnd(-6, 12), 34, 58),
       })
+      // Molnens x-intervall överlappar första stjärnans, så en stjärna kunde hamna mitt i
+      // studsmolnets prickring och äta upp just den siluett som gör molnet läsbart.
+      // Ett omkast räcker; träffar det ändå får det stå (aldrig en oändlig loop).
+      let cl = mk()
+      const krockar = (c) => stars.some((s) => Math.hypot(c.x - s.x, c.y - s.y) < c.r + 40)
+      if (krockar(cl)) cl = mk()
+      clouds.push(cl)
     }
     // Vindstyrka växer med nivån.
     const windMag = 0.15 + Math.min(level, 4) * 0.035
@@ -213,6 +250,7 @@ export default {
   _loadLevel(ctx, level) {
     if (!this._alive) return
     this._clearLevel()
+    this._clearOffer()
 
     this._mode = 'aim'
     this._won = false
@@ -286,13 +324,14 @@ export default {
     view.eventMode = 'none'
     this._bumperLayer.addChild(view)
     const body = this._phys.circle(def.x, def.y, def.r, { isStatic: true, restitution: 1.0, friction: 0.2, label: 'bumper' })
-    this._bumpers.push({ body, view })
+    this._bumpers.push({ body, view, r: def.r, x: def.x, y: def.y })
   },
 
   // ---- Skott + flyg -------------------------------------------------------
 
   _fire(ctx, vx, vy) {
     if (!this._alive || this._mode === 'flying' || this._mode === 'resolving') return
+    this._clearOffer()
     this._mode = 'flying'
     this._flightT = 0
     this._restT = 0
@@ -361,9 +400,22 @@ export default {
 
     if (this._mode === 'aim') {
       this._idle += dt
+      // NO-FAIL-GOLVET: ett erbjudande som ingen trycker på får inte bli en återvändsgränd.
+      // Efter OFFER_PATIENCE tar det garanterade glidet vid precis som förr — inbjudan
+      // flyttar alltså agensen till barnet UTAN att ta bort garantin att en stjärna samlas.
+      if (this._offer) {
+        this._offerT += dt
+        if (this._offerT >= OFFER_PATIENCE) {
+          this._clearOffer()
+          this._glideToTarget(ctx)
+          return
+        }
+      }
       if (this._idle >= IDLE_DELAY) {
         this._idle = 0
-        ctx.services.voice.say('Dra i Spindelhjälten och släpp för att flyga!')
+        ctx.services.voice.say(
+          this._offer ? 'Tryck på Skjut så flyger han dit!' : 'Dra i Spindelhjälten och släpp för att flyga!',
+        )
         if (this._hero && !this._hero.destroyed) pop(this._hero)
       }
     }
@@ -539,20 +591,89 @@ export default {
       this._glideToTarget(ctx)
       return
     }
-    if (this._misses >= 2) {
-      this._autoAssist(ctx)
-      return
-    }
     this._launcher.setEnabled(true)
     this._idle = 0
+    // Hjälpen BJUDER IN i stället för att ersätta: vid miss 2 ritas hjälp-skottets bana ut
+    // och en Skjut!-knapp tänds — men hjälten rör sig inte förrän BARNET trycker. Slangbellan
+    // är kvar påslagen hela tiden, så det går lika bra att sikta själv i stället.
+    if (this._misses >= 2) this._offerAssist(ctx)
   },
 
-  // Hjälp-skott (steg 1): beräkna en nästan-perfekt slangbella-fart mot närmaste mål.
-  _autoAssist(ctx) {
+  // Hjälp-skott (steg 1): beräkna en nästan-perfekt slangbella-fart mot närmaste mål och
+  // ERBJUD den. Handlingen stannar hos barnet — jfr enhorningen-elvira:_placeHelperCloud.
+  _offerAssist(ctx) {
     const tgt = this._nearestTarget()
     if (!tgt) return
-    ctx.services.voice.say('Nästan! Spindelhjälten får lite hjälp.')
     const sol = this._solveShot(tgt)
+    if (!sol?.pts?.length) return
+    this._offer = sol
+    this._offerT = 0
+    this._drawOfferPath(sol.pts)
+    if (this._shootBtn && !this._shootBtn.destroyed) {
+      this._shootBtn.visible = true
+      this._shootBtn.setEnabled(true)
+      gsap.killTweensOf(this._shootBtn.scale)
+      this._shootBtn.scale.set(0.6)
+      gsap.to(this._shootBtn.scale, { x: 1, y: 1, duration: 0.32, ease: 'back.out(2)' })
+    }
+    ctx.services.audio.sfx('pling')
+    ctx.services.voice.say('Nästan! Tryck på Skjut så hjälper vi till.')
+  },
+
+  // Ligger punkten inom hjältens kropp + studsmolnets radie? Då hade han studsat här.
+  _hitsBumper(p) {
+    for (const bm of this._bumpers) {
+      if (!bm.body) continue
+      if (Math.hypot(p.x - bm.x, p.y - bm.y) < (bm.r || 0) + HERO_R) return true
+    }
+    return false
+  },
+
+  // Prickbanan = exakt de punkter _solveShot vann på. Egen Graphics, ingen delad — så en
+  // fill/stroke här kan aldrig färga om något annat (jfr den delade-Graphics-fällan).
+  _drawOfferPath(pts) {
+    const g = this._offerPath
+    if (!g || g.destroyed) return
+    g.clear()
+    // Steget skalas mot banans längd: banan kapas vid målet, så ett fast steg gav bara
+    // 4 prickar på ett kort skott — för glest för att läsas som en bana. ~16 prickar alltid.
+    const step = Math.max(1, Math.round(pts.length / 16))
+    for (let i = 0; i < pts.length; i += step) {
+      const p = pts[i]
+      const f = i / Math.max(1, pts.length - 1)
+      // Prickarna VÄXER mot målet i stället för att tona bort — de pekar åt rätt håll.
+      g.circle(p.x, p.y, 4 + f * 4).fill({ color: 0xffffff, alpha: 0.55 + f * 0.4 })
+    }
+    g.visible = true
+    // Mjuk puls: med ljudet av bär 🎯-ikonen ensam mindre, så banan får dra ögat i stället.
+    gsap.killTweensOf(g)
+    g.alpha = 1
+    this._pathTween = gsap.to(g, { alpha: 0.5, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+  },
+
+  // Barnet tog över (grepp/sikte) eller skottet gick — plocka bort erbjudandet.
+  _clearOffer() {
+    this._offer = null
+    this._offerT = 0
+    this._pathTween?.kill()
+    this._pathTween = null
+    if (this._offerPath && !this._offerPath.destroyed) {
+      this._offerPath.clear()
+      this._offerPath.alpha = 1
+      this._offerPath.visible = false
+    }
+    if (this._shootBtn && !this._shootBtn.destroyed) {
+      gsap.killTweensOf(this._shootBtn.scale)
+      this._shootBtn.visible = false
+      this._shootBtn.setEnabled(false)
+    }
+  },
+
+  // Barnet tryckte Skjut! — samma nästan-perfekta skott som förr, men nu på barnets initiativ.
+  _takeOffer(ctx) {
+    if (!this._alive || !this._offer || this._mode !== 'aim') return
+    const sol = this._offer
+    this._clearOffer()
     this._assisting = true
     ctx.services.audio.sfx('whoosh')
     this._fire(ctx, sol.vx, sol.vy)
@@ -626,9 +747,13 @@ export default {
   },
 
   // Sök en slangbella-fart (vinkel+kraft) vars förutsagda bana passerar närmast målet.
+  // Söker bästa vinkel+kraft mot målet OCH behåller den vinnande bandes punkter, så att
+  // prickbanan vi bjuder in med är EXAKT den bana skottet kommer att flyga (samma
+  // predictTrajectory-kalibrering som slangbellans egen förhandsvisning). Ritar vi en egen
+  // linje i stället ljuger inbjudan så fort PREVIEW_G/WIND_DIV ändras.
   _solveShot(tgt) {
     const wx = this._windDir * this._windMag
-    let best = { vx: 14, vy: -16 }
+    let best = { vx: 14, vy: -16, pts: null }
     let bestD = Infinity
     for (let power = 12; power <= 28; power += 3) {
       for (let deg = -12; deg >= -82; deg -= 6) {
@@ -650,11 +775,17 @@ export default {
           restitution: BOUNDS.restitution,
           damp: PREVIEW_DAMP,
         })
-        for (const p of pts) {
+        // predictTrajectory känner bara golv/väggar — INTE studsknopp/studsmoln. En bana som
+        // ser perfekt ut på pappret kan därför studsa bort i verkligheten, och då ljuger
+        // inbjudan i exakt det ögonblick den ska bygga tillit. Vi slutar därför läsa en
+        // kandidatbana vid första studskontakten: allt efter den punkten är ändå osant.
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i]
+          if (this._hitsBumper(p)) break
           const d = Math.hypot(p.x - tgt.x, p.y - tgt.y)
           if (d < bestD) {
             bestD = d
-            best = { vx, vy }
+            best = { vx, vy, pts: pts.slice(0, i + 1) }
           }
         }
       }
@@ -668,6 +799,7 @@ export default {
     if (this._won) return
     this._won = true
     this._mode = 'resolving'
+    this._clearOffer()
     this._launcher.setEnabled(false)
     this._clearBand()
     this._glideTween?.kill()
@@ -959,6 +1091,12 @@ export default {
     for (const bm of this._bumpers) {
       if (bm.view && !bm.view.destroyed) gsap.killTweensOf(bm.view.scale)
     }
+    // Skjut!-knappens intonings-tween + prickbanans puls. OVILLKORLIGT — en
+    // `if (!destroyed)`-vakt hoppar över städningen i exakt det läge då den behövs
+    // (se bajs-och-kiss / spara-linjen). Pulsen är dessutom repeat:-1 och måste dö.
+    if (this._shootBtn) gsap.killTweensOf(this._shootBtn.scale)
+    this._pathTween?.kill()
+    if (this._offerPath) gsap.killTweensOf(this._offerPath)
 
     this._launcher?.destroy()
     this._phys?.destroy()
@@ -1137,6 +1275,11 @@ function makeKitten() {
 }
 
 // Passivt studsmoln (mjukt vitt moln som hjälten studsar på — fyller luften).
+// Studsmoln. Såg tidigare EXAKT ut som ängens dekor-moln, så ingen kunde se vilka som
+// studsade — bumper-molnen lästes som bakgrund. De bär nu en egen tell: en krans av små
+// blå studsprickar runt kanten och två uppåtpilar i mitten (samma "studsa hit"-språk som
+// studsknoppen). Varje form är en EGEN Graphics — flera former i en enda Graphics tar
+// första fyllningens färg, och `.arc()` efter `.stroke()` läcker streck över hela scenen.
 function makeCloudBumper(r) {
   const c = new Container()
   const shade = new Graphics().circle(0, r * 0.28, r * 0.72).fill({ color: 0xcfe4fa, alpha: 0.7 })
@@ -1148,6 +1291,18 @@ function makeCloudBumper(r) {
     puffAt(0, -r * 0.18, r * 0.82),
     puffAt(0, r * 0.24, r * 0.72),
   )
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2
+    const dot = new Graphics().circle(Math.cos(a) * r * 1.02, Math.sin(a) * r * 0.86, 5).fill(0x7cc4f5)
+    c.addChild(dot)
+  }
+  const chev = (dy) => {
+    const g = new Graphics()
+    g.moveTo(-r * 0.26, dy).lineTo(0, dy - r * 0.24).lineTo(r * 0.26, dy)
+    g.stroke({ width: 6, color: 0x4ea8e8, cap: 'round', join: 'round' })
+    return g
+  }
+  c.addChild(chev(r * 0.16), chev(r * 0.42))
   return c
 }
 

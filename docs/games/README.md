@@ -85,7 +85,8 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 men har en [Deep]-punkt kvar var). Resterande 🔧 har kvarvarande [Deep]-punkter i sin doc §4.
 **2026-08-07:** avstämning mot koden lyfte `vippbradan` + `domino` till ✅ — deras [Deep]-punkter
 var byggda (2026-08-04 resp. 2026-07-01) men aldrig strukna i §4, så badgen var bokföringsskuld,
-inte kvalitetsskuld.*
+inte kvalitetsskuld. Samma dag polerades `spindelhjalten` till ✅ på riktigt: hjälpen **bjuder in**
+i stället för att avfyra skottet åt barnet (`_offerAssist` + Skjut!-knapp, no-fail-golvet kvar).*
 | # | Spel | id | input | kvalitet | polerad |
 |---|------|----|-------|:--:|:--:|
 | 4 | Poppa Ballongerna | `poppa-ballonger` | tap | ✅ | ✅ |
@@ -101,7 +102,7 @@ inte kvalitetsskuld.*
 | 35 | Domino | `domino` | mixed | ✅ | ✅ |
 | 36 | Studsmatta | `studsmatta` | mixed | ✅ | ✅ |
 | 38 | Knuffa Tornet | `knuffa-tornet` | drag | ✅ | ✅ |
-| 39 | Spindelhjälten | `spindelhjalten` | drag | 🔧 | ✅ |
+| 39 | Spindelhjälten | `spindelhjalten` | drag | ✅ | ✅ |
 | 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | 🔧 | ✅ |
 | 44 | Valpens Bajs | `valpens-bajs` | mixed | ✅ | ✅ |
 | 46 | Tvätta Djuret | `tvatta-djuret` | drag | 🔧 | ✅ |

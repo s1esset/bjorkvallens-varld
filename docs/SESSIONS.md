@@ -14,6 +14,59 @@ Format:
 
 ---
 
+## 2026-08-07 · v1.21.0 · 🔊 Röstklippen som aldrig spelades + 💥 Knuffa Tornet får sitt pussel
+
+**Byggt:**
+- **V1 — introt talades av robotrösten fast klippet fanns.** `VoiceService` hämtar manifestet
+  asynkront i konstruktorn medan spelen säger sin `voiceIntro` vid mount: ett spel som startade
+  under de första millisekunderna föll därför ALLTID till Web Speech. `say()` skjuter nu upp
+  repliken tills manifestet landat (tak 1500 ms så en hängande fetch aldrig tystar appen), och
+  `cancel()` ogiltigförklarar en väntande replik så inget börjar tala efter att spelet lämnats.
+  `gamelog` dömde likadant i blindo — loggraden skrivs i tid, fyndet väntar in manifestet.
+  **Mätt: 16 spel / 17 träffar `rost-utan-klipp` → 0 av 71.**
+- **V2 — repliker som byggs vid körning var osynliga för kontrollen.** Template-repliker
+  (en `voice.say` med backtick och `${...}` i) kan omöjligt slås upp statiskt; de räknas nu
+  bara (27 st) och
+  verifieras där sanningen finns: `check.mjs` läser `rost-utan-klipp` ur `.test-logs/<id>.json`
+  och varnar för den EXAKTA text körningen sa. Backtick utan `${}` läses som vanlig literal
+  (var helt osynlig förut). Första körningen: **4 äkta luckor, noll falska** — "Lätt vikt!" +
+  "Tung vikt!" (`vippbradan`, där `voice-phrases.json` hade Liten/Stor medan etiketterna heter
+  Lätt/Tung), "Nästan!" (`bygg-tornet`) och "en" (`ballonglyft`). Alla fyra har klipp nu.
+- **💥 Knuffa Tornet, hög 2 (variation & agens) — 🔧 → ✅.** Hjälpen **bjuder in** i stället för
+  att spela klart: efter två missar ställs kulan i perfekt läge med kranen siktad på närmaste
+  kvarvarande kloss och blinkar i en gul ring; spelet svingar själv först efter 7 s. Fem
+  tornformer roterar per nivå (torn · trappa · port · pyramid · dubbel). Tre specialklossar —
+  sten, gummi, glas — gör valet av tyngd och rep till ett pussel, och står bara sten kvar
+  pekar spelet på tyngdknappen i stället för att ta över. Mätaren är en prick per kloss
+  (kronan sist). Finishen är spelets egen: dammoln längs avsatsen → flagga hissas till en
+  durtreklang → Bobo jublar → konfetti.
+
+**Fem balansfynd som inget grönt test hade visat** (`scripts/_tornprobe.mjs` spelar varje nivå):
+1. **Repets längd var hela balansen.** 330 px lade kulans underkant 24 px OVANFÖR understa
+   klossraden — ett fullt sving nöp bara toppen. 348 halverade antalet svingar per nivå.
+2. **Friktion 0,7/1,4 limmade ihop stapeln** så tornet gled 80 px i sidled per sving i stället
+   för att rasa.
+3. **Springan mellan avsatsen och skärmkanten var exakt en kloss bred** — en kloss kilade fast
+   där och räknades aldrig som nere. Målet mäts nu i x ("av avsatsen"), inte bara i fallhöjd.
+4. **En hjälp som siktar på den bortersta klossen flyttar kranen och lämnar den där** (nivå 1
+   gick 4 → 8 svingar). Sikta på den närmaste.
+5. **`_drawChain` måste ritas sist i bildrutan** — `_freezeBall` teleporterar kulan efter att
+   repet ritats, vilket frös fast på varje skärmdump som ett rep hängande bredvid kulan.
+
+**Commits:** `ec21e80` fix(rost): vanta in klippmanifestet fore say() · `a7edc8c` docs: V1+V2
+till Avklarat · `52bd308` feat(knuffa-tornet): variation och agens
+
+**Öppet:**
+- **Poleringskampanjen fortsätter.** Hög 2 är klar (6/6). Indexet visar fortfarande **9 spel
+  med 🔧**: `pruttbad` · `vippbradan` · `domino` · `spindelhjalten` · `enhorningen-elvira` ·
+  `tvatta-djuret` · `spindel-zacke-svingar` · `snobollen` · `glittergrottan`. Notera att
+  **snobollen redan polerats** (13a8cbd) — antingen missades indexraden eller så saknas en
+  grindpunkt; kolla dess doc §5 innan den köas om.
+- `docs/ATGARDER.md`: V3 (`spara-linjen`, tommaste scenen i repot) är kvar, plus ägarens fyra
+  rapporterade buggar i `magnet-fiske` och `saftbaren`.
+- Knuffa Tornet flaggar ibland `tween-per-ruta` (~125) i bildrutan där vinsten infaller. Det är
+  firandets engångsskur, inte en tween per bildruta.
+
 ## 2026-08-06 · v1.18.0 · 🚜 Grävmaskinen: fem laster, och två mätare som ljög (polerings-hög 2, 5/6)
 
 **Byggt:**

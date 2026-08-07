@@ -14,6 +14,53 @@ Format:
 
 ---
 
+## 2026-08-07 (kväll) · v1.28.0 · 🔧 Röstkön tömd + 🔧-backloggen visade sig vara bokföring
+
+**Byggt:** Inga kodändringar alls den här omgången — men repots bild av sig självt är nu sann.
+
+- **Röstkön är tom.** `/rost` genererade de 6 sista klippen (`spara-linjen`s fem kritrepliker
+  + `Så fint!`) via F5-TTS. `npm run check`: 5 väntande → **0**. Verifierat i körning, inte
+  bara statiskt: `npm run test spara-linjen` ger **0 `rost-utan-klipp`** i loggen, alltså
+  resolvar manifestet på riktigt vid uppspelning. Klippen är sinsemellan olika filer
+  (md5-kontrollerade) och 1,0–1,2 s långa.
+- **Avstämning av de 8 kvarvarande 🔧-spelen mot koden — och det var mest bokföringsskuld.**
+  Badge-regeln i `docs/games/README.md` är smal: 🔧 = har öppna [Deep]-punkter i sin §4. Läste
+  `index.js` för alla åtta i stället för att tro på planen. **5 [Deep]-punkter var redan
+  byggda men aldrig strukna:** `vippbradan` (mottagare, byggd 08-04) · `domino` (äkta
+  kedjereaktion, byggd 07-01, stod öppen i **fem veckor**) · `enhorningen-elvira` (hjälpen
+  bjuder in) · `spindelhjalten` (hjälten firar eget, byggd 08-06) · `tvatta-djuret`
+  (djur-specifik finish). **`vippbradan` + `domino` bar 🔧 helt i onödan → ✅.**
+- **Det här är CLAUDE.md:s egen fälla, tredje träffen.** "Docens §4 kan vara inaktuell — läs
+  koden före planen." Jag valde först `domino` som poleringsmål just för att §4 påstod att
+  rasfysiken var fejkad; koden visade `_stepCascade` + `FALL_GUARANTEE` sedan 07-01. Lagt in
+  en explicit varning i `docs/games/README.md`: **stryk punkten i §4 i samma commit som du
+  bygger den.** `domino` §3 beskrev dessutom den skriptade kedjan som *nuläge* och motsade sin
+  egen §1 — nu märkt som ögonblicksbild.
+- **`pruttbad` är motexemplet och står kvar som 🔧.** Det har noll [Deep]-punkter, men §5 säger
+  att kritikern bedömt `variation` och `mjuk progression` som endast delvis uppfyllda så länge
+  rundorna ser identiska ut. Ett ärligt omdöme, inte eftersläpning — badgen ska vara kvar.
+- **Indexet rättat:** stod "70 spel" och "70/70 polerade" trots 71 rader; alla 20 Pussel-rader
+  är polerade. Nu 71 resp. 20/20.
+
+**Kvar och äkta öppet efter avstämningen** (verifierat i kod, inte antaget):
+`spindelhjalten` `_autoAssist:542-559` avfyrar skottet ÅT barnet · `enhorningen-elvira` har
+generisk `bigCelebration:890-905` som finish · `spindel-zacke-svingar` saknar spök-båge och
+nivå-intro · `glittergrottan` ger röst-ledtråd vid idle (`:883-888`), ingen kamera-drift ·
+`tvatta-djuret` kräver båda verktygen globalt men har ingen zon-variation.
+
+**Commits:** `762be16` feat(voice): 6 nya klipp · `03bf1a5` docs(games): stäm av de 8
+kvarvarande spelen mot koden
+**Kontroll:** `npm run check` 0 fel · 0 varningar · `npm run test spara-linjen` + `spindelhjalten`
+gröna · bygge rent (1518 precache-poster).
+**Öppet:** `/polera spindelhjalten` är **föreslagen och väntar på ja** — omgången är
+[Deep] hjälpen bjuder in i stället för att ersätta (vid miss 2 ritas `_solveShot`s egna
+`predictTrajectory`-punkter som prickbana + en ≥96px **Skjut!**-knapp; hjälten väntar på
+barnets tryck; miss-3-glidet ligger kvar som no-fail-golv) + [Quick] studsmoln i luften +
+[Quick] stigande kombo-ton. Mall: `enhorningen-elvira:757-794`. Kattung-räddningen [Medium]
+sparas medvetet till en egen omgång.
+
+---
+
 ## 2026-08-07 · v1.27.0 · ✏️ Ritbordet — repots tommaste scen fick kritor
 
 **Byggt:** `spara-linjen` polerad (V3, sista öppna posten i `docs/ATGARDER.md`).

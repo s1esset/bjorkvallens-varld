@@ -1,5 +1,5 @@
 # Vippbrädan (`vippbradan`)
-> ⚙️ fysik · tap · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · tap · 3–5 år · status: ✅ marknadsklar (2026-08-07)
 
 ## 1. Nuläge (sett som spelare)
 
@@ -82,8 +82,10 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
   växer) i stället för bara nivåhöjning.
 
 ### Karaktär & berättelse
-- **[Deep] En mottagare.** Ett djur/Bobo vid korgen som hejar när man siktar och fångar grodan
-  med ett kram + egen vinst-dans — ersätter generisk konfetti och ger varje skott ett "varför".
+- ~~**[Deep] En mottagare.**~~ ✅ 2026-08-07 (verifierad i kod, gjord redan 2026-08-04). Bobo
+  står vid korgen med ritad kropp, fötter och utsträckta armar och andas i vila —
+  `index.js:155-175`. Punkten stod kvar som öppen i den här planen i tre dagar efter att den
+  byggts; det var enda skälet till att spelet fortfarande bar 🔧.
 
 ### Ljud
 - **[Quick] Riktiga SFX** (boing, korg-plums, "wheee") via SFX-pipelinen ([[real-audio-sfx]]);
@@ -113,3 +115,8 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
     (grodan själv syns ju i korgen).
   - **Bobo hade bara ett svävande huvud** bredvid korgen. Han har nu ritad kropp, fötter och
     utsträckta armar och står stadigt på marken — mottagaren läser som en figur som väntar.
+- 2026-08-07: **Doc-avstämning mot koden (ingen kodändring).** Planens enda [Deep]-punkt
+  ("En mottagare") var byggd redan 2026-08-04 men aldrig struken i §4 — och eftersom
+  `docs/games/README.md` definierar 🔧 som "har kvarvarande [Deep]-punkter i §4" bar spelet
+  fel badge i tre dagar. Verifierat i `index.js:155-175` (Bobo med kropp, fötter, utsträckta
+  armar, andas i vila vid korgen). **Kvalitet 🔧 → ✅.** Kvar i §4: bara [Quick]/[Medium].

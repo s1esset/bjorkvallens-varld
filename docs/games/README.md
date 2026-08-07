@@ -43,7 +43,7 @@ Struktur: **§0 Spec** (ifylld innan kod skrivs) · **§1 Nuläge** sett som spe
 **§4 Förbättringsplan** ([Quick]/[Medium]/[Deep], grupperad: Kärnloop · Variation · Juice ·
 Progression · Karaktär · Ljud) · **§5 Status/loggar** (bockar + commits).
 
-## Index — 70 spel
+## Index — 71 spel
 
 Två **olika** kolumner — de blandades ihop tidigare och gjorde indexet omöjligt att läsa:
 
@@ -82,7 +82,10 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 *Första-omgången 2026-07-01. Poleringsrundan lyfte 9 spel till ✅. Kvalitetsspåret 2026-08-06
 (mottagar-högen) lyfte 7 till: `gungan` · `fallskarmen` · `valpens-bajs` · `studsmatta` ·
 `spindelnatet` · `enhorningen-flyger` (+ `knuffa-tornet`/`spindelhjalten` fick sin mottagare
-men har en [Deep]-punkt kvar var). Resterande 🔧 har kvarvarande [Deep]-punkter i sin doc §4.*
+men har en [Deep]-punkt kvar var). Resterande 🔧 har kvarvarande [Deep]-punkter i sin doc §4.
+**2026-08-07:** avstämning mot koden lyfte `vippbradan` + `domino` till ✅ — deras [Deep]-punkter
+var byggda (2026-08-04 resp. 2026-07-01) men aldrig strukna i §4, så badgen var bokföringsskuld,
+inte kvalitetsskuld.*
 | # | Spel | id | input | kvalitet | polerad |
 |---|------|----|-------|:--:|:--:|
 | 4 | Poppa Ballongerna | `poppa-ballonger` | tap | ✅ | ✅ |
@@ -94,8 +97,8 @@ men har en [Deep]-punkt kvar var). Resterande 🔧 har kvarvarande [Deep]-punkte
 | 29 | Studsbollar | `studsbollar` | mixed | ✅ | ✅ |
 | 31 | Studsa Ner | `studsa-ner` | mixed | ✅ | ✅ |
 | 33 | Fånga Frukten | `fanga-frukten` | drag | ✅ | ✅ |
-| 34 | Vippbrädan | `vippbradan` | tap | 🔧 | ✅ |
-| 35 | Domino | `domino` | mixed | 🔧 | ✅ |
+| 34 | Vippbrädan | `vippbradan` | tap | ✅ | ✅ |
+| 35 | Domino | `domino` | mixed | ✅ | ✅ |
 | 36 | Studsmatta | `studsmatta` | mixed | ✅ | ✅ |
 | 38 | Knuffa Tornet | `knuffa-tornet` | drag | ✅ | ✅ |
 | 39 | Spindelhjälten | `spindelhjalten` | drag | 🔧 | ✅ |
@@ -113,7 +116,7 @@ men har en [Deep]-punkt kvar var). Resterande 🔧 har kvarvarande [Deep]-punkte
 | 59 | Glasstornet | `glasstornet` | drag | ✅ | ✅ |
 | 64 | Grävmaskinen | `gravmaskinen` | drag | ✅ | ✅ |
 
-### 🧩 Pussel (pussel + minne + drag) — ✅ **poleringsrundan KLAR** (19/19, v1.10.0, 2026-08-06)
+### 🧩 Pussel (pussel + minne + drag) — ✅ **poleringsrundan KLAR** (20/20, v1.10.0, 2026-08-06)
 *Första-omgången 2026-07-02 var **innan** P0-regeln `ASSETS` fanns (2026-07-25) — och skulden
 var verklig: 18 av 19 spel hade emoji som spelobjekt, ofta i en bricka. Allt är nu ritat, till
 stor del via det nya delade `src/lib/artikoner.js`.*
@@ -155,11 +158,18 @@ stor del via det nya delade `src/lib/artikoner.js`.*
 | 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | ✅ | ✅ |
 
 **Läget just nu:** alla **70** spel är granskade och alla 4 flikar har fått en genomförd
-första-omgång. **Poleringsrundan: 70/70 KLARA** (🎉 Roligt 15 · ⚙️ Fysik 27 · 🧩 Pussel 19 · 🔤 Lära 9) —
+första-omgång. **Poleringsrundan: 71/71 KLARA** (🎉 Roligt 15 · ⚙️ Fysik 27 · 🧩 Pussel 20 · 🔤 Lära 9) —
 **inget kvar** — rundan är avslutad 2026-08-06. Metoden ligger i `docs/POLERINGSRUNDA.md`.
 
 Utöver rundan: de 🔧-märkta spelen har kvarvarande [Deep]-förslag i sin egen doc §4 — prioritera
 efter de app-breda mönstren nedan, de lyfter många spel åt gången.
+
+> **Läs §4 mot koden innan du planerar.** Avstämningen 2026-08-07 gick igenom alla 8 kvarvarande
+> 🔧-spel och hittade **5 [Deep]-punkter som redan var byggda** men aldrig strukna: `vippbradan`
+> (mottagare), `domino` (kedjereaktion), `enhorningen-elvira` (hjälpen bjuder in),
+> `spindelhjalten` (hjälten firar eget), `tvatta-djuret` (djur-specifik finish). Två spel bar
+> 🔧 helt i onödan. Detta är samma fälla som CLAUDE.md varnar för — den har nu slagit till
+> tre gånger. **Stryk punkten i §4 i samma commit som du bygger den.**
 
 ## Återkommande mönster (app-breda lyft)
 

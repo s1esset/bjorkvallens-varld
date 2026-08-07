@@ -96,8 +96,11 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   fylls upp, så framsteget blir en bild barnet förstår utan att läsa stapeln.
 
 ### Karaktär & berättelse
-- **[Deep] Djur-specifik finish.** Det rena djuret skakar, får en rosett/krona, beundrar sig i
-  vattenytan och gör sitt läte — ersätt generisk konfetti. Ev. Alissa/Lova som klappar djuret.
+- ~~**[Deep] Djur-specifik finish.**~~ ✅ 2026-08-07 (verifierad i kod). Djuret skakar av sig
+  vattnet (`shake`), en ring vattendroppar sprutar och **djuret gör sitt eget läte** via
+  `audio.sample('djur_' + type.sample)` — `index.js:905-912`. *Kvar som [Quick]:* rosett/krona
+  och att djuret beundrar sig i vattenytan; `bigCelebration` ligger dessutom kvar OVANPÅ den
+  djur-specifika finishen i stället för att ersättas.
 - **[Quick] Ansiktet alltid synligt.** Håll en lerfri ruta runt ögonen så minen syns under hela
   tvätten (den döljs ofta helt idag), så barnet ser djuret reagera.
 
@@ -133,3 +136,9 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   kinder i stället för en 🐴/🐷/🐶-emoji. Även **svampen** (porer + skumkant), **duschen**
   (blått munstycke med strålar och slang) och **tvålen** i mätaren ritas i stället för
   🧽/🚿/🧼. errorCount 0.
+- 2026-08-07: **Doc-avstämning mot koden (ingen kodändring).** [Deep] "Djur-specifik finish"
+  verifierad som byggd och struken — skak + droppring + djurets eget läte via
+  `audio.sample('djur_' + type.sample)` (`index.js:905-912`). **Kvar och äkta öppen:** [Deep]
+  "Smutsiga zoner med olika behov" — koden kräver i dag båda verktygen *globalt*
+  (`renhet = 0.6·skrubbat + 0.4·sköljt`, filhuvudet `:3-8`), men leran är enhetlig: ingen zon
+  kräver skölj-först-sen-skrubba. Valet är alltså "gör båda", inte "läs fläcken". 🔧 kvarstår.

@@ -71,9 +71,11 @@ Allt programmatiskt, exit-säkert.
   vägen fram. Behåll no-fail-garantin, men låt pusslet faktiskt vara pusslet.
 - **[Medium] Variera molnen.** En liten studsig "trampolin"-sky, ett stort mjukt "kudd"-moln
   (låg studs), ett som långsamt driver. Då blir *vilket* moln man lägger var ett val.
-- **[Deep] Låt hjälp-glidet bjuda in.** Efter 2 försök: lägg automatiskt ett extra hjälp-moln
-  i en perfekt position och låt barnet trycka Hoppa självt, istället för en scriptad båge —
-  framgång garanteras men handlingen stannar hos barnet.
+- ~~**[Deep] Låt hjälp-glidet bjuda in.**~~ ✅ 2026-08-07 (verifierad i kod). Vid `_tries === 2`
+  lägger `_placeHelperCloud` ett extra moln som stegsten mitt i banan och lämnar tillbaka
+  kontrollen — barnet trycker Hoppa självt. Det scriptade glidet är kvar men bara som sista
+  utväg vid `_tries >= 3`. `index.js:757-794`. **Den här implementationen är mallen** för samma
+  punkt i `spindelhjalten`, som ännu skjuter åt barnet.
 
 ### Variation & överraskning
 - **[Quick] Fyll scenen.** Flytta startpunkten/regnbågen så banan spänner över hela ytan;
@@ -122,3 +124,9 @@ Allt programmatiskt, exit-säkert.
   text över scenen — den stigande effekten ritar nu en riktig kopia av stenen (`_floatGem`).
   (2) Bakgrunden var en nästan tom pastellyta (§3 första punkten); nu finns djup: svävande
   godis-öar, fjärran molnbankar och en ström av glitterstjärnor. errorCount 0.
+- 2026-08-07: **Doc-avstämning mot koden (ingen kodändring).** [Deep] "Låt hjälp-glidet bjuda
+  in" var redan byggd — `_placeHelperCloud` vid `_tries === 2` lämnar tillbaka kontrollen
+  (`index.js:757-794`); det scriptade glidet är kvar bara som sista utväg vid `_tries >= 3`.
+  Struken. **Kvar och äkta öppen:** [Deep] Elvira-specifik finish — vinsten är fortfarande en
+  0,4 s förflyttning till målet + `pop` + generisk `bigCelebration` (`index.js:890-905`),
+  ingen galopp över regnbågen. Spelet står därför kvar som 🔧, nu på rätt grund.

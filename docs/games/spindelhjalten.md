@@ -92,9 +92,10 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   stjärnbild i hörnet som växer över banor — något att återkomma till (jfr `klambubblor`-boken).
 
 ### Karaktär & berättelse
-- **[Deep] Hjälten reagerar och firar eget.** Glad min vid insamling, "uff" vid väggstuds,
-  och en spel-specifik vinst (hänger upp-och-ner i en webb och vinkar / kattungen kramar
-  honom) istället för generisk konfetti.
+- ~~**[Deep] Hjälten reagerar och firar eget.**~~ ✅ 2026-08-07 (verifierad i kod, gjord redan
+  2026-08-06). Glad snurr vid insamling och plattad "uff" vid väggstuds — `index.js:702-704`;
+  vinsten kallar `_heroHangFinish`, han hänger upp-och-ner i sin egen tråd och vinkar —
+  `index.js:689`.
 
 ### Ljud
 - **[Quick] Riktiga klipp** ([[real-audio-sfx]]): web-thwip, mjukt boing, kattens "mjau",
@@ -136,3 +137,9 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
     x, och `_hangTl` dödas både vid ny runda (annars hänger han kvar) och i `destroy`.
   - Kvar sedan tidigare: [Deep] hjälpen ska bjuda in i stället för att ersätta (rita
     hjälp-skottets prickbana och låt barnet trycka "Skjut!" självt).
+- 2026-08-07: **Doc-avstämning mot koden (ingen kodändring).** [Deep] "Hjälten reagerar och
+  firar eget" verifierad som byggd (`index.js:689` `_heroHangFinish` + `:702-704`) och struken.
+  **Kvar och äkta öppen:** [Deep] "hjälpen ska bjuda in, inte ersätta" — vid miss 2 kallar
+  `_ready` fortfarande `_autoAssist`, som räknar ut skottet och **avfyrar det åt barnet**
+  (`index.js:542-559`). Det är den sista kvarvarande *ersättande* formen av auto-hjälp-mönstret
+  i repot; `enhorningen-elvira:757-794` är mallen för hur den ska bjuda in i stället.

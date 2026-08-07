@@ -1,5 +1,5 @@
 # Domino (`domino`)
-> ⚙️ fysik · mixed · 2–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · mixed · 2–5 år · status: ✅ marknadsklar (2026-08-07)
 
 ## 1. Nuläge (sett som spelare)
 
@@ -44,6 +44,9 @@ fallande bricka når nästa vid ~35°.
 
 Loopen är bra, men "fysiken" är delvis fasad och världen är tunn:
 
+> **Ögonblicksbild 2026-06-30.** Första och andra punkten nedan är ÅTGÄRDADE sedan 2026-07-01 —
+> kedjan är äkta fysik i dag (se §1 och §4). Kritiken står kvar som historik, inte som nuläge.
+
 - **Kedjan är skriptad, inte en riktig kettingreaktion.** `_cascadeFrom` puttar VARJE bricka
   med `Body.setAngularVelocity(PUSH_AV)` på en fast timer (`CASCADE_STEP` 0.12s) — oavsett om
   den föregående brickan faktiskt slog i den. Brickorna välter alltså i takt med en klocka, inte
@@ -65,11 +68,12 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Deep] Gör raset till en riktig kedjereaktion.** Putta bara FÖRSTA brickan; låt
-  matter-kollisionen fälla nästa (brickorna är redan fysik-kroppar). Vid en tom lucka stannar
-  raset *naturligt* (ingen efterföljande kropp att träffa) — samma no-fail, men nu äkta, och
-  barnet ser att en bricka fäller en bricka. (Behåll en mjuk "knuff-garanti" om en bricka råkar
-  stanna i en vinkel.)
+- ~~**[Deep] Gör raset till en riktig kedjereaktion.**~~ ✅ 2026-08-07 (verifierad i kod, gjord
+  redan 2026-07-01). Bara första brickan puttas; `_stepCascade` bevakar kedjan i tickern, tom
+  lucka stoppar raset naturligt och `FALL_GUARANTEE` ger en mjuk knuff åt en bricka som stannat
+  i en vinkel — `index.js:794-834`, konstanterna på `:35-36`. Punkten stod kvar som öppen i den
+  här planen i fem veckor efter att den byggts (§5 loggade den, §4 ströks aldrig); det var enda
+  skälet till att spelet fortfarande bar 🔧.
 - **[Medium] Bygg-val.** Låt barnet välja VAR vissa brickor ska stå (fler luckor, eller en
   förgrening där brickan kan styra raset mot klockan vs en rolig bonus-leksak). Ger mer agens.
 
@@ -152,3 +156,8 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
   (2) Bobo var bara ett svävande huvud, dessutom halvt utanför högerkanten (x=1222); han har
   nu ritad kropp med fötter och utsträckta armar och står intill klockstället och väntar på
   att raset ska nå fram. errorCount 0.
+- 2026-08-07: **Doc-avstämning mot koden (ingen kodändring).** Planens enda [Deep]-punkt
+  ("riktig kedjereaktion") byggdes 2026-07-01 och loggades i §5 — men ströks aldrig i §4, så
+  spelet bar 🔧 i fem veckor på en punkt som var klar. Verifierat: `_stepCascade` +
+  `FALL_GUARANTEE` i `index.js:794-834`, konstanter `:35-36`; bara första brickan puttas.
+  **Kvalitet 🔧 → ✅.** Kvar i §4: bara [Quick]/[Medium].

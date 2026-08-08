@@ -7,7 +7,8 @@ Flow per key in scripts/sfx-phrases.json:
   POST {description, duration} -> http://127.0.0.1:8003/generate  (N takes)
   -> decode WAV, trim silence, pick the best-sounding take, peak-normalize, fade
   -> ffmpeg -> public/audio/sfx/<key>.mp3
-  -> rebuild public/audio/sfx/manifest.json  ({ key: "<key>.mp3" })
+  -> rebuild public/audio/sfx/manifest.json from EVERY mp3 in the folder, so
+     clips imported by other tools (kenney-sfx.mjs) survive the rebuild
 
 The MOSS service must be running (see services/moss-sfx/README.md). Tiny UI blips
 (tap/pling/flip/correct/match/soft) deliberately are NOT listed in the phrases file —
@@ -173,14 +174,19 @@ def main() -> None:
                 pass
         print(f"  + {key:14s} {len(audio)/best_sr:4.2f}s  score={best_score:.4f}  -> {dest.name}")
 
-    # Rebuild manifest from whatever mp3s exist on disk.
-    manifest = {
-        k: f"{k}.mp3"
-        for k in (x for x in phrases if not x.startswith("_"))
-        if (out_dir / f"{k}.mp3").exists()
-    }
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Rebuild the manifest from every mp3 that exists on disk -- NOT from this
+    # phrases file. Other tools write clips into the same folder
+    # (scripts/kenney-sfx.mjs imports the CC0 UI blips tap/soft/flip); rebuilding
+    # from `phrases` alone dropped those keys silently and muted the tap sounds
+    # the clip path serves. See ATGARDER V6.
+    manifest = {p.stem: p.name for p in sorted(out_dir.glob("*.mp3"))}
+    (out_dir / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    other = [k for k in manifest if k not in phrases]
     print(f"\nmanifest.json: {len(manifest)} clips -> {out_dir / 'manifest.json'}")
+    if other:
+        print(f"  (kept {len(other)} clip(s) from other sources: {', '.join(other)})")
 
 
 if __name__ == "__main__":

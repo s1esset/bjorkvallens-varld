@@ -58,7 +58,8 @@ delmängd på 8 spel var ren medan 72-svitens last flakade, och sekventiellt fö
 förorenat av maskindrift). `scripts/_fpsprobe.mjs` **kräver CPU-strypning** — ostrypt pinnar både
 gamla och nya vägen mot 60-taket och mätningen säger ingenting.
 
-Sonden fick fel två gånger innan koden fick det ([[probe-before-believing]] igen): den första
+Sonden fick fel två gånger innan koden fick det (*verifiera sonden innan du tror på ett rött
+resultat* — samma stående regel som `CLAUDE.md` och tidigare sessioner): den första
 tryckte på fasta punkter i ett spel med *svävande* ballonger, träffade inget, och dömde ett
 fungerande system som dött; och en `import('/src/lib/atlas.js')` på bar sökväg är en **annan
 modulinstans** än appens `?t=`-suffixade HMR-kopia, så den rapporterade `hasRenderer: false` om en

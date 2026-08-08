@@ -206,14 +206,17 @@ Före: `FillGradient` (linjär **och** radiell) fanns i Pixi 8.19 och användes 
 
 1. ✅ `paintVGradient` är nu en `FillGradient` → jämn himmel, 1 rit-operation i stället för 48.
    Automatisk vinst för alla 57 scener som använder `createScene()`.
-2. ✅ Ny `src/lib/form.js`: `sphereFill(farg)` · `cylinderFill(farg)` · `rimLight(r)` — radiella/
-   linjära gradienter som ger en platt form volym (klot i stället för skiva). Första kunden:
-   molnen i `scene.js` (delad `FillGradient`-instans, byggd en gång, `moln → klot med mjuk
-   skugga` i stället för platta vita klumpar).
-3. ⬜ **KVAR:** applicera `sphereFill`/`rimLight` på de 205 lokala rit-funktionerna i
-   spelfilerna (`makeBall` ×5 m.fl., se A2) — det är skillnaden mellan clipart och Sago Mini
-   för själva SPELOBJEKTEN, inte bara scenens dekor. Naturlig fortsättning: rad 10
-   (`artikoner.js`, 13 spel på en gång) eller ett eget svep över `A2`s dubbletter.
+2. ✅ Ny `src/lib/form.js`: `sphereFill` (klot) · `cylinderFill` (rör, `axis: 'y'|'x'`) ·
+   `topLightFill` (belyst uppifrån — allt annat) · `rimLight(r)` · `setDetaljniva`.
+   Första kunden: molnen i `scene.js` (delad `FillGradient`-instans, byggd en gång,
+   `moln → klot med mjuk skugga` i stället för platta vita klumpar).
+3. ⬜ **KVAR:** applicera dem på de 205 lokala rit-funktionerna i spelfilerna
+   (`makeBall` ×5 m.fl., se A2) — det är skillnaden mellan clipart och Sago Mini för själva
+   SPELOBJEKTEN, inte bara scenens dekor. `artikoner.js` (rad 10) är **klar** och är mallen
+   att följa: gradient på huvudformen, platt på smådetaljer, handrullade glans-ellipser
+   borttagna. `rimLight` väntar fortfarande på sin första kund och hör hemma här — den är
+   till för figurer som byggs som en **container av flera Graphics**, vilket `artikoner.js`
+   (en enda Graphics) inte är.
 
 `DESIGN.md §4` fick tillägget att gradienter är **fyllningar**, inte filter — ingen konflikt
 med lip-tricket, som fortfarande äger allt tryckbart i skalet.
@@ -290,21 +293,60 @@ Idag: himmel + sol + moln + en markremsa. Lägg till:
 - vinjett som **en** radiell gradient-`Graphics` (inte ett filter)
 - tid på dygnet styrd av **en** nyansparameter, så samma tema ger morgon/dag/skymning
 
-### C8. Detaljnivå i `artikoner.js` — lyfter 13 spel på en gång **[Medium]** — 🟨 PÅBÖRJAD 2026-08-08
+### C8. Detaljnivå i `artikoner.js` — lyfter 13 spel på en gång **[Medium]** — ✅ BYGGD 2026-08-08
 
-~110 nycklar, 720 rader. Per mall (planerat): basgradient, en mjuk ocklusion under formen, en
-kantdager, och 1–2 strukturaccenter (pälstofsar, fruktporer, metallrepa). Bakom en
-`detalj`-parameter så nivån går att sänka på svaga plattor.
+121 nycklar, 720 rader. Alla mallgrenar fyller nu sin **huvudform** med en gradient ur
+`lib/form.js` efter en enda regel, i stället för per-form-smak:
 
-**Klart:** bara steget "basgradient", och bara på de mallar som redan var en ensam cirkel/
-ellips med en handrullad ljus glans-cirkel bredvid (samma dubblettmönster som C1) — `sphereFill`
-från `lib/form.js` ersätter båda med en fyllning: djurhuvudets bas (~30 av nycklarna delar
-samma huvud-cirkel), frukternas standardform (🍎🍊🍑🍋), `shape:'ball'` (⚽) och `shape:'circle'`
-(🔵🟢🟡🟣). **Kvar:** resten av de ~40 mallgrenarna (fordon, kläder, verktyg, havsdjur — de
-flesta är INTE en enkel cirkel och behöver egen bedömning per form), ocklusion, kantdager,
-strukturaccenter, och `detalj`-parametern. `sphereFill`/`cylinderFill` cachar nu per färg+opts
-(en delad `FillGradient` per unik kombination, inte en ny bakning per `drawIcon()`-anrop) —
-viktigt här eftersom samma ikon ofta ritas många gånger i ett spel.
+| Form | Fyllning |
+|---|---|
+| runda kroppar (huvuden, frukt, bollar, klot, moln-puffar) | `sphereFill` |
+| rör och stavar (raketkropp, stam, morot, skaft, banan) | `cylinderFill` — ny `axis`-parameter |
+| allt annat (karosser, kläder, verktyg, polygoner) | `topLightFill` — **ny** i `form.js` |
+
+Smådetaljer (öron, fenor, nycklars kammar) lämnas platta med flit: ögat läser volymen på den
+stora formen, och varje distinkt gradient är en egen textur att binda. Där en mall hade en
+handrullad glans-ellips bredvid en platt fyllning är den **borttagen**, inte kvarlämnad —
+det var samma dubblett som gradienten ersätter (🎈 💧 🪐 🌳 🍬).
+
+**Kostnaden mättes, och var värd att mäta** (`scripts/_ikonkostnad.mjs`, nytt): Pixi bakar en
+**linjär** gradient till en `256×1`-duk (~1 KB) men en **radiell** till `256×256` (~256 KB).
+Hela ikonbiblioteket landade därför först på **15,30 MB** GPU-textur — 61 radiella à 256 KB.
+Med `textureSize: 64` på `sphereFill` är samma bibliotek **1,00 MB**, och ingen banding syns
+ens på en 300px-ikon. Probet mäter de **bakade texturerna på ritinstruktionerna**, inte
+modulens cache-räknare: en `import('/src/lib/form.js')` i ett probe är en annan modulinstans
+än den `artikoner.js` fått av Vite, så dess `Map`:ar står på 0 hur många ikoner som än ritats.
+
+**Detaljnivå:** `setDetaljniva(0|1|2)` i `form.js`. Nivå 0 får fyllningsfunktionerna att
+returnera **råfärgen** i stället för en gradient — `.fill(0x4aa3df)` är lika giltigt som
+`.fill(gradient)`, så ingen ritgren behöver en egen if-sats och nivå 0 ger exakt utseendet
+före `form.js` (verifierat: 0 bakade gradienter, 0 MB, alla former hela). Nivån läses
+app-brett och **inte** per `drawIcon`-anrop: gradienterna avgörs inne i `form.js`, så en
+anropsflagga hade släckt accenterna men inte gradienterna. Accenter har dessutom en
+storleksgrind (≥64px) — under den är de brus. ⬜ Kvar: koppla `setDetaljniva` till en
+inställning i skalet (i dag är 2 hårdkodat).
+
+**Två saker ströks efter granskning i skärmdump — de är resultat, inte glömska:**
+
+1. **Pälstofsar** (cirklar som stack ut ur huvudets silhuett) läste som kindpäls på räv och
+   hund, men som bubblor med egen kontur på kanin, panda och pingvin.
+2. **Kantdager som ljus båge** innanför konturen såg mjuk ut vid 130px och var ett hårt
+   streck tvärs över pannan vid 300px. En dager med hård kant är per definition inte en
+   dager — den hör hemma i gradienten, inte i ett stroke.
+
+Kvar av de accenter som föreslogs: fruktporer, metalldager på hammaren, barkådror på trädet.
+Ocklusion byggdes **inte separat** — `sphereFill`/`topLightFill` mörknar redan mot underkanten,
+så ett extra ocklusionsdrag hade lagts ovanpå något som redan fanns.
+
+**Två buggar hittades på vägen, båda osynliga för ett grönt test:**
+
+- 🌙 ritade en **cream-cirkel ovanpå** en hel måne för att få skäran. Den var osynlig bara mot
+  cream bakgrund — mot alla andra satt en beige klump i månen. `.cut()` provades som fix och
+  **fungerar inte här**: `GraphicsContext.cut()` bryter efter första instruktionen som saknar
+  hål, så med `.fill().stroke()` fastnar hålet på konturen och fyllningen förblir hel
+  (en ring ovanpå en solid disk). Skäran är nu ett eget slutet drag.
+- 🍐 var en cirkel **plus** en ellips, båda stroke:ade. Sömmen där de möttes syntes och päronet
+  läste som en snögubbe. Nu ett enda slutet drag, med stjälk och blad.
 
 ### C9. 3D-lagret används av ett spel **[Deep]**
 
@@ -337,7 +379,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ⬜ |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 24 fysikspel | ⬜ |
 | 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ⬜ |
-| 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | 🟨 v1.41.0 *(basgradient — se C8)* |
+| 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ⬜ |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ⬜ |
 

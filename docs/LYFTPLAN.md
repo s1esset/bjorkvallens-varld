@@ -199,18 +199,24 @@ Belägget finns i repots egna skärmdumpar: `snobollen` — enda spelet med rikt
 ser markant bättre ut än `kulbana`, som är platt himmel, två moln och en stor tom mitt.
 Samma motor, samma budget, samma regler.
 
-### C1. Gradientfyllningar — störst utseende per rad **[Quick]**
+### C1. Gradientfyllningar — störst utseende per rad **[Quick]** — ✅ DELVIS BYGGD 2026-08-08
 
-`FillGradient` (linjär **och** radiell) finns i Pixi 8.19 och används **noll** gånger.
-`scene.js:paintVGradient` staplar i stället **48 rektanglar** per himmel.
+Före: `FillGradient` (linjär **och** radiell) fanns i Pixi 8.19 och användes **noll** gånger.
+`scene.js:paintVGradient` staplade **48 rektanglar** per himmel.
 
-1. Byt `paintVGradient` mot en `FillGradient` → jämn himmel, 1 rit-operation i stället för 48.
-2. Använd **radiella** gradienter *på föremål*: en boll går från platt skiva till klot med en
-   radiell fyllning + en glansdagar. Det är skillnaden mellan clipart och Sago Mini.
-3. Ny `src/lib/form.js`: `sphereFill(farg)` · `cylinderFill(farg)` · `rimLight(g, form)`.
+1. ✅ `paintVGradient` är nu en `FillGradient` → jämn himmel, 1 rit-operation i stället för 48.
+   Automatisk vinst för alla 57 scener som använder `createScene()`.
+2. ✅ Ny `src/lib/form.js`: `sphereFill(farg)` · `cylinderFill(farg)` · `rimLight(r)` — radiella/
+   linjära gradienter som ger en platt form volym (klot i stället för skiva). Första kunden:
+   molnen i `scene.js` (delad `FillGradient`-instans, byggd en gång, `moln → klot med mjuk
+   skugga` i stället för platta vita klumpar).
+3. ⬜ **KVAR:** applicera `sphereFill`/`rimLight` på de 205 lokala rit-funktionerna i
+   spelfilerna (`makeBall` ×5 m.fl., se A2) — det är skillnaden mellan clipart och Sago Mini
+   för själva SPELOBJEKTEN, inte bara scenens dekor. Naturlig fortsättning: rad 10
+   (`artikoner.js`, 13 spel på en gång) eller ett eget svep över `A2`s dubbletter.
 
-⚠️ `DESIGN.md §4` förbjuder filter-skuggor och föreskriver tvålagers-lip-tricket. Gradienter är
-**fyllningar**, inte filter — ingen konflikt, men skriv in det i §4 så nästa läsare inte tvekar.
+`DESIGN.md §4` fick tillägget att gradienter är **fyllningar**, inte filter — ingen konflikt
+med lip-tricket, som fortfarande äger allt tryckbart i skalet.
 
 ### C2. `lib/atlas.js` — baka en gång, återanvänd **[Medium]** — ⬜ ÖPPEN
 
@@ -314,7 +320,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 |--:|---|:--:|---|:--:|
 | 1 | `lib/partiklar.js` + `feedback.js` internt, 3× täthet | C3 | **alla 72 spel** | ✅ v1.39.0 |
 | 2 | `lib/atlas.js` — bakning av Pixi-grafik till textur | C2 | repeterad dekor | ⬜ *(revs, se C2)* |
-| 3 | `FillGradient` i `scene.js` + `lib/form.js` | C1 | alla 57 scener + alla föremål | ⬜ |
+| 3 | `FillGradient` i `scene.js` + `lib/form.js` | C1 | 57 scener + moln | ✅ v1.40.0 *(delvis — se C1)* |
 | 4 | Fördjupad `scene.js` (parallax, dis, vinjett) | C7 | 57 spel | ⬜ |
 | 5 | `lib/kamera.js` | C6 | nya + 5 befintliga | ⬜ |
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ⬜ |

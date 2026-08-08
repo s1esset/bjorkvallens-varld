@@ -3,9 +3,14 @@
 // känslan rejält jämfört med platt beige. Allt är dekorativt (eventMode 'none')
 // och exit-säkert: drivande moln tweenar en {}-proxy och rör Pixi-objektet bara
 // om det lever (samma mönster som lib/feedback.js).
-import { Container, Graphics } from 'pixi.js'
+import { Container, Graphics, FillGradient } from 'pixi.js'
 import { gsap } from 'gsap'
-import { DESIGN_W, DESIGN_H, COLORS } from './theme.js'
+import { DESIGN_W, DESIGN_H } from './theme.js'
+import { sphereFill } from './form.js'
+
+// Molnens fyllning delas mellan alla moln i hela appen (samma vita klot-gradient, byggd en
+// gång) i stället för en ny FillGradient per moln — se lib/form.js.
+const CLOUD_FILL = sphereFill(0xffffff, { lightY: 0.2, spread: 0.62, dark: 0.14 })
 
 // Färgtema per "miljö". top/bottom = himmelsgradient, ground = ev. markremsa.
 const THEMES = {
@@ -31,9 +36,9 @@ export function createScene(theme = 'sky', opts = {}) {
   root.eventMode = 'none'
   root.interactiveChildren = false
 
-  // Himmel (lodrät gradient via staplade remsor — billigt och pålitligt).
+  // Himmel (lodrät gradient).
   const sky = new Graphics()
-  paintVGradient(sky, width, height, t.top, t.bottom, 48)
+  paintVGradient(sky, width, height, t.top, t.bottom)
   root.addChild(sky)
 
   // Sol (mjuk halo + skiva) uppe till vänster/höger.
@@ -100,12 +105,10 @@ export function createScene(theme = 'sky', opts = {}) {
 
 // --- helpers ---
 
-function paintVGradient(g, w, h, top, bottom, steps) {
-  const band = h / steps
-  for (let i = 0; i < steps; i++) {
-    const col = lerpColor(top, bottom, i / (steps - 1))
-    g.rect(0, i * band, w, band + 1).fill(col)
-  }
+function paintVGradient(g, w, h, top, bottom) {
+  g.rect(0, 0, w, h).fill(
+    new FillGradient({ colorStops: [{ offset: 0, color: top }, { offset: 1, color: bottom }] })
+  )
 }
 
 function makeCloud(scale = 1) {
@@ -113,10 +116,10 @@ function makeCloud(scale = 1) {
   c.eventMode = 'none'
   const g = new Graphics()
   const w = 70 * scale
-  g.circle(-w * 0.7, 6 * scale, 26 * scale).fill(0xffffff)
-  g.circle(0, -8 * scale, 38 * scale).fill(0xffffff)
-  g.circle(w * 0.7, 6 * scale, 30 * scale).fill(0xffffff)
-  g.roundRect(-w, 10 * scale, w * 2, 30 * scale, 18 * scale).fill(0xffffff)
+  g.circle(-w * 0.7, 6 * scale, 26 * scale).fill(CLOUD_FILL)
+  g.circle(0, -8 * scale, 38 * scale).fill(CLOUD_FILL)
+  g.circle(w * 0.7, 6 * scale, 30 * scale).fill(CLOUD_FILL)
+  g.roundRect(-w, 10 * scale, w * 2, 30 * scale, 18 * scale).fill(CLOUD_FILL)
   c.addChild(g)
   return c
 }

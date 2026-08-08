@@ -64,6 +64,11 @@ Paletten ligger i `COLORS` (theme.js). Rollerna:
 mörknad 18–20 % förskjuten +8 px nedåt, face 6 px kortare, plus en vit glansremsa (alpha 0.18)
 upptill. `shade()`-hjälpare finns i theme.js.
 
+**Gradienter är fyllningar, inte filter** — `FillGradient` (`lib/form.js`: `sphereFill`/
+`cylinderFill`, `lib/scene.js`: himmelsgradienten) krockar inte med regeln ovan. Använd dem
+för att ge runda/cylindriska SPELOBJEKT volym (klot i stället för skiva); lip-tricket äger
+fortfarande allt tryckbart i skalet (knappar, kort, brickor).
+
 ## 5. Typografi
 
 Familjer (`FONT`): **Fredoka** (display), **Baloo 2** (titlar/knappar), **Nunito** (brödtext).

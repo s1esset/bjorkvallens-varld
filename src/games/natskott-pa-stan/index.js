@@ -8,18 +8,29 @@
 //   • DRAGNÄT  — det som träffas dras hem till bilen och landar i BAKSÄTET, där de
 //     insamlade sitter som små jublande huvuden (mottagaren).
 //
+// NÄTET ÄR ETT REP, inte ett streck: en verlet-tråd (ROPE_PTS punkter med tyngd,
+// avståndsvillkor i ROPE_ITER varv) som piskar efter skottet, hänger i kedjekurva
+// och slaknar när kroppen kommer ikapp. Dragnätet vinschar ELASTISKT — vilolängden
+// kortas i VEVTAG medan en fjäder (REEL_K) drar i proportion till sträckningen, så
+// hemfärden blir ryck-släpp-ryck i stället för en rak transportsträcka.
+//
 // Mål som passerar (matter.js-kroppar, städas utanför bild): katt, hund, fågel,
 // paket, blomkruka i fönsterbleck, ballong (flyter uppåt), monster. INGA människor.
-// Fönster kan träffas → krossas i tecknat glitter-splitter, självlagas med skimmer
-// efter ~5 s, ibland vinkar ett litet monster ur hålet. TAK: max 2 krossade rutor —
-// därutöver studsar nätet av med en gnista.
+// Monstren är en FAMILJ med sex arter (se MONSTER_ARTER) — bl.a. goblinen i grönt
+// med lila mössa. Fönster kan träffas → krossas i tecknat glitter-splitter, självlagas
+// med skimmer efter ~5 s, och ofta lutar sig ett monster ut ur hålet. Det monstret är
+// ETT RIKTIGT MÅL: klibbnätet fångar det i rutan, dragnätet lyfter ut det och tar hem
+// det till baksätet. TAK: max 2 krossade rutor — därutöver studsar nätet av.
 //
 // Uppdragsrundor som roterar och KRÄVER båda näten ("fånga katten med dragnätet" ·
 // "fäst paketen" · "hämta 3 ballonger"); fri lek däremellan räknas också. Motgång
-// MED TAK: vindby som blåser loss fästa paket (max 2 lösa samtidigt) + en skata som
-// knycker ett paket (1 åt gången, går att näta ner). Sällsynt wow ~1 på 8: guldpaket
-// som regnar stjärnor. Rund-final efter 3 uppdrag: HEMKOMSTEN — parallaxen saktar in,
-// ett hus glider fram, bilen stannar och alla insamlade hoppar ur och firar.
+// MED TAK och ALDRIG mer än en i taget: vindby som blåser loss fästa paket (max 2
+// lösa), en skata som knycker ett paket, eller ett monster som smyger fram, lyfter ett
+// paket över huvudet och kutar iväg — nätas monstret tappar det bytet direkt. Redan
+// given uppdragskredit kan aldrig försvinna, så motgången kan bara sakta ner.
+// Sällsynt wow ~1 på 8: guldpaket som regnar stjärnor. Rund-final efter 3 uppdrag:
+// HEMKOMSTEN — parallaxen saktar in, ett hus glider fram, bilen stannar och alla
+// insamlade hoppar ur och firar.
 //
 // Fysikskala: matter-kraft = a·277,78 px/steg — här styrs allt i px/steg via
 // setVelocity (kalibrerat, aldrig gissade krafter). Kroppar följer scrollen genom att
@@ -42,7 +53,6 @@ const SIDEWALK_BOT = 612
 const NEAR_BOT = 664
 const GROUND = 591 // fötternas vilonivå (fysikgolvets ovansida)
 const CAR_TOP = 650 // dörrkantens överkant
-const CAR_PULL = { x: 790, y: 640 } // hit dras kroppar av dragnätet
 const SEAT = { x: 1150, y: 606 } // baksätets mitt (huvudena)
 const ARM_PIVOT = { x: 505, y: 790 }
 const HAND_LEN = 242
@@ -52,6 +62,37 @@ const MAX_BROKEN = 2 // tak: max 2 krossade rutor samtidigt
 const HEAL_AFTER = 5.2 // s tills en ruta självlagas
 const IDLE_DELAY = 6 // s utan tryck innan mjuk om-cue
 const SHOT_MS = 85 // nätets flygtid hand → träffpunkt
+
+// Repfysik (verlet) — punkter i linan, tyngd per steg, dämpning, lösningsvarv.
+const ROPE_PTS = 12
+const ROPE_G = 0.5
+const ROPE_DAMP = 0.93
+const ROPE_ITER = 3
+// Elastisk indragning: vinschen kortar repet, fjädern drar kroppen mot handen.
+// Alla värden i px/steg (60 Hz-steg), kalibrerade med scripts/_repprobe.mjs.
+// Vinschen VEVAR i tag (~1,8 ggr/s) i stället för att dra jämnt: under vevtaget
+// kortas vilolängden snabbare än kroppen hinner flyga, så repet spänns och rycker
+// till; mellan tagen hinner kroppen ikapp, repet slaknar och tyngdkraften får en
+// stund.
+// MÄTT med scripts/_repprobe.mjs, inte gissat: jämn indragning gav 0 ryck på varje
+// hemdragning. Vevad ger 1 ryck (25–40 % av bildrutorna med slakt rep) på drag över
+// ~300 px, och 0 på mål som redan hänger nära handen — där finns knappt någon resa
+// att rycka i. Lova inte mer än så i nästa omgång utan att mäta om.
+const REEL_HZ = 11 // vevens vinkelhastighet (rad/s) ≈ 1,8 tag/s → varv 0,57 s
+const REEL_TRO = 0.25 // vevtaget biter först över det här sinusvärdet → äkta paus
+const REEL_FAS = Math.asin(REEL_TRO) // varje fångst börjar PRECIS när ett tag tar
+const STROKE_F = 0.42 * (2 * Math.PI / REEL_HZ) * 60 // ett vevtags längd i bildrutor
+const DUTY_MEAN = 0.271 // vevfunktionens medelvärde över ett varv (uträknat, inte gissat)
+const REEL_FRAMES = 40 // hemfärden ska ta ~0,67 s OAVSETT avstånd → vevtakten
+// normaliseras per fångst. Utan normaliseringen blev nära mål hemma på 0,3 s
+// (hann inte med ett enda vevtag = 0 ryck) och långa tog 1,5 s.
+const REEL_K = 0.075 // acceleration per px sträckning
+const REEL_AMAX = 3.4 // tak på fjäderaccelerationen
+const REEL_VMAX = 15 // tak på farten längs repet — MÅSTE ligga under vevtagets topp,
+// annars hinner kroppen aldrig ikapp och repet blir spänt hela vägen hem (mätt: 0 ryck)
+const REEL_DAMP = 0.995 // spänt rep: nästan ingen förlust
+const SLACK_DAMP = 0.94 // slakt rep: kroppen bromsar in och sjunker
+const CATCH_R = 112 // så nära handen räknas kroppen som hemma
 
 // Kulissfärger (stad → förort)
 const CITY_WALLS = [0x9aa3b5, 0xb08a75, 0x8f9aa8, 0xa88f9b, 0x93a89a]
@@ -140,35 +181,347 @@ function drawFagel() {
   return c
 }
 
-function drawMonster(tintC) {
+// ---- Monsterfamiljen: 6 arter ----------------------------------------------
+// Ersätter den gamla ensamma drawMonster(tintC). Alla arter ritas i SAMMA
+// silhuett-låda som fysikkroppen (cirkel r=42): bredd ≈ ±40, topp ≈ -42,
+// fötterna vilar på y ≈ 38 — ingen art är större eller mindre än en annan.
+//
+// Varje form får sitt EGET .fill() direkt efter formen (en Graphics smittar
+// annars alla former med den första fyllningens färg). Allt ritat är
+// eventMode='none' — trycken hanteras av spelet, inte av objekten.
+//
+// Rörliga delar läggs på c._wxWing (samma fältnamn som fågeln/krukan) så att
+// _afterPhysics animerar dem gratis: goblins mösstopp, tentas tentakler och
+// flaxis vingar. Ludd, taggis och sten har ingen rörlig del och sätter inget
+// fält — de lever på kroppsguppet i _afterPhysics.
+
+const MONSTER_OGA = 0x4a3f6b // mjuk indigo pupill — aldrig rött
+const MONSTER_MUN = 0x33291f
+const MONSTER_CREAM = 0xfff3d6
+const MONSTER_ROSA = 0xf6c2d3 // innerörat (samma som kattens)
+const GOBLIN_GRON = 0x7cc257 // fast: goblinen är alltid grön
+const GOBLIN_LILA = [0x8b5cf6, 0xa78bfa, 0x7c4bd0, 0xc084fc] // mössan varierar
+const TENTA_TINTS = [0x57c8c3, 0xff9ec4, 0xa78bfa, 0x8fb6f2]
+const TAGGIS_TINTS = [0xffb27a, 0x57c8c3, 0x9bd06b, 0xa78bfa]
+const FLAXIS_TINTS = [0xa78bfa, 0xff9ec4, 0x8fb6f2, 0xc7a7f0]
+const STEN_TINTS = [0x9a978f, 0xa8998a, 0x8f9aa8, 0xb0a595]
+
+const slumpFarg = (list) => list[(Math.random() * list.length) | 0]
+
+// Ett glatt öga: vit boll, mjuk pupill, blänk. blick = pupillens sidoförskjutning.
+function monsterOga(g, x, y, r, blick = 0) {
+  g.circle(x, y, r).fill(0xffffff)
+  g.circle(x + blick, y + r * 0.14, r * 0.52).fill(MONSTER_OGA)
+  g.circle(x + blick + r * 0.22, y - r * 0.3, Math.max(1.4, r * 0.22)).fill(0xffffff)
+}
+
+// 1. LUDD — familjens original: taggpäls, två horn, ETT stort öga.
+function ritaLudd(p) {
   const c = new Container()
-  const p = tintC ?? MONSTER_TINTS[(Math.random() * MONSTER_TINTS.length) | 0]
   const g = new Graphics()
   // luddig rund kropp: taggig päls runt en boll
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2
-    const r1 = 30
-    const r2 = 39
-    g.moveTo(Math.cos(a) * r1, Math.sin(a) * r1 + 2)
-      .lineTo(Math.cos(a + 0.26) * r2, Math.sin(a + 0.26) * r2 + 2)
-      .lineTo(Math.cos(a + 0.52) * r1, Math.sin(a + 0.52) * r1 + 2)
+    g.moveTo(Math.cos(a) * 30, Math.sin(a) * 30 + 2)
+      .lineTo(Math.cos(a + 0.26) * 39, Math.sin(a + 0.26) * 39 + 2)
+      .lineTo(Math.cos(a + 0.52) * 30, Math.sin(a + 0.52) * 30 + 2)
       .closePath().fill(shade(p, 0.12))
   }
   g.circle(0, 2, 31).fill(p)
   // små horn
-  g.moveTo(-14, -26).lineTo(-10, -40).lineTo(-4, -27).closePath().fill(0xfff3d6)
-  g.moveTo(14, -26).lineTo(10, -40).lineTo(4, -27).closePath().fill(0xfff3d6)
+  g.moveTo(-14, -26).lineTo(-10, -40).lineTo(-4, -27).closePath().fill(MONSTER_CREAM)
+  g.moveTo(14, -26).lineTo(10, -40).lineTo(4, -27).closePath().fill(MONSTER_CREAM)
   // ett stort glatt öga + mun med en tand
   g.circle(0, -6, 12).fill(0xffffff)
-  g.circle(2, -5, 6).fill(0x4a3f6b)
+  g.circle(2, -5, 6).fill(MONSTER_OGA)
   g.circle(4, -7, 2).fill(0xffffff)
-  g.moveTo(-12, 12).quadraticCurveTo(0, 22, 12, 12).stroke({ width: 3, color: 0x33291f, cap: 'round' })
+  g.moveTo(-12, 12).quadraticCurveTo(0, 22, 12, 12).stroke({ width: 3, color: MONSTER_MUN, cap: 'round' })
   g.moveTo(-3, 15).lineTo(3, 15).lineTo(0, 21).closePath().fill(0xffffff)
   // fötter
   g.ellipse(-12, 38, 9, 5).fill(shade(p, 0.2))
   g.ellipse(12, 38, 9, 5).fill(shade(p, 0.2))
   g.eventMode = 'none'
   c.addChild(g)
+  return c
+}
+
+// 2. GOBLIN — grön kropp, lila toppmössa, stora spetsiga öron, brett flin.
+function ritaGoblin(p) {
+  const c = new Container()
+  const lila = slumpFarg(GOBLIN_LILA)
+  const g = new Graphics()
+  // stora spetsiga öron (bakom huvudet)
+  g.moveTo(-15, -16).lineTo(-40, -28).lineTo(-13, -1).closePath().fill(shade(p, 0.1))
+  g.moveTo(15, -16).lineTo(40, -28).lineTo(13, -1).closePath().fill(shade(p, 0.1))
+  g.moveTo(-17, -15).lineTo(-33, -24).lineTo(-16, -6).closePath().fill(MONSTER_ROSA)
+  g.moveTo(17, -15).lineTo(33, -24).lineTo(16, -6).closePath().fill(MONSTER_ROSA)
+  // spretiga armar med små händer (mörkare än kroppen — annars försvinner de i den)
+  g.moveTo(-18, 10).quadraticCurveTo(-30, 17, -28, 27).stroke({ width: 9, color: shade(p, 0.18), cap: 'round' })
+  g.moveTo(18, 10).quadraticCurveTo(30, 17, 28, 27).stroke({ width: 9, color: shade(p, 0.18), cap: 'round' })
+  g.circle(-28, 28, 6).fill(shade(p, 0.26))
+  g.circle(28, 28, 6).fill(shade(p, 0.26))
+  // ben + fötter
+  g.roundRect(-14, 28, 9, 12, 4.5).fill(shade(p, 0.14))
+  g.roundRect(5, 28, 9, 12, 4.5).fill(shade(p, 0.14))
+  g.ellipse(-10, 38, 10, 5).fill(shade(p, 0.24))
+  g.ellipse(10, 38, 10, 5).fill(shade(p, 0.24))
+  // smal kropp (smalare än ludd)
+  g.ellipse(0, 16, 21, 18).fill(p)
+  g.ellipse(0, 20, 13, 12).fill(tint(p, 0.26))
+  // huvud
+  g.circle(0, -8, 19).fill(tint(p, 0.06))
+  monsterOga(g, -7, -11, 6.5, 0.8)
+  monsterOga(g, 7, -11, 6.5, 0.8)
+  g.ellipse(0, -4, 4.5, 3.2).fill(shade(p, 0.2))
+  // brett flin med två små hörntänder
+  g.moveTo(-12, 0).quadraticCurveTo(0, 12, 12, 0).stroke({ width: 3, color: MONSTER_MUN, cap: 'round' })
+  g.moveTo(-12, -0.5).lineTo(-7, 1.2).lineTo(-10, -5.5).closePath().fill(0xffffff)
+  g.moveTo(12, -0.5).lineTo(7, 1.2).lineTo(10, -5.5).closePath().fill(0xffffff)
+  g.circle(-15, -1, 4).fill({ color: 0xff9ec4, alpha: 0.45 })
+  g.circle(15, -1, 4).fill({ color: 0xff9ec4, alpha: 0.45 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  // lila toppmössa i eget lager — brätte + lutande spets + tofs, nickar via _wxWing
+  const hat = new Graphics()
+  hat.moveTo(-19, -2).quadraticCurveTo(-12, -16, 19, -14).quadraticCurveTo(13, -6, 17, -2)
+    .closePath().fill(lila)
+  hat.moveTo(-9, -5).quadraticCurveTo(-2, -13, 13, -13)
+    .stroke({ width: 2.6, color: tint(lila, 0.4), alpha: 0.7, cap: 'round' })
+  hat.roundRect(-22, -4.5, 44, 9, 4.5).fill(shade(lila, 0.22))
+  hat.circle(20, -14, 6).fill(tint(lila, 0.42))
+  hat.circle(18, -16, 2.2).fill({ color: 0xffffff, alpha: 0.55 })
+  hat.position.set(0, -23)
+  hat.eventMode = 'none'
+  c.addChild(hat)
+  c._wxWing = hat
+  return c
+}
+
+// 3. TENTA — bläckfisk: kupolkropp med krön, tre ögon i rad, fem tentakler.
+function ritaTenta(p) {
+  const c = new Container()
+  // tentakler i eget lager BAKOM kupolen — svajar via _wxWing
+  const arms = new Container()
+  const ag = new Graphics()
+  const tent = [
+    [-24, 4, -35, 20, -33, 36],
+    [-12, 6, -19, 24, -10, 38],
+    [0, 6, 5, 22, -1, 39],
+    [12, 6, 18, 24, 11, 38],
+    [24, 4, 35, 20, 33, 36],
+  ]
+  for (const t of tent) {
+    ag.moveTo(t[0], t[1]).quadraticCurveTo(t[2], t[3], t[4], t[5])
+      .stroke({ width: 9, color: shade(p, 0.14), cap: 'round' })
+  }
+  for (const t of tent) ag.circle(t[4], t[5], 3.4).fill(tint(p, 0.35))
+  ag.eventMode = 'none'
+  arms.addChild(ag)
+  arms.pivot.set(0, -10)
+  arms.position.set(0, -10)
+  arms.eventMode = 'none'
+  c.addChild(arms)
+  const g = new Graphics()
+  // krön ovanpå kupolen (breda bulor — smala slivers syns inte)
+  g.moveTo(-14, -33).quadraticCurveTo(-11, -48, -4, -35).closePath().fill(shade(p, 0.2))
+  g.moveTo(-6, -36).quadraticCurveTo(0, -52, 6, -36).closePath().fill(shade(p, 0.2))
+  g.moveTo(4, -35).quadraticCurveTo(11, -48, 14, -33).closePath().fill(shade(p, 0.2))
+  // rundad kupolkropp
+  g.moveTo(-32, 8).quadraticCurveTo(-36, -38, 0, -38).quadraticCurveTo(36, -38, 32, 8)
+    .closePath().fill(p)
+  g.ellipse(0, 7, 32, 9).fill(shade(p, 0.08))
+  g.circle(-17, -20, 5).fill(tint(p, 0.3))
+  g.circle(10, -26, 4).fill(tint(p, 0.3))
+  g.circle(21, -12, 3).fill(tint(p, 0.3))
+  // tre små ögon i rad
+  monsterOga(g, -14, -8, 6.5)
+  monsterOga(g, 0, -11, 7.5)
+  monsterOga(g, 14, -8, 6.5)
+  g.moveTo(-7, 3).quadraticCurveTo(0, 10, 7, 3).stroke({ width: 2.8, color: MONSTER_MUN, cap: 'round' })
+  g.circle(-23, -1, 4).fill({ color: 0xff9ec4, alpha: 0.4 })
+  g.circle(23, -1, 4).fill({ color: 0xff9ec4, alpha: 0.4 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  c._wxWing = arms
+  return c
+}
+
+// 4. TAGGIS — låg och bred, taggrad längs ryggen, stora ögonbryn, korta ben.
+function ritaTaggis(p) {
+  const c = new Container()
+  const g = new Graphics()
+  // ryggtaggar (bakom kroppen — baserna göms av magen)
+  for (let i = 0; i < 7; i++) {
+    const a = Math.PI * (1.2 + (i / 6) * 0.6)
+    const nx = Math.cos(a)
+    const ny = Math.sin(a)
+    const bx = nx * 32
+    const by = 8 + ny * 21
+    const h = 24 - Math.abs(i - 3) * 3
+    g.moveTo(bx + ny * 6, by - nx * 6)
+      .lineTo(bx + nx * h, by + ny * h)
+      .lineTo(bx - ny * 6, by + nx * 6)
+      .closePath().fill(shade(p, 0.26))
+  }
+  // bakben
+  g.ellipse(-16, 36, 10, 5).fill(shade(p, 0.34))
+  g.ellipse(18, 36, 10, 5).fill(shade(p, 0.34))
+  // låg bred kropp
+  g.ellipse(0, 10, 38, 25).fill(p)
+  g.ellipse(0, 17, 24, 15).fill(tint(p, 0.3))
+  // korta framben + tassar
+  g.roundRect(-30, 26, 13, 12, 6).fill(shade(p, 0.15))
+  g.roundRect(17, 26, 13, 12, 6).fill(shade(p, 0.15))
+  g.ellipse(-24, 38, 12, 5.5).fill(shade(p, 0.26))
+  g.ellipse(23, 38, 12, 5.5).fill(shade(p, 0.26))
+  // stora ögon under tunga bryn
+  monsterOga(g, -13, -4, 9)
+  monsterOga(g, 13, -4, 9)
+  // bågade bryn — raka streck läser argt, bågen gör grimasen komisk i stället
+  g.moveTo(-25, -14).quadraticCurveTo(-16, -20, -6, -12).stroke({ width: 5.5, color: shade(p, 0.4), cap: 'round' })
+  g.moveTo(25, -14).quadraticCurveTo(16, -20, 6, -12).stroke({ width: 5.5, color: shade(p, 0.4), cap: 'round' })
+  // sur-glad grimas: brett flin med en tand
+  g.moveTo(-17, 8).quadraticCurveTo(0, 22, 17, 8).stroke({ width: 3.4, color: MONSTER_MUN, cap: 'round' })
+  g.moveTo(-5, 12).lineTo(5, 12).lineTo(0, 19).closePath().fill(0xffffff)
+  g.circle(-27, 4, 4.5).fill({ color: 0xff9ec4, alpha: 0.4 })
+  g.circle(27, 4, 4.5).fill({ color: 0xff9ec4, alpha: 0.4 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  return c
+}
+
+// 5. FLAXIS — liten rund kropp, stora runda öron, fladdermusvingar som viftar.
+function ritaFlaxis(p) {
+  const c = new Container()
+  const membran = tint(p, 0.28)
+  // vingpar i eget lager bakom kroppen — viftar via _wxWing
+  const wings = new Container()
+  const wg = new Graphics()
+  wg.moveTo(-8, -10)
+    .quadraticCurveTo(-28, -24, -41, -13)
+    .quadraticCurveTo(-30, -10, -28, 1)
+    .quadraticCurveTo(-22, -6, -17, 3)
+    .quadraticCurveTo(-12, -4, -7, 2)
+    .closePath().fill(membran).stroke({ width: 2.6, color: shade(p, 0.3), alpha: 0.9, join: 'round' })
+  wg.moveTo(8, -10)
+    .quadraticCurveTo(28, -24, 41, -13)
+    .quadraticCurveTo(30, -10, 28, 1)
+    .quadraticCurveTo(22, -6, 17, 3)
+    .quadraticCurveTo(12, -4, 7, 2)
+    .closePath().fill(membran).stroke({ width: 2.6, color: shade(p, 0.3), alpha: 0.9, join: 'round' })
+  wg.moveTo(-9, -8).lineTo(-31, -10).moveTo(-9, -8).lineTo(-23, 0).moveTo(-9, -8).lineTo(-14, 2)
+    .stroke({ width: 2, color: shade(p, 0.22), alpha: 0.8, cap: 'round' })
+  wg.moveTo(9, -8).lineTo(31, -10).moveTo(9, -8).lineTo(23, 0).moveTo(9, -8).lineTo(14, 2)
+    .stroke({ width: 2, color: shade(p, 0.22), alpha: 0.8, cap: 'round' })
+  wg.eventMode = 'none'
+  wings.addChild(wg)
+  wings.pivot.set(0, -6)
+  wings.position.set(0, -6)
+  wings.scale.set(1.24, 1.08) // bredare än öronen (mätt i skärmdumpen: stack bara ut 13 px)
+  wings.eventMode = 'none'
+  c.addChild(wings)
+  const g = new Graphics()
+  // tofs
+  g.moveTo(0, -16).quadraticCurveTo(-7, -30, 3, -36).stroke({ width: 5, color: shade(p, 0.14), cap: 'round' })
+  // stora runda öron
+  g.circle(-15, -16, 13).fill(p)
+  g.circle(15, -16, 13).fill(p)
+  g.circle(-15, -16, 7.5).fill(MONSTER_ROSA)
+  g.circle(15, -16, 7.5).fill(MONSTER_ROSA)
+  // ben + små tassar
+  g.roundRect(-12, 30, 7, 9, 3.5).fill(shade(p, 0.18))
+  g.roundRect(5, 30, 7, 9, 3.5).fill(shade(p, 0.18))
+  g.ellipse(-9, 37, 7, 4.5).fill(shade(p, 0.24))
+  g.ellipse(9, 37, 7, 4.5).fill(shade(p, 0.24))
+  // rund kropp (kropp och huvud i ett)
+  g.circle(0, 8, 23).fill(p)
+  g.ellipse(0, 15, 14, 12).fill(tint(p, 0.3))
+  monsterOga(g, -8, 2, 7)
+  monsterOga(g, 8, 2, 7)
+  g.ellipse(0, 10, 7, 5).fill(tint(p, 0.38))
+  g.ellipse(0, 8, 3.6, 2.6).fill(shade(p, 0.4))
+  g.moveTo(-6, 13).quadraticCurveTo(0, 18, 6, 13).stroke({ width: 2.6, color: MONSTER_MUN, cap: 'round' })
+  g.circle(-2.6, 14.6, 1.8).fill(0xffffff)
+  g.circle(2.6, 14.6, 1.8).fill(0xffffff)
+  g.circle(-16, 8, 4).fill({ color: 0xff9ec4, alpha: 0.45 })
+  g.circle(16, 8, 4).fill({ color: 0xff9ec4, alpha: 0.45 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  c._wxWing = wings
+  return c
+}
+
+// 6. STEN — kantig klumpvarelse: fasetter i två nyanser, tunga lock, mossa.
+function ritaSten(p) {
+  const c = new Container()
+  const ljus = tint(p, 0.22)
+  const mork = shade(p, 0.22)
+  const g = new Graphics()
+  // kantiga fötter
+  g.moveTo(-30, 26).lineTo(-8, 26).lineTo(-6, 39).lineTo(-32, 39).closePath().fill(mork)
+  g.moveTo(8, 26).lineTo(30, 26).lineTo(32, 39).lineTo(6, 39).closePath().fill(mork)
+  // polygonkropp med ljus kantlinje så den lyfter mot den gråblå stan
+  g.moveTo(-36, 6).lineTo(-30, -20).lineTo(-12, -33).lineTo(12, -35).lineTo(30, -22)
+    .lineTo(36, 2).lineTo(30, 26).lineTo(-28, 28).closePath()
+    .fill(p).stroke({ width: 3, color: tint(p, 0.42), alpha: 0.55 })
+  // fasetter
+  g.moveTo(-30, -20).lineTo(-12, -33).lineTo(-6, -12).lineTo(-28, -6).closePath().fill(ljus)
+  g.moveTo(36, 2).lineTo(30, 26).lineTo(2, 24).lineTo(8, 0).closePath().fill(mork)
+  g.moveTo(-30, 2).lineTo(-22, 6).lineTo(-26, 13).stroke({ width: 2.4, color: shade(p, 0.45), alpha: 0.85, cap: 'round' })
+  // ögon med tunga ögonlock
+  monsterOga(g, -12, -8, 9)
+  monsterOga(g, 12, -8, 9)
+  g.moveTo(-21.5, -11).quadraticCurveTo(-12, -24, -2.5, -11).closePath().fill(mork)
+  g.moveTo(21.5, -11).quadraticCurveTo(12, -24, 2.5, -11).closePath().fill(mork)
+  g.moveTo(-21.5, -10.6).lineTo(-2.5, -10.6).stroke({ width: 2, color: shade(p, 0.4), cap: 'round' })
+  g.moveTo(21.5, -10.6).lineTo(2.5, -10.6).stroke({ width: 2, color: shade(p, 0.4), cap: 'round' })
+  // mossfläckar ovanpå
+  g.circle(-20, -23, 7).fill(0x6fbf5a)
+  g.circle(-11, -28, 6).fill(0x7fcf66)
+  g.circle(-25, -16, 5).fill(0x6fbf5a)
+  g.circle(24, -16, 5.5).fill(0x6fbf5a)
+  g.circle(28, -10, 4).fill(0x7fcf66)
+  g.moveTo(-16, -30).lineTo(-15, -37).moveTo(-9, -32).lineTo(-6, -38)
+    .stroke({ width: 2.4, color: 0x4f9e42, cap: 'round' })
+  // glad stenmun (egen mörk ton — shade() av grått blir för svagt)
+  g.moveTo(-11, 9).quadraticCurveTo(0, 19, 11, 9).stroke({ width: 3.2, color: 0x4a4238, cap: 'round' })
+  g.circle(-24, 4, 4.5).fill({ color: 0xff9ec4, alpha: 0.25 })
+  g.circle(24, 6, 4.5).fill({ color: 0xff9ec4, alpha: 0.25 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  return c
+}
+
+// Arttabellen. fastFarg = arten har en låst kroppsfärg (goblinen är alltid grön).
+const MONSTER_ARTER = [
+  { id: 'ludd', tints: MONSTER_TINTS, draw: ritaLudd },
+  { id: 'goblin', tints: [GOBLIN_GRON], fastFarg: GOBLIN_GRON, draw: ritaGoblin },
+  { id: 'tenta', tints: TENTA_TINTS, draw: ritaTenta },
+  { id: 'taggis', tints: TAGGIS_TINTS, draw: ritaTaggis },
+  { id: 'flaxis', tints: FLAXIS_TINTS, draw: ritaFlaxis },
+  { id: 'sten', tints: STEN_TINTS, draw: ritaSten },
+]
+
+let _sisteMonsterArt = null
+
+// Slumpa art — drar om en gång så att samma varelse sällan kommer två i rad.
+function slumpaMonsterArt() {
+  let art = MONSTER_ARTER[(Math.random() * MONSTER_ARTER.length) | 0].id
+  if (art === _sisteMonsterArt) art = MONSTER_ARTER[(Math.random() * MONSTER_ARTER.length) | 0].id
+  _sisteMonsterArt = art
+  return art
+}
+
+// drawMonster() utan argument = slumpad art + slumpad tint (KIND_DRAW.monster).
+function drawMonster(art, tintC) {
+  const id = art || slumpaMonsterArt()
+  const spec = MONSTER_ARTER.find((a) => a.id === id) || MONSTER_ARTER[0]
+  const p = spec.fastFarg ?? tintC ?? spec.tints[(Math.random() * spec.tints.length) | 0]
+  const c = spec.draw(p)
+  c._wxArt = spec.id
+  c._wxTint = p
+  c.eventMode = 'none'
+  c.interactiveChildren = false
   return c
 }
 
@@ -313,6 +666,88 @@ function makeNetIcon(mode, netColor = 0xffffff) {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const rnd = (a, b) => a + Math.random() * (b - a)
 
+// ---- Repet (verlet-tråd) ----------------------------------------------------
+// Nätlinan är inte en ritad kurva utan en kedja av punkter med tyngd. Den piskar
+// efter handen när skottet går, hänger i en riktig kedjekurva när den sitter fast
+// och SLAKNAR när dragnätets kropp kommer ikapp vinschen. Ändarna spänns fast
+// (hand · träffpunkt), mellanpunkterna faller fritt och dras ihop av avstånds-
+// villkoret några iterationer per bildruta — Position Based Dynamics i miniatyr.
+function mkRope(x, y) {
+  const pts = []
+  for (let i = 0; i < ROPE_PTS; i++) pts.push({ x, y, px: x, py: y })
+  return { pts, whip: 0 }
+}
+
+// sag < 1 = spänt rep (kortare segment än avståndet) · > 1 = slakt, hänger ner
+function stepRope(rope, ax, ay, bx, by, dtF, sag = 1, freeTail = false) {
+  const pts = rope.pts
+  const f = clamp(dtF, 0.2, 2)
+  const last = pts.length - 1
+  for (let i = 1; i <= last; i++) {
+    if (i === last && !freeTail) break
+    const p = pts[i]
+    const vx = (p.x - p.px) * ROPE_DAMP
+    const vy = (p.y - p.py) * ROPE_DAMP
+    p.px = p.x
+    p.py = p.y
+    p.x += vx * f
+    p.y += vy * f + ROPE_G * f * f
+  }
+  pts[0].x = ax
+  pts[0].y = ay
+  pts[0].px = ax
+  pts[0].py = ay
+  if (!freeTail) {
+    pts[last].x = bx
+    pts[last].y = by
+    pts[last].px = bx
+    pts[last].py = by
+  }
+  const span = freeTail ? rope.rest || 120 : Math.hypot(bx - ax, by - ay)
+  const seg = (span / last) * sag
+  for (let k = 0; k < ROPE_ITER; k++) {
+    for (let i = 0; i < last; i++) {
+      const a = pts[i]
+      const b = pts[i + 1]
+      let dx = b.x - a.x
+      let dy = b.y - a.y
+      const d = Math.hypot(dx, dy) || 1
+      const diff = ((d - seg) / d) * 0.5
+      dx *= diff
+      dy *= diff
+      if (i > 0) {
+        a.x += dx
+        a.y += dy
+      }
+      if (i + 1 < last || freeTail) {
+        b.x -= dx
+        b.y -= dy
+      }
+    }
+  }
+}
+
+// Ritar repet som en spunnen tråd: en bärande lina + en tunnare medlöpare som
+// viker av åt sidan, så ögat ser att den är gjord av spindeltråd och inte av en
+// linjal. width tunnas av mot änden.
+function strokeRope(g, rope, { color = 0xf6f6f2, alpha = 0.9, width = 5 } = {}) {
+  const pts = rope.pts
+  g.moveTo(pts[0].x, pts[0].y)
+  for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y)
+  g.stroke({ width, color, alpha, cap: 'round', join: 'round' })
+  g.moveTo(pts[0].x, pts[0].y)
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i]
+    const q = pts[i - 1]
+    const nx = -(p.y - q.y)
+    const ny = p.x - q.x
+    const n = Math.hypot(nx, ny) || 1
+    const w = Math.sin((i / (pts.length - 1)) * Math.PI * 3) * (width * 0.5)
+    g.lineTo(p.x + (nx / n) * w, p.y + (ny / n) * w)
+  }
+  g.stroke({ width: Math.max(1.4, width * 0.4), color, alpha: alpha * 0.6, cap: 'round' })
+}
+
 export default {
   id: 'natskott-pa-stan',
   titleSv: 'Nätskott på stan',
@@ -342,14 +777,17 @@ export default {
     this._far = []
     this._mid = []
     this._brokenCount = 0
-    this._seatList = [] // insamlade vänner (kinds) — visas som huvuden i baksätet
+    this._seatList = [] // insamlade vänner ({kind, art}) — huvuden i baksätet
     this._seatHeads = []
     this._outFriends = []
     this._skata = null
+    this._thief = null
     this._tws = [] // proxy-tweens som dödas i destroy
     this._spawnTimer = 1.0
     this._gustTimer = 11
     this._skataTimer = 16
+    this._heistTimer = 14
+    this._lastTjuvSaid = -99
     this._paketSinceGold = 0
     this._lastRutaSaid = -99
     this._lastBytSaid = -99
@@ -707,20 +1145,32 @@ export default {
     g.rect(-43, -158, 86, 5).fill({ color: 0xffffff, alpha: 0.25 })
     // handflata (röd handske, tydlig kontur)
     g.roundRect(-36, -234, 72, 66, 24).fill(COLORS.red).stroke({ width: 3.5, color: shade(COLORS.red, 0.3) })
-    // vikta lång- och ringfingrar = två knogar mot handflatan
-    g.circle(-4, -228, 11).fill(shade(COLORS.red, 0.16))
-    g.circle(14, -226, 10).fill(shade(COLORS.red, 0.16))
-    // pekfinger + lillfinger ut (webb-skjutar-posen), tumme åt sidan
-    g.moveTo(-22, -224).lineTo(-44, -282).stroke({ width: 18, color: COLORS.red, cap: 'round' })
-    g.moveTo(26, -222).lineTo(44, -270).stroke({ width: 15, color: COLORS.red, cap: 'round' })
-    g.moveTo(-32, -196).lineTo(-58, -206).stroke({ width: 16, color: COLORS.red, cap: 'round' })
-    // litet nät på handens rygg
+    // Lång- och ringfinger VIKTA ner mot handflatan — ritade som två liggande
+    // fingerleder med eget veck, inte som två knogknappar. Det är vikningen som
+    // gör att webb-posen läses; utan den ser handen ut att göra V-tecken.
+    g.roundRect(-21, -232, 42, 21, 10).fill(shade(COLORS.red, 0.2)).stroke({ width: 3, color: shade(COLORS.red, 0.46) })
+    g.roundRect(-19, -212, 38, 19, 9).fill(shade(COLORS.red, 0.3)).stroke({ width: 3, color: shade(COLORS.red, 0.46) })
+    g.moveTo(-6, -230).lineTo(-6, -213).moveTo(-4, -210).lineTo(-4, -195)
+      .stroke({ width: 2, color: shade(COLORS.red, 0.5), alpha: 0.8 }) // skarven mellan de två fingrarna
+    // tummen ligger TVÄRS ÖVER och håller ner dem (samma grepp som i serierna)
+    g.moveTo(-33, -197).quadraticCurveTo(-15, -205, 4, -202).stroke({ width: 17, color: COLORS.red, cap: 'round' })
+    g.moveTo(-33, -197).quadraticCurveTo(-15, -205, 4, -202).stroke({ width: 3, color: shade(COLORS.red, 0.32), alpha: 0.85 })
+    // Pekfingret rakt UPP och lillfingret nästan RAKT UT åt sidan. Första försöket
+    // lät båda peka uppåt i olika vinklar — kritikern läste det fortfarande som ett
+    // fredstecken, för två uppåtriktade fingrar ÄR ett V oavsett vinkelskillnad.
+    // Nu är de nästan vinkelräta mot varandra, vilket ingen läser som ett V.
+    g.moveTo(-19, -226).quadraticCurveTo(-24, -262, -25, -300).stroke({ width: 19, color: COLORS.red, cap: 'round' })
+    g.moveTo(-21, -256).quadraticCurveTo(-24, -272, -25, -289).stroke({ width: 3.4, color: shade(COLORS.red, 0.3), alpha: 0.6 })
+    g.moveTo(27, -214).quadraticCurveTo(48, -216, 66, -223).stroke({ width: 14, color: COLORS.red, cap: 'round' })
+    g.circle(66, -223, 7).fill(COLORS.red)
+    // nätskjutaren på handleden: liten silverdosa med hål — härifrån kommer tråden
+    g.circle(0, -180, 13).fill(0xd7dbe2).stroke({ width: 2.6, color: 0x8d96a3 })
+    g.circle(0, -180, 5).fill(0x4a3f6b)
     for (let k = 0; k < 6; k++) {
       const a = (k / 6) * Math.PI * 2
-      g.moveTo(-2, -202).lineTo(-2 + Math.cos(a) * 24, -202 + Math.sin(a) * 24)
+      g.moveTo(0, -180).lineTo(Math.cos(a) * 11, -180 + Math.sin(a) * 11)
     }
-    g.stroke({ width: 1.8, color: 0x33291f, alpha: 0.65 })
-    g.circle(-2, -202, 13).stroke({ width: 1.8, color: 0x33291f, alpha: 0.55 })
+    g.stroke({ width: 1.5, color: 0x8d96a3, alpha: 0.8 })
     g.eventMode = 'none'
     c.addChild(g)
     c.position.set(ARM_PIVOT.x, ARM_PIVOT.y)
@@ -974,8 +1424,10 @@ export default {
   },
 
   // ------------------------------------------------------------------ mål (spawn)
-  _spawnTarget(ctx, kind, atX = 1380) {
-    if (!this._alive || this._targets.length >= MAX_TARGETS) return null
+  _spawnTarget(ctx, kind, atX = 1380, opts = {}) {
+    // force: spelaren har själv skapat målet (fångat fönstermonster) — taket får
+    // aldrig äta upp ett svar på ett tryck.
+    if (!this._alive || (this._targets.length >= MAX_TARGETS && !opts.force)) return null
     let golden = false
     if (kind === 'paket') {
       this._paketSinceGold++
@@ -989,11 +1441,11 @@ export default {
     view.interactiveChildren = false
     const inner = new Container()
     inner.eventMode = 'none'
-    const art = KIND_DRAW[golden ? 'guldpaket' : kind]()
+    const art = kind === 'monster' && opts.art ? drawMonster(opts.art, opts.tint) : KIND_DRAW[golden ? 'guldpaket' : kind]()
     inner.addChild(art)
     let r = 40
     let body
-    const rec = { kind, golden, view, inner, r: 40, stuck: false, netted: false, loosened: false, seed: Math.random() * 9, walkV: 0, netG: null, pullV: 0 }
+    const rec = { kind, golden, view, inner, r: 40, stuck: false, netted: false, loosened: false, credited: false, seed: Math.random() * 9, walkV: 0, netG: null, rope: null, reel: 0, slack: false }
     if (kind === 'katt' || kind === 'hund' || kind === 'monster') {
       r = kind === 'hund' ? 44 : kind === 'monster' ? 42 : 40
       body = this._phys.circle(atX, GROUND - r, r, { friction: 0.6, frictionAir: 0.02, restitution: 0.1, density: 0.0016, label: kind, collisionFilter: { group: -1 } })
@@ -1052,7 +1504,7 @@ export default {
       if (alive < 2 && Math.random() < 0.7) kind = this._missionKey === 'paket' ? 'paket' : this._missionKey
     }
     if (!kind) {
-      const pool = ['katt', 'hund', 'paket', 'paket', 'ballong', 'fagel', 'monster']
+      const pool = ['katt', 'hund', 'paket', 'paket', 'ballong', 'fagel', 'monster', 'monster']
       kind = pool[(Math.random() * pool.length) | 0]
     }
     this._spawnTarget(ctx, kind)
@@ -1071,7 +1523,7 @@ export default {
     this._recoil = 1
 
     // träff-prioritet: skata → mål (närmast) → fönster → husvägg (miss)
-    const shot = { x0: hand.x, y0: hand.y, ex: p.x, ey: p.y, p: 0, phase: 'fly', life: 1, rec: null, win: null, seg: null, skata: false, mode: this._mode }
+    const shot = { x0: hand.x, y0: hand.y, ex: p.x, ey: p.y, p: 0, phase: 'fly', life: 1, rec: null, win: null, seg: null, skata: false, mons: null, mode: this._mode, rope: mkRope(hand.x, hand.y) }
     if (this._skata && this._skata.phase !== 'flee' && Math.hypot(p.x - this._skata.c.x, p.y - this._skata.c.y) < 90) {
       shot.skata = true
     } else {
@@ -1088,10 +1540,16 @@ export default {
       if (best) {
         shot.rec = best
       } else {
-        const w = this._windowAt(p.x, p.y)
-        if (w) {
-          shot.win = w.win
-          shot.seg = w.seg
+        // monstret som tittar ut ur en krossad ruta är ett riktigt mål
+        const m = this._windowMonsterAt(p.x, p.y)
+        if (m) {
+          shot.mons = m
+        } else {
+          const w = this._windowAt(p.x, p.y)
+          if (w) {
+            shot.win = w.win
+            shot.seg = w.seg
+          }
         }
       }
     }
@@ -1110,10 +1568,28 @@ export default {
     return null
   },
 
+  // Monstret som lutar sig ut ur en krossad ruta — träffbart som vilket mål som helst.
+  _windowMonsterAt(px, py) {
+    for (const seg of this._mid) {
+      for (const win of seg.wins) {
+        const mc = win.mc
+        if (!mc || mc.destroyed || mc._wxCaught) continue
+        const mx = seg.c.x + win.lx
+        const my = win.cy + 6
+        if (Math.hypot(px - mx, py - my) < 64) return { seg, win }
+      }
+    }
+    return null
+  },
+
   // Skottet framme → tillämpa nätets effekt.
   _resolveShot(ctx, s) {
     if (s.skata) {
       this._netSkata(ctx)
+      return
+    }
+    if (s.mons) {
+      this._catchWindowMonster(ctx, s.mons.seg, s.mons.win)
       return
     }
     if (s.rec) {
@@ -1133,12 +1609,16 @@ export default {
 
   _hitTarget(ctx, rec) {
     if (!this._alive || !this._targets.includes(rec)) return
-    this._soundFor(ctx, rec.kind)
+    // nätade du tjuven? Då tappar den paketet på fläcken — motgången är återtagbar
+    if (this._thief && this._thief.mons === rec) this._dropLoot(ctx)
+    this._soundFor(ctx, rec.kind, rec.inner?.children[0]?._wxArt)
     if (rec.inner && !rec.inner.destroyed) pop(rec.inner, { scale: 1.25 })
     sparkle(ctx.fxLayer, rec.view.x, rec.view.y, { count: 5 })
     if (this._mode === 'klibb') {
       const first = !rec.stuck
       if (first) {
+        const nyttMal = !rec.credited // uppdragskredit ges EN gång per föremål
+        rec.credited = true
         Body.setVelocity(rec.body, { x: 0, y: 0 })
         Body.setStatic(rec.body, true)
         rec.stuck = true
@@ -1149,7 +1629,7 @@ export default {
         rec.inner.addChild(net)
         rec.netG = net
         bounceIn(net)
-        this._credit(ctx, 'klibb', rec.kind === 'paket' && rec.golden ? 'guldpaket' : rec.kind)
+        if (nyttMal) this._credit(ctx, 'klibb', rec.kind === 'paket' && rec.golden ? 'guldpaket' : rec.kind)
         // fågeln är för pigg för nätet: sprattlar loss efter en stund och flyger vidare
         if (rec.kind === 'fagel') {
           ctx.later(2.3, () => {
@@ -1167,9 +1647,9 @@ export default {
         wiggle(rec.inner) // redan fast: extra nät = bara busigt
       }
     } else {
-      // dragnät: kroppen dras hem mot bilen
-      rec.netted = true
-      rec.pullV = 5
+      // dragnät: repet fäster och vinschen börjar dra — vilolängden startar strax
+      // kortare än avståndet så det FÖRSTA rycket känns direkt.
+      this._startReel(rec, rec.view.x, rec.view.y)
       if (rec.stuck || rec.sill) Body.setStatic(rec.body, false)
       rec.stuck = false
       rec.body.isSensor = true
@@ -1181,12 +1661,43 @@ export default {
     }
   },
 
-  _soundFor(ctx, kind) {
+  // Gemensam start för allt som vinschas hem (träffat mål · fångat fönstermonster):
+  // repets vilolängd + vevtakten normaliserad mot avståndet, så hemfärden tar lika
+  // lång tid oavsett var målet satt och alltid hinner med 1–2 vevtag.
+  _startReel(rec, x, y) {
+    const hand = this._handPos()
+    rec.netted = true
+    rec.slack = false
+    const dist = Math.hypot(hand.x - x, hand.y - y)
+    rec.reel = Math.max(60, dist - 70)
+    // Farttaket måste följa avståndet, annars sprintar kroppen hela sträckan inuti
+    // ETT vevtag och är hemma innan pausen hinner slakna repet (mätt: nära mål kom
+    // hem på 0,38 s med 0 ryck medan långa fick 2). Kroppen rör sig bara under
+    // vevtagen — därav delningen med vevtagets andel av varvet (0,42).
+    // Ett vevtag får aldrig räcka hela vägen hem — då hinner pausen (och därmed
+    // rycket) aldrig inträffa. Mätt: nära mål kom hem på 20 rutor medan taget är
+    // 14, alltså 0 ryck varje gång. Taket sätts så att första taget tar ~55 % av
+    // sträckan; resten kommer efter en synlig paus.
+    rec.vmax = clamp(((dist - CATCH_R) * 0.42) / STROKE_F, 3.5, 20)
+    // …och vevtakten får inte överstiga vad kroppen KAN följa, annars ligger repet
+    // spänt hela vägen på långa drag (mätt: 550 px gav 0 ryck innan taket sattes).
+    rec.reelRate = Math.min(rec.reel / REEL_FRAMES, rec.vmax * 1.6 * DUTY_MEAN)
+    rec.reelT = 0
+    rec.rope = mkRope(x, y)
+    this._recoil = Math.max(this._recoil, 0.55)
+  },
+
+  _soundFor(ctx, kind, art) {
     const a = ctx.services.audio
     if (kind === 'katt' && a.sample('djur_katt')) return
     if (kind === 'hund' && a.sample('djur_hund')) return
     if (kind === 'fagel' && a.sample('djur_uggla')) return
-    if (kind === 'monster' && a.sample('boing')) return
+    if (kind === 'monster') {
+      // varje art får sin EGEN tonhöjd ovanpå boinget — ludd ska inte låta som sten
+      const i = Math.max(0, MONSTER_ARTER.findIndex((m) => m.id === art))
+      a.tone({ freq: NOTES[i % NOTES.length], dur: 0.16, type: 'triangle', vol: 0.19, delay: 0.05 })
+      if (a.sample('boing')) return
+    }
     if ((kind === 'paket' || kind === 'kruka') && a.sample('plopp')) return
     if (kind === 'ballong') {
       a.sfx('pop')
@@ -1217,32 +1728,87 @@ export default {
       this._lastRutaSaid = this._t
       ctx.services.voice.say('Hoppsan! Där rök en ruta!')
     }
-    // ibland tittar ett litet monster ut ur hålet och vinkar
-    if (Math.random() < 0.34) {
+    // Ofta lutar sig ett monster ut ur hålet och vinkar — och det går att FÅNGA
+    // (se _catchWindowMonster). Det är en riktig art ur familjen, inte en klick,
+    // så det man drar hem ser likadant ut i baksätet.
+    if (Math.random() < 0.55) {
+      const art = slumpaMonsterArt()
+      const kropp = drawMonster(art)
+      kropp.scale.set(0.6)
+      const tintC = kropp._wxTint ?? MONSTER_TINTS[0]
       const mc = new Container()
       mc.eventMode = 'none'
-      const mg = new Graphics()
-      const tintC = MONSTER_TINTS[(Math.random() * MONSTER_TINTS.length) | 0]
-      mg.circle(0, 6, 15).fill(tintC)
-      mg.moveTo(-8, -6).lineTo(-5, -16).lineTo(0, -7).closePath().fill(0xfff3d6)
-      mg.circle(-4, 3, 5.5).fill(0xffffff)
-      mg.circle(-3, 4, 2.8).fill(0x4a3f6b)
-      mg.moveTo(-8, 12).quadraticCurveTo(0, 17, 8, 12).stroke({ width: 2.4, color: 0x33291f, cap: 'round' })
-      mg.eventMode = 'none'
-      mc.addChild(mg)
+      mc.addChild(kropp)
       const arm = new Graphics()
-      arm.moveTo(0, 0).lineTo(10, -12).stroke({ width: 5, color: tintC, cap: 'round' })
-      arm.circle(10, -12, 4).fill(tintC)
-      arm.position.set(12, 6)
+      arm.moveTo(0, 0).lineTo(13, -15).stroke({ width: 6, color: tintC, cap: 'round' })
+      arm.circle(13, -15, 5).fill(tintC)
+      arm.position.set(15, 4)
       arm.eventMode = 'none'
       mc.addChild(arm)
       mc._wxArm = arm
+      mc._wxArt = art
+      mc._wxTint = tintC
       mc.position.set(win.lx, win.cy + 6)
       seg.c.addChild(mc)
       win.mc = mc
       bounceIn(mc)
       ctx.services.audio.sfx('boing')
     }
+  },
+
+  // Monstret i hålet är fångbart med BÅDA näten och gör olika saker:
+  //   klibbnät = det fastnar i rutan, sprattlar och kryper skrattande in igen
+  //   dragnät  = det lyfts UT ur fönstret och vinschas hem till baksätet som en vän
+  // Ingen variant är ett felval (P0 AGENS), och rutan lagar sig som vanligt efteråt.
+  _catchWindowMonster(ctx, seg, win) {
+    const mc = win.mc
+    if (!this._alive || !mc || mc.destroyed || mc._wxCaught) return
+    const wx = seg.c.x + win.lx
+    const wy = win.cy + 6
+    if (!ctx.services.audio.sample('boing')) ctx.services.audio.sfx('boing')
+    sparkle(ctx.fxLayer, wx, wy, { count: 7 })
+    this._idle = 0
+    // ge fångst-ögonblicket luft: rutan får inte självlaga mitt i det
+    win.brokenAt = Math.max(win.brokenAt, this._t - HEAL_AFTER + 3.2)
+
+    if (this._mode === 'klibb') {
+      mc._wxCaught = 'klibb'
+      const net = new Graphics()
+      drawWebNet(net, 32)
+      net.eventMode = 'none'
+      mc.addChild(net)
+      mc._wxNet = net // destroy() måste kunna döda bounceIn-tweenen på nätet
+      bounceIn(net)
+      wiggle(mc)
+      ctx.services.audio.tone({ freq: 659.25, dur: 0.14, type: 'triangle', vol: 0.2 })
+      ctx.services.audio.tone({ freq: 880, dur: 0.16, type: 'triangle', vol: 0.18, delay: 0.12 })
+      ctx.later(2.5, () => {
+        if (!this._alive || mc.destroyed) return
+        puff(ctx.fxLayer, seg.c.x + win.lx, win.cy + 6, { count: 6, color: 0xd8d3c8 })
+        mc.destroy({ children: true })
+        win.mc = null
+      })
+      return
+    }
+
+    // dragnät: monstret blir en riktig kropp och åker hem i repet
+    mc._wxCaught = 'drag'
+    const art = mc._wxArt
+    const tint = mc._wxTint
+    mc.destroy({ children: true })
+    win.mc = null
+    const rec = this._spawnTarget(ctx, 'monster', wx, { art, tint, force: true })
+    if (!rec) {
+      puff(ctx.fxLayer, wx, wy, { count: 6 })
+      ctx.services.audio.sfx('pling')
+      return
+    }
+    Body.setPosition(rec.body, { x: wx, y: wy })
+    Body.setVelocity(rec.body, { x: 0, y: 0 })
+    rec.walkV = 0
+    rec.body.isSensor = true
+    this._startReel(rec, wx, wy)
+    burst(ctx.fxLayer, wx, wy, { count: 10, colors: [0xd8f0fa, 0xffffff, 0xfff3b0] })
   },
 
   _healWindows(ctx) {
@@ -1275,7 +1841,7 @@ export default {
     this._phys.removeBody(rec.body)
     const kind = rec.kind === 'paket' && rec.golden ? 'guldpaket' : rec.kind
     this._credit(ctx, 'drag', kind)
-    this._soundFor(ctx, rec.kind)
+    this._soundFor(ctx, rec.kind, rec.inner?.children[0]?._wxArt)
     puff(ctx.fxLayer, rec.view.x, rec.view.y, { count: 6 })
     // vy:n seglar i en båge ner i baksätet (exit-säker proxy)
     const view = rec.view
@@ -1300,19 +1866,20 @@ export default {
       onComplete: () => {
         if (!view.destroyed) view.destroy({ children: true })
         if (!this._alive) return
-        this._landFriend(ctx, rec.kind, rec.golden)
+        // arten följer med hem: fångade du en goblin ska en GOBLIN sitta i sätet
+        this._landFriend(ctx, rec.kind, rec.golden, rec.inner?.children[0]?._wxArt)
       },
     })
     this._tws.push(tw)
   },
 
   // Landning i baksätet: huvud dyker upp, alla jublar (mottagaren!).
-  _landFriend(ctx, kind, golden) {
-    this._seatList.push(kind)
+  _landFriend(ctx, kind, golden, art) {
+    this._seatList.push({ kind, golden, art })
     ctx.progress.setCustom('vanner', (ctx.progress.get().custom?.vanner || 0) + 1)
     if (!ctx.services.audio.sample('plopp')) ctx.services.audio.sfx('pop')
     ctx.services.audio.tone({ freq: NOTES[this._seatList.length % NOTES.length], dur: 0.18, type: 'triangle', vol: 0.2 })
-    const head = KIND_DRAW[golden ? 'guldpaket' : kind]()
+    const head = kind === 'monster' && art ? drawMonster(art) : KIND_DRAW[golden ? 'guldpaket' : kind]()
     head.scale.set(0.5)
     const n = this._seatHeads.length
     const hx = 1076 + (n % 5) * 44 + rnd(-6, 6)
@@ -1346,7 +1913,7 @@ export default {
 
   // ------------------------------------------------------------------ skata + vindby
   _spawnSkata(ctx) {
-    if (this._skata || this._phase !== 'drive') return
+    if (this._skata || this._thief || this._phase !== 'drive') return
     const prey = this._targets.find((r) => (r.kind === 'paket') && !r.netted) // knycker paket (helst fästa)
     if (!prey) return
     const c = drawSkata()
@@ -1425,7 +1992,97 @@ export default {
     this._idle = 0
   },
 
+  // ------------------------------------------------------------------ pakettjuven
+  // MOTGÅNG med hårt tak: EN tjuv åt gången, aldrig samtidigt som skatan, och
+  // aldrig medan en vindby håller på. Ett monster på trottoaren smyger fram till
+  // ett paket, lyfter det över huvudet och kutar iväg. Nätar man monstret (vilket
+  // nät som helst) tappar det paketet direkt. Redan given uppdragskredit kan aldrig
+  // försvinna, så tjuven kan bara SAKTA NER, aldrig nollställa.
+  _monsterHeist(ctx) {
+    if (this._thief || this._skata || this._phase !== 'drive') return
+    const mons = this._targets.find(
+      (r) => r.kind === 'monster' && !r.netted && !r.stuck && r.view.x > 60 && r.view.x < 1180,
+    )
+    if (!mons) return
+    const paket = this._targets.find(
+      (r) => r.kind === 'paket' && !r.netted && Math.abs(r.view.x - mons.view.x) < 640,
+    )
+    if (!paket) return
+    this._thief = { mons, paket, phase: 'smyg' }
+    mons.walkV = 0
+    ctx.services.audio.tone({ freq: 233, dur: 0.12, type: 'sawtooth', vol: 0.09 })
+    ctx.services.audio.tone({ freq: 196, dur: 0.14, type: 'sawtooth', vol: 0.09, delay: 0.13 })
+  },
+
+  _updateThief(ctx) {
+    const th = this._thief
+    if (!th) return
+    const { mons, paket } = th
+    if (!this._targets.includes(mons) || mons.netted || mons.stuck) {
+      this._dropLoot(ctx)
+      return
+    }
+    const paketOk = this._targets.includes(paket) && !paket.netted
+    if (!paketOk) {
+      this._thief = null
+      mons.walkV = rnd(0.2, 0.7) * (Math.random() < 0.7 ? 1 : -1)
+      return
+    }
+    if (th.phase === 'smyg') {
+      const dx = paket.view.x - mons.view.x
+      Body.setVelocity(mons.body, { x: clamp(dx * 0.02, -2.7, 2.7), y: mons.body.velocity.y })
+      if (Math.abs(dx) < 46) {
+        th.phase = 'bar'
+        Body.setStatic(paket.body, true)
+        paket.stuck = false
+        if (paket.netG && !paket.netG.destroyed) paket.netG.destroy()
+        paket.netG = null
+        if (!ctx.services.audio.sample('boing')) ctx.services.audio.sfx('flip')
+        if (mons.inner && !mons.inner.destroyed) wiggle(mons.inner)
+        if (paket.inner && !paket.inner.destroyed) pop(paket.inner, { scale: 1.2 })
+        floatText(ctx.fxLayer, mons.view.x, mons.view.y - 86, '❗', { fontSize: 46 })
+        if (this._t - this._lastTjuvSaid > 15) {
+          this._lastTjuvSaid = this._t
+          ctx.services.voice.say('Monstret tog ett paket!')
+        }
+      }
+    } else {
+      // bär: kutar iväg med paketet över huvudet
+      Body.setVelocity(mons.body, { x: 3.1, y: mons.body.velocity.y })
+      Body.setPosition(paket.body, { x: mons.body.position.x, y: mons.body.position.y - 68 })
+      if (paket.inner && !paket.inner.destroyed) paket.inner.rotation = Math.sin(this._t * 9) * 0.16
+      if (mons.view.x > 1400) {
+        this._removeTarget(paket) // kom undan — nya paket kommer, aldrig ett straff
+        this._thief = null
+      }
+    }
+  },
+
+  // Tjuven tappar bytet: paketet faller ner på trottoaren och går att fånga igen.
+  _dropLoot(ctx) {
+    const th = this._thief
+    if (!th) return
+    this._thief = null
+    const p = th.paket
+    if (p && this._targets.includes(p)) {
+      Body.setStatic(p.body, false)
+      Body.setVelocity(p.body, { x: rnd(-1.5, 1.5), y: 1.6 })
+      p.loosened = true
+      p.stuck = false
+      if (p.inner && !p.inner.destroyed) {
+        p.inner.rotation = 0
+        pop(p.inner, { scale: 1.2 })
+      }
+      if (p.view && !p.view.destroyed) sparkle(ctx.fxLayer, p.view.x, p.view.y, { count: 6 })
+      ctx.services.audio.tone({ freq: 659.25, dur: 0.14, type: 'triangle', vol: 0.2 })
+    }
+    if (th.mons && this._targets.includes(th.mons) && !th.mons.netted) {
+      th.mons.walkV = rnd(0.2, 0.7) * (Math.random() < 0.7 ? 1 : -1)
+    }
+  },
+
   _gust(ctx) {
+    if (this._thief) return // tak: en motgång i taget
     // vindby: blåser loss fästa paket — MEN max 2 lösa samtidigt (tak)
     const loose = this._targets.filter((r) => (r.kind === 'paket') && r.loosened && !r.stuck && !r.netted).length
     if (loose >= 2) return
@@ -1488,6 +2145,7 @@ export default {
     this._missionActive = false
     this._stopTogglePulse()
     if (this._skata) this._skata.phase = 'flee'
+    this._thief = null // gatan töms strax — ingen tjuv kvar att jaga
     if (this._panel && !this._panel.destroyed) {
       gsap.killTweensOf(this._panel)
       this._panelFade = gsap.to(this._panel, { alpha: 0, duration: 0.4 })
@@ -1591,10 +2249,10 @@ export default {
       if (h.c && !h.c.destroyed) h.c.destroy({ children: true })
     }
     this._seatHeads = []
-    list.forEach((kind, i) => {
+    list.forEach((v, i) => {
       ctx.later(0.18 * i, () => {
         if (!this._alive) return
-        const fig = KIND_DRAW[kind]()
+        const fig = v.kind === 'monster' && v.art ? drawMonster(v.art) : KIND_DRAW[v.golden ? 'guldpaket' : v.kind]()
         fig.scale.set(0.7)
         fig.position.set(SEAT.x - 40, SEAT.y)
         fig.eventMode = 'none'
@@ -1642,6 +2300,8 @@ export default {
     this._biomeFlip = !this._biomeFlip
     this._scrollBase = 2.1 + Math.min(1.0, this._level * 0.12)
     this._seatList = []
+    this._thief = null
+    this._heistTimer = rnd(15, 22)
     // gatan töms mjukt (de som blev kvar går hem — puff och borta)
     for (const rec of [...this._targets]) {
       if (rec.view && !rec.view.destroyed) puff(ctx.fxLayer, rec.view.x, rec.view.y, { count: 4 })
@@ -1700,6 +2360,7 @@ export default {
     this._drawNets()
     this._healWindows(ctx)
     this._updateSkata(ctx, dtF)
+    this._updateThief(ctx)
     this._updateArm(dt, dtF)
 
     // sätes-vännerna guppar lugnt
@@ -1733,6 +2394,11 @@ export default {
       if (this._skataTimer <= 0) {
         this._skataTimer = rnd(19, 26)
         this._spawnSkata(ctx)
+      }
+      this._heistTimer -= dt
+      if (this._heistTimer <= 0) {
+        this._heistTimer = rnd(15, 22)
+        this._monsterHeist(ctx)
       }
       if (this._missionActive) {
         this._missionT += dt
@@ -1833,16 +2499,53 @@ export default {
     for (const rec of this._targets) {
       const b = rec.body
       if (rec.netted) {
-        // dragnätet: kroppen accelererar hem mot bilen
-        rec.pullV = Math.min(rec.pullV + 0.6 * dtF, 17)
-        const dx = CAR_PULL.x - b.position.x
-        const dy = CAR_PULL.y - b.position.y
+        // DRAGNÄTET ÄR ETT GUMMIBAND, inte en linjär hemfärd: vinschen kortar
+        // repets vilolängd (rec.reel) och en fjäder drar kroppen mot handen med
+        // kraft i proportion till hur mycket repet är STRÄCKT. Hinner kroppen
+        // ikapp vinschen blir repet slakt, fjädern släpper helt och tyngdkraften
+        // får sista ordet en kort stund — sedan tar nästa ryck. Det är rycken
+        // som gör att det känns elastiskt.
+        const hand = this._handPos()
+        const dx = hand.x - b.position.x
+        const dy = hand.y - b.position.y
         const d = Math.hypot(dx, dy) || 1
-        if (d < 120) {
+        if (d < CATCH_R) {
           this._collect(ctx, rec)
           continue
         }
-        Body.setVelocity(b, { x: (dx / d) * rec.pullV, y: (dy / d) * rec.pullV })
+        // Veven har EGEN klocka per fångst och startar mitt i ett tag. Med spelets
+        // globala tid + slumpat frö avgjorde slumpen om en paus alls hann inträffa
+        // under hemfärden — samma avstånd gav 0 eller 2 ryck olika gånger.
+        rec.reelT = (rec.reelT || 0) + dtF / 60
+        const sin = Math.sin(rec.reelT * REEL_HZ + REEL_FAS)
+        const vev = sin > REEL_TRO ? (sin - REEL_TRO) / (1 - REEL_TRO) : 0
+        rec.reel = Math.max(0, rec.reel - ((rec.reelRate || 6) / DUTY_MEAN) * vev * dtF)
+        const stretch = d - rec.reel
+        let vx = b.velocity.x
+        let vy = b.velocity.y
+        if (stretch > 0) {
+          const a = Math.min(stretch * REEL_K, REEL_AMAX) * dtF
+          vx += (dx / d) * a
+          vy += (dy / d) * a
+          const vmax = rec.vmax || REEL_VMAX
+          const along = (vx * dx + vy * dy) / d
+          if (along > vmax) {
+            vx -= (dx / d) * (along - vmax)
+            vy -= (dy / d) * (along - vmax)
+          }
+          vx *= REEL_DAMP
+          vy *= REEL_DAMP
+          // nytt vevtag som spänner ett slakt rep → armen får mothåll
+          if (rec.slack && stretch > 6) this._recoil = Math.max(this._recoil, 0.3)
+          rec.slack = false
+        } else {
+          // slakt rep: kroppen har hunnit ikapp vinschen — den bromsar in och
+          // sjunker tills nästa vevtag hinner spänna repet igen
+          rec.slack = true
+          vx *= SLACK_DAMP
+          vy *= SLACK_DAMP
+        }
+        Body.setVelocity(b, { x: vx, y: vy })
         continue
       }
       if (rec.stuck) continue
@@ -1876,6 +2579,7 @@ export default {
         const wing = rec.inner.children[0]?._wxWing
         if (wing && !wing.destroyed) {
           if (rec.kind === 'fagel') wing.rotation = Math.sin(this._t * 15 + rec.seed) * 0.6
+          else if (rec.inner.children[0]._wxArt === 'flaxis') wing.rotation = Math.sin(this._t * 9 + rec.seed) * 0.3
           else wing.rotation = Math.sin(this._t * 1.8 + rec.seed) * 0.05 // krukans blomma svajar
         }
       }
@@ -1898,6 +2602,8 @@ export default {
 
   // ------------------------------------------------------------------ skott-animering
   _advanceShots(ctx, dtMS, sc) {
+    const dtF = dtMS / 16.667
+    const hand = this._handPos()
     for (let i = this._shots.length - 1; i >= 0; i--) {
       const s = this._shots[i]
       if (s.phase === 'fly') {
@@ -1911,8 +2617,15 @@ export default {
         } else if (s.skata && this._skata && !this._skata.c.destroyed) {
           s.ex = this._skata.c.x
           s.ey = this._skata.c.y
+        } else if (s.mons && s.mons.win.mc && !s.mons.win.mc.destroyed) {
+          s.ex = s.mons.seg.c.x + s.mons.win.lx
+          s.ey = s.mons.win.cy + 6
         }
         s.p += dtMS / SHOT_MS
+        // repet piskar efter spetsen: spänt (sag < 1) medan linan skjuts ut
+        const tipX = hand.x + (s.ex - hand.x) * s.p
+        const tipY = hand.y + (s.ey - hand.y) * s.p
+        if (s.rope) stepRope(s.rope, hand.x, hand.y, tipX, tipY, dtF, 0.98)
         if (s.p >= 1) {
           s.p = 1
           this._resolveShot(ctx, s)
@@ -1921,8 +2634,16 @@ export default {
       } else if (s.phase === 'wall') {
         s.ex -= sc // missnätet sitter på husväggen och åker med
         s.life -= dtMS / 900
+        // linan tappar spänsten och hänger allt slakare innan den tonar bort
+        if (s.rope) stepRope(s.rope, hand.x, hand.y, s.ex, s.ey, dtF, 1 + (1 - s.life) * 0.5)
         if (s.life <= 0) this._shots.splice(i, 1)
       }
+    }
+    // repen till kropparna som vinschas hem: sag = vilolängd / verkligt avstånd
+    for (const rec of this._targets) {
+      if (!rec.netted || !rec.rope) continue
+      const d = Math.hypot(hand.x - rec.view.x, hand.y - rec.view.y) || 1
+      stepRope(rec.rope, hand.x, hand.y, rec.view.x, rec.view.y, dtF, clamp((rec.reel ?? d) / d, 0.9, 1.6))
     }
   },
 
@@ -1935,13 +2656,13 @@ export default {
       if (s.phase === 'fly') {
         const x = hand.x + (s.ex - hand.x) * s.p
         const y = hand.y + (s.ey - hand.y) * s.p
-        const mx = (hand.x + x) / 2
-        const my = (hand.y + y) / 2 + 14 * (1 - s.p)
-        g.moveTo(hand.x, hand.y).quadraticCurveTo(mx, my, x, y).stroke({ width: 5, color: 0xf6f6f2, alpha: 0.9 })
+        if (s.rope) strokeRope(g, s.rope, { width: 5 })
+        else g.moveTo(hand.x, hand.y).lineTo(x, y).stroke({ width: 5, color: 0xf6f6f2, alpha: 0.9 })
         g.circle(x, y, 7 + s.p * 5).fill({ color: 0xffffff, alpha: 0.9 })
       } else {
-        // kort fastnat nät på väggen som tonar bort
+        // kort fastnat nät på väggen som tonar bort — med slak lina kvar till handen
         const a = Math.max(0, s.life)
+        if (s.rope) strokeRope(g, s.rope, { width: 4, alpha: 0.75 * a })
         g.moveTo(0, 0) // säkra att inget implicit streck dras från origo
         const r = 34
         for (let k = 0; k < 8; k++) {
@@ -1952,12 +2673,11 @@ export default {
         g.circle(s.ex, s.ey, r * 0.55).stroke({ width: 2, color: 0xf6f6f2, alpha: 0.6 * a })
       }
     }
-    // dragnätets rep: hand → varje kropp på väg hem
+    // dragnätets rep: hand → varje kropp på väg hem. Slakt rep hänger i en båge,
+    // spänt rep blir nästan rakt — man SER vinschen jobba.
     for (const rec of this._targets) {
-      if (!rec.netted) continue
-      const mx = (hand.x + rec.view.x) / 2
-      const my = (hand.y + rec.view.y) / 2 + 22
-      g.moveTo(hand.x, hand.y).quadraticCurveTo(mx, my, rec.view.x, rec.view.y).stroke({ width: 4, color: 0xf6f6f2, alpha: 0.85 })
+      if (!rec.netted || !rec.rope) continue
+      strokeRope(g, rec.rope, { width: 4.5, alpha: rec.slack ? 0.7 : 0.92 })
     }
   },
 
@@ -2033,6 +2753,7 @@ export default {
     for (const seg of this._mid) {
       for (const win of seg.wins || []) {
         if (win.mc && win.mc.scale) gsap.killTweensOf(win.mc.scale)
+        if (win.mc && win.mc._wxNet && win.mc._wxNet.scale) gsap.killTweensOf(win.mc._wxNet.scale)
       }
     }
     for (const h of this._seatHeads) {
@@ -2055,6 +2776,7 @@ export default {
     this._seatHeads = []
     this._outFriends = []
     this._skata = null
+    this._thief = null
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()

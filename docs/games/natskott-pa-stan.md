@@ -66,7 +66,18 @@ paketen, lossning när strecket når fram, max 2 lösa) + skata (1 åt gången, 
 Guldpaket ~1/8 regnar stjärnor. Efter 3 uppdrag: hemkomsten — parallaxen bromsar över 1,9 s,
 gatan töms (pågående hemdrag får landa), hemmets hus glider fram, alla insamlade hoppar ur
 sätet en och en med tonstege och firar framför huset; `complete()` efter spelets egen replik.
-(Skärmdumpar: `.test-shots/natskott-pa-stan.png` · `natskott-uppdrag.png` · `natskott-hemkomst.png`.)
+(Skärmdumpar: `.test-shots/natskott-pa-stan.png` · `natskott-uppdrag.png` · `natskott-hemkomst.png`
+· `natskott-monster.png`.)
+
+**Efter poleringen 2026-08-08:** nätet är ett RIKTIGT REP — en verlet-tråd med tyngd som piskar
+ut, hänger i kedjekurva och slaknar. Dragnätet vinschar i vevtag så hemfärden blir
+ryck–släpp–ryck (mätt: 0,55–0,9 s och 50 px rep-båge, mot HEAD:s raka streck på 0,38 s).
+Monstren är en familj på sex arter — `ludd` (enögd taggpäls) · `goblin` (grön, lila toppmössa) ·
+`tenta` (tentakler) · `taggis` (bred med ryggkam) · `flaxis` (vingar) · `sten` (kantig, mossig) —
+och arten följer med hela vägen till baksätet och paraden. Monstret som lutar sig ut ur en
+krossad ruta är numera ett mål: klibbnät håller kvar det i hålet tills det kryper in igen,
+dragnät lyfter ut det och tar hem det. Ny motgång: ett monster smyger fram, lyfter ett paket
+över huvudet och kutar iväg — nätar du monstret tappar det bytet direkt.
 
 ## 2. Ursprunglig plan & tankeprocess
 
@@ -79,22 +90,27 @@ fail-nivåer. Uppdragen tvingar fram båda näten så växelknappen inte blir de
 
 ## 3. Vad gör det lättjefullt / tunt
 
-Kritikerns kvarstående anmärkningar efter åtgärdsrundan (inga blockerare):
+Efter poleringsomgången 2026-08-08 (repfysik · monsterfamilj · fångbara fönstermonster ·
+pakettjuv) återstår:
 
-- **Handens pose** läser mer som V-tecken än pekfinger+lillfinger-webbpose i denna skala
-  (ren smaksak, ingen funktionsbrist).
-- **Dubbel uppdragskredit möjlig:** ett paket som blåser loss och klibbas igen räknas två
-  gånger (`!rec.stuck`-villkoret) — gör uppdraget lättare, aldrig svårare; inget P0-brott.
 - Mottagar-scenen tål mer: paraden är fin men huset självt reagerar inte (inga tända fönster,
   ingen som öppnar dörren).
+- Kulissen har fortfarande bara ETT väder och en tid på dygnet.
+- Uppdragstyperna är tre och rör bara fånga/fästa/hämta — inget uppdrag använder de nya
+  fönstermonstren eller tjuven.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
-- **[Quick] Hand-posen:** vinkla mellanfingrarna in tydligare så webb-posen läses.
+- ~~**[Quick] Hand-posen:** vinkla mellanfingrarna in tydligare så webb-posen läses.~~
+  **GJORT 2026-08-08** — vikta fingrar med veck + tumme tvärs över + nätskjutardosa på handleden.
+- ~~**[Quick] Dubbelkrediten:** kreditera bara första klibbningen per paket.~~
+  **GJORT 2026-08-08** — `rec.credited` sätts vid första klibbningen.
 - **[Quick] Hemkomst-huset lever:** dörren öppnas / fönster tänds när paraden står klar.
 - **[Medium] Fler kulisser:** natt-läge med lysande fönster, regnväder med paraplyer.
-- **[Medium] Fler uppdragstyper:** "hitta guldpaketet" · "näta ner skatan innan hon knycker".
-- **[Quick] Dubbelkrediten:** kreditera bara första klibbningen per paket (flagga per rec).
+- **[Medium] Fler uppdragstyper:** "hitta guldpaketet" · "näta ner skatan innan hon knycker" ·
+  "fånga monstret i fönstret" (den nya mekaniken saknar ett eget uppdrag).
+- **[Medium] Fler tjuvbeteenden:** tjuven springer alltid åt höger i rak linje — den skulle
+  kunna gömma sig bakom ett hus eller kasta paketet till en kompis.
 
 ## 5. Status / loggar
 
@@ -109,3 +125,42 @@ Kritikerns kvarstående anmärkningar efter åtgärdsrundan (inga blockerare):
   mäter nu spelets `loosened`-flagga, docens replik-lista kompletterad till 8. Sond
   `scripts/_natprobe.mjs`: full runda 40–43 s, exit mitt i finalen + återinträde, 0 konsolfel;
   `_idleprobe` 0 självframsteg. `npm run check` 0/0.
+- 2026-08-08 (kväll) 🔧→✅ **Poleringsomgång på ägarens beställning** — repfysik, elastisk
+  indragning, monsterfamilj, fångbara fönstermonster, pakettjuv. `spelkritiker`: **inga
+  blockerare**, alla 7 grindpunkter håller.
+  - **Repet är en verlet-tråd** (`mkRope`/`stepRope`/`strokeRope`): 12 punkter med tyngd,
+    avståndsvillkor i 3 varv, ändarna spända i handen och träffpunkten. Skottet piskar ut
+    (sag 0,98), missnätet hänger allt slakare medan det tonar bort, och dragnätets lina
+    hänger i kedjekurva. Mätt båge 41–65 px — aldrig ett rakt streck.
+  - **Elastisk indragning i vevtag.** Fyra mätrundor med `scripts/_repprobe.mjs` innan den
+    satt: (1) jämn indragning = 0 ryck, kroppen sprang ifrån vinschen; (2) snabbare vev =
+    repet spänt hela vägen i stället, fortfarande 0 ryck; (3) slumpad vevfas ur `rec.seed`
+    gjorde att SAMMA avstånd gav 0 eller 2 ryck olika gånger → egen vevklocka per fångst som
+    startar mitt i ett tag; (4) ett vevtag räckte hela vägen hem på nära mål → farttaket
+    skalas mot avståndet så taget bara tar ~42 % av sträckan. **Slutmätning: 0,4–1,0 s hemtid,
+    1 ryck och 25–40 % slakt-rutor på drag över ~300 px, 0 ryck på mål som redan hänger nära
+    handen.** Kodkommentaren säger exakt det och inget mer — kritikern fällde ett tidigare
+    utkast som lovade "2–3 ryck".
+  - **Monsterfamilj: 6 arter** (`MONSTER_ARTER`) byggd av en `spelbyggare`-agent —
+    `ludd` · **`goblin` (grön kropp, lila toppmössa — ägarens beställning)** · `tenta` ·
+    `taggis` · `flaxis` · `sten`. Verifierade i riktig Pixi med `scripts/_monsterbild.mjs`
+    (`.test-shots/natskott-monster.png`), inte bara i agentens egen stubb. Arten följer nu
+    med hela vägen: gata → baksäte → hemkomstparad (`_seatList` bär `{kind, golden, art}`).
+    Varje art har egen tonhöjd vid fångst. Flaxis vingar breddades 24 % efter skärmdumpen —
+    de stack bara ut 13 px förbi öronen.
+  - **Fönstermonstren är mål.** `_windowMonsterAt` + `_catchWindowMonster`: klibbnät = fast i
+    hålet, sprattlar, kryper in igen efter 2,5 s; dragnät = lyfts ut och vinschas hem som ny
+    vän. Rutan självlagar inte mitt i en fångst (`brokenAt` skjuts fram 3,2 s). Andelen rutor
+    med monster höjd 0,34 → 0,55 nu när de går att göra något med.
+  - **Pakettjuven** (`_monsterHeist`/`_updateThief`/`_dropLoot`): ett monster smyger fram,
+    lyfter ett paket över huvudet och kutar iväg. Nätat monster tappar bytet på fläcken.
+    P0-tak: EN tjuv, aldrig samtidigt som skatan, vindbyn pausas medan tjuven är i gång.
+    Redan given uppdragskredit kan aldrig försvinna → motgången kan bara sakta ner.
+  - **Två [Quick] ur §4 avklarade:** handposen (kritikern fällde första omtaget som ett
+    fredstecken — lillfingret pekar nu nästan vinkelrätt ut, plus nätskjutardosa på handleden)
+    och dubbelkrediten (`rec.credited`).
+  - **Prestanda oförändrad:** 17,97 ms snittruta och fps 55 både före och efter (baslinjen
+    sparad i `.test-logs/_natskott-HEAD-baslinje.txt` innan omgången började).
+  - **Kontroll:** `npm run check` 0/0 · `npm run test natskott-pa-stan` grön ·
+    `npm run test:all` **72/72** · `_natprobe` full runda + exit mitt i finalen, 0 konsolfel ·
+    `_idleprobe` 0 självframsteg. Ny replik "Monstret tog ett paket!" har klipp.

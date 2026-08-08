@@ -14,6 +14,74 @@ Format:
 
 ---
 
+## 2026-08-08 · v1.43.0 · LYFTPLAN rad 10 + rad 4 (app-brett, inget enskilt spel rört)
+
+**Byggt:** två rader ur arbetsordningen, båda delade filer som lyfter många spel på en gång.
+Inget enskilt spel ändrades — därför är `docs/games/*` orörda med flit; nuläget för de här
+raderna bor i `docs/LYFTPLAN.md`.
+
+**Rad 10 — volym på alla 121 ikoner** (`src/lib/artikoner.js`, 13 spel). Varje mallgren fyller
+sin HUVUDFORM med en gradient efter en regel i stället för per-form-smak: `sphereFill` runda
+kroppar, `cylinderFill` rör och stavar (ny `axis`-parameter), **ny `topLightFill`** för allt
+annat (karosser, kläder, verktyg, polygoner). Smådetaljer lämnas platta med flit. Handrullade
+glans-ellipser bredvid platta fyllningar är **borttagna**, inte kvarlämnade — det var samma
+dubblett som gradienten ersätter. `setDetaljniva(0|1|2)` i `form.js` är kostnadsratten: på 0
+returnerar fyllningsfunktionerna **råfärgen**, så ingen ritgren behöver en egen if-sats.
+Accenter har dessutom en storleksgrind (≥64px).
+
+**Rad 4 — djup i `scene.js`** (55 spel). Tre avståndsband bakom marken, disband vid horisonten
+(ritat **mellan** band 1 och 2 — ordningen ÄR effekten), markstruktur i två lager, vinjett, och
+`tid` (`morgon`/`skymning`/`kvall`) som en nyansparameter. Allt bakom egna flaggor och allt i
+scenroten, alltså **bakom spelytan** — vinjetten kan aldrig mörka ner något barnet ska trycka på.
+De tre banden ersätter gamla `hills` (två cirklar med radie 220–280 som läste som bleka bubblor).
+Nytt temafält `gras` avgör strån eller prickar.
+
+**Fyra mätningar som ändrade koden — inga av dem syntes i ett grönt test:**
+
+1. **Radiella gradienter kostar 256× linjära.** Pixi bakar en linjär till `256×1` (~1 KB), en
+   radiell till `256×256` (~256 KB). Ikonbiblioteket låg på **15,30 MB** GPU-textur;
+   `textureSize: 64` tog det till **1,00 MB** utan banding ens på en 300px-ikon.
+2. **En radiell gradient kan inte ha genomskinlig mitt.** `buildRadialGradient` fyller HELA
+   duken med sista färgstoppet först; en genomskinlig källa raderar ingenting i source-over.
+   Vinjetten blev en **jämn** mörkning (himlens mitt [176,227,250] → [146,189,208], samma
+   faktor överallt). Nu fyra **linjära** kanttoningar — mitten pixelidentisk med baslinjen.
+3. **En gradient per scen destabiliserade sviten.** Disbandets `FillGradient` byggdes inne i
+   `createScene` = ny duk + texturuppladdning vid varje montering. `_ab.sh`: HEAD rent 3/3,
+   ändringen `tom-scen` i 1 av 3 (tre spel samtidigt). Efter cache av **både** dis- och
+   himmelsgradienten: HEAD 1/3 flaky, ändringen **0/3**. Himlen bakades om per montering redan
+   före den här raden, så scenen gör nu färre texturbakningar än HEAD gjorde: noll.
+4. **Två ikonbuggar.** 🌙 ritade en cream-cirkel ovanpå en hel måne för att få skäran —
+   osynlig **bara** mot cream bakgrund. 🍐 var cirkel plus ellips, båda stroke:ade, så sömmen
+   syntes och päronet läste som en snögubbe. Båda är nu egna slutna drag.
+   `.cut()` fungerar INTE för månen: `GraphicsContext.cut()` bryter efter första instruktionen
+   utan hål, så med `.fill().stroke()` fastnar hålet på konturen och fyllningen förblir hel.
+
+**Tre saker byggdes, granskades i skärmdump och ströks** — de är resultat, inte glömska:
+pälstofsar (blev bubblor med egen kontur på kanin/panda/pingvin), kantdager som ljus båge
+(mjuk vid 130px, hårt streck tvärs över pannan vid 300px), och separat ocklusion (gradienterna
+mörknar redan mot underkanten). Strån på `water` var samma sort av fynd: de såg ut som skräp
+i sjön och blev prickar i stället.
+
+**Nya verktyg:** `scripts/_ikonkostnad.mjs` (vad gradienterna kostar i GPU-minne — mäter de
+**bakade texturerna på ritinstruktionerna**, inte modulens cache-räknare, eftersom ett probe
+får en annan modulinstans än appen), `scripts/_scenbild.mjs` (`createScene` i rutnät utan att
+gå via ett spel). `scripts/_ab.sh` tar numera filer som argument + `--rundor`.
+
+**Commits:** `540fb18` feat(artikoner) · `d6fe304` feat(scene) · `67fbcdf` feat(artikoner, början)
+**Kontroll:** `npm run check` 0 fel/0 varningar · `npm run test:all` **72/72 gröna**, inga
+fel-nivåfynd · skärmdumpar granskade per tema (sky meadow water candy sunset night warm).
+
+**Öppet:**
+- **Rad 5 `lib/kamera.js`** är nästa i ordningen — och det är den som gör rad 4:s **statiska**
+  djupband till riktig parallax. Banden är byggda redo för det.
+- `setDetaljniva` har ingen anropare ännu; den behöver en inställning i skalet för att bli
+  verklig (2 är hårdkodat).
+- Rad 3:s rest / A2: de 205 lokala rit-funktionerna i spelfilerna. Största kvarvarande visuella
+  vinsten; `artikoner.js` är nu mallen att kopiera.
+- Rad 12 **`p2-es`** väntar fortfarande på ett ägarbeslut.
+
+---
+
 ## 2026-08-08 · v1.39.0 · 🎉 Projektgenomgång + partikelsystemet (app-brett, inget enskilt spel)
 
 **Byggt:** ägaren bad om en genomgång av helheten — hur allt hänger ihop (assets, funktioner,

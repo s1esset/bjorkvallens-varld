@@ -56,7 +56,9 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_idleprobe.mjs <id>` | klarar spelet sig själv utan input? (ska vara 0) |
 | `node scripts/_partikelprobe.mjs [id]` | tas partikelvägen på riktigt? (fält · antal · pixlar · läckage) |
 | `node scripts/_fpsprobe.mjs --cpu 6` | kostnadskurva för rendering — **kräver CPU-strypning** |
-| `bash scripts/_ab.sh` | HEAD mot ändringen **växelvis** över hela sviten (flake-attribution) |
+| `bash scripts/_ab.sh <fil>… [--rundor N]` | HEAD mot ändringen **växelvis** över hela sviten (flake-attribution) |
+| `node scripts/_ikoner.mjs "🐶,🐱"` · `_ikonkostnad.mjs` | ikonark för ögat · vad gradienterna kostar i GPU-minne |
+| `node scripts/_scenbild.mjs <tema>… [--tider …]` | `createScene` i rutnät utan att gå via ett spel |
 | `node scripts/kenney-sfx.mjs <Audio-katalog>` | importera CC0-ljud → `public/audio/sfx/` |
 
 ## Var kunskapen finns (ladda vid behov — läs inte allt i förväg)
@@ -108,7 +110,21 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 - **Sekventiellt före/efter duger inte för att döma en flaky svit.** Maskinen driver (termik,
   ackumulerade Chrome-processer), och en delmängd på 8 spel var ren medan hela 72-svitens last
   flakade. `scripts/_ab.sh` kör HEAD och ändringen **växelvis** i full skala — det är den enda
-  mätning som faktiskt attribuerar.
+  mätning som faktiskt attribuerar. **Läs båda armarna:** HEAD flakade själv 1 av 3 i en av
+  körningarna, så "min ändring flakade en gång" betyder ingenting utan HEADs egen frekvens
+  bredvid sig.
+- **En `new FillGradient` per scen/objekt destabiliserar sviten precis som `generateTexture`.**
+  Varje gradient bakar en egen duk och laddar upp en textur — sker det vid varje montering
+  gav det `tom-scen` i 1 av 3 rundor mot 0 av 3 på HEAD. **Cacha varje gradient per färg**
+  (`lib/form.js`, `scene.js`); en scen ska göra NOLL texturbakningar när den monteras.
+- **En radiell gradient kan inte ha genomskinlig mitt.** `buildRadialGradient` fyller först
+  HELA duken med sista färgstoppet och ritar gradienten ovanpå — en genomskinlig källa raderar
+  ingenting i source-over. En vinjett byggd så blir en **jämn** mörkning över hela ytan
+  (uppmätt: himlens mitt [176,227,250] → [146,189,208], samma faktor överallt). `buildLinear-
+  Gradient` har ingen sådan förifyllning: bygg kanttoningar av **linjära** gradienter.
+- **Radiella gradienter kostar 256× linjära.** Pixi bakar en linjär till `256×1` (~1 KB) och en
+  radiell till `256×256` (~256 KB). Ikonbiblioteket låg på 15,3 MB innan `textureSize: 64`
+  tog ner det till 1,0 MB — utan synlig banding ens på 300px. Mät med `_ikonkostnad.mjs`.
 - **Röstkön är inte permanent.** `npm run voice` fungerar (F5-TTS i `C:\repos\storygen`) — töm kön
   i stället för att lämna repliker på Web Speech.
 - **Sonder måste ligga i repot.** Scratchpad-katalogen kan inte lösa `playwright`; lägg

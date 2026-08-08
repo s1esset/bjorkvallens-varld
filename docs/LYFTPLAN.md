@@ -283,15 +283,50 @@ Container-baserad: `follow(mal, {lead, deadzone})` · `shake(amp)` · `zoomTo(s,
 P0-villkor: mjuk easing, **ingen rotation**, ingen snabb rörelse, ingen zoom som överraskar.
 Barnet ska aldrig tappa bort sig själv i bild.
 
-### C7. Fördjupa `scene.js` — lyfter 57 spel på en gång **[Medium]**
+### C7. Fördjupa `scene.js` — lyfter 55 spel på en gång **[Medium]** — ✅ BYGGD 2026-08-08
 
-Idag: himmel + sol + moln + en markremsa. Lägg till:
+Före: himmel + sol + moln + en markremsa. Nu, allt bakom en egen flagga (`djup` · `dis` ·
+`markstruktur` · `vinjett` · `tid`) och allt i scenroten, alltså **bakom spelytan**:
 
-- tre parallaxband (fjärran kullar / mellanträd / närgräs) som `TilingSprite` av bakade texturer
-- ett dis-band vid horisonten
-- markstruktur (prickar/strån) i stället för en jämn yta
-- vinjett som **en** radiell gradient-`Graphics` (inte ett filter)
-- tid på dygnet styrd av **en** nyansparameter, så samma tema ger morgon/dag/skymning
+- **Tre avståndsband** i stället för `TilingSprite`. Varje band är lägre, mörkare och tätare
+  kuperat än det bakom — de tre signalerna ögat läser som avstånd. Ingen textur behövde
+  bakas, så `TilingSprite`-vägen (och dess `generateTexture`-risk, se C2) föll bort.
+  Ersätter gamla `hills`: två cirklar med radie 220–280 som läste som bleka bubblor.
+- **Disband** vid horisonten, ritat **mellan** band 1 och 2. Ordningen ÄR effekten — det är
+  därför fjärran bandet ser avlägset ut trots att det bara är en aning ljusare.
+- **Markstruktur** i två lager: en tät rad strån längs markens överkant + glesa strån under.
+  Bara det glesa lagret läste som prickar av smuts. Nytt temafält **`gras`** avgör strån
+  eller prickar — strån på `water` såg ut som skräp i sjön (bara skärmdumpen visade det),
+  medan sand (`warm`) bär dem fint som torrt strå.
+- **Vinjett** som **fyra linjära kanttoningar**, INTE en radiell gradient — se fällan nedan.
+- **`tid`** (`morgon` · `skymning` · `kvall`) som en nyansparameter. `topp` och `botten`
+  lerpas olika mycket och åt olika håll: en skymning glöder vid horisonten och är djup
+  ovanför, en kväll är tvärtom. En enda faktor över hela himlen gav en **grå** skymning.
+
+**Fälla 1 — en radiell gradient kan inte ha genomskinlig mitt.** `buildRadialGradient` i Pixi
+fyller först HELA duken med sista färgstoppet och ritar gradienten ovanpå; en genomskinlig
+källa raderar ingenting i source-over. En vinjett med genomskinlig mitt blir därför en JÄMN
+mörkning över hela ytan. Uppmätt på pixlarna: himlens mitt gick [176,227,250] → [146,189,208],
+samma 0.83-multiplikation överallt. `buildLinearGradient` har ingen förifyllning, så fyra
+linjära kanttoningar (delade instanser, ~4 KB) gör jobbet — och mitten är nu pixelidentisk
+med baslinjen medan hörnen mörknar 57 steg.
+
+**Fälla 2 — en gradient per scen destabiliserade sviten.** Disbandets `FillGradient` byggdes
+först inne i `createScene`, alltså en ny duk + texturuppladdning vid **varje** spelmontering.
+Interleaved A/B (`scripts/_ab.sh src/lib/scene.js`): HEAD `rent` 3/3, ändringen `tom-scen` i
+1 av 3 rundor (tre spel samtidigt) — plus en full körning som fällde ett fjärde spel. Samma
+signatur som `generateTexture`-fällan i C3. Efter cache av både dis- OCH himmelsgradienten
+(den senare bakades om per montering redan före den här raden): HEAD 1/3 flaky,
+ändringen **0/3**. En scen gör nu noll texturbakningar vid montering — färre än HEAD.
+
+Nytt verktyg: **`scripts/_scenbild.mjs`** ritar `createScene` i ett rutnät utan att gå via
+ett spel (`node scripts/_scenbild.mjs meadow --tider dag,morgon,skymning,kvall`). Scenen delas
+av 55 spel, så ett temabyte måste gå att se utan att först hitta ett spel med rätt tema.
+`scripts/_ab.sh` tar numera filer som argument i stället för att vara hårdkodad till
+partiklar/feedback.
+
+⬜ Kvar: banden är **statiska djupband, inte parallax** — de blir parallax först när
+`lib/kamera.js` (C6/rad 5) finns och kan skjuta dem i olika takt.
 
 ### C8. Detaljnivå i `artikoner.js` — lyfter 13 spel på en gång **[Medium]** — ✅ BYGGD 2026-08-08
 
@@ -373,7 +408,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 1 | `lib/partiklar.js` + `feedback.js` internt, 3× täthet | C3 | **alla 72 spel** | ✅ v1.39.0 |
 | 2 | `lib/atlas.js` — bakning av Pixi-grafik till textur | C2 | repeterad dekor | ⬜ *(revs, se C2)* |
 | 3 | `FillGradient` i `scene.js` + `lib/form.js` | C1 | 57 scener + moln | ✅ v1.40.0 *(delvis — se C1)* |
-| 4 | Fördjupad `scene.js` (parallax, dis, vinjett) | C7 | 57 spel | ⬜ |
+| 4 | Fördjupad `scene.js` (djupband, dis, vinjett, tid) | C7 | 55 spel | ✅ v1.43.0 |
 | 5 | `lib/kamera.js` | C6 | nya + 5 befintliga | ⬜ |
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ⬜ |
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ⬜ |

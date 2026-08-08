@@ -202,7 +202,12 @@ export class AudioService {
       for (const [k, f] of Object.entries(map)) {
         this._sampleUrls.set(k, `${import.meta.env.BASE_URL}audio/sfx/${f}`)
       }
-      if (this.ctx) this._predecodeAll() // ljudet redan upplåst -> värm upp direkt
+      // Skapa AudioContext direkt och börja avkoda i bakgrunden — att vänta på _bindUnlock()s
+      // pointerdown gjorde att avkodningen startade i EXAKT samma ögonblick som det tryck som
+      // ska trigga det första ljudet (V8). decodeAudioData funkar i suspended state; bara
+      // uppspelning kräver en användargest, inte konstruktion eller avkodning.
+      this._ensure()
+      if (this.ctx) this._predecodeAll()
     } catch {
       /* inga klipp -> procedurell syntes / röst-fallback */
     }

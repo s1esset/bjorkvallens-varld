@@ -3,6 +3,17 @@
 import { Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PLAYFUL, FONT } from './theme.js'
+import { spray, rain } from './partiklar.js'
+
+// Partikeleffekterna nedan (puff/burst/sparkle/bigCelebration) kör i första hand via
+// lib/partiklar.js: ETT ParticleContainer per lager och EN tween per svärm, i stället
+// för en Graphics + en tween per partikel. Kan arket inte byggas (ingen DOM, inget
+// 2D-context) returnerar spray()/rain() false och Graphics-vägen nedanför tar över
+// oförändrad — de gamla kropparna står kvar just för att den fallbacken ska finnas.
+//
+// Rörelsekurvorna är medvetet identiska (samma power2.out på avstånd, alpha och
+// skala), så växlingen i sig syns inte. Det som syns är TÄTHETEN: partiklarna är
+// numera så billiga att DENSITY i partiklar.js sätter tre gånger så många i luften.
 
 // --- Vilolägen -------------------------------------------------------------
 // Effekterna nedan (pop/wiggle/shake/breathe) återgår till objektets VILOLÄGE när de
@@ -84,6 +95,22 @@ export function wiggle(target) {
 
 // Liten partikelpuff på en plats (t.ex. när en bubbla poppas).
 export function puff(layer, x, y, { count = 8, color } = {}) {
+  if (
+    spray(layer, x, y, {
+      count,
+      former: ['cirkel'],
+      colors: color != null ? [color] : PLAYFUL,
+      size: 10,
+      sizeVar: 0.4,
+      sizeTo: 0.2,
+      dist: 75,
+      distVar: 0.47,
+      life: 0.65,
+      lifeVar: 0.23,
+    })
+  ) {
+    return
+  }
   for (let i = 0; i < count; i++) {
     const p = new Graphics().circle(0, 0, 6 + Math.random() * 8).fill(color ?? PLAYFUL[(Math.random() * PLAYFUL.length) | 0])
     p.x = x
@@ -123,6 +150,7 @@ export function puff(layer, x, y, { count = 8, color } = {}) {
 // Stor men kort hyllning: konfetti regnar över skärmen.
 export function bigCelebration(layer, { width = 1280, height = 720 } = {}) {
   const N = 60
+  if (rain(layer, { width, height, count: N })) return
   for (let i = 0; i < N; i++) {
     const size = 12 + Math.random() * 14
     const c = new Graphics()
@@ -257,6 +285,24 @@ export function shake(target, { intensity = 8, duration = 0.4 } = {}) {
 // Saftig partikel-explosion (mix av cirklar + stjärnor i glada färger), något
 // kraftigare än puff — för delfiranden/milstolpar. Exit-säker.
 export function burst(layer, x, y, { count = 14, colors = PLAYFUL, power = 1 } = {}) {
+  if (
+    spray(layer, x, y, {
+      count,
+      // 2 av 5 = 40 % stjärnor, samma blandning som Graphics-vägen nedan.
+      former: ['stjarna', 'stjarna', 'cirkel', 'cirkel', 'cirkel'],
+      colors,
+      size: 8.5,
+      sizeVar: 0.41,
+      sizeTo: 0.3,
+      dist: 95 * power,
+      distVar: 0.47,
+      spin: 3,
+      life: 0.8,
+      lifeVar: 0.25,
+    })
+  ) {
+    return
+  }
   for (let i = 0; i < count; i++) {
     const col = colors[(Math.random() * colors.length) | 0]
     const p = new Graphics()
@@ -323,6 +369,23 @@ export function breathe(target, { scale = 1.08, duration = 0.9 } = {}) {
 
 // Gnistor runt en punkt (vid match).
 export function sparkle(layer, x, y, { count = 6 } = {}) {
+  if (
+    spray(layer, x, y, {
+      count,
+      former: ['gnista'],
+      colors: [0xfff3b0],
+      size: 7.5,
+      sizeVar: 0.33,
+      sizeTo: 1, // gnistor krympte aldrig, de tonade bara bort
+      dist: 50,
+      distVar: 0,
+      jamn: true, // jämnt fördelade runt punkten, som förut
+      life: 0.6,
+      lifeVar: 0,
+    })
+  ) {
+    return
+  }
   for (let i = 0; i < count; i++) {
     const s = new Graphics()
     const r = 5 + Math.random() * 5

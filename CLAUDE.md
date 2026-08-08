@@ -73,6 +73,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | vad bilden avslöjar (trösklar + kalibrering) | `scripts/bildkoll.mjs` |
 | vad som hände senast | `docs/SESSIONS.md` |
 | spelidéer som väntar på planering | `docs/IDEER.md` |
+| app-breda lyft (motor · assets · rendering) | `docs/LYFTPLAN.md` |
 
 ## Tysta fällor — kostade tid på riktigt, gissa inte om dem
 

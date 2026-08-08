@@ -14,6 +14,42 @@ Format:
 
 ---
 
+## 2026-08-08 · v1.35.0 · 💎 Glittergrottan polerad till ✅ — 🔧-backloggen är NOLL
+
+**Byggt:** `/polera glittergrottan` (sista 🔧-spelet). Alla §4-punkter utom principfacit:
+kamera-drift på idle (±17/11 px, somnar vid tryck — mätt 15,9 → 2,3 px), kub som tredje
+formgrupp vid n=6 (mätt 2/2/2, kuben sist), glimmerdjuret heter **Glimma** (presenterar sig
+vid första klappet + jublar med namn varannan runda, 4 nya F5-TTS-klipp), tända kristaller
+klirrar (stämd C7/E7/G7-syntes tills MOSS är uppe), melodin börjar på slumpat skalsteg,
+dimman från nivå 1/~10 s.
+
+- **P0-fix ur skärmdumpen (inte ur docen):** första kristallen kunde gömma sig BAKOM Glimma
+  — nedre vänstra platsen på x≈278 mot djurets hit-kant x≈286. `_avoidPet()` håller låga
+  platser på x≥396. Docens §5 påstod att avstånden var mätta; det gällde inte petzonen.
+- **Kritikfynd (5/5-sviten håller):** slumpat z-djup ±60 gav upp till ~16 % skenbar
+  storleksskillnad — lika mycket som storleksregelns eget steg vid n=6, så "minsta" kunde SE
+  större ut. Storleksregler kör nu nästan platt djup (±12).
+- **Två lib-buggar uppmätta med ny sond (`scripts/_glitterprobe.mjs` — spelar nivå 0→13):**
+  (1) `forceContextLoss()` i ThreeLayer.destroy fick Chrome att BLOCKERA nya WebGL-kontexter
+  — andra inträdet kraschade med tom scen. Renderern återbrukas nu mellan instanser.
+  (2) Vid kontextförlust no-op:ar render() och nya meshar fick aldrig matrixWorld → pick()
+  missade dem trots rätt position (mwPos [0,0,0]; pick 0 → 2 efter updateMatrixWorld).
+  Ticken uppdaterar matriserna explicit — spelet överlever flikbyte/GPU-reset spelbart.
+- **Sondfällor (två nya):** med ThreeLayer finns TVÅ canvasar — `querySelector('canvas')`
+  ger three-canvasen (pointer-events: none), trycken måste till den SISTA (Pixi). Och en
+  sond som importerar spel-URL:en själv får en ANNAN modulinstans när Vite HMR-stämplat
+  modulen — GameHost exponerar nu `window.__barnspel.game` (DEV-only).
+- **Verktygsfynd → ATGARDER:** `npm run sfx` tappar tyst Kenney-nycklarna (tap/soft/flip)
+  ur sfx-manifestet (V6, manifestet återställdes före commit) · `vandkort` säger "Delfin!"
+  utan klipp (V7).
+
+**Commits:** 9321376 feat(glittergrottan) · (denna: docs)
+**Öppet:** 🔧-backloggen tom — alla 72 spel ✅. Kvar i glittergrottans §4: principfacit
+[Medium]. ATGARDER V6 (gen-sfx-manifestet) + V7 (vandkort-klipp). MOSS nere: `kristall_klirr`
++ `duns` väntar i sfx-kön.
+
+---
+
 ## 2026-08-08 · v1.34.0 · 🚙 Nätskott på stan — 72:a spelet, bibliotekets första förstapersonsspel
 
 **Byggt:** `/spel natskott-pa-stan` efter ägarens spec-ja (meddelandet "ja" på session 4-korten).

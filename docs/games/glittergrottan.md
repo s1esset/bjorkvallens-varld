@@ -164,7 +164,7 @@ namnger den). Samma skärm bär båda åldrarna.
   borde bli en delad hjälpare — buggen ovan kan finnas i flera spel. Obs: `ctx.later()`
   finns redan i GameHost och gör samma sak; spelets `_later` kan bytas ut vid nästa omgång.
 
-`2026-08-08 · POLERAD till ✅ (/polera) — alla §4-punkter utom principfacit.`
+`2026-08-08 · POLERAD till ✅ (/polera) — alla §4-punkter utom principfacit · 9321376`
 - **P0-fix (sedd i skärmdump, inte i doc):** nedre vänstra kristallplatsen kunde hamna på
   x≈278 och gömma sig BAKOM Glimma (träffytorna överlappade — §5-påståendet ovan om mätta
   avstånd stämde inte för petzonen). `_avoidPet()` håller låga platser (y>500) på x≥396:

@@ -123,6 +123,38 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
     den shuffle-baserade `missingCount`-logiken; `plan.missing` numera oanvänt men kvar).
   - **Exit-säkerhet.** `_killViewTweens` dödar nu även `v._wet`-tweens; `_buildLevel`-städningen
     och `destroy` dödar `_elviraBreath` + Elviras egna tweens innan brädet förstörs.
+- 2026-08-09: **Riktig vätska** (LYFTPLAN rad 6 / B1). `lib/vatska.js` (SPH + metabollar) driver
+  nu vattnet på de tre ställen där det SYNS, och den gamla "droppar längs en polylinje"-vägen
+  (`pointAt`, `_drops`, `_spawnDrop`, `_drawMugWater`) är borta.
+  - **Var vätskan simuleras.** Kranens stråle · läckan ur sista öppna porten · muggen. Inuti
+    rören simuleras ingenting: kanalen är 26 px, röret ogenomskinligt, och en simulering där
+    hade kostat allt och synts noll. Vattnet SUGS in i källrörets mynning (`drain`) och kommer
+    ut i andra änden efter `140 + celler·95` ms; kanal-overlayen visar färden som förut.
+  - **Målet läses ur vätskan.** `_readMug` tar vattenYTAN (tredje lägsta droppen) i stället för
+    en uppräknad siffra. Tre filter behövdes, och mätningen visade varför: utan hastighetsfiltret
+    rapporterade en droppe som bara PASSERADE mätfönstret muggen full (fyllnad hoppade
+    0.43 → 1 → 0.58), och utan `pal`-filtret räknades stänk som aldrig gått genom ledningen.
+  - **Tre mätta fel som koden inte kunde avslöja** (`scripts/_vatskeprobe.mjs`, nytt):
+    1. *Strålen var osynlig.* 49 partiklar fanns, noll syntes. En droppe faller ~480 px/s och
+       klicken är 55 px — med saftbarens takt (145 ms) hamnar de **70 px isär**, når aldrig
+       metaboll-tröskeln och ritas i KANTfärgen (nästan vit) mot en ljusblå himmel. Takten är
+       nu räknad ur fallhastigheten (70 ms), tröskeln 0.34 och suddningen 6.
+    2. *Banan löste sig själv.* Muggen låg i kranens kolumn på nivå 1, så läckan från översta
+       röret föll rakt ner i mål utan ett enda tryck. Muggen ligger nu ALDRIG i källkolumnen.
+    3. *Spillet åt budgeten.* Läckvatten samlades i muggen (såg fullt ut, räknades inte):
+       132 partiklar efter 6 s och stigande. `drain(..., { pal: 0 })` — ny parameter i
+       `vatska.js` — låter spill rinna utanför. Stabilt på 11–16 partiklar när det läcker.
+  - **Banorna växer i BREDD, inte höjd.** Fyra rader tryckte muggen till y≈690, bakom brickan
+    och delvis ur bild — den buggen fanns i alla banor från nivå 3 och syntes bara i en
+    skärmdump. Nu alltid 3 rader, 4→6 kolumner, rutnätet centreras efter kolumnantal.
+    Brickans panel flyttad bakom muggen, och brickans rör flyttas i sidled när muggen krockar.
+  - **Plantan blommade aldrig.** `this._plant.text = '🌸'` på en **Graphics** gjorde ingenting.
+    Ny `_bloomPlant()` ritar kronblad + pistill. Verifierad i vinst-skärmdumpen.
+  - **Exit-säkerhet:** `gsap.delayedCall` → `ctx.later()` (modulen är en singleton — se
+    spelkontraktet), `FluidView`/`FluidWorld` rivs i `destroy`. Sonden lämnar mitt i strömmen
+    och går in igen: 12 partiklar, 0 fel.
+  - Kontroll: `check` 0 fel · `test:all` 72/72 · FPS **56,8 vid CPU 6× strypt** (oförändrat mot
+    tom scen) · muggen full på ~9 s · `_idleprobe 12` = 0 framsteg utan tryck.
   - Deferred: [Medium] mjukare auto-hjälp (visa "Jag hjälper lite!"), [Medium] T-rör/grenval till
     två muggar, [Quick] ventil/kran-klimax, [Quick] mugg-fyllning med våg/bubblor + "glugg"-ljud,
     [Quick] trädgård/karta-progression, [Quick] riktiga vatten-SFX (MOSS), [Deep] växande planta

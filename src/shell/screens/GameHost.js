@@ -77,7 +77,12 @@ export async function createGameHost(services, params) {
   // DEV-only: exponera den KÖRANDE modulinstansen för sonder (scripts/_*.mjs).
   // En sond som importerar spel-URL:en själv kan få en annan instans så fort
   // Vite HMR-stämplat modulen (?t=…) — den här referensen är alltid rätt.
-  if (import.meta.env.DEV && window.__barnspel) window.__barnspel.game = game
+  if (import.meta.env.DEV && window.__barnspel) {
+    window.__barnspel.game = game
+    // ...och omgångens ctx, så en sond kan driva spelets egna metoder (t.ex. lösa
+    // banan med _autoHelp) utan att snickra ihop en falsk ctx som inte är den riktiga.
+    window.__barnspel.ctx = ctx
+  }
   for (const k of ['complete', 'update', 'setLevel', 'addStars', 'setCustom']) {
     const orig = progress[k].bind(progress)
     progress[k] = (...a) => {

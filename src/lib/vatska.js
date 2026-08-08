@@ -194,11 +194,14 @@ export class FluidWorld {
   }
 
   // Sug bort vätska i en ruta (avlopp, mun, svamp). Returnerar antal borttagna.
-  drain(x, y, w, h, { max = Infinity } = {}) {
+  // `pal` begränsar till en sorts vatten: ett kärl kan då ta emot det som kom rätt
+  // väg och låta spill rinna utanför, utan att spelet behöver egna partikelfält.
+  drain(x, y, w, h, { max = Infinity, pal = null } = {}) {
     const hw = w / 2
     const hh = h / 2
     let n = 0
     for (let i = this.count - 1; i >= 0 && n < max; i--) {
+      if (pal != null && this.pal[i] !== pal) continue
       if (Math.abs(this.x[i] - x) < hw && Math.abs(this.y[i] - y) < hh) {
         this._kill(i)
         n++

@@ -59,6 +59,8 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `bash scripts/_ab.sh <fil>… [--rundor N]` | HEAD mot ändringen **växelvis** över hela sviten (flake-attribution) |
 | `node scripts/_ikoner.mjs "🐶,🐱"` · `_ikonkostnad.mjs` | ikonark för ögat · vad gradienterna kostar i GPU-minne |
 | `node scripts/_scenbild.mjs <tema>… [--tider …]` | `createScene` i rutnät utan att gå via ett spel |
+| `node scripts/_kamerabild.mjs <tema> --lagen 0,0.5,1` | ett kameraläge per ruta + offset per lager (`--fps` mäter kostnaden) |
+| `node scripts/_kameraprobe.mjs` | kamerans beteende i tal (dödzon · ruta · skak · zoom · exit) — **utan webbläsare** |
 | `node scripts/kenney-sfx.mjs <Audio-katalog>` | importera CC0-ljud → `public/audio/sfx/` |
 
 ## Var kunskapen finns (ladda vid behov — läs inte allt i förväg)

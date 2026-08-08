@@ -14,6 +14,65 @@ Format:
 
 ---
 
+## 2026-08-09 · v1.44.0 · LYFTPLAN rad 5 — `lib/kamera.js` (app-brett, inget enskilt spel rört)
+
+**Byggt:** kameran som gör rad 4:s **statiska** djupband till riktig parallax. `class Camera`
+äger inga spelobjekt, bara **lager**: `parallax(faktor)` ger en Container där 0 = fastspikat i
+skärmen (vinjett, HUD), 1 = spelarens plan, däremellan = bakgrund som glider långsammare.
+Spelet bygger i faktor 1 och tänker i världskoordinater. `follow` · `moveTo` · `panTo` ·
+`shake` · `zoomTo` · `attach(ticker)` · `destroy()`. Pekpunkter behöver ingen omräkning —
+lagren är riktiga Pixi-containrar, så `varld.toLocal(e.global)` räcker.
+
+`createScene(tema, { kamera: { bredd } })` delar scenen i tio djuplager och ritar **varje
+lager exakt så brett som dess faktor kräver** (`lagerBredd(f) = vy + f·(värld − vy)`). Utan
+flaggan är utfallet oförändrat: samma container, samma ritordning, samma bild.
+
+**Tre fel som mätningen hittade — inget av dem gick att se i koden:**
+
+1. **`hardBox` 0.42 satte resten av kameran ur spel.** Rutan klämmer mot målets läge varje
+   bildruta, så en snäv ruta gör kameran klistrad vid figuren och låter dödzon, lead och
+   fartsspärr bara verka inne i rutan. Nu 0.75. Priset är mätt och dokumenterat: en
+   **teleport** rycker bilden med (3880 px på en bildruta) — ett spel som flyttar sin figur
+   långt ska anropa `moveTo()` i samma andetag.
+2. **Zoomen skalade varje lager med sin egen faktor** (`1 + (zoom−1)·f`). Det lät fysikaliskt
+   och gled isär: vid zoom 1.4 hamnade markens horisont på skärm-y 874 och fjärranbandets på
+   673. En zoom ändrar **brännvidd** — den flyttar inte lagren i förhållande till varandra.
+   Det gör bara panoreringen, och den bär faktorn. Zoomen är nu uniform kring vyns mitt.
+3. **Zoom-UT under 1 kräver marginal åt båda håll**, vilket `lagerBredd` (som bara ger
+   marginal åt höger) inte ger. Zoom-IN är däremot gratis — vid 1.6 landar markens högerkant
+   exakt på världens. Därför är `minZoom` 1 som golv, dokumenterat i stället för tyst trasigt.
+
+**En gräns gjordes hörbar i stället för tyst:** scenens lager är låsta i höjdled, så en värld
+med vertikalt utrymme skulle låta figuren glida av den ritade marken — synligt bara i rörelse,
+aldrig i en stillbild. `adopt()` varnar därför i DEV när `worldH > vyns höjd`.
+
+**Kostnad: ingen mätbar.** `_kamerabild.mjs --fps --cpu 6`: scen utan kamera 56,6 FPS, samma
+scen i 10 parallaxlager med följning i rörelse 56,6 FPS.
+
+**Nya verktyg:** `scripts/_kameraprobe.mjs` (beteendet i tal — dödzon, hård ruta, spärr, skak,
+zoom, klämning, exit; kör i **Node utan webbläsare**, eftersom kameran bara rör
+`.position`/`.scale` och Pixis Container laddar där) och `scripts/_kamerabild.mjs` (ett
+kameraläge per ruta, maskad, plus `f<faktor>:x<offset>` per lager — en fin bild kan mycket väl
+ha noll parallax, och `--fps` mäter kostnaden).
+
+**Kontroll:** `npm run check` 0 fel/0 varningar · `_kameraprobe.mjs` allt grönt ·
+`scripts/_ab.sh src/lib/scene.js --rundor 3` växelvis: **HEAD flakade 2 av 3** rundor
+(`glittergrottan:tom-scen`, en gång även `konsolfel` + `golvet-ar-lava:tom-scen`),
+**ändringen 0 av 3 — 72/72 rent i alla tre**. Utan HEAD-armen bredvid sig hade den enstaka
+`tvatta-djuret:tom-scen` i den första sekventiella körningen sett ut som en regression.
+
+**Öppet:**
+- **Kameran har ännu ingen kund bland de 72 spelen.** Ingen befintlig `createScene`-scen rullar
+  i sidled, och de två spel som har egen kamera vill ha något den med flit inte gör:
+  `snobollen` härleder kamerans HÖJD ur backens yta (`camY = surfaceY(camX + LEAD)`) med backen
+  ritad i skärmrymd. Att byta den mot generisk följning vore att tuna om ett fungerande spel
+  utan synlig vinst. Första kunden blir ett **nytt** spel byggt för en värld bredare än rutan,
+  eller en `/polera`-runda som medvetet ger ett spel en sådan värld.
+- Rad 6 (`FluidWorld` → `vattenvagen` + `golvet-ar-lava`) är nästa i arbetsordningen.
+- `setDetaljniva` saknar fortfarande en anropare i skalet (2 är hårdkodat).
+
+---
+
 ## 2026-08-08 · v1.43.0 · LYFTPLAN rad 10 + rad 4 (app-brett, inget enskilt spel rört)
 
 **Byggt:** två rader ur arbetsordningen, båda delade filer som lyfter många spel på en gång.

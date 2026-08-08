@@ -7,6 +7,7 @@ import { Container, Graphics, FillGradient } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DESIGN_W, DESIGN_H } from './theme.js'
 import { sphereFill } from './form.js'
+import { DJUP, taggaLager, lagerBredd } from './kamera.js'
 
 // Molnens fyllning delas mellan alla moln i hela appen (samma vita klot-gradient, byggd en
 // gång) i stället för en ny FillGradient per moln — se lib/form.js.
@@ -51,6 +52,11 @@ const THEMES = {
 // (`djup` · `dis` · `markstruktur` · `vinjett`), och `tid` ger morgon/skymning/kväll ur
 // samma tema. Allt ligger i scenroten, alltså BAKOM spelytan — vinjetten kan därför aldrig
 // mörka ner något barnet ska trycka på.
+//
+// `kamera: { bredd }` (LYFTPLAN rad 5) delar upp scenen i parallaxlager i stället för att
+// lägga allt i en container, och ritar varje lager så brett som just DESS faktor kräver.
+// Roten får då `_kamLager`, som `Camera.adopt()` plockar upp. Utan flaggan är utfallet
+// oförändrat — samma container, samma ritordning, samma bild.
 export function createScene(theme = 'sky', opts = {}) {
   const t = applyTid(typeof theme === 'string' ? THEMES[theme] || THEMES.sky : theme, opts.tid)
   const width = opts.width ?? DESIGN_W
@@ -66,10 +72,36 @@ export function createScene(theme = 'sky', opts = {}) {
   root.eventMode = 'none'
   root.interactiveChildren = false
 
+  // Parallaxlagren skapas HÄR, i bakifrån-och-fram-ordning, inte där innehållet ritas.
+  // Molnen ritas sist i koden men hör hemma bakom marken; utan en explicit ordning hade de
+  // hamnat framför den. Lagren har y-faktor 0: en horisont ska ligga still i höjdled även
+  // när bilden panorerar i sidled (se kamera.js — scenen är parallax i sidled).
+  const worldW = opts.kamera ? Math.max(width, opts.kamera.bredd ?? width) : width
+  const lager = []
+  const mk = (f) => {
+    if (!opts.kamera) return { c: root, w: width }
+    const c = taggaLager(new Container(), { x: f, y: 0 }, { dekor: true })
+    lager.push(c)
+    root.addChild(c)
+    return { c, w: lagerBredd(f, width, worldW) }
+  }
+  const L = {
+    himmel: mk(DJUP.himmel),
+    sol: mk(DJUP.sol),
+    stjarnor: mk(DJUP.stjarnor),
+    moln: mk(DJUP.moln),
+    fjarran: mk(DJUP.fjarran),
+    dis: mk(DJUP.dis),
+    mellan: mk(DJUP.mellan),
+    nara: mk(DJUP.nara),
+    mark: mk(DJUP.mark),
+    vinjett: mk(DJUP.himmel),
+  }
+
   // Himmel (lodrät gradient).
   const sky = new Graphics()
-  paintVGradient(sky, width, height, t.top, t.bottom)
-  root.addChild(sky)
+  paintVGradient(sky, L.himmel.w, height, t.top, t.bottom)
+  L.himmel.c.addChild(sky)
 
   // Sol (mjuk halo + skiva) uppe till vänster/höger.
   if (t.sun) {
@@ -79,7 +111,7 @@ export function createScene(theme = 'sky', opts = {}) {
     sun.addChild(new Graphics().circle(0, 0, 84).fill({ color: sunColor, alpha: 0.28 }))
     sun.addChild(new Graphics().circle(0, 0, 58).fill({ color: sunColor }))
     sun.position.set(opts.sunX ?? 150, opts.sunY ?? 130)
-    root.addChild(sun)
+    L.sol.c.addChild(sun)
   }
 
   // Stjärnor (nattema): små tindrande prickar.
@@ -87,8 +119,8 @@ export function createScene(theme = 'sky', opts = {}) {
     for (let i = 0; i < t.stars; i++) {
       const r = 1.5 + Math.random() * 2.5
       const s = new Graphics().circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.85 })
-      s.position.set(Math.random() * width, Math.random() * height * 0.7)
-      root.addChild(s)
+      s.position.set(Math.random() * L.stjarnor.w, Math.random() * height * 0.7)
+      L.stjarnor.c.addChild(s)
       twinkle(s, 1.2 + Math.random() * 2)
     }
   }
@@ -98,8 +130,8 @@ export function createScene(theme = 'sky', opts = {}) {
     for (let i = 0; i < t.bokeh; i++) {
       const r = 40 + Math.random() * 110
       const b = new Graphics().circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.08 + Math.random() * 0.08 })
-      b.position.set(Math.random() * width, Math.random() * height * 0.85)
-      root.addChild(b)
+      b.position.set(Math.random() * L.stjarnor.w, Math.random() * height * 0.85)
+      L.stjarnor.c.addChild(b)
     }
   }
 
@@ -112,42 +144,45 @@ export function createScene(theme = 'sky', opts = {}) {
     if (djup) {
       // Fjärran: lerpad KRAFTIGT mot himlen. Ett avlägset berg är inte mörkgrönt, det är
       // nästan himmelsfärgat — kontrast, inte storlek, är det som läser som avstånd.
-      paintBand(root, width, gy + 4, 4, 104, lerpColor(t.groundDark, t.bottom, 0.64))
+      // Kupolantalet skalas med lagrets bredd, annars blir kullarna utdragna i en bred värld.
+      paintBand(L.fjarran.c, L.fjarran.w, gy + 4, kupoler(4, L.fjarran.w, width), 104, lerpColor(t.groundDark, t.bottom, 0.64))
     }
     if (dis) {
       // Disband: ljusare mot horisonten, genomskinligt uppåt. Alfa i färgstoppen fungerar
       // (Pixi kör dem genom Color.toHexa()), så bandet behöver ingen egen alpha på formen.
-      const hz = new Graphics().rect(0, gy - 110, width, 118).fill(hazeFill(t.bottom))
+      const hz = new Graphics().rect(0, gy - 110, L.dis.w, 118).fill(hazeFill(t.bottom))
       hz.eventMode = 'none'
-      root.addChild(hz)
+      L.dis.c.addChild(hz)
     }
     if (djup) {
       // Mellan- och närband. Tre band i stället för två är skillnaden mellan "det finns en
       // horisont" och "det finns ett landskap": varje band är lägre, mörkare och tätare
       // kuperat än det bakom, vilket är precis de tre signalerna ögat läser som avstånd.
-      paintBand(root, width, gy + 14, 6, 72, lerpColor(t.groundDark, t.bottom, 0.4))
-      paintBand(root, width, gy + 22, t.hills ? 7 : 9, 44, lerpColor(t.groundDark, t.bottom, 0.2))
+      paintBand(L.mellan.c, L.mellan.w, gy + 14, kupoler(6, L.mellan.w, width), 72, lerpColor(t.groundDark, t.bottom, 0.4))
+      paintBand(L.nara.c, L.nara.w, gy + 22, kupoler(t.hills ? 7 : 9, L.nara.w, width), 44, lerpColor(t.groundDark, t.bottom, 0.2))
     }
     const ground = new Graphics()
-    ground.roundRect(-40, gy, width + 80, groundH + 80, 60).fill(t.ground)
-    ground.roundRect(-40, gy, width + 80, 14, 60).fill({ color: t.groundDark, alpha: 0.5 })
-    root.addChild(ground)
+    ground.roundRect(-40, gy, L.mark.w + 80, groundH + 80, 60).fill(t.ground)
+    ground.roundRect(-40, gy, L.mark.w + 80, 14, 60).fill({ color: t.groundDark, alpha: 0.5 })
+    L.mark.c.addChild(ground)
     if (markstruktur) {
       // Markstruktur i två lager: en TÄT rad strån längs markens överkant, som gör
       // gräskanten till gräs i stället för en ritad linje, plus glesa strån längre ner så
       // ytan inte är jämn. Bara det glesa lagret ensamt läste som prickar i gräset.
       // Deterministiska lägen (inte Math.random) — en jämförbar skärmdump är värd mer än
       // en unik grästuva.
+      const mw = L.mark.w
+      const tathet = mw / width // en bredare värld ska ha lika TÄT struktur, inte lika mycket
       const tufts = new Graphics()
       if (t.gras) {
-        for (let i = 0; i * 13 < width + 26; i++) {
+        for (let i = 0; i * 13 < mw + 26; i++) {
           const x = i * 13 - 13 + (i % 3) * 3
           const h = 7 + (i % 4) * 3
           tufts.moveTo(x, gy + 9).quadraticCurveTo(x + 1, gy + 9 - h * 0.6, x + (i % 2 ? 5 : -5), gy + 9 - h)
         }
         tufts.stroke({ width: 2.5, color: t.groundDark, alpha: 0.55, cap: 'round' })
-        for (let i = 0; i < 40; i++) {
-          const x = ((i * 173) % (width + 60)) - 30
+        for (let i = 0; i < Math.round(40 * tathet); i++) {
+          const x = ((i * 173) % (mw + 60)) - 30
           const y = gy + 30 + ((i * 61) % Math.max(1, groundH - 34))
           const h = 5 + (i % 3) * 2.5
           tufts.moveTo(x, y).quadraticCurveTo(x + 2, y - h * 0.7, x + (i % 2 ? 4 : -4), y - h)
@@ -156,26 +191,27 @@ export function createScene(theme = 'sky', opts = {}) {
       } else {
         // Prickar: läser som krusning på vatten, strössel på godis och småsten på natt-
         // och skymningsmark — allt utom grässtrå, som bara stämmer på grönt och sand.
-        for (let i = 0; i < 54; i++) {
-          const x = ((i * 149) % (width + 40)) - 20
+        for (let i = 0; i < Math.round(54 * tathet); i++) {
+          const x = ((i * 149) % (mw + 40)) - 20
           const y = gy + 16 + ((i * 53) % Math.max(1, groundH - 20))
           tufts.ellipse(x, y, 3.5 + (i % 3), 2 + (i % 2)).fill({ color: t.groundDark, alpha: 0.3 })
         }
       }
       tufts.eventMode = 'none'
-      root.addChild(tufts)
+      L.mark.c.addChild(tufts)
     }
   }
 
-  // Moln som långsamt driver (exit-säkert).
-  const cloudCount = t.clouds || 0
+  // Moln som långsamt driver (exit-säkert). Molnen ritas sist i koden men hamnar i sitt
+  // eget lager längst bak när kameran är på — se lageruppställningen ovan.
+  const cloudCount = Math.round((t.clouds || 0) * (L.moln.w / width))
   for (let i = 0; i < cloudCount; i++) {
     const cloud = makeCloud(0.8 + Math.random() * 0.7)
     const y = 70 + Math.random() * (height * 0.32)
-    cloud.position.set(Math.random() * width, y)
+    cloud.position.set(Math.random() * L.moln.w, y)
     cloud.alpha = 0.92
-    root.addChild(cloud)
-    driftCloud(cloud, width)
+    L.moln.c.addChild(cloud)
+    driftCloud(cloud, L.moln.w)
   }
 
   // Vinjett sist = överst i SCENEN, men fortfarande under spelytan. En radiell gradient som
@@ -193,9 +229,10 @@ export function createScene(theme = 'sky', opts = {}) {
     v.rect(0, 0, vx, height).fill(f.hoger)
     v.rect(width - vx, 0, vx, height).fill(f.vanster)
     v.eventMode = 'none'
-    root.addChild(v)
+    L.vinjett.c.addChild(v)
   }
 
+  if (opts.kamera) root._kamLager = lager
   return root
 }
 
@@ -206,6 +243,13 @@ export function createScene(theme = 'sky', opts = {}) {
 function rgba(hex, a) {
   const h = hex.toString(16).padStart(6, '0')
   return `#${h}${Math.round(Math.max(0, Math.min(1, a)) * 255).toString(16).padStart(2, '0')}`
+}
+
+// Hur många kupoler ett band ska ha när lagret är bredare än vyn: samma kupolBREDD, alltså
+// fler kupoler. Skalar man i stället upp bredden med samma antal blir kullarna utdragna och
+// bandet läser som en våg i stället för ett landskap.
+function kupoler(bas, lagerW, viewW) {
+  return Math.max(bas, Math.round((bas * lagerW) / viewW))
 }
 
 // Ett avståndsband: en rad mjuka kullar med marken under. Amplituden varieras med en sinus

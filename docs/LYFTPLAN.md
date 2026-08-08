@@ -275,13 +275,65 @@ Slangen (`zackes-biltvatt`) · nättrådar (`spindelnatet`, `spindel-zacke-sving
 `natskott-pa-stan`) · vattenstrålar · tåg-/ormspår (`siffertaget`, `loopdjuren`) · regnbågen
 (`regnbagsmalaren`). Ett texturerat rep läses som ett **material**; en polyline läses som en linje.
 
-### C6. `lib/kamera.js` **[Deep]**
+### C6. `lib/kamera.js` **[Deep]** — ✅ BYGGD 2026-08-08
 
-Container-baserad: `follow(mal, {lead, deadzone})` · `shake(amp)` · `zoomTo(s, x, y)` ·
-`parallax(lager, faktor)`. Gör en 1280×720-diorama till en värld.
+`class Camera` äger INGA spelobjekt, bara **lager**: `parallax(faktor)` ger en Container vars
+faktor är 0 (fastspikad i skärmen — vinjett, HUD), 1 (spelarens plan) eller något däremellan.
+Spelet bygger i faktor 1 och tänker i världskoordinater; kameran flyttar lagren, aldrig
+innehållet. `follow(mal, {lead, deadzone})` · `moveTo` · `panTo` · `shake(amp, dur)` ·
+`zoomTo(s, {x, y})` · `attach(ticker)` · `destroy()`. Pekpunkter behöver ingen omräkning:
+lagren är riktiga Pixi-containrar, så `varld.toLocal(e.global)` räcker.
 
-P0-villkor: mjuk easing, **ingen rotation**, ingen snabb rörelse, ingen zoom som överraskar.
-Barnet ska aldrig tappa bort sig själv i bild.
+**Lagerformeln är exakt, inte ungefärlig.** Ett lager med faktor f står på `-vänsterkant·f·s`.
+Kameran startar i världens vänsterkant, så ett lager förskjuts bara ÅT VÄNSTER — och då är
+`lagerBredd(f) = vy + f·(värld − vy)` precis den bredd som behövs för att aldrig visa en tom
+kant. Vid världens högerkant landar lagrets högra kant på pixeln (uppmätt: f 0.02 → bredd
+1318, offset −38, kant 1280).
+
+**P0 i kod, inte bara i kommentar:** ingen rotation exponeras eller sätts · exponentiell
+utjämning (bildrutefri: 60 och 30 FPS hamnar inom 1 px efter en sekund) · dödzon · fartsspärr ·
+zoom klämd till [minZoom, maxZoom] med **golv 0,5 s** på varje zoom · skak med tak (10 px),
+kvadratisk avklingning och två sinusvågor i stället för brus (per-bildruta-slump känns hårt) ·
+faktor-0-lager skakar aldrig, så vinjett och HUD står stilla.
+
+**Ett mätvärde ändrade designen.** `hardBox` (hur långt målet får ligga från mitten innan
+kameran tvingas efter) sattes först till 0.42 av halva vyn = 269 px. Sonden visade att rutan
+då klämmer mot målets läge varje bildruta och därmed sätter **dödzon, lead och fartsspärr ur
+spel** — de får bara verka inne i rutan, och kameran blir klistrad vid figuren. 0.75 (480 px,
+drygt 160 px in från kanten) låter utjämningen göra jobbet och lämnar rutan som sista utväg.
+Priset är mätt och dokumenterat: en **teleport** rycker bilden med (3880 px på en bildruta i
+sonden), eftersom rutan klämmer mot målets nuvarande läge. Ett spel som flyttar sin figur
+långt på en bildruta ska flytta kameran själv med `moveTo()` i samma andetag.
+
+**Zoomen skalade först varje lager med sin egen faktor** (`1 + (zoom−1)·f`). Det lät
+fysikaliskt — ett avlägset berg ändras mindre av en kamerakörning — och var fel: vid zoom 1.4
+hamnade markens horisont på skärm-y 874 och fjärranbandets på 673, alltså gled scenen isär i
+höjdled. En zoom ändrar **brännvidd**; den flyttar inte lagren i förhållande till varandra.
+Det gör bara PANORERINGEN, och den bär faktorn. Zoomen är nu uniform och skalar kring vyns
+mitt. `_kameraprobe.mjs` har en egen regressionsvakt för just det.
+
+**Kostnad: ingen mätbar.** `_kamerabild.mjs --fps --cpu 6`: scen utan kamera **56,6 FPS**,
+samma scen i 10 parallaxlager med följning i rörelse **56,6 FPS**.
+
+⚠️ **Scenens lager är låsta i höjdled.** Har världen vertikalt utrymme panorerar spelets eget
+faktor-1-lager i höjd medan scenens mark står kvar — figuren glider av marken. Det syns bara
+i rörelse, aldrig i en stillbild, så `adopt()` **varnar i DEV** när `worldH > vyns höjd` i
+stället för att vara tyst. Vertikal parallax i scenen kräver att banden ankras mot ett
+kameraläge, och det är inte byggt.
+
+Nya verktyg: **`scripts/_kamerabild.mjs`** (ett kameraläge per ruta, maskad — parallax går
+inte att bedöma i en stillbild av EN position; skriver också ut `f<faktor>:x<offset>` per
+lager, för en fin bild kan mycket väl ha noll parallax) och **`scripts/_kameraprobe.mjs`**
+(beteendet i tal: dödzon, hård ruta, spärr, skak, zoom, klämning, exit — kör i **Node utan
+webbläsare**, eftersom kameran bara rör `.position`/`.scale` och Pixis Container laddar där).
+
+⬜ Kvar: kameran har ännu **ingen kund bland de 72 spelen**. Ingen befintlig `createScene`-scen
+rullar i sidled, och de två spel som har egen kamera (`snobollen`, `natskott-pa-stan`) vill ha
+något kameran med flit inte gör — snöbollen härleder kamerans **höjd ur backens yta**
+(`camY = surfaceY(camX + LEAD)`) i stället för att följa bollen, med backen ritad i skärmrymd.
+Att byta den mot generisk följning vore att tuna om ett fungerande spel utan synlig vinst.
+Första riktiga kunden blir därför ett **nytt** spel byggt för en värld bredare än rutan, eller
+en `/polera`-runda som medvetet ger ett spel en sådan värld.
 
 ### C7. Fördjupa `scene.js` — lyfter 55 spel på en gång **[Medium]** — ✅ BYGGD 2026-08-08
 
@@ -325,8 +377,18 @@ av 55 spel, så ett temabyte måste gå att se utan att först hitta ett spel me
 `scripts/_ab.sh` tar numera filer som argument i stället för att vara hårdkodad till
 partiklar/feedback.
 
-⬜ Kvar: banden är **statiska djupband, inte parallax** — de blir parallax först när
-`lib/kamera.js` (C6/rad 5) finns och kan skjuta dem i olika takt.
+✅ **Banden är parallax sedan 2026-08-08** (rad 5). `createScene(tema, { kamera: { bredd } })`
+lägger varje element i ett eget lager med en faktor ur `DJUP` (himmel 0 · sol 0.02 · stjärnor
+och bokeh 0.05 · moln 0.12 · fjärran 0.18 · dis 0.22 · mellan 0.34 · nära 0.52 · mark 1 ·
+vinjett 0 överst), och ritar varje lager exakt så brett som dess faktor kräver. Roten får
+`_kamLager` som `Camera.adopt()` plockar upp. **Utan flaggan är utfallet oförändrat** — samma
+container, samma ritordning, samma bild (verifierat mot `_scenbild.mjs`-baslinjen).
+
+Två saker som bara syns när lagren är på: molnen ritas sist i koden men **hör hemma bakom
+marken**, så lagren skapas i en egen, uttalad bakifrån-och-fram-ordning i stället för där
+innehållet råkar ritas. Och kupolantalet i ett band skalas med lagrets bredd — behåller man
+antalet och breddar geometrin blir kullarna utdragna och bandet läser som en **våg** i
+stället för ett landskap.
 
 ### C8. Detaljnivå i `artikoner.js` — lyfter 13 spel på en gång **[Medium]** — ✅ BYGGD 2026-08-08
 
@@ -409,7 +471,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 2 | `lib/atlas.js` — bakning av Pixi-grafik till textur | C2 | repeterad dekor | ⬜ *(revs, se C2)* |
 | 3 | `FillGradient` i `scene.js` + `lib/form.js` | C1 | 57 scener + moln | ✅ v1.40.0 *(delvis — se C1)* |
 | 4 | Fördjupad `scene.js` (djupband, dis, vinjett, tid) | C7 | 55 spel | ✅ v1.43.0 |
-| 5 | `lib/kamera.js` | C6 | nya + 5 befintliga | ⬜ |
+| 5 | `lib/kamera.js` | C6 | nya spel; scenens djupband blir parallax | ✅ v1.44.0 |
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ⬜ |
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ⬜ |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 24 fysikspel | ⬜ |

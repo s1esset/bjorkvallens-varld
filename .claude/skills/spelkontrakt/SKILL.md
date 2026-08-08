@@ -125,6 +125,7 @@ destroy(ctx) {
 |---|---|
 | `lib/feedback.js` | `bounceIn·pop·wiggle·shake·breathe` (egna objekt — döda tweens i destroy) · `puff·sparkle·burst·ripple·bigCelebration·floatText` (självstädande, exit-säkra) |
 | `lib/scene.js` | `createScene('sky'|…)` bakgrundsvärld + `lerpColor` |
+| `lib/kamera.js` | `Camera` — parallaxlager, `follow`/`moveTo`/`panTo`/`shake`/`zoomTo`; världar bredare än rutan (se nedan) |
 | `lib/DragController.js` | drag med snäpp / snäpp-tillbaka / **tap-tap-fallback** + `onMiss` — obligatorisk för dragspel |
 | `lib/Button.js` | stor barnknapp (hit-halo, studs, ljud) |
 | `lib/mascot.js` | maskoten **Bobo** |
@@ -133,6 +134,35 @@ destroy(ctx) {
 | `lib/physics.js` · `lib/launcher.js` | se skill **fysik-spel** |
 | `lib/three3d.js` | se skill **threejs-games** |
 | `lib/cooking.js` | delad grädda/grilla-tonmodell |
+
+### Värld bredare än rutan → `lib/kamera.js`
+
+Kameran äger inga spelobjekt, bara **lager**. Faktor 0 = fastspikat i skärmen, 1 = spelarens
+plan, däremellan = bakgrund som glider långsammare. Bygg i faktor 1 och tänk i
+världskoordinater.
+
+```js
+this._kam = new Camera({ worldW: 3200 })
+ctx.stage.addChild(this._kam.root)
+this._kam.adopt(createScene('meadow', { kamera: { bredd: 3200 } })) // scenens djupband
+this._varld = this._kam.parallax(1)                                  // allt spelbart här
+this._kam.follow(this._figur, { lead: 90, deadzone: 140 })
+this._kam.attach(ctx.ticker)
+// destroy(): this._kam.destroy()   ← river lager OCH ticker-callbacken
+```
+
+- **Pekpunkter:** `this._varld.toLocal(e.global)` — lagren är riktiga containrar, ingen egen
+  omräkning behövs.
+- **Flyttar du figuren långt på en bildruta** (ny runda, respawn): anropa `moveTo()` i samma
+  andetag, annars rycker bilden med (kameran släpper aldrig målet ur bild — medvetet val).
+- **`worldW` == vyn ⇒ kameran är en no-op.** Adoptera den utan att bygga en större värld och
+  bilden blir exakt som förut.
+- Scenens parallax är **i sidled**; horisonten ligger still i höjdled. Egna lager
+  (`parallax(f)`) rör sig på båda axlarna. **Vill du panorera i höjd** (`worldH` > 720) duger
+  därför inte `adopt(createScene(...))` — marken följer inte med och figuren glider av den.
+  Kameran varnar i DEV; rita egen bakgrund i ett `parallax()`-lager i stället.
+- Zoom är klämd till [1, 1.6] och tar alltid ≥0,5 s. Zoom-ut under 1 kräver att bakgrunden
+  ritas med marginal åt båda håll — sätt `minZoom` själv och rita därefter.
 
 ## Pixi v8-fallgropar
 

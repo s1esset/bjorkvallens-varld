@@ -9,6 +9,7 @@ import { Graphics } from 'pixi.js'
 import { lerpColor } from './scene.js'
 import { COLORS } from './theme.js'
 import { logIcon } from './gamelog.js'
+import { sphereFill } from './form.js'
 
 const ART = {
   // djur: [pälsfärg, öronform, nosfärg, extra]
@@ -163,7 +164,7 @@ export function drawIcon(key, size = 100) {
       g.circle(-17 * S, -30 * S, 6 * S).fill(0x2b2b2b)
       g.circle(17 * S, -30 * S, 6 * S).fill(0x2b2b2b)
     }
-    g.circle(0, 0, 34 * S).fill(fur).stroke({ width: 4, color: dk })
+    g.circle(0, 0, 34 * S).fill(sphereFill(fur)).stroke({ width: 4, color: dk })
     if (ear === 'horse') {
       g.ellipse(0, 27 * S, 17 * S, 22 * S).fill(muzzle).stroke({ width: 4, color: dk })
       // Man + lugg ritas OVANPÅ huvudet, annars blir den bara en taggig sky bakom.
@@ -256,8 +257,7 @@ export function drawIcon(key, size = 100) {
       for (const [sx, sy] of [[-11, 4], [8, 0], [-3, 16], [13, 16]]) g.ellipse(sx * S, sy * S, 2.4 * S, 4 * S).fill(0xffe08a)
       for (const dx of [-16, 0, 16]) g.ellipse(dx * S, -13 * S, 11 * S, 7 * S).fill(leaf)
     } else {
-      g.circle(0, 4 * S, 30 * S).fill(col).stroke({ width: 4, color: dk })
-      g.ellipse(-11 * S, -6 * S, 8 * S, 11 * S).fill({ color: 0xffffff, alpha: 0.3 })
+      g.circle(0, 4 * S, 30 * S).fill(sphereFill(col)).stroke({ width: 4, color: dk })
       g.roundRect(-3 * S, -34 * S, 6 * S, 14 * S, 3 * S).fill(0x6f4a2e)
       g.ellipse(14 * S, -30 * S, 13 * S, 8 * S).fill(leaf)
     }
@@ -363,7 +363,7 @@ export function drawIcon(key, size = 100) {
       g.circle(-40 * S, 26 * S, 11 * S).fill(0xffffff)
       g.circle(40 * S, 26 * S, 11 * S).fill(0xffffff)
     } else if (shape === 'ball') {
-      g.circle(0, 0, 34 * S).fill(col).stroke({ width: 4, color: 0x3a3a3a })
+      g.circle(0, 0, 34 * S).fill(sphereFill(col)).stroke({ width: 4, color: 0x3a3a3a })
       g.poly([0, -16 * S, 15 * S, -5 * S, 9 * S, 13 * S, -9 * S, 13 * S, -15 * S, -5 * S]).fill(0x2b2b2b)
       for (let i = 0; i < 5; i++) {
         const ang = (i / 5) * Math.PI * 2 - Math.PI / 2
@@ -416,8 +416,7 @@ export function drawIcon(key, size = 100) {
       for (const [cx, cy] of [[-14, -14], [14, -14], [-14, 14], [14, 14]]) g.circle(cx * S, cy * S, 15 * S).fill(col).stroke({ width: 3, color: dk })
       g.moveTo(0, 10 * S).quadraticCurveTo(8 * S, 30 * S, 0, 38 * S).stroke({ width: 4, color: dk })
     } else {
-      g.circle(0, 0, 32 * S).fill(col).stroke({ width: 4, color: dk })
-      g.circle(-10 * S, -11 * S, 9 * S).fill({ color: 0xffffff, alpha: 0.35 })
+      g.circle(0, 0, 32 * S).fill(sphereFill(col)).stroke({ width: 4, color: dk })
     }
   } else if (tpl === 'wear') {
     const [, form, col, acc] = a

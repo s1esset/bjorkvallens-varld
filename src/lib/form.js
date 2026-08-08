@@ -8,6 +8,12 @@
 import { FillGradient, Graphics } from 'pixi.js'
 import { shade, tint, COLORS } from './theme.js'
 
+// Delade instanser per färg+opts — en form med samma parametrar återanvänder samma bakade
+// FillGradient (canvas + GPU-textur byggs en gång) i stället för en ny per anrop. Viktigt för
+// artikoner.js: samma ikon (samma färg) ritas ofta på nytt många gånger i ett spel.
+const _sphereCache = new Map()
+const _cylinderCache = new Map()
+
 // En radiell fyllning som läser som ett klot: innercirkelns centrum (ljuskällan) sitter
 // förskjuten uppe till vänster medan yttercirkeln är centrerad i formen — samma tvåcirkel-
 // trick som ger CSS-klot sin rundning. lightX/lightY (0..1 mot formens bbox) styr
@@ -15,7 +21,10 @@ import { shade, tint, COLORS } from './theme.js'
 // Returnerar en FillGradient — används som `graphics.fill(sphereFill(farg))`.
 export function sphereFill(color, opts = {}) {
   const { lightX = 0.32, lightY = 0.3, spread = 0.55, highlight = 0.45, dark = 0.32 } = opts
-  return new FillGradient({
+  const key = `${color}|${lightX}|${lightY}|${spread}|${highlight}|${dark}`
+  let g = _sphereCache.get(key)
+  if (g) return g
+  g = new FillGradient({
     type: 'radial',
     center: { x: lightX, y: lightY },
     innerRadius: 0,
@@ -27,6 +36,8 @@ export function sphereFill(color, opts = {}) {
       { offset: 1, color: shade(color, dark) },
     ],
   })
+  _sphereCache.set(key, g)
+  return g
 }
 
 // En linjär fyllning tvärs över formen som läser som en cylinder/stav sedd rakt framifrån:
@@ -34,8 +45,11 @@ export function sphereFill(color, opts = {}) {
 // (stolpar/stammar) i stället för det vågräta standardläget (slangar/stavar liggande).
 export function cylinderFill(color, opts = {}) {
   const { vertical = false, dark = 0.28, highlight = 0.3 } = opts
+  const key = `${color}|${vertical}|${dark}|${highlight}`
+  let g = _cylinderCache.get(key)
+  if (g) return g
   const end = vertical ? { x: 0, y: 1 } : { x: 1, y: 0 }
-  return new FillGradient({
+  g = new FillGradient({
     end,
     colorStops: [
       { offset: 0, color: shade(color, dark) },
@@ -44,6 +58,8 @@ export function cylinderFill(color, opts = {}) {
       { offset: 1, color: shade(color, dark) },
     ],
   })
+  _cylinderCache.set(key, g)
+  return g
 }
 
 // En liten glansfläck som egen Graphics, redo att läggas som syskon ovanpå en redan ritad

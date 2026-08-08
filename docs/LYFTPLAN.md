@@ -290,11 +290,21 @@ Idag: himmel + sol + moln + en markremsa. Lägg till:
 - vinjett som **en** radiell gradient-`Graphics` (inte ett filter)
 - tid på dygnet styrd av **en** nyansparameter, så samma tema ger morgon/dag/skymning
 
-### C8. Detaljnivå i `artikoner.js` — lyfter 13 spel på en gång **[Medium]**
+### C8. Detaljnivå i `artikoner.js` — lyfter 13 spel på en gång **[Medium]** — 🟨 PÅBÖRJAD 2026-08-08
 
-~110 nycklar, 720 rader, allt platta färgytor. Per mall: basgradient, en mjuk ocklusion under
-formen, en kantdager, och 1–2 strukturaccenter (pälstofsar, fruktporer, metallrepa). Bakom en
+~110 nycklar, 720 rader. Per mall (planerat): basgradient, en mjuk ocklusion under formen, en
+kantdager, och 1–2 strukturaccenter (pälstofsar, fruktporer, metallrepa). Bakom en
 `detalj`-parameter så nivån går att sänka på svaga plattor.
+
+**Klart:** bara steget "basgradient", och bara på de mallar som redan var en ensam cirkel/
+ellips med en handrullad ljus glans-cirkel bredvid (samma dubblettmönster som C1) — `sphereFill`
+från `lib/form.js` ersätter båda med en fyllning: djurhuvudets bas (~30 av nycklarna delar
+samma huvud-cirkel), frukternas standardform (🍎🍊🍑🍋), `shape:'ball'` (⚽) och `shape:'circle'`
+(🔵🟢🟡🟣). **Kvar:** resten av de ~40 mallgrenarna (fordon, kläder, verktyg, havsdjur — de
+flesta är INTE en enkel cirkel och behöver egen bedömning per form), ocklusion, kantdager,
+strukturaccenter, och `detalj`-parametern. `sphereFill`/`cylinderFill` cachar nu per färg+opts
+(en delad `FillGradient` per unik kombination, inte en ny bakning per `drawIcon()`-anrop) —
+viktigt här eftersom samma ikon ofta ritas många gånger i ett spel.
 
 ### C9. 3D-lagret används av ett spel **[Deep]**
 
@@ -327,7 +337,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ⬜ |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 24 fysikspel | ⬜ |
 | 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ⬜ |
-| 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ⬜ |
+| 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | 🟨 v1.41.0 *(basgradient — se C8)* |
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ⬜ |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ⬜ |
 

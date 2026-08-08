@@ -42,6 +42,14 @@ const FORM_LINES = {
   klot: 'Tryck på alla runda klot först, sedan de spetsiga kristallerna!',
   spets: 'Tryck på alla spetsiga kristaller först, sedan alla runda klot!',
 }
+// När fältet är fullt (n=6) blir kuben en EGEN tredje grupp — alltid sist.
+const FORM_CUBE_LINES = {
+  klot: 'Tryck på alla runda klot först, sedan de spetsiga kristallerna, och kuberna sist!',
+  spets: 'Tryck på alla spetsiga kristaller först, sedan alla runda klot, och kuberna sist!',
+}
+// Glimmerdjuret heter Glimma (djur — namnregeln för människor gäller inte).
+const PET_NAME_LINE = 'Glimmerdjuret heter Glimma!'
+const PET_CHEER_LINE = 'Glimma jublar — vilken fin melodi!'
 const MISS_LINE = 'Nästan! Kristallen som blinkar är nästa.'
 const HELP_LINE = 'Titta, den här kristallen blinkar — tryck på den!'
 const DONE_LINE = 'Titta, hela grottan lyser!'
@@ -108,6 +116,10 @@ export default {
     this._lastRule = null
     this._ruleLine = this.voiceIntro
     this._timers = []
+    this._noTap = 0
+    this._drift = 0
+    this._petNamed = false
+    this._cheerAlt = false
 
     // three.js laddas DYNAMISKT → egen chunk, huvudbundlen förblir Pixi-ren.
     const T = await import('../../lib/three3d.js')
@@ -263,7 +275,7 @@ export default {
     this._step = 0
     this._miss = 0
     this._idle = 0
-    this._fogTimer = -7
+    this._fogTimer = -3
     this._phase = 'play'
 
     const L = ctx.progress.get().highestLevel || 0
@@ -276,6 +288,9 @@ export default {
     }
     this._lastRule = rule
     this._rule = rule
+    // Rundans melodi börjar på ett slumpat skalsteg — segermelodin blir aldrig
+    // exakt samma två rundor i rad, men förblir krockfri (pentatonisk).
+    this._penta0 = (Math.random() * Math.min(3, PENTA.length - n + 1)) | 0
 
     const items = this._planRound(rule, n)
     items.forEach((it, i) => {
@@ -285,7 +300,7 @@ export default {
       gsap.from(c.mesh.scale, { x: 0.01, y: 0.01, z: 0.01, duration: 0.45, delay: i * 0.07, ease: 'back.out(2)' })
     })
 
-    this._ruleLine = rule === 'form' ? FORM_LINES[this._formFirst] : RULE_LINES[rule]
+    this._ruleLine = rule === 'form' ? (this._formCube ? FORM_CUBE_LINES : FORM_LINES)[this._formFirst] : RULE_LINES[rule]
     this._buildFacit()
     if (this._started) ctx.services.voice.say(this._ruleLine)
   },
@@ -311,8 +326,15 @@ export default {
       const first = Math.random() < 0.5 ? 'klot' : 'spets'
       const second = first === 'klot' ? 'spets' : 'klot'
       this._formFirst = first
-      const kFirst = Math.max(1, Math.min(n - 1, Math.round(n / 2)))
-      for (let i = 0; i < n; i++) shapes.push(i < kFirst ? first : second)
+      // Kuben blir en egen tredje grupp (sist) först när fältet är fullt — introduktions-
+      // rundan (nivå 5, n=5) förblir två grupper så regeln hinner sätta sig.
+      this._formCube = n >= 6
+      if (this._formCube) {
+        for (let i = 0; i < n; i++) shapes.push(i < 2 ? first : i < 4 ? second : 'kub')
+      } else {
+        const kFirst = Math.max(1, Math.min(n - 1, Math.round(n / 2)))
+        for (let i = 0; i < n; i++) shapes.push(i < kFirst ? first : second)
+      }
     } else {
       for (let i = 0; i < n; i++) shapes.push(SHAPES[(Math.random() * SHAPES.length) | 0])
     }
@@ -344,9 +366,19 @@ export default {
       if (rule === 'storlek_upp') items.forEach((it, i) => (it.rank = i))
       else if (rule === 'storlek_ner') items.forEach((it, i) => (it.rank = n - 1 - i))
       else if (rule === 'farg') items.forEach((it, i) => (it.rank = i))
-      else items.forEach((it) => (it.rank = it.shape === this._formFirst ? 0 : 1))
+      else items.forEach((it) => (it.rank = it.shape === this._formFirst ? 0 : it.shape === 'kub' ? 2 : 1))
     }
     return shuffle(items)
+  },
+
+  // Glimmerdjurets träffyta når till x≈286 på skärmen (hit-r 78 vid z=120 → ~90px
+  // projicerat). En låg kristall längre vänsterut gömde sig BAKOM djuret (närmare
+  // kameran) och träffytorna överlappade — sett i skärmdump trots att docen påstod
+  // motsatsen. Låga platser hålls därför till höger om djuret: x ≥ 396 ger ≥24px
+  // mellanrum mellan träffytorna (396 − 73 − 286 = 37).
+  _avoidPet(slot) {
+    if (slot.y > 500 && slot.x < 396) slot.x = 396 + Math.random() * 14
+    return slot
   },
 
   // Utspridda platser (3x2-rutnät med jitter). Kolumnerna fylls i tur och ordning så
@@ -360,7 +392,7 @@ export default {
     for (let i = 0; i < n; i++) {
       const c = cols[i % 3]
       const r = (i + flip) % 2 // varannan rad → aldrig en helt tom halva
-      slots.push({ x: xs[c] + (Math.random() * 2 - 1) * 34, y: ys[r] + (Math.random() * 2 - 1) * 24 })
+      slots.push(this._avoidPet({ x: xs[c] + (Math.random() * 2 - 1) * 34, y: ys[r] + (Math.random() * 2 - 1) * 24 }))
     }
     return slots
   },
@@ -371,7 +403,7 @@ export default {
     if (rule === 'pos_hoger') {
       const step = (FIELD.x1 - FIELD.x0) / Math.max(1, n - 1)
       for (let i = 0; i < n; i++) {
-        slots.push({ x: FIELD.x0 + i * step, y: (i % 2 ? FIELD.y1 : FIELD.y0) + (Math.random() * 2 - 1) * 20 })
+        slots.push(this._avoidPet({ x: FIELD.x0 + i * step, y: (i % 2 ? FIELD.y1 : FIELD.y0) + (Math.random() * 2 - 1) * 20 }))
       }
     } else {
       // Nerifrån och upp: tre x-banor så att träffytorna aldrig krockar (>=24px isär)
@@ -381,7 +413,7 @@ export default {
       const yBot = 612
       const step = (yBot - yTop) / Math.max(1, n - 1)
       for (let i = 0; i < n; i++) {
-        slots.push({ x: lanes[i % 3] + (Math.random() * 2 - 1) * 28, y: yBot - i * step })
+        slots.push(this._avoidPet({ x: lanes[i % 3] + (Math.random() * 2 - 1) * 28, y: yBot - i * step }))
       }
     }
     return slots
@@ -406,7 +438,11 @@ export default {
     const hit = new T.THREE.Mesh(new T.THREE.IcosahedronGeometry(hitR, 0), new T.THREE.MeshBasicMaterial({ visible: false }))
     mesh.add(hit)
 
-    const z = -60 + Math.random() * 120
+    // Djupet ger parallax-liv — men för STORLEKSREGLERNA hålls det nästan platt:
+    // ±60 i z gav upp till ~16% skenbar storleksskillnad (kameran står ~772px bort),
+    // lika mycket som själva regelsteget vid n=6 — "minsta" kunde SE större ut.
+    const sizeRule = this._rule === 'storlek_upp' || this._rule === 'storlek_ner'
+    const z = sizeRule ? -12 + Math.random() * 24 : -60 + Math.random() * 120
     mesh.position.copy(layer.designToWorld(it.dx, it.dy, z))
     if (it.shape === 'kub') mesh.rotation.set(0.4, 0.5, 0.2)
     layer.scene.add(mesh)
@@ -438,9 +474,7 @@ export default {
     if (c.halo && !c.halo.destroyed) c.halo.destroy()
     c.halo = null
     c.mini = null
-    // Sluta ticka uTime på ett material som inte finns kvar (ThreeLayer saknar
-    // ett publikt "unanimate" — se docs/games/glittergrottan.md §5).
-    this._layer?._animated?.delete(c.mat)
+    this._layer?.unanimate(c.mat)
     this._layer?.scene.remove(c.mesh)
     c.mesh.traverse((o) => {
       o.geometry?.dispose?.()
@@ -509,6 +543,7 @@ export default {
   _tap(ctx, x, y) {
     if (!this._alive || !this._layer) return
     this._idle = 0
+    this._noTap = 0
     if (this._phase !== 'play') {
       sparkle(this._fx, x, y, { count: 4 })
       return
@@ -545,12 +580,40 @@ export default {
       }
     }
 
-    // 3) Glimmerdjuret vill bli klappat.
+    // 2b) Redan tända kristaller KLIRRAR — ren glädje, ingen konsekvens. (Var förut
+    // ett "tomt" tryck med generiskt soft-ljud.)
+    const litC = this._crystals.filter((c) => c.lit)
+    if (litC.length) {
+      const hitLit = this._layer.pick(x, y, litC.map((c) => c.mesh), true)
+      if (hitLit.length) {
+        let o = hitLit[0].object
+        while (o && !litC.some((c) => c.mesh === o)) o = o.parent
+        const c = litC.find((k) => k.mesh === o)
+        if (c) {
+          ctx.services.audio.sfx('kristall_klirr')
+          const d = this._layer.worldToDesign(c.mesh.position)
+          sparkle(this._fx, d.x, d.y, { count: 6 })
+          gsap.killTweensOf(c.mesh.scale)
+          gsap.fromTo(
+            c.mesh.scale,
+            { x: 1.1, y: 1.1, z: 1.1 },
+            { x: 1.24, y: 1.24, z: 1.24, duration: 0.14, yoyo: true, repeat: 1, ease: 'sine.out' }
+          )
+          return
+        }
+      }
+    }
+
+    // 3) Glimmerdjuret vill bli klappat (och presenterar sig första gången).
     if (this._pet && this._layer.pick(x, y, [this._pet], true).length) {
       ctx.services.audio.tone({ freq: 392, dur: 0.14, type: 'triangle', vol: 0.14, slideTo: 587 })
       this._petHop(1.22)
       const d = this._layer.worldToDesign(this._pet.position)
       sparkle(this._fx, d.x, d.y - 40, { count: 6 })
+      if (!this._petNamed) {
+        this._petNamed = true
+        ctx.services.voice.say(PET_NAME_LINE)
+      }
       return
     }
 
@@ -570,7 +633,7 @@ export default {
     this._lit.push(c)
 
     const d = this._layer.worldToDesign(c.mesh.position)
-    const freq = PENTA[Math.min(step, PENTA.length - 1)]
+    const freq = PENTA[Math.min(this._penta0 + step, PENTA.length - 1)]
     ctx.services.audio.tone({ freq, dur: 0.3, type: 'sine', vol: 0.18 })
     ctx.services.audio.tone({ freq: freq * 2, dur: 0.2, type: 'triangle', vol: 0.06, delay: 0.05 })
 
@@ -786,14 +849,16 @@ export default {
     this._phase = 'finish'
     this._clearClouds()
     this._removeHint()
-    ctx.services.voice.say(DONE_LINE)
+    // Varannan runda jublar Glimma med namn — mottagaren får en egen röst.
+    this._cheerAlt = !this._cheerAlt
+    ctx.services.voice.say(this._cheerAlt ? DONE_LINE : PET_CHEER_LINE)
 
     const n = this._lit.length
     this._lit.forEach((c, i) => {
       this._later(0.18 * i, () => {
         if (!this._layer || !c.mesh.parent) return
         const d = this._layer.worldToDesign(c.mesh.position)
-        ctx.services.audio.tone({ freq: PENTA[Math.min(i, PENTA.length - 1)], dur: 0.34, type: 'sine', vol: 0.2 })
+        ctx.services.audio.tone({ freq: PENTA[Math.min(this._penta0 + i, PENTA.length - 1)], dur: 0.34, type: 'sine', vol: 0.2 })
         sparkle(this._fx, d.x, d.y, { count: 14 })
         burst(this._fx, d.x, d.y, { count: 12, colors: [c.color, 0xfff3b0], power: 1.1 })
         c.mat.uniforms.uSparkle.value = 2.6
@@ -832,6 +897,19 @@ export default {
   _update(ctx, dt, t) {
     if (!this._alive || !this._layer) return
 
+    // Mjuk kamera-drift på idle: långsam parallax som ger grottan djup och plats-
+    // känsla. SÄKERT under drift: pick() och worldToDesign() går via den levande
+    // kameran (träffar och overlays stämmer alltid), och designToWorld() läser bara
+    // camera.position.z — placering påverkas inte. Driften somnar in vid tryck och
+    // under finishen, så rundbyten sker med kameran i vila.
+    this._noTap += dt
+    const want = this._phase === 'play' && this._noTap > 2.5 ? 1 : 0
+    this._drift += (want - this._drift) * Math.min(1, dt * 1.4)
+    const cam = this._layer.camera
+    cam.position.x = this._drift * 17 * Math.sin(t * 0.19)
+    cam.position.y = this._drift * 11 * Math.sin(t * 0.15 + 1.7)
+    cam.lookAt(0, 0, 0)
+
     for (const c of this._crystals) {
       if (!c.mesh.parent) continue
       c.mesh.position.y = c.baseY + Math.sin(t * c.bobSpeed + c.phase) * (c.lit ? 6 : 12)
@@ -852,9 +930,11 @@ export default {
       f.group.rotation.z += 0.12 * dt
       if (f.life > 9) this._popCloud(f)
     }
-    if (this._phase === 'play' && this._level >= 2) {
+    // Från nivå 1, första dimman ~10s in i rundan, sedan var 9–12s (tak 2 st) —
+    // med gamla 17s+nivå 2 hann snabba barn aldrig MÖTA motståndet.
+    if (this._phase === 'play' && this._level >= 1) {
       this._fogTimer += dt
-      if (this._fogTimer > 10) {
+      if (this._fogTimer > 7) {
         this._fogTimer = -2 - Math.random() * 3
         this._spawnCloud(ctx)
       }

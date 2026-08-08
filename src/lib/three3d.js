@@ -23,6 +23,9 @@ import { ON as DIAG, logThree } from './gamelog.js'
 export { THREE }
 export * from './three-shaders.js'
 
+// En delad WebGLRenderer för hela appen (se konstruktorn för varför).
+let _sharedRenderer = null
+
 export class ThreeLayer {
   /**
    * @param {Services} services  ctx.services från GameModule
@@ -54,18 +57,37 @@ export class ThreeLayer {
     this._raycaster = new THREE.Raycaster()
     this._ndc = new THREE.Vector2()
 
-    this.renderer = new THREE.WebGLRenderer({
-      antialias,
-      alpha: true,
-      powerPreference: 'high-performance',
-      stencil: false,
-    })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPixelRatio))
-    if (clearColor != null) this.renderer.setClearColor(clearColor, 1)
-    if (shadows) {
-      this.renderer.shadowMap.enabled = true
-      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    // WebGL-kontexter är en knapp resurs: gamla kontexter GC:as lat, och tredje
+    // snabba återinträdet i ett 3D-spel fick "Failed to create WebGL2RenderingContext"
+    // → "Spelet kraschade vid start" (uppmätt i scripts/_glitterprobe.mjs). Renderern
+    // ÅTERBRUKAS därför mellan ThreeLayer-instanser — destroy() tömmer cacher och
+    // kopplar loss canvasen men behåller kontexten vid liv.
+    if (_sharedRenderer && !_sharedRenderer.getContext().isContextLost()) {
+      this.renderer = _sharedRenderer
+    } else {
+      try {
+        this.renderer = new THREE.WebGLRenderer({
+          antialias,
+          alpha: true,
+          powerPreference: 'high-performance',
+          stencil: false,
+        })
+        _sharedRenderer = this.renderer
+      } catch (err) {
+        // Chrome kan BLOCKERA nya kontexter efter en sid-attribuerad förlust.
+        // Återbruka då den gamla renderern: input/pick fungerar (matriser tickas
+        // explicit ovan) och three ritar igen när kontexten återställs — bättre
+        // än "Spelet kraschade vid start".
+        if (!_sharedRenderer) throw err
+        this.renderer = _sharedRenderer
+      }
     }
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPixelRatio))
+    // Återställ ALLTID delade lägen (en tidigare instans kan ha ändrat dem).
+    if (clearColor != null) this.renderer.setClearColor(clearColor, 1)
+    else this.renderer.setClearColor(0x000000, 0)
+    this.renderer.shadowMap.enabled = !!shadows
+    if (shadows) this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(fov, 1, near, far)
@@ -99,6 +121,13 @@ export class ThreeLayer {
         if (m.uniforms?.uTime) m.uniforms.uTime.value = this._elapsed
       }
       for (const fn of this._updates) fn(dt, this._elapsed)
+      // Matriser uppdateras EXPLICIT, inte bara via render(): tappas WebGL-
+      // kontexten (flikbyte, GPU-reset) no-op:ar render(), och nya meshar fick
+      // aldrig sin matrixWorld → pick() missade dem trots rätt position (uppmätt
+      // i _glitterprobe: mwPos [0,0,0], pick 0 → 2 efter updateMatrixWorld).
+      // Med detta förblir spelet spelbart tills kontexten återställs.
+      this.scene.updateMatrixWorld()
+      this.camera.updateMatrixWorld()
       this.renderer.render(this.scene, this.camera)
       if (DIAG && ++this._diagFrames % 60 === 0) this._diagSample()
     }
@@ -147,6 +176,12 @@ export class ThreeLayer {
     this._animated.add(material)
     const pr = this.renderer.getPixelRatio()
     material.uniforms?.uResolution?.value.set(window.innerWidth * pr, window.innerHeight * pr)
+    return material
+  }
+
+  /** Sluta ticka ett material (t.ex. inför dispose av ett enskilt objekt). */
+  unanimate(material) {
+    this._animated.delete(material)
     return material
   }
 
@@ -220,8 +255,11 @@ export class ThreeLayer {
     this._animated.clear()
     disposeObject(this.scene)
     this.scene.clear()
+    // dispose() tömmer interna GPU-cacher (program, render-listor) men lämnar
+    // kontexten användbar — renderern återbrukas av nästa ThreeLayer. Aldrig
+    // forceContextLoss(): Chrome räknar sid-orsakade förluster och BLOCKERAR då
+    // nya kontexter (uppmätt: andra inträdet kraschade med tom scen).
     this.renderer.dispose()
-    this.renderer.forceContextLoss?.()
     this.renderer.domElement.remove()
     this._bgLayer.visible = this._bgWasVisible
     const pixiCanvas = this.services.app.canvas

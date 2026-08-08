@@ -116,6 +116,12 @@ export class AudioService {
           { freq: 1320, dur: 0.18, type: 'sine', vol: 0.22, delay: 0.18 },
         ])
         break
+      case 'kristall_klirr':
+        // glasigt kristallklirr — C7/E7/G7 så det aldrig krockar med pentaskalor i C
+        this._tone({ freq: 2093, dur: 0.14, type: 'sine', vol: 0.16 })
+        this._tone({ freq: 2637, dur: 0.12, type: 'sine', vol: 0.1, delay: 0.03 })
+        this._tone({ freq: 3136, dur: 0.1, type: 'triangle', vol: 0.05, delay: 0.06 })
+        break
       case 'soft':
         // mjuk "inte riktigt"-ton, lekfull och neutral (ingen bestraffning)
         this._tone({ freq: 300, dur: 0.16, type: 'sine', vol: 0.2, slideTo: 220 })

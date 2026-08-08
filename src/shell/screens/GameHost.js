@@ -74,6 +74,10 @@ export async function createGameHost(services, params) {
 
   // Diagnostiklogg för hela omgången (DEV-only, no-op i bygget).
   startGame(game.id, ctx)
+  // DEV-only: exponera den KÖRANDE modulinstansen för sonder (scripts/_*.mjs).
+  // En sond som importerar spel-URL:en själv kan få en annan instans så fort
+  // Vite HMR-stämplat modulen (?t=…) — den här referensen är alltid rätt.
+  if (import.meta.env.DEV && window.__barnspel) window.__barnspel.game = game
   for (const k of ['complete', 'update', 'setLevel', 'addStars', 'setCustom']) {
     const orig = progress[k].bind(progress)
     progress[k] = (...a) => {
@@ -133,6 +137,7 @@ export async function createGameHost(services, params) {
       if (timers.size) diag('timer', 'dodade-vid-exit', { antal: timers.size })
       for (const t of timers) t.kill()
       timers.clear()
+      if (import.meta.env.DEV && window.__barnspel?.game === game) window.__barnspel.game = null
       try {
         game.destroy?.(ctx)
       } catch (err) {

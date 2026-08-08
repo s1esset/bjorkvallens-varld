@@ -24,5 +24,6 @@
   "boing": { "prompt": "a cartoon boing, bouncy spring rebound, single, playful, no music, no voice", "duration": 1.0 },
   "duns": { "prompt": "a soft cartoon landing thud, small feet hitting stone, muffled and gentle, single, no music, no voice", "duration": 1.0 },
   "thwip": { "prompt": "a quick web-shooter thwip, short swish whoosh, no music, no voice", "duration": 1.0 },
-  "magi": { "prompt": "a magical sparkle twinkle, gentle ascending chime shimmer, bright, no voice", "duration": 1.3 }
+  "magi": { "prompt": "a magical sparkle twinkle, gentle ascending chime shimmer, bright, no voice", "duration": 1.3 },
+  "kristall_klirr": { "prompt": "a bright glassy crystal chime, delicate resonant glass ting, single strike with a short shimmer tail, no music, no voice", "duration": 1.3 }
 }

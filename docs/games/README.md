@@ -142,7 +142,7 @@ stor del via det nya delade `src/lib/artikoner.js`.*
 | 61 | Vattenvägen | `vattenvagen` | drag | ✅ | ✅ |
 | 63 | Kugghjulen | `kugghjulen` | drag | ✅ | ✅ |
 | 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ | ✅ |
-| 69 | Glittergrottan (3D) | `glittergrottan` | tap | 🔧 | ✅ |
+| 69 | Glittergrottan (3D) | `glittergrottan` | tap | ✅ | ✅ |
 | 71 | Saftbaren | `saftbaren` | mixed | ✅ | ✅ |
 
 ### 🔤 Lära (larande + pedagogiskt) — ✅ **polerad** (9/9)

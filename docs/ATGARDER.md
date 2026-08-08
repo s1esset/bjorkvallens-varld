@@ -24,7 +24,8 @@ regel gäller: reproducera innan du ändrar.
 
 | # | Var | Fynd | Bevis | Status |
 |---|-----|------|-------|:--:|
-| — | — | *(inga öppna verktygsfynd)* | | |
+| V6 | `scripts/gen-sfx.py` (`npm run sfx`) | Skriver om `public/audio/sfx/manifest.json` enbart från sin egen fraslista och **tappar tyst Kenney-nycklarna** (`tap`/`soft`/`flip`) — tap-ljuden hade blivit stumma klipp-vägen. | Reproducerat 2026-08-08: kördes med MOSS nere, diffen tog bort de tre nycklarna; mp3-filerna låg kvar. Manifestet återställdes med `git checkout` före commit. | ⬜ |
+| V7 | `vandkort` | `npm run check` varnar: körningen sa **"Delfin!"** utan klipp — texten byggs vid körning och kan inte läsas statiskt. | `.test-logs/vandkort.json` `rost-utan-klipp` (backstoppen i `check.mjs`). Lägg frasen (och ev. övriga djurnamn med `!`) i `scripts/voice-phrases.json` och kör `/rost`. | ⬜ |
 
 ## Avklarat
 

@@ -1,5 +1,5 @@
 // Sond för natskott-pa-stan: SPELAR spelet som ett barn skulle — läser målens
-// riktiga positioner ur modul-singletonen, byter nät med växelknappen när
+// riktiga positioner ur modul-singletonen, byter nät genom att trycka på de
 // uppdraget kräver det, fullföljer 3 uppdrag, väntar in HEMKOMSTEN, tar en
 // skärmdump mitt i finalen och lämnar sedan MITT I firandet (värsta exit-stunden),
 // går in igen och ut igen. Rapporterar konsolfel + vad som faktiskt hände.
@@ -40,6 +40,9 @@ await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
 await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
 await page.waitForTimeout(1500)
 
+const sidoHander = await page.evaluate(() =>
+  (window.__natdbg._sidoHander || []).map((c) => ({ x: Math.round(c.x), y: Math.round(c.y) })))
+
 const read = () =>
   page.evaluate(() => {
     const m = window.__natdbg
@@ -47,6 +50,7 @@ const read = () =>
     return {
       phase: m._phase,
       mode: m._mode,
+      vantar: [...(m._vantar || [])],
       mKey: m._missionKey || null,
       mAct: !!m._missionActive,
       got: m._missionGot | 0,
@@ -99,7 +103,17 @@ while (Date.now() - t0 < 150000) {
   if (s.mAct && s.mKey) {
     const wantNet = NEED_NET[s.mKey]
     if (s.mode !== wantNet) {
-      await tap(168, 648) // växelknappen
+      // Växelknappen finns inte längre — nätet byts genom att TRYCKA PÅ en av de
+      // två väntande händerna nere i hörnen. Positionen läses ur spelet, aldrig
+      // som en fast koordinat: den gamla raden tryckte på (168, 648) där knappen
+      // låg och sonden trodde i 150 s att spelet vägrade byta nät.
+      const slot = s.vantar.indexOf(wantNet)
+      if (slot < 0) {
+        await page.waitForTimeout(300)
+        continue
+      }
+      const h = sidoHander[slot]
+      await tap(h.x, h.y - 120)
       seen.toggles++
       await page.waitForTimeout(350)
       continue

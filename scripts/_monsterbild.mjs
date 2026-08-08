@@ -30,22 +30,23 @@ await page.evaluate(() => {
   m._skataTimer = 999
   m._heistTimer = 999
   m._spawnTimer = 999
-  m._onskade = ['ludd', 'goblin', 'tenta', 'taggis', 'flaxis', 'sten']
+  m._onskade = ['ludd', 'goblin', 'tenta', 'taggis', 'flaxis', 'sten', 'snigel', 'maskis', 'svampis', 'grodis', 'spoke', 'robo']
   m._spawnTick = function (ctx) {
     const art = m._onskade.shift()
     if (!art) return
     const rec = this._spawnTarget(ctx, 'monster', 1380, { art, force: true })
     if (!rec) return
-    const i = 6 - m._onskade.length - 1
+    const i = 12 - m._onskade.length - 1
     rec.walkV = 0
     rec.body.isStatic = true
     window.__natdbg._phys.constructor // no-op, håller referensen levande
-    rec._wxPlats = 150 + i * 196
+    rec._wxPlats = 120 + (i % 6) * 208
+    rec._wxRad = i < 6 ? 300 : 490
     window.__arter.push({ art, x: rec._wxPlats })
   }
 })
-// sex spawnar
-for (let i = 0; i < 6; i++) {
+// tolv spawnar
+for (let i = 0; i < 12; i++) {
   await page.evaluate(() => (window.__natdbg._spawnTimer = 0.01))
   await page.waitForTimeout(120)
 }
@@ -56,9 +57,9 @@ await page.evaluate(() => {
   m._targets.forEach((r) => {
     if (r._wxPlats) {
       r.body.position.x = r._wxPlats
-      r.body.position.y = 470
+      r.body.position.y = r._wxRad
       r.view.x = r._wxPlats
-      r.view.y = 470
+      r.view.y = r._wxRad
     }
   })
   m._shiftBodies = () => {}

@@ -79,6 +79,19 @@ krossad ruta är numera ett mål: klibbnät håller kvar det i hålet tills det 
 dragnät lyfter ut det och tar hem det. Ny motgång: ett monster smyger fram, lyfter ett paket
 över huvudet och kutar iväg — nätar du monstret tappar det bytet direkt.
 
+**Efter omgång 2 (samma kväll, ägarens beställning):** växelknappen är borta. Spelet styrs av
+**TRE NÄTHÄNDER** — den aktiva är armen mitt i bild, de två andra ligger och väntar nere i
+vardera hörnet; tryck på en väntande hand och den kliver fram. Alla tre har samma pose i
+**profil** (framifrån-posen lästes som en kanin fyra försök i rad), och det är dräkten som är
+språket: röd med svart väv = dragnät, vit med lila+svart = fästnät, svart med rött+vitt =
+**nätboll** som flyger, studsar och snärjer in det den träffar (målet faller, lägger sig ner och
+får en vit nätboll runt kroppen så bara huvud och fötter sticker ut — och går fortfarande att
+dra hem). Baksätet är en riktig bilinteriör med nackstöd, sömmar, bälten och dörrkort, ritad
+före dörrkanten. Monstren är **tolv arter**. Husen är sex **butiksfasader** utöver hyreshus och
+villa (~1 av 3 hus). Och gatan svarar: **elva gatusaker** står längs trottoaren — brandpost,
+brevlåda, dörr, äppelträd, gatulock, blommor, lyktstolpe, trafikljus, parkerad bil, korvstånd,
+cykel — var och en med eget liv i vila och **tre olika reaktioner**, en per nättyp.
+
 ## 2. Ursprunglig plan & tankeprocess
 
 Första förstapersonsspelet i biblioteket (alla 71 övriga är sidovy/ovanifrån) — resa-känsla
@@ -94,10 +107,13 @@ Efter poleringsomgången 2026-08-08 (repfysik · monsterfamilj · fångbara fön
 pakettjuv) återstår:
 
 - Mottagar-scenen tål mer: paraden är fin men huset självt reagerar inte (inga tända fönster,
-  ingen som öppnar dörren).
+  ingen som öppnar dörren). Kritikern sa det rakt ut efter omgång 2 också: *det finns en
+  mottagare, men den kunde svara tillbaka mer.*
 - Kulissen har fortfarande bara ETT väder och en tid på dygnet.
-- Uppdragstyperna är tre och rör bara fånga/fästa/hämta — inget uppdrag använder de nya
-  fönstermonstren eller tjuven.
+- Uppdragstyperna är tre och rör bara fånga/fästa/hämta — inget uppdrag använder
+  fönstermonstren, tjuven, nätbollarna eller de elva gatusakerna.
+- Höger hörn-hand ligger mot baksätets täta textur och är mer visuellt konkurrensutsatt än
+  vänster (mildrat med en mjuk platta bakom båda händerna, inte helt löst).
 
 ## 4. Förbättringar & förhöjningar (plan)
 
@@ -107,10 +123,16 @@ pakettjuv) återstår:
   **GJORT 2026-08-08** — `rec.credited` sätts vid första klibbningen.
 - **[Quick] Hemkomst-huset lever:** dörren öppnas / fönster tänds när paraden står klar.
 - **[Medium] Fler kulisser:** natt-läge med lysande fönster, regnväder med paraplyer.
-- **[Medium] Fler uppdragstyper:** "hitta guldpaketet" · "näta ner skatan innan hon knycker" ·
-  "fånga monstret i fönstret" (den nya mekaniken saknar ett eget uppdrag).
+- **[Medium] Uppdrag som använder de NYA systemen:** "snärj in tre saker med nätbollen" ·
+  "fånga monstret i fönstret" · "spruta brandposten" — i dag rör alla tre uppdragen bara
+  fånga/fästa/hämta, och nätbollen ger ingen uppdragskredit alls.
 - **[Medium] Fler tjuvbeteenden:** tjuven springer alltid åt höger i rak linje — den skulle
   kunna gömma sig bakom ett hus eller kasta paketet till en kompis.
+- **[Quick] Krossbara skyltfönster:** butikernas stora skyltfönster är dekor, för `_drawWindow`
+  fyller rutan med ogenomskinligt glas och skulle radera de ritade varorna. Kräver ett
+  genomskinligt läge i `_drawWindow` först.
+- **[Quick] `thwip`-klippet:** signaturljudet för VARJE skott är oinspelat och faller tillbaka
+  på `whoosh`. Kör sfx-pipen när MOSS är uppe.
 
 ## 5. Status / loggar
 
@@ -164,3 +186,36 @@ pakettjuv) återstår:
   - **Kontroll:** `npm run check` 0/0 · `npm run test natskott-pa-stan` grön ·
     `npm run test:all` **72/72** · `_natprobe` full runda + exit mitt i finalen, 0 konsolfel ·
     `_idleprobe` 0 självframsteg. Ny replik "Monstret tog ett paket!" har klipp.
+- 2026-08-08 (sen kväll) ✅ **Omgång 2 — ägarens sex beställningar.** `spelkritiker`: **inga
+  blockerare i spelet**, alla 7 grindpunkter håller. Tre `spelbyggare`-agenter parallellt
+  (monsterarter · butiksfasader · gatuobjekt) medan jag byggde styrningen.
+  - **Tre händer i stället för växelknapp** (`NAT_TYPER`, `_buildHands`, `_bytHand`). Aktiv hand
+    i mitten, två väntande i hörnen. Mätt: handbyte 3/3, träffytor **130×180 skärmpixlar**.
+    Kritikern fällde min första kommentar som räknade i LOKALA tal (236×320) — `hitArea` skalas
+    av containerns `SIDO_SKALA`, så den verkliga ytan var 118×160 med bara 22 px marginal.
+    Sonden mäter numera i skärmpixlar.
+  - **Nätbollar** (`_shootBall`/`_updateBalls`/`_snarjIn`): matter-kropp som flyger och studsar
+    (mätt: 652 px, **3 studsar**, tak 3 i luften), träffat mål snärjs in och läggs ner.
+  - **Handposen i PROFIL.** Framifrån lästes som en kanin fyra försök i rad — en lodrät
+    spegelaxel plus två utstickande delar blir alltid ett ansikte. Alla tre kameravinklar finns
+    kvar bakom `HAND_VINKEL`; jämförelsebilden är `.test-shots/natskott-handval.png`.
+  - **Baksätet** ombyggt och flyttat BAKOM dörrkanten (ritordningen var hela skillnaden — ovanpå
+    bilen läste samma former som en soffa parkerad på trottoaren).
+  - **12 monsterarter** (+snigel, mätarlarv, svamp, groda, spöke, robot).
+  - **6 butiksfasader** (`HUSTYPER`), ~1 av 3 hus, alla med krossbara rutor i övervåningen.
+  - **11 gatusaker** (`GATUSAKER` + `PROP_SVAR`): 33 reaktioner, tre per sak. Alla träffytor
+    ≥96 px, verifierat live.
+  - **Tre buggar sonderna hittade som gröna test aldrig sett:** (1) `_phys.link` skriver
+    `view.rotation = body.angle` varje bildruta, så tweenen på det liggande insnärjda målet
+    nollades tyst → rotationen ligger nu på `inner`; (2) nätbollen snärjde in det som råkade gå
+    förbi framför bilen i födelseögonblicket i stället för det man siktade på → spärr tills
+    bollen lämnat handen; (3) butiks- och gatublocket deklarerade **båda** `ritaCykel`
+    (dubbeldeklaration hade dödat hela modulen) → omdöpt vid integrationen.
+  - **Kritikerns blockerare:** `scripts/_natprobe.mjs` tryckte fortfarande på växelknappens
+    borttagna koordinat `(168, 648)` och trodde i 150 s att spelet vägrade byta nät. Sonden
+    läser numera handpositionerna ur spelet. Efter fixen: full runda 60 s, hemkomst nådd,
+    vindby + skata sedda, exit mitt i firandet, **0 konsolfel**.
+  - **Prestanda oförändrad:** 17,97 ms snittruta och fps 56 — exakt samma som baslinjen före
+    omgång 1, trots att modulen växt 2 063 → 6 200 rader och nodantalet 104 → 173.
+  - **Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72** · `_bollprobe`,
+    `_gatuprobe`, `_repprobe`, `_natprobe`, `_idleprobe` alla gröna.

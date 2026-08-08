@@ -24,7 +24,7 @@ regel gäller: reproducera innan du ändrar.
 
 | # | Var | Fynd | Bevis | Status |
 |---|-----|------|-------|:--:|
-| — | — | *(inga öppna verktygsfynd)* | | |
+| V8 | `AudioService` (app-brett) | **Första trycket i ett spel får aldrig sitt klipp** — `audio.sample()` returnerar false och spelet faller tillbaka på syntes. Avkodningen (`_predecodeAll`) startar vid första `pointerdown`, alltså i exakt samma ögonblick som trycket ska låta. | `.test-logs/natskott-pa-stan.json` `saknat-ljudklipp ×1` (`thwip`, t=1221 ms) — bara den första av ~19 pekningar. Samma klass som V1 fast för ljud i stället för röst. På en riktig enhet har barnet oftast tryckt i menyn först, så bufferten hinner bli varm; i harnessen är första trycket alltid kallt. | ⬜ |
 
 ## Avklarat
 

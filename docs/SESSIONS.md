@@ -14,6 +14,50 @@ Format:
 
 ---
 
+## 2026-08-08 · v1.37.0 · 🕸️ Nätskott på stan polerat — repet blev ett rep, monstren blev en familj
+
+**Byggt:** `/polera natskott-pa-stan` på ägarens beställning (fem punkter), plus två
+verktygsfynd ur ATGARDER avklarade tidigare på dagen.
+
+- **V6 + V7 fixade** (`e219f19`, `1160ad1`): `npm run sfx` byggde om sfx-manifestet ur sin egen
+  fraslista och tappade tyst Kenney-nycklarna `tap`/`soft`/`flip` → manifestet byggs nu ur
+  `out_dir.glob('*.mp3')`, alltså ur filerna på disk (mätt om med MOSS nere: 24 klipp, varav 3
+  från andra källor). `vandkort` sa havsdjursnamn utan klipp — fyndet gällde ett namn, hålet var
+  elva: hela `SEA_NAME` saknades. Mätt statiskt ur spelets egna tabeller i stället för att hoppas
+  på rätt slumpat tema: 18 unika namn, 0 utan klipp.
+- **Poleringen** (`9a38180`): nätlinan är en **verlet-tråd** i stället för en ritad kurva;
+  dragnätet **vinschar i vevtag** så hemfärden blir ryck–släpp–ryck; monstren är en **familj på
+  sex arter** inkl. ägarens **goblin i grönt med lila mössa**; **fönstermonstren går att fånga**
+  med båda näten; och ett monster **snor paket** som motgång med hårt tak.
+- **Vevmodellen tog fyra mätrundor.** Jämn indragning gav 0 ryck (kroppen sprang ifrån vinschen).
+  Snabbare vev gav motsatsen — spänt rep hela vägen. Slumpad vevfas ur `rec.seed` gjorde att
+  SAMMA avstånd gav 0 eller 2 ryck olika gånger → egen vevklocka per fångst. Och till sist räckte
+  ett enda vevtag hela vägen hem på nära mål → farttaket skalas mot avståndet. Ny sond:
+  `scripts/_repprobe.mjs`.
+- **Kritikern fällde två saker jag trodde var klara:** kodkommentaren lovade "2–3 ryck" när
+  mätningen gav 0–1 (kommentaren säger nu exakt vad sonden mäter), och första omtaget av
+  handposen lästes fortfarande som ett fredstecken — två uppåtriktade fingrar ÄR ett V oavsett
+  vinkelskillnad. Lillfingret pekar nu nästan vinkelrätt ut.
+- **Agenten som ritade monstren lämnade över två risker** som visade sig vara äkta: arten
+  tappades mellan gatan och baksätet (`_seatList` bär nu `{kind, golden, art}`) och flaxis vingar
+  stack bara ut 13 px förbi öronen (breddade 24 % efter skärmdumpen). Dess egen bildsond hittade
+  också en fördelningsbugg som dess gröna geometrisond var blind för — samma läxa som repots.
+- **Ny sond `scripts/_monsterbild.mjs`** ställer upp alla sex arter i det RIKTIGA spelet och tar
+  en skärmdump (`.test-shots/natskott-monster.png`). Agentens verifiering gick genom en egen
+  Pixi-stubb; bilden är beviset.
+
+**Commits:** `e219f19` fix(sfx) · `1160ad1` fix(vandkort) · `9f7222b` docs(ATGARDER) ·
+`9a38180` feat(natskott-pa-stan) · (denna: docs + version)
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **72/72** · `_natprobe` full runda +
+exit mitt i finalen 0 konsolfel · `_idleprobe` 0 · prestanda oförändrad (17,97 ms snittruta
+före och efter, baslinje i `.test-logs/_natskott-HEAD-baslinje.txt`).
+**Öppet:** ATGARDER **V8** (nytt): första trycket i ett spel hinner aldrig få sitt ljudklipp —
+`AudioService` börjar avkoda först vid första `pointerdown`. Kvar i natskotts §4: hemkomsthuset
+som lever, fler kulisser, fler uppdragstyper, fler tjuvbeteenden. MOSS fortfarande nere
+(`kristall_klirr` + `duns` i kön).
+
+---
+
 ## 2026-08-08 · v1.35.0 · 💎 Glittergrottan polerad till ✅ — 🔧-backloggen är NOLL
 
 **Byggt:** `/polera glittergrottan` (sista 🔧-spelet). Alla §4-punkter utom principfacit:

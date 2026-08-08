@@ -14,6 +14,54 @@ Format:
 
 ---
 
+## 2026-08-08 · v1.38.0 · 🕸️ Nätskott på stan: tre händer, nätbollar och en gata som svarar
+
+**Byggt:** `/polera natskott-pa-stan` omgång 2 — ägarens sex beställningar i ett svep. Tre
+`spelbyggare`-agenter parallellt (monsterarter · butiksfasader · gatuobjekt) medan jag byggde
+styrningen. Modulen växte 2 063 → 6 200 rader.
+
+- **Växelknappen är borta.** Spelet styrs av **tre näthänder**: den aktiva är armen mitt i bild,
+  de två andra ligger och väntar nere i vardera hörnet. Tryck på en och den kliver fram. Alla
+  tre har samma pose — det är dräkten som är språket (röd/svart = dragnät, vit/lila = fästnät,
+  svart/rött = nätboll).
+- **Nätbollar:** matter-kropp som flyger och studsar (mätt 652 px, 3 studsar, tak 3 i luften).
+  Träffat mål **snärjs in** — faller, lägger sig ner, får en vit nätboll runt kroppen så bara
+  huvud och fötter sticker ut, och går fortfarande att dra hem.
+- **Handposen tog fem försök.** Framifrån läste som en KANIN gång på gång. Insikten som löste
+  det: en lodrät spegelaxel plus två utstickande delar blir ALLTID ett ansikte — samma fälla som
+  butiksagenten gick i när cykelbutikens ruta med två symmetriska hjul lästes som ögon. Jag
+  byggde tre kameravinklar, renderade dem sida vid sida (`_handval.mjs`) och lät ägaren peka.
+  Profil vann. Alla tre finns kvar bakom `HAND_VINKEL`.
+- **Baksätet** blev en bilinteriör — och flyttades BAKOM dörrkanten. Ritordningen var hela
+  skillnaden: ovanpå bilen läste samma former som en soffa parkerad på trottoaren.
+- **12 monsterarter** · **6 butiksfasader** (~1 av 3 hus, med krossbara rutor) · **11 gatusaker**
+  med 33 reaktioner, tre per sak — brandposten sprutar en räknad kastbana, brevlådan spottar ut
+  brev, dörren öppnas och ett monster vinkar, äpplen ramlar, korven far upp i luften.
+
+**Tre buggar sonderna hittade som gröna test aldrig sett:** `_phys.link` skriver
+`view.rotation = body.angle` varje bildruta, så tweenen på det liggande insnärjda målet nollades
+tyst (rotationen ligger nu på `inner`) · nätbollen snärjde in det som råkade gå förbi framför
+bilen i födelseögonblicket i stället för det man siktade på · butiks- och gatublocket
+deklarerade **båda** `ritaCykel`, en dubbeldeklaration som hade dödat hela modulen.
+
+**Kritikern fällde två av mina påståenden:** `_natprobe.mjs` tryckte fortfarande på
+växelknappens borttagna koordinat och trodde i 150 s att spelet vägrade byta nät — spelets
+viktigaste sond var tyst trasig. Och min kommentar om träffytan räknade i LOKALA tal: `hitArea`
+skalas av containerns `SIDO_SKALA`, så 236×320 var 118×160 på skärmen. Ytan är höjd till
+130×180 och sonden mäter i skärmpixlar nu.
+
+**Commits:** `ff963da` feat(natskott-pa-stan) · (denna: docs + version)
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **72/72** · `_bollprobe` ·
+`_gatuprobe` · `_repprobe` · `_natprobe` (hel runda 60 s + exit mitt i firandet) ·
+`_idleprobe` 0 — alla gröna. **Prestanda oförändrad: 17,97 ms snittruta och fps 56, exakt
+samma som baslinjen före omgång 1.**
+**Öppet:** natskotts §4 — hemkomsthuset som lever, natt/regn-kulisser, uppdrag som använder de
+NYA systemen (nätbollen ger ingen uppdragskredit i dag), krossbara skyltfönster (kräver ett
+genomskinligt läge i `_drawWindow`), fler tjuvbeteenden. ATGARDER **V8** kvarstår: `thwip`
+saknar klipp så varje skott faller tillbaka på `whoosh`. MOSS nere.
+
+---
+
 ## 2026-08-08 · v1.37.0 · 🕸️ Nätskott på stan polerat — repet blev ett rep, monstren blev en familj
 
 **Byggt:** `/polera natskott-pa-stan` på ägarens beställning (fem punkter), plus två

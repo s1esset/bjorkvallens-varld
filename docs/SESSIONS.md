@@ -14,6 +14,69 @@ Format:
 
 ---
 
+## 2026-08-08 · v1.39.0 · 🎉 Projektgenomgång + partikelsystemet (app-brett, inget enskilt spel)
+
+**Byggt:** ägaren bad om en genomgång av helheten — hur allt hänger ihop (assets, funktioner,
+motorer), var fysiken är underutnyttjad, och hur grafiken kan bli bättre. Resultatet är ett
+**mätt** planeringsdokument plus första raden i arbetsordningen byggd.
+
+**`docs/LYFTPLAN.md`** — tre spår (A integration · B fysik · C rendering) och en 12-radig
+arbetsordning. Allt är räknat, inte uppskattat, mot v1.38.0:
+
+- **`FillGradient`, `ParticleContainer`, `generateTexture`, `cacheAsTexture`, `Mesh`/`MeshRope`,
+  `TilingSprite`, `BitmapText` = 0 användningar i hela appen.** 1461 `new Graphics()`-anropsställen
+  i spelen och **noll** `Sprite`. Himlen i `scene.js` är 48 staplade rektanglar.
+- **205 unika lokala rit-funktioner** i spelfilerna mot **8** delade. Dubbletter redan mätbara:
+  `makeBall` ×5, `makeStar` ×3, `makeBasket` ×3, `makeElvira` ×2 (en i `figurer.js` OCH en lokal).
+- **`p2-es` är en död dependency** — noll importer, men står som låst teknikval i `CLAUDE.md`,
+  `ARCHITECTURE.md` och skill `fysik-spel`. Dokumenten lovar fyra motorer, appen kör två.
+- **SPH-vätskan (`vatska.js`, 739 rader, 6 material) används av 1 spel** av åtta möjliga
+  (`vattenvagen` säger rakt ut i sin header att vattnet INTE är fysik). `three3d.js`: 1 spel.
+- **Mjuka kroppar: 0.** `Composites` används aldrig. `lagerelden`s marshmallow som sjunker ihop
+  när den blir varm ÄR spelets mekanik och är idag bara ett färgbyte.
+- Bobo finns i **29** spel men `makeMascot()` är ett statiskt huvud utan uttrycks-API — därför
+  handrullar alla 29 sina reaktioner. Det *är* mönstret "ingen mottagare" i `docs/games/README.md`.
+
+**Rad 1 byggd: `src/lib/partiklar.js`.** Canvas2D-atlasark + ETT `ParticleContainer` per lager +
+EN tween per svärm (analytisk rörelse). `feedback.js` (`puff`/`burst`/`sparkle`/`bigCelebration`)
+går den vägen med Graphics-vägen kvar som fallback. **Alla 72 spel fick 3× partikeltäthet utan
+att ett enda spel ändrades.** Mätt kostnad (CPU 6× strypt): gamla vägen viker vid ~2 000 samtidiga
+partiklar (43,5 FPS), nya håller 56,5 FPS vid ~21 800.
+
+**Två fällor kostade en hel felsökningscykel var — båda nu i `CLAUDE.md`:**
+
+1. **`generateTexture()` destabiliserade sviten, inte spelet.** Första versionen bakade arket med
+   Pixi Graphics. `test:all` gav `tom-scen` i **5 av 7** körningar (0 av 7 på HEAD) + en
+   WebGL-kontextkrasch i `glittergrottan`. Förbakning vid uppstart hjälpte inte. Canvas2D rör
+   inte GL-tillståndet. `lib/atlas.js` byggdes för detta och **revs igen** — oanvänd kod är samma
+   skuld som `p2-es`.
+2. **Ett cachat fält på `fxLayer` dör aldrig** (app-långlivat lager). Canvas2D med kvarliggande
+   fält flakade 1 av 3; `stad()` som river tomma fält → **0 av 4**.
+
+Metod värd att återanvända: `scripts/_ab.sh` (HEAD mot ändringen **växelvis** i full skala — en
+delmängd på 8 spel var ren medan 72-svitens last flakade, och sekventiellt före/efter är
+förorenat av maskindrift). `scripts/_fpsprobe.mjs` **kräver CPU-strypning** — ostrypt pinnar både
+gamla och nya vägen mot 60-taket och mätningen säger ingenting.
+
+Sonden fick fel två gånger innan koden fick det ([[probe-before-believing]] igen): den första
+tryckte på fasta punkter i ett spel med *svävande* ballonger, träffade inget, och dömde ett
+fungerande system som dött; och en `import('/src/lib/atlas.js')` på bar sökväg är en **annan
+modulinstans** än appens `?t=`-suffixade HMR-kopia, så den rapporterade `hasRenderer: false` om en
+registrerad renderare.
+
+**Commits:** `9a471d1` feat(partiklar): ParticleContainer-system, 3x tathet i alla 72 spel + LYFTPLAN
+
+**Öppet:** LYFTPLAN rad 3–12. Nästa naturliga steg i ordning: **rad 3** `FillGradient` i
+`scene.js` + nytt `lib/form.js` (radiella gradienter ger volym åt varje föremål — störst utseende
+per rad), **rad 4** fördjupad `scene.js` (parallaxband, dis, vinjett — lyfter 57 spel), **rad 5**
+`lib/kamera.js`. **Beslut som kräver ägaren: rad 12, `p2-es`** — bygg ett spel som behöver den
+eller ta bort beroendet och stryk påståendet i de tre dokumenten. Sedan tidigare öppet: ATGARDER
+**V8** (första trycket i ett spel får aldrig sitt ljudklipp — `_predecodeAll` startar vid samma
+`pointerdown` som ska låta), `glittergrottan` §4 principfacit, `natskott` §4, MOSS nere
+(`kristall_klirr` + `duns` köade). Röstkön tom.
+
+---
+
 ## 2026-08-08 · v1.38.0 · 🕸️ Nätskott på stan: tre händer, nätbollar och en gata som svarar
 
 **Byggt:** `/polera natskott-pa-stan` omgång 2 — ägarens sex beställningar i ett svep. Tre

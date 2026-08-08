@@ -54,6 +54,9 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `npm run test -- --spara-baslinje` · `-- --baslinje` | spara dagens bilder · jämför mot dem |
 | `node scripts/_lastprobe.mjs` · `_exitprobe.mjs` | *spelar* ett spel för balans · lämnar mitt i en finish |
 | `node scripts/_idleprobe.mjs <id>` | klarar spelet sig själv utan input? (ska vara 0) |
+| `node scripts/_partikelprobe.mjs [id]` | tas partikelvägen på riktigt? (fält · antal · pixlar · läckage) |
+| `node scripts/_fpsprobe.mjs --cpu 6` | kostnadskurva för rendering — **kräver CPU-strypning** |
+| `bash scripts/_ab.sh` | HEAD mot ändringen **växelvis** över hela sviten (flake-attribution) |
 | `node scripts/kenney-sfx.mjs <Audio-katalog>` | importera CC0-ljud → `public/audio/sfx/` |
 
 ## Var kunskapen finns (ladda vid behov — läs inte allt i förväg)
@@ -92,6 +95,20 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   men `_cx`/`_cy`/`_sx`/`_sy` är Container-transformens interna cache: `lt.a = _cx * scale.x`.
   Snöbollens snöfält renderades därför med vågrät skala 3660 — osynliga, utan ett enda
   konsolfel. `check.mjs` felar numera på hela namnlistan; använd ett eget prefix (`_wx`).
+- **`renderer.generateTexture()` fäller hela testsviten, inte spelet.** Att baka en form till en
+  textur byter rendermål mitt i en bildruta. Ensamt syns inget; i `npm run test:all` (72 spel,
+  fyra parallella webbläsare) gav det **`tom-scen` i 5 av 7 körningar mot 0 av 7 på HEAD**, plus
+  "WebGL context could not be created" i `glittergrottan`. Att baka tidigt vid uppstart hjälpte
+  inte. **Rita formen med Canvas2D i stället** — det rör inte GL-tillståndet och behöver ingen
+  renderare. Samma regel gäller nästa gång något vill baka: fråga först om Pixi behövs alls.
+- **Ett vilande `ParticleContainer` på `fxLayer` dör aldrig.** `fxLayer` lever hela appens
+  livstid, så ett fält som cachas där behåller sina GPU-buffertar för alltid. Med kvarliggande
+  fält flakade sviten 1 av 3; med `stad()` som river tomma fält: 0 av 4. Allt som cachas på ett
+  app-långlivat lager måste kunna rivas när det är tomt.
+- **Sekventiellt före/efter duger inte för att döma en flaky svit.** Maskinen driver (termik,
+  ackumulerade Chrome-processer), och en delmängd på 8 spel var ren medan hela 72-svitens last
+  flakade. `scripts/_ab.sh` kör HEAD och ändringen **växelvis** i full skala — det är den enda
+  mätning som faktiskt attribuerar.
 - **Röstkön är inte permanent.** `npm run voice` fungerar (F5-TTS i `C:\repos\storygen`) — töm kön
   i stället för att lämna repliker på Web Speech.
 - **Sonder måste ligga i repot.** Scratchpad-katalogen kan inte lösa `playwright`; lägg

@@ -175,6 +175,14 @@ efter de app-breda mönstren nedan, de lyfter många spel åt gången.
 
 ## Återkommande mönster (app-breda lyft)
 
+> **2026-08-08 (v1.39.0):** de app-breda lyften har fått ett eget, **mätt** planeringsdokument:
+> **`docs/LYFTPLAN.md`** (motor · assets · rendering, 12-radig arbetsordning). Första raden är
+> byggd — `src/lib/partiklar.js` gav **alla 72 spel 3× partikeltäthet** via `feedback.js`, utan
+> att ett enda spel ändrades. Mönstret "generisk belöning" nedan är alltså *tätare* nu, men inte
+> mer spel-specifik: den delen står kvar. Dokumentet svarar också på var fysiken är
+> underutnyttjad (SPH-vätskan används av 1 spel av 8 möjliga, mjuka kroppar av 0) och pekar ut
+> nästa lyft som träffar många spel: gradienter, djupare `scene.js`, kamera, mottagar-rigg.
+
 Tvärs över Roligt- och Fysik-flikarna återkom samma "lättjefulla" drag — att åtgärda dem en gång
 ger lyft i *många* spel:
 

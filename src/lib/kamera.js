@@ -150,13 +150,34 @@ export class Camera {
         'bakgrund i ett parallax()-lager, eller håll worldH == vyns höjd.',
       )
     }
+    // Scenens lager läggs UNDERST, explicit. Det står redan i kontraktet ovan, och rätt
+    // beteende råkade falla ut så länge adopt() var det första anropet — men `byteScen()`
+    // nedan kallar det när alla spelets lager redan finns, och då hade en append lagt
+    // himlen ovanpå spelplanet.
+    let i = 0
     for (const l of lager) {
       this._layers.push(l)
-      this.root.addChild(l)
+      this.root.addChildAt(l, i++)
       this._applyLayer(l)
     }
+    this._scenLager = lager.slice()
     sceneRoot.destroy({ children: false })
     return this
+  }
+
+  // Byt ut den adopterade scenen mot en ny (ny stämning mellan omgångar).
+  //
+  // Ett spel vars värld byter tid på dygnet med nivån kan inte bara rita om scenen: dess
+  // lager ÄR kamerans understa lager, och de ligger i `_layers`. Utan den här skulle de
+  // gamla banden bli kvar i listan och kameran fortsätta flytta osynliga containrar.
+  byteScen(sceneRoot) {
+    for (const l of this._scenLager || []) {
+      const i = this._layers.indexOf(l)
+      if (i >= 0) this._layers.splice(i, 1)
+      if (!l.destroyed) l.destroy({ children: true })
+    }
+    this._scenLager = []
+    return this.adopt(sceneRoot)
   }
 
   // --- styrning ---

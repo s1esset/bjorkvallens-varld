@@ -54,6 +54,27 @@ const START_X = 200 // första fästets x
 const MAL_MARGINAL = 420 // värld till höger om sista fästet (taket målet står på + luft)
 const HUS_W = 214 // en husbredd — samma som förut (1280 / 6), nu kaklad genom världen
 
+// Stämning per nivå — en dag som går, och sedan börjar om.
+//
+// Spelet är en slinga: rädda en kattunge, rädda en till, rädda en till. Utan något som
+// FÖRÄNDRAS mellan varven blir den femte räddningen identisk med den första. Dygnet ger
+// slingan en form barnet kan känna igen utan att kunna läsa — "nu är det kväll, vi har
+// hållit på länge" — och kostar ingenting, eftersom `createScene` redan kan tona ett tema
+// genom morgon/skymning/kväll (`tid`) och har ett eget natt-tema.
+//
+// `hus` tintar stadens KROPP; fönstren tintas separat med `lyse` och går åt andra hållet.
+// En enda tint över hela huset hade släckt fönstren i samma andetag som den mörknade
+// väggen, och ett mörkt hus med mörka fönster läser som en kuliss, inte som en stad där
+// någon bor.
+const STAMNINGAR = [
+  { tema: 'sky', tid: 'dag', hus: 0xffffff, lyse: 0xfff6d0 },
+  { tema: 'sky', tid: 'morgon', hus: 0xffe8cf, lyse: 0xfff3c4 },
+  { tema: 'sunset', tid: 'skymning', hus: 0xf0b79a, lyse: 0xffe9a0 },
+  { tema: 'sky', tid: 'kvall', hus: 0x9aa2c8, lyse: 0xffe27a },
+  { tema: 'night', tid: 'dag', hus: 0x6f77ad, lyse: 0xffd95c },
+]
+const stamningFor = (niva) => STAMNINGAR[((niva % STAMNINGAR.length) + STAMNINGAR.length) % STAMNINGAR.length]
+
 const SWING_WORDS = ['Wii!', 'Hihi!', 'Sväva!']
 
 export default {
@@ -86,6 +107,14 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
+    // Nivån läses FÖRE scenen: stämningen (tid på dygnet) hänger på nivån, och att bygga
+    // en dag-himmel först och byta den direkt efteråt vore ett synligt hopp vid uppstart.
+    this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
+    this._stamning = stamningFor(this._level)
+    // Vyns mått sparas: scenen byggs om vid varje stämningsbyte, långt efter init.
+    this._vw = ctx.width
+    this._vh = ctx.height
+
     // KAMERAN (lib/kamera.js). Spelet bygger allt i VÄRLDSKOORDINATER i faktor-1-lagret
     // och tänker aldrig på var bilden råkar stå; kameran flyttar lagren, aldrig innehållet.
     this._kam = new Camera({ width: ctx.width, height: ctx.height, worldW: WORLD_MAX })
@@ -93,12 +122,13 @@ export default {
 
     // Bakgrund: himmel + sol + drivande moln, uppdelad i parallaxband av `kamera`-flaggan.
     // Scenens lager är låsta i höjdled — det passar här, för världen är bara bred.
-    this._kam.adopt(createScene('sky', { width: ctx.width, height: ctx.height, kamera: { bredd: WORLD_MAX } }))
+    this._kam.adopt(this._buildScene())
 
     // Fjärran stadssiluett: rör sig långsamt, alltså läser den som LÅNGT bort. Det är den
     // som gör att en resa åt höger känns som en resa och inte som en rullande tapet.
     this._farLayer = this._kam.parallax(DJUP.fjarran, { dekor: true })
-    this._farLayer.addChild(this._buildRoofs(lagerBredd(DJUP.fjarran, ctx.width, WORLD_MAX), true))
+    this._farRoofs = this._buildRoofs(lagerBredd(DJUP.fjarran, ctx.width, WORLD_MAX), true)
+    this._farLayer.addChild(this._farRoofs)
 
     // Spelplanet.
     this._varld = this._kam.parallax(1)
@@ -106,6 +136,7 @@ export default {
     // Hustaken Zacke svingar över (dekorativa, men i hans plan).
     this._roofs = this._buildRoofs(WORLD_MAX, false)
     this._varld.addChild(this._roofs)
+    this._tintaStaden()
 
     // Fästen (knoppar + nät) + mål-dekor (kattunge/Elvira).
     this._anchorLayer = new Container()
@@ -162,8 +193,6 @@ export default {
     this._lenLabel = this._lenBtn.children[this._lenBtn.children.length - 1]
     this._hud.addChild(this._lenBtn)
 
-    // Nivå från sparad progress → oändlig variation.
-    this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._buildLevel(this._level)
 
     // Kameran följer Zacke. `lead` lägger bilden före honom i färdriktningen så barnet
@@ -233,6 +262,15 @@ export default {
     }
     this._kitten = null
     this._elvira = null
+
+    // Ny stämning? Byt himlen och tinta om staden. Bara när den FAKTISKT ändras —
+    // `byteScen` river och bygger scenens parallaxband, och det ska inte ske i onödan.
+    const nyStamning = stamningFor(level)
+    if (this._kam && nyStamning !== this._stamning) {
+      this._stamning = nyStamning
+      this._kam.byteScen(this._buildScene())
+      this._tintaStaden()
+    }
 
     const cfg = this._levelConfig(level)
     const count = cfg.count
@@ -408,9 +446,46 @@ export default {
   // mitt i leken. `fjarran = true` ger det långsamma bandet längst bak: samma hus, men
   // mindre, blekare och utan detaljer. Att det bandet glider långsammare än det främre
   // är hela skillnaden mellan "en resa genom en stad" och "en rullande tapet".
+  // Scenen för den AKTUELLA stämningen. `tid` tonar temat mot morgon/skymning/kväll ur
+  // samma färger, så staden känns igen genom hela dygnet i stället för att bytas ut.
+  _buildScene() {
+    const s = this._stamning
+    return createScene(s.tema, {
+      width: this._vw,
+      height: this._vh,
+      tid: s.tid,
+      kamera: { bredd: WORLD_MAX },
+    })
+  },
+
+  // Husens kropp mörknar med kvällen medan fönstren går åt ANDRA hållet och tänds.
+  _tintaStaden() {
+    const s = this._stamning
+    if (this._roofs && !this._roofs.destroyed) {
+      this._roofs.kropp.tint = s.hus
+      this._roofs.fonster.tint = s.lyse
+    }
+    if (this._farRoofs && !this._farRoofs.destroyed) {
+      // Fjärranbandet ligger längre in i luften: samma stämning, men mörkare och utan
+      // lysande fönster (det ritar inga). Utan den extra mörkningen ser de bortre husen
+      // närmare ut än de främre på natten, och djupet vänder.
+      this._farRoofs.kropp.tint = s.tema === 'night' ? 0x4d5480 : s.hus
+    }
+  },
+
   _buildRoofs(bredd, fjarran) {
+    // Kropp och fönster i VAR SIN Graphics: en enda tint över hela huset hade släckt
+    // fönstren i samma andetag som den mörknade väggen. Se STAMNINGAR.
+    const c = new Container()
+    c.eventMode = 'none'
+    c.interactiveChildren = false
     const g = new Graphics()
     g.eventMode = 'none'
+    const f = new Graphics()
+    f.eventMode = 'none'
+    c.addChild(g, f)
+    c.kropp = g
+    c.fonster = f
     const tops = [COLORS.red, COLORS.teal, COLORS.purple, COLORS.teal, COLORS.red, COLORS.blue]
     const w = fjarran ? HUS_W * 0.72 : HUS_W
     const n = Math.ceil(bredd / w) + 1
@@ -434,12 +509,12 @@ export default {
         .fill({ color: tops[i % tops.length], alpha: a })
       if (fjarran) continue
       if (i % 2) g.roundRect(x + w * 0.68, wallTop - 30, 16, 36, 4).fill(COLORS.brown) // skorsten
-      g.roundRect(x + w * 0.5 - 16, wallTop + 50, 32, 40, 5).fill(COLORS.yellow) // fönster
+      f.roundRect(x + w * 0.5 - 16, wallTop + 50, 32, 40, 5).fill(COLORS.yellow) // fönster
       // Vartannat hus får ett fönster till, en våning ner — staden blir bebodd i stället
       // för att vara en rad identiska lådor.
-      if (i % 3 === 0) g.roundRect(x + w * 0.5 - 13, wallTop + 112, 26, 34, 5).fill({ color: COLORS.yellow, alpha: 0.75 })
+      if (i % 3 === 0) f.roundRect(x + w * 0.5 - 13, wallTop + 112, 26, 34, 5).fill({ color: COLORS.yellow, alpha: 0.75 })
     }
-    return g
+    return c
   },
 
   // ------------------------------------------------------------------ nät-längd

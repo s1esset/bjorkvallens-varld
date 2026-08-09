@@ -6,12 +6,13 @@
 // olika fort. Det enda som skiljer dem är hur mycket de flyttar sig MELLAN två
 // kameralägen, och det är ett tal.
 //
-// Sonden svarar på fem saker:
+// Sonden svarar på sex saker:
 //   1. Är världen bredare än vyn, och växer den med nivån (i stället för att klämmas)?
 //   2. Flyttar sig kameran när Zacke svingar åt höger?
 //   3. Rör sig fjärranbandet LÅNGSAMMARE än spelplanet, och HUD:en inte alls?
 //   4. Lämnar Zacke aldrig bilden (kamerans hårda ruta)?
-//   5. Är en exit mitt i flykten ren?
+//   5. Byter stämningen med nivån — utan att `byteScen()` läcker parallaxlager?
+//   6. Är en exit mitt i flykten ren?
 //
 //   node scripts/_varldprobe.mjs [--niva 8]
 import { chromium } from 'playwright'
@@ -155,13 +156,55 @@ try {
     zUtanfor === 0 && prover.length > 10,
     `${zUtanfor} av ${prover.length} prover utanför [-40, 1320]`)
 
-  // ---------- 5. exit mitt i flykten ----------
+  // ---------- 5. stämningen byter med nivån, utan att läcka lager ----------
+  //
+  // `Camera.byteScen()` river scenens parallaxband och adopterar nya. Missar den att ta
+  // bort de gamla ur `_layers` fortsätter kameran flytta osynliga containrar varje
+  // bildruta, och listan växer för varje räddad kattunge. Det syns inte i en bild.
+  const stamningar = await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('spindel-zacke-svingar')
+    const ut = []
+    for (let n = 0; n <= 5; n++) {
+      g._buildLevel(n)
+      ut.push({
+        niva: n,
+        tema: g._stamning.tema,
+        tid: g._stamning.tid,
+        lager: g._kam._layers.length,
+        barn: g._kam.root.children.length,
+        // Bevisar att tinten faktiskt nådde fram, och att fönstren går ÅT ANDRA HÅLLET
+        // än husen när det mörknar.
+        hus: g._roofs.kropp.tint,
+        fonster: g._roofs.fonster.tint,
+      })
+    }
+    return ut
+  })
+  const unika = new Set(stamningar.map((s) => `${s.tema}|${s.tid}`))
+  const lagerSet = new Set(stamningar.map((s) => s.lager))
+  const barnSet = new Set(stamningar.map((s) => s.barn))
+  const natt = stamningar.find((s) => s.tema === 'night')
+  const dag = stamningar.find((s) => s.tid === 'dag' && s.tema === 'sky')
+
+  ok('5. stämningen byter med nivån',
+    unika.size >= 4,
+    stamningar.slice(0, 6).map((s) => `${s.niva}:${s.tema}/${s.tid}`).join(' · '))
+  ok('5b. byteScen läcker inga lager',
+    lagerSet.size === 1 && barnSet.size === 1,
+    `lager ${[...lagerSet].join('/')} · rot-barn ${[...barnSet].join('/')} över 6 nivåbyten`)
+  ok('5c. husen mörknar men fönstren tänds',
+    !!natt && !!dag && natt.hus < dag.hus && natt.fonster !== dag.fonster,
+    natt && dag
+      ? `dag hus 0x${dag.hus.toString(16)} / fönster 0x${dag.fonster.toString(16)} → natt hus 0x${natt.hus.toString(16)} / fönster 0x${natt.fonster.toString(16)}`
+      : 'hittade inte båda stämningarna')
+
+  // ---------- 6. exit mitt i flykten ----------
   const felFore = errors.length
   await slappBra()
   await page.waitForTimeout(120)
   await page.evaluate(() => window.__barnspel.nav.go('library'))
   await page.waitForTimeout(1400)
-  ok('5. exit mitt i flykten ger 0 nya konsolfel', errors.length === felFore, errors.slice(felFore, felFore + 3).join(' | ') || 'inga')
+  ok('6. exit mitt i flykten ger 0 nya konsolfel', errors.length === felFore, errors.slice(felFore, felFore + 3).join(' | ') || 'inga')
 
   console.log(`\n  Världs- och kamerasond — ${ID}\n`)
   for (const r of rader) console.log(`  ${r.pass ? '✓' : '✗'} ${r.namn}  —  ${r.detalj}`)

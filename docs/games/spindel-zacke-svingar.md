@@ -150,3 +150,21 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   1045 px medan fjärranbandet rör sig 188 px (kvot 0,18 = precis lagerfaktorn) och HUD:en
   0 px. Zacke utanför bilden i 0 av 130 prover. `_svingprobe.mjs` fortsatt 7/7 grön, alltså
   spelar spelet likadant som förut på de låga nivåerna.
+- 2026-08-09 ✅ **[Quick] Tema-variation per nivå** (Variation & överraskning). Spelet är en
+  slinga — rädda en kattunge, rädda en till — och utan något som förändras mellan varven blir
+  den femte räddningen identisk med den första. Nu går ett DYGN: `dag → morgon → skymning →
+  kväll → natt`, och sedan börjar det om (`STAMNINGAR`, index `nivå % 5`). Nivå 0 är
+  fortfarande `sky`/dag, alltså exakt den bild spelet hade förut. Byggt på `createScene`s
+  befintliga `tid`-tonning plus `night`-temat — ingen ny scenkod.
+  **Husen tintas i två delar**, och det är poängen: en enda tint över hela huset hade släckt
+  fönstren i samma andetag som den mörknade väggen, och ett mörkt hus med mörka fönster läser
+  som en kuliss. Kroppen går mot blått (`0xffffff → 0x6f77ad`) medan fönstren går åt andra
+  hållet och tänds (`0xfff6d0 → 0xffd95c`). Fjärranbandet mörknas extra på natten, annars ser
+  de bortre husen närmare ut än de främre och djupet vänder.
+  Nytt i `lib/kamera.js`: **`byteScen()`** — scenens band ÄR kamerans understa lager och ligger
+  i `_layers`, så ett spel som byter stämning kan inte bara rita om scenen. `adopt()` lägger
+  numera in dem med `addChildAt` (kontraktet sa redan "understa"; det råkade stämma bara så
+  länge adopt var första anropet).
+  **Mätt** (`_varldprobe.mjs`, nu 11/11): stämningarna cyklar
+  `sky/dag · sky/morgon · sunset/skymning · sky/kvall · night/dag · sky/dag`, och över sex
+  nivåbyten står lagerantalet still på **14** (inget läckage). `_svingprobe.mjs` fortsatt 7/7.

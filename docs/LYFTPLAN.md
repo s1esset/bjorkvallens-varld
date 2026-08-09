@@ -123,7 +123,35 @@ stället för att bara byta mun. `kropp: false` med flit: plattorna nedtill spä
 en hel kropp hade lagt sig över dem — riggen ska ersätta det som fanns, inte smyga in en
 layoutändring.
 
-⬜ Kvar: de övriga 22 spelen med `makeMascot`/`makeBobo`, och de fyra som fortfarande har egen
+**Utrullning omgång 1 (2026-08-09, v1.63.0): `trollblandning` · `gungan` · `bowling`.**
+Tre olika sorters kund, med flit: ett spel som bara vill byta HUVUD på en egen figur
+(trollkarlens mantel, armar och stav står kvar, `kropp: false`), ett som byter hel figur
+(`makeBobo` → riggen, samma origo och samma 2,36·r till fötterna, alltså oförändrad
+placering) och ett som byter huvud **plus** en handritad kropp som var en kopia av
+`figurer.js:makeBoboBody` med egna tal.
+
+**Tre saker utrullningen mätte fram — ingen av dem syntes i lib-koden:**
+
+1. **`destroy()` dödade aldrig pupillerna.** Nodlistan hade ögon, mun, huvud, bål, armar
+   och bryn, men inte `pupiller` — och `look()` är det enda som rör dem. Så länge ingen kund
+   använde `look()` fanns hålet utan att synas. Ett spel som följer ett RÖRLIGT mål anropar
+   `look()` varje bildruta: 120 nya tweens i sekunden på två Graphics, `_track` slängde de
+   äldsta ur `_tw`, och sedan skrev en tween `.y` på en riven Graphics varje bildruta efter
+   exit. Uppmätt i `gungan`: **7 pageerror + 1 `tween-lacka` → 0.** `look()` hoppar nu också
+   över rörelser under 0,3 px och tweenar med `overwrite`.
+2. **En armgest måste svinga UTÅT, aldrig uppåt.** Tassen står i vila på `sida·1.04r` medan
+   huvudet når `0.97r` på den höjden — marginalen är 0,07·r. En rotation uppåt (redan vid
+   0,62 rad) drar in tassen bakom huvudsilhuetten och Bobo står med **armarna borta**. Både
+   `−sida` och `+sida` ser lika rimliga ut i koden; bara `_karaktarbild.mjs` skiljer dem.
+3. **Ny reaktion `heja`** (halva `jubel`s utslag, inget hopp). En upprepad handling — en knuff
+   i gungan, ett kast i bowlingen — som firas med `jubel` gör firandet till bakgrundsljud, och
+   då finns ingenting kvar som markerar att målet faktiskt nåddes.
+
+Och en ordningsregel för spel som redan tweenar sin maskot: `gsap.killTweensOf(bobo)` träffar
+även riggens egen hopp-tween på `view.y`, så en `react()` **före** rensningen dödas direkt.
+Skalan är dessutom upptagen av riggens andning — ett `pop()` på samma nod blir hackigt.
+
+⬜ Kvar: de övriga 19 spelen med `makeMascot`/`makeBobo`, och de fyra som fortfarande har egen
 mimik (`kittla-figuren` · `mata-monstret` · `peka-pa-kroppen` · `pruttbad`).
 
 ### A4. Delade libs som inte nått ut **[Quick]** per spel
@@ -674,7 +702,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ✅ v1.45–46.0 |
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ✅ v1.56.0 *(solvern + 1 kund; `MeshRope` kvar)* |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 23 fysikspel | ✅ v1.52.0 |
-| 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(1 kund, 22 kvar)* |
+| 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(4 kunder, 19 kvar)* |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ✅ v1.57.0 *(1 kund, 5 kvar)* |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |

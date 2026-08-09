@@ -14,6 +14,40 @@ Format:
 
 ---
 
+## 2026-08-09 · v1.63.0 · Utrullning av karaktärsriggen, omgång 1 (pilot om tre spel)
+
+**Byggt:** `lib/karaktarer.js` gick från 1 kund till 4. Piloten valdes så att de tre spelen
+kräver olika sorters byte: `trollblandning` byter bara HUVUD på en egen figur (`kropp: false`,
+manteln/armarna/staven står kvar), `gungan` byter hel figur (`makeBobo` → riggen), och
+`bowling` byter huvud **plus** en handritad kropp som var en kopia av `makeBoboBody`.
+
+**Tre fynd, alla ur mätning och ingen ur lib-koden:**
+
+1. **`destroy()` dödade aldrig pupillerna.** De saknades i nodlistan, och `look()` är det enda
+   som rör dem — hålet var osynligt så länge ingen kund använde `look()`. Ett spel som följer
+   ett rörligt mål anropar det varje bildruta: 120 tweens/s på två Graphics, `_track` slängde
+   de äldsta ur `_tw`, och efter exit skrev en tween `.y` på en riven Graphics varje bildruta.
+   Uppmätt i `gungan`: **7 pageerror + 1 `tween-lacka` → 0.**
+2. **En armgest måste svinga UTÅT.** Tassen står i vila på `sida·1.04r`, huvudet når `0.97r` —
+   marginal 0,07·r. En rotation uppåt (0,62 rad räckte) drar in tassen bakom huvudet och Bobo
+   står med armarna BORTA. Jag skrev först om `jubel` som en "teckenbugg" och hade fel: den
+   befintliga riktningen gav en synlig pose, min "fix" gjorde armarna osynliga.
+   `_karaktarbild.mjs` avgjorde; koden såg lika rimlig ut åt båda hållen.
+3. **Ny reaktion `heja`** — halva `jubel`s utslag, inget hopp. En upprepad handling som firas
+   med `jubel` gör firandet till bakgrundsljud, och då markerar ingenting längre att målet
+   faktiskt nåddes.
+
+Ordningsregel för nästa kund: `gsap.killTweensOf(bobo)` träffar även riggens egen hopp-tween
+på `view.y` — en `react()` före rensningen dödas direkt. Och skalan är upptagen av riggens
+andning, så ett `pop()` på samma nod blir hackigt.
+
+**Commits:** `8e01eec` heja + armregel · `7e2b2ab` trollblandning · `e3ab4b3` pupill-läckan ·
+`9c1d549` gungan · `ddb5e08` bowling
+
+**Öppet:** 19 spel kvar med `makeMascot`/`makeBobo` + fyra med egen mimik. `test:all` 72/72,
+`check` 0/0. Oförändrat: `saknat-ljudklipp` i 4 spel (MOSS nere), två `npm run dev`-instanser
+och en död `.server.pid`.
+
 ## 2026-08-09/10 · v1.62.0 · Nattpass — LYFTPLAN 7·8·9·11·12 klara, V9 stängd, och fyra sonder som ljög
 
 **Byggt:** en obruten nattkörning på ägarens begäran ("jobba vidare medan jag sover, gå på din

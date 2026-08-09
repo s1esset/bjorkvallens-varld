@@ -48,15 +48,15 @@ igenom, 0 kostnad i FPS.
 **Kontroll:** `npm run check` 0 fel · `npm run test:all` **72/72 gröna** · bygge rent · serverad
 på :4173 (Tailscale 8445).
 **Öppet:**
-- ⚠️ **Ett fel-nivåfynd, sannolikt transient men ännu inte attribuerat** (ÅTGÄRDER **V11**).
+- ✅ **Fel-nivåfyndet är avfärdat med mätning, inte med resonemang** (ÅTGÄRDER **V11**, stängd).
   Svitkörningen gav 72/72 gröna men loggade `tom-scen` i **`tvatta-djuret`** (helt tom
-  skärmdump). Ensam körning är ren och ritar hela scenen, så det är den kända
-  parallellsvit-transienten — men vätskefiltrets egen flake-frekvens är omätt: A/B-svepet hann
-  bara med HEAD-armen i runda 1 (**72/72, rent**) innan det avbröts. Efter commit görs A/B:t
-  omvänt: `git checkout HEAD~1 -- src/games/plask-i-vattnet/index.js` och sedan
-  `bash scripts/_ab.sh` på samma fil (armarnas etiketter byter plats). Om vätskan är skyldig:
-  filtrets rendermål (blur + tröskel + mask) → `resolution` och filterytan först.
-  ⚠️ Svepet stashar filen — dör körningen, kolla `git stash list` (hände i den här sessionen).
+  skärmdump). Ensam körning: grön, hela scenen ritad. Därefter **A/B växelvis i 3 rundor** över
+  hela sviten med vätskan i den ena armen och spelet före den i den andra — **alla sex armarna
+  72/72 gröna och rena**. Vätskefiltret höjer alltså inte flake-frekvensen, och sex fulla
+  körningar kunde inte återskapa fyndet. Metoden att A/B:a något som redan är committat står
+  nu i ÅTGÄRDER (lägg den GAMLA filen i arbetskopian; armarna byter etikett).
+  ⚠️ Svepet stashar filen — dör körningen ligger ändringen i `git stash list`, inte i trädet
+  (hände i den här sessionen: `tom-scen`-jakten dödade svepet mitt i en HEAD-arm).
 - Runda P2 fortsätter: `fallskarmen` (motståndsvolym) · `sapbubblor` (mjuka bubblor) ·
   `ballonglyft` (lyftkraft).
 - ÅTGÄRDER V10 (statisk restitution, 23 spel) väntar fortfarande på ett eget A/B-svep.

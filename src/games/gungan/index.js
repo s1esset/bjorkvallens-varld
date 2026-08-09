@@ -20,7 +20,7 @@ import { Container, Graphics, Rectangle, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
-import { makeBobo } from '../../lib/figurer.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { pop, wiggle, sparkle, floatText, burst, breathe, puff , kvittera} from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -148,11 +148,14 @@ export default {
     // Bobo på marken vid stället: han hejar, kastar upp tassarna vid varje knuff och
     // jublar när ett mål nuddas. Scenen hade ingen alls (gate-punkt 4). Placerad långt
     // vänster om stället (benen landar x 560..920) och klar av målens båge (x ≥ 368).
-    // makeBobo har origo i HUVUDETS centrum; fötterna hamnar 2,36·r under.
-    this._bobo = makeBobo(BOBO_R)
+    // Riggen (lib/karaktarer.js) i stället för `makeBobo` — samma origo (huvudets
+    // centrum) och samma 2,36·r ner till fötterna, så placeringen är oförändrad.
+    // Andningen sköter riggens egen `idle()`; den gamla `breathe`-tweenen är borta,
+    // annars hade två skrivare ägt samma `view.scale`.
+    this._kar = makeKaraktar({ r: BOBO_R })
+    this._bobo = this._kar.view
     this._bobo.position.set(BOBO_X, GROUND_Y - 2.36 * BOBO_R)
     this._root.addChild(this._bobo)
-    this._boboIdle = breathe(this._bobo, { scale: 1.03, duration: 2.1 })
 
     // "Starkare knuff"-toggle (ovanpå pump-ytan så den får trycket).
     this._buildToggle(ctx)
@@ -336,28 +339,21 @@ export default {
     }
   },
 
-  // Bobo kastar upp tassarna vid en knuff. Kraftig knuff = större gest. Exit-säker:
-  // en enda tween på skalan som dödas i destroy.
+  // Bobo hejar vid varje knuff — `heja`, inte `jubel`. Knuffarna kommer i en jämn
+  // ström, och ett hopp på var och en gör firandet till bakgrundsljud. En kraftig
+  // knuff får dessutom ett stolt ansikte, så styrkan syns i MINEN i stället för i
+  // en skalfaktor (skalan äger riggens egen andning).
   _boboPush(q = 1) {
-    const bo = this._bobo
-    if (!bo || bo.destroyed) return
-    gsap.killTweensOf(bo.scale)
-    const s = 1 + 0.1 * q
-    gsap
-      .timeline()
-      .to(bo.scale, { x: s, y: 1 + 0.16 * q, duration: 0.1, ease: 'power2.out' })
-      .to(bo.scale, { x: 1, y: 1, duration: 0.5, ease: 'elastic.out(1, 0.45)' })
+    if (!this._kar) return
+    this._kar.react('heja')
+    if (q > 0.7) this._kar.setMood('stolt')
   },
 
-  // Bobo jublar när ett mål nuddas — en tydligare gest än knuffen.
+  // Bobo jublar när ett mål nuddas — hopp + utsträckta armar, tydligt större.
   _boboCheer(ctx) {
     const bo = this._bobo
-    if (!bo || bo.destroyed) return
-    gsap.killTweensOf(bo.scale)
-    gsap
-      .timeline()
-      .to(bo.scale, { x: 1.16, y: 1.24, duration: 0.13, ease: 'power2.out' })
-      .to(bo.scale, { x: 1, y: 1, duration: 0.62, ease: 'elastic.out(1, 0.4)' })
+    if (!this._kar || !bo || bo.destroyed) return
+    this._kar.react('jubel')
     sparkle(ctx.fxLayer, bo.x, bo.y - BOBO_R * 1.4, { count: 6 })
   },
 
@@ -575,6 +571,14 @@ export default {
     }
     this._swing.rotation = this._theta
 
+    // Bobo följer Lova med blicken. Det är den billigaste signalen om att någon
+    // faktiskt tittar på det barnet håller på med — riggen räknar i FÖRÄLDERNS
+    // rymd, och Lova sitter i det roterande `_swing`, därför via global.
+    if (this._kar && this._lova && !this._lova.destroyed) {
+      const p = this._root.toLocal(this._lova.getGlobalPosition())
+      this._kar.look(p.x, p.y)
+    }
+
     // MÅLET LEVER: nästa osamlade mål känner att hon närmar sig. Ju närmare hennes
     // topphöjd är målets amplitud, desto ivrigare guppar och lutar det — ett MÖTE
     // i stället för en kollision. Rent per-frame (inga tweens att städa), och helt
@@ -702,8 +706,9 @@ export default {
       gsap.killTweensOf(this._lova)
       gsap.killTweensOf(this._lova.scale)
     }
-    this._boboIdle?.kill()
-    if (this._bobo && !this._bobo.destroyed) gsap.killTweensOf(this._bobo.scale)
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
+    this._bobo = null
     for (const tg of this._targets || []) {
       tg.glowTween?.kill()
       if (tg.emoji && !tg.emoji.destroyed) {

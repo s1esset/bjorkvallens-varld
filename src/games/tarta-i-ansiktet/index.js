@@ -11,7 +11,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { puff, pop, wiggle, bounceIn, sparkle , kvittera} from '../../lib/feedback.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // Tårtsorter — projektilen roterar, och splatten får sortens färg. Förut var det
@@ -126,7 +126,14 @@ export default {
     // Publik på scengolvet: Bobo och Zacke ser på och jublar när tårtan träffar.
     this._audience = []
     for (const [ax, kind] of [[176, 'bobo'], [1104, 'zacke']]) {
-      const v = kind === 'bobo' ? makeMascot(44) : makeAudienceZacke()
+      // Bobo blir en rigg, Zacke är kvar som han var. `kropp: false`: publiken sitter
+      // bakom scenkanten och bara huvudena syns — en kropp hade stuckit ner genom
+      // golvet i stället för att ersätta något.
+      let v
+      if (kind === 'bobo') {
+        this._kar = makeKaraktar({ r: 44, kropp: false })
+        v = this._kar.view
+      } else v = makeAudienceZacke()
       v.position.set(ax, kind === 'bobo' ? 606 : 596)
       v.eventMode = 'none'
       this._root.addChild(v)
@@ -249,13 +256,20 @@ export default {
   // Träff-reaktion: ögonen knips + munnen blir ett "O", återgår sen till leendet.
   // Publiken (Bobo + Zacke) hoppar till av skratt när tårtan landar.
   _audienceCheer() {
+    // Publikens hopp (fyra på 28 px) är större än riggens och äger `y` — därför
+    // `setMood('stolt')` här och inte `react('jubel')`, som hade tweenat samma `y`.
+    // Minen skrattar, kroppen hoppar, och ingen skriver över den andra.
+    this._kar?.setMood('stolt')
     for (const a of this._audience || []) {
       const v = a.view
       if (!v || v.destroyed) continue
       gsap.killTweensOf(v)
       gsap.to(v, {
         y: a.baseY - 28, duration: 0.2, yoyo: true, repeat: 3, ease: 'power2.out',
-        onComplete: () => { if (!v.destroyed) v.y = a.baseY },
+        onComplete: () => {
+          if (!v.destroyed) v.y = a.baseY
+          this._kar?.setMood('glad')
+        },
       })
     }
   },
@@ -856,6 +870,8 @@ export default {
         gsap.killTweensOf(a.view.scale)
       }
     }
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
     gsap.killTweensOf(this._root)
     this._root?.destroy({ children: true })
   },

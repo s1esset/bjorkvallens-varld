@@ -126,3 +126,5 @@ livlös rekvisita.
     insamlat mynt stannar kvar — också mellan spelomgångar (`custom.mynt`, 40 syns).
   - **Bugg:** alla tre `gsap.delayedCall` → `ctx.later()`; pinn-vyerna och krukans tweens
     dödas i `destroy` och vid nivåbyte.
+- 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): bollarna ritas av delade `makeBoll` (`lib/foremal.js`) — hela den lokala funktionen blev en rad.
+  Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.

@@ -146,3 +146,5 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
     [Deep] trädgårdsmästare/Bobo som pekar + luktar i finalen; [Quick] lugn trädgårds-ambient
     (fågelkvitter/vind — central ljud-hantering).
 </content>
+- 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): **jordprofilen fick en lodrät gradient** (ljusare vid ytan, mörkare på djupet). Den var 301 300 px i en enda brun ton — den största enfärgade ytan i hela appen (uppmätt med nya `scripts/_plattprobe.mjs`), och en jordprofil sedd i genomskärning är just det som INTE ska vara enfärgad.
+  Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.

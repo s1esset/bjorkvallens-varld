@@ -129,3 +129,5 @@ betyder något, och korgen saknar mottagare/själ.
   - **P0 ASSETS:** mätarens korg- och bollikoner ritas nu (var 🧺/🏀-emoji i cirklar, exakt
     det regeln förbjuder); det svävande 🏀 vid varje korg är borttaget (⭐ kvar för stjärnboll).
   - **Bugg:** `gsap.delayedCall` för nivåbytet → `ctx.later()`.
+- 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): alla bollar (vanlig, tung, stjärnboll, ballongboll) ritas av delade `makeBoll` (`lib/foremal.js`). Den tunga bollens två gropar ritas vidare i kroppens egen Graphics — de är dess kännetecken, inte en dager.
+  Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.

@@ -162,3 +162,5 @@ auto-hjälpen gör siktet kosmetiskt**.
   (3) Strike-repliken var konkatenerad (`randomFrom(PRAISE) + ' Alla käglor!'`) så
   `check.mjs` inte kunde hitta den och `/rost` aldrig kunde klippa den; den är nu fyra hela
   literaler i `STRIKE_SAY`. errorCount 0.
+- 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): klotet och poängstjärnorna ritas nu av delade `makeBoll`/`makeStjarna` (`lib/foremal.js`) med `sphereFill`/`topLightFill`. Den handritade vita glansellipsen är borttagen — gradienten ÄR dagern. Bowlingklotet läser som ett klot i stället för en skiva; de tomma stjärnfacken (alpha 0.22) är oförändrade.
+  Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.

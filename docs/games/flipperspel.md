@@ -225,3 +225,5 @@ passiva en gång tända**.
   ritad blixt. (2) Bobo var ett svävande huvud ovanför maskinen; han **greppar nu maskinens
   kant med två tassar**, så bilden läser som en figur som står bakom flipperspelet och tittar
   ner på bollen. errorCount 0.
+- 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): stålkulan ritas av delade `makeBoll` (`lib/foremal.js`). Den påklistrade glansprickern är ersatt av en klotgradient — kulan läser som krom i stället för en vit skiva.
+  Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.

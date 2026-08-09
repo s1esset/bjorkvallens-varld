@@ -206,3 +206,5 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
     stjärna), inte en tween per bildruta. Skuren är redan gles-lagd; resten är avsiktlig.
   - Kvar till en senare omgång: gömda fynd bakom en kloss, rasande-mur-kaskad med stigande
     pling, rep-spänn-ljud, riktiga SFX-klipp (MOSS) och en lugn bakgrunds-ambient.
+- 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): bollen ritas av delade `makeBoll` (`lib/foremal.js`); kronan fick `topLightFill` på plats. Kronan delades medvetet INTE med `klappa-mullvaden`s: de har olika proportioner och en gemensam version hade krävt sex parametrar för att bevara båda.
+  Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.

@@ -228,6 +228,14 @@ ger lyft i *många* spel:
 - **"Musik"-spel utan riktig ton.** harma-melodin, folj-sparet, loopdjuren, djurorkester använder
   generiska UI-blipp (`pling/pop/flip`) utan tonhöjd → låter aldrig som musik. *Grepp:* ge
   plattor/klossar en stämd skala (pentatonisk/dur) så sekvens/staplar bildar verklig melodi.
+- **Stora ytor i EN platt ton (uppmätt 2026-08-09).** Marker, jordprofiler, klippor och egna
+  bakgrunder ritas ofta som en enda fylld form: `plantera-fron`s jord låg på **301 300 px** i en
+  brun ton, mullvadens gräsmatta på 215 742, lavaspelets klippor på 135 828, och fyrverkeriets
+  natthimmel var **48 staplade rektanglar**. *Grepp:* `verticalFill`/`sphereFill`/`topLightFill`
+  ur `lib/form.js` — en rad per yta. *Mät först:* `node scripts/_plattprobe.mjs` rankar alla 72
+  skärmdumpar på största enfärgade fältet. **Platt är ibland rätt** — vitt ritpapper
+  (`spara-linjen`) och en fotbollsplan uppifrån (`rulla-bollen-hem`) toppar listan och ska göra
+  det. Sonden är en ledtråd; bilden avgör. ✅ Åtgärdat i 5 spel (v1.48.0), fler kvar.
 - **Oanvända riktiga ljud-klipp.** `audio.sample('djur_…')` (12 djurläten) finns men anropas inte i
   flera spel (t.ex. skuggmatchning, vandkort) — `vilket-djur-later` bevisar att de funkar. *Grepp:*
   koppla på de riktiga klippen där djur/föremål förekommer (genomgående [Quick] när de finns).

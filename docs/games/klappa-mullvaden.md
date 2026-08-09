@@ -125,3 +125,5 @@ ger upptäckarglädje utan att någonsin bli stressande.
     under en lång session (ett spawn-anrop per uppdyk, aldrig rensat) och är borttaget.
     `_tell`/`_raise`/`_duck`/`_whack` guardar nu mot `hole.destroyed`, så ett hål som rivs mitt
     i ett uppdyk inte kan skriva till en nollställd transform.
+- 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): kronan fick `topLightFill`, och **gräsmattan en lodrät gradient**: den var 215 742 px i EN grön ton — appens största enfärgade yta där platt faktiskt var fel (uppmätt med nya `scripts/_plattprobe.mjs`). Ängen läser nu som ett fält som viker undan mot staketet i stället för en grön rektangel. Största fält efter: 32 889 px.
+  Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.

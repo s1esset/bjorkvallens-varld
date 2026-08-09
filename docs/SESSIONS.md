@@ -14,6 +14,94 @@ Format:
 
 ---
 
+## 2026-08-09 · v1.48.0 · LYFTPLAN rad 6 klar + rad 3/A2 påbörjad — vätska och volym
+
+**Byggt:** fyra omgångar. Två spel fick riktig vätska, och två omgångar gav spelobjekt och
+stora ytor volym — allt utpekat av mätning, inte av magkänsla.
+
+### 1. `vattenvagen` — riktig vätska (v1.45.0, `ccaef5c`)
+
+`lib/vatska.js` (SPH + metabollar) driver vattnet på de tre ställen där det SYNS: kranens
+stråle, läckan ur sista öppna porten, och muggen. **Inuti rören simuleras ingenting** — kanalen
+är 26 px och röret ogenomskinligt, så vattnet sugs in i mynningen och kommer ut i andra änden
+efter `140 + celler·95` ms. Den gamla "droppar längs en polylinje"-vägen är borta. Muggens
+fyllnad läses som vattenYTANS höjd.
+
+Fem fel som ett grönt test aldrig sett:
+1. **Strålen var osynlig** — 49 partiklar, noll pixlar. En droppe faller ~480 px/s, så med
+   saftbarens takt (145 ms) hamnar dropparna 70 px isär mot en 55 px klick: de överlappar
+   aldrig, når aldrig metaboll-tröskeln och ritas i KANTfärgen (nästan vit) mot ljusblå himmel.
+2. **Banan löste sig själv** — muggen låg i kranens kolumn, så läckan föll rakt i mål.
+3. **Spillet åt partikelbudgeten** (132 och stigande) → `drain()` fick en `pal`-parameter.
+4. **Fyra rader tryckte muggen bakom brickan och ur bild** från nivå 3 och uppåt. Banorna
+   växer nu i bredd (4→6 kolumner), aldrig i höjd.
+5. **Plantan blommade aldrig** — `this._plant.text = '🌸'` på en `Graphics` gör ingenting.
+
+### 2. `golvet-ar-lava` — lavan blir ett föremål (v1.46.0, `5d69147`)
+
+Bara flodens översta 46 px simuleras; djupet är samma ritade berg. Poängen är inte att lavan
+rör sig snyggare utan att **varje sten bär en cirkelkollision**: lavan delar sig runt stenen,
+kryper upp mellan stenarna, och en sten som DRAS över floden plogar lavan framför sig.
+Stenens kollisionsradie är 28, inte 46 — med full radie steg ytan 35 px och nådde klippkanten.
+
+### 3. `lib/foremal.js` — delad boll och stjärna i 8 spel (v1.47.0, `62b91db`)
+
+`makeBoll` (5 spel) + `makeStjarna` (3 spel), byggda med `form.js`-fyllningar: A2 (dedupe) och
+C1.3 (gradient på spelobjekt) i samma ändring. Glansellipsen är borttagen, inte kvarlämnad —
+gradienten ÄR dagern. **Läsningen ändrade docens lista:** `makeBasket` ×3 är tre OLIKA korgar
+och `makeBumper` ×2 två olika; att slå ihop dem hade tagit bort variation, inte en dubblett.
+
+### 4. Volym på de stora ytorna (v1.48.0, `bce776d`)
+
+Ny `scripts/_plattprobe.mjs` rankar de 72 skärmdumparna på största enfärgade fältet. Den pekade
+inte på spelobjekt utan på marker och bakgrunder: `plantera-fron`s jord 301 300 px i en ton,
+mullvadens gräsmatta 215 742, lavaklipporna 135 828, och **fyrverkeriets natthimmel var 48
+staplade rektanglar** — samma mönster `scene.js` lämnade i rad 3, gömt i en spelfil. Ny
+`verticalFill()` i `form.js`.
+
+**Två mätfel värda att minnas:** (a) rankning på SUMMAN av platt yta är fel — en bakad gradient
+kvantiseras till band, så summan STIGER av en korrekt fix (mullvaden 536 849 → 735 907) medan
+största fältet föll 215 742 → 32 889. (b) **Platt är ibland rätt** — `spara-linjen` (ritpapper)
+och `rulla-bollen-hem` (fotbollsplan uppifrån) toppar listan och ska göra det.
+
+### Ett falskt flaky-alarm, dokumenterat som sådant
+
+`_ab.sh` gav först lavaändringen **2 flakiga rundor av 8** (`glittergrottan:konsolfel` =
+WebGL-kontext som inte kunde skapas, plus tom-scen i tre-fyra spel) mot HEAD 0 — exakt
+signaturen från `generateTexture`- och `FillGradient`-fällorna. Två kostnadssänkningar gjordes
+på den grunden (`FluidView.area` som kör filtret bara över den yta vätskan kan nå, och ett delat
+metaboll-filter per sida i stället för per montering). Men i tredje körningen flakade **HEAD
+självt** med `golvet-ar-lava:tom-scen`. Slutläge över **11 växelvisa rundor: HEAD 1, ändringen
+2** — inte skiljbart. Ändringarna behölls för att de är billigare, inte för att de bevisligen
+fixade något. Mekanismen jag först skrev in i koden var dessutom **fel**: `Filter.from` går via
+`GlProgram.from`, som cachar per källkod. Kontrollerat i `node_modules/pixi.js` och rättat.
+
+**Nya verktyg:** `scripts/_vatskeprobe.mjs` (partiklar · ytans höjd · målade pixlar mot vätskans
+egen färg · FPS med CPU-strypning · exit + återinträde; hittar vätskan på FORM, inte fältnamn)
+och `scripts/_plattprobe.mjs`. `GameHost` exponerar `window.__barnspel.ctx` i DEV så sonder kan
+driva spelets egna metoder med den riktiga ctx:en.
+
+**Commits:** `ccaef5c` feat(vattenvagen) · `5d69147` feat(golvet-ar-lava) · `62b91db`
+feat(foremal) · `bce776d` feat(form)
+**Kontroll:** `npm run check` 0 fel/0 varningar · `npm run test:all` **72/72** efter varje
+omgång · FPS 56,7–56,9 vid CPU 6× strypt i båda vätskespelen (oförändrat mot tom scen) ·
+`_idleprobe` 0 framsteg utan tryck i båda.
+
+**Öppet:**
+- **Bygget är inte kört/serverat den här sessionen** — `npm run build` + `npm run serve` och en
+  runda på plattan återstår innan v1.48.0 kan kallas telefontestad.
+- **Rad 3/A2 fortsätter.** Nästa mätta kandidater ur `_plattprobe.mjs`: `tarta-i-ansiktet`
+  (132 675 px), `hamburgerbygget` (126 186), `enkelt-pussel` (111 539), `vart-tog-det-vagen`
+  (184 874 — men kolla bilden först, en bordsskiva får vara platt). Och de 203 lokala
+  rit-funktionerna i övrigt; sortera efter hur STORT föremålet ritas.
+- **B1 har sex spel kvar** som fejkar vätska: `zackes-biltvatt`, `tvatta-djuret`, `pruttbad`,
+  `trollblandning`, `plask-i-vattnet`, `pizzabageriet`. Mönstret och sonden finns nu.
+- `rimLight` i `form.js` väntar fortfarande på sin första kund.
+- Oförändrat sedan tidigare: MOSS nere (`kristall_klirr` + `duns` köade), p2-es-beslutet (rad 12)
+  väntar på ägaren.
+
+---
+
 ## 2026-08-09 · v1.44.0 · LYFTPLAN rad 5 — `lib/kamera.js` (app-brett, inget enskilt spel rört)
 
 **Byggt:** kameran som gör rad 4:s **statiska** djupband till riktig parallax. `class Camera`

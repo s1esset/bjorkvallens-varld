@@ -198,3 +198,6 @@ loopen är "töm bricka → bredare flod".**
   - Kvar (medvetet): [Medium] scen-cykel vulkan→grotta→natt, vinglig sten, och de riktiga
     MOSS-klippen (lava-blubb/ambient/barnfniss) som väntar på en samlad `/rost`-körning.
 </content>
+- 2026-08-09 (senare samma dag): **klipporna fick en lodrät gradient** (v1.48.0, `bce776d`).
+  `scripts/_plattprobe.mjs` mätte dem till 135 828 px i en enda brun ton — tredje största
+  enfärgade ytan i appen. Ingen annan ändring; lavan är oförändrad sedan `5d69147`.

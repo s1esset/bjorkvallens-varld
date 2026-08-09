@@ -107,3 +107,5 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
     släpp, så fallet får en synlig orsak.
   - **Bugg:** `gsap.delayedCall` → `ctx.later()`; lövverkets, ekorrens och önskebubblans
     tweens dödas i `destroy`.
+- 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): lövverkets nio stora cirklar (r 86–110) fick `sphereFill` — de var platta skivor och är nu kronor med volym.
+  Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.

@@ -183,3 +183,5 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   - Kvar som [Medium]/[Quick] i §4: studsknoppen som dragbart verktyg, stjärn-kluster i former,
     sällsynt regnbågsstjärna, stjärnhimmel som fylls, vilo-guppning på studsmoln, riktiga
     SFX-klipp (väntar på MOSS).
+- 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): stjärnorna ritas av delade `makeStjarna` (`lib/foremal.js`, glöd behållen); studsbumpern fick `sphereFill`. Bumpern delades medvetet inte med flipperspelets — de är två olika föremål.
+  Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.

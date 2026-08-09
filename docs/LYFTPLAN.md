@@ -945,7 +945,7 @@ importera pixi.js.
    localStorage direkt träffar ett tomt dokument i en färsk kontext, och `profiles` är en
    array, inte en uppslagstabell.
 
-### ✅ A4.4 — kamerans första kund: `spindel-zacke-svingar` (v1.73–74)
+### ✅ A4.4 — kamerans första kund: `spindel-zacke-svingar` (v1.73–75)
 
 Kameran hade noll kunder bland de 72 spelen. Nu har den en, och `lib/kamera.js` är därmed
 verifierad mot ett riktigt spel i stället för bara mot `_kameraprobe.mjs`.
@@ -1000,6 +1000,17 @@ kamerans understa lager och ligger i `_layers` — de gamla måste plockas ur li
 flyttar kameran osynliga containrar varje bildruta. `adopt()` lägger numera in dem med
 `addChildAt`; kontraktet sa redan "understa", men det råkade stämma bara så länge `adopt`
 var det första anropet. Uppmätt: lagerantalet står still på **14 över sex nivåbyten**.
+
+**Och spelets hela Variation-sektion avbockad (v1.75.0).** Stadsdelen blir finare åt höger
+(fönster → balkongräcken → spira vid `narhet` 0,34 / 0,52 / 0,62 / 0,78) och fästena glöder
+starkare mot kattungen (`i / (count − 1)`, additivt och skalat med stämningen). Höjden rörs
+inte: `ROOF_Y` är fångstgolv och kattungen sitter på `ROOF_Y − 46`. Fågel, ballong och stjärna
+hänger mellan fästena och ger ett pling ur en pentatonisk stege.
+**Sonden fällde den första placeringen:** ett höjdband satt på känsla (y 246–330) gjorde att
+1 av 2 PASSERADE saker aldrig kunde plockas — flykten stiger bara ~22 px med kort nät, så
+toppen ligger kring y 302. Nu simuleras båda nätlängdernas banor med samma integrator som
+spök-bågen och saken hamnar mitt emellan deras närmaste punkter: räckbar av konstruktion.
+`_varldprobe.mjs` är nu 13/13.
 
 <details>
 <summary>De övriga kandidaterna (utredda, inte byggda)</summary>

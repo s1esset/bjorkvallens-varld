@@ -14,7 +14,7 @@ Format:
 
 ---
 
-## 2026-08-09 (sen natt) · v1.74.0 · Spår E runda A4 — glöd, emitters, MeshRope, kameran
+## 2026-08-09 (sen natt) · v1.75.0 · Spår E runda A4 — glöd, emitters, MeshRope, kameran
 
 **Byggt:** Hela runda A4. Fyra punkter, var och en med en verklig kund i ett spel.
 
@@ -55,8 +55,13 @@ Format:
   och ligger i `_layers`, så de gamla måste plockas ur listan, annars flyttar kameran
   osynliga containrar varje bildruta. Uppmätt: lagerantalet står still på 14 över sex
   nivåbyten.
+- **Och §4:s hela Variation-sektion avbockad** (v1.75.0). Stadsdelen blir finare åt höger
+  (fönster → balkongräcken → spira), fästena glöder starkare mot kattungen, och fågel/ballong/
+  stjärna hänger mellan fästena och ger ett pling ur en pentatonisk stege när båg-kastet stryker
+  förbi. Höjden på husen rörs INTE: `ROOF_Y` är fångstgolv och kattungen sitter på
+  `ROOF_Y − 46`, så högre hus mot målet hade lagt takåsen över båda.
 
-**Fyra lärdomar, alla uppmätta:**
+**Fem lärdomar, alla uppmätta:**
 
 1. **Additivt ljus kräver TVÅ saker — C4-listan tänkte bara på det ena.** Inte bara en mörk
    botten att lysa upp, utan också en KÄLLA MED TAKHÖJD KVAR. Lägereldens lågtungor ligger
@@ -80,12 +85,13 @@ Format:
    eftersom Zacke teleporterar och kamerans hårda ruta annars rycker bilden med.
 
 **Commits:** `5ee3481` glod+partiklar+lagerelden · `6dc07c3` trollblandning ·
-`0d5ae03` rep+zackes-biltvatt · `961594e` spindel-zacke-svingar+kamera · `25d441b` dygnet
+`0d5ae03` rep+zackes-biltvatt · `961594e` spindel-zacke-svingar+kamera · `25d441b` dygnet ·
+`9e45c1d` snart framme + skörden
 **Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** ·
 `_glodprobe.mjs` helgrön (additivitet bevisad mot en normal-kontrollarm: 255,60,60 mot
-247,2,2) · `_varldprobe.mjs` 11/11 (kameran 1045 px mot fjärranbandets 188 = kvot 0,18,
+247,2,2) · `_varldprobe.mjs` 13/13 (kameran 1045 px mot fjärranbandets 188 = kvot 0,18,
 precis lagerfaktorn; Zacke utanför bilden i 0 av 130 prover; stämningarna cyklar utan
-lagerläckage) · `_svingprobe.mjs` fortsatt
+lagerläckage; 2 av 2 passerade godsaker plockade; 0 av 5 liv-tweens tickar efter exit) · `_svingprobe.mjs` fortsatt
 7/7 · `_repprobe.mjs` fortsatt grön i Node.
 
 **Öppet:** Spår E är därmed klart (A1–A4). Nästa naturliga steg är **spår 3 fysik**.

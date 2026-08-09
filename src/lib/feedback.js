@@ -243,6 +243,28 @@ export function ripple(layer, x, y, { color = 0xffffff, maxR = 80, duration = 0.
   })
 }
 
+// KVITTO PÅ ETT TRYCK SPELET INTE KAN UTFÖRA JUST NU.
+//
+// P0 ÅTERKOPPLING gäller utan undantag: varje pekning → ljud+bild <100 ms. Ett spel
+// som är upptaget (firande, demo-uppspelning, kort som redan är vända, fas som byts)
+// svarar annars med TYSTNAD — och för ett barn som inte kan läsa "vänta" är en tyst
+// skärm inte en paus, den är trasig. Diagnostikloggen ser det som `dod-traffyta`.
+//
+// Kvittot är med FLIT dämpat: en kort låg ton (vol 0.10 mot vanliga 0.2–0.3) och en
+// tunn ring. Barnet får veta att fingret nådde fram, utan att kvittot konkurrerar med
+// firandet som pågår — och utan att låta som ett riktigt utfört drag, vilket vore ett
+// löfte spelet inte håller. Aldrig en summer, aldrig ett "nej".
+//
+// Egen ton i stället för sfx('soft'): `soft` betyder "du gjorde något" i 30+ spel, och
+// sfx() har dessutom ett 30 ms anti-loop-golv per namn som skulle svälja kvittot mitt
+// i ett firande som redan använder samma ljud.
+export function kvittera(layer, x, y, audio, { color = 0xffffff, maxR = 62 } = {}) {
+  audio?.tone?.({ freq: 330, dur: 0.07, type: 'sine', vol: 0.1 })
+  if (layer && !layer.destroyed && typeof x === 'number' && typeof y === 'number') {
+    ripple(layer, x, y, { color, maxR, width: 4, alpha: 0.3, duration: 0.42 })
+  }
+}
+
 // Mjuk, kort skärmskakning (ALDRIG hård) — för en stor krock/firande. Exit-säker.
 export function shake(target, { intensity = 8, duration = 0.4 } = {}) {
   if (!target || target.destroyed) return

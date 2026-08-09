@@ -26,7 +26,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
-import { pop, bounceIn, breathe, sparkle, puff, floatText, ripple, shake, burst } from '../../lib/feedback.js'
+import { pop, bounceIn, breathe, sparkle, puff, floatText, ripple, shake, burst, kvittera } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -648,7 +648,14 @@ export default {
   // ---- Kontroller ---------------------------------------------------------
 
   _flip(ctx, side) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    // Under bord-firandet är paddlarna låsta — men tystnad är ett P0-brott, inte en
+    // paus. Uppmätt: två tryck på paddelzonerna under firandet gav noll svar
+    // (`dod-traffyta`). Kvittot är dämpat så det inte tävlar med firandet.
+    if (this._resolving) {
+      const p = this._paddles.find((pp) => pp.side === side)
+      return kvittera(ctx.fxLayer, p?.pivotX ?? (side === 'left' ? 420 : 860), p?.pivotY ?? 600, ctx.services.audio, { color: COLORS.yellow })
+    }
     this._pressMs[side] = 170 // pressad ~170ms, sedan mjuk retur
     this._sinceTap = 0
     this._sinceLit = 0

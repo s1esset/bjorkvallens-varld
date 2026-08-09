@@ -15,7 +15,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle, breathe, ripple } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, breathe, ripple, kvittera } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 
@@ -340,6 +340,20 @@ export default {
     const b = bounds(this._slots)
     const blanket = makeBlanket(b.w, b.h)
     blanket.position.set(1280 + 60, b.top)
+    // Filten ÄR skärmens mitt medan den ligger på — och den låg tidigare där som en
+    // död yta: trycket träffade filten, inte rutorna under, och ingenting hände
+    // (uppmätt `dod-traffyta` mitt i täck-fasen). Nu vaggar den till och kvitterar.
+    // Att peta på filten är dessutom precis vad ett barn vill göra just då.
+    blanket.eventMode = 'static'
+    blanket.cursor = 'pointer'
+    blanket.on('pointertap', (e) => {
+      if (!this._alive || blanket.destroyed) return
+      // Ringen sätts där FINGRET var, inte i filtens mitt: filten glider medan den
+      // täcker, och dess pivå ligger i hörnet — en vingel eller puls därifrån hade
+      // svängt hela duken. Ett kvitto får aldrig se ut som en bugg.
+      const p = ctx.fxLayer.toLocal(e.global)
+      kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio, { color: COLORS.orange, maxR: 90 })
+    })
     this._root.addChild(blanket)
     this._blanket = blanket
 
@@ -444,7 +458,8 @@ export default {
 
   // Tap på ett svarskort.
   _onChoice(ctx, card, motif) {
-    if (!this._alive || this._busy || this._phase !== 'answer') return
+    if (!this._alive) return
+    if (this._busy || this._phase !== 'answer') return this._kvitto(ctx, card)
     this._idle = 0
     this._idleNudges = 0
 
@@ -550,12 +565,24 @@ export default {
   // Själva svaret ges på svarskorten (_onChoice), aldrig genom att trycka på
   // rutorna — så det går inte längre att "ha rätt" utan att välja rätt sak.
   _onTap(ctx, slot) {
-    if (!this._alive || this._busy) return
+    if (!this._alive) return
+    // Filten glider in, svaret avslöjas, en sak är ännu gömd — spelet kan inte utföra
+    // trycket, men det får inte SVARA MED TYSTNAD (P0). Uppmätt: ett tryck under
+    // täck-/avslöjningsfasen gav noll återkoppling (`dod-traffyta`).
+    const upptagen = this._busy || (this._phase !== 'show' && this._phase !== 'answer') || (slot === this._newcomer && !slot._emoji.visible)
+    if (upptagen) return this._kvitto(ctx, slot)
     this._idle = 0
-    if (this._phase !== 'show' && this._phase !== 'answer') return
-    if (slot === this._newcomer && !slot._emoji.visible) return // gömd tills den dyker upp
     ctx.services.audio.sfx('pop')
     pop(slot)
+  },
+
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  // Rutor och svarskort bor i egna, förskjutna lager — koordinaten måste därför gå
+  // via global rymd, precis som triumf-ringen i _resolveCorrect.
+  _kvitto(ctx, mal) {
+    if (!mal || mal.destroyed) return kvittera(null, null, null, ctx.services.audio)
+    const p = ctx.fxLayer.toLocal(mal.getGlobalPosition())
+    kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio, { color: COLORS.teal })
   },
 
   _newRound(ctx) {

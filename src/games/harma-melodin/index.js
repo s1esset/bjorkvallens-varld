@@ -6,7 +6,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
-import { sparkle, pop, wiggle, bigCelebration } from '../../lib/feedback.js'
+import { sparkle, pop, wiggle, bigCelebration, kvittera } from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { Button } from '../../lib/Button.js'
 
@@ -227,8 +227,15 @@ export default {
 
   // HÄRMA: tryck på en platta.
   _onPadTap(ctx, index) {
-    // Skydd mot tryck under uppspelning/upplösning (undviker dubbeltryck-fel).
-    if (!this._alive || this._state !== 'listening') return
+    if (!this._alive) return
+    // Skydd mot tryck under uppspelning/upplösning (undviker dubbeltryck-fel) — men
+    // spärren fick INTE svara med tystnad (P0). Plattans egen ton vore fel här: den
+    // skulle blanda sig i melodin som just demonstreras och lära ut fel sekvens.
+    // Kvittot är därför en dämpad ton utanför skalan + en ring på plattan.
+    if (this._state !== 'listening') {
+      const p = this._pads[index]
+      return kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio, { color: PAD_DEFS[index]?.color })
+    }
     this._idle = 0
 
     if (index === this._sequence[this._step]) {

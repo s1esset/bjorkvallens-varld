@@ -12,7 +12,7 @@
 import { Container, Graphics, Text, Rectangle, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle, floatText, ripple, shake, burst, breathe } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, floatText, ripple, shake, burst, breathe, kvittera } from '../../lib/feedback.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT } from '../../lib/theme.js'
@@ -320,8 +320,9 @@ export default {
   // Fri-lyssna: barnet tryckte på örat på ett kort -> spela DET djurets läte och låt
   // djuret röra sig med ljudet. Räknas ALDRIG som svar (ingen vingel, inget "fel").
   _listen(ctx, card) {
-    if (!this._alive || this._busy) return
+    if (!this._alive) return
     if (!card || card.destroyed) return
+    if (this._busy) return kvittera(ctx.fxLayer, card.x, card.y, ctx.services.audio, { color: card._djur?.color })
     this._idle = 0
     pop(card._ear)
     // Riktigt klipp om det finns, annars säger rösten lätet (inte namnet — örat är
@@ -385,7 +386,11 @@ export default {
   },
 
   _choose(ctx, card) {
-    if (!this._alive || this._busy) return
+    if (!this._alive) return
+    // Firandet pågår — men ett tryck får aldrig vara stumt (P0). Uppmätt i loggen:
+    // två tryck under "Det är en anka!"-firandet gav noll svar (`dod-traffyta`), och
+    // ett tredje krediterades firandets EGET djurläte 303 ms senare.
+    if (this._busy) return kvittera(ctx.fxLayer, card?.x, card?.y, ctx.services.audio, { color: card?._djur?.color })
     this._idle = 0
     this._clearHint()
 
@@ -476,7 +481,11 @@ export default {
 
   // Tomt tryck bredvid korten: mjukt ljud + ring där fingret var + vänlig vingel.
   _emptyTap(ctx, e) {
-    if (!this._alive || this._busy) return
+    if (!this._alive) return
+    if (this._busy) {
+      const q = e?.global ? this._root.toLocal(e.global) : null
+      return kvittera(ctx.fxLayer, q?.x, q?.y, ctx.services.audio, { color: COLORS.green })
+    }
     this._idle = 0
     ctx.services.audio.sfx('soft')
     if (e?.global) {

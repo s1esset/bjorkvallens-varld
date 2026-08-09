@@ -27,7 +27,7 @@ import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
 import { pop, bounceIn, breathe, sparkle, puff, floatText, ripple, shake, burst, kvittera } from '../../lib/feedback.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -265,8 +265,13 @@ export default {
     // tändning, "kastar in" nya kulan och hoppar av glädje när allt lyser.
     // Bobo TITTAR över maskinens kant — nu med händer som greppar kanten, så det läser
     // som en figur bakom maskinen i stället för ett svävande huvud.
+    // Riggen (lib/karaktarer.js) med `kropp: false` — Bobo står BAKOM maskinen, så en
+    // kropp hade hängt ner genom bordet. Tassarna nedan är hans grepp om kanten.
+    // `this._bobo` är den YTTRE containern: spelet äger position och hoppen, riggen
+    // äger sin egen skala (andningen).
     this._bobo = new Container()
-    this._bobo.addChild(makeMascot(46))
+    this._rig = makeKaraktar({ r: 46, kropp: false })
+    this._bobo.addChild(this._rig.view)
     const paws = new Graphics()
     paws.circle(-52, 40, 15).fill(COLORS.orange)
     paws.circle(52, 40, 15).fill(COLORS.orange)
@@ -286,6 +291,7 @@ export default {
     this._onBobo = () => {
       if (!this._alive) return
       this._boboReact(false)
+      this._rig?.react('hej') // trycker barnet på Bobo själv vinkar han tillbaka
       ctx.services.audio.sfx('pop')
       ctx.services.audio.tone({ freq: 660, dur: 0.12, type: 'sine', vol: 0.2, slideTo: 880 })
       sparkle(ctx.fxLayer, MID, this._boboBaseY)
@@ -613,6 +619,10 @@ export default {
   _boboReact(big = false) {
     const b = this._bobo
     if (!b || b.destroyed) return
+    // Minen: 'jubel' när allt lyser, annars ett litet 'heja'. Hoppet i y ligger kvar
+    // på den YTTRE containern (14/34 px) — riggens egna reaktioner rör sin egen nod,
+    // så de två kan aldrig skriva över varandra.
+    this._rig?.react(big ? 'jubel' : 'heja')
     gsap.killTweensOf(b)
     gsap.to(b, {
       y: this._boboBaseY - (big ? 34 : 14),
@@ -714,6 +724,13 @@ export default {
     if (sp2 && sp2.blades && !sp2.blades.destroyed && sp2.speed > 0.0005) {
       sp2.blades.rotation += sp2.speed * (sp2.dir || 1) * steps
       sp2.speed *= Math.pow(0.972, steps)
+    }
+
+    // Bobo följer kulan med blicken. Via `toLocal` så den yttre containerns läge
+    // räknas bort gratis — riggens `look` vill ha punkten i sin FÖRÄLDERS rymd.
+    if (this._rig && this._ballView && !this._ballView.destroyed && !this._bobo.destroyed) {
+      const bl = this._bobo.toLocal(this._ballView.getGlobalPosition())
+      this._rig.look(bl.x, bl.y)
     }
 
     // Drän: kula ut genom mitten (eller på avvägar) -> mjuk om-serve (ALDRIG en miss).
@@ -1055,6 +1072,8 @@ export default {
     this._celebrateTl?.kill()
     this._nextTimer?.kill()
     this._liftTween?.kill()
+    this._rig?.destroy()
+    this._rig = null
 
     for (const fin of this._fins || []) {
       if (fin.view && !fin.view.destroyed) gsap.killTweensOf(fin.view.scale)

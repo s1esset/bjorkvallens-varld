@@ -18,7 +18,7 @@ import { PhysicsWorld, Matter, mat } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, burst, breathe, bigCelebration, ripple, puff, shake } from '../../lib/feedback.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
 
 const { Body } = Matter
@@ -268,27 +268,20 @@ export default {
     // Bobo väntar under klockan och tar emot raset.
     // Bobo hade bara ett svävande huvud, dessutom halvt utanför högerkanten. Nu står han
     // med ritad kropp intill klockstället och väntar på att raset ska nå fram.
+    // Bobo är en RIGG (lib/karaktarer.js), inte ett stillbildshuvud med en handritad
+    // kropp under. Den gamla kroppen hade exakt riggens proportioner (skugga 2,36·r,
+    // fötter 2,15·r, bål 1,35·r vid r 40) — alltså ett rakt byte, inget flyttat origo.
+    // `this._bobo` är den YTTRE containern: spelet äger position och hoppet vid raset,
+    // riggen äger sin egen skala (andningen). Två skrivare på samma skala hackar.
     this._bobo = new Container()
-    const bg2 = new Graphics()
-    bg2.ellipse(0, 46, 30, 10).fill({ color: 0x000000, alpha: 0.16 })
-    bg2.ellipse(-14, 38, 12, 8).fill(COLORS.orangeDark)
-    bg2.ellipse(14, 38, 12, 8).fill(COLORS.orangeDark)
-    bg2.ellipse(0, 6, 28, 34).fill(COLORS.orange)
-    bg2.ellipse(0, 12, 18, 19).fill({ color: COLORS.cream, alpha: 0.92 })
-    bg2.moveTo(-22, -6).quadraticCurveTo(-40, -18, -44, -42).stroke({ width: 11, color: COLORS.orange, cap: 'round' })
-    bg2.moveTo(22, -6).quadraticCurveTo(40, -18, 44, -42).stroke({ width: 11, color: COLORS.orange, cap: 'round' })
-    bg2.circle(-44, -42, 9).fill(COLORS.cream)
-    bg2.circle(44, -42, 9).fill(COLORS.cream)
-    bg2.eventMode = 'none'
-    this._bobo.addChild(bg2)
-    const head2 = makeMascot(40)
-    head2.y = -48
-    this._bobo.addChild(head2)
+    this._rig = makeKaraktar({ r: 40 })
+    this._rig.view.y = -48
+    this._bobo.addChild(this._rig.view)
     this._bobo.position.set(1206, FLOOR_Y - 52)
     this._bobo.eventMode = 'none'
     this._bobo.interactiveChildren = false
     this._root.addChild(this._bobo)
-    this._boboTween = breathe(this._bobo, { scale: 1.05, duration: 1.4 })
+    this._rig.setMood('nyfiken', { direkt: true })
   },
 
   // ---- Flagga längs banan (dekorativ, byggs om per nivå) -------------------
@@ -913,9 +906,10 @@ export default {
         .to(this._bellObj, { rotation: -0.14, duration: 0.16 })
         .to(this._bellObj, { rotation: 0, duration: 0.16 })
     }
-    // Bobo tar emot raset och hoppar av glädje.
+    // Bobo tar emot raset och hoppar av glädje. Hoppet är 52 px — mycket större än
+    // riggens `jubel` (0,5·r = 20 px) — så SPELET äger y och riggen får 'stolt'.
+    this._rig?.setMood('stolt')
     if (this._bobo && !this._bobo.destroyed) {
-      this._boboTween?.kill()
       gsap.killTweensOf(this._bobo)
       const y0 = this._bobo.y
       gsap.timeline({ onComplete: () => { if (!this._bobo?.destroyed) this._bobo.y = y0 } })
@@ -1044,7 +1038,8 @@ export default {
     this._resetCall?.kill()
     this._startGlowTween?.kill()
     this._bellTween?.kill()
-    this._boboTween?.kill()
+    this._rig?.destroy()
+    this._rig = null
     this._killCascade()
     this._dragTile = null
     // Brickor / spöken / brickfack.

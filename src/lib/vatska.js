@@ -634,6 +634,46 @@ function blobTexture() {
 
 const rgb = (hex) => new Float32Array([((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255])
 
+// Metaboll-filtret byggs EN gång per sida och återanvänds av varje FluidView.
+//
+// Vad som INTE är skälet — kontrollerat i Pixis källa, så nästa läsare slipper gissa:
+// `Filter.from` går via `GlProgram.from`, som cachar per `vertex:fragment`-källa, och
+// `Shader.destroy()` river inte det delade programmet (`destroyPrograms` är false som
+// förval). Shadern kompileras alltså redan bara en gång per sida.
+//
+// Skälet är det som FAKTISKT är per vy: ett `Filter`-objekt, en `UniformGroup` och
+// dess bind-grupper allokerades och revs vid varje montering. Att dela dem är den
+// billigaste vägen att göra monteringen GL-tystare, i samma anda som
+// `generateTexture`- och `FillGradient`-fällorna i CLAUDE.md.
+//
+// ⚠️ Läs mätningen rätt. Det såg först ut som en regression: ändringen flakade 2 av 8
+// växelvisa rundor medan HEAD var ren. Nästa körning flakade HEAD SJÄLVT med
+// `golvet-ar-lava:tom-scen`, utan en rad av ändringen inne. Slutläget över 11 rundor:
+// HEAD 1, ändringen 2. Delningen behölls för att den är billigare — inte för att den
+// bevisligen fixade något.
+//
+// Uniformerna är per vy, men bara ETT spel är monterat i taget — så den delade
+// instansen räcker, och den vy som ändå skulle råka leva samtidigt får en egen.
+let _thrDelad = null
+let _thrUpptagen = false
+
+function byggThr() {
+  return Filter.from({
+    // OBS: vertex måste anges explicit — Filter.from fyller inte i någon åt oss.
+    gl: { vertex: defaultFilterVert, fragment: FRAG },
+    resources: {
+      fluidUniforms: {
+        uColor: { value: rgb(0xffffff), type: 'vec3<f32>' },
+        uEdge: { value: rgb(0xffffff), type: 'vec3<f32>' },
+        uThreshold: { value: 0.42, type: 'f32' },
+        uSoft: { value: 0.13, type: 'f32' },
+        uOpacity: { value: 1, type: 'f32' },
+        uUseTint: { value: 0, type: 'f32' },
+      },
+    },
+  })
+}
+
 export class FluidView {
   // parent      Container att lägga vätskelagret i
   // world       FluidWorld att rita
@@ -644,14 +684,22 @@ export class FluidView {
   // resolution  filterupplösning (0.5 = halv = fjärdedels pixelkostnad)
   // palette   array av hex — sätt den för FÄRG PER PARTIKEL (world.pal[i] = index).
   //           Utan palette får hela vätskan färgen i `color`.
-  constructor(parent, world, { color = 0x39b7f0, edge = 0xc9efff, alpha = 1, blobScale = 1.35, threshold = 0.42, soft = 0.13, blur = 9, quality = 2, resolution = 0.5, palette = null } = {}) {
+  // area      YTAN filtret körs över. Sätt den så snävt som vätskan kan nå — det är
+  //           den enda knappen som faktiskt ändrar vad renderingen KOSTAR. Förvalet
+  //           är hela designytan med marginal (1520×1080 → 760×540 rendermål vid
+  //           resolution 0.5), och tre pass går över den varje bildruta. En lavaflod
+  //           som bara upptar ett band är alltså 9× dyrare än den behöver vara — och
+  //           i en svit med fyra parallella webbläsare betalas det i tappade
+  //           WebGL-kontexter i ANDRA spel, inte i det här.
+  constructor(parent, world, { color = 0x39b7f0, edge = 0xc9efff, alpha = 1, blobScale = 1.35, threshold = 0.42, soft = 0.13, blur = 9, quality = 2, resolution = 0.5, palette = null, area = null } = {}) {
     this.world = world
     this.palette = palette
     this.layer = new Container()
-    // Lås filterytan till (lite mer än) designytan. Två vinster: filtret kostar alltid
-    // lika mycket oavsett hur vätskan sprider sig, och en skenande partikel kan aldrig
-    // spränga renderingstexturen.
-    this.layer.boundsArea = new Rectangle(-120, -240, DESIGN_W + 240, DESIGN_H + 360)
+    // Lås filterytan. Två vinster: filtret kostar alltid lika mycket oavsett hur
+    // vätskan sprider sig, och en skenande partikel kan aldrig spränga
+    // renderingstexturen. Förvalet är hela designytan — skicka `area` när spelets
+    // vätska bara kan nå en del av skärmen.
+    this.layer.boundsArea = area || new Rectangle(-120, -240, DESIGN_W + 240, DESIGN_H + 360)
     parent.addChild(this.layer)
 
     const tex = blobTexture()
@@ -668,20 +716,22 @@ export class FluidView {
     }
 
     this._blur = new BlurFilter({ strength: blur, quality, resolution })
-    this._thr = Filter.from({
-      // OBS: vertex måste anges explicit — Filter.from fyller inte i någon åt oss.
-      gl: { vertex: defaultFilterVert, fragment: FRAG },
-      resources: {
-        fluidUniforms: {
-          uColor: { value: rgb(palette ? 0xffffff : color), type: 'vec3<f32>' },
-          uEdge: { value: rgb(edge), type: 'vec3<f32>' },
-          uThreshold: { value: threshold, type: 'f32' },
-          uSoft: { value: soft, type: 'f32' },
-          uOpacity: { value: alpha, type: 'f32' },
-          uUseTint: { value: palette ? 1 : 0, type: 'f32' },
-        },
-      },
-    })
+    if (_thrUpptagen) {
+      this._egetThr = true
+      this._thr = byggThr()
+    } else {
+      _thrDelad = _thrDelad || byggThr()
+      _thrUpptagen = true
+      this._egetThr = false
+      this._thr = _thrDelad
+    }
+    const u = this._thr.resources.fluidUniforms.uniforms
+    u.uColor = rgb(palette ? 0xffffff : color)
+    u.uEdge = rgb(edge)
+    u.uThreshold = threshold
+    u.uSoft = soft
+    u.uOpacity = alpha
+    u.uUseTint = palette ? 1 : 0
     this._thr.resolution = resolution
     this.layer.filters = [this._blur, this._thr]
   }
@@ -732,7 +782,12 @@ export class FluidView {
     this.layer.filters = []
     try {
       this._blur.destroy()
-      this._thr.destroy()
+      // Det DELADE filtret rivs inte — det ska överleva till nästa montering, för
+      // hela poängen är att GL-programmet bara kompileras en gång per sida. Det
+      // håller inga per-bildruta-buffertar; rendermålen kommer ur Pixis pool och
+      // lämnas tillbaka. Ett eget filter (två vyer samtidigt) rivs som vanligt.
+      if (this._egetThr) this._thr.destroy()
+      else _thrUpptagen = false
     } catch {
       /* noop */
     }

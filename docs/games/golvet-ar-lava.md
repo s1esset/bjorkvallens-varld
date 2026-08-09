@@ -158,6 +158,43 @@ loopen är "töm bricka → bredare flod".**
     över floden bildar en melodi i st.f. samma `pop`. `sample('duns')` hookad + prompt tillagd i
     `scripts/sfx-phrases.json`. `gsap.delayedCall` → `ctx.later()`.
   - Kontroll: `check` grön · `test` 0 fel · `_idleprobe 60` = 0 framsteg utan tryck.
+- 2026-08-09: **Lavan är riktig vätska** (LYFTPLAN rad 6 / B1). Docens punkt "lavan är ren
+  tapet — floden är ett vackert hinder som inget händer med" är åtgärdad i grunden.
+  - **Bara det översta skiktet simuleras** (`lib/vatska.js`, SPH med `choklad`-viskositeten och
+    lavafärger). Djupet under är samma ritade berg som förut — det syns aldrig genom den
+    ogenomskinliga lavan, så partiklar där vore betalt för ingenting. Den sinusritade
+    `_drawLavaSurf` är borttagen; ytan ÄR nu vätskans yta.
+  - **Stenarna bär cirkelkollisioner.** Det är hela poängen: lavan delar sig runt en sten,
+    kryper upp mellan stenarna och lägger sig till ro igen. Kollisionen sätts redan när stenen
+    skapas (inte vid placering), så en sten som DRAS över floden plogar lavan framför sig.
+    Planobjekt flyttas genom `c.x/c.y` i tickern, alltså följer hålet med under hela glidningen.
+  - **Bubblan knuffar lavan** när den spricker (`attract` med negativ styrka). Utan den stod
+    ytan spikrak och floden läste som en glödande korv; med den buktar den och lever.
+  - **Två tal styrde designen** (`scripts/_vatskeprobe.mjs`):
+    1. *Fyllnadsnivån är räknad, inte gissad.* Antalet droppar skalas med flodens bredd
+       (`(R−L)·46/157`), annars sjunker ytan när floden växer och den gula ytlinjen ljuger om
+       var lavan börjar. Uppmätt yta: **455** (tom flod) → visuell överkant vid SURFACE_Y.
+    2. *Stenens kollisionsradie är 28, inte 46.* Med full stenradie trängde fyra stenar undan
+       så mycket lava att ytan steg **35 px** och nådde klippkanten. 28 ger ~20 px: uppmätt
+       432 med alla fyra i, alltså tydligt synligt men aldrig över kanten. Att lavan syns i
+       stenens kant spelar ingen roll — stenen ritas ovanpå vätskan.
+  - **Stänket är på riktigt.** `_lavaReact` och landningen kastar upp verkliga lavadroppar
+    (`splash`) som faller tillbaka i floden; landningens fart skalar med fallhöjden.
+  - **Exit-säkerhet:** `FluidView`/`FluidWorld` rivs i `destroy`; stenens kollision tas bort i
+    `_clearStones` (annars ligger ett osynligt hål kvar i floden). Sonden lämnar spelet mitt i
+    och går in igen: 235 partiklar, 0 fel.
+  - Kontroll: `check` 0 fel · `test:all` 72/72 · FPS **56,9 vid CPU 6× strypt** både med tom
+    flod och med fyra stenar i (oförändrat mot HEAD).
+  - **Ett falskt alarm värt att minnas.** `_ab.sh` växelvis gav först ändringen 2 flakiga
+    rundor av 8 (`glittergrottan:konsolfel` + tom-scen i tre-fyra spel) mot HEAD 0 — vilket
+    såg ut som exakt den regressionssignatur `generateTexture` och `FillGradient` gav. Två
+    åtgärder gjordes ändå, båda billigare oavsett: `FluidView` fick en **`area`**-parameter
+    (filtret körs över lavans band i stället för hela designytan — 9× färre pixlar) och
+    metaboll-filtret delas nu per sida i stället för per montering. Men i tredje körningen
+    flakade **HEAD självt** med `golvet-ar-lava:tom-scen`, utan en rad av ändringen inne.
+    Slutläget över 11 växelvisa rundor: **HEAD 1, ändringen 2** — inte skiljbart. Lärdomen är
+    den CLAUDE.md redan skriver ut: läs BÅDA armarna, och kör tillräckligt många rundor för
+    att svitens egen bakgrund ska hinna visa sig.
   - Kvar (medvetet): [Medium] scen-cykel vulkan→grotta→natt, vinglig sten, och de riktiga
     MOSS-klippen (lava-blubb/ambient/barnfniss) som väntar på en samlad `/rost`-körning.
 </content>

@@ -95,29 +95,56 @@ Flera har goda skäl (inomhusmiljö, 3D-backdrop). Men de som bara har en platt 
 
 ## 2. Spår B — fysik, kollisioner, kroppar och egenskaper
 
-### B1. SPH-vätskan är byggd och oanvänd **[Medium]** per spel
+### B1. SPH-vätskan är byggd och oanvänd **[Medium]** per spel — ✅ TRE SPEL 2026-08-09
 
 `src/lib/vatska.js` är 739 rader: en double-density-relaxation-solver med spatial hash, sex
 materialförval (`vatten` · `saft` · `gegga` · `honung` · `choklad` · `tval`) och metaboll-
-rendering. **Ett** spel använder den.
+rendering. Vid mätningen använde **ett** spel den; nu tre.
 
-| Spel | Fejkar vätska idag | Förval |
-|---|---|---|
-| `vattenvagen` | headern säger rakt ut "droppar längs en beräknad väg — INTE matter.js" | `vatten` |
-| `zackes-biltvatt` | skum + spolning som partikelfläckar | `tval` |
-| `tvatta-djuret` | skum-fläckar, regndroppar | `tval` |
-| `pruttbad` | badvatten + skumlinje | `tval` |
-| `trollblandning` | kitteln pyser, inget rinner | `gegga` |
-| `golvet-ar-lava` | bubblande lavaflod, ritad | `choklad` |
-| `plask-i-vattnet` | plask-ringar | `vatten` |
-| `pizzabageriet` | sås | `saft` |
+| Spel | Fejkar vätska idag | Förval | Status |
+|---|---|---|---|
+| `saftbaren` | — (var enda kunden) | `saft` | ✅ sedan tidigare |
+| `vattenvagen` | headern sa rakt ut "droppar längs en beräknad väg" | `vatten` | ✅ v1.45.0 |
+| `golvet-ar-lava` | bubblande lavaflod, ritad | `choklad` | ✅ v1.46.0 |
+| `zackes-biltvatt` | skum + spolning som partikelfläckar | `tval` | ⬜ |
+| `tvatta-djuret` | skum-fläckar, regndroppar | `tval` | ⬜ |
+| `pruttbad` | badvatten + skumlinje | `tval` | ⬜ |
+| `trollblandning` | kitteln pyser, inget rinner | `gegga` | ⬜ |
+| `plask-i-vattnet` | plask-ringar | `vatten` | ⬜ |
+| `pizzabageriet` | sås | `saft` | ⬜ |
 
-Det här är appens mest imponerande teknik och den syns i noll av åtta vätskespel.
-Börja med **`vattenvagen`** (störst kontrast mellan löfte och utfall) och
-**`golvet-ar-lava`** (lava = `choklad`-förvalet rakt av).
+**Tre lärdomar ur de två första bytena — läs dem före nästa spel:**
 
-⚠️ Kostnaden ligger i metaboll-filtret (halv upplösning). Mät FPS på plattan innan fler än
-två spel byter, och lägg ett partikeltak per spel.
+1. **Simulera bara där vätskan SYNS.** `vattenvagen` simulerar kranens stråle, läckan och
+   muggen; inuti de ogenomskinliga rören (26 px kanal) simuleras ingenting — vattnet sugs in
+   i mynningen och kommer ut i andra änden efter en restid. `golvet-ar-lava` simulerar bara
+   flodens översta 46 px; djupet är samma ritade berg som förut. Att simulera hela volymen
+   hade kostat allt och synts noll.
+2. **En stråle är inte ett glas.** Saftbarens värden (takt 145 ms, tröskel 0.42, blur 9) är
+   satta för fyllda kärl. En fallande droppe rör sig ~480 px/s, så med den takten hamnar
+   dropparna **70 px isär** mot en 55 px klick — de överlappar aldrig, når aldrig
+   metaboll-tröskeln och ritas i KANTfärgen (nästan vit). Uppmätt: 49 partiklar, noll synliga
+   pixlar, noll konsolfel. Räkna takten ur fallhastigheten och sänk tröskeln för strålar.
+3. **Vätska är volym — och volym flyttar sig.** Fyra stenar i lavan trängde undan så mycket
+   att ytan steg 35 px och nådde klippkanten. Fyllnadsmängden måste skalas med kärlets bredd,
+   och undanträngning måste mätas, inte antas.
+
+4. **Ett flaky-larm är inte en regression förrän HEAD mätts lika länge.** Lavan gav först
+   ändringen 2 flakiga rundor av 8 mot HEAD 0 — samma signatur som `generateTexture`-fällan.
+   I tredje körningen flakade **HEAD självt** med `golvet-ar-lava:tom-scen`. Slutläge över 11
+   växelvisa rundor: HEAD 1, ändringen 2, alltså inte skiljbart. Kör fler rundor innan du
+   dömer, och kontrollera mekanismen i Pixis källa innan du skriver ner den: påståendet
+   "`Filter.from` kompilerar per anrop" var fel — `GlProgram.from` cachar per källkod.
+
+Verktyg: **`scripts/_vatskeprobe.mjs`** (antal · ytans höjd · målade pixlar mot vätskans egen
+färg · FPS med CPU-strypning · exit + återinträde). Den hittar vätskan på FORM, inte på
+fältnamn, så den fungerar på vilket spel som helst.
+
+⚠️ Kostnaden ligger i metaboll-filtret (halv upplösning). Uppmätt vid CPU 6× strypt:
+**56,7–56,9 FPS** i båda spelen, oförändrat mot tom scen — men mät på plattan innan fler än
+två spel till byter, och lägg ett partikeltak per spel. Två billiga knappar finns nu i
+`FluidView`: **`area`** (kör filtret bara över den yta vätskan kan nå — lavan blev 9× färre
+pixlar) och ett **delat filter per sida** i stället för ett per montering.
 
 ### B2. Mjuka kroppar: noll **[Deep]**
 
@@ -472,7 +499,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 3 | `FillGradient` i `scene.js` + `lib/form.js` | C1 | 57 scener + moln | ✅ v1.40.0 *(delvis — se C1)* |
 | 4 | Fördjupad `scene.js` (djupband, dis, vinjett, tid) | C7 | 55 spel | ✅ v1.43.0 |
 | 5 | `lib/kamera.js` | C6 | nya spel; scenens djupband blir parallax | ✅ v1.44.0 |
-| 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ⬜ |
+| 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ✅ v1.45–46.0 |
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ⬜ |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 24 fysikspel | ⬜ |
 | 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ⬜ |

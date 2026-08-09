@@ -47,9 +47,19 @@ try {
   if (losa) {
     await page.evaluate(() => {
       const g = window.__barnspel.game
-      for (let i = 0; i < 40; i++) g._autoHelp?.(window.__barnspel.ctx)
+      const ctx = window.__barnspel.ctx
+      // Två kända former: spel med mjuk auto-hjälp löser sig själva bit för bit,
+      // och spel med en stenbricka får sina stenar utlagda över hindret.
+      if (g._autoHelp) {
+        for (let i = 0; i < 40; i++) g._autoHelp(ctx)
+      } else if (g._placeFree && g._stones) {
+        const L = g._lavaLeft
+        const R = g._lavaRight
+        const n = g._stones.length
+        g._stones.forEach((s, i) => g._placeFree(ctx, s, L + ((R - L) * (i + 1)) / (n + 1)))
+      }
     })
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(1200)
   }
 
   const cdp = await page.context().newCDPSession(page)
@@ -60,6 +70,12 @@ try {
     // modulinstans så fort Vite HMR-stämplat filen.
     const g = window.__barnspel.game
     const app = window.__barnspel.app
+    // Vätskan hittas på FORM, inte på namn: spelen döper sitt fält olika
+    // (_fluid, _lava, _world) och en sond som gissar namnet rapporterar -1.
+    const varld = Object.values(g).find((v) => v && typeof v === 'object' && typeof v.spawn === 'function' && 'radius' in v && 'count' in v)
+    const vy = Object.values(g).find((v) => v && typeof v === 'object' && v.layer && v._thr)
+    const u = vy?._thr?.resources?.fluidUniforms?.uniforms?.uColor
+    const mal = u ? [Math.round(u[0] * 255), Math.round(u[1] * 255), Math.round(u[2] * 255)] : null
     const prov = []
     let rutor = 0
     const rakna = () => rutor++
@@ -71,9 +87,19 @@ try {
       const t = performance.now() - t0
       if (t >= nasta) {
         nasta += 1000
+        // Ytans höjd är det enda sättet att veta om bassängen är rätt fylld. En
+        // stapel med 5 % marginal, så ett enstaka stänk i luften inte får bestämma.
+        let ytaY = -1
+        if (varld?.count) {
+          const ys = []
+          for (let i = 0; i < varld.count; i++) ys.push(varld.y[i])
+          ys.sort((a, b) => a - b)
+          ytaY = Math.round(ys[Math.floor(ys.length * 0.05)])
+        }
         prov.push({
           ms: Math.round(t),
-          partiklar: g._fluid?.count ?? -1,
+          ytaY,
+          partiklar: varld?.count ?? -1,
           iRor: g._queue?.length ?? -1,
           fyllnad: Number((g._fill ?? -1).toFixed(2)),
         })
@@ -91,16 +117,19 @@ try {
     const c2 = g2.getContext('2d')
     c2.drawImage(cv, 0, 0)
     const d = c2.getImageData(0, 0, g2.width, g2.height).data
-    // Bara MÄTTAD vatten-blå räknas. Scenens himmel (176,227,250) och muggens glas
-    // är ljusblå de med — räknar man dem får man 10 % täckning i en tom scen, och
-    // det var precis vad sondens första version rapporterade.
+    // Pixlarna jämförs mot vätskans EGEN kroppsfärg (läst ur shaderns uniform), inte
+    // mot ett handskrivet "är den blå?". Första versionen räknade scenens ljusblå
+    // himmel som vatten och rapporterade 10 % täckning i en tom scen.
     let vatskePix = 0
-    for (let i = 0; i < d.length; i += 4) {
-      const r = d[i]
-      const b = d[i + 2]
-      if (b > 170 && r < 140 && b - r > 120) vatskePix++
+    if (mal) {
+      for (let i = 0; i < d.length; i += 4) {
+        const dr = d[i] - mal[0]
+        const dg = d[i + 1] - mal[1]
+        const db = d[i + 2] - mal[2]
+        if (dr * dr + dg * dg + db * db < 3600) vatskePix++
+      }
     }
-    return { prov, fps: Number((rutor / sekTot).toFixed(1)), vatskePix, dukPix: g2.width * g2.height }
+    return { prov, fps: Number((rutor / sekTot).toFixed(1)), farg: mal, vatskePix, dukPix: g2.width * g2.height }
   }, SEK)
 
   await page.screenshot({ path: shot })
@@ -115,7 +144,12 @@ try {
   await page.waitForTimeout(700)
   await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), id)
   await page.waitForTimeout(1500)
-  const efterAter = await page.evaluate(() => window.__barnspel.game?._fluid?.count ?? -1)
+  const efterAter = await page.evaluate(() => {
+    const g = window.__barnspel.game
+    if (!g) return -1
+    const v = Object.values(g).find((x) => x && typeof x === 'object' && typeof x.spawn === 'function' && 'radius' in x && 'count' in x)
+    return v?.count ?? -1
+  })
   await page.evaluate(() => window.__barnspel.nav.go('library'))
   await page.waitForTimeout(500)
 

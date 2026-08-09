@@ -210,7 +210,8 @@ export default {
       // Muggen rymmer ~220 partiklar upp till mållinjen, och strålarna lever
       // ovanpå det. Taket måste ligga klart över summan: när det nås återanvänds
       // den ÄLDSTA partikeln — alltså vattnet som redan ligger stilla i muggen.
-      max: 420,
+      // Uppmätt topp: 260 vid full mugg.
+      max: 340,
       radius: 22,
       gravityY: 0.5,
       rho0: FLUIDS.vatten.rho0,
@@ -237,6 +238,8 @@ export default {
       blur: 6,
       quality: 2,
       resolution: 0.5,
+      // Vattnet håller sig till rutnätets bredd — filtret behöver inte hela skärmen.
+      area: new Rectangle(180, 40, 920, 680),
     })
     this._fluidView.layer.eventMode = 'none'
     this._fluidView.layer.interactiveChildren = false

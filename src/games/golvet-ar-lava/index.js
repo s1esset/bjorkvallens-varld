@@ -16,11 +16,16 @@
 // stegen) och (2) en STUDS-sten (grön fjäder-sten) som kastar nästa hopp mycket
 // längre (räckvidd 460 i st.f. 280) → kan brygga ett stort gap med flit.
 //
-// Fysik: spelet använder INTE matter.js/AimLauncher. Två egna, ticker-drivna,
-// exit-säkra integratorer: (a) en parametrisk hoppbåge (parabel) för figuren och
-// (b) en partikel-integrator för stigande lavabubblor + en vågig glödyta. Ingen
-// GSAP körs direkt på bubblor/yta/moln (de lever i tickern och förstörs via
+// Fysik: spelet använder INTE matter.js/AimLauncher. Hoppbågen är en egen,
+// ticker-driven, exit-säker parabel; lavabubblorna en egen partikel-integrator.
+// Ingen GSAP körs direkt på bubblor/moln (de lever i tickern och förstörs via
 // container-destroy); puff/floatText/sparkle är redan exit-säkra.
+//
+// LAVAN ÄR RIKTIG VÄTSKA (lib/vatska.js, SPH) i sitt ÖVERSTA skikt — resten av
+// floden är ritat berg, för det syns ändå inte. Poängen är inte att lavan rör sig
+// snyggare, utan att den är ett FÖREMÅL: varje sten bär en cirkelkollision, så
+// lavan delar sig runt stenen, kryper upp längs sidorna och skvätter när stenen
+// landar. Förut var floden vacker tapet som ingenting hände med.
 //
 // Stenarna dras med EGEN pointer-logik (pointerdown/globalpointermove/pointerup),
 // INTE DragController, med tap-tap-fallback. Vid släpp snäpper stenen till
@@ -29,7 +34,8 @@ import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, bigCelebration, floatText, ripple, shake } from '../../lib/feedback.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
+import { COLORS, FONT, PRAISE, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
@@ -46,6 +52,12 @@ const IDLE_DELAY = 6 // s utan handling → röst-recue
 const BUBBLE_N = 14
 const BUBBLE_THROTTLE = 0.22 // s mellan mjuka blubb-ljud
 const BUBBLE_DEPTH = 110 // px under ytan som bubblor föds i (grunt → läses som lava, inte bokeh)
+// Vätskeskiktet: bara det översta av floden simuleras. Djupet under är ritat berg
+// och syns aldrig genom den ogenomskinliga lavan, så partiklar där vore betalt för
+// ingenting. YTA_PX är uppmätt area per partikel vid radius 30 — den avgör hur
+// många partiklar en flod behöver för att ytan ska hamna vid SURFACE_Y.
+const LAVA_DJUP = 46
+const LAVA_YTA_PX = 157
 // Räckvidd (px) för hoppet FRÅN en stentyp → gör VILKEN sten till ett val, inte
 // bara var: studs kastar långt, bron ett hyfsat kliv, liljan ~vanlig men gullig.
 const REACH = { normal: 280, bounce: 460, bro: 360, lilja: 300 }
@@ -102,15 +114,43 @@ export default {
     this._terrain.eventMode = 'none'
     this._root.addChild(this._terrain)
 
-    // 3) Lava (bas + vågig yta som ritas om i tickern).
+    // 3) Lava: ritat berg i djupet + ett riktigt vätskeskikt överst.
     this._lavaBase = new Graphics()
     this._lavaBase.eventMode = 'none'
     this._root.addChild(this._lavaBase)
-    this._lavaSurf = new Graphics()
-    this._lavaSurf.eventMode = 'none'
-    this._root.addChild(this._lavaSurf)
 
-    // 4) Bubbel-lager (stigande lavabubblor).
+    this._lava = new FluidWorld({
+      // Uppmätt topp: 270 droppar med fyra stenar i den bredaste floden.
+      max: 320,
+      radius: 30, // grova droppar: lava är tjock, och metabollen smälter ihop dem ändå
+      gravityY: 0.5,
+      rho0: FLUIDS.choklad.rho0,
+      sigma: FLUIDS.choklad.sigma,
+      beta: FLUIDS.choklad.beta,
+      restitution: 0.02,
+      wallFriction: 0.5,
+      // Kärlet är klippornas väggar + en botten, inte världens kanter: ett stänk
+      // ska få flyga upp över klippkanten och falla tillbaka.
+      walls: { left: false, right: false, bottom: false, top: false },
+      bounds: { left: -120, right: DESIGN_W + 120, top: 60, bottom: DESIGN_H + 160 },
+    })
+    this._lavaView = new FluidView(this._root, this._lava, {
+      color: 0xff5a1e,
+      edge: 0xffd35c,
+      alpha: 1,
+      blobScale: 1.35,
+      threshold: 0.42,
+      blur: 9,
+      quality: 2,
+      resolution: 0.5,
+      // Lavan kan bara nå ett band: floden + höjden ett stänk orkar (~30 px upp).
+      // Filtret körs över den ytan i stället för hela skärmen — 9× färre pixlar.
+      area: new Rectangle(120, 360, 990, 260),
+    })
+    this._lavaView.layer.eventMode = 'none'
+    this._lavaView.layer.interactiveChildren = false
+
+    // 4) Bubbel-lager (stigande lavabubblor) — ovanpå vätskan.
     this._lavaFx = new Container()
     this._lavaFx.eventMode = 'none'
     this._root.addChild(this._lavaFx)
@@ -458,9 +498,10 @@ export default {
     this._terrain.roundRect(-60, 400, L + 60, 26, 40).fill(COLORS.green)
     this._terrain.roundRect(R, 400, 1340 - R, 380, 40).fill(COLORS.brown)
     this._terrain.roundRect(R, 400, 1340 - R, 26, 40).fill(COLORS.green)
+    // Djupet är ritat berg; det översta skiktet är vätska (se _fyllLava).
     this._lavaBase.clear()
     this._lavaBase.rect(L, SURFACE_Y, R - L, 300).fill(0x7a1500)
-    this._lavaBase.rect(L, SURFACE_Y, R - L, 40).fill(0xff5a1e)
+    this._fyllLava()
 
     // Skatt på höger klippa — varierat RITAT fynd per nivå (flyger ut vid vinst).
     this._treasure.position.set(this._treasureX, 360)
@@ -548,6 +589,9 @@ export default {
     const kinds = this._stoneKindsFor(this._level)
     kinds.forEach((kind, i) => {
       const st = this._makeStone(ctx, kind, TRAY_HOMES[i])
+      // Kollisionen sätts redan här, inte först vid placering: då plogar en sten
+      // som DRAS över floden lavan framför sig, och det är halva nöjet.
+      this._lavaColl(st)
       bounceIn(st, { delay: 0.05 * i })
     })
   },
@@ -564,7 +608,14 @@ export default {
     this._deselect()
     this._drag = null
     for (const s of this._stones || []) {
-      if (s && !s.destroyed) {
+      if (!s) continue
+      // Hålet i lavan måste dö med stenen — annars ligger en osynlig kollision
+      // kvar i floden och delar lavan där ingen sten finns.
+      if (s._coll) {
+        this._lava?.removeCollider(s._coll)
+        s._coll = null
+      }
+      if (!s.destroyed) {
         gsap.killTweensOf(s)
         gsap.killTweensOf(s.scale)
         s.removeAllListeners()
@@ -757,8 +808,10 @@ export default {
     this._drawPreview()
   },
 
-  // Lavan reagerar: ett litet stänk + en glödring vid ytan (juice, no-fail).
+  // Lavan reagerar: ett RIKTIGT stänk av lava (droppar som flyger upp och faller
+  // tillbaka i floden) + en glödring vid ytan. Juice, no-fail.
   _lavaReact(x) {
+    this._lava?.splash(x, SURFACE_Y + 6, { count: 9, speed: 5.5, spread: 1.5 })
     if (!this._lavaFx || this._lavaFx.destroyed) return
     puff(this._lavaFx, x, SURFACE_Y, { count: 5, color: 0xff7a2e })
     ripple(this._lavaFx, x, SURFACE_Y, { color: 0xffd35c, maxR: 60, duration: 0.5, width: 4, alpha: 0.7 })
@@ -1042,6 +1095,8 @@ export default {
       // skalar med fallhöjden (aldrig hård).
       if (this._segBx >= this._lavaLeft && this._segBx <= this._lavaRight) {
         ripple(this._lavaFx, this._segBx, SURFACE_Y, { color: 0xffd35c, maxR: 54, duration: 0.5, width: 4, alpha: 0.6 })
+        // Tyngden känns i lavan: ett stänk vid stenens fot, större ju högre fall.
+        this._lava?.splash(this._segBx, SURFACE_Y + 8, { count: 6, speed: 3.4 + clamp(this._H / 60, 0, 3), spread: 1.7 })
       }
       shake(this._root, { intensity: clamp(this._H / 40, 2, 6), duration: 0.22 })
     }
@@ -1144,7 +1199,17 @@ export default {
     this._t += dt
     this._tnow += dt
 
-    this._drawLavaSurf()
+    // Kollisionerna är planobjekt — de flyttas genom att sätta x/y. Stenarna
+    // släpar alltså med sig sina hål i lavan, både under drag och under glidningen
+    // till slotten.
+    for (const s of this._stones || []) {
+      if (s && !s.destroyed && s._coll) {
+        s._coll.x = s.x
+        s._coll.y = s.y
+      }
+    }
+    this._lava.update(ticker.deltaMS)
+    this._lavaView.update()
     this._updateBubbles(ctx, dt)
 
     if (this._walking) {
@@ -1213,22 +1278,46 @@ export default {
     if (free) wiggle(free)
   },
 
-  // ---- Lava (yta + bubblor), helt ticker-drivet & exit-säkert -------------
+  // ---- Lava (vätska + bubblor), helt ticker-drivet & exit-säkert ----------
 
-  _drawLavaSurf() {
-    const s = this._lavaSurf
-    if (!s || s.destroyed) return
+  // Bygg om lavabassängen för den här nivåns flodbredd: klippornas väggar, en
+  // botten, och exakt så många droppar att ytan hamnar vid SURFACE_Y. Antalet
+  // skalas med bredden — annars sjunker ytan när floden blir bredare, och den
+  // gula ytlinjen skulle ljuga om var lavan börjar.
+  _fyllLava() {
+    const f = this._lava
+    if (!f) return
     const L = this._lavaLeft
     const R = this._lavaRight
-    s.clear()
-    s.moveTo(L, SURFACE_Y + 30)
-    for (let x = L; x <= R; x += 20) s.lineTo(x, SURFACE_Y + Math.sin(x * 0.02 + this._t * 2) * 5)
-    s.lineTo(R, SURFACE_Y + 30)
-    s.lineTo(L, SURFACE_Y + 30)
-    s.fill(0xff5a1e)
-    s.moveTo(L, SURFACE_Y)
-    for (let x = L; x <= R; x += 20) s.lineTo(x, SURFACE_Y + Math.sin(x * 0.02 + this._t * 2) * 5)
-    s.stroke({ width: 3, color: 0xffd35c, alpha: 0.8 })
+    f.clear()
+    f.clearColliders()
+    const golvY = SURFACE_Y + LAVA_DJUP
+    f.addBox(L - 60, golvY - 120, 120, 400) // vänster klippvägg
+    f.addBox(R + 60, golvY - 120, 120, 400) // höger klippvägg
+    f.addBox((L + R) / 2, golvY + 40, R - L + 240, 80) // botten
+
+    const antal = Math.min(f.max - 40, Math.round(((R - L) * LAVA_DJUP) / LAVA_YTA_PX))
+    const kolumner = Math.max(1, Math.round(Math.sqrt((antal * (R - L)) / LAVA_DJUP)))
+    const rader = Math.max(1, Math.ceil(antal / kolumner))
+    for (let i = 0; i < antal; i++) {
+      const kx = i % kolumner
+      const ky = (i / kolumner) | 0
+      f.spawn(
+        L + 16 + ((R - L - 32) * (kx + 0.5)) / kolumner + (Math.random() - 0.5) * 6,
+        golvY - 10 - (LAVA_DJUP - 20) * ((ky + 0.5) / rader) + (Math.random() - 0.5) * 6
+      )
+    }
+  },
+
+  // En sten är ett riktigt hinder i lavan: cirkeln gör att lavan delar sig runt
+  // den, kryper upp längs sidorna och lägger sig till ro igen.
+  // Radien är MINDRE än stenen med flit. Stenen ritas ovanpå vätskan, så lavan
+  // som kryper in under stenens kant syns aldrig — men undanträngd volym höjer
+  // hela floden, och med full stenradie steg ytan 35 px och nådde klippkanten när
+  // alla fyra stenarna låg i. 28 px ger ~20 px, vilket syns utan att svämma över.
+  _lavaColl(stone) {
+    if (!this._lava || !stone || stone.destroyed) return
+    if (!stone._coll) stone._coll = this._lava.addCircle(stone.x, stone.y, 28)
   },
 
   _respawnBubble(b) {
@@ -1246,6 +1335,10 @@ export default {
       b.y -= b.vy * dt
       b.r += 2.5 * dt
       if (b.y <= SURFACE_Y) {
+        // Bubblan KNUFFAR lavan när den spricker: ytan buktar upp och lägger sig,
+        // i stället för att stå spikrak. Det är det som gör skillnad mellan en
+        // glödande korv och en flod — och det kostar en impuls per bubbla.
+        this._lava?.attract(b.x, SURFACE_Y + 16, 70 + b.r * 3, -0.5 - b.r * 0.05)
         puff(this._lavaFx, b.x, SURFACE_Y, { count: 3, color: 0xff7a2e })
         if (this._tnow - this._lastBlub > BUBBLE_THROTTLE && Math.random() < 0.25) {
           this._lastBlub = this._tnow
@@ -1279,6 +1372,12 @@ export default {
     this._drag = null
     this._cloud = null
     this._cloudHand = null
+
+    // Vätskan äger filter och hundratals sprites — den rivs explicit, före roten.
+    this._lavaView?.destroy()
+    this._lava?.destroy()
+    this._lavaView = null
+    this._lava = null
 
     // Draken + hjältens armar tweenas utanför _root-hierarkins egna städning.
     if (this._dragon && !this._dragon.destroyed) {

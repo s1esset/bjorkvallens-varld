@@ -167,3 +167,4 @@ Originaltexten för de avbockade punkterna står kvar nedan.
   till grillen (blick + färg på samma sida). Per-lager grillning + kund-order + skär&servera (Deep)
   lämnade till senare. errorCount 0, skärmdump bekräftar kunden.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): kakelvägg (loop från row −3, samma 64-rutnät) + bänkskiva/golv breddade. Hyllan var redan maskad. Testad båda viewports: 0 fel.
+- 2026-08-09 ✅ **Vilorörelse [Quick]** (v1.70.0): hyllans 63 ingredienser guppar var för sig — rörelsen ligger på den inre vyn, `slot` äger tryck och svep. Delad `feedback.liv()` med egen fas per föremål. Mätt med `_livprobe`: 9,1 px / 0,44, 0 tweens kvar efter exit.

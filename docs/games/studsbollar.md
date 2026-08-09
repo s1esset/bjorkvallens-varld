@@ -131,3 +131,4 @@ betyder något, och korgen saknar mottagare/själ.
   - **Bugg:** `gsap.delayedCall` för nivåbytet → `ctx.later()`.
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): alla bollar (vanlig, tung, stjärnboll, ballongboll) ritas av delade `makeBoll` (`lib/foremal.js`). Den tunga bollens två gropar ritas vidare i kroppens egen Graphics — de är dess kännetecken, inte en dager.
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
+- 2026-08-09 ✅ **Exit-bugg fixad [Quick]** (v1.70.0): en boll som gjort mål tweenas 0,2 s ner i korgen och hade redan lämnat `_balls`/`_shot` — `destroy` hittade den inte och tweenen skrev till en förstörd Container. Ny `_malflykt`-mängd töms i destroy. Latent sedan tidigare; A2:s ändrade övergångstiming gjorde den deterministisk (rött 3/3 med, grönt 3/3 utan — växelvis mätt). Nu 3/3 gröna, 0 pageerrors.

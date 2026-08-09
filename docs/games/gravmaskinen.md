@@ -184,3 +184,4 @@ rekvisita, och auto-hjälp + tap-fusk kan kringgå själva grävandet**.
   ritad, med hjälm, och synlig genom rutan i stället för instoppad i en bricka. Dumpern
   (var 🚛) ritas med flak, hytt, tre hjul och strålkastare, och fyllnadsmarkören (var 🎯)
   som en riktig måltavla. errorCount 0.
+- 2026-08-09 ✅ **Vilorörelse [Quick]** (v1.70.0): lastbilens kaross guppar på tomgång medan skuggan står still (skuggan flyttad till egen Graphics). Delad `feedback.liv()` med egen fas per föremål. Mätt med `_livprobe`: 4,0 px / ett objekt, 0 tweens kvar efter exit.

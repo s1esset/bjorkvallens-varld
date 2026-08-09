@@ -99,7 +99,8 @@ complete()            // ETT tillfredsställande "klart": firande 1–2 s + stj�
   rött kryss eller tillrättavisning.
 - **Fristående objekt (P0 `ASSETS`).** Rita spelobjekt som riktiga föremål med egen silhuett —
   aldrig en emoji i en `roundRect`. En svamp är en svamp med porer och rundade hörn, inte en
-  bricka med 🧽 i. Ge dem eget liv: vilo-guppning (`breathe`), reaktion vid tryck (`pop`,
+  bricka med 🧽 i. Ge dem eget liv: vilo-guppning (`liv` — egen fas per föremål; `breathe`
+  är skala och synkron), reaktion vid tryck (`pop`,
   `wiggle`), skugga för djup. Paneler/kort är till för TEXT och UI-kontroller, inte för
   spelobjekt. Emoji får ligga som detalj *ovanpå* ett ritat föremål, aldrig vara föremålet.
 - Talad svenska vid `mount`; mjuk om-cue vid ~6 s inaktivitet; positiv reaktion på VARJE tryck.
@@ -129,7 +130,7 @@ destroy(ctx) {
 
 | Fil | Ger dig |
 |---|---|
-| `lib/feedback.js` | `bounceIn·pop·wiggle·shake·breathe·squash·landa·stegra` (egna objekt — döda tweens i destroy) · `puff·sparkle·burst·ripple·bigCelebration·floatText` (självstädande, exit-säkra). `squash(t,{intensity,hop})` = squash-and-stretch (+ hopp), `landa(t)` = landningstryckning, `stegra(list, fx)` = förskjuten start via `ANIM.stagger`. **Handrulla dem inte** — tiderna bor i `ANIM` |
+| `lib/feedback.js` | `bounceIn·pop·wiggle·shake·breathe·squash·landa·stegra·liv` (egna objekt — döda tweens i destroy) · `puff·sparkle·burst·ripple·bigCelebration·floatText` (självstädande, exit-säkra). `squash(t,{intensity,hop})` = squash-and-stretch (+ hopp), `landa(t)` = landningstryckning, `stegra(list, fx)` = förskjuten start via `ANIM.stagger`, `liv(t,{bob,sway})` = **vilorörelse med egen fas** (gupp + vaggning; `breathe` är skala och synkron). **Handrulla dem inte** — tiderna bor i `ANIM` |
 | `lib/scene.js` | `createScene('sky'|…)` bakgrundsvärld + `lerpColor` |
 | `lib/kamera.js` | `Camera` — parallaxlager, `follow`/`moveTo`/`panTo`/`shake`/`zoomTo`; världar bredare än rutan (se nedan) |
 | `lib/DragController.js` | drag med snäpp / snäpp-tillbaka / **tap-tap-fallback** + `onMiss` — obligatorisk för dragspel. Tyngd ingår (eftersläpning, lutning, landning); `skugga: true` tänder lyft-skuggan — **bara om spelet inte redan ritar en egen skugga under föremålet** |

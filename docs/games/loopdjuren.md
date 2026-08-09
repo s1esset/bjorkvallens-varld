@@ -120,3 +120,4 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
   - `emoji`-fälten är borta ur `ANIMALS` och `BLOCKS`; spelet har inga `Text`-noder kvar.
   - **Grind:** `npm run check --game loopdjuren` 0 fel · `npm run test` grönt ·
     `_idleprobe 20s` → `idleFramsteg: 0`.
+- 2026-08-09 ✅ **Vilorörelse [Quick]** (v1.70.0): djurhuvudena guppar och vaggar i egen takt (skuggan ligger kvar på marken). Delad `feedback.liv()` med egen fas per föremål. Mätt med `_livprobe`: 9,5 px / fasspridning 0,23, 0 tweens kvar efter exit.

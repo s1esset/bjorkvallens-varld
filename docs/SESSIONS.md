@@ -14,6 +14,45 @@ Format:
 
 ---
 
+## 2026-08-09 (sen kväll) · v1.70.0 · Spår E runda A2 — övergångar med riktning, vilorörelse
+
+**Byggt:** Andra rundan i animationsspåret: skärmbytena fick en riktning, och sex spel som
+stod helt stilla i vila fick liv.
+
+- **`Nav.js`** — den nya skärmen läggs **underst och full direkt**; det är den GAMLA som
+  glider undan och tonar bort ovanpå (vänster djupare in, höger tillbaka). Ordningen ger
+  både riktningen och frihet från cremeblänk — med en korstoning är båda skärmarna
+  halvgenomskinliga en stund och skalets creme lyser igenom. `_busy` hålls nu tills
+  övergången är klar.
+- **`GameHost`** — ankomst-takt från skala 1.06 ned mot 1. Aldrig UNDER 1: en scale-in
+  underifrån hade visat creme runt kanterna en halv sekund.
+- **`feedback.liv()`** — gupp + vaggning med **egen fas per föremål** (`breathe` var
+  skal-bara och synkron). Tänd i loopdjuren, hamburgerbygget, enkelt-pussel,
+  vart-tog-det-vagen, fyrverkeri och gravmaskinen. Mönstret som gör det ofarligt: lägg
+  rörelsen på en INRE behållare när det yttre objektet ägs av någon annan (drag, hyllans
+  svep, spelets egen blandning). djurorkester lämnades med flit — korten pulsar redan i takt
+  med rytmen.
+- **Två nya sonder:** `_navprobe.mjs` (riktning, creme mitt i bytet, routerlås) och
+  `_livprobe.mjs <id>` (amplitud, fasspridning, tickar något efter exit).
+
+**Två lärdomar, båda uppmätta:**
+1. **`isActive()` ljuger** om en tween som dödat sig själv inifrån sin `onUpdate` — den
+   fryser sin `totalTime` men rapporterar fortfarande aktiv. Mät att den slutar **ticka**.
+2. **Ändrad övergångstiming gör latenta exit-buggar deterministiska.** `studsbollar`
+   tweenade målgjorda bollar 0,2 s ner i korgen; de hade redan lämnat `_balls`/`_shot`, så
+   `destroy` hittade dem inte och tweenen skrev till en förstörd Container. Rött 3 av 3 med
+   A2-skalet, grönt 3 av 3 utan (växelvis mätt) — buggen var gammal, A2 gjorde den synlig.
+
+**Commits:** `fda74a6` feat(lib) liv() · `e1eb6e2` feat(shell) övergångar ·
+`0172b83` feat(6 spel) vilorörelse · `27cba25` fix(studsbollar) exit-bugg
+**Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** (en `tom-scen` på
+tvatta-djuret i parallellkörningen var svitens kända transient — grön enskilt).
+**Öppet:** A3 (riggens sista 6 spel: domino, flipperspel, hamburgerbygget, knuffa-tornet,
+kulbana, sapbubblor), A4 (add-glow, emitters, MeshRope via Canvas2D, kamerans första kund),
+sedan spår 3 fysik. Ägarens manuella telefonkoll av full bleed är fortfarande ogjord.
+
+---
+
 ## 2026-08-09 (kväll) · v1.69.0 · Spår E runda A1 — rörelse-tokens, delad squash, tyngd i draget
 
 **Byggt:** Andra spåret i treprogrammet (skärm → animation → fysik) startade med den runda

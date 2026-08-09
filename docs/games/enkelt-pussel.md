@@ -126,4 +126,5 @@ blomman, katten ta form. Tema-cykeln ger variation över rundor.
     motiv (djur/fordon/årstider); [Deep] pussel-kompis (Bobo som tittar/hejar); [Quick] motiv-
     anpassad ambient + stigande snäpp-ton.
 - 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 13 px släp, 0,104 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.
+- 2026-08-09 ✅ **Vilorörelse [Quick]** (v1.70.0): bitarna i spridningsytan guppar på en inre behållare (DragController äger den yttre); guppningen dödas när biten hamnat rätt så en placerad bit sitter blick stilla. Delad `feedback.liv()` med egen fas per föremål. Mätt med `_livprobe`: 7,0 px / 0,24, 0 tweens kvar efter exit.
 </content>

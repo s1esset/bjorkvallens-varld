@@ -132,3 +132,4 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
     Bobo som blandar (värd/föreställning), samt leksaks-specifika sample-klipp (kvack) om MOSS-SFX.
 </content>
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): bakgrunden breddad (tomma-tryck-fångaren täcker kantremsorna). Bakgrundsfärgen är exakt `COLORS.bg` → flaggan släcks av design-undantaget, inte av breddningen. Testad båda viewports: 0 fel.
+- 2026-08-09 ✅ **Vilorörelse [Quick]** (v1.70.0): kopparna vaggar medan de väntar — rörelsen på den inre grafiken, spelet äger blandning och kik. Delad `feedback.liv()` med egen fas per föremål. Mätt med `_livprobe`: 4,8 px / 0,14, 0 tweens kvar efter exit.

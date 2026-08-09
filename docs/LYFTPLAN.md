@@ -821,3 +821,35 @@ mät FÖRE fotot, annars har bilden hunnit i kapp fingret och eftersläpningen m
 
 **Kvar i spåret:** A2 (riktningsmedvetna Nav-övergångar + `liv()`-idle), A3 (riggens sista 6
 spel), A4 (add-glow, kontinuerliga emitters, MeshRope via Canvas2D, kamerans första kund).
+
+## 7. Spår E runda A2 — övergångar med riktning + vilorörelse ✅ v1.70.0
+
+- **`Nav.js`** — den nya skärmen läggs **underst och full direkt**; det är den GAMLA som
+  glider undan och tonar bort ovanpå (vänster djupare in, höger tillbaka, `DJUP`-tabellen).
+  Ordningen ger både riktningen och frihet från cremeblänk: med en korstoning är båda
+  skärmarna halvgenomskinliga en stund och skalets creme lyser igenom. `_busy` hålls tills
+  övergången är klar (släpptes förut synkront, så ett andra tryck kunde starta nästa skärm
+  mitt i den pågående).
+- **`GameHost`** — ankomst-takt: spelet sätter sig på plats från skala **1.06 ned mot 1**.
+  Aldrig under 1 — en scale-in underifrån visar skalets creme runt kanterna en halv sekund,
+  och full bleed finns just för att slippa det.
+- **`feedback.liv(t,{bob,sway,duration,phase})`** — gupp i höjdled + vaggning med **egen fas
+  per föremål**. `breathe` var skal-bara och synkron: tio föremål i takt läses som en enda
+  pulserande yta. Tänd i sex spel som saknade vilorörelse helt (loopdjuren, hamburgerbygget,
+  enkelt-pussel, vart-tog-det-vagen, fyrverkeri, gravmaskinen).
+  **Mönstret som gör det ofarligt:** lägg rörelsen på en INRE behållare när det yttre objektet
+  ägs av någon annan (DragController, hyllans svep, spelets egen blandning) — annars slåss de
+  om samma `y`.
+
+**Mätning:** `scripts/_navprobe.mjs` (riktning, creme mitt i bytet, routerlås) och
+`scripts/_livprobe.mjs <id>` (amplitud, fasspridning, tickar något efter exit).
+Uppmätt: på väg ut ur ett spel **32,5 % creme med korstoningen mot 0,9 %** med den nya
+ordningen; liv-amplitud 4,0–9,5 px, fasspridning 0,14–0,44, 0 tweens kvar efter exit.
+
+**Två lärdomar:**
+1. **`isActive()` ljuger om en tween som dödat sig själv inifrån `onUpdate`** — den fryser sin
+   `totalTime` men rapporterar fortfarande aktiv. Mät att den slutar **ticka**.
+2. **Ändrad övergångstiming gör latenta exit-buggar deterministiska.** studsbollar tweenade
+   målgjorda bollar 0,2 s ner i korgen; de hade redan lämnat `_balls`/`_shot` så `destroy`
+   hittade dem inte. Rött 3 av 3 med A2-skalet, grönt 3 av 3 utan (växelvis mätt) — buggen
+   var gammal, A2 gjorde den synlig. Fixad med en `_malflykt`-mängd.

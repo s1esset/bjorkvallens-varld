@@ -48,9 +48,16 @@ try {
     await page.evaluate(() => {
       const g = window.__barnspel.game
       const ctx = window.__barnspel.ctx
-      // Två kända former: spel med mjuk auto-hjälp löser sig själva bit för bit,
-      // och spel med en stenbricka får sina stenar utlagda över hindret.
-      if (g._autoHelp) {
+      // Tre kända former: spel med mjuk auto-hjälp löser sig själva bit för bit, spel
+      // med en stenbricka får sina stenar utlagda över hindret, och spel där man SLÄPPER
+      // saker i vätskan (plask-i-vattnet) får alla hyllans föremål i tanken. Det senare
+      // är hela poängen där: ett tomt kärl mäter bara att vattnet ligger still.
+      if (g._onDrop && g._drag?.items) {
+        for (const rec of g._drag.items.filter((r) => !r.placed)) {
+          rec.placed = true
+          g._onDrop(ctx, rec)
+        }
+      } else if (g._autoHelp) {
         for (let i = 0; i < 40; i++) g._autoHelp(ctx)
       } else if (g._placeFree && g._stones) {
         const L = g._lavaLeft

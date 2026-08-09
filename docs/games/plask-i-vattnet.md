@@ -3,8 +3,8 @@
 
 ## 1. Nuläge (sett som spelare)
 
-En stor glasvattentank i mitten med halvtransparent vatten, vit rim, en mjukt guppande
-ytlinje och små bubblor som driver uppåt. Upptill på en hylla ligger 6 föremål (bara
+En stor glasvattentank i mitten med halvtransparent vatten, vit rim, en **riktig simulerad
+vattenyta** (SPH-skikt, se 2026-08-10 nedan) och små bubblor som driver uppåt. Upptill på en hylla ligger 6 föremål (bara
 emoji, generös osynlig cirkel-träffyta): båt, trästock, äpple, sten, nyckel, sked, mynt,
 ankare m.fl. Jag drar (eller tap-tap:ar) ett föremål ner i tanken → PLASK: ljud + dubbel
 ytring + bubbelpuff, och glad röst NAMNGER vad som händer: "Anden flyter!", "Stenen
@@ -143,3 +143,38 @@ garanterar minst 2 av varje så mönstret framträder över tid.
   **rektangel** (414–866) i stället för en oändlig ytlinje, så inget utanför tanken kan
   lyftas av osynligt vatten. Skarp körning med fem riktiga drag: äpple och boll guppar
   vid ytan, skruv/sked/nyckel ligger stilla på botten.
+- 2026-08-10 ✅ **Vattnet blev VÅTT** (v1.85.0, spår 3 runda P2 — första kunden). Tanken har
+  ett riktigt SPH-skikt ur `lib/vatska.js`: ytan svallar när något slår igenom den, nivån
+  STIGER av undanträngd volym och vattnet slår ihop bakom det som sjunker.
+  - **Bara ytskiktet simuleras** (330–400, 416 partiklar). Hela vattenkroppen hade kostat
+    allt och synts nästan noll — det är vid ytan vattnet rör sig. Djupet är samma ritade
+    kropp som förut; skarven döljs av en påfyllning som tar djupet till exakt skiktets ton.
+    Samma grepp som `golvet-ar-lava`.
+  - **Vilopackningen är MÄTT, inte gissad.** Första fyllningen (15 px-rutnät) sjönk ihop till
+    en 42 px hög sträng — 73 px² per partikel i vila — och ytan hamnade på y=428, alltså
+    98 px UNDER flytkraftens nollinje: en lysande blå stapel som svävade mitt i tanken.
+    Fyllningen räknas nu ur den siffran och vattnet står stilla på rätt nivå från första
+    bildrutan.
+  - **Nedslagspunkten låg på fel sida om ytan.** Föremålet föddes på tankens mitt — 140 px
+    under vattenytan — medan "plasket" var en ritad ring vid ytan. Med riktigt vatten blev
+    det direkt synligt: en sten som föds under ytan rör inte en enda partikel. Draget snäpper
+    nu till strax ovanför ytan (`DROP_Y`), och drag-målets träffyta blev en REKTANGEL över
+    hela tanken (läget och hitytan behöver inte vara samma sak).
+  - **Undanträngningen är kalibrerad i sonden:** radie 24 px i vätskan → 3,4 px lyft per
+    flytare (knappt synligt), 34 px → 7,7 px (valt). **Mer fart ger inte större plask** —
+    5,4–7,0 px/steg gav LÄGRE stänk (20 mot 23 px) och föremålet dök rakt igenom skiktet så
+    undanträngningen försvann med det. Farten trycker undan vatten i sidled, den kastar det
+    inte uppåt.
+  - **Ljusranden vid hyllan bortmaskad.** Metabollens kant hänger ner under skiktets osynliga
+    hylla och lyste igenom påfyllningen: uppmätt 125,189,228 mot vattnets 112,182,225 i ett
+    band y≈410–425, en tunn vågrät linje tvärs tanken. En mask som slutar vid hyllan tar bort
+    överhänget — snittet självt syns inte (kroppen och påfyllningen skiljer 1 enhet). Efter:
+    112,182,225 rakt igenom, 0 kostnad i FPS. (Mask och inte `boundsArea`: filtrets rendermål
+    växer med suddets padding, så klickar strax utanför ytan ritas ändå.)
+  - Den dekorativa guppande ytlinjen är borta — två ytor på olika höjd läser som en glitch.
+  - **Uppmätt** (`node scripts/_plaskprobe.mjs`, 12 mått): stänk **24–34 px över ytan**,
+    undanträngning **8–13 px på tre flytare**, värsta fallet (allt i tanken) **36–40 px kvar
+    till rimmen**, volymen konstant **416 → 416**, **0 partiklar utanför tanken**, rivet vid
+    exit. `_vatskeprobe`: **58,9 FPS**, 167 k vätskepixlar, 0 konsolfel.
+  - Nya/ändrade verktyg: `scripts/_plaskprobe.mjs` (stänk · undanträngning · tak · volym ·
+    exit) och `_vatskeprobe.mjs` som känner igen släpp-spel och tömmer hyllan i tanken.

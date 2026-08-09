@@ -17,10 +17,11 @@
 // Volymen äger också vattenmotståndet, fartspärren, bottenlugnet, banfjädern och
 // guppet/vaggningen — talen nedan är oförändrade (verifierat identiska banor mot den
 // tidigare handrullade koden, `node scripts/_flytprobe.mjs`).
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { Flytvolym } from '../../lib/flytkraft.js'
+import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { DragController } from '../../lib/DragController.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { puff, ripple, wiggle, pop, bounceIn, sparkle } from '../../lib/feedback.js'
@@ -33,8 +34,13 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const TANK = { x: 390, y: 250, w: 500, h: 440, r: 28 } // glasbehållare (390..890, 250..690)
 const WATER = { x: 398, y: 330, w: 484, h: 352, r: 18 } // vattenkropp (398..882, 330..682)
 const SURFACE_Y = 330 // vattenytan (flytkraftens nollinje)
-const TANK_CX = 640 // tankens mitt = drag-mål + nedslagspunkt
-const TANK_CY = 470
+const TANK_CX = 640 // tankens mitt (drag-mål i sidled + nedslagspunkt)
+// NEDSLAGSPUNKTEN LIGGER ÖVER YTAN, inte mitt i tanken. Förut föddes föremålet på
+// TANK_CY — alltså 140 px UNDER vattenytan — och "plasket" var en ritad ring vid ytan
+// medan föremålet redan var i vattnet. Med riktigt vatten blir det direkt synligt: en
+// sten som föds under ytan rör inte en enda partikel. Nu snäpper draget föremålet till
+// strax ovanför ytan och det faller IGENOM den på riktigt.
+const DROP_Y = SURFACE_Y - 26
 const SHELF_Y = 150 // hyllraden upptill
 const SHELF_X = [190, 326, 462, 818, 954, 1090] // 6 platser (mitten fri för tank/header)
 
@@ -61,6 +67,33 @@ const SPRING_K = 0.00003 // svag "hitta din plats"-fjäder mot tilldelad bana
 const MAXF_A = 0.0008 // tak på sidledsacceleration (håller fjädern snäll)
 const MAX_V = 10 // hastighetstak -> kan ALDRIG skjuta ur tanken
 const ANG_DAMP = 0.9 // rotationsdämpning -> föremål håller sig ~upprätta
+
+// ---- Vätskeskikt (SPH, `lib/vatska.js`) -----------------------------------
+// BARA YTSKIKTET SIMULERAS. Hela vattenkroppen (484×352 px) hade kostat allt och synts
+// nästan noll: det är vid ytan vattnet rör sig — svallet när något plaskar i, stänket,
+// nivån som stiger när en volym sänks ner. Djupet är samma ritade blå kropp som förut
+// och skarven döljs av en toning. Samma grepp som `golvet-ar-lava`, som simulerar
+// flodens översta 46 px och låter berget under vara ritat.
+const FLUID_BOTTOM = 400 // skiktets osynliga hylla (70 px under ytan)
+const FLUID_CEIL = 258 // tak: ett stänk får flyga hit men aldrig ur tanken (rim 250)
+const FLUID_R = 24 // interaktionsradie
+// Föremålets radie I VÄTSKAN. MÄTT, inte gissad — den avgör hur mycket nivån stiger när
+// barnet sänker ner en volym (`_plaskprobe.mjs`, ytans MEDELhöjd över tolv kolumner,
+// två körningar per radie):
+//   24 px → 3,4 px per flytare      (knappt synligt)
+//   34 px → 7,7 px per flytare      ← vald: fyra flytare lyfter ytan ~31 px, tydligt
+//                                     synligt och ändå 50 px kvar till rimmen
+// 34 är fortfarande MINDRE än den ritade figuren (~38–40 px), så vattnet kryper aldrig
+// synligt in under kanten. Stänkhöjden följer däremot INTE radien (uppmätt 15–53 px hur
+// som helst) — den bestäms av var i ytan föremålet råkar slå ner.
+const OBJ_FLUID_R = 34
+// ⚠️ VILOPACKNINGEN ÄR MÄTT, INTE GISSAD. Första fyllningen la ut ett 15 px-rutnät över
+// hela skiktet och vattnet sjönk ihop till en 42 px hög sträng: 261 partiklar på
+// 452 × 42 px = **73 px² per partikel** i vila (radius 24, rho0 5). Ytan hamnade på
+// y = 428 medan flytkraftens nollinje ligger på 330 — alltså en lysande blå stapel som
+// svävade mitt i tanken, 98 px under den yta föremålen guppade i. Fyllningen räknas nu
+// UR den siffran, så vattnet står stilla på rätt nivå redan första bildrutan.
+const PARTIKEL_YTA = 73 // px² per partikel i vila (uppmätt)
 
 const ROUND_SIZE = 6 // antal föremål per runda (fyller hyllans 6 platser)
 
@@ -397,22 +430,24 @@ export default {
     water.eventMode = 'none'
     this._root.addChild(water)
 
+    // Riktigt vatten i ytskiktet + toningen som gömmer skarven mot djupet.
+    this._buildFluid()
+
     // Ambient: små bubblor som driver uppåt (ticker-driven, exit-säker).
     this._buildBubbles()
     // Tankens invånare — en liten fisk som lever sitt eget liv i vattnet.
     this._buildFish()
 
-    // Ljus, lätt guppande ytlinje (dekorativ).
-    const line = new Graphics().roundRect(WATER.x, -4, WATER.w, 8, 4).fill({ color: 0xffffff, alpha: 0.35 })
-    line.position.set(0, SURFACE_Y)
-    line.eventMode = 'none'
-    this._root.addChild(line)
-    this._surfaceTween = gsap.to(line, { y: SURFACE_Y + 4, duration: 1.4, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    // (Den dekorativa, guppande ytlinjen är borta: vätskan ÄR ytan nu. Två ytor på
+    // olika höjd — en ritad linje och en simulerad vattenrand — läser som en glitch.)
 
-    // Osynligt drag-mål som täcker hela tanken (generös träffzon för tap-tap).
+    // Osynligt drag-mål: LÄGET är nedslagspunkten (draget snäpper dit), HITAREAN är hela
+    // tanken. De två behöver inte vara samma sak, och det är just därför tap-ytan är en
+    // REKTANGEL: en cirkel runt nedslagspunkten hade antingen missat tankens botten eller
+    // svällt upp över hyllan och stulit tryck från föremålen som ligger där.
     const target = new Container()
-    target.position.set(TANK_CX, TANK_CY)
-    target.hitArea = new Circle(0, 0, 260)
+    target.position.set(TANK_CX, DROP_Y)
+    target.hitArea = new Rectangle(TANK.x - TANK_CX + 8, TANK.y - DROP_Y + 8, TANK.w - 16, TANK.h - 16)
     this._waterTapHandler = (e) => this._waterTap(ctx, e)
     target.on('pointertap', this._waterTapHandler) // registreras FÖRE drag-målets _tap
     this._tankView = target
@@ -420,6 +455,122 @@ export default {
 
     this._buildLogs(ctx) // två sidohyllor "Flyter"/"Sjunker" (upptäckts-logg)
     this._buildGuessUi(ctx) // gissa-först-knappar (dolda tills ett föremål markeras)
+  },
+
+  // ---- Vätskeskikt ---------------------------------------------------------
+
+  _buildFluid() {
+    this._fluid = new FluidWorld({
+      max: 480, // uppmätt behov: 452 × 70 px / 73 = 433 i vila + luft för stänk
+      radius: FLUID_R,
+      gravityY: 0.5,
+      rho0: FLUIDS.vatten.rho0,
+      sigma: FLUIDS.vatten.sigma,
+      beta: FLUIDS.vatten.beta,
+      restitution: 0.02,
+      wallFriction: 0.2,
+      // Kärlet ÄR bounds: tankens innerväggar, den osynliga hyllan och ett tak strax
+      // under rimmen. Billigare än lådor (ingen collider-loop), och taket garanterar
+      // P0:s "inget kan lämna banan" — en droppe kan aldrig stänka ut i rummet.
+      walls: { left: true, right: true, bottom: true, top: true },
+      bounds: { left: WALL_L, right: WALL_R, top: FLUID_CEIL, bottom: FLUID_BOTTOM },
+    })
+    // Fylls EN gång, med den UPPMÄTTA vilopackningen så ytan står stilla på SURFACE_Y
+    // från första bildrutan. Ingen kran, inget avlopp, ingen `splash()` som föder nya
+    // partiklar: volymen i en sluten tank ska vara KONSTANT, annars kan vattnet svälla
+    // över eller torka ut medan barnet leker. Stänket kommer i stället ur att föremålen
+    // tränger undan vatten på riktigt (se `_fluidColliders`).
+    const steg = Math.sqrt(PARTIKEL_YTA)
+    for (let y = FLUID_BOTTOM - 4; y > SURFACE_Y; y -= steg) {
+      for (let x = WALL_L + 5; x < WALL_R - 4; x += steg) {
+        this._fluid.spawn(x + (Math.random() - 0.5) * 2, y, {})
+      }
+    }
+    // FÄRGEN ÄR VATTNETS EGEN, inte förvalets. `FLUIDS.vatten` (0x39b7f0 @ 0,92) är satt
+    // för vatten mot en ljus bakgrund; över tankens ritade djupvatten blev det en
+    // klarblå stapel som INTE såg ut som samma vatten. Skiktet ska vara osynligt som
+    // skarv och synligt bara som rörelse: samma kropp som djupet, ljus kant vid ytan.
+    this._fluidView = new FluidView(this._root, this._fluid, {
+      color: 0x4aa3df,
+      edge: 0xd8f4ff,
+      alpha: 0.55,
+      blobScale: 1.34,
+      threshold: 0.42,
+      blur: 9,
+      quality: 2,
+      resolution: 0.5,
+      // Filtret körs bara över tanken, inte hela skärmen.
+      area: new Rectangle(WALL_L - 24, FLUID_CEIL - 12, WALL_R - WALL_L + 48, FLUID_BOTTOM - FLUID_CEIL + 36),
+    })
+    this._fluidView.layer.eventMode = 'none'
+    this._fluidView.layer.interactiveChildren = false
+
+    // ÖVERHÄNGET KLIPPS BORT VID HYLLAN. Metabollen lägger sin ljusa kant runt HELA
+    // vätskan — också undertill, där skiktet vilar mot sin osynliga hylla. Den kanten
+    // hänger ner under hyllan och lyser IGENOM den halvgenomskinliga påfyllningen
+    // nedan: uppmätt 125,189,228 i ett band y≈410–425 mot vattnets 112,182,225, alltså
+    // en tunn vågrät linje tvärs hela tanken (+5 % ljusstyrka över ~15 px). Masken tar
+    // bort överhänget, och SNITTET självt syns inte — vätskekroppen (112,182,225) och
+    // påfyllningen (113,182,225) är samma ton på en enhet när, mätt i skärmdumpen.
+    // (Mask och inte `boundsArea`: filtrets rendermål växer med suddets padding, så
+    // klickar strax utanför ytan ritas ändå. Masken klipper resultatet, inte källan.)
+    const klipp = new Graphics()
+      .rect(WALL_L - 30, FLUID_CEIL - 20, WALL_R - WALL_L + 60, FLUID_BOTTOM - FLUID_CEIL + 20)
+      .fill(0xffffff)
+    klipp.eventMode = 'none'
+    this._root.addChild(klipp)
+    this._fluidView.layer.mask = klipp
+    this._fluidMask = klipp
+
+    // SKARVEN — två problem, en lösning. Metabollen ritar en ljus kant runt HELA
+    // vätskan, alltså även där skiktet vilar mot sin osynliga hylla (en vågrät ljusrand
+    // tvärs över tanken), OCH skiktet ligger ovanpå den ritade vattenkroppen så bandet
+    // blir DUBBELT tonat: 1−(1−0,45)(1−0,55) = 0,63 mot djupets 0,45. Uppmätt i bild
+    // som ett tydligt mörkare band från ytan till hyllan — vattnet läste som två olika
+    // vatten. Djupet får därför en påfyllning som tar det till exakt samma 0,63, med en
+    // kort ramp som suddar randen. (Rektanglar och inte en gradient med flit: en
+    // `FillGradient` per montering bakar en textur och destabiliserar testsviten.)
+    // ⚠️ RAMPEN GJORDE SKARVEN VÄRRE, INTE MJUKARE. Första försöket tonade in djupet
+    // med tre band som BÖRJADE ovanför hyllan — alltså inne i skiktet, där vätskan
+    // redan ligger — så bandet mörknade nedåt och steget vid hyllan blev tydligare
+    // (uppmätt på duken: 112,182,226 vid ytan → 99,176,224 vid hyllan → 131,191,226
+    // strax under). Djupet får därför EN jämn påfyllning som börjar vid hyllan, med
+    // alfan räknad ur mätningen (0,55 tar 131,191,226 till 112,182,226).
+    // Påfyllningen börjar EXAKT vid hyllan, inte under den. Förut låg den 14 px längre
+    // ner för att slippa hamna under metabollens överhäng (en mörk rand på 12 px,
+    // uppmätt 91,172,224 mot bandets 112,182,226) — men överhänget är bortklippt av
+    // masken ovan, så det finns inget kvar att väja för. Startar den lägre uppstår i
+    // stället en glipa av otonat djupvatten mellan vätskans snitt och påfyllningen.
+    const veil = new Graphics()
+      .rect(WATER.x, FLUID_BOTTOM, WATER.w, WATER.y + WATER.h - FLUID_BOTTOM)
+      .fill({ color: 0x4aa3df, alpha: 0.55 })
+    veil.eventMode = 'none'
+    this._root.addChild(veil)
+  },
+
+  // Föremål som är I ytskiktet tränger undan vatten. En cirkel per föremål, bara
+  // medan det befinner sig i skiktet — då stiger nivån när något sänks ner, vattnet
+  // slår ihop bakom en sjunkande sten och en flytande and puttar undan sin vik.
+  //
+  // ⚠️ RADIEN ÄR MINDRE ÄN FÖREMÅLET med flit (24 mot BODY_R 38). Föremålen ritas
+  // OVANPÅ vätskan, så vattnet som kryper in under kanten syns aldrig — men undanträngd
+  // volym höjer HELA ytan, och sex föremål med full radie hade lyft den mot rimmen.
+  // Samma avvägning som stenarna i `golvet-ar-lava`.
+  _fluidColliders() {
+    if (!this._fluid) return
+    for (const o of this._objects) {
+      const b = o.body
+      if (!b) continue
+      const inne = b.position.y > SURFACE_Y - 26 && b.position.y < FLUID_BOTTOM + 20
+      if (inne) {
+        if (!o._coll) o._coll = this._fluid.addCircle(b.position.x, b.position.y, OBJ_FLUID_R)
+        o._coll.x = b.position.x
+        o._coll.y = b.position.y
+      } else if (o._coll) {
+        this._fluid.removeCollider(o._coll)
+        o._coll = null
+      }
+    }
   },
 
   // ---- Upptäckts-logg (sidohyllor) ----------------------------------------
@@ -682,7 +833,9 @@ export default {
     this._sinkLanes = shuffle([496, 600, 704, 808])
 
     this._drag = new DragController({ space: this._root, services: ctx.services, skugga: true })
-    this._drag.addTarget(this._tankView, () => true, { hitRadius: 280 }) // tar emot ALLT
+    // Tar emot ALLT: radien mäts från nedslagspunkten (över ytan) och måste därför räcka
+    // ner i tankens bortre hörn — sqrt(250² + 384²) = 458 px.
+    this._drag.addTarget(this._tankView, () => true, { hitRadius: 470 })
 
     // Varierad uppsättning: 2–4 flytare + resten sjunkare (alltid minst 2 av varje
     // så barnet upptäcker mönstret), slumpade föremål -> ny känsla varje runda.
@@ -718,6 +871,8 @@ export default {
     this._drag = null
     for (const o of this._objects) {
       if (o.body) this._phys.removeBody(o.body)
+      if (o._coll) this._fluid?.removeCollider(o._coll) // annars tränger ett borttaget föremål undan vatten för alltid
+      o._coll = null
     }
     this._vatten?.rensa() // kropparna är borta ur världen -> ut ur volymen också
     this._objects = []
@@ -735,7 +890,7 @@ export default {
   _onDrop(ctx, rec) {
     if (!this._alive) return
     this._idle = 0
-    const view = rec.view // har snäppt till tankens mitt (TANK_CX, TANK_CY)
+    const view = rec.view // har snäppt till nedslagspunkten strax ovanför ytan
     const data = rec.data
 
     // Gissningen (om någon) gällde just det här föremålet; hämta + nollställ + göm.
@@ -750,7 +905,7 @@ export default {
 
     // Liten slumpoffset så två föremål aldrig föds exakt på varandra (= ingen jitter).
     const x = TANK_CX + (Math.random() - 0.5) * 44
-    const y = TANK_CY + (Math.random() - 0.5) * 20
+    const y = DROP_Y + (Math.random() - 0.5) * 12
     gsap.killTweensOf(view) // stoppa drag-controllerns snäpp-tween (klar) före fysik-synk
     view.position.set(x, y)
 
@@ -766,7 +921,12 @@ export default {
       density: 0.0012,
       label: data.floats ? 'floater' : 'sinker',
     })
-    Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.2, y: 1.6 + Math.random() * 1.6 }) // mjuk "plopp ner"
+    // Ner i vattnet med lite fart: föremålet ska SLÅ IGENOM ytan, inte lägga sig på den.
+    // ⚠️ MER FART GER INTE STÖRRE PLASK. Provat 5,4–7,0 px/steg i stället för 3,2–4,6:
+    // stänket blev LÄGRE (20 px mot 23) och föremålet dök rakt igenom ytskiktet, ut ur
+    // det, så undanträngningen försvann också (0 px lyft mot 6, och bara ett hinder kvar
+    // av två flytande). Farten trycker undan vatten i SIDLED, den kastar det inte uppåt.
+    Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.2, y: 3.2 + Math.random() * 1.4 })
     this._phys.link(body, view)
     // In i vattnet: `flyt` avgör allt — flytare guppar och vaggar (liv), sjunkare
     // glider lugnt till botten och ligger still där.
@@ -859,8 +1019,17 @@ export default {
     ctx.services.audio.sfx(Math.random() < 0.3 ? 'pling' : 'pop')
     ripple(ctx.fxLayer, x, y, { color: 0xbfeefa, maxR: 64, alpha: 0.6 })
     puff(ctx.fxLayer, x, y, { count: 7, color: 0x9fd8f0 })
+    this._pokeFluid(x, y)
     this._nudgeFloaters(x)
     this._petStartle(x)
+  },
+
+  // Fingret KNUFFAR vattnet (negativ dragning = utåt). Ringen ovanpå är kvar, men nu
+  // rör sig vattnet självt under den — det är skillnaden mellan en ritad ring på en
+  // stilla yta och ett plask.
+  _pokeFluid(x, y) {
+    if (!this._fluid) return
+    this._fluid.attract(x, Math.max(y, SURFACE_Y + 6), 80, -0.55)
   },
 
   // Hittar en flytande sak under pekpunkten (generös radie för små fingrar).
@@ -956,6 +1125,12 @@ export default {
     this._vatten.steg(this._t)
     this._phys.update(ticker.deltaMS)
 
+    // Vätskeskiktet: föremålens hinder flyttas EFTER motorsteget (då står kropparna
+    // där de faktiskt hamnade), sedan simuleras och ritas vattnet.
+    this._fluidColliders()
+    this._fluid?.update(ticker.deltaMS)
+    this._fluidView?.update()
+
     // Idle-recue (~6s): glad röst + en kvarvarande hyllsak puffar till.
     if (this._idle > 6 && !this._celebrating) {
       this._idle = 0
@@ -978,6 +1153,16 @@ export default {
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
+    // Vätskan äger GPU-buffertar och ett filter — rivs FÖRE roten tas bort.
+    // Masken lossas först: den ligger som barn i roten och rivs med den, och ett lager
+    // som pekar på en riven mask är en maskeffekt utan form.
+    if (this._fluidView) this._fluidView.layer.mask = null
+    this._fluidMask = null
+    this._fluidView?.destroy()
+    this._fluidView = null
+    this._fluid?.destroy()
+    this._fluid = null
+    for (const o of this._objects || []) o._coll = null
     this._surfaceTween?.kill()
     this._fishTl?.kill()
     this._fishTl = null

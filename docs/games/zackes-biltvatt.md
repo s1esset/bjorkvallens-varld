@@ -177,3 +177,19 @@ inga spelobjekt är emoji-i-en-ruta längre. Kvarstående risker:
   slangfysiken nollställs explicit i `destroy`. `npm run check --game` grön, `npm run test`
   0 konsolfel inkl. exit-cykel; extra manuella Playwright-körningar för drag, tap-tap,
   räckviddsstopp och exit mitt i sprutandet.
+- 2026-08-09: **Ägaren blev en rigg** (`lib/karaktarer.js`, utrullningens omgång 4).
+  `makeMascot(52)` → `makeKaraktar({ r: 52, kropp: false })` — `kropp: false` för att den lila
+  jackan är **ägarens**; en björnkropp i cream hade gjort honom till maskoten i stället för
+  till bilens ägare. `look()` följer det verktyg barnet håller i (svampen när den skrubbar,
+  munstycket när det spolar, annars bilen) — uppmätt i närbild: båda pupillerna står 14
+  bildpunkter till vänster om sin ögonmitt, mot bilen på x=560. Ny bil → `nyfiken`, ren yta →
+  `react('heja')` (upp till 8 fläckar per bil, därför inte `jubel`), bilen ren →
+  `setMood('stolt')` medan spelets hopp på 46 px äger `y`.
+  **Ägarbytet är spelets egen fälla, och den är mätt:** `_makeOwner` river displayträdet med
+  `removeChildren().destroy()` en gång per bil, men det rör inte gsap — en rigg utan `destroy()`
+  lämnar två odödliga tweens (andningen på `view.scale` + den självbokande blinkningen). Ny sond
+  `scripts/_agarprobe.mjs` kör 12 ägarbyten och läser levande tweens ur gamelogs `render/prov`:
+  **utan `_kar.destroy()` 10 → 18 (+8 på 4 Bobo-bilar), med den 10 → 8.** gamelogs egen
+  `tween-lacka` sa **0 i båda armarna** — den dömer bara tweens vars mål har `.destroyed`, och
+  andningens mål är `view.scale`, en ObservablePoint utan den flaggan. `npm run test` grön,
+  `check` 0/0. Commit `cc3ccbf`.

@@ -148,3 +148,13 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
   på pizzan [Quick]** — en doneness-ring ritas runt pizzan i ugnen i den aktuella tonen (`bakeTint`),
   så blick + färg är på samma plats (utöver ton-mätaren). Kund-order (bild) + skär&servera (Deep)
   lämnade till senare. errorCount 0, skärmdump bekräftar kunden.
+- 2026-08-09: **Bagaren blev en rigg** (`lib/karaktarer.js`, utrullningens omgång 4).
+  `makeMascot(44)` → `makeKaraktar({ r: 44, kropp: false })` i den befintliga yttre containern
+  — `kropp: false` för att bålen bär förkläde, hängslen och band: den är bagarens uniform, inte
+  en platshållare för en björnkropp. `look()` följer den dragna ingrediensen; utan drag vilar
+  blicken på pizzan, så han tittar på **arbetet** i stället för rakt fram. Dekorera →
+  `nyfiken`, in i ugnen → `hungrig`. Önskad topping på plats → `react('heja')`, inte `jubel`:
+  det händer flera gånger per pizza och ett hopp på var och en hade ätit upp firandet.
+  Serverad bit → `nam` och därefter `jubel` (0,5 s) — biten landar i munnen först. Vilo-guppet
+  skriver `y` på yttre containern, riggen sin `view.scale`. `npm run test` grön, `check` 0/0.
+  Commit `bbf4dba`.

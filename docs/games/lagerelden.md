@@ -158,3 +158,12 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
   - **Grind:** `npm run check --game lagerelden` 0 fel · `npm run test` grönt ·
     `_idleprobe 60s` → `idleFramsteg: 0`, `efterSpel: 1` (spelar sig inte självt, går att
     klara med enbart tryck). 11 nya repliker väntar på röstklipp.
+- 2026-08-09: **Bobo blev en rigg** (`lib/karaktarer.js`, utrullningens omgång 4).
+  `makeMascot(54)` → `makeKaraktar({ r: 54, kropp: false })` i en yttre container — `kropp:
+  false` för att han tittar fram över ett moln och håller fatet med en ritad arm; en
+  björnkropp hade hängt ner **genom** molnet. Vilomin `hungrig` (gapande mun) — han väntar på
+  mat, det är hans roll. `look()` följer marshmallowen över elden hela vägen upp till fatet.
+  Levererad bit → `react('nam')` (munnen tuggar) i stället för `pop` på lådan runt honom. Hela
+  ordern klar → `setMood('stolt')`, **inte** `react('jubel')`: spelets fyra hopp på 40 px är
+  större än riggens 0,5·r = 27 och äger `y`. Ny order → tillbaka till `hungrig`.
+  `npm run test` grön, `check` 0/0. Commit `5270a56`.

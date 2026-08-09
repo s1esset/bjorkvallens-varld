@@ -14,6 +14,53 @@ Format:
 
 ---
 
+## 2026-08-09 · v1.66.0 · Karaktärsriggen, omgång 4 — fyra spel till (16 kunder, 6 kvar)
+
+**Byggt:** `vippbradan` · `lagerelden` · `pizzabageriet` · `zackes-biltvatt`. Alla fyra fick
+riggen i en **yttre container** (spelet äger `y`/`pop`/`wiggle`, riggen sin `view.scale`), och
+alla fyra fick `look()` — figuren tittar på det barnet håller i, inte rakt fram.
+
+| Spel | Kropp | Vad figuren gör nu |
+|---|---|---|
+| `vippbradan` | rigg | följer grodan hela flygbanan · `jubel` vid landning · `hoppsan` vid miss |
+| `lagerelden` | `kropp: false` | `hungrig` i vila · blicken följer marshmallowen · `nam` per bit |
+| `pizzabageriet` | `kropp: false` | följer dragen ingrediens · `nyfiken`→`hungrig` med ugnen · `heja` |
+| `zackes-biltvatt` | `kropp: false` | följer svampen/munstycket · `heja` per ren yta · `stolt` |
+
+**Vippbrädans handritade kropp togs inte bort — den kändes igen.** `karaktarer.js:_byggKropp`
+skrev av precis de måtten (skugga 2,36·r = 118, fötter 2,16·r = 108, bål 1,36·r = 68, axel
+±0,54·r = ±27, tass ±1,04·r = ±52). 15 rader `Graphics` blev ett anrop. De tre andra behöll sina
+kroppar (`kropp: false`) för att de bär något som är figurens ROLL: bagarens förkläde, ägarens
+lila jacka, och Bobo som tittar fram över ett moln där en kropp hade hängt ner genom molnet.
+
+**Två mätningar som omgången lade till:**
+
+1. **Ett grönt test bevisar inte att en rigg som byggs om under körning städas bort.**
+   `zackes-biltvatt` byter ägare en gång per bil med `removeChildren().destroy()` — det river
+   displayträdet men rör inte gsap. En rigg utan `destroy()` lämnar **två odödliga tweens**
+   (andningen på `view.scale` + den självbokande blinkningen). Ny sond `scripts/_agarprobe.mjs`
+   kör 12 ägarbyten via `window.__barnspel.game` och läser levande tweens ur gamelogs
+   `render/prov`: **utan `_kar.destroy()` 10 → 18 (+8 på 4 Bobo-bilar = 2 per rigg), med den
+   10 → 8.** Och det viktiga: gamelogs egen `tween-lacka` sa **0 i BÅDA armarna** — den dömer
+   bara tweens vars mål har `.destroyed`, och andningens mål är `view.scale`, en
+   ObservablePoint utan den flaggan. Sonden validerades mot en avsiktligt trasig arm innan
+   den fick uttala sig (regeln "en röd sond är ett påstående" gäller åt båda hållen).
+2. **Ögat läste blicken fel — igen.** I närbilden av biltvättens ägare tyckte jag pupillerna
+   pekade höger; uppmätta centroider låg **14 bildpunkter till vänster** om ögonmitten, alltså
+   mot bilen. Därför ny sond `scripts/_narbild.mjs`: klipper ut en ruta ur ett spel med
+   `deviceScaleFactor` (pixlarna FINNS, en uppskalning efteråt hittar bara på dem), går via
+   canvasens verkliga läge så letterboxen inte förskjuter rutan. Bryn på 0,02–0,3 rad är
+   några få pixlar i en 1280×720-bild.
+
+**Commits:** `3c2d9e0` vippbradan · `5270a56` lagerelden · `bbf4dba` pizzabageriet ·
+`cc3ccbf` zackes-biltvatt · `docs` (den här posten + §5 i fyra spel-docs)
+
+**Öppet:** 6 verkliga kandidater kvar för riggen — `domino` · `flipperspel` · `hamburgerbygget`
+· `knuffa-tornet` · `kulbana` · `sapbubblor` — plus de två dokumenterade undantagen
+(`gravmaskinen` r=11 för liten för en min, `bajs-och-kiss` lokal figur som spolas ner).
+`test:all` 72/72, `check` 0/0. Kvarvarande `saknat-ljudklipp` i fyra spel är MOSS-hålet, inte
+en regression.
+
 ## 2026-08-09 · v1.65.0 · Karaktärsriggen, omgång 3 — fyra spel till (12 kunder, 10 kvar)
 
 **Byggt:** `blixt-och-dunder` · `fallskarmen` · `saftbaren` · `tarta-i-ansiktet`.

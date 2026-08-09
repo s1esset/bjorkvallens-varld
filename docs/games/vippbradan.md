@@ -120,3 +120,12 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
   `docs/games/README.md` definierar 🔧 som "har kvarvarande [Deep]-punkter i §4" bar spelet
   fel badge i tre dagar. Verifierat i `index.js:155-175` (Bobo med kropp, fötter, utsträckta
   armar, andas i vila vid korgen). **Kvalitet 🔧 → ✅.** Kvar i §4: bara [Quick]/[Medium].
+- 2026-08-09: **Mottagaren blev en rigg** (`lib/karaktarer.js`, utrullningens omgång 4). Den
+  handritade kroppen från 08-04 togs inte bort — den **kändes igen**: `_byggKropp` skrev av
+  precis de måtten (skugga 2,36·r = 118, fötter 2,16·r = 108, bål 1,36·r = 68, axel ±0,54·r =
+  ±27, tass ±1,04·r = ±52), så 15 rader `Graphics` blev ett anrop. Riggen ligger i den yttre
+  containern (spelet äger `pop`/`wiggle`, riggen `view.scale`). `breathe(_bobo)` borttagen —
+  två pulser på samma figur glider isär. Nytt beteende: `look()` följer grodan på plankan och
+  hela flygbanan, `setMood('nyfiken')` medan barnet siktar, `react('jubel')` vid landning,
+  `react('hoppsan')` vid miss (förvånad, aldrig sur — P0 MOTGÅNG). `npm run test` grön,
+  `check` 0/0. Commit `3c2d9e0`.

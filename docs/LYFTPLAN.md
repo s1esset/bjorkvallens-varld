@@ -428,11 +428,44 @@ på högen och rapporterade "1 ton på 3 s" — grönt mot taket, och helt menin
 simuleras på ~40 ms verklig tid, så väggklocke-spärren släppte igenom exakt en ton oavsett vad
 som hände. Taket mäts nu via `onImpact` (bildruteräkning), och sonden säger i klartext varför.
 
-### B6. Ingen återanvändbar lyftkraft eller motståndsvolym **[Medium]**
+### B6. Ingen återanvändbar lyftkraft eller motståndsvolym **[Medium]** — ✅ BYGGD 2026-08-09 (v1.77.0)
 
-`setWind` är global. Det finns inget "vätskevolym"-begrepp som ger lyftkraft + motstånd inuti en
+`setWind` är global. Det fanns inget "vätskevolym"-begrepp som ger lyftkraft + motstånd inuti en
 rektangel. `poppa-ballonger`, `ballonglyft`, `fallskarmen` och `plask-i-vattnet` vill alla ha det —
-idag är flytandet scriptat.
+flytandet var scriptat.
+
+✅ **`src/lib/flytkraft.js` byggd.** `class Flytvolym` = en rektangel med en yta: `lagg(body,
+{ flyt, hemX, liv })` · `steg(t)` (FÖRE `varld.update()`) · `nedsankning(body)` · `ta` · `rensa`
+· `destroy`. Volymen äger lyftkraft, vätskemotstånd, fartspärr, bottenlugn, banfjäder och
+gupp/vaggning. **Första kund: `plask-i-vattnet`** — 34 rader handrullad `_applyBuoyancy` borta.
+
+**Tre saker som gör den till en primitiv och inte bara en utflyttning:**
+
+1. **EN knapp bestämmer flythöjden.** `flyt > 1` flyter, `< 1` sjunker, och jämvikten ligger
+   exakt vid nedsänkningen `1/flyt` — uppmätt 0,833 / 0,625 / 0,400 för flyt 1,2 / 1,6 / 2,5.
+   Ett spel behöver alltså aldrig tuna densitet och radie mot varandra för att få en anka att
+   ligga högre än en båt.
+2. **Basen läses ur världens gravitation VARJE steg**, inte ur en konstant vid uppstart.
+   `plask-i-vattnet` hade `BUOY_BASE = GRAV_Y * 0.001` hårdkopierad; ett `setGravity()` mitt i
+   leken hade tyst gjort allt som flöt till sjunkare. Uppmätt: jämvikten står still (0,625 →
+   0,625) när gravitationen dubblas mitt i körningen.
+3. **Volymen är en rektangel, inte en oändlig ytlinje.** `vanster`/`hoger` gör att en tank, en
+   pöl eller en hink kan ligga var som helst i bilden utan att kroppar utanför lyfts av
+   osynligt vatten (uppmätt: kroppen inne stiger till ytan, kroppen bredvid faller fritt).
+
+**Portens garanti är mätt, inte påstådd.** `_flytprobe.mjs` kör den gamla koden ordagrant i en
+tank och biblioteket i en identisk tank, sida vid sida i 900 steg med tre kroppar: **största
+avvikelse 0 px**. Det är den enda mätning som får en utflyttning att räknas som klar — samma
+grepp som `rep.js` mot `zackes-biltvatt`.
+
+**Verktyg: `scripts/_flytprobe.mjs`** (Node, ingen webbläsare) — jämvikt per `flyt` ·
+massoberoende över tre tätheter · sjunkare når botten och LIGGER still · fartspärr ·
+rektangelgräns · gravitationsbyte · portekvivalens · exit.
+
+⬜ Kvar (rundorna P2/P3): `fallskarmen` (luftmotståndsvolym — dess fall är scriptat i px/s och
+äger ingen matter-värld), `ballonglyft` (räknar ballonger, ingen fysik alls i dag),
+`poppa-ballonger`, `sapbubblor`. De tre sista kräver att spelet först FÅR en fysikvärld — det
+är ett spelbyte, inte en portering, och hör därför hemma i sin egen runda.
 
 ### B7. `kugghjulen` är ren geometri **[Deep]**
 

@@ -9,16 +9,18 @@
 // oändlig lek, ingen timer, ingen poäng. Att trycka på vattnet ger ett litet glatt plask
 // som får flytarna att guppa till. Allt ritas programmatiskt (Pixi Graphics + emoji).
 //
-// FLYTKRAFT-recept (se ctx.services / lib/physics.js):
-//   varje föremål blir en dynamisk cirkelkropp; varje bildruta beräknar vi hur djupt den
-//   är nedsänkt och lägger på en UPPÅT-kraft ∝ nedsänkningsdjup × floatFactor. Eftersom
-//   både gravitation och flytkraft skalar med massan blir beteendet massoberoende:
-//   floatFactor > 1 ⇒ netto uppåt (gungar vid ytan), < 1 ⇒ netto nedåt (sjunker sakta).
-//   Vattenmotstånd (hastighetsdämpning) + hastighetstak håller rörelsen LUGN och gör att
-//   inget kan studsa eller skjuta ur tanken; en svag bana-fjäder + vaggning ger liv.
+// FLYTKRAFT: tanken ÄR en `Flytvolym` ur `lib/flytkraft.js` (LYFTPLAN B6) — en
+// vätskevolym som lyfter, bromsar och vaggar allt som ligger i den. Varje föremål blir
+// en dynamisk cirkelkropp med ett `flyt`-tal: > 1 ⇒ netto uppåt (gungar vid ytan och
+// lägger sig i jämvikt vid nedsänkningen 1/flyt), < 1 ⇒ netto nedåt (sjunker sakta).
+// Beteendet är massoberoende eftersom både gravitation och flytkraft skalar med massan.
+// Volymen äger också vattenmotståndet, fartspärren, bottenlugnet, banfjädern och
+// guppet/vaggningen — talen nedan är oförändrade (verifierat identiska banor mot den
+// tidigare handrullade koden, `node scripts/_flytprobe.mjs`).
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { Flytvolym } from '../../lib/flytkraft.js'
 import { DragController } from '../../lib/DragController.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { puff, ripple, wiggle, pop, bounceIn, sparkle } from '../../lib/feedback.js'
@@ -46,8 +48,8 @@ const BODY_R = 38 // fysikradie
 const HIT_R = 56 // osynlig cirkel-träffyta, radie 56 -> Ø112px ≥ 96px (24px lucka kvar till grannen)
 
 // ---- Flytkraftskonstanter (lugnt inställda) -------------------------------
+// Alla utom GRAV_Y skickas till `Flytvolym`; basen läser den ur världens gravitation.
 const GRAV_Y = 0.9 // tankens gravitation (matter: kraft = massa·GRAV_Y·0.001 per steg)
-const BUOY_BASE = GRAV_Y * 0.001 // flytkraftens bas = exakt neutral vid frac·floatFactor = 1
 const FLOAT_FACTOR = 1.6 // flytare: netto uppåt -> gungar med ~62% nedsänkt vid ytan
 const SINK_FACTOR = 0.4 // sjunkare: netto nedåt -> glider sakta till botten
 const DRAG = 0.93 // vattenmotstånd per bildruta -> lugnt, aldrig studsigt/skakigt
@@ -287,7 +289,7 @@ export default {
     this._dropped = 0
     this._celebrating = false
     this._itemViews = [] // alla rundans föremåls-containrar (hylla + i vatten)
-    this._objects = [] // i-vatten-objekt: { body, view, floats, floatFactor, r, homeX, phase }
+    this._objects = [] // i-vatten-objekt: { body, view, floats, floatFactor, r, homeX }
     this._logIcons = [] // alla miniatyrer i upptäckts-hyllorna (för tween-städ)
     this._guessItem = null // vilket markerat föremål gissningen gäller
     this._guess = null // 'float' | 'sink' | null
@@ -299,6 +301,24 @@ export default {
     // Fysik utan standardväggar -> vi bygger tankens egna insidor (golv + sidor).
     this._phys = new PhysicsWorld({ gravityY: GRAV_Y, walls: [] })
     this._buildTankBodies()
+
+    // Vattnet som en riktig volym: bara innanför tankens väggar, med ytan som nollinje.
+    this._vatten = new Flytvolym({
+      varld: this._phys,
+      ytY: SURFACE_Y,
+      botten: FLOOR_TOP,
+      vanster: WALL_L,
+      hoger: WALL_R,
+      motstand: DRAG,
+      maxFart: MAX_V,
+      vridDamp: ANG_DAMP,
+      fjader: SPRING_K,
+      maxSid: MAXF_A,
+      guppAmp: BOB_AMP,
+      guppW: BOB_W,
+      vaggAmp: SWAY_AMP,
+      vaggW: SWAY_W,
+    })
 
     this._buildTank(ctx)
     this._newRound(ctx)
@@ -699,6 +719,7 @@ export default {
     for (const o of this._objects) {
       if (o.body) this._phys.removeBody(o.body)
     }
+    this._vatten?.rensa() // kropparna är borta ur världen -> ut ur volymen också
     this._objects = []
     this._itemViews.forEach((v) => {
       if (!v || v.destroyed) return
@@ -747,8 +768,11 @@ export default {
     })
     Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.2, y: 1.6 + Math.random() * 1.6 }) // mjuk "plopp ner"
     this._phys.link(body, view)
+    // In i vattnet: `flyt` avgör allt — flytare guppar och vaggar (liv), sjunkare
+    // glider lugnt till botten och ligger still där.
+    this._vatten.lagg(body, { flyt: data.floatFactor, r: BODY_R, hemX: homeX, liv: data.floats })
 
-    this._objects.push({ body, view, floats: data.floats, floatFactor: data.floatFactor, r: BODY_R, homeX, phase: Math.random() * Math.PI * 2 })
+    this._objects.push({ body, view, floats: data.floats, floatFactor: data.floatFactor, r: BODY_R, homeX })
 
     this._splash(ctx, x, data, guessed)
     this._petStartle(x) // fisken flyr undan plasket och kommer tillbaka nyfiket
@@ -866,43 +890,6 @@ export default {
     }
   },
 
-  // ---- Flytkraft (körs varje bildruta FÖRE phys.update) -------------------
-
-  _applyBuoyancy() {
-    for (const o of this._objects) {
-      const b = o.body
-      if (!b) continue
-      const pos = b.position
-      // Nedsänkningsgrad: 0 (helt ovanför ytan) .. 1 (helt under).
-      const frac = clamp((pos.y + o.r - SURFACE_Y) / (2 * o.r), 0, 1)
-      if (frac > 0) {
-        // Flytkraft uppåt (accel · massa). Massoberoende eftersom gravitationen också ∝ massa.
-        const buoyA = BUOY_BASE * frac * o.floatFactor
-        // Vertikalt: flytare GUPPAR mjukt vid ytan; sjunkare glider rakt och lugnt nedåt.
-        let vAcc = -buoyA
-        // Sidled: svag fjäder mot tilldelad bana (gäller alla -> ingen stapling).
-        let swayA = SPRING_K * (o.homeX - pos.x)
-        if (o.floats) {
-          vAcc += BOB_AMP * Math.sin(this._t * BOB_W + o.phase) // litet gupp
-          swayA += SWAY_AMP * Math.sin(this._t * SWAY_W + o.phase * 1.3) // mjuk vaggning
-        }
-        swayA = clamp(swayA, -MAXF_A, MAXF_A)
-        Body.applyForce(b, pos, { x: b.mass * swayA, y: b.mass * vAcc })
-        // Vattenmotstånd: dämpa farten -> lugnt, aldrig studsigt.
-        Body.setVelocity(b, { x: b.velocity.x * DRAG, y: b.velocity.y * DRAG })
-      }
-      // Sjunkare som nått botten lugnas extra -> de lägger sig stilla utan jitter.
-      if (!o.floats && pos.y > FLOOR_TOP - o.r - 8) {
-        Body.setVelocity(b, { x: b.velocity.x * 0.7, y: b.velocity.y * 0.7 })
-      }
-      // Håll föremålet ~upprätt.
-      if (b.angularVelocity) Body.setAngularVelocity(b, b.angularVelocity * ANG_DAMP)
-      // Hastighetstak -> kan ALDRIG skjuta ur tanken.
-      const sp = Math.hypot(b.velocity.x, b.velocity.y)
-      if (sp > MAX_V) Body.setVelocity(b, { x: (b.velocity.x / sp) * MAX_V, y: (b.velocity.y / sp) * MAX_V })
-    }
-  },
-
   // ---- Firande + ny runda --------------------------------------------------
 
   _finishRound(ctx) {
@@ -966,7 +953,7 @@ export default {
     this._idle += dt
 
     // Flytkraft FÖRE motorsteget (krafterna nollställs i Engine.update).
-    this._applyBuoyancy()
+    this._vatten.steg(this._t)
     this._phys.update(ticker.deltaMS)
 
     // Idle-recue (~6s): glad röst + en kvarvarande hyllsak puffar till.
@@ -1019,6 +1006,7 @@ export default {
       this._tankView.off('pointertap', this._waterTapHandler)
     }
 
+    this._vatten?.destroy()
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()

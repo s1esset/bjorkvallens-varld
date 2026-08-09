@@ -133,3 +133,13 @@ garanterar minst 2 av varje så mönstret framträder över tid.
   - **Bugg:** `gsap.delayedCall` för nästa runda → `ctx.later()`; `_logIcons` nollställs i
     `destroy` så listan inte växer över spelomgångar.
 - 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 16 px släp, 0,131 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.
+- 2026-08-09 ✅ **Vattnet blev en delad VÄTSKEVOLYM** (v1.77.0, LYFTPLAN B6 / spår 3 runda P0).
+  De 34 raderna handrullad `_applyBuoyancy` är borta; tanken är nu en `Flytvolym` ur
+  `src/lib/flytkraft.js` som äger lyftkraft, vattenmotstånd, fartspärr, bottenlugn,
+  banfjäder och gupp/vaggning. Alla tal är oförändrade — **verifierat identiska banor,
+  största avvikelse 0 px över 900 steg mot den gamla koden** (`node scripts/_flytprobe.mjs`).
+  Två saker blev bättre på köpet: flytkraftens bas läses ur världens gravitation varje
+  steg i stället för ur en hårdkopierad konstant (`BUOY_BASE`), och vattnet är en
+  **rektangel** (414–866) i stället för en oändlig ytlinje, så inget utanför tanken kan
+  lyftas av osynligt vatten. Skarp körning med fem riktiga drag: äpple och boll guppar
+  vid ytan, skruv/sked/nyckel ligger stilla på botten.

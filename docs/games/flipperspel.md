@@ -227,3 +227,4 @@ passiva en gång tända**.
   ner på bollen. errorCount 0.
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): stålkulan ritas av delade `makeBoll` (`lib/foremal.js`). Den påklistrade glansprickern är ersatt av en klotgradient — kulan läser som krom i stället för en vit skiva.
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
+- 2026-08-09 ✅ **Karaktärsrigg [Medium]** (v1.71.0): Bobo är en RIGG (`lib/karaktarer.js`), inte en stillbild — `kropp: false` — han står BAKOM maskinen och en kropp hade hängt ner genom bordet; tassarna är hans grepp om kanten. Blicken följer kulan varje bildruta (`toLocal`), `hej` när barnet trycker på honom, `heja` per tänd bumper, `jubel` när allt lyser. Yttre containern är spelets (läge, hopp, träffyta), riggen äger sin egen skala.

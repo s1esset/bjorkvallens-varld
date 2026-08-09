@@ -168,3 +168,4 @@ Originaltexten för de avbockade punkterna står kvar nedan.
   lämnade till senare. errorCount 0, skärmdump bekräftar kunden.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): kakelvägg (loop från row −3, samma 64-rutnät) + bänkskiva/golv breddade. Hyllan var redan maskad. Testad båda viewports: 0 fel.
 - 2026-08-09 ✅ **Vilorörelse [Quick]** (v1.70.0): hyllans 63 ingredienser guppar var för sig — rörelsen ligger på den inre vyn, `slot` äger tryck och svep. Delad `feedback.liv()` med egen fas per föremål. Mätt med `_livprobe`: 9,1 px / 0,44, 0 tweens kvar efter exit.
+- 2026-08-09 ✅ **Karaktärsrigg [Medium]** (v1.71.0): Bobo är en RIGG (`lib/karaktarer.js`), inte en stillbild — `kropp: false` — förklädet ÄR grillmästarens roll. Han väntar `hungrig`, följer med blicken det barnet drar (annars bygget) och reagerar `nam` när burgaren serveras, `stolt` om den matchade önskelistan. Yttre containern är spelets (läge, hopp, träffyta), riggen äger sin egen skala.

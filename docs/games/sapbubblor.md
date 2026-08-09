@@ -142,3 +142,4 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
   Grind: `npm run check --game sapbubblor` grön · `npm run test sapbubblor` errorCount 0.
   Kvar: riktiga MOSS-klipp, en figur som *blåser fram* bubblorna, bris tidigare än nivå 3.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): vindpuffars despawn, bubblors sidostuds (studsade mot ingenting 163 px in i bilden på telefon), topp/botten-despawn och födsel — allt mot `ctx.view`. Testad båda viewports: 0 fel.
+- 2026-08-09 ✅ **Karaktärsrigg [Medium]** (v1.71.0): Bobo är en RIGG (`lib/karaktarer.js`), inte en stillbild — `kropp: false` (den orange kulkroppen är Bobos svävande form). Den HANDRULLADE gap-munnen (`_boboMouth` + alpha-tween) är borta — riggens `nam` ÄR att tugga och svälja. Spelets 34 px hopp behålls, riggen ger `stolt`. Yttre containern är spelets (läge, hopp, träffyta), riggen äger sin egen skala.

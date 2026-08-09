@@ -14,6 +14,44 @@ Format:
 
 ---
 
+## 2026-08-09 (natt) · v1.71.0 · Spår E runda A3 — karaktärsriggen är utrullad, 22 av 22
+
+**Byggt:** De sex sista Bobo-spelen bytte från stillbild till riggen `lib/karaktarer.js`:
+`domino`, `flipperspel`, `hamburgerbygget`, `kulbana`, `sapbubblor` och `knuffa-tornet`
+(det sista från `figurer.js`). Därmed är utrullningen KLAR — **`mascot.js` har en enda
+kund kvar, `gravmaskinen`**, som är det dokumenterade undantaget (r 11 ⇒ ögonen blir
+1,7 px och en min går inte att läsa).
+
+- **Ägarreglerna höll rakt igenom.** `view.scale` = alltid riggens andning (knuffa-tornets
+  egen andnings-tween togs bort); `view.y` = den med största gesten (domino 52 px,
+  sapbubblor 34, kulbana 26 — alla större än `jubel`, så spelen behöll sina hopp och riggen
+  bidrar med `setMood('stolt')`); `kropp: false` när den ritade kroppen ÄR rollen
+  (grillmästarens förkläde, kulbanans blå byxor, Bobo bakom flipperbordet, den svävande
+  kulkroppen i sapbubblor).
+- **Handrullad mimik ersatt av riggen.** sapbubblors `_boboMouth` (en gap-mun med
+  alpha-tween) är borta — riggens `nam` ÄR att tugga och svälja. Det var precis den sortens
+  per-spel-mimik riggen byggdes för.
+- **`look()` gav mest per rad:** flipperspel följer kulan, hamburgerbygget det barnet drar
+  (annars bygget), kulbana kulan hela vägen ner — alla via
+  `outer.toLocal(mål.getGlobalPosition())`.
+
+**Två fynd:**
+1. **Bygghjälmen i knuffa-tornet täckte hela ansiktet.** Brättet låg på `y = 0`, och riggens
+   ögon ligger på −0,12·r medan `makeBobo` hade dem lägre. Hittat i en **närbild** —
+   `npm run test` var grönt hela tiden. Lyft till −0,46·r.
+2. **En rigg som byggs om under spelets gång måste `destroy()`:as.** kulbanas mottagare byggs
+   per bana. Uppmätt: 10 ombyggnader → 0 gamla riggar lever, 0 aktiva tweens kvar.
+
+**Commits:** `bd06566` domino+flipperspel · `8fc1a75` hamburgerbygget+kulbana ·
+`4d864ac` sapbubblor+knuffa-tornet
+**Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** · sex närbilder
+granskade i `_narbild.mjs`.
+**Öppet:** A4 (blendMode-add glow, kontinuerliga emitters i partiklar.js, MeshRope via
+Canvas2D-textur, kamerans första kund), sedan spår 3 fysik. Ägarens manuella telefonkoll
+av full bleed är fortfarande ogjord.
+
+---
+
 ## 2026-08-09 (sen kväll) · v1.70.0 · Spår E runda A2 — övergångar med riktning, vilorörelse
 
 **Byggt:** Andra rundan i animationsspåret: skärmbytena fick en riktning, och sex spel som

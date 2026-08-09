@@ -161,3 +161,4 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
   spelet bar 🔧 i fem veckor på en punkt som var klar. Verifierat: `_stepCascade` +
   `FALL_GUARANTEE` i `index.js:794-834`, konstanter `:35-36`; bara första brickan puttas.
   **Kvalitet 🔧 → ✅.** Kvar i §4: bara [Quick]/[Medium].
+- 2026-08-09 ✅ **Karaktärsrigg [Medium]** (v1.71.0): Bobo är en RIGG (`lib/karaktarer.js`), inte en stillbild — kroppen under honom var handritad men hade exakt riggens proportioner vid r 40 (skugga 2,35·r, fötter 2,15·r, bål 1,35·r) — rakt byte utan flyttat origo. Spelets 52 px hopp vid raset behålls (större än riggens `jubel` 20 px), riggen bidrar med `setMood('stolt')`. Yttre containern är spelets (läge, hopp, träffyta), riggen äger sin egen skala.

@@ -141,3 +141,4 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
     [Medium] spara favoritbana ("min maskin"), [Medium] fler banelement (propeller/loop/studs-
     kedja), [Quick] kul-svans + rull-damm, [Quick] riktiga SFX-klipp via pipelinen + ambient,
     [Quick] ta bort "SLÄPP"-texten (pil + puls räcker).
+- 2026-08-09 ✅ **Karaktärsrigg [Medium]** (v1.71.0): Bobo är en RIGG (`lib/karaktarer.js`), inte en stillbild — `kropp: false` — de blå byxorna och de utsträckta armarna är mottagarens roll och animeras av spelet. Blicken följer kulan hela vägen ner. `_clearCatcher` destroy():ar riggen eftersom mottagaren byggs om per bana (uppmätt: 10 ombyggnader → 0 gamla riggar lever, 0 aktiva tweens kvar). Yttre containern är spelets (läge, hopp, träffyta), riggen äger sin egen skala.

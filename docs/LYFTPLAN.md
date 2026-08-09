@@ -853,3 +853,32 @@ ordningen; liv-amplitud 4,0–9,5 px, fasspridning 0,14–0,44, 0 tweens kvar ef
    målgjorda bollar 0,2 s ner i korgen; de hade redan lämnat `_balls`/`_shot` så `destroy`
    hittade dem inte. Rött 3 av 3 med A2-skalet, grönt 3 av 3 utan (växelvis mätt) — buggen
    var gammal, A2 gjorde den synlig. Fixad med en `_malflykt`-mängd.
+
+## 8. Spår E runda A3 — karaktärsriggens utrullning KLAR (22/22) ✅ v1.71.0
+
+De sista sex spelen bytte från stillbild till `lib/karaktarer.js`: `domino`, `flipperspel`,
+`hamburgerbygget`, `kulbana`, `sapbubblor` och `knuffa-tornet` (det sista från `figurer.js`).
+**`mascot.js` har nu en enda kund kvar: `gravmaskinen`** — det dokumenterade undantaget
+(r 11 ⇒ ögonen blir 1,7 px och en min går inte att läsa).
+
+Mönstret satt redan från omgång 1–4 och höll hela vägen:
+
+| Egenskap | Ägare |
+|---|---|
+| `view.scale` | ALLTID riggens andning. Spelets egen andnings-tween tas bort (knuffa-tornet hade en på `w.scale`). Ett `pop()` flyttas till den YTTRE containern. |
+| `view.y` | Den med STÖRSTA gesten. domino 52 px, sapbubblor 34, kulbana 26 — alla större än `jubel` (0,5·r), så spelen behöll sina hopp och riggen bidrar med `setMood('stolt')`. |
+| `kropp` | `false` när den ritade kroppen ÄR rollen: flipperspels Bobo bakom maskinen, grillmästarens förkläde, kulbanans blå byxor, såpbubblornas svävande kulkropp. |
+
+**`look()` är fortfarande den billigaste stora vinsten** — flipperspel följer kulan,
+hamburgerbygget det barnet drar (annars bygget), kulbana kulan hela vägen ner. Alla via
+`outer.toLocal(mål.getGlobalPosition())`, som räknar bort den yttre containerns läge gratis.
+
+**Två fynd:**
+1. **Bygghjälmen i knuffa-tornet täckte hela ansiktet.** Brättet låg på `y = 0` och riggens
+   ögon ligger på −0,12·r; `makeBobo` hade dem lägre. Hittat i en **närbild** — testet var
+   grönt hela tiden. Lyft till −0,46·r så både ögon och bryn syns under brättet.
+2. **Riggen som byggs om under spelets gång måste `destroy()`:as** (kulbanas mottagare byggs
+   per bana). Uppmätt: 10 ombyggnader → 0 gamla riggar lever, 0 aktiva tweens kvar.
+
+Kvar i spåret: A4 (add-glow, kontinuerliga emitters, MeshRope via Canvas2D, kamerans
+första kund).

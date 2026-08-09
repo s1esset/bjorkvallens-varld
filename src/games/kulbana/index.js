@@ -15,6 +15,7 @@
 import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
+import { Fjaderbrada } from '../../lib/fjader.js'
 import { createScene } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, bigCelebration, floatText, shake , kvittera} from '../../lib/feedback.js'
@@ -38,6 +39,13 @@ const BOUNCE_THROTTLE = 0.16 // s mellan studsljud (anti-spam)
 const HELP_AFTER = 3 // missar innan den FRIVILLIGA "Hjälp mig?"-knappen dyker upp
 const AUTO_HELP_AT = 8 // sista skyddsnätet: efter så många missar glider kulan hem ändå (no-fail)
 const NEAR_TARGET = 210 // px till hinken då glödringen intensifieras ("nästan!")
+// Fjäderbrädan: kulans fart i rörelse är uppmätt 3–14,6 px/steg (median 7,4 · p90 13,5),
+// så 10 px/steg som "full inpressning" lägger hela spannet under taket och låter de
+// hårdaste anslagen bottna. Djupet är satt efter plankans tjocklek (32 px): 22 px läser
+// som en studsmatta, mer som ett hål. FOOT_Y = fotens ovansida i delens koordinater.
+const BOUNCE_FULL = 10
+const BOUNCE_DEPTH = 22
+const FOOT_Y = 36
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -84,6 +92,9 @@ export default {
     // kulan ut ur banan (no-escape) — osynligt, ändrar inget annat.
     this._phys = new PhysicsWorld({ gravityY: 1.1, walls: ['left', 'right', 'floor', 'ceiling'], wallThickness: 120 })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Fjäderbrädorna drivs i MATTERS takt, inte bildrutans: farten som kastar iväg
+    // kulan mäts i px/steg, och en bildruta kan rymma 1–5 steg.
+    this._unbindStep = this._phys.beforeStep(() => this._stepSprings())
 
     // Osynlig fält-yta: fångar tap i tomrummet → flytta vald del (tap-tap) eller liten puff.
     this._fieldCatcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
@@ -628,20 +639,65 @@ export default {
       hitH = 100
       this._addKnob(ctx, part, 124)
     } else if (kind === 'bounce') {
-      const g = new Graphics().roundRect(-70, -16, 140, 32, 14).fill(COLORS.teal).stroke({ width: 5, color: 0x3f9a96 })
-      g.eventMode = 'none'
-      part.addChild(g)
-      // Fjäder-zigzag (signalerar studs).
-      const spr = new Graphics()
-      for (const sx of [-40, 0, 40]) {
-        spr.moveTo(sx - 8, 10).lineTo(sx, 2).lineTo(sx + 8, 10).lineTo(sx, -2).lineTo(sx - 8, -8)
+      // FJÄDERBRÄDA (`lib/fjader.js`) — plankan är en fjäder med eget tillstånd:
+      // den SVÄLJER kulans anslag, dyker undan och kastar tillbaka den på vägen upp.
+      //
+      // Förut: en statisk kropp med `restitution: 0.95` + en GSAP-squash på
+      // `part.scale`. Båda halvorna var lögner. Squashen kunde inte röra en enda
+      // kropp, och restitution på en STATISK kropp är en nullhandling i hela repot —
+      // matters `Body.setStatic` nollar den (uppmätt: satt 0,95 → 0, och studsen blev
+      // kulans egna 0,42, exakt samma som en ramp). Studsplattan har alltså aldrig
+      // studsat särskilt. Uppmätt skillnad nu, från 140 px fall: 17 px tillbaka med
+      // den styva plattan mot 183 px med fjädern.
+      const f = new Fjaderbrada({ bredd: 140, hojd: 32, maxAnslag: BOUNCE_FULL, maxKomp: BOUNCE_DEPTH })
+      part._fjader = f
+
+      // Foten står still — det är den som gör att ögat läser plankans dyk som en
+      // fjäder och inte som att hela delen glider nedåt.
+      const fot = new Graphics()
+      fot.roundRect(-56, FOOT_Y, 112, 14, 7).fill(0x2f7f7c)
+      fot.roundRect(-56, FOOT_Y, 112, 6, 3).fill({ color: 0x63c0bc, alpha: 0.6 })
+      fot.eventMode = 'none'
+
+      const spiral = new Graphics() // två zigzag-fjädrar, ritas om med böjen
+      spiral.eventMode = 'none'
+      // Lager UR SAMMA KROPP (skugga · planka · glans) — annars glider de isär i böjen.
+      const skugga = new Graphics()
+      skugga.y = 7
+      const kropp = new Graphics()
+      const glans = new Graphics()
+      for (const g of [skugga, kropp, glans]) g.eventMode = 'none'
+      part.addChild(fot, spiral, skugga, kropp, glans)
+
+      part._rita = () => {
+        if (part.destroyed) return
+        f.path(skugga.clear()).fill({ color: 0x000000, alpha: 0.16 })
+        f.path(kropp.clear()).fill(COLORS.teal).stroke({ width: 5, color: 0x3f9a96 })
+        f.path(glans.clear(), 0.66).fill({ color: 0xffffff, alpha: 0.18 })
+        // Två fjädrar som SYNS bli hoptryckta. Zigzagen läses bara som en fjäder om
+        // varven är höga nog: fyra varv på 20 px blev 5 px per varv och såg ut som ett
+        // rosa kludd. Tre varv, smalare utslag, och de sitter fast i UNDERSIDAN
+        // (`f.undersida`) i stället för i `komp` — annars släpper de från den böjda
+        // plankan just i de bildrutor barnet tittar.
+        spiral.clear()
+        for (const sx of [-32, 32]) {
+          const topY = f.undersida(sx) - 1
+          const h = Math.max(4, FOOT_Y + 2 - topY)
+          const varv = 3
+          spiral.moveTo(sx, topY)
+          for (let i = 0; i < varv; i++) {
+            const mitt = topY + (h * (i + 0.5)) / varv
+            const slut = topY + (h * (i + 1)) / varv
+            spiral.lineTo(sx + (i % 2 ? -9 : 9), mitt).lineTo(sx, slut)
+          }
+          spiral.stroke({ width: 3.5, color: COLORS.pink, alpha: 0.85 })
+        }
       }
-      spr.stroke({ width: 3, color: COLORS.pink, alpha: 0.6 })
-      spr.eventMode = 'none'
-      part.addChild(spr)
-      part._body = this._phys.rectangle(x, y, 140, 32, { isStatic: true, friction: 0.04, restitution: 0.95, label: 'bounce' })
+      part._rita()
+
+      part._body = this._phys.rectangle(x, y, 140, 32, { isStatic: true, friction: 0.04, label: 'bounce' })
       hitW = 180
-      hitH = 100
+      hitH = 120
       this._addKnob(ctx, part, 96)
     } else {
       // Tratt: två korta plankor i V (centrerar kulan). Ingen vrid-knapp.
@@ -750,8 +806,36 @@ export default {
         Body.setAngle(s.body, s.ang)
       }
     } else if (part._body) {
-      Body.setPosition(part._body, { x: part.x, y: part.y })
       Body.setAngle(part._body, part.rotation)
+      // En fjäderbräda som flyttas behåller sin inpressning (viloläget är delens läge,
+      // kroppen sitter `komp` px in längs normalen) — men får INGEN fart av draget.
+      if (part._fjader) part._fjader.flytta(part._body, part.x, part.y, part.rotation)
+      else Body.setPosition(part._body, { x: part.x, y: part.y })
+    }
+  },
+
+  // Tillbaka till viloläget före ett nytt släpp: en bräda som lämnats mitt i en
+  // svängning hade annars mött nästa kula med en fart den fick av den förra.
+  _resetSprings() {
+    for (const part of this._parts) {
+      const f = part?._fjader
+      if (!f || part.destroyed) continue
+      f.nolla()
+      if (part._body) f.flytta(part._body, part.x, part.y, part.rotation)
+      part._rita?.()
+      part._bojd = false
+    }
+  },
+
+  // Fjäderbrädorna: ETT fast fysiksteg var. En vilande bräda kostar exakt noll —
+  // varken kropp att flytta eller silhuett att rita om.
+  _stepSprings() {
+    for (const part of this._parts) {
+      const f = part?._fjader
+      if (!f || part.destroyed || !part._body) continue
+      if (!f.steg()) continue
+      f.driv(part._body, part.x, part.y, part.rotation)
+      part._bojd = true
     }
   },
 
@@ -853,6 +937,7 @@ export default {
     this._falling = true
     this._restT = 0
     this._idle = 0
+    this._resetSprings()
     this._deselect()
     this._setPartsEnabled(false)
     this._stopButtonPulse()
@@ -877,6 +962,14 @@ export default {
     // Skuggan följer kulan (utan att rotera).
     if (this._ballShadow && !this._ballShadow.destroyed && this._ball && !this._ball.destroyed) {
       this._ballShadow.position.set(this._ball.x, this._ball.y)
+    }
+
+    // Fjäderbrädorna ritas om EN gång per bildruta (fysiken steppar upp till fem
+    // gånger) och bara medan de rör sig — `_bojd` sätts av `_stepSprings`.
+    for (const part of this._parts) {
+      if (!part || part.destroyed || !part._bojd) continue
+      part._bojd = false
+      part._rita?.()
     }
 
     // Mottagaren följer kulan med blicken hela vägen ner.
@@ -1152,16 +1245,24 @@ export default {
         continue
       }
 
-      // Studsplatta: metallisk "boing" + squash på plattan + gnistor.
+      // Fjäderbräda: bräddan TAR EMOT anslaget (lagrar farten i fjädern) och kastar
+      // tillbaka kulan när plankan går upp igen. Ljudet spelas i samma sekund som
+      // kontakten, inte vid utkastet — annars kommer återkopplingen efter 100 ms.
       if (other.label === 'bounce') {
-        ctx.services.audio.sfx('pling')
-        ctx.services.audio.tone({ freq: 210, dur: 0.22, type: 'sine', vol: 0.2, slideTo: 660 })
         const part = this._parts.find((p) => p && !p.destroyed && p._body === other)
-        if (part) this._squashPart(part)
+        const last = part?._fjader ? part._fjader.taEmot(this._ballBody, part.rotation) : 0
+        // last = 0 → kulan rullar längs plankan, eller bräddan är redan i svängning
+        // (då ÄR kontakten utkastet). Ingen boing på en beröring som inte laddar.
+        if (last <= 0.02) continue
+        // Boingen behåller sin karaktär (stigande sinus + pling — en DESIGNAD händelse,
+        // inte ett anslag), men får nu kraft: en nätt beröring viskar, en riktig smäll
+        // sjunger. Det MÅSTE följa kraften nu när ögat ser plankan sjunka olika djupt.
+        ctx.services.audio.sfx('pling')
+        ctx.services.audio.tone({ freq: 190 + 60 * last, dur: 0.16 + 0.12 * last, type: 'sine', vol: 0.1 + 0.14 * last, slideTo: 520 + 260 * last })
         gsap.killTweensOf(this._root)
         this._root.position.set(0, 0)
-        shake(this._root, { intensity: 5, duration: 0.22 })
-        sparkle(ctx.fxLayer, this._ballBody.position.x, this._ballBody.position.y, { count: 5 })
+        shake(this._root, { intensity: 2 + 5 * last, duration: 0.22 })
+        sparkle(ctx.fxLayer, this._ballBody.position.x, this._ballBody.position.y, { count: 3 + Math.round(4 * last) })
         this._lastBounceAt = this._tnow
         continue
       }
@@ -1188,20 +1289,13 @@ export default {
     }
   },
 
-  // Squash på en del (studsplatta trycks ihop och fjädrar tillbaka). Delarna är
-  // låsta under släpp så scale-tween krockar inte med drag/markering.
-  _squashPart(part) {
-    if (!part || part.destroyed) return
-    gsap.killTweensOf(part.scale)
-    gsap
-      .timeline()
-      .to(part.scale, { x: 1.14, y: 0.7, duration: 0.08, ease: 'power2.out' })
-      .to(part.scale, { x: 1, y: 1, duration: 0.34, ease: 'elastic.out(1,0.45)' })
-  },
-
   // ---- Städning (exit-säkert) ---------------------------------------------
 
   _removePartBodies(part) {
+    if (part._fjader) {
+      part._fjader.destroy()
+      part._fjader = null
+    }
     if (part._body) {
       this._phys.removeBody(part._body)
       part._body = null
@@ -1231,6 +1325,8 @@ export default {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._unbind?.()
+    this._unbindStep?.()
+    for (const part of this._parts || []) part?._fjader?.destroy()
     this._winTimer?.kill()
     this._glideTween?.kill()
     this._assistTween?.kill()

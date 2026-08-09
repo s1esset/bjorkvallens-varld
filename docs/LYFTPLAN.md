@@ -486,12 +486,33 @@ eller platta") höll bara i ett av fyra fall. Uppmätt spel för spel 2026-08-09
 | spel | planens P1-punkt | verkligt läge efter läsning |
 |---|---|---|
 | `knuffa-tornet` | MATERIAL-klossar + `impactAudio` | Klosstyperna med skild fysik fanns REDAN. Det som saknades var **rösten** → byggt (v1.80.0). |
-| `kulbana` | ytmaterial + `impactAudio` | Ytorna lät redan olika, men **alltid lika hårt** → kraftskala byggd (v1.81.0). Fjäderbrädan (`mjukkropp`) kvar. |
+| `kulbana` | ytmaterial + `impactAudio` | Ytorna lät redan olika, men **alltid lika hårt** → kraftskala byggd (v1.81.0). Fjäderbrädan ✅ byggd (v1.84.0, `lib/fjader.js` + `beforeStep`). |
 | `studsa-ner` | per-pinne MATERIAL (studs + röst) + fläkt | **Rösten byggdes INTE** (pinnarna spelar en stigande skala som är spelets musikaliska signatur, och studs-variation ökar slumpen i ett spel vars poäng är att sikta). **Fläkten ✅ byggd** (v1.83.0): uppmätt 0,72 fickors verkan. |
 | `glasstornet` | `mjukkropp`-wobble på kopan | ✅ byggt (v1.82.0). Sömmen var `_scoopPath` → `_ritaScoop` ritar nu alla silhuett-lager ur EN mjuk kropp; matter-kroppen som bär stapeln är orörd. |
 
 **Slutsatsen att ta med sig:** det som återstod i P1 var **mekaniken** (wobble · fläkt ·
-fjäderbräda), inte ljudet. Wobbeln och fläkten är byggda; kvar är `kulbana`s fjäderbräda.
+fjäderbräda), inte ljudet. **Alla tre är byggda — runda P1 är klar** (v1.82.0 · v1.83.0 · v1.84.0).
+
+⚠️ **`restitution` på en statisk kropp är en nullhandling i hela repot** (uppmätt 2026-08-09 när
+fjäderbräddan byggdes). `PhysicsWorld._make` skapar kroppen dynamisk och sätter den statisk
+efteråt — det är NaN-fixen — och matters `Body.setStatic` nollar då `restitution` och sätter
+`friction` till 1. `kulbana`s studsplatta stod på `0.95` och studsade exakt som en ramp; det var
+kulans egna 0,42 som avgjorde allt (uppmätt: plattans 0,02 och 0,95 ger identiskt studshopp,
+31 px). Hela raden med *"studsplattan är livlös"* i spelets doc hade alltså en tyst teknisk orsak
+och inte en designorsak. **Fixen är två rader men rör 23 spel** och ligger som ÅTGÄRDER V10 med
+krav på A/B över hela sviten. Läxan är större än buggen: när ett tal i ett spel *inte gör vad
+det ser ut att göra*, mät att det gör något innan du bygger design ovanpå det.
+
+⚠️ **En driven kropp måste röra sig i MATTERS takt, och en förflyttning är inte alltid en fart.**
+Fjäderbrädan kastar iväg kulan genom att plankans statiska kropp flyttas med
+`Body.setPosition(..., true)` — flaggan är hela mekaniken (uppmätt: kulan lämnar plankan i
+**10,83 px/steg** med flaggan, **3,87** utan, mot **3,67** för en helt stillastående planka).
+Därför fick `physics.js` en `beforeStep(fn)`: farten mäts i px/STEG och en bildruta rymmer 1–5
+steg. Men samma flagga är ett minfält i draget: att bära bräddan 230 px med `driv()` gav kroppen
+farten (−651, −230) som LÅG KVAR hela byggfasen (matter räknar aldrig om hastigheten på en
+statisk kropp), och när kulan kom emot läste lösaren kontakten som **separerande** och la ingen
+impuls alls — kulan föll rakt genom bräddan utan ett enda konsolfel. Därav två metoder:
+`driv()` (per fysiksteg, med fart) och `flytta()` (drag/vridning/nollställning, fart = 0).
 
 ⚠️ **En kraft som verkar under en kort passage kan inte dimensioneras i px/steg-terminalfart
 ensam.** `speedToAccel` ger den acceleration som ger en viss SLUTHASTIGHET — men ett mynt är i

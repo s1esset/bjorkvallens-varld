@@ -73,6 +73,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_mjukprobe.mjs` | mjuka kroppar: håller formen · sjunker när de mjuknar · knuff · exit — **utan webbläsare** |
 | `node scripts/_vobbelprobe.mjs` | vobbeln i ett spel: utslag vid landning · lugnar den sig · tappad volym · exit |
 | `node scripts/_flaktprobe.mjs [N]` | fläktens verkan i FICKOR (släpper N mynt per sida och mäter var de landar) |
+| `node scripts/_fjaderprobe.mjs` · `_fjaderbild.mjs` | fjäderbrädan: djup per anslag · utkast mot styv platta · tak · vridning · pump — **utan webbläsare** (och samma bräda i bild) |
 | `node scripts/_flytprobe.mjs` | vätskevolymen: jämvikt per `flyt` · massoberoende · botten · fartspärr · exit — **utan webbläsare** |
 | `node scripts/_faltprobe.mjs` | kraftfältet: px/steg-kalibrering · 1/r · tak · knuff · fångsttid · exit — **utan webbläsare** |
 | `node scripts/_varmeprobe.mjs` · `_rostprobe.mjs` | värme vs gradning: balans · P0 · avsvalning · (och i spelet: mjuknar/stelnar) |
@@ -143,6 +144,17 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 - **Radiella gradienter kostar 256× linjära.** Pixi bakar en linjär till `256×1` (~1 KB) och en
   radiell till `256×256` (~256 KB). Ikonbiblioteket låg på 15,3 MB innan `textureSize: 64`
   tog ner det till 1,0 MB — utan synlig banding ens på 300px. Mät med `_ikonkostnad.mjs`.
+- **`restitution` på en STATISK kropp gör INGENTING.** `PhysicsWorld._make` skapar kroppen
+  dynamisk och sätter den statisk efteråt (NaN-fixen), och matters `Body.setStatic` nollar då
+  `restitution` och sätter `friction` till 1 (originalen hamnar i `body._original`). Studsen blir
+  alltså alltid den DYNAMISKA kroppens egen. `kulbana`s studsplatta stod på `0.95` och studsade
+  exakt som en ramp — uppmätt: plattans 0,02 och 0,95 ger identiskt studshopp. Vill du ha en
+  studsande yta: `lib/fjader.js` (`Fjaderbrada`). Fixen i `_make` rör 23 spel → ÅTGÄRDER V10.
+- **En förflyttning av en statisk kropp kan bli en fart som ligger kvar för alltid.**
+  `Body.setPosition(body, p, true)` sätter farten till förflyttningen, och matter räknar aldrig om
+  hastigheten på en statisk kropp. Ett drag på 230 px gav (−651, −230) i hela byggfasen, och
+  lösaren läste sedan kontakten som **separerande** → ingen impuls → kulan föll rakt genom
+  plankan, utan konsolfel. Driv med fart bara i `phys.beforeStep()`; bär med fart = 0.
 - **Röstkön är inte permanent.** `npm run voice` fungerar (F5-TTS i `C:\repos\storygen`) — töm kön
   i stället för att lämna repliker på Web Speech.
 - **Sonder måste ligga i repot.** Scratchpad-katalogen kan inte lösa `playwright`; lägg

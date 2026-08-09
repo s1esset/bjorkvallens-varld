@@ -48,8 +48,14 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
   friction/frictionAir.
 - `setWind(ax, ay)` (kraftfält) · `setGravity(y, x?)`.
 - `link(body, view)` — Pixi-vyn följer kroppen.
-- `onCollision(cb)` — matcha på `body.label`.
+- `onCollision(cb)` — matcha på `body.label`. Skickas FÖRE hastighetslösaren, så en fart du
+  ändrar där är den lösaren räknar på (det är så `Fjaderbrada.taEmot` sväljer ett anslag).
+- `beforeStep(cb)` — EN gång per fast steg, inte per bildruta. Allt som spelet självt driver med
+  en fart (fjäderbräda, hiss, åra) måste röra sig i matters takt: farten är px/STEG och en
+  bildruta rymmer 1–5 steg.
 - `update(deltaMS)` fast tidssteg · exit-säker `destroy()`.
+- ⚠️ `restitution` på en **statisk** kropp är nollad av `Body.setStatic` — se fällistan i
+  CLAUDE.md. Studsen blir alltid den dynamiska kroppens egen.
 - `predictTrajectory(…)` + re-exporterade `Body` / `Composite` / `Vector`.
 
 ## Material som LÅTER (`MATERIAL` + `onImpact` / `impactAudio`)
@@ -131,8 +137,47 @@ m.path(g.clear()).fill(col).stroke({ width: 3, color: edge })
   stel kropp (isoperimetri); med bara sänkt styvhet sjönk en "helt mjuk" kropp 0,7 px.
 - **Mät med `node scripts/_mjukprobe.mjs`** — och mät rätt sak: underkantens absoluta läge
   blandar ihop hoptryckning och dropp. Använd massans läge i förhållande till fästpunkten.
-- Första kund: `lagerelden`. Väntar: `sapbubblor` · `glasstornet` · `mata-monstret` ·
-  `hamburgerbygget` · `pruttbad`.
+- Första kund: `lagerelden`. Sedan `glasstornet` (kopans wobble) och `fjader.js` (plankans
+  silhuett). Väntar: `sapbubblor` · `mata-monstret` · `hamburgerbygget` · `pruttbad`.
+- **En kropp, N lager.** Ett föremål byggt av flera lager (skugga, band, glans) måste ritas ur
+  SAMMA kropp med `path(g, skala)`, annars glider lagren isär i deformationen. Och allt som
+  SITTER FAST i kroppen (en fjäder under en planka) ska läsa kroppen — `Fjaderbrada.undersida(x)`
+  finns just därför — inte räkna på skalären som driver den.
+
+## Fjäderbräda (`src/lib/fjader.js`)
+
+En planka som LAGRAR ett anslag och ger tillbaka det. Fjäder med eget tillstånd (`komp`,
+`kompFart` i px/steg) + en mjukkropp för den böjda silhuetten.
+
+```js
+const f = new Fjaderbrada({ bredd: 140, hojd: 32, maxAnslag: 10, maxKomp: 22 })
+// vid collisionStart:      const last = f.taEmot(kula, part.rotation)   // 0…1 → ljud/skak
+// i phys.beforeStep():     if (f.steg()) f.driv(kropp, part.x, part.y, part.rotation)
+// vid drag/vridning:       f.flytta(kropp, part.x, part.y, part.rotation)
+// varje bildruta:          f.path(g.clear()).fill(col)   ·   f.undersida(x) för fästen
+```
+
+- **`restitution` kan inte göra det här jobbet** — på en statisk kropp är den nollad (se
+  CLAUDE.mds fällista + ÅTGÄRDER V10). Utkastet kommer i stället ur att plankans kropp
+  FLYTTAS uppåt genom kulan, och det är `updateVelocity`-flaggan som är mekaniken
+  (uppmätt 10,83 px/steg med, 3,87 utan, 3,67 för en stillastående planka).
+- **`taEmot` är inte valfri.** Utan den studsar kulan bort på sin egen restitution i samma
+  steg och plankans återgång sker i tomma luften (uppmätt: 85 · 79 · 56 · 31 · 103 px för allt
+  hårdare anslag — inte bara svagt utan icke-monotont). Den sväljer normalfarten, behåller
+  tangenten (kulan rullar vidare) och lagrar exakt vad den tog.
+- **Grinden är återgången, inte vilan:** `taEmot` avvisar bara medan plankan går uppåt (då ÄR
+  kontakten utkastet). Krav på full vila gjorde bräddan avvisande i 1,7 s — längre än kulans
+  eget kast.
+- **Styvhet, djup och tak är samma tal tre gånger.** Ange `maxAnslag` (mätt fart för full
+  inpressning) + `maxKomp` (hur djupt det får synas); styvheten räknas fram. Tre fria rattar
+  åt upp varandra: taket hamnade under en normal träff och bräddan bottnade vid fyra av fem
+  fallhöjder.
+- Kinematiken går inte att förhandla med: en matta som stoppar farten v inom djupet d gör det
+  på ~π·d/(2v) steg. Djup + långsam finns inte utan att kasta svagare — det springiga INTRYCKET
+  bär efterskalvet (mjukkroppen ringer ~0,3 s efter att kulan lämnat).
+- **Mät med `node scripts/_fjaderprobe.mjs`** (19 mått, ingen webbläsare) och titta på bräddan
+  med `node scripts/_fjaderbild.mjs`. Första kund: `kulbana`. Kandidater: `vippbradan` ·
+  `flipperspel` (studsare) · `studsbollar`.
 
 ## Vätska (`src/lib/vatska.js`)
 

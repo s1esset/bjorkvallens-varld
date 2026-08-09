@@ -14,6 +14,53 @@ Format:
 
 ---
 
+## 2026-08-09 (natt) · v1.84.0 · Spår 3 P1 avslutad — kulbanas fjäderbräda
+
+**Byggt:** Den sista punkten i runda P1. `kulbana`s studsplatta är nu en **riktig fjäderbräda**:
+plankan har eget tillstånd, sväljer kulans anslag, dyker undan och kastar tillbaka den med sin
+egen fart uppåt.
+
+- **`lib/fjader.js` — `Fjaderbrada`** (ny primitiv, första kund `kulbana`). Fjäder i px/steg +
+  mjukkropp för silhuetten (`mjukkropp.js` tredje kund: plankan BÖJS, foten står still, två rosa
+  fjädrar trycks ihop mot undersidan via `undersida(x)`). API: `taEmot` · `steg` · `driv` ·
+  `flytta` · `path` · `nolla` · `destroy`.
+- **`physics.js` fick `beforeStep(fn)`** — en kropp som spelet driver med en fart måste röra sig i
+  matters takt (px/STEG; en bildruta rymmer 1–5 steg).
+- **`scripts/_fjaderprobe.mjs`** (19 mått, ingen webbläsare) + **`_fjaderbild.mjs`** (vila ·
+  djupast · efter · vriden). `test:all` **72/72 gröna**, `check` 0 fel, `_idleprobe` 0.
+
+**Det som gjorde jobbet värt mer än planerat — två mätningar som ändrade bilden:**
+
+1. **`restitution` på en STATISK kropp är en nullhandling i hela repot.** `_make` sätter statiskt
+   EFTER skapandet (NaN-fixen) och matters `Body.setStatic` nollar då restitution. Studsplattans
+   `0.95` hade alltså aldrig gjort något — den studsade exakt som en ramp, och det var kulans
+   egna 0,42 som avgjorde allt (plattans 0,02 och 0,95 ger identiskt studshopp: 31 px). Docens
+   rad *"studsplattan är livlös"* hade en tyst teknisk orsak, inte en designorsak. Fixen är två
+   rader men rör 23 spel → ligger som **ÅTGÄRDER V10** med krav på A/B över hela sviten.
+2. **Utkastet kommer ur att plankans kropp FLYTTAS uppåt genom kulan**, och `updateVelocity`-
+   flaggan är hela mekaniken: 10,83 px/steg med, 3,87 utan, 3,67 för en stillastående planka.
+   Samma flagga är ett minfält i draget — ett drag på 230 px gav kroppen farten (−651, −230) som
+   låg kvar hela byggfasen, och lösaren läste sedan kontakten som *separerande* → ingen impuls →
+   kulan föll rakt genom bräddan, utan konsolfel. Därav `driv()` (med fart) och `flytta()` (utan).
+
+**Uppmätt resultat** (fall 20 · 60 · 140 · 260 · 400 px): studshöjd **37 · 88 · 183 · 272 · 272 px**
+mot den styva plattans **3 · 7 · 17 · 31 · 46** — 10,8× vid medianen, med tak (max 14,1 px/steg).
+Inpressning 6,9 → 19,4 px av 22. **±30° vridning styr utkastet ±323 px i sidled** (ny agens: barnet
+siktar med bräddan). Tio studsar i rad trappar upp och LÅSER sig vid samma tak (platå 271 px). En
+kula som rullar över bräddan behåller 5,9 av 7 px/steg.
+
+**Sonden hade fel före koden, tre gånger** — värt att minnas som mönster: `lyft` var klippt av sin
+egen initiering, anslaget mättes som max över ALLA kontakter (icke-monotont, eftersom bräddan får
+tillbaka kulan), och en callback tog emot `{ x, y }` men plockade ut `{ bx, by }` → `part.x = NaN`
+→ kroppen försvann helt ur matter utan konsolfel, alltså en "bräddan gör inget"-bild som bara
+handlade om sonden.
+
+**Commits:** se nedan · **Öppet:** runda P1 är klar. Nästa: P2 kraftfältsspel (`plask-i-vattnet`
+SPH · `fallskarmen` motståndsvolym · `sapbubblor` mjuka bubblor · `ballonglyft` lyftkraft), sedan
+P3 maskiner. ÅTGÄRDER V10 (statisk restitution, 23 spel) väntar på ett eget A/B-svep.
+
+---
+
 ## 2026-08-09 (kväll) · v1.83.0 · Spår 3 fysikdjup — P0 (tre primitiver) + P1 (fyra spel)
 
 **Byggt:** Hela runda P0 och merparten av P1.

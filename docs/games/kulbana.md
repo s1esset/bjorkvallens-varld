@@ -150,3 +150,19 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
   **Kraftskalan är kalibrerad mot uppmätt fart, inte gissad:** kulans fart i rörelse spänner
   3 → 14,6 px/steg (median 7,4 · p90 13,5), och `(fart − 2) / 12` ger då 0,08 vid den
   långsammaste kontakten, 0,45 vid medianen och 0,96 vid p90 — hela spannet används.
+- 2026-08-09 ✅ **Studsplattan är en riktig fjäderbräda** (v1.84.0, spår 3 runda P1, LYFTPLAN B5).
+  Ny `lib/fjader.js` (`Fjaderbrada`) — plankan har eget tillstånd, **sväljer** kulans anslag,
+  dyker undan och kastar tillbaka den med plankans egen fart uppåt. Silhuetten är en mjukkropp
+  (`lib/mjukkropp.js`, tredje kunden): plankan BÖJS, foten står still och två rosa fjädrar
+  trycks ihop mot undersidan. `physics.js` fick `beforeStep()` — en driven kropp måste röra sig
+  i matters takt, inte bildrutans.
+  **Vad som var trasigt, mätt:** plattans `restitution: 0.95` hade **aldrig** gjort något (matters
+  `setStatic` nollar restitution — se ÅTGÄRDER V10), och squashen satt på `part.scale` och kunde
+  inte röra en enda kropp. Plattan var alltså en ramp med zigzag-dekor.
+  **Uppmätt nu** (`scripts/_fjaderprobe.mjs`, 19 mått): fall 20 · 60 · 140 · 260 · 400 px ger
+  studshöjd **37 · 88 · 183 · 272 · 272 px** mot den styva plattans **3 · 7 · 17 · 31 · 46 px**
+  (10,8× vid medianen) · inpressning 6,9 → 19,4 px av taket 22 · utkastet planar ut vid taket
+  (max 14,1 px/steg) · ±30° vridning styr utkastet **±323 px** i sidled · tio studsar i rad
+  trappar upp och LÅSER sig vid samma tak (platå 271 px) · en kula som rullar över bräddan
+  behåller 5,9 av 7 px/steg och lyfts bara 13 px. Bilder: `scripts/_fjaderbild.mjs`.
+  Boingen behöll sin karaktär men följer nu kraften (ögat ser plankan sjunka olika djupt).

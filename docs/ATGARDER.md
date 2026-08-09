@@ -24,7 +24,15 @@ regel gäller: reproducera innan du ändrar.
 
 | # | Var | Fynd | Bevis | Status |
 |---|-----|------|-------|:--:|
-| — | — | *(inga öppna verktygsfynd)* | | |
+| V10 | `lib/physics.js` (app-brett, 23 fysikspel) | **`restitution` på en STATISK kropp är en nullhandling.** `_make` skapar kroppen dynamisk och sätter den statisk efteråt (medvetet — det är NaN-fixen som står dokumenterad vid rad 218), och matters `Body.setStatic` **nollar då `restitution` och sätter `friction` till 1**, med originalen undanlagda i `body._original`. Varje `restitution` ett spel satt på en ramp, vägg, studsplatta eller hink har alltså aldrig gjort något: `pair.restitution = max(A, B)` blir den DYNAMISKA kroppens eget värde. `kulbana`s studsplatta stod på `0.95` och studsade exakt som en ramp. | Uppmätt i `scripts/_fjaderprobe.mjs` sektion 0 (regressionsvakt, körs varje gång): satt 0,95 → `plank.restitution === 0`, `_original.restitution === 0.95`. Samma scen med plattans restitution 0,02 respektive 0,95 ger **identiskt** studshopp (31 px), och kulans egna 0,42 förklarar hela utfallet (kvot 0,41 av anslagsfarten). | ⬜ |
+
+> **V10 är medvetet inte fixad i samma svep som den hittades.** Att återställa `_original` efter
+> `setStatic` vore två rader, men det ändrar fysiken i 23 spel samtidigt — varje ramp, vägg och
+> hink som bär ett `restitution`-tal skulle plötsligt börja studsa, och flera av dem är
+> handtrimmade mot dagens beteende (exakt `mat()`-fällan: skriv ut talen du vill BEHÅLLA).
+> Fixen kräver A/B över hela sviten (`scripts/_ab.sh`) och en genomgång spel för spel av vilka
+> tal som är avsiktliga. `kulbana` behövde ingen sådan fix: en fjäderbräda (`lib/fjader.js`) ger
+> en riktig studs oberoende av matters restitution.
 
 > ⚠️ **En sond ger ledtrådar, inte domar** — den läser text, inte beteende, och rapporterar den
 > FÖRSTA vakten i en hanterare. Reproducera i harnessen innan du ändrar. Fixmönstret när fyndet

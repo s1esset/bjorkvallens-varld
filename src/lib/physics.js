@@ -274,6 +274,23 @@ export class PhysicsWorld {
     return () => Events.off(this.engine, 'collisionStart', handler)
   }
 
+  // Kallas EN gång per FAST fysiksteg — inte per bildruta.
+  //
+  // Allt som spelet självt DRIVER med en fart (en fjäderbräda som slår tillbaka, en
+  // hiss, en åra) måste röra sig i matters takt. Matter räknar hastighet i px/STEG,
+  // och `update()` kör 1–5 steg per bildruta beroende på bildfrekvens: en kropp som
+  // flyttas en gång per bildruta får därför 1–5 gånger fel fart, och det är exakt den
+  // fart som avgör hur hårt den kastar iväg något. Samma sorts kalibreringsfälla som
+  // `speedToAccel` finns för (px/steg är inte px/s).
+  beforeStep(fn) {
+    if (!this._alive) return
+    const h = () => {
+      if (this._alive) fn()
+    }
+    Events.on(this.engine, 'beforeUpdate', h)
+    return () => Events.off(this.engine, 'beforeUpdate', h)
+  }
+
   // ---- Anslag: hur HÅRT något slog i (LYFTPLAN B5) -------------------------
   //
   // Den billigaste juicen som finns. `rel = |vA − vB|` räknades redan ut, men bara

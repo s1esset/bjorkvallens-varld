@@ -89,8 +89,9 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   fästena och ger ett pling ur en pentatonisk stege. Se §5.
 
 ### Juice
-- **[Quick] Superhjälte-pose i flykten.** Sträck ut armarna och böj kroppen i kast-riktningen
-  (rotera mot `atan2(vy,vx)`) + fart-streck bakom honom — flykten ska kännas som ett "swoosh".
+- ✅ 2026-08-09 **[Quick] Superhjälte-pose i flykten.** Kroppen ritas om till flygpose vid släpp
+  (armarna rakt fram förbi huvudet, benen ihop bakåt) och vrids mot `atan2(vy,vx) + π/2`, med
+  fart-streck vars längd följer farten. Se §5.
 - 🔶 2026-08-07 **[Quick] Nät-"thwip" + vind-sus.** Ett klistrigt nätskott vid varje fäste och ett sus vars
   tonhöjd följer fart i flykten; en mjuk "boing" när pendeln vänder. *(thwip klart; vind-sus/boing kvar)*
 - ✅ 2026-08-07 **[Quick] Kattungen jamar och hoppar** när Zacke närmar sig sista fästet (inte bara vid finalen).
@@ -202,3 +203,24 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   konstruktion. Efter fixen: **2 av 2 passerade plockade.**
   `_varldprobe.mjs` nu 13/13, inklusive att `liv()`-tweenarna (repeat:-1, dör aldrig själva)
   slutar TICKA efter exit — 0 av 5 rörde sig 0,6 s efteråt. `_svingprobe.mjs` fortsatt 7/7.
+- 2026-08-09 ✅ **[Quick] Superhjälte-pose i flykten** (Juice). Zacke snurrade förut bara
+  (`rotation += 0.04`), vilket läser som att han tappat kontrollen — en hjälte STYR sin flykt.
+  Nu: kroppen ritas om till en **flygpose** vid släpp (båda armarna rakt fram förbi huvudet,
+  benen ihop och bakåt, strömlinjeformad silhuett) och tillbaka till hängande pose vid fäste,
+  molnräddning och nivåstart. Ritas om vid POSESKIFTE, inte per bildruta — ett Graphics-anrop
+  per släpp, inte 60 i sekunden.
+  **Vinkeln är härledd, inte inpetad.** Figuren är ritad stående, så hans lokala "upp" är
+  (0, −1); ska det sammanfalla med farten (cos a, sin a) krävs rotationen `a + π/2`
+  (`sin(a+π/2) = cos a` och `−cos(a+π/2) = sin a`). Målvinkeln kläms till [0,42; 1,85] rad —
+  utan taket dyker han mot 135° i slutet av bågen och läser som att han störtar — och följs
+  mjukt, så han glider in i posen från svingets `theta · 0.5` i stället för att snäppa.
+  **Fart-strecken bor i Zackes egna koordinater**, bakom kroppen. Det är hela tricket: när
+  kroppen vrids mot färdriktningen följer strecken med gratis och pekar alltid rakt bakåt,
+  utan en enda vinkelberäkning. Längd och alpha skalar med farten, så ett välträffat släpp
+  syns som ett kraftigare swoosh — juicen belönar samma sak som mekaniken.
+  **Mätt:** ny bild mitt i flykten via `_varldprobe.mjs --shot-flykt`
+  (`.test-shots/_flykt-spindel-zacke-svingar.png`) — testsvitens skärmdump fångar aldrig
+  flyktposen. `_svingprobe.mjs` 7/7, `_varldprobe.mjs` 13/13.
+  **En falsk röd flagga:** körningen visade `saknat-ljudklipp` för `djur_katt` (som FINNS på
+  disk) vid t=381 ms. Växelvis mätt: 0 av 3 med ändringen, 0 av 3 utan — en tajmingflake där
+  `sample()` hinner före avkodningen, inte något den här omgången orsakade.

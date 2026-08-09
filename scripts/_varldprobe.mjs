@@ -128,6 +128,11 @@ try {
       if (!s) break
       prover.push(s)
       if (s.zSkarm < -40 || s.zSkarm > 1320) zUtanfor++
+      // En bild MITT I FLYKTEN — posen och fart-strecken finns bara här, och
+      // testsvitens skärmdump fångar dem aldrig.
+      if (hopp === 1 && k === 5 && s.state === 'flight') {
+        await page.screenshot({ path: opt('--shot-flykt', `.test-shots/_flykt-${ID}.png`) })
+      }
       await page.waitForTimeout(28)
     }
   }

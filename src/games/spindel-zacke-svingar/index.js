@@ -428,6 +428,8 @@ export default {
     z.rotation = this._theta * 0.5
     z.x = this._anchor.x + this._L * Math.sin(this._theta)
     z.y = this._anchor.y + this._L * Math.cos(this._theta)
+    this._drawZacke('swing')
+    this._drawFart(0)
     bounceIn(z)
     // Zacke TELEPORTERAR hit från förra nivåns mål. Kamerans hårda ruta klämmer mot
     // målets NUVARANDE läge, så utan det här hoppar bilden med i ett ryck (dokumenterat
@@ -440,17 +442,20 @@ export default {
   _buildZacke() {
     const c = new Container()
     c.eventMode = 'none'
+    // Fart-streck: ritas i Zackes EGNA koordinater, bakom allt annat. Att de bor här inne
+    // och inte i världen är hela tricket — när kroppen vrids mot färdriktningen följer
+    // strecken med gratis, så de pekar alltid rakt bakåt utan en enda vinkelberäkning.
+    this._speed = new Graphics()
+    this._speed.eventMode = 'none'
+    c.addChild(this._speed)
     // Svag glöd-ring (han svävar).
     c.addChild(new Graphics().circle(0, 0, 40).stroke({ color: 0xffffff, alpha: 0.25, width: 4 }))
-    // Kropp (hjälte-dräkt) + armar + ben.
+    // Kropp (hjälte-dräkt) + armar + ben. Ritas om vid poseskifte, se _drawZacke.
     const body = new Graphics()
-    body.roundRect(-26, 2, 12, 28, 6).fill(COLORS.red) // vänster arm
-    body.roundRect(14, 2, 12, 28, 6).fill(COLORS.red) // höger arm
-    body.roundRect(-16, -2, 32, 40, 12).fill(COLORS.blue) // bål
-    body.circle(0, 14, 7).fill(COLORS.red) // bröst-emblem
-    body.roundRect(-13, 34, 11, 22, 5).fill(COLORS.blue) // vänster ben
-    body.roundRect(2, 34, 11, 22, 5).fill(COLORS.blue) // höger ben
+    this._body = body
     c.addChild(body)
+    this._pose = null
+    this._drawZacke('swing')
     // Huvud.
     c.addChild(new Graphics().circle(0, -26, 22).fill(0xffe0bd))
     // Röd domino-mask + vita ögon-prickar + leende.
@@ -464,6 +469,55 @@ export default {
       .arc(0, -16, 8, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3, color: COLORS.ink }) // leende
     c.addChild(face)
     return c
+  },
+
+  // Zackes två poser. Kroppen ritas om vid skifte, inte varje bildruta — det är ett
+  // Graphics-anrop per släpp och per fäste, inte 60 i sekunden.
+  //
+  // 'swing'  armarna hänger ned längs sidorna, benen isär — han HÄNGER i en tråd.
+  // 'flight' båda armarna sträckta rakt fram (lokalt UPPÅT, över huvudet) och benen ihop
+  //          bakåt. Eftersom kroppen samtidigt vrids så att lokalt "upp" pekar längs
+  //          farten (se _update) blir det den klassiska flyg-posen utan att en enda
+  //          kroppsdel behöver veta åt vilket håll han far.
+  _drawZacke(pose) {
+    if (this._pose === pose) return
+    this._pose = pose
+    const g = this._body
+    if (!g || g.destroyed) return
+    g.clear()
+    if (pose === 'flight') {
+      // Ben ihop och lite bakåt (lokalt nedåt) — en strömlinjeformad silhuett.
+      g.moveTo(-5, 30).lineTo(-7, 60).stroke({ width: 12, color: COLORS.blue, cap: 'round' })
+      g.moveTo(5, 30).lineTo(7, 60).stroke({ width: 12, color: COLORS.blue, cap: 'round' })
+      g.roundRect(-16, -2, 32, 40, 12).fill(COLORS.blue) // bål
+      g.circle(0, 14, 7).fill(COLORS.red) // bröst-emblem
+      // Armarna framåt, förbi huvudet. De ritas SIST så de ligger över bålen.
+      g.moveTo(-13, 4).lineTo(-9, -46).stroke({ width: 12, color: COLORS.red, cap: 'round' })
+      g.moveTo(13, 4).lineTo(9, -46).stroke({ width: 12, color: COLORS.red, cap: 'round' })
+    } else {
+      g.roundRect(-26, 2, 12, 28, 6).fill(COLORS.red) // vänster arm
+      g.roundRect(14, 2, 12, 28, 6).fill(COLORS.red) // höger arm
+      g.roundRect(-16, -2, 32, 40, 12).fill(COLORS.blue) // bål
+      g.circle(0, 14, 7).fill(COLORS.red) // bröst-emblem
+      g.roundRect(-13, 34, 11, 22, 5).fill(COLORS.blue) // vänster ben
+      g.roundRect(2, 34, 11, 22, 5).fill(COLORS.blue) // höger ben
+    }
+  },
+
+  // Fart-strecken bakom honom. Längd och styrka följer FARTEN, så ett välträffat släpp
+  // syns som ett kraftigare swoosh än ett slappt — juicen belönar samma sak som poängen.
+  _drawFart(fart) {
+    const g = this._speed
+    if (!g || g.destroyed) return
+    g.clear()
+    if (fart < 1.6) return
+    const k = Math.min(1, (fart - 1.6) / 5.5)
+    const langd = 26 + k * 62
+    for (const [dx, skala] of [[-16, 0.62], [0, 1], [16, 0.62]]) {
+      g.moveTo(dx, 34)
+        .lineTo(dx * 1.25, 34 + langd * skala)
+        .stroke({ width: 5 - Math.abs(dx) * 0.09, color: 0xffffff, alpha: 0.16 + k * 0.4, cap: 'round' })
+    }
   },
 
   // Ett föremål att nudda i flykten. RITAT, aldrig en emoji i en ruta (P0 ASSETS).
@@ -853,6 +907,7 @@ export default {
       }
     }
     this._state = 'flight'
+    this._drawZacke('flight') // superhjalte-posen bors nar han lamnar traden
     ctx.services.audio.sfx('whoosh')
     sparkle(this._fx, this._anchor.x, this._anchor.y, { count: 5 })
     this._drawWeb()
@@ -886,6 +941,8 @@ export default {
     this._omega = (this.vx * Math.cos(this._theta) - this.vy * Math.sin(this._theta)) / this._L
     this._ensureAmplitude() // garantera framåt-svep
     this._state = 'swing'
+    this._drawZacke('swing')
+    this._drawFart(0) // strecken tillhör flykten och ska inte hänga kvar i svinget
     this._idle = 0
     this._didCue = false
 
@@ -930,6 +987,8 @@ export default {
   _cloudRescue(ctx) {
     if (!this._alive || this._resolving || this._state === 'rescue') return
     this._state = 'rescue'
+    this._drawZacke('swing')
+    this._drawFart(0)
     const z = this._zacke
     const anchor = this._anchors[this._a]
     const L = this._ropeLen
@@ -1166,7 +1225,22 @@ export default {
       const z = this._zacke
       z.x += this.vx * dt
       z.y += this.vy * dt
-      z.rotation += 0.04 * dt
+
+      // KROPPEN PEKAR DIT HAN FAR. Förut snurrade han bara (`rotation += 0.04`), vilket
+      // läser som att han tappat kontrollen — en hjälte STYR sin flykt.
+      //
+      // Figuren är ritad stående, alltså pekar hans lokala "upp" (0,−1). Ska det sammanfalla
+      // med farten (cos a, sin a) krävs rotationen a + π/2: sin(a+π/2) = cos a och
+      // −cos(a+π/2) = sin a. Därför halvvarvet — det är inte en fudge-faktor.
+      const fart = Math.hypot(this.vx, this.vy)
+      // Målvinkeln kläms till ett behagligt spann. Utan taket dyker han ned mot 135° i
+      // slutet av bågen och läser som att han störtar, inte som att han flyger.
+      const mal = Math.min(1.85, Math.max(0.42, Math.atan2(this.vy, this.vx) + Math.PI / 2))
+      // Mjuk följning i stället för hopp: han kommer från svingets `theta * 0.5` och ska
+      // glida in i flygposen, inte snäppa till den på en bildruta.
+      z.rotation += (mal - z.rotation) * Math.min(1, 0.18 * dt)
+      this._drawFart(fart)
+
       this._checkTreats(ctx)
       const next = this._anchors[this._a + 1]
       // Förlåtande fäst-fönster: nå fram horisontellt utan att sjunka under taket.

@@ -92,7 +92,7 @@ export default {
     this._steamLayer.eventMode = 'none'
     this._root.addChild(this._steamLayer)
 
-    this._drag = new DragController({ space: this._root, services: ctx.services })
+    this._drag = new DragController({ space: this._root, services: ctx.services, skugga: true })
 
     this._newRound(ctx)
 

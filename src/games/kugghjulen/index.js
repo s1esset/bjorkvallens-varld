@@ -218,7 +218,7 @@ export default {
       this._dispensers[size] = { view, size, home: { x: def.x, y: TRAY_Y }, rec: null, hint: null }
     }
 
-    this._drag = new DragController({ space: this._root, services: ctx.services })
+    this._drag = new DragController({ space: this._root, services: ctx.services, skugga: true })
 
     // Startnivå (cappad 1–5; cyklar längre/jittrade kedjor efteråt).
     this._level = clamp((ctx.progress.get().highestLevel | 0) || 1, 1, 5)

@@ -661,7 +661,7 @@ export default {
     this._floatLanes = shuffle([496, 588, 680, 772])
     this._sinkLanes = shuffle([496, 600, 704, 808])
 
-    this._drag = new DragController({ space: this._root, services: ctx.services })
+    this._drag = new DragController({ space: this._root, services: ctx.services, skugga: true })
     this._drag.addTarget(this._tankView, () => true, { hitRadius: 280 }) // tar emot ALLT
 
     // Varierad uppsättning: 2–4 flytare + resten sjunkare (alltid minst 2 av varje

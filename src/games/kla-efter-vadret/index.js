@@ -107,7 +107,7 @@ export default {
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
-    this._drag = new DragController({ space: this._root, services: ctx.services })
+    this._drag = new DragController({ space: this._root, services: ctx.services, skugga: true })
 
     this._buildBackground(ctx)
     this._buildWeatherFx(ctx)

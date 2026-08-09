@@ -267,7 +267,7 @@ export default {
     this._layer = new Container()
     this._root.addChild(this._layer)
 
-    this._drag = new DragController({ space: this._layer, services: ctx.services })
+    this._drag = new DragController({ space: this._layer, services: ctx.services, skugga: true })
     this._pieces = []
     this._ghosts = []
     this._slotViews = []

@@ -46,6 +46,17 @@ const CREME = [0xfd, 0xf6, 0xe3]
 // Kolla bar-zonerna på en icke-16:9-skärmdump: med contain-skalning ligger de till
 // vänster/höger (bredare än 16:9) eller uppe/nere (högre). Aktiveras bara när bilden
 // avviker >1 % från 16:9 — en vanlig 1280×720-körning berörs aldrig.
+//
+// Två lärdomar från runda 1 är inbyggda:
+// 1. Zonerna mäts i HALVOR (övre/undre resp. vänster/höger). En himmel som inte
+//    breddats ger creme bara OVANFÖR horisonten — hela zonens snitt stannade under
+//    tröskeln och missen hittades med ögonen i stället för av mätaren.
+// 2. Spel vars EGEN spelyta medvetet är skalets creme (pusselbord, papperspanel)
+//    kan aldrig skiljas från "ingen bleed" på pixlarna i zonen. Är innehållsytan
+//    (16:9-rektangeln) själv ≥35 % exakt creme är cremen designen — ingen flagga.
+// 3. Samma sak när cremen är en medveten RAM (folj-sparet: ängsmatta med creme-kant
+//    runt om): är remsan precis INNANFÖR 16:9-rektangeln också creme (≥60 %) så
+//    fortsätter zonerna bara designens ram — ingen flagga.
 function kantCream(png) {
   const { width: w, height: h, data } = png
   const mal = 16 / 9
@@ -54,16 +65,9 @@ function kantCream(png) {
   const s = Math.min(w / 1280, h / 720)
   const barW = Math.round((w - 1280 * s) / 2)
   const barH = Math.round((h - 720 * s) / 2)
-  const zoner = []
-  if (barW > 4) {
-    zoner.push([0, 0, barW, h], [w - barW, 0, barW, h])
-  } else if (barH > 4) {
-    zoner.push([0, 0, w, barH], [0, h - barH, w, barH])
-  }
-  if (!zoner.length) return null
-  let totalt = 0
-  let creme = 0
-  for (const [zx, zy, zw, zh] of zoner) {
+  const cremeAndel = (zx, zy, zw, zh) => {
+    let totalt = 0
+    let creme = 0
     for (let y = zy; y < zy + zh; y++) {
       for (let x = zx; x < zx + zw; x++) {
         const i = (y * w + x) * 4
@@ -72,8 +76,29 @@ function kantCream(png) {
         if (d <= 10) creme++
       }
     }
+    return totalt ? creme / totalt : 0
   }
-  return { andel: creme / totalt, barW, barH }
+  const halvor = []
+  if (barW > 4) {
+    const hh = Math.floor(h / 2)
+    halvor.push(cremeAndel(0, 0, barW, hh), cremeAndel(0, hh, barW, h - hh),
+      cremeAndel(w - barW, 0, barW, hh), cremeAndel(w - barW, hh, barW, h - hh))
+  } else if (barH > 4) {
+    const hw = Math.floor(w / 2)
+    halvor.push(cremeAndel(0, 0, hw, barH), cremeAndel(hw, 0, w - hw, barH),
+      cremeAndel(0, h - barH, hw, barH), cremeAndel(hw, h - barH, w - hw, barH))
+  }
+  if (!halvor.length) return null
+  const inreCreme = cremeAndel(barW, barH, w - 2 * barW, h - 2 * barH)
+  // Ramremsan: ~24 designpx precis innanför 16:9-rektangeln (skalad till bildens px).
+  const rt = Math.max(8, Math.round(24 * s))
+  const iw = w - 2 * barW
+  const ih = h - 2 * barH
+  const ram = (
+    cremeAndel(barW, barH, iw, rt) + cremeAndel(barW, barH + ih - rt, iw, rt) +
+    cremeAndel(barW, barH + rt, rt, ih - 2 * rt) + cremeAndel(barW + iw - rt, barH + rt, rt, ih - 2 * rt)
+  ) / 4
+  return { andel: Math.max(...halvor), inreCreme, ramCreme: ram, barW, barH }
 }
 
 // Kvantisera till 5 bitar/kanal → 32768 hinkar. Nog för att hitta "en färg dominerar"
@@ -173,13 +198,13 @@ export function granska(bildPath, baslinjePath) {
     })
   }
   const kc = kantCream(png)
-  if (kc && kc.andel > GRANSER.kantCream) {
+  if (kc && kc.andel > GRANSER.kantCream && kc.inreCreme < 0.35 && kc.ramCreme < 0.6) {
     fynd.push({
       kod: 'kant-cream',
       niva: 'fel',
       n: 1,
-      msg: `${(kc.andel * 100).toFixed(0)} % av zonerna utanför 16:9 är letterbox-creme — bakgrunden når inte skärmkanten (full bleed saknas)`,
-      exempel: [{ andel: +kc.andel.toFixed(3), barW: kc.barW, barH: kc.barH }],
+      msg: `${(kc.andel * 100).toFixed(0)} % av värsta zonhalvan utanför 16:9 är letterbox-creme — bakgrunden når inte skärmkanten (full bleed saknas)`,
+      exempel: [{ andel: +kc.andel.toFixed(3), inreCreme: +kc.inreCreme.toFixed(3), barW: kc.barW, barH: kc.barH }],
     })
   }
   if (m.innehallAndel >= GRANSER.tomScen && (m.lådaBredd < GRANSER.plattLada || m.lådaHojd < GRANSER.plattLada)) {

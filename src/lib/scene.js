@@ -410,7 +410,10 @@ function hazeFill(bottom) {
 }
 
 function paintVGradient(g, w, h, top, bottom) {
-  g.rect(0, 0, w, h).fill(skyFill(top, bottom))
+  // Breddas ±BLEED_X i sidled: den lodräta mappningen är oförändrad (gradienten
+  // normaliseras mot formens bbox och bbox-HÖJDEN är densamma), så 16:9-bilden är
+  // pixelidentisk medan sidokanterna på en bred telefon får himmel i stället för creme.
+  g.rect(-BLEED_X, 0, w + 2 * BLEED_X, h).fill(skyFill(top, bottom))
 }
 
 function makeCloud(scale = 1) {

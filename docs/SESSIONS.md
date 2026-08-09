@@ -14,7 +14,7 @@ Format:
 
 ---
 
-## 2026-08-09 (sen natt) · v1.75.0 · Spår E runda A4 — glöd, emitters, MeshRope, kameran
+## 2026-08-09 (sen natt) · v1.76.0 · Spår E runda A4 — glöd, emitters, MeshRope, kameran
 
 **Byggt:** Hela runda A4. Fyra punkter, var och en med en verklig kund i ett spel.
 
@@ -60,6 +60,12 @@ Format:
   stjärna hänger mellan fästena och ger ett pling ur en pentatonisk stege när båg-kastet stryker
   förbi. Höjden på husen rörs INTE: `ROOF_Y` är fångstgolv och kattungen sitter på
   `ROOF_Y − 46`, så högre hus mot målet hade lagt takåsen över båda.
+- **Och superhjälte-posen** (v1.76.0, §4 Juice). Zacke snurrade förut bara
+  (`rotation += 0.04`) — det läser som att han tappat kontrollen, och en hjälte STYR sin
+  flykt. Nu ritas kroppen om till en flygpose vid släpp (armarna rakt fram förbi huvudet,
+  benen ihop bakåt) och vrids mot `atan2(vy,vx) + π/2`, klämt till [0,42; 1,85] rad så han
+  aldrig dyker som om han störtade. **Fart-strecken bor i hans egna koordinater** — då följer
+  de med när kroppen vrids och pekar alltid rakt bakåt, utan en enda vinkelberäkning.
 
 **Fem lärdomar, alla uppmätta:**
 
@@ -86,7 +92,7 @@ Format:
 
 **Commits:** `5ee3481` glod+partiklar+lagerelden · `6dc07c3` trollblandning ·
 `0d5ae03` rep+zackes-biltvatt · `961594e` spindel-zacke-svingar+kamera · `25d441b` dygnet ·
-`9e45c1d` snart framme + skörden
+`9e45c1d` snart framme + skörden · `d9ef2d2` superhjälte-posen
 **Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** ·
 `_glodprobe.mjs` helgrön (additivitet bevisad mot en normal-kontrollarm: 255,60,60 mot
 247,2,2) · `_varldprobe.mjs` 13/13 (kameran 1045 px mot fjärranbandets 188 = kvot 0,18,

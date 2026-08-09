@@ -945,7 +945,7 @@ importera pixi.js.
    localStorage direkt träffar ett tomt dokument i en färsk kontext, och `profiles` är en
    array, inte en uppslagstabell.
 
-### ✅ A4.4 — kamerans första kund: `spindel-zacke-svingar` (v1.73–75)
+### ✅ A4.4 — kamerans första kund: `spindel-zacke-svingar` (v1.73–76)
 
 Kameran hade noll kunder bland de 72 spelen. Nu har den en, och `lib/kamera.js` är därmed
 verifierad mot ett riktigt spel i stället för bara mot `_kameraprobe.mjs`.
@@ -1010,7 +1010,12 @@ hänger mellan fästena och ger ett pling ur en pentatonisk stege.
 1 av 2 PASSERADE saker aldrig kunde plockas — flykten stiger bara ~22 px med kort nät, så
 toppen ligger kring y 302. Nu simuleras båda nätlängdernas banor med samma integrator som
 spök-bågen och saken hamnar mitt emellan deras närmaste punkter: räckbar av konstruktion.
-`_varldprobe.mjs` är nu 13/13.
+`_varldprobe.mjs` är nu 13/13, och tar också en bild MITT I FLYKTEN — posen och fart-strecken
+finns bara där, och testsvitens skärmdump fångar dem aldrig.
+
+**Juice-punkten med (v1.76.0):** flygposen ritas om vid släpp (armarna fram, benen ihop) och
+kroppen vrids mot `atan2(vy,vx) + π/2`, klämt så han aldrig dyker som om han störtade.
+Fart-strecken bor i figurens EGNA koordinater och följer därför vridningen gratis.
 
 <details>
 <summary>De övriga kandidaterna (utredda, inte byggda)</summary>

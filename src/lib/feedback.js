@@ -2,7 +2,7 @@
 // All "belöning" är kort (1–2s) och aldrig bestraffande (se CLAUDE.md).
 import { Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PLAYFUL, FONT } from './theme.js'
+import { PLAYFUL, FONT, ANIM } from './theme.js'
 import { spray, rain } from './partiklar.js'
 import { VIEW } from './view.js'
 
@@ -51,6 +51,7 @@ export function pop(target, { scale = 1.18 } = {}) {
   // barn-tweensen — timelinen lever vidare och fyrar sin onComplete mitt under nästa
   // puls, nollställer "pågår"-flaggan, och då läses den uppblåsta skalan som ny bas.
   target._fxPopTl?.kill()
+  target._fxSquashTl?.kill()
   const base = restScale(target)
   gsap.killTweensOf(target.scale)
   target._fxScaleBusy = true
@@ -92,6 +93,116 @@ export function wiggle(target) {
     .to(target, { rotation: r, duration: 0.06 })
   target._fxWiggleTl = wtl
   return wtl
+}
+
+// --- Squash & stretch ------------------------------------------------------
+// Receptet är djurorkesters `_hop` (tryck ihop -> töj ut -> sätt sig), befordrat till
+// lib eftersom 16 spel hade var sin handrullade kopia med olika tal. Tiderna kommer
+// från ANIM.squash så en ändring slår igenom överallt.
+// Samma vilolägesregel som pop/wiggle: basen läses bara när ingen skal-effekt pågår.
+
+// Glad studs med volymbevarande squash-and-stretch. `hop` > 0 lägger till ett
+// litet hopp uppåt (px) som landar med bounce — som djurorkesters kort.
+export function squash(target, { intensity = 1, hop = 0 } = {}) {
+  if (!target || target.destroyed) return
+  target._fxSquashTl?.kill()
+  target._fxPopTl?.kill()
+  const base = restScale(target)
+  gsap.killTweensOf(target.scale)
+  target._fxScaleBusy = true
+  const i = Math.max(0, Math.min(2, intensity))
+  const tl = gsap
+    .timeline({
+      onComplete: () => {
+        target._fxScaleBusy = false
+        target._fxSquashTl = null
+        if (!target.destroyed) target.scale.set(base.x, base.y)
+      },
+    })
+    .to(target.scale, {
+      x: base.x * (1 + 0.16 * i), y: base.y * (1 - 0.16 * i),
+      duration: ANIM.squash.in, ease: ANIM.squash.ease,
+    })
+    .to(target.scale, {
+      x: base.x * (1 - 0.1 * i), y: base.y * (1 + 0.18 * i),
+      duration: ANIM.squash.out, ease: ANIM.squash.ease,
+    })
+    .to(target.scale, {
+      x: base.x, y: base.y,
+      duration: ANIM.squash.settle, ease: ANIM.squash.settleEase,
+    })
+  target._fxSquashTl = tl
+  if (hop > 0) hoppa(target, hop)
+  return tl
+}
+
+// Hoppet i y-led. Egen tidslinje och eget viloläge — squash äger scale, det här äger y.
+function hoppa(target, h) {
+  target._fxHopTl?.kill()
+  if (!target._fxHopBusy) target._fxRestY = target.y
+  const y0 = target._fxRestY || 0
+  gsap.killTweensOf(target, 'y')
+  target._fxHopBusy = true
+  const tl = gsap
+    .timeline({
+      onComplete: () => {
+        target._fxHopBusy = false
+        target._fxHopTl = null
+        if (!target.destroyed) target.y = y0
+      },
+    })
+    .to(target, { y: y0 - h, duration: 0.18, ease: 'power2.out' })
+    .to(target, { y: y0, duration: 0.4, ease: 'bounce.out' })
+  target._fxHopTl = tl
+  return tl
+}
+
+// Landning: kort ihoptryckning när något sätts ned, sedan tillbaka med översläng.
+// `base` kan skickas in av den som själv håller vilo-skalan (DragController lyfter
+// föremålet till 1.12 innan det landar — då är den skalan INTE viloläget).
+export function landa(target, { intensity = 1, base } = {}) {
+  if (!target || target.destroyed) return
+  target._fxSquashTl?.kill()
+  target._fxPopTl?.kill()
+  const b = base ? { x: base.x, y: base.y } : restScale(target)
+  gsap.killTweensOf(target.scale)
+  target._fxRestScale = { x: b.x, y: b.y }
+  target._fxScaleBusy = true
+  const i = Math.max(0, Math.min(2, intensity))
+  const tl = gsap
+    .timeline({
+      onComplete: () => {
+        target._fxScaleBusy = false
+        target._fxSquashTl = null
+        if (!target.destroyed) target.scale.set(b.x, b.y)
+      },
+    })
+    .to(target.scale, {
+      x: b.x * (1 + 0.18 * i), y: b.y * (1 - 0.18 * i),
+      duration: 0.07, ease: ANIM.squash.ease,
+    })
+    .to(target.scale, { x: b.x, y: b.y, duration: ANIM.settle.duration, ease: ANIM.settle.ease })
+  target._fxSquashTl = tl
+  return tl
+}
+
+// Kör en effekt över en lista med förskjuten start (ANIM.stagger) — sex kort som
+// studsar in i tur och ordning läses som EN rörelse, sex samtidiga som en blixt.
+// Exit-säkert: varje fördröjt anrop kollar att målet lever innan det rör det.
+export function stegra(list, fx = pop, { per = ANIM.stagger.per, max = ANIM.stagger.max, ...opts } = {}) {
+  const calls = []
+  ;(list || []).forEach((t, i) => {
+    if (!t || t.destroyed) return
+    const d = Math.min(max, per * i)
+    if (d <= 0) {
+      fx(t, opts)
+      return
+    }
+    calls.push(gsap.delayedCall(d, () => {
+      if (t && !t.destroyed) fx(t, opts)
+    }))
+  })
+  return calls
 }
 
 // Liten partikelpuff på en plats (t.ex. när en bubbla poppas).

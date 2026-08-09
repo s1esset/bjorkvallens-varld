@@ -1,6 +1,7 @@
 // Enkel skärm-router. Varje skärm är en fabrik: (services, params) => { view, destroy }.
 // view är en Pixi Container; destroy() städar lyssnare/tweens (Nav förstör själva containern).
 import { gsap } from 'gsap'
+import { ANIM } from '../lib/theme.js'
 
 export class Nav {
   constructor(ctx) {
@@ -40,11 +41,11 @@ export class Nav {
     next.view.alpha = 0
     this.current = next
 
-    gsap.to(next.view, { alpha: 1, duration: 0.25, ease: 'power1.out' })
+    gsap.to(next.view, { alpha: 1, duration: ANIM.fade, ease: 'power1.out' })
     if (old) {
       gsap.to(old.view, {
         alpha: 0,
-        duration: 0.2,
+        duration: ANIM.fade,
         ease: 'power1.in',
         onComplete: () => {
           try {

@@ -6,7 +6,7 @@ import { Button } from '../../lib/Button.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { confirmDialog } from '../../lib/confirm.js'
 import { avatarEmoji } from '../../lib/swedish.js'
-import { COLORS, FONT, DESIGN_W, DESIGN_H, SPACING } from '../../lib/theme.js'
+import { COLORS, FONT, DESIGN_W, DESIGN_H, SPACING, ANIM } from '../../lib/theme.js'
 
 export async function createMenuScreen(services) {
   const view = new Container()
@@ -251,10 +251,10 @@ function openProfilePicker(services) {
 
     root.alpha = 0
     gateLayer.addChild(root)
-    gsap.to(root, { alpha: 1, duration: 0.18 })
+    gsap.to(root, { alpha: 1, duration: ANIM.fade })
 
     function close() {
-      gsap.to(root, { alpha: 0, duration: 0.16, onComplete: () => {
+      gsap.to(root, { alpha: 0, duration: ANIM.fade, onComplete: () => {
         root.destroy({ children: true })
         resolve()
       } })

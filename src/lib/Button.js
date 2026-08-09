@@ -2,7 +2,7 @@
 // pekfeedback (studs + ljud) under 100 ms. Klarar ikon (emoji), text eller båda.
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { COLORS, FONT } from './theme.js'
+import { COLORS, FONT, ANIM } from './theme.js'
 
 export class Button extends Container {
   constructor({
@@ -103,12 +103,13 @@ export class Button extends Container {
 
   _down() {
     if (!this._enabled) return
-    gsap.to(this.scale, { x: 0.92, y: 0.92, duration: 0.08, ease: 'power2.out' })
+    const s = ANIM.press.scale
+    gsap.to(this.scale, { x: s, y: s, duration: ANIM.press.duration, ease: ANIM.press.ease })
   }
 
   _up() {
     if (!this._enabled) return
-    gsap.to(this.scale, { x: 1, y: 1, duration: 0.28, ease: 'back.out(3)' })
+    gsap.to(this.scale, { x: 1, y: 1, duration: ANIM.release.duration, ease: ANIM.release.ease })
   }
 
   _tap() {

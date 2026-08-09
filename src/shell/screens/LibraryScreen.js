@@ -10,7 +10,7 @@ import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
 import { bounceIn } from '../../lib/feedback.js'
 import { GAMES } from '../../games/registry.js'
-import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H, TAB_GROUPS, SPACING, RADIUS, shade, tint } from '../../lib/theme.js'
+import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H, TAB_GROUPS, SPACING, RADIUS, ANIM, shade, tint } from '../../lib/theme.js'
 
 // Säkerhet: varje spel-kategori MÅSTE ingå i någon fliks `cats`, annars göms de spelen
 // (filtreras bort ur alla flikar). Varna högt i dev så att en ny kategori inte tappas bort.
@@ -201,7 +201,7 @@ export async function createLibraryScreen(services) {
       const tile = makeTile(game, tileW, tileH, services, stickers.has(game.id), scrolling)
       tile.position.set(x, y)
       grid.addChild(tile)
-      if (animate && !slideDir) bounceIn(tile, { delay: Math.min(0.4, 0.03 * i) })
+      if (animate && !slideDir) bounceIn(tile, { delay: Math.min(ANIM.stagger.max, ANIM.stagger.per * i) })
     })
 
     // Vertikal placering: centrera om allt får plats, annars skrolla (uppifrån).
@@ -337,13 +337,13 @@ function makeTab(group, w, h, services, onSelect) {
     }
     label.style.fill = on ? COLORS.white : COLORS.inkSoft
     gsap.killTweensOf(c.scale)
-    gsap.to(c.scale, { x: on ? 1 : 0.92, y: on ? 1 : 0.92, duration: 0.22, ease: 'back.out(2)' })
-    gsap.to(c, { y: TAB_Y + h / 2 + (on ? 0 : 8), duration: 0.22, ease: 'power2.out' })
+    gsap.to(c.scale, { x: on ? 1 : 0.92, y: on ? 1 : 0.92, duration: ANIM.settle.duration, ease: ANIM.settle.ease })
+    gsap.to(c, { y: TAB_Y + h / 2 + (on ? 0 : 8), duration: ANIM.settle.duration, ease: 'power2.out' })
   }
 
-  c.on('pointerdown', () => gsap.to(c.scale, { x: 0.88, y: 0.88, duration: 0.08, ease: 'power2.out' }))
-  c.on('pointerup', () => gsap.to(c.scale, { x: active ? 1 : 0.92, y: active ? 1 : 0.92, duration: 0.28, ease: 'back.out(3)' }))
-  c.on('pointerupoutside', () => gsap.to(c.scale, { x: active ? 1 : 0.92, y: active ? 1 : 0.92, duration: 0.2 }))
+  c.on('pointerdown', () => gsap.to(c.scale, { x: 0.88, y: 0.88, duration: ANIM.press.duration, ease: ANIM.press.ease }))
+  c.on('pointerup', () => gsap.to(c.scale, { x: active ? 1 : 0.92, y: active ? 1 : 0.92, duration: ANIM.release.duration, ease: ANIM.release.ease }))
+  c.on('pointerupoutside', () => gsap.to(c.scale, { x: active ? 1 : 0.92, y: active ? 1 : 0.92, duration: ANIM.settle.duration }))
   c.on('pointertap', () => {
     services.audio.sfx('tap')
     onSelect()

@@ -42,6 +42,12 @@ export const ANIM = {
   press: { duration: 0.08, ease: 'power2.out', scale: 0.92 },
   release: { duration: 0.28, ease: 'back.out(3)' },
   enter: { duration: 0.5, ease: 'back.out(1.7)' },
+  // Tillbaka till viloläge med en lätt översläng (flikar, val, landningar).
+  settle: { duration: 0.22, ease: 'back.out(2)' },
+  // Ett föremål lyfts i handen: större, snabbt, med skugga under.
+  lift: { duration: 0.12, ease: 'power2.out', scale: 1.12 },
+  // Squash-and-stretch: ihoptryckning -> uttöjning -> viloläge (feedback.squash/landa).
+  squash: { in: 0.09, out: 0.12, settle: 0.34, ease: 'power2.out', settleEase: 'back.out(2.6)' },
   stagger: { per: 0.03, max: 0.4 },
   fade: 0.18,
   breathe: { duration: 1.6, ease: 'sine.inOut' },

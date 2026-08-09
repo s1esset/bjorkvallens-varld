@@ -14,6 +14,93 @@ Format:
 
 ---
 
+## 2026-08-09 (kväll) · v1.83.0 · Spår 3 fysikdjup — P0 (tre primitiver) + P1 (fyra spel)
+
+**Byggt:** Hela runda P0 och merparten av P1.
+
+**P0 — de tre nya primitiverna, var och en med sin första kund** (aldrig bara ett bibliotek):
+
+- **`lib/flytkraft.js` — `Flytvolym`** (LYFTPLAN B6). En rektangel med en yta som äger
+  lyftkraft, motstånd, fartspärr, bottenlugn, banfjäder och gupp. **Kund: `plask-i-vattnet`**
+  (34 rader handrullad `_applyBuoyancy` borta). ETT tal styr allt: `flyt > 1` flyter med
+  jämvikt vid nedsänkningen `1/flyt`, massoberoende. Basen läses ur världens gravitation
+  VARJE steg — förut hade ett `setGravity()` mitt i leken tyst gjort allt flytande till
+  sjunkare.
+- **`lib/magnet.js` — `Magnetfalt`** + **`speedToAccel()` i `physics.js`**. Drag och knuff är
+  samma fält åt två håll; returvärdet ÄR närhetsvillkoret. Kalibreringen px/steg → matter
+  (den som en gång sög in hela dammen i den parkerade magneten) bor nu på ETT ställe med hela
+  härledningen. **Kund: `magnet-fiske`.**
+- **`lib/varme.js` — `Varmefalt`**. TVÅ tal, inte ett: `temp` (hur varmt något är NU, driver
+  utseende och mjukhet) och `grad` (hur färdigt det hunnit bli, SJUNKER ALDRIG, driver målet).
+  Att låta temp styra målet vore ett P0-brott. **Kund: `lagerelden`** — marshmallowen stelnar
+  nu igen när den lyfts ur elden, utan att tappa en enda gyllene procent.
+
+**P1 — fyra spel:**
+
+- **`knuffa-tornet`**: klosstyperna hade redan skild fysik men lät som EN träklots. Nu talar
+  var och en sitt material — sten 120 · trä 240 · gummi 320 · kronan 760 · glas 1180 Hz.
+- **`kulbana`**: ytorna lät redan olika men ALLTID lika hårt. Kraftskalan är kalibrerad mot
+  uppmätt kulfart (3–14,6 px/steg, median 7,4).
+- **`glasstornet`**: varje landad kula är en mjuk kropp som VOBBLAR — eftersläpning ur
+  matter-kroppens egen fartändring, ingen tween. Tre generella tillägg i `mjukkropp.js`:
+  `path(g, skala)`, `form(vinkel)` och `skjut(dx, dy)`.
+- **`studsa-ner`**: en FLÄKT på en räls — dra upp/ner för höjd, över mitten för att byta sida.
+  Uppmätt verkan 0,72 fickor: nog för att vända en nära-miss, för lite för att göra siktet
+  meningslöst.
+
+**Sex lärdomar, alla uppmätta:**
+
+1. **En port som inte kan vara bit-identisk måste mätas på rätt storhet.** Flytkraften blev
+   0 px avvikelse över 900 steg (samma uttryck). Magnetfältet blev det INTE — det rättar en
+   avrundad `277.78` till exakta dt², och matter med kollisioner är kaotiskt nog att förstora
+   den ulpen till 39,9 px på 900 steg. Banjämförelsen är fel mått; **fångsttiden** är rätt, och
+   den är identisk steg för steg (80/150/220/290 px → 15/41/74/116 steg).
+2. **`mat()` sprider materialets fysik — även fält spelet aldrig satt.** `knuffa-tornet` satte
+   aldrig `frictionAir`, så tabellens trä-värde 0,012 hade tyst ersatt matters 0,01 i ett
+   handtrimmat spel utan att ett enda test blivit rött. Skriv ut talen du vill BEHÅLLA.
+3. **En adoptionsräkning säger vad ett spel inte importerar — aldrig vad det redan gör.**
+   Planens "billiga impactAudio-våg" höll bara i ett av fyra fall: fem kandidatspel har egna
+   tonade `onCollision`-svar och `bowling` har en stämd pentatonisk kombo-stege på fallande
+   käglor. Kriteriet står nu i LYFTPLAN under B5.
+4. **En kortvarig kraft går inte att dimensionera i terminalfart.** `speedToAccel` ger
+   accelerationen för en SLUTHASTIGHET, men fläktens mynt är i strömmen ~0,3 s. Första
+   räckvidden lämnade 6 % av kraften kvar där mynten faktiskt faller: uppmätt verkan 8 px.
+5. **Sonderna hade fel före koden fyra gånger.** Rostsonden rostade klart och mätte en NY
+   marshmallow; sedan mätte den formen med en bounding box, men marshmallowen VRIDER sig runt
+   pinnen (kontrollmätt på HEAD). Fläktsonden mätte en avstängd fläkt två gånger i rad och
+   rapporterade 8 och 10 px — båda sanna, om en fläkt som inte blåste.
+6. **Mät alltid HEADs egen frekvens bredvid din egen.** `_idleprobe` gav 1 framsteg på
+   `studsa-ner` och såg ut som en regression; växelvis mätt blev det 2 av 3 i BÅDA armarna.
+   Samma sak med `fysik-svalt`: i andra svit-körningen landade den på `bowling`, ett orört spel.
+
+**Commits:** `a1c5ac8` flytkraft+plask · `1aff9de` magnet+speedToAccel+magnet-fiske ·
+`51b21d9` varme+lagerelden · `196d592` impactAudio-kriteriet · `ff58ce6` knuffa-tornet ·
+`62631bd` kulbana+P1-lägesbild · `2d2c7ac` glasstornet · `8c0de39` studsa-ner
+
+**Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** (fyra körningar) ·
+sex nya sonder gröna: `_flytprobe` · `_faltprobe` · `_varmeprobe` · `_rostprobe` ·
+`_vobbelprobe` · `_flaktprobe` · `_tornprobe`. Bygge deployat på Tailscale för ägarens
+telefonkoll.
+
+**Öppet:** **Spår 3 fortsätter — kvar i P1 är `kulbana`s fjäderbräda** (`mjukkropp` som
+trycks ihop under kulan). Sedan:
+
+- **Runda P2 (kraftfältsspelen):** `plask-i-vattnet` SPH-vatten ovanpå flytkraften ·
+  `fallskarmen` luftmotståndsvolym (äger ingen matter-värld i dag — spelbyte, inte port) ·
+  `sapbubblor` mjuka bubblor · `ballonglyft` lyftkraft mot last (räknar ballonger i dag).
+- **Runda P3 (maskinerna):** `kugghjulen` vridmoment · `trollblandning` gegga + `varme`-kok ·
+  `magnet-fiske` poler (fältets `styrka` tar redan tecken).
+- **Mjukkroppens väntelista** (B2): `sapbubblor` · `mata-monstret` · `hamburgerbygget` ·
+  `pruttbad`.
+- **Röstklipp saknas för `plask-i-vattnets` namngivning** ("Anden flyter!", "Stenen sjunker!"
+  m.fl., 32+ repliker som byggs vid körning). Lägg in dem i `scripts/voice-phrases.json` och
+  kör `npm run voice` — F5-TTS fungerar.
+- **MOSS är fortfarande nere:** `saknat-ljudklipp` i `bajs-och-kiss`, `kittla-figuren`,
+  `peka-pa-kroppen`, `sapbubblor`.
+- **Ägarens manuella telefonkoll av full bleed** är fortfarande ogjord.
+
+---
+
 ## 2026-08-09 (sen natt) · v1.76.0 · Spår E runda A4 — glöd, emitters, MeshRope, kameran
 
 **Byggt:** Hela runda A4. Fyra punkter, var och en med en verklig kund i ett spel.

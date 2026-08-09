@@ -17,7 +17,7 @@ import { createScene } from '../../lib/scene.js'
 import { makeStjarna } from '../../lib/foremal.js'
 import { floatText, sparkle, puff, burst, bigCelebration, pop , kvittera} from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { makeBobo } from '../../lib/figurer.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS } from '../../lib/theme.js'
 
 const { Body } = Matter
@@ -486,12 +486,14 @@ export default {
     this._basketFill.position.set(PICNIC_X - 74, PICNIC_GROUND - 22)
     p.addChild(this._basketFill)
 
-    this._bobo = makeBobo(PICNIC_R)
+    // Riggen (lib/karaktarer.js) i stället för `makeBobo` — samma origo och samma
+    // 2,36·r ner till fötterna, alltså oförändrad placering. Andningen sköter
+    // riggens egen `idle()`; den handrullade skal-tweenen är borta, annars hade
+    // två skrivare ägt samma `view.scale`.
+    this._kar = makeKaraktar({ r: PICNIC_R })
+    this._bobo = this._kar.view
     this._bobo.position.set(PICNIC_X + 44, PICNIC_GROUND - 2.36 * PICNIC_R)
     p.addChild(this._bobo)
-    this._boboIdle = gsap.to(this._bobo.scale, {
-      x: 1.03, y: 1.03, duration: 2.0, yoyo: true, repeat: -1, ease: 'sine.inOut',
-    })
 
     this._root.addChild(p)
   },
@@ -543,15 +545,13 @@ export default {
     this._flyTweens.push(tw)
   },
 
-  // Bobo tar emot: studs + gnistor (och en glad ton).
+  // Bobo tar emot: han TUGGAR nu i stället för att bara studsa i skala. `nam` är
+  // riggens tuggreaktion (munnens skala, hungrigt ansikte); hela picknicken serverad
+  // förtjänar `jubel`. Skalan rörs inte längre — den ägs av riggens andning.
   _boboMunch(ctx, big = false) {
     const bo = this._bobo
-    if (!bo || bo.destroyed) return
-    gsap.killTweensOf(bo.scale)
-    gsap
-      .timeline()
-      .to(bo.scale, { x: big ? 1.2 : 1.1, y: big ? 1.28 : 1.15, duration: 0.12, ease: 'power2.out' })
-      .to(bo.scale, { x: 1, y: 1, duration: big ? 0.66 : 0.5, ease: 'elastic.out(1, 0.42)' })
+    if (!this._kar || !bo || bo.destroyed) return
+    this._kar.react(big ? 'jubel' : 'nam')
     sparkle(ctx.fxLayer, bo.x, bo.y - PICNIC_R * 1.4, { count: big ? 10 : 5 })
   },
 
@@ -822,9 +822,10 @@ export default {
     this._loadTimer?.kill()
     this._assistTween?.kill()
     this._glideTween?.kill()
-    this._boboIdle?.kill()
     ;(this._flyTweens || []).forEach((t) => t.kill())
-    if (this._bobo && !this._bobo.destroyed) gsap.killTweensOf(this._bobo.scale)
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
+    this._bobo = null
     if (this._basket && !this._basket.destroyed) gsap.killTweensOf(this._basket.scale)
     this._detachRig()
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onCatcherTap)

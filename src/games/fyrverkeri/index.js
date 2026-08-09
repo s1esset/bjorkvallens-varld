@@ -24,6 +24,7 @@ import { bigCelebration, sparkle, pop, floatText } from '../../lib/feedback.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { PLAYFUL } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // --- Layout & fysik (designkoordinater 1280×720) ---
 const ORIGIN = { x: 640, y: 648 } // raketens rampe-läge (greppas + skjuts härifrån)
@@ -83,11 +84,15 @@ export default {
     this._sky.eventMode = 'none'
     this._sky.interactiveChildren = false
     this._root.addChild(this._sky)
-    for (let i = 0; i < SKY_STARS; i++) {
+    // Stjärnorna sprids över hela bleed-bredden (full bleed på bred telefon) och antalet
+    // skalas med bredden så tätheten är densamma — lägena är redan Math.random, så det
+    // finns ingen baslinje att rubba (samma resonemang som lib/scene.js stjärnor).
+    const starW = ctx.width + 2 * BLEED_X
+    for (let i = 0; i < Math.round(SKY_STARS * (starW / ctx.width)); i++) {
       const r = 1.4 + Math.random() * 1.8
       const g = new Graphics().circle(0, 0, r).fill({ color: 0xfff6d8 })
-      g.x = 40 + Math.random() * (ctx.width - 80)
-      g.y = 24 + Math.random() * (ctx.height * 0.58)
+      g.x = -BLEED_X + 40 + Math.random() * (starW - 80)
+      g.y = -BLEED_Y + 24 + Math.random() * (ctx.height * 0.58 + BLEED_Y)
       g.eventMode = 'none'
       this._sky.addChild(g)
       this._stars.push({ g, base: 0.35 + Math.random() * 0.4, amp: 0.25 + Math.random() * 0.35, speed: 0.6 + Math.random() * 1.4, phase: Math.random() * Math.PI * 2 })
@@ -112,7 +117,8 @@ export default {
     }
 
     // 2) Tryck-fångare (under spelgrafiken): tap på tom himmel ger ett mjukt glitter.
-    this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
+    //    Täcker även bleed-zonen så tryck på synlig himmel utanför 0..1280 svarar på telefon.
+    this._catcher = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill({ color: 0x000000, alpha: 0 })
     this._catcher.eventMode = 'static'
     this._onSkyTap = (ev) => this._skyTap(ctx, ev)
     this._catcher.on('pointertap', this._onSkyTap)
@@ -144,7 +150,8 @@ export default {
     // på _fx). Drivs av tickern (ingen gsap) -> alltid exit-säker.
     this._flash = 0
     this._shakeAmt = 0
-    this._flashG = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0xffffff })
+    // Blixten täcker hela bleed-ytan så smällen inte lämnar mörka kanter på bred telefon.
+    this._flashG = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill({ color: 0xffffff })
     this._flashG.blendMode = 'add'
     this._flashG.eventMode = 'none'
     this._flashG.alpha = 0
@@ -352,9 +359,11 @@ export default {
       return
     }
 
-    // Utanför skärm / för länge -> smäll ändå.
+    // Utanför SYNLIG yta / för länge -> smäll ändå. ctx.view läses vid användning:
+    // på en bred telefon syns designkoordinater utanför 0..1280, så raketen får inte
+    // smälla förrän den lämnat det som faktiskt syns.
     const tSec = f.steps / 60
-    if (f.y > 760 || f.x < -90 || f.x > ctx.width + 90 || tSec > MAX_FLIGHT) {
+    if (f.y > ctx.view.bottom + 40 || f.x < ctx.view.left - 90 || f.x > ctx.view.right + 90 || tSec > MAX_FLIGHT) {
       this._burstAt(ctx, clamp(f.x, 40, ctx.width - 40), clamp(f.y, 60, 600), f.color)
     }
   },
@@ -656,7 +665,7 @@ export default {
       if (!t.view || t.view.destroyed) continue
       t.view.y = t.baseY + Math.sin(this._t * 2 + t.phase) * 5
     }
-    this._animateChevrons(dt)
+    this._animateChevrons(ctx, dt)
     if (this._flagCloth && !this._flagCloth.destroyed) {
       this._flagCloth.rotation = Math.sin(this._t * 4) * (this._windDir === 0 ? 0.03 : 0.12)
     }
@@ -788,7 +797,7 @@ export default {
     }
   },
 
-  _animateChevrons(dt) {
+  _animateChevrons(ctx, dt) {
     for (const c of this._chevrons) {
       if (!c.g || c.g.destroyed) continue
       if (this._windDir === 0) {
@@ -798,8 +807,10 @@ export default {
       c.g.visible = true
       c.g.scale.x = this._windDir
       c.g.x += this._windDir * c.speed * dt
-      if (this._windDir > 0 && c.g.x > 1340) c.g.x = -60
-      else if (this._windDir < 0 && c.g.x < -60) c.g.x = 1340
+      // Vändpunkterna läses ur ctx.view vid användning så pilarna aldrig poppar
+      // in/ur i bild på en bred telefon (full bleed).
+      if (this._windDir > 0 && c.g.x > ctx.view.right + 60) c.g.x = ctx.view.left - 60
+      else if (this._windDir < 0 && c.g.x < ctx.view.left - 60) c.g.x = ctx.view.right + 60
     }
   },
 
@@ -970,8 +981,19 @@ function makeHorizon(groundY) {
 // Natthimlen var 48 staplade rektanglar — samma mönster som scene.js slutade med i
 // LYFTPLAN rad 3. Banden syntes: `_plattprobe.mjs` mätte dem som tre enfärgade fält på
 // ~38 000 px vardera. En FillGradient ger jämn toning och EN rit-operation i stället för 48.
+// Breddad med BLEED så en bred telefon (full bleed) aldrig ser creme-kanter: gradienten
+// breddas BARA i sidled (samma lodräta mappning som förut), och bleed uppåt/nedåt är
+// helfärgade remsor i en EGEN Graphics — hade remsorna legat i samma form hade den
+// lokala gradient-bboxen vuxit på höjden och färgerna flyttat sig i den synliga bilden
+// (samma mönster som lib/scene.js skyBleed).
 function makeNightSky(w, h) {
-  return new Graphics().rect(0, 0, w, h).fill(verticalFill(0x122a5c, 0x190b3d))
+  const c = new Container()
+  const bleed = new Graphics()
+  bleed.rect(-BLEED_X, -BLEED_Y, w + 2 * BLEED_X, BLEED_Y).fill(0x122a5c)
+  bleed.rect(-BLEED_X, h, w + 2 * BLEED_X, BLEED_Y).fill(0x190b3d)
+  const sky = new Graphics().rect(-BLEED_X, 0, w + 2 * BLEED_X, h).fill(verticalFill(0x122a5c, 0x190b3d))
+  c.addChild(bleed, sky)
+  return c
 }
 
 // Publik: Bobo sedd bakifrån/underifrån, tittar upp mot himlen.

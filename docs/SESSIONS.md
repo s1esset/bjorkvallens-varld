@@ -14,6 +14,43 @@ Format:
 
 ---
 
+## 2026-08-09 (kväll) · v1.69.0 · Spår E runda A1 — rörelse-tokens, delad squash, tyngd i draget
+
+**Byggt:** Andra spåret i treprogrammet (skärm → animation → fysik) startade med den runda
+som bara rör lib: tokens, delat rörelseordförråd och tyngd i draget.
+
+- **`ANIM` fick konsumenter.** Tokens i theme.js hade NOLL användare — värdena var
+  handkopierade med drift till fem filer (fade 0,16/0,18/0,2/0,25). Button, Nav,
+  LibraryScreen och MenuScreen läser tokens nu; `ANIM` fick `settle`, `lift` och `squash`.
+- **Tre delade hjälpare i feedback.js:** `squash(t,{intensity,hop})` (djurorkesters `_hop`
+  befordrat — spelet anropar nu lib-versionen och blev 18 rader kortare), `landa(t,{base})`
+  och `stegra(list, fx)`. Alla exit-säkra, alla följer vilolägesregeln.
+- **Tyngd i DragController** (23 dragspel ärver): eftersläpning via `gsap.quickTo`, lutning
+  ur eftersläpningen (blir automatiskt fartproportionell utan hastighetsmätning), översläng
+  + `landa()` i målet, och en lyft-skugga. **Eftersläpningen är bara visuell** —
+  träffprövningen använder fingrets position (`rec.tx/ty`), så inget mål blev svårare att
+  träffa (mätt mot HEAD: samma träffutfall i harnessens autodrag).
+- **Två fällor, båda uppmätta.** (1) Lyftet måste pinna både vilo-skala OCH vilo-rotation:
+  sortera-skraps `wiggle()` vid fel släpp läste annars LUTNINGEN som vilovinkel och lämnade
+  föremålet 0,15 rad snett. (2) Skuggan gjordes **opt-in** — ungefär hälften av dragspelen
+  ritar redan en egen, och två skuggor som glider isär under ett snabbt drag syns direkt.
+  Tänd i de fem som saknade en (enkelt-pussel, kla-efter-vadret, kugghjulen, plask-i-vattnet,
+  siffertaget).
+- **Ny sond `scripts/_dragprobe.mjs`** mäter eftersläpning, lutning (mot föremålets EGEN
+  vilovinkel), skuggans liv, barnantalet i lagret och exit mitt i ett drag. Sju spel: 12–16 px
+  släp, 0,10–0,13 rad lutning, allt städat. Sondens egen fälla: `page.screenshot()` tar
+  ~100 ms — mät FÖRE fotot, annars har bilden hunnit i kapp och släpet mäts till 0.
+
+**Commits:** `3773cc1` feat(lib) tokens+feedback · `3fd73a0` feat(lib) tyngd i draget ·
+`6ef9202` feat(5 spel) skugga · `53c5028` refactor(djurorkester)
+**Kontroll:** `npm run check` 0 fel/0 varningar · `npm run test:all` **72/72 gröna**
+(kvar: de fyra kända `saknat-ljudklipp` som väntar på att MOSS kommer upp).
+**Öppet:** A2 (riktningsmedvetna Nav-övergångar + `liv()`-idle), A3 (riggens sista 6 spel),
+A4 (add-glow, emitters, MeshRope via Canvas2D, kamerans första kund). Ägarens manuella
+telefonkoll av full bleed är fortfarande ogjord.
+
+---
+
 ## 2026-08-09 · v1.68.0 · Full bleed — bakgrunder täcker hela telefonskärmen (LYFTPLAN spår D)
 
 **Byggt:** Ägarens Pixel 10 Pro (20:9) visade creme-lister vid sidorna och spelobjekt

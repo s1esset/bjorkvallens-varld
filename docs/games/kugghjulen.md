@@ -130,4 +130,5 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   - Deferred: [Medium] verkligt decoy-val, [Medium] sammanslagen senare auto-hjälp, [Quick]
     veva-fart→karusell-uttryck, [Deep] special-hjul (rem/dubbelhjul/back), [Quick] varierade
     mål-belöningar, [Quick] maskin-galleri/verkstads-rekvisita, [Quick] riktiga maskin-SFX (MOSS).
+- 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 13 px släp, 0,108 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.
 </content>

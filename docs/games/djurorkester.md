@@ -134,3 +134,4 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
   - Kvar sedan tidigare (ej i denna omgång): djur-rotation per konsert, synlig
     konsert-mätare, Dirigent Bobo + scen, grannkort-vibration.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): spelet hade INGEN egen bakgrund (vilade på skalets creme — det var hela kant-cream-fyndet): ny full-bleed-bakgrund i varm ton, rutnät/kort orörda. Testad båda viewports: 0 fel.
+- 2026-08-09 ✅ **Delat squash-recept [Quick]** (v1.69.0): kortets `_hop` var originalreceptet för nya `feedback.squash()` — spelet anropar nu lib-versionen med samma tal (1.16/0.84 → 0.9/1.18 → back.out(2.6), hopp 46 px) och blev 18 rader kortare. Testad: 0 fel.

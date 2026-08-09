@@ -125,4 +125,5 @@ blomman, katten ta form. Tema-cykeln ger variation över rundor.
   - **Deferred:** [Quick] "min pusselbok" (klarade motiv som miniatyrer); [Medium] fler/rikare
     motiv (djur/fordon/årstider); [Deep] pussel-kompis (Bobo som tittar/hejar); [Quick] motiv-
     anpassad ambient + stigande snäpp-ton.
+- 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 13 px släp, 0,104 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.
 </content>

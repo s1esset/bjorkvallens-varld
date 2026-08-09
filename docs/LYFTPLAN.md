@@ -781,3 +781,43 @@ testad fysik får inte tyst avvika per enhet). saftbarens `FluidView.area` klipp
 ~40 px före kanten på de bredaste telefonerna (breddning = större filteryta, mät med
 `_vatskeprobe` först). Manuell telefonkoll (build → preview → Tailscale, rotera mitt i
 spel) är sista grinden.
+
+## 6. Spår E — animation & rörelse, runda A1 (tokens · squash · tyngd i draget) ✅ v1.69.0
+
+Census:en inför spåret hittade tre systemfel: **`ANIM` i theme.js hade noll konsumenter**
+(värdena handkopierade med drift till fem filer — fade 0,16/0,18/0,2/0,25), **ingen delad
+squash-and-stretch** (16 spel med var sin kopia av samma recept) och **ett drag utan tyngd**
+(föremålet satt limmat vid fingret, vågrätt, och stannade dött i målet).
+
+- **Tokens** — `Button`, `Nav`, `LibraryScreen`, `MenuScreen` läser `ANIM` i stället för
+  egna tal. `ANIM` fick `settle` (återgång med översläng), `lift` (lyft i handen) och
+  `squash` (de tre takterna). Nästa steg kan `check.mjs` flagga handkopior.
+- **`feedback.js`** — `squash(t,{intensity,hop})` (djurorkesters `_hop` befordrat; spelet
+  anropar nu lib-versionen och blev 18 rader kortare), `landa(t,{base})` (landningstryckning
+  — `base` för den som själv håller vilo-skalan) och `stegra(list, fx)` (förskjuten start via
+  `ANIM.stagger`). Alla tre följer vilolägesregeln och är exit-säkra.
+- **`DragController`** — eftersläpning (`gsap.quickTo`, 0,1 s), lutning ur eftersläpningen
+  (0,008 rad/px, tak 0,22 — blir automatiskt proportionell mot farten utan hastighetsmätning),
+  översläng + `landa()` i målet, och en mjuk lyft-skugga. **Eftersläpningen är bara visuell:**
+  träffprövningen använder fingrets position (`rec.tx/ty`), aldrig den släpande bilden, så
+  inget mål blev svårare att träffa (uppmätt mot HEAD: samma träffutfall i harnessens
+  autodrag).
+
+**Två fällor, båda uppmätta:**
+1. **Lyftet måste pinna både vilo-skala och vilo-rotation** (`_fxRestScale`/`_fxRestRot`).
+   sortera-skrap anropar `wiggle()` vid fel släpp — wiggle läste då LUTNINGEN som föremålets
+   vilovinkel och lämnade det 0,15 rad snett. Samma fälla som `pop`-inflationen i feedback.js,
+   fast för rotation.
+2. **Skuggan är opt-in, inte automatisk.** Ungefär hälften av dragspelen ritar redan en egen
+   skugga under sina föremål; två skuggor som glider isär under ett snabbt drag syns direkt.
+   Tänd i de fem som saknade en (enkelt-pussel, kla-efter-vadret, kugghjulen, plask-i-vattnet,
+   siffertaget). Eftersläpning, lutning och landning ärvs däremot av alla 23 dragspel.
+
+**Mätning:** ny sond `scripts/_dragprobe.mjs <id>` — eftersläpning i px, lutning i rad under
+farten och efter släpp (mot föremålets EGEN vilovinkel), skuggan tänd/städad, barnantalet i
+lagret före/under/efter, samt exit mitt i ett drag. Sju spel mätta: 12–16 px släp, 0,10–0,13 rad
+lutning, allt städat, 0 konsolfel. **Sondens egen fälla:** en `page.screenshot()` tar ~100 ms —
+mät FÖRE fotot, annars har bilden hunnit i kapp fingret och eftersläpningen mäts till 0.
+
+**Kvar i spåret:** A2 (riktningsmedvetna Nav-övergångar + `liv()`-idle), A3 (riggens sista 6
+spel), A4 (add-glow, kontinuerliga emitters, MeshRope via Canvas2D, kamerans första kund).

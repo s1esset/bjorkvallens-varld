@@ -127,3 +127,4 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
     breddat till x 80..1200 så sex plagg ryms i två grupper. Nu ligger de PÅ hyllan.
   - `npm run test` 0 fel; skärmdump verifierad i alla tre väder.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): vita tint-bakgrunden breddad; regn/snö spawnar och wrappar över `ctx.view` (läst vid användning) — inga torra kolumner i kantremsorna. Testad båda viewports: 0 fel.
+- 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 12 px släp, 0,098 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.

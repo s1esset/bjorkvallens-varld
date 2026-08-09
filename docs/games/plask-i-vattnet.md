@@ -132,3 +132,4 @@ garanterar minst 2 av varje så mönstret framträder över tid.
     under ytan så det studsar upp igen med plask och ringar — agens på det som redan flyter.
   - **Bugg:** `gsap.delayedCall` för nästa runda → `ctx.later()`; `_logIcons` nollställs i
     `destroy` så listan inte växer över spelomgångar.
+- 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 16 px släp, 0,131 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.

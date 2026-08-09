@@ -129,10 +129,10 @@ destroy(ctx) {
 
 | Fil | Ger dig |
 |---|---|
-| `lib/feedback.js` | `bounceIn·pop·wiggle·shake·breathe` (egna objekt — döda tweens i destroy) · `puff·sparkle·burst·ripple·bigCelebration·floatText` (självstädande, exit-säkra) |
+| `lib/feedback.js` | `bounceIn·pop·wiggle·shake·breathe·squash·landa·stegra` (egna objekt — döda tweens i destroy) · `puff·sparkle·burst·ripple·bigCelebration·floatText` (självstädande, exit-säkra). `squash(t,{intensity,hop})` = squash-and-stretch (+ hopp), `landa(t)` = landningstryckning, `stegra(list, fx)` = förskjuten start via `ANIM.stagger`. **Handrulla dem inte** — tiderna bor i `ANIM` |
 | `lib/scene.js` | `createScene('sky'|…)` bakgrundsvärld + `lerpColor` |
 | `lib/kamera.js` | `Camera` — parallaxlager, `follow`/`moveTo`/`panTo`/`shake`/`zoomTo`; världar bredare än rutan (se nedan) |
-| `lib/DragController.js` | drag med snäpp / snäpp-tillbaka / **tap-tap-fallback** + `onMiss` — obligatorisk för dragspel |
+| `lib/DragController.js` | drag med snäpp / snäpp-tillbaka / **tap-tap-fallback** + `onMiss` — obligatorisk för dragspel. Tyngd ingår (eftersläpning, lutning, landning); `skugga: true` tänder lyft-skuggan — **bara om spelet inte redan ritar en egen skugga under föremålet** |
 | `lib/Button.js` | stor barnknapp (hit-halo, studs, ljud) |
 | `lib/mascot.js` · `lib/figurer.js` | Bobo som **stillbild** — huvud (`makeMascot`) resp. hel figur (`makeBobo`, `makeElvira`, …) |
 | `lib/karaktarer.js` | Bobo som **RIGG**: `makeKaraktar({ r, kropp })` → `setMood('glad'\|'stolt'\|'forvanad'\|'nyfiken'\|'hungrig'\|'ledsen'\|'somnig')` · `react('jubel'\|'hoppsan'\|'nyfiken'\|'hej'\|'nam')` · `look(x,y)` · `blink()` · `idle()` · `destroy()`. **Välj den här när figuren ska REAGERA** — det app-breda mönstret "ingen mottagare/publik" löses här, inte med en egen `_setMood` i spelet |

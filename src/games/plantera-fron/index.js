@@ -19,7 +19,8 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { bounceIn, pop, wiggle, puff, sparkle } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS, FONT, tint } from '../../lib/theme.js'
+import { verticalFill } from '../../lib/form.js'
 
 const SKY = 0xbfe6ff
 const HOLE_Y = 560 // jordhålens y (i jordrabatten)
@@ -97,7 +98,9 @@ export default {
     decor.interactiveChildren = false
 
     decor.addChild(new Graphics().rect(0, 0, ctx.width, 460).fill(SKY))
-    decor.addChild(new Graphics().roundRect(-20, 440, ctx.width + 40, 300, 36).fill(COLORS.brown))
+    // Jorden mörknar nedåt, som en riktig jordprofil gör. Var EN brun ton over 301 000 px —
+    // appens storsta enfargade yta dar platt faktiskt var fel (scripts/_plattprobe.mjs).
+    decor.addChild(new Graphics().roundRect(-20, 440, ctx.width + 40, 300, 36).fill(verticalFill(tint(COLORS.brown, 0.16), shade(COLORS.brown, 0.3))))
     decor.addChild(new Graphics().roundRect(-20, 432, ctx.width + 40, 46, 24).fill(shade(COLORS.brown, 0.18)))
 
     // Ritad sol med strålar och ansikte (var en ☀️-emoji).

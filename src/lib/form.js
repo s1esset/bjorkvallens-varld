@@ -107,6 +107,21 @@ export function topLightFill(color, opts = {}) {
   return g
 }
 
+// En rak lodrät toning mellan två färger — för himlar, marker och andra stora ytor där
+// det inte handlar om att ge ett FÖREMÅL volym utan om att ytan inte ska vara en enda ton.
+// (`scene.js` har en egen, identisk cache för scenens himmel; den ligger kvar där för att
+// scenen har mer logik runt sin och är den fil sviten är känsligast för.)
+const _vertCache = new Map()
+export function verticalFill(top, bottom) {
+  if (_detalj < 1) return top
+  const key = `${top}|${bottom}`
+  let g = _vertCache.get(key)
+  if (g) return g
+  g = new FillGradient({ colorStops: [{ offset: 0, color: top }, { offset: 1, color: bottom }] })
+  _vertCache.set(key, g)
+  return g
+}
+
 // En liten glansfläck som egen Graphics, redo att läggas som syskon ovanpå en redan ritad
 // form — samma handrullade "gloss"-cirkel som upprepas i många spelfiler, nu som en rad:
 // `c.addChild(body, rimLight(r))`. r = formens radie (ry för en ellips lodrätt).

@@ -21,6 +21,7 @@ import { gsap } from 'gsap'
 import { AimLauncher } from '../../lib/launcher.js'
 import { predictTrajectory } from '../../lib/physics.js'
 import { bigCelebration, sparkle, pop, floatText } from '../../lib/feedback.js'
+import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { PLAYFUL } from '../../lib/theme.js'
 
@@ -966,30 +967,11 @@ function makeHorizon(groundY) {
 }
 
 // Natthimmel: lodrät gradient mörkblå (topp) -> indigo (botten).
+// Natthimlen var 48 staplade rektanglar — samma mönster som scene.js slutade med i
+// LYFTPLAN rad 3. Banden syntes: `_plattprobe.mjs` mätte dem som tre enfärgade fält på
+// ~38 000 px vardera. En FillGradient ger jämn toning och EN rit-operation i stället för 48.
 function makeNightSky(w, h) {
-  const top = 0x122a5c
-  const bottom = 0x190b3d
-  const g = new Graphics()
-  const strips = 48
-  const sh = h / strips
-  for (let i = 0; i < strips; i++) {
-    const t = i / (strips - 1)
-    g.rect(0, i * sh, w, sh + 1).fill({ color: lerpColor(top, bottom, t) })
-  }
-  return g
-}
-
-function lerpColor(a, b, t) {
-  const ar = (a >> 16) & 0xff
-  const ag = (a >> 8) & 0xff
-  const ab = a & 0xff
-  const br = (b >> 16) & 0xff
-  const bg = (b >> 8) & 0xff
-  const bb = b & 0xff
-  const r = Math.round(ar + (br - ar) * t)
-  const gg = Math.round(ag + (bg - ag) * t)
-  const bl = Math.round(ab + (bb - ab) * t)
-  return (r << 16) | (gg << 8) | bl
+  return new Graphics().rect(0, 0, w, h).fill(verticalFill(0x122a5c, 0x190b3d))
 }
 
 // Publik: Bobo sedd bakifrån/underifrån, tittar upp mot himlen.

@@ -11,6 +11,7 @@ import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
+import { sphereFill } from '../../lib/form.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { puff, sparkle, floatText, bounceIn, pop, bigCelebration } from '../../lib/feedback.js'
@@ -162,9 +163,9 @@ export default {
       [90, 96, 92, 0x5aa752], [250, 60, 104, 0x6fb662], [430, 90, 96, 0x5aa752],
       [600, 52, 110, 0x6fb662], [790, 84, 98, 0x5aa752], [960, 58, 92, 0x6fb662],
       [1130, 92, 100, 0x5aa752], [1250, 52, 86, 0x6fb662], [-20, 60, 88, 0x6fb662],
-    ]) fol.circle(fx, fy, fr).fill(fc)
+    ]) fol.circle(fx, fy, fr).fill(sphereFill(fc))
     for (const [fx, fy, fr] of [[180, 132, 46], [520, 140, 40], [880, 136, 44], [1060, 140, 38]]) {
-      fol.circle(fx, fy, fr).fill(0x4f9a48)
+      fol.circle(fx, fy, fr).fill(sphereFill(0x4f9a48))
     }
     fol.eventMode = 'none'
     this._foliage.addChild(fol)

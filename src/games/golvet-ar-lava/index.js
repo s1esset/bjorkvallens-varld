@@ -35,7 +35,8 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, bigCelebration, floatText, ripple, shake } from '../../lib/feedback.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
-import { COLORS, FONT, PRAISE, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { COLORS, FONT, PRAISE, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
+import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
@@ -494,9 +495,9 @@ export default {
     const L = lay.lavaLeft
     const R = lay.lavaRight
     this._terrain.clear()
-    this._terrain.roundRect(-60, 400, L + 60, 380, 40).fill(COLORS.brown)
+    this._terrain.roundRect(-60, 400, L + 60, 380, 40).fill(verticalFill(tint(COLORS.brown, 0.14), shade(COLORS.brown, 0.28)))
     this._terrain.roundRect(-60, 400, L + 60, 26, 40).fill(COLORS.green)
-    this._terrain.roundRect(R, 400, 1340 - R, 380, 40).fill(COLORS.brown)
+    this._terrain.roundRect(R, 400, 1340 - R, 380, 40).fill(verticalFill(tint(COLORS.brown, 0.14), shade(COLORS.brown, 0.28)))
     this._terrain.roundRect(R, 400, 1340 - R, 26, 40).fill(COLORS.green)
     // Djupet är ritat berg; det översta skiktet är vätska (se _fyllLava).
     this._lavaBase.clear()

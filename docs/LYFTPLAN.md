@@ -258,9 +258,23 @@ Före: `FillGradient` (linjär **och** radiell) fanns i Pixi 8.19 och användes 
    dekor. `artikoner.js` (rad 10) är **klar** och är mallen att följa: gradient på huvudformen,
    platt på smådetaljer, handrullade glans-ellipser borttagna.
    **Klart hittills:** bollarna i 5 spel + stjärnorna i 3 (via `foremal.js`, se A2), kronorna i
-   `klappa-mullvaden`/`knuffa-tornet` och spindelhjältens bumper — 10 föremål i 8 spel.
-   **Kvar:** resten. Sortera efter hur STORT föremålet ritas: en gradient på en 11px-stjärna
-   syns inte, en på en 90px-boll bär hela bilden.
+   `klappa-mullvaden`/`knuffa-tornet` och spindelhjältens bumper — 10 föremål i 8 spel. Sedan,
+   efter mätning med **`scripts/_plattprobe.mjs`** (nytt), de STORA ytorna där platt var fel:
+   mullvadens gräsmatta (215 742 px i en ton), `plantera-fron`s jordprofil (301 300),
+   lavaspelets klippor (135 828), `fanga-frukten`s lövverk och fyrverkeriets natthimmel.
+
+   **Sortera efter mätningen, inte efter magkänsla.** Sonden rankar skärmdumparna på det
+   STÖRSTA ENSKILDA enfärgade fältet. Två saker den lärde ut:
+   - **Fyrverkeriets natthimmel var 48 staplade rektanglar** — exakt mönstret `scene.js`
+     lämnade i den här raden, men i en spelfil. Ny `verticalFill(top, bottom)` i `form.js`:
+     en rit-operation i stället för 48, och banden borta.
+   - **Platt är ibland RÄTT.** `spara-linjen` (vitt ritpapper), `folj-sparet` (spårpapper) och
+     `rulla-bollen-hem` (fotbollsplan uppifrån) toppar listan och ska göra det. Sonden är en
+     ledtråd; bilden avgör.
+
+   **Kvar:** `tarta-i-ansiktet` · `hamburgerbygget` · `enkelt-pussel` · `vart-tog-det-vagen`
+   ligger nu överst bland de *tveksamma*. Och: en gradient på en 11px-stjärna syns inte, en
+   på ett 90px-klot bär hela bilden — storleken avgör om det är värt en ändring.
    `rimLight` väntar fortfarande på sin första kund — den är till för figurer som byggs som en
    **container av flera Graphics**, vilket varken `artikoner.js` eller `foremal.js` (en enda
    Graphics per föremål) är.

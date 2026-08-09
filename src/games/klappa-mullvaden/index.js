@@ -9,7 +9,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { pop, wiggle, puff, ripple, sparkle, floatText, burst, breathe, shake } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
-import { topLightFill } from '../../lib/form.js'
+import { topLightFill, verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // Lekfältets area (designkoordinater) — hålen placeras i ett rutnät här inne.
@@ -115,7 +115,9 @@ export default {
 
     // Gräsmatta för lekfältet (rundad topp) ovanpå scenens nedre del.
     const lawn = new Graphics()
-    lawn.roundRect(-40, 195, ctx.width + 80, ctx.height - 195 + 80, 90).fill(0x8ed16a)
+    // Gräset i perspektiv: ljusare mot horisonten, djupare fram. Var EN ton over 215 000 px
+    // — den storsta enfargade ytan i hela appen enligt scripts/_plattprobe.mjs.
+    lawn.roundRect(-40, 195, ctx.width + 80, ctx.height - 195 + 80, 90).fill(verticalFill(0x9ed97a, 0x7cc25c))
     lawn.roundRect(-40, 195, ctx.width + 80, 18, 90).fill({ color: 0xa6dd7f, alpha: 0.6 })
     // Klippta gräsränder ger djup och en känsla av verklig gräsmatta.
     for (let i = 0; i < 6; i++) {

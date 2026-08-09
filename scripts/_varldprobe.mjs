@@ -1,0 +1,178 @@
+// Mäter att spindel-zacke-svingar FAKTISKT fick en värld bredare än rutan, och att
+// kameran (lib/kamera.js, dess första kund) beter sig — LYFTPLAN A4.4.
+//
+// Varför en sond och inte en skärmdump: parallax går per definition inte att bedöma i
+// EN stillbild. Två lager som står still ser exakt likadana ut som två lager som rör sig
+// olika fort. Det enda som skiljer dem är hur mycket de flyttar sig MELLAN två
+// kameralägen, och det är ett tal.
+//
+// Sonden svarar på fem saker:
+//   1. Är världen bredare än vyn, och växer den med nivån (i stället för att klämmas)?
+//   2. Flyttar sig kameran när Zacke svingar åt höger?
+//   3. Rör sig fjärranbandet LÅNGSAMMARE än spelplanet, och HUD:en inte alls?
+//   4. Lämnar Zacke aldrig bilden (kamerans hårda ruta)?
+//   5. Är en exit mitt i flykten ren?
+//
+//   node scripts/_varldprobe.mjs [--niva 8]
+import { chromium } from 'playwright'
+
+const args = process.argv.slice(2)
+const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d }
+const NIVA = parseInt(opt('--niva', '8'), 10)
+const ID = 'spindel-zacke-svingar'
+
+const browser = await chromium.launch({ channel: 'chrome', headless: true })
+const rader = []
+const ok = (namn, pass, detalj) => rader.push({ namn, pass, detalj })
+
+try {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+  const errors = []
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)) })
+  page.on('pageerror', (e) => errors.push('PAGEERROR: ' + (e.message || String(e)).slice(0, 200)))
+
+  await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 20000 })
+
+  const sattNiva = async (n) => {
+    await page.evaluate(({ gid, niva }) => {
+      const save = window.__barnspel.save
+      save.update((d) => {
+        const prof = d.profiles.find((p) => p.id === d.activeProfileId) || d.profiles[0]
+        if (!prof) return
+        prof.games = prof.games || {}
+        prof.games[gid] = { ...(prof.games[gid] || { unlocked: true, stars: 0, custom: {} }), unlocked: true, highestLevel: niva }
+      })
+      save.flush()
+    }, { gid: ID, niva: n })
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 20000 })
+    await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
+    await page.waitForTimeout(1400)
+  }
+
+  // Läser spelets OCH kamerans tillstånd. Lagrens `position.x` är det som faktiskt
+  // hamnar på skärmen — det är den siffran parallax handlar om, inte faktorn i koden.
+  const las = () => page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('spindel-zacke-svingar')
+    if (!g || !g._kam) return null
+    return {
+      niva: g._level,
+      faste: g._anchors?.length ?? 0,
+      malX: g._anchors?.[g._anchors.length - 1]?.x ?? null,
+      varldW: g._worldW,
+      kamW: g._kam.world.w,
+      kamX: Math.round(g._kam.x),
+      state: g._state,
+      zx: Math.round(g._zacke?.x ?? -1),
+      // Skärm-x för Zacke: världslagrets läge + hans världsposition.
+      zSkarm: Math.round((g._varld?.position.x ?? 0) + (g._zacke?.x ?? 0)),
+      lager: {
+        fjarran: Math.round(g._farLayer?.position.x ?? 0),
+        varld: Math.round(g._varld?.position.x ?? 0),
+        hud: Math.round(g._hud?.position.x ?? 0),
+      },
+    }
+  })
+
+  // ---------- 1. världen växer med nivån i stället för att klämmas ----------
+  await sattNiva(0)
+  const l0 = await las()
+  await sattNiva(NIVA)
+  const lN = await las()
+
+  ok('1. banan kläms inte längre',
+    lN.varldW > 1280 && lN.faste > l0.faste,
+    `nivå ${l0.niva}: ${l0.faste} fästen / värld ${l0.varldW} px · nivå ${lN.niva}: ${lN.faste} fästen / värld ${lN.varldW} px`)
+  ok('1b. gapet krymper INTE med nivån',
+    Math.abs((lN.malX - 200) / (lN.faste - 1) - (l0.malX - 200) / (l0.faste - 1)) < 2,
+    `gap nivå ${l0.niva} = ${Math.round((l0.malX - 200) / (l0.faste - 1))} px · nivå ${lN.niva} = ${Math.round((lN.malX - 200) / (lN.faste - 1))} px`)
+  ok('1c. målet syns INTE från start',
+    lN.malX > 1280,
+    `sista fästet på x ${lN.malX}, vyn är 1280 bred`)
+
+  // ---------- 2–4. spela framåt och mät kameran i rörelse ----------
+  const toScreen = (x, y) => page.evaluate(([dx, dy]) => {
+    const s = Math.min(window.innerWidth / 1280, window.innerHeight / 720)
+    return { x: (window.innerWidth - 1280 * s) / 2 + dx * s, y: (window.innerHeight - 720 * s) / 2 + dy * s }
+  }, [x, y])
+
+  // Släpp i den goda framåt-stunden, precis som _svingprobe gör.
+  const slappBra = async () => {
+    for (let i = 0; i < 260; i++) {
+      const s = await page.evaluate(async () => {
+        const g = (await import('/src/games/registry.js')).getGame('spindel-zacke-svingar')
+        return { state: g?._state, theta: g?._theta ?? 0, omega: g?._omega ?? 0 }
+      })
+      if (s.state === 'swing' && s.omega > 0 && s.theta >= 0.55 && s.theta <= 0.95) {
+        const p = await toScreen(640, 300)
+        await page.mouse.click(p.x, p.y)
+        return true
+      }
+      await page.waitForTimeout(16)
+    }
+    return false
+  }
+
+  const prover = []
+  let zUtanfor = 0
+  const start = await las()
+  for (let hopp = 0; hopp < 5; hopp++) {
+    if (!(await slappBra())) break
+    // Mät TÄTT under flykten — det är då kameran arbetar.
+    for (let k = 0; k < 26; k++) {
+      const s = await las()
+      if (!s) break
+      prover.push(s)
+      if (s.zSkarm < -40 || s.zSkarm > 1320) zUtanfor++
+      await page.waitForTimeout(28)
+    }
+  }
+  const slut = prover[prover.length - 1] || start
+  // En bild MITT i resan — den enda som visar hur staden ser ut när kameran har
+  // panorerat en bit in i världen. Testsvitens bild är alltid tagen vid start.
+  const shot = opt('--shot', `.test-shots/_varld-${ID}.png`)
+  await page.screenshot({ path: shot })
+
+  ok('2. kameran följer med åt höger',
+    slut.kamX > start.kamX + 150,
+    `kamera x ${start.kamX} → ${slut.kamX} (Zacke ${start.zx} → ${slut.zx})`)
+
+  // Parallax mäts som FÖRHÅLLANDET mellan lagrens förflyttning. Fjärranbandet har
+  // faktor 0.18, så det ska röra sig knappt en femtedel så långt som spelplanet.
+  const dVarld = Math.abs(slut.lager.varld - start.lager.varld)
+  const dFjarran = Math.abs(slut.lager.fjarran - start.lager.fjarran)
+  const dHud = Math.abs(slut.lager.hud - start.lager.hud)
+  const kvot = dVarld > 0 ? dFjarran / dVarld : 0
+  ok('3. fjärranbandet rör sig långsammare än spelplanet',
+    dVarld > 100 && kvot > 0.05 && kvot < 0.45,
+    `spelplan ${dVarld} px · fjärran ${dFjarran} px · kvot ${kvot.toFixed(2)} (faktor 0.18)`)
+  ok('3b. HUD:en står helt stilla',
+    dHud === 0,
+    `${dHud} px`)
+
+  ok('4. Zacke lämnar aldrig bilden',
+    zUtanfor === 0 && prover.length > 10,
+    `${zUtanfor} av ${prover.length} prover utanför [-40, 1320]`)
+
+  // ---------- 5. exit mitt i flykten ----------
+  const felFore = errors.length
+  await slappBra()
+  await page.waitForTimeout(120)
+  await page.evaluate(() => window.__barnspel.nav.go('library'))
+  await page.waitForTimeout(1400)
+  ok('5. exit mitt i flykten ger 0 nya konsolfel', errors.length === felFore, errors.slice(felFore, felFore + 3).join(' | ') || 'inga')
+
+  console.log(`\n  Världs- och kamerasond — ${ID}\n`)
+  for (const r of rader) console.log(`  ${r.pass ? '✓' : '✗'} ${r.namn}  —  ${r.detalj}`)
+  console.log(`\n  konsolfel totalt: ${errors.length}`)
+  if (errors.length) console.log('  ' + errors.slice(0, 4).join('\n  '))
+  const gront = rader.every((r) => r.pass) && errors.length === 0
+  console.log(`\n  ${rader.filter((r) => r.pass).length}/${rader.length} gröna\n`)
+  process.exitCode = gront ? 0 : 1
+} catch (e) {
+  console.error(e)
+  process.exitCode = 2
+} finally {
+  await browser.close()
+}

@@ -21,6 +21,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
+import { Camera, DJUP, lagerBredd } from '../../lib/kamera.js'
 import { pop, wiggle, sparkle, floatText, burst, breathe, bounceIn , kvittera} from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS } from '../../lib/theme.js'
@@ -33,6 +34,25 @@ const LONG = 260 // långt nät-radie
 const AMP = 1.1 // garanterad framåt-amplitud (~63°) → räcker till nästa fäste
 const THETA_MAX = 1.4 // hård spärr — går aldrig över toppen
 const ROOF_Y = 520 // fångst-golv (taklinje): under denna i flykt → moln-fångst
+
+// --- Världen (LYFTPLAN A4.4 — kamerans första kund) ---
+//
+// FÖRE: banan var hårdklämd till 920 px med `Math.min(cfg.gap, 920 / (count - 1))`, och
+// eftersom antalet fästen VÄXTE med nivån blev varje hopp KORTARE ju längre barnet kom
+// (nivå 1: 3 fästen à 300 px · nivå 6: 6 à 184). Hela stan syntes från första svinget,
+// och progressionen gick åt fel håll.
+//
+// EFTER: gapet är konstant 300 px — exakt det avstånd nivå 1–3 redan bevisat att fysiken
+// klarar — och NIVÅN LÄGGER TILL FÄSTEN i stället för att trycka ihop dem. Kameran följer
+// Zacke genom en stad som är upp till 3400 px bred.
+//
+// `WORLD_MAX` är den bredaste värld spelet kan bygga. Bakgrund och tak ritas för den EN
+// gång; `kam.setWorld()` klämmer sedan panoreringen per nivå, så en kort bana aldrig visar
+// tom stad till höger om kattungen.
+const WORLD_MAX = 3400
+const START_X = 200 // första fästets x
+const MAL_MARGINAL = 420 // värld till höger om sista fästet (taket målet står på + luft)
+const HUS_W = 214 // en husbredd — samma som förut (1280 / 6), nu kaklad genom världen
 
 const SWING_WORDS = ['Wii!', 'Hihi!', 'Sväva!']
 
@@ -66,33 +86,57 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Bakgrund (FÖRSTA barn): mjuk blå himmel + sol + drivande moln. Aldrig tryckbar.
-    this._root.addChild(createScene('sky', { width: ctx.width, height: ctx.height }))
+    // KAMERAN (lib/kamera.js). Spelet bygger allt i VÄRLDSKOORDINATER i faktor-1-lagret
+    // och tänker aldrig på var bilden råkar stå; kameran flyttar lagren, aldrig innehållet.
+    this._kam = new Camera({ width: ctx.width, height: ctx.height, worldW: WORLD_MAX })
+    this._root.addChild(this._kam.root)
 
-    // Hustaks-siluett (dekorativ).
-    this._roofs = this._buildRoofs()
-    this._root.addChild(this._roofs)
+    // Bakgrund: himmel + sol + drivande moln, uppdelad i parallaxband av `kamera`-flaggan.
+    // Scenens lager är låsta i höjdled — det passar här, för världen är bara bred.
+    this._kam.adopt(createScene('sky', { width: ctx.width, height: ctx.height, kamera: { bredd: WORLD_MAX } }))
 
-    // Fästen (knoppar + 🕸️) + mål-dekor (🐱/Elvira).
+    // Fjärran stadssiluett: rör sig långsamt, alltså läser den som LÅNGT bort. Det är den
+    // som gör att en resa åt höger känns som en resa och inte som en rullande tapet.
+    this._farLayer = this._kam.parallax(DJUP.fjarran, { dekor: true })
+    this._farLayer.addChild(this._buildRoofs(lagerBredd(DJUP.fjarran, ctx.width, WORLD_MAX), true))
+
+    // Spelplanet.
+    this._varld = this._kam.parallax(1)
+
+    // Hustaken Zacke svingar över (dekorativa, men i hans plan).
+    this._roofs = this._buildRoofs(WORLD_MAX, false)
+    this._varld.addChild(this._roofs)
+
+    // Fästen (knoppar + nät) + mål-dekor (kattunge/Elvira).
     this._anchorLayer = new Container()
     this._anchorLayer.eventMode = 'none'
-    this._root.addChild(this._anchorLayer)
+    this._varld.addChild(this._anchorLayer)
 
     // Nät-grafik (ritas om varje tick), under Zacke.
     this._web = new Graphics()
     this._web.eventMode = 'none'
-    this._root.addChild(this._web)
+    this._varld.addChild(this._web)
 
     // Spök-båge (ritas vid längd-val, tonar bort själv), över nätet men under Zacke.
     this._ghost = new Graphics()
     this._ghost.eventMode = 'none'
-    this._root.addChild(this._ghost)
+    this._varld.addChild(this._ghost)
     this._ghostTw = null
     this._winTweens = [] // vinstscenens proxy-tweens — dödas explicit i _buildLevel/destroy
 
     // Zacke (hjälte-figur).
     this._zacke = this._buildZacke()
-    this._root.addChild(this._zacke)
+    this._varld.addChild(this._zacke)
+
+    // EFFEKTER I VÄRLDEN. `ctx.fxLayer` är skärmrymd: en gnista vid ett fäste 2000 px in i
+    // världen hade dykt upp 2000 px in på SKÄRMEN, alltså utanför bilden. Allt som hör till
+    // en världspunkt (gnistor vid fästen, ord över Zacke, räddningsmolnet) går hit i stället.
+    // Kvar på ctx.fxLayer: bara det som hör till FINGRET — se `_kvitto`.
+    this._fx = this._kam.parallax(1, { dekor: true })
+
+    // HUD i faktor 0: fastspikat i skärmen, skakar aldrig med. Tryckytan hör hemma här —
+    // "tryck var som helst" betyder var som helst på SKÄRMEN, inte i världen.
+    this._hud = this._kam.parallax(0)
 
     // Trycky-yta: osynlig heltäckande hit-rektangel över hela svingnings-rymden.
     this._sky = new Graphics().rect(0, 90, ctx.width, 430).fill({ color: 0xffffff, alpha: 0.001 })
@@ -100,7 +144,7 @@ export default {
     this._sky.hitArea = new Rectangle(0, 90, ctx.width, 430)
     this._hRelease = (e) => this._onSkyTap(ctx, e)
     this._sky.on('pointertap', this._hRelease)
-    this._root.addChild(this._sky)
+    this._hud.addChild(this._sky)
 
     // Nät-längd-knapp nere till vänster (stor träffyta + hit-halo + ljud inbyggt).
     this._lenBtn = new Button({
@@ -116,11 +160,17 @@ export default {
     })
     this._lenBtn.position.set(130, 650)
     this._lenLabel = this._lenBtn.children[this._lenBtn.children.length - 1]
-    this._root.addChild(this._lenBtn)
+    this._hud.addChild(this._lenBtn)
 
     // Nivå från sparad progress → oändlig variation.
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._buildLevel(this._level)
+
+    // Kameran följer Zacke. `lead` lägger bilden före honom i färdriktningen så barnet
+    // ser vart han är på väg; dödzonen låter pendeln svänga fram och tillbaka utan att
+    // bilden gungar med — det är svinget som rör sig, inte staden.
+    this._kam.follow(this._zacke, { lead: 110, deadzone: 190 })
+    this._kam.attach(ctx.ticker)
 
     this._tick = (t) => this._update(ctx, t)
     ctx.ticker.add(this._tick)
@@ -142,11 +192,19 @@ export default {
   },
 
   // ------------------------------------------------------------------ nivåer
+  // Gapet är KONSTANT 300 px på alla nivåer, och det är en medveten omsvängning.
+  //
+  // Förut klämdes banan till 920 px, så fler fästen betydde kortare hopp: nivå 6 hade
+  // 184 px mellan fästena mot nivå 1:s 300. Progressionen gjorde alltså varje enskilt
+  // hopp LÄTTARE. Nu ligger avståndet kvar på det som nivå 1–3 redan bevisat att
+  // pendeln klarar, och nivån lägger till LÄNGD i stället — fler hopp, längre resa,
+  // samma svårighet per svep. Höjdvariationen (`mode`) bär variationen.
   _levelConfig(level) {
     if (level <= 1) return { count: 3, gap: 300, mode: 'flat', yvar: 0 }
     if (level <= 3) return { count: 4, gap: 300, mode: 'var', yvar: 25 }
-    if (level <= 5) return { count: 5, gap: 290, mode: 'zigzag', yvar: 0 }
-    return { count: 6, gap: 300, mode: 'jitter', yvar: 30 }
+    if (level <= 5) return { count: 6, gap: 300, mode: 'zigzag', yvar: 0 }
+    if (level <= 7) return { count: 8, gap: 300, mode: 'jitter', yvar: 30 }
+    return { count: 10, gap: 300, mode: 'jitter', yvar: 30 }
   },
 
   _buildLevel(level) {
@@ -178,8 +236,13 @@ export default {
 
     const cfg = this._levelConfig(level)
     const count = cfg.count
-    const gap = Math.min(cfg.gap, 920 / (count - 1))
-    const startX = 200 + (920 - gap * (count - 1)) / 2
+    const gap = cfg.gap
+    const startX = START_X
+
+    // Världen är precis så bred som banan behöver + luft bakom målet. Kameran får då
+    // aldrig panorera ut i tom stad till höger om kattungen, hur kort nivån än är.
+    this._worldW = Math.min(WORLD_MAX, Math.max(1280, startX + gap * (count - 1) + MAL_MARGINAL))
+    this._kam?.setWorld(this._worldW)
 
     this._anchors = []
     for (let i = 0; i < count; i++) {
@@ -259,7 +322,7 @@ export default {
         breathe(kitten, { scale: 1.08, duration: 1.0 })
 
         const elvira = this._buildElvira()
-        elvira.position.set(Math.min(a.x + 80, 1230), ROOF_Y)
+        elvira.position.set(Math.min(a.x + 80, this._worldW - 50), ROOF_Y)
         this._anchorLayer.addChild(elvira)
         this._elvira = elvira
       }
@@ -279,6 +342,10 @@ export default {
     z.x = this._anchor.x + this._L * Math.sin(this._theta)
     z.y = this._anchor.y + this._L * Math.cos(this._theta)
     bounceIn(z)
+    // Zacke TELEPORTERAR hit från förra nivåns mål. Kamerans hårda ruta klämmer mot
+    // målets NUVARANDE läge, så utan det här hoppar bilden med i ett ryck (dokumenterat
+    // i kamera.js). Flytta kameran själv i samma andetag.
+    this._kam?.moveTo(z.x)
     this._drawWeb()
   },
 
@@ -337,19 +404,40 @@ export default {
     return c
   },
 
-  _buildRoofs() {
+  // Staden. Ritas EN gång för hela världsbredden — inte per nivå — så inget bakas om
+  // mitt i leken. `fjarran = true` ger det långsamma bandet längst bak: samma hus, men
+  // mindre, blekare och utan detaljer. Att det bandet glider långsammare än det främre
+  // är hela skillnaden mellan "en resa genom en stad" och "en rullande tapet".
+  _buildRoofs(bredd, fjarran) {
     const g = new Graphics()
     g.eventMode = 'none'
-    const tops = [COLORS.red, COLORS.teal, COLORS.red, COLORS.teal, COLORS.red, COLORS.teal]
-    const n = 6
-    const w = 1280 / n
+    const tops = [COLORS.red, COLORS.teal, COLORS.purple, COLORS.teal, COLORS.red, COLORS.blue]
+    const w = fjarran ? HUS_W * 0.72 : HUS_W
+    const n = Math.ceil(bredd / w) + 1
+    // Fjärranbandet ligger högre upp (längre bort = närmare horisonten) och tonas mot
+    // himlen med alpha i stället för med en egen färgpalett — då följer det med om
+    // scenens himmel någon gång byts.
+    const bas = fjarran ? 476 : 540
+    const a = fjarran ? 0.45 : 1
+
     for (let i = 0; i < n; i++) {
       const x = i * w
-      const wallTop = 540 + (i % 2) * 15
-      g.roundRect(x + 6, wallTop, w - 12, 720 - wallTop, 10).fill(COLORS.brown) // vägg
-      g.moveTo(x, wallTop + 10).lineTo(x + w / 2, wallTop - 55).lineTo(x + w, wallTop + 10).closePath().fill(tops[i % tops.length]) // tak
+      // Höjden varierar per hus i ett upprepande men inte uppenbart mönster, så staden
+      // inte blir en kam. `i % 5` mot `i % 2` gör att takåsen aldrig hamnar i takt med
+      // fästena (som ligger var 300:e px).
+      const wallTop = bas + (i % 2) * 15 - (i % 5 === 0 ? 34 : 0)
+      g.roundRect(x + 6, wallTop, w - 12, 720 - wallTop, 10).fill({ color: COLORS.brown, alpha: a })
+      g.moveTo(x, wallTop + 10)
+        .lineTo(x + w / 2, wallTop - 55)
+        .lineTo(x + w, wallTop + 10)
+        .closePath()
+        .fill({ color: tops[i % tops.length], alpha: a })
+      if (fjarran) continue
       if (i % 2) g.roundRect(x + w * 0.68, wallTop - 30, 16, 36, 4).fill(COLORS.brown) // skorsten
       g.roundRect(x + w * 0.5 - 16, wallTop + 50, 32, 40, 5).fill(COLORS.yellow) // fönster
+      // Vartannat hus får ett fönster till, en våning ner — staden blir bebodd i stället
+      // för att vara en rad identiska lådor.
+      if (i % 3 === 0) g.roundRect(x + w * 0.5 - 13, wallTop + 112, 26, 34, 5).fill({ color: COLORS.yellow, alpha: 0.75 })
     }
     return g
   },
@@ -389,7 +477,7 @@ export default {
     g.moveTo(a.x, a.y).lineTo(x, y).stroke({ width: 3, color: 0xffffff, alpha: 0.3 })
     // Prickad flyktbana fram till taklinjen.
     let last = { x, y }
-    for (let step = 1; y < ROOF_Y && x < 1300 && step < 240; step++) {
+    for (let step = 1; y < ROOF_Y && x < this._worldW + 40 && step < 240; step++) {
       vy += G
       x += vx
       y += vy
@@ -439,8 +527,8 @@ export default {
       // Redan i flykt/firande → mjukt ljud + gnista där fingret är (aldrig straff;
       // P0 ÅTERKOPPLING: varje pekning ska ge ljud OCH bild).
       ctx.services.audio.sfx('soft')
-      const p = this._root.toLocal(e.global)
-      sparkle(ctx.fxLayer, p.x, p.y, { count: 4 })
+      const p = this._varld.toLocal(e.global)
+      sparkle(this._fx, p.x, p.y, { count: 4 })
     }
   },
 
@@ -458,13 +546,13 @@ export default {
       // Belöna ett väl TAJMAT släpp (högt i framåt-bågen) — barnets skicklighet ska
       // kännas tydligt bättre än ett slumpsläpp/auto-släpp.
       if (this._omega > 0 && this._theta >= 0.45 && this._theta <= 1.05) {
-        sparkle(ctx.fxLayer, this._zacke.x, this._zacke.y, { count: 6 })
-        floatText(ctx.fxLayer, this._zacke.x, this._zacke.y - 60, randomFrom(SWING_WORDS))
+        sparkle(this._fx, this._zacke.x, this._zacke.y, { count: 6 })
+        floatText(this._fx, this._zacke.x, this._zacke.y - 60, randomFrom(SWING_WORDS))
       }
     }
     this._state = 'flight'
     ctx.services.audio.sfx('whoosh')
-    sparkle(ctx.fxLayer, this._anchor.x, this._anchor.y, { count: 5 })
+    sparkle(this._fx, this._anchor.x, this._anchor.y, { count: 5 })
     this._drawWeb()
   },
 
@@ -510,8 +598,8 @@ export default {
       ctx.services.audio.sfx(this._attachCount % 2 === 0 ? 'reveal' : 'pop')
     }
     this._attachCount += 1
-    sparkle(ctx.fxLayer, anchor.x, anchor.y, { count: 6 })
-    floatText(ctx.fxLayer, z.x, z.y - 70, randomFrom(SWING_WORDS))
+    sparkle(this._fx, anchor.x, anchor.y, { count: 6 })
+    floatText(this._fx, z.x, z.y - 70, randomFrom(SWING_WORDS))
     if (!this._toldSwing) {
       this._toldSwing = true
       ctx.services.voice.say('Bra svingat!')
@@ -549,7 +637,7 @@ export default {
 
     ctx.services.audio.sfx('soft')
     ctx.services.voice.say('Hoppsan! Molnet fångar dig.')
-    floatText(ctx.fxLayer, z.x, z.y - 40, '😄', { fontSize: 48 })
+    floatText(this._fx, z.x, z.y - 40, '😄', { fontSize: 48 })
 
     // RITAT moln (P0 ASSETS) — var en ☁️-emoji.
     const cloud = new Graphics()
@@ -560,7 +648,7 @@ export default {
     cloud.circle(-14, -20, 22).fill({ color: 0xffffff, alpha: 0.85 })
     cloud.position.set(z.x, z.y + 64)
     cloud.eventMode = 'none'
-    ctx.fxLayer.addChild(cloud)
+    this._fx.addChild(cloud)
 
     // Exit-säkert glid (samma mönster som lib/feedback.js): tweena en {}-proxy och
     // kopiera till Pixi-objekten ENDAST om de lever. Tween:en dödas ALDRIG av exit —
@@ -612,7 +700,7 @@ export default {
     this._web.clear() // han släpper tråden och landar
 
     // 1) Zacke landar mjukt på mål-taket bredvid kattungen.
-    const lx = Math.min(goal.x - 64, 1140)
+    const lx = Math.min(goal.x - 64, this._worldW - 140)
     const ly = ROOF_Y - 58
     const st = { x: z.x, y: z.y, r: z.rotation }
     const tw1 = gsap.to(st, {
@@ -655,7 +743,7 @@ export default {
           if (!this._alive || elvira.destroyed) return
           elvira.y = ROOF_Y
           ctx.services.audio.sfx('match')
-          floatText(ctx.fxLayer, lx + 28, ly - 96, '❤️', { fontSize: 64, rise: 70, duration: 1.2 })
+          floatText(this._fx, lx + 28, ly - 96, '❤️', { fontSize: 64, rise: 70, duration: 1.2 })
           wiggle(elvira)
           if (!z.destroyed) wiggle(z)
         },
@@ -697,7 +785,7 @@ export default {
     // 4) Delat firande + klistermärke (en gång), höj nivå, räkna mål (aldrig sjunkande).
     ctx.later(1.8, () => {
       ctx.progress.complete()
-      burst(ctx.fxLayer, lx + 20, ly - 20, { count: 18 })
+      burst(this._fx, lx + 20, ly - 20, { count: 18 })
     })
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -781,7 +869,7 @@ export default {
       // Förlåtande fäst-fönster: nå fram horisontellt utan att sjunka under taket.
       if (next && z.x >= next.x - 45 && z.y < ROOF_Y) {
         this._attach(ctx, this._a + 1)
-      } else if (z.y >= ROOF_Y || z.x > 1240) {
+      } else if (z.y >= ROOF_Y || z.x > this._worldW - 40) {
         // Upprepade missar → nästa kast blir garanterat (auto-hjälp).
         this._cloudRescue(ctx)
       }
@@ -796,7 +884,7 @@ export default {
     if (v.replayLast) v.replayLast()
     else v.say(this.voiceIntro)
     if (this._zacke && !this._zacke.destroyed) pop(this._zacke, { scale: 1.1 })
-    floatText(ctx.fxLayer, this._zacke.x, this._zacke.y - 60, '👆')
+    floatText(this._fx, this._zacke.x, this._zacke.y - 60, '👆')
   },
 
   // ------------------------------------------------------------------ städning
@@ -822,6 +910,12 @@ export default {
     if (this._elvira && !this._elvira.destroyed) gsap.killTweensOf(this._elvira)
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()
+    // Kameran äger en egen ticker-callback och alla parallaxlager. `destroy()` tar bort
+    // callbacken OCH river `kam.root` (som i Pixi v8 kopplar loss sig ur sin förälder),
+    // så `_root.destroy` nedan hittar inget halvdött barn.
+    this._kam?.destroy()
+    this._kam = null
+    this._varld = this._fx = this._hud = this._farLayer = null
     this._root?.destroy({ children: true })
   },
 }

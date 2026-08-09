@@ -130,3 +130,23 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   strokade en implicit linje från origo (samma i Zackes leende). Kattljudets kallstart vaktas
   med pop-fallback. Ny sond `scripts/_svingprobe.mjs` (spelar med riktiga mustryck i
   släpp-fönstret): 7/7 gröna, exit mitt i kramscenen 0 fel. Status → ✅.
+- 2026-08-09 ✅ **Spår E runda A4.4 — kamerans första kund (LYFTPLAN C6).** Banan var
+  hårdklämd till 920 px av `Math.min(cfg.gap, 920 / (count - 1))`, och eftersom antalet
+  fästen växte med nivån blev varje hopp **kortare** ju längre barnet kom (nivå 1: 3 fästen
+  à 300 px · nivå 6: 6 à 184). Hela stan syntes dessutom från första svinget, vilket är
+  precis §3:s kritik "svårt att se hur långt kvar". Nu: gapet är konstant 300 px — det
+  avstånd nivå 1–3 redan bevisat att pendeln klarar — och **nivån lägger till fästen** i
+  stället för att trycka ihop dem (3 → 4 → 6 → 8 → 10). Världen är upp till 3400 px och
+  kameran följer Zacke genom den.
+  Lageruppställning: `createScene('sky', { kamera: { bredd } })` → parallaxband · en
+  fjärran stadssiluett på `DJUP.fjarran` · spelplanet på faktor 1 · **ett eget fx-lager i
+  världen** (`ctx.fxLayer` är skärmrymd — en gnista vid ett fäste 2000 px in hade dykt upp
+  2000 px in på skärmen) · HUD och tryckyta på faktor 0. `kam.moveTo()` vid varje nivåstart,
+  eftersom Zacke teleporterar dit från förra målet och kamerans hårda ruta annars rycker
+  bilden med. Nytt i `lib/kamera.js`: `setWorld()` — lagren ritas för den bredaste världen
+  EN gång, och världsbredden per nivå klämmer bara panoreringen.
+  **Mätt** med nya `scripts/_varldprobe.mjs`: nivå 0 = 3 fästen / 1280 px värld (kameran står
+  still, exakt som förut) · nivå 8 = 10 fästen / 3320 px, sista fästet på x 2900. Kameran
+  1045 px medan fjärranbandet rör sig 188 px (kvot 0,18 = precis lagerfaktorn) och HUD:en
+  0 px. Zacke utanför bilden i 0 av 130 prover. `_svingprobe.mjs` fortsatt 7/7 grön, alltså
+  spelar spelet likadant som förut på de låga nivåerna.

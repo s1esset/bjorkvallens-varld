@@ -179,6 +179,19 @@ export class Camera {
     return this
   }
 
+  // Ändra världens storlek mellan omgångar.
+  //
+  // Lagren ritas för den STÖRSTA värld spelet kan bygga, EN gång — att rita om dem per
+  // nivå vore att baka nya texturer mitt i leken. Den här klämmer bara hur långt kameran
+  // får panorera, så en kort bana inte visar tom värld till höger om målet.
+  setWorld(w, h = this.world.h) {
+    this.world.w = Math.max(this.view.w, w)
+    this.world.h = Math.max(this.view.h, h)
+    this._set(this.x, this.y) // klämningen beror på världen — räkna om mot de nya kanterna
+    this._applyAll()
+    return this
+  }
+
   // Sätt kameran direkt (uppstart, ny nivå).
   moveTo(x, y = this.y) {
     this._pan = null

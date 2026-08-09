@@ -20,7 +20,7 @@ import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { AimLauncher } from '../../lib/launcher.js'
 import { predictTrajectory } from '../../lib/physics.js'
-import { bigCelebration, sparkle, pop, floatText } from '../../lib/feedback.js'
+import { bigCelebration, sparkle, pop, floatText, liv } from '../../lib/feedback.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { PLAYFUL } from '../../lib/theme.js'
@@ -113,6 +113,9 @@ export default {
       const v = kind === 'bobo' ? makeSpectatorBobo() : makeSpectatorElvira()
       v.position.set(cx, ORIGIN.y + 30)
       this._crowdLayer.addChild(v)
+      // Publiken står och vaggar medan de väntar. `_cheer` använder pop() (bara skala),
+      // så liv (y + rotation) kan aldrig slåss med hoppet när det smäller.
+      liv(v, { bob: 4, sway: 0.018 })
       this._crowd.push({ view: v, base: ORIGIN.y + 30 })
     }
 

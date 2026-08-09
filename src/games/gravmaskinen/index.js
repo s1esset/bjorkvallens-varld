@@ -22,7 +22,7 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, puff, burst, floatText, bigCelebration, sparkle, shake, kvittera } from '../../lib/feedback.js'
+import { pop, wiggle, puff, burst, floatText, bigCelebration, sparkle, shake, kvittera, liv } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS } from '../../lib/theme.js'
 
@@ -365,8 +365,13 @@ export default {
   // Bobo sitter vid ratten: mottagaren som tar emot lasten och kör iväg med den.
   _makeTruck() {
     const c = new Container()
+    // Skuggan i EGEN Graphics: karossen guppar på fjädringen (liv nedan), skuggan
+    // ligger kvar på marken. Guppar de ihop ser lastbilen ut att sväva.
+    const sh = new Graphics()
+    sh.ellipse(0, 60, 118, 14).fill({ color: 0x000000, alpha: 0.14 })
+    sh.eventMode = 'none'
+    c.addChild(sh)
     const g = new Graphics()
-    g.ellipse(0, 60, 118, 14).fill({ color: 0x000000, alpha: 0.14 })
     g.roundRect(-104, -34, 92, 78, 10).fill(0x8a939b) // flak
     g.roundRect(-104, -34, 92, 12, 6).fill(0xb8c2ca)
     for (let i = 0; i < 3; i++) g.rect(-92 + i * 28, -22, 8, 60).fill({ color: 0x6f7880, alpha: 0.8 })
@@ -394,6 +399,13 @@ export default {
     arm.eventMode = 'none'
     this._driverArm = arm
     c.addChild(arm)
+
+    // Motorn går på tomgång: hela karossen (men inte skuggan) guppar svagt. Liten
+    // amplitud med flit — det här är en väntande maskin, inte en studsboll.
+    const kaross = new Container()
+    for (const ch of [g, bobo, arm]) kaross.addChild(ch)
+    c.addChild(kaross)
+    liv(kaross, { bob: 2, sway: 0.006, duration: 1.6 })
 
     c.eventMode = 'none'
     c.interactiveChildren = false

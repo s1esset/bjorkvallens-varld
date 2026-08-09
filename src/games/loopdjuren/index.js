@@ -15,7 +15,7 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, wiggle, puff, sparkle, floatText } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, floatText, liv } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS } from '../../lib/theme.js'
 
@@ -192,6 +192,9 @@ export default {
     drawAnimalHead(g, animal.id)
     g.eventMode = 'none'
     c.addChild(g)
+    // Huvudet guppar och vaggar i sin egen takt (skuggan ligger kvar på marken).
+    // Egen fas per djur — annars nickar hela raden i lås och läses som EN yta.
+    liv(g, { bob: 5, sway: 0.02 })
     c.eventMode = 'static'
     c.cursor = 'pointer'
     c.hitArea = new Circle(0, 0, 80)

@@ -15,7 +15,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { pop, wiggle, sparkle } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, liv } from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
@@ -180,6 +180,10 @@ export default {
     g.roundRect(-botW / 2 + 26, top + 36, 26, 150, 13).fill({ color: COLORS.white, alpha: 0.22 })
     g.eventMode = 'none'
     cup.addChild(g)
+    // Kopparna står och vaggar medan de väntar. Guppningen ligger på den INRE
+    // grafiken — spelet äger `cup` (blandning, kik, snäpp tillbaka), så de kan
+    // aldrig slåss om samma y.
+    liv(g, { bob: 3, sway: 0.01, duration: 2.8 })
     return cup
   },
 

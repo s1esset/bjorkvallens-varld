@@ -7,7 +7,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, wiggle, sparkle, puff } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, puff, liv } from '../../lib/feedback.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
 
@@ -447,6 +447,13 @@ export default {
   // Hela scenen, maskad till bitens form, med vit pussel-kant ovanpå.
   _makePiece(theme, slot) {
     const piece = new Container()
+    // Allt bitens UTSEENDE hänger i en inre behållare. Den guppar (liv) medan biten
+    // ligger och väntar i spridningsytan; DragController äger den yttre `piece` och
+    // dess x/y, så guppningen kan aldrig slåss med draget. Guppningen dödas när
+    // biten hamnar rätt (_onCorrect) — en placerad bit ska sitta blick stilla.
+    const inner = new Container()
+    piece.addChild(inner)
+    piece._inner = inner
 
     // Maskad scen: förskjut så slot-centret hamnar i bitens origo (0,0).
     const clip = new Container()
@@ -458,7 +465,7 @@ export default {
     mask.fill(0xffffff)
     clip.addChild(mask)
     clip.mask = mask
-    piece.addChild(clip)
+    inner.addChild(clip)
     piece._clip = clip
 
     // Vit kant + mjuk skuggkant (omaskad) ger pussel-looken.
@@ -468,7 +475,8 @@ export default {
     const shade = new Graphics()
     tracePiece(shade, slot.w, slot.h, slot.edges)
     shade.stroke({ width: 3, color: COLORS.brown, alpha: 0.3 })
-    piece.addChild(edge, shade)
+    inner.addChild(edge, shade)
+    liv(inner, { bob: 4, sway: 0.015, duration: 2.6 })
     return piece
   },
 
@@ -490,6 +498,13 @@ export default {
 
   _onCorrect(ctx, rec, slot) {
     if (!this._alive) return
+    // Biten sitter — sluta guppa och sätt utseendet exakt i ramen igen.
+    const inner = rec.view?._inner
+    if (inner && !inner.destroyed) {
+      inner._fxLiv?.kill()
+      inner.y = 0
+      inner.rotation = 0
+    }
     ctx.services.audio.sfx('match')
     sparkle(ctx.fxLayer, slot.cx, slot.cy)
     pop(rec.view)

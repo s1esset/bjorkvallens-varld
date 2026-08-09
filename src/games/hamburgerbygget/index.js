@@ -17,7 +17,7 @@ import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
 import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
-import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, puff, floatText, liv } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
@@ -466,6 +466,9 @@ export default {
       const view = viewFor(ing, 96)
       view.eventMode = 'none'
       slot.addChild(view)
+      // Hyllan lever: varje ingrediens guppar i sin egen takt. Guppningen ligger på den
+      // INRE vyn — `slot` äger tryck och hyllans svep, så de kan aldrig slåss om y.
+      liv(view, { bob: 5, sway: 0.02 })
       slot.eventMode = 'static'
       slot.cursor = 'pointer'
       slot.hitArea = new Circle(0, 0, 50)

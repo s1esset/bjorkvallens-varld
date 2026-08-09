@@ -26,6 +26,8 @@
 // ingenting som kan överleva ett spelbyte. `destroy()` finns ändå, för symmetri
 // med resten av verktygslådan och för att kunna nolla referenser.
 
+import { CanvasSource, MeshRope, Point, Texture } from 'pixi.js'
+
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v)
 
 export class Rep {
@@ -298,8 +300,187 @@ export function ritaRep(g, rep, { width = 10, color = 0x4a8f5b, kant = null, dag
   return g
 }
 
-// Lokala färghjälpare — `theme.js` har shade/tint, men rep.js ska kunna användas
-// av en sond i Node utan att dra in hela temat.
+// --- MeshRope: repet som MATERIAL i stället för som streck ------------------
+//
+// `ritaRep` ovan lägger tre strokes ovanpå varandra och kommer långt, men det är
+// fortfarande en LINJE: den har ingen struktur som följer med när repet böjer sig,
+// och en slang ser likadan ut som ett rep som ser likadan ut som en kabel.
+//
+// En `MeshRope` mappar i stället en TEXTUR längs banan. Texturens y-axel är repets
+// tjocklek (tvärsnittet: mörk kant → ljus ovansida → mörk undersida) och x-axeln
+// löper längs repet, så ett flätmönster eller en slangribba åker med i varje böj.
+// Det är skillnaden mellan "ett streck i en färg" och "något gjort av ett material".
+//
+// TEXTUREN RITAS MED CANVAS2D. Samma mätta skäl som i partiklar.js och glod.js:
+// `renderer.generateTexture()` byter rendermål mitt i en bildruta och destabiliserar
+// hela testsviten. Canvas2D rör inte GL-tillståndet och behöver ingen renderare.
+//
+// 64×32 är POTENSER AV TVÅ med flit: `textureScale > 0` sätter källans `addressMode`
+// till 'repeat', och en del WebGL-drivrutiner klämmer i stället för att wrappa när
+// måtten inte är tvåpotenser — mönstret hade då dragits ut i stället för att kaklas.
+const TEX_W = 64
+const TEX_H = 32
+const _repTexCache = new Map()
+
+// Tvärsnittet: en stav belyst uppifrån. Mörk överkant (skuggan där repet vänder bort),
+// ljus dager en bit ned, grundfärg i mitten, djupast skugga i underkanten.
+function _tvarsnitt(ctx, color) {
+  const g = ctx.createLinearGradient(0, 0, 0, TEX_H)
+  g.addColorStop(0, hex(shade(color, 0.5)))
+  g.addColorStop(0.3, hex(tint(color, 0.45)))
+  g.addColorStop(0.55, hex(color))
+  g.addColorStop(1, hex(shade(color, 0.55)))
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, TEX_W, TEX_H)
+}
+
+const hex = (c) => `#${c.toString(16).padStart(6, '0')}`
+
+/**
+ * Textur för ett rep, cachad per färg + profil.
+ *
+ *   'rep'   flätad lina — snedställda band som läser som tvinnade kardeler
+ *   'slang' slät gummislang — ribbor TVÄRS slangen plus en blank längsgående dager
+ *   'slat'  bara tvärsnittet, ingen struktur (kabel, spänd lina, regnbåge)
+ *
+ * Returnerar null utan DOM (sonder som kör solvern i rena Node).
+ */
+export function repTextur(color = 0x4a8f5b, profil = 'rep') {
+  const nyckel = `${color}|${profil}`
+  const cached = _repTexCache.get(nyckel)
+  if (cached) return cached
+  if (typeof document === 'undefined') return null
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = TEX_W
+    canvas.height = TEX_H
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    _tvarsnitt(ctx, color)
+
+    if (profil === 'rep') {
+      // Fyra snedställda kardeler per kakel. Bandet ritas två gånger med wrap
+      // (x och x−TEX_W) så mönstret möter sig självt sömlöst vid kakelgränsen.
+      const steg = TEX_W / 4
+      for (let i = 0; i < 4; i++) {
+        for (const dx of [0, -TEX_W]) {
+          const x = i * steg + dx
+          ctx.beginPath()
+          ctx.moveTo(x, 0)
+          ctx.lineTo(x + steg * 0.55, 0)
+          ctx.lineTo(x + steg * 0.55 + TEX_H * 0.8, TEX_H)
+          ctx.lineTo(x + TEX_H * 0.8, TEX_H)
+          ctx.closePath()
+          ctx.fillStyle = 'rgba(255,255,255,0.13)'
+          ctx.fill()
+        }
+      }
+    } else if (profil === 'slang') {
+      // Ribbor tvärs slangen (lodräta i texturrymden = tvärs banan i världen).
+      for (let i = 0; i < 4; i++) {
+        const x = i * (TEX_W / 4)
+        ctx.fillStyle = 'rgba(0,0,0,0.10)'
+        ctx.fillRect(x, 0, 3, TEX_H)
+        ctx.fillStyle = 'rgba(255,255,255,0.08)'
+        ctx.fillRect(x + 3, 0, 2, TEX_H)
+      }
+      // Blank längsgående dager — det är den som gör gummi av en grön stav.
+      const d = ctx.createLinearGradient(0, TEX_H * 0.18, 0, TEX_H * 0.42)
+      d.addColorStop(0, 'rgba(255,255,255,0)')
+      d.addColorStop(0.5, 'rgba(255,255,255,0.34)')
+      d.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = d
+      ctx.fillRect(0, TEX_H * 0.18, TEX_W, TEX_H * 0.24)
+    }
+
+    const tex = new Texture({
+      source: new CanvasSource({ resource: canvas, scaleMode: 'linear', addressMode: 'repeat' }),
+      label: `rep:${profil}:${color.toString(16)}`,
+    })
+    _repTexCache.set(nyckel, tex)
+    return tex
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Ett `MeshRope` som följer en `Rep`-solver.
+ *
+ *   const slang = repMesh(rep, { color: 0x3a7d44, width: 16, profil: 'slang' })
+ *   spelet.addChild(slang.mesh)
+ *   ...varje bildruta, EFTER rep.steg():
+ *   slang.uppdatera()
+ *   ...i destroy():
+ *   slang.destroy()
+ *
+ * Returnerar null om texturvägen inte är tillgänglig — anroparen ska då falla
+ * tillbaka på `ritaRep()`, som alltid fungerar.
+ *
+ * `tathet` klipper in extra punkter mellan solverns: en MeshRope böjer sig BARA i
+ * sina punkter, och en 20-punkterskedja ger synliga knän. Mellansteg tas ur samma
+ * kvadratiska kurva som `repPath` ritar, så mesh och stroke följer exakt samma linje.
+ */
+export function repMesh(rep, { color = 0x4a8f5b, width = 14, profil = 'rep', tathet = 3, upprepa = 0.5 } = {}) {
+  const tex = repTextur(color, profil)
+  if (!tex || rep.pts.length < 2) return null
+
+  const punkter = []
+  const fyll = () => {
+    const pts = rep.pts
+    let k = 0
+    const satt = (x, y) => {
+      if (punkter[k]) {
+        punkter[k].x = x
+        punkter[k].y = y
+      } else {
+        punkter[k] = new Point(x, y)
+      }
+      k++
+    }
+    satt(pts[0].x, pts[0].y)
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i].x + pts[i + 1].x) / 2
+      const my = (pts[i].y + pts[i + 1].y) / 2
+      const ax = i === 1 ? pts[0].x : (pts[i - 1].x + pts[i].x) / 2
+      const ay = i === 1 ? pts[0].y : (pts[i - 1].y + pts[i].y) / 2
+      for (let s = 1; s <= tathet; s++) {
+        const t = s / tathet
+        const u = 1 - t
+        // Kvadratisk Bézier: A → styrpunkt pts[i] → M. Samma kurva som repPath.
+        satt(u * u * ax + 2 * u * t * pts[i].x + t * t * mx, u * u * ay + 2 * u * t * pts[i].y + t * t * my)
+      }
+    }
+    const sista = pts[pts.length - 1]
+    satt(sista.x, sista.y)
+    return k
+  }
+
+  const n = fyll()
+  punkter.length = n
+  const mesh = new MeshRope({ texture: tex, points: punkter, width, textureScale: upprepa })
+  mesh.eventMode = 'none'
+
+  return {
+    mesh,
+    punkter,
+    // Punktantalet är konstant så länge repet har lika många länkar — geometrin
+    // byggs alltså aldrig om, bara punkterna flyttas (autoUpdate sköter resten).
+    uppdatera() {
+      if (mesh.destroyed) return
+      fyll()
+    },
+    destroy() {
+      if (!mesh.destroyed) mesh.destroy()
+      punkter.length = 0
+    },
+  }
+}
+
+// Lokala färghjälpare — `theme.js` har shade/tint, men solvern ska kunna mätas av en
+// sond i Node utan att dra in hela temat. Pixi-importen överst är ofarlig där: den
+// laddar i Node, det är bara en RENDERARE som inte går att skapa (`repTextur` faller
+// tillbaka på null utan DOM). Verifierat: `_repprobe.mjs` är fortsatt helgrön.
 function shade(c, k) {
   const r = ((c >> 16) & 255) * (1 - k)
   const g = ((c >> 8) & 255) * (1 - k)

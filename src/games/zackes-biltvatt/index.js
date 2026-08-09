@@ -31,7 +31,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { puff, sparkle, floatText, ripple, wiggle, shake } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { Rep } from '../../lib/rep.js'
+import { Rep, repMesh } from '../../lib/rep.js'
 import { FONT } from '../../lib/theme.js'
 
 // --- Fordon: karossform + färg + en ritad detalj. Allt programmatiskt. ---
@@ -593,6 +593,18 @@ export default {
     // pekar dit barnet siktar i stället för dit slangen råkar ligga.
     this._hose.tyngd(this._hose.sista, 3.2)
     for (let i = 0; i < 60; i++) this._hoseSubstep() // låt den falla till ro
+
+    // Slangen ritas som ett MATERIAL (MeshRope med en Canvas2D-textur), inte som tre
+    // strokes ovanpå varandra. Texturen bär ribborna tvärs slangen och den blanka
+    // dagern längs den, så strukturen ÅKER MED i varje böj — en stroke kan bara byta
+    // bredd och färg. `_hoseG` blir kvar som reserv: utan DOM (eller om texturen inte
+    // går att baka) returnerar repMesh null och den gamla vägen ritar som förut.
+    this._hoseMesh?.destroy()
+    this._hoseMesh = repMesh(this._hose, { color: 0x4aa3df, width: 24, profil: 'slang', upprepa: 1 })
+    if (this._hoseMesh && this._hoseG && !this._hoseG.destroyed) {
+      this._root.addChildAt(this._hoseMesh.mesh, this._root.getChildIndex(this._hoseG))
+      this._hoseG.visible = false
+    }
   },
 
   // Barnet håller i slangen strax BAKOM munstycket (näst sista punkten). Munstycket
@@ -651,13 +663,19 @@ export default {
   _drawHose() {
     const g = this._hoseG
     if (!g || g.destroyed || !this._hose) return
-    g.clear()
-    this._hosePath(g)
-    g.stroke({ width: 24, color: 0x24607f, cap: 'round', join: 'round' })
-    this._hosePath(g)
-    g.stroke({ width: 17, color: 0x4aa3df, cap: 'round', join: 'round' })
-    this._hosePath(g)
-    g.stroke({ width: 5, color: 0xd8f2ff, alpha: 0.45, cap: 'round', join: 'round' })
+    if (this._hoseMesh) {
+      // Punktantalet är konstant, så det här flyttar bara punkter — ingen geometri
+      // byggs om och inget ritkommando skickas.
+      this._hoseMesh.uppdatera()
+    } else {
+      g.clear()
+      this._hosePath(g)
+      g.stroke({ width: 24, color: 0x24607f, cap: 'round', join: 'round' })
+      this._hosePath(g)
+      g.stroke({ width: 17, color: 0x4aa3df, cap: 'round', join: 'round' })
+      this._hosePath(g)
+      g.stroke({ width: 5, color: 0xd8f2ff, alpha: 0.45, cap: 'round', join: 'round' })
+    }
 
     // Munstycket sitter i sista punkten och pekar längs sista segmentet.
     const { dir } = this._nozzleTip()
@@ -1778,6 +1796,8 @@ export default {
     gsap.killTweensOf(this._root)
 
     ctx?.services?.voice?.cancel()
+    this._hoseMesh?.destroy() // före _root.destroy: meshen äger sin egen geometri
+    this._hoseMesh = null
     this._root?.destroy({ children: true })
     this._root = null
     this._car = null

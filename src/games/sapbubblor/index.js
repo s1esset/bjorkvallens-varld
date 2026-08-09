@@ -20,11 +20,11 @@
 // mild auto-hjälp ser till att ringen alltid blir full.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { sparkle, puff, bigCelebration, pop, breathe } from '../../lib/feedback.js'
+import { sparkle, puff, bigCelebration, pop } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { SURPRISE_KEYS, makeSurprise, makeStar } from './overraskningar.js'
 
 const TARGET_BUBBLES = 9 // håll ~7–10 bubblor i luften
@@ -172,17 +172,13 @@ export default {
     this._boboFreeArm = new Graphics()
     this._boboArm = new Graphics()
     c.addChild(this._boboFreeArm, this._boboArm)
-    const face = makeMascot(38)
-    this._boboMouth = new Graphics()
-      .ellipse(0, 14, 15, 13)
-      .fill(COLORS.ink)
-      .ellipse(0, 20, 8, 6)
-      .fill(COLORS.red)
-    this._boboMouth.alpha = 0
-    face.addChild(this._boboMouth)
+    // Ansiktet är en RIGG (lib/karaktarer.js) med `kropp: false` — den orange
+    // kulkroppen och armarna ovan ÄR Bobos svävande form här. Den handrullade
+    // gap-munnen (`_boboMouth`) är borta: riggens 'nam' ÄR att tugga och svälja.
+    this._rig = makeKaraktar({ r: 38, kropp: false })
+    const face = this._rig.view
     c.addChild(face)
     this._boboFace = face
-    this._boboBreath = breathe(face, { scale: 1.05, duration: 1.5 })
     return c
   },
 
@@ -229,11 +225,9 @@ export default {
 
   // Bobo gapar och sväljer — kort, tydlig kvittens på att bubblan togs emot.
   _boboSwallow() {
-    if (!this._alive || !this._boboMouth || this._boboMouth.destroyed) return
-    gsap.killTweensOf(this._boboMouth)
-    this._boboMouth.alpha = 1
-    gsap.to(this._boboMouth, { alpha: 0, duration: 0.45, ease: 'power2.in' })
-    if (!this._bobo.destroyed) pop(this._bobo, { scale: 1.14 })
+    if (!this._alive || !this._rig) return
+    this._rig.react('nam')
+    if (this._bobo && !this._bobo.destroyed) pop(this._bobo, { scale: 1.14 })
   },
 
   // ---- Fläktar (kontroll) --------------------------------------------------
@@ -789,6 +783,9 @@ export default {
 
   _boboCheer() {
     if (!this._alive || !this._bobo || this._bobo.destroyed) return
+    // Spelets hopp är 34 px — större än riggens `jubel` (0,5·r = 19) — så spelet
+    // äger y och riggen bidrar med minen.
+    this._rig?.setMood('stolt')
     const base = this._bobo.y
     gsap.killTweensOf(this._bobo)
     const st = { y: base }
@@ -937,7 +934,8 @@ export default {
     ctx?.ticker?.remove(this._tick)
     this._levelTimer?.kill?.()
     this._hoopTween?.kill()
-    this._boboBreath?.kill()
+    this._rig?.destroy()
+    this._rig = null
     this._gusts?.forEach((gu) => { if (gu?.gfx && !gu.gfx.destroyed) gu.gfx.destroy() })
     this._gusts = []
     this._fans?.forEach((f) => {
@@ -954,7 +952,6 @@ export default {
     this._bubbles = []
     this._pipNodes?.forEach((p) => { if (p && !p.destroyed) gsap.killTweensOf(p.scale) })
     this._pipNodes = []
-    if (this._boboMouth && !this._boboMouth.destroyed) gsap.killTweensOf(this._boboMouth)
     if (this._boboFace && !this._boboFace.destroyed) gsap.killTweensOf(this._boboFace.scale)
     if (this._bobo && !this._bobo.destroyed) {
       gsap.killTweensOf(this._bobo)

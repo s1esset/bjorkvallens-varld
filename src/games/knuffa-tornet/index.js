@@ -26,7 +26,7 @@ import { makeBoll } from '../../lib/foremal.js'
 import { topLightFill } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
 import { puff, floatText, sparkle, burst, bounceIn, bigCelebration, pop, shake } from '../../lib/feedback.js'
-import { makeBobo } from '../../lib/figurer.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
 const { Constraint, Composite, Body } = Matter
@@ -280,29 +280,39 @@ export default {
     w.interactiveChildren = false
     w.position.set(WORKER_X, FLOOR_Y - 24 - 2.36 * WORKER_R)
 
-    const bobo = makeBobo(WORKER_R)
-    w.addChild(bobo)
+    // Arbetaren är en RIGG (lib/karaktarer.js) i stället för figurer.js stillbild.
+    // Riggen har SAMMA origo (huvudets centrum) och samma 2,36·r till skuggan, så
+    // placeringen ovan står oförändrad. `w` är den yttre containern: spelet äger
+    // läget och hejar-gesten, riggen äger sin egen skala.
+    this._rig = makeKaraktar({ r: WORKER_R })
+    w.addChild(this._rig.view)
 
-    // Bygghjälm ovanpå huvudet (makeBobo har origo i huvudets centrum).
+    // Bygghjälm ovanpå huvudet (riggen har origo i huvudets centrum).
     const helmet = new Graphics()
     helmet.arc(0, -WORKER_R * 0.16, WORKER_R * 1.02, Math.PI, 0).fill(COLORS.yellow)
     helmet.roundRect(-WORKER_R * 1.2, -WORKER_R * 0.24, WORKER_R * 2.4, WORKER_R * 0.24, WORKER_R * 0.12)
       .fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orangeDark })
     helmet.roundRect(-WORKER_R * 0.1, -WORKER_R * 1.2, WORKER_R * 0.2, WORKER_R * 1.0, 4)
       .fill({ color: 0xffffff, alpha: 0.35 })
+    // Hjälmen satt med brättet på y=0 — riggens ögon ligger på −0,12·r och brynen
+    // strax ovanför, så brättet lade sig rakt över ansiktet (syns direkt i en
+    // närbild). Lyft så brättet hamnar OVANFÖR brynen.
+    helmet.y = -WORKER_R * 0.46
     w.addChild(helmet)
 
     this._worker = w
     this._root.addChild(w)
-    this._workerIdle = gsap.to(w.scale, {
-      x: 1.03, y: 1.03, duration: 2.0, yoyo: true, repeat: -1, ease: 'sine.inOut',
-    })
+    // Ingen egen andnings-tween här längre — riggen andas själv, och två skrivare
+    // på samma skala både hackar och raderar varandra.
   },
 
   // Arbetaren hejar (liten gest) respektive jublar (stor) — egen reaktion utöver konfettin.
   _workerCheer(ctx, big = false) {
     const w = this._worker
     if (!w || w.destroyed) return
+    // 'jubel' när tornet faller, 'heja' för småvinsterna på vägen — att hoppa vid
+    // varje liten träff gör firandet till bakgrundsljud.
+    this._rig?.react(big ? 'jubel' : 'heja')
     gsap.killTweensOf(w.scale)
     gsap
       .timeline()
@@ -1442,7 +1452,8 @@ export default {
     this._reloadCall?.kill()
     this._assistCall?.kill()
     this._shakeTw?.kill()
-    this._workerIdle?.kill()
+    this._rig?.destroy()
+    this._rig = null
     this._hideInvite()
     this._clearFinishCalls()
     this._removeFlag()

@@ -57,6 +57,7 @@ import { pop, wiggle, sparkle, puff, burst, floatText, ripple, bounceIn, breathe
 import { lerpColor } from '../../lib/scene.js'
 import { FONT, COLORS, shade, tint } from '../../lib/theme.js'
 import { shuffle } from '../../lib/swedish.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // ---- Layout (designkoordinater 1280×720) -----------------------------------
 const FAR_BASE = 470 // avlägsna siluetter står här
@@ -4144,7 +4145,7 @@ export default {
     this._buildMissionPanel()
 
     // Tryckyta över allt spelbart (UI-knapparna ligger ovanpå och vinner).
-    this._surface = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0xffffff, alpha: 0.001 })
+    this._surface = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill({ color: 0xffffff, alpha: 0.001 })
     this._surface.eventMode = 'static'
     this._surface.hitArea = new Rectangle(0, 0, ctx.width, ctx.height)
     this._onTapH = (e) => this._onTap(ctx, e)
@@ -4180,8 +4181,11 @@ export default {
     const g = new Graphics()
     const top = 0x8ecdf0
     const bot = 0xdff2fb
+    // Full bleed: banden breddas ±BLEED_X och en toppremsa täcker ovanför y=0 på
+    // höga skärmar (4:3-platta). 16:9-bilden är pixelidentisk.
+    g.rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, BLEED_Y).fill(top)
     for (let i = 0; i < 8; i++) {
-      g.rect(0, i * 60, ctx.width, 62).fill(lerpColor(top, bot, i / 7))
+      g.rect(-BLEED_X, i * 60, ctx.width + 2 * BLEED_X, 62).fill(lerpColor(top, bot, i / 7))
     }
     // sol med strålar
     g.circle(985, 108, 42).fill(0xffe28a)
@@ -4209,7 +4213,7 @@ export default {
       this._clouds.push(m)
     }
     // varm förorts-ton som tonas in med resan
-    this._biomeTint = new Graphics().rect(0, 0, ctx.width, SIDEWALK_BOT).fill(0xffd9a0)
+    this._biomeTint = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, SIDEWALK_BOT + BLEED_Y).fill(0xffd9a0)
     this._biomeTint.alpha = 0
     this._biomeTint.eventMode = 'none'
   },
@@ -4217,10 +4221,10 @@ export default {
   _buildStreetBase() {
     // Avlägset gatuband bakom mellanlagret (syns i gluggarna mellan husen).
     const g = new Graphics()
-    g.rect(0, STREET_TOP, 1280, SIDEWALK_TOP - STREET_TOP).fill(0xa8bcc2)
-    g.rect(0, STREET_TOP, 1280, 10).fill({ color: 0x8ba3aa, alpha: 0.7 })
-    for (let x = 30; x < 1280; x += 160) {
-      g.ellipse(x, STREET_TOP + 46, 34, 16).fill({ color: 0x7fae84, alpha: 0.45 }) // häckar
+    g.rect(-BLEED_X, STREET_TOP, 1280 + 2 * BLEED_X, SIDEWALK_TOP - STREET_TOP).fill(0xa8bcc2)
+    g.rect(-BLEED_X, STREET_TOP, 1280 + 2 * BLEED_X, 10).fill({ color: 0x8ba3aa, alpha: 0.7 })
+    for (let x = 30 - 2 * 160; x < 1280 + BLEED_X; x += 160) {
+      g.ellipse(x, STREET_TOP + 46, 34, 16).fill({ color: 0x7fae84, alpha: 0.45 }) // häckar (samma 160-rutnät, bara fler)
     }
     g.eventMode = 'none'
     this._root.addChild(g)
@@ -4228,10 +4232,10 @@ export default {
 
   _buildGround() {
     const g = new Graphics()
-    g.rect(0, SIDEWALK_TOP, 1280, SIDEWALK_BOT - SIDEWALK_TOP).fill(0xd8d3c8) // trottoar
-    g.rect(0, SIDEWALK_TOP, 1280, 5).fill({ color: 0xffffff, alpha: 0.35 })
-    g.rect(0, SIDEWALK_BOT, 1280, NEAR_BOT - SIDEWALK_BOT).fill(0x565d66) // vägkant/asfalt
-    g.rect(0, SIDEWALK_BOT, 1280, 7).fill(0x9aa1a8) // kantsten
+    g.rect(-BLEED_X, SIDEWALK_TOP, 1280 + 2 * BLEED_X, SIDEWALK_BOT - SIDEWALK_TOP).fill(0xd8d3c8) // trottoar
+    g.rect(-BLEED_X, SIDEWALK_TOP, 1280 + 2 * BLEED_X, 5).fill({ color: 0xffffff, alpha: 0.35 })
+    g.rect(-BLEED_X, SIDEWALK_BOT, 1280 + 2 * BLEED_X, NEAR_BOT - SIDEWALK_BOT + BLEED_Y).fill(0x565d66) // vägkant/asfalt (+bleed nedåt)
+    g.rect(-BLEED_X, SIDEWALK_BOT, 1280 + 2 * BLEED_X, 7).fill(0x9aa1a8) // kantsten
     g.eventMode = 'none'
     this._root.addChild(g)
     this._root.addChild(this._biomeTint)
@@ -4247,16 +4251,19 @@ export default {
   },
 
   _seedLayers(ctx) {
-    let x = -60
-    while (x < 1500) {
+    // Sådd och återfyllnad täcker bleed-zonen (±BLEED_X): på en bred telefon syns
+    // designkoordinater ner till ca −163, så ett lager som börjar på −60 lämnar
+    // en glugg i vänsterkanten tills scrollen hunnit dit.
+    let x = -60 - BLEED_X
+    while (x < 1500 + BLEED_X) {
       const s = this._mkFarSeg(this._biomeT())
       s.c.x = x
       this._farLayer.addChild(s.c)
       this._far.push(s)
       x += s.w
     }
-    x = -80
-    while (x < 1560) {
+    x = -80 - BLEED_X
+    while (x < 1560 + BLEED_X) {
       const s = this._mkMidSeg(ctx, this._biomeT(), x < 1200)
       s.c.x = x
       this._midLayer.addChild(s.c)
@@ -4737,10 +4744,13 @@ export default {
   },
 
   // ------------------------------------------------------------------ mål (spawn)
-  _spawnTarget(ctx, kind, atX = 1380, opts = {}) {
+  _spawnTarget(ctx, kind, atX = null, opts = {}) {
     // force: spelaren har själv skapat målet (fångat fönstermonster) — taket får
     // aldrig äta upp ett svar på ett tryck.
     if (!this._alive || (this._targets.length >= MAX_TARGETS && !opts.force)) return null
+    // Default-spawn utanför SYNLIG högerkant (ctx.view, läst nu): 1380 stod fullt
+    // synligt på en bred telefon (view.right ≈ 1443).
+    if (atX == null) atX = ctx.view.right + 100
     let golden = false
     if (kind === 'paket') {
       this._paketSinceGold++
@@ -5370,7 +5380,7 @@ export default {
           if (win.mc && !win.mc.destroyed) win.mc.destroy({ children: true })
           win.mc = null
           const wx = seg.c.x + win.lx
-          if (wx > -60 && wx < 1340) {
+          if (wx > ctx.view.left - 60 && wx < ctx.view.right + 60) {
             sparkle(ctx.fxLayer, wx, win.cy, { count: 6 })
             ctx.services.audio.sfx('reveal')
           }
@@ -5965,7 +5975,7 @@ export default {
             sparkle(ctx.fxLayer, m.view.x, m.view.y - 30, { count: 8 })
             floatText(ctx.fxLayer, m.view.x, m.view.y - 70, '👆', { fontSize: 56 })
           } else {
-            this._spawnTarget(ctx, this._missionKey === 'paket' ? 'paket' : this._missionKey, 1340)
+            this._spawnTarget(ctx, this._missionKey === 'paket' ? 'paket' : this._missionKey)
           }
           ctx.services.voice.replayLast()
         }
@@ -5986,12 +5996,12 @@ export default {
   _scrollLayers(ctx, sc) {
     // fjärran siluetter
     for (const s of this._far) s.c.x -= sc * 0.35
-    while (this._far.length && this._far[0].c.x + this._far[0].w < -80) {
+    while (this._far.length && this._far[0].c.x + this._far[0].w < -80 - BLEED_X) {
       const s = this._far.shift()
       s.c.destroy({ children: true })
     }
     let farEdge = this._far.length ? this._far[this._far.length - 1].c.x + this._far[this._far.length - 1].w : 1400
-    while (farEdge < 1500) {
+    while (farEdge < 1500 + BLEED_X) {
       const s = this._mkFarSeg(this._biomeT())
       s.c.x = farEdge
       this._farLayer.addChild(s.c)
@@ -6000,7 +6010,7 @@ export default {
     }
     // gatuplanets hus
     for (const s of this._mid) s.c.x -= sc
-    while (this._mid.length && this._mid[0].c.x + this._mid[0].w < -120) {
+    while (this._mid.length && this._mid[0].c.x + this._mid[0].w < -120 - BLEED_X) {
       const s = this._mid.shift()
       for (const win of s.wins) {
         if (win.state === 'broken') this._brokenCount = Math.max(0, this._brokenCount - 1)
@@ -6008,7 +6018,7 @@ export default {
       s.c.destroy({ children: true })
     }
     let midEdge = this._mid.length ? this._mid[this._mid.length - 1].c.x + this._mid[this._mid.length - 1].w : 1400
-    while (midEdge < 1560) {
+    while (midEdge < 1560 + BLEED_X) {
       const s = this._mkMidSeg(ctx, this._biomeT())
       s.c.x = midEdge
       this._midLayer.addChild(s.c)
@@ -6024,17 +6034,17 @@ export default {
     g.clear()
     // trottoar-skarvar (gatuplanets fart)
     const off1 = this._journey % 96
-    for (let x = -off1; x < 1300; x += 96) {
+    for (let x = -off1 - 4 * 96; x < 1300 + BLEED_X; x += 96) {
       g.moveTo(x, SIDEWALK_TOP + 6).lineTo(x - 6, SIDEWALK_BOT - 2).stroke({ width: 3, color: 0xb9b3a6, alpha: 0.7 })
     }
     // vägkantens streck (närmast → snabbast)
     const off2 = (this._journey * 1.7) % 140
-    for (let x = -off2; x < 1320; x += 140) {
+    for (let x = -off2 - 2 * 140; x < 1320 + BLEED_X; x += 140) {
       g.roundRect(x, SIDEWALK_BOT + 26, 58, 9, 4).fill({ color: 0xd8d3c8, alpha: 0.6 })
     }
     // små fartstreck vid kantstenen
     const off3 = (this._journey * 1.7) % 64
-    for (let x = -off3; x < 1300; x += 64) {
+    for (let x = -off3 - 4 * 64; x < 1300 + BLEED_X; x += 64) {
       g.moveTo(x, SIDEWALK_BOT + 3).lineTo(x + 20, SIDEWALK_BOT + 3).stroke({ width: 3, color: 0xffffff, alpha: 0.2 })
     }
   },

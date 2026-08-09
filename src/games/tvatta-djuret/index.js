@@ -22,7 +22,7 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, puff, sparkle, burst, breathe, floatText, shake, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, burst, breathe, floatText, shake, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -526,8 +526,15 @@ export default {
 
   // ---- Tap-tap på djuret --------------------------------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _animalTap(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._idle = 0
     const p = this._root.toLocal(e.global)
     const sel = this._selectedTool

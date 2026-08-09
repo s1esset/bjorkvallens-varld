@@ -24,11 +24,19 @@ regel gäller: reproducera innan du ändrar.
 
 | # | Var | Fynd | Bevis | Status |
 |---|-----|------|-------|:--:|
-| V9 | 14 spel (lista nedan) 🟨 | **Tysta tryck under upptagen-fas.** En pekhanterare bortar tidigt på `_busy`/`_resolving`/`_cleared` utan att ge någon återkoppling → `dod-traffyta`, alltså brott mot P0 ÅTERKOPPLING (<100 ms). 22 spel är fixade med `kvittera()` (`1168e24`, `35defca`, `8f2394c`, `560aa08`, v1.60.0); **22 kandidater i 14 spel återstår**. | `node scripts/_tystprobe.mjs`. Harnessen hittar dem bara när dess åtta sekunder råkar träffa rätt fas — tre körningar i rad gav tre olika spel (`harma-melodin` → `flipperspel` → `peka-pa-kroppen`), vilket är själva skälet att en statisk sond behövs. | ⬜ |
+| V9 | 14 spel (lista nedan) 🟨 | **Tysta tryck under upptagen-fas.** En pekhanterare bortar tidigt på `_busy`/`_resolving`/`_cleared` utan att ge någon återkoppling → `dod-traffyta`, alltså brott mot P0 ÅTERKOPPLING (<100 ms). 29 spel är fixade med `kvittera()` (`1168e24`, `35defca`, `8f2394c`, `560aa08`, `ddae3d8`, v1.61.0);
+**10 kandidater i 9 spel återstår — varav bara 4 är äkta** (se uppdelningen nedan). | `node scripts/_tystprobe.mjs`. Harnessen hittar dem bara när dess åtta sekunder råkar träffa rätt fas — tre körningar i rad gav tre olika spel (`harma-melodin` → `flipperspel` → `peka-pa-kroppen`), vilket är själva skälet att en statisk sond behövs. | ⬜ |
 
-**V9 — kvar att gå igenom:** `enhorning-glitterbajs` · `enhorningen-flyger` · `fallskarmen` ·
-`spindel-zacke-svingar` · `spindelnatet` · `studsmatta` · `tarta-i-ansiktet` · `tvatta-djuret` ·
-`valpens-bajs` · `vandkort` · `vippbradan` (+ enstaka rader i redan städade spel)
+**V9 — ÄKTA kvar (4 kandidater i 3 spel):** `enhorning-glitterbajs` (`_unicornTap`, `_bandTap`) ·
+`enhorningen-flyger` (`_steerDown`) · `fallskarmen` (`_steerDown`).
+
+**Resten av sondens lista är MEDVETET kvar — fixa dem inte:**
+
+| Rad | Varför den står kvar |
+|---|---|
+| `gravmaskinen:667` · `regnbagsmalaren:323` · `tarta-i-ansiktet:419` · `vippbradan:483` (`_onUp`) | Ett **uppsläpp** behöver inget kvitto — nedtrycket fick redan sitt. Ett andra ljud på samma gest läser som två händelser. |
+| `pruttbad:733` (`_releaseBubble`) | Falskt positivt: vakten sitter MITT i funktionen, efter att bubblan skapats. Sonden läser bara de första 22 raderna i en metod. |
+| `vandkort:206` (`_flip`) | Falskt positivt: sonden rapporterar den FÖRSTA vakten, men `_busy`-grenen en rad senare kvitterar redan via `_nudge()`. |
 
 **Klara:** `golvet-ar-lava` (5 ställen bakom en delad `_locked()`) · `glasstornet` ·
 `gravmaskinen` · `ballonglyft` · `folj-sparet` · `rakna-applen` · `gungan` · `kugghjulen` ·

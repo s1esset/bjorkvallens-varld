@@ -16,7 +16,7 @@ import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { pop, wiggle, sparkle, burst, floatText, bigCelebration, bounceIn, breathe, puff } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, burst, floatText, bigCelebration, bounceIn, breathe, puff , kvittera} from '../../lib/feedback.js'
 
 // Bytena RITAS (P0 ASSETS) — ascii-id:n, aldrig emoji som hela föremålet.
 const TREATS = ['karamell', 'klubba', 'choklad', 'larv', 'skalbagge']
@@ -269,8 +269,15 @@ export default {
 
   // --- Tap -> fångst ------------------------------------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _onTap(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     const p = this._root.toLocal(e.global)
     this._idle = 0
     this._shootAt(ctx, p)
@@ -439,7 +446,8 @@ export default {
   // --- Bred fångst (kontroll B) -------------------------------------------
 
   _shootWide(ctx) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx)
     if (this._wideCooldown > 0) return // laddar fortfarande om
     const bx = this._baseX
     const by = BASE_Y

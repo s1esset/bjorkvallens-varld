@@ -13,7 +13,7 @@ import { PhysicsWorld, MATERIALS, Matter, predictTrajectory } from '../../lib/ph
 import { createScene } from '../../lib/scene.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { Button } from '../../lib/Button.js'
-import { bigCelebration, puff, sparkle, floatText, pop, wiggle, breathe } from '../../lib/feedback.js'
+import { bigCelebration, puff, sparkle, floatText, pop, wiggle, breathe , kvittera} from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -458,8 +458,15 @@ export default {
   },
 
   // Dra den bärbara vikten -> väljer släpp-läge live; uppdaterar bågen.
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _onCarryDown(ctx, e) {
-    if (!this._alive || this._busy) return
+    if (!this._alive) return
+    if (this._busy) return this._kvitto(ctx, e)
     this._dragging = true
     this._idle = 0
     this._hideDragHint()

@@ -15,7 +15,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, nudge, Matter } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { makeStjarna } from '../../lib/foremal.js'
-import { floatText, sparkle, puff, burst, bigCelebration, pop } from '../../lib/feedback.js'
+import { floatText, sparkle, puff, burst, bigCelebration, pop , kvittera} from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { makeBobo } from '../../lib/figurer.js'
 import { COLORS } from '../../lib/theme.js'
@@ -307,8 +307,15 @@ export default {
 
   // ---- Tryck = liten extra-studs (tap-fallback för de minsta) -----------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _boost(ctx) {
-    if (!this._alive || this._resolving || this._gliding) return
+    if (!this._alive) return
+    if (this._resolving || this._gliding) return this._kvitto(ctx)
     this._idle = 0
     this._tapBoost = true // nästa landning får en garanterad hög studs
     this._dipBed()
@@ -367,7 +374,8 @@ export default {
   // ---- Dra mattan i x (sikta) + y (spänn för höjd) ---------------------------
 
   _rigDown(ctx, e) {
-    if (!this._alive || this._resolving || this._gliding) return
+    if (!this._alive) return
+    if (this._resolving || this._gliding) return this._kvitto(ctx, e)
     this._idle = 0
     this._dragging = false
     this._dragStart = this._root.toLocal(e.global)

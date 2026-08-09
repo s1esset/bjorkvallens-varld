@@ -11,7 +11,7 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, puff, sparkle, floatText, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { makeElvira } from '../../lib/figurer.js'
 import { COLORS } from '../../lib/theme.js'
 
@@ -428,8 +428,15 @@ export default {
 
   // ---- A) Vägval — tap-to-walk -------------------------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _onWalkTap(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     const p = this._root.toLocal(e.global)
     this._walkTo(ctx, p.x, p.y)
   },
@@ -597,7 +604,8 @@ export default {
   // ---- B) Skyffeln — drag (med tap-fallback) -----------------------------
 
   _scoopDown(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._poke()
     this._scooping = true
     this._returnTween?.kill()

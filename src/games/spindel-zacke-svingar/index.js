@@ -21,7 +21,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, sparkle, floatText, burst, breathe, bounceIn } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, floatText, burst, breathe, bounceIn , kvittera} from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -424,8 +424,15 @@ export default {
   },
 
   // ------------------------------------------------------------------ släpp/fäst
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _onSkyTap(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     if (this._state === 'swing') {
       this._release(ctx, false)
     } else {

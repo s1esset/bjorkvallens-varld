@@ -9,7 +9,7 @@
 // Allt ritas programmatiskt (Pixi Graphics) — inga externa assets.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { puff, pop, wiggle, bounceIn, sparkle } from '../../lib/feedback.js'
+import { puff, pop, wiggle, bounceIn, sparkle , kvittera} from '../../lib/feedback.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -373,8 +373,15 @@ export default {
   // ---- Tårt-flick (dra + släpp med fart) ----------------------------------
 
   // Pekning på tårtan: starta gest. Omedelbar feedback (<100ms): ljud + studs.
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _onCakeDown(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._idle = 0
     this._holding = true
     this._dragMoved = false
@@ -510,7 +517,8 @@ export default {
 
   // Tryck på clownen = mjuk auto-flick av den väntande tårtan (stor träffyta).
   _onClownTap(ctx) {
-    if (!this._alive || this._resolving || this._holding) return
+    if (!this._alive || this._holding) return
+    if (this._resolving) return this._kvitto(ctx)
     ctx.services.audio.sfx('tap')
     pop(this._cake)
     const a = this._assistVel()
@@ -519,7 +527,8 @@ export default {
 
   // Tomt tryck bredvid allt: lekfull vingel + mjukt ljud. Aldrig en bestraffning.
   _emptyTap(ctx) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx)
     this._idle = 0
     ctx.services.audio.sfx('soft')
     wiggle(this._cake)

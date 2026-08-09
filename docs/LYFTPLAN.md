@@ -80,7 +80,7 @@ med `form.js`-fyllningar, alltså A2 och C1.3 i samma ändring. 10 definitioner 
 En dubblett i en grep-räkning är inte samma sak som en dubblett i bilden. Läs alla kopiorna
 innan du slår ihop dem.
 
-### A3. Karaktärssystemet är ett ansikte, inte en karaktär **[Medium]**
+### A3. Karaktärssystemet är ett ansikte, inte en karaktär **[Medium]** — ✅ BYGGT 2026-08-09 (v1.55.0)
 
 Bobo förekommer i **29** spel, Elvira i 12, Zacke i 11. `makeMascot()` är ett statiskt huvud
 utan uttrycks-API, så alla 29 spel handrullar sina reaktioner. `figurer.js` har fyra figurer.
@@ -88,9 +88,43 @@ utan uttrycks-API, så alla 29 spel handrullar sina reaktioner. `figurer.js` har
 Det här **är** det app-breda mönstret "ingen mottagare/publik" i `docs/games/README.md` — det
 är inte ett per-spel-problem, det är en saknad delad rigg.
 
-**Grepp:** `src/lib/karaktarer.js` med (a) en rigg (huvud · kropp · armar · ögon som egna lager),
-(b) `setMood('glad'|'forvanad'|'hungrig'|'ledsen'|'stolt')`, (c) `react(handelse)` som spelar
-en kort reaktion. Ett anrop per spel i stället för 29 handskrivna maskotar.
+✅ **`src/lib/karaktarer.js` byggd.** `makeKaraktar({ r, kropp, palett, idle })` ger en rigg där
+huvud · ögon · pupiller · bryn · mun · armar är EGNA noder, så ett humörbyte är en tween på
+några transformer i stället för `clear()` + ny geometri. API: `setMood(namn)` (sju humör:
+`glad · stolt · forvanad · nyfiken · hungrig · ledsen · somnig`) · `react(handelse)`
+(`jubel · hoppsan · nyfiken · hej · nam` — kort reaktion som ÅTERGÅR till humöret) ·
+`look(x, y)` (pupillerna följer det barnet drar) · `blink()` · `idle(på/av)` (andning +
+slumpade blinkningar) · `destroy()`.
+
+Humören är **ren data** i `MOODS`, inte ritgrenar: en ny min är fem tal i en tabell.
+
+**Två fel som bara BILDEN hittade — tabellen såg rimlig ut i båda fallen:**
+
+1. **Brynens tecken avgör om figuren ler eller läxar upp.** Ett negativt `brynLut` sänker den
+   inre änden = den arga brynryggen. Första utkastet hade `ledsen: −0.3` och `forvanad: −0.22`,
+   och i skärmdumpen stod Bobo och såg **arg** ut — alltså en tillsägelse, precis det P0
+   MOTGÅNG förbjuder.
+2. **Spegla aldrig ett bryn med `scale.x = −1`.** Ett negativt x-skalvärde vänder också
+   rotationens visuella riktning, så samma `rotation` gav ett ledset bryn på ena sidan och ett
+   argt på den andra. Formen är en symmetrisk rak linje: spegla med rotationens TECKEN.
+
+Dessutom: `sphereFill` med standardvärden (`dark 0.32`) tog grädden ner i grått och gjorde
+huvudet till ett silverägg. Volym ja, färgbyte nej — `{ dark: 0.1, highlight: 0.2 }`.
+
+**Verktyg: `scripts/_karaktarbild.mjs`** ritar alla humör i ett rutnät, kan frysa mitt i en
+reaktion (`--reaktion jubel`) och river alla riggar i samma körning för att bevisa
+exit-säkerheten. ⚠️ Notera: en **bar modulspecifier** (`import('pixi.js')`) går inte att använda
+i en sådan sond — Vite resolvar bara i modulgrafen, inte i webbläsarens `import()`. Importera
+projektets egna sökvägar (`/src/lib/...`).
+
+**Första kund: `harma-melodin`** — tre handritade Graphics och en egen `_setMood`/`_drawMouth`
+ersatta av riggen. Koden blev **kortare**, och Bobo jublar nu när hela sekvensen sitter i
+stället för att bara byta mun. `kropp: false` med flit: plattorna nedtill spänner y 310–590 och
+en hel kropp hade lagt sig över dem — riggen ska ersätta det som fanns, inte smyga in en
+layoutändring.
+
+⬜ Kvar: de övriga 22 spelen med `makeMascot`/`makeBobo`, och de fyra som fortfarande har egen
+mimik (`kittla-figuren` · `mata-monstret` · `peka-pa-kroppen` · `pruttbad`).
 
 ### A4. Delade libs som inte nått ut **[Quick]** per spel
 
@@ -582,7 +616,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ✅ v1.45–46.0 |
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ⬜ |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 23 fysikspel | ✅ v1.52.0 |
-| 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ⬜ |
+| 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(1 kund, 22 kvar)* |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ⬜ |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |

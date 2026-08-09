@@ -9,6 +9,7 @@ import { gsap } from 'gsap'
 import { sparkle, pop, wiggle, bigCelebration, kvittera } from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { Button } from '../../lib/Button.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 
 // Fyra plattor (2x2-rutnät, mitt 640,320). Varje platta har egen färg, plats, ikon.
 const PAD_DEFS = [
@@ -142,25 +143,17 @@ export default {
     return pad
   },
 
-  // Liten glad maskot (Pixi Graphics): kropp + ögon (kan "blunda") + mun (humör).
+  // Bobo som RIGG (lib/karaktarer.js) i stället för tre handritade Graphics. Spelet
+  // hade tre miner; riggen har sju plus reaktioner, blinkningar och andning — och
+  // koden blev kortare, inte längre.
+  //
+  // `kropp: false` med flit: plattorna nedtill spänner y 310–590, och en hel kropp
+  // (~2,4 × ansiktsradien nedåt) hade lagt sig över den nedre raden. Riggen ska
+  // ersätta det som fanns, inte smyga in en layoutändring.
   _buildMascot() {
-    const m = new Container()
-    m.position.set(640, 320)
-    m.eventMode = 'none'
-    m.interactiveChildren = false
-
-    const body = new Graphics().circle(0, 0, 70).fill(COLORS.cream).stroke({ width: 6, color: COLORS.orange })
-
-    const eyes = new Container()
-    eyes.addChild(new Graphics().circle(-24, -10, 9).fill(COLORS.ink))
-    eyes.addChild(new Graphics().circle(24, -10, 9).fill(COLORS.ink))
-
-    const mouth = new Graphics()
-
-    m.addChild(body, eyes, mouth)
-    this._mascot = m
-    this._eyes = eyes
-    this._mouth = mouth
+    this._kar = makeKaraktar({ r: 62, kropp: false })
+    this._kar.view.position.set(640, 320)
+    this._mascot = this._kar.view
   },
 
   // Tänd en platta: studs + glöd + plattans RIKTIGA ton. Glöd/studs skalar en aning med
@@ -255,8 +248,10 @@ export default {
     if (!this._alive) return
     this._state = 'showing'
     this._btn?.setEnabled(false)
-    this._setMood('happy')
-    pop(this._mascot)
+    // Hela sekvensen rätt är rundans stora ögonblick — Bobo får JUBLA (stolt min +
+    // hopp), inte bara byta mun. Det är hela poängen med en rigg: mottagaren firar
+    // med barnet i stället för att titta på.
+    this._kar?.react('jubel')
     // Slut-ackord: alla fyra toner samtidigt -> ett litet glatt "klart!"-ackord.
     PAD_FREQ.forEach((freq) => ctx.services.audio.tone({ freq, dur: 0.7, type: 'sine', vol: 0.24 }))
     bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
@@ -307,41 +302,15 @@ export default {
     }
   },
 
-  // Maskotens humör (ögon + mun). Instant -> exit-säkert (ingen kvardröjande tween).
+  // Spelets tre lägen mappade på riggens humör. `listen` blev `nyfiken` (lutat huvud,
+  // vidöppna ögon) och inte `somnig`: Bobo LYSSNAR uppmärksamt under demon, han
+  // somnar inte. Att blunda var det gamla ansiktets enda sätt att visa "jag lyssnar";
+  // med ett lutat huvud behövs inte den kompromissen.
   _setMood(mood) {
-    const eyes = this._eyes
-    if (!eyes || eyes.destroyed || !this._mascot || this._mascot.destroyed) return
-    if (mood === 'listen') {
-      eyes.scale.y = 0.18 // blundar/lyssnar
-      this._drawMouth('neutral')
-      this._mascot.rotation = 0
-    } else if (mood === 'happy') {
-      eyes.scale.y = 1
-      this._drawMouth('smile')
-      this._mascot.rotation = 0
-    } else {
-      // curious
-      eyes.scale.y = 1
-      this._drawMouth('o')
-      wiggle(this._mascot)
-    }
-  },
-
-  _drawMouth(type) {
-    const m = this._mouth
-    if (!m || m.destroyed) return
-    m.clear()
-    if (type === 'smile') {
-      const r = 22
-      const a0 = 0.18 * Math.PI
-      const a1 = 0.82 * Math.PI
-      // moveTo före arc (Pixi v8: kurvor behöver startpunkt).
-      m.moveTo(Math.cos(a0) * r, 6 + Math.sin(a0) * r).arc(0, 6, r, a0, a1).stroke({ width: 5, color: COLORS.ink })
-    } else if (type === 'o') {
-      m.circle(0, 14, 9).fill(COLORS.ink)
-    } else {
-      m.moveTo(-14, 14).lineTo(14, 14).stroke({ width: 5, color: COLORS.ink })
-    }
+    if (!this._kar) return
+    if (mood === 'listen') this._kar.setMood('nyfiken')
+    else if (mood === 'happy') this._kar.setMood('glad')
+    else this._kar.react('hoppsan') // förvånad, aldrig sur (P0 MOTGÅNG)
   },
 
   // Bygg sekvensen utan att samma platta upprepas direkt (undvik 2,2,2,2 -> känns
@@ -375,10 +344,10 @@ export default {
       gsap.killTweensOf(p.scale)
       if (p._glow) gsap.killTweensOf(p._glow)
     })
-    if (this._mascot) {
-      gsap.killTweensOf(this._mascot)
-      gsap.killTweensOf(this._mascot.scale)
-    }
+    // Riggen äger sina egna tweens (andning, blink, reaktioner) och river dem själv.
+    this._kar?.destroy()
+    this._kar = null
+    this._mascot = null
     gsap.killTweensOf(this._root)
     ctx.services.voice.cancel?.()
     this._root?.destroy({ children: true })

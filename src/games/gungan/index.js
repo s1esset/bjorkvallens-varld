@@ -21,7 +21,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { makeBobo } from '../../lib/figurer.js'
-import { pop, wiggle, sparkle, floatText, burst, breathe, puff } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, floatText, burst, breathe, puff , kvittera} from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -139,7 +139,7 @@ export default {
     this._pump = new Graphics().rect(0, 90, ctx.width, ctx.height - 90).fill({ color: 0x000000, alpha: 0 })
     this._pump.eventMode = 'static'
     this._pump.hitArea = new Rectangle(0, 90, ctx.width, ctx.height - 90)
-    this._hPumpDown = (e) => this._pumpDown(e)
+    this._hPumpDown = (e) => this._pumpDown(ctx, e)
     this._hPumpMove = (e) => this._pumpMove(e)
     this._hPumpUp = (e) => this._pumpUp(ctx, e)
     this._pump.on('pointerdown', this._hPumpDown)
@@ -438,8 +438,16 @@ export default {
     this._toggleGlow.alpha = this._strong ? 0.35 : 0
   },
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e, mal) {
+    const p = mal && !mal.destroyed ? ctx.fxLayer.toLocal(mal.getGlobalPosition())
+      : e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _toggleStrong(ctx) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx)
     this._sinceTap = 0
     this._didIdleCue = false
     this._strong = !this._strong
@@ -453,8 +461,9 @@ export default {
   },
 
   // ----------------------------------------------------------------- pumpa
-  _pumpDown(e) {
-    if (!this._alive || this._resolving) return
+  _pumpDown(ctx, e) {
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._pumpStart = this._root.toLocal(e.global)
     this._pumpDist = 0
     this._pump.on('globalpointermove', this._hPumpMove)

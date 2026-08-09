@@ -14,7 +14,7 @@
 // fördröjda anrop, breathe/shake-tweens och flyg-tweens dödas i destroy().
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, wiggle, floatText, ripple, shake, burst, breathe, puff } from '../../lib/feedback.js'
+import { bounceIn, wiggle, floatText, ripple, shake, burst, breathe, puff , kvittera} from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { makeSquirrel } from '../../lib/figurer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
@@ -432,8 +432,16 @@ export default {
   },
 
   // Plocka en frukt: räkna upp (ljud+ring+svävtal+stor siffra), flyg till korgen.
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e, mal) {
+    const p = mal && !mal.destroyed ? ctx.fxLayer.toLocal(mal.getGlobalPosition())
+      : e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _pick(ctx, a) {
-    if (!this._alive || this._resolving || a._picked) return
+    if (!this._alive) return
+    if (this._resolving || a?._picked) return this._kvitto(ctx, null, a)
     a._picked = true
     a.eventMode = 'none'
     this._idle = 0
@@ -616,7 +624,8 @@ export default {
 
   // Tomt tryck (bredvid frukten): mjukt ljud + ring där fingret var + vänlig vingel.
   _emptyTap(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._idle = 0
     ctx.services.audio.sfx('soft')
     if (e?.global) {

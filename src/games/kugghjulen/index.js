@@ -15,7 +15,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, puff, sparkle, burst, breathe, bigCelebration, floatText, ripple } from '../../lib/feedback.js'
+import { bounceIn, pop, puff, sparkle, burst, breathe, bigCelebration, floatText, ripple , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -669,8 +669,16 @@ export default {
 
   // ---- Veva ---------------------------------------------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e, mal) {
+    const p = mal && !mal.destroyed ? ctx.fxLayer.toLocal(mal.getGlobalPosition())
+      : e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _crankDown(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._autoCrankTween?.kill()
     this._cranking = true
     this._crankMoved = false

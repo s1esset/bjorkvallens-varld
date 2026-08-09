@@ -14,7 +14,7 @@
 // Allt ritas programmatiskt (Pixi Graphics + emoji) — inga externa tillgångar.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { pop, wiggle, puff, sparkle, floatText, ripple, burst, breathe } from '../../lib/feedback.js'
+import { pop, wiggle, puff, sparkle, floatText, ripple, burst, breathe , kvittera} from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, DESIGN_W } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -436,9 +436,17 @@ export default {
 
   // ---- kittling -----------------------------------------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e, mal) {
+    const p = mal && !mal.destroyed ? ctx.fxLayer.toLocal(mal.getGlobalPosition())
+      : e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _tickle(zon) {
     const ctx = this._ctx
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, null, zon)
     const now = performance.now()
     if (now < zon._until) return // mjuk debounce mot snabbtryck på SAMMA zon
     zon._until = now + 200

@@ -19,7 +19,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { puff, sparkle, burst, pop, wiggle, breathe, floatText, bigCelebration } from '../../lib/feedback.js'
+import { puff, sparkle, burst, pop, wiggle, breathe, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -498,8 +498,16 @@ export default {
 
   // ---- Bälg: tryck (liten pust) + svep (stor pust) ------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e, mal) {
+    const p = mal && !mal.destroyed ? ctx.fxLayer.toLocal(mal.getGlobalPosition())
+      : e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _bellowsDown(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._idle = 0
     this._bellowsStart = { x: e.global.x, y: e.global.y }
     this._bellowsMax = 0
@@ -561,7 +569,8 @@ export default {
   // ---- Marshmallow: eget pekar-grepp (fri placering över elden) -----------
 
   _marshDown(ctx) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx)
     this._idle = 0
     this._holding = true
     this._marshMoved = false

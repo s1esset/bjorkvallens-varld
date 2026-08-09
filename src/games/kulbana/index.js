@@ -17,7 +17,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { makeMascot } from '../../lib/mascot.js'
-import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, bigCelebration, floatText, shake } from '../../lib/feedback.js'
+import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, bigCelebration, floatText, shake , kvittera} from '../../lib/feedback.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -294,8 +294,16 @@ export default {
 
   // Frivillig hjälp: FÖRSTA trycket lutar närmaste ramp (synligt "putt"), ANDRA
   // trycket glider kulan hem. Barnet väljer själv — bygget löser sig aldrig i tysthet.
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e, mal) {
+    const p = mal && !mal.destroyed ? ctx.fxLayer.toLocal(mal.getGlobalPosition())
+      : e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _useHelp(ctx) {
-    if (!this._alive || this._falling || this._resolving || this._gliding) return
+    if (!this._alive) return
+    if (this._falling || this._resolving || this._gliding) return this._kvitto(ctx)
     this._idle = 0
     if (this._helpStage === 0) {
       this._helpStage = 1
@@ -782,7 +790,8 @@ export default {
 
   // Tap i tomrummet: flytta vald del dit (tap-tap-flytt) eller glad puff.
   _fieldTap(ctx, e) {
-    if (!this._alive || this._falling || this._resolving || this._gliding) return
+    if (!this._alive) return
+    if (this._falling || this._resolving || this._gliding) return this._kvitto(ctx, e)
     const p = this._root.toLocal(e.global)
     this._idle = 0
     if (this._selected && !this._selected.destroyed) {

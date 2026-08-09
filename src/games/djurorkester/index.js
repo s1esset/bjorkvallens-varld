@@ -10,7 +10,7 @@
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { randomFrom } from '../../lib/swedish.js'
-import { pop, floatText, sparkle } from '../../lib/feedback.js'
+import { pop, floatText, sparkle, squash } from '../../lib/feedback.js'
 import { lerpColor } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
@@ -149,7 +149,8 @@ export default {
     const djur = card._djur
     audio.sfx('pop')
 
-    this._hop(card)
+    // Receptet bor numera i feedback.squash() — samma tal, delat av alla spel.
+    squash(card, { hop: 46 })
 
     // Nottecken stiger upp från kortets topp. Låg ton = stort tecken som stiger lågt,
     // hög ton = litet tecken som stiger högt (visuell tonhöjd = enkel musikteori).
@@ -225,23 +226,6 @@ export default {
         for (const c of cards) if (c && !c.destroyed && c._inner) c._inner.rotation = 0
       },
     })
-  },
-
-  // Squash-and-stretch + ett litet hopp uppåt och tillbaka. Springigt och glatt.
-  _hop(card) {
-    gsap.killTweensOf(card.scale)
-    gsap.killTweensOf(card)
-    const home = card._homeY
-    card.y = home
-    gsap
-      .timeline()
-      .to(card.scale, { x: 1.16, y: 0.84, duration: 0.09, ease: 'power2.out' })
-      .to(card.scale, { x: 0.9, y: 1.18, duration: 0.12, ease: 'power2.out' })
-      .to(card.scale, { x: 1, y: 1, duration: 0.34, ease: 'back.out(2.6)' })
-    gsap
-      .timeline()
-      .to(card, { y: home - 46, duration: 0.18, ease: 'power2.out' })
-      .to(card, { y: home, duration: 0.4, ease: 'bounce.out' })
   },
 
   // Per frame: driv bakgrundstakten (slag-ljud + synkron puls på alla kort) och idle.

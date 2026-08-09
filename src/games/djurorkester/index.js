@@ -14,6 +14,7 @@ import { pop, floatText, sparkle } from '../../lib/feedback.js'
 import { lerpColor } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Djurdata (delmängd av vilket-djur-later). emoji + fras (lätet rösten "sjunger" om
 // inget riktigt klipp finns) + note (en ton i en C-dur-pentaton skala så vilken
@@ -77,6 +78,15 @@ export default {
   // Bygg rutnätet en gång: sex djurkort, var sin distinkt färg, studsar in.
   _build(ctx) {
     if (!this._alive) return
+    // Egen bakgrund med bleed åt alla håll: spelet vilade på appens letterbox-creme,
+    // som på breda telefoner blir synliga lister (kant-cream). Tonen är warm-temats
+    // 0xfff0d6, INTE exakt creme — annars går scen och letterbox inte att skilja åt
+    // (se kantCream i scripts/bildkoll.mjs).
+    const bg = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
+      .fill(0xfff0d6)
+    bg.eventMode = 'none'
+    this._root.addChild(bg)
     const palette = PLAYFUL // sex första färgerna räcker till sex distinkta kort
     const gridW = COLS * CARD_W + (COLS - 1) * GAP_X
     const gridH = ROWS * CARD_H + (ROWS - 1) * GAP_Y

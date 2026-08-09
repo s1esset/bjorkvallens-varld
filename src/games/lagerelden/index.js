@@ -20,7 +20,7 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { puff, sparkle, burst, pop, wiggle, breathe, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
@@ -256,9 +256,17 @@ export default {
     this._boboArm.eventMode = 'none'
     this._root.addChild(this._boboArm)
     this._boboBase = { x: 520, y: 118 }
-    this._bobo = makeMascot(54)
-    this._bobo.position.set(this._boboBase.x, this._boboBase.y)
+    // Riggen i en YTTRE container: spelet äger `y` (firandets fyra hopp) och `pop`,
+    // riggen sin egen `view.scale` (andningen). `kropp: false` — Bobo tittar fram
+    // över ett moln och håller fatet med en ritad arm; en björnkropp hade hängt ner
+    // GENOM molnet i stället för att ersätta något.
+    this._bobo = new Container()
     this._bobo.eventMode = 'none'
+    this._bobo.interactiveChildren = false
+    this._kar = makeKaraktar({ r: 54, kropp: false })
+    this._bobo.addChild(this._kar.view)
+    this._bobo.position.set(this._boboBase.x, this._boboBase.y)
+    this._kar.setMood('hungrig') // han VÄNTAR på mat — det är hans roll i spelet
     this._root.addChild(this._bobo)
 
     // 11) Order-fat uppe i mitten: tomma platser som fylls med färdigrostad mat.
@@ -399,6 +407,9 @@ export default {
     const left = this._plateLeft ?? 594
     this._boboBase = { x: Math.max(108, left - 78), y: 122 }
     b.position.set(this._boboBase.x, this._boboBase.y)
+    // Ny order = tomt fat = hungrig igen. Utan den här raden hade `stolt` från förra
+    // firandet blivit hans permanenta min.
+    this._kar?.setMood('hungrig')
     // Armen kommer UNDER huvudet (annars läser den som en pratbubbleflik) och har en
     // mörk kontur + tass, så den syns som en arm som håller upp fatet.
     const arm = this._boboArm
@@ -435,10 +446,13 @@ export default {
   },
 
   // Hungriga Bobo mumsar en levererad marshmallow (mottagaren för det man rostat).
+  // Tuggandet är riggens `nam` — munnen öppnas och stängs fyra gånger — i stället för
+  // en skal-puls på lådan runt honom. Det är skillnaden mot att bara studsa: en figur
+  // som ÄTER är ett svar på det barnet gjorde.
   _boboChomp(ctx) {
     const b = this._bobo
     if (!b || b.destroyed) return
-    pop(b, { scale: 1.18 })
+    this._kar?.react('nam')
     floatText(ctx.fxLayer, b.x, b.y - 44, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 40 })
     if (Math.random() < 0.6) ctx.services.voice.say(randomFrom(['Mums!', 'Så gott!', 'Tack!']))
   },
@@ -720,6 +734,13 @@ export default {
     if (!this._alive) return
     const dt = clamp(ticker.deltaMS / 16.67, 0, 3)
 
+    // Den hungrige följer maten med blicken — över elden, hela vägen upp till fatet.
+    // Det gör väntan till något man SER, inte bara ett tomt fat att fylla.
+    if (this._kar && this._bobo && !this._bobo.destroyed && this._marsh && !this._marsh.destroyed) {
+      const p = this._bobo.toLocal(this._marsh.getGlobalPosition())
+      this._kar.look(p.x, p.y)
+    }
+
     // Decay: luft pyser ut, ved sjunker långsamt (aldrig under basnivå).
     this._air *= Math.pow(0.96, dt)
     this._fuel = Math.max(BASE_FUEL, this._fuel - 0.0008 * dt)
@@ -947,6 +968,10 @@ export default {
     burst(ctx.fxLayer, FIRE_X, 110, { count: 16 })
     floatText(ctx.fxLayer, FIRE_X, 64, '😋', { fontSize: 64 })
     if (this._bobo && !this._bobo.destroyed) {
+      // Spelets fyra hopp på 40 px är STÖRRE än riggens `jubel` (0,5·r = 27) och äger
+      // därför `y`. Riggen bidrar med minen i stället — annars hade två tweens skrivit
+      // samma tal och hoppet blivit hackigt.
+      this._kar?.setMood('stolt')
       gsap.killTweensOf(this._bobo)
       gsap.to(this._bobo, { y: this._boboBase.y - 40, duration: 0.24, yoyo: true, repeat: 3, ease: 'power2.out', onComplete: () => { if (this._bobo && !this._bobo.destroyed) this._bobo.y = this._boboBase.y } })
     }
@@ -1046,6 +1071,8 @@ export default {
       gsap.killTweensOf(this._bobo)
       gsap.killTweensOf(this._bobo.scale)
     }
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
     for (const rec of this._logs || []) {
       if (rec.view && !rec.view.destroyed) gsap.killTweensOf(rec.view)
     }

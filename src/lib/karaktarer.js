@@ -112,6 +112,7 @@ export class Karaktar {
       g.circle(sida * r * 0.5, -r * 0.8, r * 0.2).fill(p.ansikte)
       arm.addChild(g)
       arm.pivot.set(0, 0)
+      arm._sida = sida
       return arm
     })
 
@@ -228,10 +229,32 @@ export class Karaktar {
   // En kort reaktion som ÅTERGÅR till humöret. Det är skillnaden mot setMood:
   // en reaktion är en händelse, ett humör är ett tillstånd.
   //   jubel   rätt svar, mål, klart
+  //   heja    barnet HÅLLER PÅ och det går bra — tassarna upp, ingen hoppning
   //   hoppsan något gick fel — förvånad, ALDRIG sur (P0 MOTGÅNG)
   //   nyfiken barnet håller på med något
   //   hej     hälsning vid start
   //   nam     tuggar / tar emot något
+  //
+  // `heja` och `jubel` är AVSIKTLIGT olika. En knuff i gungan och ett kast i
+  // bowlingen händer om och om igen — `jubel`s hopp på var och en gör firandet
+  // till bakgrundsljud, och då finns ingenting kvar som markerar att målet
+  // faktiskt nåddes. Publikens påhejning är liten och upprepningsbar; firandet
+  // är stort och sällsynt.
+  // Armgest = svinga UTÅT (`+sida`), aldrig uppåt. Det är kontraintuitivt och därför
+  // värt en not: i vila står tassarna redan uppe vid huvudet (axeln på `sida·0.54r`,
+  // tassen på `sida·1.04r, 0.24r`) medan huvudet når ut till `0.97r` på den höjden.
+  // Marginalen är alltså 0,07·r. **Uppmätt i `_karaktarbild.mjs`:** en gest som
+  // roterar armen uppåt — åt vilket håll som helst, redan vid 0,62 rad — för in
+  // tassen bakom huvudsilhuetten och Bobo står med armarna BORTA. Utåt syns hela
+  // armen. En "hurra"-pose i den här riggen är utsträckta armar, inte höjda.
+  _svingArmar(tl, grad, { tid = 0.16, tillbaka = 0.3, start = 0, ater = 0.5 } = {}) {
+    if (!this.armar) return
+    for (const arm of this.armar) {
+      tl.to(arm, { rotation: arm._sida * grad, duration: tid, ease: 'back.out(2)' }, start)
+      tl.to(arm, { rotation: 0, duration: tillbaka, ease: 'power2.inOut' }, ater)
+    }
+  }
+
   react(handelse) {
     if (!this._alive) return this
     const r = this._r
@@ -248,10 +271,16 @@ export class Karaktar {
       // slutposition hade då teleporterat honom tillbaka till startpunkten.
       tl.to(this.view, { y: `-=${r * 0.5}`, duration: 0.16, ease: 'power2.out' })
         .to(this.view, { y: `+=${r * 0.5}`, duration: 0.26, ease: 'bounce.out' })
-      if (this.armar) {
-        tl.to(this.armar[0], { rotation: -1.15, duration: 0.16 }, 0).to(this.armar[1], { rotation: 1.15, duration: 0.16 }, 0)
-        tl.to(this.armar[0], { rotation: 0, duration: 0.3 }, 0.5).to(this.armar[1], { rotation: 0, duration: 0.3 }, 0.5)
-      }
+      this._svingArmar(tl, 1.15)
+    } else if (handelse === 'heja') {
+      this.setMood('glad', { direkt: true })
+      // Halva `jubel`s utslag och ett litet lyft. Relativt (`-=`/`+=`) av samma
+      // skäl som där: riggen kan flyttas av spelet medan reaktionen rullar.
+      this._svingArmar(tl, 0.55, { tid: 0.14, tillbaka: 0.34, ater: 0.36 })
+      // Utan kropp (bara ett huvud i ett spel som ritar sin egen figur) finns inga
+      // armar att lyfta — då bär huvudets nick hela gesten i stället för ingenting.
+      tl.to(this.view, { y: `-=${r * 0.16}`, duration: 0.14, ease: 'power2.out' }, 0)
+        .to(this.view, { y: `+=${r * 0.16}`, duration: 0.34, ease: 'bounce.out' }, 0.14)
     } else if (handelse === 'hoppsan') {
       this.setMood('forvanad', { direkt: true })
       tl.to(this.huvud, { rotation: 0.16, duration: 0.08 })
@@ -264,6 +293,7 @@ export class Karaktar {
     } else if (handelse === 'hej') {
       this.setMood('glad', { direkt: true })
       if (this.armar) {
+        // Samma riktning som `_svingArmar` — vinkningen sker utanför silhuetten.
         tl.to(this.armar[1], { rotation: 1.0, duration: 0.14 })
           .to(this.armar[1], { rotation: 0.62, duration: 0.16 })
           .to(this.armar[1], { rotation: 1.0, duration: 0.16 })

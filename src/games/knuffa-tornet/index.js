@@ -16,11 +16,17 @@
 //
 // INGET misslyckande: missar är roliga (tyst puff + gnistror), och efter ett par svingar
 // får barnet en kraftig hjälp-sving, och räcker inte den ramlar alla klossar av sig själva
-// så tornet ALLTID faller. Krock-LJUD är borttagna (på begäran) — slag är tysta, men
-// belöning/firande och mjuka ljud finns kvar. Allt ritas programmatiskt (Pixi + emoji).
+// så tornet ALLTID faller. Allt ritas programmatiskt (Pixi + emoji).
+//
+// LJUDET VID SLAGET: en gång var krockljuden borttagna för att de lät som en buzzer.
+// De är tillbaka, men snälla OCH olika: varje kloss bär ett material ur den delade
+// tabellen (`MATERIAL` i physics.js) och talar med dess röst — sten dunsar mörkt på
+// 120 Hz, trä knackar på 240, gummi studsar på 320, kronan klingar av metall på 760 och
+// glaset klirrar på 1180. Volym OCH tonhöjd växer med slagfarten, och strypningen på
+// 0,12 s står kvar. Mätt med `node scripts/_tornprobe.mjs`.
 import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Matter } from '../../lib/physics.js'
+import { PhysicsWorld, Matter, MATERIAL, mat } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
 import { topLightFill } from '../../lib/form.js'
@@ -115,14 +121,18 @@ const SHAPES = [
 // Friktionen var 0,7/1,4 på ALLA klossar — så hög att stapeln betedde sig som ett enda
 // limmat block och sköts åt sidan i stället för att rasa. Låg friktion mellan klossar gör
 // att de skvätter isär av ett slag; stenen behåller sitt grepp och är fortfarande ankaret.
+// Varje klosstyp har också en RÖST ur den delade materialtabellen (`MATERIAL` i
+// physics.js, LYFTPLAN B4): sten dunsar mörkt, glas klirrar ljust, gummi studsar och trä
+// knackar. Fysiktalen nedan är spelets EGNA och trimmade — `mat()` lägger dem sist, så
+// materialet ger klossen en röst utan att röra en enda studs eller friktion.
 const KINDS = {
-  normal: { dens: 1, rest: 0.06, fric: 0.4, fricS: 0.7 },
+  normal: { dens: 1, rest: 0.06, fric: 0.4, fricS: 0.7, rost: 'tra' },
   // Stenen var 3,4× massa med frictionStatic 1,4. Mätt: den kröp 20 px per fullträff
   // även med stora kulan och behövde sju svingar för att nå kanten. 2,2× är fortfarande
   // tydligt tyngst men går att skjuta iväg — vilket är hela poängen med tyngdknappen.
-  sten: { dens: 2.2, rest: 0.02, fric: 0.8, fricS: 0.9 },
-  studs: { dens: 0.7, rest: 0.72, fric: 0.3, fricS: 0.5 },
-  glas: { dens: 0.6, rest: 0.05, fric: 0.35, fricS: 0.6 },
+  sten: { dens: 2.2, rest: 0.02, fric: 0.8, fricS: 0.9, rost: 'sten' },
+  studs: { dens: 0.7, rest: 0.72, fric: 0.3, fricS: 0.5, rost: 'gummi' },
+  glas: { dens: 0.6, rest: 0.05, fric: 0.35, fricS: 0.6, rost: 'glas' },
 }
 // Slagfart som spräcker en glaskloss. Var 9 — men världens uppmätta toppfart ÄR 9, så
 // tröskeln nåddes aldrig och glaset ramlade bara av som vilken kloss som helst.
@@ -635,13 +645,17 @@ export default {
       const view = makeBlock(BLOCK_W, BLOCK_H, color, cell.kind)
       view.position.set(cell.x, y)
       this._blockLayer.addChild(view)
-      const body = this._phys.rectangle(cell.x, y, BLOCK_W, BLOCK_H, {
+      const body = this._phys.rectangle(cell.x, y, BLOCK_W, BLOCK_H, mat(k.rost, {
+        // frictionAir sätts UT, fast spelet aldrig brydde sig om den: materialtabellen
+        // bär ett eget värde per ämne (trä 0,012 · metall 0,006 …) och hade annars smugit
+        // in en balansändring bakvägen. 0,01 är matters standard, alltså exakt som förut.
+        frictionAir: 0.01,
         density: 0.0016 * sturdy * k.dens,
         restitution: k.rest,
         friction: k.fric,
         frictionStatic: k.fricS,
         label: 'block',
-      })
+      }))
       this._phys.link(body, view)
       this._blocks.push({ body, view, cleared: false, isCrown: false, nervous: false, kind: cell.kind })
       bounceIn(view, { delay: cell.row * 0.04 })
@@ -652,13 +666,15 @@ export default {
     const cview = makeCrown()
     cview.position.set(crownX, crownY)
     this._blockLayer.addChild(cview)
-    const cbody = this._phys.rectangle(crownX, crownY, 64, 40, {
+    // Kronan är av guld: den ska KLINGA, inte knacka som en träkloss.
+    const cbody = this._phys.rectangle(crownX, crownY, 64, 40, mat('metall', {
+      frictionAir: 0.01, // se noten vid klossarna ovan
       density: 0.0012,
       restitution: 0.1,
       friction: 0.4,
       frictionStatic: 0.7,
       label: 'block',
-    })
+    }))
     this._phys.link(cbody, cview)
     this._blocks.push({ body: cbody, view: cview, cleared: false, isCrown: true, nervous: false, kind: 'krona' })
     bounceIn(cview, { delay: crownRow * 0.04 })
@@ -1313,6 +1329,7 @@ export default {
   _onCollision(ctx, e) {
     if (!this._alive) return
     let hitSpeed = 0
+    let hitMat = null
     for (const pair of e.pairs) {
       const la = pair.bodyA.label
       const lb = pair.bodyB.label
@@ -1320,7 +1337,10 @@ export default {
       const other = la === 'ball' ? pair.bodyB : pair.bodyA
       if (other.label !== 'block') continue
       const sp = pair.bodyA.speed + pair.bodyB.speed
-      if (sp > hitSpeed) hitSpeed = sp
+      if (sp > hitSpeed) {
+        hitSpeed = sp
+        hitMat = other.mat || null // den HÅRDASTE träffen i bildrutan bestämmer rösten
+      }
       // Glaskloss + hård träff = den spricker. Kroppen tas INTE bort här (mitt i matter:s
       // eget kollisionsevent) utan köas till nästa tick.
       if (sp > GLAS_SPEED) {
@@ -1331,16 +1351,23 @@ export default {
         }
       }
     }
-    // En rivningskula som krossar ett torn SKA få sitt "duns" — men snällt: en mjuk,
-    // rundad träklots-ton (ingen buzzer) vars kraft växer med slagfarten. Behåll
-    // strypningen så det aldrig distar/loopar.
+    // En rivningskula som krossar ett torn SKA få sitt "duns" — men snällt: mjukt och
+    // rundat (ingen buzzer) och med kraft som växer med slagfarten. Behåll strypningen
+    // så det aldrig distar/loopar.
     if (this._t - this._lastPuff <= 0.12) return
     if (hitSpeed > 3 && this._ballView && !this._ballView.destroyed) {
       this._lastPuff = this._t
       puff(ctx.fxLayer, this._ballView.x, this._ballView.y, { count: 5 })
-      // Snäll smäll: mjuk, rundad träduns; volym ∝ slagkraft.
+      // Snäll smäll MED MATERIALETS RÖST: en stenkloss dunsar mörkt (120 Hz), en
+      // glaskloss klirrar ljust (1180), gummi studsar och kronan klingar av metall.
+      // Förut lät hela tornet som en enda träklots oavsett vad kulan träffade — och
+      // det är just skillnaden mellan klosstyperna som gör tyngd- och repvalet begripligt.
+      // Tonhöjden STIGER med kraften (0,86–1,20×): örat läser tonhöjd som kraft, så bara
+      // volym hade låtit som samma träff på olika avstånd (samma skäl som `impactAudio`).
       const strength = clamp((hitSpeed - 3) / 16, 0, 1)
-      ctx.services.audio.tone({ freq: 150, slideTo: 78, dur: 0.14, type: 'sine', vol: 0.16 + strength * 0.3 })
+      const m = MATERIAL[hitMat] || MATERIAL.tra
+      const f = m.ton * (0.86 + 0.34 * strength)
+      ctx.services.audio.tone({ freq: f, slideTo: f * m.glid, dur: m.dur * (0.8 + 0.5 * strength), type: m.typ, vol: 0.16 + strength * 0.28 })
       // Liten skärm-mikroskak i takt med kraften — aldrig hård.
       this._screenShake(4 + strength * 6)
     }

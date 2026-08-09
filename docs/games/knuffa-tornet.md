@@ -209,3 +209,17 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): bollen ritas av delade `makeBoll` (`lib/foremal.js`); kronan fick `topLightFill` på plats. Kronan delades medvetet INTE med `klappa-mullvaden`s: de har olika proportioner och en gemensam version hade krävt sex parametrar för att bevara båda.
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
 - 2026-08-09 ✅ **Karaktärsrigg [Medium]** (v1.71.0): Bobo är en RIGG (`lib/karaktarer.js`), inte en stillbild — byte från `figurer.js` stillbild till riggen MED kropp — samma origo och samma 2,36·r till skuggan, så placeringen står oförändrad; spelets egen andnings-tween på `w.scale` togs bort (riggen andas själv). **Bugg som bara närbilden såg:** bygghjälmens brätte låg på y=0 och riggens ögon ligger på −0,12·r — hjälmen täckte hela ansiktet. Lyft till −0,46·r. Yttre containern är spelets (läge, hopp, träffyta), riggen äger sin egen skala.
+- 2026-08-09 ✅ **Varje kloss fick sin egen röst** (v1.80.0, spår 3 runda P1, LYFTPLAN B4).
+  Tornet hade redan fyra klosstyper med skilda fysiktal — men lät som EN träklots oavsett vad
+  kulan träffade. Nu bär varje kloss en materialnyckel ur den delade tabellen och talar med
+  dess röst: **sten 120 Hz · trä 240 · gummi 320 · kronan (metall) 760 · glas 1180**, med
+  tonhöjd OCH volym stigande med slagfarten (uppmätt i körning: 229 → 277 Hz på trä beroende
+  på hur hårt kulan kom in). Strypningen på 0,12 s och mikroskaket står kvar.
+  ⚠️ **Fysiken är bevisat orörd.** `mat()` sprider materialets fysiktal och lägger spelets
+  sist — men bara de tal spelet FAKTISKT sätter. `frictionAir` sattes aldrig, så
+  materialtabellens värde (trä 0,012) hade smugit in en balansändring i ett handtrimmat spel
+  utan att något test blivit rött; nu skrivs matters standard 0,01 ut explicit.
+  `node scripts/_tornprobe.mjs 4`: 5 skilda tonhöjder, **0 fysikavvikelser över 7 klossar**.
+  ⚠️ Docens §4 beställde både specialklossarna [Deep] och den snälla smällen [Quick] — båda
+  var redan byggda, och kodhuvudet påstod fortfarande att slagen var tysta. Punkterna är
+  därmed avbockade, inte gjorda igen.

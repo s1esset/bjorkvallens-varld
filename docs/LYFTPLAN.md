@@ -397,6 +397,26 @@ Tre beslut som mätningen tvingade fram:
 `MATERIALS` (bouncy/normal/heavy/light/sticky) står kvar orörd — 9 spel sprider den, och den
 beskriver *rörelse*, inte *ämne*. De två tabellerna svarar på olika frågor.
 
+**Tredje kund: `knuffa-tornet` (v1.80.0, spår 3 runda P1).** Spelet hade redan fyra klosstyper
+med skilda fysiktal (`KINDS`: sten · trä · gummi · glas) och en kraftskalad smäll — men hela
+tornet lät som EN träklots oavsett vad kulan träffade, och det är just skillnaden mellan
+typerna som ska göra tyngd- och repvalet begripligt. Nu bär varje kloss en materialnyckel och
+talar med dess röst: **120 · 240 · 320 · 760 · 1180 Hz** (sten · trä · gummi · krona i metall ·
+glas), med tonhöjd OCH volym stigande med slagfarten.
+
+⚠️ **`mat()` sprider materialets fysik — även de tal spelet aldrig satt.** Det är hela
+skillnaden mellan "ger en röst" och "tunar om ett handtrimmat spel bakvägen". `knuffa-tornet`
+satte aldrig `frictionAir`, alltså gällde matters standard 0,01 — men materialtabellen bär ett
+eget värde per ämne (trä 0,012 · metall 0,006 · glas 0,005), och de hade tyst tagit över utan
+att ett enda test blivit rött. Lösningen är att skriva ut även de tal man vill BEHÅLLA. Regeln
+generellt: lista alla fyra fysikfälten i extras när ett fungerande spel adopterar ett material.
+`scripts/_tornprobe.mjs` vaktar båda halvorna (rätt röst per typ · noll fysikavvikelser).
+
+⚠️ **Docens §4 var inaktuell igen** (tredje gången, precis som CLAUDE.md varnar för): den
+beställde både "special-klossar som gör tyngd/rep meningsfullt [Deep]" och "ge tillbaka en
+snäll smäll [Quick]" — båda var redan byggda i en senare poleringsrunda, och kodhuvudet
+påstod dessutom fortfarande att "krock-ljud är borttagna, slag är tysta". Läs koden först.
+
 ### B5. Kollisionshändelser driver nästan ingen spelmekanik **[Quick]** per spel — ✅ BYGGT 2026-08-09 (v1.52.0)
 
 `PhysicsWorld.onCollision()` fanns; de flesta spel pollade positioner i stället. Inget av de 23

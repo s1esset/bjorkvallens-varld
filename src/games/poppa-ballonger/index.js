@@ -8,7 +8,7 @@ import { Container, Graphics, Circle, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe, pop, wiggle } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { PLAYFUL, FONT, COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -249,8 +249,11 @@ export default {
     arm.circle(44, -74, 13).fill(COLORS.cream)
     arm.position.set(40, 46)
     bobo.addChild(arm)
-    const head = makeMascot(46)
-    bobo.addChild(head)
+    // Bara HUVUDET blir en rigg (`kropp: false`). Bobos ena arm sträcker sig efter
+    // ballongerna och betyder något i det här spelet — riggens två armar hänger vid
+    // sidorna och hade tagit bort gesten, inte ersatt den.
+    this._kar = makeKaraktar({ r: 46, kropp: false })
+    bobo.addChild(this._kar.view)
     bobo.position.set(148, 574)
     this._world.addChild(bobo)
     this._bobo = bobo
@@ -587,8 +590,12 @@ export default {
   },
 
   // Bobo tittar upp och puffar till varje gång en ballong smäller — han är publiken.
+  // `hoppsan` är förvånad, aldrig sur (P0 MOTGÅNG): en smäll ska överraska, inte
+  // läxa upp. `pop()` går på den YTTRE containern, inte på riggens `view` — riggens
+  // andning äger sin egen skala.
   _boboReact() {
     if (!this._bobo || this._bobo.destroyed) return
+    this._kar?.react('hoppsan')
     pop(this._bobo, { scale: 1.06 })
     if (this._boboArm && !this._boboArm.destroyed) wiggle(this._boboArm)
   },
@@ -596,6 +603,7 @@ export default {
   // Spelets egen finish: Bobo hoppar högt, hela kompisraden studsar i en våg och en
   // regnbågsbåge sveper över himlen. (Inte samma konfetti+stjärna som alla andra spel.)
   _finish(ctx) {
+    this._kar?.react('jubel')
     if (this._bobo && !this._bobo.destroyed) {
       const by = this._bobo.y
       this._boboIdle?.pause()
@@ -817,6 +825,22 @@ export default {
         live.push(b)
       }
 
+      // Bobo tittar på den ballong som är närmast honom — publiken följer det som
+      // är på väg att hända. `look()` räknar i FÖRÄLDERNS rymd, och riggen sitter i
+      // `_bobo`, medan ballongerna ligger i `_world`; därför via global.
+      if (this._kar && this._bobo && !this._bobo.destroyed && live.length) {
+        let mal = null
+        let bast = Infinity
+        for (const b of live) {
+          const d = (b.x - this._bobo.x) ** 2 + (b.y - this._bobo.y) ** 2
+          if (d < bast) { bast = d; mal = b }
+        }
+        if (mal && !mal.destroyed) {
+          const p = this._bobo.toLocal(mal.getGlobalPosition())
+          this._kar.look(p.x, p.y)
+        }
+      }
+
       // Ballongerna knuffar undan varandra (billig cirkelstöt, ingen matter.js). Det gör
       // dem till LEVANDE, rörliga mål istället för rekvisita på räls: en pop mitt i
       // klungan får grannarna att guppa undan, och nästa tryck kräver ett nytt sikte.
@@ -883,6 +907,8 @@ export default {
     ctx.services.voice.cancel()
     this._respawnCall?.kill()
     this._stopAttract()
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
     this._boboIdle?.kill()
     if (this._bobo) gsap.killTweensOf(this._bobo)
     if (this._boboArm) gsap.killTweensOf(this._boboArm)

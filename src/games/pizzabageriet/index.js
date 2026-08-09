@@ -30,7 +30,7 @@ import { Button } from '../../lib/Button.js'
 import { createScene } from '../../lib/scene.js'
 import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import DRAW from './ingredienser.js'
@@ -446,9 +446,12 @@ export default {
     body.circle(10, 78, 7).fill({ color: 0xf0e2c4, alpha: 0.9 })
     c.addChild(body)
 
-    // Huvudet (maskoten).
-    const head = makeMascot(44)
-    c.addChild(head)
+    // Huvudet: riggen, med `kropp: false`. Bålen ovan bär förkläde, hängslen och band
+    // — den är bagarens uniform, inte en platshållare för en björnkropp. `c` är den
+    // yttre containern och äger `y` (vilo-guppet) och `pop`; riggen äger `view.scale`.
+    this._kar = makeKaraktar({ r: 44, kropp: false })
+    this._kar.setMood('nyfiken') // tom botten från start — samma min som _reset sätter
+    c.addChild(this._kar.view)
 
     // Kockmössa ovanpå.
     const hat = new Graphics()
@@ -723,7 +726,10 @@ export default {
     const wanted = this._order.some((o) => o.id === item.id)
     if (wanted && !t._cheered) {
       t._cheered = true
-      if (this._baker && !this._baker.destroyed) pop(this._baker, { scale: 1.12 })
+      // `heja`, inte `jubel`: det här händer flera gånger per pizza. Ett hopp på var
+      // och en hade gjort firandet till bakgrundsljud, och då finns ingenting kvar
+      // som markerar att pizzan faktiskt blev serverad.
+      if (this._baker && !this._baker.destroyed) this._kar?.react('heja')
       if (this._orderBubble && !this._orderBubble.destroyed) wiggle(this._orderBubble)
       ctx.services.audio.sfx('pling')
       sparkle(ctx.fxLayer, ORDER.x, ORDER.y, { count: 6 })
@@ -849,6 +855,7 @@ export default {
       return
     }
     this._phase = 'baking'
+    this._kar?.setMood('hungrig') // pizzan är i ugnen och det börjar dofta
     this._bake = 0
     this._idle = 0
     this._goldenPinged = false
@@ -885,9 +892,17 @@ export default {
     if (!this._alive) return
     const dt = (t.deltaMS || 16.67) / 1000
 
-    // Bagaren andas/guppar i vila (skriver bara y, så pop() på scale kan köra parallellt).
+    // Bagaren guppar i vila (skriver bara y på den YTTRE containern, så riggens
+    // andning på `view.scale` kan köra parallellt utan att de skriver samma tal).
     if (this._baker && !this._baker.destroyed) {
       this._baker.y = BAKER.y + Math.sin(performance.now() * 0.0021) * 4
+      // Blicken följer det barnet drar; utan drag vilar den på pizzan. Bagaren tittar
+      // alltså på ARBETET, inte rakt fram — det är skillnaden mot en dekor i mössa.
+      const mal = this._grab?.ghost && !this._grab.ghost.destroyed ? this._grab.ghost : this._pizza
+      if (this._kar && mal && !mal.destroyed) {
+        const p = this._baker.toLocal(mal.getGlobalPosition())
+        this._kar.look(p.x, p.y)
+      }
     }
 
     if (this._phase === 'baking') {
@@ -1075,7 +1090,9 @@ export default {
       onComplete: () => {
         if (!slice.destroyed) slice.destroy({ children: true })
         if (!this._alive || !c || c.destroyed) return
-        pop(c, { scale: 1.2 })
+        // Först tuggan, sedan firandet — biten landar i munnen och DÄREFTER jublar han.
+        this._kar?.react('nam')
+        ctx.later(0.5, () => this._kar?.react('jubel'))
         ctx.services.audio.sfx('pop')
         if (filled) {
           // Önskan uppfylld → extra lycka (aldrig ett krav, bara en bonus).
@@ -1094,6 +1111,7 @@ export default {
   _reset(ctx) {
     if (!this._alive) return
     this._phase = 'decorate'
+    this._kar?.setMood('nyfiken') // ny pizza, tom botten — han tittar på vad barnet gör
     this._bake = 0
     this._idle = 0
     this._cancelTopDrag()
@@ -1164,6 +1182,8 @@ export default {
       gsap.killTweensOf(this._baker)
       gsap.killTweensOf(this._baker.scale)
     }
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
     if (this._orderBubble && !this._orderBubble.destroyed) {
       gsap.killTweensOf(this._orderBubble)
       gsap.killTweensOf(this._orderBubble.scale)

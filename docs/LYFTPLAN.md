@@ -315,7 +315,36 @@ fasta saker och ritas som förut.
 **Verktyg: `scripts/_mjukprobe.mjs`** (Node) — hård form hålls · varm kropp plattas/breder ut
 sig/massan sjunker · knuff syns direkt och studsar tillbaka · fästpunkt · förflyttning · exit.
 
-⬜ Kvar: `sapbubblor` · `glasstornet` · `mata-monstret` · `hamburgerbygget` · `pruttbad`.
+✅ **Andra kund: `glasstornet` (v1.82.0, spår 3 runda P1).** Varje landad glasskula är en mjuk
+kropp som VOBBLAR — och vobbeln är fysik, inte en tween: ringen släpar efter matter-kroppens
+egen fartändring, så en kula som landar hårt skakar mer än en som sätter sig mjukt, och en
+vindstöt eller en ny kula ovanpå syns i hela tornet. Uppmätt (`node scripts/_vobbelprobe.mjs`):
+**4,57 px utslag** på en 44 px radie vid landning, tillbaka till **0,00 px** i vila, fyllnaden
+kvar på 1,00 (ingen kula tappar volym), och ringrörelsen faller under rittröskeln så en kula
+som lagt sig kostar **noll** per bildruta.
+
+**Tre saker som gjorde det till en riktig integration och inte en effekt ovanpå:**
+
+1. **En kropp, alla lager.** En glasskula är skugga + färgklot (eller fem regnbågsband) +
+   dekor. Ritas de var för sig glider de isär i vobbeln. `path(g, skala)` (ny) krymper samma
+   kurva mot mittpunkten, så alla silhuett-lager deformeras av EN kropp. Dekor och glansprick
+   står medvetet utanför — de sitter PÅ kulan, de är inte kulans kant.
+2. **Vilo-formen måste ärvas, annars syns bytet.** Kopan är vågig (`1 + 0,05·sin(5θ)`), och
+   en mjuk kropp byggd som ellips hade poppat till en slät cirkel i samma sekund som barnet
+   släppte. Ny konstruktorparameter `form(vinkel)` bygger vilo-ringen ur spelets egen
+   silhuett — rest-längderna mäts ur den byggda formen, så vågen går inte att knuffa dit
+   efteråt utan att kroppen "glömmer" hur den ska se ut.
+3. **Trögheten måste räknas i kulans EGNA koordinater.** Vyn roterar med matter-kroppen, så
+   en vobbel i världskoordinater pekar åt fel håll så fort kulan rullat ett kvarts varv.
+   Ny `skjut(dx, dy)` i libbet: förskjuter allt som inte är spikat, vilket verlet läser som
+   fart — alltså eftersläpning utan att någon behöver leta reda på var träffen skedde.
+
+**Kostnaden är mätt, inte antagen:** växelvis mot HEAD, tre körningar per arm —
+17,52 / 17,48 / 17,42 ms per bildruta med vobbeln mot **17,48 / 17,53 / 17,38** utan. Inte
+skiljbart. (En `fysik-svalt`-varning sågs i 1 av 4 körningar med ändringen och 0 av 3 på HEAD,
+men bildrutetiderna är identiska på tiondelen — det är en maskinhicka, inte en kostnad.)
+
+⬜ Kvar: `sapbubblor` · `mata-monstret` · `hamburgerbygget` · `pruttbad`.
 
 ### B3. Rep/kedja är omskrivet fyra gånger **[Medium]** — ✅ SOLVERN BYGGD 2026-08-09 (v1.56.0)
 
@@ -459,7 +488,7 @@ eller platta") höll bara i ett av fyra fall. Uppmätt spel för spel 2026-08-09
 | `knuffa-tornet` | MATERIAL-klossar + `impactAudio` | Klosstyperna med skild fysik fanns REDAN. Det som saknades var **rösten** → byggt (v1.80.0). |
 | `kulbana` | ytmaterial + `impactAudio` | Ytorna lät redan olika, men **alltid lika hårt** → kraftskala byggd (v1.81.0). Fjäderbrädan (`mjukkropp`) kvar. |
 | `studsa-ner` | per-pinne MATERIAL (studs + röst) + fläkt | **Rösten ska INTE byggas**: pinnarna spelar en stigande skala (523→1175 Hz) som är spelets musikaliska signatur. Studs-variation ökar dessutom slumpen i ett spel vars poäng är att sikta. Kvar: **fläkten** (agens). |
-| `glasstornet` | `mjukkropp`-wobble på kopan | Kvar. Sömmen finns: `_scoopPath(g, r, cx, cy)` ritar varje lager, så en mjuk kropp kan ta över silhuetten utan att röra matter-kroppen som bär stapeln. |
+| `glasstornet` | `mjukkropp`-wobble på kopan | ✅ byggt (v1.82.0). Sömmen var `_scoopPath` → `_ritaScoop` ritar nu alla silhuett-lager ur EN mjuk kropp; matter-kroppen som bär stapeln är orörd. |
 
 **Slutsatsen att ta med sig:** det som återstår i P1 är **mekaniken** (wobble · fläkt ·
 fjäderbräda), inte ljudet. En adoptionsräkning säger vad ett spel INTE importerar — aldrig vad

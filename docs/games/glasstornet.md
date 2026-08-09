@@ -218,3 +218,15 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
   Kvar från §4: [Deep] smak-staplings-mål, [Medium] glass-galleri/kund-kö, [Quick] ambient.
   Nya repliker (väntar på klipp): "En våffelstrut!", "En bägare!", "En skål!",
   "Den här är klistrig!", "En regnbågskula!", "Tryck på honungen! Då blir kulan klistrig."
+- 2026-08-09 ✅ **Kulorna VOBBLAR** (v1.82.0, spår 3 runda P1 / LYFTPLAN B2). Varje landad
+  glasskula är en `Mjukkropp` vars ring släpar efter matter-kroppens egen fartändring —
+  ingen tween, ingen timer. En kula som landar hårt skakar mer än en som sätter sig mjukt,
+  och en vindstöt eller en ny kula ovanpå syns i hela tornet. Matter-kroppen är ORÖRD: den
+  äger var kulan är, den mjuka kroppen bara hur den ser ut på vägen dit (mitten spikad i
+  vyns origo). Uppmätt (`node scripts/_vobbelprobe.mjs`): **4,57 px utslag** på 44 px radie
+  vid landning → **0,00 px** i vila, fyllnad 1,00, och ringen slutar ritas om när den lugnat
+  sig (en kula som ligger still kostar noll). Bildrutetid växelvis mot HEAD: 17,52/17,48/17,42
+  mot 17,48/17,53/17,38 ms — inte skiljbart.
+  ⚠️ Silhuetten måste ÄRVAS av den mjuka kroppen (`form`-parametern), annars poppar den
+  vågiga kopan till en slät cirkel i samma sekund barnet släpper. Och skugga + regnbågsband
+  ritas ur SAMMA kropp via `path(g, skala)` — var för sig glider de isär i vobbeln.

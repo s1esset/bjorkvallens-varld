@@ -30,6 +30,7 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, puff, sparkle, ripple, burst, bigCelebration, floatText, kvittera } from '../../lib/feedback.js'
@@ -90,6 +91,12 @@ const SCOOP_STICKY = { restitution: 0.02, friction: 0.95, frictionAir: 0.055, de
 
 // Vila-/settle-trösklar.
 const REST_SPEED = 0.6 // matter-fart under detta = kulan har lugnat sig
+// VOBBEL (LYFTPLAN B2): hur mycket kopans mjuka ring släpar efter kroppens fartändring,
+// och hur snabbt den fjädrar tillbaka. Styvheten är den enda knappen som avgör om det
+// läser som glass eller som gelé — mätt med scripts/_vobbelprobe.mjs.
+const WOBBLE_K = 0.55 // px eftersläpning per px/steg fartändring
+const WOBBLE_STYV = 0.45 // ringens styvhet (1 = stel, 0 = rinnande)
+const WOBBLE_RITA = 0.4 // total ringrörelse (px) under detta = sluta rita om
 const REST_HOLD = 350 // ms i vila innan vi utvärderar
 const SETTLE_MAX = 1600 // ms → tvinga fram utvärdering (spelet "hänger" aldrig)
 const GROUND_Y = 600 // body.position.y >= detta = nådde marken (blåste av)
@@ -643,7 +650,18 @@ export default {
     const body = this._phys.circle(x, CARRIER_Y, SCOOP_R, { ...mat })
     this._phys.link(body, view)
 
-    const rec = { body, view, magnet: this._magnetHelp }
+    // Kulan blir MJUK i samma stund som den blir fysik (LYFTPLAN B2). Mitten är spikad
+    // i vyns origo — matter-kroppen äger var kulan ÄR, den mjuka kroppen bara hur den
+    // ser ut på vägen dit. Den ärver den vågiga silhuetten via `form`, så bytet från
+    // stel till mjuk ritning inte syns.
+    view._soft = new Mjukkropp({
+      x: 0, y: 0, w: SCOOP_VR * 2, h: SCOOP_VR * 2,
+      punkter: 16, grav: 0, damp: 0.84, iter: 5, styvhet: WOBBLE_STYV,
+      form: (th) => this._scoopForm(th),
+    })
+    view._soft.fast(view._soft.mitt, 0, 0)
+
+    const rec = { body, view, magnet: this._magnetHelp, pvx: 0, pvy: 0 }
     this._live.push(rec)
     this._lastDropped = body
     this._lastRec = rec
@@ -707,6 +725,10 @@ export default {
 
     // Stega fysiken (fast tidssteg) + synka vyer.
     this._phys.update(dms)
+
+    // ... och sedan VOBBELN: varje landad kopa är en mjuk kropp vars ring släpar efter
+    // när matter-kroppen rycker till — landningen, en vindstöt, en ny kula ovanpå.
+    this._wobbla(clamp(dms / (1000 / 60), 0.5, 2))
 
     // Vinden ritas varje frame (vimpel + streck) så motgången alltid syns.
     this._drawWind()
@@ -852,6 +874,8 @@ export default {
         this._phys.removeBody(rec.body)
         gsap.killTweensOf(rec.view)
         gsap.killTweensOf(rec.view.scale)
+        rec.view._soft?.destroy()
+        rec.view._soft = null
         if (!rec.view.destroyed) rec.view.destroy({ children: true })
         puff(ctx.fxLayer, x, y, { count: 8 })
         floatText(ctx.fxLayer, x, y - 30, randomFrom(GIGGLES))
@@ -1327,10 +1351,15 @@ export default {
   _makeScoop(flavor) {
     const c = new Container()
     c._flavor = flavor
+    // Lagren som utgör kopans SILHUETT. De ritas om ur samma form varje gång kulan
+    // vobblar (`_ritaScoop`), så skuggan och regnbågsbanden följer med i deformationen
+    // i stället för att glida isär. Dekor, glansprick och glasyr står utanför listan —
+    // de sitter PÅ kulan, de är inte kulans kant.
+    c._lager = []
 
     const shadow = new Graphics()
-    this._scoopPath(shadow, SCOOP_VR, 0, 9)
-    shadow.fill({ color: 0x000000, alpha: 0.18 })
+    shadow.y = 9 // låg förut i pathens cy — som egen y följer den med i mjuk ritning
+    c._lager.push({ g: shadow, skala: 1, fill: { color: 0x000000, alpha: 0.18 } })
     c.addChild(shadow)
 
     if (flavor.kind === 'rainbow') {
@@ -1338,19 +1367,22 @@ export default {
       // kan ta första bandets färg — samma fälla som snöbollens backe gick i.)
       for (let i = 0; i < RAINBOW_BANDS.length; i++) {
         const band = new Graphics()
-        this._scoopPath(band, SCOOP_VR * (1 - i / RAINBOW_BANDS.length), 0, 0)
-        band.fill(RAINBOW_BANDS[i])
-        if (i === 0) band.stroke({ width: 3, color: COLORS.white, alpha: 0.55 })
         band.eventMode = 'none'
+        c._lager.push({
+          g: band,
+          skala: 1 - i / RAINBOW_BANDS.length,
+          fill: RAINBOW_BANDS[i],
+          stroke: i === 0 ? { width: 3, color: COLORS.white, alpha: 0.55 } : null,
+        })
         c.addChild(band)
       }
     } else {
       const ball = new Graphics()
-      this._scoopPath(ball, SCOOP_VR, 0, 0)
-      ball.fill(flavor.color).stroke({ width: 3, color: COLORS.white, alpha: 0.55 })
+      c._lager.push({ g: ball, skala: 1, fill: flavor.color, stroke: { width: 3, color: COLORS.white, alpha: 0.55 } })
       c.addChild(ball)
       this._decorateScoop(c, flavor)
     }
+    this._ritaScoop(c)
     c.addChild(new Graphics().ellipse(-15, -17, 13, 9).fill({ color: 0xffffff, alpha: 0.6 }))
 
     // Honungsglasyr (dold tills kulan är klistrig) — ritad, inte en ikon.
@@ -1363,6 +1395,63 @@ export default {
     c.addChild(glaze)
     c._glaze = glaze
     return c
+  },
+
+  // Vobbeln. Ingen tween och ingen timer: eftersläpningen ÄR fysik, hämtad ur
+  // matter-kroppens egen fartändring, så en kula som landar hårt skakar mer än en som
+  // sätter sig mjukt — utan att någon behöver leta reda på var träffen skedde.
+  // Trögheten räknas om till kulans EGNA koordinater, annars pekar vobbeln åt fel håll
+  // så fort kroppen har rullat ett kvarts varv.
+  _wobbla(dtF) {
+    for (const rec of this._live) {
+      const view = rec.view
+      const soft = view && !view.destroyed ? view._soft : null
+      if (!soft) continue
+      const b = rec.body
+      const dvx = b.velocity.x - rec.pvx
+      const dvy = b.velocity.y - rec.pvy
+      rec.pvx = b.velocity.x
+      rec.pvy = b.velocity.y
+      const ca = Math.cos(-b.angle)
+      const sa = Math.sin(-b.angle)
+      soft.skjut(
+        clamp(-(dvx * ca - dvy * sa) * WOBBLE_K, -14, 14),
+        clamp(-(dvx * sa + dvy * ca) * WOBBLE_K, -14, 14),
+      )
+      soft.steg(dtF)
+      // Rita om BARA medan ringen faktiskt rör sig. En kula som lagt sig i tornet
+      // kostar då noll per bildruta, och ett fullt torn kan inte bli en ritstorm.
+      let rorelse = 0
+      for (let i = 0; i < soft.n; i++) {
+        const p = soft.pts[i]
+        rorelse += Math.abs(p.x - p.px) + Math.abs(p.y - p.py)
+      }
+      if (rorelse > WOBBLE_RITA) this._ritaScoop(view)
+    }
+  },
+
+  // Ritar om kopans alla silhuett-lager. Utan mjuk kropp: den vågiga vilo-formen
+  // (exakt som förut). Med: samma form, men deformerad av `Mjukkropp` — EN kropp för
+  // alla lager, så skugga och regnbågsband vobblar tillsammans.
+  _ritaScoop(c) {
+    if (!c || c.destroyed || !c._lager) return
+    const soft = c._soft
+    for (const l of c._lager) {
+      const g = l.g
+      if (!g || g.destroyed) continue
+      g.clear()
+      if (soft) soft.path(g, l.skala)
+      else this._scoopPath(g, SCOOP_VR * l.skala, 0, 0)
+      if (l.fill) g.fill(l.fill)
+      if (l.stroke) g.stroke(l.stroke)
+    }
+  },
+
+  // Kopans vilo-radie i en given vinkel — samma våg som `_scoopPath` ritar, så den
+  // mjuka kroppen ÄRVER silhuetten i stället för att bli en slät cirkel i det ögonblick
+  // kulan släpps (bytet får inte synas).
+  _scoopForm(th) {
+    return 1 + 0.05 * Math.sin(th * 5)
   },
 
   // Lätt vågig rund silhuett = ser ut som en glasskopa, inte en perfekt cirkel.
@@ -1468,6 +1557,8 @@ export default {
       if (rec.view && !rec.view.destroyed) {
         gsap.killTweensOf(rec.view)
         gsap.killTweensOf(rec.view.scale)
+        rec.view._soft?.destroy() // ringen är rena tal, men den ska inte överleva vyn
+        rec.view._soft = null
         rec.view.destroy({ children: true })
       }
     }

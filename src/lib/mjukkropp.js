@@ -27,7 +27,11 @@
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v)
 
 export class Mjukkropp {
-  constructor({ x = 0, y = 0, w = 40, h = 40, punkter = 14, grav = 0.3, damp = 0.92, iter = 6, tryck = 1, styvhet = 1, maxSpeed = 26 } = {}) {
+  // form(vinkel) → radie-faktor. Vilokroppen är en ellips om den utelämnas, men ett
+  // föremål med egen silhuett (en glasskopa är vågig, inte en cirkel) måste kunna få
+  // sin vågform i VILOLÄGET — rest-längderna mäts ur den byggda formen, så det går inte
+  // att knuffa dit vågen efteråt utan att kroppen "glömmer" hur den ska se ut.
+  constructor({ x = 0, y = 0, w = 40, h = 40, punkter = 14, grav = 0.3, damp = 0.92, iter = 6, tryck = 1, styvhet = 1, maxSpeed = 26, form = null } = {}) {
     this.n = Math.max(6, punkter | 0)
     this.grav = grav
     this.damp = damp
@@ -44,8 +48,9 @@ export class Mjukkropp {
     this.pts = []
     for (let i = 0; i < this.n; i++) {
       const a = (i / this.n) * Math.PI * 2 - Math.PI / 2
-      const px = x + (Math.cos(a) * w) / 2
-      const py = y + (Math.sin(a) * h) / 2
+      const f = form ? form(a) : 1
+      const px = x + (Math.cos(a) * w * f) / 2
+      const py = y + (Math.sin(a) * h * f) / 2
       this.pts.push({ x: px, y: py, px, py: py })
     }
     this.pts.push({ x, y, px: x, py: y })
@@ -106,6 +111,20 @@ export class Mjukkropp {
     for (const [, q] of this._pin) {
       q.x += dx
       q.y += dy
+    }
+    return this
+  }
+
+  // TRÖGHET: skjut allt som inte är spikat åt ett håll. Verlet läser en positions-
+  // ändring utan motsvarande `px`-ändring som FART, så det här är kroppens eftersläpning
+  // när fästpunkten rycker till — en glasskula som landar plattas av sin egen tröghet,
+  // utan att någon behöver leta reda på var träffen skedde.
+  skjut(dx, dy) {
+    for (let i = 0; i < this.n; i++) {
+      if (this._pin.has(i)) continue
+      const p = this.pts[i]
+      p.x += dx
+      p.y += dy
     }
     return this
   }
@@ -275,15 +294,22 @@ export class Mjukkropp {
 
   // Sluten mjuk kurva genom ringen. En polygon av raka streck läser som en
   // kristall; samma punkter med kvadratiska mellansteg läser som något mjukt.
-  path(g) {
+  //
+  // `skala` krymper kurvan mot mittpunkten. Ett föremål byggt av flera lager — en
+  // skugga under, regnbågsband inuti — ska deformeras av SAMMA kropp, annars glider
+  // lagren isär i vobbeln. En kropp, N lager.
+  path(g, skala = 1) {
     const p = this.pts
     const n = this.n
+    const c = p[this.mitt]
+    const sk = (q) => (skala === 1 ? q : { x: c.x + (q.x - c.x) * skala, y: c.y + (q.y - c.y) * skala })
     const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
-    let m = mid(p[n - 1], p[0])
+    let m = mid(sk(p[n - 1]), sk(p[0]))
     g.moveTo(m.x, m.y)
     for (let i = 0; i < n; i++) {
-      const nx = mid(p[i], p[(i + 1) % n])
-      g.quadraticCurveTo(p[i].x, p[i].y, nx.x, nx.y)
+      const a = sk(p[i])
+      const nx = mid(a, sk(p[(i + 1) % n]))
+      g.quadraticCurveTo(a.x, a.y, nx.x, nx.y)
     }
     g.closePath()
     return g

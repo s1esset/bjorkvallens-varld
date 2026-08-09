@@ -7,9 +7,9 @@ import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { COLORS, DESIGN_W, DESIGN_H, shade } from '../../lib/theme.js'
 import { FluidWorld, FluidView } from '../../lib/vatska.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Button } from '../../lib/Button.js'
-import { pop, puff, sparkle, breathe, burst , kvittera} from '../../lib/feedback.js'
+import { pop, puff, sparkle, burst , kvittera} from '../../lib/feedback.js'
 
 // --- färgvärlden -----------------------------------------------------------
 // Index i den här listan ÄR partikelns färg (world.pal[i]).
@@ -227,6 +227,9 @@ export default {
     gsap.killTweensOf(this._kran || {})
     gsap.killTweensOf(this._lever || {})
     if (this._bobo) gsap.killTweensOf(this._bobo)
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
+    this._boboFace = null
     this._view?.destroy()
     this._world?.destroy()
     this._view = null
@@ -450,11 +453,16 @@ export default {
     const b = new Container()
     b.x = BOBO_X
     b.y = BOBO_Y
-    const m = makeMascot(74)
+    // Bobo är gästen som BESTÄLLER och DRICKER — spelets hela poäng. Som statiskt
+    // huvud kunde han bara vänta; som rigg är han törstig medan beställningen står
+    // och nöjd när glaset är tomt. `kropp: false`: disken skär av honom vid midjan
+    // och en kropp bakom disken syns inte alls.
+    this._kar = makeKaraktar({ r: 74, kropp: false })
+    const m = this._kar.view
     b.addChild(m)
     this._propL.addChild(b)
     this._bobo = b
-    breathe(m, { scale: 1.05, duration: 1.9 })
+    this._kar.setMood('hungrig', { direkt: true }) // törstig i vila
     this._boboFace = m
 
     // pratbubbla med ett ritat glas i den beställda färgen
@@ -886,6 +894,7 @@ export default {
     let want = pool[(Math.random() * pool.length) | 0]
     if (want === this._order?.pal) want = pool[(pool.indexOf(want) + 1) % pool.length]
     this._order = { pal: want }
+    this._kar?.setMood('hungrig') // ny beställning → törstig igen
     this._paintBubble(want)
     gsap.killTweensOf(this._bubble)
     gsap.to(this._bubble, { alpha: 1, duration: 0.25 })
@@ -931,7 +940,10 @@ export default {
     const pal = this._order.pal
     d.g.wantAngle = 0
     this._sendHome(d.g)
-    // Bobos egen finish: nöjd hoppning, en färgad rapbubbla och glitter
+    // Bobos egen finish: nöjd hoppning, en färgad rapbubbla och glitter. Spelets
+    // fyra hopp på 46 px är större än riggens och får äga `y` — därför `setMood`
+    // och inte `react('jubel')`, som hade tweenat samma `y` samtidigt.
+    this._kar?.setMood('stolt')
     gsap.to(this._bobo, { y: BOBO_Y - 46, duration: 0.22, yoyo: true, repeat: 3, ease: 'power2.out' })
     burst(this._propL, BOBO_X, BOBO_Y, { count: 16, colors: [PAL[pal].hex, PAL[pal].mork, 0xffffff] })
     const bubbla = new Graphics()
@@ -1014,6 +1026,10 @@ export default {
       this._drink.t += dt
       const got = this._world.drain(BOBO_X - 20, BOBO_Y + 30, 190, 190, { max: 5 })
       this._drink.drained += got
+      // Han TUGGAR/sväljer i takt med att saften faktiskt försvinner — reaktionen
+      // hänger på mätningen (`got`), inte på en timer, så munnen rör sig bara när
+      // det verkligen rinner i den.
+      if (got && this._frame % 24 === 0) this._kar?.react('nam')
       if (got && this._frame % 8 === 0) {
         ctx.services.audio.tone({ freq: 300 + Math.min(1, this._drink.drained / 60) * 300, dur: 0.09, type: 'sine', vol: 0.18 })
       }

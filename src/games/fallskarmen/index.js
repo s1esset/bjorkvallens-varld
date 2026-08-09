@@ -13,7 +13,7 @@ import { createScene } from '../../lib/scene.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, bigCelebration, floatText , kvittera} from '../../lib/feedback.js'
-import { makeBobo } from '../../lib/figurer.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -149,7 +149,15 @@ export default {
 
     // Mottagaren vid mattan (gate-punkt 4): Bobo vinkar in föraren och fångar/hejar
     // vid träff. Scenen hade ingen alls — bara en matta och generisk konfetti.
-    this._bobo = makeBobo(BOBO_R)
+    // Riggen ligger i en YTTRE container. Spelet speglar Bobo (`scale.x = side`) och
+    // vaggar honom (`rotation`), och riggens andning tweenar sin egen `view.scale` —
+    // två skrivare om samma skala hade dels hackat, dels raderat spegelvändningen
+    // (0.988 skriver över −1 och Bobo tittar plötsligt åt fel håll).
+    this._bobo = new Container()
+    this._bobo.eventMode = 'none'
+    this._bobo.interactiveChildren = false
+    this._kar = makeKaraktar({ r: BOBO_R })
+    this._bobo.addChild(this._kar.view)
     this._root.addChild(this._bobo)
     this._placeBobo(700, 150)
     this._boboWave()
@@ -185,15 +193,12 @@ export default {
     })
   },
 
-  // Fångar/kramar vid träff: hopp + gnistor, egen gest utöver det delade firandet.
+  // Fångar/kramar vid träff: riggens `jubel` (hopp + utsträckta armar) i stället för
+  // en skal-studs. Den yttre containerns `scale.x` bär spegelvändningen och rörs inte.
   _boboCatch(ctx) {
     const bo = this._bobo
-    if (!bo || bo.destroyed) return
-    gsap.killTweensOf(bo.scale)
-    gsap
-      .timeline()
-      .to(bo.scale, { x: bo.scale.x * 1.14, y: 1.22, duration: 0.12, ease: 'power2.out' })
-      .to(bo.scale, { x: Math.sign(bo.scale.x) * 1, y: 1, duration: 0.6, ease: 'elastic.out(1, 0.4)' })
+    if (!this._kar || !bo || bo.destroyed) return
+    this._kar.react('jubel')
     sparkle(ctx.fxLayer, bo.x, bo.y - BOBO_R * 1.5, { count: 7 })
   },
 
@@ -389,6 +394,14 @@ export default {
     if (this._resolving) return
     const chute = this._chute
     if (!chute || chute.destroyed) return
+
+    // Bobo följer fallskärmen med blicken hela vägen ner. `toLocal` går genom den
+    // yttre containerns `scale.x`, så spegelvändningen räknas bort och tillbaka av
+    // sig själv — blicken pekar rätt oavsett vilken sida han står på.
+    if (this._kar && this._bobo && !this._bobo.destroyed) {
+      const p = this._bobo.toLocal(chute.getGlobalPosition())
+      this._kar.look(p.x, p.y)
+    }
 
     // 1. Styr-riktning (håll: tecken av finger−fallskärm med dödzon; tap: kort puff).
     let dir = 0
@@ -747,6 +760,8 @@ export default {
       gsap.killTweensOf(this._bobo)
       gsap.killTweensOf(this._bobo.scale)
     }
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
     this._nextTimer?.kill()
     this._retryTimer?.kill()
 

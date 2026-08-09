@@ -6,6 +6,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { COLORS, DESIGN_W, DESIGN_H, shade } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { FluidWorld, FluidView } from '../../lib/vatska.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Button } from '../../lib/Button.js'
@@ -162,6 +163,9 @@ export default {
     this._paintRoom()
 
     // Vätskevärlden. Inga världsväggar i sidled — spill ska få rinna ur bild.
+    // Full bleed-koll: bounds behöver INTE breddas — _cull i lib/vatska.js tar bort
+    // partiklar först vid bounds ± 240, dvs. x < -440 / x > 1720 / y > 1080, vilket
+    // ligger utanför allt en bred skärm kan visa (VIEW-taket är ±240/±160).
     this._world = new FluidWorld({
       max: 620,
       radius: 26,
@@ -243,15 +247,19 @@ export default {
 
   _paintRoom() {
     const g = new Graphics()
+    // Rummet breddas med BLEED i sidled (och remsan ovanför/under skärmen fylls med
+    // ytterfärgerna) så en bred telefon (full bleed) aldrig ser creme-kanter. Remsornas
+    // lägen i 0..1280 är oförändrade — 16:9-bilden är pixelidentisk.
+    g.rect(-BLEED_X, -BLEED_Y, DESIGN_W + 2 * BLEED_X, BLEED_Y).fill(0xffe9c9)
     // vägg: varm gradient i breda remsor
     for (let i = 0; i < 24; i++) {
       const t = i / 23
       const c = lerpHex(0xffe9c9, 0xf7cfa0, t)
-      g.rect(0, (DESIGN_H / 24) * i, DESIGN_W, DESIGN_H / 24 + 1).fill(c)
+      g.rect(-BLEED_X, (DESIGN_H / 24) * i, DESIGN_W + 2 * BLEED_X, DESIGN_H / 24 + 1).fill(c)
     }
     // hylla högst upp med saftflaskor (dekor, ger baren ett rum)
-    g.rect(0, 70, DESIGN_W, 18).fill(0xa9714a)
-    g.rect(0, 88, DESIGN_W, 8).fill(shade(0xa9714a, 0.25))
+    g.rect(-BLEED_X, 70, DESIGN_W + 2 * BLEED_X, 18).fill(0xa9714a)
+    g.rect(-BLEED_X, 88, DESIGN_W + 2 * BLEED_X, 8).fill(shade(0xa9714a, 0.25))
     // 7 flaskor mellan x=200 och x=1082: de gamla ytterlägena (60 och 1180) låg rakt
     // bakom hem- och ljudknappen i hörnen.
     for (let i = 0; i < 7; i++) {
@@ -263,9 +271,9 @@ export default {
       g.roundRect(x - 7, 2, 14, 18, 5).fill(shade(c, 0.3))
       g.roundRect(x - 16, 22, 12, 22, 6).fill({ color: 0xffffff, alpha: 0.3 })
     }
-    // bänkskiva
-    g.rect(0, GRATE_Y - 8, DESIGN_W, 16).fill(0xc2a07d)
-    g.rect(0, GRATE_Y + 8, DESIGN_W, DESIGN_H - GRATE_Y).fill(0x8f6a49)
+    // bänkskiva (golvet fortsätter även nedanför 720 för plattor högre än 16:9)
+    g.rect(-BLEED_X, GRATE_Y - 8, DESIGN_W + 2 * BLEED_X, 16).fill(0xc2a07d)
+    g.rect(-BLEED_X, GRATE_Y + 8, DESIGN_W + 2 * BLEED_X, DESIGN_H - GRATE_Y + BLEED_Y).fill(0x8f6a49)
     this._bg.addChild(g)
     this._bg.eventMode = 'none'
     this._bg.interactiveChildren = false
@@ -274,12 +282,14 @@ export default {
   // Gallret ritas ÖVER vätskan: spill ser då ut att rinna ner genom det och försvinna.
   _buildGrateFront() {
     const g = new Graphics()
-    g.rect(0, GRATE_Y - 6, DESIGN_W, 12).fill(0xb9b4ad)
-    for (let x = 6; x < DESIGN_W; x += 26) {
+    // Gallret fortsätter genom bleed-zonen (full bleed) — slingorna startar 10 hela
+    // steg (260 px) till vänster så de ursprungliga lägena i 0..1280 behåller sin fas.
+    g.rect(-BLEED_X, GRATE_Y - 6, DESIGN_W + 2 * BLEED_X, 12).fill(0xb9b4ad)
+    for (let x = 6 - 260; x < DESIGN_W + BLEED_X; x += 26) {
       g.roundRect(x, GRATE_Y - 4, 14, 8, 3).fill(0xdad5ce)
     }
-    g.rect(0, GRATE_Y + 6, DESIGN_W, DESIGN_H - GRATE_Y - 6).fill(0x8f6a49)
-    g.rect(0, GRATE_Y + 6, DESIGN_W, 6).fill(shade(0x8f6a49, 0.25))
+    g.rect(-BLEED_X, GRATE_Y + 6, DESIGN_W + 2 * BLEED_X, DESIGN_H - GRATE_Y - 6 + BLEED_Y).fill(0x8f6a49)
+    g.rect(-BLEED_X, GRATE_Y + 6, DESIGN_W + 2 * BLEED_X, 6).fill(shade(0x8f6a49, 0.25))
     g.eventMode = 'none'
     this._frontL.addChild(g)
   },

@@ -428,6 +428,18 @@ på högen och rapporterade "1 ton på 3 s" — grönt mot taket, och helt menin
 simuleras på ~40 ms verklig tid, så väggklocke-spärren släppte igenom exakt en ton oavsett vad
 som hände. Taket mäts nu via `onImpact` (bildruteräkning), och sonden säger i klartext varför.
 
+⚠️ **Utrullningen är INTE en mekanisk våg — läs varje spel först** (2026-08-09). 21 av 23
+fysikspel saknar `impactAudio`, och det såg ut som en enradare per spel. Men fem av
+kandidaterna (`vippbradan` · `mata-monstret` · `studsbollar` · `kulbana` · `flipperspel`)
+har redan egna `onCollision`-handlare med tonade svar, och `bowling` — som stod först i
+listan — har en **stämd pentatonisk kombo-stege** på fallande käglor plus en sågtands-duns,
+strypt till 70 ms. Att lägga ett träknack ovanpå den gör ljudbilden grumligare, inte
+tydligare, och krockar med CLAUDE.md-regeln om stämda ljud. Kriteriet ett spel måste
+uppfylla: (1) anslagen låter **inget** i dag eller alltid **lika hårt**, (2) anslagen varierar
+i kraft, (3) ingen redan tonsatt respons upptar platsen. `bowling` klarar det bara för
+**ball mot vägg och studsare**, som är helt tysta — och då är svaret `onImpact` med ett
+etikettfilter, inte `impactAudio` rakt av. Samma sorts lista som C4:s glödkandidater.
+
 ### B6. Ingen återanvändbar lyftkraft eller motståndsvolym **[Medium]** — ✅ BYGGD 2026-08-09 (v1.77.0)
 
 `setWind` är global. Det fanns inget "vätskevolym"-begrepp som ger lyftkraft + motstånd inuti en

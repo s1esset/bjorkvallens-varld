@@ -14,6 +14,55 @@ Format:
 
 ---
 
+## 2026-08-10 · v1.85.0 · Spår 3 P2 inledd — plask-i-vattnet fick riktigt vatten
+
+**Byggt:** Första kunden i runda P2. `plask-i-vattnet` har ett **SPH-ytskikt** ur
+`lib/vatska.js`: ytan svallar när något slår igenom den, nivån STIGER av undanträngd volym
+och vattnet slår ihop bakom det som sjunker. Bara ytskiktet simuleras (330–400, 416
+partiklar); djupet är samma ritade kropp som förut och skarven döljs av en påfyllning i
+exakt samma ton. Ny sond `scripts/_plaskprobe.mjs` (12 mått), och `_vatskeprobe` känner nu
+igen släpp-spel och tömmer hyllan i tanken.
+
+**Tre saker som bara mätningen kunde säga:**
+
+1. **Vilopackningen är 73 px² per partikel.** Första fyllningen (15 px-rutnät) sjönk ihop
+   till en 42 px hög sträng med ytan på y=428 — 98 px UNDER flytkraftens nollinje, alltså en
+   lysande blå stapel som svävade mitt i tanken. Fyllningen räknas nu ur den siffran.
+2. **Nedslagspunkten låg på fel sida om ytan.** Föremålet föddes 140 px under vattenytan
+   medan "plasket" var en ritad ring vid ytan. Med riktigt vatten syns det direkt: en sten
+   som föds under ytan rör inte en enda partikel.
+3. **Mer fart ger INTE större plask.** 5,4–7,0 px/steg mot 3,2–4,6 gav LÄGRE stänk (20 mot
+   23 px) och föremålet dök rakt igenom skiktet, så undanträngningen försvann med det.
+   Farten trycker undan vatten i sidled, den kastar det inte uppåt.
+
+**Ljusranden vid hyllan bortmaskad.** Metabollens kant hänger ner under skiktets osynliga
+hylla och lyste igenom påfyllningen: uppmätt 125,189,228 mot vattnets 112,182,225 i ett band
+y≈410–425 — en tunn vågrät linje tvärs tanken. Mask, inte `boundsArea`: filtrets rendermål
+växer med suddets padding, så klickar strax utanför ytan ritas ändå. Efter: 112,182,225 rakt
+igenom, 0 kostnad i FPS.
+
+**Uppmätt:** stänk 24–34 px över ytan · undanträngning 8–13 px på tre flytare · värsta fallet
+36–40 px kvar till rimmen · volymen konstant 416 → 416 · 0 partiklar utanför tanken · 58,9 FPS.
+
+**Commits:** `9ec3362` feat(plask-i-vattnet)
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **72/72 gröna** · bygge rent · serverad
+på :4173 (Tailscale 8445).
+**Öppet:**
+- ⚠️ **Ett fel-nivåfynd, sannolikt transient men ännu inte attribuerat** (ÅTGÄRDER **V11**).
+  Svitkörningen gav 72/72 gröna men loggade `tom-scen` i **`tvatta-djuret`** (helt tom
+  skärmdump). Ensam körning är ren och ritar hela scenen, så det är den kända
+  parallellsvit-transienten — men vätskefiltrets egen flake-frekvens är omätt: A/B-svepet hann
+  bara med HEAD-armen i runda 1 (**72/72, rent**) innan det avbröts. Efter commit görs A/B:t
+  omvänt: `git checkout HEAD~1 -- src/games/plask-i-vattnet/index.js` och sedan
+  `bash scripts/_ab.sh` på samma fil (armarnas etiketter byter plats). Om vätskan är skyldig:
+  filtrets rendermål (blur + tröskel + mask) → `resolution` och filterytan först.
+  ⚠️ Svepet stashar filen — dör körningen, kolla `git stash list` (hände i den här sessionen).
+- Runda P2 fortsätter: `fallskarmen` (motståndsvolym) · `sapbubblor` (mjuka bubblor) ·
+  `ballonglyft` (lyftkraft).
+- ÅTGÄRDER V10 (statisk restitution, 23 spel) väntar fortfarande på ett eget A/B-svep.
+
+---
+
 ## 2026-08-09 (natt) · v1.84.0 · Spår 3 P1 avslutad — kulbanas fjäderbräda
 
 **Byggt:** Den sista punkten i runda P1. `kulbana`s studsplatta är nu en **riktig fjäderbräda**:

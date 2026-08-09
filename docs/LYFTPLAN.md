@@ -746,6 +746,38 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ✅ v1.57.0 *(1 kund, 5 kvar)* |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |
+| 13 | **Full bleed** — `lib/view.js` + scenbleed + `ctx.view` | D | **alla 72 spel på telefon** | ✅ v1.67–68.0 |
 
 **Grind per rad:** `npm run check` grön · `npm run test:all` 72/72 med 0 konsolfel · skärmdump
 granskad med ögat · FPS mätt på plattan när raden rör rendering eller partiklar.
+
+## 5. Spår D — skärmen utanför 16:9 (full bleed) ✅ v1.67–68.0
+
+Contain-letterboxen lämnade creme-lister på telefoner bredare än 16:9 (Pixel 10 Pro visar
+design-x ≈ −163..1443) och spelobjekt "parkerade utanför skärmen" stod fullt synliga i
+listerna. Åtgärdat i tre lager:
+
+- **`lib/view.js`** — `VIEW` (synlig designyta, muteras på plats av Scaler), `BLEED_X 240` /
+  `BLEED_Y 160` (tak: 21:9 behöver ±200, 4:3 ±120), `onViewChange`. Spel läser **`ctx.view`
+  vid användning** — cachea aldrig, mutera aldrig. Vid 16:9 är VIEW = designrektangeln.
+- **`scene.js`** ritar full bleed med *platta kjolar/remsor utanför 16:9* — deterministisk
+  geometri i synlig bild orörd → inga ombaslinjeringar. Vinjetten är enda responsiva lagret
+  (VIEW-kanter, `onViewChange` + `'destroyed'`-avregistrering). OBS himmelsgradienten: bredda
+  BARA i sidled (bbox-höjden styr mappningen); topp/botten-bleed = helfärgade remsor i egen
+  Graphics.
+- **Per spel** (16 st + natskott): egna bakgrunder breddade; spawn/wrap/cull/parkering mot
+  `ctx.view`-kanter. **Fällan:** spel med `COLORS.bg` som egen bakgrund kan aldrig passera
+  kant-cream-kollen (färgen ÄR letterboxen) — använd varm ton `0xfff0d6` (bildkolls
+  dokumenterade "legitim scen"-gräns går vid Manhattan ≤10).
+
+**Mätning:** `npm run test -- --all --viewport 952x428` sveper alla spel i telefonform;
+`bildkoll.mjs` `kant-cream` mäter värsta ZONHALVAN (en obredda himmel ger creme bara ovanför
+horisonten) med två design-undantag (innehållsyta ≥35 % creme = medvetet bord/panel;
+ramremsa ≥60 % creme = medveten ram, t.ex. folj-sparet). Tryck/drag i `test-game.mjs`
+mappas genom letterboxen — samma designkoordinater träffar rätt i alla viewports.
+
+**Kvar (medvetet):** `PhysicsWorld` har `bounds`-param men ingen kund (opt-in med flit —
+testad fysik får inte tyst avvika per enhet). saftbarens `FluidView.area` klipper spill
+~40 px före kanten på de bredaste telefonerna (breddning = större filteryta, mät med
+`_vatskeprobe` först). Manuell telefonkoll (build → preview → Tailscale, rotera mitt i
+spel) är sista grinden.

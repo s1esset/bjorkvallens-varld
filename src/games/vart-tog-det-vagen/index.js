@@ -17,6 +17,7 @@ import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle } from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 const BASE_Y = 470 // y-referenslinje: koppen nedsänkt på bordet
 const LIFT_Y = BASE_Y - 120 // koppens y i lyft-läge (visa/kika)
@@ -80,8 +81,11 @@ export default {
   // Bygg den persistenta scenen en gång: bakgrund, bord, skuggor, leksak.
   // Själva kopparna (antal + färg) byggs/ombyggs av _ensureLayout per nivå.
   _build(ctx) {
-    // Bakgrund: fångar "tomt tryck" -> mjukt ljud (aldrig "fel").
-    const bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(COLORS.bg)
+    // Bakgrund: fångar "tomt tryck" -> mjukt ljud (aldrig "fel"). Full bleed:
+    // täcker även telefonens kantremsor utanför 16:9 (statiskt, enfärgad yta).
+    const bg = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + BLEED_X * 2, ctx.height + BLEED_Y * 2)
+      .fill(COLORS.bg)
     bg.eventMode = 'static'
     bg.on('pointertap', () => this._emptyTap(ctx))
     this._root.addChild(bg)

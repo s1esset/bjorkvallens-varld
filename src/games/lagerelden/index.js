@@ -19,6 +19,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
+import { glod } from '../../lib/glod.js'
 import { puff, sparkle, burst, pop, wiggle, breathe, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
@@ -99,6 +100,7 @@ export default {
     this._fuelMax = cfg.fuelMax
     this._hotR = cfg.hotR
     this._theme = cfg.theme
+    this._addLjus = cfg.theme === 'night' // styr bara glöd-HALONS styrka, se _update
     this._order = cfg.order
     this._kind = cfg.kind
     this._filled = 0
@@ -161,11 +163,22 @@ export default {
     this._fireLayer.position.set(FIRE_X, FIRE_BASE_Y)
     this._fireLayer.eventMode = 'none'
     this._fireLayer.interactiveChildren = false
-    this._glow = new Graphics().circle(0, 0, 90).fill({ color: COLORS.orange, alpha: 0.18 })
-    this._glow.eventMode = 'none'
-    this._fireLayer.addChild(this._glow)
+    // Glöden är ADDITIV (lib/glod.js), inte en orange skiva på alpha 0.18. Skillnaden
+    // är inte kosmetisk: en halvgenomskinlig orange cirkel BLANDAR mot sin egen färg och
+    // grådar därför skymningen den ligger på, medan additivt ljus bara kan göra marken,
+    // stockarna och tältet ljusare. Det är så en eld lyser upp en lägerplats.
+    //
+    // ÄGARSKAP, samma regel som karaktärsriggen: andningen äger den YTTRE behållarens
+    // skala, värmen äger sprajtens egen storlek. En Sprite härleder sin `scale` ur
+    // `width/height`, så en breathe() direkt på glöden hade slagits ut varje gång värmen
+    // satte om storleken — och tvärtom.
+    this._glowWrap = new Container()
+    this._glowWrap.eventMode = 'none'
+    this._glow = glod({ color: 0xffa33c, size: 300, alpha: 0.3 })
+    if (this._glow) this._glowWrap.addChild(this._glow)
+    this._fireLayer.addChild(this._glowWrap)
     this._root.addChild(this._fireLayer)
-    this._glowBreathe = breathe(this._glow, { scale: 1.12, duration: 1.1 })
+    this._glowBreathe = breathe(this._glowWrap, { scale: 1.12, duration: 1.1 })
 
     // 6) "Het zon"-markör: en TYDLIG glödande "rosta här"-ring över lågans topp som följer
     //    vinden och pulsar — barnet ser vart marshmallowen ska.
@@ -706,6 +719,20 @@ export default {
       g.eventMode = 'none'
       this._fireLayer.addChild(g)
     }
+    // LÅGORNA ÄR MED FLIT *INTE* ADDITIVA. Prövat och uppmätt i båda stämningarna:
+    //
+    // Additivt ljus behöver TVÅ saker, och C4-listan tänkte bara på det ena. Dels en
+    // mörk botten att lysa upp — dels en KÄLLA MED TAKHÖJD KVAR. Lågtungorna är feta
+    // och ligger med flit 5–10 djupt ("Feta, överlappande partiklar → en LÅGA"), och
+    // `_flameColor` startar redan på nära vitt (0xfff3b0 → 0xffffff). Summan av tio
+    // nästan vita skivor är vit oavsett vad som ligger under: elden blev en VIT KLUMP
+    // både mot `sunset` och mot `night`. Djupet i den här lågan bärs av ALFAN, inte av
+    // ljusstyrkan, och additiv blandning tar bort precis det.
+    //
+    // Bevarad som skärmdumpar: `.test-shots/_niva-lagerelden-{0,3}.png` via
+    // `scripts/_nivabild.mjs`. `npm run test` var grönt hela tiden.
+    //
+    // Glöd-HALON nedan är däremot additiv, och där stämmer båda villkoren.
     g.visible = true
     const heat = this._heat
     // Feta, överlappande partiklar → en LÅGA. Små glesa prickar läste som konfetti.
@@ -770,7 +797,17 @@ export default {
 
     // Glöd + het-zon-markör lyser med värmen och följer den heta zonen.
     const hot = clamp((heat - BASE_HEAT) / 2.2, 0, 1)
-    if (this._glow && !this._glow.destroyed) this._glow.alpha = 0.16 + hot * 0.12
+    if (this._glow && !this._glow.destroyed) {
+      // Värmen äger glödens EGEN storlek och styrka; andningen äger behållarens skala.
+      // En stor eld lyser inte bara starkare, den lyser LÄNGRE ut — det är den växande
+      // diametern som gör att lägerplatsen tänds upp när barnet lägger på ved.
+      const d = 240 + hot * 210 + fuelRatio * 90
+      this._glow.width = d
+      this._glow.height = d
+      // Samma skäl som lågornas blandning: mot skymningshimlen finns lite takhöjd kvar,
+      // så halon hålls svag där och får lysa på riktigt först när det är natt.
+      this._glow.alpha = this._addLjus ? 0.26 + hot * 0.3 : 0.12 + hot * 0.1
+    }
     this._drawEmbers(fuelRatio, hot)
     // Ringen sitter på EXAKT den punkt rostningen mäts ifrån (flameTopY + 20) och växer
     // med lågan — det man ser är det som gäller.
@@ -994,6 +1031,7 @@ export default {
     // Ev. ny stämning/eldstadsstorlek på högre nivåer — lägerplatsen följer med.
     if (cfg.theme !== this._theme) {
       this._theme = cfg.theme
+      this._addLjus = cfg.theme === 'night'
       if (this._bg && !this._bg.destroyed) this._bg.destroy({ children: true })
       this._bg = createScene(this._theme, { ground: true, groundH: GROUND_H })
       this._root.addChildAt(this._bg, 0)
@@ -1067,6 +1105,10 @@ export default {
       gsap.killTweensOf(this._marsh.scale)
     }
     if (this._glow && !this._glow.destroyed) gsap.killTweensOf(this._glow)
+    if (this._glowWrap && !this._glowWrap.destroyed) {
+      gsap.killTweensOf(this._glowWrap)
+      gsap.killTweensOf(this._glowWrap.scale) // andningen bor på behållarens skala
+    }
     if (this._bobo && !this._bobo.destroyed) {
       gsap.killTweensOf(this._bobo)
       gsap.killTweensOf(this._bobo.scale)

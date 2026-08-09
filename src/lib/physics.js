@@ -420,6 +420,27 @@ export function applyForce(body, fx, fy) {
   Body.applyForce(body, body.position, { x: fx, y: fy })
 }
 
+// KRAFTENHETER — den enskilt dyraste fällan i repots fysikkod, nu på ETT ställe.
+//
+// matter räknar `velocity += (force / massa) · dt²` med fast dt = 16,667 ms, och drar
+// av `frictionAir` varje steg. En konstant acceleration `a` ger därför sluthastigheten
+//
+//     v∞ = a · 277,78 / frictionAir
+//
+// Ett tal som ser ut som "0,7 px/steg drift" blir alltså ~280× för starkt om det skickas
+// rakt in som kraft. Det hände på riktigt: `magnet-fiske` sög in hela dammen i den
+// PARKERADE magneten på under en sekund (uppmätt toppfart 79 px/steg, saker for rakt
+// igenom dammens 40 px tjocka väggar). Skriv konstanter i **px/steg — den fart de ska
+// ge** — och gå genom den här funktionen.
+//
+// Utan luftmotstånd finns ingen sluthastighet alls; då tolkas talet som den fart kroppen
+// når efter ETT steg.
+export const STEG2 = (1000 / 60) ** 2 // 277,78 — matters dt² vid fast tidssteg
+
+export function speedToAccel(pxPerStep, frictionAir = 0) {
+  return frictionAir > 0 ? (pxPerStep * frictionAir) / STEG2 : pxPerStep / STEG2
+}
+
 // Förutsäg en kastbana (för en prickad sikt-förhandsvisning). Lättviktig Euler-sim av
 // en punktmassa under gravitation + vind, med valfri studs mot golv/väggar. Detta är
 // en VISUELL guide (matchar matter ungefär, inte exakt) — spelen är ändå no-fail.

@@ -11,7 +11,8 @@
 // Allt ritas programmatiskt (Pixi Graphics + emoji) och städas exit-säkert.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
+import { PhysicsWorld, Body, nudge, speedToAccel } from '../../lib/physics.js'
+import { Magnetfalt } from '../../lib/magnet.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -82,18 +83,15 @@ function makeThing(kind) {
 }
 
 // KRAFTENHETER — läs det här innan du rör en konstant nedan.
-// matter räknar `velocity += (force / massa) · steg²` med ett fast steg på 16,667 ms och
-// drar av frictionAir varje steg. En konstant acceleration a ger alltså sluthastigheten
-// v∞ = a · 277,78 / frictionAir — MÄTT, inte gissat: a = 1 ger 277,78 px/steg efter ett
-// steg och 4629,6 px/steg i längden. Konstanterna nedan anges därför i px/steg (den fart
-// de ska ge) och räknas om med SPEED_TO_A.
+// Alla krafttal här anges i PX/STEG (den fart de ska ge) och räknas om till matters
+// kraftenheter av `speedToAccel()` i lib/physics.js, där hela härledningen står.
 // De gamla talen var satta som om force vore hastighet, alltså ~280× för starka: hela
 // dammen sögs in i den PARKERADE magneten på under en sekund (uppmätt toppfart 79 px/steg,
 // saker for rakt igenom dammens 40 px tjocka väggar).
 const FRICTION_AIR = 0.06 // sakernas luftmotstånd (samma värde som kropparna skapas med)
-const SPEED_TO_A = FRICTION_AIR / 277.78 // px/steg → matter-acceleration
 
 // Radiell magnet-attraktion, ∝ 1/avstånd: len drift långt bort, snabb snäpp nära.
+// Fältet självt bor i lib/magnet.js; konstanterna nedan är dess inställningar.
 // Verkar BARA när magneten är doppad i dammen — en magnet som hänger i luften fiskar inte.
 const R_FIELD = 300 // kraftfältets radie
 const R_MIN = 28 // golv på avståndet (undvik singularitet nära magneten)
@@ -152,6 +150,10 @@ export default {
     this._hintView = null
     this._grab = { x: 0, y: 0 }
     this._target = { x: PARK.x, y: PARK.y }
+
+    // Magnetens kraftfält (lib/magnet.js): radiellt drag ∝ 1/avstånd med tak, och
+    // samma fält baklänges som den mjuka knuffen ankan får. Sitter i magnetspetsen.
+    this._falt = new Magnetfalt({ x: PARK.x, y: PARK.y, radie: R_FIELD, styrka: PULL, minAvstand: R_MIN, maxFart: PULL_MAX, aktiv: false })
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -337,7 +339,7 @@ export default {
 
     // Svag ambient ström på höga nivåer → lite mer sikte krävs (no-fail kvarstår).
     // 0,7 px/steg drift — samma enhet som resten av krafterna (se SPEED_TO_A).
-    this._phys.setWind(this._level >= 3 ? 0.7 * SPEED_TO_A : 0, 0)
+    this._phys.setWind(this._level >= 3 ? speedToAccel(0.7, FRICTION_AIR) : 0, 0)
 
     // Tillåtna icke-metall-emojis växer med nivån.
     const korkPool = this._level <= 1 ? ['🦆'] : this._level === 2 ? ['🦆', '🛟'] : NONMETAL
@@ -432,6 +434,10 @@ export default {
     }
     this._inWater = inWater
 
+    // Kraftfältet sitter i magnetspetsen och är levande bara under vattnet.
+    this._falt.flytta(tip.x, tip.y)
+    this._falt.aktiv = inWater
+
     // Per-tick krafter FÖRE fysiksteget: pinna fastklistrade, dra metall, knuffa ankor.
     if (!this._resolving) {
       for (const it of this._items) {
@@ -458,22 +464,17 @@ export default {
         if (p.y < SPAWN.y0) it.wh = Math.PI / 2
         else if (p.y > SPAWN.y1) it.wh = -Math.PI / 2
         // Nära magneten dras metall ändå (nedan) → dämpa simningen så den inte motverkar fångst.
-        const swimA = this._swim * SPEED_TO_A * (it.metal && inWater && dist < R_FIELD ? 0.3 : 1)
+        const swimA = speedToAccel(this._swim * (it.metal && inWater && dist < R_FIELD ? 0.3 : 1), it.body.frictionAir)
         Body.applyForce(it.body, p, { x: it.body.mass * swimA * Math.cos(it.wh), y: it.body.mass * swimA * Math.sin(it.wh) })
 
-        // Magneten fiskar bara när den är DOPPAD. Låg den och drog i luften fångade den
-        // hela dammen av sig själv medan barnet tittade på — inget kvar att fiska upp.
+        // Magneten fiskar bara när den är DOPPAD (`_falt.aktiv` sätts ovan). Låg den och
+        // drog i luften fångade den hela dammen av sig själv medan barnet tittade på.
         if (!inWater) continue
 
         if (it.metal) {
-          if (dist < R_FIELD) {
-            const a = Math.min(PULL / Math.max(dist, R_MIN), PULL_MAX) * SPEED_TO_A
-            Body.applyForce(it.body, p, { x: it.body.mass * a * (dx / dist), y: it.body.mass * a * (dy / dist) })
-          }
-        } else if (dist < DUCK_PUSH_R) {
-          // mjuk knuff BORT — ankan kan aldrig fastna
-          const da = DUCK_PUSH * SPEED_TO_A
-          Body.applyForce(it.body, p, { x: it.body.mass * da * (-dx / dist), y: it.body.mass * da * (-dy / dist) })
+          this._falt.dra(it.body)
+        } else if (this._falt.knuff(it.body, { radie: DUCK_PUSH_R, styrka: DUCK_PUSH, profil: 'jamn' })) {
+          // mjuk knuff BORT — ankan kan aldrig fastna. Returvärdet ÄR närhetsvillkoret.
           const now = performance.now()
           if (now - this._lastFniss > 600) {
             this._lastFniss = now
@@ -772,6 +773,7 @@ export default {
       for (const ch of this._bucketPile.children) gsap.killTweensOf(ch.scale)
     }
 
+    this._falt?.destroy()
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()

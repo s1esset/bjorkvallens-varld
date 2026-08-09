@@ -153,3 +153,14 @@ Stark, polerad kärna — men några tunna kanter återstår:
 - Rekommenderad första-omgång: **[Medium] förstärkt metall/trä-lärande + [Quick] riktiga
   vatten-/metall-ljud + [Medium] synligt fylld hink** — knyter ihop pedagogiken, ljudet och
   "samlat"-känslan kring en redan mycket stark mekanik.
+- 2026-08-09 ✅ **Kraftfältet flyttade ut i `lib/magnet.js`** (v1.78.0, spår 3 runda P0).
+  Magnetens drag (∝ 1/avstånd med tak) och ankans mjuka knuff är nu SAMMA fält åt två håll,
+  ur ett delat `Magnetfalt`. Spelets egen `SPEED_TO_A` är borta: px/steg→kraft-omräkningen
+  bor i `speedToAccel()` i `physics.js` tillsammans med hela härledningen, och räknas nu
+  per kropp ur dess egen `frictionAir`. Två mätbara skillnader, båda avsiktliga: dt² är
+  **exakt** (277,7778) i stället för spelets avrundade `277.78`, och fältkanten är
+  **inklusiv** — en sak som råkar ligga exakt på 300 px dras in i stället för att stå kvar
+  för evigt. Uppmätt (`node scripts/_faltprobe.mjs`): **fångsttiden identisk steg för steg**
+  från 80/150/220/290 px (15 · 41 · 74 · 116 steg), banorna sammanfaller inom 2·10⁻⁴ px
+  över 2 sekunders lek. Spelsonden `_magnetprobe.mjs 3` oförändrad: 0 självfångade på 8 s,
+  0 tunnlade, toppfart 2,7 px/steg.

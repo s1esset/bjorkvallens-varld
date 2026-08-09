@@ -467,6 +467,45 @@ rektangelgräns · gravitationsbyte · portekvivalens · exit.
 `poppa-ballonger`, `sapbubblor`. De tre sista kräver att spelet först FÅR en fysikvärld — det
 är ett spelbyte, inte en portering, och hör därför hemma i sin egen runda.
 
+### B6b. Kraftfält som delat begrepp **[Medium]** — ✅ BYGGD 2026-08-09 (v1.78.0)
+
+Ett kraftfält är inte magnetens privatsak: en dammsugare, en virvel, en gubbe som lockar med
+mat och en magnet är samma tre tal (radie · styrka · avtagande) med olika bild ovanpå. Appen
+hade EN sådan implementation, inbakad i `magnet-fiske` — och den bar dessutom repots
+viktigaste fysikkalibrering i en lokal konstant.
+
+✅ **`src/lib/magnet.js` byggd.** `class Magnetfalt`: `flytta(x, y)` · `aktiv` ·
+`dra(body, opts)` · `knuff(body, opts)` · `avstand(body)` · `destroy()`. Två avtaganden,
+båda med kund i första spelet: `'invers'` (styrka/avstånd — len drift långt bort, snabb
+snäpp nära) och `'jamn'` (lika hårt i hela radien — den mjuka knuffen bort).
+
+✅ **`speedToAccel(pxPerStep, frictionAir)` i `physics.js`** — px/steg → matters kraftenheter,
+med hela härledningen (`v∞ = a · 277,78 / frictionAir`) på ETT ställe. Det var den här
+omräkningen som saknades den gången hela dammen sögs in i den parkerade magneten på under en
+sekund. Fältet räknar den **per kropp** ur kroppens egen `frictionAir`, så två saker med olika
+luftmotstånd i samma damm dras ändå lika fort.
+
+**Returvärdet är närhetsvillkoret.** `dra()`/`knuff()` returnerar den fart (px/steg) fältet
+lade på, och 0 när kroppen är utanför radien eller fältet är avstängt. `magnet-fiske`s
+ank-knuff blev därför `else if (falt.knuff(...)) { fniss }` — spelet räknar inte avståndet
+en andra gång bara för att veta om något hände.
+
+⚠️ **Porten är INTE bit-identisk, och ska inte vara det — men då måste rätt sak mätas.**
+Två avsiktliga skillnader: dt² är exakt (277,7778) mot spelets avrundade literal `277.78`,
+och fältkanten är inklusiv (`d ≤ radie`) mot spelets `dist < R_FIELD`. Skillnaden är 8·10⁻⁵
+relativt — men matter med kollisioner är kaotiskt, så en sådan ulp driver isär banorna
+**39,9 px över 900 steg**. Sondens första version dömde det som en regression. Det
+spelrelevanta måttet är i stället **fångsttiden**: hur många steg det tar innan en sak
+snäpper fast. Den är identisk steg för steg (80 px: 15 · 150 px: 41 · 220 px: 74 · 290 px:
+116), och banorna sammanfaller inom 2·10⁻⁴ px över 2 sekunders lek.
+
+**Verktyg: `scripts/_faltprobe.mjs`** (Node, ingen webbläsare) — kalibrering mot utlovad
+px/steg-fart · 1/r-lagen · tak och golv · radie/avstängning/statiska · knuff bort · portens
+fångsttider · exit. Spelsonden `_magnetprobe.mjs` (webbläsare) står kvar och mäter spelet.
+
+⬜ Kvar: **poler** (samma pol stöter bort, motsatt drar) väntar på sin kund i runda P3, där
+`magnet-fiske` självt ska få dem. En polaritet utan ett spel som visar den är dekoration.
+
 ### B7. `kugghjulen` är ren geometri **[Deep]**
 
 Rotationskopplingen är BFS över mittavstånd, inga kroppar. Ett riktigt kuggverk med last och

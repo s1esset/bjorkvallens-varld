@@ -162,3 +162,4 @@ vägg, och glöden tänker åt barnet.**
     Utan den flöt föremålen fritt i vagnsfärgen — blomman försvann nästan mot den orange
     vagnen. Storleken höjd 26/30 → 30/36 nu när det finns kontrast att synas mot.
   - `npm run test` 0 fel; alla fem lastikoner verifierade i `scripts/_ikoner.mjs`.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): bakgrund i varm ton (0xfff0d6 — exakt `COLORS.bg` kan aldrig passera kant-cream), tåget parkerar vid `ctx.view.right+240` och avfärden förlängs så hela tågsättet passerar synliga vänsterkanten. Testad båda viewports: 0 fel.

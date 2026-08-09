@@ -166,3 +166,4 @@ Originaltexten för de avbockade punkterna står kvar nedan.
   `audio.tone()`. (3) **Mätaren till grillen [Quick]** — ton-mätaren flyttad från tomma vänsterytan
   till grillen (blick + färg på samma sida). Per-lager grillning + kund-order + skär&servera (Deep)
   lämnade till senare. errorCount 0, skärmdump bekräftar kunden.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): kakelvägg (loop från row −3, samma 64-rutnät) + bänkskiva/golv breddade. Hyllan var redan maskad. Testad båda viewports: 0 fel.

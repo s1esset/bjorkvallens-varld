@@ -133,3 +133,4 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
     *detalj ovanpå* ett riktigt ritat föremål, och det är precis vad den är.
   - Kvar sedan tidigare (ej i denna omgång): djur-rotation per konsert, synlig
     konsert-mätare, Dirigent Bobo + scen, grannkort-vibration.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): spelet hade INGEN egen bakgrund (vilade på skalets creme — det var hela kant-cream-fyndet): ny full-bleed-bakgrund i varm ton, rutnät/kort orörda. Testad båda viewports: 0 fel.

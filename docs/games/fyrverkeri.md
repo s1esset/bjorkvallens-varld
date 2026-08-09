@@ -123,3 +123,4 @@ inget ljud-"bom" och ingen som tittar på.
     `_idleprobe 20s` → `idleFramsteg: 0`, `efterSpel: 1`. 7 nya repliker väntar på röstklipp.
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): **natthimlen var 48 staplade rektanglar** — samma mönster som `scene.js` lämnade i LYFTPLAN rad 3, men gömt i en spelfil, och banden syntes i mätningen (tre fält à ~38 000 px). Nu en `verticalFill` ur `lib/form.js`: EN rit-operation i stället för 48, jämn toning. Den lokala `lerpColor` blev oanvänd och togs bort.
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): natthimmel/blixt breddade till hela telefonskärmen (±BLEED), stjärnor spawnar i bleed-zonen, raket-cull och vindpilars wrap mot `ctx.view`. Testad 1280×720 + 952×428: 0 fel.

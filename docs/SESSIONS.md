@@ -14,6 +14,45 @@ Format:
 
 ---
 
+## 2026-08-09 · v1.68.0 · Full bleed — bakgrunder täcker hela telefonskärmen (LYFTPLAN spår D)
+
+**Byggt:** Ägarens Pixel 10 Pro (20:9) visade creme-lister vid sidorna och spelobjekt
+"parkerade utanför skärmen" stod fullt synliga i dem. Fixat i tre rundor + ett treprogram
+planerat (skärm → animation → fysik, godkänd plan i `~/.claude/plans/immutable-soaring-hippo.md`):
+
+- **Runda 0 (alla 72 spel):** `lib/view.js` — `VIEW` = synlig designyta (muteras av Scaler),
+  tak `BLEED_X 240`/`BLEED_Y 160`, `onViewChange`. `ctx.view` i GameContext (läs vid
+  användning, cachea/mutera aldrig — dokumenterat i spelkontrakt-skillen). `scene.js` ritar
+  full bleed med platta kjolar/remsor UTANFÖR 16:9 → 1280×720-bilden pixelidentisk, ingen
+  ombaslinjering; vinjetten enda responsiva lagret. Konfettiregn över VIEW. `PhysicsWorld`
+  fick `bounds`-param (opt-in med flit — testad fysik får inte tyst avvika per enhet).
+  Testharnessen: `--viewport WxH` (tryck mappas genom letterboxen → samma designkoordinater
+  träffar rätt i alla viewports) + `kant-cream`-koll i bildkoll.
+- **Runda 1 (16 spel, 3 spelbyggare-agenter):** egna bakgrunder breddade, pop-in fixade
+  (siffertågets lok, vad-forsvanns filt, såpbubblors studs 163 px in i bilden). **Fällor
+  hittade:** himmelsgradienter får bara breddas i SIDLED (bbox-höjden styr mappningen;
+  runda 0 hade glömt själva breddningen — en agent hittade det med pixelmätning);
+  `COLORS.bg` som spelbakgrund kan ALDRIG passera kant-cream (färgen ÄR letterboxen) →
+  varm ton 0xfff0d6. Kollen mäter nu värsta ZONHALVAN + två design-undantag (creme-bord
+  ≥35 %, creme-ram ≥60 % — folj-sparet).
+- **Runda 2:** natskott-pa-stan (lagersådd/återvinning täcker bleed-zonen, mål-spawn mot
+  `ctx.view`). Seam-kollarna (klappa-mullvaden, glasstornet, enhorningen-elvira) granskades
+  i bild och läser som avsiktliga kort/paneler — lämnade.
+
+**Mätning:** `test:all` 72/72 · bred svep 952×428: 0 äkta kant-cream kvar. OBS: parallell-
+svepen kastar tom-scen/konsolfel-transienter på ORÖRDA spel (~3–4 per körning) — kör om
+enskilt innan du tror på dem.
+
+**Commits:** `d635d45` runda 0 · `ad393c1` himmel+kollförfining · 16× `fix(<id>)` ·
+`ea91a1d` natskott · `10ffc8a` docs/LYFTPLAN spår D · + denna sessionslogg.
+
+**Öppet:** (1) **Ägarens telefonkoll återstår** — build → preview → Tailscale, rotera mitt
+i spel. (2) Planens spår 2 (animation: A1 ANIM-tokens+squash/landa/stegra+DragController-
+vikt · A2 Nav-övergångar+`liv()`-idle · A3 riggens 6 sista · A4 add-glöd/emitters/MeshRope-
+via-Canvas2D/kamerans första kund) och spår 3 (fysik: flytkraft/magnet/varme-libbar + tre
+fördjupningsrundor P1–P3) väntar i plan-filen. (3) saftbarens `FluidView.area` klipper
+spill ~40 px före kanten på bredaste telefonerna (mät med `_vatskeprobe` före breddning).
+
 ## 2026-08-09 · v1.66.0 · Karaktärsriggen, omgång 4 — fyra spel till (16 kunder, 6 kvar)
 
 **Byggt:** `vippbradan` · `lagerelden` · `pizzabageriet` · `zackes-biltvatt`. Alla fyra fick

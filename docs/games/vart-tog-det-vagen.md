@@ -131,3 +131,4 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
     [Quick] mjukare tvåstegs-auto-hjälp, [Quick] trumvirvel/ambient före gissa-fas, [Deep] gycklare/
     Bobo som blandar (värd/föreställning), samt leksaks-specifika sample-klipp (kvack) om MOSS-SFX.
 </content>
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): bakgrunden breddad (tomma-tryck-fångaren täcker kantremsorna). Bakgrundsfärgen är exakt `COLORS.bg` → flaggan släcks av design-undantaget, inte av breddningen. Testad båda viewports: 0 fel.

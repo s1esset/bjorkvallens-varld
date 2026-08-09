@@ -130,3 +130,4 @@ Grunden är korrekt och snäll, men loopen är en läroboks-Simon utan egen sjä
   - Deferred: [Deep] fri-spel-läge mellan rundor · [Medium] tema-rundor (djur/frukt/väder-set)
     · [Quick] tempo-charm-runda · [Medium] mildare fel-omtag (från några steg bakåt) · [Quick]
     synlig melodi-bok · [Medium] full Bobo-identitet (lib/mascot.js) · [Quick] bakgrunds-ambient.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): bakgrund breddad + ton bytt `COLORS.bg`→0xfff0d6 (exakt creme kan aldrig passera kant-cream — färgen ÄR letterboxen). Testad båda viewports: 0 fel.

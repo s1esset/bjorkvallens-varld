@@ -201,3 +201,4 @@ loopen är "töm bricka → bredare flod".**
 - 2026-08-09 (senare samma dag): **klipporna fick en lodrät gradient** (v1.48.0, `bce776d`).
   `scripts/_plattprobe.mjs` mätte dem till 135 828 px i en enda brun ton — tredje största
   enfärgade ytan i appen. Ingen annan ändring; lavan är oförändrad sedan `5d69147`.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): klippor/lavabas breddade (+BLEED_Y på djupet), FluidWorld-bounds ±BLEED_X (styr bara hashrutnät+cull, inga fysikväggar — walls är false). Testad båda viewports: 0 fel.

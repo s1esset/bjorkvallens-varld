@@ -247,3 +247,4 @@ auto-hjälpen kan spela banan åt barnet**.
   **Klassfix:** `check.mjs` felar nu på varje `<objekt>._cx/_cy/_sx/_sy/_position/_scale/…
   =` i ett spel — hela repot är rent (snöbollen var enda träffen).
   Statusen går till ✅: alla åtta grindpunkter höll redan, det var bilden som ljög.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): flingornas wrap/respawn mot `ctx.view`, backens band + väderljus + styryta breddade (styrytan gör kantremse-tryck levande), gransiluetter från i=−2. Testad båda viewports: 0 fel.

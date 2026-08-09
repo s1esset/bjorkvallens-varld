@@ -219,3 +219,4 @@ pakettjuv) återstår:
     omgång 1, trots att modulen växt 2 063 → 6 200 rader och nodantalet 104 → 173.
   - **Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72** · `_bollprobe`,
     `_gatuprobe`, `_repprobe`, `_natprobe`, `_idleprobe` alla gröna.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): staden fyller hela telefonskärmen: himmelsband/gatuband/trottoar/biomton ±BLEED, lagersådd+återvinning täcker bleed-zonen (segment revs annars med 160 px kvar i bild), fartstreck över synlig bredd, tryckytan fångar kantremsorna, mål-spawn (default `ctx.view.right+100`, var 1380=synligt) och läkningsgnistor mot `ctx.view`. Testad båda viewports: 0 fel.

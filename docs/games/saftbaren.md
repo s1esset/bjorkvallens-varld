@@ -140,3 +140,4 @@ strunta i beställningen hur länge som helst och bara leka.
     över och målet blir **grönt, renhet 1,00** (gul i blå — hela poängen med spelet);
     **glas→hink** 58 av 58 slukade, 0 kvar liggande; **hela beställningen** Bobo serveras,
     dricker upp och en ny beställning kommer.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): vägg/hylla/bänk/galler/golv breddade ±BLEED. Vätske-bounds ±200 behållna (cull sker vid ±440, utanför VIEW-taket). OBS: `FluidView.area` klipper spill ~40 px före kanten på bredaste telefonerna — breddning kostar filteryta, mät med `_vatskeprobe` först. Testad båda viewports: 0 fel.

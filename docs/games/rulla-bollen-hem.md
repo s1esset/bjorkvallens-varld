@@ -115,3 +115,4 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
   - **Layoutbugg:** "Byt yta"-knappen låg på y=650 med höjd 108 → nederkanten hamnade utanför
     designytan och klipptes. Flyttad till 616 (etiketten till 534).
   - **Bugg:** båda `gsap.delayedCall` → `ctx.later()`.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): gräset breddat åt alla håll och fångar nu tryck i kantremsorna. Testad båda viewports: 0 fel.

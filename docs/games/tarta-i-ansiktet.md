@@ -118,3 +118,4 @@ inte en medspelare, och flicken har inget att sikta på.
     Fixad med `moveTo` till bågens startpunkt.
   - **Grind:** `npm run check --game tarta-i-ansiktet` 0 fel · `npm run test` grönt ·
     `_idleprobe 20s` → `idleFramsteg: 0`, `efterSpel: 2`. 2 nya repliker väntar på röstklipp.
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): ridå/scengolv/kappa breddade med raka flikar utanför 16:9 — synliga veck 0..720 orörda. Testad båda viewports: 0 fel.

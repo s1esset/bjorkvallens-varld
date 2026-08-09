@@ -137,3 +137,4 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
     (idle-rörelse per sak); [Quick] synlig "rundor klarade"-räknare; [Quick] tyg-frasande
     filtljud + lugn bakgrunds-ambient; [Medium] "vad bytte plats?"-varianten.
 </content>
+- 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): filten parkerade på 1280+60 och stod FULLT SYNLIG i högra kantremsan på telefon — nu `ctx.view.right+60` vid in- och utglidning. Creme-ytan i övrigt är designen (kant-cream-undantag: innehållsyta ≥35 % creme). Testad båda viewports: 0 fel.

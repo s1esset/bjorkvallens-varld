@@ -14,6 +14,7 @@ import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, bigCelebration, floatText , kvittera} from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { Motstandsvolym } from '../../lib/luftmotstand.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -24,13 +25,27 @@ const BOBO_R = 44 // mottagarens ansiktsradie (makeBobo: fötterna 2,36·r under
 const X_MIN = 140 // mjuka väggar i sidled
 const X_MAX = 1140
 
-// Fysik (px & px/frame @60fps). Se "Fysik & kalibrering" i specen.
-const SINK_LIGHT = 1.5 // px/frame nedåt i Lätt-läge
-const SINK_HEAVY = 2.4 // px/frame nedåt i Tung-läge (faller snabbare)
-const STEER_FORCE = 0.45 // sidkraft från styrning (px/frame²)
-const WIND_FACTOR_HEAVY = 0.45 // Tung biter mindre mot vinden
-const VX_DAMP = 0.92 // luftmotstånd-damp per frame
-const VX_MAX = 6 // sidofarts-tak (px/frame)
+// Fysik: LUFTEN ÄR EN KRAFT (`lib/luftmotstand.js`), inte tre handsatta tal.
+//
+// Förut sjönk fallskärmen med `chute.y += sink * dt` (1,5 eller 2,4), vinden var ett
+// eget tal med en egen tyngdfaktor (`WIND_FACTOR_HEAVY = 0.45`) och styrningen ett
+// tredje som inte brydde sig om tyngden alls. Uppmätt i HEAD (`_fallprobe.mjs`):
+// **95 % av fallfarten nåddes efter 0,07 s** — alltså ingen acceleration över huvud
+// taget — och styrningen gav 248 px (Lätt) mot 245 px (Tung) på en sekund, så
+// tyngdknappen gjorde ingenting åt styrförmågan.
+//
+// Nu är allt EN lag: motstånd mot farten relativt luften. Gränsfarten faller ut ur
+// massa mot kupolarea, vinden är luftens egen hastighet (därför driver en lätt last
+// med byn medan en tung släpar efter), och styrningen möter samma motstånd.
+const GRAV = 0.086 // px/bildruta² — sätter hur LÄNGE accelerationen syns (~0,5 s till 95 %)
+const V_LATT = 85 / 60 // px/bildruta: HEADs uppmätta 85 px/s, bevarad fallkänsla
+// Tung last i SAMMA kupol. Gränsfarten går som √massa, så 2,79 ger 1,67× — exakt HEADs
+// uppmätta kvot mellan Tung och Lätt (142/85). Talet är alltså mätt, inte valt.
+const MASSA_TUNG = 2.79
+const VIND_FART = 11.8 // vindtal → luftens fart i px/bildruta (kalibrerad mot HEADs drift)
+const STEER_KRAFT = 0.7 // barnets drag i linan: en KRAFT (delas med massan → Tung är trögare)
+const ASSIST_ACC = 0.05 // no-fail-assisten: en ACCELERATION (massoberoende — hjälpen ska
+// kännas lika snäll i båda tyngdlägena, annars blir Tung svårare att bli hjälpt i)
 const STEER_DEADZONE = 20 // dödzon kring fallskärmen så den inte vibrerar
 const TAP_IMPULSE = 0.5 // s — enkel-tap ger en kort styr-puff (för de minsta)
 const IDLE_DELAY = 6 // s utan input -> mild om-cue
@@ -67,6 +82,11 @@ export default {
     this._leaves = []
     this._susTimer = 0 // stigande vind-sus (mjuk luft-svallning vars volym följer byn)
     this._legPhase = 0 // dinglande ben-pendel (fas)
+
+    // Luften. Volymen äger fallet, vinden och styrningens motstånd — se konstanterna
+    // överst. Lasten läggs i den när fallskärmen finns (`_setLast`).
+    this._luft = new Motstandsvolym({ grav: GRAV })
+    this._luftRec = null
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -294,6 +314,26 @@ export default {
     chute.interactiveChildren = false
     this._chute = chute
     this._root.addChild(chute)
+    this._setLast()
+  },
+
+  // Lasten i luften. SAMMA kupol i båda tyngdlägena — det är MASSAN som ändras, och
+  // gränsfarten går därför som √massa (2,79 → 1,67×, exakt HEADs uppmätta kvot mellan
+  // Tung och Lätt). Att i stället krympa kupolen hade ändrat två saker på en gång och
+  // gjort kalibreringen omöjlig att läsa.
+  _setLast(vx = 0, vy = null) {
+    if (!this._luft || !this._chute || this._chute.destroyed) return
+    const massa = this._heavy ? MASSA_TUNG : 1
+    const gransfart = V_LATT * Math.sqrt(massa) // samma k·A ⇒ kupolen är oförändrad
+    if (this._luftRec) this._luft.ta(this._luftRec)
+    this._luftRec = this._luft.lagg(this._chute, {
+      massa,
+      gransfart,
+      vx,
+      // Starta strax under gränsfarten: skärmen är REDAN utfälld när rundan börjar, så
+      // ett fall från noll hade lästs som att den fälls ut en gång till mitt i luften.
+      vy: vy === null ? gransfart * 0.72 : vy,
+    })
   },
 
   _makeWindUi(ctx) {
@@ -360,6 +400,7 @@ export default {
     this._tapTimer = 0
     this._vx = 0
     this._resolving = false
+    this._setLast() // ny runda = ny last i luften, utan kvarvarande fart
 
     // Placera/rita mål.
     this._target.position.set(tx, GROUND_Y)
@@ -413,35 +454,42 @@ export default {
       dir = this._tapTimer > 0 ? this._tapDir : 0
     }
 
-    // 2. Konstant nedåt-glid (luftmotstånd-clamp = lugnt fall).
-    const sink = this._heavy ? SINK_HEAVY : SINK_LIGHT
-    chute.y += sink * dt
-
-    // 3. Sidkrafter: styrning + vind, sedan damp + tak.
-    const windFactor = this._heavy ? WIND_FACTOR_HEAVY : 1.0
-    this._vx += (dir * STEER_FORCE + this._wind * windFactor) * dt
-    // Snäll styr-assist som växer efter mjuka omstarter (no-fail-garanti). 0 vid
-    // 0 missar -> barnet styr helt själv; starkare efteråt -> når alltid målet.
-    if (this._misses > 0) {
-      const assist = Math.min(this._misses, 4) * 0.05
-      const low = chute.y > 360 ? 1 : 0.4
-      this._vx += Math.sign(this._targetX - chute.x) * assist * low * dt
+    // 2+3. EN LAG för fall, vind och styrning: motstånd mot farten relativt luften.
+    // Barnets drag i linan är en KRAFT (delas med massan → Tung är trögare i sidled),
+    // medan den snälla no-fail-assisten är en ACCELERATION (massoberoende, så hjälpen
+    // känns lika snäll i båda tyngdlägena). Skillnaden är mätt, se `_motstandprobe.mjs`.
+    const rec = this._luftRec
+    if (rec) {
+      this._luft.setVind(this._wind * VIND_FART, 0) // vinden ÄR luftens fart, inte en kraft
+      if (dir) this._luft.kraft(rec, dir * STEER_KRAFT, 0)
+      // Snäll styr-assist som växer efter mjuka omstarter (no-fail-garanti). 0 vid
+      // 0 missar -> barnet styr helt själv; starkare efteråt -> når alltid målet.
+      if (this._misses > 0) {
+        const assist = Math.min(this._misses, 4) * ASSIST_ACC
+        const low = chute.y > 360 ? 1 : 0.4
+        this._luft.driv(rec, Math.sign(this._targetX - chute.x) * assist * low, 0)
+      }
+      this._luft.steg(dt) // skriver chute.x/y
+      this._vx = rec.vx // resten av spelet (ben, lutning, landning) läser den här
+      if (chute.x < X_MIN || chute.x > X_MAX) {
+        chute.x = clamp(chute.x, X_MIN, X_MAX) // mjuka väggar (ingen studs-straff)
+        rec.vx *= 0.4 // och farten dör mot väggen i stället för att ligga kvar och trycka
+      }
     }
-    this._vx *= Math.pow(VX_DAMP, dt)
-    this._vx = clamp(this._vx, -VX_MAX, VX_MAX)
-    chute.x += this._vx * dt
-    chute.x = clamp(chute.x, X_MIN, X_MAX) // mjuka väggar (ingen studs-straff)
 
     // Mjuk lutning: styrningen lutar åt sitt håll OCH vinden drar kupolen åt sitt
     // (barnet SER/känner att vinden puttar — och att styra rätar upp den igen).
-    const windLean = clamp(this._wind * windFactor * 0.8, -0.3, 0.3)
+    // Lutningen läses ur den VERKLIGA relativfarten mot luften, alltså samma storhet
+    // som bär kupolen — inte ur vindtalet med en handsatt tyngdfaktor.
+    const relVx = rec ? rec.vx - this._luft.vind.x : 0
+    const windLean = clamp(-relVx * 0.09, -0.3, 0.3)
     const targetRot = clamp(dir * 0.13 + windLean, -0.34, 0.34)
     chute.rotation += (targetRot - chute.rotation) * Math.min(1, 0.15 * dt)
 
     // Dinglande ben pendlar med sidofart + vind + en lugn grundsväng.
     this._legPhase += 0.11 * dt
     if (this._legs && !this._legs.destroyed) {
-      const vxN = clamp(this._vx / VX_MAX, -1, 1)
+      const vxN = clamp(this._vx / 5.2, -1, 1) // 5,2 = HEADs uppmätta sidofartstak
       this._legs.rotation = Math.sin(this._legPhase) * 0.16 + vxN * 0.35 + this._wind * 0.9
     }
 
@@ -648,6 +696,10 @@ export default {
     ctx.services.audio.sfx('pling')
     pop(this._weightBtn)
     floatText(ctx.fxLayer, this._weightBtn.x, this._weightBtn.y - 80, this._heavy ? 'Tung!' : 'Lätt!')
+    // Byt last MITT I FALLET och behåll farten: den nya gränsfarten är en annan, så
+    // fallskärmen accelererar (eller bromsar) synligt in mot den. Det är just den
+    // övergången som gör knappen kännbar — förut bytte fallfarten värde på en bildruta.
+    this._setLast(this._luftRec ? this._luftRec.vx : 0, this._luftRec ? this._luftRec.vy : null)
     // Tung = lite ihopdragen kupol (visuell skillnad).
     const chute = this._chute
     if (chute && !chute.destroyed) {
@@ -752,6 +804,9 @@ export default {
   destroy(ctx) {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
+    this._luft?.destroy() // steg() efter detta gör ingenting
+    this._luft = null
+    this._luftRec = null
     this._glowTw?.kill()
     this._landTl?.kill()
     this._glideTw?.kill()

@@ -20,7 +20,7 @@ import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body, nudge, applyForce } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { bigCelebration, burst, puff, sparkle, floatText, pop, wiggle } from '../../lib/feedback.js'
+import { bigCelebration, burst, puff, sparkle, floatText, pop, wiggle , kvittera} from '../../lib/feedback.js'
 import { COLORS, PLAYFUL, PRAISE } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -431,8 +431,15 @@ export default {
     this._ctx.services.audio.sfx('soft')
   },
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _unicornTap(ctx) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx)
     this._idle = 0
     if (this._selectedFood) {
       const food = this._selectedFood
@@ -688,7 +695,8 @@ export default {
 
   // Tap på botten-remsan -> burken glider dit (för barn som inte kan dra).
   _bandTap(ctx, e) {
-    if (!this._alive || this._resolving || this._dragChest) return
+    if (!this._alive || this._dragChest) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._idle = 0
     const p = this._root.toLocal(e.global)
     const tx = clamp(p.x, CHEST_MIN, CHEST_MAX)

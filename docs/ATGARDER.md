@@ -24,41 +24,17 @@ regel gäller: reproducera innan du ändrar.
 
 | # | Var | Fynd | Bevis | Status |
 |---|-----|------|-------|:--:|
-| V9 | 14 spel (lista nedan) 🟨 | **Tysta tryck under upptagen-fas.** En pekhanterare bortar tidigt på `_busy`/`_resolving`/`_cleared` utan att ge någon återkoppling → `dod-traffyta`, alltså brott mot P0 ÅTERKOPPLING (<100 ms). 29 spel är fixade med `kvittera()` (`1168e24`, `35defca`, `8f2394c`, `560aa08`, `ddae3d8`, v1.61.0);
-**10 kandidater i 9 spel återstår — varav bara 4 är äkta** (se uppdelningen nedan). | `node scripts/_tystprobe.mjs`. Harnessen hittar dem bara när dess åtta sekunder råkar träffa rätt fas — tre körningar i rad gav tre olika spel (`harma-melodin` → `flipperspel` → `peka-pa-kroppen`), vilket är själva skälet att en statisk sond behövs. | ⬜ |
+| — | — | *(inga öppna verktygsfynd)* | | |
 
-**V9 — ÄKTA kvar (4 kandidater i 3 spel):** `enhorning-glitterbajs` (`_unicornTap`, `_bandTap`) ·
-`enhorningen-flyger` (`_steerDown`) · `fallskarmen` (`_steerDown`).
-
-**Resten av sondens lista är MEDVETET kvar — fixa dem inte:**
-
-| Rad | Varför den står kvar |
-|---|---|
-| `gravmaskinen:667` · `regnbagsmalaren:323` · `tarta-i-ansiktet:419` · `vippbradan:483` (`_onUp`) | Ett **uppsläpp** behöver inget kvitto — nedtrycket fick redan sitt. Ett andra ljud på samma gest läser som två händelser. |
-| `pruttbad:733` (`_releaseBubble`) | Falskt positivt: vakten sitter MITT i funktionen, efter att bubblan skapats. Sonden läser bara de första 22 raderna i en metod. |
-| `vandkort:206` (`_flip`) | Falskt positivt: sonden rapporterar den FÖRSTA vakten, men `_busy`-grenen en rad senare kvitterar redan via `_nudge()`. |
-
-**Klara:** `golvet-ar-lava` (5 ställen bakom en delad `_locked()`) · `glasstornet` ·
-`gravmaskinen` · `ballonglyft` · `folj-sparet` · `rakna-applen` · `gungan` · `kugghjulen` ·
-`kittla-figuren` · `lagerelden` · `kulbana` · `pruttbad` · `plantera-fron` · `regnbagsmalaren` ·
-`saftbaren` · `snobollen` · `spara-linjen` — plus de fem från `1168e24`/`35defca`.
-
-**Ett känt falskt positivt att inte jaga:** `pruttbad:726` (`_releaseBubble`). Sonden läser de
-första 22 raderna i en metod, och den vakten sitter MITT i funktionen efter att bubblan redan
-skapats — den är inte en tidig retur på ett tryck.
-Två gränsdragningar som är värda att upprepa: `_onUp` behöver inget kvitto (nedtrycket fick
-redan sitt), och vakter som `_dragging` eller "inget föremål valt" är **inte** upptagen-faser —
-bara `_resolving`/`_falling`/`_walking`/`_busy` är det.
-
-> ⚠️ **Sonden ger ledtrådar, inte domar** — den läser text, inte beteende. Den rapporterar den
-> FÖRSTA vakten i en hanterare, så `vandkort:206` står med trots att dess `_busy`-gren redan
-> kvitterar via `_nudge()` en rad senare. Reproducera i harnessen innan du ändrar. Fixmönstret
-> när fyndet är äkta: `kvittera(ctx.fxLayer, x, y, ctx.services.audio)` ur `lib/feedback.js`.
+> ⚠️ **En sond ger ledtrådar, inte domar** — den läser text, inte beteende, och rapporterar den
+> FÖRSTA vakten i en hanterare. Reproducera i harnessen innan du ändrar. Fixmönstret när fyndet
+> är äkta: `kvittera(ctx.fxLayer, x, y, ctx.services.audio)` ur `lib/feedback.js`.
 
 ## Avklarat
 
 | # | Var | Fel | Fix | Commit |
 |---|-----|-----|-----|--------|
+| V9 | 32 spel (app-brett) | **Tysta tryck under upptagen-fas.** En pekhanterare bortade tidigt på `_busy`/`_resolving`/`_walking`/`_falling` utan någon återkoppling → `dod-traffyta`, alltså brott mot P0 ÅTERKOPPLING (<100 ms). För ett barn som inte kan läsa "vänta" är en tyst skärm inte en paus — den är trasig. | Ny delad `kvittera()` i `lib/feedback.js` (dämpad ton + tunn ring) i **32 spel** över sex commits. `vad-forsvann` hade dessutom en **död yta mitt på skärmen**: trycket landade på filten, inte på rutorna under, och filten hade ingen hanterare alls. **Mätt:** `scripts/_tystprobe.mjs` (ny) gick från **53 kandidater i 28 spel → 6**, och alla sex är medvetna undantag: fyra `_onUp` (ett uppsläpp behöver inget kvitto, nedtrycket fick redan sitt) samt `pruttbad:733` och `vandkort:206`, båda falska positiva. `test:all` 72/72 efter varje batch. **Gränsdragning:** `_dragging` eller "inget föremål valt" är INTE upptagen-faser. | `1168e24` · `35defca` · `8f2394c` · `560aa08` · `ddae3d8` · `8ed92fd` + v1.62.0 |
 | V8 | `AudioService` (app-brett) | **Första trycket i ett spel fick aldrig sitt klipp** — `audio.sample()` returnerade false och spelet föll tillbaka på syntes. Avkodningen (`_predecodeAll`) startade vid första `pointerdown`, alltså i exakt samma ögonblick som trycket skulle låta. | `_loadSfxManifest()` skapar nu `AudioContext` och startar `_predecodeAll()` direkt när manifestet laddats, i stället för att vänta på en användargest — `decodeAudioData` fungerar i suspended state, bara uppspelning kräver en gest. **Mätt (A/B, HEAD mot ändringen, full `test:all`):** de tre spel vars `saknat-ljudklipp` var just kallstarts-racet försvann helt (`natskott-pa-stan`, `djurorkester`, `spindel-zacke-svingar`) — ingen nytillkommen `saknat-ljudklipp` någonstans. Kvarvarande `saknat-ljudklipp`-fynd (`bajs-och-kiss`, `kittla-figuren`, `peka-pa-kroppen`, `sapbubblor`) är en annan sak: klipp som saknas i manifestet (MOSS nere), inte ett timingrace. | `bea8b22` |
 | V6 | `scripts/gen-sfx.py` (`npm run sfx`) | Skrev om `public/audio/sfx/manifest.json` enbart från sin egen fraslista och **tappade tyst Kenney-nycklarna** (`tap`/`soft`/`flip`). | Manifestet byggs nu ur `out_dir.glob('*.mp3')` — alltså ur filerna på disk, precis som kommentaren redan påstod — så klipp som andra verktyg lagt i mappen (`kenney-sfx.mjs`) överlever rebuilden. Nycklarna sorteras, så ordningen slutar också fladdra mellan körningar. **Mätt om (MOSS fortfarande nere, samma körning som fällde felet): `manifest.json: 24 clips` + `(kept 3 clip(s) from other sources: flip, soft, tap)` — nyckeluppsättningen identisk med före körningen.** `gen-voice.py` kontrollerad: den slår ihop mot befintligt manifest och har inte samma bugg. | `e219f19` |
 | V7 | `vandkort` | Körningen sa **"Delfin!"** utan klipp — havsdjurens namn byggs vid körning (`voice.say(\`${nm}!\`)`) och kan inte läsas statiskt. | Fyndet gällde ett namn, hålet var elva: `ANIMAL_NAME` hade fått klipp men hela `SEA_NAME` saknades. Alla elva unika havsdjursnamn tillagda i `scripts/voice-phrases.json` + genererade med `npm run voice` (11 made, 0 failed). **Mätt statiskt ur källans egna tabeller i stället för att hoppas på rätt slumpat tema: spelet kan säga 18 unika namn, 0 saknar klipp.** `test vandkort` grön, `check` 0 fel. | `1160ad1` |

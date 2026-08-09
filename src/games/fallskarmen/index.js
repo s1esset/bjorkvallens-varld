@@ -12,7 +12,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, puff, sparkle, burst, bigCelebration, floatText } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, burst, bigCelebration, floatText , kvittera} from '../../lib/feedback.js'
 import { makeBobo } from '../../lib/figurer.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -552,8 +552,15 @@ export default {
 
   // ---- Styrning (egen pointer-logik) ---------------------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _steerDown(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._steer.active = true
     this._steer.x = this._root.toLocal(e.global).x
     this._steer.downAt = performance.now()

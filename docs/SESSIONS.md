@@ -14,7 +14,7 @@ Format:
 
 ---
 
-## 2026-08-09/10 · v1.57.0 · Nattpass — LYFTPLAN 7·8·9·11·12 klara, och en sond som ljög
+## 2026-08-09/10 · v1.62.0 · Nattpass — LYFTPLAN 7·8·9·11·12 klara, V9 stängd, och fyra sonder som ljög
 
 **Byggt:** en obruten nattkörning på ägarens begäran ("jobba vidare medan jag sover, gå på din
 rekommendation"). Fem LYFTPLAN-rader stängda, plus ett P0-fynd som visade sig vara mätfel.
@@ -66,6 +66,36 @@ bara byta färg).
 Noll importer på två månader. Ett dokumenterat teknikval som ingen kod använder är en lögn om
 appen. `ARCHITECTURE.md` nämnde den aldrig — docens A1 var inaktuell på den punkten.
 
+### 7. ATGARDER V9 stängd — 32 spel fick kvitto (`8f2394c` · `560aa08` · `ddae3d8` · `8ed92fd` + v1.62.0)
+
+Hela sondens lista genomgången i fem batchar, varje kandidat läst mot koden först.
+**53 kandidater i 28 spel → 6**, och alla sex är medvetna undantag: fyra `_onUp` (ett uppsläpp
+behöver inget kvitto, nedtrycket fick redan sitt) plus `pruttbad:733` och `vandkort:206`, båda
+falska positiva och båda dokumenterade så ingen jagar dem.
+
+Tre spel hade en kod-form som en mekanisk mönsterersättning hade brutit: `gungan._pumpDown`
+tog aldrig emot `ctx`, `kittla-figuren._tickle` tar en zon i stället för ett event, och
+`saftbaren` har ingen `ctx` alls i pekhanterarna (den ligger på `this._ctx`).
+
+### Svitens flakighet — nu mätt, inte gissad
+
+`npm run test:all` kördes **10 gånger** under natten. **3 av 10 gav `tom-scen`** i 1–3 spel,
+alltid olika spel, aldrig ett spel som ändringen rörde, och alltid exakt 0,0 % innehåll. En
+omkörning av IDENTISK kod var ren varje gång. Det bekräftar siffran CLAUDE.md redan angav
+("HEAD flakade själv 1 av 3") och ger regeln: **två körningar av samma träd som skiljer sig är
+icke-determinism, inte en regression** — `_ab.sh` behövs bara när HEAD och en ändring ska
+jämföras.
+
+En körning visade dessutom mekanismen: `fysik-svalt` med `deltaMS 100` (≈10 fps), och ett
+`kulbana`-tryck vars `pointerup` kom **5 sekunder** efter `pointerdown`. Svälten skapar både
+`tom-scen` och falska `dod-traffyta`.
+
+⚠️ **Rättelse:** ett tidigare påstående i den här sessionen (och i `8f2394c`) om "39
+kvarliggande Chrome-processer" var **fel** — det kom ur ett slarvigt `tasklist | grep -c chrome`.
+Verklig mätning: 7 chrome.exe, varav 2 headless. Chrome-ackumulering förklarar ingenting här.
+Det som däremot står: **två `npm run dev`/vite-instanser** kör mot samma repo (vite 5480 äger
+5173, vite 4908 är föräldralös) och `.server.pid` pekar på en död PID.
+
 ### Metodfynd — natten handlade om sonder som ljuger
 
 **Varje sond jag skrev fällde sig själv minst en gång, och varje gång på ett sätt som såg grönt
@@ -95,8 +125,9 @@ Vite laddade om mitt i sviten, som kom tillbaka 68/72 med `gles-scen` på exakt 
 `69ea2bb` mjukkropp
 
 **Öppet:**
-- **`ATGARDER` V9: 53 kandidater i 28 spel** — tysta tryck under upptagen-fas. Reproducera per
-  spel innan något ändras; fixmönstret är `kvittera()`.
+- **`ATGARDER` är tomt** — V9 stängd, inga öppna ägarrapporter, inga öppna verktygsfynd.
+- **Miljö att titta på:** två `npm run dev`/vite-instanser kör mot samma repo och `.server.pid`
+  pekar på en död PID. Inte åtgärdat i natt — jag dödar inga processer på ägarens maskin.
 - LYFTPLAN: rad 2 (`atlas.js`) är den enda kvarvarande ⬜. **Kunder saknas** för de nya libben:
   `karaktarer.js` 1 av 23 · `mjukkropp.js` 1 av 6 · `rep.js` 1 av 4 · `kamera.js` 0.
 - `MeshRope` (C5) är inte byggd — den kräver en textur, och `generateTexture()` är den kända

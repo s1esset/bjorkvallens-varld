@@ -33,7 +33,7 @@ import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, puff, sparkle, ripple, burst, bigCelebration, floatText, kvittera } from '../../lib/feedback.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS } from '../../lib/theme.js'
 
 // ---- Layout (designkoordinater 1280×720) --------------------------------
@@ -314,20 +314,19 @@ export default {
     this._buildHoneyJar()
   },
 
-  // Bobo väntar på sin glass: ritad kropp + maskot-huvudet.
+  // Bobo väntar på sin glass — en RIGG (lib/karaktarer.js), inte huvud plus ritad
+  // kropp. Han är spelets mottagare, och en mottagare som inte kan se hungrig ut är
+  // bara en dekoration: `hungrig` är hans viloläge här, inte `glad`.
+  //
+  // Placeringen är räknad, inte gissad. Den gamla kroppens skugga låg på y 158 under
+  // containerorigo; riggens ligger på 2,36·r = 132. Origo flyttas därför 26 px NER så
+  // att fötterna står kvar på exakt samma golvlinje (462 + 158 = 488 + 132 = 620).
   _buildCustomer() {
     const c = new Container()
-    c.position.set(146, 462)
-    const g = new Graphics()
-    g.ellipse(0, 158, 60, 14).fill({ color: 0x000000, alpha: 0.16 })
-    g.ellipse(-26, 146, 24, 13).fill(COLORS.orangeDark)
-    g.ellipse(26, 146, 24, 13).fill(COLORS.orangeDark)
-    g.roundRect(-66, 54, 24, 66, 12).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
-    g.roundRect(42, 54, 24, 66, 12).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
-    g.roundRect(-48, 28, 96, 118, 44).fill(COLORS.orange).stroke({ width: 4, color: COLORS.orangeDark })
-    g.roundRect(-30, 60, 60, 46, 20).fill({ color: COLORS.cream, alpha: 0.85 })
-    c.addChild(g)
-    c.addChild(makeMascot(56))
+    c.position.set(146, 488)
+    this._kar = makeKaraktar({ r: 56 })
+    c.addChild(this._kar.view)
+    this._kar.setMood('hungrig', { direkt: true })
     c.eventMode = 'none'
     c.interactiveChildren = false
     this._customer = c
@@ -1013,7 +1012,9 @@ export default {
   _reactCustomer(ctx) {
     const c = this._customer
     if (!c || c.destroyed) return
+    // `pop()` går på den YTTRE containern; riggens `view.scale` ägs av dess andning.
     pop(c, { scale: 1.08 + 0.03 * this._count })
+    this._kar?.react('nyfiken')
     if (this._count >= Math.max(2, this._goal - 1)) {
       floatText(ctx.fxLayer, c.x, c.y - 96, randomFrom(['Mums!', 'Åh!', 'Oj!']), { fontSize: 40 })
     }
@@ -1177,6 +1178,7 @@ export default {
         if (!item.destroyed) item.destroy({ children: true })
         this._serveItem = null
         if (this._alive && c && !c.destroyed) {
+          this._kar?.react('nam') // han TUGGAR på glassen, inte bara studsar
           pop(c, { scale: 1.3 })
           floatText(ctx.fxLayer, c.x, c.y - 100, 'Mums!', { fontSize: 46 })
           ctx.services.voice.say('Mums! Tack för glassen!')
@@ -1487,6 +1489,8 @@ export default {
     this._finishCall?.kill()
     this._cherryTween?.kill()
     this._serveTween?.kill()
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
     if (this._customer && !this._customer.destroyed) {
       gsap.killTweensOf(this._customer)
       gsap.killTweensOf(this._customer.scale)

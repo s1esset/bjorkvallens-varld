@@ -14,6 +14,37 @@ Format:
 
 ---
 
+## 2026-08-09 · v1.65.0 · Karaktärsriggen, omgång 3 — fyra spel till (12 kunder, 10 kvar)
+
+**Byggt:** `blixt-och-dunder` · `fallskarmen` · `saftbaren` · `tarta-i-ansiktet`.
+
+**Två spel ströks efter läsning — dokumenterade undantag, inte glömska:**
+
+- `gravmaskinen` kör `makeMascot(11)`. Vid r 11 är ögonen 1,7 px och brynen 0,8 px breda; en
+  min går inte att läsa, och riggen hade lagt en andnings-tween per bildruta på något osynligt.
+- `bajs-och-kiss` använder en **lokal** `makeMascotHead(38)` för en gäst som snurrar fritt i
+  virveln — kodens egen kommentar säger varför den ritas lokalt. Vilo-andning på ett föremål
+  som spolas ner är fel verktyg.
+
+**Två saker omgången lade till:**
+
+1. **En YTTRE container är svaret när spelet speglar figuren.** `fallskarmen` sätter
+   `scale.x = ±1` för att vända Bobo mot mattan. Riggens andning tweenar `view.scale` till
+   0,988 — den hade **raderat spegelvändningen** och vänt honom åt fel håll, utöver att hacka.
+   Med riggen i en egen container äger spelet spegling + rotation och riggen sin egen skala,
+   och `toLocal` går genom `scale.x` så `look()` pekar rätt utan en enda specialrad.
+2. **Häng reaktionen på mätningen, inte på en timer.** `saftbaren` tuggar (`nam`) bara när
+   `drain()` faktiskt returnerade partiklar — munnen rör sig när det rinner i den.
+
+**Räkningen är gjord på importer, inte på ordet i en kommentar.** Flera redan bytta spel
+nämner fortfarande `makeBobo` i en kommentar om origo, så en naiv `grep -l makeBobo` gav 17
+"kvarvarande" spel av vilka 5 var klara.
+
+**Commits:** `483a488` blixt-och-dunder · `a8a4698` fallskarmen · `39fc83f` saftbaren ·
+`5997294` tarta-i-ansiktet
+
+**Öppet:** 10 verkliga kandidater kvar + fyra med egen mimik. `test:all` 72/72, `check` 0/0.
+
 ## 2026-08-09 · v1.64.0 · Karaktärsriggen, omgång 2 — fyra spel till (8 av 23)
 
 **Byggt:** `studsmatta` · `poppa-ballonger` · `glasstornet` · `klambubblor`. Omgången handlade

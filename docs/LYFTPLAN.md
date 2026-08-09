@@ -166,8 +166,33 @@ till skuggan, så de byts rakt av. En **handritad** kropp har det inte — `glas
 158 px, alltså 26 px längre ner, och origo måste flyttas lika mycket för att fötterna ska stå
 kvar på golvlinjen. Räkna den skillnaden, gissa den inte.
 
-⬜ Kvar: de övriga 15 spelen med `makeMascot`/`makeBobo`, och de fyra som fortfarande har egen
-mimik (`kittla-figuren` · `mata-monstret` · `peka-pa-kroppen` · `pruttbad`).
+**Utrullning omgång 3 (v1.65.0): `blixt-och-dunder` · `fallskarmen` · `saftbaren` ·
+`tarta-i-ansiktet`.** Två av de fyra ursprungligen påtänkta ströks efter läsning — de är
+**dokumenterade undantag**, inte glömska:
+
+| Spel | Varför riggen inte hör hemma |
+|---|---|
+| `gravmaskinen` | `makeMascot(11)`. Vid r 11 är ögonen 1,7 px och brynen 0,8 px breda — en min kan inte läsas, och riggen hade lagt en andnings-tween per bildruta på något osynligt. |
+| `bajs-och-kiss` | Använder en **lokal** `makeMascotHead(38)` för en gäst som snurrar fritt i virveln. Kommentaren i koden säger rakt ut varför den ritas lokalt; en rigg med vilo-andning på ett föremål som spolas ner är fel verktyg. |
+
+**Det som omgången lade till kunskapsmässigt:**
+
+1. **En YTTRE container är svaret när spelet speglar figuren.** `fallskarmen` sätter
+   `scale.x = ±1` för att vända Bobo mot mattan. Riggens andning tweenar `view.scale` till
+   0,988 — den hade **raderat spegelvändningen** och vänt honom åt fel håll, utöver att hacka.
+   Med riggen i en egen container äger spelet spegling + rotation och riggen sin egen skala.
+   Bonus: `toLocal` går genom `scale.x`, så `look()` pekar rätt utan en enda specialrad.
+2. **Häng reaktionen på mätningen, inte på en timer.** `saftbaren` tuggar (`nam`) bara när
+   `drain()` faktiskt returnerade partiklar — munnen rör sig när det rinner i den, inte när
+   klockan säger till.
+
+⬜ Kvar (räknat på faktiska importer, inte på ordet i en kommentar — `grep -l 'makeMascot }|makeBobo }'`):
+**11 spel** importerar fortfarande det statiska huvudet — `domino` · `flipperspel` ·
+`gravmaskinen` · `hamburgerbygget` · `knuffa-tornet` · `kulbana` · `lagerelden` ·
+`pizzabageriet` · `sapbubblor` · `vippbradan` · `zackes-biltvatt`. Med `gravmaskinen` struket
+ovan är **10** verkliga kandidater. `bajs-och-kiss` står inte i listan alls: den ritar sitt
+huvud lokalt. Dessutom de fyra med egen mimik (`kittla-figuren` · `mata-monstret` ·
+`peka-pa-kroppen` · `pruttbad`).
 
 ### A4. Delade libs som inte nått ut **[Quick]** per spel
 
@@ -717,7 +742,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ✅ v1.45–46.0 |
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ✅ v1.56.0 *(solvern + 1 kund; `MeshRope` kvar)* |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 23 fysikspel | ✅ v1.52.0 |
-| 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(8 kunder, 15 kvar)* |
+| 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(12 kunder, 10 kvar + 2 strukna)* |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ✅ v1.57.0 *(1 kund, 5 kvar)* |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |

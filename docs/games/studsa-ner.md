@@ -128,3 +128,24 @@ livlös rekvisita.
     dödas i `destroy` och vid nivåbyte.
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): bollarna ritas av delade `makeBoll` (`lib/foremal.js`) — hela den lokala funktionen blev en rad.
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
+- 2026-08-09 ✅ **Fläkten — agens i stället för plinko-tur** (v1.83.0, spår 3 runda P1). En
+  ritad fläkt står på en räls längs brädets innerkant och blåser inåt. Barnet drar den
+  upp/ner för att välja på vilken höjd luften tar tag i myntet, eller över brädets mitt för
+  att flytta den till andra sidan — **två rälsar, ETT föremål**, så riktningen behöver inget
+  ord: den syns på vilken sida fläkten står. Strömmen ritas alltid (fyra bågar som vandrar
+  utåt), så kontrollen är upptäckbar utan instruktion.
+  **Styrkan är mätt, inte satt på känsla** (`node scripts/_flaktprobe.mjs 10`): tio mynt
+  släppta från exakt samma punkt med fläkten åt höger respektive vänster landar **231 px**
+  isär = **0,72 fickor**. Nog för att vända en nära-miss till en träff, för lite för att göra
+  siktet meningslöst. Kraften går via `speedToAccel()` (px/steg → matter), samma kalibrering
+  som magnetfältet.
+  ⚠️ **Tre fel som mätningen fångade, alla osynliga i koden:**
+  1. Första räckvidden (560 px) lämnade 6 % av kraften kvar i mitten där mynten faktiskt
+     faller. Uppmätt verkan: 8 px. En kontroll som inte gör något är en lögn mot barnet.
+  2. Sonden mätte sedan en **avstängd** fläkt: den släppte mynt medan demomyntet ännu var i
+     luften, och fläkten pausar då med flit. Två mätningar i rad sa 8 och 10 px — båda sanna,
+     om en fläkt som inte blåste. Sonden väntar nu på att fläkten blåser.
+  3. Strömmen var **vit på ett cremevitt bräde** och syntes inte alls i skärmdumpen. Nu är
+     den i fläktens egen blå.
+  `_idleprobe` ger 1 framsteg i 2 av 3 körningar — **oförändrat mot HEAD** (2 av 3): det är
+  hjälp-släppets egen pinnslump, inte fläkten.

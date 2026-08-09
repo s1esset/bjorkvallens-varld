@@ -487,11 +487,18 @@ eller platta") höll bara i ett av fyra fall. Uppmätt spel för spel 2026-08-09
 |---|---|---|
 | `knuffa-tornet` | MATERIAL-klossar + `impactAudio` | Klosstyperna med skild fysik fanns REDAN. Det som saknades var **rösten** → byggt (v1.80.0). |
 | `kulbana` | ytmaterial + `impactAudio` | Ytorna lät redan olika, men **alltid lika hårt** → kraftskala byggd (v1.81.0). Fjäderbrädan (`mjukkropp`) kvar. |
-| `studsa-ner` | per-pinne MATERIAL (studs + röst) + fläkt | **Rösten ska INTE byggas**: pinnarna spelar en stigande skala (523→1175 Hz) som är spelets musikaliska signatur. Studs-variation ökar dessutom slumpen i ett spel vars poäng är att sikta. Kvar: **fläkten** (agens). |
+| `studsa-ner` | per-pinne MATERIAL (studs + röst) + fläkt | **Rösten byggdes INTE** (pinnarna spelar en stigande skala som är spelets musikaliska signatur, och studs-variation ökar slumpen i ett spel vars poäng är att sikta). **Fläkten ✅ byggd** (v1.83.0): uppmätt 0,72 fickors verkan. |
 | `glasstornet` | `mjukkropp`-wobble på kopan | ✅ byggt (v1.82.0). Sömmen var `_scoopPath` → `_ritaScoop` ritar nu alla silhuett-lager ur EN mjuk kropp; matter-kroppen som bär stapeln är orörd. |
 
-**Slutsatsen att ta med sig:** det som återstår i P1 är **mekaniken** (wobble · fläkt ·
-fjäderbräda), inte ljudet. En adoptionsräkning säger vad ett spel INTE importerar — aldrig vad
+**Slutsatsen att ta med sig:** det som återstod i P1 var **mekaniken** (wobble · fläkt ·
+fjäderbräda), inte ljudet. Wobbeln och fläkten är byggda; kvar är `kulbana`s fjäderbräda.
+
+⚠️ **En kraft som verkar under en kort passage kan inte dimensioneras i px/steg-terminalfart
+ensam.** `speedToAccel` ger den acceleration som ger en viss SLUTHASTIGHET — men ett mynt är i
+fläktströmmen ~0,3 s och når aldrig dit. Det som avgör utfallet är accelerationen gånger tiden
+i strömmen, plus den fart myntet BÄR MED SIG resten av fallet. Första försöket (räckvidd 560 px
+med linjärt avtagande) lämnade 6 % av kraften kvar där mynten faktiskt faller: uppmätt verkan
+**8 px**. Räkna aldrig ut en sådan konstant i huvudet — släpp föremål och mät var de landar. En adoptionsräkning säger vad ett spel INTE importerar — aldrig vad
 det redan gör med egen kod.
 
 ⚠️ **Utrullningen är INTE en mekanisk våg — läs varje spel först** (2026-08-09). 21 av 23

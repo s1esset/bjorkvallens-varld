@@ -5,17 +5,23 @@
 // KONTROLL: innan du släpper DRAR du myntet i sidled högst upp för att välja var det
 // faller (med en mjuk vink om vilken ficka det lutar åt). Myntet faller HELT naturligt
 // under normal tyngdkraft och studsar livligt mot pinnarna — ingen magnetisk styrning.
+// ANDRA KONTROLLEN: en FLÄKT står på en räls längs brädets innerkant och blåser inåt.
+// Dra den upp/ner för att välja på vilken höjd luften tar tag i myntet, eller över
+// brädets mitt för att flytta den till andra sidan (då vänder den). Uppmätt verkan:
+// 0,72 fickor mellan vänster- och högerläge — nog för att vända en nära-miss till en
+// träff, för lite för att göra siktet meningslöst. Fläkten pausar (bladen stannar,
+// strömmen tonar bort) medan ett HJÄLP-släpp faller, så spelets garanti står kvar.
 // Inget kan misslyckas: sikta över den lysande fickan, och en "fel" ficka ger ändå ett
 // glatt plopp (bara ingen poäng) — aldrig ett straff. Hjälp-släpp (demo/idle) faller
 // ovanför målfickan, och en mjuk slump-knuff lossar mynt som råkar fastna på en pinne.
 // Nivåer: fler fickor, målet flyttar, fler pinnar. Allt ritas programmatiskt
 // (matter.js + Pixi v8), exit-säkert.
-import { Container, Graphics } from 'pixi.js'
+import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { PhysicsWorld, Body, speedToAccel } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
-import { sparkle, puff, floatText, bigCelebration, breathe } from '../../lib/feedback.js'
+import { sparkle, puff, floatText, bigCelebration, breathe, pop } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, DESIGN_W, DESIGN_H, PRAISE } from '../../lib/theme.js'
 
@@ -28,6 +34,23 @@ const BINS_TOP = 560 // fickornas överkant
 const SETTLE_Y = 600 // myntet räknas som "nere i en ficka" under denna y
 const SETTLE_SPEED = 0.6 // ... och långsammare än så här
 const VOICE_THROTTLE = 2500 // ms mellan glada röst-rop (annars hackar rösten)
+
+// ---- FLÄKTEN (spår 3 runda P1: agens i stället för plinko-tur) --------------
+// Myntet faller fritt — men barnet kan STYRA det på vägen ner genom att flytta en
+// fläkt. Fläkten står på en räls längs brädets ena innerkant, blåser inåt, och kan
+// dras över till andra sidan (då vänder den). Den blåser ALLTID: strömmen syns, så
+// kontrollen är upptäckbar utan ett ord.
+const FAN_X = [116, 1164] // vänster/höger räls (innanför brädpanelen 72..1208)
+const FAN_Y_MIN = 250 // högsta läge (under första pinnraden)
+const FAN_Y_MAX = 512 // lägsta läge (ovanför fickorna)
+const FAN_BAND = 104 // luftströmmens halva höjd
+// Räckvidden måste täcka HELA brädet, inte bara närmaste pinnrad. Första försöket
+// (560 px) såg rimligt ut — men mynten faller i mitten, 520 px bort, där avtagandet
+// lämnade 6 % av kraften kvar. Uppmätt verkan: 8 px. En kontroll som inte gör något
+// är en lögn mot barnet, så avtagandet är nu svagt (ner till 40 % vid andra kanten).
+const FAN_REACH = 1150 // hur långt strömmen når i sidled (hela brädet)
+const FAN_AVTAG = 0.6 // hur stor DEL av kraften som avtar med avståndet
+const FAN_FART = 110 // px/steg: den sidledsfart strömmen strävar mot (se speedToAccel)
 const HIT_THROTTLE = 70 // ms mellan pinn-ljud (anti-spam)
 const AIM_EDGE = 96 // hur nära kanten man får sikta (så tratten stannar på brädet)
 
@@ -81,7 +104,8 @@ export default {
     this._lastVoice = 0
 
     this._collected = 0
-    this._missStreak = 0 // växer vid miss -> starkare "bris" mot målet (no-fail)
+    this._missStreak = 0 // räknare för missar i rad (kommentaren lovade förr en automatisk
+    // "bris mot målet" — den koden skrevs aldrig, och vinden är numera barnets egen fläkt)
     this._binCount = 4
     this._binW = DESIGN_W / 4
     this._targetIdx = 1
@@ -232,6 +256,164 @@ export default {
     this._onUp = (e) => this._pointerUp(ctx, e)
     this._catcher.on('pointerdown', this._onDown)
     this._root.addChild(this._catcher)
+
+    // Fläkten läggs SIST, alltså ovanpå fångaren: Pixi träffar det översta objektet,
+    // så ett grepp om fläkten blir aldrig ett sikte-drag på samma gång.
+    this._buildFan(ctx)
+  },
+
+  // ---- Fläkten -------------------------------------------------------------
+
+  _buildFan(ctx) {
+    this._fanSide = 0
+    this._fanY = 380
+    this._fanGrab = false
+    this._fanSpin = 0
+    this._fanT = 0
+
+    const fan = new Container()
+    this._fanStream = new Graphics() // luftströmmen ritas om varje bildruta
+    this._fanStream.eventMode = 'none'
+    this._root.addChild(this._fanStream)
+
+    // Ritad fläkt (P0 ASSETS): fot, stolpe, hus, galler och tre blad som snurrar.
+    const fot = new Graphics()
+    fot.roundRect(-9, 6, 18, 40, 6).fill(0x9aa4b0)
+    fot.ellipse(0, 48, 26, 8).fill(0x7b858f)
+    fan.addChild(fot)
+    const hus = new Graphics()
+    hus.circle(0, -18, 34).fill(0x5aa9e6).stroke({ width: 4, color: 0x3f7fb5 })
+    hus.circle(0, -18, 27).fill(0x2b3b4a)
+    fan.addChild(hus)
+    const blad = new Container()
+    for (let i = 0; i < 3; i++) {
+      const b = new Graphics()
+      b.moveTo(0, 0).quadraticCurveTo(20, -6, 24, -16).quadraticCurveTo(10, -14, 0, 0).fill(0xdfe6eb)
+      b.rotation = (i / 3) * Math.PI * 2
+      blad.addChild(b)
+    }
+    blad.position.set(0, -18)
+    fan.addChild(blad)
+    this._fanBlades = blad
+    const nav = new Graphics().circle(0, -18, 6).fill(0xffd35c).stroke({ width: 2.5, color: 0xd9a021 })
+    fan.addChild(nav)
+    // Galler-ringar (framför bladen) → läses som en fläkt, inte som en propeller.
+    const galler = new Graphics()
+    for (const r of [12, 20, 28]) galler.circle(0, -18, r).stroke({ width: 2, color: 0xffffff, alpha: 0.35 })
+    galler.eventMode = 'none'
+    fan.addChild(galler)
+
+    fan.eventMode = 'static'
+    fan.cursor = 'pointer'
+    fan.interactiveChildren = false
+    fan.hitArea = new Rectangle(-62, -80, 124, 148) // ≥96px med marginal
+    this._onFanDown = (e) => this._fanDown(ctx, e)
+    this._onFanMove = (e) => this._fanMove(ctx, e)
+    this._onFanUp = () => this._fanUp(ctx)
+    fan.on('pointerdown', this._onFanDown)
+    fan.on('globalpointermove', this._onFanMove)
+    fan.on('pointerup', this._onFanUp)
+    fan.on('pointerupoutside', this._onFanUp)
+    this._fan = fan
+    this._root.addChild(fan)
+    this._placeFan()
+  },
+
+  _placeFan() {
+    const f = this._fan
+    if (!f || f.destroyed) return
+    f.x = FAN_X[this._fanSide]
+    f.y = this._fanY
+    f.scale.x = this._fanSide === 0 ? 1 : -1 // huset vänder sig åt blåsriktningen
+  },
+
+  _fanDown(ctx, e) {
+    if (!this._alive) return
+    this._fanGrab = true
+    this._idle = 0
+    ctx.services.audio.sfx('tap')
+    if (!this._fan.destroyed) pop(this._fan, { scale: 1.1 })
+    this._fanMove(ctx, e)
+  },
+
+  // Dra i höjdled; drar man över brädets mitt hoppar fläkten till andra sidan och
+  // vänder. Två rälsar, ETT föremål — riktningen behöver inget ord, den syns på vilken
+  // sida fläkten står.
+  _fanMove(ctx, e) {
+    if (!this._alive || !this._fanGrab) return
+    const p = this._root.toLocal(e.global)
+    this._fanY = clamp(p.y, FAN_Y_MIN, FAN_Y_MAX)
+    const nySida = p.x > ctx.width / 2 ? 1 : 0
+    if (nySida !== this._fanSide) {
+      this._fanSide = nySida
+      ctx.services.audio.sfx('whoosh')
+    }
+    this._placeFan()
+    this._idle = 0
+  },
+
+  _fanUp(ctx) {
+    if (!this._fanGrab) return
+    this._fanGrab = false
+    ctx.services.audio.sfx('soft')
+  },
+
+  // Luftströmmens kraft på mynten. Avtar både med avståndet UT från fläkten och med
+  // höjdskillnaden, så strömmen har en tydlig form i stället för en osynlig rektangel.
+  // Farten anges i px/steg (`FAN_FART`) och räknas om av `speedToAccel` — samma
+  // kalibrering som magnetfältet, av exakt samma skäl (ett tal som ser ut som en fart
+  // blir ~280× för starkt om det skickas rakt in i matter som kraft).
+  _fanForce() {
+    if (!this._alive || !this._fanBlaser()) return
+    const fx = FAN_X[this._fanSide]
+    const dir = this._fanSide === 0 ? 1 : -1
+    for (const ball of this._balls) {
+      if (ball.settled) continue
+      const p = ball.body.position
+      const dy = Math.abs(p.y - this._fanY)
+      if (dy > FAN_BAND) continue
+      const langs = (p.x - fx) * dir
+      if (langs < 0 || langs > FAN_REACH) continue
+      const avtag = (1 - FAN_AVTAG * (langs / FAN_REACH)) * (1 - dy / FAN_BAND)
+      const a = speedToAccel(FAN_FART * avtag, ball.body.frictionAir)
+      Body.applyForce(ball.body, p, { x: ball.body.mass * a * dir, y: 0 })
+      ball._blast = true
+    }
+  },
+
+  // Strömmen ritas som tre bågar som vandrar utåt och tonar bort — en fläkt utan synlig
+  // luft är bara en propeller, och då finns det inget att förstå för ett barn.
+  _fanDraw(dms) {
+    const g = this._fanStream
+    if (!g || g.destroyed || !this._fan || this._fan.destroyed) return
+    const blaser = this._fanBlaser()
+    this._fanT += dms / 1000
+    // Bladen snurrar bara när fläkten blåser (pausen under hjälp-släpp SYNS).
+    this._fanSpin += (blaser ? 0.34 : 0) * (dms / 16.67)
+    if (this._fanBlades && !this._fanBlades.destroyed) this._fanBlades.rotation = this._fanSpin
+    g.clear()
+    if (!blaser) return
+    const fx = FAN_X[this._fanSide]
+    const dir = this._fanSide === 0 ? 1 : -1
+    // VIT ström syns inte. Brädet är cremevitt, så de första bågarna (vitt på alpha
+    // 0,34) försvann helt i skärmdumpen — och en fläkt vars luft inte syns är bara en
+    // propeller. Fläktens EGEN blå mot det ljusa brädet läses direkt som luft i rörelse.
+    for (let i = 0; i < 4; i++) {
+      const fas = (this._fanT * 0.8 + i / 4) % 1
+      const x = fx + dir * (46 + fas * (720 - 46))
+      const h = FAN_BAND * (0.4 + fas * 0.62)
+      const alpha = 0.5 * (1 - fas) * (1 - fas * 0.7)
+      g.moveTo(x, this._fanY - h)
+        .quadraticCurveTo(x + dir * 30, this._fanY, x, this._fanY + h)
+        .stroke({ width: 7, color: 0x5aa9e6, alpha, cap: 'round' })
+    }
+  },
+
+  // Blåser fläkten just nu? Under ett HJÄLP-släpp pausar den (bladen stannar, strömmen
+  // tonar bort): hjälpen siktar rakt på målfickan, och en fläkt som samtidigt puttar
+  // hade gjort spelets egen garanti till en slump.
+  _fanBlaser() {
+    return !this._balls.some((b) => !b.settled && b._demo)
   },
 
   // ---- Nivåer --------------------------------------------------------------
@@ -597,7 +779,7 @@ export default {
     // ovanpå första pinnen (precis som ett riktigt plinko-mynt).
     Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.2, y: 0 })
 
-    const ball = { body, view, settled: false }
+    const ball = { body, view, settled: false, _demo: !!demo }
     this._balls.push(ball)
     this._phys.link(body, view)
 
@@ -625,7 +807,10 @@ export default {
 
   _update(ctx, t) {
     if (!this._alive) return
+    // Fläktens kraft läggs på FÖRE motorsteget (matter nollställer krafter i sitt steg).
+    this._fanForce(t.deltaMS)
     this._phys.update(t.deltaMS)
+    this._fanDraw(t.deltaMS)
 
     for (const ball of this._balls) {
       if (ball.settled) continue
@@ -831,6 +1016,15 @@ export default {
     this._glowTween?.kill()
     this._detachPointer()
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointerdown', this._onDown)
+    if (this._fan && !this._fan.destroyed) {
+      gsap.killTweensOf(this._fan)
+      gsap.killTweensOf(this._fan.scale)
+      this._fan.off('pointerdown', this._onFanDown)
+      this._fan.off('globalpointermove', this._onFanMove)
+      this._fan.off('pointerup', this._onFanUp)
+      this._fan.off('pointerupoutside', this._onFanUp)
+    }
+    this._fanGrab = false
 
     if (this._dropper && !this._dropper.destroyed) gsap.killTweensOf(this._dropper.scale)
     if (this._glow && !this._glow.destroyed) gsap.killTweensOf(this._glow.scale)

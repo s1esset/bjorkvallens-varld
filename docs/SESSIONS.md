@@ -100,9 +100,32 @@ precis lagerfaktorn; Zacke utanför bilden i 0 av 130 prover; stämningarna cykl
 lagerläckage; 2 av 2 passerade godsaker plockade; 0 av 5 liv-tweens tickar efter exit) · `_svingprobe.mjs` fortsatt
 7/7 · `_repprobe.mjs` fortsatt grön i Node.
 
-**Öppet:** Spår E är därmed klart (A1–A4). Nästa naturliga steg är **spår 3 fysik**.
-`domino` står kvar som kamerans starkaste nästa kund men kräver ett designbeslut om
-bricktråget (LYFTPLAN §9). Ägarens manuella telefonkoll av full bleed är fortfarande ogjord.
+**Öppet:** **Spår E är klart (A1–A4)** — nästa naturliga steg är **spår 3 fysik**
+(`flytkraft.js` · `magnet.js` · `varme.js`, var och en med första kund; sedan rundorna P1–P3).
+
+Kvar i mindre högar:
+
+- **`spindel-zacke-svingar` §4** — Variation & överraskning och Juice är avbockade. Kvar:
+  **[Medium] synligt släpp-fönster** och **[Medium] belöna bra släpp** (de enda två som
+  ändrar hur spelet SPELAS — resten är dekor), [Medium] räddnings-galleri, [Quick] Elvira
+  reagerar längs vägen, [Quick] folk i fönstren, samt 🔶 vind-sus/moln-pluff som väntar på
+  att MOSS kommer upp.
+- **`domino`** är kamerans starkaste nästa kund (`nSlots = Math.min(7 + level, 13)` av rena
+  skärmbreddsskäl — från nivå 6 slutar spelet växa) men kräver ett designbeslut om
+  bricktråget, som idag förutsätter att tråg och lucka syns samtidigt. Se LYFTPLAN §9.
+- **C4:s glödkandidater måste läsas om** mot BÅDA villkoren innan fler rullas ut — se
+  lärdom 1 ovan. `enhorning-glitterbajs` (candy-bakgrund), `blixt-och-dunder` (sunset) och
+  `golvet-ar-lava` (ljus vulkanhimmel) ser ut att falla på det ena eller andra.
+- **MOSS är fortfarande nere:** `saknat-ljudklipp` i bajs-och-kiss, kittla-figuren,
+  peka-pa-kroppen och sapbubblor är saknade manifest-poster. Rösten (F5-TTS) fungerar.
+- **Ägarens manuella telefonkoll av full bleed** är fortfarande ogjord (bygge → preview →
+  Tailscale, rotera mitt i ett spel).
+
+**Två svit-transienter observerade, båda avfärdade med mätning, inte med gissning:**
+`golvet-ar-lava` flaggade `tom-scen` i en `test:all`-körning men var ren enskilt (0 bildfynd),
+och `spindel-zacke-svingar` flaggade `saknat-ljudklipp` för `djur_katt` — ett klipp som FINNS
+på disk — i en körning. Växelvis mätt: 0 av 3 med ändringen, 0 av 3 utan. `sample()` hinner
+före avkodningen.
 
 ---
 

@@ -24,7 +24,7 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration, ripple } from '../../lib/feedback.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -338,7 +338,12 @@ export default {
     const staff = new Graphics()
     staff.roundRect(-4, -84, 8, 148, 4).fill(0x8a5a3b).stroke({ width: 3, color: 0x6f4a2e })
     staff.position.set(66, 18)
-    const head = makeMascot(46)
+    // Huvudet är en RIGG (lib/karaktarer.js), inte ett statiskt `makeMascot`. Manteln,
+    // armarna och staven är trollkarlens egna och står kvar — `kropp: false` av samma
+    // skäl som i `harma-melodin`: riggen ska ersätta det som fanns, inte smyga in en
+    // andra kropp under manteln.
+    this._wizKar = makeKaraktar({ r: 46, kropp: false })
+    const head = this._wizKar.view
     head.position.set(0, -44)
     w.addChild(robe, armL, armR, staff, head)
     const hat = new Graphics()
@@ -447,6 +452,8 @@ export default {
         gsap.killTweensOf(rec.view.scale)
       }
     }
+    this._wizKar?.destroy()
+    this._wizKar = null
     if (this._wizard && !this._wizard.destroyed) {
       gsap.killTweensOf(this._wizard)
       gsap.killTweensOf(this._wizard.scale)
@@ -996,12 +1003,20 @@ export default {
   // 'shrug' (rycker på axlarna vid fel), 'point' (pekar mot hyllan vid ledtråd).
   // Tweenar this._wizard direkt (en bestående barn-container → exit-säker: destroy
   // dödar dess tweens). Återgår alltid till hemma-posen.
+  // Posen är kroppens; MINEN är riggens. De två lagren säger olika saker: kroppen
+  // visar vad trollkarlen GÖR, ansiktet vad han TYCKER om det. `shrug` får en
+  // förvånad `hoppsan`, aldrig en sur min — P0 MOTGÅNG.
   _wizardGesture(kind) {
     const w = this._wizard
     if (!w || w.destroyed) return
     const bx = this._wizardBase.x
     const by = this._wizardBase.y
     gsap.killTweensOf(w)
+    const k = this._wizKar
+    if (kind === 'cheer') k?.react('jubel')
+    else if (kind === 'lean') k?.setMood('hungrig')
+    else if (kind === 'shrug') k?.react('hoppsan')
+    else if (kind === 'point') k?.react('nyfiken')
     if (kind === 'cheer') {
       gsap.timeline()
         .to(w, { y: by - 20, rotation: -0.06, duration: 0.16, ease: 'power2.out' })
@@ -1161,6 +1176,19 @@ export default {
   _update(ctx, tk) {
     if (!this._alive) return
     const dt = tk.deltaMS / 16.67
+
+    // Trollkarlen tittar på det barnet drar. `look()` räknar i FÖRÄLDERNS rymd
+    // (riggen sitter i `_wizard`), medan draget lever i `_root` — därför via global.
+    const dragv = this._drag?.active?.view
+    if (this._wizKar && this._wizard && !this._wizard.destroyed) {
+      if (dragv && !dragv.destroyed) {
+        const p = this._wizard.toLocal(dragv.getGlobalPosition())
+        this._wizKar.look(p.x, p.y)
+      } else if (this._cauldron && !this._cauldron.destroyed) {
+        const p = this._wizard.toLocal(this._cauldron.getGlobalPosition())
+        this._wizKar.look(p.x, p.y) // annars vilar blicken på kitteln
+      }
+    }
 
     // Bubbel-emitter (exit-säker, ticker-driven — ALDRIG gsap på bubblorna).
     this._bubT += tk.deltaMS

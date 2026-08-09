@@ -8,6 +8,7 @@ import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { sparkle, pop, wiggle, bigCelebration, kvittera } from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { Button } from '../../lib/Button.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 
@@ -69,8 +70,12 @@ export default {
 
   // Bygg den persistenta scenen en gång: bakgrund, 4 plattor, maskot, "Visa igen".
   _build(ctx) {
-    // Bakgrund — fångar tomt tryck -> lekfullt, aldrig "fel".
-    const bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(COLORS.bg)
+    // Bakgrund — fångar tomt tryck -> lekfullt, aldrig "fel". Ritas med bleed åt
+    // alla håll så breda telefoner (synlig yta utanför 0..1280) aldrig visar
+    // creme-lister — se lib/view.js. Tonen är warm-temats 0xfff0d6, INTE exakt
+    // letterbox-creme (COLORS.bg): en scen målad i exakt creme går inte att skilja
+    // från "ingen bleed alls" (se kantCream i scripts/bildkoll.mjs).
+    const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(0xfff0d6)
     bg.eventMode = 'static'
     bg.on('pointertap', () => this._emptyTap(ctx))
     this._root.addChild(bg)

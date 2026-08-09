@@ -80,10 +80,13 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   andetag som väggen mörknade). Nivå 0 är oförändrad. Se §5.
 - ✅ 2026-08-09 **[Deep] En värld bredare än rutan.** 920-klämman borta, kameran följer Zacke
   genom upp till 3400 px stad. Se §5.
-- **[Quick] Stigande tak / närmare mål.** Låt taken bli högre/finare och fästena gnistra mer ju
-  närmare kattungen man kommer — en synlig "snart framme".
-- **[Quick] Saker att nudda i flykten:** en fågel, en ballong, ett moln-stjärn som ger pip när
-  båg-kastet passerar — gör flykten till en liten skörd.
+- ✅ 2026-08-09 **[Quick] Stigande tak / närmare mål.** Stadsdelen blir tätare och mer påkostad
+  åt höger (fler upplysta fönster → balkongräcken → spira på taket), och fästena glöder starkare
+  ju närmare kattungen de sitter. **Höjden rörs medvetet INTE:** `ROOF_Y` är fångstgolv och
+  kattungen sitter på `ROOF_Y − 46`, så högre hus mot målet hade lagt takåsen över både
+  fångstlinjen och hennes fötter. Se §5.
+- ✅ 2026-08-09 **[Quick] Saker att nudda i flykten.** Fågel, ballong och stjärna hänger mellan
+  fästena och ger ett pling ur en pentatonisk stege. Se §5.
 
 ### Juice
 - **[Quick] Superhjälte-pose i flykten.** Sträck ut armarna och böj kroppen i kast-riktningen
@@ -174,3 +177,28 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   **Mätt** (`_varldprobe.mjs`, nu 11/11): stämningarna cyklar
   `sky/dag · sky/morgon · sunset/skymning · sky/kvall · night/dag · sky/dag`, och över sex
   nivåbyten står lagerantalet still på **14** (inget läckage). `_svingprobe.mjs` fortsatt 7/7.
+- 2026-08-09 ✅ **[Quick] Stigande tak + [Quick] saker att nudda i flykten** — Variation &
+  överraskning är därmed helt avbockad.
+  **Snart framme, på två nivåer.** Stadsdelen blir finare åt höger (`narhet = x / bredd`):
+  fler upplysta fönster vid 0,34 och 0,52, balkongräcke vid 0,62, spira med kula vid 0,78.
+  Eftersom kattungen alltid sitter längst till höger i banan och världen klipps strax bakom
+  henne betyder "längre åt höger" alltid "närmare målet", på varje nivå. HÖJDEN rörs inte:
+  `ROOF_Y` (520) är fångstgolvet och kattungen sitter på `ROOF_Y − 46`, så högre hus mot målet
+  hade lagt takåsen ÖVER både fångstlinjen och hennes fötter — hon hade svävat framför en gavel
+  och Zacke flugit rakt genom ett tak innan molnet hann fånga honom. Stadens gradient är statisk
+  (den är en *plats*); det per-nivå-rörliga signalen bär i stället **fästenas glöd**, som växer
+  med `i / (count − 1)`. Glöden är additiv (`lib/glod.js`) och skalas med stämningen — dagen får
+  en antydan, natten den riktiga glöden, enligt A4:s tvåvillkorsregel.
+  **Skörden i flykten.** Fågel, ballong och stjärna (alla ritade, P0 ASSETS) i varannan lucka,
+  med `liv()` som vilorörelse. Nudd → pling ur en **pentatonisk** stege (vilken delmängd som
+  helst låter bra ihop, så en skörd på två är lika musikalisk som en på fem), gnista, och saken
+  far uppåt och tonar bort. Aldrig ett krav, ingen räknare som kan sjunka.
+  **Sonden hittade en riktig brist.** Första placeringen satte dem i ett höjdband på känsla
+  (y 246–330) — `_varldprobe.mjs` visade att **1 av 2 passerade saker aldrig plockades**.
+  Flykten stiger bara ~22 px med kort nät (vt ≈ 5,8 px/bildruta, varav 3,9 uppåt mot G 0,35),
+  så toppen ligger runt y 302 och en sak på y 250 hänger 50 px ovanför allt barnet kan nå.
+  Nu simuleras BÅDA nätlängdernas banor med samma integrator som spök-bågen, och saken hamnar
+  mitt emellan deras närmaste punkter — inom nudd-radien för både kort och långt nät, av
+  konstruktion. Efter fixen: **2 av 2 passerade plockade.**
+  `_varldprobe.mjs` nu 13/13, inklusive att `liv()`-tweenarna (repeat:-1, dör aldrig själva)
+  slutar TICKA efter exit — 0 av 5 rörde sig 0,6 s efteråt. `_svingprobe.mjs` fortsatt 7/7.

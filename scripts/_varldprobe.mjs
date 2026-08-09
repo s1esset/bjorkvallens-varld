@@ -6,13 +6,15 @@
 // olika fort. Det enda som skiljer dem är hur mycket de flyttar sig MELLAN två
 // kameralägen, och det är ett tal.
 //
-// Sonden svarar på sex saker:
+// Sonden svarar på åtta saker:
 //   1. Är världen bredare än vyn, och växer den med nivån (i stället för att klämmas)?
 //   2. Flyttar sig kameran när Zacke svingar åt höger?
 //   3. Rör sig fjärranbandet LÅNGSAMMARE än spelplanet, och HUD:en inte alls?
 //   4. Lämnar Zacke aldrig bilden (kamerans hårda ruta)?
 //   5. Byter stämningen med nivån — utan att `byteScen()` läcker parallaxlager?
-//   6. Är en exit mitt i flykten ren?
+//   6. Plockas sakerna i flykten faktiskt upp med riktiga släpp?
+//   7. Slutar godsakernas vilorörelse TICKA efter exit (repeat:-1 dör aldrig själv)?
+//   8. Är en exit mitt i flykten ren?
 //
 //   node scripts/_varldprobe.mjs [--niva 8]
 import { chromium } from 'playwright'
@@ -198,13 +200,64 @@ try {
       ? `dag hus 0x${dag.hus.toString(16)} / fönster 0x${dag.fonster.toString(16)} → natt hus 0x${natt.hus.toString(16)} / fönster 0x${natt.fonster.toString(16)}`
       : 'hittade inte båda stämningarna')
 
-  // ---------- 6. exit mitt i flykten ----------
+  // ---------- 6. skörden i flykten ----------
+  //
+  // Kör om en bana och räkna vad som FAKTISKT plockas med riktiga släpp. En sak som
+  // hänger fel (för högt, i fel lucka) syns inte i en bild — den bara plockas aldrig.
+  await sattNiva(NIVA)
+  let skordade = 0
+  let utlagda = 0
+  let totalt = 0
+  for (let hopp = 0; hopp < 4; hopp++) {
+    if (!(await slappBra())) break
+    await page.waitForTimeout(760)
+    const s = await page.evaluate(async () => {
+      const g = (await import('/src/games/registry.js')).getGame('spindel-zacke-svingar')
+      // PASSERADE, inte utlagda: sonden hinner bara igenom de första luckorna, och
+      // "2 av 5" hade läst som tre missade när de tre andra aldrig var i närheten.
+      const zx = g._zacke?.x ?? 0
+      return {
+        skord: g._skord ?? 0,
+        passerade: (g._treats || []).filter((t) => t.x <= zx + 30).length,
+        totalt: g._treats?.length ?? 0,
+      }
+    })
+    skordade = s.skord
+    utlagda = s.passerade
+    totalt = s.totalt
+  }
+  ok('6. saker att nudda plockas i flykten',
+    utlagda > 0 && skordade >= utlagda,
+    `${skordade} av ${utlagda} passerade plockade (${totalt} utlagda i hela banan)`)
+
+  // ---------- 7. vilorörelsen dör vid exit ----------
+  //
+  // `liv()` är repeat:-1 och slutar aldrig av sig själv. `isActive()` LJUGER om en tween
+  // som dödat sig själv inifrån sin onUpdate (den fryser totalTime men rapporterar aktiv),
+  // så det som mäts är att den slutar TICKA — inte vad den påstår om sig själv.
+  await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('spindel-zacke-svingar')
+    window.__livTweens = (g._treats || []).map((t) => t.view?._fxLiv).filter(Boolean)
+  })
+  const livFore = await page.evaluate(() => window.__livTweens.length)
+  await page.evaluate(() => window.__barnspel.nav.go('library'))
+  await page.waitForTimeout(700)
+  const t1 = await page.evaluate(() => window.__livTweens.map((t) => t.totalTime()))
+  await page.waitForTimeout(600)
+  const t2 = await page.evaluate(() => window.__livTweens.map((t) => t.totalTime()))
+  const tickar = t1.filter((v, i) => Math.abs(t2[i] - v) > 1e-6).length
+  ok('7. vilorörelsen tickar inte vidare efter exit',
+    livFore > 0 && tickar === 0,
+    `${tickar} av ${livFore} liv-tweens rörde sig fortfarande 0,6 s efter exit`)
+
+  // ---------- 8. exit mitt i flykten ----------
+  await sattNiva(NIVA)
   const felFore = errors.length
   await slappBra()
   await page.waitForTimeout(120)
   await page.evaluate(() => window.__barnspel.nav.go('library'))
   await page.waitForTimeout(1400)
-  ok('6. exit mitt i flykten ger 0 nya konsolfel', errors.length === felFore, errors.slice(felFore, felFore + 3).join(' | ') || 'inga')
+  ok('8. exit mitt i flykten ger 0 nya konsolfel', errors.length === felFore, errors.slice(felFore, felFore + 3).join(' | ') || 'inga')
 
   console.log(`\n  Världs- och kamerasond — ${ID}\n`)
   for (const r of rader) console.log(`  ${r.pass ? '✓' : '✗'} ${r.namn}  —  ${r.detalj}`)

@@ -22,7 +22,8 @@ import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { Camera, DJUP, lagerBredd } from '../../lib/kamera.js'
-import { pop, wiggle, sparkle, floatText, burst, breathe, bounceIn , kvittera} from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, floatText, burst, breathe, bounceIn, liv, kvittera } from '../../lib/feedback.js'
+import { glod } from '../../lib/glod.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -76,6 +77,21 @@ const STAMNINGAR = [
 const stamningFor = (niva) => STAMNINGAR[((niva % STAMNINGAR.length) + STAMNINGAR.length) % STAMNINGAR.length]
 
 const SWING_WORDS = ['Wii!', 'Hihi!', 'Sväva!']
+
+// --- Saker att nudda i flykten ---
+//
+// Flykten var förut helt tom: man släppte, väntade, fäste. Nu hänger det saker i luften
+// mellan fästena — en fågel, en ballong, en stjärna — som ger ett pling när båg-kastet
+// stryker förbi. De är ALDRIG ett krav: de går inte att missa på ett sätt som kostar
+// något, de sitter inte i vägen, och det finns ingen räknare som kan sjunka. De är en
+// liten skörd för den som råkar flyga rätt, och en anledning att välja långt nät ibland.
+//
+// Tonerna är en PENTATONISK stege, inte fem godtyckliga blipp: vilken delmängd som helst
+// av en pentatonisk skala låter bra ihop, så en skörd på två saker är lika musikalisk som
+// en på fem. Samma skäl som CLAUDE.md ger för att inte byta ut `correct`/`match`.
+const PLING = [523.25, 587.33, 659.25, 783.99, 880, 1046.5]
+const TREAT_R = 54 // nudd-radie — generös, det ska kännas som att man strök förbi
+const TREATS = ['fagel', 'ballong', 'stjarna']
 
 export default {
   id: 'spindel-zacke-svingar',
@@ -142,6 +158,14 @@ export default {
     this._anchorLayer = new Container()
     this._anchorLayer.eventMode = 'none'
     this._varld.addChild(this._anchorLayer)
+
+    // Saker att nudda i flykten — under nätet, så tråden alltid läses som främst.
+    this._treatLayer = new Container()
+    this._treatLayer.eventMode = 'none'
+    this._treatLayer.interactiveChildren = false
+    this._varld.addChild(this._treatLayer)
+    this._treats = []
+    this._skord = 0
 
     // Nät-grafik (ritas om varje tick), under Zacke.
     this._web = new Graphics()
@@ -318,6 +342,29 @@ export default {
       web.stroke({ width: 1.8, color: 0xffffff, alpha: 0.75 })
       web.position.set(a.x, a.y - 4)
       web.eventMode = 'none'
+
+      // "SNART FRAMME" I SJÄLVA BANAN: fästena glöder starkare ju närmare kattungen de
+      // sitter. Det är den enda ledtråden om hur långt kvar det är som fungerar när målet
+      // ligger utanför bilden — och den kräver ingen siffra och ingen mätare att läsa.
+      //
+      // Glöden är additiv (lib/glod.js) och skalas med STÄMNINGEN, av samma skäl som stod
+      // i A4:s lärdom: additivt ljus behöver svärta att lysa upp. Mot en dagsblå himmel
+      // hade full styrka bara blivit en vit fläck, så dagen får en antydan och natten den
+      // riktiga glöden.
+      const narGoal = count > 1 ? i / (count - 1) : 1
+      const nattigt = this._stamning.tema === 'night' || this._stamning.tid === 'kvall'
+      if (narGoal > 0.25) {
+        const halo = glod({
+          color: 0xfff3b0,
+          size: 54 + narGoal * 62,
+          alpha: (nattigt ? 0.34 : 0.16) * (0.35 + narGoal * 0.65),
+        })
+        if (halo) {
+          halo.position.set(a.x, a.y - 4)
+          this._anchorLayer.addChild(halo)
+        }
+      }
+
       this._anchorLayer.addChild(knob, web)
       bounceIn(knob, { delay: i * 0.05 })
 
@@ -365,6 +412,8 @@ export default {
         this._elvira = elvira
       }
     })
+
+    this._buildTreats()
 
     // Fäst Zacke vid fäste 0 med fin start-amplitud (drar bakåt, släpper framåt).
     this._a = 0
@@ -415,6 +464,159 @@ export default {
       .arc(0, -16, 8, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3, color: COLORS.ink }) // leende
     c.addChild(face)
     return c
+  },
+
+  // Ett föremål att nudda i flykten. RITAT, aldrig en emoji i en ruta (P0 ASSETS).
+  _buildTreat(sort) {
+    const c = new Container()
+    c.eventMode = 'none'
+    const g = new Graphics()
+    if (sort === 'fagel') {
+      g.ellipse(0, 0, 20, 14).fill(0x6fc3e8) // kropp
+      g.moveTo(-4, -4).quadraticCurveTo(-20, -22, -30, -8).quadraticCurveTo(-16, -2, -4, -4).fill(0x4aa3df) // vinge
+      g.moveTo(4, -4).quadraticCurveTo(20, -22, 30, -8).quadraticCurveTo(16, -2, 4, -4).fill(0x4aa3df)
+      g.circle(13, -6, 9).fill(0x8fd6ee) // huvud
+      g.circle(16, -8, 2.6).fill(COLORS.ink) // öga
+      g.moveTo(21, -6).lineTo(29, -3).lineTo(21, -1).closePath().fill(COLORS.orange) // näbb
+      g.moveTo(-18, 4).lineTo(-30, 12).lineTo(-16, 10).closePath().fill(0x4aa3df) // stjärt
+    } else if (sort === 'ballong') {
+      g.moveTo(0, 20).quadraticCurveTo(-6, 34, 2, 44).stroke({ width: 2.5, color: 0xd8d2c4, cap: 'round' }) // snöre
+      g.ellipse(0, 0, 19, 23).fill(0xef476f) // ballongen
+      g.moveTo(-5, 21).lineTo(5, 21).lineTo(0, 28).closePath().fill(0xc93457) // knuten
+      g.ellipse(-6, -8, 6, 8).fill({ color: COLORS.white, alpha: 0.5 }) // dager
+    } else {
+      const R = 22
+      for (let k = 0; k < 10; k++) {
+        const r = k % 2 === 0 ? R : R * 0.44
+        const ang = (k / 10) * Math.PI * 2 - Math.PI / 2
+        const px = Math.cos(ang) * r
+        const py = Math.sin(ang) * r
+        if (k === 0) g.moveTo(px, py)
+        else g.lineTo(px, py)
+      }
+      g.closePath().fill(0xffd35c)
+      g.circle(-5, -5, 5).fill({ color: 0xfff3b0, alpha: 0.85 })
+    }
+    c.addChild(g)
+    // Additiv glöd bakom stjärnan och ballongen så de LÄSER som något att sträcka sig
+    // efter. Fågeln får ingen — en fågel lyser inte.
+    if (sort !== 'fagel') {
+      const halo = glod({ color: sort === 'stjarna' ? 0xffe27a : 0xff9ec4, size: 84, alpha: this._stamning?.tema === 'night' ? 0.4 : 0.2 })
+      if (halo) c.addChildAt(halo, 0)
+    }
+    return c
+  },
+
+  // Banan för ett BRA släpp från ett fäste, med samma konstanter och samma steg som
+  // flykten och som spök-bågen (G, AMP, dt=1). Att simulera i stället för att gissa är
+  // hela poängen — se nedan.
+  _flyktBana(anchor, L) {
+    const th = 0.75 // mitt i belönings-fönstret, samma tal som `_showGhost`
+    const vt = Math.sqrt(Math.max(0, 2 * G * L * (Math.cos(th) - Math.cos(AMP))))
+    let x = anchor.x + L * Math.sin(th)
+    let y = anchor.y + L * Math.cos(th)
+    let vx = vt * Math.cos(th)
+    let vy = -vt * Math.sin(th)
+    const bana = [{ x, y }]
+    for (let s = 0; s < 200 && y < ROOF_Y; s++) {
+      vy += G
+      x += vx
+      y += vy
+      bana.push({ x, y })
+    }
+    return bana
+  },
+
+  // Häng ut en sak per lucka mellan fästena — PÅ den bana kastet faktiskt tar.
+  //
+  // Första försöket satte dem i ett höjdband på känsla (y 246–330) och det var fel, mätt
+  // av `_varldprobe.mjs`: en av de passerade sakerna plockades aldrig. Flykten STIGER
+  // bara ~22 px med kort nät (vt ≈ 5,8 px/bildruta, varav 3,9 uppåt mot G 0,35), så
+  // toppen ligger runt y 302 — en sak på y 250 hänger 50 px ovanför allt barnet kan nå,
+  // hur bra det än släpper.
+  //
+  // Nu simuleras BÅDA nätlängdernas banor och saken hamnar mitt emellan deras närmaste
+  // punkter. Då ligger den inom nudd-radien för både kort och långt nät, av konstruktion
+  // — samma princip som gör att spök-bågen stämmer med verkligheten.
+  _treatSpot(anchor) {
+    const kort = this._flyktBana(anchor, SHORT)
+    const lang = this._flyktBana(anchor, LONG)
+    let bast = null
+    let bastD = Infinity
+    for (const p of kort) {
+      for (const q of lang) {
+        const d = Math.hypot(p.x - q.x, p.y - q.y)
+        if (d < bastD) {
+          bastD = d
+          bast = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }
+        }
+      }
+    }
+    return bast || { x: anchor.x + 160, y: 320 }
+  },
+
+  _buildTreats() {
+    const lager = this._treatLayer
+    if (!lager || lager.destroyed) return
+    for (const c of lager.removeChildren()) {
+      c._fxLiv?.kill()
+      gsap.killTweensOf(c)
+      if (c.scale) gsap.killTweensOf(c.scale)
+      c.destroy({ children: true })
+    }
+    this._treats = []
+    this._skord = 0
+    const a = this._anchors
+    for (let i = 0; i < a.length - 1; i++) {
+      // Inte i VARJE lucka: en skörd ska kännas som ett fynd, inte som en korridor.
+      if (a.length > 3 && i % 2 === 1) continue
+      const sort = TREATS[(i + this._level) % TREATS.length]
+      const view = this._buildTreat(sort)
+      // Liten variation, men bara så mycket som nudd-radien tål — se `_treatSpot`.
+      const p = this._treatSpot(a[i])
+      const x = p.x + (Math.random() * 2 - 1) * 12
+      const y = p.y + (Math.random() * 2 - 1) * 10
+      view.position.set(x, y)
+      lager.addChild(view)
+      liv(view, { bob: sort === 'ballong' ? 9 : 6, sway: sort === 'fagel' ? 0.06 : 0.03, duration: 2.0 + Math.random() * 0.8 })
+      this._treats.push({ view, x, y, tagen: false })
+    }
+  },
+
+  // Nudd i flykten → pling, gnista, och saken far uppåt och tonar bort.
+  _checkTreats(ctx) {
+    const z = this._zacke
+    if (!z || z.destroyed) return
+    for (const t of this._treats || []) {
+      if (t.tagen || t.view.destroyed) continue
+      if (Math.hypot(z.x - t.x, z.y - t.y) > TREAT_R) continue
+      t.tagen = true
+      this._skord += 1
+      ctx.services.audio.tone({ freq: PLING[Math.min(this._skord - 1, PLING.length - 1)], dur: 0.2, type: 'triangle', vol: 0.26 })
+      sparkle(this._fx, t.x, t.y, { count: 7 })
+      const v = t.view
+      v._fxLiv?.kill() // vilorörelsen äger y — den måste släppa taget före flykten uppåt
+      const st = { p: 0 }
+      const y0 = v.y
+      const tw = gsap.to(st, {
+        p: 1,
+        duration: 0.5,
+        ease: 'power2.out',
+        onUpdate: () => {
+          if (v.destroyed) {
+            tw.kill()
+            return
+          }
+          v.y = y0 - st.p * 46
+          v.alpha = 1 - st.p
+          v.scale.set(1 + st.p * 0.4)
+        },
+        onComplete: () => {
+          if (!v.destroyed) v.visible = false
+        },
+      })
+      this._winTweens.push(tw) // rivs vid nivåbygge och i destroy
+    }
   },
 
   _buildElvira() {
@@ -510,9 +712,34 @@ export default {
       if (fjarran) continue
       if (i % 2) g.roundRect(x + w * 0.68, wallTop - 30, 16, 36, 4).fill(COLORS.brown) // skorsten
       f.roundRect(x + w * 0.5 - 16, wallTop + 50, 32, 40, 5).fill(COLORS.yellow) // fönster
-      // Vartannat hus får ett fönster till, en våning ner — staden blir bebodd i stället
-      // för att vara en rad identiska lådor.
-      if (i % 3 === 0) f.roundRect(x + w * 0.5 - 13, wallTop + 112, 26, 34, 5).fill({ color: COLORS.yellow, alpha: 0.75 })
+
+      // FINARE MOT MÅLET. Kattungen sitter alltid längst till höger i banan, och världen
+      // klipps strax bakom den — "längre åt höger" betyder alltså alltid "närmare målet",
+      // på varje nivå. Stadsdelen blir tätare och mer påkostad ju längre in barnet svingar:
+      // fler upplysta fönster, sedan balkongräcken, sist en spira på taket.
+      //
+      // HÖJDEN rörs INTE, och det är ett medvetet val. `ROOF_Y` (520) är fångstgolvet och
+      // kattungen sitter på `ROOF_Y - 46`; högre hus mot målet hade lagt takåsen ÖVER både
+      // fångstlinjen och kattungens fötter, så hon hade svävat framför en gavel och Zacke
+      // flugit rakt genom ett tak innan molnet hann fånga honom.
+      const narhet = x / Math.max(1, bredd)
+      if (narhet > 0.34) f.roundRect(x + w * 0.5 - 13, wallTop + 112, 26, 34, 5).fill({ color: COLORS.yellow, alpha: 0.8 })
+      else if (i % 3 === 0) f.roundRect(x + w * 0.5 - 13, wallTop + 112, 26, 34, 5).fill({ color: COLORS.yellow, alpha: 0.75 })
+      if (narhet > 0.52) {
+        // Två smala fönster till på var sida — tätare stad.
+        f.roundRect(x + w * 0.22, wallTop + 56, 18, 30, 4).fill({ color: COLORS.yellow, alpha: 0.7 })
+        f.roundRect(x + w * 0.78 - 18, wallTop + 56, 18, 30, 4).fill({ color: COLORS.yellow, alpha: 0.7 })
+      }
+      if (narhet > 0.62) {
+        // Balkongräcke under mittfönstret.
+        g.roundRect(x + w * 0.5 - 26, wallTop + 92, 52, 6, 3).fill(COLORS.brown)
+        for (let s = 0; s < 4; s++) g.roundRect(x + w * 0.5 - 22 + s * 13, wallTop + 92, 4, 14, 2).fill(COLORS.brown)
+      }
+      if (narhet > 0.78) {
+        // Spira med kula — den fina delen av stan.
+        g.roundRect(x + w * 0.5 - 2, wallTop - 96, 4, 44, 2).fill(COLORS.brown)
+        g.circle(x + w * 0.5, wallTop - 100, 7).fill(COLORS.yellow)
+      }
     }
     return c
   },
@@ -940,6 +1167,7 @@ export default {
       z.x += this.vx * dt
       z.y += this.vy * dt
       z.rotation += 0.04 * dt
+      this._checkTreats(ctx)
       const next = this._anchors[this._a + 1]
       // Förlåtande fäst-fönster: nå fram horisontellt utan att sjunka under taket.
       if (next && z.x >= next.x - 45 && z.y < ROOF_Y) {
@@ -983,6 +1211,15 @@ export default {
       gsap.killTweensOf(this._kitten.scale)
     }
     if (this._elvira && !this._elvira.destroyed) gsap.killTweensOf(this._elvira)
+    // `liv()` är en repeat:-1-tween: den slutar ALDRIG av sig själv. Den vaktar mot ett
+    // förstört mål, men tickar vidare i gsap tills den dödas explicit.
+    for (const t of this._treats || []) {
+      if (!t.view || t.view.destroyed) continue
+      t.view._fxLiv?.kill()
+      gsap.killTweensOf(t.view)
+      gsap.killTweensOf(t.view.scale)
+    }
+    this._treats = []
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel()
     // Kameran äger en egen ticker-callback och alla parallaxlager. `destroy()` tar bort

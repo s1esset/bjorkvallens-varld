@@ -57,17 +57,50 @@ Solid kärna, men flera tunna drag:
 Kort sagt: **krafterna är välgjorda men föraren är en själlös emoji och himlen är tom** — det
 styrs hem, men det berättas ingen liten resa.
 
+## 5. Status / loggar
+
+- 2026-08-10 ✅ **Luften blev en KRAFT + kupolen blev tyg** (v1.86.0, spår 3 runda P2,
+  commits `1ff0d98` · `7690ccd`). Ny delad primitiv `src/lib/luftmotstand.js`
+  (`Motstandsvolym`) med fallskärmen som första kund, och `lib/mjukkropp.js` fick
+  `falt(ax, ay)` med kupolen som fjärde kund.
+  - **Vad HEAD faktiskt gjorde** (uppmätt med nya `scripts/_fallprobe.mjs`, inte gissat):
+    95 % av fallfarten nåddes efter **0,07 s** — alltså ingen acceleration alls, fallet var
+    `chute.y += sink * dt`. Styrningen gav **248 px (Lätt) mot 245 px (Tung)** på en
+    sekund, så tyngdknappen gjorde ingenting åt styrförmågan. Vinden var ett eget tal med
+    en handsatt tyngdfaktor (0,45).
+  - **Nu en lag:** motstånd mot farten *relativt luften*. Gränsfarten faller ut ur massa
+    mot kupolarea, vinden är luftens egen hastighet (därför driver en lätt last med byn
+    medan en tung släpar efter), styrningen möter samma motstånd.
+  - **Efter** (samma sond): Lätt 4,87 s och 75 → 82 px/s · Tung 2,97 s och 119 → 137 px/s ·
+    **kvot 1,67× = exakt HEADs uppmätta kvot** · accelerationen syns (95 % efter 0,20
+    resp. 0,32 s) · vinddrift@1s 148/108 px · **styrning@1s 227/190 px** — knappen ändrar
+    nu tre saker samtidigt i stället för två.
+  - **Kupolen buktar av kraften den bär:** 2,8 px på en lätt last, 7,8 px på en tung
+    (2,8×), 10,4 px insida i en by, och ett lastbyte *svänger* in på 0,18 s.
+  - **Fyra fällor, alla dokumenterade i koden:** (1) en acceleration och en kraft är inte
+    samma sak — med styrningen som acceleration drev den TUNGA lasten längre i sidled än
+    den lätta; (2) `skjut()` är en impuls, inte en kraft, och en `skjut` per bildruta blev
+    en konstant fart som vek ihop kupolen till en trekant; (3) med bara tre fästen
+    *roterade* mjukkroppen och kraftfältet drunknade i rörelsen; (4) `form(a)` skalar båda
+    axlarna, så en platt underkant drog in skärmkantens hörn till ±11 px.
+  - Sonderna: `_fallprobe.mjs` (spelets känsla), `_motstandprobe.mjs` (17/17, utan
+    webbläsare), `_kupolprobe.mjs` (6/6 + `--svep`).
+  - §4-punkter avbockade nedan: **[Medium] Gör tyngd-valet kännbart** och **[Quick]
+    Vind-lut på fallskärmen** (den senare fanns delvis redan; lutningen läses nu ur den
+    verkliga relativfarten mot luften i stället för ur vindtalet).
+
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Quick] Vind-lut på fallskärmen.** Luta kupolen/föraren lätt i *vindens* riktning (lägg in
-  `this._wind`-term i `chute.rotation`-lerpen) så barnet ser och känner att vinden drar — och att
-  styrningen rätar upp den.
+- ✅ ~~**[Quick] Vind-lut på fallskärmen.**~~ Klar 2026-08-10: lutningen läses ur den verkliga
+  relativfarten mot luften, och kupolen trycks dessutom in från sidan i en by.
 - **[Medium] Samla på vägen ner.** Strö ut moln-stjärnor/ballonger i luftrummet som ger en liten
   gnista + pip när fallskärmen glider förbi dem — gör fallet till en resa med val (styr lite för
   att nå dem) utan att äventyra landningen.
-- **[Medium] Gör tyngd-valet kännbart.** Förstärk Tung visuellt (ihoptryckt kupol, snabbare löv
-  som susar förbi, lägre vind-drift) och ge ett tydligt "tungt/lätt"-ljud, så avvägningen syns.
+- ✅ ~~**[Medium] Gör tyngd-valet kännbart.**~~ Klar 2026-08-10: knappen byter LAST, inte
+  fallfart. Tung faller 1,67× fortare, är trögare att styra (190 mot 227 px på en sekund) och
+  spänner kupolen 2,8× hårdare — och bytet mitt i fallet accelererar synligt in mot den nya
+  gränsfarten i stället för att byta värde på en bildruta.
 
 ### Variation & överraskning
 - **[Quick] Varierade landningsmål:** studsmatta, höstack, vattenpöl (plask), en väntande

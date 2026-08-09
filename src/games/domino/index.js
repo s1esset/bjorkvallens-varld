@@ -14,7 +14,7 @@
 // Allt ritas programmatiskt (Pixi Graphics) — inga externa filer, inga emoji-i-ruta-objekt.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Matter } from '../../lib/physics.js'
+import { PhysicsWorld, Matter, mat } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, burst, breathe, bigCelebration, ripple, puff, shake } from '../../lib/feedback.js'
@@ -120,6 +120,11 @@ export default {
       friction: 0.9,
       restitution: 0,
     })
+    // Kedjan HÖRS nu. Varje bricka som slår i nästa ger en träklang vars volym och
+    // tonhöjd följer anslagsfarten — en kedja som just kommit igång viskar, en som
+    // rusar smäller. Taket (3 par/bildruta, 28 ms mellan toner) finns i physics.js:
+    // en rasande rad ger tiotals par i EN bildruta och blir annars ett skrik.
+    this._phys.impactAudio(ctx.services.audio, { hardSpeed: 11 })
 
     // --- Bakgrundsvärld: kullar, träd och ett staket i fjärran. Scenen var tidigare
     // en tom himmel med en grön remsa längst ner.
@@ -410,11 +415,11 @@ export default {
     const view = makeTile(TILE_W, TILE_H, color)
     view.position.set(x, TILE_Y)
     this._tilesLayer.addChild(view)
-    const body = this._phys.rectangle(x, TILE_Y, TILE_W, TILE_H, {
+    const body = this._phys.rectangle(x, TILE_Y, TILE_W, TILE_H, mat('tra', {
       friction: 0.4,
       restitution: 0.04,
       frictionAir: 0.003,
-    })
+    }))
     this._phys.link(body, view)
     return { view, body }
   },
@@ -681,11 +686,15 @@ export default {
     tile.view.position.set(slot.x, TILE_Y)
     tile.view.rotation = 0
     this._tilesLayer.addChild(tile.view)
-    const body = this._phys.rectangle(slot.x, TILE_Y, TILE_W, TILE_H, {
+    // mat('tra') sätter BARA materialets identitet (och därmed dess röst) — spelets
+    // egna, handtrimmade tal ligger sist och vinner. Ett material får aldrig tuna om
+    // ett fungerande spel bakvägen; det är den fällan `spindelhjalten`/`bajs-och-kiss`
+    // redan betalat för en gång i förhandsvisningens kalibrering.
+    const body = this._phys.rectangle(slot.x, TILE_Y, TILE_W, TILE_H, mat('tra', {
       friction: 0.4,
       restitution: 0.04,
       frictionAir: 0.003,
-    })
+    }))
     this._phys.link(body, tile.view)
     slot.tile = { view: tile.view, body }
     this._tiles.push(slot.tile)

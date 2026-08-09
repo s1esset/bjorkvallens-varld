@@ -52,6 +52,34 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
 - `update(deltaMS)` fast tidssteg · exit-säker `destroy()`.
 - `predictTrajectory(…)` + re-exporterade `Body` / `Composite` / `Vector`.
 
+## Material som LÅTER (`MATERIAL` + `onImpact` / `impactAudio`)
+
+Två tabeller som svarar på olika frågor. `MATERIALS` beskriver **rörelse** (bouncy · normal ·
+heavy · light · sticky). `MATERIAL` beskriver **ämne** — `tra · metall · sten · gummi · glas` —
+och bär både fysik och en **röst**.
+
+```js
+import { PhysicsWorld, mat } from '../../lib/physics.js'
+
+// mat() lägger DINA tal sist: materialet ger identitet + röst, aldrig en omtuning.
+const body = this._phys.rectangle(x, y, w, h, mat('tra', { friction: 0.4, label: 'bricka' }))
+
+// En rad ger hela spelet hörbar tyngd — hårdare anslag = högre OCH ljusare.
+this._phys.impactAudio(ctx.services.audio, { hardSpeed: 11 })
+
+// Vill du ha partiklar med: kontaktpunkt + styrka (0–1) + materialets träff-färg.
+this._unbindSlag = this._phys.onImpact((h) => {
+  if (h.styrka > 0.5) puff(ctx.fxLayer, h.x, h.y, { count: 5, color: h.traff })
+})
+```
+
+- **Rösten är `audio.tone()`, inte ett klipp.** Ett klipp har EN dynamik och kan inte bli
+  mjukare när träffen är mjuk — och repot har inga klipp som heter `knack`/`duns`/`klirr`.
+- **Taket är inbyggt och ska inte tas bort:** max 3 anslag/bildruta + 28 ms mellan toner
+  (väggklocka, inte bildrutor). Utan det blir ett ras ett skrik, inte en duns.
+- **Mät med `node scripts/_slagprobe.mjs`** — fart→volym/tonhöjd, materialens röster, taket
+  och exit-säkerheten, allt utan webbläsare.
+
 ## AimLauncher
 
 Den återanvändbara **"dra för att sätta riktning + kraft, med levande prickad bana"**-kontrollen.

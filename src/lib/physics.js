@@ -29,6 +29,55 @@ export const MATERIALS = {
   sticky: { restitution: 0.02, friction: 0.9, frictionAir: 0.02, density: 0.002 },
 }
 
+// MATERIAL — samma sak, fast med en RÖST och ett SPÅR (LYFTPLAN B4).
+//
+// `MATERIALS` ovan är fyra tal: hur en kropp rör sig. Ett material i verkligheten
+// låter också, och lämnar märken. Skillnaden mellan "trä" och "metall" ska höras i
+// samma sekund som något slår i, inte bara synas i studshöjden.
+//
+// **Rösten är syntes, inte klipp — och det är ett mätresultat, inte en genväg.**
+// Repot har inga klipp som heter knack/klang/duns/studs/klirr (tillgängliga namn:
+// boing · celebrate · correct · djur_* · fart · flip · kristall_klirr · magi ·
+// match · plopp · pling · pop · reveal · soft · tap · thwip · whoosh). Ett klipp
+// har dessutom EN dynamik: det kan inte bli mjukare när träffen är mjuk. `tone()`
+// kan, och det är hela poängen med B5 nedan. Samma skäl som CLAUDE.md ger för att
+// `correct`/`match`/`pling` är stämda intervall och inte får bytas mot samplade blipp.
+//
+// Signaturen ligger under EN nyckel (`mat`) på kroppen i stället för lösa fält:
+// matter kopierar okända options rakt på kroppen (`Common.extend`), så `ljud` eller
+// `spar` hade fungerat — men matter äger namnrymden och kan ta vilket ord som helst
+// i en framtida version. Samma fälla som Pixis `_cx`/`_sx`, en våning ned.
+export const MATERIAL = {
+  tra: {
+    fysik: { restitution: 0.28, friction: 0.55, frictionAir: 0.012, density: 0.0018 },
+    ton: 240, typ: 'triangle', dur: 0.09, glid: 0.55, traff: 0x8a5a3b,
+  },
+  metall: {
+    fysik: { restitution: 0.52, friction: 0.12, frictionAir: 0.006, density: 0.0038 },
+    ton: 760, typ: 'triangle', dur: 0.22, glid: 0.94, traff: 0xc3ccd4,
+  },
+  sten: {
+    fysik: { restitution: 0.18, friction: 0.62, frictionAir: 0.01, density: 0.0045 },
+    ton: 120, typ: 'sine', dur: 0.12, glid: 0.5, traff: 0x9aa4b0,
+  },
+  gummi: {
+    fysik: { restitution: 0.86, friction: 0.35, frictionAir: 0.008, density: 0.0012 },
+    ton: 320, typ: 'sine', dur: 0.11, glid: 1.7, traff: null,
+  },
+  glas: {
+    fysik: { restitution: 0.4, friction: 0.08, frictionAir: 0.005, density: 0.0026 },
+    ton: 1180, typ: 'sine', dur: 0.14, glid: 1.02, traff: 0xbfe6ff,
+  },
+}
+
+// Kropp-options ur ett material: fysiken spridd som vanligt (så inget anropsställe
+// behöver ändras) + `mat` kvar på kroppen så kollisionen vet vad som slog i vad.
+//   this._phys.rectangle(x, y, w, h, mat('tra', { label: 'kloss' }))
+export function mat(namn, extra = {}) {
+  const m = MATERIAL[namn]
+  return m ? { ...m.fysik, mat: namn, ...extra } : { ...extra }
+}
+
 export class PhysicsWorld {
   // walls: vilka osynliga väggar som skapas ('floor','left','right','ceiling').
   // wallThickness/extra: tjocklek + hur långt utanför skärmen väggarna sträcker sig.
@@ -41,6 +90,7 @@ export class PhysicsWorld {
     this._links = [] // { body, view, onUpdate? }
     this._alive = true
     this._acc = 0 // ackumulerad realtid för fast tidssteg
+    this._frames = 0 // bildruteräknare (alltid på — anslagstaket i onImpact vilar på den)
     this._windAx = windAx
     this._windAy = windAy
     this.walls = []
@@ -214,12 +264,92 @@ export class PhysicsWorld {
     return () => Events.off(this.engine, 'collisionStart', handler)
   }
 
+  // ---- Anslag: hur HÅRT något slog i (LYFTPLAN B5) -------------------------
+  //
+  // Den billigaste juicen som finns. `rel = |vA − vB|` räknades redan ut, men bara
+  // för diagnostikloggen — inget av de 23 fysikspelen mappade den till något barnet
+  // kan höra. En kloss som nuddar och en kloss som dundrar lät exakt likadant.
+  //
+  // handler får { a, b, speed, styrka, x, y, material, traff }:
+  //   speed    px/steg (matters enhet). ~1 = nuddar, ~14 = riktig smäll.
+  //   styrka   0…1, redan klämd — det värdet ett spel vill tuna volym/skala mot.
+  //   x, y     kontaktpunkten (matters `supports`, annars kropparnas mittpunkt).
+  //   material materialnyckeln för den kropp som bär en (`mat()`), annars null.
+  //
+  // TAKET ÄR INTE VALFRITT. En domino-kedja eller en rasande stapel ger tiotals
+  // par i EN bildruta; utan tak blir det ett skrik, inte en duns — och P0 säger
+  // uttryckligen att återkoppling ska vara rolig, aldrig en summer.
+  onImpact(handler, { minSpeed = 1.6, hardSpeed = 14, maxPerFrame = 3 } = {}) {
+    if (!this._alive) return
+    let ruta = -1
+    let iRutan = 0
+    return this.onCollision((e) => {
+      if (!this._alive) return
+      if (this._frames !== ruta) {
+        ruta = this._frames
+        iRutan = 0
+      }
+      for (const p of e.pairs) {
+        if (iRutan >= maxPerFrame) return
+        const a = p.bodyA
+        const b = p.bodyB
+        const rel = Math.hypot(a.velocity.x - b.velocity.x, a.velocity.y - b.velocity.y)
+        if (!(rel >= minSpeed)) continue // NaN faller ut här med, inte bara små tal
+        iRutan++
+        const s = p.collision?.supports?.[0]
+        const namn = a.mat || b.mat || null
+        handler({
+          a,
+          b,
+          speed: rel,
+          styrka: Math.min(1, (rel - minSpeed) / Math.max(0.001, hardSpeed - minSpeed)),
+          x: s ? s.x : (a.position.x + b.position.x) / 2,
+          y: s ? s.y : (a.position.y + b.position.y) / 2,
+          material: namn,
+          traff: namn ? MATERIAL[namn]?.traff ?? null : null,
+        })
+      }
+    })
+  }
+
+  // En rad ger ett helt spel hörbar tyngd:  this._phys.impactAudio(ctx.services.audio)
+  //
+  // Hårdare anslag = högre OCH ljusare. Bara volym räcker inte: örat läser tonhöjd
+  // som kraft, och två träffar med samma tonhöjd men olika volym låter som samma
+  // träff på olika avstånd. `standard` används för kroppar utan eget material.
+  impactAudio(audio, { standard = 'tra', minSpeed = 1.6, hardSpeed = 14, vol = 0.24, maxPerFrame = 3, minGapMs = 28 } = {}) {
+    if (!audio?.tone) return
+    let sistAt = -1e9
+    return this.onImpact(
+      (h) => {
+        // Egen paus mellan toner: audio.tone() går med flit förbi sfx():s 30 ms-golv
+        // (varje ton har egen tonhöjd), så taket måste sitta här. VÄGGKLOCKA, inte
+        // bildrutor: vid 30 fps hade ett bildrutebaserat golv blivit dubbelt så långt
+        // i verklig tid, alltså tystare juice på svagare enheter — precis tvärtemot.
+        const nu = typeof performance !== 'undefined' ? performance.now() : Date.now()
+        if (nu - sistAt < minGapMs) return
+        sistAt = nu
+        const m = MATERIAL[h.material || standard] || MATERIAL.tra
+        const f = m.ton * (0.86 + 0.34 * h.styrka)
+        audio.tone({
+          freq: f,
+          slideTo: f * m.glid,
+          dur: m.dur * (0.7 + 0.5 * h.styrka),
+          type: m.typ,
+          vol: vol * (0.3 + 0.7 * h.styrka),
+        })
+      },
+      { minSpeed, hardSpeed, maxPerFrame }
+    )
+  }
+
   // Stega fysiken och synka rendering. deltaMS från ctx.ticker.
   // matter.js vill ha ETT FAST tidssteg — variabelt dt gör kollisioner/impulser
   // opålitliga (t.ex. en domino-kedja som inte fortplantar sig). Vi ackumulerar
   // realtid och kör fasta 1/60-steg (max 5 per bildruta för att undvika dödsspiral).
   update(deltaMS) {
     if (!this._alive) return
+    this._frames++
     const FIXED = 1000 / 60
     this._acc += Math.min(deltaMS || FIXED, 100) // klamp stora hopp (flik-byte)
     let steps = 0

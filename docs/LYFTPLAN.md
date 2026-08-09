@@ -198,7 +198,7 @@ sjunker och återtar formen.
 `MeshRope` (se C5). Ersätter fyra implementationer och gör svingar, slangar, nät och vinschar
 till en rad kod.
 
-### B4. Material är fyra tal, inte material **[Medium]**
+### B4. Material är fyra tal, inte material **[Medium]** — ✅ BYGGT 2026-08-09 (v1.52.0)
 
 `MATERIALS` i `physics.js` har fem förval (`bouncy`/`normal`/`heavy`/`light`/`sticky`), var och
 en `{restitution, friction, frictionAir, density}`. Ett material bär idag **ingen** ljudsignatur,
@@ -217,14 +217,56 @@ glas:   { fysik: {...}, ljud: 'klirr',  traff: 'skarvor', spar: 0xbfe6ff }
 Det är detta ägaren menar med "element och egenskaper": material ska **låta** och **lämna spår**,
 inte bara studsa olika. Kopplar direkt till B5 och C3.
 
-### B5. Kollisionshändelser driver nästan ingen spelmekanik **[Quick]** per spel
+✅ **Byggt som `MATERIAL` + `mat(namn, extra)` i `physics.js`** — fem poster (`tra` · `metall` ·
+`sten` · `gummi` · `glas`), var och en `{ fysik, ton, typ, dur, glid, traff }`.
 
-`PhysicsWorld.onCollision()` finns; de flesta spel pollar positioner i stället. Ingen av de 24
-fysikspelen mappar **anslagshastighet → volym och tonhöjd**.
+Tre beslut som mätningen tvingade fram:
 
-Det är den billigaste juicen som finns: `rel = |vA − vB|` finns redan uträknad i diagnostiken
-(`physics.js:_diagInit`). En hård träff ska låta hårt, en mjuk mjukt. Gör det till en delad
-hjälpare i `physics.js` så alla 24 spel får det med en rad.
+1. **Rösten är syntes, inte klipp.** Repot har inga klipp som heter `knack`/`klang`/`duns`/
+   `studs`/`klirr` (tillgängliga namn: `boing · celebrate · correct · djur_* · fart · flip ·
+   kristall_klirr · magi · match · plopp · pling · pop · reveal · soft · tap · thwip · whoosh`).
+   Och ett klipp har EN dynamik — det kan inte bli mjukare när träffen är mjuk, vilket är hela
+   poängen med B5. Samma skäl som CLAUDE.md ger för att `correct`/`match`/`pling` är stämda.
+2. **Signaturen ligger under EN nyckel (`mat`) på kroppen.** matter kopierar okända options rakt
+   på kroppen, så `ljud`/`spar` hade fungerat — men matter äger namnrymden. Samma fälla som
+   Pixis `_cx`/`_sx`, en våning ned.
+3. **`mat()` lägger spelets egna tal SIST.** `mat('tra', { friction: 0.4 })` behåller 0.4.
+   Ett material får aldrig tuna om ett fungerande spel bakvägen — `domino` och `bygg-tornet`
+   är handtrimmade och skulle ha ändrat beteende av en rakt påtvingad materialtabell.
+
+`MATERIALS` (bouncy/normal/heavy/light/sticky) står kvar orörd — 9 spel sprider den, och den
+beskriver *rörelse*, inte *ämne*. De två tabellerna svarar på olika frågor.
+
+### B5. Kollisionshändelser driver nästan ingen spelmekanik **[Quick]** per spel — ✅ BYGGT 2026-08-09 (v1.52.0)
+
+`PhysicsWorld.onCollision()` fanns; de flesta spel pollade positioner i stället. Inget av de 23
+fysikspelen mappade **anslagshastighet → volym och tonhöjd**.
+
+✅ **`onImpact(handler, { minSpeed, hardSpeed, maxPerFrame })`** ger `{ a, b, speed, styrka, x, y,
+material, traff }` — kontaktpunkten kommer ur matters `supports`, `styrka` är redan klämd till
+0–1. **`impactAudio(audio, opts)`** är enradaren: hårdare anslag blir högre OCH ljusare (bara
+volym räcker inte — örat läser tonhöjd som kraft; samma volymskillnad utan tonhöjdsskillnad
+låter som samma träff på olika *avstånd*).
+
+**Taket är inte valfritt.** En rasande hög ger tiotals par i EN bildruta. Två spärrar: max 3
+anslag per bildruta, och 28 ms mellan toner. Den andra går på **väggklockan**, inte bildrutor —
+vid 30 fps hade ett bildrutebaserat golv blivit dubbelt så långt i verklig tid, alltså tystare
+juice på svagare enheter, precis tvärtom mot vad man vill.
+
+Första kunder: **`domino`** (kedjan hörs — en kedja som just kommit igång viskar, en som rusar
+smäller) och **`bygg-tornet`** (`_lockActive` hade redan en duns, men bara på klossen barnet
+just la, och alltid lika hård).
+
+**Verktyg: `scripts/_slagprobe.mjs`** (Node, ingen webbläsare — som `_kameraprobe.mjs`).
+Uppmätt: mjukt fall vol 0.086 / 213 Hz → hårt fall 0.240 / 288 Hz · fem material, fem skilda
+tonhöjder (144–1416 Hz) · en studsande gummiboll ger **9 anslag med avtagande fart**
+(16,9 → 1,7 px/steg) · en hög på 40 stenar ger 30 anslag med **aldrig mer än 3 per bildruta** ·
+noll toner efter `destroy()`.
+
+⚠️ **En grön mätning kan ljuga precis som en röd.** Sondens första version mätte `impactAudio`
+på högen och rapporterade "1 ton på 3 s" — grönt mot taket, och helt meningslöst: 180 bildrutor
+simuleras på ~40 ms verklig tid, så väggklocke-spärren släppte igenom exakt en ton oavsett vad
+som hände. Taket mäts nu via `onImpact` (bildruteräkning), och sonden säger i klartext varför.
 
 ### B6. Ingen återanvändbar lyftkraft eller motståndsvolym **[Medium]**
 
@@ -539,7 +581,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 5 | `lib/kamera.js` | C6 | nya spel; scenens djupband blir parallax | ✅ v1.44.0 |
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ✅ v1.45–46.0 |
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ⬜ |
-| 8 | Material med ljud/partikel/spår | B4+B5 | 24 fysikspel | ⬜ |
+| 8 | Material med ljud/partikel/spår | B4+B5 | 23 fysikspel | ✅ v1.52.0 |
 | 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ⬜ |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ⬜ |

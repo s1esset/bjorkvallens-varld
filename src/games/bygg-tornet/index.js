@@ -11,7 +11,7 @@
 // Allt ritas programmatiskt (Pixi Graphics + system-emoji) — inga externa filer.
 import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { PhysicsWorld, Body, mat } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, puff, sparkle, breathe, bigCelebration } from '../../lib/feedback.js'
@@ -31,7 +31,10 @@ const DROP_MAX_X = DESIGN_W - BW / 2 - 24 // … men aldrig delvis utanför kant
 
 // Klossens fysik: hög friktion + statisk friktion och nästan ingen studs ⇒ klossar
 // staplar och glider inte; lite luftmotstånd ⇒ vajet lugnar sig snabbt. Lugnt & förlåtande.
-const BLOCK_OPTS = { density: 0.0018, restitution: 0.03, friction: 0.85, frictionStatic: 1.6, frictionAir: 0.02, label: 'block' }
+// mat('tra') bidrar BARA med materialets identitet (och därmed dess röst) — klossarnas
+// egna, handtrimmade tal ligger sist och vinner. Ett material får aldrig tuna om ett
+// fungerande spel bakvägen.
+const BLOCK_OPTS = mat('tra', { density: 0.0018, restitution: 0.03, friction: 0.85, frictionStatic: 1.6, frictionAir: 0.02, label: 'block' })
 
 // Vila-/landningströsklar.
 const REST_SPEED = 1.4 // matter-fart under detta = klossen har lugnat sig
@@ -132,6 +135,11 @@ export default {
     // Fysik: gravitation + golv/väggar.
     this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Stapeln HÖRS nu. `_lockActive` hade redan en duns, men bara på klossen barnet
+    // just la — och alltid lika hård. Nu låter varje kloss-mot-kloss-anslag i tornet
+    // efter sin egen fart, så ett torn som gungar och sätter sig ger en levande
+    // träklang i stället för tystnad mellan de scriptade ljuden.
+    this._unbindImpact = this._phys.impactAudio(ctx.services.audio, { hardSpeed: 12, vol: 0.2 })
     // Egen statisk mark vars ÖVERKANT ligger på GROUND_TOP_Y (klossarna vilar här).
     this._phys.rectangle(DESIGN_W / 2, GROUND_TOP_Y + 130, DESIGN_W + 400, 260, {
       isStatic: true,
@@ -704,6 +712,7 @@ export default {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._unbind?.()
+    this._unbindImpact?.()
     this._spawnCall?.kill()
     this._finishCall?.kill()
     this._flagTween?.kill()

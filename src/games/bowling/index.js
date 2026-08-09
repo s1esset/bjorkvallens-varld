@@ -24,7 +24,7 @@ import { createScene } from '../../lib/scene.js'
 import { makeBoll, makeStjarna } from '../../lib/foremal.js'
 import { bigCelebration, burst, puff, sparkle, pop } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -280,26 +280,12 @@ export default {
     this._bumperBtn.position.set(1130, 626)
     this._root.addChild(this._bumperBtn)
 
-    // Maskoten Bobo nere till vänster (hejar/jublar).
-    // Bobo hade bara ett svävande huvud i hörnet. Nu står han med ritad kropp och
-    // hejar på kastet.
-    this._bobo = new Container()
-    const bbody = new Graphics()
-    bbody.ellipse(0, 122, 36, 11).fill({ color: 0x000000, alpha: 0.16 })
-    bbody.ellipse(-18, 112, 15, 9).fill(COLORS.orangeDark)
-    bbody.ellipse(18, 112, 15, 9).fill(COLORS.orangeDark)
-    bbody.ellipse(0, 70, 38, 44).fill(COLORS.orange)
-    bbody.ellipse(0, 76, 24, 24).fill({ color: COLORS.cream, alpha: 0.92 })
-    // Armarna satt tidigare på y≈10 — rakt bakom det 58 px stora huvudet, så Bobo såg
-    // armlös ut. De hänger nu utanför huvudets silhuett och syns.
-    bbody.moveTo(-30, 60).quadraticCurveTo(-52, 58, -58, 42).stroke({ width: 14, color: COLORS.orange, cap: 'round' })
-    bbody.moveTo(30, 60).quadraticCurveTo(52, 58, 58, 42).stroke({ width: 14, color: COLORS.orange, cap: 'round' })
-    bbody.circle(-58, 42, 11).fill(COLORS.cream)
-    bbody.circle(58, 42, 11).fill(COLORS.cream)
-    bbody.eventMode = 'none'
-    this._bobo.addChild(bbody)
-    this._bobo.addChild(makeMascot(58))
-    this._bobo.interactiveChildren = false
+    // Maskoten Bobo nere till vänster: en RIGG (lib/karaktarer.js), inte ett huvud
+    // plus en handritad kropp. Den ritade kroppen (skugga, fötter, bål, mage, två
+    // armar) var en kopia av `figurer.js:makeBoboBody` med egna tal — riggen har
+    // samma delar, men armarna är EGNA noder med pivå i axeln, så de kan röra sig.
+    this._kar = makeKaraktar({ r: 58 })
+    this._bobo = this._kar.view
     this._bobo.position.set(BOBO_POS.x, BOBO_POS.y)
     this._root.addChild(this._bobo)
 
@@ -836,23 +822,31 @@ export default {
 
   // ---- Bobo & publik --------------------------------------------------------
 
+  // Kastet: en påhejning, inte ett firande. `pop()` är borta — den skrev på
+  // `view.scale`, som riggens andning äger, och två skrivare om samma värde blir
+  // hackigt (samma regel som käglornas kroppsskala en bit ner i _update).
   _boboCheer() {
-    if (this._bobo && !this._bobo.destroyed) pop(this._bobo)
+    this._kar?.react('heja')
   },
 
   // Strike: Bobo reser sig, hoppar och snurrar i en egen liten dans (inte bara ett hopp).
+  // Hoppet och armarna kommer ur riggens `jubel`; dansen lägger till LUTNINGEN, som
+  // riggen med flit inte har (P0: ingen rotation i den delade kameran/riggen).
+  // Rotationen är fri att tweena — bara skalan är upptagen.
   _boboDance() {
     const b = this._bobo
     if (!b || b.destroyed) return
+    // ORDNING: rensa FÖRST, reagera sedan. `killTweensOf(b)` träffar även riggens
+    // egen hopp-tween på `view.y`, så en `react()` före raden hade dödats direkt.
     this._danceTl?.kill()
     gsap.killTweensOf(b)
+    this._kar?.react('jubel')
     this._danceTl = gsap
       .timeline()
-      .to(b, { y: BOBO_POS.y - 52, rotation: -0.22, duration: 0.22, ease: 'power2.out' })
-      .to(b, { y: BOBO_POS.y, rotation: 0.2, duration: 0.36, ease: 'bounce.out' })
-      .to(b, { y: BOBO_POS.y - 30, rotation: -0.16, duration: 0.2, ease: 'power2.out' })
-      .to(b, { y: BOBO_POS.y, rotation: 0, duration: 0.34, ease: 'bounce.out' })
-    pop(b)
+      .to(b, { rotation: -0.22, duration: 0.22, ease: 'power2.out' })
+      .to(b, { rotation: 0.2, duration: 0.36, ease: 'bounce.out' })
+      .to(b, { rotation: -0.16, duration: 0.2, ease: 'power2.out' })
+      .to(b, { rotation: 0, duration: 0.34, ease: 'bounce.out' })
   },
 
   // Publiken hoppar till på bänken.
@@ -903,10 +897,15 @@ export default {
       v.pupils.scale.set(1 + near * 0.55)
     }
 
-    // Bobo som domare: följer klotet med hela kroppen medan det rullar.
-    if (this._bobo && !this._bobo.destroyed && this._phase !== 'strike') {
-      const want = Math.max(-0.18, Math.min(0.18, (bx - BOBO_POS.x) / 1400 + (this._phase === 'rolling' ? 0.06 : 0)))
-      this._bobo.rotation += (want - this._bobo.rotation) * Math.min(1, dt * 5)
+    // Bobo som domare: följer klotet med BLICKEN hela tiden och med kroppen medan
+    // det rullar. Blicken är den signal som säger att någon tittar på det barnet
+    // gjorde; kroppslutningen ensam läste som att han bara stod och vajade.
+    if (this._kar && this._bobo && !this._bobo.destroyed) {
+      this._kar.look(bx, by)
+      if (this._phase !== 'strike') {
+        const want = Math.max(-0.18, Math.min(0.18, (bx - BOBO_POS.x) / 1400 + (this._phase === 'rolling' ? 0.06 : 0)))
+        this._bobo.rotation += (want - this._bobo.rotation) * Math.min(1, dt * 5)
+      }
     }
 
     // Vält-detektion (under kast eller auto-hjälp): positionsförskjutning = robustast.
@@ -1016,10 +1015,10 @@ export default {
       }
     }
     for (const d of this._meterDots) if (d && !d.destroyed) gsap.killTweensOf(d)
-    if (this._bobo && !this._bobo.destroyed) {
-      gsap.killTweensOf(this._bobo)
-      gsap.killTweensOf(this._bobo.scale)
-    }
+    this._danceTl?.kill()
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
+    this._bobo = null
     if (this._bumperBtn && !this._bumperBtn.destroyed) gsap.killTweensOf(this._bumperBtn.scale)
 
     this._phys?.setWind?.(0, 0)

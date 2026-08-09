@@ -24,7 +24,19 @@ regel gäller: reproducera innan du ändrar.
 
 | # | Var | Fynd | Bevis | Status |
 |---|-----|------|-------|:--:|
-| — | — | *(inga öppna verktygsfynd)* | | |
+| V9 | 28 spel (lista nedan) | **Tysta tryck under upptagen-fas.** En pekhanterare bortar tidigt på `_busy`/`_resolving`/`_cleared` utan att ge någon återkoppling → `dod-traffyta`, alltså brott mot P0 ÅTERKOPPLING (<100 ms). Fem spel är redan fixade med `kvittera()` (`1168e24`, `35defca`); **53 kandidater i 28 spel återstår**. | `node scripts/_tystprobe.mjs`. Harnessen hittar dem bara när dess åtta sekunder råkar träffa rätt fas — tre körningar i rad gav tre olika spel (`harma-melodin` → `flipperspel` → `peka-pa-kroppen`), vilket är själva skälet att en statisk sond behövs. | ⬜ |
+
+**V9 — kandidatspel:** `ballonglyft` · `enhorning-glitterbajs` · `enhorningen-flyger` ·
+`fallskarmen` · `folj-sparet` · `glasstornet` · `golvet-ar-lava` · `gravmaskinen` · `gungan` ·
+`kittla-figuren` · `kugghjulen` · `kulbana` · `lagerelden` · `plantera-fron` · `pruttbad` ·
+`rakna-applen` · `regnbagsmalaren` · `saftbaren` · `snobollen` · `spara-linjen` ·
+`spindel-zacke-svingar` · `spindelnatet` · `studsmatta` · `tarta-i-ansiktet` · `tvatta-djuret` ·
+`valpens-bajs` · `vandkort` · `vippbradan`
+
+> ⚠️ **Sonden ger ledtrådar, inte domar** — den läser text, inte beteende. Den rapporterar den
+> FÖRSTA vakten i en hanterare, så `vandkort:206` står med trots att dess `_busy`-gren redan
+> kvitterar via `_nudge()` en rad senare. Reproducera i harnessen innan du ändrar. Fixmönstret
+> när fyndet är äkta: `kvittera(ctx.fxLayer, x, y, ctx.services.audio)` ur `lib/feedback.js`.
 
 ## Avklarat
 

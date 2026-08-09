@@ -13,6 +13,7 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, sparkle, puff, bigCelebration } from '../../lib/feedback.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT, PLAYFUL, PRAISE } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Räkneorden 1–5 (rundans vagnar håller sig alltid inom 1–5).
 const SIFFROR = { 1: 'Ett', 2: 'Två', 3: 'Tre', 4: 'Fyra', 5: 'Fem' }
@@ -39,7 +40,7 @@ const CAR_HALF = 85 // halva vagnskorgen
 const SLOT_Y = 245
 const SLOT_STEP = 188 // 170 vagnsbredd + 18 -> kopplingsstumparna möts snyggt
 const POOL_Y = 560
-const DEPART_DX = 1500 // hur långt tågsättet rullar (åt vänster) vid avfärd
+const DEPART_DX = 1500 // minsta rullsträcka (åt vänster) vid avfärd — förlängs efter ctx.view
 const DEPART_TIME = 1.5
 const DEPART_STAGGER = 0.035 // stafett: varje vagn rycker med strax efter den framför
 
@@ -64,8 +65,12 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Lugn bakgrund (dekorativ, fångar inga tryck).
-    const bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(COLORS.bg)
+    // Lugn bakgrund (dekorativ, fångar inga tryck). Breddad med BLEED så en bred
+    // telefon (full bleed) aldrig ser creme-kanter utanför 0..1280. Tonen är en varm
+    // himmel (samma som scene.js warm-tema) i stället för COLORS.bg: den färgen ÄR
+    // letterbox-cremen, så en bakgrund i exakt den tonen kan aldrig läsas som scen —
+    // varken av ögat eller av bildkollens kant-cream-mätning.
+    const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(0xfff0d6)
     bg.eventMode = 'none'
     this._root.addChild(bg)
 
@@ -359,7 +364,9 @@ export default {
     this._startRock() // vaggan dödas ovan -> starta om (återställer även y/rotation)
     // Ett nytt lok rullar in från HÖGER och bromsar in på sin plats — fronten pekar åt
     // vänster, så det kör framlänges in precis som det strax kör framlänges ut.
-    this._engine.x = ctx.width + 240
+    // Parkeringen utgår från ctx.view.right (läses vid användning): på en bred telefon
+    // syns designkoordinater bortom 1280, och loket får inte stå synligt och vänta.
+    this._engine.x = ctx.view.right + 240
     this._rollIn = gsap.to(this._engine, { x: this._engineX, duration: 1.1, ease: 'power2.out' })
 
     // Kopplingsplatser: en target per slot, men accepts kräver rätt siffra OCH att
@@ -455,12 +462,17 @@ export default {
     // åt höger, så tåget måste rulla åt VÄNSTER för att köra framlänges: loket lämnar
     // bilden först, sista vagnen sist. Varje vagn rycker med en aning efter den framför
     // (stafett) så man känner att kopplen tas upp ett i taget.
+    // Rullsträckan läses mot ctx.view.left vid användning: på en bred telefon syns
+    // designkoordinater till vänster om 0, och HELA tågsättet (sista vagnen sist) ska
+    // hinna förbi den synliga kanten. På 16:9 blir det exakt DEPART_DX som förut.
+    const lastCarX = this._engineX + ENGINE_GAP + (this._N - 1) * SLOT_STEP
+    const departDx = Math.max(DEPART_DX, Math.round(lastCarX + CAR_HALF + 40 - ctx.view.left + 60))
     this._depart = gsap.timeline()
-    this._depart.to(this._engine, { x: `-=${DEPART_DX}`, duration: DEPART_TIME, ease: 'power1.in' }, 0)
+    this._depart.to(this._engine, { x: `-=${departDx}`, duration: DEPART_TIME, ease: 'power1.in' }, 0)
     this._cars.forEach((c) => {
       if (c.destroyed) return
       const place = Math.max(0, (c._n | 0) - 1) // vagn 1 sitter närmast loket och rycker först
-      this._depart.to(c, { x: `-=${DEPART_DX}`, duration: DEPART_TIME, ease: 'power1.in' }, (place + 1) * DEPART_STAGGER)
+      this._depart.to(c, { x: `-=${departDx}`, duration: DEPART_TIME, ease: 'power1.in' }, (place + 1) * DEPART_STAGGER)
     })
     // Hjulen snurrar snabbare och skorstenen chuffar när tåget drar iväg.
     this._wheelBob?.timeScale(3.2)

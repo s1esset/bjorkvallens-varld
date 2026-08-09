@@ -336,10 +336,12 @@ export default {
       gsap.to(btn, { alpha: 0, duration: 0.2, onComplete: () => { if (btn && !btn.destroyed) btn.visible = false } })
     }
 
-    // Filten täcker hela rutnätet + 40px marginal. Startar utanför skärmen till höger.
+    // Filten täcker hela rutnätet + 40px marginal. Startar utanför den SYNLIGA
+    // skärmkanten (ctx.view.right, läses vid användning) — vid 1280+60 stod den
+    // parkerad fullt synlig i telefonens högra kantremsa.
     const b = bounds(this._slots)
     const blanket = makeBlanket(b.w, b.h)
-    blanket.position.set(1280 + 60, b.top)
+    blanket.position.set(ctx.view.right + 60, b.top)
     // Filten ÄR skärmens mitt medan den ligger på — och den låg tidigare där som en
     // död yta: trycket träffade filten, inte rutorna under, och ingenting hände
     // (uppmätt `dod-traffyta` mitt i täck-fasen). Nu vaggar den till och kvitterar.
@@ -389,7 +391,8 @@ export default {
     ctx.services.audio.sfx('reveal')
     ctx.services.audio.tone({ freq: 320, dur: 0.18, type: 'sine', vol: 0.18, slideTo: 150 }) // magiskt "poff"
     gsap.to(blanket, {
-      x: 1280 + 60, duration: 0.5, ease: 'power2.in',
+      // Glid ut förbi den SYNLIGA kanten (ctx.view läses när tweenen startar).
+      x: ctx.view.right + 60, duration: 0.5, ease: 'power2.in',
       onComplete: () => {
         if (!this._alive) return
         if (!blanket.destroyed) blanket.destroy({ children: true })

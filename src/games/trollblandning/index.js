@@ -25,7 +25,8 @@ import { DragController } from '../../lib/DragController.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration, ripple } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, FONT, PRAISE, tint } from '../../lib/theme.js'
+import { emitter } from '../../lib/partiklar.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
@@ -36,6 +37,12 @@ const SHELF_Y = 648 // dropparnas vilo-y på hyllan
 const SHELF_X0 = 150
 const SHELF_X1 = 850
 const HINT_MS = 6000 // ms utan handling → eskalerande ledtråd
+
+// Bubblorna ritas i en LJUSARE ton än brygden. Samma färg som vätskan gav bubblor
+// som bara syntes i konturen mot den mörka kitteln — en bubbla ska läsa som luft i
+// vätskan, alltså ljusare än det den stiger genom.
+const bubbelFarg = (brygd) => tint(brygd, 0.62)
+const BUBBEL_FALLBACK = bubbelFarg(0x2a2342)
 
 // P0 ASSETS: varje element RITAS som ett eget föremål med egen silhuett.
 // Låg tidigare som en emoji inuti en färgad cirkel på hyllan — precis det
@@ -234,8 +241,7 @@ export default {
     this._inCauldron = []
     this._dropRecs = []
     this._rows = []
-    this._bubbles = []
-    this._bubT = 0
+    this._bubblor = null // Emitter, byggs med kitteln
     this._idle = 0
     this._hintCount = 0
     this._lastHintKey = null
@@ -286,6 +292,39 @@ export default {
     this._bubbleLayer = new Container()
     this._bubbleLayer.eventMode = 'none'
     cau.addChild(this._bubbleLayer)
+
+    // Bubblorna kommer ur en Emitter (lib/partiklar.js) i stället för en handrullad
+    // loop i tickern. Den gamla allokerade en ny Graphics per bubbla och förstörde
+    // den igen, och hade ett tak på ÅTTA med 380 ms mellan varje — kitteln puttrade
+    // alltså glest och räknebart. Emittern håller en jämn takt ur en återanvänd pool
+    // och gör noll allokeringar när flödet väl är igång.
+    //
+    // INTE additiv, och det är mätt snarare än tyckt: bryggfärgerna är med flit
+    // mörka (0x2a2342 m.fl.), och additivt ljus kan bara ADDERA — en mörk källa
+    // hade gjort bubblorna nära osynliga. Samma regel som fällde lågorna i
+    // lagerelden, från andra hållet.
+    this._bubblor = emitter(this._bubbleLayer, {
+      x: 0,
+      y: -70,
+      bredd: 180,
+      rate: 9,
+      // Livet och farten är satta så att bubblan HINNER UPP till ytan och spricker
+      // där — inte så att den fortsätter ut i natthimlen. Stigning = speed·life +
+      // ½·|gravity|·life² ≈ 26 px, alltså inom kittelns mynning.
+      life: 1.1,
+      lifeVar: 0.3,
+      size: 10,
+      sizeVar: 0.5,
+      sizeTo: 0.7,
+      speed: 20,
+      speedVar: 0.45,
+      angle: -Math.PI / 2,
+      spread: 0.45,
+      gravity: -6, // stiger allt snabbare, som en bubbla i tjock vätska
+      colors: [BUBBEL_FALLBACK],
+      alpha: 0.7,
+      fadeIn: 0.18,
+    })
     cau.addChild(new Graphics().ellipse(0, -70, 146, 36).fill(0x423a66).stroke({ width: 6, color: 0x6b4fc4 }))
     this._cauldron = cau
     this._root.addChild(cau)
@@ -444,8 +483,8 @@ export default {
     for (const c of this._fxCalls || []) c?.kill()
     this._fxCalls = []
     this._drag?.destroy()
-    for (const b of this._bubbles || []) if (b.g && !b.g.destroyed) b.g.destroy()
-    this._bubbles = []
+    this._bubblor?.destroy() // tar bort ticker-callbacken OCH river partikelfältet
+    this._bubblor = null
     for (const rec of this._dropRecs || []) {
       if (rec?.view && !rec.view.destroyed) {
         gsap.killTweensOf(rec.view)
@@ -506,6 +545,7 @@ export default {
     // Mörk brygd-start (slumpas lätt på höga nivåer).
     this._brewColor = this._level <= 3 ? 0x2a2342 : randomFrom([0x2a2342, 0x23323a, 0x3a2342, 0x1f2e2a])
     this._drawBrew(this._brewColor)
+    this._sattBubbelFarg()
 
     // Fräsch DragController + bas-droppar (oändliga källor).
     this._clearDrops()
@@ -904,6 +944,12 @@ export default {
     this._brew.ellipse(-36, -78, 26, 8).fill({ color: 0xffffff, alpha: 0.22 })
   },
 
+  // Emittern läser `o.colors` vid varje ny bubbla, så det räcker att byta listan —
+  // redan stigande bubblor behåller sin färg och flödet skiftar mjukt.
+  _sattBubbelFarg(brygd = this._brewColor) {
+    if (this._bubblor) this._bubblor.o.colors = [bubbelFarg(brygd)]
+  },
+
   _setBrew(to) {
     const from = this._brewColor
     this._brewColor = to
@@ -914,6 +960,9 @@ export default {
       duration: 0.5,
       onUpdate: () => {
         if (this._brew && !this._brew.destroyed) this._drawBrew(lerpColor(from, to, st.t))
+        // Bubblorna följer med i övergången — annars stiger förra brygdens färg
+        // upp genom den nya vätskan under en halv sekund.
+        this._sattBubbelFarg(lerpColor(from, to, st.t))
       },
     })
   },
@@ -1171,11 +1220,11 @@ export default {
     })
   },
 
-  // ---- Ticker: bubbel-emitter + idle/ledtråd ------------------------------
+  // ---- Ticker: blick + idle/ledtråd ---------------------------------------
+  // (Bubblorna drivs av Emittern, inte härifrån.)
 
   _update(ctx, tk) {
     if (!this._alive) return
-    const dt = tk.deltaMS / 16.67
 
     // Trollkarlen tittar på det barnet drar. `look()` räknar i FÖRÄLDERNS rymd
     // (riggen sitter i `_wizard`), medan draget lever i `_root` — därför via global.
@@ -1190,30 +1239,7 @@ export default {
       }
     }
 
-    // Bubbel-emitter (exit-säker, ticker-driven — ALDRIG gsap på bubblorna).
-    this._bubT += tk.deltaMS
-    if (this._bubT > 380 && this._bubbles.length < 8 && this._bubbleLayer && !this._bubbleLayer.destroyed) {
-      this._bubT = 0
-      const g = new Graphics().circle(0, 0, 4 + Math.random() * 6).fill({ color: this._brewColor, alpha: 0.6 })
-      g.position.set((Math.random() * 2 - 1) * 90, -70)
-      g.eventMode = 'none'
-      this._bubbleLayer.addChild(g)
-      this._bubbles.push({ g, vy: -(0.4 + Math.random() * 0.5), life: 900 })
-    }
-    for (let i = this._bubbles.length - 1; i >= 0; i--) {
-      const b = this._bubbles[i]
-      if (b.g.destroyed) {
-        this._bubbles.splice(i, 1)
-        continue
-      }
-      b.g.y += b.vy * dt
-      b.life -= tk.deltaMS
-      b.g.alpha = Math.max(0, b.life / 900) * 0.6
-      if (b.life <= 0 || b.g.y < -150) {
-        b.g.destroy()
-        this._bubbles.splice(i, 1)
-      }
-    }
+    // (Bubblorna sköts av en Emitter ur lib/partiklar.js — se _bubbleLayer i init.)
 
     // Idle → eskalerande ledtrådar (no-fail).
     if (!this._resolving && !this._completed) {

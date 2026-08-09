@@ -186,6 +186,40 @@ export function landa(target, { intensity = 1, base } = {}) {
   return tl
 }
 
+// --- Vilorörelse -----------------------------------------------------------
+// `breathe` är skal-bara OCH synkron: tio föremål som andas i takt läses som en enda
+// pulserande yta, inte som tio levande saker. `liv` guppar i höjdled och vaggar lite,
+// och tar en FAS så varje föremål ligger på sin egen punkt i cykeln.
+//
+// Exit-säker på samma sätt som puff/floatText: tweenar ett vanligt objekt och rör
+// Pixi-objektet bara om det lever — tweenen dödar sig själv när objektet är förstört.
+// OBS: liv äger målets `y` och `rotation`. Kombinera inte med wiggle/squash-hopp på
+// SAMMA objekt (lägg guppningen på en inre behållare i så fall).
+export function liv(target, { bob = 6, sway = 0.03, duration = 2.4, phase = Math.random() } = {}) {
+  if (!target || target.destroyed) return
+  target._fxLiv?.kill()
+  const y0 = target.y
+  const r0 = target.rotation
+  const st = { p: phase }
+  const tw = gsap.to(st, {
+    p: phase + 1,
+    duration,
+    repeat: -1,
+    ease: 'none',
+    onUpdate: () => {
+      if (target.destroyed) {
+        tw.kill()
+        return
+      }
+      const a = st.p * Math.PI * 2
+      target.y = y0 - Math.sin(a) * bob
+      target.rotation = r0 + Math.cos(a) * sway
+    },
+  })
+  target._fxLiv = tw
+  return tw
+}
+
 // Kör en effekt över en lista med förskjuten start (ANIM.stagger) — sex kort som
 // studsar in i tur och ordning läses som EN rörelse, sex samtidiga som en blixt.
 // Exit-säkert: varje fördröjt anrop kollar att målet lever innan det rör det.

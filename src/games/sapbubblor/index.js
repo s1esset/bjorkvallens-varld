@@ -557,7 +557,9 @@ export default {
     b._popped = false
 
     b.x = b._baseX
-    b.y = y ?? (seed ? 160 + Math.random() * (ctx.height - 280) : ctx.height + rr + 10 + Math.random() * 140)
+    // Nya bubblor föds under den SYNLIGA nederkanten (ctx.view.bottom) — under 720
+    // låg de mitt i bild på en hög platta och dök upp ur tomma intet.
+    b.y = y ?? (seed ? 160 + Math.random() * (ctx.height - 280) : ctx.view.bottom + rr + 10 + Math.random() * 140)
 
     this._bubbleLayer.addChild(b)
     this._bubbles.push(b)
@@ -834,7 +836,10 @@ export default {
         gu.gfx.alpha = (1 - t) * 0.9
         gu.gfx.scale.set(1 + t * 0.9)
       }
-      const off = gu.x < -200 || gu.x > ctx.width + 200 || gu.y < -200 || gu.y > ctx.height + 200
+      // Marginalen räknas från den SYNLIGA ytan (ctx.view, läses varje tick) — på
+      // telefon är den bredare än 1280, och en puff fick inte försvinna mitt i bild.
+      const vv = ctx.view
+      const off = gu.x < vv.left - 200 || gu.x > vv.right + 200 || gu.y < vv.top - 200 || gu.y > vv.bottom + 200
       if (gu.life <= 0 || off) {
         if (gu.gfx && !gu.gfx.destroyed) gu.gfx.destroy()
         this._gusts.splice(i, 1)
@@ -886,10 +891,12 @@ export default {
       b.y += (b._wy - b._vy) * dt
       b._phase += b._wobbleSpeed * dt
 
-      // Integrera basläge; studsa mjukt mot kanterna.
+      // Integrera basläge; studsa mjukt mot kanterna — den SYNLIGA ytans kanter
+      // (ctx.view), annars studsar bubblan mot ingenting mitt i bild på telefon.
+      const ve = ctx.view
       b._baseX += b._vx * dt
-      if (b._baseX < b._r) { b._baseX = b._r; b._vx = Math.abs(b._vx) * 0.5 }
-      else if (b._baseX > ctx.width - b._r) { b._baseX = ctx.width - b._r; b._vx = -Math.abs(b._vx) * 0.5 }
+      if (b._baseX < ve.left + b._r) { b._baseX = ve.left + b._r; b._vx = Math.abs(b._vx) * 0.5 }
+      else if (b._baseX > ve.right - b._r) { b._baseX = ve.right - b._r; b._vx = -Math.abs(b._vx) * 0.5 }
 
       b.x = b._baseX + Math.sin(b._phase) * b._wobbleAmp
 
@@ -900,7 +907,8 @@ export default {
       }
 
       // Drev ut ur bild (upp ELLER ner, sedan blåset blev riktat) -> ta bort mjukt.
-      if (b.y < -b._r - 20 || b.y > ctx.height + b._r + 140) {
+      // "Ur bild" = utanför ctx.view, inte utanför 0..720 (synligt på hög platta).
+      if (b.y < ve.top - b._r - 20 || b.y > ve.bottom + b._r + 140) {
         this._bubbles.splice(i, 1)
         gsap.killTweensOf(b)
         gsap.killTweensOf(b.scale)

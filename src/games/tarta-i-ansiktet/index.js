@@ -11,6 +11,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { puff, pop, wiggle, bounceIn, sparkle , kvittera} from '../../lib/feedback.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -83,7 +84,9 @@ export default {
     ctx.stage.addChild(this._root)
 
     // Bakgrund: fångar "tomt tryck" -> lekfull vingel + mjukt ljud (aldrig fel).
-    const bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(COLORS.bg)
+    // Ritas med bleed åt alla håll så breda telefoner (synlig yta utanför 0..1280)
+    // aldrig visar creme-lister — se lib/view.js.
+    const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(COLORS.bg)
     bg.eventMode = 'static'
     bg.on('pointertap', () => this._emptyTap(ctx))
     this._root.addChild(bg)
@@ -91,19 +94,27 @@ export default {
     // Dekor: scengolv + RIKTIGA ridåer. De två platta röda rektanglarna läste som
     // en trasig ram, inte som en scen.
     const decor = new Graphics()
-    // Scengolv med kantlist.
-    decor.rect(0, 560, ctx.width, 160).fill(0xe8d9bf)
-    decor.rect(0, 560, ctx.width, 14).fill(0xcbb392)
-    for (let i = 0; i < 16; i++) decor.rect(i * 80 + 4, 574, 4, 146).fill({ color: 0xcbb392, alpha: 0.5 })
-    // Ridåveck i sidorna.
+    // Scengolv med kantlist. Breddas ±BLEED_X och dras BLEED_Y nedåt så golvet når
+    // skärmkanten även på breda telefoner och 4:3-plattor (deterministiskt värstafall).
+    decor.rect(-BLEED_X, 560, ctx.width + 2 * BLEED_X, 160 + BLEED_Y).fill(0xe8d9bf)
+    decor.rect(-BLEED_X, 560, ctx.width + 2 * BLEED_X, 14).fill(0xcbb392)
+    // Plankskarvarna fortsätter i bleed-zonerna (i<0 och i>15) — original-index orörda
+    // så 16:9-bilden är pixel för pixel densamma.
+    for (let i = -3; i < 19; i++) decor.rect(i * 80 + 4, 574, 4, 146 + BLEED_Y).fill({ color: 0xcbb392, alpha: 0.5 })
+    // Ridåveck i sidorna. Extra veck (i<0) fortsätter mönstret utåt i sidled, och varje
+    // veck får raka flikar över/under scenen — de synliga kurvorna 0..720 är orörda.
     const curtain = (x0, dir) => {
-      for (let i = 0; i < 4; i++) {
+      for (let i = -8; i < 4; i++) {
         const w = 30
         const cx = x0 + dir * i * w
-        decor.moveTo(cx, 0)
+        decor.moveTo(cx, -BLEED_Y)
+          .lineTo(cx, 0)
           .quadraticCurveTo(cx + dir * w * 0.6, ctx.height * 0.5, cx, ctx.height)
+          .lineTo(cx, ctx.height + BLEED_Y)
+          .lineTo(cx + dir * w, ctx.height + BLEED_Y)
           .lineTo(cx + dir * w, ctx.height)
           .quadraticCurveTo(cx + dir * w * 1.6, ctx.height * 0.5, cx + dir * w, 0)
+          .lineTo(cx + dir * w, -BLEED_Y)
           .closePath()
           .fill(i % 2 ? 0xc9424f : 0xe05563)
       }
@@ -113,9 +124,10 @@ export default {
     }
     curtain(0, 1)
     curtain(ctx.width, -1)
-    // Kappa längs överkanten med tofsar.
-    decor.rect(0, 0, ctx.width, 54).fill(0xc9424f)
-    for (let i = 0; i <= 16; i++) {
+    // Kappa längs överkanten med tofsar — breddad i sidled och uppåt, tofsraden
+    // fortsätter i bleed-zonerna (original-index orörda).
+    decor.rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, 54 + BLEED_Y).fill(0xc9424f)
+    for (let i = -3; i <= 19; i++) {
       decor.moveTo(i * 80, 54).quadraticCurveTo(i * 80 + 40, 92, i * 80 + 80, 54).closePath().fill(0xe05563)
       decor.circle(i * 80 + 40, 88, 7).fill(0xe8c05a)
     }

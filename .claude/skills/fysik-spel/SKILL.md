@@ -86,6 +86,31 @@ Den återanvändbara **"dra för att sätta riktning + kraft, med levande pricka
 `slingshot` (dra bakåt) eller kast. Tap-fallback siktar mot `defaultAim` — obligatorisk för
 under-4-år. `setWind` / `setPreview` håller förhandsvisningen ärlig.
 
+## Rep och kedjor (`src/lib/rep.js`)
+
+Verlet-tråd (PBD) för allt långt och böjligt: slangar, nätlinor, svingar, vinschar, kedjor.
+
+```js
+const rep = new Rep({ n: 20, seg: 42, grav: 0.62, damp: 0.93, golv: 620 })
+rep.bygg(x, y, (i) => (i < 3 ? -0.3 : 0.78))   // startform
+rep.tyngd(rep.sista, 3.2)                       // tungt munstycke → dinglar nedåt
+// varje bildruta:
+rep.fast(0, ANCHOR.x, ANCHOR.y)                 // fästpunkten
+rep.dra(rep.sista - 1, finger.x, finger.y)      // greppet följer handen
+rep.steg(dtF)
+ritaRep(g.clear(), rep, { width: 12, color: 0x3a7d44 })
+```
+
+- **Två lägen:** fast `seg` (egen längd, tar mjukt stopp) eller `spann(ax,ay,bx,by,sag)`
+  (vilolängd ur avståndet; `sag < 1` spänt, `> 1` slakt och hängande).
+- **Kedjan kan inte tänjas.** Efter relaxationen kör ett strikt längdpass i två riktningar
+  (FABRIK). Utan det blev en kedja med vilolängd 760 px **2870 px** lång vid ett hårt drag;
+  med bara ett enkelriktat pass 546 px (den ångrade draget). Rör inte det passet.
+- `rackvidd(x, y)` klipper ett mål till kedjans längd — slangen ska ta stopp, inte tänjas.
+- **`MeshRope` finns inte än:** den kräver en textur, och `generateTexture()` destabiliserar
+  sviten (se LYFTPLAN C2/C3). `ritaRep()` ritar i stället repet som ett MATERIAL med tre drag.
+- **Mät med `node scripts/_repprobe.mjs`.**
+
 ## Vätska (`src/lib/vatska.js`)
 
 Partikelvätska (double density relaxation, Clavet) + **metaboll-rendering**: varje partikel

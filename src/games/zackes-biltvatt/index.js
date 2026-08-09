@@ -31,6 +31,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { puff, sparkle, floatText, ripple, wiggle, shake } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
+import { Rep } from '../../lib/rep.js'
 import { FONT } from '../../lib/theme.js'
 
 // --- Fordon: karossform + färg + en ritad detalj. Allt programmatiskt. ---
@@ -571,22 +572,27 @@ export default {
   // -------------------------------------------------------------- slangfysik
 
   // Bygger kedjan med exakta segmentlängder (vinkelsekvens) och låter den sätta sig.
+  // Slangen är numera `lib/rep.js` (LYFTPLAN rad 7) i stället för en egen verlet-
+  // kedja. Samma tal som förut — antal punkter, segmentlängd, gravitation, dämpning,
+  // golv och fartspärr — så slangen beter sig som den gjorde; skillnaden är att
+  // solvern nu delas med de andra spelen som har rep, och att den har ett STRIKT
+  // längdpass (FABRIK) som gör att kedjan aldrig kan tänjas.
   _initHose() {
-    const pts = []
-    let x = ANCHOR.x
-    let y = ANCHOR.y
-    pts.push({ x, y, px: x, py: y })
-    for (let i = 0; i < HOSE_N - 1; i++) {
-      let a
-      if (i < 3) a = -0.3                       // ut ur posten, snett uppåt
-      else if (i < 7) a = 0.78                  // ner mot marken
-      else a = Math.sin(i * 1.7) * 0.95         // slak våg längs marken
-      x += Math.cos(a) * HOSE_SEG
-      y += Math.sin(a) * HOSE_SEG
-      pts.push({ x, y, px: x, py: y })
-    }
-    this._hose = { pts }
-    for (let i = 0; i < 60; i++) this._hoseSubstep()   // låt den falla till ro
+    this._hose = new Rep({
+      n: HOSE_N,
+      seg: HOSE_SEG,
+      grav: HOSE_GRAV,
+      damp: HOSE_DAMP,
+      iter: 8,
+      maxSpeed: 70,
+      golv: FLOOR_Y,
+      golvFriktion: 0.82,
+    })
+    this._hose.bygg(ANCHOR.x, ANCHOR.y, (i) => (i < 3 ? -0.3 : i < 7 ? 0.78 : Math.sin(i * 1.7) * 0.95), 0)
+    // Munstycket är tungt → det DINGLAR nedåt när handen står still, så strålen
+    // pekar dit barnet siktar i stället för dit slangen råkar ligga.
+    this._hose.tyngd(this._hose.sista, 3.2)
+    for (let i = 0; i < 60; i++) this._hoseSubstep() // låt den falla till ro
   },
 
   // Barnet håller i slangen strax BAKOM munstycket (näst sista punkten). Munstycket
@@ -614,62 +620,13 @@ export default {
   },
 
   _hoseSubstep() {
-    const pts = this._hose?.pts
-    if (!pts) return
-    // 1. Verlet-integration (gravitation + dämpning), punkt 0 är fast.
-    //    Munstycket är tungt → extra gravitation, så det DINGLAR nedåt när handen
-    //    står still (annars pekar strålen dit slangen råkar ligga).
-    const sista = pts.length - 1
-    for (let i = 1; i < pts.length; i++) {
-      const p = pts[i]
-      let vx = (p.x - p.px) * HOSE_DAMP
-      let vy = (p.y - p.py) * HOSE_DAMP
-      const sp = Math.hypot(vx, vy)
-      if (sp > 70) { vx = (vx / sp) * 70; vy = (vy / sp) * 70 }   // aldrig explodera
-      p.px = p.x
-      p.py = p.y
-      p.x += vx
-      p.y += vy + (i === sista ? HOSE_GRAV * 3.2 : HOSE_GRAV)
-    }
-    // 2. Greppet (näst sista punkten) dras mjukt mot fingret → resten släpar efter
-    //    som ett rep och munstycket dinglar i änden.
+    const rep = this._hose
+    if (!rep || rep.pts.length < 2) return
+    rep.fast(0, ANCHOR.x, ANCHOR.y)
+    // Barnet håller strax BAKOM munstycket; munstycket dinglar fritt i sista segmentet.
     const target = this._hoseTargetPoint()
-    if (target) {
-      const grip = pts[sista - 1]
-      grip.x += (target.x - grip.x) * 0.4
-      grip.y += (target.y - grip.y) * 0.4
-    }
-    // 3. Avståndsvillkor (Jakobsen-relaxation). Posten är hårt fast, resten drar i
-    //    varandra symmetriskt → drar barnet för långt rätas slangen ut och tar
-    //    MJUKT stopp vid kedjans totala längd (19 × 38 = 722 px).
-    for (let it = 0; it < 8; it++) {
-      pts[0].x = ANCHOR.x
-      pts[0].y = ANCHOR.y
-      for (let i = 0; i < pts.length - 1; i++) {
-        const a = pts[i]
-        const b = pts[i + 1]
-        const dx = b.x - a.x
-        const dy = b.y - a.y
-        const d = Math.hypot(dx, dy) || 0.0001
-        const diff = (d - HOSE_SEG) / d
-        if (i === 0) { b.x -= dx * diff; b.y -= dy * diff }
-        else {
-          a.x += dx * diff * 0.5
-          a.y += dy * diff * 0.5
-          b.x -= dx * diff * 0.5
-          b.y -= dy * diff * 0.5
-        }
-      }
-    }
-    // 4. Marken (lätt friktion så slangen kan släpas).
-    for (let i = 1; i < pts.length; i++) {
-      const p = pts[i]
-      if (p.y > FLOOR_Y) {
-        p.y = FLOOR_Y
-        p.px = p.x - (p.x - p.px) * 0.82
-        p.py = p.y
-      }
-    }
+    if (target) rep.dra(rep.sista - 1, target.x, target.y, 0.4)
+    rep.steg(1)
   },
 
   _stepHose(dt) {

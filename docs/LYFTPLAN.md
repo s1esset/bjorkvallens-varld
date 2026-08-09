@@ -217,7 +217,7 @@ pixlar) och ett **delat filter per sida** i stället för ett per montering.
 ritas som ett fyllt polygondrag. Behöver inte vara matter-baserat; kravet är att det studsar,
 sjunker och återtar formen.
 
-### B3. Rep/kedja är omskrivet fyra gånger **[Medium]**
+### B3. Rep/kedja är omskrivet fyra gånger **[Medium]** — ✅ SOLVERN BYGGD 2026-08-09 (v1.56.0)
 
 | Var | Implementation |
 |---|---|
@@ -228,9 +228,35 @@ sjunker och återtar formen.
 | `natskott-pa-stan` | egen repfysik |
 | `spindelnatet` | nät av linjer |
 
-**Grepp:** `src/lib/rep.js` — verlet-kedja + brygga till matter `Constraint` + rendering via
-`MeshRope` (se C5). Ersätter fyra implementationer och gör svingar, slangar, nät och vinschar
-till en rad kod.
+✅ **`src/lib/rep.js` byggd.** `class Rep` = Position Based Dynamics i miniatyr, med båda de
+lägen spelen faktiskt behövde: **fast segmentlängd** (slang/kedja med egen längd) och **spänd
+mellan två punkter** (`spann(ax, ay, bx, by, sag)` — `sag < 1` spänt, `> 1` slakt). Dessutom
+`fast/losa` (spika vilken punkt som helst), `dra` (grepp som följer fingret), `tyngd` (tungt
+munstycke som dinglar), `rackvidd` (mjukt stopp), golv med friktion och fartspärr.
+
+**Det som gjorde modulen KORREKT och inte bara delad — mätt, inte antaget:**
+
+Jakobsen-relaxation fortplantar sig bara `iter` länkar per bildruta. En 20-punkterskedja med
+vilolängd 760 px som rycktes i blev **2870 px lång** — den tänjdes som ett gummiband. Ett tak
+på hur långt `dra()` får flytta en punkt per bildruta tog den till 926 px: bättre, fortfarande
+fel. Lösningen är ett **strikt längdpass i två riktningar (FABRIK)** efter relaxationen: bakåt
+från änden, sedan framåt från fästpunkten. Ett ENKELRIKTAT svep räckte inte — det bevarar den
+hängande formen och ångrar i praktiken draget (änden nådde bara 546 av 760 px, alltså tog
+slangen stopp långt innan den var utsträckt). Med båda passen: **756 px av 760 möjliga**, och
+kedjan kan aldrig tänjas hur hårt man än drar.
+
+**Första kund: `zackes-biltvatt`** — 59 rader egen verlet-kedja borta, samma tal (punkter,
+segment, gravitation, dämpning, golv, fartspärr) så slangen beter sig som förut. Verifierat
+mot skärmdump före/efter: hosans form och munstyckets läge oförändrade.
+
+**Verktyg: `scripts/_repprobe.mjs`** (Node, ingen webbläsare) — vilolängd, fästpunkt som står
+still under ryck, mjukt stopp, golv, spänd/slak lina, tung ände som dinglar, exit.
+
+⬜ Kvar: `natskott-pa-stan` (`mkRope`/`stepRope`/`strokeRope`), `spindel-zacke-svingar`,
+`spindelnatet`. Och **`MeshRope` (C5) är INTE byggd** — den kräver en textur, och
+`generateTexture()` är den kända destabiliseraren (se C2/C3). Vägen är Canvas2D-bakning som i
+`partiklar.js`; tills dess ritar `ritaRep()` repet som ett material med tre drag (mörk botten,
+bärande lina, dager) i stället för ett enfärgat streck.
 
 ### B4. Material är fyra tal, inte material **[Medium]** — ✅ BYGGT 2026-08-09 (v1.52.0)
 
@@ -614,7 +640,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 4 | Fördjupad `scene.js` (djupband, dis, vinjett, tid) | C7 | 55 spel | ✅ v1.43.0 |
 | 5 | `lib/kamera.js` | C6 | nya spel; scenens djupband blir parallax | ✅ v1.44.0 |
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ✅ v1.45–46.0 |
-| 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ⬜ |
+| 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ✅ v1.56.0 *(solvern + 1 kund; `MeshRope` kvar)* |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 23 fysikspel | ✅ v1.52.0 |
 | 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(1 kund, 22 kvar)* |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |

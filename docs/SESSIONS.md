@@ -14,7 +14,7 @@ Format:
 
 ---
 
-## 2026-08-09 (sen natt) · v1.73.0 · Spår E runda A4 — glöd, emitters, MeshRope, kameran
+## 2026-08-09 (sen natt) · v1.74.0 · Spår E runda A4 — glöd, emitters, MeshRope, kameran
 
 **Byggt:** Hela runda A4. Fyra punkter, var och en med en verklig kund i ett spel.
 
@@ -43,6 +43,18 @@ Format:
   svinget. Nu: konstant 300 px gap, och nivån lägger till FÄSTEN (3 → 4 → 6 → 8 → 10) i en
   värld på upp till 3400 px. Fem lager — scenens band, en fjärran stadssiluett på
   `DJUP.fjarran`, spelplanet, **ett eget fx-lager i världen** och HUD på faktor 0.
+- **Och ett dygn som går** (v1.74.0). Spelet är en slinga — rädda en kattunge, rädda en till
+  — så utan något som förändras mellan varven blir den femte räddningen identisk med den
+  första. Stämningen följer nu nivån: `dag → morgon → skymning → kväll → natt`, sedan om
+  (`nivå % 5`; nivå 0 är oförändrad). Byggt på `createScene`s befintliga `tid`-tonning plus
+  `night` — ingen ny scenkod. **Husen tintas i TVÅ delar:** kroppen mörknar
+  (`0xffffff → 0x6f77ad`) medan fönstren går åt andra hållet och tänds
+  (`0xfff6d0 → 0xffd95c`). En enda tint hade släckt fönstren i samma andetag som väggen
+  mörknade, och ett mörkt hus med mörka fönster läser som en kuliss, inte som en stad där
+  någon bor. Nytt i `kamera.js`: **`byteScen()`** — scenens band ÄR kamerans understa lager
+  och ligger i `_layers`, så de gamla måste plockas ur listan, annars flyttar kameran
+  osynliga containrar varje bildruta. Uppmätt: lagerantalet står still på 14 över sex
+  nivåbyten.
 
 **Fyra lärdomar, alla uppmätta:**
 
@@ -68,11 +80,12 @@ Format:
    eftersom Zacke teleporterar och kamerans hårda ruta annars rycker bilden med.
 
 **Commits:** `5ee3481` glod+partiklar+lagerelden · `6dc07c3` trollblandning ·
-`0d5ae03` rep+zackes-biltvatt · `961594e` spindel-zacke-svingar+kamera
+`0d5ae03` rep+zackes-biltvatt · `961594e` spindel-zacke-svingar+kamera · `25d441b` dygnet
 **Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** ·
 `_glodprobe.mjs` helgrön (additivitet bevisad mot en normal-kontrollarm: 255,60,60 mot
-247,2,2) · `_varldprobe.mjs` 8/8 (kameran 1045 px mot fjärranbandets 188 = kvot 0,18,
-precis lagerfaktorn; Zacke utanför bilden i 0 av 130 prover) · `_svingprobe.mjs` fortsatt
+247,2,2) · `_varldprobe.mjs` 11/11 (kameran 1045 px mot fjärranbandets 188 = kvot 0,18,
+precis lagerfaktorn; Zacke utanför bilden i 0 av 130 prover; stämningarna cyklar utan
+lagerläckage) · `_svingprobe.mjs` fortsatt
 7/7 · `_repprobe.mjs` fortsatt grön i Node.
 
 **Öppet:** Spår E är därmed klart (A1–A4). Nästa naturliga steg är **spår 3 fysik**.

@@ -74,6 +74,12 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   nya räckvidden, så barnet ser att långt nät når längre — koppla knapp → utfall.
 
 ### Variation & överraskning
+- ✅ 2026-08-09 **[Quick] Tema-variation per nivå.** Ett dygn går mellan räddningarna —
+  `dag → morgon → skymning → kväll → natt`, sedan om (`STAMNINGAR`, `nivå % 5`). Husens kropp
+  mörknar medan fönstren tänds (två separata tints; en enda hade släckt fönstren i samma
+  andetag som väggen mörknade). Nivå 0 är oförändrad. Se §5.
+- ✅ 2026-08-09 **[Deep] En värld bredare än rutan.** 920-klämman borta, kameran följer Zacke
+  genom upp till 3400 px stad. Se §5.
 - **[Quick] Stigande tak / närmare mål.** Låt taken bli högre/finare och fästena gnistra mer ju
   närmare kattungen man kommer — en synlig "snart framme".
 - **[Quick] Saker att nudda i flykten:** en fågel, en ballong, ett moln-stjärn som ger pip när

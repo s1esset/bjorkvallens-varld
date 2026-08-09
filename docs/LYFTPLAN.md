@@ -945,7 +945,7 @@ importera pixi.js.
    localStorage direkt träffar ett tomt dokument i en färsk kontext, och `profiles` är en
    array, inte en uppslagstabell.
 
-### ✅ A4.4 — kamerans första kund: `spindel-zacke-svingar` (v1.73.0)
+### ✅ A4.4 — kamerans första kund: `spindel-zacke-svingar` (v1.73–74)
 
 Kameran hade noll kunder bland de 72 spelen. Nu har den en, och `lib/kamera.js` är därmed
 verifierad mot ett riktigt spel i stället för bara mot `_kameraprobe.mjs`.
@@ -990,6 +990,16 @@ Under fem hopp rörde sig kameran 1045 px medan fjärranbandet rörde sig 188 px
 0,18, precis lagerfaktorn** — och HUD:en 0 px. Zacke låg utanför bilden i **0 av 130
 prover** (hårda rutan). `_svingprobe.mjs` fortsatt 7/7 grön, alltså spelar spelet likadant
 som förut på de låga nivåerna.
+
+**Och ett dygn ovanpå det (v1.74.0).** Stämningen följer nivån — `dag → morgon → skymning →
+kväll → natt`, sedan om (`nivå % 5`) — byggd på `createScene`s befintliga `tid`-tonning plus
+`night`. Husens kropp och deras fönster tintas SEPARAT och åt motsatta håll
+(`0xffffff → 0x6f77ad` mot `0xfff6d0 → 0xffd95c`): en enda tint hade släckt fönstren i samma
+andetag som väggen mörknade. Nytt i `kamera.js`: **`byteScen()`**, eftersom scenens band ÄR
+kamerans understa lager och ligger i `_layers` — de gamla måste plockas ur listan, annars
+flyttar kameran osynliga containrar varje bildruta. `adopt()` lägger numera in dem med
+`addChildAt`; kontraktet sa redan "understa", men det råkade stämma bara så länge `adopt`
+var det första anropet. Uppmätt: lagerantalet står still på **14 över sex nivåbyten**.
 
 <details>
 <summary>De övriga kandidaterna (utredda, inte byggda)</summary>

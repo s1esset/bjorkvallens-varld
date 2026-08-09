@@ -11,9 +11,9 @@ import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Matter, predictTrajectory } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Button } from '../../lib/Button.js'
-import { bigCelebration, puff, sparkle, floatText, pop, wiggle, breathe , kvittera} from '../../lib/feedback.js'
+import { bigCelebration, puff, sparkle, floatText, pop, wiggle , kvittera} from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -152,25 +152,19 @@ export default {
     this._basket.addChild(makeBasket())
     this._root.addChild(this._basket)
 
-    // Mottagare: Bobo står vid korgen, hejar (andas) medan barnet siktar och
-    // kramar grodan med en liten vinst-dans när den landar (pattern #2 — ger varje
-    // skott ett "varför"). Placeras per nivå i _setTarget, pulsen startas i _resetSeesaw.
-    // Bobo hade tidigare bara ett svävande huvud bredvid korgen. Nu står han där med en
-    // ritad kropp, fötter och utsträckta armar — han VÄNTAR på grodan.
+    // Mottagare: Bobo står vid korgen, tittar efter grodan medan den flyger och
+    // firar när den landar (pattern #2 — ger varje skott ett "varför"). Placeras per
+    // nivå i _setTarget, humöret sätts om i _resetSeesaw.
+    //
+    // Den handritade kroppen som stod här är BORTA — inte ersatt, utan igenkänd:
+    // `karaktarer.js:_byggKropp` skrev av precis de här måtten (skugga 2,36·r = 118,
+    // fötter 2,16·r = 108, bål 1,36·r = 68, axel ±0,54·r = ±27, tass ±1,04·r = ±52).
+    // Riggen ÄR den här kroppen, plus en arm med egen pivå och ett ansikte som lever.
+    // Riggen ligger i en YTTRE container: spelet äger `pop`/`wiggle` på den, riggen
+    // sin egen `view.scale` (andningen). Två skrivare om samma skala hackar.
     this._bobo = new Container()
-    const bod = new Graphics()
-    bod.ellipse(0, 118, 34, 11).fill({ color: 0x000000, alpha: 0.16 })
-    bod.ellipse(-17, 108, 14, 9).fill(COLORS.orangeDark)
-    bod.ellipse(17, 108, 14, 9).fill(COLORS.orangeDark)
-    bod.ellipse(0, 68, 34, 40).fill(COLORS.orange)
-    bod.ellipse(0, 74, 21, 22).fill({ color: COLORS.cream, alpha: 0.92 })
-    bod.moveTo(-27, 52).quadraticCurveTo(-48, 40, -52, 12).stroke({ width: 13, color: COLORS.orange, cap: 'round' })
-    bod.moveTo(27, 52).quadraticCurveTo(48, 40, 52, 12).stroke({ width: 13, color: COLORS.orange, cap: 'round' })
-    bod.circle(-52, 12, 10).fill(COLORS.cream)
-    bod.circle(52, 12, 10).fill(COLORS.cream)
-    bod.eventMode = 'none'
-    this._bobo.addChild(bod)
-    this._bobo.addChild(makeMascot(50))
+    this._kar = makeKaraktar({ r: 50 })
+    this._bobo.addChild(this._kar.view)
     this._bobo.eventMode = 'none'
     this._bobo.interactiveChildren = false
     this._root.addChild(this._bobo)
@@ -356,9 +350,10 @@ export default {
     this._setupCarried(ctx)
     this._updateAim()
 
-    // Mottagaren hejar igen (mjuk andnings-puls) medan barnet siktar.
-    this._boboCheer?.kill()
-    if (this._bobo && !this._bobo.destroyed) this._boboCheer = breathe(this._bobo, { scale: 1.06, duration: 0.8 })
+    // Mottagaren blir nyfiken igen medan barnet siktar. Den gamla andnings-pulsen är
+    // borta: riggen andas själv, och en andra puls på den yttre containern hade blivit
+    // två takter som glider isär.
+    this._kar?.setMood('nyfiken')
   },
 
   // Sätt grodvyn på vänster planktipp (följer plankans vinkel medan den rider).
@@ -701,11 +696,10 @@ export default {
     }
     if (!this._basket.destroyed) pop(this._basket, { scale: 1.1 })
 
-    // Mottagaren fångar grodan: kram-puls + liten vinst-dans + hjärta.
+    // Mottagaren fångar grodan: riggens `jubel` (hopp + utsträckta armar) i stället
+    // för en skal-puls på lådan runt honom — gesten kommer nu ur figuren själv.
     if (this._bobo && !this._bobo.destroyed) {
-      this._boboCheer?.kill()
-      pop(this._bobo, { scale: 1.3 })
-      wiggle(this._bobo)
+      this._kar?.react('jubel')
       floatText(ctx.fxLayer, this._bobo.x, this._bobo.y - 66, randomFrom(['❤️', 'Bravo!', 'Hurra!']), { fontSize: 44 })
     }
 
@@ -747,6 +741,8 @@ export default {
     }
     puff(ctx.fxLayer, lx, Math.min(ly, FLOOR_Y), { count: 8, color: COLORS.green })
     floatText(ctx.fxLayer, lx, ly - 30, randomFrom(['Hihi!', 'Hoppsan!', 'Plums!']), { fontSize: 44 })
+    // Mottagaren blir FÖRVÅNAD, aldrig sur — missen är rolig, inte en tillsägelse.
+    this._kar?.react('hoppsan')
 
     this._misses++
     if (this._misses >= 2) {
@@ -788,6 +784,14 @@ export default {
     this._phys.update(t.deltaMS)
     this._tame()
     this._idle += t.deltaMS / 1000
+
+    // Mottagaren följer grodan med blicken — på plankan, i luften, hela vägen. Det är
+    // hela poängen med att ha någon som väntar. `toLocal` går genom den yttre
+    // containerns transform, så `wiggle`s rotation räknas bort av sig själv.
+    if (this._kar && this._bobo && !this._bobo.destroyed && this._frog && !this._frog.destroyed) {
+      const p = this._bobo.toLocal(this._frog.getGlobalPosition())
+      this._kar.look(p.x, p.y)
+    }
 
     if (!this._launched && !this._resolving) {
       // Grodan rider på vänster planktipp tills den skjuts iväg och lutar sig ivrigt
@@ -851,11 +855,12 @@ export default {
     this._basketTween?.kill()
     this._frogBreathe?.kill()
     this._dragHintTween?.kill()
-    this._boboCheer?.kill()
     if (this._bobo && !this._bobo.destroyed) {
       gsap.killTweensOf(this._bobo)
       gsap.killTweensOf(this._bobo.scale)
     }
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
 
     if (this._catcher && !this._catcher.destroyed) this._catcher.off('pointertap', this._onTap)
 

@@ -321,7 +321,16 @@ export class Karaktar {
     const len = Math.hypot(dx, dy) || 1
     const max = this._eyeR * 0.34
     const k = Math.min(1, len / (this._r * 6)) * max
-    for (const pup of this.pupiller) this._to(pup, { x: (dx / len) * k, y: (dy / len) * k, duration: 0.18 })
+    const mx = (dx / len) * k
+    const my = (dy / len) * k
+    // Ett spel som följer ett RÖRLIGT mål anropar `look()` varje bildruta, inte bara
+    // när fingret flyttar sig. Utan de två spärrarna nedan blev det 120 nya tweens i
+    // sekunden på två Graphics: `_track` slängde de äldsta ur `_tw` och `destroy()`
+    // saknade pupillerna i sin nodlista, så en tween skrev `.y` på en riven Graphics
+    // varje bildruta efter exit — 7 konsolfel + `tween-lacka` i `gungan`.
+    if (this._blick && Math.abs(this._blick.x - mx) < 0.3 && Math.abs(this._blick.y - my) < 0.3) return this
+    this._blick = { x: mx, y: my }
+    for (const pup of this.pupiller) this._to(pup, { x: mx, y: my, duration: 0.18, overwrite: 'auto' })
     return this
   }
 
@@ -383,7 +392,10 @@ export class Karaktar {
     this._idleTl = null
     this._idleBlink = null
     this._reaktion = null
-    for (const nod of [this.ogon, this.mun, this.huvud, this.bal, ...(this.armar || []), ...(this.bryn || [])]) {
+    // ⚠️ PUPILLERNA MÅSTE STÅ MED. De är de enda noderna `look()` rör, och de saknades
+    // här — allt annat i riggen fångades av sin egen rad. Så länge ingen kund använde
+    // `look()` syntes hålet inte alls.
+    for (const nod of [this.ogon, this.mun, this.huvud, this.bal, ...(this.pupiller || []), ...(this.armar || []), ...(this.bryn || [])]) {
       if (nod && !nod.destroyed) gsap.killTweensOf(nod)
     }
     if (this.view && !this.view.destroyed) {

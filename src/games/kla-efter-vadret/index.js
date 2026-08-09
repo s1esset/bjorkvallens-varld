@@ -14,6 +14,7 @@ import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, sparkle, floatText } from '../../lib/feedback.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Kroppszonernas centrum (= snäpp-mål). Huvud-zonen ligger strax ovanför huvudet
 // (en hatt sitter på toppen), fot-zonen strax ovanför fötterna.
@@ -128,8 +129,10 @@ export default {
   },
 
   // Heltäckande bakgrund (vit, tonas via tint per väder). Fångar tomma tryck mjukt.
+  // Ritas med bleed åt alla håll så breda telefoner (synlig yta utanför 0..1280)
+  // aldrig visar creme-lister — se lib/view.js.
   _buildBackground(ctx) {
-    const bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(0xffffff)
+    const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(0xffffff)
     bg.tint = 0xffffff
     this._bgColor = { r: 255, g: 255, b: 255 }
     bg.eventMode = 'static'
@@ -150,10 +153,12 @@ export default {
     this._root.addChild(fx)
     this._activeFx = null
 
+    // Regn/snö faller över hela den SYNLIGA ytan (ctx.view läses vid användning,
+    // aldrig cachad) — på en bred telefon vore torra kolumner i kanterna avslöjande.
     this._rain = []
     for (let i = 0; i < 26; i++) {
       const d = new Graphics().roundRect(-3, -13, 6, 26, 3).fill({ color: 0x6fb7e0, alpha: 0.8 })
-      d.x = Math.random() * ctx.width
+      d.x = ctx.view.left + Math.random() * ctx.view.width
       d.y = Math.random() * ctx.height
       d._spd = 6 + Math.random() * 4
       d.visible = false
@@ -164,7 +169,7 @@ export default {
     this._snow = []
     for (let i = 0; i < 26; i++) {
       const s = new Graphics().circle(0, 0, 5 + Math.random() * 4).fill({ color: 0xffffff, alpha: 0.92 })
-      s._bx = Math.random() * ctx.width
+      s._bx = ctx.view.left + Math.random() * ctx.view.width
       s.x = s._bx
       s.y = Math.random() * ctx.height
       s._spd = 1.4 + Math.random() * 1.4
@@ -530,12 +535,14 @@ export default {
   _update(ctx, ticker) {
     if (!this._alive) return
     const dt = ticker.deltaTime
+    // Wrap mot ctx.view (läses i användningsögonblicket): på en bred telefon eller
+    // 4:3-platta ska dropparna täcka och vända utanför den SYNLIGA ytan, inte 0..1280.
     if (this._activeFx === 'rain') {
       for (const d of this._rain) {
         d.y += d._spd * dt * 1.7
-        if (d.y > ctx.height + 20) {
-          d.y = -20
-          d.x = Math.random() * ctx.width
+        if (d.y > ctx.view.bottom + 20) {
+          d.y = ctx.view.top - 20
+          d.x = ctx.view.left + Math.random() * ctx.view.width
         }
       }
     } else if (this._activeFx === 'snow') {
@@ -543,9 +550,9 @@ export default {
         s._ph += 0.04 * dt
         s.y += s._spd * dt
         s.x = s._bx + Math.sin(s._ph) * s._amp
-        if (s.y > ctx.height + 15) {
-          s.y = -15
-          s._bx = Math.random() * ctx.width
+        if (s.y > ctx.view.bottom + 15) {
+          s.y = ctx.view.top - 15
+          s._bx = ctx.view.left + Math.random() * ctx.view.width
         }
       }
     }

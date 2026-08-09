@@ -8,8 +8,8 @@
 import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe, pop } from '../../lib/feedback.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe } from '../../lib/feedback.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { PLAYFUL } from '../../lib/theme.js'
 
 // Scen-tema per nivå (alla "bubbel-vänliga"; vatten/himmel passar bäst).
@@ -108,10 +108,14 @@ export default {
 
     // Mottagare: Bobo står i vattnet nere till vänster med en burk som fylls för
     // varje bubbla man poppar — förut försvann allt man "samlade" spårlöst.
+    // `kropp: false` med flit: Bobo står i VATTNET, så bara huvudet ska synas.
+    // En hel kropp hade hamnat 108 px under hans nuvarande läge (2,36·46), alltså
+    // utanför rutan — och en kropp som sticker ner genom vattenytan är inte samma
+    // figur, det är en ny layout.
     this._boboBase = { x: 128, y: 636 }
-    this._bobo = makeMascot(46)
+    this._kar = makeKaraktar({ r: 46, kropp: false })
+    this._bobo = this._kar.view
     this._bobo.position.set(this._boboBase.x, this._boboBase.y)
-    this._bobo.eventMode = 'none'
     this._root.addChild(this._bobo)
     this._jarG = new Graphics()
     this._jarG.position.set(232, 660)
@@ -359,12 +363,19 @@ export default {
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
     ctx.progress.complete() // delat firande: celebrate-sfx + beröm + konfetti + stjärna + klistermärke
     shake(this._root, { intensity: 5, duration: 0.5 }) // mjuk, glad "duns"
-    // Bobo jublar över hela fångsten.
+    // Bobo jublar över hela fångsten. Spelets egen studs (fyra hopp på 40 px) är
+    // större än riggens och får äga `y` — därför `setMood('stolt')` i stället för
+    // `react('jubel')`, som hade tweenat samma `y` samtidigt. Minen firar, kroppen
+    // hoppar, och ingen av dem skriver över den andra.
+    this._kar?.setMood('stolt')
     if (this._bobo && !this._bobo.destroyed) {
       gsap.killTweensOf(this._bobo)
       gsap.to(this._bobo, {
         y: this._boboBase.y - 40, duration: 0.26, yoyo: true, repeat: 3, ease: 'power2.out',
-        onComplete: () => { if (this._bobo && !this._bobo.destroyed) this._bobo.y = this._boboBase.y },
+        onComplete: () => {
+          if (this._bobo && !this._bobo.destroyed) this._bobo.y = this._boboBase.y
+          this._kar?.setMood('glad')
+        },
       })
     }
     gsap.delayedCall(1.3, () => {
@@ -385,6 +396,23 @@ export default {
       m.y -= m.sp * dt
       if (m.y < -20) { m.y = ctx.height + 20; m.x = Math.random() * ctx.width }
       m.g.position.set(m.x + Math.sin(this._t * 0.8 + m.ph) * m.amp, m.y)
+    }
+
+    // Bobo följer den bubbla som är närmast honom med blicken — publiken tittar på
+    // det som är på väg att hända. Riggen räknar i FÖRÄLDERNS rymd (`_root`), och
+    // bubblorna ligger i `_layer`; därför via global.
+    if (this._kar && this._bobo && !this._bobo.destroyed) {
+      let mal = null
+      let bast = Infinity
+      for (const b of this._bubbles || []) {
+        if (!b || b.destroyed || b._popped) continue
+        const d = (b.x - this._bobo.x) ** 2 + (b.y - this._bobo.y) ** 2
+        if (d < bast) { bast = d; mal = b }
+      }
+      if (mal) {
+        const p = this._root.toLocal(mal.getGlobalPosition())
+        this._kar.look(p.x, p.y)
+      }
     }
 
     // Bubblorna vandrar mjukt och studsar mot kanterna.
@@ -425,7 +453,9 @@ export default {
     const now = performance.now()
     if (now - (this._lastChomp || 0) > 380) {
       this._lastChomp = now
-      if (this._bobo && !this._bobo.destroyed) pop(this._bobo, { scale: 1.12 })
+      // `heja`, inte `pop()`: skalan ägs av riggens andning, och två skrivare om
+      // samma värde blir hackigt. Utan kropp bär huvudets nick hela gesten.
+      this._kar?.react('heja')
     }
   },
 
@@ -477,6 +507,10 @@ export default {
       gsap.killTweensOf(b.scale)
     })
     if (this._targetView && !this._targetView.destroyed) gsap.killTweensOf(this._targetView.scale)
+    if (this._bobo && !this._bobo.destroyed) gsap.killTweensOf(this._bobo) // spelets egen studs på y
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
+    this._bobo = null
     gsap.killTweensOf(this._root)
     gsap.killTweensOf(this._layer)
     ctx?.services?.voice?.cancel()

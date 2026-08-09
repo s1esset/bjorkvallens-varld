@@ -137,3 +137,13 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
     ambient + element-läten) — kräver MOSS-pipelinen; [Quick] hyll-sidindelning vid många element
     (nuvarande min-spacing räcker för första-omgångens nivåer).
 </content>
+- 2026-08-09 ✅ **Spår E runda A4 — kitteln puttrar ur en Emitter.** Bubblorna kom ur ~30 rader
+  i tickern som allokerade en ny `Graphics` per bubbla och förstörde den igen, med ett tak på
+  ÅTTA och 380 ms mellan varje — kitteln puttrade alltså glest och räkningsbart. Nu en `Emitter`
+  ur `lib/partiklar.js` (LYFTPLAN A4.2): jämn takt ur en återanvänd pool, noll allokering när
+  flödet gått igång, en enda `destroy()`. Livet och farten är satta så att bubblan hinner upp
+  till ytan och spricker där (stigning = `speed·life + ½|gravity|·life²` ≈ 26 px, inom kittelns
+  mynning) — första försöket lät dem fortsätta ut i natthimlen. Bubblorna är **inte** additiva:
+  brygdfärgerna är mörka (0x2a2342 m.fl.) och additivt ljus kan bara addera, så de hade blivit
+  nära osynliga. De ritas i stället i en ljusare ton än brygden (`tint 0.62`) och färgen följer
+  med i brygdens övergångstween.

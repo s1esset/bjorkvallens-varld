@@ -167,3 +167,14 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
   ordern klar → `setMood('stolt')`, **inte** `react('jubel')`: spelets fyra hopp på 40 px är
   större än riggens 0,5·r = 27 och äger `y`. Ny order → tillbaka till `hungrig`.
   `npm run test` grön, `check` 0/0. Commit `5270a56`.
+- 2026-08-09 ✅ **Spår E runda A4 — additiv glöd.** Eldens glöd var en platt orange skiva
+  (`Graphics.circle(90)`, alpha 0.18) som ligger PÅ skymningen och grådar den. Nu en additiv
+  `glod()` ur `lib/glod.js` som växer med värmen (240→540 px diameter) och lyser upp stockarna,
+  stenarna och gräset i stället för att täcka dem. Ägarskapet följer riggens regel: andningen
+  äger den YTTRE behållarens skala, värmen sprajtens egen storlek — en `Sprite` härleder `scale`
+  ur `width/height`, så en `breathe()` direkt på glöden hade slagits ut varje bildruta.
+  **Lågorna blev med flit INTE additiva**, och det är en mätning: additivt ljus kräver både en
+  mörk botten OCH en källa med takhöjd kvar. Lågtungorna ligger 5–10 djupt och `_flameColor`
+  startar på nära vitt, så elden blev en vit klump i BÅDA stämningarna (`.test-shots/
+  _niva-lagerelden-{0,3}.png` via nya `scripts/_nivabild.mjs`). Djupet i den här lågan bärs av
+  alfan, inte av ljusstyrkan. `npm run test` var grönt hela tiden — bara bilden visade det.

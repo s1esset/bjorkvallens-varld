@@ -14,6 +14,61 @@ Format:
 
 ---
 
+## 2026-08-09 (sen natt) · v1.72.0 · Spår E runda A4 — glöd, emitters, MeshRope
+
+**Byggt:** Tre av rundans fyra punkter, var och en med en verklig kund i ett spel.
+
+- **`lib/glod.js` (nytt)** — additiv glöd som delat idiom (C4). Ett Canvas2D-bakat atlasark
+  med `prick` och `stjarna`, EN vit textur för hela appen som färgas med `tint`. `glod()`
+  ger en additiv Sprite, `glodBakom()` lägger den under ett föremål. Inga tweens, inga
+  timers — exit-säker av konstruktion. **Kund: `lagerelden`**, vars glöd var en platt
+  orange skiva på alpha 0.18 och nu är en halo som växer 240→540 px med värmen och lyser
+  upp stockar, stenar och gräs.
+- **`Emitter` i `partiklar.js`** — `spray()`/`rain()` är engångshändelser; allt som PÅGÅR
+  krävde ett `spray()`-anrop per bildruta. Emittern föder i jämn takt ur EN ticker-callback,
+  och döda partiklar **återuppstår på plats** så ett jämnt flöde gör noll add/remove efter
+  uppstarten. Plus `blend: 'add'` på `spray()` (eget fält, eftersom blandningen sitter på
+  containern). **Kund: `trollblandning`**, vars kittel puttrade ur ~30 rader handrullad loop
+  med tak på ÅTTA bubblor och en ny Graphics per bubbla.
+- **`repMesh()` i `rep.js`** — repet som MATERIAL. `repTextur()` bakar ett tvärsnitt med
+  Canvas2D i tre profiler (`rep` · `slang` · `slat`); 64×32 är tvåpotenser med flit, för
+  `textureScale > 0` sätter `addressMode: 'repeat'` och en del drivrutiner klämmer i stället
+  för att wrappa annars. **Kund: `zackes-biltvatt`**, vars slang ritades med tre strokes och
+  nu bär ribbor och dager som åker med i varje böj.
+
+**Tre lärdomar, alla uppmätta:**
+
+1. **Additivt ljus kräver TVÅ saker — C4-listan tänkte bara på det ena.** Inte bara en mörk
+   botten att lysa upp, utan också en KÄLLA MED TAKHÖJD KVAR. Lägereldens lågtungor ligger
+   med flit 5–10 djupt och `_flameColor` startar på nära vitt: summan av tio nästan vita
+   skivor är vit oavsett bakgrund, så elden blev en vit klump i BÅDA stämningarna. Lågorna
+   är därför medvetet kvar på normal blandning; bara halon är additiv. Trollblandningens
+   bubblor faller på det omvända villkoret — brygdfärgerna är mörka och adderar nästan
+   ingenting. **C4:s sju kandidatnamn måste läsas om mot båda villkoren.**
+2. **En stoppad emitter återskapade sitt tomma fält varje bildruta.** `_falt()` bygger ett
+   fält när det saknas och anropades först i `steg()`, alltså direkt efter att städningen
+   rivit föregående — det vilande fältet på ett app-långlivat lager som CLAUDE.md varnar
+   för, byggt på nytt 60 ggr/s. Hittat av sonden, inte av ögat.
+3. **`npm run test` visar alltid nivå 0.** Lägereldens `sunset → night` vid nivå 2 var
+   därmed osynlig för hela sviten. Nya `scripts/_nivabild.mjs` tar en bild per nivå — och
+   skriver genom appens EGEN SaveService, för att peta i localStorage träffar ett tomt
+   dokument i en färsk kontext (och `profiles` är en array, inte en uppslagstabell).
+
+**Commits:** `5ee3481` glod+partiklar+lagerelden · `6dc07c3` trollblandning ·
+`0d5ae03` rep+zackes-biltvatt
+**Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** ·
+`_glodprobe.mjs` helgrön (additivitet bevisad mot en normal-kontrollarm: 255,60,60 mot
+247,2,2) · `_repprobe.mjs` fortsatt grön i Node.
+
+**Öppet:** **A4.4 — kamerans första kund är utredd men inte byggd.** 18 spel lästa mot C6:s
+begränsning; `spindel-zacke-svingar` är klart starkast (banan är hårdklämd till 920 px av
+`Math.min(cfg.gap, 920 / (count - 1))`, och progressionen gör den **kortare per hopp**).
+Rangordning och avfärdade kandidater står i LYFTPLAN §9. Det är en `/polera`-runda på ett
+levererat spel och **väntar på ägarens grind**. Därefter spår 3 fysik. Ägarens manuella
+telefonkoll av full bleed är fortfarande ogjord.
+
+---
+
 ## 2026-08-09 (natt) · v1.71.0 · Spår E runda A3 — karaktärsriggen är utrullad, 22 av 22
 
 **Byggt:** De sex sista Bobo-spelen bytte från stillbild till riggen `lib/karaktarer.js`:

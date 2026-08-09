@@ -882,3 +882,95 @@ hamburgerbygget det barnet drar (annars bygget), kulbana kulan hela vägen ner. 
 
 Kvar i spåret: A4 (add-glow, kontinuerliga emitters, MeshRope via Canvas2D, kamerans
 första kund).
+
+## 9. Spår E runda A4 — additiv glöd, kontinuerliga emitters, MeshRope ✅ v1.72.0
+
+Tre av rundans fyra punkter är byggda och har varsin verklig kund. Den fjärde (kamerans
+första kund) är utredd men inte byggd — se längst ner.
+
+**`lib/glod.js` (nytt).** Ett Canvas2D-bakat atlasark med två former (`prick`, `stjarna`),
+EN vit textur för hela appen som färgas med `tint`. `glod()` ger en additiv `Sprite`,
+`glodBakom()` lägger den under ett föremål. Inga tweens, inga timers — exit-säker av
+konstruktion, precis som `rep.js`. Canvas2D och inte `generateTexture()`, av samma mätta
+skäl som `partiklar.js`.
+
+**`blend: 'add'` i `partiklar.js`.** Blandningen sitter på CONTAINERN, inte på partikeln
+(Pixi packar hela fältet i ett anrop), så additiva partiklar får ett eget fält
+(`_fxFieldAdd`) som rivs enligt samma regel som det vanliga.
+
+**`Emitter` i `partiklar.js`.** `spray()`/`rain()` är engångshändelser; allt som PÅGÅR
+gick bara att bygga genom att anropa `spray()` varje bildruta, med en ny tween per anrop
+och ett pulserande flöde som följd. `emitter(lager, {rate, ...})` föder i jämn takt ur EN
+ticker-callback. Döda partiklar återuppstår PÅ PLATS, så ett jämnt flöde gör noll
+add/remove efter uppstarten. Formen byts aldrig vid återanvändning: fältet har
+`uvs: false`, så en ny textur hade ändrats i modellen men inte i bufferten — partikeln
+skulle ritat fel bild utan ett enda felmeddelande.
+
+**`repMesh()` i `rep.js`.** `repTextur(färg, profil)` bakar ett tvärsnitt med Canvas2D
+(64×32, tvåpotenser med flit — `textureScale > 0` sätter `addressMode: 'repeat'` och en
+del WebGL-drivrutiner klämmer i stället för att wrappa annars). Tre profiler: `'rep'`
+(snedställda kardeler), `'slang'` (ribbor tvärs + blank dager längs), `'slat'`. En
+MeshRope böjer sig BARA i sina punkter, så `repMesh` klipper in mellansteg ur **samma**
+kvadratiska kurva som `repPath` ritar — mesh och stroke följer exakt samma linje.
+
+| Kund | Vad som ändrades |
+|---|---|
+| `lagerelden` | platt orange skiva (alpha 0.18) → additiv halo som växer med värmen |
+| `trollblandning` | ~30 raders handrullad bubbelloop (tak 8, ny Graphics per bubbla) → `Emitter` |
+| `zackes-biltvatt` | slangens tre strokes → `MeshRope` med ribbad gummitextur |
+
+**Mätning:** `scripts/_glodprobe.mjs` (ny). Röd additiv glöd på grå botten ger `255,60,60`
+— grönkanalen KVAR på bottennivån — mot normalarmens `247,2,2`. Jämvikt 121 mot väntade
+120, poolen `122 → 122` över två sekunder (noll allokering i jämvikt), 0 fält kvar efter
+både `stop()` och `destroy()`. `_repprobe.mjs` fortsatt helgrön efter att `rep.js` börjat
+importera pixi.js.
+
+**Tre lärdomar, alla uppmätta:**
+
+1. **Additivt ljus kräver TVÅ saker, och C4-listan tänkte bara på det ena:** en mörk botten
+   ATT lysa upp, och en källa med TAKHÖJD KVAR. Lägereldens lågtungor ligger med flit 5–10
+   djupt och `_flameColor` startar på nära vitt — summan av tio nästan vita skivor är vit
+   oavsett bakgrund, så elden blev en vit klump i BÅDA stämningarna. Trollblandningens
+   bubblor faller på det omvända: brygdfärgerna är mörka (0x2a2342), och en mörk källa
+   adderar nästan ingenting. **Kandidatlistan i C4 ska läsas om mot båda villkoren innan
+   fler spel rullas ut** — flera av de sju namnen klarar sannolikt inte testet.
+2. **En stoppad emitter återskapade sitt tomma fält varje bildruta.** `_falt()` bygger ett
+   fält om det saknas, och anropades först i `steg()` — alltså direkt efter att städningen
+   rivit föregående. Exakt det vilande fältet på ett app-långlivat lager som CLAUDE.md
+   varnar för, byggt på nytt 60 ggr/s. Fixen är att inte röra fältet alls när det inte
+   finns något att göra.
+3. **`npm run test` visar alltid nivå 0.** Allt som byter stämning med nivån var därmed
+   osynligt för sviten — lägereldens `sunset → night` vid nivå 2 syntes först i den nya
+   `scripts/_nivabild.mjs`. Sonden skriver genom appens EGEN `SaveService`; att peta i
+   localStorage direkt träffar ett tomt dokument i en färsk kontext, och `profiles` är en
+   array, inte en uppslagstabell.
+
+### ⬜ A4.4 — kamerans första kund: utredd, inte byggd
+
+Kandidaterna är genomgångna (18 spel lästa mot C6:s begränsning att lagren är låsta i
+höjdled). Rangordning:
+
+1. **`spindel-zacke-svingar` — klart starkast.** Rad 181–182 klämmer banan till
+   `Math.min(cfg.gap, 920 / (count - 1))`: världen är hårdklämd till 920 px, och
+   progressionen gör banan **kortare per hopp** (nivå 1 = 3 fästen à 300 px, nivå 6 = 6 à
+   184). Barnet ser kattungen redan från första svinget. Allt vertikalt ligger i ett smalt
+   band (fästen 180–240, tak 540–720), alltså ingen vertikal panorering. Tre av spelets
+   egna öppna [Quick]-punkter (tak som blir finare mot målet, folk som hejar i fönstren,
+   saker att nudda i flykten) blir gratis i en bred värld, och `_svingprobe.mjs` finns
+   redan som regressionsnät. Största mekaniska jobbet: ~12 `ctx.fxLayer`-anrop med
+   världskoordinater behöver ett eget fx-lager i världen.
+2. `domino` — `nSlots = Math.min(7 + level, 13)` av rena skärmbreddsskäl; från nivå 6
+   slutar spelet växa. Ett ras är helt en längd-fantasi. Men bricktråget förutsätter att
+   tråg och lucka syns samtidigt → kräver ett designbeslut, inte en ren port.
+3. `siffertaget` — lägst risk, docen har redan beställt det ([Quick] "Rälsen rullar").
+   Ärligt: en **cutscene-kamera**, inte spelmekanik. Barnet tittar, det kör inte.
+4. `golvet-ar-lava` — svag. Spelets kärna är planering, och ett gap du inte kan se kan du
+   inte planera för.
+
+Avfärdade med skäl: `enhorningen-flyger` (fejkar oändlig scroll kring en fastspikad figur
+— inget ändligt mål att `follow()`), `folj-sparet` (minnesspel, off-screen-steg bryter
+kärnan), `rulla-bollen-hem` (toppvy, parallax har inget att göra där), `valpens-bajs`
+(förvandlar ett 1-sekundersdrag till ett ärende), samt arbetsytespelen `gravmaskinen`,
+`magnet-fiske`, `kulbana`, `bowling`, `vattenvagen`.
+
+**Detta är en `/polera`-runda på ett levererat spel och behöver ägarens grind.**

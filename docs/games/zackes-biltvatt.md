@@ -193,3 +193,10 @@ inga spelobjekt är emoji-i-en-ruta längre. Kvarstående risker:
   `tween-lacka` sa **0 i båda armarna** — den dömer bara tweens vars mål har `.destroyed`, och
   andningens mål är `view.scale`, en ObservablePoint utan den flaggan. `npm run test` grön,
   `check` 0/0. Commit `cc3ccbf`.
+- 2026-08-09 ✅ **Spår E runda A4 — slangen blir ett material.** Slangen ritades med tre strokes
+  ovanpå varandra (24 mörk, 17 kropp, 5 dager). Nu en `MeshRope` via `repMesh()` i `lib/rep.js`
+  med en Canvas2D-bakad tvärsnittstextur (profil `'slang'`: ribbor tvärs + blank dager längs), så
+  strukturen **åker med i varje böj** — en stroke kan bara byta bredd och färg. `_hoseG` ligger
+  kvar som reserv: utan DOM returnerar `repMesh` null och den gamla vägen ritar precis som förut.
+  Mellansteg klipps in ur samma kvadratiska kurva som `repPath`, eftersom en MeshRope bara böjer
+  sig i sina punkter och 20 solverpunkter ger synliga knän.

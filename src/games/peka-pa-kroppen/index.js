@@ -14,7 +14,7 @@
 // genom hela spelet.
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { pop, wiggle, sparkle, floatText, ripple, breathe, shake, burst } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, floatText, ripple, breathe, shake, burst, kvittera } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, PLAYFUL, FONT } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -609,7 +609,13 @@ export default {
 
   // Ett tryck på en kroppsdel: omedelbar (<100 ms) respons (ljud + ring).
   _onPart(ctx, zone, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    // Under firandet/övergången är svaret låst — men tystnad är ett P0-brott, inte
+    // en paus (uppmätt: tre döda tryck i rad). Dämpat kvitto på fingrets plats.
+    if (this._resolving) {
+      const q = ctx.fxLayer.toLocal(e.global)
+      return kvittera(ctx.fxLayer, q.x, q.y, ctx.services.audio, { color: COLORS.yellow })
+    }
     this._idle = 0
     this._clearHint()
     const fp = ctx.fxLayer.toLocal(e.global)
@@ -721,7 +727,11 @@ export default {
 
   // Tomt tryck (bredvid delarna): lekfull vingel + mjukt ljud + ring. Aldrig fel.
   _emptyTap(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) {
+      const q = ctx.fxLayer.toLocal(e.global)
+      return kvittera(ctx.fxLayer, q.x, q.y, ctx.services.audio, { color: COLORS.white })
+    }
     this._idle = 0
     const fp = ctx.fxLayer.toLocal(e.global)
     // DIN-fråga: barnet pekar på sig självt bredvid skärmen — fira ändå.

@@ -18,7 +18,7 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration, breathe } from '../../lib/feedback.js'
+import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration, breathe , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -678,8 +678,15 @@ export default {
 
   // ---- Mage: tryck/håll → bubbla -----------------------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _zackePointerDown(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._idle = 0
     this._touched = true
     this._hideHint()
@@ -867,7 +874,8 @@ export default {
   // ---- Vatten-tryck (alltid kul) -----------------------------------------
 
   _waterTap(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._idle = 0
     this._touched = true
     this._hideHint()

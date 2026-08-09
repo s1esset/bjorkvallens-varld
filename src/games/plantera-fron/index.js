@@ -17,7 +17,7 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, wiggle, puff, sparkle } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle , kvittera} from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, FONT, tint } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
@@ -448,8 +448,17 @@ export default {
   },
 
   // Greppa kannan → börja vattna (luta + droppar). Draget följer fingret.
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _canDown(ctx, e) {
-    if (!this._alive || this._phase !== 'water' || this._resolving) return
+    if (!this._alive) return
+    // Kannan går inte att använda i fel fas eller under firandet — men ett tryck
+    // får aldrig vara stumt (P0 ÅTERKOPPLING).
+    if (this._phase !== 'water' || this._resolving) return this._kvitto(ctx, e)
     if (!this._can || this._can.destroyed) return
     this._pouring = true
     this._idle = 0

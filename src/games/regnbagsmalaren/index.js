@@ -11,7 +11,7 @@
 // OBS: använder INTE DragController — egen spårnings-lyssnare på himlen (likt spara-linjen).
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, pop, breathe, sparkle, burst, floatText, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, pop, breathe, sparkle, burst, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
@@ -271,8 +271,15 @@ export default {
     }
   },
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _selectColor(ctx, colorIndex) {
-    if (this._resolving || !this._alive) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx)
     this._idle = 0
     const can = this._cans[colorIndex]
     // Hitta första ofyllda bågen med denna färg.
@@ -289,7 +296,8 @@ export default {
   // ---- Pekare: spårning (drag) + tap-tap ----------------------------------
 
   _pointerDown(ctx, e) {
-    if (this._resolving || !this._alive) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     const p = this._root.toLocal(e.global)
     this._painting = true
     this._idle = 0

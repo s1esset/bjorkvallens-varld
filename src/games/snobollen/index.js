@@ -24,7 +24,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, MATERIALS } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { puff, sparkle, burst, bigCelebration, floatText, pop, bounceIn, breathe } from '../../lib/feedback.js'
+import { puff, sparkle, burst, bigCelebration, floatText, pop, bounceIn, breathe , kvittera} from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -973,8 +973,15 @@ export default {
 
   // ---- Pekare: STYR (drag/tap-tap) + KNUFF (tap) --------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _onDown(ctx, e, onBall) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     const p = this._world.toLocal(e.global)
     this._steering = true
     this._downOnBall = onBall
@@ -1013,7 +1020,8 @@ export default {
   // Tap på bollen: fart-knuff nedför — ELLER ett rejält BANK om bollen just nu
   // pressar mot ett hinder (då är knuffen det som får hindret att välta).
   _onKnuff(ctx) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx)
     if (this._gt - this._lastKnuff < KNUFF_GAP) return // throttle
     this._lastKnuff = this._gt
     const b = this._ballBody

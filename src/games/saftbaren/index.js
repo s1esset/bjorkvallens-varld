@@ -9,7 +9,7 @@ import { COLORS, DESIGN_W, DESIGN_H, shade } from '../../lib/theme.js'
 import { FluidWorld, FluidView } from '../../lib/vatska.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { Button } from '../../lib/Button.js'
-import { pop, puff, sparkle, breathe, burst } from '../../lib/feedback.js'
+import { pop, puff, sparkle, breathe, burst , kvittera} from '../../lib/feedback.js'
 
 // --- färgvärlden -----------------------------------------------------------
 // Index i den här listan ÄR partikelns färg (world.pal[i]).
@@ -628,8 +628,17 @@ export default {
 
   // -------------------------------------------------------------- glasen ---
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  // Saftbaren har ingen ctx i sina pekhanterare — den ligger på this._ctx.
+  _kvitto(e) {
+    const ctx = this._ctx
+    if (!ctx) return
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _onGlassDown(g, e) {
-    if (this._busy) return
+    if (this._busy) return this._kvitto(e)
     this._idle = 0
     const start = this._root.toLocal(e.global)
     let moved = false
@@ -691,7 +700,7 @@ export default {
   },
 
   _onHinkTap() {
-    if (this._busy) return
+    if (this._busy) return this._kvitto()
     this._idle = 0
     if (this._selected) {
       const g = this._selected

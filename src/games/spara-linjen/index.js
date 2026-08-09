@@ -24,7 +24,7 @@
 // träffytor, tap-tap-fallback, snäll respons på varje pekning).
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, breathe, pop, wiggle, sparkle, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, breathe, pop, wiggle, sparkle, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, PRAISE, shade, tint } from '../../lib/theme.js'
 
@@ -661,8 +661,15 @@ export default {
 
   // ---- Pekare: spårning (drag) + tap-tap genom samma _checkPoint ----------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _pointerDown(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._tracing = true
     this._idle = 0
     this._cued = false

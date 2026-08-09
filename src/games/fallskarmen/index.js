@@ -15,6 +15,7 @@ import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, bigCelebration, floatText , kvittera} from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Motstandsvolym } from '../../lib/luftmotstand.js'
+import { Mjukkropp } from '../../lib/mjukkropp.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -46,6 +47,14 @@ const VIND_FART = 11.8 // vindtal → luftens fart i px/bildruta (kalibrerad mot
 const STEER_KRAFT = 0.7 // barnets drag i linan: en KRAFT (delas med massan → Tung är trögare)
 const ASSIST_ACC = 0.05 // no-fail-assisten: en ACCELERATION (massoberoende — hjälpen ska
 // kännas lika snäll i båda tyngdlägena, annars blir Tung svårare att bli hjälpt i)
+
+// Kupolen (tyget). Måtten är de gamla ritade — silhuetten ska inte ändras, bara bli levande.
+const RX = 92 // halva kupolbredden
+const RY = 66 // kupolens höjd över skärmkanten (toppen hamnar på −166, som den ritade var)
+const SKIRT_Y = -100 // skärmkantens y i fallskärmens lokala koordinater (var cy + 16)
+const KUPOL_N = 16 // punkter i mjukkroppen (delbart med 4 → hörn/mitt hamnar på punkter)
+const KUPOL_KRAFT = 5 // luftkraft → kraftfält i tyget (mätt i `_kupolprobe.mjs`)
+const STRIPS = 12 // färgade våder
 const STEER_DEADZONE = 20 // dödzon kring fallskärmen så den inte vibrerar
 const TAP_IMPULSE = 0.5 // s — enkel-tap ger en kort styr-puff (för de minsta)
 const IDLE_DELAY = 6 // s utan input -> mild om-cue
@@ -87,6 +96,8 @@ export default {
     // överst. Lasten läggs i den när fallskärmen finns (`_setLast`).
     this._luft = new Motstandsvolym({ grav: GRAV })
     this._luftRec = null
+    this._kupolX = 0 // senast ritade toppunkt — grindar omritningen av tyget
+    this._kupolY = 0
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -243,34 +254,48 @@ export default {
     const chute = new Container()
     chute.position.set(640, START_Y)
 
-    // Kupol: randig halv-ellips (mjuk dom) byggd av lodräta strips.
+    // KUPOLEN ÄR TYG, INTE EN RITAD BÅGE. Den var en fast halv-ellips: samma form
+    // oavsett om den bar en lätt eller tung last och oavsett hur hårt det blåste — så
+    // kraften som HELA spelet handlar om syntes ingenstans. Nu är den en mjukkropp
+    // (`lib/mjukkropp.js`, fjärde kunden) vars skärmkant är fäst i linorna, och som
+    // buktar av den kraft luften faktiskt lägger på lasten (`luft.luftkraft()`).
+    // Bukten är alltså MÄTT ur fysiken, inte gissad ur farten.
     const canopy = new Graphics()
-    const rx = 92
-    const ry = 50
-    const cy = -116 // kupolens centrum (ovanför barnet)
-    const cols = [COLORS.red, COLORS.yellow, COLORS.blue, COLORS.green, COLORS.purple]
-    const strips = 12
-    for (let i = 0; i < strips; i++) {
-      const sx = -rx + (i / strips) * 2 * rx
-      const ex = -rx + ((i + 1) / strips) * 2 * rx
-      const midx = (sx + ex) / 2
-      const inside = 1 - (midx * midx) / (rx * rx)
-      const topY = cy - ry * Math.sqrt(Math.max(0, inside))
-      const col = cols[i % cols.length]
-      canopy.rect(sx, topY, ex - sx + 0.8, cy + 16 - topY).fill(col)
+    this._canopy = canopy
+    chute.addChildAt(canopy, 0)
+    this._kupol = new Mjukkropp({
+      x: 0,
+      y: SKIRT_Y,
+      w: RX * 2,
+      h: RY * 2,
+      punkter: KUPOL_N,
+      grav: 0.02, // en aning tyngd i tyget → det hänger när kraften är liten
+      damp: 0.9,
+      tryck: 0.4,
+      // ⚠️ 0,12 ÄR MÄTT, INTE VALT. Med tygets vanliga styvhet (0,9) flyttade hela
+      // lasten toppen 0,1 px — fysiskt riktigt och fullständigt osynligt. Svepet i
+      // `_kupolprobe.mjs --svep` visar att styvhet och kraft skalar bukten linjärt;
+      // 0,12 med KUPOL_KRAFT 5 ger 2,8 px på en lätt last och 7,8 på en tung.
+      styvhet: 0.12,
+      // INGEN egen `form`. Den skalar BÅDA axlarna, så en "platt underkant" via
+      // radiefaktor drar också in skärmkantens hörn (sin a = 0 fick faktor 0,12 →
+      // ±11 px i stället för ±92) och fästpunkterna slet dem sedan 80 px utåt.
+      // Kupolen är i stället en HEL ellips vars undre halva ligger DOLD under
+      // skärmkanten — det är den som ger trycket sin luftvolym, som i en riktig skärm.
+    })
+    // HELA skärmkanten hålls av linorna (undre halvan), var och en i sitt eget viloläge.
+    // Med bara tre fästen kunde ringen ROTERA runt dem: uppmätt gled toppunkten till
+    // x = −55 och bredden växte 184 → 209 px, och kraftfältet drunknade helt i den
+    // rörelsen (lätt, tung och sidby gav identiska former på 0,1 px).
+    for (let i = KUPOL_N / 4; i <= (3 * KUPOL_N) / 4; i++) {
+      this._kupol.fast(i, this._kupol.pts[i].x, this._kupol.pts[i].y)
     }
-    // Mjuk underkant (scalloper) + glansbåge upptill.
-    for (let i = 0; i < 4; i++) {
-      const segx = -rx + (i + 0.5) * (2 * rx) / 4
-      canopy.circle(segx, cy + 16, rx / 4).fill({ color: 0xffffff, alpha: 0.12 })
-    }
-    canopy.arc(0, cy, rx * 0.7, Math.PI * 1.15, Math.PI * 1.85).stroke({ width: 7, color: 0xffffff, alpha: 0.25, cap: 'round' })
-    chute.addChild(canopy)
+    this._drawCanopy()
 
     // Linor: 4 tunna streck från kupolens underkant ner till barnet.
     const lines = new Graphics()
-    const tops = [-rx * 0.8, -rx * 0.3, rx * 0.3, rx * 0.8]
-    for (const tx of tops) lines.moveTo(tx, cy + 16).lineTo(0, -34)
+    const tops = [-RX * 0.8, -RX * 0.3, RX * 0.3, RX * 0.8]
+    for (const tx of tops) lines.moveTo(tx, SKIRT_Y).lineTo(0, -34)
     lines.stroke({ width: 3, color: COLORS.inkSoft })
     chute.addChild(lines)
 
@@ -315,6 +340,59 @@ export default {
     this._chute = chute
     this._root.addChild(chute)
     this._setLast()
+  },
+
+  // Ritar kupolen ur mjukkroppens NUVARANDE form. Våderna följer tyget: varje våd är
+  // en fyrhörning från skärmkanten upp till den deformerade kupollinjen, så randigheten
+  // överlever bukten (en enfärgad polygon hade varit enklare men tappat hela kupolen).
+  _drawCanopy() {
+    const g = this._canopy
+    const k = this._kupol
+    if (!g || g.destroyed || !k || !k.pts.length) return
+    // Övre bågen i x-ordning: vänstra hörnet → toppen → högra hörnet.
+    const arc = []
+    for (let j = 0; j <= KUPOL_N / 2; j++) {
+      const i = ((3 * KUPOL_N) / 4 + j) % KUPOL_N
+      arc.push(k.pts[i])
+    }
+    const yVid = (x) => {
+      if (x <= arc[0].x) return arc[0].y
+      for (let i = 1; i < arc.length; i++) {
+        if (x <= arc[i].x) {
+          const t = (x - arc[i - 1].x) / (arc[i].x - arc[i - 1].x || 1)
+          return arc[i - 1].y + (arc[i].y - arc[i - 1].y) * t
+        }
+      }
+      return arc[arc.length - 1].y
+    }
+    const vL = arc[0]
+    const vR = arc[arc.length - 1]
+    const skirtVid = (x) => {
+      const t = (x - vL.x) / (vR.x - vL.x || 1)
+      return vL.y + (vR.y - vL.y) * t
+    }
+
+    g.clear()
+    const cols = [COLORS.red, COLORS.yellow, COLORS.blue, COLORS.green, COLORS.purple]
+    for (let i = 0; i < STRIPS; i++) {
+      const sx = vL.x + ((vR.x - vL.x) * i) / STRIPS
+      const ex = vL.x + ((vR.x - vL.x) * (i + 1)) / STRIPS
+      g.moveTo(sx, yVid(sx))
+        .lineTo(ex + 0.8, yVid(ex))
+        .lineTo(ex + 0.8, skirtVid(ex))
+        .lineTo(sx, skirtVid(sx))
+        .closePath()
+        .fill(cols[i % cols.length])
+    }
+    // Mjuk underkant (scalloper) + glansbåge upptill — följer nu tyget.
+    for (let i = 0; i < 4; i++) {
+      const segx = vL.x + ((vR.x - vL.x) * (i + 0.5)) / 4
+      g.circle(segx, skirtVid(segx), (vR.x - vL.x) / 8).fill({ color: 0xffffff, alpha: 0.12 })
+    }
+    const topp = k.pts[0]
+    g.moveTo(vL.x + 14, topp.y + 22)
+      .quadraticCurveTo(topp.x, topp.y + 4, vR.x - 14, topp.y + 22)
+      .stroke({ width: 7, color: 0xffffff, alpha: 0.25, cap: 'round' })
   },
 
   // Lasten i luften. SAMMA kupol i båda tyngdlägena — det är MASSAN som ändras, och
@@ -491,6 +569,23 @@ export default {
     if (this._legs && !this._legs.destroyed) {
       const vxN = clamp(this._vx / 5.2, -1, 1) // 5,2 = HEADs uppmätta sidofartstak
       this._legs.rotation = Math.sin(this._legPhase) * 0.16 + vxN * 0.35 + this._wind * 0.9
+    }
+
+    // KUPOLEN BÄR KRAFTEN. Luftkraften är den enda drivningen — faller lasten fort är
+    // trycket i tyget stort och kupolen står spänd och hög; i en by trycks den in från
+    // sidan. `skjut()` läses av verlet som fart, så tyget SLÄPAR efter och svänger ut
+    // i stället för att hoppa till en ny form (samma grepp som glasskopornas vobbel).
+    if (this._kupol && rec) {
+      const F = this._luft.luftkraft(rec)
+      this._kupol.falt(F.x * KUPOL_KRAFT, F.y * KUPOL_KRAFT)
+      this._kupol.steg(dt)
+      // Omritning bara när formen faktiskt rörde sig — en stilla kupol kostar noll.
+      const topp = this._kupol.pts[0]
+      if (Math.abs(topp.x - this._kupolX) > 0.15 || Math.abs(topp.y - this._kupolY) > 0.15) {
+        this._kupolX = topp.x
+        this._kupolY = topp.y
+        this._drawCanopy()
+      }
     }
 
     // Chevroner tänds/dämpas mjukt.
@@ -807,6 +902,9 @@ export default {
     this._luft?.destroy() // steg() efter detta gör ingenting
     this._luft = null
     this._luftRec = null
+    this._kupol?.destroy() // tyget: punkter, villkor och fästen släpps
+    this._kupol = null
+    this._canopy = null
     this._glowTw?.kill()
     this._landTl?.kill()
     this._glideTw?.kill()

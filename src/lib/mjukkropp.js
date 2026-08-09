@@ -42,6 +42,8 @@ export class Mjukkropp {
     this.maxSpeed = maxSpeed
     this._pin = new Map()
     this._mjuk = 0
+    this._faltX = 0 // konstant kraftfält (se `falt()`) — 0 = bara gravitationen
+    this._faltY = 0
 
     // Ring + mittpunkt. Mitten är sist, så `pts[0..n-1]` är kanten i ordning och
     // kan ritas rakt av som en polygon.
@@ -129,6 +131,21 @@ export class Mjukkropp {
     return this
   }
 
+  // ETT KRAFTFÄLT över hela kroppen (vind, luftkraften i en fallskärmskupol, en fläkt).
+  // px/bildruta², precis som `grav` — och det är just bredvid gravitationen det hör
+  // hemma, i integreringen.
+  //
+  // ⚠️ ANVÄND INTE `skjut()` FÖR EN IHÅLLANDE KRAFT. `skjut` är en IMPULS: verlet läser
+  // en positionsändring utan motsvarande `px`-ändring som FART, så en `skjut` varje
+  // bildruta blir en konstant fart (nudge/(1−damp)) i stället för en jämvikt — tyget
+  // driver iväg tills villkoren tar emot. Uppmätt i `fallskarmen`: kupolen veks ihop
+  // till en sned trekant medan fysiken bakom var helt riktig.
+  falt(ax = 0, ay = 0) {
+    this._faltX = ax
+    this._faltY = ay
+    return this
+  }
+
   // En knuff utifrån (ett finger, en krock). Faller av med avståndet.
   knuff(x, y, kraft = 6, radie = 60) {
     for (const p of this.pts) {
@@ -198,8 +215,8 @@ export class Mjukkropp {
       }
       p.px = p.x
       p.py = p.y
-      p.x += vx * f
-      p.y += vy * f + this.grav * f * f
+      p.x += vx * f + this._faltX * f * f
+      p.y += vy * f + (this.grav + this._faltY) * f * f
     }
 
     const k = clamp(this.styvhet, 0.02, 1)

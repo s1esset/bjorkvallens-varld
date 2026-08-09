@@ -1,36 +1,38 @@
 ---
 name: fysik-spel
-description: Use when building or changing physics-based games in this repo. Covers choosing between the three engines (own ticker integrator / matter.js / p2-es) and three.js for 3D, PhysicsWorld (bodies, MATERIALS, wind, gravity, collisions, fixed timestep, exit-safe destroy), AimLauncher (drag to aim + power with live dotted trajectory preview), the measured preview-calibration constants that make the preview match the real flight, goal-based no-fail design, and which existing game to copy. Triggers on - fysik, physics, matter, matter-js, p2, p2-es, motor, engine, PhysicsWorld, AimLauncher, trajectory, bana, sikte, slingshot, gravity, gravitation, wind, vind, restitution, studs, bounce, collision, kollision, spring, fjäder, constraint, led, predictTrajectory, previewGravity.
+description: Use when building or changing physics-based games in this repo. Covers choosing between the engines (own ticker integrator / matter.js / SPH-vätska) and three.js for 3D, PhysicsWorld (bodies, MATERIALS, wind, gravity, collisions, fixed timestep, exit-safe destroy), AimLauncher (drag to aim + power with live dotted trajectory preview), the measured preview-calibration constants that make the preview match the real flight, goal-based no-fail design, and which existing game to copy. Triggers on - fysik, physics, matter, matter-js, motor, engine, PhysicsWorld, AimLauncher, trajectory, bana, sikte, slingshot, gravity, gravitation, wind, vind, restitution, studs, bounce, collision, kollision, spring, fjäder, constraint, led, predictTrajectory, previewGravity.
 ---
 
-# Fysikspel (matter.js · p2-es · egen integrator)
+# Fysikspel (matter.js · egen integrator · SPH-vätska)
 
-## Välj motor FÖRST — de tre är verktyg, inte en rangordning
+## Välj motor FÖRST — de här är verktyg, inte en rangordning
 
 | Motor | Nå efter den när | I repot |
 |---|---|---|
 | **egen ticker-integrator** | banan ska vara **exakt förutsägbar**: parabelhopp, styrd bana, partiklar, en förhandsvisning som måste stämma på pixeln | `golvet-ar-lava` (hoppbåge + lavabubblor), `fyrverkeri` (egen `GY`) |
 | **matter.js** | *stelkroppsvärlden*: staplade lådor, kedjereaktioner, studs, rullande bollar, kast med sikte | `src/lib/physics.js` → **23 spel**, varav 8 med `AimLauncher` |
-| **p2-es** | det matter är dåligt på: **fjädrar och leder** (`Spring`, `RevoluteConstraint`, `DistanceConstraint`), tyg-/repkedjor, kontinuerlig kollision för snabba små kroppar, per-material friktionspar | *inget spel än — först ut får skriva `src/lib/physics2.js`* |
 | **three.js** | 3D-scenen bakom Pixi | `src/lib/three3d.js` → `glittergrottan`; se skill **threejs-games** |
-| **vätska** | det som **rinner, skvalpar, fyller och stänker**: vatten, saft, gegga, honung | `src/lib/vatska.js` (`FluidWorld` + `FluidView`) → *inget spel än* |
+| **vätska** | det som **rinner, skvalpar, fyller och stänker**: vatten, saft, gegga, honung, lava | `src/lib/vatska.js` (`FluidWorld` + `FluidView`) → `saftbaren`, `vattenvagen`, `golvet-ar-lava` |
 
 Regler som gäller alla:
 
-- **Ett spel = en motor.** Blanda aldrig matter och p2 i samma modul — två fasta tidssteg som
-  driver samma vy ger skakningar som är omöjliga att felsöka.
+- **Ett spel = en motor.** Blanda aldrig två fasta tidssteg i samma modul — två solvers som
+  driver samma vy ger skakningar som är omöjliga att felsöka. (Vätskan är undantaget som
+  bekräftar regeln: den simulerar bara sin egen partikelsvärm och läser matter-kärlen som
+  statiska kanter.)
 - **Enklast som duger vinner.** Behöver du bara en parabel: skriv parabeln. En fysikmotor för
   ett förutsägbart hopp gör bara utfallet slumpartat, och no-fail svårare att garantera.
-- **p2 importeras dynamiskt** (`const p2 = await import('p2-es')`) precis som three.js — 66 KB
-  minifierat ska inte ligga i huvudbundeln för de ~47 spel som inte har någon fysik alls.
-  matter ligger kvar statiskt i `physics.js`; det är redan prissatt.
-- **Exit-säkerhet gäller motorn med.** Skriver du `physics2.js`: kopiera `PhysicsWorld`s
+- **Exit-säkerhet gäller motorn med.** Skriver du en ny solver: kopiera `PhysicsWorld`s
   kontrakt — fast tidssteg i `update(deltaMS)`, `link(body, view)`, och en `destroy()` som
   nollar världen OCH släpper alla vy-referenser. En halvstädad fysikvärld överlever ett
   spelbyte och läcker.
-- p2:s API är samma som klassiska `p2.js` (`World`/`Body`/`Box`/`Circle`/`Plane`). **Använd
-  `p2-es`, inte `p2`** — originalet är UMD och orört sedan 2017. p2 räknar y **uppåt**; Pixi
-  räknar y nedåt. Vänd tecknet i `link`, en gång, på ett ställe.
+- **`p2-es` finns INTE längre i repot** (borttagen 2026-08-09, LYFTPLAN rad 12). Den låg som
+  beroende i två månader utan en enda import, och ett dokumenterat teknikval som ingen kod
+  använder är en lögn om appen. Behöver ett framtida spel det matter är dåligt på — mjuka
+  fjäderleder, kontinuerlig kollision för små snabba kroppar — så finns tre vägar, i den här
+  ordningen: (1) matters egen `Constraint` med `stiffness`/`damping`, (2) en egen verlet-lösare
+  i `src/lib/` (samma mönster som `vatska.js`), (3) återinför p2-es **i samma commit som det
+  spel som faktiskt importerar den**, aldrig före.
 
 ## matter.js
 

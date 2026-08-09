@@ -1,6 +1,6 @@
 {
   "name": "bjorkvallens-varld",
-  "version": "1.48.0",
+  "version": "1.49.0",
   "private": true,
   "type": "module",
   "description": "Björkvallens Värld — PWA med roliga, lärorika minispel för barn 2–5 år (svenska, offline, ingen reklam)",
@@ -23,7 +23,6 @@
   "dependencies": {
     "gsap": "^3.12.5",
     "matter-js": "^0.20.0",
-    "p2-es": "^1.2.3",
     "pixi.js": "^8.6.6",
     "three": "^0.185.1"
   },

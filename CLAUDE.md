@@ -2,9 +2,9 @@
 
 Offline-first, installerbar **PWA med minispel för barn 2–5 år**, helt på svenska. Tablet-först.
 Ett tunt skal (splash → meny → bibliotek → spel) kör 71 fristående **spelmoduler** med ett delat
-kontrakt. Stack: PixiJS v8 · three.js (dynamiskt) · matter.js · p2-es (dynamiskt) · GSAP ·
-Vite 5 · vanilla ESM. Motorerna är **verktyg att välja mellan per spel** — se skill **fysik-spel**
-för vilken som passar när (egen integrator · matter · p2 · three).
+kontrakt. Stack: PixiJS v8 · three.js (dynamiskt) · matter.js · GSAP · Vite 5 · vanilla ESM.
+Motorerna är **verktyg att välja mellan per spel** — se skill **fysik-spel** för vilken som
+passar när (egen integrator · matter · SPH-vätska · three).
 
 ## P0 — icke förhandlingsbart, gäller varje skärm och spel
 

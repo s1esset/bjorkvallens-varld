@@ -37,16 +37,20 @@ Det som återstår är **systemskuld**: verktyg som är byggda men inte används
 
 ## 1. Spår A — knyt ihop det som redan finns
 
-### A1. `p2-es` är en död dependency **[Quick]**
+### A1. `p2-es` är en död dependency **[Quick]** — ✅ BORTTAGEN 2026-08-09 (v1.49.0)
 
-Noll importer i `src/` och `scripts/`. Ändå står den som låst teknikval i `CLAUDE.md`,
-`ARCHITECTURE.md` och skill `fysik-spel` — dokumenten lovar fyra motorer, appen kör två
-(matter + three).
+Noll importer i `src/` och `scripts/`. Ändå stod den som låst teknikval i `CLAUDE.md` och
+skill `fysik-spel` — dokumenten lovade fyra motorer, appen körde två (matter + three).
 
-**Beslut krävs:** antingen bygg spelet som behöver p2 (dess kant mot matter är kontinuerlig
-kollision för små snabba kroppar + fjäderledder — t.ex. kulbana i hög fart, luftrace ovanifrån),
-eller ta bort beroendet och stryk påståendet i alla tre dokumenten. Att låta den ligga kvar är
-det enda alternativ som är fel.
+**Beslutet:** beroendet är **borttaget** (`npm uninstall p2-es`) och påståendet struket.
+Alternativet — att bygga ett spel enbart för att rättfärdiga en dependency — är att låta
+verktygslådan bestämma spellistan. Skill `fysik-spel` bär nu vägen tillbaka: matters egen
+`Constraint` först, egen verlet-lösare i `src/lib/` sedan, och p2-es återinförs bara **i samma
+commit som det spel som importerar den**.
+
+⚠️ **Docen var inaktuell på en punkt** (samma fälla som CLAUDE.md varnar för): `ARCHITECTURE.md`
+nämnde aldrig p2-es. Den hade redan bara matter + three i sin teknikvalstabell. Kopiera inte
+raden ovan rakt av nästa gång — greppa först.
 
 ### A2. Ritkoden bor i 205 kopior **[Deep]** — 🟨 PÅBÖRJAD 2026-08-09
 
@@ -539,7 +543,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ⬜ |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ⬜ |
-| 12 | Beslut om `p2-es` | A1 | dokumenten | ⬜ |
+| 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |
 
 **Grind per rad:** `npm run check` grön · `npm run test:all` 72/72 med 0 konsolfel · skärmdump
 granskad med ögat · FPS mätt på plattan när raden rör rendering eller partiklar.

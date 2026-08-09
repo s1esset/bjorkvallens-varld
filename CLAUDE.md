@@ -83,6 +83,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | UI-design, tokens, versionspill | `docs/DESIGN.md` |
 | ett specifikt spels nuläge + plan | `docs/games/<id>.md` (index: `docs/games/README.md`) |
 | rapporterade buggar som väntar på fix | `docs/ATGARDER.md` |
+| parkerat arbete som inte är spel (distribution, miljö, beslut) | `docs/BACKLOG.md` |
 | se vad ett spel FAKTISKT gör (input·fysik·render·fel) | `src/lib/gamelog.js` → `.test-logs/<id>.json` |
 | vad bilden avslöjar (trösklar + kalibrering) | `scripts/bildkoll.mjs` |
 | vad som hände senast | `docs/SESSIONS.md` |

@@ -37,6 +37,7 @@ import { Button } from '../../lib/Button.js'
 import { bigCelebration, puff, sparkle, pop, wiggle, floatText } from '../../lib/feedback.js'
 import { FONT, COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Layout i designkoordinater (1280×720).
 const FIELD = { x: 60, y: 120, w: 1160, h: 560, r: 32 }
@@ -284,7 +285,9 @@ export default {
 
   _buildScene(ctx) {
     // Gräs-bakgrund: fångar tap utanför bollen -> liten glad puff (varje pekning syns).
-    this._bg = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(C_GRASS)
+    // Breddad med BLEED åt alla håll så en bred telefon (full bleed) aldrig ser
+    // creme-kanter — och så att tap på det synliga gräset utanför 0..1280 också svarar.
+    this._bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(C_GRASS)
     this._bg.eventMode = 'static'
     this._onBgTap = (e) => this._bgTap(ctx, e)
     this._bg.on('pointertap', this._onBgTap)

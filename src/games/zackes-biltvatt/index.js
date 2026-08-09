@@ -30,7 +30,7 @@ import { Container, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { puff, sparkle, floatText, ripple, wiggle, shake } from '../../lib/feedback.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Rep } from '../../lib/rep.js'
 import { FONT } from '../../lib/theme.js'
 
@@ -858,13 +858,22 @@ export default {
 
   // Ägaren: Bobo var tredje bil, annars ett RITAT djur (inga emoji-huvuden).
   _makeOwner(n) {
+    // Riggen från förra bilen måste dö HÄR. `removeChildren().destroy()` river bara
+    // displayträdet — riggens andning, blink och humör-tweens lever vidare och skriver
+    // på en riven Graphics varje bildruta. Det är exakt `tween-lacka`.
+    this._kar?.destroy()
+    this._kar = null
     this._owner.removeChildren().forEach((c) => c.destroy({ children: true }))
     const c = new Container()
     if (n % 3 === 0) {
       c.addChild(new Graphics().roundRect(-32, 34, 64, 74, 24).fill(0x8f6bd8))
       c.addChild(new Graphics().roundRect(-30, 96, 24, 16, 7).fill(0x5f4a94))
       c.addChild(new Graphics().roundRect(6, 96, 24, 16, 7).fill(0x5f4a94))
-      c.addChild(makeMascot(52))
+      // `kropp: false` — den lila jackan är ÄGARENS, en björnkropp i cream hade
+      // gjort honom till maskoten i stället för till bilens ägare.
+      this._kar = makeKaraktar({ r: 52, kropp: false })
+      this._kar.setMood('nyfiken') // bilen är smutsig och han tittar på vad barnet gör
+      c.addChild(this._kar.view)
     } else {
       c.addChild(this._makeAnimal(OWNERS[n % OWNERS.length]))
     }
@@ -1202,6 +1211,9 @@ export default {
       floatText(this._fx, w.x, w.y - 20, '✨', { fontSize: 52 })
     }
     this._zackeCheer()
+    // Ägaren hejar också — `heja`, inte `jubel`: en bil har upp till 8 fläckar, och
+    // ett hopp på var och en hade ätit upp firandet när bilen faktiskt blir ren.
+    this._kar?.react('heja')
 
     spot.scTarget = 0
     this._fading.push({ view: spot.view, sc: spot.sc })
@@ -1586,6 +1598,9 @@ export default {
       const o = this._owner
       if (o && !o.destroyed) {
         this._ownerBob?.kill()
+        // Spelets hopp på 46 px är större än riggens `jubel` (0,5·r = 26) och äger
+        // därför `y`. Riggen bidrar med minen — stolt över sin skinande bil.
+        this._kar?.setMood('stolt')
         gsap.to(o, { y: this._ownerHomeY - 46, duration: 0.22, yoyo: true, repeat: 1, ease: 'power2.out' })
         floatText(this._fx, o.x, o.y - 90, '🎉', { fontSize: 54 })
       }
@@ -1692,6 +1707,18 @@ export default {
     this._spotsTick(dt)
     this._birdsTick(ctx, dt)
     this._idleTick(ctx, dt)
+    this._ownerLook()
+  },
+
+  // Ägaren tittar på det VERKTYG barnet håller i — svampen när den skrubbar, munstycket
+  // när det spolar, annars sin egen bil. En ägare som stirrar rakt fram medan någon
+  // tvättar hans bil är en dekor; en som följer svampen är en publik.
+  _ownerLook() {
+    if (!this._kar || !this._owner || this._owner.destroyed) return
+    const mal = this._spongeDrag ? this._svamp : this._hoseDrag ? this._nozzle : this._car
+    if (!mal || mal.destroyed) return
+    const p = this._owner.toLocal(mal.getGlobalPosition())
+    this._kar.look(p.x, p.y)
   },
 
   destroy(ctx) {
@@ -1737,6 +1764,8 @@ export default {
     }
     this._ownerBob?.kill()
     if (this._owner && !this._owner.destroyed) gsap.killTweensOf(this._owner)
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
     if (this._car && !this._car.destroyed) {
       gsap.killTweensOf(this._car)
       if (this._car._shine && !this._car._shine.destroyed) gsap.killTweensOf(this._car._shine)

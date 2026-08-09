@@ -151,7 +151,22 @@ Och en ordningsregel för spel som redan tweenar sin maskot: `gsap.killTweensOf(
 även riggens egen hopp-tween på `view.y`, så en `react()` **före** rensningen dödas direkt.
 Skalan är dessutom upptagen av riggens andning — ett `pop()` på samma nod blir hackigt.
 
-⬜ Kvar: de övriga 19 spelen med `makeMascot`/`makeBobo`, och de fyra som fortfarande har egen
+**Utrullning omgång 2 (v1.64.0): `studsmatta` · `poppa-ballonger` · `glasstornet` ·
+`klambubblor`.** Omgången handlade mindre om att byta figur och mer om **vem som äger vilken
+egenskap** när riggen flyttar in i ett spel som redan animerar sin maskot:
+
+| Egenskap | Ägare efter bytet |
+|---|---|
+| `view.scale` | ALLTID riggens andning. Ett `pop()` på samma nod blir hackigt — flytta det till den yttre containern eller byt mot en `react()`. |
+| `view.y` | Den som har den STÖRSTA gesten. `klambubblor` har fyra hopp på 40 px och behöll dem; då blir firandet `setMood('stolt')`, inte `react('jubel')`, som hade tweenat samma `y`. |
+| `rotation` | Fri — riggen rör den aldrig utom via `huvud`. `bowling` lutar hela figuren efter klotet. |
+
+Och en placeringsregel: `makeBobo`/riggen har samma origo (huvudets centrum) och samma 2,36·r
+till skuggan, så de byts rakt av. En **handritad** kropp har det inte — `glasstornet`s låg på
+158 px, alltså 26 px längre ner, och origo måste flyttas lika mycket för att fötterna ska stå
+kvar på golvlinjen. Räkna den skillnaden, gissa den inte.
+
+⬜ Kvar: de övriga 15 spelen med `makeMascot`/`makeBobo`, och de fyra som fortfarande har egen
 mimik (`kittla-figuren` · `mata-monstret` · `peka-pa-kroppen` · `pruttbad`).
 
 ### A4. Delade libs som inte nått ut **[Quick]** per spel
@@ -702,7 +717,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ✅ v1.45–46.0 |
 | 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ✅ v1.56.0 *(solvern + 1 kund; `MeshRope` kvar)* |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 23 fysikspel | ✅ v1.52.0 |
-| 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(4 kunder, 19 kvar)* |
+| 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(8 kunder, 15 kvar)* |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ✅ v1.57.0 *(1 kund, 5 kvar)* |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |

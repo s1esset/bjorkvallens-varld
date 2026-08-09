@@ -14,6 +14,37 @@ Format:
 
 ---
 
+## 2026-08-09 · v1.64.0 · Karaktärsriggen, omgång 2 — fyra spel till (8 av 23)
+
+**Byggt:** `studsmatta` · `poppa-ballonger` · `glasstornet` · `klambubblor`. Omgången handlade
+mindre om att byta figur och mer om **vem som äger vilken egenskap** när riggen flyttar in i ett
+spel som redan animerar sin maskot:
+
+- **`view.scale` är alltid riggens andning.** Ett `pop()` på samma nod blir hackigt. Antingen
+  flyttas det till den yttre containern (`poppa-ballonger`, `glasstornet`) eller byts mot en
+  `react()` (`klambubblor`, `studsmatta`).
+- **`view.y` ägs av den som har den största gesten.** `klambubblor` har fyra hopp på 40 px och
+  behöll dem — därför `setMood('stolt')` i stället för `react('jubel')`, som hade tweenat samma
+  `y` samtidigt.
+- **`rotation` är fri.** Riggen rör den aldrig utom via `huvud`.
+
+**En placeringsregel värd att skriva ner:** `makeBobo` och riggen delar origo (huvudets centrum)
+och 2,36·r till skuggan, så de byts rakt av. En **handritad** kropp gör det inte —
+`glasstornet`s skugga låg på 158 px, alltså 26 px längre ner, och origo måste flyttas lika
+mycket för att fötterna ska stå kvar på golvlinjen.
+
+**Och en gång till: mät minen, titta inte bara.** `glasstornet`s Bobo såg vid första anblicken
+skeptisk ut i en 3×-uppzoomad skärmdump. Uppmätta brynlutningar: **−0,045 / +0,092** mot
+designens −0,040 / +0,100 för `hungrig` plus huvudets 0,03 lut. Asymmetrin ÄR huvudets lutning,
+inte en trasig spegling — och mitt första mätförsök var fel för att fönstret råkade innehålla
+pupillerna, vilket gav två parallella bryn som inte finns.
+
+**Commits:** `f527b93` studsmatta · `f96f8d9` poppa-ballonger · `a8e7f16` glasstornet ·
+`e056660` klambubblor
+
+**Öppet:** 15 spel kvar med `makeMascot`/`makeBobo` + fyra med egen mimik. `test:all` 72/72,
+`check` 0/0.
+
 ## 2026-08-09 · v1.63.0 · Utrullning av karaktärsriggen, omgång 1 (pilot om tre spel)
 
 **Byggt:** `lib/karaktarer.js` gick från 1 kund till 4. Piloten valdes så att de tre spelen

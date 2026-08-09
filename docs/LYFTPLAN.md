@@ -200,7 +200,7 @@ två spel till byter, och lägg ett partikeltak per spel. Två billiga knappar f
 `FluidView`: **`area`** (kör filtret bara över den yta vätskan kan nå — lavan blev 9× färre
 pixlar) och ett **delat filter per sida** i stället för ett per montering.
 
-### B2. Mjuka kroppar: noll **[Deep]**
+### B2. Mjuka kroppar: noll **[Deep]** — ✅ BYGGT 2026-08-09 (v1.57.0)
 
 `Composites.softBody` / partikelnät med avståndsvillkor finns i matter och används inte alls.
 
@@ -213,9 +213,41 @@ pixlar) och ett **delat filter per sida** i stället för ett per montering.
 | `hamburgerbygget` | brödet ska ge efter under stapeln |
 | `pruttbad` | bubblor som pressas ihop mot ytan innan de poppar |
 
-**Grepp:** `src/lib/mjukkropp.js` — ett litet partikelnät (verlet + avståndsvillkor) som kan
-ritas som ett fyllt polygondrag. Behöver inte vara matter-baserat; kravet är att det studsar,
-sjunker och återtar formen.
+✅ **`src/lib/mjukkropp.js` byggd.** En ring av punkter + en mittpunkt, hållna av
+avståndsvillkor (kant + ekrar) och ett **tryckvillkor**. `mjukhet(0..1)` · `fast/losa` ·
+`knuff(x, y, kraft, radie)` · `flytta` · `fyllnad()` · `path(g)` (sluten mjuk kurva) ·
+`steg(dtF)` · `destroy()`. Rena tal, ingen Pixi i solvern.
+
+**Tre saker mätningen tvingade fram — alla tre var osynliga i koden:**
+
+1. **Trycket måste verka längs KANTENS NORMALER, inte längs radien.** En radiell puff är
+   inget tryck utan en *formåterställare*: den drar polygonen mot en cirkel och håller emot
+   precis den tillplattning mjukheten ska ge. Uppmätt: en helt mjuk kropp blev **38,4 px bred
+   mot den hårdas 39,0** — alltså smalare, tvärtemot vad en varm marshmallow gör.
+2. **Både omkrets och area måste släppa.** En sluten kurva med fast omkrets OCH fast area är
+   i praktiken stel (isoperimetri). Med bara sänkt styvhet sjönk en "helt mjuk" kropp
+   **0,7 px** — mätbart, men osynligt, och det är synligheten som ÄR mekaniken. Nu tappar en
+   varm kropp också en del av sitt inre tryck. Uppmätt efter: ovansidan plattas **9 px**,
+   bredden växer **6 px**, massan lägger sig **8 px under pinnen**.
+3. **En spikad mittpunkt fick inte räknas om till tyngdpunkten.** `steg()` satte alltid mitten
+   till ringens centroid, vilket gjorde `fast(m.mitt, …)` till en tyst nullhandling — och en
+   pinne som går rakt IGENOM marshmallowen är just en fast mittpunkt.
+
+⚠️ **Sonden hade fel två gånger innan koden hade det.** Först mätte den en kropp som bara var
+spikad i toppen och underkände att den blev *högre* — men ett hängande mjukt föremål ska töjas
+ut; fallet var fel, inte fysiken. Sedan mätte den underkantens absoluta läge, vilket blandar
+ihop hoptryckningen (drar upp) med droppet (drar ner) och därför inte säger något om
+gravitationen alls. Det entydiga måttet är **var massan ligger i förhållande till pinnen**.
+
+**Första kund: `lagerelden`** — marshmallowen var en `roundRect` som bytte färg och växte 14 %.
+Nu sjunker sockret ihop runt pinnen medan det rostas. Färgtrappan och rostfläckarna är
+oförändrade; det enda som bytts är att formen kommer från fysiken. Korv, majs och äpple är
+fasta saker och ritas som förut.
+
+**Verktyg: `scripts/_mjukprobe.mjs`** (Node) — hård form hålls · varm kropp plattas/breder ut
+sig/massan sjunker · knuff syns direkt och studsar tillbaka · fästpunkt · förflyttning · exit.
+
+⬜ Kvar: `sapbubblor` · `glasstornet` · `mata-monstret` · `hamburgerbygget` · `pruttbad`.
 
 ### B3. Rep/kedja är omskrivet fyra gånger **[Medium]** — ✅ SOLVERN BYGGD 2026-08-09 (v1.56.0)
 
@@ -644,7 +676,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 8 | Material med ljud/partikel/spår | B4+B5 | 23 fysikspel | ✅ v1.52.0 |
 | 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(1 kund, 22 kvar)* |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
-| 11 | `lib/mjukkropp.js` | B2 | 6 spel | ⬜ |
+| 11 | `lib/mjukkropp.js` | B2 | 6 spel | ✅ v1.57.0 *(1 kund, 5 kvar)* |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |
 
 **Grind per rad:** `npm run check` grön · `npm run test:all` 72/72 med 0 konsolfel · skärmdump

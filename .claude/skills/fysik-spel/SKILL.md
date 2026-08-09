@@ -111,6 +111,29 @@ ritaRep(g.clear(), rep, { width: 12, color: 0x3a7d44 })
   sviten (se LYFTPLAN C2/C3). `ritaRep()` ritar i stället repet som ett MATERIAL med tre drag.
 - **Mät med `node scripts/_repprobe.mjs`.**
 
+## Mjuka kroppar (`src/lib/mjukkropp.js`)
+
+Saker som sjunker ihop, buktar och tar tillbaka sin form. En ring av punkter + en mittpunkt,
+hållna av avståndsvillkor OCH ett tryckvillkor.
+
+```js
+const m = new Mjukkropp({ w: 40, h: 52, punkter: 14, grav: 0.34 })
+m.fast(m.mitt, 0, 0)      // pinnen går IGENOM marshmallowen → fast mittpunkt
+m.mjukhet(rostning)       // 0 = fast, 1 = nästan rinnande
+m.steg(dtF)
+m.path(g.clear()).fill(col).stroke({ width: 3, color: edge })
+```
+
+- **Trycket verkar längs kantens NORMALER, inte längs radien.** En radiell puff är ingen
+  volym utan en formåterställare — den drar formen mot en cirkel och håller emot precis den
+  tillplattning mjukheten ska ge. Rör inte den detaljen.
+- **`mjukhet()` sänker BÅDE styvhet och tryck.** Fast omkrets + fast area = i praktiken en
+  stel kropp (isoperimetri); med bara sänkt styvhet sjönk en "helt mjuk" kropp 0,7 px.
+- **Mät med `node scripts/_mjukprobe.mjs`** — och mät rätt sak: underkantens absoluta läge
+  blandar ihop hoptryckning och dropp. Använd massans läge i förhållande till fästpunkten.
+- Första kund: `lagerelden`. Väntar: `sapbubblor` · `glasstornet` · `mata-monstret` ·
+  `hamburgerbygget` · `pruttbad`.
+
 ## Vätska (`src/lib/vatska.js`)
 
 Partikelvätska (double density relaxation, Clavet) + **metaboll-rendering**: varje partikel

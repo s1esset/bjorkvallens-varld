@@ -23,6 +23,7 @@ import { puff, sparkle, burst, pop, wiggle, breathe, floatText, bigCelebration }
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { Mjukkropp } from '../../lib/mjukkropp.js'
 
 // --- Layout (designkoordinater 1280×720) ---
 // Marken är HÖG (210px) så att bålet, veden, bälgen och Zacke står PÅ marken i stället
@@ -233,6 +234,13 @@ export default {
     this._marshGfx = new Graphics()
     this._marshGfx.eventMode = 'none'
     this._marsh.addChild(this._marshGfx)
+    // Kroppen lever i marshmallowens LOKALA rum (origo = pinnen), så behållarens
+    // position sköter världsläget och kroppen aldrig behöver flyttas.
+    this._soft = null
+    if (this._kind === 'marshmallow') {
+      this._soft = new Mjukkropp({ x: 0, y: 0, w: 40, h: 52, punkter: 14, grav: 0.34, damp: 0.9, iter: 6 })
+      this._soft.fast(this._soft.mitt, 0, 0) // pinnen håller mitten
+    }
     this._drawMarsh(0)
     this._marsh.position.set(MARSH_REST.x, MARSH_REST.y)
     this._marsh.hitArea = new Circle(0, 0, 64) // ≥96px träffyta
@@ -612,7 +620,17 @@ export default {
     this._onMarshMove = this._onMarshUp = null
   },
 
+  // Marshmallowen är en MJUK KROPP (lib/mjukkropp.js, LYFTPLAN rad 11), inte en
+  // roundRect som byter färg. Att sockret sjunker ihop när det blir varmt ÄR den
+  // här nivåns mekanik — barnet ska SE att den mjuknar, inte bara att den gulnar.
+  // Pinnen går rakt igenom, alltså är mittpunkten fast; värmen sätter mjukheten.
+  // Korv, majs och äpple är fasta saker och ritas som förut.
   _drawMarsh(toast) {
+    if (this._soft) {
+      this._lastMarshDraw = toast
+      drawMarshSoft(this._marshGfx, this._soft, toast)
+      return
+    }
     if (Math.abs(toast - this._lastMarshDraw) < 0.015 && this._lastMarshDraw >= 0) return
     this._lastMarshDraw = toast
     drawRoast(this._marshGfx, this._kind, toast)
@@ -813,6 +831,14 @@ export default {
     // Zacke är ingen staty: blicken följer maten och leendet växer mot klart.
     this._zackeReact(this._toast)
 
+    // Den mjuka kroppen lever varje bildruta, inte bara när _toast ändras — annars
+    // fryser sockret mitt i sin rörelse så fort barnet lyfter bort den från elden.
+    if (this._soft) {
+      this._soft.mjukhet(this._toast * 0.9)
+      this._soft.steg(clamp(ticker.deltaMS / (1000 / 60), 0.5, 2))
+      this._drawMarsh(this._toast)
+    }
+
     // Marshmallow-rostning: nära den (svajande) heta zonen + het eld = snabbare. _toast sjunker ALDRIG.
     if (!this._resolving) {
       const hotY = this._flameTopY + 20
@@ -988,6 +1014,8 @@ export default {
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
+    this._soft?.destroy()
+    this._soft = null
 
     this._goldenTimer?.kill?.()
     this._flyTimer?.kill?.()
@@ -1243,6 +1271,26 @@ function makeZacke() {
 // =================== Det som rostas (allt ritat) ===================
 
 // Ritar den valda maten i `g` vid rost-graden t (0 = rå, 1 = klar).
+// Marshmallowen ritad ur den mjuka kroppens egen kontur. Samma färgtrappa och
+// samma rostfläckar som den fasta versionen — det ENDA som ändrats är att formen
+// kommer från fysiken i stället för från en roundRect. Dagern och fläckarna sitter
+// kvar i lokala koordinater: de ska följa sockret, inte simma runt i det.
+function drawMarshSoft(g, soft, t) {
+  if (g.destroyed) return
+  const col = lerpColor(0xfff7e6, 0xe8a93c, t)
+  const edge = lerpColor(0xe8dcc0, 0xb9842b, t)
+  g.clear()
+  soft.path(g).fill(col).stroke({ width: 3, color: edge })
+  const c = soft.centrum
+  g.roundRect(c.x - 12, c.y - 20, 11, 22, 6).fill({ color: 0xffffff, alpha: 0.35 * (1 - t * 0.6) })
+  if (t > 0.5) {
+    const a = (t - 0.5) * 1.5
+    g.circle(c.x + 7, c.y - 8, 4.5).fill({ color: 0xc98a2e, alpha: a * 0.8 })
+    g.circle(c.x - 2, c.y + 12, 3.5).fill({ color: 0xc98a2e, alpha: a * 0.6 })
+    g.circle(c.x + 10, c.y + 8, 2.8).fill({ color: 0xb9752a, alpha: a * 0.5 })
+  }
+}
+
 function drawRoast(g, kind, t) {
   if (g.destroyed) return
   g.clear()

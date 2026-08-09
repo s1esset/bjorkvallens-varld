@@ -16,7 +16,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, sparkle, burst, floatText, shake, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
-import { makeBobo } from '../../lib/figurer.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // Himmel-band (molnens yta) — molnen klampas hit.
@@ -88,14 +88,15 @@ export default {
     this._meterLayer.interactiveChildren = false
     this._root.addChild(this._meterLayer)
 
-    // makeMascot ger BARA ett huvud — Bobo stod som ett svävande huvud i gräset.
-    // Kroppen ritas separat och läggs FÖRE huvudet så huvudet vilar på den.
-    this._bobo = new Container()
+    // Bobo som RIGG (lib/karaktarer.js). Yttre containern står kvar: spelets egna
+    // `pop()` går på den, medan riggens andning äger sin egen `view.scale`.
     // y=596 lade fötterna på 731 — utanför 720-skärmen. 556 sätter dem på 686.
+    this._bobo = new Container()
     this._bobo.position.set(112, 556)
     this._bobo.eventMode = 'none'
     this._bobo.interactiveChildren = false
-    this._bobo.addChild(makeBobo(54))
+    this._kar = makeKaraktar({ r: 54 })
+    this._bobo.addChild(this._kar.view)
     this._root.addChild(this._bobo)
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
@@ -511,6 +512,7 @@ export default {
   _recue(ctx) {
     if (!this._alive) return
     ctx.services.voice.say(this.voiceIntro)
+    this._kar?.react('hej') // han VINKAR nu, inte bara studsar bredvid en 👋
     if (this._bobo && !this._bobo.destroyed) pop(this._bobo)
     floatText(ctx.fxLayer, this._bobo.x + 24, this._bobo.y - 70, '👋', { fontSize: 44 })
     const top = [...this._clouds].filter((c) => !c.destroyed).sort((a, b) => b.charge - a.charge)[0]
@@ -693,6 +695,7 @@ export default {
     ctx.services.audio.sfx('pling')
     sparkle(ctx.fxLayer, a.x, a.y, { count: 6 })
     sparkle(ctx.fxLayer, b.x, b.y, { count: 6 })
+    this._kar?.react('nyfiken') // han tittar på molnen han just skickade ihop
     if (this._bobo && !this._bobo.destroyed) pop(this._bobo)
     floatText(ctx.fxLayer, this._bobo.x + 24, this._bobo.y - 70, '👉', { fontSize: 46 })
     ctx.services.voice.say('Titta, Bobo hjälper till!')
@@ -728,6 +731,7 @@ export default {
       })
     })
     ctx.services.voice.say('Hela byn lyser nu!')
+    this._kar?.react('jubel') // hela byn lyser — det här är kvällens stora ögonblick
 
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -848,6 +852,8 @@ export default {
     }
     for (const m of this._meterIcons) if (m && !m.destroyed) gsap.killTweensOf(m.scale)
     if (this._bobo && !this._bobo.destroyed) gsap.killTweensOf(this._bobo.scale)
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar = null
     if (this._rainbow && !this._rainbow.destroyed) gsap.killTweensOf(this._rainbow)
     if (this._bolt && !this._bolt.destroyed) this._bolt.clear()
     gsap.killTweensOf(this._root)

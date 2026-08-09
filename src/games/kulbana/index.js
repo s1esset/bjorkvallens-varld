@@ -1168,12 +1168,19 @@ export default {
 
       const spd = Math.hypot(this._ballBody.velocity.x, this._ballBody.velocity.y)
       // Trä (ramp/tratt/hinder): mjukt "klonk"; övrigt: neutralt pop. Throttlat.
+      // ANSLAGET HÖRS I KRAFTEN (LYFTPLAN B5): en kula som precis nuddar en ramp lät
+      // förut exakt som en som dundrar ner i den — samma 160 Hz, samma volym. Nu stiger
+      // både volym OCH tonhöjd med farten (örat läser tonhöjd som kraft; bara volym
+      // låter som samma träff på olika avstånd). Studsplattan ovan är en DESIGNAD
+      // händelse och behåller med flit sin fasta boing.
       if (spd > 2 && this._tnow - this._lastBounceAt > BOUNCE_THROTTLE) {
         this._lastBounceAt = this._tnow
+        const kraft = clamp((spd - 2) / 12, 0, 1)
         const wood = other.label === 'ramp' || other.label === 'funnel' || other.label === 'obstacle'
         if (wood && this._tnow - this._lastWoodAt > BOUNCE_THROTTLE) {
           this._lastWoodAt = this._tnow
-          ctx.services.audio.tone({ freq: 160, dur: 0.09, type: 'square', vol: 0.13, slideTo: 96 })
+          const f = 160 * (0.86 + 0.34 * kraft)
+          ctx.services.audio.tone({ freq: f, dur: 0.09 * (0.8 + 0.5 * kraft), type: 'square', vol: 0.08 + kraft * 0.11, slideTo: f * 0.6 })
         } else {
           ctx.services.audio.sfx('pop')
         }

@@ -142,3 +142,11 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
     kedja), [Quick] kul-svans + rull-damm, [Quick] riktiga SFX-klipp via pipelinen + ambient,
     [Quick] ta bort "SLÄPP"-texten (pil + puls räcker).
 - 2026-08-09 ✅ **Karaktärsrigg [Medium]** (v1.71.0): Bobo är en RIGG (`lib/karaktarer.js`), inte en stillbild — `kropp: false` — de blå byxorna och de utsträckta armarna är mottagarens roll och animeras av spelet. Blicken följer kulan hela vägen ner. `_clearCatcher` destroy():ar riggen eftersom mottagaren byggs om per bana (uppmätt: 10 ombyggnader → 0 gamla riggar lever, 0 aktiva tweens kvar). Yttre containern är spelets (läge, hopp, träffyta), riggen äger sin egen skala.
+- 2026-08-09 ✅ **Anslaget hörs i kraften** (v1.81.0, spår 3 runda P1, LYFTPLAN B5). Ytorna
+  lät redan olika (klocka · studsplatta · trä · neutralt), men **alltid lika hårt**: en kula
+  som precis nuddade en ramp gav samma 160 Hz och samma volym som en som dundrade ner i den.
+  Nu stiger både volym (0,08→0,19) och tonhöjd (0,86–1,20×) med farten. Studsplattan behåller
+  med flit sin fasta boing — den är en designad händelse, inte ett anslag.
+  **Kraftskalan är kalibrerad mot uppmätt fart, inte gissad:** kulans fart i rörelse spänner
+  3 → 14,6 px/steg (median 7,4 · p90 13,5), och `(fart − 2) / 12` ger då 0,08 vid den
+  långsammaste kontakten, 0,45 vid medianen och 0,96 vid p90 — hela spannet används.

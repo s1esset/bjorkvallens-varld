@@ -448,6 +448,23 @@ på högen och rapporterade "1 ton på 3 s" — grönt mot taket, och helt menin
 simuleras på ~40 ms verklig tid, så väggklocke-spärren släppte igenom exakt en ton oavsett vad
 som hände. Taket mäts nu via `onImpact` (bildruteräkning), och sonden säger i klartext varför.
 
+### Runda P1 efter mätning: ljudhalvan var redan byggd, mekanikhalvan är kvar
+
+Spår 3:s runda P1 skrevs ur en **räkning** (hur många spel som anropar `impactAudio`), inte ur
+en läsning. Räkningen stämde — 21 av 23 anropar den inte — men slutsatsen ("anslagen är stumma
+eller platta") höll bara i ett av fyra fall. Uppmätt spel för spel 2026-08-09:
+
+| spel | planens P1-punkt | verkligt läge efter läsning |
+|---|---|---|
+| `knuffa-tornet` | MATERIAL-klossar + `impactAudio` | Klosstyperna med skild fysik fanns REDAN. Det som saknades var **rösten** → byggt (v1.80.0). |
+| `kulbana` | ytmaterial + `impactAudio` | Ytorna lät redan olika, men **alltid lika hårt** → kraftskala byggd (v1.81.0). Fjäderbrädan (`mjukkropp`) kvar. |
+| `studsa-ner` | per-pinne MATERIAL (studs + röst) + fläkt | **Rösten ska INTE byggas**: pinnarna spelar en stigande skala (523→1175 Hz) som är spelets musikaliska signatur. Studs-variation ökar dessutom slumpen i ett spel vars poäng är att sikta. Kvar: **fläkten** (agens). |
+| `glasstornet` | `mjukkropp`-wobble på kopan | Kvar. Sömmen finns: `_scoopPath(g, r, cx, cy)` ritar varje lager, så en mjuk kropp kan ta över silhuetten utan att röra matter-kroppen som bär stapeln. |
+
+**Slutsatsen att ta med sig:** det som återstår i P1 är **mekaniken** (wobble · fläkt ·
+fjäderbräda), inte ljudet. En adoptionsräkning säger vad ett spel INTE importerar — aldrig vad
+det redan gör med egen kod.
+
 ⚠️ **Utrullningen är INTE en mekanisk våg — läs varje spel först** (2026-08-09). 21 av 23
 fysikspel saknar `impactAudio`, och det såg ut som en enradare per spel. Men fem av
 kandidaterna (`vippbradan` · `mata-monstret` · `studsbollar` · `kulbana` · `flipperspel`)

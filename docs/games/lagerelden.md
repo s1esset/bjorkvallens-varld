@@ -178,3 +178,16 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
   startar på nära vitt, så elden blev en vit klump i BÅDA stämningarna (`.test-shots/
   _niva-lagerelden-{0,3}.png` via nya `scripts/_nivabild.mjs`). Djupet i den här lågan bärs av
   alfan, inte av ljusstyrkan. `npm run test` var grönt hela tiden — bara bilden visade det.
+- 2026-08-09 ✅ **Värmen blev ett eget begrepp** (v1.79.0, spår 3 runda P0, `lib/varme.js`).
+  `_toast` gjorde tre jobb samtidigt — färg, mjukhet och mål — och därför var sockret lika
+  slappt uppe i luften som nere i lågan. Nu bär maten TVÅ tal: `temp` (hur varm den är just
+  nu) och `grad` (hur gyllene den hunnit bli). Mjukheten följer temperaturen, målet följer
+  gradningen. Uppmätt (`node scripts/_rostprobe.mjs`): i lågan går styvheten **1,000 → 0,175**
+  och temperaturen till 0,996; lyft ur elden i 3 s faller temperaturen till 0,005 och sockret
+  **stelnar igen (styvhet 0,995)** — före bytet frös den på ~0,21 för alltid — medan
+  gradningen står kvar på 0,58. Balansen är orörd: gradningen räknas fortfarande på
+  NÄRHETEN, bit för bit identiskt med den gamla formeln (`_varmeprobe`, avvikelse 0,0).
+  ⚠️ Marshmallowen **vrider sig långsamt runt pinnen** medan man drar (höjd ner, bredd upp,
+  `fyllnad()` kvar på 1,00). Det finns likadant på HEAD och är alltså inte det här bytet —
+  men mät aldrig hoptryckningen med en bounding box här, sondens första version blev röd
+  på just den vridningen.

@@ -506,6 +506,49 @@ fångsttider · exit. Spelsonden `_magnetprobe.mjs` (webbläsare) står kvar och
 ⬜ Kvar: **poler** (samma pol stöter bort, motsatt drar) väntar på sin kund i runda P3, där
 `magnet-fiske` självt ska få dem. En polaritet utan ett spel som visar den är dekoration.
 
+### B6c. Värme fanns inte som begrepp **[Medium]** — ✅ BYGGD 2026-08-09 (v1.79.0)
+
+Noll representation i hela appen. `lagerelden` räknade EN skalär (`_toast`) som fick göra
+tre jobb: färgen, mjukheten och målet.
+
+✅ **`src/lib/varme.js` byggd.** `class Varmefalt`: `kalla(namn, {x, y, radie, styrka})` (källor
+sätts om varje bildruta — en eld som svajar i vinden är samma källa på en ny plats) ·
+`lagg/flytta/ta/nollstall` · `steg(dtF)` · `temp(namn)` · `grad(namn)` · `narhet(namn)`.
+
+**TVÅ TAL, INTE ETT — det är hela modulen:**
+
+| | |
+|---|---|
+| `temp` | hur varmt föremålet är NU. Stiger mot fältet, faller mot omgivningen. Driver utseende och känsla. |
+| `grad` | hur färdigt det hunnit bli. **SJUNKER ALDRIG.** Driver målet. |
+
+Att låta `temp` styra målet vore ett P0-brott: barnet som lyfter upp maten för att titta
+skulle se sitt arbete rinna tillbaka. Att låta `grad` styra utseendet är felet som fanns.
+
+**Gradningen räknas på NÄRHETEN, inte på temperaturen.** Det ser bakvänt ut, men en
+uppvärmningskurva mellan fältet och gradningen hade tyst gjort varje redan trimmat spel
+långsammare. Uppmätt: gradningen är **bit för bit identisk** (avvikelse 0,0e+0 över 900 steg
+med varierande bildrutetid) med lagereldens gamla formel.
+
+**Första kund: `lagerelden`.** Mjukheten (`mjukkropp.mjukhet()`) hänger nu på temperaturen.
+Uppmätt i spelet (`_rostprobe.mjs`): styvhet **1,000 → 0,175** i lågan, och **tillbaka till
+0,995** efter 3 s ur elden — före bytet frös den på ~0,21 för alltid — medan gradningen står
+kvar på 0,58.
+
+⚠️ **Mät inte hoptryckningen med en bounding box.** Marshmallowen sitter på en pinne genom
+mitten och **vrider sig** långsamt runt den medan man drar: höjden faller och bredden växer
+lika mycket medan `fyllnad()` står kvar på 1,00. Sondens första version läste vridningen som
+"stelnar inte" och blev röd på kod som gjorde precis rätt. Kontrollmätning på HEAD visade
+samma vridning — den är inte införd av bytet.
+
+**Verktyg:** `scripts/_varmeprobe.mjs` (Node — portekvivalens · P0-garantin · bildrutefritt
+svalnande med halveringstid · flera eldar · exit) och `scripts/_rostprobe.mjs` (webbläsare —
+mäter värmen i det riktiga spelet).
+
+⬜ Kvar: `trollblandning` (kok-bubblor ur `Emitter`, runda P3) · `pizzabageriet` · koppling
+till `vatska` (kokning). `farg`-ramp byggs först när ett spel behöver en som inte redan
+har sin egen färgtrappa — `lagerelden`s `drawRoast` har det.
+
 ### B7. `kugghjulen` är ren geometri **[Deep]**
 
 Rotationskopplingen är BFS över mittavstånd, inga kroppar. Ett riktigt kuggverk med last och

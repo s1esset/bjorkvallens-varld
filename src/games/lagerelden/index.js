@@ -25,6 +25,7 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
+import { Varmefalt } from '../../lib/varme.js'
 
 // --- Layout (designkoordinater 1280×720) ---
 // Marken är HÖG (210px) så att bålet, veden, bälgen och Zacke står PÅ marken i stället
@@ -73,6 +74,10 @@ export default {
     this._air = 0
     this._toast = 0
     this._heat = BASE_HEAT
+    // Varmen bor i lib/varme.js: elden ar kallan, maten bar tva tal - `temp` (hur varm
+    // den ar NU, driver mjukheten) och `grad` (hur gyllene den hunnit bli, sjunker aldrig).
+    this._varme = new Varmefalt({ uppvarmning: 3, avsvalning: 1.6 })
+    this._varme.lagg('mat')
     this._airLean = 0
     this._boost = 0
     this._idle = 0
@@ -900,8 +905,10 @@ export default {
 
     // Den mjuka kroppen lever varje bildruta, inte bara när _toast ändras — annars
     // fryser sockret mitt i sin rörelse så fort barnet lyfter bort den från elden.
+    // MJUKHETEN FÖLJER TEMPERATUREN, inte gradningen: ett socker som lyfts ur elden
+    // svalnar och stelnar igen, medan det gyllene det HUNNIT bli står kvar (lib/varme.js).
     if (this._soft) {
-      this._soft.mjukhet(this._toast * 0.9)
+      this._soft.mjukhet(this._varme.temp('mat') * 0.9)
       this._soft.steg(clamp(ticker.deltaMS / (1000 / 60), 0.5, 2))
       this._drawMarsh(this._toast)
     }
@@ -909,10 +916,13 @@ export default {
     // Marshmallow-rostning: nära den (svajande) heta zonen + het eld = snabbare. _toast sjunker ALDRIG.
     if (!this._resolving) {
       const hotY = this._flameTopY + 20
+      // Elden ÄR värmekällan: den svajar i vinden och blir starkare av ved och luft.
+      this._varme.kalla('eld', { x: this._hotX, y: hotY, radie: this._hotR, styrka: 0.1 + heat * 0.18 })
+      this._varme.flytta('mat', this._marsh.x, this._marsh.y)
+      this._varme.steg(dt)
+      this._toast = this._varme.grad('mat')
       const dist = Math.hypot(this._marsh.x - this._hotX, this._marsh.y - hotY)
       if (dist < this._hotR) {
-        const proximity = 1 - dist / this._hotR
-        this._toast = Math.min(1, this._toast + (0.1 + heat * 0.18) * proximity * (dt / 60))
         this._drawMarsh(this._toast)
         this._roastMs += ticker.deltaMS
         this._idle = 0
@@ -981,6 +991,7 @@ export default {
         } else {
           // Ny vit marshmallow att rosta för nästa plats.
           this._toast = 0
+          this._varme.nollstall('mat')
           this._lastMarshDraw = -1
           this._drawMarsh(0)
           this._saidHalf = false
@@ -1056,6 +1067,7 @@ export default {
 
     // Nollställ rosten — en ny, vit marshmallow. Inga sjunkande värden, ingen poäng.
     this._toast = 0
+    this._varme.nollstall('mat')
     this._lastMarshDraw = -1
     this._drawMarsh(0)
     this._fuel = BASE_FUEL + 1.2
@@ -1088,6 +1100,7 @@ export default {
     ctx?.ticker?.remove(this._tick)
     this._soft?.destroy()
     this._soft = null
+    this._varme?.destroy()
 
     this._goldenTimer?.kill?.()
     this._flyTimer?.kill?.()

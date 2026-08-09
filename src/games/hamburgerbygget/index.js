@@ -21,6 +21,7 @@ import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedb
 import { makeMascot } from '../../lib/mascot.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { ITEMS, makeItemView } from './ingredienser.js'
 
 const BUILD = { x: 880, y: 596 } // _burger-origo: fatets yta (underbullens botten) — HÖGER
@@ -205,12 +206,15 @@ export default {
     const W = ctx.width
     const H = ctx.height
 
-    // Kaklad vägg med förskjutna rader.
-    const wall = new Graphics().rect(0, 0, W, COUNTER_Y).fill(0xf6dcc0)
-    for (let row = 0; row * 64 < COUNTER_Y; row++) {
+    // Kaklad vägg med förskjutna rader. Väggen ritas med bleed (±BLEED_X i sidled,
+    // BLEED_Y uppåt) så breda telefoner aldrig visar creme-lister — kakelraderna
+    // fortsätter i bleed-zonen med samma rutnät (start flyttad hela 64-steg, så
+    // 16:9-bilden är pixel för pixel densamma).
+    const wall = new Graphics().rect(-BLEED_X, -BLEED_Y, W + 2 * BLEED_X, COUNTER_Y + BLEED_Y).fill(0xf6dcc0)
+    for (let row = -3; row * 64 < COUNTER_Y; row++) {
       const y = row * 64
       const off = row % 2 ? -32 : 0
-      for (let x = off; x < W; x += 64) wall.roundRect(x + 4, y + 4, 56, 56, 11).fill({ color: 0xfdefdb, alpha: 0.9 })
+      for (let x = off - 256; x < W + 256; x += 64) wall.roundRect(x + 4, y + 4, 56, 56, 11).fill({ color: 0xfdefdb, alpha: 0.9 })
     }
     c.addChild(wall)
 
@@ -228,12 +232,13 @@ export default {
     hood.circle(GRILL.x, 250, 26).fill({ color: 0xffd98a, alpha: 0.16 })
     c.addChild(hood)
 
-    // Bänkskiva (stål) med mörkare framkant + golv.
+    // Bänkskiva (stål) med mörkare framkant + golv — breddade ±BLEED_X, golvet
+    // dessutom BLEED_Y nedåt (4:3-plattor visar under 720).
     c.addChild(new Graphics()
-      .rect(0, COUNTER_Y, W, 92).fill(0xc9a882)
-      .rect(0, COUNTER_Y, W, 13).fill(0xe3c8a4)
-      .rect(0, COUNTER_Y + 78, W, 14).fill(0xa8875f))
-    c.addChild(new Graphics().rect(0, COUNTER_Y + 92, W, H - COUNTER_Y - 92).fill(0xb08a63))
+      .rect(-BLEED_X, COUNTER_Y, W + 2 * BLEED_X, 92).fill(0xc9a882)
+      .rect(-BLEED_X, COUNTER_Y, W + 2 * BLEED_X, 13).fill(0xe3c8a4)
+      .rect(-BLEED_X, COUNTER_Y + 78, W + 2 * BLEED_X, 14).fill(0xa8875f))
+    c.addChild(new Graphics().rect(-BLEED_X, COUNTER_Y + 92, W + 2 * BLEED_X, H - COUNTER_Y - 92 + BLEED_Y).fill(0xb08a63))
 
     // Såsflaskor (ketchup + senap) mellan knappkolumnen och bygget.
     const bottles = new Graphics()

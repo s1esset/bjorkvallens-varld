@@ -363,7 +363,7 @@ export default {
     if (!this._alive) return
     const dt = ticker.deltaMS / 1000
     this._t += dt
-    this._animateDecor(dt)
+    this._animateDecor(ctx, dt)
     this._phys.update(ticker.deltaMS)
 
     if (this._mode === 'flying' || this._mode === 'gliding') {
@@ -378,7 +378,9 @@ export default {
       if (this._won) return
       const b = this._heroBody
       if (this._mode === 'flying' && b) {
-        if (b.position.y > 860 || b.position.x < -120 || b.position.x > 1400) {
+        // Hämta hem hjälten först UTANFÖR den synliga ytan (ctx.view, läses vid
+        // användning) — kanterna 0..1280 syns mitt i bilden på breda telefoner.
+        if (b.position.y > ctx.view.bottom + 140 || b.position.x < ctx.view.left - 160 || b.position.x > ctx.view.right + 160) {
           this._returnHero(ctx)
           return
         }
@@ -1040,7 +1042,7 @@ export default {
     }
   },
 
-  _animateDecor(dt) {
+  _animateDecor(ctx, dt) {
     // Stjärnor guppar mjukt.
     for (const t of this._targets) {
       if (t.collected || !t.view || t.view.destroyed) continue
@@ -1060,8 +1062,9 @@ export default {
       c.g.visible = true
       c.g.scale.x = this._windDir
       c.g.x += this._windDir * c.speed * dt
-      if (this._windDir > 0 && c.g.x > 1340) c.g.x = -60
-      else if (this._windDir < 0 && c.g.x < -60) c.g.x = 1340
+      // Wrappa mot synliga ytan (ctx.view) — wrap vid 1340/-60 gav synliga hopp på telefon.
+      if (this._windDir > 0 && c.g.x > ctx.view.right + 60) c.g.x = ctx.view.left - 60
+      else if (this._windDir < 0 && c.g.x < ctx.view.left - 60) c.g.x = ctx.view.right + 60
     }
   },
 

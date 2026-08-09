@@ -61,6 +61,11 @@ export default {
     this._idle = 0
     this._balls = [] // fria nedsläppta bollar { body, view }
     this._shot = null // aktuellt skott { body, view }
+    // Bollar som är på väg NER I KORGEN. De har redan lämnat _balls/_shot, så
+    // destroy hittade dem inte — och en 0,2 s lång inflygning som fortsätter efter
+    // att spelet rivits skriver till en förstörd Container ("Cannot set properties
+    // of null (setting 'y')"). Uppmätt: 25 pageerrors i exit-cykeln.
+    this._malflykt = new Set()
     this._flying = false
     this._ready = false
     this._flightTime = 0
@@ -628,6 +633,7 @@ export default {
     if (view && !view.destroyed) {
       gsap.killTweensOf(view)
       gsap.killTweensOf(view.scale)
+      this._malflykt.add(view)
       gsap.to(view, { x: bx, y: by + 24, duration: 0.2, ease: 'power2.in' })
       gsap.to(view.scale, {
         x: 0.2,
@@ -635,6 +641,7 @@ export default {
         duration: 0.34,
         ease: 'power2.in',
         onComplete: () => {
+          this._malflykt.delete(view)
           if (!view.destroyed) view.destroy()
         },
       })
@@ -849,6 +856,12 @@ export default {
       }
     })
     this._balls = []
+    // Bollar mitt i inflygningen mot korgen — de ligger varken i _balls eller _shot.
+    for (const v of this._malflykt || []) {
+      gsap.killTweensOf(v)
+      gsap.killTweensOf(v.scale)
+    }
+    this._malflykt?.clear()
     if (this._shot?.view && !this._shot.view.destroyed) {
       gsap.killTweensOf(this._shot.view)
       gsap.killTweensOf(this._shot.view.scale)

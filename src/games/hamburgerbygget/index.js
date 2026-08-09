@@ -18,7 +18,7 @@ import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
 import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText, liv } from '../../lib/feedback.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
@@ -145,6 +145,7 @@ export default {
     // Grillmästaren Bobo (kropp, förkläde, kockmössa) — tar emot burgaren och mumsar.
     this._customer = this._buildBobo()
     this._root.addChild(this._customer)
+    this._rig?.setMood('hungrig', { direkt: true }) // han väntar på sin burgare
 
     // Bobos önskelista: pratbubbla med 1–2 ritade ingredienser han vill ha. Frivillig.
     this._orderBubble = new Container()
@@ -306,8 +307,11 @@ export default {
     body.roundRect(-34, 54, 68, 11, 6).fill(COLORS.orange)
     c.addChild(body)
 
-    // Huvudet (maskoten) + kockmössa.
-    c.addChild(makeMascot(46))
+    // Huvudet är en RIGG (lib/karaktarer.js) med `kropp: false` — förklädet och
+    // hängslena ÄR grillmästarens roll och ritas kvar av spelet. `c` är den yttre
+    // containern (spelet äger läget), riggen äger sin egen skala.
+    this._rig = makeKaraktar({ r: 46, kropp: false })
+    c.addChild(this._rig.view)
     const hat = new Graphics()
     hat.roundRect(-35, -64, 70, 23, 9).fill(0xfffdf7).stroke({ width: 3, color: 0xe2d4b8 })
     hat.circle(-25, -80, 21).fill(0xfffdf7)
@@ -838,6 +842,13 @@ export default {
     this._bob += dt
     if (this._customer && !this._customer.destroyed) {
       this._customer.y = BOBO.y + Math.sin(this._bob * 1.7) * 4
+      // Blicken följer det barnet håller i, annars bygget. `toLocal` räknar bort
+      // grillmästarens eget läge, så `look` får punkten i sin förälders rymd.
+      const mal = this._grab?.ghost && !this._grab.ghost.destroyed ? this._grab.ghost : this._burger
+      if (this._rig && mal && !mal.destroyed) {
+        const p = this._customer.toLocal(mal.getGlobalPosition())
+        this._rig.look(p.x, p.y)
+      }
     }
     if (this._orderBubble && !this._orderBubble.destroyed) {
       this._orderBubble.y = ORDER.y + Math.sin(this._bob * 1.7 + 0.7) * 3
@@ -969,6 +980,10 @@ export default {
       onComplete: () => {
         if (!item.destroyed) item.destroy()
         if (this._alive && c && !c.destroyed) {
+          // Han tuggar i sig den ('nam'), och blir extra stolt om det var precis
+          // det han önskade sig. Skalpulsen ligger på den YTTRE containern `c`.
+          this._rig?.react('nam')
+          if (filled) this._rig?.setMood('stolt')
           pop(c, { scale: 1.2 })
           puff(ctx.fxLayer, c.x, c.y - 10, { count: 8 })
           floatText(ctx.fxLayer, c.x, c.y - 92, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 42 })
@@ -1052,6 +1067,8 @@ export default {
     this._autoOff?.kill()
     this._resetTimer?.kill()
     this._serveTween?.kill()
+    this._rig?.destroy()
+    this._rig = null
     if (this._customer && !this._customer.destroyed) {
       gsap.killTweensOf(this._customer)
       gsap.killTweensOf(this._customer.scale)

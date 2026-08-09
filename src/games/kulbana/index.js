@@ -16,7 +16,7 @@ import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { makeMascot } from '../../lib/mascot.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, bigCelebration, floatText, shake , kvittera} from '../../lib/feedback.js'
 import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -476,7 +476,10 @@ export default {
     armR.circle(0, 27, 7).fill(COLORS.cream)
     armR.position.set(22, -14)
     armR.rotation = -0.5
-    const head = makeMascot(26)
+    // Huvudet är en RIGG (lib/karaktarer.js) med `kropp: false`: blå byxor och de
+    // utsträckta armarna ÄR mottagarens roll och animeras av spelet nedan.
+    this._rig = makeKaraktar({ r: 26, kropp: false })
+    const head = this._rig.view
     head.position.set(0, -44)
     // Armarna ritas EFTER bålen — annars täcker bålen dem och Bobo ser armlös ut.
     c.addChild(legs, torso, armL, armR, head)
@@ -491,6 +494,10 @@ export default {
   _catcherCheer(big) {
     const c = this._catcher
     if (!c || c.destroyed) return
+    // Spelets eget hopp är 26 px — större än riggens `jubel` (0,5·r = 13) — så SPELET
+    // äger y och riggen bidrar med minen: stolt vid mål, 'heja' vid en klocka på vägen.
+    if (big) this._rig?.setMood('stolt')
+    else this._rig?.react('heja')
     const y0 = c.y
     gsap.killTweensOf(c.position)
     gsap.to(c.position, { y: y0 - (big ? 26 : 12), duration: 0.16, yoyo: true, repeat: big ? 3 : 1, ease: 'power2.out' })
@@ -503,6 +510,10 @@ export default {
   },
 
   _clearCatcher() {
+    // Mottagaren byggs om per bana. En rigg som bara plockas ur trädet tar sina
+    // GSAP-tweens med sig och lever vidare — den måste destroy():as här.
+    this._rig?.destroy()
+    this._rig = null
     this._catcherIdle?.kill()
     this._catcherIdle = null
     for (const arm of this._catcherArms || []) if (arm && !arm.destroyed) gsap.killTweensOf(arm)
@@ -868,6 +879,12 @@ export default {
       this._ballShadow.position.set(this._ball.x, this._ball.y)
     }
 
+    // Mottagaren följer kulan med blicken hela vägen ner.
+    if (this._rig && this._catcher && !this._catcher.destroyed && this._ball && !this._ball.destroyed) {
+      const p = this._catcher.toLocal(this._ball.getGlobalPosition())
+      this._rig.look(p.x, p.y) // look() drar självt bort riggens egen position (0, -44)
+    }
+
     if (this._falling && !this._resolving && !this._gliding) {
       const b = this._ballBody
       // Målet lyser starkare ju närmare kulan är → tydlig "nästan!"-känsla (no-fail).
@@ -1216,6 +1233,8 @@ export default {
     this._bucketGlowTween?.kill()
     this._selPulse?.kill()
     this._catcherIdle?.kill()
+    this._rig?.destroy()
+    this._rig = null
 
     // Mottagaren tweenas på position/scale/armar — allt måste dö med omgången.
     if (this._catcher && !this._catcher.destroyed) {

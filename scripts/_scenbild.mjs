@@ -56,6 +56,12 @@ try {
       const s = createScene(tema, tid ? { tid } : {})
       s.scale.set(cw / 1280, ch / 720)
       s.position.set((i % cols) * cw, Math.floor(i / cols) * ch)
+      // Scener ritar numera full bleed (±240/±160 px utanför designytan, lib/view.js) —
+      // utan mask målar varje ruta in i grannens. Masken är barn till scenen och
+      // klipper i designkoordinater.
+      const m = blank().rect(0, 0, 1280, 720).fill(0xffffff)
+      s.addChild(m)
+      s.mask = m
       s.__scen = true
       layer.addChild(s)
     })

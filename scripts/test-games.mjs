@@ -23,7 +23,13 @@ const arg = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] :
 
 const url = arg('--url', 'http://localhost:5173')
 const jobs = Math.max(1, Number(arg('--jobs', 4)))
-const shotDir = join(ROOT, '.test-shots')
+// --viewport WxH skickas vidare till test-game.mjs (t.ex. 952x428 för att svepa efter
+// kant-cream, dvs. bakgrunder som inte når skärmkanten). Breda skärmdumpar hamnar i en
+// egen katalog så 1280×720-bilderna och deras baslinje aldrig skrivs över.
+const viewport = arg('--viewport', null)
+const shotDir = viewport && viewport !== '1280x720'
+  ? join(ROOT, '.test-shots', `vp-${viewport}`)
+  : join(ROOT, '.test-shots')
 const gamesDir = join(ROOT, 'src/games')
 
 const allGames = () => readdirSync(gamesDir)
@@ -31,7 +37,7 @@ const allGames = () => readdirSync(gamesDir)
   .filter((f) => existsSync(join(gamesDir, f, 'index.js')))
   .sort()
 
-const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--url', '--jobs'].includes(argv[i - 1])))
+const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--url', '--jobs', '--viewport'].includes(argv[i - 1])))
 // npm run kan kasta om flaggor så ett flagg-värde hamnar bland spel-id:na. Ett okänt id
 // ska ge ett tydligt meddelande, inte en ENOENT-stacktrace mitt i körningen.
 const known = new Set(allGames())
@@ -65,6 +71,7 @@ if (flag('--spara-baslinje')) mkdirSync(baselineDir, { recursive: true })
 const runOne = (id) => new Promise((done) => {
   const input = inputOf(id)
   const args = ['scripts/test-game.mjs', id, '--url', url, '--shot', join(shotDir, `${id}.png`)]
+  if (viewport) args.push('--viewport', viewport)
   if (input === 'drag' || input === 'mixed') args.push('--drag', GENERIC_DRAGS)
   if (useBaseline) args.push('--baslinje', join(baselineDir, `${id}.png`))
   const t0 = Date.now()

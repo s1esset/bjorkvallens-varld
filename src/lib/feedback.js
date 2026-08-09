@@ -4,6 +4,7 @@ import { Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PLAYFUL, FONT } from './theme.js'
 import { spray, rain } from './partiklar.js'
+import { VIEW } from './view.js'
 
 // Partikeleffekterna nedan (puff/burst/sparkle/bigCelebration) kör i första hand via
 // lib/partiklar.js: ETT ParticleContainer per lager och EN tween per svärm, i stället
@@ -147,7 +148,8 @@ export function puff(layer, x, y, { count = 8, color } = {}) {
   }
 }
 
-// Stor men kort hyllning: konfetti regnar över skärmen.
+// Stor men kort hyllning: konfetti regnar över skärmen. "Skärmen" är det som faktiskt
+// syns (VIEW) — på en bred telefon bredare än designytan; vid 16:9 exakt som förut.
 export function bigCelebration(layer, { width = 1280, height = 720 } = {}) {
   const N = 60
   if (rain(layer, { width, height, count: N })) return
@@ -156,8 +158,8 @@ export function bigCelebration(layer, { width = 1280, height = 720 } = {}) {
     const c = new Graphics()
     if (Math.random() < 0.5) c.rect(-size / 2, -size / 2, size, size).fill(PLAYFUL[(Math.random() * PLAYFUL.length) | 0])
     else c.circle(0, 0, size / 2).fill(PLAYFUL[(Math.random() * PLAYFUL.length) | 0])
-    const x0 = Math.random() * width
-    const y0 = -20 - Math.random() * height * 0.5
+    const x0 = VIEW.left + Math.random() * VIEW.width
+    const y0 = VIEW.top - 20 - Math.random() * height * 0.5
     const rot0 = Math.random() * Math.PI
     c.x = x0
     c.y = y0
@@ -168,7 +170,7 @@ export function bigCelebration(layer, { width = 1280, height = 720 } = {}) {
     const st = { x: x0, y: y0, r: rot0 }
     const tw = gsap.to(st, {
       x: x0 + (Math.random() * 160 - 80),
-      y: height + 40,
+      y: VIEW.bottom + 40,
       r: rot0 + (Math.random() * 6 - 3),
       duration: 1.6 + Math.random() * 1.2,
       delay: Math.random() * 0.4,

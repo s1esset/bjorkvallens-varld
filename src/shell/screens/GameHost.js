@@ -65,6 +65,10 @@ export async function createGameHost(services, params) {
     ticker: services.app.ticker,
     width: DESIGN_W,
     height: DESIGN_H,
+    // Synlig designyta (lib/view.js): levande objekt som muteras vid resize. Läs vid
+    // användning (spawn/wrap/cull-marginaler), cachea inte fälten, mutera aldrig.
+    // Vid 16:9 är view identiskt med 0,0..1280,720.
+    view: services.scaler.view,
     services,
     progress,
     exitToLibrary,

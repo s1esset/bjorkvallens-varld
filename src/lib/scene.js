@@ -8,6 +8,7 @@ import { gsap } from 'gsap'
 import { DESIGN_W, DESIGN_H } from './theme.js'
 import { sphereFill } from './form.js'
 import { DJUP, taggaLager, lagerBredd } from './kamera.js'
+import { VIEW, BLEED_X, BLEED_Y, onViewChange } from './view.js'
 
 // Molnens fyllning delas mellan alla moln i hela appen (samma vita klot-gradient, byggd en
 // gång) i stället för en ny FillGradient per moln — se lib/form.js.
@@ -98,10 +99,16 @@ export function createScene(theme = 'sky', opts = {}) {
     vinjett: mk(DJUP.himmel),
   }
 
-  // Himmel (lodrät gradient).
+  // Himmel (lodrät gradient). Gradienten breddas bara i sidled (samma lodräta mappning
+  // som förut — bbox-höjden är oförändrad), och bleed uppåt/nedåt är HELFÄRGADE remsor i
+  // en EGEN Graphics: hade remsorna legat i samma form hade den lokala gradient-bboxen
+  // vuxit på höjden och färgerna flyttat sig i den synliga bilden.
   const sky = new Graphics()
   paintVGradient(sky, L.himmel.w, height, t.top, t.bottom)
-  L.himmel.c.addChild(sky)
+  const skyBleed = new Graphics()
+  skyBleed.rect(-BLEED_X, -BLEED_Y, L.himmel.w + 2 * BLEED_X, BLEED_Y).fill(t.top)
+  skyBleed.rect(-BLEED_X, height, L.himmel.w + 2 * BLEED_X, BLEED_Y).fill(t.bottom)
+  L.himmel.c.addChild(skyBleed, sky)
 
   // Sol (mjuk halo + skiva) uppe till vänster/höger.
   if (t.sun) {
@@ -114,12 +121,15 @@ export function createScene(theme = 'sky', opts = {}) {
     L.sol.c.addChild(sun)
   }
 
-  // Stjärnor (nattema): små tindrande prickar.
+  // Stjärnor (nattema): små tindrande prickar. Spawnar över hela bleed-bredden (lägena
+  // är redan Math.random, så det finns ingen baslinje att rubba) och antalet skalas med
+  // ytan så tätheten är densamma på en bred skärm.
   if (t.stars) {
-    for (let i = 0; i < t.stars; i++) {
+    const sw = L.stjarnor.w + 2 * BLEED_X
+    for (let i = 0; i < Math.round(t.stars * (sw / width)); i++) {
       const r = 1.5 + Math.random() * 2.5
       const s = new Graphics().circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.85 })
-      s.position.set(Math.random() * L.stjarnor.w, Math.random() * height * 0.7)
+      s.position.set(-BLEED_X + Math.random() * sw, -BLEED_Y + Math.random() * (height * 0.7 + BLEED_Y))
       L.stjarnor.c.addChild(s)
       twinkle(s, 1.2 + Math.random() * 2)
     }
@@ -127,10 +137,11 @@ export function createScene(theme = 'sky', opts = {}) {
 
   // Bokeh: mjuka genomskinliga cirklar för djup.
   if (t.bokeh) {
-    for (let i = 0; i < t.bokeh; i++) {
+    const bw = L.stjarnor.w + 2 * BLEED_X
+    for (let i = 0; i < Math.round(t.bokeh * (bw / width)); i++) {
       const r = 40 + Math.random() * 110
       const b = new Graphics().circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.08 + Math.random() * 0.08 })
-      b.position.set(Math.random() * L.stjarnor.w, Math.random() * height * 0.85)
+      b.position.set(-BLEED_X + Math.random() * bw, -BLEED_Y + Math.random() * (height * 0.85 + BLEED_Y))
       L.stjarnor.c.addChild(b)
     }
   }
@@ -150,7 +161,7 @@ export function createScene(theme = 'sky', opts = {}) {
     if (dis) {
       // Disband: ljusare mot horisonten, genomskinligt uppåt. Alfa i färgstoppen fungerar
       // (Pixi kör dem genom Color.toHexa()), så bandet behöver ingen egen alpha på formen.
-      const hz = new Graphics().rect(0, gy - 110, L.dis.w, 118).fill(hazeFill(t.bottom))
+      const hz = new Graphics().rect(-BLEED_X, gy - 110, L.dis.w + 2 * BLEED_X, 118).fill(hazeFill(t.bottom))
       hz.eventMode = 'none'
       L.dis.c.addChild(hz)
     }
@@ -162,8 +173,8 @@ export function createScene(theme = 'sky', opts = {}) {
       paintBand(L.nara.c, L.nara.w, gy + 22, kupoler(t.hills ? 7 : 9, L.nara.w, width), 44, lerpColor(t.groundDark, t.bottom, 0.2))
     }
     const ground = new Graphics()
-    ground.roundRect(-40, gy, L.mark.w + 80, groundH + 80, 60).fill(t.ground)
-    ground.roundRect(-40, gy, L.mark.w + 80, 14, 60).fill({ color: t.groundDark, alpha: 0.5 })
+    ground.roundRect(-40 - BLEED_X, gy, L.mark.w + 80 + 2 * BLEED_X, groundH + 80 + BLEED_Y, 60).fill(t.ground)
+    ground.roundRect(-40 - BLEED_X, gy, L.mark.w + 80 + 2 * BLEED_X, 14, 60).fill({ color: t.groundDark, alpha: 0.5 })
     L.mark.c.addChild(ground)
     if (markstruktur) {
       // Markstruktur i två lager: en TÄT rad strån längs markens överkant, som gör
@@ -174,16 +185,36 @@ export function createScene(theme = 'sky', opts = {}) {
       const mw = L.mark.w
       const tathet = mw / width // en bredare värld ska ha lika TÄT struktur, inte lika mycket
       const tufts = new Graphics()
+      // Bleed-zonerna (utanför 0..mw i sidled, under height nedåt) får EGNA deterministiska
+      // loopar i stället för att originalens modulo-spann breddas: breddat spann hade
+      // flyttat varenda strå/prick i den synliga bilden och gjort alla baslinje-skärmdumpar
+      // ojämförbara. Originalloopar orörda = 16:9-bilden är pixel för pixel densamma.
+      const sidAntal = Math.round(40 * (BLEED_X / width))
+      const bottenY = gy + groundH
       if (t.gras) {
-        for (let i = 0; i * 13 < mw + 26; i++) {
-          const x = i * 13 - 13 + (i % 3) * 3
-          const h = 7 + (i % 4) * 3
-          tufts.moveTo(x, gy + 9).quadraticCurveTo(x + 1, gy + 9 - h * 0.6, x + (i % 2 ? 5 : -5), gy + 9 - h)
+        for (let i = -Math.ceil((BLEED_X + 26) / 13); i * 13 < mw + 26 + BLEED_X; i++) {
+          const m = Math.abs(i) // negativa index (vänster bleed) ska inte ge negativa %-varianter
+          const x = i * 13 - 13 + (m % 3) * 3
+          const h = 7 + (m % 4) * 3
+          tufts.moveTo(x, gy + 9).quadraticCurveTo(x + 1, gy + 9 - h * 0.6, x + (m % 2 ? 5 : -5), gy + 9 - h)
         }
         tufts.stroke({ width: 2.5, color: t.groundDark, alpha: 0.55, cap: 'round' })
         for (let i = 0; i < Math.round(40 * tathet); i++) {
           const x = ((i * 173) % (mw + 60)) - 30
           const y = gy + 30 + ((i * 61) % Math.max(1, groundH - 34))
+          const h = 5 + (i % 3) * 2.5
+          tufts.moveTo(x, y).quadraticCurveTo(x + 2, y - h * 0.7, x + (i % 2 ? 4 : -4), y - h)
+        }
+        for (let i = 0; i < sidAntal; i++) {
+          const y = gy + 30 + ((i * 61) % Math.max(1, groundH - 34 + BLEED_Y))
+          const h = 5 + (i % 3) * 2.5
+          for (const x of [-34 - ((i * 173) % BLEED_X), mw + 34 + ((i * 173) % BLEED_X)]) {
+            tufts.moveTo(x, y).quadraticCurveTo(x + 2, y - h * 0.7, x + (i % 2 ? 4 : -4), y - h)
+          }
+        }
+        for (let i = 0; i < Math.round(40 * tathet); i++) {
+          const x = ((i * 149) % (mw + 60)) - 30
+          const y = bottenY + 6 + ((i * 61) % Math.max(1, BLEED_Y - 12))
           const h = 5 + (i % 3) * 2.5
           tufts.moveTo(x, y).quadraticCurveTo(x + 2, y - h * 0.7, x + (i % 2 ? 4 : -4), y - h)
         }
@@ -196,6 +227,17 @@ export function createScene(theme = 'sky', opts = {}) {
           const y = gy + 16 + ((i * 53) % Math.max(1, groundH - 20))
           tufts.ellipse(x, y, 3.5 + (i % 3), 2 + (i % 2)).fill({ color: t.groundDark, alpha: 0.3 })
         }
+        for (let i = 0; i < sidAntal; i++) {
+          const y = gy + 16 + ((i * 53) % Math.max(1, groundH - 20 + BLEED_Y))
+          for (const x of [-24 - ((i * 149) % BLEED_X), mw + 24 + ((i * 149) % BLEED_X)]) {
+            tufts.ellipse(x, y, 3.5 + (i % 3), 2 + (i % 2)).fill({ color: t.groundDark, alpha: 0.3 })
+          }
+        }
+        for (let i = 0; i < Math.round(54 * tathet); i++) {
+          const x = ((i * 173) % (mw + 40)) - 20
+          const y = bottenY + 6 + ((i * 53) % Math.max(1, BLEED_Y - 12))
+          tufts.ellipse(x, y, 3.5 + (i % 3), 2 + (i % 2)).fill({ color: t.groundDark, alpha: 0.3 })
+        }
       }
       tufts.eventMode = 'none'
       L.mark.c.addChild(tufts)
@@ -204,11 +246,11 @@ export function createScene(theme = 'sky', opts = {}) {
 
   // Moln som långsamt driver (exit-säkert). Molnen ritas sist i koden men hamnar i sitt
   // eget lager längst bak när kameran är på — se lageruppställningen ovan.
-  const cloudCount = Math.round((t.clouds || 0) * (L.moln.w / width))
+  const cloudCount = Math.round((t.clouds || 0) * ((L.moln.w + 2 * BLEED_X) / width))
   for (let i = 0; i < cloudCount; i++) {
     const cloud = makeCloud(0.8 + Math.random() * 0.7)
     const y = 70 + Math.random() * (height * 0.32)
-    cloud.position.set(Math.random() * L.moln.w, y)
+    cloud.position.set(-BLEED_X + Math.random() * (L.moln.w + 2 * BLEED_X), y)
     cloud.alpha = 0.92
     L.moln.c.addChild(cloud)
     driftCloud(cloud, L.moln.w)
@@ -219,16 +261,29 @@ export function createScene(theme = 'sky', opts = {}) {
   // effekt som aldrig ändras (DESIGN.md §4). textureSize 256 här, till skillnad från 64 i
   // form.js: en svag mörkning utsträckt över 1280px bandar synligt om den bakas för smått,
   // och det är EN instans för hela appen.
+  // Vinjetten är det ENDA lager som ritas responsivt: dess kanttoningar måste sitta vid
+  // skärmens FAKTISKA kanter (VIEW), annars hänger de mitt i bilden på en bred telefon
+  // och försvinner utanför på en 4:3-platta. Ritas om vid viewändring (i praktiken
+  // orientationchange); avregistreringen hänger på 'destroyed' så den är exit-säker
+  // utan att spelet behöver göra något. Vid 16:9 är VIEW = designrektangeln → samma
+  // fyra rektanglar som förut.
   if (vinjett) {
-    const f = edgeFades()
-    const vy = Math.round(height * 0.2)
-    const vx = Math.round(width * 0.15)
     const v = new Graphics()
-    v.rect(0, 0, width, vy).fill(f.ner)
-    v.rect(0, height - vy, width, vy).fill(f.upp)
-    v.rect(0, 0, vx, height).fill(f.hoger)
-    v.rect(width - vx, 0, vx, height).fill(f.vanster)
     v.eventMode = 'none'
+    const rita = () => {
+      if (v.destroyed) return
+      const f = edgeFades()
+      const vy = Math.round(VIEW.height * 0.2)
+      const vx = Math.round(VIEW.width * 0.15)
+      v.clear()
+      v.rect(VIEW.left, VIEW.top, VIEW.width, vy).fill(f.ner)
+      v.rect(VIEW.left, VIEW.bottom - vy, VIEW.width, vy).fill(f.upp)
+      v.rect(VIEW.left, VIEW.top, vx, VIEW.height).fill(f.hoger)
+      v.rect(VIEW.right - vx, VIEW.top, vx, VIEW.height).fill(f.vanster)
+    }
+    rita()
+    const av = onViewChange(rita)
+    v.on('destroyed', av)
     L.vinjett.c.addChild(v)
   }
 
@@ -258,14 +313,19 @@ function kupoler(bas, lagerW, viewW) {
 function paintBand(root, w, baseY, humps, amp, color) {
   const g = new Graphics()
   const step = (w + 80) / humps
-  g.moveTo(-40, baseY + 260)
+  // Platta "kjolar" i bleed-zonerna på båda sidor: kullarna själva är orörda (samma
+  // deterministiska lägen som förut → jämförbara skärmdumpar), bandet fortsätter bara
+  // som slät mark utanför det som syns på en 16:9-skärm.
+  g.moveTo(-40 - BLEED_X, baseY + 260 + BLEED_Y)
+  g.lineTo(-40 - BLEED_X, baseY)
   g.lineTo(-40, baseY)
   for (let i = 0; i < humps; i++) {
     const x0 = -40 + i * step
     const a = amp * (0.72 + 0.28 * Math.sin(i * 1.7 + 0.6))
     g.quadraticCurveTo(x0 + step / 2, baseY - a, x0 + step, baseY)
   }
-  g.lineTo(w + 40, baseY + 260).closePath().fill(color)
+  g.lineTo(w + 40 + BLEED_X, baseY)
+  g.lineTo(w + 40 + BLEED_X, baseY + 260 + BLEED_Y).closePath().fill(color)
   g.eventMode = 'none'
   root.addChild(g)
 }
@@ -371,9 +431,11 @@ function driftCloud(cloud, width) {
   const st = { x: cloud.x }
   const run = () => {
     if (cloud.destroyed) return
-    const dur = Math.max(4, (width + 130 - st.x) / speed)
+    // Vändpunkterna ligger utanför bleed-zonen så molnet aldrig poppar in/ur i bild
+    // på en bred skärm. På 16:9 syns ingen skillnad — bara en något längre cykel.
+    const dur = Math.max(4, (width + 130 + BLEED_X - st.x) / speed)
     const tw = gsap.to(st, {
-      x: width + 130,
+      x: width + 130 + BLEED_X,
       duration: dur,
       ease: 'none',
       onUpdate: () => {
@@ -385,7 +447,7 @@ function driftCloud(cloud, width) {
       },
       onComplete: () => {
         if (cloud.destroyed) return
-        st.x = -130
+        st.x = -130 - BLEED_X
         run()
       },
     })

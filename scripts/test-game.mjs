@@ -23,6 +23,19 @@ const opt = (name, def) => {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const url = opt('--url', 'http://localhost:5173')
 const shot = opt('--shot', `test-${id}.png`)
+// --viewport WxH: kör i en annan skärmform än 16:9 (t.ex. 952x428 = Pixel 10 Pro
+// landskap) för att se full bleed-buggar. Tryck/drag anges ALLTID i designkoordinater
+// (1280×720) och mappas genom samma contain-letterbox som Scaler använder, så samma
+// --taps träffar samma spelobjekt oavsett viewport.
+const [vpW, vpH] = opt('--viewport', '1280x720').toLowerCase().split('x').map(Number)
+if (!(vpW > 0) || !(vpH > 0)) {
+  console.error('--viewport måste vara BREDDxHÖJD, t.ex. 952x428')
+  process.exit(2)
+}
+const VS = Math.min(vpW / 1280, vpH / 720)
+const VOX = Math.round((vpW - 1280 * VS) / 2)
+const VOY = Math.round((vpH - 720 * VS) / 2)
+const tillSkarm = (x, y) => [VOX + x * VS, VOY + y * VS]
 const logPath = opt('--log', join(ROOT, '.test-logs', `${id}.json`))
 const noLog = args.includes('--no-log')
 const tapsArg = opt('--taps', '')
@@ -72,7 +85,7 @@ const mergeFynd = (...listor) => {
 const errors = []
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+  const page = await browser.newPage({ viewport: { width: vpW, height: vpH } })
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text().slice(0, 300))
   })
@@ -86,7 +99,8 @@ try {
   await page.waitForTimeout(1200)
 
   // tryck brett över ytan (träffar de flesta interaktiva element)
-  for (const [x, y] of taps) {
+  for (const [dx, dy] of taps) {
+    const [x, y] = tillSkarm(dx, dy)
     await page.evaluate(({ x, y }) => {
       const cv = document.querySelector('canvas')
       const r = cv.getBoundingClientRect()
@@ -101,7 +115,9 @@ try {
   }
 
   // riktiga musdrag (för dragspel)
-  for (const [[fx, fy], [tx, ty]] of drags) {
+  for (const [df, dt] of drags) {
+    const [fx, fy] = tillSkarm(df[0], df[1])
+    const [tx, ty] = tillSkarm(dt[0], dt[1])
     await page.mouse.move(fx, fy)
     await page.mouse.down()
     for (let i = 1; i <= 12; i++) {

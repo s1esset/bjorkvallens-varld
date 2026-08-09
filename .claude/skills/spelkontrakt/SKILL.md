@@ -37,6 +37,12 @@ ctx.stage     // spelets rot, redan letterbox-skalad/centrerad i 1280×720
 ctx.ticker    // läs ticker.deltaMS / ticker.deltaTime (callback får Ticker-instansen)
 ctx.width     // 1280
 ctx.height    // 720
+ctx.view      // SYNLIG designyta {left,top,right,bottom,width,height} (lib/view.js).
+              // På en bred telefon är left<0 och right>1280 (upp till ±240/±160).
+              // LEVANDE objekt som muteras vid resize: läs vid ANVÄNDNING (spawn/
+              // wrap/cull-marginaler), cachea aldrig fälten, mutera aldrig.
+              // Allt som "parkerar utanför skärmen" ska stå utanför ctx.view,
+              // inte utanför 0..1280 — annars syns det i bild på telefonen.
 ctx.fxLayer   // för konfetti/firande OVANPÅ spelet
 ctx.exitToLibrary()
 ctx.later(sekunder, fn)  // fördröjt anrop som DÖR med spelomgången — använd i stället

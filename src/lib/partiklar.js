@@ -20,6 +20,7 @@
 import { CanvasSource, Particle, ParticleContainer, Rectangle, Texture } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PLAYFUL } from './theme.js'
+import { VIEW } from './view.js'
 
 // Cellstorlek i arket och den radie formerna ritas med. Skalan i spray() räknas som
 // `storlek / FORM_R`, så en partikel med storlek 10 ser ut att ha radie 10.
@@ -287,15 +288,18 @@ export function rain(layer, { width = 1280, height = 720, count = 60, colors = P
   const field = faltFor(layer)
   if (!field) return false
 
-  const n = Math.max(1, Math.round(count * DENSITY))
+  // Regnet spawnar över det som FAKTISKT syns (VIEW, lib/view.js) — på en bred telefon
+  // är det mer än width — och antalet skalas med synlig bredd så tätheten är densamma.
+  // Vid 16:9 är VIEW = designrektangeln och allt blir exakt som förut.
+  const n = Math.max(1, Math.round(count * DENSITY * (VIEW.width / width)))
   const bitar = []
   let maxLife = 0.001
 
   for (let i = 0; i < n; i++) {
     const tex = f[slumpUr(former)] || f.ruta
     const s0 = (6 + Math.random() * 7) / FORM_R
-    const x0 = Math.random() * width
-    const y0 = -20 - Math.random() * height * 0.5
+    const x0 = VIEW.left + Math.random() * VIEW.width
+    const y0 = VIEW.top - 20 - Math.random() * height * 0.5
     const rot0 = Math.random() * Math.PI
     // Fallet startade förr med `delay` per bit; här bakas fördröjningen in i livet
     // så att hela regnet ändå drivs av EN tween.
@@ -321,7 +325,7 @@ export function rain(layer, { width = 1280, height = 720, count = 60, colors = P
       x0,
       y0,
       dx: Math.random() * 160 - 80,
-      dy: height + 40 - y0,
+      dy: VIEW.bottom + 40 - y0,
       rot0,
       dr: Math.random() * 6 - 3,
       liv,

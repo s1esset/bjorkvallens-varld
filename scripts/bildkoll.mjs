@@ -34,6 +34,46 @@ export const GRANSER = {
   faltAndel: 0.45, // en enskild icke-bakgrundsfärg över detta = heltäckande fält
   plattLada: 0.4, // innehållets bredd ELLER höjd som andel av duken
   diffAndel: 0.02, // pixeldiff mot baslinje över detta = ändrad bild
+  kantCream: 0.6, // andel EXAKT letterbox-creme i "bar-zonerna" över detta = ingen bleed
+}
+
+// Letterbox-bakgrundens exakta färg (theme.js COLORS.bg). Full bleed betyder att
+// zonerna utanför 16:9-rektangeln ska visa SCEN, inte denna creme. Avståndet hålls
+// snävt (≤10): creme målas som en solid fyllning, medan warm-temats himmel
+// (#fff0d6, Manhattan 21) är legitim scen och får inte räknas.
+const CREME = [0xfd, 0xf6, 0xe3]
+
+// Kolla bar-zonerna på en icke-16:9-skärmdump: med contain-skalning ligger de till
+// vänster/höger (bredare än 16:9) eller uppe/nere (högre). Aktiveras bara när bilden
+// avviker >1 % från 16:9 — en vanlig 1280×720-körning berörs aldrig.
+function kantCream(png) {
+  const { width: w, height: h, data } = png
+  const mal = 16 / 9
+  const aspekt = w / h
+  if (Math.abs(aspekt - mal) / mal < 0.01) return null
+  const s = Math.min(w / 1280, h / 720)
+  const barW = Math.round((w - 1280 * s) / 2)
+  const barH = Math.round((h - 720 * s) / 2)
+  const zoner = []
+  if (barW > 4) {
+    zoner.push([0, 0, barW, h], [w - barW, 0, barW, h])
+  } else if (barH > 4) {
+    zoner.push([0, 0, w, barH], [0, h - barH, w, barH])
+  }
+  if (!zoner.length) return null
+  let totalt = 0
+  let creme = 0
+  for (const [zx, zy, zw, zh] of zoner) {
+    for (let y = zy; y < zy + zh; y++) {
+      for (let x = zx; x < zx + zw; x++) {
+        const i = (y * w + x) * 4
+        const d = Math.abs(data[i] - CREME[0]) + Math.abs(data[i + 1] - CREME[1]) + Math.abs(data[i + 2] - CREME[2])
+        totalt++
+        if (d <= 10) creme++
+      }
+    }
+  }
+  return { andel: creme / totalt, barW, barH }
 }
 
 // Kvantisera till 5 bitar/kanal → 32768 hinkar. Nog för att hitta "en färg dominerar"
@@ -130,6 +170,16 @@ export function granska(bildPath, baslinjePath) {
       n: 1,
       msg: `En enda färg (${m.faltFarg}) täcker ${(m.faltAndel * 100).toFixed(0)} % av skärmen — trolig naken Graphics med stor .position`,
       exempel: [{ farg: m.faltFarg, andel: +m.faltAndel.toFixed(3) }],
+    })
+  }
+  const kc = kantCream(png)
+  if (kc && kc.andel > GRANSER.kantCream) {
+    fynd.push({
+      kod: 'kant-cream',
+      niva: 'fel',
+      n: 1,
+      msg: `${(kc.andel * 100).toFixed(0)} % av zonerna utanför 16:9 är letterbox-creme — bakgrunden når inte skärmkanten (full bleed saknas)`,
+      exempel: [{ andel: +kc.andel.toFixed(3), barW: kc.barW, barH: kc.barH }],
     })
   }
   if (m.innehallAndel >= GRANSER.tomScen && (m.lådaBredd < GRANSER.plattLada || m.lådaHojd < GRANSER.plattLada)) {

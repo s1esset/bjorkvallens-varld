@@ -82,7 +82,13 @@ export class PhysicsWorld {
   // walls: vilka osynliga väggar som skapas ('floor','left','right','ceiling').
   // wallThickness/extra: tjocklek + hur långt utanför skärmen väggarna sträcker sig.
   // windAx/windAy: konstant vind-ACCELERATION (px/steg²) på alla dynamiska kroppar.
-  constructor({ gravityY = 1, gravityX = 0, walls = ['floor', 'left', 'right'], wallThickness = 120, wallExtra = 200, windAx = 0, windAy = 0 } = {}) {
+  // bounds: var väggarna står ({left,top,right,bottom}, default designrektangeln).
+  //   MEDVETET opt-in, aldrig automatiskt från ctx.view: automatiska view-väggar hade
+  //   låtit fysiken på en bred telefon tyst avvika från den testade (1280×720), och
+  //   låtit kroppar vila i bleed-zonen där inget spel har någon interaktion. Ett spel
+  //   som VILL låta hela den synliga ytan vara spelplan skickar `bounds: { ...ctx.view }`
+  //   (ögonblicksbild vid skapandet — väggarna är statiska kroppar).
+  constructor({ gravityY = 1, gravityX = 0, walls = ['floor', 'left', 'right'], wallThickness = 120, wallExtra = 200, windAx = 0, windAy = 0, bounds = null } = {}) {
     this.engine = Engine.create()
     this.engine.gravity.x = gravityX
     this.engine.gravity.y = gravityY
@@ -94,8 +100,8 @@ export class PhysicsWorld {
     this._windAx = windAx
     this._windAy = windAy
     this.walls = []
-    this._buildWalls(walls, wallThickness, wallExtra)
-    if (DIAG) this._diagInit({ gravityX, gravityY, walls, windAx, windAy })
+    this._buildWalls(walls, wallThickness, wallExtra, bounds)
+    if (DIAG) this._diagInit({ gravityX, gravityY, walls, windAx, windAy, bounds })
   }
 
   // --- diagnostik (DEV-only; hela blocket viker ihop till inget i bygget) ---
@@ -179,15 +185,19 @@ export class PhysicsWorld {
     this.engine.gravity.x = x
   }
 
-  _buildWalls(which, t, ex) {
-    const W = DESIGN_W
-    const H = DESIGN_H
+  _buildWalls(which, t, ex, bounds) {
+    const L = bounds?.left ?? 0
+    const T = bounds?.top ?? 0
+    const R = bounds?.right ?? DESIGN_W
+    const B = bounds?.bottom ?? DESIGN_H
+    const W = R - L
+    const H = B - T
     const opt = { isStatic: true, restitution: 0.4, friction: 0.6, label: 'wall' }
     const defs = {
-      floor: [W / 2, H + t / 2, W + ex * 2, t],
-      ceiling: [W / 2, -t / 2, W + ex * 2, t],
-      left: [-t / 2, H / 2, t, H + ex * 2],
-      right: [W + t / 2, H / 2, t, H + ex * 2],
+      floor: [L + W / 2, B + t / 2, W + ex * 2, t],
+      ceiling: [L + W / 2, T - t / 2, W + ex * 2, t],
+      left: [L - t / 2, T + H / 2, t, H + ex * 2],
+      right: [R + t / 2, T + H / 2, t, H + ex * 2],
     }
     for (const name of which) {
       const d = defs[name]

@@ -14,9 +14,9 @@ Format:
 
 ---
 
-## 2026-08-09 (sen natt) · v1.72.0 · Spår E runda A4 — glöd, emitters, MeshRope
+## 2026-08-09 (sen natt) · v1.73.0 · Spår E runda A4 — glöd, emitters, MeshRope, kameran
 
-**Byggt:** Tre av rundans fyra punkter, var och en med en verklig kund i ett spel.
+**Byggt:** Hela runda A4. Fyra punkter, var och en med en verklig kund i ett spel.
 
 - **`lib/glod.js` (nytt)** — additiv glöd som delat idiom (C4). Ett Canvas2D-bakat atlasark
   med `prick` och `stjarna`, EN vit textur för hela appen som färgas med `tint`. `glod()`
@@ -35,8 +35,16 @@ Format:
   `textureScale > 0` sätter `addressMode: 'repeat'` och en del drivrutiner klämmer i stället
   för att wrappa annars. **Kund: `zackes-biltvatt`**, vars slang ritades med tre strokes och
   nu bär ribbor och dager som åker med i varje böj.
+- **Kameran fick sin första kund: `spindel-zacke-svingar`** (efter ägarens grind — 18 spel
+  utreddes, se LYFTPLAN §9). Banan var hårdklämd till 920 px av
+  `Math.min(cfg.gap, 920 / (count - 1))`, och eftersom antalet fästen växte med nivån blev
+  varje hopp **kortare** ju längre barnet kom (nivå 1: 3 fästen à 300 px · nivå 6: 6 à 184).
+  Progressionen gjorde alltså varje enskilt hopp lättare, och hela stan syntes från första
+  svinget. Nu: konstant 300 px gap, och nivån lägger till FÄSTEN (3 → 4 → 6 → 8 → 10) i en
+  värld på upp till 3400 px. Fem lager — scenens band, en fjärran stadssiluett på
+  `DJUP.fjarran`, spelplanet, **ett eget fx-lager i världen** och HUD på faktor 0.
 
-**Tre lärdomar, alla uppmätta:**
+**Fyra lärdomar, alla uppmätta:**
 
 1. **Additivt ljus kräver TVÅ saker — C4-listan tänkte bara på det ena.** Inte bara en mörk
    botten att lysa upp, utan också en KÄLLA MED TAKHÖJD KVAR. Lägereldens lågtungor ligger
@@ -53,19 +61,23 @@ Format:
    därmed osynlig för hela sviten. Nya `scripts/_nivabild.mjs` tar en bild per nivå — och
    skriver genom appens EGEN SaveService, för att peta i localStorage träffar ett tomt
    dokument i en färsk kontext (och `profiles` är en array, inte en uppslagstabell).
+4. **`ctx.fxLayer` är skärmrymd, och det märks först när kameran rör sig.** En `sparkle()`
+   vid ett fäste 2000 px in i världen hade dykt upp 2000 px in på SKÄRMEN. Ett spel med
+   kamera behöver ett eget fx-lager i faktor 1; kvar på `ctx.fxLayer` hör bara det som
+   följer FINGRET. Samma sak i andra riktningen: `kam.moveTo()` krävs vid nivåstart,
+   eftersom Zacke teleporterar och kamerans hårda ruta annars rycker bilden med.
 
 **Commits:** `5ee3481` glod+partiklar+lagerelden · `6dc07c3` trollblandning ·
-`0d5ae03` rep+zackes-biltvatt
+`0d5ae03` rep+zackes-biltvatt · `961594e` spindel-zacke-svingar+kamera
 **Kontroll:** `npm run check` 0/0 · `npm run test:all` **72/72 gröna** ·
 `_glodprobe.mjs` helgrön (additivitet bevisad mot en normal-kontrollarm: 255,60,60 mot
-247,2,2) · `_repprobe.mjs` fortsatt grön i Node.
+247,2,2) · `_varldprobe.mjs` 8/8 (kameran 1045 px mot fjärranbandets 188 = kvot 0,18,
+precis lagerfaktorn; Zacke utanför bilden i 0 av 130 prover) · `_svingprobe.mjs` fortsatt
+7/7 · `_repprobe.mjs` fortsatt grön i Node.
 
-**Öppet:** **A4.4 — kamerans första kund är utredd men inte byggd.** 18 spel lästa mot C6:s
-begränsning; `spindel-zacke-svingar` är klart starkast (banan är hårdklämd till 920 px av
-`Math.min(cfg.gap, 920 / (count - 1))`, och progressionen gör den **kortare per hopp**).
-Rangordning och avfärdade kandidater står i LYFTPLAN §9. Det är en `/polera`-runda på ett
-levererat spel och **väntar på ägarens grind**. Därefter spår 3 fysik. Ägarens manuella
-telefonkoll av full bleed är fortfarande ogjord.
+**Öppet:** Spår E är därmed klart (A1–A4). Nästa naturliga steg är **spår 3 fysik**.
+`domino` står kvar som kamerans starkaste nästa kund men kräver ett designbeslut om
+bricktråget (LYFTPLAN §9). Ägarens manuella telefonkoll av full bleed är fortfarande ogjord.
 
 ---
 

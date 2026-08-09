@@ -945,9 +945,56 @@ importera pixi.js.
    localStorage direkt träffar ett tomt dokument i en färsk kontext, och `profiles` är en
    array, inte en uppslagstabell.
 
-### ⬜ A4.4 — kamerans första kund: utredd, inte byggd
+### ✅ A4.4 — kamerans första kund: `spindel-zacke-svingar` (v1.73.0)
 
-Kandidaterna är genomgångna (18 spel lästa mot C6:s begränsning att lagren är låsta i
+Kameran hade noll kunder bland de 72 spelen. Nu har den en, och `lib/kamera.js` är därmed
+verifierad mot ett riktigt spel i stället för bara mot `_kameraprobe.mjs`.
+
+**Vad som ändrades.** Gapet mellan fästena är konstant 300 px — det avstånd nivå 1–3 redan
+bevisat att pendeln klarar — och nivån lägger till FÄSTEN i stället för att trycka ihop dem
+(3 → 4 → 6 → 8 → 10). Världen är upp till 3400 px.
+
+| Lager | Faktor | Innehåll |
+|---|--:|---|
+| `createScene('sky', { kamera: { bredd } })` | scenens band | himmel · sol · moln |
+| fjärran stadssiluett | `DJUP.fjarran` (0.18) | mindre, blekare hus |
+| spelplanet | 1 | tak · fästen · nät · Zacke |
+| **eget fx-lager i världen** | 1 | gnistor, ord, räddningsmolnet |
+| HUD | 0 | tryckytan · nätlängdsknappen |
+
+**Fx-lagret är inte kosmetik.** `ctx.fxLayer` är skärmrymd: en `sparkle()` vid ett fäste
+2000 px in i världen hade dykt upp 2000 px in på SKÄRMEN, alltså utanför bilden. Kvar på
+`ctx.fxLayer` ligger bara det som hör till FINGRET (kvitteringen vid ett dött tryck).
+
+**`kam.moveTo()` vid varje nivåstart.** Zacke teleporterar dit från förra nivåns mål, och
+kamerans hårda ruta klämmer mot målets nuvarande läge — utan flytten rycker bilden med.
+Det stod redan dokumenterat i `kamera.js`; det här är första gången ett spel behövde det.
+
+**Nytt i `kamera.js`: `setWorld(w, h)`.** Lagren ritas för den bredaste världen EN gång —
+att rita om dem per nivå vore att baka nya texturer mitt i leken. `setWorld` klämmer bara
+hur långt kameran får panorera, så en kort bana aldrig visar tom stad till höger om målet.
+Nivå 0 får därmed en 1280 px värld och en kamera som står helt stilla: **exakt samma bild
+som före ändringen.**
+
+**Mätt** med nya `scripts/_varldprobe.mjs` — parallax går per definition inte att bedöma i
+EN stillbild, två lager som står still ser likadana ut som två som rör sig olika fort:
+
+| | nivå 0 | nivå 8 |
+|---|--:|--:|
+| fästen | 3 | 10 |
+| världsbredd | 1280 px | 3320 px |
+| sista fästet | x 800 | **x 2900** |
+| gap | 300 px | 300 px |
+
+Under fem hopp rörde sig kameran 1045 px medan fjärranbandet rörde sig 188 px — **kvot
+0,18, precis lagerfaktorn** — och HUD:en 0 px. Zacke låg utanför bilden i **0 av 130
+prover** (hårda rutan). `_svingprobe.mjs` fortsatt 7/7 grön, alltså spelar spelet likadant
+som förut på de låga nivåerna.
+
+<details>
+<summary>De övriga kandidaterna (utredda, inte byggda)</summary>
+
+Kandidaterna genomgångna (18 spel lästa mot C6:s begränsning att lagren är låsta i
 höjdled). Rangordning:
 
 1. **`spindel-zacke-svingar` — klart starkast.** Rad 181–182 klämmer banan till
@@ -973,4 +1020,7 @@ kärnan), `rulla-bollen-hem` (toppvy, parallax har inget att göra där), `valpe
 (förvandlar ett 1-sekundersdrag till ett ärende), samt arbetsytespelen `gravmaskinen`,
 `magnet-fiske`, `kulbana`, `bowling`, `vattenvagen`.
 
-**Detta är en `/polera`-runda på ett levererat spel och behöver ägarens grind.**
+`spindel-zacke-svingar` byggdes (se ovan). De tre övriga står kvar som möjliga nästa
+kunder — `domino` är den starkaste av dem, men kräver ett designbeslut om bricktråget.
+
+</details>

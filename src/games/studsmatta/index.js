@@ -14,6 +14,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, nudge, Matter } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
+import { makeStjarna } from '../../lib/foremal.js'
 import { floatText, sparkle, puff, burst, bigCelebration, pop } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { makeBobo } from '../../lib/figurer.js'
@@ -897,18 +898,7 @@ function makeCarrot() {
 
 // Guldstjärna med glans.
 function makeStar() {
-  const c = new Container()
-  const g = new Graphics()
-  const pts = []
-  for (let i = 0; i < 10; i++) {
-    const a = -Math.PI / 2 + (i / 10) * Math.PI * 2
-    const r = i % 2 ? 12 : 28
-    pts.push(Math.cos(a) * r, Math.sin(a) * r)
-  }
-  g.poly(pts).fill(0xffd24a).stroke({ width: 3, color: 0xd9a021 })
-  g.circle(-8, -8, 5).fill({ color: 0xffffff, alpha: 0.6 })
-  g.eventMode = 'none'
-  c.addChild(g)
+  const c = makeStjarna(28, { konturBredd: 3, innerKvot: 12 / 28 })
   c.eventMode = 'none'
   c.interactiveChildren = false
   return c

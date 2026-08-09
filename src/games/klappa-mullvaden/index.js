@@ -9,6 +9,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { pop, wiggle, puff, ripple, sparkle, floatText, burst, breathe, shake } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
+import { topLightFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // Lekfältets area (designkoordinater) — hålen placeras i ett rutnät här inne.
@@ -858,7 +859,7 @@ function makePaw(color = 0x8a6a4f) {
 function makeCrown() {
   const g = new Graphics()
   g.moveTo(-20, 0).lineTo(-20, -14).lineTo(-10, -5).lineTo(0, -19).lineTo(10, -5).lineTo(20, -14).lineTo(20, 0)
-    .closePath().fill(0xffd24a).stroke({ width: 2, color: 0xd9a021 })
+    .closePath().fill(topLightFill(0xffd24a)).stroke({ width: 2, color: 0xd9a021 })
   g.circle(0, -19, 3.6).fill(0xff6b6b)
   g.circle(-20, -14, 3).fill(0x57c8c3)
   g.circle(20, -14, 3).fill(0x57c8c3)

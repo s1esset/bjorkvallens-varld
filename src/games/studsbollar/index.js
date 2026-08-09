@@ -19,6 +19,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
+import { makeBoll } from '../../lib/foremal.js'
 import { bigCelebration, puff, sparkle, floatText, pop, ripple, shake, burst } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
@@ -865,26 +866,18 @@ export default {
 
 // Glansig boll. kind 'bouncy' = glad färg + stor highlight; 'heavy' = grå sten med
 // mörka fläckar + matt glans (signalerar tyngd).
+// Delad klotboll (lib/foremal.js). Den tunga bollen behåller sina två gropar — de är
+// dess kännetecken, inte en dager, och ritas därför vidare i kroppens egen Graphics.
 function makeBall(r, color, kind) {
-  const c = new Container()
-  if (kind === 'heavy') {
-    const body = new Graphics()
-      .circle(0, 0, r)
-      .fill(color)
-      .stroke({ width: Math.max(2, r * 0.1), color: shade(color, 0.32), alpha: 0.7 })
-    body.circle(-r * 0.3, r * 0.12, r * 0.13).fill({ color: shade(color, 0.26), alpha: 0.5 })
-    body.circle(r * 0.26, -r * 0.18, r * 0.1).fill({ color: shade(color, 0.22), alpha: 0.45 })
-    const gloss = new Graphics().circle(-r * 0.3, -r * 0.34, r * 0.24).fill({ color: COLORS.white, alpha: 0.28 })
-    gloss.eventMode = 'none'
-    c.addChild(body, gloss)
-  } else {
-    const body = new Graphics()
-      .circle(0, 0, r)
-      .fill(color)
-      .stroke({ width: Math.max(2, r * 0.08), color: shade(color, 0.18), alpha: 0.6 })
-    const gloss = new Graphics().circle(-r * 0.32, -r * 0.34, r * 0.34).fill({ color: COLORS.white, alpha: 0.55 })
-    gloss.eventMode = 'none'
-    c.addChild(body, gloss)
+  const tung = kind === 'heavy'
+  const c = makeBoll(r, color, {
+    kontur: shade(color, tung ? 0.32 : 0.18),
+    konturBredd: Math.max(2, r * (tung ? 0.1 : 0.08)),
+    konturAlpha: tung ? 0.7 : 0.6,
+  })
+  if (tung) {
+    c.kropp.circle(-r * 0.3, r * 0.12, r * 0.13).fill({ color: shade(color, 0.26), alpha: 0.5 })
+    c.kropp.circle(r * 0.26, -r * 0.18, r * 0.1).fill({ color: shade(color, 0.22), alpha: 0.45 })
   }
   return c
 }

@@ -22,6 +22,8 @@ import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Matter } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
+import { makeBoll } from '../../lib/foremal.js'
+import { topLightFill } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
 import { puff, floatText, sparkle, burst, bounceIn, bigCelebration, pop, shake } from '../../lib/feedback.js'
 import { makeBobo } from '../../lib/figurer.js'
@@ -1486,14 +1488,8 @@ export default {
 // Tung, glansig rivningskula (färg + highlight + mörk kant). Fästpunkten för repet
 // ritas dynamiskt i _drawChain (alltid mot kroken), så ingen fast ögla behövs här.
 function makeBall(r) {
-  const c = new Container()
-  const body = new Graphics()
-    .circle(0, 0, r)
-    .fill(0x6b6f76)
-    .stroke({ width: r * 0.1, color: 0x3a3d42, alpha: 0.85 })
-  const gloss = new Graphics().circle(-r * 0.32, -r * 0.34, r * 0.34).fill({ color: COLORS.white, alpha: 0.45 })
-  gloss.eventMode = 'none'
-  c.addChild(body, gloss)
+  // Delad klotboll (lib/foremal.js) — gradienten ersätter den handritade glansen.
+  const c = makeBoll(r, 0x6b6f76, { kontur: 0x3a3d42, konturBredd: r * 0.1, konturAlpha: 0.85 })
   c.interactiveChildren = false
   return c
 }
@@ -1559,7 +1555,7 @@ function makeCrown() {
   glow.eventMode = 'none'
   const e = new Graphics()
   e.moveTo(-27, 16).lineTo(-27, -12).lineTo(-13, 2).lineTo(0, -20).lineTo(13, 2).lineTo(27, -12).lineTo(27, 16)
-    .closePath().fill(0xffd24a).stroke({ width: 3, color: 0xd9a021 })
+    .closePath().fill(topLightFill(0xffd24a)).stroke({ width: 3, color: 0xd9a021 })
   e.rect(-27, 10, 54, 8).fill(0xe8b53a)
   e.circle(0, -20, 5).fill(0xff6b6b)
   e.circle(-27, -12, 4).fill(0x57c8c3)

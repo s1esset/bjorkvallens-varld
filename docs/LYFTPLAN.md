@@ -48,17 +48,33 @@ kollision för små snabba kroppar + fjäderledder — t.ex. kulbana i hög fart
 eller ta bort beroendet och stryk påståendet i alla tre dokumenten. Att låta den ligga kvar är
 det enda alternativ som är fel.
 
-### A2. Ritkoden bor i 205 kopior **[Deep]**
+### A2. Ritkoden bor i 205 kopior **[Deep]** — 🟨 PÅBÖRJAD 2026-08-09
 
-205 unika lokala rit-funktioner i spelfilerna mot 8 exporterade i `src/lib`. Redan mätbara
-dubbletter: `makeBall` ×5 · `makeStar` ×3 · `makeBasket` ×3 · `makeElvira` ×2 (en i
+203 unika lokala rit-funktioner i spelfilerna (218 definitioner) mot 8 exporterade i `src/lib`.
+Mätbara dubbletter: `makeBall` ×5 · `makeStar` ×3 · `makeBasket` ×3 · `makeElvira` ×2 (en i
 `figurer.js` **och** en lokal) · `makeKitten`/`makeKid`/`makeCrown`/`makeBumper`/`makeThing`/
 `makeUnicorn` ×2. Bara 4 spel har brutit ut assets till egen modul (`ingredienser.js` ×2,
 `food.js`, `overraskningar.js`).
 
 **Grepp:** utöka `artikoner.js`-mönstret (parametrisk mall + tabell) till fler domäner och
-flytta upp dubbletterna. Inte allt — en unik figur hör hemma i sitt spel. Men bollar, stjärnor,
-korgar, stenar, träd, moln och kronor ska finnas **en** gång.
+flytta upp dubbletterna. Inte allt — en unik figur hör hemma i sitt spel.
+
+✅ **`src/lib/foremal.js` byggd (v1.47.0):** `makeBoll` (5 spel) + `makeStjarna` (3 spel), båda
+med `form.js`-fyllningar, alltså A2 och C1.3 i samma ändring. 10 definitioner blev 2.
+
+⚠️ **Läsningen ändrade listan — kopiera den inte rakt av.** Docen antog att korgar och kronor
+"ska finnas en gång". Koden sa något annat:
+
+| Föremål | Utfall efter läsning |
+|---|---|
+| `makeBall` ×5 | **Samma föremål** — cirkel + platt fyllning + handritad vit glansellips. Delad. |
+| `makeStar` ×3 | **Samma föremål** — 10-punkts poly, samma gula, samma mörka kontur, samma glansprick. Delad. |
+| `makeBasket` ×3 | **Tre olika korgar** (proportioner, flätmönster, handtag, färger). Att slå ihop dem hade tagit bort variation, inte en dubblett. Kvar i sina spel, med `form.js`-fyllning på plats. |
+| `makeBumper` ×2 | **Två olika** (flipperns ring med motiv vs. spindelhjältens tvåringade stjärnbumper). Samma sak. |
+| `makeCrown` ×2 | Nästan identiska, men olika proportioner — en delad version hade krävt sex parametrar för att bevara båda. Fick gradienten på plats i stället. |
+
+En dubblett i en grep-räkning är inte samma sak som en dubblett i bilden. Läs alla kopiorna
+innan du slår ihop dem.
 
 ### A3. Karaktärssystemet är ett ansikte, inte en karaktär **[Medium]**
 
@@ -237,13 +253,17 @@ Före: `FillGradient` (linjär **och** radiell) fanns i Pixi 8.19 och användes 
    `topLightFill` (belyst uppifrån — allt annat) · `rimLight(r)` · `setDetaljniva`.
    Första kunden: molnen i `scene.js` (delad `FillGradient`-instans, byggd en gång,
    `moln → klot med mjuk skugga` i stället för platta vita klumpar).
-3. ⬜ **KVAR:** applicera dem på de 205 lokala rit-funktionerna i spelfilerna
-   (`makeBall` ×5 m.fl., se A2) — det är skillnaden mellan clipart och Sago Mini för själva
-   SPELOBJEKTEN, inte bara scenens dekor. `artikoner.js` (rad 10) är **klar** och är mallen
-   att följa: gradient på huvudformen, platt på smådetaljer, handrullade glans-ellipser
-   borttagna. `rimLight` väntar fortfarande på sin första kund och hör hemma här — den är
-   till för figurer som byggs som en **container av flera Graphics**, vilket `artikoner.js`
-   (en enda Graphics) inte är.
+3. 🟨 **PÅBÖRJAD (v1.47.0):** applicera dem på de 203 lokala rit-funktionerna i spelfilerna
+   — det är skillnaden mellan clipart och Sago Mini för själva SPELOBJEKTEN, inte bara scenens
+   dekor. `artikoner.js` (rad 10) är **klar** och är mallen att följa: gradient på huvudformen,
+   platt på smådetaljer, handrullade glans-ellipser borttagna.
+   **Klart hittills:** bollarna i 5 spel + stjärnorna i 3 (via `foremal.js`, se A2), kronorna i
+   `klappa-mullvaden`/`knuffa-tornet` och spindelhjältens bumper — 10 föremål i 8 spel.
+   **Kvar:** resten. Sortera efter hur STORT föremålet ritas: en gradient på en 11px-stjärna
+   syns inte, en på en 90px-boll bär hela bilden.
+   `rimLight` väntar fortfarande på sin första kund — den är till för figurer som byggs som en
+   **container av flera Graphics**, vilket varken `artikoner.js` eller `foremal.js` (en enda
+   Graphics per föremål) är.
 
 `DESIGN.md §4` fick tillägget att gradienter är **fyllningar**, inte filter — ingen konflikt
 med lip-tricket, som fortfarande äger allt tryckbart i skalet.

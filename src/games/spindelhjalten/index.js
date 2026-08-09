@@ -17,6 +17,8 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body, predictTrajectory } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
+import { makeStjarna } from '../../lib/foremal.js'
+import { sphereFill } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
 import { bigCelebration, puff, sparkle, burst, floatText, pop, wiggle } from '../../lib/feedback.js'
 import { FONT, COLORS } from '../../lib/theme.js'
@@ -1182,23 +1184,9 @@ function makeHero() {
 }
 
 // Glittrig stjärna med mjuk glöd.
+// RITAD stjärna (P0 ASSETS) — var en ⭐-emoji, är nu den delade i lib/foremal.js.
 function makeStar(r = 30) {
-  const c = new Container()
-  const glow = new Graphics().circle(0, 0, r * 1.5).fill({ color: 0xffe27a, alpha: 0.28 })
-  glow.eventMode = 'none'
-  // RITAD stjärna (P0 ASSETS) — var en ⭐-emoji.
-  const e = new Graphics()
-  const pts = []
-  for (let i = 0; i < 10; i++) {
-    const a = -Math.PI / 2 + (i / 10) * Math.PI * 2
-    const rr = i % 2 ? r * 0.44 : r
-    pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
-  }
-  e.poly(pts).fill(0xffd24a).stroke({ width: r * 0.1, color: 0xd9a021 })
-  e.circle(-r * 0.28, -r * 0.3, r * 0.16).fill({ color: 0xffffff, alpha: 0.65 })
-  e.eventMode = 'none'
-  c.addChild(glow, e)
-  return c
+  return makeStjarna(r, { konturBredd: r * 0.1, glod: 1.5 })
 }
 
 // Instängd kattunge på en liten molnledge, bakom ett litet galler (buren) som
@@ -1309,7 +1297,7 @@ function makeCloudBumper(r) {
 // Flytande studsknopp (springig disk).
 function makeBumper(r) {
   const c = new Container()
-  const outer = new Graphics().circle(0, 0, r).fill(0xffb24d).stroke({ width: 6, color: 0xe07b1e })
+  const outer = new Graphics().circle(0, 0, r).fill(sphereFill(0xffb24d)).stroke({ width: 6, color: 0xe07b1e })
   const inner = new Graphics().circle(0, 0, r * 0.58).fill(0xffe1a8)
   const star = new Graphics()
   if (star.star) star.star(0, 0, 8, r * 0.42, r * 0.2).fill({ color: 0xff8a3d, alpha: 0.7 })

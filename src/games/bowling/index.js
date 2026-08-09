@@ -21,6 +21,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, nudge, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
+import { makeBoll, makeStjarna } from '../../lib/foremal.js'
 import { bigCelebration, burst, puff, sparkle, pop } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { makeMascot } from '../../lib/mascot.js'
@@ -1033,19 +1034,16 @@ export default {
 
 // Glansigt blått klot: markskugga + glansig cirkel + vit högdager + 3 fingerhål.
 function makeBall() {
-  const c = new Container()
-  const shadow = new Graphics().ellipse(0, 52, 44, 15).fill({ color: 0x000000, alpha: 0.18 })
-  const body = new Graphics().circle(0, 0, BALL_R).fill(COLORS.blue).stroke({ width: 4, color: 0x2c7cb5 })
-  const hi = new Graphics().circle(-14, -14, 14).fill({ color: 0xffffff, alpha: 0.6 })
-  const holes = new Graphics()
-  holes.circle(3, -7, 5).fill({ color: 0x1f5a86 })
-  holes.circle(14, 3, 5).fill({ color: 0x1f5a86 })
-  holes.circle(1, 11, 5).fill({ color: 0x1f5a86 })
-  shadow.eventMode = 'none'
-  body.eventMode = 'none'
-  hi.eventMode = 'none'
-  holes.eventMode = 'none'
-  c.addChild(shadow, body, hi, holes)
+  // Delad klotboll (lib/foremal.js) — glansellipsen är borta, gradienten är dagern.
+  const c = makeBoll(BALL_R, COLORS.blue, {
+    kontur: 0x2c7cb5,
+    konturBredd: 4,
+    konturAlpha: 1,
+    skugga: { y: 52, rx: 44, ry: 15 },
+  })
+  c.kropp.circle(3, -7, 5).fill({ color: 0x1f5a86 })
+  c.kropp.circle(14, 3, 5).fill({ color: 0x1f5a86 })
+  c.kropp.circle(1, 11, 5).fill({ color: 0x1f5a86 })
   c.hitArea = new Circle(0, 0, 90) // ≥96px osynlig träffyta (launchern sätter samma)
   return c
 }
@@ -1134,19 +1132,7 @@ function makeCrowd() {
 
 // En pokal-stjärna till Bobos hylla.
 function makeStar() {
-  const c = new Container()
+  const c = makeStjarna(11, { farg: COLORS.yellow, kontur: 0xe0a83c, konturBredd: 2, innerKvot: 4.6 / 11 })
   c.eventMode = 'none'
-  const g = new Graphics()
-  const R = 11
-  const r = 4.6
-  g.moveTo(0, -R)
-  for (let i = 1; i < 10; i++) {
-    const a = (Math.PI * i) / 5 - Math.PI / 2
-    const rad = i % 2 ? r : R
-    g.lineTo(Math.cos(a) * rad, Math.sin(a) * rad)
-  }
-  g.fill(COLORS.yellow).stroke({ width: 2, color: 0xe0a83c })
-  g.eventMode = 'none'
-  c.addChild(g)
   return c
 }

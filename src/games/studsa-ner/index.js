@@ -14,6 +14,7 @@ import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
+import { makeBoll } from '../../lib/foremal.js'
 import { sparkle, puff, floatText, bigCelebration, breathe } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, DESIGN_W, DESIGN_H, PRAISE } from '../../lib/theme.js'
@@ -861,15 +862,7 @@ export default {
 
 // Glansigt mynt/boll: huvudfärg + ljus highlight + mjuk kant (programmatisk "3D").
 function makeBall(r, color) {
-  const c = new Container()
-  const body = new Graphics()
-    .circle(0, 0, r)
-    .fill(color)
-    .stroke({ width: Math.max(2, r * 0.08), color: shade(color, 0.18), alpha: 0.6 })
-  const gloss = new Graphics().circle(-r * 0.32, -r * 0.34, r * 0.34).fill({ color: COLORS.white, alpha: 0.55 })
-  gloss.eventMode = 'none'
-  c.addChild(body, gloss)
-  return c
+  return makeBoll(r, color) // delad klotboll (lib/foremal.js) — auto-kontur, ingen glansprick
 }
 
 function shade(hex, amt) {

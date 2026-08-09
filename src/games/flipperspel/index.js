@@ -25,6 +25,7 @@ import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
+import { makeBoll } from '../../lib/foremal.js'
 import { pop, bounceIn, breathe, sparkle, puff, floatText, ripple, shake, burst } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
@@ -1093,12 +1094,14 @@ export default {
 
 // Glansig stålkula (skugga + cirkel + ljusglimt).
 function makeBall() {
-  const c = new Container()
-  const shadow = new Graphics().circle(2, 4, BALL_R).fill({ color: 0x000000, alpha: 0.3 })
-  const body = new Graphics().circle(0, 0, BALL_R).fill(0xf2f6fb).stroke({ width: 3, color: COLORS.inkSoft })
-  const gloss = new Graphics().circle(-BALL_R * 0.3, -BALL_R * 0.32, BALL_R * 0.3).fill({ color: COLORS.white, alpha: 0.95 })
-  gloss.eventMode = 'none'
-  c.addChild(shadow, body, gloss)
+  // Delad klotboll (lib/foremal.js). Stålkulan behåller sin skarpa dager genom en
+  // hårdare ljuskälla i gradienten i stället för den påklistrade glansprickern.
+  const c = makeBoll(BALL_R, 0xf2f6fb, {
+    kontur: COLORS.inkSoft,
+    konturBredd: 3,
+    konturAlpha: 1,
+    skugga: { x: 2, y: 4, rx: BALL_R, ry: BALL_R, alpha: 0.3 },
+  })
   c.eventMode = 'none'
   c.interactiveChildren = false
   return c

@@ -7,7 +7,7 @@ import { Button } from '../../lib/Button.js'
 import { bigCelebration } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { GAMES } from '../../games/registry.js'
-import { PRAISE, COLORS, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { PRAISE, COLORS, DESIGN_W, DESIGN_H, ANIM } from '../../lib/theme.js'
 import { startGame, endGame, log as diag, flag as diagFlag, logProgress } from '../../lib/gamelog.js'
 
 export async function createGameHost(services, params) {
@@ -138,9 +138,19 @@ export async function createGameHost(services, params) {
   speaker.y = 64
   view.addChild(speaker)
 
+  // Ankomst-takt: spelet sätter sig på plats i stället för att bara stå där. Skalan går
+  // NEDÅT mot 1 (1.06 -> 1), aldrig under — en scale-in underifrån hade visat skalets
+  // creme runt kanterna en halv sekund, och full bleed finns just för att slippa det.
+  // Pivot i designens mitt så barnens koordinater är oförändrade.
+  view.pivot.set(DESIGN_W / 2, DESIGN_H / 2)
+  view.position.set(DESIGN_W / 2, DESIGN_H / 2)
+  view.scale.set(1.06)
+  gsap.to(view.scale, { x: 1, y: 1, duration: ANIM.enter.duration, ease: 'power3.out' })
+
   return {
     view,
     destroy() {
+      gsap.killTweensOf(view.scale)
       // Döda omgångens fördröjda anrop FÖRE spelets egen städning, så inget hinner
       // köra mot halvrivna objekt (och inget överlever till nästa omgång).
       if (timers.size) diag('timer', 'dodade-vid-exit', { antal: timers.size })

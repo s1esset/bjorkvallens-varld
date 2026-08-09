@@ -14,6 +14,95 @@ Format:
 
 ---
 
+## 2026-08-09/10 · v1.57.0 · Nattpass — LYFTPLAN 7·8·9·11·12 klara, och en sond som ljög
+
+**Byggt:** en obruten nattkörning på ägarens begäran ("jobba vidare medan jag sover, gå på din
+rekommendation"). Fem LYFTPLAN-rader stängda, plus ett P0-fynd som visade sig vara mätfel.
+
+### 1. Fjorton "P0-brott" var mätfel (`5da515d`, v1.50.0)
+
+Baslinjen visade 14 spel med `sen-aterkoppling` och `tryck-utan-ljud`. **Alla var harnessens
+auto-DRAG, inte tryck.** `judge()` i `gamelog.js` testade `outputs.length` FÖRE `dragged`, så
+samma rörelse dömdes av två regler beroende på om något råkade låta: ett tyst drag hamnade i
+`gest-utan-ljud` och gick fritt, ett identiskt drag som råkade starta en lyft-animation eller
+sammanföll med ett omgivningsljud larmade. `lagerelden` mätte fasen till nästa knaster i eldens
+280 ms-loop (169/228/277 ms) och kallade det svarstid; `studsbollar` mätte nästa boll som
+poppade av sig själv. **Efter fixen: `tryck-utan-ljud` 6 spel → 0, `sen-aterkoppling` 4 → 1.**
+Utan den här mätningen hade natten gått åt till att "fixa" fjorton spel som var hela.
+
+### 2. Det som var ÄKTA: tysta tryck under upptagen-fas (`1168e24`, `35defca`, `3d30e32`)
+
+`dod-traffyta` var på riktigt: ett spel som firar eller demonstrerar svarade med TYSTNAD, och
+för ett barn som inte kan läsa "vänta" är en tyst skärm inte en paus — den är trasig. Ny delad
+`kvittera()` i `feedback.js` (dämpad ton + tunn ring) och fem kunder. `vad-forsvann` hade
+dessutom en **död yta mitt på skärmen**: trycket landade på filten, inte på rutorna under, och
+filten hade ingen hanterare alls.
+
+Tre körningar i rad gav tre OLIKA spel med samma bugg — harnessens åtta sekunder träffar rätt
+fas av en slump. Därför **`scripts/_tystprobe.mjs`**, som följer pekbindningarna och flaggar
+tidiga returer utan kvitto: **53 kandidater i 28 spel**, lagda som `ATGARDER` V9. Inte fixade
+blint — sonden läser text, inte beteende.
+
+### 3. LYFTPLAN rad 8 — material som LÅTER (`045d6f3`, v1.52.0)
+
+`MATERIAL` + `mat()` (trä · metall · sten · gummi · glas) och `onImpact`/`impactAudio` i
+`physics.js`: anslagsfart → volym OCH tonhöjd. Rösten är syntes, inte klipp — repot har inga
+klipp som heter `knack`/`duns`/`klirr`, och ett klipp har EN dynamik. Kunder: `domino`,
+`bygg-tornet`. Taket (3 anslag/bildruta + 28 ms på väggklockan) är inte valfritt.
+
+### 4. LYFTPLAN rad 9 — Bobo blir en rigg (`f419d4f`, v1.55.0)
+
+`lib/karaktarer.js`: sju humör som ren data, fem reaktioner, blick, blink, andning. Första kund
+`harma-melodin`, vars tre handritade Graphics och egen `_setMood` försvann — koden blev kortare.
+
+### 5. LYFTPLAN rad 7 och 11 — rep och mjuka kroppar (`8bb208f`, v1.56.0 + v1.57.0)
+
+`lib/rep.js` (verlet-tråd, kund `zackes-biltvatt`, −59 rader) och `lib/mjukkropp.js`
+(tryck-soft-body, kund `lagerelden` — marshmallowen sjunker ihop på riktigt i stället för att
+bara byta färg).
+
+### 6. LYFTPLAN rad 12 — `p2-es` borttagen (`231caad`, v1.49.0)
+
+Noll importer på två månader. Ett dokumenterat teknikval som ingen kod använder är en lögn om
+appen. `ARCHITECTURE.md` nämnde den aldrig — docens A1 var inaktuell på den punkten.
+
+### Metodfynd — natten handlade om sonder som ljuger
+
+**Varje sond jag skrev fällde sig själv minst en gång, och varje gång på ett sätt som såg grönt
+eller rimligt ut:**
+
+- `_slagprobe` var **grön medan den inte mätte någonting**: den mätte `impactAudio` på en rasande
+  hög, men 180 bildrutor simuleras på ~40 ms verklig tid, så väggklocke-spärren släppte igenom
+  exakt en ton oavsett vad som hände.
+- `_tystprobe` rapporterade **"0 kandidater i hela repot"** två gånger, av två olika regex-fel
+  (bindningens kropp lästes fram till första `)`, och "nästa metod började" matchade `if (`).
+- `_repprobe` **felade ärligt** och tvingade fram två riktiga fixar: en 20-punkterskedja med
+  vilolängd 760 px blev 2870 px lång vid ett hårt drag.
+- `_mjukprobe` hade **fel två gånger innan koden hade det**: först fel fall (ett mjukt föremål
+  som hänger i toppen ska töjas ut — fysiken var rätt, testet fel), sedan fel mätstorhet
+  (underkantens absoluta läge blandar ihop hoptryckning och dropp).
+- Och **skärmdumpen** hittade det tabellen inte kunde: karaktärsriggens bryn gav `ledsen` och
+  `forvanad` ARGA ansikten — en tillsägelse, alltså ett P0-brott — och `scale.x = −1` vände
+  rotationens riktning så brynen blev osymmetriska.
+
+**Eget misstag värt att komma ihåg:** jag redigerade `karaktarer.js` medan `test:all` körde.
+Vite laddade om mitt i sviten, som kom tillbaka 68/72 med `gles-scen` på exakt 5,5 % i tre spel
+— signaturen för en omladdad sida, inte för en regression. En omkörning orörd gav 72/72.
+**Rör aldrig `src/` medan sviten kör.**
+
+**Commits:** `231caad` p2-es · `5da515d` gamelog-domen · `1168e24` kvittera · `045d6f3` material ·
+`35defca` peka-pa-kroppen · `3d30e32` tystprobe · `f419d4f` karaktarer · `8bb208f` rep ·
+`69ea2bb` mjukkropp
+
+**Öppet:**
+- **`ATGARDER` V9: 53 kandidater i 28 spel** — tysta tryck under upptagen-fas. Reproducera per
+  spel innan något ändras; fixmönstret är `kvittera()`.
+- LYFTPLAN: rad 2 (`atlas.js`) är den enda kvarvarande ⬜. **Kunder saknas** för de nya libben:
+  `karaktarer.js` 1 av 23 · `mjukkropp.js` 1 av 6 · `rep.js` 1 av 4 · `kamera.js` 0.
+- `MeshRope` (C5) är inte byggd — den kräver en textur, och `generateTexture()` är den kända
+  destabiliseraren. Vägen är Canvas2D-bakning som i `partiklar.js`.
+- Oförändrat: `saknat-ljudklipp` i 4 spel (MOSS nere).
+
 ## 2026-08-09 · v1.48.0 · LYFTPLAN rad 6 klar + rad 3/A2 påbörjad — vätska och volym
 
 **Byggt:** fyra omgångar. Två spel fick riktig vätska, och två omgångar gav spelobjekt och

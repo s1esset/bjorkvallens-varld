@@ -54,6 +54,7 @@ const RY = 66 // kupolens höjd över skärmkanten (toppen hamnar på −166, so
 const SKIRT_Y = -100 // skärmkantens y i fallskärmens lokala koordinater (var cy + 16)
 const KUPOL_N = 16 // punkter i mjukkroppen (delbart med 4 → hörn/mitt hamnar på punkter)
 const KUPOL_KRAFT = 5 // luftkraft → kraftfält i tyget (mätt i `_kupolprobe.mjs`)
+const KUPOL_SYN = 2.5 // ritningens överdrift av bukten (fysiken rörs inte — se `_drawCanopy`)
 const STRIPS = 12 // färgade våder
 const STEER_DEADZONE = 20 // dödzon kring fallskärmen så den inte vibrerar
 const TAP_IMPULSE = 0.5 // s — enkel-tap ger en kort styr-puff (för de minsta)
@@ -235,7 +236,12 @@ export default {
 
   _drawTarget(r) {
     const cx = r // halva mattans bredd
-    this._glow.clear().circle(0, 0, r).stroke({ width: 8, color: COLORS.yellow, alpha: 0.5 })
+    // GLÖDEN ÄR EN LIGGANDE ELLIPS, INTE EN CIRKEL. Träffkontrollen är rent vågrät
+    // (`Math.abs(chute.x − targetX)`, se `_land`), men en full cirkel med radie upp till
+    // 150 px reste sig till förarens fötter och lästes som "flyg IGENOM ringen" — ett
+    // mål som spelet inte har. Ellipsen ligger kvar på mattan och säger det sanna:
+    // det är var man landar i SIDLED som räknas.
+    this._glow.clear().ellipse(0, 0, r, r * 0.28).stroke({ width: 8, color: COLORS.yellow, alpha: 0.5 })
     this._mat.clear()
     this._mat.roundRect(-cx, -18, 2 * cx, 36, 14).fill(COLORS.purple).stroke({ width: 4, color: 0x6f5bd0, alpha: 0.6 })
     // Fjäder-streck över mattan.
@@ -290,6 +296,8 @@ export default {
     for (let i = KUPOL_N / 4; i <= (3 * KUPOL_N) / 4; i++) {
       this._kupol.fast(i, this._kupol.pts[i].x, this._kupol.pts[i].y)
     }
+    // Viloläget sparas för att kunna ÖVERDRIVA bukten vid ritning (se `_drawCanopy`).
+    this._kupolVila = this._kupol.pts.map((p) => ({ x: p.x, y: p.y }))
     this._drawCanopy()
 
     // Linor: 4 tunna streck från kupolens underkant ner till barnet.
@@ -349,11 +357,22 @@ export default {
     const g = this._canopy
     const k = this._kupol
     if (!g || g.destroyed || !k || !k.pts.length) return
+    // ⚠️ BUKTEN ÖVERDRIVS VID RITNING, inte i fysiken. Uppmätt rörelse är 2,8 px på en
+    // lätt last och 7,8 på en tung — sant, men på en kupol som är 184 px bred och
+    // nedskalad till en surfplatta blir det ett par pixlar, alltså en finess som bara
+    // syns i sondens utskrift. Här skalas avvikelsen FRÅN VILOLÄGET upp; talen i
+    // `luftmotstand.js` och `mjukkropp.js` rörs inte, så kalibreringen står kvar.
+    const syn = (i) => {
+      const p = k.pts[i]
+      const v = this._kupolVila?.[i]
+      if (!v) return p
+      return { x: v.x + (p.x - v.x) * KUPOL_SYN, y: v.y + (p.y - v.y) * KUPOL_SYN }
+    }
     // Övre bågen i x-ordning: vänstra hörnet → toppen → högra hörnet.
     const arc = []
     for (let j = 0; j <= KUPOL_N / 2; j++) {
       const i = ((3 * KUPOL_N) / 4 + j) % KUPOL_N
-      arc.push(k.pts[i])
+      arc.push(syn(i))
     }
     const yVid = (x) => {
       if (x <= arc[0].x) return arc[0].y
@@ -389,7 +408,7 @@ export default {
       const segx = vL.x + ((vR.x - vL.x) * (i + 0.5)) / 4
       g.circle(segx, skirtVid(segx), (vR.x - vL.x) / 8).fill({ color: 0xffffff, alpha: 0.12 })
     }
-    const topp = k.pts[0]
+    const topp = arc[KUPOL_N / 4]
     g.moveTo(vL.x + 14, topp.y + 22)
       .quadraticCurveTo(topp.x, topp.y + 4, vR.x - 14, topp.y + 22)
       .stroke({ width: 7, color: 0xffffff, alpha: 0.25, cap: 'round' })
@@ -789,6 +808,12 @@ export default {
     this._drawWeightIcon()
     this._wLabel.text = this._heavy ? 'Tung' : 'Lätt'
     ctx.services.audio.sfx('pling')
+    // TYNGDEN SKA HÖRAS, inte bara mätas. Skillnaden i styrmotstånd är 15 % och i
+    // vindbett 28 % — sant, men ett barn drar ryckigt och den nyansen drunknar i
+    // handen. Tonen säger det rakt ut: Tung är djup och kort som ett tungt föremål
+    // som sätts ner, Lätt är ljus och stiger som något som lyfter.
+    if (this._heavy) ctx.services.audio.tone({ freq: 260, slideTo: 130, dur: 0.22, type: 'triangle', vol: 0.16 })
+    else ctx.services.audio.tone({ freq: 420, slideTo: 760, dur: 0.3, type: 'sine', vol: 0.13 })
     pop(this._weightBtn)
     floatText(ctx.fxLayer, this._weightBtn.x, this._weightBtn.y - 80, this._heavy ? 'Tung!' : 'Lätt!')
     // Byt last MITT I FALLET och behåll farten: den nya gränsfarten är en annan, så

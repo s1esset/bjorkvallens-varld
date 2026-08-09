@@ -35,6 +35,12 @@ höjd. Spök-present + tankebubbla + auto-hjälp är no-fail-grepp. Pedagogiken:
 
 ## 3. Vad gör det lättjefullt / tunt
 
+> ⚠️ **Läst 2026-08-10: den här listan är till STOR DEL åtgärdad** — se §5 (rundorna
+> 2026-07-02 och 2026-08-06). Lösa ballonger att trycka på, färgade ballonger, stigande
+> lyft-ton, öppnad present med överraskning, ritad Elvira och 9 s auto-hjälp med lockande
+> FINNS i koden. Punkterna nedan står kvar som historik; det som faktiskt återstår är
+> markerat i §4. Läs alltid `src/games/ballonglyft/index.js` före planen.
+
 Polerat och tydligt — men som *räknespel* och *scen* finns tunna drag:
 
 - **Bara framåträkning av identiska tryck.** Varje tryck är exakt likadant: samma knapp,
@@ -62,26 +68,27 @@ aldrig.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Räkna riktiga ballonger, inte knapptryck.** Visa N "lösa" ballonger som flyter
-  i nederkanten; barnet *trycker på var och en* för att skicka upp den. Då räknar barnet
-  **föremål** (ett-till-ett-korrespondens, kärnan i tidig matematik), inte en knapp.
-- **[Medium] Inför ett mjukt val ("räcker det?").** Behåll no-fail men låt barnet *bestämma
-  sig*: en "Skicka iväg!"-knapp som lyfter paketet baserat på antalet just nu. För få →
-  paketet stiger glatt en bit, dansar och kommer ner igen ("nästan! en till?") — aldrig fel,
-  men nu *betyder* antalet något och barnet jämför.
-- **[Quick] Skjut upp auto-hjälpen** från 5,5s till ~9s och låt den först *peka/locka*
-  (Elvira vinkar, en ballong studsar) innan den fäster åt barnet — så barnets räknande får
-  utrymme.
+- ✅ ~~**[Medium] Räkna riktiga ballonger, inte knapptryck.**~~ Klar 2026-07-02.
+- **[Medium] Inför ett mjukt val ("räcker det?").** ← **NÄSTA RUNDA (spår 3 P2).** Behåll
+  no-fail men låt barnet *bestämma sig*: en "Skicka iväg!"-knapp som lyfter paketet baserat
+  på antalet just nu. För få → paketet stiger glatt en bit, dansar och kommer ner igen
+  ("nästan! en till?") — aldrig fel, men nu *betyder* antalet något och barnet jämför.
+  **Lyftet ska drivas av `lib/luftmotstand.js`** (motståndsvolymens andra kund): nettokraften
+  är ballongernas lyft minus paketets vikt, och farten uppåt följer överskottet — fler
+  ballonger än nödvändigt ger ett synligt snabbare, gladare lyft.
+  ⚠️ **Rör INTE den stegvisa lyftningen per ballong.** Den är ett medvetet pedagogiskt
+  val (1 tryck = 1 ballong = 1 steg, se §2) och en kontinuerlig fysikmodell skulle radera
+  den: en last vars lyft understiger vikten står still på marken, den svävar inte halvvägs.
+  Fysiken hör hemma i AVFÄRDEN, inte i räknandet.
+- ✅ ~~**[Quick] Skjut upp auto-hjälpen**~~ Klar 2026-07-02 (9 s + tvåfasad lockning).
 
 ### Variation & överraskning
-- **[Quick] Färgade ballonger** ur PLAYFUL i stället för identiska röda — vackrare, och öppnar
-  "räkna de röda" / mönster (röd-blå-röd) i högre nivåer.
+- ✅ ~~**[Quick] Färgade ballonger** ur PLAYFUL~~ Klar 2026-07-02.
 - **[Medium] Variera önskemålet.** Ibland önskar Elvira "2 röda + 1 gul" (tankebubblan visar
   det) → barnet räknar *sorter*. Samma mekanik, rikare räkning.
 
 ### Juice
-- **[Quick] Ljudkurva för lyft.** Stigande tonhöjd per ballong (klättrar mot målet) + ett
-  mjukt helium-"fffp" vid fäst och ett litet gnissel. Gör räknandet hörbart som en uppåtgång.
+- ✅ ~~**[Quick] Ljudkurva för lyft.**~~ Klar 2026-07-02 (helium-"fffp" + stigande lyft-ton).
 - **[Quick] Levande paket + ballonger.** Låt paketet gunga/vrida sig lätt medan det stiger
   och ballongerna studsa till vid varje ny — i stället för ett stelt steg. Litet damm-/
   glitterspår uppåt.
@@ -89,14 +96,12 @@ aldrig.
 ### Progression
 - **[Quick] Mjuk parallax-himmel.** Driv moln, en sol som ler, kanske en fågel — så väntan
   mellan tryck inte är en stillbild. Vid nivåbyte: en mjuk höjning av kameran/balkongen.
-- **[Medium] Paketet öppnas.** När Elvira tar emot → paketet spricker upp och en överraskning
-  hoppar ut (ett djur, en leksak ur en pool) som hon kramar. Gör leveransen meningsfull och
-  ger en "en till!"-anledning.
+- ✅ ~~**[Medium] Paketet öppnas.**~~ Klar 2026-07-02 (åtta överraskningar, Elvira kramar).
 
 ### Karaktär & berättelse
-- **[Deep] Levande Elvira.** Ersätt 🧒 med en liten ritad Elvira (eller åtminstone idle-
-  animationer: hon tittar ner, vinkar, hoppar av otålighet, sträcker sig efter paketet). Låt
-  henne *räkna med* ("…tre! En till!") och jubla vid mottagning — en mottagare som bryr sig.
+- **[Deep] Levande Elvira** — HALVT klar. Hon ÄR ritad sedan 2026-08-06 (`makeElvira()`), men
+  står orörlig mellan tryck: kvar är idle-liv (tittar ner, hoppar av otålighet, sträcker sig)
+  och att hon *räknar med* ("…tre! En till!").
 
 ### Ljud
 - **[Quick] Variera räkne-frasen + lägg pop-vid-fäst som riktigt klipp** ([[real-audio-sfx]]).

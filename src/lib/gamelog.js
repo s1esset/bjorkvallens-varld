@@ -210,9 +210,25 @@ function judge(mine, orsak) {
   pendings.splice(i, 1)
   clearTimeout(mine.timer)
   const fonster = round(now() - mine.t, 0)
+  const dt = mine.outputs.length ? round(mine.firstAt - mine.t, 0) : null
+  const dtLjud = mine.firstStrongAt ? round(mine.firstStrongAt - mine.t, 0) : null
+  // GESTEN DÖMS FÖRST — annars döms samma rörelse av två olika regler beroende på
+  // om något råkade låta. Fingret rörde sig: en gest, inte ett tryck. Rörelsen SYNS
+  // (objektet följer handen) utan att ge ljud eller tween, så den får inte räknas
+  // som stum — och den får inte heller mätas mot P0:s <100 ms-krav för TRYCK.
+  //
+  // Uppmätt 2026-08-09 (baslinjen test:all, 72 spel): 100 % av `sen-aterkoppling`
+  // (8 händelser i 4 spel) och 100 % av `tryck-utan-ljud` (6 spel) var harnessens
+  // auto-DRAG, inte tryck. Ett tyst drag hamnade i `gest-utan-ljud` och gick fritt;
+  // ett identiskt drag som råkade starta en lyft-animation eller sammanföll med ett
+  // omgivningsljud föll i stället igenom hit och larmade. `lagerelden` mätte så
+  // fasen till nästa knaster i eldens 280 ms-loop (169/228/277 ms) och kallade det
+  // svarstid. Fjorton "P0-brott" var alltså noll.
+  if (mine.dragged) {
+    log('input', 'gest', { x: mine.x, y: mine.y, hit: mine.hit, efterMs: dt, ljudMs: dtLjud, av: mine.outputs.slice(0, 4) })
+    return
+  }
   if (mine.outputs.length) {
-    const dt = round(mine.firstAt - mine.t, 0)
-    const dtLjud = mine.firstStrongAt ? round(mine.firstStrongAt - mine.t, 0) : null
     log('input', 'svar', { pek: mine.n, efterMs: dt, ljudMs: dtLjud, av: mine.outputs.slice(0, 4), hit: mine.hit })
     if (dtLjud == null && mine.hit && fonster >= MIN_JUDGE_MS) {
       // P0 kräver ljud OCH bild. Bara tweens: antingen tyst knapp, eller så var
@@ -221,12 +237,6 @@ function judge(mine, orsak) {
     } else if (dtLjud != null && dtLjud > LATE_SOUND_MS) {
       flag('sen-aterkoppling', `Första ljudet efter pekningen kom ${dtLjud} ms senare (P0-krav <100 ms)`, { x: mine.x, y: mine.y, hit: mine.hit, dtLjud }, 'varning')
     }
-    return
-  }
-  if (mine.dragged) {
-    // Fingret rörde sig: en gest, inte ett tryck. Rörelsen SYNS (objektet följer
-    // handen) utan att ge ljud eller tween — det får inte räknas som stumt.
-    log('input', 'gest-utan-ljud', { x: mine.x, y: mine.y, hit: mine.hit })
     return
   }
   if (fonster < MIN_JUDGE_MS) {

@@ -21,6 +21,7 @@ import { bounceIn, pop, wiggle, puff, sparkle , kvittera} from '../../lib/feedba
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, FONT, tint } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 const SKY = 0xbfe6ff
 const HOLE_Y = 560 // jordhålens y (i jordrabatten)
@@ -97,11 +98,16 @@ export default {
     decor.eventMode = 'none'
     decor.interactiveChildren = false
 
-    decor.addChild(new Graphics().rect(0, 0, ctx.width, 460).fill(SKY))
+    // Himmel och jord breddas med BLEED så en bred telefon (full bleed) aldrig ser
+    // creme-kanter. Jordgradienten breddas BARA i sidled — samma lodräta spann
+    // (440..740) som förut, så den synliga färgmappningen är oförändrad — och remsan
+    // under 740 (plattor högre än 16:9) är en helfärgad rect i gradientens slutton.
+    decor.addChild(new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, 460 + BLEED_Y).fill(SKY))
     // Jorden mörknar nedåt, som en riktig jordprofil gör. Var EN brun ton over 301 000 px —
     // appens storsta enfargade yta dar platt faktiskt var fel (scripts/_plattprobe.mjs).
-    decor.addChild(new Graphics().roundRect(-20, 440, ctx.width + 40, 300, 36).fill(verticalFill(tint(COLORS.brown, 0.16), shade(COLORS.brown, 0.3))))
-    decor.addChild(new Graphics().roundRect(-20, 432, ctx.width + 40, 46, 24).fill(shade(COLORS.brown, 0.18)))
+    decor.addChild(new Graphics().roundRect(-20 - BLEED_X, 440, ctx.width + 40 + 2 * BLEED_X, 300, 36).fill(verticalFill(tint(COLORS.brown, 0.16), shade(COLORS.brown, 0.3))))
+    decor.addChild(new Graphics().rect(-20 - BLEED_X, 740, ctx.width + 40 + 2 * BLEED_X, BLEED_Y).fill(shade(COLORS.brown, 0.3)))
+    decor.addChild(new Graphics().roundRect(-20 - BLEED_X, 432, ctx.width + 40 + 2 * BLEED_X, 46, 24).fill(shade(COLORS.brown, 0.18)))
 
     // Ritad sol med strålar och ansikte (var en ☀️-emoji).
     const sun = new Graphics()
@@ -138,7 +144,9 @@ export default {
     decor.addChildAt(hills, 1)
 
     const soil = new Graphics()
-    for (const [gx, gh] of [[60, 20], [150, 15], [255, 22], [400, 16], [520, 19], [760, 17], [900, 22], [1030, 15], [1180, 20]]) {
+    // De fyra yttersta stråna ligger i bleed-zonen (utanför 0..1280) så gräskanten
+    // inte tar slut mitt i bilden på en bred telefon; på 16:9 syns de aldrig.
+    for (const [gx, gh] of [[-160, 18], [-55, 21], [60, 20], [150, 15], [255, 22], [400, 16], [520, 19], [760, 17], [900, 22], [1030, 15], [1180, 20], [1335, 19], [1430, 16]]) {
       soil.moveTo(gx, 452).quadraticCurveTo(gx - 5, 452 - gh, gx - 11, 452 - gh + 4)
       soil.moveTo(gx, 452).quadraticCurveTo(gx + 2, 452 - gh - 3, gx + 8, 452 - gh + 2)
       soil.stroke({ width: 4, color: 0x6fb85c, cap: 'round' })

@@ -36,6 +36,7 @@ import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, bigCelebration, floatText, ripple, shake, kvittera } from '../../lib/feedback.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { COLORS, FONT, PRAISE, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -131,9 +132,11 @@ export default {
       restitution: 0.02,
       wallFriction: 0.5,
       // Kärlet är klippornas väggar + en botten, inte världens kanter: ett stänk
-      // ska få flyga upp över klippkanten och falla tillbaka.
+      // ska få flyga upp över klippkanten och falla tillbaka. Inga väggar är på,
+      // så bounds styr bara hashrutnätet + cullningen — breddade med BLEED_X så
+      // att ett stänk aldrig kan dö innanför telefonens synliga kantremsor.
       walls: { left: false, right: false, bottom: false, top: false },
-      bounds: { left: -120, right: DESIGN_W + 120, top: 60, bottom: DESIGN_H + 160 },
+      bounds: { left: -BLEED_X - 120, right: DESIGN_W + BLEED_X + 120, top: 60, bottom: DESIGN_H + 160 },
     })
     this._lavaView = new FluidView(this._root, this._lava, {
       color: 0xff5a1e,
@@ -494,14 +497,16 @@ export default {
     // Klippor + lavabas.
     const L = lay.lavaLeft
     const R = lay.lavaRight
+    // Klipporna dras ut med BLEED_X åt vardera håll — vid -60/1340 tog de slut mitt
+    // i bilden på en bred telefon och himlen lyste igenom under marklinjen.
     this._terrain.clear()
-    this._terrain.roundRect(-60, 400, L + 60, 380, 40).fill(verticalFill(tint(COLORS.brown, 0.14), shade(COLORS.brown, 0.28)))
-    this._terrain.roundRect(-60, 400, L + 60, 26, 40).fill(COLORS.green)
-    this._terrain.roundRect(R, 400, 1340 - R, 380, 40).fill(verticalFill(tint(COLORS.brown, 0.14), shade(COLORS.brown, 0.28)))
-    this._terrain.roundRect(R, 400, 1340 - R, 26, 40).fill(COLORS.green)
+    this._terrain.roundRect(-BLEED_X - 60, 400, L + BLEED_X + 60, 380 + BLEED_Y, 40).fill(verticalFill(tint(COLORS.brown, 0.14), shade(COLORS.brown, 0.28)))
+    this._terrain.roundRect(-BLEED_X - 60, 400, L + BLEED_X + 60, 26, 40).fill(COLORS.green)
+    this._terrain.roundRect(R, 400, DESIGN_W + BLEED_X + 60 - R, 380 + BLEED_Y, 40).fill(verticalFill(tint(COLORS.brown, 0.14), shade(COLORS.brown, 0.28)))
+    this._terrain.roundRect(R, 400, DESIGN_W + BLEED_X + 60 - R, 26, 40).fill(COLORS.green)
     // Djupet är ritat berg; det översta skiktet är vätska (se _fyllLava).
     this._lavaBase.clear()
-    this._lavaBase.rect(L, SURFACE_Y, R - L, 300).fill(0x7a1500)
+    this._lavaBase.rect(L, SURFACE_Y, R - L, 300 + BLEED_Y).fill(0x7a1500)
     this._fyllLava()
 
     // Skatt på höger klippa — varierat RITAT fynd per nivå (flyger ut vid vinst).

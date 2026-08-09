@@ -69,7 +69,7 @@ aldrig.
 
 ### Kärnloop & agens
 - ✅ ~~**[Medium] Räkna riktiga ballonger, inte knapptryck.**~~ Klar 2026-07-02.
-- **[Medium] Inför ett mjukt val ("räcker det?").** ← **NÄSTA RUNDA (spår 3 P2).** Behåll
+- ✅ ~~**[Medium] Inför ett mjukt val ("räcker det?").**~~ Klar 2026-08-10, se §5. Behåll
   no-fail men låt barnet *bestämma sig*: en "Skicka iväg!"-knapp som lyfter paketet baserat
   på antalet just nu. För få → paketet stiger glatt en bit, dansar och kommer ner igen
   ("nästan! en till?") — aldrig fel, men nu *betyder* antalet något och barnet jämför.
@@ -108,6 +108,37 @@ aldrig.
   Ett mjukt "tack!" från Elvira (förinspelat) vid leverans i stället för generiskt `correct`.
 
 ## 5. Status / loggar
+
+- 2026-08-10 ✅ **Barnet bestämmer när — och avfärden är riktig lyftkraft** (v1.87.0, spår 3
+  runda P2). `lib/luftmotstand.js` andra kund. §4 [Medium] "räcker det?" är därmed klar.
+  - **Paketet är avfärdsknappen.** Sitter minst en ballong på det skickas det iväg vid
+    tryck. Doc §4 föreslog en ritad "Skicka iväg!"-knapp; den valdes bort med flit — P0
+    säger ikon-först och noll läsning, nederkanten är redan upptagen av de lösa
+    ballongernas två band (120–690 och 950–1160), och paketet ÄR föremålet som ska iväg.
+    "Putta upp paketet" är begripligt utan ett enda ord.
+  - **Avfärden drivs av lyft mot vikt:** nettot är ballongernas lyft minus tyngden, farten
+    uppåt följer överskottet. Räckte det inte saktar paketet in, vänder och sjunker
+    tillbaka till sin räknehöjd — "Nästan! En ballong till?" — med ballongerna kvar.
+  - ⚠️ **Nära-misset SKALAR med N, och det är meningen.** Underskottet vid n = N−1 är
+    exakt g/N: 33 % vid tre ballonger men bara 12 % vid åtta. Svepet i `_lyftprobe.mjs`
+    visade att varje inställning som gav ett kort hopp vid N = 8 antingen tog 7,5 s vid
+    N = 3 eller lät sju ballonger lyfta ett åtta-paket. Det är geometrin i problemet, inte
+    en trimningsfråga — och det blev BÄTTRE av att skala: två av tre lyfter knappt (64 px),
+    sju av åtta går nästan hela vägen och vänder 64 px under Elvira. Ju mer barnet räknat,
+    desto närmare kommer paketet.
+  - **Räddningen föll ut gratis:** fäster barnet den sista ballongen MITT i en resa som
+    höll på att vända, så räddas den. Verifierat i det riktiga spelet.
+  - **Räknandet är orört.** Ett tryck = en ballong = ett steg upp (doc §2) — en
+    kontinuerlig lyftmodell hade raderat den mätaren, eftersom en last vars lyft
+    understiger vikten står still på marken och inte svävar halvvägs. Fysiken hör hemma i
+    avfärden, inte i räknandet. Sista ballongen lyfter alltså inte längre hem paketet
+    själv; den gör avfärden möjlig.
+  - **Uppmätt** (`node scripts/_lyftprobe.mjs`, 10 mått + `--spel` 5 mått i riktiga spelet):
+    med alla ballonger 3,27 s för hela resan vid N = 3…8 · överskott syns (sex ballonger på
+    ett fyra-paket: 3,27 → 1,75 s) · även orimligt överskott har en gränsfart · en för få
+    når aldrig fram och fastnar aldrig i luften.
+  - Nya repliker i `voice-phrases.json`: "Tryck på paketet så åker det!" · "Nästan! En
+    ballong till?" (väntar på `/rost`).
 
 - 2026-06-30: Doc skriven efter kodläsning + headless playtest (errorCount 0; skärmdump
   verifierad: Elvira + tankebubbla "4 🎈", present lyft med 3 ballonger, räknare "3"). Ersatte

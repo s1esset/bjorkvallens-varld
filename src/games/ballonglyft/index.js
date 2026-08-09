@@ -17,6 +17,7 @@ import { drawIcon } from '../../lib/artikoner.js'
 import { makeElvira } from '../../lib/figurer.js'
 import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe, kvittera } from '../../lib/feedback.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
+import { Motstandsvolym } from '../../lib/luftmotstand.js'
 
 // Räkneord (index = antal ballonger). n=1 -> 'en', n=2 -> 'två' ...
 const SVENSKA_TAL = ['noll', 'en', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju', 'åtta']
@@ -39,6 +40,24 @@ const GROUND_BOX_Y = 600 // presentens center när den vilar på marken
 
 const IDLE_MS = 9000 // ms utan tryck → mjuk auto-hjälp LOCKAR först
 const HELP_MS = 3500 // ytterligare tid efter lockandet → fäster då en ballong åt barnet
+
+// ---- Avfärden: barnet bestämmer NÄR ("räcker det?") -------------------------
+// Räknandet är oförändrat — ett tryck, en ballong, ett steg upp. Det NYA är att barnet
+// själv får skicka iväg paketet, och att den resan drivs av riktig lyftkraft mot vikt
+// (`lib/luftmotstand.js`, andra kunden): nettot är ballongernas lyft minus tyngden, och
+// farten uppåt följer överskottet. Talen är mätta i `scripts/_lyftprobe.mjs`.
+//
+// ⚠️ EN FÖR FÅ SER OLIKA UT VID OLIKA N, OCH DET ÄR MENINGEN. Underskottet vid n = N−1
+// är exakt g/N — 33 % vid tre ballonger men bara 12 % vid åtta. Svepet visade att varje
+// inställning som gav ett kort hopp vid N = 8 antingen tog 7,5 s vid N = 3 eller lät sju
+// ballonger lyfta ett åtta-paket. Det är geometrin i problemet, inte en trimningsfråga —
+// och nära-misset blir BÄTTRE av att skala: två av tre lyfter knappt (64 px), sju av åtta
+// går nästan hela vägen och vänder strax under Elvira (336 px av 400). Ju mer barnet har
+// räknat, desto närmare kommer paketet.
+const LYFT_GRAV = 0.1 // paketets tyngd (px/bildruta²)
+const LYFT_V_FALL = 6 // paketets gränsfart i fritt fall → sätter luftmotståndet
+const LYFT_MARGINAL = 0.12 // lyftet vid n = N är 1,12 × tyngden (n = N−1 räcker aldrig)
+const LYFT_YCK = 2 // uppåtryck i själva släppet (px/bildruta)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -103,6 +122,10 @@ export default {
 
     this._loose = []
     this._attached = []
+    // Luften: paketets tyngd mot ballongernas lyft under avfärden (`_send`/`_stegLyft`).
+    this._luft = new Motstandsvolym({ grav: LYFT_GRAV })
+    this._rec = null
+    this._sending = false
     this._loadLevel(ctx, this._level)
 
     this._tick = () => this._update(ctx)
@@ -256,6 +279,10 @@ export default {
     this._idleMs = 0
     this._enticed = false
     this._resolving = false
+    // Ny runda: paketet ur luften igen, annars fortsätter förra resans fart.
+    this._sending = false
+    if (this._rec) this._luft?.ta(this._rec)
+    this._rec = null
 
     // Töm ballonger (både lösa och fästa) + eventuell överraskning.
     this._clearBalloons()
@@ -376,16 +403,26 @@ export default {
       },
     })
 
-    // Presenten lyfts ett tydligt steg uppåt. Sista ballongen → upp till Elvira.
-    gsap.killTweensOf(this._box)
-    this._riseTween = gsap.to(this._box, {
-      y: boxTargetY,
-      duration: 0.55,
-      ease: reached ? 'power2.inOut' : 'back.out(1.3)',
-      onComplete: () => {
-        if (this._alive && reached) this._succeed(ctx)
-      },
-    })
+    // Presenten lyfts ett tydligt steg uppåt — räknandets egen mätare, oförändrad.
+    // ⚠️ SISTA BALLONGEN LYFTER INTE LÄNGRE HEM PAKETET. Förut var `reached` samma sak
+    // som att lyckas; nu är det barnet som skickar iväg det (`_send`), och det är just
+    // det valet som är rundans nya agens. Sker fästet MITT I en avfärd rör vi inte y
+    // alls — då äger fysiken paketet, och den nya ballongens lyft kan rädda en resa som
+    // höll på att vända.
+    if (!this._sending) {
+      gsap.killTweensOf(this._box)
+      this._riseTween = gsap.to(this._box, {
+        y: boxTargetY,
+        duration: 0.55,
+        ease: 'back.out(1.3)',
+        onComplete: () => {
+          if (this._alive && reached && !this._sending) {
+            wiggle(this._box)
+            ctx.services.voice.say('Tryck på paketet så åker det!')
+          }
+        },
+      })
+    }
     sparkle(ctx.fxLayer, BOX_X, boxTargetY - 110, { count: 4 })
   },
 
@@ -401,10 +438,21 @@ export default {
     ctx.services.audio.tone({ freq: base, slideTo: base * 1.18, dur: 0.22, type: 'triangle', vol: 0.16 })
   },
 
-  // Trycka på paketet: bara lekfullt + en vänlig knuff mot att räkna ballonger.
+  // PAKETET ÄR AVFÄRDSKNAPPEN. Sitter det minst en ballong på det skickas det iväg —
+  // barnet bestämmer själv NÄR ("räcker det?"), och det är den agensen som saknades.
+  //
+  // Varför paketet och inte en ritad "Skicka iväg!"-knapp (som doc §4 föreslog): P0 säger
+  // ikon-först och noll läsning, och nederkanten är redan upptagen av de lösa ballongerna
+  // i två band (120–690 och 950–1160) — en knapp som rymdes någonstans skulle antingen
+  // krocka med dem eller hamna långt från det den handlar om. Paketet har redan en
+  // generös träffyta (160×180), det ÄR föremålet som ska iväg, och "putta upp paketet" är
+  // begripligt utan ett enda ord. Ett tryck för tidigt är inget fel: det är precis
+  // nästan-fallet, och det lär ut loopen.
   _pokeBox(ctx) {
     if (!this._alive) return
     if (this._resolving) return kvittera(ctx.fxLayer, this._box?.x, this._box?.y, ctx.services.audio)
+    if (this._sending) return kvittera(ctx.fxLayer, this._box?.x, this._box?.y, ctx.services.audio)
+    if (this._n > 0) return this._send(ctx)
     wiggle(this._box)
     ctx.services.audio.sfx('soft')
     const next = this._loose.find((x) => !x._taken)
@@ -413,6 +461,65 @@ export default {
       ctx.services.voice.say('Tryck på en ballong!')
       this._idleMs = 0
       this._enticed = false
+    }
+  },
+
+  // ---- Avfärden -------------------------------------------------------------
+
+  _send(ctx) {
+    if (!this._alive || this._sending || this._resolving) return
+    this._sending = true
+    this._idleMs = 0
+    this._enticed = false
+    gsap.killTweensOf(this._box) // stegtweenen är klar — nu äger fysiken paketets y
+    this._riseTween?.kill()
+
+    this._luft ??= new Motstandsvolym({ grav: LYFT_GRAV })
+    if (this._rec) this._luft.ta(this._rec)
+    this._rec = this._luft.lagg(this._box, { massa: 1, gransfart: LYFT_V_FALL, vy: -LYFT_YCK })
+
+    ctx.services.audio.sfx('whoosh')
+    ctx.services.audio.tone({ freq: 300, slideTo: 620, dur: 0.35, type: 'sine', vol: 0.12 })
+    sparkle(ctx.fxLayer, BOX_X, this._box.y + 60, { count: 6 })
+  },
+
+  // Kraften varje bildruta: ballongernas lyft mot paketets tyngd. `_lyftprobe.mjs` äger
+  // talen — här står bara lagen.
+  _stegLyft(ctx, dt) {
+    const rec = this._rec
+    if (!rec) return
+    const lyftPer = (LYFT_GRAV * (1 + LYFT_MARGINAL)) / this._N
+    this._luft.kraft(rec, 0, -lyftPer * this._n)
+    this._luft.steg(dt)
+
+    // Paketet gungar och vrider sig medan det stiger — lutningen följer farten, så det
+    // ser tyngre ut när det knappt orkar och gladare när överskottet är stort.
+    const fart = -rec.vy / LYFT_V_FALL
+    this._box.rotation = Math.sin(this._t / 260) * 0.05 * (1 - Math.min(1, Math.abs(fart))) + fart * 0.04
+
+    if (this._box.y <= this._targetY) {
+      this._box.y = this._targetY
+      this._sending = false
+      this._luft.ta(rec)
+      this._rec = null
+      this._succeed(ctx)
+      return
+    }
+    // Räckte det inte: paketet saktar in, vänder och sjunker tillbaka till sin
+    // räknehöjd. Aldrig ett misslyckande — bara ett "nästan!", och ballongerna sitter
+    // kvar så barnet bara behöver lägga till en till.
+    const vila = this._riseY(this._n)
+    if (rec.vy > 0 && this._box.y >= vila) {
+      this._box.y = vila
+      this._box.rotation = 0
+      this._sending = false
+      this._luft.ta(rec)
+      this._rec = null
+      wiggle(this._box)
+      ctx.services.audio.sfx('soft')
+      ctx.services.voice.say('Nästan! En ballong till?')
+      const next = this._loose.find((x) => !x._taken)
+      if (next) pop(next)
     }
   },
 
@@ -456,13 +563,28 @@ export default {
   _update(ctx) {
     if (!this._alive) return
     this._t += ctx.ticker.deltaMS
+    if (this._sending) this._stegLyft(ctx, Math.min(2, ctx.ticker.deltaMS / 16.67))
     this._layoutBalloons()
     this._drawStrings()
 
-    if (this._resolving) return
-    if (this._n >= this._N) return
+    if (this._resolving || this._sending) return
 
     this._idleMs += ctx.ticker.deltaMS
+
+    // ALLA BALLONGER SITTER — då är nästa handling att SKICKA, inte att räkna mer.
+    // Utan den här grenen skulle en färdigräknad runda stå still i evighet, eftersom
+    // hjälpen bara kan fästa ballonger och det inte finns några kvar.
+    if (this._n >= this._N) {
+      if (!this._enticed && this._idleMs >= IDLE_MS) {
+        this._enticed = true
+        wiggle(this._box)
+        floatText(ctx.fxLayer, BOX_X, this._box.y - 120, '👆', { fontSize: 48, rise: 40 })
+        ctx.services.voice.say('Tryck på paketet så åker det!')
+        return
+      }
+      if (this._enticed && this._idleMs >= IDLE_MS + HELP_MS) this._send(ctx)
+      return
+    }
 
     // Fas 1 (~9s): LOCKA först — Elvira vinkar, en ballong studsar, röst uppmuntrar.
     if (!this._enticed && this._idleMs >= IDLE_MS) {
@@ -571,6 +693,10 @@ export default {
     this._alive = false
     ctx.ticker.remove(this._tick)
     ctx.services.voice.cancel()
+    this._sending = false
+    this._luft?.destroy() // steg() efter detta gör ingenting
+    this._luft = null
+    this._rec = null
     this._levelCall?.kill()
     this._riseTween?.kill()
     this._ghostBreathe?.kill()

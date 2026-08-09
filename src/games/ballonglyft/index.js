@@ -15,7 +15,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { makeElvira } from '../../lib/figurer.js'
-import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe, kvittera } from '../../lib/feedback.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
 // Räkneord (index = antal ballonger). n=1 -> 'en', n=2 -> 'två' ...
@@ -337,7 +337,9 @@ export default {
   // --- Kontroll: skicka upp en LÖS ballong -----------------------------------
 
   _attachLoose(ctx, b, opts = {}) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    // Firandet pågår — men ett tryck får aldrig vara stumt (P0 ÅTERKOPPLING).
+    if (this._resolving) return kvittera(ctx.fxLayer, b?.x, b?.y, ctx.services.audio)
     if (!b || b.destroyed || b._taken) return
     b._taken = true
     b._flying = true
@@ -401,7 +403,8 @@ export default {
 
   // Trycka på paketet: bara lekfullt + en vänlig knuff mot att räkna ballonger.
   _pokeBox(ctx) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return kvittera(ctx.fxLayer, this._box?.x, this._box?.y, ctx.services.audio)
     wiggle(this._box)
     ctx.services.audio.sfx('soft')
     const next = this._loose.find((x) => !x._taken)

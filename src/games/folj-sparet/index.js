@@ -9,7 +9,7 @@
 // All async är skyddad med this._alive (exit-säkert).
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, puff, floatText, kvittera } from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { Button } from '../../lib/Button.js'
@@ -454,7 +454,10 @@ export default {
   // ---- Härmfas: tap på ett fotspår ----------------------------------------
 
   _onTap(ctx, fp) {
-    if (!this._alive || this._busy) return
+    if (!this._alive) return
+    // Under demonstrationen/firandet är spelet upptaget — men tystnad är ett
+    // P0-brott, inte en paus. Dämpat kvitto på fotspåret barnet trycker på.
+    if (this._busy) return kvittera(ctx.fxLayer, fp?.x, fp?.y, ctx.services.audio)
     this._idle = 0
     this._clearHint()
 

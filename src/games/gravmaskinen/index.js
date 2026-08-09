@@ -22,7 +22,7 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, puff, burst, floatText, bigCelebration, sparkle, shake } from '../../lib/feedback.js'
+import { pop, wiggle, puff, burst, floatText, bigCelebration, sparkle, shake, kvittera } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS } from '../../lib/theme.js'
 
@@ -571,8 +571,16 @@ export default {
 
   // ---- Drag: gräv-medan-du-drar + tippa-vid-släpp ------------------------
 
+  // KVITTO. Under firandet är maskinen låst, men ett tryck får aldrig vara stumt
+  // (P0 ÅTERKOPPLING) — ett barn trycker garanterat medan lastbilen kör bort.
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _onDown(ctx, e) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
     this._tapTl?.kill()
     this._dragging = true
     const p = this._root.toLocal(e.global)
@@ -669,7 +677,8 @@ export default {
   },
 
   _onCatchTap(ctx, e) {
-    if (!this._alive || this._dragging || this._resolving) return
+    if (!this._alive || this._dragging) return
+    if (this._resolving) return this._kvitto(ctx, e)
     const p = this._root.toLocal(e.global)
     this._handleTap(ctx, p.x, p.y)
   },

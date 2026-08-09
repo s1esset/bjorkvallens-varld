@@ -32,7 +32,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, puff, sparkle, ripple, burst, bigCelebration, floatText } from '../../lib/feedback.js'
+import { bounceIn, pop, puff, sparkle, ripple, burst, bigCelebration, floatText, kvittera } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS } from '../../lib/theme.js'
 
@@ -578,8 +578,19 @@ export default {
 
   // ---- Peklogik på den burna kulan ---------------------------------------
 
+  // Dämpat kvitto på ett tryck spelet inte kan utföra just nu (P0: aldrig tystnad).
+  _kvitto(ctx, e) {
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio)
+  },
+
   _scoopDown(ctx, e) {
-    if (!this._alive || this._resolving || this._falling || !this._carrier || this._dragging) return
+    if (!this._alive) return
+    // Under firandet eller medan tornet rasar är spelet upptaget — men tystnad är
+    // ett P0-brott, inte en paus. (`_dragging` är samma gest och `_carrier` saknas
+    // bara mellan två kulor: ingetdera är en upptagen-fas.)
+    if (this._resolving || this._falling) return this._kvitto(ctx, e)
+    if (!this._carrier || this._dragging) return
     this._dragging = true
     this._pointerId = e.pointerId
     gsap.killTweensOf(this._carrier)
@@ -605,7 +616,9 @@ export default {
 
   // Tap på bak-rälsen → kopan glider dit (tap-tap-fallback för de minsta).
   _onPlateTap(ctx, e) {
-    if (!this._alive || this._resolving || this._falling || !this._carrier) return
+    if (!this._alive) return
+    if (this._resolving || this._falling) return this._kvitto(ctx, e)
+    if (!this._carrier) return
     const p = this._root.toLocal(e.global)
     const x = clamp(p.x, X_MIN, X_MAX)
     gsap.killTweensOf(this._carrier)
@@ -649,7 +662,8 @@ export default {
   },
 
   _toggleSticky(ctx) {
-    if (!this._alive || this._resolving) return
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx)
     this._sticky = !this._sticky
     this._jarGlow.visible = this._sticky
     this._drawHoneyJar()

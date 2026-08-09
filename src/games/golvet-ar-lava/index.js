@@ -33,7 +33,7 @@
 import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, bigCelebration, floatText, ripple, shake } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, bigCelebration, floatText, ripple, shake, kvittera } from '../../lib/feedback.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { COLORS, FONT, PRAISE, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
@@ -714,8 +714,18 @@ export default {
     return !this._alive || this._walking || this._resolving
   },
 
+  // Alissa går över stenarna i flera sekunder, och under hela den tiden var VARJE
+  // tryck stumt (P0-brott `dod-traffyta`). Ett barn trycker garanterat medan hon
+  // går. Kvittot är dämpat: fingret syns, men gången avbryts inte. `_alive` är
+  // undantaget — då rivs spelet och ingenting ska låta.
+  _kvitto(ctx, e) {
+    if (!this._alive) return
+    const p = e?.global ? ctx.fxLayer.toLocal(e.global) : null
+    kvittera(ctx.fxLayer, p?.x, p?.y, ctx.services.audio, { color: COLORS.yellow })
+  },
+
   _stoneDown(ctx, c, e) {
-    if (this._locked()) return
+    if (this._locked()) return this._kvitto(ctx, e)
     this._deselect()
     this._idle = 0
     this._stoneLayer.addChild(c) // höj z-index
@@ -853,7 +863,7 @@ export default {
   },
 
   _toggleSelect(ctx, stone) {
-    if (this._locked()) return
+    if (this._locked()) return this._kvitto(ctx)
     this._idle = 0
     if (this._selStone === stone) {
       this._deselect()
@@ -879,7 +889,7 @@ export default {
   },
 
   _slotTap(ctx, slot) {
-    if (this._locked()) return
+    if (this._locked()) return this._kvitto(ctx)
     this._idle = 0
     const sel = this._selStone
     if (sel && !sel.destroyed) {
@@ -891,7 +901,7 @@ export default {
   },
 
   _fieldTap(ctx, e) {
-    if (this._locked()) return
+    if (this._locked()) return this._kvitto(ctx, e)
     const p = this._root.toLocal(e.global)
     this._idle = 0
     const sel = this._selStone
@@ -985,7 +995,7 @@ export default {
   // ---- Gå! → bygg landnings-sekvensen och starta gång-loopen --------------
 
   _startWalk(ctx) {
-    if (this._locked()) return
+    if (this._locked()) return this._kvitto(ctx)
     this._deselect()
     const placed = (this._stones || []).filter((s) => s && !s.destroyed && s._placed).sort((a, b) => a.x - b.x)
 

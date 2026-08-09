@@ -26,6 +26,7 @@ import { PhysicsWorld, Body, MATERIALS } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { puff, sparkle, burst, bigCelebration, floatText, pop, bounceIn, breathe , kvittera} from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // --- Backens geometri: EN lång sluttning i världskoordinater (0 .. WORLD_LEN) ------
@@ -200,7 +201,10 @@ export default {
     this._root.addChild(this._skyHolder)
 
     // Stor osynlig styr-yta: pekning var som helst "tar tag" i leken.
-    this._backdrop = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0xffffff, alpha: 0 })
+    // Full bleed: täcker även ytan utanför 16:9 så tryck vid kanten fungerar på telefon.
+    this._backdrop = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + BLEED_X * 2, ctx.height + BLEED_Y * 2)
+      .fill({ color: 0xffffff, alpha: 0 })
     this._backdrop.eventMode = 'static'
     this._onBackDown = (e) => this._onDown(ctx, e, false)
     this._onUpEv = () => this._onUp()
@@ -224,7 +228,10 @@ export default {
 
     // Väder-ljus: en tunn färgton ÖVER backen och världen (men under flingor och
     // mätare) så att kvällssol och snöyra färgar hela scenen, inte bara himlen.
-    this._light = new Graphics().rect(0, 0, ctx.width, ctx.height).fill(0xffffff)
+    // Full bleed: annars får telefonens kantremsor fel ton när ljuset tonas in.
+    this._light = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + BLEED_X * 2, ctx.height + BLEED_Y * 2)
+      .fill(0xffffff)
     this._light.eventMode = 'none'
     this._light.alpha = 0
     this._root.addChild(this._light)
@@ -325,8 +332,10 @@ export default {
     if (!holder || holder.destroyed) return
     holder.removeChildren().forEach((o) => o.destroy())
     const mix = (t) => lerpColor(w.djup, w.yta, t) // t=1 solbelyst yta, t=0 djupast
-    const x0 = -40
-    const x1 = VIEW_W + 40
+    // Full bleed: backen ritas ut i telefonens kantremsor också (statiskt — samma
+    // sluttningslinje, bara längre band åt båda håll).
+    const x0 = -BLEED_X - 40
+    const x1 = VIEW_W + BLEED_X + 40
     const y0 = this._hillLineY(x0)
     const y1 = this._hillLineY(x1)
     // VARJE band får en EGEN Graphics. Alla band i samma Graphics gav bara det
@@ -393,8 +402,9 @@ export default {
     for (let i = 0; i < 48; i++) {
       const f = new Graphics().circle(0, 0, 2 + Math.random() * 3).fill({ color: 0xffffff, alpha: 0.8 })
       f.visible = i < 14
-      f.x = Math.random() * ctx.width
-      f.y = Math.random() * ctx.height
+      // Sprid över hela den SYNLIGA ytan (ctx.view) — på telefon är den bredare än 1280.
+      f.x = ctx.view.left + Math.random() * ctx.view.width
+      f.y = ctx.view.top + Math.random() * ctx.view.height
       f.vy = 14 + Math.random() * 20
       f.vx = Math.random() * 8 - 4
       this._flakeLayer.addChild(f)
@@ -407,7 +417,8 @@ export default {
   // granar och stugor med rykande skorsten. Allt dekorativt, bakom fält/boll.
   _buildDecor() {
     const far = new Graphics()
-    for (let i = 0; i < 26; i++) {
+    // Börjar på i=-2 så siluettraden täcker telefonens vänstra kantremsa vid start.
+    for (let i = -2; i < 26; i++) {
       const x = i * 190 + (Math.random() * 60 - 30)
       const by = 300 + Math.sin(i * 1.7) * 14 // fast baslinje; parallaxen sköter rörelsen
       const h = 42 + Math.random() * 30
@@ -1378,16 +1389,19 @@ export default {
   },
 
   _updateFlakes(dt, ctx) {
+    // Wrappa mot den SYNLIGA ytan (ctx.view, läses vid användning) — wrap vid 0..1280
+    // syntes som flingor som dök upp/försvann mitt i bilden på breda telefoner.
+    const v = ctx.view
     for (const f of this._flakes) {
       if (f.destroyed || !f.visible) continue // gömda flingor tillhör ett tätare väder
       f.y += f.vy * dt
       f.x += f.vx * dt
-      if (f.y > ctx.height + 8) {
-        f.y = -8
-        f.x = Math.random() * ctx.width
+      if (f.y > v.bottom + 8) {
+        f.y = v.top - 8
+        f.x = v.left + Math.random() * v.width
       }
-      if (f.x < -8) f.x = ctx.width + 8
-      else if (f.x > ctx.width + 8) f.x = -8
+      if (f.x < v.left - 8) f.x = v.right + 8
+      else if (f.x > v.right + 8) f.x = v.left - 8
     }
   },
 

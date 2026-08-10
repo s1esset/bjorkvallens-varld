@@ -15,6 +15,20 @@ import { bounceIn, pop, wiggle, sparkle, floatText } from '../../lib/feedback.js
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { verticalFill } from '../../lib/form.js'
+
+// MARKEN. `_plattprobe --medbakgrund` mätte 693 298 px — 75 % av skärmen — i EN ton:
+// bakgrunden var en enda vit rektangel som TINTAS per väder, så Elvira stod i en
+// färgad void utan mark under fötterna. Lösningen måste bevara tint-mekaniken, och gör
+// det: en tonad fyllning behåller sin variation när den tintas (tint multiplicerar), och
+// en mark som ritas i SAMMA Graphics tintas därför automatiskt med vädret — sandvarm i
+// sol, fuktigt gråblå i regn, kall och blek i snö, utan en enda extra rad väderlogik.
+// Bastonerna nedan är därför neutrala: det är vädrets tint som ger dem färg.
+const GROUND_Y = 606 // fötternas underkant ligger på 616 -> hon står PÅ marken
+const C_SKY_BOT = 0xe8e6e0
+const C_GROUND_TOP = 0xc9c0ae
+const C_GROUND_BOT = 0xafa491
+const C_GROUND_EDGE = 0x9a8f7c
 
 // Kroppszonernas centrum (= snäpp-mål). Huvud-zonen ligger strax ovanför huvudet
 // (en hatt sitter på toppen), fot-zonen strax ovanför fötterna.
@@ -130,9 +144,14 @@ export default {
 
   // Heltäckande bakgrund (vit, tonas via tint per väder). Fångar tomma tryck mjukt.
   // Ritas med bleed åt alla håll så breda telefoner (synlig yta utanför 0..1280)
-  // aldrig visar creme-lister — se lib/view.js.
+  // aldrig visar creme-lister — se lib/view.js. Himmel och mark ligger i SAMMA
+  // Graphics så en enda tint klär hela scenen efter vädret — se noten vid GROUND_Y.
   _buildBackground(ctx) {
-    const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(0xffffff)
+    const w = ctx.width + 2 * BLEED_X
+    const bg = new Graphics()
+    bg.rect(-BLEED_X, -BLEED_Y, w, GROUND_Y + BLEED_Y).fill(verticalFill(0xffffff, C_SKY_BOT))
+    bg.rect(-BLEED_X, GROUND_Y, w, ctx.height + BLEED_Y - GROUND_Y).fill(verticalFill(C_GROUND_TOP, C_GROUND_BOT))
+    bg.rect(-BLEED_X, GROUND_Y - 3, w, 5).fill({ color: C_GROUND_EDGE, alpha: 0.45 })
     bg.tint = 0xffffff
     this._bgColor = { r: 255, g: 255, b: 255 }
     bg.eventMode = 'static'

@@ -14,6 +14,64 @@ Format:
 
 ---
 
+## 2026-08-10 (sen natt V) · v1.130.0 · Småsakerna tömda — och två öppna buggar som båda bytte form
+
+**Byggt:** 5 punkter, 5 commits. Kön var "småsaker + öppna ÅTGÄRDER".
+
+| # | Punkt | Utfall |
+|---|---|---|
+| 1 | 3 repliker utan klipp | `npm run voice` — 3 made, 0 failed. Kön är **tom**. |
+| 2 | `pizzabageriet` saknade `BLEED` | Sista spelet utan bleed. Vägg, väggljus, bänkskiva och golv slutade på 0/1280/720, så en bred telefon visade **ängen från `createScene('warm')`** runt bageriet. |
+| 3 | `spindelnatet`s dagsljusbruna mark | Marken låg i `COLORS.brown` under en stjärnhimmel. Dras nu 55 % mot `night`-temats egen marktone. |
+| 4 | ÅTGÄRDER **V14** | Hypotesen **mätt falsk**. Harnessen bär nu sin egen diagnos i stället. |
+| 5 | ÅTGÄRDER **V10** | `{ isStatic: true, studs }` byggd och mätt. Migreringslistan syns i `check`. |
+
+**Passets viktigaste händelse: V14:s hypotes höll inte för en mätning.** Raden hade stått i tre
+svep på att `golvet-ar-lava` är svitens tyngsta montering (enda spelet med BÅDE `FluidWorld` OCH
+full `createScene`) och att skärmdumpen därför hinner före första målade bildrutan. Ny sond
+**`scripts/_montageprobe.mjs`** mäter kostnaden som längsta gapet mellan två `rAF` efter
+navigeringen — `nav.go()` är asynkron, så en synkron mätning av anropet visar ~0 och säger
+ingenting. Utfall över 72 spel, CPU 4× strypt, median av 3 varv: **`golvet-ar-lava` 16,8 ms =
+svitens median**, alltså EN bildruta precis som 69 andra spel. De enda som sticker ut är
+`pizzabageriet` (50,0 ms, 3,0×) och `hamburgerbygget` (33,4 ms, 2,0×) — och ingen av dem faller.
+Dessutom tas skärmdumpen efter tryck, drag OCH 900 ms; monteringskostnad kunde aldrig ha
+förklarat den. **Det som byggdes i stället för en fix på en död hypotes:** omtagningen höjd från
+en till tre, en vakt för `webglcontextlost`/`webglcontextrestored` (en förlorad GL-kontext ger
+en helt tom duk utan ett enda konsolfel), bevis samlade i SAMMA ögonblick som den tomma bilden
+(gl-kontext, gl-händelser, barn på stage och i världen, dukens storlek, `visibilityState`), och
+en varning `tom-bild-omtagen` som bär hela diagnosen i stället för tystnad. Vägen är
+**självtestad** med `--tvinga-tom N`, inte hoppad — en diagnos ingen kört är en gissning till.
+
+**V10 blev en opt-in, inte en global fix.** `{ isStatic: true, studs: 0.75 }` sätter restitution
+efter `setStatic`, uppdaterar `_original` (en väckt kropp behåller studsen), loopar över `parts`
+som matter själv, kläms till 0..1 och strippas ur matters options. Uppmätt: **4,7 → 143,3 px**
+hopp, identiskt med den simulerade fixen. **50 tal i 19 spel är fortfarande nollade med flit** —
+en global återställning hade väckt 25 kombinationer på en gång i handtrimmade spel. `npm run
+check` skriver nu EN sammanfattningsrad (`-- --studs` ger listan), så kön är läsbar i stället
+för tyst. Listan tvingade själv fram två gränsdragningar: `restitution: 0` räknas inte, och
+raden säger *"medan kroppen är statisk"* — `kulbana:140` skapar spelets KULA statisk med 0,42
+och får tillbaka talet ur `_original` när den väcks.
+
+**Två gånger var gradientmappningen den tysta fällan.** Både `pizzabageriet` och `spindelnatet`
+ville breddas åt alla håll, men `verticalFill`/`groundFill` mappas mot formens **bbox-höjd**: ett
+topp- eller bottenbleed hade flyttat hela ljuset i den synliga bilden. Regeln som gäller
+härefter: **bredda gradienten bara i sidled, och lägg helfärgade remsor i dess ytter-toner
+ovanför och under.**
+
+**Commits:** `4bd872d` röstklipp · `72f5932` pizzabageriet bleed · `cb2d368` spindelnatet
+månbelyst · `891a088` harnessens tom-bild-diagnos + `_montageprobe.mjs` · `898803a` studs-opt-in
+
+**Öppet:**
+- **`studs` har ingen kund bland spelen.** Första kunden är ägarnära (kräver att man SPELAR
+  spelet). Kandidater med uppenbar avsikt: `spindelhjalten` 1,0 · `rulla-bollen-hem` 0,92 ·
+  `bowling` 0,75 · `flipperspel` 0,5–0,7. ⚠️ Läs koden först — flera lägger redan en EGEN impuls
+  vid träff, och då blir en väckt restitution en dubblering, inte en fix.
+- **V14b väntar på nästa träff.** Frekvensen är ~1 av 7 svep; två fulla svep i det här passet var
+  rena. Nästa gång kommer fyndet med sin orsak.
+- Oförändrat: **D2** `saknat-ljudklipp` (MOSS nere) · platthetsarbetet vid avtagande avkastning
+  (`hamburgerbygget` 48 525 · `pizzabageriet` ugnsinsidan 50 656) · GitHub Pages · telefonkoll ·
+  miljöstädningen (två vite-instanser).
+
 ## 2026-08-10 (sen natt IV) · v1.125.0 · Sonden som saknades — och ett fynd som slutade vandra
 
 **Byggt:** 4 spel + 1 sond. Nivån som låg i förra postens `Öppet`.

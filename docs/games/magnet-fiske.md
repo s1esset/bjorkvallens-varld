@@ -105,6 +105,20 @@ Stark, polerad kärna — men några tunna kanter återstår:
 
 ## 5. Status / loggar
 
+- 2026-08-10 🐛 **Ankan fanns inte i dammen** (`bd54a8f`). `korkPool` stod kvar med
+  emoji-strängar (`'🦆'`/`'🛟'`) sedan emoji→ritat-migreringen, medan `makeThing()` matchar
+  sorts-id (`'anka'`/`'badring'`). Okända namn faller igenom till sista grenen, så **varje
+  icke-metall på nivå 0–2 ritades som en TRÄBÅT** — spelets pedagogiska ankare, gummiankan,
+  dök upp först på nivå 3.
+  **Varför det överlevde tio nivåer är lärdomen:** `MATERIAL` saknar också nyckeln `'🦆'` och
+  föll tillbaka på `'Trä'` — vilket råkar vara **sant om en båt**. Rösten sa alltså rätt sak
+  om fel föremål, testet var grönt och skärmdumpen såg trovärdig ut. Det syns bara om man
+  jämför bilden mot vad koden PÅSTÅR att den ritar.
+  Guard: `_magnetprobe` avsnitt **C** bygger nivå 0–3 och kräver att varje sak heter något
+  `makeThing` har en gren för, plus att ankan faktiskt finns. Två sondbuggar rättade på vägen
+  (`snap()` litade på att modulen svarar fast den är en singleton som lever kvar efter
+  `destroy()`; nivåsvepets bibliotek-bounce rev den nymonterade omgången eftersom
+  skärmövergången tar ~0,4 s — därför ligger avsnitt C sist).
 - 2026-06-30: Doc skriven (granskning + plan). Speltestat med drag (errorCount 0; skärmdump
   verifierad: spö + magnet mitt i fångst, anka guppar undan, hink + ⭐-räknare). Inga
   kodändringar ännu.

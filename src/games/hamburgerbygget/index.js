@@ -22,6 +22,7 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { verticalFill } from '../../lib/form.js'
 import { ITEMS, makeItemView } from './ingredienser.js'
 
 const BUILD = { x: 880, y: 596 } // _burger-origo: fatets yta (underbullens botten) — HÖGER
@@ -218,6 +219,19 @@ export default {
       for (let x = off - 256; x < W + 256; x += 64) wall.roundRect(x + 4, y + 4, 56, 56, 11).fill({ color: 0xfdefdb, alpha: 0.9 })
     }
     c.addChild(wall)
+
+    // Ljus över kaklet. `_plattprobe --medbakgrund` mätte 368 274 px — 40 % av skärmen —
+    // i EN ton, och det var kaklet: rutorna BRYTER ytan för ögat, men varje ruta har
+    // exakt samma färg, så väggen saknade helt ljus uppifrån-ned. Ett lågalfa-ark med
+    // lodrät toning över HELA väggen ger den ljuset utan att röra kakelmönstret — och
+    // det måste ligga som ett eget objekt, för `alpha` går inte att kombinera med en
+    // gradientfyllning någonstans i repot.
+    const vaggljus = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, W + 2 * BLEED_X, COUNTER_Y + BLEED_Y)
+      .fill(verticalFill(0xfff6e6, 0x9a7346))
+    vaggljus.alpha = 0.16
+    vaggljus.eventMode = 'none'
+    c.addChild(vaggljus)
 
     // Fläkt/kåpa över grillen — fyller den tomma ytan uppe till vänster.
     const hood = new Graphics()

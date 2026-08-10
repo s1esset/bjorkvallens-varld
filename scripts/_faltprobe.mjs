@@ -219,6 +219,110 @@ console.log('\nPORTEN: biblioteket räknar samma tal som magnet-fiskes egen kod'
   }
 }
 
+console.log('\npoler: järn dras av båda, lika stöter bort, olika drar')
+{
+  const PUSH_R = 170 // magnet-fiskes `stotRadie` — knuffen är ett NÄRFÄLT (se punkt 5)
+  const bygg = (polaritet) => new Magnetfalt({ x: 0, y: 0, radie: R_FIELD, styrka: PULL, minAvstand: R_MIN, maxFart: PULL_MAX, polaritet, stotRadie: PUSH_R })
+
+  // ⚠️ EN KROPP PER VÄRLD. Första versionen av det här avsnittet la jämförelsekroppen
+  //    på (120, −400) för att hålla den ur vägen — 417 px från fältet, alltså UTANFÖR
+  //    radien 300. Tre mått blev röda av sonden själv och pekade på biblioteket.
+  const ensam = (x, y = 0) => {
+    const varld = damm()
+    return { varld, b: sak(varld, x, y) }
+  }
+
+  // 1) OMAGNETISERAT JÄRN. Det pedagogiska ankaret OCH no-fail-garantin: står fältet
+  //    fel finns det ändå alltid något att fiska. Måste alltså vara IDENTISKT åt båda håll.
+  {
+    const a = bygg(1).polDra(ensam(120).b, 0)
+    const b = bygg(-1).polDra(ensam(120).b, 0)
+    ok('järn (pol 0) dras lika av BÅDA polariteterna', a > 0 && Math.abs(a - b) < 1e-12, `${a.toFixed(2)} = ${b.toFixed(2)} px/steg`)
+    ok('järn ger samma tal som vanliga dra()', Math.abs(bygg(1).polDra(ensam(150).b, 0) - bygg(1).dra(ensam(150).b)) < 1e-12)
+  }
+
+  // 2) LIKA/OLIKA. Tecknet på returvärdet ÄR villkoret spelet läser.
+  {
+    for (const polaritet of [1, -1]) {
+      const L = ensam(150)
+      const O = ensam(150)
+      const fL = bygg(polaritet)
+      const fO = bygg(polaritet)
+      const fl = fL.polDra(L.b, polaritet)
+      const fo = fO.polDra(O.b, -polaritet)
+      for (let i = 0; i < 90; i++) {
+        fL.polDra(L.b, polaritet)
+        fO.polDra(O.b, -polaritet)
+        L.varld.update(1000 / 60)
+        O.varld.update(1000 / 60)
+      }
+      ok(
+        `polaritet ${polaritet > 0 ? '+1' : '-1'}: lika knuffar BORT, olika drar IN`,
+        fl < 0 && fo > 0 && L.b.position.x > 155 && O.b.position.x < 145,
+        `lika 150→${L.b.position.x.toFixed(0)} px · olika 150→${O.b.position.x.toFixed(0)} px`,
+      )
+    }
+  }
+
+  // 3) TAKET. Repulsionen får inte ärva dragets tak — den verkar närmast centrum, där
+  //    ett omvänt 1/r-fält är som starkast.
+  {
+    const varld = damm()
+    const falt = bygg(1)
+    let max = 0
+    for (const d of [1, 5, 14, 28, 46, 90]) max = Math.max(max, -falt.polDra(sak(varld, d, 0), 1))
+    ok('knuffen är takad under dragets tak', max <= falt.stotFart + 1e-9 && falt.stotFart < PULL_MAX, `toppfart ${max.toFixed(2)} px/steg (tak ${falt.stotFart}, draget ${PULL_MAX})`)
+  }
+
+  // 4) INGEN TUNNLING. En bortstött sak pressas mot pondväggen hela tiden — den får
+  //    aldrig hamna på andra sidan de 40 px tjocka väggarna.
+  {
+    const varld = damm()
+    const falt = bygg(1)
+    const b = sak(varld, 100, 0)
+    varld.rectangle(200, 0, 40, 400, { isStatic: true })
+    let maxX = b.position.x
+    let maxFart = 0
+    for (let i = 0; i < 900; i++) {
+      falt.polDra(b, 1)
+      varld.update(1000 / 60)
+      maxX = Math.max(maxX, b.position.x)
+      maxFart = Math.max(maxFart, Math.hypot(b.velocity.x, b.velocity.y))
+    }
+    ok('bortstött mot väggen: aldrig igenom', maxX < 180, `längst ut x=${maxX.toFixed(1)} (väggens framsida 180), toppfart ${maxFart.toFixed(2)} px/steg`)
+  }
+
+  // 5) VÄNDNINGEN. Det som gör pol-dammen lösbar: en sak som stöts bort ska bli
+  //    fångbar av EN knapptryckning, och den tiden är vad barnet väntar ut.
+  {
+    const STICK_R = 46
+    const varld = damm()
+    const falt = bygg(1)
+    const b = sak(varld, 150, 0)
+    // Håll magneten fel LÄNGE (10 s) — värsta fallet, inte ett snällt. Med `stotRadie`
+    // glider saken ut till knuffkanten och STANNAR där; utan den (samma radie åt båda
+    // håll) mättes 315 px efter bara 1,5 s, alltså utanför dragets 300 och omöjlig att
+    // vända hem. Det här måttet är hela skälet till att `stotRadie` finns.
+    for (let i = 0; i < 600; i++) {
+      falt.polDra(b, 1)
+      varld.update(1000 / 60)
+    }
+    const efterKnuff = b.position.x
+    ok('knuffen parkerar saken INNANFÖR dragets radie', efterKnuff < R_FIELD - 40, `${efterKnuff.toFixed(0)} px (knuffkant ${PUSH_R}, dragets radie ${R_FIELD})`)
+    ok('vand() byter tecken', falt.vand() === -1 && falt.polaritet === -1)
+    let steg = -1
+    for (let i = 1; i <= 600; i++) {
+      falt.polDra(b, 1)
+      varld.update(1000 / 60)
+      if (Math.hypot(b.position.x, b.position.y) < STICK_R) {
+        steg = i
+        break
+      }
+    }
+    ok('en vändning gör den bortstötta saken fångbar', steg > 0 && steg < 300, `${efterKnuff.toFixed(0)} px ute → fångad efter ${steg} steg (${(steg / 60).toFixed(1)} s)`)
+  }
+}
+
 console.log('\nexit-säkerhet')
 {
   const varld = damm()
@@ -229,6 +333,7 @@ console.log('\nexit-säkerhet')
   Body.setVelocity(b, { x: 0, y: 0 })
   const fore = { x: b.position.x, y: b.position.y }
   ok('dra() efter destroy() ger 0', falt.dra(b) === 0)
+  ok('polDra() efter destroy() ger 0 åt båda håll', falt.polDra(b, 0) === 0 && falt.polDra(b, 1) === 0 && falt.polDra(b, -1) === 0)
   varld.update(1000 / 60)
   ok('kroppen rör sig inte', Math.abs(b.position.x - fore.x) < 1e-9 && Math.abs(b.position.y - fore.y) < 1e-9)
 }

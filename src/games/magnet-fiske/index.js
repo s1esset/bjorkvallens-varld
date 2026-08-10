@@ -16,7 +16,7 @@ import { Magnetfalt } from '../../lib/magnet.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
-import { sparkle, pop, wiggle, puff, floatText, breathe, bigCelebration, ripple, bounceIn } from '../../lib/feedback.js'
+import { sparkle, pop, wiggle, puff, floatText, breathe, bigCelebration, ripple, bounceIn, kvittera } from '../../lib/feedback.js'
 
 // P0 ASSETS: varje sak i dammen är ett RITAT föremål med egen silhuett, aldrig
 // en emoji. Nycklarna nedan är id:n — formen ligger i makeThing().
@@ -24,6 +24,23 @@ const METAL = ['fisk', 'nyckel', 'mynt', 'skruv', 'burk']
 const NONMETAL = ['anka', 'badring', 'batt']
 // Vilket material varje icke-metall är av → pedagogisk kontrast ("Magneten gillar inte trä!").
 const MATERIAL = { anka: 'Trä', badring: 'Gummi', batt: 'Trä' }
+
+// POLER (från nivå 2). Magneten visar EN aktiv pol som färg, och i dammen ligger två
+// stavmagneter — en röd och en blå. Lika färg knuffar bort, olika drar. Vanlig metall
+// (fisk/nyckel/mynt/skruv/burk) är omagnetiserat järn och dras av BÅDA polerna: det är
+// den riktiga fysiken, och det är också garantin att dammen aldrig kan låsa sig.
+//
+// ⚠️ Nivå 0–1 är ORÖRDA. Spelet är appens yngsta (2–4 år) och en polregel lägger ett
+// VILLKOR i kärnloopen ("ibland knuffar den bort — vänd magneten"). Den yngsta dammen
+// ska vara exakt som förut; polerna är nivå 2:s nya idé, inte allas.
+const POLE_LEVEL = 2
+const POLE_COLOR = { 1: 0xe0392b, '-1': 0x2f5fd0 } // +1 = röd pol, −1 = blå pol
+const STAV = { stavrod: 1, stavbla: -1 } // stavmagneternas egen pol
+const PUSH_R = 170 // knuffens radie — MÄTT: se lib/magnet.js `stotRadie`
+const PUSH_MAX = 7 // px/steg — taket på knuffen (draget har 14)
+// Vänd-knappen: magnetens egen kolumn (under spöets pivot, ovanför räknar-raden), aldrig
+// nära skalets hem-/ljudknapp. Ø112 px ≥ P0:s 96, +24 px osynlig halo.
+const FLIP_BTN = { x: 1148, y: 262, r: 56 }
 
 // Ritar en sak. Allt centreras i (0,0) och håller sig inom ~±34 px så att
 // fysikkroppens radie (28) och solfjäder-slottarna under magneten stämmer.
@@ -57,6 +74,24 @@ function makeThing(kind) {
     g.roundRect(-16, -8, 32, 18, 2).fill(0xe0574f)
     g.moveTo(-13, -6).lineTo(13, -6).stroke({ width: 2, color: 0xffffff, alpha: 0.5 })
     g.moveTo(-11, 22).lineTo(-11, -18).stroke({ width: 4, color: 0xffffff, alpha: 0.28 })
+  } else if (kind === 'stavrod' || kind === 'stavbla') {
+    // Stavmagnet: färgad ände + silverände. Färgen ska bära ända ut i ögonvrån, så den
+    // tar drygt halva staven — det är den enda egenskap barnet behöver jämföra.
+    const c = POLE_COLOR[STAV[kind]]
+    // Fältglöd i egen färg bakom den färgade änden. Utan den läser staven som ett
+    // BATTERI (det gjorde den — syntes först i skärmdumpen, aldrig i ett grönt mått).
+    g.circle(-15, 0, 33).fill({ color: c, alpha: 0.14 })
+    g.circle(-15, 0, 23).fill({ color: c, alpha: 0.14 })
+    g.roundRect(-37, -16, 74, 32, 11).fill(0xdfe6eb).stroke({ width: 3.5, color: 0x8d99a6 })
+    g.roundRect(-37, -16, 44, 32, 11).fill(c) // färgad ände: knappt två tredjedelar
+    g.rect(-6, -16, 13, 32).fill(c) // fyll ut den rundade innerkanten
+    g.moveTo(7, -16).lineTo(7, 16).stroke({ width: 3, color: 0x8d99a6 })
+    g.roundRect(-31, -10, 22, 6, 3).fill({ color: 0xffffff, alpha: 0.45 })
+    g.roundRect(13, -10, 17, 6, 3).fill({ color: 0xffffff, alpha: 0.55 })
+    // Tre fältstreck ut ur den färgade änden — "den här saken gör något på avstånd".
+    for (const [dy, len] of [[-13, 8], [0, 12], [13, 8]]) {
+      g.moveTo(-40, dy).lineTo(-40 - len, dy).stroke({ width: 3.5, color: c, cap: 'round' })
+    }
   } else if (kind === 'anka') {
     g.ellipse(2, 6, 26, 16).fill(0xffe08a).stroke({ width: 3, color: 0xe0a94f })
     g.moveTo(20, -2).quadraticCurveTo(34, -6, 30, 8).closePath().fill(0xffd35c) // stjärt
@@ -142,6 +177,10 @@ export default {
     this._needed = 0
     this._lastFniss = 0
     this._lastWhy = 0 // strypning: förklara "trä/gummi" i lugn takt, inte varje knuff
+    this._lastStot = 0 // samma strypning för pol-knuffen
+    this._poles = false // polerna vaknar först på nivå POLE_LEVEL
+    this._flipHints = 0 // hur många idle-vinkar i rad som bara kunde svaras med en vändning
+    this._saidPull = false
     this._inWater = false // för plask-ljud när magneten doppas i dammen
     this._items = [] // { body, view, metal, stuck, delivered, slot }
     this._stuck = []
@@ -153,7 +192,10 @@ export default {
 
     // Magnetens kraftfält (lib/magnet.js): radiellt drag ∝ 1/avstånd med tak, och
     // samma fält baklänges som den mjuka knuffen ankan får. Sitter i magnetspetsen.
-    this._falt = new Magnetfalt({ x: PARK.x, y: PARK.y, radie: R_FIELD, styrka: PULL, minAvstand: R_MIN, maxFart: PULL_MAX, aktiv: false })
+    // `stotRadie`/`stotFart` gäller bara pol-knuffen (nivå ≥ 2) och är mätta, inte valda:
+    // med dragets radie åt båda håll trycktes en stavmagnet UT ur fältet (315 px av 300)
+    // och kunde aldrig vändas hem igen. Se `node scripts/_faltprobe.mjs`.
+    this._falt = new Magnetfalt({ x: PARK.x, y: PARK.y, radie: R_FIELD, styrka: PULL, minAvstand: R_MIN, maxFart: PULL_MAX, aktiv: false, stotRadie: PUSH_R, stotFart: PUSH_MAX })
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -260,15 +302,11 @@ export default {
 
     this._magnet = new Container()
     this._magnet.addChild(new Graphics().circle(0, 0, 46).fill({ color: COLORS.blue, alpha: 0.18 })) // klister-halo
-    // RITAD hästskomagnet (var en 🧲-emoji): röd båge med vita poler.
-    const head = new Graphics()
-    head.arc(0, -4, 30, Math.PI, 0).stroke({ width: 22, color: 0xe0392b })
-    head.roundRect(-41, -6, 22, 30, 4).fill(0xe0392b)
-    head.roundRect(19, -6, 22, 30, 4).fill(0xe0392b)
-    head.roundRect(-41, 18, 22, 20, 4).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
-    head.roundRect(19, 18, 22, 20, 4).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
-    head.arc(0, -4, 30, Math.PI + 0.25, Math.PI + 0.75).stroke({ width: 6, color: 0xffffff, alpha: 0.35 })
-    this._magnet.addChild(head)
+    // RITAD hästskomagnet (var en 🧲-emoji): färgad båge med vita poler. Färgen ÄR den
+    // aktiva polen — på nivå 0–1 står den alltid på +1 (röd), alltså precis som förut.
+    this._head = new Graphics()
+    this._magnet.addChild(this._head)
+    this._drawHead()
     this._magnet.position.set(PARK.x, PARK.y)
     this._magnet.eventMode = 'static'
     this._magnet.cursor = 'pointer'
@@ -300,6 +338,26 @@ export default {
     this._magnet.on('pointerupoutside', this._onUp)
     this._root.addChild(this._magnet)
 
+    // VÄND-KNAPPEN (nivå ≥ 2). Ligger EFTER magneten i lagerordningen: parkeras magneten
+    // råkar ovanpå knappen ska trycket ändå landa på knappen, aldrig på ett drag.
+    this._flipBtn = new Container()
+    this._flipBtn.position.set(FLIP_BTN.x, FLIP_BTN.y)
+    this._flipBtn.hitArea = new Circle(0, 0, FLIP_BTN.r + 24) // P0: osynlig hit-halo
+    this._flipG = new Graphics()
+    this._flipBtn.addChild(this._flipG)
+    this._onFlipTap = () => {
+      if (!this._alive) return
+      // Mitt i firandet byggs dammen om — men ett tryck får ALDRIG vara tyst (P0).
+      if (this._resolving) {
+        kvittera(ctx.fxLayer, FLIP_BTN.x, FLIP_BTN.y, ctx.services.audio)
+        return
+      }
+      this._flip(ctx)
+    }
+    this._flipBtn.on('pointertap', this._onFlipTap)
+    this._root.addChild(this._flipBtn)
+    this._drawFlip()
+
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._buildPond(ctx)
 
@@ -314,11 +372,15 @@ export default {
 
   // ---- Bygg en damm för aktuell nivå --------------------------------------
 
+  // Från POLE_LEVEL byts EN vanlig metallsak mot de två stavmagneterna (en röd, en blå)
+  // — dammen växer alltså med en sak, inte med tre. Att det alltid är en av VARJE färg
+  // är hela no-fail-garantin: vilken pol magneten än står på finns det en stavmagnet
+  // som dras in, och all vanlig metall dras ändå av båda polerna.
   _counts(level) {
-    if (level <= 0) return { metal: 2, kork: 1 }
-    if (level === 1) return { metal: 3, kork: 1 }
-    if (level === 2) return { metal: 4, kork: 2 }
-    return { metal: 5, kork: 3 } // cap
+    if (level <= 0) return { metal: 2, kork: 1, stav: 0 }
+    if (level === 1) return { metal: 3, kork: 1, stav: 0 }
+    if (level === 2) return { metal: 3, kork: 2, stav: 2 }
+    return { metal: 4, kork: 3, stav: 2 } // cap
   },
 
   _buildPond(ctx) {
@@ -331,8 +393,20 @@ export default {
     this._target = { x: PARK.x, y: PARK.y }
     this._magnet.position.set(PARK.x, PARK.y)
 
-    const { metal, kork } = this._counts(this._level)
-    this._needed = metal
+    const { metal, kork, stav } = this._counts(this._level)
+    this._needed = metal + stav
+
+    // Polerna vaknar på nivå 2. Varje runda börjar på +1 (röd) med magneten orörd —
+    // så nivå 0–1 aldrig ser vare sig en knapp, en blå magnet eller en vriden bild.
+    this._poles = this._level >= POLE_LEVEL && stav > 0
+    this._falt.polaritet = 1
+    this._flipHints = 0
+    this._magnet.rotation = 0
+    this._drawHead()
+    this._drawFlip()
+    this._flipBtn.visible = this._poles
+    this._flipBtn.eventMode = this._poles ? 'static' : 'none'
+    this._flipBtn.cursor = this._poles ? 'pointer' : 'default'
 
     // Simfart för den här nivån (sakerna vandrar snabbare ju högre nivå → svårare).
     this._swim = SWIM_BASE + this._level * SWIM_PER_LEVEL
@@ -359,6 +433,7 @@ export default {
       this._addItem(ctx, emoji, isMetal, p.x, p.y)
     }
     for (const e of metalEmojis) spawn(e, true)
+    if (stav) for (const k of shuffle(Object.keys(STAV))) spawn(k, true)
     for (const e of korkEmojis) spawn(e, false)
 
     this._drawCounter()
@@ -380,7 +455,8 @@ export default {
     nudge(body, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6) // litet levande gupp
     this._phys.link(body, view)
 
-    const it = { body, view, metal, emoji, stuck: false, delivered: false, slot: 0, wt: Math.random() * 1.2, wh: Math.random() * Math.PI * 2 }
+    // `pol`: 0 = omagnetiserat järn (dras av båda polerna), ±1 = en egen magnet.
+    const it = { body, view, metal, emoji, pol: STAV[emoji] || 0, stuck: false, delivered: false, slot: 0, wt: Math.random() * 1.2, wh: Math.random() * Math.PI * 2 }
     view.on('pointertap', () => {
       if (!this._alive || this._resolving || it.delivered || it.stuck) return
       if (it.metal) {
@@ -410,6 +486,96 @@ export default {
       ctx.services.voice.say(mat === 'Gummi' ? 'Gummi! Magneten gillar inte gummi.' : 'Trä! Magneten gillar inte trä.')
     } else {
       floatText(ctx.fxLayer, it.view.x, it.view.y - 24, 'Hihi!', { fontSize: 42 })
+    }
+  },
+
+  // ---- Poler: magnethuvud, vänd-knapp, knuff-reaktion ---------------------
+
+  // Magnethuvudet bär den aktiva polens färg. Nivå 0–1 står alltid på +1 → exakt
+  // samma bild som före polerna.
+  _drawHead() {
+    const g = this._head
+    if (!g || g.destroyed) return
+    const c = POLE_COLOR[this._falt.polaritet]
+    g.clear()
+    g.arc(0, -4, 30, Math.PI, 0).stroke({ width: 22, color: c })
+    g.roundRect(-41, -6, 22, 30, 4).fill(c)
+    g.roundRect(19, -6, 22, 30, 4).fill(c)
+    g.roundRect(-41, 18, 22, 20, 4).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
+    g.roundRect(19, 18, 22, 20, 4).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
+    g.arc(0, -4, 30, Math.PI + 0.25, Math.PI + 0.75).stroke({ width: 6, color: 0xffffff, alpha: 0.35 })
+  },
+
+  // Knappen visar den färg magneten BLIR — ikon-först, noll läsning: en liten magnet i
+  // nästa färg med en vändpil runt sig.
+  _drawFlip() {
+    const g = this._flipG
+    if (!g || g.destroyed) return
+    g.clear()
+    const c = POLE_COLOR[this._falt.polaritet > 0 ? -1 : 1]
+    g.circle(0, 8, FLIP_BTN.r).fill({ color: COLORS.shadow, alpha: 0.16 })
+    g.circle(0, 0, FLIP_BTN.r).fill(COLORS.cream).stroke({ width: 6, color: c })
+    g.arc(0, -3, 17, Math.PI, 0).stroke({ width: 13, color: c })
+    g.roundRect(-23.5, -4, 13, 17, 3).fill(c)
+    g.roundRect(10.5, -4, 13, 17, 3).fill(c)
+    g.roundRect(-23.5, 9, 13, 11, 3).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
+    g.roundRect(10.5, 9, 13, 11, 3).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
+    // Vändpilen: en båge runt magneten med en spets i änden (räknad, inte handritad,
+    // så den sitter på bågen även om radien ändras).
+    const R = FLIP_BTN.r - 12
+    const a = -0.35
+    const px = Math.cos(a) * R
+    const py = 2 + Math.sin(a) * R
+    const tx = -Math.sin(a)
+    const ty = Math.cos(a)
+    g.arc(0, 2, R, -2.95, a).stroke({ width: 7, color: COLORS.brown, cap: 'round' })
+    g.moveTo(px + tx * 15, py + ty * 15)
+      .lineTo(px - tx * 2 + Math.cos(a) * 12, py - ty * 2 + Math.sin(a) * 12)
+      .lineTo(px - tx * 2 - Math.cos(a) * 12, py - ty * 2 - Math.sin(a) * 12)
+      .closePath()
+      .fill(COLORS.brown)
+  },
+
+  // Vänd polen. Ingen upptagen-flagga och ingen spärr: två snabba tryck ska ge två
+  // vändningar, inte en tyst yta (P0 ÅTERKOPPLING).
+  _flip(ctx) {
+    if (!this._alive || !this._poles) return
+    const p = this._falt.vand()
+    this._drawHead()
+    this._drawFlip()
+    this._flipHints = 0
+    this._idle = 0
+    ctx.services.audio.sfx('flip')
+    ctx.services.audio.tone({ freq: p > 0 ? 300 : 480, dur: 0.18, type: 'sine', vol: 0.16, slideTo: p > 0 ? 520 : 260 })
+    // Magneten vrider sig ett halvt varv. killTweensOf först — annars slåss två tryck
+    // om rotationen och den vandrar iväg.
+    gsap.killTweensOf(this._magnet)
+    gsap.to(this._magnet, { rotation: this._magnet.rotation + Math.PI, duration: 0.34, ease: 'back.out(1.5)' })
+    pop(this._flipBtn)
+    ripple(ctx.fxLayer, this._magnet.x, this._magnet.y, { color: POLE_COLOR[p], maxR: 96, alpha: 0.5 })
+    sparkle(ctx.fxLayer, this._magnet.x, this._magnet.y)
+  },
+
+  _pulseFlip(ctx) {
+    if (!this._poles || !this._flipBtn || this._flipBtn.destroyed) return
+    pop(this._flipBtn, { scale: 1.16 })
+    sparkle(ctx.fxLayer, FLIP_BTN.x, FLIP_BTN.y)
+  },
+
+  // Lika pol möter lika pol. Motgång, aldrig straff: saken glider undan med ett
+  // studsigt ljud, knappen blinkar till, och då och då sägs VARFÖR.
+  _stot(ctx, it) {
+    const now = performance.now()
+    if (now - this._lastStot < 900) return
+    this._lastStot = now
+    ctx.services.audio.tone({ freq: 300, dur: 0.13, type: 'triangle', vol: 0.13, slideTo: 170 })
+    if (!it.view.destroyed) wiggle(it.view)
+    ripple(ctx.fxLayer, it.view.x, it.view.y, { color: POLE_COLOR[it.pol], maxR: 62, alpha: 0.5 })
+    this._pulseFlip(ctx)
+    if (now - this._lastWhy > 3500) {
+      this._lastWhy = now
+      floatText(ctx.fxLayer, it.view.x, it.view.y - 26, it.pol > 0 ? 'Röd!' : 'Blå!', { fontSize: 42 })
+      ctx.services.voice.say('Lika färger knuffar bort! Tryck på knappen.')
     }
   },
 
@@ -450,6 +616,11 @@ export default {
         if (it.delivered) continue
         const p = it.body.position
         if (it.metal && it.stuck) {
+          // MEDVETET: en fastklistrad sak läser aldrig fältet igen, så en stavmagnet
+          // som redan sitter fast BLIR KVAR när polen vänds. Fysikaliskt inkonsekvent,
+          // men den andra vägen är värre: vänd-vinken kan vända åt barnet (`_recue`)
+          // mitt under bärningen, och då hade hjälpen slagit ur barnets fångst rakt
+          // framför hinken. Greppet är mekaniskt när saken väl sitter på kroken.
           const s = SLOTS[Math.min(it.slot, SLOTS.length - 1)]
           Body.setPosition(it.body, { x: tip.x + s.x, y: tip.y + s.y })
           Body.setVelocity(it.body, { x: 0, y: 0 })
@@ -478,7 +649,13 @@ export default {
         if (!inWater) continue
 
         if (it.metal) {
-          this._falt.dra(it.body)
+          // Med poler avgör kroppens egen pol tecknet: järn (0) dras alltid, en
+          // stavmagnet av samma färg knuffas bort. Utan poler exakt som förut.
+          if (this._poles) {
+            if (this._falt.polDra(it.body, it.pol) < 0) this._stot(ctx, it)
+          } else {
+            this._falt.dra(it.body)
+          }
         } else if (this._falt.knuff(it.body, { radie: DUCK_PUSH_R, styrka: DUCK_PUSH, profil: 'jamn' })) {
           // mjuk knuff BORT — ankan kan aldrig fastna. Returvärdet ÄR närhetsvillkoret.
           const now = performance.now()
@@ -519,6 +696,10 @@ export default {
 
   _stick(ctx, it) {
     if (!this._alive || it.stuck || it.delivered) return
+    // En bortstött stavmagnet får ALDRIG fastna, och den kan komma inom fastna-radien
+    // ändå: pressas den mot pondväggen tar väggen emot medan magneten fortsätter fram.
+    // Tyst blir det inte — `_stot` låter, vinglar och blinkar med knappen hela tiden.
+    if (this._poles && it.pol && it.pol === this._falt.polaritet) return
     it.stuck = true
     it.body._stuck = true // exponerat teststate
     it.slot = this._stuck.length
@@ -539,7 +720,11 @@ export default {
     ripple(ctx.fxLayer, it.view.x, it.view.y, { color: COLORS.white, maxR: 54, alpha: 0.45, duration: 0.4 })
     if (!it.view.destroyed) pop(it.view)
     floatText(ctx.fxLayer, it.view.x, it.view.y - 20, '✨', { fontSize: 46 })
-    if (!this._saidFirst) {
+    if (it.pol && !this._saidPull) {
+      // Den andra halvan av pol-lärandet, sagd i det ögonblick den syns.
+      this._saidPull = true
+      ctx.services.voice.say('Nu drar den! Olika färger gillar varandra.')
+    } else if (!this._saidFirst) {
       this._saidFirst = true
       ctx.services.voice.say('Den fastnar! Metall!')
     }
@@ -630,11 +815,17 @@ export default {
 
   _recue(ctx) {
     if (!this._alive || this._resolving) return
-    ctx.services.voice.replayLast?.()
     let best = null
     let bd = Infinity
+    let bortstott = 0
     for (const it of this._items) {
       if (!it.metal || it.stuck || it.delivered) continue
+      // Vinken måste peka på något som FAKTISKT går att fånga just nu. En knuff mot
+      // magneten på en sak som stöts bort är hjälp åt fel håll.
+      if (this._poles && it.pol && it.pol === this._falt.polaritet) {
+        bortstott++
+        continue
+      }
       const p = it.body.position
       const d = Math.hypot(this._magnet.x - p.x, this._magnet.y - p.y)
       if (d < bd) {
@@ -642,6 +833,17 @@ export default {
         best = it
       }
     }
+    // Finns bara bortstötta saker kvar är svaret INTE en knuff utan en vändning. Första
+    // vinken visar knappen, andra vänder åt barnet — samma snälla trappa som resten av
+    // appen, och det som gör pol-dammen omöjlig att fastna i.
+    if (!best && bortstott) {
+      this._flipHints++
+      this._pulseFlip(ctx)
+      if (this._flipHints >= 2) this._flip(ctx)
+      else ctx.services.voice.say('Vänd magneten!')
+      return
+    }
+    ctx.services.voice.replayLast?.()
     if (!best || best.view.destroyed) return
     sparkle(ctx.fxLayer, best.view.x, best.view.y)
     this._clearHint()
@@ -755,6 +957,11 @@ export default {
       gsap.killTweensOf(this._cat.scale)
     }
     if (this._bucketHit && !this._bucketHit.destroyed) this._bucketHit.off('pointertap', this._onBucketTap)
+    if (this._flipBtn && !this._flipBtn.destroyed) {
+      this._flipBtn.off('pointertap', this._onFlipTap)
+      gsap.killTweensOf(this._flipBtn)
+      gsap.killTweensOf(this._flipBtn.scale)
+    }
     if (this._magnet && !this._magnet.destroyed) {
       this._magnet.off('pointerdown', this._onDown)
       this._magnet.off('globalpointermove', this._onMove)

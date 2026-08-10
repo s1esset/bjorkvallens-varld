@@ -233,11 +233,61 @@ for (const g of games) {
 }
 
 // ---------- utdata ----------
+// ---------- statisk restitution: tal som inte gör någonting (ÅTGÄRDER V10) ----------
+// `PhysicsWorld._make` skapar kroppen dynamisk och sätter den statisk efteråt (NaN-fixen),
+// och matters `Body.setStatic` NOLLAR då restitution. Ett `restitution` på en statisk kropp
+// har alltså aldrig gjort något — uppmätt i `scripts/_studsprobe.mjs`: plattans 0,02 och
+// 0,95 ger identiskt studshopp. Sedan v1.130.0 finns `{ isStatic: true, studs: 0.75 }`,
+// som `_make` sätter EFTER `setStatic`.
+//
+// Rapporteras som EN sammanfattningsrad, inte som ett femtiotal varningar: talen är ofarliga
+// (de gör ingenting) och migreringen kräver att man SPELAR spelet för att avgöra vilken studs
+// som var avsedd. `npm run check -- --studs` skriver ut hela listan när någon tar itu med den.
+//
+// ⚠️ TVÅ MEDVETNA GRÄNSDRAGNINGAR, båda hittade genom att läsa listan sonden själv skrev:
+//   · `restitution: 0` räknas inte — det säger exakt vad `setStatic` ändå gör.
+//   · Raden säger "medan kroppen är statisk", inte "aldrig". `kulbana:140` skapar spelets
+//     KULA statisk (parkerad före utskjutning) med `restitution: 0.42`; när den väcks med
+//     `Body.setStatic(b, false)` läser matter tillbaka talet ur `_original`. Ett tal på en
+//     kropp som senare väcks är alltså levande, och listan är en läslista — inte en fixlista.
+const visaStuds = argv.includes('--studs')
+const dodaStuds = []
+// Hela options-objektet plockas ut med klammermatchning, inte med en radregex: sex av
+// de fyrtiofyra ligger över flera rader (`plugin: {}` och `collisionFilter: {}` gör
+// dessutom objekten nästlade), och en radbaserad läsning missade just dem.
+const objektRunt = (src, i) => {
+  let d = 0
+  let start = -1
+  for (let k = i; k >= 0; k--) {
+    const c = src[k]
+    if (c === '}') d++
+    else if (c === '{') { if (d === 0) { start = k; break } d-- }
+  }
+  if (start < 0) return null
+  d = 0
+  for (let k = start; k < src.length; k++) {
+    const c = src[k]
+    if (c === '{') d++
+    else if (c === '}') { d--; if (d === 0) return src.slice(start, k + 1) }
+  }
+  return null
+}
+for (const g of games) {
+  for (const m of g.src.matchAll(/\bisStatic\s*:\s*true/g)) {
+    const obj = objektRunt(g.src, m.index)
+    if (!obj || !/\brestitution\s*:/.test(obj) || /\bstuds\s*:/.test(obj)) continue
+    const tal = obj.match(/\brestitution\s*:\s*([^,\s}]+)/)?.[1] ?? '?'
+    if (Number(tal) === 0) continue // `restitution: 0` säger samma sak som setStatic gör
+    const rad = g.src.slice(0, m.index).split('\n').length
+    dodaStuds.push({ id: g.id, rad, tal })
+  }
+}
+
 const errors = problems.filter((p) => p.level === 'fel')
 const warnings = problems.filter((p) => p.level === 'varning')
 
 if (asJson) {
-  console.log(JSON.stringify({ games: games.length, errors, warnings, pendingClips, templateSays, loggarLasta }, null, 2))
+  console.log(JSON.stringify({ games: games.length, errors, warnings, pendingClips, templateSays, loggarLasta, dodaStuds }, null, 2))
 } else {
   const scope = onlyGame ? `spel "${onlyGame}" (strikt)` : `${games.length} spel`
   console.log(`\n  Kontroll av ${scope}\n`)
@@ -246,6 +296,13 @@ if (asJson) {
   console.log('')
   if (pendingClips) console.log(`  ♪ ${pendingClips} repliker väntar på röstklipp — kör /rost när narratorn är uppe (Web Speech täcker upp tills dess)`)
   if (templateSays) console.log(`  ♪ ${templateSays} repliker byggs vid körning (template literal) — bara en testkörning kan verifiera dem (${loggarLasta} loggar lästa i .test-logs)`)
+  if (dodaStuds.length) {
+    const spel = new Set(dodaStuds.map((d) => d.id)).size
+    console.log(`  ⚙ ${dodaStuds.length} restitution-tal i ${spel} spel gör ingenting MEDAN kroppen är statisk (setStatic nollar dem, ÅTGÄRDER V10) — ska ytan studsa: { studs }${visaStuds ? '' : ' · lista: npm run check -- --studs'}`)
+    if (visaStuds) {
+      for (const d of dodaStuds) console.log(`      ${d.id}:${d.rad}  restitution ${d.tal}`)
+    }
+  }
   console.log(`  ${errors.length ? '✗' : '✓'} ${errors.length} fel · ${warnings.length} varningar\n`)
 }
 

@@ -151,8 +151,11 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   dynamisk och sätter den statisk efteråt (NaN-fixen), och matters `Body.setStatic` nollar då
   `restitution` och sätter `friction` till 1 (originalen hamnar i `body._original`). Studsen blir
   alltså alltid den DYNAMISKA kroppens egen. `kulbana`s studsplatta stod på `0.95` och studsade
-  exakt som en ramp — uppmätt: plattans 0,02 och 0,95 ger identiskt studshopp. Vill du ha en
-  studsande yta: `lib/fjader.js` (`Fjaderbrada`). Fixen i `_make` rör 23 spel → ÅTGÄRDER V10.
+  exakt som en ramp — uppmätt: plattans 0,02 och 0,95 ger identiskt studshopp. **Vill du ha en
+  studsande statisk yta: `{ isStatic: true, studs: 0.75 }`** (opt-in, sätts efter `setStatic`,
+  uppmätt +139 px mot samma yta utan den). Eller `lib/fjader.js` (`Fjaderbrada`) när ytan ska
+  kasta iväg något. De 50 gamla `restitution`-talen på statiska kroppar är fortfarande nollade
+  med flit — `npm run check -- --studs` listar dem. → ÅTGÄRDER V10/V10b.
 - **En förflyttning av en statisk kropp kan bli en fart som ligger kvar för alltid.**
   `Body.setPosition(body, p, true)` sätter farten till förflyttningen, och matter räknar aldrig om
   hastigheten på en statisk kropp. Ett drag på 230 px gav (−651, −230) i hela byggfasen, och

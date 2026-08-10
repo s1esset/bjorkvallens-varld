@@ -218,23 +218,54 @@ export class PhysicsWorld {
   // = NaN-position. Kroppen försvinner, dess länkade Pixi-vy följer med, och INGET
   // konsolfel skrivs. Bygg-tornets klossar dog exakt så (mätt: nan-kropp ×5 per körning).
   // Genom att skapa dynamiskt och sätta statiskt EFTERÅT går kroppen alltid att väcka.
+  // `studs` (0..1) är det ENDA sättet att ge en statisk kropp verklig studsighet.
+  //
+  // ⚠️ `restitution` på en statisk kropp är en NULLHANDLING i hela repot, och det är mätt,
+  // inte gissat (`node scripts/_studsprobe.mjs`). `Body.setStatic` ovan nollar restitution
+  // och sätter friction till 1 (originalen läggs undan i `body._original`), så varje
+  // `restitution` ett spel satt på en ramp, vägg, hink eller studsplatta har alltid varit
+  // borta innan första kontakten. `kulbana`s studsplatta stod på 0,95 och studsade exakt
+  // som en ramp: plattans 0,02 och 0,95 gav identiskt studshopp.
+  //
+  // Varför en EGEN nyckel och inte en generell återställning av `_original`: parets regel
+  // är `max(A, B)`, och 35 av 60 mätta kombinationer rör sig 0,0 px eftersom det statiska
+  // talet ligger under den rörliga kroppens egen studs. En global återställning hade väckt
+  // 25 kombinationer på en gång i spel som är handtrimmade mot dagens beteende — därav
+  // opt-in, ett spel i taget, med en sond per spel. Se ÅTGÄRDER V10.
+  //
+  // `_original` uppdateras med, så en kropp som senare väcks (`Body.setStatic(b, false)`)
+  // behåller sin studs i stället för att falla tillbaka på talet den skapades med.
+  // Loopen över `parts` speglar matters egen: en sammansatt kropp kolliderar med sina
+  // delar, inte med föräldern.
+  //
+  // OBS: `friction` rörs INTE. setStatic sätter den till 1 på alla statiska ytor, och
+  // varje ramp, golv och vägg i repot är trimmad mot just det.
   _make(body, opts) {
-    if (opts.isStatic) Body.setStatic(body, true)
+    if (opts.isStatic) {
+      Body.setStatic(body, true)
+      if (opts.studs != null) {
+        const s = Math.max(0, Math.min(1, opts.studs))
+        for (const part of body.parts) {
+          part.restitution = s
+          if (part._original) part._original.restitution = s
+        }
+      }
+    }
     return this._add(body)
   }
 
   rectangle(x, y, w, h, opts = {}) {
-    const { isStatic, ...rest } = opts
+    const { isStatic, studs, ...rest } = opts
     return this._make(Bodies.rectangle(x, y, w, h, rest), opts)
   }
 
   circle(x, y, r, opts = {}) {
-    const { isStatic, ...rest } = opts
+    const { isStatic, studs, ...rest } = opts
     return this._make(Bodies.circle(x, y, r, rest), opts)
   }
 
   polygon(x, y, sides, r, opts = {}) {
-    const { isStatic, ...rest } = opts
+    const { isStatic, studs, ...rest } = opts
     return this._make(Bodies.polygon(x, y, sides, r, rest), opts)
   }
 

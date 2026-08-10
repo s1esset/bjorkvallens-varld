@@ -31,10 +31,11 @@ const ok = (namn, villkor, detalj = '') => {
 }
 
 // Ett släpp rakt ner på en statisk planka. `fixad` = återställ `_original` efter setStatic.
-function slapp({ statiskR, dynamiskR, fixad }) {
+function slapp({ statiskR, dynamiskR, fixad, studs }) {
   const v = new PhysicsWorld({ gravityY: GRAV, walls: [] })
   const plank = v.rectangle(PLANK.x, PLANK.y, PLANK.w, PLANK.h, {
     isStatic: true, restitution: statiskR, friction: 0.04, label: 'plank',
+    ...(studs != null ? { studs } : {}),
   })
   if (fixad && plank._original) plank.restitution = plank._original.restitution
   const startY = PLANK.y - PLANK.h / 2 - BALL_R - FALL
@@ -58,8 +59,14 @@ function slapp({ statiskR, dynamiskR, fixad }) {
     if (traffad) topp = Math.min(topp, kula.position.y)
   }
   const vila = PLANK.y - PLANK.h / 2 - BALL_R
+  const plankRest = plank.restitution
+  const plankOrig = plank._original ? plank._original.restitution : null
+  const plankStudsFalt = plank.studs
   v.destroy()
-  return { hopp: traffad && isFinite(topp) ? Math.max(0, vila - topp) : 0, parStuds }
+  return {
+    hopp: traffad && isFinite(topp) ? Math.max(0, vila - topp) : 0,
+    parStuds, plankRest, plankOrig, plankStudsFalt,
+  }
 }
 
 console.log('\nSTATISK RESTITUTION — blastradien för ÅTGÄRDER V10\n')
@@ -142,6 +149,40 @@ ok('ett statiskt tal ÖVER den rörliga kroppens studs ändrar banan',
   ok('väggarna går inte genom _make — fixen når dem aldrig', vagg != null && vagg._original == null,
     '_buildWalls använder Composite.add direkt')
   v.destroy()
+}
+
+// --- 6. `studs`-opten: den byggda fixen, mätt mot den simulerade ------------
+// Mätningarna 1–5 sa vad en fix SKULLE göra. Här mäts vad den GÖR. Kravet är dubbelt:
+// en kropp som ber om studs ska studsa exakt som den simulerade fixade armen, och en
+// kropp som INTE ber om det ska vara bit-identisk med dagens beteende — annars vore
+// opt-in bara en global ändring med ett extra ord.
+console.log('\n  `studs`-opten (ÅTGÄRDER V10, byggd):')
+{
+  const utan = slapp({ statiskR: 0.9, dynamiskR: 0.18, fixad: false })
+  const med = slapp({ statiskR: 0, dynamiskR: 0.18, fixad: false, studs: 0.9 })
+  const simulerad = slapp({ statiskR: 0.9, dynamiskR: 0.18, fixad: true })
+  console.log(`    utan opt ${utan.hopp.toFixed(1)} px · med studs 0.9 ${med.hopp.toFixed(1)} px · simulerad fix ${simulerad.hopp.toFixed(1)} px`)
+
+  ok('`studs` ger samma studs som den simulerade fixen',
+    Math.abs(med.hopp - simulerad.hopp) < 1.5,
+    `${med.hopp.toFixed(1)} mot ${simulerad.hopp.toFixed(1)} px`)
+  ok('`studs` lyfter hoppet rejält mot en tung kropps egna 0,18',
+    med.hopp - utan.hopp > 50,
+    `+${(med.hopp - utan.hopp).toFixed(0)} px`)
+  ok('UTAN `studs` är kroppen orörd — 44 tal i 18 spel ändras inte',
+    utan.plankRest === 0 && utan.hopp < 10,
+    `restitution ${utan.plankRest} · hopp ${utan.hopp.toFixed(1)} px`)
+  ok('`_original` bär studsen, så en väckt kropp behåller den',
+    med.plankOrig === 0.9, `_original.restitution ${med.plankOrig}`)
+  ok('`studs` läcker inte in i matters namnrymd',
+    med.plankStudsFalt === undefined, `body.studs = ${String(med.plankStudsFalt)}`)
+
+  const klamd = slapp({ statiskR: 0, dynamiskR: 0.18, fixad: false, studs: 2 })
+  ok('`studs` kläms till 0..1 (2 → 1)', klamd.plankRest === 1, `restitution ${klamd.plankRest}`)
+
+  const noll = slapp({ statiskR: 0.9, dynamiskR: 0.18, fixad: false, studs: 0 })
+  ok('`studs: 0` är ett medvetet dött golv, inte "använd talet"',
+    noll.plankRest === 0 && noll.hopp < 10, `hopp ${noll.hopp.toFixed(1)} px`)
 }
 
 console.log(`\n${fel === 0 ? '✓ alla mått gröna' : `✗ ${fel} mått röda`}\n`)

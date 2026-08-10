@@ -55,7 +55,10 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
   bildruta rymmer 1–5 steg.
 - `update(deltaMS)` fast tidssteg · exit-säker `destroy()`.
 - ⚠️ `restitution` på en **statisk** kropp är nollad av `Body.setStatic` — se fällistan i
-  CLAUDE.md. Studsen blir alltid den dynamiska kroppens egen.
+  CLAUDE.md. Studsen blir alltid den dynamiska kroppens egen. **Ska ytan studsa: `{ isStatic:
+  true, studs: 0.75 }`** — opt-in, sätts efter `setStatic` och bärs även av `_original`, så en
+  kropp som väcks behåller den. Uppmätt: 4,7 → 143,3 px hopp mot en `heavy`-kropp.
+  De gamla talen i 19 spel är fortfarande nollade med flit (`npm run check -- --studs`).
 - `predictTrajectory(…)` + re-exporterade `Body` / `Composite` / `Vector`.
 
 ## Material som LÅTER (`MATERIAL` + `onImpact` / `impactAudio`)

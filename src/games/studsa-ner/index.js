@@ -24,6 +24,7 @@ import { makeBoll } from '../../lib/foremal.js'
 import { sparkle, puff, floatText, bigCelebration, breathe, pop } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, DESIGN_W, DESIGN_H, PRAISE } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 
 const MAX_BALLS = 6 // tak för prestanda; äldsta myntet tonar bort över detta
 const TARGET_PER_LEVEL = 3 // antal träffar i målfickan för att fylla mätaren
@@ -150,7 +151,11 @@ export default {
     // Spelbräda.
     const board = new Graphics()
       .roundRect(72, BOARD_TOP, ctx.width - 144, BINS_TOP - BOARD_TOP - 10, 28)
-      .fill({ color: COLORS.cream, alpha: 0.78 })
+      // Bradan lag pa 115 361 px i EN ton (`_plattprobe --medbakgrund`) — spelets storsta
+      // falt och 16 % av skarmen. Den ar ingen textpanel utan sjalva spelytan sedd rakt
+      // framifran, sa den tal ljus uppifran. Dampad ramp: cremen ar nastan vit, och
+      // kulorna maste fortsatta lasa mot den. Alpha-vagen, se lib/form.js.
+      .fill(groundFill(COLORS.cream, { light: 0.04, dark: 0.10, alpha: 0.78 }))
       .stroke({ width: 4, color: COLORS.inkSoft, alpha: 0.2 })
     board.eventMode = 'none'
     this._root.addChild(board)

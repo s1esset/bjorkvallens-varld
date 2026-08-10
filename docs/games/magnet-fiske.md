@@ -55,9 +55,10 @@ Stark, polerad kärna — men några tunna kanter återstår:
   "kläck" av metall mot magnet, inget vattenporlande. Allt utom rösten låter som meny-klick.
 - **Belöningen är generisk.** `bigCelebration` + `progress.complete()` som överallt. Inget
   fiske-tema ("Full hink! Vilken fångst!"), ingen scen som reagerar.
-- **Variationen är bara "fler saker + snabbare simning".** Emoji-mixen växer lite, men det
-  finns inga nya *händelser*: ingen gammal stövel som skämtfångst, ingen skattkista som kräver
-  två saker, ingen sällsynt guldfisk. Damm 4 är damm 1 med fler ikoner.
+- ~~**Variationen är bara "fler saker + snabbare simning".**~~ **Delvis åtgärdad 2026-08-10
+  (`c41d451`):** nivå 2 lägger till en riktig ny *regel* (poler — lika färg knuffar bort,
+  vänd magneten), inte bara fler ikoner. Kvar av punkten: fortfarande inga sällsynta
+  *fångster* — ingen gammal stövel som skämtfångst, ingen skattkista, ingen guldfisk.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
@@ -105,6 +106,41 @@ Stark, polerad kärna — men några tunna kanter återstår:
 
 ## 5. Status / loggar
 
+- 2026-08-10 ✨ **Poler från nivå 2** (`c41d451`, v1.94.0) — Spår 3 P3/B3.
+  `lib/magnet.js` fick `polaritet` + `polDra(body, pol)`: **pol 0 = omagnetiserat järn och
+  dras av BÅDA polerna**, pol ±1 = en egen magnet där lika stöter bort och olika drar.
+  Returvärdet är signerat, så tecknet ÄR villkoret spelet läser (samma form som
+  `knuff()`s närhetsvillkor).
+  **Designbeslutet är gränsdragningen, inte fysiken.** Spelet är appens yngsta (2–4 år) och
+  en polregel lägger ett VILLKOR i kärnloopen. Därför är **nivå 0–1 orörd** — ingen knapp,
+  ingen blå magnet, ingen vriden bild — och polerna är nivå 2:s nya idé, inte allas.
+  Från nivå 2 byts EN vanlig metallsak mot en röd och en blå stavmagnet (dammen växer med
+  en sak, inte tre); magnethuvudet bär den aktiva polens färg; vänd-knappen (Ø112 px,
+  +24 px halo) visar den färg magneten BLIR. Att vanlig metall dras av båda polerna är
+  både den riktiga fysiken och no-fail-garantin: dammen kan aldrig låsa sig.
+  **Två tal är mätta, inte valda:**
+  1. `stotFart` 7 px/steg mot dragets 14 — ett omvänt 1/r-fält är en katapult precis vid
+     centrum, och pondväggarna är 40 px.
+  2. `stotRadie` 170 < radien 300. **Med samma radie åt båda håll pressades saken 315 px ut
+     ur ett 300 px fält på 1,5 s och kunde aldrig vändas hem igen** — leken låste sig om
+     barnet inte råkade följa efter. Knuffen är därför ett NÄRFÄLT: saken glider ut till
+     knuffkanten, stannar där, och ligger fortfarande långt inne i dragets radie.
+  **Medvetet inkonsekvent:** en stavmagnet som redan sitter fast blir kvar när polen vänds
+  (fastklistrade kroppar läser aldrig fältet igen). Den andra vägen är värre — vänd-vinken
+  kan vända *åt* barnet mitt under bärningen, och då hade hjälpen slagit ur fångsten rakt
+  framför hinken.
+  Mätt: `_faltprobe` 9 nya mått (järn lika åt båda håll · tecknet · taket · ingen tunnling
+  mot väggen · en vändning räcker: 202 px ute → fångad på 1,1 s · exit) och `_magnetprobe`
+  avsnitt **D** 8/8 i riktiga spelet (nivå 0–1 utan poler/knapp · en röd OCH en blå på
+  nivå 2 · den bortstötta fastnar aldrig på 5 s jakt · 0 tunnlingar · knappen vänder · en
+  vändning ger fångst på 2,1 s från 209 px). `_idleprobe` 0 · `_tystprobe` utan fynd.
+  **Två sondbuggar rättade före koden** (mönstret igen): avsnitt B lämnade musknappen
+  NEDTRYCKT genom fyra skärmbyten och rev spelet mitt i D:s mätning, och `nav.go` som kommer
+  medan routern är `_busy` **kastas tyst** (`Nav.js:32`) — sonden mätte hela tiden nivå 0
+  medan den trodde sig titta på nivå 2, utan ett enda konsolfel. D laddar därför om sidan
+  per nivå. Ett tredje mått var falskt grönt: jakten slutar med magneten *på* saken (0,3 px),
+  så "fångbar efter 0,0 s" mätte bara att fastna-spärren släpper — inte att fältet drar hem
+  den. Magneten ställs nu 200 px bort före vändningen.
 - 2026-08-10 🐛 **Ankan fanns inte i dammen** (`bd54a8f`). `korkPool` stod kvar med
   emoji-strängar (`'🦆'`/`'🛟'`) sedan emoji→ritat-migreringen, medan `makeThing()` matchar
   sorts-id (`'anka'`/`'badring'`). Okända namn faller igenom till sista grenen, så **varje

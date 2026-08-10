@@ -14,6 +14,45 @@ Format:
 
 ---
 
+## 2026-08-10 (eftermiddag) · v1.94.0 · Poler i magnetdammen — och gränsen som var beslutet
+
+**Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt **B3**
+— sista maskinpunkten i Spår 3 P3.
+
+**Byggt:** `lib/magnet.js` fick `polaritet` + `polDra(body, pol)`. Pol 0 = omagnetiserat
+järn och dras av BÅDA polerna; pol ±1 = en egen magnet där lika stöter bort och olika drar.
+Returvärdet är signerat, så tecknet ÄR villkoret spelet läser. I `magnet-fiske`: från nivå 2
+byts en vanlig metallsak mot en röd och en blå stavmagnet, magnethuvudet bär den aktiva
+polens färg, och en vänd-knapp (Ø112 px) visar den färg magneten BLIR.
+
+**Det som var värt mest var inte fysiken utan gränsdragningen.** Kötexten var en rad utan
+analys, och spelet är appens yngsta (2–4 år): en polregel lägger ett VILLKOR i kärnloopen.
+Polerna är därför grindade på **nivå ≥ 2** och nivå 0–1 är bevisat orörd — ingen knapp,
+ingen blå magnet, ingen vriden bild. Att vanlig metall dras av båda polerna är samtidigt
+den riktiga fysiken och no-fail-garantin: dammen kan aldrig låsa sig.
+
+**Ett mätt tal räddade leken.** Med samma radie åt båda håll pressades en bortstött sak
+**315 px ut ur ett 300 px fält på 1,5 s** — utanför dragets räckvidd, alltså omöjlig att
+vända hem om barnet inte råkade följa efter. Knuffen fick därför en egen, mindre radie
+(`stotRadie` 170) och blev ett NÄRFÄLT: saken glider ut till knuffkanten, stannar där, och
+ligger fortfarande långt inne i dragets radie. Den fick också ett eget, lägre tak
+(`stotFart` 7 mot dragets 14) — ett omvänt 1/r-fält är en katapult precis vid centrum.
+
+**Sonden hade fel före koden, tre gånger till** — samma mönster som hela spåret. Två av dem
+är nya klasser värda att minnas: en **hållen musknapp** som lämnats nedtryckt tvärs fyra
+skärmbyten rev spelet mitt i nästa avsnitts mätning, och **`nav.go` som kommer medan routern
+är `_busy` kastas TYST** (`Nav.js:32`) — sonden mätte hela tiden nivå 0 medan den trodde sig
+mäta nivå 2, utan ett enda konsolfel. Den tredje var falskt grönt: jakten slutar med magneten
+*på* saken (0,3 px), så "fångbar efter 0,0 s" bevisade bara att fastna-spärren släpper.
+
+**Commits:** `c41d451` feat(magnet-fiske): poler fran niva 2 - lika farger knuffar bort
+
+**Öppet:** Spår 3 P3 har bara §4 [Deep]-rester kvar (`kugghjulen` dubbelhjul + back-hjul).
+Kön: **C1** (genomgången spel för spel av vilka `restitution`-tal som är avsiktliga — kräver
+att man SPELAR spelen, ägarnära), **D1** (platta ytor, mätt och redo att byggas), **D2**
+(`saknat-ljudklipp`, MOSS-beroende), **D3** ([Quick]-punkter ur `docs/games/*.md`).
+3 nya repliker väntar på `/rost`.
+
 ## 2026-08-10 (förmiddag) · v1.93.0 · Hällningen och elden — plus två tysta buggar
 
 **Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt **B2**.

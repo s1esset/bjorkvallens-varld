@@ -5,7 +5,9 @@
 // Mäter i tal, inte i tycke:
 //   eftersläpning  px mellan fingret (rec.tx) och bilden (view.x) under farten
 //   lutning        rad, ska vara > 0 under farten och ~0 efter släpp
-//   skugga         finns ett extra barn i föremålets förälder under draget (och noll efter)
+//   skugga         finns ett extra barn i föremålets förälder under draget (och noll efter).
+//                  KRÄVS bara av spel som valt `new DragController({ skugga: true })` — den
+//                  är opt-in, och hälften av spelen ritar en egen markskugga i stället.
 //   exit           lämna spelet MITT i ett drag: konsolfel + kvarglömd skugga
 //
 //   node scripts/_dragprobe.mjs [spel-id]
@@ -75,6 +77,10 @@ try {
         return {
           lag: Math.round(Math.abs(rec.tx - rec.view.x)),
           rot: +(rec.view.rotation - (rec.restRot || 0)).toFixed(3),
+          // DragControllers skugga är OPT-IN (\`skugga: true\`) — ungefär hälften av
+          // spelen ritar en egen markskugga under sina föremål i stället. Sonden får
+          // därför bara KRÄVA en skugga av de spel som har bett om en.
+          skuggaOpt: !!g._drag._skugga,
           skugga: !!rec._shadow,
           skuggAlpha: rec._shadow ? +rec._shadow.alpha.toFixed(2) : 0,
           barn: rec.view.parent.children.length,
@@ -102,7 +108,11 @@ try {
   console.log(`\n  ${ID} — tyngd i draget`)
   console.log(`  eftersläpning   ${mitt.lag} px   (0 = ingen tyngd, > 40 = degigt)`)
   console.log(`  lutning         ${mitt.rot} rad under farten -> ${efter.rot} efter släpp (vila ${efter.vilorot}, kvar ${efter.lutkvar})`)
-  console.log(`  skugga          ${mitt.skugga ? 'ja' : 'NEJ'} (alpha ${mitt.skuggAlpha}) -> ${efter.skugga ? 'KVAR' : 'borta'}`)
+  console.log(
+    mitt.skuggaOpt
+      ? `  skugga          ${mitt.skugga ? 'ja' : 'NEJ'} (alpha ${mitt.skuggAlpha}) -> ${efter.skugga ? 'KVAR' : 'borta'}`
+      : `  skugga          avstängd (skugga: false) — spelet ritar egen markskugga, inget krav`,
+  )
   console.log(`  barn i lagret   ${start.barnFore} -> ${mitt.barn} under drag -> ${efter.barn} efter`)
   console.log(`  skala mot vila  ${mitt.skala}x lyft -> ${efter.skala}x efter landning`)
 
@@ -129,7 +139,7 @@ try {
   for (const e of errors.slice(0, 5)) console.log('    ' + e)
 
   const fel =
-    !mitt.skugga ||
+    (mitt.skuggaOpt && !mitt.skugga) ||
     mitt.lag === 0 ||
     Math.abs(mitt.rot) < 0.01 ||
     efter.skugga ||

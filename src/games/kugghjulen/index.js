@@ -1189,6 +1189,20 @@ export default {
     if (now - this._lastCrankSound > 140) {
       this._lastCrankSound = now
       ctx.services.audio.sfx('tap')
+      // TRÖGHETEN SKA HÖRAS, INTE BARA KÄNNAS. Förut spelade en ensam vev och ett
+      // femhjulsbygge exakt samma `tap` var 140:e ms — hela tröghetsrundan var stum.
+      // `tap` behålls (det är ett riktigt CC0-klipp), och under det ligger nu ett
+      // spärrhjuls-klack som blir djupare och fylligare ju mer barnet byggt.
+      // ⚠️ GOLVET PÅ 150 Hz ÄR INTE GODTYCKLIGT. Appen är tablet-först, och en
+      // surfplattas högtalare tappar botten långt före det — ett "ärligare" 100 Hz
+      // för det tyngsta bygget hade betytt TYSTARE, inte tyngre, på riktig hårdvara.
+      const J = this._troghet()
+      ctx.services.audio.tone?.({
+        freq: clamp(250 - 20 * J, 150, 250),
+        dur: clamp(0.05 + 0.01 * J, 0.05, 0.1),
+        type: 'triangle',
+        vol: clamp(0.1 + 0.03 * J, 0.1, 0.26),
+      })
     }
   },
 

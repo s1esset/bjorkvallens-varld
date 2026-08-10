@@ -102,6 +102,28 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
 
 ## 5. Status / loggar
 
+- 2026-08-10 ✅ **Vevljudet hör tyngden** (v1.91.0, kritikerns tredje punkt — B1 stängd).
+  Trögheten kändes i handen men vevandet spelade samma `tap` var 140:e ms oavsett om
+  maskinen var en ensam vev eller ett femhjulsbygge. `tap` behålls (riktigt CC0-klipp) och
+  under det ligger nu ett spärrhjuls-klack som följer `_troghet()`.
+  **Uppmätt genom att avlyssna de riktiga `audio.tone`-anropen** (inte genom att läsa
+  konstanterna): **230 Hz → 150 Hz (1,53×) och volym 0,130 → 0,260** mellan tom vev och
+  femhjulsbygge.
+  ⚠️ **Golvet på 150 Hz är en tablet-först-avvägning, inte fysik.** Ett "ärligare" djupare
+  klack för det tyngsta bygget hade betytt TYSTARE, inte tyngre, på en surfplattas
+  högtalare — så klacket hålls i bandet 150–250 Hz, mätt som permanent vakt i sonden.
+
+- 2026-08-10 ✅ **`_vevprobe`s glappmått mätte fel sak** (ÅTGÄRDER V13, stängd). Måttet såg
+  maskinberoende ut (12°/17° → 19°/23° → 11°/22° på samma kod) men var sondens eget fel:
+  den för fram fingret 0,18 rad och läser glappet efter EN `requestAnimationFrame`, och när
+  spelets ticker inte hinner köra i det fönstret bär bildrutan ett helt **oservat
+  fingersteg**. `Math.max` över 30 rutor hittar alltid en sådan. Måttet läser nu **medianen**:
+  tom vev 11° (median = värsta, helt stabil), femhjulsbygge median 11–13° mot värsta 21–22° —
+  och spridningen 10° är just ett fingersteg (0,18 rad = 10,3°). Fyra körningar i rad gröna.
+  **Sidofyndet är det intressanta:** bygget och den tomma veven har i praktiken SAMMA
+  jämviktsglapp (11° mot 12°), alltså ungefär ett fingersteg — framkopplingen i `0da667d`
+  gör kopplingen så nära bildrutperfekt som den kan bli.
+
 - 2026-08-10 ✅ **Drivremmen över gapet** (v1.90.0, spår 3 runda P3, §4 [Deep] "Special-hjul
   per nivå" — remmen avbockad, dubbelhjul och back-hjul kvar). Kugghjul kan bara greppa
   granne mot granne, så maskinen har alltid varit en obruten rad. Remmen är den första

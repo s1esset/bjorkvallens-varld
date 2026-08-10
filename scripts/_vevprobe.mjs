@@ -66,6 +66,7 @@ try {
         const farter = []
         let maxGap = 0
         let jamviktGap = 0
+        const jamvikter = []
         for (let i = 0; i < 60; i++) {
           g._fingerAngle += 0.18 // rad/bildruta som fingret rör sig
           g._fingerVel = g._fingerVel * 0.6 + 0.18 * 0.4 // samma jämning som `_crankMove`
@@ -78,7 +79,10 @@ try {
           // och det är jämviktsvärdet nedan.
           const g0 = Math.abs(g._fingerAngle - g._crankAngle)
           maxGap = Math.max(maxGap, g0)
-          if (i >= 30) jamviktGap = Math.max(jamviktGap, g0)
+          if (i >= 30) {
+            jamviktGap = Math.max(jamviktGap, g0)
+            jamvikter.push(g0)
+          }
         }
         const toppfart = Math.max(...farter.map(Math.abs))
         // Tid till 90 % av den fart maskinen till slut når.
@@ -92,7 +96,9 @@ try {
           await vanta()
           rutor++
         }
-        return { J, toppfart, t90: t90 < 0 ? -1 : t90, maxGap, jamviktGap, utrullning: Math.abs(g._crankAngle - a0), rutorTillStopp: rutor }
+        const sorterat = jamvikter.slice().sort((x, y) => x - y)
+        const median = sorterat.length ? sorterat[Math.floor(sorterat.length / 2)] : 0
+        return { J, toppfart, t90: t90 < 0 ? -1 : t90, maxGap, jamviktGap, medianGap: median, utrullning: Math.abs(g._crankAngle - a0), rutorTillStopp: rutor }
       },
       hjul
     )
@@ -110,8 +116,9 @@ try {
   // ser trasigt ut, inte tungt. En fart som ser rimlig ut i tal kan alltså vara en
   // sönderbruten koppling i handen.
   const grader = (r) => ((r * 180) / Math.PI).toFixed(0)
-  ok('handtaget ligger inte kvar efter fingret (tom vev)', tom.jamviktGap <= 0.22, `${grader(tom.jamviktGap)}° i jämvikt (uppstart ${grader(tom.maxGap)}°)`)
-  ok('handtaget ligger inte kvar efter fingret (5 hjul)', bygd.jamviktGap <= 0.32, `${grader(bygd.jamviktGap)}° i jämvikt (kritikern mätte 40–100° före fixen)`)
+  console.log(`   glapp    : tom median ${grader(tom.medianGap)}° / varsta ${grader(tom.jamviktGap)}°  ·  5 hjul median ${grader(bygd.medianGap)}° / varsta ${grader(bygd.jamviktGap)}°`)
+  ok('handtaget ligger inte kvar efter fingret (tom vev)', tom.medianGap <= 0.22, `median ${grader(tom.medianGap)}° i jämvikt (värsta ruta ${grader(tom.jamviktGap)}°, uppstart ${grader(tom.maxGap)}°)`)
+  ok('handtaget ligger inte kvar efter fingret (5 hjul)', bygd.medianGap <= 0.32, `median ${grader(bygd.medianGap)}° i jämvikt (värsta ruta ${grader(bygd.jamviktGap)}°)`)
   ok('en tom vev går igång direkt', tom.t90 >= 0 && tom.t90 <= 8, `${tom.t90} bildrutor till 90 % av farten`)
   ok('en byggd maskin är mätbart trögare att få igång', bygd.t90 > tom.t90 * 1.6, `${bygd.t90} mot ${tom.t90} bildrutor`)
   ok('trögheten växer med bygget', bygd.J > tom.J * 3, `${tom.J.toFixed(2)} → ${bygd.J.toFixed(2)}`)
@@ -134,6 +141,51 @@ try {
     return v
   })
   ok('fartens tak håller även vid ett orimligt ryck', tak <= 0.51, `${tak.toFixed(3)} rad/ruta (tak 0,50)`)
+
+  // 7. HÖRS tyngden? Trögheten kändes i handen men vevljudet var identiskt oavsett bygge.
+  // Mätt genom att avlyssna de RIKTIGA `audio.tone`-anropen `_crankMove` gör — inte genom
+  // att läsa konstanterna, för det är anropet barnet hör.
+  const ljud = await page.evaluate(async () => {
+    const g = window.__barnspel.game
+    const audio = window.__barnspel.audio
+    const rader = []
+    const original = audio.tone.bind(audio)
+    audio.tone = (o) => {
+      rader.push({ freq: o.freq, vol: o.vol })
+      return original(o)
+    }
+    const radier = [50, 66, 84, 66, 50]
+    const mat = (hjul) => {
+      g._gears.length = 0
+      for (let i = 0; i < hjul; i++) g._gears.push({ driven: true, fly: false, r: radier[i % radier.length], view: null })
+      rader.length = 0
+      // Kalla `_crankMove` som ett finger gör, men förbi 140 ms-spärren.
+      for (let i = 0; i < 4; i++) {
+        g._cranking = true
+        g._lastCrankSound = -1e9
+        g._crankMove(window.__barnspel.ctx, { global: { x: 300 + i * 8, y: 300 } })
+      }
+      g._cranking = false
+      const f = rader.map((r) => r.freq).filter((v) => v != null)
+      const v = rader.map((r) => r.vol).filter((x) => x != null)
+      return { J: g._troghet(), freq: f.length ? f[f.length - 1] : null, vol: v.length ? v[v.length - 1] : null, n: rader.length }
+    }
+    const tomL = mat(0)
+    const bygdL = mat(5)
+    audio.tone = original
+    g._gears.length = 0
+    return { tom: tomL, bygd: bygdL }
+  })
+  const L = ljud
+  ok('vevljudet spelas alls', L.tom.n > 0 && L.tom.freq != null,
+    `${L.tom.n} ton-anrop, ${L.tom.freq} Hz vid tröghet ${L.tom.J.toFixed(2)}`)
+  ok('en tung maskin LÅTER tyngre (djupare klack)', L.bygd.freq != null && L.tom.freq / L.bygd.freq >= 1.4,
+    `${L.tom.freq} Hz tom → ${L.bygd.freq} Hz vid tröghet ${L.bygd.J.toFixed(2)} (${(L.tom.freq / L.bygd.freq).toFixed(2)}×)`)
+  ok('...och fylligare', L.bygd.vol > L.tom.vol * 1.3, `vol ${L.tom.vol?.toFixed(3)} → ${L.bygd.vol?.toFixed(3)}`)
+  // Surfplattans högtalare tappar botten: ett "ärligare" djupt klack blir TYSTARE, inte tyngre.
+  ok('klacket stannar i tablet-högtalarens band', L.bygd.freq >= 150 && L.tom.freq <= 250,
+    `${L.bygd.freq}–${L.tom.freq} Hz (golv 150, tak 250)`)
+
   ok('inga konsolfel', errors.length === 0, errors.slice(0, 2).join(' | '))
 
   console.log(`\n${fel === 0 ? '✓ ALLA MÅTT GODA' : `✗ ${fel} MÅTT UNDERKÄNDA`}\n`)

@@ -16,8 +16,9 @@ import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, liv } from '../../lib/feedback.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE, tint, shade } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { verticalFill } from '../../lib/form.js'
 
 const BASE_Y = 470 // y-referenslinje: koppen nedsänkt på bordet
 const LIFT_Y = BASE_Y - 120 // koppens y i lyft-läge (visa/kika)
@@ -42,6 +43,17 @@ const PRIZES = ['🐥', '⭐', '🍓', '🐸', '🚗', '🎈', '🐱', '🌟', '
 // Distinkta färger används bara på nivå 0–2 (3 koppar). Från nivå 3 blir alla röda.
 const CUP_COLORS = [COLORS.red, COLORS.blue, COLORS.yellow, COLORS.green, COLORS.purple]
 const TABLE = 0xf2d6a8 // varm bordsyta
+
+// RUMMET. `_plattprobe --medbakgrund` mätte 529 236 px — 57 % av skärmen — i EN ton,
+// och den tonen var `COLORS.bg`: bordet svävade i skalets egen letterbox-creme. En scen
+// målad i exakt den färgen går dessutom inte att skilja från "ingen bleed alls"
+// (kantCream i scripts/bildkoll.mjs), så bakgrunden MÅSTE äga en egen ton.
+// Horisonten ligger strax ovanför bordsskivan (415), så bordet står på ett golv.
+const HORIZON_Y = 400
+const C_WALL_TOP = 0xfff7e6
+const C_WALL_BOT = 0xfae7c6
+const C_FLOOR_TOP = 0xe6cfab
+const C_FLOOR_BOT = 0xd2b68a
 
 export default {
   id: 'vart-tog-det-vagen',
@@ -83,17 +95,23 @@ export default {
   _build(ctx) {
     // Bakgrund: fångar "tomt tryck" -> mjukt ljud (aldrig "fel"). Full bleed:
     // täcker även telefonens kantremsor utanför 16:9 (statiskt, enfärgad yta).
+    // Vägg + golv (se rumsnoten vid HORIZON_Y). Cachade linjära toningar — noll
+    // texturbakningar per montering.
+    const w = ctx.width + BLEED_X * 2
     const bg = new Graphics()
-      .rect(-BLEED_X, -BLEED_Y, ctx.width + BLEED_X * 2, ctx.height + BLEED_Y * 2)
-      .fill(COLORS.bg)
+    bg.rect(-BLEED_X, -BLEED_Y, w, HORIZON_Y + BLEED_Y).fill(verticalFill(C_WALL_TOP, C_WALL_BOT))
+    bg.rect(-BLEED_X, HORIZON_Y, w, ctx.height + BLEED_Y - HORIZON_Y).fill(verticalFill(C_FLOOR_TOP, C_FLOOR_BOT))
     bg.eventMode = 'static'
     bg.on('pointertap', () => this._emptyTap(ctx))
     this._root.addChild(bg)
 
-    // Bordsyta (dekorativ).
+    // Bordsyta (dekorativ). Skuggan under skivan lyfter bordet från golvet; utan den
+    // låg skivan som en dekal på marken.
     const table = new Graphics()
+    table.roundRect(132, 432, 1040, 260, 48).fill({ color: COLORS.shadow, alpha: 0.1 })
+    table
       .roundRect(120, 415, 1040, 260, 48)
-      .fill(TABLE)
+      .fill(verticalFill(tint(TABLE, 0.13), shade(TABLE, 0.14)))
       .stroke({ width: 8, color: COLORS.orange, alpha: 0.5 })
     table.eventMode = 'none'
     this._root.addChild(table)

@@ -233,9 +233,24 @@ ger lyft i *många* spel:
   brun ton, mullvadens gräsmatta på 215 742, lavaspelets klippor på 135 828, och fyrverkeriets
   natthimmel var **48 staplade rektanglar**. *Grepp:* `verticalFill`/`sphereFill`/`topLightFill`
   ur `lib/form.js` — en rad per yta. *Mät först:* `node scripts/_plattprobe.mjs` rankar alla 72
-  skärmdumpar på största enfärgade fältet. **Platt är ibland rätt** — vitt ritpapper
-  (`spara-linjen`) och en fotbollsplan uppifrån (`rulla-bollen-hem`) toppar listan och ska göra
-  det. Sonden är en ledtråd; bilden avgör. ✅ Åtgärdat i 5 spel (v1.48.0), fler kvar.
+  skärmdumpar på största enfärgade fältet. Sonden är en ledtråd; bilden avgör.
+  ✅ Åtgärdat i 5 spel (v1.48.0) + D1:s tre (v1.95–1.97), fler kvar.
+  ⚠️ **Kör `--medbakgrund` när du jämför FÖRE/EFTER.** Sonden räknar bort exakt EN ton som
+  bakgrund, och det ger två fel som båda slog till 2026-08-10: den **rankar fel** (i
+  `folj-sparet` var den borträknade tonen ängen själv, så spelet såg ut att ligga på 24 % när
+  det låg på 89 % av skärmen i två toner), och den **rapporterar en falsk regression** när du
+  tonar just den borträknade ytan — talet stiger fast bilden blir bättre.
+  ⚠️ **"Platt är ibland rätt" höll inte i praktiken.** Den här raden pekade tidigare ut vitt
+  ritpapper (`spara-linjen`) och en fotbollsplan uppifrån (`rulla-bollen-hem`) som legitimt
+  platta. Båda gick ändå att lösa utan att röra deras karaktär: **ett vitt papper ska se ut
+  som PAPPER** (skugga + svag toning = ett ark på ett bord i stället för ett hål i skärmen),
+  och en fotbollsplan har **klipparränder**. Regeln som överlevde är i stället: *tona OM den
+  ton ytan hade, och låt aldrig ytan konkurrera med innehållet* — papprets toning är därför
+  medvetet mycket svagare än planens, eftersom kritstrecken är innehållet där.
+  ⚠️ **Ett tredje mönster, i två av tre spel:** de ritade ingen egen bakgrund alls utan lutade
+  sig mot skalets `COLORS.bg` — en enda ton över hela skärmen. Så fort huvudytan slutar vara
+  platt blir ramen spelets största fält. **En platthetsfix är inte klar förrän spelet äger sin
+  egen yta.**
 - **Oanvända riktiga ljud-klipp.** `audio.sample('djur_…')` (12 djurläten) finns men anropas inte i
   flera spel (t.ex. skuggmatchning, vandkort) — `vilket-djur-later` bevisar att de funkar. *Grepp:*
   koppla på de riktiga klippen där djur/föremål förekommer (genomgående [Quick] när de finns).

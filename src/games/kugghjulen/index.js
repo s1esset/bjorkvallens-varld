@@ -18,6 +18,7 @@ import { Rep, ritaRep } from '../../lib/rep.js'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, puff, sparkle, burst, breathe, bigCelebration, floatText, ripple , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Layout & fysikkonstanter (designkoordinater 1280×720) -----------------
@@ -144,7 +145,15 @@ export default {
 
     // Pegboard-panel (träbrun verkstadsskiva) + håldekor.
     const panel = new Graphics()
-    panel.roundRect(120, 110, 1040, 470, 30).fill({ color: COLORS.brown, alpha: 0.16 }).stroke({ width: 8, color: COLORS.brown, alpha: 0.5 })
+    // Bradan lag pa 83 792 px i EN ton (`_plattprobe --medbakgrund`) — spelets storsta falt.
+    //
+    // ⚠️ Rampen ar HARD har, och det ar rakning och inte smak: fyllningen ar brun men ligger
+    // pa alpha 0,16, sa den SYNLIGA kontrasten blir rampen GANGER alfan. Standardvardena
+    // (0,14/0,28) hade slappt igenom en dryg tiondel av sitt spann och knappt rort talet.
+    // Regeln att bara med sig: en lag alpha dampar toningen lika mycket som den dampar
+    // fargen, sa en genomskinlig yta behover en HARDARE ramp an en tackande for samma
+    // verkan. Alpha-vagen, se lib/form.js.
+    panel.roundRect(120, 110, 1040, 470, 30).fill(groundFill(COLORS.brown, { light: 0.25, dark: 0.45, alpha: 0.16 })).stroke({ width: 8, color: COLORS.brown, alpha: 0.5 })
     for (let x = 150; x < 1160; x += 60) {
       for (let y = 140; y < 580; y += 60) {
         panel.circle(x, y, 4).fill({ color: COLORS.brown, alpha: 0.18 })

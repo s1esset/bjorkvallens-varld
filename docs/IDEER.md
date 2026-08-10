@@ -165,10 +165,11 @@ chilin?" · "Nu är pappa mätt och belåten!" — pappas egna uttrycksljud är 
 
 ---
 
-## 3. Nätskott från bilfönstret (arbets-id: `natskott-pa-stan`)
+## ~~3. Nätskott från bilfönstret (arbets-id: `natskott-pa-stan`)~~ ✅ BYGGD
 
-*Inlagd 2026-08-06. Status: 🟨 under planering — beslut tagna 2026-08-07, spec-kort
-framtaget, väntar på spec-ja.*
+*Inlagd 2026-08-06. **Byggd 2026-08-08 och polerad samma kväll** — se
+`docs/games/natskott-pa-stan.md`. Posten stod kvar som "väntar på spec-ja" i två dagar
+efter att spelet fanns i registret; filens egen regel är att stryka den vid bygge.*
 
 **Idén, som den beskrevs:** Förstapersonsvy där man ser **sin egen arm och hand** nere i bild,
 i webb-skjutar-posen (pek- och lillfinger ut, mellanfingrarna in mot handflatan), med

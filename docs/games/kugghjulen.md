@@ -78,7 +78,28 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   ett hjul driver kedjan vidare mot målet OCH en fläkt via en gren. Grenen ligger utanför
   `solution`, alltså utanför frontier/spök-hint/auto-hjälp/vinstvillkor: en **bonus**, aldrig
   ett krav. `_grenprobe.mjs` vaktar (17 kontroller).
-  Kvar av punkten: ett **back-hjul** som vänder en karusell.
+  **[Deep] Back-hjul som vänder karusellen — punkten är OMFORMULERAD, inte klar.**
+  Den uppenbara byggnaden (ett extra hjul i ett gap, som remmen) **kan inte fungera**, och det
+  följer direkt ur spelets egen länkregel `factor[v] = factor[u] · (e.rem ? 1 : −1) · r_u/r_v`:
+  - via remmen: `f_a · 1 · (r_a/r_b)`
+  - via ett mellanhjul x: `f_a · (−1)(r_a/r_x) · (−1)(r_x/r_b)` = `f_a · (r_a/r_b)`
+
+  **Identiskt, både tecken och storlek.** Två vändningar tar ut varandra — läroboksegenskapen
+  hos ett mellanhjul är att det vänder mot en *direkt kuggkontakt*, aldrig mot en rem. Och att
+  ha båda lägena i samma geometri går inte heller: tas hjulet bort BRYTS kedjan, så det finns
+  inget "utan"-läge att jämföra mot.
+
+  En vändning kräver alltså **två ömsesidigt uteslutande vägar med olika paritet**. Två
+  byggbara former, i stigande ordning av hur mycket de rör:
+  1. **Korsad rem (rekommenderad).** En rem som läggs *rak* behåller riktningen, en som läggs
+     *korsad* vänder den — det är mekaniskt sant, och en rem som bildar ett **X** är den enda
+     varianten där tvååringen SER skillnaden. Samma gap, samma två hjul, samma dispenser: det
+     som ändras är vilken tangentpunkt varje spann kopplar till (`_remTangenter` → `t1`/`t2`)
+     och att länken bär `−1` i stället för `1`. Bygg som två remspår, eller ett tryck som
+     vänder den lagda remmen.
+  2. **Två grenar till målet med olika antal hjul** (kort väg = 1 hjul, lång = 2). Löser också
+     §4:s första punkt ("låt en falsk gren nästan nå målet"), men kräver att båda vägarna
+     greppar exakt mot ett FAST målhjul — en betydligt svårare layout.
 - **[Quick] Olika mål-belöningar:** karusellen byts mot pariserhjul/hiss/musikspel som målhjulet
   driver — variera vad maskinen *gör*.
 

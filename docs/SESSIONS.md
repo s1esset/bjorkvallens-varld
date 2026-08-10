@@ -23,6 +23,8 @@ under natten; se filens egen loggtabell för löpande läge.
 |---|---|---|
 | N1 | `_livprobe` röd på `trollblandning` | **Äkta fynd** — spelet hade inte ett enda `feedback.liv`. Trollkarlen + hyllans element andas nu, båda på en **inre behållare** eftersom gester/drag äger `y`. 0 → 5 objekt, 6,8 px, spridning 0,45. |
 | — | `_dragprobe` larmade falskt på vägen | Sonden krävde DragControllers **opt-in**-skugga av alla. **10 av 15** dragspel hade falsklarmat. Lagad. |
+| N2a | `kugghjulen` **dubbelhjul** | Nivå 8: ett hjul driver kedjan vidare OCH en fläkt. **Mesh-grafen behövde noll ändringar** — den var redan generaliserad. Grenen är en bonus utanför vinstvillkoret. `_grenprobe.mjs` (17 kontroller) vaktar. |
+| N2b | `kugghjulen` **back-hjul** | **Punkten omformulerad, inte byggd** — den uppenbara byggnaden är matematiskt omöjlig (se nedan). Korsad rem utpekad som rätt väg och nedskriven i §4. |
 
 **Nattens första lärdom: den röda sonden var sondens eget fel — igen (femte gången).**
 `_dragprobe` rapporterade `skugga NEJ` på `trollblandning`. Verifieringen mot HEAD (rulla undan
@@ -36,7 +38,25 @@ skuggan bara av de fem spel som bett om en; `enkelt-pussel` (opt-in) mäter fort
 **Motsatsen gällde för `_livprobe`:** den var röd av rätt skäl. Regeln "verifiera röda sonder
 mot HEAD först" avgör vilket av de två fallen man har — den avfärdar inte fynd, den sorterar dem.
 
-**Commits:** `103682c` fix(sond) `_dragprobe` opt-in-skugga · `eceb5bf` fix(trollblandning) N1
+**N2b: en köad punkt som inte gick att bygga som den var formulerad — och varför det är ett
+resultat.** "Ett back-hjul som vänder en karusell" antog att ett extra hjul i ett gap vänder
+riktningen. Spelets egen länkregel säger något annat, i två rader:
+`factor[v] = factor[u] · (e.rem ? 1 : −1) · r_u/r_v`, alltså rem = `f_a · (r_a/r_b)` och
+mellanhjul = `f_a · (−1)(r_a/r_x) · (−1)(r_x/r_b)` = **samma tal, samma tecken**. Två vändningar
+tar ut varandra — ett mellanhjul vänder mot en *direkt kuggkontakt*, aldrig mot en rem. Och det
+finns inget "utan"-läge att jämföra mot, för tas hjulet bort bryts kedjan. En vändning kräver
+**två ömsesidigt uteslutande vägar med olika paritet**; den läsbara varianten är en **korsad
+rem** (rak = samma håll, korsad = vänd, och X:et är det enda en tvååring faktiskt ser). Planen
+ligger i `docs/games/kugghjulen.md` §4 med de två rörda funktionerna utpekade.
+
+**Mönstret som återkom tre gånger i natt:** talen var gröna och **bilden** bar fyndet. Axeln
+mellan grenhjul och fläkt var 44 px och fläktbladet (radie 38) täckte nästan hela den; sondens
+första bild var helt täckt av appens splash; och `_grenprobe`s eget P0-kriterium var för strängt
+(krävde 184 px mellan pinnar — men kugghjul MÅSTE röra varandra, kedjans egna pinnar ligger
+132–150 px isär, och `DragController._narmastMal` väljer närmaste mål ändå).
+
+**Commits:** `103682c` fix(sond) `_dragprobe` opt-in-skugga · `eceb5bf` fix(trollblandning) N1 ·
+`985020c` docs N1 · `1a26518` feat(kugghjulen) N2a dubbelhjul
 
 ---
 

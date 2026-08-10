@@ -33,7 +33,7 @@ import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedb
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
-import { verticalFill, topLightFill, verticalFillAlpha } from '../../lib/form.js'
+import { verticalFill, topLightFill, verticalFillAlpha, groundFill } from '../../lib/form.js'
 import DRAW from './ingredienser.js'
 
 // Ingredienser. `id` = asciiFold-vänligt OCH nyckel i DRAW (ingredienser.js),
@@ -313,7 +313,9 @@ export default {
     c.addChild(counter)
 
     // Golv (syns bara i kanterna under hyllan).
-    c.addChild(new Graphics().rect(0, COUNTER_Y + 74, W, H - COUNTER_Y - 74).fill(0xb07a4a))
+    // Golvet under disken lag pa 62 882 px i EN ton (`_plattprobe --medbakgrund`) — spelets
+    // storsta falt. Delad markfyllning, se lib/form.js.
+    c.addChild(new Graphics().rect(0, COUNTER_Y + 74, W, H - COUNTER_Y - 74).fill(groundFill(0xb07a4a)))
 
     // Mjölfläckar på bänken runt pizzan.
     const flour = new Graphics()

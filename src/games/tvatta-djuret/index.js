@@ -24,6 +24,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, breathe, floatText, shake, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
+import { topLightFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -400,7 +401,13 @@ export default {
         const view = new Graphics()
         view.eventMode = 'none'
         view.position.set(jx, jy)
-        view.rotation = Math.random() * Math.PI
+        // Slumpen ligger i BUMPARNAS vinkel, inte i `view.rotation`. Samma siluett-
+        // variation som forut, men vyn star ratt — och det ar forutsattningen for att
+        // klumparna ska kunna bara en gradient: en roterad Graphics roterar aven sin
+        // fyllning, sa varje flack hade fatt sin egen slumpmassiga ljusriktning.
+        const rot = Math.random() * Math.PI
+        const rx = (x, y) => x * Math.cos(rot) - y * Math.sin(rot)
+        const ry = (x, y) => x * Math.sin(rot) + y * Math.cos(rot)
         const flake = {
           view,
           x: jx,
@@ -412,13 +419,13 @@ export default {
           _clean: false,
           _lastHit: 0,
           bumps: [
-            { x: -r * 0.5, y: r * 0.2, r: r * 0.6 },
-            { x: r * 0.55, y: -r * 0.15, r: r * 0.55 },
+            { x: rx(-r * 0.5, r * 0.2), y: ry(-r * 0.5, r * 0.2), r: r * 0.6 },
+            { x: rx(r * 0.55, -r * 0.15), y: ry(r * 0.55, -r * 0.15), r: r * 0.55 },
           ],
           dots: [
-            { x: -r * 0.2, y: -r * 0.2, r: 4 },
-            { x: r * 0.25, y: r * 0.25, r: 5 },
-            { x: 0, y: r * 0.05, r: 3 },
+            { x: rx(-r * 0.2, -r * 0.2), y: ry(-r * 0.2, -r * 0.2), r: 4 },
+            { x: rx(r * 0.25, r * 0.25), y: ry(r * 0.25, r * 0.25), r: 5 },
+            { x: rx(0, r * 0.05), y: ry(0, r * 0.05), r: 3 },
           ],
         }
         this._paintFlake(flake, need === 2 ? DARKMUD : MUD)
@@ -444,8 +451,20 @@ export default {
       g.circle(flake.r * 0.16, flake.r * 0.96, flake.r * 0.15).fill(CLAY)
       return
     }
-    g.circle(0, 0, flake.r).fill(color)
-    for (const b of flake.bumps) g.circle(b.x, b.y, b.r).fill(color)
+    // Leran lag pa 111 592 px i EN ton (`_plattprobe --medbakgrund`) — storsta faltet i
+    // hela D1-nivan, och till skillnad fran markplanerna ar det MANGA foremal som delar
+    // tonen. En klump ar r=24..30 plus tva bumps, alltsa ~54 px bred: stort nog att bara
+    // en toning. Fyllningen cachas per farg, sa alla flackar kostar TVA gradienter
+    // (MUD + DARKMUD), inte tva per flack.
+    //
+    // ⚠️ INTE `sphereFill`, och det ar provat: radiella klot gav varje bump en egen
+    // glansdager, och tre klot per flack lasted som en hog CHOKLADKULOR pa djuret i
+    // stallet for lera. Talet var utmarkt (111 592 -> 30 048) och bilden sa nagot annat.
+    // Lera vill ha LAG inre kontrast och ett ljus uppifran — en klumpig jordkaka, inte
+    // ett godis. Darfor `topLightFill` med dampad ramp.
+    const lera = topLightFill(color, { highlight: 0.14, dark: 0.2 })
+    g.circle(0, 0, flake.r).fill(lera)
+    for (const b of flake.bumps) g.circle(b.x, b.y, b.r).fill(lera)
     for (const d of flake.dots) g.circle(d.x, d.y, d.r).fill(DARKMUD)
   },
 

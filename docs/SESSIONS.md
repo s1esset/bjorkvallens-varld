@@ -14,7 +14,7 @@ Format:
 
 ---
 
-## 2026-08-10 (förmiddag) · v1.93.0 · Hällningen och elden möts i en partikel
+## 2026-08-10 (förmiddag) · v1.93.0 · Hällningen och elden — plus två tysta buggar
 
 **Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt **B2**.
 
@@ -54,11 +54,47 @@ dokumenterat tre gånger). `_ab.sh` växelvis, 3 rundor: **HEAD 2 av 3 rena** (r
 `fyrverkeri` + `glittergrottan`) mot **ändringen 3 av 3 rena**. Fynden **flyttar sig varje
 svep** — det är V12b:s signatur: en rörlig måltavla hör till harnessen, inte till platsen.
 
-**Commits:** `238fbd3` feat(varme) · `9ed62e8` feat(trollblandning)
-**Kontroll:** `check` 0 fel · `_kittelprobe` 14/14 · `_varmeprobe` (+6 nya) grön ·
-`bildkoll` inga fynd · `test:all` 72/72 i tre av tre armar.
-**Öppet:** A1 SESSIONS/backup-rest · B3 `magnet-fiske` (poler) · §4 [Deep] dubbelhjul +
-back-hjul i `kugghjulen` · D1 platta ytor (mätt) · ÅTGÄRDER V10 (ägarnära) · D2 MOSS.
+### `magnet-fiske` — ankan fanns inte i dammen (`bd54a8f`)
+
+Hittad genom att LÄSA koden före B3-planen, inte genom ett test. `korkPool` stod kvar med
+emoji-strängar (`'🦆'`/`'🛟'`) sedan emoji→ritat-migreringen medan `makeThing()` matchar
+sorts-id — okända namn faller igenom till sista grenen, så **varje icke-metall på nivå 0–2
+ritades som en TRÄBÅT**. Spelets pedagogiska ankare, gummiankan, fanns inte förrän nivå 3.
+
+**Varför det överlevde tio nivåer är lärdomen:** `MATERIAL` saknar också nyckeln och föll
+tillbaka på `'Trä'` — vilket råkar vara **sant om en båt**. Rösten sa rätt sak om fel
+föremål; testet var grönt och skärmdumpen såg trovärdig ut. Guard: `_magnetprobe` avsnitt
+**C** bygger nivå 0–3 och kräver att varje sak heter något `makeThing` har en gren för.
+
+### `ballonglyft` — auto-hjälpens replik klipptes av sin egen räkning (`f1da22c`)
+
+Den öppna `opts`-buggen från A2. `_attachLoose` tog emot `{ auto: true }` och läste det
+aldrig, så `_recue`s hjälpreplik och räkneordet sades i SAMMA tick — och `say()` inleder med
+`cancel()`. **Uppmätt: hjälpklippet levde 0 ms på HEAD**; efter fixen en sändning med två
+klipp och inget avbrott. Fixen är ingen timer: `_dispatch` kedjar redan flera meningar när
+alla har klipp. Ny sond `_hjalpprobe.mjs` hookar `_playUrls`/`cancel` i den riktiga tjänsten
+och mäter vad som SPELAS, inte vad som sägs — det är skillnaden mellan de två som var buggen.
+**A2:s saknade kritikergranskning gjord i samma svep** (av mig, inte subagenten — sessionen
+tillåter inte Agent-verktyget): `_lyftprobe` alla mått goda · `_tystprobe` 0 döda träffytor ·
+`_idleprobe` 0.
+
+### Ett fynd granskades och FÖRKASTADES
+En sond visade att ballongbuketten överlappar Elviras balkong i alla lägen. Det är
+geometrin, inte en bugg — paketet ska upp TILL balkongen — och sonden hade bara härlett
+layouten igen. Ingen kod ändrades. **Tredje gången i det här repot en röd sond visat sig
+vara det trasiga.**
+
+**Commits (7):** `238fbd3` feat(varme) · `9ed62e8` feat(trollblandning) · `b0b07b3` docs ·
+`bd54a8f` fix(magnet-fiske) · `aa5670e` docs · `eba7409` docs (stängde två föråldrade
+listposter) · `f1da22c` fix(ballonglyft) · `d11dd4b` docs
+**Kontroll:** `check` 0 fel · `_kittelprobe` 14/14 · `_varmeprobe` (+6) · `_hjalpprobe` 5/5
+(verifierad RÖD på HEAD) · `_magnetprobe` C grön · `bildkoll` inga fynd · `test:all` 72/72 i
+tre av tre A/B-armar · slutkoll `test` 3/3 gröna.
+**Öppet — nästa naturliga steg:** **B3 `magnet-fiske` poler**, designen är redan beslutad och
+nedskriven i `.claude/state/nattkorning.md` (grindad på nivå ≥ 2; vanlig metall dras av BÅDA
+polerna så loopen aldrig kan blockeras; `Magnetfalt.polaritet` + `polDra()`; repulsionen
+måste takas). Därefter: §4 [Deep] dubbelhjul + back-hjul i `kugghjulen` · D1 platta ytor
+(mätt, obyggd) · D3 [Quick]-svep · ÅTGÄRDER V10 (kräver att man SPELAR spelen) · D2/MOSS.
 Sidofynd: `_livprobe` är röd på `trollblandning` (noll objekt med vilorörelse) — egen
 [Quick]-punkt, inte en regression.
 

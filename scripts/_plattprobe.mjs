@@ -20,7 +20,7 @@
 // fotbollsplan sedd uppifrån är legitimt platta — `rulla-bollen-hem` toppar listan och
 // ska göra det. Titta på bilden innan du ändrar något.
 //
-//   node scripts/_plattprobe.mjs [.test-shots] [--min 2000] [--topp 20]
+//   node scripts/_plattprobe.mjs [.test-shots] [--min 2000] [--topp 20] [--medbakgrund]
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { PNG } from 'pngjs'
@@ -30,6 +30,7 @@ const opt = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? Number(argv[i
 const dir = argv.find((a) => !a.startsWith('--') && !Number.isFinite(Number(a))) || '.test-shots'
 const MIN = opt('--min', 2000) // minsta fält som räknas som "ett platt föremål"
 const TOPP = opt('--topp', 20)
+const MED_BG = argv.includes('--medbakgrund') // räkna INTE bort bakgrunden — se matPlatthet()
 
 const rgbKey = (r, g, b) => (r << 16) | (g << 8) | b
 
@@ -44,9 +45,16 @@ function matPlatthet(png) {
   }
   // Bakgrund = vanligaste färgen. Den är oftast redan en gradient (scene.js), men i
   // spel med egen ritad bakgrund är den en enda ton — och den ska inte dominera måttet.
+  //
+  // ⚠️ BLINDFLÄCK, och den ger FALSKA REGRESSIONER: avdraget gäller exakt EN ton. Tonar
+  // du just den ytan (helt rätt åtgärd) krymper avdraget, och talet STIGER fast bilden
+  // blev bättre. `rulla-bollen-hem` gick 29 317 → 38 718 av en korrekt bakgrundsgradient
+  // — den verkliga ytan föll samtidigt 258 619 → 38 718. Kör `--medbakgrund` när du
+  // jämför FÖRE/EFTER på ett spel som ritar sin egen bakgrund; ranklistan behåller
+  // avdraget, för där är poängen att hitta spelobjekt, inte bakgrunder.
   let bg = 0
   let bgN = 0
-  for (const [k, n] of antal) if (n > bgN) { bgN = n; bg = k }
+  if (!MED_BG) for (const [k, n] of antal) if (n > bgN) { bgN = n; bg = k }
   const innehall = totalt - bgN
   let plattYta = 0
   const falt = []
@@ -81,7 +89,7 @@ for (const f of filer) {
 const storst = (r) => (r.storstaFalt && r.storstaFalt[0] ? r.storstaFalt[0].px : 0)
 rader.sort((a, b) => storst(b) - storst(a))
 
-console.log(`\n  Platthet i ${rader.length} skärmdumpar (fält ≥ ${MIN} px, bakgrund borträknad)`)
+console.log(`\n  Platthet i ${rader.length} skärmdumpar (fält ≥ ${MIN} px, ${MED_BG ? 'BAKGRUNDEN MEDRÄKNAD' : 'bakgrund borträknad'})`)
 console.log('  Rankat på STÖRSTA ENSKILDA FÄLTET — summan stiger av en korrekt gradient (se filhuvudet).\n')
 console.log('  ' + 'spel'.padEnd(26) + 'största'.padStart(9) + 'summa'.padStart(10) + 'toner'.padStart(8) + '   de tre största fälten')
 for (const r of rader.slice(0, TOPP)) {

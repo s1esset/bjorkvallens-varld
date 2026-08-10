@@ -38,6 +38,7 @@ import { bigCelebration, puff, sparkle, pop, wiggle, floatText } from '../../lib
 import { FONT, COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { verticalFill } from '../../lib/form.js'
 
 // Layout i designkoordinater (1280×720).
 const FIELD = { x: 60, y: 120, w: 1160, h: 560, r: 32 }
@@ -165,9 +166,16 @@ const WIND_CUTOFF = 4 // px/steg: under detta slås vinden av så bollen kan vil
 const PREVIEW_BOUNDS = { floorY: WALL.b - BALL_R, leftX: WALL.l + BALL_R, rightX: WALL.r - BALL_R, restitution: WALL_REST }
 
 // Färger.
-const C_GRASS = 0x7ec850
-const C_FIELD = 0x8fd65e
+const C_GRASS_TOP = 0x8ad25c // ramgräset, tonat kring den gamla platta 0x7ec850
+const C_GRASS_BOT = 0x72be44
 const C_FIELD_EDGE = 0x5fa83c
+// Planens toning. MÄTT problem (`_plattprobe`): planen låg på 443 000 px (48 % av skärmen)
+// i två gröna som skiljer 3/2/3 i RGB — alltså EN yta för ögat. Topp/botten spänner om
+// den gamla platta 0x8fd65e så gräset är samma gräs, bara belyst; spannet är medvetet litet
+// (24/16/22) för att ränderna nedan ska ha kvar kontrast även i planens mörka ände.
+const C_FIELD_TOP = 0x99dc68
+const C_FIELD_BOT = 0x81cc52
+const C_MOW = 0x4f9a36 // klipparrändernas ton (alpha nedan) — mörkare än kanten, syns i BÅDA ändar
 const C_GOAL = 0xffd84a
 
 const IDLE_CUES = ['Sikta och rulla bollen hem!', 'Dra i bollen och släpp – rulla hem den!', 'Sikta mot målet och släpp!']
@@ -287,23 +295,31 @@ export default {
     // Gräs-bakgrund: fångar tap utanför bollen -> liten glad puff (varje pekning syns).
     // Breddad med BLEED åt alla håll så en bred telefon (full bleed) aldrig ser
     // creme-kanter — och så att tap på det synliga gräset utanför 0..1280 också svarar.
-    this._bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(C_GRASS)
+    // Även ramen tonas. Så fort planen slutade vara platt blev den YTTRE gräskanten
+    // spelets största enfärgade fält (uppmätt 29 317 px) — samma problem, ny plats.
+    this._bg = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
+      .fill(verticalFill(C_GRASS_TOP, C_GRASS_BOT))
     this._bg.eventMode = 'static'
     this._onBgTap = (e) => this._bgTap(ctx, e)
     this._bg.on('pointertap', this._onBgTap)
     this._root.addChild(this._bg)
 
     // Spelplan med rundade hörn (studsväggar) — dekorativ, släpper tap igenom.
+    // Gräsmattan är TONAD, inte en enda grön yta. De två breda banden som låg här förut
+    // (ett ljust upptill, ett mörkt nertill) var en gradient i två steg — `verticalFill`
+    // gör samma sak mjukt, och är cachad per färgpar i lib/form.js så en montering kostar
+    // NOLL texturbakningar (en obakad gradient per montering fäller sviten — CLAUDE.md).
     const frame = new Graphics()
       .roundRect(FIELD.x, FIELD.y, FIELD.w, FIELD.h, FIELD.r)
-      .fill(C_FIELD)
+      .fill(verticalFill(C_FIELD_TOP, C_FIELD_BOT))
       .stroke({ width: 10, color: C_FIELD_EDGE })
-    frame.roundRect(FIELD.x, FIELD.y, FIELD.w, 60, FIELD.r).fill({ color: 0xa6e36f, alpha: 0.5 })
-    frame.roundRect(FIELD.x, FIELD.y + FIELD.h - 50, FIELD.w, 50, FIELD.r).fill({ color: 0x4f9a36, alpha: 0.3 })
     // Klippta gräsränder + riktiga planlinjer: mittcirkel, mittlinje, straffområde och
-    // hörnbågar. Planen var tidigare en helt tom grön yta.
+    // hörnbågar. Ränderna FANNS redan men låg på 0x86cf56 @ 0.35 över 0x8fd65e — uppmätt
+    // skillnad 3/2/3 i RGB, alltså osynliga. Nu en mörkare ton med lägre alpha, vilket ger
+    // 19/17/13 i planens ljusa ände och 13/13/7 i den mörka: syns i båda.
     for (let i = 0; i < 8; i++) {
-      frame.rect(FIELD.x, FIELD.y + i * 70, FIELD.w, 35).fill({ color: 0x86cf56, alpha: 0.35 })
+      frame.rect(FIELD.x, FIELD.y + i * 70, FIELD.w, 35).fill({ color: C_MOW, alpha: 0.26 })
     }
     const L = { width: 5, color: 0xffffff, alpha: 0.5 }
     frame.moveTo(640, FIELD.y + 14).lineTo(640, FIELD.y + FIELD.h - 14).stroke(L)
@@ -330,7 +346,10 @@ export default {
 
     // Is-overlay (visas mjukt när ytan = is): ljusblå isyta med glansstreck.
     this._iceOverlay = new Graphics()
-    this._iceOverlay.roundRect(FIELD.x, FIELD.y, FIELD.w, FIELD.h, FIELD.r).fill({ color: 0xcdeeff })
+    // Samma toning som gräset. Overlayen är ogenomskinlig och täcker planen helt, så utan
+    // den här raden är två av spelets TRE ytor fortfarande en enda ton — `_plattprobe` läser
+    // bara skärmdumpen, och den fångar alltid gräs.
+    this._iceOverlay.roundRect(FIELD.x, FIELD.y, FIELD.w, FIELD.h, FIELD.r).fill(verticalFill(0xdff6ff, 0xb4e2f7))
     this._iceOverlay.roundRect(FIELD.x + 60, FIELD.y + 50, FIELD.w * 0.5, 18, 9).fill({ color: 0xffffff, alpha: 0.5 })
     this._iceOverlay.roundRect(FIELD.x + 260, FIELD.y + 190, FIELD.w * 0.4, 14, 7).fill({ color: 0xffffff, alpha: 0.4 })
     this._iceOverlay.roundRect(FIELD.x + 120, FIELD.y + 360, FIELD.w * 0.34, 12, 6).fill({ color: 0xffffff, alpha: 0.35 })
@@ -340,7 +359,7 @@ export default {
 
     // Sand-overlay (visas mjukt när ytan = sand): varm sandton med lätta prickar.
     this._sandOverlay = new Graphics()
-    this._sandOverlay.roundRect(FIELD.x, FIELD.y, FIELD.w, FIELD.h, FIELD.r).fill({ color: 0xf2dca0 })
+    this._sandOverlay.roundRect(FIELD.x, FIELD.y, FIELD.w, FIELD.h, FIELD.r).fill(verticalFill(0xfae7b4, 0xe8cd8b))
     for (let i = 0; i < 26; i++) {
       const sx = FIELD.x + 40 + Math.random() * (FIELD.w - 80)
       const sy = FIELD.y + 40 + Math.random() * (FIELD.h - 80)

@@ -333,7 +333,11 @@ export default {
     g.roundRect(170, 250, 940, 430, 90).fill(COLORS.white)
     // Innerskål i svag blåton. Utan den ritas VITT skum mot VITT porslin och blir
     // praktiskt taget osynligt — bara skummets bubbeltoppar syntes.
-    g.roundRect(194, 256, 892, 420, 68).fill(0xdaeaf3)
+    // Badkarets insida lag pa 56 535 px i EN ton (`_plattprobe --medbakgrund`) — spelets
+    // storsta falt sedan golvet tonades i 745ff36. Dampad ramp: ytan ar nastan vit.
+    // Toningen morknar nedat, vilket ocksa ar ratt for en karinsida (ljuset kommer uppifran
+    // och botten ligger i skugga). Se lib/form.js.
+    g.roundRect(194, 256, 892, 420, 68).fill(groundFill(0xdaeaf3, { light: 0.05, dark: 0.12 }))
     // Vatten — badsortens färg.
     // Vattnet bär sitt djup i toningens STOPP — ljusare vid ytan, mörkare
     // mot botten, med samma genomskinlighet som den gamla platta alpha 0.5 i mitten.

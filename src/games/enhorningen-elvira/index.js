@@ -25,6 +25,7 @@ import { Button } from '../../lib/Button.js'
 // bigCelebration medvetet BORTA: vinsten är Elviras egen galopp över regnbågen (grindpunkt 7).
 import { puff, sparkle, pop, breathe, ripple } from '../../lib/feedback.js'
 import { COLORS, FONT, DESIGN_W } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 
 // --- Layout (designkoordinater 1280×720) ---------------------------------
 const START = { x: 185, y: 165 } // Elviras starthörn (uppe till vänster)
@@ -181,7 +182,9 @@ export default {
 
     // Markremsa (under spelytan) — bär facket + knapparna.
     const ground = new Graphics()
-    ground.roundRect(-40, GROUND_TOP, ctx.width + 80, ctx.height - GROUND_TOP + 60, 40).fill(0xbfe7c4)
+    // Marken lag pa 57 734 px i EN ton (`_plattprobe --medbakgrund`) — spelets storsta falt.
+    // Delad markfyllning med nagot dampad ramp (ljus pastellgron yta), se lib/form.js.
+    ground.roundRect(-40, GROUND_TOP, ctx.width + 80, ctx.height - GROUND_TOP + 60, 40).fill(groundFill(0xbfe7c4, { light: 0.08, dark: 0.15 }))
     ground.roundRect(-40, GROUND_TOP, ctx.width + 80, 16, 40).fill({ color: 0x8fd6a0, alpha: 0.7 })
     ground.eventMode = 'none'
     this._root.addChild(ground)

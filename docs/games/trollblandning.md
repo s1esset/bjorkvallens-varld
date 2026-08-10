@@ -105,6 +105,24 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
 
 ## 5. Status / loggar
 
+- 2026-08-10 💤 **NATTKÖ N1: spelet hade ingen vilorörelse alls** (`eceb5bf`, v1.131.0).
+  `_livprobe` rapporterade **0 föremål med liv** — äkta fynd, inte ett sondfel (sonden
+  verifierades först mot `loopdjuren`: 3 objekt, 9,4 px, spridning 0,47).
+  Båda målen har någon **annan** som äger `y`, så rörelsen ligger på en **inre behållare**:
+  `liv()` tweenar en proxy och skriver `target.y` i sin `onUpdate`, så `killTweensOf(w)` når
+  den inte och de två hade skrivit över varandra bildruta för bildruta.
+  - **Trollkarlen:** `_wizardGesture` äger `w.y`/`w.rotation` (cheer/lean/shrug/point). All
+    grafik ligger nu i en inre `krop` — ordningsidentisk (enda barnet till `w`, samma fyra
+    `addChild` i samma följd). Andetaget är grundare och långsammare än hyllans
+    (`bob 3,5` / `3,4 s`): en trollkarl som guppar som en ingrediens läses som ett föremål.
+  - **Hyllans element:** DragController, `_layoutShelf` och hällningens timeline äger
+    `view.y`. Kroppen i en inre behållare, men **skuggan stannar kvar på `view`** — en skugga
+    som guppar med föremålet slutar läsa som mark. Egen fas per föremål → aldrig i lås.
+  - **MÄTT:** `_livprobe` **0 → 5 objekt**, amplitud 6,8 px (minsta 4,7), fasspridning **0,45**,
+    0 tickar efter exit. `_dragprobe` grön. Skärmdumpen granskad — trollkarlen hel.
+- ⬜ **Lämnad stilla med flit: kitteln.** `_brew` är barn till kitteln, medan vätskans partiklar
+  lever i **designkoordinater** (`FluidView.area`). En guppande kittel hade lossat brygdytan
+  från simuleringen. Slotsen (prickringarna) är dropp-**mål** och ska också stå still.
 - 2026-08-10 🎨 **D1 (delat mönster): hyllan fick ljus** (`b3cde53`, v1.119.0).
   Hyllan låg på **70 560 px i EN ton** (`_plattprobe --medbakgrund`) och delade konstruktion
   med tre andra spel, därför den delade `groundFill()` i `lib/form.js`.

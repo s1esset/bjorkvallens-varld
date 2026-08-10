@@ -14,6 +14,32 @@ Format:
 
 ---
 
+## 2026-08-10 (natt VI, varv 3) · v1.131.0 · Nattkön varv 3 — pågår
+
+**Byggt:** nattkörningens `⬜`-kö uppifrån (`.claude/state/nattkorning.md`). Posten fylls på
+under natten; se filens egen loggtabell för löpande läge.
+
+| # | Punkt | Utfall |
+|---|---|---|
+| N1 | `_livprobe` röd på `trollblandning` | **Äkta fynd** — spelet hade inte ett enda `feedback.liv`. Trollkarlen + hyllans element andas nu, båda på en **inre behållare** eftersom gester/drag äger `y`. 0 → 5 objekt, 6,8 px, spridning 0,45. |
+| — | `_dragprobe` larmade falskt på vägen | Sonden krävde DragControllers **opt-in**-skugga av alla. **10 av 15** dragspel hade falsklarmat. Lagad. |
+
+**Nattens första lärdom: den röda sonden var sondens eget fel — igen (femte gången).**
+`_dragprobe` rapporterade `skugga NEJ` på `trollblandning`. Verifieringen mot HEAD (rulla undan
+kvällens ändring, kör om) gav **identiska tal** — 12 px eftersläpning, 0,092 rad lutning, 4 barn
+före/under/efter. Alltså inte en regression. Orsaken: `DragController`s `skugga` är **opt-in**
+(`skugga = false`) med flit — hälften av spelen ritar en egen markskugga, och två skuggor som
+glider isär under ett snabbt drag syns direkt. Sonden läser nu `g._drag._skugga` och kräver
+skuggan bara av de fem spel som bett om en; `enkelt-pussel` (opt-in) mäter fortfarande
+`ja (alpha 0.16)` och barn 7 → 8 → 7, så fyndvägen är orörd.
+
+**Motsatsen gällde för `_livprobe`:** den var röd av rätt skäl. Regeln "verifiera röda sonder
+mot HEAD först" avgör vilket av de två fallen man har — den avfärdar inte fynd, den sorterar dem.
+
+**Commits:** `103682c` fix(sond) `_dragprobe` opt-in-skugga · `eceb5bf` fix(trollblandning) N1
+
+---
+
 ## 2026-08-10 (sen natt V) · v1.130.0 · Småsakerna tömda — och två öppna buggar som båda bytte form
 
 **Byggt:** 5 punkter, 5 commits. Kön var "småsaker + öppna ÅTGÄRDER".

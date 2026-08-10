@@ -14,6 +14,7 @@ import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { makeElvira } from '../../lib/figurer.js'
 import { COLORS } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -142,8 +143,14 @@ export default {
     // Grusgång: låg tidigare som en platt, blek rundad ruta mitt i bilden och läste som
     // en bortglömd panel. Nu en riktig grusstig med kant och strödda småstenar.
     const path = new Graphics()
-    path.roundRect(286, 376, 728, 198, 99).fill({ color: 0xd9c79f, alpha: 0.85 })
-    path.roundRect(298, 388, 704, 174, 87).fill({ color: 0xeadfc2, alpha: 0.95 })
+    // Stigens inneryta lag pa 108 064 px i EN ton (`_plattprobe --medbakgrund`) — storsta
+    // faltet i spelet. Delad markfyllning med alpha-vagen, se lib/form.js: stigen maste
+    // fortsatta slappa igenom graset under sig, sa toningen bar sin egen genomskinlighet.
+    // Dampad ramp, inte standardvardena: stigen ar nastan vit, och 0,14/0,28 (kalibrerat
+    // for mellanmork brun mark) gjorde den grumligt grabrun i stallet for sandig — sett i
+    // skarmdumpen, inte gissat. Se lib/form.js.
+    path.roundRect(286, 376, 728, 198, 99).fill(groundFill(0xd9c79f, { light: 0.10, dark: 0.13, alpha: 0.85 }))
+    path.roundRect(298, 388, 704, 174, 87).fill(groundFill(0xeadfc2, { light: 0.07, dark: 0.11, alpha: 0.95 }))
     for (let i = 0; i < 90; i++) {
       const a = Math.random() * Math.PI * 2
       const rr = Math.sqrt(Math.random())

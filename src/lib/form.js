@@ -135,11 +135,26 @@ export function verticalFill(top, bottom) {
 // av höjden, vilket är rätt för ett FÖREMÅL som ska läsa som rundat. En markplan är ingen
 // rundad form utan en yta i perspektiv, och får därför en rak ramp mellan två ändpunkter.
 //
-// Ärver `verticalFill`s cache (per färgpar) och dess `_detalj`-avstängning — en scen som
-// monteras gör alltså noll nya texturbakningar efter första gången.
+// ⚠️ Standardvärdena är kalibrerade för en MELLANMÖRK yta (jord, trä, asfalt — `0x8a5a3b`
+// och släkt). På en nästan vit yta är samma 28 % mörkning ett mycket större SYNLIGT fall,
+// eftersom den äter av ett stort absolut spann: `valpens-bajs` grusstig (`0xeadfc2`) blev
+// grumligt gråbrun i stället för sandig, och det syntes bara i skärmdumpen — talet i
+// `_plattprobe` blev utmärkt. Ljusa ytor vill ha ~0,07/0,11; kolla alltid bilden.
+//
+// `alpha` < 1 för en yta som ska SLÄPPA IGENOM det som ligger under (en grusstig över
+// gräset, en dis-remsa). Då går fyllningen via `verticalFillAlpha` i stället, eftersom
+// `.fill({ color, alpha })` och `.fill(gradient)` utesluter varandra i Pixi. Två följder
+// värda att känna till: den vägen är medvetet INTE `_detalj`-avstängd (att tappa alfan är
+// en bugg, att tappa volym bara kosmetik), och alfan läggs lika på topp och botten så
+// ytan inte råkar tona bort mot betraktaren.
+//
+// Ärver cachen (per färgpar) från den fyllning den routar till — en scen som monteras gör
+// alltså noll nya texturbakningar efter första gången.
 export function groundFill(color, opts = {}) {
-  const { light = 0.14, dark = 0.28 } = opts
-  return verticalFill(tint(color, light), shade(color, dark))
+  const { light = 0.14, dark = 0.28, alpha = 1 } = opts
+  const top = tint(color, light)
+  const bottom = shade(color, dark)
+  return alpha < 1 ? verticalFillAlpha(top, bottom, alpha, alpha) : verticalFill(top, bottom)
 }
 
 // Samma som verticalFill, men toningen bär sin egen GENOMSKINLIGHET.

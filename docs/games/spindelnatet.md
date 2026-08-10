@@ -103,6 +103,23 @@ fångar försvinner in i abstrakta prickar.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🌙 **Marken är månbelyst i stället för soljord** (v1.128.0).
+  Spelet ligger under `createScene('night')` — stjärnhimmel, silhuettkullar — men markremsan
+  ritades i `COLORS.brown`, alltså DAGSLJUSJORD. Den var därmed bildens enda yta som inte var
+  kvällsbelyst och läste som en solbelyst strand under en stjärnhimmel. Tonen dras nu 55 % mot
+  `night`-temats egen marktone (`scene.js:43`, `0x2a2550`) och är fortfarande JORD, inte ännu
+  ett mörkt band: `NIGHT_GROUND = #553d47`. Dammpuffen när ett kryp smiter ner i sprickan följer
+  med (`tint(NIGHT_GROUND, 0.25)`) — annars hade dagsljusdamm yrt över nattmark.
+  **MÄTT** (samma pixel, före → efter): markens topp **(149, 108, 81) → (104, 84, 92)** och
+  botten **(127, 90, 64) → (86, 67, 74)**. Hela hueskiftet ligger i R−B: **+68 → −12**, alltså
+  från varm till neutral/kall, med ~30 % lägre ljushet. Kullarna bakom är (40, 34, 78) och
+  himlen vid horisonten (65, 60, 114) — marken är fortfarande ljusast av de tre, vilket är rätt:
+  den är förgrund i månsken, inte en silhuett, och föremålen som landar där behöver kontrast.
+  **Bleed på köpet:** remsan slutade på −40/1320 med hörnradie 50, så en telefon bredare än
+  16:9 visade de rundade hörnen sväva med himmel under sig. Nu ±`BLEED_X` i sidled (gradienten
+  bara i sidled — bbox-höjden styr mappningen) plus en helfärgad remsa under y 788 i
+  gradientens understa ton, så en 4:3-platta täcks ner till 880.
+
 - 2026-08-10 🎨 **D1 (delat mönster): markremsan fick ljus** (`b3cde53`, v1.119.0).
   Remsan låg på **73 096 px i EN ton** (`_plattprobe --medbakgrund`). Samma konstruktion som
   i `bygg-tornet`, `trollblandning` och `saftbaren`, därför samma delade `groundFill()` i

@@ -13,9 +13,10 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
-import { createScene } from '../../lib/scene.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
+import { COLORS, PRAISE, shade, tint } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, burst, floatText, bigCelebration, bounceIn, breathe, puff , kvittera} from '../../lib/feedback.js'
 
@@ -32,6 +33,11 @@ const WIDE_R = 200 // fångstradie vid bred svep (från basen)
 const WIDE_RECHARGE = 6 // sek att ladda om bred-knappen
 const MAX_FALL = 9 // px/steg-tak på fallfart (lugnt för små barn)
 const GROUND_MARK_Y = 606 // y då ett föremål räknas som "i marken"
+// Marken ligger under en STJÄRNHIMMEL. `COLORS.brown` är dagsljusjord och lyste som en
+// solbelyst strand under en natthimmel — enda ytan i bilden som inte var kvällsbelyst.
+// Månbelyst jord är samma jord, kallare och mörkare: brunt draget mot `night`-temats
+// egen marktone (`scene.js:43`, 0x2a2550). Kvar som JORD, inte som ett band till.
+const NIGHT_GROUND = lerpColor(COLORS.brown, 0x2a2550, 0.55)
 const SPIDER_MIN_X = 200
 const SPIDER_MAX_X = 1080
 const HAND_LOCAL = { x: 14, y: -35 } // skjut-handens läge i skjut-armens container (tråd-ursprung)
@@ -83,9 +89,14 @@ export default {
     this._root.addChild(createScene('night', { width: ctx.width, height: ctx.height }))
     const ground = new Graphics()
     // Markremsan lag pa 73 096 px i EN ton (`_plattprobe --medbakgrund`). Delad
-    // markfyllning — se lib/form.js.
-    ground.roundRect(-40, 648, 1360, 140, 50).fill(groundFill(COLORS.brown))
-    ground.rect(-40, 648, 1360, 12).fill({ color: 0x000000, alpha: 0.18 })
+    // markfyllning — se lib/form.js. Tonen är månbelyst, se NIGHT_GROUND.
+    // Bleed: remsan slutade på −40/1320 med rundade hörn på radie 50, så en telefon
+    // bredare än 16:9 visade hörnen sväva med himmel under dem. Bara SIDLED på
+    // gradienten — bbox-höjden styr mappningen — och remsan under 788 är en helfärgad
+    // fortsättning av dess understa ton (en 4:3-platta ser ner till 880).
+    ground.roundRect(-BLEED_X - 40, 648, 1360 + 2 * BLEED_X, 140, 50).fill(groundFill(NIGHT_GROUND))
+    ground.rect(-BLEED_X - 40, 788, 1360 + 2 * BLEED_X, BLEED_Y).fill(shade(NIGHT_GROUND, 0.28))
+    ground.rect(-BLEED_X - 40, 648, 1360 + 2 * BLEED_X, 12).fill({ color: 0x000000, alpha: 0.18 })
     ground.eventMode = 'none'
     this._root.addChild(ground)
 
@@ -696,7 +707,7 @@ export default {
           }
           // Nådde sprickan: smiter ner (ingen förlust — nya kryp kommer hela tiden).
           if (Math.abs(b.position.x - it._hole) < 26) {
-            puff(ctx.fxLayer, it._hole, GROUND_MARK_Y + 6, { count: 5, color: 0x8a6a4a })
+            puff(ctx.fxLayer, it._hole, GROUND_MARK_Y + 6, { count: 5, color: tint(NIGHT_GROUND, 0.25) })
             this._retireItem(it)
             continue
           }

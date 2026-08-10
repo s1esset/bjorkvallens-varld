@@ -105,6 +105,15 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (delat mönster): hyllan fick ljus** (`b3cde53`, v1.119.0).
+  Hyllan låg på **70 560 px i EN ton** (`_plattprobe --medbakgrund`) och delade konstruktion
+  med tre andra spel, därför den delade `groundFill()` i `lib/form.js`.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **70 560 → 24 148 px** (resten är
+  bokryggen, som är en annan form).
+- ⬜ **Lämnad platt med flit:** receptbokens crèmesida är spelets största fält (115 403 px)
+  och rörs inte. Den är en PANEL med text, och `_plattprobe`s eget filhuvud varnar uttryckligen
+  för att "fixa" panelen, ritpappret och fotbollsplanen — en lugn sida är rätt här.
+
 - 2026-06-30: Doc skriven (granskning + plan). Speltest grönt (errorCount 0), skärmdump läst.
   Inga kodändringar ännu. (Spelets starkaste loop av de fyra Pussel-granskade.)
 - Rekommenderad första-omgång: **[Deep/Quick uppdelat] per-element-reaktioner (börja med 3–4

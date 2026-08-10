@@ -14,6 +14,76 @@ Format:
 
 ---
 
+## 2026-08-10 (natt) · v1.121.0 · D1-nivån stängd — ett mönster, inte sex engångsfixar
+
+Förra passets `Öppet` pekade ut nästa nivå och en observation: *`#8a5a3b` (`COLORS.brown`)
+toppar tre av dem — värt att angripa som ett delat mönster en gång i stället för sex.*
+Det visade sig stämma, men inte på det sätt raden gissade: de sex spelen bar **två** olika
+platthetsmönster, och det gick bara att se genom att lokalisera varje fält i koden först.
+
+**Byggt:** 7 spel i 4 commits, hela den mätta D1-nivån.
+
+| spel | störst före → efter | mönster |
+|---|---|---|
+| tvatta-djuret | 111 592 → 25 394 | B — många föremål i en ton |
+| valpens-bajs (grusstigen) | 108 064 → ute ur topp-3 | A — plan med alpha |
+| natskott-pa-stan | 105 360 → 71 816 | B — många föremål i en ton |
+| saftbaren | 99 676 → 34 726 | A — stor vågrät plan |
+| bygg-tornet | 94 613 → 18 796 | A — stor vågrät plan |
+| spindelnatet | 73 096 → 22 847 | A — stor vågrät plan |
+| trollblandning (hyllan) | 70 560 → 24 148 | A — stor vågrät plan |
+
+**Mönster A — en stor vågrät yta ritad som en platt rect.** Mark, golv, bänkskiva, hylla.
+Fanns redan handskrivet på ÅTTA ställen i repot (`golvet-ar-lava` ×2, `plantera-fron` ×2,
+`bowling`, `lagerelden`, `vart-tog-det-vagen`, `mata-monstret`) med ljus topp ~0,14 och mörk
+botten ~0,28. Det mönstret fick ett namn: **`groundFill(color, {light, dark, alpha})`** i
+`lib/form.js`. `alpha < 1` routar till `verticalFillAlpha`, eftersom en yta som ska släppa
+igenom det som ligger under (grusstigen över gräset) annars måste välja mellan volym och
+genomskinlighet.
+
+**Mönster B — många föremål som delar EN ton.** Inte en plan alls. Hyreshusens fasader
+(`CITY_WALLS[0]` på flera hus) och lerfläckarna på djuret. Receptet är `topLightFill` per
+föremål: den cachar per färg, så N föremål kostar EN gradient, inte en per föremål.
+
+**Två gånger av sju sa mätningen "succé" och bilden sa nej.** Det är passets viktigaste
+resultat och står nu i både `lib/form.js` och commit-meddelandena:
+
+- **Grusstigen blev en lerpöl.** `groundFill`s standardvärden 0,14/0,28 är kalibrerade för
+  MELLANMÖRKA ytor. Samma 28 % mörkning på stigens nästan vita `0xeadfc2` åt ett mycket
+  större absolut spann och gjorde den grumligt gråbrun i stället för sandig. `_plattprobe`
+  gav ett utmärkt tal ändå. Ljusa ytor vill ha ~0,07/0,11.
+- **Leran blev chokladkulor.** `sphereFill` gav varje bump en egen glansdager, och tre klot
+  per fläck läste som en hög godis på grisen. Talet var 111 592 → 30 048, alltså utmärkt.
+  Lera vill ha låg inre kontrast och ljus uppifrån — `topLightFill` med dämpad ramp.
+
+**En blockerare som var värd att fixa först.** `tvatta-djuret` satte
+`view.rotation = Math.random() * Math.PI` per fläck, och en roterad Graphics roterar även
+sin fyllning — varje fläck hade fått sin egen slumpmässiga ljusriktning. Slumpen flyttades
+till bumparnas koordinater; siluetten är matematiskt identisk (samma vinkel, samma punkter,
+huvudcirkeln i origo). **Gratis bugfix:** `klibb`-fläckarnas glansdager och rinnande droppe
+följde tidigare den slumpade rotationen, så droppen kunde rinna rakt uppåt. Nu står de rätt.
+
+**Sviten mätt, inte antagen.** Cachade gradienter i sju spel är precis den ändringsklass som
+fällt sviten förut (`generateTexture`, `FillGradient` per montering). `npm run test:all`:
+**72/72 gröna, inga `tom-scen`**, bara de fyra kända `saknat-ljudklipp` (D2, MOSS nere).
+
+**Commits:** `b3cde53` markfyllningen + 4 spel · `a1bb4e0` valpens-bajs + alpha ·
+`a4fb24e` natskott-pa-stan · `620895f` tvatta-djuret
+
+**Öppet:**
+- **Två nya mål föll ut ur arbetet**, inget av dem hörde till D1-nivån:
+  1. **`scene.js`-marken.** `valpens-bajs` topp är nu `meadow`-gräset (`#86d27a`, 95 225 px)
+     och `natskott-pa-stan`s är himlen (`#a6d8f2`, 71 816 px) — båda ur scenen, inte ur
+     spelet. App-brett mål som träffar varje spel med stort `groundH`, och `lib/form.js`
+     kallar `scene.js` "den fil sviten är känsligast för". Kräver egen mätning.
+  2. **`spindelnatet`s mark är dagsljusbrun under natthimmel.** Färgfråga, inte platthet —
+     medvetet inte insmuget i en D1-commit.
+- **Lämnat platt med flit:** `trollblandning`s receptbokssida (115 403 px). Panel med text;
+  `_plattprobe`s eget filhuvud varnar för att "fixa" panelen, ritpappret och fotbollsplanen.
+- Oförändrat sedan tidigare: **C1/V10** (vilka `restitution`-tal är avsiktliga — kräver att
+  man SPELAR spelen), **D2** `saknat-ljudklipp` (MOSS nere), 3 repliker väntar på `/rost`.
+- **`pizzabageriet` använder inte `BLEED` någonstans** — hör till full bleed-spåret, inte D1.
+
 ## 2026-08-10 (kväll) · v1.118.0 · D1 repo-brett: 20 spel, tre nivåer — och en ny primitiv
 
 Förra passets `Öppet` var en rad: *kör `_plattprobe --medbakgrund --topp 72` över hela

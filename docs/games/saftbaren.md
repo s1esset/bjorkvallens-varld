@@ -90,6 +90,14 @@ strunta i beställningen hur länge som helst och bara leka.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (delat mönster): baren fick ljus uppifrån** (`b3cde53`, v1.119.0).
+  Barens framsida låg på **99 676 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största
+  fält. Samma konstruktion som i tre andra spel, därför den delade `groundFill()` i
+  `lib/form.js`. BÅDA plattorna med samma ton tonades (bakgrunden bakom vätskan och framsidan),
+  annars syns en skarv i bleed-zonen på höga plattor.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **99 676 → 34 726 px**, brunt ute
+  ur topp-3. Spelets topp är nu väggen, som redan var tonad.
+
 - 2026-08-06: byggt som första spel på `lib/vatska.js`. Motorn utökades samtidigt med
   färg per partikel (`world.pal`), blandningstabell (`setMixTable`) och roterade
   kärlväggar (`addBox(..., angle)`) — det sista är det som gör att ett glas kan hälla.

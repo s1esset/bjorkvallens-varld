@@ -118,6 +118,23 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (mönster B): leran fick form — och droppen rinner nedåt igen** (`620895f`, v1.121.0).
+  Leran låg på **111 592 px i EN ton** (`_plattprobe --medbakgrund`) — största enskilda fältet i
+  HELA D1-nivån. Samma klass som `natskott-pa-stan`s fasader: många föremål som delar en ton.
+  Först måste en blockerare bort. `view.rotation = Math.random() * Math.PI` roterade hela fläckens
+  Graphics, och en roterad Graphics roterar även sin fyllning — varje fläck hade alltså fått sin
+  EGEN slumpmässiga ljusriktning. Slumpen ligger nu i bumparnas koordinater i stället. Siluetten är
+  matematiskt identisk (samma vinkel, samma punkter, huvudcirkeln står i origo).
+  **Gratis bugfix på köpet:** i `klibb`-grenen ritas en glansdager uppe till vänster och en droppe
+  som RINNER nedåt. Båda följde tidigare den slumpade vy-rotationen, så droppen kunde rinna åt
+  sidan eller rakt uppåt. Nu står de rätt.
+  ⚠️ **INTE `sphereFill` — provat och förkastat på BILDEN:** radiella klot gav varje bump en egen
+  glansdager, och tre klot per fläck läste som en hög chokladkulor på djuret i stället för lera.
+  Talet var utmärkt (111 592 → 30 048) och bilden sa något annat. Lera vill ha låg inre kontrast
+  och ljus uppifrån, alltså `topLightFill` med dämpad ramp (0,14/0,20).
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **111 592 → 25 394 px**. Brunt är helt
+  ute ur topp-3; spelets topp är nu djurets egen päls.
+
 - 2026-06-30: Doc skriven (ersätter den gamla bygg-specen; granskad mot koden + playtest som
   visar tät lera över hela djuret och dold min). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] djuret reagerar på beröring + [Quick] ansiktet

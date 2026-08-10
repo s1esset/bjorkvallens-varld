@@ -89,6 +89,16 @@ garanterar att flaggan alltid nås. Räkneorden gör stapeln till en mjuk siffer
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (delat mönster): marken fick ljus från horisonten** (`b3cde53`, v1.119.0).
+  Gruset låg på **94 613 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.
+  Fyndet togs inte som ett engångsfall: `#8a5a3b` (`COLORS.brown`) var största fältet i TRE
+  av D1-nivåns kvarvarande spel och näst största i ett fjärde, alltid samma konstruktion —
+  en stor vågrät yta ritad som en platt rect. Mönstret fanns dessutom redan handskrivet på
+  åtta ställen i repot. Det blev därför `groundFill()` i `lib/form.js`: ljuset kommer från
+  horisonten, så marken är ljusast vid gräskanten och mörknar mot betraktaren.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **94 613 → 18 796 px**, och brunt
+  är helt ute ur topp-3.
+
 - 2026-06-30: Doc skriven (granskning + plan), ersätter gammal build-spec. Inga kodändringar.
   Spelet testat (errorCount 0; kran + kloss + spök-markör + flagga renderar korrekt).
 - Rekommenderad första-omgång: **[Quick] varierade klossar + tyngd-ljud + bredare (icke-facit)

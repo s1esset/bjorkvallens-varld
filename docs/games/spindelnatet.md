@@ -103,6 +103,16 @@ fångar försvinner in i abstrakta prickar.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (delat mönster): markremsan fick ljus** (`b3cde53`, v1.119.0).
+  Remsan låg på **73 096 px i EN ton** (`_plattprobe --medbakgrund`). Samma konstruktion som
+  i `bygg-tornet`, `trollblandning` och `saftbaren`, därför samma delade `groundFill()` i
+  `lib/form.js` i stället för fyra egna lösningar.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **73 096 → 22 847 px**, brunt ute
+  ur topp-3. Spelets topp är nu natthimlens eget band.
+- ⬜ **Öppet, sett men inte åtgärdat:** markens GRUNDTON är dagsljusbrun under en natthimmel.
+  Toningen gjorde den inte värre, men färgen matchar inte scenen. Det är en färgfråga och
+  inte en platthetsfråga — medvetet inte insmuget i en D1-commit.
+
 - 2026-06-30: Doc skriven (granskning + plan, ersätter gammal bygg-spec). Testat headless
   (errorCount 0), skärmdump läst. Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] levande jägare (vrid mot byte + flaxa armen, skjut från

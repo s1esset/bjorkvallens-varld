@@ -136,6 +136,17 @@ pakettjuv) återstår:
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (mönster B): husen fick ljus uppifrån** (`a4fb24e`, v1.121.0).
+  Hyreshusen delade EN platt ton per väggfärg. `CITY_WALLS[0]` (`0x9aa3b5`) ensam låg på
+  **105 360 px** — spelets största fält (`_plattprobe --medbakgrund` mätte `#9ba3b5`, en etta
+  ifrån, eftersom biom-tinten ligger ovanpå).
+  Detta är D1-nivåns ANDRA klass av platthet: inte en stor vågrät plan utan MÅNGA föremål som
+  delar en ton. En fasad är ett föremål belyst uppifrån, så `topLightFill` — och den cachar per
+  färg, så alla hus med samma väggton kostar EN gradient, inte en per hus. Både stads- och
+  förortshusen fick den, så förorten inte bara ärver toppplatsen.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **105 360 → 71 816 px**, fasaderna
+  ute ur topp-3. Spelets topp är nu himlens `#a6d8f2`, som är ett eget mål.
+
 - 2026-08-07: Spec-ja från ägaren. Doc skriven, bygge startat (`/spel`-körning).
 - 2026-08-08 ✅ **Byggd och godkänd.** `spelbyggare` byggde hela modulen (~1900 rader,
   matter.js + tre parallaxdjup + två nätlägen + uppdragsrotation + hemkomstparad).

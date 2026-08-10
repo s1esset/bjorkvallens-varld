@@ -106,6 +106,21 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: grusstigen fick djup — och markfyllningen lärde sig alpha** (`a1bb4e0`, v1.120.0).
+  Stigens inneryta låg på **108 064 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största
+  fält. Samma konstruktion som de fyra bruna planerna, men med en skillnad som blockerade den
+  delade hjälparen: ytan bär `alpha`, och `.fill({ color, alpha })` och `.fill(gradient)`
+  utesluter varandra i Pixi. `groundFill()` fick därför en `alpha`-option som routar till
+  `verticalFillAlpha`.
+  **LÄRDOM, mätt och nu dokumenterad i `lib/form.js`:** standardvärdena 0,14/0,28 är kalibrerade
+  för MELLANMÖRKA ytor. Första försöket använde dem rakt av på stigens nästan vita `0xeadfc2`
+  och gjorde den grumligt gråbrun i stället för sandig. `_plattprobe` gav ett utmärkt tal ändå —
+  det syntes BARA i skärmdumpen. Ljusa ytor vill ha ~0,07/0,11.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **108 064 → ute ur topp-3**.
+- ⬜ **Öppet, nytt mål:** spelets topp är nu `scene.js`-gräset (`#86d27a`, 95 225 px), alltså
+  `meadow`-markens egen ton och inte något spelet ritar. Det är ett app-brett mål som träffar
+  varje spel med stort `groundH`, och `scene.js` är den fil sviten är känsligast för.
+
 - 2026-06-30: Doc skriven (ersätter den gamla bygg-specen; granskad mot grundnings-fixen och
   playtest som bekräftar rätt skalad gräsyta). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] alltid-bajs-där-valpen-stannar + [Quick] levande tunna

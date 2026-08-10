@@ -122,6 +122,39 @@ export function verticalFill(top, bottom) {
   return g
 }
 
+// Samma som verticalFill, men toningen bär sin egen GENOMSKINLIGHET.
+//
+// Bakgrunden: `.fill({ color, alpha })` och `.fill(gradient)` utesluter varandra — det går
+// inte att ge en gradientfyllning ett alpha-värde. Ytor som behöver BÅDA (badvatten som
+// Zacke ska synas nedsänkt i, en halvgenomskinlig hylla, en dis-remsa) tvingades därför
+// välja: antingen genomskinlighet ELLER volym. Vägen runt ligger i STOPPEN — `addColorStop`
+// kör dem genom `Color.toHexa()`, så '#rrggbbaa' är ett giltigt färgstopp och toningen kan
+// bära alfan själv. Alfa anges 0..1 och gäller topp respektive botten.
+//
+// Cachad per färg+alfa-par som resten av filen: en anropare som ritar om varje bildruta
+// bakar ändå noll nya texturer.
+//
+// MEDVETET UTAN `_detalj`-avstängning, till skillnad från alla andra fyllningar här. De
+// andra får falla tillbaka på råfärgen på låg detaljnivå eftersom bara VOLYMEN går
+// förlorad. Här bär toningen även genomskinligheten, så en råfärg skulle göra ytan HELT
+// TÄCKANDE — badvattnet skulle dölja Zacke. Att tappa volym är kosmetiskt; att tappa
+// alfan är en bugg.
+const _vertACache = new Map()
+export function verticalFillAlpha(top, bottom, alphaTop = 1, alphaBottom = 1) {
+  const key = `${top}|${bottom}|${alphaTop}|${alphaBottom}`
+  let g = _vertACache.get(key)
+  if (g) return g
+  const hex = (c, a) => `#${c.toString(16).padStart(6, '0')}${Math.round(Math.max(0, Math.min(1, a)) * 255).toString(16).padStart(2, '0')}`
+  g = new FillGradient({
+    colorStops: [
+      { offset: 0, color: hex(top, alphaTop) },
+      { offset: 1, color: hex(bottom, alphaBottom) },
+    ],
+  })
+  _vertACache.set(key, g)
+  return g
+}
+
 // En liten glansfläck som egen Graphics, redo att läggas som syskon ovanpå en redan ritad
 // form — samma handrullade "gloss"-cirkel som upprepas i många spelfiler, nu som en rad:
 // `c.addChild(body, rimLight(r))`. r = formens radie (ry för en ellips lodrätt).

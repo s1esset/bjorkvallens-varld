@@ -23,7 +23,9 @@ import { COLORS, FONT, tint } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
-const SKY = 0xbfe6ff
+// Himlen var tidigare den platta tonen 0xbfe6ff; de två nedan spänner om den.
+const SKY_TOP = 0xa7dbfd
+const SKY_HORIZON = 0xd8f1ff
 const HOLE_Y = 560 // jordhålens y (i jordrabatten)
 const SEED_Y = 210 // fröförrådets y (uppe i himlen)
 const FLOWERS = ['🌸', '🌺', '🌻', '🌷', '🌼', '🌹']
@@ -102,12 +104,18 @@ export default {
     // creme-kanter. Jordgradienten breddas BARA i sidled — samma lodräta spann
     // (440..740) som förut, så den synliga färgmappningen är oförändrad — och remsan
     // under 740 (plattor högre än 16:9) är en helfärgad rect i gradientens slutton.
-    decor.addChild(new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, 460 + BLEED_Y).fill(SKY))
+    // Himlen låg på 495 283 px — 54 % av skärmen — i EN ton (`_plattprobe --medbakgrund`),
+    // medan jorden under redan var tonad. Toningen går djupare upptill och blekare mot
+    // horisonten, som en riktig himmel, och spänner om den gamla platta SKY-tonen.
+    // Cachad per färgpar — noll texturbakningar per montering.
+    decor.addChild(new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, 460 + BLEED_Y).fill(verticalFill(SKY_TOP, SKY_HORIZON)))
     // Jorden mörknar nedåt, som en riktig jordprofil gör. Var EN brun ton over 301 000 px —
     // appens storsta enfargade yta dar platt faktiskt var fel (scripts/_plattprobe.mjs).
     decor.addChild(new Graphics().roundRect(-20 - BLEED_X, 440, ctx.width + 40 + 2 * BLEED_X, 300, 36).fill(verticalFill(tint(COLORS.brown, 0.16), shade(COLORS.brown, 0.3))))
     decor.addChild(new Graphics().rect(-20 - BLEED_X, 740, ctx.width + 40 + 2 * BLEED_X, BLEED_Y).fill(shade(COLORS.brown, 0.3)))
-    decor.addChild(new Graphics().roundRect(-20 - BLEED_X, 432, ctx.width + 40 + 2 * BLEED_X, 46, 24).fill(shade(COLORS.brown, 0.18)))
+    // Matjordskanten. Så fort himlen slutade vara platt blev DEN här remsan spelets
+    // största enfärgade fält (57 152 px) — samma fynd, ny plats. Tonas som resten.
+    decor.addChild(new Graphics().roundRect(-20 - BLEED_X, 432, ctx.width + 40 + 2 * BLEED_X, 46, 24).fill(verticalFill(shade(COLORS.brown, 0.1), shade(COLORS.brown, 0.3))))
 
     // Ritad sol med strålar och ansikte (var en ☀️-emoji).
     const sun = new Graphics()

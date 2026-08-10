@@ -27,11 +27,23 @@ import { gsap } from 'gsap'
 import { bounceIn, breathe, pop, wiggle, sparkle, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, PRAISE, shade, tint } from '../../lib/theme.js'
+import { verticalFill } from '../../lib/form.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Layout i designkoordinater (1280×720). Pappret ligger på ett ritbord: under det
 // står kritlådan, så scenen är ett skrivbord med papper och kritor — inte ett
 // ensamt vitt fält.
 const PAPER = { x: 120, y: 86, w: 1040, h: 424, r: 40 }
+// Papprets toning. MÄTT före: 342 352 px — 37 % av skärmen — i EN ton (COLORS.cream).
+// `_plattprobe`s filhuvud kallar ett vitt ritpapper legitimt platt, och det stämmer så
+// länge det ser ut som PAPPER; det här såg ut som ett hål i skärmen. Spannet är därför
+// medvetet mycket svagare än t.ex. fotbollsplanens: barnets kritstreck är innehållet, och
+// arket får aldrig konkurrera med det.
+const C_PAPER_TOP = 0xfffefb
+const C_PAPER_BOT = 0xf3ebd9
+// Bordsytan, tonad kring skalets 0xfdf6e3 — samma varma familj, bara belyst uppifrån.
+const C_DESK_TOP = 0xfdf7e8
+const C_DESK_BOT = 0xf0e3c6
 const TRAY = { x: 230, y: 566, w: 820, h: 128, r: 24 } // kritlådan under pappret
 const CRAYON_Y = 600 // kritornas mittpunkt (de sticker upp ur lådan)
 const CRAYON_XS = [320, 480, 640, 800, 960] // 160 px isär → 36 px mellan träffytorna
@@ -320,10 +332,29 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
+    // SKRIVBORDET. Filhuvudet har alltid sagt att scenen är ett bord med papper och
+    // kritor, men spelet ritade ingen yta alls — det lutade sig mot skalets `COLORS.bg`,
+    // som är EN ton över hela skärmen (uppmätt 335 511 px = 36 %). Så fort pappret slutade
+    // vara platt blev bordet spelets största enfärgade fält. Full bleed, så en bred telefon
+    // aldrig ser skalets kant.
+    this._desk = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
+      .fill(verticalFill(C_DESK_TOP, C_DESK_BOT))
+    this._desk.eventMode = 'none'
+    this._root.addChild(this._desk)
+
+    // Arket ligger PÅ skrivbordet: en mjuk skugga under det. Egen Graphics, inte samma
+    // som pappret — skuggan får inte växa den interaktiva träffytan.
+    this._paperShadow = new Graphics()
+      .roundRect(PAPER.x + 3, PAPER.y + 11, PAPER.w, PAPER.h, PAPER.r)
+      .fill({ color: COLORS.shadow, alpha: 0.12 })
+    this._paperShadow.eventMode = 'none'
+    this._root.addChild(this._paperShadow)
+
     // Rityta / papperspanel — DETTA är den interaktiva spårningsytan.
     this._paper = new Graphics()
       .roundRect(PAPER.x, PAPER.y, PAPER.w, PAPER.h, PAPER.r)
-      .fill(COLORS.cream)
+      .fill(verticalFill(C_PAPER_TOP, C_PAPER_BOT))
       .stroke({ width: 6, color: COLORS.yellow })
     this._paper.eventMode = 'static'
     this._paper.cursor = 'pointer'

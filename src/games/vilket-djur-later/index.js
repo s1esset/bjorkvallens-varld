@@ -16,6 +16,7 @@ import { bounceIn, pop, wiggle, sparkle, floatText, ripple, shake, burst, breath
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 
 // Djurdata: emoji + svenskt namn (rätt artikel + bestämd form) för en grammatiskt
 // korrekt bekräftelse, + lätesord (late) och frasen rösten spelar som ledtråd (fras),
@@ -172,7 +173,12 @@ export default {
     // Brickan: rundad cremeruta med vit kant + mjuk topp-sheen.
     const body = new Graphics()
       .roundRect(-cardW / 2, -cardH / 2, cardW, cardH, 32)
-      .fill(COLORS.cream)
+      // Brickorna lag tillsammans pa 66 327 px i EN ton (`_plattprobe --medbakgrund`) —
+      // spelets storsta falt. Kort FAR bara text och UI enligt P0, men de behover inte
+      // vara platta: `vandkort` fick samma lyft i 8809aa0. Bara nedat, ingen ljus topp:
+      // cremen ar redan nastan vit sa en tint gor ingenting, och toppen bar dessutom
+      // redan en vit sheen. Se lib/form.js.
+      .fill(groundFill(COLORS.cream, { light: 0, dark: 0.09 }))
       .stroke({ width: 6, color: COLORS.white, alpha: 0.95 })
     body.roundRect(-cardW / 2 + 12, -cardH / 2 + 12, cardW - 24, cardH * 0.34, 22).fill({ color: COLORS.white, alpha: 0.45 })
     body.eventMode = 'none'

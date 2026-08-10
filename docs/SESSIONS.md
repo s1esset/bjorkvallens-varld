@@ -25,6 +25,7 @@ under natten; se filens egen loggtabell för löpande läge.
 | — | `_dragprobe` larmade falskt på vägen | Sonden krävde DragControllers **opt-in**-skugga av alla. **10 av 15** dragspel hade falsklarmat. Lagad. |
 | N2a | `kugghjulen` **dubbelhjul** | Nivå 8: ett hjul driver kedjan vidare OCH en fläkt. **Mesh-grafen behövde noll ändringar** — den var redan generaliserad. Grenen är en bonus utanför vinstvillkoret. `_grenprobe.mjs` (17 kontroller) vaktar. |
 | N2b | `kugghjulen` **back-hjul** | **Punkten omformulerad, inte byggd** — den uppenbara byggnaden är matematiskt omöjlig (se nedan). Korsad rem utpekad som rätt väg och nedskriven i §4. |
+| N3 | `pruttbad` får `vatska.js` | Riktiga **tvåldroppar** vid poppet (`tval`). 2 024 px netto, 60,6 fps under CPU ×6, dränerade till 0. **Fyra fel som talen dolde** — tre hittades av bilden. Ny sond `_tvalprobe.mjs`. LYFTPLAN B1: tre spel → **sex** (listan var inaktuell). |
 
 **Nattens första lärdom: den röda sonden var sondens eget fel — igen (femte gången).**
 `_dragprobe` rapporterade `skugga NEJ` på `trollblandning`. Verifieringen mot HEAD (rulla undan
@@ -55,8 +56,21 @@ första bild var helt täckt av appens splash; och `_grenprobe`s eget P0-kriteri
 (krävde 184 px mellan pinnar — men kugghjul MÅSTE röra varandra, kedjans egna pinnar ligger
 132–150 px isär, och `DragController._narmastMal` väljer närmaste mål ändå).
 
+**Sonderna var lika ofta fel som koden.** Tre av nattens fem sond-möten var sondens fel, inte
+spelets: `_dragprobe` krävde en opt-in-funktion, `_grenprobe`s P0-krav var fel standard för ett
+spel där hjul MÅSTE röra varandra, och `_vatskeprobe` rapporterade 232 913 "vätskepixlar" om en
+vätska med noll partiklar. **Och två grönt-rapporterande mätningar var falska:** `_grenprobe`s
+första bild var täckt av splashen, och `_tvalprobe`s första pixelmätning räknade badets skum som
+tvål (avstånd² 3460 mot tröskeln 3600). Botemedlen som fungerade: verifiera mot HEAD, mät
+**differentiellt** (samma yta med och utan lagret), och **öppna bilden**.
+
 **Commits:** `103682c` fix(sond) `_dragprobe` opt-in-skugga · `eceb5bf` fix(trollblandning) N1 ·
-`985020c` docs N1 · `1a26518` feat(kugghjulen) N2a dubbelhjul
+`985020c` docs N1 · `1a26518` feat(kugghjulen) N2a dubbelhjul · `ed0209b` docs(kugghjulen) N2b
+omformulerad · `4546ba9` feat(pruttbad) N3 tvålvatten
+
+**Öppet:** nattkön står på **N4** (fler `mjukkropp`-kunder). Röstkön är tom (2 nya klipp
+genererade). `npm run test:all` har inte körts i natt — ingen ändring rörde `src/lib/**`, så
+rule 1 krävde det inte, men ett svep är rimligt före nästa stora punkt.
 
 ---
 

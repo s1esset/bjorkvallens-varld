@@ -506,7 +506,11 @@ export default {
     this._terrain.roundRect(R, 400, DESIGN_W + BLEED_X + 60 - R, 26, 40).fill(COLORS.green)
     // Djupet är ritat berg; det översta skiktet är vätska (se _fyllLava).
     this._lavaBase.clear()
-    this._lavaBase.rect(L, SURFACE_Y, R - L, 300 + BLEED_Y).fill(0x7a1500)
+    // Gropens djup låg på 163 026 px — 18 % av skärmen, appens största platta fält efter
+    // D1:s andra svep — i EN ton (`_plattprobe --medbakgrund`). Terrängen runt omkring var
+    // redan tonad; det var själva schaktet som var platt. En lavagrop är HET vid ytan och
+    // mörknar nedåt, så toningen är också det som scenen faktiskt påstår. Cachad per färgpar.
+    this._lavaBase.rect(L, SURFACE_Y, R - L, 300 + BLEED_Y).fill(verticalFill(0x9c2200, 0x4a0c00))
     this._fyllLava()
 
     // Skatt på höger klippa — varierat RITAT fynd per nivå (flyger ut vid vinst).

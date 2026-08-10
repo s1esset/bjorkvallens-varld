@@ -9,6 +9,7 @@ import { gsap } from 'gsap'
 import { sparkle, pop, wiggle, bigCelebration, kvittera } from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { verticalFill } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 
@@ -75,7 +76,13 @@ export default {
     // creme-lister — se lib/view.js. Tonen är warm-temats 0xfff0d6, INTE exakt
     // letterbox-creme (COLORS.bg): en scen målad i exakt creme går inte att skilja
     // från "ingen bleed alls" (se kantCream i scripts/bildkoll.mjs).
-    const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(0xfff0d6)
+    // `_plattprobe --medbakgrund` mätte 546 990 px — 59 % av skärmen — i exakt den här
+    // tonen: plattorna låg som tryck på ett platt papper. Toningen spänner OM 0xfff0d6,
+    // så det är samma varma ton, bara med ljus i. Cachad per färgpar (`verticalFill`)
+    // — en montering bakar noll texturer.
+    const bg = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
+      .fill(verticalFill(0xfff8e7, 0xf6dfb6))
     bg.eventMode = 'static'
     bg.on('pointertap', () => this._emptyTap(ctx))
     this._root.addChild(bg)
@@ -115,6 +122,11 @@ export default {
     const pad = new Container()
     pad.position.set(def.x, def.y)
 
+    // Slagskugga: plattan ska LIGGA på ytan, inte vara tryckt i den. Skuggan är det
+    // billigaste djupet som finns och behövs särskilt nu när bakgrunden är tonad.
+    const skugga = new Graphics().roundRect(-140, -128, 280, 280, 40).fill({ color: COLORS.shadow, alpha: 0.1 })
+    skugga.eventMode = 'none'
+
     const body = new Graphics()
       .roundRect(-140, -140, 280, 280, 40)
       .fill({ color: def.color, alpha: 0.85 })
@@ -139,7 +151,7 @@ export default {
     const icon = drawIcon(def.icon, 132)
     icon.eventMode = 'none'
 
-    pad.addChild(body, glow, iconShade, icon)
+    pad.addChild(skugga, body, glow, iconShade, icon)
     pad._glow = glow
     pad.eventMode = 'static'
     pad.cursor = 'pointer'

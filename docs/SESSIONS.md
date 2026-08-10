@@ -14,6 +14,40 @@ Format:
 
 ---
 
+## 2026-08-10 (natt) · v1.89.0 · Nattkörning: P2 klar, P3 inledd, sviten ren
+
+**Autonom nattkörning** med kön i `.claude/state/nattkorning.md`. Sjutton commits.
+
+### Runda P2 KLAR — fyra spel fick riktiga kraftfält
+`plask-i-vattnet` (SPH-vatten) · `fallskarmen` (luftmotstånd + kupol som buktar) ·
+`ballonglyft` (lyft mot vikt, barnet bestämmer när) · `sapbubblor` (hinnan ger efter för
+vinden). Två nya delade primitiver: **`lib/luftmotstand.js`** och **`mjukkropp.falt()`**.
+
+### `kugghjulen` — maskinen har tröghet (P3 inledd, v1.89.0 `3e2826c`)
+Fingret sätter en önskad FART, bygget hinner dit så fort massan tillåter, och släpper barnet
+rullar den vidare som ett svänghjul. Mätt: tom vev full fart efter **5 bildrutor**,
+femhjulsbygge efter **36** · utrullning **9,42 rad mot 1,61**. Trögheten summeras över de
+hjul som faktiskt greppar, så den är en avläsning av vad barnet byggt.
+
+### Svitens `tom-scen`-brus var harnessens eget mätfel (`9e41417`)
+Fyndet flyttade sig: `tvatta-djuret` två svep, sedan `flipperspel` och `folj-sparet`, medan
+varje spel var grönt ensamt. Skärmdumpen togs efter en TIMER, så `page.screenshot()`
+kapplöpte med WebGL-rutan och vann ibland under fyra parallella webbläsare. Nu väntar den på
+två `requestAnimationFrame` + tar om bilden en gång om den ändå blev tom. **Före: fynd i
+3 av 3 svep. Efter: 72/72 med noll fel-nivåfynd.**
+⚠️ Lärdomen: *ett återkommande fynd på samma plats är inte bevis för att platsen är orsaken.*
+
+### Röstkön var inte tom — den var osynlig (`dbc8f80`)
+`plask-i-vattnet`s namngivning byggs vid körning, och backstoppen såg den aldrig: testet hann
+säga två repliker på 6,2 s. Fraserna härleddes ur spelets egen tabell → **50 klipp, 0 fel**.
+
+**Öppet:** `kugghjulen`s `rep.js`-drivband (ny mekanik, egen runda) · P3: `trollblandning`,
+`magnet-fiske` · **D1 platta ytor är MÄTT**: `spara-linjen` 37 % av skärmen i en ton,
+`rulla-bollen-hem` 48 % i två omärkbart olika gröna, `folj-sparet` 24 % · ÅTGÄRDER V10
+(statisk restitution, 23 spel) · MOSS-beroende `saknat-ljudklipp` i fyra spel.
+
+---
+
 ## 2026-08-10 (natt) · v1.87.0 · Spår 3 P2 — luften blev en kraft i två spel + röstkön tömd
 
 **Byggt i en autonom nattkörning** (kön ligger i `.claude/state/nattkorning.md`, som är

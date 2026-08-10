@@ -15,7 +15,7 @@
 // Bubblorna är vanliga Pixi-objekt som ENDAST rörs av ticker-integratorn (ingen matter.js,
 // ingen GSAP på bubbel-objekt) → exit-säkra utan extra skydd. Partiklar/plask går via
 // lib/feedback.js (redan exit-säkra). GSAP rör endast Zacke/anka/skum + {}-proxies.
-import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
+import { Container, Graphics, Circle, Rectangle, FillGradient } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration, breathe , kvittera} from '../../lib/feedback.js'
@@ -23,6 +23,25 @@ import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+// DJUP I VATTNET. `_plattprobe --medbakgrund` mätte badvattnet till 270 576 px — 29 % av
+// skärmen — i EN ton. Vatten är ljusare vid ytan och mörknar nedåt, och det gick inte att
+// lösa med `verticalFill`: vattnet ritas med `alpha` (Zacke och ankan ska synas nedsänkta),
+// och alpha går inte att kombinera med en gradientfyllning. Lösningen ligger i STOPPEN —
+// `addColorStop` kör dem genom `Color.toHexa()`, så '#rrggbbaa' är ett giltigt stopp och
+// toningen kan bära genomskinligheten själv. Cachad per badsort (5 st), så en omritning
+// vid badbyte bakar noll nya texturer.
+const _djupCache = new Map()
+function djupFill(color, a0 = 0x22, a1 = 0x74) {
+  const key = `${color}|${a0}|${a1}`
+  let g = _djupCache.get(key)
+  if (g) return g
+  const hex = `#${color.toString(16).padStart(6, '0')}`
+  const aa = (a) => a.toString(16).padStart(2, '0')
+  g = new FillGradient({ colorStops: [{ offset: 0, color: `${hex}${aa(a0)}` }, { offset: 1, color: `${hex}${aa(a1)}` }] })
+  _djupCache.set(key, g)
+  return g
+}
 
 // arc() i en Graphics som redan har former fortsätter den AKTUELLA vägen — utan ett
 // moveTo till bågens startpunkt ritas ett streck från förra formen till bågen.
@@ -325,7 +344,9 @@ export default {
     // praktiskt taget osynligt — bara skummets bubbeltoppar syntes.
     g.roundRect(194, 256, 892, 420, 68).fill(0xdaeaf3)
     // Vatten — badsortens färg.
-    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill({ color: this._bath().water, alpha: 0.5 })
+    // Vattnet bär sitt djup i toningens STOPP (se djupFill) — ljusare vid ytan, mörkare
+    // mot botten, med samma genomskinlighet som den gamla platta alpha 0.5 i mitten.
+    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill(djupFill(this._bath().water, 0x4d, 0x9e))
   },
 
   // Vattentoning över allt som är UNDER ytan → Zackes kropp och ankan ser

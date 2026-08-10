@@ -109,6 +109,24 @@ aldrig.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🐛 **Auto-hjälpens replik klipptes av sin egen räkning** (`f1da22c`).
+  `_attachLoose(ctx, b, opts = {})` tog emot `{ auto: true }` och läste aldrig `opts`.
+  Följden var inte kosmetisk: `_recue` sa "Jag hjälper dig — en ballong till!" och
+  `_attachLoose` sa räkneordet i **samma tick** — och `VoiceService.say()` inleder med
+  `cancel()`, så ett ~3 s klipp dog innan det hunnit börja.
+  **Mätt** (`scripts/_hjalpprobe.mjs`, ny — hookar `_playUrls` och `cancel` i den riktiga
+  tjänsten och mäter vad som SPELAS, inte vad som sägs): HEAD **0 ms** livstid för
+  hjälpklippet, 1 klipp i sändningen. Efter: **en** sändning med **2** klipp, inget avbrott.
+  Fixen är ingen timer — `_dispatch` kedjar redan flera meningar när alla har klipp, så
+  hjälprepliken och räkneordet går som ett yttrande med EN ägare.
+- 2026-08-10 ✅ **Kritikergranskningen som saknades för A2 är gjord.** `_lyftprobe` alla
+  mått goda · `_tystprobe` 0 döda träffytor · `_idleprobe` 0 (spelet löser sig **inte**
+  självt — barnet måste fortfarande skicka iväg paketet, vilket var hela poängen med
+  rundan) · exit rent · `check` 0 fel.
+  **Ett fynd granskades och förkastades:** en sond visade att buketten överlappar Elviras
+  balkong i alla lägen. Det är geometrin, inte en bugg — paketet ska upp TILL balkongen —
+  och sonden hade bara härlett layouten igen. Ingen kod ändrades på det fyndet.
+
 - 2026-08-10 ✅ **Barnet bestämmer när — och avfärden är riktig lyftkraft** (v1.87.0, spår 3
   runda P2). `lib/luftmotstand.js` andra kund. §4 [Medium] "räcker det?" är därmed klar.
   - **Paketet är avfärdsknappen.** Sitter minst en ballong på det skickas det iväg vid

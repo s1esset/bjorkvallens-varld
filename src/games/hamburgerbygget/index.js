@@ -22,7 +22,7 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { verticalFill } from '../../lib/form.js'
+import { verticalFill, groundFill } from '../../lib/form.js'
 import { ITEMS, makeItemView } from './ingredienser.js'
 
 const BUILD = { x: 880, y: 596 } // _burger-origo: fatets yta (underbullens botten) — HÖGER
@@ -461,7 +461,11 @@ export default {
 
   _buildPalette(ctx) {
     const shelf = new Graphics()
-      .roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill({ color: 0xfffaf0, alpha: 0.94 }).stroke({ width: 5, color: 0xd8bf9a })
+      // Hyllan lag pa 53 821 px i EN ton (`_plattprobe --medbakgrund`) — spelets storsta
+      // falt. `pizzabageriet` har EXAKT samma konstruktion och fick den tonad i ett tidigare
+      // D1-pass; den har missades da. Bara nedat (`light: 0`): ytan ar redan nastan vit sa
+      // en tint gor ingenting. Alpha-vagen, hyllan ska fortsatta ligga pa vaggen.
+      .roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill(groundFill(0xfffaf0, { light: 0, dark: 0.09, alpha: 0.94 })).stroke({ width: 5, color: 0xd8bf9a })
       .roundRect(84, SHELF_Y - 44, 1112, 18, 9).fill({ color: 0xf0e2cc, alpha: 0.9 })
     shelf.eventMode = 'none'
     this._root.addChild(shelf)

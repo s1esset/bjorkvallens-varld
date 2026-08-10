@@ -20,6 +20,7 @@ import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, burst, breathe, bigCelebration, ripple, puff, shake } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 
 const { Body } = Matter
 
@@ -148,7 +149,10 @@ export default {
 
     // --- Dekorativ gräsremsa.
     const deco = new Graphics()
-    deco.rect(0, FLOOR_Y, DESIGN_W, DESIGN_H - FLOOR_Y).fill(COLORS.green)
+    // Spelet skickar `ground: false` och ritar sitt EGET golv, sa scenens markfyllning
+    // traffar det inte: 55 343 px i EN ton (`_plattprobe --medbakgrund`), spelets storsta
+    // falt. Delad markfyllning, se lib/form.js.
+    deco.rect(0, FLOOR_Y, DESIGN_W, DESIGN_H - FLOOR_Y).fill(groundFill(COLORS.green))
     deco.moveTo(0, FLOOR_Y).lineTo(DESIGN_W, FLOOR_Y).stroke({ width: 4, color: COLORS.greenDark })
     for (let i = 0; i < 40; i++) {
       const gx = Math.random() * DESIGN_W

@@ -68,6 +68,7 @@ try {
         let jamviktGap = 0
         for (let i = 0; i < 60; i++) {
           g._fingerAngle += 0.18 // rad/bildruta som fingret rör sig
+          g._fingerVel = g._fingerVel * 0.6 + 0.18 * 0.4 // samma jämning som `_crankMove`
           await vanta()
           farter.push(g._crankVel)
           // ⚠️ SKILJ UPPSTARTEN FRÅN JÄMVIKTEN. De första bildrutorna bygger med

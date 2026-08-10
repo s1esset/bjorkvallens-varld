@@ -83,6 +83,7 @@ export default {
     this._crankAngle = 0
     this._crankVel = 0 // maskinens fart (rad/bildruta) — svänghjulet
     this._fingerAngle = 0 // fingrets ackumulerade vinkel — veven dras mot den
+    this._fingerVel = 0 // fingrets fart (framkoppling, se `_stegMaskin`)
     this._targetFactor = 0
     this._chainComplete = false
     this._resolving = false
@@ -256,6 +257,7 @@ export default {
     this._crankAngle = 0
     this._crankVel = 0 // maskinens fart (rad/bildruta) — svänghjulet
     this._fingerAngle = 0 // fingrets ackumulerade vinkel — veven dras mot den
+    this._fingerVel = 0 // fingrets fart (framkoppling, se `_stegMaskin`)
     this._targetFactor = 0
     this._chainComplete = false
     this._resolving = false
@@ -704,6 +706,7 @@ export default {
     const p = this._root.toLocal(e.global)
     this._lastAng = Math.atan2(p.y - C.y, p.x - C.x)
     this._fingerAngle = this._crankAngle // greppet tas där veven FAKTISKT står
+    this._fingerVel = this._crankVel // och ärver maskinens fart, så greppet inte rycker
     ctx.services.audio.sfx('tap')
     pop(this._crank, { scale: 1.06 })
     this._crank.on('globalpointermove', this._onCrankMove)
@@ -716,9 +719,11 @@ export default {
     const p = this._root.toLocal(e.global)
     const a = Math.atan2(p.y - C.y, p.x - C.x)
     const d = wrapAngle(a - this._lastAng)
-    // Fingret sätter inte vinkeln längre — det drar i veven genom en styv fjäder, och
-    // trögheten avgör hur fort maskinen hinner ikapp. Se `_stegMaskin`.
+    // Fingret sätter inte vinkeln längre — det drar i veven, och trögheten avgör hur fort
+    // maskinen hinner ikapp. Både LÄGET och FARTEN behövs: läget stänger glappet, farten
+    // är framkopplingen som gör att jämviktsglappet blir noll. Se `_stegMaskin`.
     this._fingerAngle += d
+    this._fingerVel = this._fingerVel * 0.6 + d * 0.4 // jämnad, så ett ryck inte slår igenom
     this._lastAng = a
     if (Math.abs(d) > 0.04) this._crankMoved = true
     this._idle = 0
@@ -808,8 +813,15 @@ export default {
       // 40° glapp åt fel håll och farten i taket. Kopplingen är därför en FART som
       // stänger glappet, med ett tak på hur snabbt farten får ändras — och det taket är
       // just massan. Stabilt av konstruktion: farten kan aldrig passera sitt mål.
+      // ⚠️ MÅLFARTEN MÅSTE INNEHÅLLA FINGRETS EGEN FART. Med enbart `gap · VEV_SNABB` är
+      // målfarten NOLL vid noll glapp — maskinen kan alltså aldrig följa ett finger som
+      // rör sig utan att bära ett stående glapp (precis `fart / VEV_SNABB`). Uppmätt
+      // följd: den TOMMA veven sköt förbi fingret under uppstarten och låg sedan pinnad
+      // mot det hårda taket från andra hållet — 17° glapp på en tom vev mot 9° på ett
+      // femhjulsbygge, alltså bakvänt. Med fingrets fart som framkoppling går glappet mot
+      // noll i jämvikt, och glappet bär bara det maskinen ÄNNU inte hunnit ikapp.
       const gap = wrapAngle(this._fingerAngle - this._crankAngle)
-      const malVel = gap * VEV_SNABB
+      const malVel = this._fingerVel + gap * VEV_SNABB
       const maxAndring = (VEV_MOMENT / J) * dt
       this._crankVel += clamp(malVel - this._crankVel, -maxAndring, maxAndring)
       if (Math.abs(gap) > VEV_MAXGAP) this._crankAngle += (Math.abs(gap) - VEV_MAXGAP) * Math.sign(gap)

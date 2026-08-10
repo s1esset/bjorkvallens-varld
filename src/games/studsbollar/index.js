@@ -23,6 +23,7 @@ import { makeBoll } from '../../lib/foremal.js'
 import { bigCelebration, puff, sparkle, floatText, pop, ripple, shake, burst } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 const FLOOR_Y = 648 // golvets ovansida (design-y)
@@ -152,7 +153,10 @@ export default {
 
     // Golvgrop (visuell) — eventMode none (skottet ägs av redo-bollen/launchern).
     const floor = new Graphics()
-    floor.rect(0, FLOOR_Y, ctx.width, ctx.height - FLOOR_Y).fill(0x86d27a)
+    // Spelet skickar `ground: false` och ritar sitt EGET golv, sa scenens markfyllning
+    // traffar det inte: 70 290 px i EN ton (`_plattprobe --medbakgrund`), spelets storsta
+    // falt. Delad markfyllning, se lib/form.js.
+    floor.rect(0, FLOOR_Y, ctx.width, ctx.height - FLOOR_Y).fill(groundFill(0x86d27a))
     floor.rect(0, FLOOR_Y, ctx.width, 12).fill({ color: 0x5bbf6a, alpha: 0.8 })
     for (let i = 0; i < 30; i++) {
       const gx = Math.random() * ctx.width

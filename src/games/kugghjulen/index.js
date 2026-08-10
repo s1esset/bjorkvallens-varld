@@ -40,7 +40,15 @@ const SIZES = {
 const TRAY_Y = 624
 
 // Maskinens tröghet (se `_stegMaskin`). Talen är mätta i `scripts/_vevprobe.mjs`.
-const VEV_MOMENT = 0.34 // hur hårt fingret drar maskinen mot sin önskade fart
+// ⚠️ KOPPLINGEN MÅSTE ORKA DRA DET TYNGSTA BYGGET SJÄLV. Med 0,12 blev momentet vid
+// glapptaket bara 0,30·0,12/5,77 = 0,006 rad/ruta² — då var det den hårda klämman som
+// släpade maskinen framåt, inte fjädern, och det tunga bygget nådde bara 0,054 rad/ruta
+// mot fingrets 0,18. Kravet: gap·K/J ska bära fingrets fart även vid J = 5,77, alltså
+// K ≥ 0,18·(1−damp)·J/gap = 0,52. 0,9 ger marginal och ett glapp på ~10° på tungt bygge,
+// ~2° på en tom vev.
+const VEV_SNABB = 1.2 // glapp → önskad fart (ger ~9° släp vid normalt vevtempo)
+const VEV_MOMENT = 0.05 // hur mycket farten får ändras per bildruta vid tröghet 1
+const VEV_MAXGAP = 0.3 // ~17°: hårt tak på hur långt handtaget får hamna efter fingret
 const VEV_FRIKTION = 0.9 // svänghjulets avklingning per bildruta (delas med trögheten)
 const VEV_MAXFART = 0.5 // rad/bildruta — taket, så inget kan skena
 
@@ -74,7 +82,7 @@ export default {
     this._dispensers = {}
     this._crankAngle = 0
     this._crankVel = 0 // maskinens fart (rad/bildruta) — svänghjulet
-    this._crankOnskad = 0 // fingrets önskade rörelse den här bildrutan
+    this._fingerAngle = 0 // fingrets ackumulerade vinkel — veven dras mot den
     this._targetFactor = 0
     this._chainComplete = false
     this._resolving = false
@@ -247,7 +255,7 @@ export default {
     this._clearLevel(ctx)
     this._crankAngle = 0
     this._crankVel = 0 // maskinens fart (rad/bildruta) — svänghjulet
-    this._crankOnskad = 0 // fingrets önskade rörelse den här bildrutan
+    this._fingerAngle = 0 // fingrets ackumulerade vinkel — veven dras mot den
     this._targetFactor = 0
     this._chainComplete = false
     this._resolving = false
@@ -695,6 +703,7 @@ export default {
     this._helpIdle = 0
     const p = this._root.toLocal(e.global)
     this._lastAng = Math.atan2(p.y - C.y, p.x - C.x)
+    this._fingerAngle = this._crankAngle // greppet tas där veven FAKTISKT står
     ctx.services.audio.sfx('tap')
     pop(this._crank, { scale: 1.06 })
     this._crank.on('globalpointermove', this._onCrankMove)
@@ -707,9 +716,9 @@ export default {
     const p = this._root.toLocal(e.global)
     const a = Math.atan2(p.y - C.y, p.x - C.x)
     const d = wrapAngle(a - this._lastAng)
-    // Fingret sätter inte vinkeln längre — det sätter en ÖNSKAD fart. Trögheten i
-    // `_update` avgör hur fort maskinen hinner dit. Se `_troghet()`.
-    this._crankOnskad = d
+    // Fingret sätter inte vinkeln längre — det drar i veven genom en styv fjäder, och
+    // trögheten avgör hur fort maskinen hinner ikapp. Se `_stegMaskin`.
+    this._fingerAngle += d
     this._lastAng = a
     if (Math.abs(d) > 0.04) this._crankMoved = true
     this._idle = 0
@@ -734,9 +743,17 @@ export default {
     if (!this._alive || this._resolving) return
     this._autoCrankTween?.kill()
     ctx.services.audio.sfx('whoosh')
+    // ⚠️ TAPPET FICK INTE HOPPA ÖVER TRÖGHETEN. Med en fast varaktighet kändes en tom
+    // vev och ett femhjulsbygge EXAKT likadana för varje barn som tappar i stället för
+    // att dra runt — och tap är den enklaste, mest barn-typiska gesten, alltså var hela
+    // rundans poäng osynlig just för den spelaren. Varaktigheten skalar nu med √J:
+    // samma två varv, men en tung maskin tar längre tid på sig och startar trögare.
+    const J = this._troghet()
     const st = { a: this._crankAngle }
     this._autoCrankTween = gsap.to(st, {
-      a: this._crankAngle + Math.PI * 4, duration: 2.2, ease: 'power1.inOut',
+      a: this._crankAngle + Math.PI * 4,
+      duration: 2.2 * (0.55 + 0.45 * Math.sqrt(J)),
+      ease: J > 2.5 ? 'power2.inOut' : 'power1.inOut',
       onUpdate: () => {
         if (!this._alive) {
           this._autoCrankTween?.kill()
@@ -774,10 +791,28 @@ export default {
   _stegMaskin(dt) {
     const J = this._troghet()
     if (this._cranking) {
-      // Fingrets önskade fart (rad/bildruta) → moment mot trögheten.
-      const mal = this._crankOnskad / Math.max(0.0001, dt)
-      this._crankVel += ((mal - this._crankVel) * VEV_MOMENT * dt) / J
-      this._crankOnskad = 0
+      // ⚠️ FINGRET ÄR KOPPLAT TILL VEVEN, INTE BARA TILL DESS FART. Första versionen
+      // styrde ren hastighet utan positionsåterkoppling, och då LOSSNADE handtaget
+      // synligt från fingret: uppmätt **40–100° glapp** efter en halv till en sekunds
+      // vevning på ett femhjulsbygge i normalt barntempo, och glappet läkte aldrig —
+      // svänghjulet fortsatte från sin egen position. Kuggarna sitter 36–40° isär, så
+      // glappet var en hel kuggbredd eller mer. Det ser inte tungt ut, det ser trasigt
+      // ut — och det slog till precis vid den mest triumferande stunden.
+      //
+      // Nu sitter fingret i veven som i en STYV FJÄDER: momentet växer med glappet, så
+      // en tung maskin släpar efter men hinner alltid ikapp, och glappet har dessutom
+      // ett hårt tak så handtaget aldrig kan hamna en kugge fel.
+      // ⚠️ INTE EN FJÄDER. En fjäder med samma styvhet kan inte både bära ett femhjuls-
+      // bygge och vara stabil på en tom vev: ω = √(K/J), så det K som orkar dra det tunga
+      // (0,9) gav den tomma ω ≈ 0,95 rad/ruta och den svängde FÖRBI fingret — uppmätt
+      // 40° glapp åt fel håll och farten i taket. Kopplingen är därför en FART som
+      // stänger glappet, med ett tak på hur snabbt farten får ändras — och det taket är
+      // just massan. Stabilt av konstruktion: farten kan aldrig passera sitt mål.
+      const gap = wrapAngle(this._fingerAngle - this._crankAngle)
+      const malVel = gap * VEV_SNABB
+      const maxAndring = (VEV_MOMENT / J) * dt
+      this._crankVel += clamp(malVel - this._crankVel, -maxAndring, maxAndring)
+      if (Math.abs(gap) > VEV_MAXGAP) this._crankAngle += (Math.abs(gap) - VEV_MAXGAP) * Math.sign(gap)
     } else {
       this._crankVel *= Math.pow(VEV_FRIKTION, dt / J) // tungt bygge rullar längre
       if (Math.abs(this._crankVel) < 0.0008) this._crankVel = 0

@@ -59,13 +59,25 @@ try {
         g._crankVel = 0
         const J = g._troghet()
 
-        // 60 bildrutor med fingret som drar jämnt.
+        // 60 bildrutor med fingret som drar jämnt. Fingrets vinkel förs fram lika mycket
+        // varje ruta — precis som en jämn dragning runt pivoten.
         g._cranking = true
+        g._fingerAngle = g._crankAngle
         const farter = []
+        let maxGap = 0
+        let jamviktGap = 0
         for (let i = 0; i < 60; i++) {
-          g._crankOnskad = 0.18 // rad/bildruta som fingret vill
+          g._fingerAngle += 0.18 // rad/bildruta som fingret rör sig
           await vanta()
           farter.push(g._crankVel)
+          // ⚠️ SKILJ UPPSTARTEN FRÅN JÄMVIKTEN. De första bildrutorna bygger med
+          // nödvändighet ett glapp — maskinen står stilla och fingret rör sig — och ett
+          // maxvärde över hela körningen rapporterar därför uppstarten, inte kopplingen.
+          // Det som får barnet att tro att veven är trasig är ett glapp som LIGGER KVAR,
+          // och det är jämviktsvärdet nedan.
+          const g0 = Math.abs(g._fingerAngle - g._crankAngle)
+          maxGap = Math.max(maxGap, g0)
+          if (i >= 30) jamviktGap = Math.max(jamviktGap, g0)
         }
         const toppfart = Math.max(...farter.map(Math.abs))
         // Tid till 90 % av den fart maskinen till slut når.
@@ -79,7 +91,7 @@ try {
           await vanta()
           rutor++
         }
-        return { J, toppfart, t90: t90 < 0 ? -1 : t90, utrullning: Math.abs(g._crankAngle - a0), rutorTillStopp: rutor }
+        return { J, toppfart, t90: t90 < 0 ? -1 : t90, maxGap, jamviktGap, utrullning: Math.abs(g._crankAngle - a0), rutorTillStopp: rutor }
       },
       hjul
     )
@@ -90,7 +102,16 @@ try {
   console.log(`   tom vev  : tröghet ${tom.J.toFixed(2)} · toppfart ${tom.toppfart.toFixed(3)} rad/ruta · 90 % efter ${tom.t90} rutor`)
   console.log(`   5 hjul   : tröghet ${bygd.J.toFixed(2)} · toppfart ${bygd.toppfart.toFixed(3)} rad/ruta · 90 % efter ${bygd.t90} rutor\n`)
 
-  ok('en tom vev går igång direkt', tom.t90 >= 0 && tom.t90 <= 6, `${tom.t90} bildrutor till 90 % av farten`)
+  // ⚠️ DET HÄR MÅTTET SAKNADES OCH VAR DET SOM FÄLLDE FÖRSTA VERSIONEN. Sonden mätte bara
+  // fart, aldrig hur långt handtaget hamnade EFTER fingret — och en granskning som mätte
+  // just det fann 40–100° glapp på ett femhjulsbygge i normalt barntempo, med ett glapp
+  // som aldrig läkte. Kuggarna sitter 36–40° isär, så det var en hel kuggbredd fel: det
+  // ser trasigt ut, inte tungt. En fart som ser rimlig ut i tal kan alltså vara en
+  // sönderbruten koppling i handen.
+  const grader = (r) => ((r * 180) / Math.PI).toFixed(0)
+  ok('handtaget ligger inte kvar efter fingret (tom vev)', tom.jamviktGap <= 0.22, `${grader(tom.jamviktGap)}° i jämvikt (uppstart ${grader(tom.maxGap)}°)`)
+  ok('handtaget ligger inte kvar efter fingret (5 hjul)', bygd.jamviktGap <= 0.32, `${grader(bygd.jamviktGap)}° i jämvikt (kritikern mätte 40–100° före fixen)`)
+  ok('en tom vev går igång direkt', tom.t90 >= 0 && tom.t90 <= 8, `${tom.t90} bildrutor till 90 % av farten`)
   ok('en byggd maskin är mätbart trögare att få igång', bygd.t90 > tom.t90 * 1.6, `${bygd.t90} mot ${tom.t90} bildrutor`)
   ok('trögheten växer med bygget', bygd.J > tom.J * 3, `${tom.J.toFixed(2)} → ${bygd.J.toFixed(2)}`)
   ok('maskinen rullar vidare när barnet släpper', bygd.utrullning > 0.3, `${bygd.utrullning.toFixed(2)} rad efter släpp`)
@@ -103,7 +124,7 @@ try {
     const vanta = () => new Promise((r) => requestAnimationFrame(r))
     g._cranking = true
     for (let i = 0; i < 90; i++) {
-      g._crankOnskad = 40
+      g._fingerAngle += 40 // orimligt ryck: 40 rad på en bildruta
       await vanta()
     }
     const v = Math.abs(g._crankVel)

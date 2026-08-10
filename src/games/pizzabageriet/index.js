@@ -32,7 +32,8 @@ import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../li
 import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS, FONT, shade } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, topLightFill, verticalFillAlpha, groundFill, sphereFill } from '../../lib/form.js'
 import DRAW from './ingredienser.js'
 
@@ -280,12 +281,17 @@ export default {
     const W = ctx.width
     const H = ctx.height
 
-    // Kaklad vägg med lätt förskjutna rader.
-    const wall = new Graphics().rect(0, 0, W, COUNTER_Y).fill(0xf7dcb8)
-    for (let row = 0; row * 62 < COUNTER_Y; row++) {
+    // Kaklad vägg med lätt förskjutna rader. Ritas med bleed (±BLEED_X i sidled, BLEED_Y
+    // uppåt) så breda telefoner aldrig visar ängen från `createScene` bakom bageriet.
+    // Rutnätets FAS är oförändrad: raderna räknas från samma row 0 och kolumnerna kliver
+    // 62 px från samma `off`, bara längre ut åt vänster — bilden i 0..W är bit-identisk.
+    const wall = new Graphics().rect(-BLEED_X, -BLEED_Y, W + 2 * BLEED_X, COUNTER_Y + BLEED_Y).fill(0xf7dcb8)
+    for (let row = -Math.ceil(BLEED_Y / 62); row * 62 < COUNTER_Y; row++) {
       const y = row * 62
       const off = row % 2 ? -31 : 0
-      for (let x = off; x < W; x += 62) {
+      let x0 = off
+      while (x0 > -BLEED_X - 62) x0 -= 62
+      for (let x = x0; x < W + BLEED_X; x += 62) {
         wall.roundRect(x + 4, y + 4, 54, 54, 10).fill({ color: 0xfdefd8, alpha: 0.9 })
       }
     }
@@ -295,16 +301,21 @@ export default {
     // i EN ton: rutorna bryter ytan för ögat, men varje ruta har exakt samma färg, så
     // väggen saknade ljus uppifrån-ned. Samma fynd och samma fix som i `hamburgerbygget`.
     // Eget objekt eftersom `alpha` inte går att kombinera med en gradientfyllning.
-    const vaggljus = new Graphics().rect(0, 0, W, COUNTER_Y).fill(verticalFill(0xfff6e6, 0x9a7346))
+    // Bleed: BARA i sidled på själva gradienten — bbox-höjden styr mappningen, så ett
+    // extra topp-bleed hade flyttat hela ljuset i den synliga bilden. Remsan ovanför
+    // y = 0 är därför en helfärgad fortsättning av gradientens översta ton.
+    const vaggljus = new Graphics()
+      .rect(-BLEED_X, 0, W + 2 * BLEED_X, COUNTER_Y).fill(verticalFill(0xfff6e6, 0x9a7346))
+      .rect(-BLEED_X, -BLEED_Y, W + 2 * BLEED_X, BLEED_Y).fill(0xfff6e6)
     vaggljus.alpha = 0.22
     vaggljus.eventMode = 'none'
     c.addChild(vaggljus)
 
     // Bänkskiva (trä) med mörkare framkant.
     const counter = new Graphics()
-      .rect(0, COUNTER_Y, W, 74).fill(0xc98f57)
-      .rect(0, COUNTER_Y, W, 12).fill(0xe0ab73)
-      .rect(0, COUNTER_Y + 62, W, 12).fill(0xa9723f)
+      .rect(-BLEED_X, COUNTER_Y, W + 2 * BLEED_X, 74).fill(0xc98f57)
+      .rect(-BLEED_X, COUNTER_Y, W + 2 * BLEED_X, 12).fill(0xe0ab73)
+      .rect(-BLEED_X, COUNTER_Y + 62, W + 2 * BLEED_X, 12).fill(0xa9723f)
     for (let i = 0; i < 9; i++) {
       const y = COUNTER_Y + 18 + (i % 3) * 15
       counter.moveTo(i * 150 - 20, y).quadraticCurveTo(i * 150 + 55, y + 5, i * 150 + 120, y)
@@ -315,7 +326,11 @@ export default {
     // Golv (syns bara i kanterna under hyllan).
     // Golvet under disken lag pa 62 882 px i EN ton (`_plattprobe --medbakgrund`) — spelets
     // storsta falt. Delad markfyllning, se lib/form.js.
-    c.addChild(new Graphics().rect(0, COUNTER_Y + 74, W, H - COUNTER_Y - 74).fill(groundFill(0xb07a4a)))
+    // Bleed som väggljuset: gradienten breddas bara i sidled (höjden styr mappningen),
+    // och remsan under H är en helfärgad fortsättning av dess understa ton.
+    c.addChild(new Graphics()
+      .rect(-BLEED_X, COUNTER_Y + 74, W + 2 * BLEED_X, H - COUNTER_Y - 74).fill(groundFill(0xb07a4a))
+      .rect(-BLEED_X, H, W + 2 * BLEED_X, BLEED_Y).fill(shade(0xb07a4a, 0.28)))
 
     // Mjölfläckar på bänken runt pizzan.
     const flour = new Graphics()

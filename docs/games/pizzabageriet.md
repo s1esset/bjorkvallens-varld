@@ -108,6 +108,22 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
 
 ## 5. Status / loggar
 
+- 2026-08-10 📱 **Full bleed: bageriet ritas nu med `BLEED_X`/`BLEED_Y`** (v1.127.0).
+  Spelet var det sista som saknade bleed helt (noterat i `SESSIONS.md` tre pass i rad). Vägg,
+  väggljus, bänkskiva och golv slutade på 0 / 1280 / 720, så en telefon bredare än 16:9 visade
+  **ängen från `createScene('warm')`** i kanterna — inte creme, men en utomhusscen runt ett
+  bageri, vilket är värre.
+  Två saker som gjordes med flit i stället för att bara vidga rektanglarna:
+  1. **Kaklets FAS är oförändrad.** Raderna räknas fortfarande från row 0 (negativa rader ger
+     `row % 2 === -1`, alltså samma udda förskjutning −31) och kolumnerna kliver 62 px ut från
+     samma `off`. Rutnätet i 0..1280 ligger på pixeln där det låg.
+  2. **Gradienterna breddas BARA i sidled.** `verticalFill`/`groundFill` mappas mot formens
+     bbox-HÖJD, så ett topp-/bottenbleed hade flyttat hela ljuset i den synliga bilden. Remsorna
+     ovanför y = 0 och under y = 720 är därför helfärgade fortsättningar av gradientens
+     ytter-toner (`0xfff6e6` respektive `shade(0xb07a4a, 0.28)`).
+  **MÄTT:** `--viewport 952x428` → `bildkoll` **inga fynd** (inget `kant-cream`), och 16:9-bilden
+  mot samma bild före ändringen → **inga diff-fynd**, alltså orörd innanför designrektangeln.
+
 - 2026-08-10 🎨 **D1: osten fick gräddad volym** (`0f609d7`, v1.125.0).
   Osten låg på **60 494 px i EN ton** — spelets största fält sedan golvet tonades. En pizza ses
   UPPIFRÅN, så det är ingen yta i perspektiv utan ett föremål med en svag kupa. Dämpad

@@ -11,6 +11,7 @@ import { shuffle } from '../../lib/swedish.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { bounceIn, sparkle, pop, ripple, breathe, shake, floatText, wiggle } from '../../lib/feedback.js'
+import { topLightFill, verticalFillAlpha, verticalFill } from '../../lib/form.js'
 import { COLORS } from '../../lib/theme.js'
 
 // DJUP: rutnätet växer gradvis. Strikt felfritt — bara större, aldrig svårare-på-fel-sätt.
@@ -434,8 +435,13 @@ function makeBackView(w, h, radius, set) {
   const inner = radius - 6
   const light = lerpColor(set.back, 0xffffff, 0.22)
   const dark = lerpColor(set.back, 0x000000, 0.12)
-  v.addChild(new Graphics().roundRect(-w / 2, -h / 2, w, h, radius).fill(set.back).stroke({ width: 5, color: 0xffffff, alpha: 0.9 }))
-  v.addChild(new Graphics().roundRect(-w / 2 + 9, -h / 2 + 9, w - 18, h - 18, inner).fill({ color: light, alpha: 0.55 }).stroke({ width: 3, color: dark, alpha: 0.45 }))
+  // Baksidorna lag tillsammans pa 131 796 px - 14 % av skarmen - i EN ton
+  // (`_plattprobe --medbakgrund`). Scenen bakom var redan tonad; det var KORTEN som var
+  // platta. Ytterplattan far ljus ovanifran och innerplattan en glans som klingar av
+  // nedat. Innerplattan ritas halvgenomskinlig, sa dess toning maste bara alfan sjalv
+  // (`verticalFillAlpha`). Bada cachas per farg, sa alla fem kortsetten kostar lika lite.
+  v.addChild(new Graphics().roundRect(-w / 2, -h / 2, w, h, radius).fill(topLightFill(set.back, { highlight: 0.24, dark: 0.16 })).stroke({ width: 5, color: 0xffffff, alpha: 0.9 }))
+  v.addChild(new Graphics().roundRect(-w / 2 + 9, -h / 2 + 9, w - 18, h - 18, inner).fill(verticalFillAlpha(light, set.back, 0.62, 0.3)).stroke({ width: 3, color: dark, alpha: 0.45 }))
   // Prick-mönster (förskjutna rader) inom den inre plattan.
   const dots = new Graphics()
   const stepX = w / 5
@@ -460,7 +466,10 @@ function makeBackView(w, h, radius, set) {
 // Ren, glansig framsida: gräddvit platta + accent-kant + topp-glans + stor symbol.
 function makeFrontView(w, h, radius, symbol, set) {
   const v = new Container()
-  v.addChild(new Graphics().roundRect(-w / 2, -h / 2, w, h, radius).fill(COLORS.cream).stroke({ width: 5, color: set.accent }))
+  // Framsidan far en svag toning av samma skal. Ett spelkorts framsida SKA vara ljus, sa
+  // spannet ar med flit litet - det handlar om att arket ska ha ljus, inte om att tavla
+  // med symbolen som ar kortets innehall.
+  v.addChild(new Graphics().roundRect(-w / 2, -h / 2, w, h, radius).fill(verticalFill(COLORS.cream, 0xf3ecdc)).stroke({ width: 5, color: set.accent }))
   // Topp-glans (mjuk vit ellips) för "blank skärm"-känsla.
   const gloss = new Graphics().ellipse(0, -h * 0.26, w * 0.36, h * 0.16).fill({ color: 0xffffff, alpha: 0.55 })
   v.addChild(gloss)

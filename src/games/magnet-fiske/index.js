@@ -341,8 +341,14 @@ export default {
     // 0,7 px/steg drift — samma enhet som resten av krafterna (se SPEED_TO_A).
     this._phys.setWind(this._level >= 3 ? speedToAccel(0.7, FRICTION_AIR) : 0, 0)
 
-    // Tillåtna icke-metall-emojis växer med nivån.
-    const korkPool = this._level <= 1 ? ['🦆'] : this._level === 2 ? ['🦆', '🛟'] : NONMETAL
+    // Tillåtna icke-metaller växer med nivån.
+    // ⚠️ De här ska vara RITADE SORTERS-ID (`makeThing`), inte emoji. Stod '🦆'/'🛟' kvar
+    // sedan emoji→ritat-migreringen, och `makeThing` faller igenom till sin sista gren
+    // för okända namn — så nivå 0–2 visade en TRÄBÅT i stället för en anka, varje gång.
+    // Ingen märkte det på tio nivåer: `MATERIAL` saknar också nyckeln '🦆' och föll
+    // tillbaka på 'Trä', vilket råkar vara sant om en båt. Spelets pedagogiska ankare —
+    // gummiankan — fanns alltså inte förrän nivå 3.
+    const korkPool = this._level <= 1 ? ['anka'] : this._level === 2 ? ['anka', 'badring'] : NONMETAL
     const metalEmojis = fill(METAL, metal)
     const korkEmojis = fill(korkPool, kork)
 

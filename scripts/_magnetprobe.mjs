@@ -7,6 +7,11 @@
 //      Fastklistrade saker ska ligga på en fast offset från magneten; sonden mäter hur
 //      mycket den offseten skakar (max avvikelse + hopp mellan bildrutor) för både
 //      kroppen och den synliga vyn.
+//   C) SORTERNA — bygger nivå 0–3 och kontrollerar att varje sak heter något
+//      `makeThing` har en gren för. Ett okänt id ritas som sista grenen, helt tyst:
+//      så visade nivå 0–2 en TRÄBÅT där ankan skulle stå. Ligger SIST i sonden, för
+//      dess nivåsvep måste bounca via biblioteket och den övergången (~0,4 s) krockar
+//      annars med mätningarna ovan.
 //
 //   node scripts/_magnetprobe.mjs [nivå]      (default 3 = full damm, 5 metall + 3 kork)
 import { chromium } from 'playwright'
@@ -18,7 +23,10 @@ const WALL_TOP = 200 // POND.y0 — kroppens centrum kan aldrig nå hit utan att
 const snap = (page) =>
   page.evaluate(async (gid) => {
     const g = (await import('/src/games/registry.js')).getGame(gid)
-    if (!g?._items) return null
+    // Modulen är en singleton och lever kvar efter destroy() — `_magnet` finns då som
+    // referens men är riven, och Pixi v8 nollar `_position` så `.x` KASTAR. Snapen får
+    // därför aldrig lita på att spelet är monterat bara för att modulen svarar.
+    if (!g?._items || !g._magnet || g._magnet.destroyed) return null
     return {
       mx: g._magnet.x,
       my: g._magnet.y,
@@ -26,6 +34,7 @@ const snap = (page) =>
       needed: g._needed,
       stuck: g._stuck.length,
       items: g._items.map((it) => ({
+        kind: it.emoji, // sorts-id, INTE en emoji (namnet är kvar från migreringen)
         metal: it.metal,
         stuck: !!it.stuck,
         delivered: !!it.delivered,
@@ -77,12 +86,32 @@ try {
     { gid: ID, lvl: LVL },
   )
   await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
-  await page.waitForTimeout(900)
+  await page.waitForFunction(
+    async (gid) => {
+      const g = (await import('/src/games/registry.js')).getGame(gid)
+      return !!(g?._items?.length && g._magnet && !g._magnet.destroyed)
+    },
+    ID,
+    { timeout: 8000 },
+  )
+  await page.waitForTimeout(700)
 
   console.log(`\n  Magnetsond — ${ID}, nivå ${LVL}\n`)
 
   // ---- A) PASSIV: rör ingenting -------------------------------------------
   const s0 = await snap(page)
+  if (!s0) {
+    console.log(
+      '  DIAG: ' +
+        JSON.stringify(
+          await page.evaluate(async (gid) => {
+            const g = (await import('/src/games/registry.js')).getGame(gid)
+            return { har: !!g, items: g?._items?.length ?? null, magnet: !!g?._magnet, riven: g?._magnet?.destroyed ?? null, resolving: !!g?._resolving }
+          }, ID),
+        ),
+    )
+    throw new Error('spelet var inte monterat när mätningen skulle börja')
+  }
   const metalN = s0.items.filter((i) => i.metal).length
   console.log(`  A) PASSIV — ${metalN} metall + ${s0.items.length - metalN} kork, magnet parkerad (${r1(s0.mx)}, ${r1(s0.my)})`)
   console.log(`     start: ${s0.items.filter((i) => i.metal).map((i) => `(${Math.round(i.bx)},${Math.round(i.by)})`).join(' ')}`)
@@ -171,6 +200,53 @@ try {
         `  |  VY-offset spann x ${r1(vxs.spann)} / y ${r1(vys.spann)} px, max hopp ${r1(hop(e.vx, e.vy))} px`,
     )
   }
+
+  // --- C) SORTERNA: ritas varje sak som den sort den heter? ---------------------
+  // Ett sorts-id som `makeThing` inte känner igen faller igenom till sista grenen och
+  // ritas som något HELT annat, helt tyst. Så levde nivå 0–2 med en träbåt där ankan
+  // skulle stå, i tio nivåer, eftersom `korkPool` fortfarande höll emoji-strängar.
+  // Måttet är billigt och fångar hela klassen: varje sak i varje nivå måste heta något
+  // `makeThing` faktiskt har en gren för.
+  const KANDA = ['fisk', 'nyckel', 'mynt', 'skruv', 'burk', 'anka', 'badring', 'batt']
+  let sortFel = 0
+  const sedda = new Set()
+  for (const lvl of [0, 1, 2, 3]) {
+    await page.evaluate(
+      ({ gid, l }) => {
+        const s = window.__barnspel.save
+        s.update((d) => {
+          const p = d.profiles.find((x) => x.id === d.activeProfileId) || d.profiles[0]
+          if (!p) return
+          p.games = p.games || {}
+          p.games[gid] = { ...(p.games[gid] || { unlocked: true, stars: 0, custom: {} }), highestLevel: l }
+        })
+        s.flush()
+      },
+      { gid: ID, l: lvl },
+    )
+    await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
+    await page.waitForFunction(
+      async (gid) => {
+        const g = (await import('/src/games/registry.js')).getGame(gid)
+        return !!(g?._items?.length && g._magnet && !g._magnet.destroyed)
+      },
+      ID,
+      { timeout: 8000 },
+    )
+    const q = await snap(page)
+    const okanda = (q?.items || []).map((i) => i.kind).filter((k) => !KANDA.includes(k))
+    for (const i of q?.items || []) sedda.add(i.kind)
+    if (okanda.length) sortFel++
+    console.log(`  nivå ${lvl}: ${(q?.items || []).map((i) => i.kind).join(', ')}${okanda.length ? `   ✗ OKÄNDA: ${okanda.join(', ')}` : ''}`)
+    // ⚠️ Skärmbytet är INTE klart när `nav.go` returnerar (övergången tar ~0,4 s). Med
+    // 250 ms här hann nästa `nav.go('game')` fram FÖRE bibliotekets rivning, som sedan
+    // rev den nymonterade omgången — mätningen efter svepet såg ett spel med
+    // `_magnet.destroyed === true` och noll saker. Vänta ut övergången.
+    await page.evaluate(() => window.__barnspel.nav.go('library'))
+    await page.waitForTimeout(700)
+  }
+  console.log(`  ${sortFel === 0 ? '✓' : '✗'} alla sorter är ritbara${sortFel ? ` — ${sortFel} nivå(er) med okända id` : ''}`)
+  console.log(`  ${sedda.has('anka') ? '✓' : '✗'} ankan finns i dammen (spelets pedagogiska ankare)\n`)
 
   console.log(`\n  ${errors.length ? '✗ ' + errors.join(' | ') : '✓ 0 konsolfel'}\n`)
 } finally {

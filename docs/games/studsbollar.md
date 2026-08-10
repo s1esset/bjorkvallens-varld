@@ -98,6 +98,16 @@ betyder något, och korgen saknar mottagare/själ.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: golvet fick ljus från horisonten** (`ec9a241`, v1.122.0).
+  Golvet låg på **70 290 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.
+  Löst med den delade `groundFill()` i `lib/form.js`.
+  **Värt att notera:** scenens egen markfyllning (`6789698`) träffade det INTE. Spelet skickar
+  `ground: false` till `createScene` och ritar sitt eget golv med en hårdkodad `0x86d27a` —
+  samma värde som `meadow`s `ground`, alltså en kopia av en scenkonstant. Talet rörde sig
+  därför inte en pixel av scenändringen, och det var precis det som avslöjade var fältet låg.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **70 290 → 20 372 px**, grönt ute
+  ur topp-3.
+
 - 2026-06-30: Doc skriven (granskning + plan). Spelet testat (errorCount 0, skärmdump sedd).
   Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] kombo-ljud + korg-reaktion + specialboll** — störst

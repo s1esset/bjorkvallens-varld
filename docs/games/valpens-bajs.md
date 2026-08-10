@@ -117,9 +117,15 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
   och gjorde den grumligt gråbrun i stället för sandig. `_plattprobe` gav ett utmärkt tal ändå —
   det syntes BARA i skärmdumpen. Ljusa ytor vill ha ~0,07/0,11.
   **MÄTT** (största enskilda fältet, bakgrunden medräknad): **108 064 → ute ur topp-3**.
-- ⬜ **Öppet, nytt mål:** spelets topp är nu `scene.js`-gräset (`#86d27a`, 95 225 px), alltså
-  `meadow`-markens egen ton och inte något spelet ritar. Det är ett app-brett mål som träffar
-  varje spel med stort `groundH`, och `scene.js` är den fil sviten är känsligast för.
+- 2026-08-10 🎨 **D1, andra passet: scenens mark fick ljus från horisonten** (`6789698`, v1.122.0).
+  Efter att grusstigen tonats blev spelets topp `scene.js`-gräset (`#86d27a`, 95 225 px) —
+  alltså `meadow`-markens egen ton och inte något spelet ritar. Det här spelet kör
+  `groundH: 420`, appens högsta markremsa, så det var den tydligaste kunden för fixen.
+  Åtgärdat i `lib/scene.js` för ALLA spel som ber om mark: remsan är ljusast längst bort och
+  mörknar mot betraktaren, med temats EGNA `groundDark` som mörk ände i stället för en
+  procentsats (`candy`/`warm` är nästan vita, `night` nästan svart — en fast mörkning hade
+  behövt kalibreras om per tema, exakt fällan som gjorde grusstigen grumlig).
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **95 225 → 18 069 px.**
 
 - 2026-06-30: Doc skriven (ersätter den gamla bygg-specen; granskad mot grundnings-fixen och
   playtest som bekräftar rätt skalad gräsyta). Inga kodändringar.

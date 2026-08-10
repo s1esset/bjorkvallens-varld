@@ -14,6 +14,64 @@ Format:
 
 ---
 
+## 2026-08-10 (sen natt) · v1.122.0 · Marken i `scene.js` — och två spel som inte rördes av den
+
+Förra postens `Öppet` pekade ut `scene.js`-marken som nästa mål och sa: *mät innan något
+rörs*. Det var rätt instinkt av två skäl — ett väntat och ett inte.
+
+**Byggt:** scenens markremsa tonad för ALLA spel som ber om mark, plus två spel som visade
+sig rita sitt eget golv.
+
+`scene.js:176` ritade `.fill(t.ground)` — en platt ton delad av varje `createScene`-spel med
+mark. Himlen ovanför var redan tonad via `skyFill`; marken var inte. Nu är remsan ljusast
+LÄNGST BORT och mörknar mot betraktaren.
+
+**Den mörka änden är temats EGNA `groundDark`, inte en procentsats.** Det löser
+kalibreringsproblemet från grusstigen (v1.120.0) i grunden: `candy` och `warm` är nästan
+vita, `night` nästan svart, och samma procentuella mörkning äter helt olika mycket av dem.
+Paletten bär toningen själv, precis som `paintBand` redan gör för djupbanden. Alla sju teman
+granskade i ett rutnät (`_scenbild.mjs sky,meadow,sunset,candy,water,night,warm`) — inget
+tema tappade sin karaktär.
+
+Toningen delar `skyFill`s cache med flit: en gradient från A till B är samma bakade textur
+oavsett vad den målar, så en scen gör fortfarande NOLL texturbakningar vid montering.
+
+**Det oväntade: två av tre spel rörde sig inte en pixel.**
+
+| spel | störst före → efter | var fältet faktiskt låg |
+|---|---|---|
+| valpens-bajs | 95 225 → 18 069 | `scene.js`-marken (`groundH: 420`, appens högsta remsa) |
+| studsbollar | 70 290 → 20 372 | eget golv — `ground: false` + hårdkodad `0x86d27a` |
+| domino | 55 343 → 15 695 | eget golv — `ground: false` + `COLORS.green` |
+
+`studsbollar` och `domino` skickar `ground: false` till `createScene` och ritar sina egna
+golv. `studsbollar` gör det med `0x86d27a` — **samma värde som `meadow`s `ground`, alltså en
+kopia av en scenkonstant.** Måttet var identiskt före och efter scenändringen, och det var
+det som avslöjade var fältet låg. Hade talet lästs som "fixen fungerade delvis" hade två spel
+missats. Det är samma stående lärdom som redan står i `pizzabageriet`s post: **när ett tal
+INTE rör sig av en ändring som borde träffa det, är hypotesen om VAR fältet ligger fel.**
+Båda golven löstes sedan med den delade `groundFill()`.
+
+**Commits:** `6789698` scene.js-marken · `ec9a241` studsbollar · `30e2e77` domino
+
+`npm run check` grön · `npm run test:all` **72/72 gröna, inga `tom-scen`**, körd både efter
+scenändringen och efter hela bunten. Det är den mätning `scene.js` kräver: filen är den
+sviten är känsligast för, och cachade gradienter är den ändringsklass som fällt den förut.
+
+**Öppet:**
+- **Nästa platta nivå ligger mätt** (`_plattprobe --medbakgrund`): `trollblandning` 115 397
+  (receptbokens panel — lämnad med flit) · `studsa-ner` 115 361 · `bajs-och-kiss` 88 856 ·
+  `kugghjulen` 83 792 · `snobollen` 82 592 · `plask-i-vattnet` 80 950. Ingen av dem är
+  utredd än — leta upp fältet i KODEN först, det var det som gjorde de två senaste passen
+  billiga.
+- ⚠️ **Mätbrus att räkna med:** spel med slumpat innehåll rör sitt topptal mellan körningar
+  utan att koden ändrats (`valpens-bajs` ±11 k beroende på om hunden står på gräset eller
+  stigen; `kittla-figuren` byter topptonens IDENTITET med figurens färg). Jämför alltid samma
+  fält, inte bara samma tal.
+- Oförändrat: **C1/V10** · **D2** `saknat-ljudklipp` (MOSS nere) · 3 repliker väntar på
+  `/rost` · `spindelnatet`s dagsljusbruna mark under natthimmel · `pizzabageriet` saknar
+  `BLEED`.
+
 ## 2026-08-10 (natt) · v1.121.0 · D1-nivån stängd — ett mönster, inte sex engångsfixar
 
 Förra passets `Öppet` pekade ut nästa nivå och en observation: *`#8a5a3b` (`COLORS.brown`)

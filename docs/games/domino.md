@@ -107,6 +107,14 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: golvet fick ljus från horisonten** (`30e2e77`, v1.122.0).
+  Golvet låg på **55 343 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.
+  Samma sak som i `studsbollar`: spelet skickar `ground: false` och ritar sitt eget golv med
+  `COLORS.green`, så scenens markfyllning (`6789698`) träffade det inte. Löst med den delade
+  `groundFill()` i `lib/form.js`.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **55 343 → 15 695 px**, grönt ute
+  ur topp-3.
+
 - 2026-06-30: Doc skriven (granskning + plan). Spelet testat (errorCount 0, skärmdump sedd).
   Nyligen fixat (drag-snäpp, stall-vid-lucka) — bygg-loopen är solid; rasfysiken är dock fasad.
 - Rekommenderad första-omgång: **[Deep] riktig kedjereaktion** (gör fysiken ärlig) +

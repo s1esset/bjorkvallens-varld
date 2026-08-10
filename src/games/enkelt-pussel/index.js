@@ -7,9 +7,18 @@ import { Container, Graphics, Rectangle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, wiggle, sparkle, puff, liv } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, puff, liv, kvittera } from '../../lib/feedback.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
+import { verticalFill } from '../../lib/form.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+
+// BORDET. `_plattprobe --medbakgrund` mätte 391 766 px — 43 % av skärmen — i EN ton,
+// och tonen var `COLORS.bg`: spelet ritade ingen bakgrund alls, så pusslet låg i skalets
+// egen letterbox-creme utan bord, utan ljus och utan skillnad mellan brickan och det
+// den ligger på. Tonerna nedan spänner om COLORS.bg — samma varma rum, bara med ljus i.
+const C_BORD_TOP = 0xf9edd3
+const C_BORD_BOT = 0xead6ae
 
 // Pusselramen (designkoordinater). Mittpunkt (370, 360).
 const BOARD = { x: 120, y: 110, w: 500, h: 500 }
@@ -33,13 +42,30 @@ const DONE_PRAISE = [
   'Wow! Vilken fin bild du gjorde!',
 ]
 
+// Motivens stora ytor. Så fort bordet slutade vara platt blev SJÄLVA PUSSELBILDEN
+// bildens största enfärgade fält (himlen på 109 561 px) — och den syns dubbelt, både i
+// spökförhandsvisningen och på bitarna. Tonerna spänner om de gamla platta färgerna,
+// så motiven är desamma; de har bara fått ljus. Cachade per färgpar.
+const P_SKY_T = 0x8ccff0
+const P_SKY_B = 0xbde6fa
+const P_GRASS_T = 0x8ad477
+const P_GRASS_B = 0x69b959
+const P_PALE_T = 0xbfe4fc
+const P_PALE_B = 0xdcf1fe
+const P_SEA_T = 0x63b7ea
+const P_SEA_B = 0x3a8fc9
+const P_NIGHT_T = 0x363a72
+const P_NIGHT_B = 0x201f4a
+const P_ROSE_T = 0xfff6fa
+const P_ROSE_B = 0xfbe4ee
+
 // Fyra motiv. draw(g) ritar i scenens 500×500-rymd; accenter är emoji som Text.
 const THEMES = [
   {
     id: 'tradgard',
     draw(g) {
-      g.rect(0, 0, 500, 280).fill(0x9bd7f2) // ljus himmel
-      g.rect(0, 280, 500, 220).fill(0x7cc86a) // gräs
+      g.rect(0, 0, 500, 280).fill(verticalFill(P_SKY_T, P_SKY_B)) // ljus himmel
+      g.rect(0, 280, 500, 220).fill(verticalFill(P_GRASS_T, P_GRASS_B)) // gräs
       g.circle(105, 95, 55).fill(COLORS.yellow) // sol
       g.rect(243, 330, 14, 150).fill(COLORS.greenDark) // stjälk
       for (let i = 0; i < 6; i++) {
@@ -56,7 +82,7 @@ const THEMES = [
   {
     id: 'katt',
     draw(g) {
-      g.rect(0, 0, 500, 500).fill(0xcdeafd)
+      g.rect(0, 0, 500, 500).fill(verticalFill(P_PALE_T, P_PALE_B))
       g.poly([120, 150, 190, 70, 215, 185]).fill(COLORS.orange) // vänster öra
       g.poly([380, 150, 310, 70, 285, 185]).fill(COLORS.orange) // höger öra
       g.circle(250, 270, 165).fill(COLORS.orange) // ansikte
@@ -72,8 +98,8 @@ const THEMES = [
   {
     id: 'hus',
     draw(g) {
-      g.rect(0, 0, 500, 300).fill(0x9bd7f2)
-      g.rect(0, 300, 500, 200).fill(0x7cc86a)
+      g.rect(0, 0, 500, 300).fill(verticalFill(P_SKY_T, P_SKY_B))
+      g.rect(0, 300, 500, 200).fill(verticalFill(P_GRASS_T, P_GRASS_B))
       g.circle(410, 90, 52).fill(COLORS.yellow) // sol
       g.rect(120, 250, 260, 200).fill(COLORS.cream).stroke({ width: 6, color: COLORS.brown, alpha: 0.4 })
       g.poly([100, 250, 250, 120, 400, 250]).fill(COLORS.red) // tak
@@ -88,8 +114,8 @@ const THEMES = [
   {
     id: 'bat',
     draw(g) {
-      g.rect(0, 0, 500, 300).fill(0xcdeafd)
-      g.rect(0, 300, 500, 200).fill(COLORS.blue) // hav
+      g.rect(0, 0, 500, 300).fill(verticalFill(P_PALE_T, P_PALE_B))
+      g.rect(0, 300, 500, 200).fill(verticalFill(P_SEA_T, P_SEA_B)) // hav
       g.circle(100, 90, 52).fill(COLORS.yellow) // sol
       g.poly([250, 120, 250, 320, 150, 320]).fill(COLORS.white) // segel
       g.poly([270, 140, 270, 320, 360, 320]).fill(COLORS.red)
@@ -104,8 +130,8 @@ const THEMES = [
   {
     id: 'tag',
     draw(g) {
-      g.rect(0, 0, 500, 320).fill(0x9bd7f2) // himmel
-      g.rect(0, 320, 500, 180).fill(0x7cc86a) // gräs
+      g.rect(0, 0, 500, 320).fill(verticalFill(P_SKY_T, P_SKY_B)) // himmel
+      g.rect(0, 320, 500, 180).fill(verticalFill(P_GRASS_T, P_GRASS_B)) // gräs
       g.rect(0, 388, 500, 12).fill(COLORS.brown) // räls
     },
     accents: [
@@ -117,7 +143,7 @@ const THEMES = [
   {
     id: 'raket',
     draw(g) {
-      g.rect(0, 0, 500, 500).fill(0x2b2b5e) // natthimmel
+      g.rect(0, 0, 500, 500).fill(verticalFill(P_NIGHT_T, P_NIGHT_B)) // natthimmel
       // små stjärnprickar
       const stars = [[60, 70], [150, 130], [420, 80], [470, 200], [80, 380], [430, 430], [360, 60], [120, 250]]
       for (const [sx, sy] of stars) g.circle(sx, sy, 5).fill(COLORS.yellow)
@@ -131,6 +157,12 @@ const THEMES = [
   {
     id: 'regnbage',
     draw(g) {
+      // MEDVETET PLATT, till skillnad från de andra motiven. Regnbågen byggs av nästlade
+      // cirklar där de två sista fyllningarna HÅLKAR ur bågen genom att måla om i exakt
+      // himlens ton. En `FillGradient` mappas mot varje forms EGEN bbox, så en tonad
+      // himmel + tonade hål ger tre olika toningar som inte möts — hålet blir en synlig
+      // skiva i fel färg. Att tona det här motivet kräver att bågarna ritas som strokade
+      // bågar i stället för urhålkade cirklar; det är en egen uppgift, inte en D1-rad.
       g.rect(0, 0, 500, 500).fill(0xcdeafd) // ljus himmel
       const bands = [COLORS.red, COLORS.orange, COLORS.yellow, COLORS.green, COLORS.blue, COLORS.purple]
       bands.forEach((c, i) => g.circle(250, 470, 300 - i * 30).fill(c))
@@ -146,7 +178,7 @@ const THEMES = [
   {
     id: 'glass',
     draw(g) {
-      g.rect(0, 0, 500, 500).fill(0xfff0f6) // pastellrosa
+      g.rect(0, 0, 500, 500).fill(verticalFill(P_ROSE_T, P_ROSE_B)) // pastellrosa
       g.circle(250, 250, 230).fill({ color: 0xffe1ee, alpha: 0.6 }) // mjuk ring
     },
     accents: [
@@ -158,9 +190,9 @@ const THEMES = [
   {
     id: 'hav',
     draw(g) {
-      g.rect(0, 0, 500, 110).fill(0xcdeafd) // ovanför ytan
-      g.rect(0, 110, 500, 330).fill(COLORS.blue) // hav
-      g.rect(0, 440, 500, 60).fill(COLORS.yellow) // sandbotten
+      g.rect(0, 0, 500, 110).fill(verticalFill(P_PALE_T, P_PALE_B)) // ovanför ytan
+      g.rect(0, 110, 500, 330).fill(verticalFill(P_SEA_T, P_SEA_B)) // hav
+      g.rect(0, 440, 500, 60).fill(verticalFill(0xffdd7e, 0xefc450)) // sandbotten
     },
     accents: [
       { emoji: '🐠', x: 250, y: 260, size: 200 },
@@ -255,8 +287,28 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Varm rampaltta (statisk — ligger kvar mellan rundor).
+    // Bordet som pusslet ligger på (se noten vid C_BORD_TOP). Full bleed åt alla håll
+    // så en bred telefon aldrig ser skalets cremekant utanför 0..1280.
+    const bord = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
+      .fill(verticalFill(C_BORD_TOP, C_BORD_BOT))
+    // Bordet är skärmens största yta. Utan handlare vore varje tryck vid sidan om
+    // brickan och bitarna obesvarat (P0 ÅTERKOPPLING). Kvitterar ALLTID — en vakt på en
+    // upptagen-flagga här vore precis den döda träffyta `_tystprobe` letar efter.
+    bord.eventMode = 'static'
+    this._onBordTap = (e) => {
+      if (!this._alive) return
+      const p = ctx.fxLayer.toLocal(e.global)
+      kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio, { color: COLORS.orange, maxR: 70 })
+    }
+    bord.on('pointertap', this._onBordTap)
+    this._root.addChild(bord)
+
+    // Varm rampaltta (statisk — ligger kvar mellan rundor). Skuggan under lyfter
+    // brickan från bordet; utan den låg den som en dekal på ytan.
     const plate = new Graphics()
+    plate.roundRect(BOARD.x + 10, BOARD.y + 14, BOARD.w, BOARD.h, 28).fill({ color: COLORS.shadow, alpha: 0.1 })
+    plate
       .roundRect(BOARD.x, BOARD.y, BOARD.w, BOARD.h, 28)
       .fill(COLORS.cream)
       .stroke({ width: 6, color: COLORS.brown, alpha: 0.35 })

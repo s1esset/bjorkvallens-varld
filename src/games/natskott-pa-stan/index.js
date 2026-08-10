@@ -56,7 +56,7 @@ import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { pop, wiggle, sparkle, puff, burst, floatText, ripple, bounceIn, breathe } from '../../lib/feedback.js'
 import { lerpColor } from '../../lib/scene.js'
 import { FONT, COLORS, shade, tint } from '../../lib/theme.js'
-import { topLightFill } from '../../lib/form.js'
+import { topLightFill, verticalFill } from '../../lib/form.js'
 import { shuffle } from '../../lib/swedish.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
@@ -4185,9 +4185,12 @@ export default {
     // Full bleed: banden breddas ±BLEED_X och en toppremsa täcker ovanför y=0 på
     // höga skärmar (4:3-platta). 16:9-bilden är pixelidentisk.
     g.rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, BLEED_Y).fill(top)
-    for (let i = 0; i < 8; i++) {
-      g.rect(-BLEED_X, i * 60, ctx.width + 2 * BLEED_X, 62).fill(lerpColor(top, bot, i / 7))
-    }
+    // Himlen ritades tidigare som ATTA handrullade band a 60 px. Varje band var da
+    // 1280x62 ≈ 79 000 px i EN exakt ton, och det gjorde himlen till spelets storsta
+    // platta falt (71 095 px, `_plattprobe --medbakgrund`) trots att den REDAN var tankt
+    // som en toning — 8 steg ar bara for grovt. En cachad `verticalFill` ger samma
+    // fargresa mjukt, i en ritinstruktion i stallet for atta.
+    g.rect(-BLEED_X, 0, ctx.width + 2 * BLEED_X, 482).fill(verticalFill(top, bot))
     // sol med strålar
     g.circle(985, 108, 42).fill(0xffe28a)
     for (let i = 0; i < 8; i++) {

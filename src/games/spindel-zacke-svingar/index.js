@@ -25,7 +25,8 @@ import { Camera, DJUP, lagerBredd } from '../../lib/kamera.js'
 import { pop, wiggle, sparkle, floatText, burst, breathe, bounceIn, liv, kvittera } from '../../lib/feedback.js'
 import { glod } from '../../lib/glod.js'
 import { Button } from '../../lib/Button.js'
-import { COLORS } from '../../lib/theme.js'
+import { COLORS, tint, shade } from '../../lib/theme.js'
+import { verticalFillAlpha } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Fysik-konstanter (px/frame, egen integrator) ---
@@ -757,7 +758,12 @@ export default {
       // inte blir en kam. `i % 5` mot `i % 2` gör att takåsen aldrig hamnar i takt med
       // fästena (som ligger var 300:e px).
       const wallTop = bas + (i % 2) * 15 - (i % 5 === 0 ? 34 : 0)
-      g.roundRect(x + 6, wallTop, w - 12, 720 - wallTop, 10).fill({ color: COLORS.brown, alpha: a })
+      // Husväggarna låg tillsammans på 185 601 px — 20 % av skärmen — i EN ton
+      // (`_plattprobe --medbakgrund`). De ritas med alpha (fjärranbandet tonas mot
+      // himlen), så toningen måste bära genomskinligheten själv. Per-form-normalisering
+      // gör att VARJE hus får sitt eget ljus från en enda delad gradientinstans.
+      g.roundRect(x + 6, wallTop, w - 12, 720 - wallTop, 10)
+        .fill(verticalFillAlpha(tint(COLORS.brown, 0.14), shade(COLORS.brown, 0.26), a, a))
       g.moveTo(x, wallTop + 10)
         .lineTo(x + w / 2, wallTop - 55)
         .lineTo(x + w, wallTop + 10)

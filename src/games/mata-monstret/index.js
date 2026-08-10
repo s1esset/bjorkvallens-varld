@@ -24,6 +24,7 @@ import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, ripple, shake, burst, breathe, floatText, bigCelebration } from '../../lib/feedback.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
+import { verticalFill, cylinderFill, sphereFill } from '../../lib/form.js'
 import { FOODS, makeFood, foodCat } from './food.js'
 
 // --- layout (designkoordinater 1280×720) -----------------------------------
@@ -778,10 +779,15 @@ export default {
 
     // Kropp + armar.
     p.body = this._g(0, 0)
+    // Monsterkroppen ar spelets huvudfigur och lag pa 97 405 px - 10,6 % av skarmen - i
+    // EN ton (`_plattprobe --medbakgrund`). Varje del far den fyllning som matchar sin
+    // FORM: armarna ar staende ror (`cylinderFill` = ljus langs mittlinjen, morker mot
+    // bada kanterna) och balen ar ett klot (`sphereFill`). Per-form-normaliseringen gor
+    // att alla tre far sitt eget ljus ur samma tva cachade instanser.
     p.body
-      .roundRect(-bw / 2 - 34, -40, 44, 150, 22).fill(color).stroke({ width: 8, color: dark })
-      .roundRect(bw / 2 - 10, -40, 44, 150, 22).fill(color).stroke({ width: 8, color: dark })
-      .roundRect(-bw / 2, -bh / 2, bw, bh, br).fill(color).stroke({ width: 8, color: dark })
+      .roundRect(-bw / 2 - 34, -40, 44, 150, 22).fill(cylinderFill(color, { dark: 0.22, highlight: 0.2 })).stroke({ width: 8, color: dark })
+      .roundRect(bw / 2 - 10, -40, 44, 150, 22).fill(cylinderFill(color, { dark: 0.22, highlight: 0.2 })).stroke({ width: 8, color: dark })
+      .roundRect(-bw / 2, -bh / 2, bw, bh, br).fill(sphereFill(color, { highlight: 0.34, dark: 0.26 })).stroke({ width: 8, color: dark })
     char.addChild(p.body)
 
     // Mage (skvalpar vid tugg).
@@ -1390,7 +1396,11 @@ export default {
 
 function makeTable() {
   const g = new Graphics()
-  g.roundRect(-60, TABLE_Y - 6, W + 120, 220, 70).fill(0xe7c79a)
+  // Bordsskivan lag pa 123 654 px - 13 % av skarmen - i EN ton (`_plattprobe
+  // --medbakgrund`). Himlen bakom var redan tonad via `createScene`; det var bordet som
+  // var platt. Ljuset kommer uppifran, sa skivan ar ljusast dar den moter scenen och
+  // morknar mot betraktaren. Cachad per fargpar - noll texturbakningar per montering.
+  g.roundRect(-60, TABLE_Y - 6, W + 120, 220, 70).fill(verticalFill(0xf0d4ac, 0xd8b585))
   g.roundRect(-60, TABLE_Y - 6, W + 120, 16, 70).fill({ color: 0xfff0d6, alpha: 0.6 })
   g.eventMode = 'none'
   return g

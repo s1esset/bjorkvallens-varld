@@ -14,6 +14,94 @@ Format:
 
 ---
 
+## 2026-08-10 (natt) · v1.87.0 · Spår 3 P2 — luften blev en kraft i två spel + röstkön tömd
+
+**Byggt i en autonom nattkörning** (kön ligger i `.claude/state/nattkorning.md`, som är
+sanningen mellan varven). Två spel, en ny delad primitiv, två kritikerrundor, 50 röstklipp.
+
+### `ballonglyft` — barnet bestämmer när (v1.87.0, `303d2e8` + `e36d1f7`)
+
+`lib/luftmotstand.js` andra kund. **Paketet är avfärdsknappen**: sitter minst en ballong på
+det skickas det iväg vid tryck. Doc §4 föreslog en ritad "Skicka iväg!"-knapp — bortvald med
+flit, eftersom P0 säger ikon-först och noll läsning, nederkanten redan är upptagen av de lösa
+ballongernas två band, och paketet ÄR föremålet som ska iväg.
+
+**Mätningen ändrade designen.** Första kravet var att "en för få" skulle ge ett hopp på
+60–160 px för alla N. Det gick inte att uppfylla: underskottet vid n = N−1 är exakt g/N,
+alltså 33 % vid tre ballonger men bara **12 % vid åtta**. Varje inställning som gav ett kort
+hopp vid N = 8 tog 7,5 s vid N = 3 eller lät sju ballonger lyfta ett åtta-paket. Det är
+geometrin i problemet — och nära-misset blev BÄTTRE av att skala: två av tre lyfter knappt
+(64 px), sju av åtta vänder 64 px under Elvira. **Räddningen föll ut gratis:** fäster barnet
+sista ballongen mitt i en resa som håller på att vända, så räddas den.
+
+**`spelkritiker` hittade två blockerare, båda mina:**
+1. **Auto-hjälpen skickade iväg paketet åt barnet** efter 12,5 s — och gav bort exakt den
+   agens rundan lades till för. Uppmätt: noll tryck gav ändå **framsteg 2 på 60 s**. Nu
+   upprepas lockandet i stället. Efter: `idleFramsteg` 0, spelet fortfarande lösbart.
+2. **P0-avståndet mellan träffytor höll inte** vid åtta ballonger: 111 px mellan mitterna mot
+   en 104 px träffyta = **7,4 px glapp** (krav ≥24). Och inte i ett hörn — `_N` fastnar på 8
+   från nivå ~6, så det var spelets normala läge. Banden breddade: nu 130 px och **26 px
+   glapp**, med mätningen kvar som permanent vakt i `_lyftprobe --spel`.
+
+### Röstkön var inte tom — den var osynlig (`0910d20` + `dbc8f80`)
+
+`plask-i-vattnet`s namngivning ("Anden flyter!") byggs vid körning, så `check.mjs` kan aldrig
+se den. Men **backstoppen såg den heller aldrig**: testkörningen hann bara säga två repliker
+på 6,2 s. Fraserna härleddes därför ur spelets egen tabell — 16 föremål × fast utfall × tre
+former = 48 repliker. `npm run voice`: **50 klipp gjorda, 0 misslyckade.**
+⚠️ Samma blindfläck gäller de återstående **27 körningsbyggda replikerna** i andra spel.
+
+---
+
+## 2026-08-10 (natt) · v1.86.0 · Spår 3 P2 — fallskärmen fick riktig luft
+
+**Byggt:** Andra kunden i runda P2, byggd i en autonom nattkörning (kön ligger i
+`.claude/state/nattkorning.md`). Ny delad primitiv **`src/lib/luftmotstand.js`**
+(`Motstandsvolym`) — motstånd mot farten *relativt luften*, och ur den enda lagen faller
+gränsfarten, vindens grepp och styrningens tak ut av sig själva. `lib/mjukkropp.js` fick
+**`falt(ax, ay)`** och kupolen blev dess fjärde kund.
+
+**Vad HEAD faktiskt gjorde** (mätt med nya `scripts/_fallprobe.mjs`, inte gissat):
+95 % av fallfarten nåddes efter **0,07 s** — ingen acceleration alls. Styrningen gav
+**248 px (Lätt) mot 245 px (Tung)** på en sekund, alltså gjorde tyngdknappen ingenting åt
+styrförmågan. Efter: Lätt 4,87 s / 75→82 px/s, Tung 2,97 s / 119→137 px/s, **kvot 1,67× =
+exakt HEADs**, accelerationen syns (0,20 resp. 0,32 s), styrning 227/190 px.
+
+**Fyra fällor, alla inskrivna som varningar i koden:**
+
+1. **En acceleration och en kraft är inte samma sak.** Med styrningen som acceleration drev
+   den TUNGA lasten *längre* i sidled än den lätta (65 mot 45 px) — samma acceleration,
+   högre gränsfart. Därav `driv()` (spelets hjälp, massoberoende) och `kraft()` (barnets
+   muskler, delas med massan).
+2. **`skjut()` är en impuls, inte ett kraftfält.** Verlet läser en positionsändring som
+   fart, så en `skjut` per bildruta blev en konstant FART och kupolen veks ihop till en
+   sned trekant — med helt riktig fysik bakom sig.
+3. **Med tre fästen roterade mjukkroppen** (toppunkten gled till x = −55, bredden 184 →
+   209 px) och kraftfältet drunknade: lätt, tung och sidby gav identiska former på 0,1 px.
+4. **`form(a)` skalar BÅDA axlarna**, så en platt underkant drog in skärmkantens hörn till
+   ±11 px i stället för ±92.
+
+**`spelkritiker`:** inga blockerare, alla sju grindpunkter håller. Domen värd att bära med:
+*större delen av fysikrundans finess levde i sondens utskrift och inte på skärmen.* Tre
+billiga fynd åtgärdade utan att röra kalibreringen — bukten överdrivs **×2,5 vid ritning**
+(2,8 px är sant men osynligt på en platta), glödringen var en **full cirkel fast träffen är
+rent vågrät** (läste som "flyg igenom ringen") och blev en liggande ellips, och **tyngden
+hörs** nu (Tung 260→130 Hz, Lätt 420→760).
+
+**Commits:** `1ff0d98` fysiken · `7690ccd` kupolen · `8e652a6` doc · `692707e` kritikfixar ·
+`fca7efd` ÅTGÄRDER V12 · `5f7dd34` V11 stängd
+**Kontroll:** `check` 0 fel · `test:all` **72/72 gröna** · `_motstandprobe` 17/17 ·
+`_kupolprobe` 6/6 · `_mjukprobe`/`_vobbelprobe` gröna · mjukkroppens tre andra kunder gröna.
+**Öppet:**
+- **ÅTGÄRDER V12:** `tom-scen` i `tvatta-djuret` två av två fulla svep, men grönt 6/6
+  ensamt och A/B-svepets sex armar rena. Hypotes att MÄTA: harnessens skärmdump hinner före
+  första bildrutan under parallell last — då är fixen i `test-games.mjs`, inte i spelet.
+- Fallskärmens **tomma luftrum** (~5 s "vänta tills marken") är där fysikens nyanser skulle
+  få en publik — doc §4 [Medium] "Samla på vägen ner".
+- Nattkön fortsätter: `ballonglyft` → `sapbubblor` → P3 → V10 → `/rost`.
+
+---
+
 ## 2026-08-10 · v1.85.0 · Spår 3 P2 inledd — plask-i-vattnet fick riktigt vatten
 
 **Byggt:** Första kunden i runda P2. `plask-i-vattnet` har ett **SPH-ytskikt** ur

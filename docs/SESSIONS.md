@@ -14,6 +14,56 @@ Format:
 
 ---
 
+## 2026-08-10 (förmiddag) · v1.93.0 · Hällningen och elden möts i en partikel
+
+**Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt **B2**.
+
+### `trollblandning` — SPH i hällningen + `Varmefalt` i kitteln (`9ed62e8`)
+
+Kön bad om `FLUIDS.gegga` + värme. **Koden lästes före planen** och geometrin sa nej till den
+bokstavliga formen: kitteln har ingen vätskepelare sedd från sidan — brygden är en **ellips
+sedd uppifrån** — så en `FluidWorld` i kitteln hade fallit till botten av en osynlig låda.
+Vald väg: *simulera bara där vätskan syns*.
+
+- **Hällningen.** Droppen flyger upp, **tippar**, och en SPH-stråle rinner ned i mynningen och
+  slukas av ytan. Siktet är räknat, inte trimmat: falltiden hällpose→yta är ~18 bildrutor, så
+  sidfarten är avståndet delat på den → träffpunkt **x=552** (mitten 560), fri från
+  ingrediensringarna på 508/612.
+- **Brygden är en äkta blandning.** En hällning = 43 partiklar = **53 %** mot elementets färg;
+  två ingredienser landar **0,2 kanalsteg** från den uträknade mass-viktade blandningen och
+  100 steg från ren eld — alltså inte "sista färgen vinner".
+- **Elden.** Brygden kokar vid 0,92 och temperaturen driver bubbeltakt, kokglöd och ånga —
+  **aldrig målet**. **Systemen möts i absorptionen:** partikeln bär både sin färg och sin
+  värme in i brygden. Vatten i en kokande kittel: **0,93 → 0,40**, bubbeltakt **12,1 → 2,8/s**,
+  elden tillbaka på **1,2 s**.
+- **Delad kod:** `Varmefalt.knuff()` (`238fbd3`) — rör `temp`, aldrig `grad`. `lagerelden` orörd.
+
+### Bilden ändrade koden fyra gånger, sonden hade fel två
+Inget grönt mått såg att elden låg **helt** bakom grytkroppen (den slutar vid y=96), att
+kokglöden sköljde bort brygdfärgen, att markglöden läste som en platt lila matta, eller att
+två av fem lågor stod exakt bakom benen (|x| 40–78). Och två mått var falskt gröna av mig
+själv: ett `waitForFunction` på "hällningen är slut" returnerade **omedelbart** (den börjar
+först efter droppens 0,2 s uppflygning), och ett mått påstod att blått måste *sjunka* när eld
+hälls i — medelvärdet av 223 och 107 är 165, alltså **högre** än det halvmättade vattnets 150.
+**Båda upptäcktes för att talet var för snyggt: mätvärdet var identiskt med förutsägelsen.**
+
+### Den femte vätskan var oskyldig — och HEAD var det inte
+`test:all` gav 72/72 gröna men `tom-scen` på **tre orörda spel**. Misstanken var rimlig
+(spelet lägger till en femte `FluidView`, och "ett filter i ETT spel fäller ett ANNAT" är
+dokumenterat tre gånger). `_ab.sh` växelvis, 3 rundor: **HEAD 2 av 3 rena** (runda 2:
+`fyrverkeri` + `glittergrottan`) mot **ändringen 3 av 3 rena**. Fynden **flyttar sig varje
+svep** — det är V12b:s signatur: en rörlig måltavla hör till harnessen, inte till platsen.
+
+**Commits:** `238fbd3` feat(varme) · `9ed62e8` feat(trollblandning)
+**Kontroll:** `check` 0 fel · `_kittelprobe` 14/14 · `_varmeprobe` (+6 nya) grön ·
+`bildkoll` inga fynd · `test:all` 72/72 i tre av tre armar.
+**Öppet:** A1 SESSIONS/backup-rest · B3 `magnet-fiske` (poler) · §4 [Deep] dubbelhjul +
+back-hjul i `kugghjulen` · D1 platta ytor (mätt) · ÅTGÄRDER V10 (ägarnära) · D2 MOSS.
+Sidofynd: `_livprobe` är röd på `trollblandning` (noll objekt med vilorörelse) — egen
+[Quick]-punkt, inte en regression.
+
+---
+
 ## 2026-08-10 (morgon) · v1.90.0 · Remmen bär kraften över ett gap
 
 **Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt B1.

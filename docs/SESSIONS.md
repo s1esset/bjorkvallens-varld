@@ -61,7 +61,8 @@ förutsäger. **Uteslutet med kod, inte gissning:** spelet anropar `createScene`
 kodväg. Förslag till stängning står i V14.
 
 **Commits:** `429654d` _bbox.mjs · `924387f` hamburgerbygget · `0f609d7` pizzabageriet ·
-`65556d9` plask-i-vattnet · `fb7d4bd` pruttbad
+`65556d9` plask-i-vattnet · `fb7d4bd` pruttbad · `5990bdd` docs + skärpt V14 ·
+`4191e28` `_bbox.mjs` in i CLAUDE.md:s sondtabell
 
 **Öppet:**
 - **Platthetsarbetet har nått avtagande avkastning.** Appens topp är `trollblandning`s

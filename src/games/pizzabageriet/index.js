@@ -33,6 +33,7 @@ import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedb
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
+import { verticalFill, topLightFill, verticalFillAlpha } from '../../lib/form.js'
 import DRAW from './ingredienser.js'
 
 // Ingredienser. `id` = asciiFold-vänligt OCH nyckel i DRAW (ingredienser.js),
@@ -188,7 +189,9 @@ export default {
     // Fat/peel under pizzan (stannar kvar när pizzan åker in i ugnen).
     this._plate = new Graphics()
       .ellipse(PIZZA.x, PIZZA.y + 14, PIZZA.r + 30, PIZZA.r + 18).fill({ color: COLORS.shadow, alpha: 0.1 })
-      .circle(PIZZA.x, PIZZA.y, PIZZA.r + 22).fill(0xf3ead6).stroke({ width: 6, color: 0xe2d4b8 })
+      // Fatet blev bildens största fält (86 175 px) så fort väggen fick ljus — samma
+      // fynd, ett lager in. `topLightFill` ger porslinet ljus ovanifrån.
+      .circle(PIZZA.x, PIZZA.y, PIZZA.r + 22).fill(topLightFill(0xf3ead6, { highlight: 0.35, dark: 0.3 })).stroke({ width: 6, color: 0xe2d4b8 })
     this._plate.eventMode = 'none'
     this._root.addChild(this._plate)
 
@@ -287,6 +290,15 @@ export default {
       }
     }
     c.addChild(wall)
+
+    // Ljus över kaklet. `_plattprobe --medbakgrund` mätte 211 569 px — 23 % av skärmen —
+    // i EN ton: rutorna bryter ytan för ögat, men varje ruta har exakt samma färg, så
+    // väggen saknade ljus uppifrån-ned. Samma fynd och samma fix som i `hamburgerbygget`.
+    // Eget objekt eftersom `alpha` inte går att kombinera med en gradientfyllning.
+    const vaggljus = new Graphics().rect(0, 0, W, COUNTER_Y).fill(verticalFill(0xfff6e6, 0x9a7346))
+    vaggljus.alpha = 0.22
+    vaggljus.eventMode = 'none'
+    c.addChild(vaggljus)
 
     // Bänkskiva (trä) med mörkare framkant.
     const counter = new Graphics()
@@ -555,7 +567,11 @@ export default {
 
   _buildPalette(ctx) {
     // Hyll-dekor (mjuk bakgrund, hela bredden).
-    const shelf = new Graphics().roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill({ color: 0xfffdf7, alpha: 0.85 }).stroke({ width: 4, color: 0xe6d8bf })
+    // Hyllan var bildens största enfärgade fält (88 106 px) — MÄTT, inte gissat: jag
+    // trodde först att det var kaklet, men pixlarnas bbox låg på 72,622 → 1207,713,
+    // alltså hyllan. Den ritas halvgenomskinlig, så toningen måste bära alfan själv
+    // (`verticalFillAlpha`, lib/form.js).
+    const shelf = new Graphics().roundRect(70, SHELF_Y - 52, 1140, 96, 28).fill(verticalFillAlpha(0xfffdf7, 0xe8dcc4, 0.88, 0.82)).stroke({ width: 4, color: 0xe6d8bf })
     shelf.eventMode = 'none'
     this._root.addChild(shelf)
 

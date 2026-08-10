@@ -28,7 +28,8 @@ import { createScene, lerpColor } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
 import { pop, bounceIn, breathe, sparkle, puff, floatText, ripple, shake, burst, kvittera } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PLAYFUL, FONT, PRAISE, tint, shade } from '../../lib/theme.js'
+import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // ---- Bordets geometri (designrymd 1280×720) --------------------------------
@@ -183,10 +184,15 @@ export default {
     // Mörk arkad-natt: bumpernas glöd syns extra fint.
     this._root.addChild(createScene('night', { width: ctx.width, height: ctx.height }))
 
-    // Bordspanel (mörk panel + inre ljusram).
+    // Bordspanel (mörk panel + inre ljusram). Spelplanen låg på 295 453 px — 32 % av
+    // skärmen, appens största platta fält efter D1:s första svep — i EN ton
+    // (`_plattprobe --medbakgrund`). En riktig flipperplan är BELYST: ljusare uppe där
+    // kulan skjuts in, mörkare ner mot flipprarna. Toningen spänner om COLORS.ink, så
+    // planet är samma bruna bord; det har bara fått en lampa över sig. Cachad per
+    // färgpar (`verticalFill`) — noll texturbakningar per montering.
     const panel = new Graphics()
       .roundRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 40)
-      .fill(COLORS.ink)
+      .fill(verticalFill(tint(COLORS.ink, 0.16), shade(COLORS.ink, 0.3)))
       .stroke({ width: 8, color: COLORS.purple })
     panel.roundRect(PANEL_X + 16, PANEL_Y + 16, PANEL_W - 32, PANEL_H - 32, 30).stroke({ width: 6, color: 0x3a2f6b })
     panel.eventMode = 'none'

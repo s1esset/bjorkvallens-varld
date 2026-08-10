@@ -33,7 +33,7 @@ import { bounceIn, pop, wiggle, sparkle, puff, floatText } from '../../lib/feedb
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
-import { verticalFill, topLightFill, verticalFillAlpha, groundFill } from '../../lib/form.js'
+import { verticalFill, topLightFill, verticalFillAlpha, groundFill, sphereFill } from '../../lib/form.js'
 import DRAW from './ingredienser.js'
 
 // Ingredienser. `id` = asciiFold-vänligt OCH nyckel i DRAW (ingredienser.js),
@@ -375,7 +375,11 @@ export default {
       const a = (i / 16) * Math.PI * 2
       base.circle(Math.cos(a) * (r - 56), Math.sin(a) * (r - 56), 9).fill(0xf3cd63)
     }
-    base.circle(0, 0, r - 54).fill(0xf3cd63) // ost
+    // Osten lag pa 60 494 px i EN ton (`_plattprobe --medbakgrund`) — spelets storsta falt
+    // sedan golvet tonades i 8d6b1a9. En pizza ses uppifran, sa det ar ingen yta i
+    // perspektiv utan ett FOREMAL med en svag kupa: dampad klotfyllning ger den graddad
+    // volym utan att bli en glansig boll. Cachad per farg. Se lib/form.js.
+    base.circle(0, 0, r - 54).fill(sphereFill(0xf3cd63, { highlight: 0.16, dark: 0.14, spread: 0.72 })) // ost
     // Lite ost-fläckar för liv.
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2

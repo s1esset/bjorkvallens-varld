@@ -41,6 +41,16 @@ const GUST_GROW = 120 // px/s radien växer (puffen breddas och tunnas ut)
 const GUST_LIFE = 0.9 // s
 const MAX_GUSTS = 5 // tak: spam ger inte oändligt med vind
 
+// Hinnans fjäder (se `_deformera`). Talen är mätta i `scripts/_bubbelprobe.mjs`.
+// ⚠️ EN DIREKTTRÄFF FÅR INTE SLÅ I TAKET. Med 0,0013 nådde varje puff exakt 30 % och
+// då slutar MASSAN synas — en liten bubbla och en jättebubbla deformerades lika mycket,
+// fast hela fläktmekaniken bygger på att kraften delas med massan. 0,0008 lägger en
+// direktträff på ~22 % och lämnar plats åt både lättare kantträffar och tyngre bubblor.
+const SQ_PER_KRAFT = 0.00034 // kraft/massa → måldeformation (direktträff ≈ 21 %)
+const SQ_MAX = 0.3 // tak: 30 % utdragning, mer läser som en trasig bubbla
+const SQ_STYVHET = 0.09 // hur snabbt hinnan söker sig mot målformen
+const SQ_DAMP = 0.86 // dämpning per bildruta → den svänger tillbaka, inte studsar vilt
+
 const VX_DRAG = 0.93 // luftmotstånd per bildruta
 const VX_MAX = 470 // hastighetstak i sidled (px/s)
 const WY_MAX = 330 // hastighetstak i höjdled från vind (px/s)
@@ -484,6 +494,39 @@ export default {
     return g
   },
 
+  // HINNAN GER EFTER FÖR VINDEN. En såpbubbla är inte en styv skiva: träffas den av en
+  // puff dras den ut längs blåset, trycks ihop tvärs det, och svänger sedan tillbaka.
+  // Förut var bubblan en perfekt cirkel oavsett hur hårt det blåste — hela fläktmekaniken
+  // syntes bara som en förflyttning.
+  //
+  // ⚠️ VARFÖR INTE `lib/mjukkropp.js` (som LYFTPLAN B2 föreslog). En verlet-ring hör hemma
+  // i en glasskula eller en fallskärmskupol — stora, få, långsamma. Här är bubblorna
+  // 20–60 px och det kan ligga femton i luften samtidigt: en ring på tio punkter med
+  // fyra relaxationsvarv blir 600 villkorspass per bildruta OCH tvingar fram en full
+  // omritning av varje bubblas Graphics (kontur, tre glansbågar, två högdagrar) varje
+  // ruta. Dessutom blir resultatet SÄMRE att titta på — en tiohörning på 40 px läser som
+  // en kantig klump, inte som en såphinna. En fjäder på två tal per bubbla ger den
+  // utdragning ögat faktiskt läser, kostar inga omritningar alls, och svänger på riktigt.
+  // Talen är mätta i `scripts/_bubbelprobe.mjs`.
+  _deformera(b, fx, fy, dtF) {
+    const kraft = Math.hypot(fx, fy)
+    if (kraft > 1) b._sqA = Math.atan2(fy, fx) // vindens riktning = utdragningens axel
+    const mal = Math.min(SQ_MAX, kraft * SQ_PER_KRAFT)
+    b._sqV += (mal - b._sq) * SQ_STYVHET * dtF
+    b._sqV *= Math.pow(SQ_DAMP, dtF)
+    b._sq += b._sqV * dtF
+    // ⚠️ TAKET MÅSTE SITTA PÅ UTDRAGNINGEN, INTE PÅ MÅLET. Först klipptes bara `mal`,
+    // men en fjäder svänger FÖRBI sitt mål: uppmätt 42,7 % utdragning mot ett "tak" på
+    // 30. Samma fälla som fjäderbrädans "styvhet, djup och tak är samma tal tre gånger".
+    if (b._sq > SQ_MAX) {
+      b._sq = SQ_MAX
+      if (b._sqV > 0) b._sqV = 0
+    }
+    if (b._sq < 0) b._sq = 0
+    b.rotation = b._sqA
+    b.scale.set(1 + b._sq, 1 - b._sq * 0.85)
+  },
+
   _makeBubble(ctx, r, kind = 'normal') {
     const b = new Container()
     b.addChild(this._drawBubble(new Graphics(), r, kind))
@@ -497,6 +540,9 @@ export default {
       b.addChild(hint)
     }
     b._kind = kind
+    b._sq = 0 // utdragning just nu (0 = rund)
+    b._sqV = 0 // fjäderns fart
+    b._sqA = 0 // utdragningens axel (vindens riktning)
     b.eventMode = 'static'
     b.cursor = 'pointer'
     // Osynlig hit-halo. Golvet 48 håller P0:s 96 px träffyta även för de minsta
@@ -859,13 +905,19 @@ export default {
       if (b._popped) continue // pop/score-tween styr den; rör inte positionen
 
       // Vindpuffar: kraft / massa -> lätta bubblor blåser långt, jättar knappt.
+      // Kraften summeras också som en VEKTOR, för det är den som deformerar hinnan.
+      let fx = 0
+      let fy = 0
       for (const gu of this._gusts) {
         const d = Math.hypot(b.x - gu.x, b.y - gu.y)
         if (d > gu.r) continue
         const f = (GUST_FORCE * (1 - d / gu.r) * (Math.max(0, gu.life) / GUST_LIFE)) / b._mass
         b._vx += gu.dx * f * dt
         b._wy += gu.dy * f * dt
+        fx += gu.dx * f
+        fy += gu.dy * f
       }
+      this._deformera(b, fx, fy, dtF)
       // Ambient bris (samma massberoende).
       if (this._breeze) b._vx += (this._breeze / b._mass) * dt
 

@@ -100,6 +100,32 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
 
 ## 5. Status / loggar
 
+- 2026-08-10 ✅ **Hinnan ger efter för vinden** (v1.88.0, spår 3 runda P2). Bubblorna var
+  perfekta cirklar oavsett hur hårt det blåste — hela fläktmekaniken syntes bara som en
+  förflyttning. Nu dras hinnan ut längs blåset, trycks ihop tvärs det och svänger tillbaka.
+  - ⚠️ **Inte `lib/mjukkropp.js`, trots att LYFTPLAN B2 föreslog det.** En verlet-ring hör
+    hemma i en glasskula eller en fallskärmskupol: stora, få, långsamma. Här är bubblorna
+    20–60 px och upp till femton i luften — en ring på tio punkter med fyra
+    relaxationsvarv blir 600 villkorspass per bildruta OCH tvingar fram en full omritning
+    av varje bubblas Graphics (kontur, tre glansbågar, två högdagrar) varje ruta. Och
+    resultatet blir SÄMRE att titta på: en tiohörning på 40 px läser som en kantig klump,
+    inte som en såphinna. En fjäder på två tal per bubbla ger den utdragning ögat läser,
+    kostar noll omritningar och svänger på riktigt.
+  - **Två mätfällor som kostade tid, båda värda att minnas:**
+    1. **Taket måste sitta på utdragningen, inte på målet.** Först klipptes bara målvärdet
+       — men en fjäder svänger FÖRBI sitt mål: uppmätt 42,7 % mot ett "tak" på 30. Samma
+       fälla som fjäderbrädans "styvhet, djup och tak är samma tal tre gånger".
+    2. **Sonden mätte en ny massa varje körning.** Den tog "bubblan närmast mitten", och
+       kraften delas med massan — samma kod gav 42,7 % i en körning och 2,9 % i nästa,
+       alltså 15× spridning på en konstant som ändrats 1,6×. Sonden föder nu sin EGEN
+       bubbla med fast radie.
+  - **En direktträff får inte ligga PÅ taket.** Vid 30 % deformerades en liten bubbla och
+    en jättebubbla lika mycket, fast hela fläktmekaniken bygger på att kraften delas med
+    massan. Direktträffen ligger nu på ~20 %.
+  - **Uppmätt** (`node scripts/_bubbelprobe.mjs`, 8 mått): rund i vila (0,0000) ·
+    **19,8 % utdragning** på en r=40-bubbla vid direktträff · utdragningen ligger **0° från
+    siktlinjen** · tillbaka till rund efter puffen (0,0 %) · **60 FPS med full luft och
+    puffar** · rivet vid exit mitt i en puff · 0 konsolfel.
 - 2026-06-30: Doc skriven. Speltestad (errorCount 0, skärmdump granskad — ring + fläktar + mätare).
   Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Deep] lutande/flyttbar fläkt (dämpa auto-suget) + [Quick]

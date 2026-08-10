@@ -20,12 +20,13 @@ import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, nudge, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
-import { createScene } from '../../lib/scene.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
 import { makeBoll, makeStjarna } from '../../lib/foremal.js'
 import { bigCelebration, burst, puff, sparkle, pop } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
+import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Layout (designkoordinater 1280×720) ---
@@ -373,7 +374,13 @@ export default {
     this._lane
       .clear()
       .roundRect(LANE.x, LANE.y, LANE.w, LANE.h, 28)
-      .fill(t.lane)
+      // Banan låg på 162 945 px — 18 % av skärmen — i EN ton (`_plattprobe --medbakgrund`),
+      // och kägeldäckets överdrag ovanpå den på ytterligare 124 666. En bowlingbana är
+      // polerat trä som ligger BORT från betraktaren: bortre änden mörknar. Toningen
+      // blandas mot temats egen markeringsfarg (aldrig mot svart: en neutral morkning
+      // gjorde den bortre halvan GRA och tog varmen ur banan). Den byggs ur temats farger, så alla fem bantemana följer med automatiskt, och
+      // cachas per färgpar — ett nivåbyte bakar noll nya texturer.
+      .fill(verticalFill(lerpColor(t.lane, t.mark, 0.24), t.lane))
       .stroke({ width: 8, color: t.accent })
     this._lane.roundRect(620, 120, 40, 560, 20).fill({ color: 0xffffff, alpha: 0.35 })
 

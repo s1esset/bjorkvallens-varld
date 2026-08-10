@@ -68,9 +68,13 @@ tvål (avstånd² 3460 mot tröskeln 3600). Botemedlen som fungerade: verifiera 
 `985020c` docs N1 · `1a26518` feat(kugghjulen) N2a dubbelhjul · `ed0209b` docs(kugghjulen) N2b
 omformulerad · `4546ba9` feat(pruttbad) N3 tvålvatten
 
-**Öppet:** nattkön står på **N4** (fler `mjukkropp`-kunder). Röstkön är tom (2 nya klipp
-genererade). `npm run test:all` har inte körts i natt — ingen ändring rörde `src/lib/**`, så
-rule 1 krävde det inte, men ett svep är rimligt före nästa stora punkt.
+**Kontroll:** `npm run check` **0 fel / 0 varningar** · `npm run test:all` **72/72 gröna** ·
+`_livprobe` · `_dragprobe` · `_grenprobe` 17/17 · `_tvalprobe` 10/10 · röstkön **tom** ·
+arbetsträdet rent · backup körd. Enda loggfynden i sviten är den kända ⏸-posten
+`saknat-ljudklipp` (MOSS-SoundEffect nere): `sapbubblor` ×9 · `bajs-och-kiss` ×3 ·
+`kittla-figuren` ×1 · `peka-pa-kroppen` ×1.
+
+**Öppet:** nattkön står på **N4** (fler `mjukkropp`-kunder).
 
 ---
 

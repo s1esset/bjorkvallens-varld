@@ -113,6 +113,29 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
 
 ## 5. Status / loggar
 
+- 2026-08-10 💧 **NATTKÖ N3 / LYFTPLAN B1: riktigt tvålvatten vid poppet** (v1.133.0).
+  Ett popp kastade förut bara en generisk `puff`. Nu flyger **SPH-droppar** (`FLUIDS.tval`,
+  `lib/vatska.js`) upp ur ytan, hänger ihop av yttensionen och faller tillbaka.
+  **Simulerat bara där vätskan syns:** ett smalt band kring vattenytan, och droppar som faller
+  tillbaka **dräneras** bort (under ytan ligger vattnets alfa över dem — de vore osynliga men
+  hade kostat varje steg för alltid). Partikeltak 120; är budgeten slut hoppas stänket över.
+  - **MÄTT** (`scripts/_tvalprobe.mjs`, 10 kontroller gröna, CPU ×6): **2 024 px netto** målade
+    ovanför ytlinjen, 20 av 20 partiklar över ytan, dränerade till **0** efteråt, **60,6 fps**.
+  - ⚠️ **Fyra fel som talen först dolde — tre av dem hittades av bilden:**
+    1. **Osynlig vätska.** `radius: 13` + `threshold: 0.36` gav **−544 px netto**. En gles
+       solfjäder av 8 droppar ligger utanför varandras interaktionsradie, och en ensam partikel
+       når aldrig metaboll-tröskeln. → radie **20**, tröskel **0,26**, fler droppar.
+    2. **Tryckskott.** `splash` föder alla partiklar inom ±jitter/2, så `jitter: 5` gjorde 20
+       partiklar till en densitetsspik som `kNear` sprängde **~180 px uppåt** — ut ur karet, upp
+       på tvålhyllan. → jitter = bubblans bredd, och `walls.top` som riktig vägg.
+    3. **Vita droppar på vitt skum.** Första färgsättningen använde rundans SKUMfärg, och
+       `BATHS[0].foam` är `0xffffff`. → tvålens kropp = badets **vatten** draget 45 % mot vitt.
+    4. **Ordningsbugg.** `init` anropar `_applyLevel` **före** `_buildTval`, så färgsättningen
+       no-oppade och dropparna behöll `FLUIDS.tval`-blå ända till andra rundan — ljusblå tvål i
+       ett rosa jordgubbsbad. → `_tintTval()` anropas nu också i `_buildTval`.
+  - ⚠️ **`_vatskeprobe` duger inte här** och rapporterade grönt om ingenting: den mäter en
+    vätska som rinner av sig själv, men den här föds bara av ett POPP. Den gav `partiklar: 0`
+    hela körningen och ändå 232 913 "vätskepixlar" — badvattnets blå ligger nära `FLUIDS.tval`.
 - 2026-08-10 🎨 **D1: badkarets insida fick ljus** (`fb7d4bd`, v1.125.0).
   Kärinsidan låg på **56 535 px i EN ton** — spelets största fält sedan golvet tonades. Dämpad
   ramp; toningen mörknar nedåt, vilket också är rätt för en kärinsida (ljuset kommer uppifrån,

@@ -17,11 +17,12 @@
 // lib/feedback.js (redan exit-säkra). GSAP rör endast Zacke/anka/skum + {}-proxies.
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { createScene } from '../../lib/scene.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
 import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration, breathe , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { verticalFillAlpha, groundFill } from '../../lib/form.js'
+import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -51,6 +52,22 @@ const BASE = 40 // ritradie; view.scale = r / BASE
 const R_MIN = 28 // snabbt tap ger ändå en rolig bubbla
 const R_MAX = 70
 const FOAM_K = 0.9 // skum-tillskott per pop = r * FOAM_K
+
+// --- Tvåldropparna vid poppet (lib/vatska.js) -----------------------------
+//
+// ⚠️ SIMULERA BARA DÄR VÄTSKAN SYNS. Ett popp kastade förut bara en generisk `puff`.
+// Nu flyger RIKTIGA tvåldroppar upp ur ytan, hänger ihop av yttensionen och faller
+// tillbaka. Men de simuleras BARA i ett smalt band kring vattenytan — under ytan är
+// de osynliga (vattnet ligger ovanpå dem i alfa), så droppar som faller tillbaka
+// DRÄNERAS bort i stället för att sjunka till botten och kosta varje steg för alltid.
+const TVAL_MAX = 120 // partikeltak: sprayen är kort, inte ett kar
+// ⚠️ 180 SLÄPPTE DROPPARNA UT UR KARET — de hamnade uppe på tvålhyllan och över
+// badrumsväggen, alltså utanför vattnet de kom ifrån (syntes bara på bilden; talen
+// var gröna). Taket ligger nu strax under kar-kanten och är en riktig VÄGG
+// (`walls.top`), så ett tryckskott inte kan kasta en droppe ur badet.
+const TVAL_TOP = SURFACE_Y - 110
+const TVAL_X0 = 200 // karets insida (samma som vattnets roundRect)
+const TVAL_X1 = 1080
 const MAX_V = 14 // hastighetstak — inget kan skjuta ur karet
 
 // ---- Zacke (ritad karaktär, inte en boll) --------------------------------
@@ -147,6 +164,9 @@ export default {
     this._treasureLayer.interactiveChildren = false
     this._root.addChild(this._treasureLayer)
     this._placeTreasure()
+    // Tvåldropparna ligger FRAMFÖR skummet och fyndet (de flyger upp ur ytan) men
+    // BAKOM kar-kanten, annars regnar de utanför karet.
+    this._buildTval()
     this._buildTubRim()
     this._buildHint()
     this._buildProgress()
@@ -174,6 +194,12 @@ export default {
     this._drawTub(this._tubGfx)
     this._drawTint(this._tintGfx)
     this._placeTreasure()
+    // Dropparna bär rundans färg — annars regnar ljusblå tvål i ett jordgubbsbad.
+    // ⚠️ MEN INTE skumfärgen: `BATHS[0].foam` är `0xffffff`, och vita droppar mot vitt
+    // skum är helt osynliga (första försöket gjorde precis det). De ska läsa som
+    // uppkastat TVÅLVATTEN, alltså badets vatten draget mot vitt, med vit kant.
+    this._tintTval()
+    this._tval?.clear() // nytt kar → inga droppar kvar i luften från förra rundan
   },
 
   // ---- Gömt fynd i skummet ------------------------------------------------
@@ -944,6 +970,18 @@ export default {
       if (this._moodHold <= 0 && this._mood !== 'glad') this._drawFace('glad')
     }
 
+    // Tvåldropparna: fast tidssteg inuti FluidWorld, så `deltaMS` rakt in.
+    if (this._tval) {
+      this._tval.update(tk.deltaMS)
+      // Droppar som fallit tillbaka i ytan försvinner in i skummet. Utan dränaget
+      // samlas de på karets botten, där vattnets alfa ändå ligger över dem — de
+      // vore osynliga men kostade varje steg, för alltid.
+      if (this._tval.count) {
+        this._tval.drain((TVAL_X0 + TVAL_X1) / 2, SURFACE_Y + 14, TVAL_X1 - TVAL_X0, 34)
+      }
+      this._tvalView?.update()
+    }
+
     // Anka guppar lätt på ytan.
     this._duckPhase += 0.05 * dt
     if (this._duck && !this._duck.destroyed) {
@@ -1089,6 +1127,7 @@ export default {
     if (b.view && !b.view.destroyed) b.view.destroy()
     if (!this._alive) return
     const big = b.r / 10
+    this._tvalStank(b)
     puff(ctx.fxLayer, b.x, SURFACE_Y, { count: 6 + (big | 0), color: 0xffffff })
     sparkle(ctx.fxLayer, b.x, SURFACE_Y)
     ripple(ctx.fxLayer, b.x, SURFACE_Y, { color: COLORS.white, maxR: 40 + b.r * 1.4, alpha: 0.6 }) // större bubbla plaskar högre
@@ -1119,6 +1158,84 @@ export default {
     }
     if (Math.random() < 0.3) floatText(ctx.fxLayer, b.x, SURFACE_Y - 10, randomFrom(['Hihi!', 'Pluff!', 'Blubb!', 'Prrt!']))
     this._addFoam(ctx, b.r * mul)
+  },
+
+  // ---- Tvålvattnet (lib/vatska.js) ----------------------------------------
+
+  _buildTval() {
+    const F = FLUIDS.tval
+    this._tval = new FluidWorld({
+      max: TVAL_MAX,
+      // ⚠️ 13 GAV EN OSYNLIG VÄTSKA. Mätt differentiellt (`_tvalprobe`): −544 px netto,
+      // alltså ingenting. Åtta droppar som fjädrar ut i en solfjäder ligger snabbt
+      // utanför varandras interaktionsradie, och en ensam partikel når aldrig
+      // metaboll-tröskeln — den ritas inte alls. Det är köns regel "en stråle är inte
+      // ett glas" i praktiken. 20 gör varje droppe till en egen fet klick.
+      radius: 20,
+      gravityY: 0.5,
+      rho0: F.rho0,
+      sigma: F.sigma,
+      beta: F.beta,
+      // Väggarna är karets insida. Botten ligger strax UNDER ytan — en droppe som
+      // hunnit dit dräneras ändå bort i samma bildruta, men spärren finns så inget
+      // kan tunnla ut ur bandet om takten hackar.
+      bounds: { left: TVAL_X0, right: TVAL_X1, top: TVAL_TOP, bottom: SURFACE_Y + 30 },
+      walls: { left: true, right: true, bottom: true, top: true },
+      restitution: 0.08, // tvål klibbar, den studsar inte
+    })
+    // ⚠️ KOSTNADEN LIGGER I METABOLL-FILTRET, inte i partiklarna. `area` är därför
+    // klippt till bandet sprayen kan nå — inte hela designytan (förvalet).
+    this._tvalView = new FluidView(this._root, this._tval, {
+      color: F.color,
+      edge: F.edge,
+      alpha: F.alpha,
+      blur: 7,
+      // ⚠️ EN STRÅLE ÄR INTE ETT GLAS: enstaka droppar med luft emellan når aldrig
+      // förvalströskeln 0,42 och ritas då i kantfärgen (eller inte alls). 0,36 räckte
+      // INTE — mätt till −544 px netto, alltså osynlig. 0,26 låter en ensam droppe bära
+      // sig själv, vilket är hela poängen med ett stänk.
+      threshold: 0.26,
+      resolution: 0.5,
+      area: new Rectangle(TVAL_X0 - 20, TVAL_TOP - 24, TVAL_X1 - TVAL_X0 + 40, SURFACE_Y + 44 - (TVAL_TOP - 24)),
+    })
+    this._tvalView.layer.eventMode = 'none'
+    this._tvalView.layer.interactiveChildren = false
+    // ⚠️ SÄTT FÄRGEN HÄR OCKSÅ, inte bara i `_applyLevel`. `init` anropar `_applyLevel`
+    // INNAN den här funktionen, så dess `this._tvalView?.setColor(...)` no-oppade — och
+    // dropparna behöll konstruktorns ljusblå `FLUIDS.tval` ända till andra rundan.
+    // Uppmätt följd: ljusblå tvål i ett rosa jordgubbsbad (syntes bara på bilden).
+    this._tintTval()
+  },
+
+  // Tvålens kropp = badets vatten draget mot vitt. Se `_applyLevel` för varför det
+  // INTE får vara skumfärgen.
+  _tintTval() {
+    this._tvalView?.setColor(lerpColor(this._bath().water, 0xffffff, 0.45), 0xffffff)
+  },
+
+  // Tvåldroppar ur ett popp. Antalet skalar med bubblan men har ett TAK: fyra stora
+  // bubblor som poppar samtidigt får inte äta hela budgeten. Är den slut hoppar vi
+  // över stänket helt — en halvritad vätska är sämre än ingen.
+  _tvalStank(b) {
+    const w = this._tval
+    if (!w) return
+    const rum = TVAL_MAX - w.count
+    if (rum < 8) return
+    // Fler droppar än första försöket (8 st, spread 1,25): en gles solfjäder blev
+    // helt osynlig, och ett stänk ur tvålvatten är många små droppar nära varandra.
+    const n = Math.min(rum, 14 + Math.round(b.r / 2))
+    // ⚠️ JITTER ÄR INTE KOSMETIK HÄR. `splash` föder alla partiklar inom ±jitter/2, och
+    // 20 partiklar i en 5 px-ruta är en densitetsSPIK: `kNear`-repulsionen sprängde dem
+    // uppåt långt över kar-kanten (uppmätt ~180 px stigning mot de ~58 px farten
+    // ensam ger). Ett brett födelseband löser det vid roten, och bubblans egen bredd
+    // är det ärliga måttet — stänket ska ju komma ur bubblan.
+    w.splash(b.x, SURFACE_Y - 8, {
+      count: n,
+      speed: 3.4 + b.r / 24, // större bubbla kastar högre — samma orsak som ripple-radien
+      spread: 0.9,
+      dir: -Math.PI / 2,
+      jitter: Math.max(22, b.r * 1.4),
+    })
   },
 
   _addFoam(ctx, r) {
@@ -1227,6 +1344,12 @@ export default {
     // Bubblor är bara ticker-styrda Pixi-objekt → räcker att förstöra dem.
     this._bubbles?.forEach((b) => b.view && !b.view.destroyed && b.view.destroy())
     if (this._bubbles) this._bubbles.length = 0
+
+    // Vätskan äger ett filter och en rendertextur — vyn FÖRE världen.
+    this._tvalView?.destroy()
+    this._tvalView = null
+    this._tval?.destroy()
+    this._tval = null
 
     // Pekar-lyssnare.
     if (this._zacke && !this._zacke.destroyed) {

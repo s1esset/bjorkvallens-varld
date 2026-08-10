@@ -217,22 +217,22 @@ Flera har goda skäl (inomhusmiljö, 3D-backdrop). Men de som bara har en platt 
 
 ## 2. Spår B — fysik, kollisioner, kroppar och egenskaper
 
-### B1. SPH-vätskan är byggd och oanvänd **[Medium]** per spel — ✅ TRE SPEL 2026-08-09
+### B1. SPH-vätskan är byggd och oanvänd **[Medium]** per spel — ✅ SEX SPEL 2026-08-10
 
 `src/lib/vatska.js` är 739 rader: en double-density-relaxation-solver med spatial hash, sex
 materialförval (`vatten` · `saft` · `gegga` · `honung` · `choklad` · `tval`) och metaboll-
-rendering. Vid mätningen använde **ett** spel den; nu tre.
+rendering. Vid mätningen använde **ett** spel den; nu sex.
 
 | Spel | Fejkar vätska idag | Förval | Status |
 |---|---|---|---|
 | `saftbaren` | — (var enda kunden) | `saft` | ✅ sedan tidigare |
 | `vattenvagen` | headern sa rakt ut "droppar längs en beräknad väg" | `vatten` | ✅ v1.45.0 |
 | `golvet-ar-lava` | bubblande lavaflod, ritad | `choklad` | ✅ v1.46.0 |
+| `trollblandning` | kitteln pyser, inget rinner | `gegga` | ✅ (hällningen + brygden) |
+| `plask-i-vattnet` | plask-ringar | `vatten` | ✅ |
+| `pruttbad` | badvatten + skumlinje | `tval` | ✅ v1.133.0 — **stänket vid poppet** |
 | `zackes-biltvatt` | skum + spolning som partikelfläckar | `tval` | ⬜ |
 | `tvatta-djuret` | skum-fläckar, regndroppar | `tval` | ⬜ |
-| `pruttbad` | badvatten + skumlinje | `tval` | ⬜ |
-| `trollblandning` | kitteln pyser, inget rinner | `gegga` | ⬜ |
-| `plask-i-vattnet` | plask-ringar | `vatten` | ⬜ |
 | `pizzabageriet` | sås | `saft` | ⬜ |
 
 **Tre lärdomar ur de två första bytena — läs dem före nästa spel:**
@@ -257,6 +257,21 @@ rendering. Vid mätningen använde **ett** spel den; nu tre.
    växelvisa rundor: HEAD 1, ändringen 2, alltså inte skiljbart. Kör fler rundor innan du
    dömer, och kontrollera mekanismen i Pixis källa innan du skriver ner den: påståendet
    "`Filter.from` kompilerar per anrop" var fel — `GlProgram.from` cachar per källkod.
+
+5. **`splash()` med tät jitter är ett TRYCKSKOTT, inte ett stänk.** `pruttbad` föddes med
+   `jitter: 5`, alltså 20 partiklar inom ±2,5 px. Densitetsspiken fick `kNear`-repulsionen att
+   spränga dropparna **~180 px uppåt** — långt över kar-kanten och ut på badrumsväggen — mot de
+   ~58 px farten ensam ger. Föd alltid stänket över ett band som är minst källans bredd.
+6. **`_vatskeprobe` DUGER INTE till en vätska som bara föds av en händelse.** Den mäter en
+   vätska som rinner av sig själv. I `pruttbad` skapas vätskan bara av ett POPP, så sonden
+   rapporterade `partiklar: 0` genom hela körningen — och ändå 232 913 "vätskepixlar", eftersom
+   badvattnets blå ligger nära `FLUIDS.tval`. Ett grönt tal om ingenting. Sådana spel behöver en
+   egen sond som utlöser händelsen (`scripts/_tvalprobe.mjs`).
+7. **Mät målade pixlar DIFFERENTIELLT, inte mot ett färgavstånd.** Första mätningen i `pruttbad`
+   rapporterade 30 533 px "i vätskans ton" — men badets SKUM (`0xffe6f0`) låg på avstånd² 3460
+   från tvålens `[255,182,206]`, under tröskeln 3600. Talet var nästan bara skum. Mät samma yta
+   **med och utan** `view.layer.visible` och ta skillnaden; då kan bara vätskan bidra. Samma
+   mätning gav −544 px netto och avslöjade att dropparna var helt osynliga.
 
 Verktyg: **`scripts/_vatskeprobe.mjs`** (antal · ytans höjd · målade pixlar mot vätskans egen
 färg · FPS med CPU-strypning · exit + återinträde). Den hittar vätskan på FORM, inte på

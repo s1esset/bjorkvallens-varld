@@ -14,6 +14,52 @@ Format:
 
 ---
 
+## 2026-08-10 (eftermiddag) · v1.97.0 · D1: tre platta ytor — och sonden som rankade dem fel
+
+**Autonom fortsättning** på nattkörningens kö, punkt **D1** (platta ytor). Tre spel, en
+commit var, djup och ljus i stället för fler föremål.
+
+**Byggt:** alla tre stora enfärgade fälten brutna med cachade linjära gradienter
+(`verticalFill`, lib/form.js — noll texturbakningar per montering). Varje gradient spänner
+OM den ton ytan hade, så bilden är densamma; det är bara ljuset som tillkommit.
+
+| spel | före | efter | |
+|---|---|---|---|
+| `folj-sparet` | 595 215 px (65 %) | 53 848 px (5,8 %) | 11,1× |
+| `spara-linjen` | 342 352 px (37 %) | 49 444 px (5,4 %) | 6,9× |
+| `rulla-bollen-hem` | 236 489 px (26 %) | 44 727 px (4,9 %) | 5,3× |
+
+**Sonden rankade uppgiften fel, och det är sessionens viktigaste fynd.** `_plattprobe`
+räknar bort exakt EN ton som "bakgrund". I `folj-sparet` var den borträknade tonen **ängen
+själv**, så spelet såg minst ut (24 %) medan det i verkligheten var värst: äng 65 % + ram
+24 % = **89 % av skärmen i två toner**. Samma blindfläck ger dessutom **falska
+regressioner**: tonar man just den borträknade ytan — vilket är den rätta åtgärden —
+krymper avdraget och talet STIGER. `rulla-bollen-hem` gick 29 317 → 38 718 av en korrekt
+bakgrundsgradient medan den verkliga ytan samtidigt föll 258 619 → 38 718. Jag var nära att
+backa en korrekt fix på det talet. Sonden har nu flaggan **`--medbakgrund`**, utskriften
+säger vilket läge den kör i, och blindfläcken står i filhuvudet.
+
+**Mönstret som upprepades i alla tre spelen:** så fort huvudytan slutar vara platt blir
+RAMEN runt den spelets största fält. Två av tre ritade ingen egen bakgrund alls utan lutade
+sig mot skalets `COLORS.bg` — en enda ton över hela skärmen. **En D1-fix är inte klar förrän
+spelet äger sin egen yta.** `spara-linjen`s filhuvud hade dessutom hela tiden påstått att
+scenen är "ett skrivbord med papper och kritor"; något bord ritades aldrig.
+
+**Avvägning värd att minnas:** papprets toning är medvetet mycket svagare än fotbollsplanens.
+Sondens filhuvud kallar ett vitt ritpapper legitimt platt, och det stämmer så länge det ser
+ut som papper — barnets kritstreck är innehållet, och arket får aldrig konkurrera med det.
+
+**Commits:** `0c03928` rulla-bollen-hem · `3e239b4` spara-linjen · `fd9df54` folj-sparet
+
+**`test:all` 72/72 gröna — noll `tom-scen`, noll `gles-scen`, noll fel-nivåfynd.** Värt att
+notera: fyra nya gradienter destabiliserade INTE sviten, vilket är den historiskt farliga
+ändringen (`new FillGradient` per montering gav `tom-scen` i 1 av 3 rundor). De är cachade
+per färgpar, så en montering gör noll texturbakningar. Enda varningar: `saknat-ljudklipp` i
+tre spel (MOSS-beroende, D2).
+
+**Öppet:** kör `_plattprobe --medbakgrund --topp 72` över hela sviten — det är nu ett annat
+mått än ranklistan, och `COLORS.bg`-mönstret finns troligen i fler spel.
+
 ## 2026-08-10 (eftermiddag) · v1.94.0 · Poler i magnetdammen — och gränsen som var beslutet
 
 **Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt **B3**

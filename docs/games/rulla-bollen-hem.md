@@ -91,6 +91,21 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: planen fick klipparränder som faktiskt syns** (`0c03928`, v1.95.0).
+  `_plattprobe` rankade spelet som appens plattaste: **443 000 px (48 % av skärmen) i två
+  gröna som skiljer 3/2/3 i RGB**. Orsaken var inte att ränderna saknades — de ritades
+  redan (`0x86cf56` @ alpha 0.35 över `0x8fd65e`), men kontrasten låg under ögats tröskel.
+  Gräsmattans botten är nu en cachad linjär `verticalFill`, ränderna en mörkare ton med
+  lägre alpha (19/17/13 i planens ljusa ände, 13/13/7 i den mörka — gradientens spann är
+  medvetet litet just för att ränderna ska överleva i den mörka änden). Is och sand fick
+  samma toning: overlayerna är ogenomskinliga, så utan det hade två av spelets TRE ytor
+  fortfarande varit en enda ton — och skärmdumpen sonden läser är alltid gräs.
+  **Mätt:** största enskilda fältet **236 489 → 44 727 px** (26 % → 4,9 %); de tre största
+  tonerna gick från 74 % av skärmen till 13 %.
+  **Sonden fick en flagga av det här, och den räddade fixen:** `_plattprobe` räknar bort
+  exakt EN ton som bakgrund, så när jag tonade just den ytan (den yttre gräskanten) krympte
+  avdraget och talet STEG, 29 317 → 38 718 — en falsk regression jag var nära att backa.
+  Med `--medbakgrund` föll samma yta 258 619 → 38 718.
 - 2026-06-30: Doc skriven (granskning + plan), ersätter gammal build-spec. Inga kodändringar.
   Spelet testat (errorCount 0; drag rullade bollen ända in i målet — fysik + sikte fungerar).
 - Rekommenderad första-omgång: **[Quick] mindre perfekt tap-fallback + rikare banor + riktigt

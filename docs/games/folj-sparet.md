@@ -101,6 +101,18 @@ Stark grund, men flera billiga drag som en kräsen förälder märker:
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: ängen fick ljus i stället för att vara en tvättad panel**
+  (`fd9df54`, v1.97.0). Ängen var `COLORS.green` @ alpha 0.16 över skalets kräm — en enda
+  tvättad ton (#e4edd0). Nu en cachad linjär `verticalFill` som spänner OM exakt den tonen,
+  så det är samma äng; det är bara ljuset som tillkommit. Spelet ritar dessutom sin egen
+  mark i stället för att luta sig mot skalets `COLORS.bg`.
+  **Mätt** (största enskilda fältet, bakgrunden medräknad): **595 215 → 53 848 px**
+  (65 % → 5,8 %).
+  ⚠️ **Den här posten är också en lärdom om mätningen.** D1-kön rankade spelet LÄGST av
+  sina tre (24 %) och det var fel: `_plattprobe` räknar bort exakt EN ton som "bakgrund",
+  och här var den borträknade tonen **ängen själv**. Det verkliga läget var äng 65 % + ram
+  24 % = **89 % av skärmen i två toner**, alltså det värsta av de tre — inte det minsta.
+  Sonden har nu flaggan `--medbakgrund` och blindfläcken står i dess filhuvud.
 - 2026-06-30: Doc skriven (granskning + plan). Speltestat (errorCount 0; skärmdump verifierad:
   äng, 🐶, fotspår i våg, hus, prickad ledtråd, "Visa igen"). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] stigande tonhöjd på fotspåren + [Quick] gömda fynd

@@ -111,6 +111,20 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: pappret ligger på ett bord i stället för att vara ett hål**
+  (`3e239b4`, v1.96.0). `_plattprobe`s eget filhuvud kallar ett vitt ritpapper *legitimt*
+  platt — och det stämmer så länge det ser ut som PAPPER. Det gjorde det inte: **342 352 px
+  (37 % av skärmen) i EN ton**, utan skugga och utan yta under.
+  Arket fick en svag lodrät toning (`verticalFill`) och en mjuk skugga — skuggan som en
+  EGEN Graphics, eftersom den i papprets egen hade vuxit den interaktiva spårningsytan.
+  Toningen är medvetet mycket svagare än t.ex. fotbollsplanens: **barnets kritstreck är
+  innehållet här, och arket får aldrig konkurrera med det.**
+  Spelet ritar nu också sitt SKRIVBORD. Filhuvudet har alltid sagt att scenen är ett bord
+  med papper och kritor, men ingen yta ritades — spelet lutade sig mot skalets `COLORS.bg`.
+  Så fort pappret slutade vara platt blev bordet spelets största fält (335 511 px).
+  **Mätt** (största enskilda fältet, bakgrunden medräknad): **342 352 → 49 444 px**. Före
+  låg papper + bord på 677 863 px i två toner = 73 % av skärmen; efter är det största
+  fältet kritlådans trä (5,4 %), och det är legitimt platt.
 - 2026-06-30: Doc skriven (granskning + plan), ersätter gammal build-spec. Inga kodändringar.
   Spelet testat (errorCount 0; drag tände prickar och ritade färgat segment till pennan).
 - Rekommenderad första-omgång: **[Medium] prickar som bildar ett motiv + [Quick] krit-ljud/

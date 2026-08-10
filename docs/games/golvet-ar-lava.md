@@ -104,6 +104,13 @@ loopen är "töm bricka → bredare flod".**
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`022999d`, v1.114.0).
+  `_plattprobe --medbakgrund` mätte **163 026 px = 18 % av skärmen** i EN ton.
+  Terrängen runt omkring var redan tonad; det var själva SCHAKTET under lavaytan som låg
+  platt. Toningen är inte bara kosmetik här utan vad scenen redan påstår: en lavagrop är het
+  vid ytan och mörknar mot djupet. Största fältet är nu lavaytan själv.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **163 026 → 24 881 px** (18 % → 2,7 %).
+
 - 2026-06-30: Doc skriven (granskning + plan). Speltest grönt (errorCount 0), skärmdump läst.
   Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Medium] sent/synligt moln + [Quick] distinkt sten-arsenal +

@@ -96,6 +96,13 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`3a31d59`, v1.106.0).
+  `_plattprobe --medbakgrund` mätte **387 774 px = 42 % av skärmen** i EN ton.
+  De sex djurkorten låg tryckta på ett platt papper utan yta under sig. Bakgrunden är nu
+  en cachad `verticalFill` som spänner OM 0xfff0d6 — samma varma ton, bara med scenljus i.
+  De tre största fälten är därefter tre av korten, alltså riktiga föremål.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **387 774 → 44 976 px** (42 % → 4,9 %).
+
 - 2026-06-30: Doc skriven efter kodläsning + headless playtest (errorCount 0; skärmdump
   verifierad: 2×3 djurkort i distinkta färger, konfetti efter ~8 tryck). Ny doc (ingen
   tidigare build-spec).

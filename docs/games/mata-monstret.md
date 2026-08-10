@@ -88,6 +88,17 @@ detta spel beskrev en enklare 3-bitars en-läges-mun; den är nu överspelad av 
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`566e63a`, v1.118.0).
+  `_plattprobe --medbakgrund` mätte **123 654 px = 13 % av skärmen** i EN ton.
+  Himlen bakom var redan tonad; bordsskivan tonades först. **MONSTRET var det verkliga
+  fyndet, och det syntes först när bordet var fixat:** kroppen låg på 97 405 px (10,6 %) i EN
+  ton, och det är spelets huvudfigur. Varje del får nu den fyllning som matchar sin FORM —
+  armarna är stående rör (`cylinderFill`), bålen ett klot (`sphereFill`). Värt att notera om
+  mätningen: monsterfärgen slumpas per runda, så första bilden visade ett TEAL monster och
+  andra ett ORANGE — talet gav samma svar båda gångerna. Det är formen som var platt, inte en
+  viss färg.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **123 654 → 14 534 px** (13 % → 1,6 %).
+
 - 2026-06-30: Doc skriven (granskning + plan; ersätter äldre build-spec). Inga kodändringar.
   Testkörning ren (errorCount 0), skärmdump verifierad (monster med gapande mun, mat på bord).
 - Rekommenderad första-omgång: **[Medium] dämpa plinko/hylla-auto-glidet så luckval/timing

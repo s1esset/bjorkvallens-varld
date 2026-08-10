@@ -115,6 +115,15 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`00f3c1b`, v1.113.0).
+  `_plattprobe --medbakgrund` mätte **185 601 px = 20 % av skärmen** i EN ton.
+  Stadens alla husväggar delade exakt samma brun, så kvarteret läste som en vägg av block.
+  Husen ritas med alpha — fjärranbandet tonas mot himlen med genomskinlighet i stället för en
+  egen palett — så `verticalFillAlpha` krävdes: toningen bär både ljuset OCH alfan, och
+  fjärrandiset är bevisat orört. Per-form-normaliseringen ger varje hus sitt eget ljus ur en
+  enda delad gradientinstans.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **185 601 → 20 329 px** (20 % → 2,2 %).
+
 - 2026-06-30: Doc skriven (granskning + plan, ersätter gammal bygg-spec). Testat headless
   (errorCount 0), skärmdump läst (visade moln-räddning + mål-tak med 🐱/Elvira). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] synligt släpp-fönster + belöning för bra timing +

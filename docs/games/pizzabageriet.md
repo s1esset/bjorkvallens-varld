@@ -108,6 +108,17 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`bf5f3e4`, v1.112.0).
+  `_plattprobe --medbakgrund` mätte **211 569 px = 23 % av skärmen** i EN ton.
+  Kökskaklet fick samma ljusark som `hamburgerbygget`, och fatet under pizzan
+  `topLightFill`. **Ingredienshyllan var det verkliga fyndet, och den hittades genom att
+  MÄTA:** efter väggen låg toppfältet kvar på ~86 000 px och rörde sig INTE när jag ändrade
+  väggens ljusstyrka — alltså var hypotesen fel. En pixelräkning gav bbox 72,622 → 1207,713:
+  hyllan. Den ritas halvgenomskinlig och använder därför `verticalFillAlpha`.
+  **Metodisk lärdom:** när ett tal inte RÖR SIG av en ändring som borde påverka det, är
+  hypotesen om VAR fältet sitter fel — räkna pixlarnas bbox i stället för att gissa vidare.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **211 569 → 62 882 px** (23 % → 6,8 %).
+
 - 2026-06-30: Doc skriven efter källäsning (inkl. `lib/cooking.js`) + playtest (errorCount 0, drag
   placerade toppings, skärmdump granskad). Inga kodändringar. Rekommenderad första-omgång:
   **[Medium] kund med bild-order + [Deep] skär & servera + [Quick] mätaren till pizzan** — ger

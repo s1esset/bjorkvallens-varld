@@ -91,6 +91,18 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`004232f`, v1.100.0).
+  `_plattprobe --medbakgrund` mätte **693 298 px = 75 % av skärmen** i EN ton.
+  Bakgrunden var en enda VIT rektangel som tintas per väder, så Elvira stod i en färgad
+  void utan mark under fötterna. Fixen måste bevara tint-mekaniken — och gör mer än så: en
+  tonad fyllning behåller sin variation när den tintas, och **en mark som ritas i SAMMA
+  Graphics tintas därför automatiskt med vädret** (sandvarm i sol, fuktigt gråblå i regn,
+  kall i snö) utan en enda extra rad väderlogik. GROUND_Y = 606 är satt mot figuren, inte
+  gissat: fötternas underkant ligger på 616. Dekorativa moln valdes BORT — vädersymbolen är
+  hela ledtråden i spelet och ett moln hade konkurrerat med regnmoln-tecknet.
+  Nästa lager om spelet tas upp igen: överkroppen är nu spelets plattaste yta.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **693 298 → 41 521 px** (75 % → 4,5 %).
+
 - 2026-06-30: Doc skriven (granskning + plan; gammal byggspec överskriven). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] "gå ut"-payoff + flera dugliga plagg per zon** och
   **[Quick] snäpp-klick + väder-ambient** — kopplar belöningen till lärandet, störst lyft för minst risk.

@@ -111,6 +111,15 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`f254093`, v1.116.0).
+  `_plattprobe --medbakgrund` mätte **158 419 px = 17 % av skärmen** i EN ton.
+  Himlen var redan tonad via `createScene`; det var marken som låg platt. Ljuset kommer
+  från horisonten, så mattan är ljusast längst bort och mörknar mot betraktaren. Toningen
+  blandas mot gräsets EGNA ljusa ton (`grassLit`) i stället för mot svart, så både dag- och
+  nattpaletten behåller sin karaktär. Nattnivån kontrollerad separat i bild
+  (`_nivabild.mjs --nivaer 3`): den grenen byter hela gräspaletten och följer med automatiskt.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **158 419 → 15 334 px** (17 % → 1,7 %).
+
 - 2026-06-30: Doc skriven efter källäsning + playtest (errorCount 0, skärmdump granskad). Inga
   kodändringar. Rekommenderad första-omgång: **[Medium] hungrig mottagare-kompis + [Quick] synlig
   het zon + [Quick] eld-ambient** — störst upplevd själ för låg risk, och adresserar den enda

@@ -113,6 +113,16 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`e65b2ef`, v1.109.0).
+  `_plattprobe --medbakgrund` mätte **270 576 px = 29 % av skärmen** i EN ton.
+  Vatten är ljusare vid ytan och mörknar nedåt, men den vanliga fixen gick INTE att
+  använda: vattnet ritas med `alpha` (Zacke och ankan ska synas nedsänkta). **Lösningen ligger
+  i gradientens STOPP** — `addColorStop` kör dem genom `Color.toHexa()`, så '#rrggbbaa' är
+  ett giltigt färgstopp och toningen kan bära genomskinligheten själv. Verifierat i bild:
+  magen syns fortfarande igenom. Tekniken flyttades sedan till `lib/form.js` som
+  `verticalFillAlpha` (`7cfdd87`) och spelet bytte till den delade hjälparen.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **270 576 → 61 880 px** (29 % → 6,7 %).
+
 - 2026-06-30: Doc skriven (granskad i spelet, errorCount 0). Inga kodändringar ännu. (Ersatte den
   äldre bygg-specen i samma fil med review-format enligt mallen.)
 - Rekommenderad första-omgång: **[Deep] bygg en riktig Zacke + [Medium] ge ankan roll** —

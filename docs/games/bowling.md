@@ -116,6 +116,17 @@ auto-hjälpen gör siktet kosmetiskt**.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`4b00a8c`, v1.115.0).
+  `_plattprobe --medbakgrund` mätte **162 945 px = 18 % av skärmen** i EN ton.
+  Banan var två platta band (banan + kägeldäckets överdrag på 124 666 px). En bowlingbana
+  är polerat trä som ligger BORT från betraktaren: bortre änden mörknar. Toningen byggs ur
+  temats egna färger, så alla fyra bantemana följer med automatiskt.
+  **Ett första försök med `shade(t.lane, 0.11)` BACKADES efter att ha setts i bild:** en
+  neutral mörkning drar mot svart, och eftersom banan är gräddbruten creme blev den bortre
+  halvan GRÅ — djupet fanns men värmen försvann. `lerpColor(t.lane, t.mark, 0.24)` ger samma
+  tal men läser som polerat trä i skugga. Bara bilden skiljde dem åt.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **162 945 → 18 384 px** (18 % → 2,0 %).
+
 - 2026-06-30: Doc skriven utifrån kodläsning + playtest (errorCount 0; strike triggades av
   test-draget). Ersatte den gamla byggspecen. Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] bankägla-riktmärken + STRIKE-skylt/skärmskak +

@@ -101,6 +101,20 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`8c8ef70`, v1.98.0).
+  `_plattprobe --medbakgrund` mätte **809 744 px = 88 % av skärmen** i EN ton.
+  Fyndet var inte platthet utan en SAKNAD yta: spelet ritade ingen bakgrund alls, så
+  tonen var skalets egen `COLORS.bg` och sakerna svävade i ett cremetomrum utan rum, mark
+  eller skala — appens plattaste spel av alla 72. Nu står de i ett rum: vägg och golv i
+  full bleed, ett hyllplan per rad i rutnätet (måtten ur nivåns egen layout, så det sitter
+  rätt för 3–6 saker) och en kontaktskugga per sak. Väggen svarar på tryck (`kvittera`) —
+  utan handlare var varje tryck utanför sakerna obesvarat (P0 ÅTERKOPPLING).
+  **Två försök backades efter att ha setts i bild:** konsoler under hyllplanet lästes som
+  en vimpel som hängde under plankan, och ett första golv lästes som en gul rand tvärs över
+  bilden. Platshållarens radie 80 → 62; den var scenens största föremål och sjönk ned genom
+  hyllplanet. Nivå 2 och 3 kontrollerade separat med `_nivabild.mjs`.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **809 744 → 31 545 px** (88 % → 3,4 %).
+
 - 2026-06-30: Doc skriven efter kodläsning + huvudlöst speltest (errorCount 0; täck-fas med
   filt + platshållare + kvarvarande lurar verifierad). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Medium] varierad uppgiftstyp (vad är nytt / bytte plats) +

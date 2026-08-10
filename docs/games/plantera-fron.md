@@ -118,6 +118,15 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`e88ec63`, v1.103.0).
+  `_plattprobe --medbakgrund` mätte **495 283 px = 54 % av skärmen** i EN ton.
+  Jorden var redan tonad sedan tidigare; det var HIMLEN som låg platt över hela övre
+  halvan. Den går nu djupare upptill och blekare mot horisonten, som en riktig himmel.
+  **Matjordskanten fick samma behandling i samma svep:** så fort himlen slutade vara platt
+  blev DEN remsan spelets största enfärgade fält (57 152 px) — samma fynd, ny plats, precis
+  som ramen i `rulla-bollen-hem`. Att bara fixa himlen hade flyttat problemet.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **495 283 → 19 200 px** (54 % → 2,1 %).
+
 - 2026-06-30: Doc skriven efter kodläsning + huvudlöst speltest (errorCount 0; nivå 0 = 1 frö/
   1 hål, dra-i-hål verifierad). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] riktigt vatten-/blom-ljud + steg-för-steg-blomning +

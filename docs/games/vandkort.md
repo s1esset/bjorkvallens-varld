@@ -80,6 +80,17 @@ progression. Strikt felfritt — fel par vänds vänligt tillbaka, ingen timer, 
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`8809aa0`, v1.117.0).
+  `_plattprobe --medbakgrund` mätte **131 796 px = 14 % av skärmen** i EN ton.
+  Scenen bakom var redan tonad; det var KORTEN som var platta, och de är spelets
+  huvudobjekt. Ytterplattan fick `topLightFill`, innerplattans glans `verticalFillAlpha` (den
+  ritas halvgenomskinlig) och framsidan en svag lodrät toning — spannet med FLIT litet, ett
+  spelkorts framsida ska vara ljus och får inte tävla med symbolen. **Mätningen gick i två
+  steg av en anledning värd att minnas:** efter ryggarna låg toppfältet på 70 248 px i creme,
+  och det var de UPPVÄNDA kortens framsidor — ett fält som bara finns när något är vänt upp,
+  alltså osynligt i den första bilden.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **131 796 → 8 058 px** (14 % → 0,9 %).
+
 - 2026-06-30: Doc skriven (granskning + plan). Inga kodändringar. Testkörning ren (errorCount 0),
   skärmdump verifierad (2×2, premium-kort, vändning).
 - Rekommenderad första-omgång: **[Medium] paret spelar tema-belöning (djurläte/mums) + [Quick]

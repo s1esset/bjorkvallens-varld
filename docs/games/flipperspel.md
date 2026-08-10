@@ -123,6 +123,15 @@ passiva en gång tända**.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`374734a`, v1.108.0).
+  `_plattprobe --medbakgrund` mätte **295 453 px = 32 % av skärmen** i EN ton.
+  Efter D1:s första svep var det HÄR appens största platta fält. Nattscenen runt omkring
+  var redan tonad via `createScene('night')`; det var själva bordet som låg platt. En riktig
+  flipperplan är BELYST — ljusare uppe där kulan skjuts in, mörkare ner mot flipprarna.
+  Bedömningen gjordes mot BILDEN först: ett mörkt spelplan KAN vara legitimt en ton, och
+  frågan var om plattheten var avsiktlig. Svaret blev nej.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **295 453 → 54 964 px** (32 % → 6,0 %).
+
 - 2026-06-30: Doc skriven utifrån kodläsning + playtest (errorCount 0). Ersatte den gamla
   byggspecen. Inga kodändringar.
 - Rekommenderad första-omgång: **[Deep/Medium] maskot i maskinen + aktiva mål** + **[Quick]

@@ -14,6 +14,103 @@ Format:
 
 ---
 
+## 2026-08-10 (kväll) · v1.118.0 · D1 repo-brett: 20 spel, tre nivåer — och en ny primitiv
+
+Förra passets `Öppet` var en rad: *kör `_plattprobe --medbakgrund --topp 72` över hela
+sviten*. Den kördes, och den bekräftade `COLORS.bg`-förutsägelsen hårdare än väntat.
+
+**Byggt:** 20 spel i tre mätstyrda nivåer, en commit per spel, plus en delad hjälpare.
+**Appens värsta platta fält gick 809 744 px → 115 402 px (88 % → 12,5 % av skärmen.)**
+
+| nivå | spel | störst före → efter |
+|---|---|---|
+| 1 (v1.98–1.107) | vad-forsvann · siffertaget · kla-efter-vadret · harma-melodin · vart-tog-det-vagen · plantera-fron · tarta-i-ansiktet · enkelt-pussel · djurorkester · hamburgerbygget | 809 744 → 31 545 (värsta) |
+| 2 (v1.108–1.113) | flipperspel · pruttbad · rakna-applen · pizzabageriet · spindel-zacke-svingar | 295 453 → 54 964 (värsta) |
+| 3 (v1.114–1.118) | golvet-ar-lava · bowling · lagerelden · vandkort · mata-monstret | 163 026 → 24 881 (värsta) |
+
+Per-spels-detaljerna står i `docs/games/<id>.md` §5 — alla 20 har fått en post med
+före/efter-tal och skälet till just den lösningen.
+
+**Fyra spel ritade ingen bakgrund ALLS** (`vad-forsvann`, `enkelt-pussel`,
+`tarta-i-ansiktet`, `vart-tog-det-vagen`) — de låg direkt i skalets letterbox-creme. Det
+var alltså inte platthet utan en saknad scen, och `bildkoll`s kant-cream-mätning kan
+dessutom inte skilja en sådan scen från "ingen bleed alls".
+
+**Ny delad primitiv: `verticalFillAlpha` (`lib/form.js`, `7cfdd87`).** `.fill({color,
+alpha})` och `.fill(gradient)` utesluter varandra i Pixi v8, så varje yta som behöver
+BÅDE genomskinlighet och volym var låst — det stoppade tre separata fixar. Vägen runt
+ligger i STOPPEN: `addColorStop` kör dem genom `Color.toHexa()`, så `'#rrggbbaa'` är ett
+giltigt färgstopp och toningen bär alfan själv. Den har **medvetet ingen
+`_detalj`-avstängning**: övriga fyllningar får falla tillbaka på råfärgen på låg
+detaljnivå eftersom bara volymen går förlorad, men här skulle en råfärg göra ytan HELT
+TÄCKANDE — badvattnet skulle dölja Zacke. Att tappa volym är kosmetiskt; att tappa alfan
+är en bugg. Kunder: `pruttbad` (vatten), `pizzabageriet` (hylla),
+`spindel-zacke-svingar` (husväggar), `vandkort` (kortens innerplatta).
+
+### Fyra lärdomar som är värda mer än fixarna
+
+1. **Att fixa bakgrunden flyttar bara fyndet ett lager in.** Varje spels nya toppfält var
+   nästa platta sak: ridån efter cirkusfonden, pusselbilden efter bordet, matjordskanten
+   efter himlen, och i `mata-monstret` **monstret självt** (97 405 px). Räkna med två pass
+   per spel, inte ett.
+2. **Sonden räknar FÄRG, inte sammanhängande ytor — och hade rätt ändå.** `hamburgerbygget`s
+   kaklade vägg bryter upp för ögat, men varje ruta hade exakt samma ton, så väggen saknade
+   ljus helt.
+3. **När ett tal inte RÖR SIG av en ändring som borde påverka det är hypotesen om VAR fältet
+   sitter fel.** I `pizzabageriet` var jag säker på kaklet; jag ändrade väggens ljus och talet
+   stod stilla på 85 558. En pixelräkning gav bbox 72,622 → 1207,713 — ingredienshyllan. En
+   rad node slog två rundor av rimligt resonemang.
+4. **Stoppsignalen är att största fältet blir ett riktigt FÖREMÅL** (en filt, en kopp, en
+   kulle, ett kort) — bättre än någon px-tröskel.
+
+### Tre saker backades efter att ha setts i bild (gröna test såg inget)
+
+- Konsoler under `vad-forsvann`s hyllplan lästes som en vimpel som hängde under plankan.
+- Ett första golv i samma spel lästes som en gul rand tvärs över bilden.
+- `bowling`s bana mörknad med `shade()` blev **grå** — djupet fanns men värmen försvann.
+  `lerpColor` mot banans egen markeringsfärg ger *samma tal* men läser som polerat trä i
+  skugga. Bara bilden skiljde dem åt.
+
+Ett motiv lämnades **medvetet platt**: `enkelt-pussel`s `regnbage` hålkar ur sina bågar
+genom att måla om i exakt himlens ton, och en `FillGradient` mappas mot varje forms EGEN
+bbox — hålet hade blivit en synlig skiva i fel färg. Skälet står i koden.
+
+**Commits (21):** `8c8ef70` `ec8ee2b` `004232f` `ea3654c` `30da536` `e88ec63` `0e75b57`
+`4494a51` `3a31d59` `526fafb` (nivå 1) · `374734a` `e65b2ef` `9e007f4` `7cfdd87` `bf5f3e4`
+`00f3c1b` (nivå 2 + form.js) · `022999d` `4b00a8c` `f254093` `8809aa0` `566e63a` (nivå 3)
+· `112ad69` (ÅTGÄRDER V14).
+
+**Kontroll:** `npm run check` 0 fel/0 varningar · `npm run test:all` **72/72 gröna** efter
+varje nivå · alla 20 spel var ✅/✅ i indexet före och efter (ingen statusändring).
+
+### `tom-scen` återkom — och mättes i stället för att tolkas
+
+Ett fullt svep loggade `tom-scen ×1` på `golvet-ar-lava`. ÅTGÄRDER **V12b** påstod att
+harness-fixen tagit det till noll. **Det stämmer inte.** Mätt: spelet rent 3 av 3 ensamt,
+och `scripts/_ab.sh` 3 rundor växelvis över hela sviten mot nivå 3:s fem filer gav
+**HEAD (ny kod) 72/72 rent 3 av 3 · ÄNDRING (gammal kod) 72/72 rent 3 av 3** — sex fulla
+svep, noll fynd i någon arm. Alltså varken attribuerbart till ändringen eller
+reproducerbart på begäran; frekvensen är ~1 av 7 fulla svep. Skrivet som **V14** i
+`docs/ATGARDER.md`. Att BÅDA armarna mättes är poängen — hade bara min arm mätts kunde
+tystnaden lika gärna ha varit tur.
+
+⚠️ **Fälla värd att minnas:** direkt efter ett `_ab.sh`-svep är `.test-shots` bilder från
+den arm som kördes SIST (den gamla koden), så `_plattprobe` rapporterar för-fix-talen och
+ser ut som en regression. Kör om `npm run test <id>` före mätning. Kostade ett falsklarm.
+
+**Öppet:**
+- **Nästa D1-nivå ligger mätt:** `trollblandning` 115 402 · `tvatta-djuret` 111 592 ·
+  `valpens-bajs` 108 064 · `natskott-pa-stan` 105 360 · `saftbaren` 99 676 · `bygg-tornet`
+  94 613. `#8a5a3b` (`COLORS.brown`) toppar **tre** av dem — värt att angripa som ett delat
+  mönster en gång i stället för sex.
+- **`pizzabageriet` använder inte `BLEED` någonstans** (väggen ritas `rect(0, 0, W,
+  COUNTER_Y)`). Sett men inte åtgärdat — det hör till full bleed-spåret, inte D1, och skulle
+  ha grumlat en platthetscommit. Kontrollera med `--viewport 952x428`.
+- Oförändrat sedan tidigare: **C1/V10** (vilka `restitution`-tal är avsiktliga — kräver att
+  man SPELAR spelen), **D2** `saknat-ljudklipp` (MOSS nere), 3 repliker väntar på `/rost`.
+
+---
+
 ## 2026-08-10 (eftermiddag) · v1.97.0 · D1: tre platta ytor — och sonden som rankade dem fel
 
 **Autonom fortsättning** på nattkörningens kö, punkt **D1** (platta ytor). Tre spel, en

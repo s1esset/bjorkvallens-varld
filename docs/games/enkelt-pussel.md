@@ -100,6 +100,19 @@ blomman, katten ta form. Tema-cykeln ger variation över rundor.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`4494a51`, v1.105.0).
+  `_plattprobe --medbakgrund` mätte **391 766 px = 43 % av skärmen** i EN ton.
+  Samma orsak som i `vad-forsvann`: spelet ritade INGEN bakgrund alls, så pusslet låg i
+  skalets letterbox-creme. Nu finns ett bord i full bleed, en slagskugga under rampplattan
+  och en `kvittera`-handlare på bordet (P0 ÅTERKOPPLING — tryck vid sidan om brickan var
+  obesvarade). **SJÄLVA PUSSELBILDEN var nästa lager:** motivens himmel låg på 109 561 px
+  och syns DUBBELT, både i spökförhandsvisningen och på bitarna. Alla nio motivens stora
+  ytor är nu tonade; toningen ritas i scenrymden före maskningen, så den är identisk i varje
+  bit och mötena blir sömlösa. **Ett motiv lämnades MEDVETET platt:** `regnbage` hålkar ur
+  sina bågar genom att måla om i exakt himlens ton, och en `FillGradient` mappas mot varje
+  forms EGEN bbox — hålet hade blivit en synlig skiva i fel färg.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **391 766 → 29 440 px** (43 % → 3,2 %).
+
 - 2026-06-30: Doc skriven efter kodläsning + huvudlöst speltest (errorCount 0; 2-bitars
   trädgårdsmotiv, snäpp + förhandsvisning verifierade). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Medium] motiv-specifik "bilden vaknar"-final + [Quick]

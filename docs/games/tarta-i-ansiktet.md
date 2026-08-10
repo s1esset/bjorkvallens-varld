@@ -92,6 +92,17 @@ inte en medspelare, och flicken har inget att sikta på.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`0e75b57`, v1.104.0).
+  `_plattprobe --medbakgrund` mätte **407 401 px = 44 % av skärmen** i EN ton.
+  Tonen var `COLORS.bg`, alltså samma letterbox-fälla som `vart-tog-det-vagen`.
+  Cirkusfonden är nu ljusast där rampljuset träffar och mörknar mot golvet; scengolvet
+  tonades i samma svep (det blev bildens största fält på 122 303 px så fort fonden lyftes).
+  **Ridån var det verkliga fyndet:** efter fonden låg dess röda på 140 439 px (15 %) i två
+  platta toner. Varje veck ÄR ett stående tygrör, så de fylls med `cylinderFill` — ljus längs
+  mittlinjen, mörker mot båda kanterna. Cachad per färg: tolv veck kostar två gradienter.
+  Lärdom: att bara fixa bakgrunden hade INTE stängt punkten här.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **407 401 → 46 957 px** (44 % → 5,1 %).
+
 - 2026-06-30: Doc skriven (ersätter den gamla bygg-specen med en spelar-granskning).
   Speltestad (errorCount 0, skärmdump granskad — Alissa med grädde + svamp). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] reaktivt ansikte + [Quick] riktiga plask-SFX** — gör

@@ -91,6 +91,14 @@ ber barnet *förstå* mängd, känna igen siffran eller stanna vid rätt antal.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`9e007f4`, v1.110.0).
+  `_plattprobe --medbakgrund` mätte **265 955 px = 29 % av skärmen** i EN ton.
+  Fyndet satt inte där man skulle gissa: himmel, kullar och gräs var redan tonade via
+  `createScene`. Det var TRÄDET som var platt. Kronans fem bollar i två lager fylls nu med
+  `topLightFill`, som normaliseras mot VARJE FORMS egen bbox — så de läser som fem klumpar
+  med ljus ovanifrån i stället för som en enda grön silhuett. Två gradienter för tio bollar.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **265 955 → 13 122 px** (29 % → 1,4 %).
+
 - 2026-06-30: Doc skriven (granskning + plan; gammal byggspec överskriven). Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] tidigare "tryck på N"-mål med synlig siffra +
   plums-ljud** och **[Medium] avslutande omräkning av korgen** — störst räkne-pedagogiskt

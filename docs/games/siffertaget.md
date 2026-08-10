@@ -102,6 +102,17 @@ vägg, och glöden tänker åt barnet.**
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`ec8ee2b`, v1.99.0).
+  `_plattprobe --medbakgrund` mätte **697 730 px = 76 % av skärmen** i EN ton.
+  Bakgrunden RITADES redan (0xfff0d6, medvetet vald bort från `COLORS.bg`), men som en
+  enda platt yta över hela bilden — och följden var mer än platthet: **rälsen hängde i
+  luften** utan mark att vila på och utan horisont mellan himmel och jord. Nu finns himmel,
+  kullar, mark och banvall i `_buildBackdrop()`. Kullarna ritas MELLAN himmel och mark så
+  marken klipper deras underkant; annars svävar de som två ellipser. Sliprarna ritas efter
+  bakgrunden och hamnar ovanpå gruset, så spåret ligger I banvallen. Kontaktskuggor under de
+  lösa vagnarna valdes bort med flit — `DragController` lägger redan en skugga under draget.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **697 730 → 39 195 px** (76 % → 4,3 %).
+
 - 2026-06-30: Doc skriven efter kodläsning + headless playtest (errorCount 0; skärmdump
   verifierad: lok + 3 spök-rutor + vagnar 3/2/1, vagn 1 glöd-markerad). Ersatte gammal
   build-spec med granskningsdoc.

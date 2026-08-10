@@ -103,6 +103,15 @@ Grunden är korrekt och snäll, men loopen är en läroboks-Simon utan egen sjä
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`ea3654c`, v1.101.0).
+  `_plattprobe --medbakgrund` mätte **546 990 px = 59 % av skärmen** i EN ton.
+  Plattorna låg som tryck på ett platt papper: ingen yta, inget djup, ingen skillnad
+  mellan bordet och det som ligger på det. Bakgrunden är nu en cachad `verticalFill` som
+  spänner OM 0xfff0d6, och varje platta har fått en slagskugga. Plattornas EGNA toningar
+  valdes bort: de ritas med alpha 0.85, och alpha gick vid det laget inte att kombinera med
+  en gradientfyllning någonstans i repot — den väggen löstes senare med `verticalFillAlpha`.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **546 990 → 33 710 px** (59 % → 3,7 %).
+
 - 2026-06-30: Doc skriven (granskning + plan). Speltestat (errorCount 0; skärmdump verifierad:
   2×2-plattor + blundande maskot + nedtonad "Visa igen"). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Medium] riktiga stigande toner + [Quick] ingen-repeat-sekvens

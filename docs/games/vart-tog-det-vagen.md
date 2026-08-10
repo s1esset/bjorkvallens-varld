@@ -99,6 +99,15 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`30da536`, v1.102.0).
+  `_plattprobe --medbakgrund` mätte **529 236 px = 57 % av skärmen** i EN ton.
+  Tonen var `COLORS.bg`: bordet svävade i skalets egen letterbox-creme. Det är dubbelt
+  fel — en scen målad i exakt den färgen går inte heller att skilja från "ingen bleed alls"
+  (kantCream i `scripts/bildkoll.mjs`). Nu finns vägg + golv med horisonten på 400, strax
+  ovanför bordsskivans överkant (415), så bordet står på golvet. Skivan är inte längre en
+  platt ton (den låg på 201 057 px för sig själv) utan en toning med slagskugga under.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **529 236 → 35 163 px** (57 % → 3,8 %).
+
 - 2026-06-30: Doc skriven efter kodläsning + huvudlöst speltest (errorCount 0; 3 koppar i färg,
   blandning/gissa-loop verifierad). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Medium] varierade blandningsbanor + [Quick] leksaks-reaktion

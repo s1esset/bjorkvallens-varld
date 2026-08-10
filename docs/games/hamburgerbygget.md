@@ -121,6 +121,16 @@ Originaltexten för de avbockade punkterna står kvar nedan.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`526fafb`, v1.107.0).
+  `_plattprobe --medbakgrund` mätte **368 274 px = 40 % av skärmen** i EN ton.
+  Fyndet är lärorikt: det var KAKLET. Rutorna BRYTER ytan för ögat, så väggen ser inte
+  platt ut — men varje ruta har exakt samma färg, så väggen saknade helt ljus uppifrån-ned.
+  Måttet räknar färg, inte sammanhängande ytor, och hade rätt ändå. Ett lågalfa-ark med
+  lodrät toning ligger nu över HELA väggen; det måste vara ett eget objekt eftersom `alpha`
+  inte gick att kombinera med en gradientfyllning. Bänkskivan lämnades — den har redan en
+  handgjord toning i tre band.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **368 274 → 55 851 px** (40 % → 6,1 %).
+
 - 2026-08-05 ✅ **Poleringsrundan, Roligt #3 — spelet var mekaniskt helt men visuellt tunt.**
   1. **P0 ASSETS [blockerande]** — 54 av 63 ingredienser var emoji i en `Text`. Ny
      `ingredienser.js` ritar **alla 63 i sidoprofil** som fristående Graphics (egen silhuett,

@@ -173,7 +173,19 @@ export function createScene(theme = 'sky', opts = {}) {
       paintBand(L.nara.c, L.nara.w, gy + 22, kupoler(t.hills ? 7 : 9, L.nara.w, width), 44, lerpColor(t.groundDark, t.bottom, 0.2))
     }
     const ground = new Graphics()
-    ground.roundRect(-40 - BLEED_X, gy, L.mark.w + 80 + 2 * BLEED_X, groundH + 80 + BLEED_Y, 60).fill(t.ground)
+    // Marken låg i EN ton och var därmed appens sista stora platta yta: den toppade tre
+    // spel direkt (`valpens-bajs` 95 225 px, `studsbollar` 70 290, `domino` 55 343) och
+    // bar långt ner i listan hos resten. Himlen ovanför var redan tonad; marken var inte.
+    //
+    // Ljuset kommer från horisonten, så remsan är ljusast LÄNGST BORT (uppe vid `gy`) och
+    // mörknar mot betraktaren. Den mörka änden är temats EGNA `groundDark` och inte en
+    // procentsats: en fast mörkning hade behövt kalibreras om per tema (`candy` och `warm`
+    // är nästan vita, `night` nästan svart, och samma procent äter olika mycket av dem).
+    // Paletten bär alltså toningen själv, precis som `paintBand` redan gör för djupbanden.
+    //
+    // Delar `skyFill`s cache med flit — en gradient från A till B är samma bakade textur
+    // oavsett vad den målar, så en scen gör fortfarande NOLL texturbakningar vid montering.
+    ground.roundRect(-40 - BLEED_X, gy, L.mark.w + 80 + 2 * BLEED_X, groundH + 80 + BLEED_Y, 60).fill(skyFill(t.ground, lerpColor(t.ground, t.groundDark, 0.8)))
     ground.roundRect(-40 - BLEED_X, gy, L.mark.w + 80 + 2 * BLEED_X, 14, 60).fill({ color: t.groundDark, alpha: 0.5 })
     L.mark.c.addChild(ground)
     if (markstruktur) {

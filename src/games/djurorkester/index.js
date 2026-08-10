@@ -15,6 +15,7 @@ import { lerpColor } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { verticalFill } from '../../lib/form.js'
 
 // Djurdata (delmängd av vilket-djur-later). emoji + fras (lätet rösten "sjunger" om
 // inget riktigt klipp finns) + note (en ton i en C-dur-pentaton skala så vilken
@@ -82,9 +83,13 @@ export default {
     // som på breda telefoner blir synliga lister (kant-cream). Tonen är warm-temats
     // 0xfff0d6, INTE exakt creme — annars går scen och letterbox inte att skilja åt
     // (se kantCream i scripts/bildkoll.mjs).
+    // `_plattprobe --medbakgrund` mätte 387 774 px — 42 % av skärmen — i exakt den
+    // tonen: korten låg tryckta på ett platt papper. Toningen spänner OM 0xfff0d6, så
+    // det är samma varma ton, bara med scenljus i. Cachad per färgpar — noll
+    // texturbakningar per montering.
     const bg = new Graphics()
       .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
-      .fill(0xfff0d6)
+      .fill(verticalFill(0xfff8e7, 0xf6dfb6))
     bg.eventMode = 'none'
     this._root.addChild(bg)
     const palette = PLAYFUL // sex första färgerna räcker till sex distinkta kort

@@ -21,7 +21,7 @@ import { createScene } from '../../lib/scene.js'
 import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration, breathe , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { verticalFillAlpha } from '../../lib/form.js'
+import { verticalFillAlpha, groundFill } from '../../lib/form.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -262,7 +262,10 @@ export default {
     }
 
     // Golv.
-    g.rect(0, 622, 1280, 98).fill(0xdfe7ea)
+    // Badrumsgolvet lag pa 61 880 px i EN ton (`_plattprobe --medbakgrund`) — spelets
+    // storsta falt. Dampad ramp: ytan ar nastan vit och standardvardena (kalibrerade for
+    // mellanmorkt) hade gjort den smutsgra. Se lib/form.js.
+    g.rect(0, 622, 1280, 98).fill(groundFill(0xdfe7ea, { light: 0.06, dark: 0.10 }))
     g.rect(0, 622, 1280, 9).fill(0xc4d5dc)
     for (let x = 40; x < 1280; x += 128) g.rect(x, 631, 5, 89).fill({ color: 0xc4d5dc, alpha: 0.7 })
 

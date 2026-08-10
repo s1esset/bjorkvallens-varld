@@ -17,6 +17,7 @@ import { gsap } from 'gsap'
 import { pop, wiggle, puff, sparkle, floatText, ripple, burst, breathe , kvittera} from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, DESIGN_W } from '../../lib/theme.js'
+import { sphereFill, cylinderFill } from '../../lib/form.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // --- layout (designkoordinater, figur-rummet är centrerat i this._figure) ---
@@ -247,14 +248,21 @@ export default {
     const br = sp.body.r
     p.body = this._g(0, 0)
     p.body
+      // Figuren ar spelets storsta falt (75 809 px, `_plattprobe --medbakgrund`) — men till
+      // skillnad fran en mark eller ett golv ar den ett FOREMAL, och da ar volym ratt svar
+      // i stallet for en plan. Armarna ar ror, kroppen ar ett klot: exakt samma uppdelning
+      // som `mata-monstret` fick i 566e63a. Bada cachas per farg, sa alla fyra arter
+      // kostar en gradient var och inte en per bildruta.
       .roundRect(-bw / 2 - 40, -54, 48, 156, 24)
-      .fill(color)
+      .fill(cylinderFill(color, { dark: 0.22, highlight: 0.2 }))
       .stroke({ width: 8, color: dark })
       .roundRect(bw / 2 - 8, -54, 48, 156, 24)
-      .fill(color)
+      .fill(cylinderFill(color, { dark: 0.22, highlight: 0.2 }))
       .stroke({ width: 8, color: dark })
       .roundRect(-bw / 2, -150, bw, bh, br)
-      .fill(color)
+      // Dampad morkning (0,16, inte 0,26): artfargerna ar PASTELLER, och en kraftig skugga
+      // pa en pastell gar dammig i stallet for rund — samma falla som grusstigen i a1bb4e0.
+      .fill(sphereFill(color, { highlight: 0.3, dark: 0.16 }))
       .stroke({ width: 8, color: dark })
     char.addChild(p.body)
 
@@ -274,7 +282,10 @@ export default {
     this._drawEar(head, sp, color, dark)
 
     p.headG = this._g(0, 0)
-    p.headG.circle(0, 0, sp.headR).fill(color).stroke({ width: 8, color: dark })
+    // Huvudet MASTE ha samma klotfyllning som kroppen. Forsta forsoket tonade bara
+    // kroppen, och figuren blev da inkonsekvent belyst — ett platt huvud pa en rund kropp,
+    // tydligt i skarmdumpen och osynligt i varje matning.
+    p.headG.circle(0, 0, sp.headR).fill(sphereFill(color, { highlight: 0.3, dark: 0.16 })).stroke({ width: 8, color: dark })
     head.addChild(p.headG)
 
     // Björn får en ljus nos.

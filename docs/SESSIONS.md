@@ -14,6 +14,46 @@ Format:
 
 ---
 
+## 2026-08-10 (morgon) · v1.90.0 · Remmen bär kraften över ett gap
+
+**Autonom fortsättning** på nattkörningens kö (`.claude/state/nattkorning.md`), punkt B1.
+
+### `kugghjulen` — drivremmen (`68d4c12`)
+
+Kugghjul kan bara greppa granne mot granne, så maskinen har alltid varit en obruten rad.
+Remmen är den **första delen som bryter det**: den kopplar två hjul som INTE rör varandra,
+och gör det med **samma** rotationsriktning i stället för motsatt.
+
+**Mesh-grafen är generaliserad.** Riktning och utväxling bärs nu av LÄNKEN, inte av djupets
+paritet: kuggar vänder, remmen behåller, och båda för över ytfarten (ω_v = ω_u · r_u / r_v).
+För en ren kuggkedja ger det *exakt* samma tal som förut — därför är alla nivåer utan rem
+oförändrade, vilket också är verifierat i bild.
+
+Ritad ur `lib/rep.js` (två verlet-spann + omslagsbågar), vilket ger gratis den enda egenskap
+som gör en rem läsbar för ett barn: den **hänger slak** när ett hjul saknas och **spänns** i
+samma stund den greppar. Nivå 5 bytte innehåll (tre hjul + gap), gamla femhjulsbygget är
+nivå 6, nivå 7 kombinerar rem med lockpinnar. `_remprobe` 17 mått gröna.
+`spelkritiker`: **klar att committa, inga blockerare** — två av tre förbättringar togs direkt.
+
+### Lärdomen tillhör SONDEN och BILDEN, inte remmen
+Två mått var falskt gröna av mig själv: ytfarten mättes över **två** bildrutor och jämfördes
+mot **en**, dolt av en ±120 %-tolerans (nu ±20 %). Och första skärmdumpen visade en **annan
+nivå i konfetti** — en tidigare mätarm hade vunnit nivån och `_onComplete`s `delayedCall`
+byggde om scenen mitt under exponeringen. **Bilden ändrade koden två gånger** (omslagsbågar
+helt dolda bakom hjullagret; slak rem som hängde från navet i stället för fälgen) — inget
+grönt mått hade fångat något av det.
+
+### `_vevprobe` är rött på HEAD → ÅTGÄRDER V13
+Glappmåttet föll på **båda** armarna i en A/B samma minut (19°/23° vardera). Tröskeln är
+bildrutetaktsberoende — samma kod mätte 12°/17° när `0da667d` skrevs. **Rör inte
+`_stegMaskin` på det fyndet.**
+
+**Öppet:** vevljudet hör inte tyngden (kritikerns tredje punkt, B1) · §4 [Deep] dubbelhjul +
+back-hjul · P3: `trollblandning`, `magnet-fiske` · D1 platta ytor (mätt) · ÅTGÄRDER V10 +
+V13 · MOSS-beroende `saknat-ljudklipp` i fyra spel.
+
+---
+
 ## 2026-08-10 (natt) · v1.89.0 · Nattkörning: P2 klar, P3 inledd, sviten ren
 
 **Autonom nattkörning** med kön i `.claude/state/nattkorning.md`. Sjutton commits.

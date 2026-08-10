@@ -18,6 +18,8 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, sparkle, breathe, ripple, kvittera } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
+import { verticalFill } from '../../lib/form.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Saker som slumpas per runda. Emoji-strängen är bara NYCKELN (NAMES/SAMPLES
 // slår upp på den) — P0 ASSETS: allt RITAS av drawMotif(), aldrig en emoji på
@@ -188,6 +190,33 @@ const SAMPLES = {
   '🐶': 'djur_hund', '🐱': 'djur_katt', '🐸': 'djur_groda', '🚗': 'bil_tut',
 }
 
+// RUMMET. `_plattprobe --medbakgrund` mätte spelet som appens plattaste: 809 744 px —
+// 88 % av hela skärmen — i EN enda ton, och den tonen var skalets `COLORS.bg`. Orsaken
+// var inte en platt yta utan en SAKNAD yta: spelet ritade ingen bakgrund alls, så sakerna
+// svävade i ett cremetomrum utan rum, mark eller skala. Väggen nedan spänner OM den gamla
+// bakgrunden (0xfdf6e3) — samma varma creme, bara med ljus i — så bilden är igenkännlig;
+// det är rummet som tillkommit. Tonerna är cachade per färgpar (`verticalFill`), så en
+// montering kostar NOLL texturbakningar; en obakad gradient per montering fäller sviten.
+const C_WALL_TOP = 0xfffaf0
+const C_WALL_BOT = 0xf1e3c5
+const FLOOR_Y = 648 // horisont: under varje hyllplan, bakom svarskortens nedre halva
+// Golvet ligger MEDVETET nära väggens ton. Ett första försök på 0xe7d0a6 läste som en gul
+// rand tvärs över bilden i stället för som ett golv — kontrasten mot väggen gjorde bandet
+// till ett föremål. Nu skiljer bara ett halvsteg, plus en tunn golvlist.
+const C_FLOOR_TOP = 0xe9d8b8
+const C_FLOOR_BOT = 0xdcc79c
+const C_FLOOR_EDGE = 0xc2a97e
+
+// Hyllplanen. Ett per rad i rutnätet, så sakerna STÅR på något i stället för att sväva.
+// Ett försök med konsoler under planet BACKADES: i den storlek som fick plats lästes de
+// som en vimpel som hängde under plankan, inte som ett fäste. Det som faktiskt gör att
+// plankan läser som en hylla är kontaktskuggorna på ovansidan (se `_makeSlot`) plus
+// slagskuggan under — inte fler detaljer.
+const SHELF_DROP = 60 // planets ovansida strax under motivens fötter (motiv når ~54 px ned)
+const C_SHELF_TOP = 0xd9a873
+const C_SHELF_BOT = 0xbb8752
+const C_SHELF_EDGE = 0x9a6a3c
+
 // Svårigheten växer via fler saker (3→6) och 2-radsuppställning på sista nivån.
 // Antalet "som försvinner" är alltid 1 (passar 3–5 år). Layoutsiffror = designkoord.
 const LEVELS = [
@@ -260,6 +289,29 @@ export default {
     this._newcomer = null
 
     const lvl = LEVELS[this._level]
+
+    // Rummet ritas först, längst bak. Full bleed åt alla håll så en bred telefon aldrig
+    // ser skalets cremekant utanför 0..1280. Se rumsbeskrivningen vid C_WALL_TOP.
+    const room = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
+      .fill(verticalFill(C_WALL_TOP, C_WALL_BOT))
+    room
+      .rect(-BLEED_X, FLOOR_Y, ctx.width + 2 * BLEED_X, ctx.height + BLEED_Y - FLOOR_Y)
+      .fill(verticalFill(C_FLOOR_TOP, C_FLOOR_BOT))
+    room.rect(-BLEED_X, FLOOR_Y - 3, ctx.width + 2 * BLEED_X, 4).fill({ color: C_FLOOR_EDGE, alpha: 0.45 })
+    // Väggen är skärmens största yta — utan handlare vore varje tryck utanför sakerna
+    // obesvarat (P0 ÅTERKOPPLING). Kvitterar ALLTID: en vakt på en upptagen-flagga här
+    // vore precis den döda träffyta `_tystprobe` letar efter.
+    room.eventMode = 'static'
+    this._onRoomTap = (e) => {
+      if (!this._alive) return
+      const p = ctx.fxLayer.toLocal(e.global)
+      kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio, { color: COLORS.yellow, maxR: 70 })
+      this._idle = 0
+    }
+    room.on('pointertap', this._onRoomTap)
+    this._root.addChild(room)
+
     // Rutnätet bor i ett eget lager så vi kan glida upp det när svarskorten kommer.
     this._gridShift = lvl.rows > 1 ? 90 : 0
     this._gridLayer = new Container()
@@ -267,6 +319,10 @@ export default {
 
     const motifs = shuffle(MOTIFS).slice(0, lvl.count)
     const positions = layout(lvl)
+
+    // Hyllplanen ligger i grid-lagret och följer därför automatiskt med när rutnätet
+    // glider upp för svarskorten. Läggs före sakerna så de hamnar bakom dem.
+    for (const s of shelves(lvl)) this._gridLayer.addChild(makeShelf(s.x, s.y, s.w))
     // I 'added'-läget är sista rutan "nykomlingen": den ligger gömd i visa-fasen
     // (ingen studs-in) och dyker fram bakom filten. Sista rutan -> luckan hamnar i
     // radens slut, inte som ett hål mitt bland sakerna.
@@ -311,7 +367,13 @@ export default {
     const emoji = drawMotif(motif)
     emoji.scale.set(1.18)
 
-    slot.addChild(placeholder, emoji)
+    // Kontaktskugga mot hyllplanet. Det är skuggan som gör att saken STÅR på planet i
+    // stället för att sväva ovanför det — motiven är olika höga, så en gemensam skugga
+    // vid planets ovansida bär kontakten bättre än att försöka nudda varje silhuett.
+    const kontakt = new Graphics().ellipse(0, SHELF_DROP - 7, 46, 9).fill({ color: COLORS.shadow, alpha: 0.13 })
+    kontakt.eventMode = 'none'
+
+    slot.addChild(kontakt, placeholder, emoji)
     slot._placeholder = placeholder
     slot._emoji = emoji
 
@@ -681,6 +743,36 @@ function layout(lvl) {
   return out
 }
 
+// Ett hyllplan per rad i rutnätet, lika brett som raden + ett litet överhäng. Måtten
+// följer nivåns egen layout, så planen sitter rätt oavsett 3, 4, 5 eller 6 saker.
+// Bredden landar med flit inom filtens täckyta (`bounds`), så filten drar sig över hela
+// hyllan och inte bara över sakerna som står på den.
+function shelves(lvl) {
+  const stepX = lvl.cellW + lvl.gap
+  const stepY = lvl.rowStep || lvl.cellW + lvl.gap
+  const w = (lvl.cols - 1) * stepX + lvl.cellW + 60
+  const x = lvl.startX + ((lvl.cols - 1) * stepX) / 2
+  const out = []
+  for (let r = 0; r < lvl.rows; r++) out.push({ x, y: lvl.startY + r * stepY + SHELF_DROP, w })
+  return out
+}
+
+// Ett hyllplan: skugga under, tonad ovansida (ljus bak -> mörk framkant = tjocklek),
+// mörkt kantband och en ljus linje längst upp där planet fångar ljuset.
+function makeShelf(x, y, w) {
+  const c = new Container()
+  c.position.set(x, y)
+  const g = new Graphics()
+  g.ellipse(0, 34, w / 2 - 14, 12).fill({ color: COLORS.shadow, alpha: 0.09 })
+  g.roundRect(-w / 2, 0, w, 26, 9).fill(verticalFill(C_SHELF_TOP, C_SHELF_BOT))
+  g.roundRect(-w / 2, 17, w, 9, 4).fill({ color: C_SHELF_EDGE, alpha: 0.5 })
+  g.roundRect(-w / 2 + 8, 2, w - 16, 3, 1.5).fill({ color: COLORS.white, alpha: 0.38 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  return c
+}
+
 // Filtens täckyta utifrån sakernas positioner (+ halv cell + 40px marginal).
 function bounds(slots) {
   const margin = 40
@@ -696,7 +788,11 @@ function bounds(slots) {
 // Tom, ljus platshållare: rundad cirkel (cream) med blek kant + blekt "❔".
 function makePlaceholder() {
   const c = new Container()
-  const g = new Graphics().circle(0, 0, 80).fill(COLORS.cream).stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.5 })
+  // Radien var 80 och gjorde platshållaren till scenens största föremål — den sjönk ned
+  // GENOM hyllplanet medan varje riktigt motiv når ~54 px ut. 62 sätter den i samma skala
+  // som sakerna och låter den vila på planet. Träffytan sitter på sloten (HALF=95), inte
+  // här, så den krymper inte.
+  const g = new Graphics().circle(0, 0, 62).fill(COLORS.cream).stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.5 })
   g.eventMode = 'none'
   // Ritat frågetecken (var ❔) — blekt, som en tom plats som väntar.
   const q = new Graphics()

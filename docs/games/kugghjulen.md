@@ -72,9 +72,9 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   märkbart (snabbare veva → gladare karusell-musik/fart) så vevandet blir uttrycksfullt.
 
 ### Variation & överraskning
-- **[Deep] Special-hjul per nivå:** en **rem/kedja** som överbryggar ett gap mellan två pinnar,
-  ett **dubbelhjul** som driver två grenar, ett **back-hjul** som vänder en karusell. Gör senare
-  nivåer kvalitativt nya, inte bara längre.
+- ~~**[Deep] Special-hjul per nivå:** en **rem/kedja** som överbryggar ett gap mellan två
+  pinnar~~ ✅ v1.90.0 — remmen finns (nivå 5 och 7). Kvar av punkten: ett **dubbelhjul** som
+  driver två grenar och ett **back-hjul** som vänder en karusell.
 - **[Quick] Olika mål-belöningar:** karusellen byts mot pariserhjul/hiss/musikspel som målhjulet
   driver — variera vad maskinen *gör*.
 
@@ -101,6 +101,52 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   "maskinen drar igång"-svep när vevningen startar.
 
 ## 5. Status / loggar
+
+- 2026-08-10 ✅ **Drivremmen över gapet** (v1.90.0, spår 3 runda P3, §4 [Deep] "Special-hjul
+  per nivå" — remmen avbockad, dubbelhjul och back-hjul kvar). Kugghjul kan bara greppa
+  granne mot granne, så maskinen har alltid varit en obruten rad. Remmen är den första
+  delen som bryter det: den kopplar två hjul som INTE rör varandra, och den gör det med
+  **samma** rotationsriktning i stället för motsatt.
+  - **Mesh-grafen är generaliserad.** Riktning och utväxling bärs nu av LÄNKEN, inte av
+    djupets paritet: kuggar vänder, remmen behåller, och båda för över ytfarten
+    (ω_v = ω_u · r_u / r_v). För en ren kuggkedja ger det exakt samma tal som förut —
+    remmen är enda stället de skiljer sig åt, så nivåerna utan rem är oförändrade.
+  - **Nivåkurvan:** 1–4 bygger upp kugg-mot-kugg som förut. **Nivå 5 bytte innehåll** —
+    i stället för fem hjul i rad är det tre hjul och ett gap. Det gamla femhjulsbygget
+    lever kvar som nivå 6, och nivå 7 kombinerar rem med två lockpinnar. Senare nivåer
+    ska bli kvalitativt nya, inte bara längre.
+  - **Ritad ur `lib/rep.js`:** två verlet-spann mellan tangentpunkterna plus omslags-
+    bågarna. Det ger gratis den enda egenskap som gör en rem läsbar för ett barn — den
+    HÄNGER slak när ett hjul saknas och spänns i samma stund den greppar.
+  - **Uppmätt** (`node scripts/_remprobe.mjs`, 17 mått): gapet **190 px för långt** för att
+    kunna greppas · kedjan bevisat bruten med alla hjul på plats men utan rem · hjulen
+    kring remmen **−1,00 och −1,32** (samma tecken) medan kuggparen fortfarande vänder ·
+    utväxling **1,32 = r_a/r_b** · remmen löper **8,20 px/bildruta mot ω·r = 7,92** ·
+    sag **1,30× hängande → 1,01× spänd** · tröghet **4,12 med rem mot 3,57 utan** ·
+    nivån vevas klar på 57 bildrutor · auto-hjälpen lägger remmen · 0 konsolfel vid exit.
+  - **P0:** remrullens träffyta ⌀140, remspårets ⌀100, och **33 px luft** till närmaste
+    pinnhål (krav ≥24) — mätt som permanent vakt i sonden. Hyllplatsen göms när remmen
+    är förbrukad; ett tryck där faller igenom till fångaren och kvitteras med `soft`.
+  - ⚠️ **Två sondfällor, båda mina, och båda syntes bara för att jag tittade:**
+    ytfartsmåttet mätte över TVÅ bildrutor och jämförde mot EN — falskt grönt, dolt av en
+    slapp tolerans (±120 %, nu ±20 %). Och första skärmdumpen visade en **annan nivå i
+    konfetti**: en tidigare mätarm hade vunnit nivån, och `_onComplete`s `delayedCall`
+    byggde om scenen mitt under exponeringen. Bilder måste tas på en nyladdad sida.
+  - ⚠️ **Bilden ändrade koden två gånger.** Omslagsbågarna ritades på hjulets egen radie
+    och var därför helt dolda bakom hjullagret — banden slutade tvärt vid varje fälg.
+    Nu löper de på r + 9 px, utanför kuggarna. Och en slak rem hängde från NAVET; den
+    fäster nu på fälgen, som en rem gör.
+  - **`spelkritiker`: klar att committa, inga blockerare.** Två av tre förbättringar togs
+    direkt: remspårets ring andades från nivåstart och tävlade med spök-kuggen om blicken
+    (vaknar nu först när remmen faktiskt är nästa del), och ett barn vars sparfil stod på
+    gamla nivå 5 mötte remmen utan att någon introducerat den (ny replik "Ta remmen! Den
+    når ända över.", en gång per remnivå — per nivå och inte per livstid, eftersom en
+    treåring inte minns mellan sessionerna). Kvar ur kritiken: **vevljudet hör inte
+    tyngden** — samma `tap` var 140:e ms oavsett om maskinen är en tom vev eller ett
+    femhjulsbygge. Det hör till nästa tröghetsrunda, inte till remmen.
+  - ⚠️ `_vevprobe`s mått "handtaget ligger inte kvar efter fingret" är **rött även på
+    HEAD** på den här maskinen (A/B samma minut: 19°/23° på båda armarna). Tröskeln är
+    bildrutetaktsberoende — se ÅTGÄRDER **V13**. Rör inte `_stegMaskin` på det fyndet.
 
 - 2026-08-10 ✅ **Maskinen har tröghet** (v1.89.0, spår 3 runda P3). Förut satte fingret
   vinkeln rakt av (`_crankAngle += d`): en ensam vev och en maskin med fem hjul kändes

@@ -14,6 +14,7 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
+import { Rep, ritaRep } from '../../lib/rep.js'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, puff, sparkle, burst, breathe, bigCelebration, floatText, ripple , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
@@ -38,6 +39,30 @@ const SIZES = {
 }
 // 660 klippte det stora L-kugghjulet (r=84 + kuggar) mot skärmkanten på 720.
 const TRAY_Y = 624
+const REM_X = 1030 // remmens plats på hyllan (170 px från L → 30 px mellan träffytorna)
+
+// --- Drivremmen (`lib/rep.js`) --------------------------------------------
+//
+// Kugghjul kan bara greppa granne mot granne. Remmen är spelets FÖRSTA del som
+// överbryggar ett GAP: två hjul som inte rör varandra kopplas ändå ihop — och de
+// snurrar då åt SAMMA håll i stället för åt motsatt, vilket är hela dess poäng
+// och det enda stället i spelet där riktningen bryter mönstret.
+const REM_GAP = 190 // px mellan kuggkransarna i ett remspann (se `_buildChainPegs`)
+const REM_COLOR = 0x4a4f5c // mörkt gummi
+const REM_LUGG = 0x8b95a3 // ribborna som gör farten synlig
+const REM_BREDD = 13 // remmens tjocklek
+const REM_LUGG_AVST = 30 // px mellan ribborna
+const REM_TROGHET = 0.55 // remmen väger också något (mätt i `_remprobe.mjs`)
+const REM_SPAND = 0.99 // `Rep.spann`-sag när remmen greppar: nästan spikrak
+const REM_SLAK = 1.3 // ...och när ett hjul saknas: den hänger synligt slak
+const REM_PUNKTER = 12 // punkter per remspann (två spann när den greppar)
+const REM_SNAPP = 70 // släpp-radie för remspåret (pinnarnas är 80 → ingen överlappning)
+// ⚠️ REMMEN MÅSTE LÖPA UTANFÖR KUGGARNA FÖR ATT SYNAS. Först ritades omslaget på
+// hjulets egen radie — och eftersom hjulen ligger i ett lager OVANFÖR remmen var
+// bågarna helt dolda: banden slutade tvärt vid varje fälg i stället för att gå runt.
+// Kuggarnas ytterkant ligger på r + 0,12·r (8 px vid r = 66), så 9 px lyfter bandet
+// precis utanför dem. Utväxlingen räknas fortfarande på hjulens RIKTIGA radier.
+const REM_LYFT = 9
 
 // Maskinens tröghet (se `_stegMaskin`). Talen är mätta i `scripts/_vevprobe.mjs`.
 // ⚠️ KOPPLINGEN MÅSTE ORKA DRA DET TYNGSTA BYGGET SJÄLV. Med 0,12 blev momentet vid
@@ -96,6 +121,7 @@ export default {
     this._cranking = false
     this._lastCrankSound = 0
     this._jitter = false
+    this._rem = null
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -134,6 +160,13 @@ export default {
 
     this._pegLayer = new Container()
     this._root.addChild(this._pegLayer)
+
+    // Remmen ligger UNDER hjulen: den ska försvinna in bakom kuggkransen där den
+    // löper runt, precis som en riktig rem gör.
+    this._remLayer = new Container()
+    this._remLayer.eventMode = 'none'
+    this._remLayer.interactiveChildren = false
+    this._root.addChild(this._remLayer)
 
     this._gearLayer = new Container()
     this._root.addChild(this._gearLayer)
@@ -233,6 +266,16 @@ export default {
       this._trayLayer.addChild(view)
       this._dispensers[size] = { view, size, home: { x: def.x, y: TRAY_Y }, rec: null, hint: null }
     }
+    // Remmen i hyllan — en hoprullad gummirem, ritad fristående (P0 ASSETS).
+    // Syns bara på de nivåer som HAR ett gap; annars är den en död yta.
+    const remView = makeRemRulle()
+    remView.position.set(REM_X, TRAY_Y)
+    remView.eventMode = 'none'
+    remView.cursor = 'pointer'
+    remView.hitArea = new Circle(0, 0, 70)
+    remView.visible = false
+    this._trayLayer.addChild(remView)
+    this._dispensers.REM = { view: remView, size: 'REM', home: { x: REM_X, y: TRAY_Y }, rec: null, hint: null }
 
     this._drag = new DragController({ space: this._root, services: ctx.services, skugga: true })
 
@@ -269,11 +312,12 @@ export default {
     this._stuck = 0
     this._jitter = level > 5
 
-    const { solution, T, decoys } = this._buildChainPegs(level)
+    const { solution, T, decoys, rem } = this._buildChainPegs(level)
     this._solutionPegs = solution
     this._T = T
 
-    // Rita pinn-hål + registrera som drop-mål.
+    // Rita pinn-hål + registrera som drop-mål. `accepts` skiljer nu på delarna:
+    // ett kugghjul hör hemma på en pinne, remmen i sitt spår (och tvärtom).
     const allPegs = [...solution.map((s) => s.peg), ...decoys]
     for (const peg of allPegs) {
       const hole = new Graphics()
@@ -285,8 +329,11 @@ export default {
       hole._peg = peg
       this._pegLayer.addChild(hole)
       this._pegViews.push(hole)
-      this._drag.addTarget(hole, () => !this._resolving, { hitRadius: 80 })
+      this._drag.addTarget(hole, (d) => !this._resolving && !!d?.size, { hitRadius: 80 })
     }
+
+    this._positionMachine()
+    if (rem) this._setupRem(rem)
 
     // (Åter)registrera dispensrar som drag-källor.
     for (const size of ['S', 'M', 'L']) {
@@ -302,8 +349,21 @@ export default {
         onMiss: (rec) => this._missDispenser(ctx, rec),
       })
     }
+    const dr = this._dispensers.REM
+    gsap.killTweensOf(dr.view)
+    gsap.killTweensOf(dr.view.scale)
+    dr.view.position.set(dr.home.x, dr.home.y)
+    dr.view.scale.set(1)
+    dr.view.rotation = 0
+    dr.view.visible = !!rem
+    dr.view.eventMode = rem ? 'static' : 'none'
+    dr.rec = rem
+      ? this._drag.addItem(dr.view, { rem: true }, {
+        onCorrect: (rec) => this._placeRemFromDispenser(ctx, rec),
+        onMiss: (rec) => this._missDispenser(ctx, rec),
+      })
+      : null
 
-    this._positionMachine()
     this._rebuildMesh(ctx)
   },
 
@@ -318,6 +378,7 @@ export default {
     if (this._ghost && !this._ghost.destroyed) this._ghost.destroy()
     this._ghost = null
     this._stopDispenserHints()
+    this._clearRem()
     for (const v of this._pegViews) if (v && !v.destroyed) v.destroy()
     this._pegViews = []
     for (const o of [this._carousel, this._elvira, this._flag, this._targetWheel]) {
@@ -329,17 +390,29 @@ export default {
   },
 
   // Marschera pinnar från veven: varje granne-par greppar (mittavstånd = r_a+r_b).
+  // EN länk kan i stället vara ett REMSPANN: då läggs `REM_GAP` till avståndet, så
+  // hjulen omöjligt kan nå varandra och remmen är den enda vägen över.
+  //
+  // Länk k kopplar nod k till nod k+1, där nod 0 = veven, nod j = `solution[j-1]`
+  // och sista noden = målhjulet. `pat.rem` är alltså ett LÄNK-index, inte ett hjul.
   _buildChainPegs(level) {
     const pat = this._pattern(level)
+    const sizes = pat.sizes
+    const remLink = pat.rem == null ? -1 : pat.rem
     let px = C.x
     let py = C.y
     let pr = R0
     const solution = []
-    for (let i = 0; i < pat.length; i++) {
-      const size = pat[i]
+    for (let i = 0; i < sizes.length; i++) {
+      const size = sizes[i]
       const r = SIZES[size].r
-      const d = pr + r // mittavstånd som ger exakt mesh
-      const alpha = (i % 2 === 0 ? 1 : -1) * 0.05 + (this._jitter ? (Math.random() * 2 - 1) * 0.02 : 0)
+      const belt = i === remLink
+      const d = pr + r + (belt ? REM_GAP : 0) // mittavstånd som ger exakt mesh (eller gap)
+      // Remspannet lutas tydligt: en rem som går snett LÄSER som en rem, en vågrät
+      // läser som ett streck mellan två hjul.
+      const alpha = belt
+        ? (i % 2 === 0 ? -1 : 1) * 0.2
+        : (i % 2 === 0 ? 1 : -1) * 0.05 + (this._jitter ? (Math.random() * 2 - 1) * 0.02 : 0)
       px += d * Math.cos(alpha)
       py += d * Math.sin(alpha)
       const peg = { x: px, y: clamp(py, 210, 560), gear: null }
@@ -348,24 +421,40 @@ export default {
       pr = r
     }
     // Målhjulet så avståndet från sista hjulet = r_sista + RT (greppar).
-    const dT = pr + RT
+    const dT = pr + RT + (remLink === sizes.length ? REM_GAP : 0)
     const T = { x: px + dT * Math.cos(0.04), y: clamp(py + dT * Math.sin(0.04), 210, 540) }
 
     // Decoy-pinnar (lock): en extra tom väg som inte leder till målet.
     const decoys = []
-    const nDecoy = level >= 5 ? 2 : level >= 4 ? 1 : 0
+    const nDecoy = pat.decoys == null ? (level >= 5 ? 2 : level >= 4 ? 1 : 0) : pat.decoys
     for (let k = 0; k < nDecoy; k++) {
       const base = solution[Math.min(solution.length - 1, 1 + k)].peg
       const off = (k % 2 === 0 ? 1 : -1) * 130
       decoys.push({ x: clamp(base.x + (Math.random() * 40 - 20), 200, 1120), y: clamp(base.y + off, 210, 560), gear: null })
     }
-    return { solution, T, decoys }
+
+    const rem = remLink < 0 ? null : {
+      link: remLink,
+      aRef: remLink === 0 ? { kind: 'crank' } : { kind: 'gear', index: remLink - 1 },
+      bRef: remLink === sizes.length ? { kind: 'target' } : { kind: 'gear', index: remLink },
+    }
+    return { solution, T, decoys, rem }
   },
 
+  // Nivå 5 byter det gamla femhjulsbygget mot remmen: senare nivåer ska bli
+  // KVALITATIVT nya, inte bara längre. Det långa bygget finns kvar som nivå 6.
   _pattern(level) {
-    const base = { 1: ['M'], 2: ['M', 'L'], 3: ['L', 'M', 'L'], 4: ['M', 'L', 'S', 'M'], 5: ['M', 'L', 'M', 'L', 'M'] }
-    if (level <= 5) return base[level]
-    return randomFrom([base[3], base[4], base[5]])
+    const base = {
+      1: { sizes: ['M'] },
+      2: { sizes: ['M', 'L'] },
+      3: { sizes: ['L', 'M', 'L'] },
+      4: { sizes: ['M', 'L', 'S', 'M'] },
+      5: { sizes: ['M', 'S', 'M'], rem: 1, decoys: 1 }, // remmen introduceras ensam
+      6: { sizes: ['M', 'L', 'M', 'L', 'M'] }, // det långa bygget (var nivå 5)
+      7: { sizes: ['L', 'M', 'S'], rem: 2, decoys: 2 }, // rem + lock tillsammans
+    }
+    if (level <= 7) return base[level]
+    return randomFrom([base[4], base[5], base[6], base[7]])
   },
 
   _positionMachine() {
@@ -381,6 +470,326 @@ export default {
     this._pole.moveTo(T.x, T.y - 30).lineTo(T.x, FLAG_TOP_Y).stroke({ width: 10, color: COLORS.inkSoft })
     this._flagBottom = T.y - 40
     this._flag.position.set(T.x, this._flagBottom)
+  },
+
+  // ---- Drivremmen ---------------------------------------------------------
+  //
+  // Kugghjulen kan bara greppa granne mot granne, så maskinen har hittills alltid
+  // varit en obruten rad. Remmen är den första delen som bryter det: den kopplar
+  // två hjul som INTE rör varandra, och den gör det med SAMMA rotationsriktning
+  // (kuggar vänder, en rem behåller). Utväxlingen är densamma — ytfarten är
+  // gemensam, alltså ω_b = ω_a · r_a / r_b — så det enda som skiljer är tecknet.
+  //
+  // Remmen ritas ur `lib/rep.js`: två verlet-spann mellan tangentpunkterna plus
+  // omslagsbågarna på hjulen. Det ger gratis den enda egenskap som gör en rem
+  // läsbar för ett barn: när ett hjul saknas HÄNGER den slak, och i samma stund
+  // den greppar spänns den.
+
+  _setupRem(rem) {
+    const A = this._remNod(rem.aRef)
+    const B = this._remNod(rem.bRef)
+    rem.slot = { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 }
+    rem.placed = false
+    rem.gripping = false
+    rem._greppFore = false
+    rem._seedad = false
+    rem.phase = 0
+    const repOpt = { n: REM_PUNKTER, grav: 0.3, damp: 0.94, iter: 10, maxSpeed: 40 }
+    rem.repA = new Rep(repOpt)
+    rem.repB = new Rep(repOpt)
+
+    rem.ghost = new Graphics()
+    this._remLayer.addChild(rem.ghost)
+    rem.view = new Graphics()
+    rem.view.visible = false
+    this._remLayer.addChild(rem.view)
+
+    // Remspåret: dit remmen ska. Ritad markör (≥96 px träffyta) som andas lugnt.
+    const slot = new Graphics()
+    slot.circle(0, 0, 34).stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.55 })
+    slot.circle(0, 0, 21).stroke({ width: 4, color: COLORS.inkSoft, alpha: 0.35 })
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2
+      slot.moveTo(Math.cos(a) * 21, Math.sin(a) * 21).lineTo(Math.cos(a) * 34, Math.sin(a) * 34)
+    }
+    slot.stroke({ width: 3, color: COLORS.inkSoft, alpha: 0.35 })
+    slot.position.set(rem.slot.x, rem.slot.y)
+    slot.hitArea = new Circle(0, 0, 50)
+    this._pegLayer.addChild(slot)
+    rem.slotView = slot
+    rem.slotBreathe = null
+    rem._sagt = false
+    // ⚠️ RINGEN FÅR INTE ANDAS FRÅN NIVÅSTART. Då pulsar den samtidigt som spök-kuggen
+    // på första pinnen, och två pulserande mål tävlar om blicken innan barnet ens lagt
+    // sitt första hjul. Den vaknar i `_updateHint`, när remmen FAKTISKT är nästa del.
+    this._drag.addTarget(slot, (d) => !this._resolving && !!d?.rem, { hitRadius: REM_SNAPP })
+
+    this._rem = rem
+  },
+
+  _clearRem() {
+    const rem = this._rem
+    this._rem = null
+    if (!rem) return
+    rem.slotBreathe?.kill?.()
+    rem.hint?.kill?.()
+    rem.flyg?.kill?.()
+    for (const v of [rem.view, rem.ghost, rem.slotView]) {
+      if (v && !v.destroyed) {
+        gsap.killTweensOf(v)
+        gsap.killTweensOf(v.scale)
+        v.destroy()
+      }
+    }
+    rem.repA?.destroy?.()
+    rem.repB?.destroy?.()
+  },
+
+  // Var remmens ände sitter just nu. `ok` = det finns ett hjul att löpa runt;
+  // utan hjul faller radien ihop till pinnen och remmen hänger slak därifrån.
+  _remNod(ref) {
+    if (ref.kind === 'crank') return { x: C.x, y: C.y, r: R0, ok: true }
+    if (ref.kind === 'target') return { x: this._T.x, y: this._T.y, r: RT, ok: true }
+    const peg = this._solutionPegs[ref.index]?.peg
+    if (!peg) return { x: C.x, y: C.y, r: 16, ok: false }
+    // Vilket hjul som helst duger — en rem bryr sig inte om kuggar, bara om en fälg.
+    return { x: peg.x, y: peg.y, r: peg.gear ? peg.gear.r : 16, ok: !!peg.gear }
+  },
+
+  _remNodIndex(ref, nodes) {
+    if (ref.kind === 'crank') return 0
+    if (ref.kind === 'target') return nodes.length - 1
+    const peg = this._solutionPegs[ref.index]?.peg
+    if (!peg || !peg.gear) return -1
+    return nodes.findIndex((nd) => nd.peg === peg)
+  },
+
+  // Vinkelfarten hos en ände (rad/bildruta) — remmens ytfart är ω · r.
+  _remOmega(ref) {
+    if (ref.kind === 'crank') return this._crankVel
+    if (ref.kind === 'target') return this._crankVel * this._targetFactor
+    const g = this._solutionPegs[ref.index]?.peg?.gear
+    if (!g) return 0
+    return g.driven ? this._crankVel * g.factor : g.freeVel
+  },
+
+  _placeRemFromDispenser(ctx, rec) {
+    this._resetDispenser(rec)
+    if (!this._alive) return
+    this._placeRem(ctx)
+  },
+
+  _placeRem(ctx) {
+    const rem = this._rem
+    if (!this._alive || !rem || rem.placed) return
+    rem.placed = true
+    rem._seedad = false
+    rem.view.visible = true
+    if (rem.ghost && !rem.ghost.destroyed) rem.ghost.visible = false
+    rem.slotBreathe?.kill()
+    rem.slotBreathe = null
+    if (rem.slotView && !rem.slotView.destroyed) {
+      rem.slotView.visible = false
+      rem.slotView.eventMode = 'none'
+    }
+    // Remmen är förbrukad — hyllplatsen ska inte bli en död yta att trycka på.
+    const dr = this._dispensers.REM
+    if (dr?.view && !dr.view.destroyed) {
+      dr.hint?.kill()
+      dr.hint = null
+      dr.view.visible = false
+      dr.view.eventMode = 'none'
+    }
+    this._idle = 0
+    this._helpIdle = 0
+    this._stuck = 0
+    ctx.services.audio.sfx('pop')
+    sparkle(ctx.fxLayer, rem.slot.x, rem.slot.y, { count: 6 })
+    this._rebuildMesh(ctx)
+  },
+
+  // Remmen slöt kedjan: ett gummiartat "flopp" i stället för kuggarnas klonk.
+  _onRemGrips(ctx) {
+    const rem = this._rem
+    if (!rem) return
+    ctx.services.audio.sfx('match')
+    ctx.services.audio.tone?.({ freq: 210, slideTo: 96, dur: 0.22, type: 'sine', vol: 0.45 })
+    sparkle(ctx.fxLayer, rem.slot.x, rem.slot.y, { count: 8 })
+    ctx.services.voice.say('Remmen sitter!')
+  },
+
+  // Auto-hjälpen lägger remmen åt barnet (no-fail) — samma flygning som ett hjul.
+  _autoRem(ctx) {
+    const rem = this._rem
+    const dr = this._dispensers.REM
+    if (!rem || rem.placed || !dr?.view || dr.view.destroyed) return
+    ctx.services.voice.say('Titta!')
+    floatText(ctx.fxLayer, dr.home.x, dr.home.y - 50, 'Titta!')
+    const st = { x: dr.home.x, y: dr.home.y }
+    dr.view.visible = true
+    rem.flyg = gsap.to(st, {
+      x: rem.slot.x, y: rem.slot.y, duration: 0.7, ease: 'power2.inOut',
+      onUpdate: () => {
+        if (!this._alive || dr.view.destroyed) {
+          rem.flyg?.kill()
+          return
+        }
+        dr.view.position.set(st.x, st.y)
+      },
+      onComplete: () => {
+        rem.flyg = null
+        if (!this._alive || dr.view.destroyed) return
+        dr.view.position.set(dr.home.x, dr.home.y)
+        this._placeRem(ctx)
+      },
+    })
+    this._stuck = 0
+    this._idle = 0
+    this._helpIdle = 0
+  },
+
+  // ---- Remmen per bildruta -------------------------------------------------
+
+  _stegRem(dt) {
+    const rem = this._rem
+    if (!rem || !rem.view || rem.view.destroyed) return
+    const A = this._remNod(rem.aRef)
+    const B = this._remNod(rem.bRef)
+
+    // Bandet löper strax utanför kuggarna (se REM_LYFT); fysiken rör inte radierna.
+    const AL = { ...A, r: A.r + REM_LYFT }
+    const BL = { ...B, r: B.r + REM_LYFT }
+
+    if (!rem.placed) {
+      // Spökrutt: visar VAR remmen kommer att löpa, redan innan den finns.
+      if (rem.ghost && !rem.ghost.destroyed) {
+        const g = rem.ghost.clear()
+        g.alpha = 0.22
+        this._ritaRemBana(g, AL, BL, A.ok && B.ok, REM_BREDD * 0.7, null)
+      }
+      return
+    }
+
+    const griper = A.ok && B.ok
+    // Remmens ytfart följer den ände som faktiskt driver.
+    const yta = this._remOmega(rem.aRef) * A.r || this._remOmega(rem.bRef) * B.r
+    rem.phase += yta * dt
+
+    if (!rem._seedad || rem._griperFore !== griper) {
+      this._seedRem(rem, AL, BL, griper)
+      rem._seedad = true
+      rem._griperFore = griper
+    }
+    this._ritaRemBana(rem.view.clear(), AL, BL, griper, REM_BREDD, rem, dt)
+  },
+
+  // Lägg repets punkter längs den räta linjen de ska spännas mellan — annars
+  // piskar remmen in från förra bildrutans form när den byter läge.
+  _seedRem(rem, A, B, griper) {
+    const spann = griper ? remTangenter(A, B) : null
+    const fri = griper ? null : remFriaAndar(A, B)
+    const lagg = (rep, ax, ay, bx, by) => {
+      rep.pts = []
+      for (let i = 0; i < rep.n; i++) {
+        const u = i / (rep.n - 1)
+        const x = ax + (bx - ax) * u
+        const y = ay + (by - ay) * u
+        rep.pts.push({ x, y, px: x, py: y })
+      }
+    }
+    if (griper) {
+      lagg(rem.repA, spann.t1.ax, spann.t1.ay, spann.t1.bx, spann.t1.by)
+      lagg(rem.repB, spann.t2.ax, spann.t2.ay, spann.t2.bx, spann.t2.by)
+    } else {
+      lagg(rem.repA, fri.ax, fri.ay, fri.bx, fri.by)
+    }
+  },
+
+  // Ritar remmen (eller dess spöke). `rem === null` ⇒ bara konturen, ingen fysik.
+  _ritaRemBana(g, A, B, griper, bredd, rem, dt = 1) {
+    const mork = darken(REM_COLOR, 0.4)
+    if (!griper) {
+      // Ett hjul saknas: remmen hänger slak från den fälg som FINNS ned till den
+      // tomma pinnen — synligt "inte klar än", och den hänger från kanten, inte
+      // från navet (en rem sitter på fälgen).
+      const fri = remFriaAndar(A, B)
+      if (rem) {
+        rem.repA.spann(fri.ax, fri.ay, fri.bx, fri.by, REM_SLAK)
+        rem.repA.steg(dt)
+        ritaRep(g, rem.repA, { width: bredd, color: REM_COLOR, dager: 0.2 })
+      } else {
+        const mx = (fri.ax + fri.bx) / 2
+        const my = (fri.ay + fri.by) / 2 + Math.hypot(fri.bx - fri.ax, fri.by - fri.ay) * 0.16
+        g.moveTo(fri.ax, fri.ay).quadraticCurveTo(mx, my, fri.bx, fri.by).stroke({ width: bredd, color: REM_COLOR, cap: 'round' })
+      }
+      return
+    }
+
+    const { beta, psi, t1, t2 } = remTangenter(A, B)
+    const bagA = (gg) => gg
+      .moveTo(A.x + A.r * Math.cos(beta + psi), A.y + A.r * Math.sin(beta + psi))
+      .arc(A.x, A.y, A.r, beta + psi, beta + Math.PI * 2 - psi)
+    const bagB = (gg) => gg
+      .moveTo(B.x + B.r * Math.cos(beta - psi), B.y + B.r * Math.sin(beta - psi))
+      .arc(B.x, B.y, B.r, beta - psi, beta + psi)
+
+    if (rem) {
+      rem.repA.spann(t1.ax, t1.ay, t1.bx, t1.by, REM_SPAND)
+      rem.repB.spann(t2.ax, t2.ay, t2.bx, t2.by, REM_SPAND)
+      rem.repA.steg(dt)
+      rem.repB.steg(dt)
+    }
+
+    bagA(g)
+    bagB(g)
+    g.stroke({ width: bredd + 3, color: mork, cap: 'round' })
+    bagA(g)
+    bagB(g)
+    g.stroke({ width: bredd, color: REM_COLOR, cap: 'round' })
+
+    if (rem) {
+      ritaRep(g, rem.repA, { width: bredd, color: REM_COLOR, dager: 0.22 })
+      ritaRep(g, rem.repB, { width: bredd, color: REM_COLOR, dager: 0.22 })
+      this._ritaRibbor(g, rem)
+    } else {
+      g.moveTo(t1.ax, t1.ay).lineTo(t1.bx, t1.by)
+      g.moveTo(t2.ax, t2.ay).lineTo(t2.bx, t2.by)
+      g.stroke({ width: bredd, color: REM_COLOR, cap: 'round' })
+    }
+  },
+
+  // Ribborna gör FARTEN synlig: utan dem är en rem i rörelse en stillastående linje.
+  // De två spannen löper åt motsatt håll runt slingan, därav `riktning`.
+  _ritaRibbor(g, rem) {
+    let nagon = false
+    for (const [rep, riktning] of [[rem.repA, 1], [rem.repB, -1]]) {
+      const S = REM_LUGG_AVST
+      const off = (((rem.phase * riktning) % S) + S) % S
+      const pts = rep.pts
+      let dist = 0
+      let nasta = off
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i]
+        const b = pts[i + 1]
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const L = Math.hypot(dx, dy)
+        if (L < 0.001) continue
+        while (nasta < dist + L) {
+          const u = (nasta - dist) / L
+          const h = REM_BREDD * 0.42
+          const nx = (-dy / L) * h
+          const ny = (dx / L) * h
+          const x = a.x + dx * u
+          const y = a.y + dy * u
+          g.moveTo(x - nx, y - ny).lineTo(x + nx, y + ny)
+          nasta += S
+          nagon = true
+        }
+        dist += L
+      }
+    }
+    if (nagon) g.stroke({ width: 3, color: REM_LUGG, alpha: 0.85, cap: 'round' })
   },
 
   // ---- Placera hjul från en dispenser -------------------------------------
@@ -519,22 +928,36 @@ export default {
   // ---- Mesh-graf: vilka hjul greppar och drivs av veven -------------------
 
   _rebuildMesh(ctx) {
-    const crankNode = { x: C.x, y: C.y, r: R0, gear: null }
-    const targetNode = { x: this._T.x, y: this._T.y, r: RT, gear: null }
-    const gearNodes = this._gears.map((g) => ({ x: g.peg.x, y: g.peg.y, r: g.r, gear: g }))
+    const crankNode = { x: C.x, y: C.y, r: R0, gear: null, peg: null }
+    const targetNode = { x: this._T.x, y: this._T.y, r: RT, gear: null, peg: null }
+    const gearNodes = this._gears.map((g) => ({ x: g.peg.x, y: g.peg.y, r: g.r, gear: g, peg: g.peg }))
     const nodes = [crankNode, ...gearNodes, targetNode]
     const n = nodes.length
 
     const adj = nodes.map(() => [])
+    const lank = (i, j, rem) => {
+      adj[i].push({ to: j, rem })
+      adj[j].push({ to: i, rem })
+    }
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
         const a = nodes[i]
         const b = nodes[j]
         const dist = Math.hypot(a.x - b.x, a.y - b.y)
-        if (Math.abs(dist - (a.r + b.r)) < MESH_TOL) {
-          adj[i].push(j)
-          adj[j].push(i)
-        }
+        if (Math.abs(dist - (a.r + b.r)) < MESH_TOL) lank(i, j, false)
+      }
+    }
+
+    // Remmen är en länk som geometrin aldrig kan ge: den kopplar två hjul som
+    // ligger `REM_GAP` px för långt isär för att kunna greppa.
+    const rem = this._rem
+    let remGriper = false
+    if (rem && rem.placed) {
+      const ia = this._remNodIndex(rem.aRef, nodes)
+      const ib = this._remNodIndex(rem.bRef, nodes)
+      if (ia >= 0 && ib >= 0) {
+        lank(ia, ib, true)
+        remGriper = true
       }
     }
 
@@ -544,7 +967,10 @@ export default {
       g.factor = 0
     }
 
-    // BFS från veven: djup ⇒ riktning (−1)^djup, fart r0/r (mellanradier kancellerar).
+    // BFS från veven. Riktning och utväxling bärs nu av LÄNKEN, inte av djupet:
+    // kuggar vänder riktningen, remmen behåller den, och båda för över ytfarten
+    // (ω_v = ω_u · r_u / r_v). För en ren kuggkedja är det exakt samma tal som den
+    // gamla djupparitets-formeln gav — remmen är enda stället de skiljer sig åt.
     const depth = new Array(n).fill(-1)
     const factor = new Array(n).fill(0)
     depth[0] = 0
@@ -552,10 +978,11 @@ export default {
     const q = [0]
     while (q.length) {
       const u = q.shift()
-      for (const v of adj[u]) {
+      for (const e of adj[u]) {
+        const v = e.to
         if (depth[v] < 0) {
           depth[v] = depth[u] + 1
-          factor[v] = (depth[v] % 2 ? -1 : 1) * (R0 / nodes[v].r)
+          factor[v] = factor[u] * (e.rem ? 1 : -1) * (nodes[u].r / nodes[v].r)
           q.push(v)
         }
       }
@@ -573,6 +1000,12 @@ export default {
     this._chainComplete = depth[n - 1] >= 0
 
     this._updateHint(ctx)
+
+    if (rem) {
+      if (remGriper && !rem._greppFore && !this._chainComplete) this._onRemGrips(ctx)
+      rem.gripping = remGriper
+      rem._greppFore = remGriper
+    }
 
     if (this._chainComplete && !wasComplete) {
       this._prevTargetAngle = this._crankAngle * this._targetFactor
@@ -650,13 +1083,38 @@ export default {
     if (this._ghost && !this._ghost.destroyed) this._ghost.destroy()
     this._ghost = null
     this._stopDispenserHints()
+    const rem = this._rem
+    if (rem) {
+      rem.slotBreathe?.kill()
+      rem.slotBreathe = null
+      if (rem.slotView && !rem.slotView.destroyed) rem.slotView.scale.set(1)
+    }
 
     for (const g of this._gears) {
       if (g.view && !g.view.destroyed && g.view._glow) g.view._glow.visible = g.driven
     }
 
     const fi = this._frontierIndex()
-    if (this._chainComplete || fi >= this._solutionPegs.length) return
+    if (this._chainComplete) return
+
+    // Har barnet byggt fram till gapet är REMMEN nästa del — då pekar spelet på
+    // den och inte på ett kugghjul, annars konkurrerar två hintar om samma blick.
+    if (rem && !rem.placed && fi >= rem.link) {
+      const dr = this._dispensers.REM
+      if (dr?.view && !dr.view.destroyed && dr.view.visible) dr.hint = breathe(dr.view, { scale: 1.1, duration: 0.95 })
+      if (rem.slotView && !rem.slotView.destroyed) rem.slotBreathe = breathe(rem.slotView, { scale: 1.12, duration: 1.0 })
+      // ⚠️ ETT BARN KAN MÖTA REMMEN UTAN ATT HA SETT DEN VÄXA FRAM. Nivåerna 1–4 bygger
+      // upp kugg-mot-kugg, men spelet startar på den nivå sparfilen står på — den som
+      // redan stod på gamla nivå 5 landar rakt i en mekanik ingen introducerat, och
+      // `voiceIntro` talar bara om kugghjul. Repliken sägs en gång per remnivå, i det
+      // ögonblick remmen faktiskt är nästa del.
+      if (!rem._sagt) {
+        rem._sagt = true
+        ctx.services.voice.say('Ta remmen! Den når ända över.')
+      }
+      return
+    }
+    if (fi >= this._solutionPegs.length) return
 
     const s = this._solutionPegs[fi]
     const ghost = makeGear(SIZES[s.size].r, SIZES[s.size].color)
@@ -673,7 +1131,7 @@ export default {
   },
 
   _stopDispenserHints() {
-    for (const size of ['S', 'M', 'L']) {
+    for (const size of ['S', 'M', 'L', 'REM']) {
       const d = this._dispensers[size]
       if (!d) continue
       d.hint?.kill()
@@ -790,6 +1248,7 @@ export default {
   _troghet() {
     let j = 1 // veven själv
     for (const g of this._gears) if (g.driven && !g.fly) j += (g.r / R0) * (g.r / R0)
+    if (this._rem?.gripping) j += REM_TROGHET // gummit väger också något
     return j
   },
 
@@ -858,6 +1317,8 @@ export default {
       }
     }
 
+    this._stegRem(dt)
+
     if (this._chainComplete && !this._resolving) {
       const ta = this._crankAngle * this._targetFactor
       this._flagProgress += Math.abs(ta - this._prevTargetAngle) // absolut delta ⇒ fram & tillbaka hissar
@@ -909,6 +1370,8 @@ export default {
   _autoHelp(ctx) {
     if (!this._alive || this._resolving || this._chainComplete) return
     const fi = this._frontierIndex()
+    const rem = this._rem
+    if (rem && !rem.placed && !rem.flyg && fi >= rem.link) return this._autoRem(ctx)
     if (fi >= this._solutionPegs.length) return
     const s = this._solutionPegs[fi]
     const disp = this._dispensers[s.size]
@@ -986,6 +1449,7 @@ export default {
 
     this._drag?.destroy()
     this._stopDispenserHints()
+    this._clearRem()
 
     for (const o of [this._crank, this._targetWheel, this._carousel, this._elvira, this._flag, this._ghost]) {
       if (o && !o.destroyed) {
@@ -994,7 +1458,7 @@ export default {
       }
     }
     for (const g of this._gears) this._killGearTweens(g)
-    for (const size of ['S', 'M', 'L']) {
+    for (const size of ['S', 'M', 'L', 'REM']) {
       const d = this._dispensers?.[size]
       if (d?.view && !d.view.destroyed) {
         gsap.killTweensOf(d.view)
@@ -1009,6 +1473,59 @@ export default {
 }
 
 // ===== Programmatisk konst ===============================================
+
+// De två YTTRE tangenterna mellan två cirklar — remmens raka spann. `psi` är
+// vinkeln från linjen A→B ut till tangentnormalen; den bär också hur långt
+// remmen lindar sig runt varje hjul (bågarna i `_ritaRemBana`).
+function remTangenter(A, B) {
+  const dx = B.x - A.x
+  const dy = B.y - A.y
+  const d = Math.hypot(dx, dy) || 1
+  const beta = Math.atan2(dy, dx)
+  const psi = Math.acos(clamp((A.r - B.r) / d, -1, 1))
+  const punkt = (s) => {
+    const nx = Math.cos(beta + s * psi)
+    const ny = Math.sin(beta + s * psi)
+    return { ax: A.x + A.r * nx, ay: A.y + A.r * ny, bx: B.x + B.r * nx, by: B.y + B.r * ny }
+  }
+  return { beta, psi, t1: punkt(1), t2: punkt(-1) }
+}
+
+// Ändpunkterna för en rem som INTE greppar: den sitter på fälgen där det finns ett
+// hjul och dinglar ned mot den tomma pinnen i andra änden.
+function remFriaAndar(A, B) {
+  const dx = B.x - A.x
+  const dy = B.y - A.y
+  const d = Math.hypot(dx, dy) || 1
+  const ux = dx / d
+  const uy = dy / d
+  const ra = A.ok ? A.r : 0
+  const rb = B.ok ? B.r : 0
+  return { ax: A.x + ux * ra, ay: A.y + uy * ra, bx: B.x - ux * rb, by: B.y - uy * rb }
+}
+
+// Den hoprullade remmen i hyllan — en ritad gummiögla med ribbor (aldrig en emoji).
+function makeRemRulle(rx = 52, ry = 34) {
+  const c = new Container()
+  const g = new Graphics()
+  g.ellipse(0, 0, rx, ry).stroke({ width: 17, color: darken(REM_COLOR, 0.4) })
+  g.ellipse(0, 0, rx, ry).stroke({ width: 13, color: REM_COLOR })
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2
+    const cx = Math.cos(a) * rx
+    const cy = Math.sin(a) * ry
+    // Utåtriktad normal på ellipsen (rx·ry-skalad) → ribban ligger tvärs bandet.
+    const nx = Math.cos(a) / rx
+    const ny = Math.sin(a) / ry
+    const L = Math.hypot(nx, ny) || 1
+    g.moveTo(cx - (nx / L) * 5, cy - (ny / L) * 5).lineTo(cx + (nx / L) * 5, cy + (ny / L) * 5)
+  }
+  g.stroke({ width: 3, color: REM_LUGG, alpha: 0.85, cap: 'round' })
+  g.ellipse(-rx * 0.3, -ry * 0.72, rx * 0.3, ry * 0.13).fill({ color: 0xffffff, alpha: 0.2 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  return c
+}
 
 // Ett kugghjul: glöd (dold), kuggar runt om, kropp, glans, nav med ekrar.
 // Ankrat i (0,0) och roteras som en enhet.

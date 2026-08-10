@@ -21,6 +21,9 @@ import { Motstandsvolym } from '../../lib/luftmotstand.js'
 
 // Räkneord (index = antal ballonger). n=1 -> 'en', n=2 -> 'två' ...
 const SVENSKA_TAL = ['noll', 'en', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju', 'åtta']
+// Repliken när SPELET fäster ballongen åt barnet. Ligger som konstant för att den sägs
+// ihop med räkneordet i EN sträng — se `_attachLoose`.
+const HJALP_REPLIK = 'Jag hjälper dig — en ballong till!'
 
 // Överraskningar som hoppar ur paketet (alla "en"-ord för rösten). Djur/leksak.
 const SURPRISES = [
@@ -395,7 +398,18 @@ export default {
     this._liftTone(ctx, this._n)
 
     // Räkna högt på svenska (varje gång — räkning är poängen).
-    if (SVENSKA_TAL[this._n]) ctx.services.voice.say(SVENSKA_TAL[this._n])
+    //
+    // ⚠️ `opts.auto` TOGS EMOT MEN LÄSTES ALDRIG, och det kostade en hel replik. När
+    // spelet hjälpte till sa `_recue` "Jag hjälper dig — en ballong till!" och sedan
+    // anropade den HÄR raden i samma tick — men `voice.say()` inleder med `cancel()`,
+    // så räkneordet klippte hjälprepliken mitt i ordet. Barnet fick aldrig höra vem
+    // som gjorde vad; ett ~3 s klipp spelades i kanske två tiondelar.
+    //
+    // Fixen är inte en timer utan EN sträng: `VoiceService._dispatch` delar upp flera
+    // meningar och spelar ett klipp per mening om ALLA finns. Båda finns (mätt mot
+    // manifestet), så hjälprepliken hörs färdigt och räkneordet följer direkt efter.
+    const tal = SVENSKA_TAL[this._n]
+    if (tal) ctx.services.voice.say(opts.auto ? `${HJALP_REPLIK} ${tal}` : tal)
 
     // Ballongen flyger upp till sin plats i buketten ovanför paketet.
     const reached = this._n >= this._N
@@ -623,10 +637,9 @@ export default {
     // Fas 2 (~+3,5s): om barnet ändå väntar, fäst en ballong åt det (garanterad framgång).
     if (this._enticed && this._idleMs >= IDLE_MS + HELP_MS) {
       const next = this._loose.find((x) => !x._taken)
-      if (next) {
-        ctx.services.voice.say('Jag hjälper dig — en ballong till!')
-        this._attachLoose(ctx, next, { auto: true })
-      }
+      // Repliken sägs INTE här längre — `_attachLoose` äger hela yttrandet, annars
+      // klipper räkneordet den (se kommentaren där).
+      if (next) this._attachLoose(ctx, next, { auto: true })
     }
   },
 

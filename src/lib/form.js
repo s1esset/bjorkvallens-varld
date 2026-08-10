@@ -122,6 +122,26 @@ export function verticalFill(top, bottom) {
   return g
 }
 
+// En stor VÅGRÄT yta — mark, golv, bänkskiva, hylla — som annars ligger i EN ton över
+// tiotusentals pixlar. Ljuset kommer uppifrån/från horisonten, så ytan är ljusast längst
+// bort och mörknar mot betraktaren.
+//
+// Talen är inte valda utan AVLÄSTA: exakt det här mönstret stod redan handskrivet på åtta
+// ställen i repot (`golvet-ar-lava` ×2, `plantera-fron` ×2, `bowling`, `lagerelden`,
+// `vart-tog-det-vagen`, `mata-monstret`) med ljus topp ~0,14 och mörk botten ~0,28. Den
+// här funktionen är det mönstret med ett namn, så nästa markplan blir gratis och likadan.
+//
+// Skillnaden mot `topLightFill`: den har ett TREDJE stopp som lägger grundfärgen på 45 %
+// av höjden, vilket är rätt för ett FÖREMÅL som ska läsa som rundat. En markplan är ingen
+// rundad form utan en yta i perspektiv, och får därför en rak ramp mellan två ändpunkter.
+//
+// Ärver `verticalFill`s cache (per färgpar) och dess `_detalj`-avstängning — en scen som
+// monteras gör alltså noll nya texturbakningar efter första gången.
+export function groundFill(color, opts = {}) {
+  const { light = 0.14, dark = 0.28 } = opts
+  return verticalFill(tint(color, light), shade(color, dark))
+}
+
 // Samma som verticalFill, men toningen bär sin egen GENOMSKINLIGHET.
 //
 // Bakgrunden: `.fill({ color, alpha })` och `.fill(gradient)` utesluter varandra — det går

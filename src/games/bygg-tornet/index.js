@@ -16,6 +16,7 @@ import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, puff, sparkle, breathe, bigCelebration } from '../../lib/feedback.js'
 import { COLORS, PLAYFUL, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const BASE_X = 640 // tornets mittlinje (nästa klossens default-läge)
@@ -158,7 +159,10 @@ export default {
     // Byggarbetsplats: grus, gräskant, avspärrningsstaket och en verktygslåda —
     // marken var tidigare en tom brun platta.
     const floor = new Graphics()
-    floor.rect(0, GROUND_TOP_Y, DESIGN_W, DESIGN_H - GROUND_TOP_Y).fill(COLORS.brown)
+    // Gruset lag pa 94 613 px i EN ton (`_plattprobe --medbakgrund`). Ljuset kommer fran
+    // horisonten bakom bygget, sa marken ar ljusast vid graskanten och morknar mot
+    // betraktaren. Delad markfyllning — se lib/form.js.
+    floor.rect(0, GROUND_TOP_Y, DESIGN_W, DESIGN_H - GROUND_TOP_Y).fill(groundFill(COLORS.brown))
     floor.rect(0, GROUND_TOP_Y, DESIGN_W, 16).fill(COLORS.green)
     floor.rect(0, GROUND_TOP_Y + 16, DESIGN_W, 6).fill({ color: 0x6f452c, alpha: 0.5 })
     for (let i = 0; i < 46; i++) {

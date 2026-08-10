@@ -6,6 +6,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { COLORS, DESIGN_W, DESIGN_H, shade } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { FluidWorld, FluidView } from '../../lib/vatska.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
@@ -273,7 +274,7 @@ export default {
     }
     // bänkskiva (golvet fortsätter även nedanför 720 för plattor högre än 16:9)
     g.rect(-BLEED_X, GRATE_Y - 8, DESIGN_W + 2 * BLEED_X, 16).fill(0xc2a07d)
-    g.rect(-BLEED_X, GRATE_Y + 8, DESIGN_W + 2 * BLEED_X, DESIGN_H - GRATE_Y + BLEED_Y).fill(0x8f6a49)
+    g.rect(-BLEED_X, GRATE_Y + 8, DESIGN_W + 2 * BLEED_X, DESIGN_H - GRATE_Y + BLEED_Y).fill(groundFill(0x8f6a49))
     this._bg.addChild(g)
     this._bg.eventMode = 'none'
     this._bg.interactiveChildren = false
@@ -288,7 +289,10 @@ export default {
     for (let x = 6 - 260; x < DESIGN_W + BLEED_X; x += 26) {
       g.roundRect(x, GRATE_Y - 4, 14, 8, 3).fill(0xdad5ce)
     }
-    g.rect(-BLEED_X, GRATE_Y + 6, DESIGN_W + 2 * BLEED_X, DESIGN_H - GRATE_Y - 6 + BLEED_Y).fill(0x8f6a49)
+    // Barens framsida lag pa 99 676 px i EN ton (`_plattprobe --medbakgrund`) — storsta
+    // faltet i spelet. Delad markfyllning, se lib/form.js. Samma ton anvands pa bakgrunds-
+    // plattan bakom vatskan, sa BADA tonas; annars syns en skarv i bleed-zonen.
+    g.rect(-BLEED_X, GRATE_Y + 6, DESIGN_W + 2 * BLEED_X, DESIGN_H - GRATE_Y - 6 + BLEED_Y).fill(groundFill(0x8f6a49))
     g.rect(-BLEED_X, GRATE_Y + 6, DESIGN_W + 2 * BLEED_X, 6).fill(shade(0x8f6a49, 0.25))
     g.eventMode = 'none'
     this._frontL.addChild(g)

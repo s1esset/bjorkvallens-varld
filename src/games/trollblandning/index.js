@@ -28,6 +28,7 @@ import { createScene, lerpColor } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration, ripple, kvittera } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT, PRAISE, tint } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 import { emitter } from '../../lib/partiklar.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -298,7 +299,10 @@ export default {
     this._root.addChild(createScene('night', { width: ctx.width, height: ctx.height }))
 
     // 2) Hylla (palett).
-    const shelf = new Graphics().roundRect(60, 596, 840, 104, 30).fill(COLORS.brown).stroke({ width: 6, color: 0x6b4027 })
+    // Hyllan lag pa 70 560 px i EN ton (`_plattprobe --medbakgrund`). Delad markfyllning
+    // — se lib/form.js. (Receptbokens creme-sida ar storre men ar en PANEL med text och
+    // ska vara lugn; sondens filhuvud varnar uttryckligen for att "fixa" den.)
+    const shelf = new Graphics().roundRect(60, 596, 840, 104, 30).fill(groundFill(COLORS.brown)).stroke({ width: 6, color: 0x6b4027 })
     shelf.eventMode = 'none'
     this._root.addChild(shelf)
 

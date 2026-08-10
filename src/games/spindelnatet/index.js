@@ -15,6 +15,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, burst, floatText, bigCelebration, bounceIn, breathe, puff , kvittera} from '../../lib/feedback.js'
 
@@ -81,7 +82,9 @@ export default {
     // Stjärnhimmel (FÖRSTA barn) + mörk markremsa nederst.
     this._root.addChild(createScene('night', { width: ctx.width, height: ctx.height }))
     const ground = new Graphics()
-    ground.roundRect(-40, 648, 1360, 140, 50).fill(COLORS.brown)
+    // Markremsan lag pa 73 096 px i EN ton (`_plattprobe --medbakgrund`). Delad
+    // markfyllning — se lib/form.js.
+    ground.roundRect(-40, 648, 1360, 140, 50).fill(groundFill(COLORS.brown))
     ground.rect(-40, 648, 1360, 12).fill({ color: 0x000000, alpha: 0.18 })
     ground.eventMode = 'none'
     this._root.addChild(ground)

@@ -394,7 +394,9 @@ export default {
     const room = new Graphics()
     room.rect(0, 0, ctx.width, ctx.height).fill({ color: 0xfdf6e3, alpha: 0.55 })
     // vägglist + golv ger rummet ett plan att stå i
-    room.rect(0, 640, ctx.width, 80).fill(0xe6d3ae)
+    // Golvet lag pa 57 525 px i EN ton (`_plattprobe --medbakgrund`) — spelets storsta falt
+    // sedan vattnet tonades i 59e0778. Delad markfyllning, se lib/form.js.
+    room.rect(0, 640, ctx.width, 80).fill(groundFill(0xe6d3ae, { light: 0.08, dark: 0.16 }))
     room.rect(0, 636, ctx.width, 10).fill(0xcbb289)
     room.eventMode = 'none'
     this._root.addChild(room)

@@ -93,6 +93,18 @@ fyra skepnader som beter sig likadant.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: figuren fick volym — kropp, huvud och armar** (`7c62404`, v1.124.0).
+  Figuren var spelets största fält (**75 809 px**, `_plattprobe --medbakgrund`). Till skillnad
+  från en mark eller ett golv är den ett FÖREMÅL, så svaret är volym och inte en plan: armarna
+  är rör (`cylinderFill`), kropp och huvud är klot (`sphereFill`) — samma uppdelning som
+  `mata-monstret` fick i `566e63a`. Båda cachas per färg.
+  ⚠️ **TVÅ fel som bilden fällde, båda osynliga i varje mätning:**
+  1. Första försöket tonade bara KROPPEN. Huvudet ritas på ett eget ställe (`p.headG`) och blev
+     kvar platt — ett platt huvud på en rund kropp, alltså inkonsekvent belyst.
+  2. Mörkningen 0,26 gjorde pastellrosan DAMMIG i nederkanten i stället för rund. Artfärgerna
+     är pasteller; samma fälla som grusstigen i `a1bb4e0`. Dämpad till 0,16.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **75 809 → 18 198 px.**
+
 - 2026-06-30: Doc skriven (ersätter den gamla bygg-specen med en spelar-granskning).
   Speltestad (errorCount 0, skärmdump granskad — monster-skepnad). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] riktiga skratt-SFX + [Medium] skratt-crescendo** —

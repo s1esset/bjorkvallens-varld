@@ -114,6 +114,11 @@ Allt programmatiskt, exit-säkert.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: marken fick ljus från horisonten** (`9e49103`, v1.124.0).
+  Marken låg på **57 734 px i EN ton** — spelets största fält. Delad `groundFill()` med något
+  dämpad ramp (ljus pastellgrön yta).
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **57 734 → 23 721 px.**
+
 - 2026-06-30: Doc skriven (granskad mot studs-takning + preview-kalibrering i koden; bekräftad
   med playtest — scenen är märkbart glest komponerad). Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] fyll scenen + regnbågen vaknar + klättrings-ljud**,

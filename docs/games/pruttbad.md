@@ -113,6 +113,12 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: badrumsgolvet fick ljus** (`745ff36`, v1.124.0).
+  Golvet låg på **61 880 px i EN ton** — spelets största fält. Dämpad ramp (0,06/0,10): ytan är
+  nästan vit och standardvärdena hade gjort den smutsgrå.
+  **MÄTT:** fältet `#dfe7ea` är ute ur topp-3. Spelets topptal rörde sig 61 880 → 56 535,
+  eftersom badvattnet tog över platsen — fyndet flyttar ett lager in. Badvattnet är nästa mål här.
+
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`e65b2ef`, v1.109.0).
   `_plattprobe --medbakgrund` mätte **270 576 px = 29 % av skärmen** i EN ton.
   Vatten är ljusare vid ytan och mörknar nedåt, men den vanliga fixen gick INTE att

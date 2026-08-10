@@ -88,6 +88,13 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: brickorna fick ljus** (`5613a7b`, v1.124.0).
+  Brickorna låg tillsammans på **66 327 px i EN ton** — spelets största fält. Kort FÅR bära text
+  och UI enligt P0, men de behöver inte vara platta: `vandkort` fick samma lyft i `8809aa0`.
+  Bara nedåt, ingen ljus topp (`light: 0`): crèmen är redan nästan vit så en tint gör ingenting,
+  och toppen bär dessutom redan en vit sheen.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **66 327 → 15 870 px.**
+
 - 2026-06-30: Doc skriven (granskning + plan; gammal byggspec överskriven). Verifierat: alla
   12 djurläten finns som mp3 i `public/audio/sfx/` + manifest. Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] 3-korts-golv + spela riktiga klippet igen vid rätt**

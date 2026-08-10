@@ -108,6 +108,13 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: golvet under disken fick ljus** (`8d6b1a9`, v1.124.0).
+  Golvet låg på **62 882 px i EN ton** — spelets största fält. Delad `groundFill()`.
+  **MÄTT:** fältet `#b07a4a` är ute ur topp-3 (62 882 → 40 292 för den kvarvarande brunan).
+  Spelets TOPPTAL rörde sig däremot bara 62 882 → 60 494, eftersom ostens `#f3cd63` tog över
+  platsen — den dokumenterade *"fyndet flyttar ett lager in"*. Golvet är fixat; osten är ett
+  eget jobb och ligger kvar som nästa mål här.
+
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`bf5f3e4`, v1.112.0).
   `_plattprobe --medbakgrund` mätte **211 569 px = 23 % av skärmen** i EN ton.
   Kökskaklet fick samma ljusark som `hamburgerbygget`, och fatet under pizzan

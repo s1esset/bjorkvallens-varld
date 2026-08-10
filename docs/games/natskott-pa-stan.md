@@ -136,6 +136,14 @@ pakettjuv) återstår:
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: himlen blev en riktig toning i stället för åtta band** (`5267b0e`, v1.124.0).
+  Himlen ritades som ÅTTA handrullade band à 60 px (`_buildSky`). Varje band var 1280×62
+  ≈ 79 000 px i EN exakt ton, så himlen var spelets största platta fält (**71 095 px**) trots
+  att den REDAN var tänkt som en toning — 8 steg är bara för grovt. En cachad `verticalFill`
+  ger samma färgresa mjukt, i EN ritinstruktion i stället för åtta.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **71 095 → 57 169 px**, himlen ute
+  ur topp-3. Spelets topp är nu markisens rött.
+
 - 2026-08-10 🎨 **D1 (mönster B): husen fick ljus uppifrån** (`a4fb24e`, v1.121.0).
   Hyreshusen delade EN platt ton per väggfärg. `CITY_WALLS[0]` (`0x9aa3b5`) ensam låg på
   **105 360 px** — spelets största fält (`_plattprobe --medbakgrund` mätte `#9ba3b5`, en etta

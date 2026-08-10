@@ -14,6 +14,64 @@ Format:
 
 ---
 
+## 2026-08-10 (sen natt III) · v1.124.0 · Föremål, inte ytor — och en himmel som redan var en toning
+
+**Byggt:** 6 spel, 6 commits. Nivån som låg listad i förra postens `Öppet`.
+
+| spel | störst före → efter | fältet |
+|---|---|---|
+| kittla-figuren | 75 809 → 18 198 | figuren SJÄLV — ett föremål, inte en yta |
+| natskott-pa-stan | 71 095 → 57 169 | himlen: åtta handrullade band → en toning |
+| vilket-djur-later | 66 327 → 15 870 | brickorna |
+| enhorningen-elvira | 57 734 → 23 721 | marken |
+| pizzabageriet | 62 882 → 60 494 | golvet fixat, osten tog över |
+| pruttbad | 61 880 → 56 535 | golvet fixat, badvattnet tog över |
+
+**`natskott`s himmel var REDAN tänkt som en toning.** Den ritades bara som åtta handrullade
+band à 60 px, och åtta steg är för grovt: varje band blev 1280×62 ≈ 79 000 px i en exakt ton.
+En cachad `verticalFill` ger samma färgresa mjukt, i EN ritinstruktion i stället för åtta.
+Värt att leta efter på fler ställen — en `for`-loop som lerpar mellan två färger ÄR en
+gradient, bara med för få steg.
+
+**⚠️ `kittla-figuren` fälldes TVÅ gånger av bilden, och båda felen var osynliga i mätningen:**
+
+1. Första försöket tonade bara KROPPEN. Huvudet ritas på ett eget ställe (`p.headG`) och blev
+   kvar platt — ett platt huvud på en rund kropp. Lärdomen är generell: när ett föremål byggs
+   av delar i olika funktioner räcker det inte att tona den del man råkade hitta först.
+2. Mörkningen 0,26 gjorde pastellrosan DAMMIG i stället för rund. Artfärgerna är pasteller,
+   alltså exakt samma kalibreringsfälla som grusstigen i `a1bb4e0` — fast här på ett föremål i
+   stället för en yta. Dämpad till 0,16.
+
+**Två spel rörde knappt sitt topptal, och det är INTE ett misslyckande.** `pizzabageriet` och
+`pruttbad` fick sina målfält fixade (`#b07a4a` respektive `#dfe7ea` ute ur topp-3), men nästa
+platta sak tog över platsen — osten och badvattnet. Det står i commit-meddelandena så att
+nästa pass inte läser det som att fixen inte tog.
+
+**`tom-scen` i `golvet-ar-lava` — den kända transienten, men KONTROLLERAD, inte bortviftad.**
+Fyndet landade i ett spel som inte rörts på hela passet. Kontrollen som gjordes:
+- Spelet ensamt: **grönt 3/3.**
+- Mekanismen: den dokumenterade destabiliseraren är gradienter som bakas PER MONTERING.
+  `_buildChar()` körs en gång vid montering, inte per bildruta, och färgerna är få — alla nya
+  fyllningar cachas per färg. Ingen bakning per montering.
+- Frekvensen: **sex fulla svep under passet, fem rena.** ÅTGÄRDER V14 mätte transienten till
+  ~1 per 7 svep, vilket stämmer.
+- ⚠️ **Vad som INTE gjordes:** `_ab.sh` växelvis. Bevisen ovan är förenliga med transienten men
+  är inte full attribuering. Vill man ha den, kör `_ab.sh` och läs BÅDA armarna.
+
+**Commits:** `7c62404` kittla-figuren · `5267b0e` natskott-pa-stan · `5613a7b`
+vilket-djur-later · `9e49103` enhorningen-elvira · `8d6b1a9` pizzabageriet · `745ff36` pruttbad
+
+**Öppet:**
+- **Nästa nivå:** `pizzabageriet` osten `#f3cd63` 60 494 · `pruttbad` badvattnet 56 535 ·
+  `natskott-pa-stan` markisen `#d2554f` 57 169 · `plask-i-vattnet` hyllplanet 57 525 ·
+  `hamburgerbygget` 55 584. Appens topp är fortfarande `trollblandning`s receptbokspanel
+  (115 400), som ska förbli platt. Leta upp fältet i KODEN först.
+- **Leta efter fler handrullade band.** `natskott`s himmel var en `for`-loop med `lerpColor`.
+  Samma mönster kan finnas i andra kulisser och är billigt att laga.
+- Oförändrat: **C1/V10** · **D2** `saknat-ljudklipp` (MOSS nere) · 3 repliker väntar på
+  `/rost` · `spindelnatet`s dagsljusbruna mark under natthimmel · `pizzabageriet` saknar
+  `BLEED`.
+
 ## 2026-08-10 (sen natt II) · v1.123.0 · Nästa platta nivå — och alfan som dämpar toningen
 
 **Byggt:** 4 spel, 4 commits. Nivån som låg mätt men outredd i förra postens `Öppet`.

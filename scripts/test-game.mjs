@@ -37,6 +37,8 @@ const VOX = Math.round((vpW - 1280 * VS) / 2)
 const VOY = Math.round((vpH - 720 * VS) / 2)
 const tillSkarm = (x, y) => [VOX + x * VS, VOY + y * VS]
 const logPath = opt('--log', join(ROOT, '.test-logs', `${id}.json`))
+// Självtest av tom-bild-diagnosen, se omtagningsslingan längre ned.
+const tvingaTom = Number(opt('--tvinga-tom', 0))
 const noLog = args.includes('--no-log')
 const tapsArg = opt('--taps', '')
 // Dragspel: --drag "fx,fy>tx,ty;fx,fy>tx,ty" gör riktiga musdrag (peka-ner,
@@ -94,6 +96,18 @@ try {
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
 
+  // Vakt för WebGL-kontexten. En förlorad kontext ger en HELT tom duk utan ett enda
+  // konsolfel — alltså exakt samma bild som en tom scen — och under parallell last är
+  // det en av de få mekanismer som kan tömma en duk som redan varit målad. Vakten
+  // sätts före spelet monteras så inget missas.
+  await page.evaluate(() => {
+    window.__glHandelser = []
+    const cv = document.querySelector('canvas')
+    if (!cv) return
+    cv.addEventListener('webglcontextlost', () => window.__glHandelser.push('forlorad'))
+    cv.addEventListener('webglcontextrestored', () => window.__glHandelser.push('ateruppratad'))
+  })
+
   // gå in i spelet
   await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), id)
   await page.waitForTimeout(1200)
@@ -141,14 +155,57 @@ try {
     page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true)))))
   await maladRuta()
   await page.screenshot({ path: shot })
-  // Och om bilden ÄNDÅ blev tom: ta om den en gång. En scen som verkligen är tom är tom
-  // två gånger, så en omtagning kan aldrig dölja ett riktigt fel — den skiljer bara
-  // kapplöpningen från saken.
-  if (granska(shot).some((f) => f.kod === 'tom-scen')) {
+
+  // Och om bilden ÄNDÅ blev tom: ta om den, upp till tre gånger. En scen som verkligen är
+  // tom är tom varje gång, så omtagningarna kan aldrig dölja ett riktigt fel — de skiljer
+  // bara kapplöpningen från saken.
+  //
+  // ⚠️ SAMLA BEVIS I SAMMA ÖGONBLICK. En tyst omtagning gjorde `tom-scen` till ett fynd
+  // utan orsak: ÅTGÄRDER V14 stod i tre svep på hypotesen att `golvet-ar-lava` har svitens
+  // tyngsta montering, och `scripts/_montageprobe.mjs` MÄTTE sedan att den hypotesen är
+  // falsk (16,8 ms blockerande ruta = svitens median; bara `pizzabageriet` 3× och
+  // `hamburgerbygget` 2× sticker ut, och ingen av dem är spelet som faller). Nästa gång
+  // ska bilden komma med sin egen diagnos i stället för att lämna efter sig en gissning.
+  //
+  // `--tvinga-tom N` låtsas att de N första bilderna var tomma. Vägen går annars bara att
+  // se när flaket råkar slå till, och en diagnos ingen har kört är en gissning till.
+  let tomScen = null
+  for (let forsok = 1; forsok <= 3 && (forsok <= tvingaTom || granska(shot).some((f) => f.kod === 'tom-scen')); forsok++) {
+    const diagnos = await page.evaluate(() => {
+      const cv = document.querySelector('canvas')
+      let glForlorad = null
+      try {
+        const gl = cv && (cv.getContext('webgl2') || cv.getContext('webgl'))
+        glForlorad = gl ? gl.isContextLost() : null
+      } catch { glForlorad = null }
+      const s = window.__barnspel
+      return {
+        glForlorad,
+        glHandelser: (window.__glHandelser || []).join(','),
+        stageBarn: s?.app?.stage?.children?.length ?? null,
+        varldBarn: s?.world?.children?.length ?? null,
+        duk: cv ? `${cv.width}x${cv.height}` : null,
+        synlighet: document.visibilityState,
+      }
+    })
+    tomScen = { forsok, ...diagnos }
     await page.waitForTimeout(400)
     await maladRuta()
     await page.screenshot({ path: shot })
   }
+  // Löste omtagningen det? Då var bilden fel, inte scenen — men det får inte tigas ihjäl:
+  // en varning bär diagnosen vidare till loggen och till svitens utskrift.
+  const tomScenFynd = tomScen && !granska(shot).some((f) => f.kod === 'tom-scen')
+    ? [{
+        kod: 'tom-bild-omtagen',
+        niva: 'varning',
+        n: tomScen.forsok,
+        msg: `skarmdumpen var tom, omtagning ${tomScen.forsok} gav innehall — `
+          + `gl-kontext ${tomScen.glForlorad === true ? 'FORLORAD' : tomScen.glForlorad === false ? 'levande' : 'okand'}`
+          + `${tomScen.glHandelser ? ` (${tomScen.glHandelser})` : ''}, stage ${tomScen.stageBarn} barn, `
+          + `varld ${tomScen.varldBarn} barn, duk ${tomScen.duk}, sida ${tomScen.synlighet}`,
+      }]
+    : []
 
   // exit-säkerhetscykel: spel -> bibliotek -> spel -> meny (mitt i ev. animationer)
   await page.evaluate(() => window.__barnspel.nav.go('library'))
@@ -169,10 +226,10 @@ try {
   const bildFynd = granska(shot, opt('--baslinje', null))
 
   // Slå ihop fynden från huvudpasset, återinträdes-cykeln och bilden.
-  const fynd = mergeFynd(snapshot?.summary?.fynd, cykel?.summary?.fynd, bildFynd)
+  const fynd = mergeFynd(snapshot?.summary?.fynd, cykel?.summary?.fynd, bildFynd, tomScenFynd)
   if (snapshot && !noLog) {
     mkdirSync(dirname(logPath), { recursive: true })
-    writeFileSync(logPath, JSON.stringify({ id, korning: snapshot, aterintrade: cykel, fynd }, null, 2))
+    writeFileSync(logPath, JSON.stringify({ id, korning: snapshot, aterintrade: cykel, fynd, tomScen }, null, 2))
   }
 
   console.log(JSON.stringify({
@@ -181,6 +238,7 @@ try {
     shot,
     errorCount: errors.length,
     logg: snapshot && !noLog ? logPath : null,
+    tomScen,
     fynd,
     fyndFel: fynd.filter((f) => f.niva === 'fel').length,
     matt: snapshot?.summary

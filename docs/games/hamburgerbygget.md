@@ -121,6 +121,15 @@ Originaltexten för de avbockade punkterna står kvar nedan.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: ingrediensbrädan fick ljus** (`924387f`, v1.125.0).
+  Brädan låg på **53 821 px i EN ton** — spelets största fält. `pizzabageriet` har EXAKT samma
+  konstruktion och fick den tonad i ett tidigare D1-pass; den här missades då.
+  ⚠️ **Första försöket tonade KAKLET**, på en gissning om var fältet låg — talet rörde sig då
+  knappt alls (55 584 → 53 821). Det är signalen att hypotesen om PLATSEN är fel.
+  `scripts/_bbox.mjs` (skriven i samma veva, `429654d`) pekade direkt ut `73,630 → 1206,712`,
+  alltså brädan. Kakel-ändringen backades.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **55 584 → 48 525 px.**
+
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`526fafb`, v1.107.0).
   `_plattprobe --medbakgrund` mätte **368 274 px = 40 % av skärmen** i EN ton.
   Fyndet är lärorikt: det var KAKLET. Rutorna BRYTER ytan för ögat, så väggen ser inte

@@ -113,6 +113,15 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: badkarets insida fick ljus** (`fb7d4bd`, v1.125.0).
+  Kärinsidan låg på **56 535 px i EN ton** — spelets största fält sedan golvet tonades. Dämpad
+  ramp; toningen mörknar nedåt, vilket också är rätt för en kärinsida (ljuset kommer uppifrån,
+  botten ligger i skugga). Fältet `#daeaf3` är ute ur topp-3.
+  ⚠️ **Spelets TOPPTAL steg (56 535 → 68 757) och det är INTE en regression.** Badvattnets
+  `#e4f4fa` tog över platsen, och det fältet varierar kraftigt mellan körningar eftersom
+  vattennivån stiger under spelets gång — uppmätt till **29 953 / 45 767 / 54 871 / 68 757 i
+  fyra körningar UTAN kodändring**. Jämför samma FÄLT, inte samma tal.
+
 - 2026-08-10 🎨 **D1: badrumsgolvet fick ljus** (`745ff36`, v1.124.0).
   Golvet låg på **61 880 px i EN ton** — spelets största fält. Dämpad ramp (0,06/0,10): ytan är
   nästan vit och standardvärdena hade gjort den smutsgrå.

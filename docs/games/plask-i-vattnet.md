@@ -93,6 +93,10 @@ garanterar minst 2 av varje så mönstret framträder över tid.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: golvet fick ljus från horisonten** (`65556d9`, v1.125.0).
+  Golvet låg på **57 525 px i EN ton** — spelets största fält sedan vattnet tonades.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **57 525 → 30 283 px.**
+
 - 2026-08-10 🎨 **D1: vattnet mörknar med djupet** (`59e0778`, v1.123.0).
   Vattenkroppen låg på **80 950 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största
   fält. Här är toningen inte bara mot platthet utan FYSIKALISKT rätt: vatten mörknar med

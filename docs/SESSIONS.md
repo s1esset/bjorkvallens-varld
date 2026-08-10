@@ -14,6 +14,65 @@ Format:
 
 ---
 
+## 2026-08-10 (sen natt IV) · v1.125.0 · Sonden som saknades — och ett fynd som slutade vandra
+
+**Byggt:** 4 spel + 1 sond. Nivån som låg i förra postens `Öppet`.
+
+| spel | störst före → efter | fältet |
+|---|---|---|
+| plask-i-vattnet | 57 525 → 30 283 | golvet |
+| pizzabageriet | 60 494 → 50 656 | osten på pizzan |
+| hamburgerbygget | 55 584 → 48 525 | ingrediensbrädan |
+| pruttbad | 56 535 → fältet ute ur topp-3 | badkarets insida |
+
+**Passets viktigaste händelse var att jag gissade fel och mätte mig ur det.** Jag antog att
+`hamburgerbygget`s fält var kaklet, implementerade det, och talet rörde sig knappt
+(55 584 → 53 821). Det är den stående signalen att hypotesen om PLATSEN är fel. I stället för
+en tredje gissning skrevs **`scripts/_bbox.mjs`** (`429654d`): den skriver ut antal + bbox för
+en exakt ton i en skärmdump. Svaret kom direkt — `73,630 → 1206,712`, alltså
+ingrediensbrädan, som dessutom är EXAKT samma konstruktion som `pizzabageriet`s hylla, redan
+tonad i ett tidigare pass. Kakel-ändringen backades.
+
+`_plattprobe` säger VILKEN ton som är störst, aldrig VAR den ligger. Den luckan har nu kostat
+två rundor rimligt resonemang två gånger (`pizzabageriet`s hyllplan förra svepet, det här).
+Nu finns verktyget.
+
+**`pizzabageriet`s ost visar var chokladkule-gränsen går.** `sphereFill` var fel på
+`tvatta-djuret`s lerklumpar eftersom varje liten klump fick sin egen glansdager och massan
+läste som godis. Här är det EN stor skiva med EN mjuk kupa, och då är samma verktyg rätt —
+med dämpade tal och bred spridning. Skillnaden är antalet ljuskällor ögat måste läsa, inte
+verktyget.
+
+**Två ytor lämnades med mätt skäl:**
+- **`natskott`s `#d2554f`** är spelarens egen röda nät-hand (`hud: 0xd94f4f` under biom-tinten)
+  — ett förgrundsobjekt i riggfamiljen som redan är skuggat, inte en platt yta.
+- **`pruttbad`s topptal STEG** (56 535 → 68 757) utan att något blivit sämre: badvattnet tog
+  över platsen och det fältet mättes till **29 953 / 45 767 / 54 871 / 68 757 i fyra körningar
+  utan kodändring** — vattennivån stiger under spelets gång.
+
+**ÅTGÄRDER V14 skärpt: `tom-scen` slutade vandra.** Passet körde **åtta fulla svep** — sex
+rena, två med `tom-scen`, och BÅDA på `golvet-ar-lava`. Med V14:s ursprungliga observation är
+det tre av tre på samma spel, medan V12b:s signatur var att fyndet vandrade mellan spel. Det
+är en skärpning, inte en motsägelse: `golvet-ar-lava` är svitens enda spel som BÅDE monterar
+en `FluidWorld`/`FluidView` (filter, hundratals sprites) OCH en full `createScene` — den
+tyngsta monteringen i sviten, precis vad "skärmdumpen hinner före första bildrutan"
+förutsäger. **Uteslutet med kod, inte gissning:** spelet anropar `createScene` med
+`ground: false` (`index.js:110`), så `scene.js`-markens toning (`6789698`) ligger inte i dess
+kodväg. Förslag till stängning står i V14.
+
+**Commits:** `429654d` _bbox.mjs · `924387f` hamburgerbygget · `0f609d7` pizzabageriet ·
+`65556d9` plask-i-vattnet · `fb7d4bd` pruttbad
+
+**Öppet:**
+- **Platthetsarbetet har nått avtagande avkastning.** Appens topp är `trollblandning`s
+  receptbokspanel (115 400, ska förbli platt); största ÅTGÄRDBARA fält är nu ~48 000 px, ner
+  från 809 744 där svepet började. Kvar i listan: `hamburgerbygget` bänkskivan 48 525 ·
+  `pizzabageriet` ugnsinsidan 50 656 · `natskott` handen 57 169 (riggfråga, lämnad).
+  Nästa pass bör fråga om det fortfarande är rätt arbete innan det fortsätter.
+- Oförändrat: **C1/V10** · **D2** `saknat-ljudklipp` (MOSS nere) · 3 repliker väntar på
+  `/rost` · `spindelnatet`s dagsljusbruna mark under natthimmel · `pizzabageriet` saknar
+  `BLEED`.
+
 ## 2026-08-10 (sen natt III) · v1.124.0 · Föremål, inte ytor — och en himmel som redan var en toning
 
 **Byggt:** 6 spel, 6 commits. Nivån som låg listad i förra postens `Öppet`.

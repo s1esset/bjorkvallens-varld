@@ -108,6 +108,15 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: osten fick gräddad volym** (`0f609d7`, v1.125.0).
+  Osten låg på **60 494 px i EN ton** — spelets största fält sedan golvet tonades. En pizza ses
+  UPPIFRÅN, så det är ingen yta i perspektiv utan ett föremål med en svag kupa. Dämpad
+  klotfyllning (0,16/0,14, bred spridning 0,72) ger gräddad volym utan glansig boll —
+  chokladkule-fällan från `620895f` gällde småklumpar med var sin dager; här är det EN stor
+  skiva med en enda mjuk kupa.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **60 494 → 50 656 px.** Spelets topp
+  är nu ugnens mörka insida.
+
 - 2026-08-10 🎨 **D1: golvet under disken fick ljus** (`8d6b1a9`, v1.124.0).
   Golvet låg på **62 882 px i EN ton** — spelets största fält. Delad `groundFill()`.
   **MÄTT:** fältet `#b07a4a` är ute ur topp-3 (62 882 → 40 292 för den kvarvarande brunan).

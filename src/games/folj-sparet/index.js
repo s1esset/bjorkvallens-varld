@@ -13,6 +13,15 @@ import { bounceIn, pop, wiggle, sparkle, puff, floatText, kvittera } from '../..
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { Button } from '../../lib/Button.js'
+import { verticalFill } from '../../lib/form.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+
+// Ängens och markens toningar (D1 — se kommentarerna vid ritningen). Båda spänner om
+// den ton ytan HADE, så bilden är densamma; det är bara ljuset som tillkommit.
+const C_MEADOW_TOP = 0xedf4dd
+const C_MEADOW_BOT = 0xd7e4bd
+const C_GROUND_TOP = 0xfdf7e8
+const C_GROUND_BOT = 0xf3e8cf
 
 // Layout (designkoordinater 1280×720).
 const START = { x: 140, y: 410 } // figurens startpunkt (vänster)
@@ -114,10 +123,22 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Ängmatta (dekorativ, fångar inga tryck).
+    // MARKEN runt ängen. Spelet ritade ingen egen bakgrund alls utan lutade sig mot
+    // skalets `COLORS.bg` — en enda ton, uppmätt 220 932 px (24 % av skärmen). Full bleed,
+    // så en bred telefon aldrig ser skalets kant.
+    this._ground = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
+      .fill(verticalFill(C_GROUND_TOP, C_GROUND_BOT))
+    this._ground.eventMode = 'none'
+    this._root.addChild(this._ground)
+
+    // Ängmatta (dekorativ, fångar inga tryck). Var en enda tvättad ton — `COLORS.green`
+    // @ alpha 0.16 över skalets kräm gav #e4edd0 över **595 215 px = 65 % av skärmen**,
+    // spelets och hela appens största enfärgade fält. Toningen spänner om exakt den tonen,
+    // så ängen är samma äng, bara belyst uppifrån.
     const meadow = new Graphics()
       .roundRect(40, 138, 1200, 562, 48)
-      .fill({ color: COLORS.green, alpha: 0.16 })
+      .fill(verticalFill(C_MEADOW_TOP, C_MEADOW_BOT))
       .stroke({ width: 6, color: COLORS.green, alpha: 0.22 })
     meadow.eventMode = 'none'
     this._root.addChild(meadow)

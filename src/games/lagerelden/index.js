@@ -23,6 +23,7 @@ import { glod } from '../../lib/glod.js'
 import { puff, sparkle, burst, pop, wiggle, breathe, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
+import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { Varmefalt } from '../../lib/varme.js'
@@ -1189,7 +1190,12 @@ function makeCamp(night) {
   const grass = new Graphics()
   grass.moveTo(-40, 760).lineTo(-40, GROUND_Y + 10)
   for (let x = -40; x <= 1320; x += 110) grass.quadraticCurveTo(x + 55, GROUND_Y - 8, x + 110, GROUND_Y + 10)
-  grass.lineTo(1320, 760).closePath().fill(grassCol)
+  // Grasmattan lag pa 158 419 px - 17 % av skarmen - i EN ton (`_plattprobe --medbakgrund`).
+  // Himlen ovanfor var redan tonad via `createScene`; det var marken som var platt. Ljuset
+  // kommer fran horisonten, sa mattan ar ljusast langst bort och morknar mot betraktaren.
+  // Blandas mot grasets EGNA ljusa ton (grassLit) i stallet for mot svart, sa bade dag och
+  // natt behaller sin karaktar. Cachad per fargpar - noll texturbakningar per montering.
+  grass.lineTo(1320, 760).closePath().fill(verticalFill(lerpColor(grassCol, grassLit, 0.55), lerpColor(grassCol, 0x000000, 0.16)))
   grass.moveTo(-40, GROUND_Y + 12)
   for (let x = -40; x <= 1320; x += 110) grass.quadraticCurveTo(x + 55, GROUND_Y - 6, x + 110, GROUND_Y + 12)
   grass.stroke({ width: 7, color: grassLit, alpha: 0.7 })

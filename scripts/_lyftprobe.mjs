@@ -123,6 +123,30 @@ if (process.argv.includes('--spel')) {
     const raddad = await runda(-1, 250)
     ok('en ballong tillagd mitt i resan räddar den', raddad.klar, `${raddad.n} av ${raddad.N} — nådde y=${Math.round(raddad.hogst)} (mål ${Math.round(raddad.mal)})`)
 
+    // P0-VAKT: avståndet mellan de lösa ballongernas träffytor vid FLEST ballonger.
+    // `_N` fastnar på 8 från nivå ~6, så det är spelets normala läge — inte ett hörn.
+    const glapp = await page.evaluate(async () => {
+      const B = window.__barnspel
+      const vanta = (ms) => new Promise((r) => setTimeout(r, ms))
+      await B.nav.go('library')
+      await vanta(400)
+      await B.nav.go('game', { id: 'ballonglyft' })
+      await vanta(600)
+      const g = B.game
+      g._loadLevel(window.__barnspel.ctx, 9) // hög nivå → N = 8
+      await vanta(400)
+      const xs = g._loose.map((b) => b.x).sort((a, b) => a - b)
+      const bredd = g._loose[0]?.hitArea?.width ?? 104
+      let minst = 1e9
+      for (let i = 1; i < xs.length; i++) minst = Math.min(minst, xs[i] - xs[i - 1])
+      return { N: g._N, antal: xs.length, minstaAvstand: minst, bredd, glapp: minst - bredd }
+    })
+    ok(
+      'P0: ≥24 px mellan de lösa ballongernas träffytor',
+      glapp.glapp >= 24,
+      `N=${glapp.N}: ${Math.round(glapp.minstaAvstand)} px mellan mitterna, träffyta ${glapp.bredd} px → ${Math.round(glapp.glapp)} px glapp`
+    )
+
     ok('inga konsolfel', errors.length === 0, errors.slice(0, 2).join(' | '))
     console.log(`\n${fel === 0 ? '✓ ALLA MÅTT GODA' : `✗ ${fel} MÅTT UNDERKÄNDA`}\n`)
     process.exit(fel === 0 ? 0 : 1)

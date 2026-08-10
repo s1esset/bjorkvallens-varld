@@ -64,7 +64,14 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 // x-position för lös ballong i av n. Jämnt fördelade över nederkanten MINUS
 // presentens kolumn (700..940): en ballong bakom paketet är osynlig, och rundan
 // kunde då bara lösas av auto-hjälpen. Vänsterbandet fylls först.
-const LOOSE_L0 = 120, LOOSE_L1 = 690, LOOSE_R0 = 950, LOOSE_R1 = 1160
+//
+// ⚠️ BANDENS BREDD ÄR ETT P0-KRAV, INTE EN SMAKFRÅGA. Träffytan är 104 px bred och P0
+// kräver ≥24 px MELLAN ytorna, alltså minst 128 px mellan mittpunkterna. Med de gamla
+// banden (570 + 210 = 780 px) blev avståndet vid åtta ballonger 780/7 = 111 px och
+// glappet **7,4 px** — ett mätbart P0-brott, och inte i ett sällsynt hörn: `_N` fastnar
+// på 8 från nivå ~6 och framåt, så det var spelets normala läge. Banden är nu 634 + 274
+// = 908 px → 129,7 px mellan mittpunkterna och **25,7 px glapp** vid N = 8.
+const LOOSE_L0 = 56, LOOSE_L1 = 690, LOOSE_R0 = 950, LOOSE_R1 = 1224
 function looseX(i, n) {
   const lw = LOOSE_L1 - LOOSE_L0
   const rw = LOOSE_R1 - LOOSE_R0
@@ -281,6 +288,8 @@ export default {
     this._resolving = false
     // Ny runda: paketet ur luften igen, annars fortsätter förra resans fart.
     this._sending = false
+    this._boxBreathe?.kill()
+    this._boxBreathe = null
     if (this._rec) this._luft?.ta(this._rec)
     this._rec = null
 
@@ -419,6 +428,11 @@ export default {
           if (this._alive && reached && !this._sending) {
             wiggle(this._box)
             ctx.services.voice.say('Tryck på paketet så åker det!')
+            // Och sedan ANDAS paketet tills barnet trycker. Utan det stod lådan
+            // blickstilla mellan den första knuffen (0,55 s) och nästa vid 9 s —
+            // ingenting sa "jag väntar på dig" i mellantiden.
+            this._boxBreathe?.kill()
+            this._boxBreathe = breathe(this._box, { scale: 1.04 })
           }
         },
       })
@@ -471,6 +485,9 @@ export default {
     this._sending = true
     this._idleMs = 0
     this._enticed = false
+    this._boxBreathe?.kill() // andningen slutar när resan börjar
+    this._boxBreathe = null
+    this._box.scale.set(1)
     gsap.killTweensOf(this._box) // stegtweenen är klar — nu äger fysiken paketets y
     this._riseTween?.kill()
 
@@ -574,15 +591,19 @@ export default {
     // ALLA BALLONGER SITTER — då är nästa handling att SKICKA, inte att räkna mer.
     // Utan den här grenen skulle en färdigräknad runda stå still i evighet, eftersom
     // hjälpen bara kan fästa ballonger och det inte finns några kvar.
+    // ⚠️ HJÄLPEN FÅR FÄSTA BALLONGER MEN ALDRIG SKICKA IVÄG PAKETET. Första versionen
+    // gjorde det efter 12,5 s — och gav därmed bort exakt den agens rundan lades till
+    // för. Uppmätt med `_idleprobe.mjs`: **noll tryck gav ändå framsteg 2 på 60 s**, en
+    // hel leverans avfärdad och mottagen utan en enda pekning. Nu upprepas lockandet i
+    // stället, så barnet aldrig fastnar men heller aldrig blir av med sista trycket.
+    // (No-fail bryts inte: ingenting nollställs och inget tar slut — spelet väntar bara.)
     if (this._n >= this._N) {
-      if (!this._enticed && this._idleMs >= IDLE_MS) {
-        this._enticed = true
+      if (this._idleMs >= IDLE_MS) {
+        this._idleMs = 0
         wiggle(this._box)
         floatText(ctx.fxLayer, BOX_X, this._box.y - 120, '👆', { fontSize: 48, rise: 40 })
         ctx.services.voice.say('Tryck på paketet så åker det!')
-        return
       }
-      if (this._enticed && this._idleMs >= IDLE_MS + HELP_MS) this._send(ctx)
       return
     }
 
@@ -694,6 +715,8 @@ export default {
     ctx.ticker.remove(this._tick)
     ctx.services.voice.cancel()
     this._sending = false
+    this._boxBreathe?.kill()
+    this._boxBreathe = null
     this._luft?.destroy() // steg() efter detta gör ingenting
     this._luft = null
     this._rec = null

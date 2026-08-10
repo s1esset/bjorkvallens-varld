@@ -12,8 +12,13 @@ import { gsap } from 'gsap'
 import { puff, pop, wiggle, bounceIn, sparkle , kvittera} from '../../lib/feedback.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { verticalFill, cylinderFill } from '../../lib/form.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom } from '../../lib/swedish.js'
+
+// Cirkusfondens toning — spänner om den gamla platta COLORS.bg, aldrig exakt den.
+const C_FOND_TOP = 0xfffbf1
+const C_FOND_BOT = 0xf4e7ca
 
 // Tårtsorter — projektilen roterar, och splatten får sortens färg. Förut var det
 // alltid samma gräddtårta och alltid vita klumpar: träff sex såg ut som träff ett.
@@ -86,7 +91,11 @@ export default {
     // Bakgrund: fångar "tomt tryck" -> lekfull vingel + mjukt ljud (aldrig fel).
     // Ritas med bleed åt alla håll så breda telefoner (synlig yta utanför 0..1280)
     // aldrig visar creme-lister — se lib/view.js.
-    const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(COLORS.bg)
+    // Fonden lag pa 407 401 px — 44 % av skärmen — i EN ton (`_plattprobe --medbakgrund`),
+    // och tonen var `COLORS.bg`: en scen målad i exakt letterbox-cremen går inte att
+    // skilja från "ingen bleed alls" (kantCream i scripts/bildkoll.mjs). Nu är den en
+    // cirkusfond som är ljusast där rampljuset träffar och mörknar mot golvet.
+    const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(verticalFill(C_FOND_TOP, C_FOND_BOT))
     bg.eventMode = 'static'
     bg.on('pointertap', () => this._emptyTap(ctx))
     this._root.addChild(bg)
@@ -96,7 +105,9 @@ export default {
     const decor = new Graphics()
     // Scengolv med kantlist. Breddas ±BLEED_X och dras BLEED_Y nedåt så golvet når
     // skärmkanten även på breda telefoner och 4:3-plattor (deterministiskt värstafall).
-    decor.rect(-BLEED_X, 560, ctx.width + 2 * BLEED_X, 160 + BLEED_Y).fill(0xe8d9bf)
+    // Golvet tonas i samma svep: så fort fonden slutade vara platt blev scengolvet
+    // bildens största enfärgade fält (122 303 px) — samma fynd, ny plats.
+    decor.rect(-BLEED_X, 560, ctx.width + 2 * BLEED_X, 160 + BLEED_Y).fill(verticalFill(0xf0e3cc, 0xdcc9a5))
     decor.rect(-BLEED_X, 560, ctx.width + 2 * BLEED_X, 14).fill(0xcbb392)
     // Plankskarvarna fortsätter i bleed-zonerna (i<0 och i>15) — original-index orörda
     // så 16:9-bilden är pixel för pixel densamma.
@@ -116,7 +127,10 @@ export default {
           .quadraticCurveTo(cx + dir * w * 1.6, ctx.height * 0.5, cx + dir * w, 0)
           .lineTo(cx + dir * w, -BLEED_Y)
           .closePath()
-          .fill(i % 2 ? 0xc9424f : 0xe05563)
+          // Varje veck ÄR ett stående tygrör: `cylinderFill` ger ljus längs mittlinjen
+          // och mörker mot båda kanterna, vilket är precis vad ett veck gör med ljuset.
+          // Cachad per färg, så de tolv vecken kostar två gradienter totalt.
+          .fill(cylinderFill(i % 2 ? 0xc9424f : 0xe05563, { dark: 0.3, highlight: 0.22 }))
       }
       // Guldsnodd som håller upp ridån.
       decor.ellipse(x0 + dir * 58, 300, 22, 13).fill(0xe8c05a)
@@ -126,7 +140,7 @@ export default {
     curtain(ctx.width, -1)
     // Kappa längs överkanten med tofsar — breddad i sidled och uppåt, tofsraden
     // fortsätter i bleed-zonerna (original-index orörda).
-    decor.rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, 54 + BLEED_Y).fill(0xc9424f)
+    decor.rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, 54 + BLEED_Y).fill(verticalFill(0xd9505d, 0xb63946))
     for (let i = -3; i <= 19; i++) {
       decor.moveTo(i * 80, 54).quadraticCurveTo(i * 80 + 40, 92, i * 80 + 80, 54).closePath().fill(0xe05563)
       decor.circle(i * 80 + 40, 88, 7).fill(0xe8c05a)

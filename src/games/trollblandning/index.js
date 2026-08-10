@@ -25,7 +25,7 @@ import { DragController } from '../../lib/DragController.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { Varmefalt } from '../../lib/varme.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration, ripple, kvittera } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration, ripple, kvittera, liv } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT, PRAISE, tint } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
@@ -501,6 +501,13 @@ export default {
     const w = new Container()
     w.position.set(180, 210)
     w.eventMode = 'none'
+    // ALL grafik hänger i en INRE behållare. `_wizardGesture` tweenar `w.y`/`w.rotation`
+    // direkt, och `liv()` skriver `target.y` i sin egen onUpdate (den tweenar en proxy,
+    // så `killTweensOf(w)` når den inte) — låg de på samma nod skulle andetaget skriva
+    // över varje gest bildruta för bildruta. Två noder = de adderas i stället.
+    const krop = new Container()
+    krop.eventMode = 'none'
+    w.addChild(krop)
     // Huvudet krymps till faceR 46 — med 80 täckte ansiktscirkeln (160 px bred)
     // hela kroppen, så mantel, armar och stav ritades men syntes aldrig.
     const robe = new Graphics()
@@ -529,11 +536,11 @@ export default {
     this._wizKar = makeKaraktar({ r: 46, kropp: false })
     const head = this._wizKar.view
     head.position.set(0, -44)
-    w.addChild(robe, armL, armR, staff, head)
+    krop.addChild(robe, armL, armR, staff, head)
     const hat = new Graphics()
     hat.poly([0, -164, -46, -76, 46, -76]).fill(COLORS.purple).stroke({ width: 5, color: 0x6b4fc4 })
     hat.ellipse(0, -72, 54, 13).fill(COLORS.purple).stroke({ width: 5, color: 0x6b4fc4 })
-    w.addChild(hat)
+    krop.addChild(hat)
     // RITAD stjärna (var ⭐) — sitter i hattens spets.
     const star = new Graphics()
     const sp = []
@@ -544,15 +551,19 @@ export default {
     }
     star.poly(sp).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orangeDark })
     star.position.set(0, -132)
-    w.addChild(star)
+    krop.addChild(star)
     // En likadan liten stjärna i stavens topp.
     const staffStar = new Graphics()
     staffStar.poly(sp.map((v) => v * 0.6)).fill(COLORS.yellow).stroke({ width: 2.5, color: COLORS.orangeDark })
     staffStar.position.set(66, -70)
-    w.addChild(staffStar)
+    krop.addChild(staffStar)
     this._wizard = w
+    this._wizKrop = krop
     this._wizStar = star // stjärn-stav — studsar när trollkarlen hejar
     this._wizardBase = { x: 180, y: 210 } // hemma-pose (gesterna återgår hit)
+    // Andetaget: långsammare och grundare än hyllans föremål. En trollkarl som guppar
+    // som en ingrediens läses som ett föremål, inte som någon som står och väntar.
+    liv(krop, { bob: 3.5, sway: 0.012, duration: 3.4 })
     this._root.addChild(w)
 
     // 7) Töm-knapp (barnvänlig kontroll — INTE bakom föräldra-grind).
@@ -642,12 +653,15 @@ export default {
     this._eldLagor = []
     for (const rec of this._dropRecs || []) {
       if (rec?.view && !rec.view.destroyed) {
+        rec.view._krop?._fxLiv?.kill() // repeat:-1 — dör inte av sig själv
         gsap.killTweensOf(rec.view)
         gsap.killTweensOf(rec.view.scale)
       }
     }
     this._wizKar?.destroy()
     this._wizKar = null
+    if (this._wizKrop && !this._wizKrop.destroyed) this._wizKrop._fxLiv?.kill()
+    this._wizKrop = null
     if (this._wizard && !this._wizard.destroyed) {
       gsap.killTweensOf(this._wizard)
       gsap.killTweensOf(this._wizard.scale)
@@ -838,7 +852,16 @@ export default {
     body.eventMode = 'none'
     const emoji = drawElement(elemId)
     emoji.scale.set(1.5)
-    c.addChild(shadow, body, emoji)
+    // Vilorörelsen får INTE röra `c.y` — DragController, `_layoutShelf` och hällningens
+    // timeline äger den. Kroppen ligger därför i en inre behållare, och SKUGGAN lämnas
+    // kvar på `c`: en skugga som guppar med föremålet slutar läsa som mark.
+    const krop = new Container()
+    krop.eventMode = 'none'
+    krop.addChild(body, emoji)
+    c.addChild(shadow, krop)
+    c._krop = krop
+    // Egen fas per föremål (liv() slumpar själv) → hyllan guppar aldrig i lås.
+    liv(krop, { bob: 4, sway: 0.04, duration: 2.2 + Math.random() * 0.7 })
     c.interactiveChildren = false
     c.hitArea = new Circle(0, 0, 80) // ≥160px träffyta
     this._dropLayer.addChild(c)
@@ -1051,6 +1074,7 @@ export default {
     }
     for (const rec of this._dropRecs || []) {
       if (rec?.view && !rec.view.destroyed) {
+        rec.view._krop?._fxLiv?.kill() // repeat:-1 — dör inte av sig själv
         gsap.killTweensOf(rec.view)
         gsap.killTweensOf(rec.view.scale)
         rec.view.destroy({ children: true })

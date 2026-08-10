@@ -137,6 +137,49 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
     ambient + element-läten) — kräver MOSS-pipelinen; [Quick] hyll-sidindelning vid många element
     (nuvarande min-spacing räcker för första-omgångens nivåer).
 </content>
+- 2026-08-10 ✅ **Spår 3 P3 (B2) — hällningen och elden: två system som möts.**
+  Kön bad om `FLUIDS.gegga` + `Varmefalt`. Koden lästes före planen och geometrin sa nej
+  till den bokstavliga formen: kitteln har ingen vätskepelare sedd från sidan — brygden är
+  en **ellips sedd uppifrån** — så en `FluidWorld` i kitteln hade fallit till botten av en
+  osynlig låda. Valda vägen blev **(b) SPH bara i hällningen + (c) värme**, alltså "simulera
+  bara där vätskan syns".
+  - **Hällningen.** Släpper barnet en droppe över kitteln flyger den upp till en hällpose,
+    **tippar** och en stråle SPH-vätska (`radius 16`, geggans viskositet, `max 130`) rinner
+    ned i mynningen och absorberas i ytan. Filterytan är låst till bandet mellan hällpose
+    och yta (420×286), inte hela designytan.
+  - **Brygden är en äkta BLANDNING.** Varje absorberad partikel räknas per element; färgen
+    är det mass-viktade medelvärdet tonat mot rundans bottenfärg efter hur full kitteln är.
+    **Mätt:** en hällning ger 43 partiklar → 53 % av vägen mot vattnets färg; två olika
+    ingredienser ger `#3b6896 + eld → #9b88a9`, **0,2 kanalsteg** från den uträknade
+    blandningen och 100 steg från ren eld (alltså inte "sista färgen vinner").
+  - **Elden + `Varmefalt`.** Elden under kitteln håller brygden vid kok (temp 0,92).
+    Temperaturen driver **bubbeltakt, kokglöd, ånga** — aldrig målet: en kall kittel
+    blockerar inget recept. **Systemen möts i absorptionen:** varje partikel blandar in sin
+    egen värme, mass-viktat. **Mätt:** vatten i en kokande kittel ger 0,93 → 0,40, bubbel-
+    takten 12,1 → 2,8/s, och elden tar tillbaka den på 1,2 s till 80 % av kok.
+  - **Nytt i delad kod:** `Varmefalt.knuff(namn, delta)` — en skvätt kallt rakt i något.
+    Rör bara `temp`, aldrig `grad` (P0: det barnet hunnit göra får inte rinna tillbaka).
+    Sex nya mått i `_varmeprobe`; `lagerelden` orörd.
+  - **Bilden ändrade koden fyra gånger, och inget grönt mått hade fångat något av det:**
+    elden låg först på y=96 och försvann *helt* bakom grytkroppen (som slutar där);
+    kokglöden sköljde bort brygdfärgen till en grumlig brun; markglöden läste som en platt
+    lila matta; och två av fem lågor stod exakt bakom benen (som täcker |x| 40–78).
+  - **Sonden hade fel två gånger, båda upptäckta för att talet var *för* snyggt:** ett
+    `waitForFunction` på "hällningen är slut" returnerade omedelbart (den börjar först efter
+    droppens 0,2 s uppflygning), så blandningsmåttet jämförde vattnets färg med en
+    förutsägelse räknad ur samma vatten — grönt utan att eld runnit. Och ett mått påstod att
+    blått måste *sjunka* när eld hälls i; medelvärdet av vattnets 223 och eldens 107 är 165,
+    alltså **högre** än det halvmättade vattnets 150. `_kittelprobe.mjs`, 14 mått.
+  - **Egen kritikergranskning gav tre fynd, alla åtgärdade:** den upptagna fasen växte från
+    0,4 s till 1,04 s (hällningen ska landa före reaktionen), alltså 2,6× längre fönster där
+    ett tryck kan kännas dött → `kvittera()` (V9-mönstret); trollkarlens auto-kombo
+    teleporterade in ingredienser medan barnets hälldes → `_addOchHall` ger båda samma
+    visuella språk; och en droppe som greps MITT i hällningen hade två ägare till sin
+    position (draget + tidslinjen) → fingret vinner, strålen stängs av.
+  - Kvar ur §4: [Medium] senare en-stegs auto-hjälp · [Deep] fler per-element-shower ·
+    [Quick] hyll-sidindelning · [Quick] MOSS-ljudbild. Sidofynd: `_livprobe` är röd på
+    spelet (noll objekt med vilorörelse) — det är en **egen** [Quick]-punkt, inte en
+    regression från den här rundan.
 - 2026-08-09 ✅ **Spår E runda A4 — kitteln puttrar ur en Emitter.** Bubblorna kom ur ~30 rader
   i tickern som allokerade en ny `Graphics` per bubbla och förstörde den igen, med ett tak på
   ÅTTA och 380 ms mellan varje — kitteln puttrade alltså glest och räkningsbart. Nu en `Emitter`

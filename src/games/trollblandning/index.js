@@ -19,11 +19,13 @@
 // {}-proxy som bara rör _brew om det lever. this._alive + this._resolving vaktar
 // alla fördröjda callbacks. destroy() tar bort ticker, dödar tweens/bubblor,
 // avbryter röst, river DragController och förstör _root.
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
+import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
+import { Varmefalt } from '../../lib/varme.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration, ripple } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration, ripple, kvittera } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT, PRAISE, tint } from '../../lib/theme.js'
 import { emitter } from '../../lib/partiklar.js'
@@ -37,6 +39,36 @@ const SHELF_Y = 648 // dropparnas vilo-y på hyllan
 const SHELF_X0 = 150
 const SHELF_X1 = 850
 const HINT_MS = 6000 // ms utan handling → eskalerande ledtråd
+
+// --- Hällningen och elden (spår 3 P3: två system som möts) ---
+//
+// Ingrediensen HÄLLS numera i kitteln som riktig vätska (lib/vatska.js) i stället för
+// att bara poppa fram i sin ring, och elden under kitteln värmer brygden (lib/varme.js).
+// Systemen möts i EN punkt: varje partikel som absorberas i ytan bär med sig både sin
+// FÄRG (brygden blir en äkta blandning) och sin VÄRME (en skvätt is kyler ner kitteln,
+// en skvätt lava kokar upp den). Ingen av dem kan misslyckas — de färgar och värmer,
+// de blockerar aldrig ett recept.
+const POUR_MS = 620 // hur länge strålen rinner ur en droppe
+const SPAWN_MS = 14 // en partikel var 14:e ms → ~44 per hällning, oavsett bildrutetakt
+// Hällposen ligger HÖGT med flit. Första försöket satte den 176 px över kittelmitten
+// och strålen fick bara 80 px att falla — den läste som en klump fastvuxen på droppen,
+// inte som en hällning. 226 px ger 131 px fritt fall, och det syns.
+const POUR_Y = CY - 226 // droppens hällpose ovanför mynningen (174)
+const POUR_DX = 118 // hur långt ut åt sidan (vänster ingrediens / höger ingrediens)
+// En hällning ger ~43 absorberade partiklar (mätt). Volymen är satt till nästan det
+// DUBBLA med flit: första ingrediensen tonar brygden halvvägs, andra fyller kitteln.
+// Sätts den till 45 blir första hällningen 97 % mättad och utspädningen finns bara
+// på papperet — det är exakt vad `_kittelprobe` mätte innan talet höjdes.
+const KITTEL_VOLYM = 80 // absorberade partiklar = "full kittel" (mättad brygdfärg)
+const VARME_VOLYM = 24 // brygdens VÄRMEmassa i partiklar — mindre än färgvolymen, för
+// järn över en eld är termiskt lätt: en skvätt is ska synas i bubblorna på en gång.
+const ELD_LY = 104 // eldens y INUTI kitteln (global CY + 104 = 504, mellan botten och mark)
+const ELD_D = Math.abs(BREW_Y - (CY + ELD_LY)) // eldens avstånd till brygden (166 px)
+// Varmefalt mäter närhet som 1 − d/radie, och avståndet eld→brygd är FAST. Radien är
+// därför inte lågans höjd i bild, den är den enda ratten som finns för hur varm brygden
+// VILL bli. Måltemperaturen skrivs ut, radien räknas fram ur den.
+const eldRadie = (malTemp) => ELD_D / Math.max(0.02, 1 - malTemp)
+const ELD_MAL = 0.92 // brygdens jämviktstemperatur med elden på full låga
 
 // Bubblorna ritas i en LJUSARE ton än brygden. Samma färg som vätskan gav bubblor
 // som bara syntes i konturen mot den mörka kitteln — en bubbla ska läsa som luft i
@@ -162,27 +194,37 @@ function drawElement(id) {
   return g
 }
 
-// --- Element-register: id → { emoji, color, namn } ---
+// --- Element-register: id → { emoji, color, namn, varm } ---
+// `varm` 0..1 är ingrediensens EGEN temperatur, inte hur mycket den värmer. Den
+// absorberade partikeln blandas in i brygden (mass-viktat medel), så en isbit kan
+// aldrig kyla under sin egen temperatur hur många man än häller i — och ett element
+// som redan är lika varmt som kitteln gör ingenting. Se `_absorbera()`.
 const ELEMENTS = {
   // baser
-  eld: { emoji: '🔥', color: 0xff6b6b, namn: 'Eld' },
-  vatten: { emoji: '💧', color: 0x4aa3df, namn: 'Vatten' },
-  jord: { emoji: '🌱', color: 0x5bbf6a, namn: 'Jord' },
-  luft: { emoji: '🌬️', color: 0x57c8c3, namn: 'Luft' },
-  is: { emoji: '❄️', color: 0xbdeefa, namn: 'Is' },
+  eld: { emoji: '🔥', color: 0xff6b6b, namn: 'Eld', varm: 1 },
+  vatten: { emoji: '💧', color: 0x4aa3df, namn: 'Vatten', varm: 0.24 },
+  jord: { emoji: '🌱', color: 0x5bbf6a, namn: 'Jord', varm: 0.4 },
+  luft: { emoji: '🌬️', color: 0x57c8c3, namn: 'Luft', varm: 0.42 },
+  is: { emoji: '❄️', color: 0xbdeefa, namn: 'Is', varm: 0 },
   // resultat
-  anga: { emoji: '💨', color: 0xd8e6ee, namn: 'Ånga' },
-  lera: { emoji: '🟤', color: 0x8a5a3b, namn: 'Lera' },
-  lava: { emoji: '🌋', color: 0xf5731e, namn: 'Lava' },
-  sno: { emoji: '☃️', color: 0xffffff, namn: 'Snö' },
-  moln: { emoji: '☁️', color: 0xe8eef2, namn: 'Moln' },
-  sol: { emoji: '☀️', color: 0xffd35c, namn: 'Sol' },
-  regn: { emoji: '🌧️', color: 0x6fa8d6, namn: 'Regn' },
-  sten: { emoji: '🪨', color: 0x9b9088, namn: 'Sten' },
-  kruka: { emoji: '🏺', color: 0xc77c4a, namn: 'Kruka' },
-  regnbage: { emoji: '🌈', color: 0xa78bfa, namn: 'Regnbåge' },
-  enhorning: { emoji: '🦄', color: 0xf7b9e4, namn: 'Enhörning' }, // hemligt recept (ej i boken)
+  anga: { emoji: '💨', color: 0xd8e6ee, namn: 'Ånga', varm: 0.86 },
+  lera: { emoji: '🟤', color: 0x8a5a3b, namn: 'Lera', varm: 0.4 },
+  lava: { emoji: '🌋', color: 0xf5731e, namn: 'Lava', varm: 1 },
+  sno: { emoji: '☃️', color: 0xffffff, namn: 'Snö', varm: 0.02 },
+  moln: { emoji: '☁️', color: 0xe8eef2, namn: 'Moln', varm: 0.32 },
+  sol: { emoji: '☀️', color: 0xffd35c, namn: 'Sol', varm: 0.95 },
+  regn: { emoji: '🌧️', color: 0x6fa8d6, namn: 'Regn', varm: 0.22 },
+  sten: { emoji: '🪨', color: 0x9b9088, namn: 'Sten', varm: 0.45 },
+  kruka: { emoji: '🏺', color: 0xc77c4a, namn: 'Kruka', varm: 0.5 },
+  regnbage: { emoji: '🌈', color: 0xa78bfa, namn: 'Regnbåge', varm: 0.6 },
+  enhorning: { emoji: '🦄', color: 0xf7b9e4, namn: 'Enhörning', varm: 0.7 }, // hemligt recept (ej i boken)
 }
+
+// Partikelfärg per element. Indexet ÄR `world.pal[i]`, så listan måste ha en fast
+// ordning — den byggs ur registret en gång, inte per runda.
+const ELEM_IDS = Object.keys(ELEMENTS)
+const ELEM_PAL = new Map(ELEM_IDS.map((id, i) => [id, i]))
+const ELEM_PALETT = ELEM_IDS.map((id) => ELEMENTS[id].color)
 
 const BASE_IDS = ['eld', 'vatten', 'jord', 'luft', 'is']
 
@@ -284,6 +326,54 @@ export default {
     cau.eventMode = 'none'
     cau.interactiveChildren = false
     cau.addChild(new Graphics().ellipse(0, 92, 150, 28).fill({ color: 0x000000, alpha: 0.18 }))
+
+    // ELDEN — ligger mellan skuggan och grytan, så kittelkroppen och benen skär av
+    // lågorna upptill precis som en riktig eld under en gryta. Den är ritad (P0
+    // ASSETS) och animeras i tickern, aldrig med gsap: en transient låga som tweenas
+    // överlever exit. Glöden är additiv och det är MÄTT som tillåtet — bottnen är
+    // natthimmel + svart järn, alltså mörk, och glödfärgen har takhöjd kvar.
+    const eld = new Container()
+    eld.position.set(0, ELD_LY)
+    eld.eventMode = 'none'
+    // GEOMETRIN ÄR MÄTT, INTE GISSAD. Grytkroppen är en ellips rx140/ry96 kring
+    // lokala (0,0), alltså täcker den allt upp till y=+96 — första försöket la elden
+    // där och den försvann helt bakom järnet. Det som SYNS av en eld under en gryta
+    // är bandet mellan grytans botten (y 96) och marken (benen slutar y 126), plus
+    // skenet som spiller ut åt sidorna. Lågorna är därför låga och breda, inte höga.
+    // Glöden är LITEN. Ett brett additivt fält över marken läste som en platt lila
+    // matta under kitteln (skärmdumpen, inte gissat) — den ska vara en het kärna
+    // mellan vedträna, inte en belysning av halva scenen.
+    const markGlod = new Graphics().ellipse(0, 20, 96, 20).fill(0x3a1103)
+    markGlod.blendMode = 'add'
+    eld.addChild(markGlod)
+    this._eldGlod = markGlod
+    for (const [vx, vy, vr] of [[-48, 22, 0.14], [44, 24, -0.18], [-4, 28, 0.02]]) {
+      const arm = new Graphics().roundRect(-46, -7, 92, 14, 7).fill(0x5c3a22).stroke({ width: 3, color: 0x3d2415 })
+      arm.position.set(vx, vy)
+      arm.rotation = vr
+      eld.addChild(arm)
+    }
+    // Lågornas x-lägen är MÄTTA mot benen, inte jämnt fördelade: benen täcker
+    // |x| 40–78, så en låga där syns aldrig. Första försöket la två av fem precis
+    // bakom dem. Nu ligger alla fyra i de synliga gluggarna (mitten och utanför).
+    this._eldLagor = []
+    for (const [lx, ls, lc] of [[-106, 0.74, 0xff7a2d], [-20, 1.06, 0xffb43d], [22, 0.94, 0xff8a3d], [104, 0.72, 0xff7a2d]]) {
+      const l = new Graphics()
+      l.moveTo(0, 6).quadraticCurveTo(-17, -6, -8, -26).quadraticCurveTo(-5, -19, -2, -24)
+      l.quadraticCurveTo(-3, -38, 5, -48).quadraticCurveTo(2, -27, 10, -22)
+      l.quadraticCurveTo(15, -29, 14, -34).quadraticCurveTo(21, -14, 0, 6).closePath()
+      l.fill(lc)
+      l.moveTo(0, 3).quadraticCurveTo(-8, -9, -2, -18).quadraticCurveTo(2, -26, 5, -14)
+      l.quadraticCurveTo(11, -5, 0, 3).closePath().fill({ color: 0xffe08a, alpha: 0.9 })
+      l.position.set(lx, 18)
+      l.scale.set(ls)
+      l.blendMode = 'add'
+      eld.addChild(l)
+      this._eldLagor.push({ g: l, bas: ls, fas: Math.random() * Math.PI * 2 })
+    }
+    this._eldContainer = eld
+    cau.addChildAt(eld, 1)
+
     cau.addChild(new Graphics().ellipse(0, 0, 140, 96).fill(0x2f2a4a).stroke({ width: 8, color: 0x1c1830 }))
     cau.addChild(new Graphics().roundRect(-78, 84, 38, 42, 12).fill(0x1c1830))
     cau.addChild(new Graphics().roundRect(40, 84, 38, 42, 12).fill(0x1c1830))
@@ -326,8 +416,59 @@ export default {
       fadeIn: 0.18,
     })
     cau.addChild(new Graphics().ellipse(0, -70, 146, 36).fill(0x423a66).stroke({ width: 6, color: 0x6b4fc4 }))
+    // Kokglöden i ytan: additiv, alpha styrd av temperaturen i _update. Mörk brygd
+    // under → additivt ljus har någonstans att ta vägen (samma villkor som elden).
+    this._kokGlod = new Graphics().ellipse(0, -70, 84, 19).fill(0x40190a)
+    this._kokGlod.blendMode = 'add'
+    this._kokGlod.alpha = 0
+    this._kokGlod.eventMode = 'none'
+    cau.addChild(this._kokGlod)
     this._cauldron = cau
     this._root.addChild(cau)
+
+    // --- HÄLLNINGEN: riktig vätska mellan droppen och mynningen -------------
+    //
+    // SPH bara DÄR VÄTSKAN SYNS. Kitteln har ingen vätskepelare sedd från sidan —
+    // brygden är en ellips sedd UPPIFRÅN — så en FluidWorld i kitteln hade fallit
+    // till botten av en osynlig låda och sett fel ut. Strålen däremot är sedd från
+    // sidan och faller rakt ned: det är precis vad solvern är bra på. Partiklarna
+    // absorberas i ytan (`_absorbera`), och det är där de två systemen möts.
+    this._fluid = new FluidWorld({
+      max: 130,
+      radius: 16,
+      gravityY: 0.5,
+      rho0: FLUIDS.gegga.rho0,
+      sigma: FLUIDS.gegga.sigma,
+      beta: FLUIDS.gegga.beta,
+      restitution: 0.05,
+      walls: { left: false, right: false, bottom: false, top: false },
+      bounds: { left: CX - 300, right: CX + 300, top: 140, bottom: CY + 60 },
+    })
+    this._fluidView = new FluidView(this._root, this._fluid, {
+      palette: ELEM_PALETT,
+      edge: 0xffffff,
+      blobScale: 1.3,
+      threshold: 0.5,
+      blur: 6,
+      quality: 2,
+      resolution: 0.5,
+      // Filterytan är den enda knapp som ändrar vad renderingen KOSTAR: strålen kan
+      // bara nå bandet mellan hällposen och mynningen, inte hela designytan.
+      area: new Rectangle(CX - 210, POUR_Y - 60, 420, BREW_Y - POUR_Y + 110),
+    })
+    this._fluidView.layer.eventMode = 'none'
+    this._fluidView.layer.interactiveChildren = false
+    this._mix = new Map() // pal-index → antal absorberade partiklar (brygdens blandning)
+    this._mixTot = 0
+    this._flygande = new Set() // pal-index som har partiklar i luften just nu
+
+    // --- VÄRMEN: elden under kitteln ---------------------------------------
+    // uppvarmning är med flit LÅNGSAM (tidskonstant ~1,8 s). En snabb återhämtning
+    // hade ätit upp kylningen medan strålen fortfarande rann — då syns aldrig att
+    // isen kylde. Nu dyker bubblorna och kitteln kommer sakta tillbaka till kok.
+    this._varme = new Varmefalt({ uppvarmning: 0.55, avsvalning: 0.5 })
+    this._varme.lagg('brygd', { x: CX, y: BREW_Y, temp: ELD_MAL })
+    this._varme.kalla('eld', { x: CX, y: CY + ELD_LY, radie: eldRadie(ELD_MAL), styrka: 0.02 })
 
     // 5) Ingrediens-platser (två prickade ringar ovanför kitteln).
     this._slots = []
@@ -482,9 +623,19 @@ export default {
     this._brewTween?.kill()
     for (const c of this._fxCalls || []) c?.kill()
     this._fxCalls = []
+    for (const tl of this._pourTls || []) tl?.kill()
+    this._pourTls = []
+    this._pour = null
     this._drag?.destroy()
     this._bubblor?.destroy() // tar bort ticker-callbacken OCH river partikelfältet
     this._bubblor = null
+    this._fluidView?.destroy()
+    this._fluidView = null
+    this._fluid?.destroy()
+    this._fluid = null
+    this._varme?.destroy()
+    this._varme = null
+    this._eldLagor = []
     for (const rec of this._dropRecs || []) {
       if (rec?.view && !rec.view.destroyed) {
         gsap.killTweensOf(rec.view)
@@ -544,6 +695,13 @@ export default {
 
     // Mörk brygd-start (slumpas lätt på höga nivåer).
     this._brewColor = this._level <= 3 ? 0x2a2342 : randomFrom([0x2a2342, 0x23323a, 0x3a2342, 0x1f2e2a])
+    this._rundBrygd = this._brewColor // rundans botten (virveln tonar tillbaka hit)
+    this._nollstallBlandning(this._brewColor)
+    this._pour = null
+    this._fluid?.clear()
+    this._flygande?.clear()
+    for (const tl of this._pourTls || []) tl?.kill()
+    this._pourTls = []
     this._drawBrew(this._brewColor)
     this._sattBubbelFarg()
 
@@ -684,15 +842,182 @@ export default {
     return rec
   },
 
-  // En källa landade i kitteln: registrera ingrediensen, återställ källan, snäpp hem.
+  // En källa landade i kitteln: registrera ingrediensen, HÄLL i den, snäpp hem.
   _onDropInCauldron(ctx, rec) {
     this._idle = 0
     this._hintCount = 0
     this._clearHintLine()
-    this._addToCauldron(ctx, rec.data.elem)
+    const sida = this._inCauldron.length // 0 = vänster plats, 1 = höger
+    const togs = this._addToCauldron(ctx, rec.data.elem)
     rec.placed = false
     rec.view.eventMode = 'static'
-    gsap.to(rec.view, { x: rec.home.x, y: rec.home.y, duration: 0.25, ease: 'back.out(1.4)' })
+    if (togs) {
+      this._pourFran(ctx, rec, rec.data.elem, sida)
+    } else {
+      // Togs ingrediensen INTE emot studsar droppen hem som förut — men den
+      // upptagna fasen är nu 1,04 s i stället för 0,4 (hällningen ska hinna landa
+      // före reaktionen), alltså 2,6× längre fönster där ett tryck kan kännas dött.
+      // Kvittot är därför inte längre valfritt (P0 ÅTERKOPPLING, ÅTGÄRDER V9).
+      kvittera(ctx.fxLayer, CX, BREW_Y, ctx.services.audio)
+      gsap.to(rec.view, { x: rec.home.x, y: rec.home.y, duration: 0.25, ease: 'back.out(1.4)' })
+    }
+  },
+
+  // Samma väg som barnets finger tar, men utan draget — trollkarlens egen kombo
+  // ska hälla precis som barnets, annars har spelet två olika visuella språk.
+  _addOchHall(ctx, elemId) {
+    const sida = this._inCauldron.length
+    if (!this._addToCauldron(ctx, elemId)) return false
+    const rec = this._findDrop(elemId)
+    if (rec) this._pourFran(ctx, rec, elemId, sida)
+    return true
+  },
+
+  // ---- Hällningen ---------------------------------------------------------
+
+  // Droppen flyger upp över mynningen, TIPPAR, och strålen rinner ned i kitteln.
+  // Källan är oändlig och flyger hem igen — men den lämnar sin färg och sin värme
+  // i brygden på vägen.
+  _pourFran(ctx, rec, elem, sida) {
+    const v = rec.view
+    if (!v || v.destroyed) return
+    const px = CX + (sida ? POUR_DX : -POUR_DX)
+    const lut = sida ? -0.85 : 0.85 // tippar IN mot mitten
+    const pal = ELEM_PAL.get(elem) ?? 0
+    rec.pouring = true // _layoutShelf får inte dra hem den mitt i hällningen
+    gsap.killTweensOf(v)
+    const tl = gsap.timeline({
+      onComplete: () => {
+        rec.pouring = false
+        rec.pourTl = null
+      },
+    })
+    rec.pourTl = tl
+    tl.to(v, { x: px, y: POUR_Y, rotation: lut, duration: 0.2, ease: 'power2.out' })
+    tl.call(() => {
+      if (!this._alive) return
+      // Pipen sitter på den tippade droppens nedre INRE kant.
+      this._pour = { pal, x: px + (sida ? -42 : 42), y: POUR_Y + 30, kvar: POUR_MS, acc: 0 }
+      ctx.services.audio.tone({ freq: 200, slideTo: 300, dur: 0.55, type: 'sine', vol: 0.32 })
+    })
+    tl.to(v, { rotation: lut, duration: POUR_MS / 1000 }) // håll poseringen medan det rinner
+    // Hemmaplatsen läses när tweenen STARTAR, inte när den byggs: upptäcks ett nytt
+    // element mitt i hällningen har _layoutShelf redan flyttat hela hyllan.
+    tl.to(v, { x: () => rec.home.x, y: () => rec.home.y, rotation: 0, duration: 0.3, ease: 'back.out(1.4)' })
+    this._pourTls.push(tl)
+    if (this._pourTls.length > 4) this._pourTls.shift()
+  },
+
+  // Strålen: en partikel var SPAWN_MS millisekund, alltså lika många oavsett
+  // bildrutetakt (samma skäl som fasta fysiksteg).
+  _hall(dtMS) {
+    const p = this._pour
+    if (!p || !this._fluid) return
+    p.kvar -= dtMS
+    if (p.kvar <= 0) {
+      this._pour = null
+      return
+    }
+    this._flygande.add(p.pal)
+    p.acc += dtMS
+    while (p.acc >= SPAWN_MS) {
+      p.acc -= SPAWN_MS
+      // Siktet är räknat, inte trimmat: strålen ska landa MITT i brygden, annars
+      // hamnar den på ingrediensringen vid CX±52 och det ser ut som att man häller
+      // på en droppe i luften. Falltiden hällpose→yta är ~18 bildrutor (mätt), så
+      // sidfarten är avståndet delat på den.
+      this._fluid.spawn(p.x + (Math.random() - 0.5) * 9, p.y + (Math.random() - 0.5) * 6, {
+        vx: (CX - p.x) / 18,
+        vy: 1.6 + Math.random() * 0.6,
+        pal: p.pal,
+      })
+    }
+  },
+
+  // Ytan slukar strålen — och det är HÄR de två systemen möts. Varje partikel bär
+  // två saker in i brygden: sin FÄRG (mass-viktad utspädning; en skvätt räcker inte
+  // till en hel kittel) och sin VÄRME (inblandad mot brygdens egen temperatur, så
+  // is aldrig kan kyla under is och eld aldrig värma över eld).
+  _absorbera() {
+    const w = this._fluid
+    if (!w || !this._flygande.size) return 0
+    let tot = 0
+    // Säkerhetsavlopp först: en partikel som drivit ur strålen får ALDRIG rinna
+    // vidare ned genom grytkroppen och synas nedanför kitteln.
+    w.drain(CX, BREW_Y + 150, 760, 220)
+    for (const pal of this._flygande) {
+      // Bandets ÖVERKANT är där strålen tar slut för ögat, så den ligger vid 320 —
+      // nere i brygdellipsen (302–358), inte vid mynningens bakre kant. Höjden 64 px
+      // är mer än fartaket (9,6 px/steg), så ingen partikel kan hoppa över ytan.
+      const n = w.drain(CX, BREW_Y + 22, 264, 64, { pal })
+      if (!n) continue
+      this._mix.set(pal, (this._mix.get(pal) || 0) + n)
+      this._mixTot += n
+      const E = ELEMENTS[ELEM_IDS[pal]]
+      const t = this._varme.temp('brygd')
+      // Exakt n gånger "blanda in en partikel", i ett steg.
+      this._varme.knuff('brygd', (E.varm - t) * (1 - Math.pow(1 - 1 / VARME_VOLYM, n)))
+      tot += n
+    }
+    if (tot) this._setBrewNow(this._mixFarg())
+    if (!w.count) this._flygande.clear()
+    return tot
+  },
+
+  // Brygdens färg = mass-viktat medel av det som HÄLLTS i, tonat mot rundans
+  // bottenfärg efter hur mycket som ryms i kitteln. Det är utspädningen: en skvätt
+  // rött i en mörk kittel ger en aning rött, inte en röd kittel.
+  _mixFarg() {
+    if (!this._mixTot) return this._basBrygd
+    let r = 0
+    let g = 0
+    let b = 0
+    for (const [pal, n] of this._mix) {
+      const c = ELEM_PALETT[pal]
+      r += ((c >> 16) & 255) * n
+      g += ((c >> 8) & 255) * n
+      b += (c & 255) * n
+    }
+    const bl = (Math.round(r / this._mixTot) << 16) | (Math.round(g / this._mixTot) << 8) | Math.round(b / this._mixTot)
+    return lerpColor(this._basBrygd, bl, Math.min(1, this._mixTot / KITTEL_VOLYM))
+  },
+
+  // Brygdens bottenfärg är det kitteln senast STANNADE på — nästa hällning späder
+  // alltså resultatet, inte rundans startfärg.
+  _nollstallBlandning(bas) {
+    this._basBrygd = bas
+    this._mix?.clear()
+    this._mixTot = 0
+  },
+
+  // Temperaturen driver SHOWEN, aldrig målet. En kall kittel blockerar inget recept
+  // och nollställer ingenting — den bubblar tystare tills elden tagit tillbaka den
+  // (P0 MOTGÅNG: syns, går att vänta ut, saktar som mest ner).
+  _varmeShow(ctx, dtF) {
+    const t = this._varme ? this._varme.temp('brygd') : 0
+    if (this._bubblor) {
+      // Kvadratiskt: mellan halvvarmt och kok ska takten SYNAS skilja, inte anas.
+      this._bubblor.o.rate = 0.7 + 13 * t * t
+      this._bubblor.o.speed = 11 + 16 * t
+    }
+    if (this._kokGlod && !this._kokGlod.destroyed) this._kokGlod.alpha = Math.max(0, (t - 0.35) / 0.65) * 0.55
+
+    // Lågorna fladdrar i tickern (aldrig gsap på transient eld — den överlever exit).
+    this._eldFas = (this._eldFas || 0) + dtF * 0.055
+    for (const l of this._eldLagor || []) {
+      if (!l.g || l.g.destroyed) continue
+      const s = 1 + Math.sin(this._eldFas * 2.1 + l.fas) * 0.13 + Math.sin(this._eldFas * 3.7 + l.fas) * 0.06
+      l.g.scale.set(l.bas, l.bas * s)
+      l.g.alpha = 0.72 + 0.24 * Math.sin(this._eldFas * 2.6 + l.fas)
+    }
+    if (this._eldGlod && !this._eldGlod.destroyed) this._eldGlod.alpha = 0.68 + 0.3 * Math.sin(this._eldFas * 1.7)
+
+    // Ånga över mynningen när det kokar — throttlad, det är en show och inte ett regn.
+    this._angaT = (this._angaT || 0) - dtF
+    if (t > 0.78 && this._angaT <= 0) {
+      this._angaT = 30
+      puff(ctx.fxLayer, CX + (Math.random() - 0.5) * 130, BREW_Y - 34, { count: 2, color: 0xd8e6ee })
+    }
   },
 
   // Fördela alla droppar jämnt över hyllan (oändliga källor + upptäckta resultat).
@@ -705,7 +1030,7 @@ export default {
       const hx = SHELF_X0 + i * spacing
       rec.home.x = hx
       rec.home.y = SHELF_Y
-      if (!rec.placed && this._drag && this._drag.active !== rec) {
+      if (!rec.placed && !rec.pouring && this._drag && this._drag.active !== rec) {
         gsap.to(rec.view, { x: hx, y: SHELF_Y, duration: 0.3, ease: 'back.out(1.4)' })
       }
     })
@@ -732,9 +1057,10 @@ export default {
 
   // ---- Kittel-logik -------------------------------------------------------
 
+  // Returnerar om ingrediensen TOGS EMOT — hällningen hänger på det svaret.
   _addToCauldron(ctx, elem) {
-    if (!this._alive || this._resolving || this._completed) return
-    if (this._inCauldron.length >= 2) return
+    if (!this._alive || this._resolving || this._completed) return false
+    if (this._inCauldron.length >= 2) return false
     this._inCauldron.push(elem)
     this._renderSlots()
     ctx.services.audio.sfx('pop')
@@ -744,10 +1070,13 @@ export default {
       this._resolving = true // ingen tredje ingrediens under omrörningen
       this._wizardGesture('lean') // trollkarlen lutar sig fram och rör om
       this._reactCall?.kill()
-      this._reactCall = gsap.delayedCall(0.4, () => {
+      // Omrörningen väntar in hällningen: reaktionen får inte slå till medan andra
+      // strålen fortfarande rinner, för då ser barnet aldrig blandningen.
+      this._reactCall = gsap.delayedCall(0.2 + POUR_MS / 1000 + 0.22, () => {
         if (this._alive) this._react(ctx)
       })
     }
+    return true
   },
 
   _renderSlots() {
@@ -795,6 +1124,8 @@ export default {
     this._paths.set(resId, known)
 
     // Brygd-färg-tween + element-egen "föreställning" (signatur eller generisk).
+    // Resultatet blir kittelns nya BOTTENFÄRG: nästa hällning späder resultatet.
+    this._nollstallBlandning(E.color)
     this._setBrew(E.color)
     this._reactShow(ctx, resId, E.color)
 
@@ -839,6 +1170,9 @@ export default {
   _onNoRecipe(ctx, pair) {
     // Lekfullt "fel"-svar: kitteln ryker grått, trollkarlen rycker på axlarna,
     // en mjuk komisk "plopp" — fortfarande positivt, aldrig en bestraffning.
+    // Blandningen barnet hällde i STÅR KVAR som färg (inget förbrukas, inget
+    // nollställs) — den blir bara kittelns nya botten att spä vidare på.
+    this._nollstallBlandning(this._brewColor)
     ctx.services.audio.sfx('soft')
     ctx.services.audio.tone({ freq: 300, slideTo: 150, dur: 0.2, type: 'sine', vol: 0.5 })
     puff(ctx.fxLayer, CX, BREW_Y, { count: 8, color: 0xb9b2c9 })
@@ -895,6 +1229,14 @@ export default {
     }
     this._inCauldron = []
     this._renderSlots()
+    // Virveln tömmer också vätskan: strålen avbryts, blandningen nollas och brygden
+    // tonar tillbaka till rundans botten. (Det är barnets egen knapp — ingenting
+    // här sker av sig självt.)
+    this._pour = null
+    this._fluid?.clear()
+    this._flygande?.clear()
+    this._nollstallBlandning(this._rundBrygd ?? this._brewColor)
+    this._setBrew(this._basBrygd)
     this._idle = 0
     this._hintCount = 0
     this._clearHintLine()
@@ -948,6 +1290,15 @@ export default {
   // redan stigande bubblor behåller sin färg och flödet skiftar mjukt.
   _sattBubbelFarg(brygd = this._brewColor) {
     if (this._bubblor) this._bubblor.o.colors = [bubbelFarg(brygd)]
+  },
+
+  // Direkt, utan tween — hällningen målar om brygden partikel för partikel och
+  // ska inte kapplöpa med en 0,5 s-övergång.
+  _setBrewNow(color) {
+    this._brewTween?.kill()
+    this._brewColor = color
+    this._drawBrew(color)
+    this._sattBubbelFarg(color)
   },
 
   _setBrew(to) {
@@ -1024,10 +1375,12 @@ export default {
     this._renderSlots()
     this._wizardGesture('lean')
     ctx.services.voice.say(`Titta, jag provar ${ELEMENTS[step.a].namn} och ${ELEMENTS[step.b].namn}!`)
-    this._addToCauldron(ctx, step.a)
+    this._addOchHall(ctx, step.a)
     this._autoCall?.kill()
-    this._autoCall = gsap.delayedCall(0.3, () => {
-      if (this._alive && !this._completed) this._addToCauldron(ctx, step.b)
+    // 0,55 s i stället för 0,3: de två hällningarna ska överlappa lagom, inte ligga
+    // ovanpå varandra.
+    this._autoCall = gsap.delayedCall(0.55, () => {
+      if (this._alive && !this._completed) this._addOchHall(ctx, step.b)
     })
   },
 
@@ -1240,6 +1593,29 @@ export default {
     }
 
     // (Bubblorna sköts av en Emitter ur lib/partiklar.js — se _bubbleLayer i init.)
+
+    // Griper barnet en droppe MITT i hällningen vinner fingret. Utan det här äger
+    // både draget och tidslinjen samma position, och droppen rycker fram och
+    // tillbaka — samma tvåägar-bugg som magnetfiskets skakande klase.
+    const griper = this._drag?.active
+    if (griper?.pouring) {
+      griper.pouring = false
+      griper.pourTl?.kill()
+      griper.pourTl = null
+      gsap.killTweensOf(griper.view)
+      if (griper.view && !griper.view.destroyed) griper.view.rotation = 0
+      this._pour = null // strålen stängs av när flaskan lyfts
+    }
+
+    // Hällningen och värmen. Ordningen spelar roll: spawn → solver → absorbera →
+    // rita, annars ritas en partikel som redan är uppslukad.
+    const dtF = Math.min(3, tk.deltaMS / 16.667)
+    this._hall(tk.deltaMS)
+    this._fluid?.update(tk.deltaMS)
+    this._absorbera()
+    this._fluidView?.update()
+    this._varme?.steg(dtF)
+    this._varmeShow(ctx, dtF)
 
     // Idle → eskalerande ledtrådar (no-fail).
     if (!this._resolving && !this._completed) {

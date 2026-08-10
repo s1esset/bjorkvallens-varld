@@ -47,7 +47,10 @@ const MAX_GUSTS = 5 // tak: spam ger inte oändligt med vind
 // fast hela fläktmekaniken bygger på att kraften delas med massan. 0,0008 lägger en
 // direktträff på ~22 % och lämnar plats åt både lättare kantträffar och tyngre bubblor.
 const SQ_PER_KRAFT = 0.00034 // kraft/massa → måldeformation (direktträff ≈ 21 %)
-const SQ_MAX = 0.3 // tak: 30 % utdragning, mer läser som en trasig bubbla
+// Taket är sänkt från 0,30 till 0,20 efter en granskning som TITTADE på bilderna: vid
+// 30 % blir en bubbla en hoprullad oval med en kometsvans till högdager, inte en sträckt
+// såphinna. 20 % är den gräns där den fortfarande läser som en bubbla.
+const SQ_MAX = 0.2 // asymptot, inte en klippning (se `_deformera`)
 const SQ_STYVHET = 0.09 // hur snabbt hinnan söker sig mot målformen
 const SQ_DAMP = 0.86 // dämpning per bildruta → den svänger tillbaka, inte studsar vilt
 
@@ -511,7 +514,14 @@ export default {
   _deformera(b, fx, fy, dtF) {
     const kraft = Math.hypot(fx, fy)
     if (kraft > 1) b._sqA = Math.atan2(fy, fx) // vindens riktning = utdragningens axel
-    const mal = Math.min(SQ_MAX, kraft * SQ_PER_KRAFT)
+    // ⚠️ EN HÅRD `Math.min` MOT TAKET DUGER INTE — massan slutar synas. Kraften delas med
+    // massan, och massorna spänner över 13× (barnbubbla r=24 mot jätte r=88). Med en rak
+    // linje slog **8 av 15 uppmätta fall i taket**, barnbubblan i samtliga lägen: alla
+    // vanliga bubblor deformerades då exakt lika mycket, fast hela fläktmekaniken bygger
+    // på att de inte ska göra det. En riktig såphinna STYVNAR ju mer den sträcks — den
+    // mjuka mättnaden nedan gör samma sak: små krafter svarar linjärt, stora närmar sig
+    // taket utan att slå i det, och skillnaden mellan liten och stor bubbla överlever.
+    const mal = SQ_MAX * (1 - Math.exp((-kraft * SQ_PER_KRAFT) / SQ_MAX))
     b._sqV += (mal - b._sq) * SQ_STYVHET * dtF
     b._sqV *= Math.pow(SQ_DAMP, dtF)
     b._sq += b._sqV * dtF
@@ -523,8 +533,16 @@ export default {
       if (b._sqV > 0) b._sqV = 0
     }
     if (b._sq < 0) b._sq = 0
-    b.rotation = b._sqA
-    b.scale.set(1 + b._sq, 1 - b._sq * 0.85)
+    // ⚠️ SKRIV INTE SKALAN NÄR BUBBLAN ÄR RUND. Första versionen satte `scale` varje
+    // bildruta och körde därmed över `bounceIn`-studsen vid födseln och pop-tweenen —
+    // spawn-animationen var i praktiken borta, utan att något test märkte det. Nu tar
+    // deformationen bara över medan den faktiskt deformerar, och lämnar tillbaka skalan
+    // (exakt 1) i det ögonblick hinnan är rund igen.
+    if (b._sq > 0.002 || b._sqAgde) {
+      b._sqAgde = b._sq > 0.002
+      b.rotation = b._sqAgde ? b._sqA : 0
+      b.scale.set(1 + b._sq, 1 - b._sq * 0.85)
+    }
   },
 
   _makeBubble(ctx, r, kind = 'normal') {
@@ -547,7 +565,12 @@ export default {
     b.cursor = 'pointer'
     // Osynlig hit-halo. Golvet 48 håller P0:s 96 px träffyta även för de minsta
     // barnbubblorna (r 20–28 gav annars bara 80–96 px i diameter).
-    b.hitArea = new Circle(0, 0, Math.max(48, r + 20))
+    // ⚠️ GOLVET RÄKNAS PÅ DEN HOPTRYCKTA BUBBLAN, INTE DEN RUNDA. `_deformera` sätter
+    // `scale.y = 1 − 0.85·_sq`, och Pixi utvärderar hitArea i LOKALA koordinater — så
+    // träffytan krymper med bubblan. Golvet 48 var satt för den runda formen och gav vid
+    // taket bara **71,5 px** på en barnbubbla och 89,4 på en r=40 (P0 kräver 96). 65 ger
+    // 65·2·0,745 ≈ 97 px även när bubblan är som mest hoptryckt.
+    b.hitArea = new Circle(0, 0, Math.max(65, r + 20))
     b._popped = false
     b.on('pointertap', () => this._pop(ctx, b))
     return b

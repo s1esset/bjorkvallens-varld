@@ -119,13 +119,29 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
        kraften delas med massan — samma kod gav 42,7 % i en körning och 2,9 % i nästa,
        alltså 15× spridning på en konstant som ändrats 1,6×. Sonden föder nu sin EGEN
        bubbla med fast radie.
-  - **En direktträff får inte ligga PÅ taket.** Vid 30 % deformerades en liten bubbla och
-    en jättebubbla lika mycket, fast hela fläktmekaniken bygger på att kraften delas med
-    massan. Direktträffen ligger nu på ~20 %.
-  - **Uppmätt** (`node scripts/_bubbelprobe.mjs`, 8 mått): rund i vila (0,0000) ·
-    **19,8 % utdragning** på en r=40-bubbla vid direktträff · utdragningen ligger **0° från
-    siktlinjen** · tillbaka till rund efter puffen (0,0 %) · **60 FPS med full luft och
-    puffar** · rivet vid exit mitt i en puff · 0 konsolfel.
+  - ⚠️ **Kritikern fällde första kalibreringen, och hade rätt.** Min "22 %, slår inte i
+    taket" gällde EN kombination (r=40 vid en viss punkt). Ett svep över tre radier och
+    fem lägen visade att **8 av 15 fall slog i taket**, och barnbubblan (r≈24) i samtliga
+    — alltså just den bubbla som binder ihop poppa-leksaken med ring-målet. Tre följder:
+    1. **En hård `Math.min` mot taket duger inte** när massorna spänner över 13×: alla
+       vanliga bubblor deformerades exakt lika mycket, fast hela mekaniken bygger på att
+       de inte ska göra det. Målet mättas nu mjukt (`SQ_MAX·(1−e^−k)`) — en riktig
+       såphinna styvnar ju mer den sträcks, och skillnaden liten/stor överlever.
+    2. **Taket sänktes 0,30 → 0,20** efter att ha TITTAT på bilderna: vid 30 % blir
+       bubblan en hoprullad oval med en kometsvans till högdager.
+    3. **P0-brott som bara fanns under animationen:** `scale.y` krymper träffytan (Pixi
+       utvärderar hitArea i lokala koordinater), och vid taket gav golvet 48 bara
+       **71,5 px** på en barnbubbla mot P0:s 96. Golvet räknas nu på den HOPTRYCKTA
+       formen: 65 → 108 px uppmätt.
+  - **Och en regression jag själv införde:** `_deformera` skrev `scale` varje bildruta och
+    körde därmed över `bounceIn`-studsen vid födseln. Deformationen tar nu bara över medan
+    den faktiskt deformerar.
+  - **Uppmätt** (`node scripts/_bubbelprobe.mjs`, 11 mått över 3 radier × 5 lägen): rund i
+    vila (0,0000) · **15,3 % på en r=40** och **20,0 % på en barnbubbla**, ingen över taket
+    i något läge · jätten **12,9 %** (massan syns) · **0° från siktlinjen** · tillbaka till
+    rund · **träffytan 108 px även hoptryckt** · **60 FPS** · rivet vid exit · 0 konsolfel.
+    Sonden sparar dessutom `.test-shots/_bubbel-utdragen.png` — att SE är ett mått, och det
+    var bilden som fällde den första kalibreringen.
 - 2026-06-30: Doc skriven. Speltestad (errorCount 0, skärmdump granskad — ring + fläktar + mätare).
   Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Deep] lutande/flyttbar fläkt (dämpa auto-suget) + [Quick]

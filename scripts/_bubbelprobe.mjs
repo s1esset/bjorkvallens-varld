@@ -40,6 +40,20 @@ try {
 
   console.log('\nSÅPBUBBLOR — hinnan i vinden\n')
 
+  // ⚠️ EN POSITION OCH EN RADIE ÄR INGEN MÄTNING. Första versionen mätte bara r=40 vid
+  // (640,380) och rapporterade en fin siffra — men en granskning som varierade läge och
+  // radie visade att **barnbubblan (r≈24) slog i taket i 7 av 7 lägen** och att r=40 gjorde
+  // det i 5 av 8. Den "fina" punkten var alltså den enda som såg bra ut. Sonden sveper
+  // därför både radier och lägen, och domen tas på det VÄRSTA fallet.
+  const LAGEN = [
+    [640, 380],
+    [640, 460],
+    [640, 550],
+    [420, 480],
+    [900, 430],
+  ]
+  const RADIER = [24, 40, 88] // barnbubbla · vanlig · jätte
+
   const matning = await page.evaluate(async () => {
     const g = window.__barnspel.game
     const ctx = window.__barnspel.ctx
@@ -101,10 +115,101 @@ try {
     matning.topp > 0.1,
     `${(matning.topp * 100).toFixed(1)} % utdragning på en r=40-bubbla (massa ${matning.massa?.toFixed?.(2) ?? matning.massa}), ${matning.bubblor} i luften`
   )
+
+  // SVEPET: alla radier × alla lägen. Domen tas på det värsta fallet, inte på snittet.
+  const svep = await page.evaluate(
+    async ({ LAGEN, RADIER }) => {
+      const g = window.__barnspel.game
+      const ctx = window.__barnspel.ctx
+      const vanta = () => new Promise((r) => requestAnimationFrame(r))
+      const rader = []
+      for (const r of RADIER) {
+        for (const [x, y] of LAGEN) {
+          for (const b of g._bubbles) b._sq = b._sqV = 0
+          const fore = g._bubbles.length
+          g._spawn(ctx, { x, y, r, kind: 'normal' })
+          await vanta()
+          if (g._bubbles.length <= fore) continue
+          const mal = g._bubbles[g._bubbles.length - 1]
+          g._blow(ctx, g._nearestFan(mal.x, mal.y), mal.x, mal.y)
+          let topp = 0
+          let minH = 1e9
+          for (let i = 0; i < 110; i++) {
+            await vanta()
+            if (mal.destroyed || mal._popped) break
+            topp = Math.max(topp, mal._sq || 0)
+            // P0: träffytans SYNLIGA höjd krymper med scale.y under utdragningen.
+            // De första bildrutorna hoppas över — där äger `bounceIn` fortfarande skalan
+            // och mätningen skulle rapportera födelsestudsen som ett P0-brott.
+            if (i > 18) {
+              const hr = mal.hitArea?.radius ?? 0
+              minH = Math.min(minH, hr * 2 * Math.abs(mal.scale.y))
+            }
+          }
+          rader.push({ r, x, y, topp, minH: minH === 1e9 ? null : minH })
+          if (!mal.destroyed && !mal._popped) g._pop(ctx, mal) // städa undan mätbubblan
+          await vanta()
+        }
+      }
+      return rader
+    },
+    { LAGEN, RADIER }
+  )
+
+  const varsta = svep.reduce((a, b) => (b.topp > a.topp ? b : a), svep[0] || { topp: 0 })
+  const overTak = svep.filter((s) => s.topp > 0.205)
+  ok(
+    'ingen bubbla deformeras mer än taket, i något läge',
+    overTak.length === 0,
+    `värst: r=${varsta.r} vid (${varsta.x},${varsta.y}) → ${(varsta.topp * 100).toFixed(1)} % · ${overTak.length} av ${svep.length} över 20,5 %`
+  )
+  const minstH = svep.reduce((m, s) => (s.minH !== null && s.minH < m ? s.minH : m), 1e9)
+  const varstH = svep.find((s) => s.minH === minstH) || {}
+  ok(
+    'P0: träffytan är ≥96 px ÄVEN när bubblan är hoptryckt',
+    minstH >= 96,
+    `minst ${Math.round(minstH)} px (r=${varstH.r} vid (${varstH.x},${varstH.y}))`
+  )
+  // Massan ska fortfarande SYNAS. Kravet är medvetet 1,5× och inte massornas egna 13×:
+  // den mjuka mättnaden komprimerar spannet med flit, och skulle den bevaras rakt av
+  // vore alternativen antingen en osynlig jätte eller en barnbubbla som ser trasig ut.
+  ok(
+    'jättebubblan deformeras tydligt mindre än barnbubblan',
+    (() => {
+      const liten = svep.filter((s) => s.r === 24).reduce((m, s) => Math.max(m, s.topp), 0)
+      const stor = svep.filter((s) => s.r === 88).reduce((m, s) => Math.max(m, s.topp), 0)
+      return liten > stor * 1.5
+    })(),
+    (() => {
+      const liten = svep.filter((s) => s.r === 24).reduce((m, s) => Math.max(m, s.topp), 0)
+      const stor = svep.filter((s) => s.r === 88).reduce((m, s) => Math.max(m, s.topp), 0)
+      return `barnbubbla ${(liten * 100).toFixed(1)} % mot jätte ${(stor * 100).toFixed(1)} %`
+    })()
+  )
   // Taket ska hålla — men en direktträff får inte LIGGA på det, för då slutar massan
   // synas: en liten bubbla och en jättebubbla deformeras lika mycket, fast hela
   // fläktmekaniken bygger på att kraften delas med massan.
-  ok('utdragningen har ett tak, och slår inte i det', matning.topp <= 0.28, `${(matning.topp * 100).toFixed(1)} % (tak 30 %)`)
+  ok('utdragningen har ett tak, och slår inte i det', matning.topp <= 0.205, `${(matning.topp * 100).toFixed(1)} % (asymptot 20 %)`)
+
+  // ATT SE ÄR ETT MÅTT. Talen kan säga 20 % och bilden ändå visa en hoprullad korv —
+  // det var precis så granskningen fällde den första kalibreringen. Sonden fryser
+  // därför en barnbubbla vid full utdragning och sparar bilden att titta på.
+  await page.evaluate(async () => {
+    const g = window.__barnspel.game
+    const ctx = window.__barnspel.ctx
+    const vanta = () => new Promise((r) => requestAnimationFrame(r))
+    for (const b of [...g._bubbles]) if (!b._popped) g._pop(ctx, b)
+    await vanta()
+    g._spawn(ctx, { x: 520, y: 380, r: 24, kind: 'normal' })
+    g._spawn(ctx, { x: 760, y: 380, r: 40, kind: 'normal' })
+    await vanta()
+    const mal = g._bubbles.slice(-2)
+    for (const m of mal) g._blow(ctx, g._nearestFan(m.x, m.y), m.x, m.y)
+    for (let i = 0; i < 26; i++) await vanta()
+    ctx.ticker.stop() // frys vid full utdragning
+  })
+  await page.screenshot({ path: '.test-shots/_bubbel-utdragen.png' })
+  console.log('\n  bild: .test-shots/_bubbel-utdragen.png (barnbubbla + r=40 vid full utdragning)')
   ok('utdragningen ligger längs blåset', matning.vinkelfel < 0.6, `${((matning.vinkelfel * 180) / Math.PI).toFixed(0)}° från siktlinjen`)
   ok('hinnan hittar tillbaka till rund', matning.slutMax < 0.05, `${(matning.slutMax * 100).toFixed(1)} % kvar efter puffen`)
 

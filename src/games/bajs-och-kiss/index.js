@@ -20,6 +20,7 @@ import { createScene, lerpColor } from '../../lib/scene.js'
 import { bigCelebration, puff, sparkle, floatText, pop } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 const FLOOR_Y = 600 // golvets ovansida (design-y)
@@ -1259,7 +1260,10 @@ function makeBathroom(w, h, floorY) {
 
   // --- Golv (kaklat, med fogar) ---
   const floor = new Graphics()
-  floor.rect(0, floorY, w, h - floorY).fill(0xeaf2f5)
+  // Golvet lag pa 88 856 px i EN ton (`_plattprobe --medbakgrund`) — spelets storsta falt.
+  // Dampad ramp: ytan ar nastan vit, och standardvardena (kalibrerade for mellanmorkt) hade
+  // gjort den smutsgra. Se lib/form.js.
+  floor.rect(0, floorY, w, h - floorY).fill(groundFill(0xeaf2f5, { light: 0.06, dark: 0.10 }))
   floor.rect(0, floorY, w, 8).fill({ color: 0xbcd2dc, alpha: 0.8 })
   for (let x = 80; x < w; x += 120) floor.rect(x, floorY + 8, 3, h).fill({ color: 0xd2e0e7, alpha: 0.7 })
   floor.eventMode = 'none'

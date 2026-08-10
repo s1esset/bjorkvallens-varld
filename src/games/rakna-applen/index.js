@@ -18,6 +18,7 @@ import { bounceIn, wiggle, floatText, ripple, shake, burst, breathe, puff , kvit
 import { createScene } from '../../lib/scene.js'
 import { makeSquirrel } from '../../lib/figurer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
+import { topLightFill } from '../../lib/form.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // Räkneorden 1–10 (rundans mål håller sig alltid inom 1–10).
@@ -194,11 +195,16 @@ export default {
       [520, 200, 170],
       [760, 200, 170],
     ]
-    blobs.forEach(([x, y, r]) => back.circle(x, y, r).fill(0x49a657))
+    // `_plattprobe --medbakgrund` mätte kronan till 265 955 px — 29 % av skärmen — i EN
+    // ton. Scenen runt omkring (himmel, kullar, gräs) var redan tonad via `createScene`;
+    // det var trädet som var platt. Varje klump fylls nu med `topLightFill`, som mappas
+    // mot VARJE FORMS egen bbox — så de fem bollarna läser som fem klumpar med ljus
+    // ovanifrån i stället för som en enda grön silhuett. Cachad per färg.
+    blobs.forEach(([x, y, r]) => back.circle(x, y, r).fill(topLightFill(0x49a657, { highlight: 0.16, dark: 0.16 })))
     tree.addChild(back)
 
     const front = new Graphics()
-    blobs.forEach(([x, y, r]) => front.circle(x, y - 26, r - 34).fill(0x63c46f))
+    blobs.forEach(([x, y, r]) => front.circle(x, y - 26, r - 34).fill(topLightFill(0x63c46f, { highlight: 0.2, dark: 0.18 })))
     tree.addChild(front)
 
     return tree

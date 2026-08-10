@@ -102,6 +102,16 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: pegbrädan fick ljus uppifrån — och en ny kalibreringsregel** (`e06a2bf`, v1.123.0).
+  Brädan låg på **83 792 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.
+  **NY REGEL, mätt här och nu i koden:** fyllningen är brun men ligger på `alpha: 0.16`, så den
+  SYNLIGA kontrasten blir rampen **gånger** alfan. Standardvärdena (0,14/0,28) hade släppt
+  igenom en dryg tiondel av sitt spann och knappt rört talet. *En genomskinlig yta behöver en
+  hårdare ramp än en täckande för samma verkan* — här 0,25/0,45.
+  ⚠️ Första kommentaren påstod dessutom att fältet inte GICK att ta ner lika mycket som en
+  täckande yta. Mätningen gav 16 993 och motsade det, så påståendet rättades före commit.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **83 792 → 16 993 px.**
+
 - 2026-08-10 ✅ **Vevljudet hör tyngden** (v1.91.0, kritikerns tredje punkt — B1 stängd).
   Trögheten kändes i handen men vevandet spelade samma `tap` var 140:e ms oavsett om
   maskinen var en ensam vev eller ett femhjulsbygge. `tap` behålls (riktigt CC0-klipp) och

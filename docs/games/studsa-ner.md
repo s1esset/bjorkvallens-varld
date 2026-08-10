@@ -90,6 +90,14 @@ livlös rekvisita.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: spelbrädan fick ljus uppifrån** (`054e424`, v1.123.0).
+  Brädan låg på **115 361 px i EN ton** (`_plattprobe --medbakgrund`) — appens största
+  kvarvarande platta fält och 16 % av skärmen. Den är ingen textpanel utan själva spelytan
+  sedd rakt framifrån, så den tål ljus uppifrån. Dämpad ramp (0,04/0,10): crèmen är nästan
+  vit och kulorna måste fortsätta läsa mot den. Alpha-vägen i `groundFill`, eftersom brädan
+  ligger på 0,78 och ska fortsätta släppa igenom bakgrunden.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **115 361 → 12 739 px.**
+
 - 2026-06-30: Doc skriven (granskning + plan). Spelet testat (errorCount 0, skärmdump sedd).
   Inga kodändringar.
 - Rekommenderad första-omgång: **[Deep] ge drop-läget verklig betydelse** (annars är agensen

@@ -117,6 +117,16 @@ auto-hjälpen kan spela banan åt barnet**.
 
 ## 5. Status / loggar
 
+- 2026-08-10 ⬜ **D1: mätt och MEDVETET LÄMNAD.** Backen kom upp i platthetsmätningen
+  (`_plattprobe --medbakgrund`) med ~82 000 px i EN ton, men fältet visade sig vara *ett band
+  i en redan avsiktlig sexbands-djupgradient* (`_paintHill`, `:354–360`): `mix(1)`, alltså den
+  solbelysta snöytan närmast kanten, 60 px hög över hela bredden. Blåst vit snö i direkt sol
+  är rätt, och en toning inom ett 60 px-band syns inte. Samma kategori som `trollblandning`s
+  receptbokssida — mätt, förstådd, inte ändrad.
+  ⚠️ Notera också att spelets topptal INTE är stabilt mellan körningar: väderljuset (`_light`)
+  färgar hela scenen, så topptonens identitet skiftar (`#ffffff` respektive `#d1b7c3` i två
+  körningar utan kodändring). Jämför samma fält, inte samma tal.
+
 - 2026-06-30: Doc skriven utifrån kodläsning + playtest (errorCount 0; drag rullade bollen
   och välte ett mål). Ersatte den gamla byggspecen. Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] befolka backen + rull-spår + rull-ljud** +

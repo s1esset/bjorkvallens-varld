@@ -107,6 +107,12 @@ Kort sagt: *mekaniskt rikt, scenografiskt och karaktärsmässigt fattigt*. Humor
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: badrumsgolvet fick ljus uppifrån** (`f16b2ef`, v1.123.0).
+  Golvet låg på **88 856 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.
+  Delad `groundFill()` med dämpad ramp (0,06/0,10): ytan är nästan vit och standardvärdena
+  hade gjort den smutsgrå.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **88 856 → 31 820 px.**
+
 - 2026-08-07 (`/fixa`, ATGARDER **V5** — spelet föll BARA i full `test:all`):
   - **Symptom:** `pageerror ×112`, `tween-mot-forstort ×3`, `tween-lacka ×1` — men bara när
     alla 71 spel kördes parallellt. Ensamt: grönt. Fyra parallellt: grönt. Det gjorde det lätt

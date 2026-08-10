@@ -93,6 +93,15 @@ garanterar minst 2 av varje så mönstret framträder över tid.
 
 ## 5. Status / loggar
 
+- 2026-08-10 🎨 **D1: vattnet mörknar med djupet** (`59e0778`, v1.123.0).
+  Vattenkroppen låg på **80 950 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största
+  fält. Här är toningen inte bara mot platthet utan FYSIKALISKT rätt: vatten mörknar med
+  djupet, så ljust vid ytan och mörkare mot botten är precis vad ögat väntar sig av en tank.
+  Rampen får därför vara tydligare än på en torr yta (0,14/0,34). Alpha-vägen, eftersom
+  vattnet måste fortsätta släppa igenom fisken och föremålen bakom. SPH-ytan ovanpå störs inte.
+  **MÄTT** (största enskilda fältet, bakgrunden medräknad): **80 950 → 57 525 px.** Spelets topp
+  är nu hyllplanet (`#e6d3ae`), ett annat fält.
+
 - 2026-06-30: Doc skriven (granskning + plan), ersätter gammal build-spec. Inga kodändringar.
   Spelet testat (errorCount 0; drag av föremål → trästock flyter vid ytan, korrekt).
 - Rekommenderad första-omgång: **[Medium] valfri gissa-först + [Medium] synlig flyt/sjunk-logg

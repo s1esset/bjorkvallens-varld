@@ -14,6 +14,61 @@ Format:
 
 ---
 
+## 2026-08-10 (sen natt II) · v1.123.0 · Nästa platta nivå — och alfan som dämpar toningen
+
+**Byggt:** 4 spel, 4 commits. Nivån som låg mätt men outredd i förra postens `Öppet`.
+
+| spel | störst före → efter | fältet |
+|---|---|---|
+| studsa-ner | 115 361 → 12 739 | plinkobrädan, `COLORS.cream` @ 0,78 |
+| bajs-och-kiss | 88 856 → 31 820 | badrumsgolvet, rent `0xeaf2f5` |
+| kugghjulen | 83 792 → 16 993 | pegbrädan, `COLORS.brown` @ 0,16 |
+| plask-i-vattnet | 80 950 → 57 525 | vattenkroppen, `0x4aa3df` @ 0,45 |
+
+**Fyra av fem fält behövde alpha-vägen** i `groundFill` — den option som byggdes för
+`valpens-bajs` grusstig i v1.120.0. Den betalade av sig direkt: utan den hade tre av de fyra
+fått välja mellan volym och genomskinlighet.
+
+**NY KALIBRERINGSREGEL, mätt i `kugghjulen`.** Brädan är brun men ligger på `alpha: 0.16`, så
+den SYNLIGA kontrasten blir rampen **gånger** alfan. Standardvärdena (0,14/0,28) hade släppt
+igenom en dryg tiondel av sitt spann och knappt rört talet. Regeln att bära med sig: *en
+genomskinlig yta behöver en hårdare ramp än en täckande för samma verkan* (här 0,25/0,45).
+
+⚠️ **En felaktig slutsats rättades före commit.** Kommentaren påstod först att fältet inte
+GICK att ta ner lika mycket som en täckande yta, med en uträkning som gav ~300 nödvändiga
+RGB-steg mot 255 möjliga. Mätningen gav 16 993 och motsade det — uträkningen antog en jämn
+bakgrund, men scenen bakom brädan har egen variation som sprider kompositen bredare. Räkna
+gärna först, men låt mätningen vinna.
+
+**`plask-i-vattnet` är det enda fallet där toningen var FYSIK, inte kosmetik.** Vatten mörknar
+med djupet, så ljust vid ytan och mörkare mot botten är vad ögat väntar sig av en tank —
+rampen fick därför vara tydligare (0,14/0,34) än på en torr yta.
+
+**`snobollen` mättes och lämnades MED FLIT.** Dess ~82 000 px visade sig vara *ett band i en
+redan avsiktlig sexbands-djupgradient* (`_paintHill:354–360`): `mix(1)`, solbelyst snöyta,
+60 px hög. Blåst vit snö i direkt sol är rätt, och en toning inom ett 60 px-band syns inte.
+Att leta upp fältet i koden först är vad som gjorde det synligt — talet ensamt hade sett ut
+som ett femte jobb.
+
+**Commits:** `054e424` studsa-ner · `f16b2ef` bajs-och-kiss · `e06a2bf` kugghjulen ·
+`59e0778` plask-i-vattnet
+
+`npm run check` grön · `npm run test:all` **72/72 gröna, inga `tom-scen`** (bara de kända
+`saknat-ljudklipp`, D2/MOSS).
+
+**Öppet:**
+- **Appens största platta fält är nu 115 400 px — och det är receptbokens PANEL i
+  `trollblandning`, som ska förbli platt.** Det största fält som faktiskt är i spel ligger på
+  ~76 000. Nästa nivå: `kittla-figuren` 75 809 (figurens EGEN kropp — ett föremål, inte en yta)
+  · `natskott-pa-stan` 71 095 (himlen) · `vilket-djur-later` 66 327 · `pizzabageriet` 62 882 ·
+  `pruttbad` 61 880 · `enhorningen-elvira` 57 734. Leta upp fältet i KODEN först.
+- ⚠️ **Mätbruset är nu bekräftat på två spel:** `snobollen` och `kittla-figuren` byter
+  topptonens IDENTITET mellan körningar utan kodändring (väderljus respektive figurfärg).
+  `snobollen` mättes till `#ffffff` 82 592 och `#d1b7c3` 76 202 i två körningar.
+- Oförändrat: **C1/V10** · **D2** `saknat-ljudklipp` (MOSS nere) · 3 repliker väntar på
+  `/rost` · `spindelnatet`s dagsljusbruna mark under natthimmel · `pizzabageriet` saknar
+  `BLEED`.
+
 ## 2026-08-10 (sen natt) · v1.122.0 · Marken i `scene.js` — och två spel som inte rördes av den
 
 Förra postens `Öppet` pekade ut `scene.js`-marken som nästa mål och sa: *mät innan något

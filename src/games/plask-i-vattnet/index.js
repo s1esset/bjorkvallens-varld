@@ -27,6 +27,7 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { puff, ripple, wiggle, pop, bounceIn, sparkle } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, FONT } from '../../lib/theme.js'
+import { groundFill } from '../../lib/form.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -426,7 +427,13 @@ export default {
     this._root.addChild(glass)
 
     // Vattenkropp (halvtransparent, lite indrag innanför glaset).
-    const water = new Graphics().roundRect(WATER.x, WATER.y, WATER.w, WATER.h, WATER.r).fill({ color: 0x4aa3df, alpha: 0.45 })
+    // Vattenkroppen lag pa 80 950 px i EN ton (`_plattprobe --medbakgrund`) — spelets
+    // storsta falt. Har ar toningen inte bara mot platthet utan FYSIKALISKT ratt: vatten
+    // morknar med djupet, sa ljust vid ytan och morkare mot botten ar precis vad ogat
+    // vantar sig av en tank. Rampen far darfor vara tydligare an pa en torr yta.
+    // Alpha-vagen (vattnet maste fortsatta slappa igenom fisken och foremalen bakom),
+    // se lib/form.js.
+    const water = new Graphics().roundRect(WATER.x, WATER.y, WATER.w, WATER.h, WATER.r).fill(groundFill(0x4aa3df, { light: 0.14, dark: 0.34, alpha: 0.45 }))
     water.eventMode = 'none'
     this._root.addChild(water)
 

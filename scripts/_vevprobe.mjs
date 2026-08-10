@@ -1,0 +1,121 @@
+// KUGGHJULENS VEV — känns maskinen tyngre ju mer barnet byggt?
+//
+//   node scripts/_vevprobe.mjs        (kräver dev-servern på :5173)
+//
+// Förut satte fingret vinkeln rakt av: en ensam vev och en maskin med fem hjul kändes
+// exakt likadana. Frågorna trögheten måste svara ja på:
+//
+//   1. Går en tom vev fortfarande igång direkt? (annars blev spelet trögare, inte rikare)
+//   2. Tar en byggd maskin MÄTBART längre tid att få upp i fart?
+//   3. Rullar den vidare när barnet släpper — och rullar den TYNGRE bygget längre?
+//   4. Stannar den till slut? (inget svänghjul får snurra i evighet)
+//   5. Finns ett fartTAK, så inget kan skena?
+//   6. Når flaggan fortfarande hela vägen? (no-fail får inte ha blivit svårare)
+import { chromium } from 'playwright'
+
+const ID = 'kugghjulen'
+let fel = 0
+const ok = (namn, villkor, detalj = '') => {
+  console.log(`  ${villkor ? '✓' : '✗'} ${namn}${detalj ? ' · ' + detalj : ''}`)
+  if (!villkor) fel++
+}
+
+const browser = await chromium.launch({ channel: 'chrome', headless: true })
+try {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+  const errors = []
+  page.on('pageerror', (e) => errors.push((e.message || String(e)).slice(0, 160)))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text().slice(0, 160)))
+  await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) if (k.startsWith('pwagames')) localStorage.removeItem(k)
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
+  await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
+  await page.waitForFunction(() => !!window.__barnspel.game?._crank, null, { timeout: 15000 })
+  await page.waitForTimeout(800)
+
+  console.log('\nKUGGHJULEN — maskinens tröghet\n')
+
+  // Veva med en konstant "fingerfart" i N bildrutor, mät fart och utrullning.
+  // `_troghet()` läses direkt, och hjulen fejkas som greppande genom `driven`-flaggan —
+  // det är exakt det fältet `_troghet()` summerar över.
+  const kor = (hjul) =>
+    page.evaluate(
+      async (hjul) => {
+        const g = window.__barnspel.game
+        const vanta = () => new Promise((r) => requestAnimationFrame(r))
+        // ⚠️ HJULEN FINNS INTE FÖRRÄN DE DRAGITS UT. Första versionen satte `driven` på
+        // `g._gears[i]` — men listan är TOM innan barnet placerat något, så både den tomma
+        // veven och "fem hjul" mätte tröghet 1,00 och sonden dömde en fungerande fysik.
+        // Sonden bygger därför sina egna hjulposter; `_troghet()` läser bara `driven`,
+        // `fly` och `r`, och `_update` hoppar över poster utan `view`.
+        const radier = [50, 66, 84, 66, 50]
+        g._gears.length = 0
+        for (let i = 0; i < hjul; i++) g._gears.push({ driven: true, fly: false, r: radier[i % radier.length], view: null })
+        g._crankAngle = 0
+        g._crankVel = 0
+        const J = g._troghet()
+
+        // 60 bildrutor med fingret som drar jämnt.
+        g._cranking = true
+        const farter = []
+        for (let i = 0; i < 60; i++) {
+          g._crankOnskad = 0.18 // rad/bildruta som fingret vill
+          await vanta()
+          farter.push(g._crankVel)
+        }
+        const toppfart = Math.max(...farter.map(Math.abs))
+        // Tid till 90 % av den fart maskinen till slut når.
+        const t90 = farter.findIndex((v) => Math.abs(v) >= toppfart * 0.9)
+
+        // Släpp och mät utrullningen.
+        g._cranking = false
+        const a0 = g._crankAngle
+        let rutor = 0
+        while (Math.abs(g._crankVel) > 0 && rutor < 400) {
+          await vanta()
+          rutor++
+        }
+        return { J, toppfart, t90: t90 < 0 ? -1 : t90, utrullning: Math.abs(g._crankAngle - a0), rutorTillStopp: rutor }
+      },
+      hjul
+    )
+
+  const tom = await kor(0)
+  const bygd = await kor(5)
+
+  console.log(`   tom vev  : tröghet ${tom.J.toFixed(2)} · toppfart ${tom.toppfart.toFixed(3)} rad/ruta · 90 % efter ${tom.t90} rutor`)
+  console.log(`   5 hjul   : tröghet ${bygd.J.toFixed(2)} · toppfart ${bygd.toppfart.toFixed(3)} rad/ruta · 90 % efter ${bygd.t90} rutor\n`)
+
+  ok('en tom vev går igång direkt', tom.t90 >= 0 && tom.t90 <= 6, `${tom.t90} bildrutor till 90 % av farten`)
+  ok('en byggd maskin är mätbart trögare att få igång', bygd.t90 > tom.t90 * 1.6, `${bygd.t90} mot ${tom.t90} bildrutor`)
+  ok('trögheten växer med bygget', bygd.J > tom.J * 3, `${tom.J.toFixed(2)} → ${bygd.J.toFixed(2)}`)
+  ok('maskinen rullar vidare när barnet släpper', bygd.utrullning > 0.3, `${bygd.utrullning.toFixed(2)} rad efter släpp`)
+  ok('och det tunga bygget rullar LÄNGRE än den tomma veven', bygd.utrullning > tom.utrullning * 1.3, `${bygd.utrullning.toFixed(2)} mot ${tom.utrullning.toFixed(2)} rad`)
+  ok('svänghjulet stannar till slut', bygd.rutorTillStopp < 400, `${bygd.rutorTillStopp} bildrutor`)
+
+  // Farttak: dra orimligt hårt.
+  const tak = await page.evaluate(async () => {
+    const g = window.__barnspel.game
+    const vanta = () => new Promise((r) => requestAnimationFrame(r))
+    g._cranking = true
+    for (let i = 0; i < 90; i++) {
+      g._crankOnskad = 40
+      await vanta()
+    }
+    const v = Math.abs(g._crankVel)
+    g._cranking = false
+    g._crankVel = 0
+    return v
+  })
+  ok('fartens tak håller även vid ett orimligt ryck', tak <= 0.51, `${tak.toFixed(3)} rad/ruta (tak 0,50)`)
+  ok('inga konsolfel', errors.length === 0, errors.slice(0, 2).join(' | '))
+
+  console.log(`\n${fel === 0 ? '✓ ALLA MÅTT GODA' : `✗ ${fel} MÅTT UNDERKÄNDA`}\n`)
+  process.exit(fel === 0 ? 0 : 1)
+} finally {
+  await browser.close()
+}

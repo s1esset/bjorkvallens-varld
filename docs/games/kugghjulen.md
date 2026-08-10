@@ -102,6 +102,24 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
 
 ## 5. Status / loggar
 
+- 2026-08-10 ✅ **Maskinen har tröghet** (v1.89.0, spår 3 runda P3). Förut satte fingret
+  vinkeln rakt av (`_crankAngle += d`): en ensam vev och en maskin med fem hjul kändes
+  exakt likadana, och hela poängen med att BYGGA en maskin — att den blir tyngre och
+  mäktigare — fanns inte i handen. Nu sätter fingret en önskad FART, maskinen hinner dit så
+  fort dess massa tillåter, och när barnet släpper rullar den vidare som ett svänghjul.
+  - Trögheten räknas som en skivas (J ∝ r²) och summeras över de hjul som FAKTISKT greppar,
+    så den är en direkt avläsning av vad barnet byggt.
+  - **Ingen svårighet tillkommer.** En tung maskin går lika långt — den tar bara en stund
+    att få igång, och belönar med att fortsätta av sig själv. Flaggan hissas av absolut
+    rotation, så utrullningen räknas den också.
+  - **Uppmätt** (`node scripts/_vevprobe.mjs`, 8 mått): tom vev tröghet 1,00 och full fart
+    efter **5 bildrutor** · femhjulsbygge tröghet **5,77** och full fart efter **36
+    bildrutor** · utrullning efter släpp **9,42 rad mot 1,61** · svänghjulet stannar
+    (295 bildrutor) · farttaket håller vid ett orimligt ryck (0,500 rad/ruta).
+  - ⚠️ **Sondfälla:** hjulen finns inte i `_gears` förrän de dragits ut, så första
+    versionen mätte tröghet 1,00 för BÅDA fallen och dömde en fungerande fysik. Sonden
+    bygger nu sina egna hjulposter.
+
 - 2026-06-30: Doc skriven (granskning + plan). Speltest grönt (errorCount 0), skärmdump läst.
   Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] fira storleks-skillnaden + [Quick] greppa-ryck +
@@ -132,3 +150,4 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
     mål-belöningar, [Quick] maskin-galleri/verkstads-rekvisita, [Quick] riktiga maskin-SFX (MOSS).
 - 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 13 px släp, 0,108 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.
 </content>
+

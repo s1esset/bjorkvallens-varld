@@ -39,6 +39,11 @@ const SIZES = {
 // 660 klippte det stora L-kugghjulet (r=84 + kuggar) mot skärmkanten på 720.
 const TRAY_Y = 624
 
+// Maskinens tröghet (se `_stegMaskin`). Talen är mätta i `scripts/_vevprobe.mjs`.
+const VEV_MOMENT = 0.34 // hur hårt fingret drar maskinen mot sin önskade fart
+const VEV_FRIKTION = 0.9 // svänghjulets avklingning per bildruta (delas med trögheten)
+const VEV_MAXFART = 0.5 // rad/bildruta — taket, så inget kan skena
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const lerp = (a, b, t) => a + (b - a) * t
 const wrapAngle = (d) => Math.atan2(Math.sin(d), Math.cos(d))
@@ -68,6 +73,8 @@ export default {
     this._solutionPegs = []
     this._dispensers = {}
     this._crankAngle = 0
+    this._crankVel = 0 // maskinens fart (rad/bildruta) — svänghjulet
+    this._crankOnskad = 0 // fingrets önskade rörelse den här bildrutan
     this._targetFactor = 0
     this._chainComplete = false
     this._resolving = false
@@ -239,6 +246,8 @@ export default {
     if (!this._alive) return
     this._clearLevel(ctx)
     this._crankAngle = 0
+    this._crankVel = 0 // maskinens fart (rad/bildruta) — svänghjulet
+    this._crankOnskad = 0 // fingrets önskade rörelse den här bildrutan
     this._targetFactor = 0
     this._chainComplete = false
     this._resolving = false
@@ -698,7 +707,9 @@ export default {
     const p = this._root.toLocal(e.global)
     const a = Math.atan2(p.y - C.y, p.x - C.x)
     const d = wrapAngle(a - this._lastAng)
-    this._crankAngle += d
+    // Fingret sätter inte vinkeln längre — det sätter en ÖNSKAD fart. Trögheten i
+    // `_update` avgör hur fort maskinen hinner dit. Se `_troghet()`.
+    this._crankOnskad = d
     this._lastAng = a
     if (Math.abs(d) > 0.04) this._crankMoved = true
     this._idle = 0
@@ -731,11 +742,52 @@ export default {
           this._autoCrankTween?.kill()
           return
         }
+        // Auto-vevningen äger vinkeln medan den pågår — nolla svänghjulet så de två
+        // inte skriver samma tal på var sitt håll (tweenen och `_stegMaskin`).
         this._crankAngle = st.a
+        this._crankVel = 0
         this._idle = 0
         this._helpIdle = 0
       },
     })
+  },
+
+  // ---- Maskinens tröghet ---------------------------------------------------
+  //
+  // Förut satte fingret vinkeln rakt av (`_crankAngle += d`): en ensam vev och en
+  // maskin med fem hjul kändes exakt likadana, och hela poängen med att BYGGA en
+  // maskin — att den blir tyngre och mäktigare — fanns inte i handen.
+  //
+  // Nu bär bygget en tröghet. Fingret sätter en önskad fart, maskinen hinner dit så
+  // fort dess massa tillåter, och när barnet släpper rullar den vidare en stund som ett
+  // svänghjul. Ingen svårighet tillkommer: en tung maskin går lika långt, den tar bara
+  // en stund att få igång — och belönar med att fortsätta av sig själv.
+  //
+  // Trögheten räknas som en skivas: J ∝ r². Summan går över de hjul som FAKTISKT
+  // greppar (`driven`), så trögheten är en direkt avläsning av vad barnet byggt.
+  _troghet() {
+    let j = 1 // veven själv
+    for (const g of this._gears) if (g.driven && !g.fly) j += (g.r / R0) * (g.r / R0)
+    return j
+  },
+
+  _stegMaskin(dt) {
+    const J = this._troghet()
+    if (this._cranking) {
+      // Fingrets önskade fart (rad/bildruta) → moment mot trögheten.
+      const mal = this._crankOnskad / Math.max(0.0001, dt)
+      this._crankVel += ((mal - this._crankVel) * VEV_MOMENT * dt) / J
+      this._crankOnskad = 0
+    } else {
+      this._crankVel *= Math.pow(VEV_FRIKTION, dt / J) // tungt bygge rullar längre
+      if (Math.abs(this._crankVel) < 0.0008) this._crankVel = 0
+    }
+    this._crankVel = clamp(this._crankVel, -VEV_MAXFART, VEV_MAXFART)
+    this._crankAngle += this._crankVel * dt
+    if (Math.abs(this._crankVel) > 0.004) {
+      this._idle = 0
+      this._helpIdle = 0
+    }
   },
 
   // ---- Ticker: rotationskoppling, flagga, idle/auto-hjälp -----------------
@@ -745,6 +797,7 @@ export default {
     const dt = ticker.deltaMS / 16.6667
     const dtSec = ticker.deltaMS / 1000
 
+    this._stegMaskin(dt)
     if (this._crank && !this._crank.destroyed) this._crank.rotation = this._crankAngle
 
     for (const g of this._gears) {

@@ -56,6 +56,7 @@ import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { pop, wiggle, sparkle, puff, burst, floatText, ripple, bounceIn, breathe } from '../../lib/feedback.js'
 import { lerpColor } from '../../lib/scene.js'
 import { FONT, COLORS, shade, tint } from '../../lib/theme.js'
+import { topLightFill } from '../../lib/form.js'
 import { shuffle } from '../../lib/swedish.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
@@ -4331,7 +4332,11 @@ export default {
       const bh = rnd(285, 370)
       const wall = CITY_WALLS[(Math.random() * CITY_WALLS.length) | 0]
       const topY = SIDEWALK_TOP - bh
-      g.rect(gap, topY, bw, bh).fill(wall).stroke({ width: 3, color: shade(wall, 0.25) })
+      // Hyreshusen delade EN platt ton per vaggfarg: `CITY_WALLS[0]` ensam lag pa 105 360
+      // px (`_plattprobe --medbakgrund`), storsta faltet i spelet. En fasad ar ett foremal
+      // belyst uppifran, sa `topLightFill` — och den cachar per farg, sa ALLA hus med samma
+      // vaggton kostar en gradient, inte en per hus.
+      g.rect(gap, topY, bw, bh).fill(topLightFill(wall, { highlight: 0.12, dark: 0.2 })).stroke({ width: 3, color: shade(wall, 0.25) })
       g.rect(gap - 6, topY - 12, bw + 12, 14).fill(shade(wall, 0.2)) // taklist
       g.rect(gap, SIDEWALK_TOP - 26, bw, 26).fill(shade(wall, 0.14)) // sockel
       // dörr
@@ -4353,7 +4358,7 @@ export default {
       const bh = rnd(175, 235)
       const wall = SUBURB_WALLS[(Math.random() * SUBURB_WALLS.length) | 0]
       const topY = SIDEWALK_TOP - bh
-      g.rect(gap, topY, bw, bh).fill(wall).stroke({ width: 3, color: shade(wall, 0.22) })
+      g.rect(gap, topY, bw, bh).fill(topLightFill(wall, { highlight: 0.12, dark: 0.2 })).stroke({ width: 3, color: shade(wall, 0.22) })
       // sadeltak med överhäng
       g.moveTo(gap - 16, topY).lineTo(gap + bw / 2, topY - 62).lineTo(gap + bw + 16, topY).closePath().fill(0xc0574f)
       g.rect(gap + bw * 0.68, topY - 44, 18, 40).fill(0x8a5a3b) // skorsten

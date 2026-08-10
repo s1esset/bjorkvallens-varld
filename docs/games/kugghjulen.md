@@ -73,8 +73,12 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
 
 ### Variation & överraskning
 - ~~**[Deep] Special-hjul per nivå:** en **rem/kedja** som överbryggar ett gap mellan två
-  pinnar~~ ✅ v1.90.0 — remmen finns (nivå 5 och 7). Kvar av punkten: ett **dubbelhjul** som
-  driver två grenar och ett **back-hjul** som vänder en karusell.
+  pinnar~~ ✅ v1.90.0 — remmen finns (nivå 5 och 7).
+  ~~Kvar av punkten: ett **dubbelhjul** som driver två grenar~~ ✅ v1.132.0 — **nivå 8**:
+  ett hjul driver kedjan vidare mot målet OCH en fläkt via en gren. Grenen ligger utanför
+  `solution`, alltså utanför frontier/spök-hint/auto-hjälp/vinstvillkor: en **bonus**, aldrig
+  ett krav. `_grenprobe.mjs` vaktar (17 kontroller).
+  Kvar av punkten: ett **back-hjul** som vänder en karusell.
 - **[Quick] Olika mål-belöningar:** karusellen byts mot pariserhjul/hiss/musikspel som målhjulet
   driver — variera vad maskinen *gör*.
 
@@ -102,6 +106,33 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
 
 ## 5. Status / loggar
 
+- 2026-08-10 ⚙️ **NATTKÖ N2a: DUBBELHJULET — ett hjul driver två grenar** (v1.132.0, nivå 8).
+  **Mesh-grafen behövde inte ändras en rad.** `_rebuildMesh` länkar rent geometriskt och BFS:en
+  bär riktning och utväxling på **LÄNKEN** (`factor[v] = factor[u] · (rem ? 1 : −1) · r_u/r_v`),
+  så en gren drivs redan korrekt. Det enda som saknades var en **pinne på rätt avstånd** och
+  något för grenen att driva: en ritad **fläkt** (stativ stilla, blad snurrar, axel emellan).
+  - **Grenen är en BONUS.** Den ligger utanför `solution`, alltså utanför `_frontierIndex`,
+    spök-hinten, `_autoHelp` och vinstvillkoret. No-fail-garantin är därför **orörd** — mätt:
+    nivån går att veva klar med grenpinnen tom (64 bildrutor), och målets faktor är oförändrad
+    (1,00 → 1,00) när grenen läggs.
+  - **MÄTT** (`_grenprobe.mjs`, 17 kontroller gröna): grenpinnen 134 px = exakt radiesumman
+    (0,00 px fel), grenhjulet 47 px från att greppa något annat (tak 14), ω_gren/ω_bas =
+    **−1,68** = −r_bas/r_gren, tre drivna hjul greppar bashjulet, fläkten −1,32 rad mot
+    bashjulets +0,79 (motsatt håll, snabbare än veven), dold på nivåer utan gren, förstörd
+    vid exit, 0 konsolfel.
+  - **`decoys: 0` på nivå 8 är inte kosmetik.** Utan den ärvde nivån 2 automatiska lock, och
+    ett av dem hamnade **98 px** från grenpinnen: ett S-hjul där hade greppat grenhjulet
+    (96 px mot radiesumman 100, under `MESH_TOL` 14) och gjort locket drivet. Dubbelhjulet
+    introduceras ensamt, precis som remmen på nivå 5.
+  - ⚠️ **Två fynd som BARA syntes på bilden:** (1) axeln mellan grenhjul och fläkt var 44 px
+    och fläktens vänstra blad (radie 38) täckte nästan hela den — `FLAKT_DX` 100 → 132;
+    (2) sondens första bild var värdelös eftersom appens splash inte hunnit tona ut och
+    täckte hela mitten. Talen var gröna i båda fallen.
+  - ⚠️ **Sondens eget felkriterium var fel först:** den krävde 2×80 träffyta + 24 px glapp =
+    184 px mellan pinnar och blev röd på 98. Men **kugghjul måste röra varandra** — kedjans
+    egna pinnar ligger med flit 132–150 px isär, så hela spelet hade fallit på samma tal, och
+    `DragController._narmastMal` väljer NÄRMASTE mål inom radien (entydigt ändå). Kriteriet är
+    nu jämförande: grenen får inte ligga trängre än kedjan själv.
 - 2026-08-10 🎨 **D1: pegbrädan fick ljus uppifrån — och en ny kalibreringsregel** (`e06a2bf`, v1.123.0).
   Brädan låg på **83 792 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.
   **NY REGEL, mätt här och nu i koden:** fyllningen är brun men ligger på `alpha: 0.16`, så den

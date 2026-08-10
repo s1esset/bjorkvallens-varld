@@ -65,6 +65,15 @@ const REM_SNAPP = 70 // släpp-radie för remspåret (pinnarnas är 80 → ingen
 // precis utanför dem. Utväxlingen räknas fortfarande på hjulens RIKTIGA radier.
 const REM_LYFT = 9
 
+// --- Dubbelhjulet (grenen + fläkten) --------------------------------------
+const GREN_VINKEL = 1.15 // rad, uppåt-ut från basshjulet (~66°)
+// ⚠️ 100 var FÖR NÄRA och det syntes bara på bilden: axeln mellan grenhjulet och
+// fläkten blev 44 px, och fläktens vänstra blad (radie 38) täckte nästan hela den.
+// 132 lämnar ~38 px synlig axel och håller sig ändå 58 px från flaggstången.
+const FLAKT_DX = 132 // fläktens plats räknat från grenpinnen
+const FLAKT_DY = -18
+const FLAKT_R = 38 // bladradie (ytterkant 38 + nav → ryms över kedjan)
+
 // Maskinens tröghet (se `_stegMaskin`). Talen är mätta i `scripts/_vevprobe.mjs`.
 // ⚠️ KOPPLINGEN MÅSTE ORKA DRA DET TYNGSTA BYGGET SJÄLV. Med 0,12 blev momentet vid
 // glapptaket bara 0,30·0,12/5,77 = 0,006 rad/ruta² — då var det den hårda klämman som
@@ -232,6 +241,42 @@ export default {
     this._carousel.eventMode = 'none'
     this._machineLayer.addChild(this._carousel)
 
+    // RITAD fläkt — dubbelhjulets ANDRA gren (P0 ASSETS: fristående föremål, ingen
+    // ikon i en ruta). Stativet står stilla och BLADEN snurrar, därför två Graphics:
+    // en rotation på hela fläkten hade snurrat foten också.
+    // Axeln mellan grenhjulet och fläkten. Utan den låg fläkten bara "i närheten" av
+    // ett hjul — och hela spelet handlar om SYNLIG orsak. Den ritas i designkoordinater
+    // (position 0,0) och bara i luckan mellan hjulets kuggkrans och fläktnavet, så den
+    // aldrig lägger sig över kuggarna.
+    this._flaktAxel = new Graphics()
+    this._flaktAxel.eventMode = 'none'
+    this._flaktAxel.visible = false
+    this._machineLayer.addChild(this._flaktAxel)
+
+    this._flaktStativ = new Graphics()
+    this._flaktStativ.roundRect(-5, 4, 10, 62, 5).fill(0x8f97a5).stroke({ width: 3, color: 0x6b7280 })
+    this._flaktStativ.ellipse(0, 70, 30, 9).fill(0xa8b0bd).stroke({ width: 3, color: 0x6b7280 })
+    this._flaktStativ.circle(0, 0, 14).fill(0x6b7280)
+    this._flaktStativ.eventMode = 'none'
+    this._flaktStativ.visible = false
+    this._machineLayer.addChild(this._flaktStativ)
+
+    this._flaktBlad = new Graphics()
+    // Bladen roteras i FÖRVÄG i geometrin (egna polygoner), inte med en transform per
+    // form — Graphics har ingen per-form-rotation, och `_flaktBlad.rotation` är
+    // reserverad för fläktens FART.
+    const vrid = (x, y, a) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2
+      const p = []
+      for (const [x, y] of [[13, -4], [FLAKT_R, -15], [FLAKT_R, 11], [13, 4]]) p.push(...vrid(x, y, a))
+      this._flaktBlad.poly(p).fill(0xbfd8ef).stroke({ width: 2.5, color: 0x7a9cc0 })
+    }
+    this._flaktBlad.circle(0, 0, 9).fill(0xe8eef6).stroke({ width: 3, color: 0x7a9cc0 })
+    this._flaktBlad.eventMode = 'none'
+    this._flaktBlad.visible = false
+    this._machineLayer.addChild(this._flaktBlad)
+
     // RITAD Elvira med KROPP (var en 👧-emoji, alltså ett svävande huvud).
     this._elvira = new Graphics()
     this._elvira.roundRect(-13, 14, 10, 24, 5).fill(0x7b5bd6)
@@ -321,13 +366,15 @@ export default {
     this._stuck = 0
     this._jitter = level > 5
 
-    const { solution, T, decoys, rem } = this._buildChainPegs(level)
+    const { solution, T, decoys, rem, gren } = this._buildChainPegs(level)
     this._solutionPegs = solution
     this._T = T
+    this._gren = gren
+    this._grenDrevFore = false
 
     // Rita pinn-hål + registrera som drop-mål. `accepts` skiljer nu på delarna:
     // ett kugghjul hör hemma på en pinne, remmen i sitt spår (och tvärtom).
-    const allPegs = [...solution.map((s) => s.peg), ...decoys]
+    const allPegs = [...solution.map((s) => s.peg), ...decoys, ...(gren ? [gren.peg] : [])]
     for (const peg of allPegs) {
       const hole = new Graphics()
         .circle(0, 0, 16)
@@ -390,7 +437,9 @@ export default {
     this._clearRem()
     for (const v of this._pegViews) if (v && !v.destroyed) v.destroy()
     this._pegViews = []
-    for (const o of [this._carousel, this._elvira, this._flag, this._targetWheel]) {
+    this._gren = null
+    this._grenDrevFore = false
+    for (const o of [this._carousel, this._elvira, this._flag, this._targetWheel, this._flaktBlad, this._flaktStativ, this._flaktAxel]) {
       if (o && !o.destroyed) {
         gsap.killTweensOf(o)
         gsap.killTweensOf(o.scale)
@@ -447,7 +496,34 @@ export default {
       aRef: remLink === 0 ? { kind: 'crank' } : { kind: 'gear', index: remLink - 1 },
       bRef: remLink === sizes.length ? { kind: 'target' } : { kind: 'gear', index: remLink },
     }
-    return { solution, T, decoys, rem }
+
+    // DUBBELHJULET: en pinne som hänger på ETT av kedjans hjul, så det hjulet driver
+    // TVÅ vägar — kedjan vidare mot målet OCH en fläkt. Mesh-grafen behövde inte
+    // ändras en rad: `_rebuildMesh` länkar rent geometriskt och BFS:en bär riktning
+    // och utväxling på LÄNKEN, så en gren drivs redan korrekt (ω = ω_bas · r_bas/r_gren,
+    // motsatt håll). Det enda som saknades var en pinne på rätt avstånd.
+    //
+    // Grenen ligger UTANFÖR `solution`, alltså utanför frontier, spök-hinten,
+    // auto-hjälpen och vinstvillkoret: den är en BONUS barnet kan upptäcka, aldrig
+    // ett krav. No-fail-garantin är därför orörd.
+    let gren = null
+    if (pat.gren) {
+      const bas = solution[pat.gren.at]
+      const d = SIZES[bas.size].r + SIZES[pat.gren.size].r // exakt mesh-avstånd
+      // Uppåt (se `_pattern`). GREN_VINKEL lutar den ut från kedjan så grenhjulet
+      // varken skymmer eller RÅKAR greppa nästa hjul i raden (uppmätt marginal:
+      // 33,7 px mot MESH_TOL 14 för nivå 8:s geometri).
+      gren = {
+        size: pat.gren.size,
+        basIndex: pat.gren.at,
+        peg: {
+          x: bas.peg.x + d * Math.cos(GREN_VINKEL),
+          y: bas.peg.y - d * Math.sin(GREN_VINKEL),
+          gear: null,
+        },
+      }
+    }
+    return { solution, T, decoys, rem, gren }
   },
 
   // Nivå 5 byter det gamla femhjulsbygget mot remmen: senare nivåer ska bli
@@ -461,9 +537,18 @@ export default {
       5: { sizes: ['M', 'S', 'M'], rem: 1, decoys: 1 }, // remmen introduceras ensam
       6: { sizes: ['M', 'L', 'M', 'L', 'M'] }, // det långa bygget (var nivå 5)
       7: { sizes: ['L', 'M', 'S'], rem: 2, decoys: 2 }, // rem + lock tillsammans
+      // Nivå 8: DUBBELHJULET introduceras ensamt (samma skäl som remmen på 5).
+      // `gren.at` = index i `sizes` för det hjul som ska driva TVÅ vägar.
+      // Grenen går UPPÅT: utrymmet under kedjan är bara ~60 px innan brickan
+      // (TRAY_Y 624, L-hjulets ytterkant 540), så en gren nedåt hade krockat.
+      // `decoys: 0` är inte kosmetik: utan den ärver nivån 2 automatiska lock, och
+      // ett av dem hamnade 98 px från grenpinnen (mätt i `_grenprobe`). Ett S-hjul
+      // där hade greppat grenhjulet (96 px mot radiesumman 100 — under MESH_TOL 14)
+      // och gjort locket drivet. Dubbelhjulet introduceras ensamt, precis som remmen.
+      8: { sizes: ['M', 'L', 'M'], gren: { at: 1, size: 'S' }, decoys: 0 },
     }
-    if (level <= 7) return base[level]
-    return randomFrom([base[4], base[5], base[6], base[7]])
+    if (level <= 8) return base[level]
+    return randomFrom([base[4], base[5], base[6], base[7], base[8]])
   },
 
   _positionMachine() {
@@ -479,6 +564,30 @@ export default {
     this._pole.moveTo(T.x, T.y - 30).lineTo(T.x, FLAG_TOP_Y).stroke({ width: 10, color: COLORS.inkSoft })
     this._flagBottom = T.y - 40
     this._flag.position.set(T.x, this._flagBottom)
+
+    // Fläkten står bredvid grenpinnen (samma konvention som karusellen bredvid
+    // målhjulet) och finns bara på nivåer med ett dubbelhjul.
+    const gren = this._gren
+    for (const o of [this._flaktStativ, this._flaktBlad]) {
+      if (!o || o.destroyed) continue
+      o.visible = !!gren
+      if (gren) o.position.set(gren.peg.x + FLAKT_DX, gren.peg.y + FLAKT_DY)
+    }
+    if (this._flaktBlad && !this._flaktBlad.destroyed) this._flaktBlad.rotation = 0
+    if (this._flaktAxel && !this._flaktAxel.destroyed) {
+      this._flaktAxel.clear()
+      this._flaktAxel.visible = !!gren
+      if (gren) {
+        const L = Math.hypot(FLAKT_DX, FLAKT_DY)
+        const ux = FLAKT_DX / L
+        const uy = FLAKT_DY / L
+        const r0 = SIZES[gren.size].r + 6 // strax utanför kuggkransen
+        this._flaktAxel
+          .moveTo(gren.peg.x + ux * r0, gren.peg.y + uy * r0)
+          .lineTo(gren.peg.x + FLAKT_DX, gren.peg.y + FLAKT_DY)
+          .stroke({ width: 9, color: 0x8f97a5, cap: 'round' })
+      }
+    }
   },
 
   // ---- Drivremmen ---------------------------------------------------------
@@ -1016,10 +1125,29 @@ export default {
       rem._greppFore = remGriper
     }
 
+    // Grenen greppade: den är en BONUS utanför vinstvillkoret, så den får sin egen
+    // lilla föreställning i stället — annars vore upptäckten obelönad.
+    const grenDrivs = !!this._gren?.peg?.gear?.driven
+    if (grenDrivs && !this._grenDrevFore) this._onGrenGrips(ctx)
+    this._grenDrevFore = grenDrivs
+
     if (this._chainComplete && !wasComplete) {
       this._prevTargetAngle = this._crankAngle * this._targetFactor
       this._onChainGrips(ctx)
     }
+  },
+
+  // Fläkten fick fart: gnistra vid navet, en stigande liten ton, och en puls på
+  // bladen. Ingen text — barnet ser fläkten börja gå.
+  _onGrenGrips(ctx) {
+    if (!this._alive || !this._flaktBlad || this._flaktBlad.destroyed) return
+    const x = this._flaktBlad.x
+    const y = this._flaktBlad.y
+    sparkle(ctx.fxLayer, x, y)
+    puff(ctx.fxLayer, x + 34, y, { count: 6, color: 0xdbe9f7 })
+    this._popScale(this._flaktBlad, 1.16)
+    ctx.services.audio.tone({ freq: 320, slideTo: 520, dur: 0.4, type: 'sine', vol: 0.3 })
+    ctx.services.voice.say('Fläkten snurrar också!')
   },
 
   _onChainGrips(ctx) {
@@ -1340,6 +1468,14 @@ export default {
       }
     }
 
+    // Dubbelhjulets ANDRA gren: fläkten snurrar med grenhjulets EGEN faktor — alltså
+    // åt motsatt håll och med annan fart än kedjan mot målet. Det är precis det ett
+    // dubbelhjul gör, och det är gratis: BFS:en fyller `factor` för varje drivet hjul.
+    const gg = this._gren?.peg?.gear
+    if (this._flaktBlad && !this._flaktBlad.destroyed && this._flaktBlad.visible && gg?.driven && !gg.fly) {
+      this._flaktBlad.rotation = this._crankAngle * gg.factor
+    }
+
     this._stegRem(dt)
 
     if (this._chainComplete && !this._resolving) {
@@ -1374,6 +1510,15 @@ export default {
   },
 
   _recue(ctx) {
+    if (this._chainComplete && this._gren && !this._gren.peg.gear) {
+      // Maskinen går, men dubbelhjulets andra gren står tom — peka på den i stället
+      // för att upprepa "Veva nu!". Grenen är frivillig, så tonen är en inbjudan.
+      ctx.services.voice.say('Fläkten vill också snurra!')
+      const disp = this._dispensers[this._gren.size]
+      if (disp?.view && !disp.view.destroyed) pop(disp.view)
+      if (this._flaktBlad && !this._flaktBlad.destroyed) this._popScale(this._flaktBlad, 1.12)
+      return
+    }
     if (this._chainComplete) {
       ctx.services.voice.say('Veva nu!')
     } else if (ctx.services.voice.replayLast) {
@@ -1474,7 +1619,7 @@ export default {
     this._stopDispenserHints()
     this._clearRem()
 
-    for (const o of [this._crank, this._targetWheel, this._carousel, this._elvira, this._flag, this._ghost]) {
+    for (const o of [this._crank, this._targetWheel, this._carousel, this._elvira, this._flag, this._ghost, this._flaktBlad, this._flaktStativ, this._flaktAxel]) {
       if (o && !o.destroyed) {
         gsap.killTweensOf(o)
         gsap.killTweensOf(o.scale)

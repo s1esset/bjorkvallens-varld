@@ -14,6 +14,7 @@ import { bounceIn, pop, wiggle, sparkle, puff, bigCelebration } from '../../lib/
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT, PLAYFUL, PRAISE } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { verticalFill } from '../../lib/form.js'
 
 // Räkneorden 1–5 (rundans vagnar håller sig alltid inom 1–5).
 const SIFFROR = { 1: 'Ett', 2: 'Två', 3: 'Tre', 4: 'Fyra', 5: 'Fem' }
@@ -32,6 +33,22 @@ const LAST_ORD = {
 // sitt origo — fronten pekar alltså åt vänster — och vagnarna hängs på åt HÖGER. Därför
 // måste tåget rulla iväg åt VÄNSTER (loket först ur bild, sista vagnen sist). Allt som
 // rör avfärden nedan utgår från det.
+// LANDSKAPET. Bakgrunden var tidigare EN ton (0xfff0d6) över hela skärmen:
+// `_plattprobe --medbakgrund` mätte 697 730 px = 76 % av bilden i den tonen, och
+// följden var inte bara platthet utan att RÄLSEN HÄNGDE I LUFTEN — det fanns ingen
+// mark för spåret att vila på och ingen horisont som skilde himmel från jord.
+// Himlens toner spänner om den gamla 0xfff0d6, så det är samma varma morgon som förut.
+// Allt är cachade linjära toningar (`verticalFill`) — en montering bakar noll texturer.
+const HORIZON_Y = 296
+const C_SKY_TOP = 0xfff9ec
+const C_SKY_BOT = 0xffeccd
+const C_HILL_FAR = 0xd6e6b6
+const C_HILL_NEAR = 0xc2db9d
+const C_GROUND_TOP = 0xb4d78d
+const C_GROUND_BOT = 0x99c471
+const C_BALLAST_TOP = 0xd9c8a8
+const C_BALLAST_BOT = 0xc0ab87
+
 const RAIL_Y = 300
 const ENGINE_Y = 250
 const ENGINE_NOSE = 122 // hur långt loket sticker ut till vänster om sitt origo (kofångaren)
@@ -66,13 +83,11 @@ export default {
     ctx.stage.addChild(this._root)
 
     // Lugn bakgrund (dekorativ, fångar inga tryck). Breddad med BLEED så en bred
-    // telefon (full bleed) aldrig ser creme-kanter utanför 0..1280. Tonen är en varm
-    // himmel (samma som scene.js warm-tema) i stället för COLORS.bg: den färgen ÄR
-    // letterbox-cremen, så en bakgrund i exakt den tonen kan aldrig läsas som scen —
-    // varken av ögat eller av bildkollens kant-cream-mätning.
-    const bg = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y).fill(0xfff0d6)
-    bg.eventMode = 'none'
-    this._root.addChild(bg)
+    // telefon (full bleed) aldrig ser creme-kanter utanför 0..1280. Himlen hålls i den
+    // varma tonen (aldrig COLORS.bg: den färgen ÄR letterbox-cremen, så en bakgrund i
+    // exakt den tonen kan aldrig läsas som scen — varken av ögat eller av bildkollens
+    // kant-cream-mätning). Se landskapsbeskrivningen vid HORIZON_Y.
+    this._root.addChild(this._buildBackdrop(ctx))
 
     // Statisk räls + lok byggs en gång; vagnar/slots byggs om per runda.
     this._engineX = this._engineXFor(3)
@@ -106,6 +121,23 @@ export default {
 
   mount(ctx) {
     ctx.services.voice.say(this.voiceIntro)
+  },
+
+  // Himmel, kullar, mark och banvall — se landskapsbeskrivningen vid HORIZON_Y.
+  // Kullarna ritas MELLAN himmel och mark, så marken klipper deras underkant och de
+  // står på horisonten i stället för att sväva som två ellipser.
+  _buildBackdrop(ctx) {
+    const w = ctx.width + 2 * BLEED_X
+    const g = new Graphics()
+    g.rect(-BLEED_X, -BLEED_Y, w, HORIZON_Y + BLEED_Y).fill(verticalFill(C_SKY_TOP, C_SKY_BOT))
+    g.ellipse(250, HORIZON_Y + 12, 330, 94).fill(C_HILL_FAR)
+    g.ellipse(900, HORIZON_Y + 16, 430, 118).fill(C_HILL_NEAR)
+    g.rect(-BLEED_X, HORIZON_Y, w, ctx.height + BLEED_Y - HORIZON_Y).fill(verticalFill(C_GROUND_TOP, C_GROUND_BOT))
+    // Banvallen: grusbädden som spåret vilar på. Sliprarna ritas senare och hamnar
+    // ovanpå den, så spåret ligger i gruset i stället för på en grön gräsmatta.
+    g.rect(-BLEED_X, HORIZON_Y - 4, w, 54).fill(verticalFill(C_BALLAST_TOP, C_BALLAST_BOT))
+    g.eventMode = 'none'
+    return g
   },
 
   // Räls: korta sliprar + en lång brun balk ovanpå.

@@ -117,6 +117,27 @@ console.log('\nfältets form: närhet, radie, flera eldar')
   ok('borttagen källa slutar värma', Math.abs(v2.narhet('mat') - 0.6) < 1e-9)
 }
 
+console.log('\nknuff(): en skvätt kallt rakt i något (trollblandnings hällning)')
+{
+  const v = new Varmefalt()
+  v.kalla('eld', { x: 0, y: 0, radie: 100, styrka: 1 })
+  v.lagg('brygd', { x: 0, y: 0 })
+  for (let i = 0; i < 120; i++) v.steg(1)
+  const gradFore = v.grad('brygd')
+  const tempFore = v.temp('brygd')
+  const andrat = v.knuff('brygd', -0.6)
+  ok('knuff sänker temperaturen', v.temp('brygd') < tempFore - 0.55, `${tempFore.toFixed(2)} → ${v.temp('brygd').toFixed(2)}`)
+  ok('knuff returnerar den FAKTISKA ändringen', Math.abs(andrat + 0.6) < 1e-6, andrat.toFixed(3))
+  // Det här är hela poängen med att `knuff` bara rör temp: gradningen är barnets
+  // hunna arbete, och en skvätt kallt vatten får aldrig radera den (P0).
+  ok('knuff rör ALDRIG gradningen', v.grad('brygd') === gradFore, v.grad('brygd').toFixed(3))
+  v.knuff('brygd', -5)
+  ok('klamras nedåt till 0', v.temp('brygd') === 0)
+  v.knuff('brygd', 5)
+  ok('klamras uppåt till 1', v.temp('brygd') === 1)
+  ok('knuff på okänt namn ger 0 och kraschar inte', v.knuff('finns-inte', -1) === 0)
+}
+
 console.log('\nny mat på pinnen + exit-säkerhet')
 {
   const v = new Varmefalt()

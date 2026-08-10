@@ -97,6 +97,18 @@ export class Varmefalt {
     }
   }
 
+  // En SKVÄTT kallt (eller hett) rakt i något — en isbit i grytan, en klick smör i
+  // pannan. Rör BARA `temp`, aldrig `grad`: det barnet redan hunnit göra får inte
+  // rinna tillbaka (P0 "misslyckande som nollställer"). Delta i samma enhet som temp,
+  // så en uppmätt mängd kan delas per partikel/gram och summeras.
+  knuff(namn, delta) {
+    const s = this._saker.get(namn)
+    if (!s) return 0
+    const fore = s.temp
+    s.temp = clamp(s.temp + delta, 0, 1)
+    return s.temp - fore
+  }
+
   temp(namn) {
     return this._saker.get(namn)?.temp ?? 0
   }

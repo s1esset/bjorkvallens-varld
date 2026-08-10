@@ -128,8 +128,27 @@ try {
     await page.waitForTimeout(550)
   }
 
+  // ⚠️ SKÄRMDUMPEN MÅSTE TAS EFTER EN MÅLAD BILDRUTA, INTE EFTER EN TIMER. Med enbart
+  // `waitForTimeout` kapplöper `page.screenshot()` med WebGL-rutan, och under parallell
+  // last (fyra webbläsare) vinner den ibland: bilden blir HELT tom och `bildkoll` fäller
+  // ett `tom-scen` på fel nivå i ett spel som mår utmärkt. Uppmätt över tre fulla svep:
+  // fyndet dök upp i `tvatta-djuret` två gånger och sedan i `flipperspel` och
+  // `folj-sparet` — alltså olika spel varje gång, medan vart och ett var grönt när det
+  // kördes ensamt (6 av 6 för `tvatta-djuret`). Det är harnessen som mäter fel, inte
+  // spelen. Två rAF garanterar att minst en ruta är målad innan bilden tas.
   await page.waitForTimeout(900)
+  const maladRuta = () =>
+    page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true)))))
+  await maladRuta()
   await page.screenshot({ path: shot })
+  // Och om bilden ÄNDÅ blev tom: ta om den en gång. En scen som verkligen är tom är tom
+  // två gånger, så en omtagning kan aldrig dölja ett riktigt fel — den skiljer bara
+  // kapplöpningen från saken.
+  if (granska(shot).some((f) => f.kod === 'tom-scen')) {
+    await page.waitForTimeout(400)
+    await maladRuta()
+    await page.screenshot({ path: shot })
+  }
 
   // exit-säkerhetscykel: spel -> bibliotek -> spel -> meny (mitt i ev. animationer)
   await page.evaluate(() => window.__barnspel.nav.go('library'))

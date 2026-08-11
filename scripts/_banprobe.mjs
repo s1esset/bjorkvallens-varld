@@ -44,9 +44,14 @@ try {
     // Samma tal som spelet. Läses inte ur modulen (de är inte exporterade) utan speglas
     // här med flit: ändras spelets tal utan att sonden följer med, faller sonden.
     const BALL_R = 28
-    const GAP_FRI = 64
+    const GAP_FRI = 80
     const GAP_TATT = 50
-    const FIELD = { x0: 335, x1: 945, y0: 264, y1: 468 }
+    // Kulan far INTE kunna aka ner i en tratt korridor langs en vagg: `setStatic`
+    // satter friktionen till 1 pa varje statisk kropp, sa en gang som ar knappt
+    // bredare an kulan blir en friktionsfalla. Agarens rapport 2026-08-11:
+    // "en studs stolpe blockade nerfarten pa sidan sa kulan fastnade".
+    const GAP_LANE = 100
+    const FIELD = { x0: 312, x1: 968, y0: 264, y1: 468 }
     const BUMP_R = 34
     const PEG_R = 17
     const SERVE_Y = 192
@@ -116,6 +121,11 @@ try {
           for (const h of fasta) {
             const gap = avstTillKropp(h, a.x, a.y) - a.r
             rad.minstaGapFast = Math.min(rad.minstaGapFast, gap)
+            if ((h.label === 'wall' || h.label === 'guide') && gap >= BALL_R * 2 && gap < GAP_LANE) {
+              rad.korridor = (rad.korridor || 0) + 1
+              rad.korridorVar = (rad.korridorVar || [])
+              if (rad.korridorVar.length < 6) rad.korridorVar.push(h.label + ' ' + Math.round(gap))
+            }
             if (gap < 0) rad.overlapp++
             else if (gap > GAP_TATT && gap < GAP_FRI) { rad.kil++; rad.kilVar = (rad.kilVar || []); rad.kilVar.push(h.label + ' ' + Math.round(gap)) }
           }
@@ -155,7 +165,11 @@ try {
 
   ok('inga två föremål överlappar', overlapp === 0, `${overlapp} av ${totalt} banor`)
   const kilVar = utfall.flatMap((r) => r.kilVar || [])
-  ok('inga KILAR (gap 50–64 px där kulan kan klämmas fast)', kil === 0, `${kil} fynd${kilVar.length ? ' — ' + kilVar.join(', ') : ''}`)
+  ok('inga KILAR (gap 50–80 px där kulan kan klämmas fast)', kil === 0, `${kil} fynd${kilVar.length ? ' — ' + kilVar.join(', ') : ''}`)
+  const korridor = utfall.reduce((s, r) => s + (r.korridor || 0), 0)
+  const korrVar = utfall.flatMap((r) => r.korridorVar || [])
+  ok('ingen TRÅNG korridor mot vägg/lanväg (56–100 px = friktionsfälla)', korridor === 0,
+    `${korridor} fynd${korrVar.length ? ' — ' + [...new Set(korrVar)].slice(0, 6).join(', ') : ''}`)
   ok('inget föremål hamnar utanför fältet', utanfor === 0, `${utanfor} fynd`)
   ok('inget föremål ligger i kulans serveringsläge', serve === 0, `${serve} fynd`)
   ok('varje bana från nivå 5 har ett mål', utanMal === 0, `${utanMal} utan mål`)

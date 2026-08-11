@@ -123,6 +123,31 @@ passiva en gång tända**.
 
 ## 5. Status / loggar
 
+- 2026-08-11 🧱 **ÅTGÄRDER #6 (ägarrapport): en stolpe blockerade nerfarten så kulan fastnade**
+  (v1.139.0). *"Flipperspelet funkar bättre nu i storlek, men en studs stolpe blockade nerfarten
+  på sidan så kulan fastnade."* Regressionen kom från v1.138.0: när dynorna krympte flyttades
+  fältets kant närmare väggen, och då uppstod ett läge som inte fanns förut.
+  - **Vad som saknades:** kilregeln var symmetrisk — samma krav överallt. Men **sidorna är kulans
+    väg NER**, och lanvägen stänger dem underifrån. En passage på 70–90 px är där inte en passage
+    utan en **ficka**: kulan trillar i och blir liggande. Ny regel: mot `wall` och `guide` krävs
+    **≥100 px eller ≤46 px** (`GAP_LANE`), aldrig något däremellan.
+  - ⚠️ **Friktion var FEL spår, och det är värt att skriva ner.** Första hypotesen var att
+    `setStatic` sätter `friction: 1`, så en trång gång skulle bli en friktionsfälla. Men matter
+    tar **`min`** av de två kropparnas friktion (`Pair.update`), så kulans 0,02 vinner alltid.
+    Mekanismen är ren geometri, inte friktion. Regeln blev rätt ändå — men av rätt skäl nu.
+  - **MÄTT** (`_banprobe.mjs`, ny kontroll över 1 500 banor): trånga korridorer mot vägg/lanväg
+    **5 107 → 0**. Fyndet fanns alltså i var tredje bana; ägaren hittade det på några minuter.
+  - **Fältet går nu ända ut till väggen** (x 312–968) så en dyna kan ligga **tätt intill** den.
+    Ett tätat mellanrum är säkert — kulan kan inte ta sig in — och det är den enda placeringen
+    nära väggen som inte är en ficka.
+  - **Utplaceringen bytte strategi, och det är mätt tre gånger:** girig bäst-av-N är FEL mål. En
+    ny dyna som söker maximalt avstånd hamnar i ett hörn, fältet fragmenteras och nästa dyna får
+    ingen plats. Nivå 12, snitt/tak: **bäst-av-900 → 3,4/5** · **"bra nog" 1,25× → 3,3/5** ·
+    **ren dartkastning (första giltiga punkten) → 6,6/7**. Slumpen packar bättre än omsorgen.
+  - **Reserv för trängsel:** från fjärde dynan får den ligga **tätt intill** en annan om fri
+    passage inte finns. Ett kluster är säkert per kilregeln och är dessutom hur riktiga
+    flipperbord ser ut. Utan reserven stannade banan på 3–4 dynor.
+
 - 2026-08-11 🎲 **Banan slumpas ut på riktigt — och stolparna går att träffa** (v1.138.0).
   Ägarens andra speltest: *"stolparna var omöjliga att träffa men när jag lyckades så studsade
   det bättre — kan vi göra så flipperspelet har mer slumpmässigt utsatta poäng-bumpers utan att

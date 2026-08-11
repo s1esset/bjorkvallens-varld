@@ -132,12 +132,19 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const rand = (a, b) => a + Math.random() * (b - a)
 
 // --- Slumpad banlayout: fältet, måtten och kilregeln (se `_samplaBana`) ---------
-const FIELD = { x0: 335, x1: 945, y0: 264, y1: 468 }
+const FIELD = { x0: 312, x1: 968, y0: 264, y1: 468 }
 const BUMP_R = 34 // var 46 — mindre dynor ger plats åt fler utan att kila
 const PEG_R = 17
-const GAP_FRI = 64 // kulan (d=56) passerar bekvämt
+const GAP_FRI = 80 // kulan (d=56) passerar med 24 px spel
 const GAP_TATT = 46 // kulan kan inte ta sig IN — alltså kan den inte fastna
-const gapOk = (g) => g >= GAP_FRI || (g >= 8 && g <= GAP_TATT)
+// Mot VÄGG och LANVÄG räcker inte GAP_FRI. Ägarens speltest 2026-08-11: "en studs
+// stolpe blockade nerfarten på sidan så kulan fastnade". Sidorna är kulans väg NER,
+// och lanvägen stänger dem underifrån — en passage på 70–90 px är då inte en passage
+// utan en FICKA som kulan trillar i och blir liggande i. Den ska antingen vara rymlig
+// eller inte finnas alls. (Friktion är INTE mekanismen: matter tar `min` av de två
+// kropparnas friktion, så kulans 0,02 vinner över `setStatic`s 1.)
+const GAP_LANE = 100
+const gapOk = (g, fri = GAP_FRI) => g >= fri || (g >= 8 && g <= GAP_TATT)
 
 // Avstånd till en kropps FAKTISKA kant (polygonens sidor), inte till dess mittpunkt.
 function avstandTillKropp(h, x, y) {
@@ -592,8 +599,11 @@ export default {
     const ut = []
     for (const b of kroppar) {
       if (!b.isStatic || b.label === 'ball') continue
-      if (b.circleRadius) ut.push({ x: b.position.x, y: b.position.y, r: b.circleRadius })
-      else ut.push({ v: b.vertices.map((p) => ({ x: p.x, y: p.y })) })
+      // `lane` = en yta som avgränsar kulans väg NER (vägg, lanväg). De kräver en
+      // rymligare passage än banelementen mitt på bordet.
+      const lane = b.label === 'wall' || b.label === 'guide'
+      if (b.circleRadius) ut.push({ x: b.position.x, y: b.position.y, r: b.circleRadius, lane })
+      else ut.push({ v: b.vertices.map((p) => ({ x: p.x, y: p.y })), lane })
     }
     // Tunnelmynningarna är RITADE hål utan kropp (insuget är en närhets-koll i
     // tickern) — motorn känner alltså inte till dem. De måste läggas till för hand.
@@ -609,7 +619,7 @@ export default {
     const lagda = []
     const passar = (x, y, r, kravFri) => {
       for (const h of hinder) {
-        if (!gapOk(avstandTillKropp(h, x, y) - r)) return false
+        if (!gapOk(avstandTillKropp(h, x, y) - r, h.lane ? GAP_LANE : GAP_FRI)) return false
       }
       for (const l of lagda) {
         const g = Math.hypot(l.x - x, l.y - y) - r - l.r
@@ -622,31 +632,32 @@ export default {
     }
     // Bäst-av-N i stället för första bästa: en ren förstaträff klumpar ihop sig, och
     // "slumpmässigt" ska läsas som utspritt, inte som en hög i ena hörnet.
+    // Ren dartkastning: ta FÖRSTA giltiga punkten. Två girigare varianter mättes och
+    // båda var sämre, för samma skäl — en ny dyna som söker maximalt avstånd hamnar i
+    // ett hörn, fältet fragmenteras och nästa dyna får ingen plats alls:
+    //   · bäst-av-400 med tidigt avbrott ..... nivå 12: snitt 4,8, tak 7
+    //   · bäst-av-900 ........................ snitt 3,4, tak 5
+    //   · "bra nog" på 1,25× minsta avstånd .. snitt 3,3, tak 5
+    // Slumpen packar bättre än omsorgen. Minimiavståndet håller ändå isär dem.
     const lagg = (r, kravFri = true) => {
-      let bast = null
-      let bastMinsta = -1
-      for (let i = 0; i < 400; i++) {
+      for (let i = 0; i < 500; i++) {
         const x = rand(FIELD.x0, FIELD.x1)
         const y = rand(FIELD.y0, FIELD.y1)
         if (!passar(x, y, r, kravFri)) continue
-        const minsta = lagda.length ? Math.min(...lagda.map((l) => Math.hypot(l.x - x, l.y - y))) : 1e9
-        if (minsta > bastMinsta) {
-          bastMinsta = minsta
-          bast = { x, y, r }
-        }
-        if (bast && i > 150) break // tillräckligt utspritt; jaga inte det perfekta
+        const p = { x, y, r }
+        lagda.push(p)
+        return p
       }
-      if (bast) lagda.push(bast)
-      return bast
+      return null
     }
 
-    // Antalet växer med nivån men tar aldrig slut på plats: lyckas inte samplingen
-    // läggs helt enkelt färre. Ett spel utan mål är otänkbart, ett med en dyna mindre
-    // är bara en lugnare bana.
     const onskat = clamp(3 + Math.floor((level + 1) / 2), 3, 7)
     const dynor = []
     for (let i = 0; i < onskat; i++) {
-      const p = lagg(BUMP_R)
+      // Får dynan ingen fri passage runt sig tillåts den ligga TÄTT intill en annan —
+      // ett kluster är säkert (kulan kan inte ta sig in mellan dem) och är dessutom
+      // hur riktiga flipperbord ser ut. Utan reserven tar banan slut på 3–4 dynor.
+      const p = lagg(BUMP_R, true) || (i >= 3 ? lagg(BUMP_R, false) : null)
       if (!p) break
       dynor.push(p)
     }

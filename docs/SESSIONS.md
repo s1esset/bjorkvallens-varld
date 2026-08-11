@@ -14,6 +14,58 @@ Format:
 
 ---
 
+## 2026-08-11 · v1.137.0 · Ägarens speltest — två fel bakom en bild, och ett golv ingen räknat med
+
+**Byggt:** ägaren speltestade natt VI:s fem bygge. `hamburgerbygget`, `natskott-pa-stan`,
+`kugghjulen` och `trollblandning` godkända; `pruttbad` "okej" men med fem nya önskemål (§4,
+perspektivet först). Två buggar/punkter togs hela vägen.
+
+| # | Punkt | Utfall |
+|---|---|---|
+| ÅTGÄRDER #5 | `trollblandning`: nyupptäckt ikon över en annan | **Två oberoende fel bakom samma bild.** (A) hällningens hemtween låser sitt målvärde vid START, och `_react` flyttar hyllan 0,22 s in i den 0,30 s långa resan → **16,0 px** fel. (B) hyllan var dimensionerad för 7 element men kan få **13 redan på nivå 1** → **22,3 px överlapp**. 16,0 → **0,0** och 22,3 → **0,0**. Ny sond `_hyllprobe.mjs`. |
+| V10b / O2 | `flipperspel`: `studs`-optens första kund | Stolparna kör `{ isStatic: true, studs: 0.7 }`. **59,4 → 75,4 px** (+27 %), par 0,62 → 0,70, `check --studs` 50 → **49**. Ny sond `_flipperprobe.mjs`. |
+
+**Lärdomen som är värd mest: den RÖRLIGA kroppens eget studstal är ett GOLV.** V10 slog fast att
+parets regel är `max(A, B)`, men ingen hade läst den baklänges. `flipperspel`s kula bär **0,62**,
+och därmed är `wall` 0,3/0,4 · `sling` 0,5 · `spinner` 0,55 · `flipper` 0,3 döda av ett **andra,
+oberoende** skäl — de hade förlorat mot kulan även om `setStatic` aldrig nollat dem. Mätt som
+kontroll: ett statiskt 0,5 ger 59,4 px hopp både nollat och väckt, **0,0 px skillnad**. Slutsatsen
+gäller varje framtida kund i migreringslistan: **läs den rörliga kroppens tal FÖRST**; ligger ytans
+tal under, är `studs` fel verktyg hur avsiktligt talet än ser ut.
+
+**Två fel bakom en bild är ett eget mönster.** Ägarens rapport ("ikonen hamnade över en annan")
+hade två orsaker som var för sig gav exakt samma bild. Sonden mätte dem **var för sig** från
+början — hade den mätt "ligger ikoner på varandra?" hade en tween-fix sett grön ut och ägaren
+sett samma sak igen. Räkna alltid om vad systemet MAX kan behöva: hyllan var byggd för 7 element,
+och en enkel genomräkning av recepten gav 13.
+
+**Fem raka sondfel på samma mätning — nytt rekord, och alla tysta.** Försöket att mäta en enskild
+ytas studs inne i det *levande* spelet gav: (1) `b.position.y = …` flyttar inte kroppens hörn, så
+kulan gick rakt igenom stolpen; (2) `_phys.update`-ackumulatorn körde fyra steg på en bildruta och
+kulan landade 21 px inne i stolpen, som då separerades i sidled; (3) en avläsning per bildruta
+missar en studs som varar tre steg; (4) apexhöjd från släpppunkten mättade i båda armarna; (5) en
+liten rund stolpe sprider en stor kula. **Lösningen var att byta arena, inte att fila vidare:**
+studskoefficienten mäts i en NAKEN fysikvärld (som `_studsprobe.mjs`), och webbläsaren används
+bara till det den är bra på — att läsa spelets egna tal och kontrollera exit-säkerheten.
+
+**Ägarbeslut som stängde två köpunkter:** `domino` behåller sitt `nSlots`-tak och startar om efter
+max (**N11 struken**, ingen kamera), och telefonkollen av full bleed är **godkänd** — skärmen är
+låst i landskap, så rotation mitt i spel kan inte uppstå.
+
+**Commits:** `83e6bc7` fix(trollblandning) ÅTGÄRDER #5 · `22cda28` docs speltest + beslut ·
+`43d71b4` feat(flipperspel) V10b:s första kund
+
+**Kontroll:** `npm run check` **0 fel / 0 varningar** · `test trollblandning` + `test flipperspel`
+gröna, båda skärmdumparna sedda · `_hyllprobe` 8/8 · `_flipperprobe` alla gröna · `_idleprobe
+flipperspel` A/B mot HEAD (identiska 4) · röstkön tom.
+
+**Öppet, väntar på ägaren:** (1) `trollblandning`s träffytor ligger tätare än P0:s ≥24 px från 7
+element — och gjorde det före fixen också; en rad på 1030 px rymmer max 8 P0-korrekta mål, så
+**två rader** är enda lösningen. (2) `flipperspel`s **dynor** skulle ge +26,8 px om de väcktes,
+men det är kärnloopen och stackar med `_kickOff`. (3) `pruttbad`s fem önskemål i §4.
+
+---
+
 ## 2026-08-10 (natt VI, varv 3) · v1.131.0 · Nattkön varv 3 — pågår
 
 **Byggt:** nattkörningens `⬜`-kö uppifrån (`.claude/state/nattkorning.md`). Posten fylls på

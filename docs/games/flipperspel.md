@@ -6,11 +6,22 @@
 > Paddlarna är KINEMATISKA (statiska kroppar som räknas om från pivån varje bildruta) — sätt
 > aldrig tillbaka en `Matter.Constraint` här, den drev iväg kropparna 30–90 px.
 >
-> **OBS banelement:** snurra (640,550) r32 · fenor (452,500)/(828,500) 96×24 lutade ±0,524 rad ·
-> tunnelmynningar (296,380)/(984,430) r30. Dyn-positionerna klampas till y ≤ 428 så luckan ner
-> till fenorna/snurran alltid är < 56 px (kulans bredd), dvs. TÄTAD. Regeln som allt vilar på:
-> inget par av ytor får bilda en **nedåt smalnande kil** — varje passage ska antingen vara
-> bredare än 100 px hela vägen eller helt tätad. Mellanlägen klämmer fast kulan.
+> **OBS banelement:** snurra (640,550) r32 · fenor **(502,460)/(778,460)** 96×24 lutade ±0,524 rad ·
+> tunnelmynningar (296,380)/(984,430) r30. Regeln som allt vilar på: inget par av ytor får bilda
+> en **nedåt smalnande kil** — varje passage ska antingen vara bredare än 100 px hela vägen
+> eller helt tätad. Mellanlägen klämmer fast kulan.
+>
+> **OBS två regler, inte en (2026-08-11).** Att varje föremål ligger *rätt* räcker inte. Kulan
+> kan lika gärna bli liggande **ovanpå** en hylla som fastkilad **mellan** två ytor, och bara
+> det första var mätt. Två villkor gäller nu, båda kontrollerade med sond:
+> 1. **Kanalen längs lanvägen ≥ 100 px** (`GAP_LANE`). Fenan låg på (452,500), nästan parallell
+>    med lanvägen, och kanalen blev **58 px för en kula på 56** — ägarens "studskuddarna är för
+>    nära kanten så kulan kan inte åka under". Nya läget mäter **110 px**.
+> 2. **Banan får inte innehålla en ficka.** `_samplaBana` sveper varje kast med
+>    `hittaFickor()` och plockar bort det föremål som dämmer, tills noll återstår.
+>
+> Mät med `node scripts/_kilprobe.mjs --varv 12` (kanal + fickor + fältbild via `--bild`) och
+> `node scripts/_spelaflipper.mjs` (släpper kulan i ytterbanan, växelvis mot gamla fenläget).
 
 ## 1. Nuläge (sett som spelare)
 

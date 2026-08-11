@@ -166,3 +166,173 @@ export function hinderUrFysik(phys, { fardvag = [], friFardvag = null, hoppaOver
   }
   return ut
 }
+
+/**
+ * HITTA FICKOR — var kan det som rullar bli LIGGANDE?
+ *
+ * `slumpaUt` skyddar mot att något KILAS FAST mellan två föremål. Det räcker inte:
+ * kulan kan lika gärna bli liggande OVANPÅ en hylla. Två dynor som sitter ihop
+ * (den TÄTADE grenen) släpper inte in kulan mellan sig — men de bildar en sadel som
+ * kulan lägger sig i, och ett föremål tätt under taket bildar en avsats. Båda mäter
+ * som "korrekt utplacerade" och båda ser för ett barn ut som att spelet hängt sig.
+ *
+ * Mätt i `flipperspel` (2026-08-11, `scripts/_kilprobe.mjs`): fenan mot lanvägen gav
+ * en 1 632 px² ficka i VARJE runda, och dyn-/stolpkluster gav ytterligare en ficka i
+ * 6 av 8 rundor. Ägaren såg det som "kulan fastnar".
+ *
+ * Metoden är rutnät, inte resonemang: föremålets MITTPUNKT får ligga där avståndet
+ * till närmaste yta är ≥ `radie` + `luft`. En kula som rullar kan därifrån bara nå
+ * celler NEDÅT eller i våg — uppför bara så långt `klattring` px räcker. Når en fri
+ * cell aldrig `flyktY` är den en ficka.
+ *
+ * @param {object}  o
+ * @param {object}  o.arena      { x0, y0, x1, y1 } — ytan som ska svepas
+ * @param {number}  o.radie      radien på det som rullar
+ * @param {Array}   o.hinder     samma format som `slumpaUt` ({x,y,r} · {v} · {ax,ay,bx,by,r})
+ * @param {number}  o.flyktY     fri cell på eller under denna höjd = ute (dränet)
+ * @param {number} [o.steg]      rutnätets upplösning i px (default 4)
+ * @param {number} [o.luft]      extra spel utöver radien innan en passage räknas (default 2)
+ * @param {number} [o.klattring] px uppförsbacke som farten får bära (default 12)
+ * @param {Array}  [o.flykt]    extra utgångar `{x,y,r}` — en tunnelmynning, ett hål,
+ *                              en ränna: når mittpunkten dit är den ute ur fältet
+ * @param {object} [o.bas]      förberäknat klarhetsfält från `klarhetsfalt()` för de
+ *                              FASTA ytorna. `hinder` blir då bara det som ändras per
+ *                              omgång. Utan det kostade svepet 20 ms per kast och
+ *                              `flipperspel` tappade en halv sekund på varje ny runda.
+ * @returns {Array<{yta:number,x:number,y:number,minx:number,maxx:number,miny:number,maxy:number}>}
+ *          fickorna, största först
+ */
+export function hittaFickor({ arena, radie, hinder = [], flyktY, steg = 4, luft = 2, klattring = 12, flykt = [], bas = null }) {
+  if (bas) { arena = bas.arena; steg = bas.steg }
+  const kol = Math.floor((arena.x1 - arena.x0) / steg) + 1
+  const rad = Math.floor((arena.y1 - arena.y0) / steg) + 1
+  const krav = radie + luft
+  const fri = new Uint8Array(kol * rad)
+  for (let r = 0; r < rad; r++) {
+    const y = arena.y0 + r * steg
+    for (let c = 0; c < kol; c++) {
+      const i = r * kol + c
+      if (bas && bas.d[i] < krav) continue // fasta ramen stänger redan cellen
+      const x = arena.x0 + c * steg
+      let ok = 1
+      for (const h of hinder) {
+        if (avstandMedInsida(h, x, y) < krav) { ok = 0; break }
+      }
+      fri[i] = ok
+    }
+  }
+
+  // Bakåt från dränet: budgeten är hur mycket uppförsbacke som ÅTERSTÅR.
+  const niva = Math.max(1, Math.round(klattring / steg) + 1)
+  const bast = new Int16Array(kol * rad).fill(-1)
+  const ko = []
+  for (let r = 0; r < rad; r++) {
+    const y = arena.y0 + r * steg
+    for (let c = 0; c < kol; c++) {
+      const i = r * kol + c
+      if (!fri[i] || bast[i] >= 0) continue
+      const x = arena.x0 + c * steg
+      const ute = y >= flyktY || flykt.some((f) => Math.hypot(f.x - x, f.y - y) <= f.r)
+      if (ute) { bast[i] = niva - 1; ko.push(i) }
+    }
+  }
+  while (ko.length) {
+    const i = ko.pop()
+    const r = (i / kol) | 0
+    const c = i % kol
+    const b = bast[i]
+    for (let dc = -1; dc <= 1; dc++) {
+      for (let dr = -1; dr <= 1; dr++) {
+        if (!dc && !dr) continue
+        const nc = c + dc
+        const nr = r + dr
+        if (nc < 0 || nc >= kol || nr < 0 || nr >= rad) continue
+        const j = nr * kol + nc
+        if (!fri[j]) continue
+        const nb = b - (r < nr ? 1 : 0) // framåt j→i går uppför om i ligger högre
+        if (nb >= 0 && nb > bast[j]) { bast[j] = nb; ko.push(j) }
+      }
+    }
+  }
+
+  // Fria celler som aldrig når dränet klustras ihop.
+  const sedd = new Uint8Array(kol * rad)
+  const ut = []
+  for (let start = 0; start < kol * rad; start++) {
+    if (!fri[start] || bast[start] >= 0 || sedd[start]) continue
+    sedd[start] = 1
+    const stack = [start]
+    let n = 0, sx = 0, sy = 0, minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity
+    while (stack.length) {
+      const k = stack.pop()
+      const kr = (k / kol) | 0
+      const kc = k % kol
+      const x = arena.x0 + kc * steg
+      const y = arena.y0 + kr * steg
+      n++; sx += x; sy += y
+      if (x < minx) minx = x
+      if (x > maxx) maxx = x
+      if (y < miny) miny = y
+      if (y > maxy) maxy = y
+      for (let dc = -1; dc <= 1; dc++) {
+        for (let dr = -1; dr <= 1; dr++) {
+          const nc = kc + dc
+          const nr = kr + dr
+          if (nc < 0 || nc >= kol || nr < 0 || nr >= rad) continue
+          const j = nr * kol + nc
+          if (fri[j] && bast[j] < 0 && !sedd[j]) { sedd[j] = 1; stack.push(j) }
+        }
+      }
+    }
+    ut.push({ yta: n * steg * steg, x: sx / n, y: sy / n, minx, maxx, miny, maxy })
+  }
+  return ut.sort((a, b) => b.yta - a.yta)
+}
+
+/**
+ * Klarhetsfält: avståndet från varje rutnätspunkt till närmaste FASTA yta, en gång.
+ * Ytorna i ett spel är nästan alltid mest fasta (väggar, ramper, hinder som står
+ * kvar hela spelet) och bara några få rörliga per omgång — då är det slöseri att
+ * räkna om hela fältet vid varje kast. Ge resultatet till `hittaFickor({ bas })`.
+ *
+ * @param {object} o
+ * @param {object} o.arena  { x0, y0, x1, y1 }
+ * @param {Array}  o.hinder de FASTA hindren
+ * @param {number} [o.steg] rutnätets upplösning (måste matcha `hittaFickor`)
+ */
+export function klarhetsfalt({ arena, hinder, steg = 4 }) {
+  const kol = Math.floor((arena.x1 - arena.x0) / steg) + 1
+  const rad = Math.floor((arena.y1 - arena.y0) / steg) + 1
+  const d = new Float32Array(kol * rad)
+  for (let r = 0; r < rad; r++) {
+    const y = arena.y0 + r * steg
+    for (let c = 0; c < kol; c++) {
+      const x = arena.x0 + c * steg
+      let m = Infinity
+      for (const h of hinder) {
+        const a = avstandMedInsida(h, x, y)
+        if (a < m) m = a
+      }
+      d[r * kol + c] = m
+    }
+  }
+  return { arena, steg, kol, rad, d }
+}
+
+// Som `avstandTillHinder`, men NEGATIV inuti en polygon. Placeringen frågar bara om
+// punkter utanför hindren; fick-svepet frågar om varenda punkt, även de som ligger
+// inne i en vägg, och där skulle ett positivt tal göra väggens insida "fri".
+function avstandMedInsida(h, x, y) {
+  const d = avstandTillHinder(h, x, y)
+  if (h.v && d > 0 && inutiPolygon(h.v, x, y)) return -d
+  return d
+}
+
+function inutiPolygon(v, x, y) {
+  let inne = false
+  for (let i = 0, j = v.length - 1; i < v.length; j = i++) {
+    if ((v[i].y > y) !== (v[j].y > y) &&
+        x < ((v[j].x - v[i].x) * (y - v[i].y)) / (v[j].y - v[i].y) + v[i].x) inne = !inne
+  }
+  return inne
+}

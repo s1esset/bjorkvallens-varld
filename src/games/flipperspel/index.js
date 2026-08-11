@@ -31,7 +31,7 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, PLAYFUL, FONT, PRAISE, tint, shade } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { slumpaUt, hinderUrFysik } from '../../lib/utplacering.js'
+import { slumpaUt, hinderUrFysik, hittaFickor, klarhetsfalt } from '../../lib/utplacering.js'
 
 // ---- Bordets geometri (designrymd 1280×720) --------------------------------
 // Panelen ligger under topp-knapparna (hem/högtalare slutar y=110) och lämnar
@@ -87,11 +87,27 @@ const SPIN = { x: MID, y: 550, r: 32 }
 const SPIN_PUSH = 2.0
 // Två studsfenor i det döda bandet mellan dynorna och paddlarna. De slår kulan
 // UPP-INÅT igen, så ett tapp i sidan blir en ny chans i stället för ett drän.
-// Luckan mot lanväggen är 126 px upptill och 144 px nedtill — den VIDGAS nedåt,
-// alltså ingen kil.
+//
+// ⚠️ LÄGET ÄR MÄTT, INTE VALT (`scripts/_kilprobe.mjs`, 2026-08-11). Fenan låg på
+// (452,500) och var nästan PARALLELL med lanvägen — kanalen mellan dem blev 58 px
+// för en kula på 56, alltså 2 px spel. Det är inte en passage utan en kil: sonden
+// mätte en FICKA på 1 632 px² i varje runda på var sida, och när en dyna råkade
+// stänga vägen inåt växte den till 16 000–28 000 px². Ägarens ord var precis det:
+// "studskuddarna är för nära kanten så kulan kan inte åka under" plus "kulan
+// fastnar". Den gamla kommentaren mätte luckan VÅGRÄTT (126 px) — men kulan färdas
+// längs lanvägen, och där är måttet vinkelrätt.
+//
+// Svepet (fasta ramen, kanalbredd i px, ★ = 0 fickor och ≥ GAP_LANE):
+//   dx=0  dy=0 .....  58  ← dagens, 2 fickor      dx=50 dy=-30 ... 102 ★
+//   dx=30 dy=-40 ... 100 ★                        dx=50 dy=-40 ... 110 ★
+//   dx=60 dy=0 ......  84, 1 ficka (för nära snurran)
+// Vald: dx=+50 inåt, dy=-40 upp → 110 px kanal, 10 px marginal över GAP_LANE, och
+// fenan hålls så LÅGT som marginalen tillåter så den fortsatt vaktar sidbandet.
+// Att i stället sänka lanvägens väggfäste provades (+40/+60/+80 px) och blev SÄMRE:
+// hörnet under fenan öppnade sig till en 5 000–7 000 px² ficka.
 const FINS = [
-  { x: 452, y: 500, ang: 0.524, nx: 0.5, ny: -0.866 }, // vänster: slår upp-höger
-  { x: 828, y: 500, ang: -0.524, nx: -0.5, ny: -0.866 }, // höger: slår upp-vänster
+  { x: 502, y: 460, ang: 0.524, nx: 0.5, ny: -0.866 }, // vänster: slår upp-höger
+  { x: 778, y: 460, ang: -0.524, nx: -0.5, ny: -0.866 }, // höger: slår upp-vänster
 ]
 const FIN_LEN = 96
 const FIN_T = 24
@@ -204,6 +220,7 @@ export default {
     this._tunnels = []
     this._tunnelCd = 0
     this._spinner = null
+    this._basFalt = null
     this._level = Math.max(1, ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -590,23 +607,9 @@ export default {
   // och den är matematiskt riktig: minsta tillåtna centrumavstånd är 2r + GAP_FRI,
   // alltså 156 px vid r=46 men 136 vid r=36 — det är skillnaden mellan fem och åtta
   // dynor på samma fält.
-  _samplaBana(level) {
-    // Regeln bor i `lib/utplacering.js` (P0 UTPLACERING) — spelet väljer bara TALEN.
-    // Hindren läses ur de LEVANDE kropparna, aldrig ur en handskriven lista: första
-    // versionen listade snurra, tunnlar och fenor för hand och glömde VÄGGARNA och
-    // LANVÄGARNA, vilket gav 1 251 felplaceringar på 1 500 banor.
-    const hinder = hinderUrFysik(this._phys, {
-      hoppaOver: ['ball'],
-      // Sidorna är kulans väg NER och lanvägen stänger dem underifrån — där räcker
-      // inte ett vanligt frigap. ÅTGÄRDER #6: en stolpe 70–90 px från väggen gjorde
-      // en ficka som kulan blev liggande i.
-      fardvag: ['wall', 'guide'],
-      friFardvag: GAP_LANE,
-    })
-    // Tunnelmynningarna är RITADE hål utan kropp (insuget är en närhets-koll i
-    // tickern) — motorn känner alltså inte till dem. De måste läggas till för hand.
-    for (const t of TUNNELS) hinder.push({ x: t.x, y: t.y, r: TUNNEL_R })
-
+  // Ett KAST: en komplett uppsättning dynor + stolpar. `_samplaBana` kastar om tills
+  // banan är fickfri (se där) — därför är den här bara geometri, inga bieffekter.
+  _kastaBana(level, hinder) {
     const gemensamt = {
       // `arena` = bordets inre kant (den hårda gränsen), `falt` = var en mittpunkt får
       // hamna. Fältet ligger ovanför fenorna/snurran och under serveringen: kulan föds
@@ -658,6 +661,85 @@ export default {
       hinder: [...hinder, ...dynor.map((d) => ({ x: d.x, y: d.y, r: d.r }))],
     })
     return { dynor, stolpar }
+  },
+
+  _samplaBana(level) {
+    // Regeln bor i `lib/utplacering.js` (P0 UTPLACERING) — spelet väljer bara TALEN.
+    // Hindren läses ur de LEVANDE kropparna, aldrig ur en handskriven lista: första
+    // versionen listade snurra, tunnlar och fenor för hand och glömde VÄGGARNA och
+    // LANVÄGARNA, vilket gav 1 251 felplaceringar på 1 500 banor.
+    const fysik = hinderUrFysik(this._phys, {
+      hoppaOver: ['ball'],
+      // Sidorna är kulans väg NER och lanvägen stänger dem underifrån — där räcker
+      // inte ett vanligt frigap. ÅTGÄRDER #6: en stolpe 70–90 px från väggen gjorde
+      // en ficka som kulan blev liggande i.
+      fardvag: ['wall', 'guide'],
+      friFardvag: GAP_LANE,
+    })
+    // Tunnelmynningarna är RITADE hål utan kropp (insuget är en närhets-koll i
+    // tickern) — motorn känner alltså inte till dem. Vid UTPLACERING är de hinder
+    // (ingen dyna får sitta i mynningen), vid FICK-SVEPET är de tvärtom UTGÅNGAR:
+    // kulan som når en mynning sugs ju därifrån.
+    const hinder = [...fysik, ...TUNNELS.map((t) => ({ x: t.x, y: t.y, r: TUNNEL_R }))]
+
+    // ⚠️ ATT VARJE FÖREMÅL LIGGER RÄTT BETYDER INTE ATT BANAN ÄR SPELBAR.
+    // `slumpaUt` skyddar mot att kulan KILAS FAST MELLAN två ytor. Den säger inget om
+    // att kulan kan bli LIGGANDE OVANPÅ två dynor som sitter ihop, eller på en avsats
+    // mot taket. Uppmätt (`scripts/_kilprobe.mjs`, 8 varv efter att fenorna flyttats):
+    // en sådan ficka i 6 av 8 rundor, 800–6 600 px². Det är ägarens "kulan fastnar".
+    //
+    // ⚠️ ATT SLUMPA OM HELA BANAN RÄCKER INTE. Mätt: 8 omkast gav fortfarande 4 fickor
+    // på 10 rundor (de höga nivåerna har sju dynor och tur räcker inte), och kostade
+    // 157 ms per runda. Att i stället PLOCKA BORT den dyna som dämmer fickan
+    // konvergerar: varje borttagning öppnar fältet och kan aldrig skapa en ny ficka.
+    // Ett omkast först ger variation, prutningen efteråt ger garantin.
+    const arena = { x0: TABLE_L, y0: TABLE_T, x1: TABLE_R, y1: TABLE_B + 44 }
+    // Den FASTA ramen svepas en enda gång (första rundan, paddlarna i vila) — därefter
+    // kostar ett kast bara rundans egna cirklar. Utan cachen: 157 ms per runda.
+    // Lat, inte i `init`: här är de gamla dynorna redan rivna, så fältet blir rent.
+    if (!this._basFalt) this._basFalt = klarhetsfalt({ arena, hinder: fysik, steg: 4 })
+    const svep = (runda) => hittaFickor({
+      arena,
+      radie: BALL_R,
+      hinder: runda,
+      bas: this._basFalt,
+      flykt: TUNNELS.map((t) => ({ x: t.x, y: t.y, r: TUNNEL_CATCH })),
+      flyktY: TABLE_B + 40, // spelets egen drän-gräns
+    // Under ~en kulyta är rutnätets egen sträva kant, inte en ficka.
+    }).filter((p) => p.yta > 200)
+
+    let bast = null
+    for (let forsok = 0; forsok < 3; forsok++) {
+      const bana = this._kastaBana(level, hinder)
+      const yta = svep(this._rundHinder(bana)).reduce((s, p) => s + p.yta, 0)
+      if (!bast || yta < bast.yta) bast = { bana, yta }
+      if (!yta) break
+    }
+
+    // Prutning: så länge en ficka finns, ta bort det föremål som ligger närmast dess
+    // NEDRE kant — det är taket kulan blir liggande på. Dynorna skyddas ner till tre
+    // (en runda måste ha något att tända), stolparna är rena studsobjekt och får gå.
+    const { dynor, stolpar } = bast.bana
+    for (let varv = 0; varv < 6; varv++) {
+      const fick = svep(this._rundHinder({ dynor, stolpar }))
+      if (!fick.length) break
+      const p = fick[0]
+      const kandidater = [
+        ...stolpar.map((s, i) => ({ lista: stolpar, i, d: Math.hypot(s.x - p.x, s.y - p.maxy) })),
+        ...(dynor.length > 3 ? dynor.map((d, i) => ({ lista: dynor, i, d: Math.hypot(d.x - p.x, d.y - p.maxy) })) : []),
+      ].sort((a, b) => a.d - b.d)
+      if (!kandidater.length) break
+      kandidater[0].lista.splice(kandidater[0].i, 1)
+    }
+    return { dynor, stolpar }
+  },
+
+  // Rundans egna cirklar som hinder — den fasta ramen bor i `this._basFalt`.
+  _rundHinder({ dynor, stolpar }) {
+    return [
+      ...dynor.map((d) => ({ x: d.x, y: d.y, r: BUMP_R })),
+      ...stolpar.map((s) => ({ x: s.x, y: s.y, r: PEG_R })),
+    ]
   },
 
   _buildRound(ctx) {
@@ -1252,6 +1334,7 @@ export default {
     for (const s of this._meterPips || []) gsap.killTweensOf(s.scale)
 
     gsap.killTweensOf(this._root)
+    this._basFalt = null // ~30 k floats — släpps med spelet, inte med appen
     this._phys?.destroy()
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })

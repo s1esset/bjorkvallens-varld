@@ -18,7 +18,7 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, liv } from '../../lib/feedback.js'
 import { COLORS, PRAISE, tint, shade } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { verticalFill } from '../../lib/form.js'
+import { cylinderFill, verticalFill } from '../../lib/form.js'
 
 const BASE_Y = 470 // y-referenslinje: koppen nedsänkt på bordet
 const LIFT_Y = BASE_Y - 120 // koppens y i lyft-läge (visa/kika)
@@ -190,12 +190,16 @@ export default {
       .lineTo(botW / 2, bot)
       .lineTo(-botW / 2, bot)
       .closePath()
-      .fill(color)
+      // En upp-och-nedvänd mugg ÄR en cylinder sedd från sidan: ljus längs mittlinjen,
+      // mörkare mot båda kanterna. `cylinderFill` normaliseras mot den här formens egen
+      // bbox, så trapetsen får sin toning oberoende av kupolen nedan. (LYFTPLAN C1)
+      .fill(cylinderFill(color, { axis: 'y' }))
       .stroke({ width: 6, color: COLORS.white })
-    // rundad topp-kupol
+    // rundad topp-kupol — liten detalj, medvetet platt (C1: gradient på huvudformen)
     g.ellipse(0, top, topW / 2, 16).fill(darken(color, 0.12)).stroke({ width: 6, color: COLORS.white })
-    // glansremsa
-    g.roundRect(-botW / 2 + 26, top + 36, 26, 150, 13).fill({ color: COLORS.white, alpha: 0.22 })
+    // Den handrullade glansremsan är BORTTAGEN: toningen ovan är samma ljus, fast
+    // rundat över hela bredden i stället för som en hårdkantad pill på ett fast avstånd.
+    // Två ljuskällor på samma kropp läser som en dekal, inte som volym.
     g.eventMode = 'none'
     cup.addChild(g)
     // Kopparna står och vaggar medan de väntar. Guppningen ligger på den INRE

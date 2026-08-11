@@ -14,7 +14,7 @@ Format:
 
 ---
 
-## 2026-08-11 · v1.137.0 · Ägarens speltest — två fel bakom en bild, och ett golv ingen räknat med
+## 2026-08-11 · v1.143.0 · Ägarens speltest i fyra vändor — sex punkter, och en regel som drogs tillbaka
 
 **Byggt:** ägaren speltestade natt VI:s fem bygge. `hamburgerbygget`, `natskott-pa-stan`,
 `kugghjulen` och `trollblandning` godkända; `pruttbad` "okej" men med fem nya önskemål (§4,
@@ -52,17 +52,57 @@ bara till det den är bra på — att läsa spelets egna tal och kontrollera exi
 max (**N11 struken**, ingen kamera), och telefonkollen av full bleed är **godkänd** — skärmen är
 låst i landskap, så rotation mitt i spel kan inte uppstå.
 
-**Commits:** `83e6bc7` fix(trollblandning) ÅTGÄRDER #5 · `22cda28` docs speltest + beslut ·
-`43d71b4` feat(flipperspel) V10b:s första kund
+### Andra halvan: ägaren spelade vidare och rapporterade fyra gånger till
 
-**Kontroll:** `npm run check` **0 fel / 0 varningar** · `test trollblandning` + `test flipperspel`
-gröna, båda skärmdumparna sedda · `_hyllprobe` 8/8 · `_flipperprobe` alla gröna · `_idleprobe
-flipperspel` A/B mot HEAD (identiska 4) · röstkön tom.
+| # | Punkt | Utfall |
+|---|---|---|
+| ÅTGÄRDER #6 | `flipperspel`: en stolpe blockerade nerfarten | **Regression från v1.138.0.** Kilregeln var symmetrisk, men sidorna är kulans väg NER och lanvägen stänger dem underifrån — en passage på 70–90 px är där en FICKA. Ny regel `GAP_LANE` (≥100 eller ≤46 mot vägg/lanväg). **5 107 → 0** trånga korridorer på 1 500 banor. |
+| — | `flipperspel`: slumpad bana + mindre dynor | Ägarönskemål. Fyra handlagda uppsättningar med ±22 px jitter ersatta av äkta sampling. Dynorna 46 → 34 px radie, vilket är det som ger plats åt fler: minsta centrumavstånd `2r + 64` är 156 px vid r=46 men 132 vid r=34. Antalet 4,0 (nivå 1) → 6,6 (nivå 12), tak 7. Stolparna flyttades in i fältet — de satt på y=192, exakt kulans serverings-höjd, vilket är varför de var omöjliga att träffa. |
+| — | **Regel tillbakadragen** | Utplaceringsregeln skrevs först in som **P0 för alla 73 spel** plus en åtgärdslista på 14. Ägaren: *"regeln gällde endast för flipperspelet."* P0-raden borttagen, listan struken, `lib/utplacering.js` omskrivet till ett VERKTYG med ett filhuvud som säger när det gäller. |
+| V10b | `flipperspel`: dynornas studs | Ägaren gav fritt val. **Att bara väcka dem var fel** — dynan lägger redan på en egen impuls (`_kickOff`), och med en riktig studs ovanpå höll dynfältet kulan uppe. Fyra armar växelvis: väckt+full kick sämst i båda körningarna (7,6 %/3 · 9,5 %/3), **väckt + kick 1,2 bäst i båda** (24,0 %/5 · 29,2 %/9). Noll kick är också fel. |
+| — | `trollblandning`: tvåradig hylla | P0 kräver 96 px träffyta + 24 px mellanrum = **120 px per plats**; hyllans 1030 px rymmer **9**, men spelet når **13 redan på nivå 1**. En rad upp till 9, två rader därefter. Mätt vid 13: 120,0 / 96,0 / 24,0 px — alla precis på kravet. Kitteln flyttades 400 → 352 eftersom elden stod där övre raden skulle ligga. |
 
-**Öppet, väntar på ägaren:** (1) `trollblandning`s träffytor ligger tätare än P0:s ≥24 px från 7
-element — och gjorde det före fixen också; en rad på 1030 px rymmer max 8 P0-korrekta mål, så
-**två rader** är enda lösningen. (2) `flipperspel`s **dynor** skulle ge +26,8 px om de väcktes,
-men det är kärnloopen och stackar med `_kickOff`. (3) `pruttbad`s fem önskemål i §4.
+**Sessionens dyraste lärdom: en beteendemätning kan ljuga tyst, och den gör det olika varje gång.**
+Dynornas studs mättes fem gånger med tre olika resultat innan orsakerna hittades: kulan kan stå
+**statisk** under firandets lyft (en arm gav 0,0 % / 0 besök), och **en studsigare dyna tänder
+rundan fortare** så `_checkComplete` byggde en NY bana mitt i försöket och armarna jämfördes på
+olika banor. Med `_total` spärrat, statiska rutor bortkastade och armarna växelvis blev
+riktningen entydig. Före det gick samma mätning att läsa som vilket svar man ville ha.
+
+**Näst dyraste: fem raka sondfel på EN mätning.** Försöket att mäta en enskild ytas studs inne i
+det *levande* spelet gav: en direkt skrivning till `position` flyttar inte kroppens hörn (kulan
+gick rakt igenom stolpen) · `_phys.update`-ackumulatorn kör upp till fem steg per bildruta
+(kulan landade 21 px inne i stolpen) · en avläsning per bildruta missar en studs som varar tre
+steg · apexhöjd från släpppunkten mättade i båda armarna · en liten rund stolpe sprider en stor
+kula. **Lösningen var att byta arena, inte att fila vidare:** studskoefficienten mäts i en NAKEN
+fysikvärld (som `_studsprobe.mjs`), och webbläsaren används bara till att läsa spelets egna tal.
+
+**Tredje: girig utplacering packar SÄMRE än ren slump.** Ett nytt föremål som söker maximalt
+avstånd hamnar i ett hörn och fragmenterar ytan. Nivå 12, snitt/tak: bäst-av-900 **3,4/5** ·
+"bra nog" 1,25× **3,3/5** · ren dartkastning **6,6/7**.
+
+**Nya sonder:** `_hyllprobe.mjs` (hyllans placering + P0-mått i 2D) · `_flipperprobe.mjs`
+(studsytor i naken fysik + kommer kulan ner) · `_banprobe.mjs` (1 500 slumpade banor).
+**Ny lib:** `src/lib/utplacering.js`.
+
+**Commits (10):** `83e6bc7` fix(trollblandning) ÅTGÄRDER #5 · `22cda28` docs speltest + beslut ·
+`43d71b4` feat(flipperspel) V10b:s första kund · `2bebe6c` docs sessionslogg ·
+`bc67071` feat(flipperspel) slumpad bana + mindre dynor · `f42e012` fix(flipperspel) ÅTGÄRDER #6
+sidornas fickor · `5054508` feat(P0) utplaceringsregeln (senare tillbakadragen) ·
+`846149d` docs regeln gäller flipperspelet · `c4657cd` feat(flipperspel) dynornas studs + kick
+1,2 · `982fa60` feat(trollblandning) tvåradig hylla
+
+**Kontroll:** `npm run check` **0 fel / 0 varningar** · `npm run test:all` **72/72** (kört efter
+lib-ändringen) · `test trollblandning` + `test flipperspel` gröna, alla skärmdumpar sedda ·
+`_hyllprobe` alla gröna · `_flipperprobe` alla gröna · `_banprobe` alla gröna på 1 500 banor ·
+`_idleprobe flipperspel` A/B mot HEAD (identiska 4) · röstkön tom · bygget serverat på tailnet.
+
+**Öppet:** (1) **`pruttbad`s fem önskemål i §4** — perspektivet först (det går inte att se om
+badet visas uppifrån eller från sidan), sedan propp + kran, tre schampoflaskor och en anka som
+tränger undan vatten. Det är den enda kön med ägarens ord bakom sig. (2) `flipperspel`: ägaren
+speltestar v1.143.0 — dynornas nya karaktär och att kulan fortfarande når paddlarna. (3)
+`trollblandning`: ägaren speltestar tvåradigheten vid 10+ element. (4) Nattkön (`.claude/state/
+nattkorning.md`) står på **N6** — gradienterna som är kvar + `rimLight`s första kund.
 
 ---
 

@@ -258,11 +258,15 @@ export default {
 
     // Bänkskiva (stål) med mörkare framkant + golv — breddade ±BLEED_X, golvet
     // dessutom BLEED_Y nedåt (4:3-plattor visar under 720).
+    // Bänkens framsida och golvet är spelets två största sammanhängande ytor — båda låg
+    // i EN ton. Ljust talpar med flit: `groundFill`s standard (28 % mörkning) är avläst på
+    // MELLANMÖRKA ytor och gör en ljus träton grågrumlig. (LYFTPLAN C1/N12)
     c.addChild(new Graphics()
-      .rect(-BLEED_X, COUNTER_Y, W + 2 * BLEED_X, 92).fill(0xc9a882)
+      .rect(-BLEED_X, COUNTER_Y, W + 2 * BLEED_X, 92).fill(groundFill(0xc9a882, { light: 0.08, dark: 0.14 }))
       .rect(-BLEED_X, COUNTER_Y, W + 2 * BLEED_X, 13).fill(0xe3c8a4)
       .rect(-BLEED_X, COUNTER_Y + 78, W + 2 * BLEED_X, 14).fill(0xa8875f))
-    c.addChild(new Graphics().rect(-BLEED_X, COUNTER_Y + 92, W + 2 * BLEED_X, H - COUNTER_Y - 92 + BLEED_Y).fill(0xb08a63))
+    c.addChild(new Graphics().rect(-BLEED_X, COUNTER_Y + 92, W + 2 * BLEED_X, H - COUNTER_Y - 92 + BLEED_Y)
+      .fill(groundFill(0xb08a63, { light: 0.1, dark: 0.16 })))
 
     // Såsflaskor (ketchup + senap) mellan knappkolumnen och bygget.
     const bottles = new Graphics()

@@ -217,6 +217,56 @@ Flera har goda skäl (inomhusmiljö, 3D-backdrop). Men de som bara har en platt 
 
 ## 2. Spår B — fysik, kollisioner, kroppar och egenskaper
 
+### B8. Slumpad utplacering utan avståndskrav **[Medium]** per spel — 🟨 REGEL + LIB BYGGD 2026-08-11
+
+**Ägarens regel (2026-08-11):** *"allt som slumpas ut i position måste ha ett minimum avstånd
+lite över bollens storlek, både från kanter och andra element."* Regeln står nu i CLAUDE.md
+som **P0 UTPLACERING** och har en kanonisk implementation i **`src/lib/utplacering.js`**
+(`slumpaUt` + `hinderUrFysik`). `flipperspel` är första kunden och sonden `_banprobe.mjs`
+vaktar den: **0 fickor på 1 500 slumpade banor**, mot 5 107 före regeln.
+
+**Varför regeln behövs, i en mening:** ett gap som är *knappt* större än det som ska passera
+är ingen passage — det är en ficka som föremålet åker in i och blir liggande i. Två säkra
+mellanrum finns, FRITT (≥ passage + 24) och TÄTAT (≤ passage − 10); allt däremellan är en fälla.
+
+**Genomgång av alla 73 spel.** Bara utplacering av *position* räknas — partiklar, dekor och
+slumpad FART är inte med.
+
+**A. Fri slumpad utplacering UTAN något avståndskrav** — här kan regeln redan i dag brytas:
+
+| spel | vad som slumpas | fysik? | storlek |
+|---|---|---|---|
+| `pizzabageriet` | topping-position på pizzan (upp till 60 st) | nej, träffyta r 62 | art 140 px |
+| `poppa-ballonger` | ballongens x och y över hela ytan | nej | r ≈ 44–84 |
+| `spindelnatet` | godis/insekt spawn-x | **ja** | r 34 |
+| `fanga-frukten` | fruktens x när den släpps | **ja** | r ≈ 0,4 × storlek |
+| `sapbubblor` | bubblans x och y (bara en korridor-spärr finns) | egen integrator | r 30–94 |
+| `zackes-biltvatt` | smuts- och fågelbajsfläckar på bilen | nej | r 26–46 |
+| `tvatta-djuret` | lerzoner på djuret (bara ansikts-spärr) | nej | r 62–96 |
+| `rulla-bollen-hem` | hinder från nivå 6 (kollar bara mot mål och start) | **ja** | 56×150–240 |
+| `pruttbad` | firandets bubbelsvärm | egen bubbelsim | r 30–70 |
+
+**B. Har ett avståndskrav, men ett svagare än regeln:**
+
+| spel | vad som finns | vad som saknas |
+|---|---|---|
+| `magnet-fiske` | 40 försök, min 110 px | **reservpunkten är helt okontrollerad** |
+| `spindelhjalten` | ETT omkast mot stjärnorna | moln mot moln kollas aldrig; misslyckas omkastet står det kvar |
+| `fargregn` | max 6 försök, min 100 px i x | bara mot droppar som ännu är högt uppe |
+| `snobollen` | 110 px i x, ramper 220 px | endimensionellt (bara x) |
+| `fyrverkeri` | x jämnt spritt ±40 | **y är fritt slumpad utan kontroll**, träffyta 92 |
+
+**C. Rutnät, slots eller jitter på fasta punkter** — låg risk, ingen åtgärd planerad.
+⚠️ Undantag att titta på om något känns fel: `klambubblor` (hex-rutnät + jitter 0,24 × cell och
+radie 0,68–1,22 × bas — jitter och storleksvariation kan mötas).
+
+**Ordning när det byggs:** ta A-listans **fysikspel först** (`spindelnatet` · `fanga-frukten` ·
+`rulla-bollen-hem`), sedan de TAPPBARA (`pizzabageriet` · `poppa-ballonger` · `sapbubblor` —
+där är passage 96 px enligt P0 TRÄFFYTA, och överlappande träffytor betyder att barnet trycker
+på fel sak). Sist de rent visuella (`zackes-biltvatt` · `tvatta-djuret` · `pruttbad`).
+⚠️ **En sond per spel, som `_banprobe`.** Slumpad utplacering går inte att granska med ögat —
+den har oändligt många utfall, och felet dyker upp hos barnet den enda gång det inträffar.
+
 ### B1. SPH-vätskan är byggd och oanvänd **[Medium]** per spel — ✅ SEX SPEL 2026-08-10
 
 `src/lib/vatska.js` är 739 rader: en double-density-relaxation-solver med spatial hash, sex

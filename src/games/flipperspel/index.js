@@ -31,6 +31,7 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, PLAYFUL, FONT, PRAISE, tint, shade } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { slumpaUt, hinderUrFysik } from '../../lib/utplacering.js'
 
 // ---- Bordets geometri (designrymd 1280×720) --------------------------------
 // Panelen ligger under topp-knapparna (hem/högtalare slutar y=110) och lämnar
@@ -135,8 +136,8 @@ const rand = (a, b) => a + Math.random() * (b - a)
 const FIELD = { x0: 312, x1: 968, y0: 264, y1: 468 }
 const BUMP_R = 34 // var 46 — mindre dynor ger plats åt fler utan att kila
 const PEG_R = 17
-const GAP_FRI = 80 // kulan (d=56) passerar med 24 px spel
-const GAP_TATT = 46 // kulan kan inte ta sig IN — alltså kan den inte fastna
+const BALL_D = 56 // kulans diameter — måttstocken för varje mellanrum
+const GAP_FRI = 80 // kulan passerar med 24 px spel
 // Mot VÄGG och LANVÄG räcker inte GAP_FRI. Ägarens speltest 2026-08-11: "en studs
 // stolpe blockade nerfarten på sidan så kulan fastnade". Sidorna är kulans väg NER,
 // och lanvägen stänger dem underifrån — en passage på 70–90 px är då inte en passage
@@ -144,20 +145,6 @@ const GAP_TATT = 46 // kulan kan inte ta sig IN — alltså kan den inte fastna
 // eller inte finnas alls. (Friktion är INTE mekanismen: matter tar `min` av de två
 // kropparnas friktion, så kulans 0,02 vinner över `setStatic`s 1.)
 const GAP_LANE = 100
-const gapOk = (g, fri = GAP_FRI) => g >= fri || (g >= 8 && g <= GAP_TATT)
-
-// Avstånd till en kropps FAKTISKA kant (polygonens sidor), inte till dess mittpunkt.
-function avstandTillKropp(h, x, y) {
-  if (h.r) return Math.hypot(h.x - x, h.y - y) - h.r
-  let d = Infinity
-  for (let i = 0; i < h.v.length; i++) {
-    const a = h.v[i]
-    const b = h.v[(i + 1) % h.v.length]
-    const p = closestOnSeg(x, y, a.x, a.y, b.x, b.y)
-    d = Math.min(d, Math.hypot(p.x - x, p.y - y))
-  }
-  return d
-}
 
 // Närmaste punkt på ett linjesegment (för paddel-kicken).
 function closestOnSeg(px, py, ax, ay, bx, by) {
@@ -590,76 +577,50 @@ export default {
   // och den är matematiskt riktig: minsta tillåtna centrumavstånd är 2r + GAP_FRI,
   // alltså 156 px vid r=46 men 136 vid r=36 — det är skillnaden mellan fem och åtta
   // dynor på samma fält.
-  // Hinderlistan läses ur de LEVANDE kropparna, inte ur handkopierade tal. Första
-  // versionen listade bara snurra, tunnlar och fenor — `_banprobe` hittade då 1 251
-  // kilar mot VÄGGARNA och LANVÄGARNA, som listan aldrig hade hört talas om. En
-  // handskriven hinderlista glömmer alltid något; motorn vet allt som finns.
-  _hinderlista() {
-    const kroppar = this._phys?.world?.bodies || []
-    const ut = []
-    for (const b of kroppar) {
-      if (!b.isStatic || b.label === 'ball') continue
-      // `lane` = en yta som avgränsar kulans väg NER (vägg, lanväg). De kräver en
-      // rymligare passage än banelementen mitt på bordet.
-      const lane = b.label === 'wall' || b.label === 'guide'
-      if (b.circleRadius) ut.push({ x: b.position.x, y: b.position.y, r: b.circleRadius, lane })
-      else ut.push({ v: b.vertices.map((p) => ({ x: p.x, y: p.y })), lane })
-    }
+  _samplaBana(level) {
+    // Regeln bor i `lib/utplacering.js` (P0 UTPLACERING) — spelet väljer bara TALEN.
+    // Hindren läses ur de LEVANDE kropparna, aldrig ur en handskriven lista: första
+    // versionen listade snurra, tunnlar och fenor för hand och glömde VÄGGARNA och
+    // LANVÄGARNA, vilket gav 1 251 felplaceringar på 1 500 banor.
+    const hinder = hinderUrFysik(this._phys, {
+      hoppaOver: ['ball'],
+      // Sidorna är kulans väg NER och lanvägen stänger dem underifrån — där räcker
+      // inte ett vanligt frigap. ÅTGÄRDER #6: en stolpe 70–90 px från väggen gjorde
+      // en ficka som kulan blev liggande i.
+      fardvag: ['wall', 'guide'],
+      friFardvag: GAP_LANE,
+    })
     // Tunnelmynningarna är RITADE hål utan kropp (insuget är en närhets-koll i
     // tickern) — motorn känner alltså inte till dem. De måste läggas till för hand.
-    for (const t of TUNNELS) ut.push({ x: t.x, y: t.y, r: TUNNEL_R })
-    return ut
-  },
+    for (const t of TUNNELS) hinder.push({ x: t.x, y: t.y, r: TUNNEL_R })
 
-  _samplaBana(level) {
-    // Fältet: ovanför fenorna/snurran, under serveringen. y0 är inte vald på känsla —
-    // kulan serveras vid y=192 med r=28, så en dyna vars överkant ligger på 234 ger
-    // 14 px till den nyss släppta kulan: TÄTAT, aldrig en kil.
-    const hinder = this._hinderlista()
-    const lagda = []
-    const passar = (x, y, r, kravFri) => {
-      for (const h of hinder) {
-        if (!gapOk(avstandTillKropp(h, x, y) - r, h.lane ? GAP_LANE : GAP_FRI)) return false
-      }
-      for (const l of lagda) {
-        const g = Math.hypot(l.x - x, l.y - y) - r - l.r
-        // `kravFri` = kulan ska kunna gå MELLAN dem. Utan kravet gäller kilregeln i
-        // stället: tätt intill duger, mittemellan gör det inte. ⚠️ Skriv aldrig
-        // `g < GAP_TATT` här — det släpper igenom hela kilbandet 46–64.
-        if (kravFri ? g < GAP_FRI : !gapOk(g)) return false
-      }
-      return true
-    }
-    // Bäst-av-N i stället för första bästa: en ren förstaträff klumpar ihop sig, och
-    // "slumpmässigt" ska läsas som utspritt, inte som en hög i ena hörnet.
-    // Ren dartkastning: ta FÖRSTA giltiga punkten. Två girigare varianter mättes och
-    // båda var sämre, för samma skäl — en ny dyna som söker maximalt avstånd hamnar i
-    // ett hörn, fältet fragmenteras och nästa dyna får ingen plats alls:
-    //   · bäst-av-400 med tidigt avbrott ..... nivå 12: snitt 4,8, tak 7
-    //   · bäst-av-900 ........................ snitt 3,4, tak 5
-    //   · "bra nog" på 1,25× minsta avstånd .. snitt 3,3, tak 5
-    // Slumpen packar bättre än omsorgen. Minimiavståndet håller ändå isär dem.
-    const lagg = (r, kravFri = true) => {
-      for (let i = 0; i < 500; i++) {
-        const x = rand(FIELD.x0, FIELD.x1)
-        const y = rand(FIELD.y0, FIELD.y1)
-        if (!passar(x, y, r, kravFri)) continue
-        const p = { x, y, r }
-        lagda.push(p)
-        return p
-      }
-      return null
+    const gemensamt = {
+      // `arena` = bordets inre kant (den hårda gränsen), `falt` = var en mittpunkt får
+      // hamna. Fältet ligger ovanför fenorna/snurran och under serveringen: kulan föds
+      // vid y=192, så en dyna vars överkant hamnar på 230 ger ett TÄTAT mellanrum till
+      // den nyss släppta kulan — aldrig en ficka.
+      arena: { x0: TABLE_L, y0: TABLE_T, x1: TABLE_R, y1: TABLE_B },
+      falt: FIELD,
+      passage: BALL_D,
+      marginal: GAP_FRI - BALL_D,
+      hinder,
+      kantOk: true, // en dyna FÅR ligga tätt intill sargen — det är en dyna, inte en ficka
     }
 
+    // Dynorna först. De tre första kräver fri passage runt sig; därefter tillåts ett
+    // KLUSTER (tätat mellanrum) — kulan kan inte ta sig in mellan två dynor som sitter
+    // ihop, och utan reserven tar banan slut på 3–4 dynor i stället för 7.
     const onskat = clamp(3 + Math.floor((level + 1) / 2), 3, 7)
-    const dynor = []
-    for (let i = 0; i < onskat; i++) {
-      // Får dynan ingen fri passage runt sig tillåts den ligga TÄTT intill en annan —
-      // ett kluster är säkert (kulan kan inte ta sig in mellan dem) och är dessutom
-      // hur riktiga flipperbord ser ut. Utan reserven tar banan slut på 3–4 dynor.
-      const p = lagg(BUMP_R, true) || (i >= 3 ? lagg(BUMP_R, false) : null)
-      if (!p) break
-      dynor.push(p)
+    const dynor = slumpaUt({ ...gemensamt, radie: BUMP_R, antal: Math.min(3, onskat) })
+    if (onskat > dynor.length && dynor.length === Math.min(3, onskat)) {
+      const extra = slumpaUt({
+        ...gemensamt,
+        radie: BUMP_R,
+        antal: onskat - dynor.length,
+        tatatOk: true,
+        hinder: [...hinder, ...dynor.map((d) => ({ x: d.x, y: d.y, r: d.r }))],
+      })
+      dynor.push(...extra)
     }
     // Målet (från nivå 5) läggs på den LÄGSTA dynan — den är svårast att nå, så
     // rundans sista poäng blir också rundans svåraste.
@@ -672,17 +633,17 @@ export default {
     // Stolparna: I fältet, inte i det tomma bandet högst upp. Ägaren: "stolparna var
     // omöjliga att träffa" — och det stämde, de satt på y=192, exakt kulans
     // serverings-höjd, så kulan startade BREDVID dem och föll förbi.
-    // ORDNINGEN ÄR MÄTT, INTE VALD, och båda naiva ordningarna är fel:
-    // stolpar sist ⇒ de trängs undan och kom med på 1,8 banor av 2;
-    // stolpar först ⇒ de splittrar fältet och nivå 12 kunde få 2 dynor i stället för 7.
-    // Rätt svar är dynorna först och stolparna med en RESERV: får de inte fri passage
-    // tillåts de ligga TÄTT intill en dyna i stället. Ett tätat mellanrum är säkert —
-    // kulan kan inte ta sig in — så priset är noll och båda kommer alltid med.
-    const stolpar = []
-    for (let i = 0; i < 2; i++) {
-      const p = lagg(PEG_R, true) || lagg(PEG_R, false)
-      if (p) stolpar.push(p)
-    }
+    // ⚠️ ORDNINGEN ÄR MÄTT, INTE VALD, och båda naiva ordningarna är fel: stolpar sist
+    // ⇒ de trängs undan och kom med på 1,8 banor av 2; stolpar FÖRST ⇒ de splittrar
+    // fältet och nivå 12 kunde få 2 dynor i stället för 7. Rätt svar är dynor först
+    // och stolpar med tätat mellanrum tillåtet.
+    const stolpar = slumpaUt({
+      ...gemensamt,
+      radie: PEG_R,
+      antal: 2,
+      tatatOk: true,
+      hinder: [...hinder, ...dynor.map((d) => ({ x: d.x, y: d.y, r: d.r }))],
+    })
     return { dynor, stolpar }
   },
 

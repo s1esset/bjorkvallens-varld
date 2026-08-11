@@ -19,6 +19,13 @@ MOTGÅNG       hinder och bakslag är TILLÅTNA och gör spelet bättre (något 
               välter, kommer i vägen). De ska gå att anpassa sig runt och som mest SAKTA NER.
               Krav: rolig ton, tydlig orsak, går att åtgärda direkt, TAK på hur mycket som kan
               gå fel samtidigt, lagom takt. Svårighet = eftertanke, aldrig stress eller skam.
+UTPLACERING   allt som får sin position av SLUMPEN måste hålla ett minsta avstånd som är LITE
+              STÖRRE än det som ska ta sig fram där — till andra föremål OCH till kanterna.
+              Ett gap som är knappt större än kulan/fingret är ingen passage, det är en FICKA.
+              Två säkra mellanrum finns: FRITT (≥ passage + 24) eller TÄTAT (≤ passage − 10,
+              går inte att komma in i). Allt däremellan är en fälla. Använd `lib/utplacering.js`
+              (`slumpaUt` + `hinderUrFysik`) — skriv aldrig hinderlistan för hand, den glömmer
+              väggarna. Gäller även TAPPBARA slumpade föremål: där är passage = 96 (P0 TRÄFFYTA)
 ASSETS        spelobjekt ritas FRISTÅENDE — aldrig en emoji/ikon i en ruta, bricka eller box.
               Egen silhuett, egen form, eget liv (vilo-guppning, reaktion vid tryck). Paneler
               och kort får bära TEXT och UI-kontroller, aldrig spelobjekt. En emoji duger som

@@ -14,6 +14,41 @@ Format:
 
 ---
 
+## 2026-08-11 (sen kväll) · v1.144.0 · Femte speltestet: fenan var en kil, och fastnar-vakten såg det aldrig
+
+**Byggt:** ägaren testade v1.143.0. `trollblandning` godkänd ("funkar bättre nu med 2 / utökad
+hylla"). `flipperspel` bar två rapporter — *"kan fortfarande få kulan att fastna"* och
+*"studskuddarna är för nära kanten så kulan kan inte åka under"* — som visade sig ha **samma rot**,
+plus en andra defekt som bara blev synlig när den första var borta. ÅTGÄRDER **#7**, `76dc0d1`.
+
+| Fel | Utfall |
+|---|---|
+| Fenan mot lanvägen | Fenan låg på (452,500), nästan **parallell** med lanvägen: kanalen mätte **58 px för en kula på 56**. Fenorna **+50 px inåt, −40 px upp** → (502,460)/(778,460), kanal **110 px**. |
+| Banans fickor | `slumpaUt` skyddar mot att kulan **kilas fast MELLAN** två ytor, inte mot att den blir **liggande OVANPÅ**. Ny `hittaFickor()` + `klarhetsfalt()` i `lib/utplacering.js`; `_samplaBana` kastar om **och plockar bort dämmaren**. Fickor **8 på 8 rundor → 0 på 12**. |
+
+**Tre lärdomar värda att bära vidare:**
+
+1. **Ett mått taget i fel riktning ser friskt ut.** Den gamla kommentaren mätte luckan mellan fena
+   och lanväg **vågrätt** (126 px) och drog slutsatsen "ingen kil". Kulan färdas **längs** lanvägen,
+   så måttet är **vinkelrätt** — och där var det 58 px. *Mät längs den riktning saken rör sig i.*
+2. **En räddningströskel på STILLASTÅENDE missar en långsam kretsgång.** Fastnar-vakten kräver
+   `hastighet < 0,7` i 2,6 s. I fickan **rullade** kulan, så vakten löste aldrig ut: **0 räddningar
+   på 90 fastnade släpp**. Det är hela förklaringen till ordet "fortfarande".
+3. **Att slumpa om räcker inte när felet är strukturellt.** 8 omkast av hela banan gav ändå 4
+   fickor på 10 rundor (och kostade 157 ms per runda). Att **ta bort det föremål som dämmer** går
+   monotont mot noll — varje borttagning öppnar fältet och kan aldrig skapa en ny ficka.
+
+**Nya sonder:** `_kilprobe.mjs` (läser spelets LEVANDE kroppar → lankanal, fickor, `--bild` ritar
+fältet) · `_spelaflipper.mjs` (släpper kulan i ytterbanan, paddlarna orörda, fryst bana, armarna
+**växelvis**: fastnade **83,3 % → 1,9 %**, median nertid **3 826 → 1 715 ms**).
+
+**Commits:** `76dc0d1` fix(flipperspel) · `326d1c7` docs(ÅTGÄRDER #7)
+
+**Öppet:** ägaren testar v1.144.0 på telefonen. Kvarstår i spelet: i ~1 varv av 12 kramar en dyna
+ihop lankanalen till 58 px — **ingen ficka** (kulan studsar bara på dynan), medvetet lämnat.
+I övrigt oförändrat läge: `pruttbad` §4 (perspektivet först) är enda kön med ägarens ord bakom sig,
+nattkön står på **N6**.
+
 ## 2026-08-11 · v1.143.0 · Ägarens speltest i fyra vändor — sex punkter, och en regel som drogs tillbaka
 
 **Byggt:** ägaren speltestade natt VI:s fem bygge. `hamburgerbygget`, `natskott-pa-stan`,

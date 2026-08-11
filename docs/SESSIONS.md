@@ -26,6 +26,7 @@ under natten; se filens egen loggtabell för löpande läge.
 | N2a | `kugghjulen` **dubbelhjul** | Nivå 8: ett hjul driver kedjan vidare OCH en fläkt. **Mesh-grafen behövde noll ändringar** — den var redan generaliserad. Grenen är en bonus utanför vinstvillkoret. `_grenprobe.mjs` (17 kontroller) vaktar. |
 | N2b | `kugghjulen` **back-hjul** | **Punkten omformulerad, inte byggd** — den uppenbara byggnaden är matematiskt omöjlig (se nedan). Korsad rem utpekad som rätt väg och nedskriven i §4. |
 | N3 | `pruttbad` får `vatska.js` | Riktiga **tvåldroppar** vid poppet (`tval`). 2 024 px netto, 60,6 fps under CPU ×6, dränerade till 0. **Fyra fel som talen dolde** — tre hittades av bilden. Ny sond `_tvalprobe.mjs`. LYFTPLAN B1: tre spel → **sex** (listan var inaktuell). |
+| N4 | `hamburgerbygget` får `mjukkropp.js` | **Båda bröden** är nu mjuka kroppar. Underbullen bär stapelns tyngd (**8,4–10,3 px monoton sammantryckning**, bredd 224 → 229,5), hela stapeln sätter sig med den, locket får en impuls per lager. Tom burgare **oförändrad** (ritad kurva 224,0 × 50,0 mot gamla 224 × 50). Fyra fällor, alla gröna i `npm run test`. Nya sonder `_bullprobe.mjs` + `_stapelprobe.mjs`. `sapbubblor` **struken** ur B2 med mätning bakom sig. |
 
 **Nattens första lärdom: den röda sonden var sondens eget fel — igen (femte gången).**
 `_dragprobe` rapporterade `skugga NEJ` på `trollblandning`. Verifieringen mot HEAD (rulla undan

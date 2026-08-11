@@ -121,6 +121,30 @@ Originaltexten för de avbockade punkterna står kvar nedan.
 
 ## 5. Status / loggar
 
+- 2026-08-11 🍞 **LYFTPLAN B2: bröden är MJUKA KROPPAR** (natt VI N4).
+  §3:s "ingredienserna interagerar inte" hade en tvilling ingen skrivit ner: en burgare med nio
+  lager såg exakt lika lätt ut som en tom, för bullarna var två `roundRect` som aldrig ändrade
+  form. Nu bär **underbullen stapelns tyngd** — den plattas, breder ut sig, och hela stapeln
+  sätter sig med den — och **locket får en impuls** varje gång stapeln växer.
+  Formen ligger i `bulle.js`: `Mjukkropp` med en rundad-rektangel-`form()`, glansband skurna ur
+  kroppens egen kurva, sesamfrön fästa i kupolens egen rymd. Vikten är lagrens totala tjocklek.
+  **MÄTT** (`_stapelprobe`, tre körningar i spelet): sammantryckning **8,4–10,3 px monotont**
+  lager för lager · bredd 224 → 229,5 px · **glapp mot understa lagret 0,00 px** · `rorelse`
+  tillbaka på **exakt 0,000** · exit mitt i vobbeln lämnar ingenting igång · 0 konsolfel.
+  **Den tomma burgaren är oförändrad** — den ritade kurvan mäter 224,0 × 50,0 px mot den gamla
+  `roundRect`:ens 224 × 50, verifierat både i tal (`_bullprobe`) och på skärmdumpen.
+  ⚠️ Fyra fällor på vägen, alla gröna i `npm run test`: en golvklämma räckte inte (den plana
+  botten måste PINNAS, annars en gränscykel med `rorelse` 9,9 som aldrig avtog) · tidssteget
+  måste vara FAST (`dtF` 2 vek ihop bullen 34,9 px för gott, och för små delsteg gav en helt
+  annan jämvikt — 3,1 px i spelet mot 7,0 i sonden, för att Chrome gick på 58 fps) · stapelns
+  bas måste läsas ur bullens LEVANDE ovansida (annars svävar understa lagret) · och ett glansband
+  måste vara ett **vågrätt snitt**, inte en förskjuten kant — en förskjuten kant får en diagonal
+  skarv vid gaveln och gjorde bröden till båtar med kant. Bara skärmdumpen såg det sista.
+  Bonus: de gamla banden var bredare än brödet på sin egen höjd och la en ljus flik **utanför**
+  silhuetten; det slutade de med när de skars ur kroppen.
+  Nya sonder: `scripts/_bullprobe.mjs` (formen i tal, utan webbläsare) och
+  `scripts/_stapelprobe.mjs` (bygger en riktig burgare och mäter vad tyngden gör).
+
 - 2026-08-10 🎨 **D1: ingrediensbrädan fick ljus** (`924387f`, v1.125.0).
   Brädan låg på **53 821 px i EN ton** — spelets största fält. `pizzabageriet` har EXAKT samma
   konstruktion och fick den tonad i ett tidigare D1-pass; den här missades då.

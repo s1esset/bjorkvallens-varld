@@ -24,6 +24,7 @@ import { COLORS, FONT } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, groundFill } from '../../lib/form.js'
 import { ITEMS, makeItemView } from './ingredienser.js'
+import { makeBullkropp, stegBulle, sattVikt, aterstall, ritaBulle, froFasten, rorelse } from './bulle.js'
 
 const BUILD = { x: 880, y: 596 } // _burger-origo: fatets yta (underbullens botten) — HÖGER
 const GRILL = { x: 235, y: 430 } // grillen — VÄNSTER, lite mindre än förr
@@ -37,6 +38,14 @@ const BOTTOM_BUN_H = 50
 const TOP_BUN_H = 62
 const BUN_BAKE = 0.55 // bröden rostas svagt, inte som köttet
 const STACK_CAP_Y = -358 // sluta lägga på när stapeln är så här hög (no-fail "fullt")
+const BUN_B_W = 224 // underbullens bredd
+const BUN_T_W = 232 // överbullens bredd
+// Bröden är MJUKA KROPPAR (LYFTPLAN B2, se `bulle.js`). Stapelns tyngd räknas som
+// lagrens totala tjocklek mot taket — 308 px ryms innan STACK_CAP_Y stoppar påfyllningen.
+const STACK_VIKT_FULL = 300
+const THUMP_UNDER = 5 // px impuls i underbullen när ett lager landar
+const THUMP_OVER = 6 // px impuls i locket (det faller ner på det nya lagret)
+const BULLE_RORD = 0.01 // ritas om bara medan den faktiskt rör sig (vilan är exakt 0)
 
 // Svepbar hylla.
 const SHELF_Y = 672
@@ -724,6 +733,8 @@ export default {
     this._stackLayer.addChild(view)
     this._stack.splice(clamp(index, 0, this._stack.length), 0, view)
     this._restack()
+    // Tunga lager smäller hårdare i brödet än ett salladsblad.
+    this._bulleStot(clamp(view._th / 46, 0.6, 1.5))
     bounceIn(view)
     sparkle(ctx.fxLayer, BUILD.x + view.x, BUILD.y + view.y, { count: 4 })
     ctx.services.audio.sfx('pop')
@@ -751,6 +762,7 @@ export default {
     this._stackLayer.addChild(view)
     this._stack.splice(clamp(index, 0, this._stack.length), 0, view)
     this._restack()
+    this._bulleStot(clamp((view._th || 40) / 46, 0.6, 1.5))
   },
 
   // Gör ett staplat lager greppbart (om-drag).
@@ -766,9 +778,28 @@ export default {
     view._onDown = onDown
   },
 
-  // Lägg alla lager på rätt höjd (underifrån och upp) + flytta locket.
+  // Stapeln ändrades: räkna om tyngden på underbullen och lägg om höjderna.
   _restack() {
-    let y = -BOTTOM_BUN_H
+    let tot = 0
+    for (const v of this._stack) tot += v._th || v._ing?.th || 40
+    if (this._bottomBun?._soft) sattVikt(this._bottomBun._soft, clamp(tot / STACK_VIKT_FULL, 0, 1))
+    this._layoutStack()
+  },
+
+  // Underbullens LEVANDE ovansida i burgar-rymden. Ringens punkt 0 ÄR kupolens mitt
+  // (parametern −π/2), alltså exakt där understa lagret vilar — inte ringens bbox-topp,
+  // som vid full tyngd sitter ute i hörnen.
+  _bunTopY() {
+    const s = this._bottomBun && !this._bottomBun.destroyed ? this._bottomBun._soft : null
+    return s ? this._bottomBun.y + s.pts[0].y : -BOTTOM_BUN_H
+  },
+
+  // Lägg alla lager på rätt höjd (underifrån och upp) + flytta locket.
+  // ⚠️ BASEN ÄR BULLENS OVANSIDA, INTE KONSTANTEN. Underbullen trycks ihop upp till
+  // 11,6 px av en full stapel; läses basen ur `-BOTTOM_BUN_H` svävar understa lagret
+  // över brödet med precis den sträckan, och man ser köket rakt igenom springan.
+  _layoutStack() {
+    let y = this._bunTopY()
     for (const v of this._stack) {
       const th = v._th || v._ing?.th || 40
       if (!v.destroyed) v.y = y - th / 2
@@ -778,9 +809,17 @@ export default {
     this._repositionTopBun()
   },
 
+  // Ett lager landade: en IMPULS i båda bröden. `skjut` och inte `falt` — verlet läser
+  // en positionsändring utan motsvarande `px`-ändring som FART, vilket är precis vad en
+  // landning är. Underbullen tar smällen, locket faller ner på det nya lagret.
+  _bulleStot(styrka = 1) {
+    if (this._bottomBun?._soft) this._bottomBun._soft.skjut(0, THUMP_UNDER * styrka)
+    if (this._topBun?._soft) this._topBun._soft.skjut(0, THUMP_OVER * styrka)
+  },
+
   // Vilket index i stapeln motsvarar en släpp-höjd (lokal y i burgar-rymden)?
   _indexForDropY(localY) {
-    let b = -BOTTOM_BUN_H
+    let b = this._bunTopY()
     for (let i = 0; i < this._stack.length; i++) {
       const th = this._stack[i]._th || this._stack[i]._ing?.th || 40
       if (localY > b - th / 2) return i
@@ -852,9 +891,29 @@ export default {
     }
   },
 
+  // Bröden lever (LYFTPLAN B2). De ritas om BARA medan de faktiskt rör sig — vilan
+  // mäter exakt 0 (botten är pinnad, inte golvklämd), så en burgare som ligger still
+  // kostar noll ritningar per bildruta.
+  _stegBullar(dtF) {
+    let flytta = false
+    for (const bun of [this._bottomBun, this._topBun]) {
+      const s = bun && !bun.destroyed ? bun._soft : null
+      if (!s) continue
+      stegBulle(s, dtF)
+      if (rorelse(s) > BULLE_RORD) {
+        if (bun._g && !bun._g.destroyed) ritaBulle(bun._g.clear(), s, bun._spec)
+        if (bun === this._bottomBun) flytta = true
+      }
+    }
+    // Underbullen sjönk eller reste sig → hela stapeln följer med. Det är det som gör
+    // att burgaren SÄTTER SIG när man lägger på, i stället för att bara byta silhuett.
+    if (flytta) this._layoutStack()
+  },
+
   _update(ctx, t) {
     if (!this._alive) return
     const dt = (t.deltaMS || 16.67) / 1000
+    this._stegBullar((t.deltaMS || 16.67) / 16.67)
 
     // Bobo guppar lugnt i vila (P0 ASSETS: eget liv) — och önskelistan andas med.
     this._bob += dt
@@ -1026,11 +1085,17 @@ export default {
     }
     this._stack = []
     this._stackTopY = -BOTTOM_BUN_H
-    this._repositionTopBun()
-    // Nollställ rostningen på bröden (lagren är borta med stapeln).
+    // Nollställ rostningen OCH formen på bröden (lagren är borta med stapeln) —
+    // en ny burgare ska börja på en obruten bulle, inte på förra rundans hoptryckta.
     for (const bun of [this._bottomBun, this._topBun]) {
-      if (bun && !bun.destroyed) bun.tint = 0xffffff
+      if (!bun || bun.destroyed) continue
+      bun.tint = 0xffffff
+      if (bun._soft) {
+        aterstall(bun._soft)
+        if (bun._g && !bun._g.destroyed) ritaBulle(bun._g.clear(), bun._soft, bun._spec)
+      }
     }
+    this._layoutStack()
     this._setPaletteEnabled(true)
     this._grillBtn.visible = true
     pop(this._grillBtn)
@@ -1087,6 +1152,12 @@ export default {
     this._serveTween?.kill()
     this._rig?.destroy()
     this._rig = null
+    // De mjuka bröden är rena tal och kan inte överleva ett spelbyte, men referenserna
+    // ska ändå nollas — `_stegBullar` får aldrig hitta en kropp efter exit.
+    for (const bun of [this._bottomBun, this._topBun]) {
+      bun?._soft?.destroy()
+      if (bun) bun._soft = null
+    }
     if (this._customer && !this._customer.destroyed) {
       gsap.killTweensOf(this._customer)
       gsap.killTweensOf(this._customer.scale)
@@ -1135,29 +1206,52 @@ export default {
 
 // =================== Sidoprofil-ritning (centrerad kring 0,0) ===================
 
+// Bröden är MJUKA KROPPAR (LYFTPLAN B2). Formen kommer från fysiken i stället för en
+// `roundRect`, men VILOFORMEN är exakt densamma som förut — uppmätt på den ritade kurvan
+// (inte på ringen, `path()` ritar kvadratik genom mittpunkter): 224,0 × 50,0 px mot 224 × 50.
+// En tom burgare ser alltså precis ut som innan; det är först under tyngd något händer.
+//
+// Glansbanden ritas ur kroppens EGNA kant (`bulle.js`), så de följer med när bullen
+// plattas. Som bonus slutade de sticka ut: den gamla `roundRect(…, 224, 14, 16)` var
+// bredare än brödet på just den höjden och la en ljus flik utanför silhuetten.
 function makeBunBottom() {
   const c = new Container()
   const g = new Graphics()
-  g.roundRect(-112, -BOTTOM_BUN_H / 2, 224, BOTTOM_BUN_H, 16).fill(0xe2a763)
-  g.roundRect(-112, -BOTTOM_BUN_H / 2, 224, 14, 16).fill({ color: 0xf2c489, alpha: 0.55 })
-  g.roundRect(-112, BOTTOM_BUN_H / 2 - 14, 224, 14, 16).fill({ color: 0xc98f50, alpha: 0.5 })
   g.eventMode = 'none'
   c.addChild(g)
+  c._g = g
+  c._soft = makeBullkropp({ w: BUN_B_W, h: BOTTOM_BUN_H, r: 16 })
+  c._spec = {
+    fyll: 0xe2a763,
+    topp: { tj: 14, farg: 0xf2c489, alpha: 0.55 },
+    botten: { tj: 14, farg: 0xc98f50, alpha: 0.5 },
+  }
+  ritaBulle(g, c._soft, c._spec)
   return c
 }
 
 function makeBunTop() {
   const c = new Container()
   const g = new Graphics()
-  // Kupol (rundad upptill, plan nedtill).
-  g.roundRect(-116, -TOP_BUN_H / 2, 232, TOP_BUN_H, 30).fill(0xe8b06a)
-  g.roundRect(-116, -TOP_BUN_H / 2, 232, 22, 30).fill({ color: 0xf3c98a, alpha: 0.6 })
-  // Sesamfrön.
-  for (let i = -78; i <= 78; i += 26) {
-    g.ellipse(i + (Math.random() * 8 - 4), -TOP_BUN_H / 2 + 18, 5, 8).fill(0xfbe9c0)
-  }
   g.eventMode = 'none'
   c.addChild(g)
+  c._g = g
+  // Kupol (rundad upptill, plan nedtill).
+  c._soft = makeBullkropp({ w: BUN_T_W, h: TOP_BUN_H, r: 30 })
+  // Sesamfrön: fästa i kupolens EGEN rymd (segment + parameter + offset), inte i
+  // absoluta koordinater — ett frö som ligger på ett fast x hamnar utanför brödet
+  // så fort locket vobblar.
+  const fron = []
+  for (let i = -78; i <= 78; i += 26) {
+    fron.push({ x: i + (Math.random() * 8 - 4), y: -TOP_BUN_H / 2 + 18, rx: 5, ry: 8 })
+  }
+  c._spec = {
+    fyll: 0xe8b06a,
+    topp: { tj: 22, farg: 0xf3c98a, alpha: 0.6 },
+    fron: froFasten(c._soft, fron),
+    fronFarg: 0xfbe9c0,
+  }
+  ritaBulle(g, c._soft, c._spec)
   return c
 }
 

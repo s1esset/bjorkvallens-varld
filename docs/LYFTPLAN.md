@@ -327,6 +327,49 @@ Nu sjunker sockret ihop runt pinnen medan det rostas. Färgtrappan och rostfläc
 oförändrade; det enda som bytts är att formen kommer från fysiken. Korv, majs och äpple är
 fasta saker och ritas som förut.
 
+**Tredje kund: `hamburgerbygget`** (2026-08-11, natt VI N4) — **båda bröden**. Underbullen bär
+stapelns tyngd: ju mer barnet lägger på, desto plattare och bredare blir den, och hela stapeln
+sätter sig med den. Locket får en impuls varje gång stapeln växer och faller ner på det nya
+lagret. Formen ligger i `src/games/hamburgerbygget/bulle.js` (rundad-rektangel-`form()`,
+glansband skurna ur kroppens egen kurva, sesamfrön fästa i kupolens egen rymd).
+**MÄTT i spelet** (`_stapelprobe`, tre körningar): sammantryckning **8,4–10,3 px monotont**
+lager för lager · bredd 224 → 229,5 px · **glapp mot understa lagret 0,00 px** · `rorelse`
+tillbaka på **exakt 0,000** · exit mitt i vobbeln lämnar ingenting igång.
+**Den tomma burgaren är oförändrad**: den ritade kurvan mäter 224,0 × 50,0 px mot den gamla
+`roundRect`:ens 224 × 50.
+
+**Fyra fällor bytet kostade — alla fyra osynliga i koden och gröna i `npm run test`:**
+
+1. **En golvklämma räcker inte, den plana botten måste PINNAS.** Trycket verkar längs kantens
+   normaler, och på undersidan pekar de rakt ner: varje bildruta putade botten ner genom fatet
+   och klämman lyfte tillbaka den. `rorelse` 9,9 som **aldrig** avtog (bullen shimrade i vila)
+   mot **0,00** med pinnad botten.
+2. **FAST TIDSSTEG, av två skäl som drar åt olika håll.** Ett för stort steg (`dtF` 2 = en
+   tappad bildruta) fyrdubblar fältet utan att lösaren får mer att säga till om → bullen vek
+   ihop sig **34,9 px av 50** och reste sig aldrig. Ett för litet steg ger en annan JÄMVIKT,
+   eftersom `damp` och villkorsstyvheten räknas per STEG men fältet per `f²`. Det senare
+   syntes som att spelet inte gav samma tal som sonden (3,1 px mot 7,0 px) — Chrome gick på
+   58 fps, `dtF` blev 1,03 och min delstegning tog 2 × 0,515. En ackumulator som alltid stegar
+   med exakt 1 gör sond och spel identiska.
+3. **BASEN FÖR STAPELN MÅSTE VARA BULLENS LEVANDE OVANSIDA.** Läses den ur konstanten svävar
+   understa lagret över brödet med precis sammantryckningen, och man ser köket genom springan.
+4. **Ett glansband får inte byggas som "kanten förskjuten inåt".** En förskjuten kant måste ta
+   slut någonstans, och där uppstår en diagonal skarv vid gaveln — bullen läste som en BÅT med
+   kant. Silhuetten satt på pixeln; det var bandet som gjorde bilden till en annan. Ett band är
+   ett VÅGRÄT SNITT genom kroppen, och ett snitt har ingen ände att skarva.
+
+⚠️ **Sidobukten är en FÖRGRENING, inte en jämn kurva.** Bredden ligger inom ±1 px upp till ~0,8
+i vikt och skjuter sedan ut ~11 px. Den mäts därför bara där vikten är exakt 1,0; ett krav på
+den i spelet hade flakat på hyllans slumpade ordning, inte på koden.
+
+⚠️ **`sapbubblor` är STRUKEN ur listan** — med mätning bakom sig. Spelet valde medvetet bort
+`mjukkropp` (`_deformera`, se kodkommentaren): bubblorna är 20–60 px och femton kan ligga i
+luften samtidigt, så en tiopunktsring med fyra relaxationsvarv blir 600 villkorspass **och** en
+full omritning av varje bubblas Graphics per bildruta — och resultatet blir SÄMRE att titta på
+(en tiohörning på 40 px läser som en kantig klump, inte som en såphinna). Fjädern på två tal per
+bubbla ger den utdragning ögat faktiskt läser. Kvar i listan: `mata-monstret` · `pruttbad`
+(samma storleksinvändning som såpbubblorna bör prövas där först).
+
 **Verktyg: `scripts/_mjukprobe.mjs`** (Node) — hård form hålls · varm kropp plattas/breder ut
 sig/massan sjunker · knuff syns direkt och studsar tillbaka · fästpunkt · förflyttning · exit.
 
@@ -980,7 +1023,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 8 | Material med ljud/partikel/spår | B4+B5 | 23 fysikspel | ✅ v1.52.0 |
 | 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(16 kunder, 6 kvar + 2 strukna)* |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |
-| 11 | `lib/mjukkropp.js` | B2 | 6 spel | ✅ v1.57.0 *(1 kund, 5 kvar)* |
+| 11 | `lib/mjukkropp.js` | B2 | 6 spel | ✅ v1.57.0 *(3 kunder, 2 kvar + 1 struken)* |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |
 | 13 | **Full bleed** — `lib/view.js` + scenbleed + `ctx.view` | D | **alla 72 spel på telefon** | ✅ v1.67–68.0 |
 

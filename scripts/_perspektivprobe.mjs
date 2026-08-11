@@ -302,6 +302,120 @@ try {
   ok('kranen-fyller', fullt.surf <= 332, `ytan ${botten.surf} → ${fullt.surf} (fullt = 330)`)
   ok('skummet-overlevde', fullt.foam === fore.foam, `skum ${fore.foam} → ${fullt.foam} genom hela tömningen och påfyllningen`)
 
+  // ---- Ankan omfördelar vatten och bubblor --------------------------------
+  await leave()
+  await setLevel(0)
+  await open()
+
+  // Vågor när ankan dras i sidled — och att ytan går tillbaka till VILA efteråt.
+  const vag = await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+    // ⚠️ MÄT DEN RITADE YTAN (`_waveAt`), inte fältet `_wave`. `_wave` bär bara AVVIKELSEN
+    // från viloläget — ankans dell ligger i `_waveRest`. Läser man bara `_wave` mäter man
+    // startbrus i stället för hur ytan faktiskt ser ut.
+    const topp = () => {
+      let m = 0
+      for (let x = 200; x < 1080; x += 20) m = Math.max(m, Math.abs(g._waveAt(x)))
+      return m
+    }
+    const fart = () => {
+      let m = 0
+      for (let i = 0; i < g._waveV.length; i++) m = Math.max(m, Math.abs(g._waveV[i]))
+      return m
+    }
+    await new Promise((r) => setTimeout(r, 900)) // låt vilo-dellen sätta sig
+    const vila = topp()
+    // Dra henne tvärs karet som ett barn gör.
+    for (let k = 0; k < 26; k++) {
+      g._setDuckPos(g._duckBase.x - 14, g._duckBase.y)
+      await new Promise((r) => requestAnimationFrame(r))
+    }
+    let max = 0
+    for (let k = 0; k < 20; k++) {
+      max = Math.max(max, topp())
+      await new Promise((r) => requestAnimationFrame(r))
+    }
+    // ⚠️ 4 SEKUNDER RÄCKTE INTE och det var sondens fel, inte spelets: mätt decay är
+    // 1,13 → 0,67 → 0,30 → 0,19 → 0,085 → 0,040 → 0,036 → 0,010 (var 0,7:e sekund), alltså
+    // en ren monoton avklingning som passerar omritningsgränsen 0,02 efter ~6 s. Långa vågor
+    // klingar långsamt eftersom fjädern är svag — det är riktigt för ett badkar.
+    await new Promise((r) => setTimeout(r, 7000))
+    return { vila: +vila.toFixed(2), max: +max.toFixed(2), efter: +topp().toFixed(2), fart: +fart().toFixed(3) }
+  })
+  // Vilo-dellen är MENINGEN (ankan flyter ju och trycker ner ytan där hon ligger), så det
+  // som mäts är att ett drag ger ett tydligt STÖRRE utslag, att det går tillbaka till
+  // dellen, att det aldrig når taket (20 px = resonans) och att fältet slutar RÖRA sig —
+  // det sista är vad som avgör om vattnet ritas om i all evighet.
+  ok(
+    'vagor-vid-drag',
+    vag.vila > 1.5 && vag.vila < 4 && vag.max > vag.vila * 2.5 && vag.max < 19 && Math.abs(vag.efter - vag.vila) < 0.8 && vag.fart < 0.02,
+    `vilo-dell ${vag.vila} px → drag ger ${vag.max} px (taket är 20) → tillbaka till ${vag.efter} · resthastighet ${vag.fart} (under 0,02 = slutar rita om)`
+  )
+
+  // Undanträngd volym: trycks ankan ner måste vattnet ta plats någon annanstans.
+  const disp = await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+    const fore = g._surf
+    g._setDuckPos(g._duckBase.x, g._floatY() + 76) // full nedtryckning
+    await new Promise((r) => setTimeout(r, 120))
+    const nere = g._surf
+    g._setDuckPos(g._duckBase.x, g._floatY())
+    await new Promise((r) => setTimeout(r, 300))
+    return { fore: +fore.toFixed(1), nere: +nere.toFixed(1), ater: +g._surf.toFixed(1) }
+  })
+  ok(
+    'undantrangd-volym',
+    disp.fore - disp.nere > 4 && disp.fore - disp.nere < 14 && Math.abs(disp.ater - disp.fore) < 0.6,
+    `ytan ${disp.fore} → ${disp.nere} när ankan trycks ner (lyft ${(disp.fore - disp.nere).toFixed(1)} px) → tillbaka till ${disp.ater}`
+  )
+
+  // Bubblor skjuts undan.
+  // ⚠️ NOLLA VOBBELFASEN. Bubblan får `phase: Math.random() * 6` och driver flera tiotal px
+  // i sidled av den ensam — första mätningen (|Δx|, slumpad fas, n=5) gav 47,8 mot 35,7 i en
+  // körning och 45,5 mot 64,0 i nästa, alltså BÅDA tecknen ur samma kod. Det var brus, inte
+  // effekt. Med fasen nollad i båda armarna är ankan den enda skillnaden kvar.
+  // ⚠️ Och mät TECKNET, inte beloppet: påståendet är att bubblan skjuts BORT från ankan.
+  const knuff = await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+    const enRunda = async (medAnka) => {
+      g._bubbles.forEach((b) => b.view && !b.view.destroyed && b.view.destroy())
+      g._bubbles.length = 0
+      g._setDuckPos(medAnka ? 700 : 260, g._floatY())
+      g._duckLastX = g._duckBase.x
+      g._pushBubble(640, 30, 0, 'normal') // 60 px till VÄNSTER om ankan → knuffen ska gå vänster
+      const b = g._bubbles[0]
+      b.phase = 0
+      b.vx = 0
+      const x0 = b.x
+      // ⚠️ MÄT HELA RESAN, inte ett fönster. Första versionen körde 40 bildrutor och mätte
+      // NOLL skillnad — bubblan hinner bara ~96 px upp på den tiden och är då fortfarande
+      // 174 px från ankan, alltså utanför knuffens radie (168). Fönstret mätte en sträcka
+      // där kraften per definition är noll.
+      let sist = x0
+      for (let k = 0; k < 240 && g._bubbles.length; k++) {
+        sist = g._bubbles[0].x
+        await new Promise((r) => requestAnimationFrame(r))
+      }
+      return sist - x0 // negativt = bort från ankan
+    }
+    const med = []
+    const utan = []
+    for (let i = 0; i < 5; i++) {
+      med.push(await enRunda(true))
+      utan.push(await enRunda(false))
+    }
+    const median = (a) => {
+      const v = a.filter((q) => q != null).sort((p, q) => p - q)
+      return v[Math.floor(v.length / 2)]
+    }
+    return { med: +median(med).toFixed(1), utan: +median(utan).toFixed(1) }
+  })
+  ok(
+    'bubblor-skjuts-undan',
+    knuff.med < knuff.utan - 8,
+    `bubbla 60 px vänster om ankan drev ${knuff.med} px (negativt = bort från henne) · samma bubbla utan anka ${knuff.utan} px (median av 5, armarna växelvis, vobbelfasen nollad)`
+  )
+
   // ---- Schampoflaskorna: tre sorters bubblor, tre riktiga knappar ---------
   const flaskor = await page.evaluate(async () => {
     const g = (await import('/src/games/registry.js')).getGame('pruttbad')
@@ -315,7 +429,11 @@ try {
       g._soap = 1
       return r
     }
+    // ⚠️ TVINGA BONUSEN, läs den inte. Kontrollerna före poppar bubblor, och poppade bubblor
+    // klarar rundor — spelet stod på nivå 2 (bonus 8) när det här mättes första gången, medan
+    // raden påstod "nivå 0". Talen var rätt, etiketten ljög.
     const boost0 = g._levelBoost
+    g._levelBoost = 0
     const spann = las()
     g._levelBoost = 20 // högsta nivåbonusen
     const spannHog = las()

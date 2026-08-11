@@ -85,10 +85,13 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   Barnet **trycker själv på en flaska** för att hälla i bubbelmedel; liten flaska ger små bubblor,
   stor ger stora. Hyllan har redan en schampoflaska ritad — utöka till tre och gör dem till
   riktiga knappar (≥96 px träffyta). *(Gjort och mätt: 96 px ytor med 24/24 px luckor.)*
-- **[Deep] Badankan omfördelar vatten och bubblor.** Flyttar man ankan ska **vattnet svara**:
-  undanträngd volym, vågor som sprids, bubblor som skjuts undan och samlas där ankan inte är.
-  Ankan har redan en roll (studs + bonus-skum) — det här gör henne till en riktig aktör i vätskan.
-  ⚠️ Mönstret finns i `plask-i-vattnet` (undanträngd volym) — se `_plaskprobe.mjs`.
+- ~~**[Deep] Badankan omfördelar vatten och bubblor.**~~ ✅ 2026-08-11, se §5. Flyttar man ankan
+  ska **vattnet svara**: undanträngd volym, vågor som sprids, bubblor som skjuts undan och samlas
+  där ankan inte är. ⚠️ Mönstret finns i `plask-i-vattnet` (undanträngd volym) — se
+  `_plaskprobe.mjs`. *(⚠️ RÄTTELSE: det mönstret gick INTE att återanvända — den vätskan är
+  SPH-partiklar i en `Flytvolym` som kräver en matter-värld, medan pruttbads bad är en RITAD
+  form och dess bubblor rena ticker-objekt. Det som bar över var dess varning om bredden.
+  Verktyget här blev ett 1D-höjdfält.)*
 - **[Deep] Bättre vätske- och bubbelfysik generellt.** Ägarens ord: *"man kanske kan förbättra
   vätskefysiken och bubbelfysiken"*. Vagt med flit — mät först: kör `_vatskeprobe` och `_tvalprobe`
   och skriv ner VAD som ser fel ut i bild innan något ändras.
@@ -142,6 +145,46 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   lugn och rikedom; behåll den befintliga ljud-strypningen.
 
 ## 5. Status / loggar
+
+- 2026-08-11 🌊 **ANKAN OMFÖRDELAR VATTEN OCH BUBBLOR — ytan blev ett höjdfält** (v1.148.0).
+  Ägarens §4-punkt 4. ⚠️ **Docens hänvisning till `plask-i-vattnet` gick inte att följa:** den
+  vätskan är SPH-partiklar i en `Flytvolym` som kräver en matter-värld, medan pruttbads bad är
+  en **ritad form** och dess bubblor rena ticker-objekt (med flit — exit-säkerhet utan extra
+  skydd). Det som bar rakt över var dess *varning*: undanträngd volym höjer HELA ytan, så
+  bredden ska hållas mindre än föremålet är ritat. Verktyget för en ritad yta blev i stället ett
+  **1D-höjdfält** (41 stödpunkter tvärs karet, fjäder + grannspridning + dämpning, fast tidssteg).
+  - **Undanträngd volym:** ankans nedsänkta del lyfter ytan — **mätt 8,2 px vid full
+    nedtryckning**, och exakt tillbaka till 330,0 när hon släpps.
+  - **Vågor:** vilo-dellen under henne är ~1,8 px, ett drag ger **12,5 px** och det klingar av
+    till dellen igen. **Bubblor skjuts undan:** en bubbla 60 px vänster om ankan drev
+    **−24 px (bort från henne)** mot **+63 px utan anka** — armarna växelvis, vobbelfasen nollad.
+  - ⚠️ **TRE MODELLER, TVÅ MÄTT FELAKTIGA — det här är den dyraste lärdomen i omgången.**
+    ⓵ *En impuls varje bildruta medan hon dras* är en KONSTANT KRAFT, inte en våg: dämpningen
+    tar 2,8 % per steg, så jämvikten blir insatsen/0,028 ≈ 36×. Uppmätt: ett halvt sekunds drag
+    pumpade fältet till sitt **tak (20,0 px)**. ⓶ *Att dra fältet mot ett måldjup vid hennes x*
+    gör dellen till en energiKÄLLA som slåss mot fjädern för alltid — uppmätt **resthastighet
+    0,367** fyra sekunder efter att allt slutat röra sig. ⓷ Rätt modell: dellen är fältets
+    **VILOLÄGE**, `_wave` bär bara AVVIKELSEN (och kan därför gå till exakt noll), och vågor
+    uppstår av att viloläget FLYTTAR SIG. Går inte att pumpa, och tar slut.
+  - ⚠️ **Dämpningen måste ligga EFTER spridningen.** Låg den före blev spridningens eget bidrag
+    odämpat, och för moden där varannan stödpunkt går upp och varannan ner är `l + r − 2h` lika
+    med −4h: med två pass gav det styvhet 0,88 mot dämpning 0,972, alltså en nästan ostabil
+    svängning vid Nyquist. Uppmätt resthastighet **0,087**. Nu ett pass, dämpning sist: **0,002**.
+  - **Omritningen styrs av RÖRELSE, inte av utslag.** Vilo-dellen går aldrig tillbaka till noll
+    så länge ankan flyter där — hade omritningen hängt på utslaget hade vattnet ritats om
+    60 ggr/s för all framtid för en form som står still.
+  - 🐞 **Två äldre buggar ramlade ut, båda i det gömda fyndet, båda funna av `_badprobe`:**
+    ⓵ **Fyndet kunde placeras högre än skummet någonsin når.** Spannet mättes mot mållinjen,
+    men kronan stannar `CROWN`=20 px under den — ett fynd över ~70 % av vägen kunde **aldrig**
+    hittas. Buggen är äldre än sidovyn (gränsen låg på 71 % med den gamla mållinjen), alltså
+    ungefär **var femte runda**. ⓶ **Armeringen hade ett hål:** den krävde att en bildruta
+    OBSERVERADE skummet under fyndet, men en enda jättebubbla ger upp till 90 skum mot ett mål
+    på 70 — hoppar skummet förbi i ett steg armeras det aldrig. Frågan är inte "har jag SETT
+    skummet under fyndet?" utan "ligger det under NU, när jag placerar?". `_badprobe` gick från
+    **2 av 4 röda till 8/8 fem körningar i rad**. Dess egen punkt 3 mätte också mot mållinjen
+    och sa "39 %" om ett fynd som låg på 56 % — även den rättad.
+  - **MÄTT** (`_perspektivprobe.mjs`, **26/26**) · `check` 0/0 · `test:all` **72/72** ·
+    `_badprobe` **8/8 ×5** · `_idleprobe` **0** · 0 fynd i loggen.
 
 - 2026-08-11 🧴 **TRE SCHAMPOFLASKOR — barnet väljer sorts bubblor** (v1.147.0).
   Ägarens §4-punkt 3. Hyllan bar en ritad schampoflaska som var ren dekor; nu står tre flaskor

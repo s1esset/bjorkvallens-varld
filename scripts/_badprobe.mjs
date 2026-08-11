@@ -103,8 +103,13 @@ try {
   const s3 = await state()
   ok('2. fyndet är dolt vid rundans start', !!s3.fynd && s3.fynd.synlig === false && s3.fynd.hittat === false,
     s3.fynd ? `sort=${s3.fynd.sort} synlig=${s3.fynd.synlig}` : 'inget fynd')
-  const frac = s3.fynd ? (s3.ytaY - s3.fynd.y) / (s3.ytaY - s3.goalY) : -1
-  ok('3. fyndet ligger 35–80 % upp (efter en stunds spelande)', frac >= 0.34 && frac <= 0.81,
+  // ⚠️ MÄT MOT DET SKUMMET NÅR, inte mot mållinjen. Kronan stannar CROWN=20 px under linjen,
+  // och den här kontrollen mätte mot linjen — alltså mot en höjd skummet aldrig kommer upp
+  // till. Det dolde att fynd över ~70 % ALDRIG kunde hittas (se punkt 4 och spelets
+  // `_placeTreasure`): kontrollen sa "39 % upp" om ett fynd som i praktiken låg på 56 %.
+  const CROWN = 20
+  const frac = s3.fynd ? (s3.ytaY - s3.fynd.y) / (s3.ytaY - s3.goalY - CROWN) : -1
+  ok('3. fyndet ligger 35–80 % upp av det skummet NÅR', frac >= 0.34 && frac <= 0.81,
     `${Math.round(frac * 100)} % av vägen till linjen`)
 
   // ---- Spela tills skummet passerar fyndet -------------------------------

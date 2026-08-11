@@ -108,7 +108,9 @@ const innerR = (y) => IN_R - TAPER * tubT(y)
 // Karets insida som en VÄG: raka lutande väggar, rundad botten. `inset` krymper konturen
 // inåt (vattnet ligger innanför porslinet) — negativ `inset` ger ytterkonturen, som är
 // samma form utåtflyttad en skaltjocklek, alltså exakt parallell med insidan.
-function tubPath(g, yTop, yBot, inset = 0, rBot = 54) {
+// `vag` = en funktion x → höjdavvikelse, eller null för en rak överkant. Vattnet och toningen
+// delar den, annars glider ytlinjen loss från vattnet den ligger på.
+function tubPath(g, yTop, yBot, inset = 0, rBot = 54, vag = null) {
   const yc = yBot - rBot
   const l0 = innerL(yTop) + inset,
     r0 = innerR(yTop) - inset
@@ -116,9 +118,13 @@ function tubPath(g, yTop, yBot, inset = 0, rBot = 54) {
     rc = innerR(yc) - inset
   const l1 = innerL(yBot) + inset,
     r1 = innerR(yBot) - inset
+  g.moveTo(l0, yTop + (vag ? vag(l0) : 0))
+  if (vag) {
+    const STEG = 22
+    for (let x = l0 + STEG; x < r0; x += STEG) g.lineTo(x, yTop + vag(x))
+  }
   return g
-    .moveTo(l0, yTop)
-    .lineTo(r0, yTop)
+    .lineTo(r0, yTop + (vag ? vag(r0) : 0))
     .lineTo(rc, yc)
     .quadraticCurveTo(r1, yBot, r1 - rBot, yBot)
     .lineTo(l1 + rBot, yBot)
@@ -150,6 +156,34 @@ const SOAPS = [
 const SOAP_X = [548, 668, 788]
 const SOAP_Y = 150 // hyllans ovansida — flaskorna STÅR på den
 const R_CEIL = 100 // tak oavsett flaska och nivå: en bubbla bredare än så fyller halva karet
+const CROWN = 20 // hur högt skummets bubbeltoppar sticker upp över skumkroppen
+
+// ---- Ytan som ett HÖJDFÄLT ----------------------------------------------
+//
+// Ägaren: *"Flyttar man ankan ska vattnet svara: undanträngd volym, vågor som sprids,
+// bubblor som skjuts undan."*
+//
+// ⚠️ MÖNSTRET I `plask-i-vattnet` GÅR INTE ATT ÅTERANVÄNDA HÄR, och det är värt att veta
+// innan någon försöker igen: den vätskan är SPH-partiklar i en `Flytvolym`, som kräver en
+// matter-värld. Pruttbads bubblor är rena ticker-objekt med flit (exit-säkerhet utan extra
+// skydd, se filhuvudet) och badet är en RITAD form. Det som däremot bär rakt över är dess
+// varning: undanträngd volym höjer HELA ytan, så bredden ska hållas MINDRE än föremålet är
+// ritat — annars lyfts badet synligt varje gång ankan guppar.
+//
+// För en ritad yta är verktyget i stället ett 1D-höjdfält: en rad stödpunkter tvärs karet
+// som fjädrar mot vilonivån och lämnar vidare till sina grannar. Det ger både vågen som
+// sprider sig och en yta som faktiskt SVARAR på det som rör sig i den.
+const WAVE_N = 41 // stödpunkter tvärs karet
+const WAVE_K = 0.021 // fjäder mot vilonivån
+const WAVE_DAMP = 0.972
+const WAVE_SPREAD = 0.08 // hur snabbt en våg vandrar i sidled (ETT pass — se `_waveStep`)
+const WAVE_MAX = 20 // utslagstak — en våg får aldrig skvätta ur karet
+const WAVE_REST = 0.25 // under det här är fältet i vila och ritas inte om alls
+const DISP_W = 96 // ankans undanträngande bredd — MINDRE än hon är ritad, se rutan ovan
+const DUCK_PUSH_R = 168 // bubbelknuffens EGEN radie.
+// ⚠️ DEN FÅR INTE ÄRVA `DUCK_R`. Kollisionsradien är där skrovet FAKTISKT är; knuffen är ett
+// mjukt fält runt henne. Delar de tal blir knuffen antingen en osynlig vägg vid skrovet
+// eller ingenting alls.
 const FOAM_K = 0.9 // skum-tillskott per pop = r * FOAM_K
 
 // --- Tvåldropparna vid poppet (lib/vatska.js) -----------------------------
@@ -236,6 +270,16 @@ export default {
 
     // Vattennivån är numera ett levande värde: proppen sänker den, kranen höjer den.
     this._surf = SURF_FULL
+    this._surfBase = SURF_FULL
+    this._disp = 0
+    this._wave = new Float32Array(WAVE_N) // AVVIKELSEN från viloläget — går till exakt noll
+    this._waveV = new Float32Array(WAVE_N)
+    this._waveRest = new Float32Array(WAVE_N) // ankans dell: fältets vilolage
+    this._waveRestPrev = new Float32Array(WAVE_N)
+    this._waveAcc = 0
+    this._waveOn = false
+    this._duckLastX = DUCK_HOME.x
+    this._duckLastDip = 0
     this._plugOut = false
     this._soap = 1 // mellanflaskan = spelets gamla bubbelstorlek
     this._pour = null
@@ -307,6 +351,13 @@ export default {
     // inte en bestraffning — proppen är en lek, och en ny runda ska börja likadant varje
     // gång så barnet känner igen sig.)
     this._surf = SURF_FULL
+    this._surfBase = SURF_FULL
+    this._disp = 0
+    this._wave?.fill(0)
+    this._waveV?.fill(0)
+    this._waveRest?.fill(0)
+    this._waveRestPrev?.fill(0)
+    this._waveOn = false
     this._fill = 0
     this._plugOut = false
     this._setPlugView()
@@ -343,6 +394,128 @@ export default {
   // Ankans flytlinje — en FUNKTION av nivån, inte en konstant. Töms badet åker hon med ner.
   _floatY() {
     return this._surf + DUCK_DY
+  },
+
+  // ---- Höjdfältet: ytan svarar på det som rör sig i den -------------------
+
+  // ⚠️ FAST TIDSSTEG. Fältet räknar dämpning och fjäder PER STEG. Med ett rörligt steg blir
+  // en tappad bildruta en dubbelt så styv fjäder och vågen exploderar, medan ett för litet
+  // steg ger en helt annan jämvikt — samma fälla som `Mjukkropp` (se CLAUDE.md). Ackumulatorn
+  // stegar därför alltid exakt 1, och taket på 4 steg hindrar en spiral efter en lång paus.
+  _updateWave(dt) {
+    this._waveAcc += dt
+    let n = 0
+    while (this._waveAcc >= 1 && n < 4) {
+      this._waveAcc -= 1
+      this._waveStep()
+      n++
+    }
+    // ⚠️ OMRITNINGEN STYRS AV RÖRELSE, INTE AV UTSLAG. Ankan trycker en vilo-dell i ytan som
+    // aldrig går tillbaka till noll så länge hon flyter där — hade omritningen hängt på
+    // utslaget hade vattnet ritats om 60 ggr/s för all framtid för en form som står still.
+    // En yta som inte RÖR sig behöver inte ritas om, hur böjd den än är.
+    let maxH = 0
+    let maxV = 0
+    for (let i = 0; i < WAVE_N; i++) {
+      maxH = Math.max(maxH, Math.abs(this._wave[i] + this._waveRest[i]))
+      maxV = Math.max(maxV, Math.abs(this._waveV[i]))
+    }
+    this._waveOn = maxH > WAVE_REST
+    if (maxV > 0.02) {
+      this._waveDirty = true
+      return true
+    }
+    if (this._waveDirty) {
+      this._waveDirty = false
+      return true // en sista omritning så den slutgiltiga formen faktiskt hamnar i bild
+    }
+    return false
+  },
+
+  // ANKANS DELL i ytan — den fördjupning ett flytande föremål trycker ner där det ligger.
+  //
+  // ⚠️ TVÅ MODELLER PROVADES OCH BÅDA VAR FEL PÅ VAR SITT SÄTT, båda mätta:
+  //  1. *En impuls varje bildruta medan hon dras.* Det är en KONSTANT KRAFT, inte en våg:
+  //     dämpningen tar 2,8 % per steg, så jämvikten blir insatsen/0,028 ≈ 36×. Ett halvt
+  //     sekunds drag pumpade fältet till sitt TAK (uppmätt 20,0 px = `WAVE_MAX`).
+  //  2. *Att varje steg dra fältet mot ett måldjup vid hennes x.* Då slåss dellen mot
+  //     fjädern som drar tillbaka mot noll, i all evighet — en energiKÄLLA. Uppmätt:
+  //     resthastighet 0,367 fyra sekunder efter att allt slutat röra sig, alltså krusningar
+  //     som strålar ut för alltid och ett vatten som ritas om varje bildruta för alltid.
+  //
+  // Rätt modell: dellen är fältets VILOLÄGE, inte en kraft i det. `_wave` bär bara
+  // AVVIKELSEN från viloläget och kan därför gå till exakt noll, och vågor uppstår av att
+  // viloläget FLYTTAR SIG — en stillastående anka gör inga vågor, en som dras gör vågor i
+  // proportion till hur fort hon dras. Det går inte att pumpa, och det tar slut.
+  _waveDent() {
+    const rest = this._waveRest
+    const v = this._waveV
+    for (let i = 0; i < WAVE_N; i++) this._waveRestPrev[i] = rest[i]
+    rest.fill(0)
+    if (this._duck && !this._duck.destroyed) {
+      const dopp = clamp(this._duckBase.y - this._floatY(), 0, DUCK_DIP_MAX)
+      const djup = 2.2 + dopp * 0.075 // vilo-dell + så mycket djupare när hon trycks ner
+      const t = clamp((this._duckBase.x - IN_L) / (IN_R - IN_L), 0, 1) * (WAVE_N - 1)
+      const c = Math.round(t)
+      for (let k = -2; k <= 2; k++) {
+        const i = c + k
+        if (i < 0 || i >= WAVE_N) continue
+        rest[i] = djup * (1 - Math.abs(k) / 3)
+      }
+    }
+    // Att viloläget flyttar sig är det som skapar vågen. Bounded per bildruta, och exakt
+    // noll när hon står stilla.
+    for (let i = 0; i < WAVE_N; i++) v[i] += (rest[i] - this._waveRestPrev[i]) * 0.9
+  },
+
+  _waveStep() {
+    const h = this._wave
+    const v = this._waveV
+    this._waveDent()
+    for (let i = 0; i < WAVE_N; i++) v[i] -= WAVE_K * h[i]
+    // Sidledsspridning: varje punkt dras mot medelvärdet av sina grannar. Det är det som
+    // gör en lokal stöt till en VÅG som vandrar i stället för en grop som studsar på plats.
+    for (let i = 0; i < WAVE_N; i++) {
+      const l = h[i > 0 ? i - 1 : 0]
+      const r = h[i < WAVE_N - 1 ? i + 1 : WAVE_N - 1]
+      v[i] += WAVE_SPREAD * (l + r - 2 * h[i])
+    }
+    // ⚠️ DÄMPNINGEN SIST, EFTER SPRIDNINGEN. Låg den före (som i första versionen) blev
+    // spridningens eget bidrag helt odämpat, och för det snabbaste moden — den där varannan
+    // stödpunkt går upp och varannan ner — är `l + r − 2h` lika med −4h. Med två pass gav det
+    // en effektiv styvhet på 0,88 per steg mot en dämpning på 0,972: en nästan ostabil
+    // svängning vid Nyquist-frekvensen. Uppmätt: resthastighet **0,087** fyra sekunder efter
+    // att allt slutat röra sig, alltså ett vatten som darrar och ritas om för alltid.
+    for (let i = 0; i < WAVE_N; i++) {
+      v[i] *= WAVE_DAMP
+      h[i] = clamp(h[i] + v[i], -WAVE_MAX, WAVE_MAX)
+    }
+  },
+
+  // Stöt in i ytan vid x. Positivt = nedåt (något trycker ner), negativt = uppåt (en bubbla
+  // som poppar lyfter ytan).
+  _wavePoke(x, kraft) {
+    if (!this._wave) return
+    const t = (x - IN_L) / (IN_R - IN_L)
+    const i = clamp(Math.round(t * (WAVE_N - 1)), 0, WAVE_N - 1)
+    this._waveV[i] += kraft
+    if (i > 0) this._waveV[i - 1] += kraft * 0.55
+    if (i < WAVE_N - 1) this._waveV[i + 1] += kraft * 0.55
+    this._waveOn = true
+  },
+
+  // Ytans höjd vid x (vilonivån + vågen) — allt som ligger I ytan läser den här.
+  _waveAt(x) {
+    if (!this._wave || !this._waveOn) return 0
+    const t = clamp((x - IN_L) / (IN_R - IN_L), 0, 1) * (WAVE_N - 1)
+    const i = Math.floor(t)
+    const j = Math.min(WAVE_N - 1, i + 1)
+    const f = t - i
+    // Ytan = vilolaget (ankans dell) + avvikelsen (vagen). Bada behovs: dellen ensam ar en
+    // stilla grop, vagen ensam glommer att nagot FLYTER dar.
+    const a = this._wave[i] + this._waveRest[i]
+    const b = this._wave[j] + this._waveRest[j]
+    return a + (b - a) * f
   },
 
   // Mållinjen hänger i ytan: skummet mäts från ytan och uppåt, så sjunker vattnet måste
@@ -602,6 +775,14 @@ export default {
   // gnistor och flyter kvar resten av rundan. Leksakssorten cyklar per nivå, så varje
   // runda har NÅGOT NYTT att upptäcka — det var den andra halvan av kritikerns invändning
   // (rundorna såg likadana ut OCH hade inget nytt i sig).
+  // Skummets ÖVERKANT just nu. Delas av `_drawFoam` (som ritar den) och `_placeTreasure`
+  // (som måste veta om skummet redan ligger över fyndet). Två egna uträkningar av samma sak
+  // är exakt hur de två glider isär.
+  _foamTop() {
+    const frac = clamp(this._foam.level / (this._goalFoam || 1), 0, 1)
+    return this._surf - (this._surf - this._goalY - CROWN) * frac
+  },
+
   _placeTreasure() {
     const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     // Döda gungningen FÖRE vyn rivs — annars skriver den .y på ett förstört objekt.
@@ -612,8 +793,16 @@ export default {
     const kind = TREASURES[Math.abs(this._level | 0) % TREASURES.length]
     const view = makeTreasure(kind.id)
     // Mellan 35 % och 80 % av vägen upp → alltid efter en stunds spelande, aldrig sist.
+    //
+    // 🐞 ⚠️ MÄT MOT DET SKUMMET FAKTISKT NÅR, inte mot mållinjen. Spannet gick förut till
+    // `_goalY`, men kronan — det som avslöjar fyndet — stannar `CROWN` px under linjen. Ett
+    // fynd placerat över ~70 % av vägen kunde alltså ALDRIG hittas: skummet blev fullt,
+    // rundan klarades, och leksaken låg kvar osedd. Uppmätt: `_badprobe` punkt 4 föll med
+    // fyndet på 76 % (skum 70/70, hittat=false). Buggen är äldre än sidovyn — med den gamla
+    // mållinjen låg gränsen på 71 %, alltså träffade den ungefär var femte runda.
     const f = 0.35 + Math.random() * 0.45
-    const y = SURFACE_Y - (SURFACE_Y - this._goalY) * f
+    const nabar = SURFACE_Y - this._goalY - CROWN // så högt kronan verkligen kommer
+    const y = SURFACE_Y - nabar * f
     // Hoppa över ett band kring Zacke (ZACKE_X 430) — annars ritas leksaken rakt ovanpå
     // honom i stället för bredvid i skummet i ungefär var femte runda.
     const x = Math.random() < 0.35 ? 250 + Math.random() * 90 : 545 + Math.random() * 480
@@ -621,12 +810,19 @@ export default {
     view.visible = false
     view.eventMode = 'none'
     this._treasureLayer.addChild(view)
-    // `armed` först när skummet setts UNDER fyndet. Utan den triggades nästa rundas fynd
-    // direkt av FÖRRA rundans överskottsskum: _onComplete pumpar in en pruttsvärm som driver
-    // _foam.level långt förbi målet, och _newRound placerar det nya fyndet innan drän-tweenen
-    // hunnit tömma skummet — leksaken avslöjade sig själv i ett tomt kar. Att kräva "först
-    // under, sedan över" är oberoende av tajmingen mellan _resolving, tweens och nivåbytet.
-    this._treasure = { view, y, kind, found: false, armed: false }
+    // `armed` skyddar mot att nästa rundas fynd avslöjas av FÖRRA rundans överskottsskum:
+    // `_onComplete` pumpar in en pruttsvärm som driver `_foam.level` långt förbi målet, och
+    // `_newRound` placerar det nya fyndet innan drän-tweenen hunnit tömma skummet — leksaken
+    // avslöjade sig själv i ett tomt kar.
+    //
+    // 🐞 ⚠️ MEN "ARMERAS AV EN SEDD BILDRUTA" HADE ETT HÅL. Villkoret krävde att en körning av
+    // `_drawFoam` observerade skummet UNDER fyndet. Hoppar skummet förbi i ETT steg — och en
+    // enda jättebubbla ger upp till 90 skum mot ett mål på 70 — så armeras det aldrig, och
+    // leksaken kan då ALDRIG hittas hur fullt badet än blir. Uppmätt: `_badprobe` punkt 4 föll
+    // i 2 av 4 körningar med `skum 70/70, hittat=false`.
+    // Rätt fråga är inte "har jag SETT skummet under fyndet?" utan "ligger skummet under
+    // fyndet NU, när jag placerar det?" — den bär samma skydd utan att bero på en bildruta.
+    this._treasure = { view, y, kind, found: false, armed: this._foamTop() > y }
   },
 
   _checkTreasure(ctx, foamTop) {
@@ -836,7 +1032,8 @@ export default {
     g.clear()
     const s = this._surf
     if (s >= TUB_BOT - 12) return
-    tubPath(g, s, TUB_BOT - 4, 6, 48).fill(verticalFillAlpha(this._bath().water, this._bath().water, 0.3, 0.62))
+    const vag = this._waveOn ? (x) => this._waveAt(x) : null
+    tubPath(g, s, TUB_BOT - 4, 6, 48, vag).fill(verticalFillAlpha(this._bath().water, this._bath().water, 0.3, 0.62))
   },
 
   // Vattentoning över allt som är UNDER ytan → Zackes kropp och ankan ser
@@ -854,13 +1051,22 @@ export default {
     g.clear()
     const SURFACE_Y = this._surf // lokalt alias: allt under läser den LEVANDE ytan
     if (SURFACE_Y >= TUB_BOT - 12) return
-    tubPath(g, SURFACE_Y, TUB_BOT - 4, 6, 48).fill({ color: this._bath().tint, alpha: 0.28 })
+    const vag = this._waveOn ? (x) => this._waveAt(x) : null
+    tubPath(g, SURFACE_Y, TUB_BOT - 4, 6, 48, vag).fill({ color: this._bath().tint, alpha: 0.28 })
     // VATTENYTAN. I sidovy är den här linjen scenens viktigaste streck — den är vad som
     // gör "under vattnet" och "ovanför vattnet" till två olika ställen. Den låg på
     // alpha 0.3 och gick knappt att se i skärmdumpen; nu är den en riktig yta med en
-    // ljus ovansida och en skuggad undersida.
-    g.rect(innerL(SURFACE_Y) + 6, SURFACE_Y - 3, innerR(SURFACE_Y) - innerL(SURFACE_Y) - 12, 6).fill({ color: 0xffffff, alpha: 0.7 })
-    g.rect(innerL(SURFACE_Y) + 6, SURFACE_Y + 3, innerR(SURFACE_Y) - innerL(SURFACE_Y) - 12, 5).fill({ color: this._bath().tint, alpha: 0.35 })
+    // ljus ovansida och en skuggad undersida — och den FÖLJER vågen, annars ligger ett
+    // rakt streck tvärs över ett böljande vatten.
+    const x0 = innerL(SURFACE_Y) + 6
+    const x1 = innerR(SURFACE_Y) - 6
+    const linje = (dy, w, col, a) => {
+      g.moveTo(x0, SURFACE_Y + dy + (vag ? vag(x0) : 0))
+      for (let x = x0 + 22; x < x1; x += 22) g.lineTo(x, SURFACE_Y + dy + (vag ? vag(x) : 0))
+      g.lineTo(x1, SURFACE_Y + dy + (vag ? vag(x1) : 0)).stroke({ width: w, color: col, alpha: a })
+    }
+    linje(0, 6, 0xffffff, 0.7)
+    linje(5, 5, this._bath().tint, 0.35)
   },
 
   // FRAMSIDAN mot kameran. Den har ingen fyllning — man ser rakt igenom den — så det
@@ -996,9 +1202,7 @@ export default {
     // Andel av vägen till linjen — samma tal som mätaren visar. CROWN är hur högt
     // bubbeltopparna sticker upp över skumkroppen; dras av här så att KRONAN (det
     // öga faktiskt läser som "skummets höjd") möter linjen exakt när mätaren är full.
-    const CROWN = 20
-    const frac = clamp(this._foam.level / (this._goalFoam || 1), 0, 1)
-    const top = SURFACE_Y - (SURFACE_Y - this._goalY - CROWN) * frac
+    const top = this._foamTop()
     // Har skummet stigit förbi det gömda fyndet? Då dyker det upp.
     if (this._ctx) this._checkTreasure(this._ctx, top)
     const ph = this._foamPhase
@@ -1515,6 +1719,7 @@ export default {
       return
     }
     ripple(ctx.fxLayer, p.x, p.y, { color: COLORS.white, maxR: 64 })
+    this._wavePoke(p.x, 2.2) // ett tryck i vattnet trycker NER ytan
     this._sound(ctx, 'plopp', 'pop', 'plopp', 110)
     // Närliggande bubblor får en liten knuff.
     for (const b of this._bubbles) {
@@ -1648,6 +1853,12 @@ export default {
           b.vy -= 3 // ankan sparkar upp bubblan …
           b.duckBoost = true // … och ger bonus-skum vid pop → placeringen betyder något
         }
+      } else if (d < DUCK_PUSH_R) {
+        // ANKAN SKJUTER UNDAN BUBBLOR. Ett mjukt fält UTANFÖR skrovet, med egen radie (se
+        // DUCK_PUSH_R) — bubblor glider undan och samlas där hon inte är, i stället för att
+        // bara studsa när de råkar träffa. Knuffen är VÅGRÄT: en lodrät hade slagits med
+        // lyftkraften, och det är i sidled omfördelningen ska synas.
+        b.vx += Math.sign(dx || 1) * (1 - d / DUCK_PUSH_R) * 0.5 * dt
       }
 
       if (b.view && !b.view.destroyed) b.view.position.set(b.x, b.y)
@@ -1697,19 +1908,41 @@ export default {
     const fore = this._surf
     if (this._fill > 0) {
       this._fill = Math.max(0, this._fill - dts)
-      this._surf -= FILL * dts
+      this._surfBase -= FILL * dts
     } else if (this._plugOut) {
-      this._surf += DRAIN * dts
+      this._surfBase += DRAIN * dts
     }
-    this._surf = clamp(this._surf, SURF_FULL, SURF_LOW)
+    this._surfBase = clamp(this._surfBase, SURF_FULL, SURF_LOW)
+
+    // UNDANTRÄNGD VOLYM. Ankans nedsänkta del måste ta plats någonstans, och i ett slutet kar
+    // är det enda stället "uppåt". Bredden är smalare än hon är ritad — undanträngning lyfter
+    // HELA ytan, och full bredd hade gjort varje gupp till en synlig nivåändring (samma
+    // avvägning som `plask-i-vattnet` skriver ner för sina föremål).
+    const dopp = clamp(this._duckBase.y - this._floatY(), 0, DUCK_DIP_MAX)
+    this._disp = (dopp * DISP_W) / (IN_R - IN_L)
+    this._surf = this._surfBase - this._disp
 
     // Virveln snurrar bara medan det faktiskt rinner (inte när tömningen bottnat).
-    const rinner = this._plugOut && this._surf < SURF_LOW - 0.5
+    const rinner = this._plugOut && this._surfBase < SURF_LOW - 0.5
     this._drawSwirl(rinner, dts)
     this._drawStream(ctx)
+    // ⚠️ DE HÄR TVÅ ÄR OCKSÅ PER BILDRUTA och måste därför vara pyttesmå — se rutan vid
+    // `_waveDent`: jämvikten blir insatsen delad med dämpningen (0,028), alltså ~36×.
+    // 0,12 ger en dell på ~4 px under en rinnande kran, vilket är vad man ser i ett badkar.
+    if (this._fill > 0) this._wavePoke(SPOUT.x, 0.12) // strålen slår ner i ytan
+    if (rinner) this._wavePoke(PLUG.x, 0.06) // avloppet suger ner ytan över hålet
+    // Ankan gör vågor genom sin DELL i ytan (`_waveDent`), inte genom en stöt per bildruta.
 
+    const vagLever = this._updateWave(Math.max(0.2, dts * 60))
     const d = this._surf - fore
-    if (Math.abs(d) < 0.01) return
+    if (Math.abs(d) < 0.01 && !vagLever) return
+    if (Math.abs(d) < 0.01) {
+      // Bara vågen rör sig — då räcker vattnet och toningen. Skum, mållinje, tvålband och
+      // träffytor hör till NIVÅN, och att röra dem 60 ggr/s för en krusning vore slöseri.
+      this._drawWater()
+      this._drawTint(this._tintGfx)
+      return
+    }
 
     // Ankan åker med nivån — hennes dopp bevaras (differensen, inte ett omklamp till ytan).
     this._setDuckPos(this._duckBase.x, this._duckBase.y + d)
@@ -1803,6 +2036,7 @@ export default {
     if (!this._alive) return
     const big = b.r / 10
     this._tvalStank(b)
+    this._wavePoke(b.x, -(0.9 + b.r * 0.035)) // ett popp LYFTER ytan
     puff(ctx.fxLayer, b.x, SURFACE_Y, { count: 6 + (big | 0), color: 0xffffff })
     sparkle(ctx.fxLayer, b.x, SURFACE_Y)
     ripple(ctx.fxLayer, b.x, SURFACE_Y, { color: COLORS.white, maxR: 40 + b.r * 1.4, alpha: 0.6 }) // större bubbla plaskar högre

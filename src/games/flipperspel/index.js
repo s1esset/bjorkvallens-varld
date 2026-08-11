@@ -445,7 +445,13 @@ export default {
       .fill({ color: COLORS.white, alpha: 0.75 })
     g.eventMode = 'none'
     this._root.addChild(g)
-    this._phys.circle(x, y, 17, { isStatic: true, restitution: 0.7, friction: 0.02, label: 'peg' })
+    // `studs` (V10b), inte `restitution`: matters `Body.setStatic` nollar restitution på en
+    // statisk kropp, så stolparnas 0,7 hade aldrig gjort något — kulans egna 0,62 vann varje
+    // studs (paret tar max). Stolpen är spelets ENDA yta som både ligger över kulans tal OCH
+    // saknar en egen impuls; dynan har `_kickOff`, fenan `_fireFin`, snurran `_spinHit`, och
+    // där hade en väckt studs blivit en dubblering. MÄTT (`_flipperprobe.mjs`, naken fysik med
+    // spelets geometri): hoppet 59,4 → 75,4 px, parets studs 0,62 → 0,70.
+    this._phys.circle(x, y, 17, { isStatic: true, studs: 0.7, friction: 0.02, label: 'peg' })
   },
 
   // Kinematisk paddel: statisk kropp vars vinkel+position räknas om från pivån varje

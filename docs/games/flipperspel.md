@@ -123,6 +123,35 @@ passiva en gång tända**.
 
 ## 5. Status / loggar
 
+- 2026-08-11 🏓 **V10b:s FÖRSTA KUND: stolparna studsar på riktigt** (v1.137.0).
+  Ägaren pekade ut spelet i speltestet ("flipperspel kan få studs först"). Genomgången gav ett
+  annat svar än frågan förutsatte, och det är hela poängen med posten:
+  - **Sex av åtta statiska studstal i spelet kan ALDRIG väckas till liv — av ett andra, oberoende
+    skäl.** Parets regel är `max(A, B)` och **kulan bär 0,62**. `wall` 0,3/0,4 · `sling` 0,5 ·
+    `spinner` 0,55 · `flipper` 0,3 ligger alla under det, alltså hade kulans eget tal vunnit även
+    om `setStatic` aldrig nollat dem. **MÄTT som kontroll** (naken fysik): ett statiskt 0,5 ger
+    59,4 px hopp både nollat och väckt — **0,0 px skillnad**. Att "flipperkudden inte studsar" går
+    alltså inte att fixa med `studs`; den frågan handlar om kulans eget tal eller om `_fireFin`.
+  - **Bara två ytor ligger över kulan:** `peg` 0,7 och dynorna 0,68/0,75/0,82. Dynan har en **egen
+    impuls** (`_kickOff`, PUSH 3,2) — där vore en väckt studs en dubblering, precis det N13
+    varnade för. **Stolpen är spelets enda yta som både ligger över kulans tal och saknar egen
+    impuls**, och den är dessutom beskriven i koden som "rent studsobjekt, inget mål".
+  - **Byggt:** `_buildPeg` kör `{ isStatic: true, studs: 0.7 }`. **MÄTT** (`_flipperprobe.mjs`,
+    naken fysik med spelets geometri — kula r=28 vid 0,62 mot stolpe r=17): hoppet **59,4 → 75,4 px
+    (+27 %)**, parets studs **0,62 → 0,70**, och i det körande spelet bär båda stolparna
+    `restitution 0.7` i stället för 0. Migreringslistan i `npm run check -- --studs`: **50 → 49**.
+  - ⬜ **Öppet, ett ägarbeslut:** dynorna skulle ge **+26,8 px (59,4 → 86,2)** om de väcktes. Det
+    är spelets kärnloop och det stackar med `_kickOff`, så det kräver att någon SPELAR bordet.
+  - ⚠️ **`_idleprobe` ger `idleFramsteg: 4` — men det är INTE nytt.** HEAD ger exakt samma tal
+    (A/B körd i samma pass). Kulan serveras automatiskt och dynor tänds vid kontakt, så ett
+    flipperbord gör oundvikligen framsteg utan finger. Räkna inte det som en regression.
+  - ⚠️ **Mät ALDRIG en enskild ytas studs inne i det levande spelet.** Fem raka sondfel, alla
+    tysta, står dokumenterade i filhuvudet till `scripts/_flipperprobe.mjs`. Kort: en direkt
+    skrivning till `position` flyttar inte kroppens hörn · `_phys.update`-ackumulatorn kör upp
+    till fem steg per bildruta · en avläsning per bildruta missar en studs som varar tre steg ·
+    en liten rund stolpe sprider kulan i sidled. Studskoefficienten hör hemma i en naken
+    fysikvärld, som i `_studsprobe.mjs`.
+
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`374734a`, v1.108.0).
   `_plattprobe --medbakgrund` mätte **295 453 px = 32 % av skärmen** i EN ton.
   Efter D1:s första svep var det HÄR appens största platta fält. Nattscenen runt omkring

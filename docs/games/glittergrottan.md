@@ -192,3 +192,40 @@ namnger den). Samma skärm bär båda åldrarna.
 - GameHost exponerar nu den körande modulinstansen som `window.__barnspel.game` (DEV-only) —
   en sond som importerar spel-URL:en själv får en annan instans så fort Vite HMR-stämplat
   modulen.
+
+### 2026-08-12 — ÅTGÄRDER V15: kontexten kan VÄGRAS, och då dog spelet vid start
+
+- **Symptom:** spelet föll **6 av 26 ensamma `npm run test`-körningar (~23 %)** med
+  `A WebGL context could not be created` → `Spelet kraschade vid start` → tom skärm.
+  Appen överlevde (GameHost fångar), men barnet fick en tom platta med bara hem-knappen.
+- **Diagnosen låg i konsolen ORDAGRANT — det var TVÅ olika fel, inte ett.** Först
+  `Could not create a WebGL context … GL_VENDOR = Disabled … BindToCurrentSequence failed`
+  (GPU-processen hinner inte binda; headless Chrome kör här helt utan GPU), och därefter
+  **`Web page caused context loss and was blocked`** — Chromes spärr, som gäller SIDAN och
+  slår till EFTER det första felet. Det är samma spärr som `forceContextLoss()` utlöste i
+  posten ovan; den kan alltså nås på mer än ett sätt.
+- **Två spår avfärdade med mätning före första kodraden** (`scripts/_kontextprobe.mjs`):
+  attributen är oskyldiga (32 råa `getContext` över fyra uppsättningar föll 0 gånger, och
+  three gör själv ett attributfritt omförsök som faller med), och det är inget kontexttak
+  (bara EN duk finns på sidan när det smäller).
+- **Byggt:** `sakraRenderare()` i `lib/three3d.js` hämtar kontexten själv och ger three en
+  färdig `{ canvas, context }`; vid vägran returneras `null` i stället för ett kastat fel.
+  `_utan3D()` ritar då ett lugnt **fritt läge** med samma kristaller (`drawMini`), samma
+  pentatoniska toner och samma glitter — ingen ordning, inget mål, inget som kan gå fel.
+  Medvetet INTE en 2D-kopia av grottan: ordningsregeln kräver facit-rad, glimmerdjur och
+  grottans ljus, och byggd i 2D vore det ett ANNAT spel att underhålla.
+- ⚠️ **Omtagningarna räddade aldrig något** (`renderare-omtagen` **0** av 2 fall). Spärren är
+  en spärr, inte en transient. Det som räddar bilden är reservläget.
+- ⚠️ **En fix kan vara rätt och testet ändå rött.** Första versionen lät three konstruera
+  renderaren: three `console.error`:ar i sin `webglcontextcreationerror`-lyssnare INNAN
+  konstruktorn kastar, så vägran skrev 8 konsolfel som harnessen räknade — trots full bild
+  och korrekt reservläge. `getContext` utan lyssnare är tyst.
+- **Mätt:** 6/26 röda → **16/16 gröna**, varav 2 i reservläge (varningen `ingen-3d-kontext`,
+  så det aldrig passerar tyst). `_kontextprobe.mjs --reserv` 5/5 (reservläge · 5 kristaller ·
+  ingen three-duk · 0 konsolfel · städat efter exit). `test:all` 72/72.
+- **Ny sond:** `scripts/_kontextprobe.mjs` — `[N]` attribut-armarna växelvis · `--spel N`
+  monterar spelet om och om med FÄRSK WEBBLÄSARE per försök och skriver konsolen ordagrant
+  · `--reserv` tvingar fram vägran genom hela den riktiga vägen.
+  ⚠️ **Fälla sonden själv gick i:** en DELAD webbläsare över försöken gör spärren till en
+  kaskad — försök 10–12 föll alla, vilket såg ut som 100 % frekvens. `npm run test` startar
+  en färsk webbläsare per körning; sonden måste göra likadant för att mäta samma sak.

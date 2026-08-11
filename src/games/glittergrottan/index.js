@@ -13,11 +13,17 @@
 // Pixi, egen backdrop-shader (uBoost = grottan tänds), glitter-material, pick() från
 // en Pixi-hityta, worldToDesign() för Pixi-feedback ovanpå 3D-objekt, och exit-säker
 // destroy (layer.destroy städar GPU:n).
-import { Container, Graphics, Rectangle } from 'pixi.js'
+import { Circle, Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { sparkle, burst } from '../../lib/feedback.js'
 import { shade, tint } from '../../lib/theme.js'
 import { shuffle } from '../../lib/swedish.js'
+import { verticalFill } from '../../lib/form.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+
+// Talas bara i reservläget (se _utan3D) — där finns ingen ordning att följa, så
+// spelets vanliga intro vore en instruktion barnet inte kan lyda.
+const RESERV_LINE = 'Grottan glittrar! Tryck på kristallerna.'
 
 // Regnbågsordning (används både som palett och som färgregelns facit).
 const RAINBOW = [0xff6b6b, 0xff8a3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa, 0xff9ec4]
@@ -120,11 +126,23 @@ export default {
     this._drift = 0
     this._petNamed = false
     this._cheerAlt = false
+    // Modulen är en singleton: utan nollställning här skulle en körning som en gång
+    // hamnat i reservläget tala reservrepliken för alltid.
+    this._reservlage = false
+    this._reserv = null
 
     // three.js laddas DYNAMISKT → egen chunk, huvudbundlen förblir Pixi-ren.
     const T = await import('../../lib/three3d.js')
     if (!this._alive) return
     this._T = T
+
+    // Kontexten kan VÄGRAS av webbläsaren (ÅTGÄRDER V15) — Pixi äger redan en, och det här
+    // är appens enda spel som behöver en andra. `sakraRenderare` tar om försöket över flera
+    // bildrutor och returnerar null först när alla är slut. Att låta felet gå vidare härifrån
+    // är just det som gav "Spelet kraschade vid start" och en helt tom skärm.
+    const renderare = await T.sakraRenderare()
+    if (!this._alive) return
+    if (!renderare) { this._utan3D(ctx); return }
 
     const layer = new T.ThreeLayer(ctx.services)
     this._layer = layer
@@ -159,6 +177,7 @@ export default {
 
   mount(ctx) {
     this._started = true
+    if (this._reservlage) { ctx.services.voice.say(RESERV_LINE); return }
     ctx.services.voice.say(this.voiceIntro)
     // Regeln talas strax efter introt (introt är kort med flit).
     this._later(2.8, () => {
@@ -968,8 +987,64 @@ export default {
     }
   },
 
+  // ---------------------------------------------------------- reservläge --
+
+  // När webbläsaren VÄGRAR en andra WebGL-kontext (ÅTGÄRDER V15). Utan det här mötte
+  // barnet en helt tom skärm: `GameHost` fångar visserligen felet så appen överlever,
+  // men spelet hann aldrig rita någonting alls.
+  //
+  // Medvetet INTE en 2D-kopia av grottan. Ordningsregeln är hela spelet och den kräver
+  // facit-raden, glimmerdjuret och grottans ljus — byggt i 2D vore det ett ANNAT spel,
+  // underhållet på två ställen. Det här är i stället ett lugnt fritt läge med samma
+  // kristaller (`drawMini`), samma pentatoniska toner och samma glitter: inget mål,
+  // inget som kan gå fel, och P0:s återkoppling under 100 ms per tryck. Hem-knappen
+  // ritas av skalet ovanpå och tar barnet vidare.
+  _utan3D(ctx) {
+    this._reservlage = true
+    this._root = new Container()
+    ctx.stage.addChild(this._root)
+
+    // Grottan är mörk — och en mörk yta i EN ton är precis det platthetssonden fäller.
+    this._root.addChild(new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
+      .fill(verticalFill(0x2b2166, 0x120d33)))
+
+    this._fx = new Container()
+    this._fx.eventMode = 'none'
+    this._fx.interactiveChildren = false
+
+    this._reserv = []
+    const rad = shuffle(RAINBOW.slice()).slice(0, 5)
+    rad.forEach((color, i) => {
+      const kris = new Container()
+      // Fem kristaller på en mjuk båge, med god marginal till hem/högtalarknapparna.
+      kris.position.set(240 + i * 200, 400 + Math.sin(i * 0.9) * 70)
+      const kropp = new Graphics()
+      drawMini(kropp, SHAPES[i % SHAPES.length], color, 54)
+      kris.addChild(kropp)
+      // P0: träffytan är ≥96 px även om formen ritas mindre, plus 24 px osynlig halo.
+      kris.eventMode = 'static'
+      kris.cursor = 'pointer'
+      kris.hitArea = new Circle(0, 0, 72)
+      kris.on('pointertap', () => {
+        if (!this._alive) return
+        ctx.services.audio.tone({ freq: PENTA[i % PENTA.length], dur: 0.22, type: 'triangle', vol: 0.1 })
+        sparkle(this._fx, kris.x, kris.y, { count: 10 })
+        gsap.killTweensOf(kris.scale)
+        gsap.fromTo(kris.scale, { x: 1.22, y: 1.22 }, { x: 1, y: 1, duration: 0.42, ease: 'elastic.out(1,0.5)' })
+      })
+      // Vilo-guppning: varje kristall har egen fas, annars läser de som en enda platta.
+      gsap.to(kris, { y: kris.y - 12, duration: 1.6 + i * 0.13, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: i * 0.21 })
+      this._reserv.push(kris)
+      this._root.addChild(kris)
+    })
+    this._root.addChild(this._fx)
+  },
+
   destroy(ctx) {
     this._alive = false
+    this._reserv?.forEach((k) => { gsap.killTweensOf(k); gsap.killTweensOf(k.scale) })
+    this._reserv = null
     this._offUpdate?.()
     this._timers?.forEach((t) => t.kill())
     this._timers = []

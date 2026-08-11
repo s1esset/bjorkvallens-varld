@@ -18,13 +18,89 @@
 import * as THREE from 'three'
 import { DESIGN_W, DESIGN_H } from './theme.js'
 import { shaderMat as _shaderMat } from './three-shaders.js'
-import { ON as DIAG, logThree } from './gamelog.js'
+import { ON as DIAG, logThree, flag } from './gamelog.js'
 
 export { THREE }
 export * from './three-shaders.js'
 
 // En delad WebGLRenderer för hela appen (se konstruktorn för varför).
 let _sharedRenderer = null
+
+// Försök skapa renderaren, med OMTAGNINGAR över flera bildrutor. (ÅTGÄRDER V15)
+//
+// Bakgrunden är mätt, inte gissad. `npm run test glittergrottan` föll ~23 % av gångerna
+// (6 av 26 ENSAMMA körningar) och konsolen bar två olika fel i följd:
+//   1. `Could not create a WebGL context … ErrorMessage = BindToCurrentSequence failed`
+//   2. `Web page caused context loss and was blocked`
+// Det första är GPU-processen som inte hinner binda en kontext; det andra är Chromes egen
+// spärr som slår till EFTER det första felet. `GL_VENDOR = Disabled` i samma rad säger att
+// webbläsaren kör helt utan GPU (SwiftShader) — alltså är det svåraste läget, inte det
+// normala, och spelet är svitens enda som behöver en ANDRA kontext (Pixi äger den första).
+//
+// Två saker uteslöts med mätning innan den här koden skrevs (`scripts/_kontextprobe.mjs`):
+//   · ATTRIBUTEN är oskyldiga — 32 råa `getContext`-försök över fyra attributuppsättningar
+//     (three's egna, utan antialias, default-power, helt nakna) föll **0 gånger**. three gör
+//     dessutom själv ett attributfritt omförsök internt, och det faller med.
+//   · Det är inte ett tak på antalet kontexter — bara EN duk finns på sidan när det smäller.
+//
+// KONTEXTEN HÄMTAS SJÄLV, three får den färdig. Det är inte en stilfråga utan mätt:
+// three lyssnar på `webglcontextcreationerror` och gör `console.error` i lyssnaren INNAN
+// konstruktorn hinner kasta, så en vägran skrev åtta konsolfel som harnessen räknade —
+// spelet hade då reservläge och full bild, men testet var ändå rött. `getContext` utan
+// lyssnare är tyst, och först när vi har en kontext byggs `WebGLRenderer({ canvas, context })`.
+// Vägran blir därmed en VARNING med diagnos (`ingen-3d-kontext`) i stället för buller.
+//
+// OMTAGNINGARNA ÄR MÄTTA OCH HAR ALDRIG RÄDDAT NÅGOT: över 15 harness-körningar föll två,
+// och båda gångerna misslyckades ALLA försöken (`renderare-omtagen` 0). Det stämmer med
+// Chromes egen formulering — "was blocked" är en spärr för SIDAN, inte en transient. De
+// ligger kvar för att de nu är gratis (tysta) och för att spärren kan bete sig annorlunda
+// på en riktig GPU, men ingen ska tro att de är det som räddar bilden. Det gör reservläget.
+//
+// Returnerar renderaren, eller `null` när alla försök är slut — ALDRIG ett kastat fel.
+// Att kasta här är just det som gav "Spelet kraschade vid start" och en tom skärm för ett
+// barn; anroparen får i stället välja vad som ska hända.
+export async function sakraRenderare(opts = {}, forsok = 3) {
+  // DEV-only: `window.__tvingaIngen3D` låtsas att webbläsaren VÄGRAR, så reservvägen går
+  // att KÖRA i stället för att bara finnas (samma skäl som harnessens `--tvinga-tom` — en
+  // väg ingen har kört är en gissning till). Vägran simuleras nere i loopen, inte som en
+  // tidig retur, så att omtagningarna, flaggan OCH tystnaden mot konsolen testas på riktigt.
+  // Vite ersätter import.meta.env.DEV, så grenen faller bort i bygget.
+  const tvingaVagran = DIAG && typeof window !== 'undefined' && !!window.__tvingaIngen3D
+  if (!tvingaVagran && _sharedRenderer && !_sharedRenderer.getContext().isContextLost()) return _sharedRenderer
+  const { antialias = true } = opts
+  let sistaFel = null
+  for (let i = 0; i < forsok; i++) {
+    if (i > 0) {
+      // Vänta en målad bildruta OCH en växande paus (0 · 120 · 360 · 800 ms). GPU-processen
+      // behöver realtid, inte bara en ny bildruta, för att komma tillbaka.
+      await new Promise((r) => requestAnimationFrame(() => r()))
+      await new Promise((r) => setTimeout(r, [0, 120, 360, 800][Math.min(i, 3)]))
+    }
+    try {
+      const attrs = { antialias, alpha: true, powerPreference: 'high-performance', stencil: false }
+      const canvas = document.createElement('canvas')
+      // Tyst: ingen `webglcontextcreationerror`-lyssnare finns på den här duken, så en
+      // vägran ger `null` i stället för ett konsolfel. three faller själv tillbaka på
+      // webgl1 innan den kastar — gör samma sak här.
+      const context = tvingaVagran ? null : (canvas.getContext('webgl2', attrs) || canvas.getContext('webgl', attrs))
+      if (!context) { sistaFel = new Error('getContext gav null (webbläsaren vägrade)'); continue }
+      _sharedRenderer = new THREE.WebGLRenderer({ ...attrs, canvas, context })
+      if (DIAG && i > 0) logThree('renderare-omtagen', { forsok: i + 1 })
+      return _sharedRenderer
+    } catch (err) {
+      sistaFel = err
+    }
+  }
+  // Reservläget får ALDRIG passera tyst. Det räddar bilden, alltså blir testet grönt —
+  // och utan en flagga skulle "spelet gick aldrig igång i 3D" se ut som en ren körning.
+  // Varning, inte fel: appen gör exakt rätt sak, men någon ska kunna se att det hände.
+  if (DIAG) {
+    logThree('renderare-foll', { forsok, fel: String(sistaFel?.message || sistaFel).slice(0, 160) })
+    flag('ingen-3d-kontext', `webblasaren vagrade en WebGL-kontext efter ${forsok} forsok — spelet gick i reservlage`,
+      { forsok, fel: String(sistaFel?.message || sistaFel).slice(0, 160) }, 'varning')
+  }
+  return null
+}
 
 export class ThreeLayer {
   /**

@@ -170,6 +170,15 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   **34,9 px av 50**, för gott); ett för litet ger en helt annan JÄMVIKT (3,1 px i spelet mot 7,0 i
   sonden — Chrome gick på 58 fps och `dtF` blev 1,03). Använd en ackumulator som alltid stegar
   med exakt 1, annars mäter sonden aldrig samma sak som spelet gör.
+- **Ett bibliotek kan skriva konsolfel INNAN du hinner fånga felet.** three.js lyssnar på
+  `webglcontextcreationerror` och gör `console.error` i lyssnaren; konstruktorn kastar först
+  efteråt. `glittergrottan`s reservläge var alltså helt korrekt — full bild, rätt beteende —
+  och testet ändå **rött av 8 konsolfel**. Hämta resursen själv där det går (`getContext`
+  utan lyssnare är tyst) och lämna den färdig till biblioteket: `new WebGLRenderer({ canvas,
+  context })`. Samma fråga gäller nästa bibliotek: loggar det något innan mitt `catch` körs?
+- **`Web page caused context loss and was blocked` är en SPÄRR för sidan, inte en transient.**
+  Omtagningar hjälper inte — uppmätt 0 räddningar av 2 fall över 15 körningar. Det som räddar
+  bilden är att spelet kan köra UTAN resursen. → ÅTGÄRDER V15.
 - **Röstkön är inte permanent.** `npm run voice` fungerar (F5-TTS i `C:\repos\storygen`) — töm kön
   i stället för att lämna repliker på Web Speech.
 - **Sonder måste ligga i repot.** Scratchpad-katalogen kan inte lösa `playwright`; lägg

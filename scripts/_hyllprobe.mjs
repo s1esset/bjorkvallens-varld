@@ -71,6 +71,9 @@ try {
       // Den RITADE bredden, inte behållarens: hyllan krymper föremålet när den blir
       // trång, så ett fast tal skulle döma en lagad hylla som trasig.
       s: Math.round((r.view._krop ? r.view._krop.scale.x : 1) * 1000) / 1000,
+      hy: Math.round(r.home.y * 10) / 10,
+      y: Math.round(r.view.y * 10) / 10,
+      hitR: r.view.hitArea ? r.view.hitArea.radius : 0,
       pouring: !!r.pouring,
       placed: !!r.placed,
     }))
@@ -114,12 +117,23 @@ try {
   ok('A: ingen droppe står kvar på en gammal plats', varst.d <= HEM_TOL, `värst: ${varst.elem} ${n1(varst.d)} px`)
 
   // B. Packningen — ligger två grannars RITADE kroppar ovanpå varandra?
+  // ⚠️ MÄT I TVÅ DIMENSIONER. Första versionen sorterade x-värdena och tog avståndet
+  // mellan grannar — vilket dömde den TVÅRADIGA hyllan som trasig: två föremål med
+  // samma x ligger 120 px isär i y, inte 0 px isär. Ett endimensionellt mått kan inte
+  // se en rad till.
   const packning = (recs) => {
-    const xs = recs.map((r) => r.hx).sort((a, b) => a - b)
     let minGap = Infinity
-    for (let i = 1; i < xs.length; i++) minGap = Math.min(minGap, xs[i] - xs[i - 1])
+    let minP0 = Infinity
+    for (let i = 0; i < recs.length; i++) {
+      for (let j = i + 1; j < recs.length; j++) {
+        const d = Math.hypot(recs[i].hx - recs[j].hx, recs[i].hy - recs[j].hy)
+        minGap = Math.min(minGap, d)
+        minP0 = Math.min(minP0, d - recs[i].hitR - recs[j].hitR)
+      }
+    }
     const bredd = IKON_BREDD * Math.max(...recs.map((r) => r.s))
-    return { minGap, bredd, overlapp: Math.max(0, bredd - minGap) }
+    const minHit = Math.min(...recs.map((r) => r.hitR)) * 2
+    return { minGap, bredd, overlapp: Math.max(0, bredd - minGap), minP0, minHit }
   }
   const p1 = packning(efter.recs)
   console.log(`\n  B. packning: ${efter.n} element, avstånd ${n1(p1.minGap)} px, ritad bredd ${n1(p1.bredd)} px`)
@@ -138,10 +152,16 @@ try {
     return { n: g._dropRecs.length, recs: las() }
   `)
   const p2 = packning(fullt.recs)
-  console.log(`  B2. ${fullt.n} element → avstånd ${n1(p2.minGap)} px, ritad bredd ${n1(p2.bredd)} px (skala ${fullt.recs[0].s})`)
+  const rader = [...new Set(fullt.recs.map((r) => r.hy))].length
+  console.log(`  B2. ${fullt.n} element på ${rader} rad(er) → avstånd ${n1(p2.minGap)} px, ritad bredd ${n1(p2.bredd)} px, träffyta ${n1(p2.minHit)} px`)
   ok('B2: hyllan klarar sitt maxantal utan överlapp', p2.overlapp <= 0.5, `överlapp ${n1(p2.overlapp)} px`)
+  ok('B2: hyllan har delat sig i två rader', rader === 2, `${rader} rader`)
+  ok('B2: P0 TRÄFFYTA ≥96 px även när hyllan är full', p2.minHit >= 96, `${n1(p2.minHit)} px`)
+  ok('B2: P0 avstånd ≥24 px mellan två träffytor även när hyllan är full', p2.minP0 >= 23.5, `${n1(p2.minP0)} px`)
   const hogerkant = Math.max(...fullt.recs.map((r) => r.hx)) + p2.bredd / 2
   ok('B2: sista föremålet ryms innanför skärmen', hogerkant <= 1280, `högerkant ${n1(hogerkant)} px`)
+  const overkant = Math.min(...fullt.recs.map((r) => r.hy)) - p2.bredd / 2
+  ok('B2: översta raden krockar inte med kitteln', overkant >= 486, `överkant ${n1(overkant)} px`)
 
   if (BILD) {
     await page.screenshot({ path: '.test-shots/_hyllprobe.png' })

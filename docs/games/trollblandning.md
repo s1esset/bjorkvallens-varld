@@ -105,6 +105,35 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
 
 ## 5. Status / loggar
 
+- 2026-08-11 🪜 **Hyllan är tvåradig — träffytorna klarar P0 igen** (v1.143.0).
+  Ägaren godkände förslaget ur ÅTGÄRDER #5:s efterhand ("tvåradig hylla blir bra"). Det som
+  låg kvar efter ikonfixen var inte utseendet utan **träffytorna**: en rad rymmer bara så
+  många mål innan de börjar överlappa, och överlappande träffytor betyder att barnet trycker
+  på en sak och får en annan.
+  - **Räkningen som avgör allt:** P0 kräver **≥96 px träffyta** OCH **≥24 px mellan två
+    träffytor**, alltså minst **120 px per plats**. Hyllans 1030 px rymmer **9**. Det tionde
+    elementet kan inte läggas på samma rad — och spelet kan nå **13 redan på nivå 1**.
+    Därför: en rad upp till 9, **två rader** därefter (18 platser räcker för spelets 15).
+  - **Byggt:** `_platser(n)` räknar ut rad, plats, träffyteradie och skala i ett svep. Varje
+    rad **centreras** (en halvfull andrarad som börjar till vänster läser som ett fel).
+    Träffytan krymper mjukt från 80 till P0-golvet 48 och aldrig under. Brädan växer **uppåt**
+    till en hel bricka med en skiljelist — två separata plankor provades först och lästes som
+    två hyllor med ett tomrum emellan.
+  - ⚠️ **Layoutkedjan som följde med, och som är hela risken i punkten:** den övre raden måste
+    ligga på y 540 (undre 660 + P0:s 120), och där stod **kittelns eld**. Kitteln flyttades
+    därför upp **400 → 352**. Allt kittelrelaterat är härlett ur `CY` (brygd-yta, hällpose,
+    eldens läge, vätskans `bounds`), så flytten är en rad — **utom töm-knappen, som satt på
+    ett fast tal och hamnade ovanpå hyllan.** Den följer nu `CY` också. Receptboken kortades
+    470 → 380 px av samma skäl.
+  - **MÄTT** (`_hyllprobe.mjs`): vid 13 element ligger hyllan på **2 rader**, minsta avstånd
+    mellan två föremål **120,0 px**, träffyta **96,0 px**, avstånd mellan två träffytor
+    **24,0 px** — alla precis på P0-kravet, inget under. Överlapp 0,0 px, högerkant 1075 px,
+    övre radens överkant 490 px (fri från kitteln). Exit mitt i en hällning: 0 konsolfel.
+  - ⚠️ **Sonden var endimensionell och dömde den tvåradiga hyllan som trasig.** Den sorterade
+    x-värdena och mätte avståndet mellan grannar — men två föremål med samma x ligger 120 px
+    isär i **y**, inte 0 px isär. Den mäter nu i två dimensioner, och kontrollerar P0-måtten
+    direkt i stället för att gissa dem ur bredden.
+
 - 2026-08-11 🐛 **ÅTGÄRDER #5 (ägarrapport): en nyupptäckt ikon hamnade över en annan** (v1.136.0).
   Rapporten var en bild, och bakom den satt **två oberoende fel**. Ny sond `scripts/_hyllprobe.mjs`
   mäter dem var för sig — den poängen är hela lärdomen: hade bara det ena lagats hade ägaren sett

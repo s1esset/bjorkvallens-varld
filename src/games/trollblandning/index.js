@@ -34,17 +34,30 @@ import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const CX = 560 // kittelns mitt-x
-const CY = 400 // kittelns mitt-y
+// Kitteln flyttades UPP 400 → 355 när hyllan blev tvåradig: den övre raden måste ligga
+// på y 540 (undre raden 660 + P0:s 120 px mellan två träffytor, och 660 är det lägsta som
+// får plats innan skärmkanten). Kittelns eld nådde annars in i den övre raden.
+// Allt kittelrelaterat är härlett ur CY, så det här är hela flytten.
+const CY = 352 // kittelns mitt-y
 const BREW_Y = CY - 70 // brygd-ytans y (330) — används för fxLayer-partiklar
-const SHELF_Y = 648 // dropparnas vilo-y på hyllan
+// Hyllan: EN rad så länge alla får plats med P0:s mått, annars TVÅ. Talen är inte valda
+// på känsla — de följer av P0 TRÄFFYTA (≥96 px) och avstånd (≥24 px): en plats kostar
+// alltså minst 120 px, och 1030 px hyllbredd rymmer 9 på en rad. Från tionde elementet
+// måste raden delas, annars krymper träffytorna under 96 px och barnet trycker på fel sak.
+const SHELF_Y = 660 // undre radens vilo-y (den enda raden när allt får plats)
+const SHELF_Y2 = 540 // ÖVRE radens vilo-y — 120 px upp, exakt P0-avståndet
+const RAD_MAX = 9 // så många ryms på EN rad med full P0-träffyta
+const PLATS_MIN = 120 // 96 px träffyta + 24 px mellanrum
 const SHELF_X0 = 150
 // Hyllan går ända ut till 1180: ytan UNDER receptboken (som slutar vid y≈565) stod
 // tom, och hyllan behöver varje pixel. Ett barn kan upptäcka 9 resultat utöver de
 // 4–5 baserna, alltså upp till 14 föremål på raden. Se ÅTGÄRDER #5.
 const SHELF_X1 = 1180
 const DROP_W = 100 // föremålets ritade bredd (circle r=50) — packningen mäts mot den
-const DROP_STEG = 116 // max avstånd mellan två hyllplatser (glest när hyllan är tom)
+const DROP_STEG = 120 // max avstånd mellan två hyllplatser (= PLATS_MIN)
 const DROP_MIN_SKALA = 0.6 // golv: under det blir föremålet svårt att känna igen
+const HIT_R_MAX = 80 // träffytans radie när det är gott om plats
+const HIT_R_MIN = 48 // P0-golvet: 96 px bred träffyta
 const SHELF_BAR_W0 = 840 // brädans bredd med bara baserna på (som förut)
 const SHELF_BAR_W1 = 1180 // brädans bredd när samlingen fyller den
 const HINT_MS = 6000 // ms utan handling → eskalerande ledtråd
@@ -320,15 +333,15 @@ export default {
     // 3) Receptbok-panel (rygg + rubrik + räknare; rader byggs per runda).
     const book = new Container()
     book.eventMode = 'none'
-    book.addChild(new Graphics().roundRect(936, 96, 308, 470, 24).fill(COLORS.cream).stroke({ width: 6, color: COLORS.brown }))
-    book.addChild(new Graphics().roundRect(936, 96, 30, 470, 24).fill(COLORS.brown))
+    book.addChild(new Graphics().roundRect(936, 96, 308, 380, 24).fill(COLORS.cream).stroke({ width: 6, color: COLORS.brown }))
+    book.addChild(new Graphics().roundRect(936, 96, 30, 380, 24).fill(COLORS.brown))
     const title = new Text({ text: '📖 Receptbok', style: { fontFamily: FONT.title, fontSize: 28, fontWeight: '800', fill: COLORS.brown } })
     title.anchor.set(0.5)
     title.position.set(1102, 132)
     book.addChild(title)
     this._counter = new Text({ text: '0 / 0', style: { fontFamily: FONT.body, fontSize: 22, fontWeight: '700', fill: COLORS.inkSoft } })
     this._counter.anchor.set(0.5)
-    this._counter.position.set(1102, 548)
+    this._counter.position.set(1102, 452)
     book.addChild(this._counter)
     this._root.addChild(book)
     this._rowLayer = new Container()
@@ -579,7 +592,9 @@ export default {
 
     // 7) Töm-knapp (barnvänlig kontroll — INTE bakom föräldra-grind).
     const btn = new Container()
-    btn.position.set(740, 470)
+    // Knappen följer kitteln (CY) i stället för ett fast tal — annars hamnade den
+    // ovanpå hyllan när kitteln flyttades upp för den tvåradiga hyllan.
+    btn.position.set(740, CY + 115)
     const lip = new Graphics().circle(0, 6, 48).fill(0x6b4fc4)
     const face = new Graphics().circle(0, 0, 48).fill(COLORS.purple).stroke({ width: 4, color: 0x6b4fc4 })
     face.circle(-14, -14, 12).fill({ color: 0xffffff, alpha: 0.25 })
@@ -773,8 +788,10 @@ export default {
     for (const c of this._rowLayer.removeChildren()) c.destroy({ children: true })
     this._rows = []
     const n = this._goals.length
-    const step = Math.min(60, 360 / n)
-    const y0 = 180
+    // Boken slutar pa y=476 (kortad nar hyllan blev tvaradig) — raderna maste rymmas
+    // mellan rubriken (132) och raknaren (452).
+    const step = Math.min(52, 290 / n)
+    const y0 = 172
     this._goals.forEach((g, i) => {
       const r = recipeFor(g)
       const rowY = y0 + i * step
@@ -1075,41 +1092,81 @@ export default {
   // Brädan växer med samlingen. En 1180 px lång hylla med fyra föremål på ser tom ut,
   // och en som växer är dessutom ett kvitto på vad barnet har upptäckt. Ritas bara om
   // när bredden faktiskt ändras (vid en upptäckt), aldrig per bildruta.
-  _ritaHylla(hogerkant) {
+  _ritaHylla(hogerkant, rader = 1, spacing = DROP_STEG) {
     const g = this._shelfBar
     if (!g || g.destroyed) return
     const w = Math.max(SHELF_BAR_W0, Math.min(SHELF_BAR_W1, hogerkant - 60))
-    if (Math.abs(this._shelfW - w) < 1) return
+    // Blir hyllan tvåradig växer brädan UPPÅT till en hel bricka. Två separata plankor
+    // provades först och läste som två hyllor med tomrum emellan; en bricka läser som
+    // en hylla med två rader — och det är vad den är.
+    const topp = rader === 2 ? SHELF_Y2 - 56 : 596
+    const hojd = rader === 2 ? SHELF_Y + 50 - topp : 104
+    if (Math.abs(this._shelfW - w) < 1 && this._shelfRader === rader) return
     this._shelfW = w
-    g.clear().roundRect(60, 596, w, 104, 30).fill(groundFill(COLORS.brown)).stroke({ width: 6, color: 0x6b4027 })
+    this._shelfRader = rader
+    g.clear().roundRect(60, topp, w, hojd, 30).fill(groundFill(COLORS.brown)).stroke({ width: 6, color: 0x6b4027 })
+    if (rader === 2) {
+      // En tunn skiljelist mellan raderna, annars svävar den övre raden i en brun yta.
+      g.moveTo(84, SHELF_Y - 58).lineTo(60 + w - 24, SHELF_Y - 58).stroke({ width: 4, color: 0x6b4027, alpha: 0.55 })
+    }
+    void spacing
+  },
+
+  // Hyllans platser. EN rad så länge alla ryms med full P0-träffyta, TVÅ därefter.
+  //
+  // ⚠️ Räkningen bakom `RAD_MAX` är hela skälet till att raden delas: P0 kräver ≥96 px
+  // träffyta OCH ≥24 px mellan två träffytor, alltså minst 120 px per plats. Hyllans
+  // 1030 px rymmer 9. Det TIONDE elementet kan inte läggas på samma rad utan att
+  // träffytorna börjar överlappa — och överlappande träffytor betyder att barnet
+  // trycker på en sak och får en annan. Före det här var 13 element på en rad möjligt.
+  _platser(n) {
+    const span = SHELF_X1 - SHELF_X0
+    const rader = n > RAD_MAX ? 2 : 1
+    const perRad = Math.ceil(n / rader)
+    const spacing = perRad <= 1 ? 0 : Math.min(DROP_STEG, span / (perRad - 1))
+    // Träffytan får krympa till P0-golvet, aldrig under, och aldrig så att två ytor
+    // ligger närmare än 24 px. Bilden (`_krop`) krymper separat och tidigare — den får
+    // vara mindre än träffytan, det är hela poängen med en osynlig halo.
+    const hitR = Math.max(HIT_R_MIN, Math.min(HIT_R_MAX, (spacing - 24) / 2))
+    const skala = perRad <= 1 ? 1 : Math.max(DROP_MIN_SKALA, Math.min(1, spacing / DROP_W))
+    const ut = []
+    for (let i = 0; i < n; i++) {
+      const rad = Math.floor(i / perRad)
+      const iRad = i % perRad
+      const iDenRaden = Math.min(perRad, n - rad * perRad)
+      // Varje rad CENTRERAS: en halvfull andrarad som börjar till vänster ser ut som
+      // ett fel, inte som en rad.
+      const bredd = (iDenRaden - 1) * spacing
+      const x0 = SHELF_X0 + (span - bredd) / 2
+      ut.push({ x: x0 + iRad * spacing, y: rader === 1 ? SHELF_Y : rad === 0 ? SHELF_Y2 : SHELF_Y })
+    }
+    return { platser: ut, spacing, hitR, skala, rader }
   },
 
   _layoutShelf() {
     const recs = (this._dropRecs || []).filter((r) => r?.view && !r.view.destroyed)
     const n = recs.length
-    const span = SHELF_X1 - SHELF_X0
-    const spacing = n <= 1 ? 0 : Math.min(DROP_STEG, span / (n - 1))
+    const { platser, hitR, skala, rader, spacing } = this._platser(n)
     // Packas hyllan tätare än föremålets egen bredd måste föremålet KRYMPA — annars
     // ritas det ovanpå grannen, vilket är precis vad ägaren rapporterade (ÅTGÄRDER #5).
-    // Träffytan (`hitArea` på behållaren) rörs INTE: P0 kräver ≥96 px och den ska inte
-    // krympa med bilden. Skuggan skalas med kroppen, annars ligger ett litet föremål
-    // på en skugga i full storlek.
-    const skala = n <= 1 ? 1 : Math.max(DROP_MIN_SKALA, Math.min(1, spacing / DROP_W))
+    // Skuggan skalas med kroppen, annars ligger ett litet föremål på en skugga i
+    // full storlek.
     recs.forEach((rec, i) => {
-      const hx = SHELF_X0 + i * spacing
-      rec.home.x = hx
-      rec.home.y = SHELF_Y
+      const p = platser[i]
+      rec.home.x = p.x
+      rec.home.y = p.y
+      if (rec.view.hitArea && rec.view.hitArea.radius !== hitR) rec.view.hitArea = new Circle(0, 0, hitR)
       for (const del of [rec.view._krop, rec.view._skugga]) {
         if (del && !del.destroyed && Math.abs(del.scale.x - skala) > 0.002) {
           gsap.to(del.scale, { x: skala, y: skala, duration: 0.3, ease: 'back.out(1.4)' })
         }
       }
       if (!rec.placed && !rec.pouring && this._drag && this._drag.active !== rec) {
-        gsap.to(rec.view, { x: hx, y: SHELF_Y, duration: 0.3, ease: 'back.out(1.4)' })
+        gsap.to(rec.view, { x: p.x, y: p.y, duration: 0.3, ease: 'back.out(1.4)' })
       }
     })
-    const sista = SHELF_X0 + Math.max(0, n - 1) * spacing
-    this._ritaHylla(sista + (DROP_W * skala) / 2 + 40)
+    const hoger = platser.length ? Math.max(...platser.map((p) => p.x)) : SHELF_X0
+    this._ritaHylla(hoger + (DROP_W * skala) / 2 + 40, rader, spacing)
   },
 
   _findDrop(elemId) {

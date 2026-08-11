@@ -37,15 +37,76 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const arcPath = (g, cx, cy, r, a0, a1) => g.moveTo(cx + Math.cos(a0) * r, cy + Math.sin(a0) * r).arc(cx, cy, r, a0, a1)
 
 // ---- Geometri (designkoordinater) ---------------------------------------
-const SURFACE_Y = 330 // vattenytan = pop-linje + lyftkraftens nollinje
+//
+// ⚠️ RENT SIDOPERSPEKTIV. Ägaren kunde inte avgöra om badet sågs uppifrån eller från
+// sidan. Det var aldrig en smakfråga: scenen bar TRE toppvy-signaler och nästan inga
+// sidovy-signaler.
+//   1. Karet TÄCKTE SINA EGNA FÖTTER. Kroppen gick ner till y 680 medan fötterna satt
+//      596–670 och ritades FÖRE den — bara 10 px nubbar stack ut i sidled. Dessutom gick
+//      karet ner genom golvlinjen (622). Ingenting sa att karet STOD i ett rum.
+//   2. ANKAN FLÖT 100 px UNDER YTAN och kunde dras fritt i hela vattenfältet (y 350–584).
+//      En anka som svävar mitt i vattnet är en skål sedd uppifrån — det finns ingen annan
+//      läsning. Det här var den starkaste signalen av de tre.
+//   3. VATTNET FYLLDE EN RUNDAD REKTANGEL ända ut i alla fyra hörnen, med kanten runt om
+//      hela vägen: formen på en balja fotad rakt ovanifrån.
+// Nu: karet står på golvet på synliga fötter, insidan smalnar av nedåt, ankan FLYTER i
+// ytan, och sidan mot kameran är genomskinlig — bara dess kant och glans ritas, så
+// vattnet, skummet, Zackes ben och fyndet syns igenom den.
+// Mätt av `scripts/_perspektivprobe.mjs`.
+const SURFACE_Y = 330 // vattenytan = pop-linje + lyftkraftens nollinje.
+// ⚠️ RÖRS ALDRIG — skummet, mållinjen, mätaren och tvålbandet är alla byggda kring den.
+const TUB_TOP = 230 // rullkantens ovansida
+const RIM_H = 20 // rullkantens höjd: från sidan är kanten en RULLE, inte en linje
+const IN_TOP = TUB_TOP + RIM_H // insidan (bakväggen) börjar under kanten
+const TUB_BOT = 610 // insidans botten
+const OUT_BOT = 624 // ytterbotten — porslinet under insidan
+const IN_L = 194 // insidans väggar vid kanten
+const IN_R = 1086
+const SHELL = 26 // porslinets tjocklek — gaveln sedd rakt från sidan
+const TAPER = 30 // insidan smalnar av nedåt: ett kar sett från SIDAN är smalare i botten
+const ROOM_FLOOR = 640 // rummets golvlinje — karet står FRAMFÖR den, fötterna på golvet
+const GOAL_MIN = 264 // mållinjens tak. ⚠️ LÅG PÅ 248 = MITT I kar-kantens stroke, så från
+// nivå 2 (då clampen bet) ritades hela den prickade mållinjen BAKOM kanten. Måldottarna
+// var alltså osynliga i varje runda utom de två första — en bugg inget test kunde se.
 const WALL_L = 230 // logiska väggar (bubbel-studs)
 const WALL_R = 1050
-const FLOOR = 650
+const FLOOR = 604 // bubblornas botten = karets insida (låg på 650, alltså 46 px NEDANFÖR
+// den nya innerbottnen — bubblor hade fötts inne i porslinet)
 const ZACKE_X = 430
 const ZACKE_Y = SURFACE_Y // Zackes origo ligger i vattenytan → magen hamnar i vattenbrynet
 const DUCK_R = 66 // ankans kollisionsradie
-const DUCK_HOME = { x: 780, y: 430 }
-const SPOUT = { x: 970, y: 248 } // kranens pip — droppen faller härifrån
+const DUCK_FLOAT_Y = SURFACE_Y - 16 // ankan FLYTER: ytan skär hennes skrov, hon svävar inte
+const DUCK_DIP_MAX = 76 // så djupt går hon att TRYCKA NER innan lyftkraften tar över
+const DUCK_HOME = { x: 800, y: DUCK_FLOAT_Y }
+const SPOUT = { x: 970, y: 236 } // kranens pip — droppen faller härifrån
+
+// Karets insida vid en given höjd. Allt som ligger I karet ritas mot de här två — ritas
+// vattnet i stället som en egen rundad rektangel sticker det ut genom porslinet så fort
+// väggen lutar.
+const tubT = (y) => clamp((y - IN_TOP) / (TUB_BOT - IN_TOP), 0, 1)
+const innerL = (y) => IN_L + TAPER * tubT(y)
+const innerR = (y) => IN_R - TAPER * tubT(y)
+
+// Karets insida som en VÄG: raka lutande väggar, rundad botten. `inset` krymper konturen
+// inåt (vattnet ligger innanför porslinet) — negativ `inset` ger ytterkonturen, som är
+// samma form utåtflyttad en skaltjocklek, alltså exakt parallell med insidan.
+function tubPath(g, yTop, yBot, inset = 0, rBot = 54) {
+  const yc = yBot - rBot
+  const l0 = innerL(yTop) + inset,
+    r0 = innerR(yTop) - inset
+  const lc = innerL(yc) + inset,
+    rc = innerR(yc) - inset
+  const l1 = innerL(yBot) + inset,
+    r1 = innerR(yBot) - inset
+  return g
+    .moveTo(l0, yTop)
+    .lineTo(r0, yTop)
+    .lineTo(rc, yc)
+    .quadraticCurveTo(r1, yBot, r1 - rBot, yBot)
+    .lineTo(l1 + rBot, yBot)
+    .quadraticCurveTo(l1, yBot, lc, yc)
+    .closePath()
+}
 
 // ---- Bubblor -------------------------------------------------------------
 const BASE = 40 // ritradie; view.scale = r / BASE
@@ -145,18 +206,19 @@ export default {
     const scene = createScene('water', { ground: false })
     this._root.addChild(scene)
 
-    // Z-ordning: badrum → kar+vatten → mållinje → vatten-träffyta → Zacke → anka →
-    // vattentoning → bubblor → skum → kar-kant (framför alla) → mätare.
-    // Mållinjen ligger BAKOM Zacke (annars ritas en prickrad tvärs över hans ansikte)
-    // och kar-kanten ligger FRAMFÖR honom (då sitter han i karet, inte på det).
+    // Z-ordning: badrum → kar (fötter, gavlar, bakvägg, vatten) → mållinje →
+    // vatten-träffyta → Zacke → vattentoning → bubblor → ankans ytring → skum → fynd →
+    // anka → tvål → karets FRAMSIDA (genomskinlig, bara kant + glans) → målflagga → mätare.
+    // Mållinjen ligger BAKOM Zacke (annars ritas en prickrad tvärs över hans ansikte) och
+    // framsidan ligger FRAMFÖR honom (då sitter han i karet, inte på det).
     this._buildBathroom()
     this._buildTub()
     this._buildGoal()
     this._buildWaterTap(ctx)
     this._buildZacke(ctx)
     this._buildTint()
-    this._buildDuck(ctx) // ovanför toningen: en badanka MÅSTE läsas som gul, inte olivgrön
     this._buildBubbleLayer()
+    this._buildDuckWake() // ringen där ankan bryter ytan — under skummet, som ytan själv
     this._buildFoam()
     // Fynd-lagret ligger FRAMFÖR skummet: leksaken ska se ut att lyftas upp av skummet.
     this._treasureLayer = new Container()
@@ -164,10 +226,18 @@ export default {
     this._treasureLayer.interactiveChildren = false
     this._root.addChild(this._treasureLayer)
     this._placeTreasure()
+    // Ankan ligger FRAMFÖR skummet (hon flyter PÅ badet — hamnar hon under blir hon
+    // begravd när skummet stiger) och framför toningen (en badanka MÅSTE läsas som gul,
+    // inte olivgrön).
+    this._buildDuck(ctx)
     // Tvåldropparna ligger FRAMFÖR skummet och fyndet (de flyger upp ur ytan) men
     // BAKOM kar-kanten, annars regnar de utanför karet.
     this._buildTval()
     this._buildTubRim()
+    // Målflaggan FRAMFÖR kanten: rullkanten är 20 px hög och skar annars av flaggstången
+    // mitt itu. Den prickade LINJEN ligger kvar bakom skummet, så den försvinner under
+    // skummet när badet fylls — det är den som ska bli övertäckt, inte markören.
+    if (this._goalMarker && !this._goalMarker.destroyed) this._root.addChild(this._goalMarker)
     this._buildHint()
     this._buildProgress()
 
@@ -189,7 +259,7 @@ export default {
     // (se _drawFoam), så mätaren och skummet når linjen exakt samtidigt — förr
     // bottnade linjen på hög nivå medan _goalFoam fortsatte växa, och då såg badet
     // fullt ut långt innan det var klart.
-    this._goalY = clamp(SURFACE_Y - this._goalFoam, 248, SURFACE_Y - 40)
+    this._goalY = clamp(SURFACE_Y - this._goalFoam, GOAL_MIN, SURFACE_Y - 40)
     this._levelBoost = Math.min(this._level * 4, 20) // större standardbubblor på högre nivå
     this._drawTub(this._tubGfx)
     this._drawTint(this._tintGfx)
@@ -291,9 +361,12 @@ export default {
     // Badrumsgolvet lag pa 61 880 px i EN ton (`_plattprobe --medbakgrund`) — spelets
     // storsta falt. Dampad ramp: ytan ar nastan vit och standardvardena (kalibrerade for
     // mellanmorkt) hade gjort den smutsgra. Se lib/form.js.
-    g.rect(0, 622, 1280, 98).fill(groundFill(0xdfe7ea, { light: 0.06, dark: 0.10 }))
-    g.rect(0, 622, 1280, 9).fill(0xc4d5dc)
-    for (let x = 40; x < 1280; x += 128) g.rect(x, 631, 5, 89).fill({ color: 0xc4d5dc, alpha: 0.7 })
+    // ⚠️ GOLVLINJEN FLYTTADES 622 → 640 och karets botten upp till 624: karet gick förut
+    // ner GENOM golvet, vilket ensamt gör en sidovy oläslig. Nu står det framför skarven
+    // med fötterna på golvytan, och golvet syns under karet mellan fötterna.
+    g.rect(0, ROOM_FLOOR, 1280, 720 - ROOM_FLOOR).fill(groundFill(0xdfe7ea, { light: 0.06, dark: 0.1 }))
+    g.rect(0, ROOM_FLOOR, 1280, 9).fill(0xc4d5dc)
+    for (let x = 40; x < 1280; x += 128) g.rect(x, ROOM_FLOOR + 9, 5, 720 - ROOM_FLOOR - 9).fill({ color: 0xc4d5dc, alpha: 0.7 })
 
     // Hylla ovanför karet (fri från Zackes hår och mållinjens flagga).
     g.roundRect(560, 150, 262, 15, 7).fill(0xe8d3b0).stroke({ width: 3, color: 0xc9ac82 })
@@ -318,12 +391,13 @@ export default {
     g.roundRect(112, 164, 9, 200, 4).fill({ color: 0xf0adc8, alpha: 0.55 })
     g.roundRect(64, 348, 92, 16, 8).fill({ color: 0xf0adc8, alpha: 0.45 })
 
-    // Kran över badet — pip pekar ner i vattnet (droppen ritas separat).
-    g.roundRect(880, 184, 36, 36, 11).fill(0xc9d6dd).stroke({ width: 3, color: 0x9fb2bb })
-    g.roundRect(898, 194, 88, 17, 8).fill(0xe4edf1).stroke({ width: 3, color: 0xb4c4cc })
-    g.roundRect(962, 202, 17, 46, 8).fill(0xe4edf1).stroke({ width: 3, color: 0xb4c4cc })
-    g.circle(898, 176, 16).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
-    g.circle(898, 176, 6).fill({ color: 0xffffff, alpha: 0.6 })
+    // Kran över badet — pip pekar ner i vattnet (droppen ritas separat). Lyft 12 px när
+    // rullkanten blev en rulle: pipen slutade annars INNE i kanten och kranen såg avklippt ut.
+    g.roundRect(880, 172, 36, 36, 11).fill(0xc9d6dd).stroke({ width: 3, color: 0x9fb2bb })
+    g.roundRect(898, 182, 88, 17, 8).fill(0xe4edf1).stroke({ width: 3, color: 0xb4c4cc })
+    g.roundRect(962, 190, 17, 46, 8).fill(0xe4edf1).stroke({ width: 3, color: 0xb4c4cc })
+    g.circle(898, 164, 16).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
+    g.circle(898, 164, 6).fill({ color: 0xffffff, alpha: 0.6 })
 
     g.eventMode = 'none'
     this._root.addChild(g)
@@ -350,24 +424,68 @@ export default {
   },
 
   // Bryts ut ur _buildTub så badet kan MÅLAS OM när nivån byts (badsorten cyklar).
+  //
+  // Karet ritas i TVÅ lager på var sin sida om innehållet: här ligger det man ser BAKOM
+  // vattnet (fötter, gavlar, bakvägg, vatten), och i `_buildTubRim` det man ser FRAMFÖR
+  // (kanten, silhuetten, glasglansen). Sidan mot kameran har alltså ingen fyllning alls —
+  // det är hela poängen: man ser rakt igenom den.
   _drawTub(g) {
     if (!g || g.destroyed) return
     g.clear()
-    // Porslinskar (kropp + fötter).
-    g.roundRect(150, 596, 44, 74, 16).fill(0xdfe7ea).stroke({ width: 5, color: 0xb9cbd2 })
-    g.roundRect(1086, 596, 44, 74, 16).fill(0xdfe7ea).stroke({ width: 5, color: 0xb9cbd2 })
-    g.roundRect(170, 250, 940, 430, 90).fill(COLORS.white)
-    // Innerskål i svag blåton. Utan den ritas VITT skum mot VITT porslin och blir
-    // praktiskt taget osynligt — bara skummets bubbeltoppar syntes.
+
+    // ⓵ FÖTTERNA, ritade först så att skalet täcker deras fästen. Att de FANNS var värt
+    // noll förut — karet gick till y 680 och låg över dem. En fot mot ett golv är den
+    // billigaste sidovy-signalen som finns: den säger att karet STÅR i ett rum.
+    //
+    // ⚠️ ATT RITA FÖTTERNA RÄCKTE INTE. De bar porslinets `0xdfe7ea` — exakt golvets egen
+    // baston — så de gick knappt att skilja från underlaget: uppmätt skilde bara 14 av 30
+    // rader i fotens kolumn mer än tröskeln från golvet bredvid. Den starkaste sidovy-
+    // signalen låg alltså och var osynlig. Nu är fötterna i skugga (mörkare porslin) och
+    // står i en KONTAKTSKUGGA — det är skuggan som binder ihop fot och golv.
+    // ⚠️ EN PLATT TON RÄCKTE INTE HELLER. Med en flat fot mätte skillnaden mot golvet
+    // bredvid 21 — under tröskeln, alltså fortfarande på gränsen till osynlig, eftersom
+    // karets egen skugga mörkar golvet till nästan exakt fotens ton. Foten behöver VOLYM
+    // (ljus upptill, skugga nedtill) och en kontur som håller, precis som allt annat i
+    // spelet: det är samma D1-lärdom som golvet och karinsidan redan fått.
+    g.ellipse(640, 680, 428, 17).fill({ color: 0x8fa8b4, alpha: 0.11 })
+    for (const fx of [258, 1022]) g.ellipse(fx, 681, 48, 13).fill({ color: 0x6f8b99, alpha: 0.3 })
+    for (const fx of [258, 1022]) {
+      g.moveTo(fx - 30, 586)
+        .lineTo(fx + 30, 586)
+        .lineTo(fx + 21, 660)
+        .quadraticCurveTo(fx + 31, 682, fx, 682)
+        .quadraticCurveTo(fx - 31, 682, fx - 21, 660)
+        .closePath()
+        .fill(groundFill(0xcfe0e8, { light: 0.08, dark: 0.24 }))
+        .stroke({ width: 6, color: 0x8ba4b1 })
+      g.roundRect(fx - 15, 600, 9, 58, 4).fill({ color: 0xffffff, alpha: 0.45 }) // porslinsglans
+    }
+
+    // ⓶ PORSLINSSKALET: gavlarna och botten, sedda rakt från sidan. Skalet är en RAM,
+    // inte en låda — framsidan saknas med flit.
+    tubPath(g, TUB_TOP + 6, OUT_BOT, -SHELL, 70).fill(groundFill(0xf1f7fa, { light: 0.03, dark: 0.1 }))
+
+    // ⓷ BAKVÄGGEN — det man ser igenom framsidan ovanför vattnet. Utan den ritas VITT
+    // skum mot VITT porslin och blir praktiskt taget osynligt.
     // Badkarets insida lag pa 56 535 px i EN ton (`_plattprobe --medbakgrund`) — spelets
     // storsta falt sedan golvet tonades i 745ff36. Dampad ramp: ytan ar nastan vit.
     // Toningen morknar nedat, vilket ocksa ar ratt for en karinsida (ljuset kommer uppifran
     // och botten ligger i skugga). Se lib/form.js.
-    g.roundRect(194, 256, 892, 420, 68).fill(groundFill(0xdaeaf3, { light: 0.05, dark: 0.12 }))
-    // Vatten — badsortens färg.
-    // Vattnet bär sitt djup i toningens STOPP — ljusare vid ytan, mörkare
-    // mot botten, med samma genomskinlighet som den gamla platta alpha 0.5 i mitten.
-    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill(verticalFillAlpha(this._bath().water, this._bath().water, 0.3, 0.62))
+    tubPath(g, IN_TOP, TUB_BOT, 0, 54).fill(groundFill(0xdaeaf3, { light: 0.05, dark: 0.12 }))
+
+    // Skuggan som rullkanten kastar NER på bakväggen. Den lilla remsan är det som gör
+    // insidan till en vägg med ett djup framför sig i stället för en platt ton.
+    g.rect(IN_L + 5, IN_TOP, IN_R - IN_L - 10, 26).fill(verticalFillAlpha(0x5f8ea6, 0x5f8ea6, 0.22, 0))
+
+    // Bräddavloppet i bakväggen. Det går bara att förstå i sidovy — alltså är det i sig
+    // en signal om vilken vy man tittar på, inte bara en detalj.
+    g.ellipse(1016, 298, 17, 12).fill(0xc3d4dc).stroke({ width: 3, color: 0x9db4bf })
+    g.ellipse(1016, 298, 9, 6).fill(0x93aab6)
+
+    // ⓸ VATTNET fyller karets INSIDA (samma kontur, 6 px innanför porslinet) — inte en
+    // egen rundad rektangel. Vattnet bär sitt djup i toningens STOPP: ljusare vid ytan,
+    // mörkare mot botten, med samma genomskinlighet som den gamla platta alpha 0.5 i mitten.
+    tubPath(g, SURFACE_Y, TUB_BOT - 4, 6, 48).fill(verticalFillAlpha(this._bath().water, this._bath().water, 0.3, 0.62))
   },
 
   // Vattentoning över allt som är UNDER ytan → Zackes kropp och ankan ser
@@ -383,16 +501,41 @@ export default {
   _drawTint(g) {
     if (!g || g.destroyed) return
     g.clear()
-    g.roundRect(200, SURFACE_Y, 880, 340, 60).fill({ color: this._bath().tint, alpha: 0.28 })
-    g.roundRect(200, SURFACE_Y, 880, 7, 4).fill({ color: 0xffffff, alpha: 0.3 }) // ytlinje (mjuk, inte en vit hylla)
+    tubPath(g, SURFACE_Y, TUB_BOT - 4, 6, 48).fill({ color: this._bath().tint, alpha: 0.28 })
+    // VATTENYTAN. I sidovy är den här linjen scenens viktigaste streck — den är vad som
+    // gör "under vattnet" och "ovanför vattnet" till två olika ställen. Den låg på
+    // alpha 0.3 och gick knappt att se i skärmdumpen; nu är den en riktig yta med en
+    // ljus ovansida och en skuggad undersida.
+    g.rect(innerL(SURFACE_Y) + 6, SURFACE_Y - 3, innerR(SURFACE_Y) - innerL(SURFACE_Y) - 12, 6).fill({ color: 0xffffff, alpha: 0.7 })
+    g.rect(innerL(SURFACE_Y) + 6, SURFACE_Y + 3, innerR(SURFACE_Y) - innerL(SURFACE_Y) - 12, 5).fill({ color: this._bath().tint, alpha: 0.35 })
   },
 
-  // Kar-kanten ritas SIST av kar-delarna, framför Zacke och skummet: då sitter han
-  // i karet och skummet kan inte rinna ut över kanten visuellt.
+  // FRAMSIDAN mot kameran. Den har ingen fyllning — man ser rakt igenom den — så det
+  // enda som ritas är vad en glasvägg faktiskt visar: sin egen kant och sin egen glans.
+  // Lagret ligger framför Zacke, skummet och fyndet, alltså sitter han I karet och
+  // skummet kan inte rinna ut över kanten visuellt.
   _buildTubRim() {
     const g = new Graphics()
-    g.roundRect(170, 250, 940, 430, 90).stroke({ width: 13, color: COLORS.teal })
-    g.roundRect(186, 245, 908, 8, 4).fill({ color: 0xffffff, alpha: 0.55 }) // kant-glans (ovanför mållinjen)
+
+    // Glansstrecken sitter vid VÄNSTERGAVELN: höger sida är ankans och kranens, och en
+    // glans över dem hade lästs som ett föremål i stället för som en yta.
+    g.roundRect(236, 318, 15, 226, 8).fill({ color: 0xffffff, alpha: 0.16 })
+    g.roundRect(262, 338, 7, 190, 4).fill({ color: 0xffffff, alpha: 0.11 })
+
+    // Insidans kant fångar ljus. Den linjen är vad ögat läser som "det finns en ruta här",
+    // och den är hela skillnaden mellan en genomskinlig vägg och ingen vägg alls.
+    tubPath(g, IN_TOP + 4, TUB_BOT - 4, 5, 50).stroke({ width: 3, color: 0xffffff, alpha: 0.42 })
+
+    // Silhuetten — ägarens andra krav: kanterna ska synas TYDLIGT och bära badkarets form.
+    tubPath(g, TUB_TOP + 6, OUT_BOT, -SHELL, 70).stroke({ width: 11, color: COLORS.teal })
+
+    // Rullkanten. Överhänget åt båda hållen är det som gör att den läser som en KANT man
+    // kan hänga armen över, inte som en tjock ram runt en bild.
+    const RL = IN_L - SHELL - 12,
+      RR = IN_R + SHELL + 12
+    g.roundRect(RL, TUB_TOP, RR - RL, RIM_H, RIM_H / 2).fill(0xf7fbfc).stroke({ width: 6, color: COLORS.teal })
+    g.roundRect(RL + 14, TUB_TOP + 4, RR - RL - 28, 6, 3).fill({ color: 0xffffff, alpha: 0.75 }) // kant-glans
+
     g.eventMode = 'none'
     this._root.addChild(g)
   },
@@ -541,6 +684,34 @@ export default {
   _buildZacke(ctx) {
     const z = new Container()
     z.position.set(ZACKE_X, ZACKE_Y)
+
+    // BEN UNDER VATTNET. En genomskinlig framsida är värd noll om det inte finns något
+    // att se igenom den — förut slutade Zacke vid y 420 och de nedersta 190 px av badet
+    // var ett tomt blått fält. Nu sitter han i karet med knäna uppdragna och fötterna nära
+    // botten, ritat FÖRE kroppen (höfterna göms bakom magen) och FÖRE vattentoningen
+    // (benen läses som nedsänkta, huvudet ovanför ytan förblir skarpt).
+    // ⚠️ BENEN FÅR INTE MÖTAS I BOTTEN. Första formen svängde ut i knäna och tillbaka in
+    // mot fötterna — de två benen slöt ihop till en RING som läste som en grå badring runt
+    // magen, inte som ben. Vägen går nu ner och svagt utåt hela vägen, och fötterna står
+    // isär: silhuetten mellan benen är lika viktig som benen själva.
+    // ⚠️ FÖTTERNA MÅSTE NÅ KARETS BOTTEN. Ben som slutar mitt i vattnet gör honom till en
+    // hängande docka — det finns inget som bär honom, och blicken letar efter golvet i
+    // stället för att läsa scenen. Han står på karbottnen med vattnet i brösthöjd, vilket
+    // också är den enda tolkning som är konsekvent med hur djupt karet är ritat.
+    const legs = new Graphics()
+    for (const s of [-1, 1]) {
+      const path = (gg) => gg.moveTo(s * 22, 40).quadraticCurveTo(s * 62, 140, s * 46, 250)
+      path(legs).stroke({ width: 46, color: SKIN_OUT, cap: 'round' }) // kontur
+      path(legs).stroke({ width: 38, color: SKIN, cap: 'round' })
+    }
+    // ⚠️ INGA RITADE KNÄN. En cirkel på benet läses som en LED på en docka, inte som ett
+    // knä — vägen böjer sig redan där knäet sitter, och det är den böjen ögat läser.
+    for (const s of [-1, 1]) {
+      legs.ellipse(s * 48, 258, 27, 15).fill(SKIN).stroke({ width: 4, color: SKIN_OUT })
+      legs.ellipse(s * 48, 254, 13, 6).fill({ color: 0xffffff, alpha: 0.25 })
+    }
+    legs.eventMode = 'none'
+    z.addChild(legs)
 
     const b = new Graphics()
     const OUT = SKIN_OUT
@@ -825,9 +996,28 @@ export default {
 
   // ---- Anka: dra → flytta studshindret -----------------------------------
 
+  // ⚠️ ANKAN FLYTER — hon svävar inte. Spannet var [SURFACE_Y+20, FLOOR−DUCK_R], alltså
+  // HELA vattenfältet 100–250 px under ytan: en anka som står stilla mitt i vattnet, vilket
+  // bara går att läsa som ett kar sett uppifrån. Nu ligger hon i ytan och kan tryckas NER
+  // (lyftkraften bär upp henne igen i `_duckUp`) — ett djup är något man trycker sig till,
+  // inte ett läge man parkerar i.
   _setDuckPos(x, y) {
     this._duckBase.x = clamp(x, WALL_L + DUCK_R, WALL_R - DUCK_R)
-    this._duckBase.y = clamp(y, SURFACE_Y + 20, FLOOR - DUCK_R)
+    this._duckBase.y = clamp(y, DUCK_FLOAT_Y, DUCK_FLOAT_Y + DUCK_DIP_MAX)
+  },
+
+  // Ringen där ankan bryter vattenytan. Utan den svävar hon ovanpå bilden; med den ligger
+  // hon I ytan. Ritas en gång och flyttas — ingen omritning per bildruta.
+  _buildDuckWake() {
+    const g = new Graphics()
+    // En TÄT ring, inte en vid. Första försöket la en 90×17-ellips runt henne som lästes
+    // som ett ljust glas på vattnet i stället för som vattenbrynet vid skrovet.
+    g.ellipse(0, 0, 50, 8).stroke({ width: 4, color: 0xffffff, alpha: 0.6 })
+    g.moveTo(-74, 0).lineTo(-56, 0).moveTo(56, 0).lineTo(74, 0).stroke({ width: 3, color: 0xffffff, alpha: 0.35 })
+    g.eventMode = 'none'
+    g.position.set(DUCK_HOME.x, SURFACE_Y)
+    this._duckWake = g
+    this._root.addChild(g)
   },
 
   // Ritad gul gummianka (🦆-emojin renderas som en GRÄSAND — grönt huvud, brun
@@ -903,6 +1093,11 @@ export default {
     this._duck.off('globalpointermove', this._duckMoveH)
     this._duck.off('pointerup', this._duckUpH)
     this._duck.off('pointerupoutside', this._duckUpH)
+    // LYFTKRAFTEN. Har hon tryckts ner under ytan far hon upp igen och studsar till i
+    // vattenbrynet. Det är den enda återkopplingen som säger vad ytan ÄR: en gräns som
+    // trycker tillbaka. En anka som blir liggande på det djup man släppte henne på är
+    // exakt den svävande ankan som gjorde vyn oläslig.
+    this._popUpDuck(ctx)
     if (!this._duckMoved) {
       // Tap → tap-tap: markera ankan, nästa vatten-tryck glider den dit.
       this._duckSelected = !this._duckSelected
@@ -911,6 +1106,24 @@ export default {
     } else {
       this._duckSelected = false
     }
+  },
+
+  // Lyftkraft: ankan far upp till ytan igen och guppar in. Plask + kvack bara om hon
+  // verkligen var nertryckt, annars låter varje släpp likadant.
+  _popUpDuck(ctx) {
+    const dip = this._duckBase.y - DUCK_FLOAT_Y
+    if (dip < 6) return
+    const st = { y: this._duckBase.y }
+    this._duckFloat?.kill()
+    this._duckFloat = gsap.to(st, {
+      y: DUCK_FLOAT_Y,
+      duration: 0.34 + dip / 300,
+      ease: 'back.out(2.6)',
+      onUpdate: () => this._setDuckPos(this._duckBase.x, st.y),
+    })
+    this._sound(ctx, 'plopp', 'pop', 'plopp', 110)
+    ripple(ctx.fxLayer, this._duckBase.x, SURFACE_Y, { color: COLORS.white, maxR: 60 + dip, alpha: 0.6 })
+    puff(ctx.fxLayer, this._duckBase.x, SURFACE_Y, { count: 5, color: 0xffffff })
   },
 
   // ---- Vatten-tryck (alltid kul) -----------------------------------------
@@ -926,7 +1139,7 @@ export default {
     if (this._duckSelected) {
       this._duckSelected = false
       const tx = clamp(p.x, WALL_L + DUCK_R, WALL_R - DUCK_R)
-      const ty = clamp(p.y, SURFACE_Y + 20, FLOOR - DUCK_R)
+      const ty = DUCK_FLOAT_Y // tap-tap glider henne LÄNGS ytan — hon simmar, hon dyker inte
       const st = { x: this._duckBase.x, y: this._duckBase.y }
       this._duckGlide?.kill()
       this._duckGlide = gsap.to(st, {
@@ -984,9 +1197,21 @@ export default {
 
     // Anka guppar lätt på ytan.
     this._duckPhase += 0.05 * dt
+    const dip = this._duckBase.y - DUCK_FLOAT_Y
     if (this._duck && !this._duck.destroyed) {
-      this._duck.position.set(this._duckBase.x, this._duckBase.y + Math.sin(this._duckPhase) * 5)
+      // Guppet dör bort när hon hålls nere — en anka som fortfarande studsar 5 px medan
+      // den trycks under vattnet ser ut att sväva, inte att hållas.
+      const bob = Math.sin(this._duckPhase) * 5 * clamp(1 - dip / 40, 0, 1)
+      this._duck.position.set(this._duckBase.x, this._duckBase.y + bob)
       this._duck.rotation = Math.sin(this._duckPhase * 0.7) * 0.06
+    }
+    // Ytringen ligger kvar I ytan medan ankan rör sig genom den — det är den som gör
+    // henne flytande i stället för pålagd.
+    if (this._duckWake && !this._duckWake.destroyed) {
+      this._duckWake.position.set(this._duckBase.x, SURFACE_Y)
+      const s = 1 + clamp(dip / DUCK_DIP_MAX, 0, 1) * 0.34
+      this._duckWake.scale.set(s, 1)
+      this._duckWake.alpha = this._foam.level > 4 ? 0 : 1 // skummet äter ytan → ingen ring
     }
 
     this._updateDrip(dts)
@@ -1334,6 +1559,7 @@ export default {
     this._roundTimer?.kill()
     this._foamTween?.kill()
     this._duckGlide?.kill()
+    this._duckFloat?.kill() // lyftkraften skriver via _setDuckPos → måste dö med spelet
     this._goalPulse?.kill() // breathe() tweenar en proxy → måste dödas explicit
     // Fyndets gungning är repeat:-1 och skriver .y på vyn — lever den vidare efter
     // destroy kastar settern varje bildruta (jfr bajs-och-kiss). OVILLKORLIGT.

@@ -67,14 +67,14 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
 Rapporterat efter N3-tvålvattnet. Ägaren godkände stänket men pekade ut **perspektivet** som det
 som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens ord, tolkade till plan.
 
-- **[Deep] Perspektivet går inte att läsa — är det uppifrån eller från sidan?** Ägarens egna ord:
-  *"vet inte i nuvarande läge om man ser badet uppifrån eller från sidan"*. Önskad form: **rent
-  sidoperspektiv**, där karets sida mot kameran är **genomskinlig** (man ser vattnet, skummet och
-  Zacke igenom den) medan **kanterna syns tydligt** och bär badkarets silhuett — fötter, rundad
-  gavel, överkant. Det här är den punkt som ska tas först: allt annat nedan blir tydligare av den,
-  och en ovan/sida-tvekan är en läsbarhetsfråga, inte en smakfråga.
+- ~~**[Deep] Perspektivet går inte att läsa — är det uppifrån eller från sidan?**~~ ✅ 2026-08-11,
+  se §5. Ägarens egna ord: *"vet inte i nuvarande läge om man ser badet uppifrån eller från
+  sidan"*. Önskad form: **rent sidoperspektiv**, där karets sida mot kameran är **genomskinlig**
+  (man ser vattnet, skummet och Zacke igenom den) medan **kanterna syns tydligt** och bär
+  badkarets silhuett — fötter, rundad gavel, överkant.
   ⚠️ Vattenytan (`FluidView` + skummet) är byggd som en vågrät linje i sidled — kontrollera att en
-  ny karform inte flyttar den, och ta skärmdump före/efter.
+  ny karform inte flyttar den, och ta skärmdump före/efter. *(Gjort: ytan ligger kvar på y=330,
+  mätt i bild.)*
 - **[Medium] Propp att dra ut, kran att trycka på.** En propp i botten som dras ut → vattnet
   **rinner ur** (nivån sjunker, virvel vid hålet, ljud). Kranen är redan ritad (droppar ner i badet
   sedan 2026-08-05) — gör den **tryckbar** så vattnet fylls på. Ger barnet kontroll över nivån i
@@ -140,6 +140,56 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   lugn och rikedom; behåll den befintliga ljud-strypningen.
 
 ## 5. Status / loggar
+
+- 2026-08-11 🛁 **RENT SIDOPERSPEKTIV — ägarens §4-punkt, tagen först** (v1.145.0).
+  Frågan "uppifrån eller från sidan?" gick att göra mätbar så fort man skrev ner VAD i bilden
+  som bär vilken läsning. Scenen bar **tre toppvy-signaler och nästan inga sidovy-signaler**:
+  1. **Karet täckte sina egna fötter.** Kroppen gick till y 680, fötterna satt 596–670 och
+     ritades FÖRE den — bara 10 px nubbar stack ut i sidled. Karet gick dessutom ner **genom**
+     golvlinjen (622). Ingenting sa att det stod i ett rum.
+  2. **Ankan flöt 100 px UNDER ytan** och kunde dras fritt i hela vattenfältet (y 350–584).
+     En anka som svävar stilla mitt i vattnet har ingen annan läsning än en skål sedd uppifrån.
+     Det här var den starkaste av de tre — och den satt i **spelbarheten**, inte i grafiken.
+  3. **Vattnet fyllde en rundad rektangel** ända ut i alla fyra hörn med kanten runt om.
+  **Byggt:** karet står på golvet på synliga fötter i en kontaktskugga (golvlinjen 622 → 640,
+  karets botten 680 → 624), insidan smalnar av nedåt (`tubPath` — allt som ligger i karet ritas
+  mot samma kontur), ankan flyter i ytan och kan **tryckas ner** med lyftkraft som bär upp
+  henne igen, ytlinjen är en riktig yta i stället för en linje på alpha 0,3, och framsidan mot
+  kameran har **ingen fyllning alls** — bara sin kant och sin glans, precis som ägaren bad om.
+  - **Zacke fick ben.** En genomskinlig framsida är värd noll om det inte finns något att se
+    igenom den: de nedersta 190 px av badet var ett tomt blått fält. Han står nu på karbottnen
+    med vattnet i brösthöjd.
+  - ⚠️ **Två fel som BILDEN hittade och talen aldrig hade sett:** ⓵ benen svängde först ut i
+    knäna och tillbaka in mot fötterna, så de två benen slöt ihop till en **ring** som lästes
+    som en grå badring runt magen; ⓶ ritade knä-cirklar lästes som **leder på en docka**.
+    Båda gick bort genom att lita på formen i stället för att lägga till detaljer.
+  - ⚠️ **Att RITA fötterna räckte inte — de bar golvets egen baston.** `0xdfe7ea` mot ett golv
+    byggt på `0xdfe7ea`: uppmätt skilde bara **14 av 30 rader** i fotens kolumn mer än tröskeln
+    från golvet bredvid, alltså låg den starkaste sidovy-signalen och var osynlig. En platt
+    mörkare ton räckte inte heller (**21**, fortfarande under tröskeln — karets egen skugga
+    mörkar ju golvet till nästan exakt fotens ton). Först volym (ljus upptill, skugga nedtill)
+    gav **30 av 30**. Samma D1-lärdom som golvet och karinsidan redan fått.
+  - 🐞 **Bugg som ramlade ut på vägen: mållinjen var DOLD från nivå 2 och uppåt.** `_goalY`
+    bottnade på 248 — mitt i kar-kantens 13 px-stroke, som ritas efter den. Måldottarna fanns
+    alltså inte i bild i någon runda utom de två första. Taket ligger nu på 264 (`GOAL_MIN`),
+    under rullkanten, och målflaggan flyttades framför kanten (den skars annars av på mitten).
+    **Mätt i bild: 127 px mållinje-teal längs y=264 på nivå 8.**
+  - **MÄTT** (`scripts/_perspektivprobe.mjs`, ny — **12/12 gröna**): ytan ligger kvar på
+    **y=330** · golvet syns under karet (avstånd **0** mot golvet utanför) · fotens kolumn
+    **30/30** rader skiljer sig från golvet bredvid, nollpunkt golv-mot-golv **0** ·
+    vattnet följer den lutande väggen (x=1070 är porslin, x=1000 vatten) · ankans vilo-y
+    **314** och tak **390** (gamla fältet gick till 584) · hon far upp till **314** efter
+    släpp · bubblor föds innanför insidan · 0 konsolfel vid exit mitt i ett nertryck.
+  - **Balans, A/B mot HEAD:** vattenpelaren blev kortare, så en bubblas resa gick
+    **1 712 → 1 441 ms (−16 %)**, median av tre. Skummet per popp är ORÖRT (samma `r`, samma
+    `FOAM_K`) — det är alltså väntetiden till belöningen som kortades, inte svårigheten.
+    ⚠️ **Första mätningen var konfunderad och sa −1 %:** mätbubblan låg på x=700, och där låg
+    HEADs anka (780, 430) mitt i vägen och **sparkade upp** den. x=350 är fri i båda lägena.
+  - **Platthet, samma fält före/efter:** `#e4f4fa` 68 647 → 69 478 (inom bruset som redan är
+    dokumenterat för det fältet), teal 24 604 → 27 333, och **total platt yta 737 674 →
+    670 019 px (−9 %)**.
+  - `check` 0 fel/0 varningar · `test:all` **72/72** · `_badprobe` **8/8** · `_idleprobe` **0**
+    (spelet spelar fortfarande inte sig självt) · 0 fynd i `.test-logs/pruttbad.json`.
 
 - 2026-08-10 💧 **NATTKÖ N3 / LYFTPLAN B1: riktigt tvålvatten vid poppet** (v1.133.0).
   Ett popp kastade förut bara en generisk `puff`. Nu flyger **SPH-droppar** (`FLUIDS.tval`,

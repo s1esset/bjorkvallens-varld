@@ -14,6 +14,71 @@ Format:
 
 ---
 
+## 2026-08-11 · v1.150.0 · Pruttbadets sista lista: bubblorna tar plats, skummet blev skum
+
+**Byggt:** ägaren godkände `flipperspel` v1.144.0 ("spelat och ser bra ut") och bad om
+`pruttbad`. Kvar där låg §4-punkt 5 — den enda av hens fem önskemål som medvetet inte byggts,
+utan mätts. Mätpassets fyra punkter är nu alla byggda, i två commits delade efter vad de
+faktiskt ÄR: fysik i den ena, rendering och återkoppling i den andra.
+
+| # | Mätpassets punkt | Före | Efter |
+|---|---|---|---|
+| 1 | Bubblor går rakt igenom varandra | 47,8 px inträngning, löstes **aldrig** upp (49,2 efter 40 rutor) | 8,4 px efter 40 rutor, **0 px efter 120** |
+| 2 | Bubblor går rakt igenom Zacke | **92,4 px** in i kroppen, 492 bubbel-bildrutor inuti honom | **1,7 px**, 0 rutor |
+| 3 | Skumkroppen är en platt platta | **0,7 %** kantpixlar (en platta) | **11 %** — packade bubblor |
+| 4 | Flyt-texterna staplas | **11 texter samtidigt, 0 px isär** | max 2, aldrig närmare än 250 px |
+
+**Den tyngsta lärdomen: klykan mellan Zackes ben var en återvändsgränd, och fixen var
+födelsepunkten — inte kraften.** Bubblorna föds på karbottnen under tryckpunkten, och där står
+hans vader: en bubbla på (386, 574) startade **50 px inne i vänster ben**. Ut fanns ingen väg —
+låren står **44–50 px isär hela vägen upp** (en bubbla på 34 px behöver 68), de möts vid höften,
+magen stänger taket, och lyftkraften pressar bubblan mot just den stängda änden. Uppmätt: **två
+av fyra bubblor guppade mellan y 465 och 605 i 260 bildrutor och kom aldrig ut.** Ingen
+tuning av knuffen hade löst det. `_freeSpawnX()` föder dem vid närmaste fria sida i stället, och
+klykan är därmed onåbar i spel (tvingar man ändå in en bubbla löser anti-stuck-vakten den på 4 s).
+
+**Tre mätlärdomar:**
+
+1. **Mot en STATISK kropp ska överlappet lösas HELT, inte som en andel.** En andel ger inte
+   kontakt utan JÄMVIKT: lyftkraften bär in bubblan ~3,7 px/steg och 0,35 tar ut 35 % av det som
+   ligger inne, alltså stannar den ~7 px inne i benet för alltid (uppmätt 6,8 → 1,7 efter bytet).
+   Mellan två bubblor är andelen däremot rätt — en fjäder där vore en energiKÄLLA som pumpar
+   klasen, exakt fällan höjdfältet gick i förra passet.
+2. **"Största enskilda ton" är fel mått på platthet när ytan ritas med alfa.** Måttet gav **10 %
+   både före och efter** medan bilderna sida vid sida är uppenbart olika. Det "platt" betyder är
+   att ytan saknar INRE KANTER; med kanttäthet blev utslaget 0,7 % mot 11 %. `_plattprobe` svarar
+   på VILKEN ton, inte på om ytan har struktur — det är två olika frågor.
+3. **Sidofynd som bara bilden kunde ge: integratorn hade väggar och yta men INGET GOLV.**
+   Födelsehöjden är en fast punkt oavsett storlek, så en bubbla ur den stora flaskan (r upp till
+   96) nådde y 670 och låg delvis **utanför karet, ovanpå badrumsgolvet** — utan ett enda
+   konsolfel. Lägsta bubbelkant nu exakt 604 = karbottnen.
+
+**Och fem gånger var det SONDEN som hade fel, inte spelet** — samma lärdom som förra passet,
+nu med fem nya varianter: (a) den nollade `_foam.level` i stället för att montera om, så
+firandet från de bubblor sonden själv poppat nollade skummet mitt i mätfönstret; (b) den lät
+nivån klaras under mätningen, varpå **firandets bubbelsvärm** hamnade i mätvärdet och
+rapporterade 98,9 px inträngning i ett par som omöjligt kan tränga in mer än 72; (c) den skrev
+över `b.x` efter `_pushBubble` och mätte därför ett läge spelet inte längre kan hamna i, vilket
+rapporterade en byggd fix som utebliven; (d) `_goalFoam = 1e9` — frysningen som räddade
+fysikmätningen — **förstörde skummätningen**, eftersom skummets höjd är andelen `level/goalFoam`
+och ett spärrat mål ger höjden noll; (e) `nav.go('game')` när man redan ÄR i spelet monterar inte
+om, så bilden blev skalets creme och `_alive` falskt.
+
+**Ny sond:** `scripts/_bubbelprobe.mjs` (**14 kontroller**: klasens upplösning över tid,
+inträngning i Zacke, födelsepunkten, klykan som återvändsgränd, skummets kanttäthet,
+flyt-texternas antal och avstånd, plus vakterna framsteg · ingen fastnar · exit).
+
+**Commits:** `67742ce` feat(pruttbad) bubblorna tar plats · `6b4d887` feat(pruttbad) skummet
+blev en massa
+**Kontroll:** `check` 0 fel/0 varningar · `test pruttbad` grön · `test:all` 72/72 ·
+`_bubbelprobe` 14/14 · `_perspektivprobe` 26/26 · `_badprobe` 8/8 · `_tvalprobe` grön ·
+`_idleprobe` 0 · 0 fynd i `.test-logs/pruttbad.json`.
+**Öppet:** **ägarkön är tom igen** — `flipperspel` godkänt, hela pruttbadets §4 avklarad. Nästa
+naturliga steg är nattkön (`.claude/state/nattkorning.md`, står på **N6**). Bygget är omgjort,
+så nästa telefontest hämtar v1.150.0.
+
+---
+
 ## 2026-08-11 (natt) · v1.148.0 · Hela pruttbadets §4-lista: ägarens fem önskemål avklarade
 
 **Byggt:** ägarens fem önskemål i `docs/games/pruttbad.md` §4 — den enda kö som bar hens egna ord

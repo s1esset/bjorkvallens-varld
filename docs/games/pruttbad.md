@@ -63,6 +63,34 @@ roligt att trycka, men Zacke och ankan bär ingen tyngd.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
+### Ägarens speltest 2026-08-11 — "ser okej ut, men…"
+Rapporterat efter N3-tvålvattnet. Ägaren godkände stänket men pekade ut **perspektivet** som det
+som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens ord, tolkade till plan.
+
+- **[Deep] Perspektivet går inte att läsa — är det uppifrån eller från sidan?** Ägarens egna ord:
+  *"vet inte i nuvarande läge om man ser badet uppifrån eller från sidan"*. Önskad form: **rent
+  sidoperspektiv**, där karets sida mot kameran är **genomskinlig** (man ser vattnet, skummet och
+  Zacke igenom den) medan **kanterna syns tydligt** och bär badkarets silhuett — fötter, rundad
+  gavel, överkant. Det här är den punkt som ska tas först: allt annat nedan blir tydligare av den,
+  och en ovan/sida-tvekan är en läsbarhetsfråga, inte en smakfråga.
+  ⚠️ Vattenytan (`FluidView` + skummet) är byggd som en vågrät linje i sidled — kontrollera att en
+  ny karform inte flyttar den, och ta skärmdump före/efter.
+- **[Medium] Propp att dra ut, kran att trycka på.** En propp i botten som dras ut → vattnet
+  **rinner ur** (nivån sjunker, virvel vid hålet, ljud). Kranen är redan ritad (droppar ner i badet
+  sedan 2026-08-05) — gör den **tryckbar** så vattnet fylls på. Ger barnet kontroll över nivån i
+  båda riktningar, vilket spelet i dag saknar helt.
+  ⚠️ P0 MOTGÅNG: att tömma får aldrig nollställa framsteg — skummet/målet ska överleva en tömning.
+- **[Medium] Tre schampoflaskor i olika storlek → olika bubbelstorlek.** Barnet **trycker själv på
+  en flaska** för att hälla i bubbelmedel; liten flaska ger små bubblor, stor ger stora. Hyllan har
+  redan en schampoflaska ritad — utöka till tre och gör dem till riktiga knappar (≥96 px träffyta).
+- **[Deep] Badankan omfördelar vatten och bubblor.** Flyttar man ankan ska **vattnet svara**:
+  undanträngd volym, vågor som sprids, bubblor som skjuts undan och samlas där ankan inte är.
+  Ankan har redan en roll (studs + bonus-skum) — det här gör henne till en riktig aktör i vätskan.
+  ⚠️ Mönstret finns i `plask-i-vattnet` (undanträngd volym) — se `_plaskprobe.mjs`.
+- **[Deep] Bättre vätske- och bubbelfysik generellt.** Ägarens ord: *"man kanske kan förbättra
+  vätskefysiken och bubbelfysiken"*. Vagt med flit — mät först: kör `_vatskeprobe` och `_tvalprobe`
+  och skriv ner VAD som ser fel ut i bild innan något ändras.
+
 ### Kärnloop & agens
 - ~~**[Medium] Ge ankan (och fler badleksaker) verklig roll.**~~ ✅ 2026-07-01 (studs + bonus-skum)
   och 2026-08-05 (bonusen SYNS: gul puff i ankans färg, gnistor, stigande ton och ankan studsar

@@ -105,6 +105,34 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
 
 ## 5. Status / loggar
 
+- 2026-08-11 🐛 **ÅTGÄRDER #5 (ägarrapport): en nyupptäckt ikon hamnade över en annan** (v1.136.0).
+  Rapporten var en bild, och bakom den satt **två oberoende fel**. Ny sond `scripts/_hyllprobe.mjs`
+  mäter dem var för sig — den poängen är hela lärdomen: hade bara det ena lagats hade ägaren sett
+  exakt samma sak igen.
+  - **(A) Kapplöpningen — 16,0 px.** Hällningens hemtween startar 0,82 s och varar 0,30 s; `_react`
+    föder det nya hyllelementet vid **1,04 s**, alltså 0,22 s in i hemresan. `_layoutShelf` hoppar
+    över en droppe som fortfarande häller, och gsap hade redan låst målvärdet — `x: () => rec.home.x`
+    läses vid tweenens **start**, inte per bildruta. Droppen flög hem till sin gamla plats.
+    Rättas nu i timelinens `onComplete`. ⚠️ Felet växer med index: den andra ingrediensen råkade
+    ligga på plats 1 i mätningen (16 px), på plats 6 hade det varit 96 px — rakt ovanpå grannen.
+  - **(B) Packningen — 22,3 px överlapp, och det var den ägaren såg.** `spacing = min(116,
+    700/(n−1))` slutade vara cappad vid n = 8 och krympte sedan monotont, medan föremålet är ritat
+    100 px brett. **Räkna om hur många element hyllan egentligen kan få:** 4 baser + 9 nåbara
+    resultat = **13 redan på nivå 1** (`sten`, `kruka`, `regnbage` och hemliga `enhorning` kräver
+    ingen `is`). Hyllan var dimensionerad för 7. Nu: spannet går ut till 1180 (ytan under
+    receptboken stod tom), föremålet **krymper** när packningen blir tätare än dess egen bredd
+    (golv 0,6) och **brädan växer med samlingen** — fyra baser på en tom 1180 px-planka såg
+    övergiven ut, och en bräda som växer är dessutom ett kvitto på vad barnet upptäckt.
+  - **Träffytan rörs INTE.** `hitArea` är `Circle(0,0,80)` på behållaren och skalas inte med
+    bilden: P0 kräver ≥96 px, och en ikon som krymper får inte ta träffytan med sig.
+  - **MÄTT** (`_hyllprobe.mjs`, 8 kontroller): avvikelse från hemmaplatsen **16,0 → 0,0 px** ·
+    överlapp vid 13 element **22,3 → 0,0 px** (skala 0,858) · högerkant 1222,9 px · 0 konsolfel vid
+    exit mitt i en hällning · startbilden med bara baserna **oförändrad**.
+  - ⚠️ **Kvar, och det är en layoutfråga, inte en bugg:** träffytorna (160 px breda) ligger tätare
+    än P0:s ≥24 px separation redan från 7 element, och det gjorde de även före den här fixen. En
+    rad på 1030 px rymmer som mest 8 P0-korrekta mål. Ska det lösas krävs **två rader** — eget pass,
+    eget ägarbeslut.
+
 - 2026-08-10 💤 **NATTKÖ N1: spelet hade ingen vilorörelse alls** (`eceb5bf`, v1.131.0).
   `_livprobe` rapporterade **0 föremål med liv** — äkta fynd, inte ett sondfel (sonden
   verifierades först mot `loopdjuren`: 3 objekt, 9,4 px, spridning 0,47).

@@ -107,6 +107,14 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
 
 ## 5. Status / loggar
 
+- 2026-08-11 🚫 **ÄGARBESLUT: ingen kamera, ingen längre bana. `nSlots`-taket STÅR KVAR.**
+  Frågan som ställdes: får bricktråget och luckan sluta synas samtidigt, så att en panorerande
+  kamera kunde låta raset bli längre än 13 brickor? **Svaret är nej** — ägarens ord: *"nej, låt
+  det finnas en gräns, börja om istället efter max gränsen."* Alltså: `nSlots = Math.min(7 + level,
+  13)` är avsiktligt, och när taket är nått ska spelet **börja om** i stället för att växa vidare.
+  Följd: **NATTKÖ N11 (kamerans andra kund) är struken** — `domino` är inte kandidaten. Nästa spel
+  som vill ha `lib/kamera.js` får motivera det på egen hand.
+
 - 2026-08-10 🎨 **D1: golvet fick ljus från horisonten** (`30e2e77`, v1.122.0).
   Golvet låg på **55 343 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.
   Samma sak som i `studsbollar`: spelet skickar `ground: false` och ritar sitt eget golv med

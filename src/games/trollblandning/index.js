@@ -38,7 +38,15 @@ const CY = 400 // kittelns mitt-y
 const BREW_Y = CY - 70 // brygd-ytans y (330) — används för fxLayer-partiklar
 const SHELF_Y = 648 // dropparnas vilo-y på hyllan
 const SHELF_X0 = 150
-const SHELF_X1 = 850
+// Hyllan går ända ut till 1180: ytan UNDER receptboken (som slutar vid y≈565) stod
+// tom, och hyllan behöver varje pixel. Ett barn kan upptäcka 9 resultat utöver de
+// 4–5 baserna, alltså upp till 14 föremål på raden. Se ÅTGÄRDER #5.
+const SHELF_X1 = 1180
+const DROP_W = 100 // föremålets ritade bredd (circle r=50) — packningen mäts mot den
+const DROP_STEG = 116 // max avstånd mellan två hyllplatser (glest när hyllan är tom)
+const DROP_MIN_SKALA = 0.6 // golv: under det blir föremålet svårt att känna igen
+const SHELF_BAR_W0 = 840 // brädans bredd med bara baserna på (som förut)
+const SHELF_BAR_W1 = 1180 // brädans bredd när samlingen fyller den
 const HINT_MS = 6000 // ms utan handling → eskalerande ledtråd
 
 // --- Hällningen och elden (spår 3 P3: två system som möts) ---
@@ -302,9 +310,12 @@ export default {
     // Hyllan lag pa 70 560 px i EN ton (`_plattprobe --medbakgrund`). Delad markfyllning
     // — se lib/form.js. (Receptbokens creme-sida ar storre men ar en PANEL med text och
     // ska vara lugn; sondens filhuvud varnar uttryckligen for att "fixa" den.)
-    const shelf = new Graphics().roundRect(60, 596, 840, 104, 30).fill(groundFill(COLORS.brown)).stroke({ width: 6, color: 0x6b4027 })
+    const shelf = new Graphics()
     shelf.eventMode = 'none'
     this._root.addChild(shelf)
+    this._shelfBar = shelf
+    this._shelfW = 0
+    this._ritaHylla(SHELF_BAR_W0 + 60) // startbredd = den gamla brädan
 
     // 3) Receptbok-panel (rygg + rubrik + räknare; rader byggs per runda).
     const book = new Container()
@@ -656,6 +667,8 @@ export default {
         rec.view._krop?._fxLiv?.kill() // repeat:-1 — dör inte av sig själv
         gsap.killTweensOf(rec.view)
         gsap.killTweensOf(rec.view.scale)
+        if (rec.view._krop && !rec.view._krop.destroyed) gsap.killTweensOf(rec.view._krop.scale)
+        if (rec.view._skugga && !rec.view._skugga.destroyed) gsap.killTweensOf(rec.view._skugga.scale)
       }
     }
     this._wizKar?.destroy()
@@ -860,6 +873,7 @@ export default {
     krop.addChild(body, emoji)
     c.addChild(shadow, krop)
     c._krop = krop
+    c._skugga = shadow // krymper med kroppen när hyllan blir trång (_layoutShelf)
     // Egen fas per föremål (liv() slumpar själv) → hyllan guppar aldrig i lås.
     liv(krop, { bob: 4, sway: 0.04, duration: 2.2 + Math.random() * 0.7 })
     c.interactiveChildren = false
@@ -917,6 +931,16 @@ export default {
       onComplete: () => {
         rec.pouring = false
         rec.pourTl = null
+        // Hyllan kan ha flyttat sig MITT I hemresan. `_react` föder ett nytt element
+        // 0,22 s in i den 0,30 s långa hemtweenen, och `_layoutShelf` hoppar då över
+        // den här droppen (`rec.pouring` är sann) — men gsap har redan låst målvärdet:
+        // `x: () => rec.home.x` läses när tweenen STARTAR, inte per bildruta. Utan den
+        // här rättelsen landar droppen på sin GAMLA plats, ovanpå grannen. ÅTGÄRDER #5.
+        if (!this._alive || !v || v.destroyed) return
+        if (rec.placed || this._drag?.active === rec) return
+        if (Math.abs(v.x - rec.home.x) > 0.5 || Math.abs(v.y - rec.home.y) > 0.5) {
+          gsap.to(v, { x: rec.home.x, y: rec.home.y, duration: 0.25, ease: 'back.out(1.4)' })
+        }
       },
     })
     rec.pourTl = tl
@@ -1048,19 +1072,44 @@ export default {
   },
 
   // Fördela alla droppar jämnt över hyllan (oändliga källor + upptäckta resultat).
+  // Brädan växer med samlingen. En 1180 px lång hylla med fyra föremål på ser tom ut,
+  // och en som växer är dessutom ett kvitto på vad barnet har upptäckt. Ritas bara om
+  // när bredden faktiskt ändras (vid en upptäckt), aldrig per bildruta.
+  _ritaHylla(hogerkant) {
+    const g = this._shelfBar
+    if (!g || g.destroyed) return
+    const w = Math.max(SHELF_BAR_W0, Math.min(SHELF_BAR_W1, hogerkant - 60))
+    if (Math.abs(this._shelfW - w) < 1) return
+    this._shelfW = w
+    g.clear().roundRect(60, 596, w, 104, 30).fill(groundFill(COLORS.brown)).stroke({ width: 6, color: 0x6b4027 })
+  },
+
   _layoutShelf() {
     const recs = (this._dropRecs || []).filter((r) => r?.view && !r.view.destroyed)
     const n = recs.length
     const span = SHELF_X1 - SHELF_X0
-    const spacing = n <= 1 ? 0 : Math.min(116, span / (n - 1))
+    const spacing = n <= 1 ? 0 : Math.min(DROP_STEG, span / (n - 1))
+    // Packas hyllan tätare än föremålets egen bredd måste föremålet KRYMPA — annars
+    // ritas det ovanpå grannen, vilket är precis vad ägaren rapporterade (ÅTGÄRDER #5).
+    // Träffytan (`hitArea` på behållaren) rörs INTE: P0 kräver ≥96 px och den ska inte
+    // krympa med bilden. Skuggan skalas med kroppen, annars ligger ett litet föremål
+    // på en skugga i full storlek.
+    const skala = n <= 1 ? 1 : Math.max(DROP_MIN_SKALA, Math.min(1, spacing / DROP_W))
     recs.forEach((rec, i) => {
       const hx = SHELF_X0 + i * spacing
       rec.home.x = hx
       rec.home.y = SHELF_Y
+      for (const del of [rec.view._krop, rec.view._skugga]) {
+        if (del && !del.destroyed && Math.abs(del.scale.x - skala) > 0.002) {
+          gsap.to(del.scale, { x: skala, y: skala, duration: 0.3, ease: 'back.out(1.4)' })
+        }
+      }
       if (!rec.placed && !rec.pouring && this._drag && this._drag.active !== rec) {
         gsap.to(rec.view, { x: hx, y: SHELF_Y, duration: 0.3, ease: 'back.out(1.4)' })
       }
     })
+    const sista = SHELF_X0 + Math.max(0, n - 1) * spacing
+    this._ritaHylla(sista + (DROP_W * skala) / 2 + 40)
   },
 
   _findDrop(elemId) {
@@ -1077,6 +1126,10 @@ export default {
         rec.view._krop?._fxLiv?.kill() // repeat:-1 — dör inte av sig själv
         gsap.killTweensOf(rec.view)
         gsap.killTweensOf(rec.view.scale)
+        // Hyllans krymptween skriver på delarnas scale — en kvarlevande sådan skriver
+        // på ett rivet objekt varje bildruta (Pixi v8 nollar internerna i destroy).
+        if (rec.view._krop && !rec.view._krop.destroyed) gsap.killTweensOf(rec.view._krop.scale)
+        if (rec.view._skugga && !rec.view._skugga.destroyed) gsap.killTweensOf(rec.view._skugga.scale)
         rec.view.destroy({ children: true })
       }
     }

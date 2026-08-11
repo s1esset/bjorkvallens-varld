@@ -123,6 +123,36 @@ passiva en gång tända**.
 
 ## 5. Status / loggar
 
+- 2026-08-11 🎲 **Banan slumpas ut på riktigt — och stolparna går att träffa** (v1.138.0).
+  Ägarens andra speltest: *"stolparna var omöjliga att träffa men när jag lyckades så studsade
+  det bättre — kan vi göra så flipperspelet har mer slumpmässigt utsatta poäng-bumpers utan att
+  de läggs fel eller kolliderar, ev bumpers mindre"*. Båda halvorna visade sig ha samma orsak:
+  **allt låg på handlagda koordinater.**
+  - **Stolparna satt på y=192 — exakt kulans serverings-höjd.** Kulan föddes alltså BREDVID dem
+    och föll förbi; de gick bara att träffa på en studs underifrån. De slumpas nu ut **i
+    dyn-fältet** i stället, där kulan möter dem hela tiden.
+  - **"Slumpen" var fyra handlagda uppsättningar med ±22 px jitter** — samma bana varje gång,
+    bara skakad. Nu samplas varje bana fritt (bäst-av-N så det blir utspritt, inte klumpigt).
+  - **Dynorna är mindre: 46 → 34 px radie.** Ägarens egen ledtråd, och den är matematiskt
+    riktig: minsta tillåtna centrumavstånd är `2r + 64`, alltså **156 px vid r=46 men 132 vid
+    r=34** — det är skillnaden mellan fem och sju dynor på samma fält.
+  - **KILREGELN är det som gör "utan att de läggs fel" mätbart.** Kulan är 56 px i diameter, så
+    det finns bara två säkra mellanrum mellan två ytor: **≥64 px** (kulan passerar) eller
+    **≤46 px** (kulan kan inte ta sig IN, alltså inte fastna). Allt däremellan är en fälla där
+    kulan kryper in och kilas fast — för ett barn ser det ut som att spelet hängt sig. Regeln
+    fanns redan i den gamla kodens kommentar, men bara som handräknade tal.
+  - **MÄTT** (`scripts/_banprobe.mjs`, **1 500 slumpade banor** över sex nivåer): **0 överlapp ·
+    0 kilar · 0 utanför fältet · 0 krockar med serveringsläget · 50 dragningar → 50 olika banor**.
+    Dyn-antalet växer 4,0 (nivå 1) → 5,7 (nivå 12), max 7 mot tidigare 6. Båda stolparna får
+    plats på **2,0 banor av 2**.
+  - ⚠️ **Två sondfynd som ändrade koden, inte sonden:** (1) första hinderlistan var handskriven
+    (snurra, tunnlar, fenor) och gav **1 251 kilar mot VÄGGARNA och LANVÄGARNA** som listan
+    aldrig hört talas om — den läses nu ur `_phys`s **levande kroppar**, för motorn vet allt som
+    finns. (2) Ordningen mellan dynor och stolpar är **mätt, inte vald**: stolpar sist ⇒ de
+    trängdes undan (1,8 av 2), stolpar först ⇒ de splittrade fältet och nivå 12 kunde få **2**
+    dynor i stället för 7. Rätt svar är dynor först och stolpar med en **reserv**: får de inte
+    fri passage tillåts de ligga tätt intill en dyna, vilket är säkert per kilregeln.
+
 - 2026-08-11 🏓 **V10b:s FÖRSTA KUND: stolparna studsar på riktigt** (v1.137.0).
   Ägaren pekade ut spelet i speltestet ("flipperspel kan få studs först"). Genomgången gav ett
   annat svar än frågan förutsatte, och det är hela poängen med posten:

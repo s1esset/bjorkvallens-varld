@@ -131,6 +131,27 @@ const GOAL_TYPE = { kind: 'goal', rest: 0.78, wave: 'sine', over: 3.0, overWave:
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const rand = (a, b) => a + Math.random() * (b - a)
 
+// --- Slumpad banlayout: fältet, måtten och kilregeln (se `_samplaBana`) ---------
+const FIELD = { x0: 335, x1: 945, y0: 264, y1: 468 }
+const BUMP_R = 34 // var 46 — mindre dynor ger plats åt fler utan att kila
+const PEG_R = 17
+const GAP_FRI = 64 // kulan (d=56) passerar bekvämt
+const GAP_TATT = 46 // kulan kan inte ta sig IN — alltså kan den inte fastna
+const gapOk = (g) => g >= GAP_FRI || (g >= 8 && g <= GAP_TATT)
+
+// Avstånd till en kropps FAKTISKA kant (polygonens sidor), inte till dess mittpunkt.
+function avstandTillKropp(h, x, y) {
+  if (h.r) return Math.hypot(h.x - x, h.y - y) - h.r
+  let d = Infinity
+  for (let i = 0; i < h.v.length; i++) {
+    const a = h.v[i]
+    const b = h.v[(i + 1) % h.v.length]
+    const p = closestOnSeg(x, y, a.x, a.y, b.x, b.y)
+    d = Math.min(d, Math.hypot(p.x - x, p.y - y))
+  }
+  return d
+}
+
 // Närmaste punkt på ett linjesegment (för paddel-kicken).
 function closestOnSeg(px, py, ax, ay, bx, by) {
   const dx = bx - ax
@@ -220,10 +241,10 @@ export default {
     this._buildGuide(TABLE_L, 466, PIVOT_LX - 22, PIVOT_Y - 10)
     this._buildGuide(TABLE_R, 466, PIVOT_RX + 22, PIVOT_Y - 10)
 
-    // Två små stolpar högt upp: fyller det tomma översta bandet och studsar kulan
-    // åt oväntade håll (74 px fri passage till väggen — inget kan fastna).
-    this._buildPeg(360, 192)
-    this._buildPeg(920, 192)
+    // Stolparna byggs inte längre här: de slumpas ut per runda tillsammans med
+    // dynorna (`_samplaBana`). Satt de fast på y=192 låg de i kulans SERVERINGS-höjd,
+    // och ägarens speltest sa precis det: "stolparna var omöjliga att träffa".
+    this._pegs = []
 
     // Banelement: tunnel (hål i sidoväggarna), två studsfenor och snurran över
     // dränet. Tillsammans gör de bordet till en resa i stället för ett platt fält.
@@ -433,16 +454,18 @@ export default {
     this._tunnels.push({ x: def.x, y: def.y, ejectX: def.ejectX, view: c, rim })
   },
 
-  // Liten kromad stolpe (rent studsobjekt, inget mål).
+  // Liten kromad stolpe (rent studsobjekt, inget mål). Ritas i EGNA koordinater och
+  // placeras med `position` — den byggs om varje runda och måste kunna rivas.
   _buildPeg(x, y) {
     const g = new Graphics()
-      .ellipse(x + 2, y + 12, 17, 6)
+      .ellipse(2, 12, 17, 6)
       .fill({ color: 0x000000, alpha: 0.3 })
-      .circle(x, y, 17)
+      .circle(0, 0, 17)
       .fill(0x9fb3d9)
       .stroke({ width: 3, color: 0x4a5a80 })
-      .circle(x - 5, y - 6, 6)
+      .circle(-5, -6, 6)
       .fill({ color: COLORS.white, alpha: 0.75 })
+    g.position.set(x, y)
     g.eventMode = 'none'
     this._root.addChild(g)
     // `studs` (V10b), inte `restitution`: matters `Body.setStatic` nollar restitution på en
@@ -451,7 +474,11 @@ export default {
     // saknar en egen impuls; dynan har `_kickOff`, fenan `_fireFin`, snurran `_spinHit`, och
     // där hade en väckt studs blivit en dubblering. MÄTT (`_flipperprobe.mjs`, naken fysik med
     // spelets geometri): hoppet 59,4 → 75,4 px, parets studs 0,62 → 0,70.
-    this._phys.circle(x, y, 17, { isStatic: true, studs: 0.7, friction: 0.02, label: 'peg' })
+    const body = this._phys.circle(x, y, PEG_R, { isStatic: true, studs: 0.7, friction: 0.02, label: 'peg' })
+    const rec = { view: g, body }
+    this._pegs.push(rec)
+    bounceIn(g)
+    return rec
   },
 
   // Kinematisk paddel: statisk kropp vars vinkel+position räknas om från pivån varje
@@ -540,23 +567,112 @@ export default {
 
   // ---- Runda / nivå -------------------------------------------------------
 
-  // Dyn-positionerna hålls ovanför banelementen: y max 455 (dyna r=46 -> underkant
-  // 501) mot fenornas överkant 476 och snurrans 518. Luckorna är alltså < 56 px,
-  // dvs. TÄTADE — kulan kan inte ta sig in och klämmas fast mellan två ytor.
-  _layoutFor(level) {
-    let pts
-    if (level <= 2) pts = [[MID, 270], [460, 410], [820, 410]]
-    else if (level <= 4) pts = [[MID, 270], [460, 410], [820, 410], [MID, 455]]
-    else if (level <= 6) pts = [[MID, 265], [460, 410], [820, 410], [350, 270], [930, 270], [MID, 455, 'goal']]
-    else {
-      pts = [[MID, 265], [460, 410], [820, 410], [350, 270], [930, 270]]
-      if (level % 2 === 0) pts.push([MID, 455, 'goal'])
+  // BANAN SLUMPAS UT PÅ RIKTIGT (ägarens speltest 2026-08-11: "mer slumpmässigt
+  // utsatta poäng-bumpers utan att de läggs fel eller kolliderar"). Förut fanns fyra
+  // handlagda uppsättningar med ±22 px jitter — samma bana varje gång, bara skakad.
+  //
+  // Reglerna nedan är GEOMETRI, inte smak. Kulan är 56 px i diameter, och därför
+  // finns det bara två SÄKRA sorters mellanrum mellan två ytor:
+  //   · ≥ GAP_FRI  — kulan går igenom med marginal;
+  //   · ≤ GAP_TATT — kulan kan inte ens ta sig IN, alltså kan den inte fastna.
+  // Ett mellanrum DÄREMELLAN är en kil: kulan kryper in och kilas fast, vilket för
+  // ett barn ser ut som att spelet hängt sig. Den regeln fanns redan i den gamla
+  // kodens kommentar men bara som handräknade tal — nu är den ett villkor.
+  //
+  // Dynorna är MINDRE än förut (46 → 36 px radie). Det var ägarens egen ledtråd,
+  // och den är matematiskt riktig: minsta tillåtna centrumavstånd är 2r + GAP_FRI,
+  // alltså 156 px vid r=46 men 136 vid r=36 — det är skillnaden mellan fem och åtta
+  // dynor på samma fält.
+  // Hinderlistan läses ur de LEVANDE kropparna, inte ur handkopierade tal. Första
+  // versionen listade bara snurra, tunnlar och fenor — `_banprobe` hittade då 1 251
+  // kilar mot VÄGGARNA och LANVÄGARNA, som listan aldrig hade hört talas om. En
+  // handskriven hinderlista glömmer alltid något; motorn vet allt som finns.
+  _hinderlista() {
+    const kroppar = this._phys?.world?.bodies || []
+    const ut = []
+    for (const b of kroppar) {
+      if (!b.isStatic || b.label === 'ball') continue
+      if (b.circleRadius) ut.push({ x: b.position.x, y: b.position.y, r: b.circleRadius })
+      else ut.push({ v: b.vertices.map((p) => ({ x: p.x, y: p.y })) })
     }
-    // Jitter redan från nivå 2 (aldrig svårare drän). Startade det först på nivå 7
-    // blev nivå 1↔2, 3↔4 och 5↔6 bokstavligen identiska banor — "blir runda 2
-    // som runda 1?" hade svaret ja, exakt.
-    if (level >= 2) pts = pts.map(([x, y, k]) => [clamp(x + rand(-22, 22), 345, 935), clamp(y + rand(-22, 22), 252, 428), k])
-    return pts
+    // Tunnelmynningarna är RITADE hål utan kropp (insuget är en närhets-koll i
+    // tickern) — motorn känner alltså inte till dem. De måste läggas till för hand.
+    for (const t of TUNNELS) ut.push({ x: t.x, y: t.y, r: TUNNEL_R })
+    return ut
+  },
+
+  _samplaBana(level) {
+    // Fältet: ovanför fenorna/snurran, under serveringen. y0 är inte vald på känsla —
+    // kulan serveras vid y=192 med r=28, så en dyna vars överkant ligger på 234 ger
+    // 14 px till den nyss släppta kulan: TÄTAT, aldrig en kil.
+    const hinder = this._hinderlista()
+    const lagda = []
+    const passar = (x, y, r, kravFri) => {
+      for (const h of hinder) {
+        if (!gapOk(avstandTillKropp(h, x, y) - r)) return false
+      }
+      for (const l of lagda) {
+        const g = Math.hypot(l.x - x, l.y - y) - r - l.r
+        // `kravFri` = kulan ska kunna gå MELLAN dem. Utan kravet gäller kilregeln i
+        // stället: tätt intill duger, mittemellan gör det inte. ⚠️ Skriv aldrig
+        // `g < GAP_TATT` här — det släpper igenom hela kilbandet 46–64.
+        if (kravFri ? g < GAP_FRI : !gapOk(g)) return false
+      }
+      return true
+    }
+    // Bäst-av-N i stället för första bästa: en ren förstaträff klumpar ihop sig, och
+    // "slumpmässigt" ska läsas som utspritt, inte som en hög i ena hörnet.
+    const lagg = (r, kravFri = true) => {
+      let bast = null
+      let bastMinsta = -1
+      for (let i = 0; i < 400; i++) {
+        const x = rand(FIELD.x0, FIELD.x1)
+        const y = rand(FIELD.y0, FIELD.y1)
+        if (!passar(x, y, r, kravFri)) continue
+        const minsta = lagda.length ? Math.min(...lagda.map((l) => Math.hypot(l.x - x, l.y - y))) : 1e9
+        if (minsta > bastMinsta) {
+          bastMinsta = minsta
+          bast = { x, y, r }
+        }
+        if (bast && i > 150) break // tillräckligt utspritt; jaga inte det perfekta
+      }
+      if (bast) lagda.push(bast)
+      return bast
+    }
+
+    // Antalet växer med nivån men tar aldrig slut på plats: lyckas inte samplingen
+    // läggs helt enkelt färre. Ett spel utan mål är otänkbart, ett med en dyna mindre
+    // är bara en lugnare bana.
+    const onskat = clamp(3 + Math.floor((level + 1) / 2), 3, 7)
+    const dynor = []
+    for (let i = 0; i < onskat; i++) {
+      const p = lagg(BUMP_R)
+      if (!p) break
+      dynor.push(p)
+    }
+    // Målet (från nivå 5) läggs på den LÄGSTA dynan — den är svårast att nå, så
+    // rundans sista poäng blir också rundans svåraste.
+    if (level >= 5 && dynor.length) {
+      let lagst = dynor[0]
+      for (const d of dynor) if (d.y > lagst.y) lagst = d
+      lagst.kind = 'goal'
+    }
+
+    // Stolparna: I fältet, inte i det tomma bandet högst upp. Ägaren: "stolparna var
+    // omöjliga att träffa" — och det stämde, de satt på y=192, exakt kulans
+    // serverings-höjd, så kulan startade BREDVID dem och föll förbi.
+    // ORDNINGEN ÄR MÄTT, INTE VALD, och båda naiva ordningarna är fel:
+    // stolpar sist ⇒ de trängs undan och kom med på 1,8 banor av 2;
+    // stolpar först ⇒ de splittrar fältet och nivå 12 kunde få 2 dynor i stället för 7.
+    // Rätt svar är dynorna först och stolparna med en RESERV: får de inte fri passage
+    // tillåts de ligga TÄTT intill en dyna i stället. Ett tätat mellanrum är säkert —
+    // kulan kan inte ta sig in — så priset är noll och båda kommer alltid med.
+    const stolpar = []
+    for (let i = 0; i < 2; i++) {
+      const p = lagg(PEG_R, true) || lagg(PEG_R, false)
+      if (p) stolpar.push(p)
+    }
+    return { dynor, stolpar }
   },
 
   _buildRound(ctx) {
@@ -571,23 +687,39 @@ export default {
       }
     }
     this._bumpers = []
+    // Stolparna slumpas om varje runda de också — riv de gamla först.
+    for (const p of this._pegs || []) {
+      if (p.body) this._phys.removeBody(p.body)
+      if (p.view && !p.view.destroyed) {
+        gsap.killTweensOf(p.view.scale)
+        p.view.destroy({ children: true })
+      }
+    }
+    this._pegs = []
 
-    const layout = this._layoutFor(this._level)
+    const bana = this._samplaBana(this._level)
+    const layout = bana.dynor
     this._total = layout.length
     this._litCount = 0
     this._resolving = false
     this._sinceLit = 0
     this._buildMeter()
 
+    for (const s of bana.stolpar) this._buildPeg(s.x, s.y)
+
     layout.forEach((pt, i) => {
-      const [x, y, kind] = pt
+      const { x, y, kind } = pt
       // Tre dynetyper varvas -> varje bana är en blandning, aldrig fem kloner.
       const tdef = kind === 'goal' ? GOAL_TYPE : BUMPER_TYPES[i % BUMPER_TYPES.length]
       const color = kind === 'goal' ? COLORS.yellow : PLAYFUL[i % PLAYFUL.length]
       const m = makeBumper(color, tdef.kind)
       m.container.position.set(x, y)
+      // `makeBumper` ritar mot radie 46; hela behållaren skalas i stället för att
+      // varje form får ett eget tal, så silhuett, glöd, skugga och motiv krymper
+      // TILLSAMMANS. Skalan sätts FÖRE `bounceIn` — den läser vilo-skalan.
+      m.container.scale.set(BUMP_R / 46)
       this._bumperLayer.addChild(m.container)
-      const body = this._phys.circle(x, y, 46, { isStatic: true, restitution: tdef.rest, friction: 0.02, label: 'bumper', plugin: { idx: i } })
+      const body = this._phys.circle(x, y, BUMP_R, { isStatic: true, restitution: tdef.rest, friction: 0.02, label: 'bumper', plugin: { idx: i } })
       const rec = { view: m.container, glow: m.glow, paint: m.paint, body, color, lit: false, x, y, glowTween: null, tone: tdef }
       // Otänd bumper "andas" svagt i sin glödring — bordet lever även innan man träffat.
       rec.glowTween = breathe(m.glow, { scale: 1.07, duration: 2.2 })
@@ -1112,6 +1244,10 @@ export default {
       b.glowTween?.kill()
       if (b.glow && !b.glow.destroyed) gsap.killTweensOf(b.glow.scale)
       if (b.view && !b.view.destroyed) gsap.killTweensOf(b.view.scale)
+    }
+    // Stolparna byggs om per runda och studsar in — deras tween måste dö med spelet.
+    for (const p of this._pegs || []) {
+      if (p.view && !p.view.destroyed) gsap.killTweensOf(p.view.scale)
     }
     if (this._ballView && !this._ballView.destroyed) gsap.killTweensOf(this._ballView.scale)
     if (this._bobo && !this._bobo.destroyed) {

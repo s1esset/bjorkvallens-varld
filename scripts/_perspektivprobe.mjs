@@ -302,6 +302,67 @@ try {
   ok('kranen-fyller', fullt.surf <= 332, `ytan ${botten.surf} → ${fullt.surf} (fullt = 330)`)
   ok('skummet-overlevde', fullt.foam === fore.foam, `skum ${fore.foam} → ${fullt.foam} genom hela tömningen och påfyllningen`)
 
+  // ---- Schampoflaskorna: tre sorters bubblor, tre riktiga knappar ---------
+  const flaskor = await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+    const ytor = g._soapViews.map((v) => ({ x: v.c.x, ha: { x: v.c.hitArea.x, w: v.c.hitArea.width, h: v.c.hitArea.height } }))
+    const las = () => {
+      const r = []
+      for (let i = 0; i < 3; i++) {
+        g._soap = i
+        r.push({ min: Math.round(g._rMin()), max: Math.round(g._rMax()), antal: g._soapNow().antal })
+      }
+      g._soap = 1
+      return r
+    }
+    const boost0 = g._levelBoost
+    const spann = las()
+    g._levelBoost = 20 // högsta nivåbonusen
+    const spannHog = las()
+    g._levelBoost = boost0
+    return { ytor, spann, spannHog }
+  })
+  const minYta = Math.min(...flaskor.ytor.map((f) => Math.min(f.ha.w, f.ha.h)))
+  const luckor = []
+  for (let i = 1; i < 3; i++) {
+    const a = flaskor.ytor[i - 1]
+    const b = flaskor.ytor[i]
+    luckor.push(b.x + b.ha.x - (a.x + a.ha.x + a.ha.w))
+  }
+  ok('flaskor-P0', minYta >= 96 && Math.min(...luckor) >= 24, `minsta träffyta ${minYta} px (krav 96) · luckor ${luckor.join('/')} px (krav 24)`)
+  // ⚠️ KRÄV INTE HELT SKILDA SPANN. Första versionen gjorde det och blev röd på att den lilla
+  // flaskans HÅLL-max (32) ligger över mellanflaskans TAP-start (28). Det är inget fel: att
+  // hålla är belöningen, och banden får tangera i kanterna. Det som måste hålla är att ett
+  // vanligt TRYCK ger tre tydligt olika storlekar, och att nivåbonusen inte äter skillnaden.
+  const kollaSpann = (sp) => sp[0].min + 8 < sp[1].min && sp[1].min + 8 < sp[2].min && sp[0].max + 20 < sp[1].max && sp[1].max + 5 < sp[2].max
+  const sp = flaskor.spann
+  const spH = flaskor.spannHog
+  ok(
+    'flaskor-storlek',
+    kollaSpann(sp) && kollaSpann(spH) && sp[0].antal === 3,
+    `nivå 0: ${sp.map((q) => q.min + '–' + q.max).join(' · ')} — högsta bonus: ${spH.map((q) => q.min + '–' + q.max).join(' · ')} (liten ×${sp[0].antal})`
+  )
+
+  // Tryck på den lilla flaskan och kontrollera att bubblorna FAKTISKT blir små och många.
+  const litenPt = await toPage({ x: 548, y: 110 })
+  await page.mouse.click(litenPt.x, litenPt.y)
+  await page.waitForTimeout(200)
+  const bubbel = await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+    g._bubbles.forEach((b) => b.view && !b.view.destroyed && b.view.destroy())
+    g._bubbles.length = 0
+    g._level = 8
+    g._applyLevel() // högsta nivåbonus — den får inte äta upp skillnaden mellan flaskorna
+    g._zackePointerDown(g._ctx, { global: { x: 430, y: 340 } })
+    g._releaseBubble(g._ctx)
+    return { vald: g._soap, n: g._bubbles.length, r: g._bubbles.map((b) => Math.round(b.r)) }
+  })
+  ok(
+    'liten-flaska-verkar',
+    bubbel.vald === 0 && bubbel.n >= 3 && Math.max(...bubbel.r) <= 34,
+    `vald flaska ${bubbel.vald} · ${bubbel.n} bubblor med radie ${bubbel.r.join('/')} (mellanflaskans egen start är 28)`
+  )
+
   // 8. Mållinjen under rullkanten på alla nivåer.
   const RIM_BOT = 253 // rullkantens underkant inkl. stroke
   const goals = []

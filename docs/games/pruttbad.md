@@ -81,9 +81,10 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   barnet kontroll över nivån i båda riktningar, vilket spelet i dag saknar helt.
   ⚠️ P0 MOTGÅNG: att tömma får aldrig nollställa framsteg — skummet/målet ska överleva en tömning.
   *(Gjort och mätt: skum 30 → 30 genom en full tömning OCH påfyllning.)*
-- **[Medium] Tre schampoflaskor i olika storlek → olika bubbelstorlek.** Barnet **trycker själv på
-  en flaska** för att hälla i bubbelmedel; liten flaska ger små bubblor, stor ger stora. Hyllan har
-  redan en schampoflaska ritad — utöka till tre och gör dem till riktiga knappar (≥96 px träffyta).
+- ~~**[Medium] Tre schampoflaskor i olika storlek → olika bubbelstorlek.**~~ ✅ 2026-08-11, se §5.
+  Barnet **trycker själv på en flaska** för att hälla i bubbelmedel; liten flaska ger små bubblor,
+  stor ger stora. Hyllan har redan en schampoflaska ritad — utöka till tre och gör dem till
+  riktiga knappar (≥96 px träffyta). *(Gjort och mätt: 96 px ytor med 24/24 px luckor.)*
 - **[Deep] Badankan omfördelar vatten och bubblor.** Flyttar man ankan ska **vattnet svara**:
   undanträngd volym, vågor som sprids, bubblor som skjuts undan och samlas där ankan inte är.
   Ankan har redan en roll (studs + bonus-skum) — det här gör henne till en riktig aktör i vätskan.
@@ -141,6 +142,34 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   lugn och rikedom; behåll den befintliga ljud-strypningen.
 
 ## 5. Status / loggar
+
+- 2026-08-11 🧴 **TRE SCHAMPOFLASKOR — barnet väljer sorts bubblor** (v1.147.0).
+  Ägarens §4-punkt 3. Hyllan bar en ritad schampoflaska som var ren dekor; nu står tre flaskor
+  i olika storlek där och de är **riktiga knappar**. Ett tryck lutar flaskan, häller en stråle
+  bubbelmedel ner i badet, säger vad man valde och lyfter flaskan med en ring runt sig.
+  - **liten** 17–32 px, och **tre bubblor per tryck** · **mellan** 28–70 (spelets gamla
+    beteende) · **stor** 46–96. Tak 100 px oavsett flaska och nivå.
+  - ⚠️ **`antal` finns för att valet inte ska vara ett sämre och ett bättre alternativ.** Skum
+    per popp växer med radien, så den stora flaskan hade annars varit strikt bäst och de två
+    andra bara långsammare vägar till samma sak. Små bubblor kommer dessutom i klunga i
+    verkligheten — tre små per tryck är både den ärliga läsningen av "små bubblor" och det som
+    gör flaskorna till tre SORTER i stället för tre nivåer av samma.
+  - ⚠️ **Nivåbonusen ligger bara på MAXET, inte på startstorleken.** `_levelBoost` går upp till
+    +20 px, och lagd på den lilla flaskans 17 hade den gjort små bubblor större än
+    mellanflaskans egen startstorlek — då är tre flaskor inte tre sorter längre. Bonusen skalas
+    dessutom med flaskan. **Mätt vid högsta bonus: 17–41 · 28–90 · 46–100**, alltså håller
+    skillnaden hela vägen upp.
+  - 🐞 **P0-brott som såg ut som generositet, fångat av mätningen:** träffytorna var först
+    **104 px breda** med 120 px mellan mittpunkterna — vilket ger **16 px lucka**, under P0:s
+    krav på 24. En för STOR träffyta bröt alltså regeln. 96 + 24 = 120 går exakt ihop.
+    **Mätt ur de levande `hitArea`-objekten: 96 px ytor, luckor 24/24.**
+  - Tvålen flyttade ner till kar-kanten och leksaksbåten togs bort: hyllan är interaktiv nu, och
+    inerta prylar mellan tre knappar lär bara barnet att trycka på fel sak.
+  - ⚠️ **Sonden krävde först helt skilda spann** och blev röd på att den lilla flaskans HÅLL-max
+    (32) ligger över mellanflaskans TAP-start (28). Det är inget fel — att hålla är belöningen
+    och banden får tangera i kanterna. Kontrollen mäter nu det som faktiskt påstås.
+  - **MÄTT** (`_perspektivprobe.mjs`, **23/23**) · `check` 0/0 · `test:all` **72/72** ·
+    `_badprobe` 8/8 · `_idleprobe` 0 · `_tystprobe` oförändrat 6 · 3 nya röstklipp (0 failed).
 
 - 2026-08-11 🚿 **PROPP OCH KRAN — barnet styr nivån i båda riktningar** (v1.146.0).
   Ägarens §4-punkt 2. **Vattenytan var en KONSTANT som allt annat byggdes kring** (`SURFACE_Y`

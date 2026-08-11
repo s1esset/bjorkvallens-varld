@@ -130,6 +130,26 @@ function tubPath(g, yTop, yBot, inset = 0, rBot = 54) {
 const BASE = 40 // ritradie; view.scale = r / BASE
 const R_MIN = 28 // snabbt tap ger ändå en rolig bubbla
 const R_MAX = 70
+
+// ---- Bubbelmedlet: tre flaskor, tre sorters bubblor ----------------------
+//
+// Ägaren: *"Tre schampoflaskor i olika storlek → olika bubbelstorlek. Barnet trycker själv på
+// en flaska för att hälla i bubbelmedel; liten flaska ger små bubblor, stor ger stora."*
+//
+// ⚠️ `antal` finns för att valet inte ska vara ett SÄMRE och ett BÄTTRE alternativ. Skum per
+// popp växer med radien, så den stora flaskan skulle annars vara strikt bäst och de två andra
+// bara långsammare vägar till samma sak. Små bubblor kommer dessutom i klunga i verkligheten,
+// så tre små per tryck är både den ärliga läsningen av "små bubblor" och det som gör flaskorna
+// till tre olika SORTER i stället för tre nivåer av samma.
+const SOAPS = [
+  { id: 'liten', min: 17, max: 32, antal: 3, h: 38, w: 32, color: 0x5fc9e8, dark: 0x3aa6c6, say: 'Små bubblor!' },
+  { id: 'mellan', min: R_MIN, max: R_MAX, antal: 1, h: 54, w: 42, color: COLORS.purple, dark: 0x8b6fe0, say: 'Vanliga bubblor!' },
+  { id: 'stor', min: 46, max: 96, antal: 1, h: 72, w: 52, color: 0xff8fb8, dark: 0xe0518a, say: 'Stora bubblor!' },
+]
+// P0 TRÄFFYTA: ≥96 px per flaska och ≥24 px mellan dem ⇒ minst 120 px mellan mittpunkterna.
+const SOAP_X = [548, 668, 788]
+const SOAP_Y = 150 // hyllans ovansida — flaskorna STÅR på den
+const R_CEIL = 100 // tak oavsett flaska och nivå: en bubbla bredare än så fyller halva karet
 const FOAM_K = 0.9 // skum-tillskott per pop = r * FOAM_K
 
 // --- Tvåldropparna vid poppet (lib/vatska.js) -----------------------------
@@ -217,6 +237,8 @@ export default {
     // Vattennivån är numera ett levande värde: proppen sänker den, kranen höjer den.
     this._surf = SURF_FULL
     this._plugOut = false
+    this._soap = 1 // mellanflaskan = spelets gamla bubbelstorlek
+    this._pour = null
     this._fill = 0 // sekunder kvar av ett kranpådrag
     this._swirlPhase = 0
 
@@ -264,6 +286,7 @@ export default {
     // mitt itu. Den prickade LINJEN ligger kvar bakom skummet, så den försvinner under
     // skummet när badet fylls — det är den som ska bli övertäckt, inte markören.
     if (this._goalMarker && !this._goalMarker.destroyed) this._root.addChild(this._goalMarker)
+    this._buildSoaps(ctx) // hyllans tre flaskor
     this._buildTapButton(ctx) // sist av spelytorna: inget får ligga över kranens träffyta
     this._buildHint()
     this._buildProgress()
@@ -451,10 +474,127 @@ export default {
     this._fill = Math.min(2.6, this._fill + 1.1)
     if (this._tapKnob && !this._tapKnob.destroyed) {
       gsap.killTweensOf(this._tapKnob)
+    this._soapTween?.kill()
+    this._soapViews?.forEach((v) => gsap.killTweensOf(v.c))
       gsap.to(this._tapKnob, { rotation: this._tapKnob.rotation + Math.PI, duration: 0.4, ease: 'power2.out' })
     }
     this._sound(ctx, null, 'whoosh', 'kran', 120)
     if (this._surf > SURF_FULL + 6) ctx.services.voice.say('Mer vatten!')
+  },
+
+  // ---- Schampoflaskorna: barnet väljer sorts bubblor ----------------------
+
+  _soapNow() {
+    return SOAPS[clamp(this._soap | 0, 0, SOAPS.length - 1)]
+  },
+
+  // ⚠️ NIVÅBONUSEN LIGGER BARA PÅ MAXET, inte på startstorleken. `_levelBoost` går upp till
+  // +20 px, och lagd på den lilla flaskans 17 hade den gjort små bubblor STÖRRE än
+  // mellanflaskans egen startstorlek — då är tre flaskor inte tre sorter längre. Bonusen
+  // skalas dessutom med flaskan, så den fortsätter betyda lika mycket för var och en.
+  _rMin() {
+    return this._soapNow().min
+  },
+  _rMax() {
+    const s = this._soapNow()
+    return Math.min(R_CEIL, s.max + this._levelBoost * (s.max / R_MAX))
+  },
+
+  _buildSoaps(ctx) {
+    this._soapViews = []
+    this._soapHandlers = []
+    // Strålen ritas UNDER flaskorna men över badet — den kommer ju ur flaskan.
+    this._pourGfx = new Graphics()
+    this._pourGfx.eventMode = 'none'
+    this._root.addChild(this._pourGfx)
+    this._soapLayer = new Container()
+    this._root.addChild(this._soapLayer)
+    SOAPS.forEach((s, i) => {
+      const c = new Container()
+      c.position.set(SOAP_X[i], SOAP_Y)
+      const g = new Graphics()
+      // Flaskan står PÅ hyllan: allt ritas uppåt från origo (y=0 = hyllans ovansida).
+      g.roundRect(-s.w / 2, -s.h, s.w, s.h, s.w * 0.3).fill(s.color).stroke({ width: 3, color: s.dark })
+      g.roundRect(-s.w * 0.21, -s.h - 15, s.w * 0.42, 17, 5).fill(s.dark) // kork
+      g.roundRect(-s.w * 0.3, -s.h * 0.66, s.w * 0.6, s.h * 0.36, 6).fill({ color: 0xffffff, alpha: 0.75 }) // etikett
+      // Bubblor på etiketten säger VILKEN sorts bubblor flaskan ger — bilden bär valet,
+      // inte texten (barnet läser inte).
+      const br = s.id === 'liten' ? 3 : s.id === 'mellan' ? 5 : 7
+      for (const [dx, dy] of [
+        [-0.22, -0.5],
+        [0.05, -0.56],
+        [0.24, -0.44],
+      ]) {
+        g.circle(s.w * dx, -s.h * 0.5 + s.h * (dy + 0.5) * 0.3, br).fill({ color: s.dark, alpha: 0.85 })
+      }
+      g.eventMode = 'none'
+      c.addChild(g)
+      // Vald flaska lyfts och får en ring — tillståndet måste synas utan text.
+      const ring = new Graphics()
+      ring.roundRect(-s.w / 2 - 9, -s.h - 24, s.w + 18, s.h + 30, 16).stroke({ width: 5, color: COLORS.teal })
+      ring.eventMode = 'none'
+      ring.visible = false
+      c.addChild(ring)
+      c.eventMode = 'static'
+      c.cursor = 'pointer'
+      // P0: träffytan är 96×128 px oavsett hur liten flaskan är RITAD — den lilla flaskan får
+      // absolut inte bli svårare att träffa än den stora.
+      // ⚠️ BREDDEN ÄR EXAKT 96, INTE MER. P0 kräver BÅDE ≥96 px yta OCH ≥24 px mellan ytorna,
+      // och mittpunkterna ligger 120 px isär (`SOAP_X`). 104 px breda ytor gav 16 px lucka —
+      // ett P0-brott som såg ut som generositet. 96 + 24 = 120 går exakt ihop.
+      c.hitArea = new Rectangle(-48, -116, 96, 128)
+      const h = (e) => this._pickSoap(ctx, i, e)
+      c.on('pointertap', h)
+      this._soapHandlers.push(h)
+      this._soapViews.push({ c, ring, s })
+      this._soapLayer.addChild(c)
+    })
+    this._setSoapView()
+  },
+
+  _setSoapView() {
+    this._soapViews?.forEach((v, i) => {
+      const vald = i === this._soap
+      if (!v.ring.destroyed) v.ring.visible = vald
+      if (!v.c.destroyed) {
+        gsap.killTweensOf(v.c)
+        gsap.to(v.c, { y: SOAP_Y - (vald ? 8 : 0), duration: 0.24, ease: 'power2.out' })
+      }
+    })
+  },
+
+  _pickSoap(ctx, i, e) {
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
+    this._idle = 0
+    this._touched = true
+    this._hideHint()
+    this._soap = i
+    this._setSoapView()
+    const s = SOAPS[i]
+    // Flaskan LUTAR sig och häller — utan hällningen är den bara en knapp som byter ett tal.
+    const v = this._soapViews[i]
+    if (v && !v.c.destroyed) {
+      gsap.killTweensOf(v.c)
+      this._soapTween = gsap.to(v.c, { rotation: 0.5, duration: 0.22, yoyo: true, repeat: 1, ease: 'sine.inOut' })
+    }
+    this._pour = { x: SOAP_X[i], t: 0.85, color: s.color }
+    this._sound(ctx, null, 'whoosh', 'hall', 120)
+    ctx.services.voice.say(s.say)
+    puff(ctx.fxLayer, SOAP_X[i], SOAP_Y + 30, { count: 6, color: s.color })
+  },
+
+  // Strålen bubbelmedel ner i badet efter ett flasktryck.
+  _drawPour(ctx, dts) {
+    const g = this._pourGfx
+    if (!g || g.destroyed) return
+    g.clear()
+    const p = this._pour
+    if (!p || p.t <= 0) return
+    p.t -= dts
+    g.roundRect(p.x - 6, SOAP_Y + 22, 12, this._surf - SOAP_Y - 22, 6).fill({ color: p.color, alpha: 0.8 })
+    g.roundRect(p.x - 2, SOAP_Y + 22, 4, this._surf - SOAP_Y - 22, 2).fill({ color: 0xffffff, alpha: 0.45 })
+    if (Math.random() < 0.3) ripple(ctx.fxLayer, p.x, this._surf, { color: p.color, maxR: 52, alpha: 0.55 })
   },
 
   // ---- Gömt fynd i skummet ------------------------------------------------
@@ -558,19 +698,16 @@ export default {
     g.rect(0, ROOM_FLOOR, 1280, 9).fill(0xc4d5dc)
     for (let x = 40; x < 1280; x += 128) g.rect(x, ROOM_FLOOR + 9, 5, 720 - ROOM_FLOOR - 9).fill({ color: 0xc4d5dc, alpha: 0.7 })
 
-    // Hylla ovanför karet (fri från Zackes hår och mållinjens flagga).
-    g.roundRect(560, 150, 262, 15, 7).fill(0xe8d3b0).stroke({ width: 3, color: 0xc9ac82 })
-    // Schampoflaska.
-    g.roundRect(584, 96, 42, 54, 13).fill(COLORS.purple).stroke({ width: 3, color: 0x8b6fe0 })
-    g.roundRect(596, 82, 18, 16, 6).fill(0x8b6fe0)
-    g.roundRect(592, 112, 26, 20, 6).fill({ color: 0xffffff, alpha: 0.75 })
-    // Tvål med skumglans.
-    g.roundRect(648, 120, 56, 30, 14).fill(0xfff3c4).stroke({ width: 3, color: 0xe2cf8e })
-    g.ellipse(666, 130, 12, 6).fill({ color: 0xffffff, alpha: 0.8 })
-    // Leksaksbåt.
-    g.moveTo(730, 150).lineTo(806, 150).lineTo(794, 126).lineTo(742, 126).closePath().fill(COLORS.red).stroke({ width: 3, color: 0xd8504f })
-    g.roundRect(764, 84, 5, 42, 2).fill(0x9a7a55)
-    g.moveTo(769, 86).lineTo(800, 112).lineTo(769, 122).closePath().fill(COLORS.white).stroke({ width: 3, color: 0xd3dde2 })
+    // Hyllan ovanför karet (fri från Zackes hår och mållinjens flagga). Bredare än förut:
+    // tre flaskor med P0:s träffytor kräver 120 px mellan mittpunkterna, alltså 340 px hylla.
+    // Tvålen och leksaksbåten som stod här är borta med flit — hyllan är numera INTERAKTIV,
+    // och inerta prylar mellan tre knappar lär bara barnet att trycka på fel sak.
+    g.roundRect(506, SOAP_Y, 340, 15, 7).fill(0xe8d3b0).stroke({ width: 3, color: 0xc9ac82 })
+    g.roundRect(516, SOAP_Y + 15, 10, 26, 4).fill(0xc9ac82) // hyllkonsoler
+    g.roundRect(826, SOAP_Y + 15, 10, 26, 4).fill(0xc9ac82)
+    // Tvålen flyttade ner till kar-kanten (den är dekor, inte en knapp).
+    g.roundRect(232, 206, 56, 28, 13).fill(0xfff3c4).stroke({ width: 3, color: 0xe2cf8e })
+    g.ellipse(250, 215, 12, 6).fill({ color: 0xffffff, alpha: 0.8 })
 
     // Handduk på stång (fyller den tomma vänsterväggen).
     g.roundRect(46, 150, 128, 13, 6).fill(0xc9d6dd).stroke({ width: 3, color: 0xa2b4bd })
@@ -1126,7 +1263,7 @@ export default {
     this._held = true
     // Laddnings-bubbla vid tryckpunkten på karbotten.
     const view = this._makeBubbleView()
-    const r = R_MIN + this._levelBoost
+    const r = this._rMin()
     view.scale.set(r / BASE)
     view.position.set(x, FLOOR - 30)
     this._bubbleLayer.addChild(view)
@@ -1163,10 +1300,16 @@ export default {
     if (c.view && !c.view.destroyed) c.view.destroy()
     if (this._resolving) return
     this._idle = 0
+    // Den lilla flaskan ger en KLUNGA. Se rutan vid SOAPS: utan den vore stor flaska strikt
+    // bäst (skum per popp växer med radien) och valet bara tre hastigheter av samma sak.
+    const antal = this._soapNow().antal
     this._spawnBubble(c.x, c.r)
+    for (let k = 1; k < antal; k++) {
+      this._spawnBubble(clamp(c.x + (k % 2 ? 1 : -1) * (26 + Math.random() * 30), WALL_L + 30, WALL_R - 30), c.r * (0.8 + Math.random() * 0.3))
+    }
     // Dubbel-prutt på högre nivå → mer skum per tryck (lättare, inte svårare).
     if (this._level >= 2 && Math.random() < 0.35) {
-      this._spawnBubble(clamp(c.x + (Math.random() - 0.5) * 120, WALL_L + 30, WALL_R - 30), Math.max(R_MIN, c.r * 0.7))
+      this._spawnBubble(clamp(c.x + (Math.random() - 0.5) * 120, WALL_L + 30, WALL_R - 30), Math.max(this._rMin(), c.r * 0.7))
     }
     this._sound(ctx, null, 'whoosh', 'whoosh', 90)
   },
@@ -1194,10 +1337,10 @@ export default {
 
   _spawnBubble(x, r) {
     if (!this._alive || this._resolving) return
-    r = clamp(r, R_MIN, R_MAX + this._levelBoost)
+    r = clamp(r, this._rMin(), this._rMax())
     x = clamp(x, WALL_L + r, WALL_R - r)
     // En hålld/stor bubbla blir en GIANT (dubbelt skum); annars ibland en glitterbubbla.
-    const kind = r >= (R_MAX + this._levelBoost) * 0.86 ? 'giant' : Math.random() < 0.1 ? 'glitter' : 'normal'
+    const kind = r >= this._rMax() * 0.86 ? 'giant' : Math.random() < 0.1 ? 'glitter' : 'normal'
     if (kind === 'giant') this._setMood('wow', 1.3)
     this._pushBubble(x, r, 0, kind)
   },
@@ -1392,12 +1535,13 @@ export default {
 
     // Håll-laddning: bubblan växer synligt (direktmanipulation, ingen dold gest).
     if (this._held && this._charging) {
-      this._charging.r = Math.min(R_MAX + this._levelBoost, this._charging.r + (26 / 60) * dt)
+      this._charging.r = Math.min(this._rMax(), this._charging.r + (26 / 60) * dt)
       const v = this._charging.view
       if (v && !v.destroyed) v.scale.set(this._charging.r / BASE)
     }
 
     this._updateLevel(ctx, dts)
+    this._drawPour(ctx, dts)
 
     // Min tillbaka till vila.
     if (this._moodHold > 0) {
@@ -1894,6 +2038,7 @@ export default {
     if (this._waterArea && !this._waterArea.destroyed) this._waterArea.off('pointertap', this._waterTapHandler)
     if (this._plug && !this._plug.destroyed) this._plug.off('pointertap', this._plugTapH)
     if (this._tapBtn && !this._tapBtn.destroyed) this._tapBtn.off('pointertap', this._tapTapH)
+    this._soapViews?.forEach((v, i) => !v.c.destroyed && v.c.off('pointertap', this._soapHandlers[i]))
     if (this._duck && !this._duck.destroyed) {
       this._duck.off('pointerdown', this._duckDownH)
       this._duck.off('globalpointermove', this._duckMoveH)

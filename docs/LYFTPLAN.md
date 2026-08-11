@@ -808,12 +808,42 @@ Före: `FillGradient` (linjär **och** radiell) fanns i Pixi 8.19 och användes 
      `rulla-bollen-hem` (fotbollsplan uppifrån) toppar listan och ska göra det. Sonden är en
      ledtråd; bilden avgör.
 
-   **Kvar:** `tarta-i-ansiktet` · `hamburgerbygget` · `enkelt-pussel` · `vart-tog-det-vagen`
-   ligger nu överst bland de *tveksamma*. Och: en gradient på en 11px-stjärna syns inte, en
-   på ett 90px-klot bär hela bilden — storleken avgör om det är värt en ändring.
-   `rimLight` väntar fortfarande på sin första kund — den är till för figurer som byggs som en
-   **container av flera Graphics**, vilket varken `artikoner.js` eller `foremal.js` (en enda
-   Graphics per föremål) är.
+   **✅ DE FYRA SISTA ÄR KLARA 2026-08-12** — `vart-tog-det-vagen` · `tarta-i-ansiktet` ·
+   `enkelt-pussel` · `hamburgerbygget`. Mätt med `_plattprobe` före/efter:
+
+   | spel | största enskilda fält FÖRE | EFTER | vad som ändrades |
+   |---|---|---|---|
+   | `vart-tog-det-vagen` | **35 160** (`#4aa3df` = den blå muggen) | **23 040** (skalets creme) | muggarna är cylindrar sedda från sidan → `cylinderFill(axis:'y')`, och den handrullade glansremsan är BORTTAGEN |
+   | `tarta-i-ansiktet` | huvudet platt `#fff0e0` | **24 576** (fondens creme) | huvud/hår/näsa/pompom → `sphereFill`, hatt + svamp → `topLightFill` |
+   | `enkelt-pussel` | motiven platta | 28 560 (skalets creme) | sol · kronblad · katthuvud → `sphereFill`, tak/skrov/öron → `topLightFill` |
+   | `hamburgerbygget` | bänk + golv i var sin ton | 25 837 | bänkens framsida och golvet → `groundFill` |
+
+   **Utfallet i en mening:** i de två spel där ett SPELOBJEKT var det största platta fältet är
+   objektet nu borta ur listan, och det som ligger överst är i stället skalets egen creme-
+   bakgrund respektive en medvetet lugn fond. Det är rätt ställe att sluta.
+
+   ⚠️ **Samma near-white-fälla som `groundFill` varnar för gäller `sphereFill` och
+   `topLightFill` också.** Clownens hud är `0xfff0e0`, och standardens 32 % mörkning gjorde
+   kanten **grågrumlig** i stället för varm creme — testet var grönt hela tiden, det syntes
+   bara i skärmdumpen. Ljusa ytor vill ha ~0,08–0,16, inte standardvärdena. Samma sak i
+   `enkelt-pussel`s husvägg (`COLORS.cream`) och `hamburgerbygget`s ljusa bänk.
+   ⚠️ **`hamburgerbygget`s "bänkskiva 48 525 px" (N12) var ett INAKTUELLT tal.** I dagens
+   skärmdump är bänken inte spelets största fält alls — de vita panelerna är det, och de ska
+   förbli platta (P0: paneler bär text). Ändringen är gjord och är rätt, men vinsten är liten;
+   den som letar stora ytor i det spelet ska mäta om först.
+
+   Och: en gradient på en 11px-stjärna syns inte, en på ett 90px-klot bär hela bilden —
+   storleken avgör om det är värt en ändring.
+
+   ❌ **`rimLight` är STRUKEN som "väntar på sin första kund" — den närmaste kandidaten
+   mättes och föll.** `tarta-i-ansiktet`s clown är precis den form raden efterlyste (en
+   container av flera Graphics, huvudet 300 px), men `rimLight(150)` lägger sin glansfläck
+   på centrum (−48, −51) med radie 51, och vänstra ögat sitter på (−58, −45) med radie 28 —
+   avståndet mellan centrumen är **11,7 px**, så ögats yttersta punkt (39,7 px) ligger **helt
+   inne i** en vit ellips på 50 % alfa. Glansen skulle alltså läggas ovanpå ansiktet.
+   **Lärdomen är generell:** `rimLight` passar en container vars STORA form är slät —
+   inte en figur vars stora form bär ögon, mun och detaljer. På ett ansikte gör `sphereFill`
+   redan hela jobbet, eftersom dess ljus ligger i fyllningen och inte ovanpå barnen.
 
 `DESIGN.md §4` fick tillägget att gradienter är **fyllningar**, inte filter — ingen konflikt
 med lip-tricket, som fortfarande äger allt tryckbart i skalet.

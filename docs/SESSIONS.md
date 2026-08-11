@@ -14,6 +14,83 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.151.0 · Kontexten kan vägras — och de sista gradienterna
+
+**Byggt:** nattkörningens varv VII. Två punkter: ÅTGÄRDER **V15** (som låg öppen med tre
+obesvarade frågor) och nattköns **N6** (LYFTPLAN C1:s fyra sista spel).
+
+**V15 — `glittergrottan` dog vid start ~23 % av gångerna, ENSAM.** Föregående session mätte
+symptomet (3 fall av 10) men inte orsaken. Sex nya körningar gav 1 fall till, alltså **6 av 26
+sammanlagt** — fyndet är äkta och inte en engångshändelse.
+
+**Diagnosen låg i att läsa konsolen ORDAGRANT: det var TVÅ olika fel, inte ett.**
+
+| # | rad | vad den betyder |
+|---|---|---|
+| 1 | `Could not create a WebGL context … GL_VENDOR = Disabled … BindToCurrentSequence failed` | GPU-processen hinner inte binda; webbläsaren kör helt utan GPU |
+| 2 | `Web page caused context loss and was blocked` | **Chromes egen spärr**, som slår till EFTER fel 1 och gäller SIDAN |
+
+Nummer 2 förklarar varför inget omförsök hjälper — och den förutsägelsen höll: omtagningarna
+räddade **0 av 2** fall. Två spår mättes bort innan en rad kod skrevs: **attributen är
+oskyldiga** (32 råa `getContext` över fyra uppsättningar föll 0 gånger — och three gör själv ett
+attributfritt omförsök internt som faller med), och **det är inget kontexttak** (bara EN duk
+finns på sidan när det smäller).
+
+**Tre lärdomar värda mer än fixen:**
+
+1. **Ett bibliotek kan skriva konsolfel innan ditt `catch` körs.** three lyssnar på
+   `webglcontextcreationerror` och `console.error`:ar i lyssnaren; konstruktorn kastar först
+   efteråt. Första versionen av fixen hade full bild, korrekt reservläge — och **rött test av 8
+   konsolfel**. Lösningen är att hämta resursen själv (`getContext` utan lyssnare är tyst) och
+   lämna den färdig: `new WebGLRenderer({ canvas, context })`.
+2. **Sonden mätte fel innan spelet gjorde det.** En DELAD webbläsare över försöken gör spärren
+   till en kaskad — försök 10–12 föll alla, vilket såg ut som 100 % frekvens. `npm run test`
+   startar en färsk webbläsare per körning; sonden måste göra likadant. (Sjätte gången i det
+   här repot som sonden var den trasiga saken.)
+3. **En fix som gör testet grönt får inte göra det tyst.** Reservläget räddar bilden, så
+   körningen blir grön — därför loggas vägran som varningen `ingen-3d-kontext`.
+
+**Byggt:** `sakraRenderare()` i `lib/three3d.js` returnerar `null` i stället för att kasta, och
+`glittergrottan._utan3D()` ritar ett lugnt **fritt läge** med samma kristaller, toner och
+glitter — ingen ordning, inget mål, inget som kan gå fel. Medvetet **inte** en 2D-kopia av
+grottan: ordningsregeln kräver facit-rad, glimmerdjur och grottans ljus, och byggd i 2D vore det
+ett ANNAT spel att underhålla. **Mätt: 6/26 röda → 16/16 gröna**, varav 2 i reservläge (exakt de
+körningar som förut var röda med tom skärm).
+
+**N6 — C1:s fyra sista spel.** Mätt med `_plattprobe` före/efter:
+
+| spel | största platta fält före | efter |
+|---|---|---|
+| `vart-tog-det-vagen` | **35 160** (den blå muggen) | **23 040** (skalets creme) |
+| `tarta-i-ansiktet` | huvudet platt `#fff0e0` | ut ur listan (**24 576** = fonden) |
+| `enkelt-pussel` | motiven platta | 28 560 (skalets creme) |
+| `hamburgerbygget` | bänk + golv i var sin ton | 25 837 |
+
+I de två spel där ett SPELOBJEKT var största fältet är objektet borta ur listan, och överst
+ligger nu skalets egen bakgrund. Det är rätt ställe att sluta.
+
+⚠️ **Near-white-fällan gäller alla fyllningarna, inte bara `groundFill`.** Clownens hud
+(`0xfff0e0`) blev **grågrumlig** av standardens 32 % mörkning — grönt test hela tiden, det syntes
+bara i skärmdumpen. Ljusa ytor vill ha ~0,08–0,16.
+❌ **`rimLight` är struken som "väntar på sin första kund", med mätning:** på clownen hamnar hela
+vänstra ögat inne i glansfläcken (avstånd mellan centrumen 11,7 px, ögats ytterpunkt 39,7 px,
+fläckens radie 51 px). Den passar en container vars STORA form är slät — inte ett ansikte.
+
+**Ny sond:** `scripts/_kontextprobe.mjs` — attribut-armarna växelvis · `--spel` (färsk
+webbläsare per försök, konsolen ordagrant) · `--reserv` (tvingar fram vägran genom hela den
+riktiga vägen, 5/5).
+
+**Commits:** `3478be9` fix(glittergrottan) kontexten kan vagras · `24b4b79`
+feat(vart-tog-det-vagen) muggarna ar cylindrar · `d002341` feat(tarta-i-ansiktet) clownen far
+volym · `362ce21` feat(enkelt-pussel) motiven far volym · `ceb60e8` feat(hamburgerbygget) banken
+och golvet
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 · `_kontextprobe --reserv` 5/5 ·
+16/16 gröna glittergrottan-körningar · röstkön tom.
+**Öppet:** ägarkön tom. Nattkön står på **N7** (LYFTPLAN C4: additiv glöd — kräver att listans
+sju kandidater läses om mot BÅDA villkoren, mörk botten OCH takhöjd i källan).
+
+---
+
 ## 2026-08-11 · v1.150.0 · Pruttbadets sista lista: bubblorna tar plats, skummet blev skum
 
 **Byggt:** ägaren godkände `flipperspel` v1.144.0 ("spelat och ser bra ut") och bad om

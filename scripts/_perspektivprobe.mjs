@@ -216,6 +216,92 @@ try {
   })
   ok('bubbelresan', resa.ms > 300 && resa.ms < 4000, `föds y=${resa.start} → popp på ${resa.ms} ms (median av ${resa.alla.join('/')}, r=34)`)
 
+  // ---- Propp och kran: kontroll över nivån i BÅDA riktningar --------------
+  const niva = () =>
+    page.evaluate(async () => {
+      const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+      return {
+        surf: Math.round(g._surf),
+        plug: !!g._plugOut,
+        foam: Math.round(g._foam.level),
+        goalFoam: g._goalFoam,
+        goalY: Math.round(g._goalY),
+        duckY: Math.round(g._duckBase.y),
+        tvalTop: Math.round(g._tval?.bounds.top ?? -1),
+        hit: Math.round(g._waterArea?.hitArea?.y ?? -1),
+        skattY: Math.round(g._treasureLayer?.y ?? -999),
+      }
+    })
+
+  // ⚠️ STARTA OM SPELET FÖRST. Kontrollerna ovan poppar bubblor, och bubblor ger skum:
+  // första versionen av det här blocket ärvde 415 skum mot ett mål på 70, alltså hade
+  // rundan redan KLARATS när proppen skulle testas — och `_togglePlug` avvisar (med kvitto)
+  // medan firandet pågår. Fyra röda som alla var sondens eget fel.
+  await leave()
+  await setLevel(0)
+  await open()
+  await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+    g._foam.level = 30 // en bit på väg mot målet (70), utan att gå via _addFoam och klara rundan
+    g._drawFoam()
+  })
+  const fore = await niva()
+
+  // Dra ut proppen.
+  const plugPt = await toPage({ x: 900, y: 574 })
+  await page.mouse.click(plugPt.x, plugPt.y)
+  // Kostnaden för en levande nivå: vatten, toning, skum och mållinje ritas om varje bildruta
+  // medan det rinner. Mät den MEDAN det rinner — efteråt är allt statiskt igen och siffran
+  // säger ingenting.
+  const fps = await page.evaluate(
+    () =>
+      new Promise((res) => {
+        let n = 0
+        const t0 = performance.now()
+        const steg = () => {
+          n++
+          if (performance.now() - t0 < 1500) requestAnimationFrame(steg)
+          else res(Math.round((n * 1000) / (performance.now() - t0)))
+        }
+        requestAnimationFrame(steg)
+      })
+  )
+  ok('fps-medan-det-rinner', fps >= 50, `${fps} fps medan vatten+toning+skum+mållinje ritas om varje bildruta`)
+  await page.waitForTimeout(1300)
+  const tomt = await niva()
+  if (shot) writeFileSync(shot.replace(/\.png$/, '') + '-tomt.png', await page.screenshot())
+  ok('proppen-tommer', tomt.plug && tomt.surf > fore.surf + 60, `ytan ${fore.surf} → ${tomt.surf} (propp ute: ${tomt.plug})`)
+  ok(
+    'tomning-kostar-inget',
+    tomt.foam === fore.foam && tomt.goalFoam === fore.goalFoam,
+    `skum ${fore.foam} → ${tomt.foam} · mål ${fore.goalFoam} → ${tomt.goalFoam} (P0: en tömning får aldrig nollställa framsteg)`
+  )
+  ok(
+    'allt-foljer-nivan',
+    tomt.duckY > fore.duckY + 60 && tomt.goalY > fore.goalY + 60 && tomt.tvalTop > fore.tvalTop + 60 && tomt.hit > fore.hit + 60 && tomt.skattY > 60,
+    `anka ${fore.duckY}→${tomt.duckY} · mållinje ${fore.goalY}→${tomt.goalY} · tvålband ${fore.tvalTop}→${tomt.tvalTop} · träffyta ${fore.hit}→${tomt.hit} · fyndlager ${tomt.skattY}`
+  )
+
+  // Tömningen har ett TAK — den får aldrig tömma karet helt.
+  await page.waitForTimeout(3000)
+  const botten = await niva()
+  ok('tomningens-tak', botten.surf <= 470 && botten.surf >= 460, `ytan bottnar på ${botten.surf} (taket 468)`)
+
+  // Kranen fyller på igen OCH sätter tillbaka proppen (de får aldrig slåss).
+  const kranPt = await toPage({ x: 920, y: 180 })
+  await page.mouse.click(kranPt.x, kranPt.y)
+  await page.waitForTimeout(400)
+  const fyller = await niva()
+  ok('kranen-satter-proppen', !fyller.plug, `propp ute efter kran-tryck: ${fyller.plug} (ska vara false)`)
+  for (let i = 0; i < 6; i++) {
+    await page.mouse.click(kranPt.x, kranPt.y)
+    await page.waitForTimeout(360)
+  }
+  await page.waitForTimeout(600)
+  const fullt = await niva()
+  ok('kranen-fyller', fullt.surf <= 332, `ytan ${botten.surf} → ${fullt.surf} (fullt = 330)`)
+  ok('skummet-overlevde', fullt.foam === fore.foam, `skum ${fore.foam} → ${fullt.foam} genom hela tömningen och påfyllningen`)
+
   // 8. Mållinjen under rullkanten på alla nivåer.
   const RIM_BOT = 253 // rullkantens underkant inkl. stroke
   const goals = []

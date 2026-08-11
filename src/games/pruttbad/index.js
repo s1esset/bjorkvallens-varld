@@ -53,8 +53,25 @@ const arcPath = (g, cx, cy, r, a0, a1) => g.moveTo(cx + Math.cos(a0) * r, cy + M
 // ytan, och sidan mot kameran är genomskinlig — bara dess kant och glans ritas, så
 // vattnet, skummet, Zackes ben och fyndet syns igenom den.
 // Mätt av `scripts/_perspektivprobe.mjs`.
-const SURFACE_Y = 330 // vattenytan = pop-linje + lyftkraftens nollinje.
-// ⚠️ RÖRS ALDRIG — skummet, mållinjen, mätaren och tvålbandet är alla byggda kring den.
+// ---- Vattennivån ---------------------------------------------------------
+//
+// Ytan VAR en konstant som allt annat byggdes kring. Ägaren bad om en propp att dra ut och
+// en kran att trycka på — "ger barnet kontroll över nivån i båda riktningar, vilket spelet i
+// dag saknar helt" — och då måste ytan bli ett levande värde (`this._surf`). Allt som ligger
+// I vattnet läser den: vattnet, toningen, skummet, mållinjen, bubblornas popp-linje, ankans
+// flytlinje, tvålbandet, fyndet och kranens droppe.
+//
+// ⚠️ P0 MOTGÅNG: att tömma får ALDRIG nollställa framsteg. `_foam.level` (och därmed mätaren)
+// rörs inte av en tömning — skummet ÅKER MED nivån ner och tillbaka upp, precis som skum gör.
+// Och tömningen har ett TAK: den bottnar på SURF_LOW, så badet kan aldrig bli tomt och
+// bubblorna har alltid någonstans att poppa.
+// ⚠️ DET FINNS INGEN MODULKONSTANT `SURFACE_Y` LÄNGRE, med flit. Varje metod som rör vattnet
+// tar `const SURFACE_Y = this._surf` som första rad. Hade konstanten fått ligga kvar bredvid
+// det levande värdet skulle en glömd rad läsa den TYST och rita vatten på fel höjd; nu blir
+// samma glömska ett ReferenceError som testet fångar direkt.
+const SURF_FULL = 330 // fullt bad
+const SURF_LOW = 468 // så lågt tömningen går — taket på motgången
+const PLUG = { x: 900, y: 588 } // avloppshålet i karbottnen
 const TUB_TOP = 230 // rullkantens ovansida
 const RIM_H = 20 // rullkantens höjd: från sidan är kanten en RULLE, inte en linje
 const IN_TOP = TUB_TOP + RIM_H // insidan (bakväggen) börjar under kanten
@@ -73,11 +90,12 @@ const WALL_R = 1050
 const FLOOR = 604 // bubblornas botten = karets insida (låg på 650, alltså 46 px NEDANFÖR
 // den nya innerbottnen — bubblor hade fötts inne i porslinet)
 const ZACKE_X = 430
-const ZACKE_Y = SURFACE_Y // Zackes origo ligger i vattenytan → magen hamnar i vattenbrynet
+const ZACKE_Y = SURF_FULL // Zackes origo ligger i vattenytan → magen hamnar i vattenbrynet
 const DUCK_R = 66 // ankans kollisionsradie
-const DUCK_FLOAT_Y = SURFACE_Y - 16 // ankan FLYTER: ytan skär hennes skrov, hon svävar inte
+const DUCK_DY = -16 // ankan FLYTER: ytan skär hennes skrov, hon svävar inte. Offset FRÅN ytan,
+// inte en fast höjd — hon åker med när badet töms och fylls (`_floatY()`).
 const DUCK_DIP_MAX = 76 // så djupt går hon att TRYCKA NER innan lyftkraften tar över
-const DUCK_HOME = { x: 800, y: DUCK_FLOAT_Y }
+const DUCK_HOME = { x: 800, y: SURF_FULL + DUCK_DY }
 const SPOUT = { x: 970, y: 236 } // kranens pip — droppen faller härifrån
 
 // Karets insida vid en given höjd. Allt som ligger I karet ritas mot de här två — ritas
@@ -126,7 +144,7 @@ const TVAL_MAX = 120 // partikeltak: sprayen är kort, inte ett kar
 // badrumsväggen, alltså utanför vattnet de kom ifrån (syntes bara på bilden; talen
 // var gröna). Taket ligger nu strax under kar-kanten och är en riktig VÄGG
 // (`walls.top`), så ett tryckskott inte kan kasta en droppe ur badet.
-const TVAL_TOP = SURFACE_Y - 110
+const TVAL_TOP = SURF_FULL - 110 // bandets höjd vid fullt bad; det SKJUTS sedan med nivån
 const TVAL_X0 = 200 // karets insida (samma som vattnets roundRect)
 const TVAL_X1 = 1080
 const MAX_V = 14 // hastighetstak — inget kan skjuta ur karet
@@ -196,6 +214,12 @@ export default {
     this._moodHold = 0
     this._lastSfx = {} // per-ljud strypning (min-intervall) → aldrig sfx varje tick
 
+    // Vattennivån är numera ett levande värde: proppen sänker den, kranen höjer den.
+    this._surf = SURF_FULL
+    this._plugOut = false
+    this._fill = 0 // sekunder kvar av ett kranpådrag
+    this._swirlPhase = 0
+
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._applyLevel()
 
@@ -213,8 +237,10 @@ export default {
     // framsidan ligger FRAMFÖR honom (då sitter han i karet, inte på det).
     this._buildBathroom()
     this._buildTub()
+    this._buildWater() // eget lager: nivån rör sig, karet gör det inte
     this._buildGoal()
     this._buildWaterTap(ctx)
+    this._buildPlug(ctx) // EFTER vatten-träffytan, annars äter den proppens tryck
     this._buildZacke(ctx)
     this._buildTint()
     this._buildBubbleLayer()
@@ -238,6 +264,7 @@ export default {
     // mitt itu. Den prickade LINJEN ligger kvar bakom skummet, så den försvinner under
     // skummet när badet fylls — det är den som ska bli övertäckt, inte markören.
     if (this._goalMarker && !this._goalMarker.destroyed) this._root.addChild(this._goalMarker)
+    this._buildTapButton(ctx) // sist av spelytorna: inget får ligga över kranens träffyta
     this._buildHint()
     this._buildProgress()
 
@@ -253,6 +280,23 @@ export default {
   // ---- Nivå-skalning ------------------------------------------------------
 
   _applyLevel() {
+    // Ett NYTT bad är ett fullt bad: nivån och proppen nollställs med rundan. (Det här är
+    // inte en bestraffning — proppen är en lek, och en ny runda ska börja likadant varje
+    // gång så barnet känner igen sig.)
+    this._surf = SURF_FULL
+    this._fill = 0
+    this._plugOut = false
+    this._setPlugView()
+    if (this._treasureLayer && !this._treasureLayer.destroyed) this._treasureLayer.y = 0
+    if (this._tval) {
+      this._tval.bounds.top = TVAL_TOP
+      this._tval.bounds.bottom = SURF_FULL + 30
+    }
+    if (this._waterArea?.hitArea) {
+      this._waterArea.hitArea.y = SURF_FULL
+      this._waterArea.hitArea.height = FLOOR - SURF_FULL + 20
+    }
+    const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     this._bathNow = BATHS[Math.abs(this._level | 0) % BATHS.length]
     this._goalFoam = 70 + this._level * 18
     // Linjen får inte krypa upp i kar-kanten. Skummet ritas i ANDEL av vägen hit
@@ -262,6 +306,7 @@ export default {
     this._goalY = clamp(SURFACE_Y - this._goalFoam, GOAL_MIN, SURFACE_Y - 40)
     this._levelBoost = Math.min(this._level * 4, 20) // större standardbubblor på högre nivå
     this._drawTub(this._tubGfx)
+    this._drawWater()
     this._drawTint(this._tintGfx)
     this._placeTreasure()
     // Dropparna bär rundans färg — annars regnar ljusblå tvål i ett jordgubbsbad.
@@ -272,12 +317,153 @@ export default {
     this._tval?.clear() // nytt kar → inga droppar kvar i luften från förra rundan
   },
 
+  // Ankans flytlinje — en FUNKTION av nivån, inte en konstant. Töms badet åker hon med ner.
+  _floatY() {
+    return this._surf + DUCK_DY
+  },
+
+  // Mållinjen hänger i ytan: skummet mäts från ytan och uppåt, så sjunker vattnet måste
+  // linjen sjunka lika mycket, annars går rundan inte att klara med ett halvfullt bad.
+  // (`_goalFoam` — alltså SVÅRIGHETEN — rörs inte. Det är bara var linjen RITAS.)
+  _recomputeGoal() {
+    const SURFACE_Y = this._surf
+    this._goalY = clamp(SURFACE_Y - this._goalFoam, GOAL_MIN, SURFACE_Y - 40)
+    this._drawGoal()
+  },
+
+  // ---- Propp och kran: barnets kontroll över nivån ------------------------
+  //
+  // Ägaren: *"En propp i botten som dras ut → vattnet rinner ur … gör kranen tryckbar så
+  // vattnet fylls på. Ger barnet kontroll över nivån i båda riktningar, vilket spelet i dag
+  // saknar helt."*
+  //
+  // ⚠️ DE TVÅ KONTROLLERNA FÅR ALDRIG SLÅSS. Att låta kranen fylla medan proppen är ur ger
+  // ett dragkamps-läge där nivån knappt rör sig och ingendera knappen ser ut att fungera —
+  // för ett barn som inte kan läsa är det bara två trasiga knappar. Ett kranpådrag sätter
+  // därför tillbaka proppen (synligt, med ljud). Kvar blir en regel som går att lära sig på
+  // en runda: kran = mer vatten, propp = mindre.
+  _buildPlug(ctx) {
+    const c = new Container()
+    c.position.set(PLUG.x, PLUG.y)
+    // ⚠️ EN SVART GUMMIPROPP FÖRSVINNER I DJUPT VATTEN. Första formen var mörkgrå mot
+    // badets mörkaste parti och gick knappt att se — och en kontroll ett barn inte hittar
+    // är ingen kontroll. Röd propp med mässingsring: den enda varma fläcken under ytan.
+    const g = new Graphics()
+    g.roundRect(-26, -22, 52, 32, 14).fill(0xe8503f).stroke({ width: 5, color: 0xb93a2c })
+    g.ellipse(0, -22, 26, 10).fill(0xf4705f).stroke({ width: 4, color: 0xb93a2c })
+    g.ellipse(-8, -25, 9, 4).fill({ color: 0xffffff, alpha: 0.5 })
+    g.circle(0, -38, 11).stroke({ width: 6, color: 0xe0b45c }) // ring att dra i
+    g.moveTo(0, -49).lineTo(0, -64).stroke({ width: 5, color: 0xe0b45c, cap: 'round' }) // kedja
+    g.eventMode = 'none'
+    c.addChild(g)
+    c.eventMode = 'static'
+    c.cursor = 'pointer'
+    c.hitArea = new Circle(0, -14, 56) // träffyta-diameter 112 px
+    this._plugTapH = (e) => this._togglePlug(ctx, e)
+    c.on('pointertap', this._plugTapH)
+    this._plug = c
+    this._root.addChild(c)
+
+    // Virveln över hålet medan det rinner ur — egen Graphics, ritas om per bildruta.
+    this._swirlGfx = new Graphics()
+    this._swirlGfx.eventMode = 'none'
+    this._swirlGfx.visible = false
+    this._root.addChild(this._swirlGfx)
+  },
+
+  _togglePlug(ctx, e) {
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
+    this._idle = 0
+    this._touched = true
+    this._hideHint()
+    this._plugOut = !this._plugOut
+    this._setPlugView()
+    if (this._plugOut) {
+      this._sound(ctx, 'plopp', 'pop', 'plopp', 90)
+      ctx.services.voice.say('Vattnet rinner ut!')
+      ripple(ctx.fxLayer, PLUG.x, PLUG.y, { color: COLORS.white, maxR: 70, alpha: 0.5 })
+    } else {
+      this._sound(ctx, 'plopp', 'soft', 'plopp', 90)
+      ctx.services.voice.say('Proppen i!')
+      puff(ctx.fxLayer, PLUG.x, PLUG.y, { count: 6, color: 0xbfefff })
+    }
+  },
+
+  // Proppen LYFTS ur hålet och hänger i sin kedja när den är ute — tillståndet måste synas
+  // utan text, annars är den bara en knapp som ibland gör något.
+  _setPlugView() {
+    const p = this._plug
+    if (!p || p.destroyed) return
+    // ⚠️ EN URDRAGEN PROPP SKA LIGGA, INTE SVÄVA. Första läget lyfte den 62 px rakt upp i
+    // vattnet, där ingenting håller den — den lästes som ett flytande föremål och inte som
+    // en propp som är ur. Nu ligger den PÅ karbottnen bredvid sitt hål, lutad.
+    gsap.killTweensOf(p)
+    this._plugTween = gsap.to(p, {
+      y: this._plugOut ? PLUG.y - 4 : PLUG.y,
+      x: this._plugOut ? PLUG.x + 62 : PLUG.x,
+      rotation: this._plugOut ? 0.62 : 0,
+      duration: 0.32,
+      ease: 'back.out(2)',
+    })
+    if (this._swirlGfx && !this._swirlGfx.destroyed) this._swirlGfx.visible = this._plugOut
+  },
+
+  // Kranen: knoppen är ett EGET objekt så den kan vridas när man trycker. Träffytan täcker
+  // hela kranen, inte bara knoppen — ett barn siktar på "kranen", inte på en ratt.
+  _buildTapButton(ctx) {
+    const c = new Container()
+    const knob = new Graphics()
+    knob.circle(0, 0, 16).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
+    knob.circle(0, 0, 6).fill({ color: 0xffffff, alpha: 0.6 })
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2
+      knob.moveTo(Math.cos(a) * 8, Math.sin(a) * 8).lineTo(Math.cos(a) * 15, Math.sin(a) * 15).stroke({ width: 3, color: COLORS.orangeDark })
+    }
+    knob.position.set(898, 164)
+    knob.eventMode = 'none'
+    this._tapKnob = knob
+    c.addChild(knob)
+    c.eventMode = 'static'
+    c.cursor = 'pointer'
+    c.hitArea = new Rectangle(862, 140, 148, 112) // träffyta 148×112 px
+    this._tapTapH = (e) => this._openTap(ctx, e)
+    c.on('pointertap', this._tapTapH)
+    this._tapBtn = c
+    this._root.addChild(c)
+
+    this._streamGfx = new Graphics()
+    this._streamGfx.eventMode = 'none'
+    this._root.addChild(this._streamGfx)
+  },
+
+  _openTap(ctx, e) {
+    if (!this._alive) return
+    if (this._resolving) return this._kvitto(ctx, e)
+    this._idle = 0
+    this._touched = true
+    this._hideHint()
+    // Ett pådrag sätter tillbaka proppen — se rutan ovan om varför de två aldrig får slåss.
+    if (this._plugOut) {
+      this._plugOut = false
+      this._setPlugView()
+    }
+    this._fill = Math.min(2.6, this._fill + 1.1)
+    if (this._tapKnob && !this._tapKnob.destroyed) {
+      gsap.killTweensOf(this._tapKnob)
+      gsap.to(this._tapKnob, { rotation: this._tapKnob.rotation + Math.PI, duration: 0.4, ease: 'power2.out' })
+    }
+    this._sound(ctx, null, 'whoosh', 'kran', 120)
+    if (this._surf > SURF_FULL + 6) ctx.services.voice.say('Mer vatten!')
+  },
+
   // ---- Gömt fynd i skummet ------------------------------------------------
   // En badleksak ligger gömd i skummet. När skummet stigit förbi den dyker den upp med
   // gnistor och flyter kvar resten av rundan. Leksakssorten cyklar per nivå, så varje
   // runda har NÅGOT NYTT att upptäcka — det var den andra halvan av kritikerns invändning
   // (rundorna såg likadana ut OCH hade inget nytt i sig).
   _placeTreasure() {
+    const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     // Döda gungningen FÖRE vyn rivs — annars skriver den .y på ett förstört objekt.
     this._treasureBob?.kill()
     this._treasureBob = null
@@ -306,6 +492,10 @@ export default {
   _checkTreasure(ctx, foamTop) {
     const t = this._treasure
     if (!t || t.found || !t.view || t.view.destroyed) return
+    // ⚠️ RÄKNA I FYNDLAGRETS EGEN RAM. Fyndet placeras alltid i ett fullt bad, men lagret
+    // skjuts med nivån när badet töms — jämförs skummets världs-y mot fyndets lager-y
+    // "hittas" fyndet av en tömning i stället för av skum.
+    foamTop -= this._surf - SURF_FULL
     if (foamTop > t.y) {
       t.armed = true // skummet ligger under fyndet — nu räknas en stigning förbi det
       return
@@ -396,8 +586,8 @@ export default {
     g.roundRect(880, 172, 36, 36, 11).fill(0xc9d6dd).stroke({ width: 3, color: 0x9fb2bb })
     g.roundRect(898, 182, 88, 17, 8).fill(0xe4edf1).stroke({ width: 3, color: 0xb4c4cc })
     g.roundRect(962, 190, 17, 46, 8).fill(0xe4edf1).stroke({ width: 3, color: 0xb4c4cc })
-    g.circle(898, 164, 16).fill(COLORS.orange).stroke({ width: 3, color: COLORS.orangeDark })
-    g.circle(898, 164, 6).fill({ color: 0xffffff, alpha: 0.6 })
+    // Knoppen ritas INTE här utan i `_buildTapButton` — den ska kunna vridas när man
+    // trycker, och det som ligger i den här stora statiska Graphics:en kan inte röra sig.
 
     g.eventMode = 'none'
     this._root.addChild(g)
@@ -482,10 +672,34 @@ export default {
     g.ellipse(1016, 298, 17, 12).fill(0xc3d4dc).stroke({ width: 3, color: 0x9db4bf })
     g.ellipse(1016, 298, 9, 6).fill(0x93aab6)
 
-    // ⓸ VATTNET fyller karets INSIDA (samma kontur, 6 px innanför porslinet) — inte en
-    // egen rundad rektangel. Vattnet bär sitt djup i toningens STOPP: ljusare vid ytan,
-    // mörkare mot botten, med samma genomskinlighet som den gamla platta alpha 0.5 i mitten.
-    tubPath(g, SURFACE_Y, TUB_BOT - 4, 6, 48).fill(verticalFillAlpha(this._bath().water, this._bath().water, 0.3, 0.62))
+    // ⓹ AVLOPPSHÅLET i karbottnen — proppen ritas ovanpå det (`_buildPlug`). Ritas här,
+    // alltså UNDER vattnet, så hålet ligger i badet och inte ovanpå det.
+    g.ellipse(PLUG.x, PLUG.y, 30, 13).fill(0x8ea6b2).stroke({ width: 4, color: 0x7b909b })
+    g.ellipse(PLUG.x, PLUG.y + 1, 21, 8).fill(0x53656f)
+  },
+
+  // VATTNET fyller karets INSIDA (samma kontur, 6 px innanför porslinet) — inte en egen
+  // rundad rektangel. Det bär sitt djup i toningens STOPP: ljusare vid ytan, mörkare mot
+  // botten, med samma genomskinlighet som den gamla platta alpha 0.5 i mitten.
+  //
+  // ⚠️ EGEN GRAPHICS, inte en del av `_drawTub`. Nivån rör sig numera varje bildruta medan
+  // det rinner ur eller fylls på, och att rita om fötter, skal, bakvägg och skuggor 60 ggr/s
+  // för att flytta EN kant vore att betala hela karet för vattnets skull.
+  _buildWater() {
+    const g = new Graphics()
+    this._waterGfx = g
+    g.eventMode = 'none'
+    this._root.addChild(g)
+    this._drawWater()
+  },
+
+  _drawWater() {
+    const g = this._waterGfx
+    if (!g || g.destroyed) return
+    g.clear()
+    const s = this._surf
+    if (s >= TUB_BOT - 12) return
+    tubPath(g, s, TUB_BOT - 4, 6, 48).fill(verticalFillAlpha(this._bath().water, this._bath().water, 0.3, 0.62))
   },
 
   // Vattentoning över allt som är UNDER ytan → Zackes kropp och ankan ser
@@ -501,6 +715,8 @@ export default {
   _drawTint(g) {
     if (!g || g.destroyed) return
     g.clear()
+    const SURFACE_Y = this._surf // lokalt alias: allt under läser den LEVANDE ytan
+    if (SURFACE_Y >= TUB_BOT - 12) return
     tubPath(g, SURFACE_Y, TUB_BOT - 4, 6, 48).fill({ color: this._bath().tint, alpha: 0.28 })
     // VATTENYTAN. I sidovy är den här linjen scenens viktigaste streck — den är vad som
     // gör "under vattnet" och "ovanför vattnet" till två olika ställen. Den låg på
@@ -637,6 +853,7 @@ export default {
     this._drawProgress()
     const g = this._foamGfx
     if (!g || g.destroyed) return
+    const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     g.clear()
     if (this._foam.level <= 0) return
     // Andel av vägen till linjen — samma tal som mätaren visar. CROWN är hur högt
@@ -670,6 +887,7 @@ export default {
 
   // Osynlig träffzon över vattnet — alltid kul plopp (ligger UNDER Zacke/anka i z).
   _buildWaterTap(ctx) {
+    const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     const area = new Container()
     area.hitArea = new Rectangle(200, SURFACE_Y, 880, FLOOR - SURFACE_Y + 20)
     area.eventMode = 'static'
@@ -1003,7 +1221,7 @@ export default {
   // inte ett läge man parkerar i.
   _setDuckPos(x, y) {
     this._duckBase.x = clamp(x, WALL_L + DUCK_R, WALL_R - DUCK_R)
-    this._duckBase.y = clamp(y, DUCK_FLOAT_Y, DUCK_FLOAT_Y + DUCK_DIP_MAX)
+    this._duckBase.y = clamp(y, this._floatY(), this._floatY() + DUCK_DIP_MAX)
   },
 
   // Ringen där ankan bryter vattenytan. Utan den svävar hon ovanpå bilden; med den ligger
@@ -1015,7 +1233,7 @@ export default {
     g.ellipse(0, 0, 50, 8).stroke({ width: 4, color: 0xffffff, alpha: 0.6 })
     g.moveTo(-74, 0).lineTo(-56, 0).moveTo(56, 0).lineTo(74, 0).stroke({ width: 3, color: 0xffffff, alpha: 0.35 })
     g.eventMode = 'none'
-    g.position.set(DUCK_HOME.x, SURFACE_Y)
+    g.position.set(DUCK_HOME.x, SURF_FULL)
     this._duckWake = g
     this._root.addChild(g)
   },
@@ -1111,12 +1329,13 @@ export default {
   // Lyftkraft: ankan far upp till ytan igen och guppar in. Plask + kvack bara om hon
   // verkligen var nertryckt, annars låter varje släpp likadant.
   _popUpDuck(ctx) {
-    const dip = this._duckBase.y - DUCK_FLOAT_Y
+    const SURFACE_Y = this._surf
+    const dip = this._duckBase.y - this._floatY()
     if (dip < 6) return
     const st = { y: this._duckBase.y }
     this._duckFloat?.kill()
     this._duckFloat = gsap.to(st, {
-      y: DUCK_FLOAT_Y,
+      y: this._floatY(),
       duration: 0.34 + dip / 300,
       ease: 'back.out(2.6)',
       onUpdate: () => this._setDuckPos(this._duckBase.x, st.y),
@@ -1139,7 +1358,7 @@ export default {
     if (this._duckSelected) {
       this._duckSelected = false
       const tx = clamp(p.x, WALL_L + DUCK_R, WALL_R - DUCK_R)
-      const ty = DUCK_FLOAT_Y // tap-tap glider henne LÄNGS ytan — hon simmar, hon dyker inte
+      const ty = this._floatY() // tap-tap glider henne LÄNGS ytan — hon simmar, hon dyker inte
       const st = { x: this._duckBase.x, y: this._duckBase.y }
       this._duckGlide?.kill()
       this._duckGlide = gsap.to(st, {
@@ -1167,6 +1386,7 @@ export default {
 
   _update(ctx, tk) {
     if (!this._alive) return
+    const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     const dt = Math.min(2.5, tk.deltaMS / 16.67)
     const dts = dt / 60 // sekunder
 
@@ -1176,6 +1396,8 @@ export default {
       const v = this._charging.view
       if (v && !v.destroyed) v.scale.set(this._charging.r / BASE)
     }
+
+    this._updateLevel(ctx, dts)
 
     // Min tillbaka till vila.
     if (this._moodHold > 0) {
@@ -1197,7 +1419,7 @@ export default {
 
     // Anka guppar lätt på ytan.
     this._duckPhase += 0.05 * dt
-    const dip = this._duckBase.y - DUCK_FLOAT_Y
+    const dip = this._duckBase.y - this._floatY()
     if (this._duck && !this._duck.destroyed) {
       // Guppet dör bort när hon hålls nere — en anka som fortfarande studsar 5 px medan
       // den trycks under vattnet ser ut att sväva, inte att hållas.
@@ -1316,8 +1538,91 @@ export default {
     }
   },
 
+  // ---- Nivån rör sig ------------------------------------------------------
+  //
+  // ⚠️ ALLT SOM LIGGER I VATTNET MÅSTE FLYTTA MED, annars lossnar scenen: vattnet, toningen,
+  // skummet, mållinjen, ankan, fyndet, tvålbandet och vatten-träffytan. Det är priset för att
+  // göra ytan levande, och det är billigare att betala på ETT ställe än att upptäcka en
+  // efterbliven detalj i en skärmdump.
+  //
+  // ⚠️ FYLLNADSTAKTEN ÄR SNABBARE ÄN TÖMNINGEN med flit (86 mot 44 px/s). En kran som
+  // knappt hinner ikapp läses som trasig av ett barn som inte kan resonera om hastigheter.
+  _updateLevel(ctx, dts) {
+    const DRAIN = 44
+    const FILL = 86
+    const fore = this._surf
+    if (this._fill > 0) {
+      this._fill = Math.max(0, this._fill - dts)
+      this._surf -= FILL * dts
+    } else if (this._plugOut) {
+      this._surf += DRAIN * dts
+    }
+    this._surf = clamp(this._surf, SURF_FULL, SURF_LOW)
+
+    // Virveln snurrar bara medan det faktiskt rinner (inte när tömningen bottnat).
+    const rinner = this._plugOut && this._surf < SURF_LOW - 0.5
+    this._drawSwirl(rinner, dts)
+    this._drawStream(ctx)
+
+    const d = this._surf - fore
+    if (Math.abs(d) < 0.01) return
+
+    // Ankan åker med nivån — hennes dopp bevaras (differensen, inte ett omklamp till ytan).
+    this._setDuckPos(this._duckBase.x, this._duckBase.y + d)
+    // Fyndet ligger gömt i skummet och skummet ligger på vattnet: hela lagret åker med.
+    // ⚠️ Lagret FLYTTAS i stället för att fyndets y skrivs om — dess gungning är en
+    // repeat:-1-tween som skriver .y på vyn, och två skrivare på samma värde slåss.
+    if (this._treasureLayer && !this._treasureLayer.destroyed) this._treasureLayer.y = this._surf - SURF_FULL
+    // Tvålbandet är ett FÖNSTER kring ytan. Skjut bort det lika mycket åt båda hållen —
+    // rutnätet dimensioneras av bandets HÖJD vid konstruktionen, så höjden får inte ändras.
+    if (this._tval) {
+      this._tval.bounds.top = TVAL_TOP + (this._surf - SURF_FULL)
+      this._tval.bounds.bottom = SURF_FULL + 30 + (this._surf - SURF_FULL)
+    }
+    if (this._waterArea?.hitArea) {
+      this._waterArea.hitArea.y = this._surf
+      this._waterArea.hitArea.height = FLOOR - this._surf + 20
+    }
+    this._drawWater()
+    this._drawTint(this._tintGfx)
+    this._recomputeGoal()
+    this._drawFoam()
+
+    // Ljud medan nivån rör sig: en glidande ton åt det håll vattnet går. Strypt som allt
+    // annat ljud här — annars staplas den 60 ggr/s till distorsion.
+    if (this._fill > 0) this._sound(ctx, null, 'soft', 'rinn', 260)
+    else if (rinner) this._sound(ctx, 'plopp', 'soft', 'rinn', 300)
+  },
+
+  // Virvel över avloppet medan badet rinner ur.
+  _drawSwirl(rinner, dts) {
+    const g = this._swirlGfx
+    if (!g || g.destroyed) return
+    g.visible = this._plugOut
+    if (!g.visible) return
+    this._swirlPhase += dts * (rinner ? 7 : 2)
+    g.clear()
+    for (let i = 0; i < 3; i++) {
+      const a0 = this._swirlPhase + (i * Math.PI * 2) / 3
+      const r = 15 + i * 9
+      arcPath(g, PLUG.x, PLUG.y - 4, r, a0, a0 + 2.1).stroke({ width: 4 - i * 0.6, color: 0xffffff, alpha: 0.5 - i * 0.11 })
+    }
+  },
+
+  // Strålen ur kranen ner i badet medan man fyller på.
+  _drawStream(ctx) {
+    const g = this._streamGfx
+    if (!g || g.destroyed) return
+    g.clear()
+    if (this._fill <= 0) return
+    g.roundRect(SPOUT.x - 7, SPOUT.y, 14, this._surf - SPOUT.y, 7).fill({ color: 0xbfe9fb, alpha: 0.85 })
+    g.roundRect(SPOUT.x - 3, SPOUT.y, 4, this._surf - SPOUT.y, 2).fill({ color: 0xffffff, alpha: 0.5 })
+    if (Math.random() < 0.28) ripple(ctx.fxLayer, SPOUT.x, this._surf, { color: COLORS.white, maxR: 54, alpha: 0.5 })
+  },
+
   // Droppande kran: ren dekor (aldrig skum) — ger rummet liv och ljudlöst tempo.
   _updateDrip(dts) {
+    const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     const g = this._dripGfx
     if (!g || g.destroyed) return
     const d = this._drip
@@ -1348,6 +1653,7 @@ export default {
   },
 
   _popBubble(ctx, b, i) {
+    const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     this._bubbles.splice(i, 1)
     if (b.view && !b.view.destroyed) b.view.destroy()
     if (!this._alive) return
@@ -1404,7 +1710,7 @@ export default {
       // Väggarna är karets insida. Botten ligger strax UNDER ytan — en droppe som
       // hunnit dit dräneras ändå bort i samma bildruta, men spärren finns så inget
       // kan tunnla ut ur bandet om takten hackar.
-      bounds: { left: TVAL_X0, right: TVAL_X1, top: TVAL_TOP, bottom: SURFACE_Y + 30 },
+      bounds: { left: TVAL_X0, right: TVAL_X1, top: TVAL_TOP, bottom: SURF_FULL + 30 },
       walls: { left: true, right: true, bottom: true, top: true },
       restitution: 0.08, // tvål klibbar, den studsar inte
     })
@@ -1421,7 +1727,7 @@ export default {
       // sig själv, vilket är hela poängen med ett stänk.
       threshold: 0.26,
       resolution: 0.5,
-      area: new Rectangle(TVAL_X0 - 20, TVAL_TOP - 24, TVAL_X1 - TVAL_X0 + 40, SURFACE_Y + 44 - (TVAL_TOP - 24)),
+      area: new Rectangle(TVAL_X0 - 20, TVAL_TOP - 24, TVAL_X1 - TVAL_X0 + 40, SURF_FULL + 44 - (TVAL_TOP - 24)),
     })
     this._tvalView.layer.eventMode = 'none'
     this._tvalView.layer.interactiveChildren = false
@@ -1442,6 +1748,7 @@ export default {
   // bubblor som poppar samtidigt får inte äta hela budgeten. Är den slut hoppar vi
   // över stänket helt — en halvritad vätska är sämre än ingen.
   _tvalStank(b) {
+    const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     const w = this._tval
     if (!w) return
     const rum = TVAL_MAX - w.count
@@ -1560,6 +1867,7 @@ export default {
     this._foamTween?.kill()
     this._duckGlide?.kill()
     this._duckFloat?.kill() // lyftkraften skriver via _setDuckPos → måste dö med spelet
+    this._plugTween?.kill() // proppens upp/ner skriver .x/.y på en vy som rivs
     this._goalPulse?.kill() // breathe() tweenar en proxy → måste dödas explicit
     // Fyndets gungning är repeat:-1 och skriver .y på vyn — lever den vidare efter
     // destroy kastar settern varje bildruta (jfr bajs-och-kiss). OVILLKORLIGT.
@@ -1584,6 +1892,8 @@ export default {
       this._zacke.off('pointerupoutside', this._zackeUp)
     }
     if (this._waterArea && !this._waterArea.destroyed) this._waterArea.off('pointertap', this._waterTapHandler)
+    if (this._plug && !this._plug.destroyed) this._plug.off('pointertap', this._plugTapH)
+    if (this._tapBtn && !this._tapBtn.destroyed) this._tapBtn.off('pointertap', this._tapTapH)
     if (this._duck && !this._duck.destroyed) {
       this._duck.off('pointerdown', this._duckDownH)
       this._duck.off('globalpointermove', this._duckMoveH)
@@ -1600,6 +1910,8 @@ export default {
     gsap.killTweensOf(this._hint)
     gsap.killTweensOf(this._hint?.scale)
     gsap.killTweensOf(this._foamGfx)
+    gsap.killTweensOf(this._plug)
+    gsap.killTweensOf(this._tapKnob)
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },

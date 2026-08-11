@@ -75,11 +75,12 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   ⚠️ Vattenytan (`FluidView` + skummet) är byggd som en vågrät linje i sidled — kontrollera att en
   ny karform inte flyttar den, och ta skärmdump före/efter. *(Gjort: ytan ligger kvar på y=330,
   mätt i bild.)*
-- **[Medium] Propp att dra ut, kran att trycka på.** En propp i botten som dras ut → vattnet
-  **rinner ur** (nivån sjunker, virvel vid hålet, ljud). Kranen är redan ritad (droppar ner i badet
-  sedan 2026-08-05) — gör den **tryckbar** så vattnet fylls på. Ger barnet kontroll över nivån i
-  båda riktningar, vilket spelet i dag saknar helt.
+- ~~**[Medium] Propp att dra ut, kran att trycka på.**~~ ✅ 2026-08-11, se §5. En propp i botten
+  som dras ut → vattnet **rinner ur** (nivån sjunker, virvel vid hålet, ljud). Kranen är redan
+  ritad (droppar ner i badet sedan 2026-08-05) — gör den **tryckbar** så vattnet fylls på. Ger
+  barnet kontroll över nivån i båda riktningar, vilket spelet i dag saknar helt.
   ⚠️ P0 MOTGÅNG: att tömma får aldrig nollställa framsteg — skummet/målet ska överleva en tömning.
+  *(Gjort och mätt: skum 30 → 30 genom en full tömning OCH påfyllning.)*
 - **[Medium] Tre schampoflaskor i olika storlek → olika bubbelstorlek.** Barnet **trycker själv på
   en flaska** för att hälla i bubbelmedel; liten flaska ger små bubblor, stor ger stora. Hyllan har
   redan en schampoflaska ritad — utöka till tre och gör dem till riktiga knappar (≥96 px träffyta).
@@ -140,6 +141,51 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   lugn och rikedom; behåll den befintliga ljud-strypningen.
 
 ## 5. Status / loggar
+
+- 2026-08-11 🚿 **PROPP OCH KRAN — barnet styr nivån i båda riktningar** (v1.146.0).
+  Ägarens §4-punkt 2. **Vattenytan var en KONSTANT som allt annat byggdes kring** (`SURFACE_Y`
+  på 30 ställen), så hela poängen med punkten låg i att göra den till ett levande värde.
+  - **Proppen** (röd, med mässingsring) sitter i ett avloppshål i karbottnen. Ett tryck drar
+    ur den → den lägger sig lutad bredvid hålet, en virvel snurrar över hålet och vattnet
+    rinner. Ett tryck till sätter tillbaka den. **Kranen** har fått en träffyta (148×112 px)
+    och en knopp som vrider sig; ett tryck ger en stråle ur pipen ner i badet.
+  - ⚠️ **DE TVÅ KONTROLLERNA FÅR ALDRIG SLÅSS.** Att låta kranen fylla medan proppen är ur
+    ger ett dragkampsläge där nivån knappt rör sig — för ett barn som inte kan läsa är det
+    bara två knappar som inte funkar. Ett kranpådrag **sätter därför tillbaka proppen**,
+    synligt och med ljud. Kvar blir en regel som går att lära sig på en runda.
+    Fyllnadstakten är dessutom snabbare än tömningen med flit (86 mot 44 px/s).
+  - ⚠️ **P0 MOTGÅNG, mätt:** `_foam.level` och `_goalFoam` rörs inte av en tömning —
+    **skum 30 → 30** genom en full tömning och påfyllning. Skummet ÅKER MED nivån ner och
+    tillbaka upp (det är ju vad skum gör), och tömningen har ett **TAK** på y=468, så badet
+    kan aldrig bli tomt och bubblorna har alltid någonstans att poppa. Mållinjen hänger i
+    ytan och sjunker med den, annars gick rundan inte att klara med ett halvfullt bad.
+  - **Så gjordes refaktorn säker:** modulkonstanten `SURFACE_Y` **togs bort helt** i stället
+    för att lämnas kvar bredvid det levande värdet. Varje metod som rör vattnet tar
+    `const SURFACE_Y = this._surf` som första rad — en glömd rad blir då ett ReferenceError
+    som testet fångar, i stället för vatten som tyst ritas på fel höjd.
+  - Vattnet flyttades till en **egen Graphics**: nivån rör sig varje bildruta, och att rita om
+    fötter, skal, bakvägg och skuggor 60 ggr/s för att flytta EN kant vore att betala hela
+    karet för vattnets skull.
+  - ⚠️ **Fyndlagret FLYTTAS, fyndets y skrivs inte om** — dess gungning är en `repeat:-1`-tween
+    som skriver `.y` på vyn, och två skrivare på samma värde slåss. `_checkTreasure` räknar
+    därför i lagrets egen ram; annars hade en TÖMNING "hittat" fyndet i stället för skummet.
+  - ⚠️ **Tvålbandet är ett FÖNSTER kring ytan** och skjuts med den. Bandets HÖJD får inte
+    ändras — `FluidWorld` dimensionerar sitt rutnät ur den vid konstruktionen.
+  - ⚠️ **En svart gummipropp försvinner i djupt vatten.** Första formen var mörkgrå mot badets
+    mörkaste parti; en kontroll ett barn inte hittar är ingen kontroll. Och en urdragen propp
+    ska **ligga, inte sväva** — första läget lyfte den 62 px rakt upp i vattnet där ingenting
+    håller den, vilket lästes som ett flytande föremål snarare än som "proppen är ur".
+  - **MÄTT** (`scripts/_perspektivprobe.mjs`, utökad — **20/20 gröna**): ytan 330 → 454 när
+    proppen dras · allt följer med (anka 314→438 · mållinje 264→384 · tvålband 220→344 ·
+    vatten-träffyta 330→454 · fyndlager +124) · tömningen bottnar på **468** · kranen sätter
+    tillbaka proppen · ytan 468 → 330 igen · **58 fps medan vatten, toning, skum och mållinje
+    ritas om varje bildruta** · 0 konsolfel vid exit.
+  - ⚠️ **Sonden fällde sig själv först:** kontrollerna före poppar bubblor, och bubblor ger
+    skum — blocket ärvde **415 skum mot ett mål på 70**, alltså hade rundan redan klarats när
+    proppen skulle testas (och `_togglePlug` avvisar under firandet). Fyra röda som alla var
+    mätfel. Blocket startar nu om spelet först.
+  - `check` 0 fel/0 varningar · `test:all` **72/72** · `_badprobe` **8/8** · `_idleprobe` **0** ·
+    `_tystprobe` oförändrat 6 kandidater i repot · 3 nya röstklipp genererade (0 failed).
 
 - 2026-08-11 🛁 **RENT SIDOPERSPEKTIV — ägarens §4-punkt, tagen först** (v1.145.0).
   Frågan "uppifrån eller från sidan?" gick att göra mätbar så fort man skrev ner VAD i bilden

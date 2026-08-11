@@ -110,10 +110,11 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
      större) är den enskilt största vinsten här.
   2. **Bubblorna går rakt igenom Zacke.** De passerar genom ben och mage utan att märka honom.
      Han är badets största föremål och det enda som aldrig påverkar dem.
-  3. **Skumkroppen är en platt vit platta under sin krona.** Bubbeltopparna sitter bara på
-     ÖVERKANTEN; allt därunder är en solid vit rektangel som läser som ett band, inte som skum.
-  4. **Flyt-texterna staplas.** "Blubb!" och "Pluff!" ritades ovanpå varandra i samma bild —
-     de har ingen spärr mot att flera visas samtidigt.
+  3. ~~**Skumkroppen är en platt vit platta under sin krona.**~~ ✅ 2026-08-11, se §5.
+     Bubbeltopparna satt bara på ÖVERKANTEN; allt därunder var en solid vit rektangel som läste
+     som ett band, inte som skum.
+  4. ~~**Flyt-texterna staplas.**~~ ✅ 2026-08-11, se §5. "Blubb!" och "Pluff!" ritades ovanpå
+     varandra i samma bild — de hade ingen spärr mot att flera visas samtidigt.
   ⚠️ Punkt 1 och 2 är BUBBELfysik och billiga att mäta (avstånd mellan par, överlapp i px).
   Punkt 3 och 4 är rendering respektive återkoppling, inte fysik — de hör egentligen till egna
   [Quick]-punkter och bör inte buntas in i "fysiken".
@@ -168,8 +169,35 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
 
 ## 5. Status / loggar
 
+- 2026-08-11 🫧 **SKUMMET BLEV EN MASSA, OCH TEXTERNA SLUTADE STAPLA SIG** (v1.150.0). Mätpassets
+  punkt 3 och 4 — de två som INTE är fysik och därför medvetet hölls utanför föregående commit.
+  - **Skumkroppen.** Plattan ligger kvar som BOTTEN (skummet måste dölja vattnet bakom sig, och
+    mållinjen läses mot dess överkant) men bär nu en textur av packade bubblor: en skugga
+    (hålrummet mellan två bubblor) och en dager (kupan på den främre) per cell, rader förskjutna
+    en halv cell. ⚠️ **Skuggan är nödvändig, inte dekor:** plattan ligger på 0,88 alfa, så allt
+    som ritas ovanpå den blir MER täckt — en ljusare cirkel ensam kan inte gröpa ur något.
+  - ⚠️ **"Största enskilda ton" är fel mått på platthet här, och det tog en A/B att se.** Plattan
+    ritas med alfa över vattnet och ger därför ingen dominerande ton ens när den ÄR platt: måttet
+    gav **10 % både före och efter**, medan bilderna sida vid sida är uppenbart olika. Det
+    "platt" betyder är att ytan saknar INRE KANTER. Med kanttäthet i stället: **HEAD 0,7 % mot
+    11 % nu** — ett 16× utslag som matchar det ögat ser. (`_plattprobe` svarar på VILKEN ton,
+    inte på om ytan har struktur.)
+  - ⚠️ **Ett för snålt radtak lämnade de nedersta ~38 px platta** — just den kant som ligger i
+    vattenbrynet och syns mest. Raderna når nu hela vägen ner.
+  - **Flyt-texterna.** Uppmätt på HEAD: **11 texter i luften samtidigt, närmaste par 0 px isär**
+    — alltså exakt ovanpå varandra. Nu **max 2, och aldrig närmare än 250 px**. ⚠️ Spärren ligger
+    i SPELET, inte i `feedback.js`: andra spel vill kunna kasta upp många texter på en gång, det
+    är pruttbads täta popp-takt som gör dem till en hög.
+  - ⚠️ **Sondfälla värd att minnas: `_goalFoam = 1e9` (frysningen som räddade fysikmätningen)
+    FÖRSTÖR skummätningen.** Skummets höjd är andelen `level / goalFoam`, så ett spärrat mål ger
+    höjden noll — bandet blev 35 px och mätningen gällde en skumkropp som knappt fanns. Och
+    `nav.go('game')` när man redan ÄR i spelet monterar inte om: bilden blev skalets creme och
+    `_alive` falskt, vilket tyst nollade både skum- och textmätningen.
+  - **Vakter:** `_bubbelprobe` **14/14** · `_perspektivprobe` **26/26** · `_badprobe` **8/8** ·
+    `_tvalprobe` grön · `_idleprobe` **0** · `check` 0 fel · `test pruttbad` grön.
+
 - 2026-08-11 🫧 **BUBBLORNA TAR PLATS — mot varandra och mot Zacke** (v1.149.0). Ägarens
-  §4-punkt 5, del 1 och 2 av mätpassets fyra. Ny sond: **`scripts/_bubbelprobe.mjs` (11/11)**.
+  §4-punkt 5, del 1 och 2 av mätpassets fyra (3 och 4 kom i v1.150.0 nedan). Ny sond: **`scripts/_bubbelprobe.mjs` (11/11)**.
   - **Mot varandra.** Sex bubblor i en tät klase trängde in **47,8 px** i varandra på HEAD och
     löstes ALDRIG upp — efter 40 bildrutor var det 49,2 px, alltså värre än vid start. Nu:
     **8,4 px efter 40 rutor och 0 px efter 120**, och inträngningen blir aldrig värre än den

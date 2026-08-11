@@ -19,7 +19,7 @@ import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration, breathe , kvittera} from '../../lib/feedback.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
+import { COLORS, PRAISE, shade } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { verticalFillAlpha, groundFill } from '../../lib/form.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
@@ -186,6 +186,32 @@ const DUCK_PUSH_R = 168 // bubbelknuffens EGEN radie.
 // eller ingenting alls.
 const FOAM_K = 0.9 // skum-tillskott per pop = r * FOAM_K
 
+// ---- Skummet som en MASSA, inte ett band --------------------------------
+//
+// Mätpasset i §4: *"Skumkroppen är en platt vit platta under sin krona. Bubbeltopparna sitter
+// bara på ÖVERKANTEN; allt därunder är en solid vit rektangel som läser som ett band."*
+//
+// Kroppen måste förbli TÄT (skummet ska dölja vattnet bakom sig, och mållinjen läses mot dess
+// överkant), så plattan ligger kvar som botten — texturen läggs OVANPÅ den. Varje cell blir en
+// skugga och en dager: skuggan gör hålrummet mellan två packade bubblor, dagern kupan på den
+// främre. Utan skuggan går det inte: plattan ligger på 0,88 alfa, så allt som ritas ovanpå den
+// blir MER täckt, aldrig mindre — en ljusare cirkel ensam kan inte gröpa ur något.
+//
+// ⚠️ INGA GRADIENTER HÄR. `_drawFoam` körs ~12 ggr/s, och en `new FillGradient` per omritning
+// bakar en egen duk och laddar upp en textur varje gång — samma mekanism som fällde hela
+// testsviten med `tom-scen`. Flata toner med alfa, inget annat.
+const FOAM_CELL = 44 // rutnätets steg i sidled
+const FOAM_ROW = 30 // radavstånd nedåt
+
+// ---- Flyt-texterna ------------------------------------------------------
+// Mätpasset: *"'Blubb!' och 'Pluff!' ritades ovanpå varandra i samma bild — de har ingen
+// spärr mot att flera visas samtidigt."* ⚠️ SPÄRREN LIGGER I SPELET, INTE I `feedback.js`:
+// andra spel vill kunna kasta upp många texter på en gång, det är pruttbads TÄTA popp-takt
+// som gör dem till en hög.
+const FLOAT_LIV = 900 // ms — samma som floatTexts egen tween
+const FLOAT_MAX = 2 // aldrig fler än så i luften samtidigt
+const FLOAT_GAP = 250 // px — närmare än så och de överlappar i sidled
+
 // --- Tvåldropparna vid poppet (lib/vatska.js) -----------------------------
 //
 // ⚠️ SIMULERA BARA DÄR VÄTSKAN SYNS. Ett popp kastade förut bara en generisk `puff`.
@@ -286,6 +312,7 @@ export default {
     this._alive = true
     this._ctx = ctx // _drawFoam saknar ctx men behöver den för fyndets ljud/röst
     this._bubbles = []
+    this._floats = [] // spärren mot staplade flyt-texter, se FLOAT_LIV
     this._foam = { level: 0 }
     this._held = false
     this._charging = null
@@ -1248,15 +1275,43 @@ export default {
     if (this._ctx) this._checkTreasure(this._ctx, top)
     const ph = this._foamPhase
 
-    // Skumkropp.
-    g.roundRect(208, top, 864, SURFACE_Y - top + 30, 26).fill({ color: this._bath().foam, alpha: 0.88 })
-    // Jäsande toppar (håller sig innanför kar-kanten även när badet är fullt).
+    const foam = this._bath().foam
+    const hog = SURFACE_Y - top + 30
+    // Skumkropp — plattan är BOTTNEN, inte hela skummet. Se rutan vid FOAM_CELL.
+    g.roundRect(208, top, 864, hog, 26).fill({ color: foam, alpha: 0.88 })
+
+    // Packade bubblor inuti massan: en skugga (hålrummet mellan två bubblor) och en dager
+    // (kupan på den främre) per cell. Raderna är förskjutna en halv cell, som packade klot.
+    // Nedersta raden hoppas över — där möter skummet vattnet, och en dager mitt i den kanten
+    // hade läst som en rand.
+    const skugga = shade(foam, 0.22)
+    // Raderna ska nå HELA vägen ner. Ett för snålt tak lämnade de nedersta ~38 px platta,
+    // och det är just den kanten som ligger i vattenbrynet och syns mest.
+    const rader = Math.max(1, Math.ceil(hog / FOAM_ROW))
+    for (let rad = 0; rad < rader; rad++) {
+      const y = top + 20 + rad * FOAM_ROW
+      if (y > SURFACE_Y + 24) break
+      const udda = rad % 2
+      for (let i = 0; i * FOAM_CELL <= 836; i++) {
+        const x = 232 + i * FOAM_CELL + udda * (FOAM_CELL / 2)
+        if (x > 1050) continue
+        // Fasen bär både rad och kolumn, annars andas hela raden i takt och massan blir
+        // ränder i stället för bubblor.
+        const puls = Math.sin(ph * 1.1 + i * 0.8 + rad * 2.1)
+        const r = 15 + puls * 2.5
+        g.circle(x, y + puls * 1.5, r).fill({ color: skugga, alpha: 0.3 })
+        g.circle(x - r * 0.22, y - r * 0.26 + puls * 1.5, r * 0.78).fill({ color: foam, alpha: 0.95 })
+      }
+    }
+
+    // Jäsande toppar (håller sig innanför kar-kanten även när badet är fullt). Ritas SIST så
+    // kronan förblir skummets skarpa överkant — det är den mållinjen läses mot.
     for (let i = 0; i * 42 <= 836; i++) {
       const x = 232 + i * 42
       const r = 20 + Math.sin(ph * 1.6 + i * 0.9) * 5
-      g.circle(x, top + 8 + Math.sin(ph + i * 0.55) * 3, r).fill({ color: this._bath().foam, alpha: 0.94 })
+      g.circle(x, top + 8 + Math.sin(ph + i * 0.55) * 3, r).fill({ color: foam, alpha: 0.94 })
     }
-    // Mikrobubblor inuti skummet.
+    // Mikrobubblor som stiger genom skummet.
     const depth = SURFACE_Y - top + 24
     for (let i = 0; i < 16; i++) {
       const x = 240 + ((i * 337) % 800)
@@ -1265,6 +1320,16 @@ export default {
       if (y > SURFACE_Y + 26) continue
       g.circle(x, y, 3.5 + (i % 3)).fill({ color: 0xd8f0fa, alpha: 0.55 * (1 - t) + 0.2 })
     }
+  },
+
+  // Flyt-texterna staplade sig — se rutan vid FLOAT_LIV.
+  _floatOK(x) {
+    const nu = performance.now()
+    this._floats = (this._floats || []).filter((f) => nu - f.t < FLOAT_LIV)
+    if (this._floats.length >= FLOAT_MAX) return false
+    if (this._floats.some((f) => Math.abs(f.x - x) < FLOAT_GAP)) return false
+    this._floats.push({ t: nu, x })
+    return true
   },
 
   // Osynlig träffzon över vattnet — alltid kul plopp (ligger UNDER Zacke/anka i z).
@@ -2235,7 +2300,7 @@ export default {
       ctx.services.audio.tone({ freq: 620, dur: 0.18, type: 'triangle', vol: 0.14, slideTo: 940 })
       if (this._duck && !this._duck.destroyed) pop(this._duck)
     }
-    if (Math.random() < 0.3) floatText(ctx.fxLayer, b.x, SURFACE_Y - 10, randomFrom(['Hihi!', 'Pluff!', 'Blubb!', 'Prrt!']))
+    if (Math.random() < 0.3 && this._floatOK(b.x)) floatText(ctx.fxLayer, b.x, SURFACE_Y - 10, randomFrom(['Hihi!', 'Pluff!', 'Blubb!', 'Prrt!']))
     this._addFoam(ctx, b.r * mul)
   },
 
@@ -2426,6 +2491,7 @@ export default {
     // Bubblor är bara ticker-styrda Pixi-objekt → räcker att förstöra dem.
     this._bubbles?.forEach((b) => b.view && !b.view.destroyed && b.view.destroy())
     if (this._bubbles) this._bubbles.length = 0
+    if (this._floats) this._floats.length = 0
 
     // Vätskan äger ett filter och en rendertextur — vyn FÖRE världen.
     this._tvalView?.destroy()

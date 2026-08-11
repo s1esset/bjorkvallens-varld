@@ -12,6 +12,8 @@
 //
 // Kör: node scripts/_bubbelprobe.mjs   (dev-servern måste vara uppe på 5173)
 import { chromium } from 'playwright'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { PNG } from 'pngjs'
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
@@ -240,7 +242,96 @@ const fast = await page.evaluate(async () => {
 krav('ingen fastnar', fast.kvar === 0, `${fast.kvar}/${fast.start} kvar efter 6 s${fast.aldrar.length ? ' (aldrar ' + fast.aldrar.join(',') + ')' : ''}`)
 
 // ---------------------------------------------------------------------------
-// 5. EXIT mitt i en tät klase.
+// 5. SKUMKROPPEN får inte vara en platt platta (§4-punkt 3).
+//
+// Mätvärdet är hur stor andel av skumbandet som ligger i EN och samma exakta ton. En solid
+// rektangel ger ett stort tal; en massa av packade bubblor bryter upp den. Bilden sparas som
+// `.test-shots/_skum.png` så ögat kan döma den också — ett tal säger inte om det ser ut som
+// skum, bara om det är platt.
+// ---------------------------------------------------------------------------
+// ⚠️ `nav.go('game')` när man REDAN är i spelet monterar inte om — bilden blev skalets creme
+// och `_alive` var falskt, så både skum- och textmätningen läste ett spel som inte kördes.
+await gaUt()
+await gaIn()
+await page.evaluate(async () => {
+  const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+  // ⚠️ FRYS INTE `_goalFoam` HÄR. Skummets höjd är andelen `level / goalFoam`, så ett spärrat
+  // mål ger höjden NOLL — bandet blev 35 px högt och mätningen gällde en skumkropp som knappt
+  // fanns. Nivån klaras bara i `_addFoam`, alltså kan `level` sättas rakt av utan att firandet
+  // startar så länge ingen bubbla poppar.
+  g._foam.level = g._goalFoam * 0.98
+  g._drawFoam()
+  await new Promise((r) => setTimeout(r, 300))
+})
+const band = await page.evaluate(async () => {
+  const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+  return { top: Math.round(g._foamTop()), yta: Math.round(g._surf) }
+})
+writeFileSync('.test-shots/_skum.png', await page.screenshot())
+{
+  // ⚠️ "STÖRSTA ENSKILDA TON" DUGER INTE HÄR, och det tog en A/B för att se det: plattan ritas
+  // med alfa 0,88 över vattnet, så den ger ingen enda dominerande ton ens när den ÄR platt —
+  // måttet gav 10 % både före och efter, medan bilderna sida vid sida är uppenbart olika.
+  // Det "platt" betyder är att ytan saknar INRE KANTER. Det är det som mäts nu.
+  const png = PNG.sync.read(readFileSync('.test-shots/_skum.png'))
+  const Y0 = band.top + 26 // under kronan — den har alltid kanter, även på en platt platta
+  const Y1 = band.yta + 24
+  const X0 = 560 // höger om Zacke och vänster om ankan: ren skumkropp, inga andra föremål
+  const X1 = 740
+  let kanter = 0
+  let n = 0
+  for (let y = Y0; y < Y1; y++) {
+    for (let x = X0 + 1; x < X1; x++) {
+      const i = (y * png.width + x) * 4
+      const j = i - 4
+      n++
+      if (Math.abs(png.data[i] - png.data[j]) + Math.abs(png.data[i + 1] - png.data[j + 1]) + Math.abs(png.data[i + 2] - png.data[j + 2]) > 6) kanter++
+    }
+  }
+  const andel = +((kanter / n) * 100).toFixed(1)
+  krav('skum: inre kanter (ej platt)', andel >= 4, `${andel} % kantpixlar i skumkroppen (y ${Y0}-${Y1}) — platt platta ger ~0`)
+}
+
+// ---------------------------------------------------------------------------
+// 6. FLYT-TEXTERNA får inte stapla sig (§4-punkt 4). Poppa tio bubblor i samma ögonblick,
+// sex omgångar, och räkna hur många som lever samtidigt och hur nära varandra de står.
+// ---------------------------------------------------------------------------
+const texter = await page.evaluate(async () => {
+  const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+  g._floats = []
+  let mest = 0
+  let narmast = 1e9
+  const lev = () => {
+    const t = []
+    const gar = (c) => {
+      for (const k of c.children || []) {
+        if (typeof k.text === 'string' && /Hihi|Pluff|Blubb|Prrt/.test(k.text)) t.push(k)
+        gar(k)
+      }
+    }
+    gar(g._ctx.fxLayer)
+    return t
+  }
+  for (let runda = 0; runda < 6; runda++) {
+    for (let i = 0; i < 10; i++) {
+      g._pushBubble(260 + i * 78, 34, 0, 'normal')
+      g._popBubble(g._ctx, g._bubbles[g._bubbles.length - 1], g._bubbles.length - 1)
+    }
+    for (let k = 0; k < 20; k++) {
+      await new Promise((r) => requestAnimationFrame(r))
+      const t = lev()
+      if (t.length > mest) mest = t.length
+      for (let i = 0; i < t.length; i++)
+        for (let j = i + 1; j < t.length; j++) narmast = Math.min(narmast, Math.abs(t[i].x - t[j].x))
+    }
+  }
+  return { mest, narmast: narmast === 1e9 ? -1 : Math.round(narmast) }
+})
+krav('flyttext: max samtidigt', texter.mest <= 2, `${texter.mest} i luften samtidigt`)
+krav('flyttext: aldrig staplade', texter.narmast < 0 || texter.narmast >= 200, `narmaste par ${texter.narmast} px isar`)
+
+// ---------------------------------------------------------------------------
+// 7. EXIT mitt i en tät klase.
 // ---------------------------------------------------------------------------
 const forInnan = fel.length
 await page.evaluate(async () => {

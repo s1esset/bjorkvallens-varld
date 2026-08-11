@@ -14,6 +14,98 @@ Format:
 
 ---
 
+## 2026-08-11 (natt) · v1.148.0 · Hela pruttbadets §4-lista: ägarens fem önskemål avklarade
+
+**Byggt:** ägarens fem önskemål i `docs/games/pruttbad.md` §4 — den enda kö som bar hens egna ord
+— togs i tur och ordning. Fyra byggdes, det femte var uttryckligen ett *mätuppdrag* och behandlades
+som ett sådant.
+
+| # | Önskemål | Utfall |
+|---|---|---|
+| 1 | *"vet inte om man ser badet uppifrån eller från sidan"* | **Rent sidoperspektiv.** `73cd6d1` |
+| 2 | Propp att dra ut, kran att trycka på | **Nivån blev ett levande värde.** `bf5a18a` |
+| 3 | Tre schampoflaskor → olika bubbelstorlek | **Tre riktiga knappar, tre sorter.** `cd6ab47` |
+| 4 | Ankan omfördelar vatten och bubblor | **Ytan blev ett 1D-höjdfält.** `6ef6375` |
+| 5 | "Bättre vätske- och bubbelfysik" | **Mätpass skrivet, ingen kod ändrad.** `1810a10` |
+
+**Punkt 1 var inte en smakfråga, och det gick att visa.** Frågan "uppifrån eller från sidan?" blev
+mätbar så fort man skrev ner VAD i bilden som bär vilken läsning. Scenen hade **tre toppvy-signaler
+och nästan inga sidovy-signaler**: karet täckte sina egna fötter (kroppen gick till y 680, fötterna
+satt 596–670 *bakom* den) och gick dessutom ner genom golvlinjen; vattnet fyllde en rundad rektangel
+ut i alla fyra hörn; och — starkast av de tre — **ankan flöt 100 px under ytan och kunde parkeras
+var som helst i ett 2D-vattenfält**. Den sista satt i **spelbarheten**, inte i grafiken, vilket är
+varför ingen bildjustering hade räckt.
+
+**Punkt 5 byggdes medvetet INTE.** Docen säger uttryckligen "mät först och skriv ner VAD som ser fel
+ut i bild innan något ändras". `_tvalprobe` kom tillbaka **10/10 grön**, alltså var tvålvattnet
+aldrig problemet. Bilden gav i stället fyra punkter, varav den tyngsta är att **bubblorna går rakt
+igenom varandra** (fem–sex i en synlig klase). Två av de fyra är rendering och återkoppling, inte
+fysik, och bör inte buntas in i "fysiken". Listan ligger i §4 och väntar på ägarens prioritering.
+
+**Fyra buggar ramlade ut på vägen som inget grönt test såg:**
+
+1. **Mållinjen var dold bakom kar-kanten från nivå 2 och uppåt.** `_goalY` bottnade på 248 — mitt i
+   kantens 13 px-stroke, som ritas efter den. Måldottarna fanns alltså inte i bild i någon runda
+   utom de två första.
+2. **Det gömda fyndet kunde placeras högre än skummet någonsin når.** Spannet mättes mot mållinjen,
+   men kronan stannar `CROWN`=20 px under den → fynd över ~70 % kunde **aldrig** hittas. Äldre än
+   den här sessionen (gränsen låg på 71 % förut), alltså ungefär **var femte runda**.
+3. **Fyndets armering krävde en OBSERVERAD bildruta** med skum under sig — en enda jättebubbla ger
+   upp till 90 skum mot ett mål på 70, så hoppar skummet förbi i ett steg armeras det aldrig.
+   `_badprobe` gick från 2 av 4 röda till **8/8 fem körningar i rad**.
+4. **Mina egna träffytor bröt P0 genom att vara FÖR STORA:** 104 px med 120 px mellan mittpunkterna
+   ger 16 px lucka, under kravet 24. 96 + 24 = 120 är den enda exakta passningen.
+
+**Tre lärdomar värda att bära vidare:**
+
+1. **En impuls varje bildruta är en konstant kraft, inte en våg.** Dämpningen tar 2,8 % per steg, så
+   jämvikten blir insatsen/0,028 ≈ 36× — ett halvt sekunds drag pumpade höjdfältet till sitt tak.
+   Och en "dell som dras mot ett måldjup" är en energiKÄLLA som aldrig lugnar sig (resthastighet
+   0,367 efter fyra sekunder). Rätt modell: **dellen är fältets VILOLÄGE**, fältet bär bara
+   avvikelsen, och vågor uppstår av att viloläget FLYTTAR SIG. Det går inte att pumpa, och det tar
+   slut.
+2. **Dämpningen måste ligga efter spridningen.** Låg den före blev spridningens eget bidrag odämpat,
+   och för moden där varannan stödpunkt går upp och varannan ner är `l + r − 2h` lika med −4h: två
+   pass gav styvhet 0,88 mot dämpning 0,972, alltså en nästan ostabil svängning vid Nyquist.
+3. **Ett delat mönster kanske inte går att dela.** Docen pekade på `plask-i-vattnet` för undanträngd
+   volym, men den vätskan är SPH-partiklar i en `Flytvolym` som kräver en matter-värld. Det som bar
+   över var dess **varning** (undanträngning lyfter HELA ytan → håll bredden smalare än föremålet),
+   inte dess kod.
+
+**Och tre gånger var det SONDEN som hade fel, inte spelet** — samma lärdom som
+`probe-before-believing`: (a) mätblocket ärvde 415 skum mot ett mål på 70 och hade alltså redan
+klarat rundan, (b) ett 40-bildrutors fönster mätte en sträcka där kraften per definition är noll,
+(c) bubblans egen slumpade vobbelfas gav BÅDA tecknen ur samma kod (47,8 mot 35,7 i en körning,
+45,5 mot 64,0 i nästa). Först med fasen nollad och armarna växelvis blev effekten synlig:
+**−24 px bort från ankan mot +63 px utan henne.**
+
+**Refaktorn gjordes säker genom att ta bort, inte lägga till:** modulkonstanten `SURFACE_Y` (30
+användningar) **raderades helt** i stället för att lämnas kvar bredvid det nya levande värdet. Varje
+metod som rör vattnet tar `const SURFACE_Y = this._surf` som första rad — en glömd rad blir då ett
+ReferenceError som testet fångar, i stället för vatten som tyst ritas på fel höjd.
+
+**Nya sonder:** `_perspektivprobe.mjs` (**26 kontroller**: sidovyns läsbarhet i bild, nivåkontroll,
+P0-träffytor, vågfält, undanträngd volym, bubbelknuff med armarna växelvis) ·
+`_bubbelbild.mjs` (fyller badet med alla tre bubbelsorterna och sparar bilden — underlaget för §4:5).
+
+**Mätt:** `check` 0 fel/0 varningar · `test:all` **72/72** · `_perspektivprobe` **26/26** ·
+`_badprobe` **8/8 ×5** · `_idleprobe` **0** · `_tvalprobe` **10/10** · `_tystprobe` oförändrat 6 ·
+0 fynd i `.test-logs/pruttbad.json` · 6 nya röstklipp (0 failed).
+
+**Sidofynd till ÅTGÄRDER V14b:** ett svep loggade `tom-bild-omtagen ×2 — gl-kontext FÖRLORAD` i
+`tvatta-djuret`. Det är **precis den mekanism vakten byggdes för**, nu mätt i stället för gissad:
+stage och värld hade sina barn, duken rätt storlek, sidan synlig — det var WebGL-kontexten som
+försvann. Fyndet vandrar dessutom mellan spel igen (`golvet-ar-lava` svepet före), vilket stärker
+att det hör till SVITEN och inte till något spel. Raden uppdaterad i `docs/ATGARDER.md`.
+
+**Commits:** `73cd6d1` fix(pruttbad) sidoperspektiv · `bf5a18a` feat(pruttbad) propp+kran ·
+`cd6ab47` feat(pruttbad) schampoflaskor · `6ef6375` feat(pruttbad) höjdfält ·
+`1810a10` docs(pruttbad) mätpass §4:5
+
+**Öppet:** **ägarkön är tom** — allt hen rapporterat och önskat är gjort. Nästa naturliga steg är
+antingen nattkön (`.claude/state/nattkorning.md`, står på **N6**) eller `pruttbad` §4:5-listan om
+ägaren vill ha den. Bygget är omgjort, så nästa telefontest hämtar v1.148.0.
+
 ## 2026-08-11 (sen kväll) · v1.144.0 · Femte speltestet: fenan var en kil, och fastnar-vakten såg det aldrig
 
 **Byggt:** ägaren testade v1.143.0. `trollblandning` godkänd ("funkar bättre nu med 2 / utökad

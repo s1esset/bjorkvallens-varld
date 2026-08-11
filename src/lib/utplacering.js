@@ -1,12 +1,15 @@
 // UTPLACERING — slumpa ut föremål utan att de hamnar i vägen för varandra.
 //
-// P0 UTPLACERING (CLAUDE.md): allt som får sin position av slumpen måste ha ett
-// minsta avstånd som är LITE STÖRRE än det som ska ta sig fram där — både till
-// andra föremål och till kanterna.
+// ⚠️ DET HÄR ÄR ETT VERKTYG, INTE EN APP-BRED REGEL. Den gäller **när något RÖR SIG
+// genom mellanrummen mellan de utslumpade föremålen och kan bli liggande där** — i dag
+// är det `flipperspel` och dess kula. Ett spel som slumpar ut dekor, fläckar eller
+// fallande föremål har inte det problemet och behöver inte den här filen.
+// (Första versionen skrevs som ett P0-krav för alla 73 spel. Ägaren drog tillbaka det
+// 2026-08-11: regeln gällde flipperspelet, där kulan fastnade mellan två föremål.)
 //
-// Regeln kom ur en ägarrapport i `flipperspel` (2026-08-11): en slumpad stolpe hamnade
-// 70–90 px från väggen, och kulan (56 px) åkte in i gapet och blev liggande. Ett gap
-// som är *knappt* större än det som ska passera är inte en passage — det är en ficka.
+// Bakgrunden: en slumpad stolpe hamnade 70–90 px från väggen, och kulan (56 px) åkte in
+// i gapet och blev liggande. Ett gap som är *knappt* större än det som ska passera är
+// inte en passage — det är en ficka.
 //
 // TVÅ SÄKRA MELLANRUM, INGET DÄREMELLAN:
 //   · FRI    ≥ passage + marginal   — det som rör sig tar sig igenom med spel kvar

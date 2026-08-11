@@ -53,6 +53,7 @@
 import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
+import { Rep } from '../../lib/rep.js'
 import { pop, wiggle, sparkle, puff, burst, floatText, ripple, bounceIn, breathe } from '../../lib/feedback.js'
 import { lerpColor } from '../../lib/scene.js'
 import { FONT, COLORS, shade, tint } from '../../lib/theme.js'
@@ -83,6 +84,10 @@ const ROPE_PTS = 12
 const ROPE_G = 0.5
 const ROPE_DAMP = 0.93
 const ROPE_ITER = 3
+// Fartspärr per punkt och bildruta. Linan behöver ~50 px/bildruta för att hänga med
+// skottets spets; 120 ger den gott om marginal och biter bara när något RYCKER
+// (se `mkRope`). Mätt: identisk sag-kurva vid 40, 70, 120 och 260.
+const ROPE_MAXV = 120
 // Elastisk indragning: vinschen kortar repet, fjädern drar kroppen mot handen.
 // Alla värden i px/steg (60 Hz-steg), kalibrerade med scripts/_repprobe.mjs.
 // Vinschen VEVAR i tag (~1,8 ggr/s) i stället för att dra jämnt: under vevtaget
@@ -1126,65 +1131,37 @@ function makeNetIcon(mode, netColor = 0xffffff) {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const rnd = (a, b) => a + Math.random() * (b - a)
 
-// ---- Repet (verlet-tråd) ----------------------------------------------------
+// ---- Repet (verlet-tråd, LYFTPLAN B3) ---------------------------------------
 // Nätlinan är inte en ritad kurva utan en kedja av punkter med tyngd. Den piskar
 // efter handen när skottet går, hänger i en riktig kedjekurva när den sitter fast
 // och SLAKNAR när dragnätets kropp kommer ikapp vinschen. Ändarna spänns fast
 // (hand · träffpunkt), mellanpunkterna faller fritt och dras ihop av avstånds-
 // villkoret några iterationer per bildruta — Position Based Dynamics i miniatyr.
-function mkRope(x, y) {
-  const pts = []
-  for (let i = 0; i < ROPE_PTS; i++) pts.push({ x, y, px: x, py: y })
-  return { pts, whip: 0 }
+//
+// Solvern är sedan v1.135.0 `lib/rep.js`. Spelet bar en egen kopia av exakt samma
+// matematik; `Rep.spann()` ÄR det här spelets läge (båda ändar spikade, vilolängden
+// = avståndet gånger `sag`). Konstanterna nedan är spelets egna och skickas in, för
+// lib:ens standardvärden ger en annan lina.
+//
+// ⚠️ BYTET TOG BORT EN LATENT SPRÄNGNING. Den gamla kopian saknade fartspärr, så ett
+// hopp i spetsen (en monsterdel som byter läge) plus en tappad bildruta gav en lina på
+// **110 450 px för en korda på 1 300** — en vit klotterblixt över hela skärmen i en
+// bildruta, utan ett enda konsolfel. Med `maxSpeed` blir samma ryck 1,68× kordan.
+// Jämförelsen mot den gamla solvern körs av `scripts/_natlinaprobe.mjs`, som bär den
+// gamla koden som referens: settlade lägen skiljer 1,2–2,4 px (spänt läge 7,4 px, för
+// `Rep` håller en spänd lina stramare) och piskans sag-kurva ≤ 8,3 px genom flygningen.
+// Den döda `freeTail`-grenen är borta — den anropades aldrig.
+const mkRope = (x, y) => {
+  const rep = new Rep({ n: ROPE_PTS, seg: 40, grav: ROPE_G, damp: ROPE_DAMP, iter: ROPE_ITER, maxSpeed: ROPE_MAXV })
+  rep.pts = []
+  for (let i = 0; i < ROPE_PTS; i++) rep.pts.push({ x, y, px: x, py: y })
+  return rep
 }
 
 // sag < 1 = spänt rep (kortare segment än avståndet) · > 1 = slakt, hänger ner
-function stepRope(rope, ax, ay, bx, by, dtF, sag = 1, freeTail = false) {
-  const pts = rope.pts
-  const f = clamp(dtF, 0.2, 2)
-  const last = pts.length - 1
-  for (let i = 1; i <= last; i++) {
-    if (i === last && !freeTail) break
-    const p = pts[i]
-    const vx = (p.x - p.px) * ROPE_DAMP
-    const vy = (p.y - p.py) * ROPE_DAMP
-    p.px = p.x
-    p.py = p.y
-    p.x += vx * f
-    p.y += vy * f + ROPE_G * f * f
-  }
-  pts[0].x = ax
-  pts[0].y = ay
-  pts[0].px = ax
-  pts[0].py = ay
-  if (!freeTail) {
-    pts[last].x = bx
-    pts[last].y = by
-    pts[last].px = bx
-    pts[last].py = by
-  }
-  const span = freeTail ? rope.rest || 120 : Math.hypot(bx - ax, by - ay)
-  const seg = (span / last) * sag
-  for (let k = 0; k < ROPE_ITER; k++) {
-    for (let i = 0; i < last; i++) {
-      const a = pts[i]
-      const b = pts[i + 1]
-      let dx = b.x - a.x
-      let dy = b.y - a.y
-      const d = Math.hypot(dx, dy) || 1
-      const diff = ((d - seg) / d) * 0.5
-      dx *= diff
-      dy *= diff
-      if (i > 0) {
-        a.x += dx
-        a.y += dy
-      }
-      if (i + 1 < last || freeTail) {
-        b.x -= dx
-        b.y -= dy
-      }
-    }
-  }
+const stepRope = (rope, ax, ay, bx, by, dtF, sag = 1) => {
+  rope.spann(ax, ay, bx, by, sag)
+  rope.steg(dtF)
 }
 
 // Ritar repet som en spunnen tråd: en bärande lina + en tunnare medlöpare som

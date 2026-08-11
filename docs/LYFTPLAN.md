@@ -439,11 +439,40 @@ mot skärmdump före/efter: hosans form och munstyckets läge oförändrade.
 **Verktyg: `scripts/_repprobe.mjs`** (Node, ingen webbläsare) — vilolängd, fästpunkt som står
 still under ryck, mjukt stopp, golv, spänd/slak lina, tung ände som dinglar, exit.
 
-⬜ Kvar: `natskott-pa-stan` (`mkRope`/`stepRope`/`strokeRope`), `spindel-zacke-svingar`,
-`spindelnatet`. Och **`MeshRope` (C5) är INTE byggd** — den kräver en textur, och
-`generateTexture()` är den kända destabiliseraren (se C2/C3). Vägen är Canvas2D-bakning som i
-`partiklar.js`; tills dess ritar `ritaRep()` repet som ett material med tre drag (mörk botten,
-bärande lina, dager) i stället för ett enfärgat streck.
+**Andra kund: `natskott-pa-stan`** (2026-08-11, natt VI N5) — nätlinans egen solver borta.
+Spelets `stepRope` var `Rep.spann()` i kopia: båda ändar spikade, vilolängd = avståndet gånger
+`sag`. Konstanterna (`n: 12`, `grav: 0.5`, `damp: 0.93`, `iter: 3`) skickas in — lib:ens
+standardvärden ger en annan lina. `strokeRope` är KVAR: den ritar en bärande lina plus en
+medlöpare som viker av åt sidan, och det är spelets egen bild.
+
+**MÄTT mot den gamla solvern** (`scripts/_natlinaprobe.mjs`, som bär den gamla koden som
+referens): settlade lägen skiljer **1,2 px** (slak lina) och **2,4 px** (vinschad), piskans
+sag-kurva ≤ **8,3 px** genom hela flygningen. Spänt läge skiljer **7,4 px** — `Rep` lägger hela
+korrigeringen på grannen intill en spikad punkt (den gamla halva), så en spänd lina hålls
+stramare; 7,4 px är 0,8 % av linans egen längd och mindre än dubbla dess ritade bredd.
+I det levande spelet (`scripts/_linabild.mjs`, sex bilder med lina i bild): största
+lina/korda **1,75× → 1,70×**, sag i samma spann, bilden oförändrad.
+
+⚠️ **BYTET TOG BORT EN LATENT SPRÄNGNING.** Den gamla kopian saknade fartspärr. Ett hopp i
+spetsen (en monsterdel som byter läge) plus en tappad bildruta gav **110 450 px lina för en
+korda på 1 300** — en vit klotterblixt över hela skärmen i en bildruta, utan ett enda
+konsolfel. Samma ryck ger nu 1,68× kordan. Den döda `freeTail`-grenen är borta med samma svep.
+
+⚠️ **JÄMFÖR SETTLADE LÄGEN, INTE TRANSIENTER.** Sondens första version mätte största avvikelse
+under ett förlopp där vilolängden ändrades varje bildruta, fick **158 px** och läste som en
+regression. De två solvrarna konvergerar olika fort mot SAMMA form. Det ögat läser under
+förloppet är sag-kurvan, och den mäts för sig.
+
+⬜ Kvar: `spindel-zacke-svingar`, `spindelnatet`. ⚠️ **Läs koden före planen — ingen av dem
+bär en verlet-solver.** `spindel-zacke-svingar` har en ANALYTISK pendel (vinkel + längd, med
+`ropeLen` som spelmekanik och en knapp som byter den); `spindelnatet` har gsap-tweenade raka
+trådar. Att byta dem mot `Rep` är inte att ta bort en dubblett utan att ändra spelkänslan —
+det är ett designbeslut, inte en portning.
+
+**C5 `MeshRope` är STRUKEN för `natskott-pa-stan`, med skäl:** linan är 4–5 px bred och vit.
+En textur på fyra pixlar syns inte, medlöparen (spelets identitet) går inte att uttrycka i
+en `MeshRope`, och varje aktivt skott hade behövt en egen mesh. `repMesh` väntar på ett spel
+med ett TJOCKT rep.
 
 ### B4. Material är fyra tal, inte material **[Medium]** — ✅ BYGGT 2026-08-09 (v1.52.0)
 
@@ -1019,7 +1048,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 4 | Fördjupad `scene.js` (djupband, dis, vinjett, tid) | C7 | 55 spel | ✅ v1.43.0 |
 | 5 | `lib/kamera.js` | C6 | nya spel; scenens djupband blir parallax | ✅ v1.44.0 |
 | 6 | `FluidWorld` → `vattenvagen` + `golvet-ar-lava` | B1 | 2 spel, sedan 6 till | ✅ v1.45–46.0 |
-| 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ✅ v1.56.0 *(solvern + 1 kund; `MeshRope` kvar)* |
+| 7 | `lib/rep.js` (verlet + `MeshRope`) | B3+C5 | ersätter 4 kopior | ✅ v1.56.0 *(solvern + 2 kunder; 2 kvar men ingen bär verlet — se B3)* |
 | 8 | Material med ljud/partikel/spår | B4+B5 | 23 fysikspel | ✅ v1.52.0 |
 | 9 | `lib/karaktarer.js` (mood-rigg) | A3 | 29 Bobo-spel | ✅ v1.55.0 *(16 kunder, 6 kvar + 2 strukna)* |
 | 10 | Detaljnivå i `artikoner.js` | C8 | 13 spel | ✅ v1.42.0 |

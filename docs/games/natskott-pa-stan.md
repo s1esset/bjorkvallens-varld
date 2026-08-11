@@ -136,6 +136,27 @@ pakettjuv) återstår:
 
 ## 5. Status / loggar
 
+- 2026-08-11 🕸️ **LYFTPLAN B3: nätlinans egen solver borta** (natt VI N5).
+  Spelet bar 59 rader verlet som var `lib/rep.js` i kopia — `stepRope` ÄR `Rep.spann()`
+  (båda ändar spikade, vilolängd = avståndet gånger `sag`). Konstanterna skickas in
+  (`n: 12`, `grav: 0.5`, `damp: 0.93`, `iter: 3`); lib:ens standardvärden ger en annan lina.
+  `strokeRope` är KVAR — den bärande linan plus medlöparen som viker av åt sidan är spelets
+  egen bild, och den går inte att uttrycka i en `MeshRope`.
+  **MÄTT mot den gamla solvern** (`scripts/_natlinaprobe.mjs`, som bär den gamla koden som
+  referens): settlade lägen skiljer **1,2 px** (slak) och **2,4 px** (vinschad); piskans
+  sag-kurva ≤ **8,3 px** genom flygningen; spänt läge **7,4 px** (`Rep` håller en spänd lina
+  stramare — 0,8 % av linans längd, mindre än dubbla dess ritade bredd).
+  **I det levande spelet** (`scripts/_linabild.mjs`, sex bilder med lina i bild): största
+  lina/korda **1,75× → 1,70×**, bilden oförändrad.
+  ⚠️ **Bytet tog bort en latent sprängning.** Den gamla kopian saknade fartspärr: ett hopp i
+  spetsen (en monsterdel som byter läge) plus en tappad bildruta gav **110 450 px lina för en
+  korda på 1 300** — en vit klotterblixt över hela skärmen i EN bildruta, utan konsolfel.
+  Samma ryck ger nu 1,68× kordan. Den döda `freeTail`-grenen (aldrig anropad) är borta.
+  ⚠️ Sonden larmade falskt först: den mätte största avvikelse under ett förlopp där vilolängden
+  ändrades varje bildruta och fick 158 px. Solvrarna konvergerar olika fort mot SAMMA form —
+  jämför settlade lägen, och mät förloppet med sag-kurvan i stället.
+  `npm run check` grön · `npm run test:all` 72/72.
+
 - 2026-08-10 🎨 **D1: himlen blev en riktig toning i stället för åtta band** (`5267b0e`, v1.124.0).
   Himlen ritades som ÅTTA handrullade band à 60 px (`_buildSky`). Varje band var 1280×62
   ≈ 79 000 px i EN exakt ton, så himlen var spelets största platta fält (**71 095 px**) trots

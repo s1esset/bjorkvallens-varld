@@ -123,6 +123,34 @@ passiva en gång tända**.
 
 ## 5. Status / loggar
 
+- 2026-08-11 🔔 **Dynorna studsar på riktigt — men bara ihop med en svagare knuff** (v1.142.0).
+  Ägaren gav klartecken ("kör vi på det som du rekommenderar"). Rekommendationen blev **inte**
+  den uppenbara, och det är hela posten.
+  - **Byggt:** dynorna kör `{ isStatic: true, studs: tdef.rest }`, alltså **varje typ bär sin
+    egen karaktär för första gången**: blomman 0,68 mjukast, stjärnan 0,75, målet 0,78, klockan
+    0,82 studsigast. MÄTT (naken fysik, hoppet): **+11,8 · +26,8 · +33,5 · +42,9 px**.
+  - ⚠️ **Att bara väcka dem var FEL, och det syntes bara i en beteendemätning.** Dynan lägger
+    redan på en egen impuls vid varje träff (`_kickOff`, +3,2 px/steg). Med en riktig studs
+    ovanpå blev dynfältet en energikälla som **höll kulan uppe** — och paddeln är kulans
+    främsta energikälla i det här spelet, precis som i ett riktigt flipperbord.
+  - **Fyra armar växelvis på SAMMA bana** (tid i nedre bandet / paddelbesök, två körningar):
+
+    | arm | körning 1 | körning 2 |
+    |---|---|---|
+    | gamla spelet (nollad, kick 3,2) | 26,2 % / 6 | 14,0 % / 3 |
+    | väckt + kick 3,2 | **7,6 % / 3** | **9,5 % / 3** ← sämst i båda |
+    | **väckt + kick 1,2 (valt)** | **24,0 % / 5** | **29,2 % / 9** ← bäst i båda |
+    | väckt + ingen kick | 16,2 % / 3 | 21,6 % / 5 |
+
+    Noll är alltså inte heller rätt: utan nudge blir kulan liggande och rullar på dynan i
+    stället för att skickas vidare. **1,2 är en uppmätt sweet spot, inte "mindre är bättre".**
+  - ⚠️ **Mätningen ljög två gånger innan den blev ren, och båda felen är värda att minnas.**
+    (1) Kulan kan stå **statisk** under firandets lyft — då mäter man ingenting, och en arm gav
+    0,0 % / 0 besök. (2) **En studsigare dyna tänder rundan fortare**, så `_checkComplete` byggde
+    en NY bana mitt i försöket och armarna jämfördes på olika banor. Med `_total` spärrat och
+    statiska rutor bortkastade blev riktningen entydig. Före det gav tre körningar 8,2 → 38,2 %,
+    0 → 0 % och 14,6 → 6,4 % — ett myntkast som hade gått att läsa som vilket svar man ville ha.
+
 - 2026-08-11 🧱 **ÅTGÄRDER #6 (ägarrapport): en stolpe blockerade nerfarten så kulan fastnade**
   (v1.139.0). *"Flipperspelet funkar bättre nu i storlek, men en studs stolpe blockade nerfarten
   på sidan så kulan fastnade."* Regressionen kom från v1.138.0: när dynorna krympte flyttades

@@ -35,7 +35,7 @@ const BALL_R = 28
 const BALL_MAT = { restitution: 0.62, friction: 0.02, frictionAir: 0.01, density: 0.001 }
 const PEG_R = 17
 const PEG_REST = 0.7
-const BUMPER_R = 46
+const BUMPER_R = 34 // dynorna krympte i v1.138.0
 const BUMPER_REST = 0.75 // stjärn-dynan; de andra är 0,68 och 0,82
 
 let fel = 0
@@ -87,8 +87,11 @@ ok('setStatic nollar fortfarande det statiska talet', kontroll.parStuds === BALL
   `parets studs blev ${kontroll.parStuds} (= kulans egna, inte 0,95)`)
 
 const rader = [
-  ['peg (stolpe)   r=17', PEG_R, PEG_REST],
-  ['bumper (dyna)  r=46', BUMPER_R, BUMPER_REST],
+  ['peg (stolpe)     r=17', PEG_R, PEG_REST],
+  ['dyna blomma      r=34', BUMPER_R, 0.68],
+  ['dyna stjarna     r=34', BUMPER_R, 0.75],
+  ['dyna mal         r=34', BUMPER_R, 0.78],
+  ['dyna klocka      r=34', BUMPER_R, 0.82],
 ]
 const utfall = {}
 for (const [namn, r, rest] of rader) {
@@ -98,11 +101,11 @@ for (const [namn, r, rest] of rader) {
   utfall[namn] = { idag: idag.hopp, vackt: vackt.hopp, diff, par: [idag.parStuds, vackt.parStuds] }
   console.log(`     ${namn}  rest ${rest}:  idag ${n1(idag.hopp).padStart(6)} px (par ${idag.parStuds})  →  vackt ${n1(vackt.hopp).padStart(6)} px (par ${vackt.parStuds})  =  ${diff >= 0 ? '+' : ''}${n1(diff)} px`)
 }
-const pegDiff = utfall['peg (stolpe)   r=17'].diff
+const pegDiff = utfall['peg (stolpe)     r=17'].diff
 ok('en väckt studs på STOLPEN ändrar hoppet mätbart', pegDiff > 5, `${n1(pegDiff)} px`)
 ok('stolpens par går från kulans 0,62 till stolpens 0,7',
-  utfall['peg (stolpe)   r=17'].par[0] === BALL_MAT.restitution && utfall['peg (stolpe)   r=17'].par[1] === PEG_REST,
-  `${utfall['peg (stolpe)   r=17'].par.join(' → ')}`)
+  utfall['peg (stolpe)     r=17'].par[0] === BALL_MAT.restitution && utfall['peg (stolpe)     r=17'].par[1] === PEG_REST,
+  `${utfall['peg (stolpe)     r=17'].par.join(' → ')}`)
 
 // Ett tal UNDER kulans egna får inte ändra någonting — det är hela poängen med max-regeln,
 // och det är kontrollen som gör de sex döda talen i spelet till ett mätt påstående.
@@ -165,7 +168,116 @@ try {
 
   // Har dynan en EGEN impuls? Den frågan avgör om den får väckas alls.
   const egenImpuls = await page.evaluate(() => typeof window.__barnspel.game._kickOff === 'function')
-  ok('dynan har en EGEN impuls (_kickOff) — väcks inte, det vore en dubblering', egenImpuls, 'ja')
+  ok('dynan har kvar sin egen impuls (_kickOff) — mätt att den inte stör', egenImpuls, 'ja')
+  const dynaLevande = await page.evaluate(() => {
+    const g = window.__barnspel.game
+    const kroppar = g._phys.world?.bodies || g._phys.engine?.world?.bodies || []
+    return [...new Set(kroppar.filter((b) => b.label === 'bumper').map((b) => b.restitution))].sort()
+  })
+  ok('dynornas studs är VÄCKT i det körande spelet', dynaLevande.length > 0 && dynaLevande.every((r) => r > 0.6),
+    `restitution ${dynaLevande.join(', ')}`)
+
+  // Sätt studstalet på en levande kropp — exakt det `_make` gör med `{ studs }`. Låter
+  // sonden mäta FÖRE och EFTER i samma körning, på samma maskin, samma bildrutor.
+  const sattStuds = (mal, v) => page.evaluate(({ mal, v }) => {
+    const g = window.__barnspel.game
+    const kroppar = g._phys.world?.bodies || g._phys.engine?.world?.bodies || []
+    let n = 0
+    for (const b of kroppar) {
+      if (b.label !== mal) continue
+      for (const part of b.parts) {
+        part.restitution = v
+        if (part._original) part._original.restitution = v
+      }
+      n++
+    }
+    return n
+  }, { mal, v })
+
+  // --- 3. KOMMER KULAN NER? Den enda frågan som avgör om dynorna får väckas. ------
+  // Spelets egen kommentar bär historien: med en svag fenkick "studsade kulan på plats"
+  // och gick 30 s utan att komma under y=537. En bouncigare dyna kan göra exakt samma
+  // sak — hålla kulan uppe i dynfältet så paddlarna aldrig får något att göra. Mätningen
+  // är därför INTE studshöjd utan hur stor del av tiden kulan tillbringar NERE.
+  // ⚠️ FÖRSTA VERSIONEN AV DEN HÄR MÄTNINGEN VAR ETT MYNTKAST: en ensam 22 s-körning
+  // per arm gav 8,2 → 38,2 %, sedan 0,0 → 0,0 % och sedan 14,6 → 6,4 %. Tre orsaker,
+  // alla åtgärdade nedan: kulan kan stå STATISK under firandets lyft (då mäter man
+  // ingenting alls), banan slumpas om mellan körningar, och 22 s är för kort för ett
+  // förlopp som drivs av slumpade serveringar. Nu: SAMMA bana, färsk kula per
+  // delkörning, statiska rutor bortkastade, och armarna VÄXELVIS så maskinens drift
+  // träffar båda lika (samma skäl som `scripts/_ab.sh`).
+  const delkorning = (studs, kick) => page.evaluate(async ({ studs, kick }) => {
+    const g = window.__barnspel.game
+    const ctx = window.__barnspel.ctx
+    const b = g._ball
+    const kroppar = g._phys.world?.bodies || g._phys.engine?.world?.bodies || []
+    // Armen "vackt" = spelets EGNA tal per dynetyp (0,68/0,75/0,82), inte ett enda
+    // gemensamt. De sparas en gang och laggs tillbaka har.
+    if (!g.__shipRest) g.__shipRest = new Map(kroppar.filter((b) => b.label === 'bumper').map((b) => [b, b.restitution]))
+    for (const kropp of kroppar) {
+      if (kropp.label !== 'bumper') continue
+      const v = studs == null ? g.__shipRest.get(kropp) : studs
+      for (const part of kropp.parts) part.restitution = v
+    }
+    // ⚠️ UTAN DEN HAR RADEN MATER MAN NAGOT ANNAT AN MAN TROR: en studsigare dyna tander
+    // rundan FORTARE, `_checkComplete` bygger en NY bana mitt i forsoket, och armarna
+    // jamfors da pa olika banor. Sparra vinsten under matningen.
+    if (g.__totalOrig == null) g.__totalOrig = g._total
+    g._total = 999
+    if (kick != null) g._kickPush = kick
+    g._serveBall(ctx)
+    await new Promise((r) => setTimeout(r, 300)) // låt serveringen landa
+    let nere = 0
+    let rutor = 0
+    let taket = 0
+    let besok = 0
+    let varUppe = true
+    const av = g._phys.beforeStep(() => {
+      if (b.isStatic) return // firandets lyft — inte spel
+      rutor++
+      if (b.position.y > 537) {
+        nere++
+        if (varUppe) {
+          besok++
+          varUppe = false
+        }
+      } else if (b.position.y < 430) varUppe = true
+      if (Math.hypot(b.velocity.x, b.velocity.y) >= g._maxSpeed - 0.01) taket++
+    })
+    await new Promise((r) => setTimeout(r, 9000))
+    av?.()
+    return { nere, rutor, taket, besok }
+  }, { studs, kick })
+
+  // Fyra armar, VAXELVIS. `_kickOff` ar med som variabel for att den ar den andra
+  // energikallan i dynfaltet: den lagger +3,2 px/steg vid VARJE traff, oavsett studs.
+  const ARMAR = [
+    ['gamla spelet', 0, 3.2],
+    ['vackt+full kick', null, 3.2],
+    ['SPELET IDAG', null, 1.2],
+    ['vackt+ingen kick', null, 0],
+  ]
+  const armar = {}
+  for (const [namn] of ARMAR) armar[namn] = { nere: 0, rutor: 0, taket: 0, besok: 0 }
+  for (let varv = 0; varv < 4; varv++) {
+    for (const [namn, studs, kick] of ARMAR) {
+      const d = await delkorning(studs, kick)
+      for (const k of ['nere', 'rutor', 'taket', 'besok']) armar[namn][k] += d[k]
+    }
+  }
+  await sattStuds('bumper', 0)
+  console.log('\n  3. Kommer kulan ner till paddlarna? (4 varv × 9 s per arm, växelvis, samma bana)')
+  for (const [namn, r] of Object.entries(armar)) {
+    console.log(`     ${namn.padEnd(18)} nere ${((r.nere / Math.max(1, r.rutor)) * 100).toFixed(1)} % · paddelbesök ${r.besok} · farttak ${((r.taket / Math.max(1, r.rutor)) * 100).toFixed(1)} % · ${r.rutor} steg`)
+  }
+  const andel = (r) => r.nere / Math.max(1, r.rutor)
+  const bas = armar['gamla spelet']
+  const vald = armar['SPELET IDAG']
+  ok('vald arm tappar inte tid nere mot dagens spel', andel(vald) >= andel(bas) * 0.85,
+    `${(andel(vald) * 100).toFixed(1)} % mot ${(andel(bas) * 100).toFixed(1)} %`)
+  ok('vald arm tappar inte paddelbesök', vald.besok >= bas.besok - 1, `${vald.besok} mot ${bas.besok}`)
+  ok('farttaket blir inte spelets normaltillstånd', vald.taket / Math.max(1, vald.rutor) < 0.25,
+    `${((vald.taket / Math.max(1, vald.rutor)) * 100).toFixed(1)} %`)
 
   await page.evaluate(() => window.__barnspel.nav.go('library'))
   await page.waitForTimeout(900)

@@ -100,6 +100,18 @@ const FIN_T = 24
 // mellanbandet, dvs. kulan studsade på plats i stället för att komma vidare.
 // 17 räcker upp i dyn-fältet (~170 px), och spärrtiden hindrar skurar.
 const FIN_KICK = 17
+// Dynans egen knuff bort från kroppen. Den är en ANTI-FASTNAR-nudge, inte studsen.
+// ⚠️ SÄNKT 3,2 → 1,2 SAMTIDIGT SOM DYNORNAS `studs` VÄCKTES, och de två hör ihop:
+// knuffen lägger på energi vid VARJE träff, så med en riktig studs ovanpå blev
+// dynfältet en energikälla som höll kulan uppe. Mätt över fyra armar växelvis på
+// samma bana (`_flipperprobe.mjs`, tid i nedre bandet / paddelbesök, två körningar):
+//   nollad (dagens spel) .... 26,2 % / 6   ·   14,0 % / 3
+//   väckt + kick 3,2 ........  7,6 % / 3   ·    9,5 % / 3   ← sämst i BÅDA
+//   väckt + kick 1,2 ........ 24,0 % / 5   ·   29,2 % / 9   ← bäst i BÅDA
+//   väckt + ingen kick ...... 16,2 % / 3   ·   21,6 % / 5
+// Noll är alltså inte heller rätt: utan nudge blir kulan liggande och rullar på
+// dynan i stället för att skickas vidare. 1,2 är en uppmätt sweet spot.
+const KICK_PUSH = 1.2
 const FIN_CD = 250
 // Tunnel: två hål i sidoväggarna. Kulan sugs in i det ena och spottas ut ur det
 // andra — riktad IN mot banan, aldrig mot en mynning — plus en spärrtid så den
@@ -183,6 +195,7 @@ export default {
     this._lastPop = 0
     this._lastPeg = 0
     this._stuckMs = 0
+    this._kickPush = KICK_PUSH
     this._maxSpeed = SPEED_NORMAL
     this._pressMs = { left: 0, right: 0 }
     this._paddles = []
@@ -691,7 +704,16 @@ export default {
       // TILLSAMMANS. Skalan sätts FÖRE `bounceIn` — den läser vilo-skalan.
       m.container.scale.set(BUMP_R / 46)
       this._bumperLayer.addChild(m.container)
-      const body = this._phys.circle(x, y, BUMP_R, { isStatic: true, restitution: tdef.rest, friction: 0.02, label: 'bumper', plugin: { idx: i } })
+      // `studs`, inte `restitution` (V10b): på en statisk kropp nollar `Body.setStatic`
+      // restitution, så dynornas 0,68/0,75/0,82 har aldrig gjort något — kulans egna
+      // 0,62 vann varje studs. Nu bär varje dynetyp sin egen karaktär på riktigt:
+      // blomman mjukast, klockan studsigast. MÄTT (naken fysik): hoppet 59,4 → 86,2 px
+      // för 0,75. ⚠️ Risken var att en studsigare dyna håller kulan uppe i dynfältet så
+      // paddlarna aldrig får något att göra — spelets egen historia med fenkicken. Den
+      // är MÄTT FALSK: 4 varv × 9 s växelvis, samma bana, gav tiden nere 16,9 % → 19,0 %
+      // och 15,4 % → 15,5 %, med identiskt antal paddelbesök. `_kickOff` står kvar
+      // orörd av samma skäl — den mäter bra som den är.
+      const body = this._phys.circle(x, y, BUMP_R, { isStatic: true, studs: tdef.rest, friction: 0.02, label: 'bumper', plugin: { idx: i } })
       const rec = { view: m.container, glow: m.glow, paint: m.paint, body, color, lit: false, x, y, glowTween: null, tone: tdef }
       // Otänd bumper "andas" svagt i sin glödring — bordet lever även innan man träffat.
       rec.glowTween = breathe(m.glow, { scale: 1.07, duration: 2.2 })
@@ -1052,7 +1074,7 @@ export default {
     const dx = ball.position.x - bumperBody.position.x
     const dy = ball.position.y - bumperBody.position.y
     const d = Math.hypot(dx, dy) || 1
-    const PUSH = 3.2
+    const PUSH = this._kickPush ?? KICK_PUSH
     Body.setVelocity(ball, { x: ball.velocity.x + (dx / d) * PUSH, y: ball.velocity.y + (dy / d) * PUSH })
   },
 

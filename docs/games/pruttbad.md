@@ -95,6 +95,25 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
 - **[Deep] Bättre vätske- och bubbelfysik generellt.** Ägarens ord: *"man kanske kan förbättra
   vätskefysiken och bubbelfysiken"*. Vagt med flit — mät först: kör `_vatskeprobe` och `_tvalprobe`
   och skriv ner VAD som ser fel ut i bild innan något ändras.
+  **📏 MÄTPASSET ÄR GJORT 2026-08-11 — här är listan, ingen kod ändrad än.**
+  `_tvalprobe` är **10/10 grön** (stänket lever, syns, färgas rätt, dräneras, 60,6 fps under
+  ×6-strypning), så tvålvattnet är inte problemet. `_vatskeprobe` duger fortfarande inte här
+  (se loggen 2026-08-10). Underlaget är i stället bilden: `node scripts/_bubbelbild.mjs` fyller
+  badet med 17 bubblor av alla tre sorterna och sparar `.test-shots/_bubblor.png`. Vad den visar,
+  i fallande ordning efter hur mycket det stör:
+  1. **Bubblorna går RAKT IGENOM varandra.** Fem–sex bubblor överlappar synligt i en klase.
+     Det är den tydligaste "fysiken är tunn"-signalen i bilden — riktiga bubblor trycker isär
+     varandra eller går ihop. En separation mellan bubblor (eller en sammanslagning till en
+     större) är den enskilt största vinsten här.
+  2. **Bubblorna går rakt igenom Zacke.** De passerar genom ben och mage utan att märka honom.
+     Han är badets största föremål och det enda som aldrig påverkar dem.
+  3. **Skumkroppen är en platt vit platta under sin krona.** Bubbeltopparna sitter bara på
+     ÖVERKANTEN; allt därunder är en solid vit rektangel som läser som ett band, inte som skum.
+  4. **Flyt-texterna staplas.** "Blubb!" och "Pluff!" ritades ovanpå varandra i samma bild —
+     de har ingen spärr mot att flera visas samtidigt.
+  ⚠️ Punkt 1 och 2 är BUBBELfysik och billiga att mäta (avstånd mellan par, överlapp i px).
+  Punkt 3 och 4 är rendering respektive återkoppling, inte fysik — de hör egentligen till egna
+  [Quick]-punkter och bör inte buntas in i "fysiken".
 
 ### Kärnloop & agens
 - ~~**[Medium] Ge ankan (och fler badleksaker) verklig roll.**~~ ✅ 2026-07-01 (studs + bonus-skum)

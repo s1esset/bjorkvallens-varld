@@ -1,252 +1,259 @@
-// SÅPBUBBLORNAS HINNA — ger den efter för vinden, och hittar den tillbaka?
+// Bubbelfysiken i pruttbad, i TAL — underlaget för `docs/games/pruttbad.md` §4-punkt 5.
 //
-//   node scripts/_bubbelprobe.mjs        (kräver dev-servern på :5173)
+// `_bubbelbild.mjs` producerade BILDEN som gav listan (bubblor går igenom varandra, och genom
+// Zacke). Den här sonden gör samma två påståenden mätbara, plus de två vakterna varje ändring
+// av integratorn måste passera: framsteget får inte bli långsammare, och ingen bubbla får
+// fastna.
 //
-// En puff som bara FLYTTAR bubblor läser som att de är hårda kulor. Frågorna hinnan
-// måste svara ja på:
+// ⚠️ DETERMINISM FÖRE ALLT. Bubblans egen `phase` slumpas vid födseln, och i förra passet gav
+// den BÅDA tecknen ur samma kod (47,8 mot 35,7 i en körning, 45,5 mot 64,0 i nästa). Sonden
+// nollar därför fasen och lägger bubblorna på FASTA platser. Utan det mäter man vobbeln, inte
+// separationen.
 //
-//   1. Syns utdragningen alls när en puff sveper förbi? (för liten = bortkastad kod)
-//   2. Har den ett TAK? (för stor = bubblan ser trasig ut)
-//   3. Hittar den tillbaka till rund, eller ligger den kvar deformerad?
-//   4. Är utdragningen riktad LÄNGS blåset?
-//   5. Kostar den något mätbart i bildrutetid?
-//   6. Överlever exit mitt i en puff?
+// Kör: node scripts/_bubbelprobe.mjs   (dev-servern måste vara uppe på 5173)
 import { chromium } from 'playwright'
 
-const ID = 'sapbubblor'
-let fel = 0
-const ok = (namn, villkor, detalj = '') => {
-  console.log(`  ${villkor ? '✓' : '✗'} ${namn}${detalj ? ' · ' + detalj : ''}`)
-  if (!villkor) fel++
+const browser = await chromium.launch({ channel: 'chrome', headless: true })
+const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+const fel = []
+page.on('console', (m) => m.type() === 'error' && fel.push(m.text().slice(0, 160)))
+page.on('pageerror', (e) => fel.push('PAGEERROR: ' + String(e.message).slice(0, 160)))
+await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' })
+await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
+
+const rader = []
+let gronna = 0
+const krav = (namn, ok, text) => {
+  rader.push(`  ${ok ? '✅' : '❌'} ${namn.padEnd(30)} ${text}`)
+  if (ok) gronna++
 }
 
-const browser = await chromium.launch({ channel: 'chrome', headless: true })
-try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
-  const errors = []
-  page.on('pageerror', (e) => errors.push((e.message || String(e)).slice(0, 160)))
-  page.on('console', (m) => m.type() === 'error' && errors.push(m.text().slice(0, 160)))
+async function gaIn() {
+  await page.evaluate(() => window.__barnspel.nav.go('game', { id: 'pruttbad' }))
+  await page.waitForTimeout(1200)
+}
+async function gaUt() {
+  await page.evaluate(() => window.__barnspel.nav.go('library'))
+  await page.waitForTimeout(500)
+}
 
-  await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' })
-  await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
-  await page.evaluate(() => {
-    for (const k of Object.keys(localStorage)) if (k.startsWith('pwagames')) localStorage.removeItem(k)
-  })
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
-  await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
-  await page.waitForFunction(() => (window.__barnspel.game?._bubbles?.length || 0) > 3, null, { timeout: 15000 })
-  await page.waitForTimeout(900)
-
-  console.log('\nSÅPBUBBLOR — hinnan i vinden\n')
-
-  // ⚠️ EN POSITION OCH EN RADIE ÄR INGEN MÄTNING. Första versionen mätte bara r=40 vid
-  // (640,380) och rapporterade en fin siffra — men en granskning som varierade läge och
-  // radie visade att **barnbubblan (r≈24) slog i taket i 7 av 7 lägen** och att r=40 gjorde
-  // det i 5 av 8. Den "fina" punkten var alltså den enda som såg bra ut. Sonden sveper
-  // därför både radier och lägen, och domen tas på det VÄRSTA fallet.
-  const LAGEN = [
-    [640, 380],
-    [640, 460],
-    [640, 550],
-    [420, 480],
-    [900, 430],
+// ---------------------------------------------------------------------------
+// 1. KLASEN: lägger man bubblor tätt — går de igenom varandra?
+//
+// Sex bubblor på samma plats är det värsta fallet och det som syns i `_bubblor.png`.
+// Mätvärdet är INTRÄNGNINGEN: hur många px två bubblor delar (r1 + r2 − avstånd).
+// ---------------------------------------------------------------------------
+await gaIn()
+const klase = await page.evaluate(async () => {
+  const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+  // ⚠️ FRYS FRAMSTEGET. Sex bubblor ger ~194 skum mot ett mål på 88, så nivån klaras mitt i
+  // fönstret — och firandets bubbelsvärm hamnar då i MÄTNINGEN. Det rapporterade 98,9 px
+  // inträngning i ett par som omöjligt kan tränga in mer än 72. Mät fysiken, inte loopen.
+  g._goalFoam = 1e9
+  g._bubbles.length = 0
+  // Sex bubblor i en tät klase runt (640, 520) — fasta platser, nollad fas.
+  const plats = [
+    [640, 520], [664, 528], [618, 530], [648, 496], [610, 500], [672, 502],
   ]
-  const RADIER = [24, 40, 88] // barnbubbla · vanlig · jätte
-
-  const matning = await page.evaluate(async () => {
-    const g = window.__barnspel.game
-    const ctx = window.__barnspel.ctx
-    const vanta = () => new Promise((r) => requestAnimationFrame(r))
-
-    // Vila först: ingen puff → alla bubblor ska vara runda.
-    let vilaMax = 0
-    for (let i = 0; i < 40; i++) {
-      await vanta()
-      for (const b of g._bubbles) vilaMax = Math.max(vilaMax, b._sq || 0)
-    }
-
-    // ⚠️ MÄT PÅ EN KÄND BUBBLA, INTE PÅ "DEN SOM RÅKAR LIGGA I MITTEN". Kraften delas
-    // med massan, och massan följer radien — så en sond som tar närmaste bubbla mäter en
-    // ny massa varje körning. Uppmätt konsekvens: samma kod gav 42,7 % i en körning och
-    // 2,9 % i nästa, alltså 15× spridning på en konstant som bara ändrats 1,6×. Sonden
-    // föder därför sin EGEN bubbla med fast radie mitt i bild.
-    // Ta den NYSS tillagda bubblan ur listan — en sökning på position missar, eftersom
-    // bubblan stiger direkt och hinner flytta sig innan sonden hinner leta.
-    const fore_n = g._bubbles.length
-    g._spawn(ctx, { x: 640, y: 380, r: 40, kind: 'normal' })
-    await vanta()
-    const mal = g._bubbles.length > fore_n ? g._bubbles[g._bubbles.length - 1] : null
-    if (!mal) return { fel: 'ingen bubbla (taket MAX_BUBBLES?)' }
-    const fore = { x: mal.x, y: mal.y }
-    const fan = g._nearestFan(mal.x, mal.y)
-    const rutor = []
-    g._blow(ctx, fan, mal.x, mal.y)
-    for (let i = 0; i < 150; i++) {
-      await vanta()
-      if (mal.destroyed || mal._popped) break
-      rutor.push({ sq: mal._sq || 0, a: mal._sqA || 0, sx: mal.scale.x, sy: mal.scale.y })
-    }
-    const toppIdx = rutor.reduce((bi, r, i) => (r.sq > rutor[bi].sq ? i : bi), 0)
-    const topp = rutor[toppIdx] || { sq: 0, a: 0 }
-    // Riktningen från fläkten till bubblan — utdragningen ska ligga längs den.
-    const blasVinkel = Math.atan2(fore.y - fan.y, fore.x - fan.x)
-    let dv = Math.abs(topp.a - blasVinkel)
-    while (dv > Math.PI) dv = Math.abs(dv - 2 * Math.PI)
-    // Hittade den tillbaka?
-    const svans = rutor.slice(-25)
-    const slutMax = svans.reduce((m, r) => Math.max(m, r.sq), 0)
-    return {
-      vilaMax,
-      topp: topp.sq,
-      toppRuta: toppIdx,
-      vinkelfel: dv,
-      slutMax,
-      antalRutor: rutor.length,
-      bubblor: g._bubbles.length,
-      massa: mal._mass,
-      radie: mal._r ?? null,
-    }
-  })
-
-  ok('bubblorna är runda när det inte blåser', matning.vilaMax < 0.02, `största utdragning i vila ${matning.vilaMax?.toFixed(4)}`)
-  ok(
-    'en puff drar ut hinnan synligt',
-    matning.topp > 0.1,
-    `${(matning.topp * 100).toFixed(1)} % utdragning på en r=40-bubbla (massa ${matning.massa?.toFixed?.(2) ?? matning.massa}), ${matning.bubblor} i luften`
-  )
-
-  // SVEPET: alla radier × alla lägen. Domen tas på det värsta fallet, inte på snittet.
-  const svep = await page.evaluate(
-    async ({ LAGEN, RADIER }) => {
-      const g = window.__barnspel.game
-      const ctx = window.__barnspel.ctx
-      const vanta = () => new Promise((r) => requestAnimationFrame(r))
-      const rader = []
-      for (const r of RADIER) {
-        for (const [x, y] of LAGEN) {
-          for (const b of g._bubbles) b._sq = b._sqV = 0
-          const fore = g._bubbles.length
-          g._spawn(ctx, { x, y, r, kind: 'normal' })
-          await vanta()
-          if (g._bubbles.length <= fore) continue
-          const mal = g._bubbles[g._bubbles.length - 1]
-          g._blow(ctx, g._nearestFan(mal.x, mal.y), mal.x, mal.y)
-          let topp = 0
-          let minH = 1e9
-          for (let i = 0; i < 110; i++) {
-            await vanta()
-            if (mal.destroyed || mal._popped) break
-            topp = Math.max(topp, mal._sq || 0)
-            // P0: träffytans SYNLIGA höjd krymper med scale.y under utdragningen.
-            // De första bildrutorna hoppas över — där äger `bounceIn` fortfarande skalan
-            // och mätningen skulle rapportera födelsestudsen som ett P0-brott.
-            if (i > 18) {
-              const hr = mal.hitArea?.radius ?? 0
-              minH = Math.min(minH, hr * 2 * Math.abs(mal.scale.y))
-            }
-          }
-          rader.push({ r, x, y, topp, minH: minH === 1e9 ? null : minH })
-          if (!mal.destroyed && !mal._popped) g._pop(ctx, mal) // städa undan mätbubblan
-          await vanta()
+  for (const [x, y] of plats) {
+    g._pushBubble(x, 36, 0, 'normal')
+    const b = g._bubbles[g._bubbles.length - 1]
+    b.x = x
+    b.y = y
+    b.phase = 0
+  }
+  const matt = () => {
+    let varsta = 0
+    let par = 0
+    for (let i = 0; i < g._bubbles.length; i++) {
+      for (let j = i + 1; j < g._bubbles.length; j++) {
+        const a = g._bubbles[i]
+        const b = g._bubbles[j]
+        const d = Math.hypot(a.x - b.x, a.y - b.y)
+        const in_ = a.r + b.r - d
+        if (in_ > 1) {
+          par++
+          varsta = Math.max(varsta, in_)
         }
       }
-      return rader
-    },
-    { LAGEN, RADIER }
-  )
-
-  const varsta = svep.reduce((a, b) => (b.topp > a.topp ? b : a), svep[0] || { topp: 0 })
-  const overTak = svep.filter((s) => s.topp > 0.205)
-  ok(
-    'ingen bubbla deformeras mer än taket, i något läge',
-    overTak.length === 0,
-    `värst: r=${varsta.r} vid (${varsta.x},${varsta.y}) → ${(varsta.topp * 100).toFixed(1)} % · ${overTak.length} av ${svep.length} över 20,5 %`
-  )
-  const minstH = svep.reduce((m, s) => (s.minH !== null && s.minH < m ? s.minH : m), 1e9)
-  const varstH = svep.find((s) => s.minH === minstH) || {}
-  ok(
-    'P0: träffytan är ≥96 px ÄVEN när bubblan är hoptryckt',
-    minstH >= 96,
-    `minst ${Math.round(minstH)} px (r=${varstH.r} vid (${varstH.x},${varstH.y}))`
-  )
-  // Massan ska fortfarande SYNAS. Kravet är medvetet 1,5× och inte massornas egna 13×:
-  // den mjuka mättnaden komprimerar spannet med flit, och skulle den bevaras rakt av
-  // vore alternativen antingen en osynlig jätte eller en barnbubbla som ser trasig ut.
-  ok(
-    'jättebubblan deformeras tydligt mindre än barnbubblan',
-    (() => {
-      const liten = svep.filter((s) => s.r === 24).reduce((m, s) => Math.max(m, s.topp), 0)
-      const stor = svep.filter((s) => s.r === 88).reduce((m, s) => Math.max(m, s.topp), 0)
-      return liten > stor * 1.5
-    })(),
-    (() => {
-      const liten = svep.filter((s) => s.r === 24).reduce((m, s) => Math.max(m, s.topp), 0)
-      const stor = svep.filter((s) => s.r === 88).reduce((m, s) => Math.max(m, s.topp), 0)
-      return `barnbubbla ${(liten * 100).toFixed(1)} % mot jätte ${(stor * 100).toFixed(1)} %`
-    })()
-  )
-  // Taket ska hålla — men en direktträff får inte LIGGA på det, för då slutar massan
-  // synas: en liten bubbla och en jättebubbla deformeras lika mycket, fast hela
-  // fläktmekaniken bygger på att kraften delas med massan.
-  ok('utdragningen har ett tak, och slår inte i det', matning.topp <= 0.205, `${(matning.topp * 100).toFixed(1)} % (asymptot 20 %)`)
-
-  // ATT SE ÄR ETT MÅTT. Talen kan säga 20 % och bilden ändå visa en hoprullad korv —
-  // det var precis så granskningen fällde den första kalibreringen. Sonden fryser
-  // därför en barnbubbla vid full utdragning och sparar bilden att titta på.
-  await page.evaluate(async () => {
-    const g = window.__barnspel.game
-    const ctx = window.__barnspel.ctx
-    const vanta = () => new Promise((r) => requestAnimationFrame(r))
-    for (const b of [...g._bubbles]) if (!b._popped) g._pop(ctx, b)
-    await vanta()
-    g._spawn(ctx, { x: 520, y: 380, r: 24, kind: 'normal' })
-    g._spawn(ctx, { x: 760, y: 380, r: 40, kind: 'normal' })
-    await vanta()
-    const mal = g._bubbles.slice(-2)
-    for (const m of mal) g._blow(ctx, g._nearestFan(m.x, m.y), m.x, m.y)
-    for (let i = 0; i < 26; i++) await vanta()
-    ctx.ticker.stop() // frys vid full utdragning
-  })
-  await page.screenshot({ path: '.test-shots/_bubbel-utdragen.png' })
-  console.log('\n  bild: .test-shots/_bubbel-utdragen.png (barnbubbla + r=40 vid full utdragning)')
-  ok('utdragningen ligger längs blåset', matning.vinkelfel < 0.6, `${((matning.vinkelfel * 180) / Math.PI).toFixed(0)}° från siktlinjen`)
-  ok('hinnan hittar tillbaka till rund', matning.slutMax < 0.05, `${(matning.slutMax * 100).toFixed(1)} % kvar efter puffen`)
-
-  // Bildrutetid med full luft + puffar.
-  const fps = await page.evaluate(async () => {
-    const g = window.__barnspel.game
-    const ctx = window.__barnspel.ctx
-    const vanta = () => new Promise((r) => requestAnimationFrame(r))
-    let n = 0
-    const t0 = performance.now()
-    while (performance.now() - t0 < 2500) {
-      await vanta()
-      n++
-      if (n % 20 === 0) {
-        const b = g._bubbles[n % g._bubbles.length]
-        if (b && !b._popped) g._blow(ctx, g._nearestFan(b.x, b.y), b.x, b.y)
-      }
     }
-    return { fps: Math.round((n / (performance.now() - t0)) * 1000), bubblor: g._bubbles.length }
-  })
-  ok('bildrutetiden håller med full luft och puffar', fps.fps >= 50, `${fps.fps} FPS med ${fps.bubblor} bubblor`)
+    return { varsta: +varsta.toFixed(1), par }
+  }
+  const start = matt()
+  // Mät i 40 bildrutor och behåll det VÄRSTA — en klase som löses upp först efter en
+  // sekund har ändå varit synlig i en sekund. `halv` = läget efter 40, `slut` efter 120.
+  let topp = start
+  const spar = []
+  for (let k = 0; k < 120; k++) {
+    await new Promise((r) => requestAnimationFrame(r))
+    const m = matt()
+    if (m.varsta > topp.varsta) topp = m
+    if (k === 39) spar.push(m)
+  }
+  const slut = matt()
+  return { start, topp, halv: spar[0], slut, kvar: g._bubbles.length }
+})
+// ⚠️ NOLL ÖVERLAPP ÄR FEL KRAV. Riktiga bubblor RÖR vid varandra; det som stör i bilden är
+// att de tränger IN i varandra. Tröskeln är därför "osynlig inträngning", inte "ingen kontakt"
+// — 4 px på en 36 px-radie är under konturens egen strecktjocklek.
+krav('klase: par vid start', klase.start.par > 0, `${klase.start.par} överlappande par, värsta ${klase.start.varsta} px`)
+krav('klase: efter 40 rutor', klase.halv.varsta <= 12, `värsta ${klase.halv.varsta} px i ${klase.halv.par} par`)
+krav('klase: efter 120 rutor', klase.slut.varsta <= 4, `värsta ${klase.slut.varsta} px i ${klase.slut.par} par (${klase.kvar} bubblor lever)`)
+krav('klase: aldrig varre an start', klase.topp.varsta <= klase.start.varsta + 0.5, `topp ${klase.topp.varsta} px mot start ${klase.start.varsta} px`)
 
-  // Exit mitt i en puff.
-  await page.evaluate(() => {
-    const g = window.__barnspel.game
-    const ctx = window.__barnspel.ctx
-    const b = g._bubbles.find((x) => !x._popped)
-    if (b) g._blow(ctx, g._nearestFan(b.x, b.y), b.x, b.y)
-    window.__barnspel.nav.go('library')
-  })
-  await page.waitForTimeout(1500)
-  const rivet = await page.evaluate(() => !window.__barnspel.game)
-  ok('spelet är rivet efter exit mitt i en puff', rivet)
-  ok('inga konsolfel', errors.length === 0, errors.slice(0, 2).join(' | '))
+// ---------------------------------------------------------------------------
+// 2. ZACKE: en bubbla som stiger rakt genom hans ben — märker den honom?
+//
+// Zacke sitter på (430, 330) med benen ner till y≈580. En bubbla släpps under hans
+// vänstra ben och får stiga. Mätvärdet är hur långt IN i benet den kommer.
+// ---------------------------------------------------------------------------
+const zacke = await page.evaluate(async () => {
+  const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+  g._goalFoam = 1e9 // frys framsteget — se rutan i steg 1
+  g._bubbles.length = 0
+  g._bubbleLayer.removeChildren()
+  // Zackes ben i lokala koordinater: (±22,40) → (±62,140) → (±46,250), stroke 46 (radie 23).
+  // Prickas här som en rad cirklar längs vägen, samma sätt som ögat läser silhuetten.
+  const ben = []
+  for (const s of [-1, 1]) {
+    for (let t = 0; t <= 1.0001; t += 0.1) {
+      const u = 1 - t
+      const x = u * u * (s * 22) + 2 * u * t * (s * 62) + t * t * (s * 46)
+      const y = u * u * 40 + 2 * u * t * 140 + t * t * 250
+      ben.push({ x: 430 + x, y: 330 + y, r: 23 })
+    }
+  }
+  const torso = { x: 430, y: 330 + 40, r: 62 } // magens nedre del, den enda som ligger i vattnet
+  const kroppen = ben.concat([torso])
+  const djup = (b) => {
+    let d = 0
+    for (const k of kroppen) d = Math.max(d, k.r + b.r - Math.hypot(b.x - k.x, b.y - k.y))
+    return d
+  }
+  // ⚠️ SKRIV INTE ÖVER `b.x` EFTER `_pushBubble`. Födelsepunkten är numera en del av fysiken
+  // (`_freeSpawnX` flyttar den ut ur kroppen), så en sond som tvingar tillbaka koordinaten
+  // mäter ett läge spelet inte längre kan hamna i — och rapporterar en fix som utebliven.
+  // Tryckpunkterna nedan ligger på hans mage, ben och mitt emellan fötterna.
+  const press = [386, 430, 474, 408]
+  for (const x of press) {
+    g._pushBubble(x, 34, 0, 'normal')
+    g._bubbles[g._bubbles.length - 1].phase = 0
+  }
+  const foddaX = g._bubbles.map((b) => Math.round(b.x))
+  const fodelse = +Math.max(...g._bubbles.map(djup)).toFixed(1)
+  let varsta = 0
+  let rutor = 0
+  for (let k = 0; k < 260; k++) {
+    await new Promise((r) => requestAnimationFrame(r))
+    for (const b of g._bubbles) {
+      const d = djup(b)
+      if (d > 2) rutor++
+      varsta = Math.max(varsta, d)
+    }
+    if (!g._bubbles.length) break
+  }
+  return { foddaX, fodelse: +fodelse.toFixed(1), varsta: +varsta.toFixed(1), rutor, kvar: g._bubbles.length }
+})
+krav('zacke: fodd utanfor kroppen', zacke.fodelse <= 0, `varsta ${zacke.fodelse} px vid fodseln · tryck ${[386, 430, 474, 408].join(',')} → x ${zacke.foddaX.join(',')}`)
+krav('zacke: intrangning', zacke.varsta <= 6, `varsta ${zacke.varsta} px in i kroppen (${zacke.rutor} bubbel-rutor inuti honom)`)
+krav('zacke: alla nadde ytan', zacke.kvar === 0, `${zacke.kvar} bubblor kvar efter 260 rutor`)
 
-  console.log(`\n${fel === 0 ? '✓ ALLA MÅTT GODA' : `✗ ${fel} MÅTT UNDERKÄNDA`}\n`)
-  process.exit(fel === 0 ? 0 : 1)
-} finally {
-  await browser.close()
-}
+// ---------------------------------------------------------------------------
+// 2b. KLYKAN ÄR EN ÅTERVÄNDSGRÄND — vakten måste täcka den ändå.
+//
+// Låren står 44–50 px isär hela vägen upp och möts vid höften; en bubbla som ändå hamnar
+// däremellan kan inte ta sig ut. `_freeSpawnX` gör att spelet aldrig lägger en där, men
+// tvingar man in en ska anti-stuck-vakten lösa den — annars vore hindret utan tak (P0).
+// ---------------------------------------------------------------------------
+const klyka = await page.evaluate(async () => {
+  const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+  g._bubbles.length = 0
+  g._bubbleLayer.removeChildren()
+  g._sinceFoam = 0
+  g._pushBubble(430, 34, 0, 'normal')
+  const b = g._bubbles[g._bubbles.length - 1]
+  b.x = 430 // med våld, rakt in i klykan
+  b.y = 500
+  b.phase = 0
+  const t0 = performance.now()
+  while (performance.now() - t0 < 7000 && g._bubbles.length) await new Promise((r) => requestAnimationFrame(r))
+  return { kvar: g._bubbles.length, sekunder: +((performance.now() - t0) / 1000).toFixed(1) }
+})
+krav('klykan: vakten loser den', klyka.kvar === 0, `${klyka.kvar} kvar efter ${klyka.sekunder} s`)
+
+// ---------------------------------------------------------------------------
+// 3. VAKT — FRAMSTEGET. En separation som håller bubblor kvar under ytan gör spelet
+// långsammare, och det vore en motgång utan tak. Samma skript, samma bubblor: hur mycket
+// skum har badet fått efter tre sekunder?
+// ---------------------------------------------------------------------------
+// ⚠️ FÄRSK MONTERING, inte `_foam.level = 0`. Stegen ovan poppar ett tiotal bubblor, vilket
+// räcker för att KLARA nivån — firandet nollade sedan skummet mitt i mätfönstret och sonden
+// rapporterade "0 skum" på ett spel som mådde utmärkt. (Röd sond = ett påstående.)
+await gaUt()
+await gaIn()
+const framsteg = await page.evaluate(async () => {
+  const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+  g._bubbles.length = 0
+  g._bubbleLayer.removeChildren()
+  g._sinceFoam = 0
+  g._idle = 0
+  for (let i = 0; i < 12; i++) {
+    const x = 300 + ((i * 137) % 700)
+    g._pushBubble(x, 30 + (i % 5) * 8, 0, 'normal')
+    const b = g._bubbles[g._bubbles.length - 1]
+    b.phase = 0
+  }
+  const t0 = performance.now()
+  // Stanna om nivån klaras — annars nollar firandet skummet och mätvärdet blir 0.
+  while (performance.now() - t0 < 3000 && !g._resolving) await new Promise((r) => requestAnimationFrame(r))
+  return { skum: +g._foam.level.toFixed(1), mal: +g._goalFoam.toFixed(1), kvar: g._bubbles.length, klart: !!g._resolving }
+})
+krav('framsteg: skum pa 3 s', framsteg.skum > 0, `${framsteg.skum} av ${framsteg.mal} skum${framsteg.klart ? ' (nivan klarad)' : ''}, ${framsteg.kvar} bubblor kvar`)
+
+// ---------------------------------------------------------------------------
+// 4. VAKT — INGEN FASTNAR. En bubbla instängd mellan Zacke och kar-väggen är den
+// uppenbara nya risken. Släpp en rad bubblor i de trånga spalterna och mät hur många
+// som fortfarande lever efter sex sekunder.
+// ---------------------------------------------------------------------------
+await gaUt()
+await gaIn()
+const fast = await page.evaluate(async () => {
+  const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+  g._goalFoam = 1e9 // frys framsteget — se rutan i steg 1
+  g._bubbles.length = 0
+  g._bubbleLayer.removeChildren()
+  g._sinceFoam = 0
+  // Spalterna: mellan vänster vägg och Zackes ben, mellan benen, och mellan ben och anka.
+  for (const x of [255, 300, 340, 430, 520, 560]) {
+    g._pushBubble(x, 40, 0, 'normal')
+    const b = g._bubbles[g._bubbles.length - 1]
+    b.x = x
+    b.y = 560
+    b.phase = 0
+  }
+  const start = g._bubbles.length
+  const t0 = performance.now()
+  while (performance.now() - t0 < 6000) await new Promise((r) => requestAnimationFrame(r))
+  const aldrar = g._bubbles.map((b) => Math.round(b.age))
+  return { start, kvar: g._bubbles.length, aldrar }
+})
+krav('ingen fastnar', fast.kvar === 0, `${fast.kvar}/${fast.start} kvar efter 6 s${fast.aldrar.length ? ' (aldrar ' + fast.aldrar.join(',') + ')' : ''}`)
+
+// ---------------------------------------------------------------------------
+// 5. EXIT mitt i en tät klase.
+// ---------------------------------------------------------------------------
+const forInnan = fel.length
+await page.evaluate(async () => {
+  const g = (await import('/src/games/registry.js')).getGame('pruttbad')
+  for (let i = 0; i < 8; i++) g._pushBubble(600 + i * 6, 44, 0, 'normal')
+})
+await page.waitForTimeout(60)
+await gaUt()
+await page.waitForTimeout(600)
+krav('exit mitt i klasen', fel.length === forInnan, fel.length === forInnan ? 'inga nya konsolfel' : fel.slice(forInnan).join(' | '))
+
+console.log('\n  BUBBELFYSIK — pruttbad\n')
+console.log(rader.join('\n'))
+console.log(`\n  ${gronna}/${rader.length} grona · konsolfel: ${fel.length ? fel.join(' | ') : 0}\n`)
+await browser.close()
+process.exit(gronna === rader.length && fel.length === 0 ? 0 : 1)

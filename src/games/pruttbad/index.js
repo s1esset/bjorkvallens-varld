@@ -203,6 +203,47 @@ const TVAL_X0 = 200 // karets insida (samma som vattnets roundRect)
 const TVAL_X1 = 1080
 const MAX_V = 14 // hastighetstak — inget kan skjuta ur karet
 
+// ---- Bubblorna tar plats: mot varandra och mot Zacke ---------------------
+//
+// Ägarens ord i §4: *"man kanske kan förbättra vätskefysiken och bubbelfysiken"*. Mätpasset
+// (`_bubbelbild.mjs`) pekade ut två saker före alla andra, och båda är GENOMTRÄNGNING:
+// bubblorna gick rakt igenom varandra (fem–sex överlappade synligt i en klase) och rakt
+// igenom Zacke, badets största föremål.
+//
+// ⚠️ POSITIONSRÄTTNING, INTE EN KRAFT. En fjäder mellan två bubblor är en energiKÄLLA som
+// pumpar klasen — exakt fällan höjdfältets dell gick i (se rutan vid `_waveDent`). Här löses
+// en ANDEL av överlappet per steg: det konvergerar alltid och kan aldrig tillföra energi.
+const SEP_F = 0.35 // andel av överlappet som löses per steg
+const SEP_MAX = 0.6 // ⚠️ TAK. Andelen får INTE skala fritt med `dt`: en tappad bildruta
+// (dt 2,5) hade gett 0,88 av överlappet i ETT steg, alltså nära ett hopp — klasen hade
+// sprättat isär i stället för att glida isär. Samma lärdom som mjuka kroppars tidssteg.
+const SQUEEZE_OUT = 0.35 // sidled-utväg när två kroppsdelar trycker åt var sitt håll
+// Mot ZACKE löses överlappet HELT, inte som en andel — han är statisk och kan inte ta emot
+// energi, så det finns inget att dämpa. Med en andel uppstår i stället en JÄMVIKT: lyftkraften
+// bär in bubblan ~3,7 px per steg och 0,35 tar ut ~35 % av det som ligger inne, alltså stannar
+// den ~7 px inne i benet för alltid (uppmätt 6,8). Taket nedan finns bara för att en bubbla som
+// på något sätt hamnat djupt inne ska GLIDA ut, inte teleportera.
+const BODY_MAX = 6 // px per steg
+
+// Zackes silhuett I VATTNET som en rad cirklar: benens väg (samma kvadratiska kurva som
+// `_buildZacke` ritar dem efter) plus magens nedre del. Han sitter på karbottnen och följer
+// INTE nivån när badet töms — därför kan listan byggas en gång och sedan stå still.
+const ZACKE_BODY = (() => {
+  const delar = []
+  for (const s of [-1, 1]) {
+    for (let t = 0; t <= 1.0001; t += 0.125) {
+      const u = 1 - t
+      delar.push({
+        x: ZACKE_X + u * u * (s * 22) + 2 * u * t * (s * 62) + t * t * (s * 46),
+        y: ZACKE_Y + u * u * 40 + 2 * u * t * 140 + t * t * 250,
+        r: 23, // benens stroke är 46 px bred
+      })
+    }
+  }
+  delar.push({ x: ZACKE_X, y: ZACKE_Y + 30, r: 58 }) // magen — bara dess nedre del ligger i vattnet
+  return delar
+})()
+
 // ---- Zacke (ritad karaktär, inte en boll) --------------------------------
 // Badsorter — en per runda, cyklade på nivån. Rundorna såg tidigare IDENTISKA ut (bara
 // mållinjen flyttades och bubblorna blev några px större), vilket var precis det kritikern
@@ -1469,9 +1510,14 @@ export default {
     const view = this._makeBubbleView()
     const r = this._rMin()
     view.scale.set(r / BASE)
-    view.position.set(x, FLOOR - 30)
+    // Laddnings-bubblan ska ligga DÄR den kommer att födas, annars hoppar den i släppet.
+    // `x0` är tryckpunkten och sparas rå: den fria punkten räknas om ur den varje bildruta
+    // medan bubblan växer (en större bubbla behöver mer plats bredvid honom), och att räkna
+    // vidare på ett redan flyttat x hade låtit den vandra utåt av sig själv.
+    const fx = this._freeSpawnX(x, r)
+    view.position.set(fx, this._spawnY(r))
     this._bubbleLayer.addChild(view)
-    this._charging = { x, r, view }
+    this._charging = { x: fx, x0: x, r, view }
     // Riktig prutt (<100ms) eller mjuk syntes — strypt så snabba tryck inte staplas.
     this._sound(ctx, 'fart', 'soft', 'fart', 70)
     pop(this._zacke)
@@ -1549,14 +1595,51 @@ export default {
     this._pushBubble(x, r, 0, kind)
   },
 
+  // Födelsepunkten får inte ligga inuti Zacke.
+  //
+  // ⚠️ DET HÄR ÄR EN ÅTERVÄNDSGRÄND, INTE EN TRÖG PASSAGE — därför flyttas punkten i stället
+  // för att knuffen görs starkare. Bubblorna föds på karbottnen under tryckpunkten, och där
+  // står hans vader: en bubbla på (386, 574) startade 50 px inne i vänster ben. Ut har den
+  // ingenstans att ta vägen — låren står **44–50 px isär hela vägen upp** (en bubbla på 34 px
+  // behöver 68), de möts vid höften, magen stänger taket och lyftkraften pressar den mot just
+  // den stängda änden. Uppmätt före den här raden: två av fyra bubblor stod och guppade mellan
+  // y 465 och 605 i 260 bildrutor, och kom aldrig ut.
+  //
+  // Nu föds bubblan vid närmaste fria sida av honom i stället. Barnet trycker på magen och
+  // pruttbubblan dyker upp bredvid honom på botten — samma orsak, men en väg som finns.
+  // Födelsehöjden: karbottnen, men aldrig så lågt att bubblan sticker ut under karet.
+  _spawnY(r) {
+    return Math.min(FLOOR - 30, TUB_BOT - 6 - r)
+  },
+
+  _freeSpawnX(x, r) {
+    const y0 = FLOOR - 30
+    let lo = Infinity
+    let hi = -Infinity
+    for (const k of ZACKE_BODY) {
+      const rr = k.r + r
+      const dy = Math.abs(k.y - y0)
+      if (dy >= rr) continue
+      const w = Math.sqrt(rr * rr - dy * dy)
+      if (k.x - w < lo) lo = k.x - w
+      if (k.x + w > hi) hi = k.x + w
+    }
+    if (!(x > lo && x < hi)) return x
+    const ut = x - lo < hi - x ? lo - 2 : hi + 2
+    return clamp(ut, WALL_L + r, WALL_R - r)
+  },
+
   // Skapa en bubbel-view + lägg i listan (delas av _spawnBubble och firande-svärmen,
   // som kör medan _resolving=true och därför inte kan gå via _spawnBubble-gardet).
   _pushBubble(x, r, vy = 0, kind = 'normal') {
+    x = this._freeSpawnX(x, r)
+    // Födelsehöjden är fast, men en STOR bubbla ryms inte där — se golvgränsen i `_update`.
+    const y = this._spawnY(r)
     const view = this._makeBubbleView(kind)
     view.scale.set(r / BASE)
-    view.position.set(x, FLOOR - 30)
+    view.position.set(x, y)
     this._bubbleLayer.addChild(view)
-    this._bubbles.push({ view, x, y: FLOOR - 30, r, vx: 0, vy, phase: Math.random() * 6, age: 0, kind })
+    this._bubbles.push({ view, x, y, r, vx: 0, vy, phase: Math.random() * 6, age: 0, kind })
   },
 
   // ---- Anka: dra → flytta studshindret -----------------------------------
@@ -1741,8 +1824,12 @@ export default {
     // Håll-laddning: bubblan växer synligt (direktmanipulation, ingen dold gest).
     if (this._held && this._charging) {
       this._charging.r = Math.min(this._rMax(), this._charging.r + (26 / 60) * dt)
+      this._charging.x = this._freeSpawnX(this._charging.x0, this._charging.r)
       const v = this._charging.view
-      if (v && !v.destroyed) v.scale.set(this._charging.r / BASE)
+      if (v && !v.destroyed) {
+        v.scale.set(this._charging.r / BASE)
+        v.position.set(this._charging.x, this._spawnY(this._charging.r))
+      }
     }
 
     this._updateLevel(ctx, dts)
@@ -1801,6 +1888,10 @@ export default {
       this._beard.visible = this._foam.level >= this._goalFoam * 0.78
     }
 
+    // Bubblor tar plats mot varandra INNAN integratorn — då hinner väggarna, ankan och Zacke
+    // nedan städa upp varje rättning som råkade skjuta in en bubbla i något fast.
+    this._separateBubbles(dt)
+
     // Bubbel-integrator.
     const duckX = this._duckBase.x
     const duckY = this._duckBase.y
@@ -1821,6 +1912,15 @@ export default {
       b.x += b.vx * dt
       b.y += b.vy * dt
       b.age += dt
+
+      // KARETS BOTTEN. Integratorn hade väggar och yta men inget golv, och födelsehöjden är
+      // en fast punkt (`FLOOR − 30`) oavsett storlek: en bubbla ur den stora flaskan (r upp
+      // till 96) nådde y 670 och låg alltså delvis UTANFÖR karet, ovanpå badrumsgolvet. Syntes
+      // direkt i `_bubblor.png`, utan ett enda konsolfel.
+      if (b.y > TUB_BOT - 6 - b.r) {
+        b.y = TUB_BOT - 6 - b.r
+        if (b.vy > 0) b.vy = 0
+      }
 
       // Väggstuds.
       if (b.x < WALL_L + b.r) {
@@ -1861,6 +1961,34 @@ export default {
         b.vx += Math.sign(dx || 1) * (1 - d / DUCK_PUSH_R) * 0.5 * dt
       }
 
+      // ZACKE TAR PLATS. Han är badets största föremål och var det enda som bubblorna aldrig
+      // märkte — de passerade rakt genom ben och mage (uppmätt 92,4 px in i kroppen, 492
+      // bubbel-bildrutor inuti honom). Nu glider de runt honom i stället.
+      let nxMin = 1
+      let nxMax = -1
+      for (const k of ZACKE_BODY) {
+        const kx = b.x - k.x
+        const ky = b.y - k.y
+        const minK = b.r + k.r
+        if (Math.abs(kx) > minK || Math.abs(ky) > minK) continue // billig förkastning först
+        const dk = Math.hypot(kx, ky)
+        if (dk >= minK) continue
+        const nx = dk > 0.01 ? kx / dk : 1
+        const ny = dk > 0.01 ? ky / dk : 0
+        const push = Math.min(minK - dk, BODY_MAX * dt) // se rutan vid BODY_MAX
+        b.x += nx * push
+        b.y += ny * push
+        if (nx < nxMin) nxMin = nx
+        if (nx > nxMax) nxMax = nx
+      }
+      // ⚠️ KLYKAN MELLAN BENEN ÄR EN FÄLLA UTAN DEN HÄR RADEN. Låren möts vid höften — gapet
+      // går från 50 px vid knäna till NOLL — och en bubbla däremellan får vänsterbenet som
+      // trycker höger, högerbenet som trycker vänster och magen som trycker ner. Summan är noll
+      // i sidled och nedåt i höjd, alltså rakt mot lyftkraften: bubblan hade stått och guppat
+      // tills anti-stuck-vakten poppade den fyra sekunder senare. Trycker två kroppsdelar åt
+      // VAR SITT håll får bubblan därför en väg ut i sidled, bort från honom.
+      if (nxMin < -0.3 && nxMax > 0.3) b.vx += Math.sign(b.x - ZACKE_X || 1) * SQUEEZE_OUT * dt
+
       if (b.view && !b.view.destroyed) b.view.position.set(b.x, b.y)
 
       // Pop vid ytan (bubblans topp når ytan) eller efter max-livslängd.
@@ -1889,6 +2017,48 @@ export default {
         }
       } else {
         this._sinceFoam = 0
+      }
+    }
+  },
+
+  // Bubblor går inte igenom varandra. Se rutan vid `SEP_F`: en ANDEL av överlappet löses per
+  // steg, aldrig en fjäderkraft. Paren är O(n²), men n är ett tjugotal — billigare än den
+  // rutnätsindexering som hade behövt underhållas.
+  _separateBubbles(dt) {
+    const bs = this._bubbles
+    if (bs.length < 2) return
+    const f = Math.min(SEP_MAX, SEP_F * dt)
+    for (let i = 0; i < bs.length; i++) {
+      const a = bs[i]
+      for (let j = i + 1; j < bs.length; j++) {
+        const b = bs[j]
+        let dx = b.x - a.x
+        let dy = b.y - a.y
+        const minD = a.r + b.r
+        if (Math.abs(dx) > minD || Math.abs(dy) > minD) continue // billig förkastning först
+        let d = Math.hypot(dx, dy)
+        if (d >= minD) continue
+        // Två bubblor på exakt samma punkt har ingen riktning att ta isär — ge dem en, annars
+        // blir normalen 0/0 och paret sitter ihop för alltid. (Klungan ur den lilla flaskan
+        // föds tre stycken nära varandra, så fallet är verkligt.)
+        if (d < 0.01) {
+          dx = i % 2 ? 0.8 : -0.8
+          dy = -0.6
+          d = 1
+        }
+        const nx = dx / d
+        const ny = dy / d
+        const push = (minD - d) * f
+        // Massa ∝ AREAN: en liten bubbla ger vika för en stor, inte tvärtom. Med lika massor
+        // hade den lilla flaskans klunga kunnat knuffa undan en jättebubbla.
+        const ma = a.r * a.r
+        const mb = b.r * b.r
+        const andelA = mb / (ma + mb)
+        const andelB = 1 - andelA
+        a.x -= nx * push * andelA
+        a.y -= ny * push * andelA
+        b.x += nx * push * andelB
+        b.y += ny * push * andelB
       }
     }
   },

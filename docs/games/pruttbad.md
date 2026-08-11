@@ -92,7 +92,10 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   SPH-partiklar i en `Flytvolym` som kräver en matter-värld, medan pruttbads bad är en RITAD
   form och dess bubblor rena ticker-objekt. Det som bar över var dess varning om bredden.
   Verktyget här blev ett 1D-höjdfält.)*
-- **[Deep] Bättre vätske- och bubbelfysik generellt.** Ägarens ord: *"man kanske kan förbättra
+- ~~**[Deep] Bättre vätske- och bubbelfysik generellt.**~~ 🟨 **PUNKT 1 OCH 2 BYGGDA 2026-08-11**
+  (se §5) — bubblorna tar plats mot varandra och mot Zacke. Punkt 3 (skumkroppen) och 4
+  (flyt-texterna) är rendering respektive återkoppling och ligger kvar nedan som egna punkter.
+  Ägarens ord: *"man kanske kan förbättra
   vätskefysiken och bubbelfysiken"*. Vagt med flit — mät först: kör `_vatskeprobe` och `_tvalprobe`
   och skriv ner VAD som ser fel ut i bild innan något ändras.
   **📏 MÄTPASSET ÄR GJORT 2026-08-11 — här är listan, ingen kod ändrad än.**
@@ -164,6 +167,49 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   lugn och rikedom; behåll den befintliga ljud-strypningen.
 
 ## 5. Status / loggar
+
+- 2026-08-11 🫧 **BUBBLORNA TAR PLATS — mot varandra och mot Zacke** (v1.149.0). Ägarens
+  §4-punkt 5, del 1 och 2 av mätpassets fyra. Ny sond: **`scripts/_bubbelprobe.mjs` (11/11)**.
+  - **Mot varandra.** Sex bubblor i en tät klase trängde in **47,8 px** i varandra på HEAD och
+    löstes ALDRIG upp — efter 40 bildrutor var det 49,2 px, alltså värre än vid start. Nu:
+    **8,4 px efter 40 rutor och 0 px efter 120**, och inträngningen blir aldrig värre än den
+    var vid start. ⚠️ **Positionsrättning, inte en fjäder.** En fjäder mellan två bubblor är en
+    energiKÄLLA som pumpar klasen — exakt fällan höjdfältet gick i förra passet. Här löses en
+    ANDEL av överlappet per steg (`SEP_F` 0,35, tak `SEP_MAX` 0,6 så en tappad bildruta inte
+    sprätter isär klasen). Massan är ∝ **arean**, annars kunde den lilla flaskans klunga knuffa
+    undan en jättebubbla.
+  - **Mot Zacke.** Badets största föremål var det enda bubblorna aldrig märkte: **92,4 px in i
+    kroppen, 492 bubbel-bildrutor inuti honom**. Nu **1,7 px och 0 rutor**. Silhuetten i vattnet
+    är en rad cirklar längs benens egen kvadratiska kurva plus magens nedre del; han sitter på
+    karbottnen och följer inte nivån, så listan byggs en gång.
+  - ⚠️ **Mot en STATISK kropp löses överlappet HELT, inte som en andel.** Med en andel uppstår
+    en jämvikt i stället för kontakt: lyftkraften bär in bubblan ~3,7 px/steg och 0,35 tar ut
+    35 % av det som ligger inne, alltså stannar den ~7 px inne i benet för alltid (uppmätt 6,8).
+    Full upplösning med ett tak på 6 px/steg gav 1,7.
+  - ⚠️ **KLYKAN MELLAN BENEN VAR EN ÅTERVÄNDSGRÄND, och fixen är födelsepunkten — inte kraften.**
+    Bubblorna föds på karbottnen under tryckpunkten, och där står hans vader: en bubbla på
+    (386, 574) startade **50 px inne i vänster ben**. Ut fanns ingen väg — låren står **44–50 px
+    isär hela vägen upp** (en bubbla på 34 px behöver 68), de möts vid höften, magen stänger
+    taket och lyftkraften pressar bubblan mot just den stängda änden. Uppmätt: **två av fyra
+    bubblor guppade mellan y 465 och 605 i 260 bildrutor och kom aldrig ut.** `_freeSpawnX()`
+    flyttar därför födelsepunkten till närmaste fria sida av honom (tryck 386/430/474/408 →
+    x 325/535/535/325), och laddnings-bubblan räknas om ur den RÅ tryckpunkten varje bildruta
+    medan den växer — annars hade den vandrat utåt av sig själv. Klykan är därmed onåbar i spel,
+    och tvingar man ändå in en bubbla löser anti-stuck-vakten den på 4 s (mätt).
+  - **Sidofynd ur bilden: integratorn hade väggar och yta men INGET GOLV.** Födelsehöjden är en
+    fast punkt (`FLOOR − 30`) oavsett storlek, så en bubbla ur den stora flaskan (r upp till 96)
+    nådde y 670 och låg delvis **utanför karet, ovanpå badrumsgolvet**. Syntes direkt i
+    `_bubblor.png`, utan ett enda konsolfel. Lägsta bubbelkant nu **exakt 604** = karbottnen.
+  - **Tre gånger var det SONDEN som ljög, inte spelet** — samma lärdom som förra passet:
+    (a) den nollade `_foam.level` i stället för att montera om, så firandet från de bubblor
+    sonden själv poppat nollade skummet mitt i mätfönstret ("0 skum" på ett friskt spel);
+    (b) den lät nivån klaras under mätningen, varpå **firandets bubbelsvärm hamnade i
+    mätvärdet** och rapporterade 98,9 px inträngning i ett par som omöjligt kan tränga in mer
+    än 72 — mätfönstren fryser nu framsteget med `_goalFoam = 1e9`; (c) den skrev över `b.x`
+    efter `_pushBubble` och mätte därför ett läge spelet inte längre kan hamna i, vilket
+    rapporterade en byggd fix som utebliven.
+  - **Vakter (alla gröna):** framsteget oförändrat (nivån klaras inom 3 s som förut) · 0 av 6
+    bubblor fastnar i de trånga spalterna på 6 s · exit mitt i en tät klase utan konsolfel.
 
 - 2026-08-11 🌊 **ANKAN OMFÖRDELAR VATTEN OCH BUBBLOR — ytan blev ett höjdfält** (v1.148.0).
   Ägarens §4-punkt 4. ⚠️ **Docens hänvisning till `plask-i-vattnet` gick inte att följa:** den

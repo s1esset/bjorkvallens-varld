@@ -12,7 +12,7 @@ import { gsap } from 'gsap'
 import { puff, pop, wiggle, bounceIn, sparkle , kvittera} from '../../lib/feedback.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { verticalFill, cylinderFill } from '../../lib/form.js'
+import { verticalFill, cylinderFill, sphereFill, topLightFill } from '../../lib/form.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -200,12 +200,22 @@ export default {
     c.on('pointertap', () => this._onClownTap(ctx))
     this._clown = c
 
-    // Hår (bakom huvudet).
-    const hair = new Graphics().circle(-128, -38, 70).fill(COLORS.red).circle(128, -38, 70).fill(COLORS.red)
+    // Hår (bakom huvudet). Två klot i SAMMA Graphics får var sin egen normalisering av
+    // gradienten (bbox räknas per form, inte per fill) — de läser alltså som två tofsar
+    // och inte som en enda röd klump. (LYFTPLAN C1)
+    const hair = new Graphics()
+      .circle(-128, -38, 70).fill(sphereFill(COLORS.red))
+      .circle(128, -38, 70).fill(sphereFill(COLORS.red))
     hair.eventMode = 'none'
 
-    // Huvud.
-    const head = new Graphics().circle(0, 0, 150).fill(0xfff0e0).stroke({ width: 8, color: 0xe8c9b0 })
+    // Huvud — 300 px brett, alltså den form i spelet där en klot-toning bär mest bild.
+    // ⚠️ Egna tal, inte standardvärdena: huden är NÄSTAN VIT (0xfff0e0), och 32 % mörkning
+    // äter då ett så stort absolut spann att kanten blev grågrumlig i stället för varm
+    // creme — samma fälla som `form.js` varnar för på ljusa markytor, men på ett klot.
+    // Det syntes bara i skärmdumpen; testet var grönt hela tiden.
+    const head = new Graphics().circle(0, 0, 150)
+      .fill(sphereFill(0xfff0e0, { highlight: 0.16, dark: 0.1 }))
+      .stroke({ width: 8, color: 0xe8c9b0 })
     head.eventMode = 'none'
 
     // Ansikte: rosa kinder (statiska) + SEPARATA ögon/mun/näsa så Alissa kan REAGERA
@@ -220,15 +230,15 @@ export default {
     this._mouth = new Graphics()
     this._mouth.eventMode = 'none'
     this._drawClownMouthOn(this._mouth, 'smile')
-    const nose = new Graphics().circle(0, 25, 36).fill(COLORS.red)
+    const nose = new Graphics().circle(0, 25, 36).fill(sphereFill(COLORS.red))
     nose.eventMode = 'none'
 
     // Hatt (liten kon + pompom ovanpå huvudet).
     const hatColor = randomFrom(PLAYFUL)
     const hat = new Graphics()
-    hat.ellipse(0, -148, 96, 20).fill(0x5a3a8a)
-    hat.moveTo(-58, -150).lineTo(58, -150).lineTo(0, -238).closePath().fill(hatColor)
-    hat.circle(0, -240, 22).fill(COLORS.yellow)
+    hat.ellipse(0, -148, 96, 20).fill(0x5a3a8a) // brätte — liten detalj, medvetet platt
+    hat.moveTo(-58, -150).lineTo(58, -150).lineTo(0, -238).closePath().fill(topLightFill(hatColor))
+    hat.circle(0, -240, 22).fill(sphereFill(COLORS.yellow))
     hat.eventMode = 'none'
 
     // Grädde-lager (på ansiktet, men under svampen). Lokala koordinater.
@@ -357,7 +367,7 @@ export default {
     s.position.set(SPONGE_HOME_X, SPONGE_HOME_Y)
     const g = new Graphics()
     g.ellipse(0, 54, 60, 12).fill({ color: COLORS.shadow, alpha: 0.12 }) // skugga
-    g.roundRect(-66, -46, 132, 92, 22).fill(0xffd24a).stroke({ width: 5, color: 0xe8a92e }) // svampkropp
+    g.roundRect(-66, -46, 132, 92, 22).fill(topLightFill(0xffd24a)).stroke({ width: 5, color: 0xe8a92e }) // svampkropp
     g.roundRect(-66, -46, 132, 34, 22).fill(0xeaf6ff) // ljus skumkant upptill
     for (const [hx, hy, hr] of [[-30, 18, 9], [6, 28, 7], [34, 8, 8], [-8, 4, 6], [40, 30, 6]]) {
       g.circle(hx, hy, hr).fill({ color: 0xe8a92e, alpha: 0.6 }) // hål i svampen

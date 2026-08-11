@@ -10,7 +10,7 @@ import { DragController } from '../../lib/DragController.js'
 import { bounceIn, pop, wiggle, sparkle, puff, liv, kvittera } from '../../lib/feedback.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
-import { verticalFill } from '../../lib/form.js'
+import { verticalFill, sphereFill, topLightFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // BORDET. `_plattprobe --medbakgrund` mätte 391 766 px — 43 % av skärmen — i EN ton,
@@ -66,13 +66,15 @@ const THEMES = [
     draw(g) {
       g.rect(0, 0, 500, 280).fill(verticalFill(P_SKY_T, P_SKY_B)) // ljus himmel
       g.rect(0, 280, 500, 220).fill(verticalFill(P_GRASS_T, P_GRASS_B)) // gräs
-      g.circle(105, 95, 55).fill(COLORS.yellow) // sol
-      g.rect(243, 330, 14, 150).fill(COLORS.greenDark) // stjälk
+      g.circle(105, 95, 55).fill(sphereFill(COLORS.yellow)) // sol
+      g.rect(243, 330, 14, 150).fill(COLORS.greenDark) // stjälk — 14 px smal, gradient syns inte
+      // Varje kronblad är en EGEN form och får därför sin egen normalisering — blomman
+      // läser som sex blad i stället för en rosa klump. (LYFTPLAN C1)
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2
-        g.circle(250 + Math.cos(a) * 72, 300 + Math.sin(a) * 72, 40).fill(COLORS.pink)
+        g.circle(250 + Math.cos(a) * 72, 300 + Math.sin(a) * 72, 40).fill(sphereFill(COLORS.pink))
       }
-      g.circle(250, 300, 50).fill(COLORS.yellow) // blomhjärta
+      g.circle(250, 300, 50).fill(sphereFill(COLORS.yellow)) // blomhjärta
     },
     accents: [
       { emoji: '🦋', x: 390, y: 140, size: 74 },
@@ -83,9 +85,9 @@ const THEMES = [
     id: 'katt',
     draw(g) {
       g.rect(0, 0, 500, 500).fill(verticalFill(P_PALE_T, P_PALE_B))
-      g.poly([120, 150, 190, 70, 215, 185]).fill(COLORS.orange) // vänster öra
-      g.poly([380, 150, 310, 70, 285, 185]).fill(COLORS.orange) // höger öra
-      g.circle(250, 270, 165).fill(COLORS.orange) // ansikte
+      g.poly([120, 150, 190, 70, 215, 185]).fill(topLightFill(COLORS.orange)) // vänster öra
+      g.poly([380, 150, 310, 70, 285, 185]).fill(topLightFill(COLORS.orange)) // höger öra
+      g.circle(250, 270, 165).fill(sphereFill(COLORS.orange)) // ansikte — 330 px, motivets bärare
       g.circle(205, 250, 18).fill(COLORS.ink) // ögon
       g.circle(295, 250, 18).fill(COLORS.ink)
       g.circle(250, 302, 16).fill(COLORS.pink) // nos
@@ -100,9 +102,12 @@ const THEMES = [
     draw(g) {
       g.rect(0, 0, 500, 300).fill(verticalFill(P_SKY_T, P_SKY_B))
       g.rect(0, 300, 500, 200).fill(verticalFill(P_GRASS_T, P_GRASS_B))
-      g.circle(410, 90, 52).fill(COLORS.yellow) // sol
-      g.rect(120, 250, 260, 200).fill(COLORS.cream).stroke({ width: 6, color: COLORS.brown, alpha: 0.4 })
-      g.poly([100, 250, 250, 120, 400, 250]).fill(COLORS.red) // tak
+      g.circle(410, 90, 52).fill(sphereFill(COLORS.yellow)) // sol
+      // ⚠️ Väggen är NÄSTAN VIT (cream) — standardmörkningen skulle göra den grågrumlig
+      // i stället för ljus puts (samma fälla som form.js varnar för på ljusa ytor).
+      g.rect(120, 250, 260, 200).fill(topLightFill(COLORS.cream, { highlight: 0.1, dark: 0.08 }))
+        .stroke({ width: 6, color: COLORS.brown, alpha: 0.4 })
+      g.poly([100, 250, 250, 120, 400, 250]).fill(topLightFill(COLORS.red)) // tak
       g.rect(160, 330, 70, 70).fill(COLORS.blue) // fönster
       g.rect(290, 330, 70, 120).fill(COLORS.brown) // dörr
     },
@@ -116,11 +121,11 @@ const THEMES = [
     draw(g) {
       g.rect(0, 0, 500, 300).fill(verticalFill(P_PALE_T, P_PALE_B))
       g.rect(0, 300, 500, 200).fill(verticalFill(P_SEA_T, P_SEA_B)) // hav
-      g.circle(100, 90, 52).fill(COLORS.yellow) // sol
-      g.poly([250, 120, 250, 320, 150, 320]).fill(COLORS.white) // segel
-      g.poly([270, 140, 270, 320, 360, 320]).fill(COLORS.red)
-      g.rect(246, 120, 8, 210).fill(COLORS.brown) // mast
-      g.poly([130, 330, 370, 330, 330, 400, 170, 400]).fill(COLORS.brown) // skrov
+      g.circle(100, 90, 52).fill(sphereFill(COLORS.yellow)) // sol
+      g.poly([250, 120, 250, 320, 150, 320]).fill(COLORS.white) // segel — vitt duger platt
+      g.poly([270, 140, 270, 320, 360, 320]).fill(topLightFill(COLORS.red))
+      g.rect(246, 120, 8, 210).fill(COLORS.brown) // mast — 8 px smal
+      g.poly([130, 330, 370, 330, 330, 400, 170, 400]).fill(topLightFill(COLORS.brown)) // skrov
     },
     accents: [
       { emoji: '🐟', x: 110, y: 435, size: 64 },

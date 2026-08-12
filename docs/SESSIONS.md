@@ -14,6 +14,65 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.163.0 · Tre mätsätt på samma effekt, och de två första ljög
+
+**Byggt:** nattköns **N10**, fjärde passet. Två spel, en commit var, egen sond per punkt.
+
+**Urvalet igen: sex av åtta kandidater var redan byggda.** `fyrverkeri`s "Smäll-blixt +
+mikroskak" (byggd 2026-08-05, §5 loggade den, §4 ströks aldrig) · `golvet-ar-lava`s "Lava som
+reagerar" (alla tre delarna: stänk vid stenen, ringar vid landning, mikroskak skalad med
+fallhöjden) · `gungan`s kompis i kö · `kla-pa-nallen`s poserings-ögonblick · `folj-sparet`s
+gömda fynd · `knuffa-tornet`s klossansikten · `gravmaskinen`s hydraulik-känsla. Listan i
+nattköns N10 är utökad med alla verifierade fall.
+
+**`fanga-frukten` — guldfrukten (v1.162.0).** Alla frukter var värda exakt lika mycket. Nu
+finns en guldfrukt i **~1 på 9 släpp** (uppmätt 96 av 900 = 10,7 %) som fyller **två** platser
+i mätaren, gnistrar hela vägen ner och faller långsammare (**175 px mot 211** på 70 bildrutor,
+samma storlek) — ett sällsynt ögonblick som far förbi för fort är ingen belöning, det är en
+miss barnet inte kunde göra något åt. Två spärrar: aldrig nivåns första frukt (**0 av 200**
+släpp före första fångsten) och aldrig två samtidigt (**mest 1** över 400 släpp) — en
+sällsynthet som kan komma direkt eller i par är ingen sällsynthet. Ekorrens önskan
+**nollställs inte** av guld: bonusen ligger vid sidan av valet, inte förbi det. Ny replik med
+genererat klipp (`npm run voice`: 1 made, 0 failed — kön är tom).
+
+**`kulbana` — fartsvans + rull-damm (v1.163.0).** Kulan bar ingen avläsning av hur fort den
+gick. Strimman ritas i dess egen ton, styrkan följer farten (osynlig under 3 px/steg, full vid
+11), och dammet ligger i **samma anslag som ljudet** — i matters kontaktpunkt (`supports`),
+eftersom kulans mittpunkt hade lagt puffen inne i kulan i stället för mot ytan.
+
+**Passets egentliga lärdom: TRE mätsätt provades på svansen, och de två första var gröna nog
+att luras av.**
+1. **Jämför mot en referensbild** → man mäter KULAN, som står på olika plats i varje arm och
+   dränker svansen: energi **1 523k mot 1 715k**, alltså "ingen skillnad" i något som i själva
+   verket skiljer 6×.
+2. **Växla bara effektens `visible`** → bilderna tas 60 ms isär och allt annat i scenen hinner
+   röra sig: **1 132 px "från svanslagret"** när dess buffert var bevisat tom.
+3. **Dölj hela scenen utom effektens lager** → 0 px när det är tomt, och tal som faktiskt är
+   effektens. Bara den tredje svarar på frågan.
+
+Och ett mått till som gick sönder tyst: **att räkna pixlar över en tröskel mäter YTA, inte
+styrka.** Bandet täcker ungefär samma bana oavsett fart, så pixelantalet växte bara
+1 011 → 1 587 medan energin (summan av avvikelserna) gick **33k → 205k**. Styrkan bor i alfan.
+
+**Samma sort i `fanga-frukten`, båda röda var sondens fel** (nionde och tionde gången):
+`sparkle()` går genom partikelvägen (`ParticleContainer`), så `fxLayer.children` visar **ETT
+återanvänt fält** — mätningen såg "1 ny fx-nod" och läste som att glittret var trasigt. Och
+ett mätsteg som inte städar efter sig lät spelets egen spärr ("aldrig två guldfrukter
+samtidigt") blockera nästa stegs tvingade guldfrukt, vilket rapporterades som att
+dubbelräkningen inte fungerade.
+
+**Commits:** `775914d` feat(fanga-frukten) guldfrukten · `9cfc7d9` feat(kulbana) fartsvans +
+rull-damm · + den här sessionsloggen
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` **72/72 gröna** · röstkön tom.
+⚠️ **V14b vandrar — nu bekräftat två svep i rad.** Förra svepet: `tvatta-djuret`. Det här:
+**`kla-pa-nallen`**, samma diagnos (`tom-bild-omtagen ×2 — gl-kontext FORLORAD`). Två olika
+spel, samma signatur, båda räddade av omtagningen. Det är ytterligare bevis för att felet hör
+till SVITEN (fyra parallella Chrome med WebGL), inte till något spel — ingen ska felsöka
+`kla-pa-nallen` för det här.
+**Öppet:** ägarkön tom. **N10 fortsätter.** Nattkön i övrigt: **N12** · **N13**.
+
+---
+
 ## 2026-08-12 · v1.161.0 · Två världar som stod vakna innan barnet gjort något
 
 **Byggt:** nattköns **N10**, tredje passet (D3: billiga [Quick] ur `docs/games/*.md` §4).

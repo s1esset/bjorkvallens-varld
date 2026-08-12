@@ -150,3 +150,12 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
     exit mitt i sättningen utan konsolfel.
   - **Struket i §4 samtidigt** (redan byggt 2026-07-02, men aldrig struket): *Lekfullare hög*
     och *Materialspecifik SFX* (klipp-halvan kvar, MOSS nere).
+- 2026-08-12 (v1.166.0): **Sättningen flyttad till ett inre lager** — en följd av full-tunna-
+  känslan som `test:all`-loggen fångade och inte sonden. `DragController` mäter avståndet till
+  **`target.view.y` när saken släpps**, så en tunna som guppade 13 px flyttade undan sitt eget
+  släppmål mitt i ett släpp: loggfyndet `snal-snappyta` (ett släpp **2 px** utanför radien).
+  Guppet ligger nu i en inre container; `bin.y` står still (mätt: 545,0 genom hela lasten) och
+  träffytan, som sitter på `bin`, står därmed också still — P0: ytan får aldrig hoppa runt.
+  Sättningens tal är oförändrade (5,9 → 15,6 px, 0,32 → 0,65 s). `_tunnprobe` **14/14**.
+  ⚠️ **Generellt:** allt som rör en dragbar TARGETs container flyttar snäppytan. Animera i ett
+  barn, inte i noden som `addTarget` fick.

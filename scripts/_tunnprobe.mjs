@@ -86,6 +86,7 @@ try {
       klumpar: bin._heap && !bin._heap.destroyed ? bin._heap.children.filter((c) => c !== bin._neck).length : -1,
       lockVila: Math.round((bin._lidBaseY ?? bin._lid?.y ?? 0) * 10) / 10,
       binY: Math.round(bin.y * 10) / 10,
+      sagY: bin._sag && !bin._sag.destroyed ? Math.round(bin._sag.y * 10) / 10 : -999,
     })
     const start = las()
     const steg = []
@@ -107,6 +108,15 @@ try {
   const monoton = lockSerie.slice(1, 7).every((v, i) => v < lockSerie[i] - 1)
   ok('3. locket trycks upp', monoton, `${n1(lockSerie[0])} → ${n1(lockSerie[6])} px (${n1(lockSerie[0] - lockSerie[6])} px lyft)`)
   ok('3b. lockets tak', Math.abs(lockSerie[7] - lockSerie[6]) < 0.5, `sjunde saken lyfte ${n1(lockSerie[6] - lockSerie[7])} px`)
+
+  // SLÄPPMÅLET får inte röra sig. `DragController` mäter avståndet till `target.view.y` när
+  // saken släpps, så en tunna som guppar 13 px flyttar undan sitt eget mål mitt i ett släpp
+  // (testloggen fångade det som `snal-snappyta`: ett släpp 2 px utanför radien). Sättningen
+  // ligger därför i ett inre lager — `bin.y` ska vara identisk hela vägen.
+  const binSerie = [mata.start.binY, ...mata.steg.map((s) => s.binY)]
+  const sagSerie = [mata.start.sagY, ...mata.steg.map((s) => s.sagY)]
+  ok('6. släppmålet står still', new Set(binSerie).size === 1, `bin.y ${n1(binSerie[0])} genom hela lasten`)
+  ok('6b. sättningen sitter i det inre lagret', sagSerie[6] > sagSerie[0] + 1.5, `sag.y ${n1(sagSerie[0])} → ${n1(sagSerie[6])} px`)
 
   // Bilden av en FULL tunna i den riktiga scenen (testsvitens skärmdump visar bara en tom).
   if (BILD) fs.writeFileSync('.test-shots/_tunnprobe-scen.png', await page.screenshot())
@@ -154,11 +164,11 @@ try {
     const ctx = app.ctx
     const sov = (ms) => new Promise((r) => setTimeout(r, ms))
     // Spåra guppet: läs bin.y varje bildruta i 1,6 s efter ett släpp.
+    // Sättningen ligger i det INRE lagret (bin.y måste stå still — det är släppmålet).
     const spåra = async (bin) => {
-      const bas = bin._baseY
       const serie = []
       const t0 = performance.now()
-      const f = () => { if (!bin.destroyed) serie.push([performance.now() - t0, bin.y - bas]) }
+      const f = () => { if (!bin.destroyed && bin._sag && !bin._sag.destroyed) serie.push([performance.now() - t0, bin._sag.y]) }
       ctx.ticker.add(f)
       await sov(1600)
       ctx.ticker.remove(f)

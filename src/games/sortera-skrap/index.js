@@ -482,13 +482,15 @@ export default {
   // sitt viloläge.
   _settleBin(bin) {
     if (!bin || bin.destroyed) return
+    const sag = bin._sag
+    if (!sag || sag.destroyed) return
     const f = binFill(bin)
-    const rest = (bin._baseY ?? bin.y) + HEAP_SINK * f
-    gsap.killTweensOf(bin, 'y')
+    const rest = HEAP_SINK * f
+    gsap.killTweensOf(sag, 'y')
     gsap
       .timeline()
-      .to(bin, { y: rest + 4 + 9 * f, duration: 0.09 + 0.05 * f, ease: 'power2.out' })
-      .to(bin, { y: rest, duration: 0.3 + 0.3 * f, ease: 'bounce.out' })
+      .to(sag, { y: rest + 4 + 9 * f, duration: 0.09 + 0.05 * f, ease: 'power2.out' })
+      .to(sag, { y: rest, duration: 0.3 + 0.3 * f, ease: 'bounce.out' })
     const sh = bin._shadowG
     if (sh && !sh.destroyed) {
       gsap.killTweensOf(sh.scale)
@@ -805,7 +807,15 @@ export default {
     bin._eaten = 0
     bin._shadowG = shadow
 
-    bin.addChild(shadow, body, panel, hi, mouth, eyes, iconDisc, iconEmoji, heap, lid)
+    // ⚠️ SÄTTNINGEN SKER I ETT INRE LAGER, inte på `bin` självt. `DragController` mäter
+    // avståndet till `target.view.x/y` NÄR saken släpps — hade tunnan sjunkit 13 px mitt i
+    // sitt gupp hade själva MÅLET flyttat sig undan mitt i ett släpp. Testloggen fångade
+    // exakt det: `snal-snappyta`, ett släpp 2 px utanför radien. Träffytan sitter också på
+    // `bin` och står därmed still (P0: ytan får aldrig hoppa runt).
+    const sag = new Container()
+    sag.addChild(shadow, body, panel, hi, mouth, eyes, iconDisc, iconEmoji, heap, lid)
+    bin._sag = sag
+    bin.addChild(sag)
 
     // Generös, exakt träffyta (mjukt utökad).
     bin.hitArea = { contains: (px, py) => Math.abs(px) <= w / 2 + 14 && py >= -h / 2 - 18 && py <= h / 2 + 14 }
@@ -876,6 +886,7 @@ function killBinTweens(b) {
   gsap.killTweensOf(b.scale)
   if (b._lid && !b._lid.destroyed) gsap.killTweensOf(b._lid)
   if (b._mouth && !b._mouth.destroyed) gsap.killTweensOf(b._mouth.scale)
+  if (b._sag && !b._sag.destroyed) gsap.killTweensOf(b._sag)
   if (b._shadowG && !b._shadowG.destroyed) gsap.killTweensOf(b._shadowG.scale)
   if (b._heap && !b._heap.destroyed) {
     gsap.killTweensOf(b._heap.scale)

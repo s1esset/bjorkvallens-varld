@@ -81,8 +81,12 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
 - **[Quick] Variera blommor rejält per planta** (redan slumpat ur `FLOWERS`/`BUD_COLORS`) men
   lägg till sällsynta överraskningar: ibland växer en **jättesolros**, ett **litet träd** eller
   en blomma som en 🐝/🦋 genast landar på.
-- **[Quick] Liv i jorden vid sådd:** en mask 🪱 som tittar upp ur ett hål, en sten man flyttar,
-  en fjäril som redan sitter — små variationer så ingen runda ser exakt likadan ut.
+- ~~**[Quick] Liv i jorden vid sådd:** en mask 🪱 som tittar upp ur ett hål, en sten man flyttar,
+  en fjäril som redan sitter — små variationer så ingen runda ser exakt likadan ut.~~
+  ✅ **BYGGD 2026-08-12 (v1.175.0)** — maskarna, se §5. Stenen och fjärilen lämnades med skäl:
+  stenen kräver en andra dra-mekanik i ett spel vars hela lugn ligger i att det bara finns EN,
+  och en fjäril som sitter framme i sådd-fasen tar udden av finalen, där fjärilarna är
+  belöningen. Masken bär punktens avsikt (liv + variation) utan att kosta något av det.
 - **[Medium] Vädervariation per runda:** ett moln som ger gratis regn, en regnbåge efter
   vattningen, kvällsljus där blommorna lyser. Byt bakgrundston mjukt mellan rundor.
 
@@ -117,6 +121,31 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
   trädgårds-ambient (fågelkvitter, lätt vind) som botten — passar spelets stillsamma ton.
 
 ## 5. Status / loggar
+
+- 2026-08-12 🪱 **Liv i jorden: maskar som kikar upp — och som känner nedslaget** (v1.175.0).
+  Punkten valdes av **mätning**: `_stillaprobe` läste spelet som ett äkta TABLEAU — 17 noder,
+  **0** i rörelse, största utslag **0,0 px i tre svep av tre**. Trädgården stod helt stilla
+  medan barnet tittade på den, och `plantera-fron` var det ENDA spelet av 63 som höll noll
+  genom alla tre svepen.
+  1–2 ritade daggmaskar per runda kikar upp ur egna gånghål, ser sig om och åker ner igen.
+  Fyra saker gör dem till djur i stället för dekor: nedslaget av ett frö **skrämmer** dem,
+  kraften **avtar med avståndet**, nerdykandet är **snabbare** än uppdykandet (rädsla mot
+  nyfikenhet), och antal/sida/avstånd slumpas per runda.
+  ⚠️ **Två fel som mätningen fångade och som båda hade sett gröna ut:** ① maskarna låg först
+  på fasta gläntor (x=170/1110) — men på **nivå 0 finns bara ETT hål** (x=640), så närmaste
+  mask hamnade **471 px** bort, utanför räckvidden 420: skrämseln var död på precis den nivå
+  en tvååring spelar. Platserna mäts nu från hålradens ändar. ② Uppfarten 1,1 tog masken bara
+  till **0,89** av full höjd innan cykeln vände — den kom aldrig helt upp. Höjd till 1,7, och
+  asymmetrin mot nerfarten 4,5 är kvar.
+  ⚠️ **Och ett fel som bara SKÄRMDUMPEN såg, med grönt test:** kroppen hade ingen klippning.
+  Den nedåkta masken sköt ut **under sitt eget hål** — den ritade jordkanten är 12 px och
+  kroppen 60. Kroppen klipps nu mot marknivån.
+  **MÄTT** (`node scripts/_maskprobe.mjs`, **9/9** mot HEADs 3/4 där rad 1 är röd och rader
+  2–5 inte ens går att köra): rörelse **103–122 px** över 11 s mot HEADs 0,0 · hel kikcykel
+  **0,00 → 0,95** · fall **0,71 → 0,43** efter ett *riktigt* drag genom DragController (inte
+  ett direktanrop av `_scareWorms` — mekanismen skulle mätas KOPPLAD) · skrämsel **0,63 vid
+  157 px mot 0,26 vid 312 px** · **0 av 662** bildrutor med kropp under marknivån.
+  ⚠️ Raderna 6–9 är **vakter, inte bevis** — gröna på HEAD också. Bevisen är 1–5.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`e88ec63`, v1.103.0).
   `_plattprobe --medbakgrund` mätte **495 283 px = 54 % av skärmen** i EN ton.

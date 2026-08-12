@@ -41,6 +41,23 @@ const CAN_HOME_X = 640
 const CAN_HOME_Y = 150
 const SPOUT_LOCAL = { x: -104, y: -12 } // pip-spetsen i kannans lokala koordinater
 
+// --- Liv i jorden ---------------------------------------------------------
+// `_stillaprobe` mätte spelet som ett äkta TABLEAU: 17 noder, **0** i rörelse,
+// största utslag **0,0 px i tre svep**. Trädgården stod helt stilla medan barnet
+// tittade på den. §4 [Quick]: "Liv i jorden vid sådd."
+// ⚠️ Docen skrev masken som 🪱. P0 ASSETS förbjuder en emoji som HELA föremålet —
+// masken nedan är RITAD, med egen silhuett och eget ansikte.
+// Masken är inte dekor: den DYKER när ett frö plumsar ner, och kraften avtar med
+// avståndet, så barnet ser att det bor något i jorden som känner av vad hen gör.
+const WORM_RISE = 52 // px masken reser sig ur jorden när den kikar upp
+const WORM_RANGE = 420 // px: inom denna radie skräms masken av ett nedslag
+// ⚠️ Maskarna placeras RELATIVT hålraden, inte på fasta punkter. Första versionen
+// hade fasta gläntor vid x=170/1110 — på nivå 0 finns BARA ETT hål (x=640), alltså
+// låg närmaste mask 471 px bort och hamnade utanför WORM_RANGE: skrämseln var död
+// på precis den nivå en tvååring spelar. Avstånden nedan mäts från hålradens ändar.
+const WORM_OFFS = [150, 300] // px utanför hålraden — en nära mask och en bortre
+const WORM_YS = [606, 644]
+
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v)
 const smooth = (t) => t * t * (3 - 2 * t) // mjuk 0→1
 
@@ -72,6 +89,7 @@ export default {
     this._saidWater = false
     this._drops = [] // aktiva vattendroppar (ticker-drivna)
     this._plants = [] // per-runda-plantor
+    this._worms = [] // maskarna i jorden (ticker-drivna, per runda)
     this._tweened = [] // per-runda-objekt vars tweens måste dödas vid städ/exit
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
@@ -188,6 +206,9 @@ export default {
     // Jordhål (mål): jämnt fördelade kring x=640 med 230px mellanrum.
     this._holes = []
     const hStart = 640 - ((this._holeCount - 1) * 230) / 2
+
+    // Maskarna först i _round → de ritas BAKOM hål, frön och plantor.
+    this._addWorms(hStart, hStart + (this._holeCount - 1) * 230)
     for (let i = 0; i < this._holeCount; i++) {
       const hx = hStart + i * 230
       const hole = this._makeHole()
@@ -227,6 +248,7 @@ export default {
     this._tweened = []
     this._drops = [] // droppar ligger i _round och förstörs nedan; nolla referenserna
     this._plants = []
+    this._worms = [] // maskarna ligger också i _round — nolla före rivningen
     this._can = null
     this._dropLayer = null
     this._pouring = false
@@ -266,6 +288,121 @@ export default {
     return c
   },
 
+  // En ritad daggmask som kikar upp ur jorden.
+  // ⚠️ Kroppen MÅSTE klippas mot marknivån. Första versionen litade på att den
+  // ritade jordkanten skulle dölja foten — men kanten är 12 px och kroppen 60,
+  // så en nedåkt mask stack ut UNDER sitt eget hål. Testet var grönt; det var
+  // skärmdumpen som visade det. Masken nedan klipper allt under marknivån.
+  _makeWorm() {
+    const c = new Container()
+    c.eventMode = 'none'
+    c.scale.set(1.35) // ritad i små mått; skalas upp så den läses som ett djur, inte en prick
+    c.addChild(new Graphics().ellipse(0, 0, 27, 11).fill(0x2b1a0f)) // gånghålet
+
+    const body = new Container()
+    const g = new Graphics()
+    // Kroppen nedifrån och upp — smalnar mot huvudet så silhuetten blir en mask,
+    // inte en korv. Varje ring är ett eget fill-anrop (flera former i EN Graphics
+    // med ett gemensamt fill tar den första färgen — se `_makeSeed`).
+    for (const [sy, r] of [[2, 12.5], [-11, 12], [-23, 11.2], [-34, 10.4], [-44, 9.8]]) {
+      g.circle(0, sy, r).fill(0xd98a90)
+    }
+    g.ellipse(-3.5, -26, 4.5, 20).fill({ color: 0xeeaeb2, alpha: 0.75 }) // ljusstrimma
+    for (const sy of [-6, -17, -28]) { // ledringarna
+      g.moveTo(-10, sy).quadraticCurveTo(0, sy + 4, 10, sy).stroke({ width: 2, color: 0xb46b73, alpha: 0.7 })
+    }
+    g.circle(0, -46, 10).fill(0xdf959b) // huvudet
+    g.circle(-3.6, -48, 2.4).fill(0x3a2616)
+    g.circle(3.6, -48, 2.4).fill(0x3a2616)
+    g.arc(0, -45, 5, 0.2 * Math.PI, 0.8 * Math.PI).stroke({ width: 2, color: 0x7d4a4e })
+    body.addChild(g)
+    body.y = WORM_RISE // börjar nere i jorden
+    c.addChild(body)
+
+    // Marknivån: allt under y=+3 är under jorden och ska inte synas.
+    const klipp = new Graphics().rect(-46, -150, 92, 153).fill(0xffffff)
+    c.addChild(klipp)
+    body.mask = klipp
+
+    c.addChild(new Graphics() // jordkanten runt gånghålet
+      .ellipse(0, 3, 30, 11).fill(shade(COLORS.brown, 0.12))
+      .ellipse(0, 1, 23, 7).fill({ color: 0x2b1a0f, alpha: 0.55 }))
+    c._body = body
+    return c
+  },
+
+  // 1–2 maskar per runda, placerade UTANFÖR hålraden (aldrig i vägen för en
+  // planta som växer) och på olika avstånd — en nära, en bortre. Sida, avstånd
+  // och antal slumpas så ingen runda ser exakt likadan ut, vilket är §4-punkten.
+  _addWorms(hStart, hEnd) {
+    this._worms = []
+    const antal = Math.random() < 0.4 ? 1 : 2
+    const vandNara = Math.random() < 0.5 // vilken sida som får den nära masken
+    const valda = []
+    for (let i = 0; i < antal; i++) {
+      const vanster = (i === 0) === vandNara
+      const off = WORM_OFFS[i]
+      const x = vanster ? hStart - off : hEnd + off
+      valda.push([Math.max(130, Math.min(1150, x)), WORM_YS[i % WORM_YS.length]])
+    }
+    for (let i = 0; i < valda.length; i++) {
+      const [wx, wy] = valda[i]
+      const view = this._makeWorm()
+      view.position.set(wx, wy)
+      this._round.addChild(view)
+      this._worms.push({
+        view,
+        body: view._body,
+        x: wx,
+        y: wy,
+        t: i * 2.6, // fasförskjutning så de två inte kikar upp i takt
+        period: 7.5 + Math.random() * 2,
+        ut: 0, // 0 = nere i jorden, 1 = helt uppe
+        duckT: 0, // s kvar av skrämseln
+        duckAmt: 0, // hur djupt den här skrämseln trycker ner masken (0..1)
+        sway: 1.5 + Math.random() * 0.5,
+      })
+    }
+  },
+
+  // Ett frö som plumsar ner skrämmer maskarna. Kraften avtar med avståndet —
+  // det är skillnaden mot en slumpvis vibration: barnet ser att det var DESS
+  // nedslag som gjorde det, och att den närmaste masken blev mest rädd.
+  _scareWorms(x, y) {
+    for (const w of this._worms) {
+      const d = Math.hypot(w.x - x, w.y - y)
+      const k = clamp01(1 - d / WORM_RANGE)
+      if (k <= 0.02) continue
+      w.duckAmt = Math.max(w.duckAmt, k)
+      w.duckT = Math.max(w.duckT, 0.5 + k * 1.6)
+    }
+  },
+
+  // Per-frame: kikcykeln + skrämseln. Uppdykandet är LÅNGSAMT (nyfikenhet) och
+  // nerdykandet SNABBT (rädsla) — asymmetrin är det som gör masken levande.
+  _stepWorms(dt) {
+    for (const w of this._worms) {
+      if (!w.view || w.view.destroyed) continue
+      w.t += dt
+      if (w.duckT > 0) w.duckT = Math.max(0, w.duckT - dt)
+
+      // Kikcykeln: uppe drygt halva varvet, med mjuk resning och sjunkning.
+      const u = (w.t % w.period) / w.period
+      let mal = 0
+      if (u > 0.12 && u < 0.72) mal = Math.sin(((u - 0.12) / 0.6) * Math.PI)
+      if (w.duckT > 0) mal *= 1 - w.duckAmt
+      else w.duckAmt = 0
+
+      // Ner fort (rädsla), upp sakta (nyfikenhet). Uppfarten låg först på 1,1 och
+      // då hann masken bara till 0,89 av full höjd innan cykeln vände — den kom
+      // aldrig HELT upp. 1,7 räcker till full resning och behåller asymmetrin.
+      const takt = mal < w.ut ? 4.5 : 1.7
+      w.ut += (mal - w.ut) * Math.min(1, takt * dt)
+      w.body.y = (1 - w.ut) * WORM_RISE
+      w.body.rotation = Math.sin(w.t * w.sway) * 0.22 * w.ut
+    }
+  },
+
   // Frö ner i hål: plopp, jordhög, puff, göm fröet. Allt är "rätt".
   _onSow(ctx, rec, target) {
     if (!this._alive) return
@@ -273,6 +410,7 @@ export default {
     hole._filled = true
     this._idle = 0
     ctx.services.audio.sfx('plopp') // riktigt "plopp"-klipp i jorden (ersätter TTS-"Plopp!")
+    this._scareWorms(hole.x, hole.y) // maskarna känner nedslaget
 
     const mound = new Graphics()
       .ellipse(0, 0, 60, 26)
@@ -755,6 +893,7 @@ export default {
     if (!this._alive) return
     const dt = ticker.deltaMS
     this._stepDrops(ctx, dt)
+    this._stepWorms(dt / 1000)
 
     if (this._phase === 'water') {
       if (this._pouring) {
@@ -794,6 +933,7 @@ export default {
     }
     this._drops = []
     this._plants = []
+    this._worms = []
     gsap.killTweensOf(this._root)
     this._root?.destroy({ children: true })
   },

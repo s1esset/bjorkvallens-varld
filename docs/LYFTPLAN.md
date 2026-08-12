@@ -518,7 +518,7 @@ genomströmning + latens.
 
 **Raden är därmed slut: alla kunder byggda eller avskrivna med mätning bakom sig.**
 
-### B3. Rep/kedja är omskrivet fyra gånger **[Medium]** — ✅ SOLVERN BYGGD 2026-08-09 (v1.56.0)
+### B3. Rep/kedja är omskrivet fyra gånger **[Medium]** — ✅ SLUT 2026-08-12 (solvern v1.56.0, sista kunden v1.183.0)
 
 | Var | Implementation |
 |---|---|
@@ -577,11 +577,41 @@ under ett förlopp där vilolängden ändrades varje bildruta, fick **158 px** o
 regression. De två solvrarna konvergerar olika fort mot SAMMA form. Det ögat läser under
 förloppet är sag-kurvan, och den mäts för sig.
 
-⬜ Kvar: `spindel-zacke-svingar`, `spindelnatet`. ⚠️ **Läs koden före planen — ingen av dem
-bär en verlet-solver.** `spindel-zacke-svingar` har en ANALYTISK pendel (vinkel + längd, med
-`ropeLen` som spelmekanik och en knapp som byter den); `spindelnatet` har gsap-tweenade raka
-trådar. Att byta dem mot `Rep` är inte att ta bort en dubblett utan att ändra spelkänslan —
-det är ett designbeslut, inte en portning.
+**Tredje kund: `spindelnatet`** (2026-08-12, natt VI N5, v1.183.0) — nättråden var en rak
+`lineTo` från handen till spetsen. Den var lika spänd på väg ut som när bytet halades in, och
+den kom fram innan den hade rest sig. Nu bär den `Rep.spann()` i samma läge som
+`natskott-pa-stan` (båda ändar spikade varje bildruta, mitten fri) och ritas med `repPath`.
+Två skeden, styrda av `sag`: **1,12 på väg ut** (överskottslängd ingen relaxation kan ta bort)
+och **0,92 vid indraget** (kortare än avståndet → kedjan MÅSTE bli rak).
+
+**MÄTT** (`scripts/_tradprobe.mjs`): bågen **13,4–14,1 % av kordan** på väg ut mot HEADs
+**0,0 %**, och **2,7–6,2 %** vid indraget — 2–5× stramare. Ritad längd högst **1,11–1,15×
+kordan**. **Ändpunkterna är oförändrade i BÅDA armarna** (0,00 px från handen i samma bildruta,
+livslängd 25–26 bildrutor), och mekaniken avgörs fortfarande vid `pointerdown` i `_shootAt`.
+
+⚠️ **Punktantalet var lösningen, inte fler varv.** Med 10 punkter konvergerade indraget aldrig
+(10,0 % vid 6 varv, 6,2 % vid 14) — en spänd kedja rätas ut som en diffusion, alltså ~n² varv.
+**7 punkter** gav 3,1 % vid samma 14 varv, och den kvadratiska kurvan gör att färre punkter
+inte syns i bilden.
+
+⚠️ **Sonden måste läsa den RITADE vägen, inte spelets tillstånd.** På HEAD finns inget rep att
+läsa — men det finns en ritad väg. `_tradprobe` hakar på `_thread`s egna
+`moveTo/lineTo/quadraticCurveTo/stroke` och mäter geometrin, vilket är den enda mätning som
+fungerar i båda armarna. Två mätfel på vägen: "tråden börjar i handen" mätte **29,3 px** fel
+(skjut-armen flaxar 0,55 rad under skottet — handens läge måste läsas i SAMMA bildruta), och
+"ritad längd / korda" är en kvot vars **nämnare flyttar sig** (kordan är ~0 px i skottets
+första rutor medan tråden ligger hopbuntad i handen → 2,46× utan att en pixel var fel).
+
+❌ **`spindel-zacke-svingar` är STRUKEN — med mätning** (`scripts/_pendelprobe.mjs`, 5/5).
+Ett verlet-rep löser SLACK. Det finns ingen: Zacke hänger per konstruktion på exakt `_L` från
+fästet, och nätet mätte **0,0000 px slack över 433 sving-rutor** — den räta linjen ÄR den
+korrekta formen för en otöjbar tråd. Det finns heller inget fritt piskande skede (0 ritade
+rutor av 27 i flykt/moln). Och längden är **spelmekanik i sluten form**: nät-knappens löfte
+"långt nät = långsammare" mättes till **2,50 → 3,05 s = 1,22×** mot 2π√(L/G):s 1,24×, samma
+`_L` bär spök-bågen, och no-fail-garantin (`_ensureAmplitude`, golv 1,10 rad — uppmätt max θ
+1,10–1,11) räknas ur `G/L`. Med en kedja punkter finns ingen längd att sätta in i den formeln.
+
+**Raden är därmed slut: alla fem spel byggda eller avskrivna med mätning bakom sig.**
 
 **C5 `MeshRope` är STRUKEN för `natskott-pa-stan`, med skäl:** linan är 4–5 px bred och vit.
 En textur på fyra pixlar syns inte, medlöparen (spelets identitet) går inte att uttrycka i

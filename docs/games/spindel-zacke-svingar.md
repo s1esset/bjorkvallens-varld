@@ -233,3 +233,24 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   **En falsk röd flagga:** körningen visade `saknat-ljudklipp` för `djur_katt` (som FINNS på
   disk) vid t=381 ms. Växelvis mätt: 0 av 3 med ändringen, 0 av 3 utan — en tajmingflake där
   `sample()` hinner före avkodningen, inte något den här omgången orsakade.
+
+- 2026-08-12 (natt VI, **N5 · LYFTPLAN B3**): **STRUKEN som `rep.js`-kandidat — med mätning.**
+  Raden listade spelet som "handrullad pendel" och alltså en dubblett att porta. Premissen
+  håller inte, och det är mätt i det levande spelet (`scripts/_pendelprobe.mjs`, 5/5):
+  - **Nätet är SPÄNT varje bildruta: 0,0000 px slack över 433 sving-rutor.** Zacke hänger per
+    konstruktion på exakt `_L` från fästet (`z.x = anchor.x + L·sin θ`), så den räta linjen
+    **är** den korrekta formen för en otöjbar tråd. Ett verlet-rep löser slack — här finns
+    ingen. Det skulle kosta en full omritning per bildruta och ge en identisk bild.
+  - **Ingen tråd utanför svinget** (0 av 27 rutor i flykt/moln) — det finns inget fritt
+    piskande skede att fysikalisera heller.
+  - **Längden är SPELMEKANIK i sluten form, inte en ritad kurva.** Nät-längd-knappen lovar
+    "långt nät = långsammare", och det är analytiskt: perioden gick **2,50 → 3,05 s = 1,22×**
+    mot 2π√(L/G):s **1,24×**. Samma `_L` bär spök-bågen (`_svingprobe` rad 1–3).
+  - **No-fail-garantin räknas ur `G/L`.** `_ensureAmplitude` sätter ett GOLV på framåt-
+    amplituden (AMP 1,10 rad; uppmätt max θ **1,10–1,11**). Med en kedja punkter finns ingen
+    längd att sätta in i den formeln — garantin skulle behöva mätas fram i stället för att
+    gälla, och det är hela spelets "faller aldrig".
+  **Kvar som en riktig [Quick]-idé, men det är ett NYTT moment, inte en portning:** nätet
+  fäster i dag ögonblickligen vid `_attach`. Ett nät som skjuts ut mot fästet under flykten
+  (som `spindelnatet`s tråd, v1.183.0) vore synlig juice — men det bygger ett skede som inte
+  finns, i stället för att byta lösare under ett som finns.

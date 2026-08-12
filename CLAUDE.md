@@ -81,6 +81,8 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_pressprobe.mjs [--takt]` | `pruttbad`s bubbla mot ytan: finns skedet · plattas hinnan · är det YTAN som gör det · tempot mot HEAD |
 | `node scripts/_tuggprobe.mjs [--bara-exit\|--kostnad]` | tuggan + magen i `mata-monstret`: käkens gap trycker maten · buktar den ut · syns den (isolerat lager + kontroll) · växer magen vid SVÄLJET · exit |
 | `node scripts/_bullprobe.mjs` · `_stapelprobe.mjs` | hamburgerbullen som mjuk kropp: viloform mot den gamla `roundRect` · sammantryckning · tappade bildrutor — **utan webbläsare** (och samma bulle under en riktig stapel) |
+| `node scripts/_tradprobe.mjs [--bild]` | `spindelnatet`s nättråd: bågen mot kordan ut/in · ändpunkter · sprängning · exit — **mäter den RITADE vägen** (hakar på path-metoderna), så den fungerar i båda armarna |
+| `node scripts/_pendelprobe.mjs` | `spindel-zacke-svingar`: är nätet spänt (finns slack att lösa)? · no-fail-golvet · periodens 2π√(L/G) |
 | `node scripts/_natlinaprobe.mjs` · `_linabild.mjs` | nätlinan mot spelets GAMLA solver (sonden bär den som referens) — **utan webbläsare** · och samma lina skjuten i det levande spelet |
 | `node scripts/_flaktprobe.mjs [N]` | fläktens verkan i FICKOR (släpper N mynt per sida och mäter var de landar) |
 | `node scripts/_fjaderprobe.mjs` · `_fjaderbild.mjs` | fjäderbrädan: djup per anslag · utkast mot styv platta · tak · vridning · pump — **utan webbläsare** (och samma bräda i bild) |
@@ -260,6 +262,14 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   eller mot en känd barlast. **Ordningen är: kontrollarm (HEAD, eller barlast med känt utslag) →
   se att talet RÖR SIG → först då mätarm.** En mätning som inte kan skilja två KÄNDA lägen åt
   säger ingenting om det okända — och en sond som mäter fel kostar mer tid än hela speländringen.
+  **Och lista `scripts/_*probe*` innan du döper en ny** — `_svingprobe.mjs` fanns redan (7/7,
+  spök-bågen) och skrevs över av en ny sond med samma namn 2026-08-12.
+- **Mät den RITADE geometrin när de två armarna inte delar tillstånd.** HEAD har inget rep att
+  läsa när ändringen är "tråden blir ett rep" — men båda armarna RITAR en väg. `_tradprobe`
+  hakar på `_thread`s egna `moveTo/lineTo/quadraticCurveTo` och mäter den; då finns ett tal i
+  båda armarna (bågen 0,0 % mot 13,4 % av kordan). Samma pass bar två klassiska mätfel: ett
+  läge avläst i FEL bildruta mätte skjut-armens flax (29,3 px), och en kvot vars **nämnare
+  flyttar sig** (kordan är ~0 px när skottet börjar) gav 2,46× utan att en pixel var fel.
 - **Byt inte ut stämda ljud mot samplade.** `correct` (660→880 = kvint), `match` (durtreklang) och
   `pling` är musik, inte blipp — ett generiskt UI-klick vore ett brott mot grindens punkt 5.
 

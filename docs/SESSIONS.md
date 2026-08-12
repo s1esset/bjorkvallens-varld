@@ -14,6 +14,66 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.183.0 · N5 klar — och premissen höll bara i det ena spelet
+
+**Byggt:** nattköns **N5**, båda spelen. **LYFTPLAN B3 (rep/kedja) är därmed slut** — alla fem
+kunder byggda eller avskrivna med mätning bakom sig. Med B1 och B2 stängda sedan tidigare är
+hela spår B avgjort.
+
+**`spindelnatet` — nättråden är ett REP, inte ett streck (`aa29fd8`, v1.183.0).** Tråden var en
+rak `lineTo` från handen till spetsen: lika spänd på väg ut som när bytet halades in, och framme
+innan den hunnit resa sig. Nu ligger `lib/rep.js` under den i samma läge som `natskott-pa-stan`
+(`spann()`, båda ändar spikade varje bildruta, mitten fri), ritad med `repPath`. Två skeden med
+olika `sag`: **1,12 på väg ut** (överskottslängd ingen relaxation kan ta bort) och **0,92 vid
+indraget** (kortare än avståndet → kedjan MÅSTE bli rak). **MÄTT** (`_tradprobe.mjs`, ny): bågen
+**13,4–14,1 % av kordan** ut mot HEADs **0,0 %**, **2,7–6,2 %** vid indraget — 2–5× stramare —
+och ritad längd högst **1,11–1,15× kordan**. **Ändpunkterna och livslängden är identiska i båda
+armarna** (0,00 px från handen i samma bildruta, 25–26 bildrutor), alltså är mekaniken orörd:
+fångsten avgörs fortfarande vid `pointerdown` i `_shootAt`, och ingenting läser tråden.
+⚠️ **Punktantalet var lösningen, inte fler varv.** Med 10 punkter konvergerade indraget aldrig
+(10,0 % vid 6 varv, 6,2 % vid 14) — en spänd kedja rätas ut som en diffusion, ~n² varv.
+**7 punkter** gav 3,1 % vid samma 14 varv, och den kvadratiska kurvan gör att färre punkter inte
+syns i bilden.
+
+**`spindel-zacke-svingar` — STRUKEN, med mätning (`_pendelprobe.mjs`, ny, 5/5).** Raden kallade
+den "handrullad pendel", alltså en dubblett att porta. Ett verlet-rep löser **slack**, och det
+finns ingen: Zacke hänger per konstruktion på exakt `_L` från fästet, och nätet mätte **0,0000 px
+slack över 433 sving-rutor** — den räta linjen ÄR den korrekta formen för en otöjbar tråd. Det
+finns heller inget fritt piskande skede (0 ritade rutor av 27 i flykt/moln). Och längden är
+**spelmekanik i sluten form**: nät-knappens löfte "långt nät = långsammare" mättes till
+**2,50 → 3,05 s = 1,22×** mot 2π√(L/G):s 1,24×, samma `_L` bär spök-bågen, och no-fail-garantin
+(`_ensureAmplitude`, golv 1,10 rad — uppmätt max θ 1,10–1,11) räknas ur `G/L`. En kedja punkter
+har ingen längd att sätta in i den formeln. Kvar som [Quick]-idé i §4, men som ett NYTT moment:
+nätet fäster i dag ögonblickligen vid `_attach`.
+
+**Passets metodlärdom: mät den RITADE geometrin när armarna inte delar tillstånd.** HEAD har
+inget rep att läsa, men båda armarna ritar en väg — `_tradprobe` hakar på `_thread`s egna
+`moveTo/lineTo/quadraticCurveTo/stroke` och mäter den. Kontrollarmen kördes **först** och gav
+precis det den skulle: 5/7 med de tre kalibreringsraderna gröna och de två bevisen på exakt 0,0.
+**Tre mätfel som kontrollarmen eller nästa körning avslöjade:** ⓵ "tråden börjar i handen" mätte
+**29,3 px** fel — skjut-armen flaxar 0,55 rad under skottet, så handens läge måste läsas i SAMMA
+bildruta som vägen ritades; ⓶ "ritad längd / korda" är en kvot vars **nämnare flyttar sig** —
+i skottets första rutor är kordan ~0 px medan tråden ligger hopbuntad i handen, vilket gav
+**2,46×** utan att en enda pixel var fel; ⓷ `_pendelprobe`s "ingen tråd utanför svinget" var
+**grön på en TOM mängd** (0 av 0 rutor) — spelet lämnar aldrig svinget av sig självt inom
+fönstret, så släppet måste utlösas.
+
+⚠️ **En nästan-miss värd att bära: `_svingprobe.mjs` fanns redan** (7/7, spök-bågen) och skrevs
+över av min nya sond med samma namn. Återställd ur HEAD, den nya heter `_pendelprobe.mjs`, och
+båda är verifierade gröna efteråt. **Lista `scripts/_*probe*` innan du döper en ny sond.**
+
+**Commits:** `8a517f3` docs (kvällspassets två fällor) · `aa29fd8` feat(spindelnatet) nättråden
+som rep.
+**Kontroll:** `check` **0 fel / 0 varningar** · `test:all` **72/72** · `_tradprobe` 7/7 (HEAD
+5/7) · `_pendelprobe` 5/5 · `_svingprobe` 7/7 orörd · loggfynd 0 för `spindelnatet`. Röstkön
+orörd (inga nya repliker).
+**Öppet:** ägarkön tom. **N5 är slut, och därmed hela LYFTPLAN spår B.** Nästa ⬜ är **N12**
+(platthetens svans, låg avkastning — `hamburgerbygget`s bänkskivetal är inaktuellt, mät om
+först). **Bygget är INTE omgjort** — telefonen ser en äldre version tills någon kör
+`npm run build`.
+
+---
+
 ## 2026-08-12 · v1.182.0 · N4 klar — och en skriven invändning som var ett antagande
 
 **Byggt:** nattköns **N4**, båda halvorna. Två commits, en per spel. **LYFTPLAN B2 (mjuka

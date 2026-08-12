@@ -13,6 +13,7 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
+import { Rep, repPath } from '../../lib/rep.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { COLORS, PRAISE, shade, tint } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
@@ -41,6 +42,34 @@ const NIGHT_GROUND = lerpColor(COLORS.brown, 0x2a2550, 0.55)
 const SPIDER_MIN_X = 200
 const SPIDER_MAX_X = 1080
 const HAND_LOCAL = { x: 14, y: -35 } // skjut-handens läge i skjut-armens container (tråd-ursprung)
+
+// --- Nättråden är ett REP, inte ett streck (LYFTPLAN B3) ---------------------
+// Tråden var en rak `lineTo` från handen till spetsen: den kom fram innan den hade
+// rest sig, och den var lika spänd på väg ut som när bytet halades in. En verlet-tråd
+// (`lib/rep.js`, samma läge som `natskott-pa-stan` — båda ändar spikade, vilolängden =
+// avståndet gånger `sag`) ger de två skeden skottet faktiskt HAR: den släpar efter
+// spetsen på väg ut och står strama när den drar.
+//
+// ⚠️ ÄNDPUNKTERNA ÄR OFÖRÄNDRADE, med flit. `spann()` spikar båda ändar varje bildruta,
+// alltså sitter tråden kvar exakt i handen och exakt i bytet — det är bara MITTEN som
+// får röra sig. Fångsten avgörs fortfarande vid `pointerdown` i `_shootAt`; ingenting i
+// mekaniken läser tråden.
+const TRAD_PTS = 7
+const TRAD_G = 0.45
+const TRAD_DAMP = 0.9
+const TRAD_ITER = 14
+const TRAD_MAXV = 120
+const SAG_UT = 1.12 // på väg ut: slak, tråden hinner inte ikapp spetsen
+const SAG_IN = 0.92 // vid indraget: spänd, den HALAR
+
+// Alla punkter föds i handen och dras ut av spetsen — samma mönster som `mkRope` i
+// `natskott-pa-stan`. En tråd som byggs utsträckt syns i sin fulla längd på bildruta ett.
+const mkTrad = (x, y) => {
+  const rep = new Rep({ n: TRAD_PTS, seg: 40, grav: TRAD_G, damp: TRAD_DAMP, iter: TRAD_ITER, maxSpeed: TRAD_MAXV })
+  rep.pts = []
+  for (let i = 0; i < TRAD_PTS; i++) rep.pts.push({ x, y, px: x, py: y })
+  return rep
+}
 
 // Nivåtabeller (cykliskt, oändlig lek) — index = nivå-1, klampat till sista.
 const GOALS = [4, 5, 6, 7, 8]
@@ -359,7 +388,8 @@ export default {
     const v = obj.view
     const targetX = v && !v.destroyed ? v.x : this._baseX
     const targetY = v && !v.destroyed ? v.y : BASE_Y
-    const strand = { obj, t: 0, reeling: false, targetX, targetY }
+    const hp = this._handPos()
+    const strand = { obj, t: 0, reeling: false, targetX, targetY, rep: mkTrad(hp.x, hp.y) }
     this._strands.push(strand)
 
     // Skjut ut tråden (~150 ms), dra sedan in föremålet.
@@ -419,6 +449,10 @@ export default {
   _removeStrand(strand) {
     const i = this._strands.indexOf(strand)
     if (i >= 0) this._strands.splice(i, 1)
+    if (strand.rep) {
+      strand.rep.destroy()
+      strand.rep = null
+    }
   },
 
   _landInNet(ctx, obj) {
@@ -647,6 +681,7 @@ export default {
         const hp = this._handPos() // tråden skjuts från handen, inte basen
         const bx = hp.x
         const by = hp.y
+        const dtF = Math.min(2, dt * 60)
         let drew = false
         for (const s of this._strands) {
           let tx
@@ -660,7 +695,13 @@ export default {
             tx = bx + (s.targetX - bx) * s.t
             ty = by + (s.targetY - by) * s.t
           }
-          th.moveTo(bx, by).lineTo(tx, ty)
+          if (s.rep) {
+            s.rep.spann(bx, by, tx, ty, s.reeling ? SAG_IN : SAG_UT)
+            s.rep.steg(dtF)
+            repPath(th, s.rep)
+          } else {
+            th.moveTo(bx, by).lineTo(tx, ty)
+          }
           drew = true
         }
         if (drew) th.stroke({ width: 5, color: 0xffffff, alpha: 0.9, cap: 'round' })
@@ -792,6 +833,7 @@ export default {
     this._clearItems()
     this._tweens.forEach((t) => t.kill())
     this._tweens = []
+    this._strands.forEach((s) => s.rep?.destroy())
     this._strands = []
 
     this._phys?.destroy()

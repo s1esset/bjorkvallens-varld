@@ -161,3 +161,26 @@ fångar försvinner in i abstrakta prickar.
     pop-studsar ovanpå den delade konfettin. Exit-säker proxy-tween: Pixi-noden rörs bara om
     den lever, och `_winTl` dödas i `destroy`.
   - Kvar sedan tidigare: [Quick] Bobo/kompis-insekt som hejar från kanten.
+- 2026-08-12 (natt VI, **N5 · LYFTPLAN B3**): **nättråden är ett REP, inte ett streck.**
+  Tråden var en rak `lineTo` från handen till spetsen — den var lika spänd på väg ut som när
+  bytet halades in, och den kom fram innan den hade rest sig. Nu ligger `lib/rep.js` under den
+  i samma läge som `natskott-pa-stan` (`spann()`: båda ändar spikade varje bildruta, vilolängden
+  = avståndet gånger `sag`), ritad med `repPath` — en kvadratisk kurva, inte en polyline.
+  Två skeden, med olika `sag`: **1,12 på väg ut** (överskottslängd tråden inte hinner räta ut)
+  och **0,92 vid indraget** (kortare än avståndet → kedjan MÅSTE bli rak).
+  **MÄTT** (`scripts/_tradprobe.mjs`, som läser den RITADE vägen genom att haka på `_thread`s
+  egna `moveTo/lineTo/quadraticCurveTo` — den enda mätning som fungerar i båda armarna):
+  bågen **13,4–14,1 % av kordan** på väg ut mot HEADs **0,0 %**, och **2,7–6,2 %** vid indraget,
+  alltså 2–5× stramare. Ritad längd högst **1,11–1,15× kordan** (ingen sprängning).
+  **Ändpunkterna är oförändrade:** tråden startar **0,00 px** från handen i samma bildruta, i
+  BÅDA armarna — mekaniken avgörs fortfarande vid `pointerdown` i `_shootAt` och ingenting läser
+  tråden. Trådens livslängd 25–26 bildrutor i båda armarna.
+  ⚠️ **Punktantalet var lösningen, inte fler varv.** Med 10 punkter konvergerade indraget aldrig
+  (bågen låg kvar på 10,0 % vid 6 varv och 6,2 % vid 14) — en spänd kedja rätas ut som en
+  diffusion, alltså ~n² varv. **7 punkter** gav 3,1 % med samma 14 varv, och den kvadratiska
+  kurvan gör att färre punkter inte syns.
+  ⚠️ **Två mätfel innan koden hade några:** ⓵ "tråden börjar i handen" mätte **29,3 px** fel —
+  skjut-armen flaxar 0,55 rad under skottet, så handens läge måste läsas i SAMMA bildruta som
+  vägen ritades; ⓶ "ritad längd / korda" är en kvot vars **nämnare flyttar sig** — i skottets
+  första rutor är kordan ~0 px medan tråden ligger hopbuntad i handen, vilket gav 2,46× utan att
+  en enda pixel var fel. Vakten gäller nu bara rutor med korda ≥ 100 px.

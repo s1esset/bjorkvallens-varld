@@ -37,6 +37,7 @@ const CLOUD_W = 132
 const CLOUD_H = 46
 const GEM_HIT = 66 // plock-radie för ädelsten
 const GOAL_R = 96 // når-radie för regnbågen
+const NEAR_R = 250 // härifrån och in vaknar regnbågen ("nästan framme!")
 const TRAIL_N = 30 // punkter i glitterspåret — ~1 s bana vid full fart
 const MAXV = 22 // hastighetstak (aldrig flyga vilt ur bild)
 const CLOUD_REST = 0.6 // molnens studsighet — MÅTTLIG, så studsar dör ut (inga evighetsloopar)
@@ -90,6 +91,8 @@ export default {
     this._idle = 0
     this._flyT = 0
     this._settleT = 0
+    this._near = 0 // hur vaken regnbågen är (0..1, se _wakeRainbow)
+    this._lastNearFx = 0
     this._tries = 0
     this._helperGiven = false // hjälp-molnet läggs bara en gång per nivå
     this._state = 'placing' // placing | flying | returning | help | win
@@ -657,6 +660,11 @@ export default {
     this._t += dtSec
     this._phys.update(ticker.deltaMS)
 
+    // "Nästan framme!" — regnbågen svarar på hur nära hon är. Ligger FÖRE tillstånds-
+    // grenen så vilotillståndet också drivs härifrån: annars står regnbågen kvar och
+    // lyser efter en landning, och signalen betyder ingenting nästa gång.
+    this._wakeRainbow(ctx, this._state === 'flying' ? this._elviraBody : null, dtSec)
+
     if (this._state === 'flying') {
       this._idle = 0
       this._flyT += dtSec
@@ -701,6 +709,41 @@ export default {
         ctx.services.voice.say('Dra Elvira för att sikta, eller flytta molnen dit du vill.')
         if (!this._elvira.destroyed) pop(this._elvira)
       }
+    }
+  },
+
+  // Regnbågen vaknar när Elvira närmar sig: glöden tänds, fotmolnen pulserar och stjärnan
+  // gnistrar. Signalen är GRADVIS (närheten styr styrkan) — en tröskel som slår om binärt
+  // säger bara "framme/inte framme", och det vet barnet redan när hon landat.
+  _wakeRainbow(ctx, body, dtSec) {
+    const rb = this._rainbow
+    if (!rb || rb.destroyed) return
+    const d = body ? Math.hypot(body.position.x - this._goalPos.x, body.position.y - this._goalPos.y) : Infinity
+    // 0 vid NEAR_R, 1 när hon är framme. Går mot vila (0) på ~0,5 s när hon inte flyger,
+    // så tändningen aldrig klipps av tvärt.
+    const mal = d >= NEAR_R ? 0 : clamp((NEAR_R - d) / (NEAR_R - GOAL_R), 0, 1)
+    const n = this._near + (mal - this._near) * Math.min(1, dtSec * (mal > this._near ? 9 : 4))
+    this._near = n
+
+    if (rb._wglow && !rb._wglow.destroyed) {
+      rb._wglow.alpha = 0.22 + n * 0.55
+      // Vitt sken bakom bågen DISAR den (det lyser igenom springorna mellan banden och
+      // tar udden av färgerna). Skenet går mot gyllene när hon närmar sig — då läser det
+      // som ljus i stället för dimma. Uppmätt i `.test-shots/_regnbage-vaken.png`.
+      const g2 = Math.round(255 - n * 22)
+      const b2 = Math.round(255 - n * 87)
+      rb._wglow.tint = (255 << 16) | (g2 << 8) | b2
+    }
+    for (const f of rb._wfeet || []) {
+      if (!f || f.destroyed) continue
+      f.scale.set(1 + n * 0.14 * (0.6 + 0.4 * Math.sin(this._t * 7)))
+    }
+    if (rb._wstar && !rb._wstar.destroyed) rb._wstar.rotation = n * Math.sin(this._t * 5) * 0.5
+
+    // Gnistor ovanför regnbågen medan hon är nära — takade i tid, aldrig per bildruta.
+    if (n > 0.35 && this._t - this._lastNearFx > 0.22) {
+      this._lastNearFx = this._t
+      sparkle(ctx.fxLayer, this._goalPos.x + (Math.random() * 180 - 90), this._goalPos.y - 90 + Math.random() * 40, { count: 3 })
     }
   },
 
@@ -1328,6 +1371,7 @@ function makeRainbow() {
   const glow = new Graphics().circle(0, -10, 118).fill({ color: 0xffffff, alpha: 0.22 })
   glow.eventMode = 'none'
   c.addChild(glow)
+  c._wglow = glow
 
   const baseR = 116
   const bw = 12
@@ -1352,6 +1396,7 @@ function makeRainbow() {
   const rc = makeRainbowFoot()
   rc.position.set(baseR - 6, 8)
   c.addChild(lc, rc)
+  c._wfeet = [lc, rc]
 
   const star = new Graphics()
   star.moveTo(0, -18).quadraticCurveTo(3, -4, 17, 0).quadraticCurveTo(3, 4, 0, 18)

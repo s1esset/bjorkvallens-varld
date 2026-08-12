@@ -86,8 +86,10 @@ Allt programmatiskt, exit-säkert.
 ### Juice
 - **[Quick] Klättrings-ljud som stiger.** Varje molnstuds uppåt ger en ton ett snäpp högre
   (`_bounceFx` kan ta studs-nummer) — en kaskad som belönar en fin bana.
-- **[Quick] Regnbågen vaknar.** När Elvira är inom ~250px: regnbågen lyser upp, foten-molnen
-  pulserar, ✨ gnistrar — en "nästan framme!"-signal.
+- ✅ **[Quick] Regnbågen vaknar.** *(2026-08-12)* Innanför `NEAR_R` 250 px växer svaret
+  GRADVIS med närheten (0 vid 250, 1 vid målet): glöden tänds och går mot gyllene,
+  fotmolnen pulserar och gnistor faller över bågen. Signalen somnar när hon inte flyger,
+  så den betyder något vid nästa skott. Mätvärden i §5.
 - ✅ **[Quick] Glitterspår.** *(2026-08-12)* Ett regnbågsband ur spelets egna `RAINBOW`-färger,
   tunnande och blekande mot svansen, ritat ur de 30 senaste positionerna. En återanvänd
   `Graphics` under Elvira som ritas om per bildruta — noll allokering, inga tweens, rivs med
@@ -179,3 +181,32 @@ Allt programmatiskt, exit-säkert.
     **Kvalitet 🔧 → ✅.**
   - Kvar som [Quick]/[Medium] i §4: fölet borde reagera under spelets gång (inte bara vid
     vinst), galoppen saknar gångart/studs (ren cirkelrörelse), stjärn-kluster, riktiga SFX-klipp.
+- 2026-08-12 ✅ **Regnbågen vaknar [Quick]** (v1.161.0): innanför `NEAR_R` 250 px svarar
+  regnbågen på hur nära Elvira är — glöden tänds (0,22 → 0,77) och går mot gyllene,
+  fotmolnen pulserar och gnistor faller över bågen (takade till var 0,22:e sekund).
+  Svaret är **gradvis**, inte en tröskel som slår om: en binär omslagning säger bara
+  "framme/inte framme", och det vet barnet redan när hon landat. Drivs FÖRE tillstånds-
+  grenen i tickern, så viloläget också hålls — annars står bågen kvar och lyser efter en
+  landning och signalen är meningslös vid nästa skott.
+  **Mätt** (`node scripts/_regnbageprobe.mjs [--bild]`, 11 punkter): avstånd → närhet
+  **400 px 0 · 250 px 0 · 200 px 0,32 · 150 px 0,65 · 100 px 0,97** · fotmolnens topp
+  **1,136** · vaknandet syns som **20 355 målade pixlar av 60 000** i ytan kring bågen
+  (differentiellt mot samma yta på 400 px avstånd) · tänd 0,91 → **0,02** en sekund efter
+  landning · exit mitt i inflygningen 0 konsolfel.
+  ⚠️ **Vitt sken bakom bågen DISAR den.** Banden ligger 2 px isär, så ett vitt sken lyser
+  igenom springorna och tar udden av färgerna — den första versionen gjorde regnbågen
+  blekare ju närmare hon kom, alltså tvärtemot "lyser upp". Skenet tintas nu mot gyllene
+  (`255,233,168` vid full närhet): färgerna behålls och pixeltalet steg **13 190 → 20 355**.
+  ⚠️ **SONDEN VAR FEL TVÅ GÅNGER INNAN SPELET VAR DET** (åttonde gången i repot):
+  1. Den satte läget EN gång och väntade 700 ms. Tyngdkraften drog iväg Elvira och rundan
+     landade av sig själv, så **varje avstånd mätte samma sak: noll**. Läget måste pinnas
+     varje bildruta och framskridandet frysas (`_flyT` under sättnings-tröskeln).
+  2. `positionPrev` måste pinnas MED. matter härleder farten ur `position − positionPrev`,
+     så hoppet mellan två mätpunkter blev en fart på hoppets längd — 300 px sköt in henne
+     i målet, rundan vanns, nivån byggdes om och `_near` nollställdes. Det såg ut som att
+     effekten slocknade närmast målet. (Samma familj som CLAUDE.md:s "en förflyttning av en
+     statisk kropp kan bli en fart som ligger kvar".)
+  Och en tredje: bilddiffen räknade först **Elvira själv** (hon ligger i samma yta och rör
+  sig mellan bilderna) — hon och spåret döljs nu i båda bilderna. Det gula strecket i
+  `_regnbage-vaken.png` är sondens teleportering, inte spelets spår: en riktig testkörning
+  ritar det aldrig. `npm run check` 0 fel · `npm run test` grön.

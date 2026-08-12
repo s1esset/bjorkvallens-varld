@@ -890,11 +890,59 @@ utan att ett enda spel ändrades.
 Verifieras av `scripts/_partikelprobe.mjs` (fält, antal, pixelfärger, läckage, exit).
 `scripts/_ab.sh` kör HEAD mot ändringen växelvis när en ändring misstänks stöka i sviten.
 
-### C4. Additiv glöd som delat idiom **[Quick]**
+### C4. Additiv glöd som delat idiom **[Quick]** — ✅ STÄNGD 2026-08-12
 
-`blendMode: 'add'` kostar ingenting och används av ett spel. Vill ha det: `lagerelden` (eld) ·
+Ursprunglig lista (sju spel, vald på ett enda villkor — "här finns ljus"): `lagerelden` (eld) ·
 `enhorning-glitterbajs` + `glittergrottan` (glitter) · `blixt-och-dunder` (blixt) ·
 `trollblandning` (magi) · `golvet-ar-lava` (lava) · `natskott-pa-stan` (neon).
+
+**Listan är nu omläst mot BÅDA villkoren, med mätning i stället för omdöme.** Sonden
+`scripts/_glodkandidat.mjs` ställer den faktiska idiomen — `glod()` ur `lib/glod.js` — på den
+faktiska bottnen i varje spel, **växelvis additiv och normal**, och läser pixlarna. `lagerelden`
+(känd vit klump) och `trollblandning` (känd osynlig) går med som **kontrollrader**: reproducerar
+sonden inte de två kända fallen är trösklarna påhittade, inte kalibrerade.
+
+| rad | botten | källa | vinst¹ | vit %² | kroma³ | utfall |
+|---|--:|--:|--:|--:|--:|---|
+| `lagerelden` *(kontroll)* | 205 | 241 | +26,6 | **56,4** | 0,11 | NEJ — klipper till vitt |
+| `trollblandning` *(kontroll)* | 54 | 39 | +16,3 | 0,0 | 0,20 | mätvärdena säger JA — **avsikten säger nej** |
+| `enhorning-glitterbajs` himmel | 225 | 212 | +27,5 | **74,3** | 0,03 | NEJ — klipper till vitt |
+| `glittergrottan` gnista | 44 | 241 | +13,4 | 1,7 | 0,06 | NEJ — nära vit källa blir grått dis |
+| `glittergrottan` kristallfärg | 46 | 148 | **+9,7** | 0,0 | 0,32 | NEJ — add ≈ normal |
+| `blixt-och-dunder` himmel | 214 | 221 | +25,6 | **30,3** | 0,13 | NEJ — klipper till vitt |
+| `golvet-ar-lava` över ytan | 187 | 145 | **+44,2** | 0,0 | 0,52 | **JA** |
+| `golvet-ar-lava` mot klippan | 117 | 145 | **+40,8** | 0,0 | 0,51 | **JA** |
+| `natskott-pa-stan` fasad | 171 | 212 | +33,6 | 19,6 | 0,07 | NEJ — blir färglöst dis |
+
+¹ luminans additivt minus luminans normalt — vad idiomet är VÄRT här. ² andel pixlar med alla
+tre kanalerna ≥ 250 (vitklippning). ³ färgmättnad kvar i resultatet (källans egen är 0,25–0,82).
+
+**Det verkliga villkoret är inte "mörk botten" — det är TAKHÖJD I DE KANALER KÄLLAN LYSER I,
+och en botten som ligger i MITTEN.** Båda ytterlägena tar död på idiomet, från var sitt håll:
+
+- **för ljus botten → vitklippning.** Godishimlen (225) gav 74,3 % vita pixlar, solnedgången
+  (214) gav 30,3 %. Samma fel som lägereldens, fast orsakat av bottnen i stället för källan.
+- **nästan svart botten → add ≈ normal.** I grottan (46) är vinsten bara +9,7: på svart är
+  `källa + 0` och `källa` samma sak, och även tre staplade glöder konvergerar. Att bottnen är
+  mörk är alltså ett skydd mot klippning, **inte** ett skäl att byta blandning.
+- **mättad botten kan vara ljus och ändå duga.** Lavan mäter 187 i luminans men är nästan tom i
+  grönt och blått — där finns takhöjden. Det är därför ett *ljust* spel blev listans enda kund.
+
+`trollblandning`s rad är värd sin egen mening: **mätvärdena godkänner den, avsikten gör det
+inte.** Bubblorna ritas MÖRKARE än brygden (polariteten vänder — sondens infokolumn), alltså är
+de FÖREMÅL och inte ljus, och additiv blandning kan bara göra dem ljusare än sin omgivning. Den
+frågan går inte att tröskla, och sonden låtsas inte att den gör det — den mäter teckenbytet och
+lämnar avsikten åt läsaren.
+
+**Kund:** `golvet-ar-lava` (v1.152.0). Ett band liggande glöder (`ratio` 2,2) längs flodens yta
++ en glöd mot varsin klippvägg, alla additiva, andas ur `_update` med egen fas och **flammar upp
+i `_lavaReact`** när en sten slår ner. Uppmätt i skärmdumpen mot samma bild före ändringen:
+luften ovanför lavan **255,173,104 → 255,203,116**, klippan närmast floden **158,112,76 →
+201,133,84**, och avtagande med avståndet (+11 vid x 1100) — ljus som faller av, inte ett fält.
+Himlen högt uppe och lavaytan själv är **oförändrade**, och **0,0 % vita pixlar** överallt.
+
+Efter det har idiomet tre kunder totalt (`lagerelden`s halo, `trollblandning`s tre lager,
+`golvet-ar-lava`s hetta) och **fyra mätta avslag**. C4 behöver inget mer arbete.
 
 ### C5. `MeshRope` för allt långt och böjligt **[Medium]**
 

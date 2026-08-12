@@ -83,6 +83,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_flytprobe.mjs` | vätskevolymen: jämvikt per `flyt` · massoberoende · botten · fartspärr · exit — **utan webbläsare** |
 | `node scripts/_faltprobe.mjs` | kraftfältet: px/steg-kalibrering · 1/r · tak · knuff · fångsttid · exit — **utan webbläsare** |
 | `node scripts/_varmeprobe.mjs` · `_rostprobe.mjs` | värme vs gradning: balans · P0 · avsvalning · (och i spelet: mjuknar/stelnar) |
+| `node scripts/_glodkandidat.mjs [--spara]` | tjänar additiv glöd spelet? `glod()` på spelets EGEN botten, växelvis add/normal (vinst · vitklippning · kroma), med två kända fall som kontrollrader |
 | `node scripts/kenney-sfx.mjs <Audio-katalog>` | importera CC0-ljud → `public/audio/sfx/` |
 
 ## Var kunskapen finns (ladda vid behov — läs inte allt i förväg)

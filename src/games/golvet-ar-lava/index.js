@@ -38,6 +38,7 @@ import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { COLORS, FONT, PRAISE, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill } from '../../lib/form.js'
+import { glod } from '../../lib/glod.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
@@ -120,6 +121,15 @@ export default {
     this._lavaBase = new Graphics()
     this._lavaBase.eventMode = 'none'
     this._root.addChild(this._lavaBase)
+
+    // Hettan över floden — additiv glöd (LYFTPLAN C4). Ligger ÖVER klippan så att
+    // berget faktiskt lyses upp av lavan, men UNDER vätskeskiktet så att flodens
+    // egen yta förblir skarp. Se `_buildHetta` för varför just det här spelet fick
+    // idiomet och de andra kandidaterna inte.
+    this._hetta = new Container()
+    this._hetta.eventMode = 'none'
+    this._hetta.interactiveChildren = false
+    this._root.addChild(this._hetta)
 
     this._lava = new FluidWorld({
       // Uppmätt topp: 270 droppar med fyra stenar i den bredaste floden.
@@ -511,6 +521,7 @@ export default {
     // redan tonad; det var själva schaktet som var platt. En lavagrop är HET vid ytan och
     // mörknar nedåt, så toningen är också det som scenen faktiskt påstår. Cachad per färgpar.
     this._lavaBase.rect(L, SURFACE_Y, R - L, 300 + BLEED_Y).fill(verticalFill(0x9c2200, 0x4a0c00))
+    this._buildHetta(L, R)
     this._fyllLava()
 
     // Skatt på höger klippa — varierat RITAT fynd per nivå (flyger ut vid vinst).
@@ -552,6 +563,61 @@ export default {
     this._idle = 0
     this._setGoEnabled(true)
     this._drawPreview()
+  },
+
+  // ---- Hettan över lavan (LYFTPLAN C4, additiv glöd) ----------------------
+  //
+  // Av C4:s sju kandidater är det HÄR spelet det enda som klarar båda villkoren,
+  // och `scripts/_glodkandidat.mjs` säger varför i tal. Additiv blandning har sin
+  // vinst i MITTEN: en botten som är för ljus klipper till vitt, en som är nästan
+  // svart gör add ≈ normal. Lavan ligger mitt i det spannet OCH är mättat orange,
+  // alltså nästan tom i grönt och blått — där finns takhöjden som glöden lever på.
+  //
+  //   över ytan:   botten 187 · vinst +44,2 · 0,0 % vita pixlar · kroma 0,52 kvar
+  //   mot klippan: botten 117 · vinst +40,8 · 0,0 % vita pixlar · kroma 0,51 kvar
+  //
+  // (Jämför `enhorning-glitterbajs` 74,3 % vita pixlar och `glittergrottan` vinst
+  // 9,7 — samma idiom, uppmätt värdelöst där.)
+  _buildHetta(L, R) {
+    const h = this._hetta
+    if (!h || h.destroyed) return
+    h.removeChildren().forEach((c) => c.destroy())
+    this._hettor = []
+    // En liggande glöd per ~130 px flod. `ratio` 2,2 gör dem avlånga så bandet
+    // läses som en HORISONT av värme, inte som en rad prickar.
+    const n = Math.max(3, Math.round((R - L) / 130))
+    for (let i = 0; i < n; i++) {
+      const x = L + ((i + 0.5) * (R - L)) / n
+      const g = glod({ color: 0xff7a2e, size: 210, alpha: 0.34, ratio: 2.2 })
+      if (!g) return // glödvägen otillgänglig → hoppa över helt, aldrig en grå fläck
+      g.position.set(x, SURFACE_Y - 6)
+      h.addChild(g)
+      // Egen fas per glöd: ett band som andas i takt läses som en blinkning.
+      this._hettor.push({ g, fas: Math.random() * Math.PI * 2, bas: 0.34 })
+    }
+    // Klippväggarna ska LYSAS UPP av floden — en flod som inte kastar ljus på
+    // berget bredvid sig är en dekal. Bandets ändglöder når dit med nästan ingen
+    // styrka kvar (uppmätt +3 på klippan), så de två väggarna får varsin egen.
+    // Det är dessutom sondens starkaste ruta i hela tabellen: botten 117,
+    // vinst +40,8, 0,0 % vita pixlar, kroma 0,51 kvar.
+    for (const [x, sida] of [[L - 18, 0], [R + 18, 1]]) {
+      const g = glod({ color: 0xff7a2e, size: 260, alpha: 0.3, ratio: 0.85 })
+      if (!g) return
+      g.position.set(x, SURFACE_Y + 34)
+      h.addChild(g)
+      this._hettor.push({ g, fas: sida * Math.PI, bas: 0.3 })
+    }
+  },
+
+  // Andas långsamt + flammar upp när något slår ner i lavan (`_lavaReact`).
+  _updateHetta(dt) {
+    if (!this._hettor || !this._hettor.length) return
+    this._hettaFlare = Math.max(0, (this._hettaFlare || 0) - dt * 1.6)
+    for (const p of this._hettor) {
+      if (!p.g || p.g.destroyed) continue
+      const puls = 1 + 0.22 * Math.sin(this._tnow * 1.3 + p.fas)
+      p.g.alpha = p.bas * puls + this._hettaFlare * 0.5
+    }
   },
 
   _setFynd(kind) {
@@ -835,6 +901,7 @@ export default {
     if (!this._lavaFx || this._lavaFx.destroyed) return
     puff(this._lavaFx, x, SURFACE_Y, { count: 5, color: 0xff7a2e })
     ripple(this._lavaFx, x, SURFACE_Y, { color: 0xffd35c, maxR: 60, duration: 0.5, width: 4, alpha: 0.7 })
+    this._hettaFlare = 0.6 // hettan flammar upp där stenen möter lavan
   },
 
   _placeInSlot(ctx, stone, slot) {
@@ -1231,6 +1298,7 @@ export default {
     this._lava.update(ticker.deltaMS)
     this._lavaView.update()
     this._updateBubbles(ctx, dt)
+    this._updateHetta(dt)
 
     if (this._walking) {
       this._updateWalk(ctx, dt)
@@ -1389,6 +1457,7 @@ export default {
     this._fyndTween?.kill()
 
     this._deselect()
+    this._hettor = null // sprites rivs med _root; listan får inte peka på döda objekt
     this._drag = null
     this._cloud = null
     this._cloudHand = null

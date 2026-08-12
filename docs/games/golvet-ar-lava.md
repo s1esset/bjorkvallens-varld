@@ -78,6 +78,13 @@ loopen är "töm bricka → bredare flod".**
   vinst — små överraskningar i stället för samma 💎.
 
 ### Juice
+- ✅ **Hettan lyser (v1.152.0, LYFTPLAN C4).** Floden kastar additivt ljus: ett band liggande
+  glöder längs ytan + en glöd mot varsin klippvägg, andas med egen fas och flammar upp i
+  `_lavaReact`. Av C4:s sju glödkandidater är det här spelet det **enda** som klarade båda
+  villkoren — mätt med `scripts/_glodkandidat.mjs`: vinst +44,2 över ytan och +40,8 mot
+  klippan, 0,0 % vitklippning, kroma 0,51–0,52 kvar. Uppmätt i bilden: luften ovanför lavan
+  255,173,104 → 255,203,116, klippan närmast floden 158,112,76 → 201,133,84, avtagande med
+  avståndet. Himlen högt uppe och lavaytan är oförändrade.
 - **[Quick] Lava som reagerar.** Stänk + kort glöd-puls när en sten landar över ytan; ringar på
   lavan när figuren hoppar förbi; mikroskak vid landning som skalar med fallhöjden.
 - **[Quick] Hopp-juice.** Ett mjukt "boing" vid avstamp (extra fjäderton på studs-stenen), en

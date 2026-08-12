@@ -26,13 +26,14 @@
 // All transient effekt går via lib/feedback.js (exit-säkert) eller {}-proxy-tweens,
 // och allt fördröjt är vaktat av this._alive. Slangfysiken är ren matematik i
 // tickern + en Graphics → dör med roten i destroy().
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { puff, sparkle, floatText, ripple, wiggle, shake } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Rep, repMesh } from '../../lib/rep.js'
-import { FONT } from '../../lib/theme.js'
+import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
+import { FONT, DESIGN_W } from '../../lib/theme.js'
 
 // --- Fordon: karossform + färg + en ritad detalj. Allt programmatiskt. ---
 const VEHICLES = [
@@ -82,7 +83,32 @@ const HOSE_SEG = 42                 // px per segment → 19 × 42 = 798 px slan
 const HOSE_REACH = (HOSE_N - 2) * HOSE_SEG * 0.94
 const HOSE_GRAV = 0.62              // px per fast steg²
 const HOSE_DAMP = 0.93
-const JET_LEN = 235                 // strålens längd
+const JET_LEN = 235                 // strålens RÄCKVIDD (spelmekaniken, se `_inJet`)
+
+// --- Vattnet (lib/vatska.js) ----------------------------------------------
+//
+// Strålen var 28 ritade cirklar i en kon som tog tvärt slut vid JET_LEN: den föll
+// inte, träffade ingenting och rann aldrig någonstans. Nu är den riktig vätska —
+// den slår i plåten, rinner ner längs karossen och samlas på hallgolvet innan den
+// går ner i brunnen.
+//
+// ⚠️ MEKANIKEN ÄR KVAR I `_inJet`. Vad som räknas som "spolat" avgörs fortfarande
+// av konen, inte av var en enskild partikel råkar hamna. Vätskan är BILDEN; att
+// låta den avgöra spelet hade gjort svårigheten till en slump.
+const JET_FART = 15                 // px/steg ur munstycket (taket är radius·0,6)
+// Takten är mätt, inte vald: två per steg ger ~10 px mellan grannarna — väl under
+// interaktionsradien 26, alltså en SAMMANHÄNGANDE stråle. En per steg prövades och
+// gav ett glesare band utan att strålen nådde nämnvärt längre.
+const JET_PER_STEG = 2
+const JET_MAX = 260                 // partikeltak (mätt topp i _stralprobe: ~205)
+// Golvbrunnen. ⚠️ Den måste täcka HELA hallgolvet: en brunn mitt under bilen lät
+// allt som stänkte åt sidan bli liggande, och pölen vid vattenposten växte tills
+// taket nåddes. Takten (`DRAIN_MAX` per bildruta) är satt strax över strålens egen
+// (2 per steg = 120/s): då hinner en pöl bildas MEDAN barnet spolar och rinner undan
+// på ett par sekunder efteråt — vilket är precis vad ett hallgolv gör.
+const DRAIN_Y = FLOOR_Y + 18
+const DRAIN_W = 1500
+const DRAIN_MAX = 3
 
 // Svampen: hur mycket arbete ett skrubbsteg kostar.
 const SCRUB_PX = 78                 // px svamprörelse per steg
@@ -225,6 +251,63 @@ export default {
     this._birdLayer = new Container()
     this._root.addChild(this._birdLayer)
 
+    // Vattnet ligger ÖVER bilen men UNDER verktygen: strålen ska synas rinna på
+    // plåten, medan munstycket i handen alltid är överst. Lagret skapas därför
+    // före `_toolLayer` — ordningen är hela poängen med var det här stycket står.
+    this._fluid = new FluidWorld({
+      max: JET_MAX,
+      radius: 26,
+      gravityY: 0.5,
+      rho0: FLUIDS.tval.rho0,
+      sigma: FLUIDS.tval.sigma,
+      beta: FLUIDS.tval.beta,
+      // ⚠️ VATTNET FÅR INTE BLI LIGGANDE PÅ BILEN. Med 0,05/0,35 la sig strålen som
+      // en blå FILT över karossen och dolde vindruta och tak — 111 partiklar bodde
+      // på plåten. Ett anslag ska stänka ut och sedan rinna av: högre studs sprider
+      // träffen, låg friktion låter den skölja ner till golvet på ett ögonblick.
+      restitution: 0.2,
+      wallFriction: 0.08,
+      // Golvet är den enda väggen. Spill åt sidorna får rinna ur bild och
+      // återanvändas — en pöl bakom hallväggen är bara kostnad ingen ser.
+      walls: { left: false, right: false, bottom: true, top: false },
+      bounds: { left: -200, right: DESIGN_W + 200, top: -200, bottom: FLOOR_Y + 30 },
+    })
+    // ⚠️ TRÖSKELN ÄR SATT FÖR EN STRÅLE, inte för ett fyllt glas (N3-regel 2): en
+    // smal stråle når aldrig ett fyllt kärls tröskel och ritas då i kantfärgen —
+    // nästan vit, mot en ljus tvätthall = osynlig.
+    this._fluidView = new FluidView(this._root, this._fluid, {
+      // Tvålvattnets EGEN färg (0x9fd8ff) är nästan vit och försvann mot den ljusa
+      // hallen. Fysiken är tvål, färgen är vatten — det är bara synlighet.
+      color: FLUIDS.vatten.color,
+      edge: 0xdff4ff,
+      alpha: 0.85,
+      // ⚠️ blobScale 1,25 gjorde strålen till en FET skiva: varje partikel målades
+      // 25 % större än sin interaktionsradie, och 2 partiklar per steg ligger redan
+      // 7 px isär. 1,0 ger ett band som läser som en stråle.
+      blobScale: 1.0,
+      threshold: 0.38,
+      soft: 0.1,
+      blur: 6,
+      quality: 2,
+      resolution: 0.5,
+      // Filtret behöver bara den yta slangen räcker till — inte hela skärmen.
+      area: new Rectangle(60, 120, 1160, FLOOR_Y - 60),
+    })
+    this._fluidView.layer.eventMode = 'none'
+    this._fluidView.layer.interactiveChildren = false
+    this._jetAcc = 0
+    // Karossen som hinder — CIRKLAR, inte lådor.
+    // ⚠️ En låda har ett PLANT TAK och vatten som landar där blir liggande i en
+    // pöl mitt på bilen: uppmätt som en vågrät platta tvärs över karossen, ingenting
+    // rann ner. En bil är rundad, och det är rundningen som gör att vattnet sköljer
+    // NER längs sidorna i stället för att samlas ovanpå. Tre cirklar (kupé + fram +
+    // bak) räcker för att silhuetten ska skölja rätt.
+    this._karossC = [
+      this._fluid.addCircle(CAR_X, 4000, 90),
+      this._fluid.addCircle(CAR_X, 4000, 78),
+      this._fluid.addCircle(CAR_X, 4000, 78),
+    ]
+
     // Verktygen (fristående föremål med osynlig träffyta).
     this._toolLayer = new Container()
     this._root.addChild(this._toolLayer)
@@ -235,13 +318,10 @@ export default {
     this._bindSponge(ctx)
     this._bindNozzle(ctx)
 
-    // FX överst (stråle, droppar, puffar).
+    // FX överst (droppar, puffar).
     this._fx = new Container()
     this._fx.eventMode = 'none'
     this._fx.interactiveChildren = false
-    this._jet = new Graphics()
-    this._jet.eventMode = 'none'
-    this._fx.addChild(this._jet)
     this._root.addChild(this._fx)
 
     this._drawHose()
@@ -1266,8 +1346,7 @@ export default {
   // ---------------------------------------------------------------- stråle
 
   _jetTick(ctx, dt) {
-    const jet = this._jet
-    if (!jet || jet.destroyed) return
+    if (!this._fluid) return
     this._foamCue = Math.max(0, (this._foamCue || 0) - dt)
     this._wetCue = Math.max(0, this._wetCue - dt)
 
@@ -1279,28 +1358,33 @@ export default {
 
     const on = (this._hoseDrag || !!this._hoseAuto) && !this._locked
     if (!on) {
-      jet.clear()
+      // Vattnet som redan är i luften rinner färdigt — det är hela skillnaden mot
+      // den ritade konen, som försvann i samma bildruta som fingret släppte.
+      this._jetAcc = 0
       this._jetSound = 0
       return
     }
     this._idle = 0
     const { tip, dir } = this._nozzleTip()
 
-    // Strålen: mjuka överlappande droppmoln som breddas utåt.
-    jet.clear()
-    // Yttre dis (bred, svag) …
-    for (let i = 0; i < 14; i++) {
-      const t = 10 + i * 17
-      const jx = tip.x + dir.x * t + rnd(-5, 5)
-      const jy = tip.y + dir.y * t + rnd(-5, 5)
-      jet.circle(jx, jy, 9 + i * 2.6).fill({ color: 0x8fd6ee, alpha: 0.3 })
-    }
-    // … och en tät vit kärna som tunnas ut utåt.
-    for (let i = 0; i < 14; i++) {
-      const t = 8 + i * 17
-      const jx = tip.x + dir.x * t + rnd(-3, 3)
-      const jy = tip.y + dir.y * t + rnd(-3, 3)
-      jet.circle(jx, jy, 7 + i * 1.1).fill({ color: 0xffffff, alpha: 0.5 - i * 0.03 })
+    // Strålen föds ur munstycket. Spridningen är LITEN (±0,05 rad) — ett munstycke
+    // ger en stråle, inte en dusch, och en bred kon hade dessutom spridit ut
+    // partiklarna så glest att metaboll-tröskeln aldrig nås.
+    const f = this._fluid
+    if (f) {
+      this._jetAcc += dt * 60
+      let n = Math.floor(this._jetAcc)
+      this._jetAcc -= n
+      n = Math.min(n, 4) * JET_PER_STEG // tak: en tappad bildruta får inte spruta en klump
+      const bas = Math.atan2(dir.y, dir.x)
+      for (let i = 0; i < n; i++) {
+        const a = bas + (Math.random() - 0.5) * 0.1
+        const s = JET_FART * (0.92 + Math.random() * 0.16)
+        // Föd över munstyckets BREDD, inte i en punkt: en tät punktkälla är ett
+        // trycksskott som SPH:ns närtryck spränger isär (N3-regel 5).
+        const sid = (Math.random() - 0.5) * 14
+        f.spawn(tip.x - dir.y * sid, tip.y + dir.x * sid, { vx: Math.cos(a) * s, vy: Math.sin(a) * s })
+      }
     }
 
     // Droppar + ljud.
@@ -1350,6 +1434,46 @@ export default {
       const nara = Math.hypot(b.view.x - nz.x, b.view.y - nz.y) < 130
       if (nara || this._inJet(tip, dir, b.view.x, b.view.y, 46)) this._scareBird(ctx, b, true)
     }
+  },
+
+  // ---- vattnet per bildruta -----------------------------------------------
+
+  // Bilens hinder följer karossen. Bilen KÖR in och ut ur hallen, så lådorna kan
+  // inte sättas en gång — de flyttas varje bildruta. (`addBox` är gjord för det:
+  // planobjekt man skjuter på genom att sätta c.x/c.y.)
+  _fluidTick(dt) {
+    const f = this._fluid
+    if (!f) return
+    const car = this._car
+    const v = this._vehicle
+    const C = this._karossC
+    if (car && !car.destroyed && v && C) {
+      // Kupén sitter över karossens mitt, fram- och bakvagn på var sin sida. Radien
+      // följer fordonets mått så bussen är lika rund som bilen.
+      const tak = v.h * v.roof
+      C[0].x = car.x
+      C[0].y = car.y - v.h * 0.1
+      C[0].r = (v.h + tak) * 0.52
+      C[1].x = car.x - v.w * 0.3
+      C[1].y = car.y + v.h * 0.06
+      C[1].r = v.h * 0.55
+      C[2].x = car.x + v.w * 0.3
+      C[2].y = car.y + v.h * 0.06
+      C[2].r = v.h * 0.55
+    } else if (C) {
+      // Ingen bil i hallen: parkera cirklarna långt utanför i stället för att ta
+      // bort dem — en collider som tas bort och läggs till varje bildruta hade
+      // gett vätskan en ny lista att gå igenom i onödan.
+      for (const c of C) c.y = 4000
+    }
+
+    f.update(dt * 1000)
+
+    // Golvbrunnen. Utan den växer pölen tills taket nås och strålen börjar
+    // återanvända sina EGNA partiklar mitt i luften — då tunnas den ut medan
+    // barnet spolar, vilket ser ut som att kranen sinar.
+    f.drain(DESIGN_W / 2, DRAIN_Y, DRAIN_W, 54, { max: DRAIN_MAX })
+    this._fluidView.update()
   },
 
   _droplets(tip, dir) {
@@ -1722,6 +1846,7 @@ export default {
     this._stepHose(dt)
     this._spongeTick(ctx, dt)
     this._jetTick(ctx, dt)
+    this._fluidTick(dt)
     this._spotsTick(dt)
     this._birdsTick(ctx, dt)
     this._idleTick(ctx, dt)
@@ -1798,11 +1923,17 @@ export default {
     ctx?.services?.voice?.cancel()
     this._hoseMesh?.destroy() // före _root.destroy: meshen äger sin egen geometri
     this._hoseMesh = null
+    // Vätskan före roten: vyn äger ett filter och en renderingstextur som inte
+    // rivs av att föräldern förstörs.
+    this._fluidView?.destroy()
+    this._fluid?.destroy()
+    this._fluidView = null
+    this._fluid = null
+    this._karossC = null
     this._root?.destroy({ children: true })
     this._root = null
     this._car = null
     this._fx = null
-    this._jet = null
     this._hoseG = null
     this._svamp = null
     this._nozzle = null

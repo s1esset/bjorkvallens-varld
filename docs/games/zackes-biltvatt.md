@@ -156,6 +156,34 @@ inga spelobjekt är emoji-i-en-ruta längre. Kvarstående risker:
 
 ## 5. Status / loggar
 
+- 2026-08-12 ⚙️ **NATTKÖ N3: STRÅLEN ÄR RIKTIG VÄTSKA** (v1.179.0, `lib/vatska.js`, sjunde kunden).
+  Strålen var **28 ritade cirklar** i en kon som tog tvärt slut vid `JET_LEN`: den föll inte,
+  träffade ingenting och rann aldrig någonstans. Nu slår den i plåten, sköljer ner längs karossen
+  och samlas på hallgolvet innan den går ner i brunnen.
+  - **MEKANIKEN ÄR ORÖRD.** Vad som räknas som spolat avgörs fortfarande av `_inJet`, inte av var
+    en enskild partikel hamnar — att låta vätskan avgöra hade gjort svårigheten till en slump.
+    Mätt: en skumfläck spolas bort på 29–37 bildrutor, som förut.
+  - **Hindren är CIRKLAR, inte lådor.** Första bygget gav bilen två `addBox`. En låda har ett
+    **plant tak**, och vattnet blev liggande i en vågrät platta tvärs över karossen som dolde
+    vindrutan — 111 partiklar bodde på plåten. En bil är rundad, och det är rundningen som gör
+    att vattnet sköljer NER längs sidorna. Tre cirklar (kupé + fram + bak).
+  - **Studs och friktion är det som får vattnet att rinna av**, inte formen ensam: 0,05/0,35 lät
+    det ligga kvar, 0,2/0,08 sköljer av. Mätt: **128 partiklar på bilen under spolning → 0 efter
+    3 s.**
+  - **Golvbrunnen måste täcka HELA golvet.** En brunn mitt under bilen lät allt som stänkte åt
+    sidan bli liggande, och pölen vid vattenposten växte tills taket nåddes. Takten är satt strax
+    över strålens egen (3 mot 2 per bildruta): en pöl hinner bildas medan barnet spolar och rinner
+    undan på ett par sekunder efteråt.
+  - **MÄTT** (`_stralprobe.mjs`, **12/12** i tre körningar i rad; HEAD når inte förbi rad 1):
+    bilden når **331–338 px** där mekaniken rengör till 235 (bilden når alltså LÄNGRE än spelet
+    gör rent, vilket är rätt håll), strålen är sammanhängande med **10,2–10,5 px** mellan
+    grannarna mot interaktionsradien 26, tyngdpunkten ligger **4–10 px** från siktlinjen,
+    partikeltaket toppar på **178–183 av 260 (68–70 %)**, och golvpölen är **0 efter 4 s**.
+  - **Kostnaden är inte mätbar vid ×6.** 60,0 fps både spolande och i vila. Att strypningen
+    verkligen biter kontrollerades separat: vid **×20** faller spolningen till **32,1 fps** mot
+    vilans 60,0. `_vatskeprobe` duger inte här — strålen föds av en händelse (N3-regel 6).
+  - `_stralbild.mjs` sparar rak/i-plåten/efter-släpp.
+
 - `2026-07-25` · byggd från spec via `/spel`, första körningen av pipelinen. Kvalitetsgrindens
   7 punkter genomgångna, `npm run check --game` grön, headless-test 0 fel inkl. exit-cykel.
 - `2026-07-25` · **ombyggd efter ägarens speltest** (fyra krav):

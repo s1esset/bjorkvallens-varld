@@ -6,6 +6,7 @@ import { confirmDialog } from '../../lib/confirm.js'
 import { promptText } from '../../lib/domModal.js'
 import { AVATARS, avatarEmoji } from '../../lib/swedish.js'
 import { COLORS, FONT, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { setDetaljniva } from '../../lib/form.js'
 
 export async function createSettingsScreen(services) {
   const view = new Container()
@@ -33,8 +34,14 @@ export async function createSettingsScreen(services) {
   back.y = 60
   view.addChild(back)
 
-  // ---------- LJUD-panel ----------
-  const sound = panel(70, 110, 540, 470, 'Ljud')
+  // ---------- LJUD- och BILD-panel ----------
+  // Sex rader i stället för fem, i SAMMA ruta: radavståndet är 64 (volymraden 70) i
+  // stället för 76/86. Att i stället göra panelen högre såg ut att gå ihop på papperet
+  // och gjorde det inte — DATA-radens knappar är CENTRERADE på sin y (632 ⇒ 590–674),
+  // så en panel som slutar på 610 ligger redan under dem. Det syntes först i
+  // `scripts/_installningsbild.mjs`; ingen testkörning öppnar den här skärmen.
+  // Sista raden (406) slutar på 456, 14 px ovanför panelens 470.
+  const sound = panel(70, 110, 540, 470, 'Ljud och bild')
   view.addChild(sound.box)
   let sy = 80
   const settings = () => save.data.settings
@@ -42,19 +49,31 @@ export async function createSettingsScreen(services) {
   sound.box.addChild(
     toggleRow('Musik', () => settings().musicEnabled, (v) => setSetting('musicEnabled', v), sy),
   )
-  sy += 76
+  sy += 64
   sound.box.addChild(
     toggleRow('Ljudeffekter', () => settings().sfxEnabled, (v) => setSetting('sfxEnabled', v), sy),
   )
-  sy += 76
+  sy += 64
   sound.box.addChild(
     toggleRow('Röst (svenska)', () => settings().voiceEnabled, (v) => setSetting('voiceEnabled', v), sy),
   )
-  sy += 76
+  sy += 64
   sound.box.addChild(volumeRow(sy))
-  sy += 86
+  sy += 70
   sound.box.addChild(
     toggleRow('Föräldra-grind', () => settings().parentalGateEnabled, (v) => setSetting('parentalGateEnabled', v), sy),
+  )
+  sy += 64
+  // Enklare grafik = app-bred detaljnivå 0 (platta färger) i stället för 2 (bakade
+  // gradienter). Nivån sätts direkt, men `lib/form.js` cachar varje gradient vid första
+  // ritningen — redan ritade skärmar behåller alltså sitt utseende, och ändringen syns
+  // i spel som öppnas därefter. Nivå 1 finns kvar för kod, men en förälder ska välja
+  // mellan två lägen, inte tre.
+  sound.box.addChild(
+    toggleRow('Enklare grafik', () => settings().enklareGrafik, (v) => {
+      setSetting('enklareGrafik', v)
+      setDetaljniva(v ? 0 : 2)
+    }, sy),
   )
 
   function setSetting(key, value) {

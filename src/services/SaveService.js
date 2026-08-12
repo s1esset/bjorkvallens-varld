@@ -24,6 +24,9 @@ function defaultDoc() {
       voiceEnabled: true,
       parentalGateEnabled: true,
       sessionReminderMinutes: 0,
+      // Sänker app-bred detaljnivå (lib/form.js `setDetaljniva`) från 2 till 0: platta
+      // färger i stället för bakade gradienter. För svaga plattor. Se LYFTPLAN C10.
+      enklareGrafik: false,
     },
     profiles: [],
   }
@@ -60,6 +63,11 @@ export class SaveService {
     // Framtida migreringar: while (d.schemaVersion < SCHEMA_VERSION) { ... d.schemaVersion++ }
     d.schemaVersion = SCHEMA_VERSION
     if (!d.settings) d.settings = defaultDoc().settings
+    // Ett dokument som skrevs innan en inställning fanns har NYCKELN saknad, inte hela
+    // objektet — utan den här påfyllningen blir varje ny inställning `undefined` hos alla
+    // befintliga användare, och en toggle som läser `undefined` visar fel läge.
+    const std = defaultDoc().settings
+    for (const k of Object.keys(std)) if (d.settings[k] === undefined) d.settings[k] = std[k]
     return d
   }
 

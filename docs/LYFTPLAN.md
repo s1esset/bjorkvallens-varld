@@ -1127,12 +1127,56 @@ sju backdrop-shaders. `glittergrottan` är enda kunden. Antingen bygg fler 3D-sp
 `makeBackdrop` som **bakgrund** i 2D-spel (3D-canvasen ligger redan bakom Pixi och all input går
 via Pixi ändå).
 
-### C10. Småpengar **[Quick]**
+### C10. Småpengar **[Quick]** — ✅ AVGJORD 2026-08-12 (en byggd, tre strukna med mätning)
 
-- 75 `new Text` rasteras via canvas. `BitmapText` för allt som ändras varje bildruta (räknare).
-- `roundPixels` på bakade sprites.
-- `CullerPlugin` när kameran (C6) landar.
-- Renderarkonfigen i `App.js` är redan rätt (`resolution` ≤2, `antialias`, `maxFPS 60`) — rör den inte.
+Alla fyra punkterna mättes innan någon rördes. **Tre av dem visade sig sakna underlag** — och
+det är själva resultatet: en optimering utan mätbar intäkt är en kostnad, inte en besparing.
+
+**1. `setDetaljniva` kopplad till en inställning i skalet — BYGGD, men köper ingenting här.**
+`Inställningar → Ljud och bild → Enklare grafik` (standard **av**) skriver
+`settings.enklareGrafik` och `main.js` sätter nivån vid uppstart, före första ritningen —
+gradienterna cachas vid första ritningen, så en nivå som sätts efteråt lämnar allt redan ritat
+kvar. `scripts/_detaljprobe.mjs` mäter genom **appens egen väg** (SaveService → omladdning),
+armarna växelvis, sex spel:
+
+| | nivå 2 → 0 |
+|---|---|
+| bakade gradienter | 31 → 9 |
+| GPU-textur | **121 KB sparat totalt** |
+| ritanrop/bildruta | 12–43 → **oförändrat, ibland +1–2** |
+| FPS (CPU ÷6 och ÷20) | **identiskt**, båda armarna i 59-taket |
+
+Ritanropen är det som faktiskt kan skilja på en svag GPU, och de rör sig inte: Pixi bakar
+gradientfyllningen in i samma batch som en rå färg. **Priset är däremot fullt** — nivå 0 tar
+bort exakt den volym C1 lade fyra sessioner på att ge föremålen
+(`.test-shots/_detalj-enkelt-pussel-{full,enkel}.png`). Knappen är kvar som en nödutgång för
+den svaga plattan, som INTE går att mäta härifrån: det enda talen inte täcker är
+gradientsamplingen per pixel, och en fyllnadsbegränsad mobil-GPU kan känna den.
+**`_detaljprobe.mjs --url` kör samma mätning mot ett serverat bygge på plattan** — faller den
+ut lika platt där hör knappen inte hemma i appen.
+
+**2. `BitmapText` för räknare — STRUKEN. Det finns ingen räknare.** `scripts/_textprobe.mjs`
+hakar på `Text`-sättaren och räknar skrivningar per bildruta i **alla 72 spelen**. Värst:
+`vilket-djur-later` med **0,009 skrivningar/ruta** (2 skrivningar på 4 sekunder). Spel med
+≥0,5: **noll**. Det följer av P0 "ikon-först, noll läsning" — appen räknar i mätare och former,
+inte i siffror. En `Text` rasteras bara när strängen ÄNDRAS, så 75 lugna etiketter kostar
+ingenting löpande. *(Sondens egen fälla: `text`-sättaren ligger inte på `Text.prototype` utan på
+basklassen. Första versionen läste `getOwnPropertyDescriptor(Text.prototype, 'text')`, fick
+`undefined` och rapporterade lugnt "ingen Text i scenen" för alla 72 spel — med tre Text-noder
+framför sig.)*
+
+**3. `CullerPlugin` — STRUKEN. Det finns inget att culla.** Kamerans enda kund
+`spindel-zacke-svingar` har **57 ritnoder, varav 1 (1,8 %) utanför skärmen**. De två spelen med
+egen kamera ligger på 34 av 129 (`natskott-pa-stan`) och 39 av 136 (`snobollen`) — och båda
+kör redan 59 FPS. Culler kräver dessutom `cullable` per container för att göra något alls, så
+det vore arbete per spel för ett trettiotal noder.
+
+**4. `roundPixels` — STRUKEN. Världen skalas inte med heltal.** Uppmätt världsskala:
+**1,0** på 1280×720, **0,594** på 952×428 (telefon) och **0,8** på 1024×768. En avrundning i
+designrymden landar alltså på en bruten enhetspixel ändå — ingen skärpa vunnen — medan en
+figur som rör sig långsamt börjar kliva i stället för att glida.
+
+Renderarkonfigen i `App.js` är redan rätt (`resolution` ≤2, `antialias`, `maxFPS 60`) — rör den inte.
 
 ---
 

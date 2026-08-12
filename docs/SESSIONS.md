@@ -67,7 +67,8 @@ så fort käken sjunker.
 
 **Commits:** `e55db82` feat(ansikte) klipp-pipelinen · `b477d0a` feat(ansikte) riggen.
 **Kontroll:** `check` **0 fel / 0 varningar** · `_ansiktebild` 0 konsolfel, 14 riggar rivna ·
-`test:all` **72/72** (kört före ansiktsarbetet; ingen spelkod har rörts sedan dess) ·
+`test:all` **72/72** — kört EFTER ansiktscommittarna också, eftersom `theme.js` (delad kod)
+fick en ny export; enda loggfynden är de kända parkerade `saknat-ljudklipp` (MOSS nere) ·
 arbetsträdet rent · backup körd. Röstkön orörd.
 **Öppet:** ägarkön tom. **Nästa är spelet `mata-munnen`** — spec-kortet ligger i
 `docs/IDEER.md` post 2 och har ägarens ja; riggen har allt det behöver. Ögon-följningen i

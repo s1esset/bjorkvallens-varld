@@ -35,6 +35,10 @@ const CAKE_X = 640 // tårtans viloplats (brickan)
 const CAKE_Y = 620
 const MAX_LEVEL = 3 // mjuk tak: håller rundan kort (max 6 tårtor) så den aldrig tjatar
 const MAX_CREAM = 16 // cappa grädde-klumpar så ansiktet inte växer i oändlighet
+// Rinnande grädde. Talen är små med FLIT: kladdet ska kännas levande, inte fly undan
+// svampen. En stor klump får hela taket, en liten prick ~en tredjedel.
+const DRIP_HAKA = 105 // lägsta y en klump får rinna till (ansiktets radie är 150)
+const DRIP_FART = 11 // px/s vid start; farten avtar mot taket (grädden tunnas ut)
 
 // Flick-fysik (designkoordinater, px och px/s). Tårtan integreras i tickern med en
 // enkel gravitation + mjuk styrning mot ansiktet så den ALLTID når fram (no-fail).
@@ -645,6 +649,29 @@ export default {
       blob.eventMode = 'none'
       blob._r = r
       blob._clean = 0
+      // RINNANDE: grädden sitter inte frusen där den träffade. Varje klump har en egen
+      // fart och ett eget TAK, och en stor klump rinner längre än en liten prick — det
+      // är massan man ser. Taket är litet med flit (≤ DRIP_MAX): en klump som glider
+      // långt hade gjort torkningen till en jakt på ett flyende mål, och svampens
+      // träffprov läser klumpens LEVANDE läge varje gnugg.
+      blob._dripY = 0
+      // Taket måste vara STÖRRE än klumpens radie, annars ligger hela strimman gömd
+      // bakom klumpen och rinnandet syns inte alls (första försöket: tak ≈ radien →
+      // noll synlig tunga). `r * 0.9 + 16` ger ~12–14 px synlig strimma i hela
+      // storleksspannet. Sedan klamras det mot HAKAN: en klump får aldrig rinna ut
+      // ur ansiktet, och en klump som redan sitter lågt rinner därför knappt alls.
+      blob._dripMax = Math.max(0, Math.min(r * 0.9 + 16, DRIP_HAKA - blob.y))
+      blob._dripFart = DRIP_FART * (0.45 + (r - 18) / 22 * 0.55)
+      blob._hemY = blob.y
+      // Spåret ritas i ett eget barn UNDER klumpen: en avsmalnande strimma från
+      // träffpunkten ner till klumpens nuvarande läge. Utan det läser rinnandet som
+      // en prick som glider, inte som kladd som rinner.
+      const spar = new Graphics()
+      spar.eventMode = 'none'
+      blob.addChildAt(spar, 0)
+      blob._spar = spar
+      blob._sparFarg = p.cream
+      blob._sparKant = p.creamEdge
       this._splatLayer.addChild(blob)
       bounceIn(blob, { duration: 0.35 })
     }
@@ -845,9 +872,10 @@ export default {
   // annars -> kasta. Vid kladd ger vi även mjuk auto-hjälp (börjar torka en klump).
   _update(ctx, ticker) {
     if (!this._alive) return
+    const dtDrip = Math.min(0.05, ticker.deltaMS / 1000)
+    this._stepDrip(dtDrip) // grädden rinner vidare även medan nästa tårta är i luften
     if (this._flying) {
-      const dt = Math.min(0.05, ticker.deltaMS / 1000)
-      this._stepFlight(ctx, dt)
+      this._stepFlight(ctx, dtDrip)
       return
     }
     this._idle += ticker.deltaMS / 1000
@@ -860,6 +888,43 @@ export default {
       } else {
         ctx.services.voice.say('Kasta en tårta till!')
         pop(this._cake)
+      }
+    }
+  },
+
+  // Grädden rinner. Farten avtar mot klumpens eget tak (grädden tunnas ut och stannar),
+  // så rörelsen är tydlig de första sekunderna och sedan i praktiken stilla — kladdet
+  // hinner läsas som levande utan att någonsin bli ett mål som flyr undan svampen.
+  _stepDrip(dt) {
+    const layer = this._splatLayer
+    if (!layer || layer.destroyed) return
+    for (const blob of layer.children) {
+      if (blob.destroyed || blob._dripMax === undefined) continue
+      const kvar = blob._dripMax - blob._dripY
+      if (kvar <= 0.05) continue
+      // Exponentiell inbromsning: alltid mot taket, aldrig förbi det.
+      blob._dripY += Math.min(kvar, blob._dripFart * dt * (0.25 + kvar / blob._dripMax))
+      blob.y = blob._hemY + blob._dripY
+      // Strimman ritas UPPÅT i klumpens egen rymd, alltså kvar vid träffpunkten i
+      // ansiktets rymd. Ritas bara när den ändrats märkbart — en omritning per
+      // bildruta och klump vore 16 `Graphics.clear()` i varje ruta utan vinst.
+      if (blob._dripY - (blob._sparRitad || 0) > 1.2) {
+        blob._sparRitad = blob._dripY
+        // Smal upptill (vid träffpunkten, där grädden tunnats ut) och bred nertill
+        // där massan samlats i klumpen — tvärtom läser den som en kil på högkant.
+        // FORMEN avgör om det läser som rinnande grädde. Två försök syntes bara i
+        // skärmdumpen, med alla tal gröna i båda:
+        //   ⓵ utan kontur smälter strimman ihop med klumpen och med det ljusa
+        //     ansiktet — osynlig trots 46 px uppmätt strimma;
+        //   ⓶ en avsmalnande KIL med rak, streckad ovankant läser som en tratt som
+        //     står ovanpå klumpen, inte som något som runnit ur den.
+        // En KAPSEL (rundad topp, jämn bredd) läser rätt: hörnradien = halva bredden.
+        const w = blob._r * 0.72
+        blob._spar
+          .clear()
+          .roundRect(-w / 2, -blob._dripY, w, blob._dripY + w, w / 2)
+          .fill({ color: blob._sparFarg, alpha: 0.92 })
+          .stroke({ width: 2.5, color: blob._sparKant, alpha: 0.85 })
       }
     }
   },

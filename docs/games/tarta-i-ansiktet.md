@@ -70,8 +70,8 @@ inte en medspelare, och flicken har inget att sikta på.
 ### Variation & överraskning
 - **[Medium] Fler kastobjekt** som roterar per runda — gräddpaj, gul vaniljkräm, rosa bär,
   vattenballong (blöter, kräver annan torkning). [Quick] varierad splat-färg och -form.
-- **[Quick] Grädden droppar** sakta nedför ansiktet över tid → levande kladd istället för
-  frysta klumpar.
+- ✅ ~~**[Quick] Grädden droppar**~~ Klar 2026-08-12 (v1.171.0) — med ett TAK, så kladdet aldrig
+  blir ett mål som flyr undan svampen. Se §5.
 
 ### Juice
 - **[Quick] Riktiga SFX:** squelch/plask vid träff + komisk boing, mikroskak på skärmen
@@ -91,6 +91,29 @@ inte en medspelare, och flicken har inget att sikta på.
 - **[Quick] Dedikerade plask/skratt-klipp** ersätter de talade orden; lugn cirkus-ambient.
 
 ## 5. Status / loggar
+
+- 2026-08-12 🍰 **Grädden rinner** (v1.171.0, N10 pass 7). Klumparna satt frusna exakt där de
+  träffade: sex tårtor gav sex stillastående cirkelhögar. Nu har varje klump en egen fart, ett
+  eget tak och ett **spår** — en kapsel som ligger kvar vid träffpunkten medan klumpen glider.
+  En stor klump rinner längre än en liten prick (det är massan man ser), farten avtar
+  exponentiellt mot taket, och taket klamras dessutom mot HAKAN så ingen grädde rinner ut ur
+  ansiktet.
+  **Taket är designen, inte en detalj.** Grädde som rinner obehindrat blir ett mål som flyr
+  undan svampen — barnet hade jagat kladdet i stället för att torka det. Torkningen läser
+  klumpens LEVANDE läge (`_rub` prövar mot `blob.x/blob.y` varje gnugg), så rinnandet gör
+  aldrig en klump omöjlig att träffa.
+  **MÄTT** (`scripts/_dropprobe.mjs`, 7/7 mot HEADs 2/7): 7–9 klumpar rinner 36,6–51,3 px
+  (HEAD **0,0 px** för alla) · små klumpar 39,6 px mot stora 45,2 px · **0** klumpar passerar
+  sitt eget tak · lägsta klump y = 105,0 mot hakans 105 · strimma 81,7 px · `_clean`
+  0,00 → 0,72 när svampen hålls där klumpen är NU · 0 konsolfel.
+  ⚠️ **Formen krävde två omtag som BARA skärmdumpen såg — alla sju tal var gröna i båda.**
+  ⓵ Utan kontur smälter strimman ihop med klumpen och med det ljusa ansiktet: 46 px uppmätt
+  strimma, osynlig i bild. ⓶ En avsmalnande KIL med rak ovankant läser som en **tratt som står
+  ovanpå** klumpen, inte som något som runnit ur den. En **kapsel** (rundad topp, jämn bredd,
+  hörnradie = halva bredden) läser rätt.
+  ⚠️ HEAD-armens rad 3 var först grön på ett spel utan mekanik: `d > NaN` är alltid falskt.
+  Sonden felar nu explicit när taket inte går att utvärdera.
+
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`0e75b57`, v1.104.0).
   `_plattprobe --medbakgrund` mätte **407 401 px = 44 % av skärmen** i EN ton.

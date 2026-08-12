@@ -169,6 +169,25 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
 
 ## 5. Status / loggar
 
+- 2026-08-12 🫧 **BUBBLAN LIGGER AN MOT YTAN INNAN DEN BRISTER** (v1.182.0, LYFTPLAN B2 / N4).
+  Bubblan poppade i **samma bildruta** som toppen bröt ytan — det fanns inget liggande skede
+  alls. Nu är den de sista ~13 bildrutorna en mjuk kropp (`lib/mjukkropp.js`): lyftkraften
+  trycker den mot ytan, ytan plattar hinnan, och först då brister den.
+  **MÄTT** (`_pressprobe.mjs`): skedet **13,2 bildrutor** (0,22 s) mot noll före, för 11–12 av 13
+  bubblor. Hinnan plattas **h/b 1,00 → 0,60**, och det är YTAN som gör det — toppen ligger på det
+  **levande** höjdfältet (`_waveAt`) med **0,00 px glapp** i 12,9 av 13,2 rutor, alltså plattas en
+  bubbla mitt i en våg annorlunda än en i stiltje. Högst **3 mjuka kroppar samtidigt**.
+  **Tempot är växelvis mätt mot HEAD, tre rundor:** 13/13/13 poppar mot 12/12/12 per 500
+  bildrutor — oskiljbart. Latensen per bubbla 64–75 → 76–85 bildrutor (≈ +0,17 s = presset).
+  Presset kostar latens, inte takt.
+  ⚠️ **Såpbubblornas storleksinvändning gäller inte här, och det är mätt.** Den löd "en
+  tiohörning på 40 px läser som en kantig klump" — men `path()` ritar kvadratiska mellansteg,
+  inte en polygon, och avviker **0,01–0,12 px** från en cirkel över hela spannet 17–100 px
+  (polygonen: 0,33–4,89). Kostnadshalvan står kvar, och det är därför bara bubblor VID YTAN
+  som är mjuka.
+  ⚠️ **Skumnivån duger inte som tempomått** — nås målet töms badet och nivån är 0 igen. Samma
+  spelning gav 3,37 / 0,00 / 0,00 skum/s innan måttet byttes till genomströmning + latens.
+
 - 2026-08-11 🫧 **SKUMMET BLEV EN MASSA, OCH TEXTERNA SLUTADE STAPLA SIG** (v1.150.0). Mätpassets
   punkt 3 och 4 — de två som INTE är fysik och därför medvetet hölls utanför föregående commit.
   - **Skumkroppen.** Plattan ligger kvar som BOTTEN (skummet måste dölja vattnet bakom sig, och

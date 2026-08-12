@@ -78,6 +78,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_repprobe.mjs` | verlet-repet: vilolängd · fästpunkt · mjukt stopp · golv · spänd lina — **utan webbläsare** |
 | `node scripts/_mjukprobe.mjs` | mjuka kroppar: håller formen · sjunker när de mjuknar · knuff · exit — **utan webbläsare** |
 | `node scripts/_vobbelprobe.mjs` | vobbeln i ett spel: utslag vid landning · lugnar den sig · tappad volym · exit |
+| `node scripts/_pressprobe.mjs [--takt]` | `pruttbad`s bubbla mot ytan: finns skedet · plattas hinnan · är det YTAN som gör det · tempot mot HEAD |
 | `node scripts/_tuggprobe.mjs [--bara-exit\|--kostnad]` | tuggan + magen i `mata-monstret`: käkens gap trycker maten · buktar den ut · syns den (isolerat lager + kontroll) · växer magen vid SVÄLJET · exit |
 | `node scripts/_bullprobe.mjs` · `_stapelprobe.mjs` | hamburgerbullen som mjuk kropp: viloform mot den gamla `roundRect` · sammantryckning · tappade bildrutor — **utan webbläsare** (och samma bulle under en riktig stapel) |
 | `node scripts/_natlinaprobe.mjs` · `_linabild.mjs` | nätlinan mot spelets GAMLA solver (sonden bär den som referens) — **utan webbläsare** · och samma lina skjuten i det levande spelet |
@@ -176,6 +177,13 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   **34,9 px av 50**, för gott); ett för litet ger en helt annan JÄMVIKT (3,1 px i spelet mot 7,0 i
   sonden — Chrome gick på 58 fps och `dtF` blev 1,03). Använd en ackumulator som alltid stegar
   med exakt 1, annars mäter sonden aldrig samma sak som spelet gör.
+- **`Mjukkropp.path()` är INTE en polygon — invändningen "en tiohörning läser som en kantig
+  klump" gäller den inte.** Kurvan lägger kvadratiska mellansteg genom kantmittpunkterna och
+  avviker **0,01–0,12 px** från en perfekt cirkel för 10–16 punkter över hela spannet 17–100 px
+  radie; den råa polygonen ligger på 0,33–4,89, alltså 40× mer. Formhalvan av `sapbubblor`s
+  strykning var ett antagande om renderingen. **Kostnadshalvan står kvar** (en full omritning
+  per kropp och bildruta), så svaret är att göra bara de kroppar mjuka som faktiskt deformeras
+  just nu — i `pruttbad` bara bubblorna vid ytan, uppmätt högst 3 samtidigt.
 - **Ett bibliotek kan skriva konsolfel INNAN du hinner fånga felet.** three.js lyssnar på
   `webglcontextcreationerror` och gör `console.error` i lyssnaren; konstruktorn kastar först
   efteråt. `glittergrottan`s reservläge var alltså helt korrekt — full bild, rätt beteende —

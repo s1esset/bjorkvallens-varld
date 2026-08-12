@@ -23,6 +23,7 @@ import { COLORS, PRAISE, shade } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { verticalFillAlpha, groundFill } from '../../lib/form.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
+import { Mjukkropp } from '../../lib/mjukkropp.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -185,6 +186,22 @@ const DUCK_PUSH_R = 168 // bubbelknuffens EGEN radie.
 // mjukt fält runt henne. Delar de tal blir knuffen antingen en osynlig vägg vid skrovet
 // eller ingenting alls.
 const FOAM_K = 0.9 // skum-tillskott per pop = r * FOAM_K
+
+// ---- Bubblan LIGGER AN mot ytan innan den poppar (lib/mjukkropp.js) ------
+//
+// LYFTPLAN B2: *"bubblor som pressas ihop mot ytan innan de poppar"*. Bubblan poppade förut
+// i SAMMA bildruta som toppen bröt ytan — det fanns inget liggande skede alls, alltså inget
+// att göra fysikaliskt. Nu blir bubblan en mjuk kropp de sista bildrutorna: lyftkraften
+// trycker den mot ytan, ytan platter till hinnan, och först då brister den.
+//
+// ⚠️ SÅPBUBBLORNAS STORLEKSINVÄNDNING GÄLLER INTE HÄR, och det är mätt: den handlade om en
+// TIOHÖRNING på 40 px, men `Mjukkropp.path()` ritar inte en polygon utan kvadratiska
+// mellansteg genom kantmittpunkterna. Avvikelsen från en perfekt cirkel är **0,01–0,12 px**
+// för 10–16 punkter över hela spannet 17–100 px radie (den råa polygonen ligger på 0,3–4,9).
+// Kostnadshalvan av invändningen står kvar men träffar inte pruttbad: bara de bubblor som
+// ligger an mot ytan är mjuka, uppmätt **högst 2 samtidigt** och ~0,2 s var.
+const PRESS_TID = 13 // bildrutor bubblan ligger an mot ytan innan den brister
+const PRESS_LYFT = 1.2 // lyftkraften som håller hinnan mot ytan (px/steg², som `grav`)
 
 // ---- Skummet som en MASSA, inte ett band --------------------------------
 //
@@ -1962,6 +1979,12 @@ export default {
     const duckY = this._duckBase.y
     for (let i = this._bubbles.length - 1; i >= 0; i--) {
       const b = this._bubbles[i]
+      // Ligger den an mot ytan är den en mjuk kropp och inget annat rör den — integratorn
+      // nedan skulle bara slåss med lösaren om samma två tal.
+      if (b.press) {
+        this._stepPress(ctx, b, i)
+        continue
+      }
       const vyT = -(0.11 * b.r) // terminalfart uppåt ∝ radie
       b.vy += (vyT - b.vy) * 0.08 * dt
       b.vy *= 0.97
@@ -2056,10 +2079,10 @@ export default {
 
       if (b.view && !b.view.destroyed) b.view.position.set(b.x, b.y)
 
-      // Pop vid ytan (bubblans topp når ytan) eller efter max-livslängd.
-      if (b.y - b.r <= SURFACE_Y || b.age > 360) {
-        this._popBubble(ctx, b, i)
-      }
+      // Vid ytan: bubblan LÄGGER SIG AN och brister först när hinnan tryckts ihop.
+      // Max-livslängden poppar fortfarande direkt — det är en nödutgång, inte ett skede.
+      if (b.age > 360) this._popBubble(ctx, b, i)
+      else if (b.y - b.r <= SURFACE_Y) this._startPress(b)
     }
 
     // Idle → INBJUDAN, aldrig framsteg. Zacke pruttar av sig själv, byter min och
@@ -2264,9 +2287,82 @@ export default {
     g.ellipse(SPOUT.x, d.y, 5, 8).fill({ color: 0xbfe9fb, alpha: 0.9 })
   },
 
+  // ---- Bubblan ligger an mot ytan ----------------------------------------
+
+  _startPress(b) {
+    if (b.press) return
+    b.press = new Mjukkropp({
+      x: b.x, y: b.y, w: b.r * 2, h: b.r * 2,
+      punkter: 12, grav: 0, damp: 0.86, iter: 4, styvhet: 0.45, maxSpeed: 12,
+    })
+    b.press.mjukhet(0.45)
+    // Lyftkraften är ett FÄLT, inte en `skjut` per bildruta: en knuff varje ruta läses av
+    // verlet som en konstant FART och hinnan hade drivit rakt igenom ytan i stället för att
+    // hitta en jämvikt mot den (samma fälla som fallskärmskupolen, se `falt()`).
+    b.press.falt(0, -PRESS_LYFT)
+    b.pressT = 0
+    // Hinnan ritas nu i världskoordinater ur kroppen, inte som en skalad cirkel.
+    const v = b.view
+    if (v && !v.destroyed) {
+      v.position.set(0, 0)
+      v.scale.set(1)
+    }
+  },
+
+  _stepPress(ctx, b, i) {
+    const m = b.press
+    if (!m || !m.pts.length) {
+      this._popBubble(ctx, b, i)
+      return
+    }
+    m.steg(1)
+    // YTAN ÄR VÄGGEN — och det är den LEVANDE ytan (höjdfältet + ankans dell), inte en rak
+    // linje. En bubbla som pressas mot en konstant hade platts lika mycket mitt i en våg
+    // som i stiltje, och då är hela `_waveAt` bortkastad just där den syns bäst.
+    const yta0 = this._surf
+    for (let k = 0; k < m.n; k++) {
+      const p = m.pts[k]
+      const tak = yta0 + this._waveAt(p.x)
+      if (p.y < tak) {
+        p.y = tak
+        p.py = tak // farten nollas i väggen, annars matar den in rörelse varje ruta
+      }
+    }
+    const c = m.centrum
+    b.x = c.x
+    b.y = c.y
+    this._drawPress(b)
+    if (++b.pressT >= PRESS_TID) this._popBubble(ctx, b, i)
+  },
+
+  _drawPress(b) {
+    const v = b.view
+    if (!v || v.destroyed) return
+    const g = v.children[0]
+    if (!g || g.destroyed) return
+    const m = b.press
+    const c = m.centrum
+    g.clear()
+    m.path(g)
+      .fill({ color: b.kind === 'glitter' ? 0xfff0b8 : 0xbfefff, alpha: b.kind === 'glitter' ? 0.55 : 0.5 })
+      .stroke({ width: 3, color: 0xffffff, alpha: 0.8 })
+    // Glansprick och sheen sitter PÅ hinnan — de är inte hinnans kant. Samma regel som
+    // glasstornets dekor: silhuetten deformeras av kroppen, dekoren följer mitten.
+    if (b.kind === 'giant') {
+      const hues = [COLORS.red, COLORS.yellow, COLORS.green, COLORS.blue, COLORS.purple]
+      for (let i = 0; i < hues.length; i++) {
+        const a0 = -2.4 + i * 0.5
+        arcPath(g, c.x, c.y, b.r * 0.7, a0, a0 + 0.42).stroke({ width: 5, color: hues[i], alpha: 0.6, cap: 'round' })
+      }
+    }
+    g.circle(c.x - b.r * 0.34, c.y - b.r * 0.12, b.r * 0.2).fill({ color: 0xffffff, alpha: 0.85 })
+  },
+
   _popBubble(ctx, b, i) {
     const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
     this._bubbles.splice(i, 1)
+    b.press?.destroy()
+    b.press = null
     if (b.view && !b.view.destroyed) b.view.destroy()
     if (!this._alive) return
     const big = b.r / 10
@@ -2442,7 +2538,11 @@ export default {
     this._drawGoal()
     // Rensa kvarvarande firande-bubblor så de inte direkt poppar och fyller det nya
     // badet igen (det skapade en re-complete-loop = upprepade firanden + ljud-distorsion).
-    this._bubbles.forEach((b) => b.view && !b.view.destroyed && b.view.destroy())
+    this._bubbles.forEach((b) => {
+      b.press?.destroy()
+      b.press = null
+      if (b.view && !b.view.destroyed) b.view.destroy()
+    })
     this._bubbles.length = 0
     // Töm skummet mjukt — och RE-ARMA rundan (resolving=false) först NÄR det är tomt,
     // så en sen pop under tömningen inte kan trigga _onComplete på nytt.
@@ -2488,8 +2588,13 @@ export default {
     this._tweens?.forEach((t) => t?.kill())
     if (this._tweens) this._tweens.length = 0
 
-    // Bubblor är bara ticker-styrda Pixi-objekt → räcker att förstöra dem.
-    this._bubbles?.forEach((b) => b.view && !b.view.destroyed && b.view.destroy())
+    // Bubblor är bara ticker-styrda Pixi-objekt → räcker att förstöra dem. Utom den som
+    // ligger an mot ytan: dess mjuka kropp är rena tal utanför Pixi och måste rivas själv.
+    this._bubbles?.forEach((b) => {
+      b.press?.destroy()
+      b.press = null
+      if (b.view && !b.view.destroyed) b.view.destroy()
+    })
     if (this._bubbles) this._bubbles.length = 0
     if (this._floats) this._floats.length = 0
 

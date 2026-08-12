@@ -482,7 +482,41 @@ skalade ellipsen gjorde. Kostnaden är **inte mätbar** (16,67 → 16,63 ms), oc
    mellan två körningar av *samma sak*. Det entydiga måttet är VILOFORMEN — den får bara växa
    när tuggan är borta (26 av 26 tugg-rutor på 1,000, sedan 1,140).
 
-⬜ Kvar: `pruttbad` (samma storleksinvändning som såpbubblorna bör prövas där först).
+✅ **Femte kund: `pruttbad` (2026-08-12, natt VI N4).** Radens motiv var "bubblor som pressas
+ihop mot ytan innan de poppar", och kön krävde att **såpbubblornas storleksinvändning prövades
+först**. Den prövningen gav ett annat svar än väntat, och det ändrar vad libbet får användas till:
+
+⚠️ **STORLEKSINVÄNDNINGENS FORM-HALVA GÄLLER INTE FÖR `path()` — mätt.** Invändningen löd "en
+tiohörning på 40 px läser som en kantig klump". Men `Mjukkropp.path()` ritar ingen polygon: den
+lägger kvadratiska mellansteg genom kantmittpunkterna. Avvikelsen från en perfekt cirkel är
+**0,01–0,12 px** för 10–16 punkter över hela spannet 17–100 px radie — den råa polygonen ligger
+på **0,33–4,89 px**, alltså 40× mer. Formhalvan var ett antagande om renderingen, inte en
+mätning. **Kostnadshalvan står kvar** (en full omritning per bubbla och bildruta) och den är
+skälet till att bara de bubblor som faktiskt ligger an mot ytan är mjuka: uppmätt **högst 3
+samtidigt**, ~0,22 s var. `sapbubblor` är fortfarande struken — där skulle femton bubblor vara
+mjuka hela tiden.
+
+**Premissen höll inte heller, och det var det som styrde bygget.** Bubblan poppade i SAMMA
+bildruta som toppen bröt ytan (`b.y - b.r <= SURFACE_Y` → `_popBubble`), så det fanns inget
+liggande skede att göra fysikaliskt. Skedet är alltså BYGGT, inte fysikaliserat: de sista ~13
+bildrutorna är bubblan en mjuk kropp som lyftkraften trycker mot ytan.
+
+**MÄTT** (`_pressprobe.mjs`): skedet finns nu — **13,2 bildrutor** (0,22 s) mot noll före, för
+**11–12 av 13** bubblor (resten tas av max-livslängden, som fortfarande poppar direkt). Hinnan
+plattas till **h/b 0,60** från 1,00, och det är **YTAN** som gör det: hinnans topp ligger på det
+levande höjdfältet med **0,00 px glapp** i 12,9 av 13,2 rutor. Lyftkraften ligger i `falt()`,
+inte i en `skjut` per bildruta — en knuff varje ruta läses av verlet som konstant FART och hade
+drivit hinnan rakt igenom ytan (fallskärmskupolens fälla).
+
+**Tempot är växelvis mätt mot HEAD, tre rundor:** 13 / 13 / 13 poppar mot HEADs 12 / 12 / 12 per
+500 bildrutor — **oskiljbart på den upplösningen** (en popp). Latensen per bubbla växer
+**64–75 → 76–85 bildrutor**, alltså ~0,17 s, vilket är precis presset. Presset kostar latens,
+inte takt.
+⚠️ **Skumnivån duger INTE som tempomått** — nås målet töms badet och nivån är tillbaka på 0.
+Samma spelning tre gånger gav **3,37 / 0,00 / 0,00** skum/s innan måttet byttes till
+genomströmning + latens.
+
+**Raden är därmed slut: alla kunder byggda eller avskrivna med mätning bakom sig.**
 
 ### B3. Rep/kedja är omskrivet fyra gånger **[Medium]** — ✅ SOLVERN BYGGD 2026-08-09 (v1.56.0)
 

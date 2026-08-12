@@ -33,6 +33,66 @@ regel gäller: reproducera innan du ändrar.
 | V10b | `PhysicsWorld._make` (opt-in byggd) | **`{ isStatic: true, studs: 0.75 }` finns nu — den form V10 rekommenderade, byggd och mätt.** `_make` sätter restitution EFTER `Body.setStatic` (och uppdaterar `_original`, så en kropp som senare väcks behåller sin studs), loopar över `parts` som matter själv gör, klämmer till 0..1 och strippar nyckeln ur matters options så den inte hamnar i matters namnrymd (samma fälla som `mat` i B4). **Ingen global återställning** — 50 tal i 19 spel är fortfarande nollade, precis som förut, eftersom en global fix hade väckt 25 kombinationer på en gång i handtrimmade spel. `npm run check` skriver nu EN sammanfattningsrad över talen (`-- --studs` ger hela listan) i stället för att låta dem ligga tysta; det är migreringslistan. **Två gränsdragningar som listan själv tvingade fram:** `restitution: 0` räknas inte (det säger vad `setStatic` ändå gör), och raden säger *"medan kroppen är statisk"* — `kulbana:140` skapar spelets KULA statisk med 0,42 och får tillbaka talet ur `_original` när den väcks, alltså är listan en läslista, inte en fixlista. ✅ **FÖRSTA KUNDEN HAR LANDAT 2026-08-11: `flipperspel`s stolpar** (ägaren valde spelet i sitt speltest). Genomgången gav ett annat svar än frågan förutsatte och är värd att läsa innan nästa kund väljs: **sex av spelets åtta statiska tal kan aldrig väckas, av ett ANDRA oberoende skäl** — parets regel är `max(A,B)` och kulan bär **0,62**, så `wall` 0,3/0,4 · `sling` 0,5 · `spinner` 0,55 · `flipper` 0,3 hade förlorat mot kulan även utan `setStatic`. Kontrollmätning: ett statiskt 0,5 ger 59,4 px hopp både nollat och väckt, **0,0 px skillnad**. Kvar över kulan: `peg` 0,7 och dynorna 0,68–0,82 — och **dynorna har en egen impuls** (`_kickOff`), alltså exakt den dubblering V10b varnade för. Stolpen var spelets enda yta som både låg över kulan och saknade egen impuls. **MÄTT** (`_flipperprobe.mjs`, naken fysik med spelets geometri): hoppet **59,4 → 75,4 px (+27 %)**, parets studs **0,62 → 0,70**, listan **50 → 49**. ⬜ **Kvar:** dynorna ger **+26,8 px** om de väcks — ägarbeslut, kräver att någon spelar bordet. ⚠️ **Lärdom som gäller varje framtida kund: den rörliga kroppens EGET studstal är ett golv.** Läs det först; ligger den statiska ytans tal under, är `studs` fel verktyg oavsett hur avsiktligt talet ser ut. | `node scripts/_studsprobe.mjs` **13/13 gröna** (6 nya mått): `studs: 0.9` ger 143,3 px hopp mot den simulerade fixens 143,3 (identiskt) och mot 4,7 px utan opten — **+139 px**. UTAN opten står kroppen på `restitution 0` och hoppar 4,7 px, alltså är de 50 talen orörda. `_original.restitution` bär 0,9 · `body.studs === undefined` · `studs: 2 → 1` · `studs: 0` är ett medvetet dött golv. `test:all` 72/72. | 🟨 |
 | V10 | `PhysicsWorld._make` (18 spel, 44 tal) | **`restitution` på en STATISK kropp är en nullhandling.** `_make` skapar kroppen dynamisk och sätter den statisk efteråt (medvetet — NaN-fixen vid rad 213), och matters `Body.setStatic` **nollar då `restitution` och sätter `friction` till 1**, med originalen undanlagda i `body._original`. Varje `restitution` ett spel satt på en ramp, vägg, studsplatta eller hink har alltså aldrig gjort något. | **BLASTRADIEN ÄR NU MÄTT** (`node scripts/_studsprobe.mjs`, 6 mått, ingen webbläsare) och den är mycket mindre än raden ovan påstod. Tre fynd: **(1) parets regel är `max(A, B)`** — uppmätt 0,90 mot 0,30 → 0,90 (medel hade gett 0,60, produkt 0,27). Alltså är **varje statiskt tal som ligger PÅ ELLER UNDER den rörliga kroppens egen studs en ren no-op**: 35 av 60 mätta kombinationer rör sig **0,0 px**. **(2) De 25 som ändras gör det mycket:** en `heavy`-kropp (0,18) mot en 1,00-platta går från 5 → 176 px hopp; 0,50 → 44, 0,70 → 87, 0,92 → 150. **(3) VÄRLDSVÄGGARNA BERÖRS INTE** — `_buildWalls` skickar `{isStatic, restitution: 0.4}` rakt in i `Bodies.rectangle` och lägger kroppen med `Composite.add`, alltså aldrig genom `_make`; matter slutar där med `_original === null`, så 0,4 är **borta, inte undanlagt**. "Varje vägg i varje fysikspel blir studsig på en gång" var det tyngsta argumentet mot fixen, och det **kan inte hända**. | 🟨 |
 
+> ### V10b — underlag för NÄSTA kund *(nattköns N13, skrivet 2026-08-12 — enbart kodläsning,
+> ingen speländring)*
+>
+> Fyra kandidater lästes mot koden med `flipperspel`-lärdomen som filter: **den rörliga
+> kroppens eget studstal är ett GOLV** (parets regel är `max(A,B)`), och **en yta som redan
+> lägger på en egen impuls får inte också få `studs`** — det blev en dubblering på dynorna.
+> Resultatet: två av de fyra faller på de två reglerna, och rangordningen blev en annan än
+> den kön gissade.
+>
+> **① `bowling` — starkast, och det är inte studsen som är fyndet.** Klotet är
+> `MATERIALS.heavy`, alltså golv **0,18** (`index.js:113`). Spelet har **ingen
+> kollisionshanterare alls** — inget `_onCollision`, ingen egen impuls någonstans — så
+> dubbleringsrisken är noll. Lanväggarnas 0,2 (`:432-433`) ligger i praktiken på golvet och
+> är inte värt en ändring. Men **kantstöden deklarerar 0,75** (`:589-590`), och de är
+> spelets TILLGÄNGLIGHETSHJÄLP: hela poängen med "Kantstöd PÅ" är att klotet ska studsa in
+> mot käglorna i stället för i rännan. Effektivt studsar de på **0,18**. Och värre:
+> `_previewBounds` matar `predictTrajectory` med **`restitution: 0.75` när kantstödet är
+> på** (`:441`) — **den prickade banförhandsvisningen lovar alltså en studs som är drygt
+> 4× den klotet faktiskt får**, i ett spel vars egen filhuvud påstår att pricklinjen
+> matchar den verkliga studsbanan "till ~några px" (`:15-18`). Det är inte en känsla, det
+> är ett sikte som ljuger, och bara för barn som behöver hjälpen. **Föreslaget värde:
+> `studs: 0.75`** — inte valt för att det känns rätt, utan för att det är talet
+> förhandsvisningen redan ritar; då blir sikte och verklighet samma sak utan att någon
+> behöver trimma om banorna.
+>
+> **② `spindelhjalten` — äkta men litet.** Hjälten är `MATERIALS.bouncy`, golv **0,86**.
+> `_onCollision` (`:895`) gör bara ljud, `_heroOof`, `puff` och `pop` — **ingen egen
+> impuls**, alltså ren väg. Världsväggarna kommer från `PhysicsWorld({ walls: [...] })` och
+> är oberörda av V10b (0,4, dessutom under golvet). Kvar: **studsknoppen/studsmolnen på 1,0**
+> (`:328`) — spelets enda tal över golvet. Lyftet är alltså 0,86 → 1,00, mycket mindre än
+> `flipperspel`s stolpe fick. ⚠️ Ett SEPARAT fynd på vägen, som inte är V10b: `BOUNDS`
+> matar förhandsvisningen med **0,72** (`:30`) medan hjälten i verkligheten bär 0,86 mot
+> golv och väggar — pricklinjen **under**lovar. (Att den inte känner studsknoppen alls är
+> däremot avsiktligt och dokumenterat i koden, `:782-785`.)
+>
+> **③ `rulla-bollen-hem` — bara ETT smalt fall, resten stängt av de två reglerna.**
+> Bollens studs skrivs om per bana (`_applyMaterials:651`): normal **0,55** · studsboll
+> **0,82** · tung boll **0,40**. Dynorna (0,92, `:533`) **har en egen radiell impuls**
+> — `boost = min(fart × 1,1 + 1,5, 26)` (`:986`) — alltså exakt `flipperspel`-dynans
+> dubblering, och de ska lämnas. Klossarna (0,32) ligger under varje boll. Väggarna (0,55)
+> ligger PÅ golvet för normalbollen och UNDER för studsbollen. Enda kombinationen som
+> faktiskt skulle ändras är alltså **tunga bollen (0,40) mot väggen (0,55)**. Och just den
+> är dessutom spelets enda pricklinje-lögn: `Math.max(ball.rest, WALL_REST)` (`:652`) —
+> koden härmar matters parregel korrekt, men den räknar med ett väggtal som `setStatic` har
+> nollat, så tunga bollen får en pricklinje ritad på 0,55 och en verklighet på 0,40.
+>
+> **④ `flipperspel` — klar** (stolpen, `43d71b4`). Enda öppna resten är dynornas +26,8 px,
+> som står som ett ägarbeslut i raden ovan.
+>
+> **Vilken sond skulle vakta bytet?** `scripts/_studsprobe.mjs` finns redan och mäter naken
+> fysik utan webbläsare — den är rätt verktyg för ①, eftersom `bowling`s kantstöd är två
+> raka statiska rektanglar och klotets skottfart sätts med `Body.setVelocity`: en arm med
+> kantstöd PÅ, skott mot vänsterkanten, och måttet är **klotets x-läge när det når
+> käglornas y** mot vad `predictTrajectory` ritade med samma indata. Att sikte och utfall
+> går ihop är hela fyndet, alltså är det också måttet. ⚠️ Kör den mot HEAD först — röd sond
+> har varit sondens eget fel nio gånger i det här repot.
+>
+> **Ägarnära kvar:** vilket av ① och ② som ska byggas. ① är den enda av de fyra där en
+> funktion barnet kan slå PÅ inte gör vad den utger sig för att göra.
+
 > **Lärdomen från V12 → V12b är värd mer än fixen.** Fyndet såg i två svep ut att höra till
 > `tvatta-djuret` — samma spel båda gångerna, vilket "talar emot slump". Det gjorde det
 > också: mönstret var inte slumpmässigt, men det hörde till HARNESSEN, inte till spelet.

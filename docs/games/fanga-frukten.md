@@ -59,16 +59,20 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
   barnet känner att *det* fångade frukten de första gångerna. Glid-hjälpen kvar som backstop.
 
 ### Variation & överraskning
-- **[Quick] Specialfrukt.** En glittrande guldfrukt (fyller två platser), en jätteklase
-  (studsar roligt), en regnbågsfrukt. Sällsynta wow-ögonblick, rotera per nivå.
-- **[Quick] Trädet lever.** Lövverket guppar, och en gren *skakar* + släpper synligt varje
-  frukt (liten bladpuff vid släpp) så fallet får en orsak.
+- ✅ **[Quick] Specialfrukt — guldfrukten.** *(2026-08-12)* En glittrande guldfrukt (~1 på 9
+  släpp) som fyller **två** platser i mätaren, faller långsammare och firas med en stigande
+  treklang. Aldrig nivåns första frukt och aldrig två samtidigt. Mätvärden i §5.
+  *(Jätteklase och regnbågsfrukt är INTE byggda — en sällsynthet till som konkurrerar om
+  samma ögonblick gör ingen av dem sällsynt. Tas om guldfrukten visar sig bära.)*
+- ✅ **[Quick] Trädet lever.** *(byggt sedan tidigare, aldrig struket här — verifierat i kod
+  2026-08-12)* Lövverket andas (`index.js:174`) och `_shakeBranch` skakar grenen + släpper en
+  bladpuff där frukten lossnar (`:421-430`).
 
 ### Juice
 - **[Quick] Riktigt mums-ljud + knaprande** vid fångst (i stället för `pop`), och en stigande
   pling-kombo om man fångar flera i rad. Korgen squashar tydligare när den slukar.
-- **[Quick] Fångad frukt syns i korgen** en kort stund (staplas vid munnen) innan den tuck:as,
-  så det känns som att korgen *fylls*.
+- ✅ **[Quick] Fångad frukt syns** *(byggt sedan tidigare, verifierat 2026-08-12)* — mätaren
+  ritar de faktiska frukterna barnet fångat (`_drawMeter`, `:630`), inte abstrakta prickar.
 
 ### Progression
 - **[Medium] Korgen blir full på riktigt.** I stället för en abstrakt prick-mätare: en korg
@@ -109,3 +113,28 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
     tweens dödas i `destroy`.
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): lövverkets nio stora cirklar (r 86–110) fick `sphereFill` — de var platta skivor och är nu kronor med volym.
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
+- 2026-08-12 ✅ **Specialfrukt: guldfrukten [Quick]** (v1.162.0): ett sällsynt wow-ögonblick i
+  ett spel där alla frukter tidigare var värda exakt lika mycket. Guldfrukten ritas som
+  spelets EGEN äppelsilhuett i guld med en glansstjärna (P0 ASSETS — den ska läsas som "en av
+  frukterna, fast sällsynt", inte som ett främmande föremål), gnistrar hela vägen ner, faller
+  långsammare och **fyller två platser i mätaren**. Fångst firas med en stigande treklang
+  (523·659·784·1047 Hz) och repliken *"En guldfrukt! Den räknas dubbelt!"* (klipp genererat).
+  Ekorren blir lika glad som av en uppfylld önskan, men **önskan nollställs inte** — guld är
+  inte en genväg förbi valet, det är en bonus vid sidan av det.
+  **Mätt** (`node scripts/_guldprobe.mjs [--bild]`, 10 punkter): **96 av 900 släpp = 10,7 %** ·
+  **0 av 200** släpp före första fångsten (aldrig nivåns första frukt) · mest **1** i luften
+  samtidigt över 400 släpp · faller **175 px mot en vanlig frukts 211 px** på 70 bildrutor
+  (samma storlek, sluthastighet 2,75 mot 4,49) · **4 gnist-emissioner** mot 0 för en vanlig
+  frukt · **+2** i räknaren och två poster i mätaren mot en vanlig frukts +1 · exit medan en
+  guldfrukt faller lämnar 0 konsolfel.
+  ⚠️ **BÅDA de röda sonderna var sondens fel, inte spelets** (nionde gången i repot):
+  1. **Räkna aldrig `fxLayer.children` för att mäta partiklar.** `sparkle()` går genom
+     partikelvägen (`lib/partiklar.js` → `ParticleContainer`), alltså ETT återanvänt fält vars
+     innehåll ligger i `particleChildren`. Mätningen såg "1 ny fx-nod" och läste som att
+     glittret inte fungerade — den räknade fältet, inte gnistorna.
+  2. **Ett mätsteg måste städa efter det förra.** Bild-steget lämnade en guldfrukt i luften,
+     och spelets egen spärr ("aldrig två samtidigt") gjorde då att nästa steg aldrig fick sin
+     tvingade guldfrukt: rapporten blev "+1" och läste som att dubbelräkningen var trasig.
+  ⚠️ **Två §4-punkter var redan byggda och stryks samtidigt** (verifierat i kod, ingen
+  ändring): "Trädet lever" (lövverket andas + `_shakeBranch`) och "Fångad frukt syns i korgen"
+  (mätaren ritar de faktiska frukterna). `npm run check` 0 fel/0 varningar · `npm run test` grön.

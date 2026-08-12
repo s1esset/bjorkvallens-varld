@@ -73,6 +73,22 @@ function makeFruit(kind, s = 1) {
     g.circle(0, -R * 0.92, R * 0.14).fill(0x6f452c)
     g.ellipse(R * 0.3, -R * 0.98, R * 0.36, R * 0.2).fill(0x5bbf6a)
     g.ellipse(-R * 0.36, -R * 0.3, R * 0.24, R * 0.34).fill({ color: 0xffffff, alpha: 0.3 })
+  } else if (kind === 'guld') {
+    // Guldfrukten: samma äppelsilhuett som spelets vanliga frukt, men i guld — den ska
+    // läsas som "en av frukterna, fast sällsynt", inte som ett främmande föremål.
+    g.circle(-R * 0.34, 0, R * 0.82).fill(0xf0b429)
+    g.circle(R * 0.34, 0, R * 0.82).fill(0xf0b429)
+    g.ellipse(0, R * 0.14, R * 0.96, R * 0.86).fill(0xf0b429)
+    g.ellipse(0, R * 0.2, R * 0.78, R * 0.66).fill({ color: 0xffd75e, alpha: 0.75 }) // varm kärna
+    g.moveTo(0, -R * 0.7).quadraticCurveTo(R * 0.12, -R * 1.1, R * 0.4, -R * 1.24)
+      .stroke({ width: 4 * s, color: 0x9a6b12, cap: 'round' })
+    g.ellipse(-R * 0.42, -R * 1, R * 0.48, R * 0.26).fill(0xffe9a8)
+    g.ellipse(-R * 0.36, -R * 0.26, R * 0.3, R * 0.44).fill({ color: 0xffffff, alpha: 0.6 })
+    // Glansstjärna — det ögat läser som "den här är något extra".
+    g.moveTo(R * 0.3, -R * 0.5).quadraticCurveTo(R * 0.36, -R * 0.28, R * 0.56, -R * 0.22)
+      .quadraticCurveTo(R * 0.36, -R * 0.16, R * 0.3, R * 0.06)
+      .quadraticCurveTo(R * 0.24, -R * 0.16, R * 0.04, -R * 0.22)
+      .quadraticCurveTo(R * 0.24, -R * 0.28, R * 0.3, -R * 0.5).fill(0xfffbe6)
   } else {
     // vindruvor
     for (const [gx, gy] of [[-0.44, 0.1], [0.44, 0.1], [0, 0.1], [-0.22, 0.62], [0.22, 0.62], [0, -0.4], [-0.4, -0.3], [0.4, -0.3]]) {
@@ -122,6 +138,7 @@ export default {
 
   init(ctx) {
     this._alive = true
+    this._t = 0
     this._idle = 0
     this._spawnT = 0
     this._caught = 0
@@ -290,6 +307,7 @@ export default {
   _update(ctx, t) {
     if (!this._alive) return
     const dt = Math.min(0.05, (t.deltaMS || 16.67) / 1000)
+    this._t += dt
     this._phys.update(t.deltaMS)
 
     // Korgen glider mjukt mot fingrets x (bildtaktsoberoende lerp + fartgräns).
@@ -330,6 +348,12 @@ export default {
       }
       // Fartgräns nedåt så det aldrig blir för snabbt för ett litet barn.
       if (f.body.velocity.y > MAX_FALL) Body.setVelocity(f.body, { x: f.body.velocity.x, y: MAX_FALL })
+      // Guldfrukten GLITTRAR på väg ner — det är så barnet upptäcker att den är särskild
+      // innan den fångats. Takad i tid, aldrig en gnista per bildruta.
+      if (f.kind === 'guld' && pos.y > -20 && this._t - (f.gnistT || 0) > 0.22) {
+        f.gnistT = this._t
+        sparkle(ctx.fxLayer, pos.x, pos.y, { count: 3 })
+      }
       // Nådde marken utan att fångas -> mjuk miss (aldrig straff).
       if (pos.y > this._groundY) this._missFruit(ctx, f)
     }
@@ -349,9 +373,13 @@ export default {
   _spawn(ctx) {
     if (!this._alive || this._busy) return
     if (this._fruit.length >= MAX_FRUIT) return
-    const def = randomFrom(SIZES)
+    // Guldfrukten: ett sällsynt wow-ögonblick (~1 på 9 släpp) som räknas DUBBELT. Aldrig
+    // två i luften samtidigt, och aldrig som nivåns första frukt — barnet ska hinna se hur
+    // vanliga frukter ser ut innan den ovanliga betyder något.
+    const guld = this._caught > 0 && !this._fruit.some((f) => f.kind === 'guld') && Math.random() < 0.11
+    const def = guld ? SIZES[SIZES.length - 1] : randomFrom(SIZES)
     // Mottagaren önskar sig en sort — den sorten dyker upp oftare så önskan går att uppfylla.
-    const kind = this._wish && Math.random() < 0.42 ? this._wish : randomFrom(FRUITS)
+    const kind = guld ? 'guld' : this._wish && Math.random() < 0.42 ? this._wish : randomFrom(FRUITS)
     const bx = this._basket && !this._basket.destroyed ? this._basket.x : ctx.width / 2
     // Efter ett par missar: släpp frukten rakt över korgen (extra snäll hjälp).
     let x
@@ -370,7 +398,9 @@ export default {
     const body = this._phys.circle(x, -40, r, {
       restitution: 0.32,
       friction: 0.4,
-      frictionAir: 0.03, // luftmotstånd -> mjukt, lite svävande fall
+      // Guldfrukten svävar ner långsammare — ett sällsynt ögonblick som far förbi för fort
+      // är ingen belöning, det är en miss barnet inte kunde göra något åt.
+      frictionAir: guld ? 0.055 : 0.03,
       density: def.dens,
       label: 'fruit',
     })
@@ -490,13 +520,28 @@ export default {
     // Mottagaren: fångade barnet den ÖNSKADE sorten blir djuret extra glatt (mums + hopp
     // + gnistor) och önskar sig något nytt. Fel sort är fortfarande kul — djuret fnissar,
     // ingenting går förlorat. Att välja VILKEN frukt man fångar blir ett riktigt val.
-    const wished = f.kind === this._wish
-    this._feedFriend(ctx, wished)
+    const guld = f.kind === 'guld'
+    const wished = guld || f.kind === this._wish
+    this._feedFriend(ctx, wished) // guldfrukten gör ekorren lika glad som en uppfylld önskan
+
+    // Guldfrukten firas för sig: en stigande treklang, extra gnistor och en tydlig
+    // markering vid mätaren, så det syns VARFÖR den räknades två gånger.
+    if (guld) {
+      const au = ctx.services.audio
+      for (const [i, fr] of [523, 659, 784, 1047].entries()) {
+        au.tone({ freq: fr, dur: 0.18, type: 'triangle', vol: 0.3, delay: i * 0.075 })
+      }
+      sparkle(ctx.fxLayer, bx, this._mouthY, { count: 18 })
+      floatText(ctx.fxLayer, bx, this._mouthY - 30, '✨', { fontSize: 64 })
+    }
 
     // Lite glad krydda ibland — utan att spamma.
-    if (Math.random() < 0.5) floatText(ctx.fxLayer, bx, this._mouthY - 16, randomFrom(HAPPY_FX), { fontSize: 46 })
+    if (!guld && Math.random() < 0.5) floatText(ctx.fxLayer, bx, this._mouthY - 16, randomFrom(HAPPY_FX), { fontSize: 46 })
     const now = performance.now()
-    if (wished) {
+    if (guld) {
+      this._lastVoice = now
+      ctx.services.voice.say('En guldfrukt! Den räknas dubbelt!')
+    } else if (wished) {
       this._lastVoice = now
       ctx.services.voice.say('Mums, precis vad jag ville ha!')
       sparkle(ctx.fxLayer, bx, this._mouthY - 40, { count: 12 })
@@ -507,8 +552,11 @@ export default {
     }
 
     if (this._busy) return // under firande: visa fångsten men räkna inte mot nästa nivå
-    this._caught++
-    this._caughtEmojis.push(f.kind)
+    // Guldfrukten fyller TVÅ platser i mätaren — belöningen ska synas där barnet redan
+    // tittar efter framsteg, inte bara höras.
+    const varde = f.kind === 'guld' ? 2 : 1
+    this._caught += varde
+    for (let k = 0; k < varde; k++) this._caughtEmojis.push(f.kind)
     this._drawMeter()
     if (this._meterLayer && !this._meterLayer.destroyed) pop(this._meterLayer, { scale: 1.06 })
     if (this._caught >= this._goal) this._levelComplete(ctx)

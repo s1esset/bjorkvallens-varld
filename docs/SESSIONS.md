@@ -14,6 +14,70 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.169.0 · "Redan byggd" är inte samma sak som "fungerar"
+
+**Byggt:** nattköns **N10**, sjätte passet. Två spel, en commit var, egen sond per punkt,
+plus en snubbeltråd i `check.mjs`.
+
+**`vad-forsvann` — hyllan lever medan barnet memorerar (v1.167.0).** `_livprobe` mätte spelet
+på **noll** levande objekt: raden stod blick stilla i visa-fasen, alltså läste den som fyra
+utklippta kort — i ett *minnesspel*, där hela poängen är att titta länge på just den raden.
+Varje motiv bär nu en egen vilorörelse ur tabellen `LIV`: ballongen driver högt och långsamt
+(bob 7 / 3,0 s), bilen guppar knappt men **vaggar på hjulen**, fjärilen fladdrar (bob 6 /
+1,5 s). `fot: true` flyttar rotationens centrum ner till kontaktskuggan, så det som STÅR på
+planet vaggar kring sina fötter i stället för att svänga i luften; pivån kompenseras av
+positionen så viloläget är exakt oförändrat (kontrollerat mot en HEAD-skärmdump).
+**Rörelsen ligger i ett INRE lager** — `slot` bär `hitArea`, och P0 säger att träffytan aldrig
+får vandra. Det är förra passets `snal-snappyta` igen, och den här gången i förebyggande syfte.
+**MÄTT** (`_hyllprobe2.mjs`, 9/9 mot HEADs 5/9): 3 av 3 saker guppar (HEAD 0) · spridning
+10,0 px mellan motiven (HEAD 0,0) · fasspridning 0,35 · slotens egen rörelse **0,00 px** ·
+skugga, platshållare och luckans lager **0,00 px** · 0 tweens efter exit.
+
+**`vart-tog-det-vagen` — leksaks-reaktionerna hade varit DÖD KOD i sex veckor (v1.168.0).**
+Punkten stod som öppen i §4 och såg ut att bli passets *elfte* "redan byggd"-fall:
+`_reactPrize` fanns, med hela tabellen på plats. Den byggdes 2026-07-02 när leksaken var en
+`Text` vars `.text` byttes varje runda, och valde grenen med **`switch (p.text)`**. I
+`a7cf730` (2026-08-06) blev leksaken en RITAD ikon i en `Container` (P0 ASSETS) — och då är
+`p.text` `undefined`. Sedan dess föll **alla tio** leksakerna till `default`: samma generiska
+puls, varje gång, i sex veckor. Inget konsolfel, inget loggfynd, grönt test hela tiden.
+**MÄTT** (`_leksaksprobe.mjs`, **10/10 mot HEADs 1/10**): 10 av 10 gjorde bara en generisk puls
+på HEAD (`skala +0,18`, dy/dx/rot **0**) → 0 av 10 nu, med **fem skilda signaturer**: grodan
+dy 80 px · bilen dx 80 px · ballongen dy 60 px utan sidled · stjärnorna 6,283 rad (ett helt
+varv) · frukten skala +0,32 utan att flytta sig · djuren 0,119 rad vingel.
+
+**Passets egentliga lärdom: "redan byggd" är inte samma sak som "fungerar".** Sex av åtta
+kandidater var redan byggda (`fallskarmen` dinglande ben · `studsa-ner` myntkruka + gapande
+ficka · `plantera-fron` fuktig jord · `valpens-bajs` tunnans lock och fyllnad ·
+`skuggmatchning` `_reactFigure` · `mata-monstret` växande mage) — och den sjunde var byggd
+**och död**. Snabbmetoden från förra passet, "greppa efter mekanismen, inte efter orden",
+hittar koden men säger ingenting om att den **kopplas in**. Två saker följer:
+1. **`_livprobe <id>` är det snabbaste urvalssållet som finns.** Den svarar på "lever det här
+   spelet?" i tal, utan att någon läser en rad kod. Den pekade ut `vad-forsvann` direkt.
+2. **Ny snubbeltråd i `check.mjs`** som felar på `switch (x.text)` och `x.text === '…'` i
+   spelkod. Verifierad åt båda hållen: tyst på hela repot (0 fel), och löser ut på exakt
+   uttrycket när buggen återinförs. Ett första försök tog även `.label` och gav **59
+   falsklarm** — `.label` är matter.js kanoniska kropps-id här.
+
+**Och sonden hade två egna fel först** (nionde gången): en skaltröskel som jämförde mot `1,25`
+när måttet var en *skillnad* (0,32), och — allvarligare — **spelet spelar vidare av sig självt**.
+`_finishRound` startar en ny runda 1,3 s efter fyndet och flyttar då leksaken till en ny
+kopp-plats; sonden mätte den förflyttningen och rapporterade `dx 240 px` på kycklingen. Regeln
+generaliserar: **mäter du en effekt på ett objekt som spelet självt rör, frys förloppet först.**
+
+**Commits:** `42c7a82` feat(vad-forsvann) hyllan lever · `951392b` fix(vart-tog-det-vagen)
+döda leksaks-reaktioner · `09f1760` chore(check) snubbeltråd mot nyckel ur nod-egenskap.
+**Kontroll:** `check` 0 fel / 0 varningar · `_hyllprobe2` **9/9** (HEAD 5/9) · `_leksaksprobe`
+**10/10** (HEAD 1/10) · `test:all` **72/72**, inga nya loggfynd — bara de kända
+`saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom (inga nya repliker i det här passet).
+⚠️ De gröna raderna 2/3/6/8 i `_hyllprobe2` är **vakter, inte bevis** — de är gröna på HEAD
+också, eftersom ingenting rörde sig där. Bevisraderna är 1, 4, 5 och 7.
+**Bygget är INTE omgjort** efter dagens ändringar — telefonen ser en äldre version tills någon
+kör `npm run build` + `scripts/start.ps1`.
+**Öppet:** ägarkön tom. **N10 fortsätter** (brunnen är inte tom). Nattkön i övrigt: **N12** ·
+**N13**.
+
+---
+
 ## 2026-08-12 · v1.165.0 · Fem gröna tal som inte mätte någonting
 
 **Byggt:** nattköns **N10**, femte passet. Två spel, en commit var, egen sond per punkt.

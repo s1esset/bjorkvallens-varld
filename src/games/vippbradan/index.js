@@ -42,6 +42,17 @@ const DROP_TOP_Y = RAIL_Y // vikten släpps där den vilar och faller det korta 
 const FROG_LAUNCH_X = CX - PLANK_HALF // grodans viloläge (vänster tipp) — used by förhandsvisning
 const FROG_LAUNCH_Y = PIVOT_Y - (PLANK_H / 2 + FROG_R * 0.72)
 
+// Brädans ändläge. TIDIGARE var det EN hård klamp vid 0,5 rad — och det gjorde att
+// plankan såg likadan ut för två av tre vikter: både äpplet och städet slog i taket
+// (uppmätt 28,65° = exakt 0,5 rad för båda; städet låg kvar där 51 bildrutor mot
+// äpplets 5). Utslaget var alltså klampens, inte viktens. Nu tar brädan emot MJUKT:
+// en progressiv fjäder + extra dämpning från STOPP och utåt, så toppen blir viktens
+// egen och en tung vikt fjädrar tillbaka mer än en lätt. TAK är bara en nödbroms.
+const TILT_SOFT = 0.30 // här börjar brädan ta emot (≈17°)
+const TILT_MAX = 0.5 // hård gräns — ska i praktiken aldrig nås
+const TILT_SPRING = 0.055 // returkraft per steg och radian över STOPP
+const TILT_DAMP = 0.1 // extra dämpning i ändläget (per steg)
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 const IDLE_CUES = [
@@ -86,9 +97,13 @@ export default {
     this._sizes = [
       // Vikterna är RIKTIGA föremål med igenkännbar tyngd: en fjäder är lätt, ett äpple
       // lagom, ett städ tungt. Barnet kopplar sak -> tyngd -> hur högt grodan flyger.
-      { key: 'liten', label: 'Lätt', icon: '🪶', kind: 'fjader', r: 26, mat: MATERIALS.light, mul: 0.9 },
-      { key: 'mellan', label: 'Mellan', icon: '🍎', kind: 'apple', r: 38, mat: MATERIALS.normal, mul: 1.0 },
-      { key: 'stor', label: 'Tung', icon: '🧱', kind: 'stad', r: 52, mat: MATERIALS.heavy, mul: 1.12 },
+      // `rost` = materialets RÖST vid anslaget (lib/physics.js MATERIAL). Fjädern och
+      // äpplet möter trä mot trä; städet är det enda som klingar i metall. Volym och
+      // tonhöjd kommer sedan ur anslagsfarten, så fjäderns luftmotstånd (frictionAir
+      // 0.05) gör den nästan ljudlös av sig själv — precis som en fjäder ska vara.
+      { key: 'liten', label: 'Lätt', icon: '🪶', kind: 'fjader', r: 26, mat: MATERIALS.light, mul: 0.9, rost: 'tra', damm: 0.5 },
+      { key: 'mellan', label: 'Mellan', icon: '🍎', kind: 'apple', r: 38, mat: MATERIALS.normal, mul: 1.0, rost: 'tra', damm: 1 },
+      { key: 'stor', label: 'Tung', icon: '🧱', kind: 'stad', r: 52, mat: MATERIALS.heavy, mul: 1.12, rost: 'metall', damm: 1.6 },
     ]
     this._sizeIdx = 1
 
@@ -100,6 +115,16 @@ export default {
     // Fysik: golv + sidoväggar så vikten lägger sig till ro och grodan stannar i bild.
     this._phys = new PhysicsWorld({ gravityY: GRAVITY_Y, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Anslaget ska HÖRAS som det ser ut: en fjäder som dalar ned låter nästan inget,
+    // städet slår i med en metallklang. Delade `impactAudio` mappar anslagsfart ->
+    // volym + tonhöjd och materialet -> röst (fart och material sitter på vikten,
+    // se `_sizes.rost`). Ersätter det fasta `plopp` som lät likadant för alla tre.
+    this._unbindLjud = this._phys.impactAudio(ctx.services.audio, { vol: 0.26, hardSpeed: 11 })
+    // minSpeed 1,8 och inte 2,4: fjädern landar så mjukt (frictionAir 0.05) att den
+    // annars föll under tröskeln och blev HELT dammfri — uppmätt 0 px mot äpplets 848.
+    // En tröskel som en av tre vikter aldrig passerar döljer effekten, den doserar den inte.
+    this._unbindDamm = this._phys.onImpact((h) => this._anslagsDamm(ctx, h), { minSpeed: 1.8, maxPerFrame: 2 })
+    this._tameStop = this._phys.beforeStep(() => this._tame())
 
     this._buildScene(ctx)
     this._buildSeesaw(ctx)
@@ -539,7 +564,7 @@ export default {
     view.scale.set(0.3)
     gsap.to(view.scale, { x: 1, y: 1, duration: 0.22, ease: 'back.out(2)' })
 
-    const body = this._phys.circle(x, y, size.r, { ...size.mat, label: 'weight' })
+    const body = this._phys.circle(x, y, size.r, { ...size.mat, mat: size.rost, label: 'weight' })
     this._phys.link(body, view)
     this._weight = { body, view }
 
@@ -549,6 +574,20 @@ export default {
     this._launchWatchdog = this._addTimer(1.5, () => {
       if (this._alive && this._busy && !this._launched) this._launchFrog(ctx)
     })
+  },
+
+  // Damm där vikten faktiskt slår i plankan — inte i mitten av något, utan i
+  // KONTAKTPUNKTEN som lösaren rapporterar. Mängden kommer ur anslagets styrka
+  // (fart) gånger viktens egen skala: fjädern river upp nästan inget, städet en
+  // rejäl sky. Färgen är materialets märke (trä = brunt, metall = grått).
+  _anslagsDamm(ctx, h) {
+    if (!this._alive) return
+    const w = this._weight?.body
+    if (!w || (h.a !== w && h.b !== w)) return
+    const size = this._sizes[this._sizeIdx]
+    const antal = Math.round((4 + 11 * h.styrka) * (size?.damm ?? 1))
+    if (antal < 2) return
+    puff(ctx.fxLayer, h.x, h.y, { count: Math.min(18, antal), color: h.traff ?? COLORS.brown })
   },
 
   // ---- Kollisioner ---------------------------------------------------------
@@ -563,10 +602,9 @@ export default {
       // Vikten landar på brädan -> katapultera grodan (efter en liten stund så man
       // hinner se brädan börja vippa).
       if (!this._launched && this._busy && this._weight && (a === 'weight' || b === 'weight') && (a === 'plank' || b === 'plank')) {
-        if (now - this._lastHit > 80) {
-          this._lastHit = now
-          ctx.services.audio.sfx('plopp')
-        }
+        // Ljudet kommer ur `impactAudio` (fart -> volym + tonhöjd, material -> röst);
+        // ett fast `plopp` här hade lagt samma smäll ovanpå alla tre vikterna igen.
+        if (now - this._lastHit > 80) this._lastHit = now
         if (!this._launchPending) {
           this._launchPending = true
           this._addTimer(0.16, () => {
@@ -781,8 +819,7 @@ export default {
 
   _update(ctx, t) {
     if (!this._alive) return
-    this._phys.update(t.deltaMS)
-    this._tame()
+    this._phys.update(t.deltaMS) // `_tame` körs inifrån, per fast steg
     this._idle += t.deltaMS / 1000
 
     // Mottagaren följer grodan med blicken — på plankan, i luften, hela vägen. Det är
@@ -826,13 +863,26 @@ export default {
   },
 
   // Håll plankans rörelse lugn och läsbar; hindra att den slår runt.
+  //
+  // Körs per FAST fysiksteg (`beforeStep`), inte per bildruta: konstanterna nedan är
+  // per steg, och en tappad bildruta (5 steg på en ruta) hade annars gett en femtedel
+  // så mycket dämpning — brädan hade betett sig olika på olika enheter.
   _tame() {
     const pb = this._plankBody
     if (!pb) return
-    const av = pb.angularVelocity
-    if (Math.abs(av) > 0.12) Body.setAngularVelocity(pb, Math.sign(av) * 0.12)
-    if (Math.abs(pb.angle) > 0.5) {
-      Body.setAngle(pb, Math.sign(pb.angle) * 0.5)
+    const a = pb.angle
+    const over = Math.abs(a) - TILT_SOFT
+    if (over > 0) {
+      // Mjukt ändläge: ju längre in i zonen, desto hårdare tar brädan emot. Energin
+      // GÅR TILLBAKA i plankan (fjädern) i stället för att nollställas — det är den
+      // studsen barnet ser när städet slår i.
+      const av = pb.angularVelocity
+      Body.setAngularVelocity(pb, av - Math.sign(a) * over * TILT_SPRING - av * TILT_DAMP)
+    }
+    const av2 = pb.angularVelocity
+    if (Math.abs(av2) > 0.16) Body.setAngularVelocity(pb, Math.sign(av2) * 0.16)
+    if (Math.abs(pb.angle) > TILT_MAX) {
+      Body.setAngle(pb, Math.sign(pb.angle) * TILT_MAX)
       Body.setAngularVelocity(pb, 0)
     }
   },
@@ -847,6 +897,9 @@ export default {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
     this._unbind?.()
+    this._unbindLjud?.()
+    this._unbindDamm?.()
+    this._tameStop?.()
 
     this._timers.forEach((tw) => tw?.kill())
     this._timers = []

@@ -74,8 +74,9 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
 ### Juice
 - **[Quick] Grodan lever.** Ögon som spårar korgen medan den siktar, ett "wheee!" och utsträckta
   ben under flykten, en glad plums-animation i korgen (i stället för bara krymp).
-- **[Quick] Brädan känns.** Liten dammpuff + studsljud-skala när vikten slår i; plankan
-  studsar en aning extra vid stor vikt.
+- ~~**[Quick] Brädan känns.**~~ ✅ 2026-08-12 (v1.158.0) — dammpuff i kontaktpunkten,
+  anslagsljud som skalar med farten och egen röst per material, och en planka som går
+  djupare och fjädrar tillbaka mer ju tyngre vikten är.
 
 ### Progression
 - **[Quick] Samla i korgen.** Visa hur många grodor man landat (en liten grodkör i korgen som
@@ -129,3 +130,43 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
   hela flygbanan, `setMood('nyfiken')` medan barnet siktar, `react('jubel')` vid landning,
   `react('hoppsan')` vid miss (förvånad, aldrig sur — P0 MOTGÅNG). `npm run test` grön,
   `check` 0/0. Commit `3c2d9e0`.
+- 2026-08-12: **Brädan känns** (§4 [Quick], v1.158.0). Ny sond `scripts/_vippprobe.mjs` mätte
+  först HEAD, och baslinjen var värre än planen antog: **plankan såg likadan ut för två av tre
+  vikter.** Både äpplet och städet slog i `_tame`s hårda klamp — uppmätt **28,65° = exakt
+  0,5 rad** för båda, där skillnaden bara syntes i hur LÄNGE de låg kvar mot taket (städet 51
+  bildrutor, äpplet 5). Utslaget var alltså klampens, inte viktens.
+  - **Mjukt ändläge i stället för hård klamp.** Från 0,30 rad tar brädan emot med en
+    progressiv fjäder + extra dämpning (`TILT_SOFT/SPRING/DAMP`); 0,5 rad finns kvar men bara
+    som nödbroms, och nås inte längre. Toppvinkeln blev viktens egen: **5,1° · 19,0° · 22,6°**
+    (fjäder · äpple · städ), **0 bildrutor mot taket**. Och eftersom energin nu går tillbaka i
+    fjädern i stället för att nollställas fjädrar plankan tillbaka: **0,0° · 2,5° · 5,4°** med
+    **0 · 1 · 2** riktningsbyten. Det är §4-punktens "studsar en aning extra vid stor vikt".
+  - **`_tame` flyttad till `phys.beforeStep()`.** Konstanterna är per STEG; på en bildruta som
+    tappas kör fysiken upp till 5 steg, och per-bildruta hade brädan då fått en femtedel så
+    mycket dämpning på svaga enheter. (Samma regel som mjuka kroppar, [[mjukkropp-tidssteg]].)
+  - **Anslagsljudet kommer ur delade `phys.impactAudio`** (fart → volym + tonhöjd, material →
+    röst) i stället för ett fast `plopp` som lät likadant för alla tre. Vikterna fick en
+    `rost`: fjäder och äpple möter trä mot trä, städet är det enda som klingar i metall —
+    uppmätt **225 · 229 · 705 Hz**.
+    ⚠️ **Städet låter INTE starkast, och det är rätt.** Det är stort (r 52) och möter därför
+    plankan efter ett kortare fall än äpplet: styrka 0,20 mot 0,28, alltså 0,114 mot 0,129 i
+    volym. Tyngden bärs av rösten (metall, mer än dubbelt så lång ton), av dammet och av hur
+    djupt plankan går — inte av volymen. Ingen `impactAudio`-parameter känner till massa.
+  - **Damm i kontaktpunkten** (`onImpact` → `puff`), mängd = anslagsstyrka × viktens egen
+    skala, färg = materialets märke (trä brunt, metall grått): **391–600 · 1232–1496 ·
+    1952 px** över två körningar. Tröskeln sattes till `minSpeed 1.8`: vid 2,4 föll fjädern
+    under den och blev **helt** dammfri (0 px) — en tröskel som en av tre vikter aldrig
+    passerar döljer effekten i stället för att dosera den.
+  - **Kalibreringen orörd, och det är mätt:** `_launchVel` löser bågen från grodans FAKTISKA
+    läge mot korgen, så ett djupare utslag flyttar startpunkten utan att flytta siktet. Sonden
+    kollar det varje körning (äpple, mitt på skenan → landar i korgen).
+  - **Sonden var fel tre gånger innan spelet var det** (nu åttonde gången i projektet):
+    (1) den fotograferade dammet efter en FAST paus på 260 ms — fjädern bromsas av luften och
+    hade inte landat än, så en effekt som fungerade rapporterades som 0 px; (2) den fångade
+    utskjutningens `sparkle` + "Wheee!" i samma fxLayer och mätte 791/771/755 px, alltså
+    texten och inte dammet; (3) den stängde av utskjutningen för att isolera dammet — och
+    eftersom **spelmodulen är ETT objekt som återanvänds vid varje montering** överlevde
+    patchen `nav.go` och fick nästa runda att rapportera "bågen har flyttat sig". Dessutom
+    mätte den först i partiklarnas FÖDELSEÖGONBLICK, då alla ligger i en klump: 3 och 10
+    partiklar gav samma pixeltal (verifierat i bild — ett enda grått klot).
+  Kontroll: `check` 0 fel/0 varningar · `npm run test vippbradan` grön · `_vippprobe` grön.

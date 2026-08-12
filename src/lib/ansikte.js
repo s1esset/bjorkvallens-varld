@@ -163,6 +163,17 @@ export class Ansikte {
     return tl
   }
 
+  /**
+   * Släpp en aktiv min direkt. Min-lagret ligger ÖVERST och bär sin egen mun, så ett
+   * tugg bakom en kvarhängande grimas syns inte alls — den som matar två gånger i rad
+   * måste släppa den förra minen först.
+   */
+  slappMin(dur = 0.14) {
+    if (!this._alive || !this._aktivMin) return
+    this._slackMin(this._aktivMin, dur)
+    this._aktivMin = null
+  }
+
   _slackMin(s, dur) {
     const st = { a: s.alpha }
     this._track(gsap.to(st, { a: 0, duration: dur,

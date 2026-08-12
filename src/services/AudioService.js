@@ -262,6 +262,14 @@ export class AudioService {
 
   // Publikt: spela ENBART ett förinspelat klipp (t.ex. djurläten). Ingen syntes-fallback —
   // returnerar true om ett klipp spelades, annars false (spelet kan då falla tillbaka på rösten).
+  // Finns klippet ÖVER HUVUD TAGET i manifestet? Ett spel som bygger på ljud som ännu
+  // inte är inspelade (pappas uttrycksljud i `mata-munnen`) kan fråga först och välja en
+  // syntes-väg i stället — annars flaggar varje anrop `saknat-ljudklipp` i testloggen och
+  // dränker de fynd som är riktiga.
+  harSample(name) {
+    return this._sampleUrls.has(name)
+  }
+
   sample(name) {
     if (!this._s.sfxEnabled) return false
     const c = this._ensure()

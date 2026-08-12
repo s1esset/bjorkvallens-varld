@@ -1,6 +1,6 @@
 // Mata Monstret — fyra LÄGEN som växlar med barnets framsteg (2–5 år). Ett gosigt,
 // SKEPNADSBYTANDE monster (egen färg/form/namn per runda) ska matas med handritad,
-// glänsande mat (frukt/grönsaker/godis från ./food.js). Ögonen följer maten, munnen
+// glänsande mat (frukt/grönsaker/godis från lib/mat.js). Ögonen följer maten, munnen
 // GAPAR när maten närmar sig, ett saftigt TUGG stänger käken, magen skvalpar och
 // gnistror yr. STRIKT no-fail: varje miss är lekfull (mjukt ljud + vingel/puff) och
 // monstret hjälper alltid till så maten ALLTID blir uppäten.
@@ -26,7 +26,7 @@ import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
 import { verticalFill, cylinderFill, sphereFill } from '../../lib/form.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
-import { FOODS, makeFood, foodCat, foodColor } from './food.js'
+import { FOODS, makeFood, foodCat, foodColor } from '../../lib/mat.js'
 
 // --- layout (designkoordinater 1280×720) -----------------------------------
 const W = 1280
@@ -57,7 +57,7 @@ const CHEW_TID = 0.42 // hur länge tugget varar innan den sväljs (= _chomp-ked
 const MODES = ['classic', 'walk', 'shelf', 'plinko']
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
-// Maträtter (nu via food.js) — kategorier driver favorit-läget.
+// Maträtter (nu via lib/mat.js) — kategorier driver favorit-läget.
 const YUM_EMOJI = ['😋', '😻', '💛', '🤤', '⭐', '✨']
 const MUMS = ['Mums!', 'Nam nam!', 'Så gott!', 'Åh vad gott!', 'Mums filibabba!']
 const FULL = ['Mätt och belåten! Tack för maten!', 'Åh vad gott det var! Hela magen är full!', 'Nu är monstret pickemätt! Tack!']

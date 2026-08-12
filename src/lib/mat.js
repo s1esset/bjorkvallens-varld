@@ -4,10 +4,14 @@
 // gripytan sätts av spelet (index.js) på en yttre behållare. Maten är spelets blickfång.
 //
 // API:
-//   import { FOODS, makeFood, foodCat } from './food.js'
+//   import { FOODS, makeFood, foodCat } from '../../lib/mat.js'
 //   FOODS   -> [{ key:'apple', cat:'frukt', draw(scale=1){...Container} }, ...]
 //   makeFood(key, scale=1) -> färsk Container med konstverket (skalad)
-//   foodCat(key) -> 'frukt' | 'gronsaker' | 'godis'
+//   foodCat(key) -> 'frukt' | 'gronsaker' | 'godis' | 'stark'
+//
+// Låg i `games/mata-monstret/food.js` fram till v1.186 — flyttad hit när `mata-munnen`
+// blev andra kunden. Ingen ritning ändrades i flytten; `citron` och `chili` tillkom
+// (`mata-munnen` behöver en SUR och en HET mat för att ansiktets miner ska ha en orsak).
 import { Container, Graphics } from 'pixi.js'
 
 // --- små färg-hjälpare (mörkare kontur / ljusare dager) ---
@@ -339,6 +343,56 @@ function buildCake() {
   return c
 }
 
+// =================== Starkt & surt (för ansiktets miner) ===================
+
+function buildLemon() {
+  const c = new Container()
+  const body = new Graphics()
+  body
+    .moveTo(-56, 0)
+    .quadraticCurveTo(-52, -40, 0, -40)
+    .quadraticCurveTo(52, -40, 56, 0)
+    .quadraticCurveTo(52, 40, 0, 40)
+    .quadraticCurveTo(-52, 40, -56, 0)
+    .fill(0xffe14a)
+    .stroke({ width: 6, color: 0xd9a91f })
+  // Spetsarna är citronens signatur — utan dem läses den som en gul boll.
+  const tipL = new Graphics().ellipse(-58, 0, 10, 7).fill(0xffe14a).stroke({ width: 5, color: 0xd9a91f })
+  const tipR = new Graphics().ellipse(58, 0, 10, 7).fill(0xffe14a).stroke({ width: 5, color: 0xd9a91f })
+  const pores = new Graphics()
+  for (const [x, y] of [[-26, -12], [-6, 14], [18, -18], [30, 10], [4, -6]])
+    pores.circle(x, y, 2.5).fill({ color: 0xd9a91f, alpha: 0.5 })
+  const leaf = new Graphics()
+  leaf.ellipse(0, 0, 15, 8).fill(0x6fbf52).stroke({ width: 3, color: 0x4f9a38 })
+  leaf.position.set(20, -40)
+  leaf.rotation = -0.4
+  const shine = new Graphics().ellipse(-20, -16, 15, 9).fill({ color: 0xffffff, alpha: 0.45 })
+  c.addChild(body, tipL, tipR, pores, leaf, shine)
+  return c
+}
+
+function buildChili() {
+  const c = new Container()
+  const body = new Graphics()
+  body
+    .moveTo(-14, -34)
+    .quadraticCurveTo(28, -26, 34, 12)
+    .quadraticCurveTo(38, 46, 8, 52)
+    .quadraticCurveTo(-8, 44, -4, 14)
+    .quadraticCurveTo(-6, -14, -30, -28)
+    .closePath()
+    .fill(0xe0342c)
+    .stroke({ width: 6, color: 0x9c1c22 })
+  const stem = new Graphics()
+  stem.moveTo(-30, -30).quadraticCurveTo(-16, -50, 6, -52).stroke({ width: 10, color: 0x4f9a38, cap: 'round' })
+  const krage = new Graphics().ellipse(-18, -32, 16, 9).fill(0x5fae44).stroke({ width: 3, color: 0x3f7d2c })
+  krage.rotation = -0.35
+  const shine = new Graphics()
+  shine.moveTo(2, -12).quadraticCurveTo(16, 6, 12, 34).stroke({ width: 5, color: 0xffffff, alpha: 0.4, cap: 'round' })
+  c.addChild(body, krage, stem, shine)
+  return c
+}
+
 // =================== Katalog ===================
 
 const BUILDERS = {
@@ -360,6 +414,8 @@ const BUILDERS = {
   candy: buildCandy,
   lollipop: buildLollipop,
   cake: buildCake,
+  lemon: buildLemon,
+  chili: buildChili,
 }
 
 const META = [
@@ -383,6 +439,15 @@ const META = [
   { key: 'cake', cat: 'godis' },
 ]
 
+// Citron och chili ligger UTANFÖR `FOODS` med flit. `mata-monstret` väljer en
+// favoritkategori ur samma lista, och en fjärde kategori med två medlemmar hade
+// tyst ändrat balansen i ett spel som inte bad om något. Den som vill ha dem tar
+// `[...FOODS, ...MAT_STARK]`.
+const META_STARK = [
+  { key: 'lemon', cat: 'stark' },
+  { key: 'chili', cat: 'stark' },
+]
+
 // Skapa en färsk mat-Container (centrerad i 0,0). Konstverket är helt dekorativt;
 // spelet sätter gripyta/eventMode på en yttre behållare.
 export function makeFood(key, scale = 1) {
@@ -395,8 +460,9 @@ export function makeFood(key, scale = 1) {
 }
 
 export const FOODS = META.map((m) => ({ ...m, draw: (scale = 1) => makeFood(m.key, scale) }))
+export const MAT_STARK = META_STARK.map((m) => ({ ...m, draw: (scale = 1) => makeFood(m.key, scale) }))
 
-const CAT_BY_KEY = Object.fromEntries(META.map((m) => [m.key, m.cat]))
+const CAT_BY_KEY = Object.fromEntries([...META, ...META_STARK].map((m) => [m.key, m.cat]))
 export function foodCat(key) {
   return CAT_BY_KEY[key] || 'frukt'
 }
@@ -425,6 +491,8 @@ const FOOD_COLOR = {
   candy: 0xff5e93,
   lollipop: 0xff5e93,
   cake: 0xf4c98a,
+  lemon: 0xffe14a,
+  chili: 0xe0342c,
 }
 export function foodColor(key) {
   return FOOD_COLOR[key] ?? 0xe23b3b

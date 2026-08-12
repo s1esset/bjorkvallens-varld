@@ -204,14 +204,33 @@ huvud lokalt. Dessutom de fyra med egen mimik (`kittla-figuren` · `mata-monstre
 | `vatska.js` | **1** | se B1 |
 | `three3d.js` | **1** | se C9 |
 
-### A5. Femton spel ritar egen bakgrund **[Quick]**
+### A5. Femton spel ritar egen bakgrund **[Quick]** — ✅ AVGJORD 2026-08-12 (1 bytt, 14 med skäl)
 
-`enkelt-pussel` · `folj-sparet` · `fyrverkeri` · `glittergrottan` · `hamburgerbygget` ·
-`harma-melodin` · `kla-efter-vadret` · `plantera-fron` · `rulla-bollen-hem` · `saftbaren` ·
-`siffertaget` · `spara-linjen` · `tarta-i-ansiktet` · `vad-forsvann` · `vart-tog-det-vagen`
+⚠️ **Premissen hade gått ut.** Raden skrevs när flera av de femton lutade sig mot en platt
+färg — men D1:s omgångar har sedan dess gett var och en av dem en **mätt, egen toning**, med
+`_plattprobe --medbakgrund`-talet skrivet i koden. Att läsa listan och inte koden hade gett
+fjorton onödiga byten. Efter genomläsning återstod **en** riktig kandidat.
 
-Flera har goda skäl (inomhusmiljö, 3D-backdrop). Men de som bara har en platt färg ska ärva
-`createScene` — särskilt efter C7 nedan, som gör den mycket rikare.
+**✅ BYTT: `siffertaget`.** Ritade himmel + mark för hand och la **två kull-ellipser** vid
+horisonten — exakt det mönster C7 bytte ut inne i scenen själv ("två cirklar som läste som
+bleka bubblor"). Ärver nu `createScene` med spelets EGNA färger som tema, så morgonen är
+densamma; det som tillkommer är scenens djup. `groundH` räknas ur `ctx.height` så horisonten
+står kvar på `HORIZON_Y` 296 även på en telefon med annan höjd — rälsen fick inte flytta sig.
+Banvallen ritas nu EFTER scenen, annars lägger sig markstrukturen ovanpå gruset.
+**Uppmätt i skärmdumpen: största enfärgade fält 39 195 → 28 778 px (−27 %), toner 3 985 →
+7 039.** Det största fältet är inte längre ett spelobjekt (den bortre kullen) utan himlens topp.
+
+**❌ De fjorton, med skäl — ingen av dem ska ärva `createScene`:**
+
+| skäl | spel |
+|---|---|
+| **inomhus** — en scen med himmel och horisont vore fel rum | `enkelt-pussel` (bord) · `hamburgerbygget` (kaklad disk) · `saftbaren` (bardisk) · `vad-forsvann` (rum) · `vart-tog-det-vagen` (rum) · `tarta-i-ansiktet` (cirkusfond) |
+| **uppifrån sett** — det finns ingen horisont att skapa djup mot | `folj-sparet` (ängmatta) · `rulla-bollen-hem` (fotbollsplan) |
+| **abstrakt yta** — ritbord, inte landskap | `spara-linjen` (kritpapper) · `harma-melodin` (plattor) |
+| **egen 3D-backdrop** | `glittergrottan` (shader, `makeBackdrop`) |
+| **bakgrunden ÄR mekaniken** | `kla-efter-vadret` — himmel och mark ligger i SAMMA `Graphics` just för att en enda `tint` ska klä hela scenen efter vädret; en scen av många delar går inte att tinta likadant |
+| **marken är spelytan** | `plantera-fron` — jorden är en jordprofil man planterar i, inte en markremsa; scenens band skulle slåss med den |
+| **egen natthimmel med spelmekanik** | `fyrverkeri` — stjärnorna tindrar och raketerna behöver en helsvart fond utan markremsa |
 
 ---
 

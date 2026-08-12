@@ -15,6 +15,7 @@ import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT, PLAYFUL, PRAISE } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill } from '../../lib/form.js'
+import { createScene } from '../../lib/scene.js'
 
 // Räkneorden 1–5 (rundans vagnar håller sig alltid inom 1–5).
 const SIFFROR = { 1: 'Ett', 2: 'Två', 3: 'Tre', 4: 'Fyra', 5: 'Fem' }
@@ -88,6 +89,7 @@ export default {
     // exakt den tonen kan aldrig läsas som scen — varken av ögat eller av bildkollens
     // kant-cream-mätning). Se landskapsbeskrivningen vid HORIZON_Y.
     this._root.addChild(this._buildBackdrop(ctx))
+    this._root.addChild(this._buildBallast(ctx))
 
     // Statisk räls + lok byggs en gång; vagnar/slots byggs om per runda.
     this._engineX = this._engineXFor(3)
@@ -123,19 +125,34 @@ export default {
     ctx.services.voice.say(this.voiceIntro)
   },
 
-  // Himmel, kullar, mark och banvall — se landskapsbeskrivningen vid HORIZON_Y.
-  // Kullarna ritas MELLAN himmel och mark, så marken klipper deras underkant och de
-  // står på horisonten i stället för att sväva som två ellipser.
+  // Landskapet kommer ur `createScene` (LYFTPLAN A5). Spelet ritade tidigare himmel,
+  // mark och TVÅ kull-ellipser för hand — exakt det mönster C7 bytte ut i scenen själv
+  // ("två cirklar som läste som bleka bubblor"). Temat är spelets EGNA färger, så det är
+  // samma varma morgon som förut; det som tillkommer är scenens djup: tre avståndsband,
+  // ett disband vid horisonten och markstruktur i stället för en jämn yta.
+  //
+  // `groundH` räknas ur ctx.height så att horisonten står kvar på HORIZON_Y (296) även
+  // på en telefon med annan höjd — rälsen på RAIL_Y måste vila på samma linje som förr.
   _buildBackdrop(ctx) {
-    const w = ctx.width + 2 * BLEED_X
+    return createScene(
+      {
+        top: C_SKY_TOP,
+        bottom: C_SKY_BOT,
+        ground: C_GROUND_TOP,
+        groundDark: C_GROUND_BOT,
+        clouds: 2,
+        gras: true,
+      },
+      { width: ctx.width, height: ctx.height, ground: true, groundH: ctx.height - HORIZON_Y },
+    )
+  },
+
+  // Banvallen: grusbädden som spåret vilar på, ritad EFTER scenen så att scenens
+  // markstruktur inte lägger sig ovanpå gruset. Sliprarna ritas senare och hamnar i sin
+  // tur ovanpå banvallen, så spåret ligger i gruset i stället för på en grön gräsmatta.
+  _buildBallast(ctx) {
     const g = new Graphics()
-    g.rect(-BLEED_X, -BLEED_Y, w, HORIZON_Y + BLEED_Y).fill(verticalFill(C_SKY_TOP, C_SKY_BOT))
-    g.ellipse(250, HORIZON_Y + 12, 330, 94).fill(C_HILL_FAR)
-    g.ellipse(900, HORIZON_Y + 16, 430, 118).fill(C_HILL_NEAR)
-    g.rect(-BLEED_X, HORIZON_Y, w, ctx.height + BLEED_Y - HORIZON_Y).fill(verticalFill(C_GROUND_TOP, C_GROUND_BOT))
-    // Banvallen: grusbädden som spåret vilar på. Sliprarna ritas senare och hamnar
-    // ovanpå den, så spåret ligger i gruset i stället för på en grön gräsmatta.
-    g.rect(-BLEED_X, HORIZON_Y - 4, w, 54).fill(verticalFill(C_BALLAST_TOP, C_BALLAST_BOT))
+    g.rect(-BLEED_X, HORIZON_Y - 4, ctx.width + 2 * BLEED_X, 54).fill(verticalFill(C_BALLAST_TOP, C_BALLAST_BOT))
     g.eventMode = 'none'
     return g
   },

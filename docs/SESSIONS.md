@@ -14,6 +14,74 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.159.0 · Ett tak som gjorde två av tre val osynliga
+
+**Byggt:** nattköns **N10**, andra passet (D3: billiga [Quick] ur `docs/games/*.md` §4). Samma
+rytm som föregående pass: **två spel, en commit var, varje punkt mätt av en egen sond.** Båda
+punkterna är juice som bara finns *medan* något rör sig, alltså osynlig för `npm run test`,
+som fotograferar spelet i vila.
+
+**`vippbradan` — "Brädan känns" (v1.158.0).** Nya `_vippprobe.mjs` mätte HEAD först, och
+baslinjen var värre än planen antog: **plankan såg likadan ut för två av tre vikter.** Både
+äpplet och städet slog i `_tame`s hårda klamp — uppmätt **28,65° = exakt 0,5 rad** för båda,
+där skillnaden bara syntes i hur LÄNGE de låg kvar mot taket (städet 51 bildrutor mot äpplets
+5). Utslaget var alltså klampens, inte viktens.
+
+- **Mjukt ändläge i stället för hård klamp** (progressiv fjäder + dämpning från 0,30 rad).
+  Toppvinkeln blev viktens egen: **5,1° · 19,0° · 22,6°**, noll bildrutor mot taket. Och
+  eftersom energin nu går tillbaka i fjädern i stället för att nollställas fjädrar plankan
+  tillbaka: **0,0° · 2,5° · 5,4°** med **0 · 1 · 2** riktningsbyten — vilket ÄR §4-punktens
+  "studsar en aning extra vid stor vikt". Den studsen gick inte att bygga ovanpå ett mättat
+  utslag; den föll ut när taket blev mjukt.
+- `_tame` flyttad till `phys.beforeStep()` — konstanterna är per STEG, och en tappad bildruta
+  hade annars gett en femtedel så mycket dämpning på en svag enhet.
+- **Anslagsljudet ur delade `phys.impactAudio`** (fart → volym + tonhöjd, material → röst) i
+  stället för ett fast `plopp`: **225 · 229 · 705 Hz**, bara städet klingar i metall.
+  ⚠️ Städet låter **inte** starkast, och det är rätt: det är stort (r 52) och möter plankan
+  efter ett kortare fall (styrka 0,20 mot äpplets 0,28). Tyngden bärs av rösten, dammet och
+  djupet. Ingen `impactAudio`-parameter känner till massa — noterat, inte fejkat.
+- **Damm i kontaktpunkten**, mängd = anslagsstyrka × viktens skala, färg = materialets märke:
+  **391–600 · 1232–1496 · 1952 px**. Tröskeln sattes till `minSpeed 1.8`; vid 2,4 föll fjädern
+  under den och blev **helt** dammfri.
+- Kalibreringen orörd och mätt varje körning: `_launchVel` löser bågen från grodans FAKTISKA
+  läge, så ett djupare utslag flyttar startpunkten utan att flytta siktet.
+
+**`klappa-mullvaden` — klapp-juice (v1.159.0).** Punkten lovade tre saker och **en av dem var
+redan byggd** (jord-skvätten, sedan 08-04). De två andra byggdes nu, mätta med `_klappprobe.mjs`:
+en **stigande pling i rad** — klappar tätare än 2,2 s isär klättrar en durpentatonisk stege,
+uppmätt **523 · 589 · 654 · 785 · 872 · 1047 Hz** och håller sedan; första klappen i en rad får
+ingen pling alls (en ensam klapp låter som förut), och en paus nollställer den. Tonen
+schemaläggs i **ljudklockan** (`tone({ delay })`), inte via en timer, så den kan inte överleva
+en exit. Plus **mikroskak i hålet** (5 px / 0,24 s, uppmätt utslag 4,25 px och **0 px kvar**
+efteråt) så klappen känns i marken och inte bara i djuret.
+
+**Sonderna var fel fem gånger innan spelen var det.** Alla fem läste först som "effekten
+fungerar inte": (1) en FAST paus på 260 ms fotograferade luften ovanför plankan innan den
+luftbromsade fjädern hunnit landa; (2) utskjutningens `sparkle` + "Wheee!" hamnade i samma
+`fxLayer` och mättes som damm (791/771/755 px — alla lika); (3) partiklarna mättes i
+FÖDELSEÖGONBLICKET, då 3 och 10 partiklar ligger i en klump och mäter lika mycket (verifierat
+i bild: ett enda grått klot) — 250 ms in blev det 391/1232/1952; (4) en patch för att isolera
+dammet överlevde `nav.go`, eftersom **spelmodulen är ETT objekt som återanvänds vid varje
+montering**, och nästa runda rapporterade en kalibreringsregression som sonden själv orsakat;
+(5) mätserien i `klappa-mullvaden` sprang förbi nivåns mål (5), så de tre sista klapparna var
+tysta no-ops och såg ut som ett tak som slog för tidigt.
+
+**Doc-fällan igen, två gånger i samma pass:** `klappa-mullvaden`s "tell före uppdyk" stod som
+öppen i §4 men byggdes 2026-07-01, och en tredjedel av pling-punkten (jord-skvätten) hade
+gått i produktion 08-04. **Läs koden före planen.**
+
+**Commits:** `3524417` feat(vippbradan) brädan känns · `c3f9eba` feat(klappa-mullvaden) klappen
+känns i marken · `1a08e9a` chore(verktyg) pixijs-skills · + den här sessionsloggen
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` **72/72 gröna** · båda §4-punkterna
+strukna i sina docs med mätvärden i §5. Ingen indexändring: båda spelen var redan ✅/✅.
+**Öppet:** ägarkön tom. **N10 fortsätter** — nästa pass tar två spel till på samma sätt.
+Nattkön i övrigt: **N12** (platthetens svans, låg avkastning) och **N13** (läsa+dokumentera
+V10b:s första kund, ingen speländring). Kvarstående systemfråga, inte brådskande:
+`impactAudio` väger bara FART, inte massa — det är därför ett städ kan låta svagare än ett
+äpple. Ändras den delade funktionen måste `_slagprobe` + `bygg-tornet`/`domino` mätas om.
+
+---
+
 ## 2026-08-12 · v1.157.0 · Två effekter som en testskärmdump aldrig kan se
 
 **Byggt:** nattköns **N10** (D3: billiga [Quick] ur `docs/games/*.md` §4). Två spel, en commit

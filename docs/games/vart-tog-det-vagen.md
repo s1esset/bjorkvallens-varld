@@ -70,8 +70,8 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
 - **[Medium] Varierade blandningsbanor.** Inför cirkulär virvel, korsande byten och en
   ofarlig "fint" (en kopp gör en falsk rörelse) så att ingen blandning ser exakt likadan ut.
   Skala upp variationen med nivån i stället för bara antal/tempo.
-- **[Quick] Leksaks-reaktion vid fynd.** Låt den hittade leksaken göra sitt eget: ankan kvackar
-  och vaggar, bollen studsar iväg, stjärnan snurrar och gnistrar. Tabell `prize → effekt`.
+- ✅ ~~**[Quick] Leksaks-reaktion vid fynd.**~~ Byggd 2026-07-02 — men **död sedan 2026-08-06**
+  och lagad 2026-08-12 (v1.168.0). Se §5: tabellen läste `p.text` på en Container.
 
 ### Juice
 - **[Quick] Riktiga ljud.** Ett mjukt "tock" när en kopp sänks mot bordet, ett lågt glids-/svisch
@@ -98,6 +98,29 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
   bakgrunds-ambient som passar "magi-show"-tonen.
 
 ## 5. Status / loggar
+
+- 2026-08-12 🐛 **Leksaks-reaktionerna hade varit döda i sex veckor** (v1.168.0, N10 pass 6).
+  Punkten stod som öppen i §4 och såg ut att vara "ännu ett redan byggt fall" — `_reactPrize`
+  fanns med hela tabellen på plats. Den var byggd `004f4f5` (2026-07-02), när leksaken var en
+  `Text` vars `.text` byttes varje runda, och grenen valdes med **`switch (p.text)`**. I
+  `a7cf730` (2026-08-06) blev leksaken en RITAD ikon i en `Container` (P0 ASSETS) — och då är
+  `p.text` `undefined`. Sedan dess föll **alla tio** leksakerna till `default`: samma generiska
+  puls, varje gång. Inget konsolfel, inget loggfynd, grönt test i sex veckor.
+  Fixen är att nyckeln sparas separat (`this._prizeKey`) i stället för att läsas ur noden.
+  Dessutom dödas leksakens tweens vid rundstart: reaktionerna flyttar den numera på riktigt
+  (bilen kör 80 px, grodan hoppar 80 px), och en reaktion som levde kvar in i nästa runda hade
+  dragit den nya leksaken ur sin kopp.
+  **MÄTT** (`scripts/_leksaksprobe.mjs`, **10/10 mot HEADs 1/10**): 10 av 10 gjorde bara en
+  generisk puls på HEAD (`skala +0,18`, dy/dx/rot **0**) → 0 av 10 nu, med **5 skilda
+  signaturer**: 🐸 dy 80 px · 🚗 dx 80 px · 🎈 dy 60 px utan sidled · ⭐/🌟 6,283 rad (ett helt
+  varv) · 🍎/🍓 skala +0,32 utan att flytta sig · 🐥/🐱/🦋 0,119 rad vingel. Wiring mäts i en
+  RIKTIG runda (koppen trycks på i spelet), inte genom att anropa metoden — HEAD-armen visar
+  `nyckel = NULL`, alltså exakt den döda tabellen.
+  ⚠️ **Sonden hade två egna fel först.** Skaltröskeln jämförde mot `1,25` när måttet var en
+  *skillnad* (0,32), och — allvarligare — spelet **spelar vidare av sig självt**: `_finishRound`
+  startar en ny runda 1,3 s efter fyndet och flyttar leksaken till en ny kopp-plats. Sonden
+  mätte den förflyttningen och rapporterade `dx 240 px` på kycklingen. Förloppet fryses nu
+  (`_newRound`/`_finishRound` neutraliseras, timers dödas) innan tabellen mäts.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`30da536`, v1.102.0).
   `_plattprobe --medbakgrund` mätte **529 236 px = 57 % av skärmen** i EN ton.

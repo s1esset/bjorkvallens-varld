@@ -234,7 +234,17 @@ export default {
     this._prizeSlot = (Math.random() * n) | 0
     this._prizeCup = this._cups[this._prizeSlot]
     for (const ch of this._prize.removeChildren()) ch.destroy({ children: true })
-    this._prize.addChild(drawIcon(randomFrom(PRIZES), 96))
+    // Nyckeln måste sparas SEPARAT. Leksaken var en `Text` när reaktionstabellen
+    // skrevs, så `_reactPrize` läste `this._prize.text`; sedan leksaken blev en
+    // ritad ikon i en Container (P0 ASSETS) är det fältet `undefined` och HELA
+    // tabellen föll till `default` — tyst, utan ett konsolfel och med grönt test.
+    this._prizeKey = randomFrom(PRIZES)
+    this._prize.addChild(drawIcon(this._prizeKey, 96))
+    // Reaktionerna flyttar numera leksaken på riktigt (bilen kör, grodan hoppar),
+    // inte bara skalan. En reaktion som råkar leva kvar in i nästa runda hade
+    // annars dragit den nya leksaken ur sin kopp.
+    gsap.killTweensOf(this._prize)
+    gsap.killTweensOf(this._prize.scale)
     this._prize.x = this._slots[this._prizeSlot]
     this._prize.y = BASE_Y
     this._prize.rotation = 0
@@ -489,7 +499,7 @@ export default {
     gsap.killTweensOf(p)
     gsap.killTweensOf(p.scale)
     const y0 = p.y
-    switch (p.text) {
+    switch (this._prizeKey) {
       case '🐥': // anka: vaggar + kvackar
         wiggle(p)
         a.tone({ freq: 620, dur: 0.1, type: 'square', vol: 0.16, slideTo: 470 })

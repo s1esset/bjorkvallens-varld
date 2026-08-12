@@ -88,6 +88,28 @@ detta spel beskrev en enklare 3-bitars en-läges-mun; den är nu överspelad av 
 
 ## 5. Status / loggar
 
+- 2026-08-12 🧠 **N4: maten går att TUGGA, och magen tar emot den** (v1.181.0). Två mjuka
+  kroppar (`lib/mjukkropp.js`) ersätter två skal-tweens.
+  **Tuggan.** Maten nådde munnen och krympte till noll på 0,26 s — käken tuggade i luften. Nu
+  föds en mjuk klick i matens egen färg (`foodColor()`, ny i `food.js`) mellan tandraderna och
+  **käkens två tandrader trycker faktiskt ihop den**: `_tuggprobe` mäter **68,6 → 14,8 px** hög
+  vid gap 0,22 och den hoptryckningen ÄR gapet (14,8 mot beräknade 14,8), medan den **buktar ut
+  90 → 109,5 px** i sidled. Munnen ritas därför i två lager med tuggan emellan — bakom munnen
+  är maten helt dold, framför täcker den tänderna. Isolerat lager: **3 272 px synligt** mot
+  **0 px** i kontrollen.
+  **Magen.** Den var en ellips som skalades och som vid "mätt" hängde ut under kroppen över
+  fötterna. Nu är den en mjuk kropp med spikad mittpunkt: viloformen är exakt den gamla ellipsen
+  (**226×184 px**), `rorelse` **0,0000** i vila, den **växer sin viloform** per uppäten bit
+  (`skala()`, ny i libbet) **226 → 258 → 291 → 326 px** och kommer aldrig under den tomma magens
+  underkant (**224,0 mot golvet 224**) — den breder ut sig i stället. Skuttet skakar den av
+  tröghet (`skjut`).
+  **Kedjan syns nu:** bett → tugg → svälj → mage. Magen växer INTE av bettet (26 av 26 tugg-rutor
+  på viloskala 1,000) utan när tuggan sväljs. Kostnaden är inte mätbar (16,67 → 16,63 ms; att
+  mätaren biter bevisat med 25 ms barlast → 26,40 ms).
+  ⚠️ Magens `rorelse` duger INTE som mått på sväljet — monstret skuttar vid varje tugga, och
+  toppen efteråt varierade 27 → 217 mellan två körningar av samma sak. Viloformen är det
+  entydiga måttet.
+
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`566e63a`, v1.118.0).
   `_plattprobe --medbakgrund` mätte **123 654 px = 13 % av skärmen** i EN ton.
   Himlen bakom var redan tonad; bordsskivan tonades först. **MONSTRET var det verkliga

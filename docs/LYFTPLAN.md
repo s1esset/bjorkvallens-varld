@@ -408,8 +408,7 @@ den i spelet hade flakat på hyllans slumpade ordning, inte på koden.
 luften samtidigt, så en tiopunktsring med fyra relaxationsvarv blir 600 villkorspass **och** en
 full omritning av varje bubblas Graphics per bildruta — och resultatet blir SÄMRE att titta på
 (en tiohörning på 40 px läser som en kantig klump, inte som en såphinna). Fjädern på två tal per
-bubbla ger den utdragning ögat faktiskt läser. Kvar i listan: `mata-monstret` · `pruttbad`
-(samma storleksinvändning som såpbubblorna bör prövas där först).
+bubbla ger den utdragning ögat faktiskt läser.
 
 **Verktyg: `scripts/_mjukprobe.mjs`** (Node) — hård form hålls · varm kropp plattas/breder ut
 sig/massan sjunker · knuff syns direkt och studsar tillbaka · fästpunkt · förflyttning · exit.
@@ -443,7 +442,47 @@ som lagt sig kostar **noll** per bildruta.
 skiljbart. (En `fysik-svalt`-varning sågs i 1 av 4 körningar med ändringen och 0 av 3 på HEAD,
 men bildrutetiderna är identiska på tiondelen — det är en maskinhicka, inte en kostnad.)
 
-⬜ Kvar: `sapbubblor` · `mata-monstret` · `hamburgerbygget` · `pruttbad`.
+✅ **Fjärde kund: `mata-monstret` (2026-08-12, natt VI N4).** Radens motiv var "tuggbar mat", och
+det gick inte att bygga som en deformation av MATEN: konstverket i `food.js` är 5–7 lagrade
+`Graphics` per rätt i 18 varianter, det finns ingen enda silhuett att töja, och att baka den till
+en textur är förbjudet (`generateTexture` destabiliserar `test:all`). **Det som gick att bygga är
+det tugget faktiskt är: en TUGGA.** När maten når munnen föds en mjuk klick i matens egen färg
+(`foodColor()`, ny i `food.js`) mellan tandraderna, käken pressar ihop den, och när den sväljs
+tar magen emot — som också blivit en mjuk kropp.
+
+**Munnen ritas nu i TVÅ lager** (gap + tunga bakom tuggan, tänderna framför). Utan delningen kan
+maten aldrig synas *mellan* tandraderna: bakom munnen är den helt dold, framför täcker den
+tänderna. Käkens gap bor därför i ETT tal (`this._jaw`, ett rent `{}`-objekt) — två `Graphics`
+som delar en gsap-tween hade glidit isär en bildruta mitt i ett 0,09 s-tugg, och ett `{}` är
+dessutom exit-säkert.
+
+**MÄTT** (`_tuggprobe.mjs`, 4 av 5 körningar rena, de tröskelvärden som satt nära gränsen är
+uppmätta och vidgade): tuggan **68,6 → 14,8 px hög** när käken går till 0,22 — och den
+hoptryckningen **ÄR** käkens gap (14,8 mot tandradernas beräknade 14,8), inte en tween. Samtidigt
+**buktar den ut 90,0 → 109,5 px** i sidled och håller sig innanför tandraden (bredast 114,5 av
+166). Tuggan **syns**: 3 272 px i ett isolerat lager mot **0 px** i kontrollen med den dold.
+**Magen**: viloform 226×184 px (den gamla ellipsen), `rorelse` **0,0000** i vila, växer
+**226 → 258 → 291 → 326 px** bit för bit och kommer **aldrig** under den tomma magens underkant
+(224,0 mot golvet 224) — den breder ut sig i stället för att hänga ut ur kroppen som den gamla
+skalade ellipsen gjorde. Kostnaden är **inte mätbar** (16,67 → 16,63 ms), och att mätaren biter
+är bevisat separat med 25 ms känd barlast (**16,67 → 26,40 ms**).
+
+**Tre saker mätningen tvingade fram:**
+
+1. **`skala(k)` är ny i libbet.** En mage som fylls måste ändra sin VILOFORM, inte sin `scale` —
+   annars byter den storlek mellan två bildrutor i stället för att växa. Arean är kvadratisk:
+   skalas bara längderna håller det gamla trycket emot hela växten (samma isoperimetri-fälla
+   som `mjukhet()` bär). Uppmätt i `_mjukprobe`: 0 % på bildrutan anropet sker, 1,413× efter
+   90 steg, och fyllnaden kvar på 1,000.
+2. **Magen får INTE ha gravitation.** En bukt i en kropp faller inte, och med tyngd låg
+   underkanten och trycktes mot sitt golv varje bildruta — hamburgerbullens fälla 1, en
+   undersida som aldrig slutar darra. Med `grav: 0` står den på exakt **0,0000** i vila.
+3. **Magens `rorelse` duger inte som mått på sväljet.** Monstret skuttar vid varje tugga och
+   trögheten skakar magen då också: 43 under tugget, och toppen efteråt varierade **27 → 217**
+   mellan två körningar av *samma sak*. Det entydiga måttet är VILOFORMEN — den får bara växa
+   när tuggan är borta (26 av 26 tugg-rutor på 1,000, sedan 1,140).
+
+⬜ Kvar: `pruttbad` (samma storleksinvändning som såpbubblorna bör prövas där först).
 
 ### B3. Rep/kedja är omskrivet fyra gånger **[Medium]** — ✅ SOLVERN BYGGD 2026-08-09 (v1.56.0)
 

@@ -401,4 +401,33 @@ export function foodCat(key) {
   return CAT_BY_KEY[key] || 'frukt'
 }
 
+// Varje mats DOMINERANDE färg — den som kroppen (`body`/`berries`/`frosting`) är
+// fylld med ovan. Tuggan i munnen är en mjuk klick av just den här maten, så den
+// måste bära matens egen färg; en generisk brun klump hade lika gärna kunnat vara
+// vad som helst. Hämtas ur ritningarna för hand eftersom konstverket är Graphics-
+// anrop, inte data — men den står bredvid dem så att en färgändring syns här.
+const FOOD_COLOR = {
+  apple: 0xe23b3b,
+  banana: 0xffce3a,
+  strawberry: 0xe83a4a,
+  cherry: 0xd62b3a,
+  grape: 0x8e6bd0,
+  orange: 0xff9e2c,
+  watermelon: 0xf2566a,
+  pear: 0xbfd84a,
+  carrot: 0xff8a2c,
+  broccoli: 0x4f9a3a,
+  corn: 0xffd84a,
+  tomato: 0xe83a3a,
+  cookie: 0xddb066,
+  cupcake: 0xffd1e0,
+  donut: 0xf06ea9,
+  candy: 0xff5e93,
+  lollipop: 0xff5e93,
+  cake: 0xf4c98a,
+}
+export function foodColor(key) {
+  return FOOD_COLOR[key] ?? 0xe23b3b
+}
+
 export { darken }

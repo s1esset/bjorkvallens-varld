@@ -78,6 +78,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_repprobe.mjs` | verlet-repet: vilolängd · fästpunkt · mjukt stopp · golv · spänd lina — **utan webbläsare** |
 | `node scripts/_mjukprobe.mjs` | mjuka kroppar: håller formen · sjunker när de mjuknar · knuff · exit — **utan webbläsare** |
 | `node scripts/_vobbelprobe.mjs` | vobbeln i ett spel: utslag vid landning · lugnar den sig · tappad volym · exit |
+| `node scripts/_tuggprobe.mjs [--bara-exit\|--kostnad]` | tuggan + magen i `mata-monstret`: käkens gap trycker maten · buktar den ut · syns den (isolerat lager + kontroll) · växer magen vid SVÄLJET · exit |
 | `node scripts/_bullprobe.mjs` · `_stapelprobe.mjs` | hamburgerbullen som mjuk kropp: viloform mot den gamla `roundRect` · sammantryckning · tappade bildrutor — **utan webbläsare** (och samma bulle under en riktig stapel) |
 | `node scripts/_natlinaprobe.mjs` · `_linabild.mjs` | nätlinan mot spelets GAMLA solver (sonden bär den som referens) — **utan webbläsare** · och samma lina skjuten i det levande spelet |
 | `node scripts/_flaktprobe.mjs [N]` | fläktens verkan i FICKOR (släpper N mynt per sida och mäter var de landar) |

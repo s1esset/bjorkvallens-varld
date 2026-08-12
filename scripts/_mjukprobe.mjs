@@ -110,6 +110,35 @@ console.log('\nflytta: kroppen följer med utan att tappa formen')
   ok('mitten har flyttat sig med', m.centrum.x > 200, `x ${m.centrum.x.toFixed(0)}`)
 }
 
+console.log('\nskala: viloformen VÄXER (en mage som fylls)')
+{
+  const m = new Mjukkropp({ x: 0, y: 0, w: 60, h: 48, grav: 0 })
+  m.fast(m.mitt, 0, 0)
+  kor(m, 60)
+  const f0 = mat(m)
+  m.skala(1.4)
+  const direkt = mat(m)
+  kor(m, 90)
+  const f1 = mat(m)
+  console.log(`    vila ${f0.b.toFixed(1)}×${f0.h.toFixed(1)} · direkt ${direkt.b.toFixed(1)}×${direkt.h.toFixed(1)} · efter ${f1.b.toFixed(1)}×${f1.h.toFixed(1)}`)
+  // Poängen med `skala` mot `scale.set` är just att den INTE byter storlek mellan två
+  // bildrutor — kroppen växer av sina egna villkor, alltså syns en fyllning.
+  ok('växer inte på en enda bildruta', Math.abs(direkt.b - f0.b) < f0.b * 0.06, `${f0.b.toFixed(1)} → ${direkt.b.toFixed(1)} px`)
+  ok('men landar på 1,4×', Math.abs(f1.b / f0.b - 1.4) < 0.06 && Math.abs(f1.h / f0.h - 1.4) < 0.06,
+    `${(f1.b / f0.b).toFixed(3)}× bred · ${(f1.h / f0.h).toFixed(3)}× hög`)
+  // Arean är kvadratisk. Skalas bara längderna håller det gamla trycket emot växten.
+  ok('trycket följer med (fyllnaden kvar på 1)', Math.abs(m.fyllnad() - 1) < 0.1, m.fyllnad().toFixed(3))
+  ok('skala() är absolut, inte kumulativ', (() => {
+    m.skala(1.4)
+    m.skala(1.4)
+    kor(m, 60)
+    return Math.abs(mat(m).b / f0.b - 1.4) < 0.06
+  })(), `${(mat(m).b / f0.b).toFixed(3)}× efter tre anrop`)
+  m.skala(1)
+  kor(m, 120)
+  ok('och tillbaka till 1,0', Math.abs(mat(m).b - f0.b) < f0.b * 0.05, `${mat(m).b.toFixed(1)} px mot ${f0.b.toFixed(1)}`)
+}
+
 console.log('\nexit')
 {
   const m = new Mjukkropp({ w: 20, h: 20 })

@@ -25,7 +25,8 @@ import { bounceIn, pop, wiggle, puff, sparkle, ripple, shake, burst, breathe, fl
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
 import { verticalFill, cylinderFill, sphereFill } from '../../lib/form.js'
-import { FOODS, makeFood, foodCat } from './food.js'
+import { Mjukkropp } from '../../lib/mjukkropp.js'
+import { FOODS, makeFood, foodCat, foodColor } from './food.js'
 
 // --- layout (designkoordinater 1280×720) -----------------------------------
 const W = 1280
@@ -42,6 +43,16 @@ const MOUTH_OPEN = 1.0 // fullt gap
 const CATCH_CLEAN_R = 155 // hylla/plinko: så här nära munnens x = REN fångst (valet räknas);
 // längre bort → monstret sträcker sig synligt (mjuk assist, fortfarande no-fail)
 const BELLY_FULL = 0.42 // hur mycket magen växer (skala) från tom till mätt under en runda
+const BELLY_RX = 116 // den TOMMA magens radier (viloformen — oförändrad mot den gamla ellipsen)
+const BELLY_RY = 92
+
+// TUGGAN — den mjuka klick maten blir mellan käkarna (lib/mjukkropp.js).
+const CHEW_W = 96
+const CHEW_H = 62
+const JAW_UP = -32 // övre tandradens INNERkant i munnens egen rymd (samma tal som ritar tänderna)
+const JAW_LOW = 36 // undre tandradens innerkant
+const CHEW_X = 82 // kindernas insida — tuggan får inte buktas ut förbi tandraden
+const CHEW_TID = 0.42 // hur länge tugget varar innan den sväljs (= _chomp-kedjans längd)
 
 const MODES = ['classic', 'walk', 'shelf', 'plinko']
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -126,6 +137,17 @@ export default {
     this._reachSaid = false // "Jag sträcker mig!" sagd en gång per mat
     this._bellyScale = 1 // magen växer per uppäten bit (nollställs per runda)
     this._prefBubble = null // synlig favorit-tankebubbla
+    // Käkens gap bor i ETT tal. Munnen ritas i två lager (gap+tunga bakom tuggan,
+    // tänderna framför den), och två Graphics som delar en gsap-tween hade glidit
+    // isär en bildruta mitt i ett 0,09 s-tugg. Ett rent {}-objekt är dessutom
+    // exit-säkert: gsap kan inte röra en riven Pixi-nod genom det.
+    this._jaw = { y: this._mouthFloor }
+    this._belly = null // mjuk kropp (magen) — se _buildBelly
+    this._chewBody = null // mjuk kropp (tuggan) — lever bara under ett tugg
+    this._chewCall = null
+    this._chewCol = 0xe23b3b
+    this._softAcc = 0 // ackumulator för mjuka kroppars FASTA tidssteg
+    this._prevMy = 0 // monstrets y förra bildrutan (magens tröghet)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -634,6 +656,8 @@ export default {
     // Magen växer ett synligt snäpp per bit (tom → rund vid "mätt"). Wobbeln landar på nya basen.
     const eaten = this._roundCount - this._remaining
     this._bellyScale = 1 + BELLY_FULL * (this._roundCount ? eaten / this._roundCount : 1)
+    // Maten blir en mjuk TUGGA mellan tandraderna; magen växer först när den sväljs.
+    this._startChew(made.key)
     this._reactEat(ctx, pref, m.x, m.y)
     this._shrinkInto(made, m.x, m.y)
     if (this._remaining <= 0) this._finishRound(ctx)
@@ -660,9 +684,10 @@ export default {
   },
 
   // Glad reaktion vid varje tugga (utan vertikalt skutt i lägen där tickern styr y).
+  // Magen skvalpar INTE här — den gör det när tuggan
+  // faktiskt sväljs (`_swallowChew`), så kedjan bett → tugg → svälj → mage syns.
   _reactEat(ctx, pref, x, y) {
     this._chomp()
-    this._bellyWobble()
     this._happyEyes()
     if (this._mode === 'classic') this._hop(pref ? 28 : 18)
     else this._popMonster()
@@ -790,16 +815,28 @@ export default {
       .roundRect(-bw / 2, -bh / 2, bw, bh, br).fill(sphereFill(color, { highlight: 0.34, dark: 0.26 })).stroke({ width: 8, color: dark })
     char.addChild(p.body)
 
-    // Mage (skvalpar vid tugg).
-    p.belly = this._g(0, BELLY_Y)
-    p.belly.ellipse(0, 0, 116, 92).fill({ color: light, alpha: 0.9 })
+    // MAGEN ÄR EN MJUK KROPP (lib/mjukkropp.js), inte en ellips som skalas. Den sväljda
+    // maten ger en riktig knuff uppifrån, viloformen VÄXER per bit (`skala`) och ett
+    // skutt får magen att skvalpa av sin egen tröghet. Viloformen är exakt den gamla
+    // ellipsen, så monstret ser likadant ut när det står stilla.
+    this._bellyCol = light
+    p.belly = this._g(0, 0) // ritas i char-rymd ur kroppens punkter
     char.addChild(p.belly)
+    this._buildBelly()
+    this._drawBelly(true)
 
-    // Mun (synlig målzon). scale.y = käke som gapar/tuggar.
+    // Mun (synlig målzon) i TVÅ lager med TUGGAN emellan: gap + tunga bakom, tänderna
+    // framför. Utan delningen kan maten aldrig synas MELLAN tandraderna — bakom munnen
+    // är den helt dold, framför täcker den tänderna. `this._jaw.y` gapar båda.
     p.mouth = this._g(0, MOUTH_DY)
-    this._drawMouth(p.mouth)
-    p.mouth.scale.set(1, this._mouthFloor)
-    char.addChild(p.mouth)
+    this._drawMouthBack(p.mouth)
+    p.chew = this._g(0, 0) // char-rymd, OSKALAD: tuggan trycks ihop av fysik, inte av scale
+    p.teeth = this._g(0, MOUTH_DY)
+    this._drawTeeth(p.teeth)
+    this._jaw.y = this._mouthFloor
+    p.mouth.scale.set(1, this._jaw.y)
+    p.teeth.scale.set(1, this._jaw.y)
+    char.addChild(p.mouth, p.chew, p.teeth)
 
     // Ögon (följer maten, blinkar).
     const eL = this._makeEye(-EYE_DX, EYE_Y)
@@ -840,10 +877,14 @@ export default {
     char.addChild(p.earL, p.earR)
   },
 
-  _drawMouth(g) {
+  _drawMouthBack(g) {
     g.clear()
     g.roundRect(-96, -58, 192, 116, 38).fill(0x6e2530) // gap
     g.roundRect(-54, 14, 108, 46, 24).fill(0xe06b86) // tunga
+  },
+
+  _drawTeeth(g) {
+    g.clear()
     for (const tx of [-78, -36, 6, 48, 82]) g.roundRect(tx - 13, -58, 26, 26, 8).fill(0xffffff) // övre tänder
     for (const tx of [-58, -14, 30, 70]) g.roundRect(tx - 12, 36, 24, 22, 7).fill(0xffffff) // undre tänder
   },
@@ -883,26 +924,176 @@ export default {
 
   // ---- monster-reaktioner -------------------------------------------------
 
+  // Käken: TVÅ bett med ett gap emellan (0,45 s totalt = CHEW_TID + svälj). Tweenen går
+  // på `this._jaw`, ett rent tal-objekt — båda munlagren OCH tuggans väggar läser samma
+  // värde samma bildruta.
   _chomp() {
-    const m = this._parts.mouth
-    if (!m || m.destroyed) return
+    if (!this._parts.mouth) return
     this._chomping = true
-    gsap.killTweensOf(m.scale)
+    gsap.killTweensOf(this._jaw)
     gsap.timeline({ onComplete: () => { this._chomping = false } })
-      .to(m.scale, { y: 0.16, duration: 0.09, ease: 'power2.in' })
-      .to(m.scale, { y: 0.95, duration: 0.12, ease: 'back.out(2)' })
-      .to(m.scale, { y: 0.3, duration: 0.08 })
-      .to(m.scale, { y: this._mouthFloor, duration: 0.16, ease: 'back.out(2)' })
+      .to(this._jaw, { y: 0.16, duration: 0.09, ease: 'power2.in' })
+      .to(this._jaw, { y: 0.95, duration: 0.12, ease: 'back.out(2)' })
+      .to(this._jaw, { y: 0.3, duration: 0.08 })
+      .to(this._jaw, { y: this._mouthFloor, duration: 0.16, ease: 'back.out(2)' })
   },
 
-  _bellyWobble() {
-    const b = this._parts.belly
-    if (!b || b.destroyed) return
-    const base = this._bellyScale || 1 // växande mage: skvalpet landar på nuvarande mättnad
-    gsap.killTweensOf(b.scale)
-    gsap.timeline()
-      .to(b.scale, { y: base * 1.2, x: base * 0.9, duration: 0.12 })
-      .to(b.scale, { y: base, x: base, duration: 0.5, ease: 'elastic.out(1, 0.45)' })
+  // ---- magen som mjuk kropp ----------------------------------------------
+
+  _buildBelly() {
+    this._belly?.destroy()
+    // Ingen gravitation: en mage är en BUKT i kroppen, inte något som faller. Med tyngd
+    // hade underkanten legat och tryckas mot sitt golv varje bildruta och shimrat i vila
+    // (hamburgerbullens fälla 1) — nu står den på exakt 0 tills något händer.
+    this._belly = new Mjukkropp({
+      x: 0, y: BELLY_Y, w: BELLY_RX * 2, h: BELLY_RY * 2,
+      punkter: 14, grav: 0, damp: 0.9, iter: 5, styvhet: 0.8, maxSpeed: 18,
+    })
+    // Magen sitter FAST i kroppen: mittpunkten är spikad, ringen är fri. Utan spiken
+    // driver magen ur monstret; med hela ringen spikad är den ingen mjuk kropp alls.
+    this._belly.fast(this._belly.mitt, 0, BELLY_Y)
+    this._bellyGolv = BELLY_Y + BELLY_RY // den TOMMA magens underkant
+  },
+
+  // MAGEN VÄXER ALDRIG NEDÅT UT UR KROPPEN. Golvet ligger exakt vid den tomma magens
+  // underkant, så viloformen är oförändrad — men när magen fylls måste massan ta vägen
+  // någonstans, och den vägen är UTÅT. Farten nollas i klämman, annars matar väggen in
+  // rörelse och undersidan slutar aldrig darra.
+  _bellyKlam() {
+    const m = this._belly
+    if (!m || !m.pts.length) return
+    const golv = this._bellyGolv
+    for (let i = 0; i < m.n; i++) {
+      const p = m.pts[i]
+      if (p.y > golv) {
+        p.y = golv
+        p.py = golv
+      }
+    }
+  },
+
+  // Ett skvalp. Kraften kommer UPPIFRÅN (där svalget är) och har en riktning — en mjuk
+  // kropp som bara skalpulsar är en tween med extra steg.
+  _bellyWobble(cx = 0, kraft = 9) {
+    const m = this._belly
+    if (!m || !m.pts.length) return
+    m.knuff(cx, BELLY_Y - BELLY_RY - 26, kraft, 180)
+  },
+
+  _drawBelly(force = false) {
+    const g = this._parts.belly
+    const m = this._belly
+    if (!g || g.destroyed || !m || !m.pts.length) return
+    if (!force && this._bellyRorelse() < 0.02) return // ritas om på RÖRELSE, inte varje bildruta
+    m.path(g.clear()).fill({ color: this._bellyCol, alpha: 0.9 })
+  },
+
+  _bellyRorelse() {
+    const m = this._belly
+    if (!m || !m.pts.length) return 0
+    let s = 0
+    for (let i = 0; i < m.n; i++) {
+      const p = m.pts[i]
+      s += Math.abs(p.x - p.px) + Math.abs(p.y - p.py)
+    }
+    return s
+  },
+
+  // ---- tuggan: maten blir en mjuk klick som käken faktiskt trycker ihop ----
+
+  _startChew(key) {
+    this._killChew()
+    if (!this._parts.chew || this._parts.chew.destroyed) return
+    this._chewCol = foodColor(key)
+    this._chewBody = new Mjukkropp({
+      x: 0, y: MOUTH_DY + 2, w: CHEW_W, h: CHEW_H,
+      punkter: 12, grav: 0.05, damp: 0.86, iter: 5, styvhet: 0.55, maxSpeed: 20,
+    })
+    this._chewBody.mjukhet(0.5)
+    this._drawChew(true)
+    this._chewCall = gsap.delayedCall(CHEW_TID, () => this._swallowChew())
+  },
+
+  // KÄKEN ÄR TVÅ VÄGGAR SOM RÖR SIG. Tuggan plattas till för att tandraderna faktiskt
+  // kommer emot den — inte av en scale — och bukten ut i sidled är trycket som söker
+  // tillbaka sin area. Innerkanterna räknas ur samma `_jaw.y` som ritar tänderna, så
+  // det barnet ser är det som räknas.
+  _chewKlam() {
+    const m = this._chewBody
+    if (!m || !m.pts.length) return
+    const jaw = this._jaw.y
+    const yU = MOUTH_DY + JAW_UP * jaw
+    const yL = MOUTH_DY + JAW_LOW * jaw
+    for (let i = 0; i < m.n; i++) {
+      const p = m.pts[i]
+      if (p.y < yU) {
+        p.y = yU
+        p.py = yU
+      } else if (p.y > yL) {
+        p.y = yL
+        p.py = yL
+      }
+      if (p.x < -CHEW_X) {
+        p.x = -CHEW_X
+        p.px = -CHEW_X
+      } else if (p.x > CHEW_X) {
+        p.x = CHEW_X
+        p.px = CHEW_X
+      }
+    }
+  },
+
+  _drawChew(force = false) {
+    const g = this._parts.chew
+    if (!g || g.destroyed) return
+    const m = this._chewBody
+    if (!m || !m.pts.length) {
+      if (force) g.clear()
+      return
+    }
+    m.path(g.clear()).fill(this._chewCol).stroke({ width: 4, color: darken(this._chewCol, 0.3), alpha: 0.75 })
+  },
+
+  // Sväljt: tuggan försvinner ner och magen tar emot den — knuffen kommer från där
+  // tuggan faktiskt låg, så en bit som gick ner snett skvalpar snett.
+  _swallowChew() {
+    const cx = this._chewBody && this._chewBody.pts.length ? this._chewBody.centrum.x : 0
+    this._killChew()
+    this._belly?.skala(this._bellyScale)
+    this._bellyWobble(cx * 0.5, 9)
+  },
+
+  _killChew() {
+    this._chewCall?.kill()
+    this._chewCall = null
+    this._chewBody?.destroy()
+    this._chewBody = null
+    const g = this._parts.chew
+    if (g && !g.destroyed) g.clear()
+  },
+
+  // FAST TIDSSTEG för båda kropparna. `damp` och villkorsstyvheten räknas per STEG men
+  // kraftfälten per f² — ett för stort steg ger en annan kropp, ett för litet en annan
+  // JÄMVIKT, och då mäter sonden aldrig samma sak som spelet gör (LYFTPLAN B2, fälla 2).
+  _softStep(dtMS) {
+    this._softAcc += dtMS / (1000 / 60)
+    if (this._softAcc > 4) this._softAcc = 4 // en bortkopplad flik ska inte simuleras ikapp
+    let n = 0
+    while (this._softAcc >= 1 && n < 4) {
+      this._softAcc -= 1
+      n++
+      if (this._belly) {
+        this._belly.steg(1)
+        this._bellyKlam()
+      }
+      if (this._chewBody) {
+        this._chewBody.steg(1)
+        this._chewKlam()
+      }
+    }
+    if (!n) return
+    this._drawBelly()
+    if (this._chewBody) this._drawChew()
   },
 
   _happyEyes() {
@@ -978,8 +1169,7 @@ export default {
 
   // Munnen gapar mjukt när maten närmar sig (om vi inte just tuggar).
   _mouthFollow(food) {
-    const m = this._parts.mouth
-    if (!m || m.destroyed || this._chomping) return
+    if (!this._parts.mouth || this._chomping) return
     const floor = this._mouthFloor
     let target = floor
     if (food) {
@@ -988,7 +1178,7 @@ export default {
       const o = clamp((ANTIC_R - dist) / (ANTIC_R - EAT_R), 0, 1)
       target = floor + o * (MOUTH_OPEN - floor)
     }
-    m.scale.y += (target - m.scale.y) * 0.25
+    this._jaw.y += (target - this._jaw.y) * 0.25
   },
 
   // ---- liv & ticker -------------------------------------------------------
@@ -1027,6 +1217,24 @@ export default {
     this._gaze(food)
     this._mouthFollow(food)
     this._positionPrefBubble()
+
+    // Käkens gap: ETT tal → båda munlagren, samma bildruta (se `this._jaw`).
+    const pm = this._parts.mouth
+    const pt = this._parts.teeth
+    if (pm && !pm.destroyed) pm.scale.y = this._jaw.y
+    if (pt && !pt.destroyed) pt.scale.y = this._jaw.y
+
+    // TRÖGHET: monstret skuttar och går, magen hänger efter. `skjut` är en impuls —
+    // den läses som fart av verlet — och den är proportionell mot hur långt monstret
+    // faktiskt rörde sig, alltså aldrig en ihållande kraft (se falt()-varningen).
+    const my = this._monster.y
+    if (this._belly && this._prevMy) {
+      const dy = clamp((this._prevMy - my) / (this._mscale || 1), -14, 14)
+      if (Math.abs(dy) > 0.05) this._belly.skjut(0, dy * 0.5)
+    }
+    this._prevMy = my
+
+    this._softStep(ticker.deltaMS)
 
     if (!this._resolving && (mode === 'shelf' || mode === 'plinko') && this._flightFood) this._updateFlight(ctx, dt)
 
@@ -1221,7 +1429,7 @@ export default {
     this._serveCall?.kill()
 
     this._chomp()
-    this._bellyWobble()
+    this._bellyWobble(0, 13) // mätt och belåten: ett rejält skvalp i den fulla magen
     this._happyEyes()
     if (this._mode === 'classic') this._hop(40)
     else this._popMonster()
@@ -1252,7 +1460,7 @@ export default {
 
   _charObjs() {
     const p = this._parts
-    return [p.feet, p.earL, p.earR, p.body, p.belly, p.mouth, p.eyeL, p.eyeR, p.cheeks].filter(Boolean)
+    return [p.feet, p.earL, p.earR, p.body, p.belly, p.mouth, p.chew, p.teeth, p.eyeL, p.eyeR, p.cheeks].filter(Boolean)
   },
 
   _killTweens(objs) {
@@ -1268,6 +1476,15 @@ export default {
     this._blinkTimer = null
     this._bodyBreathe?.kill()
     this._bodyBreathe = null
+    // Mjuka kroppar och käktweenen hänger på {}-objekt, inte på Pixi-noder — de måste
+    // rivas för hand, annars stegar en riven mage vidare i tickern.
+    gsap.killTweensOf(this._jaw)
+    this._chomping = false
+    this._killChew()
+    this._belly?.destroy()
+    this._belly = null
+    this._softAcc = 0
+    this._prevMy = 0
     this._killTweens(this._charObjs())
     if (this._char) {
       this._char.destroy({ children: true })
@@ -1360,6 +1577,12 @@ export default {
     this._nextCall?.kill()
     this._serveCall?.kill()
     this._hint?.kill()
+    this._chewCall?.kill()
+    gsap.killTweensOf(this._jaw)
+    this._chewBody?.destroy()
+    this._chewBody = null
+    this._belly?.destroy()
+    this._belly = null
 
     // DragController river sina lyssnare och dödar matens view-tweens.
     this._drag?.destroy()

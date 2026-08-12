@@ -11,6 +11,7 @@
 //   const m = new Mjukkropp({ w: 40, h: 52, punkter: 14, grav: 0.35 })
 //   m.fast(m.topp, x, y)          // pinnen håller i toppen
 //   m.mjukhet(rostning)           // 0 = fast socker, 1 = nästan rinnande
+//   m.skala(1.4)                  // viloformen VÄXER (en mage som fylls)
 //   m.steg(dtF)
 //   m.path(g.clear()).fill(col).stroke({ width: 3, color: edge })
 //
@@ -71,6 +72,31 @@ export class Mjukkropp {
       this._eker.push(Math.hypot(this.pts[i].x - x, this.pts[i].y - y))
     }
     this._viloArea = Math.abs(this._area())
+    // Byggmåtten sparas orörda — `skala()` räknar ALLTID från dem, aldrig från nuläget.
+    this._kant0 = this._kant.slice()
+    this._eker0 = this._eker.slice()
+    this._viloArea0 = this._viloArea
+    this._skala = 1
+  }
+
+  // VÄXA (eller krympa) viloformen. `k` är absolut mot byggmåttet, inte kumulativt:
+  // `skala(1.4)` betyder alltid 40 % större än den byggda kroppen, hur många gånger
+  // den än anropas. Kroppen växer sedan av sina egna villkor över några bildrutor —
+  // det är skillnaden mellan en mage som FYLLS och en `scale.set()` som byter storlek
+  // mellan två bildrutor.
+  //
+  // ⚠️ Arean är kvadratisk. Skalas bara längderna behåller trycket sin gamla viloarea
+  // och håller emot hela växten (samma isoperimetri-fälla som `mjukhet()` beskriver).
+  skala(k) {
+    const s = Math.max(0.05, k)
+    if (s === this._skala) return this
+    this._skala = s
+    for (let i = 0; i < this.n; i++) {
+      this._kant[i] = this._kant0[i] * s
+      this._eker[i] = this._eker0[i] * s
+    }
+    this._viloArea = this._viloArea0 * s * s
+    return this
   }
 
   // 0 = håller formen, 1 = nästan rinnande. Sänker villkorens styvhet OCH trycket,
@@ -336,6 +362,8 @@ export class Mjukkropp {
     this.pts = []
     this._kant = []
     this._eker = []
+    this._kant0 = []
+    this._eker0 = []
     this._pin.clear()
   }
 }

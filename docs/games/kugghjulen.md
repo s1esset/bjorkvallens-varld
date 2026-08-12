@@ -78,6 +78,14 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   ett hjul driver kedjan vidare mot målet OCH en fläkt via en gren. Grenen ligger utanför
   `solution`, alltså utanför frontier/spök-hint/auto-hjälp/vinstvillkor: en **bonus**, aldrig
   ett krav. `_grenprobe.mjs` vaktar (17 kontroller).
+  ~~**[Deep] Back-hjul som vänder karusellen**~~ ✅ v1.178.0 — **den korsade remmen**
+  (form 1 nedan). Ett tryck mitt på den lagda remmen korsar den: spannen byter från de
+  YTTRE tangenterna till de INRE, länken bär −1 i stället för +1, och målhjulet +
+  karusellen snurrar åt andra hållet. `_korsprobe.mjs` vaktar (21 kontroller),
+  `_korsbild.mjs` visar X:et. Vinstvillkoret är orört — flaggan hissas på |Δvinkel|,
+  så en vändning kan aldrig ta bort framsteg. Resonemanget som ledde hit står kvar
+  nedan, för det är själva skälet att det INTE gick att bygga som ett extra hjul:
+
   **[Deep] Back-hjul som vänder karusellen — punkten är OMFORMULERAD, inte klar.**
   Den uppenbara byggnaden (ett extra hjul i ett gap, som remmen) **kan inte fungera**, och det
   följer direkt ur spelets egen länkregel `factor[v] = factor[u] · (e.rem ? 1 : −1) · r_u/r_v`:
@@ -126,6 +134,50 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   "maskinen drar igång"-svep när vevningen startar.
 
 ## 5. Status / loggar
+
+- 2026-08-12 ⚙️ **NATTKÖ N2b: DEN KORSADE REMMEN — riktningen blir barnets val** (v1.178.0).
+  Kuggar vänder alltid riktningen, så en kedja av dem kan bara ge det håll pariteten råkar ge.
+  Remmen är spelets enda del som kan **välja**: rak behåller hållet, korsad vänder det. Ett
+  tryck mitt på den lagda remmen växlar, och X:et är det enda en tvååring behöver se.
+  - **Kön sa "rör `_remTangenter` → `t1`/`t2` och låt `lank(ia, ib, true)` bära −1".** Halva
+    den beskrivningen fanns inte i koden: funktionen heter `remTangenter` och är **fri**, inte
+    en metod. Länkdelen stämde till andemeningen men `lank()` tog en **boolean** (`rem`), inte
+    ett tecken — den bär nu `tecken` (−1 kugg · +1 rak rem · −1 korsad rem) och `factor[v] =
+    factor[u] · e.tecken · r_u/r_v`. För en ren kuggkedja är talet bit för bit detsamma.
+  - **Geometrin är hela bygget.** Rak rem = de **yttre** tangenterna (cos ψ = (r_a − r_b)/d),
+    korsad = de **inre** (cos ψ = (r_a + r_b)/d) med beröringspunkten på B speglad. Omslaget
+    på B måste byta båge samtidigt: rak rem lindar `2ψ` på B och `2π − 2ψ` på A (**exakt ett
+    varv totalt**), korsad lindar `2π − 2ψ` på **båda** — uppmätt **360° mot 464°**. En korsad
+    rem greppar mer av båda hjulen, och det syns i bilden.
+  - **Två skilda noder för tryck och puls, med flit.** `vandZon` bär `hitArea` och rör sig
+    aldrig; `vandRing` är den som andas. Samma fälla som `sortera-skrap`s tunnor: en träffyta
+    som guppar flyttar sig undan fingret.
+  - **Ytan är DÖD tills remmen greppar** (`eventMode = 'none'`, inte en tyst bortare i
+    hanteraren) — `_tystprobe`s `dod-traffyta`. Ringen vaknar först när maskinen FAKTISKT går,
+    av samma skäl som remspårets egen ring en gång fick sluta pulsa från nivåstart: två
+    pulserande mål tävlar om blicken.
+  - **No-fail är orört.** `_flagProgress` summerar `|Δvinkel|`, alltså åt båda hållen. Uppmätt:
+    **1,00 mot 1,00** på samma vevning rakt och korsat — att vända kan aldrig ta bort framsteg.
+  - **MÄTT** (`_korsprobe.mjs`, **21 gröna**; HEAD kommer bara till rad 3): målfaktor
+    **−1,00 → +1,00** med **oförändrad storlek**, spannen skär varandra vid **56 %** av bandet
+    (raka spann skär inte alls), ett **riktigt pointerdown** på (x, y) vänder den, målhjulet
+    snurrar **+1,00 rad mot −1,00 rad** på samma vevning, träffytan **100 px** med **33 px**
+    luft till närmaste hjul, och repet piskar inte vid omläggningen (värsta bildrutan =
+    viloläget, 617 px).
+    ⚠️ De tre **KALIBRERINGS**-raderna är gröna på HEAD också — det är hela poängen med dem:
+    de visar att mätaren säger samma sak i båda armarna och att den raka remmen är orörd.
+  - **Två rader flakade — och felet satt i MÄTAREN.** Under full `test:all`-last föll "lika
+    snabbt åt båda hållen" och "flaggan hissas lika mycket" på **0,95 mot 1,00**, alltså 19 av
+    20 drivna steg. `requestAnimationFrame` och Pixis ticker är **två köer**: sonden hann läsa
+    `_targetWheel.rotation` före den sista bildrutans `_stegMaskin`. Vevfarten är 0, så
+    ingenting händer av sig självt — fyra extra bildrutor före avläsningen låter bara det sista
+    steget landa. **4 av 4 gröna under samma last** efteråt (3 av 3 rena körningar dessförinnan
+    dolde felet helt). Ett tal som stämmer på en tom maskin och inte på en lastad är oftast
+    sondens kö, inte spelets fysik — men det får aldrig antas, det måste reproduceras.
+  - **Bilden avgjorde en sak sonden inte kunde se.** Vänd-symbolens första version ritades med
+    bågar vars pilspetsar låg på radien; alla tal var gröna och den läste som en **hink** med
+    en hack i. Pilspetsen måste peka längs **tangenten**. `_korsbild.mjs` sparar rak/korsad
+    sida vid sida.
 
 - 2026-08-10 ⚙️ **NATTKÖ N2a: DUBBELHJULET — ett hjul driver två grenar** (v1.132.0, nivå 8).
   **Mesh-grafen behövde inte ändras en rad.** `_rebuildMesh` länkar rent geometriskt och BFS:en

@@ -389,7 +389,7 @@ export default {
     }
 
     this._positionMachine()
-    if (rem) this._setupRem(rem)
+    if (rem) this._setupRem(ctx, rem)
 
     // (Åter)registrera dispensrar som drag-källor.
     for (const size of ['S', 'M', 'L']) {
@@ -603,7 +603,7 @@ export default {
   // läsbar för ett barn: när ett hjul saknas HÄNGER den slak, och i samma stund
   // den greppar spänns den.
 
-  _setupRem(rem) {
+  _setupRem(ctx, rem) {
     const A = this._remNod(rem.aRef)
     const B = this._remNod(rem.bRef)
     rem.slot = { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 }
@@ -637,10 +637,38 @@ export default {
     rem.slotView = slot
     rem.slotBreathe = null
     rem._sagt = false
-    // ⚠️ RINGEN FÅR INTE ANDAS FRÅN NIVÅSTART. Då pulsar den samtidigt som spök-kuggen
-    // på första pinnen, och två pulserande mål tävlar om blicken innan barnet ens lagt
-    // sitt första hjul. Den vaknar i `_updateHint`, när remmen FAKTISKT är nästa del.
+    // ⚠️ REMSPÅRETS RING FÅR INTE ANDAS FRÅN NIVÅSTART. Då pulsar den samtidigt som
+    // spök-kuggen på första pinnen, och två pulserande mål tävlar om blicken innan
+    // barnet ens lagt sitt första hjul. Den vaknar i `_updateHint`, när remmen
+    // FAKTISKT är nästa del. (Vänd-ringen nedan lyder samma regel, se
+    // `_uppdateraVandRing`.)
     this._drag.addTarget(slot, (d) => !this._resolving && !!d?.rem, { hitRadius: REM_SNAPP })
+
+    // VÄND-YTAN: ett tryck mitt på remmen korsar den (och tvärtom). Två skilda noder
+    // med flit — ringen andas, och en träffyta som guppar flyttar sig undan fingret
+    // (samma fälla som `sortera-skrap`s tunnor: animera aldrig noden som bär hitArea).
+    // Ytan ligger på `rem.slot`, alltså exakt där remspårets P0-luft redan är mätt.
+    const vand = new Graphics()
+    vand.position.set(rem.slot.x, rem.slot.y)
+    vand.hitArea = new Circle(0, 0, 50) // 100 px träffyta ≥ P0:s 96
+    vand.eventMode = 'none' // vaknar först när remmen greppar (`_rebuildMesh`)
+    vand.cursor = 'pointer'
+    this._pegLayer.addChild(vand)
+    rem.vandZon = vand
+
+    const ring = new Graphics()
+    ring.position.set(rem.slot.x, rem.slot.y)
+    ring.eventMode = 'none'
+    ring.visible = false
+    this._pegLayer.addChild(ring)
+    rem.vandRing = ring
+    rem.vandPuls = null
+    rem.vandad = false
+    rem.korsad = false
+    rem._korsadFore = false
+    rem._vandSagt = false
+    rem._onVand = () => this._vandRem(ctx)
+    vand.on('pointerdown', rem._onVand)
 
     this._rem = rem
   },
@@ -652,7 +680,13 @@ export default {
     rem.slotBreathe?.kill?.()
     rem.hint?.kill?.()
     rem.flyg?.kill?.()
-    for (const v of [rem.view, rem.ghost, rem.slotView]) {
+    rem.vandPuls?.kill?.()
+    rem.vandPuls = null
+    if (rem.vandZon && !rem.vandZon.destroyed) {
+      rem.vandZon.eventMode = 'none'
+      if (rem._onVand) rem.vandZon.off('pointerdown', rem._onVand)
+    }
+    for (const v of [rem.view, rem.ghost, rem.slotView, rem.vandZon, rem.vandRing]) {
       if (v && !v.destroyed) {
         gsap.killTweensOf(v)
         gsap.killTweensOf(v.scale)
@@ -726,6 +760,97 @@ export default {
     this._rebuildMesh(ctx)
   },
 
+  // ---- Vänd remmen: rak ⇄ korsad ------------------------------------------
+  //
+  // Kuggar vänder alltid riktningen, så en kedja av dem kan bara ge de två håll
+  // pariteten råkar ge. Remmen är den enda del som kan välja: rak behåller hållet,
+  // korsad vänder det. Barnet ser ett X och karusellen som byter håll — mekaniskt
+  // sant och begripligt utan ett ord.
+  //
+  // Vinstvillkoret rörs INTE: flaggan hissas på |Δvinkel|, alltså åt båda hållen
+  // (`_stegMaskin`). Att vända kan därför aldrig ta bort framsteg — no-fail står.
+  _vandRem(ctx) {
+    const rem = this._rem
+    if (!this._alive || this._resolving || !rem || !rem.placed || !rem.gripping) return
+    rem.korsad = !rem.korsad
+    rem.vandad = true
+    this._idle = 0
+    this._helpIdle = 0
+    this._slackVandRing()
+
+    // Återkoppling <100 ms: ljud + bild i samma bildruta som trycket.
+    ctx.services.audio.sfx('flip')
+    ctx.services.audio.tone?.(rem.korsad
+      ? { freq: 150, slideTo: 330, dur: 0.2, type: 'sine', vol: 0.4 }
+      : { freq: 330, slideTo: 150, dur: 0.2, type: 'sine', vol: 0.4 })
+    sparkle(ctx.fxLayer, rem.slot.x, rem.slot.y, { count: 7 })
+
+    // Riktningen räknas om direkt: BFS:en läser `rem.korsad` på länken.
+    this._rebuildMesh(ctx)
+
+    // Karusellen är det barnet tittar på — låt den kvittera med en liten studs.
+    if (this._carousel && !this._carousel.destroyed) this._popScale(this._carousel, 1.14)
+    this._setElvira(rem.korsad ? '😮' : '😊')
+    if (!rem._vandSagt) {
+      rem._vandSagt = true
+      ctx.services.voice.say('Nu snurrar den åt andra hållet!')
+    }
+  },
+
+  // Ringen som visar att remmen går att trycka på. Den vaknar först när maskinen
+  // FAKTISKT går — under bygget tävlar den annars med spök-kuggen om blicken,
+  // precis som remspårets egen ring en gång gjorde.
+  _uppdateraVandRing() {
+    const rem = this._rem
+    if (!rem || !rem.vandRing || rem.vandRing.destroyed) return
+    const vill = !!rem.placed && !!rem.gripping && !rem.vandad && !this._resolving && this._chainComplete
+    if (vill === !!rem.vandPuls) return
+    if (!vill) return this._slackVandRing()
+
+    // Två bågar med var sin pilspets, 180° isär: den vedertagna "vänd"-symbolen.
+    // Pilspetsen sitter i bågens SLUT och pekar längs tangenten — en pil ritad på
+    // radien pekar in mot mitten och läser som ett streck, inte som en riktning.
+    const g = rem.vandRing.clear()
+    const R = 40
+    const A0 = 0.55
+    const A1 = 2.5
+    for (const v of [0, Math.PI]) {
+      g.moveTo(Math.cos(A0 + v) * R, Math.sin(A0 + v) * R).arc(0, 0, R, A0 + v, A1 + v)
+    }
+    g.stroke({ width: 7, color: COLORS.inkSoft, alpha: 0.5, cap: 'round' })
+    for (const v of [0, Math.PI]) {
+      const a = A1 + v
+      const px = Math.cos(a) * R
+      const py = Math.sin(a) * R
+      const tx = -Math.sin(a) // tangent åt växande vinkel = pilens riktning
+      const ty = Math.cos(a)
+      const nx = Math.cos(a)
+      const ny = Math.sin(a)
+      g.moveTo(px + tx * 17, py + ty * 17)
+        .lineTo(px + nx * 12 - tx * 2, py + ny * 12 - ty * 2)
+        .lineTo(px - nx * 12 - tx * 2, py - ny * 12 - ty * 2)
+        .closePath()
+    }
+    g.fill({ color: COLORS.inkSoft, alpha: 0.5 })
+    rem.vandRing.visible = true
+    rem.vandRing.scale.set(1)
+    rem.vandPuls = gsap.to(rem.vandRing.scale, {
+      x: 1.12, y: 1.12, duration: 0.8, yoyo: true, repeat: -1, ease: 'sine.inOut',
+    })
+  },
+
+  _slackVandRing() {
+    const rem = this._rem
+    if (!rem) return
+    rem.vandPuls?.kill()
+    rem.vandPuls = null
+    if (rem.vandRing && !rem.vandRing.destroyed) {
+      gsap.killTweensOf(rem.vandRing.scale)
+      rem.vandRing.scale.set(1)
+      rem.vandRing.visible = false
+    }
+  },
+
   // Remmen slöt kedjan: ett gummiartat "flopp" i stället för kuggarnas klonk.
   _onRemGrips(ctx) {
     const rem = this._rem
@@ -793,10 +918,13 @@ export default {
     const yta = this._remOmega(rem.aRef) * A.r || this._remOmega(rem.bRef) * B.r
     rem.phase += yta * dt
 
-    if (!rem._seedad || rem._griperFore !== griper) {
+    // Lägg om repet när remmen VÄNDS också — annars piskar den in från förra
+    // bildrutans raka form och X:et föds som en knut.
+    if (!rem._seedad || rem._griperFore !== griper || rem._korsadFore !== rem.korsad) {
       this._seedRem(rem, AL, BL, griper)
       rem._seedad = true
       rem._griperFore = griper
+      rem._korsadFore = rem.korsad
     }
     this._ritaRemBana(rem.view.clear(), AL, BL, griper, REM_BREDD, rem, dt)
   },
@@ -804,7 +932,7 @@ export default {
   // Lägg repets punkter längs den räta linjen de ska spännas mellan — annars
   // piskar remmen in från förra bildrutans form när den byter läge.
   _seedRem(rem, A, B, griper) {
-    const spann = griper ? remTangenter(A, B) : null
+    const spann = griper ? remTangenter(A, B, !!rem.korsad) : null
     const fri = griper ? null : remFriaAndar(A, B)
     const lagg = (rep, ax, ay, bx, by) => {
       rep.pts = []
@@ -843,13 +971,21 @@ export default {
       return
     }
 
-    const { beta, psi, t1, t2 } = remTangenter(A, B)
+    const korsad = !!rem?.korsad
+    const { beta, psi, t1, t2 } = remTangenter(A, B, korsad)
     const bagA = (gg) => gg
       .moveTo(A.x + A.r * Math.cos(beta + psi), A.y + A.r * Math.sin(beta + psi))
       .arc(A.x, A.y, A.r, beta + psi, beta + Math.PI * 2 - psi)
-    const bagB = (gg) => gg
-      .moveTo(B.x + B.r * Math.cos(beta - psi), B.y + B.r * Math.sin(beta - psi))
-      .arc(B.x, B.y, B.r, beta - psi, beta + psi)
+    // Rak rem: omslaget på B är den KORTA bågen mot A (tillsammans blir de ett varv).
+    // Korsad rem: båda hjulen lindas på sin bortre sida, alltså 2π−2ψ vardera — en
+    // korsad rem greppar mer av båda hjulen, och det syns.
+    const bagB = korsad
+      ? (gg) => gg
+        .moveTo(B.x - B.r * Math.cos(beta + psi), B.y - B.r * Math.sin(beta + psi))
+        .arc(B.x, B.y, B.r, beta + Math.PI + psi, beta + Math.PI * 3 - psi)
+      : (gg) => gg
+        .moveTo(B.x + B.r * Math.cos(beta - psi), B.y + B.r * Math.sin(beta - psi))
+        .arc(B.x, B.y, B.r, beta - psi, beta + psi)
 
     if (rem) {
       rem.repA.spann(t1.ax, t1.ay, t1.bx, t1.by, REM_SPAND)
@@ -1053,16 +1189,19 @@ export default {
     const n = nodes.length
 
     const adj = nodes.map(() => [])
-    const lank = (i, j, rem) => {
-      adj[i].push({ to: j, rem })
-      adj[j].push({ to: i, rem })
+    // `tecken` = vad länken gör med rotationsriktningen. Kuggar vänder (−1), en RAK
+    // rem behåller (+1) och en KORSAD rem vänder (−1) — det är hela mekaniken bakom
+    // X:et, och den bor på länken, inte på djupet.
+    const lank = (i, j, tecken) => {
+      adj[i].push({ to: j, tecken })
+      adj[j].push({ to: i, tecken })
     }
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
         const a = nodes[i]
         const b = nodes[j]
         const dist = Math.hypot(a.x - b.x, a.y - b.y)
-        if (Math.abs(dist - (a.r + b.r)) < MESH_TOL) lank(i, j, false)
+        if (Math.abs(dist - (a.r + b.r)) < MESH_TOL) lank(i, j, -1)
       }
     }
 
@@ -1074,7 +1213,7 @@ export default {
       const ia = this._remNodIndex(rem.aRef, nodes)
       const ib = this._remNodIndex(rem.bRef, nodes)
       if (ia >= 0 && ib >= 0) {
-        lank(ia, ib, true)
+        lank(ia, ib, rem.korsad ? -1 : 1)
         remGriper = true
       }
     }
@@ -1085,10 +1224,11 @@ export default {
       g.factor = 0
     }
 
-    // BFS från veven. Riktning och utväxling bärs nu av LÄNKEN, inte av djupet:
-    // kuggar vänder riktningen, remmen behåller den, och båda för över ytfarten
-    // (ω_v = ω_u · r_u / r_v). För en ren kuggkedja är det exakt samma tal som den
-    // gamla djupparitets-formeln gav — remmen är enda stället de skiljer sig åt.
+    // BFS från veven. Riktning och utväxling bärs av LÄNKEN, inte av djupet: kuggar
+    // vänder riktningen, en rak rem behåller den, en korsad vänder den, och alla för
+    // över ytfarten (ω_v = ω_u · r_u / r_v). För en ren kuggkedja är det exakt samma
+    // tal som den gamla djupparitets-formeln gav — remmen är enda stället de skiljer
+    // sig åt.
     const depth = new Array(n).fill(-1)
     const factor = new Array(n).fill(0)
     depth[0] = 0
@@ -1100,7 +1240,7 @@ export default {
         const v = e.to
         if (depth[v] < 0) {
           depth[v] = depth[u] + 1
-          factor[v] = factor[u] * (e.rem ? 1 : -1) * (nodes[u].r / nodes[v].r)
+          factor[v] = factor[u] * e.tecken * (nodes[u].r / nodes[v].r)
           q.push(v)
         }
       }
@@ -1123,6 +1263,12 @@ export default {
       if (remGriper && !rem._greppFore && !this._chainComplete) this._onRemGrips(ctx)
       rem.gripping = remGriper
       rem._greppFore = remGriper
+      // Vänd-ytan lever bara när det FINNS en rem som greppar. Ingen död träffyta
+      // som svarar tyst på ett tryck (`_tystprobe`s `dod-traffyta`).
+      if (rem.vandZon && !rem.vandZon.destroyed) {
+        rem.vandZon.eventMode = rem.placed && remGriper && !this._resolving ? 'static' : 'none'
+      }
+      this._uppdateraVandRing()
     }
 
     // Grenen greppade: den är en BONUS utanför vinstvillkoret, så den får sin egen
@@ -1519,6 +1665,18 @@ export default {
       if (this._flaktBlad && !this._flaktBlad.destroyed) this._popScale(this._flaktBlad, 1.12)
       return
     }
+    // Maskinen går och remmen har aldrig vänts — bjud in i stället för att upprepa
+    // "Veva nu!". Vändningen är frivillig, precis som grenen, så tonen är en fråga.
+    // `_flagProgress > 0` med flit: bjud in till vändningen först när barnet redan
+    // HAR vevat. Innan dess är vevandet det som för nivån framåt, och en inbjudan
+    // dit i stället hade lett bort från målet.
+    const rem = this._rem
+    if (this._chainComplete && this._flagProgress > 0 && rem?.placed && rem.gripping && !rem.vandad) {
+      // Ingen extra puls här: ringen pulsar redan, och `_popScale` hade slagit ihjäl
+      // dess egen yoyo på samma `scale`.
+      ctx.services.voice.say('Tryck på remmen!')
+      return
+    }
     if (this._chainComplete) {
       ctx.services.voice.say('Veva nu!')
     } else if (ctx.services.voice.replayLast) {
@@ -1557,6 +1715,9 @@ export default {
   _onComplete(ctx) {
     if (this._resolving) return
     this._resolving = true
+    // Firandet äger skärmen: vänd-ytan ska varken pulsa eller ta emot tryck under den.
+    this._slackVandRing()
+    if (this._rem?.vandZon && !this._rem.vandZon.destroyed) this._rem.vandZon.eventMode = 'none'
     if (this._flag && !this._flag.destroyed) {
       this._flag.y = FLAG_TOP_Y
       pop(this._flag, { scale: 1.3 })
@@ -1642,21 +1803,39 @@ export default {
 
 // ===== Programmatisk konst ===============================================
 
-// De två YTTRE tangenterna mellan två cirklar — remmens raka spann. `psi` är
-// vinkeln från linjen A→B ut till tangentnormalen; den bär också hur långt
-// remmen lindar sig runt varje hjul (bågarna i `_ritaRemBana`).
-function remTangenter(A, B) {
+// Tangenterna mellan två cirklar — remmens raka spann. `psi` är vinkeln från
+// linjen A→B ut till tangentnormalen; den bär också hur långt remmen lindar sig
+// runt varje hjul (bågarna i `_ritaRemBana`).
+//
+// `korsad` byter de YTTRE tangenterna mot de INRE: normalen är gemensam, men
+// beröringspunkten på B ligger på MOTSATT sida (`B − r_b·n` i stället för
+// `B + r_b·n`), så spannen skär varandra och bildar ett X. Villkoret blir
+// cos ψ = (r_a + r_b)/d i stället för (r_a − r_b)/d — det kräver att hjulen inte
+// rör varandra, vilket remspannets `REM_GAP` garanterar.
+//
+// Det är inte kosmetik: en korsad rem vänder rotationsriktningen, och X:et är
+// det enda en tvååring SER av varför.
+function remTangenter(A, B, korsad = false) {
   const dx = B.x - A.x
   const dy = B.y - A.y
   const d = Math.hypot(dx, dy) || 1
   const beta = Math.atan2(dy, dx)
-  const psi = Math.acos(clamp((A.r - B.r) / d, -1, 1))
+  const psi = Math.acos(clamp(((korsad ? A.r + B.r : A.r - B.r)) / d, -1, 1))
+  const sB = korsad ? -1 : 1
   const punkt = (s) => {
     const nx = Math.cos(beta + s * psi)
     const ny = Math.sin(beta + s * psi)
-    return { ax: A.x + A.r * nx, ay: A.y + A.r * ny, bx: B.x + B.r * nx, by: B.y + B.r * ny }
+    return { ax: A.x + A.r * nx, ay: A.y + A.r * ny, bx: B.x + sB * B.r * nx, by: B.y + sB * B.r * ny }
   }
   return { beta, psi, t1: punkt(1), t2: punkt(-1) }
+}
+
+// Där de två korsade spannen skär varandra — X:ets mitt. Skärningen delar
+// centrumlinjen i förhållandet r_a : r_b (liktformiga trianglar), alltså inte
+// exakt mittpunkten när hjulen har olika storlek.
+function remKryss(A, B) {
+  const u = A.r / (A.r + B.r || 1)
+  return { x: A.x + (B.x - A.x) * u, y: A.y + (B.y - A.y) * u }
 }
 
 // Ändpunkterna för en rem som INTE greppar: den sitter på fälgen där det finns ett

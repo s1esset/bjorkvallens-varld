@@ -14,6 +14,75 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.180.0 · Tre kö-punkter — och sonden hade fel innan spelet hade det
+
+**Byggt:** nattköns **N2b** och **N3** (två spel). Tre commits, en per spel.
+
+**`kugghjulen` — den korsade remmen (`3f3e380`, v1.178.0).** Kuggar vänder alltid riktningen,
+så en kedja av dem kan bara ge det håll pariteten råkar ge. Remmen är spelets enda del som kan
+**välja**: rak behåller hållet, korsad vänder det. Ett tryck mitt på den lagda remmen växlar,
+och X:et är det enda en tvååring behöver se. Rak rem = de **yttre** tangenterna, korsad = de
+**inre** med beröringspunkten på B speglad; omslaget måste byta båge samtidigt (rak lindar exakt
+ett varv totalt, korsad lindar 2π−2ψ om **båda** hjulen — uppmätt **360° → 464°**). `lank()` bär
+nu ett **tecken** i stället för en boolean. Vinstvillkoret är orört: flaggan hissas på |Δvinkel|,
+uppmätt **1,00 mot 1,00** rakt och korsat.
+⚠️ **Kön beskrev två saker som inte fanns i koden:** `_remTangenter` heter `remTangenter` och är
+en fri funktion, och `lank()` tog en boolean. Läs koden före planen — igen.
+**MÄTT** (`_korsprobe` **21/21**; HEAD når bara rad 3): målfaktor **−1,00 → +1,00** med oförändrad
+storlek, spannen skär vid **56 %** av bandet, ett riktigt `pointerdown` vänder den, träffytan
+100 px med 33 px luft. De tre KALIBRERINGS-raderna är gröna i **båda** armarna med identiska tal
+— det är beviset att mätaren stämmer och att den raka remmen är orörd.
+
+**`zackes-biltvatt` — slangens stråle är SPH (`6ae3db5`, v1.179.0).** Strålen var 28 ritade
+cirklar i en kon som tog tvärt slut vid `JET_LEN`: den föll inte, träffade ingenting, rann
+aldrig någonstans. Nu slår den i plåten, sköljer ner längs karossen och går ner i golvbrunnen.
+**Mekaniken är orörd** — vad som räknas som spolat avgörs fortfarande av `_inJet`.
+**MÄTT** (`_stralprobe` **12/12** i tre körningar): bilden når **331–338 px** där mekaniken
+rengör till 235, sammanhängande på **10,2–10,5 px** mot interaktionsradien 26, **128 partiklar
+på bilen → 0 efter 3 s**, taket toppar **68–70 %**. Kostnaden är inte mätbar vid CPU ×6 (60,0 fps
+båda) — att strypningen biter kontrollerades separat vid **×20** (32,1 mot 60,0).
+
+**`tvatta-djuret` — duschen (`bf7d57e`, v1.180.0).** Fyndet är mätt, inte tyckt: sprayen var
+**24 droppar på 4 px** radie, **6,8 px** isär, i blekblått mot lerans brunt — långt inom en
+metaboll-radie men ritade var för sig, alltså i praktiken **osynliga**. Halva spelets loop syntes
+inte. Sköljningen lever nu i **samma vatten** som bilden (utlöses av partiklar som kommer in i
+`_silh` — samma ellipser som `_onAnimal`).
+❌ **Djuret är INTE ett hinder, och det är ett mätt beslut.** Barnet håller munstycket **mot**
+fläcken, alltså inuti kroppen; en partikel som föds inuti ett hinder kastas ut till dess yta i
+samma steg, så vattnet teleporterades upp på ryggen och sköljningen dog: **248 bildrutor** utan
+hinder (= HEADs egen siffra) mot **över 1 200** med.
+**Svårigheten är oförändrad och det är nu ett KRAV i sonden**: strålens täthet *är* spelets
+svårighet (1/steg gav 506 mot HEADs 248), och `_inneFore` måste nollställas per plats vid
+födseln (**424 → 239**). Slutresultat **239/242/240 mot HEADs 248**, inom 4 %.
+❌ **`pizzabageriet` struken ur B1** — premissen höll inte: såsen är en fylld cirkel i
+pizzabottnens ritning, inte något barnet häller. **B1-listan är därmed tom.**
+
+**Passets lärdom: sonden hade fel innan spelet hade det — sex gånger.** Fyra i `zackes-biltvatt`
+(en rak mätaxel kan inte mäta en ballistisk båge · partikelfarten mäter grannarnas bromsning,
+inte räckvidden, och zonen bär tillbakastänk · en **verlet-punkt får aldrig teleporteras**, det
+matar in fart och samma mätning gav 340/123/47/0 px · munstycket stod inuti målets kollisions-
+bubbla) och två i `tvatta-djuret` (skummet låg utanför duschens räckvidd i **båda** armarna ·
+duschen hölls i luften i stället för mot djuret). Plus ett falskt grönt: "centrerad på siktlinjen
+· 0,0 px" var grönt för att bandet var **tomt** (`nv ? sidled/nv : 0`) — varje kvot behöver ett
+villkor på sin nämnare. Och: **frys förloppet** innan geometri mäts, annars blir bilen ren och
+kör ut mitt i mätningen.
+
+**Commits:** `3f3e380` feat(kugghjulen) korsad rem · `6ae3db5` feat(zackes-biltvatt) SPH-stråle ·
+`bf7d57e` feat(tvatta-djuret) duschen som vätska.
+**Kontroll:** `check` **0 fel / 0 varningar** · `test:all` **72/72 i två svep per spel** ·
+`_korsprobe` 21/21 · `_stralprobe` 12/12 · `_duschprobe` 10/10 · `_remprobe` 17/17,
+`_grenprobe` 18/18, `_vevprobe` 13/13 orörda. Röstkön tom (2 nya klipp genererade).
+⚠️ Ett svep visade en **engångs** `tom-bild-omtagen` med förlorad GL-kontext på `tvatta-djuret`.
+`_ab.sh` över hela sviten, **3 rundor växelvis**, gav 72/72 rent i **båda** armarna — ingen
+attribuerbar skillnad. Notera att A/B-räknaren bara räknar **fel**-nivå, så den enskilda
+varningen är inte direkt attribuerad, bara icke-reproducerad i sex fulla svep.
+**Öppet:** ägarkön tom. **N3 är slut** (alla kandidater byggda eller avskrivna). Nästa ⬜ är
+**N4** — `mjukkropp` till `mata-monstret`, och `pruttbad` där såpbubblornas storleksinvändning
+ska prövas först. Därefter N5 · N12. **Bygget är INTE omgjort** — telefonen ser en äldre version
+tills någon kör `npm run build`.
+
+---
+
 ## 2026-08-12 · v1.177.0 · Sållet räknar noder — det säger inte VILKA
 
 **Byggt:** nattköns **N10** pass 10. Två kandidater prövades och **båda lämnas orörda**, med

@@ -62,8 +62,13 @@ samtidigt") blockera nästa stegs tvingade guldfrukt, vilket rapporterades som a
 dubbelräkningen inte fungerade.
 
 **Commits:** `775914d` feat(fanga-frukten) guldfrukten · `9cfc7d9` feat(kulbana) fartsvans +
-rull-damm · + den här sessionsloggen
+rull-damm · `45b9ca9` den här sessionsloggen · `d107195` docs(claude) — de tre mätfällorna
+ovan är inskrivna i CLAUDE.md:s "Tysta fällor", eftersom de gäller varje framtida effekt och
+inte bara de här två spelen.
 **Kontroll:** `check` 0 fel/0 varningar · `test:all` **72/72 gröna** · röstkön tom.
+**Bygget är gjort vid sessionens slut** (`npm run build`, 1 626 filer / 28,5 MB precache) men
+**inte serverat** — telefonen ser fortfarande v1.157.0 tills någon startar servern
+(`scripts/start.ps1` → 4173 via tailnet).
 ⚠️ **V14b vandrar — nu bekräftat två svep i rad.** Förra svepet: `tvatta-djuret`. Det här:
 **`kla-pa-nallen`**, samma diagnos (`tom-bild-omtagen ×2 — gl-kontext FORLORAD`). Två olika
 spel, samma signatur, båda räddade av omtagningen. Det är ytterligare bevis för att felet hör

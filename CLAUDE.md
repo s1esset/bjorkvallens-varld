@@ -116,6 +116,12 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 
 - **Docens §4 kan vara inaktuell.** Läs `src/games/<id>/index.js` **före** planen. Två gånger har
   en köad punkt redan varit gjord, och båda gångerna bar koden på fel ingen doc kände till.
+  **Och pröva köpostens PREMISS mot koden innan något byggs** — den faller ofta: "tuggbar mat"
+  gick inte att göra som en deformation (`food.js` = 5–7 lagrade `Graphics` × 18 varianter, ingen
+  silhuett att töja, och `generateTexture` är förbjuden), `pruttbad`s bubbla poppade i SAMMA
+  bildruta som ytan bröts (inget liggande skede att fysikalisera), `pizzabageriet`s sås var en
+  fylld cirkel i bottnens ritning. Faller premissen: **skriv om posten till det som faktiskt går
+  att bygga** — bygg inte en större sak i stället för att rädda formuleringen.
 - **Grönt test betyder bara "0 konsolfel".** Det säger ingenting om målet går att nå, om mätaren
   syns eller om scenen är tom. Grävmaskinen klarade en nivå på 3,4 s och rapporterade grönt.
   `npm run test` kör därför `bildkoll.mjs` på skärmdumpen — **och titta på bilden själv ändå.**
@@ -244,6 +250,16 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   något på ett stillhetstal.** En summerad RÖRLIG YTA prövades som skiljelinje och **förkastades
   med mätning** — den rankar det döda spelet (53 482 px², stor glow-cirkel) före det levande
   (10 969 px², liten figur). Frågan "lever scenen?" har inget skalärt svar.
+- **En ny sond kostar mer än speländringen — kör kontrollarmen FÖRST.** Uppmätt över kvällspasset
+  2026-08-12 (v1.181–1.182): **630 rader sond mot 459 rader spelkod**, och `_tuggprobe` ensam
+  (413 rader) var större än ändringen den mätte. Posten tog **77 min mot dagens 8–25 min per spel**
+  — inte för att spelet var svårt, utan för att MÄTAREN var fel fyra gånger innan den var rätt:
+  magens `rorelse` gav 27 → 217 mellan två körningar av samma sak · "duken är svart när allt är
+  dolt" räknade 921 600 av 921 600 ljusa pixlar i BÅDA armarna · skumnivån nollställs när målet nås
+  · en CPU-strypning som inte bet ens vid ×20. Alla fyra hade fallit direkt på en körning mot HEAD
+  eller mot en känd barlast. **Ordningen är: kontrollarm (HEAD, eller barlast med känt utslag) →
+  se att talet RÖR SIG → först då mätarm.** En mätning som inte kan skilja två KÄNDA lägen åt
+  säger ingenting om det okända — och en sond som mäter fel kostar mer tid än hela speländringen.
 - **Byt inte ut stämda ljud mot samplade.** `correct` (660→880 = kvint), `match` (durtreklang) och
   `pling` är musik, inte blipp — ett generiskt UI-klick vore ett brott mot grindens punkt 5.
 

@@ -46,6 +46,18 @@ eftersom `mata-monstret` väljer favoritkategori ur den listan och en fjärde ka
 `AudioService.harSample(namn)`, utan vilken varje tugg hade flaggat `saknat-ljudklipp` och
 dränkt de fynd som är riktiga.
 
+**⏸ NYTT UPPDRAG FRÅN ÄGAREN, EJ PÅBÖRJAT — läs `docs/games/mata-munnen.md` §4 först.**
+Ett **kök** som miljö: ansiktets nederkant mot kanten på en **köksö** mitt i rummet (så
+huvudet inte svävar), köket fyllt med kastruller, stekpannor, fat, glas med vätska, kylskåp,
+skåp, fönster, micro, ugn, skafferi, bestick, muggar, redskap, spis. Mat- och busobjekt tas
+från `pizzabageriet` och `hamburgerbygget`, objekten ska interagera (vätska, kollisioner,
+mjuka kroppar, massa), och köket ska gå att klicka runt i (kylen öppnas och har mer inuti,
+likaså skåp, ugn, micro, lådor, kran, spis, fläkt). **Kontrollerat samma dag:** de två
+matspelen bär **128 färdiga ritningar**, och hela busregistret (bajs · strumpa · spindel ·
+snigel · tandborste · kackerlacka · kalsonger · toapapper · mask · mygga · disksvamp · prutt
+· snor · fiskben · lera …) finns redan — ingen ny ritning behövs för att komma igång.
+Docen bär sex frågor som måste besvaras före bygget och en föreslagen ordning i fem steg.
+
 **Öppet:** ⓵ **ägarens inspelningsuppgift** — pappas uttrycksljud (`pappa_mmm` · `pappa_blaa` ·
 `pappa_aj` · `pappa_oj` · `pappa_ohh` · `pappa_aaah` · `pappa_rap` · `pappa_fniss`). Kopplingen
 finns och tar klippen i bruk i samma sekund de läggs i `public/audio/sfx/`; tills dess spelar

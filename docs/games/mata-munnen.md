@@ -1,5 +1,5 @@
 # Mata Pappa (`mata-munnen`)
-> 😋 roligt · drag · 2–5 år · status: ✅ marknadsklar
+> 😋 roligt · drag · 2–5 år · status: ✅ marknadsklar — ⏸ **ägaruppdrag väntar: KÖKET (§4)**
 
 Första spelet i **ansiktssektionen** (`docs/IDEER.md` post 2). Riggen som bär det ligger i
 `src/lib/ansikte.js`, lagren klipps av `npm run ansikte` (`scripts/ansikte.mjs`).
@@ -85,6 +85,62 @@ Mätfönstret låg på 160 ms, alltså i samma storleksordning som en lång bild
 Om det återkommer är den läsningen fel.
 
 ## 4. Förbättringar & förhöjningar (plan)
+
+### ⏸ ÄGARENS EGET UPPDRAG — KÖKET (lagt 2026-08-13, **ej påbörjat**)
+
+**Detta går före allt annat i §4.** Beskrivet av ägaren, ordagrant sammanfattat:
+
+> Skapa ett **kök** som miljö/scen för spelet. Sätt **nedre kanten av huvudet mot bordskanten
+> på en köksö mitt i köket**, som att karaktären står bakom köksön — så huvudet inte är så
+> separerat/svävande i luften. Fyll köket med saker och mat: **kastruller, stekpannor, fat,
+> glas med vätskor, kylskåp, köksskåp, ett fönster, micro, ugn, skafferi, bestick, muggar,
+> köksredskap, spis.** Använd **mat-/objekt-assets från `pizzabageriet` och
+> `hamburgerbygget`** och fyll köket med sådant vi kan mata karaktären med, **samt busa** med
+> — kasta, smeta, kladda, mata den med konstiga saker. Objekten ska **interagera med
+> varandra**: vätska, kollisioner, mjuka kroppar, massa. Och köket ska gå att **klicka runt
+> i** — trycker man på kylen öppnar den sig och där ligger mer saker/mat; likaså köksskåp,
+> ugn, micro, lådor, kran, spis, fläkt.
+
+**Vad som redan finns och inte ska byggas om** (kontrollerat i koden 2026-08-13):
+
+- **128 färdiga ritningar** att hämta: `src/games/pizzabageriet/ingredienser.js` (65) och
+  `src/games/hamburgerbygget/ingredienser.js` (63, plus `ITEMS` + `makeItemView`). Båda
+  exporterar en `DRAW`-tabell. **Busregistret finns redan där:** `bajs` · `strumpa` ·
+  `smutsig_strumpa` · `spindel` · `snigel` · `tandborste` · `kackerlacka` · `kalsonger` ·
+  `toapapper` · `mask` · `mygga` · `daggmask` · `disksvamp` · `prutt` · `snor` · `fiskben` ·
+  `lera` · `mogelost` · `groda` · `fluga`. Ingen ny ritning behövs för att komma igång.
+- **Mjuka kroppar:** `src/lib/mjukkropp.js` + `hamburgerbygget/bulle.js` (`makeBullkropp` ·
+  `stegBulle` · `sattVikt`). ⚠️ Fast tidssteg är ett KRAV — se CLAUDE.md.
+- **Vätska:** SPH-vätskan (`vattenvagen`, `golvet-ar-lava`, `saftbaren`) + `_vatskeprobe.mjs`.
+  ⚠️ Simulera bara där vätskan syns.
+- **Kollisioner/massa:** `src/lib/physics.js` (matter.js). ⚠️ `restitution` på en STATISK
+  kropp gör ingenting — `{ isStatic: true, studs: 0.75 }`.
+
+**Frågor en planerare måste svara på FÖRST — uppdraget är för stort för ett svep:**
+
+1. **Vad händer med `mata-munnen`s nuvarande scen?** Köket ersätter `createScene('warm')` +
+   bordet + tallriken. Mätaren och tallriken måste få nya platser i köksbilden, och munnens
+   släppmål måste stå kvar som en **orörlig nod** (se §2). Ansiktets `ANS.y`/`_munY` styr
+   köksöns kanthöjd — eller tvärtom; bestäm vilket som är master.
+2. **Hur mycket fysik tål bilden?** `_montageprobe`/`_fpsprobe` med CPU-strypning innan
+   vätska + mjuka kroppar + kollisioner läggs i samma scen. Ett kök där allt simuleras
+   samtidigt är inte samma sak som ett kök som ser ut så.
+3. **Är det ETT spel eller två?** "Mata pappa" (mål: mätta) och "utforska köket" (mål: öppna
+   allt) är olika loopar. Ett gemensamt kök kan bära båda, men P0 kräver ETT tydligt mål per
+   skärm för en 2-åring.
+4. **P0 GRIND:** öppningsbara luckor är fri lek, inte inställningar — ingen grind. Men
+   **taket** gäller: hur många öppnade luckor och utspillda saker samtidigt innan det blir
+   kaos? (`GEGGA_MAX` är motsvarigheten idag: 6.)
+5. **P0 TRÄFFYTA** för luckor, lådor, kran och vred: ≥96 px och ≥24 px mellan dem — ett kök
+   med tjugo klickbara ytor blir trångt fort. Rita ytorna innan objekten.
+6. **Bildbudget och montering:** en scen med tjugo objekt får göra **noll** texturbakningar
+   vid montering (gradienter cachas per färg — se CLAUDE.md om `FillGradient`).
+
+**Föreslagen ordning** (varje steg testbart för sig): ① köket som stillbild + köksön med
+ansiktet i rätt höjd → ② maten flyttas från tallrik till köksö, spelet fungerar som förut →
+③ klickbara luckor med innehåll (ingen fysik) → ④ fysik/vätska på de få ställen där den
+faktiskt syns → ⑤ bus-objekten från de två matspelen.
+
 
 ### Ljud
 - **[Quick] Pappas egna uttrycksljud.** Hela kopplingen finns: `ROST`-tabellen bär klippnamnen

@@ -86,8 +86,9 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
 - **[Quick] Material-specifika ljud + skvätt.** Trä-"klonk" på ramp, metallisk "boing" på
   studsplatta, ett saftigt "plums" + vattenskvätt i hinken (se Ljud). Kort skärm-mikroskak vid
   studsplatta och vid mål.
-- **[Quick] Kul-svans + rull-damm.** En svag rörelse-svans efter den rullande kulan och små
-  dammpuffar där den studsar → fart känns snabbare och roligare.
+- ✅ **[Quick] Kul-svans + rull-damm.** *(2026-08-12)* En strimma i kulans egen färg bakom
+  den, vars styrka följer farten (osynlig under 3 px/steg, full vid 11) — och damm i
+  kontaktpunkten vid varje anslag, mängd och färg efter kraft och material. Mätvärden i §5.
 
 ### Progression
 - **[Quick] Visa målet starkare när kulan närmar sig.** Hinkens glödring pulsar snabbare/
@@ -166,3 +167,28 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
   trappar upp och LÅSER sig vid samma tak (platå 271 px) · en kula som rullar över bräddan
   behåller 5,9 av 7 px/steg och lyfts bara 13 px. Bilder: `scripts/_fjaderbild.mjs`.
   Boingen behöll sin karaktär men följer nu kraften (ögat ser plankan sjunka olika djupt).
+- 2026-08-12 ✅ **Kul-svans + rull-damm [Quick]** (v1.163.0): kulan bar ingen avläsning av hur
+  fort den gick. Nu ritas en strimma i dess egen gula ton bakom den (14 punkter, återanvänd
+  `Graphics` under kulan, ny punkt först när den flyttat sig >6 px så bufferten inte fylls av
+  dubbletter när den nästan står still), och strimmans styrka följer farten: **osynlig under
+  3 px/steg, full vid 11**. Svansen ska säga FART — en kula som rullar sakta eller ligger
+  still har ingen alls, annars blir strimman en del av kulans utseende i stället för en
+  avläsning. Dammet ligger i **samma anslag som ljudet** (`_onCollision`), i matters
+  kontaktpunkt (`supports`) — kulans mittpunkt hade lagt puffen inne i kulan i stället för mot
+  ytan — med mängd efter kraft och färg efter material (trä 0xc9a06a, annars ljus grå).
+  **Mätt** (`node scripts/_svansprobe.mjs [--bild]`, 9 punkter): svansen **2 401 målade
+  pixlar** av 75 600 i ytan, energi **33k vid fart 4 → 205k vid fart 10** (6×) · 0 punkter i
+  bufferten när kulan står still · **0 px** från lagret när den slutat fara · ett hårt anslag
+  ger **15 nya partiklar**, en nätt beröring (fart 2,6) **0** · exit mitt i ett fall lämnar 0
+  konsolfel.
+  ⚠️ **TRE mätsätt provades innan ett höll — de två första var gröna nog att luras av:**
+  1. **Jämför mot en referensbild** → man mäter KULAN, som står på olika plats i varje arm och
+     dränker svansen: energi 1 523k mot 1 715k, alltså "ingen skillnad" i något som i själva
+     verket skiljer 6×.
+  2. **Växla bara svansens `visible`** → bilderna tas 60 ms isär och allt annat i scenen hinner
+     röra sig: **1 132 px "från svanslagret"** när bufferten var bevisat tom.
+  3. **Dölj hela scenen utom svanslagret** → 0 px när det är tomt, och tal som faktiskt är
+     svansens. Det är den enda av de tre som svarar på frågan.
+  ⚠️ Och: **att räkna pixlar över en tröskel mäter YTA, inte styrka.** Bandet täcker ungefär
+  samma bana i båda armarna, så pixelantalet växte bara 1 011 → 1 587 medan energin gick 33k →
+  205k. Styrkan bor i alfan. `npm run check` 0 fel/0 varningar · `npm run test` grön.

@@ -36,6 +36,10 @@ const REST_HOLD = 1.2 // s under REST_SPEED innan vi räknar kulan som missad
 const FLOOR_MISS_Y = 690 // nådde golvet utan mål = miss
 const IDLE_DELAY = 6 // s utan handling → röst-recue
 const BOUNCE_THROTTLE = 0.16 // s mellan studsljud (anti-spam)
+// Fartsvansen (se `_updateTail`). Trösklarna i px/steg, samma enhet som matters fart.
+const TAIL_N = 14 // punkter i strimman
+const TAIL_MIN_SPEED = 3 // härunder syns ingen svans alls
+const TAIL_FULL_SPEED = 11 // här är den som starkast
 const HELP_AFTER = 3 // missar innan den FRIVILLIGA "Hjälp mig?"-knappen dyker upp
 const AUTO_HELP_AT = 8 // sista skyddsnätet: efter så många missar glider kulan hem ändå (no-fail)
 const NEAR_TARGET = 210 // px till hinken då glödringen intensifieras ("nästan!")
@@ -197,6 +201,14 @@ export default {
   // ---- Kula ---------------------------------------------------------------
 
   _buildBall() {
+    // Fartsvansen: EN återanvänd Graphics som ritas om per bildruta ur kulans senaste
+    // lägen. Ligger under kulan och skuggan. Ingen allokering, inga tweens, rivs med
+    // `_root` — och den ritas bara när kulan verkligen far (se `_drawTail`).
+    this._tail = []
+    this._tailG = new Graphics()
+    this._tailG.eventMode = 'none'
+    this._root.addChild(this._tailG)
+
     // Mjuk markskugga (separat → roterar INTE med kulan).
     this._ballShadow = new Graphics()
       .ellipse(0, BALL_R * 0.95, BALL_R * 0.85, BALL_R * 0.32)
@@ -964,6 +976,8 @@ export default {
       this._ballShadow.position.set(this._ball.x, this._ball.y)
     }
 
+    this._updateTail()
+
     // Fjäderbrädorna ritas om EN gång per bildruta (fysiken steppar upp till fem
     // gånger) och bara medan de rör sig — `_bojd` sätts av `_stepSprings`.
     for (const part of this._parts) {
@@ -1231,6 +1245,44 @@ export default {
 
   // ---- Kollisioner: studsljud ---------------------------------------------
 
+  // Fartsvansen: en svag strimma i kulans egen färg bakom den. Den ska säga FART, så
+  // den finns bara när kulan far — en kula som rullar sakta eller ligger still har
+  // ingen svans alls, annars blir strimman en del av kulans utseende i stället för en
+  // avläsning av hur det går.
+  _updateTail() {
+    const g = this._tailG
+    if (!g || g.destroyed) return
+    const b = this._ballBody
+    const kor = this._falling && !this._resolving && !this._gliding && b
+    const spd = kor ? Math.hypot(b.velocity.x, b.velocity.y) : 0
+    const styrka = clamp((spd - TAIL_MIN_SPEED) / (TAIL_FULL_SPEED - TAIL_MIN_SPEED), 0, 1)
+
+    if (!kor || styrka <= 0) {
+      if (this._tail.length) {
+        this._tail.length = 0
+        g.clear()
+      }
+      return
+    }
+
+    // Punkter läggs bara till när kulan FLYTTAT sig — annars fylls bufferten av
+    // dubbletter medan den nästan står still och strimman blir en klick.
+    const sist = this._tail[this._tail.length - 1]
+    if (!sist || Math.hypot(b.position.x - sist.x, b.position.y - sist.y) > 6) {
+      this._tail.push({ x: b.position.x, y: b.position.y })
+      if (this._tail.length > TAIL_N) this._tail.shift()
+    }
+
+    g.clear()
+    const p = this._tail
+    if (p.length < 3) return
+    for (let i = 1; i < p.length; i++) {
+      const f = i / (p.length - 1) // 0 = svansspetsen, 1 = vid kulan
+      g.moveTo(p[i - 1].x, p[i - 1].y).lineTo(p[i].x, p[i].y)
+        .stroke({ width: 3 + f * (BALL_R * 0.9), color: COLORS.yellow, alpha: 0.5 * f * styrka, cap: 'round' })
+    }
+  },
+
   _onCollision(ctx, e) {
     if (!this._alive) return
     for (const pair of e.pairs) {
@@ -1278,6 +1330,14 @@ export default {
         this._lastBounceAt = this._tnow
         const kraft = clamp((spd - 2) / 12, 0, 1)
         const wood = other.label === 'ramp' || other.label === 'funnel' || other.label === 'obstacle'
+        // Rull-damm i KONTAKTPUNKTEN, mängd efter anslagets kraft: en nätt beröring
+        // ryker inte, en riktig smäll gör det. Punkten kommer ur matters `supports` —
+        // kulans mittpunkt hade lagt puffen inne i kulan i stället för mot ytan.
+        const kp = pair.activeContacts?.[0]?.vertex || pair.collision?.supports?.[0]
+        if (kraft > 0.12) {
+          puff(ctx.fxLayer, kp ? kp.x : this._ballBody.position.x, kp ? kp.y : this._ballBody.position.y,
+            { count: 2 + Math.round(4 * kraft), color: wood ? 0xc9a06a : 0xd8d2c4 })
+        }
         if (wood && this._tnow - this._lastWoodAt > BOUNCE_THROTTLE) {
           this._lastWoodAt = this._tnow
           const f = 160 * (0.86 + 0.34 * kraft)

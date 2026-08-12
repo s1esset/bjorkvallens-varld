@@ -2,13 +2,20 @@
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
     "php-lsp@claude-plugins-official": false,
-    "game-development@claude-code-workflows": true
+    "game-development@claude-code-workflows": true,
+    "pixijs-skills@pixijs-skills": true
   },
   "extraKnownMarketplaces": {
     "claude-code-workflows": {
       "source": {
         "source": "github",
         "repo": "HermeticOrmus/claude-code-game-development"
+      }
+    },
+    "pixijs-skills": {
+      "source": {
+        "source": "github",
+        "repo": "pixijs/pixijs-skills"
       }
     }
   },

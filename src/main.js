@@ -6,7 +6,6 @@ import { Nav } from './shell/Nav.js'
 import { loadFonts } from './lib/fonts.js'
 import { showToast } from './lib/toast.js'
 import { SaveService } from './services/SaveService.js'
-import { setDetaljniva } from './lib/form.js'
 import { ProfileService } from './services/ProfileService.js'
 import { AudioService } from './services/AudioService.js'
 import { VoiceService } from './services/VoiceService.js'
@@ -27,10 +26,6 @@ async function boot() {
   const ctx = await createApp(mountEl)
 
   const save = new SaveService()
-  // Detaljnivån måste stå INNAN någon skärm eller något spel ritas: `lib/form.js` cachar
-  // varje gradient vid första ritningen, så en nivå som sätts efteråt lämnar allt redan
-  // ritat kvar på den gamla. Skärmarna byggs i `nav.go()` längre ned.
-  setDetaljniva(save.data.settings.enklareGrafik ? 0 : 2)
   const profiles = new ProfileService(save)
   const audio = new AudioService(save)
   const voice = new VoiceService(save)

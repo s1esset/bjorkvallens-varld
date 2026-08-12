@@ -24,9 +24,6 @@ function defaultDoc() {
       voiceEnabled: true,
       parentalGateEnabled: true,
       sessionReminderMinutes: 0,
-      // Sänker app-bred detaljnivå (lib/form.js `setDetaljniva`) från 2 till 0: platta
-      // färger i stället för bakade gradienter. För svaga plattor. Se LYFTPLAN C10.
-      enklareGrafik: false,
     },
     profiles: [],
   }

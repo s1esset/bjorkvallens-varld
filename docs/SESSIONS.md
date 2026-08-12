@@ -14,6 +14,37 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.154.0 · Ägaren strök "Enklare grafik" — alla fyra småpengar är nu borta
+
+**Byggt:** ingenting. Borttaget, på ägarens beslut och på gårdagens egna tal: inställningen
+**"Enklare grafik"** (byggd i v1.153.0) är ute ur appen igen.
+
+Underlaget stod redan i loggen: knappen köpte **121 KB GPU-textur, noll ritanrop och noll
+bildrutor** (CPU ÷6 och ÷20), och kostade **all** volym som C1 lade fyra sessioner på att ge
+föremålen. En inställning med den balansräkningen är inte en nödutgång — den är en fälla för
+föräldern som slår på den och tror att hen har hjälpt sin platta. **LYFTPLAN C10 är därmed
+avgjord med fyra strukna punkter av fyra.**
+
+**Borttaget:** raden i `SettingsScreen` (panelen är tillbaka på fem rader, rubriken tillbaka
+till "Ljud", radavstånden tillbaka till 76/86) · `settings.enklareGrafik` i `SaveService` ·
+uppstartsanropet i `main.js` · sonden `_detaljprobe.mjs`, som satte nivån genom just den
+inställningen och inte kan köra utan den.
+
+**Kvar med flit:** `setDetaljniva()` i `lib/form.js` (bibliotek-API, nu åter utan anropare) ·
+`SaveService`s påfyllning av **saknade** inställningsnycklar, som är en egen förbättring och
+gäller varje framtida inställning · `scripts/_installningsbild.mjs`, som fortsatt är enda sättet
+att se inställningsskärmen — ingen testkörning öppnar den. Vill någon återuppta frågan är det
+gradientsamplingen per pixel på en fyllnadsbegränsad mobil-GPU som återstår att mäta, och den
+mätningen måste göras på plattan.
+
+**Commits:** `fc55bf3` revert(skal) enklare grafik struken
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · skärmdump av
+inställningsskärmen ren.
+**Öppet:** ägarkön tom. Nattkön står på **N9** (LYFTPLAN A5: spel som ritar egen bakgrund utan
+skäl).
+
+---
+
 ## 2026-08-12 · v1.153.0 · Småpengarna: en byggd, tre strukna med mätning
 
 **Byggt:** nattköns **N8** (LYFTPLAN C10). Fyra punkter, alla mätta innan någon rördes — och

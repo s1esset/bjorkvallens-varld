@@ -1127,17 +1127,15 @@ sju backdrop-shaders. `glittergrottan` är enda kunden. Antingen bygg fler 3D-sp
 `makeBackdrop` som **bakgrund** i 2D-spel (3D-canvasen ligger redan bakom Pixi och all input går
 via Pixi ändå).
 
-### C10. Småpengar **[Quick]** — ✅ AVGJORD 2026-08-12 (en byggd, tre strukna med mätning)
+### C10. Småpengar **[Quick]** — ✅ AVGJORD 2026-08-12 (alla fyra strukna med mätning)
 
-Alla fyra punkterna mättes innan någon rördes. **Tre av dem visade sig sakna underlag** — och
-det är själva resultatet: en optimering utan mätbar intäkt är en kostnad, inte en besparing.
+Alla fyra punkterna mättes innan någon rördes, och **ingen av dem hade underlag**. Det är
+själva resultatet: en optimering utan mätbar intäkt är en kostnad, inte en besparing.
 
-**1. `setDetaljniva` kopplad till en inställning i skalet — BYGGD, men köper ingenting här.**
-`Inställningar → Ljud och bild → Enklare grafik` (standard **av**) skriver
-`settings.enklareGrafik` och `main.js` sätter nivån vid uppstart, före första ritningen —
-gradienterna cachas vid första ritningen, så en nivå som sätts efteråt lämnar allt redan ritat
-kvar. `scripts/_detaljprobe.mjs` mäter genom **appens egen väg** (SaveService → omladdning),
-armarna växelvis, sex spel:
+**1. `setDetaljniva` kopplad till en inställning i skalet — BYGGD, MÄTT, och BORTTAGEN av
+ägaren (v1.154.0).** Knappen fanns i `Inställningar → Ljud och bild → Enklare grafik` under
+v1.153.0. Mätningen gjordes genom **appens egen väg** (SaveService → omladdning), armarna
+växelvis, sex spel:
 
 | | nivå 2 → 0 |
 |---|---|
@@ -1149,11 +1147,16 @@ armarna växelvis, sex spel:
 Ritanropen är det som faktiskt kan skilja på en svag GPU, och de rör sig inte: Pixi bakar
 gradientfyllningen in i samma batch som en rå färg. **Priset är däremot fullt** — nivå 0 tar
 bort exakt den volym C1 lade fyra sessioner på att ge föremålen
-(`.test-shots/_detalj-enkelt-pussel-{full,enkel}.png`). Knappen är kvar som en nödutgång för
-den svaga plattan, som INTE går att mäta härifrån: det enda talen inte täcker är
-gradientsamplingen per pixel, och en fyllnadsbegränsad mobil-GPU kan känna den.
-**`_detaljprobe.mjs --url` kör samma mätning mot ett serverat bygge på plattan** — faller den
-ut lika platt där hör knappen inte hemma i appen.
+(`.test-shots/_detalj-enkelt-pussel-{full,enkel}.png`).
+
+**Ägaren strök knappen på de här talen.** En inställning som köper 121 KB och noll bildrutor,
+men kostar all volym, är inte en nödutgång — den är en fälla för föräldern som slår på den och
+tror att hen har hjälpt sin platta. Borttaget: raden i `SettingsScreen`, `settings.enklareGrafik`
+i `SaveService`, uppstartsanropet i `main.js` och sonden `_detaljprobe.mjs` (den satte nivån
+genom just den inställningen och kan inte köra utan den). `setDetaljniva()` finns kvar i
+`lib/form.js` som bibliotek-API, nu åter **utan anropare** — vill någon återuppta frågan är det
+gradientsamplingen per pixel på en fyllnadsbegränsad mobil-GPU som är kvar att mäta, och den
+mätningen måste göras på plattan, inte här.
 
 **2. `BitmapText` för räknare — STRUKEN. Det finns ingen räknare.** `scripts/_textprobe.mjs`
 hakar på `Text`-sättaren och räknar skrivningar per bildruta i **alla 72 spelen**. Värst:

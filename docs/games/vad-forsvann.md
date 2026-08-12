@@ -71,8 +71,8 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
   utvidgning av arbetsminnet för de äldre, fortfarande no-fail.
 
 ### Variation & överraskning
-- **[Quick] Liv medan man memorerar.** Låt sakerna ha en lätt egen idle (en mjuk gupp/andning,
-  nallen blinkar, bilen vippar) så raden känns levande, inte som statiska kort.
+- ✅ ~~**[Quick] Liv medan man memorerar.**~~ Klar 2026-08-12 (v1.167.0): vilorörelse per motiv
+  i ett inre lager — ballongen driver, bilen vaggar på hjulen, fjärilen fladdrar. Se §5.
 - **[Quick] "Magiskt försvinnande".** När saken göms bakom filten: lägg en liten glitter-pluff
   + ett mjukt "poff" så att försvinnandet känns trolskt i stället för att rutan bara tystnar.
 
@@ -100,6 +100,25 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
   bakgrunds-ambient som passar "vad göms"-tonen.
 
 ## 5. Status / loggar
+
+- 2026-08-12 ✨ **Hyllan lever medan barnet memorerar** (v1.167.0, N10 pass 6).
+  `_livprobe` mätte spelet på **noll** levande objekt: raden stod blick stilla i visa-fasen,
+  alltså läste den som utklippta kort och inte som saker på en hylla — i ett *minnesspel*, där
+  hela poängen är att titta länge på raden. Nu bär varje motiv en egen vilorörelse ur tabellen
+  `LIV`: ballongen driver högt och långsamt (bob 7 / 3,0 s), bilen guppar knappt men **vaggar
+  på hjulen**, fjärilen fladdrar (bob 6 / 1,5 s). `fot: true` flyttar rotationens centrum ner
+  till kontaktskuggan, så det som STÅR på planet vaggar kring sina fötter i stället för att
+  svänga i luften; pivån kompenseras av positionen så viloläget är exakt oförändrat.
+  **Rörelsen ligger i ett INRE lager** — `slot` bär `hitArea`, och P0 säger att träffytan
+  aldrig får vandra (samma fälla som `sortera-skrap`s `snal-snappyta`). Kontaktskuggan och den
+  tomma platshållaren är syskon till lagret och står därför kvar på hyllan; luckan nollställs
+  aktivt när en sak försvinner, så ett hål är ett hål och inte en osynlig sak som andas.
+  **MÄTT** (`scripts/_hyllprobe2.mjs`, 9/9 mot HEADs **5/9**): 3 av 3 saker guppar (HEAD 0) ·
+  amplituder 14,0 / 4,0 / 6,0 px → spridning 10,0 px (HEAD 0,0) · vaggning 0,060–0,140 rad
+  (HEAD 0) · fasspridning 0,35 (`_livprobe`, 0 = lås) · slotens egen rörelse **0,00 px** ·
+  skugga och platshållare **0,00 px** · luckans lager **0,00 px** · 0 tweens efter exit.
+  ⚠️ De fyra gröna raderna 2/3/6/8 är **vakter, inte bevis** — de är gröna på HEAD också,
+  eftersom ingenting rörde sig där. Bevisraderna är 1, 4, 5 och 7.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`8c8ef70`, v1.98.0).
   `_plattprobe --medbakgrund` mätte **809 744 px = 88 % av skärmen** i EN ton.

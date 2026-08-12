@@ -15,7 +15,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle, breathe, ripple, kvittera } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, breathe, ripple, kvittera, liv } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
@@ -228,6 +228,33 @@ const LEVELS = [
 
 const HALF = 95 // halv cell -> generös träffyta (190px ≫ 96px minimum)
 
+// VILORÖRELSE per motiv. `_livprobe` mätte spelet på NOLL levande objekt: raden stod
+// blick stilla medan barnet memorerade den, alltså läste den som fyra utklippta kort och
+// inte som fyra saker på en hylla. Karaktären ligger i att de INTE guppar likadant —
+// ballongen driver högt och långsamt, bilen guppar knappt men vaggar på hjulen, fjärilen
+// fladdrar snabbt. `fot: true` flyttar rotationens centrum ner till kontaktskuggan, så
+// det som STÅR på planet vaggar kring sina fötter i stället för att svänga i luften.
+const LIV = {
+  '🎈': { bob: 7, sway: 0.05, duration: 3.0 },
+  '🦋': { bob: 6, sway: 0.10, duration: 1.5 },
+  '🌈': { bob: 4, sway: 0.03, duration: 3.2 },
+  '⭐': { bob: 3, sway: 0.12, duration: 2.6 },
+  '🐶': { bob: 4, sway: 0.04, duration: 1.9, fot: true },
+  '🐱': { bob: 4, sway: 0.05, duration: 2.1, fot: true },
+  '🐸': { bob: 5, sway: 0.03, duration: 1.6, fot: true },
+  '🧸': { bob: 3, sway: 0.02, duration: 3.4, fot: true },
+  '🚗': { bob: 1.5, sway: 0.05, duration: 2.2, fot: true },
+  '⚽': { bob: 2, sway: 0.07, duration: 2.0, fot: true },
+  '🎩': { bob: 2, sway: 0.06, duration: 2.8, fot: true },
+  '🍰': { bob: 1.5, sway: 0.02, duration: 3.0, fot: true },
+  '🍎': { bob: 3, sway: 0.03, duration: 2.5, fot: true },
+  '🍌': { bob: 3, sway: 0.04, duration: 2.4, fot: true },
+  '🍓': { bob: 3, sway: 0.03, duration: 2.3, fot: true },
+  '🌸': { bob: 4, sway: 0.06, duration: 2.7, fot: true },
+}
+const LIV_FALLBACK = { bob: 3, sway: 0.04, duration: 2.5, fot: true }
+const FOT_Y = SHELF_DROP - 7 // kontaktskuggans höjd = "fötterna"
+
 export default {
   id: 'vad-forsvann',
   titleSv: 'Vad Försvann?',
@@ -370,12 +397,28 @@ export default {
     // Kontaktskugga mot hyllplanet. Det är skuggan som gör att saken STÅR på planet i
     // stället för att sväva ovanför det — motiven är olika höga, så en gemensam skugga
     // vid planets ovansida bär kontakten bättre än att försöka nudda varje silhuett.
-    const kontakt = new Graphics().ellipse(0, SHELF_DROP - 7, 46, 9).fill({ color: COLORS.shadow, alpha: 0.13 })
+    const kontakt = new Graphics().ellipse(0, FOT_Y, 46, 9).fill({ color: COLORS.shadow, alpha: 0.13 })
     kontakt.eventMode = 'none'
 
-    slot.addChild(kontakt, placeholder, emoji)
+    // Vilorörelsen bor i ett EGET inre lager. Den får aldrig ligga på `slot`: den noden
+    // bär `hitArea` (P0 — träffytan får inte vandra), och kontaktskuggan + den tomma
+    // platshållaren ska stå kvar på hyllan när saken guppar eller när den är borta.
+    const o = LIV[motif] || LIV_FALLBACK
+    const livLager = new Container()
+    livLager.eventMode = 'none'
+    if (o.fot) {
+      // Rotation kring fötterna i stället för kring mitten: en bil vaggar på hjulen.
+      // Pivån kompenseras av positionen, så viloläget är exakt oförändrat (0,0).
+      livLager.pivot.set(0, FOT_Y)
+      livLager.position.set(0, FOT_Y)
+    }
+    livLager.addChild(emoji)
+
+    slot.addChild(kontakt, placeholder, livLager)
     slot._placeholder = placeholder
     slot._emoji = emoji
+    slot._livLager = livLager
+    liv(livLager, { bob: o.bob, sway: o.sway, duration: o.duration })
 
     slot.eventMode = 'static'
     slot.cursor = 'pointer'
@@ -447,6 +490,15 @@ export default {
       slot._isGap = true
       slot._emoji.visible = false
       slot._placeholder.visible = true
+      // Luckan ska vara ett HÅL. Låt vilorörelsen fortsätta och platshållaren ligger
+      // still medan ett osynligt lager andas i den — harmlöst i bild, men det gör
+      // luckan till "en sak som gömmer sig" i koden i stället för till en tom plats,
+      // och nästa effekt som hänger på lagret hade ärvt guppet. Nollställ i stället.
+      slot._livLager?._fxLiv?.kill()
+      if (slot._livLager) {
+        slot._livLager.y = slot._livLager.pivot.y
+        slot._livLager.rotation = 0
+      }
     }
     this._missing = slot
 
@@ -577,6 +629,12 @@ export default {
     slot._emoji.visible = true
     bounceIn(slot._emoji)
     pop(slot)
+    // Saken är tillbaka på hyllan — då ska den andas igen. Ny slumpfas, annars hade
+    // återkomsten hamnat i lås med grannen den råkade lämna vid.
+    if (slot._livLager && !slot._livLager.destroyed) {
+      const o = LIV[slot._motif] || LIV_FALLBACK
+      liv(slot._livLager, { bob: o.bob, sway: o.sway, duration: o.duration })
+    }
     const gp = ctx.fxLayer.toLocal(slot.getGlobalPosition())
     sparkle(ctx.fxLayer, gp.x, gp.y)
     ripple(ctx.fxLayer, gp.x, gp.y, { color: COLORS.green, maxR: 120 }) // triumf-ring kring rutan
@@ -694,6 +752,10 @@ export default {
       gsap.killTweensOf(s)
       gsap.killTweensOf(s.scale)
       if (s._emoji) gsap.killTweensOf(s._emoji.scale)
+      // `liv()` tweenar ett INTERNT tillståndsobjekt, inte målet — `killTweensOf(nod)`
+      // rör den alltså inte. Handtaget ligger på noden och måste dödas explicit,
+      // annars tickar vilorörelsen vidare efter att spelet lämnats.
+      s._livLager?._fxLiv?.kill()
     })
     this._choices?.forEach((c) => {
       gsap.killTweensOf(c)

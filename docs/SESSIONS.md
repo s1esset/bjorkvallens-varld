@@ -14,6 +14,77 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.182.0 · N4 klar — och en skriven invändning som var ett antagande
+
+**Byggt:** nattköns **N4**, båda halvorna. Två commits, en per spel. **LYFTPLAN B2 (mjuka
+kroppar) är därmed slut** — alla sex kandidater är byggda eller avskrivna med mätning bakom sig.
+
+**`mata-monstret` — maten går att TUGGA (`8c2d9f5`, v1.181.0).** Radens motiv var "tuggbar mat",
+och det gick **inte** att bygga som en deformation av MATEN: konstverket i `food.js` är 5–7
+lagrade `Graphics` per rätt i 18 varianter, det finns ingen enda silhuett att töja, och att baka
+den till en textur är förbjudet (`generateTexture` destabiliserar `test:all`). Det som gick att
+bygga är det tugget faktiskt ÄR — en **tugga** i matens egen färg (`foodColor()`, ny) mellan
+tandraderna. **MÄTT** (`_tuggprobe.mjs`, ny): **68,6 → 14,8 px** hög vid gap 0,22, och den
+hoptryckningen **ÄR** käkens gap (14,8 mot tandradernas beräknade 14,8) — inte en tween; samtidigt
+buktar den ut **90,0 → 109,5 px**. Munnen ritas nu i **två lager** med tuggan emellan (bakom
+munnen är maten helt dold, framför täcker den tänderna), och käkens gap bor i ETT tal
+(`this._jaw`, ett rent `{}`) — två `Graphics` som delar en gsap-tween hade glidit isär en bildruta
+mitt i ett 0,09 s-tugg. Tuggan **syns**: 3 272 px isolerat mot **0 px** i kontrollen.
+**Magen** blev också en mjuk kropp: viloform 226×184 px (exakt den gamla ellipsen), `rorelse`
+**0,0000** i vila, växer **226 → 258 → 291 → 326 px** bit för bit och kommer aldrig under den
+tomma magens underkant (224,0 mot golvet 224) — den breder ut sig i stället för att hänga ut över
+fötterna som den skalade ellipsen gjorde. Nytt i libbet: **`skala(k)`** (absolut mot byggmåttet;
+arean är kvadratisk, annars håller det gamla trycket emot hela växten).
+
+**`pruttbad` — bubblan ligger an mot ytan innan den brister (`5f6f0ac`, v1.182.0).** Kön krävde
+att såpbubblornas storleksinvändning prövades **först**, och båda prövningarna gav ett annat svar
+än väntat. ⓵ **Premissen höll inte:** bubblan poppade i SAMMA bildruta som toppen bröt ytan, så
+det fanns inget liggande skede att fysikalisera — skedet är alltså BYGGT, inte fysikaliserat.
+⓶ **Formhalvan av storleksinvändningen är fel** (se nedan). **MÄTT** (`_pressprobe.mjs`, ny):
+skedet **13,2 bildrutor** (0,22 s) mot noll före, för 11–12 av 13 bubblor; hinnan plattas
+**h/b 1,00 → 0,60**, och det är **YTAN** som gör det — toppen ligger på det LEVANDE höjdfältet
+(`_waveAt`) med **0,00 px glapp** i 12,9 av 13,2 rutor, alltså plattas en bubbla mitt i en våg
+annorlunda än en i stiltje. Högst **3 mjuka kroppar samtidigt**. Tempot växelvis mot HEAD, tre
+rundor: **13/13/13 poppar mot 12/12/12** per 500 bildrutor — oskiljbart; latensen **64–75 → 76–85
+bildrutor** (≈ +0,17 s = presset). **Presset kostar latens, inte takt.**
+
+**Passets lärdom: en skriven invändning kan vara ett antagande, och den hade redan styrt ett
+beslut.** `sapbubblor` ströks ur B2 delvis på att "en tiohörning på 40 px läser som en kantig
+klump". Men `Mjukkropp.path()` ritar ingen polygon — den lägger kvadratiska mellansteg genom
+kantmittpunkterna. Uppmätt avvikelse från en perfekt cirkel: **0,01–0,12 px** för 10–16 punkter
+över hela spannet 17–100 px radie, mot den råa polygonens **0,33–4,89** — 40× mer. Formhalvan var
+alltså aldrig mätt. **Kostnadshalvan står kvar** (en full omritning per kropp och bildruta), och
+svaret är att göra bara de kroppar mjuka som faktiskt deformeras just nu. `sapbubblor` är därför
+fortfarande struken (femton mjuka hela tiden), `pruttbad` inte (tre, 0,22 s var). Fällan står nu
+i CLAUDE.md.
+
+**Tre mätfel jag gjorde innan koden hade några:** ⓵ **magens `rorelse` duger inte som mått på
+sväljet** — monstret skuttar vid varje tugga och trögheten skakar magen då också (43 under
+tugget), och toppen efteråt varierade **27 → 217** mellan två körningar av samma sak; viloformen
+är det entydiga måttet. ⓶ **Duken är inte svart när allt är dolt** — renderaren rensar till appens
+bakgrund, så "ljusa pixlar" räknade **921 600 av 921 600 i BÅDA armarna**; bakgrunden läses nu ur
+bilden själv. ⓷ **Skumnivån duger inte som tempomått** i `pruttbad` — nås målet töms badet och
+nivån är 0 igen (**3,37 / 0,00 / 0,00** skum/s för samma spelning). Plus: en kostnadsmätning som
+inte kan bita säger ingenting — vid CPU **×6 OCH ×20** låg båda armarna på 16,6 ms och även 12 ms
+barlast rörde inte talet; `_tuggprobe --kostnad` bär därför en **kontrollarm med 25 ms känd
+barlast** (16,67 → 26,40 ms) innan den vågar säga "inte mätbar".
+
+**Commits:** `8c2d9f5` feat(mata-monstret) tuggan + magen · `5f6f0ac` feat(pruttbad) bubblan mot
+ytan.
+**Kontroll:** `check` **0 fel / 0 varningar** · `test:all` **72/72 gröna** (bara de kända
+parkerade `saknat-ljudklipp`, MOSS nere) · `_tuggprobe` och `_pressprobe` gröna ·
+`_mjukprobe` (5 nya rader för `skala()`), `_bullprobe`, `_stapelprobe` orörda ·
+`_idleprobe` 0/1 för båda spelen. Röstkön orörd (inga nya repliker).
+⚠️ **`_vobbelprobe` flakade 3 av 11 körningar** — alla tre direkt efter det tunga 72-spelssvepet
+("ringen lugnar sig" 9,01 mot tröskeln 0,4, alltså en kula som ännu inte hunnit lägga sig).
+Växelvis A/B mot biblioteket före ändringen (`6ae98b4 -- src/lib/mjukkropp.js`) gav **0 av 7**,
+men fallen ligger i TID, inte i arm, och `skala()` anropas bevisligen bara av `mata-monstret` —
+glasstornets kodväg genom libbet är oförändrad. Tolkat som maskinlast, **inte bevisat**.
+**Öppet:** ägarkön tom. **N4 är slut.** Nästa ⬜ är **N5**, därefter **N12**. **Bygget är INTE
+omgjort** — telefonen ser en äldre version tills någon kör `npm run build`.
+
+---
+
 ## 2026-08-12 · v1.180.0 · Tre kö-punkter — och sonden hade fel innan spelet hade det
 
 **Byggt:** nattköns **N2b** och **N3** (två spel). Tre commits, en per spel.

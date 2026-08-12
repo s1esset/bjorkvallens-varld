@@ -182,6 +182,24 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 - **`Web page caused context loss and was blocked` är en SPÄRR för sidan, inte en transient.**
   Omtagningar hjälper inte — uppmätt 0 räddningar av 2 fall över 15 körningar. Det som räddar
   bilden är att spelet kan köra UTAN resursen. → ÅTGÄRDER V15.
+- **Att mäta en visuell effekt: bara EN av tre metoder svarar på frågan.** Uppmätt på samma
+  effekt (`kulbana`s fartsvans), tre pass i rad med samma slutsats. ⓵ **Jämför mot en
+  referensbild** → du mäter det som RÖRT SIG mest, inte din effekt: kulan stod på olika plats i
+  varje arm och gav "energi 1 523k mot 1 715k", alltså ingen skillnad i något som i själva
+  verket skiljer 6×. ⓶ **Växla bara effektens `visible`** → de två bilderna tas ~60 ms isär och
+  allt annat i scenen hinner röra sig: **1 132 px "från ett lager"** vars buffert var bevisat
+  tom. ⓷ **Dölj hela scenen UTOM effektens lager** (och `ctx.fxLayer`) → 0 px när det är tomt,
+  och tal som faktiskt är effektens. Använd ⓷. Och frys förloppet: pinna läget **varje**
+  bildruta, `positionPrev` med (matter härleder farten ur skillnaden), annars mäter du loopens
+  egen reaktion i stället för din variabel.
+- **Räkna pixlar mäter YTA — styrkan bor i ALFAN.** Ett band täcker ungefär samma bana oavsett
+  hur starkt det är, så pixelantalet växte 1 011 → 1 587 medan summan av avvikelserna gick
+  **33k → 205k**. Ska du visa att något blev *starkare*: summera skillnaden, tröskla den inte.
+  Och en effekt kan passera varje tal du satt och ändå vara osynlig — röken i
+  `blixt-och-dunder` mätte 655 målade pixlar av 7 200 och syntes inte i bilden.
+- **`sparkle`/`puff` går genom `ParticleContainer`.** Räkna aldrig `fxLayer.children` för att
+  se om partiklar föddes — fältet är ETT återanvänt objekt och innehållet ligger i
+  `particleChildren`. Mätningen såg "1 ny fx-nod" och lästes som att glittret var trasigt.
 - **Röstkön är inte permanent.** `npm run voice` fungerar (F5-TTS i `C:\repos\storygen`) — töm kön
   i stället för att lämna repliker på Web Speech.
 - **Sonder måste ligga i repot.** Scratchpad-katalogen kan inte lösa `playwright`; lägg

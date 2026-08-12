@@ -23,3 +23,6 @@ old/
 
 # Pipeline-checkpoint (arbetsläge; historiken bor i docs/SESSIONS.md)
 .claude/state/
+
+# ansiktsriggens mellanfiler (klippet byggs om med npm run ansikte)
+.tmp-ansikte/

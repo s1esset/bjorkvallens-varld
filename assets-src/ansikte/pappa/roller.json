@@ -1,0 +1,92 @@
+{
+  "_": "Vilket foto som spelar vilken roll i ansiktsriggen. Numren är ägarens fotoshoot 2026-08-12 (129 bilder, 768x1024, frilagda). Rollerna valdes genom att titta på hela serien i kontaktkartor.",
+  "__kandidater": "Varje roll listar FLERA kandidater och skriptet väljer den vars POSE ligger närmast referensen (silhuett-överlappning). Skälet är mätt: huvudet driver mellan bilderna (hjässan y 159–319, höjd 705–865, flera lutar), och en bild tagen i en annan pose går inte att rädda med skala och rotation — men det finns nästan alltid en syskonbild med samma min i rätt pose. Urvalet får INTE göras på utseendelikhet: då vinner den blekaste minen varje gång.",
+  "kalla": "s1face__#####_.png",
+  "referens": 1,
+  "roller": {
+    "neutral": [
+      1
+    ],
+    "gap": [
+      106,
+      91,
+      76,
+      126
+    ],
+    "blund": [
+      117,
+      120,
+      118,
+      97
+    ],
+    "sur": [
+      34,
+      36,
+      39,
+      49
+    ],
+    "acklad": [
+      42,
+      40,
+      121,
+      43
+    ],
+    "het": [
+      92,
+      96,
+      59,
+      88
+    ],
+    "lycksalig": [
+      83,
+      73,
+      26,
+      90
+    ],
+    "fundersam": [
+      33,
+      110,
+      111,
+      65
+    ],
+    "forvanad": [
+      81,
+      12,
+      74,
+      102
+    ],
+    "aj": [
+      50,
+      51,
+      52,
+      46
+    ],
+    "nojd": [
+      79,
+      78,
+      80,
+      58
+    ],
+    "skratt": [
+      75,
+      85,
+      89,
+      87
+    ]
+  },
+  "_roller": {
+    "neutral": "basen — sluten mun, ögon mot kameran. KLIPPS i två halvor.",
+    "gap": "vidöppen mun — härifrån klipps mun-inre (tänder/tunga) som eget lager bakom",
+    "blund": "slutna ögon, sluten mun, samma lugna pose som neutral — ögonlappen för blink",
+    "sur": "citron",
+    "acklad": "blää, tunga ut",
+    "het": "chili, flämtande",
+    "lycksalig": "tårta/glass",
+    "fundersam": "broccoli",
+    "forvanad": "oj! (bus)",
+    "aj": "något studsade på näsan (bus)",
+    "nojd": "mätt och belåten (finalen)",
+    "skratt": "bonus — bus i hår/öron"
+  },
+  "__disjunkt": "Kandidatlistorna delar INGA foton, och skriptet ger dessutom aldrig samma foto till tva roller. Skalet ar matt: nar `sur` och `aj` bada hade #50 i listan valde pose-sokningen samma bild till bagge, och da hade tva olika miner blivit samma ansikte."
+}

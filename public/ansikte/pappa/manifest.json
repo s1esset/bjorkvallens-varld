@@ -1,0 +1,147 @@
+{
+  "person": "pappa",
+  "ruta": {
+    "w": 733,
+    "h": 800
+  },
+  "geometri": {
+    "klipp": 508,
+    "ogonlinje": 341,
+    "mun": {
+      "x": 283,
+      "y": 470,
+      "w": 170,
+      "h": 138
+    }
+  },
+  "lager": {
+    "bas": {
+      "fil": "bas.webp",
+      "x": 95,
+      "y": 0,
+      "w": 553,
+      "h": 697,
+      "kb": 57
+    },
+    "ovre": {
+      "fil": "ovre.webp",
+      "x": 154,
+      "y": 0,
+      "w": 429,
+      "h": 518,
+      "kb": 43
+    },
+    "undre": {
+      "fil": "undre.webp",
+      "x": 95,
+      "y": 499,
+      "w": 553,
+      "h": 198,
+      "kb": 17
+    },
+    "mun": {
+      "fil": "mun.webp",
+      "x": 283,
+      "y": 470,
+      "w": 170,
+      "h": 138,
+      "kb": 5
+    },
+    "ogon": {
+      "fil": "ogon.webp",
+      "x": 243,
+      "y": 286,
+      "w": 280,
+      "h": 108,
+      "kb": 7
+    }
+  },
+  "miner": {
+    "sur": {
+      "fil": "min-sur.webp",
+      "x": 156,
+      "y": 132,
+      "w": 423,
+      "h": 641,
+      "kb": 50
+    },
+    "acklad": {
+      "fil": "min-acklad.webp",
+      "x": 146,
+      "y": 132,
+      "w": 453,
+      "h": 641,
+      "kb": 52
+    },
+    "het": {
+      "fil": "min-het.webp",
+      "x": 166,
+      "y": 132,
+      "w": 411,
+      "h": 641,
+      "kb": 54
+    },
+    "lycksalig": {
+      "fil": "min-lycksalig.webp",
+      "x": 167,
+      "y": 132,
+      "w": 422,
+      "h": 641,
+      "kb": 52
+    },
+    "fundersam": {
+      "fil": "min-fundersam.webp",
+      "x": 160,
+      "y": 132,
+      "w": 416,
+      "h": 641,
+      "kb": 51
+    },
+    "forvanad": {
+      "fil": "min-forvanad.webp",
+      "x": 156,
+      "y": 132,
+      "w": 422,
+      "h": 641,
+      "kb": 52
+    },
+    "aj": {
+      "fil": "min-aj.webp",
+      "x": 154,
+      "y": 132,
+      "w": 427,
+      "h": 641,
+      "kb": 48
+    },
+    "nojd": {
+      "fil": "min-nojd.webp",
+      "x": 161,
+      "y": 132,
+      "w": 417,
+      "h": 641,
+      "kb": 50
+    },
+    "skratt": {
+      "fil": "min-skratt.webp",
+      "x": 163,
+      "y": 132,
+      "w": 426,
+      "h": 641,
+      "kb": 48
+    }
+  },
+  "kallor": {
+    "neutral": 1,
+    "gap": 106,
+    "blund": 97,
+    "sur": 39,
+    "acklad": 121,
+    "het": 96,
+    "lycksalig": 73,
+    "fundersam": 33,
+    "forvanad": 12,
+    "aj": 50,
+    "nojd": 58,
+    "skratt": 75
+  }
+}

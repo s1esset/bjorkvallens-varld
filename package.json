@@ -1,6 +1,6 @@
 {
   "name": "bjorkvallens-varld",
-  "version": "1.183.0",
+  "version": "1.184.0",
   "private": true,
   "type": "module",
   "description": "Björkvallens Värld — PWA med roliga, lärorika minispel för barn 2–5 år (svenska, offline, ingen reklam)",
@@ -18,7 +18,8 @@
     "icons": "node scripts/generate-icons.mjs",
     "assets": "node scripts/fetch-fonts.mjs",
     "voice": "node scripts/run-tts.mjs voice",
-    "sfx": "node scripts/run-tts.mjs sfx"
+    "sfx": "node scripts/run-tts.mjs sfx",
+    "ansikte": "node scripts/ansikte.mjs"
   },
   "dependencies": {
     "gsap": "^3.12.5",

@@ -182,6 +182,22 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 - **`Web page caused context loss and was blocked` är en SPÄRR för sidan, inte en transient.**
   Omtagningar hjälper inte — uppmätt 0 räddningar av 2 fall över 15 körningar. Det som räddar
   bilden är att spelet kan köra UTAN resursen. → ÅTGÄRDER V15.
+- **Animera aldrig containern som `addTarget` fick — det flyttar snäppytan.** `DragController`
+  mäter avståndet till `target.view.x/y` **när saken släpps**. `sortera-skrap`s tunnor fick en
+  tyngdkänsla som sänkte dem upp till 13 px i guppet, och då flyttade målet undan sig självt
+  mitt i ett släpp: loggfyndet `snal-snappyta` (släpp **2 px** utanför radien). Samma sak gäller
+  `hitArea`, som sitter på samma nod. **Animera i ett BARN** — då står både släppmål och
+  träffyta still medan bilden rör sig. Sonden såg det inte; `test:all`-loggen gjorde det.
+- **Ett GRÖNT pixeltal kan mäta allt utom din effekt — kör sonden mot HEAD innan du tror på
+  den.** Fem gröna tal i ett och samma pass mätte ingenting, alla gröna även på HEAD där
+  effekten inte fanns: ⓵ en isolering som stannar före roten mäter **skalets bakknapp**
+  (16 320 px i båda armarna); ⓶ en isolering som MISSLYCKAS ger en skärmdump av hela scenen —
+  räkna den som 0, aldrig som en mätning; ⓷ en livslängd mätt från fel nollpunkt blir
+  `performance.now()` = 15 116 ms när ingenting föddes; ⓸ spelets **egen idle-hjälp** målar i
+  samma `fxLayer` efter 6–9 s stillhet (nollställ räknarna genom hela fönstret); ⓹ `fxLayer` är
+  **delat** — badets bubblor i `tvatta-djuret` målar där varje bildruta, och fältet bär
+  parkerade partiklar (1 988 px utan någon effekt alls). Mät i en RUTA runt effekten, och läs
+  **svängningen** (max − min), inte nivån.
 - **Att mäta en visuell effekt: bara EN av tre metoder svarar på frågan.** Uppmätt på samma
   effekt (`kulbana`s fartsvans), tre pass i rad med samma slutsats. ⓵ **Jämför mot en
   referensbild** → du mäter det som RÖRT SIG mest, inte din effekt: kulan stod på olika plats i

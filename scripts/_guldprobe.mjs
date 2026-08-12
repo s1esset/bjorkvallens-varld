@@ -1,240 +1,201 @@
-// Guldfrukten (docs/games/fanga-frukten.md §4 Variation — "Specialfrukt")
+// `vandkort`: det gyllene kortet — sällsynthet, minnessäkerhet och belöning.
 //
-// Ett sällsynt wow-ögonblick är per definition osynligt för `npm run test`: harnessen
-// spelar några sekunder och fotograferar. Den kan varken bevisa att guldfrukten dyker
-// upp, att den är sällsynt, eller att den räknas dubbelt.
+// Punkten kom ur `_stillaprobe`: `vandkort` var repots tydligaste TABLEAU — 48 noder rör
+// sig under utdelningen och sedan **0** medan barnet studerar brädet.
 //
-//   1. Är den SÄLLSYNT (och dyker den alls upp)?
-//   2. Kommer den aldrig som nivåns första frukt, och aldrig två samtidigt?
-//   3. FALLER den långsammare än en vanlig frukt av samma storlek?
-//   4. RÄKNAS den dubbelt — både i talet och i mätaren?
-//   5. GLITTRAR den på vägen ner (så barnet ser att den är särskild INNAN den fångas)?
-//   6. lämnar en exit medan en guldfrukt faller något igång?
+// Två designregler bär idén, och båda mäts:
+//   1. Bara ETT kort är gyllene, aldrig hela paret. Ett glittrande PAR hade kunnat matchas
+//      på synintryck och minnesleken vore borta för just det paret.
+//   2. Kortet skimrar UTAN att flytta sig. I ett minnesspel är kortets PLATS informationen
+//      — ett kort som guppar flyttar barnets hållhake (och `hitArea` sitter på kortet).
 //
-//   node scripts/_guldprobe.mjs [--bild]     (kräver `npm run dev` på :5173)
+//   node scripts/_guldprobe.mjs
 import { chromium } from 'playwright'
 
-const BILD = process.argv.includes('--bild')
+const ID = 'vandkort'
+const BRADEN = 120 // hur många bräden sällsyntheten mäts över
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
-let kod = 0
-const ok = (namn, villkor, detalj = '') => {
-  console.log(`  ${villkor ? '✓' : '✗'} ${namn}${detalj ? ' · ' + detalj : ''}`)
-  if (!villkor) kod = 1
-}
+const rader = []
+const ok = (namn, villkor, text) => rader.push({ namn, ok: !!villkor, text })
 
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
-  const fel = []
-  page.on('console', (m) => { if (m.type() === 'error') fel.push(m.text().slice(0, 160)) })
-  page.on('pageerror', (e) => fel.push('PAGEERROR: ' + (e.message || String(e)).slice(0, 160)))
+  const errors = []
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)) })
+  page.on('pageerror', (e) => errors.push('PAGEERROR: ' + (e.message || String(e)).slice(0, 200)))
 
   await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 20000 })
-  await page.evaluate(() => window.__barnspel.nav.go('game', { id: 'fanga-frukten' }))
-  await page.waitForFunction(() => !!window.__barnspel.game?._fruit, null, { timeout: 15000 })
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) if (k.startsWith('pwagames')) localStorage.removeItem(k)
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 20000 })
+  await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
+  await page.waitForFunction((gid) => window.__barnspel.game?.id === gid && window.__barnspel.ctx?.stage,
+    ID, { timeout: 20000 })
   await page.waitForTimeout(1200)
 
-  console.log('\nGuldfrukten i `fanga-frukten`\n')
-
-  // ---------- 1 + 2: sällsynthet och de två spärrarna ----------
-  // Varje släpp mäts med tom luft: annars slår "aldrig två samtidigt" i taket och
-  // frekvensen blir en funktion av städningen i stället för av slumpen.
-  const stat = await page.evaluate((N) => {
-    const w = window.__barnspel
-    const g = w.game
-    const rensa = () => {
-      for (const f of [...g._fruit]) {
-        if (f.body) g._phys.removeBody(f.body)
-        if (f.view && !f.view.destroyed) f.view.destroy()
+  // --- 1–3. Sällsynthet och regler, över många bräden -----------------------
+  const stat = await page.evaluate(({ n }) => {
+    const g = window.__barnspel.game
+    const ctx = window.__barnspel.ctx
+    const ut = { niva0: { braden: 0, guld: 0 }, hogre: { braden: 0, guld: 0 }, mest: 0, guldPar: 0 }
+    for (let i = 0; i < n; i++) {
+      g._level = i % 5 // täck alla nivåer, inklusive 0
+      g._build(ctx)
+      const guld = (g._cards || []).filter((c) => c._gold)
+      const hink = g._level === 0 ? ut.niva0 : ut.hogre
+      hink.braden++
+      if (guld.length) hink.guld++
+      if (guld.length > ut.mest) ut.mest = guld.length
+      // Är BÅDA korten i ett par gyllene? (skulle göra paret matchbart på synintryck)
+      for (const c of guld) {
+        const tvilling = (g._cards || []).find((o) => o !== c && o._symbol === c._symbol)
+        if (tvilling && tvilling._gold) ut.guldPar++
       }
-      g._fruit.length = 0
     }
-    // (a) Med `_caught === 0` får ingen guldfrukt födas — nivåns första frukt ska vara
-    //     en vanlig, annars betyder den ovanliga ingenting.
-    g._caught = 0
-    let forsta = 0
-    for (let i = 0; i < 200; i++) {
-      rensa()
-      g._spawn(w.ctx)
-      if (g._fruit.some((f) => f.kind === 'guld')) forsta++
-    }
-    // (b) Frekvensen när spärren släppt.
-    g._caught = 3
-    let guld = 0
-    for (let i = 0; i < N; i++) {
-      rensa()
-      g._spawn(w.ctx)
-      if (g._fruit.some((f) => f.kind === 'guld')) guld++
-    }
-    // (c) Två samtidigt: fyll luften utan att rensa och räkna guldfrukterna.
-    rensa()
-    let max = 0
-    for (let i = 0; i < 400; i++) {
-      if (g._fruit.length >= 6) rensa()
-      g._spawn(w.ctx)
-      max = Math.max(max, g._fruit.filter((f) => f.kind === 'guld').length)
-    }
-    rensa()
-    return { forsta, guld, N, max }
-  }, 900)
-  const andel = stat.guld / stat.N
-  ok('guldfrukten dyker upp', stat.guld > 0, `${stat.guld} av ${stat.N} släpp`)
-  ok('den är SÄLLSYNT (~1 på 9)', andel > 0.06 && andel < 0.17, `${(andel * 100).toFixed(1)} %`)
-  ok('aldrig nivåns första frukt', stat.forsta === 0, `${stat.forsta} av 200 släpp före första fångsten`)
-  ok('aldrig två i luften samtidigt', stat.max <= 1, `mest ${stat.max} samtidigt`)
+    return ut
+  }, { n: BRADEN })
 
-  // ---------- 3: faller den långsammare? ----------
-  // Samma storlek, samma starthöjd, samma antal bildrutor — enda skillnaden är sorten.
-  const fart = await page.evaluate(async () => {
-    const w = window.__barnspel
-    const g = w.game
-    const matt = async (guld) => {
-      for (const f of [...g._fruit]) {
-        if (f.body) g._phys.removeBody(f.body)
-        if (f.view && !f.view.destroyed) f.view.destroy()
-      }
-      g._fruit.length = 0
-      const orig = Math.random
-      // Tvinga sorten: 0.05 < 0.11 ger guld, 0.9 ger en vanlig frukt. Samma tal styr
-      // också storleken, så båda armarna får SAMMA storlek — annars mäter man massan.
-      Math.random = () => (guld ? 0.05 : 0.9)
-      g._caught = 3
-      g._spawn(w.ctx)
-      Math.random = orig
-      const f = g._fruit[g._fruit.length - 1]
-      const y0 = f.body.position.y
-      for (let i = 0; i < 70; i++) await new Promise((r) => requestAnimationFrame(r))
-      return { kind: f.kind, fall: +(f.body.position.y - y0).toFixed(1), v: +f.body.velocity.y.toFixed(2) }
+  ok('1 aldrig mer an ETT gyllene kort', stat.mest <= 1, `mest ${stat.mest} per brade over ${BRADEN} braden`)
+  ok('2 aldrig ett gyllene PAR', stat.guldPar === 0, `${stat.guldPar} bräden dar bada korten i ett par var gyllene`)
+  ok('3 aldrig pa niva 0', stat.niva0.guld === 0, `${stat.niva0.guld} av ${stat.niva0.braden} niva-0-braden bar guld`)
+  const andel = stat.hogre.braden ? stat.hogre.guld / stat.hogre.braden : 0
+  ok('4 sallsynt men inte sallsynt-borta', andel > 0.25 && andel < 0.65,
+    `${stat.hogre.guld} av ${stat.hogre.braden} braden pa niva 1+ = ${(andel * 100).toFixed(0)} %`)
+
+  // --- 5. Skimrar utan att flytta sig ---------------------------------------
+  const rorelse = await page.evaluate(async () => {
+    const g = window.__barnspel.game
+    const ctx = window.__barnspel.ctx
+    let kort = null
+    for (let i = 0; i < 60 && !kort; i++) {
+      g._level = 2
+      g._build(ctx)
+      kort = (g._cards || []).find((c) => c._gold)
     }
-    const a = await matt(true)
-    const b = await matt(false)
-    return { guld: a, vanlig: b }
+    if (!kort) return { fel: 'hittade inget gyllene kort' }
+    // Bygg-entrén (`bounceIn`) skalar kortet — vänta ut den, annars mäter vi den.
+    await new Promise((r) => setTimeout(r, 1400))
+    const prov = { kx: [], ky: [], bx: [], ringa: [] }
+    const t0 = performance.now()
+    while (performance.now() - t0 < 3000) {
+      prov.kx.push(kort.x); prov.ky.push(kort.y)
+      prov.bx.push(kort._goldBand ? kort._goldBand.x : 0)
+      prov.ringa.push(kort._goldRim ? kort._goldRim.children[0].alpha : 0)
+      await new Promise((r) => requestAnimationFrame(r))
+    }
+    const spann = (a) => Math.max(...a) - Math.min(...a)
+    return {
+      kort: +Math.max(spann(prov.kx), spann(prov.ky)).toFixed(2),
+      band: +spann(prov.bx).toFixed(1),
+      ring: +spann(prov.ringa).toFixed(2),
+      fel: null,
+    }
   })
-  ok('guldfrukten faller LÅNGSAMMARE än en vanlig av samma storlek',
-    fart.guld.kind === 'guld' && fart.vanlig.kind !== 'guld' && fart.guld.fall < fart.vanlig.fall * 0.95,
-    `guld ${fart.guld.fall} px (v ${fart.guld.v}) mot vanlig ${fart.vanlig.fall} px (v ${fart.vanlig.v})`)
 
-  // ---------- 5: glittrar den på vägen ner? ----------
-  // ⚠️ Räkna INTE barn i `fxLayer`. `sparkle()` går genom partikelvägen
-  // (`lib/partiklar.js` → `ParticleContainer`), alltså ETT återanvänt fält vars innehåll
-  // ligger i `particleChildren`. Första mätningen såg "1 ny fx-nod" och läste som att
-  // glittret inte fungerade — den räknade fältet, inte gnistorna.
-  //
-  // Två mått, båda behövs: hur många GÅNGER spelet gnistrade (dess egen tidsstämpel
-  // flyttas per emission) och hur många partiklar som faktiskt LEVDE i fältet.
-  const glitter = await page.evaluate(async () => {
-    const w = window.__barnspel
-    const g = w.game
-    const partiklar = () => {
-      let n = 0
-      const gaIgenom = (o) => {
-        if (Array.isArray(o.particleChildren)) n += o.particleChildren.length
-        for (const c of o.children || []) gaIgenom(c)
-      }
-      gaIgenom(w.ctx.fxLayer)
-      return n
-    }
-    const rakna = async (guld) => {
-      for (const f of [...g._fruit]) {
-        if (f.body) g._phys.removeBody(f.body)
-        if (f.view && !f.view.destroyed) f.view.destroy()
-      }
-      g._fruit.length = 0
-      const orig = Math.random
-      Math.random = () => (guld ? 0.05 : 0.9)
-      g._caught = 3
-      g._spawn(w.ctx)
-      Math.random = orig
-      const f = g._fruit[g._fruit.length - 1]
-      let emissioner = 0
-      let sist = f.gnistT || 0
-      let topp = 0
-      for (let i = 0; i < 70; i++) {
-        await new Promise((r) => requestAnimationFrame(r))
-        if ((f.gnistT || 0) !== sist) { emissioner++; sist = f.gnistT }
-        topp = Math.max(topp, partiklar())
-      }
-      return { emissioner, topp }
-    }
-    return { guld: await rakna(true), vanlig: await rakna(false) }
-  })
-  ok('guldfrukten gnistrar flera gånger på vägen ner',
-    glitter.guld.emissioner >= 3 && glitter.vanlig.emissioner === 0,
-    `${glitter.guld.emissioner} emissioner mot ${glitter.vanlig.emissioner} för en vanlig frukt`)
-  ok('gnistorna hamnar på riktigt i partikelfältet', glitter.guld.topp > glitter.vanlig.topp,
-    `${glitter.guld.topp} partiklar mot ${glitter.vanlig.topp}`)
-
-  if (BILD) {
-    await page.evaluate(() => {
-      const w = window.__barnspel
-      const g = w.game
-      const orig = Math.random
-      Math.random = () => 0.05
-      g._caught = 3
-      g._spawn(w.ctx)
-      Math.random = orig
-      const f = g._fruit[g._fruit.length - 1]
-      f.body.position.y = 300
-      f.body.positionPrev.y = 300
-      f.body.position.x = 640
-      f.body.positionPrev.x = 640
-    })
-    await page.waitForTimeout(400)
-    await page.screenshot({ path: '.test-shots/_guldfrukt.png' })
+  if (rorelse.fel) {
+    ok('5 kortet star still', false, rorelse.fel + ' — RAKNAS SOM 0')
+    ok('6 skimret rör sig', false, 'samma orsak')
+  } else {
+    ok('5 kortet star still', rorelse.kort < 0.01, `kortets egen rorelse ${rorelse.kort.toFixed(2)} px (krav 0,00)`)
+    ok('6 skimret ror sig', rorelse.band > 100 && rorelse.ring > 0.3,
+      `bandet ${rorelse.band} px over kortet, ringens alfa svanger ${rorelse.ring}`)
   }
 
-  // ---------- 4: räknas den dubbelt? ----------
-  const dubbel = await page.evaluate(() => {
-    const w = window.__barnspel
-    const g = w.game
-    // ⚠️ Luften MÅSTE tömmas först. Steget före lämnade en guldfrukt kvar, och spelets
-    // egen spärr ("aldrig två samtidigt") gjorde då att den tvingade guldfrukten aldrig
-    // föddes — mätningen rapporterade "+1" och läste som att dubbelräkningen var trasig.
-    for (const f of [...g._fruit]) {
-      if (f.body) g._phys.removeBody(f.body)
-      if (f.view && !f.view.destroyed) f.view.destroy()
+  // Lämna en BILD på ett bräde med guld. Sviten fotar nivå 0, där guld aldrig finns —
+  // utan den här bilden hade ingen kunnat titta på effekten själv.
+  await page.evaluate(async () => {
+    const g = window.__barnspel.game
+    const ctx = window.__barnspel.ctx
+    for (let i = 0; i < 60; i++) {
+      g._level = 2
+      g._build(ctx)
+      if ((g._cards || []).some((c) => c._gold)) break
     }
-    g._fruit.length = 0
-    const fanga = (guld) => {
-      const orig = Math.random
-      Math.random = () => (guld ? 0.05 : 0.9)
-      g._spawn(w.ctx)
-      Math.random = orig
-      const f = g._fruit[g._fruit.length - 1]
-      const fore = { n: g._caught, m: g._caughtEmojis.length }
-      g._catchFruit(w.ctx, f)
-      return { kind: f.kind, dN: g._caught - fore.n, dM: g._caughtEmojis.length - fore.m }
-    }
-    g._caught = 1
-    g._caughtEmojis = ['apple']
-    g._goal = 99 // rundan får inte ta slut mitt i mätningen
-    return { guld: fanga(true), vanlig: fanga(false), sista: g._caughtEmojis.slice(-3) }
+    await new Promise((r) => setTimeout(r, 1500))
   })
-  ok('en guldfrukt räknas som TVÅ', dubbel.guld.kind === 'guld' && dubbel.guld.dN === 2,
-    `+${dubbel.guld.dN} mot en vanlig frukts +${dubbel.vanlig.dN}`)
-  ok('och fyller två platser i mätaren', dubbel.guld.dM === 2 && dubbel.vanlig.dM === 1,
-    `mätaren slutar på ${dubbel.sista.join(' · ')}`)
+  await page.screenshot({ path: '.test-shots/_guld-vandkort.png' })
 
-  // ---------- 6: exit medan en guldfrukt faller ----------
-  await page.evaluate(() => {
-    const w = window.__barnspel
-    const g = w.game
-    const orig = Math.random
-    Math.random = () => 0.05
-    g._caught = 3
-    g._spawn(w.ctx)
-    Math.random = orig
-    w.nav.go('menu')
+  // --- 7–8. Belöningen fyrar BARA på ett gyllene par -------------------------
+  const bel = await page.evaluate(async () => {
+    const g = window.__barnspel.game
+    const ctx = window.__barnspel.ctx
+    const spar = []
+    // HEAD saknar hela mekanismen. Ett kast här hade rivit sonden och gett "inget
+    // resultat" i stället för en RÖD rad — en misslyckad mätning måste räknas som 0.
+    if (typeof g._guldFirande !== 'function') {
+      return { guld: { fel: 'spelet har ingen _guldFirande' }, vanlig: { fel: 'spelet har ingen _guldFirande' } }
+    }
+    const orig = g._guldFirande.bind(g)
+    g._guldFirande = function (...a) { spar.push('guld'); return orig(...a) }
+
+    const matcha = async (viljGuld) => {
+      let a = null; let b = null
+      for (let i = 0; i < 80 && !a; i++) {
+        g._level = 2
+        g._build(ctx)
+        const kort = g._cards || []
+        const guld = kort.find((c) => c._gold)
+        if (viljGuld) {
+          if (!guld) continue
+          a = guld; b = kort.find((o) => o !== a && o._symbol === a._symbol)
+        } else {
+          a = kort.find((c) => !c._gold && kort.some((o) => o !== c && o._symbol === c._symbol && !o._gold))
+          b = a ? kort.find((o) => o !== a && o._symbol === a._symbol) : null
+        }
+      }
+      if (!a || !b) return { fel: 'hittade inget par' }
+      await new Promise((r) => setTimeout(r, 300))
+      const fore = spar.length
+      let topp = 0
+      // Gå spelets EGNA väg: `_flip` på första kortet, sedan på tvillingen. Att
+      // anropa jämförelsen direkt hade hoppat över `_busy`-grinden och `_showFace`,
+      // alltså mätt något annat än det barnet utlöser.
+      g._busy = false
+      g._first = null
+      g._flip(ctx, a)
+      g._flip(ctx, b)
+      const t0 = performance.now()
+      while (performance.now() - t0 < 1400) {
+        topp = Math.max(topp, g._fx?.children.length || 0)
+        await new Promise((r) => requestAnimationFrame(r))
+      }
+      return { firanden: spar.length - fore, topp, fel: null }
+    }
+
+    const guld = await matcha(true)
+    const vanlig = await matcha(false)
+    g._guldFirande = orig
+    return { guld, vanlig }
   })
+
+  if (bel.guld.fel || bel.vanlig.fel) {
+    ok('7 firandet fyrar bara pa guld', false, `${bel.guld.fel || bel.vanlig.fel} — RAKNAS SOM 0`)
+    ok('8 guldparet syns mer', false, 'samma orsak')
+  } else {
+    ok('7 firandet fyrar bara pa guld', bel.guld.firanden === 1 && bel.vanlig.firanden === 0,
+      `guldpar ${bel.guld.firanden} firande, vanligt par ${bel.vanlig.firanden}`)
+    ok('8 guldparet syns mer', bel.guld.topp > bel.vanlig.topp,
+      `fx-noder som mest: guld ${bel.guld.topp} mot vanligt ${bel.vanlig.topp}`)
+  }
+
+  // --- 9. exit ---------------------------------------------------------------
+  await page.evaluate(() => window.__barnspel.nav.go('library'))
   await page.waitForTimeout(900)
-  const kvar = await page.evaluate(() => !!window.__barnspel.game)
-  ok('exit medan en guldfrukt faller', !kvar && fel.length === 0,
-    `spelmodul kvar: ${kvar ? 'JA' : 'nej'} · konsolfel: ${fel.length}`)
-  if (fel.length) console.log(fel.slice(0, 5).map((f) => '   ! ' + f).join('\n'))
-} catch (e) {
-  console.error('SOND-FEL:', e.message)
-  kod = 1
+  const kvar = await page.evaluate(() => {
+    const g = window.__barnspel.game
+    return (g?._cards || []).filter((c) => c._goldTween?.isActive?.()).length
+  })
+  ok('9 inget skimmer tickar efter exit', kvar === 0, `${kvar} levande guld-tweens`)
+  ok('10 inga konsolfel', errors.length === 0, `${errors.length} fel${errors[0] ? ': ' + errors[0] : ''}`)
+
+  console.log(`\n  ${ID} — det gyllene kortet\n`)
+  for (const r of rader) console.log(`  ${r.ok ? '✓' : '✗'} ${r.namn.padEnd(36)} ${r.text}`)
+  const gronaN = rader.filter((r) => r.ok).length
+  console.log(`\n  ${gronaN}/${rader.length}\n`)
+  process.exitCode = gronaN === rader.length ? 0 : 1
 } finally {
   await browser.close()
 }
-process.exit(kod)

@@ -15,6 +15,9 @@ import { topLightFill, verticalFillAlpha, verticalFill } from '../../lib/form.js
 import { COLORS } from '../../lib/theme.js'
 
 // DJUP: rutnätet växer gradvis. Strikt felfritt — bara större, aldrig svårare-på-fel-sätt.
+const GULD = 0xffd35c
+const GULD_CHANS = 0.45 // hur ofta ett bräde bär ett gyllene kort (nivå 1 och uppåt)
+
 const LEVELS = [
   { pairs: 2, cols: 2 }, // 2x2
   { pairs: 3, cols: 3 }, // 3x2
@@ -82,6 +85,8 @@ export default {
     this._cards?.forEach((c) => {
       gsap.killTweensOf(c)
       gsap.killTweensOf(c.scale)
+      c._goldTween?.kill() // tweenar ett internt objekt — killTweensOf(c) når den inte
+      c._goldTween = null
     })
     this._root.removeChildren().forEach((o) => o.destroy({ children: true }))
 
@@ -131,10 +136,24 @@ export default {
     const startX = (ctx.width - gridW) / 2 + cardW / 2
     const startY = topPad + (availH - gridH) / 2 + cardH / 2
 
+    // GYLLENE KORT. Ett sällsynt skimrande kort som ger extra firande när dess par
+    // hittas. Två regler bär hela idén:
+    //  * Bara ETT kort är gyllene — aldrig HELA paret. Ett glittrande par hade kunnat
+    //    matchas på synintryck, och då är minnesleken borta för just det paret. Ett
+    //    ensamt gyllene kort gör tvärtom: det pekar ut ett kort värt att minnas, och
+    //    tvillingen måste fortfarande letas upp.
+    //  * Aldrig på nivå 0 (två par = fyra kort — ett gyllene vore halva brädet).
+    // Det skimrar dessutom UTAN att flytta sig: i ett minnesspel är kortets plats
+    // själva informationen, så ett kort som guppar hade flyttat barnets hållhake.
+    const gyllene = this._level >= 1 && Math.random() < GULD_CHANS
+      ? (Math.random() * deck.length) | 0
+      : -1
+
     deck.forEach((symbol, i) => {
       const col = i % cols
       const row = Math.floor(i / cols)
       const card = this._makeCard(ctx, symbol, cardW, cardH, set)
+      if (i === gyllene) this._makeGold(card, cardW, cardH, Math.max(16, cardW * 0.14))
       card.x = startX + col * (cardW + gap)
       card.y = startY + row * (cardH + gap)
       this._layer.addChild(card)
@@ -203,6 +222,55 @@ export default {
     return card
   },
 
+  // Gör ett kort gyllene: ram + ett skimmer som vandrar över baksidan. Ramen ligger
+  // ÖVERST i kortet, alltså synlig både på baksidan och framsidan — barnet ska kunna
+  // se att det är samma särskilda kort efter att det vänts.
+  // Allt liv sitter i ALFA och i skimrets EGEN x — kortets `x`/`y` rörs aldrig, och
+  // `hitArea` sitter på kortet. En träffyta får inte vandra (P0), och i ett minnesspel
+  // får kortets plats inte heller göra det.
+  _makeGold(card, w, h, radius) {
+    card._gold = true
+
+    const rim = new Container()
+    rim.eventMode = 'none'
+    const ring = new Graphics()
+      .roundRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4, radius)
+      .stroke({ width: 7, color: GULD, alpha: 0.95 })
+    rim.addChild(ring)
+
+    // Skimret klipps av kortets egen form — annars hade bandet stuckit ut i luften.
+    const klipp = new Graphics().roundRect(-w / 2, -h / 2, w, h, radius).fill(0xffffff)
+    const band = new Graphics()
+      .poly([-16, -h, 16, -h, 16 + h * 0.5, h, -16 + h * 0.5, h])
+      .fill({ color: 0xffffff, alpha: 0.55 })
+    const svep = new Container()
+    svep.eventMode = 'none'
+    svep.addChild(klipp, band)
+    svep.mask = klipp
+    rim.addChild(svep)
+    card.addChild(rim)
+    card._goldRim = rim
+    card._goldBand = band
+
+    // Skimret vandrar; ringen andas. Båda i ett tillståndsobjekt så tweenen kan dödas
+    // med `killTweensOf(card._goldState)` utan att röra kortets egna tweens.
+    const st = { p: Math.random() }
+    card._goldState = st
+    card._goldTween = gsap.to(st, {
+      p: st.p + 1,
+      duration: 2.6,
+      repeat: -1,
+      ease: 'none',
+      onUpdate: () => {
+        if (card.destroyed || band.destroyed) return
+        const q = st.p % 1
+        band.x = -w * 0.9 + q * w * 1.8
+        ring.alpha = 0.7 + Math.sin(q * Math.PI * 2) * 0.28
+      },
+    })
+    return card
+  },
+
   _flip(ctx, card) {
     if (!this._alive || this._cleared) return
     // Ett tryck får ALDRIG vara stumt (P0). Kortet kan vara upptaget (jämförelse-
@@ -242,7 +310,10 @@ export default {
         this._celebratePair(a)
         this._celebratePair(b)
         this._rewardPair(ctx, a, b) // temat får mening: djurläte / mums / vroom / magi
-        floatText(this._fx, (a.x + b.x) / 2, Math.min(a.y, b.y) - a._h * 0.35, '⭐', { fontSize: a._h * 0.4, rise: 70 })
+        const guld = a._gold || b._gold
+        floatText(this._fx, (a.x + b.x) / 2, Math.min(a.y, b.y) - a._h * 0.35, guld ? '🌟' : '⭐',
+          { fontSize: a._h * (guld ? 0.55 : 0.4), rise: guld ? 100 : 70 })
+        if (guld) this._guldFirande(ctx, a, b)
         this._busy = false
         if (this._matched >= LEVELS[this._level].pairs) this._onCleared(ctx)
       })
@@ -291,6 +362,33 @@ export default {
         gsap.to(card.scale, { x: 1, duration: 0.17, ease: 'back.out(2)' })
       },
     })
+  },
+
+  // Det gyllene kortets par: ett extra ögonblick ovanpå det vanliga firandet. Skimret
+  // stannar (kortet har gjort sitt), gnistregn över BÅDA korten, en ljus treklang och
+  // en egen replik. Reglerna ändras inte — bonusen ligger vid sidan av valet.
+  _guldFirande(ctx, a, b) {
+    for (const c of [a, b]) {
+      if (c.destroyed) continue
+      this._stopGold(c)
+      sparkle(this._fx, c.x, c.y, { count: 14 }) // sparkle() har en egen ton — `color` är no-op
+
+      ripple(this._fx, c.x, c.y, { color: GULD, maxR: c._w * 1.1, width: 5, alpha: 0.6 })
+    }
+    const au = ctx.services.audio
+    ;[880, 1108, 1320].forEach((f, i) => {
+      gsap.delayedCall(i * 0.07, () => { if (this._alive) au.tone({ freq: f, dur: 0.3, type: 'triangle', vol: 0.22 }) })
+    })
+    ctx.services.voice.say('Ett gyllene kort! Så fint!')
+  },
+
+  // Stoppar skimret och lämnar ramen i ett stilla, tydligt läge.
+  _stopGold(card) {
+    if (!card?._goldTween) return
+    card._goldTween.kill()
+    card._goldTween = null
+    if (card._goldBand && !card._goldBand.destroyed) card._goldBand.visible = false
+    if (card._goldRim && !card._goldRim.destroyed) card._goldRim.children[0].alpha = 0.95
   },
 
   // Glad markering av ett funnet par: grön glöd + popp + gnistor.
@@ -413,6 +511,10 @@ export default {
     this._cards?.forEach((c) => {
       gsap.killTweensOf(c)
       gsap.killTweensOf(c.scale)
+      // Skimret tweenar ett INTERNT tillståndsobjekt, inte kortet — `killTweensOf(c)`
+      // rör den alltså inte. Samma fälla som `liv()` i vad-forsvann.
+      c._goldTween?.kill()
+      c._goldTween = null
     })
     gsap.killTweensOf(this._root)
     gsap.killTweensOf(this._layer)

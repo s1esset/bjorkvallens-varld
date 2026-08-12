@@ -55,14 +55,14 @@ progression. Strikt felfritt — fel par vänds vänligt tillbaka, ingen timer, 
 ### Variation & överraskning
 - **[Quick] "Titta först"-peek för de yngsta** (nivå 0–1): visa alla kort uppvända i ~1,5s, vänd
   ner mjukt, säg "kom ihåg!". Sänker tröskeln för 2-åringen utan att bli svårare.
-- **[Quick] Gyllene kort.** Ett sällsynt glittrande kort vars par ger extra gnistregn + en bonus-
-  klistermärke-känsla → ett "wow" som driver "en till!".
+- ✅ ~~**[Quick] Gyllene kort.**~~ Klar 2026-08-12 (v1.170.0) — men som ett ENSAMT kort, inte ett
+  gyllene par. Se §5 för varför den skillnaden är hela poängen.
 
 ### Juice
 - **[Quick] Stigande tonhöjd ju fler par** (kombo-pling som klättrar mot tomt bräde) + tema-
   specifikt avslöjande-ljud i `_showFace`.
-- **[Quick] Saftigare miss-feedback:** de två icke-paren "skakar nej" mjukt mot varandra innan
-  de vänds — lekfullt, fortfarande aldrig negativt.
+- ✅ ~~**[Quick] Saftigare miss-feedback:**~~ REDAN BYGGD (kontrollerad mot koden 2026-08-12,
+  `index.js:254–260`): korten skakar mot varandra + `wiggle` innan de vänds tillbaka.
 
 ### Progression
 - **[Medium] Par-galleri / bilderbok.** Varje funnet par läggs i en liten samling som fylls över
@@ -79,6 +79,30 @@ progression. Strikt felfritt — fel par vänds vänligt tillbaka, ingen timer, 
   genomgående [Quick]-vinst som ensam lyfter hela djur-/havstemat.
 
 ## 5. Status / loggar
+
+- 2026-08-12 ✨ **Gyllene kort — som ett ENSAMT kort, inte ett par** (v1.170.0, N10 pass 7).
+  Punkten kom inte ur docen utan ur en mätning: ny sond `scripts/_stillaprobe.mjs` körde hela
+  registret och `vandkort` var **det enda äkta tableauet av 63 spel** — 48 noder rör sig under
+  utdelningen och sedan **0** medan barnet studerar brädet. Ett minnesspel är just det spel där
+  barnet tittar längst på en stillastående bild.
+  **Designbeslutet som docen inte hade:** §4 bad om "ett sällsynt glittrande kort vars par ger
+  extra gnistregn". Ett glittrande PAR hade gått att matcha på synintryck — då är minnesleken
+  borta för just det paret. Nu är bara **ett** kort gyllene; tvillingen är vanlig. Guldet pekar
+  alltså ut ett kort värt att minnas och skapar ett mål, i stället för att lösa uppgiften.
+  Aldrig på nivå 0 (två par = fyra kort — ett gyllene vore halva brädet).
+  **Och skimret flyttar ingenting.** I ett minnesspel är kortets PLATS informationen; ett kort
+  som guppar hade flyttat barnets hållhake — och `hitArea` sitter på kortet (P0). Livet ligger
+  därför helt i alfan och i skimmerbandets egen x, klippt mot kortets form.
+  **MÄTT** (`scripts/_guldprobe.mjs`, 10/10 mot HEADs 5/10): mest **1** gyllene kort per bräde
+  över 120 bräden · **0** bräden med ett gyllene par · **0 av 24** nivå-0-bräden · 43 av 96
+  bräden på nivå 1+ = **45 %** · kortets egen rörelse **0,00 px** medan bandet vandrar **372 px**
+  och ringens alfa svänger 0,56 · guldfirandet fyrar 1 gång på ett guldpar och **0** på ett
+  vanligt · fx-noder som mest 6 mot 4 · 0 tweens efter exit. Ny replik med genererat klipp.
+  ⚠️ Raderna 1/2/3/9/10 är gröna på HEAD också (där finns inget guld att bryta mot) — de är
+  **vakter, inte bevis**. Bevisen är 4, 5, 6, 7 och 8.
+  ⚠️ `sparkle()` har en egen hårdkodad ton — `{ color }` är en **no-op** och togs bort ur
+  anropet i stället för att stå kvar och se ut som en färgsättning.
+  ⚠️ "Saftigare miss-feedback" i §4 var **redan byggd** (`index.js:254–260`) och är struken.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`8809aa0`, v1.117.0).
   `_plattprobe --medbakgrund` mätte **131 796 px = 14 % av skärmen** i EN ton.

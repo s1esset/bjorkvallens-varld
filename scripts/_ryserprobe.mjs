@@ -1,7 +1,8 @@
 // `kla-efter-vadret`: KÄNNER Elvira vädret — och slutar hon när hon är lagom klädd?
 //
 // Punkten kom ur `_stillaprobe`: 84 noder, **3** i rörelse, största utslag
-// **4,1–4,2 px i tre svep av tre** — och de tre var de fallande regn-/snöflingorna.
+// **4,1–4,2 px i tre svep av tre** — och de tre var vadersymbolens glow-puls plus
+// symbolen sjalv, en DEKORATIV bricka (uppmatt med `_vilkaprobe.mjs`, inte antaget).
 // Elvira själv, spelets enda karaktär och hela dess anledning, stod blick stilla.
 // §4 [Quick]: "Elvira reagerar på fel: huttrar till vid för lite kläder, viftar bort
 // för varmt — per-plagg-reaktion gör vinken levande i stället för bara wiggle + TTS."
@@ -159,7 +160,7 @@ try {
     }
     const samst = Math.min(...Object.values(perVader))
     ok('4b. syns i alla tre vaderslagen', samst > 6,
-      `svangningsrum sno ${perVader.sno} · regn ${perVader.regn} · sol ${perVader.sol} px (flingorna ligger pa 4,2)`)
+      `svangningsrum sno ${perVader.sno} · regn ${perVader.regn} · sol ${perVader.sol} px (vadersymbolen ligger pa 4,2)`)
 
     // --- 5. Hoppet lever kvar (gsap pa _figure vs tickern pa _figureInner) --
     await stall('sno')

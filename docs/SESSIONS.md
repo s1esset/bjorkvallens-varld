@@ -43,7 +43,8 @@ nyfikenhet), och antal/sida/avstånd slumpas per runda.
 skrämsel **0,63 vid 157 px mot 0,26 vid 312 px** · 0 av 662 bildrutor med kropp under marken.
 
 **`kla-efter-vadret` — Elvira känner vädret (v1.176.0).** 84 noder, **3** i rörelse, 4,1–4,2 px
-i tre svep — och de tre var de fallande flingorna. Spelets enda karaktär, och hela dess
+i tre svep — och de tre var vädersymbolens glow-puls plus symbolen själv, en dekorativ
+bricka högst upp. Spelets enda karaktär, och hela dess
 anledning, stod blick stilla. Obehaget är nu ett **löpande tillstånd**: andelen ofyllda zoner,
 uttryckt med **vädrets egen takt** (snabbt köldskalv i snö, hukning i regn, trög värmevaggning
 i sol). Det avtar per plagg och är **borta** när hon är lagom klädd — så "Nu blir jag lagom varm
@@ -62,7 +63,8 @@ rörelse — precis sondens dokumenterade begränsning. Med två svep hade passe
 Skrämseln var död på precis den nivå en tvååring spelar. **Placera relativt spelets egna mål,
 aldrig på koordinater som råkar stämma på en nivå.** ② Maskens kropp hade ingen klippning och
 stack ut under sitt eget hål — **bara skärmdumpen såg det**. ③ Elviras första utslag gav i SOL
-4,6 px, alltså **mindre än flingorna scenen redan hade**; tableauet hade varit halvt löst.
+4,6 px, alltså **mindre än den dekorativa vädersymbol scenen redan rörde**; tableauet hade
+varit halvt löst.
 **Mät din egen effekt mot det som redan rörde sig**, inte mot noll. Sonden har nu en rad för
 varje väderslag. Dessutom: en `rotation` på ett lager vars barn ritas i absoluta koordinater
 kring x=640 svänger figuren i en cirkelbåge kring scenens origo — pivoten hör hemma vid fötterna.

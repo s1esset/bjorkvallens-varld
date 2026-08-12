@@ -62,9 +62,19 @@ Stark grund, men flera billiga drag som en kräsen förälder märker:
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Levande figur man bryr sig om.** Ge figuren ett litet ansikte/uttryck: den
+- ~~**[Medium] Levande figur man bryr sig om.** Ge figuren ett litet ansikte/uttryck: den
   tittar mot nästa fotspår, pirrar/lutar sig framåt när det är dags, jublar (studs + "!") vid
-  varje rätt skutt. Då hjälper barnet en *kompis* hem, inte en bricka.
+  varje rätt skutt. Då hjälper barnet en *kompis* hem, inte en bricka.~~
+  ✅ **REDAN BYGGD — struken 2026-08-12 på en MÄTNING, inte en kodläsning.** Alla tre delarna
+  finns: ansikte i `_paintFigure` (`:346-352`, fyra ritade djur med kropp), `_lookEager()`
+  (`:546`) lutar figuren mot nästa väntade fotspår, och `_hopRabbit` (`:520`) jublar med ett
+  flytande "!" plus squash-and-stretch i landningen.
+  Punkten kom upp som N10-kandidat därför att `_stillaprobe` mätte spelet till **4,6 px i tre
+  svep av tre**, bara 2 av 30 noder i rörelse. **Det talet ÄR funktionen**, inte tomhet:
+  `_ivrigprobe.mjs` mätte lutningen till **0 → 0,11 rad** med `_eagerTween` levande, åt rätt
+  håll (figuren på x=280, nästa fotspår på x=645), vilket ger **4,4 px** vid figurens
+  ytterkant. Att bara läsa koden hade inte räckt — `vart-tog-det-vagen` bar hela sin
+  reaktionstabell i koden och var ändå död i sex veckor.
 - **[Deep] Rita en riktig slingrande stig.** Dra en mjuk kurva (quadratic/bezier) genom
   fotspåren så banan *ser ut* som en stig i gräset; fotspåren ligger på stigen. Figuren följer
   kurvan (inte räta hopp). Vägen blir en värld, inte spridda prickar.

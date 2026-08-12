@@ -95,7 +95,8 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
 
 - 2026-08-12 🥶 **Elvira känner vädret** (v1.176.0). Punkten valdes av **mätning**:
   `_stillaprobe` läste scenen som nästan död — 84 noder, **3** i rörelse, största utslag
-  **4,1–4,2 px i tre svep av tre**, och de tre var de fallande regn-/snöflingorna. Spelets
+  **4,1–4,2 px i tre svep av tre**, och de tre var vädersymbolens glow-puls (`_glowPulse`,
+  en oändlig yoyo på en 184 px cirkel) plus symbolen själv — en DEKORATIV bricka. Spelets
   enda karaktär, och hela dess anledning, stod blick stilla medan barnet skulle bry sig om
   henne.
   Obehaget är nu ett **löpande tillstånd**, inte bara en reaktion på fel: andelen ofyllda
@@ -109,7 +110,8 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
   Plaggen fästs numera i det inre lagret också, så en påsatt mössa skakar med henne.
   ⚠️ **Två fel som mätningen respektive skärmdumpen fångade, båda med grönt test:**
   ① Första utslagen (3,6 / 1,7 / 2,3 px) gav i **sol** ett svängningsrum på 4,6 px — mindre
-  än flingorna scenen redan hade, alltså precis det `_stillaprobe` kallar "nästan stilla".
+  än den dekorativa vädersymbol scenen redan rörde, alltså precis det `_stillaprobe` kallar
+  "nästan stilla".
   Tableauet hade varit halvt löst. Utslagen höjdes; **takterna rördes inte**, för det är
   frekvensen som skiljer väderslagen åt. Sonden har nu en egen rad som kräver att skalvet
   syns i **alla tre** väderslagen. ② Kroppsdelarna ritas i absoluta koordinater kring x=640,
@@ -120,7 +122,7 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
   svängningsrum **9,6 px** oklädd i snö (HEAD: figuren helt stilla) · **9,6 → 6,4 px** efter
   ETT riktigt drag genom DragController, alltså 0,67 mot lagens förväntade 2/3 ·
   **6,4 → 17,2 px** direkt efter ett opassande plagg · köldskalv **6,4 vändningar/s** mot
-  värmevaggningens **0,8** · alla tre väderslagen över flingornas 4,2 px (9,6 · 6,8 · 10,8).
+  värmevaggningens **0,8** · alla tre väderslagen över vädersymbolens 4,2 px (9,6 · 6,8 · 10,8).
   `_stillaprobe` efteråt: **4,2 → 10,8 px** och 3 → 13 noder i rörelse.
   ⚠️ Raderna 5–6 är **vakter, inte bevis** — gröna på HEAD också. Bevisen är 1–4b.
 

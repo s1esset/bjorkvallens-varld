@@ -20,6 +20,23 @@
 //   * Det sena fönstret slutar före 6 s, så spelets egen idle-hjälp aldrig hinner måla
 //     något som skulle läsas som "liv".
 //
+// ⚠️ INGET AV TALEN HÄR KAN AVGÖRA ETT URVAL PÅ EGEN HAND — kör `_vilkaprobe.mjs <id>`
+// innan du bygger något. Mätt 2026-08-12 på två spel med nästan identiska tal och
+// MOTSATT svar:
+//   `kla-efter-vadret`  4,2 px, 3 av 84 noder  → ÄKTA fynd. De tre var vädersymbolens
+//                       glow-puls (`_glowPulse`, en oändlig yoyo på en 184 px cirkel)
+//                       plus symbolen själv — alltså en DEKORATIV bricka högst upp,
+//                       medan spelets enda karaktär stod blick stilla.
+//   `folj-sparet`       4,6 px, 2 av 30 noder  → FALSKT fynd. De två är figuren själv
+//                       (container + dess Graphics, samma 66×89 sak räknad två gånger),
+//                       och 4,4 px av det är `_lookEager` som fungerar precis som avsett
+//                       (`_ivrigprobe.mjs`: 0 → 0,11 rad, åt rätt håll).
+// ⚠️ En summerad RÖRLIG YTA prövades som skiljelinje och **förkastades med mätning**:
+// den ger 53 482 px² för det DÖDA spelet (glow-cirkeln är stor) mot 10 969 px² för det
+// levande (figuren är liten), alltså precis fel ordning — och den dubbelräknar container
+// + barn. Frågan "lever scenen?" går inte att svara på med ett skalärt tal. Det som
+// avgör är VILKEN nod som rör sig: en dekorativ bricka eller den figur barnet bryr sig om.
+//
 // ⚠️ BEGRÄNSNING — läs den innan du tror på en enskild rad. Vilofönstret är ETT STICKPROV
 // på 1,4 s. Spel med EPISODISK vilorörelse (en nick var tredje sekund) läses helt olika
 // beroende på fas: `tarta-i-ansiktet` mätte **1,0 px** i ett svep och **34,4 px** i nästa,

@@ -25,6 +25,7 @@ import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, breathe, floatText, shake, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { topLightFill } from '../../lib/form.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -46,6 +47,12 @@ const DARKMUD = 0x6b4429 // mörkare lera (prickar + dubbel-lager)
 const CLAY = 0x4f5b64
 const CLAY_GLOSS = 0xbcd6de
 const STICKY_HINT_MS = 2600 // hur ofta kladd-tipset får upprepas (aldrig tjat)
+// GÖMDA FYND: en sak per djur ligger under en lerklump. Ritade föremål ur ikonbiblioteket
+// (P0 ASSETS: fristående form, aldrig en emoji i en ruta).
+// (Alla fyra är verifierade nycklar i artikoner.js — en nyckel som saknas ritas som en
+// tyst grå cirkel, utan konsolfel.)
+const FIND_KEYS = ['⭐', '❤️', '💎', '🐚']
+const FIND_GLIM_MS = 2400 // hur ofta gömstället glimmar till (tellen som gör det HITTBART)
 
 // Djurtyper per nivå.
 const TYPES = [
@@ -124,7 +131,12 @@ export default {
     // Ett enda Graphics ovanpå djuret (men under verktygen), ritas om i _update — exit-säkert.
     this._tubFx = new Graphics()
     this._tubFx.eventMode = 'none'
-    this._root.addChild(this._clean, this._mudLayer, this._foamLayer, this._spray, this._tubFx)
+    // Fyndlagret ligger ÖVERST och tomt: precis en sak i taget bor här, det som gömde sig
+    // under leran. Eget lager så det aldrig hamnar bakom skum eller spray — och så det går
+    // att mäta för sig (dölj allt annat, räkna pixlar).
+    this._findLayer = new Container()
+    this._findLayer.eventMode = 'none'
+    this._root.addChild(this._clean, this._mudLayer, this._foamLayer, this._spray, this._tubFx, this._findLayer)
 
     // Verktyg (svamp/dusch) ovanför djuret.
     this._sponge = { kind: 'sponge', view: this._makeSponge(), home: { x: 165, y: 630 } }
@@ -285,6 +297,7 @@ export default {
     this._genZones()
     this._genMud(t)
     this._hasSticky = this._flakes.some((f) => f.kind === 'klibb')
+    this._hideFind()
 
     // Duschen åter inaktiv/dim tills ~70 % skrubbat.
     this._showerFade?.kill()
@@ -730,6 +743,89 @@ export default {
     this._spawnFoam(flake.x, flake.y)
     this._fadeOut(flake.view, 0.4)
     puff(ctx.fxLayer, flake.x, flake.y, { count: 4, color: 0xffffff })
+    if (flake === this._findFlake) this._revealFind(ctx, flake)
+  },
+
+  // ---- Gömda fynd under leran --------------------------------------------
+  //
+  // EN sak per djur ligger gömd under en lerklump. Den ska gå att HITTA, inte bara råka
+  // ut för: klumpen glimmar då och då (`_update`), så ett barn som tittar kan gå på just
+  // den. Och den får ta tid — ett sällsynt ögonblick som far förbi på 0,3 s är ingen
+  // belöning, det är en miss (samma lärdom som guldfrukten i `fanga-frukten`).
+  _hideFind() {
+    this._findFlake = null
+    this._findGlim = 0
+    this._findView = null
+    // Bara TORR lera: en kladdfläck kräver duschen först, och då hade fyndet legat bakom
+    // ett hinder i stället för under en upptäckt.
+    const kandidater = this._flakes.filter((f) => f.kind === 'torr' && !f._clean)
+    if (kandidater.length < 4) return // för få klumpar → ingen gömma värd namnet
+    this._findFlake = randomFrom(kandidater)
+    this._findKey = randomFrom(FIND_KEYS)
+  },
+
+  _revealFind(ctx, flake) {
+    this._findFlake = null
+    if (!this._alive || !this._findLayer || this._findLayer.destroyed) return
+    // Fyndet får ett SKEN bakom sig. Utan det låg en röd hjärtform mot brun lera — mätbart
+    // synlig, men den försvann i bruset i bilden. Tre ringar med avtagande alfa; en radiell
+    // FillGradient går inte (den kan inte ha genomskinlig mitt).
+    const view = new Container()
+    view.eventMode = 'none'
+    const sken = new Graphics()
+    sken.circle(0, 0, 96).fill({ color: 0xfff6d8, alpha: 0.22 })
+    sken.circle(0, 0, 68).fill({ color: 0xfff6d8, alpha: 0.3 })
+    sken.circle(0, 0, 44).fill({ color: 0xffffff, alpha: 0.42 })
+    sken.eventMode = 'none'
+    const ikon = drawIcon(this._findKey || '⭐', 132)
+    ikon.eventMode = 'none'
+    view.addChild(sken, ikon)
+    view.position.set(flake.x, flake.y)
+    view.scale.set(0.2)
+    view.alpha = 0
+    this._findLayer.addChild(view)
+    this._findView = view
+
+    // Komiskt "ploink": en snabb uppåtglidande ton + en klar klang ovanpå.
+    ctx.services.audio.tone({ freq: 300, dur: 0.16, type: 'sine', vol: 0.26, slideTo: 900 })
+    ctx.services.audio.tone({ freq: 1320, dur: 0.2, type: 'triangle', vol: 0.14, delay: 0.12 })
+    sparkle(ctx.fxLayer, flake.x, flake.y, { count: 12 })
+    this._reactFace('happy', ctx)
+    ctx.services.voice.say('Titta! Något låg gömt i leran!')
+
+    // Upp ur leran, vänd sig så man hinner se den, och sedan iväg med en gnista.
+    const st = { a: 0, s: 0.2 }
+    const tl = gsap.timeline()
+    tl.to(view, { y: flake.y - 96, duration: 0.55, ease: 'back.out(1.5)' })
+    tl.to(st, {
+      a: 1,
+      s: 1,
+      duration: 0.35,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (view.destroyed) return
+        view.alpha = st.a
+        view.scale.set(st.s)
+      },
+    }, '<')
+    tl.to(view, { rotation: 0.5, duration: 0.5, ease: 'sine.inOut', yoyo: true, repeat: 1 })
+    tl.to(view, { y: flake.y - 150, duration: 0.5, ease: 'power1.in' })
+    tl.to(st, {
+      a: 0,
+      s: 0.7,
+      duration: 0.5,
+      ease: 'power1.in',
+      onUpdate: () => {
+        if (view.destroyed) return
+        view.alpha = st.a
+        view.scale.set(st.s)
+      },
+      onComplete: () => {
+        if (!view.destroyed) view.destroy()
+        if (this._findView === view) this._findView = null
+      },
+    }, '<')
+    this._tweens.push(tl)
   },
 
   _spawnFoam(x, y) {
@@ -960,6 +1056,16 @@ export default {
       }
     }
 
+    // Gömstället glimmar till med jämna mellanrum: tellen som gör fyndet HITTBART i stället
+    // för en slump. Ligger FÖRE resolving-grenen så den slocknar när djuret är klart.
+    if (this._findFlake && !this._findFlake._clean && !this._resolving) {
+      this._findGlim += tk.deltaMS
+      if (this._findGlim >= FIND_GLIM_MS) {
+        this._findGlim = 0
+        sparkle(ctx.fxLayer, this._findFlake.x, this._findFlake.y, { count: 3 })
+      }
+    }
+
     // Idle-vink + auto-hjälp (garanterar 100 % utan precision).
     if (this._resolving) return
     const ds = tk.deltaMS / 1000
@@ -1117,6 +1223,15 @@ export default {
         o.destroy()
       })
     }
+    if (this._findLayer) {
+      this._findLayer.removeChildren().forEach((o) => {
+        gsap.killTweensOf(o)
+        gsap.killTweensOf(o.scale)
+        o.destroy({ children: true })
+      })
+    }
+    this._findFlake = null
+    this._findView = null
     if (this._clean) this._clean.removeChildren().forEach((o) => o.destroy({ children: true }))
     if (this._spray && !this._spray.destroyed) this._spray.clear()
     if (this._clean && !this._clean.destroyed) {

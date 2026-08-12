@@ -84,8 +84,14 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   att göra valet äkta, ett tredje verktyg hade blivit mer att lära sig utan mer djup.)*
 
 ### Variation & överraskning
-- **[Quick] Gömda fynd under leran.** Ibland en fläck som döljer ett hjärta/⭐/en fästing-
-  emoji som flyger bort med ett komiskt "ploink" — en liten upptäckt per djur.
+- ~~**[Quick] Gömda fynd under leran.**~~ ✅ 2026-08-12 (v1.165.0) — **den här omgången.**
+  Exakt **en** gömma per djur (6 av 6 nivåer, aldrig två), alltid under **torr** lera — under
+  kladd hade fyndet legat bakom ett hinder i stället för under en upptäckt — och aldrig
+  innanför den lerfria ansiktsrutan. Gömstället **glimmar till** var 2,4:e sekund, så fyndet
+  går att *hitta* och inte bara råka ut för. Skrubbas klumpen bort stiger ett ritat föremål
+  (⭐/❤️/💎/🐚 ur `artikoner.js`) med ett sken bakom sig, vänder sig och far iväg — **2,1 s**
+  från lerklump till borta, för ett ögonblick som far förbi är ingen belöning. Ny replik med
+  genererat klipp. Mätt med `scripts/_fyndprobe.mjs`: **10/10** (HEAD: 9 röda).
 - **[Quick] Variera badtillbehör per djur** (gummianka för valpen, borste för ponnyn) som
   pyntar karet och ger igenkänning.
 
@@ -107,8 +113,9 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   `audio.sample('djur_' + type.sample)` — `index.js:905-912`. *Kvar som [Quick]:* rosett/krona
   och att djuret beundrar sig i vattenytan; `bigCelebration` ligger dessutom kvar OVANPÅ den
   djur-specifika finishen i stället för att ersättas.
-- **[Quick] Ansiktet alltid synligt.** Håll en lerfri ruta runt ögonen så minen syns under hela
-  tvätten (den döljs ofta helt idag), så barnet ser djuret reagera.
+- ~~**[Quick] Ansiktet alltid synligt.**~~ ✅ **REDAN BYGGD** — `FACE_R = 82` håller en lerfri
+  ruta runt ansiktet i både `_genMud` och `_genZones`. Punkten stod kvar som öppen i §4.
+  Struken 2026-08-12.
 
 ### Ljud
 - **[Quick] Riktiga klipp** ([[real-audio-sfx]]): mjukt gnugg/skrubb, rinnande dusch, skak +
@@ -194,3 +201,29 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   - `spelkritiker`: inga blockerare kvar. **Kvalitet 🔧 → ✅.**
   - Kvar som [Quick]/[Medium] i §4: svampen borde bli smutsig, gömda fynd under leran,
     före/efter-miniatyr, rinnande skum, riktiga SFX-klipp (väntar på MOSS).
+- 2026-08-12 (v1.165.0): **[Quick] Gömda fynd under leran byggda** (nattköns N10, pass 5).
+  - **Gömman** (`_hideFind`, kallad efter `_genMud`): en slumpad **torr** klump per djur bär
+    fyndet, och bara om djuret har minst 4 klumpar. Mätt över nivå 0–5: **6 av 6** djur har en
+    gömma, aldrig två, alltid `torr`, närmast ansiktet 84–427 px (lerfri ruta = 82).
+  - **Tellen** (`_update`): gömstället glimmar var 2 400 ms (3 gnistor), så fyndet går att
+    *hitta*. Drivs FÖRE `resolving`-grenen så den slocknar när djuret är klart.
+  - **Avslöjandet** (`_revealFind`): ritat föremål ur `artikoner.js` (⭐/❤️/💎/🐚 — alla fyra
+    verifierade nycklar; en nyckel som saknas ritas som en **tyst grå cirkel** utan konsolfel)
+    stiger ur leran, vänder sig och far iväg på **2,1 s**, med ploink (300→900 Hz + klang),
+    gnistor, glad min och repliken *"Titta! Något låg gömt i leran!"* (klipp genererat).
+  - **Bilden ändrade bygget en gång:** en röd hjärtform mot brun lera var mätbart synlig men
+    **försvann i bruset**. Fyndet fick ett **sken** — tre ringar med avtagande alfa, för en
+    radiell `FillGradient` kan inte ha genomskinlig mitt — och 132 px storlek i stället för 96.
+  - **Tre gröna tal som inte mätte något** (alla hittade genom att köra sonden mot HEAD):
+    1. `_findLayer`-isoleringen returnerade `false` på HEAD, och skärmdumpen blev då **hela
+       scenen** → varje pixeltal grönt av sig självt. Misslyckad isolering räknas nu som 0.
+    2. Livslängden mättes från `performance.now()` när inget föddes → **15 116 ms**, grönt.
+       Kravet är nu både att avslöjandet startade och att tiden ligger i 1,5–8 s.
+    3. "Tellen målar något" mätte **hela fx-lagret** — som är DELAT med badets stigande
+       tvålbubblor (`index.js:1039`) och dessutom bär parkerade partiklar i ett återanvänt
+       `ParticleContainer`. HEAD gav **1 988 px** utan tell och en svängning på 3 118 px av
+       bara bubblor. Mätningen sker nu i en **ruta runt gömstället**, och bara svängningen
+       räknas: **1 056 px** mot **0** på HEAD.
+  - Kontroll: `npm run check` 0 fel/0 varningar · `npm run test tvatta-djuret` grön ·
+    `_fyndprobe` **10/10** (HEAD: 9 röda) · exit mitt i avslöjandet utan konsolfel.
+  - **Struket i §4 samtidigt:** *Ansiktet alltid synligt* (redan byggd, `FACE_R`).

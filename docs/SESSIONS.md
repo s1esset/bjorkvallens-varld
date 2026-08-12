@@ -45,7 +45,9 @@ En summerad **rörlig yta** prövades som skiljelinje och **förkastades med mä
 dubbelräknar container + barn. Frågan "lever scenen?" går inte att svara på med ett skalärt tal.
 `_stillaprobe` är därför oförändrad, men bär nu en varning som pekar på `_vilkaprobe`.
 
-**Commits:** `8b5f818` docs(N10 p10) folj-sparet redan byggd + rättelsen.
+**Commits:** `8b5f818` docs(N10 p10) folj-sparet redan byggd + rättelsen · `88dfed2` sessionslogg
+· `72054a1` `_stillaprobe` + `_vilkaprobe` in i CLAUDE.md:s verktygstabell och en ny tyst fälla
+(sållet hade styrt urvalet i fyra pass utan att stå i CLAUDE.md alls).
 **Kontroll:** `check` 0 fel / 0 varningar · `_ryserprobe` 7/7 · `_ivrigprobe` 4/4 ·
 `npm run test kla-efter-vadret folj-sparet` 2/2 gröna. Ingen speländring i passet.
 **Öppet:** ägarkön tom. **N10:s stillhets-åder är i praktiken uttömd** — sållet hittade två

@@ -70,7 +70,9 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_tystprobe.mjs` | pekhanterare som bortar tyst på en upptagen-flagga (P0-brottet `dod-traffyta`) |
 | `node scripts/_karaktarbild.mjs [--reaktion jubel]` | karaktärsriggens alla humör i ett rutnät + exit-koll |
 | `node scripts/_dragprobe.mjs <id>` | tyngden i draget: eftersläpning · lutning · skugga · städning · exit mitt i drag |
-| `node scripts/_livprobe.mjs <id>` | vilorörelsen: amplitud · fasspridning (lås?) · tickar något efter exit? |
+| `node scripts/_livprobe.mjs <id>` | vilorörelsen: amplitud · fasspridning (lås?) · tickar något efter exit? — mäter MEKANISMEN (`feedback.liv()`), inte om scenen lever |
+| `node scripts/_stillaprobe.mjs [id…]` | **står spelet stilla när barnet inte gör något?** urvalssåll över hela registret. Kör i TRE svep — bara tal som håller i alla tre är ett fynd |
+| `node scripts/_vilkaprobe.mjs <id>` | **VILKA noder rör sig** (storlek · typ · väg). `_stillaprobe` säger bara HUR MÅNGA — kör den här innan du bygger något på ett stillhetstal |
 | `node scripts/_navprobe.mjs [BxH]` | skärmbyten: riktning · cremeblänk mitt i övergången · fastnar routern? |
 | `node scripts/_perspektivprobe.mjs` | läses badet som en SIDOVY? ytlinje · golv under karet · fötter mot golvet · ankan i ytan · vattnet innanför porslinet |
 | `node scripts/_repprobe.mjs` | verlet-repet: vilolängd · fästpunkt · mjukt stopp · golv · spänd lina — **utan webbläsare** |
@@ -222,6 +224,17 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   engångsskript som `scripts/_*.mjs`.
 - **`korning.mjs` har egna verb:** `steg <namn> --nasta "…"` och `notis "…"`. Det finns inget
   `nasta`- eller `anteckning`-kommando.
+- **När en sond rapporterar ett ANTAL är identiteten på det den räknade fortfarande OMÄTT.**
+  `_stillaprobe` gav nästan identiska tal åt två spel och rätt svar var motsatt: `kla-efter-vadret`
+  4,2 px / 3 av 84 noder var ett **äkta** fynd (de tre var en dekorativ vädersymbols glow-puls
+  medan spelets enda karaktär stod stilla), `folj-sparet` 4,6 px / 2 av 30 ett **falskt** (de två
+  ÄR figuren — container + dess Graphics, samma sak räknad två gånger — och rörelsen är
+  `_lookEager` som fungerar). Jag gissade identiteten på de tre ("snöflingorna"), skrev det som
+  om det vore mätt, och hann få in det i ett commit-meddelande, två dokument och ett sondhuvud
+  innan `_vilkaprobe.mjs` visade att det var vädersymbolen. **Kör `_vilkaprobe` innan du bygger
+  något på ett stillhetstal.** En summerad RÖRLIG YTA prövades som skiljelinje och **förkastades
+  med mätning** — den rankar det döda spelet (53 482 px², stor glow-cirkel) före det levande
+  (10 969 px², liten figur). Frågan "lever scenen?" har inget skalärt svar.
 - **Byt inte ut stämda ljud mot samplade.** `correct` (660→880 = kvint), `match` (durtreklang) och
   `pling` är musik, inte blipp — ett generiskt UI-klick vore ett brott mot grindens punkt 5.
 

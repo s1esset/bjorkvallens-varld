@@ -111,6 +111,17 @@ Stark grund, men flera billiga drag som en kräsen förälder märker:
 
 ## 5. Status / loggar
 
+- 2026-08-12 🔍 **Prövad som N10-kandidat och lämnad ORÖRD — punkten var redan byggd**
+  (v1.177.0, ingen kodändring). `_stillaprobe` mätte spelet till **4,6 px i tre svep av tre**,
+  bara 2 av 30 noder i rörelse, vilket såg ut som ett nästan dött spel. Det var det inte:
+  §4:s "[Medium] Levande figur man bryr sig om" är byggd i sin helhet, och **de två noder som
+  rör sig ÄR figuren** (containern + dess Graphics, samma 66×89 sak räknad två gånger).
+  **MÄTT** (`node scripts/_ivrigprobe.mjs`, 4/4): `_lookEager` ger **0 → 0,11 rad** med
+  `_eagerTween` levande, åt rätt håll (figuren på x=280, nästa fotspår på x=645) → **4,4 px**
+  vid figurens ytterkant. Alltså är sållets 4,6 px i praktiken *hela* den byggda funktionen.
+  ⚠️ Punkten ströks på en **mätning**, inte på en kodläsning — `vart-tog-det-vagen` bar hela
+  sin reaktionstabell i koden och var ändå död i sex veckor.
+
 - 2026-08-10 🎨 **D1: ängen fick ljus i stället för att vara en tvättad panel**
   (`fd9df54`, v1.97.0). Ängen var `COLORS.green` @ alpha 0.16 över skalets kräm — en enda
   tvättad ton (#e4edd0). Nu en cachad linjär `verticalFill` som spänner OM exakt den tonen,

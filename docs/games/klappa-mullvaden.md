@@ -68,8 +68,9 @@ ger upptäckarglädje utan att någonsin bli stressande.
 ### Juice
 - **[Quick] Riktiga djurläten + fniss.** Knyt klapp till inspelade söta pip/fniss via
   SFX-pipelinen ([[real-audio-sfx]], `sample('djur_…')`) per art — inte TTS "Hihi!".
-- **[Quick] Stigande klapp-pling i rad** + en liten gräs-/jord-skvätt och mjuk hål-mikroskak
-  vid varje klapp för mer taktil känsla.
+- ~~**[Quick] Stigande klapp-pling i rad** + en liten gräs-/jord-skvätt och mjuk hål-mikroskak
+  vid varje klapp för mer taktil känsla.~~ ✅ 2026-08-12 (v1.159.0). Jord-skvätten fanns redan
+  (`puff` × 7 i jordfärg sedan 08-04); stegen och skaket byggdes nu.
 
 ### Progression
 - **[Medium] Bestående samling.** Låt 🐾-raden eller en liten "vänbok" nedtill fyllas med ett
@@ -127,3 +128,27 @@ ger upptäckarglädje utan att någonsin bli stressande.
     i ett uppdyk inte kan skriva till en nollställd transform.
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): kronan fick `topLightFill`, och **gräsmattan en lodrät gradient**: den var 215 742 px i EN grön ton — appens största enfärgade yta där platt faktiskt var fel (uppmätt med nya `scripts/_plattprobe.mjs`). Ängen läser nu som ett fält som viker undan mot staketet i stället för en grön rektangel. Största fält efter: 32 889 px.
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
+- 2026-08-12: **Klappen känns i marken och bygger något** (§4 [Quick], v1.159.0). Punkten
+  lovade tre saker; **en av dem var redan byggd** — jord-skvätten (`puff` × 7 i jordfärg)
+  har legat i `_whack` sedan 08-04. De två andra byggdes nu, och båda mättes med nya
+  `scripts/_klappprobe.mjs` (de finns bara *medan* barnet klappar, så `npm run test`
+  fotograferar en äng i vila och ser ingenting).
+  - **Stigande pling i rad.** Klappar som kommer tätare än 2,2 s isär får varsitt steg uppåt i
+    en durpentatonisk stege: uppmätt **523 · 589 · 654 · 785 · 872 · 1047 Hz** (C D E G A C')
+    och sedan **håller den på 1047** — en stege utan tak blir gäll och blir dessutom en press
+    att hålla igång. **Första klappen i en rad får ingen pling alls**, så en ensam klapp låter
+    som förut (bara artens eget läte) och stegen hörs först när barnet fått ihop två i följd.
+    En paus nollställer den: uppmätt tyst första klapp, och nästa tillbaka på 523 Hz.
+    Rena intervall och ingen sampling — `pling`/`correct`/`match` är musik i det här repot
+    (CLAUDE.md), och det gäller den här stegen med. Tonen schemaläggs 60 ms fram i
+    **ljudklockan** (`tone({ delay })`), inte via en timer: den kan alltså inte överleva en
+    exit och behöver ingen städning.
+  - **Mikroskak i hålet** vid klapp (`shake`, 5 px / 0,24 s): klappen ska kännas i marken och
+    inte bara i djuret. Uppmätt största utslag **4,25 px** och **0 px kvar** efteråt —
+    `feedback.js` håller viloläget i `_fxRestPos` just för att ett skak annars får hålet att
+    vandra en bit för varje klapp. `_killHoleTweens` dödar nu `_fxShakeTw` explicit (den
+    tweenen ligger på ett proxy-objekt och nås inte av `killTweensOf(hole)`).
+  - **Sonden var fel innan spelet var det, igen:** de tre sista klapparna i serien kom ut som
+    tysta och såg ut som att stegen slutade stiga. Nivå 1 har **mål 5** — rundan var slut och
+    `_whack` returnerade direkt. Sonden sätter nu `_p.goal = 99` för mätrundan.
+  Kontroll: `check` 0 fel/0 varningar · `npm run test klappa-mullvaden` grön · `_klappprobe` grön.

@@ -32,6 +32,14 @@ const MOLE_DOWN_Y = 95 // djuret gömt under hålkanten (klipps bort av masken)
 
 const DIRT = 0xb9905f // jordfärg till stänk-puffar
 
+// Klapp-pling i rad: klappar som kommer TÄTT efter varandra får varsitt steg uppåt i en
+// durpentatonisk stege — barnet hör att det bygger något, inte bara att det träffade.
+// Stegen är RENA INTERVALL och inget klipp: `pling`/`correct`/`match` i det här repot är
+// musik, inte blipp (se CLAUDE.md), och den regeln gäller den här stegen med.
+const PLING_BAS = 523.25 // C5
+const PLING_STEG = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2] // C D E G A C' — sedan håller den
+const PLING_PAUS = 2.2 // sekunder utan klapp -> stegen börjar om på nedersta steget
+
 // Talade fraser (svenska med å/ä/ö — för TTS).
 const IDLE = [
   'Klappa djuren när de kikar upp ur hålen!',
@@ -92,6 +100,9 @@ export default {
   init(ctx) {
     this._alive = true
     this._idle = 0
+    this._elapsed = 0 // speltid; klapp-stegen mäter avstånd i den, inte i väggklockan
+    this._radd = 0 // hur många klappar i rad just nu
+    this._lastWhackAt = -1e9
     this._spawnAcc = 0
     this._roundDone = false
     this._level = ctx.progress.get().highestLevel || 1
@@ -540,6 +551,29 @@ export default {
     ctx.services.audio.tone({ freq: base, dur: 0.14, type: 'triangle', vol: 0.5, slideTo: base * 1.5 })
   },
 
+  // Stegen uppåt när klapparna kommer i rad. Första klappen i en rad får INGEN pling —
+  // då hörs bara artens eget läte, och stegen börjar höras först när barnet fått ihop två
+  // i följd. Den håller på översta steget i stället för att fortsätta uppåt: en stege utan
+  // tak blir gäll och blir dessutom en press att hålla igång (P0: aldrig stress).
+  //
+  // Tonen schemaläggs 60 ms fram i ljudklockan i stället för via en timer — den kan alltså
+  // inte överleva en exit och kräver ingen städning.
+  _raddPling(ctx) {
+    const nu = this._elapsed
+    if (nu - (this._lastWhackAt ?? -1e9) > PLING_PAUS) this._radd = 0
+    this._lastWhackAt = nu
+    this._radd++
+    if (this._radd < 2) return
+    const steg = PLING_STEG[Math.min(this._radd - 2, PLING_STEG.length - 1)]
+    ctx.services.audio.tone({
+      freq: PLING_BAS * steg,
+      dur: 0.17,
+      type: 'sine',
+      vol: 0.26,
+      delay: 0.06,
+    })
+  },
+
   // Lyckad klapp på ett uppe-djur: direkt-juice (<100ms) + glatt fniss + nerdyk. Allt är "rätt".
   _whack(ctx, hole) {
     if (!this._alive || hole.destroyed || this._roundDone || hole._state !== 'up') return
@@ -554,7 +588,11 @@ export default {
 
     ctx.services.audio.sfx('pop') // taktil klapp-plopp
     this._critterSound(ctx, hole._species) // + riktigt djurläte/pip som "fniss"
+    this._raddPling(ctx)
     ripple(this._fx, cx, cy, { color: 0xffffff, maxR: 84 })
+    // Mikroskak i själva HÅLET: klappen ska kännas i marken, inte bara i djuret.
+    // Litet utslag med flit — jorden ska darra, inte hoppa.
+    shake(hole, { intensity: 5, duration: 0.24 })
     pop(hole._critter)
     wiggle(hole._critter)
     this._setHappy(hole)
@@ -684,6 +722,7 @@ export default {
   _update(ctx, ticker) {
     if (!this._alive) return
     const dt = ticker.deltaMS / 1000
+    this._elapsed += dt
 
     // Idle-recue: ~6 s tystnad -> upprepa instruktionen och locka fram ett djur.
     this._idle += dt
@@ -740,6 +779,7 @@ export default {
   _killHoleTweens(hole) {
     gsap.killTweensOf(hole)
     gsap.killTweensOf(hole.scale)
+    hole._fxShakeTw?.kill() // mikroskakets tween ligger på ett proxy-objekt, inte på hålet
     hole._riseTl?.kill()
     if (hole._wrap) gsap.killTweensOf(hole._wrap)
     if (hole._mound) gsap.killTweensOf(hole._mound.scale)

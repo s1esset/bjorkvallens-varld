@@ -14,6 +14,68 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.185.0 · Fotoshooten landade — och riggen mätte sig fram
+
+**Byggt:** ägaren levererade fotoshooten som `ansiktssektionen` väntat på sedan 2026-08-07
+(⏸-postens sista rad). **Ansiktsriggen är byggd och syns i appen.** Två commits.
+
+**Vad som kom:** 129 frilagda PNG i ComfyUI:s output, **768×1024** (inte 1024×1024 som det
+sades), ren alfakant, stort grimasregister. De 49 som används ligger nu i repot under
+`assets-src/ansikte/pappa/`.
+
+**Tre ägarbeslut, ställda när materialet visat vad som gick:** ⓵ rigg först, spelet sedan;
+⓶ **ögon-följningen struken** — blickserien finns inte i materialet (jag gick igenom
+ögonbandet i alla 129: alla tittar mot kameran eller blundar); ⓷ egna uttrycksljud finns
+inte än, spelet byggs utan dem.
+
+**`scripts/ansikte.mjs` — klippet (`e55db82`, v1.184.0, `npm run ansikte`).** 129 foton in,
+15 inriktade lager ut på **586 kB** av budgetens 3072. Uppriktningen VAR jobbet: huvudet
+driver mellan bilderna (hjässan y 159–319, höjd 705–865, flera lutar), så en korsblekning
+hade fått ansiktet att hoppa. Varje roll riktas in mot neutralbilden genom en sökning över
+skala · rotation · läge, i två steg. **KALIBRERING: referensen mot sig själv ger skala
+1,000 · vinkel 0° · rest 0,000**; övriga ligger på silhuett-IoU **0,013–0,034** (96–99 %).
+
+**`src/lib/ansikte.js` — riggen (`b477d0a`, v1.185.0).** `gap(0–1)` · `tugga(n)` · `blink()`
+· `min(namn)` (korsblekning) · `liv()`. Yttre container åt spelet, andningen i den inre.
+Sond: `node scripts/_ansiktebild.mjs` — 14 lägen i ett rutnät + exit-koll, **0 konsolfel**.
+`P0 KARAKTÄRER` fick sitt fotoundantag: `theme.js` bär nu `ROLLER = ['Pappa', 'Mamma']`.
+
+**Passets lärdom: jag mätte fel storhet två gånger innan jag mätte pose.** Uppriktningen
+prövades först med intensitet i ögonbandet, sedan med gradient. Båda blandar ihop "fel läge"
+med "annan min" — **brynen rör sig mellan miner** — och överlagringen mot neutralbilden
+visade **5 av 11 ansikten dubbelexponerade**. Silhuettens överlappning är samma kontur oavsett
+min, och först med den blev talen jämförbara. Två fällor till: fem foton gick inte att rätta
+alls (personen hade lutat sig fram — en 3D-rotation som ingen 2D-transform når), så en roll
+måste vara **flera kandidater** som väljs på pose; och urvalet får aldrig göras på
+utseendelikhet, då vinner den blekaste minen. När `sur` och `aj` båda hade #50 i sin lista
+valde sökningen samma bild åt bägge — ett foto bär nu en roll.
+
+**Och tre fel i verktyget, alla gröna innan de mättes:** ⓵ `-resize` träffar HELA bildlistan
+i ImageMagick, alltså även duken — en 128×108-duk blev 26×22 och rådumpen 572 bytes i stället
+för 13 824 (källbilden måste stå inom parenteser); ⓶ `-compose CopyOpacity` **ersätter** alfan,
+så friläggningens genomskinliga bakgrund blev opak och `ovre`/`undre` kom ut identiska — masken
+måste skära med `Dst_In`; ⓷ `Math.round(-0.3)` är `-0` som skrivs "0", vilket gav geometri-
+strängen "0-77" och "invalid argument".
+
+**Bilden avgjorde två designfrågor som koden inte kunde:** käken **translateras** (en
+2D-rotation kring käkleden svänger käken i SIDLED i frontvy — provat och förkastat), och ett
+**bas-lager** måste ligga underst, annars syns bakgrunden som ett ljust streck tvärs kinderna
+så fort käken sjunker.
+
+**Tidigare samma session (natt VI, N5):** `spindelnatet`s nättråd blev ett rep och
+`spindel-zacke-svingar` ströks med mätning — se posten för v1.183.0 nedan.
+
+**Commits:** `e55db82` feat(ansikte) klipp-pipelinen · `b477d0a` feat(ansikte) riggen.
+**Kontroll:** `check` **0 fel / 0 varningar** · `_ansiktebild` 0 konsolfel, 14 riggar rivna ·
+`test:all` **72/72** (kört före ansiktsarbetet; ingen spelkod har rörts sedan dess) ·
+arbetsträdet rent · backup körd. Röstkön orörd.
+**Öppet:** ägarkön tom. **Nästa är spelet `mata-munnen`** — spec-kortet ligger i
+`docs/IDEER.md` post 2 och har ägarens ja; riggen har allt det behöver. Ögon-följningen i
+kortets kärnloop är struken. Nattköns egen kö står på **N12**. **Bygget är INTE omgjort** —
+telefonen ser v1.157.0 tills någon kör `npm run build`.
+
+---
+
 ## 2026-08-12 · v1.183.0 · N5 klar — och premissen höll bara i det ena spelet
 
 **Byggt:** nattköns **N5**, båda spelen. **LYFTPLAN B3 (rep/kedja) är därmed slut** — alla fem

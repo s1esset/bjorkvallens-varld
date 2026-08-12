@@ -32,8 +32,42 @@ som helst) i ansiktssektionens spel.
 
 ## 2. Ansiktssektionen — riktiga foton som spelfigur (arbets-id: `ansiktssektionen`)
 
-*Inlagd 2026-08-06. Status: 🟨 under planering — beslut tagna 2026-08-07, väntar på
-fotoshoot + spec-ja för `mata-munnen`. Omfattning: **en hel ny sektion**, inte ett spel.*
+*Inlagd 2026-08-06. Status: 🟩 **RIGGEN BYGGD 2026-08-13 (v1.185.0)** — fotoshooten levererad
+och spec-ja givet. Kvar: spelet `mata-munnen`. Omfattning: **en hel ny sektion**, inte ett spel.*
+
+### ▶ LÄGET 2026-08-13 — läs detta först, resten av posten är PLANEN
+
+**Fotoshooten är levererad:** 129 frilagda PNG, **768×1024** (inte 1024×1024 som det sades),
+ren alfakant, i ComfyUI:s egen output-katalog (`s1face__NNNNN_.png`, nummer 1-129).
+De 49 som används ligger i repot under `assets-src/ansikte/pappa/`.
+
+**Tre ägarbeslut 2026-08-13:**
+1. **Rigg först, sedan spelet** — riggen är det hela sektionen står på.
+2. **Ögon-följningen är STRUKEN.** Blickserien (8 riktningar) finns inte i materialet;
+   jag gick igenom ögonbandet i alla 129 och alla tittar mot kameran eller blundar.
+   Ansiktet lever på blink, andning, käkens gap och minerna i stället.
+3. **Egna uttrycksljud finns inte än** — spelet byggs utan dem, sample-namnen förbereds.
+
+**Byggt (`e55db82` + `b477d0a`):** `scripts/ansikte.mjs` (`npm run ansikte`) klipper 15
+inriktade lager på 586 kB av budgetens 3072, och `src/lib/ansikte.js` bär riggen:
+`gap(0–1)` · `tugga(n)` · `blink()` · `min(namn)` (korsblekning) · `liv()`. Sond:
+`node scripts/_ansiktebild.mjs` (14 lägen i ett rutnät + exit-koll).
+
+⚠️ **Det materialet TVINGADE fram — kopiera inte planen nedan rakt av:**
+- **Huvudet driver mellan bilderna** (hjässan y 159–319, höjd 705–865, flera lutar), så
+  varje roll riktas in mot neutralbilden. Måttet måste läsa **pose** (silhuett-IoU), inte
+  utseende: intensitet och gradient i ögonbandet blandar ihop fel läge med annan min, och
+  5 av 11 bilder blev dubbelexponerade innan måttet byttes.
+- **En roll = flera kandidater.** Fem foton gick inte att rätta alls (personen hade lutat
+  sig fram — en 3D-rotation). `roller.json` listar kandidater; skriptet väljer på pose och
+  ger aldrig samma foto åt två roller.
+- **Käken translateras, den roterar inte.** En 2D-rotation svänger käken i sidled i frontvy.
+  Taket är ~40 px; över det glider underkäkens kontur utanför basens.
+- **Ett bas-lager måste ligga underst**, annars syns bakgrunden som ett ljust streck tvärs
+  kinderna när käken sjunker.
+- **Minerna klipps som ovala lappar** och nederkanten tonas ut — tröjan BYTS mitt i
+  fotoserien (13–42, 49–57, 81, 121–122 bär ett tryck).
+- `P0 KARAKTÄRER` har fått sitt undantag: `theme.js` bär `ROLLER = ['Pappa', 'Mamma']`.
 
 **Idén, som den beskrevs:** En helt ny sektion i biblioteket där **riktiga foton av ägarens
 ansikte** är spelfiguren. Ansiktet **grimaserar som svar på vad spelaren gör** — grimasen är
@@ -134,7 +168,8 @@ Tugg/smask kan tas ur sfx-pipelinen om egna inte blir bra.
 - Exakt matlista + mat→min-mappning (avgörs i spec/bygge mot `artikoner.js`).
 - Klippskriptets form: helautomatiskt eller skript + handsatta koordinater i en JSON.
 
-### Spec-kort `mata-munnen` (framlagt 2026-08-07 — väntar på ägarens ja)
+### Spec-kort `mata-munnen` (framlagt 2026-08-07 — ✅ **JA från ägaren 2026-08-13**)
+⚠️ **Ögon-följningen i kärnloopen nedan är struken** (se LÄGET överst) — allt annat står.
 `mata-munnen` · **Mata Pappa** · 😋 · Roligt · drag (tap-tap-fallback) · 2–5 · ingen
 fysikmotor (DragController + GSAP). **Kärnloop:** tallrik med 4–6 matbitar → dra (ögonen
 följer i 8 riktningar, munnen gapar när maten närmar sig) → släpp på munnen → tugg + smask +

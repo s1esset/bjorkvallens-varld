@@ -14,6 +14,67 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.165.0 · Fem gröna tal som inte mätte någonting
+
+**Byggt:** nattköns **N10**, femte passet. Två spel, en commit var, egen sond per punkt.
+
+**`sortera-skrap` — full-tunna-känsla (v1.164.0).** Saken försvann bakom tunnan och lämnade
+**inget spår**: en tunna såg likadan ut efter tio saker som före den första. Nu lägger varje
+svald sak en klump i tunnans hals — i **sakens egen färg** — och lasten **trycker upp locket**
+(8 px per sak, tak vid 6 = 48 px). Tyngden ligger i guppet: nästan tom **5,9 px / 0,32 s**, full
+**15,6 px / 0,65 s**, och tunnan står **2,6 px lägre** när den lugnat sig (skuggan +12 %,
+popp-skalan krymper — en full tunna orkar inte hoppa). Vid rundslut **rapar** varje tunna som
+ätit: locket lättar 26 px och landar 0,0 px från lastens nya vilo-höjd.
+
+**`tvatta-djuret` — gömda fynd under leran (v1.165.0).** En gömma per djur (**6 av 6** nivåer,
+aldrig två), alltid under **torr** lera — under kladd hade fyndet legat bakom ett hinder i
+stället för under en upptäckt — och aldrig innanför den lerfria ansiktsrutan. Gömstället
+**glimmar** var 2,4:e sekund, så fyndet går att *hitta*. Skrubbas klumpen bort stiger ett ritat
+föremål (⭐/❤️/💎/🐚) med ett sken bakom sig och far iväg på **2,1 s** — samma regel som
+guldfrukten: ett ögonblick som far förbi är ingen belöning. Ny replik med genererat klipp
+(`npm run voice`: 1 made, 0 failed — kön är tom).
+
+**Passets egentliga lärdom: FEM gröna tal i de två sonderna mätte ingenting, och alla fem var
+gröna på HEAD där effekten inte fanns.** Det är samma sort som förra passets tre mätfällor, men
+i motsatt riktning — förra gången ljög två *röda* mätsätt, den här gången ljög fem *gröna*.
+1. **En isolering som stannar före roten mäter skalet.** "Dölj allt utom lastlagret" dolde bara
+   inuti tunnan → **16 320 px i BÅDA armarna** (appens bakknapp). Isoleringen måste gå hela
+   vägen upp: dölj varje syskon på varje nivå till roten.
+2. **En isolering som MISSLYCKAS ger en bild av hela scenen.** På HEAD fanns inget `_findLayer`,
+   isoleringen returnerade `false`, och skärmdumpen blev hela spelet — grönt av sig självt.
+   Misslyckad isolering måste räknas som **0**, aldrig som en mätning.
+3. **En livslängd mätt från fel nollpunkt.** Föddes inget fynd blev `performance.now() − 0`
+   = **15 116 ms**, långt över kravet på 1,5 s. Kravet är nu både att förloppet *startade* och
+   att tiden ligger i ett spann.
+4. **Spelets egen hjälp målar i samma lager som effekten.** Idle-vinken och auto-hjälpen lägger
+   ripple/puff i `fxLayer` efter 6 respektive 9 sekunders stillhet. Båda räknarna måste
+   nollställas genom hela mätfönstret.
+5. **`fxLayer` är DELAT.** Badets stigande tvålbubblor lägger egna puffar där varje bildruta,
+   och lagret bär ett återanvänt `ParticleContainer` med **parkerade** partiklar: **1 988 px**
+   målades på HEAD helt utan tell, och svängningen över hela lagret var 3 118 px av bara
+   bubblor. Mätningen sker nu i en **ruta runt gömstället**, och bara svängningen räknas
+   (1 056 px mot 0 på HEAD).
+
+**Och bilden ändrade bygget två gånger, båda gångerna med alla tal gröna.** `sortera-skrap`:
+**himlen syntes mellan det upplyfta locket och högen** — klumparna täcker bara mitten, så en
+full tunna såg *trasig* ut; en **hals** som växer med lasten ger locket något att vila på, och
+den måste vara mörkare än locket (0,40 mot svart) annars smälter de ihop till en hög hatt.
+`tvatta-djuret`: en **röd hjärtform mot brun lera** var mätbart synlig men försvann i bruset →
+sken bakom fyndet (tre ringar, inte en radiell gradient — den kan inte ha genomskinlig mitt)
+och 132 px i stället för 96.
+
+**Urvalet igen: tre av sex kandidater var redan byggda** och är nu strukna i §4 —
+`sortera-skrap` "Lekfullare hög" + "Materialspecifik SFX" (båda 2026-07-02, loggade i §5 men
+aldrig strukna i §4) och `tvatta-djuret` "Ansiktet alltid synligt" (`FACE_R = 82`). Tionde till
+tolfte gången docen ligger efter koden.
+
+**Commits:** `23f9c84` feat(sortera-skrap) lasten syns · `338ee43` feat(tvatta-djuret) gömda fynd.
+**Kontroll:** `check` 0 fel/0 varningar · `_tunnprobe` 12/12 (HEAD 6 röda) · `_fyndprobe` 10/10
+(HEAD 9 röda) · röstkön tom.
+**Öppet:** ägarkön tom. **N10 fortsätter.** Nattkön i övrigt: **N12** · **N13**.
+
+---
+
 ## 2026-08-12 · v1.163.0 · Tre mätsätt på samma effekt, och de två första ljög
 
 **Byggt:** nattköns **N10**, fjärde passet. Två spel, en commit var, egen sond per punkt.

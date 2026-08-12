@@ -82,13 +82,34 @@ strunta i beställningen hur länge som helst och bara leka.
 - [Medium] Kunder som kommer och går (Elvira, Lova) med egna favoritfärger.
 
 **Juice**
-- [Quick] Bubblor som stiger i glaset när det står stilla.
+- ✅ ~~[Quick] Bubblor som stiger i glaset när det står stilla.~~ Klar 2026-08-12 (v1.173.0) — se §5.
 - [Medium] Skvalp-ljud kopplat till vätskans rörelse (mängd × hastighet).
 
 **Karaktär**
 - [Medium] Bobo blir törstigare ju längre man leker (blinkar mot glasen).
 
 ## 5. Status / loggar
+
+- 2026-08-12 🥤 **Bubblor i glaset** (v1.173.0, N10 pass 8).
+  Fyndet kom ur `scripts/_stillaprobe.mjs`: `saftbaren` har repots **största scen (679 noder)**
+  och bara 13 av dem rörde sig — största utslaget **1,1 px** i två svep av tre. Nästan hela
+  baren stod still. Nu pärlar saften i ett glas som står på sin plats.
+  **Fyra villkor gör dem till kolsyra i stället för prickar på skärmen:** bara ett glas som
+  står stilla bubblar (bubblor i ett glas som *bärs* hade läst som att saften kokar av
+  rörelsen — tvärtemot §4:s formulering) · takten skalas med MÄNGDEN saft, så en skvätt bubblar
+  knappt och ett fullt glas pärlar · bubblan spricker **vid vätskeytan**, aldrig ovanför den
+  (då svävar den i luften) · ett tak per glas.
+  Ytan läses ur `_stats` som redan gick igenom varje partikel — ett eget svep hade kostat
+  620 × 4 avläsningar per bildruta för samma svar. Bubbellagret ligger **mellan** vätskan och
+  glasets framsida; i `_propL` hade de suttit utanpå rutan och läst som klistermärken.
+  **MÄTT** (`scripts/_bubbelprobe.mjs`, 6/6 mot HEADs 1/6): 36 bubblor på 6 s · **1 149 av
+  1 172 steg uppåt** · **0** bildrutor med en bubbla ovanför ytan · 0 bildrutor med bubblor i
+  det tomma glaset · som mest 2 samtidigt (tak 7) · **0** bubbel-bildrutor medan glaset bars.
+  ⚠️ Rad 4 föll först på **2 bildrutor** — det var sondens egen ordning mot tickern: den satte
+  `held` mitt i en bildruta och krävde en reaktion innan tiden gått framåt. Sonden ger nu spelet
+  en bildruta, och spelet tömmer dessutom bubblorna direkt i `_onGlassDown`, som är vägen ett
+  riktigt finger tar. **Kravet lättades inte — båda ändarna rättades.**
+
 
 - 2026-08-10 🎨 **D1 (delat mönster): baren fick ljus uppifrån** (`b3cde53`, v1.119.0).
   Barens framsida låg på **99 676 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största

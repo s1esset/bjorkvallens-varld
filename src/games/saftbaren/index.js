@@ -9,6 +9,7 @@ import { COLORS, DESIGN_W, DESIGN_H, shade } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { FluidWorld, FluidView } from '../../lib/vatska.js'
+import { lerpColor } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Button } from '../../lib/Button.js'
 import { pop, puff, sparkle, burst , kvittera} from '../../lib/feedback.js'
@@ -98,6 +99,13 @@ const IN_TOP = -220
 const IN_BOT = -22
 const FULLT = 118 // partiklar i ett fullt glas
 const KLART = 64 // så mycket krävs för att en beställning ska räknas som klar
+
+// Bubblor i glaset. Kravet ur §4 är "när det står stilla" — bubblor i ett glas som
+// bärs eller hälls hade läst som att saften kokar av rörelsen, tvärtemot avsikten.
+const BUB_MAX = 7 // per glas
+const BUB_INTERVALL = 0.30 // s mellan födslar i ett fullt glas (skalas med mängden)
+const BUB_FART = 34 // px/s uppåt
+const BUB_MIN_N = 12 // färre partiklar än så = ingen saft att bubbla i
 // Lutningen när man häller, och hur långt vid sidan om målet ett hällande glas ställs.
 // DE TVÅ HÖR IHOP och får aldrig ändras var för sig: mynningen sitter i glasets egna
 // koordinater på (0, IN_TOP), så vid lutningen θ hamnar den `-IN_TOP·sin θ` px åt sidan
@@ -193,6 +201,14 @@ export default {
     })
     this._view.layer.eventMode = 'none'
     this._view.layer.interactiveChildren = false
+
+    // Bubbellagret ligger MELLAN vätskan och glasets framsida: bubblorna är i saften,
+    // inte framför glaset. (Lägger man dem i `_propL` sitter de utanpå rutan och läser
+    // som klistermärken.)
+    this._bubbelL = new Container()
+    this._bubbelL.eventMode = 'none'
+    this._bubbelL.interactiveChildren = false
+    this._root.addChild(this._bubbelL)
 
     this._frontL = new Container()
     this._propL = new Container()
@@ -332,6 +348,14 @@ export default {
       add(0, -10, 150, 24)
       add(-66, -115, 18, 210)
       add(66, -115, 18, 210)
+
+      // Bubblorna ritas per glas i EN Graphics som töms och ritas om — som mest sju
+      // cirklar, alltså billigare än sju noder som skapas och rivs varje sekund.
+      g.bubblor = []
+      g.bubbelG = new Graphics()
+      g.bubbelG.eventMode = 'none'
+      this._bubbelL.addChild(g.bubbelG)
+      g.bubbelT = Math.random() * BUB_INTERVALL
 
       front.on('pointerdown', (e) => this._onGlassDown(g, e))
       this._glasses.push(g)
@@ -671,6 +695,12 @@ export default {
       if (!moved && Math.hypot(p.x - start.x, p.y - start.y) > 14) {
         moved = true
         g.held = true
+        // Töm bubblorna i SAMMA ögonblick glaset lyfts. `_stepBubblor` rensar dem också,
+        // men först nästa bildruta — och en bubbla som hänger kvar en ruta in i lyftet
+        // är precis den sortens eftersläpning som inte ska finnas i koden bara för att
+        // ögat inte hinner se den.
+        g.bubblor.length = 0
+        g.bubbelG?.clear()
         this._deselect()
         this._lift(g)
       }
@@ -875,12 +905,70 @@ export default {
   },
 
   // Räkna vätskan i ett glas: antal + vilken färg som dominerar.
+  // Bubblor som stiger i ett glas som STÅR STILLA. De föds vid botten, vaggar uppåt och
+  // spricker vid vätskeytan (`g._yta`, avläst ur `_stats`). Fyra villkor bär effekten:
+  //   * bara ett glas som står på sin plats, orört och orörligt — bubblor i ett glas som
+  //     bärs eller hälls hade läst som att saften kokar av rörelsen;
+  //   * takten skalas med MÄNGDEN saft: en skvätt bubblar knappt, ett fullt glas pärlar;
+  //   * bubblan spricker vid ytan, aldrig ovanför den (då svävar den i luften);
+  //   * ett tak per glas, så en full bar inte blir ett myller.
+  _stepBubblor(dt) {
+    for (const g of this._glasses) {
+      const gr = g.bubbelG
+      if (!gr || gr.destroyed) continue
+      const stilla = !g.held &&
+        Math.abs(g.x - g.homeX) < 8 &&
+        Math.abs(g.y - g.homeY) < 8 &&
+        Math.abs(g.angle) < 0.05
+      const n = g._n || 0
+
+      if (stilla && n >= BUB_MIN_N && g.bubblor.length < BUB_MAX) {
+        g.bubbelT -= dt
+        if (g.bubbelT <= 0) {
+          // Full = pärlande, skvätt = enstaka bubbla. `n` ligger typiskt 12–90.
+          g.bubbelT = BUB_INTERVALL * (1 + Math.max(0, 70 - n) / 26)
+          g.bubblor.push({
+            lx: (Math.random() - 0.5) * (IN_W - 26),
+            ly: IN_BOT - 6 - Math.random() * 10,
+            r: 3.4 + Math.random() * 3.4,
+            fas: Math.random() * Math.PI * 2,
+            fart: BUB_FART * (0.75 + Math.random() * 0.5),
+          })
+        }
+      }
+
+      gr.clear()
+      if (!g.bubblor.length) continue
+      // Ett glas som lyfts eller töms ska inte bära kvar sina bubblor.
+      if (!stilla || n < BUB_MIN_N) {
+        g.bubblor.length = 0
+        continue
+      }
+      gr.position.set(g.x, g.y)
+      gr.rotation = g.angle
+      const yta = g._yta ?? IN_BOT
+      const ljus = lerpColor(PAL[g._dom]?.hex ?? 0xffffff, 0xffffff, 0.55)
+      for (let i = g.bubblor.length - 1; i >= 0; i--) {
+        const b = g.bubblor[i]
+        b.ly -= b.fart * dt
+        b.fas += dt * 5
+        if (b.ly <= yta + b.r) {
+          g.bubblor.splice(i, 1) // spricker i ytan
+          continue
+        }
+        gr.circle(b.lx + Math.sin(b.fas) * 3, b.ly, b.r).fill({ color: ljus, alpha: 0.55 })
+        gr.circle(b.lx + Math.sin(b.fas) * 3 - b.r * 0.3, b.ly - b.r * 0.3, b.r * 0.34).fill({ color: 0xffffff, alpha: 0.75 })
+      }
+    }
+  },
+
   _stats(g) {
     const w = this._world
     const ca = Math.cos(-g.angle)
     const sa = Math.sin(-g.angle)
     const counts = new Array(PAL.length).fill(0)
     let n = 0
+    let minLy = IN_BOT
     for (let i = 0; i < w.count; i++) {
       const dx = w.x[i] - g.x
       const dy = w.y[i] - g.y
@@ -889,12 +977,16 @@ export default {
       if (Math.abs(lx) < IN_W / 2 && ly < IN_BOT && ly > IN_TOP - 20) {
         counts[w.pal[i]]++
         n++
+        if (ly < minLy) minLy = ly
       }
     }
     let dom = -1
     let best = 0
     for (let p = 0; p < counts.length; p++) if (counts[p] > best) { best = counts[p]; dom = p }
-    return { n, dom, frac: n ? best / n : 0 }
+    // `yta` = översta partikelns lokala y. Bubblorna behöver veta var vätskan SLUTAR,
+    // och den här slingan gick redan igenom varje partikel — ett eget svep hade
+    // kostat 620 × 4 avläsningar per bildruta för samma svar.
+    return { n, dom, frac: n ? best / n : 0, yta: n ? minLy : IN_BOT }
   },
 
   // ---------------------------------------------------------- beställning ---
@@ -1054,6 +1146,8 @@ export default {
       }
     }
 
+    this._stepBubblor(Math.min(0.05, dt / 1000))
+
     // var 12:e bildruta: färgreaktioner + beställningen
     if (this._frame % 12 === 0 && !this._busy) this._checkGlasses(ctx)
 
@@ -1094,6 +1188,11 @@ export default {
     const nu = performance.now()
     for (const g of this._glasses) {
       const st = this._stats(g)
+      // Bubblorna läser det här (uppdateras var 12:e bildruta — gott och väl nog för
+      // något som stiger 30 px/s).
+      g._n = st.n
+      g._yta = st.yta
+      g._dom = st.dom
       // Töms glaset får det utropa sin färg igen nästa gång den blandas fram.
       if (st.n < 10) g.lastMix = -1
       // Ny färg upptäckt → berätta det, EN gång per glas och färg.

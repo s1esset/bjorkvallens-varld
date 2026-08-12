@@ -43,7 +43,7 @@ Struktur: **§0 Spec** (ifylld innan kod skrivs) · **§1 Nuläge** sett som spe
 **§4 Förbättringsplan** ([Quick]/[Medium]/[Deep], grupperad: Kärnloop · Variation · Juice ·
 Progression · Karaktär · Ljud) · **§5 Status/loggar** (bockar + commits).
 
-## Index — 72 spel
+## Index — 73 spel
 
 Två **olika** kolumner — de blandades ihop tidigare och gjorde indexet omöjligt att läsa:
 
@@ -77,6 +77,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 67 | Pizzabageriet | `pizzabageriet` | drag | ✅ | ✅ |
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | ✅ | ✅ |
 | 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ | ✅ |
+| 73 | Mata Pappa | `mata-munnen` | drag | ✅ | ✅ |
 
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ **poleringsrundan KLAR** (27/27, v1.7.0, 2026-08-04; +`natskott-pa-stan` byggd ✅ 2026-08-08)
 *Första-omgången 2026-07-01. Poleringsrundan lyfte 9 spel till ✅. Kvalitetsspåret 2026-08-06

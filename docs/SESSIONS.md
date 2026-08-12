@@ -14,6 +14,47 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.186.0 · Ansiktssektionen öppnad — `mata-munnen` byggt och spelat
+
+**Byggt:** riggens första kund. **Spel nr 73, `mata-munnen` (Mata Pappa)** — ett riktigt foto
+som spelfigur: barnet drar mat från en tallrik till munnen, som **gapar mer ju närmare maten
+kommer**, tuggar tre gånger, sprutar smulor i matens egen färg och korsbleknar in en **hel
+grimas efter smaken** (citron → sur, chili → het, kaka → lycksalig, grönsak → fundersam).
+Släpps maten i pannan **fastnar den** som gegga med en klet under. Mättnadsburken fylls, och
+full mage ger rapfinalen. Två commits.
+
+**Sonden var poängen.** `node scripts/_munprobe.mjs` spelar spelet på riktigt, och skrevs för
+att **testharnessens auto-drag aldrig rörde en enda matbit** — den drar mellan generiska
+punkter, så hela kärnloopen var grön och omätt (loggen: fyra `drag/foremal`, **noll**
+`drag/ratt`). Varje tal har en kontrollarm bredvid sig: gapet mättes både långt bort och vid
+munnen (**0,00 → 1,00**), mätarsteget mot väntat `1/antal`, bus mot mätaren före/efter.
+
+**Sonden hittade en återvändsgränd som ingen kodläsning gav.** Första körningen slutade
+`mätare 0,833 · äten 5/6` med **tom tallrik**: busad mat lämnade tallriken men räknades ändå
+in i mättnadsmålet, så ett barn som busar EN bit av sex kunde tömma tallriken utan att finalen
+någonsin kunde komma — precis det P0 förbjuder. Tallriken fyller nu på sig själv så länge magen
+inte är full; **bus kostar tid och en fläck, aldrig omgången.**
+
+**Skärmdumpen hittade två till** som inget grönt tal såg: maten låg på tallrikens KANT (läste
+som utspilld) och bordsskivan slutade mitt i luften medan tallriken svävade ovanför den.
+
+**Delad kod som följde med:** `games/mata-monstret/food.js` → **`src/lib/mat.js`** (andra
+kunden), med `lemon` och `chili` som nya ritningar i `MAT_STARK` — medvetet UTANFÖR `FOODS`,
+eftersom `mata-monstret` väljer favoritkategori ur den listan och en fjärde kategori tyst hade
+ändrat balansen i ett spel som inte bad om något. `Ansikte.slappMin()` (min-lagret ligger
+överst och bär sin egen mun — ett tugg bakom en kvarhängande grimas syns inte alls) och
+`AudioService.harSample(namn)`, utan vilken varje tugg hade flaggat `saknat-ljudklipp` och
+dränkt de fynd som är riktiga.
+
+**Öppet:** ⓵ **ägarens inspelningsuppgift** — pappas uttrycksljud (`pappa_mmm` · `pappa_blaa` ·
+`pappa_aj` · `pappa_oj` · `pappa_ohh` · `pappa_aaah` · `pappa_rap` · `pappa_fniss`). Kopplingen
+finns och tar klippen i bruk i samma sekund de läggs i `public/audio/sfx/`; tills dess spelar
+varje min sin stämda reserv. ⓶ Sektionens nästa spel: `harma-grimasen` · `borsta-tanderna` ·
+`prat-ansiktet`. ⓷ Nattkön: **N12**. ⓸ **Bygget är fortfarande inte omgjort** — telefonen kör
+v1.157.0 och ingen av de senaste trettio versionerna syns där.
+
+---
+
 ## 2026-08-13 · v1.185.0 · Fotoshooten landade — och riggen mätte sig fram
 
 **Byggt:** ägaren levererade fotoshooten som `ansiktssektionen` väntat på sedan 2026-08-07

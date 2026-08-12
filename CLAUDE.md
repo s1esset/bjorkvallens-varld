@@ -70,6 +70,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_slagprobe.mjs` | anslagsljudet: fart → volym + tonhöjd · materialens röster · taket · exit — **utan webbläsare** |
 | `node scripts/_tystprobe.mjs` | pekhanterare som bortar tyst på en upptagen-flagga (P0-brottet `dod-traffyta`) |
 | `node scripts/_ansiktebild.mjs` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · nio miner) + exit-koll — **ett ansikte går inte att bedöma i tal** |
+| `node scripts/_munprobe.mjs` | *spelar* `mata-munnen`: gapar munnen vid maten (mot kontrollarm långt bort) · mätaren per tugga · rätt min · mättar bus (ska INTE) · finalen · exit mitt i tugget |
 | `node scripts/_karaktarbild.mjs [--reaktion jubel]` | karaktärsriggens alla humör i ett rutnät + exit-koll |
 | `node scripts/_dragprobe.mjs <id>` | tyngden i draget: eftersläpning · lutning · skugga · städning · exit mitt i drag |
 | `node scripts/_livprobe.mjs <id>` | vilorörelsen: amplitud · fasspridning (lås?) · tickar något efter exit? — mäter MEKANISMEN (`feedback.liv()`), inte om scenen lever |
@@ -129,6 +130,10 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 - **Grönt test betyder bara "0 konsolfel".** Det säger ingenting om målet går att nå, om mätaren
   syns eller om scenen är tom. Grävmaskinen klarade en nivå på 3,4 s och rapporterade grönt.
   `npm run test` kör därför `bildkoll.mjs` på skärmdumpen — **och titta på bilden själv ändå.**
+  **Och harnessens auto-drag drar mellan GENERISKA punkter** — den träffade inte en enda matbit
+  i `mata-munnen` (loggen: fyra `drag/foremal`, noll `drag/ratt`), så hela kärnloopen var grön
+  och omätt. Läs `drag/ratt` i `.test-logs/<id>.json`: står den på 0 har testet aldrig spelat
+  spelet, och en sond som drar från föremålets FAKTISKA läge till målet är enda mätningen.
 - **Repliker som inte står som `voice.say('literal')` får aldrig ett klipp.** `check.mjs` kan bara
   läsa literaler; byggs texten vid körning (template literal, tabelluppslag) syns den inte statiskt.
   Backstoppen är mätt, inte gissad: `check.mjs` läser `rost-utan-klipp` ur `.test-logs/<id>.json`

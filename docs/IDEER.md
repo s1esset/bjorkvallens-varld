@@ -32,10 +32,22 @@ som helst) i ansiktssektionens spel.
 
 ## 2. Ansiktssektionen — riktiga foton som spelfigur (arbets-id: `ansiktssektionen`)
 
-*Inlagd 2026-08-06. Status: 🟩 **RIGGEN BYGGD 2026-08-13 (v1.185.0)** — fotoshooten levererad
-och spec-ja givet. Kvar: spelet `mata-munnen`. Omfattning: **en hel ny sektion**, inte ett spel.*
+*Inlagd 2026-08-06. Status: 🟢 **SEKTIONEN ÖPPNAD 2026-08-13 (v1.186.0)** — riggen byggd och
+första spelet `mata-munnen` levererat (`docs/games/mata-munnen.md`). Posten står kvar för att
+sektionen ska ha FLER spel (se tabellen längre ner). Omfattning: en hel ny sektion.*
 
 ### ▶ LÄGET 2026-08-13 — läs detta först, resten av posten är PLANEN
+
+**`mata-munnen` ÄR BYGGT** (v1.186.0) och mätt med `node scripts/_munprobe.mjs`, som spelar
+spelet på riktigt — testharnessen rör aldrig en matbit, så kärnloopen var grön och omätt.
+Sonden hittade en återvändsgränd som ingen läsning av koden hade gett: busad mat lämnade
+tallriken men räknades in i mättnadsmålet, så ett barn som busade en bit av sex kunde tömma
+tallriken utan att finalen kunde komma. Tallriken fyller nu på sig själv. **Läs spelets doc
+§3 innan nästa spel i sektionen byggs** — den bär vad riggen faktiskt klarar.
+
+Kvar i sektionen: `harma-grimasen` · `borsta-tanderna` · `prat-ansiktet` (tabellen nedan), plus
+**ägarens inspelningsuppgift**: pappas uttrycksljud. Kopplingen finns redan och tar klippen i
+bruk automatiskt (`ROST`-tabellen + `audio.harSample()`).
 
 **Fotoshooten är levererad:** 129 frilagda PNG, **768×1024** (inte 1024×1024 som det sades),
 ren alfakant, i ComfyUI:s egen output-katalog (`s1face__NNNNN_.png`, nummer 1-129).
@@ -112,7 +124,7 @@ sur min, chili ger het min, tårta ger lycksalig min, broccoli ger en fundersam 
 ### Möjliga spel i sektionen (att välja bland senare)
 | Arbets-id | Vad det är |
 |---|---|
-| `mata-munnen` | dra mat till munnen → gap, tugg, grimas efter smak (**först ut**) |
+| `mata-munnen` | dra mat till munnen → gap, tugg, grimas efter smak — ✅ **BYGGT v1.186.0** |
 | `harma-grimasen` | ansiktet gör en min, barnet trycker på rätt min bland tre |
 | `borsta-tanderna` | dra tandborsten i den gapande munnen, ansiktet reagerar på var man är |
 | `prat-ansiktet` | tryck på ord/ikoner → käken rör sig i takt med röstklippet |

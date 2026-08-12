@@ -9,6 +9,7 @@ import tryckOchForvandla from './tryck-och-forvandla/index.js'
 import kittlaFiguren from './kittla-figuren/index.js'
 import fargregn from './fargregn/index.js'
 import mataMonstret from './mata-monstret/index.js'
+import mataMunnen from './mata-munnen/index.js'
 import raknaApplen from './rakna-applen/index.js'
 import klappaMullvaden from './klappa-mullvaden/index.js'
 import pekaPaKroppen from './peka-pa-kroppen/index.js'
@@ -74,7 +75,7 @@ import zackesBiltvatt from './zackes-biltvatt/index.js'
 import saftbaren from './saftbaren/index.js'
 import natskottPaStan from './natskott-pa-stan/index.js'
 
-export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret, vartTogDetVagen, vadForsvann, byggTornet, rullaBollenHem, siffertaget, sparaLinjen, harmaMelodin, foljSparet, studsbollar, djurorkester, studsaNer, fyrverkeri, fangaFrukten, vippbradan, domino, studsmatta, sapbubblor, knuffaTornet, spindelhjalten, enhorningenElvira, bajsOchKiss, regnbagsmalaren, pruttbad, valpensBajs, enhorningGlitterbajs, tvattaDjuret, ballonglyft, gungan, lagerelden, spindelnatet, magnetFiske, fallskarmen, enhorningenFlyger, spindelZackeSvingar, bowling, flipperspel, kulbana, snobollen, glasstornet, golvetArLava, vattenvagen, blixtOchDunder, kugghjulen, gravmaskinen, trollblandning, loopdjuren, pizzabageriet, hamburgerbygget, glittergrottan, zackesBiltvatt, saftbaren, natskottPaStan]
+export const GAMES = [klambubblor, sorteraSkrap, vandkort, poppaBallonger, tryckOchForvandla, kittlaFiguren, fargregn, mataMonstret, raknaApplen, klappaMullvaden, pekaPaKroppen, vilketDjurLater, storLiten, tartaIAnsiktet, klaPaNallen, planteraFron, skuggmatchning, enkeltPussel, plaskIVattnet, klaEfterVadret, vartTogDetVagen, vadForsvann, byggTornet, rullaBollenHem, siffertaget, sparaLinjen, harmaMelodin, foljSparet, studsbollar, djurorkester, studsaNer, fyrverkeri, fangaFrukten, vippbradan, domino, studsmatta, sapbubblor, knuffaTornet, spindelhjalten, enhorningenElvira, bajsOchKiss, regnbagsmalaren, pruttbad, valpensBajs, enhorningGlitterbajs, tvattaDjuret, ballonglyft, gungan, lagerelden, spindelnatet, magnetFiske, fallskarmen, enhorningenFlyger, spindelZackeSvingar, bowling, flipperspel, kulbana, snobollen, glasstornet, golvetArLava, vattenvagen, blixtOchDunder, kugghjulen, gravmaskinen, trollblandning, loopdjuren, pizzabageriet, hamburgerbygget, glittergrottan, zackesBiltvatt, saftbaren, natskottPaStan, mataMunnen]
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null

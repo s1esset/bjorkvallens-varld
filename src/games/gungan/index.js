@@ -123,6 +123,12 @@ export default {
     this._arc.eventMode = 'none'
     this._root.addChild(this._arc)
 
+    // Fartstrecken ligger BAKOM gungan — de är luften hon nyss for igenom, inte något
+    // ovanpå henne. Återanvänd Graphics, ritas om i `_drawSpeedLines` varje bildruta.
+    this._speedG = new Graphics()
+    this._speedG.eventMode = 'none'
+    this._root.addChild(this._speedG)
+
     // Gungan: en container med origin i pivåpunkten; rotation = theta.
     this._swing = new Container()
     this._swing.position.set(PIVOT_X, PIVOT_Y)
@@ -285,6 +291,13 @@ export default {
     back.circle(0, -86, 33).fill(hair) // hår bakom
     back.circle(-30, -78, 12).fill(hair) // tofs
     back.circle(30, -78, 12).fill(hair) // tofs
+    // Håret ska släpa efter i farten (§4 Juice). Pivoten flyttas till HUVUDETS mitt så
+    // att tofsarna svänger runt hjässan i stället för runt höfterna — `pivot` och
+    // `position` sätts till samma punkt, alltså är transformen identisk med förut när
+    // rotationen är 0 och ingenting flyttar sig i viloläge.
+    back.pivot.set(0, -86)
+    back.position.set(0, -86)
+    this._lovaBack = back
 
     const legs = new Graphics()
     legs.roundRect(-22, 0, 16, 40, 7).fill(COLORS.blue) // byxben
@@ -547,6 +560,33 @@ export default {
     sparkle(ctx.fxLayer, b.x, b.y, { count: 4 })
   },
 
+  // Fartstreck: tre bågar bakom sitsen, kring upphängningspunkten. Tröskeln gör att de
+  // bara finns när det GÅR fort — syns de alltid betyder de ingenting.
+  _drawSpeedLines() {
+    const g = this._speedG
+    if (!g || g.destroyed) return
+    g.clear()
+    const fart = Math.abs(this._omega) / OMEGA_CAP
+    if (fart < 0.34) return // lugn gungning ska inte ha fartstreck alls
+    // Styrkan startar på 0,5 och inte på 0. Första versionen tonade in från noll, och
+    // `_gungprobe.mjs` mätte att strecken då var HELT osynliga (0 målade pixlar) ända
+    // upp till halva farten — ett vitt streck med alfa 0,16 mot himlen ändrar färre än
+    // 6 nivåer per kanal. En tröskel som passeras utan att något syns är ingen tröskel.
+    const styrka = 0.5 + 0.5 * Math.min(1, (fart - 0.34) / 0.42)
+    const dir = Math.sign(this._omega) || 1
+    const L = this._L
+    for (let i = 0; i < 3; i++) {
+      const r = L - 46 + i * 34 // strax innanför sitsen och utåt
+      const start = this._theta - dir * (0.06 + i * 0.012)
+      const slut = start - dir * (0.1 + styrka * 0.16)
+      // Vinkeln räknas från LODRÄT nedåt (samma som gungans theta), inte från x-axeln.
+      const a0 = start + Math.PI / 2
+      const a1 = slut + Math.PI / 2
+      g.arc(PIVOT_X, PIVOT_Y, r, Math.min(a0, a1), Math.max(a0, a1))
+      g.stroke({ width: 6 - i, color: COLORS.white, alpha: 0.62 * styrka * (1 - i * 0.2), cap: 'round' })
+    }
+  },
+
   // ----------------------------------------------------------------- tick
   _update(ctx, t) {
     if (!this._alive) return
@@ -570,6 +610,20 @@ export default {
       this._omega *= -0.4
     }
     this._swing.rotation = this._theta
+
+    // FARTEN SYNS (§4 Juice, två punkter i en). Båda läser samma `_omega`, så de kan
+    // aldrig säga olika saker om hur fort det går.
+    //
+    // 1) Håret släpar efter. Släpet är MOTSATT färdriktningen och mättas mjukt (tanh),
+    //    annars slår tofsarna runt vid full fart.
+    if (this._lovaBack && !this._lovaBack.destroyed) {
+      this._lovaBack.rotation = -Math.tanh(this._omega / (OMEGA_CAP * 0.5)) * 0.34
+    }
+    // 2) Fartstreck bakom sitsen. Ritas i en EGEN, återanvänd Graphics i `_root` —
+    //    ingen allokering per bildruta, inga tweens att städa och inget som kan leva
+    //    kvar efter exit (den rivs med `_root`). Strecken är cirkelbågar kring samma
+    //    upphängningspunkt som gungan, alltså exakt den väg sitsen faktiskt tar.
+    this._drawSpeedLines()
 
     // Bobo följer Lova med blicken. Det är den billigaste signalen om att någon
     // faktiskt tittar på det barnet håller på med — riggen räknar i FÖRÄLDERNS
@@ -694,6 +748,9 @@ export default {
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
+    // Rivs med `_root`; referenserna nollas så inget pekar på döda objekt.
+    this._speedG = null
+    this._lovaBack = null
     this._winTimer?.kill()
     this._detachPump()
     if (this._pump && !this._pump.destroyed) this._pump.off('pointerdown', this._hPumpDown)

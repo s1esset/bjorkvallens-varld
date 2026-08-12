@@ -81,9 +81,21 @@ upplevelsen runt den.
 - **[Quick] Vind-sus som stiger med amplituden** (loopande brus vars volym/tonhöjd följer
   `this._maxAbs`) + ett mjukt gung-gnissel vid varje vändning; `whoosh` får klättra i tonhöjd ju
   högre hon redan är.
-- **[Quick] Lova reagerar:** hår/tofsar fladdrar bakåt i farten (luta `back`-grafiken efter
-  `omega`), och hon skrattar/säger "iiih!" på topparna.
-- **[Quick] Fartstreck** bakom sitsen vid hög amplitud (exit-säkra streck i fxLayer) så fart syns.
+- ✅ **[Quick] Lova reagerar — håret.** *(2026-08-12)* `back`-grafiken pivoterar kring HUVUDETS
+  mitt (inte höfterna) och släpar `-tanh(omega / (cap·0,5)) · 0,34`, alltså motsatt
+  färdriktningen och mättat så tofsarna aldrig slår runt. Största utslag **18,8°**. Håret ligger
+  mest bakom huvudet, så `_gungprobe.mjs` mäter inte rotationen utan de SYNLIGA pixlarna:
+  786 i vila → 908 i full fart, **568 px byter plats**.
+  ⬜ Kvar av punkten: hon skrattar/säger "iiih!" på topparna (kräver ett röstklipp).
+- ✅ **[Quick] Fartstreck.** *(2026-08-12)* Tre bågar bakom sitsen, kring samma upphängningspunkt
+  som gungan — alltså exakt den väg sitsen tar. Tröskel vid 34 % av fartaket; under den ritas
+  ingenting alls. **Avsteg från förslaget:** de ligger i en återanvänd `Graphics` i `_root`, inte
+  som streck i `fxLayer` — det allokerar noll per bildruta, har inga tweens att städa och rivs
+  med roten, alltså exit-säkert av konstruktion i stället för av disciplin.
+  Uppmätt (målade pixlar, allt annat dolt): 0 · 0 · **502 · 834 · 1111 · 1125** vid 0 / 0,25 /
+  0,34 / 0,50 / 0,75 / 1,0 av taket. Första versionen tonade in från noll och var **helt
+  osynlig** ända upp till halva farten (alfa 0,16 mot himlen ändrar färre än 6 nivåer per
+  kanal) — styrkan startar därför på 0,5. Spelet når 100 % av taket med spelets egen knuff.
 
 ### Progression
 - **[Medium] "Samlat"-känsla.** Plockade mål landar i en liten krans/hylla längst ner som fylls

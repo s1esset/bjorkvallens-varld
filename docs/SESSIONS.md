@@ -14,6 +14,58 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.152.0 · Additiv glöd: sju kandidater in, en kund ut
+
+**Byggt:** nattköns **N7** (LYFTPLAN C4). Uppdraget var uttryckligen att läsa om listan innan
+något byggs — och det var rätt uppdrag: **sex av sju namn föll, och villkoret de skulle prövas
+mot visade sig självt vara fel formulerat.**
+
+**Sonden först.** `scripts/_glodkandidat.mjs` (ny) ställer den faktiska idiomen — `glod()` ur
+`lib/glod.js` — på den faktiska bottnen i varje kandidatspel, **växelvis additiv och normal**,
+och läser pixlarna. `lagerelden` (känd vit klump) och `trollblandning` (känd osynlig) går med
+som **kontrollrader**: reproducerar sonden inte de två redan kända fallen är trösklarna
+påhittade, inte kalibrerade. Båda reproducerades.
+
+| rad | botten | vinst¹ | vit %² | kroma | utfall |
+|---|--:|--:|--:|--:|---|
+| `enhorning-glitterbajs` | 225 | +27,5 | **74,3** | 0,03 | NEJ — klipper till vitt |
+| `blixt-och-dunder` | 214 | +25,6 | **30,3** | 0,13 | NEJ — klipper till vitt |
+| `natskott-pa-stan` | 171 | +33,6 | 19,6 | **0,07** | NEJ — färglöst dis i dagsljus |
+| `glittergrottan` (kristallfärg) | 46 | **+9,7** | 0,0 | 0,32 | NEJ — add ≈ normal |
+| `golvet-ar-lava` över ytan | 187 | **+44,2** | 0,0 | 0,52 | **JA** |
+| `golvet-ar-lava` mot klippan | 117 | **+40,8** | 0,0 | 0,51 | **JA** |
+
+¹ luminans additivt minus normalt — vad idiomet är VÄRT. ² pixlar med alla kanaler ≥ 250.
+
+**Villkor 1 hette "mörk botten". Det är fel.** Det heter **takhöjd i de KANALER källan lyser
+i**, och bottnen ska ligga i **MITTEN** — båda ytterlägena dödar idiomet från var sitt håll. En
+nästan svart botten ger vinst **+9,7**, för på svart *är* `källa + 0` samma sak som `källa`;
+mörkret är ett skydd mot klippning, inte ett skäl att byta blandning. Och listans enda kund blev
+ett **ljust** spel: lavan mäter 187 i luminans men är mättat orange, alltså nästan tom i grönt
+och blått — där låg takhöjden.
+
+**Två gånger byggdes en regel som "fångade" `trollblandning` — och båda gångerna dödade den
+lavan, alltså det enda rätta fyndet.** Bubblorna klarar varje mätbar tröskel; de faller ändå,
+för de är **föremål ritade mörkare än sin botten**, och additiv blandning kan bara göra dem
+ljusare. Det är en fråga om AVSIKT, och sonden låtsas inte att en tröskel avgör den: den mäter
+teckenbytet, skriver ut det som en infokolumn och lämnar domen åt läsaren. Två mätfel städades
+bort på vägen: en skärmövergångs cremeblänk mätte kolsvarta `glittergrottan` till botten
+253,246,227, och en provpunkt låg mitt i den gröna Gå-knappen.
+
+**Kunden.** `golvet-ar-lava` fick ett band liggande glöder (`ratio` 2,2) längs flodens yta plus
+en glöd mot varsin klippvägg, andandes med egen fas ur `_update` och **uppflammande i
+`_lavaReact`** när en sten slår ner. Mätt mot samma bild före ändringen: luften ovanför lavan
+**255,173,104 → 255,203,116**, klippan närmast floden **158,112,76 → 201,133,84**, avtagande med
+avståndet (+11 vid x 1100 — ljus som faller av, inte ett fält). Himlen högt uppe och lavaytan
+själv **oförändrade**, 0,0 % vita pixlar överallt.
+
+**Commits:** `2756928` feat(golvet-ar-lava) lavan lyser upp luften och klippan
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · röstkön tom.
+**Öppet:** ägarkön tom. Nattkön står på **N8** (LYFTPLAN C8 + C10: `setDetaljniva` i skalet,
+`BitmapText` för räknare, `roundPixels`, `CullerPlugin`).
+
+---
+
 ## 2026-08-12 · v1.151.0 · Kontexten kan vägras — och de sista gradienterna
 
 **Byggt:** nattkörningens varv VII. Två punkter: ÅTGÄRDER **V15** (som låg öppen med tre

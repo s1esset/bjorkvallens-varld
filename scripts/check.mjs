@@ -129,6 +129,20 @@ for (const id of folders) {
     err(id, `\`${m[1]}.${m[2]} =\` skriver över Pixis interna transform-fält — byt namn (t.ex. ${m[2].replace('_', '_w')})`)
   }
 
+  // En nod-egenskap får inte vara den enda bäraren av en spel-NYCKEL. `vart-tog-det-vagen`
+  // valde leksakens reaktion med `switch (this._prize.text)` — riktigt när leksaken var en
+  // `Text`. När den blev en ritad ikon i en `Container` (P0 ASSETS) blev fältet `undefined`
+  // och HELA tabellen föll till `default`: tio leksaker, en enda generisk puls, i sex veckor
+  // utan ett konsolfel eller ett rött test. Håll nyckeln i ett eget fält (`this._prizeKey`).
+  const stripped = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+  // Bara `.text`: `.label` är matter.js kanoniska kropps-id i det här repot (59 helt
+  // legitima träffar) och `.name` är för brett. Tripwiren ska vara tyst tills den behövs.
+  for (const m of stripped.matchAll(/switch\s*\(\s*([\w.$[\]]*\.text)\s*\)|([\w.$[\]]*\.text)\s*===?\s*['"`]/g)) {
+    const uttryck = m[1] || m[2]
+    if (/^(e|ev|event)\./.test(uttryck)) continue
+    err(id, `\`${uttryck}\` används som nyckel — en nod-egenskap dör tyst när noden byter typ (ritad ikon i stället för Text). Spara nyckeln i ett eget fält.`)
+  }
+
   // --- doc ---
   if (!existsSync(join(ROOT, 'docs/games', `${id}.md`))) warn(id, `saknar docs/games/${id}.md`)
 }

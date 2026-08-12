@@ -14,6 +14,72 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.171.0 · Sållet som mäter mekanismen, inte fenomenet
+
+**Byggt:** nattköns **N10**, sjunde passet. Två spel, en commit var — plus en ny **urvalssond**
+som ändrade hur nästa pass ska välja spel.
+
+**Först ett verktyg: `scripts/_stillaprobe.mjs`.** Frågan "vilket spel står stilla när barnet
+inte gör något?" gick inte att svara på. Sonden läser varje nods VÄRLDSLÄGE varje bildruta i
+spelets egen `ctx.stage` (inte skalet, inte det delade `fxLayer`) och rapporterar hur många som
+rör sig. Körd över hela registret: **`vandkort` var det enda äkta tableauet av 63 spel.**
+
+**`vandkort` — gyllene kort, ETT kort och aldrig ett par (v1.170.0).** 48 noder rör sig under
+utdelningen och sedan **0** medan barnet studerar brädet — i just det spel där barnet tittar
+längst på en stillastående bild. §4 bad om "ett sällsynt glittrande kort vars PAR ger extra
+gnistregn". **Det hade tagit bort minnesleken:** ett glittrande par går att matcha på synintryck.
+Nu är bara **ett** kort gyllene, tvillingen är vanlig — guldet pekar ut ett kort värt att minnas
+och skapar ett mål i stället för att lösa uppgiften. Aldrig på nivå 0 (två par = fyra kort).
+Och skimret **flyttar ingenting**: i ett minnesspel är kortets plats informationen, så livet
+ligger helt i alfan och i skimmerbandets egen x, klippt mot kortets form.
+**MÄTT** (`_guldprobe.mjs`, 10/10 mot HEADs 5/10): mest 1 gyllene kort per bräde över 120
+bräden · 0 gyllene par · 0 av 24 nivå-0-bräden · 45 % av bräden på nivå 1+ · kortets egen
+rörelse **0,00 px** medan bandet vandrar 372 px · guldfirandet fyrar 1 gång på ett guldpar och
+**0** på ett vanligt. Ny replik med genererat klipp.
+
+**`tarta-i-ansiktet` — grädden rinner, med ett tak (v1.171.0).** Klumparna satt frusna exakt där
+de träffade: sex tårtor gav sex stillastående cirkelhögar. Nu har varje klump en egen fart, ett
+eget tak och ett spår som ligger kvar vid träffpunkten medan klumpen glider. **Taket är
+designen, inte en detalj** — grädde som rinner obehindrat blir ett mål som *flyr undan svampen*,
+och barnet hade jagat kladdet i stället för att torka det. Taket klamras dessutom mot hakan.
+**MÄTT** (`_dropprobe.mjs`, 7/7 mot HEADs 2/7): klumparna rinner 36,6–51,3 px (HEAD **0,0** för
+alla) · små 39,6 px mot stora 45,2 px · 0 passerar sitt eget tak · lägsta klump y = 105,0 mot
+hakans 105 · `_clean` 0,00 → 0,72 när svampen hålls där klumpen är NU.
+
+**Passets egentliga lärdom: `_livprobe` mäter MEKANISMEN, inte FENOMENET — och jag skrev in det
+för starkt i förra passet.** Den gav **0** på sex spel i rad, och det lästes först som "sex döda
+spel". Fem av dem har egen vilorörelse i sin egen ticker (`Math.sin`, `breathe()`); `_livprobe`
+räknar bara noder som bär en `feedback.liv()`-tween. Förra sessionens rad *"`_livprobe` är
+repots snabbaste urvalssåll"* är alltså **rättad** — den svarar på "använder spelet
+`feedback.liv()`?", ingenting annat. `_stillaprobe` är sållet.
+
+**Och sållet bär sin egen begränsning, mätt:** vilofönstret är ETT stickprov på 1,4 s, så spel
+med EPISODISK vilorörelse läses helt olika beroende på fas — `tarta-i-ansiktet` mätte **1,0 px**
+i ett svep och **34,4 px** i nästa, `kittla-figuren` 4,3 → 36,3 px. Bara ett tal som är **0 i
+flera svep** är ett fynd. Kolumnen "antal rörliga noder" är dessutom det ointressanta talet:
+40 % av noderna som rör sig 1 px är ett tableau. **Största utslaget** avgör om något syns.
+
+**Två visuella omtag som bara skärmdumpen såg**, båda med alla sju tal gröna: gräddstrimman utan
+kontur var osynlig (46 px uppmätt strimma, ingenting i bilden), och som avsmalnande KIL med rak
+ovankant läste den som en **tratt som står ovanpå** klumpen i stället för något som runnit ur
+den. En **kapsel** (rundad topp, jämn bredd) läser rätt.
+
+**Och en falsk grön rad till, i HEAD-armen:** `d > NaN` är alltid falskt, så taket-håller-raden
+var grön på ett spel utan tak. Sonden felar nu explicit när villkoret inte går att utvärdera.
+
+**Commits:** `7802013` feat(vandkort) gyllene kort · `42974ea` feat(tarta-i-ansiktet) grädden
+rinner.
+**Kontroll:** `check` 0 fel / 0 varningar · `_guldprobe` **10/10** (HEAD 5/10) · `_dropprobe`
+**7/7** (HEAD 2/7) · `_stillaprobe` över hela registret · `test:all` **72/72**, inga nya
+loggfynd — bara de kända `saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom.
+⚠️ I båda sonderna är flera gröna rader **vakter, inte bevis** (gröna på HEAD också, där
+mekaniken inte finns): `_guldprobe` 1/2/3/9/10 och `_dropprobe` 4/7.
+**Bygget är INTE omgjort** — telefonen ser en äldre version tills någon kör `npm run build` +
+`scripts/start.ps1`.
+**Öppet:** ägarkön tom. **N10 fortsätter.** Nattkön i övrigt: **N12** · **N13**.
+
+---
+
 ## 2026-08-12 · v1.169.0 · "Redan byggd" är inte samma sak som "fungerar"
 
 **Byggt:** nattköns **N10**, sjätte passet. Två spel, en commit var, egen sond per punkt,

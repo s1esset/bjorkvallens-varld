@@ -30,6 +30,26 @@ const C_GROUND_TOP = 0xc9c0ae
 const C_GROUND_BOT = 0xafa491
 const C_GROUND_EDGE = 0x9a8f7c
 
+// --- Elvira KÄNNER vädret -------------------------------------------------
+// `_stillaprobe` mätte scenen som nästan död: 84 noder, **3** i rörelse, största
+// utslag **4,1–4,2 px i tre svep av tre** — och de tre var de fallande regn-/
+// snöflingorna. Elvira själv, spelets enda karaktär och hela dess anledning, stod
+// blick stilla medan barnet skulle bry sig om henne. §4 [Quick]: "Elvira reagerar
+// på fel: huttrar till vid för lite kläder, viftar bort för varmt."
+// Obehaget är inte dekor: det är dagens VÄDER mot hur mycket hon har på sig, så
+// skalvet börjar stort, avtar för varje plagg och är BORTA när hon är lagom klädd
+// — då blir "Nu blir jag lagom varm i snön!" något barnet ser, inte bara hör.
+// ⚠️ Utslagen är höjda en gång efter mätning. De första (3,6 / 1,7 / 2,3 px) gav i
+// sol ett svängningsrum på 4,6 px — mindre än de fallande flingorna scenen redan
+// hade, alltså precis det `_stillaprobe` kallar "nästan stilla". Takterna är däremot
+// orörda: det är FREKVENSEN som skiljer väderslagen åt, inte storleken.
+const OBEHAG = {
+  sno: { frekv: 21, ampX: 4.8, ampR: 0.005 }, // snabbt, smått köldskalv
+  regn: { frekv: 8.5, ampX: 3.4, ampR: 0.013 }, // långsammare hukning i blöten
+  sol: { frekv: 3.0, ampX: 5.4, ampR: 0.020 }, // trög värmevaggning, fläktar sig
+}
+const RYS_MS = 750 // en extra huttring när ett opassande plagg provas
+
 // Kroppszonernas centrum (= snäpp-mål). Huvud-zonen ligger strax ovanför huvudet
 // (en hatt sitter på toppen), fot-zonen strax ovanför fötterna.
 const ZONES = { huvud: [640, 230], overkropp: [640, 400], fotter: [640, 560] }
@@ -237,6 +257,20 @@ export default {
     this._figure = fig
     this._root.addChild(fig)
 
+    // Kroppen ligger i ETT INRE lager. `_figure` ägs av gsap (hoppet vid rätt plagg
+    // och "gå ut"-payoffen), så obehaget måste drivas någon annanstans — annars
+    // slåss tickern och gsap om samma x/y och den ena nollar den andra.
+    const inner = new Container()
+    // ⚠️ Kroppsdelarna ritas i ABSOLUTA koordinater kring x=640, så ett `rotation`
+    // på den här containern skulle svänga henne i en cirkelbåge kring scenens
+    // origo (0,0) — 640 px bort — i stället för att luta henne kring sin egen
+    // kropp. Pivoten läggs därför vid FÖTTERNA: en människa vaggar kring marken
+    // hon står på. Med pivot == position är transformen identisk i viloläge.
+    inner.pivot.set(640, GROUND_Y)
+    inner.position.set(640, GROUND_Y)
+    this._figureInner = inner
+    fig.addChild(inner)
+
     const skin = 0xffe0b2
     const skinDark = 0xe7c193
     const body = COLORS.teal
@@ -272,7 +306,7 @@ export default {
     const ties = new Graphics()
     for (const tx of [-70, 70]) ties.circle(640 + tx, 238, 10).fill(COLORS.pink)
 
-    fig.addChild(feet, legs, arms, torso, backHair, head, topHair, face, ties)
+    inner.addChild(feet, legs, arms, torso, backHair, head, topHair, face, ties)
   },
 
   // Garderobshylla (dekor) längst ner som plaggen ligger på.
@@ -384,6 +418,12 @@ export default {
       this._figure.position.set(0, 0)
       this._figure.rotation = 0
     }
+    // Nollställ skalvet också, annars ärver nya rundan förra rundans utslag.
+    this._rysT = 0
+    if (this._figureInner && !this._figureInner.destroyed) {
+      this._figureInner.position.set(640, GROUND_Y) // == pivoten, se _buildFigure
+      this._figureInner.rotation = 0
+    }
 
     // Rensa förra rundans plagg (clear() avregistrerar lyssnare + dödar tweens först).
     this._drag.clear()
@@ -476,9 +516,11 @@ export default {
     pop(ring) // liten zon-studs när plagget snäpper fast
     gsap.to(ring, { alpha: 0, duration: 0.5, ease: 'sine.out' })
 
-    // Fäst plagget på figuren (flytta in i this._figure) så det bobbar med hoppet.
+    // Fäst plagget på figuren (i det INRE lagret) så det både bobbar med hoppet
+    // och skakar med henne så länge hon fortfarande fryser.
     rec.view.eventMode = 'none'
-    if (this._figure && !this._figure.destroyed && !rec.view.destroyed) this._figure.addChild(rec.view)
+    const inner = this._figureInner
+    if (inner && !inner.destroyed && !rec.view.destroyed) inner.addChild(rec.view)
 
     gsap.killTweensOf(this._figure)
     gsap.to(this._figure, { y: -10, duration: 0.14, yoyo: true, repeat: 1, ease: 'power2.out' })
@@ -494,6 +536,7 @@ export default {
     if (!this._alive) return
     this._idle = 0
     wiggle(rec.view)
+    this._rys() // kroppen svarar också, inte bara plagget och rösten
     const d = rec.data
     let line
     if (d.fits && this._filled.has(d.slot)) line = 'Där sitter det redan något bra!'
@@ -550,6 +593,43 @@ export default {
     })
   },
 
+  // Hur illa Elvira har det just nu: 0 = lagom klädd, 1 = inget på sig alls.
+  // Andelen OFYLLDA obligatoriska zoner, alltså exakt det barnet håller på att
+  // åtgärda — därför avtar skalvet av sig självt för varje plagg som sätter sig.
+  _obehag() {
+    if (this._resolving) return 0 // hon har klarat det; då ska hon inte huttra
+    const n = this._needed || 1
+    return Math.max(0, Math.min(1, (n - this._placed) / n))
+  },
+
+  // En extra huttring när ett opassande plagg provas — §4:s "reagerar på fel".
+  // Vinken var förut bara wiggle på plagget + en replik; nu svarar KROPPEN.
+  _rys() {
+    this._rysT = RYS_MS / 1000
+  },
+
+  // Per-frame: obehaget uttryckt i kroppen. Skalvet ligger i `_figureInner` — se
+  // `_buildFigure` för varför det inte får ligga i `_figure`.
+  _stepObehag(dt) {
+    const inner = this._figureInner
+    if (!inner || inner.destroyed) return
+    this._obehagT = (this._obehagT || 0) + dt
+    if (this._rysT > 0) this._rysT = Math.max(0, this._rysT - dt)
+
+    const o = this._obehag()
+    const extra = this._rysT > 0 ? 1.6 * (this._rysT / (RYS_MS / 1000)) : 0
+    const styrka = Math.min(1.9, o + extra)
+    if (styrka <= 0.001) { // lagom klädd = helt stilla, inget kvarglömt utslag
+      inner.x = 640
+      inner.rotation = 0
+      return
+    }
+    const p = OBEHAG[this._weather?.key] || OBEHAG.sno
+    const t = this._obehagT
+    inner.x = 640 + Math.sin(t * p.frekv) * p.ampX * styrka
+    inner.rotation = Math.sin(t * p.frekv * 0.5) * p.ampR * styrka
+  },
+
   // Tick: animera aktiva väderpartiklar (pooled) + idle-recue efter ~6 s.
   _update(ctx, ticker) {
     if (!this._alive) return
@@ -575,6 +655,8 @@ export default {
         }
       }
     }
+
+    this._stepObehag(ticker.deltaMS / 1000)
 
     // Lugn väder-ambient: fågelkvitter (sol) / mjuka droppar (regn) / vind-sus (snö).
     this._ambT -= ticker.deltaMS

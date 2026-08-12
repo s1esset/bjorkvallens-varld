@@ -74,8 +74,10 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
 ### Juice
 - **[Quick] Snäpp-"klick" + tyg-frasande** när ett plagg sätter sig, och en liten studs på
   zonen. Idag är fastsättningen ljudmässigt platt.
-- **[Quick] Elvira reagerar på fel:** huttrar till vid för lite kläder, viftar bort för
-  varmt — per-plagg-reaktion gör vinken levande i stället för bara wiggle + TTS.
+- ~~**[Quick] Elvira reagerar på fel:** huttrar till vid för lite kläder, viftar bort för
+  varmt — per-plagg-reaktion gör vinken levande i stället för bara wiggle + TTS.~~
+  ✅ **BYGGD 2026-08-12 (v1.176.0)** — och byggd bredare än punkten bad om: obehaget är
+  inte bara en reaktion på FEL utan ett LÖPANDE tillstånd som avtar per rätt plagg. Se §5.
 
 ### Progression
 - **[Quick] Bygg en liten "garderob" som fylls** över rundor (samlade plagg/väder), något
@@ -90,6 +92,37 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
   vind-sus, fågelkvitter i sol; ett "brr"-huttrande och snäpp-ljud. Gör vädret kännbart i örat.
 
 ## 5. Status / loggar
+
+- 2026-08-12 🥶 **Elvira känner vädret** (v1.176.0). Punkten valdes av **mätning**:
+  `_stillaprobe` läste scenen som nästan död — 84 noder, **3** i rörelse, största utslag
+  **4,1–4,2 px i tre svep av tre**, och de tre var de fallande regn-/snöflingorna. Spelets
+  enda karaktär, och hela dess anledning, stod blick stilla medan barnet skulle bry sig om
+  henne.
+  Obehaget är nu ett **löpande tillstånd**, inte bara en reaktion på fel: andelen ofyllda
+  obligatoriska zoner, uttryckt i kroppen med **vädrets egen takt** — snabbt smått köldskalv
+  i snö (21 rad/s), långsammare hukning i regn (8,5), trög värmevaggning i sol (3,0). Det
+  avtar för varje plagg som sätter sig och är **borta** när hon är lagom klädd, så
+  "Nu blir jag lagom varm i snön!" blir något barnet *ser*, inte bara hör. Ett opassande
+  plagg lägger på en extra huttring ovanpå — §4:s ursprungliga "reagerar på fel".
+  ⚠️ **Skalvet ligger i ett INRE lager.** `_figure` ägs av gsap (hoppet vid rätt plagg och
+  "gå ut"-payoffen); en ticker som skrev samma `x/y` hade slagits med den om varje bildruta.
+  Plaggen fästs numera i det inre lagret också, så en påsatt mössa skakar med henne.
+  ⚠️ **Två fel som mätningen respektive skärmdumpen fångade, båda med grönt test:**
+  ① Första utslagen (3,6 / 1,7 / 2,3 px) gav i **sol** ett svängningsrum på 4,6 px — mindre
+  än flingorna scenen redan hade, alltså precis det `_stillaprobe` kallar "nästan stilla".
+  Tableauet hade varit halvt löst. Utslagen höjdes; **takterna rördes inte**, för det är
+  frekvensen som skiljer väderslagen åt. Sonden har nu en egen rad som kräver att skalvet
+  syns i **alla tre** väderslagen. ② Kroppsdelarna ritas i absoluta koordinater kring x=640,
+  så `rotation` på lagret svängde henne i en cirkelbåge kring scenens origo **640 px bort**
+  i stället för att luta henne. Pivoten ligger nu vid **fötterna** — en människa vaggar kring
+  marken hon står på.
+  **MÄTT** (`node scripts/_ryserprobe.mjs`, **7/7** mot HEADs 1/2 där rad 1 är röd):
+  svängningsrum **9,6 px** oklädd i snö (HEAD: figuren helt stilla) · **9,6 → 6,4 px** efter
+  ETT riktigt drag genom DragController, alltså 0,67 mot lagens förväntade 2/3 ·
+  **6,4 → 17,2 px** direkt efter ett opassande plagg · köldskalv **6,4 vändningar/s** mot
+  värmevaggningens **0,8** · alla tre väderslagen över flingornas 4,2 px (9,6 · 6,8 · 10,8).
+  `_stillaprobe` efteråt: **4,2 → 10,8 px** och 3 → 13 noder i rörelse.
+  ⚠️ Raderna 5–6 är **vakter, inte bevis** — gröna på HEAD också. Bevisen är 1–4b.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`004232f`, v1.100.0).
   `_plattprobe --medbakgrund` mätte **693 298 px = 75 % av skärmen** i EN ton.

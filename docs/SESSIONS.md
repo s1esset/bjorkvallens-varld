@@ -68,9 +68,29 @@ och 132 px i stället för 96.
 aldrig strukna i §4) och `tvatta-djuret` "Ansiktet alltid synligt" (`FACE_R = 82`). Tionde till
 tolfte gången docen ligger efter koden.
 
-**Commits:** `23f9c84` feat(sortera-skrap) lasten syns · `338ee43` feat(tvatta-djuret) gömda fynd.
-**Kontroll:** `check` 0 fel/0 varningar · `_tunnprobe` 12/12 (HEAD 6 röda) · `_fyndprobe` 10/10
-(HEAD 9 röda) · röstkön tom.
+**Och en tredje commit som SVITENS LOGG hittade, inte sonden (v1.166.0).** Första
+`test:all` var 72/72 grön men bar loggfyndet `snal-snappyta` på `sortera-skrap`: ett släpp
+**2 px** utanför snäppradien. Orsaken var min egen tyngdkänsla — `DragController` mäter
+avståndet till **`target.view.y` när saken släpps**, så en tunna som guppade upp till 13 px
+flyttade undan sitt eget släppmål mitt i ett släpp. Sättningen ligger nu i en **inre
+container**: `bin.y` står still (mätt 545,0 genom hela lasten) och träffytan, som sitter på
+`bin`, står därmed också still — P0: ytan får aldrig hoppa runt. Sättningens tal är
+oförändrade. **Regeln gäller varje dragspel** och står nu i CLAUDE.md: animera i ett BARN,
+aldrig i noden som `addTarget` fick.
+
+**Commits:** `23f9c84` feat(sortera-skrap) lasten syns · `338ee43` feat(tvatta-djuret) gömda
+fynd · `91f2dd2` fix(sortera-skrap) guppet till ett inre lager · `d6691b4` docs(claude) de två
+fällorna ovan.
+**Kontroll:** `check` 0 fel/0 varningar · `_tunnprobe` **14/14** (HEAD 6 röda) · `_fyndprobe`
+**10/10** (HEAD 9 röda) · `test:all` **72/72 i två fulla svep**, och i det andra är
+`snal-snappyta` borta och inga `tom-bild-omtagen` alls. Kvar i loggen: bara de tre kända
+`saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom.
+⚠️ **V14b syntes i FÖRSTA svepet på `tvatta-djuret`** (`tom-bild-omtagen ×2 — gl-kontext
+FORLORAD`, räddad av omtagningen) och **inte alls i det andra**. Tredje svepet i rad med
+signaturen på ett nytt spel — den hör till sviten (fyra parallella Chrome med WebGL), inte
+till spelet. Felsök inte `tvatta-djuret` för det.
+**Bygget är INTE omgjort** efter dagens ändringar — telefonen ser fortfarande en äldre version
+tills någon kör `npm run build` + `scripts/start.ps1`.
 **Öppet:** ägarkön tom. **N10 fortsätter.** Nattkön i övrigt: **N12** · **N13**.
 
 ---

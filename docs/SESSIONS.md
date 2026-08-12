@@ -14,6 +14,66 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.173.0 · Sållet valde spelen, och docen höll med
+
+**Byggt:** nattköns **N10**, åttonde passet. Två spel, en commit var. Första passet där båda
+punkterna valdes av en **mätning** i stället för av docens ordning — och båda visade sig stå
+kvar som öppna [Quick] i §4, alltså två oberoende källor som pekade åt samma håll.
+
+**Metoden som fungerade:** kör `_stillaprobe` i **tre svep**, ta bara de spel vars tal håller i
+alla tre, och läs kolumnen `storsta utslag` — inte antalet rörliga noder. Det var precis förra
+passets lärdom använd på riktigt.
+
+**`djurorkester` — dånet sprider sig till grannkorten (v1.172.0).** 24 av 33 noder "rörde sig",
+men största utslaget var **7,2 px, identiskt i tre svep**. Scenen stod i praktiken still: sex
+öar som inte visste om varandra. Nu skälver grannkorten när ett djur sjunger — och skälvet är
+**fysiskt, inte dekorativt**, vilket är hela skillnaden mot en slumpvis vibration: utslaget
+avtar med avståndet (ett dån sprids och tunnas ut), en **djup** röst skakar grannarna mer än en
+ljus och svänger långsammare (svängningstalet är djurets egen ton nedskalad — ko ≈ 9,3 Hz,
+anka ≈ 18,7 Hz, basen bär), och det finns ett **tak** så ett barn som trummar på alla sex
+korten får en scen som lever, aldrig en som skakar sönder.
+Skälvet ligger i `_inner.x`: kortet självt bär `hitArea` (P0), `_inner.scale` skrivs av
+takt-pulsen och `_inner.rotation` av kören — x är den enda fria kanalen, och den drivs i
+tickern så den aldrig slåss med de två andra.
+**MÄTT** (`_skalvprobe.mjs`, 7/7 mot HEADs 4/7): 5 av 5 grannar skälver (HEAD 0) · **6,7 px
+närmast (306 px bort) mot 3,8 px längst bort (775 px)** · ko 6,7 mot anka 3,2 px ·
+grannkortens egen rörelse **0,00 px** · 18 tryck i rad gav som mest 10,3 px mot taket 11.
+
+**`saftbaren` — bubblor i glaset (v1.173.0).** Repots **största scen: 679 noder**, och bara 13
+rörde sig — största utslaget **1,1 px**. Nu pärlar saften i ett glas som står på sin plats.
+Fyra villkor gör bubblorna till kolsyra i stället för prickar på skärmen: bara ett glas som
+**står stilla** bubblar (bubblor i ett glas som *bärs* hade läst som att saften kokar av
+rörelsen — tvärtemot §4:s egen formulering) · takten skalas med mängden saft · bubblan spricker
+**vid ytan**, aldrig ovanför den · ett tak per glas. Ytan läses ur `_stats`, som redan gick
+igenom varje partikel; ett eget svep hade kostat 620 × 4 avläsningar per bildruta för samma
+svar.
+**MÄTT** (`_bubbelprobe.mjs`, 6/6 mot HEADs 1/6): 36 bubblor på 6 s · **1 149 av 1 172 steg
+uppåt** · **0** bildrutor med en bubbla ovanför ytan · 0 i det tomma glaset · **0**
+bubbel-bildrutor medan glaset bars.
+
+**Passets lärdom: en röd rad kan vara sondens ORDNING mot tickern — och då rättar man båda
+ändarna, inte kravet.** `_bubbelprobe` satte `held` mitt i en bildruta och krävde att bubblorna
+var borta *innan tiden gått framåt*. Det enda den raden mätte var sondens egen registrering mot
+spelets tick. Sonden ger nu spelet en bildruta, **och** spelet tömmer bubblorna direkt i
+`_onGlassDown` — vägen ett riktigt finger tar. Tröskeln rördes inte.
+
+**Och en trettonde redan-byggd punkt:** `bowling` (2,4 px i tre svep) var en lika stark
+kandidat, men dess §4-punkt visade sig byggd — käglorna har ansikten OCH pupiller som riktas
+mot klotet och spärrar upp när det närmar sig.
+
+**Commits:** `918dfb8` feat(djurorkester) grannkorten skälver · `392517a` feat(saftbaren)
+bubblor i glaset.
+**Kontroll:** `check` 0 fel / 0 varningar · `_skalvprobe` **7/7** (HEAD 4/7) · `_bubbelprobe`
+**6/6** (HEAD 1/6) · `test:all` **72/72**, inga nya loggfynd — bara de kända
+`saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom (inga nya repliker i passet).
+⚠️ I `_skalvprobe` är raderna 4/5/6/7 **vakter, inte bevis** (gröna på HEAD, där ingenting rör
+sig). Bevisen är 1, 2 och 3. `_bubbelprobe` har bara en sådan rad (konsolfel).
+**Bygget är INTE omgjort** — telefonen ser en äldre version tills någon kör `npm run build` +
+`scripts/start.ps1`.
+**Öppet:** ägarkön tom. **N10 fortsätter.** Nattkön i övrigt: **N12** · **N13**.
+
+---
+
 ## 2026-08-12 · v1.171.0 · Sållet som mäter mekanismen, inte fenomenet
 
 **Byggt:** nattköns **N10**, sjunde passet. Två spel, en commit var — plus en ny **urvalssond**

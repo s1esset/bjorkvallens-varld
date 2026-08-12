@@ -90,9 +90,11 @@ räknar ingenting, auto-hjälpen kortsluter agensen och byn vaknar aldrig till l
 - **[Quick] Riktigt åskljud.** Lägg ett mjukt, varmt mullrande dunder-klipp ([[real-audio-sfx]])
   med lätt variation i stället för `whoosh`+`pop` — temats bärande ljud. Ett litet "fräs" när
   ett moln blir fullt.
-- **[Quick] Byn vaknar.** Vid tändning: tänd husets fönster (gul fyrkant), låt en liten rök
-  börja stiga ur skorstenen, ev. ett 😴→🙂 i fönstret. Lampan blir då en *händelse*, inte en
-  tint.
+- ✅ **[Quick] Byn vaknar.** *(2026-08-12)* Huset SOVER tills dess egen lampa tänds: mörk
+  ruta (`0x53627a`), väggen i kvällston (`0xd6cfe4`), kall skorsten. Tändningen väcker
+  hus `lamp.index` — varm ruta + `pop`, ljus på väggen (tre ringar med avtagande alfa) och
+  rök ur skorstenen. Mätvärden i §5. *(😴→🙂 i fönstret medvetet utelämnat: ljuset bär
+  redan berättelsen, och en Text per hus hade kostat mer än den säger.)*
 
 ### Progression
 - **[Quick] Knyt regnbågen till räkningen.** Låt regnbågens bågar tändas en per lampa under
@@ -147,3 +149,27 @@ räknar ingenting, auto-hjälpen kortsluter agensen och byn vaknar aldrig till l
   - **Molnbandet låg bakom mätaren.** `BAND.y0` 130 → 168; dekorativa moln drev in bakom
     lykt-ikonerna på y≈112 och gjorde räknaren oläsbar.
   - `npm run test` 0 fel (drag + tap), skärmdump verifierad.
+- 2026-08-12 ✅ **Byn vaknar [Quick]** (v1.160.0): husen sover tills deras egen lampa tänds.
+  Rutan är kvällsblå (`0x53627a`, aldrig svart), väggen ligger i en kall ton (`0xd6cfe4`) och
+  skorstenen är kall; blixten tänder lampan → **hus `lamp.index`** vaknar med varm ruta,
+  ljus på väggen och rök ur skorstenen. Tändningen är därmed en händelse i byn, inte en tint
+  på en lykta. **Mätt** (`node scripts/_byprobe.mjs [--bild]`, 18 punkter): byn sover vid
+  start (alla rutor `0x53627a`, glöd 0, ingen rök) · lampa 1 väcker hus 1 (`0xffd35c`, glöd
+  1,00, vägg `0xffffff`) medan **grannen sover kvar** · en nybyggd nivå sover igen (3 hus) ·
+  puffarna stiger 13,2 px per 0,5 s och växer 0,83 → 1,54 · exit mitt i ett vaknande lämnar
+  0 konsolfel.
+  **Tre fel som bara BILDEN hittade — alla tre gröna i `npm run test`:**
+  1. **Röken var mätbar men osynlig.** Första versionen gav **655 målade pixlar** av 7 200 i
+     ytan över skorstenen: en vit puff vars alfa följer `(1−f)` rakt av försvinner mot en ljus
+     kvällshimmel redan halvvägs upp. Samma fälla som `gungan`s fartstreck. Nu `(1−0,85f)`,
+     fyra puffar i stället för tre och större skala: **2 320 px (3,5×)**.
+  2. **En skorsten som slutar vid takytan svävar.** Sluttningen möter en lodrät låda i EN
+     punkt, så den läste som ett brunt block bredvid huset. Den går nu ner till takfoten och
+     ligger bakom taket — då sitter den i taket.
+  3. **En ensam cirkel med alfa 0,55 är en dekal, inte ljus.** Fönsterglöden är tre ringar
+     med avtagande alfa (46/36/26 px, 0,10/0,14/0,20). En radiell `FillGradient` går inte:
+     den kan inte ha genomskinlig mitt (LYFTPLAN C1).
+  ⚠️ **Sonden läser scengrafen, inte spelets flaggor.** `_awake` hade svarat ja även om
+  ingenting ritats om — rutans färg hämtas ur `Graphics.context.instructions`, och rökens
+  synlighet mäts DIFFERENTIELLT (samma yta med och utan lagret), aldrig mot ett färgavstånd:
+  molnen bakom ligger i nästan samma ton. `npm run check` 0 fel · `npm run test` grön.

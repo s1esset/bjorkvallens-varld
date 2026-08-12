@@ -36,6 +36,12 @@ const CHARGE_WORDS = ['Ett', 'Två', 'Tre — fullt!']
 // Räkna lamporna högt vid varje tändning ("En lampa! …Två lampor!").
 const LAMP_COUNT = ['En lampa!', 'Två lampor!', 'Tre lampor!', 'Fyra lampor!', 'Fem lampor!', 'Sex lampor!']
 
+// Byn sover tills lamporna tänds (se makeHouse/_wakeHouse).
+const WIN_SLEEP = 0x53627a // släckt ruta — kvällsblå, aldrig svart
+const HOUSE_SLEEP = 0xd6cfe4 // huset i kvällens kalla ton
+const SMOKE_DUR = 2.8 // s för en rökpuff hela vägen upp
+const SMOKE_RISE = 74 // px puffen stiger innan den tunnas ut
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 export default {
@@ -59,6 +65,7 @@ export default {
     this._activeCloud = null
     this._clouds = []
     this._lamps = []
+    this._houses = []
     this._meterIcons = []
     this._litCount = 0
 
@@ -148,10 +155,14 @@ export default {
 
     const lay = this._layoutFor(level)
 
-    // Hus + lampor (otänd stil).
+    // Hus + lampor (otänd stil). Husen ligger index-parallellt med lamporna, så
+    // lampa i väcker hus i.
     this._lamps = []
+    this._houses = []
     lay.lampXs.forEach((cx, i) => {
-      this._village.addChild(makeHouse(cx, BASE_Y, i))
+      const house = makeHouse(cx, BASE_Y, i)
+      this._village.addChild(house)
+      this._houses.push(house)
       const lamp = makeLamp(cx, BASE_Y - 210, i)
       this._village.addChild(lamp.container)
       lamp.cx = cx
@@ -216,6 +227,15 @@ export default {
       }
     }
     this._lamps = []
+    // Hus (vakna-tween + rutans pop dör innan noden rivs).
+    for (const h of this._houses || []) {
+      h._wakeTw?.kill()
+      if (h._win && !h._win.destroyed) {
+        h._win._fxPopTl?.kill()
+        gsap.killTweensOf(h._win.scale)
+      }
+    }
+    this._houses = []
     if (this._village) for (const c of [...this._village.children]) c.destroy({ children: true })
     // Moln (avregistrera lyssnare + döda tweens innan destroy).
     for (const c of this._clouds) this._teardownCloud(c)
@@ -479,6 +499,25 @@ export default {
       if (cloud._zap && !cloud._zap.destroyed) cloud._zap.alpha = cloud.charge
     }
 
+    // Röken ur skorstenarna på de hus som vaknat. Puffarna återanvänds — bara
+    // läge/skala/alfa ändras, ingen Graphics ritas om.
+    for (const h of this._houses) {
+      if (!h || h.destroyed || !h._awake) continue
+      const sm = h._smoke
+      if (!sm || sm.destroyed) continue
+      for (const p of sm.children) {
+        p._fas = (p._fas + dts / SMOKE_DUR) % 1
+        const f = p._fas
+        p.y = -f * SMOKE_RISE
+        p.x = Math.sin(f * 5.4) * 9
+        p.scale.set(0.65 + f * 0.95)
+        // tonar in vid mynningen och ut mot toppen — en puff ska aldrig blinka fram.
+        // ⚠️ Alfan får INTE följa (1−f) rakt av: mot en ljus kvällshimmel blir puffen då
+        // osynlig redan halvvägs (uppmätt 655 målade px). Den håller sig tät längre.
+        p.alpha = (1 - f * 0.85) * 0.72 * Math.min(1, f * 8)
+      }
+    }
+
     // Kollision: två fulladdade moln som nuddar → blixt.
     if (!this._resolving && this._strikeCooldown <= 0) {
       let struck = false
@@ -669,12 +708,53 @@ export default {
       pop(mi)
     }
 
+    // Huset under lampan vaknar — tändningen blir en händelse i byn, inte en tint.
+    this._wakeHouse(this._houses[lamp.index])
+
     ctx.services.audio.sfx('correct')
     burst(ctx.fxLayer, lamp.cx, lamp.cy, { colors: [COLORS.yellow, 0xffffff] })
     floatText(ctx.fxLayer, lamp.cx, lamp.cy - 50, '💡', { fontSize: 56 })
     // Räkna lamporna högt — knyt ljud + siffra + bild ("En lampa! …Två lampor!").
     const line = this._litCount <= LAMP_COUNT.length ? LAMP_COUNT[this._litCount - 1] : randomFrom(LIT_LINES)
     ctx.services.voice.say(line)
+  },
+
+  // Huset vaknar: rutan blir varm, ljuset syns på väggen, kvällstonen släpper och
+  // röken börjar stiga. Alfa-tweens går på en {}-proxy (exit-säkert), skalan via den
+  // delade `pop()` — rutan har egen origo, så den skalar kring sig själv.
+  _wakeHouse(house) {
+    if (!house || house.destroyed || house._awake) return
+    house._awake = true
+
+    const win = house._win
+    if (win && !win.destroyed) {
+      win.clear()
+      win.roundRect(-15, -15, 30, 30, 6).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.brown })
+      pop(win, { scale: 1.3 })
+    }
+    const glow = house._glow
+    const kropp = house._kropp
+    const st = { a: 0 }
+    const tw = gsap.to(st, {
+      a: 1,
+      duration: 0.45,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (!glow || glow.destroyed || !kropp || kropp.destroyed) {
+          tw.kill()
+          return
+        }
+        glow.alpha = st.a
+        // Kvällstonen lyfter ur väggen i takt med ljuset (blandning mot vitt).
+        const m = (sh) => {
+          const ch = (HOUSE_SLEEP >> sh) & 0xff
+          return Math.round(ch + (255 - ch) * st.a)
+        }
+        kropp.tint = (m(16) << 16) | (m(8) << 8) | m(0)
+      },
+    })
+    house._wakeTw = tw
+    if (house._smoke && !house._smoke.destroyed) house._smoke.visible = true
   },
 
   // ---- Auto-hjälp (garanterad framgång) -----------------------------------
@@ -850,6 +930,14 @@ export default {
         gsap.killTweensOf(l.emoji)
       }
     }
+    for (const h of this._houses || []) {
+      h._wakeTw?.kill()
+      if (h._win && !h._win.destroyed) {
+        h._win._fxPopTl?.kill()
+        gsap.killTweensOf(h._win.scale)
+      }
+    }
+    this._houses = []
     for (const m of this._meterIcons) if (m && !m.destroyed) gsap.killTweensOf(m.scale)
     if (this._bobo && !this._bobo.destroyed) gsap.killTweensOf(this._bobo.scale)
     this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
@@ -882,18 +970,72 @@ function makeThunderCloudBody(scale = 1) {
 }
 
 // Litet mysigt hus på marken.
+// Ett hus i byn. Huset SOVER tills dess egen lampa tänds: rutan är mörk och kall,
+// väggen ligger i kvällens blåa ton och skorstenen är kall. Blixten tänder lampan →
+// huset VAKNAR (varm ruta + glöd + rök ur skorstenen). Poängen är att tändningen ska
+// vara en händelse i byn, inte bara en tint på en lykta — och att den lampa barnet
+// just tände hör ihop med ETT hus, inte med byn i allmänhet.
+// Fönster, glöd och rök ligger som EGNA noder kring sin egen origo, så vaknandet är
+// en tween på några fyllningar (och `pop()` skalar kring rutans mitt, inte kring
+// husets — en Graphics ritad i absoluta koordinater hoppar iväg när den skalas).
 function makeHouse(cx, baseY, i) {
-  const g = new Graphics()
+  const c = new Container()
+  c.eventMode = 'none'
+  c.interactiveChildren = false
   const roofColor = i % 2 === 0 ? COLORS.red : COLORS.orange
+
+  const g = new Graphics()
+  // Skorsten (bakom taket — röken föds vid dess mynning). Den går HELA vägen ner till
+  // takfoten: en skorsten som slutar vid takytan möter sluttningen i en enda punkt och
+  // läser som ett brunt block bredvid huset i stället för något som sitter i taket.
+  g.roundRect(cx + 28, baseY - 196, 24, 86, 4).fill(0xb0705a).stroke({ width: 4, color: COLORS.brown })
   // Vägg.
   g.roundRect(cx - 70, baseY - 110, 140, 120, 16).fill(COLORS.cream).stroke({ width: 4, color: COLORS.brown })
   // Tak.
   g.poly([cx - 82, baseY - 110, cx, baseY - 180, cx + 82, baseY - 110]).fill(roofColor).stroke({ width: 4, color: COLORS.brown })
-  // Dörr + fönster.
+  // Dörr.
   g.roundRect(cx - 22, baseY - 62, 44, 62, 8).fill(COLORS.brown)
-  g.roundRect(cx + 16, baseY - 96, 30, 30, 6).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.brown })
+  g.tint = HOUSE_SLEEP // hela huset ligger i kvällstonen tills det vaknar
   g.eventMode = 'none'
-  return g
+  c.addChild(g)
+
+  // Ljuset inifrån, som ett mjukt sken på väggen runt rutan. TRE ringar med avtagande
+  // alfa — en ensam cirkel med 0,55 läser som en gul dekal på väggen, inte som ljus.
+  // (En radiell FillGradient duger inte: den kan inte ha genomskinlig mitt.)
+  const glow = new Graphics()
+  for (const [r, a] of [[46, 0.1], [36, 0.14], [26, 0.2]]) glow.circle(0, 0, r).fill({ color: 0xffd873, alpha: a })
+  glow.position.set(cx + 31, baseY - 81)
+  glow.alpha = 0
+  glow.eventMode = 'none'
+  c.addChild(glow)
+
+  // Rutan — egen nod kring sin egen mitt.
+  const win = new Graphics()
+  win.roundRect(-15, -15, 30, 30, 6).fill(WIN_SLEEP).stroke({ width: 3, color: COLORS.brown })
+  win.position.set(cx + 31, baseY - 81)
+  win.eventMode = 'none'
+  c.addChild(win)
+
+  // Röken: tre puffar som ÅTERANVÄNDS (flyttas/skalas per bildruta, ritas aldrig om).
+  const smoke = new Container()
+  smoke.position.set(cx + 50, baseY - 206)
+  smoke.visible = false
+  smoke.eventMode = 'none'
+  smoke.interactiveChildren = false
+  for (let k = 0; k < 4; k++) {
+    const p = new Graphics().circle(0, 0, 13).fill({ color: 0xffffff, alpha: 1 })
+    p._fas = k / 4 // spridd fas → en jämn ström, inte fyra puffar i klump
+    p.eventMode = 'none'
+    smoke.addChild(p)
+  }
+  c.addChild(smoke)
+
+  c._kropp = g
+  c._win = win
+  c._glow = glow
+  c._smoke = smoke
+  c._awake = false
+  return c
 }
 
 // Målet som ska tändas, RITAT (P0 ASSETS). Tre varianter i samma silhuett-storlek

@@ -14,6 +14,46 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.177.0 · Sållet räknar noder — det säger inte VILKA
+
+**Byggt:** nattköns **N10** pass 10. Två kandidater prövades och **båda lämnas orörda**, med
+mätning bakom besluten — plus en **rättelse** av ett påstående jag skrev i förra passet.
+
+**`folj-sparet` var ett falskt fynd.** Sållet gav 4,6 px i tre svep, bara 2 av 30 noder — en
+stark kandidat. Men §4:s "[Medium] Levande figur man bryr sig om" visade sig **helt byggd**:
+ansikte i `_paintFigure`, `_lookEager()` lutar figuren mot nästa väntade fotspår, `_hopRabbit`
+jublar med "!" + squash-and-stretch. Struken på en **mätning**, inte en kodläsning — `vart-tog-
+det-vagen` bar hela sin reaktionstabell i koden och var ändå död i sex veckor. `_ivrigprobe`
+4/4: lutningen **0 → 0,11 rad** med `_eagerTween` levande, åt rätt håll, **4,4 px** vid figurens
+ytterkant. **Det är hela det tal sållet såg.** Fjortonde redan-byggda §4-punkten, den första som
+bevisats byggd med mätning. `spara-linjen` (7,2 px i tre svep) lämnas också: ingen öppen [Quick]
+träffar stillheten, och en ritsida som står still medan barnet funderar är rätt, inte en brist.
+
+**RÄTTELSE.** I förra passet skrev jag att de tre noder som rörde sig i `kla-efter-vadret` "var
+de fallande regn-/snöflingorna". Det var ett **antagande framställt som en mätning**, och det
+var fel. Nya `_vilkaprobe.mjs` namnger dem: **vädersymbolens glow-puls** (`_glowPulse`, en
+oändlig yoyo på en 184 px cirkel) plus symbolen själv — en dekorativ bricka högst upp. Fyndet
+står kvar och blir starkare: det enda som levde var en dekoration, medan karaktären stod stilla.
+Rättat i `kla-efter-vadret.md`, i den här filen och i `_ryserprobe.mjs`. Commit-meddelandet i
+`9e64e8f` bär felet kvar — historik skrivs inte om.
+
+**Passets lärdom: när en sond rapporterar ett ANTAL är identiteten på det den räknade fortfarande
+omätt.** Två spel med nästan identiska tal fick motsatt svar — 4,2 px var ett äkta fynd (en
+dekoration rörde sig, karaktären inte) och 4,6 px ett falskt (figuren själv rörde sig, korrekt).
+En summerad **rörlig yta** prövades som skiljelinje och **förkastades med mätning**: den ger
+53 482 px² för det döda spelet mot 10 969 px² för det levande — precis fel ordning — och den
+dubbelräknar container + barn. Frågan "lever scenen?" går inte att svara på med ett skalärt tal.
+`_stillaprobe` är därför oförändrad, men bär nu en varning som pekar på `_vilkaprobe`.
+
+**Commits:** `8b5f818` docs(N10 p10) folj-sparet redan byggd + rättelsen.
+**Kontroll:** `check` 0 fel / 0 varningar · `_ryserprobe` 7/7 · `_ivrigprobe` 4/4 ·
+`npm run test kla-efter-vadret folj-sparet` 2/2 gröna. Ingen speländring i passet.
+**Öppet:** ägarkön tom. **N10:s stillhets-åder är i praktiken uttömd** — sållet hittade två
+äkta tableauer (båda byggda i pass 9) och resten av svansen är antingen episodisk eller
+korrekt stilla. Nästa pass bör välja [Quick] efter en ANNAN mätbar signal, eller ta **N12**.
+
+---
+
 ## 2026-08-12 · v1.176.0 · Två svep hade skickat passet till fel spel
 
 **Byggt:** nattköns **N13** (läsning, ingen speländring) + **N10** pass 9 (två spel, en commit

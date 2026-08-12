@@ -14,6 +14,59 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.157.0 · Två effekter som en testskärmdump aldrig kan se
+
+**Byggt:** nattköns **N10** (D3: billiga [Quick] ur `docs/games/*.md` §4). Två spel, en commit
+var, båda valda för att de **syns på skärmen** — och båda av samma sort: effekter som bara
+finns **medan något rör sig**, alltså osynliga för `npm run test`, som fotograferar spelet i
+vila. Det är därför varje punkt fick en egen sond.
+
+**`gungan` — farten syns (v1.156.0).** Två §4-punkter i en commit. Håret: `back`-grafiken
+pivoterar nu kring HUVUDETS mitt i stället för höfterna och släpar
+`-tanh(omega / (cap·0,5)) · 0,34`, alltså motsatt färdriktningen och mättat så tofsarna aldrig
+slår runt (största utslag **18,8°**). Fartstrecken: tre bågar bakom sitsen kring **samma
+upphängningspunkt som gungan**, alltså exakt den väg sitsen tar, med tröskel vid 34 % av
+fartaket.
+
+**`_gungprobe.mjs` hittade två fel som ingen skärmdump visat:**
+
+1. **En tröskel som passeras utan att något syns är ingen tröskel.** Första versionen tonade in
+   från noll och var **helt osynlig** (0 målade pixlar) ända upp till halva farten — vitt med
+   alfa 0,16 mot himlen ändrar färre än 6 nivåer per kanal. Styrkan startar nu på 0,5:
+   **0 · 0 · 502 · 834 · 1111 · 1125 px** vid 0 / 0,25 / 0,34 / 0,50 / 0,75 / 1,0 av taket.
+2. **En rotation är ett tal, inte en bild.** Håret ligger mest bakom huvudet, så sonden mäter
+   SYNLIGA pixlar i stället: 786 i vila → 908 i full fart, **568 px byter plats**.
+
+**`enhorningen-elvira` — hennes bana syns (v1.157.0).** Ett regnbågsband ur spelets egna
+`RAINBOW`-färger, ritat ur de 30 senaste positionerna, tunnande och blekande mot svansen.
+Punkter läggs bara till när hon flyttat sig >7 px — annars fylls bufferten av dubbletter när
+hon nästan står still och bandet blir en klump i stället för en bana. `_sparprobe.mjs`: **2 089
+målade pixlar** under flykt, utsträckning **187×170 px**, **0 px kvar** i placeringsläget efter
+landning, exit mitt i flykten lämnar ingenting.
+
+**Sonderna var fel innan spelen var det — igen (nu sjunde gången).** `_gungprobe` mätte först
+den frysta pendeln som integrerade vidare och skrev över de handsatta värdena (hår-rotationen
+vid omega 0 kom ut som 0,053 och avslöjade det), och dess första tröskel — "ljusare än
+236/240/240" — kunde aldrig träffa ett vitt streck med alfa 0,5 mot en ljusblå himmel. Båda
+sonderna isolerar nu effekten genom att **dölja allt annat i scenen**: att bara växla
+effektens `visible` mellan två skärmdumpar tog med molnens drift och GSAP-andningen, ~590 px
+brus mot en effekt på ~800.
+
+**Ett avsteg värt att notera:** §4 föreslog "exit-säkra streck i `fxLayer`". Båda effekterna
+ligger i stället i en **återanvänd `Graphics` i spelets egen rot** — noll allokering per
+bildruta, inga tweens att städa, och de rivs med roten. Exit-säkert av konstruktion i stället
+för av disciplin.
+
+**Commits:** `f01deae` feat(gungan) farten syns · `7dc1613` feat(enhorningen-elvira) hennes bana
+syns
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · båda §4-punkterna kryssade i
+sina commits.
+**Öppet:** ägarkön tom. **N10 är inte "klar"** — den är en brunn på 701 [Quick], inte en lista
+att beta av. Nästa pass tar två spel till på samma sätt. Nattkön i övrigt: **N12** (platthetens
+svans, låg avkastning) och **N13** (läsa+dokumentera V10b:s första kund, ingen speländring).
+
+---
+
 ## 2026-08-12 · v1.155.0 · Femton spel skulle byta bakgrund. Ett skulle det.
 
 **Byggt:** nattköns **N9** (LYFTPLAN A5). Raden hette "femton spel ritar egen bakgrund; de som

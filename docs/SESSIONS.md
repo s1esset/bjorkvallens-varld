@@ -14,6 +14,73 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.161.0 · Två världar som stod vakna innan barnet gjort något
+
+**Byggt:** nattköns **N10**, tredje passet (D3: billiga [Quick] ur `docs/games/*.md` §4).
+Två spel, en commit var, egen sond per punkt. Båda punkterna visade sig vara samma sorts
+brist: **målet i spelet reagerade inte på att barnet närmade sig det.**
+
+**Urvalet kostade mer än vanligt — och det är resultatet av passet.** Fyra av de sex
+kandidater jag läste var **redan byggda men aldrig strukna i §4**: `fanga-frukten`s "Trädet
+lever" (lövverket andas sedan `index.js:174`, `_shakeBranch` skakar grenen vid släpp),
+`domino`s "Damm & studs" (dammpuff per bricka på `:856`, mikroskak vid klockan på `:898`),
+`bygg-tornet`s "Vaj-juice" (`:370`) och `bowling`s "STRIKE-skylt + riktmärken". Det är sjätte
+till nionde gången docen ligger efter koden. **Läs koden före planen** — en §4-lista är en
+läslista, inte en arbetsorder.
+
+**`blixt-och-dunder` — byn vaknar (v1.160.0).** `makeHouse` ritade ett hus med **gult fönster
+redan från start**: byn var alltså vaken innan barnet gjort något, och en tändning syntes bara
+som en tint på en lykta. Nu sover hus `i` tills lampa `i` tänds — kvällsblå ruta (`0x53627a`,
+aldrig svart), väggen i kall ton, kall skorsten → varm ruta + `pop`, ljus på väggen och rök ur
+skorstenen. `_byprobe.mjs` (ny, 18 punkter) läser **scengrafen, inte spelets flaggor**:
+`_awake` hade svarat ja även om ingenting ritats om, så rutans färg hämtas ur
+`Graphics.context.instructions`.
+
+**Tre fel som bara BILDEN hittade, alla gröna i `npm run test`:**
+1. **Röken var mätbar men osynlig** — **655 målade pixlar** av 7 200. En vit puff vars alfa
+   följer `(1−f)` rakt av försvinner mot en ljus kvällshimmel redan halvvägs. Med `(1−0,85f)`,
+   fyra puffar och större skala: **2 320 px (3,5×)**. Samma fälla som `gungan`s fartstreck.
+2. **En skorsten som slutar vid takytan svävar** — sluttningen möter en lodrät låda i EN punkt.
+   Den går nu ner till takfoten och ligger bakom taket.
+3. **En ensam cirkel med alfa 0,55 är en dekal, inte ljus** — fönsterglöden är tre ringar med
+   avtagande alfa. (En radiell `FillGradient` går inte: ingen genomskinlig mitt.)
+
+**`enhorningen-elvira` — regnbågen vaknar (v1.161.0).** Innanför `NEAR_R` 250 px växer svaret
+gradvis med närheten: **400 px 0 · 250 px 0 · 200 px 0,32 · 150 px 0,65 · 100 px 0,97**.
+Glöden tänds och tintas mot **gyllene** — vitt sken bakom bågen lyser igenom 2 px-springorna
+mellan banden och **disar** den, alltså blekare ju närmare hon kom, tvärtemot "lyser upp"
+(pixeltalet steg 13 190 → **20 355** med tinten). Signalen drivs FÖRE tillståndsgrenen i
+tickern så viloläget också hålls; annars står bågen och lyser efter en landning och betyder
+inget vid nästa skott (mätt: 0,91 → **0,02** en sekund efter).
+
+**Sonden var fel två gånger innan spelet var det (åttonde gången i repot), och båda felen är
+värda att bära:**
+1. **Ett förlopp som fortsätter under mätningen mäter sin egen loop.** Första versionen satte
+   Elviras läge EN gång och väntade 700 ms — tyngdkraften drog iväg henne och rundan landade
+   av sig själv, så **varje avstånd gav noll**. Läget måste pinnas varje bildruta och
+   framskridandet frysas.
+2. **`positionPrev` måste pinnas MED.** matter härleder farten ur `position − positionPrev`,
+   så hoppet mellan två mätpunkter blev en fart på hoppets längd: 300 px sköt in henne i
+   målet, rundan vanns, nivån byggdes om och `_near` nollställdes — vilket läste som att
+   effekten *slocknade* närmast målet. Samma familj som CLAUDE.md:s statiska-kropp-fälla.
+   Och en tredje: bilddiffen räknade först **Elvira själv**, som ligger i samma yta och rör
+   sig mellan bilderna.
+
+**Commits:** `b309fc0` feat(blixt-och-dunder) byn vaknar · `60e96b4` feat(enhorningen-elvira)
+regnbågen vaknar · + den här sessionsloggen
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` **72/72 gröna**. Båda §4-punkterna
+strukna i sina docs med mätvärden i §5. Ingen indexändring (båda spelen redan ✅/✅).
+⚠️ Svepet loggade **V14b:s signatur igen**: `tvatta-djuret` `tom-bild-omtagen ×2 — gl-kontext
+FORLORAD`. Vakten fångade den och omtagningen räddade bilden, precis som den är byggd för —
+alltså ingen ny regression, men fyndet **vandrar fortfarande** och orsaken (fyra parallella
+Chrome med WebGL) står kvar öppen.
+**Öppet:** ägarkön tom. **N10 fortsätter** — nästa pass tar två spel till, men **läs koden
+före §4-listan**: fyra av sex kandidater var redan byggda den här gången. Nattkön i övrigt:
+**N12** (platthetens svans, låg avkastning) och **N13** (läsa+dokumentera V10b:s kandidater,
+ingen speländring).
+
+---
+
 ## 2026-08-12 · v1.159.0 · Ett tak som gjorde två av tre val osynliga
 
 **Byggt:** nattköns **N10**, andra passet (D3: billiga [Quick] ur `docs/games/*.md` §4). Samma

@@ -66,17 +66,17 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
   känns levande.
 
 ### Variation & överraskning
-- **[Quick] Ge djuren instrument.** Lägg en liten emoji-rekvisita per kort (🥁🎺🎻🎹🪇) —
-  nu *är* det en orkester, och trycket "spelar instrumentet" snarare än bara djurlätet.
+- ✅ ~~**[Quick] Ge djuren instrument.**~~ REDAN BYGGD (kontrollerad mot koden 2026-08-12,
+  `DJUR[].instr` + `index.js:133`): varje kort bär sin rekvisita i nedre högra hörnet.
 - **[Medium] Byt djur-uppsättning per "konsert".** Efter ett firande: rotera in andra djur
   (får, häst, tupp, bi, uggla) ur en större pool. Samma mekanik, ny upptäckt — bryter
   "samma sex för evigt".
 
 ### Juice
-- **[Quick] Koppla nottecknet till ljudet.** Låt 🎵 stiga högt + litet för ljusa läten, lågt
-  + stort för mörka (ko), och tinta det i kortets färg. Visuell ton-höjd = enkel musikteori.
-- **[Quick] Grannkort-vibration.** När ett djur sjunger, låt grannkorten skälva lätt i takt
-  (som ett verkligt dån som sprider sig) — scenen känns sammankopplad, inte sex öar.
+- ✅ ~~**[Quick] Koppla nottecknet till ljudet.**~~ REDAN BYGGD (kontrollerad mot koden
+  2026-08-12, `index.js:162–164`): `noteSize`/`noteRise` räknas ur djurets ton.
+- ✅ ~~**[Quick] Grannkort-vibration.**~~ Klar 2026-08-12 (v1.172.0): utslaget avtar med
+  avståndet, en djup röst skakar mer än en ljus, och det finns ett tak. Se §5.
 
 ### Progression
 - **[Medium] Synlig samling/konsert-mätare.** En liten rad noter/stjärnor fylls per tryck så
@@ -95,6 +95,28 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
   ge dem distinkta klipp). Lägg ett mjukt "applåd"-klipp vid konsert-firandet.
 
 ## 5. Status / loggar
+
+- 2026-08-12 🥁 **Dånet sprider sig till grannkorten** (v1.172.0, N10 pass 8).
+  Fyndet kom ur `scripts/_stillaprobe.mjs`: 24 av 33 noder "rörde sig", men **största utslaget
+  var 7,2 px** — identiskt i tre svep i rad. Scenen stod alltså i praktiken still: sex öar som
+  inte visste om varandra. Nu skälver grannkorten när ett djur sjunger.
+  **Skälvet är fysiskt, inte dekorativt** — och det är hela skillnaden mot en slumpvis
+  vibration: ⓵ utslaget **avtar med avståndet** (ett dån sprids och tunnas ut), ⓶ en **djup**
+  röst skakar grannarna mer än en ljus och svänger långsammare (svängningstalet är djurets egen
+  ton nedskalad: ko ≈ 9,3 Hz, anka ≈ 18,7 Hz — basen bär), ⓷ det finns ett **tak**, så ett barn
+  som trummar på alla sex korten får en scen som lever, aldrig en som skakar sönder.
+  **Skälvet ligger i `_inner.x`.** Kortet självt bär `hitArea` och får aldrig vandra (P0), och
+  `_inner.scale` skrivs av takt-pulsen medan `_inner.rotation` skrivs av kören — x är den enda
+  fria kanalen. Det drivs i tickern, inte med gsap, så det aldrig slåss med de två andra.
+  **MÄTT** (`scripts/_skalvprobe.mjs`, 7/7 mot HEADs 4/7): 5 av 5 grannar skälver (HEAD 0 av 5) ·
+  **6,7 px närmast (306 px bort) mot 3,8 px längst bort (775 px)** · ko (C4) 6,7 px mot anka (C5)
+  3,2 px · grannkortens egen rörelse **0,00 px** · 18 tryck i rad gav som mest 10,3 px mot taket
+  11 · 0,000 px kvar 2 s efter sista trycket.
+  ⚠️ Raderna 4/5/6/7 är gröna på HEAD också (där rör sig ingenting, så inget tak kan spricka och
+  inget behöver dö ut) — **vakter, inte bevis**. Bevisen är 1, 2 och 3.
+  ⚠️ "Ge djuren instrument" och "Koppla nottecknet till ljudet" var **redan byggda** (kontrollerat
+  mot koden 2026-08-12) och är strukna i §4.
+
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`3a31d59`, v1.106.0).
   `_plattprobe --medbakgrund` mätte **387 774 px = 42 % av skärmen** i EN ton.

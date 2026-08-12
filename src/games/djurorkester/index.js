@@ -38,6 +38,14 @@ const COLS = 3
 const ROWS = 2
 const CARD_W = 300
 const CARD_H = 250
+
+// Grannkortens skälv när ett djur sjunger. Talen är små: det ska läsa som ett dån som
+// sprider sig, inte som att scenen skakar sönder.
+const SKALV_AMP = 7 // px vid källan för en ton på SKALV_DJUP_REF
+const SKALV_DJUP_REF = 329.63 // E4 — referenston; djupare djur skakar mer, ljusare mindre
+const SKALV_RACKVIDD = 300 // px där utslaget halverats (dånet tunnas ut med avståndet)
+const SKALV_TAK = 11 // px — taket som gör snabba tryck till liv, aldrig kaos
+const SKALV_AVTAG = 0.26 // s, exponentiell avklingning (~0,8 s till stillhet)
 const GAP_X = 56
 const GAP_Y = 56
 
@@ -170,10 +178,33 @@ export default {
     // låter exakt mekaniskt likadant — instrumentet känns levande.
     audio.tone({ freq: djur.note * (0.97 + Math.random() * 0.06), dur: 0.4, type: 'triangle', vol: 0.12 })
 
+    this._skakGrannar(card)
     this._trackSequence(ctx, card)
 
     this._taps++
     if (this._taps % TAPS_PER_CELEBRATION === 0) ctx.progress.complete()
+  },
+
+  // Dånet sprider sig: när ett djur sjunger SKÄLVER grannkorten. Utan det är scenen sex
+  // öar som inte vet om varandra (uppmätt: 24 av 33 noder "rörde sig", men största
+  // utslaget var 7,2 px — scenen stod i praktiken still).
+  // Tre saker gör skälvet fysiskt i stället för dekorativt:
+  //   * det AVTAR med avståndet — ett dån sprids och tunnas ut;
+  //   * en DJUP röst skakar grannarna mer än en ljus (basen bär), och skälver
+  //     långsammare — svängningstalet är djurets egen ton nedskalad till synligt område;
+  //   * det finns ett TAK, så ett barn som trummar på alla kort får en scen som lever,
+  //     aldrig en som skakar sönder.
+  _skakGrannar(kalla) {
+    const bas = SKALV_AMP * (SKALV_DJUP_REF / kalla._djur.note) // låg ton = kraftigare
+    for (const c of this._cards) {
+      if (!c || c.destroyed || c === kalla) continue
+      const d = Math.hypot(c.x - kalla.x, c.y - kalla.y)
+      const amp = bas / (1 + d / SKALV_RACKVIDD)
+      // Lägg till, men klipp mot taket — annars staplar snabba tryck ihop sig.
+      c._skalvAmp = Math.min(SKALV_TAK, (c._skalvAmp || 0) + amp)
+      c._skalvT = 0
+      c._skalvHz = kalla._djur.note / 28 // ko ≈ 9,3 Hz, anka ≈ 18,7 Hz
+    }
   },
 
   // Spåra "kören": tre OLIKA djur i följd → de gungar ihop + en ackord-harmoni.
@@ -253,7 +284,20 @@ export default {
     const accent = Math.max(0, 1 - phase * 3.5)
     const s = 1 + accent * 0.05
     for (const card of this._cards) {
-      if (card && !card.destroyed && card._inner) card._inner.scale.set(s)
+      if (!card || card.destroyed || !card._inner) continue
+      card._inner.scale.set(s)
+      // Skälvet ligger i `_inner.x` — kortet självt bär `hitArea` och får aldrig vandra
+      // (P0). `_inner.scale` skrivs av takten ovan och `_inner.rotation` av kören, så x
+      // är den enda kanal som är fri; drivs i tickern i stället för med gsap så den
+      // aldrig slåss med de två andra skrivningarna.
+      if (card._skalvAmp > 0.05) {
+        card._skalvT += dt
+        card._skalvAmp *= Math.exp(-dt / SKALV_AVTAG)
+        card._inner.x = Math.sin(card._skalvT * card._skalvHz * Math.PI * 2) * card._skalvAmp
+      } else if (card._skalvAmp) {
+        card._skalvAmp = 0
+        card._inner.x = 0
+      }
     }
 
     if (this._idle > 6) {

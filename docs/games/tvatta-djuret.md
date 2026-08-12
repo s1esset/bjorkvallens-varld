@@ -125,6 +125,37 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
 
 ## 5. Status / loggar
 
+- 2026-08-12 ⚙️ **NATTKÖ N3: DUSCHEN ÄR RIKTIG VÄTSKA** (`lib/vatska.js`, åttonde kunden).
+  **Fyndet som startade passet är mätt, inte tyckt:** sprayen var 24 egna droppar på **4 px**
+  radie i blekblått, **6,8 px** till närmaste granne — alltså långt inom en metaboll-radie, men
+  ritade var för sig och i praktiken **osynliga** mot lerans brunt. Halva spelets loop syntes
+  inte. Nu är det en sammanhängande stråle som faller genom bilden ner i karet.
+  - **SKÖLJNINGEN LEVER I SAMMA VATTEN.** Den utlöses av partiklar som just kommit in i
+    silhuetten (`_silh`) — samma ellipser som `_onAnimal` provar mot. Bild och regel är samma
+    sak, inte två system som kan säga emot varandra.
+  - ❌ **DJURET ÄR INTE ETT HINDER — mätt beslut.** Kroppen byggdes först som hinder (en konvex
+    kupol per ellips) så vattnet skulle skölja ner längs sidorna. Det föll på hur spelet
+    faktiskt spelas: **barnet håller munstycket MOT fläcken**, alltså inuti kroppen. En partikel
+    som föds inuti ett hinder kastas ut till dess yta i samma steg — vattnet teleporterades upp
+    på ryggen, långt från skummet, och sköljningen dog. Uppmätt: **248 bildrutor** utan hinder
+    (= HEADs egen siffra) mot **över 1 200** med kroppen som hinder.
+  - **Två fel innan dess, båda värda att komma ihåg.** ① Tre lika stora cirklar längs en ellips
+    har ett nästan **plant tak med skåror** — samma pölfälla som en låda, bara i förklädnad.
+    ② En vilande droppe stannar en **kroppsradie utanför** hindrets yta, alltså utanför ellipsen
+    som `_onAnimal` provar mot: pölen på ryggen räknades aldrig som "på djuret", sköljde
+    ingenting och dränerades aldrig. Därav `VATTEN_MARGINAL`.
+  - **`_inneFore` måste nollställas per PLATS vid födseln.** Partikeltaket återanvänder den
+    äldsta platsen, och en ny droppe som föds inuti silhuetten på en plats som redan stod som
+    "inne" utlöste aldrig sin sköljning — duschen blev långsammare ju längre barnet höll den.
+    Uppmätt: **424 → 239** bildrutor av den enda raden.
+  - **SVÅRIGHETEN ÄR OFÖRÄNDRAD, och det är ett krav i sonden.** Sköljningen utlöses per
+    partikel, så strålens TÄTHET *är* spelets svårighet: 1 per steg gav 506 bildrutor mot HEADs
+    248. Med 2 per steg: **239 / 242 / 240** i tre körningar mot HEADs **248** — inom 4 %.
+  - **MÄTT** (`_duschprobe.mjs`, **10/10** i tre körningar): strålen sammanhängande med
+    **9,5–11,5 px** mellan grannarna mot interaktionsradien 24 · **46** partiklar på silhuetten
+    under duschning → **0 efter 3 s** · karpölen **0 efter 5 s** · taket toppar **23 %** ·
+    **60,0 fps** både vid CPU ×1 och ×6. `_duschbild.mjs` sparar bilden.
+
 - 2026-08-10 🎨 **D1 (mönster B): leran fick form — och droppen rinner nedåt igen** (`620895f`, v1.121.0).
   Leran låg på **111 592 px i EN ton** (`_plattprobe --medbakgrund`) — största enskilda fältet i
   HELA D1-nivån. Samma klass som `natskott-pa-stan`s fasader: många föremål som delar en ton.

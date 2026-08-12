@@ -17,16 +17,36 @@
 // + globalpointermove/pointerup på verktyget, som i pruttbad/valpens-bajs) — INTE
 // DragController (som bara snäpper till mål). Tap-tap-fallback bakas in för de minsta.
 // Vattendroppar är en egen, exit-säker ticker-integrator (ingen GSAP på droppar; allt
-// ritas i this._spray). Lerklumpar/skum suddas via {}-proxy-mönstret; partiklar/firande
+// ritas av lib/vatska.js). Lerklumpar/skum suddas via {}-proxy-mönstret; partiklar/firande
 // går via lib/feedback.js (redan exit-säkra).
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, breathe, floatText, shake, bigCelebration , kvittera} from '../../lib/feedback.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
+import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { topLightFill } from '../../lib/form.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { randomFrom } from '../../lib/swedish.js'
+
+// --- Duschvattnet (lib/vatska.js) -----------------------------------------
+const FLUID_MAX = 240        // partikeltak
+const TUB_BOTTEN = 596       // karets innerbotten: vattnet lägger sig här
+const SPRAY_FART = 9         // px/steg ur munstycket (taket är radius·0,6 = 14,4)
+// Täthet. ⚠️ DEN SÄTTER SPELETS SVÅRIGHET, inte bara bilden: sköljningen utlöses per
+// partikel som kommer in i silhuetten, så halva takten är halva sköljhastigheten.
+// HEAD födde 2–3 droppar per bildruta; 1 gav 506 bildrutor mot HEADs 248 på samma
+// skum. 2 per steg lägger dessutom grannarna ~4,5 px isär, alltså långt inom
+// interaktionsradien 24 — en sammanhängande stråle.
+const SPRAY_PER_STEG = 2
+// Hur länge vatten får ligga KVAR på djuret innan det räknas som avrunnet. ⚠️ Utan
+// den här gränsen växer en blå platta på ryggen: kupolens topp är nästan plan, så
+// tillflödet är större än avrinningen och SPH:ns eget yttryck håller ihop klumpen.
+// HEADs droppar togs bort i samma stund de träffade; ett halvt sekunds fönster ger
+// samma ändlighet men hinner visa vattnet rinna ner längs sidan.
+const VATTEN_MARGINAL = 14
+const SPRAY_BREDD = 34       // duschmunstyckets bredd: strålen föds över ett BAND
+const KAR_DRAIN = 2          // partiklar per bildruta ur karet (avlopp)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -82,7 +102,6 @@ export default {
     this._moved = false
     this._idle = 0
     this._noProgress = 0
-    this._drops = []
     this._foam = []
     this._flakes = []
     this._bubbles = [] // stigande tvålbubblor i karet (ritas i this._tubFx)
@@ -125,8 +144,15 @@ export default {
     this._mudLayer.eventMode = 'none'
     this._foamLayer = new Container()
     this._foamLayer.eventMode = 'none'
-    this._spray = new Graphics()
-    this._spray.eventMode = 'none'
+    // DUSCHVATTNET (lib/vatska.js). Sprayen var 24 egna droppar på 4 px radie i
+    // blekblått — uppmätt 6,8 px till närmaste granne, alltså långt inom en
+    // metaboll-radie, men ritade var för sig och därmed i praktiken OSYNLIGA mot
+    // lerans brunt. Halva spelets loop syntes inte. Nu är det en sammanhängande
+    // stråle som rinner ner över djuret och ner i karet.
+    //
+    // ⚠️ MEKANIKEN LEVER I SAMMA VATTEN. Sköljningen drivs av partiklar som just
+    // KOMMIT IN i silhuetten (`_silh`) — samma ellipser som `_onAnimal` provar mot.
+    // Bild och regel är alltså samma sak, inte två system som kan säga emot varandra.
     // Levande bad-kuliss: skvalpande vattenskimmer + stigande tvålbubblor vid vattenlinjen.
     // Ett enda Graphics ovanpå djuret (men under verktygen), ritas om i _update — exit-säkert.
     this._tubFx = new Graphics()
@@ -136,7 +162,47 @@ export default {
     // att mäta för sig (dölj allt annat, räkna pixlar).
     this._findLayer = new Container()
     this._findLayer.eventMode = 'none'
-    this._root.addChild(this._clean, this._mudLayer, this._foamLayer, this._spray, this._tubFx, this._findLayer)
+    this._root.addChild(this._clean, this._mudLayer, this._foamLayer, this._tubFx, this._findLayer)
+
+    this._fluid = new FluidWorld({
+      max: FLUID_MAX,
+      radius: 24,
+      gravityY: 0.5,
+      rho0: FLUIDS.tval.rho0,
+      sigma: FLUIDS.tval.sigma,
+      beta: FLUIDS.tval.beta,
+      // Vattnet ska rinna AV djuret, inte bli liggande som en filt över leran.
+      restitution: 0.18,
+      wallFriction: 0.08,
+      // Karets botten är golvet; sidorna släpper igenom så spill rinner ur bild i
+      // stället för att samlas i en pöl bakom kanten.
+      walls: { left: false, right: false, bottom: true, top: false },
+      bounds: { left: -200, right: 1480, top: -200, bottom: TUB_BOTTEN },
+    })
+    // Tröskeln är satt för en STRÅLE, inte för ett fyllt kärl (N3-regel 2).
+    this._fluidView = new FluidView(this._root, this._fluid, {
+      color: FLUIDS.vatten.color,
+      edge: 0xeaf9ff,
+      alpha: 0.85,
+      blobScale: 1.0,
+      threshold: 0.38,
+      soft: 0.1,
+      blur: 6,
+      quality: 2,
+      resolution: 0.5,
+      area: new Rectangle(240, 100, 800, TUB_BOTTEN - 60),
+    })
+    this._fluidView.layer.eventMode = 'none'
+    this._fluidView.layer.interactiveChildren = false
+    // Vattnet hör hemma där sprayen låg: över lera och skum, under kar-skimret.
+    // Vattnet hör hemma över lera och skum, under kar-skimret.
+    this._root.addChildAt(this._fluidView.layer, this._root.getChildIndex(this._tubFx))
+    this._sprayAcc = 0
+    this._inneFore = new Uint8Array(FLUID_MAX)
+    this._karVaggar = [
+      this._fluid.addBox(366, 545, 22, 150),   // karets vänstra vägg
+      this._fluid.addBox(914, 545, 22, 150),   // ...och högra
+    ]
 
     // Verktyg (svamp/dusch) ovanför djuret.
     this._sponge = { kind: 'sponge', view: this._makeSponge(), home: { x: 165, y: 630 } }
@@ -281,7 +347,6 @@ export default {
     this._showerReady = false
     this._idle = 0
     this._noProgress = 0
-    this._drops = []
     this._foam = []
 
     const t = this._levelType()
@@ -363,6 +428,27 @@ export default {
       maxY = Math.max(maxY, e.cy + e.ry)
     }
     return { minX, minY, maxX, maxY }
+  },
+
+  // ⚠️ DJURET ÄR INTE ETT HINDER FÖR VATTNET — och det är ett MÄTT beslut, inte lättja.
+  // Kroppen byggdes först som hinder ur silhuetten (en konvex kupol per ellips) så
+  // vattnet skulle skölja ner längs sidorna. Det föll på hur spelet faktiskt spelas:
+  // barnet håller duschmunstycket MOT den smutsiga fläcken, alltså inuti kroppen. En
+  // partikel som föds inuti ett hinder kastas ut till dess yta i samma steg — vattnet
+  // teleporterades upp på ryggen, långt från skummet, och sköljningen dog.
+  // Uppmätt: allt skum bort på **248 bildrutor** utan hinder (= HEADs egen siffra) mot
+  // **över 1 200** med kroppen som hinder. Bara karets väggar är hinder nu; vattnet
+  // faller genom silhuetten precis som HEADs droppar gjorde, syns över djuret, och
+  // samlas i karet i stället för att försvinna vid första kontakt.
+
+  // Samma prövning som `_onAnimal`, men med marginal — se VATTEN_MARGINAL.
+  _vattenPaDjur(x, y) {
+    for (const e of this._silh) {
+      const dx = (x - e.cx) / (e.rx + VATTEN_MARGINAL)
+      const dy = (y - e.cy) / (e.ry + VATTEN_MARGINAL)
+      if (dx * dx + dy * dy <= 1) return true
+    }
+    return false
   },
 
   _onAnimal(x, y) {
@@ -960,64 +1046,74 @@ export default {
     }
   },
 
-  // ---- Vattendroppar (egen exit-säker integrator) ------------------------
+  // ---- Duschvattnet ------------------------------------------------------
 
   _burstDrops(p) {
-    for (let i = 0; i < 6 && this._drops.length < 120; i++) {
-      this._drops.push({
-        x: p.x + (Math.random() * 40 - 20),
-        y: p.y - 60,
-        vx: (Math.random() * 2 - 1) * 1.5,
-        vy: 3 + Math.random() * 2,
-        r: 3 + Math.random() * 3,
-        age: 0,
+    const f = this._fluid
+    if (!f) return
+    // Föd över ett BAND, aldrig i en punkt: en tät punktkälla är ett tryckskott som
+    // SPH:ns närtryck spränger isär (N3-regel 5, mätt i `pruttbad`).
+    for (let i = 0; i < 8; i++) {
+      const k = f.spawn(p.x + (Math.random() - 0.5) * SPRAY_BREDD, p.y - 60, {
+        vx: (Math.random() - 0.5) * 2,
+        vy: 2 + Math.random() * 2,
       })
+      this._inneFore[k] = 0
     }
+  },
+
+  // Vattnet per bildruta: föd vid munstycket, stega, skölj där det TRÄFFAR djuret,
+  // och låt karets avlopp hålla pölen ändlig.
+  _vattenTick(ctx, dt) {
+    const f = this._fluid
+    if (!f) return
+
+    if (this._sprayOn && !this._resolving && this._nozzle) {
+      const n = this._nozzle
+      this._sprayAcc += dt
+      let steg = Math.floor(this._sprayAcc)
+      this._sprayAcc -= steg
+      steg = Math.min(steg, 3) // en tappad bildruta får inte spruta en klump
+      for (let i = 0; i < steg * SPRAY_PER_STEG; i++) {
+        // ⚠️ NOLLSTÄLL `_inneFore` PÅ PLATSEN. När taket nås återanvänder FluidWorld
+        // den äldsta platsen, och en ny droppe som föds INUTI silhuetten på en plats
+        // som redan stod som "inne" hade aldrig utlöst sin sköljning — duschen blev
+        // långsammare ju längre barnet höll den. `spawn` returnerar index.
+        const k = f.spawn(n.x + (Math.random() - 0.5) * SPRAY_BREDD, n.y, {
+          vx: (Math.random() - 0.5) * 1.6,
+          vy: SPRAY_FART * (0.9 + Math.random() * 0.2),
+        })
+        this._inneFore[k] = 0
+      }
+    }
+
+    f.update(dt * (1000 / 60))
+
+    // SKÖLJNINGEN. Den utlöses av partiklar som just KOMMIT IN i silhuetten — alltså
+    // i samma stund vattnet syns träffa djuret. En partikel som redan ligger på ryggen
+    // sköljer inte om och om igen; `_inneFore` bär förra bildrutans läge per index.
+    // ⚠️ `inne` MÅSTE NOLLSTÄLLAS PER INDEX när en plats återanvänds. Partikeltaket
+    // återanvänder den äldsta platsen, och en ny droppe som föds inuti silhuetten på
+    // en plats som redan stod som "inne" hade aldrig utlöst sin sköljning.
+    const inne = this._inneFore
+    for (let i = 0; i < f.count; i++) {
+      const pa = this._vattenPaDjur(f.x[i], f.y[i]) ? 1 : 0
+      if (pa && !inne[i] && !this._resolving) this._rinseAt(ctx, { x: f.x[i], y: f.y[i] }, 44)
+      inne[i] = pa
+    }
+
+    // Karets avlopp: utan det växer pölen tills taket nås, och då börjar duschen
+    // återanvända sina EGNA partiklar mitt i luften och tunnas ut medan barnet spolar.
+    f.drain(640, TUB_BOTTEN - 10, 620, 46, { max: KAR_DRAIN })
+    this._fluidView.update()
   },
 
   _update(ctx, tk) {
     if (!this._alive) return
     const dt = Math.min(2.5, tk.deltaMS / 16.67)
 
-    // Spawn vid munstycket medan duschen hålls.
-    if (this._sprayOn && !this._resolving && this._nozzle) {
-      const n = this._nozzle
-      const k = 2 + ((Math.random() * 2) | 0)
-      for (let i = 0; i < k && this._drops.length < 120; i++) {
-        this._drops.push({
-          x: n.x + (Math.random() * 40 - 20),
-          y: n.y,
-          vx: (Math.random() * 2 - 1) * 1.5,
-          vy: 4 + Math.random() * 2,
-          r: 3 + Math.random() * 3,
-          age: 0,
-        })
-      }
-    }
+    this._vattenTick(ctx, dt)
 
-    // Integrera + landa droppar.
-    for (let i = this._drops.length - 1; i >= 0; i--) {
-      const d = this._drops[i]
-      d.vy += 0.6 * dt
-      d.x += d.vx * dt
-      d.y += d.vy * dt
-      d.age += dt
-      if (d.age > 3 && (this._onAnimal(d.x, d.y) || d.y > 600)) {
-        if (!this._resolving) this._rinseAt(ctx, { x: d.x, y: d.y }, 44)
-        if (Math.random() < 0.35) puff(ctx.fxLayer, d.x, Math.min(d.y, 600), { count: 2, color: 0xeaf6ff })
-        this._drops.splice(i, 1)
-      }
-    }
-
-    // Rita sprayen (ett enda Graphics).
-    const g = this._spray
-    if (g && !g.destroyed) {
-      g.clear()
-      for (const d of this._drops) {
-        g.circle(d.x, d.y, d.r).fill({ color: 0x9ed8f5, alpha: 0.8 })
-        g.circle(d.x - d.r * 0.3, d.y - d.r * 0.3, d.r * 0.4).fill({ color: 0xffffff, alpha: 0.7 })
-      }
-    }
 
     // Levande kar: skvalpande vattenskimmer + stigande tvålbubblor vid vattenlinjen.
     this._waterT += dt
@@ -1179,8 +1275,9 @@ export default {
     this._held = null
     this._sprayOn = false
     this._selectedTool = null
-    this._drops.length = 0
-    if (this._spray && !this._spray.destroyed) this._spray.clear()
+    // Vattnet töms när nivån/rundan byter — annars hänger förra rundans pöl kvar.
+    this._fluid?.clear()
+    this._inneFore?.fill(0)
 
     // Djuret skakar av sig vatten + en ring vattendroppar.
     shake(this._clean, { intensity: 10, duration: 0.5 })
@@ -1233,14 +1330,12 @@ export default {
     this._findFlake = null
     this._findView = null
     if (this._clean) this._clean.removeChildren().forEach((o) => o.destroy({ children: true }))
-    if (this._spray && !this._spray.destroyed) this._spray.clear()
     if (this._clean && !this._clean.destroyed) {
       gsap.killTweensOf(this._clean)
       this._clean.position.set(0, 0)
     }
     this._flakes = []
     this._foam = []
-    this._drops = []
   },
 
   destroy(ctx) {
@@ -1282,11 +1377,17 @@ export default {
         gsap.killTweensOf(f.view.scale)
       }
     })
-    if (this._drops) this._drops.length = 0
     if (this._clean && !this._clean.destroyed) gsap.killTweensOf(this._clean)
     gsap.killTweensOf(this._gaugeFill)
 
     ctx?.services?.voice?.cancel()
+    // Vätskan FÖRE roten: vyn äger ett filter och en renderingstextur som inte rivs
+    // av att föräldern förstörs.
+    this._fluidView?.destroy()
+    this._fluid?.destroy()
+    this._fluidView = null
+    this._fluid = null
+    this._karVaggar = []
     this._root?.destroy({ children: true })
     this._root = null
   },

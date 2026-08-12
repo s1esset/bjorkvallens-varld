@@ -105,3 +105,8 @@ export const PRAISE = ['Bravo!', 'Jättebra!', 'Toppen!', 'Vad duktig du är!', 
 // dessa fyra (djur, monster, nallen och maskoten Bobo är undantagna). Lova är
 // reserverad för nästa avbildade flicka. Se CLAUDE.md ("CHARACTERS").
 export const CHARACTERS = ['Zacke', 'Alissa', 'Elvira', 'Lova']
+
+// Fotokaraktärer (ansiktssektionen, `lib/ansikte.js`) heter en ROLL, inte ett namn.
+// Beslutet togs 2026-08-07 med idén: barnet säger "pappa", inte ett förnamn, och rollen
+// gör riggen återanvändbar för nästa ansikte utan att någon behöver döpas om.
+export const ROLLER = ['Pappa', 'Mamma']

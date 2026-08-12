@@ -30,7 +30,8 @@ ALDRIG        reklam, spårning, analytics, nätanrop vid körning, misslyckande
 DATA          endast localStorage JSON, ingen PII lämnar enheten
 SVENSKA       å/ä/ö i UI/röst; asciiFold (a/a/o) för id:n, filnamn, ljudnycklar, commits
 KARAKTÄRER    avbildade människor heter ENDAST Zacke/Alissa/Elvira/Lova (djur, monster och
-              maskoten Bobo undantas) — se lib/theme.js
+              maskoten Bobo undantas). FOTOkaraktärer heter en ROLL: Pappa/Mamma — se
+              lib/theme.js (CHARACTERS · ROLLER)
 EXIT-SÄKERT   spelaren kan lämna mitt i en animation → _alive-flagga + feedback.js-hjälparna
 ```
 
@@ -68,6 +69,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_kameraprobe.mjs` | kamerans beteende i tal (dödzon · ruta · skak · zoom · exit) — **utan webbläsare** |
 | `node scripts/_slagprobe.mjs` | anslagsljudet: fart → volym + tonhöjd · materialens röster · taket · exit — **utan webbläsare** |
 | `node scripts/_tystprobe.mjs` | pekhanterare som bortar tyst på en upptagen-flagga (P0-brottet `dod-traffyta`) |
+| `node scripts/_ansiktebild.mjs` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · nio miner) + exit-koll — **ett ansikte går inte att bedöma i tal** |
 | `node scripts/_karaktarbild.mjs [--reaktion jubel]` | karaktärsriggens alla humör i ett rutnät + exit-koll |
 | `node scripts/_dragprobe.mjs <id>` | tyngden i draget: eftersläpning · lutning · skugga · städning · exit mitt i drag |
 | `node scripts/_livprobe.mjs <id>` | vilorörelsen: amplitud · fasspridning (lås?) · tickar något efter exit? — mäter MEKANISMEN (`feedback.liv()`), inte om scenen lever |

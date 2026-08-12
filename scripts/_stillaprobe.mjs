@@ -20,6 +20,13 @@
 //   * Det sena fönstret slutar före 6 s, så spelets egen idle-hjälp aldrig hinner måla
 //     något som skulle läsas som "liv".
 //
+// ⚠️ BEGRÄNSNING — läs den innan du tror på en enskild rad. Vilofönstret är ETT STICKPROV
+// på 1,4 s. Spel med EPISODISK vilorörelse (en nick var tredje sekund) läses helt olika
+// beroende på fas: `tarta-i-ansiktet` mätte **1,0 px** i ett svep och **34,4 px** i nästa,
+// `kittla-figuren` 4,3 → 36,3 px. Bara ett tal som är **0 i flera svep** är ett fynd.
+// Kolumnen `VILA` (hur många noder) är dessutom det ointressanta talet — `storsta utslag`
+// är det som avgör om något SYNS. 40 % av noderna som rör sig 1 px är ett tableau.
+//
 //   node scripts/_stillaprobe.mjs [id ...]        # utan argument: hela registret
 import { chromium } from 'playwright'
 import { readFileSync, readdirSync, statSync } from 'node:fs'

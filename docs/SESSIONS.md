@@ -14,6 +14,63 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.153.0 · Småpengarna: en byggd, tre strukna med mätning
+
+**Byggt:** nattköns **N8** (LYFTPLAN C10). Fyra punkter, alla mätta innan någon rördes — och
+**tre av dem visade sig sakna underlag.** Det är resultatet: en optimering utan mätbar intäkt
+är en kostnad, inte en besparing.
+
+**BYGGD — `setDetaljniva` kopplad till skalet.** `Inställningar → Ljud och bild → Enklare
+grafik`, standard **av**. `main.js` sätter nivån vid uppstart, före första ritningen (varje
+gradient cachas vid första ritningen, så en nivå som sätts efteråt lämnar allt redan ritat kvar).
+`_detaljprobe.mjs` mäter genom appens EGEN väg — SaveService → omladdning, aldrig en import i
+sonden, eftersom `_ikonkostnad.mjs` redan mätt att probets import kan bli en annan modulinstans.
+
+| sex spel | nivå 2 → 0 |
+|---|---|
+| bakade gradienter | 31 → 9 |
+| GPU-textur | **121 KB sparat** |
+| ritanrop/bildruta | **oförändrat**, ibland +1–2 |
+| FPS (CPU ÷6 **och** ÷20) | **identiskt** — båda armarna i 59-taket |
+
+Ritanropen är det som faktiskt kan skilja på en svag GPU, och de rör sig inte: Pixi bakar
+gradientfyllningen in i samma batch som en rå färg. Priset är däremot **fullt** — nivå 0 tar
+bort exakt den volym C1 gav föremålen. Knappen står kvar som nödutgång för den svaga plattan,
+som inte går att mäta härifrån (gradientsamplingen per pixel syns varken i ritanrop eller
+GPU-minne); `_detaljprobe.mjs --url` kör samma mätning mot ett serverat bygge på plattan.
+
+**STRUKEN — `BitmapText` för räknare: det finns ingen räknare.** `_textprobe.mjs` (ny) hakar på
+`Text`-sättaren i **alla 72 spelen**. Värst är `vilket-djur-later` med **0,009 skrivningar per
+bildruta** — två skrivningar på fyra sekunder. Spel med ≥0,5: **noll**. Det följer av P0
+"ikon-först, noll läsning": appen räknar i mätare och former, inte i siffror.
+
+**STRUKEN — `CullerPlugin`: det finns inget att culla.** Kamerans enda kund
+`spindel-zacke-svingar` har **1 av 57 ritnoder** utanför skärmen (1,8 %). De två spelen med egen
+kamera ligger på 34/129 och 39/136 — och kör redan 59 FPS.
+
+**STRUKEN — `roundPixels`: världen skalas inte med heltal.** Uppmätt världsskala **1,0** på
+1280×720, **0,594** på 952×428 och **0,8** på 1024×768. En avrundning i designrymden landar på
+en bruten enhetspixel ändå, medan långsam rörelse börjar kliva i stället för att glida.
+
+**Två sondfällor, båda värda att minnas.** `text`-sättaren ligger inte på `Text.prototype` utan
+på basklassen — första versionen läste `getOwnPropertyDescriptor(Text.prototype, 'text')`, fick
+`undefined` och rapporterade lugnt "ingen Text i scenen" för alla 72 spelen **med tre Text-noder
+framför sig**. Och `_installningsbild.mjs` (ny) behövdes för att ingen testkörning öppnar
+inställningsskärmen: den fångade direkt att den sjätte raden krockade med DATA-knapparna, som är
+**centrerade** på sin y (632 ⇒ 590–674) — panelen som "slutade på 610" låg alltså redan under dem.
+
+`SaveService` fyller nu på **saknade** inställningsnycklar ur standarddokumentet; utan det blir
+varje ny inställning `undefined` hos befintliga användare och en toggle visar fel läge.
+
+**Commits:** `0eae265` feat(skal) "Enklare grafik" i installningarna
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · röstkön tom.
+**Öppet:** ägarkön tom. **Frågan till ägaren:** "Enklare grafik" köper ingenting mätbart här och
+kostar all volym — mät med `_detaljprobe.mjs --url` mot plattan, och plocka bort knappen om den
+faller ut lika platt där. Nattkön står på **N9** (LYFTPLAN A5: spel som ritar egen bakgrund utan
+skäl).
+
+---
+
 ## 2026-08-12 · v1.152.0 · Additiv glöd: sju kandidater in, en kund ut
 
 **Byggt:** nattköns **N7** (LYFTPLAN C4). Uppdraget var uttryckligen att läsa om listan innan

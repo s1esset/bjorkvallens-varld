@@ -50,6 +50,15 @@ const LEVELS = [
 
 const ITEM_R = 58 // föremålets skivradie (designkoordinater)
 
+// FULL TUNNA. Saken försvann tidigare bakom tunnan och lämnade inget spår — tunnan såg
+// exakt likadan ut efter tio saker som före den första. Nu lägger varje svald sak en
+// synlig klump i tunnan, i SAKENS egen färg, och lasten TRYCKER UPP locket. Samtidigt
+// blir tunnan tyngre: den sjunker en aning i marken, guppar djupare och lugnar sig
+// långsammare — en tom tunna hoppar till, en full tunna bara sjunker.
+const HEAP_CAP = 6 // tak: så många klumpar syns och så mycket kan locket lyftas
+const HEAP_LIFT = 8 // px lockhöjning per klump
+const HEAP_SINK = 2.6 // px tunnan står lägre vid full last
+
 // P0 ASSETS: alla 32 föremål + de 4 kategori-ikonerna RITAS. De låg tidigare som
 // emoji inuti vita skivor — en ikon i en bricka. Emoji-strängen är kvar som
 // NYCKEL (CATS-tabellerna slår upp på den). Tabellen: nyckel → [form, färg].
@@ -311,6 +320,7 @@ export default {
       const bin = this._makeBin(key, binW, binH)
       bin.x = startX + i * (binW + gap)
       bin.y = binY
+      bin._baseY = binY // vilo-y; lasten sänker den (se _settleBin)
       this._binsLayer.addChild(bin)
       this._bins.push(bin)
       this._drag.addTarget(bin, (d) => d.category === key, { hitRadius: hitR })
@@ -385,10 +395,15 @@ export default {
     sparkle(this._fx, mx, my, { count: 8 })
     ripple(this._fx, mx, my, { color: matColor, maxR: bin._w * 0.6, width: 5, alpha: 0.55 })
     puff(this._fx, mx, my, { count: 6, color: matColor })
+    // Lasten växer FÖRE lockpoppet: locket studsar då tillbaka till sin NYA, högre
+    // vilo-höjd (klumpen under trycker upp det) i stället för att en andra tween
+    // ska flytta det efteråt.
+    this._fillBin(bin, it.data)
     this._popLid(bin)
     ctx.services.audio.tone({ freq: 150, dur: 0.06, type: 'square', vol: 0.12 }) // lock-"klonk"
     this._chew(bin)
-    pop(bin, { scale: 1.05 })
+    this._settleBin(bin)
+    pop(bin, { scale: 1.05 - 0.035 * binFill(bin) })
     if (Math.random() < 0.55) ctx.services.voice.say(randomFrom(PRAISE_SV))
     if (Math.random() < 0.4) floatText(this._fx, mx, my - 10, '⭐', { fontSize: 44, rise: 64 })
 
@@ -425,6 +440,81 @@ export default {
     tl.call(() => {
       if (!c.destroyed) c.destroy({ children: true })
     })
+  },
+
+  // En svald sak blir en synlig klump INUTI tunnan — i sakens egen färg — och lasten
+  // trycker upp locket. Klumpen föds när saken faktiskt landat (samma 0,3 s som
+  // _dropIntoBin tar), så orsaken syns: saken åker ner, locket lyfts av det som kom in.
+  _fillBin(bin, data) {
+    if (!bin || bin.destroyed) return
+    const i = bin._eaten
+    bin._eaten = i + 1
+    const lid = bin._lid
+    if (lid && !lid.destroyed) bin._lidBaseY = bin._lidY0 - HEAP_LIFT * Math.min(bin._eaten, HEAP_CAP)
+    if (i >= HEAP_CAP) return
+    const col = (TRASH_ART[data?.emoji] || [])[1] ?? CATS[bin._cat].color
+    gsap.delayedCall(0.3, () => {
+      if (!this._alive || bin.destroyed || !bin._heap || bin._heap.destroyed) return
+      // Halsen växer först (locket får något att vila på), sedan läggs klumpen ovanpå.
+      const H = HEAP_LIFT * Math.min(bin._eaten, HEAP_CAP)
+      const neck = bin._neck
+      if (neck && !neck.destroyed) {
+        // Halsen slutar precis under lockets underkant (locket vilar på lasten), så de
+        // översta klumparna sticker upp UR den i stället för att begravas i den.
+        neck.clear().roundRect(-bin._w * 0.44, -H + 4, bin._w * 0.88, H + 10, 11).fill(bin._neckCol)
+      }
+      const lump = new Graphics()
+        .roundRect(-21, -12, 42, 24, 10)
+        .fill(col)
+        .stroke({ width: 3, color: lerpColor(col, 0x000000, 0.35) })
+      lump.position.set((Math.random() * 2 - 1) * bin._w * 0.22, 2 - HEAP_LIFT * i)
+      lump.rotation = (Math.random() * 2 - 1) * 0.42
+      lump.eventMode = 'none'
+      lump.scale.set(0.35)
+      bin._heap.addChild(lump)
+      gsap.to(lump.scale, { x: 1, y: 1, duration: 0.26, ease: 'back.out(2.2)' })
+    })
+  },
+
+  // Tyngden. Tunnan sätter sig i marken för varje sak: guppet blir DJUPARE, sättningen
+  // LÅNGSAMMARE och skuggan bredare ju fullare den är. Bara y tweenas (rotationen ägs av
+  // _headShake) så en vänlig huvudskakning aldrig lämnar tunnan hängande vid sidan om
+  // sitt viloläge.
+  _settleBin(bin) {
+    if (!bin || bin.destroyed) return
+    const f = binFill(bin)
+    const rest = (bin._baseY ?? bin.y) + HEAP_SINK * f
+    gsap.killTweensOf(bin, 'y')
+    gsap
+      .timeline()
+      .to(bin, { y: rest + 4 + 9 * f, duration: 0.09 + 0.05 * f, ease: 'power2.out' })
+      .to(bin, { y: rest, duration: 0.3 + 0.3 * f, ease: 'bounce.out' })
+    const sh = bin._shadowG
+    if (sh && !sh.destroyed) {
+      gsap.killTweensOf(sh.scale)
+      gsap.to(sh.scale, { x: 1 + 0.12 * f, duration: 0.4, ease: 'power2.out' })
+    }
+  },
+
+  // Rundslut: varje tunna som ätit RAPAR belåtet — locket lättar, lasten skakar till och
+  // en låg ton glider NEDÅT och dör ut. Ett skämt, aldrig en summer.
+  _burp(ctx, bin) {
+    if (!this._alive || !bin || bin.destroyed || !bin._eaten) return
+    const lid = bin._lid
+    if (lid && !lid.destroyed) {
+      gsap.killTweensOf(lid)
+      gsap
+        .timeline()
+        .to(lid, { y: bin._lidBaseY - 26, rotation: 0.13, duration: 0.14, ease: 'power2.out' })
+        .to(lid, { y: bin._lidBaseY, rotation: 0, duration: 0.44, ease: 'bounce.out' })
+    }
+    const heap = bin._heap
+    if (heap && !heap.destroyed) {
+      gsap.killTweensOf(heap.scale)
+      gsap.fromTo(heap.scale, { x: 1, y: 1 }, { x: 1.1, y: 0.86, duration: 0.11, yoyo: true, repeat: 3, ease: 'sine.inOut' })
+    }
+    ctx.services.audio.tone({ freq: 190, dur: 0.3, type: 'sawtooth', vol: 0.13, slideTo: 78 })
+    puff(this._fx, bin.x, bin.y - bin._h / 2 - 34, { count: 5, color: CATS[bin._cat].color })
   },
 
   // Locket "poppar" upp och studsar tillbaka (avslöjar den mörka munnen).
@@ -487,7 +577,7 @@ export default {
   // bestraffning, bara en gullig "nej tack". Rotation dödas i killBinTweens/destroy.
   _headShake(bin) {
     if (!bin || bin.destroyed) return
-    gsap.killTweensOf(bin)
+    gsap.killTweensOf(bin, 'rotation') // BARA rotationen — y ägs av _settleBin
     gsap
       .timeline()
       .to(bin, { rotation: 0.12, duration: 0.08 })
@@ -512,6 +602,9 @@ export default {
         if (!this._alive || b.destroyed) return
         sparkle(this._fx, b.x, b.y - b._mouthDY, { count: 6 })
       })
+      // ...och en belåten rap från var och en som faktiskt ätit (staplad så de rapar
+      // efter varandra i stället för i kör).
+      gsap.delayedCall(0.3 + 0.22 * i, () => this._burp(ctx, b))
     })
 
     gsap.delayedCall(0.4, () => {
@@ -689,8 +782,30 @@ export default {
     lid.y = -h / 2 - 6
     bin._lid = lid
     bin._lidBaseY = lid.y
+    bin._lidY0 = lid.y // tom tunna; lasten höjer _lidBaseY härifrån
 
-    bin.addChild(shadow, body, panel, hi, mouth, eyes, iconDisc, iconEmoji, lid)
+    // Lasten: klumpar som staplas i tunnans öppning och lyfter locket. Ligger under
+    // locket i z-led så locket alltid vilar OVANPÅ högen.
+    //
+    // ⚠️ Halsen (`neck`) är inte dekoration. Utan den syntes HIMLEN mellan det upplyfta
+    // locket och högen — klumparna täcker bara mitten, och tunnan såg trasig ut i stället
+    // för full. Halsen är en solid massa i tunnans egen mörka ton som växer med lasten,
+    // så locket vilar på något.
+    const heap = new Container()
+    heap.eventMode = 'none'
+    heap.position.set(0, -h / 2)
+    const neck = new Graphics()
+    neck.eventMode = 'none'
+    heap.addChild(neck)
+    bin._heap = heap
+    bin._neck = neck
+    // Mörkare än locket (som är `dark`): halsen ska läsas som tunnans INSIDA i skugga,
+    // inte som ett andra lock. Med lockets egen ton smälte de ihop till en hög hatt.
+    bin._neckCol = lerpColor(base, 0x000000, 0.4)
+    bin._eaten = 0
+    bin._shadowG = shadow
+
+    bin.addChild(shadow, body, panel, hi, mouth, eyes, iconDisc, iconEmoji, heap, lid)
 
     // Generös, exakt träffyta (mjukt utökad).
     bin.hitArea = { contains: (px, py) => Math.abs(px) <= w / 2 + 14 && py >= -h / 2 - 18 && py <= h / 2 + 14 }
@@ -761,6 +876,17 @@ function killBinTweens(b) {
   gsap.killTweensOf(b.scale)
   if (b._lid && !b._lid.destroyed) gsap.killTweensOf(b._lid)
   if (b._mouth && !b._mouth.destroyed) gsap.killTweensOf(b._mouth.scale)
+  if (b._shadowG && !b._shadowG.destroyed) gsap.killTweensOf(b._shadowG.scale)
+  if (b._heap && !b._heap.destroyed) {
+    gsap.killTweensOf(b._heap.scale)
+    for (const l of b._heap.children) if (!l.destroyed) gsap.killTweensOf(l.scale)
+  }
+}
+
+// Hur full tunnan är, 0–1 (mättad vid HEAP_CAP). Styr guppets djup, sättningens längd,
+// hur lite den orkar studsa och hur bred skuggan blir.
+function binFill(b) {
+  return Math.min(b?._eaten || 0, HEAP_CAP) / HEAP_CAP
 }
 
 // Lägg ut föremålen i en lätt klustrad, "slängd" hög (1–2 rader, centrerade) ovanför

@@ -63,16 +63,24 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
 - **[Medium] Per-material-reaktion.** Glas klirrar och glittrar, papper prasslar och far ner som
   ett blad, plast studsar lätt, matrester får en liten fluga 🪰 som surrar bort. Samma mekanik,
   men varje sort *känns* som sin sort.
-- **[Quick] Lekfullare hög.** Byt den prydliga griden mot en lätt klustrad, roterad "slängd"
-  hög (jitter i x/y/rotation) så det ser ut som riktigt skräp, inte en tabell.
+- ~~**[Quick] Lekfullare hög.**~~ ✅ **REDAN BYGGD 2026-07-02** (`layoutItems` jitterar x/y,
+  `_makeItem` lutar varje sak ±0,22 rad) — punkten stod kvar som öppen i §4 fast §5 loggade
+  den. Struken 2026-08-12.
 - **[Quick] Sällsynt guld-skräp.** Då och då en glittrande sak som ger extra gnistregn när den
   hamnar rätt — ett litet "wow" som driver "en till!".
 
 ### Juice
-- **[Quick] Materialspecifik SFX** (knyt an till [[real-audio-sfx]]): glasklirr, pappersprassel,
-  plast-krasch, mjuk duns i mat-tunnan. Lock-popp får en liten "klonk".
-- **[Quick] Full-tunna-känsla:** tunnan guppar lite tyngre för varje sak den svalt; vid rund-
-  slut "rapar" den belåtet.
+- ~~**[Quick] Materialspecifik SFX**~~ ✅ **REDAN BYGGD 2026-07-02** (`_materialSound`:
+  glasklang, pappersprassel, plast-boing, mjuk duns + lock-"klonk"), syntetiserad via
+  `audio.tone`. *Kvar:* riktiga klipp ([[real-audio-sfx]]) — blockerat, MOSS är nere.
+- ~~**[Quick] Full-tunna-känsla.**~~ ✅ 2026-08-12 (v1.164.0) — **den här omgången.** Saken
+  försvann tidigare bakom tunnan och lämnade **inget spår**: en tunna såg likadan ut efter
+  tio saker som före den första. Nu lägger varje svald sak en klump i tunnans hals — i
+  **sakens egen färg** — och lasten **trycker upp locket** (8 px per sak, tak vid 6 = 48 px).
+  Tyngden syns i guppet: en nästan tom tunna hoppar till och lugnar sig på **0,3 s**, en full
+  går **15,6 px djupt** och tar **0,65 s**, och står **2,6 px lägre** när den lugnat sig. Vid
+  rundslut **rapar** varje tunna som ätit (locket lättar 26 px, lasten skakar till, tonen
+  glider nedåt). Mätt med `scripts/_tunnprobe.mjs`: **12/12**.
 
 ### Progression
 - **[Medium] Städad-värld-mätare.** Lägg lite skräp på marken i scenen som krymper när jag
@@ -117,3 +125,28 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
   - **Deferred:** [Deep] mottagar-maskot (Bobo som sopgubbe/återvinningsbil); [Medium] städad-
     värld-mätare (skräp på marken som krymper); [Medium] per-material-partiklar (fluga vid mat,
     blad-fall vid papper); [Quick] sällsynt guld-skräp; [Quick] scen-crossfade + ambient.
+- 2026-08-12 (v1.164.0): **[Quick] Full-tunna-känsla byggd** (nattköns N10, pass 5).
+  - **Lasten syns.** `_fillBin` lägger en klump per svald sak i tunnans hals, i **sakens egen
+    färg** (`TRASH_ART`), och höjer lockets vilo-höjd 8 px per sak med tak vid 6 (48 px). Serien
+    mätt i scengrafen, inte i flaggan: lock-vila −122 → −170 px, klumpar 0 → 6, sjunde saken
+    lägger **0** (taket håller).
+  - **Tyngden.** `_settleBin`: guppet blir djupare och sättningen längre med lasten — **5,9 px /
+    0,32 s** nästan tom mot **15,6 px / 0,65 s** full — tunnan står **2,6 px lägre**, skuggan
+    breddas 12 % och `pop` skalas ner (en full tunna orkar inte hoppa).
+  - **Rapen.** Vid rundslut rapar varje tunna som ätit: locket lättar 26 px och landar **0,0 px**
+    från lastens nya vilo-höjd, lasten skakar till, tonen glider 190 → 78 Hz.
+  - **Två fel som bara BILDEN hittade** (båda gröna i alla tal):
+    1. **Himlen syntes mellan locket och högen.** Klumparna täcker bara mitten, så en tunna med
+       upplyft lock såg **trasig** ut, inte full. En **hals** (solid massa i tunnans egen ton)
+       växer nu med lasten så locket vilar på något.
+    2. **Halsen i lockets ton smälte ihop med locket** till en hög hatt. Den är nu 0,40 mot
+       svart (tunnans insida i skugga) och slutar precis under lockets underkant, så de
+       översta klumparna sticker upp ur den.
+  - **Sondens egen fälla, mätt:** isoleringen dolde först bara *inuti* tunnan och mätte då
+    fortfarande skalets bakknapp — **16 320 px i BÅDA armarna**, alltså ett grönt tal även på
+    HEAD där lasten inte fanns. Isoleringen går nu hela vägen till roten (≈3 900 px lasten
+    ensam, 15 800 med halsen). HEAD-armen: **6 av 8 röda**.
+  - Kontroll: `npm run check` 0 fel · `npm run test sortera-skrap` grön · `_tunnprobe` 12/12 ·
+    exit mitt i sättningen utan konsolfel.
+  - **Struket i §4 samtidigt** (redan byggt 2026-07-02, men aldrig struket): *Lekfullare hög*
+    och *Materialspecifik SFX* (klipp-halvan kvar, MOSS nere).

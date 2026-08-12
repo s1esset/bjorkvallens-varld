@@ -88,7 +88,15 @@ Allt programmatiskt, exit-säkert.
   (`_bounceFx` kan ta studs-nummer) — en kaskad som belönar en fin bana.
 - **[Quick] Regnbågen vaknar.** När Elvira är inom ~250px: regnbågen lyser upp, foten-molnen
   pulserar, ✨ gnistrar — en "nästan framme!"-signal.
-- **[Quick] Glitterspår** efter Elvira i luften (liten regnbågs-trail) så hennes bana syns.
+- ✅ **[Quick] Glitterspår.** *(2026-08-12)* Ett regnbågsband ur spelets egna `RAINBOW`-färger,
+  tunnande och blekande mot svansen, ritat ur de 30 senaste positionerna. En återanvänd
+  `Graphics` under Elvira som ritas om per bildruta — noll allokering, inga tweens, rivs med
+  `_root`. Punkter läggs bara till när hon flyttat sig >7 px, annars blir bandet en klump när
+  hon nästan står still; färgfasen flyttas ett steg per kast så två kast inte får samma band.
+  Mätt med `scripts/_sparprobe.mjs` (spåret finns bara under flykt, alltså osynligt för
+  `npm run test`): **2 089 målade pixlar** under flykt, utsträckning **187×170 px** (en bana,
+  inte en klump), bandet slutar vid henne, **0 px kvar** i placeringsläget efter landning, och
+  exit mitt i flykten lämnar ingenting.
 
 ### Progression
 - **[Medium] Visa hur vikt/vind ändrar banan.** När man växlar vikt/vind: rita om prickbanan

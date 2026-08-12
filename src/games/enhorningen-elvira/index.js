@@ -37,6 +37,7 @@ const CLOUD_W = 132
 const CLOUD_H = 46
 const GEM_HIT = 66 // plock-radie för ädelsten
 const GOAL_R = 96 // når-radie för regnbågen
+const TRAIL_N = 30 // punkter i glitterspåret — ~1 s bana vid full fart
 const MAXV = 22 // hastighetstak (aldrig flyga vilt ur bild)
 const CLOUD_REST = 0.6 // molnens studsighet — MÅTTLIG, så studsar dör ut (inga evighetsloopar)
 const BOUNCE_UP_BASE = 6.5 // garanterad min-studs uppåt vid FÖRSTA molnträffen (avtar mot 0)
@@ -224,6 +225,14 @@ export default {
   },
 
   _buildElvira(ctx) {
+    // Glitterspåret (§4 Juice): hennes bana ritad som ett tunnande regnbågsband. Ligger
+    // UNDER henne — spåret är luften hon lämnat, inte något ovanpå hästen. En återanvänd
+    // Graphics som ritas om per bildruta: noll allokering, inga tweens, rivs med `_root`.
+    this._trailG = new Graphics()
+    this._trailG.eventMode = 'none'
+    this._root.addChild(this._trailG)
+    this._trail = []
+
     this._elvira = drawUnicorn()
     this._elvira.position.set(START.x, START.y)
     this._root.addChild(this._elvira)
@@ -441,6 +450,8 @@ export default {
 
   _enterPlacing(fresh = false) {
     if (!this._alive) return
+    // Spåret hör till kastet — nästa placering börjar med tom luft bakom sig.
+    this._clearTrail()
     this._state = 'placing'
     this._idle = 0
     this._settleT = 0
@@ -601,6 +612,7 @@ export default {
   // vel = { vx, vy } från sikt-kontrollen; utan vel (Hoppa-knappen) -> standard-skott.
   _launch(ctx, vel) {
     if (!this._alive || this._state !== 'placing') return
+    this._clearTrail()
     this._state = 'flying'
     this._flyT = 0
     this._settleT = 0
@@ -665,6 +677,7 @@ export default {
         if (b.velocity.y > -up) Body.setVelocity(b, { x: b.velocity.x, y: -up })
       }
 
+      this._pushTrail(b.position.x, b.position.y)
       this._checkGems(ctx, b.position.x, b.position.y)
 
       if (Math.hypot(b.position.x - this._goalPos.x, b.position.y - this._goalPos.y) < GOAL_R) {
@@ -689,6 +702,45 @@ export default {
         if (!this._elvira.destroyed) pop(this._elvira)
       }
     }
+  },
+
+  // Spåret samlas medan hon flyger och ritas om varje bildruta. Punkter läggs bara till
+  // när hon FLYTTAT sig märkbart — annars fylls bufferten av dubbletter när hon nästan
+  // står still, och bandet blir en klump i stället för en bana.
+  _pushTrail(x, y) {
+    const p = this._trail
+    const sist = p[p.length - 1]
+    if (!sist || Math.hypot(x - sist.x, y - sist.y) > 7) p.push({ x, y })
+    if (p.length > TRAIL_N) p.shift()
+    this._drawTrail()
+  },
+
+  _drawTrail() {
+    const g = this._trailG
+    if (!g || g.destroyed) return
+    g.clear()
+    const p = this._trail
+    if (p.length < 3) return
+    // Ett segment per par, färgat ur RAINBOW och tunnare + blekare mot svansen. Bandet
+    // ritas från äldsta till nyaste, så det nyaste hamnar överst.
+    for (let i = 1; i < p.length; i++) {
+      const t = i / (p.length - 1) // 0 = äldst, 1 = nyast
+      g.moveTo(p[i - 1].x, p[i - 1].y).lineTo(p[i].x, p[i].y)
+      g.stroke({
+        width: 3 + t * 9,
+        color: RAINBOW[(i + this._trailHue) % RAINBOW.length],
+        alpha: 0.14 + t * 0.5,
+        cap: 'round',
+      })
+    }
+  },
+
+  _clearTrail() {
+    this._trail.length = 0
+    // Färgfasen flyttas ett steg per kast, så två kast efter varandra inte får exakt
+    // samma band — samma tanke som fasspridningen i vilorörelserna.
+    this._trailHue = ((this._trailHue || 0) + 1) % RAINBOW.length
+    this._trailG?.clear()
   },
 
   _checkGems(ctx, x, y) {
@@ -1078,6 +1130,8 @@ export default {
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
+    this._trailG = null // rivs med _root; referensen nollas så inget pekar på ett dött objekt
+    this._trail = []
     this._loadTimer?.kill()
     this._returnTween?.kill()
     this._helpTween?.kill()

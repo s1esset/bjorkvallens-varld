@@ -14,6 +14,42 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.155.0 · Femton spel skulle byta bakgrund. Ett skulle det.
+
+**Byggt:** nattköns **N9** (LYFTPLAN A5). Raden hette "femton spel ritar egen bakgrund; de som
+bara har en platt färg ska ärva `createScene`". **Premissen hade gått ut** — och det är dagens
+lärdom, inte bytet: D1:s omgångar har sedan raden skrevs gett var och en av de femton en
+**mätt, egen toning**, med `_plattprobe --medbakgrund`-talet skrivet i koden. Att lita på listan
+i stället för att läsa koden hade gett fjorton onödiga byten och gjort fjorton spel sämre.
+(Tredje gången i repot som en docrad varit inaktuell — CLAUDE.md varnar för exakt det.)
+
+**Efter genomläsning återstod EN riktig kandidat: `siffertaget`.** Den ritade himmel + mark för
+hand och la **två kull-ellipser** vid horisonten — exakt det mönster C7 bytte ut inne i scenen
+själv ("två cirklar som läste som bleka bubblor"). Den ärver nu `createScene` med spelets EGNA
+färger som tema, så morgonen är densamma; det som tillkommer är scenens djup: tre avståndsband,
+disband vid horisonten och markstruktur.
+
+| | före | efter |
+|---|--:|--:|
+| största enfärgade fält | **39 195 px** (den bortre kullen) | **28 778 px** (himlens topp) |
+| distinkta toner | 3 985 | **7 039** |
+
+Två fällor undveks med flit: `groundH` räknas ur `ctx.height` så horisonten står kvar på
+`HORIZON_Y` 296 även på en telefon med annan höjd (rälsen fick inte flytta sig), och banvallen
+ritas nu **efter** scenen — annars lägger sig markstrukturen ovanpå gruset.
+
+**De fjorton andra är avskrivna med skäl, inte med tystnad** (tabell i LYFTPLAN A5): sex är
+inomhus, två ses uppifrån och har ingen horisont att skapa djup mot, två är abstrakta ritytor,
+en har egen 3D-backdrop, en har marken som spelyta (`plantera-fron`), en har en natthimmel med
+mekanik i (`fyrverkeri`) — och i `kla-efter-vadret` **är bakgrunden mekaniken**: himmel och mark
+ligger i samma `Graphics` just för att en enda `tint` ska klä hela scenen efter vädret.
+
+**Commits:** `95d70d9` feat(siffertaget) landskapet kommer ur createScene
+**Kontroll:** `check` 0 fel/0 varningar · `test:all` 72/72 gröna · röstkön tom.
+**Öppet:** ägarkön tom. Nattkön står på **N10** (D3: billiga [Quick] ur `docs/games/*.md` §4).
+
+---
+
 ## 2026-08-12 · v1.154.0 · Ägaren strök "Enklare grafik" — alla fyra småpengar är nu borta
 
 **Byggt:** ingenting. Borttaget, på ägarens beslut och på gårdagens egna tal: inställningen

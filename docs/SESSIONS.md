@@ -14,6 +14,72 @@ Format:
 
 ---
 
+## 2026-08-12 · v1.176.0 · Två svep hade skickat passet till fel spel
+
+**Byggt:** nattköns **N13** (läsning, ingen speländring) + **N10** pass 9 (två spel, en commit
+var). Tre commits.
+
+**N13 — underlaget för V10b:s nästa kund (`5c770b6`).** Fyra kandidater lästa mot koden med de
+två `flipperspel`-reglerna som filter: **den rörliga kroppens studs är ett GOLV**, och **en yta
+som redan lägger på en egen impuls får inte också få `studs`**. Filtret **ändrade
+rangordningen** kön gissat. Starkast är `bowling`, och fyndet är inte studsen: **kantstöden är
+spelets TILLGÄNGLIGHETSHJÄLP** — "Kantstöd PÅ" finns för att klotet ska studsa in mot käglorna
+i stället för i rännan — och de deklarerar 0,75 men studsar effektivt på klotets **0,18**.
+Samtidigt matas `predictTrajectory` med **0,75 när kantstödet är på**, så den prickade
+banförhandsvisningen lovar drygt **4×** den studs klotet får, i ett spel vars filhuvud påstår
+att siktet stämmer "till ~några px" — och bara för de barn som slår på hjälpen. `spindelhjalten`
+är äkta men litet (0,86 → 1,00, ingen egen impuls). `rulla-bollen-hem` faller nästan helt på de
+två reglerna. Två pricklinje-avvikelser hittades på vägen som **inte** är V10b och är nedskrivna
+separat. Kvar till ägaren: valet mellan `bowling` och `spindelhjalten`.
+
+**`plantera-fron` — maskar som känner nedslaget (v1.175.0).** Spelet var sållets enda äkta
+tableau: 17 noder, **0** i rörelse, **0,0 px i tre svep av tre**. Nu kikar 1–2 **ritade**
+daggmaskar upp ur egna gånghål (docen skrev 🪱 — en emoji som hela föremålet är ett P0-brott).
+Fyra saker gör dem till djur i stället för dekor: ett frö som plumsar ner **skrämmer** dem,
+kraften **avtar med avståndet**, nerdykandet är **snabbare** än uppdykandet (rädsla mot
+nyfikenhet), och antal/sida/avstånd slumpas per runda.
+**MÄTT** (`_maskprobe`, 9/9 mot HEADs 3/4): rörelse **103–122 px** mot HEADs 0,0 · hel kikcykel
+**0,00 → 0,95** · fall **0,71 → 0,43** efter ett *riktigt* drag genom DragController ·
+skrämsel **0,63 vid 157 px mot 0,26 vid 312 px** · 0 av 662 bildrutor med kropp under marken.
+
+**`kla-efter-vadret` — Elvira känner vädret (v1.176.0).** 84 noder, **3** i rörelse, 4,1–4,2 px
+i tre svep — och de tre var de fallande flingorna. Spelets enda karaktär, och hela dess
+anledning, stod blick stilla. Obehaget är nu ett **löpande tillstånd**: andelen ofyllda zoner,
+uttryckt med **vädrets egen takt** (snabbt köldskalv i snö, hukning i regn, trög värmevaggning
+i sol). Det avtar per plagg och är **borta** när hon är lagom klädd — så "Nu blir jag lagom varm
+i snön!" blir något barnet *ser*. Skalvet ligger i ett **inre lager**; `_figure` ägs av gsap.
+**MÄTT** (`_ryserprobe`, 7/7 mot HEADs 1/2): **9,6 px** oklädd i snö · **9,6 → 6,4 px** efter
+ETT riktigt drag (0,67 mot lagens väntade 2/3) · **6,4 → 17,2 px** efter ett opassande plagg ·
+köldskalv **6,4 vändningar/s** mot värmevaggningens **0,8**.
+
+**Passets lärdom: tre svep är inte en försiktighetsmarginal — det avgjorde vilket spel som
+byggdes.** `kla-pa-nallen` mätte **0 px i svep 1 OCH svep 2**, ett lika starkt tableau som
+`plantera-fron`, och **45,4 px i svep 3**. Den har fallande väderpartiklar, alltså episodisk
+rörelse — precis sondens dokumenterade begränsning. Med två svep hade passet byggt fel spel.
+
+**Och tre fel som alla var gröna i testet.** ① Maskarna låg först på FASTA gläntor, men på
+**nivå 0 finns bara ETT hål**, så närmaste mask hamnade 471 px bort — utanför räckvidden 420.
+Skrämseln var död på precis den nivå en tvååring spelar. **Placera relativt spelets egna mål,
+aldrig på koordinater som råkar stämma på en nivå.** ② Maskens kropp hade ingen klippning och
+stack ut under sitt eget hål — **bara skärmdumpen såg det**. ③ Elviras första utslag gav i SOL
+4,6 px, alltså **mindre än flingorna scenen redan hade**; tableauet hade varit halvt löst.
+**Mät din egen effekt mot det som redan rörde sig**, inte mot noll. Sonden har nu en rad för
+varje väderslag. Dessutom: en `rotation` på ett lager vars barn ritas i absoluta koordinater
+kring x=640 svänger figuren i en cirkelbåge kring scenens origo — pivoten hör hemma vid fötterna.
+
+**Commits:** `5c770b6` docs(V10b) underlag för nästa studs-kund · `0fdfc44` feat(plantera-fron)
+maskar i jorden · `9e64e8f` feat(kla-efter-vadret) Elvira känner vädret.
+**Kontroll:** `check` 0 fel / 0 varningar · `_maskprobe` **9/9** (HEAD 3/4) · `_ryserprobe`
+**7/7** (HEAD 1/2) · `test:all` **72/72 i två svep** med identiska loggfynd — bara de kända
+`saknat-ljudklipp` (MOSS nere, ⏸). Röstkön tom (inga nya repliker).
+⚠️ Vakter, inte bevis: `_maskprobe` 6–9 och `_ryserprobe` 5–6 är gröna på HEAD också.
+**Bygget är INTE omgjort** — telefonen ser en äldre version tills någon kör `npm run build` +
+`scripts/start.ps1`.
+**Öppet:** ägarkön tom. **N10 fortsätter** — sållets nästa stabila kandidater är `folj-sparet`
+(4,6 px i tre svep) och `spara-linjen` (7,2 px i tre svep). Nattkön i övrigt: **N12**.
+
+---
+
 ## 2026-08-12 · v1.173.0 · Sållet valde spelen, och docen höll med
 
 **Byggt:** nattköns **N10**, åttonde passet. Två spel, en commit var. Första passet där båda

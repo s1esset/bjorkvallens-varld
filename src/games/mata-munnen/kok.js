@@ -14,6 +14,7 @@
 //    budgeterade i höjdled: vänstra väggen rymmer exakt tre stationer (116+24+120+24+104)
 //    på sina 404 px. Flyttar du en, flyttar du alla — `npm run check` fångar inte det här.
 import { Container, Graphics } from 'pixi.js'
+import { gsap } from 'gsap'
 import { verticalFill, cylinderFill, topLightFill } from '../../lib/form.js'
 
 // --------------------------------------------------------------- geometri ---
@@ -80,30 +81,55 @@ const F = {
 
 // ------------------------------------------------------- stationstabellen ---
 
-// En station = en klickbar plats i köket. `yta` är TRÄFFYTAN (P0), `rita` ritar den
-// stängda fronten. Innehållet och öppningen kopplas in i steg ③ — geometrin ligger här
-// redan nu, för det är den som får plats-budgeten att gå ihop.
+// En station = en klickbar plats i köket. `yta` är TRÄFFYTAN (P0 ≥96 px, ≥24 px mellan).
+//
+// `typ` styr hur den öppnas: `dorr-v`/`dorr-h` svänger upp kring vänster/höger gångjärn
+// (scale.x mot 0 med pivot i gångjärnet — den billigaste 2D-dörren som läser rätt),
+// `lucka-ner` faller framåt som en ugnslucka, `lada` dras ut. `knapp` öppnar ingenting
+// utan gör en sak: vattnet rinner, plattan glöder, fläkten snurrar.
+//
+// ⚠️ `platser` är begränsade av P0, inte av plats i skåpet. Ett föremål inne i ett skåp är
+//    ett DRAGBART föremål och behöver sina 96 px träffyta med 24 px omkring sig. Ett
+//    180 px brett skåp rymmer alltså EN sak per rad — inte fyra. Kylskåpet är det enda
+//    som är högt nog för tre.
 export const STATIONER = [
   // --- vänster: kylskåpet står på golvet, framför väggen ---
-  { id: 'frys', sv: 'Frysen', yta: { x: 20, y: 128, w: 168, h: 114 } },
-  { id: 'kyl', sv: 'Kylskåpet', yta: { x: 20, y: 266, w: 168, h: 334 } },
+  { id: 'frys', sv: 'Frysen', yta: { x: 20, y: 128, w: 168, h: 114 }, typ: 'dorr-v', inre: 'kall', ljus: 0xdff2ff,
+    innehall: ['is', 'glasspinne', 'blackfisk'], platser: [[104, 185]] },
+  { id: 'kyl', sv: 'Kylskåpet', yta: { x: 20, y: 266, w: 168, h: 334 }, typ: 'dorr-v', inre: 'kall', ljus: 0xeafaff,
+    innehall: ['ost', 'agg', 'tomat', 'gurka', 'korv', 'mjolk', 'groda', 'mogelost', 'sallad'],
+    platser: [[104, 320], [104, 440], [104, 560]] }, // 120 px isär: 96 träffyta + 24 mellanrum
   // --- vänster vägg: fönster · diskho. Underskåpet DÄRUNDER är med flit dött: burken
   //     står framför det, och en lucka man ser men inte kan öppna är bättre än en
   //     träffyta som ligger under ett annat föremål.
-  { id: 'fonster', sv: 'Fönstret', yta: { x: 225, y: 12, w: 160, h: 116 } },
-  { id: 'diskho', sv: 'Kranen', yta: { x: 225, y: 152, w: 160, h: 120 } },
+  { id: 'fonster', sv: 'Fönstret', yta: { x: 225, y: 12, w: 160, h: 116 }, typ: 'knapp' },
+  { id: 'diskho', sv: 'Kranen', yta: { x: 225, y: 152, w: 160, h: 120 }, typ: 'knapp' },
   // --- höger vägg: fläkt · spis · ugn ---
-  { id: 'flakt', sv: 'Fläkten', yta: { x: 866, y: 12, w: 180, h: 100 } },
-  { id: 'spis', sv: 'Spisen', yta: { x: 866, y: 136, w: 180, h: 110 } },
-  { id: 'ugn', sv: 'Ugnen', yta: { x: 866, y: 270, w: 180, h: 112 } },
+  { id: 'flakt', sv: 'Fläkten', yta: { x: 866, y: 12, w: 180, h: 100 }, typ: 'knapp' },
+  { id: 'spis', sv: 'Spisen', yta: { x: 866, y: 136, w: 180, h: 110 }, typ: 'knapp' },
+  { id: 'ugn', sv: 'Ugnen', yta: { x: 866, y: 270, w: 180, h: 112 }, typ: 'lucka-ner', inre: 'het', ljus: 0xffb15a,
+    innehall: ['kyckling', 'pommes', 'kaka', 'potatis', 'kringla'], platser: [[956, 326]] },
   // --- höger: högskåpet med micro, skafferi och lådor ---
-  { id: 'micro', sv: 'Mikron', yta: { x: 1078, y: 124, w: 180, h: 120 } },
-  { id: 'skafferi', sv: 'Skafferiet', yta: { x: 1078, y: 268, w: 180, h: 146 } },
-  { id: 'lador', sv: 'Lådorna', yta: { x: 1078, y: 438, w: 180, h: 166 } },
+  { id: 'micro', sv: 'Mikron', yta: { x: 1078, y: 124, w: 180, h: 120 }, typ: 'lucka-ner', inre: 'het', ljus: 0xffe6a0,
+    innehall: ['pizza', 'korv', 'munk', 'potatis'], platser: [[1150, 180]] },
+  { id: 'skafferi', sv: 'Skafferiet', yta: { x: 1078, y: 268, w: 180, h: 146 }, typ: 'dorr-h',
+    innehall: ['kringla', 'choklad', 'godis', 'jordnot', 'kastanj', 'honung', 'druvor', 'mango'],
+    platser: [[1168, 341]] },
+  // Skräplådan: det ÄR meningen att det ligger konstiga saker här. P0 MOTGÅNG säger att
+  // bus ska vara roligt och gå att åtgärda — inte att det ska saknas.
+  { id: 'lador', sv: 'Lådorna', yta: { x: 1078, y: 438, w: 180, h: 166 }, typ: 'lada',
+    innehall: ['tandborste', 'disksvamp', 'strumpa', 'kalsonger', 'kackerlacka', 'spindel', 'toapapper', 'snor'],
+    platser: [[1168, 494]] }, // ovanför fronten när den dragits ut 56 % av 166 px
   // --- köksöns front ---
-  { id: 'oskap_v', sv: 'Kastrullskåpet', yta: { x: 300, y: 600, w: 320, h: 106 } },
-  { id: 'oskap_h', sv: 'Besticklådan', yta: { x: 660, y: 600, w: 320, h: 106 } },
+  { id: 'oskap_v', sv: 'Kastrullskåpet', yta: { x: 300, y: 600, w: 320, h: 106 }, typ: 'dorr-v',
+    innehall: ['kastrull', 'stekpanna', 'fat', 'slev', 'kavel'], platser: [[382, 650], [538, 650]] },
+  { id: 'oskap_h', sv: 'Besticklådan', yta: { x: 660, y: 600, w: 320, h: 106 }, typ: 'lada',
+    innehall: ['gaffel', 'sked', 'kniv', 'mugg', 'glas_saft', 'visp'], platser: [[742, 636], [898, 636]] },
 ]
+
+// Hur många luckor som får stå öppna samtidigt. Samma sorts tak som `GEGGA_MAX`: fri lek
+// utan att köket blir kaos (P0 MOTGÅNG — "TAK på hur mycket som kan gå fel samtidigt").
+export const OPPNA_MAX = 2
 
 // Bänkskivan längs bakväggen: `SLAB` är ytan, `SKAP` underskåpen. Spisens häll ligger i
 // skivan och diskhon är insänkt i den — båda måste flytta med om raden flyttar.
@@ -132,10 +158,144 @@ function lucka(x, y, w, h, { färg = F.lucka, mörk = F.luckaMork, handtag = 'h'
     .fill({ color: 0xffffff, alpha: 0.1 })
   if (handtag === 'h') {
     g.roundRect(x + w - 30, y + h / 2 - 26, 11, 52, 5).fill(cylinderFill(F.stal))
-  } else {
+  } else if (handtag === 'v') {
     g.roundRect(x + w / 2 - 34, y + 14, 68, 11, 5).fill(cylinderFill(F.stal, { axis: 'x' }))
+  } else {
+    g.roundRect(x + 26, y + h / 2 - 6, 11, 52, 5).fill(cylinderFill(F.stal))
   }
   return g
+}
+
+// ------------------------------------------------------ luckor som öppnas ---
+
+// Handtaget sitter ALLTID mitt emot gångjärnet. Läggs det på samma sida ser dörren ut att
+// öppnas åt fel håll, och en 2-åring läser den riktningen innan den läser något annat.
+const DORR_HANDTAG = { 'dorr-v': 'h', 'dorr-h': 'l', 'lucka-ner': 'v', lada: 'v' }
+
+const DORR_STIL = {
+  frys: { färg: F.vit, mörk: F.vitMork },
+  kyl: { färg: F.vit, mörk: F.vitMork },
+  skafferi: { färg: F.vit, mörk: F.vitMork },
+  lador: { färg: F.vit, mörk: F.vitMork },
+  oskap_v: { färg: F.luckaLjus, mörk: F.luckaMork },
+  oskap_h: { färg: F.luckaLjus, mörk: F.luckaMork },
+}
+
+// Ugnens och mikrons luckor: mörk ram med glasruta. De två saknas i `DORR_STIL` och får
+// den här i stället.
+function glasLucka(x, y, w, h) {
+  const g = new Graphics()
+  g.roundRect(x, y, w, h, 10).fill(verticalFill(F.stalMork, F.morkt)).stroke({ width: 5, color: F.morkt })
+  g.roundRect(x + 16, y + 26, w - 32, h - 44, 8)
+    .fill(verticalFill(0x2b3239, 0x1d2328)).stroke({ width: 4, color: F.stal })
+  g.roundRect(x + 24, y + 32, w - 48, 22, 6).fill({ color: 0xffffff, alpha: 0.1 })
+  g.roundRect(x + 16, y + 6, w - 32, 12, 6).fill(cylinderFill(F.stal, { axis: 'x' }))
+  return g
+}
+
+// Skåpets INSIDA: en mörk låda med hyllor och några fasta burkar. Den ligger bakom dörren
+// och tänds när dörren svänger upp. Utan den syns väggen genom öppningen, och ett skåp
+// med vägg i botten läser som ett hål.
+// Insidan ser olika ut i ett kylskåp och ett skafferi, och det är just skillnaden som
+// säger vilket skåp man öppnat. En enda brun låda åt alla tolv gjorde kylen till en
+// garderob — bilden avgjorde det, inget tal.
+const INRE_STIL = {
+  kall: { bak: [0xeaf6fb, 0xcfe4ef], hylla: 0xf7fdff, hyllKant: 0xa8c4d2, vara: [0x5ab7e8, 0xffd166, 0xff8f5a] },
+  tra: { bak: [0x7a6249, 0x584533], hylla: 0xd9cbb6, hyllKant: 0x9a8a72, vara: [0xd66a5a, 0x6bd0a8, 0xffd166] },
+  het: { bak: [0x4a2f1e, 0x2b1a10], hylla: 0x6b5340, hyllKant: 0x3f2e20, vara: null },
+}
+
+function inreSkap(x, y, w, h, stilNamn, ljus) {
+  const st = INRE_STIL[stilNamn] || INRE_STIL.tra
+  const c = new Container()
+  c.eventMode = 'none'
+  c.visible = false
+  const g = new Graphics()
+  g.roundRect(x, y, w, h, 8).fill(verticalFill(st.bak[0], st.bak[1]))
+  // Skenet ur skåpet — det är det som säger "här är det öppet" på en meters håll.
+  if (ljus) g.roundRect(x + 5, y + 5, w - 10, h - 10, 6).fill({ color: ljus, alpha: 0.3 })
+  // Skuggan innerst, så lådan har djup i stället för att vara en platt lapp.
+  g.roundRect(x + 5, y + 5, w - 10, 16, 6).fill({ color: 0x000000, alpha: 0.16 })
+
+  const rader = Math.max(1, Math.round(h / 118))
+  for (let i = 1; i < rader; i++) {
+    const hy = y + (h / rader) * i
+    g.rect(x + 5, hy - 5, w - 10, 9).fill(topLightFill(st.hylla)).stroke({ width: 2, color: st.hyllKant })
+  }
+  // Varor längst in mot kanterna: de ligger BAKOM det dragbara föremålet (som ritas i
+  // matlagret) och fyller ut skåpet utan att lägga sig i vägen för någon träffyta.
+  if (st.vara) {
+    for (let i = 0; i < rader; i++) {
+      const hy = y + (h / rader) * (i + 1) - 12
+      for (const [sida, k] of [[-1, 0], [1, 1]]) {
+        const bx = sida < 0 ? x + 12 : x + w - 34
+        const f = st.vara[(i + k) % st.vara.length]
+        g.roundRect(bx, hy - 30, 22, 30, 5).fill(f).stroke({ width: 2, color: 0x000000, alpha: 0.18 })
+        g.roundRect(bx + 4, hy - 36, 14, 8, 3).fill({ color: 0xffffff, alpha: 0.5 })
+      }
+    }
+  }
+  c.addChild(g)
+  return c
+}
+
+/**
+ * Bygger en öppningsbar station: insidan (dold), dörren (med pivot i gångjärnet) och
+ * metoderna som öppnar/stänger. Dörrens container har pivot OCH position i samma punkt,
+ * så `scale` krymper den mot gångjärnet i stället för mot sitt eget centrum.
+ */
+function byggLucka(def, dorrGrafik) {
+  const { x, y, w, h } = def.yta
+  const inre = inreSkap(x, y, w, h, def.inre || 'tra', def.ljus)
+  const dorr = new Container()
+  dorr.eventMode = 'none'
+  dorr.addChild(dorrGrafik)
+
+  // Gångjärnet: den kant dörren svänger kring (eller kanten lådan dras ut ur).
+  const gx = def.typ === 'dorr-h' ? x + w : x
+  const gy = def.typ === 'lucka-ner' ? y + h : y
+  dorr.pivot.set(gx, gy)
+  dorr.position.set(gx, gy)
+
+  return {
+    ...def, inre, dorr, oppen: false, _tw: null,
+    // Öppningen är alltid samma rörelse i tre varianter, för barnet ska känna igen den
+    // efter första skåpet: dörren viker undan, insidan tänds.
+    oppna() {
+      if (this.oppen) return
+      this.oppen = true
+      inre.visible = true
+      inre.alpha = 0
+      this._tw?.kill()
+      gsap.to(inre, { alpha: 1, duration: 0.18 })
+      // En LÅDA dras ut, den krymper inte. Första försöket skalade `scale.y` mot 0,3 och
+      // lådfronten såg då ut att sugas upp i sitt eget överkant — i bild läste det som att
+      // lådan försvann, inte som att den öppnades. Fronten flyttas i stället NER, och
+      // innehållet blir synligt ovanför den (därför ligger lådornas `platser` högt).
+      if (def.typ === 'lada') {
+        this._tw = gsap.to(dorr, { y: gy + h * 0.56, duration: 0.32, ease: 'power2.out' })
+        return
+      }
+      const mal = def.typ === 'lucka-ner' ? { y: 0.22 } : { x: 0.16 }
+      this._tw = gsap.to(dorr.scale, { ...mal, duration: 0.32, ease: 'power2.out' })
+    },
+    stang() {
+      if (!this.oppen) return
+      this.oppen = false
+      this._tw?.kill()
+      gsap.to(inre, { alpha: 0, duration: 0.2,
+        onComplete: () => { if (!inre.destroyed) inre.visible = false } })
+      this._tw = def.typ === 'lada'
+        ? gsap.to(dorr, { y: gy, duration: 0.3, ease: 'back.out(1.6)' })
+        : gsap.to(dorr.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out(1.6)' })
+    },
+    stada() {
+      this._tw?.kill()
+      gsap.killTweensOf(dorr)
+      gsap.killTweensOf(dorr.scale)
+      gsap.killTweensOf(inre)
+    },
+  }
 }
 
 /**
@@ -215,8 +375,26 @@ export function byggKok(ctx) {
   bank.roundRect(225, skapY + 14, 160, 100, 8).stroke({ width: 3, color: F.vitMork })
   bakgrund.addChild(bank)
 
-  bakgrund.addChild(_kylskap(), _fonster(), _diskho())
-  bakgrund.addChild(_flakt(), _spis(), _ugn(), _hogskap())
+  // `noder` samlar de fåtal ritade delar som spelet behöver kunna ANIMERA: kranens
+  // stråle, hällens plattor, fläktens hjul, fönstrets sol. Allt annat är stilla bild.
+  const noder = {}
+  bakgrund.addChild(_kylskap(), _fonster(noder), _diskho(noder))
+  bakgrund.addChild(_flakt(noder), _spis(noder), _ugn(), _hogskap())
+
+  // --- luckorna byggs på ETT ställe -------------------------------------
+  // Möblerna ovanför ritar bara stommen. Varje dörr, lucka och låda skapas här ur samma
+  // tabell, så handtagets sida, gångjärnet och rörelsen alltid hänger ihop med `typ`.
+  const stationer = STATIONER.map((def) => {
+    if (def.typ === 'knapp') {
+      return { ...def, oppen: false, oppna() {}, stang() {}, stada() {} }
+    }
+    const { x, y, w, h } = def.yta
+    const stil = DORR_STIL[def.id]
+    const g = stil
+      ? lucka(x, y, w, h, { ...stil, handtag: DORR_HANDTAG[def.typ] })
+      : glasLucka(x, y, w, h)
+    return byggLucka(def, g)
+  })
 
   // --- köksön (framför pappa) --------------------------------------------
   const o = new Graphics()
@@ -234,8 +412,6 @@ export function byggKok(ctx) {
   // Sockel, så ön står på golvet i stället för att svälja det.
   o.rect(O.framV, 700, O.framH - O.framV, yBot - 700).fill({ color: F.morkt, alpha: 0.3 })
   framgrund.addChild(o)
-  framgrund.addChild(lucka(300, 600, 320, 106, { färg: F.luckaLjus, handtag: 'v' }))
-  framgrund.addChild(lucka(660, 600, 320, 106, { färg: F.luckaLjus, handtag: 'v' }))
 
   // Skuggan under hakan. Utan den ligger huvudet PÅ en linje; med den vilar det bakom en
   // bänk som fångar ljuset. Ellipsen är det billigaste sättet att säga "det här är djup".
@@ -261,7 +437,16 @@ export function byggKok(ctx) {
   brada.circle(BRADA.x0 + 30, BRADA.y0 + bh / 2, 11).fill({ color: 0x8a5a30, alpha: 0.55 })
   framgrund.addChild(brada)
 
-  return { bakgrund, framgrund }
+  for (const st of stationer) {
+    if (!st.inre) continue
+    // Öns luckor hör till framgrunden (framför pappa), resten till bakgrunden. Insidan
+    // ALLTID före dörren — annars svänger dörren upp bakom sitt eget skåp. Och loopen
+    // ligger SIST: läggs öns luckor till innan öns stomme hamnar de bakom den.
+    const lager = st.yta.y > KANT_Y ? framgrund : bakgrund
+    lager.addChild(st.inre, st.dorr)
+  }
+
+  return { bakgrund, framgrund, stationer, noder }
 }
 
 // ------------------------------------------------------------ möblerna ---
@@ -272,8 +457,6 @@ function _kylskap() {
   g.roundRect(14, 116, 180, 496, 18).fill(verticalFill(F.stal, F.stalMork))
     .stroke({ width: 5, color: F.stalMork })
   c.addChild(g)
-  c.addChild(lucka(20, 128, 168, 114, { färg: F.vit, mörk: F.vitMork, handtag: 'v' }))
-  c.addChild(lucka(20, 266, 168, 334, { färg: F.vit, mörk: F.vitMork }))
   const detalj = new Graphics()
   detalj.roundRect(26, 248, 156, 8, 4).fill({ color: F.stalMork, alpha: 0.6 })
   // Magneter på dörren — en kyl utan magneter är en vitvara, inte ett hem.
@@ -285,13 +468,14 @@ function _kylskap() {
   return c
 }
 
-function _fonster() {
+function _fonster(noder = {}) {
   const c = new Container()
   const g = new Graphics()
   // Utsikt: himmel över en grön kulle, med en sol. Ljuset i rummet kommer härifrån.
   g.roundRect(225, 12, 160, 116, 10).fill(verticalFill(0xa8dcf5, 0xd8f0fb))
   g.rect(225, 84, 160, 44).fill(verticalFill(0x8fca6e, 0x6fa94f))
-  g.circle(348, 42, 17).fill(0xffe08a)
+  const sol = new Graphics().circle(0, 0, 17).fill(0xffe08a)
+  sol.position.set(348, 42)
   g.circle(258, 44, 13).fill({ color: 0xffffff, alpha: 0.85 })
   g.circle(276, 42, 16).fill({ color: 0xffffff, alpha: 0.85 })
   g.roundRect(225, 12, 160, 116, 10).stroke({ width: 9, color: F.vit })
@@ -299,11 +483,26 @@ function _fonster() {
   g.moveTo(229, 70).lineTo(381, 70).stroke({ width: 7, color: F.vit })
   // Fönsterbräda, så fönstret sitter i väggen i stället för att hänga som en tavla.
   g.roundRect(215, 126, 180, 12, 5).fill(topLightFill(F.tra)).stroke({ width: 3, color: F.traMork })
+  c.addChildAt(sol, 0)
   c.addChild(g)
+  noder.sol = sol
+  // Fågeln sitter på fönsterblecket och är dold tills någon knackar på rutan.
+  const fagel = new Container()
+  fagel.visible = false
+  const fg = new Graphics()
+  fg.ellipse(0, 0, 17, 13).fill(0x6fa9bd).stroke({ width: 3, color: 0x4d8095 })
+  fg.circle(12, -9, 9).fill(0x8dc2d3).stroke({ width: 3, color: 0x4d8095 })
+  fg.moveTo(20, -9).lineTo(29, -6).lineTo(20, -3).closePath().fill(0xffb937)
+  fg.circle(15, -11, 2.6).fill(0x2f2a26)
+  fg.moveTo(-16, -2).quadraticCurveTo(-28, -8, -30, 2).quadraticCurveTo(-22, 4, -16, 2).fill(0x4d8095)
+  fagel.addChild(fg)
+  fagel.position.set(300, 118)
+  c.addChild(fagel)
+  noder.fagel = fagel
   return c
 }
 
-function _diskho() {
+function _diskho(noder = {}) {
   const c = new Container()
   const g = new Graphics()
   // Kranen reser sig ur bänkskivan och böjer sig ut över hon.
@@ -318,10 +517,22 @@ function _diskho() {
   g.ellipse(322, 242, 45, 11).fill({ color: 0x8e9ba1, alpha: 0.7 })
   g.circle(322, 243, 6).fill({ color: F.morkt, alpha: 0.45 })
   c.addChild(g)
+  // Strålen: en egen nod som tänds när kranen slås på. Den ritas EN gång och skalas i
+  // höjdled, i stället för att ritas om varje bildruta.
+  const strale = new Graphics()
+  strale.moveTo(-5, 0).lineTo(5, 0).lineTo(8, 54).lineTo(-8, 54).closePath()
+    .fill({ color: 0x8fd6f5, alpha: 0.72 })
+  strale.roundRect(-2, 4, 3, 44, 2).fill({ color: 0xffffff, alpha: 0.5 })
+  strale.position.set(318, 186)
+  strale.visible = false
+  c.addChild(strale)
+  noder.strale = strale
+  noder.pip = { x: 318, y: 186 }
+  noder.ho = { x: 322, y: 240 }
   return c
 }
 
-function _flakt() {
+function _flakt(noder = {}) {
   const c = new Container()
   const g = new Graphics()
   g.rect(940, -20, 32, 26).fill(verticalFill(F.stalMork, F.stal)) // kanal upp i taket
@@ -330,19 +541,35 @@ function _flakt() {
   g.roundRect(892, 86, 128, 22, 8).fill(cylinderFill(F.stalMork, { axis: 'x' }))
   g.roundRect(928, 20, 54, 10, 5).fill({ color: 0xffffff, alpha: 0.4 })
   c.addChild(g)
+  // Fläkthjulet sitter i kåpans underkant och roterar när fläkten är på.
+  const hjul = new Graphics()
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2
+    hjul.ellipse(Math.cos(a) * 12, Math.sin(a) * 12, 11, 5).fill({ color: F.stalMork, alpha: 0.9 })
+  }
+  hjul.circle(0, 0, 6).fill(F.morkt)
+  hjul.position.set(956, 97)
+  c.addChild(hjul)
+  noder.flakthjul = hjul
   return c
 }
 
-function _spis() {
+function _spis(noder = {}) {
   const c = new Container()
   const g = new Graphics()
   // Hällen ligger i bänkskivan; kastrullen och stekpannan står på den.
   g.roundRect(872, SLAB.y - 2, 168, SLAB.h + 6, 8)
     .fill(verticalFill(F.morkt, 0x2c343a)).stroke({ width: 3, color: F.stalMork })
-  for (const px of [906, 956, 1006]) {
-    g.ellipse(px, SLAB.y + 10, 19, 7).stroke({ width: 3, color: 0xff8f5a, alpha: 0.5 })
-  }
   c.addChild(g)
+  // Plattorna: en egen nod vars alpha går 0,35 → 1 när spisen slås på.
+  const plattor = new Graphics()
+  for (const px of [906, 956, 1006]) {
+    plattor.ellipse(px, SLAB.y + 10, 19, 7).fill({ color: 0xff6a2a, alpha: 0.55 })
+    plattor.ellipse(px, SLAB.y + 10, 19, 7).stroke({ width: 3, color: 0xff8f5a })
+  }
+  plattor.alpha = 0.35
+  c.addChild(plattor)
+  noder.plattor = plattor
   // Kastrull
   const kastrull = new Graphics()
   kastrull.roundRect(878, 168, 88, 56, 10).fill(cylinderFill(F.stalMork)).stroke({ width: 4, color: F.morkt })
@@ -350,6 +577,8 @@ function _spis() {
   kastrull.roundRect(960, 182, 34, 9, 4).fill(cylinderFill(F.morkt, { axis: 'x' }))
   kastrull.circle(922, 162, 9).fill(F.morkt)
   c.addChild(kastrull)
+  noder.kastrull = kastrull
+  noder.gryta = { x: 922, y: 162 }
   // Stekpanna sedd snett uppifrån
   const panna = new Graphics()
   panna.roundRect(1000, 200, 58, 10, 5).fill(cylinderFill(F.morkt, { axis: 'x' }))
@@ -362,10 +591,7 @@ function _spis() {
 function _ugn() {
   const c = new Container()
   const g = new Graphics()
-  g.roundRect(866, 270, 180, 112, 10).fill(verticalFill(F.stalMork, F.morkt)).stroke({ width: 5, color: F.morkt })
-  g.roundRect(882, 296, 148, 70, 8).fill(verticalFill(0x2b3239, 0x1d2328)).stroke({ width: 4, color: F.stal })
-  g.roundRect(890, 302, 132, 24, 6).fill({ color: 0xffffff, alpha: 0.09 })
-  g.roundRect(882, 276, 148, 12, 6).fill(cylinderFill(F.stal, { axis: 'x' }))
+  g.roundRect(862, 266, 188, 120, 10).fill(verticalFill(F.stalMork, F.morkt)).stroke({ width: 5, color: F.morkt })
   c.addChild(g)
   return c
 }
@@ -379,12 +605,8 @@ function _hogskap() {
   // Micro: en inbyggd låda med lucka och panel.
   const micro = new Graphics()
   micro.roundRect(1078, 124, 180, 120, 10).fill(verticalFill(F.stalMork, F.morkt)).stroke({ width: 4, color: F.morkt })
-  micro.roundRect(1088, 136, 114, 96, 7).fill(verticalFill(0x2b3239, 0x1d2328)).stroke({ width: 3, color: F.stal })
-  micro.roundRect(1094, 142, 100, 30, 5).fill({ color: 0xffffff, alpha: 0.1 })
   micro.roundRect(1210, 136, 40, 96, 6).fill({ color: F.morkt, alpha: 0.75 })
   for (let i = 0; i < 3; i++) micro.circle(1230, 160 + i * 26, 7).fill(F.stal)
   c.addChild(micro)
-  c.addChild(lucka(1078, 268, 180, 146, { färg: F.vit, mörk: F.vitMork }))
-  c.addChild(lucka(1078, 438, 180, 166, { färg: F.vit, mörk: F.vitMork, handtag: 'v' }))
   return c
 }

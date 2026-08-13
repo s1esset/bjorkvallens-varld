@@ -20,11 +20,12 @@
 // pappa blir förvånad, säger aj eller fnissar, och geggan sitter kvar till rapfinalen.
 import { Circle, Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
-import { ANS, BRADA, MATARE, PLATSER, byggKok } from './kok.js'
+import { ANS, BANK_Y, MATARE, OPPNA_MAX, PLATSER, byggKok } from './kok.js'
+import { arAtbar, makeSak, sakFarg, sakMin } from './skafferi.js'
 import { DragController } from '../../lib/DragController.js'
 import { FOODS, MAT_STARK, makeFood, foodColor } from '../../lib/mat.js'
 import { Ansikte, laddaAnsikte } from '../../lib/ansikte.js'
-import { burst, liv, pop, puff, ripple, sparkle, shake, wiggle } from '../../lib/feedback.js'
+import { burst, kvittera, liv, pop, puff, ripple, sparkle, shake, wiggle } from '../../lib/feedback.js'
 import { PLAYFUL } from '../../lib/theme.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 
@@ -84,6 +85,11 @@ export default {
     this._gapNu = 0 // spelmodulen är en singleton — gapet får inte ärvas från förra omgången
     this._geggor = []
     this._cueVaxel = 0
+    this._oppnaSt = []
+    this._stationer = []
+    this._vatten = false
+    this._spisPa = false
+    this._flaktPa = false
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -93,6 +99,7 @@ export default {
     //   halsen) → burken och annat som står på bänken → mat (överst, så en bit som dras
     //   aldrig försvinner bakom hakan eller under bänkskivan).
     const kok = byggKok(ctx)
+    this._noder = kok.noder
     this._root.addChild(kok.bakgrund)
 
     this._ansL = new Container()
@@ -105,6 +112,11 @@ export default {
     this._root.addChild(this._geggaL)
 
     this._root.addChild(kok.framgrund)
+
+    // Kökets träffytor. Ligger ovanför köksön (så öns luckor går att trycka på) men
+    // under maten (så en matbit alltid vinner pekningen över luckan bakom den).
+    this._klickL = new Container()
+    this._root.addChild(this._klickL)
 
     this._propL = new Container()
     this._propL.eventMode = 'none'
@@ -145,6 +157,7 @@ export default {
     this._drag.addTarget(this._mun, () => true, { hitRadius: MUN_R })
 
     this._nyTallrik(ctx)
+    this._byggStationer(ctx, kok.stationer)
 
     this._tick = (t) => this._update(ctx, t.deltaMS)
     ctx.ticker.add(this._tick)
@@ -292,14 +305,18 @@ export default {
     while (n-- > 0) if (!this._spawna(ctx)) break
   },
 
-  _skapaMat(ctx, key, [x, y], i, delay = 0) {
+  // ETT sätt att skapa ett dragbart föremål, oavsett var det kommer ifrån. `data` bär
+  // allt resten av spelet behöver veta: färgen (gegga + smulor), grimasen och om saken
+  // går att äta. Utan den gemensamma formen hade brädans mat och skåpens prylar behövt
+  // varsin gren genom `_ata`, `_miss` och `_gegga`.
+  _skapaFor(ctx, data, [x, y], i, delay = 0) {
     const yttre = new Container() // draget äger den här — inget annat får röra den
     yttre.position.set(x, y)
     yttre.hitArea = new Circle(0, 0, GRIP_R)
 
     const inre = new Container() // vilorörelsen bor här, så draget aldrig slåss med den
     inre.eventMode = 'none'
-    inre.addChild(makeFood(key, 0.75))
+    inre.addChild(data.vy())
     yttre.addChild(inre)
     this._matL.addChild(yttre)
 
@@ -309,7 +326,7 @@ export default {
     // 0.2 som föremålets normalstorlek för resten av omgången.
     gsap.from(inre.scale, { x: 0.2, y: 0.2, duration: 0.4, delay, ease: 'back.out(2)' })
 
-    const rec = this._drag.addItem(yttre, { key }, {
+    const rec = this._drag.addItem(yttre, data, {
       onCorrect: () => this._ata(ctx, rec),
       onMiss: () => this._miss(ctx, rec),
       onSelect: () => ctx.services.audio.tone({ freq: 620, dur: 0.07, vol: 0.16 }),
@@ -318,15 +335,211 @@ export default {
     return rec
   },
 
+  // Brädans mat: alltid ätlig, alltid det som driver målet framåt.
+  _skapaMat(ctx, key, plats, i, delay = 0) {
+    return this._skapaFor(ctx, {
+      key,
+      farg: foodColor(key),
+      min: MIN_PER_MAT[key] || 'lycksalig',
+      atbar: true,
+      vy: () => makeFood(key, 0.75),
+    }, plats, i, delay)
+  },
+
+  // ------------------------------------------------------------ köket ---
+
+  // Varje station får en egen, osynlig träffyta i ett eget lager mellan köket och maten.
+  // Den ligger UNDER `_matL`, så en matbit som råkar hamna över en lucka alltid vinner
+  // pekningen — det är maten barnet siktar på.
+  _byggStationer(ctx, stationer) {
+    this._stationer = stationer
+    this._oppnaSt = []
+    for (const st of stationer) {
+      const { x, y, w, h } = st.yta
+      const hit = new Graphics().rect(x, y, w, h).fill({ color: 0xffffff, alpha: 0 })
+      hit.eventMode = 'static'
+      hit.cursor = 'pointer'
+      st._tryck = () => this._tryckStation(ctx, st)
+      hit.on('pointertap', st._tryck)
+      st._hit = hit
+      this._klickL.addChild(hit)
+    }
+  },
+
+  _tryckStation(ctx, st) {
+    this._idle = 0
+    if (!this._alive || this._busy) return
+    kvittera(ctx.fxLayer, st.yta.x + st.yta.w / 2, st.yta.y + st.yta.h / 2, ctx.services.audio,
+      { color: 0xffe3b0, maxR: 74 })
+    if (st.typ === 'knapp') return this._knapp(ctx, st)
+    if (st.oppen) return this._stangStation(ctx, st)
+
+    // Taket: högst OPPNA_MAX luckor öppna samtidigt. Den äldsta stängs — samma sorts
+    // gräns som geggans, och av samma skäl (P0 MOTGÅNG: tak på hur mycket samtidigt).
+    while (this._oppnaSt.length >= OPPNA_MAX) this._stangStation(ctx, this._oppnaSt[0])
+
+    st.oppna()
+    this._oppnaSt.push(st)
+    ctx.services.audio.sfx('soft')
+    ctx.services.audio.tone({ freq: 330, dur: 0.1, vol: 0.16, slideTo: 470 })
+
+    // Innehållet lottas per öppning, så samma skåp inte ger samma sak varje gång.
+    st._saker = []
+    const val = shuffle([...st.innehall]).slice(0, st.platser.length)
+    val.forEach((key, i) => {
+      const rec = this._skapaFor(ctx, {
+        key,
+        farg: sakFarg(key),
+        min: sakMin(key),
+        atbar: arAtbar(key),
+        vy: () => makeSak(key),
+      }, st.platser[i], i, 0.1 + i * 0.08)
+      rec._station = st
+      st._saker.push(rec)
+      this._mat.push(rec)
+    })
+    if (Math.random() < 0.6) ctx.services.voice.say('Titta vad som fanns där inne!')
+  },
+
+  _stangStation(ctx, st) {
+    const i = this._oppnaSt.indexOf(st)
+    if (i >= 0) this._oppnaSt.splice(i, 1)
+    if (!st.oppen) return
+    st.stang()
+    ctx.services.audio.sfx('soft')
+    // Det som ligger kvar åker in i skåpet igen. Det får inte bara försvinna: en sak som
+    // blinkar bort mitt framför barnet läser som att den gick sönder.
+    for (const rec of st._saker || []) this._plockaTillbaka(ctx, rec)
+    st._saker = []
+  },
+
+  _plockaTillbaka(ctx, rec) {
+    if (!rec || rec._uppaten) return
+    rec._uppaten = true
+    this._drag?.removeItem?.(rec.view)
+    const v = rec.view
+    if (v.destroyed) return
+    rec._inre?._fxLiv?.kill()
+    gsap.killTweensOf(v)
+    gsap.killTweensOf(v.scale)
+    gsap.to(v.scale, { x: 0.1, y: 0.1, duration: 0.24, ease: 'power2.in' })
+    gsap.to(v, { alpha: 0, duration: 0.24,
+      onComplete: () => { if (!v.destroyed) v.destroy({ children: true }) } })
+  },
+
+  // Stationerna som inte öppnar något utan GÖR något. Alla är växlar: tryck igen och det
+  // slutar. Ingen av dem kan misslyckas, och ingen av dem påverkar målet.
+  _knapp(ctx, st) {
+    const n = this._noder
+    const audio = ctx.services.audio
+    if (st.id === 'diskho') {
+      this._vatten = !this._vatten
+      if (n.strale) {
+        n.strale.visible = true
+        gsap.killTweensOf(n.strale.scale)
+        gsap.to(n.strale.scale, { y: this._vatten ? 1 : 0.02, duration: 0.22,
+          onComplete: () => { if (!this._vatten && n.strale && !n.strale.destroyed) n.strale.visible = false } })
+      }
+      audio.tone({ freq: this._vatten ? 620 : 300, dur: 0.12, type: 'sine', vol: 0.16 })
+      if (this._vatten) ctx.services.voice.say('Vattnet rinner!')
+      return
+    }
+    if (st.id === 'spis') {
+      this._spisPa = !this._spisPa
+      if (n.plattor) gsap.to(n.plattor, { alpha: this._spisPa ? 1 : 0.35, duration: 0.3 })
+      audio.tone({ freq: this._spisPa ? 240 : 180, dur: 0.16, type: 'triangle', vol: 0.16 })
+      if (this._spisPa) ctx.services.voice.say('Nu kokar det i kastrullen!')
+      return
+    }
+    if (st.id === 'flakt') {
+      this._flaktPa = !this._flaktPa
+      audio.tone({ freq: this._flaktPa ? 180 : 140, dur: 0.2, type: 'sawtooth', vol: 0.1 })
+      if (this._flaktPa) ctx.services.voice.say('Fläkten surrar!')
+      return
+    }
+    if (st.id === 'fonster') {
+      // Fågeln landar på fönsterblecket, kvittrar och flyger iväg igen.
+      const f = n.fagel
+      audio.tone({ freq: 880, dur: 0.09, vol: 0.18, slideTo: 1180 })
+      audio.tone({ freq: 990, dur: 0.09, vol: 0.16, slideTo: 1320, delay: 0.14 })
+      if (n.sol) pop(n.sol, { scale: 1.35 })
+      if (f && !f.destroyed && !f.visible) {
+        f.visible = true
+        f.alpha = 0
+        gsap.killTweensOf(f)
+        gsap.to(f, { alpha: 1, y: 118, duration: 0.3, ease: 'back.out(2)' })
+        gsap.to(f, { alpha: 0, y: 82, duration: 0.45, delay: 2.4, ease: 'power1.in',
+          onComplete: () => { if (!f.destroyed) { f.visible = false; f.y = 118 } } })
+        ctx.services.voice.say('En fågel kom och tittade in!')
+      }
+    }
+  },
+
+  // Vilorörelser i köket som bara går när något är påslaget. Ligger i spelets tick, så
+  // ingenting tickar vidare efter att spelet lämnats.
+  _kokTick(ctx, dt) {
+    const n = this._noder
+    if (this._flaktPa && n.flakthjul && !n.flakthjul.destroyed) n.flakthjul.rotation += dt * 0.012
+    this._angT = (this._angT || 0) + dt
+    if (this._angT > 620) {
+      this._angT = 0
+      if (this._spisPa && n.gryta) {
+        puff(ctx.fxLayer, n.gryta.x + (Math.random() - 0.5) * 30, n.gryta.y - 10,
+          { count: 4, color: 0xffffff })
+      }
+      if (this._vatten && n.ho) {
+        puff(ctx.fxLayer, n.ho.x + (Math.random() - 0.5) * 24, n.ho.y - 4,
+          { count: 3, color: 0x8fd6f5 })
+      }
+    }
+  },
+
   // ------------------------------------------------------------------ äta ---
+
+  // Något oätligt hamnade i munnen. Pappa smakar, grimaserar och spottar ut det — och
+  // saken landar tillbaka på bänken i stället för att bara upphöra.
+  _spotta(ctx, rec) {
+    const v = rec.view
+    const a = this._ans
+    ctx.services.audio.sfx('pop')
+    a?.slappMin(0.1)
+    a?.tugga(1)
+    gsap.killTweensOf(v)
+    gsap.killTweensOf(v.scale)
+    rec._inre?._fxLiv?.kill()
+    gsap.to(v.scale, { x: 0.4, y: 0.4, duration: 0.16, ease: 'power2.in' })
+    ctx.later(0.34, () => {
+      if (!this._alive) return
+      a?.min(rec.data.min || 'acklad', { hall: 1.4 })
+      this._sag(ctx, rec.data.min || 'acklad')
+      if (a?.view && !a.view.destroyed) shake(a.view, { intensity: 8, duration: 0.42 })
+      if (!v.destroyed) {
+        // Ut ur munnen i en båge, ner mot bänken och bort. Riktningen slumpas så två
+        // utspottade saker aldrig följer exakt samma väg.
+        const ut = (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 90)
+        gsap.to(v, { x: v.x + ut, duration: 0.6, ease: 'power1.out' })
+        gsap.to(v, { y: BANK_Y - 30, duration: 0.6, ease: 'power2.in' })
+        gsap.to(v.scale, { x: 0.7, y: 0.7, duration: 0.6 })
+        gsap.to(v, { alpha: 0, duration: 0.3, delay: 0.55,
+          onComplete: () => { if (!v.destroyed) v.destroy({ children: true }) } })
+      }
+      puff(ctx.fxLayer, ANS.x, this._munY + 20, { count: 8, color: rec.data.farg })
+      if (Math.random() < 0.6) ctx.services.voice.say('Blää, det där gick inte att äta!')
+    })
+    this._frigor(ctx, rec)
+  },
 
   _ata(ctx, rec) {
     if (!this._alive || rec._uppaten) return
     rec._uppaten = true
     this._idle = 0
     const key = rec.data.key
-    const farg = foodColor(key)
+    const farg = rec.data.farg
     const v = rec.view
+
+    // Oätligt går inte in i magen. Pappa smakar, grimaserar och spottar ut — stor
+    // reaktion, noll framsteg, och aldrig ett fel. (P0: bestraffa inte, blockera inte.)
+    if (rec.data.atbar === false) return this._spotta(ctx, rec)
 
     // Maten åker in i munnen: krymper och släcks. Draget har precis kört sin landning —
     // döda den tweenen först, annars drar två tweens i samma skala.
@@ -359,7 +572,7 @@ export default {
     const wow = Math.random() < 0.125
     ctx.later(0.92, () => {
       if (!this._alive) return
-      const namn = MIN_PER_MAT[key] || 'lycksalig'
+      const namn = rec.data.min || 'lycksalig'
       a?.min(namn, { hall: wow ? 2.4 : 1.4 })
       this._sag(ctx, namn)
       if (wow) {
@@ -402,7 +615,10 @@ export default {
 
     // Miner efter var det landade: högt upp = aj (det studsade på näsan), mitt på =
     // förvånad, i håret/kanten = ett skratt.
-    const namn = rec.ty < this._ogonY ? (Math.random() < 0.5 ? 'aj' : 'skratt') : 'forvanad'
+    // Miner efter var det landade — men en spindel i pannan är inte samma sak som en
+    // banan i pannan, så en sak med egen stark min (`aj`, `acklad`) behåller sin.
+    const egen = rec.data.min === 'aj' || rec.data.min === 'acklad' ? rec.data.min : null
+    const namn = egen || (rec.ty < this._ogonY ? (Math.random() < 0.5 ? 'aj' : 'skratt') : 'forvanad')
     this._ans?.slappMin(0.1)
     this._ans?.min(namn, { hall: 1.3 })
     this._sag(ctx, namn)
@@ -412,7 +628,7 @@ export default {
 
   _gegga(ctx, rec) {
     const v = rec.view
-    const farg = foodColor(rec.data.key)
+    const farg = rec.data.farg
     const x = rec.tx
     const y = rec.ty
 
@@ -432,7 +648,7 @@ export default {
     bit.rotation = (Math.random() - 0.5) * 0.9
     bit.scale.set(0.62)
     bit.eventMode = 'none'
-    bit.addChild(makeFood(rec.data.key, 0.75))
+    bit.addChild(rec.data.vy())
 
     this._geggaL.addChild(klet, bit)
     const g = { klet, bit }
@@ -555,6 +771,7 @@ export default {
   _update(ctx, dtMS) {
     if (!this._alive) return
     const dt = Math.min(60, dtMS)
+    this._kokTick(ctx, dt)
 
     // Munnen gapar när maten närmar sig — riggens tydligaste inbjudan. Läs fingrets
     // position (rec.tx/ty), inte den släpande bilden.
@@ -590,6 +807,13 @@ export default {
   // --------------------------------------------------------------- städning ---
 
   _rensaMat() {
+    // Öppna luckor hör till den gamla omgången. Stängs de inte här ligger deras poster
+    // kvar i `_saker` och pekar på vyer som `clear()` strax river.
+    for (const st of [...(this._oppnaSt || [])]) {
+      st.stang()
+      st._saker = []
+    }
+    this._oppnaSt = []
     for (const rec of this._mat || []) {
       if (rec._inre) {
         rec._inre._fxLiv?.kill()
@@ -629,6 +853,21 @@ export default {
     this._mat = []
     if (this._hjarta && !this._hjarta.destroyed) gsap.killTweensOf(this._hjarta)
     gsap.killTweensOf(this._fyll)
+
+    for (const st of this._stationer || []) {
+      if (st._hit && !st._hit.destroyed && st._tryck) st._hit.off('pointertap', st._tryck)
+      st._tryck = null
+      st.stada?.()
+      for (const rec of st._saker || []) {
+        if (rec?.view && !rec.view.destroyed) {
+          gsap.killTweensOf(rec.view)
+          gsap.killTweensOf(rec.view.scale)
+        }
+      }
+      st._saker = []
+    }
+    this._stationer = []
+    this._oppnaSt = []
 
     this._drag?.destroy()
     this._drag = null

@@ -333,6 +333,33 @@ export class DragController {
     }
   }
 
+  /**
+   * Avregistrera ETT föremål. Behövs av spel där föremål kommer och går under omgången
+   * (mata-munnen öppnar och stänger skåp om och om igen) — utan detta ligger posten kvar
+   * i `items` med en förstörd vy, och nästa träffsökning läser den.
+   * Rör inte vyn i övrigt; anroparen äger den.
+   */
+  removeItem(view) {
+    const i = this.items.findIndex((r) => r.view === view)
+    if (i < 0) return null
+    const rec = this.items[i]
+    this.items.splice(i, 1)
+    if (this.active === rec) this.active = null
+    if (this.selected === rec) this._deselect()
+    this._detach(rec)
+    if (rec._down && !view.destroyed) view.off('pointerdown', rec._down)
+    const sh = rec._shadow
+    rec._shadow = null
+    if (sh) {
+      gsap.killTweensOf(sh)
+      if (!sh.destroyed) {
+        sh.parent?.removeChild(sh)
+        sh.destroy()
+      }
+    }
+    return rec
+  }
+
   clear() {
     this._deselect()
     for (const rec of this.items) {

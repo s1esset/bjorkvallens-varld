@@ -84,6 +84,12 @@ fotots halslinje, 12 klickbara stationer, 54 mat- och busobjekt hämtade ur `piz
 `hamburgerbygget`, och tre motorer där de syns (matter-hög på bänken · SPH-pöl · mjuk gegga).
 Sond: `scripts/_kokprobe.mjs`. Mätningarna och de fyra fynden står i `mata-munnen.md` §4/§5b.
 
+✅ **Speltestat av ägaren på telefon och åtgärdat** (v1.196–1.197, ÅTGÄRDER #8–#12). Pappa har
+nio inspelade uttrycksljud, geggan kladdar och rinner i stället för att svälla ovanpå en
+skugga, vätska går att hälla över ansiktet, och chilin rodnar honom med rök ur öronen. Sonder:
+`_busprobe` · `_hettaprobe` · `_hallprobe` · `_klippprobe`. Statusen ✅/✅ är oförändrad —
+rundan var buggar och förhöjningar i ett spel som redan var klart.
+
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ **poleringsrundan KLAR** (27/27, v1.7.0, 2026-08-04; +`natskott-pa-stan` byggd ✅ 2026-08-08)
 *Första-omgången 2026-07-01. Poleringsrundan lyfte 9 spel till ✅. Kvalitetsspåret 2026-08-06
 (mottagar-högen) lyfte 7 till: `gungan` · `fallskarmen` · `valpens-bajs` · `studsmatta` ·

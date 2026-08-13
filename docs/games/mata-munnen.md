@@ -21,9 +21,11 @@ varav de oätliga spottas ut och aldrig mättar. **Tre motorer, alla där de syn
 högen på bänkskivan, SPH-vätska för utspilld saft/mjölk/honung, och `Mjukkropp` för den nyaste
 geggans splat. Tak: 2 öppna luckor · 8 lösa saker · 1 mjuk kropp.
 
-⚠️ **Ögon-följningen är STRUKEN** (ägarbeslut 2026-08-13): blickserien i 8 riktningar finns inte
-i fotomaterialet — alla 129 bilder tittar mot kameran eller blundar. Ansiktet lever på blink,
-andning, käkens gap och minerna i stället.
+~~⚠️ **Ögon-följningen är STRUKEN** (ägarbeslut 2026-08-13): blickserien i 8 riktningar finns
+inte i fotomaterialet — alla 129 bilder tittar mot kameran eller blundar.~~
+✅ **ÅTERUPPTAGEN 2026-08-13 (v1.200):** ägaren sköt en **ny serie på 158 bilder**
+(`s1face2_*`) som innehåller blickriktningarna. Beslutet gällde det GAMLA materialet.
+Se §6 — blicken byggs som ögonlappar (~0,07 MB st), inte som miner.
 
 ## 1. Nuläge (sett som spelare)
 
@@ -232,30 +234,17 @@ knapparna aldrig möter varandra:
   ger fyra profiler (knaprig · seg · mjuk · dryck) och ljudet ligger på käkens egen takt via
   riggens nya `onTugg`. Sväljning tillagd.
 - ✅ **Kontinuerliga stationsljud** (v1.199) — `AudioService.loop/stopLoop/stopAllLoops`.
-- ⬜ **VÄNTAR PÅ ÄGAREN — sju klipp till.** Namnen finns redan i koden och `harSample()`
-  frågar först, så varje fil tas i bruk i samma sekund den ligger i `public/audio/sfx/`
-  (lägg till den i `manifest.json` på samma sätt som de nio första). Tills dess låter den
-  stämda reserven. Tyst rum, ett uttryck per fil, samma avstånd till mikrofonen som förra
-  gången (målet är −18 LUFS, samma som de nio befintliga):
-
-  | fil | vad | används när |
-  |---|---|---|
-  | `pappa_gasp.mp3` | en gäspning, gärna med ett litet ljud på slutet | vilo-cue:n var åttonde gång |
-  | `pappa_chock.mp3` | ett kort "AAH!" av förvåning | något hårt landar i ansiktet |
-  | `pappa_hmm.mp3` | tveksamt "hmmm…" | okänd mat (`skeptisk`) |
-  | `pappa_retas.mp3` | busigt "bläää" med skratt i | bus under ögonlinjen (`retas`) |
-  | `pappa_svalj.mp3` | en tydlig sväljning | efter sista tuggan, varje bit |
-  | `tugg_knaprig.mp3` | ETT knaprigt tuggljud (morot/chips) | spelas 5× per knaprig bit |
-  | `tugg_seg.mp3` | ETT segt smaskljud (kola/ost) | spelas 2× per seg bit |
-  | `tugg_mjuk.mp3` | ETT mjukt tuggljud | spelas 3× per vanlig bit |
-  | `klunk.mp3` | en klunk | saft, mjölk, ketchup, senap |
-
-  ⚠️ **Tuggklippen ska vara ETT tuggljud var, inte en serie.** Spelet spelar dem en gång per
-  sammanbitning på käkens takt (mätt: 3 sammanbitningar för mjuk mat, 2 för seg). Ett klipp
-  med tre tuggor i hade gett nio.
-  ⚠️ **Kranen, spisen och fläkten kan också få klipp** (`kran` · `koka` · `flakt`) — de måste
-  då vara **sömlöst loopbara**, för de spelas som en oändlig slinga. Den syntetiska bädden
-  (filtrerat brus) är fullt duglig och behöver inget klipp.
+- ✅ **Alla sju återstående klipp levererade och inlagda** (v1.200.0). Ägarens andra
+  inspelningsomgång gav `pappa_gasp` · `pappa_chock` · `pappa_hmm` · `pappa_retas` — plus två
+  som INTE var beställda och fick egna händelser: `pappa_huh` (tryck på pappa) och
+  `pappa_ehh` (maten lades tillbaka). Sväljningen ligger i högen `svalj` tillsammans med tre
+  foley-klipp. Tuggen fick `tugg_knaprig` · `tugg_seg` · `tugg_mjuk`×2 · `klunk`×2, styckade
+  ur serieinspelningar (se §5). Nivå −18,4…−18,5 LUFS för rösten.
+  ⚠️ **`bottle_blow.mp3` importerades medvetet INTE** — det finns ingen flaska att blåsa i,
+  och att bygga en händelse enbart för att ett klipp finns är att sätta svansen först.
+  ⚠️ **Kranen, spisen och fläkten** har fortfarande ingen inspelning (`kran` · `koka` ·
+  `flakt`). De måste vara **sömlöst loopbara** — den syntetiska bädden (filtrerat brus) är
+  fullt duglig och behöver inget klipp.
 
 ### Kärnloop & agens
 - ✅ **Maten syns i munnen ett ögonblick** (v1.198). `_skymt`: en färgad glimt mellan tänderna
@@ -346,7 +335,88 @@ Kontrollarmen körd med den GAMLA `_track` inlagd: **1,66 ‰ före 40 gester �
   skrivarna hinner precis inte överlappa. Raden står kvar som en spärr, med en kommentar som
   säger just det.
 
+## 6. Ägaruppdrag 2 — ljud, kast, blick och hals (godkänd plan, 2 av 6 steg byggda)
+
+Ägaren gav fyra punkter och levererade materialet: **33 ljudfiler**
+(`ComfyUI/input/s1face2/ljud`, alla importerade) och en **ny fotoshoot på 158 bilder**
+(`ComfyUI/output/s1face2__000NN_.png`, ännu inte tagen i bruk).
+
+| # | steg | läge |
+|---|---|---|
+| 1 | ljud: slumpade varianter + 34 klipp | ✅ v1.200.0 |
+| 3 | nya händelser (Huh · Ehh · prutt · lucka · plopp · svälj) | ✅ v1.200.0 |
+| 0+2 | riggen: variantminer · diff-beskärning · **blick** | ⬜ |
+| 4 | **kasta** mat på ansiktet | ⬜ |
+| 5 | front-on kök + **hals** | ⬜ |
+
+**Steg 0+2 — riggen.** Kontaktkartorna över de 158 är gjorda och lästa. Blickserien finns i
+**åtta riktningar**: block **94–104** har neutral mun (det är den som ska bära ögonlapparna),
+**139–158** samma sak med vidöppen "oh"-mun, och **85–93 / 106–114** med leende/öppen mun.
+⚠️ **§0:s beslut att ögonföljningen är STRUKEN gäller inte längre** — materialet finns nu.
+Kvar att bygga: ny `roller.json` (`kalla: "s1face2__#####_.png"`) där kandidatlistan blir
+**varianter som slumpas** i stället för ett pose-urval, `Ansikte.min()` som slumpar variant,
+blicklappar `blick_<riktning>.webp` klippta ur ögonrutan (~0,07 MB st, som `ogon_v`/`ogon_h`)
+och ett nytt `blick(dx, dy)`. Den självklara kunden: **pappa följer maten med blicken medan
+den dras** — gapet gör det redan (0,00 → 1,00, mätt).
+⚠️ **GPU-budgeten avgör hur många varianter som får plats.** Idag: 13 miner à 423×641 RGBA =
+**13,5 MB**, basen 3,2 MB, summa ~16,7 MB (836 kB på disk — disken är inte gränsen). Tre
+varianter × 16 roller vore 50 MB, alltså 3× hela riggen. Största besparingen först: **beskär
+varje min till den ruta som faktiskt SKILJER sig från referensen** — en min är idag hela
+ansiktet trots att bara mun- och ögonpartiet rör sig. Mät före varianterna.
+
+**Steg 4 — kastet.** Opt-in `onKast` i `DragController`: ringbuffert av de senaste ~5
+`(t, x, y)` i `_onMove`, släppfart i `_onUp`, och returnerar hooken `true` görs varken
+`_snapHome` eller `_resolveDrop` — spelet äger vyn. Utan hooken exakt dagens kod, så de 72
+andra spelen är orörda. `_kasta()` lämnar sedan över till **`_gorLos(ctx, rec, {vx, vy})` som
+redan finns** och redan tar en starthastighet (gravitation, studs, materialets röst,
+`LOSA_MAX`). Konvertera px/ms → px/steg (×16,67) och takta farten.
+⚠️ **Svept segmenttest, inte punkttest:** en snabb bit flyttar sig långt per steg och skulle
+annars passera rakt genom munnen utan att någon nod märkte något — ett tyst fel utan
+konsolfel, samma familj som `drain()`s hörn-mot-centrum. Ljuden finns redan: `kast`,
+`traff_mjuk`×4, `traff_hard`×5, och minerna `chock` (hårt) och `retas` (mjukt) likaså.
+P0: draget är oförändrat och kastet är en BONUS — målet går att nå utan att kasta.
+
+**Steg 5 — köket och halsen.** Ägarens egen metod: ändra **perspektivet** på köksön,
+diskbänken och spisen mer **framifrån** än uppifrån. Då försvinner yta nertill (köksöns
+toppyta 395→566 blir grundare, bakkanten går ner mot ~445) och halsen får plats, samtidigt
+som kranen och spisen ser bättre ut. `KANT_Y` delas i två tal: `HALS_Y` (fotots halslinje) och
+`KANT_Y` (öns bakkant).
+**Halsen kan FOTOGRAFERAS, inte ritas:** nya shooten har hals och axlar i bild, och tröjan är
+en enda genom hela serien (uppmätt på 17 bilder över hela spannet: 49,7–58,9 % neutralgrå,
+inget tryck — ⚠️ en indikation, inte ett bevis; mätpunkten skiljer ton från ton, inte tryck
+från enfärgat). Håller den räcker det att utöka `RUTA.h` i `ansikte.mjs` nedåt. Faller den:
+rita halsen i en hudton **samplad ur `bas.webp`**, i ett lager BAKOM fotot så fotots undre
+fade blandar sig in.
+⚠️ Flyttas `KANT_Y` måste allt som härleds ur den räknas om: `BRADA`, `PLATSER`, `MATARE`,
+`FYSIK.golv`, `BUS.ryNer`, lagerdelningen `st.yta.y > KANT_Y`, `hakskugga`, `bankX()`, och
+`HO` (SPH-vattnets kärl) om diskhon byggs om. Träffytorna räknas om par för par — **även
+föremålens** `GRIP_R` 52 (= 104 px diameter), som var det enda P0-brott kritikern hittade.
+
 ## 5. Status / loggar
+
+- 2026-08-13 🔊 **Ägarens ljudleverans: 34 klipp, slumpade varianter, tre nya händelser**
+  (`20feffa` + `d3a0c64`, v1.200.0). Se §6 för resten av uppdraget.
+  **Slumpen ligger i tjänsten:** ett manifest-värde får vara ett fält, `sample()` väljer bland
+  de färdigavkodade och `_senast` minns valet så `sampleDuration()` svarar för det som just
+  spelades. 18 nycklar, 6 med varianter (`prutt`×5 · `traff_hard`×5 · `traff_mjuk`×4 ·
+  `svalj`×4 · `tugg_mjuk`×2 · `klunk`×2). §4:s väntelista är därmed tom — alla sju
+  röstklipp och alla tuggklipp finns.
+  **Nya händelser:** tryck på pappa (`pappa_huh`), maten tillbaka (`pappa_ehh`), prutten
+  (`bonor` + `kal` alltid, fyra saker ibland). Lucka, gegga-plopp och sväljning fick klipp.
+  ⚠️ **P0-fynd: `_mun` täckte ansiktet.** Släppmålet är en `static` nod med 130 px radie mitt
+  över pappa, så ett tryck rakt på honom hade `e.target === _mun` och `_tomtTryck` bailade —
+  den mest lockande ytan i bilden svarade inte på en pekning (`dod-traffyta`). Nu accepteras
+  munnoden när inget är valt; håller barnet en bit är samma tryck tap-tap-matning.
+  ⚠️ **Tre mätfällor i ljudimporten:** tuggklippen är SERIER och måste styckas (7,15 s ≈ 8–12
+  tuggor mot spelets 3 per bit) · reservmåttet för klipp under 0,45 s får inte vara TOPPEN
+  (gav +16,6 dB på en knapring som redan låg i nivå — nu RMS mot −19 dB) · avslutande tystnad
+  är den som når filens SLUT, inte den sista som hittades (`cabinet_open` 1,77 s → 0,29 s).
+  **Sonder:** `_klippprobe` 14/14 med kontrollarm före mätarmen (`kast` = en fil ger 1 unik
+  längd över 40 spelningar; `klunk` utelämnad — båda varianterna är 0,38 s och längden kan
+  inte skilja dem åt), ny `_handelseprobe` 8/8, ny `_matbild`.
+  ⚠️ **Två sondläxor:** `_matbild` visade att kålen var en **sköldpadda** (fyra symmetriska
+  bladflikar läste som öron och fötter), och `_handelseprobe` läste `_ans._minNamn` — ett
+  fält som inte finns — och skrev ut `null` bredvid ett grönt kryss.
 
 - 2026-08-13 😀 **Fler miner, huvudgester och ljud som följer maten** (v1.199.0). Se §5d.
   Fyra nya miner (`gasp` · `chock` · `skeptisk` · `retas`) ur shootens oanvända 84 bilder,

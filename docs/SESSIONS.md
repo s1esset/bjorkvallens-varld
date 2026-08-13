@@ -14,6 +14,96 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.200.0 · Ägarens ljudleverans: 33 klipp, slumpade varianter, tre nya händelser
+
+**Byggt:** steg 1 och 3 av ett godkänt sexstegsuppdrag (se **Öppet** — tre steg återstår).
+Ägaren gav fyra punkter: (1) kunna **kasta** mat på ansiktet, (2) ansiktet är **för dolt bakom
+köksön** — höj det och rita en hals, (3) **33 nya ljudfiler**, och där flera klipp har samma
+syfte ska ett **slumpas fram**, (4) finns klipp till händelser som inte finns — **bygg
+händelsen**. Under sessionen levererade ägaren dessutom en **helt ny fotoshoot på 158 bilder**
+(`s1face2_*`) med blickriktningar, och bad om många fler uttryck som också slumpas.
+
+**Ljudet (`20feffa`).** Slumpen ligger i TJÄNSTEN, inte i spelen: ett värde i
+`public/audio/sfx/manifest.json` får vara ett **fält**, `_sampleUrls`/`_samples` bär listor,
+`_valjBuffert()` slumpar bland de FÄRDIGAVKODADE och `_senast` minns valet så
+`sampleDuration()` svarar för det som just spelades. Enkla namn beter sig exakt som förut. En
+slinga väljer variant EN gång, vid start. Ny `scripts/importera-ljud.mjs` (mätt trimning +
+nivåsättning): 34 klipp, 18 nycklar, 6 med varianter.
+
+Tre mätningar styrde utfallet, alla tre sådant som inte syns i kod:
+- **Tuggklippen är SERIER.** `chewing_cracker` är 7,15 s ≈ 8–12 tuggor och `chew_smack` 5,53 s.
+  Spelet spelar ett tuggljud per sammanbitning (3 för mjuk mat, 2 för seg), så ett helt klipp
+  hade gett trettio tuggor för tre. Snittpunkterna lästa ur `silencedetect`.
+- **Reservmåttet för klipp < 0,45 s får INTE vara toppen.** R128 kan inte mäta under 400 ms
+  (gate-blocket), och en kort smäll toppar nära 0 dB vid en RMS 20 dB under rösten:
+  topp-normalisering gav **+16,6 dB på en knapring som redan låg i nivå**. Nu RMS mot −19 dB,
+  mätt ur de klipp som redan ligger på −18 LUFS (pappa_mmm −18,0 · djur_hund −19,8).
+- **Avslutande tystnad är den som når filens SLUT**, inte "den sista som hittades".
+  `cabinet_open` har en paus mitt i och inget tyst slut; regeln kapade 1,77 s → 0,29 s och
+  lämnade ett nästan tyst fragment som behövde +35,9 dB.
+
+**Händelserna (`d3a0c64`).** Två av dem FANNS inte — ägaren hade spelat in ljud för dem, så
+händelsen byggdes (punkt 4). **Tryck på pappa** → "huh?", tvekan, blink. **Maten lades
+tillbaka** → besviket "ehh" (pappa gapade ju på vägen, så tystnaden läste som att ingenting
+hänt). **Prutten** → nya `bonor` + `kal` i katalogen pruttar alltid, fyra saker ibland (35 %),
+med `skratt`-min och puff; kostar ingenting i mätaren. Luckan, geggans plopp och sväljningen
+fick sina klipp. `svalj` är en hög av **fyra** där pappas EGEN sväljning ligger bland tre
+foley — samma syfte = samma hög.
+
+⚠️ **P0-fynd, det viktigaste i sessionen:** `_mun` är släppmålet och en `static` nod med 130 px
+radie, alltså **mitt över pappas ansikte**. Ett tryck rakt på honom hade `e.target === _mun`
+och `_tomtTryck` bailade — den mest lockande ytan i hela bilden svarade INTE på en pekning.
+Det är `dod-traffyta`, samma familj som stationen som svalde en pekning under finalen i
+v1.190, och det syntes först när en sond tryckte där. Håller barnet redan en bit är samma
+tryck tap-tap-matning och får inte kapas.
+
+**Sonder:** `_klippprobe` utökad till 14/14 (varianter, med kontrollarm FÖRE mätarmen: `kast`
+= EN fil ger 1 unik längd över 40 spelningar, `prutt` 5/5 och `traff_hard` 5/5 över 80).
+`klunk` är med flit utelämnad — dess två varianter är båda 0,38 s, så längden kan inte skilja
+dem åt. Ny `_handelseprobe` 8/8, varje rad med kontrollarm. Ny `_matbild` för att se
+katalogen — och den behövdes.
+
+**Tre sondläxor:**
+- `_matbild` visade att **kålen var en sköldpadda**: fyra symmetriska bladflikar i silhuettens
+  hörn läste som öron och fötter. Blad viker sig nedåt av egen tyngd, aldrig uppåt i par.
+- `_handelseprobe` läste `_ans._minNamn`, **ett fält som inte finns** — den gav `null` varje
+  gång och skrevs ut bredvid ett grönt kryss. En rad som ser mätt ut men mäter ingenting.
+- En **blicksond byggdes och kastades**. Den skulle mäta irisens läge automatiskt, men föll på
+  sin egen kalibrering två gånger: först mätte den bakgrunden (`-background white` gjorde den
+  genomskinliga omgivningen till "ögonvita"), sedan gav bilder som bevisligen tittar rakt in i
+  kameran ±0,35. Blickriktningarna assignas i stället för hand ur stora ögonurklipp och
+  verifieras i `_ansiktebild`, där en felvänd blick syns direkt.
+
+**Commits:** `20feffa` feat(ljud): 34 klipp + slumpade varianter · `d3a0c64` feat(mata-munnen):
+tre nya händelser, två nya matbitar och en död träffyta · `75ea435` chore: ignorera `.tmp-ljud`
+· `<voice>` chore(rost): två klipp
+
+**Byggd och serverad:** v1.200.0 ligger på `https://andreas-psai1.tail4e6703.ts.net:8445`
+(telefonen körde v1.157.0 före det). Ägaren testar ljudet.
+
+**Öppet — tre av sex steg återstår** (planen är godkänd, se `docs/games/mata-munnen.md` §6):
+- **Steg 0+2, riggen.** 158 nya bilder ligger i `ComfyUI/output` som `s1face2__000NN_.png`.
+  Kontaktkartor gjorda och lästa; blickserien finns i **åtta riktningar** (block 94–104 med
+  neutral mun, 139–158 med "oh"-mun), så beslutet i `mata-munnen.md` §0 att ögonföljningen är
+  omöjlig **gäller inte längre**. Kvar: ny `roller.json` med kandidatlistor som blir
+  VARIANTER, diff-beskärning av minerna (GPU-budgeten: 13 miner à 423×641 = 13,5 MB idag, och
+  3 varianter × 16 roller vore 50 MB), blicklappar à ~0,07 MB, `min()` som slumpar variant och
+  ny `blick(dx, dy)`.
+- **Steg 4, kastet.** Opt-in `onKast` i `DragController` (släppfart ur ringbuffert) →
+  `_gorLos` som redan tar en starthastighet. Svept segmenttest mot mun/ansiktsellips, inte
+  punkttest. Ljuden finns redan (`kast`, `traff_mjuk`×4, `traff_hard`×5).
+- **Steg 5, köket.** Ägarens metodval: ändra **perspektivet** på köksön, diskbänken och spisen
+  mer framifrån — då försvinner yta nertill och halsen får plats. Nya shooten har hals OCH
+  axlar i bild med **en enda tröja** genom serien (uppmätt på 17 bilder: 49,7–58,9 % neutralgrå,
+  inget tryck — en indikation, inte ett bevis), så halsen kan **fotograferas** i stället för
+  ritas genom att `RUTA.h` i `ansikte.mjs` utökas nedåt.
+- **Ej verifierat av mig:** tuggklippens och klunkens snittpunkter är valda på ljudstruktur och
+  längd, inte på gehör. Låter en tugga avhuggen är det en siffra i `KLIPP`-tabellen i
+  `scripts/importera-ljud.mjs`. `bottle_blow.mp3` importerades medvetet inte — det finns ingen
+  flaska att blåsa i.
+
+---
+
 ## 2026-08-13 · v1.199.1 · Fler ansiktsuttryck och ljud som följer maten
 
 **Byggt:** ägaruppdraget *"kör allt du kan"* på fler miner och mer ljud, medan ägaren tar

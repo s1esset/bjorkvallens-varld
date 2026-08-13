@@ -90,7 +90,16 @@ halverat ögonlager, huvudgester (`nick` · `tveka` · `ryck` · `lutaMot`) och 
 materialdriven i fyra profiler med ljud på käkens egen takt, och `AudioService` fick slingor så
 kranen, spisen och fläkten låter medan de står på. Sonder: `_ansiktebild` (andningsmätning +
 `--bara`) · `_munprobe` (LUTA · TUGG · LJUD · EXIT + `--trace`). Statusen ✅/✅ oförändrad.
-**Väntar på ägaren:** nio inspelade klipp, se `mata-munnen.md` §4 Ljud — krokarna finns i koden.
+✅ **Ägarens ljudleverans är inlagd** (v1.200): 33 nya filer → **34 klipp, 18 nycklar**, och
+`AudioService` slumpar nu mellan **varianter** när flera klipp har samma syfte (`prutt`×5 ·
+`traff_hard`×5 · `traff_mjuk`×4 · `svalj`×4 · `tugg_mjuk`×2 · `klunk`×2). Tre nya händelser
+byggdes för klipp som saknade en: **tryck på pappa** (`pappa_huh`), **maten lades tillbaka**
+(`pappa_ehh`) och **prutten** (nya `bonor` + `kal`). §4:s väntelista är tom.
+⚠️ **P0-fynd:** munnens släppmål (130 px `static`) täckte ansiktet, så ett tryck rakt på pappa
+svarade inte alls — `dod-traffyta`. Sonder: `_klippprobe` 14/14 · ny `_handelseprobe` 8/8 ·
+ny `_matbild`. Statusen ✅/✅ oförändrad.
+**Pågår:** ägaruppdrag 2, tre av sex steg kvar (riggen med 158 nya bilder **inkl. blick** ·
+kastet · front-on kök med hals) — se `mata-munnen.md` §6.
 
 ✅ **Speltestat av ägaren på telefon och åtgärdat** (v1.196–1.197, ÅTGÄRDER #8–#12). Pappa har
 nio inspelade uttrycksljud, geggan kladdar och rinner i stället för att svälla ovanpå en

@@ -13,6 +13,7 @@
 // blev andra kunden. Ingen ritning ändrades i flytten; `citron` och `chili` tillkom
 // (`mata-munnen` behöver en SUR och en HET mat för att ansiktets miner ska ha en orsak).
 import { Container, Graphics } from 'pixi.js'
+import { sphereFill, topLightFill, cylinderFill } from './form.js'
 
 // --- små färg-hjälpare (mörkare kontur / ljusare dager) ---
 function darken(hex, amt = 0.25) {
@@ -33,7 +34,7 @@ function buildApple() {
   leaf.moveTo(-12, 0).lineTo(12, 0).stroke({ width: 2, color: 0x3f7d2c, alpha: 0.7 })
   leaf.position.set(18, -44)
   leaf.rotation = -0.25
-  const body = new Graphics().ellipse(0, 8, 54, 56).fill(0xe23b3b).stroke({ width: 6, color: 0xa31f1f })
+  const body = new Graphics().ellipse(0, 8, 54, 56).fill(sphereFill(0xe23b3b)).stroke({ width: 6, color: 0xa31f1f })
   const dimple = new Graphics().ellipse(0, -42, 16, 8).fill({ color: 0x9a1d1d, alpha: 0.35 })
   const crease = new Graphics().moveTo(3, -28).quadraticCurveTo(11, 12, 3, 56).stroke({ width: 3, color: 0xb02a2a, alpha: 0.4 })
   const shine = new Graphics().ellipse(-22, -8, 16, 24).fill({ color: 0xffffff, alpha: 0.45 })
@@ -51,7 +52,7 @@ function buildBanana() {
     .quadraticCurveTo(40, 2, 34, 2)
     .quadraticCurveTo(-2, -34, -44, 2)
     .quadraticCurveTo(-56, 4, -54, -4)
-    .fill(0xffce3a)
+    .fill(cylinderFill(0xffce3a, { axis: 'x' }))
     .stroke({ width: 6, color: 0xd99a1f })
   const ridge = new Graphics().moveTo(-44, -4).quadraticCurveTo(-4, -46, 46, -12).stroke({ width: 4, color: 0xf4e08a, alpha: 0.85 })
   const tipL = new Graphics().circle(-52, -2, 6).fill(0x6e4a1e)
@@ -69,7 +70,7 @@ function buildStrawberry() {
     .quadraticCurveTo(0, -44, 46, -22)
     .quadraticCurveTo(44, 24, 0, 58)
     .quadraticCurveTo(-44, 24, -46, -22)
-    .fill(0xe83a4a)
+    .fill(sphereFill(0xe83a4a))
     .stroke({ width: 6, color: 0xb31f30 })
   const seeds = new Graphics()
   const sp = [[-26, -6], [-6, 4], [16, -8], [28, 10], [-18, 18], [4, 26], [-30, 16], [22, -22], [0, -14], [-12, -22], [12, 14]]
@@ -94,8 +95,8 @@ function buildCherry() {
   const leaf = new Graphics().ellipse(0, 0, 16, 8).fill(0x6fbf52).stroke({ width: 2, color: 0x4f9a38 })
   leaf.position.set(20, -44)
   leaf.rotation = -0.4
-  const c1 = new Graphics().circle(-16, 24, 22).fill(0xd62b3a).stroke({ width: 5, color: 0x9c1c28 })
-  const c2 = new Graphics().circle(20, 28, 22).fill(0xe23b4a).stroke({ width: 5, color: 0x9c1c28 })
+  const c1 = new Graphics().circle(-16, 24, 22).fill(sphereFill(0xd62b3a)).stroke({ width: 5, color: 0x9c1c28 })
+  const c2 = new Graphics().circle(20, 28, 22).fill(sphereFill(0xe23b4a)).stroke({ width: 5, color: 0x9c1c28 })
   const s1 = new Graphics().circle(-22, 16, 6).fill({ color: 0xffffff, alpha: 0.5 })
   const s2 = new Graphics().circle(14, 20, 6).fill({ color: 0xffffff, alpha: 0.5 })
   c.addChild(stalk, leaf, c1, c2, s1, s2)
@@ -110,7 +111,7 @@ function buildGrape() {
   leaf.rotation = -0.3
   const berries = new Graphics()
   const pos = [[0, -30], [-22, -12], [22, -12], [-36, 8], [0, 6], [36, 8], [-20, 26], [20, 26], [0, 44]]
-  for (const [x, y] of pos) berries.circle(x, y, 15).fill(0x8e6bd0).stroke({ width: 3, color: 0x6a48ad })
+  for (const [x, y] of pos) berries.circle(x, y, 15).fill(sphereFill(0x8e6bd0)).stroke({ width: 3, color: 0x6a48ad })
   const shines = new Graphics()
   for (const [x, y] of [[-22, -16], [0, 2], [20, 22]]) shines.circle(x - 4, y - 4, 4).fill({ color: 0xffffff, alpha: 0.5 })
   c.addChild(stem, leaf, berries, shines)
@@ -119,7 +120,7 @@ function buildGrape() {
 
 function buildOrange() {
   const c = new Container()
-  const body = new Graphics().circle(0, 6, 52).fill(0xff9e2c).stroke({ width: 6, color: 0xd9791a })
+  const body = new Graphics().circle(0, 6, 52).fill(sphereFill(0xff9e2c)).stroke({ width: 6, color: 0xd9791a })
   const pores = new Graphics()
   for (let i = 0; i < 16; i++) {
     const a = Math.random() * Math.PI * 2
@@ -137,7 +138,7 @@ function buildOrange() {
 
 function buildWatermelon() {
   const c = new Container()
-  const flesh = new Graphics().arc(0, -6, 52, 0, Math.PI).fill(0xf2566a)
+  const flesh = new Graphics().arc(0, -6, 52, 0, Math.PI).fill(topLightFill(0xf2566a, { highlight: 0.12, dark: 0.1 }))
   const white = new Graphics().arc(0, -6, 52, 0, Math.PI).stroke({ width: 8, color: 0xfff3f0 })
   const rind = new Graphics().arc(0, -6, 57, 0, Math.PI).stroke({ width: 12, color: 0x5fae3f })
   const rindDark = new Graphics().arc(0, -6, 57, 0, Math.PI).stroke({ width: 4, color: 0x3f8a2c })
@@ -156,7 +157,7 @@ function buildPear() {
   leaf.position.set(16, -48)
   leaf.rotation = -0.3
   const body = new Graphics()
-  body.circle(0, 22, 40).circle(0, -16, 26).fill(0xbfd84a)
+  body.circle(0, 22, 40).circle(0, -16, 26).fill(sphereFill(0xbfd84a, { dark: 0.22 }))
   const ol = new Graphics()
   ol.circle(0, 22, 40).stroke({ width: 6, color: 0x8aa72f, alpha: 0.9 })
   ol.circle(0, -16, 26).stroke({ width: 6, color: 0x8aa72f, alpha: 0.9 })
@@ -174,7 +175,7 @@ function buildCarrot() {
   const tops = new Graphics()
   for (const a of [-0.4, -0.1, 0.2, 0.5]) tops.moveTo(0, -28).quadraticCurveTo(Math.sin(a) * 18, -58, Math.sin(a) * 30, -66)
   tops.stroke({ width: 7, color: 0x4f9a38, cap: 'round' })
-  const root = new Graphics().moveTo(-26, -30).lineTo(26, -30).lineTo(0, 58).closePath().fill(0xff8a2c).stroke({ width: 6, color: 0xd9701a })
+  const root = new Graphics().moveTo(-26, -30).lineTo(26, -30).lineTo(0, 58).closePath().fill(cylinderFill(0xff8a2c)).stroke({ width: 6, color: 0xd9701a })
   const ridges = new Graphics()
   for (const y of [-14, 2, 18, 34]) {
     const w = 22 * (1 - (y + 30) / 92)
@@ -187,10 +188,10 @@ function buildCarrot() {
 
 function buildBroccoli() {
   const c = new Container()
-  const stalk = new Graphics().roundRect(-14, 6, 28, 48, 12).fill(0xbfd89a).stroke({ width: 5, color: 0x8fae6a })
+  const stalk = new Graphics().roundRect(-14, 6, 28, 48, 12).fill(cylinderFill(0xbfd89a)).stroke({ width: 5, color: 0x8fae6a })
   const fp = [[0, -34], [-26, -22], [26, -22], [-14, -6], [14, -6], [0, -16], [-34, -4], [34, -4]]
   const florets = new Graphics()
-  for (const [x, y] of fp) florets.circle(x, y, 18).fill(0x4f9a3a)
+  for (const [x, y] of fp) florets.circle(x, y, 18).fill(sphereFill(0x4f9a3a))
   const bump = new Graphics()
   for (const [x, y] of fp) {
     for (let i = 0; i < 4; i++) {
@@ -211,7 +212,7 @@ function buildCorn() {
   const husk = new Graphics()
   husk.moveTo(-10, 42).quadraticCurveTo(-40, 30, -34, -6).quadraticCurveTo(-22, 30, -8, 36).fill(0x6fae3a).stroke({ width: 3, color: 0x4f8a2c })
   husk.moveTo(10, 42).quadraticCurveTo(40, 30, 34, -6).quadraticCurveTo(22, 30, 8, 36).fill(0x6fae3a).stroke({ width: 3, color: 0x4f8a2c })
-  const cob = new Graphics().ellipse(0, 2, 28, 46).fill(0xffd84a).stroke({ width: 6, color: 0xe0b020 })
+  const cob = new Graphics().ellipse(0, 2, 28, 46).fill(cylinderFill(0xffd84a)).stroke({ width: 6, color: 0xe0b020 })
   const kernels = new Graphics()
   for (let r = 0; r < 7; r++) {
     for (let col = -2; col <= 2; col++) {
@@ -227,7 +228,7 @@ function buildCorn() {
 
 function buildTomato() {
   const c = new Container()
-  const body = new Graphics().ellipse(0, 8, 52, 46).fill(0xe83a3a).stroke({ width: 6, color: 0xb31f1f })
+  const body = new Graphics().ellipse(0, 8, 52, 46).fill(sphereFill(0xe83a3a)).stroke({ width: 6, color: 0xb31f1f })
   const calyx = new Graphics()
   for (const a of [-1.0, -0.5, 0, 0.5, 1.0]) calyx.moveTo(0, -30).lineTo(Math.sin(a) * 22, -30 - Math.cos(a) * 16).lineTo(Math.sin(a) * 8, -24)
   calyx.fill(0x4f9a3a).stroke({ width: 2, color: 0x357326 })
@@ -241,7 +242,7 @@ function buildTomato() {
 
 function buildCookie() {
   const c = new Container()
-  const body = new Graphics().circle(0, 4, 52).fill(0xddb066).stroke({ width: 6, color: 0xb98a44 })
+  const body = new Graphics().circle(0, 4, 52).fill(topLightFill(0xddb066)).stroke({ width: 6, color: 0xb98a44 })
   const chips = new Graphics()
   for (const [x, y] of [[-22, -12], [10, -20], [24, 6], [-10, 18], [6, 26], [-28, 12], [18, -4], [0, -2]]) chips.circle(x, y + 4, 6).fill(0x5a3a22)
   const crumbs = new Graphics()
@@ -253,14 +254,14 @@ function buildCookie() {
 
 function buildCupcake() {
   const c = new Container()
-  const wrap = new Graphics().moveTo(-38, 2).lineTo(38, 2).lineTo(30, 52).lineTo(-30, 52).closePath().fill(0xf2a65a).stroke({ width: 5, color: 0xd1843a })
+  const wrap = new Graphics().moveTo(-38, 2).lineTo(38, 2).lineTo(30, 52).lineTo(-30, 52).closePath().fill(topLightFill(0xf2a65a)).stroke({ width: 5, color: 0xd1843a })
   const lines = new Graphics()
   for (const x of [-20, -7, 7, 20]) lines.moveTo(x, 4).lineTo(x * 0.78, 50).stroke({ width: 3, color: 0xd1843a, alpha: 0.6 })
   const frosting = new Graphics()
-  frosting.ellipse(0, -2, 40, 18).fill(0xfff0f4)
-  frosting.ellipse(0, -16, 30, 16).fill(0xffd1e0)
-  frosting.ellipse(0, -30, 20, 14).fill(0xffb3d0)
-  frosting.ellipse(0, -42, 11, 10).fill(0xff9ec4)
+  frosting.ellipse(0, -2, 40, 18).fill(sphereFill(0xfff0f4, { highlight: 0.3, dark: 0.12 }))
+  frosting.ellipse(0, -16, 30, 16).fill(sphereFill(0xffd1e0, { highlight: 0.3, dark: 0.14 }))
+  frosting.ellipse(0, -30, 20, 14).fill(sphereFill(0xffb3d0, { highlight: 0.3, dark: 0.14 }))
+  frosting.ellipse(0, -42, 11, 10).fill(sphereFill(0xff9ec4, { highlight: 0.3, dark: 0.14 }))
   const fol = new Graphics().ellipse(0, -2, 40, 18).stroke({ width: 4, color: 0xf3a7c4, alpha: 0.6 })
   const sprinkles = new Graphics()
   const cols = [0xff6b6b, 0x4aa3df, 0xffd35c, 0x5bbf6a, 0xa78bfa]
@@ -269,7 +270,7 @@ function buildCupcake() {
     const y = -30 + Math.random() * 26
     sprinkles.roundRect(x, y, 7, 3, 1.5).fill(cols[i % cols.length])
   }
-  const cherry = new Graphics().circle(0, -50, 7).fill(0xe23b3a).stroke({ width: 2, color: 0x9c1c28 })
+  const cherry = new Graphics().circle(0, -50, 7).fill(sphereFill(0xe23b3a)).stroke({ width: 2, color: 0x9c1c28 })
   c.addChild(wrap, lines, frosting, fol, sprinkles, cherry)
   return c
 }
@@ -303,7 +304,7 @@ function buildCandy() {
   for (const y of [-8, 0, 8]) twL.moveTo(-34, y).lineTo(-50, y * 1.6).stroke({ width: 2, color: 0xd94f82, alpha: 0.6 })
   const twR = new Graphics()
   for (const y of [-8, 0, 8]) twR.moveTo(34, y).lineTo(50, y * 1.6).stroke({ width: 2, color: 0xd94f82, alpha: 0.6 })
-  const body = new Graphics().ellipse(0, 0, 34, 28).fill(0xff5e93).stroke({ width: 5, color: 0xd94f82 })
+  const body = new Graphics().ellipse(0, 0, 34, 28).fill(sphereFill(0xff5e93)).stroke({ width: 5, color: 0xd94f82 })
   const stripes = new Graphics()
   stripes.moveTo(-20, -16).lineTo(-2, 20).moveTo(6, -20).lineTo(22, 14).stroke({ width: 5, color: 0xffd1e0, alpha: 0.7 })
   const shine = new Graphics().ellipse(-12, -8, 9, 6).fill({ color: 0xffffff, alpha: 0.5 })
@@ -314,7 +315,7 @@ function buildCandy() {
 function buildLollipop() {
   const c = new Container()
   const stick = new Graphics().roundRect(-4, 30, 8, 40, 4).fill(0xfff7e6).stroke({ width: 2, color: 0xd9cdb0 })
-  const disc = new Graphics().circle(0, 0, 46).fill(0xffffff).stroke({ width: 6, color: 0xe0a0c0 })
+  const disc = new Graphics().circle(0, 0, 46).fill(sphereFill(0xffffff, { highlight: 0, dark: 0.12 })).stroke({ width: 6, color: 0xe0a0c0 })
   const swirl = new Graphics()
   let first = true
   for (let t = 0; t <= Math.PI * 6; t += 0.2) {
@@ -334,10 +335,10 @@ function buildLollipop() {
 
 function buildCake() {
   const c = new Container()
-  const sponge = new Graphics().moveTo(-50, 16).lineTo(48, -24).lineTo(48, 44).closePath().fill(0xf4c98a).stroke({ width: 5, color: 0xd1a35f })
+  const sponge = new Graphics().moveTo(-50, 16).lineTo(48, -24).lineTo(48, 44).closePath().fill(topLightFill(0xf4c98a)).stroke({ width: 5, color: 0xd1a35f })
   const creamMid = new Graphics().moveTo(-50, 30).lineTo(48, 2).lineTo(48, 12).lineTo(-50, 40).closePath().fill(0xfff0f4)
-  const frostTop = new Graphics().moveTo(-50, 12).lineTo(48, -28).lineTo(48, -14).lineTo(-50, 26).closePath().fill(0xffd1e0).stroke({ width: 3, color: 0xf3a7c4 })
-  const cherry = new Graphics().circle(34, -26, 8).fill(0xe23b3a).stroke({ width: 2, color: 0x9c1c28 })
+  const frostTop = new Graphics().moveTo(-50, 12).lineTo(48, -28).lineTo(48, -14).lineTo(-50, 26).closePath().fill(topLightFill(0xffd1e0, { highlight: 0.15, dark: 0.1 })).stroke({ width: 3, color: 0xf3a7c4 })
+  const cherry = new Graphics().circle(34, -26, 8).fill(sphereFill(0xe23b3a)).stroke({ width: 2, color: 0x9c1c28 })
   const shine = new Graphics().circle(31, -29, 3).fill({ color: 0xffffff, alpha: 0.6 })
   c.addChild(sponge, creamMid, frostTop, cherry, shine)
   return c
@@ -354,11 +355,11 @@ function buildLemon() {
     .quadraticCurveTo(52, -40, 56, 0)
     .quadraticCurveTo(52, 40, 0, 40)
     .quadraticCurveTo(-52, 40, -56, 0)
-    .fill(0xffe14a)
+    .fill(sphereFill(0xffe14a))
     .stroke({ width: 6, color: 0xd9a91f })
   // Spetsarna är citronens signatur — utan dem läses den som en gul boll.
-  const tipL = new Graphics().ellipse(-58, 0, 10, 7).fill(0xffe14a).stroke({ width: 5, color: 0xd9a91f })
-  const tipR = new Graphics().ellipse(58, 0, 10, 7).fill(0xffe14a).stroke({ width: 5, color: 0xd9a91f })
+  const tipL = new Graphics().ellipse(-58, 0, 10, 7).fill(sphereFill(0xffe14a)).stroke({ width: 5, color: 0xd9a91f })
+  const tipR = new Graphics().ellipse(58, 0, 10, 7).fill(sphereFill(0xffe14a)).stroke({ width: 5, color: 0xd9a91f })
   const pores = new Graphics()
   for (const [x, y] of [[-26, -12], [-6, 14], [18, -18], [30, 10], [4, -6]])
     pores.circle(x, y, 2.5).fill({ color: 0xd9a91f, alpha: 0.5 })
@@ -381,7 +382,7 @@ function buildChili() {
     .quadraticCurveTo(-8, 44, -4, 14)
     .quadraticCurveTo(-6, -14, -30, -28)
     .closePath()
-    .fill(0xe0342c)
+    .fill(cylinderFill(0xe0342c))
     .stroke({ width: 6, color: 0x9c1c22 })
   const stem = new Graphics()
   stem.moveTo(-30, -30).quadraticCurveTo(-16, -50, 6, -52).stroke({ width: 10, color: 0x4f9a38, cap: 'round' })

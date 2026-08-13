@@ -9,6 +9,7 @@
 //    och drar ett streck från förra formen (se POLERINGSRUNDA.md, sjätte läckan). Därför
 //    används quadraticCurveTo/moveTo här — ingen naken arc().
 import { Graphics } from 'pixi.js'
+import { sphereFill, topLightFill, cylinderFill } from '../../lib/form.js'
 
 const G = () => new Graphics()
 
@@ -17,14 +18,14 @@ const gloss = (g, x, y, r, a = 0.35) => g.circle(x, y, r).fill({ color: 0xffffff
 
 // Rund skiva (tomat, zucchini …): skal + kött + glans.
 function disc(rim, flesh, r = 34, rimW = 5) {
-  const g = G().circle(0, 0, r).fill(rim).circle(0, 0, r - rimW).fill(flesh)
+  const g = G().circle(0, 0, r).fill(rim).circle(0, 0, r - rimW).fill(topLightFill(flesh))
   gloss(g, -r * 0.34, -r * 0.36, r * 0.2, 0.4)
   return g
 }
 
 // Ring/donut (oliv, lök, ananas, calamari): ytterring med urgröpt mitt.
 function ring(outer, inner, hole, r = 34, thick = 12) {
-  const g = G().circle(0, 0, r).fill(outer).circle(0, 0, r - 4).fill(inner).circle(0, 0, r - thick).fill(hole)
+  const g = G().circle(0, 0, r).fill(outer).circle(0, 0, r - 4).fill(topLightFill(inner)).circle(0, 0, r - thick).fill(hole)
   gloss(g, -r * 0.4, -r * 0.4, r * 0.16, 0.4)
   return g
 }
@@ -32,7 +33,7 @@ function ring(outer, inner, hole, r = 34, thick = 12) {
 // Blad med mittnerv — basilika, spenat, ruccola.
 function leaf(fill, vein, w = 28, h = 42) {
   const g = G()
-  g.moveTo(0, -h).quadraticCurveTo(w, -h * 0.2, 0, h).quadraticCurveTo(-w, -h * 0.2, 0, -h).fill(fill)
+  g.moveTo(0, -h).quadraticCurveTo(w, -h * 0.2, 0, h).quadraticCurveTo(-w, -h * 0.2, 0, -h).fill(topLightFill(fill))
   g.moveTo(0, -h * 0.78).lineTo(0, h * 0.78).stroke({ width: 3, color: vein })
   for (let i = -1; i <= 1; i++) {
     const y = i * h * 0.3
@@ -72,7 +73,7 @@ function sock(main, cuff, dirty) {
 function cheeseWedge(body, light, holes) {
   const g = G()
   g.moveTo(-38, 22).lineTo(30, -26).quadraticCurveTo(40, -30, 40, -18).lineTo(40, 18)
-    .quadraticCurveTo(40, 26, 30, 26).closePath().fill(body)
+    .quadraticCurveTo(40, 26, 30, 26).closePath().fill(topLightFill(body))
   g.moveTo(-38, 22).lineTo(30, -26).quadraticCurveTo(40, -30, 40, -18).lineTo(-30, 26).closePath()
     .fill({ color: light, alpha: 0.85 })
   for (const [x, y, r] of [[10, 4, 7], [26, -8, 5], [2, 16, 4]]) g.circle(x, y, r).fill(holes)
@@ -95,7 +96,7 @@ const DRAW = {
   svamp: () => {
     const g = G()
     g.roundRect(-11, 0, 22, 32, 9).fill(0xf5ead2).stroke({ width: 3, color: 0xe0d2b4 })
-    g.moveTo(-40, 4).quadraticCurveTo(-38, -38, 0, -38).quadraticCurveTo(38, -38, 40, 4).closePath().fill(0xb5734a)
+    g.moveTo(-40, 4).quadraticCurveTo(-38, -38, 0, -38).quadraticCurveTo(38, -38, 40, 4).closePath().fill(topLightFill(0xb5734a))
     g.moveTo(-40, 2).quadraticCurveTo(0, 14, 40, 2).lineTo(40, 4).quadraticCurveTo(0, 16, -40, 4).closePath().fill(0x94592f)
     g.ellipse(-16, -18, 8, 5).fill({ color: 0xd8a077, alpha: 0.8 })
     g.ellipse(14, -22, 6, 4).fill({ color: 0xd8a077, alpha: 0.7 })
@@ -103,7 +104,7 @@ const DRAW = {
   },
 
   paprika: () => {
-    const g = G().circle(0, 0, 36).fill(0x3fa03a).circle(0, 0, 31).fill(0x62c455)
+    const g = G().circle(0, 0, 36).fill(0x3fa03a).circle(0, 0, 31).fill(topLightFill(0x62c455))
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2 - Math.PI / 2
       g.ellipse(Math.cos(a) * 13, Math.sin(a) * 13, 12, 9).fill(0xd9f0c4)
@@ -118,7 +119,7 @@ const DRAW = {
   majs: () => {
     const g = G()
     g.moveTo(-22, 30).quadraticCurveTo(-30, -20, 0, -38).quadraticCurveTo(30, -20, 22, 30)
-      .quadraticCurveTo(0, 38, -22, 30).fill(0xf2c33c)
+      .quadraticCurveTo(0, 38, -22, 30).fill(cylinderFill(0xf2c33c))
     for (let r = 0; r < 5; r++) {
       for (let c = -2; c <= 2; c++) {
         const x = c * 9 + (r % 2 ? 4.5 : 0)
@@ -142,7 +143,7 @@ const DRAW = {
 
   fisk: () => {
     const g = G()
-    g.ellipse(2, 0, 34, 21).fill(0x69b6d8)
+    g.ellipse(2, 0, 34, 21).fill(topLightFill(0x69b6d8))
     g.moveTo(-30, 0).lineTo(-48, -16).lineTo(-48, 16).closePath().fill(0x4f9bbd)
     g.moveTo(4, -20).quadraticCurveTo(12, -34, 22, -18).closePath().fill(0x4f9bbd)
     g.ellipse(4, 6, 26, 12).fill({ color: 0xb7e2f2, alpha: 0.75 })
@@ -156,7 +157,7 @@ const DRAW = {
     const g = G()
     for (let i = 0; i < 6; i++) {
       const a = -0.5 + i * 0.42
-      g.circle(Math.cos(a) * 26 - 6, Math.sin(a) * 24 - 2, 14 - i * 1.1).fill(i % 2 ? 0xff9a72 : 0xf87e55)
+      g.circle(Math.cos(a) * 26 - 6, Math.sin(a) * 24 - 2, 14 - i * 1.1).fill(sphereFill(i % 2 ? 0xff9a72 : 0xf87e55))
     }
     g.moveTo(-16, -22).lineTo(-34, -34).lineTo(-30, -16).closePath().fill(0xf87e55)
     g.circle(20, -14, 3).fill(0x2f2a26)
@@ -169,7 +170,7 @@ const DRAW = {
     const g = G()
     g.moveTo(-44, -14).quadraticCurveTo(-14, -26, 6, -12).quadraticCurveTo(28, 2, 46, -10)
       .lineTo(46, 12).quadraticCurveTo(28, 24, 6, 10).quadraticCurveTo(-14, -4, -44, 8).closePath()
-      .fill(0xd9603f)
+      .fill(topLightFill(0xd9603f))
     g.moveTo(-44, -4).quadraticCurveTo(-14, -16, 6, -2).quadraticCurveTo(28, 12, 46, 0)
       .stroke({ width: 6, color: 0xf7d9c4 })
     return g
@@ -177,9 +178,9 @@ const DRAW = {
 
   broccoli: () => {
     const g = G()
-    g.roundRect(-8, 6, 16, 30, 7).fill(0xa9d17a)
+    g.roundRect(-8, 6, 16, 30, 7).fill(cylinderFill(0xa9d17a))
     for (const [x, y, r] of [[-24, -6, 17], [0, -18, 20], [24, -6, 17], [-12, 6, 15], [13, 6, 15]]) {
-      g.circle(x, y, r).fill(0x4e9c3f)
+      g.circle(x, y, r).fill(sphereFill(0x4e9c3f))
     }
     for (const [x, y, r] of [[-20, -12, 6], [4, -24, 7], [22, -10, 5]]) {
       g.circle(x, y, r).fill({ color: 0x6fbd57, alpha: 0.9 })
@@ -189,7 +190,7 @@ const DRAW = {
 
   morot: () => {
     const g = G()
-    g.moveTo(-8, -18).lineTo(8, -18).lineTo(4, 40).quadraticCurveTo(0, 46, -4, 40).closePath().fill(0xf0873a)
+    g.moveTo(-8, -18).lineTo(8, -18).lineTo(4, 40).quadraticCurveTo(0, 46, -4, 40).closePath().fill(cylinderFill(0xf0873a))
     for (let i = 0; i < 4; i++) {
       const y = -8 + i * 12
       g.moveTo(-7 + i, y).lineTo(6 - i, y + 3).stroke({ width: 2, color: 0xd06b22 })
@@ -203,7 +204,7 @@ const DRAW = {
   chili: () => {
     const g = G()
     g.moveTo(-4, -22).quadraticCurveTo(28, -14, 26, 16).quadraticCurveTo(24, 40, 6, 38)
-      .quadraticCurveTo(14, 22, 10, 6).quadraticCurveTo(6, -10, -4, -22).fill(0xd8342c)
+      .quadraticCurveTo(14, 22, 10, 6).quadraticCurveTo(6, -10, -4, -22).fill(cylinderFill(0xd8342c))
     g.moveTo(2, -14).quadraticCurveTo(18, -6, 17, 14).stroke({ width: 4, color: 0xf5705f })
     g.moveTo(-4, -22).quadraticCurveTo(-14, -32, -22, -30).stroke({ width: 8, color: 0x5faa42, cap: 'round' })
     return g
@@ -242,7 +243,7 @@ const DRAW = {
 
   kyckling: () => {
     const g = G()
-    g.ellipse(6, -6, 26, 24).fill(0xc8813f)
+    g.ellipse(6, -6, 26, 24).fill(topLightFill(0xc8813f))
     g.ellipse(2, -12, 16, 12).fill({ color: 0xe0a262, alpha: 0.7 })
     g.roundRect(-4, 8, 14, 30, 7).fill(0xf6ecd6).stroke({ width: 3, color: 0xdccfb4 })
     g.circle(-2, 38, 9).fill(0xf6ecd6).stroke({ width: 3, color: 0xdccfb4 })
@@ -253,7 +254,7 @@ const DRAW = {
   kott: () => {
     const g = G()
     g.moveTo(-34, -18).quadraticCurveTo(0, -34, 32, -14).quadraticCurveTo(40, 10, 16, 26)
-      .quadraticCurveTo(-16, 34, -34, 12).closePath().fill(0xb2543c)
+      .quadraticCurveTo(-16, 34, -34, 12).closePath().fill(topLightFill(0xb2543c))
     g.moveTo(-30, -12).quadraticCurveTo(0, -26, 26, -10).stroke({ width: 7, color: 0xf2e3cd })
     g.ellipse(-4, 6, 14, 8).fill({ color: 0xd07a5c, alpha: 0.8 })
     return g
@@ -262,7 +263,7 @@ const DRAW = {
   biff: () => {
     const g = G()
     g.moveTo(-32, -20).quadraticCurveTo(6, -30, 34, -8).quadraticCurveTo(34, 18, 4, 26)
-      .quadraticCurveTo(-30, 26, -32, -20).closePath().fill(0xc0503f)
+      .quadraticCurveTo(-30, 26, -32, -20).closePath().fill(topLightFill(0xc0503f))
     g.ellipse(0, -2, 18, 12).fill({ color: 0xdd7360, alpha: 0.85 })
     g.moveTo(-20, 14).quadraticCurveTo(0, 22, 22, 10).stroke({ width: 5, color: 0xf0dcc4 })
     return g
@@ -274,7 +275,7 @@ const DRAW = {
       .quadraticCurveTo(44, -20, 36, 4).quadraticCurveTo(40, 26, 14, 26)
       .quadraticCurveTo(-8, 34, -22, 20).quadraticCurveTo(-42, 16, -38, -6)
       .fill(0xfdf8ec).stroke({ width: 4, color: 0xe4d6b8 })
-    g.circle(2, -2, 16).fill(0xf5b52e)
+    g.circle(2, -2, 16).fill(sphereFill(0xf5b52e))
     gloss(g, -3, -8, 6, 0.55)
     return g
   },
@@ -290,7 +291,7 @@ const DRAW = {
 
   krabba: () => {
     const g = G()
-    g.ellipse(0, 6, 30, 20).fill(0xe0563c)
+    g.ellipse(0, 6, 30, 20).fill(topLightFill(0xe0563c))
     g.ellipse(-2, 0, 20, 10).fill({ color: 0xf58e70, alpha: 0.7 })
     for (const s of [-1, 1]) {
       g.moveTo(s * 24, 12).quadraticCurveTo(s * 40, 14, s * 42, 26).stroke({ width: 5, color: 0xe0563c, cap: 'round' })
@@ -308,7 +309,7 @@ const DRAW = {
       const x = -30 + i * 15
       g.moveTo(x, 10).quadraticCurveTo(x - 6, 28, x + 4, 38).stroke({ width: 7, color: 0xb86bc4, cap: 'round' })
     }
-    g.ellipse(0, -6, 30, 28).fill(0xcf82da)
+    g.ellipse(0, -6, 30, 28).fill(sphereFill(0xcf82da))
     g.ellipse(-6, -16, 16, 10).fill({ color: 0xe7b6ee, alpha: 0.7 })
     face(g, 0, -4, 1, 0x4a2352)
     return g
@@ -327,7 +328,7 @@ const DRAW = {
   druvor: () => {
     const g = G()
     for (const [x, y] of [[-16, -6], [0, -12], [16, -6], [-8, 8], [8, 8], [0, 24]]) {
-      g.circle(x, y, 12).fill(0x8e5fc0)
+      g.circle(x, y, 12).fill(sphereFill(0x8e5fc0))
       gloss(g, x - 4, y - 5, 3.5, 0.4)
     }
     g.moveTo(0, -20).quadraticCurveTo(6, -32, 2, -38).stroke({ width: 4, color: 0x6a8f3c, cap: 'round' })
@@ -337,10 +338,10 @@ const DRAW = {
 
   choklad: () => {
     const g = G()
-    g.roundRect(-34, -26, 68, 52, 6).fill(0x5c3520)
+    g.roundRect(-34, -26, 68, 52, 6).fill(topLightFill(0x5c3520))
     for (let r = 0; r < 2; r++) {
       for (let c = 0; c < 3; c++) {
-        g.roundRect(-31 + c * 21, -23 + r * 24, 18, 21, 4).fill(0x7a4a2c)
+        g.roundRect(-31 + c * 21, -23 + r * 24, 18, 21, 4).fill(topLightFill(0x7a4a2c))
       }
     }
     gloss(g, -22, -18, 5, 0.25)
@@ -351,14 +352,14 @@ const DRAW = {
     const g = G()
     g.moveTo(-38, -14).lineTo(-20, -4).lineTo(-38, 14).closePath().fill(0xf07ab0)
     g.moveTo(38, -14).lineTo(20, -4).lineTo(38, 14).closePath().fill(0xf07ab0)
-    g.roundRect(-22, -18, 44, 32, 14).fill(0xff9ec4)
+    g.roundRect(-22, -18, 44, 32, 14).fill(topLightFill(0xff9ec4))
     g.moveTo(-14, -12).quadraticCurveTo(0, 0, -10, 10).stroke({ width: 4, color: 0xfff0f6 })
     g.moveTo(4, -12).quadraticCurveTo(18, 0, 8, 10).stroke({ width: 4, color: 0xfff0f6 })
     return g
   },
 
   munk: () => {
-    const g = G().circle(0, 0, 36).fill(0xd8a45e).circle(0, 0, 30).fill(0xf3a8cd)
+    const g = G().circle(0, 0, 36).fill(topLightFill(0xd8a45e)).circle(0, 0, 30).fill(topLightFill(0xf3a8cd))
     g.circle(0, 0, 11).fill(0xfdf6e6)
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 7
@@ -380,9 +381,9 @@ const DRAW = {
 
   jordnot: () => {
     const g = G()
-    g.circle(-14, -10, 20).fill(0xd9a86a)
-    g.circle(14, 12, 22).fill(0xd9a86a)
-    g.ellipse(0, 1, 16, 14).fill(0xd9a86a)
+    g.circle(-14, -10, 20).fill(sphereFill(0xd9a86a, { highlight: 0.2, dark: 0.2 }))
+    g.circle(14, 12, 22).fill(sphereFill(0xd9a86a, { highlight: 0.2, dark: 0.2 }))
+    g.ellipse(0, 1, 16, 14).fill(sphereFill(0xd9a86a, { highlight: 0.2, dark: 0.2 }))
     for (const [x, y] of [[-14, -10], [14, 12]]) {
       g.circle(x - 6, y - 5, 3).fill({ color: 0xb9884a, alpha: 0.7 })
       g.circle(x + 5, y + 4, 3).fill({ color: 0xb9884a, alpha: 0.7 })
@@ -394,7 +395,7 @@ const DRAW = {
   kastanj: () => {
     const g = G()
     g.moveTo(0, -30).quadraticCurveTo(30, -18, 30, 8).quadraticCurveTo(30, 32, 0, 32)
-      .quadraticCurveTo(-30, 32, -30, 8).quadraticCurveTo(-30, -18, 0, -30).fill(0x7d4a24)
+      .quadraticCurveTo(-30, 32, -30, 8).quadraticCurveTo(-30, -18, 0, -30).fill(sphereFill(0x7d4a24))
     g.ellipse(0, 26, 20, 9).fill(0xe8d5ae)
     g.moveTo(-2, -30).lineTo(2, -30).lineTo(0, -40).closePath().fill(0x5c3520)
     gloss(g, -11, -12, 6, 0.28)
@@ -404,9 +405,9 @@ const DRAW = {
   larv: () => {
     const g = G()
     for (let i = 0; i < 5; i++) {
-      g.circle(-28 + i * 15, i % 2 ? 4 : -2, 15 - i * 0.8).fill(i % 2 ? 0x86c94e : 0x9bd960)
+      g.circle(-28 + i * 15, i % 2 ? 4 : -2, 15 - i * 0.8).fill(sphereFill(i % 2 ? 0x86c94e : 0x9bd960))
     }
-    g.circle(30, -2, 16).fill(0x9bd960)
+    g.circle(30, -2, 16).fill(sphereFill(0x9bd960))
     face(g, 32, -4, 0.95, 0x36521f)
     g.moveTo(26, -16).lineTo(22, -28).stroke({ width: 3, color: 0x36521f, cap: 'round' })
     g.moveTo(36, -16).lineTo(40, -28).stroke({ width: 3, color: 0x36521f, cap: 'round' })
@@ -433,7 +434,7 @@ const DRAW = {
   aubergine: () => {
     const g = G()
     g.moveTo(0, -18).quadraticCurveTo(28, -14, 28, 10).quadraticCurveTo(28, 38, 0, 38)
-      .quadraticCurveTo(-28, 38, -28, 10).quadraticCurveTo(-28, -14, 0, -18).fill(0x7b47a8)
+      .quadraticCurveTo(-28, 38, -28, 10).quadraticCurveTo(-28, -14, 0, -18).fill(sphereFill(0x7b47a8))
     g.ellipse(-9, 8, 8, 16).fill({ color: 0xa877cf, alpha: 0.6 })
     g.moveTo(-18, -16).quadraticCurveTo(0, -26, 18, -16).quadraticCurveTo(0, -6, -18, -16).fill(0x5faa42)
     g.moveTo(0, -20).lineTo(0, -38).stroke({ width: 6, color: 0x5faa42, cap: 'round' })
@@ -468,7 +469,7 @@ const DRAW = {
 
   korv: () => {
     const g = G()
-    g.roundRect(-42, -12, 84, 26, 13).fill(0xc46a3a)
+    g.roundRect(-42, -12, 84, 26, 13).fill(cylinderFill(0xc46a3a, { axis: 'x' }))
     g.roundRect(-38, -8, 76, 8, 4).fill({ color: 0xe08f5d, alpha: 0.7 })
     g.moveTo(-32, 2).quadraticCurveTo(-16, -8, 0, 2).quadraticCurveTo(16, 12, 32, 2)
       .stroke({ width: 6, color: 0xf5c542, cap: 'round' })
@@ -478,10 +479,10 @@ const DRAW = {
   avokado: () => {
     const g = G()
     g.moveTo(0, -34).quadraticCurveTo(26, -22, 26, 6).quadraticCurveTo(26, 36, 0, 36)
-      .quadraticCurveTo(-26, 36, -26, 6).quadraticCurveTo(-26, -22, 0, -34).fill(0x4e7a2c)
+      .quadraticCurveTo(-26, 36, -26, 6).quadraticCurveTo(-26, -22, 0, -34).fill(topLightFill(0x4e7a2c))
     g.moveTo(0, -28).quadraticCurveTo(20, -18, 20, 6).quadraticCurveTo(20, 30, 0, 30)
-      .quadraticCurveTo(-20, 30, -20, 6).quadraticCurveTo(-20, -18, 0, -28).fill(0xc8dd7a)
-    g.circle(0, 8, 13).fill(0x8a5a33)
+      .quadraticCurveTo(-20, 30, -20, 6).quadraticCurveTo(-20, -18, 0, -28).fill(topLightFill(0xc8dd7a))
+    g.circle(0, 8, 13).fill(sphereFill(0x8a5a33))
     gloss(g, -4, 3, 4, 0.3)
     return g
   },
@@ -490,7 +491,7 @@ const DRAW = {
     const g = G()
     for (let i = 0; i < 5; i++) {
       const a = -0.4 + i * 0.4
-      g.circle(Math.cos(a) * 24 - 4, Math.sin(a) * 22, 15 - i).fill(i % 2 ? 0xf2b28a : 0xe09a6e)
+      g.circle(Math.cos(a) * 24 - 4, Math.sin(a) * 22, 15 - i).fill(sphereFill(i % 2 ? 0xf2b28a : 0xe09a6e))
     }
     g.moveTo(-14, -20).lineTo(-32, -30).lineTo(-28, -12).closePath().fill(0xf58e70)
     for (let i = 0; i < 12; i++) {
@@ -503,7 +504,7 @@ const DRAW = {
   banan: () => {
     const g = G()
     g.moveTo(-30, -26).quadraticCurveTo(6, -18, 30, 22).quadraticCurveTo(20, 32, 8, 26)
-      .quadraticCurveTo(-14, 4, -36, -18).closePath().fill(0xf5d33e)
+      .quadraticCurveTo(-14, 4, -36, -18).closePath().fill(topLightFill(0xf5d33e))
     g.moveTo(-26, -22).quadraticCurveTo(4, -12, 24, 20).stroke({ width: 4, color: 0xfceb9b })
     g.circle(30, 24, 5).fill(0x7d5a2c)
     g.circle(-33, -24, 5).fill(0x7d5a2c)
@@ -513,7 +514,7 @@ const DRAW = {
   mango: () => {
     const g = G()
     g.moveTo(-6, -30).quadraticCurveTo(30, -26, 30, 4).quadraticCurveTo(30, 34, -2, 34)
-      .quadraticCurveTo(-30, 34, -28, 4).quadraticCurveTo(-26, -24, -6, -30).fill(0xef8b32)
+      .quadraticCurveTo(-30, 34, -28, 4).quadraticCurveTo(-26, -24, -6, -30).fill(sphereFill(0xef8b32))
     g.ellipse(6, -6, 16, 18).fill({ color: 0xfac557, alpha: 0.75 })
     g.moveTo(-6, -30).quadraticCurveTo(-2, -40, 6, -42).stroke({ width: 4, color: 0x5faa42, cap: 'round' })
     gloss(g, -10, -10, 6, 0.35)
@@ -522,7 +523,7 @@ const DRAW = {
 
   stjarna: () => {
     const g = G()
-    g.star(0, 0, 5, 38, 17).fill(0xffd35c).stroke({ width: 4, color: 0xf0ad2a })
+    g.star(0, 0, 5, 38, 17).fill(topLightFill(0xffd35c)).stroke({ width: 4, color: 0xf0ad2a })
     g.star(0, -3, 5, 20, 9).fill({ color: 0xfff0b8, alpha: 0.8 })
     return g
   },
@@ -533,7 +534,7 @@ const DRAW = {
     const g = G()
     g.moveTo(-32, 34).quadraticCurveTo(-34, 12, -20, 8).quadraticCurveTo(-26, -8, -12, -12)
       .quadraticCurveTo(-14, -30, 0, -32).quadraticCurveTo(14, -30, 12, -12)
-      .quadraticCurveTo(26, -8, 20, 8).quadraticCurveTo(34, 12, 32, 34).closePath().fill(0x8a5a33)
+      .quadraticCurveTo(26, -8, 20, 8).quadraticCurveTo(34, 12, 32, 34).closePath().fill(topLightFill(0x8a5a33))
     g.moveTo(-22, 12).quadraticCurveTo(0, 20, 22, 12).stroke({ width: 4, color: 0x6d4425 })
     g.moveTo(-14, -8).quadraticCurveTo(0, -2, 14, -8).stroke({ width: 4, color: 0x6d4425 })
     face(g, 0, 4, 1, 0x3a2411)
@@ -558,17 +559,17 @@ const DRAW = {
     const g = G()
     for (let i = 0; i < 6; i++) {
       const x = -30 + i * 13
-      g.circle(x, Math.sin(i * 1.1) * 9, 13 - i * 0.5).fill(i % 2 ? 0xf29ab0 : 0xe8879e)
+      g.circle(x, Math.sin(i * 1.1) * 9, 13 - i * 0.5).fill(sphereFill(i % 2 ? 0xf29ab0 : 0xe8879e))
     }
-    g.circle(34, Math.sin(6 * 1.1) * 9, 13).fill(0xf29ab0)
+    g.circle(34, Math.sin(6 * 1.1) * 9, 13).fill(sphereFill(0xf29ab0))
     face(g, 35, Math.sin(6.6) * 9 - 2, 0.8, 0x8a4256)
     return g
   },
 
   tandborste: () => {
     const g = G()
-    g.roundRect(-44, -6, 62, 13, 6).fill(0x6fc4e8)
-    g.roundRect(14, -9, 30, 19, 8).fill(0x4aa3df)
+    g.roundRect(-44, -6, 62, 13, 6).fill(cylinderFill(0x6fc4e8, { axis: 'x' }))
+    g.roundRect(14, -9, 30, 19, 8).fill(topLightFill(0x4aa3df))
     for (let i = 0; i < 5; i++) {
       g.roundRect(16 + i * 6, -22, 4, 14, 2).fill(0xfdf6e6)
     }
@@ -585,8 +586,8 @@ const DRAW = {
           .stroke({ width: 4, color: 0x4a3d52, cap: 'round' })
       }
     }
-    g.ellipse(0, 6, 24, 20).fill(0x5d4d68)
-    g.circle(0, -14, 15).fill(0x6f5c7c)
+    g.ellipse(0, 6, 24, 20).fill(sphereFill(0x5d4d68))
+    g.circle(0, -14, 15).fill(sphereFill(0x6f5c7c))
     g.circle(-6, -16, 4.5).fill(0xfdf6e6)
     g.circle(6, -16, 4.5).fill(0xfdf6e6)
     g.circle(-6, -15, 2.4).fill(0x2f2a26)
@@ -598,8 +599,8 @@ const DRAW = {
     const g = G()
     g.moveTo(-42, 26).quadraticCurveTo(-30, 12, -8, 14).lineTo(24, 14)
       .quadraticCurveTo(34, 14, 34, 22).quadraticCurveTo(34, 30, 22, 30).lineTo(-42, 30).closePath()
-      .fill(0xd7c48f)
-    g.circle(4, 0, 24).fill(0xb5734a)
+      .fill(topLightFill(0xd7c48f))
+    g.circle(4, 0, 24).fill(sphereFill(0xb5734a))
     for (const r of [17, 10, 4]) g.circle(4, 0, r).stroke({ width: 4, color: 0x8a5a33 })
     g.moveTo(-34, 16).lineTo(-40, -2).stroke({ width: 3.5, color: 0xd7c48f, cap: 'round' })
     g.moveTo(-26, 16).lineTo(-28, -4).stroke({ width: 3.5, color: 0xd7c48f, cap: 'round' })
@@ -618,7 +619,7 @@ const DRAW = {
 
   groda: () => {
     const g = G()
-    g.ellipse(0, 10, 32, 22).fill(0x62b04a)
+    g.ellipse(0, 10, 32, 22).fill(topLightFill(0x62b04a))
     g.ellipse(0, 16, 20, 11).fill({ color: 0xc8e39a, alpha: 0.9 })
     for (const s of [-1, 1]) {
       g.ellipse(s * 30, 22, 12, 8).fill(0x4e9c3f)
@@ -648,7 +649,7 @@ const DRAW = {
     const g = G()
     g.moveTo(-28, 30).lineTo(-28, -6).quadraticCurveTo(-28, -34, 0, -34)
       .quadraticCurveTo(28, -34, 28, -6).lineTo(28, 30)
-      .lineTo(16, 20).lineTo(6, 30).lineTo(-6, 20).lineTo(-16, 30).closePath().fill(0xa78bfa)
+      .lineTo(16, 20).lineTo(6, 30).lineTo(-6, 20).lineTo(-16, 30).closePath().fill(topLightFill(0xa78bfa))
     g.circle(0, -10, 14).fill(0xfdf6e6)
     g.circle(2, -9, 7).fill(0x2f2a26)
     g.moveTo(-12, 8).quadraticCurveTo(0, 18, 12, 8).stroke({ width: 3.5, color: 0x5b3fa8, cap: 'round' })
@@ -670,10 +671,10 @@ const DRAW = {
   // Grön snorklump med glans och droppe.
   snor: () => {
     const g = G()
-      .circle(0, -4, 26).fill(0x8bc34a)
-      .circle(-16, 12, 15).fill(0x8bc34a)
-      .circle(15, 14, 12).fill(0x8bc34a)
-      .circle(8, 34, 7).fill(0x9ccc65)
+      .circle(0, -4, 26).fill(sphereFill(0x8bc34a))
+      .circle(-16, 12, 15).fill(sphereFill(0x8bc34a))
+      .circle(15, 14, 12).fill(sphereFill(0x8bc34a))
+      .circle(8, 34, 7).fill(sphereFill(0x9ccc65))
     gloss(g, -8, -12, 7, 0.35)
     return g
   },
@@ -708,7 +709,7 @@ const DRAW = {
     const g = G()
     g.moveTo(0, -34).quadraticCurveTo(20, -6, 20, 8).quadraticCurveTo(20, 30, 0, 30)
       .quadraticCurveTo(-20, 30, -20, 8).quadraticCurveTo(-20, -6, 0, -34)
-      .fill(0xf6d84a).stroke({ width: 4, color: 0xd9b52e })
+      .fill(sphereFill(0xf6d84a)).stroke({ width: 4, color: 0xd9b52e })
     gloss(g, -6, 8, 5, 0.55)
     return g
   },
@@ -729,7 +730,7 @@ const DRAW = {
   potta: () => {
     const g = G()
       .ellipse(0, 24, 22, 7).fill(0x4a92c8)
-      .roundRect(-26, -8, 52, 32, 14).fill(0x62b1e8).stroke({ width: 4, color: 0x4a92c8 })
+      .roundRect(-26, -8, 52, 32, 14).fill(topLightFill(0x62b1e8)).stroke({ width: 4, color: 0x4a92c8 })
       .ellipse(0, -8, 26, 9).fill(0x8fd0f5).stroke({ width: 4, color: 0x4a92c8 })
     g.circle(31, 4, 8).stroke({ width: 5, color: 0x4a92c8 })
     return g

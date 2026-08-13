@@ -60,6 +60,11 @@ const VATSKOR = [
   { key: 'glas_saft', color: 0xf59a2e },   // apelsinsaft — GLASETS färg, inte FLUIDS röda
   { key: 'mjolk', color: 0xf6fbfd },
   { key: 'honung', color: FLUIDS.honung.color },
+  { key: 'ketchup', color: 0xd8402c },     // kylens busflaska — hälls som allt annat
+  // Senapen MÅSTE kunna hällas: den ritas i samma klämflaske-stil som ketchupen, och ett
+  // barn som just lärt sig att ketchup rinner när man lutar den provar samma sak igen.
+  // En flaska som ser likadan ut men inte lyder samma regel är en bruten orsak-verkan.
+  { key: 'senap', color: 0xe8c22e },
 ]
 const PALETT = VATSKOR.map((v) => v.color)
 const SPILL = Object.fromEntries(VATSKOR.map((v, i) => [v.key, i]))
@@ -114,6 +119,8 @@ export default {
     this._idle = 0
     this._atna = 0
     this._gapNu = 0 // spelmodulen är en singleton — gapet får inte ärvas från förra omgången
+    this._fonsterVaxel = 0
+    this._kokOverT = 0
     this._geggor = []
     this._cueVaxel = 0
     this._oppnaSt = []
@@ -270,6 +277,12 @@ export default {
     this._hjarta.alpha = 0.28
 
     m.addChild(skugga, glas, this._fyll, dager, lock, this._hjarta)
+    // Pivot i burkens FOT så bågningen (skalpulsen i `_fyllTill`) trycker utåt/uppåt från
+    // bänken i stället för att lyfta hela burken. Burken är ren dekor (`eventMode='none'`)
+    // — inget släppmål eller träffyta flyttas av att den animeras.
+    m.pivot.set(x, y + h / 2)
+    m.position.set(x, y + h / 2)
+    this._matarC = m
     this._propL.addChild(m)
     this._ritaFyll(0)
   },
@@ -427,6 +440,15 @@ export default {
     // låset — uppmätt i `_spottprobe`: en utspottad sked stod kvar med `em: "none"` och
     // andra greppet gav `active: null`. Storleken var däremot aldrig fel (1 → 1).
     this._drag?.aterstall?.(v)
+
+    // Skräpet lägger sig UNDER maten i PEKORDNINGEN. Pixi provar översta barnet först,
+    // och `_gorLos` körs alltid efter att brädans mat redan ligger i lagret — en hög som
+    // landar över matraden (golvet ligger 43 px under `PLATSER`) stal annars fingret
+    // från en aktiv matbit (kritikerfynd: 8 skräpsaker à 104 px träffcirkel i samma
+    // x-band som maten). Det är maten barnet siktar på; skräpet nås där maten inte är.
+    if (v.parent === this._matL && this._mun && !this._mun.destroyed) {
+      this._matL.setChildIndex(v, this._matL.getChildIndex(this._mun) + 1)
+    }
 
     // Saken har LÄMNAT sitt skåp. Står den kvar i stationens lista river `_plockaTillbaka`
     // vyn när luckan stängs — medan fysikkroppen fortsätter skriva till den. (Uppmätt:
@@ -722,6 +744,12 @@ export default {
     this._oppnaSt.push(st)
     ctx.services.audio.sfx('soft')
     ctx.services.audio.tone({ freq: 330, dur: 0.1, vol: 0.16, slideTo: 470 })
+    // Mikron säger PLING när luckan öppnas — en ren kvint uppåt (1180→1770), som en
+    // riktig micro som blivit klar. Det är stationens egen röst, inte ett UI-blipp.
+    if (st.id === 'micro') {
+      ctx.services.audio.tone({ freq: 1180, dur: 0.14, type: 'sine', vol: 0.18, delay: 0.16 })
+      ctx.services.audio.tone({ freq: 1770, dur: 0.22, type: 'sine', vol: 0.15, delay: 0.3 })
+    }
 
     // Innehållet lottas per öppning, så samma skåp inte ger samma sak varje gång.
     st._saker = []
@@ -800,11 +828,31 @@ export default {
       return
     }
     if (st.id === 'fonster') {
-      // Fågeln landar på fönsterblecket, kvittrar och flyger iväg igen.
-      const f = n.fagel
+      // Fönstret ger inte samma sak varje gång: fågeln, en fjäril och en regnbåge turas
+      // om. En ROTATION, inte en lottning — ett barn som knackar tre gånger ska hinna se
+      // alla tre, och det är växlingen som lär det att trycka igen.
       audio.tone({ freq: 880, dur: 0.09, vol: 0.18, slideTo: 1180 })
       audio.tone({ freq: 990, dur: 0.09, vol: 0.16, slideTo: 1320, delay: 0.14 })
       if (n.sol) pop(n.sol, { scale: 1.35 })
+      const vaxel = (this._fonsterVaxel = (this._fonsterVaxel || 0) + 1)
+      const fjaril = n.fjaril
+      const regnb = n.regnbage
+      if (vaxel % 3 === 2 && fjaril && !fjaril.destroyed && !fjaril.visible) {
+        this._fjarilFlyg(fjaril)
+        ctx.services.voice.say('En fjäril flög förbi!')
+        return
+      }
+      if (vaxel % 3 === 0 && regnb && !regnb.destroyed && !regnb.visible) {
+        regnb.visible = true
+        gsap.killTweensOf(regnb)
+        gsap.to(regnb, { alpha: 0.95, duration: 0.5 })
+        gsap.to(regnb, { alpha: 0, duration: 0.7, delay: 2.6, ease: 'power1.in',
+          onComplete: () => { if (!regnb.destroyed) regnb.visible = false } })
+        ctx.services.voice.say('Oj, en regnbåge!')
+        return
+      }
+      // Fågeln landar på fönsterblecket, kvittrar och flyger iväg igen.
+      const f = n.fagel
       if (f && !f.destroyed && !f.visible) {
         f.visible = true
         f.alpha = 0
@@ -817,11 +865,68 @@ export default {
     }
   },
 
+  // Fjärilen fladdrar tvärs över fönsterglaset: en sinusbana med vingslags-vickning.
+  // Banan skrivs via ett proxy-objekt med destroyed-vakt — fjärilen ägs av `kok.js` och
+  // kan vara riven när tweenen fortfarande tickar (exit mitt i flygningen).
+  _fjarilFlyg(f) {
+    f.visible = true
+    f.alpha = 0
+    f.position.set(246, 58)
+    // 1,35× — i naturlig storlek var fjärilen en prick i sitt 160 px breda fönster
+    // (kritikerfynd), och repliken lovar något värt att titta på. Banan är stramad så
+    // vingspetsarna (±20 px skalade) håller sig innanför glaset.
+    f.scale.set(1.35)
+    gsap.killTweensOf(f)
+    gsap.to(f, { alpha: 1, duration: 0.25 })
+    gsap.to(f, { alpha: 0, duration: 0.3, delay: 2.9 })
+    const st = { t: 0 }
+    gsap.to(st, {
+      t: 1, duration: 3.2, ease: 'none',
+      onUpdate: () => {
+        if (f.destroyed) return
+        f.x = 246 + 112 * st.t
+        f.y = 58 + Math.sin(st.t * Math.PI * 5) * 12
+        f.rotation = Math.sin(st.t * Math.PI * 11) * 0.22
+        // Vingslagen: `kok.js` lämnar vingarna som två egna barn med origo i kroppen.
+        if (f.vingar) {
+          const slag = Math.sin(st.t * Math.PI * 34) * 0.55
+          if (f.vingar[0] && !f.vingar[0].destroyed) f.vingar[0].rotation = -slag
+          if (f.vingar[1] && !f.vingar[1].destroyed) f.vingar[1].rotation = slag
+        }
+      },
+      onComplete: () => { if (!f.destroyed) f.visible = false },
+    })
+  },
+
   // Vilorörelser i köket som bara går när något är påslaget. Ligger i spelets tick, så
   // ingenting tickar vidare efter att spelet lämnats.
   _kokTick(ctx, dt) {
     const n = this._noder
     if (this._flaktPa && n.flakthjul && !n.flakthjul.destroyed) n.flakthjul.rotation += dt * 0.012
+
+    // Molnen driver i fönstret — ±6 px sinus kring sin födelseplats, alltid innanför
+    // glaset. Eget prefix `_wx` (aldrig `_cx`: det är Container-transformens interna cache).
+    if (n.moln) {
+      this._molnT = (this._molnT || 0) + dt
+      for (let i = 0; i < n.moln.length; i++) {
+        const m = n.moln[i]
+        if (m && !m.destroyed) m.x = (m._wx ??= m.x) + Math.sin(this._molnT / (2400 + i * 900)) * 6
+      }
+    }
+
+    // Står spisen på länge KOKAR DET ÖVER: skum väller ur kastrullen i ett par sekunder
+    // och lägger sig självt. En händelse att upptäcka, aldrig ett problem att lösa —
+    // ingenting behöver åtgärdas och målet påverkas inte (P0 MOTGÅNG: tydlig orsak, tak,
+    // lagom takt — var nionde sekund, aldrig två i rad).
+    if (this._spisPa) {
+      this._kokOverT = (this._kokOverT || 0) + dt
+      if (this._kokOverT > 9000) {
+        this._kokOverT = 0
+        this._kokaOver(ctx)
+      }
+    } else {
+      this._kokOverT = 0
+    }
     this._angT = (this._angT || 0) + dt
     if (this._angT > 620) {
       this._angT = 0
@@ -847,6 +952,25 @@ export default {
         puff(ctx.fxLayer, n.ho.x + (Math.random() - 0.5) * 24, n.ho.y - 4,
           { count: 3, color: 0x8fd6f5 })
       }
+    }
+  },
+
+  // Skummet: sju gräddvita puffar som väller över kastrullkanten, växelvis vänster/höger
+  // och en aning längre ner för varje — det RINNER, inte exploderar. Kedjan avbryts om
+  // spisen stängs av mitt i (orsaken försvann → verkan slutar).
+  _kokaOver(ctx) {
+    const n = this._noder
+    if (!n?.gryta) return
+    ctx.services.audio.tone({ freq: 170, dur: 0.5, type: 'sawtooth', vol: 0.1, slideTo: 95 })
+    if (Math.random() < 0.7) ctx.services.voice.say('Oj, nu kokar det över!')
+    if (n.kastrull && !n.kastrull.destroyed) shake(n.kastrull, { intensity: 3, duration: 0.8 })
+    for (let i = 0; i < 7; i++) {
+      ctx.later(0.12 + i * 0.16, () => {
+        if (!this._alive || !this._spisPa || !n.gryta) return
+        const s = i % 2 ? 1 : -1
+        puff(ctx.fxLayer, n.gryta.x + s * (36 + Math.random() * 10), n.gryta.y + 6 + i * 4,
+          { count: 4, color: 0xfff3e0 })
+      })
     }
   },
 
@@ -915,6 +1039,7 @@ export default {
     ctx.later(0.24, () => {
       if (!this._alive) return
       a?.tugga(3)
+      this._skymt(ctx, farg)
       this._smulor(ctx, farg)
       ctx.services.audio.tone({ freq: 200, dur: 0.07, type: 'triangle', vol: 0.2 })
       ctx.services.audio.tone({ freq: 170, dur: 0.07, type: 'triangle', vol: 0.2, delay: 0.22 })
@@ -934,12 +1059,20 @@ export default {
       // Minen sitter kvar minst så länge pappa låter: `pappa_surt` är 1,90 s och ansiktet
       // hade annars hunnit bli neutralt mitt i hans egen sura reaktion.
       a?.min(namn, { hall: Math.max(wow ? 2.4 : 1.4, sek + 0.1) })
-      if (namn === 'het') this._hetta(ctx, sek)
+      // Senapen är stark men INTE chilin: mildare rodnad, färre ångpuffar och en egen
+      // replik. Utan skillnaden var senapen en repris av chilireaktionen (kritikerfynd)
+      // — §4:s hela poäng med nya smaker är att de ska ge EGNA orsaker.
+      if (namn === 'het') this._hetta(ctx, sek, key === 'senap' ? 0.55 : 1)
       if (wow) {
         if (a?.view && !a.view.destroyed) shake(a.view, { intensity: 7, duration: 0.5 })
         sparkle(ctx.fxLayer, ANS.x, this._ogonY, { count: 10 })
       }
-      this._replikEfterMin(ctx, namn, sek)
+      if (key === 'senap') {
+        const sag = () => { if (this._alive) ctx.services.voice.say('Oj, vad stark senapen var!') }
+        if (Math.random() < 0.7) { if (sek <= 0.35) sag(); else ctx.later(sek + 0.15, sag) }
+      } else {
+        this._replikEfterMin(ctx, namn, sek)
+      }
     })
 
     ctx.later(1.15, () => {
@@ -955,6 +1088,31 @@ export default {
         puff(ctx.fxLayer, ANS.x + (Math.random() - 0.5) * 70, this._munY + 24, { count: 5, color: farg })
       })
     }
+  },
+
+  // En SKYMT av matens färg mellan tänderna medan käken tuggar. Utan den försvinner biten
+  // i ett svart hål och grimasen kommer ur ingenting — skymten knyter ihop "biten åkte in"
+  // med "pappa tuggar på DEN". Klämningarna ligger på tuggens egen takt (0,22 s, samma som
+  // tonerna). Allt tweenas via ett proxy-objekt med destroyed-vakt: skymten lever under en
+  // sekund och spelaren kan lämna mitt i (exit-säkerhet, samma mönster som feedback.js).
+  _skymt(ctx, farg) {
+    if (!this._ans || !this._matL || this._matL.destroyed) return
+    const g = new Graphics()
+    g.ellipse(0, 0, 25, 11).fill({ color: farg, alpha: 0.92 })
+    g.ellipse(-7, -3, 8, 4).fill({ color: 0xffffff, alpha: 0.3 })
+    g.eventMode = 'none'
+    g.position.set(ANS.x, this._munY + 6)
+    // Under maten som dras (skymten får aldrig ligga över en bit på väg mot munnen),
+    // över ansiktet.
+    this._matL.addChildAt(g, 0)
+    const st = { s: 0, klam: 1 }
+    const tl = gsap.timeline({
+      onUpdate: () => { if (!g.destroyed) g.scale.set(st.s, st.s * st.klam) },
+      onComplete: () => { if (!g.destroyed) g.destroy() },
+    })
+    tl.to(st, { s: 1, duration: 0.12, ease: 'back.out(2.2)' })
+    tl.to(st, { klam: 0.3, duration: 0.11, ease: 'sine.inOut', repeat: 5, yoyo: true })
+    tl.to(st, { s: 0, duration: 0.14, ease: 'power2.in' })
   },
 
   // ------------------------------------------------------------------ bus ---
@@ -974,17 +1132,30 @@ export default {
     this._gegga(ctx, rec)
     this._frigor(ctx, rec)
 
-    // Miner efter var det landade: högt upp = aj (det studsade på näsan), mitt på =
-    // förvånad, i håret/kanten = ett skratt.
     // Miner efter var det landade — men en spindel i pannan är inte samma sak som en
     // banan i pannan, så en sak med egen stark min (`aj`, `acklad`) behåller sin.
+    // OCH GEGGAN TRAPPAR: från femte fläcken ger pappa upp och börjar fnissa i stället —
+    // skakningen växer och repliken byts. Femte fläcken ska inte kännas som den första
+    // (§4 Variation), och eskalering mot skratt är motsatsen till tillsägelse (P0).
+    const grad = this._geggor.length
     const egen = rec.data.min === 'aj' || rec.data.min === 'acklad' ? rec.data.min : null
-    const namn = egen || (rec.ty < this._ogonY ? (Math.random() < 0.5 ? 'aj' : 'skratt') : 'forvanad')
+    const namn = egen || (grad >= 5 ? 'skratt'
+      : rec.ty < this._ogonY ? (Math.random() < 0.5 ? 'aj' : 'skratt') : 'forvanad')
     this._ans?.slappMin(0.1)
     const sek = this._sag(ctx, namn)
     this._ans?.min(namn, { hall: Math.max(1.3, sek + 0.1) })
-    if (this._ans?.view && !this._ans.view.destroyed) shake(this._ans.view, { intensity: 5, duration: 0.34 })
-    this._replikEfterMin(ctx, namn, sek)
+    if (this._ans?.view && !this._ans.view.destroyed) {
+      shake(this._ans.view, { intensity: grad >= 5 ? 8 : 5, duration: grad >= 5 ? 0.5 : 0.34 })
+    }
+    if (grad >= 5) {
+      // Samma vänta-ut-pappa-regel som `_replikEfterMin`: två svenska röster samtidigt
+      // är värre än en paus.
+      const sag = () => { if (this._alive) ctx.services.voice.say('Nu är pappa alldeles kladdig!') }
+      if (sek <= 0.35) sag()
+      else ctx.later(sek + 0.15, sag)
+    } else {
+      this._replikEfterMin(ctx, namn, sek)
+    }
   },
 
   _gegga(ctx, rec) {
@@ -1058,6 +1229,15 @@ export default {
     if (!v.destroyed) v.visible = false
 
     gsap.from(bit.scale, { x: 0.9, y: 0.9, duration: 0.28, ease: 'back.out(2.4)' })
+    // Kladdig gegga GLIDER en aning innan den fastnar — ankaret (`_mjuk.y`, ett vanligt
+    // objekt) och biten tweenas ihop, så klet och mat följs åt. `flyttaTill` läser ankaret
+    // varje steg; hårda saker sitter fast direkt (de är fastkilade, inte klibbiga).
+    if (kladdig) {
+      const mj = this._mjuk
+      gsap.to(mj, { y: mj.y + 9, duration: 0.55, ease: 'power2.out' })
+      gsap.to(bit, { y: y + 9, rotation: bit.rotation + (Math.random() - 0.5) * 0.14,
+        duration: 0.55, ease: 'power2.out' })
+    }
     puff(ctx.fxLayer, x, y, { count: 6, color: farg })
     ctx.services.audio.sfx('soft')
 
@@ -1140,6 +1320,9 @@ export default {
     // Originalvyn har legat dold sedan `_gegga` och är fortfarande dragets egen.
     const rec = g.rec
     if (levande && !levande.destroyed) {
+      // Glid-tweenen från `_gegga` kan fortfarande skriva `y` — döda den innan biten
+      // rivs, annars skriver den till en förstörd transform.
+      gsap.killTweensOf(levande)
       gsap.to(levande, { alpha: 0, duration: 0.18,
         onComplete: () => { if (!levande.destroyed) levande.destroy({ children: true }) } })
     }
@@ -1192,7 +1375,9 @@ export default {
   // Röken kommer i TRE puffar per öra i stället för en, med `angle` uppåt och en smal
   // `spread`. En enda stor puff läser som en explosion; tre i följd läser som något som
   // ryker. Talen: ~0,22 s isär, alltså ungefär ett andetag.
-  _hetta(ctx, sek = 0) {
+  // `topp` skalar hela reaktionen: chilin går till 1,0 med tre ångpuffar per öra,
+  // senapen till 0,55 med två — stark, men en EGEN sorts stark.
+  _hetta(ctx, sek = 0, topp = 1) {
     const a = this._ans
     if (!a || !this._alive) return
     const st = this._hetSt || (this._hetSt = { t: 0 })
@@ -1200,11 +1385,11 @@ export default {
     const sattHetta = () => { if (this._alive && this._ans) this._ans.hetta(st.t) }
     // Upp snabbt (det bränner direkt), ligg kvar medan pappa låter, svalna långsamt.
     const tl = gsap.timeline()
-    tl.to(st, { t: 1, duration: 0.3, ease: 'power2.out', onUpdate: sattHetta })
+    tl.to(st, { t: topp, duration: 0.3, ease: 'power2.out', onUpdate: sattHetta })
     tl.to(st, { t: 0, duration: 1.8, delay: Math.max(1.2, sek), ease: 'sine.inOut', onUpdate: sattHetta })
 
     const oron = a.oron()
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < (topp >= 1 ? 3 : 2); i++) {
       ctx.later(0.2 + i * 0.22, () => {
         if (!this._alive || !this._ans) return
         for (const o of oron) {
@@ -1250,6 +1435,14 @@ export default {
       v, duration: 0.5, ease: 'power2.out',
       onUpdate: () => { if (this._alive) this._ritaFyll(st.v) },
     })
+    // Burken BÅGNAR när den tar emot en tugga: bredare + kortare i ett andetag. Det är
+    // squash-and-stretch på mätaren själv — nivån som stiger syns i ögonvrån, pulsen gör
+    // att den KÄNNS.
+    const mc = this._matarC
+    if (mc && !mc.destroyed) {
+      gsap.killTweensOf(mc.scale)
+      gsap.to(mc.scale, { x: 1.06, y: 0.955, duration: 0.13, yoyo: true, repeat: 1, ease: 'sine.out' })
+    }
   },
 
   _final(ctx) {
@@ -1423,6 +1616,8 @@ export default {
     this._mat = []
     if (this._hjarta && !this._hjarta.destroyed) gsap.killTweensOf(this._hjarta)
     gsap.killTweensOf(this._fyll)
+    if (this._matarC && !this._matarC.destroyed) gsap.killTweensOf(this._matarC.scale)
+    this._matarC = null
 
     for (const rec of this._losa || []) {
       if (rec?.view && !rec.view.destroyed) gsap.killTweensOf(rec.view)
@@ -1433,7 +1628,8 @@ export default {
     // var därför de enda i filen utan städning — exakt mönstret CLAUDE.md varnar för
     // (en tween som skriver till ett förstört Pixi-objekt efter exit).
     const n = this._noder || {}
-    for (const nod of [n.fagel, n.strale, n.plattor, n.flakthjul, n.sol]) {
+    for (const nod of [n.fagel, n.strale, n.plattor, n.flakthjul, n.sol,
+      n.fjaril, n.regnbage, n.klocka, n.kastrull, ...(n.moln || [])]) {
       if (nod) { gsap.killTweensOf(nod); gsap.killTweensOf(nod.scale) }
     }
     this._noder = null

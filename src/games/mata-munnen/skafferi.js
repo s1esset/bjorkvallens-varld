@@ -38,8 +38,11 @@ const B = (id, sv, farg, min = 'lycksalig', atbar = true, bredd = 96) =>
   ({ id, sv, farg, min, atbar, rita: () => makeItemView(BURGARE.get(id), bredd) })
 const P = (id, sv, farg, min = 'lycksalig', atbar = true, bredd = 92) =>
   ({ id, sv, farg, min, atbar, rita: () => passa(PIZZA[id](), bredd) })
-const R = (id, sv, farg, rita, bredd = 96, min = 'aj') =>
-  ({ id, sv, farg, min, atbar: false, rita: () => passa(rita(), bredd) })
+// `mtrl` = materialets RÖST och studs när saken landar på bänken (lib/physics.js
+// MATERIAL). En kastrull ska klinga och en tomat duns — utan det låter hela högen som
+// samma sak, och då är kollisionen bara en rörelse.
+const R = (id, sv, farg, rita, bredd = 96, min = 'aj', mtrl = 'metall') =>
+  ({ id, sv, farg, min, atbar: false, mtrl, rita: () => passa(rita(), bredd) })
 
 // ------------------------------------------------------------- köksprylarna ---
 
@@ -224,14 +227,14 @@ export const SAKER = Object.fromEntries([
   R('stekpanna', 'Stekpanna', 0x4b5560, PRYLAR.stekpanna, 110, 'forvanad'),
   R('fat', 'Fat', 0xf3f6f7, PRYLAR.fat, 100, 'forvanad'),
   R('mugg', 'Mugg', 0xff8f5a, PRYLAR.mugg, 92, 'fundersam'),
-  R('glas_saft', 'Glas med saft', 0xff9c3a, PRYLAR.glas_saft, 74, 'lycksalig'),
-  R('mjolk', 'Mjölkpaket', 0xf7fbfd, PRYLAR.mjolk, 76, 'lycksalig'),
+  R('glas_saft', 'Glas med saft', 0xff9c3a, PRYLAR.glas_saft, 74, 'lycksalig', 'glas'),
+  R('mjolk', 'Mjölkpaket', 0xf7fbfd, PRYLAR.mjolk, 76, 'lycksalig', 'tra'),
   R('gaffel', 'Gaffel', 0xd3dade, PRYLAR.gaffel, 52, 'aj'),
   R('sked', 'Sked', 0xd3dade, PRYLAR.sked, 52, 'forvanad'),
   R('kniv', 'Kniv', 0xd3dade, PRYLAR.kniv, 52, 'aj'),
   R('slev', 'Slev', 0xd3dade, PRYLAR.slev, 60, 'forvanad'),
   R('visp', 'Visp', 0xd3dade, PRYLAR.visp, 64, 'skratt'),
-  R('kavel', 'Kavel', 0xe0ac72, PRYLAR.kavel, 100, 'forvanad'),
+  R('kavel', 'Kavel', 0xe0ac72, PRYLAR.kavel, 100, 'forvanad', 'tra'),
   R('glasspinne', 'Glasspinne', 0xffb0c8, PRYLAR.glasspinne, 64, 'lycksalig'),
 ].map((s) => [s.id, s]))
 
@@ -249,3 +252,4 @@ export function sakFarg(key) { return SAKER[key]?.farg ?? 0xd8b98a }
 export function sakNamn(key) { return SAKER[key]?.sv ?? 'Något' }
 export function sakMin(key) { return SAKER[key]?.min ?? 'fundersam' }
 export function arAtbar(key) { return SAKER[key]?.atbar !== false }
+export function sakMaterial(key) { return SAKER[key]?.mtrl ?? 'tra' }

@@ -18,11 +18,14 @@
 // BUS är en feature, inte ett fel (P0 MOTGÅNG): släpps maten på kinden, pannan eller håret
 // fastnar den och blir gegga. Det fyller inte mättnadsmätaren, men det bestraffas aldrig —
 // pappa blir förvånad, säger aj eller fnissar, och geggan sitter kvar till rapfinalen.
-import { Circle, Container, Graphics } from 'pixi.js'
+import { Circle, Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { ANS, BANK_Y, MATARE, OPPNA_MAX, PLATSER, byggKok } from './kok.js'
-import { arAtbar, makeSak, sakFarg, sakMin } from './skafferi.js'
+import { ANS, BANK_Y, BRADA, FYSIK, KANT_Y, MATARE, OPPNA_MAX, PLATSER, byggKok } from './kok.js'
+import { arAtbar, makeSak, sakFarg, sakMaterial, sakMin } from './skafferi.js'
 import { DragController } from '../../lib/DragController.js'
+import { Body, PhysicsWorld, mat } from '../../lib/physics.js'
+import { FLUIDS, FluidView, FluidWorld } from '../../lib/vatska.js'
+import { makeMjukkropp } from '../../lib/mjukkropp.js'
 import { FOODS, MAT_STARK, makeFood, foodColor } from '../../lib/mat.js'
 import { Ansikte, laddaAnsikte } from '../../lib/ansikte.js'
 import { burst, kvittera, liv, pop, puff, ripple, sparkle, shake, wiggle } from '../../lib/feedback.js'
@@ -36,6 +39,18 @@ const MUN_R = 130                // snäppradie till munnen (P0: träffyta ≫96
 const BUS = { rx: 215, ry: 250 } // ansiktets ellips — utanför den är det en ren miss
 const GRIP_R = 52
 const GEGGA_MAX = 6 // P0 MOTGÅNG: tak på hur mycket som kan gå fel samtidigt
+const LOSA_MAX = 8  // samma sorts tak för högen på bänken
+
+// Vilka saker som bär vätska, och vilken. Mjölken finns inte i `FLUIDS` (den har ingen
+// vit) och får därför egna tal — samma form, annan färg och en aning tjockare än vatten.
+// Vilka saker som bär vätska, och vilken. Varken apelsinsaft eller mjölk finns i `FLUIDS`
+// (den har rött och vitt saknas helt), så de två har egna tal. Saften är GLASETS färg —
+// `FLUIDS.saft` är röd och läste som utspillt bär mitt i ett orange glas.
+const SPILL = {
+  glas_saft: { color: 0xf59a2e, edge: 0xffd9a0, sigma: 0.11, beta: 0.17, rho0: 5.2, alpha: 0.95 },
+  honung: FLUIDS.honung,
+  mjolk: { color: 0xf2f8fb, edge: 0xffffff, sigma: 0.08, beta: 0.14, rho0: 5, alpha: 0.96 },
+}
 
 // Vilken min varje mat framkallar. Chilin och citronen är hela poängen med att en sur
 // och en het min finns — resten fördelas så att en tallrik sällan ger samma grimas två
@@ -90,6 +105,7 @@ export default {
     this._vatten = false
     this._spisPa = false
     this._flaktPa = false
+    this._losa = []
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -121,6 +137,11 @@ export default {
     this._propL = new Container()
     this._propL.eventMode = 'none'
     this._root.addChild(this._propL)
+
+    // Vätskelagret ligger UNDER maten: en pöl är på bänken, inte ovanpå det som ligger där.
+    this._vatskaL = new Container()
+    this._vatskaL.eventMode = 'none'
+    this._root.addChild(this._vatskaL)
 
     this._matL = new Container()
     this._root.addChild(this._matL)
@@ -156,6 +177,7 @@ export default {
     this._drag = new DragController({ space: this._matL, services: ctx.services })
     this._drag.addTarget(this._mun, () => true, { hitRadius: MUN_R })
 
+    this._startaFysik(ctx)
     this._nyTallrik(ctx)
     this._byggStationer(ctx, kok.stationer)
 
@@ -331,6 +353,12 @@ export default {
       onMiss: () => this._miss(ctx, rec),
       onSelect: () => ctx.services.audio.tone({ freq: 620, dur: 0.07, vol: 0.16 }),
     })
+    // Plockas en liggande sak upp måste dess kropp dö FÖRST. `onSelect` duger inte —
+    // den kör bara vid tapp utan drag. Draget skriver `view.x` varje bildruta och
+    // fysiken gör samma sak; två skrivare till samma fält är hackighet, inte en bugg
+    // som syns i en logg.
+    rec._grepp = () => this._lyftLos(rec)
+    yttre.on('pointerdown', rec._grepp)
     rec._inre = inre
     return rec
   },
@@ -342,8 +370,180 @@ export default {
       farg: foodColor(key),
       min: MIN_PER_MAT[key] || 'lycksalig',
       atbar: true,
+      mtrl: 'tra',
       vy: () => makeFood(key, 0.75),
     }, plats, i, delay)
+  },
+
+  // ----------------------------------------------------------- fysiken ---
+
+  // Bänkskivan är ett riktigt fysikbord. Allt som lämnar spelet på annat sätt än att bli
+  // uppätet — utspottade prylar, gegga som ploppar av ansiktet, mat som släpps på bänken
+  // — faller ner hit, studsar med sitt eget materials röst och lägger sig i en hög.
+  //
+  // ⚠️ Väggarna är OPT-IN mot öns kanter, inte mot `ctx.view`. En bred telefon hade annars
+  //    fått en annan spelplan än den testade, och saker hade kunnat vila i bleed-zonen.
+  _startaFysik(ctx) {
+    this._phys = new PhysicsWorld({
+      gravityY: 1,
+      walls: ['floor', 'left', 'right'],
+      bounds: { left: FYSIK.v, top: -600, right: FYSIK.h, bottom: FYSIK.golv },
+    })
+    this._phys.impactAudio(ctx.services.audio, { standard: 'tra', vol: 0.2, minSpeed: 2.2 })
+    this._losa = []
+  },
+
+  // Gör en vy till en fallande kropp. Vyn ägs fortfarande av draget, så saken går att
+  // plocka upp igen — och DÄRFÖR måste kroppen dö i samma sekund den lyfts (`_lyftLos`).
+  // Två skrivare till samma `view.x` är den klassiska varianten av "det ryckte".
+  _gorLos(ctx, rec, { vx = 0, vy = 0 } = {}) {
+    if (!this._phys || !this._alive) return
+    const v = rec.view
+    if (!v || v.destroyed) return
+    gsap.killTweensOf(v)
+    gsap.killTweensOf(v.scale)
+    rec._inre?._fxLiv?.kill()
+    v.visible = true
+    v.alpha = 1
+
+    // Saken har LÄMNAT sitt skåp. Står den kvar i stationens lista river `_plockaTillbaka`
+    // vyn när luckan stängs — medan fysikkroppen fortsätter skriva till den. (Uppmätt:
+    // `Cannot read properties of null (reading 'x')` i _kokprobe, första körningen.)
+    if (rec._station?._saker) {
+      const i = rec._station._saker.indexOf(rec)
+      if (i >= 0) rec._station._saker.splice(i, 1)
+    }
+
+    // SJUHÖRNING, inte cirkel. En cirkel rullar nästan utan motstånd i matter — högen
+    // kröp 8,0 px per 700 ms långt efter att sista saken landat, alltså aldrig riktigt
+    // still (`_stillaprobe`s fråga, ställd mot det här spelet). Och det är inte bollar
+    // som ligger på bänken: en gaffel och en kastrull ska lägga sig, inte rulla iväg.
+    const namn = rec.data.mtrl || 'tra'
+    const b = this._phys.polygon(v.x, v.y, 7, 34, mat(namn, { label: 'los' }))
+    Body.setVelocity(b, { x: vx, y: vy })
+    Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.14)
+    if (SPILL[rec.data.key]) this._spill(ctx, v.x, v.y + 10, rec.data.key)
+    this._phys.link(b, v)
+    rec._kropp = b
+    this._losa.push(rec)
+
+    // Taket. Samma princip som geggans: den äldsta försvinner så högen aldrig äter
+    // bänken (P0 MOTGÅNG — tak på hur mycket som kan ligga och skräpa samtidigt).
+    while (this._losa.length > LOSA_MAX) this._stadaLos(ctx, this._losa[0])
+  },
+
+  // ---------------------------------------------------------- vätskan ---
+
+  // Ägaren bad om vätska två gånger ("vätska", "glas med vätskor"). Den ligger DÄR den
+  // syns och gör något: ett glas saft eller ett mjölkpaket som pappa spottar ut TÖMS
+  // över bänkskivan, och pölen rinner runt allt annat som ligger där.
+  //
+  // Två val som är kostnad, inte smak:
+  //  · EN vätskevärld, och den skapas först när något faktiskt spills. `FluidView`
+  //    allokerar en sprite per partikel och lägger två filterpass över sin `area` varje
+  //    bildruta — ett kök som aldrig spiller ska inte betala för det.
+  //  · `area` är bänkbandet, inte designytan. Förvalet (1520×1080) är 9× dyrare än det
+  //    här bandet, och den notan betalas i tappade WebGL-kontexter i ANDRA spel när
+  //    sviten kör fyra webbläsare parallellt.
+  _spill(ctx, x, y, sort) {
+    const S = SPILL[sort]
+    if (!S || !this._alive) return
+    if (!this._vatskaV) {
+      const b = { left: FYSIK.v, right: FYSIK.h, top: KANT_Y - 80, bottom: FYSIK.golv + 10 }
+      this._vatskaV = new FluidWorld({
+        max: 108, radius: 20, gravityY: 0.5, bounds: b,
+        walls: { left: true, right: true, bottom: true, top: false },
+        rho0: S.rho0, sigma: S.sigma, beta: S.beta, restitution: 0.06, wallFriction: 0.5,
+      })
+      this._vatskaVy = new FluidView(this._vatskaL, this._vatskaV, {
+        // Låg blur + hög tröskel: en pöl ska ha en KANT. Med förvalen (blur 9, tröskel
+        // 0,42) blev samma partiklar en glödande dimma tvärs hela bänken.
+        color: S.color, edge: S.edge, alpha: S.alpha ?? 1,
+        blur: 6, threshold: 0.52, blobScale: 1.2, resolution: 0.5,
+        area: new Rectangle(b.left - 30, b.top, b.right - b.left + 60, b.bottom - b.top + 40),
+      })
+    } else {
+      this._vatskaVy.setColor(S.color, S.edge)
+    }
+    // Tätt och lugnt. Första försöket sköt iväg dem med ±3,2 px/steg i sidled och 46
+    // partiklar smetade då ut sig över hela bänkens 788 px — en hinna, inte en pöl.
+    for (let i = 0; i < 58; i++) {
+      this._vatskaV.spawn(x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 14, {
+        vx: (Math.random() - 0.5) * 1.3, vy: -0.4 - Math.random() * 1.4,
+      })
+    }
+    ctx.services.audio.sfx('soft')
+    this._torkT = 0
+  },
+
+  // Pölen torkar upp av sig själv. Utan det ligger en vätskevärld och kostar för alltid
+  // (`fxLayer`-fällan i CLAUDE.md, en våning upp: allt som cachas på ett långlivat lager
+  // måste kunna rivas när det är tomt).
+  _vatskaTick(ctx, dt) {
+    const w = this._vatskaV
+    if (!w) return
+    // Kollisionskropparna matas in på nytt varje bildruta: högen rör sig, och en pöl som
+    // rinner genom en kastrull är inte en pöl.
+    w.clearColliders()
+    for (const rec of this._losa) {
+      if (rec._kropp && rec.view && !rec.view.destroyed) w.addCircle(rec.view.x, rec.view.y, 30)
+    }
+    w.update(dt)
+    this._vatskaVy?.update()
+
+    this._torkT = (this._torkT || 0) + dt
+    if (this._torkT > 5000) {
+      this._torkStep = (this._torkStep || 0) + dt
+      if (this._torkStep > 150) {
+        this._torkStep = 0
+        // ⚠️ `drain(x, y, w, h)` tar ett CENTRUM, inte ett hörn. Med hörnet inskickat
+        // låg avloppet på x −248..632 medan pölen samlats kring 430..830 — den torkade
+        // då bara på vänstra halvan (uppmätt 57 → 29 partiklar på elva sekunder, och
+        // världen levde vidare). Samma sorts tyst enhetsfel som CLAUDE.md varnar för.
+        w.drain((FYSIK.v + FYSIK.h) / 2, (KANT_Y + FYSIK.golv) / 2,
+          FYSIK.h - FYSIK.v + 120, FYSIK.golv - KANT_Y + 400, { max: 7 })
+        if (w.count <= 0) this._rivVatska()
+      }
+    }
+  },
+
+  _rivVatska() {
+    this._vatskaVy?.destroy()
+    this._vatskaVy = null
+    this._vatskaV?.destroy()
+    this._vatskaV = null
+    this._torkT = 0
+  },
+
+  _lyftLos(rec) {
+    if (!rec?._kropp) return
+    this._phys?.removeBody(rec._kropp)
+    rec._kropp = null
+    const i = this._losa.indexOf(rec)
+    if (i >= 0) this._losa.splice(i, 1)
+    if (rec.view && !rec.view.destroyed) rec.view.rotation = 0
+  },
+
+  _stadaLos(ctx, rec, forsening = 0) {
+    if (!rec) return
+    this._lyftLos(rec)
+    this._drag?.removeItem?.(rec.view)
+    rec._uppaten = true
+    const v = rec.view
+    if (!v || v.destroyed) return
+    ctx.later(forsening, () => {
+      if (!this._alive || v.destroyed) return
+      puff(ctx.fxLayer, v.x, v.y, { count: 5, color: rec.data.farg })
+      gsap.to(v, { alpha: 0, duration: 0.3,
+        onComplete: () => { if (!v.destroyed) v.destroy({ children: true }) } })
+      gsap.to(v.scale, { x: 0.2, y: 0.2, duration: 0.3 })
+    })
+  },
+
+  // Sopa bänken ren. Körs i finalen, i takt — allt på en gång läser som en bugg.
+  _sopaBanken(ctx) {
+    const alla = [...(this._losa || [])]
+    alla.forEach((rec, i) => this._stadaLos(ctx, rec, i * 0.07))
   },
 
   // ------------------------------------------------------------ köket ---
@@ -392,6 +592,7 @@ export default {
         farg: sakFarg(key),
         min: sakMin(key),
         atbar: arAtbar(key),
+        mtrl: sakMaterial(key),
         vy: () => makeSak(key),
       }, st.platser[i], i, 0.1 + i * 0.08)
       rec._station = st
@@ -415,6 +616,7 @@ export default {
 
   _plockaTillbaka(ctx, rec) {
     if (!rec || rec._uppaten) return
+    this._lyftLos(rec) // bältet till hängslet: ingen kropp får överleva sin vy
     rec._uppaten = true
     this._drag?.removeItem?.(rec.view)
     const v = rec.view
@@ -514,14 +716,15 @@ export default {
       this._sag(ctx, rec.data.min || 'acklad')
       if (a?.view && !a.view.destroyed) shake(a.view, { intensity: 8, duration: 0.42 })
       if (!v.destroyed) {
-        // Ut ur munnen i en båge, ner mot bänken och bort. Riktningen slumpas så två
-        // utspottade saker aldrig följer exakt samma väg.
-        const ut = (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 90)
-        gsap.to(v, { x: v.x + ut, duration: 0.6, ease: 'power1.out' })
-        gsap.to(v, { y: BANK_Y - 30, duration: 0.6, ease: 'power2.in' })
-        gsap.to(v.scale, { x: 0.7, y: 0.7, duration: 0.6 })
-        gsap.to(v, { alpha: 0, duration: 0.3, delay: 0.55,
-          onComplete: () => { if (!v.destroyed) v.destroy({ children: true }) } })
+        // Ut ur munnen som en RIKTIG kastad kropp: gaffeln flyger, studsar på bänken och
+        // blir liggande bland allt annat. Att bara tona bort den vore att säga att saken
+        // upphörde att finnas — det här säger att pappa spottade ut den.
+        v.scale.set(rec.view._fxRestScale?.x ?? 1, rec.view._fxRestScale?.y ?? 1)
+        rec._uppaten = false
+        this._gorLos(ctx, rec, {
+          vx: (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 4),
+          vy: -7 - Math.random() * 3,
+        })
       }
       puff(ctx.fxLayer, ANS.x, this._munY + 20, { count: 8, color: rec.data.farg })
       if (Math.random() < 0.6) ctx.services.voice.say('Blää, det där gick inte att äta!')
@@ -632,16 +835,27 @@ export default {
     const x = rec.tx
     const y = rec.ty
 
-    // Klet UNDER maten, så den ser fastklistrad ut i stället för pålagd.
+    // Kleten under maten är en MJUK KROPP — och bara den NYASTE. Det är hela regeln för
+    // mjuka kroppar i det här repot: gör bara det mjukt som deformeras just nu (CLAUDE.md,
+    // `pruttbad` mätte högst 3 samtidigt). En klick som splattar ut vid nedslaget och
+    // sedan lägger sig är skillnaden mot en fläck som bara dyker upp färdig.
+    //
+    // Den fryser efter 1,4 s: sista ritningen ligger kvar i sin `Graphics`, kroppen
+    // slängs, och nästa gegga får bli den mjuka. Aldrig mer än EN i taget.
+    this._frysGegga()
     const klet = new Graphics()
-    const n = 7
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2
-      const r = 26 + Math.random() * 16
-      klet.circle(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.6, 13 + Math.random() * 9)
-    }
-    klet.fill({ color: farg, alpha: 0.5 })
-    klet.position.set(x, y)
+    // VILOFORMEN är redan utsplattad (bred och låg) — det är så en klick som träffat ett
+    // ansikte ser ut. Första försöket byggde en rund kropp och knuffade ut den vid
+    // nedslaget; mätningen mot en oknuffad kontrollarm visade att hela deformationen var
+    // borta efter SEX steg (88 → 78 px på 0,1 s), alltså osynlig. Kroppen bär nu formen,
+    // och det mjuka är VOBBELN när den landar: låg styvhet + hög dämpning ger en
+    // svängning som lägger sig över ungefär en sekund.
+    const kropp = makeMjukkropp({
+      x, y, w: 84, h: 44, punkter: 12, grav: 0,
+      damp: 0.93, iter: 4, tryck: 1.04, styvhet: 0.16,
+    })
+    kropp.knuff(x, y - 26, 14, 90) // nedslaget uppifrån: klicken trycks ihop och studsar
+    this._mjuk = { kropp, g: klet, farg, t: 0, acc: 0 }
 
     const bit = new Container()
     bit.position.set(x, y)
@@ -651,7 +865,7 @@ export default {
     bit.addChild(rec.data.vy())
 
     this._geggaL.addChild(klet, bit)
-    const g = { klet, bit }
+    const g = { klet, bit, farg, kropp }
     this._geggor.push(g)
     if (!v.destroyed) v.visible = false
 
@@ -667,16 +881,53 @@ export default {
     }
   },
 
+  // Geggan ploppar av ansiktet och FALLER NER PÅ BÄNKEN. Tidigare tonade den bara bort
+  // på vägen ner, vilket sa att den upphörde att finnas; nu landar den bland allt annat
+  // och knuffar undan det som redan ligger där. Kleten följer inte med — den är en fläck
+  // på huden, inte ett föremål.
+  // Frys den mjuka geggan: sluta stega, behåll bilden. Utan detta tickar en verlet-kropp
+  // per fläck vidare i all evighet — och sex av dem är sex solvers ingen ser.
+  _frysGegga() {
+    if (!this._mjuk) return
+    this._mjuk.kropp.destroy()
+    this._mjuk = null
+  },
+
+  // ⚠️ FAST TIDSSTEG. `Mjukkropp` räknar dämpning och villkorsstyvhet per STEG men
+  //    kraftfält per f² — ett för stort steg viker ihop kroppen för gott, ett för litet
+  //    ger en helt annan jämvikt (CLAUDE.md). Ackumulatorn stegar alltid med exakt 1.
+  _mjukTick(dtMS) {
+    const m = this._mjuk
+    if (!m) return
+    if (m.g.destroyed) { this._frysGegga(); return }
+    m.acc += dtMS / (1000 / 60)
+    let n = 0
+    while (m.acc >= 1 && n < 4) { m.kropp.steg(1); m.acc -= 1; n++ }
+    m.acc = Math.min(m.acc, 2)
+    m.g.clear()
+    m.kropp.path(m.g)
+    m.g.fill({ color: m.farg, alpha: 0.55 })
+    m.t += dtMS
+    if (m.t > 1400) this._frysGegga()
+  },
+
   _ploppa(ctx, g) {
     if (!g) return
     const levande = g.bit && !g.bit.destroyed ? g.bit : null
     const x = levande ? levande.x : 0
     const y = levande ? levande.y : 0
-    for (const nod of [g.klet, g.bit]) {
-      if (!nod || nod.destroyed) continue
-      gsap.to(nod, {
-        y: nod.y + 190, alpha: 0, rotation: nod.rotation + 1.2, duration: 0.5, ease: 'power1.in',
-        onComplete: () => { if (!nod.destroyed) nod.destroy({ children: true }) },
+    if (this._mjuk && this._mjuk.g === g.klet) this._frysGegga()
+    if (g.klet && !g.klet.destroyed) {
+      gsap.to(g.klet, { alpha: 0, duration: 0.35,
+        onComplete: () => { if (!g.klet.destroyed) g.klet.destroy({ children: true }) } })
+    }
+    if (levande) {
+      // Flytta biten till matlagret: geggalagret ligger BAKOM köksön, och en sak som
+      // faller ner på bänken måste ritas framför den.
+      levande.parent?.removeChild(levande)
+      this._matL.addChild(levande)
+      this._gorLos(ctx, { view: levande, data: { farg: g.farg, mtrl: 'tra' } }, {
+        vx: (Math.random() - 0.5) * 3, vy: 1.5,
       })
     }
     if (x || y) puff(ctx.fxLayer, x, y, { count: 4 })
@@ -757,6 +1008,7 @@ export default {
     ctx.later(2.6, () => {
       if (!this._alive) return
       this._torkaRent(ctx)
+      this._sopaBanken(ctx)
     })
     ctx.later(3.4, () => {
       if (!this._alive) return
@@ -771,6 +1023,9 @@ export default {
   _update(ctx, dtMS) {
     if (!this._alive) return
     const dt = Math.min(60, dtMS)
+    this._phys?.update(dtMS)
+    this._vatskaTick(ctx, dtMS)
+    this._mjukTick(dtMS)
     this._kokTick(ctx, dt)
 
     // Munnen gapar när maten närmar sig — riggens tydligaste inbjudan. Läs fingrets
@@ -814,6 +1069,10 @@ export default {
       st._saker = []
     }
     this._oppnaSt = []
+    // Lösa kroppar först: `clear()` river strax vyerna, och en matter-kropp som pekar på
+    // en förstörd vy skriver till den varje steg.
+    for (const rec of [...(this._losa || [])]) this._lyftLos(rec)
+    this._losa = []
     for (const rec of this._mat || []) {
       if (rec._inre) {
         rec._inre._fxLiv?.kill()
@@ -842,9 +1101,11 @@ export default {
     for (const rec of this._mat || []) {
       rec._inre?._fxLiv?.kill()
       if (!rec.view.destroyed) {
+        if (rec._grepp) rec.view.off('pointerdown', rec._grepp)
         gsap.killTweensOf(rec.view)
         gsap.killTweensOf(rec.view.scale)
       }
+      rec._grepp = null
     }
     for (const g of this._geggor || []) {
       for (const nod of [g.klet, g.bit]) if (nod && !nod.destroyed) gsap.killTweensOf(nod)
@@ -853,6 +1114,15 @@ export default {
     this._mat = []
     if (this._hjarta && !this._hjarta.destroyed) gsap.killTweensOf(this._hjarta)
     gsap.killTweensOf(this._fyll)
+
+    for (const rec of this._losa || []) {
+      if (rec?.view && !rec.view.destroyed) gsap.killTweensOf(rec.view)
+    }
+    this._losa = []
+    this._frysGegga()
+    this._phys?.destroy()
+    this._phys = null
+    this._rivVatska()
 
     for (const st of this._stationer || []) {
       if (st._hit && !st._hit.destroyed && st._tryck) st._hit.off('pointertap', st._tryck)

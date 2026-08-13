@@ -52,6 +52,12 @@ export const PLATSER = [[410, 505], [556, 505], [702, 505], [848, 505], [994, 50
 // skönhetsfråga. Locket når 329, väggens nedersta station slutar 272.
 export const MATARE = { x: 268, y: 450, w: 112, h: 190 }
 
+// FYSIKBORDET: den rektangel där lösa saker faller, krockar och lägger sig. Golvet
+// ligger på brädans nivå så en utspottad gaffel hamnar BLAND maten, inte under den, och
+// väggarna står innanför öns kanter så ingenting någonsin ramlar ur bild (P0: inget får
+// försvinna för gott). Talen är öns egna — flyttas ön flyttas de här.
+export const FYSIK = { v: 232, h: 1032, golv: 548 }
+
 // Var köksöns yta börjar och slutar vid en given höjd (bänkskivan smalnar bakåt).
 export function bankX(y) {
   const t = Math.max(0, Math.min(1, (y - KANT_Y) / (BANK_Y - KANT_Y)))

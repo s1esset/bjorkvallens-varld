@@ -108,6 +108,22 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
 
 ## 5. Status / loggar
 
+- 2026-08-13 🎨 **N12: ugnen blev en LÅDA i stället för ett svart hål** (`5430a5b`, v1.192.0).
+  Raden under (D1, 08-10) slutade med *"spelets topp är nu ugnens mörka insida"* — det här är
+  den posten. Hålan var **en enda ton `0x1d1a20` över 240×232 px**, uppmätt **50 656 px** av
+  `_plattprobe --medbakgrund` (svitens åttonde plattaste fält), bbox `965,256 → 1204,487`.
+  En mörk yta är inte i sig fel — men det här *är* en låda man tittar in i, och den saknade
+  varje spår av att vara det.
+  Byggt som geometri, inte som en gradient över hålan: **fyra väggar i perspektiv** mot en
+  inre bakvägg (`verticalFill`), plus ett **galler** (främre stång, bakre stång, sex skenor
+  mellan dem). Ljussättningen är den enda fysiskt sanna i en låda: **taket mörkast** (inget
+  ljus når det), **golvet ljusast** (rumsljuset studsar upp), bakväggen tonar mot golvets studs.
+  Gallret är till för den **tomma** ugnen — pizzan hamnar på `OVEN.y` i skala 0,48 och täcker
+  det under gräddningen, men det är pyntandet barnet tittar på hela tiden.
+  **MÄTT:** fältet `#2a272d` **50 656 → 0 px**. Spelets största enskilda fält **50 656 →
+  40 139 px (−21 %)**, och toppen är nu bänkskivan `#c98f57` — ugnen ligger inte kvar på
+  listan alls. `npm run test pizzabageriet` grönt, `check` 0/0.
+
 - 2026-08-10 📱 **Full bleed: bageriet ritas nu med `BLEED_X`/`BLEED_Y`** (v1.127.0).
   Spelet var det sista som saknade bleed helt (noterat i `SESSIONS.md` tre pass i rad). Vägg,
   väggljus, bänkskiva och golv slutade på 0 / 1280 / 720, så en telefon bredare än 16:9 visade

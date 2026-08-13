@@ -14,6 +14,55 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.193.0 · Röstkön tömd och N12 stängd — svansen var mest gradienter
+
+**Byggt:** de två öppna posterna från förra passet, båda hela vägen klara.
+
+**① Röstkön är tom (v1.191.0, `cdf3761`).** De 7 replikerna från köksrundan genererade med
+F5-TTS: **7 gjorda, 1579 överhoppade, 0 misslyckade.** `check` gick från "♪ 7 väntar" till noll.
+
+**② N12 — platthetens svans (v1.192.0, `5430a5b`).** Punkten namngav två fält. Båda är ur
+vägen, men bara det ena ledde till kod:
+
+- **`hamburgerbygget`s bänkskiva var mycket riktigt ett INAKTUELLT tal** — köns egen varning
+  höll. Ommätt i dag: **26 456 px**, alltså **plats 40 av 73**, och de två fälten närmast under
+  är dels en panel, dels en GRANNTON till det största. Avskrivet utan en rad kod.
+- **`pizzabageriet`s ugnsinsida byggd.** Hålan låg i EN ton över 240×232 px — **50 656 px**,
+  svitens åttonde plattaste fält. Nu fyra väggar i perspektiv mot en bakvägg med lodrät toning,
+  plus ett galler. Ljussättningen är den enda fysiskt sanna i en låda man tittar in i: taket
+  mörkast, golvet ljusast, bakväggen mot golvets studs. **Mätt: tonen 50 656 → 0 px, spelets
+  största fält 50 656 → 40 139 (−21 %)**, och ugnen ligger inte kvar på listan alls.
+  Spelets egen §5-rad från 08-10 slutade med *"spelets topp är nu ugnens mörka insida"* — det
+  var alltså en förutsägelse som stämde, tio dagar gammal.
+
+**Och därmed är N12 slut, för svansen är inte platt längre — den är GRADIENTER.** Av topp 14 i
+dag är i stort sett allt kvar antingen en panel som ska förbli platt (`trollblandning`), ett
+medvetet undantag (`natskott-pa-stan`s hand) eller en redan korrekt fylld yta vars gradient
+kvantiserats till 256 band. Det kostade tre `_bbox`-körningar att avgöra för hand, så
+**`_plattprobe` flaggar det numera själv**: `~band` när största fältet har ett JÄMNSTORT fält
+på nästan samma färg (avstånd ≤ 6 per kanal OCH grannen ≥ 35 % av toppen).
+
+⚠️ **Storleks-villkoret är det som bär, och det valdes av ett kontrollfall.** En platt yta bär
+ofta en egen ljusning ovanpå — den gamla pizzaugnens glasreflex låg 7 steg från hålan, och utan
+35 %-regeln hade sonden friat just det fält den skulle peka ut (reflexen är 9,5 % av hålans
+yta). Validerad mot kända fall: flaggar `gravmaskinen` (d=1), `folj-sparet` (d=2) och
+`rulla-bollen-hem` (d=1, som sondens eget filhuvud sedan länge säger ska toppa listan), och
+lämnar `trollblandning`s äkta platta panel oflaggad. **Den friar aldrig ett fält den inte mätt
+en granne till:** `snobollen` (63 577 px) går fri fast den *ser* ut som banding — dess närmaste
+färggrannar finns men är bara 22/18/11 % så stora, alltså dominerar toppbandet på riktigt.
+Flaggan är en ledtråd om var man ska titta SIST, inte en dom.
+
+**Commits:** `cdf3761` feat(voice) sju nya klipp · `5430a5b` feat(pizzabageriet) ugnen är en låda
+**Kontroll:** `npm run check` **0 fel / 0 varningar** · `npm run test:all` **73/73 gröna** ·
+arbetsträdet rent · backup körd.
+**Öppet:** **nattkön har ingen ⬜-punkt kvar** — N12 var den sista, och den är stängd med
+mätning. Kvar i ⏸ (kräver en människa): `npm run sfx` väntar på att MOSS-SoundEffect kommer upp
+(`bajs-och-kiss` ×3 · `sapbubblor` ×9 · `kittla-figuren` ×1 · `peka-pa-kroppen` ×2, alla
+loggade som `saknat-ljudklipp` i svepet) och pappas inspelade uttrycksljud i `mata-munnen`.
+**Bygget är fortfarande INTE omgjort** — telefonen kör v1.157.0.
+
+---
+
 ## 2026-08-13 · v1.190.0 · Kritikerrundan på köket — ett P0-brott, en lögnaktig kran
 
 **Byggt:** `spelkritiker` spelade det nybyggda köket och hittade fyra saker som ledde till kod.

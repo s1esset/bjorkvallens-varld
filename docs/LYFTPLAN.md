@@ -953,6 +953,21 @@ Före: `FillGradient` (linjär **och** radiell) fanns i Pixi 8.19 och användes 
    skärmdump är bänken inte spelets största fält alls — de vita panelerna är det, och de ska
    förbli platta (P0: paneler bär text). Ändringen är gjord och är rätt, men vinsten är liten;
    den som letar stora ytor i det spelet ska mäta om först.
+   ✅ **OMMÄTT 2026-08-13 (v1.192.0) och därmed avskriven.** Spelets största enskilda fält är
+   **26 456 px** (`#f2e1ca`), alltså plats **40 av 73** — och de två fälten närmast under
+   (`#fffdf7` 23 702, `#f3e2cb` 22 546) är dels en panel, dels en GRANNTON till det största,
+   vilket är signaturen för en korrekt bakad gradient, inte för en platt yta. `hamburgerbygget`
+   är inte längre en N12-kandidat.
+
+   ✅ **N12 är därmed slut i sin skrivna form** (2026-08-13, v1.192.0). Punktens två namngivna
+   fält är båda ur vägen: `hamburgerbygget` avskrivet med ommätning ovan, `pizzabageriet`s
+   ugnsinsida byggd (`5430a5b`, 50 656 → 0 px för tonen; spelets topp 50 656 → 40 139).
+   ⚠️ **Och den som tar svansen vidare måste läsa `_plattprobe`s eget filhuvud först.** Nästa
+   spel på listan i dag är `snobollen` (79 838 px, `#d1b7c3`) och det är en **falsk träff**:
+   `_bbox` ger `0,562 → 1279,719`, alltså ett 1280 px brett vågrätt BAND över en snöbacke som
+   redan är gradientfylld och dessutom bär gropar. Det är precis den kvantisering till 256 steg
+   som filhuvudet varnar för — en bred, flack form lägger tusentals pixlar i varje band. Ett
+   stort tal räcker inte; kör `_bbox` och **titta på bilden** innan något byggs.
 
    Och: en gradient på en 11px-stjärna syns inte, en på ett 90px-klot bär hela bilden —
    storleken avgör om det är värt en ändring.

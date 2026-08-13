@@ -61,7 +61,7 @@ function matPlatthet(png) {
   for (const [k, n] of antal) {
     if (k === bg || n < MIN) continue
     plattYta += n
-    falt.push({ farg: '#' + k.toString(16).padStart(6, '0'), px: n })
+    falt.push({ farg: '#' + k.toString(16).padStart(6, '0'), px: n, k })
   }
   falt.sort((a, b) => b.px - a.px)
   return {
@@ -70,7 +70,46 @@ function matPlatthet(png) {
     plattPx: plattYta,
     toner: antal.size,
     storstaFalt: falt.slice(0, 3),
+    granne: narmasteGranne(falt),
   }
+}
+
+// Är det största fältet EN BAND-NIVÅ i en redan bakad gradient, i stället för en platt yta?
+//
+// Kostade tre `_bbox`-körningar 2026-08-13 att avgöra för hand, och svaret var "falsk träff"
+// varje gång: `gravmaskinen` toppade med `#feedd3` 57 903 px och hade `#feeed4` 42 394 px
+// intill sig — det är samma yta, en kvantiseringsnivå bort. Pixi bakar en linjär gradient
+// till 256 steg, så en BRED, FLACK form (en snöbacke, en markplan) lägger tiotusentals
+// pixlar i VARJE steg och toppar listan trots att den är helt korrekt fylld.
+//
+// Signaturen: det största fältet har ett ANNAT stort fält på nästan samma färg. Två villkor,
+// båda nödvändiga, och det är storleks-villkoret som bär:
+//   • färgavstånd ≤ 6 per kanal (en äkta grannivå ligger på 1–3)
+//   • grannen ≥ 35 % av toppfältet (en gradient lägger JÄMNSTORA band)
+// Storleks-villkoret finns för att en platt yta ofta bär en egen ljusning ovanpå — den gamla
+// pizzaugnens glasreflex låg 7 steg från hålan men bara på 9,5 % av dess yta, och hålan var
+// stenplatt. Utan 35 %-regeln hade sonden friat just det fält den skulle peka ut.
+//
+// ⚠️ Flaggan är en LEDTRÅD som säger "titta här sist", inte en dom. Den kan bara se den ena
+// signaturen (närliggande FÄRG). Ett fält vars grannband ligger under `--min` — eller en
+// gradient vars steg är glesa nog att spridas — går fri och måste fortfarande avgöras med
+// `_bbox` + ögat. Den friar aldrig ett fält den inte har mätt en granne till.
+function narmasteGranne(falt) {
+  if (!falt.length) return null
+  const t = falt[0]
+  const tr = (t.k >> 16) & 255, tg = (t.k >> 8) & 255, tb = t.k & 255
+  let bast = null
+  for (let i = 1; i < falt.length; i++) {
+    const f = falt[i]
+    const d = Math.max(
+      Math.abs(((f.k >> 16) & 255) - tr),
+      Math.abs(((f.k >> 8) & 255) - tg),
+      Math.abs((f.k & 255) - tb),
+    )
+    if (!bast || d < bast.d) bast = { d, px: f.px, farg: f.farg }
+  }
+  if (!bast) return null
+  return { ...bast, band: bast.d <= 6 && bast.px >= 0.35 * t.px }
 }
 
 // Bara de 72 SPELENS skärmdumpar. `.test-shots` innehåller också sondutdata
@@ -95,11 +134,14 @@ console.log('  ' + 'spel'.padEnd(26) + 'största'.padStart(9) + 'summa'.padStart
 for (const r of rader.slice(0, TOPP)) {
   if (r.fel) { console.log('  ' + r.spel.padEnd(26) + '  FEL ' + r.fel); continue }
   const falt = r.storstaFalt.map((f) => `${f.farg}:${f.px}`).join(' ')
+  const flagga = r.granne?.band ? ' ~band' : '      '
   console.log(
     '  ' + r.spel.padEnd(26) +
-    String(storst(r)).padStart(9) +
+    String(storst(r)).padStart(9) + flagga +
     String(r.plattPx).padStart(10) +
     String(r.toner).padStart(8) + '   ' + falt
   )
 }
-console.log()
+console.log('\n  ~band = största fältet har ett JÄMNSTORT fält på nästan samma färg, alltså')
+console.log('  sannolikt en nivå i en redan bakad gradient. En ledtråd att titta där SIST —')
+console.log('  ingen dom, och den friar aldrig ett fält vars grannband ligger under --min.\n')

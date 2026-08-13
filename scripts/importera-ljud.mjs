@@ -101,12 +101,17 @@ const KLIPP = [
   { fil: 'male_hit_grunt.mp3', namn: 'traff_hard' },
 
   // --- prutten (bönor och kål) ---
-  { fil: 'fart_1.mp3', namn: 'prutt' },
-  { fil: 'fart_2.mp3', namn: 'prutt' },
-  { fil: 'fart_3.mp3', namn: 'prutt' },
-  { fil: 'fart_4.mp3', namn: 'prutt' },
-  { fil: 'fart_5.mp3', namn: 'prutt' },
-  { fil: 'fart_long.mp3', namn: 'prutt_lang' },
+  // ⚠️ NYCKELN HETER `pappa_prutt`, INTE `prutt`. `bajs-och-kiss` rad 859 anropar redan
+  //    `sample('prutt')` som knip-signal och faller på en TON: 0,14 s, vol 0,08 — en kort
+  //    fnissig stånka. Hette de här klippen `prutt` hade den tysta signalen tyst bytts mot
+  //    en inspelad prutt på upp till 2,3 s vid −18 LUFS, i ett spel som inte bett om något.
+  //    Ett nytt klippnamn måste alltid provas mot `grep -rn "sample?\.('<namn>')" src/`.
+  { fil: 'fart_1.mp3', namn: 'pappa_prutt' },
+  { fil: 'fart_2.mp3', namn: 'pappa_prutt' },
+  { fil: 'fart_3.mp3', namn: 'pappa_prutt' },
+  { fil: 'fart_4.mp3', namn: 'pappa_prutt' },
+  { fil: 'fart_5.mp3', namn: 'pappa_prutt' },
+  { fil: 'fart_long.mp3', namn: 'pappa_prutt_lang' },
 
   // --- köket ---
   { fil: 'cabinet_open.mp3', namn: 'lucka' },

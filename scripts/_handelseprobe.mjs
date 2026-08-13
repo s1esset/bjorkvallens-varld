@@ -144,9 +144,9 @@ const pruttSvar = await page.evaluate(async () => {
   return { utan: await kor('tomat', null), med: await kor('bonor', 'alltid') }
 })
 kolla('kontroll: sak utan flagga pruttar ej',
-  !pruttSvar.utan.some((n) => n.startsWith('prutt')),
+  !pruttSvar.utan.some((n) => n.startsWith('pappa_prutt')),
   `spelade: ${pruttSvar.utan.join(', ') || '(inget)'}`)
-kolla('bonor/kal pruttar', pruttSvar.med.some((n) => n.startsWith('prutt')),
+kolla('bonor/kal pruttar', pruttSvar.med.some((n) => n.startsWith('pappa_prutt')),
   `spelade: ${pruttSvar.med.join(', ') || '(inget)'}`)
 
 // ---- 4. exit mitt i allt ----------------------------------------------------------

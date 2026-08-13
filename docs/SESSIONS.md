@@ -57,6 +57,17 @@ Det är `dod-traffyta`, samma familj som stationen som svalde en pekning under f
 v1.190, och det syntes först när en sond tryckte där. Håller barnet redan en bit är samma
 tryck tap-tap-matning och får inte kapas.
 
+⚠️ **En nyckel som råkade fullborda ett ANNAT spels väntan.** `test:all` visade
+`saknat-ljudklipp` i fyra spel; tre var gamla (`skratt` · `flakt` · `blubb`, aldrig
+inspelade), men den fjärde avslöjade att `bajs-och-kiss` rad 859 redan anropar
+`sample('prutt')` som **knip-signal** och faller på en ton: 0,14 s, vol 0,08 — en kort
+fnissig stånka. Mina klipp hette `prutt` och hade alltså tyst bytt den mot en inspelad
+prutt på upp till 2,3 s vid −18 LUFS, i ett spel som inte bett om något. Nyckeln heter nu
+`pappa_prutt`, och `bajs-och-kiss` är tillbaka på sin ton (verifierat: samma loggfynd som
+före ändringen). **Ett nytt klippnamn måste alltid prövas mot
+`grep -rn "sample?\.('<namn>')" src/`** — manifestet är app-brett och delas av 73 spel.
+Övriga nio nya nycklar är exklusiva för `mata-munnen`, kontrollerat.
+
 **Sonder:** `_klippprobe` utökad till 14/14 (varianter, med kontrollarm FÖRE mätarmen: `kast`
 = EN fil ger 1 unik längd över 40 spelningar, `prutt` 5/5 och `traff_hard` 5/5 över 80).
 `klunk` är med flit utelämnad — dess två varianter är båda 0,38 s, så längden kan inte skilja

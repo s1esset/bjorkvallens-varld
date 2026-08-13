@@ -1224,7 +1224,7 @@ export default {
     const audio = ctx.services.audio
     // `prutt_lang` är den sällsynta långa; de fem korta ligger i en hög som slumpas.
     const lang = Math.random() < 0.15
-    const nyckel = lang && audio.harSample?.('prutt_lang') ? 'prutt_lang' : 'prutt'
+    const nyckel = lang && audio.harSample?.('pappa_prutt_lang') ? 'pappa_prutt_lang' : 'pappa_prutt'
     if (!(audio.harSample?.(nyckel) && audio.sample(nyckel))) {
       audio.sfx('fart') // appens egen prutt-syntes — den fanns långt före klippen
     }

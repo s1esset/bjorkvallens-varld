@@ -398,7 +398,7 @@ föremålens** `GRIP_R` 52 (= 104 px diameter), som var det enda P0-brott kritik
   (`20feffa` + `d3a0c64`, v1.200.0). Se §6 för resten av uppdraget.
   **Slumpen ligger i tjänsten:** ett manifest-värde får vara ett fält, `sample()` väljer bland
   de färdigavkodade och `_senast` minns valet så `sampleDuration()` svarar för det som just
-  spelades. 18 nycklar, 6 med varianter (`prutt`×5 · `traff_hard`×5 · `traff_mjuk`×4 ·
+  spelades. 18 nycklar, 6 med varianter (`pappa_prutt`×5 · `traff_hard`×5 · `traff_mjuk`×4 ·
   `svalj`×4 · `tugg_mjuk`×2 · `klunk`×2). §4:s väntelista är därmed tom — alla sju
   röstklipp och alla tuggklipp finns.
   **Nya händelser:** tryck på pappa (`pappa_huh`), maten tillbaka (`pappa_ehh`), prutten
@@ -414,6 +414,11 @@ föremålens** `GRIP_R` 52 (= 104 px diameter), som var det enda P0-brott kritik
   **Sonder:** `_klippprobe` 14/14 med kontrollarm före mätarmen (`kast` = en fil ger 1 unik
   längd över 40 spelningar; `klunk` utelämnad — båda varianterna är 0,38 s och längden kan
   inte skilja dem åt), ny `_handelseprobe` 8/8, ny `_matbild`.
+  ⚠️ **Prutt-nycklarna heter `pappa_prutt`, inte `prutt`.** `bajs-och-kiss` rad 859 anropar
+  redan `sample('prutt')` som knip-signal och faller på en ton (0,14 s, vol 0,08); hette
+  klippen `prutt` hade den tysta signalen bytts mot en 2,3 s inspelning i ett spel som inte
+  bett om något. Manifestet är app-brett — pröva alltid ett nytt klippnamn mot
+  `grep -rn "sample?\.('<namn>')" src/`.
   ⚠️ **Två sondläxor:** `_matbild` visade att kålen var en **sköldpadda** (fyra symmetriska
   bladflikar läste som öron och fötter), och `_handelseprobe` läste `_ans._minNamn` — ett
   fält som inte finns — och skrev ut `null` bredvid ett grönt kryss.

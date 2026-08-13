@@ -29,7 +29,7 @@ const ANTAL = NYCKLAR.length
 // ⚠️ `klunk` är med FLIT inte med i listan: dess två varianter är båda 0,38 s, så längden
 //    kan inte skilja dem åt. Ett mått som inte kan separera två KÄNDA lägen duger inte som
 //    bevis, och en grön rad där hade bara mätt att slumpen råkade ge samma tal.
-const VARIANTER = { prutt: 5, traff_hard: 5, traff_mjuk: 4, svalj: 4, tugg_mjuk: 2 }
+const VARIANTER = { pappa_prutt: 5, traff_hard: 5, traff_mjuk: 4, svalj: 4, tugg_mjuk: 2 }
 const ENVARIANT = 'kast' // kontrollarm: EN fil -> exakt ett värde, hur många gånger som helst
 
 const fel = []

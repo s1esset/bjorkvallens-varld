@@ -91,7 +91,7 @@ materialdriven i fyra profiler med ljud på käkens egen takt, och `AudioService
 kranen, spisen och fläkten låter medan de står på. Sonder: `_ansiktebild` (andningsmätning +
 `--bara`) · `_munprobe` (LUTA · TUGG · LJUD · EXIT + `--trace`). Statusen ✅/✅ oförändrad.
 ✅ **Ägarens ljudleverans är inlagd** (v1.200): 33 nya filer → **34 klipp, 18 nycklar**, och
-`AudioService` slumpar nu mellan **varianter** när flera klipp har samma syfte (`prutt`×5 ·
+`AudioService` slumpar nu mellan **varianter** när flera klipp har samma syfte (`pappa_prutt`×5 ·
 `traff_hard`×5 · `traff_mjuk`×4 · `svalj`×4 · `tugg_mjuk`×2 · `klunk`×2). Tre nya händelser
 byggdes för klipp som saknade en: **tryck på pappa** (`pappa_huh`), **maten lades tillbaka**
 (`pappa_ehh`) och **prutten** (nya `bonor` + `kal`). §4:s väntelista är tom.

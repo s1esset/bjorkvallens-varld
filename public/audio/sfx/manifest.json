@@ -34,20 +34,20 @@
   "pappa_mmm": "pappa_mmm.mp3",
   "pappa_ohh": "pappa_ohh.mp3",
   "pappa_oj": "pappa_oj.mp3",
+  "pappa_prutt": [
+    "pappa_prutt_1.mp3",
+    "pappa_prutt_2.mp3",
+    "pappa_prutt_3.mp3",
+    "pappa_prutt_4.mp3",
+    "pappa_prutt_5.mp3"
+  ],
+  "pappa_prutt_lang": "pappa_prutt_lang.mp3",
   "pappa_rap": "pappa_rap.mp3",
   "pappa_retas": "pappa_retas.mp3",
   "pappa_surt": "pappa_surt.mp3",
   "plopp": "plopp.mp3",
   "plopp_av": "plopp_av.mp3",
   "pop": "pop.mp3",
-  "prutt": [
-    "prutt_1.mp3",
-    "prutt_2.mp3",
-    "prutt_3.mp3",
-    "prutt_4.mp3",
-    "prutt_5.mp3"
-  ],
-  "prutt_lang": "prutt_lang.mp3",
   "reveal": "reveal.mp3",
   "soft": "soft.mp3",
   "svalj": [

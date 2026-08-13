@@ -32,9 +32,9 @@ console.log(f.length?('FYND '+f.join(', ')):'rent');
 }
 for r in $(seq 1 "$rundor"); do
   git stash push -u -- "${filer[@]}" >/dev/null 2>&1
-  g=$(npm run test:all 2>&1 | grep -oE '[0-9]+/72 gröna' | tail -1)
+  g=$(npm run test:all 2>&1 | grep -oE '[0-9]+/[0-9]+ gröna' | tail -1)
   echo "runda $r  HEAD    : $g · $(felraknare)"
   git stash pop >/dev/null 2>&1
-  g=$(npm run test:all 2>&1 | grep -oE '[0-9]+/72 gröna' | tail -1)
+  g=$(npm run test:all 2>&1 | grep -oE '[0-9]+/[0-9]+ gröna' | tail -1)
   echo "runda $r  ANDRING : $g · $(felraknare)"
 done

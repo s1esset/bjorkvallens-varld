@@ -41,16 +41,24 @@ const GRIP_R = 52
 const GEGGA_MAX = 6 // P0 MOTGÅNG: tak på hur mycket som kan gå fel samtidigt
 const LOSA_MAX = 8  // samma sorts tak för högen på bänken
 
-// Vilka saker som bär vätska, och vilken. Mjölken finns inte i `FLUIDS` (den har ingen
-// vit) och får därför egna tal — samma form, annan färg och en aning tjockare än vatten.
 // Vilka saker som bär vätska, och vilken. Varken apelsinsaft eller mjölk finns i `FLUIDS`
 // (den har rött och vitt saknas helt), så de två har egna tal. Saften är GLASETS färg —
 // `FLUIDS.saft` är röd och läste som utspillt bär mitt i ett orange glas.
-const SPILL = {
-  glas_saft: { color: 0xf59a2e, edge: 0xffd9a0, sigma: 0.11, beta: 0.17, rho0: 5.2, alpha: 0.95 },
-  honung: FLUIDS.honung,
-  mjolk: { color: 0xf2f8fb, edge: 0xffffff, sigma: 0.08, beta: 0.14, rho0: 5, alpha: 0.96 },
-}
+// EN vätskevärld bär alla fyra, färgade per partikel via `FluidView.palette` — det är
+// precis vad biblioteket har den för. Alternativet (en värld per vätska) hade betytt fyra
+// uppsättningar sprites och fyra filterpass för något barnet ser ett i taget.
+const VATSKOR = [
+  { key: 'vatten', color: 0x5ec8f0 },      // kranen
+  { key: 'glas_saft', color: 0xf59a2e },   // apelsinsaft — GLASETS färg, inte FLUIDS röda
+  { key: 'mjolk', color: 0xf6fbfd },
+  { key: 'honung', color: FLUIDS.honung.color },
+]
+const PALETT = VATSKOR.map((v) => v.color)
+const SPILL = Object.fromEntries(VATSKOR.map((v, i) => [v.key, i]))
+
+// Diskhons botten och sidor, som kranens vatten samlas i. Ovalen i bilden ligger på
+// (322, 240) med rx 56 — kärlet ritas en aning innanför den så vattnet syns i porslinet.
+const HO = { x: 322, y: 240, bottenY: 258, v: 264, h: 380 }
 
 // Vilken min varje mat framkallar. Chilin och citronen är hela poängen med att en sur
 // och en het min finns — resten fördelas så att en tallrik sällan ger samma grimas två
@@ -445,31 +453,36 @@ export default {
   //  · `area` är bänkbandet, inte designytan. Förvalet (1520×1080) är 9× dyrare än det
   //    här bandet, och den notan betalas i tappade WebGL-kontexter i ANDRA spel när
   //    sviten kör fyra webbläsare parallellt.
+  // Skapar vätskevärlden om den inte finns. Den sträcker sig från diskhon (kranen) ner
+  // till bänkskivan (pölarna) — ETT fält, fyra färger.
+  _sakraVatska() {
+    if (this._vatskaV) return this._vatskaV
+    const b = { left: FYSIK.v, right: FYSIK.h, top: 150, bottom: FYSIK.golv + 10 }
+    this._vatskaV = new FluidWorld({
+      max: 116, radius: 20, gravityY: 0.5, bounds: b,
+      walls: { left: true, right: true, bottom: true, top: false },
+      rho0: 5.2, sigma: 0.1, beta: 0.16, restitution: 0.06, wallFriction: 0.5,
+    })
+    // Diskhons kärl sätts upp i `_vatskaTick`, inte här: varje bildruta börjar med
+    // `clearColliders()`.
+    this._vatskaVy = new FluidView(this._vatskaL, this._vatskaV, {
+      // Låg blur + hög tröskel: en pöl ska ha en KANT. Med förvalen (blur 9, tröskel
+      // 0,42) blev samma partiklar en glödande dimma tvärs hela bänken.
+      palette: PALETT, edge: 0xe8f7ff, blur: 6, threshold: 0.52, blobScale: 1.2, resolution: 0.5,
+      area: new Rectangle(b.left - 30, b.top - 20, b.right - b.left + 60, b.bottom - b.top + 60),
+    })
+    return this._vatskaV
+  },
+
   _spill(ctx, x, y, sort) {
-    const S = SPILL[sort]
-    if (!S || !this._alive) return
-    if (!this._vatskaV) {
-      const b = { left: FYSIK.v, right: FYSIK.h, top: KANT_Y - 80, bottom: FYSIK.golv + 10 }
-      this._vatskaV = new FluidWorld({
-        max: 108, radius: 20, gravityY: 0.5, bounds: b,
-        walls: { left: true, right: true, bottom: true, top: false },
-        rho0: S.rho0, sigma: S.sigma, beta: S.beta, restitution: 0.06, wallFriction: 0.5,
-      })
-      this._vatskaVy = new FluidView(this._vatskaL, this._vatskaV, {
-        // Låg blur + hög tröskel: en pöl ska ha en KANT. Med förvalen (blur 9, tröskel
-        // 0,42) blev samma partiklar en glödande dimma tvärs hela bänken.
-        color: S.color, edge: S.edge, alpha: S.alpha ?? 1,
-        blur: 6, threshold: 0.52, blobScale: 1.2, resolution: 0.5,
-        area: new Rectangle(b.left - 30, b.top, b.right - b.left + 60, b.bottom - b.top + 40),
-      })
-    } else {
-      this._vatskaVy.setColor(S.color, S.edge)
-    }
+    const pal = SPILL[sort]
+    if (pal == null || !this._alive) return
+    const w = this._sakraVatska()
     // Tätt och lugnt. Första försöket sköt iväg dem med ±3,2 px/steg i sidled och 46
     // partiklar smetade då ut sig över hela bänkens 788 px — en hinna, inte en pöl.
     for (let i = 0; i < 58; i++) {
-      this._vatskaV.spawn(x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 14, {
-        vx: (Math.random() - 0.5) * 1.3, vy: -0.4 - Math.random() * 1.4,
+      w.spawn(x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 14, {
+        vx: (Math.random() - 0.5) * 1.3, vy: -0.4 - Math.random() * 1.4, pal,
       })
     }
     ctx.services.audio.sfx('soft')
@@ -480,11 +493,38 @@ export default {
   // (`fxLayer`-fällan i CLAUDE.md, en våning upp: allt som cachas på ett långlivat lager
   // måste kunna rivas när det är tomt).
   _vatskaTick(ctx, dt) {
+    // Kranen häller RIKTIGT vatten i hon. Den ritade strålen är kvar som stråle — det är
+    // pölen i porslinet som är vätska. Att låta kranen bara skala en grafik medan samma
+    // fil bär en fungerande vätskemotor var det som fick kranen att ljuga.
+    if (this._vatten && this._alive) {
+      this._kranT = (this._kranT || 0) + dt
+      if (this._kranT > 90) {
+        this._kranT = 0
+        this._sakraVatska().spawn(HO.x - 4 + (Math.random() - 0.5) * 8, 232, {
+          vx: (Math.random() - 0.5) * 0.6, vy: 2.4, pal: 0,
+        })
+      }
+    }
     const w = this._vatskaV
     if (!w) return
+    // Avloppet: hon rinner ut hela tiden, så nivån håller sig och kranen kan stå på hur
+    // länge som helst utan att skölja över bänken.
+    this._avloppT = (this._avloppT || 0) + dt
+    if (this._avloppT > 240) {
+      this._avloppT = 0
+      w.drain(HO.x, HO.bottenY - 6, 120, 30, { max: 2 })
+    }
     // Kollisionskropparna matas in på nytt varje bildruta: högen rör sig, och en pöl som
     // rinner genom en kastrull är inte en pöl.
+    //
+    // ⚠️ DISKHON MÅSTE LÄGGAS TILLBAKA HÄR. `clearColliders()` tömmer HELA listan, så
+    //    kärlet som sattes upp en gång vid `_sakraVatska()` försvann i första bildrutan
+    //    efteråt — kranens vatten rann rakt igenom porslinet och sögs bort av avloppet
+    //    innan det hann synas (uppmätt: 0 partiklar i hon efter 2,6 s med kranen på).
     w.clearColliders()
+    w.addBox(HO.x, HO.bottenY, 132, 12)
+    w.addBox(HO.v, HO.y, 12, 44)
+    w.addBox(HO.h, HO.y, 12, 44)
     for (const rec of this._losa) {
       if (rec._kropp && rec.view && !rec.view.destroyed) w.addCircle(rec.view.x, rec.view.y, 30)
     }
@@ -492,7 +532,7 @@ export default {
     this._vatskaVy?.update()
 
     this._torkT = (this._torkT || 0) + dt
-    if (this._torkT > 5000) {
+    if (this._torkT > 5000 && !this._vatten) {
       this._torkStep = (this._torkStep || 0) + dt
       if (this._torkStep > 150) {
         this._torkStep = 0
@@ -568,9 +608,15 @@ export default {
 
   _tryckStation(ctx, st) {
     this._idle = 0
-    if (!this._alive || this._busy) return
+    if (!this._alive) return
+    // ⚠️ Återkopplingen kommer FÖRE upptagen-spärren. Låg `kvittera` efter den blev varje
+    //    tryck på en lucka under rapfinalen (3,4 s) helt tyst — och en station svarar inte
+    //    via `_tomtTryck`, för den pekningen når aldrig roten. Det är P0-brottet
+    //    `dod-traffyta` (se `scripts/_tystprobe.mjs`), och sondens mönstermatchning
+    //    fångade det inte: den letar efter kända handlarnamn.
     kvittera(ctx.fxLayer, st.yta.x + st.yta.w / 2, st.yta.y + st.yta.h / 2, ctx.services.audio,
       { color: 0xffe3b0, maxR: 74 })
+    if (this._busy) return
     if (st.typ === 'knapp') return this._knapp(ctx, st)
     if (st.oppen) return this._stangStation(ctx, st)
 
@@ -688,6 +734,20 @@ export default {
       if (this._spisPa && n.gryta) {
         puff(ctx.fxLayer, n.gryta.x + (Math.random() - 0.5) * 30, n.gryta.y - 10,
           { count: 4, color: 0xffffff })
+        // TVÅ saker som möts: står fläkten också på SUGS ångan upp i kåpan. Det är den
+        // billigaste "objekten interagerar med varandra" som finns i köket, och den enda
+        // som syns utan att man rör något.
+        if (this._flaktPa) {
+          for (let i = 1; i <= 3; i++) {
+            ctx.later(i * 0.11, () => {
+              if (!this._alive || !this._flaktPa || !this._spisPa) return
+              const t = i / 3
+              puff(ctx.fxLayer, n.gryta.x + (956 - n.gryta.x) * t + (Math.random() - 0.5) * 16,
+                n.gryta.y - 10 + (104 - (n.gryta.y - 10)) * t,
+                { count: 3, color: 0xffffff })
+            })
+          }
+        }
       }
       if (this._vatten && n.ho) {
         puff(ctx.fxLayer, n.ho.x + (Math.random() - 0.5) * 24, n.ho.y - 4,
@@ -1048,11 +1108,26 @@ export default {
     if (this._idle > 6800 && !this._busy) {
       this._idle = 0
       const kvar = (this._mat || []).filter((r) => !r._uppaten)
+      this._cueVaxel += 1
+      // Var tredje cue pekar på KÖKET i stället för på maten. Utan den syns det aldrig att
+      // skåpen går att öppna: en stängd lucka har bara sitt handtag att gå på, och en
+      // 2-åring läser inget. En ring och ett litet skutt på dörren är en inbjudan, aldrig
+      // en tillsägelse — och den kräver ingen text (P0 NAVIGATION).
+      if (this._cueVaxel % 3 === 0) {
+        const stangda = (this._stationer || []).filter((st) => st.dorr && !st.oppen)
+        const st = randomFrom(stangda)
+        if (st) {
+          kvittera(ctx.fxLayer, st.yta.x + st.yta.w / 2, st.yta.y + st.yta.h / 2,
+            ctx.services.audio, { color: 0xffe3b0, maxR: 80 })
+          pop(st.dorr, { scale: 1.04 })
+          ctx.services.voice.say('Vad finns i skåpen, tror du?')
+        }
+        return
+      }
       if (kvar.length) {
         const r = randomFrom(kvar)
         if (r?.view && !r.view.destroyed) wiggle(r.view)
         const harChili = kvar.some((m) => m.data.key === 'chili')
-        this._cueVaxel += 1
         if (harChili && this._cueVaxel % 2 === 1) ctx.services.voice.say('Vad tror du händer om pappa smakar chilin?')
         else ctx.services.voice.say('Titta, pappa tuggar och tuggar!')
       }
@@ -1120,6 +1195,14 @@ export default {
     }
     this._losa = []
     this._frysGegga()
+    // Kökets egna animerade noder. De ägs av `kok.js` men tweenas HÄRIFRÅN (`_knapp`), och
+    // var därför de enda i filen utan städning — exakt mönstret CLAUDE.md varnar för
+    // (en tween som skriver till ett förstört Pixi-objekt efter exit).
+    const n = this._noder || {}
+    for (const nod of [n.fagel, n.strale, n.plattor, n.flakthjul, n.sol]) {
+      if (nod) { gsap.killTweensOf(nod); gsap.killTweensOf(nod.scale) }
+    }
+    this._noder = null
     this._phys?.destroy()
     this._phys = null
     this._rivVatska()

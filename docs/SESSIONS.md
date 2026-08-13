@@ -14,6 +14,46 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.190.0 · Kritikerrundan på köket — ett P0-brott, en lögnaktig kran
+
+**Byggt:** `spelkritiker` spelade det nybyggda köket och hittade fyra saker som ledde till kod.
+
+**Ett riktigt P0-brott jag missat:** kylens tre hyllplan låg **120 px** isär medan ett dragbart
+föremåls träffyta är `GRIP_R` 52 — alltså **104 px i diameter**, inte 96 som kommentaren påstod.
+16 px luft där P0 kräver 24. Rättat till 130 px, och kylen växte 40 px neråt för att rymma det.
+**Sonden mätte bara stationernas ytor, aldrig föremålens** — den kontrollen finns nu.
+
+**Kranen ljög.** Den skalade en ritad stråle medan samma fil bar en fungerande vätskemotor 80
+rader längre ner. Den häller nu riktigt vatten i diskhon, som blivit ett kärl med avlopp: 7
+partiklar i hon efter 2,6 s, **0 nedanför bänkkanten**, 0 kvar 2,6 s efter avstängning. En värld
+bär alla fyra vätskorna via `FluidView.palette`. ⚠️ Första försöket gav 0 partiklar med kranen
+bevisat på — `_vatskaTick` kallar `clearColliders()` varje bildruta och tog med diskhon i
+rensningen, så vattnet rann rakt igenom porslinet.
+
+**En station svalde en pekning tyst under finalen** (`kvittera` låg efter upptagen-spärren, och
+en station svarar inte via `_tomtTryck`). Det är `dod-traffyta`, och `_tystprobe` fångade det
+inte — den letar efter kända handlarnamn.
+
+**Kökets egna noder städades aldrig** i `destroy()` — fågeln, strålen, plattorna, fläkthjulet.
+
+**Två fynd ledde inte till ändring**, och det är också ett svar: "bänkhögen kryper 8,0 px" var
+läst ur en KODKOMMENTAR om det gamla cirkel-beteendet (aktuell mätning 0–3 px), och pappas
+saknade röst är ägarens egen inspelningsuppgift.
+
+**Två tillägg** på kritikerns iakttagelse att köket var svårupptäckt: var tredje vilo-cue pekar
+nu på en **stängd lucka** i stället för på maten, och **fläkten suger upp ångan** från spisen när
+båda står på.
+
+**Fyra sondfel av samma familj** rättades på vägen, och de är värda att minnas: en kontrollarm
+som läses EFTER mätarmen mäter mätarmen (hände två gånger — "tom bänk: 1 lös kropp", "före spill:
+101 partiklar"), och en loop som blint klickar för att växla hamnar ur fas mot något som redan
+står på. Det senare fick besticklådan att aldrig öppnas på tio varv **medan `pointertap`
+bevisligen kom fram** (down=1 up=1 tap=1): "klicket når inte fram" och "klicket gör tvärtom" ser
+likadana ut utifrån.
+
+**Öppet:** LYFTPLAN N12. Pappas inspelade uttrycksljud + 7 repliker väntar på `/rost`.
+Bygget är **inte omgjort** — telefonen kör v1.157.0.
+
 ## 2026-08-13 · v1.189.0 · Ägaruppdraget KÖKET byggt — miljö, luckor och tre motorer
 
 **Byggt:** hela ägaruppdraget från `727cacb` i tre commits, ett steg i taget med en mätning

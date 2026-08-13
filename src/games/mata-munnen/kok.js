@@ -102,9 +102,12 @@ export const STATIONER = [
   // --- vänster: kylskåpet står på golvet, framför väggen ---
   { id: 'frys', sv: 'Frysen', yta: { x: 20, y: 128, w: 168, h: 114 }, typ: 'dorr-v', inre: 'kall', ljus: 0xdff2ff,
     innehall: ['is', 'glasspinne', 'blackfisk'], platser: [[104, 185]] },
-  { id: 'kyl', sv: 'Kylskåpet', yta: { x: 20, y: 266, w: 168, h: 334 }, typ: 'dorr-v', inre: 'kall', ljus: 0xeafaff,
+  { id: 'kyl', sv: 'Kylskåpet', yta: { x: 20, y: 266, w: 168, h: 374 }, typ: 'dorr-v', inre: 'kall', ljus: 0xeafaff,
     innehall: ['ost', 'agg', 'tomat', 'gurka', 'korv', 'mjolk', 'groda', 'mogelost', 'sallad'],
-    platser: [[104, 320], [104, 440], [104, 560]] }, // 120 px isär: 96 träffyta + 24 mellanrum
+    // ⚠️ 130 px isär, inte 120. Ett dragbart föremåls träffyta är `GRIP_R` = 52, alltså
+    //    104 px i DIAMETER — inte 96. Vid 120 px mellanrum blev luften mellan två hyllplan
+    //    16 px och P0 kräver 24. Kylen växte 40 px neråt för att rymma den rättelsen.
+    platser: [[104, 318], [104, 448], [104, 578]] },
   // --- vänster vägg: fönster · diskho. Underskåpet DÄRUNDER är med flit dött: burken
   //     står framför det, och en lucka man ser men inte kan öppna är bättre än en
   //     träffyta som ligger under ett annat föremål.
@@ -460,7 +463,7 @@ export function byggKok(ctx) {
 function _kylskap() {
   const c = new Container()
   const g = new Graphics()
-  g.roundRect(14, 116, 180, 496, 18).fill(verticalFill(F.stal, F.stalMork))
+  g.roundRect(14, 116, 180, 544, 18).fill(verticalFill(F.stal, F.stalMork))
     .stroke({ width: 5, color: F.stalMork })
   c.addChild(g)
   const detalj = new Graphics()
@@ -469,7 +472,7 @@ function _kylskap() {
   for (const [mx, my, mf] of [[48, 300, 0xff8f5a], [82, 292, 0x6bd0a8], [116, 302, 0xffd166]]) {
     detalj.circle(mx, my, 11).fill(mf).stroke({ width: 2.5, color: 0xffffff, alpha: 0.8 })
   }
-  detalj.roundRect(24, 596, 160, 16, 6).fill({ color: F.morkt, alpha: 0.35 })
+  detalj.roundRect(24, 644, 160, 16, 6).fill({ color: F.morkt, alpha: 0.35 })
   c.addChild(detalj)
   return c
 }

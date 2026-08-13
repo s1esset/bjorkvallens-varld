@@ -182,6 +182,50 @@ lådan på tio varv. Samtidigt kom `pointertap` bevisligen fram (down=1 up=1 tap
 inte fram" och "klicket gör tvärtom" ser likadana ut utifrån** — det var händelseräknaren mot
 stationens egen `oppen`-flagga som skilde dem åt.
 
+## 5c. Kritikerns runda (v1.190.0)
+
+`spelkritiker` spelade köket som en krävande 3-åring. Fyra av fynden ledde till ändringar:
+
+- **P0-BROTT, och det enda som blockerade:** kylens tre hyllplan låg **120 px** isär medan ett
+  dragbart föremåls träffyta är `GRIP_R` 52 — alltså **104 px i diameter**, inte 96. Luften blev
+  16 px där P0 kräver 24. Kommentaren i koden hade skrivit 96 och stämde alltså inte med koden.
+  Platserna ligger nu 130 px isär och kylen växte 40 px neråt för att rymma rättelsen.
+  **Sonden mätte bara STATIONERNAS ytor, aldrig föremålens** — den kontrollen finns nu, och det
+  är den som hade fångat det här från början.
+- **Kranen ljög.** Den skalade en ritad stråle medan samma fil bar en fungerande vätskemotor 80
+  rader längre ner. Den häller nu **riktigt vatten** i diskhon: hon är ett kärl (botten + två
+  sidor), avloppet rinner så nivån håller sig, och kranen kan stå på hur länge som helst.
+  Uppmätt: 7 partiklar i hon efter 2,6 s, **0 nedanför bänkkanten** (porslinet håller), 0 kvar
+  2,6 s efter avstängning. En värld bär alla fyra vätskorna via `FluidView.palette`.
+  ⚠️ Det som fick den att inte fungera vid första försöket: `_vatskaTick` kallar
+  `clearColliders()` varje bildruta, så kärlet som sattes upp EN gång vid världens födelse var
+  borta i nästa ruta — vattnet rann rakt igenom porslinet och sögs bort av avloppet innan det
+  hann synas (uppmätt: 0 partiklar i hon efter 2,6 s med kranen bevisat på).
+- **En station svalde en pekning tyst under finalen.** `_tryckStation` hade `kvittera()` EFTER
+  upptagen-spärren, och en station svarar inte via `_tomtTryck` (den pekningen når aldrig roten).
+  Det är P0-brottet `dod-traffyta`, och `_tystprobe` fångade det inte — den letar efter kända
+  handlarnamn. Återkopplingen ligger nu före spärren.
+- **Kökets egna noder städades aldrig.** `_knapp` tweenar fågeln, strålen, plattorna och
+  fläkthjulet, men de ägs av `kok.js` och stod utanför `destroy()`. Nu killade.
+
+Två fynd ledde INTE till ändring, och det är också ett svar:
+
+- **"Bänkhögen kryper 8,0 px/700 ms"** — kritikern läste talet ur en KODKOMMENTAR som beskriver
+  det gamla beteendet med cirklar. Den aktuella mätningen är 0–3 px. Kommentaren står kvar för
+  att den förklarar varför sjuhörningarna finns.
+- **"Pappa har ingen egen röst"** — sant och den enskilt största besvikelsen, men det är ägarens
+  egen inspelningsuppgift (§4 Ljud). `harSample()` tar klippen i bruk samma sekund de finns.
+
+Två saker lades till på kritikerns iakttagelse att köket var svårt att upptäcka och att
+knapparna aldrig möter varandra:
+
+- **Var tredje vilo-cue pekar på en STÄNGD lucka** i stället för på maten — en ring, ett litet
+  skutt på dörren och en fråga. En 2-åring läser inget, och en stängd lucka har bara sitt
+  handtag att gå på.
+- **Fläkten suger upp ångan från spisen** när båda står på. Det är den billigaste "objekten
+  interagerar med varandra" i hela köket, och den enda som syns utan att man rör något.
+
+
 ### Ljud
 - **[Quick] Pappas egna uttrycksljud.** Hela kopplingen finns: `ROST`-tabellen bär klippnamnen
   (`pappa_mmm` · `pappa_blaa` · `pappa_aj` · `pappa_oj` · `pappa_ohh` · `pappa_aaah` ·

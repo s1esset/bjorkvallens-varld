@@ -7,7 +7,7 @@
 // Mäter:
 //   katalogen    ritar VARJE nyckel i skafferiet något? (en felstavad nyckel ger en grå
 //                cirkel utan att något felar — den enda kontrollen som fångar det)
-//   traffytor    ≥96 px och ≥24 px mellan varje par (P0) — räknat, inte antaget
+//   traffytor    stationerna OCH foremalens halon: ≥96 px, ≥24 px mellan varje par (P0)
 //   oppning      öppnas luckan, kommer det saker, går de att dra?
 //   taket        stängs den äldsta när OPPNA_MAX överskrids?
 //   oatligt      spottas en gaffel ut UTAN att mätaren rör sig?
@@ -89,10 +89,11 @@ try {
   console.log(`           trasiga/reservcirklar: ${trasiga.length ? trasiga.map((t) => t.key + (t.fel ? ' ' + t.fel : '')).join(', ') : 'inga'}   ${krav(!trasiga.length, '')}`)
 
   let s = await las(page)
-  const tomtVidStart = await page.evaluate(async () => {
+  const vidStart = await page.evaluate(async () => {
     const g = (await import('/src/games/registry.js')).getGame('mata-munnen')
-    return (g._losa || []).length
+    return { losa: (g._losa || []).length, vatska: !!g._vatskaV }
   })
+  const tomtVidStart = vidStart.losa
 
   // ---- 1. TRÄFFYTOR (P0) ---------------------------------------------------
   const y = s.stationer.map((st) => ({ id: st.id, ...st.yta }))
@@ -111,6 +112,29 @@ try {
   }
   console.log(`\n  P0 YTOR  ${y.length} stationer · minsta ${Math.min(...y.map((a) => Math.min(a.w, a.h)))} px (kräver ≥96)   ${krav(!forSma.length, '')}`)
   console.log(`           för nära varandra (<24 px): ${nara.length ? nara.join(' · ') : 'inga'}   ${krav(!nara.length, '')}`)
+
+  // Träffytorna för DRAGBARA FÖREMÅL, inte bara för stationerna. Den här mätningen
+  // saknades och P0-brottet den fångar levde igenom hela bygget: kylens tre hyllplan låg
+  // 120 px isär medan ett föremåls halo är 104 px i diameter (GRIP_R 52) — 16 px luft där
+  // P0 kräver 24. Kommentaren i koden antog 96 px och stämde alltså inte med koden.
+  const halon = await page.evaluate(async () => {
+    const m = await import('/src/games/mata-munnen/kok.js')
+    const grepp = 52 // GRIP_R i index.js
+    const ut = []
+    const par = (namn, pts) => {
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const d = Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1])
+          ut.push({ namn, luft: Math.round(d - grepp * 2) })
+        }
+      }
+    }
+    par('brädan', m.PLATSER)
+    for (const st of m.STATIONER) if (st.platser) par(st.id, st.platser)
+    return ut
+  })
+  const trangt = halon.filter((h) => h.luft < 24)
+  console.log(`           föremålens halon (Ø104 px): minsta luft ${Math.min(...halon.map((h) => h.luft))} px${trangt.length ? ' — ' + trangt.map((t) => t.namn + ' ' + t.luft).join(', ') : ''}   ${krav(!trangt.length, '')}`)
 
   const mitt = (st) => ({ x: st.yta.x + st.yta.w / 2, y: st.yta.y + st.yta.h / 2 })
   const hitta = (id) => s.stationer.find((st) => st.id === id)
@@ -255,13 +279,51 @@ try {
   await page.screenshot({ path: shot.replace(/\.png$/, '-hog.png') })
 
   // ---- 7. VÄTSKAN ----------------------------------------------------------
-  // Kontrollarm: vätskevärlden ska INTE finnas förrän något faktiskt spillts. Skapas den
-  // vid uppstart betalar varje kök för en pöl det aldrig får.
-  const foreSpill = await page.evaluate(async () => {
+  // Kontrollarmen läses VID START (rad ~92). Den stod först här nere och blev falsk i
+  // samma stund som kranen också började skapa vätskevärlden — avsnitt 5 slår på kranen,
+  // så "före spill" rapporterade 101 partiklar och såg ut som ett fynd. Frågan den ska
+  // svara på är oförändrad: ett kök där ingenting hänt får inte betala för en vätskevärld.
+  console.log(`\n  VÄTSKA   kontrollarm — orört kök vid start: värld ${vidStart.vatska ? 'finns' : 'saknas'}   ${krav(!vidStart.vatska, '')}`)
+
+  // KRANEN ska hälla riktigt vatten i hon — inte bara skala en ritad stråle. Kontrollarm:
+  // kranen AV ska ge noll partiklar i hon.
+  const hoLas = async () => page.evaluate(async () => {
     const g = (await import('/src/games/registry.js')).getGame('mata-munnen')
-    return { finns: !!g._vatskaV, n: g._vatskaV?.count ?? 0 }
+    const w = g._vatskaV
+    if (!w) return { n: 0, iHo: 0, under: 0 }
+    let iHo = 0; let under = 0
+    w.forEach((x, yy) => {
+      if (Math.abs(x - 322) < 70 && yy > 200 && yy < 270) iHo++
+      if (yy > 400) under++
+    })
+    return { n: w.count, iHo, under }
   })
-  console.log(`\n  VÄTSKA   kontrollarm — före spill: värld ${foreSpill.finns ? 'finns' : 'saknas'} · ${foreSpill.n} partiklar   ${krav(!foreSpill.finns, '')}`)
+  // Drivs på det MÄTTA läget, inte på antagandet att ett klick slår på. Avsnitt 5 har
+  // redan växlat kranen en gång; ett blint klick här stänger den i stället för att öppna
+  // den — precis felet som fick besticklådan att aldrig öppnas på tio varv.
+  const kranSt = hitta('diskho')
+  const kranTill = async (pa) => {
+    for (let i = 0; i < 3; i++) {
+      const d = await las(page)
+      if (d.knappar.vatten === pa) return true
+      await page.mouse.click(mitt(kranSt).x, mitt(kranSt).y)
+      await page.waitForTimeout(320)
+    }
+    return false
+  }
+  await kranTill(false)
+  await page.waitForTimeout(2600) // låt hon rinna tom före kontrollarmen
+  const kranAv = await hoLas()
+  await kranTill(true)
+  await page.waitForTimeout(2600)
+  const kranPa = await hoLas()
+  await page.screenshot({ path: shot.replace(/\.png$/, '-kran.png') })
+  await kranTill(false)
+  await page.waitForTimeout(2600)
+  const kranEfter = await hoLas()
+  console.log(`\n  KRANEN   kontrollarm (av): ${kranAv.iHo} partiklar i hon`)
+  console.log(`           på i 2,6 s: ${kranPa.iHo} i hon (av ${kranPa.n} totalt) · ${kranPa.under} nedanför bänkkanten (ska vara 0 — porslinet håller)   ${krav(kranPa.iHo > 3 && kranAv.iHo === 0 && kranPa.under === 0, '')}`)
+  console.log(`           avstängd 2,6 s: ${kranEfter.iHo} kvar (avloppet tömmer)   ${krav(kranEfter.iHo < kranPa.iHo, '')}`)
 
   // Leta fram ett glas saft ur besticklådan och mata pappa det.
   //
@@ -281,12 +343,16 @@ try {
       await page.waitForTimeout(420)
       d = await las(page)
     }
-    const glas = d.dragbara.find((x) => x.key === 'glas_saft' && !x.los)
+    // Vilken vätskebärare som helst duger. Att bara leta efter `glas_saft` gjorde
+    // träffchansen 2 av 6 per öppning, och tolv varv i rad kunde missa den.
+    const glas = d.dragbara.find((x) => ['glas_saft', 'mjolk', 'honung'].includes(x.key) && !x.los)
     if (!glas) {
+      if (varv < 3) console.log(`           varv ${varv}: lådan gav ${d.dragbara.filter((x) => !x.los && x.y > 590).map((x) => x.key).join(',') || '(inget)'}`)
       await page.mouse.click(mitt(st).x, mitt(st).y) // stäng och lotta om
       await page.waitForTimeout(320)
       continue
     }
+    console.log(`           spiller ${glas.key}`)
     await page.mouse.move(glas.x, glas.y)
     await page.mouse.down()
     for (let i = 1; i <= 8; i++) {

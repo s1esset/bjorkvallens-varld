@@ -254,6 +254,32 @@ knapparna aldrig möter varandra:
 
 ## 5. Status / loggar
 
+- 2026-08-13 🔊 **Citronen fick sin egen röst — och berättaren slutade prata över pappa**
+  (`1e2b630`, v1.195.0). Ägaren spelade in det nionde klippet, så `sur` delar inte längre röst
+  med `fundersam`. Punkten under är därmed stängd.
+  Klippet är **1,90 s — det längsta av de nio** — och består av tre ljudpartier med pauser
+  emellan. Alla tre ligger **inom 4 dB** av varandra, alltså är det röst hela vägen och det finns
+  inget andetag att kapa (till skillnad från fem av de åtta förra). Nivå −18,5 LUFS, i linje med
+  de övriga, 1,0 dB begränsning.
+  ⚠️ **Längden avslöjade två fel av samma familj som finalens tidtabell.** Båda är fall av att en
+  schemaläggning som stämmer mot en 0,3 s stämd reserv **inte är prövad** mot klippet som ska
+  ersätta den:
+  1. `_sag` och `_replikEfterMin` startade i **samma ögonblick**, och för `sur` är
+     berättarrepliken ovillkorlig (*"Oj! Vad surt det var!"*). Med en ton var det ofarligt; med
+     1,90 s inspelning är det **två svenska röster samtidigt** för ett barn som ska förstå vem
+     som pratar. Repliken väntar nu ut pappa.
+  2. Minen hölls 1,4 s medan klippet är 1,90 s — ansiktet hann bli **neutralt mitt i hans egen
+     sura reaktion**. Hållet har nu ett golv på klippets längd.
+  Båda talen kommer från nya **`AudioService.sampleDuration(namn)`**, som läser den avkodade
+  buffertens längd. Ett hårdkodat tal hade drivit isär från filen vid nästa omtagning.
+  **`_klippprobe` 8/8** (9/9 i `harSample`, 9/9 `sample()` = true, **0 tone-fallback**,
+  `sampleDuration` 9/9 > 0,3 s) med kontrollarm åt båda hållen. `_munprobe` grönt · `test:all`
+  73/73.
+  ⚠️ Första svepet gav 72/73 (`golvet-ar-lava` + `glittergrottan`, båda med *"WebGL context may
+  be lost"* = ÅTGÄRDER V14b/V15:s kända signatur). **Inte attribuerbart:** båda gröna ensamma,
+  andra fulla svepet 73/73 med samma kod, och svepet FÖRE ändringen bar redan åtta av de nio
+  klippen.
+
 - 2026-08-13 🔊 **Pappa har fått sin egen röst — åtta inspelade klipp** (`9bb3400`, v1.194.0).
   Ägaren spelade in alla åtta på telefonen (sju `.m4a`, rapen `.mp3`). Konverterade till appens
   format (mono 24 kHz 96 kbps mp3) och inlagda i `public/audio/sfx/manifest.json`. Den stämda
@@ -281,9 +307,8 @@ knapparna aldrig möter varandra:
   `harSample()`, 8/8 `sample()` = true, **0 tone-fallback**, och en okänd nyckel både nekas och
   går inte att spela. Utan den sista raden hade "alla åtta finns" lika gärna kunnat betyda att
   `harSample` svarar ja på vad som helst.
-  ⬜ **Kvar (ägarbeslut):** `pappa_ohh` bär fortfarande BÅDA minerna `sur` (citronen) och
-  `fundersam` (morot·majs·tomat·päron) — fem av tjugo rätter genom ett klipp. Ett nionde klipp
-  `pappa_surt` är en rad i `ROST`.
+  ~~⬜ **Kvar (ägarbeslut):** `pappa_ohh` bär fortfarande BÅDA minerna `sur` och `fundersam`.~~
+  ✅ **LÖST samma dag** — ägaren spelade in `pappa_surt`, se raden ovan (v1.195.0).
 
 - 2026-08-13 🆕 **Byggt och mätt** (v1.186.0). Se §3. Delad kod som följde med:
   `games/mata-monstret/food.js` → **`src/lib/mat.js`** (andra kunden), med `lemon` och `chili`

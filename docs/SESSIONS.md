@@ -14,6 +14,48 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.195.0 · Citronen fick sin egen röst — och två röster slutade prata i mun
+
+**Byggt:** ägaren spelade in det nionde klippet direkt efter förra passets fråga, så `sur`
+delar inte längre röst med `fundersam`. `ROST`: `sur` → `pappa_surt`.
+
+**Klippet är 1,90 s — det längsta av de nio** — och består av tre partier med pauser emellan.
+Till skillnad från fem av de åtta förra fanns här **inget andetag att kapa**: alla tre partierna
+ligger inom **4 dB** av varandra, alltså är det röst hela vägen. Nivå −18,5 LUFS, i linje med
+de övriga.
+
+**Och längden avslöjade två fel av exakt den familj förra passet skrev upp som lärdom.** Båda
+är fall av att *en schemaläggning som stämmer mot en 0,3 s stämd reserv inte är prövad mot
+klippet som ska ersätta den*:
+
+1. **`_sag` och `_replikEfterMin` startade i samma ögonblick**, och för `sur` är
+   berättarrepliken ovillkorlig (*"Oj! Vad surt det var!"*). Med en ton var det ofarligt; med
+   en 1,90 s inspelning är det **två svenska röster samtidigt** för ett barn som ska förstå vem
+   av dem som pratar. Repliken väntar nu ut pappa — och det gäller alla nio klippen, inte bara
+   det sura.
+2. **Minen hölls 1,4 s medan klippet är 1,90 s**, så ansiktet hann bli neutralt mitt i hans
+   egen sura reaktion. Hållet har nu ett golv på klippets längd.
+
+Båda talen kommer från nya **`AudioService.sampleDuration(namn)`** som läser den avkodade
+buffertens längd — ett hårdkodat tal hade drivit isär från filen vid nästa omtagning. Sonden
+bevakar den: en nyckel som finns måste ge > 0,3 s, en okänd måste ge 0.
+
+⚠️ **Ett 72/73-svep som INTE var en regression, och hur det avgjordes.** Första svepet föll på
+`golvet-ar-lava` (konsolfel) och `glittergrottan` (`tom-scen`), båda med *"WebGL context may be
+lost"* — ÅTGÄRDER V14b/V15:s kända signatur. Tre oberoende skäl att inte skylla på ändringen:
+båda gröna ensamma, **andra fulla svepet 73/73 med samma kod**, och svepet FÖRE ändringen bar
+redan åtta av de nio klippen (bara det nionde + `sampleDuration` var nytt, och ingen av dem rör
+en GPU-resurs). "Grön ensam" räckte inte som argument — det är precis vad V14b redan säger om
+flaket.
+
+**Commits:** `1e2b630` feat(mata-munnen) citronen får sin egen röst
+**Kontroll:** `check` 0/0 · `_klippprobe` **8/8** · `_munprobe` grönt · `test:all` **73/73**.
+**Öppet:** ägarkön tom, nattkön tom, röstkön tom. MOSS fortfarande nere (`saknat-ljudklipp` i
+fyra ANDRA spel). **Bygget är INTE omgjort** — telefonen kör v1.157.0, så ingen av de nio
+rösterna hörs där än. Det är det enda som återstår för att kunna bedöma dem på riktigt.
+
+---
+
 ## 2026-08-13 · v1.194.0 · Pappa fick sin röst — och tidtabellen gick sönder av den
 
 **Byggt:** ägaren spelade in alla åtta uttrycksljud på telefonen (sju `.m4a` + rapen som `.mp3`)

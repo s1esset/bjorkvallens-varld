@@ -11,9 +11,13 @@
 //   mun      mun-inre (tänder/tunga) ur gap-fotot      ← följer käken en bit
 //   undre    käken: allt under överläppen              ← ÅKER NER när munnen öppnas
 //   ovre     allt över överläppen, ligger överst       ← står still
+//   blick_*  samma ögonruta, iris åt ett håll          ← korsbleks in = han tittar dit
 //   ogon     blundande ögon ur blund-fotot             ← alfa 0→1 = en blinkning
 //   ogon_v·h samma blund, en mjuk oval per öga         ← ETT öga = wink
 //   min      oval lapp med en hel min                  ← korsbleks in och ut
+//
+// ⚠️ BLICKEN LIGGER UNDER BLINKNINGEN, och det är inte en smaksak: ligger den över blundar
+// han med öppna ögon. Minerna ligger över båda — de bär sina egna ögon.
 //
 // ⚠️ MINERNA LIGGER ÖVER ÖGONLAGREN, och det är avsiktligt (en min bär sina egna ögon) —
 // men följden är att ansiktet INTE kan blinka medan en grimas visas. `sur`-klippet är
@@ -35,6 +39,10 @@ import { gsap } from 'gsap'
 const BAS_URL = import.meta.env.BASE_URL
 const GAP_MAX = 40 // px i rutans koordinater — mätt tak, se filhuvudet
 const MUN_FOLJ = 0.18 // mun-inre följer käken en bit, annars sitter tungan spikad
+// BLICKEN, se `blick()`. Lappen är antingen PÅ eller AV — aldrig hållen halvvägs.
+const BLICK_TID = 0.13 // korsblekningens längd: ögat ska hinna läsas som att det RÖR sig
+const BLICK_DOD = 0.16 // under så här mycket utslag tittar han rakt fram
+const BLICK_HYST = 0.14 // ny riktning måste slå den visade med marginal, annars flimmer
 
 const _cache = new Map()
 
@@ -113,6 +121,22 @@ export class Ansikte {
     this._mun = lagg(L.mun)
     this._undre = lagg(L.undre)
     this._ovre = lagg(L.ovre)
+    // Blicken: en lapp per riktning, alla släckta. Riktningsnamnen är BILDENS (`v` = mot
+    // skärmens vänster). Saknas de i manifestet — en äldre klippning, eller en person utan
+    // blickfoton — blir `_blickar` null och `blick()` gör ingenting alls.
+    this._blickar = null
+    for (const n of ['v', 'h', 'ner']) {
+      const l = L[`blick_${n}`]
+      if (!l) continue
+      const s = lagg(l)
+      s.alpha = 0
+      ;(this._blickar ||= {})[n] = s
+    }
+    this._blickNamn = null
+    // ⚠️ Tweenen bokförs i en Map, INTE som ett fält på spriten. Egna fält på ett
+    // Pixi-objekt kan krocka med Containerns egen transform-cache (`_cx` renderade en gång
+    // ett helt fält med skalan 3660), och den risken är gratis att slippa.
+    this._blickTw = new Map()
     this._ogon = lagg(L.ogon)
     this._ogon.alpha = 0
     // Ett öga i taget (winken). Saknas de i manifestet — en äldre klippning — faller
@@ -188,6 +212,52 @@ export class Ansikte {
     tl.to(st, { a: 0, duration: 0.11, delay: hall, onUpdate: () => satt(st.a) })
     this._track(tl)
     return tl
+  }
+
+  /**
+   * Blicken: han tittar dit maten är. `dx` −1 (skärmens vänster) … 1 (höger), `dy` 0 … 1
+   * (nedåt). Sätts direkt varje bildruta av den som drar, precis som `lutaMot()`.
+   *
+   * ⚠️ LAPPEN ÄR PÅ ELLER AV — utslaget väljer RIKTNING, aldrig alfa. Det är inte en
+   * förenkling utan mekanismens villkor: under blicklappen ligger `ovre` med sina egna
+   * ögon som tittar rakt fram, så en lapp hållen på halv alfa visar TVÅ irisar i samma
+   * öga. Att låta styrkan styra alfan hade alltså gett en dubbelexponering exakt i det
+   * läge den var tänkt att göra finast. Vid ett byte korsbleks lapparna på 0,13 s, och
+   * just den blekningen är det som läser som att ögat rör sig.
+   */
+  blick(dx = 0, dy = 0) {
+    if (!this._alive || !this._blickar) return
+    const k = {
+      v: Math.max(0, Math.min(1, -dx)),
+      h: Math.max(0, Math.min(1, dx)),
+      ner: Math.max(0, Math.min(1, dy)),
+    }
+    let bast = null
+    for (const n of Object.keys(this._blickar)) if (bast === null || k[n] > k[bast]) bast = n
+    const nu = this._blickNamn
+    // Hysteres: den riktning som redan visas behåller lappen tills en annan slår den med
+    // marginal. Utan den byter valet håll fram och tillbaka i ett snett läge där två
+    // riktningar är nästan lika starka — och varje byte är en korsblekning, alltså en
+    // synlig ryckning i ögat i stället för en blick.
+    const vald = (nu && k[nu] >= BLICK_DOD && k[bast] < k[nu] + BLICK_HYST) ? nu : bast
+    this._blickTill(k[vald] >= BLICK_DOD ? vald : null)
+  }
+
+  /** Korsblekning till EN blicklapp (eller `null` = rakt fram). Idempotent per bildruta. */
+  _blickTill(namn) {
+    if (this._blickNamn === namn) return
+    this._blickNamn = namn
+    for (const [n, s] of Object.entries(this._blickar)) {
+      const mal = n === namn ? 1 : 0
+      if (s.destroyed || (s.alpha === mal && !this._blickTw.has(n))) continue
+      this._blickTw.get(n)?.kill()
+      const st = { a: s.alpha }
+      const tw = gsap.to(st, { a: mal, duration: BLICK_TID, ease: 'sine.inOut',
+        onUpdate: () => { if (this._alive && !s.destroyed) s.alpha = st.a },
+        onComplete: () => { if (this._blickTw.get(n) === tw) this._blickTw.delete(n) } })
+      this._blickTw.set(n, tw)
+      this._track(tw)
+    }
   }
 
   /** Winken: ett öga, hållet så länge att det syns, med en liten nick till. */
@@ -414,6 +484,10 @@ export class Ansikte {
     this._alive = false
     this._blinkTimer?.kill()
     this._blinkTimer = null
+    // Blickens tweens är spårade i `_tw` också, men ringbufferten kan ha vräkt ut en
+    // FÄRDIG av dem — och en som fortfarande löper vore då kvar utan ägare.
+    for (const tw of this._blickTw.values()) tw.kill()
+    this._blickTw.clear()
     for (const tw of this._tw) tw.kill()
     this._tw = []
     gsap.killTweensOf(this._inre.scale)

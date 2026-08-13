@@ -59,6 +59,11 @@ try {
       ['blink', (a) => { a._ogon.alpha = 1 }],
       ['wink v', (a) => { if (a._ogonV) a._ogonV.alpha = 1 }],
       ['wink h', (a) => { if (a._ogonH) a._ogonH.alpha = 1 }],
+      // Blicken sätts som LAPPARNA, inte via `blick()`: korsblekningen tar 0,13 s och
+      // skärmdumpen tas i samma bildruta, så anropet hade gett alfa 0 i varje ruta.
+      // ⚠️ Rutan "vila" bredvid är kontrollraden — en blick som pekar fel syns bara mot
+      // ett ansikte som tittar rakt fram.
+      ...['v', 'h', 'ner'].map((n) => [`blick ${n}`, (a) => { if (a._blickar?.[n]) a._blickar[n].alpha = 1 }]),
       ['hetta 1,0', (a) => a.hetta(1)],
       ['kyla 1,0', (a) => a.kyla(1)],
       ['nick (botten)', gest('nickY', 11)],

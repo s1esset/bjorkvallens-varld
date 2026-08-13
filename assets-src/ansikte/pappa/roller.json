@@ -2,6 +2,12 @@
   "_": "Vilket foto som spelar vilken roll i ansiktsriggen. Numren är ägarens fotoshoot 2026-08-12 (129 bilder, 768x1024, frilagda). Rollerna valdes genom att titta på hela serien i kontaktkartor.",
   "__kandidater": "Varje roll listar FLERA kandidater och skriptet väljer den vars POSE ligger närmast referensen (silhuett-överlappning). Skälet är mätt: huvudet driver mellan bilderna (hjässan y 159–319, höjd 705–865, flera lutar), och en bild tagen i en annan pose går inte att rädda med skala och rotation — men det finns nästan alltid en syskonbild med samma min i rätt pose. Urvalet får INTE göras på utseendelikhet: då vinner den blekaste minen varje gång.",
   "kalla": "s1face__#####_.png",
+  "__kallor": "En roll får peka på en ANNAN fotoserie än referensens. Blickserien finns bara i ägarens andra shoot (2026-08-13, s1face2), och att blanda in material därifrån är mätt innan det byggdes: de fyra provade blickbilderna riktade in sig på rest 0,023–0,025, mitt i de 16 shoot-1-rollernas eget spann (0,013–0,034, median 0,024), och lappen klippt med `ogon`-masken visar varken kant eller tonskarv. Ägaren har dessutom sagt att hudton, hår, ljus och exakt storlek inte behöver vara perfekta.",
+  "kallor": {
+    "blick_v": "s1face2__#####_.png",
+    "blick_h": "s1face2__#####_.png",
+    "blick_ner": "s1face2__#####_.png"
+  },
   "referens": 1,
   "roller": {
     "neutral": [
@@ -96,6 +102,15 @@
       16,
       24,
       14
+    ],
+    "blick_v": [
+      99
+    ],
+    "blick_h": [
+      98
+    ],
+    "blick_ner": [
+      100
     ]
   },
   "_roller": {
@@ -114,8 +129,13 @@
     "gasp": "gäspning: avslappnad öppen mun med ÖPPNA hängande ögon — vilo-cue:n",
     "chock": "vidöppna ögon OCH vidöppen mun — den stora bus-reaktionen",
     "skeptisk": "hopknipna ögon, misstänksam — okänd mat innan han provar",
-    "retas": "tunga ut med ÖPPNA ögon — busig, inte äcklad (`acklad` har slutna ögon)"
+    "retas": "tunga ut med ÖPPNA ögon — busig, inte äcklad (`acklad` har slutna ögon)",
+    "blick_v": "ögonen åt BILDENS vänster (skärmens vänster) — bara ögonlappen klipps",
+    "blick_h": "ögonen åt BILDENS höger",
+    "blick_ner": "sänkta lock, iris nedåt — han tittar ner på maten"
   },
+  "__blickurval": "Riktningen avgörs i en ÖGONZOOM med referensens 'rakt fram' som kontrollrad, aldrig i kontaktkartan: där ser hela blickblocket 94–104 likadant ut. Uppmätt i zoomen (`.tmp-ansikte/_blickoga*.png`): #95 · #97 · #98 har irisen mot bildens höger på BÅDA ögonen, #96 · #99 mot vänster, #100 har sänkta lock med irisen nere. Bortvalda: #94 och #104 är i praktiken rakt fram (#104 bara vidöppen), och #101 · #102 · #103 är så nästan slutna att de läser som en blinkning i stället för en blick.",
+  "__blick_en_kandidat": "Blickrollerna listar med flit EN bild var, tvärtemot `__kandidater` — och skälet är att POSE-sökningen inte kan avgöra det som skiljer dem. #95 och #98 riktade in sig på exakt samma rest (0,025 båda), för de ÄR samma pose; det som skiljer dem är BRYNET, och brynet är mimik, alltså precis det silhuett-måttet är byggt för att ignorera. I riggen syns skillnaden direkt (`.tmp-ansikte/_blick_hval.png`): #95 drar ner vänsterbrynet över ögat och läser som misstänksam i stället för 'tittar dit', och står dessutom inte i samma brynläge som `vila` och `blick_v` — ansiktet hade bytt uttryck när barnet drog maten åt höger. #98 har brynen kvar i viloläge. Samma val för `blick_v`: #99 (vald, brynen i vila) framför #96, som pose-sökningen redan rankade sämre (0,034). Byts en blickbild ut måste den dömas i ögonzoomen mot `vila`, inte på ett rest-tal.",
   "__valda_bort": "Tre roller prövades mot de befintliga nio i bild och FÖLL, innan de kostade något: `blas` (#115, pluta/blåser) är samma munform som `sur` redan bär; `gapskratt` (#101/#99, vidöppen mun med slutna ögon) är samma ansikte som `het`; `mums` (#98, slutet leende) ligger för nära `nojd` och `lycksalig`, som båda redan är leenden med slutna ögon. Varje min kostar ~1,04 MB GPU-minne okomprimerat — en min som läser som en av de nio är dyr och gör dessutom reaktionerna otydligare. Kontaktkartan är kvar i `docs/games/mata-munnen.md` §4.",
   "__disjunkt": "Kandidatlistorna delar INGA foton, och skriptet ger dessutom aldrig samma foto till tva roller. Skalet ar matt: nar `sur` och `aj` bada hade #50 i listan valde pose-sokningen samma bild till bagge, och da hade tva olika miner blivit samma ansikte."
 }

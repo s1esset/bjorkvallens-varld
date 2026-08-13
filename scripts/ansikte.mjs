@@ -322,15 +322,25 @@ const munLager = skriv(munP, 'mun')
 munLager.x += G.mun.x
 munLager.y += G.mun.y
 
+// En lapp ur ÖGONRUTAN. Alla ögonlager — blink, wink och blick — klipps ur SAMMA ruta med
+// samma sorts mjuka mask; bara källbilden och ovalen skiljer. Att det är en funktion och
+// inte tre kopior är poängen: rutan får inte kunna glida isär mellan lagren, för de läggs
+// ovanpå varandra i samma ansikte och en pixels förskjutning läses som ett ryck i ögat.
+function ogonlapp(kallaPng, namn, maskRit) {
+  const p = path.join(TMP, `_${namn}.png`)
+  magick([kallaPng, '-crop', `${G.ogon.w}x${G.ogon.h}+${G.ogon.x}+${G.ogon.y}`, '+repage',
+    '(', '-size', `${G.ogon.w}x${G.ogon.h}`, 'xc:none', '-fill', 'white', ...maskRit, ')',
+    '-compose', 'Dst_In', '-composite', p])
+  const l = skriv(p, namn)
+  l.x += G.ogon.x
+  l.y += G.ogon.y
+  return l
+}
+// Hela ögonrutan: en mjuk oval som fyller lappen. Blinkningen, och blickens form.
+const helOval = ['-draw', `ellipse ${G.ogon.w / 2},${G.ogon.h / 2} ${G.ogon.w / 2 - 10},${G.ogon.h / 2 - 8} 0,360`, '-blur', '0x9']
+
 // Ögonlappen ur blund-bilden — bara ögonen, mjuk oval kant, för blinkningen.
-const ogonP = path.join(TMP, '_ogon.png')
-magick([path.join(TMP, 'blund.png'), '-crop', `${G.ogon.w}x${G.ogon.h}+${G.ogon.x}+${G.ogon.y}`, '+repage',
-  '(', '-size', `${G.ogon.w}x${G.ogon.h}`, 'xc:none', '-fill', 'white',
-  '-draw', `ellipse ${G.ogon.w / 2},${G.ogon.h / 2} ${G.ogon.w / 2 - 10},${G.ogon.h / 2 - 8} 0,360`, '-blur', '0x9', ')',
-  '-compose', 'Dst_In', '-composite', ogonP])
-const ogonLager = skriv(ogonP, 'ogon')
-ogonLager.x += G.ogon.x
-ogonLager.y += G.ogon.y
+const ogonLager = ogonlapp(path.join(TMP, 'blund.png'), 'ogon', helOval)
 
 // EN ÖGONLAPP PER ÖGA — winken, och den trötta halvblundningen.
 // Materialet har visserligen fem foton där personen blinkar med ett öga, men de är HELA
@@ -339,18 +349,27 @@ ogonLager.y += G.ogon.y
 // kombinera med gap, tugg och vilken min som helst — och är dessutom rätt öga varje gång.
 const ogonHalvor = {}
 for (const [namn, sida] of [['ogon_v', -1], ['ogon_h', 1]]) {
-  const p = path.join(TMP, `_${namn}.png`)
   const cx = G.oga.mitt + sida * G.oga.avst - G.ogon.x // ovalens läge INNE i den beskurna lappen
   const cy = G.oga.cy - G.ogon.y
-  magick([path.join(TMP, 'blund.png'), '-crop', `${G.ogon.w}x${G.ogon.h}+${G.ogon.x}+${G.ogon.y}`, '+repage',
-    '(', '-size', `${G.ogon.w}x${G.ogon.h}`, 'xc:none', '-fill', 'white',
-    '-draw', `ellipse ${cx},${cy} ${G.oga.rx},${G.oga.ry} 0,360`, '-blur', `0x${G.oga.mjuk}`, ')',
-    '-compose', 'Dst_In', '-composite', p])
-  const l = skriv(p, namn)
-  l.x += G.ogon.x
-  l.y += G.ogon.y
-  ogonHalvor[namn] = l
+  ogonHalvor[namn] = ogonlapp(path.join(TMP, 'blund.png'), namn,
+    ['-draw', `ellipse ${cx},${cy} ${G.oga.rx},${G.oga.ry} 0,360`, '-blur', `0x${G.oga.mjuk}`])
 }
+
+// BLICKEN — samma ögonruta, men ur foton där han tittar åt ett håll. Kostar 0,12 MB i GPU
+// per riktning (280×108×4), mot 1,04 MB för en hel min: blicken är billig just för att den
+// är en lapp och inte ett ansikte, och den går därför att kombinera med gap, tugg och min.
+//
+// ⚠️ RIKTNINGEN ÄR BILDENS, inte personens. `blick_v` betyder att irisen ligger åt VÄNSTER
+// i bilden — alltså mot skärmens vänster, dit spelet drar maten. Personens egen vänstra
+// sida är den motsatta, och en roll som hette efter honom hade blivit fel varje gång någon
+// kopplade in den.
+//
+// Materialet kommer ur ägarens ANDRA fotoshoot (`kallor` i roller.json). Att det går är
+// mätt, inte antaget: inriktningens rest 0,023–0,025 mot shoot 1:s referens ligger mitt i
+// de befintliga rollernas eget spann, och lappen visar varken kant eller tonskarv.
+const BLICKAR = ['blick_v', 'blick_h', 'blick_ner'].filter((r) => cfg.roller[r])
+const blickLager = {}
+for (const namn of BLICKAR) blickLager[namn] = ogonlapp(path.join(TMP, `${namn}.png`), namn, helOval)
 
 // Minerna: oval lapp över ansiktets insida.
 const minLager = {}
@@ -365,7 +384,7 @@ const manifest = {
   person: PERSON,
   ruta: { w: UTW, h: UTH },
   geometri: { klipp: G.klipp, ogonlinje: 341, mun: G.mun },
-  lager: { ...halvor, mun: munLager, ogon: ogonLager, ...ogonHalvor },
+  lager: { ...halvor, mun: munLager, ...blickLager, ogon: ogonLager, ...ogonHalvor },
   miner: minLager,
   kallor: Object.fromEntries(Object.entries(lager).map(([k, v]) => [k, v.kalla])),
 }

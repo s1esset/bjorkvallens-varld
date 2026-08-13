@@ -47,6 +47,30 @@
       "h": 138,
       "kb": 5
     },
+    "blick_v": {
+      "fil": "blick_v.webp",
+      "x": 243,
+      "y": 286,
+      "w": 280,
+      "h": 108,
+      "kb": 6
+    },
+    "blick_h": {
+      "fil": "blick_h.webp",
+      "x": 243,
+      "y": 286,
+      "w": 280,
+      "h": 108,
+      "kb": 6
+    },
+    "blick_ner": {
+      "fil": "blick_ner.webp",
+      "x": 243,
+      "y": 286,
+      "w": 280,
+      "h": 108,
+      "kb": 6
+    },
     "ogon": {
       "fil": "ogon.webp",
       "x": 243,
@@ -194,6 +218,9 @@
     "gasp": 124,
     "chock": 129,
     "skeptisk": 7,
-    "retas": 15
+    "retas": 15,
+    "blick_v": 99,
+    "blick_h": 98,
+    "blick_ner": 100
   }
 }

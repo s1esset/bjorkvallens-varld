@@ -1882,10 +1882,19 @@ export default {
       // dubbelt så tydlig när hela huvudet är med — och lutningen skalas med samma
       // närhetstal som gapet, så han inte kastar sig efter något på andra sidan bänken.
       this._ans.lutaMot(Math.max(-1, Math.min(1, (rec.tx - ANS.x) / 300)) * v)
-    } else if (this._gapNu > 0 && !this._busy) {
-      this._gapNu = Math.max(0, this._gapNu - dt / 260)
-      this._ans?.gap(this._gapNu)
-      this._ans?.lutaMot(0)
+      // ÖGONEN går dit först, och till skillnad från gapet och lutningen är blicken INTE
+      // skalad med närheten: att han följer maten redan medan den lyfts på andra sidan
+      // bänken är hela inbjudan. Käken svarar när maten är framme, blicken direkt.
+      this._ans.blick((rec.tx - ANS.x) / 300, (rec.ty - this._munY) / 200)
+    } else {
+      if (this._gapNu > 0 && !this._busy) {
+        this._gapNu = Math.max(0, this._gapNu - dt / 260)
+        this._ans?.gap(this._gapNu)
+        this._ans?.lutaMot(0)
+      }
+      // Blicken nollas oavsett `_busy`: tuggar han bär minen sina egna ögon ändå, och en
+      // kvarhängande blick hade betytt att han stirrar åt sidan genom hela finalen.
+      this._ans?.blick(0, 0)
     }
 
     // Mjuk om-cue vid stillhet — en fråga, aldrig en tillsägelse.

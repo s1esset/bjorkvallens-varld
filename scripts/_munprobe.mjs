@@ -53,6 +53,13 @@ const las = (page) =>
       // Huvudgesten: lutar han sig MOT maten? Läses som riggens eget fält, inte som en
       // pixelmätning i bild — gesten är en transform och har ett exakt tal.
       luta: Math.round((a?._g?.lutaR ?? 0) * 1000) / 1000,
+      // Blicken läses i TVÅ lager: vilken lapp riggen VALT, och hur mycket den faktiskt
+      // syns. Bara namnet hade varit mekanismen och inte fenomenet — lappen korsbleks, så
+      // ett valt namn med alfa 0 betyder att ögonen står kvar rakt fram.
+      blick: a?._blickNamn ?? null,
+      blickA: a?._blickar
+        ? Math.round(Math.max(...Object.values(a._blickar).map((s) => s.alpha)) * 100) / 100
+        : null,
       // Kontinuerliga ljud: spelets egen lista och tjänstens faktiska källor. BÅDA behövs
       // — spelet kan tro att en slinga går utan att tjänsten startat den, och tjänsten kan
       // bära en slinga som spelet tappat räkningen på (det är den som låter kvar på menyn).
@@ -101,6 +108,16 @@ try {
   await drag(bit, { x: bit.x - 60, y: bit.y - 120 }, { slapp: false })
   const fjarran = await las(page)
   const langtBort = fjarran.gap
+  // BLICKEN i samma grepp: samma matbit hålls först klart till VÄNSTER om ansiktet, sedan
+  // klart till höger. De två är varandras kontrollarmar — ett "blick_v" utan mätningen åt
+  // andra hållet kan lika gärna vara en lapp som fastnat, och `blick(0,0)` efter släppet
+  // är den tredje. Punkterna räknas ur `mun.x` (= ansiktets mittlinje), aldrig hårdkodat.
+  await page.mouse.move(s.mun.x - 260, s.mun.y)
+  await page.waitForTimeout(320)
+  const bVanster = await las(page)
+  await page.mouse.move(s.mun.x + 260, s.mun.y)
+  await page.waitForTimeout(320)
+  const bHoger = await las(page)
   await page.mouse.move(s.mun.x + 40, s.mun.y + 30)
   // 300 ms, inte 160: gapet sätts i spelets tick, och EN lång bildruta i mätögonblicket
   // gav en gång 0,00 med draget bevisat levande (1 av 5 körningar). Mätfönstret ska inte
@@ -120,6 +137,11 @@ try {
   console.log(`\n  GAP  långt bort ${langtBort.toFixed(2)}  →  vid munnen ${naraMun.toFixed(2)}   ${naraMun > langtBort + 0.3 ? '✓' : '✗ munnen bjuder inte in'}`)
   console.log(`  LUTA vid munnen ${lutaNara.toFixed(3)} rad · efter släppet ${efterSlapp.luta.toFixed(3)}   ` +
     `${Math.abs(lutaNara) > 0.004 && Math.abs(efterSlapp.luta) < 0.004 ? '✓' : '✗ huvudet följer inte maten (eller går inte tillbaka)'}`)
+  const blickOk = bVanster.blick === 'v' && bHoger.blick === 'h' && bVanster.blickA > 0.5 && bHoger.blickA > 0.5 &&
+    efterSlapp.blick === null && efterSlapp.blickA < 0.2
+  console.log(`  BLICK maten till vänster ${bVanster.blick} (alfa ${bVanster.blickA}) · till höger ${bHoger.blick} ` +
+    `(alfa ${bHoger.blickA}) · efter släppet ${efterSlapp.blick} (alfa ${efterSlapp.blickA})   ` +
+    `${blickOk ? '✓' : '✗ ögonen följer inte maten'}`)
 
   // ---- 2. ETT MÅL: mata en bit --------------------------------------------
   s = await las(page)

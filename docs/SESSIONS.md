@@ -14,6 +14,47 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.194.0 · Pappa fick sin röst — och tidtabellen gick sönder av den
+
+**Byggt:** ägaren spelade in alla åtta uttrycksljud på telefonen (sju `.m4a` + rapen som `.mp3`)
+och de är nu i spelet. Jobbet var inte "konvertera filerna" — det var tre mätningar.
+
+**① Klippunkterna kan inte sättas av en regel.** Fem av åtta bar ett andetag eller fingerljud
+**23–30 dB under rösten** före själva ljudet. `Fniss` bar tvärtom sitt **starkaste** skratt först
+(−9,9 dB) med svagare fniss efter — en regel som "hoppa fram till det ljudstarka partiet" hade
+kapat just den filens skratt. Varje klippunkt är mätt med `silencedetect` per fil. Längder efter
+klipp **0,72–1,28 s**, alla inom minens fönster.
+
+**② Nivån tog tre försök, och de två första var mätbart sämre.** `loudnorm` i dynamiskt läge
+komprimerar rösten själv på ett 0,7-sekunders klipp, och lade ändå tre klipp på 0,0 dB topp —
+dess −1 dBTP mäts FÖRE mp3-kodningen och lame skjuter över. Fast förstärkning med hårt topptak
+gav ingen kompression men **topp-begränsade fyra klipp**, så `pappa_aaah` (chilin!) och
+`pappa_aj` landade **4,6 dB under** det neutrala "ohh". Tredje försöket — fast förstärkning till
+målet + mjuk begränsare — gav **alla åtta inom 0,4 dB** (−18,4…−18,8 LUFS) mot en
+ursprungsspridning på **17 dB**. Målet är `djur_hund.mp3`s nivå, appens enda andra inspelade klipp.
+
+**③ Finalens tidtabell var byggd för toner.** Extrarapen och skrattet startade i **samma
+ögonblick** (0,5 + 0,7 = 1,2 s, och skrattet stod på 1,2 s). Med 0,3 s stämda toner lät det som
+ett ackord; med `pappa_rap` (1,10 s) och `pappa_fniss` (1,26 s) lät det som två pappor. Det är
+ett fel som inte FANNS förrän klippen blev riktiga, och som inget grönt test kan se.
+**Lärdom att bära:** en tidtabell som stämmer mot en syntes-reserv är inte prövad mot klippet
+som ska ersätta den — läs reservens längd innan du litar på avstånden.
+
+**Ny sond `scripts/_klippprobe.mjs`, 6/6 gröna.** Ett manifest bevisar ingenting: det hämtas vid
+körning och avkodningen är asynkron, så `sample()` kan svara false fast filen finns. Sonden
+räknar båda vägarna — 8/8 i `harSample()`, 8/8 `sample()` = true, **0 tone-fallback** — med
+kontrollarm åt båda hållen: en okänd nyckel måste både nekas och vara ospelbar, annars mäter
+räknaren inte det den påstår.
+
+**Commits:** `9bb3400` feat(mata-munnen) pappa har fått sin egen röst
+**Kontroll:** `check` 0/0 · `test mata-munnen` grönt · `_munprobe` grönt · `test:all` **73/73**.
+**Öppet:** ⬜ **ägarbeslut:** `pappa_ohh` bär fortfarande båda minerna `sur` (citronen) och
+`fundersam` (fyra grönsaker) — ett nionde klipp `pappa_surt` är en rad i `ROST`. MOSS är
+fortfarande nere (`saknat-ljudklipp` i fyra ANDRA spel). **Bygget är INTE omgjort** — telefonen
+kör v1.157.0, alltså hörs pappas röst inte där än.
+
+---
+
 ## 2026-08-13 · v1.193.0 · Röstkön tömd och N12 stängd — svansen var mest gradienter
 
 **Byggt:** de två öppna posterna från förra passet, båda hela vägen klara.

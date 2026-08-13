@@ -254,6 +254,37 @@ knapparna aldrig möter varandra:
 
 ## 5. Status / loggar
 
+- 2026-08-13 🔊 **Pappa har fått sin egen röst — åtta inspelade klipp** (`9bb3400`, v1.194.0).
+  Ägaren spelade in alla åtta på telefonen (sju `.m4a`, rapen `.mp3`). Konverterade till appens
+  format (mono 24 kHz 96 kbps mp3) och inlagda i `public/audio/sfx/manifest.json`. Den stämda
+  reserven i `ROST` ligger kvar orörd — den är vad någon utan filerna hör.
+  **Klippunkterna är mätta per fil**, inte satta av en regel: fem filer bar ett andetag
+  **23–30 dB under rösten** före själva ljudet, medan `Fniss` tvärtom bar sitt **starkaste**
+  skratt först (−9,9 dB) med svagare fniss efter. En regel som "hoppa fram till det ljudstarka
+  partiet" hade alltså kapat just den filens skratt. Längder efter klipp: **0,72–1,28 s**, alla
+  inom minens fönster (0,12 + `hall` + 0,22 ≈ 1,64 s).
+  **Nivån tog tre försök och de två första var mätbart sämre.** ⓵ `loudnorm` i dynamiskt läge
+  komprimerar rösten själv på ett 0,7 s klipp, och lade ändå tre klipp på 0,0 dB topp (dess
+  −1 dBTP mäts FÖRE mp3-kodningen; lame skjuter över). ⓶ Fast förstärkning med hårt topptak gav
+  ingen kompression men **topp-begränsade fyra klipp**: `pappa_aaah` (chilin) och `pappa_aj`
+  landade **4,6 dB under** det neutrala `pappa_ohh` — tvärtemot avsikten, för vassa transienter
+  äter takhöjden. ⓷ Fast förstärkning till målet + en mjuk begränsare: **alla åtta inom 0,4 dB**
+  (−18,4…−18,8 LUFS), begränsning 0–2,6 dB, toppar −2,4…−9,6 dB. Ursprungsspridningen var **17 dB**.
+  Målet −18 LUFS är `djur_hund.mp3`s nivå — appens enda andra INSPELADE klipp. (Appen
+  normaliserar inte per klipp: `_playSample` sätter `gain = masterVolume` rakt av.)
+  ⚠️ **Finalens tidtabell var byggd för toner och gick sönder av riktiga klipp.** Extrarapen och
+  skrattet startade i **samma ögonblick** — `ctx.later(0.5)` + `later(0.7)` = 1,2 s, och skrattet
+  stod på 1,2 s. Med 0,3 s stämda toner lät det som ett ackord; med `pappa_rap` (1,10 s) och
+  `pappa_fniss` (1,26 s) lät det som två pappor. Avstånden är nu **klippens längd** (1,15 s) och
+  skrattet väntar tills rapandet är slut — en rap eller två.
+  **Verifierat med `scripts/_klippprobe.mjs`, 6/6 gröna med kontrollarm åt båda hållen:** 8/8 i
+  `harSample()`, 8/8 `sample()` = true, **0 tone-fallback**, och en okänd nyckel både nekas och
+  går inte att spela. Utan den sista raden hade "alla åtta finns" lika gärna kunnat betyda att
+  `harSample` svarar ja på vad som helst.
+  ⬜ **Kvar (ägarbeslut):** `pappa_ohh` bär fortfarande BÅDA minerna `sur` (citronen) och
+  `fundersam` (morot·majs·tomat·päron) — fem av tjugo rätter genom ett klipp. Ett nionde klipp
+  `pappa_surt` är en rad i `ROST`.
+
 - 2026-08-13 🆕 **Byggt och mätt** (v1.186.0). Se §3. Delad kod som följde med:
   `games/mata-monstret/food.js` → **`src/lib/mat.js`** (andra kunden), med `lemon` och `chili`
   som nya ritningar i `MAT_STARK` — medvetet UTANFÖR `FOODS`, eftersom `mata-monstret` väljer

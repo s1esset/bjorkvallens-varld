@@ -72,6 +72,10 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_ansiktebild.mjs [--bara "vila,wink h"]` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · wink · hetta/kyla · gester · 13 miner) + **andas den efter 40 gester?** + exit-koll — **ett ansikte går inte att bedöma i tal**, och `--bara` gör rutorna stora nog för en wink |
 | `node scripts/_munprobe.mjs [--trace]` | *spelar* `mata-munnen`: gapar munnen vid maten (mot kontrollarm långt bort) · lutar han sig mot den · **antal sammanbitningar mot spelets egen tuggprofil** · mätaren per tugga · rätt min · mättar bus (ska INTE) · **ljudslingan följer stationen och dör vid exit** · finalen. `--trace` skriver ut den råa gapkurvan — den förklarar en felräknad tugga på ett sätt inget tal gör |
 | `node scripts/_kastprobe.mjs` | `mata-munnen`s KAST: tröskel · åldersspärr · ansats · träffandel · svep utan tunnling · exit mitt i flykten — 4 kontrollarmar före mätarmarna |
+| `node scripts/_frysprobe.mjs [--tuggor 60]` | **fastnar ansiktet?** matar pappa N gånger och läser riggens tillstånd: SPÖKMIN (synlig lapp som inte är `_aktivMin`) · eviga tweens som läcker · blinkar han fortfarande · matade dragen honom alls. Kräver ≥40 tuggor för att nå mättnaden |
+| `node scripts/_tweenprobe.mjs` | vad `tween.parent` betyder i gsap (levande · väntande · färdig · dödad) — **utan webbläsare**. Hela ringbuffertens filter vilar på den |
+| `node scripts/_silprobe.mjs [--bild]` | ansiktets träffyta mot fotots kontur: **falsk yta OCH missat ansikte** (ett mått åt bara ett håll rankar en oändligt liten yta som bäst) |
+| `node scripts/silhuett.mjs [--person]` | skriver konturen rad för rad till `manifest.geometri.silhuett` (körs av `ansikte.mjs`; fristående för ett redan klippt manifest) |
 | `node scripts/_minprobe.mjs [--bild]` | vad KOSTAR en min, och hur mycket av lappen bär information? (skillnad mot referensen per tröskel + bbox + GPU-tal). Svaret var **12 %** — diff-beskärning är ingen besparing |
 | `node scripts/_vaxelprobe.mjs` | `mata-munnen`s VÄXLAR: fönsterrotationen (fågel→fjäril→regnbåge) · kokar-över-räknaren · skymten i tugget · gegga-trappan — läser TILLSTÅND (visible/räknare/aktiv min), kontrollarmar först |
 | `node scripts/_karaktarbild.mjs [--reaktion jubel]` | karaktärsriggens alla humör i ett rutnät + exit-koll |
@@ -288,6 +292,16 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   inlagd som kontrollarm: **1,66 ‰ svängning före 40 gester → 0 ‰ efter**. Rensa FÄRDIGA
   tweens i stället för de äldsta, och skydda `repeat: -1`. Samma fråga gäller varje tak på en
   lista av levande saker: är det yngsta eller det VIKTIGASTE som ryker?
+  — **och den rättningen läckte i sin tur.** `isActive() || totalProgress() < 1` kan inte
+  skilja LEVANDE från DÖDAD: en dödad `repeat: -1`-tween ger `isActive() === false` men
+  `totalProgress() === 0`, alltså < 1, och slapp igenom filtret — medan while-loopen hoppade
+  över allt evigt och aldrig kunde vräka den. `liv()` anropas en gång per tugga, så listan
+  växte med **en permanent död post per tugga** (uppmätt 1 → 33 över 60 tuggor). Vid mättnad
+  dödades LEVANDE tweens: en hel grimaslapp frös på alfa 1 med `visible: true` medan en annan
+  min var aktiv — **två ansikten på en gång, permanent, med noll konsolfel**. Måttet som
+  faktiskt svarar är **`tw.parent`** (sann för löpande OCH väntande, falsk för både färdiga
+  och dödade — `_tweenprobe.mjs` prövar alla lägena). Och samma fråga gäller varje flagga som
+  betyder "lever": `if (this._blinkTimer)` frågade om fältet var SATT, inte om timern LEVDE.
 - **Ett kontinuerligt ljud överlever allt utom att någon stoppar källan.** En tween dör med
   spelet, en `AudioBufferSourceNode` med `loop = true` gör det inte — den låter vidare på
   menyn, utan bild, och går inte att stänga av. Slingor tystas därför av `GameHost.destroy`

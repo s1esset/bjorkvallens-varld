@@ -235,24 +235,52 @@ knapparna aldrig möter varandra:
 - **[Quick] Tugg/smask** som riktigt klipp i stället för tre triangelvågstoner.
 
 ### Kärnloop & agens
-- **[Medium] Maten syns i munnen ett ögonblick.** Biten krymper och släcks; en kort skymt av
-  matens färg mellan tänderna (som `mata-monstret`s tugga) skulle knyta ihop tugget.
+- ✅ **Maten syns i munnen ett ögonblick** (v1.198). `_skymt`: en färgad glimt mellan tänderna
+  som kläms i tuggtakten (0,22 s) och sväljs med sista tugget. Proxy-tween med destroyed-vakt.
 - **[Medium] Fler roller.** Riggen tar redan vilken person som helst (`laddaAnsikte(person)`);
   `theme.js` bär `ROLLER = ['Pappa','Mamma']`. En väljare kräver bara ett andra fotoset.
 
 ### Variation
-- **[Quick] Fler starka matbitar.** `MAT_STARK` har två (citron, chili). En sylta/pepparkaka/
-  saltgurka till skulle ge minerna `acklad` och `forvanad` egna orsaker i stället för att låna
-  broccolins.
-- **[Medium] Geggan påverkar minerna.** Just nu väljs bus-minen på höjdled (över ögonlinjen =
-  aj/skratt, under = förvånad). Att den femte fläcken ger en annan reaktion än den första vore
-  billig progression.
+- ✅ **Fler starka matbitar** (v1.198). Katalogen är nu 64: saltgurka (`acklad`) och sylta
+  (`forvanad`) ger de två minerna egna orsaker; senapen är `het` men på sitt EGET sätt
+  (rodnad 0,55, två ångpuffar, egen replik — chilin behåller sin fulla reaktion). Plus glass,
+  räka, ketchup (hällbar + bus), paj, popcorn, pepparkaka, leksaksbil.
+- ✅ **Geggan påverkar minerna** (v1.198). Trappan: från femte fläcken ger pappa upp och
+  fnissar (`skratt`, större skak, egen replik) i stället för platsvalets min.
 
 ### Juice
-- **[Quick] Burken bågnar när den fylls** (kort skalpuls per steg) — nu stiger vätskan bara.
-- **[Quick] Geggan glider en aning** innan den fastnar, i stället för att sitta still direkt.
+- ✅ **Burken bågnar när den fylls** (v1.198) — squash från foten per tugga (pivot i burkens
+  fot; burken är dekor så ingen träffyta flyttas).
+- ✅ **Geggan glider en aning** innan den fastnar (v1.198) — ankaret + biten tweenas ihop
+  0,55 s; hårda saker sitter fastkilade direkt.
 
 ## 5. Status / loggar
+
+- 2026-08-13 ✨ **Kökslyft 2 — ägarens polera-uppdrag** (`d709ca8`, v1.198.0). Tre delar:
+  **volympass på allt ritat** (skafferiets 13 prylar, brädmaten 19/20, hamburgerbyggets 48/63,
+  pizzabageriets 49/65 — allt via form.js-cacherna, silhuetter/API orört, alla fyra spelen
+  testade gröna), **köket i högre detalj** (gardiner, moln, klocka, barnteckning, ugnsgaller,
+  kryddhylla, krukväxt, ljusband; dörrdetaljerna ritas PÅ dörrarna så de följer med öppningen
+  — och solen visade sig ha legat begravd bakom glasfyllningen sedan bygget), och **variation
+  som växlar** (fönstret roterar fågel→fjäril→regnbåge · kastrullen kokar över efter ~9 s och
+  läker sig själv · micron plingar · ketchup+senap hällbara · gegga-trappan · burk-bågning ·
+  glid · skymten i tugget). Katalogen 54 → **64 saker**.
+  **Kritikerns runda gav fem fynd, alla åtgärdade:** ⓵ skräpet på bänken kunde STJÄLA fingret
+  från en aktiv matbit (högen landar i samma x-band som `PLATSER`, senare barn pekas först) —
+  lösa vyer läggs nu under maten i pekordningen (`setChildIndex` strax över munnoden);
+  ⓶ kryddhyllan och krukväxten låg bakom skalets ALLTID synliga hem/ljud-knappar — koden hade
+  mätt mot spelets egna stationer men aldrig mot skalet; ⓷ senapen såg ut som ketchupen men
+  gick inte att hälla (bruten orsak-verkan — nu i `VATSKOR`); ⓸ senap var en chili-repris —
+  nu egen styrka + replik; ⓹ fjärilen var en prick — 1,35×.
+  **Ny sond `scripts/_vaxelprobe.mjs` 15/15** med kontrollarmar FÖRST (allt släckt före tryck ·
+  spis-av ackumulerar inte · ingen skymt före tugget · tidig fläck ger platsvalets min):
+  rotationens tre utfall, vingslagen, kokar-över-räknarens laddning och nollning, skymtens
+  födelse och städning, gegga-trappan, exit mitt i allt.
+  ⚠️ Två sondläxor: en kontrollarm som läser på fast VARVINDEX missar när ett grepp
+  misslyckas emellan (min-hållet på 1,3 s hann gå ut → `min null` utan att något var fel) —
+  läs direkt efter varje LYCKAD händelse i stället. Och `_kokprobe`s mjuk-rad flakade 1 gång
+  när tre sonder + test kördes i följd (2/2 grön isolerat) — samma lasttransient som §3 redan
+  beskriver, ingen regression.
 
 - 2026-08-13 🐞 **Ägarens speltest: fem punkter, fyra mekanismer ingen gissning hade hittat**
   (`a50d738` + `f36bef0`, v1.196–1.197). ÅTGÄRDER #8–#12, alla stängda. Sonder: `_busprobe`

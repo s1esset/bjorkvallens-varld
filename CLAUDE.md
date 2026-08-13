@@ -71,6 +71,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_tystprobe.mjs` | pekhanterare som bortar tyst på en upptagen-flagga (P0-brottet `dod-traffyta`) |
 | `node scripts/_ansiktebild.mjs` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · nio miner) + exit-koll — **ett ansikte går inte att bedöma i tal** |
 | `node scripts/_munprobe.mjs` | *spelar* `mata-munnen`: gapar munnen vid maten (mot kontrollarm långt bort) · mätaren per tugga · rätt min · mättar bus (ska INTE) · finalen · exit mitt i tugget |
+| `node scripts/_vaxelprobe.mjs` | `mata-munnen`s VÄXLAR: fönsterrotationen (fågel→fjäril→regnbåge) · kokar-över-räknaren · skymten i tugget · gegga-trappan — läser TILLSTÅND (visible/räknare/aktiv min), kontrollarmar först |
 | `node scripts/_karaktarbild.mjs [--reaktion jubel]` | karaktärsriggens alla humör i ett rutnät + exit-koll |
 | `node scripts/_dragprobe.mjs <id>` | tyngden i draget: eftersläpning · lutning · skugga · städning · exit mitt i drag |
 | `node scripts/_livprobe.mjs <id>` | vilorörelsen: amplitud · fasspridning (lås?) · tickar något efter exit? — mäter MEKANISMEN (`feedback.liv()`), inte om scenen lever |

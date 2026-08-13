@@ -14,6 +14,35 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.198.0 · Kökslyft 2 — volym på allt, rikare kök, stationer som växlar
+
+**Byggt:** ägarens polera-uppdrag för `mata-munnen` i tre delar, via tre parallella
+`spelbyggare` (kok.js · skafferi.js · de delade ritfilerna) medan huvudloopen tog index.js.
+**Assets:** volympass via form.js-cacherna på skafferiets 13 prylar, brädmaten (19/20),
+hamburgerbyggets 48/63 och pizzabageriets 49/65 — silhuetter/API orört, alla fyra spelen
+gröna. **+10 nya saker** (katalogen 54 → 64): glass, räka, ketchup, paj, popcorn, pepparkaka,
+saltgurka, senap, sylta, leksaksbil. **Köket:** gardiner, drivande moln, klocka, barnteckning,
+ugnsgaller+vred, kryddhylla, krukväxt, handduk, ljusband — dörrdetaljer PÅ dörrarna (följer
+öppningen); solen visade sig ha legat begravd bakom glasfyllningen sedan kökets bygge.
+**Variation:** fönstret roterar fågel→fjäril→regnbåge · kastrullen kokar över efter ~9 s och
+läker sig själv · micron plingar · ketchup+senap hällbara · gegga-trappan (femte fläcken →
+skratt) · burk-bågning · gegga-glid · skymten mellan tänderna i tugget.
+**Kritikern gav fem fynd, alla åtgärdade** — viktigast: skräphögen kunde STJÄLA pekningen
+från en aktiv matbit (lösa vyer ligger nu under maten i pekordningen), och den nya dekoren
+hade mätts mot spelets stationer men aldrig mot SKALETS hem/ljud-knappar som täckte den.
+Ny sond `_vaxelprobe.mjs` 15/15 (tillståndsläsning, kontrollarmar först). `_munprobe` +
+`_kokprobe` gröna (mjuk-raden flakade 1 gång under trippel-sondlast, 2/2 isolerat — känd
+lasttransient). 5 nya repliker i pending-kön (`/rost` när narratorn är uppe).
+
+**Commits:** `d709ca8` feat(mata-munnen): kokslyft 2 · docs-commit (denna)
+
+**Öppet:** §4 kvar: fler roller (Mamma — kräver fotoset), tugg/smask som riktigt klipp,
+pappas ev. nya klipp för senapen. Kritikerns riktning för nästa omgång: det som GÖR något
+slår passiv dekor — bygg vidare på stations-utfallen (fler växlar per station), inte på fler
+prydnader.
+
+---
+
 ## 2026-08-13 · v1.197.0 · Ägarens speltest — "den flytande skuggan" var ingen skugga
 
 **Byggt:** ägaren spelade köket på telefonen och rapporterade fem saker. Alla fem är byggda

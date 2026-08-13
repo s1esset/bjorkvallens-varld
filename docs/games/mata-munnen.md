@@ -254,6 +254,38 @@ knapparna aldrig möter varandra:
 
 ## 5. Status / loggar
 
+- 2026-08-13 🐞 **Ägarens speltest: fem punkter, fyra mekanismer ingen gissning hade hittat**
+  (`a50d738` + `f36bef0`, v1.196–1.197). ÅTGÄRDER #8–#12, alla stängda. Sonder: `_busprobe`
+  (8/8), `_hettaprobe` (7/7), `_hallprobe` (6/6).
+  - **#8 "spottas ut … annan storlek och går ej att ta upp igen" var TVÅ fel med olika rot.**
+    Munnen accepterar allt, så `DragController._resolveDrop` låste även en utspottad gaffel
+    (`placed = true` **och** `eventMode = 'none'`; `_onDown` bailar dessutom på `placed`). Ett
+    tryck på gaffeln greppade då en ANNAN sak. Ny `DragController.aterstall(view)`. Den andra
+    halvan satt i `_ploppa`, som skickade geggans **miniatyr** (0,62) till bänken via en
+    syntetisk `rec` som aldrig fanns i dragets register. ⚠️ **Skalan i spott-vägen var aldrig
+    fel** (1 → 1) — halva rapporten hade en helt annan orsak än den såg ut att ha.
+  - **#9 "flytande skugga": det fanns ingen skugga.** `Mjukkropp.knuff` flyttar `p.x/p.y` men
+    inte `p.px/p.py`, och i verlet ÄR det en fart. Med `grav: 0`, inga pinnar och inget golv
+    gled kleten **62 px rakt ner** från sin matbit och blev en fristående oval under den.
+    `knuff(…, { form: true })` + `flyttaTill()` som förankring: **0,0 px mot 62,1** i
+    kontrollarmen, viloformens höjd orörd.
+  - **#10 sekundärt utseende** — premissen prövad först och den höll: maten går INTE att
+    deformera (4–7 lagrade `Graphics` per rätt, ingen silhuett, `generateTexture` förbjudet).
+    Byggt som en **behandling**: kladdiga saker trycks ihop mot huden (1,14 × 0,78) och får
+    rinnmärken som växer över 0,7 s; hårda saker (köksprylar + sex busdjur, ny `hard`-flagga)
+    kilas fast i en större vinkel och får en kontaktfläck i stället för en pöl.
+  - **#11 vätskan går att hälla.** Regeln är den enklaste en tvååring hittar själv: håller du
+    den lutad över något, rinner det. ⚠️ Lutningen skrivs på `rec.restRot`, aldrig på
+    `view.rotation` — `_dragTick` skriver det fältet varje bildruta.
+  - **#12 chilin** — riggen fick `hetta(t)` (tint på alla 14 lager) och `oron()`.
+  - **#13, hittat på vägen och inte rapporterat:** bus-ellipsen nådde y=518, alltså ut på
+    skärbrädan (maten ligger på y=505). Mat som lades TILLBAKA klassades som ansiktsträff och
+    ritades bakom öns förgrund — den bara försvann. Nedre halvan slutar nu vid `KANT_Y`.
+  ⚠️ **Sonderna var fel tre gånger innan koden var det:** en drift mätt mot fel nollpunkt
+  (kroppens tyngdpunkt ligger 15 px från det `(x, y)` man ber om), ett prylfilter som var en
+  namnlista i stället för `atbar`, och ett symmetrikrav kring fotorutans mitt när huvudet
+  ligger 3 px höger i den.
+
 - 2026-08-13 🔊 **Citronen fick sin egen röst — och berättaren slutade prata över pappa**
   (`1e2b630`, v1.195.0). Ägaren spelade in det nionde klippet, så `sur` delar inte längre röst
   med `fundersam`. Punkten under är därmed stängd.

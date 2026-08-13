@@ -14,6 +14,58 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.197.0 · Ägarens speltest — "den flytande skuggan" var ingen skugga
+
+**Byggt:** ägaren spelade köket på telefonen och rapporterade fem saker. Alla fem är byggda
+(ÅTGÄRDER #8–#12), plus en sjätte som föll ut på vägen. **Fyra av mekanismerna hade ingen
+kodläsning gissat rätt**, och två av rapporterna visade sig vara två olika fel var.
+
+**#9 var den lärorikaste: det fanns ingen skugga att ta bort.** `Mjukkropp.knuff` flyttar
+`p.x/p.y` men inte `p.px/p.py` — och i verlet **är** det en fart. Med `grav: 0`, inga pinnar
+och inget golv fanns ingenting som höll emot, så kleten gled **62 px rakt ner** från sin matbit
+och blev en fristående oval under den. Det ägaren såg som "en flytande skugga oavsett var saken
+är placerad" var alltså en fläck som glidit ifrån det den hörde till, och offseten var konstant
+just därför. Fix: `knuff(…, { form: true })` drar bort den genomsnittliga förflyttningen (noll
+rörelsemängd, formen kvar) och `flyttaTill()` förankrar fläcken varje steg. **0,0 px mot 62,1 i
+kontrollarmen.**
+
+**#8 var två fel med olika rot bakom en mening.** Munnen accepterar allt, så `_resolveDrop`
+låste även en utspottad gaffel (`placed` **och** `eventMode: 'none'` — och `_onDown` bailar
+dessutom på `placed`); ett tryck på gaffeln greppade då en ANNAN sak. Den andra halvan satt i
+`_ploppa`, som skickade geggans **miniatyr** (0,62) till bänken via en syntetisk `rec` som
+aldrig fanns i dragets register. ⚠️ **Skalan i spott-vägen var aldrig fel** (1 → 1) — halva
+rapporten hade en helt annan orsak än den såg ut att ha.
+
+**#10 prövades mot premissen först, och premissen höll:** maten går inte att deformera (4–7
+lagrade `Graphics` per rätt, ingen silhuett, `generateTexture` förbjudet). "Sekundärt utseende"
+byggdes därför som en BEHANDLING av den ritning som finns, inte som en töjning eller 20 nya
+konstverk.
+
+**#11** vätskan går att hälla — håller du bäraren lutad över ansiktet eller diskhon rinner det.
+⚠️ Lutningen skrivs på `rec.restRot`, aldrig på `view.rotation`: `_dragTick` skriver det fältet
+varje bildruta, och en tween där hade varit två skrivare till samma tal.
+
+**#12** chilin rodnar ansiktet och röken går ur öronen.
+
+**#13, inte rapporterat men hittat:** bus-ellipsen nådde y=518, alltså ut på skärbrädan där
+maten ligger (y=505). Mat som lades TILLBAKA klassades som ansiktsträff och ritades bakom öns
+förgrund — den bara försvann. Det förklarar en del av ägarens "förvirrande och plottrigt".
+
+⚠️ **Sonderna var fel tre gånger innan koden var det**, alla tre av den kända familjen: en drift
+mätt mot fel nollpunkt (kroppens tyngdpunkt ligger 15 px från det `(x, y)` man ber om, så
+"−15,4 px drift" var skillnaden mellan två nollpunkter), ett prylfilter som var en namnlista i
+stället för `atbar`, och ett symmetrikrav kring fotorutans mitt när huvudet ligger 3 px höger i
+den. **Och två av de "befintliga sonder" jag trodde fanns i repot var en läsande agents egna
+tillfälliga filer** — mätningarna stod sig, men de var inte repots verktyg.
+
+**Commits:** `a50d738` fix(mata-munnen) #8–#10 + #12 · `f36bef0` feat(mata-munnen) vätskan
+går att hälla
+**Kontroll:** `check` 0/0 · `_busprobe` 8/8 · `_hettaprobe` 7/7 · `_hallprobe` 6/6 ·
+`_munprobe` grönt · `test:all` **73/73** i två svep.
+**Öppet:** MOSS nere (`saknat-ljudklipp` i fyra andra spel). Bygget omgjort och serverat.
+
+---
+
 ## 2026-08-13 · v1.195.0 · Citronen fick sin egen röst — och två röster slutade prata i mun
 
 **Byggt:** ägaren spelade in det nionde klippet direkt efter förra passets fråga, så `sur`

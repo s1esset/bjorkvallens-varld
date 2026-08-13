@@ -44,7 +44,12 @@ const las = (page) =>
       drag: g._drag?.active
         ? { key: g._drag.active.data?.key, dragging: !!g._drag.active.dragging, tx: Math.round(g._drag.active.tx), ty: Math.round(g._drag.active.ty) }
         : null,
-      mun: { x: 455, y: Math.round(g._munY) },
+      // Munnens läge LÄSES ur spelets egen målnod. Det stod 455 hårdkodat här, och när
+      // köket flyttade ansiktet till x=620 mätte sonden fortfarande — den rapporterade
+      // ett gap (0,12 → 0,74) för ett drag som i själva verket landade i kinden och
+      // räknades som bus. En hårdkodad koordinat i en sond är en tyst felkälla.
+      mun: { x: Math.round(g._mun?.x ?? 0), y: Math.round(g._mun?.y ?? g._munY) },
+      ogon: Math.round(g._ogonY ?? 0),
       mat: (g._mat || []).filter((r) => !r._uppaten && !r.view.destroyed)
         .map((r) => ({ key: r.data.key, x: Math.round(r.view.x), y: Math.round(r.view.y) })),
     }
@@ -119,7 +124,7 @@ try {
   if (s.mat.length) {
     const busBit = s.mat[0]
     const geggorFore = s.geggor
-    await drag(busBit, { x: 455, y: 205 })
+    await drag(busBit, { x: s.mun.x, y: s.ogon - 55 }) // pannan, ovanför ögonlinjen
     await page.waitForTimeout(900)
     e = await las(page)
     console.log(`\n  BUS  ${busBit.key} i pannan: gegga ${geggorFore}→${e.geggor} · mätaren ${s.fyll}→${e.fyll} ${Math.abs(e.fyll - s.fyll) < 0.001 ? '(oförändrad ✓)' : '(✗ bus ska inte mätta)'} · min ${e.min ?? '(ingen)'}`)

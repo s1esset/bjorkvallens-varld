@@ -20,7 +20,7 @@
 // pappa blir förvånad, säger aj eller fnissar, och geggan sitter kvar till rapfinalen.
 import { Circle, Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
-import { createScene } from '../../lib/scene.js'
+import { ANS, BRADA, MATARE, PLATSER, byggKok } from './kok.js'
 import { DragController } from '../../lib/DragController.js'
 import { FOODS, MAT_STARK, makeFood, foodColor } from '../../lib/mat.js'
 import { Ansikte, laddaAnsikte } from '../../lib/ansikte.js'
@@ -29,21 +29,11 @@ import { PLAYFUL } from '../../lib/theme.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 
 // --- geometri (designkoordinater 1280×720) ---
-const ANS = { x: 455, y: 320, h: 500 } // ansiktets mitt + höjd
-const MUN_R = 130                      // snäppradie till munnen (P0: träffyta ≫96 px)
-const BUS = { rx: 215, ry: 250 }       // ansiktets ellips — utanför den är det en ren miss
-const TALLRIK = { x: 960, y: 525, rx: 252, ry: 165 }
-const BORD_Y = 590 // bordsskivans framkant — tallriken måste skära den, annars svävar den
-// Sex platser, alla med sin MATBILD (±50 px) innanför tallrikens ellips. Första bilden
-// hade dem på kanten och den andra lät nedre raden hänga utanför — båda läste som
-// utspilld mat. Träffhalon är 104 px i diameter (P0 kräver ≥96) och mellanrummet mellan
-// två halon 26 px i höjd, 46 i sidled (P0 kräver ≥24).
-const PLATSER = [
-  [810, 460], [960, 460], [1110, 460],
-  [810, 590], [960, 590], [1110, 590],
-]
+// ANS · PLATSER · MATARE · BRADA bor i `kok.js`: köksön räknas ur ansiktets halslinje, och
+// maten ligger på skärbrädan som köket ritar. En andra uppsättning tal här hade drivit isär.
+const MUN_R = 130                // snäppradie till munnen (P0: träffyta ≫96 px)
+const BUS = { rx: 215, ry: 250 } // ansiktets ellips — utanför den är det en ren miss
 const GRIP_R = 52
-const MATARE = { x: 112, y: 445, w: 116, h: 286 } // står PÅ bordet, svävar inte
 const GEGGA_MAX = 6 // P0 MOTGÅNG: tak på hur mycket som kan gå fel samtidigt
 
 // Vilken min varje mat framkallar. Chilin och citronen är hela poängen med att en sur
@@ -97,14 +87,13 @@ export default {
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
-    this._root.addChild(createScene('warm', { width: ctx.width, height: ctx.height }))
-    this._root.addChild(this._bord(ctx))
 
-    // Lagerordning: tallrik → ansikte → gegga (ovanpå ansiktet) → mat (ovanpå allt, så
-    // en bit som dras aldrig försvinner bakom hakan).
-    this._propL = new Container()
-    this._propL.eventMode = 'none'
-    this._root.addChild(this._propL)
+    // Lagerordning — den är hela lösningen på det svävande huvudet:
+    //   köket bakom → ansikte → gegga (ovanpå ansiktet) → KÖKSÖN (framför ansiktet, skär
+    //   halsen) → burken och annat som står på bänken → mat (överst, så en bit som dras
+    //   aldrig försvinner bakom hakan eller under bänkskivan).
+    const kok = byggKok(ctx)
+    this._root.addChild(kok.bakgrund)
 
     this._ansL = new Container()
     this._ansL.eventMode = 'none'
@@ -115,10 +104,15 @@ export default {
     this._geggaL.interactiveChildren = false
     this._root.addChild(this._geggaL)
 
+    this._root.addChild(kok.framgrund)
+
+    this._propL = new Container()
+    this._propL.eventMode = 'none'
+    this._root.addChild(this._propL)
+
     this._matL = new Container()
     this._root.addChild(this._matL)
 
-    this._ritaTallrik()
     this._ritaMatare()
 
     // Ansiktet. Foton kan saknas i ett halvbyggt bygge — då ska spelet inte krascha,
@@ -179,68 +173,26 @@ export default {
 
   // ------------------------------------------------------------------ scen ---
 
-  // Bordet går ut ur bild åt BÅDA håll. En skiva som slutar mitt i luften läser som en
-  // lös planka; och på en bred telefon når `ctx.view` ut till −240/+1520, så kanterna
-  // måste ligga utanför den — inte utanför 0..1280.
-  _bord(ctx) {
-    const c = new Container()
-    c.eventMode = 'none'
-    const v = ctx.view
-    const x0 = Math.min(-360, v.left - 120)
-    const x1 = Math.max(ctx.width + 360, v.right + 120)
-    const skiva = new Graphics()
-      .rect(x0, BORD_Y, x1 - x0, 300)
-      .fill(0xc98a4e)
-      .stroke({ width: 7, color: 0x9a6535 })
-    const kant = new Graphics()
-      .rect(x0, BORD_Y, x1 - x0, 26)
-      .fill({ color: 0xe0a86c, alpha: 0.85 })
-    const adring = new Graphics()
-    for (const y of [652, 700, 748]) {
-      adring.moveTo(x0, y).quadraticCurveTo(640, y + 10, x1, y)
-        .stroke({ width: 3, color: 0xa87342, alpha: 0.35 })
-    }
-    c.addChild(skiva, kant, adring)
-    return c
-  },
-
-  _ritaTallrik() {
-    const t = new Container()
-    t.eventMode = 'none'
-    const skugga = new Graphics()
-      .ellipse(TALLRIK.x, TALLRIK.y + 152, TALLRIK.rx * 0.92, 24)
-      .fill({ color: 0x000000, alpha: 0.12 })
-    const under = new Graphics()
-      .ellipse(TALLRIK.x, TALLRIK.y + 14, TALLRIK.rx, TALLRIK.ry)
-      .fill(0xdfe6ee)
-      .stroke({ width: 6, color: 0xa9b6c4 })
-    const yta = new Graphics()
-      .ellipse(TALLRIK.x, TALLRIK.y, TALLRIK.rx, TALLRIK.ry)
-      .fill(0xf6fbff)
-      .stroke({ width: 6, color: 0xbcc9d6 })
-    const inre = new Graphics()
-      .ellipse(TALLRIK.x, TALLRIK.y, TALLRIK.rx * 0.7, TALLRIK.ry * 0.66)
-      .stroke({ width: 4, color: 0xd6e2ec })
-    const dager = new Graphics()
-      .ellipse(TALLRIK.x - 96, TALLRIK.y - 46, 62, 24)
-      .fill({ color: 0xffffff, alpha: 0.6 })
-    t.addChild(skugga, under, yta, inre, dager)
-    this._propL.addChild(t)
-  },
-
   // Mättnadsmätaren: en burk som fylls. Den kan bara STIGA — ingen poäng som sjunker (P0).
   _ritaMatare() {
     const m = new Container()
     m.eventMode = 'none'
     const { x, y, w, h } = MATARE
+    // Burken står på köksöns bänkskiva och behöver en skugga för att göra det —
+    // ett glas utan skugga svävar precis som huvudet gjorde.
+    const skugga = new Graphics()
+      .ellipse(x, y + h / 2 - 2, w / 2 + 6, 13)
+      .fill({ color: 0x6b4a2c, alpha: 0.2 })
     const glas = new Graphics()
-      .roundRect(x - w / 2, y - h / 2, w, h, 34)
-      .fill({ color: 0xffffff, alpha: 0.55 })
+      .roundRect(x - w / 2, y - h / 2, w, h, 30)
+      .fill({ color: 0xffffff, alpha: 0.5 })
       .stroke({ width: 7, color: 0xb08a5c })
     const lock = new Graphics()
-      .roundRect(x - w / 2 - 9, y - h / 2 - 26, w + 18, 34, 14)
+      .roundRect(x - w / 2 - 9, y - h / 2 - 24, w + 18, 32, 13)
       .fill(0xd9a05b)
       .stroke({ width: 6, color: 0x9a6535 })
+      .roundRect(x - w / 2 - 4, y - h / 2 - 19, w + 8, 8, 4)
+      .fill({ color: 0xffffff, alpha: 0.3 })
 
     // Fyllningen ritas om per nivå i sin egen Graphics — maskad av burkens rundning
     // genom att bara rita innanför den.
@@ -260,11 +212,13 @@ export default {
       .quadraticCurveTo(16, -4, 0, 9)
       .fill(0xff6b8e)
       .stroke({ width: 3, color: 0xd94f72 })
-    this._hjarta.position.set(x, y - h / 2 - 52)
-    this._hjarta.scale.set(1.9)
-    this._hjarta.alpha = 0.22
+    // Hjärtat sitter PÅ locket, inte ovanför det: i köksbilden fanns 34 px luft mellan
+    // dem och hjärtat läste som en dekal på väggen bakom burken.
+    this._hjarta.position.set(x, y - h / 2 - 22)
+    this._hjarta.scale.set(1.4)
+    this._hjarta.alpha = 0.28
 
-    m.addChild(glas, this._fyll, dager, lock, this._hjarta)
+    m.addChild(skugga, glas, this._fyll, dager, lock, this._hjarta)
     this._propL.addChild(m)
     this._ritaFyll(0)
   },

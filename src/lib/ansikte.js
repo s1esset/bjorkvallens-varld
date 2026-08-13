@@ -49,14 +49,31 @@ const _cache = new Map()
 /**
  * Läser manifestet och laddar alla lager EN gång per person. Resultatet cachas, så ett
  * spel som monteras om inte laddar om texturerna.
+ *
+ * VARIANTMINER: en roll i `manifest.miner` får vara ett FÄLT av lappar — samma min ur
+ * olika foton. Valet görs HÄR, en gång, och bara den valda laddas.
+ *
+ * ⚠️ Varianten är alltså låst per app-session, inte slumpad per anrop, och det är
+ * avsiktligt: `_cache` lever appens livstid, och att hålla alla varianter laddade vore
+ * 3 × hela riggen i GPU-minne (13,5 → ~40 MB) för en variation ögat ser en gång i minuten.
+ * Barnet får ett ansikte som skiljer sig mellan omgångar, inte mellan grimaser.
+ *
+ * `Ansikte` ser aldrig fälten: manifestet som lämnas vidare bär EN lapp per roll, precis
+ * som förut. Samma mönster som ljudets `_sampleUrls` — slumpen bor i tjänsten, inte i
+ * spelen som använder den.
  */
 export async function laddaAnsikte(person = 'pappa') {
   if (_cache.has(person)) return _cache.get(person)
   const bas = `${BAS_URL}ansikte/${person}/`
   const svar = await fetch(`${bas}manifest.json`, { cache: 'no-cache' })
   if (!svar.ok) throw new Error(`ansikte: manifest saknas för ${person}`)
-  const manifest = await svar.json()
-  const filer = [...Object.values(manifest.lager), ...Object.values(manifest.miner)]
+  const rat = await svar.json()
+  const miner = {}
+  for (const [namn, v] of Object.entries(rat.miner)) {
+    miner[namn] = Array.isArray(v) ? v[Math.floor(Math.random() * v.length)] : v
+  }
+  const manifest = { ...rat, miner }
+  const filer = [...Object.values(manifest.lager), ...Object.values(miner)]
   const tex = {}
   await Promise.all(filer.map(async (l) => { tex[l.fil] = await Assets.load(`${bas}${l.fil}`) }))
   const data = { manifest, tex }

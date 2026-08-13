@@ -10,8 +10,8 @@
 //
 // Kräver dev-servern (window.__barnspel är DEV-only).
 import { chromium } from 'playwright'
-import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 const args = process.argv.slice(2)
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d }
@@ -129,7 +129,16 @@ try {
     return { fore, efter, spar: a._tw.length }
   })
 
-  // Exit-säkerhet: riv alla riggar och se att ingenting fortsätter ticka.
+  // VÄLJS EN VARIANT PÅ RIKTIGT?
+  //
+  // `manifest.miner[roll]` får vara ett FÄLT, och `laddaAnsikte()` ska välja EN per
+  // app-session. Att koden finns bevisar ingenting — valet sker en gång och cachas, så
+  // frågan går bara att besvara genom att ladda om sidan flera gånger och räkna hur många
+  // OLIKA lappar rollen fick. Kontrollarmen först, precis som ljudets `_klippprobe`: en
+  // roll med EN lapp måste ge exakt 1 unik fil över samma omladdningar. Utan den raden
+  // kan "flera unika" lika gärna vara mätbrus.
+  // ⚠️ Mätningen laddar om sidan, alltså EFTER exit-kollen — annars är `window.__ansikten`
+  // borta när riggarna ska rivas, och exit-raden hade blivit grön på tom lista.
   const kvar = await page.evaluate(() => {
     const n = window.__ansikten.length
     for (const a of window.__ansikten) a.destroy()
@@ -138,12 +147,38 @@ try {
   })
   await page.waitForTimeout(500)
 
+  const VARV = 12
+  const valda = {}
+  // Facit läses från DISK, inte i sidan: `import.meta.env` går inte att serialisera in i
+  // en `page.evaluate`, och manifestet är ändå samma fil som servern lämnar ut.
+  const raManifest = JSON.parse(readFileSync(join('public', 'ansikte', person, 'manifest.json'), 'utf8'))
+  const varianterAv = Object.fromEntries(
+    Object.entries(raManifest.miner).map(([k, v]) => [k, Array.isArray(v) ? v.length : 1]))
+  for (let i = 0; i < VARV; i++) {
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
+    const val = await page.evaluate(async (p) => {
+      const { laddaAnsikte } = await import('/src/lib/ansikte.js')
+      const d = await laddaAnsikte(p)
+      return Object.fromEntries(Object.entries(d.manifest.miner).map(([k, l]) => [k, l.fil]))
+    }, person)
+    for (const [k, f] of Object.entries(val)) (valda[k] ||= new Set()).add(f)
+  }
+
   console.log(`\n  ruta ${fakta.ruta.w}x${fakta.ruta.h} · ${fakta.lager} lager + ${fakta.miner} miner`)
   console.log(`  lägen: ${fakta.lagen.join(' · ')}`)
   const andasKvar = anda.efter > anda.fore * 0.5
   console.log(`  andning: ${anda.fore} ‰ före 40 gester · ${anda.efter} ‰ efter · ${anda.spar} spårade tweens` +
     `  ${anda.fore > 0.5 ? (andasKvar ? '✓' : '✗ ANDNINGEN DOG') : '✗ mätfönstret fångade inget andetag'}`)
   console.log(`  rev ${kvar} riggar efter bilden`)
+  const flera = Object.entries(varianterAv).filter(([, n]) => n > 1)
+  const enda = Object.entries(varianterAv).filter(([, n]) => n === 1)
+  const kontrollFel = enda.filter(([k]) => (valda[k]?.size ?? 0) !== 1)
+  const stumma = flera.filter(([k]) => (valda[k]?.size ?? 0) < 2)
+  console.log(`  varianter över ${VARV} omladdningar: ` +
+    flera.map(([k, n]) => `${k} ${valda[k]?.size ?? 0}/${n}`).join(' · ') +
+    `   ${flera.length === 0 ? '(inga roller har varianter)' : stumma.length ? `✗ ${stumma.map(([k]) => k).join(', ')} valde aldrig om` : '✓'}`)
+  console.log(`  KONTROLL: ${enda.length} roller med EN lapp gav ${kontrollFel.length ? '✗ ' + kontrollFel.map(([k]) => k).join(', ') : '✓ exakt 1 unik fil var'}`)
   console.log(`  ${errors.length === 0 ? '✓ 0 konsolfel' : '✗ ' + errors.length + ' konsolfel: ' + errors.slice(0, 3).join(' | ')}`)
   console.log(`  bild: ${shot}\n`)
   process.exitCode = errors.length ? 1 : 0

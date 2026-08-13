@@ -121,7 +121,9 @@ for (const m of MINER) {
   const f = path.join(TMP, `${m}.png`)
   if (!fs.existsSync(f)) { console.log(`  ${m.padEnd(22)} (saknas i ${TMP} — kör npm run ansikte först)`); continue }
   const r = matning(gra(f))
-  const nu = manifest.miner[m]
+  // En roll får bära ett FÄLT av varianter i manifestet; kostnadsfrågan gäller lappen som
+  // faktiskt laddas, och `laddaAnsikte()` laddar EN — så primären (index 0) är rätt rad.
+  const nu = Array.isArray(manifest.miner[m]) ? manifest.miner[m][0] : manifest.miner[m]
   nuMb += mb(nu.w, nu.h)
   // Förslaget: bbox + marginal för den mjuka kanten (samma sigma som lappen), klippt mot rutan.
   const mrg = G_MIN.mjuk

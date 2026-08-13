@@ -175,6 +175,7 @@ console.log('  roll         foto  skala  vinkel   tx    ty   rest   flytt')
 const lager = {}
 const rester = []
 const tagna = new Set()
+const rester_kvar = {} // rollens BORTVALDA kandidater, i grov-ordning — varianternas råvara
 for (const [roll, kandidater] of Object.entries(cfg.roller)) {
   // Steg 1: grovsök VARJE kandidat och välj den vars POSE ligger närmast referensen.
   const forsok = []
@@ -205,6 +206,7 @@ for (const [roll, kandidater] of Object.entries(cfg.roller)) {
 
   lager[roll] = { kalla: vald.n, skala: +b.s.toFixed(4), vinkel: b.a, tx: +b.tx.toFixed(1), ty: +b.ty.toFixed(1), rest: +b.d.toFixed(4) }
   rester.push(b.d)
+  rester_kvar[roll] = forsok.slice(1)
   const bortvalda = forsok.slice(1).map((v) => `#${v.n} ${v.grov.d.toFixed(3)}`).join(' ')
   console.log(`  ${roll.padEnd(11)} #${String(vald.n).padStart(3)}  ${b.s.toFixed(3)}  ${String(b.a).padStart(5)}°  ${String(Math.round(b.tx)).padStart(4)}  ${String(Math.round(b.ty)).padStart(4)}  ${b.d.toFixed(3)}` +
     (b.kant ? `  ⚠ ${KANT_VARNING}` : '') + (bortvalda ? `   (valde bort ${bortvalda})` : ''))
@@ -371,13 +373,63 @@ const BLICKAR = ['blick_v', 'blick_h', 'blick_ner'].filter((r) => cfg.roller[r])
 const blickLager = {}
 for (const namn of BLICKAR) blickLager[namn] = ogonlapp(path.join(TMP, `${namn}.png`), namn, helOval)
 
-// Minerna: oval lapp över ansiktets insida.
-const minLager = {}
+// VARIANTMINER — samma min, ett annat foto. En roll listar redan fyra kandidater och
+// använder EN; de andra tre är råvara som redan är betald. Två saker gör det billigt:
+// varianten är bara ytterligare en oval lapp (~50 kB på disk), och `laddaAnsikte()` läser
+// EN av dem per app-session, så GPU-minnet står still. Alternativet — alla varianter i
+// minnet — vore 3 × hela riggen (13,5 → 40 MB) för en variation ögat ser en gång i minuten.
+//
+// ⚠️ VARIANTPASSET MÅSTE LIGGA EFTER ATT ALLA ROLLER TAGIT SIN PRIMÄRBILD. Vore det i
+// samma varv kunde en tidig roll lägga beslag på ett foto som en senare roll behöver som
+// sin HUVUDBILD — och då hade en variant tyst gjort en annan min sämre. Med två pass är
+// primärvalen bevisligen orörda (de 13 `min-*.webp` kom ut byte för byte identiska).
+//
+// ⚠️ TAKET ÄR INTE ETT MAGISKT TAL utan det sämsta som REDAN skeppas. En variant vars pose
+// sitter sämre än den värsta min riggen redan bär skulle synas som ett ryck när ansiktet
+// byter foto, och en variation som läser som en glitch är sämre än ingen variation alls.
+//
+// ⚠️ MEN POSE-TAKET ÄR INTE ETT URVAL AV MIN. Silhuett-måttet är byggt för att ignorera
+// mimik — alltså precis det som avgör om varianten är SAMMA min. Tre kandidater klarade
+// taket och föll i bild (se `variant_bort` i roller.json med skälen). En variant måste
+// därför dömas i `.tmp-ansikte/_varianter*.png` innan den skeppas, exakt som en ny min.
+const VARIANT_MAX = 2 // extra foton per roll — taket är körtid och disk, inte GPU
+const VARIANT_TAK = Math.max(...rester)
+console.log(`  varianter: tak rest ${VARIANT_TAK.toFixed(3)} (sämsta primärbilden) · max ${VARIANT_MAX} per roll\n`)
+const varianter = {}
 for (const m of MINER) {
-  const p = path.join(TMP, `_min_${m}.png`)
-  magick([path.join(TMP, `${m}.png`),
-    ...skar(['-draw', `ellipse ${G.min.cx},${G.min.cy} ${G.min.rx},${G.min.ry} 0,360`, '-blur', `0x${G.min.mjuk}`]), p])
-  minLager[m] = skriv(p, `min-${m}`)
+  const extra = []
+  const bort = new Set(cfg.variant_bort?.[m] || [])
+  for (const kand of rester_kvar[m] || []) {
+    if (extra.length >= VARIANT_MAX) break
+    if (tagna.has(`${monster(m)}#${kand.n}`)) continue // en annan roll tog fotot i pass 1
+    if (bort.has(kand.n)) { console.log(`    ${m.padEnd(11)} #${String(kand.n).padStart(3)}  ✗ bortvald i bild (variant_bort)`); continue }
+    const b = sokTills(kand.f, uFin, FIN.marginal, FIN.skalor, FIN.vinklar, kand.grov)
+    if (b.d > VARIANT_TAK) { console.log(`    ${m.padEnd(11)} #${String(kand.n).padStart(3)}  rest ${b.d.toFixed(3)}  ✗ över taket`); continue }
+    tagna.add(`${monster(m)}#${kand.n}`)
+    const ut = path.join(TMP, `${m}-${extra.length + 2}.png`)
+    rendera(kand.f, { cx: b.cx, cy: b.cy, s: b.s * skalaUt, a: b.a, tx: b.tx * skalaUt, ty: b.ty * skalaUt }, UTW, UTH, ut)
+    extra.push({ n: kand.n, png: ut, rest: b.d })
+    console.log(`    ${m.padEnd(11)} #${String(kand.n).padStart(3)}  rest ${b.d.toFixed(3)}  ✓ variant ${extra.length + 1}`)
+  }
+  varianter[m] = extra
+}
+
+// Minerna: oval lapp över ansiktets insida. Rollen får flera lappar om den har varianter,
+// och `manifest.miner[roll]` blir ett FÄLT först när det finns mer än en — enkla namn
+// beter sig exakt som förut, precis som ljudets `_sampleUrls`.
+const minOval = ['-draw', `ellipse ${G.min.cx},${G.min.cy} ${G.min.rx},${G.min.ry} 0,360`, '-blur', `0x${G.min.mjuk}`]
+const minLapp = (kallaPng, namn) => {
+  const p = path.join(TMP, `_min_${namn}.png`)
+  magick([kallaPng, ...skar(minOval), p])
+  return skriv(p, `min-${namn}`)
+}
+const minLager = {}
+const minAlla = [] // varje skriven lapp, för budgeträkningen
+for (const m of MINER) {
+  const l = [minLapp(path.join(TMP, `${m}.png`), m),
+    ...varianter[m].map((v, i) => minLapp(v.png, `${m}-${i + 2}`))]
+  minAlla.push(...l)
+  minLager[m] = l.length > 1 ? l : l[0]
 }
 
 const manifest = {
@@ -386,10 +438,20 @@ const manifest = {
   geometri: { klipp: G.klipp, ogonlinje: 341, mun: G.mun },
   lager: { ...halvor, mun: munLager, ...blickLager, ogon: ogonLager, ...ogonHalvor },
   miner: minLager,
+  // Vilket foto varje lapp kom ur. Primärerna räcker inte längre: en variant som läser fel
+  // måste gå att peka ut med sitt NUMMER (det är så `variant_bort` är skrivet), och utan
+  // den här raden var svaret bara en gissning ur konsolloggen från den körning som byggde.
   kallor: Object.fromEntries(Object.entries(lager).map(([k, v]) => [k, v.kalla])),
+  variantkallor: Object.fromEntries(Object.entries(varianter).filter(([, v]) => v.length).map(([k, v]) => [k, v.map((x) => x.n)])),
 }
 fs.writeFileSync(path.join(filUt, 'manifest.json'), JSON.stringify(manifest, null, 2))
-const totalKb = [...Object.values(manifest.lager), ...Object.values(minLager)].reduce((s, l) => s + l.kb, 0)
-console.log(`  lager: ${Object.keys(manifest.lager).join(' · ')} + ${MINER.length} miner`)
-for (const [k, v] of Object.entries({ ...manifest.lager, ...minLager })) console.log(`    ${k.padEnd(14)} ${String(v.w).padStart(4)}x${String(v.h).padStart(3)} @ ${String(v.x).padStart(3)},${String(v.y).padStart(3)}  ${v.kb} kB`)
+const totalKb = [...Object.values(manifest.lager), ...minAlla].reduce((s, l) => s + l.kb, 0)
+const extraKb = minAlla.slice(MINER.length).reduce((s, l) => s + l.kb, 0)
+console.log(`  lager: ${Object.keys(manifest.lager).join(' · ')} + ${MINER.length} miner (${minAlla.length} lappar)`)
+const rader = { ...manifest.lager }
+for (const l of minAlla) rader[l.fil.replace(/\.webp$/, '')] = l
+for (const [k, v] of Object.entries(rader)) console.log(`    ${k.padEnd(14)} ${String(v.w).padStart(4)}x${String(v.h).padStart(3)} @ ${String(v.x).padStart(3)},${String(v.y).padStart(3)}  ${v.kb} kB`)
+// GPU-kostnaden står still oavsett hur många varianter som skrivs: `laddaAnsikte()` laddar
+// EN lapp per roll. Det som växer är disken (och nedladdningen), alltså den här budgeten.
+console.log(`\n  varianter: ${minAlla.length - MINER.length} extra lappar, ${extraKb} kB på disk — GPU oförändrat (en lapp per roll laddas)`)
 console.log(`\n  TOTALT ${totalKb} kB (budget 3072 kB)  ${totalKb <= 3072 ? '✓' : '✗ ÖVER BUDGET'}\n`)

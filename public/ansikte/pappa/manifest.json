@@ -97,14 +97,24 @@
     }
   },
   "miner": {
-    "sur": {
-      "fil": "min-sur.webp",
-      "x": 156,
-      "y": 132,
-      "w": 423,
-      "h": 641,
-      "kb": 50
-    },
+    "sur": [
+      {
+        "fil": "min-sur.webp",
+        "x": 156,
+        "y": 132,
+        "w": 423,
+        "h": 641,
+        "kb": 50
+      },
+      {
+        "fil": "min-sur-2.webp",
+        "x": 152,
+        "y": 132,
+        "w": 424,
+        "h": 641,
+        "kb": 48
+      }
+    ],
     "acklad": {
       "fil": "min-acklad.webp",
       "x": 146,
@@ -121,14 +131,24 @@
       "h": 641,
       "kb": 54
     },
-    "lycksalig": {
-      "fil": "min-lycksalig.webp",
-      "x": 167,
-      "y": 132,
-      "w": 422,
-      "h": 641,
-      "kb": 52
-    },
+    "lycksalig": [
+      {
+        "fil": "min-lycksalig.webp",
+        "x": 167,
+        "y": 132,
+        "w": 422,
+        "h": 641,
+        "kb": 52
+      },
+      {
+        "fil": "min-lycksalig-2.webp",
+        "x": 156,
+        "y": 132,
+        "w": 421,
+        "h": 641,
+        "kb": 52
+      }
+    ],
     "fundersam": {
       "fil": "min-fundersam.webp",
       "x": 160,
@@ -137,22 +157,58 @@
       "h": 641,
       "kb": 51
     },
-    "forvanad": {
-      "fil": "min-forvanad.webp",
-      "x": 156,
-      "y": 132,
-      "w": 422,
-      "h": 641,
-      "kb": 52
-    },
-    "aj": {
-      "fil": "min-aj.webp",
-      "x": 154,
-      "y": 132,
-      "w": 427,
-      "h": 641,
-      "kb": 48
-    },
+    "forvanad": [
+      {
+        "fil": "min-forvanad.webp",
+        "x": 156,
+        "y": 132,
+        "w": 422,
+        "h": 641,
+        "kb": 52
+      },
+      {
+        "fil": "min-forvanad-2.webp",
+        "x": 138,
+        "y": 132,
+        "w": 471,
+        "h": 641,
+        "kb": 55
+      },
+      {
+        "fil": "min-forvanad-3.webp",
+        "x": 168,
+        "y": 132,
+        "w": 409,
+        "h": 641,
+        "kb": 54
+      }
+    ],
+    "aj": [
+      {
+        "fil": "min-aj.webp",
+        "x": 154,
+        "y": 132,
+        "w": 427,
+        "h": 641,
+        "kb": 48
+      },
+      {
+        "fil": "min-aj-2.webp",
+        "x": 155,
+        "y": 132,
+        "w": 420,
+        "h": 641,
+        "kb": 49
+      },
+      {
+        "fil": "min-aj-3.webp",
+        "x": 156,
+        "y": 132,
+        "w": 422,
+        "h": 641,
+        "kb": 48
+      }
+    ],
     "nojd": {
       "fil": "min-nojd.webp",
       "x": 161,
@@ -169,14 +225,32 @@
       "h": 641,
       "kb": 48
     },
-    "gasp": {
-      "fil": "min-gasp.webp",
-      "x": 166,
-      "y": 132,
-      "w": 419,
-      "h": 641,
-      "kb": 50
-    },
+    "gasp": [
+      {
+        "fil": "min-gasp.webp",
+        "x": 166,
+        "y": 132,
+        "w": 419,
+        "h": 641,
+        "kb": 50
+      },
+      {
+        "fil": "min-gasp-2.webp",
+        "x": 165,
+        "y": 132,
+        "w": 412,
+        "h": 641,
+        "kb": 52
+      },
+      {
+        "fil": "min-gasp-3.webp",
+        "x": 166,
+        "y": 132,
+        "w": 414,
+        "h": 641,
+        "kb": 49
+      }
+    ],
     "chock": {
       "fil": "min-chock.webp",
       "x": 164,
@@ -185,22 +259,42 @@
       "h": 641,
       "kb": 51
     },
-    "skeptisk": {
-      "fil": "min-skeptisk.webp",
-      "x": 156,
-      "y": 132,
-      "w": 423,
-      "h": 641,
-      "kb": 51
-    },
-    "retas": {
-      "fil": "min-retas.webp",
-      "x": 151,
-      "y": 132,
-      "w": 425,
-      "h": 641,
-      "kb": 52
-    }
+    "skeptisk": [
+      {
+        "fil": "min-skeptisk.webp",
+        "x": 156,
+        "y": 132,
+        "w": 423,
+        "h": 641,
+        "kb": 51
+      },
+      {
+        "fil": "min-skeptisk-2.webp",
+        "x": 159,
+        "y": 132,
+        "w": 423,
+        "h": 641,
+        "kb": 52
+      }
+    ],
+    "retas": [
+      {
+        "fil": "min-retas.webp",
+        "x": 151,
+        "y": 132,
+        "w": 425,
+        "h": 641,
+        "kb": 52
+      },
+      {
+        "fil": "min-retas-2.webp",
+        "x": 150,
+        "y": 132,
+        "w": 427,
+        "h": 641,
+        "kb": 53
+      }
+    ]
   },
   "kallor": {
     "neutral": 1,
@@ -222,5 +316,31 @@
     "blick_v": 99,
     "blick_h": 98,
     "blick_ner": 100
+  },
+  "variantkallor": {
+    "sur": [
+      49
+    ],
+    "lycksalig": [
+      26
+    ],
+    "forvanad": [
+      81,
+      102
+    ],
+    "aj": [
+      52,
+      51
+    ],
+    "gasp": [
+      113,
+      125
+    ],
+    "skeptisk": [
+      8
+    ],
+    "retas": [
+      16
+    ]
   }
 }

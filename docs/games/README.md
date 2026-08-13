@@ -84,6 +84,14 @@ fotots halslinje, 12 klickbara stationer, 54 mat- och busobjekt hämtade ur `piz
 `hamburgerbygget`, och tre motorer där de syns (matter-hög på bänken · SPH-pöl · mjuk gegga).
 Sond: `scripts/_kokprobe.mjs`. Mätningarna och de fyra fynden står i `mata-munnen.md` §4/§5b.
 
+✅ **Ansiktet har fler uttryck och ljudet följer maten** (v1.199): riggen bär nu **13 miner**
+(`gasp` · `chock` · `skeptisk` · `retas` klippta ur shootens 84 oanvända bilder), wink via ett
+halverat ögonlager, huvudgester (`nick` · `tveka` · `ryck` · `lutaMot`) och `kyla()`. Tuggan är
+materialdriven i fyra profiler med ljud på käkens egen takt, och `AudioService` fick slingor så
+kranen, spisen och fläkten låter medan de står på. Sonder: `_ansiktebild` (andningsmätning +
+`--bara`) · `_munprobe` (LUTA · TUGG · LJUD · EXIT + `--trace`). Statusen ✅/✅ oförändrad.
+**Väntar på ägaren:** nio inspelade klipp, se `mata-munnen.md` §4 Ljud — krokarna finns i koden.
+
 ✅ **Speltestat av ägaren på telefon och åtgärdat** (v1.196–1.197, ÅTGÄRDER #8–#12). Pappa har
 nio inspelade uttrycksljud, geggan kladdar och rinner i stället för att svälla ovanpå en
 skugga, vätska går att hälla över ansiktet, och chilin rodnar honom med rök ur öronen. Sonder:

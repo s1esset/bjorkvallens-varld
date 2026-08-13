@@ -14,6 +14,80 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.199.1 · Fler ansiktsuttryck och ljud som följer maten
+
+**Byggt:** ägaruppdraget *"kör allt du kan"* på fler miner och mer ljud, medan ägaren tar
+nya foton och spelar in klipp.
+
+**Ansiktet.** Hela fotoshooten (129 bilder) visade sig ligga kvar i
+`C:\repos\ComfyUI_Windows_portable\ComfyUI\output` — `assets-src/` bar bara de 45 kandidater
+som redan användes, alltså var **84 bilder oanvända**. Kontaktkartor gjordes över alla 84 och
+fyra nya roller valdes: `gasp` (#124) · `chock` (#129) · `skeptisk` (#7) · `retas` (#15).
+Inriktningen blev rest **0,015–0,024**, bättre än de nio gamlas median (0,024), och de gamla
+rollerna behöll exakt samma foton. **Tre kandidater förkastades i bild innan de kostade
+något:** `blas` (#115) är samma pluta som `sur`, `gapskratt` (#101) samma vidöppna mun som
+`het`, `mums` (#98) samma slutna leende som `nojd`/`lycksalig`. Kravet är att minen är
+distinkt mot de befintliga, inte att den har ett eget namn — och varje min kostar ~1,04 MB
+GPU-minne (disken är inte taket: 799 kB av 3072).
+
+**Winken byggdes INTE som en min.** Materialet har fem wink-foton, men de är hela miner som
+bär sin egen mun — en wink hade uteslutit alla andra munlägen och kostat 1,04 MB. Samma
+blund-bild maskad till en mjuk oval per öga (`ogon_v`/`ogon_h`, 0,12 MB) går i stället att
+kombinera med gap, tugg och vilken min som helst. Ögonlägena avlästa i `ogon.webp`.
+
+**Riggen fick huvudet:** `nick` · `tveka` · `ryck` · `lutaMot` på en ny nod `_gest` som
+roterar kring HALSEN, plus `kyla()` och `liv(pa, { takt })`. Varje gest äger ett eget fält i
+`_g` och en funktion lägger ihop dem.
+
+**Ljudet.** `TUGG`-profilerna (knaprig · seg · mjuk · dryck) styr antal, takt och djup, och
+knastret ligger på käkens egen takt via riggens nya `onTugg`-krok — de tre fasta
+triangelvågstonerna är borta. Sväljning tillagd. `AudioService.loop/stopLoop/stopAllLoops`:
+kranen rinner, spisen puttrar och fläkten brummar så länge de står på (fläkten snurrade förut
+helt tyst efter klicket). Städas av `GameHost.destroy` som yttersta säkring.
+I spelet: isbiten är `chock` + kyla + huttring i stället för `het`, hälften av all
+`fundersam`-mat blir `skeptisk`, gäspning och wink i vilo-cue:n, andningstakt efter mättnad.
+
+**Två buggar som bara mätningen kunde ge:**
+- `Ansikte._track` kastade den ÄLDSTA tweenen vid 24 st — och det är `liv()`s eviga andetag.
+  Kontrollarm med den gamla koden inlagd: **1,66 ‰ svängning före 40 gester → 0 ‰ efter**.
+  Med rensning av färdiga tweens + skydd för `repeat: -1`: 1,66 → 1,66.
+- **Kylan läste som ett grått lik**, och orsaken är `tint`-aritmetik: multiplikation kan bara
+  ta bort färg. Hettan fungerar för att huden redan är rödast i rött; åt andra hållet finns
+  inget att förstärka. Uppmätt: (230,180,160) × (139,211,255)/255 = (125,149,160). Köld är
+  därför en BLEKHET (−45 rött, −14 grönt), och betydelsen bärs av huttring + frostglimtar.
+
+**Mätt** (sonderna utökade, ingen ny fil — `_ansiktebild` fick andningsmätningen, gest-rutorna
+och `--bara`; `_munprobe` fick LUTA · TUGG · LJUD · EXIT och `--trace`):
+andning 1,66 → 1,66 ‰ · lutning 0,007 rad → 0,000 efter släppet · tuggprofilen når käken
+(mjuk 3/3, seg 2/2 mot spelets EGEN tabell, importerad) · fläktljudet 0 → 1 → 0 källor ·
+ljud vid exit 1 → 0. `_vaxelprobe` 15/15 · `_kokprobe` grön isolerat · `check` 0/0 ·
+`test:all` **73/73** · röstkön tömd (6 klipp genererade).
+
+**Två sondläxor, båda av samma familj som tidigare:** mätfönstret låg före släppet (gapet
+följer fingret ända till 1,00 vid munnen — den flanken är inte en tugga), och även med rätt
+fönster räknades en stängning för mycket. Den råa gapkurvan (`--trace`) visade varför:
+`9876432111111 | 13677751577774267876` — den första nedgången är DRAGET som slutar, ~200 ms
+innan `onCorrect` ens fyrar. **Utan kurvan hade "4 mot väntat 3" lika gärna kunnat läsas som
+en bugg i spelet** — och den rättelse jag först skrev i koden (`_gapNu = 0` i `_ata`) visade
+sig vid mätning inte fixa något observerat; raden står kvar som en spärr, med en kommentar
+som säger just det.
+
+**Commits:** `134bc4f` feat(mata-munnen): fyra nya miner, huvudgester och ljud som följer
+maten · `6a7b732` fix(ansikte): kylan är en BLEKHET — tint kan inte lägga till blått
+
+**Öppet:**
+- **Ägaren gör nya foton och spelar in nio ljudklipp** — `pappa_gasp` · `pappa_chock` ·
+  `pappa_hmm` · `pappa_retas` · `pappa_svalj` · `tugg_knaprig` · `tugg_seg` · `tugg_mjuk` ·
+  `klunk` (+ valfritt sömlöst loopbara `kran` · `koka` · `flakt`). Namnen finns redan i koden
+  och `harSample()` frågar först, så varje fil aktiveras när den läggs i
+  `public/audio/sfx/` + `manifest.json`. Syfte per fil: `docs/games/mata-munnen.md` §4 Ljud.
+  ⚠️ Tuggklippen ska vara ETT tugg var, inte en serie — spelet spelar dem en gång per
+  sammanbitning.
+- Kommer nya foton: lägg dem i `assets-src/ansikte/pappa/`, komplettera kandidatlistorna i
+  `roller.json` och kör `npm run ansikte --kontroll`. 68 bilder ur shooten är fortfarande
+  oanvända. **GPU-minnet är taket, inte disken** (~1,04 MB per min; riggen ligger på ~17,5 MB).
+- Bygget är fortfarande INTE omgjort — telefonen kör v1.157.0.
+
 ## 2026-08-13 · v1.198.0 · Kökslyft 2 — volym på allt, rikare kök, stationer som växlar
 
 **Byggt:** ägarens polera-uppdrag för `mata-munnen` i tre delar, via tre parallella

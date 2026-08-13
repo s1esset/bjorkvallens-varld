@@ -113,6 +113,27 @@ try {
   console.log(`\n  P0 YTOR  ${y.length} stationer · minsta ${Math.min(...y.map((a) => Math.min(a.w, a.h)))} px (kräver ≥96)   ${krav(!forSma.length, '')}`)
   console.log(`           för nära varandra (<24 px): ${nara.length ? nara.join(' · ') : 'inga'}   ${krav(!nara.length, '')}`)
 
+  // SKÄRLINJEN: var köksöns bakkant möter pappa. Det är den som avgör om han läser som en
+  // person bakom en bänk eller som ett huvud på ett fat, och den har tre grannar som alla
+  // måste ligga rätt i förhållande till varandra. Talen läses ur kok.js, inte ur en kopia.
+  //
+  // ⚠️ Raden finns för att den EN gång stod fel utan att något test märkte det: kanten
+  // skar vid ruta 616, alltså mitt i skägget, i alla versioner fram till v1.204.
+  const geo = await page.evaluate(async () => {
+    const k = await import('/src/games/mata-munnen/kok.js')
+    return { KANT_Y: k.KANT_Y, HAKA_Y: k.HAKA_Y, HALS_Y: k.HALS_Y, BUS_NER: k.BUS_NER,
+      BRADA: k.BRADA, BANK_Y: k.BANK_Y, ANS: k.ANS }
+  })
+  const iHalsen = geo.KANT_Y > geo.HAKA_Y && geo.KANT_Y > geo.HALS_Y
+  const overBradan = geo.KANT_Y < geo.BRADA.y0
+  // Busellipsen får INTE följa bänkkanten — se `BUS_NER` i kok.js. Som `KANT_Y − ANS.y`
+  // slukade den hela kastzonen (0 av 8 kast nådde fram) utan ett konsolfel.
+  const busFrikopplad = geo.BUS_NER < geo.KANT_Y - geo.ANS.y
+  console.log(`\n  SKÄRLINJE hakan ${geo.HAKA_Y} · halsen börjar ${geo.HALS_Y} · öns bakkant ${geo.KANT_Y} · brädan ${geo.BRADA.y0}`)
+  console.log(`           kanten skär i HALSEN, inte i skägget   ${krav(iHalsen, '')}`)
+  console.log(`           kanten ligger ovanför brädan (${geo.BRADA.y0 - geo.KANT_Y} px marginal) · bänkdjup ${geo.BANK_Y - geo.KANT_Y} px   ${krav(overBradan, '')}`)
+  console.log(`           busellipsen är FRIKOPPLAD från kanten: ryNer ${geo.BUS_NER} < ${geo.KANT_Y - geo.ANS.y}   ${krav(busFrikopplad, '')}`)
+
   // Träffytorna för DRAGBARA FÖREMÅL, inte bara för stationerna. Den här mätningen
   // saknades och P0-brottet den fångar levde igenom hela bygget: kylens tre hyllplan låg
   // 120 px isär medan ett föremåls halo är 104 px i diameter (GRIP_R 52) — 16 px luft där

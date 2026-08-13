@@ -462,7 +462,64 @@ fade blandar sig in.
 `HO` (SPH-vattnets kärl) om diskhon byggs om. Träffytorna räknas om par för par — **även
 föremålens** `GRIP_R` 52 (= 104 px diameter), som var det enda P0-brott kritikern hittade.
 
-## 7. ARBETSORDER — allt som är kvar på Mata Pappa (skriven 2026-08-13, v1.201.0)
+## 7b. ARBETSORDERN ÄR KÖRD (2026-08-13, v1.204.0) — A1 · A2 · A3 klara
+
+Alla tre posterna i §7 är byggda, mätta och committade. Det som §7 sa skulle byggas stämde
+i två fall av tre; den tredje bytte metod efter en mätning, och det är den intressanta.
+
+| | posten | utfall |
+|---|---|---|
+| A1 | blicken | ✅ `blick_v` · `blick_h` · `blick_ner`, 0,12 MB GPU/riktning |
+| A2 | variantminer | ✅ 7 roller med 2–3 foton, 10 extra lappar, GPU oförändrat |
+| A3 | köket + halsen | ✅ halsen syns — men **inte** genom en front-on-ritning, se nedan |
+
+**Den återkommande läxan, tre gånger i samma pass: POSE-MÅTTET ÄR BLINT FÖR MIMIK.**
+`rest` (silhuett-IoU) är byggt för att ignorera minen, och därför kan det aldrig avgöra
+vilket foto som ska väljas när kandidaterna delar pose. Tre gånger gav det två kandidater
+IDENTISKA tal och rätt svar avgjordes i bild: `blick_h` (#95 mot #98 — båda 0,025, men #95
+drar ner brynet och läser som misstänksam), `variant_bort` (fyra kandidater under rest-taket
+som läser som fel min), och `fundersam` (hela restlistan är samma sömniga bild). **Ett foto
+som ska bära ett UTTRYCK måste dömas i ögonzoomen/rutnätet, aldrig på ett rest-tal.**
+
+**A3 bytte metod, och premissen föll på en mätning.** §7 sa: rita om köksön, diskbänken och
+spisen mer framifrån så toppytan blir grundare med avsikt, sedan flytta `G.hakaTon`. Båda
+halvorna visade sig vara fel:
+
+1. **`hakaTon` kan inte lösa halsen alls.** Avläst i `neutral.png`: AXELSÖMMEN börjar på
+   ruta-y ~614, alltså OVANFÖR hakan (683). En vågrät ton kan därför per definition inte
+   skilja hals från tröja — den sänkta tonen gav en bred halvgenomskinlig sjok tvärs över
+   halsen. ⚠️ Och nästa idé, "nyckla på LJUSHET", såg bevisad ut på två stickprov (tröja 21,
+   mörkaste skägg 101) men föll när ytorna mättes som SPANN: skägget går ner till **19** och
+   tröjans veck upp till **152** — spannen överlappar helt, och den enda pixelns marginal
+   gav ett 11 % genomskinligt spöke av hela axelpartiet. Det som faktiskt skiljer dem är
+   POSITION, profilerad rad för rad (hud x 245–520 vid y 660, 258–510 vid 730) → en
+   avsmalnande pelare i masken.
+2. **Front-on-ritningen behövdes inte.** Den var §7:s lösning på en knut som en billigare
+   ändring löser helt: `ANS` 268/470 → **250/460** (ansiktet upp 18 px, ner 2 % i storlek).
+   Då hamnar skärlinjen i halsen (ruta 730) i stället för i skägget (616) utan att bräda,
+   mat, fysik eller öns front rörs — och de tre är alla fullt budgeterade (luckorna slutar
+   på 706 av skärmens 720, brädan på 558 av bänkkantens 566). Bänkdjupet blir 126 px, under
+   det gamla "146 läser som ett fat", men det talet mättes UTAN hals: en hals som försvinner
+   bakom en bänk ÄR en person. Verifierat i bild.
+
+**Två tysta passagerare hittades när `KANT_Y` flyttades — båda hade gått igenom `check`:**
+- `BUS.ryNer = KANT_Y − ANS.y` växte 127 → 190 utan att någon rört buset, och `_kasta`
+  läste därmed VARJE kast som bus: **0 av 8 kast nådde pappa**, noll konsolfel. Ellipsen
+  räknas nu ur fotot (`BUS_NER`), och kastet är tillbaka på 7/7.
+- Lagerdelningen `st.yta.y > KANT_Y` hade flyttat `lador` (y 438) från framgrund till
+  bakgrund av sig själv. Ingen skillnad i bild (lådan står på x 1078, ön slutar 1064), men
+  villkoret är nu en tillhörighetsflagga (`pa: 'on'`) i stället för en höjdjämförelse.
+
+**Kvar (inget av det blockerar något):**
+- Ägarens ursprungliga front-on-önskan om **kranen och spisen** ("ser bättre ut") är
+  fortfarande ogjord — den var motiverad av utrymmet, och utrymmet löstes på annat sätt.
+  Ta den som en ren utseendepost om ägaren vill ha den.
+- Tuggklippens och klunkens snittpunkter är fortfarande valda på ljudstruktur, inte gehör.
+- 147 bilder ur shoot 2 ligger bara i `ComfyUI/output`.
+
+---
+
+## 7. ARBETSORDER — allt som är kvar på Mata Pappa (skriven 2026-08-13, v1.201.0) ✅ KÖRD
 
 Läs `docs/SESSIONS.md` och §6 först. **Två av de tre kvarvarande posternas premisser är nu
 mätta**, så det här är körbart utan att något behöver undersökas om.

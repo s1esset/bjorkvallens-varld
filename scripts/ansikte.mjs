@@ -250,7 +250,43 @@ console.log('')
 const G = {
   klipp: 508, // överläppens ovankant — här delas ansiktet i två halvor
   mjuk: 3, // mjuk kant i klippet, annars läses skarven som ett streck
-  hakaTon: [636, 700], // alfan tonas 1 → 0 mellan dessa y (döljer tröjan)
+  // Full bredd ner hit, sedan tonat ut. Enda skälet att ha en helbreddsdel kvar är HÅRET:
+  // det är mörkt och skulle nycklas bort som "tröja". Allt under `hals.fran` sköts därför
+  // av hudnyckeln i stället.
+  // ⚠️ FADET MÅSTE SLUTA OVANFÖR AXELSÖMMEN (ruta ~614). Stod tidigare på [636, 700], och
+  // med köksöns nya skärlinje (730) låg hela det bandet i bild: tröjan syntes då som en
+  // bred, halvgenomskinlig grå sjok tvärs över halsen. Att den aldrig märktes förut var
+  // ren tur — den gamla bänkkanten (ruta 616) råkade dölja precis det bandet.
+  hakaTon: [540, 596],
+  // HALSEN — en avsmalnande pelare som lever längre än `hakaTon`.
+  //
+  // ⚠️ TVÅ FÖRSÖK FÖLL FÖRE DET HÄR, och båda är värda att ha kvar som varning.
+  //  ⓵ "Flytta bara ner `hakaTon`" — men AXELSÖMMEN börjar på ruta-y ~614, alltså OVANFÖR
+  //     hakan (683). En vågrät ton kan aldrig skilja hals från tröja; den sänkta tonen gav
+  //     en bred halvgenomskinlig sjok tvärs över halsen.
+  //  ⓶ "Nyckla på LJUSHET, tröjan är mörk och huden ljus" — och två stickprov såg ut att
+  //     bevisa det (tröja 21, mörkaste skägg 101). ⚠️ TVÅ PUNKTER ÄR INTE ETT SPANN: mätt
+  //     över hela ytor OVERLAPPAR de helt — skägget går ner till **19** och tröjans veck
+  //     upp till **152**. Tröskeln 18 % låg dessutom på 46 medan tröjan vid (200,650) låg
+  //     på 45, och den enda pixelns marginal blev ett 11 % genomskinligt spöke av hela
+  //     axelpartiet. En nyckel som inte kan skilja två KÄNDA ytor åt får inte skilja något.
+  //
+  // Skillnaden är POSITIONELL, och den är profilerad rad för rad i `neutral.png`:
+  //   ruta-y 620  ansiktet 245–515, utanför är GENOMSKINLIGT (tröjan har inte börjat)
+  //   ruta-y 660  huden 245–520, tröja utanför
+  //   ruta-y 700  huden 245–512
+  //   ruta-y 730  huden 258–510
+  // Alltså en pelare som smalnar nedåt. Den mjuka kanten landar på hudens egen kontur och
+  // det som eventuellt tonas in utanför är tröjans skugga, vilket läser som skuggan där
+  // halsen möter kragen.
+  //
+  // ⚠️ Halsen hamnar i `bas` OCH i `undre` (klippet går vid överläppen, 508), men det är
+  // `bas` som bär den i bild: `undre` ÅKER NER 40 px vid gap, och en hals som följde med
+  // käken hade töjt sig. Basen ligger stilla under och visar rätt hud hela tiden.
+  //
+  // `ner` ligger 15 px UNDER köksöns skärlinje (ruta 730, se `KANT_Y` i kok.js), så fadet
+  // aldrig syns i spelet — och tröjkragen hinner aldrig bli synlig ens utan kök.
+  hals: { fran: 560, ner: 745, xTopp: [228, 538], xNer: [250, 518], mjuk: 8 },
   mun: { x: 283, y: 470, w: 170, h: 138 }, // mun-inre ur `gap`
   ogon: { x: 243, y: 286, w: 280, h: 108 }, // ögonlappen ur `blund`
   // ETT öga i taget: samma blund-bild, men maskad till en mjuk oval kring vardera ögat.
@@ -282,8 +318,39 @@ const MINER = ['sur', 'acklad', 'het', 'lycksalig', 'fundersam', 'forvanad', 'aj
 // Masken byggs därför på `xc:none` (genomskinlig) och ritas med vitt.
 const skar = (mask) => ['(', '-size', `${UTW}x${UTH}`, 'xc:none', '-fill', 'white', ...mask, ')', '-compose', 'Dst_In', '-composite']
 
-// Nederkanten tonas ut före tröjan: vit rektangel ner till hakan + oskärpa = mjuk ton.
-const hakaMask = () => skar(['-draw', `rectangle 0,0 ${UTW},${G.hakaTon[0]}`, '-blur', `0x${Math.round((G.hakaTon[1] - G.hakaTon[0]) / 3)}`])
+// Nederkanten tonas ut före tröjan, men halsen ska stå kvar. Masken byggs EN gång ur
+// neutralbilden och är två delar hopslagna med `Lighten`:
+//   A  hela bredden ner till `hakaTon`, mjukt tonad — allt ovanför hakan
+//   B  hudnyckeln (se `G.hals`) i bandet därunder — halsen, aldrig tröjan
+// Skrivs till fil i stället för att byggas i varje anrop: de tre halvorna MÅSTE skäras med
+// exakt samma mask, annars glider deras nederkanter isär med en pixel och skarven syns.
+// Masken byggs EN gång och skrivs till fil: de tre halvorna MÅSTE skäras med exakt samma
+// mask, annars glider deras nederkanter isär och skarven syns.
+//
+// ⚠️ DEN BYGGS I GRÅSKALA, inte i alfa. Första försöket lade ihop de två formerna som
+// genomskinliga lappar med `-compose Lighten`, och Lighten på en ALFAKANAL ger snittet
+// snarare än unionen: masken krympte till halspelarens bredd och `bas` kom ut 429 px bred
+// i stället för 553 — hela ansiktets sidor bortklippta, utan ett felmeddelande. På en svart
+// duk är Lighten det max den ser ut att vara.
+const H = G.hals
+const hakaMaskFil = path.join(TMP, '_hakamask.png')
+{
+  const gra = path.join(TMP, '_hakamask_gra.png')
+  magick(['-size', `${UTW}x${UTH}`, 'xc:black', '-fill', 'white',
+    // A: hela bredden ner till hakan, mjukt utsuddad. Slutar OVANFÖR axelsömmen (614).
+    '-draw', `rectangle 0,0 ${UTW},${G.hakaTon[0]}`,
+    '-blur', `0x${Math.round((G.hakaTon[1] - G.hakaTon[0]) / 3)}`,
+    // B: halspelaren, egen mjukhet — en enda blur över båda hade gett en 733 px bred kant
+    // och en 300 px smal samma sigma, och den smala hade suddats bort av den breda.
+    '(', '-size', `${UTW}x${UTH}`, 'xc:black', '-fill', 'white',
+    '-draw', `polygon ${H.xTopp[0]},0 ${H.xTopp[1]},0 ${H.xNer[1]},${H.ner} ${H.xNer[0]},${H.ner}`,
+    '-blur', `0x${H.mjuk}`, ')',
+    '-compose', 'Lighten', '-composite', gra])
+  // Gråskala → ALFA. Masken måste bära alfa, inte ton: `Dst_In` skär i den befintliga alfan
+  // medan `CopyOpacity` skulle SÄTTA den och göra friläggningen opak igen.
+  magick([gra, '-alpha', 'copy', '-fill', 'white', '-colorize', '100%', hakaMaskFil])
+}
+const hakaMask = () => ['(', hakaMaskFil, ')', '-compose', 'Dst_In', '-composite']
 
 const bbox = (f) => {
   const m = /^(\d+)x(\d+)\+(-?\d+)\+(-?\d+)$/.exec(magick([f, '-format', '%@', 'info:']).trim())

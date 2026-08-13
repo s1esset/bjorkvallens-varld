@@ -22,15 +22,48 @@ import { verticalFill, verticalFillAlpha, cylinderFill, topLightFill } from '../
 // Ansiktet är MASTER: köksön räknas ur det, aldrig tvärtom.
 // Höjden är en avvägning mellan två saker som drar åt olika håll: grimasen ÄR belöningen
 // (stort ansikte), men skärlinjen ligger på en fast andel av höjden — ett större ansikte
-// trycker alltså ner köksön och gör bänkskivan till en list att balansera hakan på. 470
-// ger 171 px bänkdjup, vilket är det som får huvudet att stå BAKOM en bänk i stället för
-// på en kant. Uppmätt i bild: vid h=500 blev djupet 146 och skarven läste som ett fat.
-export const ANS = { x: 620, y: 268, h: 470 }
+// trycker alltså ner köksön och gör bänkskivan till en list att balansera hakan på.
+// Uppmätt i bild: vid h=500 blev djupet 146 och skarven läste som ett fat.
+//
+// 470 → 460 och y 268 → 250 är HALSENS pris, och det är ett litet pris: ansiktet krymper
+// 2 % och flyttas upp 18 px, vilket räcker för att skärlinjen ska hamna i halsen (ruta
+// 730) i stället för i skägget (ruta 616) — utan att röra bräda, mat, fysik eller öns
+// front, som alla är fullt budgeterade. Hjässan får 20 px luft mot skärmkanten (vid
+// h=470 blev det 10, för tunt).
+export const ANS = { x: 620, y: 250, h: 460 }
 
-// Andelen av fotorutan där halsen fortfarande är tät (616/800) — se filhuvudet.
-const HALS = 0.77
+// Var i fotorutan de olika delarna av pappa ligger, som andel av rutans höjd. AVLÄST med
+// linjal i utrutan (`.tmp-ansikte/_halslinjal.png`), inte gissat: hakans/skäggets underkant
+// 695, halsen 700–785, tröjkragen 785, axlar därunder.
+const RUTA = { haka: 695 / 800, halsTopp: 700 / 800, krage: 785 / 800 }
+// Var en ruta-andel hamnar i designkoordinater.
+const rutaY = (a) => ANS.y + (a - 0.5) * ANS.h
 
-export const KANT_Y = Math.round(ANS.y + (HALS - 0.5) * ANS.h) // 395 — köksöns bakkant
+// ⚠️ KÖKSÖNS BAKKANT ÄR INTE LÄNGRE HALSLINJEN. Så länge de var samma tal skar bänken
+// mitt i skägget (ruta 616), och det var därför pappa läste som ett HUVUD PÅ ETT FAT: en
+// hals som försvinner bakom en bänk är en person, ett avskuret skägg är det inte.
+//
+// De två talen drar dessutom åt olika håll och kan inte vara ett:
+//   · bakkanten kan inte längre ner än ~445 — skärbrädan börjar på 452, och brädan i sin
+//     tur kan inte flytta ner för öns luckor slutar redan på 706 av skärmens 720.
+//   · halsen börjar först på ruta 700, alltså UNDER 445 så länge ansiktet står där det stod.
+// Knuten löses i stället uppåt: ansiktet lyftes 23 px (`ANS.y` 268 → 245), vilket flyttar
+// hela fotot upp utan att röra bräda, mat, fysik eller öns front. Skärlinjen hamnar då i
+// halsen i stället för i skägget, och det blev samtidigt mer luft ovanför hjässan.
+export const KANT_Y = 440 // köksöns bakkant, i design-y
+export const HAKA_Y = Math.round(rutaY(RUTA.haka)) // hakans underkant — bakkanten ska ligga UNDER den
+export const HALS_Y = Math.round(rutaY(RUTA.halsTopp)) // där halsen börjar i bilden
+
+// Bus-ellipsens nedre halvaxel: hur långt NER från ansiktets mitt en släppt matbit
+// fortfarande läser som "på pappa". Räknas ur FOTOT — ruta 616 är där silhuetten ännu är
+// full bredd — och aldrig ur köksöns kant.
+//
+// ⚠️ Stod som `KANT_Y - ANS.y` i index.js och var därmed en TYST PASSAGERARE på
+// bänkkanten. När kanten gick 395 → 440 växte ellipsen 127 → 190 utan att någon rört
+// buset, och `_kasta` läste då varje kast som bus: uppmätt **0 av 8 kast nådde pappa**
+// (`_kastprobe`), utan ett konsolfel. Halsen är dessutom SMAL — en ellips med rx 215 som
+// når ner till bänken påstår att en bit 130 px vid sidan om halsen ligger på pappa.
+export const BUS_NER = Math.round((616 / 800 - 0.5) * ANS.h)
 export const BANK_Y = 566 // bänkskivans framkant; nedanför börjar öns front
 export const GOLV_Y = 388 // vägg möter golv (bakom ön, syns bara ute i kanterna)
 
@@ -129,10 +162,10 @@ export const STATIONER = [
   { id: 'lador', sv: 'Lådorna', yta: { x: 1078, y: 438, w: 180, h: 166 }, typ: 'lada',
     innehall: ['tandborste', 'disksvamp', 'strumpa', 'kalsonger', 'kackerlacka', 'spindel', 'toapapper', 'snor', 'leksaksbil'],
     platser: [[1168, 494]] }, // ovanför fronten när den dragits ut 56 % av 166 px
-  // --- köksöns front ---
-  { id: 'oskap_v', sv: 'Kastrullskåpet', yta: { x: 300, y: 600, w: 320, h: 106 }, typ: 'dorr-v',
+  // --- köksöns front (`pa: 'on'` = ritas i FRAMGRUNDEN, framför pappa) ---
+  { id: 'oskap_v', sv: 'Kastrullskåpet', yta: { x: 300, y: 600, w: 320, h: 106 }, typ: 'dorr-v', pa: 'on',
     innehall: ['kastrull', 'stekpanna', 'fat', 'slev', 'kavel'], platser: [[382, 650], [538, 650]] },
-  { id: 'oskap_h', sv: 'Besticklådan', yta: { x: 660, y: 600, w: 320, h: 106 }, typ: 'lada',
+  { id: 'oskap_h', sv: 'Besticklådan', yta: { x: 660, y: 600, w: 320, h: 106 }, typ: 'lada', pa: 'on',
     innehall: ['gaffel', 'sked', 'kniv', 'mugg', 'glas_saft', 'visp'], platser: [[742, 636], [898, 636]] },
 ]
 
@@ -570,7 +603,13 @@ export function byggKok(ctx) {
     // Öns luckor hör till framgrunden (framför pappa), resten till bakgrunden. Insidan
     // ALLTID före dörren — annars svänger dörren upp bakom sitt eget skåp. Och loopen
     // ligger SIST: läggs öns luckor till innan öns stomme hamnar de bakom den.
-    const lager = st.yta.y > KANT_Y ? framgrund : bakgrund
+    //
+    // ⚠️ Villkoret stod som `st.yta.y > KANT_Y` och var därmed en TYST passagerare på ett
+    // tal som just flyttades. Vad som hör till ön är inte en höjdfråga — det är en
+    // tillhörighetsfråga — och `lador` (y 438) hade bytt lager av sig självt när kanten
+    // gick 395 → 440. Ingen skillnad i bild (lådan står på x 1078–1258, ön slutar 1064),
+    // men en lagerordning som ändrar sig när en helt annan siffra ändras är en fälla.
+    const lager = st.pa === 'on' ? framgrund : bakgrund
     lager.addChild(st.inre, st.dorr)
   }
 

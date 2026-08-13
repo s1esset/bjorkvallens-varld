@@ -20,7 +20,7 @@
 // pappa blir förvånad, säger aj eller fnissar, och geggan sitter kvar till rapfinalen.
 import { Circle, Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { ANS, BANK_Y, BRADA, FYSIK, KANT_Y, MATARE, OPPNA_MAX, PLATSER, byggKok } from './kok.js'
+import { ANS, BANK_Y, BRADA, BUS_NER, FYSIK, KANT_Y, MATARE, OPPNA_MAX, PLATSER, byggKok } from './kok.js'
 import { arAtbar, makeSak, sakFarg, sakMaterial, sakMin, sakPruttar } from './skafferi.js'
 import { DragController } from '../../lib/DragController.js'
 import { Body, PhysicsWorld, mat } from '../../lib/physics.js'
@@ -44,7 +44,9 @@ const MUN_R = 130                // snäppradie till munnen (P0: träffyta ≫96
 // brädan fick den klassad som en ansiktsträff, och eftersom `_geggaL` ritas BAKOM köksöns
 // förgrund såg det ut som att biten bara försvann. (Hittat vid genomgången av ägarrapport
 // #8; ägaren beskrev symptomet som "förvirrande och plottrigt".)
-const BUS = { rx: 215, ry: 250, ryNer: KANT_Y - ANS.y }
+// ⚠️ `ryNer` kommer ur FOTOT (`BUS_NER` i kok.js), inte ur bänkkanten. Se skälet där:
+// som `KANT_Y - ANS.y` slukade ellipsen hela kastzonen så fort kanten flyttades.
+const BUS = { rx: 215, ry: 250, ryNer: BUS_NER }
 const GRIP_R = 52
 
 // KASTET (ägaruppdrag 2, steg 4). Talen är px/STEG där matter räknar och px/ms där

@@ -173,21 +173,81 @@ export class Mjukkropp {
   }
 
   // En knuff utifrån (ett finger, en krock). Faller av med avståndet.
-  knuff(x, y, kraft = 6, radie = 60) {
+  //
+  // ⚠️ Den flyttar `p.x/p.y` men INTE `p.px/p.py`, och i verlet ÄR det en fart — precis det
+  // `skjut()` och `falt()` varnar för en bit upp. Det är rätt för en krock (kroppen ska få
+  // rörelsemängd), men fel när knuffen ska DEFORMERA något som ligger still: en kropp utan
+  // pinnar, golv eller gravitation har då ingenting som håller emot, och hela klicken
+  // translaterar. Uppmätt i `mata-munnen`: en knuff 26 px ovanför en gegga sköt den
+  // **57 px rakt ner, permanent** — fläcken gled ifrån sin matbit och blev en fristående
+  // oval under den, alltså exakt det ägaren beskrev som "en flytande skugga".
+  //
+  // `form: true` drar bort den GENOMSNITTLIGA förflyttningen efteråt. Summan av
+  // ändringarna blir noll, alltså noll rörelsemängd: kvar är bara den relativa
+  // formändringen — en klick som vobblar där den sitter i stället för att åka iväg.
+  knuff(x, y, kraft = 6, radie = 60, { form = false } = {}) {
+    let sx = 0
+    let sy = 0
     for (const p of this.pts) {
       const dx = p.x - x
       const dy = p.y - y
       const d = Math.hypot(dx, dy)
       if (d > radie || d < 0.001) continue
       const k = (1 - d / radie) * kraft
-      p.x += (dx / d) * k
-      p.y += (dy / d) * k
+      const ux = (dx / d) * k
+      const uy = (dy / d) * k
+      p.x += ux
+      p.y += uy
+      sx += ux
+      sy += uy
+    }
+    if (form && this.n) {
+      const mx = sx / this.n
+      const my = sy / this.n
+      for (const p of this.pts) { p.x -= mx; p.y -= my }
     }
     return this
   }
 
   get centrum() {
     return this.pts[this.mitt]
+  }
+
+  /**
+   * Kroppens TYNGDPUNKT (medelvärdet av punkterna) — inte samma sak som `centrum`, som är
+   * den enskilda mittpunkten. Den som vill förankra en kropp måste läsa den HÄR, och läsa
+   * den EN gång vid födseln: punkterna läggs ut runt en ellips och medelvärdet behöver
+   * inte hamna på det (x, y) man bad om. Att förankra mot det nominella läget i stället
+   * flyttar kroppen med skillnaden i första bildrutan — vilket i `_busprobe` såg ut som
+   * 15 px drift som inte fanns.
+   */
+  get tyngdpunkt() {
+    let cx = 0
+    let cy = 0
+    for (const p of this.pts) { cx += p.x; cy += p.y }
+    return { x: cx / this.n, y: cy / this.n }
+  }
+
+  /**
+   * Flytta hela kroppen så att dess TYNGDPUNKT hamnar på (x, y) — för en kropp som sitter
+   * FAST i något: en fläck på en hud, en klick på en vägg.
+   *
+   * `px/py` flyttas med, annars vore förflyttningen en fart (det är precis den fällan
+   * `knuff` bär). Anropad varje steg blir det en förankring: formen får svänga fritt,
+   * men kroppen kan inte vandra iväg. Behövs utöver `knuff(..., { form: true })`, för
+   * även en knuff med noll rörelsemängd ger ~10 px drift när `tryck` och `styvhet`
+   * återställer en osymmetrisk deformation (uppmätt i `_busprobe`).
+   */
+  flyttaTill(x, y) {
+    let cx = 0
+    let cy = 0
+    for (const p of this.pts) { cx += p.x; cy += p.y }
+    cx /= this.n
+    cy /= this.n
+    const dx = x - cx
+    const dy = y - cy
+    for (const p of this.pts) { p.x += dx; p.y += dy; p.px += dx; p.py += dy }
+    return this
   }
 
   _area() {

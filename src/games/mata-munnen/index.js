@@ -29,6 +29,7 @@ import { makeMjukkropp } from '../../lib/mjukkropp.js'
 import { FOODS, MAT_STARK, makeFood, foodColor } from '../../lib/mat.js'
 import { Ansikte, laddaAnsikte } from '../../lib/ansikte.js'
 import { burst, kvittera, liv, pop, puff, ripple, sparkle, shake, wiggle } from '../../lib/feedback.js'
+import { spray } from '../../lib/partiklar.js'
 import { PLAYFUL } from '../../lib/theme.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 
@@ -36,7 +37,14 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 // ANS · PLATSER · MATARE · BRADA bor i `kok.js`: köksön räknas ur ansiktets halslinje, och
 // maten ligger på skärbrädan som köket ritar. En andra uppsättning tal här hade drivit isär.
 const MUN_R = 130                // snäppradie till munnen (P0: träffyta ≫96 px)
-const BUS = { rx: 215, ry: 250 } // ansiktets ellips — utanför den är det en ren miss
+// Ansiktets ellips — utanför den är det en ren miss. HALVORNA ÄR OLIKA, och det är inte
+// en smaksak: uppåt finns hela pannan och håret (250), men NEDÅT slutar ansiktet där
+// köksön skär av det (`KANT_Y` 395). En symmetrisk ellips nådde y = 518 och därmed ut på
+// skärbrädan, där maten ligger (`PLATSER` y = 505) — ett barn som la tillbaka en bit på
+// brädan fick den klassad som en ansiktsträff, och eftersom `_geggaL` ritas BAKOM köksöns
+// förgrund såg det ut som att biten bara försvann. (Hittat vid genomgången av ägarrapport
+// #8; ägaren beskrev symptomet som "förvirrande och plottrigt".)
+const BUS = { rx: 215, ry: 250, ryNer: KANT_Y - ANS.y }
 const GRIP_R = 52
 const GEGGA_MAX = 6 // P0 MOTGÅNG: tak på hur mycket som kan gå fel samtidigt
 const LOSA_MAX = 8  // samma sorts tak för högen på bänken
@@ -413,6 +421,12 @@ export default {
     rec._inre?._fxLiv?.kill()
     v.visible = true
     v.alpha = 1
+
+    // Saken ligger på bänken igen och SKA gå att plocka upp. `_resolveDrop` låste den när
+    // munnen tog emot den (`placed = true` + `eventMode = 'none'`), och inget öppnade det
+    // låset — uppmätt i `_spottprobe`: en utspottad sked stod kvar med `em: "none"` och
+    // andra greppet gav `active: null`. Storleken var däremot aldrig fel (1 → 1).
+    this._drag?.aterstall?.(v)
 
     // Saken har LÄMNAT sitt skåp. Står den kvar i stationens lista river `_plockaTillbaka`
     // vyn när luckan stängs — medan fysikkroppen fortsätter skriva till den. (Uppmätt:
@@ -840,6 +854,7 @@ export default {
       // Minen sitter kvar minst så länge pappa låter: `pappa_surt` är 1,90 s och ansiktet
       // hade annars hunnit bli neutralt mitt i hans egen sura reaktion.
       a?.min(namn, { hall: Math.max(wow ? 2.4 : 1.4, sek + 0.1) })
+      if (namn === 'het') this._hetta(ctx, sek)
       if (wow) {
         if (a?.view && !a.view.destroyed) shake(a.view, { intensity: 7, duration: 0.5 })
         sparkle(ctx.fxLayer, ANS.x, this._ogonY, { count: 10 })
@@ -869,8 +884,9 @@ export default {
   _miss(ctx, rec) {
     if (!this._alive || rec._uppaten) return
     this._idle = 0
+    const dy0 = rec.ty - ANS.y
     const dx = (rec.tx - ANS.x) / BUS.rx
-    const dy = (rec.ty - ANS.y) / BUS.ry
+    const dy = dy0 / (dy0 > 0 ? BUS.ryNer : BUS.ry)
     if (dx * dx + dy * dy > 1) return
 
     gsap.killTweensOf(rec.view) // avbryt hemsnäppet — biten stannar i ansiktet
@@ -905,6 +921,7 @@ export default {
     // Den fryser efter 1,4 s: sista ritningen ligger kvar i sin `Graphics`, kroppen
     // slängs, och nästa gegga får bli den mjuka. Aldrig mer än EN i taget.
     this._frysGegga()
+    const kladdig = rec.data.hard !== true
     const klet = new Graphics()
     // VILOFORMEN är redan utsplattad (bred och låg) — det är så en klick som träffat ett
     // ansikte ser ut. Första försöket byggde en rund kropp och knuffade ut den vid
@@ -912,22 +929,51 @@ export default {
     // borta efter SEX steg (88 → 78 px på 0,1 s), alltså osynlig. Kroppen bär nu formen,
     // och det mjuka är VOBBELN när den landar: låg styvhet + hög dämpning ger en
     // svängning som lägger sig över ungefär en sekund.
+    // En hård sak kladdar inte ut sig: klicken blir en liten kontaktfläck där den kilats
+    // fast, inte en pöl. Samma kropp, mindre viloform.
     const kropp = makeMjukkropp({
-      x, y, w: 84, h: 44, punkter: 12, grav: 0,
+      x, y, w: kladdig ? 84 : 46, h: kladdig ? 44 : 26, punkter: 12, grav: 0,
       damp: 0.93, iter: 4, tryck: 1.04, styvhet: 0.16,
     })
-    kropp.knuff(x, y - 26, 14, 90) // nedslaget uppifrån: klicken trycks ihop och studsar
-    this._mjuk = { kropp, g: klet, farg, t: 0, acc: 0 }
+    // Nedslaget uppifrån: klicken trycks ihop och studsar — men `form: true`, annars är
+    // knuffen en FART och fläcken glider 57 px ner från sin matbit (se `mjukkropp.js`).
+    kropp.knuff(x, y - 26, 14, 90, { form: true })
+    // RINNMÄRKEN. Det är de som säger "kladdigt" — en fläck utan dem är bara en form.
+    // Modellen är `tarta-i-ansiktet`s grädde (`blob._spar`): avsmalnande strimmor nedåt.
+    // De VÄXER över ~0,7 s, så kladdet rinner medan man tittar i stället för att stå
+    // färdigt. Hårda saker får inga alls.
+    const rinn = kladdig
+      ? Array.from({ length: 2 + ((Math.random() * 3) | 0) }, () => ({
+        dx: (Math.random() - 0.5) * 58,
+        lang: 15 + Math.random() * 30,
+        bred: 4 + Math.random() * 5,
+      }))
+      : []
+    // Ankaret är kroppens EGNA tyngdpunkt vid födseln, inte (x, y) — se `tyngdpunkt`.
+    const ank = kropp.tyngdpunkt
+    this._mjuk = { kropp, g: klet, farg, t: 0, acc: 0, rinn, x: ank.x, y: ank.y }
 
+    // SAKEN SOM FASTNAT. Den ritades förut som en ren, upprätt ikon ovanpå klicken —
+    // och eftersom klicken dessutom gled neråt (se knuffen ovan) läste hela paret som
+    // ett föremål som SVÄVAR över ansiktet med en skugga under sig. Ägarrapport #9+#10.
+    //
+    // Maten går inte att deformera på riktigt: varje rätt är 4–7 lagrade `Graphics` utan
+    // en silhuett att töja i, och `generateTexture` är förbjudet (CLAUDE.md). Det som
+    // FUNGERAR är en behandling av den ritning som finns — tryck ihop den mot huden och
+    // luta den mer. En kladdig sak plattas till; en hård sak (gaffel, spindel) plattas
+    // inte men kilas fast i en större vinkel.
+    const hard = rec.data.hard === true
     const bit = new Container()
     bit.position.set(x, y)
-    bit.rotation = (Math.random() - 0.5) * 0.9
-    bit.scale.set(0.62)
+    bit.rotation = (Math.random() - 0.5) * (hard ? 1.9 : 1.1)
+    bit.scale.set(0.62 * (hard ? 1 : 1.14), 0.62 * (hard ? 1 : 0.78))
     bit.eventMode = 'none'
     bit.addChild(rec.data.vy())
 
     this._geggaL.addChild(klet, bit)
-    const g = { klet, bit, farg, kropp }
+    // `rec` följer med: när geggan ploppar av är det SAKEN som ska falla ner på bänken,
+    // inte geggans miniatyr. Se `_ploppa`.
+    const g = { klet, bit, farg, kropp, rec }
     this._geggor.push(g)
     if (!v.destroyed) v.visible = false
 
@@ -964,12 +1010,36 @@ export default {
     if (m.g.destroyed) { this._frysGegga(); return }
     m.acc += dtMS / (1000 / 60)
     let n = 0
-    while (m.acc >= 1 && n < 4) { m.kropp.steg(1); m.acc -= 1; n++ }
+    // Fläcken sitter på HUD. Den får svänga, men inte vandra — förankringen efter varje
+    // steg är det som gör den till en fläck i stället för en droppe som rinner iväg.
+    while (m.acc >= 1 && n < 4) { m.kropp.steg(1); m.kropp.flyttaTill(m.x, m.y); m.acc -= 1; n++ }
     m.acc = Math.min(m.acc, 2)
     m.g.clear()
     m.kropp.path(m.g)
     m.g.fill({ color: m.farg, alpha: 0.55 })
     m.t += dtMS
+
+    // Rinnmärkena hängs på klickens FAKTISKA underkant, inte på viloformens — kroppen
+    // deformeras, och en droppe som startar i luften under en hoptryckt klick ser lös.
+    if (m.rinn?.length) {
+      let cx = 0
+      let botten = -1e9
+      for (const p of m.kropp.pts) { cx += p.x; if (p.y > botten) botten = p.y }
+      cx /= m.kropp.pts.length
+      const vaxt = Math.min(1, m.t / 700)
+      for (const r of m.rinn) {
+        const x0 = cx + r.dx
+        const y0 = botten - 4
+        const l = r.lang * vaxt
+        const b = r.bred
+        m.g.moveTo(x0 - b / 2, y0)
+          .quadraticCurveTo(x0 - b * 0.4, y0 + l * 0.7, x0, y0 + l)
+          .quadraticCurveTo(x0 + b * 0.4, y0 + l * 0.7, x0 + b / 2, y0)
+          .closePath()
+        m.g.circle(x0, y0 + l, b * 0.42)
+      }
+      m.g.fill({ color: m.farg, alpha: 0.5 })
+    }
     if (m.t > 1400) this._frysGegga()
   },
 
@@ -983,14 +1053,27 @@ export default {
       gsap.to(g.klet, { alpha: 0, duration: 0.35,
         onComplete: () => { if (!g.klet.destroyed) g.klet.destroy({ children: true }) } })
     }
-    if (levande) {
-      // Flytta biten till matlagret: geggalagret ligger BAKOM köksön, och en sak som
-      // faller ner på bänken måste ritas framför den.
-      levande.parent?.removeChild(levande)
-      this._matL.addChild(levande)
-      this._gorLos(ctx, { view: levande, data: { farg: g.farg, mtrl: 'tra' } }, {
-        vx: (Math.random() - 0.5) * 3, vy: 1.5,
-      })
+    // Det som faller ner på bänken ska vara SAKEN i sin riktiga storlek — inte geggans
+    // miniatyr. Förut skickades `bit` (skala 0,62) ner som en SYNTETISK `rec` som aldrig
+    // fanns i dragets register: högen fylldes med saker i två storlekar, och de som kom
+    // den här vägen gick aldrig att plocka upp (ägarrapport #8, båda halvorna).
+    // Originalvyn har legat dold sedan `_gegga` och är fortfarande dragets egen.
+    const rec = g.rec
+    if (levande && !levande.destroyed) {
+      gsap.to(levande, { alpha: 0, duration: 0.18,
+        onComplete: () => { if (!levande.destroyed) levande.destroy({ children: true }) } })
+    }
+    if (rec?.view && !rec.view.destroyed) {
+      const v = rec.view
+      // Matlagret, inte geggalagret: geggan ligger BAKOM köksön och en sak som faller ner
+      // på bänken måste ritas framför den.
+      v.parent?.removeChild(v)
+      this._matL.addChild(v)
+      v.position.set(x, y)
+      v.scale.set(v._fxRestScale?.x ?? 1, v._fxRestScale?.y ?? 1)
+      v.rotation = 0
+      rec._uppaten = false // tillbaka i spel: den ska gå att mata pappa igen (jfr `_spotta`)
+      this._gorLos(ctx, rec, { vx: (Math.random() - 0.5) * 3, vy: 1.5 })
     }
     if (x || y) puff(ctx.fxLayer, x, y, { count: 4 })
   },
@@ -1017,6 +1100,43 @@ export default {
     }
     audio.tone({ freq: r.ton[0], dur: 0.3, type: r.typ, vol: 0.22, slideTo: r.ton[1] })
     return 0.3
+  },
+
+  // CHILIN: ansiktet rodnar och ångan går ur öronen. Spelets största reaktion, och den
+  // enda som får röra ansiktets FÄRG.
+  //
+  // Rodnaden är en `tint` på fotolagren, inte en röd platta ovanpå: `tint` multiplicerar,
+  // så hudens egen struktur är kvar och bara kallt ljus dras bort. En platta hade lagt en
+  // plastfilm över pappa.
+  //
+  // Röken kommer i TRE puffar per öra i stället för en, med `angle` uppåt och en smal
+  // `spread`. En enda stor puff läser som en explosion; tre i följd läser som något som
+  // ryker. Talen: ~0,22 s isär, alltså ungefär ett andetag.
+  _hetta(ctx, sek = 0) {
+    const a = this._ans
+    if (!a || !this._alive) return
+    const st = this._hetSt || (this._hetSt = { t: 0 })
+    gsap.killTweensOf(st)
+    const sattHetta = () => { if (this._alive && this._ans) this._ans.hetta(st.t) }
+    // Upp snabbt (det bränner direkt), ligg kvar medan pappa låter, svalna långsamt.
+    const tl = gsap.timeline()
+    tl.to(st, { t: 1, duration: 0.3, ease: 'power2.out', onUpdate: sattHetta })
+    tl.to(st, { t: 0, duration: 1.8, delay: Math.max(1.2, sek), ease: 'sine.inOut', onUpdate: sattHetta })
+
+    const oron = a.oron()
+    for (let i = 0; i < 3; i++) {
+      ctx.later(0.2 + i * 0.22, () => {
+        if (!this._alive || !this._ans) return
+        for (const o of oron) {
+          spray(ctx.fxLayer, ANS.x + o.x, ANS.y + o.y, {
+            count: 7, former: ['cirkel'], colors: [0xdad4cc, 0xeae6e0, 0xc8c2ba],
+            size: 13, sizeVar: 0.45, sizeTo: 1.5, // röken VÄXER medan den stiger
+            angle: -Math.PI / 2, spread: 0.7, dist: 86, distVar: 0.4,
+            gravity: -0.25, life: 0.95, lifeVar: 0.3, alpha: 0.75, spin: 0.6,
+          })
+        }
+      })
+    }
   },
 
   // Narratorn kommenterar då och då — aldrig efter varje bit, det blir tjat.
@@ -1195,6 +1315,9 @@ export default {
 
   destroy(ctx) {
     this._alive = false
+    // Hettans tween skriver till riggen varje bildruta — den måste dö FÖRE ansiktet,
+    // annars tintar den ett förstört lager (exit mitt i en chili).
+    if (this._hetSt) { gsap.killTweensOf(this._hetSt); this._hetSt = null }
     ctx?.ticker?.remove(this._tick)
     this._tick = null
     if (this._vakna && this._root && !this._root.destroyed) this._root.off('pointerdown', this._vakna)

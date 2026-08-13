@@ -75,11 +75,13 @@ export class Ansikte {
     this.hojd = hojd
     this._k = k
 
+    this._lager = [] // varje fotolager, för `hetta()` — tinten måste gälla alla
     const lagg = (l) => {
       const s = new Sprite(tex[l.fil])
       s.position.set(l.x, l.y)
       s.eventMode = 'none'
       this._inre.addChild(s)
+      this._lager.push(s)
       return s
     }
     const L = manifest.lager
@@ -179,6 +181,45 @@ export class Ansikte {
     this._track(gsap.to(st, { a: 0, duration: dur,
       onUpdate: () => { if (this._alive && !s.destroyed) s.alpha = st.a },
       onComplete: () => { if (!s.destroyed) s.visible = false } }))
+  }
+
+  /**
+   * Hetta 0–1: ansiktet rodnar. Fotolagren `tint`:as mot en varm röd, och `tint`
+   * MULTIPLICERAR — grönt och blått dras ner medan rött lämnas kvar, vilket är precis
+   * vad en het kind gör med en hudton. En röd rektangel ovanpå hade i stället lagt en
+   * plastfilm över fotot.
+   *
+   * Gäller ALLA lager, minerna inkluderade. Bara basen hade betytt att ansiktet byter
+   * färg i samma ögonblick som en grimas tonas in ovanpå — och det är just under en
+   * grimas (`het`) den här är till för.
+   */
+  hetta(v) {
+    if (!this._alive) return
+    const t = Math.max(0, Math.min(1, v))
+    this._hetta = t
+    const g = Math.round(255 - 96 * t)
+    const b = Math.round(255 - 132 * t)
+    const ton = (255 << 16) | (g << 8) | b
+    for (const s of this._lager) if (s && !s.destroyed) s.tint = ton
+  }
+
+  /**
+   * Var öronen sitter, i FÖRÄLDERNS koordinater (alltså relativt `view.position`) — så
+   * ett spel kan låta rök stiga ur dem utan att känna till fotots inre geometri.
+   *
+   * Punkterna härleds ur manifestet, inte ur en avläsning i bild: basens vänster/höger
+   * kant ger huvudets bredaste ställe och `ogonlinje` ger höjden (örat sitter en aning
+   * under ögat). Fotot är friskuret runt håret, så örat självt kan vara beskuret —
+   * rök från huvudets sida på öronhöjd är ändå den tecknade konventionen barn läser.
+   */
+  oron() {
+    const L = this.manifest.lager.bas
+    const G = this.manifest.geometri
+    const r = this.manifest.ruta
+    const y = ((G.ogonlinje + r.h * 0.06) - r.h / 2) * this._k
+    const dx = (L.w / 2 - L.w * 0.06) * this._k
+    const mx = (L.x + L.w / 2 - r.w / 2) * this._k
+    return [{ x: mx - dx, y }, { x: mx + dx, y }]
   }
 
   /** Vilorörelse: andning + slumpade blinkningar. Ligger på den INRE containern. */

@@ -339,6 +339,27 @@ export class DragController {
    * i `items` med en förstörd vy, och nästa träffsökning läser den.
    * Rör inte vyn i övrigt; anroparen äger den.
    */
+  /**
+   * Gör ett PLACERAT föremål dragbart igen — spelet har lämnat tillbaka det till banan.
+   *
+   * `_resolveDrop` sätter `placed = true` OCH `eventMode = 'none'`, och `_onDown` bailar
+   * dessutom på `rec.placed`. Ett föremål som accepterats av ett mål är alltså dubbelt
+   * låst, och inget i biblioteket öppnar låset igen. Det är rätt förval för ett pussel
+   * där en bricka ligger kvar där den hör hemma — men fel för ett spel som LÄMNAR TILLBAKA
+   * saken: `mata-munnen` spottar ut en gaffel på bänken, och den gick inte att plocka upp
+   * (uppmätt i `_spottprobe`: `em: "none"`, andra greppet `active: null`).
+   */
+  aterstall(view) {
+    const rec = this.items.find((r) => r.view === view)
+    if (!rec) return null
+    rec.placed = false
+    if (view && !view.destroyed) {
+      view.eventMode = 'static'
+      view.cursor = 'pointer'
+    }
+    return rec
+  }
+
   removeItem(view) {
     const i = this.items.findIndex((r) => r.view === view)
     if (i < 0) return null

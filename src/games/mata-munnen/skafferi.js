@@ -41,8 +41,15 @@ const P = (id, sv, farg, min = 'lycksalig', atbar = true, bredd = 92) =>
 // `mtrl` = materialets RÖST och studs när saken landar på bänken (lib/physics.js
 // MATERIAL). En kastrull ska klinga och en tomat duns — utan det låter hela högen som
 // samma sak, och då är kollisionen bara en rörelse.
+// `hard: true` — saken KLADDAR inte. En gaffel som fastnar i ansiktet ska sitta fast i en
+// vinkel, inte ligga i en pöl av sig själv; en tomat ska göra tvärtom. Köksprylarna är
+// hårda som grupp, och de få busdjur som också är det står i `HARDA` nedan.
 const R = (id, sv, farg, rita, bredd = 96, min = 'aj', mtrl = 'metall') =>
-  ({ id, sv, farg, min, atbar: false, mtrl, rita: () => passa(rita(), bredd) })
+  ({ id, sv, farg, min, atbar: false, mtrl, hard: true, rita: () => passa(rita(), bredd) })
+
+// Busdjur och torra saker som inte heller kladdar. Allt ANNAT (mat, bajs, snor, svamp)
+// gör det — förvalet är kladd, för det är den vanligaste sanningen i det här spelet.
+const HARDA = new Set(['spindel', 'kackerlacka', 'fiskben', 'tandborste', 'snigel', 'groda'])
 
 // ------------------------------------------------------------- köksprylarna ---
 
@@ -236,7 +243,7 @@ export const SAKER = Object.fromEntries([
   R('visp', 'Visp', 0xd3dade, PRYLAR.visp, 64, 'skratt'),
   R('kavel', 'Kavel', 0xe0ac72, PRYLAR.kavel, 100, 'forvanad', 'tra'),
   R('glasspinne', 'Glasspinne', 0xffb0c8, PRYLAR.glasspinne, 64, 'lycksalig'),
-].map((s) => [s.id, s]))
+].map((s) => [s.id, HARDA.has(s.id) ? { ...s, hard: true } : s]))
 
 /** En vy för en sak, centrerad kring (0,0). Alltid en ny nod — de delas aldrig. */
 export function makeSak(key) {

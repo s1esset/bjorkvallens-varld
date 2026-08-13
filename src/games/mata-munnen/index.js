@@ -1048,18 +1048,27 @@ export default {
     a?.min('nojd', { hall: 3 })
     ctx.services.voice.say('Nu är pappa mätt och belåten!')
 
-    // Rapen: en djup, fallande ton (pappas eget klipp när det finns), och vid wow en till.
+    // Rapen: pappas eget klipp, och ibland en till. Sedan ett skratt.
+    //
+    // ⚠️ AVSTÅNDEN ÄR KLIPPENS LÄNGD, inte en känsla. Reserverna är 0,3 s stämda toner och
+    // rymdes lätt på 0,7 s — men de INSPELADE klippen är 1,10 s (`pappa_rap`) och 1,26 s
+    // (`pappa_fniss`), så den gamla tidtabellen lade dem ovanpå varandra: extrarapen och
+    // skrattet startade i SAMMA ögonblick (0,5 + 0,7 = 1,2 s, och skrattet stod på 1,2 s).
+    // Med toner lät det som ett ackord; med två röstklipp låter det som två pappor.
+    const RAP = 1.15 // klippets längd + en liten andning
     ctx.later(0.5, () => {
       if (!this._alive) return
       this._sag(ctx, 'nojd')
       if (a?.view && !a.view.destroyed) shake(a.view, { intensity: 9, duration: 0.6 })
       burst(ctx.fxLayer, ANS.x, this._munY, { count: 18, colors: PLAYFUL })
-      if (Math.random() < 0.3) ctx.later(0.7, () => { if (this._alive) this._sag(ctx, 'nojd') })
-    })
-    ctx.later(1.2, () => {
-      if (!this._alive) return
-      this._sag(ctx, 'skratt')
-      sparkle(ctx.fxLayer, ANS.x, this._ogonY, { count: 12 })
+      const dubbel = Math.random() < 0.3
+      if (dubbel) ctx.later(RAP, () => { if (this._alive) this._sag(ctx, 'nojd') })
+      // Skrattet väntar tills rapandet är slut — en rap eller två.
+      ctx.later(dubbel ? RAP * 2 : RAP, () => {
+        if (!this._alive) return
+        this._sag(ctx, 'skratt')
+        sparkle(ctx.fxLayer, ANS.x, this._ogonY, { count: 12 })
+      })
     })
 
     ctx.progress.complete()

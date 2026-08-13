@@ -235,6 +235,17 @@ try {
   // ---- MÄTARM 5: tunnling vid full fart ----------------------------------
   // Full fart TVÄRS genom munnen från vänster. Ett punkttest i stegets slutläge kan
   // hoppa över den; svepet får inte.
+  // ⚠️ MONTERAS OM FÖRST. `nolla()` tömmer bara kastloggen — framstegen från mätarm 4
+  // ligger kvar, och blir tallriken FULLÄTEN där sätter firandet `_busy`, vilket får
+  // `_kasta` att returnera false. Sonden rapporterade då "tunnlar genom ansiktet" om ett
+  // kast som aldrig gick iväg (uppmätt: `full fart (0 px/ms)`, ätna 5→0 — talen SJÖNK,
+  // alltså hade en ny omgång startat mitt i mätningen). Ett misslyckat upplägg är noll
+  // mätningar, aldrig ett fynd.
+  await page.evaluate(() => window.__barnspel.nav.go('library'))
+  await page.waitForTimeout(500)
+  await page.evaluate((id) => window.__barnspel.nav.go('game', { id }), ID)
+  await page.waitForTimeout(1600)
+  await spionera()
   await nolla()
   s = await las(page)
   {
@@ -244,6 +255,10 @@ try {
     await page.waitForTimeout(2200)
     e = await las(page)
     const f = Math.max(0, ...e.kast.map((x) => x.fart))
+    // Kontrollarmen till mätarmen: gick kastet över huvud taget iväg? Utan den raden är
+    // ett rött svep-resultat tvetydigt — "träffade inget" och "kastade inget" ser likadana
+    // ut i utfallet.
+    rad(f > 0, `KONTROLL svep-kastet gick iväg (${f} px/ms) — annars mäter raden nedan ingenting`)
     rad(e.atna > fore.atna || e.geggor > fore.geggor,
       `SVEP full fart (${f} px/ms) tunnlar inte genom ansiktet (ätna ${fore.atna}→${e.atna}, gegga ${fore.geggor}→${e.geggor}) ${JSON.stringify(e.slapp)}`)
   }

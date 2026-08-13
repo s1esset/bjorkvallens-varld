@@ -175,6 +175,10 @@ export class Ansikte {
       this._minY[namn] = l.y
     }
     this._aktivMin = null
+    // Vilken tween som just nu äger varje min-lapps `alpha` — en skrivare per lapp. Samma
+    // bokföring som blickens `_blickTw`, och av samma skäl: en Map i stället för ett fält
+    // på spriten, så inget krockar med Pixis egen transform-cache.
+    this._minTw = new Map()
     this._hemY = { undre: L.undre.y, mun: L.mun.y }
   }
 
@@ -293,6 +297,12 @@ export class Ansikte {
     const s = this._miner[namn]
     if (!s || s.destroyed) return
     if (this._aktivMin && this._aktivMin !== s) this._slackMin(this._aktivMin, 0.1)
+    // ⚠️ EN SKRIVARE PER LAPP. Utan raden kunde en pågående uttoning på SAMMA sprite löpa
+    // vidare medan den här tänder den igen: två tweens mot samma `alpha`, och uttoningens
+    // `onComplete` släckte 0,1 s senare den nytända minen (`visible = false`). Barnet
+    // tryckte på pappa och ingenting hände — P0 ÅTERKOPPLING. Samma regel som gesterna i
+    // `_g` och blicken i `_blickTw`: den som tar över en egenskap dödar den förra ägaren.
+    this._minTw.get(s)?.kill()
     this._aktivMin = s
     this.gap(0)
     s.visible = true
@@ -308,6 +318,7 @@ export class Ansikte {
         onUpdate: () => { if (this._alive && !s.destroyed) s.alpha = st.a },
         onComplete: () => { if (!s.destroyed) s.visible = false; if (this._aktivMin === s) this._aktivMin = null } })
     }
+    this._minTw.set(s, tl)
     this._track(tl)
     return tl
   }
@@ -323,11 +334,19 @@ export class Ansikte {
     this._aktivMin = null
   }
 
+  // Uttoningen är också en skrivare på lappens `alpha` och bokförs därför i samma Map —
+  // annars kunde `slappMin()` och `min()` av samma namn löpa mot varandra. `visible = false`
+  // står dessutom kvar som VILLKORLIGT: har lappen hunnit bli aktiv igen ska den lysa.
+  // (Uppmätt före fixen, med riktiga tryck: två tryck 400 ms isär gav alfa 100 % men
+  // `visible: false` 100 % av tiden efter 520 ms — en helt osynlig grimas.)
   _slackMin(s, dur) {
+    this._minTw.get(s)?.kill()
     const st = { a: s.alpha }
-    this._track(gsap.to(st, { a: 0, duration: dur,
+    const tw = gsap.to(st, { a: 0, duration: dur,
       onUpdate: () => { if (this._alive && !s.destroyed) s.alpha = st.a },
-      onComplete: () => { if (!s.destroyed) s.visible = false } }))
+      onComplete: () => { if (!s.destroyed && this._aktivMin !== s) s.visible = false } })
+    this._minTw.set(s, tw)
+    this._track(tw)
   }
 
   // ------------------------------------------------------------- huvudgester ---
@@ -450,6 +469,46 @@ export class Ansikte {
   }
 
   /**
+   * Träffade punkten ANSIKTET? Designkoordinater in, `true`/`false` ut — `null` om den här
+   * klippningen saknar silhuett i manifestet (då får den som frågar falla tillbaka själv).
+   *
+   * `marg` vidgar konturen, och den ska vara den KASTADE SAKENS radie: testet blir då "rörde
+   * biten vid honom", vilket är vad ögat ser, i stället för "låg bitens mittpunkt på honom".
+   *
+   * ⚠️ EN HANDSTÄMD ELLIPS RÄCKER INTE, och det är mätt: `mata-munnen` prövade träffar mot
+   * en ellips (rx 215) och den var fel åt BÅDA hållen samtidigt — 32,0 % av zonen låg på
+   * tom bakgrund (kastad mat small i luften bredvid huvudet och blev gegga) medan 18,8 %
+   * av det synliga ansiktet låg utanför den (en träff mitt i hakan gjorde ingenting).
+   * Att krympa ellipsen byter bara ut det ena felet mot det andra: rx 124 ger 31,9 %
+   * missat ansikte. Radprofilen ur `bas.webp`s alfa ger 0,0 / 0,0. Se `scripts/silhuett.mjs`
+   * och `scripts/_silprobe.mjs`; det är samma lärdom som halsmasken — det som skiljer
+   * ansikte från icke-ansikte är POSITION, profilerad rad för rad, inte ett enda tal.
+   *
+   * ⚠️ MÄTS MOT `view`, ALDRIG MOT `_gest`/`_inre`. Huvudgesterna flyttar bilden upp till
+   * 14 px i sidled och andningen skalar den — läste träffytan dem skulle den krypa undan
+   * mitt i ett kast, exakt det fel som sänkte `sortera-skrap`s tunnor (släpp 2 px utanför
+   * radien när målet guppade). Bilden får röra sig; träffytan står still.
+   */
+  traffar(x, y, marg = 0) {
+    const S = this.manifest.geometri?.silhuett
+    if (!S?.rader) return null
+    if (!this.view || this.view.destroyed) return false
+    const k = this._k
+    const rx = (x - this.view.x) / k + this.manifest.ruta.w / 2
+    const ry = (y - this.view.y) / k + this.manifest.ruta.h / 2
+    const m = marg / k
+    // Bandet under punkten, plus grannbanden inom marginalen — annars blir en kontur som
+    // smalnar av snabbt (hakan) en trappa med `steg` px höga steg i träffytan.
+    const i0 = Math.floor((ry - m) / S.steg)
+    const i1 = Math.floor((ry + m) / S.steg)
+    for (let i = i0; i <= i1; i++) {
+      const rad = S.rader[i]
+      if (rad && rx >= rad[0] - m && rx <= rad[1] + m) return true
+    }
+    return false
+  }
+
+  /**
    * Vilorörelse: andning + slumpade blinkningar. Ligger på den INRE containern.
    *
    * `takt` är andetagets längd i sekunder. Den är en parameter och inte en konstant för
@@ -467,7 +526,12 @@ export class Ansikte {
     this._takt = takt
     this._track(gsap.to(this._inre.scale, { x: this._k * 1.006, y: this._k * 1.01, duration: takt,
       yoyo: true, repeat: -1, ease: 'sine.inOut' }))
-    if (this._blinkTimer) return // blinkslingan lever redan; bara takten byttes
+    // ⚠️ FRÅGAN ÄR OM TIMERN LEVER, inte om fältet är satt. En timer som ringbufferten
+    // dödat är fortfarande truthy, och då startade blinkslingan aldrig om — pappa slutade
+    // blinka för resten av omgången (uppmätt: högsta alfa på ögonlocket över 7 s vila 0,00,
+    // mot 1,00 i en kort körning). Ett fotoansikte som inte blinkar läser som en stillbild
+    // och förstärkte intrycket av att han "fastnat".
+    if (this._blinkTimer?.parent) return // blinkslingan lever redan; bara takten byttes
     const om = () => {
       if (!this._alive) return
       this.blink()
@@ -484,12 +548,29 @@ export class Ansikte {
   // men en nick per min och ett ryck per bus fyller dem på en halv minut, och då hade
   // ansiktet slutat andas mitt i spelet utan ett konsolfel. Nu rensas FÄRDIGA tweens
   // först, och en evig tween (`repeat: -1`) rensas aldrig bort.
+  //
+  // ⚠️ …OCH DEN FÖRSTA RÄTTNINGEN LÄCKTE. `t.isActive() || t.totalProgress() < 1` kan inte
+  // skilja LEVANDE från DÖDAD: en dödad `repeat: -1`-tween ger `isActive() === false` men
+  // `totalProgress() === 0`, alltså < 1, och slapp igenom (uppmätt i `_tweenprobe.mjs`).
+  // `liv(true, { takt })` dödar sitt gamla andetag och registrerar ett nytt — och `_ata`
+  // anropar `liv()` EN GÅNG PER TUGGA. Alltså växte listan med en permanent död post per
+  // tugga, och eftersom while-loopen hoppar över allt med `repeat: -1` kunde de aldrig
+  // vräkas heller. Uppmätt över 26 riktiga tuggor: eviga poster 1 → 27, exakt +1 per tugga.
+  // Vid tugga ~20 var alla 24 platser döda och loopen började döda LEVANDE tweens; vid 23
+  // frös en hel grimaslapp på alfa 1 med `visible: true` medan en annan min var aktiv —
+  // min-lagret ligger överst och bär sin egen mun, så barnet såg två ansikten på en gång.
+  // Det ÄR ägarens "fastnade mellan 2 lägen", och det gav noll konsolfel hela vägen.
+  //
+  // `tw.parent` är måttet som faktiskt skiljer lägena åt: sann för löpande OCH väntande,
+  // falsk för både färdiga och dödade — oavsett vem som dödade och varför.
   _track(tw) {
     this._tw.push(tw)
     if (this._tw.length > 24) {
-      this._tw = this._tw.filter((t) => t === tw || t.isActive?.() || (t.totalProgress?.() ?? 1) < 1)
+      this._tw = this._tw.filter((t) => t === tw || (t.parent && (t.isActive?.() || (t.totalProgress?.() ?? 1) < 1)))
       while (this._tw.length > 24) {
-        const i = this._tw.findIndex((t) => (t.repeat?.() ?? 0) !== -1)
+        // `t !== tw`: den nyss skapade tweenen är undantagen i filtret men var det INTE här,
+        // så en mättad lista fick `min()` att döda sin egen intoning i samma anrop.
+        const i = this._tw.findIndex((t) => t !== tw && (t.repeat?.() ?? 0) !== -1)
         if (i < 0) break
         this._tw.splice(i, 1)[0]?.kill()
       }
@@ -505,6 +586,8 @@ export class Ansikte {
     // FÄRDIG av dem — och en som fortfarande löper vore då kvar utan ägare.
     for (const tw of this._blickTw.values()) tw.kill()
     this._blickTw.clear()
+    for (const tw of this._minTw.values()) tw.kill()
+    this._minTw.clear()
     for (const tw of this._tw) tw.kill()
     this._tw = []
     gsap.killTweensOf(this._inre.scale)

@@ -462,6 +462,112 @@ fade blandar sig in.
 `HO` (SPH-vattnets kärl) om diskhon byggs om. Träffytorna räknas om par för par — **även
 föremålens** `GRIP_R` 52 (= 104 px diameter), som var det enda P0-brott kritikern hittade.
 
+## 7c. ÄGARENS SPELTEST AV v1.204.0 — två fynd på telefon
+
+Ägaren körde bygget på telefon och rapporterade två saker. Båda var äkta.
+
+### ⓵ "ansiktet fastnade mellan 2 lägen" ✅ FIXAT — en LÄCKA, inte en trängsel
+
+**Roten var inte den misstänkta.** Hypotesen var att `_track()`s ringbuffert (24 platser)
+svämmar över när många tweens löper samtidigt. Den är mätt och **förkastad**: högsta antal
+LEVANDE tweens under intensivt spel är 3–5. Felet är en läcka.
+
+`liv(true, { takt })` dödar sitt gamla andetag och registrerar ett nytt — och `_ata` anropar
+`liv()` **en gång per tugga** för att byta andhämtningstakt. Ringbuffertens filter var
+`t.isActive() || t.totalProgress() < 1`, och det kan inte skilja LEVANDE från DÖDAD: en dödad
+`repeat: -1`-tween ger `isActive() === false` men `totalProgress() === 0`, alltså < 1. Den
+slapp igenom. Och while-loopen som vräker ut poster hoppar över allt med `repeat: -1` — så
+de kunde aldrig rensas den vägen heller. **En permanent död post per tugga.**
+
+Uppmätt med `scripts/_frysprobe.mjs`, HEAD mot fixen, 60 tuggor:
+
+| | HEAD | med fixen |
+|---|---|---|
+| eviga poster i `_tw` | 1 → **33** (+1 per landad tugga) | håller sig på **2–4** |
+| spökmin | **från tugga 41** | ingen |
+| blinkar han vid slutet? | **nej** (ögonlockets alfa nådde aldrig 1) | ja |
+| konsolfel | **0** | 0 |
+
+Vid mättnad började ringbufferten döda LEVANDE tweens, och då syns ägarens symptom rakt av:
+`SPÖKMIN lycksalig@1.00` medan `_aktivMin` var `nojd` — **en hel grimaslapp fryst på full
+alfa med `visible: true` samtidigt som en annan min var aktiv.** Min-lagret ligger överst och
+bär sin egen mun, så barnet ser två ansikten på en gång, permanent. `levande 1` i samma rad:
+allt utom andetaget var dödat.
+
+**Fixen är ett ord.** `t.parent` är sann för löpande OCH väntande tweens, falsk för både
+färdiga och dödade — mätt i `scripts/_tweenprobe.mjs`, som prövar alla sex lägena. Filtret
+blev `t === tw || (t.parent && (…))`. Två följdfel i samma familj rättades:
+
+- `liv()`: `if (this._blinkTimer) return` frågade om fältet var SATT, inte om timern LEVDE.
+  En dödad timer är fortfarande truthy, så blinkslingan startade aldrig om → pappa slutade
+  blinka för resten av omgången. Nu `?.parent`.
+- while-loopen saknade filtrets `t !== tw`-undantag, så en mättad lista fick `min()` att döda
+  **sin egen intoning** i samma anrop (spökminer på alfa 0 med `visible: true`).
+- `_slackMin`s `visible = false` var ovillkorligt, och `min()` dödade aldrig en pågående
+  blekning på SAMMA lapp. `slappMin(0.1)` följt synkront av `min(sammaNamn)` släckte därmed
+  den nytända minen 0,1 s senare (två tryck på pappa · ketchup över honom · två geggor i
+  rad). Lapparnas tweens bokförs nu i en `_minTw`-Map, en skrivare per lapp — samma regel
+  som gesternas `_g` och blickens `_blickTw`.
+
+⚠️ **Sonden var fel två gånger innan den mätte något.** Första versionen räknade bara
+LEVANDE eviga tweens — och var därmed blind för exakt den här läckan, som består av DÖDA:
+talet stod på 1 i **båda** armarna. Andra versionen saknade kontrollarmen "matar dragen honom
+över huvud taget"; med den syns att 17–35 av 60 drag landar, och utan den hade en grön körning
+kunnat vara ett spel som aldrig spelades (`drag/ratt`-fällan). **En mätning som inte kan
+skilja två KÄNDA lägen åt säger ingenting om det okända** — det var HEAD-armen som avslöjade
+båda misstagen.
+
+### ⓶ "hitboxen för huvudet går ej längs masken (fyrkantig låda utanför ansiktet)" ✅ FIXAT
+
+**Premissen höll, men diagnosen var större än rapporten.** Träffytan var en handstämd ellips
+(`BUS`, rx 215) och `scripts/_silprobe.mjs` mätte upp den mot fotots faktiska alfa:
+
+| träffyta | falsk yta | missat ansikte |
+|---|---|---|
+| **ellips rx 215 (v1.204)** | **32,0 %** | **18,8 %** |
+| ellips rx 124 (= uppmätt bredd) | 1,2 % | 31,9 % |
+| ellips rx 124, ner till `KANT_Y` | 1,0 % | 19,8 % |
+| **silhuettprofil + 34 px (levererad)** | **14,2 %** | **1,5 %** |
+
+*falsk yta* = i zonen men inget ansikte där (kastad mat blir gegga i luften bredvid huvudet).
+*missat* = synligt ansikte utanför zonen (en träff mitt i hakan gör ingenting).
+
+⚠️ **Ellipsen var fel åt BÅDA hållen samtidigt — alltså fel FORM, inte fel storlek.** Det är
+hela poängen med tabellen: den uppenbara fixen (krymp ellipsen till den uppmätta bredden 124)
+byter bara ut det ena felet mot det andra, 31,9 % missat ansikte. Hade sonden bara räknat död
+yta hade den rankat den fixen som nästan perfekt. **Ett mått på en träffyta måste gå åt båda
+hållen, annars rankar det en oändligt liten yta som bäst.**
+
+Lösningen är samma som halsmaskens: det som skiljer ansikte från icke-ansikte är POSITION,
+profilerad rad för rad. `scripts/silhuett.mjs` läser konturen ur `bas.webp`s alfa i EN
+magick-körning (rå gråskala, profilerad i JS — 100 anrop tog 10 s och gav samma tal) och
+lägger den i `manifest.geometri.silhuett`; `Ansikte.traffar()` prövar mot den.
+
+- **Marginalen 34 px är MÄTT, inte stämd:** `_gorLos` bygger den lösa biten som en sjuhörning
+  med radie 34. Frågan blir därmed "rörde biten vid honom", inte "låg bitens MITTPUNKT på
+  honom". Den kvarvarande falska ytan (14,2 %) ÄR den halon.
+- **Bandet är 8 px, inte 16.** Talen är desamma (14,4/1,4 mot 14,2/1,5) — det syns bara i
+  bild, där 16 px trappar synligt vid hjässan. ~1 kB i manifestet.
+- **`traffar()` mäter mot `view`, aldrig mot `_gest`/`_inre`.** Huvudgesterna flyttar bilden
+  upp till 14 px och andningen skalar den; läste träffytan dem skulle den krypa undan mitt i
+  ett kast — samma fälla som sänkte `sortera-skrap`s tunnor.
+- **`KANT_Y` klipps i SPELET, inte i riggen.** Att hakan försvinner bakom en bänk är kökets
+  kunskap, inte fotots.
+- Ellipsen står kvar som reserv för en klippning utan `geometri.silhuett`.
+- Utfall i spel: `_kastprobe` **8/8 kast nådde pappa** (mot 6/7 på HEAD), negativa
+  kontrollarmen (kast under ansiktet) fortfarande grön. Bild: `.test-shots/_silprobe.png`.
+
+⚠️ **`_kastprobe`s svep-arm gav ett FALSKT RÖTT och det var sondens fel, inte spelets.**
+`nolla()` tömmer bara kastloggen — framstegen från mätarm 4 ligger kvar. Med den träffsäkrare
+zonen blev tallriken **fulläten** före mätarm 5, firandet satte `_busy`, `_kasta` returnerade
+false och inget kast gick iväg — och sonden rapporterade det som "tunnlar genom ansiktet".
+Symptomet stod i utskriften hela tiden: `full fart (0 px/ms)` och `ätna 5→0` (talen SJÖNK,
+alltså hade en ny omgång startat mitt i mätningen). Armen monterar nu om spelet först och har
+fått en egen kontrollrad, `gick kastet iväg?`. **Ett misslyckat upplägg är noll mätningar,
+aldrig ett fynd** — och HEAD-armen var det som avgjorde: den var grön.
+
+---
+
 ## 7b. ARBETSORDERN ÄR KÖRD (2026-08-13, v1.204.0) — A1 · A2 · A3 klara
 
 Alla tre posterna i §7 är byggda, mätta och committade. Det som §7 sa skulle byggas stämde

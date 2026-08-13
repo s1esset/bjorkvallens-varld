@@ -31,6 +31,7 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { silhuett } from './silhuett.mjs'
 
 const args = process.argv.slice(2)
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d }
@@ -502,7 +503,11 @@ for (const m of MINER) {
 const manifest = {
   person: PERSON,
   ruta: { w: UTW, h: UTH },
-  geometri: { klipp: G.klipp, ogonlinje: 341, mun: G.mun },
+  // `silhuett` är ansiktets kontur rad för rad, mätt ur basens alfa — det som avgör om en
+  // kastad matbit TRÄFFADE honom. En handstämd ellips gjorde fel åt båda hållen samtidigt
+  // (32,0 % av zonen tom, 18,8 % av ansiktet utanför den); se `scripts/silhuett.mjs`.
+  geometri: { klipp: G.klipp, ogonlinje: 341, mun: G.mun,
+    silhuett: silhuett(path.join(filUt, halvor.bas.fil), halvor.bas, { w: UTW, h: UTH }) },
   lager: { ...halvor, mun: munLager, ...blickLager, ogon: ogonLager, ...ogonHalvor },
   miner: minLager,
   // Vilket foto varje lapp kom ur. Primärerna räcker inte längre: en variant som läser fel

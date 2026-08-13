@@ -37,16 +37,24 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 // ANS · PLATSER · MATARE · BRADA bor i `kok.js`: köksön räknas ur ansiktets halslinje, och
 // maten ligger på skärbrädan som köket ritar. En andra uppsättning tal här hade drivit isär.
 const MUN_R = 130                // snäppradie till munnen (P0: träffyta ≫96 px)
-// Ansiktets ellips — utanför den är det en ren miss. HALVORNA ÄR OLIKA, och det är inte
-// en smaksak: uppåt finns hela pannan och håret (250), men NEDÅT slutar ansiktet där
-// köksön skär av det (`KANT_Y` 395). En symmetrisk ellips nådde y = 518 och därmed ut på
-// skärbrädan, där maten ligger (`PLATSER` y = 505) — ett barn som la tillbaka en bit på
-// brädan fick den klassad som en ansiktsträff, och eftersom `_geggaL` ritas BAKOM köksöns
-// förgrund såg det ut som att biten bara försvann. (Hittat vid genomgången av ägarrapport
-// #8; ägaren beskrev symptomet som "förvirrande och plottrigt".)
-// ⚠️ `ryNer` kommer ur FOTOT (`BUS_NER` i kok.js), inte ur bänkkanten. Se skälet där:
-// som `KANT_Y - ANS.y` slukade ellipsen hela kastzonen så fort kanten flyttades.
+// Ansiktets träffyta — utanför den är det en ren miss.
+//
+// ⚠️ DEN FÖLJER FOTOTS KONTUR, INTE EN ELLIPS. Ägaren speltestade v1.204.0 och skrev
+// "hitboxen för huvudet går ej längs masken (fyrkantig låda utanför ansiktet)".
+// `_silprobe.mjs` mätte upp den gamla ellipsen (rx 215): **32,0 % av zonen låg på tom
+// bakgrund** — kastad mat exploderade i gegga en bit vid sidan av huvudet — **samtidigt som
+// 18,8 % av det synliga ansiktet låg utanför zonen**. Fel åt båda hållen på en gång är fel
+// FORM, inte fel storlek, och att bara krympa ellipsen byter ut det ena felet mot det andra
+// (rx 124 → 31,9 % missat ansikte). `Ansikte.traffar()` prövar mot silhuetten rad för rad,
+// mätt ur basens alfa: 0,0 / 0,0.
+//
+// Ellipsen står kvar som RESERV för en klippning utan `geometri.silhuett` i manifestet —
+// samma nedgradering som blicken och winken gör när lagren saknas.
 const BUS = { rx: 215, ry: 250, ryNer: BUS_NER }
+// Marginalen är den kastade sakens radie (`_gorLos` bygger en sjuhörning med radie 34), inte
+// ett stämt tal: med den blir frågan "rörde biten vid honom", vilket är vad ögat ser, i
+// stället för "låg bitens MITTPUNKT på honom".
+const MAT_R = 34
 const GRIP_R = 52
 
 // KASTET (ägaruppdrag 2, steg 4). Talen är px/STEG där matter räknar och px/ms där
@@ -582,8 +590,19 @@ export default {
     return !!(a.harSample?.(nyckel) && a.sample(nyckel))
   },
 
-  /** Ligger punkten inne i bus-ellipsen? Delas av `_miss` och det svepta kasttestet. */
+  /**
+   * Ligger punkten på ANSIKTET? Delas av `_miss` och det svepta kasttestet.
+   *
+   * Silhuetten ur riggen först (se `BUS` ovan för mätningen som gjorde ellipsen otillräcklig).
+   * `KANT_Y` klipps här och inte i riggen: att hakan försvinner bakom en bänk är KÖKETS
+   * kunskap, inte fotots. Utan den raden når konturen ner till y = 452 och därmed ut på
+   * skärbrädan (`PLATSER` y = 505 ligger under, men geggan ritas BAKOM köksöns förgrund, så
+   * en bit som "träffade" där hade bara sett ut att försvinna — ägarrapport #8).
+   */
   _iAnsiktet(x, y) {
+    if (y > KANT_Y) return false
+    const s = this._ans?.traffar(x, y, MAT_R)
+    if (s !== null && s !== undefined) return s
     const dy0 = y - ANS.y
     const dx = (x - ANS.x) / BUS.rx
     const dy = dy0 / (dy0 > 0 ? BUS.ryNer : BUS.ry)

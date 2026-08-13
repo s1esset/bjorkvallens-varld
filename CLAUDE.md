@@ -69,8 +69,8 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_kameraprobe.mjs` | kamerans beteende i tal (dödzon · ruta · skak · zoom · exit) — **utan webbläsare** |
 | `node scripts/_slagprobe.mjs` | anslagsljudet: fart → volym + tonhöjd · materialens röster · taket · exit — **utan webbläsare** |
 | `node scripts/_tystprobe.mjs` | pekhanterare som bortar tyst på en upptagen-flagga (P0-brottet `dod-traffyta`) |
-| `node scripts/_ansiktebild.mjs` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · nio miner) + exit-koll — **ett ansikte går inte att bedöma i tal** |
-| `node scripts/_munprobe.mjs` | *spelar* `mata-munnen`: gapar munnen vid maten (mot kontrollarm långt bort) · mätaren per tugga · rätt min · mättar bus (ska INTE) · finalen · exit mitt i tugget |
+| `node scripts/_ansiktebild.mjs [--bara "vila,wink h"]` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · wink · hetta/kyla · gester · 13 miner) + **andas den efter 40 gester?** + exit-koll — **ett ansikte går inte att bedöma i tal**, och `--bara` gör rutorna stora nog för en wink |
+| `node scripts/_munprobe.mjs [--trace]` | *spelar* `mata-munnen`: gapar munnen vid maten (mot kontrollarm långt bort) · lutar han sig mot den · **antal sammanbitningar mot spelets egen tuggprofil** · mätaren per tugga · rätt min · mättar bus (ska INTE) · **ljudslingan följer stationen och dör vid exit** · finalen. `--trace` skriver ut den råa gapkurvan — den förklarar en felräknad tugga på ett sätt inget tal gör |
 | `node scripts/_vaxelprobe.mjs` | `mata-munnen`s VÄXLAR: fönsterrotationen (fågel→fjäril→regnbåge) · kokar-över-räknaren · skymten i tugget · gegga-trappan — läser TILLSTÅND (visible/räknare/aktiv min), kontrollarmar först |
 | `node scripts/_karaktarbild.mjs [--reaktion jubel]` | karaktärsriggens alla humör i ett rutnät + exit-koll |
 | `node scripts/_dragprobe.mjs <id>` | tyngden i draget: eftersläpning · lutning · skugga · städning · exit mitt i drag |
@@ -278,6 +278,19 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   båda armarna (bågen 0,0 % mot 13,4 % av kordan). Samma pass bar två klassiska mätfel: ett
   läge avläst i FEL bildruta mätte skjut-armens flax (29,3 px), och en kvot vars **nämnare
   flyttar sig** (kordan är ~0 px när skottet börjar) gav 2,46× utan att en pixel var fel.
+- **En ringbuffert av tweens dödar den EVIGA tweenen först.** `Ansikte._track` höll 24 tweens
+  och kastade den ÄLDSTA när listan blev full — och den äldsta är `liv()`s oändliga andetag,
+  som registreras vid uppstart och aldrig tar slut av sig självt. Med bara tugg och miner
+  räckte 24 platser länge; med huvudgester (en nick per min, ett ryck per bus) fylls de på en
+  halv minut, och ansiktet slutar andas **utan ett konsolfel**. Uppmätt med den gamla koden
+  inlagd som kontrollarm: **1,66 ‰ svängning före 40 gester → 0 ‰ efter**. Rensa FÄRDIGA
+  tweens i stället för de äldsta, och skydda `repeat: -1`. Samma fråga gäller varje tak på en
+  lista av levande saker: är det yngsta eller det VIKTIGASTE som ryker?
+- **Ett kontinuerligt ljud överlever allt utom att någon stoppar källan.** En tween dör med
+  spelet, en `AudioBufferSourceNode` med `loop = true` gör det inte — den låter vidare på
+  menyn, utan bild, och går inte att stänga av. Slingor tystas därför av `GameHost.destroy`
+  (`audio.stopAllLoops()`) och inte bara av spelets egen `destroy`, av samma skäl som
+  `timers`: skalet får inte lita på att spelet gjorde rätt.
 - **Byt inte ut stämda ljud mot samplade.** `correct` (660→880 = kvint), `match` (durtreklang) och
   `pling` är musik, inte blipp — ett generiskt UI-klick vore ett brott mot grindens punkt 5.
 

@@ -287,6 +287,106 @@ export class AudioService {
     return this._playSample(name)
   }
 
+  // ------------------------------------------------------------- slingor ---
+  //
+  // ETT LJUD SOM HÖR IHOP MED ETT TILLSTÅND, inte med en händelse. Allt i appen har
+  // hittills varit engångsljud vid tryck, och det räcker för en knapp — men inte för en
+  // kran som RINNER eller en fläkt som SNURRAR. I `mata-munnen` klickade man på fläkten,
+  // hörde ett enda brum, och sedan snurrade den ljudlöst: samma brutna orsak–verkan som
+  // en ketchupflaska som inte går att hälla (kritikerfynd v1.198).
+  //
+  // Två källor, samma API: ett inspelat klipp om det finns (`klipp`), annars en syntetisk
+  // bädd. Bädden är BRUS genom ett bandpass (vatten, ånga) eller en filtrerad ton (motorer)
+  // — inte en naken oscillator, som i en slinga blir en olidlig pipton.
+  //
+  // ⚠️ Påslag och avslag RAMPAS. Ett hårt påslag på en kontinuerlig källa knäpper i
+  // högtalaren, och knäppet är det enda man hör på en telefon.
+
+  _brus(c) {
+    if (this._noiseBuf) return this._noiseBuf
+    const n = Math.floor(c.sampleRate * 2)
+    const buf = c.createBuffer(1, n, c.sampleRate)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1
+    this._noiseBuf = buf
+    return buf
+  }
+
+  /**
+   * Starta (eller byt ut) en namngiven slinga. Samma namn två gånger = den gamla stoppas
+   * först, så en dubbelklickad station aldrig kan lägga två brum ovanpå varandra.
+   */
+  loop(namn, { klipp = null, typ = 'ton', freq = 180, q = 1.2, vol = 0.12 } = {}) {
+    if (!this._s.sfxEnabled) return false
+    const c = this._ensure()
+    if (!c) return false
+    this.stopLoop(namn)
+    if (!this._loops) this._loops = new Map()
+    try {
+      const g = c.createGain()
+      g.gain.value = 0.0001
+      g.connect(c.destination)
+      let src
+      if (klipp && this._samples.has(klipp)) {
+        src = c.createBufferSource()
+        src.buffer = this._samples.get(klipp)
+        src.loop = true
+        src.connect(g)
+      } else if (typ === 'brus') {
+        src = c.createBufferSource()
+        src.buffer = this._brus(c)
+        src.loop = true
+        const f = c.createBiquadFilter()
+        f.type = 'bandpass'
+        f.frequency.value = freq
+        f.Q.value = q
+        src.connect(f).connect(g)
+      } else {
+        src = c.createOscillator()
+        src.type = 'sawtooth'
+        src.frequency.value = freq
+        const f = c.createBiquadFilter()
+        f.type = 'lowpass'
+        f.frequency.value = freq * 3.2
+        f.Q.value = q
+        src.connect(f).connect(g)
+      }
+      src.start()
+      g.gain.linearRampToValueAtTime(Math.max(0.0002, vol * (this._s.masterVolume ?? 0.8)), c.currentTime + 0.25)
+      this._loops.set(namn, { src, g })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  stopLoop(namn) {
+    const l = this._loops?.get(namn)
+    if (!l) return
+    this._loops.delete(namn)
+    const c = this.ctx
+    try {
+      if (c) {
+        l.g.gain.cancelScheduledValues(c.currentTime)
+        l.g.gain.setValueAtTime(Math.max(0.0001, l.g.gain.value), c.currentTime)
+        l.g.gain.linearRampToValueAtTime(0.0001, c.currentTime + 0.18)
+        l.src.stop(c.currentTime + 0.22)
+      } else {
+        l.src.stop()
+      }
+    } catch { /* källan kan redan vara stoppad */ }
+  }
+
+  /**
+   * Yttersta säkringen. En slinga som ett spel glömmer att stoppa fortsätter låta på
+   * MENYN — och till skillnad från en kvarglömd tween hörs den, hela vägen tills appen
+   * stängs. `GameHost.destroy` kallar den här efter varje omgång, så ett spel kan inte
+   * lämna ett ljud efter sig ens om dess egen `destroy` kraschar.
+   */
+  stopAllLoops() {
+    for (const namn of [...(this._loops?.keys() || [])]) this.stopLoop(namn)
+  }
+
   // Musik är en stub i grundbygget (respekterar flaggan). Lägg till en lugn loop senare.
   playMusic() {}
   stopMusic() {}

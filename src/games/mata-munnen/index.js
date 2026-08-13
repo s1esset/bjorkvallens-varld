@@ -89,6 +89,35 @@ const MIN_PER_MAT = {
   lollipop: 'skratt',
 }
 
+// HUR NÅGOT TUGGAS. Käken gjorde tidigare exakt samma sak för allt: `tugga(3)` med
+// förvald takt, plus tre triangelvågstoner på ett eget schema. Det är det ljud och den
+// rörelse barnet ser och hör OFTAST i hela spelet, och den sa ingenting om vad han åt.
+//
+// ⚠️ Premissen prövad mot koden först: `sakMaterial(key)` finns redan — men den är fysikens
+// material (metall · trä), den styr studsen på bänken, och ALL brädmat är hårdkodad till
+// `tra`. Den kunde alltså inte bära det här. Tuggklassen är därför en egen tabell.
+//
+// `onTugg` i riggen ger ljudet vid varje sammanbitning, så knastret ligger på käkens egen
+// takt även när takten byts — ett eget schema hade drivit isär i samma sekund.
+export const TUGG = {
+  knaprig: { n: 5, takt: 0.075, djup: 0.62, klipp: 'tugg_knaprig', ton: 690, typ: 'square', vol: 0.1 },
+  seg: { n: 2, takt: 0.2, djup: 0.9, klipp: 'tugg_seg', ton: 150, typ: 'sine', vol: 0.2 },
+  mjuk: { n: 3, takt: 0.11, djup: 0.75, klipp: 'tugg_mjuk', ton: 200, typ: 'triangle', vol: 0.2 },
+  dryck: { n: 1, takt: 0.17, djup: 0.45, klipp: 'klunk', ton: 280, typ: 'sine', vol: 0.18 },
+}
+// Bara det som avviker från `mjuk` behöver stå här. Nycklarna är både `mat.js` (brädan)
+// och `skafferi.js` (köket) — samma drag, samma mun, samma tabell.
+const TUGG_KLASS = {}
+for (const k of ['apple', 'carrot', 'corn', 'broccoli', 'cookie', 'gurka', 'is', 'pommes',
+  'kringla', 'popcorn', 'pepparkaka', 'saltgurka', 'kaka', 'bacon', 'oliv', 'sallad']) TUGG_KLASS[k] = 'knaprig'
+for (const k of ['banana', 'banan', 'candy', 'lollipop', 'godis', 'honung', 'sylta', 'ost',
+  'korv', 'kyckling', 'choklad', 'munk', 'smor', 'paj', 'glass']) TUGG_KLASS[k] = 'seg'
+for (const k of ['glas_saft', 'mjolk', 'ketchup', 'senap']) TUGG_KLASS[k] = 'dryck'
+// Namngiven export enbart för sonden: den ska läsa VÄNTAT antal tuggor ur spelets egen
+// tabell. En kopia i sondfilen hade drivit isär från spelet vid första ändringen, och då
+// mäter sonden sin egen tabell i stället för koden.
+export const tuggProfil = (key) => TUGG[TUGG_KLASS[key] || 'mjuk']
+
 // Pappas egna uttrycksljud är INSPELADE klipp (ägaren spelar in dem själv). De finns inte
 // än, så varje min bär också en stämd reserv: två toner som säger samma sak i musik.
 // `harSample` frågar först — annars hade varje tugg flaggat `saknat-ljudklipp` i testloggen.
@@ -102,6 +131,13 @@ const ROST = {
   aj: { klipp: 'pappa_aj', ton: [700, 430], typ: 'triangle' },
   skratt: { klipp: 'pappa_fniss', ton: [600, 760], typ: 'triangle' },
   nojd: { klipp: 'pappa_rap', ton: [240, 105], typ: 'sawtooth' },
+  // De fyra nya minerna (v1.199). Klippnamnen finns innan filerna gör det — det är hela
+  // poängen med `harSample`: ägaren lägger `pappa_gasp.mp3` i `public/audio/sfx/` och
+  // gäspningen har röst i samma sekund, utan en rad kod. Tills dess den stämda reserven.
+  gasp: { klipp: 'pappa_gasp', ton: [300, 200], typ: 'sine' },
+  chock: { klipp: 'pappa_chock', ton: [420, 900], typ: 'sine' },
+  skeptisk: { klipp: 'pappa_hmm', ton: [330, 296], typ: 'sine' },
+  retas: { klipp: 'pappa_retas', ton: [560, 700], typ: 'triangle' },
 }
 
 export default {
@@ -811,6 +847,9 @@ export default {
           onComplete: () => { if (!this._vatten && n.strale && !n.strale.destroyed) n.strale.visible = false } })
       }
       audio.tone({ freq: this._vatten ? 620 : 300, dur: 0.12, type: 'sine', vol: 0.16 })
+      // …och sedan RINNER det, så länge kranen står på. Klicket kvitterar tryckningen,
+      // slingan är tillståndet. Se `_slinga`.
+      this._slinga(ctx, 'kran', this._vatten, { klipp: 'kran', typ: 'brus', freq: 2100, q: 0.7, vol: 0.075 })
       if (this._vatten) ctx.services.voice.say('Vattnet rinner!')
       return
     }
@@ -818,12 +857,18 @@ export default {
       this._spisPa = !this._spisPa
       if (n.plattor) gsap.to(n.plattor, { alpha: this._spisPa ? 1 : 0.35, duration: 0.3 })
       audio.tone({ freq: this._spisPa ? 240 : 180, dur: 0.16, type: 'triangle', vol: 0.16 })
+      // Kastrullen puttrar: lågt brus, inte en ton — en kokande gryta är bubblor.
+      this._slinga(ctx, 'spis', this._spisPa, { klipp: 'koka', typ: 'brus', freq: 320, q: 2.2, vol: 0.055 })
       if (this._spisPa) ctx.services.voice.say('Nu kokar det i kastrullen!')
       return
     }
     if (st.id === 'flakt') {
       this._flaktPa = !this._flaktPa
       audio.tone({ freq: this._flaktPa ? 180 : 140, dur: 0.2, type: 'sawtooth', vol: 0.1 })
+      // Fläkten SNURRADE TYST. Hjulet gick runt på skärmen medan ljudet var ett enda
+      // brum vid tryckningen — för en tvååring är det en trasig orsak-verkan, samma sort
+      // som senapen som inte gick att hälla.
+      this._slinga(ctx, 'flakt', this._flaktPa, { klipp: 'flakt', typ: 'ton', freq: 96, q: 0.9, vol: 0.05 })
       if (this._flaktPa) ctx.services.voice.say('Fläkten surrar!')
       return
     }
@@ -1014,6 +1059,13 @@ export default {
     if (!this._alive || rec._uppaten) return
     rec._uppaten = true
     this._idle = 0
+    // Draget äger gapet fram hit; tuggan äger det härefter. Nedräkningen i ticken
+    // ("stäng munnen igen") och tuggans tween skriver båda till `gap()`, och utan den här
+    // raden är det bara TIDTABELLEN som håller isär dem — uppmätt i `_munprobe --trace`
+    // hinner nedräkningen bli klar (~260 ms) strax innan tuggan börjar (240 ms efter att
+    // biten släppts). Marginalen är alltså tiotals millisekunder och beror på draget:
+    // överlappet är inte observerat, men det ska inte bero på det.
+    this._gapNu = 0
     const key = rec.data.key
     const farg = rec.data.farg
     const v = rec.view
@@ -1036,25 +1088,36 @@ export default {
 
     const a = this._ans
     a?.slappMin(0.1)
+    const prof = tuggProfil(key)
     ctx.later(0.24, () => {
       if (!this._alive) return
-      a?.tugga(3)
-      this._skymt(ctx, farg)
-      this._smulor(ctx, farg)
-      ctx.services.audio.tone({ freq: 200, dur: 0.07, type: 'triangle', vol: 0.2 })
-      ctx.services.audio.tone({ freq: 170, dur: 0.07, type: 'triangle', vol: 0.2, delay: 0.22 })
-      ctx.services.audio.tone({ freq: 205, dur: 0.07, type: 'triangle', vol: 0.2, delay: 0.44 })
+      // En morot knaprar fem gånger fort och grunt, en kola tuggas två gånger djupt och
+      // segt, saft klunkas en gång. Ljudet hänger på käkens egen takt via `onTugg`.
+      a?.tugga(prof.n, {
+        takt: prof.takt, djup: prof.djup,
+        onTugg: (i) => this._tuggLjud(ctx, prof, i),
+      })
+      this._skymt(ctx, farg, prof)
+      this._smulor(ctx, farg, prof)
+      // Sväljningen: förr tog maten slut i tystnad, och `pop` (samma ljud som en utspottad
+      // gaffel) var det sista man hörde. Ligger efter sista sammanbitningen.
+      ctx.later(prof.n * prof.takt * 2 + 0.12, () => { if (this._alive) this._svalj(ctx) })
     })
 
     this._atna += 1
     this._fyllTill(this._atna / this._antal)
+    this._andas(ctx)
     this._frigor(ctx, rec)
 
     // Sällsynt wow (~1 på 8): grimasen hålls längre, ansiktet skakar och det glittrar.
     const wow = Math.random() < 0.125
     ctx.later(0.92, () => {
       if (!this._alive) return
-      const namn = rec.data.min || 'lycksalig'
+      let namn = rec.data.min || 'lycksalig'
+      // `fundersam` bar fyra brädmatbitar OCH hela reservvägen för katalogen — samma
+      // rynkade panna om och om igen. Hälften av dem blir nu `skeptisk` i stället: samma
+      // betydelse, ett annat ansikte. (Variation som inte kräver en ny orsak.)
+      if (namn === 'fundersam' && Math.random() < 0.5) namn = 'skeptisk'
       const sek = this._sag(ctx, namn)
       // Minen sitter kvar minst så länge pappa låter: `pappa_surt` är 1,90 s och ansiktet
       // hade annars hunnit bli neutralt mitt i hans egen sura reaktion.
@@ -1063,6 +1126,15 @@ export default {
       // replik. Utan skillnaden var senapen en repris av chilireaktionen (kritikerfynd)
       // — §4:s hela poäng med nya smaker är att de ska ge EGNA orsaker.
       if (namn === 'het') this._hetta(ctx, sek, key === 'senap' ? 0.55 : 1)
+      // ISBITEN. Grimasen satt förr på `het` — flämtningen stämde, men ansiktet RODNADE
+      // av en iskub. Nu blir han kall i stället, och huttrar: `tveka` med liten vinkel och
+      // hög takt är en huttring, samma gest med stor vinkel och låg takt är en tvekan.
+      if (key === 'is') {
+        this._kyla(ctx, sek)
+        a?.tveka({ vinkel: 0.022, varv: 6, tid: 0.08 })
+      } else if (namn === 'skeptisk' || namn === 'fundersam') {
+        a?.tveka()
+      }
       if (wow) {
         if (a?.view && !a.view.destroyed) shake(a.view, { intensity: 7, duration: 0.5 })
         sparkle(ctx.fxLayer, ANS.x, this._ogonY, { count: 10 })
@@ -1081,9 +1153,28 @@ export default {
     })
   },
 
-  _smulor(ctx, farg) {
-    for (let i = 0; i < 3; i++) {
-      ctx.later(0.1 + i * 0.22, () => {
+  // Ett knaster/smask per sammanbitning. Tonhöjden varierar ±7 % — tre identiska blipp i
+  // rad läses som ett fel i ljudet, medan samma ljud med liten variation läses som samma
+  // mun som tuggar igen. Klippet först när ägaren spelat in det (`harSample`).
+  _tuggLjud(ctx, prof, i) {
+    const audio = ctx.services.audio
+    if (audio.harSample?.(prof.klipp) && audio.sample(prof.klipp)) return
+    const f = prof.ton * (0.93 + Math.random() * 0.14)
+    audio.tone({ freq: f, dur: prof.takt * 0.7, type: prof.typ, vol: prof.vol, slideTo: f * 0.86 })
+  },
+
+  // Sväljningen. Egen klippnyckel, stämd reserv tills den finns.
+  _svalj(ctx) {
+    const audio = ctx.services.audio
+    if (audio.harSample?.('pappa_svalj') && audio.sample('pappa_svalj')) return
+    audio.tone({ freq: 260, dur: 0.16, type: 'sine', vol: 0.17, slideTo: 120 })
+  },
+
+  _smulor(ctx, farg, prof = TUGG.mjuk) {
+    // Smulorna följer tuggtakten — annars ryker det ur munnen i en annan rytm än käken
+    // rör sig, vilket är precis det som får en animation att kännas "påklistrad".
+    for (let i = 0; i < Math.max(2, prof.n); i++) {
+      ctx.later(0.1 + i * prof.takt * 2, () => {
         if (!this._alive) return
         puff(ctx.fxLayer, ANS.x + (Math.random() - 0.5) * 70, this._munY + 24, { count: 5, color: farg })
       })
@@ -1095,7 +1186,7 @@ export default {
   // med "pappa tuggar på DEN". Klämningarna ligger på tuggens egen takt (0,22 s, samma som
   // tonerna). Allt tweenas via ett proxy-objekt med destroyed-vakt: skymten lever under en
   // sekund och spelaren kan lämna mitt i (exit-säkerhet, samma mönster som feedback.js).
-  _skymt(ctx, farg) {
+  _skymt(ctx, farg, prof = TUGG.mjuk) {
     if (!this._ans || !this._matL || this._matL.destroyed) return
     const g = new Graphics()
     g.ellipse(0, 0, 25, 11).fill({ color: farg, alpha: 0.92 })
@@ -1111,7 +1202,9 @@ export default {
       onComplete: () => { if (!g.destroyed) g.destroy() },
     })
     tl.to(st, { s: 1, duration: 0.12, ease: 'back.out(2.2)' })
-    tl.to(st, { klam: 0.3, duration: 0.11, ease: 'sine.inOut', repeat: 5, yoyo: true })
+    // Klämningarna på tuggans EGNA takt (`prof.takt`) och lika många som tuggorna — en
+    // fast rytm hade gjort att skymten och käken gick isär så fort takten blev materialets.
+    tl.to(st, { klam: 0.3, duration: prof.takt, ease: 'sine.inOut', repeat: Math.max(1, prof.n * 2 - 1), yoyo: true })
     tl.to(st, { s: 0, duration: 0.14, ease: 'power2.in' })
   },
 
@@ -1139,11 +1232,21 @@ export default {
     // (§4 Variation), och eskalering mot skratt är motsatsen till tillsägelse (P0).
     const grad = this._geggor.length
     const egen = rec.data.min === 'aj' || rec.data.min === 'acklad' ? rec.data.min : null
+    // En KASTRULL i pannan är inte en banan i pannan. Hårda saker (`hard`, samma flagga
+    // som avgör att de kilas fast i stället för att rinna) ger chock: vidöppna ögon OCH
+    // mun. Mjuka saker under ögonlinjen får hälften `retas` — tungan ut med öppna ögon
+    // är ett svar på buset, inte en tillsägelse, och `forvanad` ensam blev en repris.
     const namn = egen || (grad >= 5 ? 'skratt'
-      : rec.ty < this._ogonY ? (Math.random() < 0.5 ? 'aj' : 'skratt') : 'forvanad')
+      : rec.data.hard === true ? 'chock'
+        : rec.ty < this._ogonY ? (Math.random() < 0.5 ? 'aj' : 'skratt')
+          : (Math.random() < 0.5 ? 'retas' : 'forvanad'))
     this._ans?.slappMin(0.1)
     const sek = this._sag(ctx, namn)
     this._ans?.min(namn, { hall: Math.max(1.3, sek + 0.1) })
+    // Huvudet RYCKER av träffen. `shake` skakar hela bilden (kameran), medan `ryck` är
+    // pappa själv som far bakåt och kommer tillbaka — det är skillnaden mellan att
+    // skärmen darrar och att någon blev påkörd i ansiktet.
+    this._ans?.ryck({ styrka: namn === 'chock' ? 1.3 : 0.85 })
     if (this._ans?.view && !this._ans.view.destroyed) {
       shake(this._ans.view, { intensity: grad >= 5 ? 8 : 5, duration: grad >= 5 ? 0.5 : 0.34 })
     }
@@ -1404,6 +1507,48 @@ export default {
     }
   },
 
+  // Ett kontinuerligt ljud som följer en stations PÅ/AV — och som spelet självt håller
+  // reda på, så `destroy()` kan tysta exakt de slingor det startat. (Skalet stoppar alla
+  // slingor efter varje omgång som yttersta säkring; den här listan är för att spelet ska
+  // kunna göra rätt av sig självt, och för att sonden ska kunna läsa vad som låter.)
+  _slinga(ctx, namn, pa, opt) {
+    const audio = ctx.services.audio
+    if (!audio.loop) return // äldre tjänst utan sling-API: klicket ensamt får duga
+    this._slingor = this._slingor || new Set()
+    if (pa) {
+      audio.loop(namn, opt)
+      this._slingor.add(namn)
+    } else {
+      audio.stopLoop(namn)
+      this._slingor.delete(namn)
+    }
+  },
+
+  // ANDHÄMTNINGEN SÄGER HUR FULL MAGEN ÄR. Takten var en konstant i riggen (2,4 s) och
+  // därmed samma vid första tuggan som vid sista. Nu blir andetagen längre ju mättare han
+  // blir — mätaren syns i burken, men det här känns utan att man tittar på den.
+  _andas(ctx) {
+    if (!this._alive || !this._ans) return
+    const fyllt = this._antal ? Math.min(1, this._atna / this._antal) : 0
+    this._ans.liv(true, { takt: 2.4 + fyllt * 1.3 })
+  },
+
+  // ISBITEN: motsatsen till chilin, och medvetet MINDRE. Kylan går upp lika snabbt (det
+  // är lika direkt), men ligger kortare och svalnar fortare — en iskub smälter, en chili
+  // sitter kvar. Ingen ånga ur öronen: det är chilins bild och ska förbli det.
+  _kyla(ctx, sek = 0) {
+    const a = this._ans
+    if (!a || !this._alive) return
+    const st = this._kylSt || (this._kylSt = { t: 0 })
+    gsap.killTweensOf(st)
+    const satt = () => { if (this._alive && this._ans) this._ans.kyla(st.t) }
+    const tl = gsap.timeline()
+    tl.to(st, { t: 0.85, duration: 0.22, ease: 'power2.out', onUpdate: satt })
+    tl.to(st, { t: 0, duration: 1.2, delay: Math.max(0.8, sek), ease: 'sine.inOut', onUpdate: satt })
+    // Frostiga glimtar vid munnen — samma roll som chilins rök, en tiondel av storleken.
+    sparkle(ctx.fxLayer, ANS.x, this._munY, { count: 7, color: 0xbfe9ff })
+  },
+
   // Narratorn kommenterar då och då — aldrig efter varje bit, det blir tjat.
   //
   // ⚠️ VÄNTAR TILLS PAPPA HAR TALAT KLART. Repliken låg tidigare i samma ögonblick som
@@ -1489,6 +1634,10 @@ export default {
       if (!this._alive) return
       this._torkaRent(ctx)
       this._sopaBanken(ctx)
+      // Winken som avslutning — den enda gesten som talar direkt till barnet, och den
+      // hör hemma just här: `nojd` har hunnit blekna (hållet är 3 s), och en wink bakom
+      // en aktiv min hade varit osynlig eftersom min-lappen ligger över ögonlagren.
+      this._ans?.blinkning('h')
     })
     ctx.later(3.4, () => {
       if (!this._alive) return
@@ -1519,9 +1668,14 @@ export default {
         this._gapNu = v
         this._ans.gap(v)
       }
+      // …och han LUTAR SIG MOT maten. Bara käken svarade förr, vilket gör inbjudan
+      // dubbelt så tydlig när hela huvudet är med — och lutningen skalas med samma
+      // närhetstal som gapet, så han inte kastar sig efter något på andra sidan bänken.
+      this._ans.lutaMot(Math.max(-1, Math.min(1, (rec.tx - ANS.x) / 300)) * v)
     } else if (this._gapNu > 0 && !this._busy) {
       this._gapNu = Math.max(0, this._gapNu - dt / 260)
       this._ans?.gap(this._gapNu)
+      this._ans?.lutaMot(0)
     }
 
     // Mjuk om-cue vid stillhet — en fråga, aldrig en tillsägelse.
@@ -1534,6 +1688,27 @@ export default {
       // skåpen går att öppna: en stängd lucka har bara sitt handtag att gå på, och en
       // 2-åring läser inget. En ring och ett litet skutt på dörren är en inbjudan, aldrig
       // en tillsägelse — och den kräver ingen text (P0 NAVIGATION).
+      // PAPPA SJÄLV gör något var fjärde cue. Vilo-cue:n pekade förr alltid på något
+      // ANNAT (maten, en lucka) medan huvudpersonen stod och andades — och det är han
+      // barnet tittar på. En gäspning säger "jag väntar" utan ett ord, och en blinkning
+      // är den enda gesten i spelet som talar direkt TILL barnet.
+      // ⚠️ Winken måste ligga när ingen min är aktiv: min-lappen ligger över ögonlagren,
+      // så en wink bakom en grimas syns inte alls. Vilo-cue:n körs bara när `!_busy`.
+      if (this._cueVaxel % 4 === 0) {
+        const a = this._ans
+        if (a) {
+          if (this._cueVaxel % 8 === 0) {
+            const sek = this._sag(ctx, 'gasp')
+            a.min('gasp', { hall: Math.max(1.1, sek + 0.1) })
+            a.liv(true, { takt: 3.6 }) // dåsig andhämtning under gäspningen
+            ctx.later(Math.max(1.5, sek + 0.6), () => { if (this._alive) this._andas(ctx) })
+          } else {
+            a.blinkning('h')
+            ctx.services.voice.say('Pappa vill ha mer!')
+          }
+        }
+        return
+      }
       if (this._cueVaxel % 3 === 0) {
         const stangda = (this._stationer || []).filter((st) => st.dorr && !st.oppen)
         const st = randomFrom(stangda)
@@ -1592,6 +1767,12 @@ export default {
     // Hettans tween skriver till riggen varje bildruta — den måste dö FÖRE ansiktet,
     // annars tintar den ett förstört lager (exit mitt i en chili).
     if (this._hetSt) { gsap.killTweensOf(this._hetSt); this._hetSt = null }
+    if (this._kylSt) { gsap.killTweensOf(this._kylSt); this._kylSt = null }
+    // Kranen och fläkten låter tills någon stänger av dem — och den som lämnar spelet
+    // mitt i ett rinnande vatten stänger inte av något. (Skalet tystar allt efter varje
+    // omgång också; det här är spelets egen del av samma ansvar.)
+    for (const namn of this._slingor || []) ctx?.services?.audio?.stopLoop?.(namn)
+    this._slingor = null
     // Hällningen håller en `rec` och en vy som `_drag.clear()` strax river.
     this._hallRec = null
     this._hallV = null

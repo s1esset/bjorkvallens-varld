@@ -457,7 +457,7 @@ export const SAKER = Object.fromEntries([
   B('godis', 'Godis', 0xff7bb0, 'skratt'),
   B('jordgubbe', 'Jordgubbe', 0xe23b4f, 'lycksalig'),
   B('banan', 'Banan', 0xf7d548, 'lycksalig'),
-  B('is', 'Isbit', 0xcfeefb, 'het'),
+  B('is', 'Isbit', 0xcfeefb, 'chock'), // `het` förr: flämtningen stämde, men han RODNADE av en iskub
   B('smor', 'Smör', 0xffe08a, 'fundersam'),
   B('honung', 'Honung', 0xffb937, 'lycksalig'),
   B('oliv', 'Oliv', 0x4a5b2a, 'sur'),

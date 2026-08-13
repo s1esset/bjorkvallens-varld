@@ -166,6 +166,11 @@ export async function createGameHost(services, params) {
       endGame('exit')
       assets.unloadBundle(game.bundle)
       voice.cancel()
+      // Kontinuerliga ljud (kranen, fläkten) hör till OMGÅNGEN. Ett spel som glömmer att
+      // stoppa sin slinga — eller vars `destroy` kraschar ovan — hade annars låtit vidare
+      // på menyn, och ett brum utan bild går inte att förstå eller stänga av. Städas här
+      // av samma skäl som `timers`: skalet får inte lita på att spelet gjorde rätt.
+      audio.stopAllLoops()
     },
   }
 }

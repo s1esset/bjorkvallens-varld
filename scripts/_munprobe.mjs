@@ -50,6 +50,14 @@ const las = (page) =>
       // räknades som bus. En hårdkodad koordinat i en sond är en tyst felkälla.
       mun: { x: Math.round(g._mun?.x ?? 0), y: Math.round(g._mun?.y ?? g._munY) },
       ogon: Math.round(g._ogonY ?? 0),
+      // Huvudgesten: lutar han sig MOT maten? Läses som riggens eget fält, inte som en
+      // pixelmätning i bild — gesten är en transform och har ett exakt tal.
+      luta: Math.round((a?._g?.lutaR ?? 0) * 1000) / 1000,
+      // Kontinuerliga ljud: spelets egen lista och tjänstens faktiska källor. BÅDA behövs
+      // — spelet kan tro att en slinga går utan att tjänsten startat den, och tjänsten kan
+      // bära en slinga som spelet tappat räkningen på (det är den som låter kvar på menyn).
+      slingor: [...(g._slingor || [])],
+      kallor: window.__barnspel?.audio?._loops?.size ?? 0,
       mat: (g._mat || []).filter((r) => !r._uppaten && !r.view.destroyed)
         .map((r) => ({ key: r.data.key, x: Math.round(r.view.x), y: Math.round(r.view.y) })),
     }
@@ -101,22 +109,78 @@ try {
   const nara = await las(page)
   const naraMun = nara.gap
   console.log(`  (drag långt bort: ${JSON.stringify(fjarran.drag)} · vid munnen: ${JSON.stringify(nara.drag)})`)
+  // Lutningen mäts i SAMMA drag: han ska luta sig mot maten när den är nära, och stå
+  // rakt när ingen drar. Kontrollarmen är läget efter släppet.
+  const lutaNara = nara.luta
   await page.mouse.move(bit.x, bit.y)
   await page.waitForTimeout(200)
   await page.mouse.up()
   await page.waitForTimeout(700)
+  const efterSlapp = await las(page)
   console.log(`\n  GAP  långt bort ${langtBort.toFixed(2)}  →  vid munnen ${naraMun.toFixed(2)}   ${naraMun > langtBort + 0.3 ? '✓' : '✗ munnen bjuder inte in'}`)
+  console.log(`  LUTA vid munnen ${lutaNara.toFixed(3)} rad · efter släppet ${efterSlapp.luta.toFixed(3)}   ` +
+    `${Math.abs(lutaNara) > 0.004 && Math.abs(efterSlapp.luta) < 0.004 ? '✓' : '✗ huvudet följer inte maten (eller går inte tillbaka)'}`)
 
   // ---- 2. ETT MÅL: mata en bit --------------------------------------------
   s = await las(page)
   const forsta = s.mat[0]
   const fore = { atna: s.atna, fyll: s.fyll, kvar: s.mat.length }
+  // TUGGAR HAN OLIKA PÅ OLIKA MAT? Käkens öppning spelas in bildruta för bildruta under
+  // tugget och sammanbitningarna räknas som stigande flanker. Väntat antal läses ur
+  // SPELETS egen tabell (`tuggProfil`), inte ur en kopia här — en kopia hade drivit isär
+  // vid första ändringen och sonden hade då mätt sig själv.
+  //
+  // ⚠️ MÄTFÖNSTRET FÅR INTE BÖRJA FÖRE SLÄPPET. Gapet följer fingret medan maten dras och
+  // står på 1,00 vid munnen — det är en stigande flank som inte är en tugga, och första
+  // körningen räknade därför 3 där profilen säger 2. Fönstret startar efter `mouse.up`.
+  // Minen läses i SAMMA fönster: hållet är ~1,4 s och en avläsning efter en 2,6 s
+  // inspelning kommer alltid för sent (den rapporterade "(ingen)" med allt i sin ordning).
   await drag(forsta, s.mun)
+  const tugg = await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('mata-munnen')
+    const a = g._ans
+    const t0 = performance.now()
+    const spar = []
+    let min = null
+    while (performance.now() - t0 < 2400) {
+      spar.push(a?._gap ?? 0)
+      if (!min && a?._aktivMin) {
+        for (const [namn, s2] of Object.entries(a._miner)) if (s2 === a._aktivMin) min = namn
+      }
+      await new Promise((r) => requestAnimationFrame(r))
+    }
+    // ⚠️ TVÅ STÄNGNINGAR SOM INTE ÄR TUGGOR, båda avlästa i den råa gapkurvan (`--trace`):
+    //   9876432111111 | 13677751577774267876 2 0000…
+    //   └ munnen stängs efter släppet   └ tuggan: tre stigningar med var sin sammanbitning
+    // Den första är draget som slutar (gapet följer fingret och räknas ner när det släpps,
+    // ~200 ms innan `onCorrect` ens fyrar), inte ett tugg. Räknaren hoppar därför över
+    // allt fram till FÖRSTA gången munnen är stängd, och räknar sedan sammanbitningar —
+    // en fallande flank efter en stigning. Sammanbitningen är dessutom exakt vad `onTugg`
+    // fyrar på, alltså samma händelse som knasterljudet ligger på.
+    let n = 0
+    let uppe = false
+    let igang = false
+    for (const v of spar) {
+      if (!igang) { if (v < 0.2) igang = true; continue }
+      if (uppe && v < 0.2) { n++; uppe = false }
+      if (!uppe && v > 0.35) uppe = true
+    }
+    return { tuggor: n, topp: Math.round(Math.max(...spar, 0) * 100) / 100, min,
+      spar: spar.filter((_, i) => i % 2 === 0).map((v) => Math.round(v * 10)) }
+  })
+  const vantat = await page.evaluate(async (key) => {
+    const m = await import('/src/games/mata-munnen/index.js')
+    const p = m.tuggProfil(key)
+    return { n: p.n, klass: Object.keys(m.TUGG).find((k) => m.TUGG[k] === p) }
+  }, forsta.key)
+  console.log(`\n  TUGG ${forsta.key} (${vantat.klass}): ${tugg.tuggor} sammanbitningar, väntat ${vantat.n} · djupaste gap ${tugg.topp}   ` +
+    `${tugg.tuggor === vantat.n ? '✓' : '✗ käken följer inte tuggprofilen'}`)
+  if (args.includes('--trace')) console.log(`       gapkurva (tiondelar, varannan bildruta): ${tugg.spar.join('')}`)
   await page.waitForTimeout(1500)
   let e = await las(page)
   const steg = Math.round((1 / s.antal) * 1000) / 1000
   console.log(`\n  MAT  ${forsta.key}: äten ${fore.atna}→${e.atna} · mätare ${fore.fyll}→${e.fyll} (väntat steg ${steg}) · kvar ${fore.kvar}→${e.mat.length}`)
-  console.log(`       min efter tugget: ${e.min ?? '(ingen)'}   ${e.atna === fore.atna + 1 && Math.abs(e.fyll - steg) < 0.02 ? '✓' : '✗'}`)
+  console.log(`       min under tugget: ${tugg.min ?? '(ingen)'}   ${e.atna === fore.atna + 1 && Math.abs(e.fyll - steg) < 0.02 && tugg.min ? '✓' : '✗'}`)
   await page.screenshot({ path: shot.replace(/\.png$/, '-tugg.png') })
 
   // ---- 3. BUS: släpp i pannan ---------------------------------------------
@@ -129,6 +193,28 @@ try {
     e = await las(page)
     console.log(`\n  BUS  ${busBit.key} i pannan: gegga ${geggorFore}→${e.geggor} · mätaren ${s.fyll}→${e.fyll} ${Math.abs(e.fyll - s.fyll) < 0.001 ? '(oförändrad ✓)' : '(✗ bus ska inte mätta)'} · min ${e.min ?? '(ingen)'}`)
     await page.screenshot({ path: shot.replace(/\.png$/, '-bus.png') })
+  }
+
+  // ---- 3b. SLINGORNA: låter fläkten så länge den snurrar? ------------------
+  // Kontrollarmen FÖRST (CLAUDE.md: en mätning som inte kan skilja två kända lägen åt
+  // säger ingenting om det okända): innan någon rört fläkten ska tjänsten bära noll
+  // källor. Sedan på, sedan av. Att läsa spelets `_slingor` ensamt hade inte räckt —
+  // spelet kan tro att något låter utan att tjänsten startade det.
+  const flaktYta = await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('mata-munnen')
+    const st = (g._stationer || []).find((x) => x.id === 'flakt')
+    return st ? { x: Math.round(st.yta.x + st.yta.w / 2), y: Math.round(st.yta.y + st.yta.h / 2) } : null
+  })
+  if (flaktYta) {
+    const noll = await las(page)
+    await page.mouse.click(flaktYta.x, flaktYta.y)
+    await page.waitForTimeout(500)
+    const pa = await las(page)
+    await page.mouse.click(flaktYta.x, flaktYta.y)
+    await page.waitForTimeout(600)
+    const av = await las(page)
+    console.log(`\n  LJUD fläkten: källor ${noll.kallor} (orörd) → ${pa.kallor} (på: ${pa.slingor.join(',') || '—'}) → ${av.kallor} (av)   ` +
+      `${noll.kallor === 0 && pa.kallor === 1 && av.kallor === 0 ? '✓' : '✗ slingan följer inte stationen'}`)
   }
 
   // ---- 4. HELA TALLRIKEN → FINALEN ----------------------------------------
@@ -149,14 +235,25 @@ try {
   const efterFinal = await las(page)
   console.log(`  EFTER  ny tallrik: ${efterFinal.mat.length} bitar · mätare ${efterFinal.fyll} · gegga ${efterFinal.geggor} (ska vara 0 — avtorkad)`)
 
-  // ---- 5. EXIT MITT I ETT TUGG --------------------------------------------
+  // ---- 5. EXIT MITT I ETT TUGG, MED KRANEN PÅ -----------------------------
+  // Ett kontinuerligt ljud överlever inte en tween-städning — det överlever ALLT tills
+  // någon stoppar källan. Den som lämnar mitt i ett rinnande vatten stänger inte av
+  // kranen först, så den här raden är hela skälet till att `stopAllLoops()` finns.
   s = await las(page)
+  if (flaktYta) {
+    await page.mouse.click(flaktYta.x, flaktYta.y)
+    await page.waitForTimeout(400)
+  }
+  const ljudFore = (await las(page)).kallor
   if (s.mat.length) {
     await drag(s.mat[0], s.mun)
     await page.waitForTimeout(420) // mitt i tuggan, före minen
     await page.evaluate(() => window.__barnspel.nav.go('library'))
     await page.waitForTimeout(1400)
   }
+  const ljudEfter = await page.evaluate(() => window.__barnspel?.audio?._loops?.size ?? -1)
+  console.log(`\n  EXIT  ljudkällor med fläkten PÅ: ${ljudFore} → efter att ha lämnat spelet: ${ljudEfter}   ` +
+    `${ljudFore > 0 && ljudEfter === 0 ? '✓' : '✗ ett ljud lever kvar utanför spelet'}`)
 
   console.log(`\n  ${errors.length === 0 ? '✓ 0 konsolfel (inkl. exit mitt i tugget)' : '✗ ' + errors.length + ' konsolfel: ' + errors.slice(0, 3).join(' | ')}`)
   console.log(`  bilder: ${shot} (+ -tugg, -bus)\n`)

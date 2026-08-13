@@ -242,12 +242,27 @@ const G = {
   hakaTon: [636, 700], // alfan tonas 1 → 0 mellan dessa y (döljer tröjan)
   mun: { x: 283, y: 470, w: 170, h: 138 }, // mun-inre ur `gap`
   ogon: { x: 243, y: 286, w: 280, h: 108 }, // ögonlappen ur `blund`
+  // ETT öga i taget: samma blund-bild, men maskad till en mjuk oval kring vardera ögat.
+  // Lägena är AVLÄSTA i `ogon.webp` (ögonen ligger på y 346 i rutan, mitt 369, ±76), inte
+  // gissade ur lappens ram — lappen är 14 px högerförskjuten mot ansiktets mittlinje.
+  // Ovalen är 66 px bred: 10 px luft kvar till mittlinjen, så en blinkning med ETT öga
+  // aldrig kan råka tona in en flik av det andra.
+  oga: { cy: 346, mitt: 369, avst: 76, rx: 66, ry: 46, mjuk: 12 },
   min: { cx: 373, cy: 452, rx: 168, ry: 226, mjuk: 34 }, // minernas ovala lapp
 }
 
 const filUt = path.join('public', 'ansikte', PERSON)
 fs.mkdirSync(filUt, { recursive: true })
-const MINER = ['sur', 'acklad', 'het', 'lycksalig', 'fundersam', 'forvanad', 'aj', 'nojd', 'skratt']
+// ⚠️ EN NY MIN MÅSTE VARA DISTINKT MOT DE NIO FÖRSTA, och det avgörs i BILD — inte av att
+// rollen har ett eget namn. Tre kandidater prövades mot `min-*.webp` i montage och föll
+// innan de kostade något: `blas` (#115) bär samma pluta som `sur`, `gapskratt` (#101) är
+// samma vidöppna mun med slutna ögon som `het`, och `mums` (#98) är ett leende med slutna
+// ögon precis som `nojd` och `lycksalig`. Var min kostar ~1,04 MB GPU-minne okomprimerat,
+// och en min som läser som en annan gör dessutom reaktionen otydligare för barnet.
+// De fyra som blev kvar täcker var sitt hål: öppen mun med ÖPPNA ögon (gäspning), vidöppna
+// ögon OCH mun (chock), hopknipna ögon (skeptisk), tunga ut med öppna ögon (retas).
+const MINER = ['sur', 'acklad', 'het', 'lycksalig', 'fundersam', 'forvanad', 'aj', 'nojd', 'skratt',
+  'gasp', 'chock', 'skeptisk', 'retas']
 
 // ⚠️ MASKEN MÅSTE SKÄRA I BEFINTLIG ALFA, INTE ERSÄTTA DEN. `-compose CopyOpacity`
 // SÄTTER alfan från masken — då blev friläggningens genomskinliga bakgrund opak igen och
@@ -308,6 +323,26 @@ const ogonLager = skriv(ogonP, 'ogon')
 ogonLager.x += G.ogon.x
 ogonLager.y += G.ogon.y
 
+// EN ÖGONLAPP PER ÖGA — winken, och den trötta halvblundningen.
+// Materialet har visserligen fem foton där personen blinkar med ett öga, men de är HELA
+// miner: de bär också sin egen mun, så en wink hade uteslutit alla andra munlägen (och
+// kostat 1,04 MB). Samma blund-bild maskad till en oval per öga kostar 0,12 MB, går att
+// kombinera med gap, tugg och vilken min som helst — och är dessutom rätt öga varje gång.
+const ogonHalvor = {}
+for (const [namn, sida] of [['ogon_v', -1], ['ogon_h', 1]]) {
+  const p = path.join(TMP, `_${namn}.png`)
+  const cx = G.oga.mitt + sida * G.oga.avst - G.ogon.x // ovalens läge INNE i den beskurna lappen
+  const cy = G.oga.cy - G.ogon.y
+  magick([path.join(TMP, 'blund.png'), '-crop', `${G.ogon.w}x${G.ogon.h}+${G.ogon.x}+${G.ogon.y}`, '+repage',
+    '(', '-size', `${G.ogon.w}x${G.ogon.h}`, 'xc:none', '-fill', 'white',
+    '-draw', `ellipse ${cx},${cy} ${G.oga.rx},${G.oga.ry} 0,360`, '-blur', `0x${G.oga.mjuk}`, ')',
+    '-compose', 'Dst_In', '-composite', p])
+  const l = skriv(p, namn)
+  l.x += G.ogon.x
+  l.y += G.ogon.y
+  ogonHalvor[namn] = l
+}
+
 // Minerna: oval lapp över ansiktets insida.
 const minLager = {}
 for (const m of MINER) {
@@ -321,7 +356,7 @@ const manifest = {
   person: PERSON,
   ruta: { w: UTW, h: UTH },
   geometri: { klipp: G.klipp, ogonlinje: 341, mun: G.mun },
-  lager: { ...halvor, mun: munLager, ogon: ogonLager },
+  lager: { ...halvor, mun: munLager, ogon: ogonLager, ...ogonHalvor },
   miner: minLager,
   kallor: Object.fromEntries(Object.entries(lager).map(([k, v]) => [k, v.kalla])),
 }

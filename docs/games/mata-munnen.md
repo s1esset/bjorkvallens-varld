@@ -227,12 +227,35 @@ knapparna aldrig möter varandra:
 
 
 ### Ljud
-- **[Quick] Pappas egna uttrycksljud.** Hela kopplingen finns: `ROST`-tabellen bär klippnamnen
-  (`pappa_mmm` · `pappa_blaa` · `pappa_aj` · `pappa_oj` · `pappa_ohh` · `pappa_aaah` ·
-  `pappa_rap` · `pappa_fniss`) och `audio.harSample()` frågar först, så klippen tas i bruk i
-  samma sekund de läggs i `public/audio/sfx/`. Tills dess spelar varje min sin stämda reserv.
-  **Ägarens inspelningsuppgift** — tyst rum, ett uttryck per fil.
-- **[Quick] Tugg/smask** som riktigt klipp i stället för tre triangelvågstoner.
+- ✅ **Pappas egna uttrycksljud** — alla nio inspelade (v1.194–1.195), se loggen.
+- ✅ **Tugg/smask följer maten** (v1.199). De tre fasta triangelvågstonerna är borta; `TUGG`
+  ger fyra profiler (knaprig · seg · mjuk · dryck) och ljudet ligger på käkens egen takt via
+  riggens nya `onTugg`. Sväljning tillagd.
+- ✅ **Kontinuerliga stationsljud** (v1.199) — `AudioService.loop/stopLoop/stopAllLoops`.
+- ⬜ **VÄNTAR PÅ ÄGAREN — sju klipp till.** Namnen finns redan i koden och `harSample()`
+  frågar först, så varje fil tas i bruk i samma sekund den ligger i `public/audio/sfx/`
+  (lägg till den i `manifest.json` på samma sätt som de nio första). Tills dess låter den
+  stämda reserven. Tyst rum, ett uttryck per fil, samma avstånd till mikrofonen som förra
+  gången (målet är −18 LUFS, samma som de nio befintliga):
+
+  | fil | vad | används när |
+  |---|---|---|
+  | `pappa_gasp.mp3` | en gäspning, gärna med ett litet ljud på slutet | vilo-cue:n var åttonde gång |
+  | `pappa_chock.mp3` | ett kort "AAH!" av förvåning | något hårt landar i ansiktet |
+  | `pappa_hmm.mp3` | tveksamt "hmmm…" | okänd mat (`skeptisk`) |
+  | `pappa_retas.mp3` | busigt "bläää" med skratt i | bus under ögonlinjen (`retas`) |
+  | `pappa_svalj.mp3` | en tydlig sväljning | efter sista tuggan, varje bit |
+  | `tugg_knaprig.mp3` | ETT knaprigt tuggljud (morot/chips) | spelas 5× per knaprig bit |
+  | `tugg_seg.mp3` | ETT segt smaskljud (kola/ost) | spelas 2× per seg bit |
+  | `tugg_mjuk.mp3` | ETT mjukt tuggljud | spelas 3× per vanlig bit |
+  | `klunk.mp3` | en klunk | saft, mjölk, ketchup, senap |
+
+  ⚠️ **Tuggklippen ska vara ETT tuggljud var, inte en serie.** Spelet spelar dem en gång per
+  sammanbitning på käkens takt (mätt: 3 sammanbitningar för mjuk mat, 2 för seg). Ett klipp
+  med tre tuggor i hade gett nio.
+  ⚠️ **Kranen, spisen och fläkten kan också få klipp** (`kran` · `koka` · `flakt`) — de måste
+  då vara **sömlöst loopbara**, för de spelas som en oändlig slinga. Den syntetiska bädden
+  (filtrerat brus) är fullt duglig och behöver inget klipp.
 
 ### Kärnloop & agens
 - ✅ **Maten syns i munnen ett ögonblick** (v1.198). `_skymt`: en färgad glimt mellan tänderna
@@ -254,7 +277,86 @@ knapparna aldrig möter varandra:
 - ✅ **Geggan glider en aning** innan den fastnar (v1.198) — ankaret + biten tweenas ihop
   0,55 s; hårda saker sitter fastkilade direkt.
 
+## 5d. Ansiktet fick fler uttryck och maten fick en röst (v1.199)
+
+Ägaruppdrag: *"kör allt du kan"* på fler miner och mer ljud.
+
+**Fyra nya miner ur fotoserien — och tre som förkastades i bild innan de kostade något.**
+Av shootens 129 bilder var 84 oanvända (de låg kvar i `ComfyUI/output`, bara kandidaterna
+hade kopierats till `assets-src/`). Kontaktkartor gjordes över alla 84, och de nya rollerna
+valdes mot ett krav: **minen måste vara distinkt mot de nio befintliga**, inte bara ha ett
+eget namn. `blas` (#115) föll — det är samma pluta som `sur` redan bär. `gapskratt` (#101)
+föll — samma vidöppna mun med slutna ögon som `het`. `mums` (#98) föll — samma leende med
+slutna ögon som `nojd` och `lycksalig`. Kvar blev fyra som täcker var sitt hål:
+
+| min | foto | hålet den fyller | används |
+|---|---|---|---|
+| `gasp` | #124 | öppen mun med ÖPPNA ögon | gäspning i vilo-cue:n |
+| `chock` | #129 | vidöppna ögon OCH mun | hårda saker i ansiktet · isbiten |
+| `skeptisk` | #7 | hopknipna ögon | hälften av all `fundersam`-mat |
+| `retas` | #15 | tunga ut med ÖPPNA ögon | bus under ögonlinjen |
+
+Inriktningen: rest **0,015–0,024**, alltså bättre än de nios median (0,024), och kalibreringen
+(referensen mot sig själv) står på skala 1,000 · vinkel 0° · rest 0. De gamla rollerna fick
+exakt samma foton som förut. Kostnad **+4,2 MB GPU** (varje min är 423×641 RGBA ≈ 1,04 MB) —
+disken är inte gränsen (799 kB av 3072), GPU-minnet är.
+
+**Winken byggdes INTE som en min.** Materialet har fem foton där han blinkar med ett öga, men
+de är hela miner: de bär sin egen mun, så en wink hade uteslutit alla andra munlägen och kostat
+1,04 MB. Samma blund-bild maskad till **en mjuk oval per öga** (`ogon_v` · `ogon_h`, 0,12 MB)
+går i stället att kombinera med gap, tugg och vilken min som helst. Ögonlägena är avlästa i
+`ogon.webp` (y 346, mitt 369, ±76), inte gissade ur lappens ram — lappen är 14 px
+högerförskjuten mot ansiktets mittlinje.
+
+**Riggen fick huvudet.** `nick` · `tveka` · `ryck` · `lutaMot`, alla på en ny nod `_gest`
+mellan spelets `view` och andningens `_inre`, roterande kring **halsen** (en rotation kring
+bildmitten svänger huvudet i sidled — samma mätning som en gång sa att käken måste
+translateras). Varje gest äger ett eget fält i `_g` och en enda funktion lägger ihop dem:
+två skrivare på samma transform tar ut varandra på ett sätt som bara ser ut som att gesten
+"ibland inte tar". Plus `kyla()` (motsatsen till `hetta()`) och `liv(pa, { takt })`.
+
+**⚠️ Gesterna hade dödat andningen, och det var mätt innan det byggdes fast.** `_track` höll
+24 tweens och kastade den ÄLDSTA när listan blev full — och den äldsta är `liv()`s eviga
+andetag. Med en nick per min och ett ryck per bus fylls listan på en halv minut.
+Kontrollarmen körd med den GAMLA `_track` inlagd: **1,66 ‰ före 40 gester → 0 ‰ efter**
+(andningen död). Med rensning av färdiga tweens och skydd för eviga: **1,66 → 1,66 ‰**.
+
+### Vad som mättes
+
+| Mätning | Kontrollarm | Utfall |
+|---|---|---|
+| Andas ansiktet efter 40 gester? | samma mätning FÖRE gesterna + gamla `_track` | 1,66 → 1,66 ‰ (gamla: → 0) ✓ |
+| Lutar han sig mot maten? | läget efter släppet | 0,007 rad → 0,000 ✓ |
+| Tuggar han olika på olika mat? | spelets egen `tuggProfil`, importerad | mjuk 3/3 · seg 2/2 ✓ |
+| Följer fläktljudet stationen? | tjänstens källor FÖRE tryck | 0 → 1 → 0 ✓ |
+| Överlever ett ljud att man lämnar? | fläkten PÅ vid exit | 1 → 0 ✓ |
+| Winken: ett öga, ingen skarv | `blink` (båda) i samma rutnät | avläst i bild ✓ |
+
+**Två sondläxor, båda av samma familj som §3:s:**
+
+- **Mätfönstret låg före släppet.** Tuggräknaren startade innan maten släpptes, och gapet
+  följer fingret ända till 1,00 vid munnen — den flanken är inte en tugga. Rättat till att
+  fönstret börjar efter `mouse.up`.
+- **Och även då räknade den en stängning för mycket.** Den råa gapkurvan (`--trace`) visade
+  varför: `9876432111111 | 13677751577774267876` — den första nedgången är DRAGET som slutar
+  (gapet räknas ner ~200 ms innan `onCorrect` ens fyrar), inte ett tugg. Räknaren hoppar nu
+  över allt fram till första gången munnen är stängd. **Utan kurvan hade "4 mot väntat 3"
+  lika gärna kunnat läsas som en bugg i spelet** — och den första rättelsen jag skrev i
+  koden (`_gapNu = 0` i `_ata`) visade sig vid mätning INTE fixa något observerat: de två
+  skrivarna hinner precis inte överlappa. Raden står kvar som en spärr, med en kommentar som
+  säger just det.
+
 ## 5. Status / loggar
+
+- 2026-08-13 😀 **Fler miner, huvudgester och ljud som följer maten** (v1.199.0). Se §5d.
+  Fyra nya miner (`gasp` · `chock` · `skeptisk` · `retas`) ur shootens oanvända 84 bilder,
+  wink via halverat ögonlager, huvudgester i riggen (`nick` · `tveka` · `ryck` · `lutaMot`),
+  `kyla()`, andningstakt som följer mättnaden, materialdriven tuggning i fyra profiler med
+  ljud på käkens egen takt, sväljning, och kontinuerliga stationsljud
+  (`AudioService.loop`, städat av `GameHost` som yttersta säkring).
+  **Sonderna:** `_ansiktebild` fick andningsmätningen, gest-rutorna och `--bara`;
+  `_munprobe` fick LUTA · TUGG · LJUD · EXIT-raderna (och `--trace`). `_vaxelprobe` 15/15,
+  `_kokprobe` grön isolerat, `check` 0/0, `test:all` **73/73**, röstkön tömd (6 klipp).
 
 - 2026-08-13 ✨ **Kökslyft 2 — ägarens polera-uppdrag** (`d709ca8`, v1.198.0). Tre delar:
   **volympass på allt ritat** (skafferiets 13 prylar, brädmaten 19/20, hamburgerbyggets 48/63,

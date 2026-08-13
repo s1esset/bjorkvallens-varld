@@ -54,6 +54,22 @@
       "w": 280,
       "h": 108,
       "kb": 7
+    },
+    "ogon_v": {
+      "fil": "ogon_v.webp",
+      "x": 243,
+      "y": 286,
+      "w": 150,
+      "h": 108,
+      "kb": 4
+    },
+    "ogon_h": {
+      "fil": "ogon_h.webp",
+      "x": 346,
+      "y": 286,
+      "w": 177,
+      "h": 108,
+      "kb": 5
     }
   },
   "miner": {
@@ -128,6 +144,38 @@
       "w": 426,
       "h": 641,
       "kb": 48
+    },
+    "gasp": {
+      "fil": "min-gasp.webp",
+      "x": 166,
+      "y": 132,
+      "w": 419,
+      "h": 641,
+      "kb": 50
+    },
+    "chock": {
+      "fil": "min-chock.webp",
+      "x": 164,
+      "y": 132,
+      "w": 425,
+      "h": 641,
+      "kb": 51
+    },
+    "skeptisk": {
+      "fil": "min-skeptisk.webp",
+      "x": 156,
+      "y": 132,
+      "w": 423,
+      "h": 641,
+      "kb": 51
+    },
+    "retas": {
+      "fil": "min-retas.webp",
+      "x": 151,
+      "y": 132,
+      "w": 425,
+      "h": 641,
+      "kb": 52
     }
   },
   "kallor": {
@@ -142,6 +190,10 @@
     "forvanad": 12,
     "aj": 50,
     "nojd": 58,
-    "skratt": 75
+    "skratt": 75,
+    "gasp": 124,
+    "chock": 129,
+    "skeptisk": 7,
+    "retas": 15
   }
 }

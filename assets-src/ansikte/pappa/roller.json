@@ -72,6 +72,30 @@
       85,
       89,
       87
+    ],
+    "gasp": [
+      114,
+      125,
+      124,
+      113
+    ],
+    "chock": [
+      128,
+      129,
+      107,
+      105
+    ],
+    "skeptisk": [
+      8,
+      17,
+      9,
+      7
+    ],
+    "retas": [
+      15,
+      16,
+      24,
+      14
     ]
   },
   "_roller": {
@@ -86,7 +110,12 @@
     "forvanad": "oj! (bus)",
     "aj": "något studsade på näsan (bus)",
     "nojd": "mätt och belåten (finalen)",
-    "skratt": "bonus — bus i hår/öron"
+    "skratt": "bonus — bus i hår/öron",
+    "gasp": "gäspning: avslappnad öppen mun med ÖPPNA hängande ögon — vilo-cue:n",
+    "chock": "vidöppna ögon OCH vidöppen mun — den stora bus-reaktionen",
+    "skeptisk": "hopknipna ögon, misstänksam — okänd mat innan han provar",
+    "retas": "tunga ut med ÖPPNA ögon — busig, inte äcklad (`acklad` har slutna ögon)"
   },
+  "__valda_bort": "Tre roller prövades mot de befintliga nio i bild och FÖLL, innan de kostade något: `blas` (#115, pluta/blåser) är samma munform som `sur` redan bär; `gapskratt` (#101/#99, vidöppen mun med slutna ögon) är samma ansikte som `het`; `mums` (#98, slutet leende) ligger för nära `nojd` och `lycksalig`, som båda redan är leenden med slutna ögon. Varje min kostar ~1,04 MB GPU-minne okomprimerat — en min som läser som en av de nio är dyr och gör dessutom reaktionerna otydligare. Kontaktkartan är kvar i `docs/games/mata-munnen.md` §4.",
   "__disjunkt": "Kandidatlistorna delar INGA foton, och skriptet ger dessutom aldrig samma foto till tva roller. Skalet ar matt: nar `sur` och `aj` bada hade #50 i listan valde pose-sokningen samma bild till bagge, och da hade tva olika miner blivit samma ansikte."
 }

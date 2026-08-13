@@ -15,21 +15,67 @@
   "djur_uggla": "djur_uggla.mp3",
   "fart": "fart.mp3",
   "flip": "flip.mp3",
+  "kast": "kast.mp3",
+  "klunk": [
+    "klunk_1.mp3",
+    "klunk_2.mp3"
+  ],
+  "lucka": "lucka.mp3",
   "magi": "magi.mp3",
   "pappa_aaah": "pappa_aaah.mp3",
   "pappa_aj": "pappa_aj.mp3",
   "pappa_blaa": "pappa_blaa.mp3",
+  "pappa_chock": "pappa_chock.mp3",
+  "pappa_ehh": "pappa_ehh.mp3",
   "pappa_fniss": "pappa_fniss.mp3",
+  "pappa_gasp": "pappa_gasp.mp3",
+  "pappa_hmm": "pappa_hmm.mp3",
+  "pappa_huh": "pappa_huh.mp3",
   "pappa_mmm": "pappa_mmm.mp3",
   "pappa_ohh": "pappa_ohh.mp3",
   "pappa_oj": "pappa_oj.mp3",
   "pappa_rap": "pappa_rap.mp3",
+  "pappa_retas": "pappa_retas.mp3",
   "pappa_surt": "pappa_surt.mp3",
+  "pappa_svalj": "pappa_svalj.mp3",
   "plopp": "plopp.mp3",
+  "plopp_av": "plopp_av.mp3",
   "pop": "pop.mp3",
+  "prutt": [
+    "prutt_1.mp3",
+    "prutt_2.mp3",
+    "prutt_3.mp3",
+    "prutt_4.mp3",
+    "prutt_5.mp3"
+  ],
+  "prutt_lang": "prutt_lang.mp3",
   "reveal": "reveal.mp3",
   "soft": "soft.mp3",
+  "svalj": [
+    "svalj_1.mp3",
+    "svalj_2.mp3",
+    "svalj_3.mp3"
+  ],
   "tap": "tap.mp3",
   "thwip": "thwip.mp3",
+  "traff_hard": [
+    "traff_hard_1.mp3",
+    "traff_hard_2.mp3",
+    "traff_hard_3.mp3",
+    "traff_hard_4.mp3",
+    "traff_hard_5.mp3"
+  ],
+  "traff_mjuk": [
+    "traff_mjuk_1.mp3",
+    "traff_mjuk_2.mp3",
+    "traff_mjuk_3.mp3",
+    "traff_mjuk_4.mp3"
+  ],
+  "tugg_knaprig": "tugg_knaprig.mp3",
+  "tugg_mjuk": [
+    "tugg_mjuk_1.mp3",
+    "tugg_mjuk_2.mp3"
+  ],
+  "tugg_seg": "tugg_seg.mp3",
   "whoosh": "whoosh.mp3"
 }

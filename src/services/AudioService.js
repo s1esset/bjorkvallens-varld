@@ -8,8 +8,15 @@ export class AudioService {
   constructor(save) {
     this.save = save
     this.ctx = null
-    this._samples = new Map() // namn -> AudioBuffer (avkodat, redo att spelas)
-    this._sampleUrls = new Map() // namn -> url (från manifest.json)
+    // VARIANTER: ett namn kan bära FLERA klipp, och då slumpas ett fram vid varje
+    // uppspelning (ägarens regel: "är det flera ljudeffekter med samma syfte kan vi använda
+    // dem med, fast då slumpas ljudet som spelas av dem fram"). Ett `prutt` som låter
+    // likadant sjätte gången är inte roligt längre. Manifestet uttrycker det som ett fält:
+    //   "prutt": ["prutt_1.mp3", … ]   ·   "kast": "kast.mp3"
+    // Båda formerna lagras som LISTA här inne, så resten av tjänsten har ett enda fall.
+    this._samples = new Map() // namn -> (AudioBuffer | undefined)[]  — gles, index följer url:erna
+    this._sampleUrls = new Map() // namn -> url[] (från manifest.json)
+    this._senast = new Map() // namn -> den variant som spelades sist (för sampleDuration)
     this._decoding = new Set()
     this._bindUnlock()
     this._loadSfxManifest()
@@ -157,7 +164,7 @@ export class AudioService {
     if (!c) return
     const rnd = (a, b) => a + Math.random() * (b - a)
     const master = Math.max(0.0001, this._s.masterVolume ?? 0.8)
-    const buf = this._samples.get('celebrate')
+    const buf = this._valjBuffert('celebrate')
     if (buf) {
       try {
         const src = c.createBufferSource()
@@ -200,7 +207,8 @@ export class AudioService {
       if (!res.ok) return
       const map = await res.json()
       for (const [k, f] of Object.entries(map)) {
-        this._sampleUrls.set(k, `${import.meta.env.BASE_URL}audio/sfx/${f}`)
+        const filer = Array.isArray(f) ? f : [f]
+        this._sampleUrls.set(k, filer.map((n) => `${import.meta.env.BASE_URL}audio/sfx/${n}`))
       }
       // Skapa AudioContext direkt och börja avkoda i bakgrunden — att vänta på _bindUnlock()s
       // pointerdown gjorde att avkodningen startade i EXAKT samma ögonblick som det tryck som
@@ -217,29 +225,50 @@ export class AudioService {
     for (const name of this._sampleUrls.keys()) this._decodeOne(name)
   }
 
+  // Avkodar ALLA varianter under ett namn. En delvis avkodad lista är helt i sin ordning —
+  // `_valjBuffert` slumpar bara bland dem som faktiskt är klara.
   async _decodeOne(name) {
-    if (this._samples.has(name) || this._decoding.has(name)) return
-    const url = this._sampleUrls.get(name)
-    if (!url) return
+    if (this._decoding.has(name)) return
+    const urls = this._sampleUrls.get(name)
+    if (!urls?.length) return
+    const klara = this._samples.get(name)
+    if (klara && klara.filter(Boolean).length === urls.length) return
     const c = this._ensure()
     if (!c) return
     this._decoding.add(name)
+    const lista = klara || new Array(urls.length)
+    this._samples.set(name, lista)
     try {
-      const res = await fetch(url)
-      if (!res.ok) return
-      const ab = await res.arrayBuffer()
-      const buf = await c.decodeAudioData(ab)
-      this._samples.set(name, buf)
-    } catch {
-      /* avkodning misslyckades -> fallback */
+      await Promise.all(urls.map(async (url, i) => {
+        if (lista[i]) return
+        try {
+          const res = await fetch(url)
+          if (!res.ok) return
+          lista[i] = await c.decodeAudioData(await res.arrayBuffer())
+        } catch {
+          /* den varianten uteblir; de andra duger */
+        }
+      }))
     } finally {
       this._decoding.delete(name)
     }
   }
 
+  // En slumpad, FÄRDIGAVKODAD variant. Kommer ihåg valet så `sampleDuration` kan svara på
+  // hur långt det som just spelades var — spelen schemalägger miner och repliker på den
+  // längden, och med varianter är den inte längre en konstant per namn.
+  _valjBuffert(name) {
+    const lista = this._samples.get(name)
+    const klara = lista?.filter(Boolean) || []
+    if (!klara.length) return null
+    const buf = klara.length === 1 ? klara[0] : klara[Math.floor(Math.random() * klara.length)]
+    this._senast.set(name, buf)
+    return buf
+  }
+
   // Spela ett förinspelat klipp om det finns OCH är avkodat. Returnerar true om det spelades.
   _playSample(name) {
-    const buf = this._samples.get(name)
+    const buf = this._valjBuffert(name)
     if (!buf) {
       // inte avkodat ännu -> starta avkodningen så det är redo nästa gång
       if (this._sampleUrls.has(name)) this._decodeOne(name)
@@ -276,8 +305,15 @@ export class AudioService {
   // `mata-munnen` lade berättarrösten sig ovanpå pappas egen röst så fort klippen blev
   // riktiga (0,3 s ton → 1,9 s inspelning). Läs längden i stället för att gissa den —
   // ett hårdkodat tal driver isär från filen vid nästa omtagning.
+  // ⚠️ Med varianter är detta längden på den SENAST SPELADE varianten, inte en konstant.
+  // `mata-munnen._sag()` läser den direkt efter `sample()` för att veta hur länge minen ska
+  // hållas och när berättaren får prata — läses den före ett anrop får man förra gångens
+  // klipp (eller den första varianten innan något spelats), vilket är rätt fallback men
+  // fel att bygga en tidtabell på.
   sampleDuration(name) {
-    return this._samples.get(name)?.duration || 0
+    const s = this._senast.get(name)
+    if (s) return s.duration
+    return this._samples.get(name)?.find(Boolean)?.duration || 0
   }
 
   sample(name) {
@@ -327,9 +363,11 @@ export class AudioService {
       g.gain.value = 0.0001
       g.connect(c.destination)
       let src
-      if (klipp && this._samples.has(klipp)) {
+      // En slinga väljer sin variant EN gång, vid start — den ska inte byta ljud mitt i.
+      const slingBuf = klipp ? this._valjBuffert(klipp) : null
+      if (slingBuf) {
         src = c.createBufferSource()
-        src.buffer = this._samples.get(klipp)
+        src.buffer = slingBuf
         src.loop = true
         src.connect(g)
       } else if (typ === 'brus') {

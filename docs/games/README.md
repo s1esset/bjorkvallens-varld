@@ -98,8 +98,17 @@ byggdes för klipp som saknade en: **tryck på pappa** (`pappa_huh`), **maten la
 ⚠️ **P0-fynd:** munnens släppmål (130 px `static`) täckte ansiktet, så ett tryck rakt på pappa
 svarade inte alls — `dod-traffyta`. Sonder: `_klippprobe` 14/14 · ny `_handelseprobe` 8/8 ·
 ny `_matbild`. Statusen ✅/✅ oförändrad.
-**Pågår:** ägaruppdrag 2, tre av sex steg kvar (riggen med 158 nya bilder **inkl. blick** ·
-kastet · front-on kök med hals) — se `mata-munnen.md` §6.
+✅ **Ägaruppdrag 2 är KLART** (v1.202–1.204, arbetsordern i `mata-munnen.md` §7 → utfallet i
+**§7b**). Pappa följer maten med **ögonen** (tre blicklappar ur ägarens andra fotoshoot), sju
+miner bär **flera foton** med varianten låst per app-session (GPU oförändrat), och han har fått
+en **hals** — köksön skar förut mitt i skägget, vilket läste som ett huvud på ett fat.
+⚠️ Tre läxor värda att bära vidare: **pose-måttet (silhuett-IoU) är blint för mimik**, så det
+kan aldrig välja mellan foton som delar pose — uttrycket döms i bild; **två stickprov är inte
+ett spann**; och `BUS.ryNer` var en **tyst passagerare** på bänkkanten som tog 0 av 8 kast utan
+ett konsolfel. Sonder: `_kokprobe` (+skärlinjen) · `_munprobe` (+blicken) · `_ansiktebild`
+(+variantvalet). Statusen ✅/✅ oförändrad.
+**Kvar (ren utseendepost):** ägarens front-on-önskan om kranen och spisen — den var motiverad
+av utrymme, och utrymmet löstes på annat sätt.
 
 ✅ **Speltestat av ägaren på telefon och åtgärdat** (v1.196–1.197, ÅTGÄRDER #8–#12). Pappa har
 nio inspelade uttrycksljud, geggan kladdar och rinner i stället för att svälla ovanpå en

@@ -14,6 +14,106 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.204.0 · Blicken, variantminerna och halsen — arbetsordern körd i sin helhet
+
+**Byggt:** hela `docs/games/mata-munnen.md` §7 (A1 · A2 · A3), plus en sondfix. Utfallet med
+alla tal står i **§7b** i samma dokument; det här är sammanfattningen.
+
+**A1 — blicken (`aecb18c`).** Tre nya lager i fotoriggen, `blick_v` · `blick_h` · `blick_ner`,
+klippta ur samma ögonruta som blinkningen men ur foton där han tittar åt ett håll. 6 kB på
+disk och **0,12 MB GPU per riktning**, mot 1,04 MB för en hel min — blicken är billig just för
+att den är en lapp och inte ett ansikte, och går därför att kombinera med gap, tugg och min.
+Materialet kommer ur ägarens andra fotoshoot via `kallor` i `roller.json`.
+- **Lappen är PÅ eller AV — utslaget väljer riktning, aldrig alfa.** Det är inte en förenkling
+  utan mekanismens villkor: under blicklappen ligger `ovre` med sina egna ögon som tittar rakt
+  fram, så en lapp på halv alfa visar **två irisar i samma öga**. Att låta styrkan styra alfan
+  hade alltså gett en dubbelexponering exakt i det läge den var tänkt att göra finast. Vid byte
+  korsbleks lapparna på 0,13 s, och just den blekningen läser som att ögat rör sig.
+- **Lagerordning:** `ovre` → blick → `ogon`/`ogon_v`/`ogon_h` → miner. Ligger blicken över
+  blinkningen blundar han med öppna ögon.
+- Kunden är oskalad av närheten, till skillnad från gapet och lutningen: att han följer maten
+  redan medan den lyfts på andra sidan bänken är hela inbjudan.
+
+**A2 — variantminer (`d60e5c4`).** Sju roller bär nu 2–3 foton var (`sur` · `lycksalig` ·
+`forvanad` · `aj` · `gasp` · `skeptisk` · `retas`): 10 extra lappar, 508 kB disk, och
+**GPU-minnet står still på 13,5 MB** eftersom `laddaAnsikte()` väljer EN lapp per roll vid
+inläsning — samma mönster som ljudets `_sampleUrls`, slumpen i tjänsten och inte i spelen.
+Varianten är låst per **app-session**, inte per anrop; barnet får ett ansikte som skiljer sig
+mellan omgångar, inte mellan grimaser. Råvaran var redan betald (fyra kandidater per roll,
+skriptet använde en). Två pass, primärpasset först, så alla 13 `min-*.webp` kom ut byte för
+byte identiska.
+
+**A3 — halsen (`94aecb3`).** Köksön skar förut mitt i skägget (ruta 616) och pappa läste som
+ett huvud på ett fat. Nu går hakan och halsens översta 19 px ner bakom bänkkanten.
+**Planens båda halvor föll på mätning:**
+- `hakaTon` kan inte lösa halsen alls — **axelsömmen börjar på ruta 614, alltså OVANFÖR hakan
+  (683)**, så en vågrät ton kan per definition inte skilja hals från tröja.
+- Front-on-ritningen av köksön behövdes inte. `ANS` 268/470 → **250/460** (ansiktet upp 18 px,
+  ner 2 % i storlek) flyttar skärlinjen in i halsen utan att röra bräda, mat, fysik eller öns
+  front — alla tre fullt budgeterade (luckorna slutar 706 av skärmens 720, brädan 558 av
+  bänkkantens 566). Bänkdjupet blir 126 px, under det gamla "146 läser som ett fat", men det
+  talet mättes UTAN hals: en hals som försvinner bakom en bänk ÄR en person.
+
+**Tre fynd som inte fanns i planen — de är sessionens verkliga behållning:**
+
+⚠️ **POSE-MÅTTET ÄR BLINT FÖR MIMIK, och det slog till tre gånger.** `rest` (silhuett-IoU) i
+`ansikte.mjs` är byggt för att ignorera minen — det är hela poängen — och därför kan det aldrig
+avgöra vilket foto som ska väljas när kandidaterna delar pose. Tre gånger gav det två
+kandidater **identiska tal** och rätt svar avgjordes i bild: `blick_h` (#95 och #98 båda 0,025,
+men #95 drar ner vänsterbrynet och läser som misstänksam, dessutom i annat brynläge än `vila`),
+fyra variantminer **under** rest-taket som läser som fel min (`chock` #105 blev en gäspning och
+krockade med `gasp`; `skeptisk` #9 blev `aj`; `fundersam` #111 och #65 blev "blåser" — hela den
+rollens restlista är samma sömniga bild, så den får ingen variant alls). Bortvalen ligger som
+DATA med skäl i `roller.json` (`variant_bort`, `__blick_en_kandidat`).
+
+⚠️ **TVÅ STICKPROV ÄR INTE ETT SPANN.** Halsmasken skulle nyckla på ljushet, och två mätpunkter
+såg ut att bevisa att det gick (tröja 21, mörkaste skägg 101). Mätt som spann över hela ytor
+**överlappar de helt**: skägget går ner till 19 och tröjans veck upp till 152. Tröskeln 18 %
+låg på 46 medan tröjan vid (200,650) låg på 45, och den enda pixelns marginal blev ett 11 %
+genomskinligt spöke av hela axelpartiet. Det som faktiskt skiljer dem är POSITION, profilerad
+rad för rad → en avsmalnande pelare i masken.
+
+⚠️ **TVÅ TYSTA PASSAGERARE PÅ `KANT_Y`, båda gröna i `npm run check`.** `BUS.ryNer` var
+`KANT_Y − ANS.y` och växte 127 → 190 när bänkkanten flyttades, utan att någon rört buset —
+`_kasta` läste därmed VARJE kast som bus: **0 av 8 kast nådde pappa**, noll konsolfel. Ellipsen
+räknas nu ur fotot (`BUS_NER`) och kastet är tillbaka på 7/7. Och lagerdelningen
+`st.yta.y > KANT_Y` hade flyttat `lador` mellan lager av sig själv; villkoret är nu en
+tillhörighetsflagga (`pa: 'on'`), inte en höjdjämförelse.
+
+Dessutom: `-compose Lighten` på två ALFA-lappar ger **snittet, inte unionen** — masken krympte
+till halspelarens bredd och `bas` kom ut 429 px bred i stället för 553, hela ansiktets sidor
+bortklippta utan felmeddelande. Masken byggs därför i gråskala på svart duk och blir alfa sist.
+
+**Sondfix (`0c8042d`).** `_vaxelprobe`s kontrollarm krävde `forvanad` exakt, men spelet slår
+sedan v1.199 slant mellan `retas` och `forvanad` för en fläck under ögonlinjen. Raden föll i
+ungefär varannan körning utan att något var fel (uppmätt 1 rött av 4; HEAD var grön på ren tur).
+
+**Sonderna växte där mätningen saknades:** `_kokprobe` +3 rader som låser skärlinjen mot hakan,
+halsen och brädan och kontrollerar att busellipsen är frikopplad · `_munprobe` läser blicken med
+vänster och höger som varandras kontrollarmar (både vald lapp OCH dess alfa — namnet ensamt är
+mekanismen, inte fenomenet) · `_ansiktebild` laddar om sidan 12 gånger och räknar unika
+variantlappar, med enlappsrollerna som kontrollarm.
+
+**Commits:** `0c8042d` fix(sond) · `aecb18c` feat(mata-munnen): blicken · `d60e5c4`
+feat(ansikte): variantminer · `94aecb3` feat(mata-munnen): halsen
+**Kontroll:** `npm run check` 0 fel · `npm run test:all` **73/73 gröna** · `_kokprobe` alla
+mätningar gröna · `_munprobe` · `_kastprobe` 7/7 · `_vaxelprobe` 15/15 (3 körningar) ·
+`_handelseprobe` 8/8 · `_ansiktebild` 0 konsolfel, andning 1,38 ‰ före och efter 40 gester.
+
+**Öppet:**
+- **Bygget är INTE omgjort.** Telefonen kör fortfarande v1.157.0. `npm run build` + `serve`
+  (+ Tailscale 8445) är nästa naturliga steg om ägaren ska speltesta blicken och halsen.
+- **Ägarens front-on-önskan om kranen och spisen** ("ser bättre ut") är ogjord. Den var
+  motiverad av utrymmet i A3, och utrymmet löstes på annat sätt — den står kvar som en ren
+  utseendepost i `mata-munnen.md` §7b.
+- Tuggklippens och klunkens snittpunkter är fortfarande valda på ljudstruktur och längd, inte
+  på gehör (`KLIPP`-tabellen i `scripts/importera-ljud.mjs`).
+- 147 bilder ur shoot 2 finns bara i `C:\repos\ComfyUI_Windows_portable\ComfyUI\output`.
+- Tre gamla `saknat-ljudklipp` kvarstår i `test:all`-loggen (`skratt` · `flakt` · `blubb`) —
+  aldrig inspelade, orörda av den här sessionen.
+
+---
+
 ## 2026-08-13 · v1.200.0 · Ägarens ljudleverans: 33 klipp, slumpade varianter, tre nya händelser
 
 **Byggt:** steg 1 och 3 av ett godkänt sexstegsuppdrag (se **Öppet** — tre steg återstår).

@@ -610,6 +610,22 @@ Bumpa MINOR, en commit per post, aldrig `git add -A`.
 
 ## 5. Status / loggar
 
+- 2026-08-13 👁️ **Arbetsordern §7 KÖRD — blick, variantminer och hals** (`aecb18c` · `d60e5c4`
+  · `94aecb3`, v1.202–1.204). Sammanfattningen med alla tal står i **§7b**. I korthet:
+  pappa följer maten med ÖGONEN (`blick_v/h/ner`, 0,12 MB GPU per riktning, lappen på-eller-av
+  eftersom halv alfa ger två irisar i samma öga); sju miner bär 2–3 foton med varianten låst
+  per app-session (GPU oförändrat 13,5 MB); och han har fått en HALS — köksön skar förut mitt
+  i skägget.
+  ⚠️ Tre fynd som inte fanns i planen: **pose-måttet är blint för mimik** (tre gånger gav det
+  identiska rest-tal åt kandidater som läser som olika miner — valet måste göras i bild),
+  **två stickprov är inte ett spann** (hudnyckeln på ljushet såg bevisad ut på två punkter men
+  tröjans veck når 152 och skägget 19, alltså total överlappning), och **`BUS.ryNer` var en
+  tyst passagerare på bänkkanten** — den växte 127 → 190 när kanten flyttades och gjorde varje
+  kast till bus: 0 av 8 kast nådde fram, utan ett konsolfel och med `check` grön.
+  Sonder: `_kokprobe` +3 rader som låser skärlinjen mot hakan/halsen/brädan · `_munprobe` läser
+  blicken med sidorna som varandras kontrollarmar · `_ansiktebild` mäter variantvalet över 12
+  omladdningar med enlappsrollerna som kontroll. Statusen ✅/✅ oförändrad.
+
 - 2026-08-13 🔊 **Ägarens ljudleverans: 34 klipp, slumpade varianter, tre nya händelser**
   (`20feffa` + `d3a0c64`, v1.200.0). Se §6 för resten av uppdraget.
   **Slumpen ligger i tjänsten:** ett manifest-värde får vara ett fält, `sample()` väljer bland

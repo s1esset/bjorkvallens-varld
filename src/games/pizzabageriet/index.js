@@ -436,10 +436,44 @@ export default {
     // Övre kontrollpanel + vred.
     c.addChild(new Graphics().roundRect(x - 152, y - 152, 304, 42, 14).fill(0x6b6570))
     c.addChild(new Graphics().circle(x - 104, y - 131, 13).fill(0xd9d2c2).circle(x - 56, y - 131, 13).fill(0xd9d2c2))
-    // Lucka/öppning (mörk håla).
+    // Lucka/öppning.
     c.addChild(new Graphics().roundRect(x - 136, y - 90, 272, 264, 22).fill(0x6b6570))
-    this._cavity = new Graphics().roundRect(x - 120, y - 74, 240, 232, 18).fill(0x1d1a20)
+
+    // Hålan är en LÅDA, inte ett hål. Förut låg 240×232 px i EN ton (`0x1d1a20`) och det
+    // var svitens åttonde plattaste fält — 50 656 px mätta av `_plattprobe --medbakgrund`.
+    // Nu: fyra väggar i perspektiv mot en bakvägg, plus ett galler att ställa pizzan på.
+    // Ljussättningen är den enda som är fysiskt sann i en låda man tittar in i: TAKET är
+    // mörkast (inget ljus når det), GOLVET ljusast (rumsljuset studsar upp i det), och
+    // bakväggen tonar från mörk topp till ljusare botten där golvets studs når den.
+    const L = x - 120, T = y - 74, W = 240, H = 232
+    const BL = L + 34, BT = T + 30, BW = W - 68, BH = H - 74 // bakväggens rektangel
+    // Grundtonen syns bara i hörnrundningarna, där de raka väggarna inte når.
+    this._cavity = new Graphics().roundRect(L, T, W, H, 18).fill(0x15131a)
     c.addChild(this._cavity)
+
+    const box = new Graphics()
+    box.poly([L, T, L + W, T, BL + BW, BT, BL, BT]).fill(0x13111a) // tak
+    box.poly([L, T, BL, BT, BL, BT + BH, L, T + H]).fill(0x211d28) // vänster vägg (mot rummets ljus)
+    box.poly([L + W, T, L + W, T + H, BL + BW, BT + BH, BL + BW, BT]).fill(0x1a1722) // höger vägg
+    box.poly([L, T + H, BL, BT + BH, BL + BW, BT + BH, L + W, T + H]).fill(0x2f2936) // golv
+    box.rect(BL, BT, BW, BH).fill(verticalFill(0x191622, 0x2a2434)) // bakvägg
+    box.eventMode = 'none'
+    c.addChild(box)
+
+    // Gallret på mittenhyllan: en främre stång, en bakre, och sex skenor mellan dem.
+    // Pizzan hamnar på `OVEN.y` och täcker det under gräddningen — gallret är till för
+    // den TOMMA ugnen, som är det barnet ser under hela pyntandet.
+    const rack = new Graphics()
+    const RY = T + H * 0.62, RYB = BT + BH * 0.62
+    for (let i = 0; i <= 6; i++) {
+      const f = i / 6
+      rack.moveTo(L + 14 + (W - 28) * f, RY).lineTo(BL + 6 + (BW - 12) * f, RYB)
+    }
+    rack.stroke({ width: 2.5, color: 0x3f3947 })
+    rack.moveTo(BL + 6, RYB).lineTo(BL + BW - 6, RYB).stroke({ width: 3, color: 0x453e4d })
+    rack.moveTo(L + 14, RY).lineTo(L + W - 14, RY).stroke({ width: 4, color: 0x554d5e, cap: 'round' })
+    rack.eventMode = 'none'
+    c.addChild(rack)
     // Värmeglöd (alpha höjs under gräddning).
     this._glow = new Graphics().roundRect(x - 120, y - 74, 240, 232, 18).fill({ color: 0xff7a1a, alpha: 0 })
     this._glow.eventMode = 'none'

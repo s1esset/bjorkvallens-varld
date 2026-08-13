@@ -90,7 +90,12 @@ function rest(a, aw, ax, ay, b, bw, bx, by, w, h) {
 }
 
 const cfg = JSON.parse(fs.readFileSync(path.join(SRC, 'roller.json'), 'utf8'))
-const fil = (n) => path.join(SRC, cfg.kalla.replace('#####', String(n).padStart(5, '0')))
+// En roll får peka på en ANNAN fotoserie än referensens (`kallor: { roll: "mönster" }`).
+// Blickserien finns bara i ägarens andra shoot, och att blanda in en bild därifrån är
+// inget som får ske i tysthet: inriktningens `rest` och en tonjämförelse i samma
+// koordinatsystem är det som avgör om lappen går att lägga på den befintliga riggen.
+const monster = (roll) => (roll && cfg.kallor?.[roll]) || cfg.kalla
+const fil = (n, roll) => path.join(SRC, monster(roll).replace('#####', String(n).padStart(5, '0')))
 fs.mkdirSync(TMP, { recursive: true })
 
 const refFil = fil(cfg.referens)
@@ -174,8 +179,11 @@ for (const [roll, kandidater] of Object.entries(cfg.roller)) {
   // Steg 1: grovsök VARJE kandidat och välj den vars POSE ligger närmast referensen.
   const forsok = []
   for (const n of kandidater) {
-    if (tagna.has(n)) continue // ett foto bär EN roll — annars blev `sur` och `aj` samma bild
-    const f = fil(n)
+    // ⚠️ NYCKELN MÅSTE BÄRA KÄLLAN, inte bara numret. Med en roll som pekar på en annan
+    // fotoserie finns #97 i BÅDA — och shoot 1:s `blund` lade beslag på numret så att
+    // shoot 2:s blickbild försvann ur listan (kraschade som `vald` = undefined).
+    if (tagna.has(`${monster(roll)}#${n}`)) continue // ett foto bär EN roll
+    const f = fil(n, roll)
     const r = ram(f)
     // Utgångsläge: silhuettens mitt läggs där referensens silhuettmitt ligger i rutan,
     // och skalan gissas ur ramhöjden. Sökningen får rätta båda.
@@ -188,7 +196,8 @@ for (const [roll, kandidater] of Object.entries(cfg.roller)) {
   }
   forsok.sort((a, b) => a.grov.d - b.grov.d)
   const vald = forsok[0]
-  tagna.add(vald.n)
+  if (!vald) throw new Error(`rollen "${roll}" har inga kandidater kvar — alla är redan tagna av en annan roll`)
+  tagna.add(`${monster(roll)}#${vald.n}`)
 
   // Steg 2: finsök bara den valda.
   const b = sokTills(vald.f, uFin, FIN.marginal, FIN.skalor, FIN.vinklar, vald.grov)

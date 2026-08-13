@@ -462,6 +462,95 @@ fade blandar sig in.
 `HO` (SPH-vattnets kärl) om diskhon byggs om. Träffytorna räknas om par för par — **även
 föremålens** `GRIP_R` 52 (= 104 px diameter), som var det enda P0-brott kritikern hittade.
 
+## 7. ARBETSORDER — allt som är kvar på Mata Pappa (skriven 2026-08-13, v1.201.0)
+
+Läs `docs/SESSIONS.md` och §6 först. **Två av de tre kvarvarande posternas premisser är nu
+mätta**, så det här är körbart utan att något behöver undersökas om.
+
+**Ägarens tolerans (uttalad 2026-08-13):** hudton, hår, ljus och exakt storlek/läge på
+ansiktet behöver INTE vara perfekta — karaktären får tummas på i delar. Det är den regel som
+gör A1 nedan billig: material ur den andra fotoshooten får blandas in i den befintliga riggen.
+
+**Redan på plats (v1.201.0), gjort som förberedelse:**
+- `scripts/ansikte.mjs` tar `kallor: { "<roll>": "<mönster>" }` i `roller.json` — en roll får
+  peka på en ANNAN fotoserie än referensens.
+- `tagna`-nyckeln bär numera KÄLLAN, inte bara numret (shoot 1:s #97 och shoot 2:s #97 är
+  olika bilder; utan det kraschade körningen med `vald` = undefined).
+- Blickblocket **94–104 ligger i `assets-src/ansikte/pappa/`** som `s1face2__000NN_.png`.
+  Övriga 147 bilder finns bara i `C:epos\ComfyUI_Windows_portable\ComfyUI\output`.
+
+---
+
+### A1 · Blicken — pappa följer maten med ögonen  ⏱ liten
+
+✅ **Mätt och klart att bygga.** En blicklapp ur shoot 2 lagd på shoot 1:s rigg:
+- **Posen går att rätta:** de fyra provade blickbilderna riktade in sig på `rest`
+  **0,023–0,025**, mitt i de 16 befintliga rollernas spann (0,013–0,034, median 0,024).
+  Skala ~1,02, vinkel 0–1°.
+- **Sömmen syns inte.** Lappen klippt med samma ovala mask som `ogon` och lagd på
+  neutralansiktet: ingen synlig kant, ingen tonskarv (`.tmp-ansikte/_blickzoom2.png`).
+- ⚠️ **Välj bilder med STARK avvikelse.** Första urvalet (#94 · #97 · #98 · #102) gav en
+  irisförskjutning på några få px — knappt läsbar mot kontrollen. **#95 · #96 · #99** läser
+  tydligt åt sidan och **#100 · #102 · #103** tydligt nedåt. Kontaktkartan räcker inte:
+  döm i ögon-zoomen med "rakt fram" som kontrollrad bredvid.
+
+Att göra:
+1. `roller.json`: `kallor` för blickrollerna → `"s1face2__#####_.png"`, plus roller
+   `blick_v` · `blick_h` · `blick_upp` · `blick_ner` (fler riktningar bara om de behövs —
+   kunden är ett drag, alltså mest vågrätt).
+2. `scripts/ansikte.mjs`: klipp lapparna ur **samma ruta som `G.ogon`** (243, 286, 280×108)
+   med samma mjuka ellips, skriv `blick-<riktning>.webp` och lägg dem i `manifest.lager`.
+   Kostnad: 280×108×4 ≈ **0,12 MB per riktning** i GPU (4 st = 0,5 MB).
+3. `src/lib/ansikte.js`: `blick(dx, dy)` som korsbleknar in den lapp vars riktning ligger
+   närmast, som `ogon` gör. **Lagerordning: `ovre` → blick → `ogon`/`ogon_v`/`ogon_h` →
+   miner.** Blinkningen måste ligga ÖVER blicken (annars blinkar han med öppna ögon), och
+   minerna över allt (de bär sina egna ögon).
+4. Kunden: i `_update` när något dras — `blick((rec.tx − ANS.x)/300, (rec.ty − _munY)/200)`,
+   klämt till ±1, och `blick(0, 0)` när inget dras. Gapet och `lutaMot` gör redan exakt det,
+   så talen kan kopieras därifrån.
+5. Verifiera i `node scripts/_ansiktebild.mjs --bara "vila,blick v,blick h,blick ner"` —
+   **ett ansikte går inte att bedöma i tal.**
+
+### A2 · Variantminer — samma min, olika foto  ⏱ liten
+
+❌ Diff-beskärningen är mätt och förkastad (§6 + `scripts/_minprobe.mjs`) — den sparar 12 %.
+Vägen är i stället **en lista i manifestet, val vid inläsning**, exakt som ljudets
+`_sampleUrls`:
+1. `ansikte.mjs`: en roll får skriva flera lappar (`min-sur.webp`, `min-sur-2.webp`), och
+   `manifest.miner[roll]` blir ett FÄLT när det finns mer än en.
+2. `laddaAnsikte()`: läs fältet, **välj EN variant per roll** och ladda bara den. GPU-kostnaden
+   står då still (13,5 MB), disken växer ~50 kB per variant (budget 3072 kB, 799 kB använt).
+3. Priset som ska stå i koden: varianten är låst per app-session (`_cache` lever appens
+   livstid), inte per anrop. Det är avsiktligt — alternativet är 3× hela riggen i GPU.
+4. Kandidaterna finns redan: `roller.json` listar 4 per roll och skriptet väljer i dag 1.
+
+### A3 · Köket front-on + halsen  ⏱ STÖRST — gör den sist och ensam
+
+Alla tal står i §6. Kort: **halsen finns redan i det gamla neutralfotot** (hakan slutar
+ruta-y 695, halsen 700–785, kragen 785, axlar därunder), och det som döljer den är
+`G.hakaTon` [636,700] + `KANT_Y` 616. Men bänkdjupet är taket — 171 px läser som "bakom en
+bänk", 146 px läste som "ett fat", och en bakkant vid 440 ger 128 px med en 106 px djup bräda.
+**Därför är posten en ritningsändring, inte en justering av `HALS`.**
+
+Ordning som håller:
+1. Rita om i `kok.js` `byggKok`: köksön (polygonen ~rad 530), diskbänken och spisen **mer
+   framifrån** så toppytan blir grundare med avsikt. Brädan får bli grundare eller flytta ner.
+2. Flytta `G.hakaTon` nedåt i `ansikte.mjs` (t.ex. [700, 780]) och kör `npm run ansikte`.
+   ⚠️ `undre` (käken) ÅKER NER 40 px vid gap — halsen måste hamna i det statiska `bas`, inte
+   i `undre`. Utökas rutan nedåt: gör det med en EGEN `hUt`, rör inte `RUTA.h` (se §6).
+3. Räkna om ALLT som härleds ur `KANT_Y`: `BUS.ryNer` · `BRADA` · `PLATSER` · `MATARE` ·
+   `bankX()` · lagerdelningen `st.yta.y > KANT_Y` · `hakskugga` · dräneringsrutan i
+   `_vatskaTick` · puffen på rad ~1358. `FYSIK.golv` och `HO` ligger utanför.
+4. **Träffytorna par för par** (P0 ≥96 px, ≥24 px mellan) — `npm run check` fångar inte det.
+   Vänstra väggen rymmer exakt tre stationer på sina 404 px.
+5. Verifiera: `node scripts/_kokprobe.mjs` · `_munprobe.mjs` · `_kastprobe.mjs` (kastet
+   bygger på `BUS`-ellipsen och på att brädan har ansats åt sidan) · skärmdump.
+
+### Grind innan commit
+`npm run check` grön · `npm run test mata-munnen` 0 konsolfel · `_munprobe` · `_vaxelprobe` ·
+`_handelseprobe` · `_kastprobe` · `_ansiktebild`. `test:all` om `src/lib/` rörts.
+Bumpa MINOR, en commit per post, aldrig `git add -A`.
+
 ## 5. Status / loggar
 
 - 2026-08-13 🔊 **Ägarens ljudleverans: 34 klipp, slumpade varianter, tre nya händelser**

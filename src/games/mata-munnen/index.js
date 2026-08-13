@@ -80,7 +80,7 @@ const MIN_PER_MAT = {
 // än, så varje min bär också en stämd reserv: två toner som säger samma sak i musik.
 // `harSample` frågar först — annars hade varje tugg flaggat `saknat-ljudklipp` i testloggen.
 const ROST = {
-  sur: { klipp: 'pappa_ohh', ton: [560, 300], typ: 'sine' },
+  sur: { klipp: 'pappa_surt', ton: [560, 300], typ: 'sine' },
   acklad: { klipp: 'pappa_blaa', ton: [420, 190], typ: 'sawtooth' },
   het: { klipp: 'pappa_aaah', ton: [300, 820], typ: 'sine' },
   lycksalig: { klipp: 'pappa_mmm', ton: [440, 660], typ: 'sine' },
@@ -772,8 +772,8 @@ export default {
     gsap.to(v.scale, { x: 0.4, y: 0.4, duration: 0.16, ease: 'power2.in' })
     ctx.later(0.34, () => {
       if (!this._alive) return
-      a?.min(rec.data.min || 'acklad', { hall: 1.4 })
-      this._sag(ctx, rec.data.min || 'acklad')
+      const utMin = rec.data.min || 'acklad'
+      a?.min(utMin, { hall: Math.max(1.4, this._sag(ctx, utMin) + 0.1) })
       if (a?.view && !a.view.destroyed) shake(a.view, { intensity: 8, duration: 0.42 })
       if (!v.destroyed) {
         // Ut ur munnen som en RIKTIG kastad kropp: gaffeln flyger, studsar på bänken och
@@ -836,13 +836,15 @@ export default {
     ctx.later(0.92, () => {
       if (!this._alive) return
       const namn = rec.data.min || 'lycksalig'
-      a?.min(namn, { hall: wow ? 2.4 : 1.4 })
-      this._sag(ctx, namn)
+      const sek = this._sag(ctx, namn)
+      // Minen sitter kvar minst så länge pappa låter: `pappa_surt` är 1,90 s och ansiktet
+      // hade annars hunnit bli neutralt mitt i hans egen sura reaktion.
+      a?.min(namn, { hall: Math.max(wow ? 2.4 : 1.4, sek + 0.1) })
       if (wow) {
         if (a?.view && !a.view.destroyed) shake(a.view, { intensity: 7, duration: 0.5 })
         sparkle(ctx.fxLayer, ANS.x, this._ogonY, { count: 10 })
       }
-      this._replikEfterMin(ctx, namn)
+      this._replikEfterMin(ctx, namn, sek)
     })
 
     ctx.later(1.15, () => {
@@ -883,10 +885,10 @@ export default {
     const egen = rec.data.min === 'aj' || rec.data.min === 'acklad' ? rec.data.min : null
     const namn = egen || (rec.ty < this._ogonY ? (Math.random() < 0.5 ? 'aj' : 'skratt') : 'forvanad')
     this._ans?.slappMin(0.1)
-    this._ans?.min(namn, { hall: 1.3 })
-    this._sag(ctx, namn)
+    const sek = this._sag(ctx, namn)
+    this._ans?.min(namn, { hall: Math.max(1.3, sek + 0.1) })
     if (this._ans?.view && !this._ans.view.destroyed) shake(this._ans.view, { intensity: 5, duration: 0.34 })
-    this._replikEfterMin(ctx, namn)
+    this._replikEfterMin(ctx, namn, sek)
   },
 
   _gegga(ctx, rec) {
@@ -1004,23 +1006,39 @@ export default {
   // ----------------------------------------------------------------- ljud ---
 
   // Pappas röst: det inspelade klippet om det finns, annars minens stämda signatur.
+  // Returnerar hur LÄNGE han låter, i sekunder — den som schemalägger något efter honom
+  // ska läsa längden, inte gissa den. Se `_replikEfterMin`.
   _sag(ctx, namn) {
     const r = ROST[namn]
-    if (!r) return
+    if (!r) return 0
     const audio = ctx.services.audio
-    if (audio.harSample?.(r.klipp) && audio.sample(r.klipp)) return
+    if (audio.harSample?.(r.klipp) && audio.sample(r.klipp)) {
+      return audio.sampleDuration?.(r.klipp) || 0
+    }
     audio.tone({ freq: r.ton[0], dur: 0.3, type: r.typ, vol: 0.22, slideTo: r.ton[1] })
+    return 0.3
   },
 
   // Narratorn kommenterar då och då — aldrig efter varje bit, det blir tjat.
-  _replikEfterMin(ctx, namn) {
+  //
+  // ⚠️ VÄNTAR TILLS PAPPA HAR TALAT KLART. Repliken låg tidigare i samma ögonblick som
+  // `_sag`, vilket var ofarligt så länge pappas röst var en 0,3 s stämd ton — men de
+  // inspelade klippen är 0,72–1,90 s, och då är det TVÅ svenska röster samtidigt. Värst
+  // blev `sur`, där repliken är ovillkorlig och klippet är det längsta av alla nio.
+  // `sekunder` kommer från `_sag`, som läser den avkodade buffertens längd; ett hårdkodat
+  // tal här hade drivit isär från filen vid nästa omtagning.
+  _replikEfterMin(ctx, namn, sekunder = 0) {
     const voice = ctx.services.voice
-    if (namn === 'sur') { voice.say('Oj! Vad surt det var!'); return }
+    const sag = (text) => {
+      if (sekunder <= 0.35) { voice.say(text); return } // syntes-reserven: ingen väntan behövs
+      ctx.later(sekunder + 0.15, () => { if (this._alive) voice.say(text) })
+    }
+    if (namn === 'sur') { sag('Oj! Vad surt det var!'); return }
     if (namn === 'forvanad' || namn === 'aj' || namn === 'skratt') {
-      if (Math.random() < 0.5) voice.say('Hihi, nu blev det kladdigt!')
+      if (Math.random() < 0.5) sag('Hihi, nu blev det kladdigt!')
       return
     }
-    if (Math.random() < 0.35) voice.say('Mmm, det där var gott!')
+    if (Math.random() < 0.35) sag('Mmm, det där var gott!')
   },
 
   // ---------------------------------------------------------------- final ---

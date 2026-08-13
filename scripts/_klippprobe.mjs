@@ -18,7 +18,7 @@ const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] :
 const url = opt('--url', 'http://localhost:5173')
 
 const NYCKLAR = ['pappa_mmm', 'pappa_ohh', 'pappa_blaa', 'pappa_aaah',
-  'pappa_oj', 'pappa_aj', 'pappa_fniss', 'pappa_rap']
+  'pappa_oj', 'pappa_aj', 'pappa_fniss', 'pappa_rap', 'pappa_surt']
 
 const fel = []
 let rader = 0, gronа = 0
@@ -49,8 +49,8 @@ const manifest = await page.evaluate((ks) => {
   return ks.map((k) => [k, !!a?.harSample?.(k)])
 }, NYCKLAR)
 const saknas = manifest.filter(([, v]) => !v).map(([k]) => k)
-kolla('manifestet kanner alla atta', saknas.length === 0,
-  saknas.length ? `saknas: ${saknas.join(' ')}` : `${manifest.length}/8 i harSample()`)
+kolla('manifestet kanner alla nio', saknas.length === 0,
+  saknas.length ? `saknas: ${saknas.join(' ')}` : `${manifest.length}/9 i harSample()`)
 
 // KONTROLLARM: en nyckel som inte finns MÅSTE svara nej. Utan den raden kan "alla åtta
 // finns" lika gärna betyda att `harSample` returnerar true för vad som helst.
@@ -66,12 +66,26 @@ const spelade = await page.evaluate(async (ks) => {
   return ut
 }, NYCKLAR)
 const tysta = Object.entries(spelade).filter(([, v]) => !v).map(([k]) => k)
-kolla('alla atta avkodas och spelar', tysta.length === 0,
-  tysta.length ? `tysta: ${tysta.join(' ')}` : '8/8 sample() = true')
+kolla('alla nio avkodas och spelar', tysta.length === 0,
+  tysta.length ? `tysta: ${tysta.join(' ')}` : '9/9 sample() = true')
 
 // Och tvärtom: den okända nyckeln får inte gå att spela.
 const falskSpel = await page.evaluate(() => window.__barnspel?.audio?.sample?.('pappa_finnsinte') === true)
 kolla('kontroll: okand nyckel spelas ej', falskSpel === false, `sample('pappa_finnsinte') = ${falskSpel}`)
+
+// `sampleDuration` är mekanismen bakom att berättarrösten VÄNTAR på pappa. Går den fel
+// väg tyst (0 för ett klipp som finns) faller spelet tillbaka på "ingen väntan behövs" och
+// de två rösterna lägger sig ovanpå varandra igen — utan ett enda konsolfel.
+const langder = await page.evaluate((ks) => {
+  const a = window.__barnspel?.audio
+  return Object.fromEntries(ks.map((k) => [k, a?.sampleDuration?.(k) ?? -1]))
+}, NYCKLAR)
+const nollor = Object.entries(langder).filter(([, v]) => !(v > 0.3)).map(([k]) => k)
+const sekSurt = langder.pappa_surt ?? -1
+kolla('sampleDuration ger riktiga langder', nollor.length === 0,
+  nollor.length ? `utan langd: ${nollor.join(' ')}` : `9/9 > 0,3 s · pappa_surt ${sekSurt.toFixed(2)} s`)
+const okandLangd = await page.evaluate(() => window.__barnspel?.audio?.sampleDuration?.('pappa_finnsinte'))
+kolla('kontroll: okand nyckel ger 0 s', okandLangd === 0, `sampleDuration('pappa_finnsinte') = ${okandLangd}`)
 
 // Vilken VÄG tar spelet? Räkna sample-träffar mot tone-fallback medan `_sag` körs.
 await page.evaluate(() => {
@@ -87,8 +101,8 @@ const trafffar = await page.evaluate((ks) => {
   for (const k of ks) { if (a.harSample?.(k) && a.sample(k)) continue; a.tone({ freq: 440, dur: 0.3 }) }
   return window.__rakn
 }, NYCKLAR)
-kolla('_sag-vagen tar klippet, inte tonen', trafffar.sample === 8 && trafffar.tone === 0,
-  `sample ${trafffar.sample}/8 · tone-fallback ${trafffar.tone}`)
+kolla('_sag-vagen tar klippet, inte tonen', trafffar.sample === 9 && trafffar.tone === 0,
+  `sample ${trafffar.sample}/9 · tone-fallback ${trafffar.tone}`)
 
 kolla('inga konsolfel', fel.length === 0, fel.length ? fel.slice(0, 2).join(' | ') : '0')
 

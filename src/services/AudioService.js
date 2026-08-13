@@ -270,6 +270,16 @@ export class AudioService {
     return this._sampleUrls.has(name)
   }
 
+  // Hur långt är klippet, i sekunder? 0 om det inte är avkodat (eller inte finns).
+  // Behövs av spel som SCHEMALÄGGER något efter ett klipp: en tidtabell som stämmer mot
+  // en kort syntes-reserv är inte prövad mot det inspelade klipp som ersätter den, och i
+  // `mata-munnen` lade berättarrösten sig ovanpå pappas egen röst så fort klippen blev
+  // riktiga (0,3 s ton → 1,9 s inspelning). Läs längden i stället för att gissa den —
+  // ett hårdkodat tal driver isär från filen vid nästa omtagning.
+  sampleDuration(name) {
+    return this._samples.get(name)?.duration || 0
+  }
+
   sample(name) {
     if (!this._s.sfxEnabled) return false
     const c = this._ensure()

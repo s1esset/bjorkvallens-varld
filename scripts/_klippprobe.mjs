@@ -20,7 +20,7 @@ const url = opt('--url', 'http://localhost:5173')
 const NYCKLAR = ['pappa_mmm', 'pappa_ohh', 'pappa_blaa', 'pappa_aaah',
   'pappa_oj', 'pappa_aj', 'pappa_fniss', 'pappa_rap', 'pappa_surt',
   // v1.200: ägarens andra inspelningsomgång
-  'pappa_gasp', 'pappa_chock', 'pappa_hmm', 'pappa_retas', 'pappa_svalj',
+  'pappa_gasp', 'pappa_chock', 'pappa_hmm', 'pappa_retas',
   'pappa_ehh', 'pappa_huh']
 const ANTAL = NYCKLAR.length
 
@@ -29,7 +29,7 @@ const ANTAL = NYCKLAR.length
 // ⚠️ `klunk` är med FLIT inte med i listan: dess två varianter är båda 0,38 s, så längden
 //    kan inte skilja dem åt. Ett mått som inte kan separera två KÄNDA lägen duger inte som
 //    bevis, och en grön rad där hade bara mätt att slumpen råkade ge samma tal.
-const VARIANTER = { prutt: 5, traff_hard: 5, traff_mjuk: 4, svalj: 3, tugg_mjuk: 2 }
+const VARIANTER = { prutt: 5, traff_hard: 5, traff_mjuk: 4, svalj: 4, tugg_mjuk: 2 }
 const ENVARIANT = 'kast' // kontrollarm: EN fil -> exakt ett värde, hur många gånger som helst
 
 const fel = []

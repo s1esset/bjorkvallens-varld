@@ -21,7 +21,7 @@
 import { Circle, Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { ANS, BANK_Y, BRADA, FYSIK, KANT_Y, MATARE, OPPNA_MAX, PLATSER, byggKok } from './kok.js'
-import { arAtbar, makeSak, sakFarg, sakMaterial, sakMin } from './skafferi.js'
+import { arAtbar, makeSak, sakFarg, sakMaterial, sakMin, sakPruttar } from './skafferi.js'
 import { DragController } from '../../lib/DragController.js'
 import { Body, PhysicsWorld, mat } from '../../lib/physics.js'
 import { FLUIDS, FluidView, FluidWorld } from '../../lib/vatska.js'
@@ -259,8 +259,39 @@ export default {
   // munnen har redan sin egen återkoppling och bubblar hit; dem rör vi inte.
   _tomtTryck(ctx, e) {
     this._idle = 0
-    if (!this._alive || e?.target !== this._root) return
+    if (!this._alive) return
+    // ⚠️ MUNNODEN MÅSTE RÄKNAS MED. `_mun` är släppmålet och en `static` nod med 130 px
+    //    radie — den täcker mitten av pappas ansikte. Ett tryck rakt på honom hade alltså
+    //    `e.target === this._mun`, inte roten, och `_tomtTryck` bailade: den mest lockande
+    //    ytan i hela bilden svarade INTE på en pekning (P0-brottet `dod-traffyta`, samma
+    //    familj som stationen som svalde en pekning under finalen i v1.190).
+    //    Uppmätt i `_handelseprobe`: tryck mitt i ansiktet gav `spelade: (inget)`.
+    //    Håller barnet redan en bit är tryckningen däremot tap-tap-matning — den vägen ägs
+    //    av `DragController` och får inte kapas här.
+    const egen = e?.target === this._root || (e?.target === this._mun && !this._drag?.selected)
+    if (!egen) return
     const p = this._root.toLocal(e.global)
+
+    // TRYCK PÅ PAPPA. Ansiktslagret har `eventMode: 'none'` (se `init`) — pekningen på
+    // huvudet föll därför hit och fick samma generiska ring som bordsduken. Men huvudet är
+    // det enda LEVANDE i bilden, och ett barn i den här åldern petar på det innan det ens
+    // förstått att maten ska någonstans. Nu svarar han: "huh?", en tvekan och en blink.
+    // Ingen mat, ingen mätare, ingen konsekvens — bara att han är någon som märker en.
+    const dx = (p.x - ANS.x) / BUS.rx
+    const dy0 = p.y - ANS.y
+    const dy = dy0 / (dy0 > 0 ? BUS.ryNer : BUS.ry)
+    if (dx * dx + dy * dy <= 1 && !this._busy) {
+      ripple(ctx.fxLayer, p.x, p.y, { color: 0xffe3b0, maxR: 70 })
+      const sek = ctx.services.audio.harSample?.('pappa_huh') && ctx.services.audio.sample('pappa_huh')
+        ? (ctx.services.audio.sampleDuration?.('pappa_huh') || 0.5)
+        : (ctx.services.audio.tone({ freq: 330, dur: 0.22, type: 'sine', vol: 0.2, slideTo: 430 }), 0.3)
+      this._ans?.slappMin(0.1)
+      this._ans?.min('forvanad', { hall: Math.max(0.9, sek + 0.1) })
+      this._ans?.tveka()
+      this._ans?.blink()
+      return
+    }
+
     ripple(ctx.fxLayer, p.x, p.y, { color: 0xffd9a0, maxR: 62 })
     ctx.services.audio.tone({ freq: 480, dur: 0.08, vol: 0.14 })
   },
@@ -778,7 +809,11 @@ export default {
 
     st.oppna()
     this._oppnaSt.push(st)
-    ctx.services.audio.sfx('soft')
+    // Ett riktigt skåp som öppnas, om klippet finns. Den stämda tonen ligger kvar som
+    // reserv och som ackompanjemang: klippet är trä och gångjärn, tonen är kvitteringen.
+    if (!(ctx.services.audio.harSample?.('lucka') && ctx.services.audio.sample('lucka'))) {
+      ctx.services.audio.sfx('soft')
+    }
     ctx.services.audio.tone({ freq: 330, dur: 0.1, vol: 0.16, slideTo: 470 })
     // Mikron säger PLING när luckan öppnas — en ren kvint uppåt (1180→1770), som en
     // riktig micro som blivit klar. Det är stationens egen röst, inte ett UI-blipp.
@@ -797,6 +832,7 @@ export default {
         min: sakMin(key),
         atbar: arAtbar(key),
         mtrl: sakMaterial(key),
+        pruttar: sakPruttar(key),
         vy: () => makeSak(key),
       }, st.platser[i], i, 0.1 + i * 0.08)
       rec._station = st
@@ -1104,6 +1140,13 @@ export default {
       ctx.later(prof.n * prof.takt * 2 + 0.12, () => { if (this._alive) this._svalj(ctx) })
     })
 
+    // Bönor och kål pruttar ALLTID, ett par andra saker ibland. Efter sväljningen och efter
+    // minen, så de tre inte trängs: tugga → svälj → grimas → prutt.
+    const pruttar = rec.data.pruttar
+    if (pruttar === 'alltid' || (pruttar === 'ibland' && Math.random() < 0.35)) {
+      ctx.later(prof.n * prof.takt * 2 + 1.5, () => this._prutt(ctx))
+    }
+
     this._atna += 1
     this._fyllTill(this._atna / this._antal)
     this._andas(ctx)
@@ -1163,11 +1206,41 @@ export default {
     audio.tone({ freq: f, dur: prof.takt * 0.7, type: prof.typ, vol: prof.vol, slideTo: f * 0.86 })
   },
 
-  // Sväljningen. Egen klippnyckel, stämd reserv tills den finns.
+  // Sväljningen. `svalj` är en HÖG av fyra klipp — pappas egen sväljning och tre foley —
+  // och tjänsten slumpar. Att svälja låter alltså inte likadant varje gång, vilket är
+  // skillnaden mellan en ljudeffekt och en person som äter.
   _svalj(ctx) {
     const audio = ctx.services.audio
-    if (audio.harSample?.('pappa_svalj') && audio.sample('pappa_svalj')) return
+    if (audio.harSample?.('svalj') && audio.sample('svalj')) return
     audio.tone({ freq: 260, dur: 0.16, type: 'sine', vol: 0.17, slideTo: 120 })
+  },
+
+  // PRUTTEN. Bönor och kål gör det ALLTID, ett par andra saker ibland — orsak-verkan som en
+  // tvååring hittar själv: den maten ger det ljudet. Ligger efter sväljningen, aldrig under
+  // tuggandet, och drar med sig ett skratt i stället för en tillsägelse (P0: motgång ska vara
+  // rolig). Räknas inte som bus och kostar ingenting i mätaren — maten är redan uppäten.
+  _prutt(ctx, sek = 0) {
+    if (!this._alive) return
+    const audio = ctx.services.audio
+    // `prutt_lang` är den sällsynta långa; de fem korta ligger i en hög som slumpas.
+    const lang = Math.random() < 0.15
+    const nyckel = lang && audio.harSample?.('prutt_lang') ? 'prutt_lang' : 'prutt'
+    if (!(audio.harSample?.(nyckel) && audio.sample(nyckel))) {
+      audio.sfx('fart') // appens egen prutt-syntes — den fanns långt före klippen
+    }
+    const dur = audio.sampleDuration?.(nyckel) || 0.6
+    this._ans?.slappMin(0.1)
+    this._ans?.min('skratt', { hall: Math.max(1.2, dur + 0.2) })
+    this._ans?.ryck({ styrka: 0.5 })
+    puff(ctx.fxLayer, ANS.x, KANT_Y + 30, { count: 7, color: 0xcfe3b0 })
+    // ⚠️ Literaler, inte `randomFrom([...])`: `check.mjs` läser bara `voice.say('…')` statiskt,
+    // och en replik som byggs vid körning får aldrig ett inspelat klipp.
+    const sag = () => {
+      if (!this._alive) return
+      if (Math.random() < 0.5) ctx.services.voice.say('Hoppsan, vad var det?')
+      else ctx.services.voice.say('Oj då, det bubblade i magen!')
+    }
+    ctx.later(Math.max(sek, dur) + 0.15, sag)
   },
 
   _smulor(ctx, farg, prof = TUGG.mjuk) {
@@ -1218,7 +1291,19 @@ export default {
     const dy0 = rec.ty - ANS.y
     const dx = (rec.tx - ANS.x) / BUS.rx
     const dy = dy0 / (dy0 > 0 ? BUS.ryNer : BUS.ry)
-    if (dx * dx + dy * dy > 1) return
+    if (dx * dx + dy * dy > 1) {
+      // MATEN LADES TILLBAKA. Släppet låg utanför både munnen och ansiktet — biten snäpper
+      // hem av sig själv (`DragController._snapHome`) och det här var förr helt tyst.
+      // Pappa gapade ju medan biten var på väg, så tystnaden läser som att ingenting hände;
+      // ett besviket "ehh" gör det till ett SVAR. Ingen tillsägelse, ingen kostnad.
+      const audio = ctx.services.audio
+      if (audio.harSample?.('pappa_ehh') && audio.sample('pappa_ehh')) {
+        const sek = audio.sampleDuration?.('pappa_ehh') || 0.8
+        this._ans?.slappMin(0.1)
+        this._ans?.min('fundersam', { hall: Math.max(0.9, sek + 0.1) })
+      }
+      return
+    }
 
     gsap.killTweensOf(rec.view) // avbryt hemsnäppet — biten stannar i ansiktet
     rec._uppaten = true
@@ -1440,6 +1525,11 @@ export default {
       v.rotation = 0
       rec._uppaten = false // tillbaka i spel: den ska gå att mata pappa igen (jfr `_spotta`)
       this._gorLos(ctx, rec, { vx: (Math.random() - 0.5) * 3, vy: 1.5 })
+    }
+    // Ljudet av något klibbigt som SLÄPPER från huden. Geggan har suttit i ansiktet sedan
+    // den landade; att den bara tonade bort i tystnad var den sista tysta händelsen i loopen.
+    if (!(ctx.services.audio.harSample?.('plopp_av') && ctx.services.audio.sample('plopp_av'))) {
+      ctx.services.audio.sfx('plopp')
     }
     if (x || y) puff(ctx.fxLayer, x, y, { count: 4 })
   },

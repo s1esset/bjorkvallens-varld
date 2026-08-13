@@ -37,7 +37,6 @@
   "pappa_rap": "pappa_rap.mp3",
   "pappa_retas": "pappa_retas.mp3",
   "pappa_surt": "pappa_surt.mp3",
-  "pappa_svalj": "pappa_svalj.mp3",
   "plopp": "plopp.mp3",
   "plopp_av": "plopp_av.mp3",
   "pop": "pop.mp3",
@@ -54,7 +53,8 @@
   "svalj": [
     "svalj_1.mp3",
     "svalj_2.mp3",
-    "svalj_3.mp3"
+    "svalj_3.mp3",
+    "svalj_4.mp3"
   ],
   "tap": "tap.mp3",
   "thwip": "thwip.mp3",

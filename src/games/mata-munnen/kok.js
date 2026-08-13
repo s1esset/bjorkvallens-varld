@@ -103,7 +103,7 @@ export const STATIONER = [
   { id: 'frys', sv: 'Frysen', yta: { x: 20, y: 128, w: 168, h: 114 }, typ: 'dorr-v', inre: 'kall', ljus: 0xdff2ff,
     innehall: ['is', 'glasspinne', 'blackfisk', 'glass'], platser: [[104, 185]] },
   { id: 'kyl', sv: 'Kylskåpet', yta: { x: 20, y: 266, w: 168, h: 374 }, typ: 'dorr-v', inre: 'kall', ljus: 0xeafaff,
-    innehall: ['ost', 'agg', 'tomat', 'gurka', 'korv', 'mjolk', 'groda', 'mogelost', 'sallad', 'raka', 'ketchup'],
+    innehall: ['ost', 'agg', 'tomat', 'gurka', 'korv', 'mjolk', 'groda', 'mogelost', 'sallad', 'raka', 'ketchup', 'kal'],
     // ⚠️ 130 px isär, inte 120. Ett dragbart föremåls träffyta är `GRIP_R` = 52, alltså
     //    104 px i DIAMETER — inte 96. Vid 120 px mellanrum blev luften mellan två hyllplan
     //    16 px och P0 kräver 24. Kylen växte 40 px neråt för att rymma den rättelsen.
@@ -122,7 +122,7 @@ export const STATIONER = [
   { id: 'micro', sv: 'Mikron', yta: { x: 1078, y: 124, w: 180, h: 120 }, typ: 'lucka-ner', inre: 'het', ljus: 0xffe6a0,
     innehall: ['pizza', 'korv', 'munk', 'potatis', 'popcorn'], platser: [[1150, 180]] },
   { id: 'skafferi', sv: 'Skafferiet', yta: { x: 1078, y: 268, w: 180, h: 146 }, typ: 'dorr-h',
-    innehall: ['kringla', 'choklad', 'godis', 'jordnot', 'kastanj', 'honung', 'druvor', 'mango', 'pepparkaka', 'saltgurka', 'senap', 'sylta'],
+    innehall: ['kringla', 'choklad', 'godis', 'jordnot', 'kastanj', 'honung', 'druvor', 'mango', 'pepparkaka', 'saltgurka', 'senap', 'sylta', 'bonor'],
     platser: [[1168, 341]] },
   // Skräplådan: det ÄR meningen att det ligger konstiga saker här. P0 MOTGÅNG säger att
   // bus ska vara roligt och gå att åtgärda — inte att det ska saknas.

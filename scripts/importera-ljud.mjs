@@ -60,7 +60,6 @@ const KLIPP = [
   { fil: 'Chock.m4a', namn: 'pappa_chock' },
   { fil: 'Hmm.m4a', namn: 'pappa_hmm' },
   { fil: 'Retas.m4a', namn: 'pappa_retas' },
-  { fil: 'Svalj.m4a', namn: 'pappa_svalj' },
   { fil: 'Ehh.m4a', namn: 'pappa_ehh' },
   { fil: 'Huh.m4a', namn: 'pappa_huh' },
 
@@ -78,7 +77,11 @@ const KLIPP = [
   { fil: 'drinking.mp3', namn: 'klunk', klipp: [0, 0.379] },
   { fil: 'drinking_wet.mp3', namn: 'klunk', klipp: [2.442, 2.820] },
 
-  // --- sväljning (tre varianter) ---
+  // --- sväljning (fyra varianter) ---
+  // Pappas EGEN sväljning ligger i samma hög som de tre foley-klippen i stället för att vara
+  // en egen nyckel. Samma syfte = samma hög (ägarens regel), och hans röst emellanåt gör att
+  // sväljningen ibland är HAN och ibland bara ett ljud — vilket är mer levande än endera.
+  { fil: 'Svalj.m4a', namn: 'svalj' },
   { fil: 'swallow_gulp.mp3', namn: 'svalj' },
   { fil: 'swallow_1.mp3', namn: 'svalj' },
   { fil: 'swallow_drink.mp3', namn: 'svalj', klipp: [0.929, 1.441] },

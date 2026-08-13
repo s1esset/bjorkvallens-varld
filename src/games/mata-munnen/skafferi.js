@@ -64,6 +64,21 @@ const HARDA = new Set([
   'ketchup', 'leksaksbil',
 ])
 
+// VAD SOM FÅR PAPPA ATT PRUTTA. Bönor och kål gör det varje gång — det är hela skälet till
+// att de finns i katalogen, och regeln måste vara undantagslös för att ett barn ska hitta
+// den. De fyra `ibland` (35 %) är det ägaren kallade "lite annat övrigt": saker man faktiskt
+// kan skoja om, valda för att de är kraftiga eller feta, inte för att de är äckliga.
+// ⚠️ Prutten är ETT SKRATT, aldrig en tillsägelse: den kostar ingenting i mätaren, maten är
+//    redan uppäten, och minen som följer är `skratt` (P0 MOTGÅNG — rolig ton, ingen skam).
+const PRUTTAR = {
+  bonor: 'alltid',
+  kal: 'alltid',
+  broccoli: 'ibland',
+  oliv: 'ibland',
+  korv: 'ibland',
+  ost: 'ibland',
+}
+
 // ------------------------------------------------------------- köksprylarna ---
 
 const STAL = 0xd3dade
@@ -376,6 +391,57 @@ const PRYLAR = {
     g.ellipse(-12, -6, 14, 4).fill({ color: 0xffffff, alpha: 0.3 })
     return g
   },
+  // BÖNOR och KÅL — de två sakerna som ALLTID får pappa att prutta (`PRUTTAR`). De finns i
+  // katalogen enbart för att bära den orsak-verkan: den här maten ger det där ljudet, varje
+  // gång, och en tvååring hittar regeln själv efter två försök.
+  bonor: () => {
+    const g = G()
+    const bon = 0xc98a3e
+    const kant = 0x8a5a22
+    // En liten hög i stället för en enda böna: sju bönor i tre rader, de bakre mörkare så
+    // högen får djup (samma volympass som resten av katalogen, v1.198).
+    const rader = [
+      [[-24, 8], [-8, 10], [8, 10], [24, 8]],
+      [[-16, -2], [0, 0], [16, -2]],
+      [[-8, -12], [8, -12]],
+    ]
+    rader.forEach((rad, r) => {
+      const m = r === 0 ? 1 : r === 1 ? 0.94 : 0.88
+      for (const [x, y] of rad) {
+        g.ellipse(x, y, 11, 8).fill(cylinderFill(bon, { axis: 'x' })).stroke({ width: 3, color: kant })
+        g.ellipse(x - 3, y - 2.5, 4, 2.2).fill({ color: 0xffffff, alpha: 0.3 * m })
+        // fåran längs bönans buk — det är den som gör en oval till en böna
+        g.moveTo(x - 6, y + 2.5).quadraticCurveTo(x, y + 5, x + 6, y + 2.5)
+          .stroke({ width: 2, color: kant, alpha: 0.55 })
+      }
+    })
+    return g
+  },
+  kal: () => {
+    const g = G()
+    const yttre = 0x8fb85c
+    const inre = 0xd6e6a8
+    const kant = 0x5c7f34
+    // ⚠️ Första försöket satte fyra symmetriska bladflikar i silhuettens hörn (uppe v/h,
+    //    nere v/h). I bild läste de som ÖRON och FÖTTER — kålen blev en sköldpadda. Blad
+    //    viker sig neråt-utåt av sin egen tyngd, aldrig uppåt i par: nu två breda, olika
+    //    stora blad längs NEDERKANTEN, och överdelen är ren klotform.
+    // Två ytterblad som viker ut nedtill, olika stora så formen inte blir en spegelbild.
+    g.ellipse(-26, 20, 20, 11).fill(cylinderFill(0x7ea950)).stroke({ width: 3, color: kant })
+    g.ellipse(25, 22, 16, 9).fill(cylinderFill(0x7ea950)).stroke({ width: 3, color: kant })
+    // Själva huvudet ovanpå, så bladens innerkant döljs och de läser som att sitta FAST.
+    g.circle(0, 0, 34).fill(cylinderFill(yttre)).stroke({ width: 4, color: kant })
+    // Bladlagren: bågar som följer klotet, inte streck som strålar ut. Två skal räcker för
+    // att säga "det här är lindat", och de ligger förskjutna åt samma håll som ljuset.
+    for (const [rx, ry, dx, dy, al] of [[26, 27, 3, 2, 0.5], [16, 18, 5, 4, 0.55], [8, 9, 6, 5, 0.5]]) {
+      g.ellipse(dx, dy, rx, ry).fill({ color: inre, alpha: al * 0.45 })
+      g.ellipse(dx, dy, rx, ry).stroke({ width: 2.5, color: kant, alpha: 0.35 })
+    }
+    // Nerven i det yttersta bladet — en enda, för att bryta symmetrin.
+    g.moveTo(-2, -32).quadraticCurveTo(-14, -8, -8, 26).stroke({ width: 2.5, color: kant, alpha: 0.35 })
+    g.ellipse(-13, -16, 12, 6).fill({ color: 0xffffff, alpha: 0.22 })
+    return g
+  },
   senap: () => {
     const g = G()
     // axel + spetspip
@@ -511,7 +577,15 @@ export const SAKER = Object.fromEntries([
   NY('senap', 'Senapsflaska', 0xe8c22e, PRYLAR.senap, 62, 'het', true, 'glas'),
   NY('sylta', 'Sylta', 0xe89aa8, PRYLAR.sylta, 84, 'forvanad', true, 'tra'),
   NY('leksaksbil', 'Leksaksbil', 0x4a90d9, PRYLAR.leksaksbil, 92, 'forvanad', false, 'tra'),
-].map((s) => [s.id, HARDA.has(s.id) ? { ...s, hard: true } : s]))
+  // De två som alltid pruttar (`PRUTTAR`). Ätliga och helt vanliga i övrigt — poängen är
+  // konsekvensen, inte att de skulle vara äckliga.
+  NY('bonor', 'Bönor', 0xc98a3e, PRYLAR.bonor, 88, 'fundersam', true, 'tra'),
+  NY('kal', 'Kål', 0x8fb85c, PRYLAR.kal, 92, 'acklad', true, 'tra'),
+].map((s) => [s.id, {
+  ...s,
+  ...(HARDA.has(s.id) ? { hard: true } : null),
+  ...(PRUTTAR[s.id] ? { pruttar: PRUTTAR[s.id] } : null),
+}]))
 
 /** En vy för en sak, centrerad kring (0,0). Alltid en ny nod — de delas aldrig. */
 export function makeSak(key) {
@@ -528,3 +602,5 @@ export function sakNamn(key) { return SAKER[key]?.sv ?? 'Något' }
 export function sakMin(key) { return SAKER[key]?.min ?? 'fundersam' }
 export function arAtbar(key) { return SAKER[key]?.atbar !== false }
 export function sakMaterial(key) { return SAKER[key]?.mtrl ?? 'tra' }
+/** 'alltid' · 'ibland' · null — se `PRUTTAR`. */
+export function sakPruttar(key) { return SAKER[key]?.pruttar ?? null }

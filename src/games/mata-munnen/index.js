@@ -46,6 +46,25 @@ const MUN_R = 130                // snäppradie till munnen (P0: träffyta ≫96
 // #8; ägaren beskrev symptomet som "förvirrande och plottrigt".)
 const BUS = { rx: 215, ry: 250, ryNer: KANT_Y - ANS.y }
 const GRIP_R = 52
+
+// KASTET (ägaruppdrag 2, steg 4). Talen är px/STEG där matter räknar och px/ms där
+// pekskärmen gör det — de två blandas ihop en gång per fysikspel, och `perSteg` är hela
+// omräkningen (ett fast steg är 16,67 ms, alltså är 1 px/ms = 16,67 px/steg).
+//
+// ⚠️ `lyft` är inte fusk för fuskets skull. Utan den beskriver en kastad brödbit en riktig
+// kastparabel över 250 px, och att sikta en parabel är inget en 2-åring kan lära sig av
+// att se den en gång. Med tyngdkraften nästan borttagen MEDAN biten flyger blir regeln
+// "den flyger dit du pekar" — den går att lära sig på ett kast — och så fort den stannar
+// eller träffar något faller den som allt annat på bänken.
+const KAST = {
+  fart: 0.85, // px/ms — under detta är ett snabbt släpp bara ett släpp
+  perSteg: 16.67,
+  tak: 26, // px/steg
+  lyft: 0.82, // andel av tyngdkraften som tas bort under flykten
+  steg: 150, // tak på hur länge en bit räknas som flygande (~2,5 s)
+  stopp: 2.2, // px/steg — långsammare än så är det inte längre ett kast
+  prov: 14, // px mellan punkterna i det SVEPTA testet (≪ minsta träffytan, 130 px)
+}
 const GEGGA_MAX = 6 // P0 MOTGÅNG: tak på hur mycket som kan gå fel samtidigt
 const LOSA_MAX = 8  // samma sorts tak för högen på bänken
 
@@ -447,6 +466,7 @@ export default {
     const rec = this._drag.addItem(yttre, data, {
       onCorrect: () => this._ata(ctx, rec),
       onMiss: () => this._miss(ctx, rec),
+      onKast: (r, k) => this._kasta(ctx, r, k),
       onSelect: () => ctx.services.audio.tone({ freq: 620, dur: 0.07, vol: 0.16 }),
     })
     // Plockas en liggande sak upp måste dess kropp dö FÖRST. `onSelect` duger inte —
@@ -487,6 +507,7 @@ export default {
     })
     this._phys.impactAudio(ctx.services.audio, { standard: 'tra', vol: 0.2, minSpeed: 2.2 })
     this._losa = []
+    this._phys.beforeStep(() => this._kastTick(ctx))
   },
 
   // Gör en vy till en fallande kropp. Vyn ägs fortfarande av draget, så saken går att
@@ -541,6 +562,106 @@ export default {
     // Taket. Samma princip som geggans: den äldsta försvinner så högen aldrig äter
     // bänken (P0 MOTGÅNG — tak på hur mycket som kan ligga och skräpa samtidigt).
     while (this._losa.length > LOSA_MAX) this._stadaLos(ctx, this._losa[0])
+  },
+
+  // ------------------------------------------------------------ kastet ---
+  //
+  // Ägarens punkt 1: "kunna KASTA mat på ansiktet". Draget är oförändrat — kastet är en
+  // BONUS (P0), och hela målet går att nå utan att kasta en enda gång.
+  //
+  // `DragController` ger släppfarten via kroken `onKast`, men bara när det INTE fanns
+  // något mål under fingret. Släpp inne i ansiktet äger `_miss` (buset), så den vägen
+  // lämnas tillbaka till biblioteket genom att returnera `false`.
+
+  // Ett inspelat klipp om det finns, annars tyst. `harSample` först är inte artighet:
+  // utan frågan flaggar varje anrop `saknat-ljudklipp` i testloggen (se ROST ovan).
+  _sample(ctx, nyckel) {
+    const a = ctx.services.audio
+    return !!(a.harSample?.(nyckel) && a.sample(nyckel))
+  },
+
+  /** Ligger punkten inne i bus-ellipsen? Delas av `_miss` och det svepta kasttestet. */
+  _iAnsiktet(x, y) {
+    const dy0 = y - ANS.y
+    const dx = (x - ANS.x) / BUS.rx
+    const dy = dy0 / (dy0 > 0 ? BUS.ryNer : BUS.ry)
+    return dx * dx + dy * dy <= 1
+  },
+
+  _kasta(ctx, rec, k) {
+    if (!this._alive || this._busy || !this._phys || rec._uppaten) return false
+    if (k.fart < KAST.fart) return false
+    if (this._iAnsiktet(k.x, k.y)) return false // det är bus, inte kast — `_miss` äger det
+    this._idle = 0
+
+    const s = Math.min(1, KAST.tak / (k.fart * KAST.perSteg))
+    const vx = k.vx * KAST.perSteg * s
+    const vy = k.vy * KAST.perSteg * s
+    this._sample(ctx, 'kast')
+    this._gorLos(ctx, rec, { vx, vy })
+    if (!rec._kropp) return false // fysiken sa nej (riven värld) — låt draget snäppa hem
+    rec._flyger = true
+    rec._flygSteg = 0
+    // Nollpunkten sätts HÄR, inte i första steget: annars sveps första steget aldrig,
+    // och första steget är det längsta (farten är som störst just vid släppet).
+    rec._flygFran = { x: rec._kropp.position.x, y: rec._kropp.position.y }
+    return true
+  },
+
+  // Körs en gång per FAST fysiksteg (`beforeStep`), aldrig per bildruta: farten som avgör
+  // både träffen och lyftet är px/STEG, och `update()` kör 1–5 steg per bildruta.
+  _kastTick(ctx) {
+    if (!this._alive || !this._losa?.length) return
+    const flygande = this._losa.filter((r) => r._flyger)
+    if (!flygande.length) return
+    const g = this._phys.engine.gravity
+    for (const rec of flygande) {
+      const b = rec._kropp
+      if (!b || rec._uppaten) { rec._flyger = false; continue }
+      const fran = rec._flygFran
+      const till = { x: b.position.x, y: b.position.y }
+      rec._flygFran = till
+      rec._flygSteg += 1
+      if (this._svepTraff(ctx, rec, fran, till)) continue
+      if (rec._flygSteg > KAST.steg || Math.hypot(b.velocity.x, b.velocity.y) < KAST.stopp) {
+        rec._flyger = false
+        continue
+      }
+      // Tyngdkraften dämpas medan biten flyger. Matter lägger på `mass * gravity.y *
+      // gravity.scale` varje steg — motkraften måste räknas ur SAMMA tal, annars är
+      // lyftet en gissning som slutar stämma i samma sekund gravitationen ändras.
+      Body.applyForce(b, b.position, { x: 0, y: -b.mass * g.y * g.scale * KAST.lyft })
+    }
+  },
+
+  /**
+   * ⚠️ SVEPT TEST, INTE PUNKTTEST. Vid taket (26 px/steg) flyttar sig en bit 26 px per
+   * steg, och en punktprövning i stegets slutläge kan hoppa rakt över en kant. Att den
+   * inte gör det för en 130 px mun är tur, inte konstruktion — geggan lägger dessutom
+   * fläckar ända ut i ellipsens kant där marginalen är noll. Segmentet provas därför var
+   * 14:e px, och det är samma familj av tyst fel som `drain()`s hörn-mot-centrum.
+   */
+  _svepTraff(ctx, rec, a, b) {
+    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / KAST.prov))
+    for (let i = 1; i <= n; i++) {
+      const x = a.x + (b.x - a.x) * (i / n)
+      const y = a.y + (b.y - a.y) * (i / n)
+      const mun = Math.hypot(x - ANS.x, y - this._munY) < MUN_R
+      if (!mun && !this._iAnsiktet(x, y)) continue
+      rec._flyger = false
+      // `_ata` och `_miss` läser SLÄPPUNKTEN ur `rec.tx/ty`. Ett kast har ingen släpp-
+      // punkt vid ansiktet — träffpunkten är den, och utan raden hade geggan hamnat
+      // där handen råkade släppa, alltså långt utanför ansiktet.
+      rec.tx = x
+      rec.ty = y
+      this._lyftLos(rec)
+      if (rec.view && !rec.view.destroyed) rec.view.position.set(x, y)
+      this._sample(ctx, rec.data.hard === true ? 'traff_hard' : 'traff_mjuk')
+      if (mun) this._ata(ctx, rec)
+      else this._miss(ctx, rec)
+      return true
+    }
+    return false
   },
 
   // ---------------------------------------------------------- vätskan ---
@@ -739,7 +860,9 @@ export default {
   },
 
   _lyftLos(rec) {
-    if (!rec?._kropp) return
+    if (!rec) return
+    rec._flyger = false // en flygande bit som plockas upp får inte fortsätta svepa
+    if (!rec._kropp) return
     this._phys?.removeBody(rec._kropp)
     rec._kropp = null
     const i = this._losa.indexOf(rec)
@@ -1288,10 +1411,7 @@ export default {
   _miss(ctx, rec) {
     if (!this._alive || rec._uppaten) return
     this._idle = 0
-    const dy0 = rec.ty - ANS.y
-    const dx = (rec.tx - ANS.x) / BUS.rx
-    const dy = dy0 / (dy0 > 0 ? BUS.ryNer : BUS.ry)
-    if (dx * dx + dy * dy > 1) {
+    if (!this._iAnsiktet(rec.tx, rec.ty)) {
       // MATEN LADES TILLBAKA. Släppet låg utanför både munnen och ansiktet — biten snäpper
       // hem av sig själv (`DragController._snapHome`) och det här var förr helt tyst.
       // Pappa gapade ju medan biten var på väg, så tystnaden läser som att ingenting hände;

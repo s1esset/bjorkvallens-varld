@@ -6,6 +6,10 @@
 //
 // Föremål och mål antas ligga i samma container ("space", designkoordinater).
 //
+// KAST (v1.201, opt-in): `addItem(view, data, { onKast })`. Släpps något med fart och
+// UTAN mål under fingret får spelet släppfarten i px/ms; returnerar kroken `true` gör
+// biblioteket varken `_snapHome` eller `_resolveDrop` — spelet äger vyn därefter.
+//
 // TYNGD (v1.69): ett föremål i handen följer fingret med en liten eftersläpning,
 // lutar åt det håll det dras, kastar en mjuk skugga och landar med en tryckning.
 // Eftersläpningen är BARA visuell — träffprövningen använder fingrets position
@@ -19,6 +23,11 @@ import { ANIM } from './theme.js'
 const FOLJ_LAG = 0.1 // s — hur långt efter fingret bilden ligger
 const LUT_MAX = 0.22 // rad — taket för lutningen
 const LUT_PER_PX = 0.008 // rad per px eftersläpning (uppmätt: 13 px släp -> ~6°)
+
+// KASTET (opt-in, `hooks.onKast`) — se `_slappFart`.
+const KAST_FONSTER = 90 // ms bakåt som farten mäts över
+const KAST_ALDER = 130 // ms — äldre sista prov = fingret STOD STILL, alltså inget kast
+const KAST_PROV = 6 // ringbuffertens längd
 
 export class DragController {
   // `skugga` är OPT-IN: ungefär hälften av spelen ritar redan en egen skugga under
@@ -95,6 +104,9 @@ export class DragController {
     // (feedback.wiggle) skulle annars läsa LUTNINGEN som föremålets vilo-vinkel.
     rec.view._fxRestRot = rec.restRot
     rec.view._fxWiggleBusy = true
+    // Ringbufferten finns bara för den som bett om kastet. De 72 andra spelen ska inte
+    // betala en allokering per pekrörelse för en krok de inte har.
+    rec._spar = rec.hooks.onKast ? [] : null
     rec._shadow = this._skugga ? this._makeShadow(rec) : null
     rec._qx = gsap.quickTo(rec.view, 'x', { duration: FOLJ_LAG, ease: 'power2.out' })
     rec._qy = gsap.quickTo(rec.view, 'y', { duration: FOLJ_LAG, ease: 'power2.out' })
@@ -119,7 +131,46 @@ export class DragController {
       rec.ty = p.y + rec.grabDY
       rec._qx(rec.tx)
       rec._qy(rec.ty)
+      // FINGRETS spår, inte bildens. `view.x` släpar 0,1 s efter med flit (tyngden), och
+      // en fart mätt på den hade varit dämpad och försenad — alltså inte den rörelse
+      // barnet just gjorde. Samma skäl som träffprövningen läser `rec.tx/ty`.
+      if (rec._spar) {
+        rec._spar.push({ t: performance.now(), x: rec.tx, y: rec.ty })
+        if (rec._spar.length > KAST_PROV) rec._spar.shift()
+      }
     }
+  }
+
+  /**
+   * Släppfarten i px/ms, eller `null` om släppet inte var ett kast.
+   *
+   * ⚠️ TVÅ FÄLLOR, båda tysta:
+   *  1. **Fönstret.** Mäts farten över hela draget blir ett långsamt drag med en snärt på
+   *     slutet ett medelvärde nära noll; mäts den över de två sista proven mäter man
+   *     bruset i ett enda pekvärde. ~90 ms bakåt är det spann som bär en snärt.
+   *  2. **Åldern.** Prov läggs bara vid `pointermove`. Stannar fingret och HÅLLER stilla
+   *     en halv sekund innan det lyfts kommer inga nya prov — det sista provet bär då
+   *     fortfarande full fart, och ett stillastående släpp hade lästs som ett kast.
+   *     Därför förfaller spåret efter `KAST_ALDER`.
+   */
+  _slappFart(rec) {
+    const s = rec._spar
+    if (!s || s.length < 2) return null
+    const nu = s[s.length - 1]
+    if (performance.now() - nu.t > KAST_ALDER) return null
+    let i = s.length - 2
+    while (i > 0 && nu.t - s[i].t < KAST_FONSTER) i--
+    // ⚠️ SÖKNINGEN STANNAR PÅ FÖRSTA PROVET UTANFÖR FÖNSTRET, och det provet kan ligga
+    // hur långt bort som helst: draget pausar, handen står stilla, och nästa prov bakåt
+    // är 220 ms gammalt. Farten räknas då över 270 ms i stället för 50 och späds ut mot
+    // noll — uppmätt 0,29 px/ms för en snärt som var ~1,9, alltså ett kast som tyst blev
+    // ett släpp. Ligger provet mer än två fönster bort duger det yngre i stället.
+    if (i < s.length - 2 && nu.t - s[i].t > 2 * KAST_FONSTER) i++
+    const dt = nu.t - s[i].t
+    if (!(dt > 0)) return null
+    const vx = (nu.x - s[i].x) / dt
+    const vy = (nu.y - s[i].y) / dt
+    return { vx, vy, fart: Math.hypot(vx, vy), x: nu.x, y: nu.y }
   }
 
   // Körs varje bildruta medan något hålls: lutning ur eftersläpningen (blir automatiskt
@@ -154,7 +205,34 @@ export class DragController {
       this._toggleSelect(rec)
       return
     }
-    this._resolveDrop(rec, this._targetUnder(rec.tx, rec.ty))
+    const mal = this._targetUnder(rec.tx, rec.ty)
+    // KASTET är opt-in och ligger EFTER målsökningen, aldrig före: släpps något ovanpå
+    // ett mål är det ett släpp, hur fort handen än rörde sig dit. Utan `onKast` är det
+    // här exakt dagens kod, så de 72 andra spelen är orörda (P0: kastet är en BONUS —
+    // målet går att nå utan det).
+    if (!mal && rec.hooks.onKast) {
+      const k = this._slappFart(rec)
+      if (k && rec.hooks.onKast(rec, k) === true) {
+        this._slappTillKast(rec)
+        logDrag('kast', { fart: +k.fart.toFixed(2), vx: +k.vx.toFixed(2), vy: +k.vy.toFixed(2), data: kort(rec.data) })
+        return
+      }
+    }
+    this._resolveDrop(rec, mal)
+  }
+
+  // Lämna över vyn till spelet efter ett kast. Storleken ställs tillbaka DIREKT och inte
+  // som en tween: mottagaren gör rimligen `gsap.killTweensOf(view.scale)` i samma andetag
+  // (det gör `mata-munnen._gorLos`), och då hade en pågående tween frusit föremålet i
+  // lyft-skalan 1,12 för resten av omgången. ROTATIONEN lämnas åt mottagaren — en kastad
+  // sak ska snurra, och den som tar emot den driver den själv.
+  _slappTillKast(rec) {
+    this._dropShadow(rec)
+    gsap.killTweensOf(rec.view.scale)
+    rec.view.scale.set(rec.base.x, rec.base.y)
+    rec.view._fxScaleBusy = false
+    rec._tilting = false
+    rec.view._fxWiggleBusy = false
   }
 
   _detach(rec) {

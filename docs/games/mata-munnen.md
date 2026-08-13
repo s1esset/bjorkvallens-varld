@@ -345,8 +345,8 @@ Kontrollarmen körd med den GAMLA `_track` inlagd: **1,66 ‰ före 40 gester �
 |---|---|---|
 | 1 | ljud: slumpade varianter + 34 klipp | ✅ v1.200.0 |
 | 3 | nya händelser (Huh · Ehh · prutt · lucka · plopp · svälj) | ✅ v1.200.0 |
-| 0+2 | riggen: variantminer · diff-beskärning · **blick** | ⬜ |
-| 4 | **kasta** mat på ansiktet | ⬜ |
+| 4 | **kasta** mat på ansiktet | ✅ v1.201.0 |
+| 0+2 | riggen: variantminer · ~~diff-beskärning~~ · **blick** | ⬜ (premissen omskriven, se nedan) |
 | 5 | front-on kök + **hals** | ⬜ |
 
 **Steg 0+2 — riggen.** Kontaktkartorna över de 158 är gjorda och lästa. Blickserien finns i
@@ -360,21 +360,50 @@ och ett nytt `blick(dx, dy)`. Den självklara kunden: **pappa följer maten med 
 den dras** — gapet gör det redan (0,00 → 1,00, mätt).
 ⚠️ **GPU-budgeten avgör hur många varianter som får plats.** Idag: 13 miner à 423×641 RGBA =
 **13,5 MB**, basen 3,2 MB, summa ~16,7 MB (836 kB på disk — disken är inte gränsen). Tre
-varianter × 16 roller vore 50 MB, alltså 3× hela riggen. Största besparingen först: **beskär
-varje min till den ruta som faktiskt SKILJER sig från referensen** — en min är idag hela
-ansiktet trots att bara mun- och ögonpartiet rör sig. Mät före varianterna.
+varianter × 16 roller vore 50 MB, alltså 3× hela riggen.
 
-**Steg 4 — kastet.** Opt-in `onKast` i `DragController`: ringbuffert av de senaste ~5
-`(t, x, y)` i `_onMove`, släppfart i `_onUp`, och returnerar hooken `true` görs varken
-`_snapHome` eller `_resolveDrop` — spelet äger vyn. Utan hooken exakt dagens kod, så de 72
-andra spelen är orörda. `_kasta()` lämnar sedan över till **`_gorLos(ctx, rec, {vx, vy})` som
-redan finns** och redan tar en starthastighet (gravitation, studs, materialets röst,
-`LOSA_MAX`). Konvertera px/ms → px/steg (×16,67) och takta farten.
-⚠️ **Svept segmenttest, inte punkttest:** en snabb bit flyttar sig långt per steg och skulle
-annars passera rakt genom munnen utan att någon nod märkte något — ett tyst fel utan
-konsolfel, samma familj som `drain()`s hörn-mot-centrum. Ljuden finns redan: `kast`,
-`traff_mjuk`×4, `traff_hard`×5, och minerna `chock` (hårt) och `retas` (mjukt) likaså.
-P0: draget är oförändrat och kastet är en BONUS — målet går att nå utan att kasta.
+❌ **DIFF-BESKÄRNINGEN ÄR MÄTT OCH FÖRKASTAD (2026-08-13, `scripts/_minprobe.mjs`).** Posten
+antog att "bara mun- och ögonpartiet rör sig". Det gör det inte. Varje min ger **50 700–
+70 600 px** över Δ≥18 inne i lappen, medan kontrollarmen *hela huvudet flyttat 6 px* ger
+**26 000** — en min skiljer sig alltså 2–3× MER från referensen än en förskjutning av hela
+huvudet gör. Skillnadskartan lägger informationen i bryn, kinder, nasolabialveck, skäggkant
+och **hela silhuettkanten**; bbox:en blir 351–388 × 439–488 px, alltså i praktiken hela ovalen.
+Föreslagen beskärning sparar **12 %** (13,5 → 11,8 MB) och räcker till EN extra min-lapp.
+Kalibrering: referensen mot sig själv ger 0 px på alla trösklar.
+**Vägen till varianter är därför en annan:** manifestet får bära en LISTA per roll (samma
+mönster som ljudets `_sampleUrls`) och `laddaAnsikte()` väljer EN variant per roll vid
+inläsning. GPU-kostnaden står då still, disken växer med ~50 kB per variant (budget 3072 kB),
+och priset är att varianten är låst per app-session i stället för per anrop.
+
+**Steg 4 — kastet.** ✅ **BYGGT v1.201.0.** Opt-in `onKast` i `DragController` (ringbuffert av
+de senaste 6 `(t, x, y)` i `_onMove`, släppfart i `_onUp`); returnerar kroken `true` görs
+varken `_snapHome` eller `_resolveDrop` och spelet äger vyn. Kroken ropas **efter**
+målsökningen — släpps något ovanpå munnen är det ett släpp, hur fort handen än rörde sig dit —
+och bara när spelet har bett om den, så de 72 andra spelen är byte för byte oförändrade.
+`_kasta()` lämnar över till `_gorLos(ctx, rec, {vx, vy})` (px/ms → px/steg ×16,67, tak 26).
+Ljuden: `kast` vid släppet, `traff_mjuk`/`traff_hard` vid träffen; `_miss` väljer redan
+`chock` för hårda saker och `retas` för mjuka.
+
+Fem saker som mätningen (`scripts/_kastprobe.mjs`, 4 kontrollarmar + 4 mätarmar) avgjorde:
+- **Släppfartens fönster får inte hämta ett prov utanför sig.** Sökningen bakåt stannar på
+  första provet ÄLDRE än 90 ms — och pausar handen mitt i draget ligger det provet 220 ms
+  bort. Farten räknades då över 270 ms i stället för 50 och gav **0,29 px/ms för en snärt som
+  var ~1,9**, alltså ett kast som tyst blev ett släpp. Ligger provet mer än två fönster bort
+  används det yngre. Fyra av åtta kast föll på det innan det var mätt.
+- **Åldersspärren är inte valfri.** Prov läggs bara vid `pointermove`; ett snabbt drag som
+  STÅR STILL en halv sekund före släppet bär annars full fart i sitt sista prov. Uppmätt som
+  egen kontrollarm: 420 ms stillastående → inget kast.
+- **RAKT UNDER ANSIKTET FINNS INGEN ANSATS.** Bänken ligger 452–558 och munnen på 350, alltså
+  ~180 px lodrätt: från 6 av 8 brädplatser går det inte att ta sats mot munnen utan att
+  släpppunkten hamnar inne i snäppradien (130 px). Därifrån SLÄPPER man maten. Kastet är en
+  rörelse åt sidan — och det är precis vad P0 kräver av en bonus: den blockerar ingenting.
+- **`lyft` (82 % av tyngdkraften bort under flykten) är det som gör kastet lärbart.** Med full
+  gravitation är banan en parabel, och att sikta en parabel går inte att lära sig av att se
+  den en gång. Med lyftet är regeln "den flyger dit du pekar" — uppmätt **7/7 träff**. Så fort
+  biten stannar, träffar eller når taket (150 steg) faller den som allt annat.
+- **Svept segmenttest, inte punkttest** (var 14:e px längs steget): vid taket flyttar sig en
+  bit 26 px per steg. Uppmätt vid 2,98 px/ms utan tunnling, med kontrollarmen "vågrätt kast
+  under ansiktet träffar ingenting" bredvid sig.
 
 **Steg 5 — köket och halsen.** Ägarens egen metod: ändra **perspektivet** på köksön,
 diskbänken och spisen mer **framifrån** än uppifrån. Då försvinner yta nertill (köksöns

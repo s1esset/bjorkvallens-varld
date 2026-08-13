@@ -69,8 +69,10 @@ try {
     // 25 lägen i en 1280×720-ruta ger 132 px höga ansikten, och en wink går inte att döma
     // i den storleken. `--bara "vila,wink h"` renderar ett urval — färre rutor, större
     // ansikten. Rutnätet följer med: 2 kolumner upp till fyra lägen, sedan 3, sedan 5.
+    // Matchar på BÖRJAN av namnet, inte exakt: rutorna heter "hetta 1,0" och "gap 0,35",
+    // och ett svenskt decimalkomma i ett kommaseparerat urval hade aldrig gått att skriva.
     if (bara.length) {
-      const valda = lagen.filter((l) => bara.includes(l[0]))
+      const valda = lagen.filter((l) => bara.some((b) => l[0].startsWith(b)))
       lagen.length = 0
       lagen.push(...valda)
     }

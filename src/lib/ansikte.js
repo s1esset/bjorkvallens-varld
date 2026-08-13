@@ -315,10 +315,17 @@ export class Ansikte {
   hetta(v) { this._tinta(v, false) }
 
   /**
-   * Köld 0–1: motsatsen, och den bygger på exakt samma egenskap hos `tint`. Här lämnas
-   * BLÅTT kvar medan rött dras ner — en kall kind tappar sin rodnad, den blir inte blå
-   * som en färgklick. Isbiten satt tidigare på `het` (grimasen stämde, färgen sa fel
-   * sak): en frusen paus mitt i ett matspel är en egen orsak, inte en variant av chili.
+   * Köld 0–1. Isbiten satt tidigare på `het` (grimasen stämde, men färgen sa fel sak):
+   * en frusen paus mitt i ett matspel är en egen orsak, inte en variant av chili.
+   *
+   * ⚠️ KÖLD ÄR EN BLEKHET, INTE EN BLÅ FÄRG — och det är `tint`s aritmetik som avgör det,
+   * inte en smaksak. `tint` MULTIPLICERAR. Hettan fungerar därför så bra: huden är redan
+   * rödast i rött, så att dra ner grönt och blått förstärker något som finns. Åt andra
+   * hållet finns ingenting att förstärka — hud har minst blått, och att dra ner rött och
+   * grönt tar bara bort färgen. Uppmätt i rutnätet: full styrka på hettans skala gav
+   * hudtonen (230,180,160) × (139,211,255)/255 = **(125,149,160)**, alltså ett grått lik,
+   * inte en kall kind. Talen är därför MYCKET svagare (blekhet), och det som bär
+   * betydelsen är huttringen, frostglimtarna och `chock`-minen.
    */
   kyla(v) { this._tinta(v, true) }
 
@@ -327,11 +334,10 @@ export class Ansikte {
     const t = Math.max(0, Math.min(1, v))
     this._hetta = kall ? 0 : t
     this._kyla = kall ? t : 0
-    // Köldens tal är SVAGARE än hettans, och det är avläst i bild: full styrka på
-    // samma skala som chilin gav ett grått-blått lik, inte en kall kind. Rodnaden är
-    // dessutom något huden GÖR, medan kylan mest är något den slutar göra.
-    const r = Math.round(255 - (kall ? 78 : 0) * t)
-    const g = Math.round(255 - (kall ? 26 : 96) * t)
+    // Se `kyla()`: multiplikationen kan bara TA BORT färg, så köldens tal är en blekhet
+    // (−45 rött, −14 grönt vid full styrka) och inte en färgläggning.
+    const r = Math.round(255 - (kall ? 45 : 0) * t)
+    const g = Math.round(255 - (kall ? 14 : 96) * t)
     const b = Math.round(255 - (kall ? 0 : 132) * t)
     const ton = (r << 16) | (g << 8) | b
     for (const s of this._lager) if (s && !s.destroyed) s.tint = ton

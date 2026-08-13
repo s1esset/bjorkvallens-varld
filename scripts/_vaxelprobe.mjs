@@ -168,7 +168,13 @@ for (let i = 0; i < 8 && femteMin == null; i++) {
   forra = efter.geggor
   await page.waitForTimeout(650)
 }
-kolla('KONTROLL: tidig fläck ger platsvalets min', kontrollMin === 'forvanad', `min ${kontrollMin}`)
+// ⚠️ PLATSVALET ÄR EN SLANT, INTE ETT VÄRDE. Raden krävde `forvanad` och föll därför i
+// ungefär varannan körning utan att något var fel: spelet slår sedan v1.199 slant mellan
+// `retas` och `forvanad` för en fläck under ögonlinjen (`forvanad` ensam blev en repris).
+// Kontrollarmens fråga är "tidigt läge ger PLATSENS min, inte trappans" — och den frågan
+// besvaras av båda utfallen, medan `skratt` (trappan) och `chock` (hårt föremål) faller.
+const PLATSMINER = ['retas', 'forvanad']
+kolla('KONTROLL: tidig fläck ger platsvalets min', PLATSMINER.includes(kontrollMin), `min ${kontrollMin}`)
 kolla('femte fläcken TRAPPAR till skratt', femteMin === 'skratt', `min ${femteMin}`)
 
 // ---- exit mitt i alltihop ---------------------------------------------------

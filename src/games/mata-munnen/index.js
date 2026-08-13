@@ -473,7 +473,10 @@ export default {
     if (this._vatskaV) return this._vatskaV
     const b = { left: FYSIK.v, right: FYSIK.h, top: 150, bottom: FYSIK.golv + 10 }
     this._vatskaV = new FluidWorld({
-      max: 116, radius: 20, gravityY: 0.5, bounds: b,
+      // 140, inte 116: hällandet (`_hallTick`) kan lägga på vätska ovanpå en pöl som redan
+      // ligger, och vid 116 tog världen slut mitt i en stråle. Taket är fortfarande ett tak
+      // — det ska INTE gå att fylla köket.
+      max: 140, radius: 20, gravityY: 0.5, bounds: b,
       walls: { left: true, right: true, bottom: true, top: false },
       rho0: 5.2, sigma: 0.1, beta: 0.16, restitution: 0.06, wallFriction: 0.5,
     })
@@ -486,6 +489,83 @@ export default {
       area: new Rectangle(b.left - 30, b.top - 20, b.right - b.left + 60, b.bottom - b.top + 60),
     })
     return this._vatskaV
+  },
+
+  // HÄLLA MEDAN MAN HÅLLER. Ägaren: "vätska ska kunna spillas ut mer samt kunna hållas
+  // över ansiktet." Förut fanns bara EN väg till vätska — `_gorLos`, alltså när bäraren
+  // blev en lös kropp — så man kunde aldrig hälla med flit, bara tappa.
+  //
+  // Regeln är den enklaste ett tvååring kan hitta själv: **håller du den lutad över något,
+  // rinner det**. Ingen knapp, ingen gest. Bäraren tippar synligt så orsaken syns innan
+  // verkan (P0: tydlig orsak), och strålen kommer ur dess KANT, inte ur mitten.
+  //
+  // Takten är en droppe-klump per ~70 ms i stället för en klick per bildruta: en bildrute-
+  // takt fyllde världens 116 partiklar på under en sekund och gjorde varje hällning lika
+  // lång oavsett hur länge man höll.
+  _hallTick(ctx, dtMS) {
+    const rec = this._drag?.active
+    const pal = rec?.data?.key != null ? SPILL[rec.data.key] : null
+    const v = rec?.view
+
+    // ⚠️ LUTNINGEN SKRIVS PÅ `rec.restRot`, ALDRIG PÅ `view.rotation`. `_dragTick` sätter
+    // `v.rotation = rec.restRot + släpvinkel` varje bildruta så länge man drar — en tween
+    // på `rotation` hade varit två skrivare till samma tal och överskrivits direkt.
+    // `restRot` är sömmen: draget lägger sin egen lutning ovanpå den.
+    if (pal == null || !v || v.destroyed) {
+      if (this._hallRec) this._hallRec.restRot = 0
+      this._hallRec = null
+      this._hallV = null
+      this._hallT = 0
+      return
+    }
+
+    // Över ansiktet ELLER över diskhon — båda är ställen där det är MENINGEN att hälla.
+    const overAns = Math.abs(v.x - ANS.x) < BUS.rx && v.y > 40 && v.y < KANT_Y
+    const overHo = Math.abs(v.x - HO.x) < HO.v / 2 && v.y < HO.bottenY
+    if (!overAns && !overHo) {
+      if (this._hallRec === rec) rec.restRot = (rec.restRot || 0) * 0.82 // räta upp mjukt
+      if (Math.abs(rec.restRot || 0) < 0.02) { this._hallRec = null; this._hallV = null }
+      this._hallT = 0
+      return
+    }
+
+    if (this._hallV !== v) {
+      this._hallV = v
+      this._hallRec = rec
+      this._hallT = 0
+      ctx.services.audio.sfx('soft')
+    }
+    // Tippa fram till full lutning över ~0,25 s. Egen ramp i stället för en tween, för
+    // `restRot` läses av draget varje bildruta och ska aldrig ha två ägare.
+    rec.restRot = Math.min(0.85, (rec.restRot || 0) + dtMS / 300)
+    if (rec.restRot < 0.5) return // det rinner först när den lutar på riktigt
+
+    this._hallT = (this._hallT || 0) + dtMS
+    if (this._hallT < 70) return
+    this._hallT = 0
+    const w = this._sakraVatska()
+    // Ur kärlets kant, i lutningens riktning — inte ur mitten.
+    const mx = v.x + 26
+    const my = v.y + 6
+    for (let i = 0; i < 5; i++) {
+      w.spawn(mx + (Math.random() - 0.5) * 14, my + (Math.random() - 0.5) * 8, {
+        vx: (Math.random() - 0.5) * 0.8, vy: 0.6 + Math.random() * 0.8, pal,
+      })
+    }
+    this._torkT = 0
+
+    // Pappa märker att det rinner på honom — men bara var 900:e ms, annars grimaserar han
+    // i ett enda långt ryck så länge man håller kvar.
+    if (overAns) {
+      this._hallMinT = (this._hallMinT || 0) + 70
+      if (this._hallMinT > 900) {
+        this._hallMinT = 0
+        const namn = Math.random() < 0.5 ? 'forvanad' : 'skratt'
+        this._ans?.slappMin(0.1)
+        const sek = this._sag(ctx, namn)
+        this._ans?.min(namn, { hall: Math.max(1.1, sek + 0.1) })
+      }
+    }
   },
 
   _spill(ctx, x, y, sort) {
@@ -1231,6 +1311,7 @@ export default {
     if (!this._alive) return
     const dt = Math.min(60, dtMS)
     this._phys?.update(dtMS)
+    this._hallTick(ctx, dt)
     this._vatskaTick(ctx, dtMS)
     this._mjukTick(dtMS)
     this._kokTick(ctx, dt)
@@ -1318,6 +1399,9 @@ export default {
     // Hettans tween skriver till riggen varje bildruta — den måste dö FÖRE ansiktet,
     // annars tintar den ett förstört lager (exit mitt i en chili).
     if (this._hetSt) { gsap.killTweensOf(this._hetSt); this._hetSt = null }
+    // Hällningen håller en `rec` och en vy som `_drag.clear()` strax river.
+    this._hallRec = null
+    this._hallV = null
     ctx?.ticker?.remove(this._tick)
     this._tick = null
     if (this._vakna && this._root && !this._root.destroyed) this._root.off('pointerdown', this._vakna)

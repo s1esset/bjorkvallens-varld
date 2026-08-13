@@ -410,6 +410,47 @@ diskbänken och spisen mer **framifrån** än uppifrån. Då försvinner yta ner
 toppyta 395→566 blir grundare, bakkanten går ner mot ~445) och halsen får plats, samtidigt
 som kranen och spisen ser bättre ut. `KANT_Y` delas i två tal: `HALS_Y` (fotots halslinje) och
 `KANT_Y` (öns bakkant).
+✅ **UPPMÄTT 2026-08-13 — halsen finns REDAN i det gamla neutralfotot, och det ändrar planen.**
+`s1face__00001_.png` (referensen, alltså källan till `bas`/`ovre`/`undre`) bär hals OCH axlar.
+Avläst i utrutans koordinater med linjal (`.tmp-ansikte/_halslinjal.png`, skala 1,2903 som
+i dag):
+
+| | ruta-y | design-y (dagens `ANS`) |
+|---|---|---|
+| hakans/skäggets underkant | ~695 | 441 |
+| halsen | 700–785 | 444–494 |
+| tröjkragen | ~785 | 494 |
+| axlar, ut till bildkanten | 785–1000 | 494–621 |
+| **`G.hakaTon` suddar i dag** | **636→700** | **407–444** |
+| **köksöns bakkant `KANT_Y`** | **616** | **395** |
+
+Två slutsatser:
+1. **Det som döljer halsen i dag är inte fotot, det är två tal.** `hakaTon` tonar bort allt
+   under 636, och `KANT_Y` skär vid 616 — alltså mitt i skägget. Att flytta dem är en
+   mycket mindre ändring än att migrera riggen till den nya shooten.
+2. **Utrymmet nertill är TAKAT av brädan, inte av fotot.** Kragen ligger på design-y 494 och
+   bänkskivans framkant (`BANK_Y`) på 566 — en bakkant vid 494 lämnar 72 px bänk, medan
+   skärbrädan är 106 px djup (452–558). `KANT_Y` kan alltså flyttas till **~440** utan att
+   röra något annat (12 px marginal till brädan), och det räcker till **hela hakan + halsens
+   översta rand**. Mer än så kräver ägarens front-on-perspektiv: brädan måste bli grundare
+   eller flytta ner först.
+
+⚠️ **Och därför räcker det INTE att bara flytta två tal.** `kok.js` bär en tidigare mätning som
+drar åt motsatt håll: bänkdjupet 171 px är det som får huvudet att stå *bakom* en bänk, och vid
+146 px "läste skarven som ett fat". En bakkant vid 440 ger **128 px** djup — under det talet.
+Halsen ovanför kanten ändrar visserligen läsningen (en hals som försvinner bakom en bänk ÄR en
+person, inte ett huvud på ett fat), men brädan är 106 px djup och lämnar då bara 22 px marginal
+totalt. Det är precis den knuten ägarens egen metod löser: **köksön, diskbänken och spisen mer
+framifrån** gör toppytan grundare *med avsikt* i stället för att klämma ihop den. Nästa post är
+alltså en ritningsändring i `byggKok` (ön · brädan · burken · spisen) med omräknade träffytor,
+inte en justering av `HALS`.
+
+⚠️ **Om rutan utökas nedåt (`RUTA.h` → 1,0, `HOJD` → 1000 ger IDENTISK skala 1,2903):** gör det
+med en EGEN `hUt` och rör inte `RUTA.h` — inriktningssökningen använder samma tal (`uppstallning`
+sätter posebandet till 0,72 × rutans höjd), och en ändrad ruta väljer om kandidatfoton åt varje
+roll. Då byter de 13 befintliga minerna ansikte utan att någon bett om det. Och `undre` (käken)
+får inte bära halsen — den ÅKER NER 40 px vid gap. Halsen hör hemma i det statiska `bas`.
+
 **Halsen kan FOTOGRAFERAS, inte ritas:** nya shooten har hals och axlar i bild, och tröjan är
 en enda genom hela serien (uppmätt på 17 bilder över hela spannet: 49,7–58,9 % neutralgrå,
 inget tryck — ⚠️ en indikation, inte ett bevis; mätpunkten skiljer ton från ton, inte tryck

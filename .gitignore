@@ -26,3 +26,4 @@ old/
 
 # ansiktsriggens mellanfiler (klippet byggs om med npm run ansikte)
 .tmp-ansikte/
+.tmp-ljud/

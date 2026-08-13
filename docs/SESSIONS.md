@@ -14,6 +14,49 @@ Format:
 
 ---
 
+## 2026-08-13 · v1.189.0 · Ägaruppdraget KÖKET byggt — miljö, luckor och tre motorer
+
+**Byggt:** hela ägaruppdraget från `727cacb` i tre commits, ett steg i taget med en mätning
+mellan varje.
+
+**① Köket och det svävande huvudet.** `kok.js` — vägg, golv, kakel, bakre bänkrad, kylskåp,
+fönster, diskho med kran, fläkt, spis med kastrull och stekpanna, ugn, högskåp med micro,
+skafferi och lådor, och en köksö mitt i rummet. **Skärlinjen är mätt, inte vald:**
+`magick bas.webp -alpha extract` ger radernas medeltäckning (122 vid ruta-y 592, 101 vid 616,
+79 vid 632, 47 vid 648) och köksöns bakkant ligger på 616 — sista raden med ~82 % täckning,
+precis innan fotots utfadning börjar synas. Ansiktet krympte 500 → 470, inte av estetiska skäl:
+skärlinjen ligger på en FAST ANDEL av höjden, så ett större ansikte trycker ner ön och gör
+bänkskivan till en list att balansera hakan på (uppmätt bänkdjup 146 px mot 171).
+
+**② Maten** flyttades från tallriken till en skärbräda på ön. `_munprobe` hade **x=455
+hårdkodat** som munnens läge och mätte glatt vidare när köket flyttade ansiktet till 620 — den
+rapporterade ett gap 0,12 → 0,74 för ett drag som landade i kinden och räknades som bus. Den
+läser nu spelets egen målnod.
+
+**③ Tolv klickbara stationer.** Kyl, frys, skafferi, micro, ugn, lådor och öns två skåp öppnas
+och innehåller saker att mata med; kran, spis, fläkt och fönster gör något. `skafferi.js` bär
+**54 nycklar** — ingen ny matritning gjordes, de två matspelens 128 föremål lästes in rakt av,
+och bara ägarens egen lista (kastrull, stekpanna, fat, glas med saft, mugg, bestick, redskap)
+ritades. Oätliga saker **spottas ut** och mättar aldrig.
+
+**④ Tre motorer, alla där de syns.** matter.js för högen på bänken (sjuhörningar — cirklar
+rullade så lätt att högen kröp 8,0 px per 700 ms långt efter sista nedslaget), SPH för pölen när
+ett glas saft töms över bänken, och `Mjukkropp` för den nyaste geggans splat. Tak: 2 öppna
+luckor · 8 lösa saker · 1 mjuk kropp.
+
+**Sonden var poängen igen.** `scripts/_kokprobe.mjs` trycker på luckorna — harnessen rör dem
+aldrig. Fyra fynd som bara mätningen kunde ge: `drain()` tar ett **centrum, inte ett hörn** (halva
+pölen låg utanför avloppet, 57 → 29 partiklar på elva sekunder); en **rund** mjuk kropp som
+knuffades ut var tillbaka i viloform efter SEX steg och alltså osynlig (kontrollarmen välte den —
+viloformen är nu redan utsplattad och det mjuka är vobbeln, 14,3 px mot 0,0); en utspottad sak låg
+kvar i sitt skåps lista så vyn revs under fysikkroppen; och sonden mätte en gång **sin egen
+kontrollarm efter mätarmen**.
+
+**Commits:** d56bea3 köket + köksön · d63d409 luckorna + skafferiet · 246c69d fysiken
+
+**Öppet:** LYFTPLAN N12. Pappas inspelade uttrycksljud (`pappa_mmm` m.fl.) väntar fortfarande på
+ägaren; 6 nya repliker väntar på `/rost`. Bygget är **inte omgjort** — telefonen kör v1.157.0.
+
 ## 2026-08-13 · v1.186.0 · Ansiktssektionen öppnad — `mata-munnen` byggt och spelat
 
 **Byggt:** riggens första kund. **Spel nr 73, `mata-munnen` (Mata Pappa)** — ett riktigt foto

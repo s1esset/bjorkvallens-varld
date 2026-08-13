@@ -1,18 +1,25 @@
 # Mata Pappa (`mata-munnen`)
-> 😋 roligt · drag · 2–5 år · status: ✅ marknadsklar — ⏸ **ägaruppdrag väntar: KÖKET (§4)**
+> 😋 roligt · drag · 2–5 år · status: ✅ marknadsklar (köket byggt v1.187–1.189)
 
 Första spelet i **ansiktssektionen** (`docs/IDEER.md` post 2). Riggen som bär det ligger i
 `src/lib/ansikte.js`, lagren klipps av `npm run ansikte` (`scripts/ansikte.mjs`).
 
 ## 0. Spec (godkänd av ägaren 2026-08-13)
 
-`mata-munnen` · **Mata Pappa** · 😋 · Roligt · drag (tap-tap-fallback) · 2–5 · ingen fysikmotor
-(DragController + GSAP). **Kärnloop:** tallrik med 4–6 matbitar → dra → munnen gapar när maten
-närmar sig → släpp på munnen → tugg + smulor → helbilds-grimas per mat (~1,5 s) →
-mättnadsmätaren fyller. **Bus:** släpp på ansiktet utanför munnen → fastnar + gegga (tak 6,
-äldsta ploppar av), fyller inte mätaren. **Variation:** matpool 20, 4–6 per tallrik, sällsynt
-wow (~1 på 8). **Finish:** rapfinalen — nöjd-mätt-minen, rap, fniss, smulkonfetti.
-**Repliker:** 7 literaler, alla med klipp. **Pappas uttrycksljud är samples**, inte narrator.
+`mata-munnen` · **Mata Pappa** · 😋 · Roligt · drag (tap-tap-fallback) · 2–5.
+**Kärnloop:** skärbräda med 4–6 matbitar → dra → munnen gapar när maten närmar sig → släpp på
+munnen → tugg + smulor → helbilds-grimas per mat (~1,5 s) → mättnadsmätaren fyller.
+**Bus:** släpp på ansiktet utanför munnen → fastnar + gegga (tak 6, äldsta ploppar av), fyller
+inte mätaren. **Variation:** matpool 20, 4–6 per bräda, sällsynt wow (~1 på 8).
+**Finish:** rapfinalen — nöjd-mätt-minen, rap, fniss, smulkonfetti.
+**Repliker:** 13 literaler. **Pappas uttrycksljud är samples**, inte narrator.
+
+**Utökad v1.187–1.189 (ägaruppdraget KÖKET, §4):** scenen är ett kök med **12 klickbara
+stationer** — kyl · frys · skafferi · micro · ugn · lådor · öns två skåp (öppnas, innehåller
+saker att mata med) samt kran · spis · fläkt · fönster (gör något). **54 saker** i `skafferi.js`,
+varav de oätliga spottas ut och aldrig mättar. **Tre motorer, alla där de syns:** matter.js för
+högen på bänkskivan, SPH-vätska för utspilld saft/mjölk/honung, och `Mjukkropp` för den nyaste
+geggans splat. Tak: 2 öppna luckor · 8 lösa saker · 1 mjuk kropp.
 
 ⚠️ **Ögon-följningen är STRUKEN** (ägarbeslut 2026-08-13): blickserien i 8 riktningar finns inte
 i fotomaterialet — alla 129 bilder tittar mot kameran eller blundar. Ansiktet lever på blink,
@@ -20,24 +27,38 @@ andning, käkens gap och minerna i stället.
 
 ## 1. Nuläge (sett som spelare)
 
-Ett varmt rum med ett brett träbord tvärs nedre tredjedelen. Mitt i bilden sitter **pappa** — ett
-riktigt, frilagt foto som andas, blinkar av sig självt och tittar rakt på mig. Till vänster står
-en **mättnadsburk** på bordet med ett hjärta på locket; till höger en stor porslinstallrik med
-4–6 handritade matbitar som guppar var och en i sin egen takt (citron, chili, kaka, broccoli,
-banan …). Jag tar en bit — **munnen gapar mer och mer ju närmare jag drar** — och släpper på
-munnen: biten åker in, käken **tuggar tre gånger**, smulor i matens egen färg sprutar ut, och så
-korsbleknar en **hel grimas** in: sur av citronen, flämtande het av chilin, lycksalig av kakan,
-fundersam av grönsakerna. Burken stiger ett steg. Släpper jag i stället maten i **pannan eller på
-kinden fastnar den** med en klet under sig, pappa säger aj eller blir förvånad, och geggan sitter
-kvar. När burken är full kommer **rapfinalen**: nöjd-mätt-minen, en djup rap, ett fniss,
-smulkonfetti — sedan torkas ansiktet rent och en ny tallrik kommer.
+Ett **kök**. Kylskåp till vänster, fönster med utsikt över en grön kulle, diskbänk med kran,
+spis med kastrull och stekpanna under en fläktkåpa, ugn, och ett högskåp med micro, skafferi och
+lådor till höger. Mitt i rummet står en **köksö**, och bakom den står **pappa** — ett riktigt,
+frilagt foto som andas och blinkar av sig självt. Bänkskivans bakkant skär precis under hakan,
+så huvudet svävar inte längre: det står bakom en bänk.
+
+På ön ligger en **skärbräda** med fem handritade matbitar som guppar var för sig, och till
+vänster står **mättnadsburken** med ett hjärta på locket. Jag tar en bit — **munnen gapar mer och
+mer ju närmare jag drar** — och släpper på munnen: biten åker in, käken **tuggar tre gånger**,
+smulor i matens egen färg sprutar ut, och så korsbleknar en **hel grimas** in. Burken stiger ett
+steg.
+
+Men jag kan också **klicka runt i köket**. Kylen svänger upp och lyser kallt inifrån med tre
+saker på hyllorna; skafferiet, mikron, ugnen, lådorna och öns två skåp öppnas var och en på sitt
+sätt. Allt jag hittar går att dra till munnen. En ost går ner. En **gaffel gör det inte** — pappa
+smakar, grimaserar och **spottar ut den**, och gaffeln flyger i en båge, landar på bänken och
+blir liggande bland allt annat skräp. Ett **glas saft** töms över bänkskivan och pölen rinner
+runt kastrullen som redan ligger där. Släpper jag maten i pannan i stället **splattar** klicken
+ut, vobblar till och blir sittande.
+
+Kranen går att slå på (vattnet rinner), spisen glöder och kokar, fläkten snurrar, och knackar
+jag på fönstret landar en fågel på fönsterblecket. När burken är full kommer **rapfinalen** —
+sedan torkas ansiktet rent, bänken sopas av och en ny bräda kommer.
 
 **Funkar bra:** ett riktigt ansikte som grimaserar är en helt annan sorts belöning än 72 ritade
 spel — grimasen ÄR återkopplingen, utan ett tecken text. Gapet som följer fingret gör målet
-självförklarande. Bus är gratis och roligt, aldrig ett fel.
+självförklarande. Köket gör bus till en egen lek utan att någonsin blockera målet: brädan fyller
+på sig själv, och oätliga saker kostar bara tid och en fläck.
 
-*(Skärmdumpar: `.test-shots/_munprobe.png` finalen · `-tugg` lycksalig min mitt i tugget ·
-`-bus` apelsin fastnad i pannan med aj-min.)*
+*(Skärmdumpar: `.test-shots/mata-munnen.png` grundläget · `_kokprobe-oppen.png` kylen ·
+`_kokprobe-on.png` öns luckor · `_kokprobe-hog.png` högen på bänken · `_kokprobe-spill.png`
+pölen · `_munprobe-bus.png` gegga i ansiktet.)*
 
 ## 2. Ursprunglig plan & tankeprocess
 
@@ -86,61 +107,80 @@ Om det återkommer är den läsningen fel.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
-### ⏸ ÄGARENS EGET UPPDRAG — KÖKET (lagt 2026-08-13, **ej påbörjat**)
+### ✅ ÄGARENS EGET UPPDRAG — KÖKET (lagt 2026-08-13, **byggt v1.187–1.189**)
 
-**Detta går före allt annat i §4.** Beskrivet av ägaren, ordagrant sammanfattat:
+Uppdraget står ordagrant i commit `727cacb`. Allt är byggt: köksmiljön, huvudet mot bänkkanten,
+tolv klickbara stationer med innehåll, mat- och busobjekt från de två matspelen, och fysiken
+(kollisioner · massa · vätska · mjuka kroppar). Sonden är `scripts/_kokprobe.mjs`.
 
-> Skapa ett **kök** som miljö/scen för spelet. Sätt **nedre kanten av huvudet mot bordskanten
-> på en köksö mitt i köket**, som att karaktären står bakom köksön — så huvudet inte är så
-> separerat/svävande i luften. Fyll köket med saker och mat: **kastruller, stekpannor, fat,
-> glas med vätskor, kylskåp, köksskåp, ett fönster, micro, ugn, skafferi, bestick, muggar,
-> köksredskap, spis.** Använd **mat-/objekt-assets från `pizzabageriet` och
-> `hamburgerbygget`** och fyll köket med sådant vi kan mata karaktären med, **samt busa** med
-> — kasta, smeta, kladda, mata den med konstiga saker. Objekten ska **interagera med
-> varandra**: vätska, kollisioner, mjuka kroppar, massa. Och köket ska gå att **klicka runt
-> i** — trycker man på kylen öppnar den sig och där ligger mer saker/mat; likaså köksskåp,
-> ugn, micro, lådor, kran, spis, fläkt.
+**Svaren på de sex frågorna som stod här före bygget:**
 
-**Vad som redan finns och inte ska byggas om** (kontrollerat i koden 2026-08-13):
+1. **Nuvarande scen** — `createScene('warm')`, bordet och tallriken är borta. `kok.js` äger nu
+   ALL geometri (`ANS` · `KANT_Y` · `BANK_Y` · `PLATSER` · `MATARE` · `BRADA` · `FYSIK`), och
+   `index.js` importerar den. **Ansiktet är master:** köksöns bakkant räknas ur fotots halslinje,
+   aldrig tvärtom. Munnens släppmål står kvar som en orörlig nod i `_matL` (§2).
+2. **Fysikbudget** — `_montageprobe --cpu 4` sätter spelet vid MEDIANEN (16,8 ms mot
+   `flipperspel`s 216,9). Vätskevärlden skapas först när något faktiskt spills och rivs när pölen
+   torkat; `FluidView.area` är bänkbandet, inte designytan (förvalet kostar 9× mer).
+   `test:all` 73/73 med allt inkopplat.
+3. **Ett spel, inte två.** Målet är oförändrat: mätta pappa. Köket är SKAFFERIET — att öppna en
+   lucka är hur man hittar mat, alltså en väg till samma mål och inte en andra loop.
+4. **Taken** (P0 MOTGÅNG): `OPPNA_MAX` 2 öppna luckor · `GEGGA_MAX` 6 fläckar · `LOSA_MAX` 8
+   saker i högen på bänken · EN mjuk kropp i taget. Allt sopas i finalen.
+5. **Träffytorna ritades före objekten.** 12 stationer, minsta 100 px, inget par närmare än
+   24 px — räknat av sonden, inte antaget. Kolumnerna är höjdbudgeterade: vänstra väggen rymmer
+   exakt två stationer, högra tre. Två saker föll på just detta och byggdes om: mättnadsburken
+   TAKADES till h=190 (en högre burk lade sig över väggskåpets träffyta) och underskåpet under
+   diskhon gjordes medvetet DÖTT (burken står framför det).
+6. **Monteringen** använder bara cachade gradienter ur `form.js` — noll texturbakningar.
 
-- **128 färdiga ritningar** att hämta: `src/games/pizzabageriet/ingredienser.js` (65) och
-  `src/games/hamburgerbygget/ingredienser.js` (63, plus `ITEMS` + `makeItemView`). Båda
-  exporterar en `DRAW`-tabell. **Busregistret finns redan där:** `bajs` · `strumpa` ·
-  `smutsig_strumpa` · `spindel` · `snigel` · `tandborste` · `kackerlacka` · `kalsonger` ·
-  `toapapper` · `mask` · `mygga` · `daggmask` · `disksvamp` · `prutt` · `snor` · `fiskben` ·
-  `lera` · `mogelost` · `groda` · `fluga`. Ingen ny ritning behövs för att komma igång.
-- **Mjuka kroppar:** `src/lib/mjukkropp.js` + `hamburgerbygget/bulle.js` (`makeBullkropp` ·
-  `stegBulle` · `sattVikt`). ⚠️ Fast tidssteg är ett KRAV — se CLAUDE.md.
-- **Vätska:** SPH-vätskan (`vattenvagen`, `golvet-ar-lava`, `saftbaren`) + `_vatskeprobe.mjs`.
-  ⚠️ Simulera bara där vätskan syns.
-- **Kollisioner/massa:** `src/lib/physics.js` (matter.js). ⚠️ `restitution` på en STATISK
-  kropp gör ingenting — `{ isStatic: true, studs: 0.75 }`.
+**Det som INTE byggdes, och varför:**
 
-**Frågor en planerare måste svara på FÖRST — uppdraget är för stort för ett svep:**
+- **Kranens vatten är en ritad stråle, inte SPH.** Diskhon är 112×34 px; en vätskevärld där hade
+  kostat samma sprites och filterpass som pölen på bänken för en tiondel av ytan. Vätskan ligger
+  i stället där den syns: på bänkskivan.
+- **Ingen koppling mellan matter och `Mjukkropp`.** De är två lösare; en kastrull som landar på
+  geggan trycker inte ihop den. Geggan vobblar av sitt EGET nedslag, vilket är sant och mätt.
 
-1. **Vad händer med `mata-munnen`s nuvarande scen?** Köket ersätter `createScene('warm')` +
-   bordet + tallriken. Mätaren och tallriken måste få nya platser i köksbilden, och munnens
-   släppmål måste stå kvar som en **orörlig nod** (se §2). Ansiktets `ANS.y`/`_munY` styr
-   köksöns kanthöjd — eller tvärtom; bestäm vilket som är master.
-2. **Hur mycket fysik tål bilden?** `_montageprobe`/`_fpsprobe` med CPU-strypning innan
-   vätska + mjuka kroppar + kollisioner läggs i samma scen. Ett kök där allt simuleras
-   samtidigt är inte samma sak som ett kök som ser ut så.
-3. **Är det ETT spel eller två?** "Mata pappa" (mål: mätta) och "utforska köket" (mål: öppna
-   allt) är olika loopar. Ett gemensamt kök kan bära båda, men P0 kräver ETT tydligt mål per
-   skärm för en 2-åring.
-4. **P0 GRIND:** öppningsbara luckor är fri lek, inte inställningar — ingen grind. Men
-   **taket** gäller: hur många öppnade luckor och utspillda saker samtidigt innan det blir
-   kaos? (`GEGGA_MAX` är motsvarigheten idag: 6.)
-5. **P0 TRÄFFYTA** för luckor, lådor, kran och vred: ≥96 px och ≥24 px mellan dem — ett kök
-   med tjugo klickbara ytor blir trångt fort. Rita ytorna innan objekten.
-6. **Bildbudget och montering:** en scen med tjugo objekt får göra **noll** texturbakningar
-   vid montering (gradienter cachas per färg — se CLAUDE.md om `FillGradient`).
+## 5b. Vad KÖKET mätte (och vad mätningen ändrade)
 
-**Föreslagen ordning** (varje steg testbart för sig): ① köket som stillbild + köksön med
-ansiktet i rätt höjd → ② maten flyttas från tallrik till köksö, spelet fungerar som förut →
-③ klickbara luckor med innehåll (ingen fysik) → ④ fysik/vätska på de få ställen där den
-faktiskt syns → ⑤ bus-objekten från de två matspelen.
+`node scripts/_kokprobe.mjs` trycker på luckorna — testharnessen rör dem aldrig.
 
+| Mätning | Kontrollarm | Utfall |
+|---|---|---|
+| Ritar varje katalognyckel något? | reservcirkelns kända mått | 54/54, 52–110 px ✓ |
+| Träffytor ≥96 px, ≥24 px isär | räknat par för par | minsta 100 px, 0 för nära ✓ |
+| Öppnas kylen med innehåll? | dörrskala i vila = 1 | 1 → 0,16 · insidan tänds · 3 saker ✓ |
+| Håller taket 2 öppna? | äldsta ska stängas OCH städas | ✓ |
+| Mättar en gaffel? | mätaren före/efter | **oförändrad** ✓ |
+| Vilar högen på bänken? | tom bänk vid start = 0 kroppar | 7 kroppar, 7/7 på bänken, 0 utanför ✓ |
+| Har högen lugnat sig? | rörelse per 700 ms | 0–3 px ✓ |
+| Spills en pöl? | ingen värld före spill | 58 partiklar, bulk 286 px ✓ |
+| Torkar pölen upp? | partiklar + världens liv | 58 → 0, världen riven ✓ |
+| Vobblar geggan? | **samma kropp utan nedslaget** | 14,3 px mot 0,0 px ✓ |
+| Lägger vobbeln sig? | svängning sista 45 stegen | 0,1 px ✓ |
+
+**Fyra fynd som bara mätningen kunde ge:**
+
+- **En cirkel rullar för lätt.** Högen kröp 8,0 px per 700 ms långt efter att sista saken landat
+  — alltså aldrig riktigt still (`_stillaprobe`s fråga ställd mot det här spelet). Sjuhörningar:
+  0–3 px. Och det är inte bollar som ligger på en bänk.
+- **`drain(x, y, w, h)` tar ett CENTRUM, inte ett hörn.** Med hörnet inskickat låg avloppet på
+  x −248..632 medan pölen samlats kring 430..830: den torkade bara på vänstra halvan (57 → 29
+  partiklar på elva sekunder) och världen levde vidare. Ett tyst enhetsfel utan ett konsolfel.
+- **Kontrollarmen välte den första mjuka kroppen.** En RUND kropp som knuffades ut vid nedslaget
+  var tillbaka i viloform efter SEX steg (88 → 78 px på 0,1 s) — osynlig. Viloformen är nu redan
+  utsplattad och det mjuka är VOBBELN. Utan den oknuffade kontrollarmen hade "kroppen är 78 px
+  bred" sett ut som ett resultat.
+- **En utspottad sak låg kvar i sitt skåps `_saker`.** När lådan stängdes revs vyn medan
+  fysikkroppen fortsatte skriva till den (`Cannot read properties of null (reading 'x')`).
+
+**Och en läxa om sonden själv:** `_kokprobe` mätte en gång sin egen kontrollarm EFTER mätarmen
+(1 lös kropp på en "tom" bänk) och drev en lucka ur fas — den klickade en gång för att öppna och
+en gång för att stänga varje varv, mot en lucka som redan stod öppen, och öppnade därför aldrig
+lådan på tio varv. Samtidigt kom `pointertap` bevisligen fram (down=1 up=1 tap=1). **"Klicket når
+inte fram" och "klicket gör tvärtom" ser likadana ut utifrån** — det var händelseräknaren mot
+stationens egen `oppen`-flagga som skilde dem åt.
 
 ### Ljud
 - **[Quick] Pappas egna uttrycksljud.** Hela kopplingen finns: `ROST`-tabellen bär klippnamnen

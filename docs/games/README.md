@@ -79,9 +79,10 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ | ✅ |
 | 73 | Mata Pappa | `mata-munnen` | drag | ✅ | ✅ |
 
-⏸ **`mata-munnen` har ett ägaruppdrag som väntar:** köksmiljön (köksö, klickbara luckor,
-fysik/vätska, bus-objekt från `pizzabageriet` + `hamburgerbygget`). Spec och de sex frågor som
-måste besvaras först ligger i `docs/games/mata-munnen.md` §4.
+✅ **`mata-munnen`s ägaruppdrag KÖKET är byggt** (v1.187–1.189): köksmiljö där bänkskivan skär
+fotots halslinje, 12 klickbara stationer, 54 mat- och busobjekt hämtade ur `pizzabageriet` +
+`hamburgerbygget`, och tre motorer där de syns (matter-hög på bänken · SPH-pöl · mjuk gegga).
+Sond: `scripts/_kokprobe.mjs`. Mätningarna och de fyra fynden står i `mata-munnen.md` §4/§5b.
 
 ### ⚙️ Fysik & rörelse (fysik + motorik) — ✅ **poleringsrundan KLAR** (27/27, v1.7.0, 2026-08-04; +`natskott-pa-stan` byggd ✅ 2026-08-08)
 *Första-omgången 2026-07-01. Poleringsrundan lyfte 9 spel till ✅. Kvalitetsspåret 2026-08-06

@@ -77,6 +77,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 67 | Pizzabageriet | `pizzabageriet` | drag | ✅ | ✅ |
 | 68 | Hamburgerbygget | `hamburgerbygget` | drag | ✅ | ✅ |
 | 70 | Zackes Biltvätt | `zackes-biltvatt` | mixed | ✅ | ✅ |
+| 78 | Bygg en Kompis | `bygg-en-kompis` | tap | ✅ | ✅ |
 | 73 | Mata Pappa | `mata-munnen` | drag | ✅ | ✅ |
 
 ✅ **`mata-munnen`s ägaruppdrag KÖKET är byggt** (v1.187–1.189): köksmiljö där bänkskivan skär

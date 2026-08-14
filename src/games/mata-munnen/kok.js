@@ -616,6 +616,83 @@ export function byggKok(ctx) {
   return { bakgrund, framgrund, stationer, noder }
 }
 
+// --------------------------------------------------- klistermärkena ---
+
+// KYLDÖRRENS KLISTERMÄRKEN — en per mättad mage, sparade i `ctx.progress`.
+//
+// Platserna ligger på den TOMMA delen av dörren: barnteckningen slutar på y 418, handtaget
+// står på x 148–168 (y 336–492) och dörrens underkant är 640. Rutnätet 3×3 börjar därför på
+// y 452 och håller sig innanför x 34–140, alltså aldrig under handtaget. De ritas på DÖRREN
+// (samma skäl som magneterna: en stängd dörr ligger överst, och ett märke ska svänga med).
+//
+// ⚠️ Åtta är ett TAK, inte ett mål. Nionde mättade magen firas precis lika mycket — det
+// finns bara ingen ny plats på dörren. Inget här kan någonsin SJUNKA eller nollställas.
+export const MARKE_MAX = 8
+export const MARKEN = [
+  [50, 452], [87, 452], [124, 452],
+  [50, 508], [87, 508], [124, 508],
+  [50, 564], [87, 564],
+]
+
+// Ett klistermärke: vit die-cut-kant + ett motiv i tunna kritstreck, samma handgjorda
+// språk som barnteckningen ovanför. Åtta olika motiv — ett barn som fyllt kylen ska kunna
+// peka ut vilket som är vilket, inte se åtta gula prickar.
+export function ritaMarke(g, i, x, y) {
+  const R = 15
+  g.circle(x, y, R).fill(0xfffdf6).stroke({ width: 2, color: 0xe0d6c0, alpha: 0.9 })
+  g.circle(x, y - 3, R - 3).fill({ color: 0xffffff, alpha: 0.35 })
+  const k = i % MARKE_MAX
+  if (k === 0) { // stjärna
+    const p = []
+    for (let n = 0; n < 10; n++) {
+      const a = -Math.PI / 2 + (n / 10) * Math.PI * 2
+      const r = n % 2 ? 4.5 : 10.5
+      p.push(x + Math.cos(a) * r, y + Math.sin(a) * r)
+    }
+    g.poly(p).fill(0xffd049).stroke({ width: 1.8, color: 0xe0a41f })
+  } else if (k === 1) { // hjärta
+    g.moveTo(x, y + 8).quadraticCurveTo(x - 12, y - 3, x - 6, y - 9)
+      .quadraticCurveTo(x, y - 13, x, y - 5)
+      .quadraticCurveTo(x, y - 13, x + 6, y - 9)
+      .quadraticCurveTo(x + 12, y - 3, x, y + 8)
+      .fill(0xff7fa2).stroke({ width: 1.8, color: 0xd94f72 })
+  } else if (k === 2) { // blomma
+    for (let n = 0; n < 5; n++) {
+      const a = (n / 5) * Math.PI * 2
+      g.circle(x + Math.cos(a) * 5.5, y + Math.sin(a) * 5.5, 4.6).fill(0xb98ce0)
+    }
+    g.circle(x, y, 4).fill(0xffd049).stroke({ width: 1.5, color: 0xe0a41f })
+  } else if (k === 3) { // sol
+    g.circle(x, y, 6).fill(0xffc23d).stroke({ width: 1.6, color: 0xe08a1f })
+    for (let n = 0; n < 8; n++) {
+      const a = (n / 8) * Math.PI * 2
+      g.moveTo(x + Math.cos(a) * 8, y + Math.sin(a) * 8)
+        .lineTo(x + Math.cos(a) * 11.5, y + Math.sin(a) * 11.5)
+        .stroke({ width: 2, color: 0xf2a53c })
+    }
+  } else if (k === 4) { // fisk
+    g.ellipse(x - 1, y, 8.5, 6).fill(0x5cb8e8).stroke({ width: 1.6, color: 0x2f86bd })
+    g.poly([x + 6, y, x + 12, y - 5, x + 12, y + 5]).fill(0x5cb8e8).stroke({ width: 1.6, color: 0x2f86bd })
+    g.circle(x - 4, y - 1.5, 1.6).fill(0x24485c)
+  } else if (k === 5) { // regnbåge
+    for (const [r, c] of [[11, 0xe86a5a], [8, 0xffc23d], [5, 0x5cae4f]]) {
+      g.moveTo(x - r, y + 5).arc(x, y + 5, r, Math.PI, 0).stroke({ width: 2.6, color: c })
+    }
+  } else if (k === 6) { // äpple
+    g.circle(x, y + 1, 8.5).fill(0xe05a4a).stroke({ width: 1.6, color: 0xb03a2e })
+    g.moveTo(x, y - 7).quadraticCurveTo(x + 1, y - 11, x + 4, y - 12).stroke({ width: 2, color: 0x8a6a4a })
+    g.ellipse(x + 6, y - 10, 4, 2.4).fill(0x5cae4f)
+  } else { // katt
+    g.poly([x - 8, y - 4, x - 7, y - 12, x - 1, y - 7]).fill(0xf0a24a)
+    g.poly([x + 8, y - 4, x + 7, y - 12, x + 1, y - 7]).fill(0xf0a24a)
+    g.circle(x, y + 1, 8).fill(0xf0a24a).stroke({ width: 1.6, color: 0xc27a2a })
+    g.circle(x - 3, y - 1, 1.5).fill(0x4a3520)
+    g.circle(x + 3, y - 1, 1.5).fill(0x4a3520)
+    g.moveTo(x - 9, y + 2).lineTo(x - 4, y + 3).moveTo(x + 9, y + 2).lineTo(x + 4, y + 3)
+      .stroke({ width: 1.3, color: 0x8a5a20 })
+  }
+}
+
 // ------------------------------------------------------------ möblerna ---
 
 function _kylskap() {

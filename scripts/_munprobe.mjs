@@ -57,6 +57,12 @@ const las = (page) =>
       // syns. Bara namnet hade varit mekanismen och inte fenomenet — lappen korsbleks, så
       // ett valt namn med alfa 0 betyder att ögonen står kvar rakt fram.
       blick: a?._blickNamn ?? null,
+      // ÖNSKAN (v1.214): efter ett släpp står blicken inte längre alltid rakt fram — har
+      // pappa en lust tittar han på DEN. Utan det här fältet läste raden nedan hans
+      // önskan som "ögonen följer inte maten", alltså ett falskt rött på en ny funktion.
+      onskan: g._onskan?.rec?.view && !g._onskan.rec.view.destroyed
+        ? { x: Math.round(g._onskan.rec.view.x), y: Math.round(g._onskan.rec.view.y) }
+        : null,
       blickA: a?._blickar
         ? Math.round(Math.max(...Object.values(a._blickar).map((s) => s.alpha)) * 100) / 100
         : null,
@@ -137,10 +143,21 @@ try {
   console.log(`\n  GAP  långt bort ${langtBort.toFixed(2)}  →  vid munnen ${naraMun.toFixed(2)}   ${naraMun > langtBort + 0.3 ? '✓' : '✗ munnen bjuder inte in'}`)
   console.log(`  LUTA vid munnen ${lutaNara.toFixed(3)} rad · efter släppet ${efterSlapp.luta.toFixed(3)}   ` +
     `${Math.abs(lutaNara) > 0.004 && Math.abs(efterSlapp.luta) < 0.004 ? '✓' : '✗ huvudet följer inte maten (eller går inte tillbaka)'}`)
+  // Tredje läsningen: blicken ska SLUTA följa den släppta biten. Väntat läge beror på om
+  // han just då har en önskan — då tittar han på den i stället för rakt fram (v1.214), och
+  // riktningen räknas ur samma tal som spelet självt använder.
+  const vantatEfter = (() => {
+    const o = efterSlapp.onskan
+    if (!o) return null
+    const k = { v: Math.max(0, -(o.x - efterSlapp.mun.x) / 300), h: Math.max(0, (o.x - efterSlapp.mun.x) / 300),
+      ner: Math.max(0, (o.y - efterSlapp.mun.y) / 200) }
+    return Object.keys(k).reduce((b, n) => (k[n] > k[b] ? n : b), 'v')
+  })()
   const blickOk = bVanster.blick === 'v' && bHoger.blick === 'h' && bVanster.blickA > 0.5 && bHoger.blickA > 0.5 &&
-    efterSlapp.blick === null && efterSlapp.blickA < 0.2
+    (vantatEfter === null ? (efterSlapp.blick === null && efterSlapp.blickA < 0.2) : efterSlapp.blick === vantatEfter)
   console.log(`  BLICK maten till vänster ${bVanster.blick} (alfa ${bVanster.blickA}) · till höger ${bHoger.blick} ` +
-    `(alfa ${bHoger.blickA}) · efter släppet ${efterSlapp.blick} (alfa ${efterSlapp.blickA})   ` +
+    `(alfa ${bHoger.blickA}) · efter släppet ${efterSlapp.blick} (alfa ${efterSlapp.blickA}, ` +
+    `väntat ${vantatEfter ?? 'rakt fram'}${efterSlapp.onskan ? ' — han önskar sig något' : ''})   ` +
     `${blickOk ? '✓' : '✗ ögonen följer inte maten'}`)
 
   // ---- 2. ETT MÅL: mata en bit --------------------------------------------

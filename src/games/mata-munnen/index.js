@@ -20,7 +20,7 @@
 // pappa blir förvånad, säger aj eller fnissar, och geggan sitter kvar till rapfinalen.
 import { Circle, Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { ANS, BANK_Y, BRADA, BUS_NER, FYSIK, KANT_Y, MATARE, OPPNA_MAX, PLATSER, byggKok } from './kok.js'
+import { ANS, BANK_Y, BRADA, BUS_NER, FYSIK, KANT_Y, MARKEN, MARKE_MAX, MATARE, OPPNA_MAX, PLATSER, byggKok, ritaMarke } from './kok.js'
 import { arAtbar, makeSak, sakFarg, sakMaterial, sakMin, sakPruttar } from './skafferi.js'
 import { DragController } from '../../lib/DragController.js'
 import { Body, PhysicsWorld, mat } from '../../lib/physics.js'
@@ -77,6 +77,33 @@ const KAST = {
 }
 const GEGGA_MAX = 6 // P0 MOTGÅNG: tak på hur mycket som kan gå fel samtidigt
 const LOSA_MAX = 8  // samma sorts tak för högen på bänken
+
+// ÖNSKAN — pappa får en lust till EN av bitarna på brädan.
+//
+// Varför den finns: målet var "N tuggor", aldrig "vilka", så varje matbit var exakt lika
+// rätt och draget var ett val utan konsekvens (kvalitetsgrindens punkt 1). Nu betyder det
+// något VILKEN bit man tar — men bara uppåt.
+//
+// ⚠️ DEN FÅR ALDRIG LÄSA SOM EN UPPGIFT (P0: aldrig stress, aldrig skam). Därför:
+//   · ingen timer och ingen nedräkning — önskan väntar hur länge som helst,
+//   · fel bit är inte fel: den äts precis lika glatt och mätaren stiger lika mycket,
+//   · önskan kräver MINST TVÅ bitar på brädan — en önskan om den enda saken som finns är
+//     ingen valmöjlighet, bara en order,
+//   · repliken är GENERISK ("den där"), aldrig ett matnamn: barnet läser ringen och
+//     blicken (P0 NAVIGATION, noll läsning) — och 64 saker hade krävt 64 röstklipp.
+const ONSKAN = {
+  efterTugga: 2.2, // s innan nästa önskan får komma (minen och repliken hinner först)
+  forstaGang: 3.4, // s efter en ny tallrik — introrepliken ska höras klart
+  byte: 16000,     // ms innan han provar en ANNAN bit; en ring som aldrig rör sig blir tapet
+  ringR: 64,       // ≫ matens halvbredd, så ringen OMSLUTER biten i stället för att skära den
+  //                  (brädplatserna ligger 146 px isär → 18 px luft mellan två ringar,
+  //                  och bara en bit i taget bär ring)
+}
+const ONSKE_REPLIKER = [
+  'Åh, den där ser god ut!',
+  'Pappa vill smaka den där!',
+  'Mmm, vad pappa vill ha den där!',
+]
 
 // Vilka saker som bär vätska, och vilken. Varken apelsinsaft eller mjölk finns i `FLUIDS`
 // (den har rött och vitt saknas helt), så de två har egna tal. Saften är GLASETS färg —
@@ -194,6 +221,16 @@ export default {
     this._spisPa = false
     this._flaktPa = false
     this._losa = []
+    this._onskan = null
+    this._onskanT = 0
+    // Spelmodulen är en singleton: allt märkestillstånd måste nollas här, annars ärver
+    // nästa omgång förra rundans räknare och ritar märken på en dörr som inte finns.
+    this._markeL = null
+    this._markeNoder = []
+    this._marken = 0
+    this._markeSagt = false
+    this._markeReplik = null
+    this._pappaTill = 0
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -268,6 +305,7 @@ export default {
     this._startaFysik(ctx)
     this._nyTallrik(ctx)
     this._byggStationer(ctx, kok.stationer)
+    this._ritaMarken(ctx)
 
     this._tick = (t) => this._update(ctx, t.deltaMS)
     ctx.ticker.add(this._tick)
@@ -400,6 +438,178 @@ export default {
       .fill({ color: 0xffd08a, alpha: 0.9 })
   },
 
+  // ------------------------------------------------------ klistermärkena ---
+
+  // Kyldörren minns. Mättnadsburken nollställs varje omgång — det MÅSTE den, annars vore
+  // den ingen mätare — och därför fanns det inget i rummet som sa "vi har gjort det här
+  // förut". Skalets klistermärke (`progress.complete`) syns bara på bibliotekskärmen, som
+  // ett barn aldrig ser mitt i en omgång.
+  //
+  // ⚠️ Märkena är REN DEKOR på kylens dörr-container: de ärver dörrens `eventMode = 'none'`
+  // och ändrar ingen träffyta (kylens `yta` sätts av stationstabellen, inte av ritningen).
+  // Att de ritas PÅ dörren och inte på stommen är samma mätning som magneterna: en stängd
+  // dörr ligger överst i lagerordningen, och allt bakom den syns aldrig.
+  _ritaMarken(ctx) {
+    const kyl = (this._stationer || []).find((st) => st.id === 'kyl')
+    if (!kyl?.dorr || kyl.dorr.destroyed) return
+    this._markeL = new Container()
+    this._markeL.eventMode = 'none'
+    kyl.dorr.addChild(this._markeL)
+    this._markeNoder = []
+    this._marken = Math.max(0, Math.min(MARKE_MAX, ctx.progress.get()?.custom?.marken || 0))
+    for (let i = 0; i < this._marken; i++) this._markeNod(i)
+  },
+
+  // ETT MÄRKE = EN EGEN NOD. Alla åtta låg först i samma `Graphics`, och stämpelpulsen
+  // sattes genom att flytta HELA lagrets pivot till det nya märket — vilket skalar de
+  // gamla runt en punkt som inte är deras egen. Kritikern mätte det: märke 1 gled
+  // **10,4 px** i sidled när märke 2 poppade in, en tredjedel av sin egen diameter, tvärs
+  // emot kommentaren som sa att de gamla ska stå still. Med en nod per märke rör pulsen
+  // bara sitt eget.
+  _markeNod(i) {
+    const g = new Graphics()
+    g.eventMode = 'none'
+    ritaMarke(g, i, MARKEN[i][0], MARKEN[i][1])
+    g.pivot.set(MARKEN[i][0], MARKEN[i][1])
+    g.position.set(MARKEN[i][0], MARKEN[i][1])
+    this._markeL.addChild(g)
+    this._markeNoder.push(g)
+    return g
+  },
+
+  // Ett nytt märke vid varje mättad mage. Taket är dörrens platser — och en full dörr
+  // firar exakt lika mycket, den får bara ett glitter i stället för ett nytt märke.
+  //
+  // ⚠️ MÄRKET SÄGER INGENTING. Finalen bär redan tre röstklipp (rapen, ibland en till, och
+  // skrattet) plus narratorn, och ett ord här hade landat mitt i skrattet — precis det fel
+  // som en gång lät som "två pappor" (§5 v1.194). Ord bara vid de två tillfällen då de
+  // betyder något NYTT, och då i nästa tallriks replikplats där ingen annan röst står.
+  _nyttMarke(ctx) {
+    if (!this._markeL || this._markeL.destroyed) return
+    const audio = ctx.services.audio
+    const full = this._marken >= MARKE_MAX
+    if (full) {
+      // Dörren är full. Ingen ny plats, men samma fest — och den här gången ett ord, för
+      // "kylen är full" är en händelse och inte en upprepning.
+      sparkle(ctx.fxLayer, 87, 508, { count: 18 })
+      this._markeReplik = 'Hela kylen är full med klistermärken!'
+    } else {
+      const i = this._marken
+      const nod = this._markeNod(i)
+      this._marken = i + 1
+      ctx.progress.setCustom('marken', this._marken)
+      // Märket sätts dit med en liten stämpel — i SIN EGEN nod, med pivoten i sitt eget
+      // centrum, så de gamla märkena står still (se `_markeNod`).
+      gsap.fromTo(nod.scale, { x: 1.35, y: 1.35 },
+        { x: 1, y: 1, duration: 0.5, ease: 'back.out(3)' })
+      kvittera(ctx.fxLayer, MARKEN[i][0], MARKEN[i][1], audio, { color: 0xffe3b0, maxR: 70 })
+      sparkle(ctx.fxLayer, MARKEN[i][0], MARKEN[i][1], { count: 9 })
+      if (!this._markeSagt) {
+        this._markeSagt = true // en gång per omgång i appen: efter det räcker plinget
+        this._markeReplik = 'Titta, ett klistermärke på kylen!'
+      }
+    }
+    // Stigande kvint — samma musikaliska språk som `correct`, aldrig ett UI-blipp.
+    audio.tone({ freq: 880, dur: 0.1, vol: 0.16 })
+    ctx.later(0.11, () => { if (this._alive) audio.tone({ freq: 1320, dur: 0.12, vol: 0.14 }) })
+  },
+
+  // ------------------------------------------------------------- önskan ---
+
+  // Pappa får en lust till en av bitarna: blicken låser sig vid den, en varm ring andas
+  // runt den och han säger något generiskt. Kravet på MINST TVÅ kandidater är det som gör
+  // den till ett val i stället för en order.
+  _valjOnskan(ctx, byte = false) {
+    if (!this._alive || this._busy || !this._ans) return
+    const kvar = (this._mat || []).filter((r) => this._onskbar(r))
+    if (kvar.length < 2) return
+    const gammal = this._onskan?.rec
+    const fria = kvar.filter((r) => r !== gammal)
+    const rec = randomFrom(fria.length ? fria : kvar)
+    if (!rec) return
+    this._slappOnskan()
+
+    // Ringen ligger i `_propL` (bakom maten, framför bänken) och FÖLJER biten per bildruta
+    // i stället för att vara barn till den. Ett barn hade följt med upp i handen när biten
+    // lyfts — och en ring som svävar i luften mitt i ett drag pekar inte längre på något.
+    const ring = new Graphics()
+    ring.eventMode = 'none'
+    ring.circle(0, 0, ONSKAN.ringR).stroke({ width: 6, color: 0xffd06a, alpha: 0.75 })
+    ring.circle(0, 0, ONSKAN.ringR - 11).stroke({ width: 3, color: 0xfff0c0, alpha: 0.45 })
+    for (let n = 0; n < 6; n++) {
+      const a = (n / 6) * Math.PI * 2
+      ring.circle(Math.cos(a) * ONSKAN.ringR, Math.sin(a) * ONSKAN.ringR, 4.5)
+        .fill({ color: 0xffe9a8, alpha: 0.9 })
+    }
+    ring.position.set(rec.view.x, rec.view.y)
+    this._propL.addChild(ring)
+    gsap.to(ring, { rotation: Math.PI * 2, duration: 9, ease: 'none', repeat: -1 })
+    gsap.to(ring.scale, { x: 1.09, y: 1.09, duration: 0.9, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    gsap.from(ring, { alpha: 0, duration: 0.3 })
+
+    this._onskan = { rec, ring }
+    this._onskanT = 0
+    this._idle = 0
+    // Han tittar dit direkt och nickar — gesten är det som gör ringen till HANS önskan och
+    // inte till en markering appen ritade. RINGEN OCH NICKEN KOMMER GENAST (P0: bild inom
+    // 100 ms); bara ORDEN väntar in den som talar, för de har ingen brådska och kapar
+    // annars introt eller bekräftelsen.
+    this._ans.nick?.()
+    const text = byte ? 'Eller kanske den där?' : randomFrom(ONSKE_REPLIKER)
+    this._narTyst(ctx, () => {
+      // Önskan kan ha uppfyllts under väntan — då är repliken inte längre sann.
+      if (this._alive && !this._busy && this._onskan?.rec === rec) ctx.services.voice.say(text)
+    })
+  },
+
+  // En bit går att önska sig så länge den ligger kvar på BRÄDAN och inte redan är på väg
+  // in i munnen. `_plats` nollas av `_frigor` för både uppäten och fastnad mat.
+  //
+  // `_plats` är också det som håller skåpens prylar utanför: de läggs i samma `_mat`-lista
+  // (`_tryckStation`) men får aldrig någon brädplats, så `rec._plats != null` är falskt för
+  // dem. `atbar`-villkoret är därför ett bälte till hängslet — men det står här för att
+  // regeln "pappa önskar sig bara MAT" ska gå att läsa direkt: en lust till en gaffel som
+  // sedan spottas ut hade varit en ceremoni utan slut.
+  _onskbar(rec) {
+    return !!rec && !rec._uppaten && rec._plats != null && rec.data?.atbar !== false &&
+      !!rec.view && !rec.view.destroyed
+  },
+
+  // Ringen följer biten per bildruta, och den slocknar i samma sekund biten lyfts: en ring
+  // kvar på en tom brädplats pekar på ingenting, och en ring runt handen är en markering
+  // barnet inte bad om. Önskan dör dessutom av sig själv när biten inte längre går att
+  // önska sig (uppäten, fastnad i ansiktet, eller riven av en ny tallrik).
+  _onskanTick(ctx, dt) {
+    const o = this._onskan
+    if (!o) return
+    if (!this._onskbar(o.rec) || o.ring.destroyed) {
+      this._slappOnskan()
+      return
+    }
+    o.ring.position.set(o.rec.view.x, o.rec.view.y)
+    o.ring.visible = this._drag?.active !== o.rec && !this._busy
+    // Han provar en annan bit om ingen tagit den. Det är variation, inte en påminnelse:
+    // inget sägs om att man "borde" — han ändrar sig helt enkelt.
+    this._onskanT += dt
+    if (this._onskanT > ONSKAN.byte && !this._busy && this._drag?.active !== o.rec) {
+      this._valjOnskan(ctx, true)
+    }
+  },
+
+  _slappOnskan() {
+    const o = this._onskan
+    this._onskan = null
+    if (!o) return
+    const ring = o.ring
+    if (!ring || ring.destroyed) return
+    gsap.killTweensOf(ring)
+    gsap.killTweensOf(ring.scale)
+    gsap.to(ring, {
+      alpha: 0, duration: 0.22,
+      onComplete: () => { if (!ring.destroyed) ring.destroy() },
+    })
+  },
+
   // -------------------------------------------------------------- omgången ---
 
   _nyTallrik(ctx) {
@@ -411,6 +621,9 @@ export default {
     if (this._hjarta && !this._hjarta.destroyed) this._hjarta.alpha = 0.22
     this._ledig = PLATSER.map(() => true)
     for (let i = 0; i < Math.min(PLATSER.length, this._antal); i++) this._spawna(ctx, i * 0.07)
+    // Första önskan väntar tills introrepliken hörts klart — två svenska röster samtidigt
+    // är samma fel som `_replikEfterMin` en gång rättade.
+    ctx.later(ONSKAN.forstaGang, () => { if (this._alive && !this._onskan) this._valjOnskan(ctx) })
   },
 
   // Vad som läggs upp härnäst. Aldrig två likadana på tallriken samtidigt, och högst en
@@ -1254,6 +1467,17 @@ export default {
     // reaktion, noll framsteg, och aldrig ett fel. (P0: bestraffa inte, blockera inte.)
     if (rec.data.atbar === false) return this._spotta(ctx, rec)
 
+    // VAR DET DEN HAN VILLE HA? Läses INNAN önskan släpps — och belöningen är ceremoni,
+    // aldrig mätarhöjd: en bit som ger mer framsteg gör de andra bitarna till fel svar,
+    // och då är önskan plötsligt en uppgift man kan misslyckas med (P0).
+    //
+    // ⚠️ BARA DEN ÖNSKADE BITEN SLÄPPER ÖNSKAN. Raden stod ovillkorlig och sonden fällde
+    // den direkt: åt man något ANNAT försvann ringen, alltså blev "fel" bit det som
+    // släckte hans lust — motsatsen till avsikten och en tyst bestraffning. Lusten står
+    // kvar tills han får det han bad om (eller tröttnar och pekar på något annat).
+    const onskad = this._onskan?.rec === rec
+    if (onskad) this._slappOnskan()
+
     // Maten åker in i munnen: krymper och släcks. Draget har precis kört sin landning —
     // döda den tweenen först, annars drar två tweens i samma skala.
     gsap.killTweensOf(v.scale)
@@ -1297,7 +1521,17 @@ export default {
     this._frigor(ctx, rec)
 
     // Sällsynt wow (~1 på 8): grimasen hålls längre, ansiktet skakar och det glittrar.
-    const wow = Math.random() < 0.125
+    // Den ÖNSKADE biten får samma wow garanterat — hela belöningen ligger i ceremonin,
+    // eftersom framstegen medvetet är oförändrade.
+    const wow = onskad || Math.random() < 0.125
+    if (onskad) {
+      // Firandet ligger på DEN HÄR sidan av `later(0.92)`: glädjen ska komma i samma
+      // ögonblick som biten försvinner in i munnen, inte efter tuggan. Hjärtat på burkens
+      // lock pulserar med — det är den enda platsen i rummet som redan betyder "bra".
+      sparkle(ctx.fxLayer, ANS.x, this._munY, { count: 14 })
+      if (this._hjarta && !this._hjarta.destroyed) pop(this._hjarta, { scale: 1.9 })
+      ctx.services.audio.sfx('correct')
+    }
     ctx.later(0.92, () => {
       if (!this._alive) return
       let namn = rec.data.min || 'lycksalig'
@@ -1326,7 +1560,12 @@ export default {
         if (a?.view && !a.view.destroyed) shake(a.view, { intensity: 7, duration: 0.5 })
         sparkle(ctx.fxLayer, ANS.x, this._ogonY, { count: 10 })
       }
-      if (key === 'senap') {
+      if (onskad) {
+        // Bekräftelsen ersätter narratorns vanliga kommentar i stället för att läggas
+        // ovanpå den — den är hela poängen med draget och ska stå ensam. Och den väntar
+        // in BÅDA rösterna: klippet är 2,71 s, alltså längre än varje fast tal i finalen.
+        this._narTyst(ctx, () => ctx.services.voice.say('Precis den pappa ville ha!'))
+      } else if (key === 'senap') {
         const sag = () => { if (this._alive) ctx.services.voice.say('Oj, vad stark senapen var!') }
         if (Math.random() < 0.7) { if (sek <= 0.35) sag(); else ctx.later(sek + 0.15, sag) }
       } else {
@@ -1337,6 +1576,12 @@ export default {
     ctx.later(1.15, () => {
       if (!this._alive) return
       if (this._atna >= this._antal) this._final(ctx)
+    })
+
+    // Nästa lust. Ligger efter minen och repliken, och `_valjOnskan` avstår själv när
+    // brädan inte har två bitar kvar att välja mellan.
+    ctx.later(ONSKAN.efterTugga + (onskad ? 0.9 : 0), () => {
+      if (this._alive && !this._busy && !this._onskan) this._valjOnskan(ctx)
     })
   },
 
@@ -1692,11 +1937,40 @@ export default {
     const r = ROST[namn]
     if (!r) return 0
     const audio = ctx.services.audio
+    const klart = (sek) => {
+      // När pappa slutar låta. `_narTyst` läser det så narratorn aldrig hamnar ovanpå
+      // honom — förr höll varje anropare reda på det själv med sin egen `later(sek)`.
+      this._pappaTill = Math.max(this._pappaTill || 0, performance.now() + sek * 1000)
+      return sek
+    }
     if (audio.harSample?.(r.klipp) && audio.sample(r.klipp)) {
-      return audio.sampleDuration?.(r.klipp) || 0
+      return klart(audio.sampleDuration?.(r.klipp) || 0)
     }
     audio.tone({ freq: r.ton[0], dur: 0.3, type: r.typ, vol: 0.22, slideTo: r.ton[1] })
-    return 0.3
+    return klart(0.3)
+  },
+
+  // Kör `fn` först när BÅDA rösterna är klara: pappas eget klipp (längden är känd via
+  // `_sag`) och narratorns pågående replik (`voice.kvar` — se VoiceService).
+  //
+  // ⚠️ MÄTT, INTE ANAT. `VoiceService.say()` kallar `cancel()`, så varje ny replik KAPAR
+  // den förra. De neurala klippen här är 2,28–4,06 s långa medan schemat är fasta tal på
+  // 2,2–3,4 s: introt (3,65 s) kapades av första önskan och bekräftelsen "Precis den pappa
+  // ville ha!" (2,71 s) hann höras till 54 % innan nästa lust avbröt den. Det är samma
+  // familj som fällde finalen i v1.194 — bara åt andra hållet: inte två röster på en
+  // gång, utan en röst som aldrig får tala till punkt.
+  _narTyst(ctx, fn, varv = 0) {
+    if (!this._alive) return
+    const kvar = Math.max(
+      ((this._pappaTill || 0) - performance.now()) / 1000,
+      ctx.services.voice.kvar || 0,
+      ctx.services.voice.talar ? 0.25 : 0, // köad mening utan avkodad längd än
+    )
+    if (kvar > 0.06 && varv < 10) {
+      ctx.later(kvar + 0.12, () => this._narTyst(ctx, fn, varv + 1))
+      return
+    }
+    fn()
   },
 
   // CHILIN: ansiktet rodnar och ångan går ur öronen. Spelets största reaktion, och den
@@ -1824,6 +2098,7 @@ export default {
   _final(ctx) {
     if (this._busy) return
     this._busy = true
+    this._slappOnskan()
     const a = this._ans
 
     if (this._hjarta && !this._hjarta.destroyed) {
@@ -1860,6 +2135,11 @@ export default {
 
     ctx.progress.complete()
 
+    // Klistermärket landar mellan rapen och avtorkningen: pappa har precis rapat, och det
+    // som händer sedan är att kylen får ett märke till. Ligger på kyldörren, alltså långt
+    // från både ansiktet och burken — tre firanden på samma plats hade blivit ett.
+    ctx.later(2.05, () => { if (this._alive) this._nyttMarke(ctx) })
+
     // Geggan sitter kvar genom hela finalen och torkas av först när nästa tallrik kommer.
     ctx.later(2.6, () => {
       if (!this._alive) return
@@ -1874,7 +2154,16 @@ export default {
       if (!this._alive) return
       this._busy = false
       this._nyTallrik(ctx)
-      ctx.services.voice.say('Mata pappa med maten på tallriken!')
+      // Märkets replik tar introts plats i stället för att läggas ovanpå den. Introt har
+      // redan hörts (`mount` + varje tidigare tallrik), medan "kylen fick ett märke" bara
+      // sägs två gånger i hela spelets liv.
+      //
+      // ⚠️ Väntar in pappa. Skrattet (`pappa_fniss`, 1,26 s) startar 1,65 s in i finalen —
+      // eller 2,80 s när han rapar två gånger — och slutar då 4,06 s in, alltså EFTER den
+      // här punkten. Med en fast `later(3.4)` talade narratorn rakt över honom.
+      const text = this._markeReplik || 'Mata pappa med maten på tallriken!'
+      this._markeReplik = null
+      this._narTyst(ctx, () => ctx.services.voice.say(text))
     })
   },
 
@@ -1915,8 +2204,17 @@ export default {
       }
       // Blicken nollas oavsett `_busy`: tuggar han bär minen sina egna ögon ändå, och en
       // kvarhängande blick hade betytt att han stirrar åt sidan genom hela finalen.
-      this._ans?.blick(0, 0)
+      // …MEN har han en önskan tittar han på DEN medan han väntar. Det är den halva av
+      // önskan som inte kostar ett ord: ringen säger var, blicken säger vem som vill ha.
+      const o = !this._busy ? this._onskan : null
+      if (o && this._onskbar(o.rec)) {
+        this._ans?.blick((o.rec.view.x - ANS.x) / 300, (o.rec.view.y - this._munY) / 200)
+      } else {
+        this._ans?.blick(0, 0)
+      }
     }
+
+    this._onskanTick(ctx, dt)
 
     // Mjuk om-cue vid stillhet — en fråga, aldrig en tillsägelse.
     this._idle += dt
@@ -1973,6 +2271,9 @@ export default {
   // --------------------------------------------------------------- städning ---
 
   _rensaMat() {
+    // Önskan pekar på en av bitarna som `clear()` strax river. Ringen är inte barn till
+    // biten (den ligger i `_propL`), så den hade blivit kvar och pekat på tom bänk.
+    this._slappOnskan()
     // Öppna luckor hör till den gamla omgången. Stängs de inte här ligger deras poster
     // kvar i `_saker` och pekar på vyer som `clear()` strax river.
     for (const st of [...(this._oppnaSt || [])]) {
@@ -2016,6 +2317,17 @@ export default {
     // Hällningen håller en `rec` och en vy som `_drag.clear()` strax river.
     this._hallRec = null
     this._hallV = null
+    // Önskans ring bär två EVIGA tweens (rotationen och andetaget). En `repeat: -1` dör
+    // aldrig av sig själv, och `_root.destroy()` river bara noden — tweenen fortsätter
+    // skriva till den. Samma familj som `_hetSt` ovanför: den måste dö FÖRE noden.
+    if (this._onskan?.ring && !this._onskan.ring.destroyed) {
+      gsap.killTweensOf(this._onskan.ring)
+      gsap.killTweensOf(this._onskan.ring.scale)
+    }
+    this._onskan = null
+    for (const nod of this._markeNoder || []) if (!nod.destroyed) gsap.killTweensOf(nod.scale)
+    this._markeNoder = []
+    this._markeL = null
     ctx?.ticker?.remove(this._tick)
     this._tick = null
     if (this._vakna && this._root && !this._root.destroyed) this._root.off('pointerdown', this._vakna)

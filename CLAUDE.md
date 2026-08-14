@@ -147,6 +147,16 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   och varnar för den **exakta** text körningen sa. Den kontrollen kräver alltså att spelet har
   körts — `npm run check` ensam ser dem fortfarande inte. Lägg in frasen i
   `scripts/voice-phrases.json` för hand och kör `npm run voice`.
+- **Kör ALDRIG två webbläsarsonder samtidigt — de förfalskar varandras svar.** `_elementprobe`
+  och `_snurrprobe` startade i samma tool-block mot samma dev-server, och `_elementprobe`
+  rapporterade då att `jord+vatten` gav **noll lera**: en av spelets sex reaktioner såg
+  stendöd ut. Den var det inte. Ensam kör samma sond `lera=24` och tänder rutan. Sonderna
+  väntar i fasta fönster (260 ms för att materialet ska lägga sig, 1800 ms mätning) och två
+  headless Chrome svälter varandras ticker tills fönstren mäter fel skede. Kostnaden blev
+  två engångssonder och ett halvt pass jagande av en bugg som aldrig fanns. Samma regel
+  gäller sond bredvid `npm run test:all`. **Och kontrollarmen först, alltid:** min egen
+  node-arm lade elden med en rads lucka till jorden, glöden nådde aldrig fram, och armen
+  var död utan att säga det — hade jag läst lera-talet bredvid den hade jag trott på fel svar.
 - **Egna fält på ett Pixi-objekt får inte heta som Pixis egna.** `f._cx = x` såg ofarligt ut,
   men `_cx`/`_cy`/`_sx`/`_sy` är Container-transformens interna cache: `lt.a = _cx * scale.x`.
   Snöbollens snöfält renderades därför med vågrät skala 3660 — osynliga, utan ett enda

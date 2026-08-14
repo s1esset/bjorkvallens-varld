@@ -13,7 +13,7 @@ import { chromium } from 'playwright'
 const args = process.argv.slice(2)
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d }
 const SEK = Number(opt('--sek', 50))
-const url = opt('--url', 'http://localhost:5178')
+const url = opt('--url', 'http://localhost:5173')
 const spel = opt('--spel', null)
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true })

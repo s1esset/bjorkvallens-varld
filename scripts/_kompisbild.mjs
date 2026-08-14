@@ -2,7 +2,7 @@
 // stub-ctx i gateLayer, cyklar en del i taget och tar en skärmdump per läge — plus en
 // bild mitt i fotograferingen och en exit-koll (destroy mitt i finishen).
 //
-//   node scripts/_kompisbild.mjs --url http://localhost:5179
+//   node scripts/_kompisbild.mjs --url http://localhost:5173
 //   node scripts/_kompisbild.mjs --del ogon        (cykla en annan del)
 //
 // Kräver dev-servern. Varje ruta är HELA skärmen, för det är layouten (träffytor,

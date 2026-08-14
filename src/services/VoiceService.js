@@ -44,6 +44,30 @@ export class VoiceService {
     return this._supported || this._clips.size > 0
   }
 
+  // Sekunder kvar av det klipp som spelas just nu (0 om narratorn är tyst, om repliken
+  // gick till talsyntesen eller om klippets längd ännu inte är känd).
+  //
+  // ⚠️ FINNS FÖR ATT `say()` ALLTID AVBRYTER. En ny replik kallar `cancel()`, så ett spel
+  // som schemalägger tal på en fast konstant kapar den förra repliken i samma sekund
+  // konstanten är kortare än klippet — och de neurala klippen är 2,3–4,1 s, alltså längre
+  // än nästan varje sådan konstant i repot. Ett barn hör det som att någon blev avbruten
+  // mitt i meningen. Med det här talet kan anroparen vänta in rösten i stället för att
+  // gissa. (`_queue` kan bära fler meningar; fråga igen efter väntan i stället för att
+  // försöka summera något som inte är avkodat än.)
+  get kvar() {
+    const a = this._audio
+    if (!a || a.paused || a.ended) return 0
+    const d = Number.isFinite(a.duration) ? a.duration : 0
+    return d > 0 ? Math.max(0, d - (a.currentTime || 0)) : 0
+  }
+
+  // Sant så länge narratorn har något kvar att säga — inklusive meningar som köats men
+  // ännu inte fått ett `Audio`-objekt (då är `kvar` fortfarande 0).
+  get talar() {
+    const a = this._audio
+    return this._queue.length > 0 || !!(a && !a.paused && !a.ended)
+  }
+
   get _volume() {
     const v = this.save?.data?.settings?.masterVolume
     return typeof v === 'number' ? Math.max(0, Math.min(1, v)) : 1

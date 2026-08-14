@@ -31,7 +31,8 @@ likadan ut som tallrik 1.
   `progress.custom` och verifierade över en omladdning. Burken måste nollas varje omgång;
   kylen är det enda i rummet som minns.
 
-**Commits:** `c78e894` feat(voice) · `5fa2835` feat(mata-munnen) · `e55edbc` docs
+**Commits:** `c78e894` feat(voice) · `5fa2835` feat(mata-munnen) · `e55edbc` docs+v1.214.0 ·
+`c703790` sessionslogg · `79b1bc5` docs (CLAUDE.md-fällan + `ljud-och-rost`-skillen)
 
 **Tre fynd som är värda mer än sina fixar:**
 

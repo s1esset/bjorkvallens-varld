@@ -14,6 +14,50 @@ Format:
 
 ---
 
+## 2026-08-15 · v1.214.0 · `/polera mata-munnen` — pappa önskar sig något, kylen minns
+
+**Byggt:** en polera-omgång vald mot kvalitetsgrinden, inte mot docens kö (§7-arbetsordern var
+redan körd). Spelets två svagaste ben var **punkt 1 (agens)** och **6 (progression)**: målet
+räknade "N tuggor", aldrig VILKA, så varje matbit var exakt lika rätt — och tallrik 7 såg
+likadan ut som tallrik 1.
+
+- **Önskan.** Pappa får en lust till EN bit på brädan: varm ring som följer biten, blicken
+  låser sig vid den, generisk replik ("den där" — aldrig ett matnamn, så 64 saker inte kräver
+  64 klipp). Rätt bit → glitter + hjärtat pulserar + "Precis den pappa ville ha!". Fel bit →
+  äts precis lika glatt, **mätarsteget mätt identiskt (0,167 mot 0,167)**, önskan står kvar.
+  Belöningen ligger i ceremonin, aldrig i framstegen — annars är önskan en uppgift man kan
+  misslyckas med (P0).
+- **Kyldörrens klistermärken.** Åtta handritade motiv, ett per mättad mage, sparade i
+  `progress.custom` och verifierade över en omladdning. Burken måste nollas varje omgång;
+  kylen är det enda i rummet som minns.
+
+**Commits:** `c78e894` feat(voice) · `5fa2835` feat(mata-munnen) · `e55edbc` docs
+
+**Tre fynd som är värda mer än sina fixar:**
+
+1. **En röst som aldrig får tala till punkt är samma bugfamilj som två röster på en gång.**
+   `VoiceService.say()` kallar `cancel()`, och de neurala klippen är **2,28–4,06 s** medan
+   spelens schemaläggning står på fasta tal kring 2–3 s. Introt (3,65 s) kapades av första
+   önskan och belöningsrepliken (2,71 s) hann höras till ~54 %. Repot hade redan fällt det
+   här åt andra hållet (v1.194: "två pappor"), men aldrig åt det här. Nya
+   `VoiceService.kvar`/`talar` gör att ett spel kan **vänta in rösten i stället för att
+   gissa** — och bilden (ring + nick) kommer fortfarande genast, bara orden väntar.
+2. **Ett ANTAL kan inte skilja "det läckte" från "något nytt föddes".** Ringräknaren stod på
+   1 i båda fallen, och tidsfönstret skiljde dem inte åt eftersom föregående tuggas
+   `later()` fyrade mitt i mätningen. Ringarna fick id, och frågan blev *"finns den GAMLA
+   ringen kvar"*. Samma familj som `_stillaprobe`s identitetsfälla.
+3. **Ett mätfönster som bryter på första bildrutan efter händelsen mäter ingenting — och är
+   grönt.** `elapsed > 3000` när märket stämplas 12 s in gav EN sampling av den nya noden
+   (spann 0) och noll av den gamla under pulsen. Båda raderna gröna, båda tomma. Med
+   fönstret räknat från händelsen: 14,9 px puls mot 0,0 px drift.
+
+**Öppet:** genomgången av de tre oprövade spelen (`passa-formerna` · `leksakslada` ·
+`elementlekplatsen`) står kvar sedan förra sessionen. `_kokprobe`s rad "pölens bulk" flakar
+på HEAD (251 · 381 · 314 mot taket 340) — inte attribuerbar, men tröskeln är för snäv.
+`leksakslada` loggar `snal-snappyta` i `test:all`.
+
+---
+
 ## 2026-08-14 (kväll) · v1.213.0 · Genomgången av de sju nya spelen — fyra klara, tre kvar
 
 **Byggt:** arbetsordern i `.claude/state/nasta-session.md` påbörjades. **Fyra av de sju nya

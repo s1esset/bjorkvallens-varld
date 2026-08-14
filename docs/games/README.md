@@ -156,6 +156,7 @@ i stället för att avfyra skottet åt barnet (`_offerAssist` + Skjut!-knapp, no
 | 64 | Grävmaskinen | `gravmaskinen` | drag | ✅ | ✅ |
 | 72 | Nätskott på stan | `natskott-pa-stan` | tap | ✅ | ✅ |
 | 76 | Balanstornet | `balanstornet` | drag | ✅ | ✅ |
+| 77 | Leksakslådan | `leksakslada` | drag | ✅ | ✅ |
 
 ### 🧩 Pussel (pussel + minne + drag) — ✅ **poleringsrundan KLAR** (20/20, v1.10.0, 2026-08-06)
 *Första-omgången 2026-07-02 var **innan** P0-regeln `ASSETS` fanns (2026-07-25) — och skulden

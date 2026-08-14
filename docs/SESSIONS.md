@@ -14,6 +14,76 @@ Format:
 
 ---
 
+## 2026-08-14 · v1.210.0 · Sju nya spel på en autonom kö
+
+**Byggt:** ägaren lämnade en lista på 8 spel och bad om en kö som kör hela vägen utan stopp.
+Två av posterna (mörkt rum + ficklampa) var samma spel och slogs ihop → **7 spel**, byggda i
+tre omgångar med parallella `spelbyggare`, granskade av `spelkritiker`, och committade ett i
+taget. Registret gick 73 → **80 spel**. Full spec per spel: `.claude/state/spelko.md`.
+
+| id | titel | flik | commit |
+|---|---|---|---|
+| `passa-formerna` | Passa Formerna 🔺 | pussel | `480afd9` |
+| `balanstornet` | Balanstornet ⚖️ | fysik | `2384aed` |
+| `skattjakt-i-morkret` | Skattjakt i Mörkret 🔦 | pussel | `6b0388c` |
+| `leksakslada` | Leksakslådan 🧸 | fysik | `494b0b9` |
+| `bygg-en-kompis` | Bygg en Kompis 👾 | roligt | `ac9dc5f` |
+| `roliga-snurran` | Roliga Snurran 🎰 | roligt | `b590fd9` |
+| `elementlekplatsen` | Elementlekplatsen 🌪️ | fysik | `91bd589` |
+
+**Det dyraste i hela körningen var inte spelen — det var mätarna.** Sju gånger var sonden det
+trasiga, inte spelet, och varje gång såg talet trovärdigt ut:
+- `_dragspel.mjs` läste `summary.counts`, ett fält som inte finns (rätt källa är `timeline`),
+  och patchade en modulinstans Vite hade bytt ut under HMR. Rapporterade **0 rätt på ett spel
+  som bevisligen lägger föremålet i tunnan**. Kontrollarmen mot `sortera-skrap` fångade det.
+- `_leksakprobe.mjs` läste `w`/`h` på leksaker som bara har `r` → `NaN` → "0 % täckning i 10 av
+  10 rundor". Och när radien var lagad mätte den fortfarande fel sak: **"begravd" räknades som
+  genomträngning mellan cirklar, men saker som VILAR på varandra rör vid varandra utan att
+  tränga in.** Både min och granskarens mätning gav därför motsatt svar mot verkligheten
+  (7 av 10 rundor HAR något ovanpå den beställda saken, 29 % av bredden täckt). Det avslöjades
+  av att en smalare låda och 40 % fler leksaker inte rörde talet en tiondel.
+
+**Fyra buggar syntes BARA i skärmdumpen** och var gröna i testet hela tiden: bygghyllan halvvägs
+utanför bildkanten (`balanstornet`), lockets spikar 64 px från lockets beslag så locket svävade
+(`leksakslada`), rutnätets trappsteg i ljuskäglan (`skattjakt-i-morkret`), och galleriramarna
+ovanpå knappraden (`bygg-en-kompis`).
+
+**Tre P0-brott som `check.mjs` inte kan se** — den mäter ingen geometri: 0 px mellan träffytorna
+i `bygg-en-kompis` (raderna låg exakt en träffytehöjd isär), 15 px i `balanstornet`s hylla, och
+en kolumn rakt över `balanstornet`s vridpunkt som gav noll vridmoment — "lägg allt i mitten"
+vann alltid, vilket gjorde balansen, hela spelets idé, frivillig.
+
+**En designfråga ägaren hade rätt att vara rädd för:** `roliga-snurran`s belöning skalade med
+sällsyntheten (34 mynt vid tre lika, 10 vid två lika, **0** vid den vanligaste utgången). Det är
+den variabla belöningsstrukturen som lär in en spelautomatsloop, även utan insats och utan
+förlust. Mängden är nu i praktiken lika i alla tre; de skiljs åt i karaktär.
+
+**Commits:** `480afd9` passa-formerna · `2384aed` balanstornet · `6b0388c` skattjakt-i-morkret
+· `494b0b9` leksakslada · `ac9dc5f` bygg-en-kompis · `b590fd9` roliga-snurran · `91bd589`
+elementlekplatsen
+
+**Nya mätare i repot:** `_dragspel.mjs` (spelar vilket dragspel som helst) · `_skattprobe.mjs`
+· `_leksakprobe.mjs` · `_snurrprobe.mjs` + `_snurrkontroll.mjs` · `_kompisbild.mjs` ·
+`_elementprobe.mjs` · `_formbild.mjs`.
+
+**Svitens läge:** `npm run check` 0 fel. `test:all` **78/80 i första svepet, 80/80 i andra** —
+de två röda var `spara-linjen` och `spindel-zacke-svingar` med `Could not retrieve shader source
+(WebGL context may be lost)`, båda gröna ensamma, och andra svepet loggade `tom-bild-omtagen`
+med **gl-kontext FÖRLORAD** i `tvatta-djuret`. Det är exakt V14b:s signatur, och sviten växte
+just 73 → 80 spel, alltså mer parallellt GPU-tryck. Ingen regression attribuerad till de nya
+spelen — men frekvensen bör hållas under uppsikt.
+
+**Öppet:**
+- **Genomgång i en NY session** — ägaren har bett om det: `.claude/state/nasta-session.md` bär
+  arbetsordern (vad som ska köras, vilka sonder som finns, vad jag inte hann pröva).
+- **109 röstrepliker väntar på klipp.** Kör `/rost` när narratorn i `C:epos\storygen` är uppe.
+- **ÅTGÄRDER V16 (ny):** `destroy({ children: true })` river INTE en `Graphics` egen
+  `GraphicsContext` i Pixi v8 — 251 anrop i 89 filer. Mekanismen är läst i Pixis källa,
+  GPU-effekten är OMÄTT. Raden bär ett mätuppdrag, inte en fix.
+- Inget av de sju spelen är speltestat av ett barn; alla balanstal är sondmätta.
+
+---
+
 ## 2026-08-13 · v1.204.0 · Blicken, variantminerna och halsen — arbetsordern körd i sin helhet
 
 **Byggt:** hela `docs/games/mata-munnen.md` §7 (A1 · A2 · A3), plus en sondfix. Utfallet med

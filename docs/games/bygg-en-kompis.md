@@ -117,3 +117,15 @@ spik, bus-fjäril som motgång. Bilder + exit-kontroll via scripts/_kompisbild.m
 vid exit 0,2 / 1,3 / 1,9 / 2,4 s in i finishen). Skärmdumpen fann två fel som koden inte
 visade: ögonens studs dödades av blinkningen (scale.x fastnade på 0 → ansiktet tomt) och
 sömnig-lockets kroppsfärg gjorde ögonen osynliga.`
+
+`2026-08-14 (genomgången) · fix: galleriet klippte mot överkanten på TVÅ sätt, båda gröna i
+test och check och båda synliga bara i skärmdumpen. ⓵ Spiken satt på RAM_Y − 74 = y 4 med
+radie 6, alltså 2 px utanför designytan: sex avklippta halvcirklar längs hela överkanten.
+Ramen kan inte flyttas ner (dess träffyta slutar på y 126 och har exakt P0:s 24 px till
+RAD_Y[0]), så spiken flyttades till y 12 — precis ovanför ramen, innanför bildväggen.
+⓶ Upphängningen lyfte ramen till RAM_Y − 60 = y 18; ramen är 120 px hög och ritas kring sin
+mitt, så överkanten hamnade på y −42 och fotot åkte halvvägs ut ur bilden i 0,38 s.
+back.out(1.6) skalar dessutom över (~1,09), så lyftet måste rymma båda: y 68 ger överkanten
+y 3 och 10 px fall ner på spiken · 62de459`
+
+⬜ **Aldrig speltestat av ett barn.**

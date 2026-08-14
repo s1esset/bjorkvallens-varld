@@ -111,4 +111,15 @@ placeringssekvenser).
 ## 5. Status / loggar
 
 `2026-08-14 · byggt från spelkö-specen (spelko.md §3); fysikkonstanterna kalibrerade mot matter
-utan webbläsare (jämvikt per klosstyp + åtta spelade placeringssekvenser) · <commit>`
+utan webbläsare (jämvikt per klosstyp + åtta spelade placeringssekvenser) · 2384aed`
+
+`2026-08-14 (genomgången) · fix: mållinjen gick aldrig över tornet den skulle matas mot. Den
+streckade höjdlinjen började på x 706 — 66 px till HÖGER om plankans mitt (PX 640), alltså
+precis utanför den enda plats ett torn kan växa på, i tom himmel mellan plankan och
+flaggstången. Den startar nu på PX − 40 så tornets topp och strecket möter samma blickfång;
+flaggstången ligger tidigt i barnordningen och hamnar bakom klossarna, så strecket skymmer
+inget. Fyndet syntes bara i skärmdumpen — test och check var gröna hela tiden · dfe52aa`
+
+⬜ **Aldrig speltestat av ett barn** — alla balanstal är sondmätta, och no-fail-trappan
+(stödet blir bredare efter var tredje tipp) är kodad och sondkörd men aldrig sedd i ett
+riktigt spelpass.

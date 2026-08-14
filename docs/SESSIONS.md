@@ -14,6 +14,68 @@ Format:
 
 ---
 
+## 2026-08-14 (kväll) · v1.213.0 · Genomgången av de sju nya spelen — fyra klara, tre kvar
+
+**Byggt:** arbetsordern i `.claude/state/nasta-session.md` påbörjades. **Fyra av de sju nya
+spelen är genomgångna och fixade, tre är helt oprövade** (`passa-formerna` · `leksakslada` ·
+`elementlekplatsen`). Röstkön tömdes helt. Registret står still på 80 spel.
+
+| spel | fynd | commit |
+|---|---|---|
+| `bygg-en-kompis` | galleriet klippte mot överkanten på två sätt (spik 2 px utanför designytan · ramen lyftes till y −42 och åkte halvvägs ur bilden) | `62de459` |
+| `balanstornet` | mållinjen började 66 px till höger om plankans mitt — i tom himmel, utanför den enda plats ett torn kan växa på | `dfe52aa` |
+| `skattjakt-i-morkret` | **ägarrapport:** ficklampan fastnade när man greppade den själv — permanent död träffyta utan ett enda konsolfel | `d15fe21` |
+| `roliga-snurran` | **ägaruppdrag:** lägesväljare (hand/gnista), tre lika = vinsten med ceremoni, trofehylla | `d7a99af` |
+
+**Två fynd som är värda mer än sina fixar, båda nu i `CLAUDE.md`:**
+
+⚠️ **Ett släpp når ALDRIG ett syskon — och en bubblande förälder måste vara `static`.**
+`skattjakt-i-morkret` har två greppytor men lyssnade på `pointerup` bara på den ena.
+Pixis **båda** släppvägar går uppför en föräldrakedja, aldrig i sidled (`mapPointerUp`
+längs släpp-målets kedja, `mapPointerUpOutside` bara uppför pressTargets **egen** —
+`EventBoundary.mjs:559,634`), så `_slapp` kördes aldrig: `_drar` stod kvar `true` och
+`_pekId` på ett dött finger-id, och eftersom varje ny fingerpekning får ett **nytt**
+pointerId avvisades allt därefter som "andra fingret". Andra halvan var inte gratis:
+`notifyTarget` (`:370`) bortar tyst på allt som inte är `static`/`dynamic`, så utan
+`_rot.eventMode = 'static'` fastnade **även kontrollarmen**. Bara en sond med två olika
+finger-id hittar det här (`scripts/_lampprobe.mjs`, ny). Grönt test hela tiden.
+
+⚠️ **Kör ALDRIG två webbläsarsonder samtidigt — de förfalskar varandras svar.**
+`_elementprobe` och `_snurrprobe` startade i samma tool-block mot samma dev-server, och
+`_elementprobe` rapporterade då **noll lera** på `jord+vatten`: en av `elementlekplatsen`s
+sex reaktioner såg stendöd ut. Ensam ger samma sond `lera=24`. Sonderna väntar i fasta
+fönster och två headless Chrome svälter varandras ticker. Kostnad: ett halvt pass jagande
+av en bugg som aldrig fanns.
+
+**Ett spelfel som bara en sond kunde se:** `roliga-snurran` använde `liv` i `_placeTrophy`
+utan att importera det — spelet kraschade vid start för varje profil som **redan hade en
+trofé**, alltså först vid andra besöket. En testkörning på tom profil ser det aldrig.
+
+**Röstkön är tom:** 109 väntande repliker fick riktiga klipp (`af9966e`, 0 misslyckade) plus
+6 nya för snurran. De sju nya spelen läses därmed av den svenska rösten på telefonen i
+stället för Web Speech.
+
+**Commits:** `52db1af` sondfix (port) · `62de459` bygg-en-kompis · `dfe52aa` balanstornet ·
+`af9966e` röst 109 klipp · `727b71b` docs sonder · `d15fe21` skattjakt-i-morkret ·
+`e6cfdcf` + `0bda206` docs släppvägar · `829b5ef` `_lampprobe --url` · `d7a99af` roliga-snurran
+
+**Nya mätare:** `_lampprobe.mjs` (två finger-id via CDP) · `_vinstprobe.mjs`.
+
+**Öppet — arbetsordern står kvar i `.claude/state/nasta-session.md`:**
+- **`passa-formerna`, `leksakslada`, `elementlekplatsen` är inte genomgångna.**
+  `elementlekplatsen` är köns största spel, landade sist, och dess cellautomatkostnad är
+  omätt (`_fpsprobe.mjs --cpu 6`) liksom om de sex reaktionerna går att upptäcka på 10 s.
+- **Bygget för telefonen är INTE omgjort efter fixarna** — ägaren testar gammal kod via
+  Tailscale tills `npm run build` + `npm run serve` körts om.
+- **Inget av de sju spelen är speltestat av ett barn.** Alla balanstal är sondmätta.
+- **ÅTGÄRDER V16** (omätt), **V14b** (GL-kontext under parallell last), **V10/V10b** — nästa
+  studs-kund är utredd och klar att bygga: `bowling`s kantstöd, där banförhandsvisningen
+  lovar 0,75 medan klotet får 0,18, alltså ett sikte som ljuger just för barn som slagit på
+  tillgänglighetshjälpen.
+- **BACKLOG 1** väntar fortfarande på ägarens beslut (GitHub Pages → sajten blir publik).
+
+---
+
 ## 2026-08-14 · v1.210.0 · Sju nya spel på en autonom kö
 
 **Byggt:** ägaren lämnade en lista på 8 spel och bad om en kö som kör hela vägen utan stopp.

@@ -249,6 +249,9 @@ knapparna aldrig möter varandra:
 ### Kärnloop & agens
 - ✅ **Maten syns i munnen ett ögonblick** (v1.198). `_skymt`: en färgad glimt mellan tänderna
   som kläms i tuggtakten (0,22 s) och sväljs med sista tugget. Proxy-tween med destroyed-vakt.
+- ✅ **Pappa önskar sig en bit** (v1.214). Draget var förut ett val utan konsekvens — målet
+  räknade tuggor, aldrig vilka. Ring + blick + generisk replik; fel bit är aldrig fel. Se §5.
+- ✅ **Kyldörren minns varje mättad mage** (v1.214). Åtta klistermärken, sparade i profilen.
 - **[Medium] Fler roller.** Riggen tar redan vilken person som helst (`laddaAnsikte(person)`);
   `theme.js` bär `ROLLER = ['Pappa','Mamma']`. En väljare kräver bara ett andra fotoset.
 
@@ -715,6 +718,54 @@ Ordning som håller:
 Bumpa MINOR, en commit per post, aldrig `git add -A`.
 
 ## 5. Status / loggar
+
+- 2026-08-14 ✨ **Önskan + kyldörrens klistermärken** (`c78e894` + `5fa2835`, v1.214.0).
+  `/polera`-omgång vald mot kvalitetsgrinden: spelets två svagaste ben var punkt 1 (agens)
+  och 6 (progression). Målet var **"N tuggor", aldrig VILKA** — varje matbit var exakt lika
+  rätt — och tallrik 7 såg likadan ut som tallrik 1.
+  - **ÖNSKAN** (`ONSKAN` · `_valjOnskan` · `_onskanTick` · `_onskbar` · `_slappOnskan`):
+    pappa får en lust till EN bit på brädan. Ring i `_propL` som följer biten per bildruta
+    (aldrig som barn till den — då hade den följt med upp i handen), blicken låser sig vid
+    den när inget dras, och en **generisk** replik ("den där", aldrig ett matnamn: 64 saker
+    hade krävt 64 klipp, och P0 NAVIGATION säger noll läsning). Byter bit efter 16 s.
+  - **Belöningen ligger i CEREMONIN, aldrig i framstegen.** Uppmätt: mätarsteget 0,167 för
+    den önskade biten mot 0,167 för kontrollarmens icke-önskade. En önskad bit som gav mer
+    mätare hade gjort alla andra bitar till fel svar — alltså en uppgift man kan misslyckas
+    med, vilket P0 förbjuder. Önskan kräver dessutom **minst två bitar** på brädan: en lust
+    till den enda sak som finns är ingen valmöjlighet utan en order.
+  - **KLISTERMÄRKEN** (`MARKEN` · `MARKE_MAX` · `ritaMarke` i `kok.js`): varje mättad mage
+    sätter ett handritat märke på kyldörren, åtta motiv, tak 8, sparat i
+    `progress.setCustom('marken')`. Burken MÅSTE nollas varje omgång (annars vore den ingen
+    mätare) — kylen är det enda i rummet som minns att man varit här förut.
+  - ⚠️ **RÖSTEN KAPADES, och det var mätt.** `VoiceService.say()` kallar `cancel()`, så varje
+    ny replik avbryter den förra. Klippen är **2,28–4,06 s** (ffprobe) medan schemat står på
+    fasta tal 2,2–3,4 s: introt (3,65 s) kapades av första önskan, och belöningsrepliken
+    "Precis den pappa ville ha!" (2,71 s) hann höras till ~54 % innan nästa lust avbröt den.
+    Samma familj som v1.194/v1.195, men åt andra hållet — inte två röster samtidigt, utan en
+    röst som aldrig får tala till punkt. Nya `VoiceService.kvar`/`talar` + `_narTyst()` som
+    väntar in BÅDA rösterna (pappas klipplängd via `_sag`, narratorns via `kvar`).
+    **Ringen och nicken kommer fortfarande genast — bara orden väntar.**
+  - ⚠️ **Stämpeln flyttade de GAMLA märkena.** Alla åtta låg i en `Graphics` och pulsen satte
+    hela lagrets pivot till det nya märket, alltså skalades de gamla kring en punkt som inte
+    var deras. Ett märke = en egen nod nu. Uppmätt: **14,9 px puls på det nya mot 0,0 px
+    drift på det gamla.**
+  - **Ny sond `scripts/_onskeprobe.mjs`, 29/29**, med tre kontrollarmar FÖRST (ingen ring före
+    första önskan · blicken rakt fram · tom kyldörr) och den gamla schemaläggningen
+    kortsluten som kontrollarm för röstraden (**3 kapade repliker → 0**).
+  - ⚠️ **Två sondläxor, båda av samma sort som §3:s.** ⓵ **Ett ANTAL kan inte skilja "ringen
+    läckte" från "en ny önskan hann födas"** — båda ger 1, och tidsfönstret skiljer dem inte
+    åt eftersom föregående tuggas `later(efterTugga)` fyrar mitt i mätningen. Ringarna får
+    id, och frågan blev "finns den GAMLA ringen kvar". ⓶ **Ett mätfönster som bröt på första
+    bildrutan efter födseln mätte ingenting** (`elapsed > 3000` när märket stämplas 12 s in):
+    den nya noden samplades EN gång, den gamla aldrig under pulsen — och **båda raderna var
+    gröna**. Fönstret räknas nu från födseln.
+  - Kritikerfynd som INTE ledde till ändring: *"önskan kan låsa sig på något oätligt"*.
+    Premissen prövad mot koden och den faller — skåpens prylar får aldrig någon brädplats
+    (`_plats` sätts bara i `_spawna`), så `_onskbar` uteslöt dem redan. `atbar`-villkoret
+    lades ändå till, som skriven regel snarare än som fix.
+  - ⚠️ **`_kokprobe`s rad "pölens bulk" flakar på HEAD.** Tre körningar utan mina ändringar:
+    251 (✓) · 381 (✗) · 314 (✓) mot taket 340. Alltså **inte attribuerbar** till den här
+    omgången — men tröskeln är för snäv för sitt eget mått och bör mätas om.
 
 - 2026-08-13 👁️ **Arbetsordern §7 KÖRD — blick, variantminer och hals** (`aecb18c` · `d60e5c4`
   · `94aecb3`, v1.202–1.204). Sammanfattningen med alla tal står i **§7b**. I korthet:

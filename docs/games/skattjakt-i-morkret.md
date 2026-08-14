@@ -135,3 +135,8 @@ trappsteg och de upplysta sakerna fick en rutig slöja. Rutnätet ligger kvar so
 gardin-final) · <commit>`
 `2026-08-14 · mörkret bytt från rutnät till Canvas2D-bakad ljustextur efter ägarens
 skärmdumpsläsning (trappstegskant + rutig slöja); glöden infälld i samma duk · <commit>`
+`2026-08-14 · ägarrapport: "ficklampan fastnar när man släpper den". Greppet på SJÄLVA
+lampan släpptes aldrig — släpp-lyssnarna satt på `_catcher`, ett SYSKON till lampans
+förälder, och ingen av Pixis två släppvägar passerar ett syskon. Flyttade till `_rot`
+(gemensam förälder) + `eventMode = 'static'`, som `notifyTarget` kräver av en bubblande
+nod. Ny sond `scripts/_lampprobe.mjs` · <commit>`

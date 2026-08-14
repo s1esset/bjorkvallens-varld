@@ -220,8 +220,24 @@ export default {
 
     this._catcher.on('pointerdown', (e) => this._nedslag(ctx, e))
     this._catcher.on('globalpointermove', (e) => this._flytta(e))
-    this._catcher.on('pointerup', (e) => this._slapp(e))
-    this._catcher.on('pointerupoutside', (e) => this._slapp(e))
+    // SLÄPPET LYSSNAS PÅ ROTEN, inte på catchern. Greppar barnet SJÄLVA ficklampan blir
+    // `_lampa` (barn till `_front`) pressTarget, och catchern är dess SYSKON — den ligger
+    // på ingen av de två vägar ett släpp tar: `pointerup` bubblar längs släpp-målets kedja
+    // (lampa → _front → _rot) och `pointerupoutside` vandrar bara uppför pressTargets EGEN
+    // föräldrakedja (EventBoundary.mapPointerUp/mapPointerUpOutside). `_slapp` kördes
+    // därför aldrig: `_drar` stod kvar true och `_pekId` på ett dött finger-id, så varje NY
+    // pekning (ett nytt pointerId, vilket varje ny fingerpekning får) avvisades som "andra
+    // fingret" och ljuset gick inte att flytta mer — permanent, utan ett enda konsolfel.
+    // Uppmätt (`scripts/_lampprobe.mjs`): efter släpp flyttade en ny pekare lampan 1 px mot
+    // kontrollarmens 372 px. Roten är gemensam förälder till både catchern och lampan.
+    //
+    // `eventMode` MÅSTE sättas: `EventBoundary.notifyTarget` bortar tyst på allt som inte är
+    // 'static'/'dynamic', så en bubblande förälder på default 'passive' får ingenting. Utan
+    // raden fastnade även KONTROLLARMEN (ny pekare flyttade lampan 2 px). Roten blir inte
+    // själv ett träffmål av det — en bar Container utan `hitArea` träfftestar alltid falskt.
+    this._rot.eventMode = 'static'
+    this._rot.on('pointerup', (e) => this._slapp(e))
+    this._rot.on('pointerupoutside', (e) => this._slapp(e))
   },
 
   mount(ctx) {

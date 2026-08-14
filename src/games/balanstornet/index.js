@@ -407,7 +407,12 @@ export default {
     g.roundRect(FLAGG_X - 7, topp, 14, GY - topp, 7).fill(cylinderFill(0xd8c3a5)).stroke({ width: 3, color: 0x9c8a6b })
     g.circle(FLAGG_X, topp + 2, 11).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orangeDark })
     // Målstrecket: en streckad linje in mot tornet så höjden går att sikta mot.
-    for (let x = 706; x < FLAGG_X - 48; x += 36) {
+    // Den började på x 706 — 66 px till HÖGER om plankans mitt (PX 640), alltså precis
+    // utanför den enda plats tornet kan växa på. Linjen låg då i tom himmel och gick
+    // aldrig att sikta MOT något. Den startar nu vänster om mitten, så tornets topp och
+    // strecket möts i samma blickfång. Flaggstången ligger tidigt i barnordningen och
+    // hamnar därför BAKOM klossarna — strecket skymmer inget.
+    for (let x = PX - 40; x < FLAGG_X - 48; x += 36) {
       g.roundRect(x, this._flaggY - 3, 20, 6, 3).fill({ color: COLORS.white, alpha: 0.5 })
     }
     this._flaggToppY = topp + 18

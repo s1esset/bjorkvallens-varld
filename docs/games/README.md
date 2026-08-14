@@ -155,6 +155,7 @@ i stället för att avfyra skottet åt barnet (`_offerAssist` + Skjut!-knapp, no
 | 59 | Glasstornet | `glasstornet` | drag | ✅ | ✅ |
 | 64 | Grävmaskinen | `gravmaskinen` | drag | ✅ | ✅ |
 | 72 | Nätskott på stan | `natskott-pa-stan` | tap | ✅ | ✅ |
+| 76 | Balanstornet | `balanstornet` | drag | ✅ | ✅ |
 
 ### 🧩 Pussel (pussel + minne + drag) — ✅ **poleringsrundan KLAR** (20/20, v1.10.0, 2026-08-06)
 *Första-omgången 2026-07-02 var **innan** P0-regeln `ASSETS` fanns (2026-07-25) — och skulden
@@ -182,6 +183,8 @@ stor del via det nya delade `src/lib/artikoner.js`.*
 | 65 | Trollkarlens Blandning | `trollblandning` | drag | ✅ | ✅ |
 | 69 | Glittergrottan (3D) | `glittergrottan` | tap | ✅ | ✅ |
 | 71 | Saftbaren | `saftbaren` | mixed | ✅ | ✅ |
+| 74 | Passa Formerna | `passa-formerna` | drag | ✅ | ✅ |
+| 75 | Skattjakt i Mörkret | `skattjakt-i-morkret` | mixed | ✅ | ✅ |
 
 ### 🔤 Lära (larande + pedagogiskt) — ✅ **polerad** (9/9)
 *Första-omgången 2026-07-02, poleringsrundan 2026-08-06. Sista fliken — rundan är klar.*

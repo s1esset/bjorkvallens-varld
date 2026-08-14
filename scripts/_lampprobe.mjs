@@ -8,10 +8,20 @@
 // KONTROLLARM FÖRST: samma sekvens med greppet på tomma ytan (`_catcher`). Den vägen
 // fungerar på HEAD, så om kontrollarmen också visar "fastnar" mäter sonden fel sak.
 //
-//   node scripts/_lampprobe.mjs
+//   node scripts/_lampprobe.mjs                             # dev-servern på 5173
+//   node scripts/_lampprobe.mjs --url http://localhost:5174  # när viten tog en annan port
+//
+// ⚠️ Bara mot en DEV-server. Sonden läser spelets tillstånd via `window.__barnspel`, som
+// sätts bakom `import.meta.env.DEV` (`src/main.js:70`) — mot ett produktionsbygge finns
+// varken den eller `/src/games/registry.js`, så `--url http://localhost:4173` kan aldrig
+// fungera. Ska ett BYGGE prövas måste fenomenet mätas i pixlar i stället för i fält.
 import { chromium } from 'playwright'
 
 const ID = 'skattjakt-i-morkret'
+const BAS = (() => {
+  const i = process.argv.indexOf('--url')
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : 'http://localhost:5173'
+})()
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 
 try {
@@ -22,7 +32,7 @@ try {
   })
   page.on('pageerror', (e) => errors.push('PAGEERROR: ' + (e.message || String(e)).slice(0, 200)))
 
-  await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' })
+  await page.goto(BAS, { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 20000 })
   await page.evaluate(() => {
     for (const k of Object.keys(localStorage)) if (k.startsWith('pwagames')) localStorage.removeItem(k)

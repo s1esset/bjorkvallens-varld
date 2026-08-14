@@ -70,6 +70,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_slagprobe.mjs` | anslagsljudet: fart → volym + tonhöjd · materialens röster · taket · exit — **utan webbläsare** |
 | `node scripts/_tystprobe.mjs` | pekhanterare som bortar tyst på en upptagen-flagga (P0-brottet `dod-traffyta`) |
 | `node scripts/_lampprobe.mjs` | släpps draget på BÅDA greppytorna? (`_drar`/`_pekId` efter släpp + flyttar en NY pekare något) — två finger-id, kontrollarm före mätarm |
+| `node scripts/_onskeprobe.mjs` | `mata-munnen`s ÖNSKAN (ring · blick · replik · att mätarsteget är IDENTISKT för fel bit) + kyldörrens klistermärken över en OMLADDNING · att narratorn får tala till punkt (gamla schemat kortslutet som kontrollarm) |
 | `node scripts/_vinstprobe.mjs [--snurr 8]` | `roliga-snurran`s lägesväljare · autoläget · vinstgarantin (aldrig >3 snurr utan vinst) · ceremonins lager/storlek/rotation/glans · trofehyllan över en OMLADDNING · exit mitt i firandet |
 | `node scripts/_ansiktebild.mjs [--bara "vila,wink h"]` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · wink · hetta/kyla · gester · 13 miner) + **andas den efter 40 gester?** + exit-koll — **ett ansikte går inte att bedöma i tal**, och `--bara` gör rutorna stora nog för en wink |
 | `node scripts/_munprobe.mjs [--trace]` | *spelar* `mata-munnen`: gapar munnen vid maten (mot kontrollarm långt bort) · lutar han sig mot den · **antal sammanbitningar mot spelets egen tuggprofil** · mätaren per tugga · rätt min · mättar bus (ska INTE) · **ljudslingan följer stationen och dör vid exit** · finalen. `--trace` skriver ut den råa gapkurvan — den förklarar en felräknad tugga på ett sätt inget tal gör |
@@ -327,6 +328,15 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   faktiskt svarar är **`tw.parent`** (sann för löpande OCH väntande, falsk för både färdiga
   och dödade — `_tweenprobe.mjs` prövar alla lägena). Och samma fråga gäller varje flagga som
   betyder "lever": `if (this._blinkTimer)` frågade om fältet var SATT, inte om timern LEVDE.
+- **`voice.say()` KAPAR den förra repliken — schemalägg aldrig tal på ett fast tal.** Den
+  anropar `cancel()` som första sak, och de F5-genererade klippen är **2,3–4,1 s** medan
+  spelens `ctx.later(...)` nästan alltid står på 2–3 s. Uppmätt i `mata-munnen`: introt
+  (3,65 s) kapades av nästa replik och belöningsraden (2,71 s) hann höras till **54 %** —
+  ett barn hör att någon blev avbruten mitt i meningen. Samma familj som "två röster
+  samtidigt" (v1.194), fast åt andra hållet, och den fanns i ett spel som redan hade rättat
+  den andra halvan. Vänta in **`voice.kvar` / `voice.talar`** (narratorn) OCH
+  `audio.sampleDuration()` (figurens eget klipp) — mönstret heter `_narTyst`. **Bilden
+  väntar inte:** ring, gest och glitter kommer genast, bara orden köar.
 - **Ett kontinuerligt ljud överlever allt utom att någon stoppar källan.** En tween dör med
   spelet, en `AudioBufferSourceNode` med `loop = true` gör det inte — den låter vidare på
   menyn, utan bild, och går inte att stänga av. Slingor tystas därför av `GameHost.destroy`

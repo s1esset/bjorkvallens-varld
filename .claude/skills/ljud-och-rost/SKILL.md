@@ -18,10 +18,31 @@ audio.tone({ freq, dur, type, vol, slideTo, delay })   // stämd blip — grunde
 voice.say('Tryck på bubblorna!')   // exakt text → klipp om det finns, annars Web Speech sv-SE
 voice.replayLast(true)             // uttrycklig repetera-knapp (kringgår anti-upprepning)
 voice.cancel()
+voice.kvar    // sekunder KVAR av klippet som spelas just nu (0 vid tystnad/talsyntes)
+voice.talar   // sant även för köade meningar som ännu inte fått ett Audio-objekt
 ```
 
 `voice.say` matchar på **exakt sträng** mot `public/audio/voice/manifest.json`
 (`{ "<exakt text>": "<md5>.mp3" }`). Ändrar du en replik ändras nyckeln → nytt klipp behövs.
+
+### ⚠️ Rösten får aldrig kapas — schemalägg aldrig tal på ett fast tal
+
+`say()` anropar `cancel()` som första sak: **varje ny replik avbryter den som spelas.** De
+F5-genererade klippen är **2,3–4,1 s** medan spelens `ctx.later(...)` nästan alltid står på
+2–3 s, så en fast konstant kapar rutinmässigt föregående mening. Uppmätt i `mata-munnen`:
+introt (3,65 s) kapades av nästa replik, och belöningsraden (2,71 s) hann höras till 54 %.
+Ett barn hör det som att någon blev avbruten — samma bugfamilj som "två röster samtidigt"
+(`mata-munnen.md` §5 v1.194), fast åt andra hållet.
+
+- Vänta in `voice.kvar` / `voice.talar` i stället för att gissa.
+- Figurens EGNA klipp går genom `AudioService`; deras längd kommer från
+  `audio.sampleDuration(namn)`. Vänta in **båda** (mönstret heter `_narTyst` i `mata-munnen`).
+- **BILDEN väntar inte.** P0 kräver återkoppling <100 ms — ring, gest och glitter kommer
+  genast; bara orden köar.
+- Mät det så här: haka på `voice.say` och logga `voice.kvar` FÖRE anropet — ett tal > 0 är en
+  mening barnet aldrig hörde klart. Kontrollarm = den gamla schemaläggningen kortsluten i
+  samma session. Räkna bort anti-upprepningsfönstret (samma text inom 8 s släpps av tjänsten
+  **före** `cancel()` och kapar alltså ingenting). Facit: `scripts/_onskeprobe.mjs`.
 
 ## Riktig tonhöjd (mönster #4 i kvalitetsgrinden)
 

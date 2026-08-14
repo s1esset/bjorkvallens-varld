@@ -81,6 +81,15 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 79 | Roliga Snurran | `roliga-snurran` | tap | ✅ | ✅ |
 | 73 | Mata Pappa | `mata-munnen` | drag | ✅ | ✅ |
 
+✅ **Pappa ÖNSKAR sig en bit, och kyldörren minns** (v1.214): målet räknade förut "N tuggor",
+aldrig VILKA — varje matbit var exakt lika rätt, och tallrik 7 såg likadan ut som tallrik 1.
+Nu får han en lust till EN bit (ring + blick + generisk replik), och **fel bit är aldrig fel**:
+mätarsteget är uppmätt identiskt (0,167 mot 0,167), belöningen ligger helt i ceremonin. Varje
+mättad mage sätter ett klistermärke på kylen, sparat i profilen. Sond: `_onskeprobe.mjs` 29/29.
+⚠️ **App-bred läxa:** `voice.say()` kallar `cancel()`, så en replik schemalagd på ett fast tal
+KAPAR den förra — klippen är 2,3–4,1 s mot ett schema på 2–3 s. Nya `VoiceService.kvar`/`talar`
+finns för alla spel. Statusen ✅/✅ oförändrad.
+
 ✅ **`mata-munnen`s ägaruppdrag KÖKET är byggt** (v1.187–1.189): köksmiljö där bänkskivan skär
 fotots halslinje, 12 klickbara stationer, 54 mat- och busobjekt hämtade ur `pizzabageriet` +
 `hamburgerbygget`, och tre motorer där de syns (matter-hög på bänken · SPH-pöl · mjuk gegga).

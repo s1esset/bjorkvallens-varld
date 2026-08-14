@@ -69,6 +69,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_kameraprobe.mjs` | kamerans beteende i tal (dödzon · ruta · skak · zoom · exit) — **utan webbläsare** |
 | `node scripts/_slagprobe.mjs` | anslagsljudet: fart → volym + tonhöjd · materialens röster · taket · exit — **utan webbläsare** |
 | `node scripts/_tystprobe.mjs` | pekhanterare som bortar tyst på en upptagen-flagga (P0-brottet `dod-traffyta`) |
+| `node scripts/_lampprobe.mjs` | släpps draget på BÅDA greppytorna? (`_drar`/`_pekId` efter släpp + flyttar en NY pekare något) — två finger-id, kontrollarm före mätarm |
 | `node scripts/_ansiktebild.mjs [--bara "vila,wink h"]` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · wink · hetta/kyla · gester · 13 miner) + **andas den efter 40 gester?** + exit-koll — **ett ansikte går inte att bedöma i tal**, och `--bara` gör rutorna stora nog för en wink |
 | `node scripts/_munprobe.mjs [--trace]` | *spelar* `mata-munnen`: gapar munnen vid maten (mot kontrollarm långt bort) · lutar han sig mot den · **antal sammanbitningar mot spelets egen tuggprofil** · mätaren per tugga · rätt min · mättar bus (ska INTE) · **ljudslingan följer stationen och dör vid exit** · finalen. `--trace` skriver ut den råa gapkurvan — den förklarar en felräknad tugga på ett sätt inget tal gör |
 | `node scripts/_kastprobe.mjs` | `mata-munnen`s KAST: tröskel · åldersspärr · ansats · träffandel · svep utan tunnling · exit mitt i flykten — 4 kontrollarmar före mätarmarna |
@@ -157,6 +158,19 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   gäller sond bredvid `npm run test:all`. **Och kontrollarmen först, alltid:** min egen
   node-arm lade elden med en rads lucka till jorden, glöden nådde aldrig fram, och armen
   var död utan att säga det — hade jag läst lera-talet bredvid den hade jag trott på fel svar.
+- **Ett släpp når ALDRIG ett syskon — och en bubblande förälder måste vara `static`.** Har ett
+  spel TVÅ greppytor måste `pointerup`/`pointerupoutside` sitta på deras gemensamma FÖRÄLDER.
+  Pixis båda släppvägar går uppför en föräldrakedja, aldrig i sidled: `mapPointerUp` bubblar
+  längs SLÄPP-MÅLETS kedja och `mapPointerUpOutside` bara uppför **pressTargets egen**
+  (`EventBoundary.mjs:559,634`). `skattjakt-i-morkret` lyssnade på `_catcher` medan ficklampan
+  bodde i `_front` — ett syskon — så greppet på lampan släpptes aldrig: `_drar` stod kvar `true`
+  och `_pekId` på ett dött finger-id, och eftersom varje ny fingerpekning får ett **nytt**
+  pointerId avvisades allt därefter som "andra fingret". **Permanent död träffyta utan ett enda
+  konsolfel**, grönt test hela tiden — bara en pekare med två olika id:n hittar den.
+  ⚠️ Andra halvan var inte gratis: `notifyTarget` (`:370`) bortar tyst på allt som inte är
+  `static`/`dynamic`, så en bubblande förälder på default `'passive'` får **ingenting** — utan
+  `eventMode = 'static'` fastnade även kontrollarmen. En bar `Container` utan `hitArea`
+  träfftestar ändå alltid falskt, så roten blir inte själv ett träffmål av raden.
 - **Egna fält på ett Pixi-objekt får inte heta som Pixis egna.** `f._cx = x` såg ofarligt ut,
   men `_cx`/`_cy`/`_sx`/`_sy` är Container-transformens interna cache: `lt.a = _cx * scale.x`.
   Snöbollens snöfält renderades därför med vågrät skala 3660 — osynliga, utan ett enda

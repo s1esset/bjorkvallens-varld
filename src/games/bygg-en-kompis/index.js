@@ -52,6 +52,12 @@ const VAN = { pil1: 88, prev: 182, pil2: 276 }
 const HOG = { pil1: 1004, prev: 1098, pil2: 1192 }
 const RAM_X = [250, 390, 530, 670, 810, 950]
 const RAM_Y = 78
+// Spiken satt på RAM_Y − 74 = y 4 med radie 6, alltså 2 px UTANFÖR designytans överkant —
+// sex avklippta halvcirklar längs kanten i varje skärmdump. Ramen kan inte flyttas ner
+// (dess träffyta slutar på y 126 och har exakt P0:s 24 px ner till RAD_Y[0]), så spiken
+// flyttas i stället: y 12 lägger den precis ovanför ramens ovankant (y 18) och innanför
+// bildväggens panel (y 4–156).
+const SPIK_DY = 12
 const MAX_RAMAR = 6
 const KAM_X = 812
 const KAM_Y = 470
@@ -1050,7 +1056,7 @@ export default {
     tomma.eventMode = 'none'
     for (let i = this._galleri.length; i < MAX_RAMAR; i++) {
       const x = RAM_X[i]
-      tomma.circle(x, RAM_Y - 74, 6).fill(0x9a8f7a)
+      tomma.circle(x, SPIK_DY, 6).fill(0x9a8f7a)
       tomma.roundRect(x - 52, RAM_Y - 54, 104, 108, 10).stroke({ width: 4, color: 0xc9ab84, alpha: 0.65 })
     }
     this._root.addChild(tomma)
@@ -1067,7 +1073,7 @@ export default {
   // Graphics ritad i origo med en stor .position kan rendera som ett helskärmsband.
   _gorSpik(x) {
     const c = new Container()
-    c.position.set(x, RAM_Y - 74)
+    c.position.set(x, SPIK_DY)
     c.eventMode = 'none'
     const g = new Graphics()
     g.circle(0, 2, 6).fill({ color: 0x000000, alpha: 0.2 })
@@ -1231,7 +1237,12 @@ export default {
           this._spika(ctx, ram)
         },
       })
-      .to(ram.nod, { x: RAM_X[slot], y: RAM_Y - 60, duration: 0.38, ease: 'power2.out' })
+      // Lyftet låg på RAM_Y − 60 = y 18. Ramen är 120 px hög och ritas kring sin mitt, så
+      // dess ovankant hamnade på y −42: fotot åkte halvvägs ut ur bilden i 0,38 s innan
+      // det föll på plats. `back.out(1.6)` skalar dessutom över (~1,09 → halvhöjd 65), så
+      // lyftet måste rymma BÅDA. y 68 ger ovankanten y 3 — kvar i bild — och 10 px fall
+      // ner på spiken, vilket räcker för att läsa som "hängs upp".
+      .to(ram.nod, { x: RAM_X[slot], y: RAM_Y - 10, duration: 0.38, ease: 'power2.out' })
       .to(ram.nod.scale, { x: 1, y: 1, duration: 0.38, ease: 'back.out(1.6)' }, '<')
       .to(ram.nod, { y: RAM_Y, duration: 0.22, ease: 'power2.in' })
   },
@@ -1243,7 +1254,7 @@ export default {
     ctx.services.audio.tone({ freq: 900, dur: 0.06, type: 'triangle', vol: 0.1, delay: 0.02 })
     ram.spik = this._gorSpik(RAM_X[ram.slot])
     bounceIn(ram.spik, { duration: 0.3 })
-    puff(ctx.fxLayer, RAM_X[ram.slot], RAM_Y - 70, { count: 6, color: 0xe4cfae })
+    puff(ctx.fxLayer, RAM_X[ram.slot], SPIK_DY, { count: 6, color: 0xe4cfae })
     ripple(ctx.fxLayer, RAM_X[ram.slot], RAM_Y, { color: COLORS.white, maxR: 110, width: 5, alpha: 0.5 })
     if (ram.nod && !ram.nod.destroyed) {
       gsap

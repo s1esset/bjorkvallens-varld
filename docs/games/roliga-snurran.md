@@ -13,9 +13,11 @@
 | **kategori** | `roligt` → fliken **Roligt** |
 | **input** | tap |
 | **ålder** | [2, 5] |
-| **kärnloop** | Tryck på den stora spaken → alla tre trummorna snurrar. Tryck sedan på VARJE trumma, i valfri ordning, för att stoppa den där man vill. Allt som landar firas. |
-| **mål** | Fem snurr → `progress.complete()`: lamporna springer varvet runt maskinen, glitter-myntregn ur luckan, och snurran får en ny färgpalett + en ny symboluppsättning. |
-| **agens** | NÄR varje trumma stoppas. Trummorna går 1,79 symboler/s och stoppet är WYSIWYG: den symbol som står i fönstret när fingret nuddar är den som stannar där (uppmätt 85–94 %, kontrollarm 0–17 %). Ett barn kan alltså sikta på tre lika med flit. |
+| **kärnloop** | Tryck på den stora spaken → alla tre trummorna snurrar. I **handläget** trycker barnet sedan på VARJE trumma för att stoppa den; i **stjärnläget** stannar de själva, ett i taget. Allt som landar firas — och **tre lika är vinsten**. |
+| **lägen** | En väljare på maskinens högra sida (träffyta 184×156, ikon-först + röst). 🖐 = du stoppar hjulen själv (standard) · ✨ = maskinen stannar dem, som en riktig spelautomat. Valet sparas per profil (`custom.autoStopp`). |
+| **vinst** | Tre lika → egen ceremoni: bilden dämpas, vinsten glider ner uppifrån i 2,2× storlek, en 12-uddig stjärna roterar bakom, 16 strålar skjuts ut åt alla håll (åt motsatt håll mot stjärnan), en glans sveper över föremålet **maskad av dess egen silhuett**, och en kort trudelutt (C–E–G–C–B–C) klingar. Sedan flyger vinsten till trofehyllan. |
+| **mål** | Fem snurr → `progress.complete()`: lamporna springer varvet runt maskinen, glitter-myntregn ur luckan, och snurran får en ny färgpalett + en ny symboluppsättning. Parallellt: **fyll trofehyllan** med upp till 8 unika vinster. |
+| **agens** | NÄR varje trumma stoppas — eller valet att låta maskinen göra det. Trummorna går 1,79 symboler/s och stoppet är WYSIWYG: den symbol som står i fönstret när fingret nuddar är den som stannar där (uppmätt 85–94 %, kontrollarm 0–17 %). Ett barn kan alltså sikta på tre lika med flit. |
 | **variation** | Symboluppsättningen byts per runda (djur · frukt · fordon · hav · former · leksaker), antalet OLIKA symboler per trumma växer 3 → 4 → 5, farten 300 → 360 px/s, maskinen får ny palett. Sällsynt regnbågstrumma (16 %). |
 | **mottagare** | Bobo sitter på maskinens tak, studsar i takt med trummornas tickande, följer med blicken när en trumma stannar och jublar/hejar/blir förvånad efter utfall. |
 | **finish** | Maskinens egen: lampringen tänds i ett löpande varv, luckan sprutar guldmynt och glitterstjärnor, kronans fem lampor står tända — och snurran byter färg inför nästa runda. |
@@ -34,6 +36,12 @@
 "Hurra! Snurran fick nya färger!"           (runda klar)
 "Tryck på ett hjul så stannar det!"         (om-cue, trummorna snurrar)
 "Tryck på den stora spaken!"                (om-cue, redo)
+"Nu stoppar du hjulen själv."               (väljaren → handläget)
+"Nu stannar hjulen själva."                 (väljaren → stjärnläget)
+"Titta, hjulen stannar själva!"             (snurr startar i stjärnläget)
+"Den ställer sig på hyllan!"                (ny trofé)
+"Den har du redan! Titta på hyllan."        (dubblett)
+"Hyllan är full av fina saker!"             (hyllan full)
 ```
 
 ## 1. Nuläge (sett som spelare)
@@ -82,18 +90,27 @@ utgången inte får vara den tråkigaste.
 ## 3. Vad gör det lättjefullt / tunt
 
 Ärligt om nuläget:
-* **Tre lika är sällsynt för den som inte siktar.** Med 3 olika symboler per trumma är
-  chansen 11 % per snurr (+ regnbågstrumman), och vid runda 3 med 5 olika symboler bara
-  4 %. Ett barn som bara trycker slumpmässigt ser alltså det största firandet ungefär
-  vartannat till vart tredje runda. Det är ett medvetet val — den som SIKTAR ska belönas —
-  men det är oprövat på ett riktigt barn.
+* ~~**Tre lika är sällsynt för den som inte siktar.**~~ **Åtgärdat 2026-08-14 med
+  stjärnläget:** där garanteras tre lika minst var tredje snurr (och alltid det första i en
+  session), så barnet aldrig kan dra spaken fler än tre gånger utan en vinst. I handläget är
+  det fortfarande siktet som avgör — men nu bär varje runda en **delad symbol** som finns på
+  alla tre hjulen, vilket den inte gjorde förut: 17,9 % av rundorna med 3 olika symboler per
+  trumma saknade en gemensam symbol och gjorde tre lika **matematiskt omöjligt**.
+* **Ceremonin är oprövad på ett riktigt barn.** Den är 4,1 s från tre lika till nästa snurr,
+  vilket är längre än P0:s riktvärde 1–2 s för ett firande (men i linje med spelets egen
+  blandfigur, som tar 4 s). Om det känns långt vid tionde vinsten är det tempot som ska ner,
+  inte ceremonin som ska bort.
+* **Hyllan tar 8 unika och sedan inte fler.** Vinst nummer nio firas fullt men lägger inget
+  nytt. Det är valt för att inget ska försvinna, men en hylla som växer (fler plankor, eller
+  ett andra rum) vore ärligare mot ett barn som spelar länge.
 * **Blandfiguren har en enda kroppsmall.** Bara färgen och de tre symbolerna varierar;
   kropp, ögon och dans är desamma varje gång.
 * **Ingen motgång alls.** P0 tillåter hinder, och specen förbjöd förlust — men det finns
   inte ens ett ofarligt streck i räkningen (ett hjul som nyser, en lampa som slocknar).
   Loopen är därför mycket lugn.
-* **Maskinen har bara ett läge.** Trummorna ser likadana ut hela vägen (utom
-  regnbågstrumman); det finns ingen "gyllene runda" eller liknande.
+* ~~**Maskinen har bara ett läge.**~~ **Åtgärdat 2026-08-14:** väljaren ger hand- och
+  stjärnläge. Trummorna ser dock fortfarande likadana ut hela vägen (utom regnbågstrumman);
+  det finns ingen "gyllene runda" eller liknande.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
@@ -148,3 +165,38 @@ Mätningar vid bygget (`node scripts/_snurrprobe.mjs`, kontrollarmar i
   körning triggar Vites bevakare → full page reload → "WebGL context may be lost" och en
   bild där varje gradient i appen ritas fel. 3/3 rena körningar när bilderna skrevs
   utanför repot. `npm run test` är opåverkad (den fotar efter avslut).
+
+`2026-08-14 · ägaruppdrag: lägesväljare (hand ↔ stjärna), tre lika = vinsten med egen
+ceremoni, trofehylla som sparas · <commit>`
+
+Mätningar vid det bygget (`node scripts/_vinstprobe.mjs`, kontrollarm = manuellt läge):
+* **Kontrollarm** manuellt läge: 3/3 hjul snurrar ännu efter 3,2 s (alltså långt förbi
+  autolägets 2,54 s), och barnets tryck stoppar alla tre på 376 ms.
+* **Väljaren** ett riktigt tryck på träffytan flippar läget och sparar det i profilen.
+* **Autoläget** 8/8 snurr stannade utan att något rördes, snitt 3 135 ms.
+* **Garantin** första autosnurren gav tre lika; som mest **3** snurr mellan två vinster;
+  varje begärd vinst blev också en vinst (3/3).
+* **Delad symbol** ≥1 gemensam symbol på alla tre hjulen i varje snurr. Utan fixen saknades
+  den i **17,9 %** av rundorna med `distinct` 3 (200 000 dragningar, ren nodräkning).
+* **Ceremonin** vinsten 2,23× trummans symbol (241 px mot 108) · stjärnan 1,04 rad och
+  strålarna 0,53 rad **åt motsatt håll** · glansbandet sveper 208 px, maskat av föremålets
+  egen `drawIcon`-silhuett.
+* **Hyllan** troféerna är unika, sparas i profilen och **överlever en omladdning**.
+* **Exit** mitt i en levande ceremoni: 0 konsolfel.
+
+**Fyra fel som mätningen hittade — tre av dem var sondens egna:**
+* **Spelets:** `liv` användes i `_placeTrophy` men importerades aldrig. Spelet **kraschade
+  vid start** för varje profil som redan hade en trofé sparad — alltså först vid ANDRA
+  besöket, vilket ingen testkörning på en tom profil kan se.
+* **Sondens:** spardata lästes ur `pwagames.save` (rätt nyckel är `pwagames.save.v1`).
+* **Sondens:** avläsning 400 ms efter trycket, men `SaveService.update` är **debouncad
+  500 ms** — "sparas inte" var en mätning före flushen, medan omladdningsarmen i samma
+  körning visade att det sparades.
+* **Sondens:** glansbandet mättes i två punkter direkt efter landningen och gav −104 → −104.
+  Svepet startar 0,6 s in i ceremonin, alltså låg båda avläsningarna före det. Måttet läser
+  nu **svängningen** (max − min) över 14 prov.
+
+**Två fynd som bara skärmdumpen såg:** troféerna svävade 5 px ovanför plankan (skuggan sitter
+32,6 px under behållaren, plankans översida på `SHELF_Y`), och lägesväljarens hand läste först
+som ett **nyckelhål** — silhuetten fyllde brickans cirkel helt. Fingret måste vara mycket
+smalare än näven (11 mot 34 px) för att de två formerna inte ska läsa ihop till en stapel.

@@ -5,6 +5,7 @@ import { gsap } from 'gsap'
 import { makeMascot } from '../../lib/mascot.js'
 import { bounceIn } from '../../lib/feedback.js'
 import { COLORS, FONT, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { enterImmersive } from '../../lib/pwa.js'
 
 export async function createSplashScreen(services) {
   const view = new Container()
@@ -59,6 +60,9 @@ export async function createSplashScreen(services) {
   const start = () => {
     if (started) return
     started = true
+    // Först av allt, medan användargesten fortfarande gäller: helskärm + landskapslås
+    // om appen körs i en flik. Tyst no-op i den installerade appen och på iOS.
+    enterImmersive()
     services.audio.sfx('pling')
     services.voice.say('Välkommen till Björkvallens värld!')
     services.nav.go('menu')

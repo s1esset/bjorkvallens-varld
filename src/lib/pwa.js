@@ -27,6 +27,55 @@ export function onOfflineReady(cb) {
   offlineReadyCb = cb
 }
 
+// Körs appen som INSTALLERAD app (från hemskärmen) eller i en vanlig webbläsarflik?
+export function isStandalone() {
+  try {
+    return (
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      window.matchMedia?.('(display-mode: fullscreen)').matches ||
+      navigator.standalone === true
+    )
+  } catch {
+    return false
+  }
+}
+
+// Helskärm + låst landskapsläge när appen körs i en FLIK.
+//
+// Den installerade appen får det gratis ur manifestet (`display: fullscreen` +
+// `orientation: landscape`) — en flik får ingenting av det, och ingen sida kan låsa
+// orienteringen utan att först vara i helskärm. Ordningen är alltså tvingande:
+// helskärm FÖRST, lås sedan.
+//
+// MÅSTE anropas synkront från en användargest (splashens första tryck), annars
+// avvisar webbläsaren begäran. Allt är best-effort och tyst: iOS Safari saknar båda
+// API:erna, och `lock()` avvisar på dator — inget av det får hindra barnet från att
+// komma in i appen, och inget av det får bli ett konsolfel (testet räknar dem).
+export function enterImmersive() {
+  // DEV = testharnessen. En helskärm mitt i en körning byter viewport och skulle
+  // störa bildkollen i 80 spel; funktionen hör hemma på riktiga enheter.
+  if (import.meta.env?.DEV) return
+  if (isStandalone()) return
+  try {
+    const el = document.documentElement
+    if (!el?.requestFullscreen) return
+    const p = el.requestFullscreen({ navigationUI: 'hide' })
+    if (p?.then) p.then(lockLandscape, () => {})
+    else lockLandscape()
+  } catch {
+    /* helskärm nekad — appen fungerar precis lika bra i stående flik */
+  }
+}
+
+function lockLandscape() {
+  try {
+    const r = screen.orientation?.lock?.('landscape')
+    r?.catch?.(() => {}) // dator: NotSupportedError, helt väntat
+  } catch {
+    /* noop */
+  }
+}
+
 // Finns en redan nedladdad uppdatering som bara väntar på att aktiveras?
 export function hasPendingUpdate() {
   return pending

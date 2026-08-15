@@ -18,17 +18,11 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
     __BUILD_ID__: JSON.stringify(BUILD_ID),
   },
-  // Bind till alla nätverkskort så appen går att testa från t.ex. en telefon på
-  // samma Tailscale-nät. allowedHosts släpper in MagicDNS-namnet (*.ts.net) som
-  // används vid `tailscale serve` (HTTPS -> krävs för PWA-install/offline).
-  server: {
-    host: true,
-    allowedHosts: ['.ts.net'],
-  },
-  preview: {
-    host: true,
-    allowedHosts: ['.ts.net'],
-  },
+  // Bind till alla nätverkskort så bygget går att titta på från en annan enhet på
+  // samma wifi. Skarp leverans går via GitHub Pages (`npm run deploy`) — PWA-install,
+  // service worker och offline-läge kräver HTTPS och kan bara provas där.
+  server: { host: true },
+  preview: { host: true },
   build: {
     target: 'es2022',
     sourcemap: true,

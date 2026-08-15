@@ -57,6 +57,21 @@ push till `master` sajten automatiskt, och den ligger uppe dygnet runt:
 `32faa9b` feat(pages) startsida + `npm run deploy` + v1.218.0 · `6972cf2` fix(deploy) ·
 `b4561b8` fix(start) layout
 
+**Till sist: Tailscale-vägen borttagen (v1.219.0).** Ägaren ville inte ha två vägar att hålla
+levande. Ur `scripts/start.ps1`: proxy-anropet, MagicDNS-uppslaget och det hårdkodade
+värdnamnet · ur `vite.config.js`: `allowedHosts: ['.ts.net']` · plus omnämnandena i
+`start.cmd`, `stop.ps1`, `CLAUDE.md`, `LYFTPLAN.md` och två skills.
+
+`npm run serve` finns kvar men är nu ärligt **lokal**: bannern skriver localhost, LAN-adressen
+och Pages-adressen, och säger rakt ut att utan HTTPS finns **ingen PWA-install, ingen service
+worker och inget uppdateringsflöde** att pröva där. Det var exakt det Tailscale-lagret gav.
+LAN-adressen tas från kortet som har en **default gateway** — "första IPv4 som inte är 127.*"
+hade lika gärna gett ett virtuellt kort (Hyper-V, WSL, VPN) som telefonen inte kan nå.
+Kört och verifierat: bygge → fönster → `http://localhost:4173` svarar 200 → `stop.ps1` städar.
+
+Kvar på maskinen med flit: `tailscale serve`-mappningen `8445 → 4173` (ägarens beslut, den
+ligger bland andra projekts mappningar) — den ger bara 502 när ingen lokal server kör.
+
 **Två fynd, båda från att TITTA:**
 
 1. **`gh run watch` utan run-id dör i ett skript** ("run ID required when not running
@@ -79,7 +94,7 @@ push till `master` sajten automatiskt, och den ligger uppe dygnet runt:
 - Telefonen ska installera om PWA:n från den nya adressen; den gamla Tailscale-installationen är
   ett **annat ursprung** och delar varken spardata eller cache. Spardatan (localStorage) följer
   alltså inte med — barnens klistermärken börjar om på den nya adressen.
-- Tailscale-vägen är orörd och fungerar som förr; Pages ersätter den bara som standardväg.
+- **Tailscale-vägen är BORTTAGEN** (senare samma pass, se nedan) — inte bara ersatt.
 
 ---
 

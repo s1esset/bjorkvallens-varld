@@ -101,4 +101,5 @@ mat.onBeforeCompile = (shader) => {
   (`mesh.material.dispose()`); `layer.destroy()` tar bara det som är kvar i scenen.
 - Nya backdrop-teman: lägg dem i `BACKDROPS` i `three-shaders.js` (namnge som scene.js-teman)
   så alla 3D-spel kan dela dem.
-- Testa på riktig platta via Tailscale-flödet (se minnes-anteckningen phone-testing-tailscale).
+- Testa på riktig platta genom att publicera: `npm run deploy` → öppna
+  <https://s1esset.github.io/bjorkvallens-varld/> (lokal preview saknar HTTPS och därmed PWA-läge).

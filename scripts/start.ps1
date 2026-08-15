@@ -1,9 +1,16 @@
-﻿# start.ps1 — Björkvallens Värld
-# Startar servern (produktionsbygge -> vite preview) och exponerar den på Tailscale-nätet.
-# Servern körs i ett EGET terminalfönster döpt efter projektet, med URL:en synlig.
+# start.ps1 — Björkvallens Värld
+# Startar en LOKAL server med produktionsbygget (vite preview) i ett eget terminalfönster.
 #   - Rensar först gamla/stale serverprocesser (via stop.ps1)
-#   - Säkerställer Tailscale serve 8445 -> 4173 (idempotent, ej fatalt)
-#   - Bygger, startar preview i eget fönster, skriver ut Tailscale-URL:en
+#   - Bygger och startar preview på :4173, bunden till alla nätverkskort
+#
+# Telefonen går INTE hit längre. Appen ligger på GitHub Pages och publiceras med
+# `npm run deploy`:  https://s1esset.github.io/bjorkvallens-varld/
+# Den här servern är till för att titta på produktionsbygget på den HÄR datorn innan
+# det publiceras — och för en telefon på samma wifi, med förbehållet nedan.
+#
+# ⚠️ Utan HTTPS installeras ingen PWA och ingen service worker registreras. En telefon på
+# samma nät (http://<datorns-ip>:4173) kan alltså SPELA spelen men aldrig prova install,
+# offline-läge eller uppdateringsflödet. Ska det provas: publicera och öppna Pages-adressen.
 #
 # Kör:  .\scripts\start.ps1            (bygg + starta)
 #       .\scripts\start.ps1 -NoBuild   (hoppa över bygget, starta bara servern)
@@ -13,8 +20,6 @@ $ErrorActionPreference = 'Stop'
 $Proj        = 'Björkvallens Värld'
 $Root        = Split-Path -Parent $PSScriptRoot
 $PreviewPort = 4173
-$TsPort      = 8445
-$Tailscale   = 'C:\Program Files\Tailscale\tailscale.exe'
 $PidFile     = Join-Path $Root '.server.pid'
 
 # --- Rensa gamla processer först (ren omstart) ---
@@ -22,27 +27,19 @@ $PidFile     = Join-Path $Root '.server.pid'
 
 Set-Location $Root
 
-# --- Härled Tailscale MagicDNS-namnet dynamiskt (fallback hårdkodat) ---
-$TsName = 'andreas-psai1.tail4e6703.ts.net'
-if (Test-Path $Tailscale) {
-  try {
-    $self = (& $Tailscale status --json 2>$null | ConvertFrom-Json).Self.DNSName
-    if ($self) { $TsName = $self.TrimEnd('.') }
-  } catch {}
-}
-$Url = "https://${TsName}:${TsPort}"
+# --- Adress på det lokala nätet (för en telefon på samma wifi) ---
+# Ta kortet som har en DEFAULT GATEWAY. Att bara plocka "första IPv4 som inte är 127.*"
+# ger lika gärna ett virtuellt kort (Hyper-V, WSL, VPN) som telefonen inte kan nå.
+$Lan = (Get-NetIPConfiguration -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPv4DefaultGateway -and $_.IPv4Address } |
+        Select-Object -First 1).IPv4Address.IPAddress
+$LanUrl = if ($Lan) { "http://${Lan}:${PreviewPort}" } else { '(hittade inget nätverkskort)' }
 
 # --- Bygg (om inte -NoBuild) ---
 if (-not $NoBuild) {
   Write-Host "==> Bygger $Proj ..." -ForegroundColor Cyan
   npm run build
   if ($LASTEXITCODE -ne 0) { Write-Error "Bygget misslyckades — servern startades inte."; exit 1 }
-}
-
-# --- Säkerställ Tailscale-proxy 8445 -> 4173 (idempotent; ej fatalt) ---
-if (Test-Path $Tailscale) {
-  Write-Host "==> Tailscale serve https:$TsPort -> http://127.0.0.1:$PreviewPort" -ForegroundColor Cyan
-  & $Tailscale serve --bg --https=$TsPort "http://127.0.0.1:$PreviewPort" 2>$null
 }
 
 # --- Starta preview i ett eget fönster med tydlig projekt-banner ---
@@ -54,13 +51,15 @@ try { [Console]::Title = '$title' } catch {}
 Set-Location '$Root'
 Write-Host ''
 Write-Host '  ============================================================' -ForegroundColor DarkCyan
-Write-Host '   $Proj — SERVER' -ForegroundColor Green
+Write-Host '   $Proj — LOKAL SERVER' -ForegroundColor Green
 Write-Host '  ------------------------------------------------------------' -ForegroundColor DarkCyan
-Write-Host '   Tailscale : $Url' -ForegroundColor Yellow
-Write-Host '   Lokalt    : http://localhost:$PreviewPort' -ForegroundColor Gray
+Write-Host '   Lokalt    : http://localhost:$PreviewPort' -ForegroundColor Yellow
+Write-Host '   Samma nät : $LanUrl' -ForegroundColor Gray
+Write-Host '   Skarpt    : https://s1esset.github.io/bjorkvallens-varld/' -ForegroundColor Gray
 Write-Host '  ============================================================' -ForegroundColor DarkCyan
 Write-Host ''
-Write-Host '   (Stäng detta fönster eller kör scripts\stop.ps1 for att stoppa)' -ForegroundColor DarkGray
+Write-Host '   Utan HTTPS: ingen PWA-install, ingen service worker, inget offline-lage.' -ForegroundColor DarkGray
+Write-Host '   (Stang detta fonster eller kor scripts\stop.ps1 for att stoppa)' -ForegroundColor DarkGray
 Write-Host ''
 node node_modules/vite/bin/vite.js preview --host --port $PreviewPort
 "@
@@ -71,7 +70,8 @@ try { Set-Content -Path $PidFile -Value $proc.Id -Encoding ascii } catch {}
 # --- Bekräftelse i ursprungsfönstret ---
 Write-Host ''
 Write-Host "  $Proj körs nu i ett eget fönster (`"$title`")." -ForegroundColor Green
-Write-Host "    Tailscale : $Url" -ForegroundColor Yellow
-Write-Host "    Lokalt    : http://localhost:$PreviewPort"
+Write-Host "    Lokalt    : http://localhost:$PreviewPort" -ForegroundColor Yellow
+Write-Host "    Samma nät : $LanUrl"
 Write-Host ''
+Write-Host "  Till telefonen: npm run deploy  ->  https://s1esset.github.io/bjorkvallens-varld/" -ForegroundColor Cyan
 Write-Host "  Stoppa med:  .\scripts\stop.ps1   (eller  npm run serve:stop)" -ForegroundColor DarkGray

@@ -1371,7 +1371,7 @@ mappas genom letterboxen — samma designkoordinater träffar rätt i alla viewp
 **Kvar (medvetet):** `PhysicsWorld` har `bounds`-param men ingen kund (opt-in med flit —
 testad fysik får inte tyst avvika per enhet). saftbarens `FluidView.area` klipper spill
 ~40 px före kanten på de bredaste telefonerna (breddning = större filteryta, mät med
-`_vatskeprobe` först). Manuell telefonkoll (build → preview → Tailscale, rotera mitt i
+`_vatskeprobe` först). Manuell telefonkoll (`npm run deploy` → Pages-adressen, rotera mitt i
 spel) är sista grinden.
 
 ## 6. Spår E — animation & rörelse, runda A1 (tokens · squash · tyngd i draget) ✅ v1.69.0

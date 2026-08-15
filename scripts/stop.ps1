@@ -1,8 +1,8 @@
 ﻿# stop.ps1 — Björkvallens Värld
 # Dödar ENDAST detta projekts server (nuvarande + gamla/stale processer):
 #   - serverfönster vi startat (titel innehåller "Björkvallens")
-#   - allt som lyssnar på preview-porten 4173 (Tailscale-URL:en pekar hit)
-# Rör ALDRIG andra projekts servrar/portar/Tailscale-proxys.
+#   - allt som lyssnar på preview-porten 4173
+# Rör ALDRIG andra projekts servrar eller portar.
 param([switch]$Quiet)
 $ErrorActionPreference = 'SilentlyContinue'
 $Root        = Split-Path -Parent $PSScriptRoot
@@ -46,6 +46,3 @@ Get-NetTCPConnection -LocalPort $PreviewPort -State Listen -ErrorAction Silently
 
 if ($killed -eq 0) { Say "  Inget körde — redan rent." 'DarkGray' }
 else { Say "Klart — stoppade $killed sak(er)." 'Green' }
-
-# OBS: Tailscale serve-mappningen 8445->4173 lämnas kvar (permanent, delas inte med
-# andra projekt). Den ger bara 502 när servern är nere. `start.ps1` återanvänder den.

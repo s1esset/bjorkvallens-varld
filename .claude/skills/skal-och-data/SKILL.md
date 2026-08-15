@@ -1,6 +1,6 @@
 ---
 name: skal-och-data
-description: Use when changing the app shell rather than a game - splash/menu/settings/library screens, navigation, the Pixi Application and layers, services, the localStorage save schema and migrations, profiles, the parental gate, PWA/service-worker update flow, version pill, design tokens, or serving the build to a phone. Triggers on - shell, skal, App.js, Nav, router, skärm, screen, MenuScreen, LibraryScreen, SettingsScreen, SplashScreen, GameHost, save, SaveService, localStorage, schema, migration, profil, profile, ParentalGate, grind, PWA, service worker, manifest, version, versionspill, DESIGN.md, tokens, SPACING, RADIUS, ANIM, preview, Tailscale, telefon, phone.
+description: Use when changing the app shell rather than a game - splash/menu/settings/library screens, navigation, the Pixi Application and layers, services, the localStorage save schema and migrations, profiles, the parental gate, PWA/service-worker update flow, version pill, design tokens, or serving the build to a phone. Triggers on - shell, skal, App.js, Nav, router, skärm, screen, MenuScreen, LibraryScreen, SettingsScreen, SplashScreen, GameHost, save, SaveService, localStorage, schema, migration, profil, profile, ParentalGate, grind, PWA, service worker, manifest, version, versionspill, DESIGN.md, tokens, SPACING, RADIUS, ANIM, preview, deploy, GitHub Pages, publicera, telefon, phone.
 ---
 
 # Skalet, data & leverans
@@ -70,14 +70,19 @@ Ingen PII lämnar enheten. Ett spel går alltid via `ctx.progress`, aldrig via `
 ## Leverans till telefon/platta
 
 ```
+npm run deploy         # grind -> push -> GitHub Pages (ENDA vägen till telefonen)
 npm run build          # produktionsbygge (service worker + manifest)
-npm run serve          # servera bygget på :4173 (scripts/start.ps1, titelsatt fönster)
+npm run serve          # titta lokalt på bygget, :4173 (scripts/start.ps1, titelsatt fönster)
 npm run serve:stop     # dödar bara detta projekts träd (.server.pid + port 4173)
 ```
 
-Tailscale mappar `https://andreas-psai1.tail4e6703.ts.net:8445 → 127.0.0.1:4173` (endast
-tailnet). På telefonen: öppna → meny → ladda om för att plocka upp den nya buggen; bekräfta
+Appen ligger på **<https://s1esset.github.io/bjorkvallens-varld/>** (föräldrarnas
+installationssida: `…/start.html`). På telefonen: öppna → meny → **Hämta senaste**; bekräfta
 med **versionspillret**.
+
+⚠️ **Den lokala servern kan inte pröva PWA-delen.** `http://…:4173` är inte ett säkert
+ursprung: ingen install, ingen service worker, inget offline-läge och inget uppdateringsflöde.
+Allt sådant provas på Pages-adressen. (Tailscale-vägen är borttagen 2026-08-15.)
 
 ⚠️ **Stale servrar är den vanligaste fällan** — en gammal `vite preview` serverar ett gammalt
 bygge till telefonen. Kolla lyssnare på 5173/4173 innan test.

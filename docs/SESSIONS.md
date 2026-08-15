@@ -37,7 +37,40 @@ push till `master` sajten automatiskt, och den ligger uppe dygnet runt:
 - **`CLAUDE.md`-regeln skrevs om, inte bort:** push är nu tillåten till `origin master` och
   ingenting annat — och eftersom varje push publicerar måste grinden vara grön **före** den.
 
-**Commits:** `c69f220` feat(pages) workflow + regeländring + v1.217.0 · `<denna>` docs
+**Sedan, samma pass (v1.218.0): föräldrasida + ett publiceringsverb.**
+
+- **`public/start.html`** → `…/start.html`: sidan en VUXEN öppnar en gång. Stor knapp till appen,
+  adressen utskriven ur sidans egen URL (stämmer även om sajten flyttar), installationssteg för
+  iOS/Android/dator, vad som händer vid en uppdatering, och en rad om föräldragrinden. Sidan
+  känner av `display-mode: standalone` och byter då ut instruktionerna mot "redan installerad" —
+  annars ger den fel råd till den som redan kör från hemskärmen. P0:s "ikon-först, noll läsning"
+  gäller barnets skärmar; det här är en föräldrasida, men knappen följer ändå P0 (≥96 px).
+- **`npm run deploy`** (`scripts/deploy.mjs`): vägrar publicera på fel gren, med ocommittat
+  arbete eller med röd `check` — grinden ligger före pushen eftersom pushen går rakt till barnens
+  telefon. Bygget deployar **inte** av sig självt: `npm run serve` och testharnessen bygger också,
+  och en publicering får aldrig bli en bieffekt av att någon tittar på appen lokalt.
+- **Uppdateringsvägen krävde noll kod.** `forceUpdate()` i `src/lib/pwa.js` gör redan
+  `reg.update()` → aktivera → ladda om, och `pending` appliceras vid menyns lugna gräns. Den
+  saknade bara ett HTTPS-ursprung som alltid finns.
+
+**Commits:** `c69f220` feat(pages) workflow + regeländring + v1.217.0 · `18d746c` docs ·
+`32faa9b` feat(pages) startsida + `npm run deploy` + v1.218.0 · `6972cf2` fix(deploy) ·
+`b4561b8` fix(start) layout
+
+**Två fynd, båda från att TITTA:**
+
+1. **`gh run watch` utan run-id dör i ett skript** ("run ID required when not running
+   interactively") — och mitt skript tolkade det som att BYGGET failade och skrev "sajten står
+   kvar på förra versionen". Fel diagnos: pushen hade gått igenom och bygget rullade på. Id:t
+   slås nu upp på den commit som just pushades (`headSha`), inte "senaste körningen", så en
+   gammal grön körning aldrig kan räknas som svar på den här pushen.
+2. **`.rad p b { display: block }` träffade varje fett ord i brödtexten**, så iOS-steget blev nio
+   rader — "Safari", "Dela", "Lägg till på hemskärmen" på var sin rad mitt i en mening. Ingen
+   kontroll i repot läser layout; det syntes bara i skärmdumpen. **Och första omtagningen såg
+   likadan ut** — där hade jag nästan bokfört fixen som verkningslös. Den var deployad: en
+   direkthämtning utan webbläsare visade `b:first-child` i filen på servern, alltså var det
+   webbläsarens HTTP-cache (Pages sätter 10 min) som visade den gamla. Samma läxa som sonderna:
+   **läs det oberoende innan du tror på vad skärmen visar.**
 
 **Öppet:**
 - **Token-hygien:** ägarens PAT klistrades in i chatten och ska raderas på

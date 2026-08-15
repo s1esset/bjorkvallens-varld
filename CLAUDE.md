@@ -72,6 +72,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_lampprobe.mjs` | släpps draget på BÅDA greppytorna? (`_drar`/`_pekId` efter släpp + flyttar en NY pekare något) — två finger-id, kontrollarm före mätarm |
 | `node scripts/_onskeprobe.mjs` | `mata-munnen`s ÖNSKAN (ring · blick · replik · att mätarsteget är IDENTISKT för fel bit) + kyldörrens klistermärken över en OMLADDNING · att narratorn får tala till punkt (gamla schemat kortslutet som kontrollarm) |
 | `node scripts/_vinstprobe.mjs [--snurr 8]` | `roliga-snurran`s lägesväljare · autoläget · vinstgarantin (aldrig >3 snurr utan vinst) · ceremonins lager/storlek/rotation/glans · trofehyllan över en OMLADDNING · exit mitt i firandet |
+| `node scripts/_kompisbild.mjs [--kittel] [--galleri N] [--exitvid S]` | `bygg-en-kompis` i bild per delval + `--kittel`: kittelytan med RIKTIGA muspekningar (kontrollarm på tomt golv först) · träffordningen fjäril-över-kittel · vingspetsen ur `getBounds()` per storlek mot P0-avståndet till kameran · **levande tweens på innernoder före/efter `destroy()`** |
 | `node scripts/_ansiktebild.mjs [--bara "vila,wink h"]` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · wink · hetta/kyla · gester · 13 miner) + **andas den efter 40 gester?** + exit-koll — **ett ansikte går inte att bedöma i tal**, och `--bara` gör rutorna stora nog för en wink |
 | `node scripts/_munprobe.mjs [--trace]` | *spelar* `mata-munnen`: gapar munnen vid maten (mot kontrollarm långt bort) · lutar han sig mot den · **antal sammanbitningar mot spelets egen tuggprofil** · mätaren per tugga · rätt min · mättar bus (ska INTE) · **ljudslingan följer stationen och dör vid exit** · finalen. `--trace` skriver ut den råa gapkurvan — den förklarar en felräknad tugga på ett sätt inget tal gör |
 | `node scripts/_kastprobe.mjs` | `mata-munnen`s KAST: tröskel · åldersspärr · ansats · träffandel · svep utan tunnling · exit mitt i flykten — 4 kontrollarmar före mätarmarna |
@@ -337,6 +338,26 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   den andra halvan. Vänta in **`voice.kvar` / `voice.talar`** (narratorn) OCH
   `audio.sampleDuration()` (figurens eget klipp) — mönstret heter `_narTyst`. **Bilden
   väntar inte:** ring, gest och glitter kommer genast, bara orden köar.
+- **`killTweensOf(figuren)` når BARA figurens rot — barnbarnen städas aldrig.** Armar som
+  vinkar, ögon som kisar och en del som studsar in ligger en nivå längre in, och en rivning
+  som bara tar roten lämnar dem levande. I `bygg-en-kompis` hann en vinkning (0,72 s) nästan
+  alltid vara igång när nästa knapp rev figuren; harnessen larmade `tween-mot-forstort`, men
+  **sonden var helt tyst** — gsap skriver bara på en nollad transform och Pixi v8 kastar
+  ingenting. "0 konsolfel efter exit" är alltså blind för precis den här läckan (fyra
+  exit-tider gav 0 fel i BÅDA armarna). Ge sammansatta figurer en städhjälpare som tar alla
+  animerade innernoder och kalla den före varje rivning — även för kopior i ett galleri.
+  **Mät den:** plocka undan innernoderna i en array FÖRE `destroy()` och räkna
+  `gsap.isTweening` efteråt (uppmätt **2 → 0**). Sonden måste använda SPELETS gsap — en
+  nyimporterad kopia har en egen global tidslinje och rapporterar 0 oavsett vad som pågår
+  (hämta url:en ur `performance.getEntriesByType('resource')`).
+- **Konstens utbredning och träffytans utbredning är två olika budgetar.** `bygg-en-kompis`
+  vingar var måttade mot kamerans synliga STATIV — men kamerans `hitArea` börjar 100 px till
+  vänster om benen, så vingspetsen låg **inne i kameraknappen** och ett tryck på den tog
+  kortet i stället för att kittla. Ingen skärmdump visar det, `check.mjs` mäter ingen geometri
+  och en `hitArea` ritas aldrig. Ritar du nära en knapp: mät mot grannens **hitArea**, läs
+  spetsen ur den RITADE geometrin (`getBounds()`, inte ett tal i sonden — en hårdkodad spets
+  rapporterade samma tal efter att vingen krympts) och peka med riktiga muspekningar i varje
+  skalläge. Och P0-avståndet vinner: rätt fix var att krympa vingen, inte att vidga ytan.
 - **Ett kontinuerligt ljud överlever allt utom att någon stoppar källan.** En tween dör med
   spelet, en `AudioBufferSourceNode` med `loop = true` gör det inte — den låter vidare på
   menyn, utan bild, och går inte att stänga av. Slingor tystas därför av `GameHost.destroy`

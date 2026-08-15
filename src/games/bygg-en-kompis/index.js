@@ -31,7 +31,7 @@ import { Button } from '../../lib/Button.js'
 import { createScene } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { sphereFill } from '../../lib/form.js'
-import { bounceIn, pop, squash, liv, puff, sparkle, burst, ripple, kvittera, breathe } from '../../lib/feedback.js'
+import { bounceIn, pop, squash, wiggle, liv, puff, sparkle, burst, ripple, kvittera, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT, shade, tint } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -77,9 +77,15 @@ const SPH = { dark: 0.24, highlight: 0.3, spread: 0.6 }
 // `m` är formens fästpunkter — var ögonen sitter, var munnen sitter, var prydnaden
 // fäster, var axlarna är. Utan dem hade varje ny kroppsform krävt ny kod i varje
 // annan del; nu är en kropp fem rader data plus en ritfunktion.
+//
+// `klang` är kroppens MATERIAL, hörd: övertonen som läggs ovanpå delens stämda ton när
+// något byts. Klotet är mjukt (ren oktav), klossen är trä (en låg fyrkant en oktav ner),
+// molnet luftigt (ett svep uppåt). Grundtonen är alltid densamma — det är bara färgen
+// på klangen som byter, så melodin i bygget står kvar.
 const KROPPAR = [
   {
     id: 'klot',
+    klang: { type: 'sine', ratio: 2, vol: 0.075, dur: 0.2 },
     m: { topY: -206, faceY: -136, munY: -78, bredd: 94, axelY: -116 },
     rita(g, p) {
       g.ellipse(-48, -12, 32, 17).fill(p.d)
@@ -90,6 +96,7 @@ const KROPPAR = [
   },
   {
     id: 'agg',
+    klang: { type: 'sine', ratio: 3, vol: 0.055, dur: 0.16 },
     m: { topY: -208, faceY: -138, munY: -84, bredd: 86, axelY: -124 },
     rita(g, p) {
       g.ellipse(-44, -12, 30, 16).fill(p.d)
@@ -105,6 +112,7 @@ const KROPPAR = [
   },
   {
     id: 'kloss',
+    klang: { type: 'square', ratio: 0.5, vol: 0.06, dur: 0.09 },
     m: { topY: -204, faceY: -142, munY: -84, bredd: 86, axelY: -122 },
     rita(g, p) {
       g.ellipse(-50, -12, 32, 16).fill(p.d)
@@ -115,6 +123,7 @@ const KROPPAR = [
   },
   {
     id: 'kon',
+    klang: { type: 'triangle', ratio: 4, vol: 0.045, dur: 0.12 },
     m: { topY: -218, faceY: -118, munY: -68, bredd: 84, axelY: -104 },
     rita(g, p) {
       g.ellipse(-44, -12, 30, 16).fill(p.d)
@@ -131,6 +140,7 @@ const KROPPAR = [
   // --- upplåsbara ---
   {
     id: 'moln',
+    klang: { type: 'sine', ratio: 1.5, vol: 0.07, dur: 0.28, slide: 2.5 },
     m: { topY: -196, faceY: -126, munY: -74, bredd: 100, axelY: -110 },
     rita(g, p) {
       g.ellipse(-46, -12, 30, 16).fill(p.d)
@@ -148,6 +158,7 @@ const KROPPAR = [
   },
   {
     id: 'lang',
+    klang: { type: 'triangle', ratio: 1.5, vol: 0.07, dur: 0.26 },
     m: { topY: -234, faceY: -168, munY: -110, bredd: 58, axelY: -146 },
     rita(g, p) {
       g.ellipse(-32, -12, 26, 15).fill(p.d)
@@ -159,55 +170,81 @@ const KROPPAR = [
 ]
 
 // --- ÖGON (ritas i ögonnodens origo, som sitter på kroppens faceY) ---------
+// Varje ritfunktion tar en BLICK: `{ x, y }` i −1…1, där −1 är åt vänster/uppåt.
+// Blicken byter bara var pupillen sitter, aldrig hur ögat är byggt — så samma kod
+// ritar både vilan och "kompisen tittar på knappen du tryckte".
+//
+// ⚠️ Förskjutningen måste klampas som en VEKTOR. Läggs x och y på var för sig kryper
+// pupillen ut ur ögonvitan så fort blicken pekar snett (10 px + 11 px = 14,9 px från
+// mitten i ett öga som bara rymmer 10) — och en pupill utanför sitt öga är inte en
+// blick, det är en bugg som ser ut som en design.
+function blick(look, max, bx = 0, by = 0) {
+  const lx = look?.x || 0
+  const ly = look?.y || 0
+  const d = Math.hypot(lx, ly)
+  const k = d > 1 ? 1 / d : 1
+  return { x: bx + lx * k * max, y: by + ly * k * max }
+}
+
 const OGON = [
   {
     id: 'tva',
-    rita(g, p) {
+    rita(g, p, look) {
       for (const s of [-1, 1]) {
+        const q = blick(look, 8, s * 2, 3)
         g.circle(s * 34, 0, 23).fill(COLORS.white).stroke({ width: 4, color: p.d })
-        g.circle(s * 34 + s * 3, 4, 11).fill(p.ink)
-        g.circle(s * 34 - 2, -2, 4.5).fill(COLORS.white)
+        g.circle(s * 34 + q.x, q.y, 11).fill(p.ink)
+        g.circle(s * 34 + q.x - 4, q.y - 6, 4.5).fill(COLORS.white)
       }
     },
   },
   {
     id: 'stort',
-    rita(g, p) {
+    rita(g, p, look) {
+      const q = blick(look, 14, 1, 3)
       g.circle(0, -2, 36).fill(COLORS.white).stroke({ width: 5, color: p.d })
-      g.circle(2, 3, 17).fill(p.ink)
-      g.circle(-6, -8, 7).fill(COLORS.white)
+      g.circle(q.x, q.y, 17).fill(p.ink)
+      g.circle(q.x - 8, q.y - 11, 7).fill(COLORS.white)
     },
   },
   {
     id: 'tre',
-    rita(g, p) {
+    rita(g, p, look) {
+      const q = blick(look, 5, 1, 2)
       for (const [ex, ey] of [[-40, 2], [0, -20], [40, 2]]) {
         g.circle(ex, ey, 16).fill(COLORS.white).stroke({ width: 4, color: p.d })
-        g.circle(ex + 2, ey + 3, 8).fill(p.ink)
-        g.circle(ex - 3, ey - 3, 3).fill(COLORS.white)
+        g.circle(ex + q.x, ey + q.y, 8).fill(p.ink)
+        g.circle(ex + q.x - 4, ey + q.y - 5, 3).fill(COLORS.white)
       }
     },
   },
   {
     id: 'skaft',
-    rita(g, p) {
+    // Skaftögonen SVÄNGER med blicken: hela ögonklotet (och skaftets spets) flyttas,
+    // och pupillen rör sig lite till inuti. Ett skaft som står blickstilla medan
+    // pupillen glider ser ut som en glasögonbåge, inte som ett djur som tittar.
+    rita(g, p, look) {
+      const sx = (look?.x || 0) * 8
+      const sy = (look?.y || 0) * 7
       for (const s of [-1, 1]) {
-        g.moveTo(s * 18, 22).quadraticCurveTo(s * 30, -10, s * 40, -40)
+        const q = blick(look, 6, s * 1.5, 2)
+        g.moveTo(s * 18, 22).quadraticCurveTo(s * 30 + sx * 0.4, -10 + sy * 0.4, s * 40 + sx, -40 + sy)
         g.stroke({ width: 8, color: p.d, cap: 'round' })
-        g.circle(s * 42, -50, 18).fill(COLORS.white).stroke({ width: 4, color: p.d })
-        g.circle(s * 44, -47, 8).fill(p.ink)
-        g.circle(s * 38, -55, 3.5).fill(COLORS.white)
+        g.circle(s * 42 + sx, -50 + sy, 18).fill(COLORS.white).stroke({ width: 4, color: p.d })
+        g.circle(s * 42 + sx + q.x, -50 + sy + q.y, 8).fill(p.ink)
+        g.circle(s * 42 + sx + q.x - 4, -50 + sy + q.y - 6, 3.5).fill(COLORS.white)
       }
     },
   },
   // --- upplåsbara ---
   {
     id: 'glasogon',
-    rita(g, p) {
+    rita(g, p, look) {
       for (const s of [-1, 1]) {
+        const q = blick(look, 7, s * 2, 2)
         g.circle(s * 36, 0, 21).fill(COLORS.white)
-        g.circle(s * 36 + s * 3, 3, 10).fill(p.ink)
-        g.circle(s * 36 - 2, -3, 4).fill(COLORS.white)
+        g.circle(s * 36 + q.x, q.y, 10).fill(p.ink)
+        g.circle(s * 36 + q.x - 4, q.y - 6, 4).fill(COLORS.white)
         g.circle(s * 36, 0, 26).stroke({ width: 6, color: 0x4a3526 })
       }
       g.moveTo(-10, 0).lineTo(10, 0).stroke({ width: 6, color: 0x4a3526 })
@@ -217,10 +254,14 @@ const OGON = [
     id: 'somnig',
     // Ögonlocket måste vara MÖRKARE än kroppen. Första utkastet fyllde locket med
     // kroppsfärgen och ögonen försvann helt i silhuetten — syntes bara i skärmdumpen.
-    rita(g, p) {
+    // Locket täcker övre halvan, så pupillen får bara röra sig i den NEDRE: en blick
+    // uppåt skulle annars gömma hela pupillen bakom locket och ögat se tomt ut.
+    rita(g, p, look) {
       for (const s of [-1, 1]) {
+        const q = blick(look, 6, 2, 8)
+        const py = Math.max(3, Math.min(12, q.y))
         g.circle(s * 34, 0, 22).fill(COLORS.white).stroke({ width: 4, color: p.d })
-        g.circle(s * 34 + 2, 8, 9).fill(p.ink)
+        g.circle(s * 34 + q.x, py, 9).fill(p.ink)
         g.moveTo(s * 34 - 22, -1).arc(s * 34, -1, 22, Math.PI, 0).closePath().fill(p.d)
         g.moveTo(s * 34 - 22, -1).lineTo(s * 34 + 22, -1).stroke({ width: 5, color: p.ink, cap: 'round' })
         for (const lx of [-13, 1, 15]) {
@@ -344,17 +385,22 @@ const TOPPAR = [
     id: 'vingar',
     bak: true,
     // Vingarna är den FÖRSTA upplåsningen och måste synas ordentligt utanför kroppen.
-    // Spännvidden är satt så att spetsarna stannar innanför vänsterkolumnens pilar och
-    // kamerans stativ även på den största kompisen (150 px × 1,12 = 168 px från mitten).
+    //
+    // Spännvidden var 150 och satt mot kamerans STATIV — men kamerans träffyta börjar
+    // på x 704, långt till vänster om stativets ben, och 150 × 1,12 lade spetsen på
+    // x 708. Ett barn som siktade på vingspetsen på den största kompisen tog alltså
+    // kortet i stället för att kittla den. Uppmätt med riktiga muspekningar, inte
+    // räknat i huvudet. 142 lägger spetsen på x 699 — utanför kamerans yta i alla tre
+    // storlekarna — och skillnaden i bild är 5 %.
     rita(g, p) {
       for (const s of [-1, 1]) {
         g.moveTo(0, 10)
-        g.quadraticCurveTo(s * 88, -96, s * 150, -40)
-        g.quadraticCurveTo(s * 120, 34, 0, 34)
+        g.quadraticCurveTo(s * 84, -94, s * 142, -40)
+        g.quadraticCurveTo(s * 114, 34, 0, 34)
         g.closePath().fill({ color: tint(p.c, 0.5), alpha: 0.95 }).stroke({ width: 5, color: p.d })
-        g.moveTo(s * 18, 6).quadraticCurveTo(s * 76, -40, s * 132, -34).stroke({ width: 3.5, color: p.d, alpha: 0.7 })
-        g.moveTo(s * 18, 18).quadraticCurveTo(s * 72, -6, s * 120, 2).stroke({ width: 3.5, color: p.d, alpha: 0.5 })
-        g.moveTo(s * 18, 26).quadraticCurveTo(s * 64, 18, s * 96, 26).stroke({ width: 3, color: p.d, alpha: 0.35 })
+        g.moveTo(s * 18, 6).quadraticCurveTo(s * 72, -40, s * 125, -34).stroke({ width: 3.5, color: p.d, alpha: 0.7 })
+        g.moveTo(s * 18, 18).quadraticCurveTo(s * 68, -6, s * 114, 2).stroke({ width: 3.5, color: p.d, alpha: 0.5 })
+        g.moveTo(s * 18, 26).quadraticCurveTo(s * 61, 18, s * 91, 26).stroke({ width: 3, color: p.d, alpha: 0.35 })
       }
     },
   },
@@ -384,13 +430,15 @@ const TAK = { kropp: KROPPAR.length, ogon: OGON.length, mun: MUNNAR.length, topp
 // upptäckten och ska inte ligga bakom tio omgångar.
 const LAS_ORDNING = ['topp', 'farg', 'kropp', 'ogon', 'mun', 'topp', 'farg', 'kropp', 'ogon', 'mun', 'farg', 'farg']
 
+// `blick` är åt vilket håll kompisen tittar när radens knapp trycks — vänsterkolumnen
+// ligger till vänster om den, högerkolumnen till höger, och raderna över/under ögonhöjd.
 const DELAR = [
-  { key: 'kropp', farg: COLORS.green, kol: 'v', rad: 0 },
-  { key: 'ogon', farg: COLORS.blue, kol: 'v', rad: 1 },
-  { key: 'mun', farg: COLORS.pink, kol: 'v', rad: 2 },
-  { key: 'topp', farg: COLORS.purple, kol: 'h', rad: 0 },
-  { key: 'farg', farg: COLORS.yellow, kol: 'h', rad: 1 },
-  { key: 'storlek', farg: COLORS.teal, kol: 'h', rad: 2 },
+  { key: 'kropp', farg: COLORS.green, kol: 'v', rad: 0, blick: { x: -1, y: -0.55 } },
+  { key: 'ogon', farg: COLORS.blue, kol: 'v', rad: 1, blick: { x: -1, y: 0 } },
+  { key: 'mun', farg: COLORS.pink, kol: 'v', rad: 2, blick: { x: -1, y: 0.5 } },
+  { key: 'topp', farg: COLORS.purple, kol: 'h', rad: 0, blick: { x: 1, y: -0.55 } },
+  { key: 'farg', farg: COLORS.yellow, kol: 'h', rad: 1, blick: { x: 1, y: 0 } },
+  { key: 'storlek', farg: COLORS.teal, kol: 'h', rad: 2, blick: { x: 1, y: 0.5 } },
 ]
 
 // Palett ur den valda färgen. En egen liten funktion så varje ritfunktion får samma
@@ -401,7 +449,7 @@ function palett(farg) {
 
 // Bygg en hel varelse ur en konfiguration. Returnerar noderna som spelet vill
 // animera var för sig (ögonen blinkar, armarna vinkar, delen som byttes studsar).
-function byggVarelse(cfg) {
+function byggVarelse(cfg, look) {
   const kropp = KROPPAR[cfg.kropp % KROPPAR.length]
   const farg = FARGER[cfg.farg % FARGER.length]
   const toppDef = TOPPAR[cfg.topp % TOPPAR.length]
@@ -458,7 +506,7 @@ function byggVarelse(cfg) {
 
   const ogonNod = new Container()
   const og = new Graphics()
-  OGON[cfg.ogon % OGON.length].rita(og, p)
+  OGON[cfg.ogon % OGON.length].rita(og, p, look)
   ogonNod.addChild(og)
   ogonNod.position.set(0, m.faceY)
   fram.addChild(ogonNod)
@@ -470,7 +518,16 @@ function byggVarelse(cfg) {
   munNod.position.set(0, m.munY)
   fram.addChild(munNod)
 
-  return { nod, ogonNod, munNod, toppNod, armar, m, p }
+  return { nod, ogonNod, ogonG: og, munNod, toppNod, armar, m, p }
+}
+
+// Rita om BARA ögonen med en ny blick. Det är sex cirklar i en enda Graphics — billigt
+// nog att göra per bildruta under en blickglidning, och det rör varken ögonnodens skala
+// (som blinkningen äger) eller resten av figuren.
+function ritaOgon(g, cfg, p, look) {
+  if (!g || g.destroyed) return
+  g.clear()
+  OGON[cfg.ogon % OGON.length].rita(g, p, look)
 }
 
 // Liten blobb — används av förhandsvisningarna för färg och storlek. Ett riktigt
@@ -526,6 +583,12 @@ export default {
     this._flashTl = null
     this._hintTween = null
     this._hintNod = null
+    // Blicken lever i ETT vanligt objekt som tweenas och skrivs till ögonens Graphics —
+    // aldrig direkt på en Pixi-nod, för figuren rivs och byggs om vid varje delbyte.
+    this._blick = { x: 0, y: 0 }
+    this._blickTl = null
+    this._skrattTl = null
+    this._skrattar = false
 
     const spar = ctx.progress.get()
     this._niva = Math.max(0, spar.highestLevel | 0)
@@ -551,8 +614,10 @@ export default {
     this._root.addChild(createScene('warm', { width: ctx.width, height: ctx.height }))
 
     this._byggVagg(ctx)
+    this._byggVerkstad()
     this._byggGolv()
     this._byggVarelseNoder(ctx)
+    this._byggKittel(ctx)
     this._byggKamera(ctx)
     for (const del of DELAR) this._byggRad(ctx, del)
 
@@ -577,12 +642,23 @@ export default {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._slutaHint()
+    this._blickTl?.kill()
+    this._blickTl = null
+    if (this._blick) gsap.killTweensOf(this._blick)
+    this._skrattTl?.kill()
+    this._skrattTl = null
+    this._skrattar = false
     this._fjarilTl?.kill()
     this._fjarilTl = null
     this._flashTl?.kill()
     this._flashTl = null
     for (const tw of this._livTweens || []) tw?.kill()
     this._livTweens = []
+    // Armar/ögon/mun är BARNBARN och nås inte av `killTweensOf(figuren)` nedan. En exit
+    // mitt i en vinkning lämnade 2 levande tweens mot rivna Containers — uppmätt, och
+    // konsolen var tyst hela tiden (gsap skriver bara på en nollad transform).
+    this._stadVarelse(this._varelse)
+    this._varelse = null
     this._bobo?.destroy()
     this._bobo = null
     for (const knapp of this._knappar || []) {
@@ -595,7 +671,7 @@ export default {
     // `_losa` är noder på väg ut med en DIREKT tween (x/y/alpha) — en kvarlevande
     // sådan skriver på en riven transform varje bildruta efter exit (Pixi v8 nollar
     // _position i destroy).
-    for (const nod of [this._vGrund, this._vSkala, this._vSnurr, this._vLiv, this._kamKonst, this._blixtG, this._skugga, this._fjaril, ...(this._losa || [])]) {
+    for (const nod of [this._vGrund, this._vSkala, this._vSnurr, this._vLiv, this._kamKonst, this._blixtG, this._skugga, this._fjaril, this._verkstad, ...(this._losa || [])]) {
       if (nod && !nod.destroyed) {
         gsap.killTweensOf(nod)
         gsap.killTweensOf(nod.scale)
@@ -646,6 +722,83 @@ export default {
     this._vaggNod = vagg
   },
 
+  // Verkstadens rekvisita. Rummet var en tom beige yta som inte förklarade VAR man är —
+  // nu står det färgburkar på en hylla och en låda med reservdelar på golvet, alltså
+  // sakerna kompisen byggs AV. Allt är ritade föremål med egen silhuett, inga ikoner i
+  // rutor, och ingenting av det är tryckbart (det får aldrig konkurrera med pilarna).
+  //
+  // Platserna är valda mot träffytorna, inte mot ögat: vänsterkolumnens knappar äger
+  // x 204–348 (halo), radernas halor slutar på y 632 och kamerans träffyta börjar på
+  // x 704. Kvar blir hyllan i remsan x 344–470 ovanför kompisens huvud (y 186–246, under
+  // bildväggens list på y 156) och hela bottenbandet y 634–716, som ingen halo når.
+  _byggVerkstad() {
+    const g = new Graphics()
+    g.eventMode = 'none'
+
+    // --- Hyllan på bakväggen ---
+    for (const kx of [360, 452]) {
+      g.moveTo(kx, 246).lineTo(kx + 12, 246).lineTo(kx + 12, 262).closePath().fill(0x9a6a44)
+    }
+    g.roundRect(344, 234, 126, 13, 5).fill(0xb5793f)
+    g.roundRect(344, 234, 126, 5, 2).fill({ color: 0xd79a63, alpha: 0.85 })
+
+    // Två färgburkar med lock bredvid och en klick färg som runnit över kanten.
+    for (const [bx, bw, bh, bc] of [[352, 40, 44, 0xff8a3d], [400, 32, 36, 0x5bbf6a]]) {
+      const bd = shade(bc, 0.32)
+      g.roundRect(bx, 234 - bh, bw, bh, 5).fill(sphereFill(bc, SPH)).stroke({ width: 3, color: bd })
+      g.roundRect(bx - 3, 234 - bh - 7, bw + 6, 9, 4).fill(bd)
+      g.ellipse(bx + bw * 0.5, 234 - bh - 3, bw * 0.34, 3).fill({ color: tint(bc, 0.6), alpha: 0.8 })
+      g.moveTo(bx + 5, 234).quadraticCurveTo(bx + 3, 244, bx + 9, 247).quadraticCurveTo(bx + 14, 243, bx + 12, 234).closePath()
+      g.fill({ color: bc, alpha: 0.9 })
+    }
+    // Penselkrus: penslarna sticker upp ur en burk, skaft och borst var för sig.
+    for (const [px, pl, pc] of [[444, 46, 0x4aa3df], [455, 56, 0xff9ec4], [464, 40, 0xffd35c]]) {
+      g.roundRect(px - 3, 234 - pl, 6, pl, 3).fill(0xc79a6b)
+      g.roundRect(px - 5, 234 - pl - 12, 10, 14, 4).fill(pc).stroke({ width: 2, color: shade(pc, 0.3) })
+    }
+    g.roundRect(438, 206, 34, 30, 7).fill(0x8fa3b8).stroke({ width: 3, color: 0x6b7d90 })
+    g.roundRect(438, 206, 34, 8, 4).fill({ color: 0xaebecd, alpha: 0.9 })
+
+    // --- Reservdelslådan på golvet ---
+    // Delarna tittar upp över kanten: ett skaftöga, ett horn och ett runt öra — samma
+    // former som finns i raderna, så lådan säger utan ett ord var delarna kommer ifrån.
+    g.ellipse(478, 712, 96, 12).fill({ color: 0x6b4a2a, alpha: 0.16 })
+    // Skaftöga — samma form som ögonraden.
+    g.moveTo(414, 668).quadraticCurveTo(424, 646, 444, 638).stroke({ width: 7, color: 0x9a8570, cap: 'round' })
+    g.circle(447, 636, 15).fill(COLORS.white).stroke({ width: 4, color: 0x9a8570 })
+    g.circle(450, 638, 7).fill(0x3b2a20)
+    // Antennpar — det första utkastet hade ett horn här, och en enda krökt cream-form
+    // lästes som ett vitt blad i skärmdumpen. Antennerna har två skaft och två knoppar
+    // och går inte att ta för något annat.
+    for (const s of [-1, 1]) {
+      g.moveTo(504 + s * 4, 668).quadraticCurveTo(504 + s * 16, 646, 504 + s * 22, 630)
+      g.stroke({ width: 5, color: 0x8a7a66, cap: 'round' })
+      g.circle(504 + s * 23, 626, 10).fill(COLORS.yellow).stroke({ width: 3, color: 0xd9a52b })
+    }
+    // Spetsigt öra — triangeln ur prydnadsraden, inte en lös boll.
+    g.moveTo(542, 668).lineTo(576, 620).lineTo(580, 668).closePath()
+    g.fill(0xa78bfa).stroke({ width: 4, color: shade(0xa78bfa, 0.3) })
+    g.moveTo(553, 662).lineTo(571, 636).lineTo(573, 662).closePath().fill({ color: tint(0xa78bfa, 0.5), alpha: 0.7 })
+    g.roundRect(398, 662, 186, 52, 8).fill(0xc08a52).stroke({ width: 4, color: 0x8a5a3b })
+    for (const lx of [430, 472, 514, 556]) g.roundRect(lx, 666, 6, 44, 3).fill({ color: 0x8a5a3b, alpha: 0.35 })
+    g.roundRect(398, 662, 186, 10, 5).fill({ color: 0xd9a670, alpha: 0.9 })
+
+    // --- Färgpytsen på golvet ---
+    g.ellipse(636, 714, 52, 10).fill({ color: 0x6b4a2a, alpha: 0.16 })
+    g.moveTo(600, 670).quadraticCurveTo(636, 640, 672, 670).stroke({ width: 5, color: 0x8fa3b8 })
+    g.moveTo(604, 672).lineTo(668, 672).lineTo(660, 714).lineTo(612, 714).closePath()
+    g.fill(sphereFill(0xb8c6d4, SPH)).stroke({ width: 4, color: 0x6b7d90 })
+    g.moveTo(608, 682).quadraticCurveTo(636, 690, 664, 682).quadraticCurveTo(662, 696, 636, 698)
+    g.quadraticCurveTo(610, 696, 608, 682).closePath().fill({ color: 0x4aa3df, alpha: 0.9 })
+    g.roundRect(676, 690, 8, 26, 4).fill(0xc79a6b)
+    g.roundRect(672, 700, 16, 18, 5).fill(0x4aa3df).stroke({ width: 3, color: 0x2f7fb8 })
+    g.circle(700, 708, 7).fill({ color: 0x4aa3df, alpha: 0.55 })
+    g.circle(714, 714, 4).fill({ color: 0x4aa3df, alpha: 0.4 })
+
+    this._root.addChild(g)
+    this._verkstad = g
+  },
+
   // Golvet under varelsen: en mjuk skugga som ligger STILL medan varelsen guppar
   // (en skugga som guppar med föremålet slutar läsa som mark).
   _byggGolv() {
@@ -671,6 +824,48 @@ export default {
     this._vSnurr.addChild(this._vLiv)
     this._root.addChild(this._vGrund)
     this._sparaLiv(liv(this._vLiv, { bob: 5, sway: 0.015, duration: 2.8 }))
+  },
+
+  // Kompisen SJÄLV är en träffyta. Det var den enda saken på skärmen ett barn pekar på
+  // först och den enda som inte svarade med något eget (bara bottenytans kvitto).
+  //
+  // Ytan hänger i `_vSkala`, inte i `_vLiv`: `_vLiv` rivs vid varje delbyte, och den
+  // skalas med kompisen så träffytan följer storleksvalet.
+  //
+  // ⚠️ Fjärilen läggs i SAMMA förälder men SENARE, och Pixi träfftestar barnen bakifrån
+  // — så ett tryck på fjärilen på huvudet når fjärilen, inte kittlingen under den.
+  // Uppmätt med två riktiga muspekningar i `_kompisbild.mjs --kittel`.
+  _byggKittel(ctx) {
+    const yta = new Container()
+    yta.eventMode = 'static'
+    yta.cursor = 'pointer'
+    yta.on('pointertap', (e) => this._kittla(ctx, e))
+    this._vSkala.addChild(yta)
+    this._kittelYta = yta
+    this._knappar.push(yta)
+    this._matKittel(STORLEKAR[1])
+  },
+
+  // Kittelytans bredd är inte en smaksak utan ett P0-tak. Ytan sitter i varelsens rymd
+  // och skalas med storleksvalet, så samma tal ger olika många designpixlar i varje
+  // storlek — och grannarna står still:
+  //
+  //   kamerans träffyta börjar på x 704 → med 24 px mellanrum får ytan nå x 680
+  //   vänsterkolumnens halo slutar på x 348 → ytan får börja på x 372
+  //
+  // Kompisen står på x 540, alltså högst ±140 designpixlar, och den bindande grannen är
+  // kameran. Med 136 som budget (4 px marginal mot P0-minimum) blir taket 136/storlek
+  // i varelsens rymd. Vingarna når 150 — de ryms HELT i 0,78× och nästan i 0,94×, men i
+  // 1,12× ligger de yttersta ~28 px av varje vingspets utanför. Det går inte att rätta:
+  // en bredare yta hade brutit avståndet till kameran, och P0 väger tyngre än en
+  // vingspets. Kroppen, ansiktet, armarna och prydnaden täcks i alla tre storlekarna.
+  _matKittel(storlek) {
+    const yta = this._kittelYta
+    if (!yta || yta.destroyed) return
+    const hb = Math.min(156, Math.floor(136 / storlek))
+    // Toppen på −300 rymmer antennerna på den högsta kroppen (−234 − 78). Vågrätt möter
+    // ytan ingen granne där uppe: radernas knappar står på x 40–324 och 956–1240.
+    yta.hitArea = new Rectangle(-hb, -300, hb * 2, 312)
   },
 
   // Kameran på stativ + Bobo som tittar fram bakom den. HELA gruppen är knappen —
@@ -814,10 +1009,20 @@ export default {
     return { kropp: r('kropp'), ogon: r('ogon'), mun: r('mun'), topp: r('topp'), farg: r('farg'), storlek: 1 }
   },
 
+  // Delens STÄMDA ton, plus kroppens material som överton. Grundtonen är oförändrad —
+  // en kloss och ett klot ger samma not, men klossen låter av trä.
   _delTon(ctx, key, idx) {
     const f = SKALA[(TON_BAS[key] + idx) % SKALA.length]
     ctx.services.audio.tone({ freq: f, dur: 0.18, type: 'triangle', vol: 0.26 })
-    ctx.services.audio.tone({ freq: f * 2, dur: 0.12, type: 'sine', vol: 0.07, delay: 0.02 })
+    const k = KROPPAR[this._cfg.kropp % KROPPAR.length].klang
+    ctx.services.audio.tone({
+      freq: f * k.ratio,
+      dur: k.dur,
+      type: k.type,
+      vol: k.vol,
+      delay: 0.02,
+      slideTo: k.slide ? f * k.ratio * k.slide : null,
+    })
   },
 
   // Kompisens EGEN melodi: en ton per vald del, i skalan. Två olika kompisar låter
@@ -844,7 +1049,108 @@ export default {
     // ALLA förhandsvisningar ritas om: de delar varelsens palett, så ett färgbyte
     // ska synas i varenda ruta — annars visar raderna en kompis som inte finns.
     for (const d of DELAR) this._ritaPrev(d.key)
+    // Kompisen tittar på knappen som trycktes. Det är samma tryck, men nu svarar den
+    // som en varelse som märkte det — inte som en bild som byttes ut.
+    const del = DELAR.find((d) => d.key === key)
+    if (del) this._titta(del.blick.x, del.blick.y)
+    // Ett storleksbyte lyfter/sätter ner hela figuren: dammet vid fötterna är det som
+    // gör att den nya storleken landar i rummet i stället för att bara vara en skala.
+    if (key === 'storlek') puff(ctx.fxLayer, VX, VY + 4, { count: 9, color: 0xd8bb92 })
     if (Math.random() < 0.14) ctx.services.voice.say(randomFrom(['Vad rolig den blev!', 'Oj, vilken fin kompis!', 'Titta vad du gör!']))
+  },
+
+  // ---- blicken och kittlingen --------------------------------------------
+
+  // Flytta blicken dit något hände, håll kvar den en stund och glid tillbaka. Tweenen
+  // går på ETT vanligt objekt (`_blick`) och skriver till ögonens Graphics via
+  // `this._varelse` som läses om varje bildruta — så en figur som byggs om mitt i en
+  // blick får blicken direkt, i stället för att tweenen skriver på en riven nod.
+  _titta(x, y, { hall = 1.4 } = {}) {
+    if (!this._alive) return
+    const b = this._blick
+    this._blickTl?.kill()
+    gsap.killTweensOf(b)
+    const skriv = () => {
+      const v = this._varelse
+      if (!this._alive || !v) return
+      ritaOgon(v.ogonG, this._cfg, v.p, b)
+      // Ansiktet vrids med blicken, inte bara pupillen. Första talen (5 och 3 px) var
+      // för små för att märkas i speltempo — de syntes bara i en zoomad stillbild.
+      if (v.ogonNod && !v.ogonNod.destroyed) v.ogonNod.x = b.x * 9
+      if (v.munNod && !v.munNod.destroyed) v.munNod.x = b.x * 6
+    }
+    this._blickTl = gsap
+      .timeline({ onComplete: () => { this._blickTl = null } })
+      .to(b, { x, y, duration: 0.18, ease: 'power2.out', onUpdate: skriv })
+      .to(b, { x: 0, y: 0, duration: 0.55, ease: 'power2.inOut', onUpdate: skriv, onComplete: skriv }, `+=${hall}`)
+  },
+
+  // Tryck på kompisen → den kittlas. Skrattögon (kisning), bred mun, vingel, vinkning,
+  // ett stigande fnitter ur samma pentatona skala som bygget och gnistor vid fingret.
+  _kittla(ctx, e) {
+    if (!this._alive || this._resolving) return
+    const v = this._varelse
+    if (!v) return
+    this._idle = 0
+    this._slutaHint()
+
+    // Blicken ner mot fingret som kittlar.
+    const lok = this._vSkala.toLocal(e.global)
+    const kl = (n) => Math.max(-1, Math.min(1, n))
+    this._titta(kl(lok.x / 90), kl((lok.y - v.m.faceY) / 90), { hall: 0.8 })
+
+    if (this._vSnurr && !this._vSnurr.destroyed) wiggle(this._vSnurr)
+    squash(this._vGrund, { intensity: 0.35 })
+    this._vinka(0.6)
+
+    // Skrattansiktet. Ögonens SKALA ägs annars av blinkningen och av `bounceIn` vid
+    // delbyten — `_skrattar` stänger blinkningen så länge kisningen håller, och
+    // `_fxScaleBusy` gör att en pågående studs får vara i fred (samma fälla som en
+    // gång lämnade scale.x på 0 och tömde hela ansiktet).
+    this._skrattTl?.kill()
+    this._skrattTl = null
+    const o = v.ogonNod
+    const mu = v.munNod
+    if (o && !o.destroyed && !o._fxScaleBusy) {
+      this._skrattar = true
+      gsap.killTweensOf(o.scale)
+      const klart = () => {
+        this._skrattar = false
+        this._skrattTl = null
+        if (this._alive && o && !o.destroyed) o.scale.set(1, 1)
+        if (this._alive && mu && !mu.destroyed) mu.scale.set(1, 1)
+      }
+      const tl = gsap.timeline({ onComplete: klart })
+      tl.to(o.scale, { y: 0.3, duration: 0.09, ease: 'power2.out' })
+        .to(o.scale, { y: 0.3, duration: 0.4 })
+        .to(o.scale, { y: 1, duration: 0.2, ease: 'back.out(2)' })
+      if (mu && !mu.destroyed) {
+        gsap.killTweensOf(mu.scale)
+        tl.to(mu.scale, { x: 1.32, y: 1.18, duration: 0.11, ease: 'back.out(2)' }, 0)
+          .to(mu.scale, { x: 1, y: 1, duration: 0.5, ease: 'elastic.out(1, 0.55)' }, 0.42)
+      }
+      this._skrattTl = tl
+    }
+
+    // Fnitter: tre toner UPPÅT ur skalan. Indexet klampas i stället för att slås om
+    // med `%` — ett omslag hade gjort den sista tonen till den lägsta, och ett skratt
+    // som slutar i källaren låter som ett fel.
+    const i0 = TON_BAS.mun + (this._cfg.mun % SKALA.length)
+    ;[0, 2, 3].forEach((steg, i) => {
+      ctx.services.audio.tone({
+        freq: SKALA[Math.min(i0 + steg, SKALA.length - 1)],
+        dur: 0.1,
+        type: 'triangle',
+        vol: 0.17,
+        delay: i * 0.075,
+      })
+    })
+
+    const fx = ctx.fxLayer.toLocal(e.global)
+    sparkle(ctx.fxLayer, fx.x, fx.y, { count: 7 })
+    // 'Det kittlas!' har redan ett genererat klipp (delas med kittelspelen) — en ny
+    // formulering hade betytt en ny körning av röstpipelinen för exakt samma mening.
+    if (Math.random() < 0.22) ctx.services.voice.say('Det kittlas!')
   },
 
   // Rita om varelsen. Hela figuren byggs om (det är 15 former, inte 1500) och den
@@ -854,17 +1160,32 @@ export default {
     // Sitter bus-fjärilen på huvudet blir den skrämd av förvandlingen och flyger —
     // den försvinner aldrig tyst mitt i bilden.
     if (this._fjaril) this._fjarilBort(ctx, false)
+    // Skrattet lever på ögon- och munnodens skala INUTI figuren som rivs härnäst —
+    // en kvarlevande kisning hade skrivit på en riven transform varje bildruta.
+    this._skrattTl?.kill()
+    this._skrattTl = null
+    this._skrattar = false
+    // ⚠️ `killTweensOf(gammal)` når BARA figurens rot. Armarna, ögonen och munnen är
+    // barnbarn, och en vinkning (0,72 s) hinner alltid vara igång när nästa pil trycks
+    // — testet fann sex tweens mot förstörda Containers så fort kompisen blev
+    // tryckbar och alltså vinkade vid varje kittling.
+    this._stadVarelse(this._varelse)
     for (const gammal of this._vLiv.removeChildren()) {
       gsap.killTweensOf(gammal)
       gsap.killTweensOf(gammal.scale)
       gammal.destroy({ children: true })
     }
 
-    const v = byggVarelse(this._cfg)
+    // Blicken följer med över bygget: står den kvar åt vänster ska den NYA figuren
+    // också titta åt vänster, annars nollställs ansiktet mitt i en pågående blick.
+    const v = byggVarelse(this._cfg, this._blick)
     this._varelse = v
+    v.ogonNod.x = this._blick.x * 9
+    v.munNod.x = this._blick.x * 6
     this._vLiv.addChild(v.nod)
 
     const mal = STORLEKAR[this._cfg.storlek % STORLEKAR.length]
+    this._matKittel(mal)
     if (bytt) {
       gsap.to(this._vSkala.scale, { x: mal, y: mal, duration: 0.28, ease: 'back.out(2)' })
       squash(this._vGrund, { intensity: 0.55 })
@@ -874,6 +1195,19 @@ export default {
     } else {
       this._vSkala.scale.set(mal)
     }
+  },
+
+  // Släck allt som animeras INUTI en figur (armar som vinkar, ögon som kisar, en del
+  // som studsar in). Anropas före varje rivning — av kompisen på golvet och av en ram
+  // som tas ner från väggen, för båda kan vara mitt i en vinkning när de försvinner.
+  _stadVarelse(v) {
+    if (!v) return
+    for (const nod of [...(v.armar || []), v.ogonNod, v.munNod, v.toppNod, v.nod]) {
+      if (!nod || nod.destroyed) continue
+      gsap.killTweensOf(nod)
+      gsap.killTweensOf(nod.scale)
+    }
+    v.nod?._fxLiv?.kill()
   },
 
   // Förhandsvisningen i raden: samma ritfunktioner som varelsen använder, i litet.
@@ -956,7 +1290,9 @@ export default {
   // i skärmdumpen, inte i koden. `_fxScaleBusy` sätts av feedback.js under studsen.
   _blinka() {
     const o = this._varelse?.ogonNod
-    if (!o || o.destroyed || o._fxScaleBusy || o.scale.x < 0.99) return
+    // `_skrattar`: mitt i en kisning ÄR ögonen hopklämda med flit, och en blinkning
+    // ovanpå hade tävlat om samma scale.y och lämnat den på fel värde.
+    if (!o || o.destroyed || o._fxScaleBusy || this._skrattar || o.scale.x < 0.99) return
     gsap.killTweensOf(o.scale)
     gsap.to(o.scale, {
       y: 0.1,
@@ -1043,7 +1379,7 @@ export default {
   // för fler kompisar (mjuk progression, utan en enda siffra).
   _ritaGalleri(ctx) {
     for (const ram of this._ramar || []) {
-      ram.kompis?.nod?._fxLiv?.kill()
+      this._stadVarelse(ram.kompis)
       if (ram.nod && !ram.nod.destroyed) {
         gsap.killTweensOf(ram.nod)
         ram.nod.destroy({ children: true })
@@ -1089,6 +1425,8 @@ export default {
     this._idle = 0
     this._slutaHint()
     this._vinkaRam(ram)
+    // Kompisen tittar upp mot ramen som just sa hej — hela väggen är dess syskon.
+    this._titta(Math.max(-1, Math.min(1, (RAM_X[ram.slot] - VX) / 420)), -1, { hall: 1.1 })
     this._melodi(ctx, ram.cfg, 0)
     sparkle(ctx.fxLayer, ram.nod.x, ram.nod.y, { count: 6 })
     if (Math.random() < 0.5) ctx.services.voice.say('Hej igen, gamla kompis!')
@@ -1123,9 +1461,22 @@ export default {
     ctx.services.voice.say('Nu blir din kompis levande!')
     ctx.services.audio.sfx('whoosh')
     this._bobo?.react('nyfiken')
+    // Blicken rakt in i kameran — och den ska HÅLLA till blixten går (1,25 s), annars
+    // står kompisen och tittar rakt fram i det ögonblick kortet tas.
+    this._titta(1, 0.25, { hall: 1.4 })
 
     // Kompisen får liv: hopp, snurr (med KNAPP, aldrig med fingret — P0 GESTER),
     // vinkning och sin egen melodi.
+    //
+    // Kittlingens vingel äger SAMMA rotation som snurren. Ett barn som kittlar och
+    // trycker på kameran i samma andetag hade annars fått vingelns onComplete att
+    // nolla rotationen mitt i varvet — snurren hoppade tillbaka utan ett konsolfel.
+    if (this._vSnurr && !this._vSnurr.destroyed) {
+      this._vSnurr._fxWiggleTl?.kill()
+      this._vSnurr._fxWiggleTl = null
+      this._vSnurr._fxWiggleBusy = false
+      this._vSnurr.rotation = 0
+    }
     squash(this._vSkala, { intensity: 1, hop: 74 })
     gsap.to(this._vSnurr, { rotation: Math.PI * 2, duration: 0.85, ease: 'back.inOut(1.2)', onComplete: () => {
       if (this._alive && this._vSnurr && !this._vSnurr.destroyed) this._vSnurr.rotation = 0
@@ -1192,7 +1543,9 @@ export default {
       const gammal = this._ramar.shift()
       this._galleri.shift()
       if (gammal?.nod && !gammal.nod.destroyed) {
-        gammal.kompis?.nod?._fxLiv?.kill()
+        // Ramen kan vara mitt i väggens vinkning när den tas ner — armarna är barnbarn
+        // och överlever annars sin egen förälders destroy med en levande tween.
+        this._stadVarelse(gammal.kompis)
         const nod = gammal.nod
         nod.eventMode = 'none'
         this._losa.push(nod)
@@ -1288,6 +1641,10 @@ export default {
   _nyRunda(ctx) {
     if (!this._alive) return
     const las = LAS_ORDNING[this._niva - 1]
+    this._blickTl?.kill()
+    this._blickTl = null
+    this._blick.x = 0
+    this._blick.y = 0
     this._cfg = this._slumpaCfg()
     // Den nyupplåsta delen är förvald — barnet SER vad som är nytt utan ett ord text.
     if (las) this._cfg[las] = this._antal(las) - 1
@@ -1367,7 +1724,10 @@ export default {
       .to(f, { x: 90, y: landY - 60, rotation: 0.15, duration: 0.5, ease: 'sine.inOut' })
       .to(f, { x: 0, y: landY, rotation: 0, duration: 0.4, ease: 'power2.out' })
       .add(() => {
-        if (this._alive) ctx.services.audio.tone({ freq: 520, dur: 0.12, type: 'sine', vol: 0.12 })
+        if (!this._alive) return
+        ctx.services.audio.tone({ freq: 520, dur: 0.12, type: 'sine', vol: 0.12 })
+        // Den känner att något satte sig på huvudet och tittar upp.
+        this._titta(0, -1, { hall: 1.6 })
       })
     // Vingslag hela tiden — och den flyger vidare av sig själv, den kan aldrig fastna.
     // Exit-säkert mönster (som lib/feedback.js): tweena ett vanligt objekt och skriv

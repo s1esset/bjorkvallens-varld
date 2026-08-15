@@ -98,6 +98,98 @@ try {
     await page.screenshot({ path: `.test-shots/kompis-${i}.png` })
   }
 
+  if (args.includes('--kittel')) {
+    // KITTLINGEN + TRÄFFORDNINGEN. Tre armar, kontrollarmen först — ett "det skrattade"
+    // säger ingenting om ytan inte också kan låta bli att svara där den inte ska.
+    //
+    // Riktiga muspekningar, inte metodanrop: hela poängen är vad Pixis träfftest gör
+    // med tre överlappande ytor (bottenytan · kittelytan · fjärilen).
+    const skala = await page.evaluate(() => {
+      const v = window.__barnspel.scaler
+      return { s: v.scale, x: v.world.x, y: v.world.y }
+    })
+    const tryck = async (dx, dy) => {
+      await page.mouse.click(skala.x + dx * skala.s, skala.y + dy * skala.s)
+      await page.waitForTimeout(220)
+    }
+    const las = () => page.evaluate(() => {
+      const s = window.__kompis.spel
+      return {
+        skrattar: !!s._skrattar,
+        blick: { x: Number(s._blick.x.toFixed(2)), y: Number(s._blick.y.toFixed(2)) },
+        ogonY: Number((s._varelse?.ogonNod?.scale.y ?? 1).toFixed(2)),
+        fjaril: !!s._fjaril,
+      }
+    })
+
+    // ⓵ KONTROLLARM: tomt golv långt från kompisen (x 900 ligger mellan kameran och
+    // högerkolumnen). Svarar ytan här är den för stor, och talet nedan betyder inget.
+    await tryck(900, 690)
+    console.log('kittel/kontroll-tomt :', JSON.stringify(await las()))
+
+    // ⓶ MÄTARM: mitt på kompisens kropp.
+    await page.evaluate(() => { window.__kompis.spel._blick.x = 0; window.__kompis.spel._blick.y = 0 })
+    await tryck(540, 460)
+    console.log('kittel/pa-kompisen   :', JSON.stringify(await las()))
+    await page.screenshot({ path: '.test-shots/kompis-kittel.png' })
+    await page.waitForTimeout(1400)
+
+    // ⓷ TRÄFFORDNING: fjärilen sitter på huvudet och ska vinna över kittelytan under
+    // sig. Landningspunkten läses ur spelet i stället för att gissas.
+    await page.evaluate(() => window.__kompis.spel._slappFjaril(window.__kompis.ctx))
+    await page.waitForTimeout(1800)
+    const fp = await page.evaluate(() => {
+      const s = window.__kompis.spel
+      const g = s._fjaril.toGlobal({ x: 0, y: -6 })
+      const l = s._root.toLocal(g)
+      return { x: Math.round(l.x), y: Math.round(l.y) }
+    })
+    await page.evaluate(() => { window.__kompis.spel._skrattar = false })
+    await tryck(fp.x, fp.y)
+    console.log(`kittel/pa-fjarilen   : (${fp.x},${fp.y}) ` + JSON.stringify(await las()))
+    // ⓸ VINGSPETSEN. Kittelytan skalas med kompisen, så samma tal ger olika många
+    // designpixlar i varje storlek — och P0-avståndet till kameran (x 704) och till
+    // vänsterkolumnens halo (x 348) är taket. Här mäts BÅDA: att spetsen svarar där
+    // den ryms, och att ytans designkanter håller 24 px till grannarna i alla tre
+    // storlekarna. Ett "vingen svarar" utan kantmätningen är halva svaret.
+    for (const st of [0, 1, 2]) {
+      const geo = await page.evaluate((i) => {
+        const { spel, ctx } = window.__kompis
+        spel._cfg.topp = 5 // vingar
+        spel._cfg.kropp = 0
+        spel._cfg.storlek = i
+        spel._ritaVarelse(ctx, null)
+        spel._skrattar = false
+        const h = spel._kittelYta.hitArea
+        const s = spel._vSkala.scale.x
+        // Vingspetsen läses ur den RITADE geometrin (prydnadsnodens bbox), inte ur ett
+        // tal i sonden. Första versionen hårdkodade 150 och rapporterade därför exakt
+        // samma spets efter att vingen hade krympts — en mätning som inte kunde se
+        // ändringen den skulle mäta.
+        const bb = spel._varelse.toppNod.getBounds()
+        const l = spel._root.toLocal({ x: bb.x + bb.width - 5, y: bb.y + bb.height * 0.4 })
+        return {
+          storlek: s,
+          vanster: Math.round(540 + h.x * s),
+          hoger: Math.round(540 + (h.x + h.width) * s),
+          vinge: { x: Math.round(l.x), y: Math.round(l.y) },
+        }
+      }, st)
+      await page.waitForTimeout(420)
+      await page.evaluate(() => { window.__kompis.spel._skrattar = false })
+      await tryck(geo.vinge.x, geo.vinge.y)
+      const r = await las()
+      const tillKam = 704 - geo.hoger
+      const tillKol = geo.vanster - 348
+      console.log(
+        `kittel/vinge ${geo.storlek.toFixed(2)}x : yta x ${geo.vanster}–${geo.hoger}` +
+        ` (till kamera ${tillKam}, till kolumn ${tillKol}; P0 kräver ≥24)` +
+        ` · spets (${geo.vinge.x},${geo.vinge.y}) → skrattar:${r.skrattar}`
+      )
+    }
+    await page.waitForTimeout(900)
+  }
+
   if (args.includes('--fjaril')) {
     // Bus-fjärilen: flyger in, sätter sig på huvudet, och ETT tryck räcker.
     await page.evaluate(() => window.__kompis.spel._slappFjaril(window.__kompis.ctx))
@@ -125,12 +217,27 @@ try {
   }
 
   // Exit MITT i finishen — den farligaste stunden.
-  await page.evaluate(() => {
+  //
+  // Konsolen är TYST när gsap tweenar en riven Pixi-nod (den skriver bara på en nollad
+  // transform), så "0 konsolfel" bevisar ingenting om städningen. Armarna, ögonen och
+  // munnen är BARNBARN till figuren och överlever `killTweensOf(figuren)` — de plockas
+  // undan före rivningen och räknas efteråt.
+  const kvar = await page.evaluate(async () => {
     const { spel, ctx, timers } = window.__kompis
+    const v = spel._varelse
+    const noder = [...(v?.armar || []), v?.ogonNod, v?.munNod, v?.toppNod].filter(Boolean)
+    // Det måste vara SPELETS gsap-instans: en nyimporterad kopia har en egen global
+    // tidslinje och hade rapporterat 0 levande tweens oavsett vad som pågår. Vite
+    // skriver om `gsap` till en url med hash — den hämtas ur laddade resurser.
+    const url = performance.getEntriesByType('resource').map((r) => r.name).find((n) => /gsap/.test(n))
+    const { gsap } = await import(url)
+    const fore = noder.filter((n) => gsap.isTweening(n) || gsap.isTweening(n.scale)).length
     for (const t of timers) clearTimeout(t)
     timers.clear()
     spel.destroy(ctx)
+    return { noder: noder.length, fore, efter: noder.filter((n) => gsap.isTweening(n) || gsap.isTweening(n.scale)).length }
   })
+  console.log(`inre-tweens: ${kvar.fore} levande av ${kvar.noder} före exit → ${kvar.efter} EFTER exit (ska vara 0)`)
   await page.waitForTimeout(900)
 
   console.log(fel.length ? `✗ ${fel.length} konsolfel:` : '✓ 0 konsolfel')

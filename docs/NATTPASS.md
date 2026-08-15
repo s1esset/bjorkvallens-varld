@@ -9,7 +9,9 @@
 /aterta
 ```
 
-…eller, om `.claude/state/korning.json` inte finns än (första starten):
+`.claude/state/korning.json` är **förseedad** med spel 1 av 3 (`/spel titt-ut-pappa`, steg `plan`),
+så `/aterta` plockar upp passet direkt — och `scripts/session-start.mjs` påminner om det vid varje
+ny session tills passet är kört. Går något fel med checkpointen räcker det med:
 
 ```
 Kör nattpasset i docs/NATTPASS.md

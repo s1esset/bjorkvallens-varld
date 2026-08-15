@@ -8,11 +8,157 @@ När en idé byggs: flytta den till `docs/games/<id>.md` (§0 Spec) och stryk po
 
 ---
 
-## 1. Tre nya ansiktsspel — `titt-ut-pappa` · `vakna-pappa` · `flugan-pa-nasan`
+## 1. Pappa får en KROPP — 15 idéer med fysik, mjuka kroppar och miljö
+
+*Inlagd 2026-08-15. Status: ⬜ ej planerade — **idébank**, inga spec-kort. Framtagna i samma
+session som post 2 (nattpasset). Tillhör `ansiktssektionen` (post 4).*
+
+### ▶ Tre mätta fakta som styr HELA listan — läs dem först
+
+**⓵ Pappa kan aldrig få en fotograferad kropp.** Fotoshooten är 129 porträtt i 768×1024 —
+huvud och hals, inget mer. Allt nedanför halsen måste **ritas** (P0 `ASSETS` kräver det ändå).
+Alltså: fotohuvud på ritad kropp, ungefär som Herr Potatishuvud. För 2–5-åringar läser det
+sannolikt som roligt snarare än kusligt — men **det är ett antagande om BILD**, och sådana har
+fallit i det här repot förr (brynens tecken fick Bobo att se ut att läxa upp; ellipsen runt
+ansiktet var fel åt båda hållen samtidigt). Det avgörs i en bild, se "Vad som ska göras först".
+
+**⓶ Fotomaterialet är slut I REPOT.** Av 129 bilder ligger **75 i `assets-src/ansikte/pappa/`**
+(64 från shoot 1 + 11 från shoot 2), och **72 av dem är redan tilldelade** de 19 rollerna i
+`roller.json`. Fria bilder: **45, 94 och 112 — tre stycken.** Resten (~54 bilder ur shoot 1)
+står kvar i ComfyUI:s output-katalog på ägarens maskin och har aldrig granskats.
+➜ **Fler ansiktsuttryck är en ÄGARUPPGIFT först:** kopiera in resten, så görs kontaktkartor och
+nya roller skärs med `npm run ansikte`. Disken är inget hinder — riggen ligger på **1 416 kB av
+budgetens 3 072** (34 filer).
+
+**⓷ Åtta motorer står oanvända eller nästan.** Listan nedan är medvetet fördelad över dem, så
+att varje idé betalar tillbaka något som redan är byggt och mätt:
+`mjukkropp.js` · `rep.js` (verlet) · `fjader.js` · `flytkraft.js` · `varme.js` · `magnet.js` ·
+`luftmotstand.js` · `kamera.js` (en enda kund). Plus en möjlighet **ingen har prövat**: fotot som
+`MeshPlane` — då kan själva ansiktet deformeras av en mjukkropp.
+
+---
+
+### A · Där den MJUKA KROPPEN är själva spelet
+
+**1. `trasdocke-pappa` — Trasdockan** ⏱M · `rep.js`
+Pappa som verlet-trasdocka (hals, armar, ben som rep) på en lekplats. Barnet drar honom i
+handen, resten slänger efter. Ner för rutschkanan, upp i gungan, ner i bollhavet. `skratt` när
+han svänger, `chock` i fritt fall, `nojd` vid landning. **Det här är kropps-unlocket självt** —
+byggs den först ärver resten av listan en färdig kropp.
+
+**2. `klampappa` — Klämpappa** ⏱L · `mjukkropp.js` + `MeshPlane` · **hög risk**
+Han är en stressboll. Tryck → `Mjukkropp` plattar bålen **och ansiktet med** (fotot som mesh,
+hörnen drivna av mjukkroppens punkter). Mål: klämma honom genom hål i olika former — rund,
+fyrkantig, stjärna. En `passa-formerna` för mjuka kroppar. ⚠️ **Risken är fotomeshen:** riggen är
+8 lager som måste deformeras samstämmigt. **Mät på ETT lager (`bas`) innan något byggs ovanpå.**
+
+**3. `ballongpappa` — Ballongpappa** ⏱M · `mjukkropp.js` + matter
+Barnet pumpar. Bålen sväller (mjukkroppens viloform `skala()`), kinderna puttar ut, `hetta`
+stiger, `chock` när han blir enorm — och så **släpper han taget** och far runt i rummet som en
+lös ballong, med ett pruttande läte, och dimper ner. **Smäller aldrig.** Mål: nå tre höga hyllor.
+
+**4. `studs-pappa` — Studsa högt** ⏱S · `fjader.js` + `mjukkropp.js`
+`Fjaderbrada` under honom, mjuk bål som trycks ihop vid varje landning. Varje tryck ger fart;
+trycker man när han är nere blir det högre — upptäckbart, aldrig ett krav (ingen tajmingpress,
+P0). Höjden är en **min-trappa**: `nojd` → `forvanad` → `gasp` → `chock` → `skratt`.
+
+### B · Huvudet mot fysiken
+
+**5. `stapla-pa-pappa` — Balansera på pappa** ⏱M · matter
+Huvudet är **plattformen**. Barnet drar honom i sidled och staplar saker på hjässan; halsen är en
+mjuk fjäder så tornet svajar med. Ansiktet räknar med: `fundersam` vid tre, `gasp` vid fem,
+`chock` vid sju. Rasar det → `skratt`, allt studsar, ingenting förloras.
+
+**6. `pappa-kanonen` — Kanonen** ⏱M · `launcher.js` (AimLauncher) + `mjukkropp.js`
+Sikta med banförhandsvisning, skjut iväg pappa mot hö, madrass, vatten eller tårta —
+**landningsmaterialet väljer minen**, och mjukkroppen plattar honom mot underlaget innan han
+studsar tillbaka. Mål: landa i tre olika mål. Saknad roll: `skrik`.
+
+**7. `paraply-pappa` — Håll pappa torr** ⏱S · matter + `traffar()`
+Saker faller: regn, löv, äpplen, en sockerkaka. Barnet drar ett paraply över honom.
+**`traffar()` avgör exakt var** det som smiter förbi landar — panna, öra, näsa — och varje zon
+har sin min. En träff är aldrig ett misslyckande, bara en rolig grimas.
+
+**8. `promenad-med-hunden` — Hunden drar** ⏱M · `rep.js` + `kamera.js`
+Koppel som verlet-rep, hund i andra änden, rullande gata. Hunden ser en katt och **drar iväg
+pappa** — barnet bromsar, styr, lockar med godis. Ren fysikkomik, och kameran får sin andra kund.
+
+### C · Vätska, värme och väder
+
+**9. `badpappa` — Badet** ⏱L · `vatska.js` (SPH) + `flytkraft.js`
+Barnet fyller karet, han **flyter upp och guppar** på riktigt. Kranarna styr temperaturen: kallt
+ger `kyla` + huttring + `chock`, hett ger `hetta` + **ånga ur öronen** (`oron()` har noll kunder
+idag). Ankor, skum, bubblor. Mål: lagom varmt och alla ankor i vattnet.
+
+**10. `bastu-pappa` — Bastun** ⏱M · `varme.js`
+Barnet slår vatten på stenarna, ångan stiger, han blir röd, svettas, flämtar
+(`liv({ takt: 1.1 })`), `gasp` — och sen **ut i snön**: `kyla`, `chock`, in igen. Mål: tre lagom
+bastuvarv. Nya roller värda att skära: `svettig`, `frusen`.
+
+**11. `vindtunneln` — Blåsvädret** ⏱S · `luftmotstand.js`
+Barnet riktar en fläkt. Luggen står rakt upp, kinderna fladdrar, löv och papper far genom bild.
+Mål: blåsa löven i högen utan att blåsa bort pappas hatt — och blåser man bort den ändå är det
+själva skämtet.
+
+**12. `pulkabacken` — Utför** ⏱M · `kamera.js`
+Nedför en backe. Farten är en **min-trappa**, hoppen ger `chock` i luften och `skratt` vid
+landning. Snön är mjuk. Mål: samla pepparkakor på vägen ner; inget fall som avslutar.
+
+### D · Ansiktet som leksak
+
+**13. `magnet-mustaschen` — Magnetskägget** ⏱S · `magnet.js` + `traffar()`
+Woolly Willy. Magneten drar järnfilspån; **`traffar()` avgör vad som fastnar på ansiktet** och
+vad som ramlar. Barnet bygger skägg, ögonbryn, kalufs. En kameraknapp sparar porträttet till en
+vägg som ligger kvar mellan omgångar. Han reagerar löpande på var magneten är.
+
+**14. `fotobasar` — Fotoautomaten** ⏱M · `rep.js` — **den som använder FLEST foton**
+Ett kort visar en min ("gör en sur min!"). Barnet hjälper honom dit med verktyg: citronen →
+`sur`, isen → `chock`, fjädern → `skratt`, chilin → `het`. Blixten smäller, kortet trillar ut och
+**hängs på en tvättlina av verlet-rep** som går att dra i. Mål: fylla remsan med fyra olika
+miner. Det här är spelet som motiverar hela den nya rollistan.
+
+**15. `hangmattan` — Hängmattan** ⏱S · `rep.js`
+Hängmatta mellan två träd. Han halvsover (`liv({ takt: 3.4 })`), barnet gungar honom, och saker
+landar på honom — ett löv, ett äpple, en fågel på näsan. Låg intensitet, hög charm; den lugna
+motsatsen till resten av listan.
+
+---
+
+### Nya ansiktsroller som listan vill ha (kräver ägaruppgiften, se ⓶)
+
+Utöver de 19 som finns: **`skrik`** (kanonen, pulkan) · **`blas`/putade kinder** (fläkten,
+ballongen) · **`svettig`** (bastun) · **`frusen`** (snön, badet) · **`blot`** (badet) ·
+**`jubel`** (finaler) · **`vindogd`** (flugan på näsan, post 2) · **`puss`** (belöning) ·
+**`sover-djupt`** med öppen mun (`vakna-pappa`, post 2). Nio roller.
+
+⚠️ **Kostnaden är app-bred, inte per spel:** `laddaAnsikte()` laddar ALLA miner i manifestet åt
+varje spel som använder riggen. Nio nya roller ligger inom diskbudgeten (1 416 → uppskattningsvis
+~1 800 kB av 3 072) men GPU-minnet är det som ska mätas innan de läggs in permanent — samma fråga
+som varför variantminerna aldrig hålls laddade samtidigt (3 × riggen ≈ 40 MB).
+
+### Vad som ska göras FÖRST — och det är inte ett spel
+
+**`node scripts/_kroppbild.mjs`**: fotohuvudet på tre ritade kroppar i tre proportioner, i ett
+rutnät. En kvart, och den svarar på frågan som annars sitter under alla femton idéerna —
+*fungerar en fotograferad pappa på en ritad kropp, eller ser det kusligt ut?* Huvud-mot-kropp-
+skalan är dessutom ren komik när den är fel, så bilden är värd att titta på oavsett.
+
+Näst efter den: **`trasdocke-pappa` (1)**, för den bygger kroppen som tolv av de andra lånar.
+
+### Ägaruppgifter som listan väntar på
+
+1. **Kopiera in resten av fotoshooten** (~54 bilder ur shoot 1) till `assets-src/ansikte/pappa/`
+   — annars går det inte att skära en enda ny min.
+2. **Uttrycksljud** till de nya rollerna om de skärs: `skrik` · `puh` · `brr` · `hurra`.
+   (De 17 som finns räcker för idéerna som inte kräver nya roller.)
+
+---
+
+## 2. Tre nya ansiktsspel — `titt-ut-pappa` · `vakna-pappa` · `flugan-pa-nasan`
 
 *Inlagd 2026-08-15. Status: 🟡 **spec-kort framlagda, väntar på att nattpasset startas** —
 ägarens start av passet ÄR ja:et (`/spel`s steg 0 kan inte grinda mitt i natten). Körordning,
-grindar och avbrottsregler: **`docs/NATTPASS.md`**. Tillhör `ansiktssektionen` (post 3).*
+grindar och avbrottsregler: **`docs/NATTPASS.md`**. Tillhör `ansiktssektionen` (post 4).*
 
 ### Varför just de här tre — riggen har fem oanvända funktioner
 
@@ -208,12 +354,12 @@ matas till `blick()` — spelet ska **inte** ändra riggens konstanter, för `ma
 
 ### Öppen punkt som INTE hör till nattpasset
 
-Ansiktssektionens beslut 5 (post 3) säger att spelen ligger i **Roligt** tills sektionen har 2–3
+Ansiktssektionens beslut 5 (post 4) säger att spelen ligger i **Roligt** tills sektionen har 2–3
 spel, sen lyfts en egen flik. Med de här tre är sektionen uppe i **fyra** spel — alltså har den
 tröskeln passerats, och en femte flik i biblioteket är ett ägarbeslut, inte ett byggbeslut.
 Frågan ställs efter passet.
 
-## 2. Egna ansikten & röster från telefonen (arbets-id: `egna-ansikten`)
+## 3. Egna ansikten & röster från telefonen (arbets-id: `egna-ansikten`)
 
 *Inlagd 2026-08-07. Status: ⬜ ej planerad. Utbruten ur `ansiktssektionen` (beslut 2026-08-07).*
 
@@ -235,7 +381,7 @@ som helst) i ansiktssektionens spel.
 
 ---
 
-## 3. Ansiktssektionen — riktiga foton som spelfigur (arbets-id: `ansiktssektionen`)
+## 4. Ansiktssektionen — riktiga foton som spelfigur (arbets-id: `ansiktssektionen`)
 
 *Inlagd 2026-08-06. Status: 🟢 **SEKTIONEN ÖPPNAD 2026-08-13 (v1.186.0)** — riggen byggd och
 första spelet `mata-munnen` levererat (`docs/games/mata-munnen.md`). Posten står kvar för att
@@ -250,7 +396,7 @@ tallriken men räknades in i mättnadsmålet, så ett barn som busade en bit av 
 tallriken utan att finalen kunde komma. Tallriken fyller nu på sig själv. **Läs spelets doc
 §3 innan nästa spel i sektionen byggs** — den bär vad riggen faktiskt klarar.
 
-Kvar i sektionen: `titt-ut-pappa` · `vakna-pappa` · `flugan-pa-nasan` (**spec-kort klara, post 1
+Kvar i sektionen: `titt-ut-pappa` · `vakna-pappa` · `flugan-pa-nasan` (**spec-kort klara, post 2
 — byggs i nattpasset**) · `harma-grimasen` · `borsta-tanderna` · `prat-ansiktet` (tabellen nedan), plus
 **ägarens inspelningsuppgift**: pappas uttrycksljud. Kopplingen finns redan och tar klippen i
 bruk automatiskt (`ROST`-tabellen + `audio.harSample()`).
@@ -331,9 +477,9 @@ sur min, chili ger het min, tårta ger lycksalig min, broccoli ger en fundersam 
 | Arbets-id | Vad det är |
 |---|---|
 | `mata-munnen` | dra mat till munnen → gap, tugg, grimas efter smak — ✅ **BYGGT v1.186.0** |
-| `titt-ut-pappa` | leta rätt på pappa bland gömställen — 🟡 **spec-kort klart, se post 1** |
-| `vakna-pappa` | väck honom med ljud; sömnmätare + ett öga i taget — 🟡 **spec-kort klart, post 1** |
-| `flugan-pa-nasan` | han följer flugan med blicken; vifta ut den — 🟡 **spec-kort klart, post 1** |
+| `titt-ut-pappa` | leta rätt på pappa bland gömställen — 🟡 **spec-kort klart, se post 2** |
+| `vakna-pappa` | väck honom med ljud; sömnmätare + ett öga i taget — 🟡 **spec-kort klart, post 2** |
+| `flugan-pa-nasan` | han följer flugan med blicken; vifta ut den — 🟡 **spec-kort klart, post 2** |
 | `harma-grimasen` | ansiktet gör en min, barnet trycker på rätt min bland tre |
 | `borsta-tanderna` | dra tandborsten i den gapande munnen, ansiktet reagerar på var man är |
 | `prat-ansiktet` | tryck på ord/ikoner → käken rör sig i takt med röstklippet |
@@ -347,7 +493,7 @@ sur min, chili ger het min, tårta ger lycksalig min, broccoli ger en fundersam 
 2. **Namn:** karaktären heter **"Pappa"** — en roll, inte ett namn. `lib/theme.js`-regeln får
    tillägget "roller (Pappa/Mamma) är tillåtna för fotokaraktärer" i samma commit som sektionen.
 3. **Ansikten:** bara ägarens nu; riggen byggs så fler ansikten kan läggas till senare med
-   samma fotolista. Telefon-funktionen är utbruten till egen idé (`egna-ansikten`, post 1).
+   samma fotolista. Telefon-funktionen är utbruten till egen idé (`egna-ansikten`, post 3).
 4. **Mål i `mata-munnen`:** **mättnadsmätare** — tallrik med 4–6 matbitar per runda, full mage
    → rap-final → ny tallrik. Bus fyller inte mätaren men geggan sitter kvar till finalen.
 5. **Flik:** spelen ligger i **Roligt** tills sektionen har 2–3 spel; då lyfts en egen flik.
@@ -421,7 +567,7 @@ chilin?" · "Nu är pappa mätt och belåten!" — pappas egna uttrycksljud är 
 
 ---
 
-## ~~4. Nätskott från bilfönstret (arbets-id: `natskott-pa-stan`)~~ ✅ BYGGD
+## ~~5. Nätskott från bilfönstret (arbets-id: `natskott-pa-stan`)~~ ✅ BYGGD
 
 *Inlagd 2026-08-06. **Byggd 2026-08-08 och polerad samma kväll** — se
 `docs/games/natskott-pa-stan.md`. Posten stod kvar som "väntar på spec-ja" i två dagar

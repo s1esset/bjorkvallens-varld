@@ -8,6 +8,11 @@
 <meta name="robots" content="noindex">
 <link rel="icon" href="./icons/icon-192.png">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<!-- Manifestet maste vara lankat HAR for att webblasaren ska kunna erbjuda
+     installation fran den har sidan. `start_url` i manifestet ar './' relativt
+     MANIFESTETS plats (sajtroten), sa en installation harifran oppnar appen -
+     inte den har foraldrasidan. -->
+<link rel="manifest" href="./manifest.webmanifest">
 <!--
   FÖRÄLDRASIDA — ligger UTANFÖR appen med flit.
   P0:s "ikon-först, noll läsning" gäller barnets skärmar; det här är sidan en vuxen
@@ -72,10 +77,21 @@
   .rad p b:first-child { display: block; margin-bottom: 2px }
   .rad p b { white-space: nowrap }
 
+  /* Installationsknappen visas BARA om webblasaren faktiskt erbjuder installation
+     (beforeinstallprompt). Pa iOS finns inget sadant API - da star den kvar dold
+     och de manuella stegen nedan ar enda vagen. */
+  #installera-nu { display: none; background: var(--green); box-shadow: 0 6px 0 #49A657, 0 12px 28px rgba(91,191,106,.3) }
+  #installera-nu:active { box-shadow: 0 2px 0 #49A657, 0 6px 16px rgba(91,191,106,.26) }
+  body.kan-installera #installera-nu { display: flex }
+  body.kan-installera #manuellt { opacity: .7 }
+  .knapp-under { display: none; text-align: center; color: var(--ink-soft); font-size: 15px; margin: 0 0 32px }
+  body.kan-installera .knapp-under { display: block }
+
   .notis { background: #FFF6E8; border-left: 4px solid var(--orange); border-radius: 0 14px 14px 0; padding: 14px 16px; margin: 0 0 20px; font-size: 16px }
   .klar { display: none; background: #EEF9EF; border-left: 4px solid var(--green); border-radius: 0 14px 14px 0; padding: 14px 16px; margin-bottom: 20px; font-size: 16px }
   body.installerad .klar { display: block }
-  body.installerad #installera { opacity: .55 }
+  body.installerad #manuellt { opacity: .55 }
+  body.installerad #installera-nu { display: none }
 
   footer { text-align: center; color: var(--ink-soft); font-size: 14px; margin-top: 36px }
   footer a { color: var(--blue) }
@@ -90,12 +106,15 @@
     <p class="under">80 minispel för barn 2–5 år · helt på svenska<br>Ingen reklam, ingen spårning, fungerar utan nät</p>
   </header>
 
+  <button class="knapp" id="installera-nu" type="button">⬇ Installera appen</button>
+  <p class="knapp-under">Lägger den på hemskärmen — inget appbutikskonto behövs.</p>
+
   <a class="knapp" href="./">▶ Öppna appen</a>
   <p class="adress">Adress att skriva in på telefonen:<br><code id="url">…</code></p>
 
   <div class="klar">✓ Appen verkar redan vara installerad på den här enheten — starta den från hemskärmen i stället, så går den i helskärm.</div>
 
-  <section id="installera">
+  <section id="manuellt">
     <h2><span class="m">📱</span> Lägg den på hemskärmen</h2>
     <p class="lead">Då startar den i helskärm utan webbläsarens adressfält, och fungerar även när nätet är borta.</p>
 
@@ -147,6 +166,48 @@
   if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
     document.body.classList.add('installerad');
   }
+
+  // --- Installera direkt (Android/Chrome, Edge, Chrome pa dator) -------------
+  // Knappen visas BARA nar webblasaren sjalv sager att appen gar att installera.
+  // iOS/Safari skickar aldrig den handelsen - Apple har inget API for det - sa
+  // dar forblir knappen dold och Dela-steget nedan ar enda vagen. Att visa en
+  // knapp som inte kan gora nagot vore samre an ingen knapp alls.
+  var vantandePrompt = null;
+  var knapp = document.getElementById('installera-nu');
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault(); // vi vill visa VAR knapp, inte webblasarens egen remsa
+    vantandePrompt = e;
+    document.body.classList.add('kan-installera');
+    window.__kanInstallera = true; // lasbar flagga for matning
+  });
+
+  knapp.addEventListener('click', async function () {
+    if (!vantandePrompt) return;
+    knapp.textContent = '⏳ Installerar ...';
+    vantandePrompt.prompt();
+    var svar = await vantandePrompt.userChoice;
+    // Prompten gar bara att anvanda EN gang - slang den oavsett svar.
+    vantandePrompt = null;
+    if (svar && svar.outcome === 'accepted') {
+      knapp.textContent = '✓ Installerad';
+    } else {
+      // Avbrutet: gom knappen och lat de manuella stegen ta over, annars star
+      // en dod knapp kvar som inte gor nagot nar man trycker igen.
+      document.body.classList.remove('kan-installera');
+    }
+  });
+
+  window.addEventListener('appinstalled', function () {
+    document.body.classList.remove('kan-installera');
+    document.body.classList.add('installerad');
+  });
+
+  // MATNING (tas bort nar svaret ar kant): registrerar sidan INGEN service worker.
+  // Kraver webblasaren en sadan for att erbjuda installation far vi lagga till
+  // `navigator.serviceWorker.register('./sw.js')` har - men det startar en 33 MB
+  // nedladdning redan nar foraldern oppnar sidan, sa det ska inte gissas.
+  window.__swRegistrerad = false;
 </script>
 </body>
 </html>

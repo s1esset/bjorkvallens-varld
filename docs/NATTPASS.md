@@ -34,7 +34,7 @@ aldrig mot en människa.
 
 1. **Ingen `git push`. Ingen `npm run deploy`.** Varje push publicerar sajten publikt på GitHub
    Pages. Allt committas lokalt på `master`; ägaren tittar på bilderna och publicerar själv på
-   morgonen. *(Undantag: bara om ägaren skrev "publicera" när passet startades.)*
+   morgonen. **Ägarens uttryckliga beslut 2026-08-15 — inget undantag.**
 2. **Grinden gäller varje spel:** `npm run check` grön + `npm run test <id>` med **0 konsolfel**
    och inga `fel`-nivåfynd — och **öppna skärmdumpen och titta på den själv**. Grönt test betyder
    bara "0 konsolfel"; tre av fyra fel i grävmaskinens polering syntes bara i bilden.

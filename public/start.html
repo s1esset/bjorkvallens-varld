@@ -47,7 +47,10 @@
   .knapp {
     display: flex; align-items: center; justify-content: center; gap: 12px;
     min-height: 96px; margin: 28px 0 12px; padding: 0 28px;
+    /* `border: 0` maste sattas: <button> arver webblasarens egen kantlinje och
+       fick en mork ram som <a>-knappen inte har. */
     background: var(--orange); color: #fff; text-decoration: none;
+    border: 0; width: 100%; cursor: pointer; -webkit-appearance: none; appearance: none;
     font: 600 clamp(22px, 5.5vw, 28px)/1 Fredoka, sans-serif;
     border-radius: 36px; box-shadow: 0 6px 0 var(--orange-dark), 0 12px 28px rgba(245,115,30,.32);
     transition: transform .12s ease, box-shadow .12s ease;
@@ -203,11 +206,12 @@
     document.body.classList.add('installerad');
   });
 
-  // MATNING (tas bort nar svaret ar kant): registrerar sidan INGEN service worker.
-  // Kraver webblasaren en sadan for att erbjuda installation far vi lagga till
-  // `navigator.serviceWorker.register('./sw.js')` har - men det startar en 33 MB
-  // nedladdning redan nar foraldern oppnar sidan, sa det ska inte gissas.
-  window.__swRegistrerad = false;
+  // Sidan registrerar med FLIT ingen service worker. Det gamla ravet att en PWA
+  // behover en sw for att fa erbjudas for installation galler inte langre:
+  // uppmatt i Chrome 2026-08-15 avfyrades `beforeinstallprompt` har med NOLL
+  // registrerade service workers. Skulle vi anda registrera en skulle appens
+  // 33 MB borja laddas ner sa fort en foralder oppnar sidan for att lasa.
+  // Sw:n registreras dar den hor hemma: av appen, vid forsta starten.
 </script>
 </body>
 </html>

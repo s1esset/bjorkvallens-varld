@@ -72,6 +72,21 @@ Kört och verifierat: bygge → fönster → `http://localhost:4173` svarar 200 
 Kvar på maskinen med flit: `tailscale serve`-mappningen `8445 → 4173` (ägarens beslut, den
 ligger bland andra projekts mappningar) — den ger bara 502 när ingen lokal server kör.
 
+**Och en installationsknapp på föräldrasidan (v1.220.0).** `beforeinstallprompt` → egen grön
+knapp → `prompt()` → `userChoice`. Avbryter föräldern göms knappen igen (prompten går bara att
+använda EN gång — en kvarstående knapp hade varit död vid nästa tryck), och `appinstalled`
+växlar sidan till "redan installerad". **iOS får aldrig knappen** — Apple har inget API — så
+Dela-steget är enda vägen där, och en knapp som inte kan göra något vore sämre än ingen.
+
+**Det dyra antagandet som INTE gjordes:** den gamla regeln "en PWA måste ha en registrerad
+service worker för att få erbjudas för installation" gäller inte längre. Uppmätt i Chrome
+2026-08-15: `beforeinstallprompt` avfyrades på `start.html` med **noll** registrerade service
+workers (`kanInstallera: true`, `swRegistrerade: 0`). Hade jag gissat "sw krävs" och registrerat
+den hade appens **33 MB börjat laddas ner så fort en förälder öppnade sidan för att läsa**.
+Dokumentationen svarade inte — varken Chromes egen sida eller MDN säger vad kravet är idag.
+Manifestet måste däremot vara länkat från sidan; `start_url` är `'./'` relativt MANIFESTETS
+plats, så en installation härifrån öppnar spelet, inte föräldrasidan.
+
 **Två fynd, båda från att TITTA:**
 
 1. **`gh run watch` utan run-id dör i ett skript** ("run ID required when not running

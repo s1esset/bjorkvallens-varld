@@ -38,6 +38,7 @@
 "Hejdå, lilla fjäril!"
 "Tryck på en pil så byter din kompis utseende!"
 "Tryck på kameran när din kompis är klar!"
+"Det kittlas!"
 ```
 
 ## 1. Nuläge (sett som spelare)
@@ -47,6 +48,14 @@ En varm verkstad. Mitt på golvet står en liten varelse med egen silhuett — k
 kontrollrader (kropp · ögon · mun), till höger tre (prydnad · färg · storlek); varje rad är
 ◀ 96 px · ritad förhandsvisning · ▶ 96 px i radens egen färg. Ett tryck byter delen på under
 100 ms med studs, squash och en stämd ton (varje del har sin plats i en pentaton skala i C).
+
+Ett tryck på KOMPISEN SJÄLV kittlar den: ögonen kisar ihop till skrattstreck, munnen blir
+bred, kroppen vinglar och vinkar och ett stigande fnitter ur samma pentatona skala hörs. Och
+den TITTAR på det som just hände — pupillerna följer pilen som trycktes, kameran, ramen på
+väggen, fjärilen som landar på huvudet och fingret som kittlar.
+
+Rummet är en verkstad: en hylla med färgburkar och penselkrus på bakväggen, en trälåda med
+reservdelar på golvet (skaftöga, antenner, spetsigt öra) och en färgpyts.
 
 Till höger om varelsen står en ritad kamera på stativ med en skylt där det står "Klar!" och
 Bobo som tittar fram bakom den med tassarna på kamerahuset. Tryck där och finishen rullar.
@@ -76,18 +85,18 @@ Två designbeslut värda att minnas:
 
 * Prydnadsrutan (`topp`) rymmer både öron, antenner, horn och vingar. Horn och runda öron
   läser lite lika på smala kroppar (kon/lång) där de fäster nära spetsen.
-* Bakgrunden är `createScene('warm')` rakt av — verkstaden har ingen egen rekvisita (burkar,
-  färgpyts, hyllor) som skulle förklara VAR man är.
-* Kompisen kan inte flyttas eller pysslas med mellan bytena; all interaktion går genom pilarna,
-  kameran, ramarna och fjärilen.
+* Kompisen kan inte FLYTTAS eller byggas om med fingret; den kan kittlas och tittar tillbaka,
+  men delvalen går fortfarande bara genom pilarna.
+* Vingspetsen kittlar inte på den STÖRSTA kompisen (1,12×). Träffytan slutar på x 676 och
+  spetsen når x 694 — den får bottenytans kvitto i stället för skrattet. Det går inte att
+  rätta med en bredare yta: kamerans träffyta börjar på x 704 och P0 kräver 24 px emellan.
 * Mönstren (prickar/ränder) sitter på färgvalet i stället för att vara en egen rad — det är en
   medveten begränsning (fler rader ryms inte med P0-måtten) men gör mönstren lite gömda.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Kärnloop**
-* [Quick] Tryck på KOMPISEN själv → den kittlas, skrattar och gör en grimas (i dag händer bara
-  ett kvitto från bottenytan).
+* ~~[Quick] Tryck på KOMPISEN själv → den kittlas~~ ✅ v1.215.0
 * [Medium] Låt barnet dra en del från förhandsvisningen till kompisen som alternativ till pilen
   (tap-tap-fallback via `DragController`) — samma val, en motorisk väg till.
 
@@ -97,8 +106,8 @@ Två designbeslut värda att minnas:
   kombinerad rad eller att kolumnerna blir fyra rader djupa).
 
 **Juice**
-* [Quick] Kompisen tittar på den knapp som just trycktes (`look`-liknande pupillförskjutning).
-* [Quick] Damm-puff vid fötterna när storleken växer.
+* ~~[Quick] Kompisen tittar på den knapp som just trycktes~~ ✅ v1.215.0
+* ~~[Quick] Damm-puff vid fötterna när storleken växer~~ ✅ v1.215.0
 
 **Progression**
 * [Medium] En liten "affisch" på väggen som visar hur många delar som återstår att låsa upp.
@@ -107,7 +116,7 @@ Två designbeslut värda att minnas:
 * [Medium] Bobo kommenterar den valda kombinationen ibland ("En kompis med vingar!").
 
 **Ljud**
-* [Quick] Egen materialklang per kroppsform (klot = mjuk, kloss = trä) ovanpå delens ton.
+* ~~[Quick] Egen materialklang per kroppsform (klot = mjuk, kloss = trä)~~ ✅ v1.215.0
 
 ## 5. Status / loggar
 
@@ -127,5 +136,32 @@ RAD_Y[0]), så spiken flyttades till y 12 — precis ovanför ramen, innanför b
 mitt, så överkanten hamnade på y −42 och fotot åkte halvvägs ut ur bilden i 0,38 s.
 back.out(1.6) skalar dessutom över (~1,09), så lyftet måste rymma båda: y 68 ger överkanten
 y 3 och 10 px fall ner på spiken · 62de459`
+
+`2026-08-15 (polering) · kompisen svarar på beröring. KITTLING: egen storleksmedveten
+träffyta på `_vSkala` (min(156, 136/storlek) i varelsens rymd — exakt vad P0 tillåter mot
+kamerans yta på x 704 och kolumnens halo på x 348, uppmätt 28–42 px marginal i alla tre
+storlekarna) → skrattögon, bred mun, vingel, vinkning, fnittertriolett, gnistor.
+BLICK: `look`-parameter i ögonens ritfunktioner, klampad som VEKTOR så pupillen aldrig
+kryper ut ur ögat, plus ett huvudvridande — mot pilen, kameran, ramen, fjärilen och fingret.
+MATERIALKLANG per kroppsform (`klang` i KROPPAR) ovanpå delens oförändrade grundton.
+Damm-puff vid storleksbyte. VERKSTADSREKVISITA: hylla med färgburkar och penselkrus,
+reservdelslåda, färgpyts (stänger §3-punkten om det tomma rummet).
+
+Två tysta buggar som mätningen fann: ⓵ `_vinka` tweenar ARMNODER som är barnbarn till
+figuren, så `killTweensOf(figuren)` når dem aldrig — med kittling på varje tryck hann en
+vinkning alltid vara igång när nästa pil rev figuren (`tween-mot-forstort` i testet), och vid
+exit överlevde **2 levande tweens mot rivna Containers**, med 0 konsolfel hela tiden.
+`_stadVarelse()` städar armar, ögon, mun och prydnad före varje rivning (2 → 0 uppmätt).
+⓶ Vingarnas spännvidd var satt mot kamerans STATIV, men kamerans träffyta börjar långt till
+vänster om benen: 150 × 1,12 lade vingspetsen på **x 708, inne i kameraknappen** — ett barn
+som siktade på vingspetsen tog kortet. 142 lägger den på x 694, utanför i alla storlekar.
+Dessutom: kittlingens vingel ägde samma rotation som finishens snurr och kunde nolla den
+mitt i varvet.
+
+`_kompisbild.mjs --kittel` mäter alltihop med RIKTIGA muspekningar och kontrollarm först:
+tomt golv (svarar inte) · kroppen (`skrattar`, ögonskala 0,30) · träffordningen fjäril över
+kittel · vingspetsen ur den RITADE geometrin per storlek · inre tweens före/efter exit.
+Sonden bar själv ett mätfel först: vingspetsen var hårdkodad till 150 och rapporterade därför
+samma tal efter att vingen krympts · d6e15b2`
 
 ⬜ **Aldrig speltestat av ett barn.**

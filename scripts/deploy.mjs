@@ -104,13 +104,37 @@ if (!gh) {
   process.exit(0)
 }
 
-console.log('\n  Foljer bygget (tar ca 1-2 min) ...\n')
+// `gh run watch` UTAN id vill lata anvandaren valja korning i en lista, och dor med
+// "run ID required when not running interactively" i ett skript. Slå upp id:t for
+// exakt den commit vi just pushade - annars kan vi rakna en gammal korning som svar.
+const sha = sh('git rev-parse HEAD')
+let runId = null
+for (let forsok = 0; forsok < 10 && !runId; forsok++) {
+  const rader = JSON.parse(
+    execFileSync(gh, ['run', 'list', '--repo', REPO, '--limit', '15', '--json', 'databaseId,headSha'], {
+      encoding: 'utf-8',
+    }),
+  )
+  runId = rader.find((r) => r.headSha === sha)?.databaseId ?? null
+  if (!runId) execSync('node -e "setTimeout(()=>{},3000)"') // korningen hinner inte alltid dyka upp
+}
+
+if (!runId) {
+  // Pushen ar gjord - detta ar inte ett publiceringsfel, bara en utebliven bevakning.
+  console.log('\n  ✓ Pushat, men hittade ingen korning att folja.')
+  console.log(`    Status: https://github.com/${REPO}/actions\n`)
+  process.exit(0)
+}
+
+console.log(`\n  Foljer bygget (korning ${runId}, tar ca 1-2 min) ...\n`)
 try {
-  execFileSync(gh, ['run', 'watch', '--repo', REPO, '--exit-status', '--interval', '10'], { stdio: 'inherit' })
+  execFileSync(gh, ['run', 'watch', String(runId), '--repo', REPO, '--exit-status', '--interval', '10'], {
+    stdio: 'inherit',
+  })
 } catch {
   avbryt(
     'Bygget gick INTE igenom - sajten star kvar pa forra versionen.',
-    `Logg: https://github.com/${REPO}/actions`,
+    `Logg: https://github.com/${REPO}/actions/runs/${runId}`,
   )
 }
 

@@ -14,7 +14,7 @@ Format:
 
 ---
 
-## 2026-08-15 · v1.217.0 · appen ligger uppe: GitHub Pages i stället för min dator
+## 2026-08-15 · v1.217.0 → v1.224.0 · appen ligger uppe: GitHub Pages i stället för min dator
 
 **Byggt:** BACKLOG post 1 stängd. Telefonen har hittills krävt att datorn är påslagen —
 `npm run serve` + `tailscale serve` ger HTTPS bara så länge skriptet kör. Nu publicerar varje
@@ -53,9 +53,14 @@ push till `master` sajten automatiskt, och den ligger uppe dygnet runt:
   `reg.update()` → aktivera → ladda om, och `pending` appliceras vid menyns lugna gräns. Den
   saknade bara ett HTTPS-ursprung som alltid finns.
 
-**Commits:** `c69f220` feat(pages) workflow + regeländring + v1.217.0 · `18d746c` docs ·
-`32faa9b` feat(pages) startsida + `npm run deploy` + v1.218.0 · `6972cf2` fix(deploy) ·
-`b4561b8` fix(start) layout
+**Commits (15, i ordning):** `c69f220` feat(pages) workflow + regeländring + v1.217.0 ·
+`18d746c` docs · `32faa9b` feat(pages) startsida + `npm run deploy` + v1.218.0 ·
+`6972cf2` fix(deploy) följ rätt körning · `b4561b8` fix(start) layout · `9dcc692` docs ·
+`30782d3` chore tailscale bort + v1.219.0 · `5348f35` feat(start) installationsknapp ·
+`d54a331` fix(start) knappram + sw-mätningen + v1.220.0 · `6a73612` feat(start) knapphierarki
++ v1.221.0 · `b78ce87` feat(skal) helskärm + landskapslås + v1.222.0 · `7cab877` docs ·
+`9e477be` fix(start) släpp låset + "redan installerad" + v1.223.0 · `2e4c537` fix(pwa)
+navigateFallbackDenylist + v1.224.0 · `27df909` docs
 
 **Till sist: Tailscale-vägen borttagen (v1.219.0).** Ägaren ville inte ha två vägar att hålla
 levande. Ur `scripts/start.ps1`: proxy-anropet, MagicDNS-uppslaget och det hårdkodade
@@ -87,8 +92,8 @@ Dokumentationen svarade inte — varken Chromes egen sida eller MDN säger vad k
 Manifestet måste däremot vara länkat från sidan; `start_url` är `'./'` relativt MANIFESTETS
 plats, så en installation härifrån öppnar spelet, inte föräldrasidan.
 
-**Helskärm + landskapslås i webbläsarfliken (v1.222.0) — BYGGD, INTE VERIFIERAD.**
-Ägaren märkte att appen inte längre var låst i landskap när han gick in via föräldrasidans
+**Helskärm + landskapslås i webbläsarfliken (v1.222.0) — bekräftad på telefon.**
+Ägaren märkte att appen inte längre var låst i landskap efter att ha gått in via föräldrasidans
 "Öppna appen". **Det var inget fel:** manifestets `display: fullscreen` + `orientation:
 landscape` gäller bara en app som startats från hemskärmen, och appens kod anropade aldrig
 `screen.orientation.lock()` eller `requestFullscreen()` (noll träffar i hela `src/`). En flik
@@ -152,13 +157,21 @@ när jag frågade **vad dokumentet var** syntes att sidan var appen. En sond som
    **läs det oberoende innan du tror på vad skärmen visar.**
 
 **Öppet:**
-- **Token-hygien:** ägarens PAT klistrades in i chatten och ska raderas på
+- **Token-hygien — inte bekräftad gjord.** Ägarens PAT klistrades in i chatten och ska raderas på
   <https://github.com/settings/tokens>. Den bar dessutom långt fler scopes än de tre som behövdes
   (`repo`, `workflow`, `read:org`) — `admin:org`, `admin:public_key`, `write:packages` m.fl.
-- Telefonen ska installera om PWA:n från den nya adressen; den gamla Tailscale-installationen är
-  ett **annat ursprung** och delar varken spardata eller cache. Spardatan (localStorage) följer
-  alltså inte med — barnens klistermärken börjar om på den nya adressen.
-- **Tailscale-vägen är BORTTAGEN** (senare samma pass, se nedan) — inte bara ersatt.
+  Raderas den loggas `gh` ut; sajten och repot påverkas inte, men nästa push kräver en ny token.
+- **Spardatan följer inte med.** Pages är ett annat ursprung än den gamla Tailscale-adressen, så
+  localStorage delas inte — barnens klistermärken börjar om. Den gamla installationen ligger kvar
+  på hemskärmen tills den tas bort och får aldrig fler uppdateringar (adressen ger 502 nu).
+- **Telefonen behöver hämta v1.224** för att få startsidans landskapsfix — den ligger i den nya
+  service workerns precache, så den gamla versionen sitter kvar tills appen uppdaterats
+  (meny → **Hämta senaste**).
+- **Tailscale-vägen är BORTTAGEN** (senare samma pass, se nedan) — inte bara ersatt. Kvar på
+  maskinen med flit: `serve`-mappningen 8445 → 4173, ägarens uttryckliga beslut.
+- Ingen speländring gjordes i passet — inga `docs/games/*` rörda, ingen indexstatus ändrad.
+  Skalet ändrades (splash + `lib/pwa.js`); fyra spel testade gröna efteråt som stickprov,
+  `test:all` kördes INTE.
 
 ---
 

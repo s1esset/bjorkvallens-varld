@@ -95,6 +95,33 @@ export function flag(code, msg, data, level = 'varning') {
   return f
 }
 
+// En saknad sampling är INTE samma sak som tystnad. Varje anropsställe i repot står som
+// `if (!audio.sample('x')) { …synt… }`, alltså täcks missen av ett procedurellt ljud i
+// SAMMA synkrona tick. Den gamla flaggan påstod ändå "inget ljud spelades" utan att ha
+// mätt det, och larmade i fyra spel som alla gjorde rätt — en verklig tystnad hade
+// drunknat bland dem. Två spel hade dessutom lagt in en `harSample`-förfrågan enbart för
+// att tysta larmet, alltså har det redan format kod. Missen bokförs nu som VÄNTANDE och
+// döms på en mikrotask (som kör efter det synkrona blocket, alltså efter en eventuell
+// reserv): kom ett sfx/tone emellan är klippet bara köat till ljudpipelinen och hamnar i
+// `klippKo`; kom det inget blev pekningen verkligen tyst — och först då är det en varning.
+const klippKo = new Map()
+let vantandeMiss = null
+
+function noteSampleMiss(name) {
+  klippKo.set(name, (klippKo.get(name) || 0) + 1)
+  const m = { name, tackt: false }
+  vantandeMiss = m
+  queueMicrotask(() => {
+    if (vantandeMiss === m) vantandeMiss = null
+    if (m.tackt) return
+    flag('tyst-sampling', `audio.sample('${name}') hittade inget klipp och inget reservljud följde — pekningen blev tyst`, { name }, 'varning')
+  })
+}
+
+function tackSampleMiss() {
+  if (vantandeMiss) vantandeMiss.tackt = true
+}
+
 // Varje utdata kvitterar väntande pekningar. Skillnaden mellan STARK och svag
 // signal är viktig: ljud/röst/förlopp utlöses av en handler (går att tidsätta),
 // medan en gsap-tween lika gärna kan vara en bakgrundsanimation som råkade
@@ -127,6 +154,8 @@ export function startGame(id, ctx) {
   head = 0
   flags.clear()
   counts.clear()
+  klippKo.clear()
+  vantandeMiss = null
   runId++
   frame.n = frame.sumMs = frame.maxMs = frame.long = 0
   frame.minFps = 999
@@ -448,17 +477,19 @@ export function attach(svc) {
   // — utdata: ljud —
   wrap(svc.audio, 'sfx', (name) => {
     log('ljud', 'sfx', { name })
+    tackSampleMiss()
     noteOutput('sfx', name)
   })
   wrap(svc.audio, 'tone', (o) => {
     log('ljud', 'tone', { freq: round(o?.freq, 0) })
+    tackSampleMiss()
     noteOutput('tone')
   })
   wrap(svc.audio, 'sample', (name) => {
     log('ljud', 'sample', { name })
     noteOutput('sample', name)
   }, (ret, name) => {
-    if (ret === false) flag('saknat-ljudklipp', 'audio.sample() hittade inget klipp — inget ljud spelades', { name }, 'varning')
+    if (ret === false) noteSampleMiss(name)
   })
 
   // — utdata: röst (och om frasen saknar inspelat klipp) —
@@ -616,6 +647,11 @@ function summary() {
     fynd: f.map((x) => ({ kod: x.code, niva: x.level, n: x.n, msg: x.msg, exempel: x.samples })),
     fel: f.filter((x) => x.level === 'fel').length,
     varningar: f.filter((x) => x.level === 'varning').length,
+    // Klipp som spelet BAD om men som inte finns i manifestet. Inte ett fel, och inte
+    // heller automatiskt en beställningslista: `prutt` saknas MED FLIT — en inspelad
+    // prutt kapade en gång `bajs-och-kiss` avsiktliga 0,14 s knip-ton, och klippen döptes
+    // därför om till `pappa_prutt`. Läs raden som "spelet frågade, manifestet svarade nej".
+    klippKo: Object.fromEntries(klippKo),
     vanligast: Object.fromEntries(topp),
   }
 }

@@ -26,7 +26,7 @@
 
   :root {
     --bg: #FDF6E3; --cream: #FFFDF7; --orange: #FF8A3D; --orange-dark: #F5731E;
-    --ink: #4A3526; --ink-soft: #7A6657; --green: #5BBF6A; --blue: #4AA3DF;
+    --ink: #4A3526; --ink-soft: #7A6657; --green: #5BBF6A; --green-dark: #49A657; --blue: #4AA3DF;
     --line: rgba(74, 53, 38, .12);
   }
   * { box-sizing: border-box }
@@ -83,12 +83,23 @@
   /* Installationsknappen visas BARA om webblasaren faktiskt erbjuder installation
      (beforeinstallprompt). Pa iOS finns inget sadant API - da star den kvar dold
      och de manuella stegen nedan ar enda vagen. */
-  #installera-nu { display: none; background: var(--green); box-shadow: 0 6px 0 #49A657, 0 12px 28px rgba(91,191,106,.3) }
-  #installera-nu:active { box-shadow: 0 2px 0 #49A657, 0 6px 16px rgba(91,191,106,.26) }
+  #installera-nu { display: none }
   body.kan-installera #installera-nu { display: flex }
   body.kan-installera #manuellt { opacity: .7 }
-  .knapp-under { display: none; text-align: center; color: var(--ink-soft); font-size: 15px; margin: 0 0 32px }
+  .knapp-under { display: none; text-align: center; color: var(--ink-soft); font-size: 15px; margin: 0 0 36px }
   body.kan-installera .knapp-under { display: block }
+
+  /* NAR installation gar att erbjuda ar den huvudsaken (orange, storst) och
+     "Oppna appen" blir en mindre gron biväg. Gar den INTE att erbjuda (iOS, eller
+     appen redan installerad) maste "Oppna appen" ta over som primar knapp - annars
+     star sidan utan tydlig handling. Darfor ar den orange som grundlage. */
+  body.kan-installera #oppna {
+    min-height: 72px; margin-top: 8px;
+    background: var(--green); font-size: clamp(19px, 4.6vw, 23px);
+    box-shadow: 0 5px 0 var(--green-dark), 0 10px 22px rgba(91,191,106,.28);
+  }
+  body.kan-installera #oppna:active { box-shadow: 0 2px 0 var(--green-dark), 0 6px 14px rgba(91,191,106,.24) }
+  .oppna-under { text-align: center; color: var(--ink-soft); font-size: 14px; margin: 0 0 40px }
 
   .notis { background: #FFF6E8; border-left: 4px solid var(--orange); border-radius: 0 14px 14px 0; padding: 14px 16px; margin: 0 0 20px; font-size: 16px }
   .klar { display: none; background: #EEF9EF; border-left: 4px solid var(--green); border-radius: 0 14px 14px 0; padding: 14px 16px; margin-bottom: 20px; font-size: 16px }
@@ -110,9 +121,11 @@
   </header>
 
   <button class="knapp" id="installera-nu" type="button">⬇ Installera appen</button>
-  <p class="knapp-under">Lägger den på hemskärmen — inget appbutikskonto behövs.</p>
+  <p class="knapp-under">Lägger den på hemskärmen — helskärm, låst landskapsläge och offline.<br>Inget appbutikskonto behövs.</p>
 
-  <a class="knapp" href="./">▶ Öppna appen</a>
+  <a class="knapp" id="oppna" href="./">▶ Öppna appen</a>
+  <p class="oppna-under">Öppnar i webbläsaren, utan helskärm och utan låst landskapsläge.</p>
+
   <p class="adress">Adress att skriva in på telefonen:<br><code id="url">…</code></p>
 
   <div class="klar">✓ Appen verkar redan vara installerad på den här enheten — starta den från hemskärmen i stället, så går den i helskärm.</div>

@@ -57,6 +57,11 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         navigateFallback: 'index.html',
+        // Föräldrasidan får ALDRIG bli appen. navigateFallback fångar varje
+        // navigering i scope som inte finns i precachen — och `start.html?vad-som-helst`
+        // matchar inte precache-posten `start.html`, så en delad länk med frågesträng
+        // serverade spelet med installationssidans adress i fältet (uppmätt 2026-08-15).
+        navigateFallbackDenylist: [/start\.html/],
         clientsClaim: true,
         skipWaiting: false,
         runtimeCaching: [

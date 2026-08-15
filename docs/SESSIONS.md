@@ -87,6 +87,25 @@ Dokumentationen svarade inte — varken Chromes egen sida eller MDN säger vad k
 Manifestet måste däremot vara länkat från sidan; `start_url` är `'./'` relativt MANIFESTETS
 plats, så en installation härifrån öppnar spelet, inte föräldrasidan.
 
+**Helskärm + landskapslås i webbläsarfliken (v1.222.0) — BYGGD, INTE VERIFIERAD.**
+Ägaren märkte att appen inte längre var låst i landskap när han gick in via föräldrasidans
+"Öppna appen". **Det var inget fel:** manifestets `display: fullscreen` + `orientation:
+landscape` gäller bara en app som startats från hemskärmen, och appens kod anropade aldrig
+`screen.orientation.lock()` eller `requestFullscreen()` (noll träffar i hela `src/`). En flik
+kan inte låsa orienteringen alls utan att först vara i helskärm.
+
+`enterImmersive()` i `lib/pwa.js` begär nu helskärm och låser sedan landskap, anropad synkront
+från splashens första tryck. No-op i den installerade appen, på iOS (båda API:erna saknas) och
+i DEV (harnessen kör där, och en helskärm mitt i en körning byter viewport för 80 bildkollar).
+
+⚠️ **Verifieringen misslyckades och det ska inte läsas som "det fungerar".** I automatiserad
+desktop-Chrome avvisas begäran med `TypeError: not granted` trots att `hasBeenActive` är sant —
+en känd begränsning när en extension driver fliken, inte ett bevis om en riktig telefon. Det som
+ÄR mätt: rätt bygge kör (versionspillet v1.222), `requestFullscreen` finns i den levererade
+JS-filen, tappet går fram, och avslaget ger **noll konsolfel** — den tysta `catch`:en håller.
+Kvar att pröva med ett finger på en Android-telefon. Samma tysta `catch` dolde också orsaken
+till avslaget: den fick tas fram med en tillfällig lyssnare som sparade felet.
+
 **Två fynd, båda från att TITTA:**
 
 1. **`gh run watch` utan run-id dör i ett skript** ("run ID required when not running

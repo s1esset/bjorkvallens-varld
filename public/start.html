@@ -67,7 +67,10 @@
   .rad:first-of-type { border-top: 0 }
   .rad .m { font-size: 26px; line-height: 1.2 }
   .rad p { margin: 0; font-size: 16px }
-  .rad p b { display: block }
+  /* BARA rubriken far egen rad. `b` generellt hade brutit varje knappnamn
+     ("Safari", "Dela", ...) till en egen rad mitt i en mening. */
+  .rad p b:first-child { display: block; margin-bottom: 2px }
+  .rad p b { white-space: nowrap }
 
   .notis { background: #FFF6E8; border-left: 4px solid var(--orange); border-radius: 0 14px 14px 0; padding: 14px 16px; margin: 0 0 20px; font-size: 16px }
   .klar { display: none; background: #EEF9EF; border-left: 4px solid var(--green); border-radius: 0 14px 14px 0; padding: 14px 16px; margin-bottom: 20px; font-size: 16px }

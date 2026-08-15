@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Björkvallens Värld — installera på telefonen</title>
+<meta name="theme-color" content="#FF8A3D">
+<meta name="robots" content="noindex">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<!--
+  FÖRÄLDRASIDA — ligger UTANFÖR appen med flit.
+  P0:s "ikon-först, noll läsning" gäller barnets skärmar; det här är sidan en vuxen
+  öppnar en gång för att installera appen, och då är text rätt verktyg.
+  Fristående: inga nätanrop, inga bibliotek, egna teckensnitt från ./fonts/.
+-->
+<style>
+  @font-face { font-family: Fredoka; src: url('./fonts/fredoka-600.woff2') format('woff2'); font-weight: 600; font-display: swap }
+  @font-face { font-family: Nunito;  src: url('./fonts/nunito-400.woff2')  format('woff2'); font-weight: 400; font-display: swap }
+  @font-face { font-family: Nunito;  src: url('./fonts/nunito-700.woff2')  format('woff2'); font-weight: 700; font-display: swap }
+
+  :root {
+    --bg: #FDF6E3; --cream: #FFFDF7; --orange: #FF8A3D; --orange-dark: #F5731E;
+    --ink: #4A3526; --ink-soft: #7A6657; --green: #5BBF6A; --blue: #4AA3DF;
+    --line: rgba(74, 53, 38, .12);
+  }
+  * { box-sizing: border-box }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--ink);
+    font: 400 18px/1.6 Nunito, system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 640px; margin: 0 auto }
+
+  header { text-align: center; margin-bottom: 32px }
+  header img { width: 132px; height: 132px; border-radius: 32px; box-shadow: 0 8px 24px rgba(74,53,38,.16) }
+  h1 { font: 600 clamp(30px, 8vw, 42px)/1.15 Fredoka, sans-serif; color: var(--orange); margin: 20px 0 6px }
+  .under { color: var(--ink-soft); margin: 0 }
+
+  /* Träffytan följer P0: ≥96px hög, tydlig, går inte att missa. */
+  .knapp {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    min-height: 96px; margin: 28px 0 12px; padding: 0 28px;
+    background: var(--orange); color: #fff; text-decoration: none;
+    font: 600 clamp(22px, 5.5vw, 28px)/1 Fredoka, sans-serif;
+    border-radius: 36px; box-shadow: 0 6px 0 var(--orange-dark), 0 12px 28px rgba(245,115,30,.32);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .knapp:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--orange-dark), 0 6px 16px rgba(245,115,30,.28) }
+  .adress {
+    text-align: center; color: var(--ink-soft); font-size: 15px; margin: 0 0 40px;
+    word-break: break-all;
+  }
+  .adress code { background: var(--cream); border: 1px solid var(--line); border-radius: 10px; padding: 3px 8px; font-size: 14px }
+
+  section { background: var(--cream); border: 1px solid var(--line); border-radius: 28px; padding: 24px 24px 8px; margin-bottom: 20px }
+  h2 { font: 600 24px/1.2 Fredoka, sans-serif; margin: 0 0 4px; display: flex; align-items: center; gap: 10px }
+  h2 .m { font-size: 28px; line-height: 1 }
+  .lead { color: var(--ink-soft); margin: 0 0 16px; font-size: 16px }
+  ol { margin: 0 0 20px; padding-left: 24px }
+  li { margin-bottom: 10px }
+  li::marker { color: var(--orange); font-weight: 700 }
+  b { color: var(--ink) }
+
+  .rad { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; border-top: 1px solid var(--line) }
+  .rad:first-of-type { border-top: 0 }
+  .rad .m { font-size: 26px; line-height: 1.2 }
+  .rad p { margin: 0; font-size: 16px }
+  .rad p b { display: block }
+
+  .notis { background: #FFF6E8; border-left: 4px solid var(--orange); border-radius: 0 14px 14px 0; padding: 14px 16px; margin: 0 0 20px; font-size: 16px }
+  .klar { display: none; background: #EEF9EF; border-left: 4px solid var(--green); border-radius: 0 14px 14px 0; padding: 14px 16px; margin-bottom: 20px; font-size: 16px }
+  body.installerad .klar { display: block }
+  body.installerad #installera { opacity: .55 }
+
+  footer { text-align: center; color: var(--ink-soft); font-size: 14px; margin-top: 36px }
+  footer a { color: var(--blue) }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="./icons/icon-512.png" alt="">
+    <h1>Björkvallens Värld</h1>
+    <p class="under">80 minispel för barn 2–5 år · helt på svenska<br>Ingen reklam, ingen spårning, fungerar utan nät</p>
+  </header>
+
+  <a class="knapp" href="./">▶ Öppna appen</a>
+  <p class="adress">Adress att skriva in på telefonen:<br><code id="url">…</code></p>
+
+  <div class="klar">✓ Appen verkar redan vara installerad på den här enheten — starta den från hemskärmen i stället, så går den i helskärm.</div>
+
+  <section id="installera">
+    <h2><span class="m">📱</span> Lägg den på hemskärmen</h2>
+    <p class="lead">Då startar den i helskärm utan webbläsarens adressfält, och fungerar även när nätet är borta.</p>
+
+    <div class="rad">
+      <span class="m">🍎</span>
+      <p><b>iPhone och iPad (Safari)</b>
+      Öppna sidan i <b>Safari</b> — inte Chrome, som saknar funktionen på iOS. Tryck på <b>Dela</b> (fyrkanten med pil upp) → <b>Lägg till på hemskärmen</b> → <b>Lägg till</b>.</p>
+    </div>
+
+    <div class="rad">
+      <span class="m">🤖</span>
+      <p><b>Android (Chrome)</b>
+      Tryck på <b>⋮</b> uppe till höger → <b>Installera app</b> (kan heta <b>Lägg till på startskärmen</b>) → <b>Installera</b>. Ofta dyker en installationsruta upp av sig själv.</p>
+    </div>
+
+    <div class="rad">
+      <span class="m">💻</span>
+      <p><b>Dator (Chrome och Edge)</b>
+      Klicka på installationsikonen till höger i adressfältet, eller <b>⋮</b> → <b>Casta, spara och dela</b> → <b>Installera</b>.</p>
+    </div>
+
+    <p class="notis"><b>Första gången tar en stund.</b> Appen laddar hem ungefär 33 MB spel, ljud och röst — gör det på wifi och låt sidan vara öppen tills den är klar. Efter det behövs inget nät alls.</p>
+  </section>
+
+  <section>
+    <h2><span class="m">🔄</span> Så får barnen nya spel</h2>
+    <p class="lead">Uppdateringar hämtas automatiskt, men läggs på vänt så att en app aldrig laddas om mitt i ett spel.</p>
+    <ol>
+      <li>Nya versioner publiceras automatiskt när utvecklingen pushas till GitHub.</li>
+      <li>Appen upptäcker dem nästa gång den startas med nät, och installerar dem i bakgrunden.</li>
+      <li>Den nya versionen slås på vid en <b>lugn punkt</b> — i menyn eller biblioteket, aldrig mitt i ett spel.</li>
+      <li>Vill du inte vänta: gå till <b>menyn</b> och tryck på <b>Hämta senaste</b>. Versionssiffran bredvid knappen är kvittot på att det blev en nyare version.</li>
+    </ol>
+    <p class="notis"><b>Barnen kan inte råka ändra något.</b> Inställningar, uppdatering och avslut ligger bakom en föräldragrind: knappen måste hållas intryckt i 2,5 sekunder.</p>
+  </section>
+
+  <footer>
+    Byggd för Zacke, Alissa, Elvira och Lova.<br>
+    <a href="./">Öppna appen</a>
+  </footer>
+
+</div>
+<script>
+  // Adressen skrivs ut ur sidans egen URL — då stämmer den även om sajten flyttar.
+  var appUrl = new URL('./', location.href).href;
+  document.getElementById('url').textContent = appUrl.replace(/^https?:\/\//, '');
+
+  // Körs sidan redan som installerad app? Då är instruktionerna fel råd.
+  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+    document.body.classList.add('installerad');
+  }
+</script>
+</body>
+</html>

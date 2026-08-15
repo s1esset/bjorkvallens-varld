@@ -1,6 +1,6 @@
 {
   "name": "bjorkvallens-varld",
-  "version": "1.217.0",
+  "version": "1.218.0",
   "private": true,
   "type": "module",
   "description": "Björkvallens Värld — PWA med roliga, lärorika minispel för barn 2–5 år (svenska, offline, ingen reklam)",
@@ -10,6 +10,7 @@
     "preview": "vite preview --host",
     "serve": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start.ps1",
     "serve:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1",
+    "deploy": "node scripts/deploy.mjs",
     "check": "node scripts/check.mjs",
     "test": "node scripts/test-games.mjs",
     "test:all": "node scripts/test-games.mjs --all",

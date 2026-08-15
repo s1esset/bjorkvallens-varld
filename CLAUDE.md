@@ -46,6 +46,12 @@ EXIT-SÄKERT   spelaren kan lämna mitt i en animation → _alive-flagga + feedb
 | `/testa [id\|alla]` | testkörning | `npm run build` · `serve` | bygge → :4173 (telefon) |
 | `/rost` | generera pending röstklipp | `npm run backup` | robocopy → E:\backup |
 | `/avsluta` · `/aterta` | avsluta / återuppta session | `npm run voice` · `sfx` | offline-klipp (PowerShell) |
+| | | `npm run deploy` | grind → push → **GitHub Pages** |
+
+Appen ligger publikt på **<https://s1esset.github.io/bjorkvallens-varld/>** (repo `s1esset/bjorkvallens-varld`).
+Varje push till `master` publicerar via `.github/workflows/deploy.yml` — kör `npm run deploy`, som
+vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldrarnas installationssida
+är `public/start.html` → `…/start.html`.
 
 Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grönt):
 

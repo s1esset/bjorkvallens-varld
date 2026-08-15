@@ -14,6 +14,59 @@ Format:
 
 ---
 
+## 2026-08-15 · v1.215.0 · `/polera bygg-en-kompis` — kompisen märker att du är där
+
+**Byggt:** en polera-omgång mot kvalitetsgrindens punkt 3 (juice) och 4 (mottagare). Spelet
+hade sex kontrollrader som fungerade, men **kompisen själv var ett föremål**: den enda saken
+på skärmen ett barn pekar på först var den enda som inte svarade med något eget, bara skalets
+generiska bottenkvitto. Och rummet runt den var en tom beige yta.
+
+- **Kittling.** Egen träffyta på kompisen → ögonen kisar ihop till skrattstreck (skala 0,30),
+  munnen blir bred, kroppen vinglar och vinkar, ett stigande fnitter ur samma pentatona skala
+  som bygget, gnistor vid fingret. Ytan är **storleksmedveten** — bredden är `min(156,
+  136/storlek)` i varelsens rymd, vilket är exakt vad P0 tillåter mot kamerans träffyta
+  (x 704) och vänsterkolumnens halo (x 348): uppmätt 28–42 px marginal i alla tre storlekarna.
+- **Blick.** Ögonens ritfunktioner tog en `look`-parameter; pupillen klampas som VEKTOR (x och
+  y var för sig hade lagt den utanför ögat så fort blicken pekade snett) plus ett huvudvridande.
+  Kompisen tittar på pilen som trycktes, kameran, ramen på väggen, fjärilen som landar på
+  huvudet och fingret som kittlar.
+- **Materialklang** per kroppsform ovanpå delens stämda ton — klot mjukt, kloss trä, moln ett
+  luftigt svep. Grundtonen är orörd, så melodin i bygget står kvar.
+- **Verkstadsrekvisita:** hylla med färgburkar och penselkrus, en trälåda med reservdelar
+  (skaftöga, antenner, spetsigt öra) och en färgpyts. Rummet säger nu var man är och var
+  delarna kommer ifrån.
+
+**Commits:** `d6e15b2` feat(bygg-en-kompis) · `d96b373` docs+v1.215.0
+
+**Tre fynd:**
+
+1. **En tween mot en riven nod skriver konsolen INGENTING om.** `_vinka` tweenar armnoder som
+   är **barnbarn** till figuren, och `killTweensOf(figuren)` når bara roten. Så fort kompisen
+   blev tryckbar hann en vinkning alltid vara igång när nästa pil rev figuren — testharnessen
+   larmade `tween-mot-forstort`, men i sonden var det helt tyst. Först när sonden räknade
+   *levande tweens på de undanplockade barnbarnen före och efter `destroy()`* blev det ett tal:
+   **2 → 0**. Ett "0 konsolfel" bevisar ingenting om städning; gsap skriver bara på en nollad
+   transform.
+2. **En träffyta kan gömma sig under en bild.** Vingarnas spännvidd var en gång satt mot
+   kamerans **stativ** — men kamerans träffyta börjar 100 px till vänster om benen, och
+   150 × 1,12 lade vingspetsen på **x 708, inne i kameraknappen**. Ett barn som siktade på
+   vingspetsen tog kortet i stället för att kittla. Ingen ser det i en bild; bara två riktiga
+   muspekningar mot den ritade geometrin hittar det.
+3. **Sonden hade vingspetsen hårdkodad till 150** och rapporterade därför exakt samma tal
+   efter att vingen krympts — en mätning som inte kunde se ändringen den skulle mäta.
+   Att i stället läsa `toppNod.getBounds()` (den RITADE vägen) gav tal som rörde sig:
+   0,78× och 0,94× kittlar nu vingspetsen, 1,12× gör det inte men träffar heller aldrig
+   kameran. Kritikeragenten föreslog en yta på ±170 — den hade brutit P0-avståndet till
+   kameran, och räkningen visade det innan en rad skrevs.
+
+**Öppet:**
+- `bygg-en-kompis` §4: kvar är fyra [Medium]-punkter (dra en del till kompisen, gyllene del,
+  egen mönsterrad, upplåsnings-affisch) och Bobos kombinationskommentarer.
+- Vingspetsen kittlar inte på 1,12× (x 694 mot ytans 676). Går inte att rätta med en bredare
+  yta — P0 väger tyngre. Skulle kräva en smalare vinge.
+- Genomgången av de 7 nyare spelen är fortfarande halvvägs: kvar är `passa-formerna`,
+  `leksakslada`, `elementlekplatsen`.
+
 ## 2026-08-15 · v1.214.0 · `/polera mata-munnen` — pappa önskar sig något, kylen minns
 
 **Byggt:** en polera-omgång vald mot kvalitetsgrinden, inte mot docens kö (§7-arbetsordern var
@@ -183,7 +236,8 @@ spelen — men frekvensen bör hållas under uppsikt.
 **Öppet:**
 - **Genomgång i en NY session** — ägaren har bett om det: `.claude/state/nasta-session.md` bär
   arbetsordern (vad som ska köras, vilka sonder som finns, vad jag inte hann pröva).
-- **109 röstrepliker väntar på klipp.** Kör `/rost` när narratorn i `C:epos\storygen` är uppe.
+- **109 röstrepliker väntar på klipp.** Kör `/rost` när narratorn i `C:
+epos\storygen` är uppe.
 - **ÅTGÄRDER V16 (ny):** `destroy({ children: true })` river INTE en `Graphics` egen
   `GraphicsContext` i Pixi v8 — 251 anrop i 89 filer. Mekanismen är läst i Pixis källa,
   GPU-effekten är OMÄTT. Raden bär ett mätuppdrag, inte en fix.

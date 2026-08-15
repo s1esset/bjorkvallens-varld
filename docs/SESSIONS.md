@@ -14,6 +14,42 @@ Format:
 
 ---
 
+## 2026-08-15 · v1.217.0 · appen ligger uppe: GitHub Pages i stället för min dator
+
+**Byggt:** BACKLOG post 1 stängd. Telefonen har hittills krävt att datorn är påslagen —
+`npm run serve` + `tailscale serve` ger HTTPS bara så länge skriptet kör. Nu publicerar varje
+push till `master` sajten automatiskt, och den ligger uppe dygnet runt:
+**<https://s1esset.github.io/bjorkvallens-varld/>** (publikt repo `s1esset/bjorkvallens-varld`).
+
+- **Noll kodändringar behövdes**, precis som utredningen 2026-08-09 påstod: `base: './'` plus
+  manifestets `start_url`/`scope` `'./'` gör att bygget fungerar på undervägen
+  `/bjorkvallens-varld/` utan omskrivning. Enda tillägget är workflowen.
+- `.github/workflows/deploy.yml`: `npm ci` → `npm run build` → `upload-pages-artifact` →
+  `deploy-pages`, node 22, `concurrency: pages` med `cancel-in-progress: false` så en halvfärdig
+  sajt aldrig hamnar ute. **Bygger bara** — grinden körs lokalt som förr, eftersom testsviten är
+  dokumenterat flaky under last och GitHubs långsammare runners hade gett falska röda deployer.
+- **Verifierat på den riktiga adressen, inte antaget:** `index.html` (`text/html`), `sw.js`
+  (`application/javascript`, 147 kB) och `manifest.webmanifest` (`application/manifest+json`)
+  svarar alla 200 med rätt content-type — precis det `raw.githubusercontent.com` inte klarar och
+  som hade gjort PWA:n ominstallerbar. Appen startades i webbläsare: splashen renderar, **noll
+  konsolmeddelanden**, service workern registrerad på scope `…/bjorkvallens-varld/` och
+  precachen igång (268 → 411 av 1851 filer under mätningen).
+- **`CLAUDE.md`-regeln skrevs om, inte bort:** push är nu tillåten till `origin master` och
+  ingenting annat — och eftersom varje push publicerar måste grinden vara grön **före** den.
+
+**Commits:** `c69f220` feat(pages) workflow + regeländring + v1.217.0 · `<denna>` docs
+
+**Öppet:**
+- **Token-hygien:** ägarens PAT klistrades in i chatten och ska raderas på
+  <https://github.com/settings/tokens>. Den bar dessutom långt fler scopes än de tre som behövdes
+  (`repo`, `workflow`, `read:org`) — `admin:org`, `admin:public_key`, `write:packages` m.fl.
+- Telefonen ska installera om PWA:n från den nya adressen; den gamla Tailscale-installationen är
+  ett **annat ursprung** och delar varken spardata eller cache. Spardatan (localStorage) följer
+  alltså inte med — barnens klistermärken börjar om på den nya adressen.
+- Tailscale-vägen är orörd och fungerar som förr; Pages ersätter den bara som standardväg.
+
+---
+
 ## 2026-08-15 · v1.215.0 · `/polera bygg-en-kompis` — kompisen märker att du är där
 
 **Byggt:** en polera-omgång mot kvalitetsgrindens punkt 3 (juice) och 4 (mottagare). Spelet

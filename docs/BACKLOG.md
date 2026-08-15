@@ -13,9 +13,12 @@ Nyast överst. Status: ⬜ ej påbörjad · 🟨 pågår · ✅ klar (raden stry
 
 ---
 
-## 1. Publicera appen via GitHub så telefonen slipper min dator ⬜
+## 1. Publicera appen via GitHub så telefonen slipper min dator ✅
 
-*Inlagd 2026-08-09. Väntar på ÄGARENS beslut — inte på teknik.*
+*Inlagd 2026-08-09, **klar 2026-08-15**. Ägaren sa ja till publikt repo med öppna ögon om
+att appen namnger och avbildar familjen. Sajten: <https://s1esset.github.io/bjorkvallens-varld/>
+· repo: `s1esset/bjorkvallens-varld` (publikt) · workflow: `.github/workflows/deploy.yml`.
+Utfallet står i `SESSIONS.md` v1.217.0. Kvar av utredningen nedan som referens.*
 
 **Frågan som ställdes:** kan PWA:n uppdateras genom ett GitHub-repo, eller krävs en server
 som körs?

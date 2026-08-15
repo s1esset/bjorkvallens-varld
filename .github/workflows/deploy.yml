@@ -1,0 +1,52 @@
+# Bygger PWA:n och publicerar dist/ till GitHub Pages vid varje push till master.
+# Telefonen oppnar https://<anvandare>.github.io/<repo>/ — inget behov av att datorn ar igang.
+# Kvalitetsgrinden (npm run check + npm run test) kors LOKALT fore commit, se CLAUDE.md.
+name: Publicera till GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: # gar att kora for hand fran Actions-fliken
+
+# Pages behover las- och id-token-rattigheter; write-all ges aldrig.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# En publicering i taget. Pagaende korning far ga klart sa en halvfardig
+# sajt aldrig hamnar ute — sista pushen vinner kon.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  bygg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  publicera:
+    needs: bygg
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

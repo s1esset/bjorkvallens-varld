@@ -371,7 +371,9 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 - **`old/` är arkiverat skräp** — läs, greppa eller citera aldrig något därunder.
 - **Grind före commit:** `npm run check` grön + `npm run test <id>` med 0 konsolfel och inga
   `fel`-nivåfynd. En commit per spel, explicita sökvägar, aldrig `git add -A`.
-  Commit-ämnen på asciiFold-svenska. Repot är lokalt — aldrig `git push`.
+  Commit-ämnen på asciiFold-svenska. **`git push` bara till `origin master`** (publikt repo
+  `bjorkvallens-varld`) — varje push publicerar sajten via GitHub Actions, så grinden måste
+  vara grön FÖRE pushen. Aldrig push till någon annan remote eller gren.
 - **Bumpa MINOR i `package.json`** per ändringsomgång; versionspillret är förälderns kvitto.
 - **Nya spel landar som ✅, aldrig 🔧** — kvalitetsgrindens 7 punkter i skill **spel-pipeline**.
 - **Mät, resonera inte.** Balans, trösklar och "känns det rätt?" avgörs med en sond som spelar

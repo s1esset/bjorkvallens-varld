@@ -236,6 +236,43 @@ export class Ansikte {
   }
 
   /**
+   * HÅLL ögonen slutna — ett TILLSTÅND, till skillnad från `blink()` som är en puls.
+   *
+   * `blunda({ v, h })` styr ett öga i taget: `{ v: true, h: false }` är en sovande som just
+   * öppnat höger öga. Det är riggens enda väg till "ett öga i taget" som varar; `blinkning()`
+   * är en wink som tar slut av sig själv, och den kan inte bära ett vaknande.
+   *
+   * ⚠️ SAKNAS PER-ÖGA-LAGREN (en äldre klippning) faller den tillbaka på det gemensamma
+   * `ogon`-lagret när BÅDA ögonen ska vara slutna, och gör ingenting alls när bara det ena
+   * ska vara det — samma nedgradering som `blink({ oga })` och `blick()` gör. Ett halvt
+   * blundande ansikte är sämre än ett som blundar med båda.
+   *
+   * ⚠️ `liv()`s blinkslinga fortsätter pulsa det gemensamma `ogon`-lagret under tiden. Det
+   * syns inte (locken är redan nere) och får inte stängas av: slingan är samma timer som
+   * håller ansiktet levande när han vaknar, och den startas bara om av `liv()`.
+   */
+  blunda({ v = false, h = false, tid = 0.25 } = {}) {
+    if (!this._alive) return
+    const par = [[this._ogonV, v], [this._ogonH, h]]
+    if (!this._ogonV || !this._ogonH) {
+      const s = this._ogon
+      if (!s || s.destroyed) return
+      return this._tonaOga(s, v && h ? 1 : 0, tid)
+    }
+    // Det gemensamma lagret måste ner när per-öga-lagren tar över, annars ligger två
+    // blundande lager på varandra och ett öppnat öga syns inte.
+    if (this._ogon && !this._ogon.destroyed) this._tonaOga(this._ogon, 0, tid)
+    for (const [s, pa] of par) if (s && !s.destroyed) this._tonaOga(s, pa ? 1 : 0, tid)
+  }
+
+  _tonaOga(s, mal, tid) {
+    if (s.alpha === mal) return
+    const st = { a: s.alpha }
+    return this._track(gsap.to(st, { a: mal, duration: tid, ease: 'sine.inOut',
+      onUpdate: () => { if (this._alive && !s.destroyed) s.alpha = st.a } }))
+  }
+
+  /**
    * Blicken: han tittar dit maten är. `dx` −1 (skärmens vänster) … 1 (höger), `dy` 0 … 1
    * (nedåt). Sätts direkt varje bildruta av den som drar, precis som `lutaMot()`.
    *

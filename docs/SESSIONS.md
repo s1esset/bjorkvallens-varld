@@ -36,7 +36,8 @@ generiska bottenkvitto. Och rummet runt den var en tom beige yta.
   (skaftöga, antenner, spetsigt öra) och en färgpyts. Rummet säger nu var man är och var
   delarna kommer ifrån.
 
-**Commits:** `d6e15b2` feat(bygg-en-kompis) · `d96b373` docs+v1.215.0
+**Commits:** `d6e15b2` feat(bygg-en-kompis) · `d96b373` docs+v1.215.0 · `a264f48` sessionslogg ·
+`bfc72f2` docs (två app-breda fällor i CLAUDE.md + `_kompisbild` i sondtabellen)
 
 **Tre fynd:**
 

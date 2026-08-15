@@ -98,13 +98,43 @@ kan inte låsa orienteringen alls utan att först vara i helskärm.
 från splashens första tryck. No-op i den installerade appen, på iOS (båda API:erna saknas) och
 i DEV (harnessen kör där, och en helskärm mitt i en körning byter viewport för 80 bildkollar).
 
-⚠️ **Verifieringen misslyckades och det ska inte läsas som "det fungerar".** I automatiserad
-desktop-Chrome avvisas begäran med `TypeError: not granted` trots att `hasBeenActive` är sant —
-en känd begränsning när en extension driver fliken, inte ett bevis om en riktig telefon. Det som
-ÄR mätt: rätt bygge kör (versionspillet v1.222), `requestFullscreen` finns i den levererade
-JS-filen, tappet går fram, och avslaget ger **noll konsolfel** — den tysta `catch`:en håller.
-Kvar att pröva med ett finger på en Android-telefon. Samma tysta `catch` dolde också orsaken
-till avslaget: den fick tas fram med en tillfällig lyssnare som sparade felet.
+⚠️ **Verifieringen misslyckades i webbläsaren — men ägaren bekräftade den på telefonen.** I
+automatiserad desktop-Chrome avvisas begäran med `TypeError: not granted` trots att
+`hasBeenActive` är sant (känd begränsning när en extension driver fliken, inget bevis om en
+riktig enhet). Det som gick att mäta där: rätt bygge kör, `requestFullscreen` finns i den
+levererade JS-filen, tappet går fram, och avslaget ger **noll konsolfel**. Läxan står kvar:
+hade jag skrivit "klart" efter den gröna delen hade påståendet varit obelagt — det var **ett
+finger på en Android-telefon** som avgjorde. Samma tysta `catch` dolde också orsaken till
+avslaget; den fick tas fram med en tillfällig lyssnare som sparade felet.
+
+**Ägarens två rapporter efter första telefontestet — helskärmen FUNGERAR (v1.223–1.224).**
+Landskapslåset slog till på riktig enhet; det var alltså bara automatiserad desktop-Chrome som
+inte kunde pröva det. Båda rapporterna hade samma rot: **föräldrasidan ligger inne i appens
+scope** (`scope: './'`).
+
+1. **"startsidan ska inte vara låst i landskap".** Öppnas `start.html` i det installerade
+   appfönstret ärver den manifestets `orientation: landscape`, och kommer man tillbaka från
+   spelet i samma flik kan appens eget lås ligga kvar. En **textsida** i tvingat landskap är
+   oanvändbar i handen. Sidan släpper nu låset själv: ur helskärm om den är där, `lock('any')`
+   (släpper i ett appfönster) med `unlock()` som reserv.
+2. **"installera-knappen är borta".** Den *ska* försvinna — Chrome erbjuder aldrig samma app
+   två gånger — men sidan blev **tyst** om det, och tystnad läses som en bugg. Nu sägs det rakt
+   ut: appen är redan installerad, starta den från hemskärmen. Display-mode-kollen omfattar
+   dessutom `fullscreen` och inte bara `standalone` — appen kör i `fullscreen`, så den grenen
+   hade aldrig kunnat slå till i appfönstret.
+
+**Och en tredje bugg som ingen letade efter:** `…/start.html?m5` visade **SPELET** — canvas,
+ingen installationsknapp — med installationssidans adress kvar i fältet. `navigateFallback:
+'index.html'` fångar varje navigering i scope som inte finns i precachen, och posten heter
+`start.html` utan frågesträng; workbox ignorerar bara `utm_*` och `fbclid`. En delad länk med
+`?ref=` eller en QR-generators parameter hade alltså landat föräldern i spelet.
+`navigateFallbackDenylist: [/start\.html/]` släpper igenom den till nätet. **Uppmätt i båda
+riktningarna:** före fixen `sidaAr: 'SPELET'`, efter fixen `sidaAr: 'FORALDRASIDAN'` med
+service workern `activated` och kontrollerande i båda fallen.
+
+Fyndet kom av att en sond letade efter fel sak: den frågade efter `.klar` och fick `null`. Först
+när jag frågade **vad dokumentet var** syntes att sidan var appen. En sond som bara rapporterar
+"elementet saknas" hade lika gärna kunnat läsas som ett trasigt CSS-namn.
 
 **Två fynd, båda från att TITTA:**
 

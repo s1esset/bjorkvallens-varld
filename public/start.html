@@ -103,7 +103,8 @@
 
   .notis { background: #FFF6E8; border-left: 4px solid var(--orange); border-radius: 0 14px 14px 0; padding: 14px 16px; margin: 0 0 20px; font-size: 16px }
   .klar { display: none; background: #EEF9EF; border-left: 4px solid var(--green); border-radius: 0 14px 14px 0; padding: 14px 16px; margin-bottom: 20px; font-size: 16px }
-  body.installerad .klar { display: block }
+  body.installerad .klar, body.nog-installerad .klar { display: block }
+  body.installerad .klar-webb, body.nog-installerad .klar-app { display: none }
   body.installerad #manuellt { opacity: .55 }
   body.installerad #installera-nu { display: none }
 
@@ -128,7 +129,10 @@
 
   <p class="adress">Adress att skriva in på telefonen:<br><code id="url">…</code></p>
 
-  <div class="klar">✓ Appen verkar redan vara installerad på den här enheten — starta den från hemskärmen i stället, så går den i helskärm.</div>
+  <div class="klar">
+    <span class="klar-app">✓ Du kör redan den installerade appen. Den här sidan behövs inte längre — tryck på <b>Öppna appen</b> ovan.</span>
+    <span class="klar-webb">✓ Appen verkar redan vara installerad på den här enheten — webbläsaren erbjuder aldrig samma app två gånger. <b>Starta den från hemskärmen</b>, så går den i helskärm och låst landskapsläge.</span>
+  </div>
 
   <section id="manuellt">
     <h2><span class="m">📱</span> Lägg den på hemskärmen</h2>
@@ -179,9 +183,32 @@
   document.getElementById('url').textContent = appUrl.replace(/^https?:\/\//, '');
 
   // Körs sidan redan som installerad app? Då är instruktionerna fel råd.
-  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+  if (window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches ||
+      navigator.standalone) {
     document.body.classList.add('installerad');
   }
+
+  // --- Foraldrasidan far ALDRIG vara last i landskap ------------------------
+  // Den ligger inne i appens scope (`scope: './'`), sa oppnas den i det
+  // installerade appfonstret arver den manifestets `orientation: landscape` -
+  // och en textsida i tvingat landskap ar oanvandbar pa en telefon i handen.
+  // Spelen ar ritade for landskap; den har sidan ar det inte.
+  // `lock('any')` slapper laset i ett appfonster; `unlock()` tar ett las som
+  // satts av appen tidigare i samma flik. Bada ar tysta best-effort.
+  (function slappOrientering() {
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(function () {});
+      }
+    } catch (e) { /* noop */ }
+    try {
+      var r = screen.orientation && screen.orientation.lock && screen.orientation.lock('any');
+      if (r && r.catch) r.catch(function () { try { screen.orientation.unlock(); } catch (e) {} });
+    } catch (e) {
+      try { screen.orientation.unlock(); } catch (e2) { /* noop */ }
+    }
+  })();
 
   // --- Installera direkt (Android/Chrome, Edge, Chrome pa dator) -------------
   // Knappen visas BARA nar webblasaren sjalv sager att appen gar att installera.
@@ -216,8 +243,20 @@
 
   window.addEventListener('appinstalled', function () {
     document.body.classList.remove('kan-installera');
-    document.body.classList.add('installerad');
+    document.body.classList.add('nog-installerad');
   });
+
+  // Stodjer webblasaren installation men erbjuder den ALDRIG? Da ar appen med
+  // stor sannolikhet redan installerad - Chrome erbjuder aldrig samma app tva
+  // ganger. Utan det har blev sidan tyst efter en lyckad installation: knappen
+  // bara forsvann, utan ett ord om varfor.
+  if ('onbeforeinstallprompt' in window) {
+    setTimeout(function () {
+      if (!vantandePrompt && !document.body.classList.contains('installerad')) {
+        document.body.classList.add('nog-installerad');
+      }
+    }, 2500);
+  }
 
   // Sidan registrerar med FLIT ingen service worker. Det gamla ravet att en PWA
   // behover en sw for att fa erbjudas for installation galler inte langre:

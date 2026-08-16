@@ -14,6 +14,63 @@ Format:
 
 ---
 
+## 2026-08-16 · v1.224.0 → v1.225.0 · NATTPASSET: tre ansiktsspel byggda på en natt
+
+**Byggt:** hela `docs/NATTPASS.md` genomfört — de tre spec-korten i IDEER post 2 är nu tre
+spelbara spel, alla ✅. Ansiktssektionen är uppe i **fyra** spel (83 totalt).
+
+- **`titt-ut-pappa` 🫣** — pappa gömmer sig i ett av sex gömställen och gömstället SKVALLRAR
+  (bukt i andningstakt · ögon över kanten som tittar dit barnet senast tryckte · fniss med
+  synlig skakning). "Fel" gömställe är en belöning: där bor en av sju roliga saker som blir
+  en insamlad kompis och jublar i finalen.
+- **`vakna-pappa` 😴** — sömnmätaren ÄR andningstakten (`liv({ takt })` 3,4 → 1,1 s), och
+  fönstrets måne/sol är den man ser. Sex verktyg med olika verkan och egna skämt. **Två
+  riggfunktioner används för första gången i hela appen:** ett öga i taget och ett långsamt
+  gap (gäspningen).
+- **`flugan-pa-nasan` 🪰** — blicken följer flugan varje bildruta, `traffar()` ger zonen, och
+  landar hon på näsan används `blick_ner` (han tittar ner på sin egen näsa).
+
+**Riggen fick en ny delad funktion:** `Ansikte.blunda({ v, h })` — håll ögonen slutna per öga,
+ett TILLSTÅND till skillnad från `blink()` som är en puls. `mata-munnen` omtestad grön.
+
+**Tre nya sonder**, och de bar hela kvaliteten: `_gommaprobe.mjs` · `_somnprobe.mjs` ·
+`_blickprobe.mjs`.
+
+**Vad natten faktiskt lärde ut — samma fel om och om igen:** *en mekanism kan vara byggd,
+inkopplad, korrekt skriven och ändå aldrig hända*, och testet är grönt hela tiden.
+
+- `titt-ut-pappa`: ett gemensamt fram-lager lade fönsterskåpet över pappas ansikte i krukan —
+  **runda 3 var i praktiken osynlig** (avslöjandet 6 639 px mot 28–33 000 för de andra).
+- `vakna-pappa`: **återinsomnandet hade en klippkant som var ett P0-brott** — 12 s mellan
+  tryck klarade målet, 15 s fastnade för alltid (16 tryck, aldrig förbi läge 1).
+- `flugan-pa-nasan`: flugan **föddes inne i målzonen** (spelet klart på en sekund), landade
+  **2 gånger på 240 s** och nådde aldrig näsan, **nysningen var död kod** (`NYS_TID` 6 s >
+  `SITT_MAX` 4,6 s), och kaffekoppens `kladdig()` var byggd men aldrig inkopplad.
+
+**Och sonderna hade själva fel tre gånger** — alla tre fångade av kontrollarmen: ett tidssteg
+större än spelets egen `dt`-klämma (klockan gick fem gånger för fort), en kontrollarm som
+kodifierade buggen som ett krav ("60 s ska aldrig klara det"), och en kontrollarm vars
+riktning inte gick att sluta sig till (den prövar nu båda och tar den friaste).
+
+**Mätfrågan i spec-kortet föll åt andra hållet:** blickflimret mättes till **1,55 byten/s**
+mot gränsen 3 (kontrollarm 0,55). Lågpassfiltret är därför medvetet INTE inkopplat — det
+hade fördröjt blicken, och blicken är själva själen i spelet.
+
+**Commits:** `4213191` feat(titt-ut-pappa) · `dd8e0af` feat(vakna-pappa) · `918da0f`
+feat(flugan-pa-nasan)
+
+**Grind:** `npm run check` 0/0 · `npm run test:all` **83/83 gröna** · alla 22 röstklipp
+genererade (0 failed).
+
+**Öppet:**
+- **INGEN PUSH** — ägarens uttryckliga beslut: varje push publicerar sajten publikt, och
+  ägaren tittar på bilderna och kör `npm run deploy` själv.
+- Ägarbeslut som väntar: ansiktssektionen har nu passerat tröskeln 2–3 spel (beslut 5 i
+  IDEER post 4) — ska den lyftas till en **egen flik** i biblioteket?
+- Inspelningslista som växte: `snark` · `god-morgon` · `gaspning` (`vakna-pappa` har
+  procedurell reserv och är grönt utan dem).
+- Per-spel-planer i `docs/games/<id>.md` §4.
+
 ## 2026-08-15 · v1.217.0 → v1.224.0 · appen ligger uppe: GitHub Pages i stället för min dator
 
 **Byggt:** BACKLOG post 1 stängd. Telefonen har hittills krävt att datorn är påslagen —

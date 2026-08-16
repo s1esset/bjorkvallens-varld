@@ -1,9 +1,11 @@
 # Vakna, pappa! (`vakna-pappa`)
 
-> roligt · tap · 2–5 · 📝
+> roligt · tap · 2–5 · ✅
 > Status: ⬜ ej granskat · 📝 doc skriven (plan klar) · 🔧 förbättringar pågår · ✅ marknadsklar
 
-*Spel 2 av 3 i nattpasset (`docs/NATTPASS.md`). Spec-kortet kommer ur `docs/IDEER.md` post 2 ⓶.*
+*Spel 2 av 3 i nattpasset 2026-08-16 (v1.225.0, se `docs/SESSIONS.md`). Körplanen
+`docs/NATTPASS.md` är struken — passet är kört, och spec-kortet ur `docs/IDEER.md` post 2 ⓶
+bor numera här nedan.*
 
 ## 0. Spec
 

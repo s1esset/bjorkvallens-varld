@@ -1,6 +1,6 @@
 // _blickprobe.mjs — FLIMRAR BLICKEN NÄR MÅLET ÄR EN FLUGA?
 //
-// Nattpassets enda i förväg utpekade MÄTFRÅGA (`docs/IDEER.md` post 2 ⓷, `docs/NATTPASS.md`
+// Nattpassets enda i förväg utpekade MÄTFRÅGA (`docs/IDEER.md` post 2 ⓷
 // steg 3a): `blick()`s hysteres (`BLICK_DOD 0,16` · `BLICK_HYST 0,14` · `BLICK_TID 0,13 s`)
 // är inställd på en LÅNGSAMT DRAGEN MATBIT. En fluga rör sig ryckigt och snabbt. Byts
 // blicklappen oftare än ~3 gånger per sekund läser det som ett ögonflimmer i stället för en

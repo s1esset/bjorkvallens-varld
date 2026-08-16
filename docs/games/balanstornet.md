@@ -123,3 +123,8 @@ inget. Fyndet syntes bara i skärmdumpen — test och check var gröna hela tide
 ⬜ **Aldrig speltestat av ett barn** — alla balanstal är sondmätta, och no-fail-trappan
 (stödet blir bredare efter var tredje tipp) är kodad och sondkörd men aldrig sedd i ett
 riktigt spelpass.
+
+`2026-08-16 · ägaruppdrag: höbalarna vid sidorna borttagna. De var rundade rektanglar med
+band tvärsöver — alltså exakt spelklossarnas silhuett — och lästes som "klossar jag kan dra
+dit". De fångade inget markkroppen (1900 px bred) inte redan fångar. Ersatta av buskar:
+organisk siluett, ingen rak kant, och INGEN fysikkropp (de ska inte gå att stapla på).`

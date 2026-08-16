@@ -5,7 +5,7 @@
 // Viktfördelningen vänster/höger ÄR spelet: en tung kloss ytterst lutar plankan tio
 // grader, en liten i mitten nästan ingenting, och lutningen syns direkt i vattenpasset
 // på stödet. Lutar det för mycket åt ett håll för länge tippar hela bygget ner i
-// höbalarna — vilket ALDRIG är ett fall: Bobo skrattar, och tornet byggs upp igen från
+// höet — vilket ALDRIG är ett fall: Bobo skrattar, och tornet byggs upp igen från
 // den bästa höjd barnet nått. Efter var tredje tipp blir stödpunkten bredare (no-fail).
 //
 // FYSIK (matter.js). Plankan är en dynamisk kropp fastnålad i stödpunkten med en
@@ -27,8 +27,9 @@
 //   fart för alltid och får lösaren att läsa kontakten som separerande.
 // · Stödmomentet drivs i `beforeStep()` (en gång per FAST steg), aldrig per bildruta:
 //   en tappad bildruta är 1–5 steg och konstanterna är per steg.
-// · Höbalarna studsar mjukt via `{ isStatic: true, studs }` — `restitution` på en
-//   statisk kropp nollas av `Body.setStatic` och gör ingenting.
+// · Sidodekoren har INGEN kropp. Höbalarna som stod där hade klossens silhuett (rundad
+//   rektangel med band) och lästes som byggbitar; buskarna som ersatte dem är rent
+//   organiska och får inte heller gå att stapla på.
 // · `addTarget`-noderna (kolumnmarkörerna) animeras ALDRIG — pilen som guppar är ett
 //   BARN till dem, så snäppytan står still. Samma sak för klossarna på bänken.
 import { Container, Graphics, Rectangle } from 'pixi.js'
@@ -63,7 +64,12 @@ const KOL = [PX - 180, PX - 60, PX + 60, PX + 180]
 const SLAPP_MIN_Y = 70
 const SLAPP_MAX_Y = PY - 130
 
-const HO_X = [180, 1100] // höbalarna vid sidorna (utanför plankans svepyta)
+// Sidorna bar förr två höbalar. De var rundade rektanglar med band tvärsöver — alltså
+// exakt samma silhuett som spelets klossar — och lästes som "klossar jag kan dra dit".
+// De fångade inget som marken inte redan fångar (plankans ändar pekar mot HO_HOG_X, och
+// markkroppen är 1900 px bred), så de är utbytta mot buskar: organisk siluett, inga
+// raka kanter, inget som liknar en byggbit.
+const BUSKE_X = [170, 1104] // buskar vid sidorna (utanför plankans svepyta)
 const HO_HOG_X = [340, 940] // utspritt hö rakt under plankans ändar — dit klossarna ramlar
 const FLAGG_X = 1214
 const BOBO_X = 790
@@ -215,12 +221,9 @@ export default {
     // Marken som kropp: klossarna ska landa mjukt i höet, inte falla ur bild.
     this._phys.rectangle(640, GY + 130, 1900, 260, { isStatic: true, friction: 1, label: 'mark' })
 
-    // Höbalar — de tar emot klossarna när tornet tippar. Mjuk låg studs via `studs`
-    // (`restitution` på en statisk kropp nollas av `Body.setStatic` och gör ingenting).
-    for (const hx of HO_X) {
-      this._root.addChild(makeHobal(hx, GY))
-      this._phys.rectangle(hx, GY - 27, 176, 54, { isStatic: true, studs: 0.06, friction: 1, label: 'ho' })
-    }
+    // Buskar vid sidorna — ren dekor UTAN kropp. En kloss som skulle nå så långt ut
+    // landar i markkroppen precis som förut; buskarna ska inte kunna staplas på.
+    for (const bx of BUSKE_X) this._root.addChild(makeBuske(bx, GY))
 
     // Flaggstången med målflaggan.
     this._flaggstang = new Graphics()
@@ -1199,19 +1202,32 @@ function ritaHohog(g, x, y) {
   }
 }
 
-// Höbal med strån och två band.
-function makeHobal(x, y) {
+// Buske: överlappande lövklot av olika storlek — ingen rak kant någonstans, så den kan
+// inte förväxlas med en byggkloss. Två små blommor gör den till en sak, inte en fläck.
+function makeBuske(x, y) {
   const c = new Container()
   const g = new Graphics()
-  g.ellipse(0, 4, 92, 12).fill({ color: 0x000000, alpha: 0.14 })
-  g.roundRect(-88, -54, 176, 54, 16).fill(topLightFill(0xe3c264)).stroke({ width: 4, color: 0xb99435 })
-  for (let i = 0; i < 16; i++) {
-    const sx = -80 + i * 10
-    g.moveTo(sx, -50 + ((i * 7) % 10))
-      .lineTo(sx + 4, -8 - ((i * 5) % 8))
-      .stroke({ width: 2, color: 0xc7a441, alpha: 0.6 })
+  g.ellipse(0, 2, 84, 12).fill({ color: 0x000000, alpha: 0.14 })
+  const klot = [
+    [-46, -26, 40, 30], [46, -24, 38, 28], [-16, -46, 44, 34],
+    [24, -44, 40, 31], [4, -20, 46, 32],
+  ]
+  for (const [kx, ky, rx, ry] of klot) g.ellipse(kx, ky, rx, ry).fill(0x4e9c50)
+  for (const [kx, ky, rx, ry] of klot) g.ellipse(kx - rx * 0.18, ky - ry * 0.3, rx * 0.62, ry * 0.5).fill({ color: 0x76c06a, alpha: 0.75 })
+  // Enstaka löv som sticker ut ur siluetten.
+  for (const [lx, ly, rot] of [[-82, -30, -0.5], [84, -34, 0.6], [-4, -74, 0.05]]) {
+    g.moveTo(lx, ly)
+      .quadraticCurveTo(lx + Math.cos(rot) * 20 - 8, ly + Math.sin(rot) * 20 - 10, lx + Math.cos(rot) * 26, ly + Math.sin(rot) * 26 - 4)
+      .quadraticCurveTo(lx + Math.cos(rot) * 12, ly + Math.sin(rot) * 12 + 9, lx, ly)
+      .fill(0x59aa57)
   }
-  for (const bx of [-40, 40]) g.rect(bx - 5, -54, 10, 54).fill({ color: 0x8a5a3b, alpha: 0.75 })
+  for (const [fx, fy] of [[-40, -44], [38, -38], [-6, -12]]) {
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2
+      g.circle(fx + Math.cos(a) * 6, fy + Math.sin(a) * 6, 5).fill(0xfff0b0)
+    }
+    g.circle(fx, fy, 4.5).fill(0xf2b33d)
+  }
   g.eventMode = 'none'
   c.addChild(g)
   c.position.set(x, y)

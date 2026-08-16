@@ -74,14 +74,34 @@ export const SLOTS = [
   { id: 'L1', sort: 'lag', djup: 1.00, x: 130, maxHit: 212 },
   { id: 'L2', sort: 'lag', djup: 1.00, x: 997, maxHit: 212 },
   // Taklampan hänger — `y` är lampskärmens undre rand, inte en golvlinje.
-  { id: 'T1', sort: 'tak', djup: 0.50, x: 548, y: 326, maxHit: 244 },
+  //
+  // ⚠️ `s` ÖVERSTYR DJUPSKALAN, och det är rätt verktyg för "gör lampan lite mindre"
+  //    (ägarens punkt 2). Hela möbelns geometri — kant, ansiktsläge, träffyta, bukt —
+  //    ligger i LOKALA koordinater och multipliceras med samma tal, så en ändrad skala
+  //    kan aldrig göra reglerna i `validera()` osanna. 0,86 → 0,75 = 13 % mindre lampa,
+  //    och det är den luckan de två små väggplatserna nedan behöver.
+  { id: 'T1', sort: 'tak', djup: 0.50, x: 548, y: 326, s: 0.75, maxHit: 244 },
+  // De två SMÅ väggplatserna (ägarens punkt 3): tavlan och klockan var ren dekor i
+  // `rummet.byggRum` och är nu riktiga gömställen. Pappa krymper bakom dem — `ansSkala`
+  // i MOBLER — och det är hela skämtet med dem. `y` är ramens/urtavlans NEDRE kant.
+  // ⚠️ `spegel` SPEGLAR ÅT VILKET HÅLL HAN LUTAR SIG UT, och det är en egenskap hos
+  //    PLATSEN och inte hos möbeln — båda möblerna kan stå på båda platserna. På W1 är
+  //    ytan fri åt HÖGER (fram till taklampan på x 450); på W2 är den fri åt VÄNSTER
+  //    (taklampan slutar på 646, gardinen börjar på 879). Lutar han åt fel håll hamnar
+  //    han bakom en möbel i ett NÄRMARE lager och avslöjandet blir osynligt.
+  { id: 'W1', sort: 'liten', djup: 0.00, x: 260, y: 300, maxHit: 155, spegel: 1 },
+  { id: 'W2', sort: 'liten', djup: 0.00, x: 781, y: 300, maxHit: 155, spegel: -1 },
 ]
 
 export const SLOT = Object.fromEntries(SLOTS.map((s) => [s.id, s]))
 
 /** Ankarpunkt + skala för en plats. Allt annat i spelet räknas ur den här. */
 export function platsInfo(slot) {
-  return { x: slot.x, y: slot.y != null ? slot.y : golvY(slot.djup), s: skala(slot.djup) }
+  return {
+    x: slot.x,
+    y: slot.y != null ? slot.y : golvY(slot.djup),
+    s: slot.s != null ? slot.s : skala(slot.djup),
+  }
 }
 
 // ------------------------------------------------------------------ möbler ---
@@ -93,11 +113,47 @@ export function platsInfo(slot) {
 //   ansY   ansiktets mitt när han är gömd
 //   hit    träffytan före skalning
 //   visW   den ritade formens bredd (för `validera()` — konst och träffyta är två budgetar)
+//
+// TRE VALFRIA FÄLT, alla tillagda för ägarens rapport 2026-08-16:
+//   ansSkala  hur stort pappas huvud är I DEN HÄR möbeln, som andel av platsens skala.
+//             Tavlan och klockan är för små för ett helt ansikte — han krymper bakom dem,
+//             och det ÄR skämtet. `validera()` räknar täckningsreglerna mot samma tal, så
+//             en för stor `ansSkala` faller på mätningen och inte i bild.
+//   kika      var ögonen dyker upp, som en förskjutning från GÖMDA läget (lokala px).
+//             Utan den räknas den ur `kantY` — "ögonen över överkanten" — och det är rätt
+//             för en korg men fel för en dörr och en tavla: DÄR tittar man ut vid SIDAN.
+//   avsloja   samma sak för hela avslöjandet. Dörren var ägarens punkt 1: hans huvud kom
+//             upp OVANFÖR dörrkarmen och hängde fritt i väggen, för att `_uppY` alltid
+//             lade hakan strax ovanför `kantY`. Nu lutar han sig bara ut ur dörröppningen.
 export const MOBLER = {
   // --- vägg (bakre raden) ---
   gardin: { sort: 'vagg', kantY: -298, ansX: 0, ansY: -140, hit: { x: -135, y: -300, w: 270, h: 252 }, visW: 358 },
-  dorr: { sort: 'vagg', kantY: -300, ansX: 0, ansY: -142, hit: { x: -125, y: -300, w: 250, h: 252 }, visW: 272 },
+  // ⚠️ DÖRREN GÖMMER HONOM I EN ÖPPNING, INTE BAKOM EN KANT. Han står redan mitt i
+  //    dörrhålet när han är gömd (bladet täcker honom), så avslöjandet är en LUTNING ut
+  //    genom öppningen — inte ett lyft. Kikandet sker genom en glugg, se `glugg()` i
+  //    `rummet.byggDorr`: bladet öppnas en springa och halva ansiktet syns i den, klippt
+  //    av den högra karmen (som ritas i fram-delen, alltså ovanpå honom).
+  dorr: {
+    sort: 'vagg', kantY: -300, ansX: 0, ansY: -142, hit: { x: -125, y: -300, w: 250, h: 252 }, visW: 272,
+    kika: { dx: 30, dy: -6 }, avsloja: { dx: 22, dy: -34, lut: 0.09 },
+  },
   bokhylla: { sort: 'vagg', kantY: -300, ansX: 0, ansY: -142, hit: { x: -105, y: -300, w: 210, h: 252 }, visW: 216 },
+
+  // --- små saker på väggen: han krymper bakom dem och tittar ut vid SIDAN ---
+  tavla: {
+    sort: 'liten', kantY: -208, ansX: 0, ansY: -100, ansSkala: 0.55,
+    hit: { x: -104, y: -139, w: 208, h: 133 }, visW: 222,
+    // ⚠️ HAN LUTAR SIG ÅT ETT HÅLL OCH RAMEN GLÄNTAR ÅT DET ANDRA. Gick de åt samma håll
+    //    (första försöket) sprang ramen ifatt honom och täckte 40 av 63 px av ansiktet i
+    //    själva avslöjandet — han hittades och försvann i samma bildruta. `dx` speglas av
+    //    platsens `spegel`, och ramen gläntar alltid åt motsatt håll.
+    kika: { dx: 90, dy: -4 }, avsloja: { dx: 118, dy: -14, lut: 0.13 },
+  },
+  klocka: {
+    sort: 'liten', kantY: -208, ansX: 0, ansY: -104, ansSkala: 0.55,
+    hit: { x: -104, y: -139, w: 208, h: 133 }, visW: 208,
+    kika: { dx: 90, dy: -4 }, avsloja: { dx: 118, dy: -14, lut: 0.13 },
+  },
 
   // --- golv (fria möbler) ---
   tvattkorg: { sort: 'golv', kantY: -292, ansX: 0, ansY: -134, hit: { x: -111, y: -292, w: 222, h: 280 }, visW: 248 },
@@ -107,6 +163,10 @@ export const MOBLER = {
 
   // --- låga saker närmast kameran ---
   filt: { sort: 'lag', kantY: -118, ansX: 0, ansY: 48, hit: { x: -105, y: -124, w: 210, h: 132 }, visW: 240 },
+  // Trasmattan på golvet (ägarens punkt 4). Han ligger UNDER den som en kulle och lyfter
+  // hörnet när han hittas — samma familj som filten, men med en egen silhuett och ett eget
+  // ljud (prassel i stället för tygsvep).
+  matta: { sort: 'lag', kantY: -112, ansX: 0, ansY: 54, hit: { x: -104, y: -120, w: 208, h: 128 }, visW: 236 },
   kuddhog: { sort: 'lag', kantY: -122, ansX: 0, ansY: 44, hit: { x: -100, y: -124, w: 200, h: 132 }, visW: 240 },
   // ⚠️ KRUKAN ÄR MED FLIT FÖR LITEN — spelets skämt i runda 3. Se rummet.js.
   // `visW` 214 sedan hängbladen kom till — de är där för att täcka fotorutans raka
@@ -117,7 +177,15 @@ export const MOBLER = {
   // ⚠️ `kantY` är INTE skärmens överkant, se den långa noten i rummet.js — den är stämd så
   //    att avslöjandet hamnar i bild. `tackY` är den VERKLIGA överkant som täcker honom, och
   //    det är den `validera()` mäter mot. Utan skillnaden går lampan aldrig igenom mätningen.
-  lampa: { sort: 'tak', kantY: 60, tackY: -310, ansX: 0, ansY: -142, hit: { x: -140, y: -292, w: 280, h: 280 }, visW: 268 },
+  // ⚠️ `avsloja` HÅLLER HAKAN INNE I GLASKRAGEN. Grundformeln lade hakan strax ovanför
+  //    `kantY` — alltså på lokal 143 — och där finns ingenting: en taklampa har inget under
+  //    sig, och fotorutans RAKA UNDERKANT stod bar i bild (uppmätt i `_gomprobe`: kragen
+  //    skar över munnen och hela hakpartiet låg utanför). Med +44 landar hakan på lokal 44
+  //    och fotokanten på 52, båda innanför kragens band −6 … 56 i `rummet.byggLampa`.
+  lampa: {
+    sort: 'tak', kantY: 60, tackY: -310, ansX: 0, ansY: -142, hit: { x: -140, y: -292, w: 280, h: 280 }, visW: 268,
+    avsloja: { dx: 0, dy: 44 },
+  },
 }
 
 /** Alla möbelnycklar per sort — katalogen spelet lottar sin uppsättning ur. */
@@ -267,12 +335,20 @@ export function validera() {
     }
   }
 
-  // Gömmer möbeln faktiskt pappa? Två regler ur rummet.js, mätta i lokala koordinater.
+  // Gömmer möbeln faktiskt pappa? Tre regler ur rummet.js, mätta i lokala koordinater —
+  // och alla tre mot möbelns EGEN `ansSkala`, annars går tavlan och klockan aldrig igenom.
   for (const [key, m] of Object.entries(MOBLER)) {
     if (m.skamt) continue
+    const a = m.ansSkala ?? 1
     const tak = m.tackY != null ? m.tackY : m.kantY
-    if (m.ansY < tak + 152) fel.push(`${key}: ansY ${m.ansY} < täckande överkant+152 (${tak + 152}) — hjässan sticker upp`)
-    if (m.visW < ANS_BREDD + 12) fel.push(`${key}: ritad bredd ${m.visW} täcker inte ansiktets ${ANS_BREDD} px`)
+    const hjassa = tak + (ANS_HJASSA + 2) * a
+    if (m.ansY < hjassa - 0.01) fel.push(`${key}: ansY ${m.ansY} < täckande överkant + hjässa (${hjassa.toFixed(1)}) — hjässan sticker upp`)
+    if (m.visW < ANS_BREDD * a + 12) fel.push(`${key}: ritad bredd ${m.visW} täcker inte ansiktets ${(ANS_BREDD * a).toFixed(0)} px`)
+    // …och möbelns underkant (lokalt 0) måste nå under hakan. Reglerna gällde förut bara
+    // uppåt, och det höll så länge varje möbel gick ner till golvet. En TAVLA gör inte det.
+    if (m.sort === 'liten' && ANS_HAKA * a > -m.ansY + 0.01) {
+      fel.push(`${key}: hakan (${(m.ansY + ANS_HAKA * a).toFixed(1)}) hamnar under ramens underkant (0)`)
+    }
   }
 
   return fel

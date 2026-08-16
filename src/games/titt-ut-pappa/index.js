@@ -66,6 +66,17 @@ const ROST = {
 }
 const FYND_MINER = ['forvanad', 'skratt', 'retas', 'gasp']
 
+// MÖBELNS EGET LJUD i skvallret. Bara de möbler som faktiskt LÅTER står här — en kartong
+// som knastrar och en dörr som gnisslar är två olika ledtrådar, medan en tyst tvättkorg
+// bara ska skaka. Tonen är materialets röst: trä lågt och sågtandat, glas högt och rent.
+const MOBEL_LJUD = {
+  dorr: { sfx: 'soft', ton: [210, 128], dur: 0.55, typ: 'sawtooth' },   // gångjärnen gnisslar
+  tavla: { sfx: 'tap', ton: [330, 300], dur: 0.2, typ: 'triangle' },    // ramen skramlar mot väggen
+  klocka: { sfx: 'tap', ton: [1046, 990], dur: 0.22, typ: 'sine' },     // urverket tickar till
+  matta: { sfx: 'soft', ton: [520, 380], dur: 0.3, typ: 'sawtooth' },   // prassel i trasväven
+  kartong: { sfx: 'soft', ton: [280, 220], dur: 0.26, typ: 'sawtooth' },
+}
+
 // Rummet byter om sig mellan rundorna — och det ska HÖRAS, annars är det bara en möbel som
 // hoppade. Två repliker så det inte blir tapet av den femte gången.
 const BYT_REPLIKER = ['Oj, saker har bytt plats i rummet!', 'Titta, möblerna flyttade på sig!']
@@ -374,6 +385,16 @@ export default {
 
   // ---------------------------------------------------------------- rundan ---
 
+  /**
+   * Hur stor en kompis är i ett gömställe. Följer platsens djup som allt annat — men en
+   * tavla och en klocka är för små för en nalle i full storlek, precis som de är för små
+   * för ett helt ansikte. Golvet 0,62 hindrar att den krymper till en prick.
+   */
+  _kompisSkala(plats) {
+    const a = MOBLER[plats.key]?.ansSkala ?? 1
+    return plats.s * Math.max(0.62, a)
+  },
+
   /** Möbelns kant i VÄRLDSkoordinater — den linje pappa tittar över, skalad av djupet. */
   _kantVarld(plats) {
     return plats.ankare.y + MOBLER[plats.key].kantY * plats.s
@@ -392,7 +413,14 @@ export default {
     }
     const tak = this._platser.filter((p) => p.slot.sort === 'tak')
     if (tak.length && Math.random() < 0.125) return randomFrom(tak)
-    const vanliga = this._platser.filter((p) => p.slot.sort !== 'tak' && !MOBLER[p.key].skamt)
+    // ⚠️ DE SMÅ VÄGGSAKERNA ÄR EN GODBIT, INTE VAR FEMTE RUNDA. Rummet gick från sju
+    //    gömställen till nio, och lottas alla lika ofta blir leken mätbart svårare för en
+    //    tvååring (åtta lika sannolika ställen i stället för sex). De lottas därför som
+    //    taklampan — sällan, och aldrig i första rundan, så det finns något kvar att
+    //    upptäcka för en femåring som redan kan rummet.
+    const sma = this._runda >= 2 ? this._platser.filter((p) => p.slot.sort === 'liten') : []
+    if (sma.length && Math.random() < 0.22) return randomFrom(sma)
+    const vanliga = this._platser.filter((p) => p.slot.sort !== 'tak' && p.slot.sort !== 'liten' && !MOBLER[p.key].skamt)
     const val = vanliga.filter((p) => p !== forra)
     if (val.length) return randomFrom(val)
     return randomFrom(vanliga.length ? vanliga : this._platser)
@@ -420,7 +448,7 @@ export default {
         const kompis = makeKompis(key)
         if (kompis) {
           // Kompisen får PLATSENS skala — samma funktion som möbeln och pappas huvud.
-          kompis.view.scale.set(plats.s)
+          kompis.view.scale.set(this._kompisSkala(plats))
           const M = MOBLER[plats.key]
           kompis.view.position.set(plats.ankare.x + (M.ansX || 0) * plats.s, this._kantVarld(plats) + 40 * plats.s)
           kompis.view.visible = false
@@ -487,17 +515,49 @@ export default {
     this._satZDjup(plats.slot)
     const M = MOBLER[plats.key]
     const s = plats.s
-    a.view.scale.set(s)
+    // ⚠️ ANSIKTETS SKALA ÄR PLATSENS SKALA × MÖBELNS EGEN `ansSkala`. Tavlan och klockan är
+    //    för små för ett helt ansikte, och att han KRYMPER bakom dem är hela skämtet med
+    //    dem. `layout.validera()` räknar täckningen mot samma tal.
+    const as = s * (M.ansSkala ?? 1)
+    a.view.scale.set(as)
     const x = plats.ankare.x + (M.ansX || 0) * s
     const y = plats.ankare.y + M.ansY * s
+    this._gomdX = x
     this._gomdY = y
-    // Var ansiktet ska stå när ögonen precis tittar över kanten: ögonlinjen 26 px OVANFÖR
-    // möbelns överkant (i möbelns egen skala).
-    this._kikY = this._kantVarld(plats) - (26 + (this._ogonDy || 0)) * s
-    // …och när han är HITTAD: hakan strax ovanför kanten, hela ansiktet fritt.
-    this._uppY = this._kantVarld(plats) - ANS_H * 0.42 * s
-    if (this._kikY > y) this._kikY = y // aldrig "kika" nedåt
     gsap.killTweensOf(a.view)
+    a.view.rotation = 0
+
+    // ⚠️ VARIFRÅN HAN TITTAR UT ÄR EN EGENSKAP HOS MÖBELN, INTE EN FORMEL. Grundfallet är
+    //    "över kanten" och det är rätt för en korg, en kartong och en fåtölj. För en DÖRR,
+    //    en TAVLA och en KLOCKA är det fel: där finns ingen kant att titta över, bara en
+    //    sida att luta sig ut vid — och den gamla formeln lyfte huvudet upp OVANFÖR
+    //    dörrkarmen där det hängde fritt i väggen (ägarens punkt 1).
+    const K = M.kika
+    const A = M.avsloja
+    // Åt vilket håll han lutar sig ut ägs av PLATSEN (`slot.spegel`), inte av möbeln:
+    // tavlan och klockan kan stå på båda väggplatserna, och den fria ytan ligger åt olika
+    // håll på de två. Utan speglingen hamnar han bakom en möbel i ett närmare lager.
+    const sp = plats.slot.spegel ?? 1
+    if (K) {
+      this._kikX = x + K.dx * s * sp
+      this._kikY = y + K.dy * s
+    } else {
+      this._kikX = x
+      // Ögonlinjen 26 px OVANFÖR möbelns överkant (i ansiktets egen skala).
+      this._kikY = this._kantVarld(plats) - (26 + (this._ogonDy || 0)) * as
+      if (this._kikY > y) this._kikY = y // aldrig "kika" nedåt
+    }
+    if (A) {
+      this._uppX = x + A.dx * s * sp
+      this._uppY = y + A.dy * s
+      this._uppLut = (A.lut || 0) * sp
+    } else {
+      this._uppX = x
+      // …och när han är HITTAD: hakan strax ovanför kanten, hela ansiktet fritt.
+      this._uppY = this._kantVarld(plats) - ANS_H * 0.42 * as
+      this._uppLut = 0
+    }
+
     if (direkt) {
       a.view.position.set(x, y)
     } else {
@@ -520,25 +580,45 @@ export default {
     this._kikar = true
     const dx = Math.max(-1, Math.min(1, (this._sistTryck.x - a.view.x) / 420))
     const dy = Math.max(0, Math.min(1, (this._sistTryck.y - this._kikY) / 340))
+    // Dörren måste öppna en SPRINGA för att ögat ska synas — bladet täcker annars hela
+    // öppningen och kikandet blir en osynlig tween. Möbler utan glugg struntar i anropet.
+    plats.g.glugg?.()
     const tl = gsap.timeline({
       onComplete: () => { this._kikar = false },
     })
     tl.to(a.view, {
-      y: this._kikY, duration: 0.3, ease: 'back.out(1.6)',
+      x: this._kikX, y: this._kikY, duration: 0.3, ease: 'back.out(1.6)',
       onComplete: () => { if (this._alive) a.blick(dx, dy) },
     })
     tl.to(a.view, {
-      y: this._gomdY, duration: 0.26, delay: SKVALLER.kikaHall, ease: 'power2.in',
-      onStart: () => { if (this._alive) a.blick(0, 0) },
+      x: this._gomdX, y: this._gomdY, duration: 0.26, delay: SKVALLER.kikaHall, ease: 'power2.in',
+      onStart: () => {
+        if (!this._alive) return
+        a.blick(0, 0)
+        plats.g.stangGlugg?.()
+      },
     })
     this._tl = tl
   },
 
-  /** Fnisset: pappas eget skratt UR gömstället, plus en synlig skakning i just det möblet. */
+  /**
+   * Fnisset: pappas eget skratt UR gömstället, plus en synlig skakning i just det möblet.
+   *
+   * ÄGARENS PUNKT 1, andra halvan — "ljud kommer från dörren som en ledtråd". Möbeln får
+   * numera sitt EGET ljud ovanpå skrattet: dörren gnisslar på gångjärnen, tavlan och
+   * klockan skramlar mot väggen, mattan prasslar. Det är samma information som skakningen,
+   * fast för örat — och ett barn som tittar åt fel håll hör ändå var han är.
+   */
   _fniss(ctx) {
     const plats = this._pappaPlats
     if (!plats || this._busy) return
     plats.g.skaka?.()
+    plats.g.gnissla?.()
+    const L = MOBEL_LJUD[plats.key]
+    if (L) {
+      ctx.services.audio.sfx(L.sfx)
+      ctx.services.audio.tone({ freq: L.ton[0], slideTo: L.ton[1], dur: L.dur, type: L.typ, vol: 0.15 })
+    }
     this._sagPappa(ctx, 'skratt')
     // Ett litet dammoln vid kanten — skvallret ska synas i en STILLBILD också.
     puff(ctx.fxLayer, plats.ankare.x, this._kantVarld(plats), { count: 5, color: 0xffffff })
@@ -586,7 +666,7 @@ export default {
       fran.innehall = innehall
       fran.kompis = kompis
       if (kompis && kompis.view && !kompis.view.destroyed) {
-        kompis.view.scale.set(fran.s)
+        kompis.view.scale.set(this._kompisSkala(fran))
         const M = MOBLER[fran.key]
         kompis.view.position.set(fran.ankare.x + (M.ansX || 0) * fran.s, this._kantVarld(fran) + 40 * fran.s)
       }
@@ -648,7 +728,8 @@ export default {
       a.blick(0, 0)
       a.slappMin?.()
       gsap.to(a.view, {
-        y: this._uppY, duration: 0.34, ease: 'back.out(1.7)',
+        x: this._uppX, y: this._uppY, rotation: this._uppLut || 0,
+        duration: 0.34, ease: 'back.out(1.7)',
         onComplete: () => {
           if (!this._alive) return
           a.min(min, { hall: 1.2 })
@@ -696,8 +777,16 @@ export default {
     const M = MOBLER[plats.key]
     k.visible = true
     k.position.set(plats.ankare.x + (M.ansX || 0) * s, this._kantVarld(plats) + 30 * s)
+    // ⚠️ EN KOMPIS KOMMER UT DÄR PAPPA SKULLE HA GJORT DET. Grundfallet "upp över kanten"
+    //    gäller en korg och en kartong; ur en TAVLA hade nallen svävat ovanför ramen i
+    //    tapeten — exakt samma fel som ägaren rapporterade om dörren, fast för leksakerna.
+    const A = M.avsloja
+    const sp = plats.slot.spegel ?? 1
+    const mal = A
+      ? { x: plats.ankare.x + ((M.ansX || 0) + A.dx * sp) * s, y: plats.ankare.y + (M.ansY + A.dy) * s }
+      : { x: k.x, y: this._kantVarld(plats) - 62 * s }
     gsap.to(k, {
-      y: this._kantVarld(plats) - 62 * s, duration: 0.34, ease: 'back.out(2)',
+      x: mal.x, y: mal.y, duration: 0.34, ease: 'back.out(2)',
       onComplete: () => { if (this._alive && !k.destroyed) kompis.reagera?.() },
     })
     this._kompisLjud(ctx, kompis)

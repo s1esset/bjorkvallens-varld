@@ -220,9 +220,9 @@ export function byggRum(ctx) {
   bak.addChild(_lopare())
 
   // --- väggdekor -----------------------------------------------------------
-  // Tavla och klocka ligger i de två väggfickor ingen möbel och ingen träffyta rör:
-  // x 285–435 och x 790–870, båda under tavellisten och i x-band ingen möbel når.
-  bak.addChild(_tavla(360, 260), _klocka(830, 262))
+  // ⚠️ TAVLAN OCH KLOCKAN RITAS INTE HÄR LÄNGRE. De var dekor på (360,260) och (830,262);
+  //    sedan 2026-08-16 är de riktiga gömställen på platserna W1/W2 (`layout.SLOTS`), och
+  //    en ritad kopia här hade blivit en andra tavla bredvid den riktiga.
   // Ett litet klosstorn på golvet mellan mellanradens och främre radens möbler (x 525–565).
   bak.addChild(_klosstorn(545, 616))
 
@@ -268,42 +268,6 @@ function _lopare() {
     g.moveTo(lerp(xTR, xBR, t), yy).lineTo(lerp(xTR, xBR, t) + 13, yy + 3)
       .stroke({ width: 3, color: F.loparLjus, alpha: 0.8 })
   }
-  return g
-}
-
-// En tavla: ram, passepartout och ett litet landskap i kritstreck.
-function _tavla(x, y) {
-  const g = nyG()
-  const w = 150
-  const h = 112
-  g.roundRect(x - w / 2 + 5, y - h / 2 + 8, w, h, 6).fill({ color: F.morkt, alpha: 0.13 })
-  g.roundRect(x - w / 2, y - h / 2, w, h, 6).fill(topLightFill(F.tra)).stroke({ width: 4, color: F.traMork })
-  g.roundRect(x - w / 2 + 11, y - h / 2 + 11, w - 22, h - 22, 3).fill(0xfffaf0)
-  g.roundRect(x - w / 2 + 19, y - h / 2 + 19, w - 38, h - 38, 2).fill(verticalFill(0xbfe4f7, 0xe8f6fd))
-  g.circle(x + 32, y - 20, 10).fill(0xffd766)
-  g.moveTo(x - 56, y + 18).quadraticCurveTo(x - 18, y - 14, x + 14, y + 18)
-    .lineTo(x - 56, y + 18).fill(0x8ec97a)
-  g.moveTo(x - 12, y + 18).quadraticCurveTo(x + 24, y - 4, x + 56, y + 18)
-    .lineTo(x - 12, y + 18).fill(0x67ab63)
-  g.roundRect(x - w / 2 + 19, y + h / 2 - 27, w - 38, 8, 2).fill({ color: 0x4f8f52, alpha: 0.5 })
-  return g
-}
-
-// En väggklocka: vit urtavla, ring, streck och två visare.
-function _klocka(x, y) {
-  const g = nyG()
-  g.circle(x + 3, y + 5, 40).fill({ color: F.morkt, alpha: 0.12 })
-  g.circle(x, y, 40).fill(topLightFill(F.tra)).stroke({ width: 4, color: F.traMork })
-  g.circle(x, y, 31).fill(sphereFill(0xfffaf0, { highlight: 0.5, dark: 0.14 }))
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2
-    g.moveTo(x + Math.cos(a) * 26, y + Math.sin(a) * 26)
-      .lineTo(x + Math.cos(a) * (i % 3 === 0 ? 19 : 22), y + Math.sin(a) * (i % 3 === 0 ? 19 : 22))
-      .stroke({ width: i % 3 === 0 ? 3 : 2, color: F.morkt, alpha: 0.6 })
-  }
-  g.moveTo(x, y).lineTo(x + 2, y - 18).stroke({ width: 4, color: F.morkt })
-  g.moveTo(x, y).lineTo(x + 20, y + 7).stroke({ width: 3, color: F.morkt })
-  g.circle(x, y, 4).fill(0xe0603f)
   return g
 }
 
@@ -550,7 +514,15 @@ function byggDorr(to) {
     .quadraticCurveTo(-66, -104, -40, -122).quadraticCurveTo(-30, -190, -66, -244)
     .fill({ color: 0x5d7f9c, alpha: 0.85 })
 
+  // ⚠️ TVÅ NODER TILL DÖRRBLADET, OCH DET ÄR INTE PRYDNAD. `bukt()` skriver `buktNod.scale`
+  //    VARJE BILDRUTA (det är andningen genom möbeln), och bladet är buktnoden. Låg
+  //    öppningen på samma `scale.x` slog andningen tillbaka den varenda bildruta: `glugg()`
+  //    var en tween som aldrig syntes — dörren stod stängd medan pappa kikade bakom den,
+  //    utan ett konsolfel och med grönt test. (`oppna()` slapp undan bara därför att
+  //    `_busy` pausar bukten under avslöjandet — en ren tillfällighet.)
+  //    `blad` = bukt + vilorörelse. `bladOppna` = öppningen. Samma vridpunkt, olika ägare.
   const blad = nyC()
+  const bladOppna = nyC()
   const bladG = nyG()
   bladG.roundRect(-112, -300, 224, 308, 5).fill(verticalFill(F.dorrblad, F.dorrMork))
     .stroke({ width: 4, color: F.dorrMork })
@@ -562,7 +534,10 @@ function byggDorr(to) {
   bladG.roundRect(74, -158, 16, 44, 7).fill(cylinderFill(F.metall))
   bladG.circle(82, -136, 13).fill(sphereFill(0xe8c86a))
   bladG.rect(-112, -300, 10, 308).fill({ color: 0xffffff, alpha: 0.22 })
-  blad.addChild(bladG)
+  bladOppna.addChild(bladG)
+  bladOppna.pivot.set(-112, -300)
+  bladOppna.position.set(-112, -300)
+  blad.addChild(bladOppna)
   blad.pivot.set(-112, -300)
   blad.position.set(-112, -300)
 
@@ -579,9 +554,181 @@ function byggDorr(to) {
     buktNod: blad,
     bukt: { sx: 0.035, sy: -0.015 },
     livNoder: [{ n: blad, bob: 1.2, sway: 0.004, duration: 4.2 }],
-    noder: [blad, bladG, karm, bakG],
-    oppna: () => { to(blad.scale, { x: 0.16, duration: 0.38, ease: 'power2.out' }) },
-    stang: () => { to(blad.scale, { x: 1, duration: 0.34, ease: 'back.out(1.4)' }) },
+    noder: [blad, bladOppna, bladG, karm, bakG],
+    oppna: () => { to(bladOppna.scale, { x: 0.16, duration: 0.38, ease: 'power2.out' }) },
+    stang: () => { to(bladOppna.scale, { x: 1, duration: 0.34, ease: 'back.out(1.4)' }) },
+
+    // ⚠️ GLUGGEN ÄR DÖRRENS SKVALLER (ägarens punkt 1, andra halvan). Bladet krymper mot
+    //    VÄNSTER karm (pivot −112), så en `scale.x` på 0,78 lämnar en springa på 49 px vid
+    //    den högra karmen. Pappa skjuts samtidigt dit av `MOBLER.dorr.kika`, och den högra
+    //    karmen — som ritas i FRAM-delen, alltså ovanpå honom — klipper ansiktet i springan.
+    //    Ett halvt öga i en dörrspringa, inte ett huvud ovanför karmen.
+    glugg: () => { to(bladOppna.scale, { x: 0.66, duration: 0.26, ease: 'power2.out' }) },
+    stangGlugg: () => { to(bladOppna.scale, { x: 1, duration: 0.3, ease: 'power2.inOut' }) },
+
+    // GNISSLET: dörren rör sig en aning på gångjärnen. Ljudet läggs på av spelet — det här
+    // är bilden som gör ljudet begripligt (P0: orsaken ska vara synlig).
+    gnissla: () => {
+      to(bladOppna.scale, { x: 0.94, duration: 0.34, ease: 'sine.inOut', yoyo: true, repeat: 1 })
+      to(karm, { rotation: 0.004, duration: 0.22, ease: 'sine.inOut', yoyo: true, repeat: 3 })
+    },
+  }
+}
+
+// ⚠️ TAVLAN OCH KLOCKAN ÄR GÖMSTÄLLEN, INTE DEKOR (ägarens punkt 3). De hängde förut som
+//    ritade detaljer i `byggRum` och är nu riktiga möbler med bak-/fram-del. Pappa krymper
+//    bakom dem (`MOBLER.tavla.ansSkala`) och tittar ut vid SIDAN — en tavla är platt mot
+//    väggen, och ett huvud som kom upp över dess överkant hade hängt fritt i tapeten precis
+//    som dörrens gjorde. Ankaret (0,0) är ramens NEDRE kant, mitten.
+function byggTavla(to) {
+  // Skuggan mot väggen ligger i BAK-delen: den ska inte ligga över pappa när han lutar ut.
+  const bakG = nyG()
+  bakG.roundRect(-104, -198, 216, 204, 10).fill({ color: F.morkt, alpha: 0.12 })
+  // Spiken och snöret som ramen hänger i — utan dem svävar en tavla som lutar.
+  bakG.circle(0, -232, 6).fill(sphereFill(F.metallMork))
+  bakG.moveTo(-52, -206).lineTo(0, -230).lineTo(52, -206).stroke({ width: 3, color: 0x8a7355 })
+
+  const ram = nyC()
+  const g = nyG()
+  const W = 222
+  const H = 208
+  g.roundRect(-W / 2, -H, W, H, 8).fill(topLightFill(F.tra)).stroke({ width: 6, color: F.traMork })
+  g.roundRect(-W / 2 + 15, -H + 15, W - 30, H - 30, 4).fill(0xfffaf0)
+  g.roundRect(-W / 2 + 27, -H + 27, W - 54, H - 54, 3).fill(verticalFill(0xbfe4f7, 0xe8f6fd))
+  // Ett litet landskap i kritstreck — samma motiv som den gamla dekorationen.
+  g.circle(46, -152, 15).fill(0xffd766)
+  g.moveTo(-80, -66).quadraticCurveTo(-26, -112, 20, -66).lineTo(-80, -66).fill(0x8ec97a)
+  g.moveTo(-16, -66).quadraticCurveTo(34, -94, 80, -66).lineTo(-16, -66).fill(0x67ab63)
+  g.roundRect(-W / 2 + 27, -60, W - 54, 12, 3).fill({ color: 0x4f8f52, alpha: 0.5 })
+  g.roundRect(-W / 2 + 27, -48, W - 54, 21, 3).fill({ color: 0x9fd0c0, alpha: 0.35 })
+  ram.addChild(g)
+  // Vridpunkten är SPIKEN, inte ramens mitt: en tavla som gläntas svänger kring sitt upphäng.
+  ram.pivot.set(0, -228)
+  ram.position.set(0, -228)
+
+  return {
+    bakDelar: [bakG],
+    framDelar: [ram],
+    buktNod: ram,
+    bukt: { sx: 0.03, sy: 0.03 },
+    livNoder: [{ n: ram, bob: 0, sway: 0.012, duration: 4.4 }],
+    noder: [ram, g, bakG],
+    // Ramen gläntar ÅT MOTSATT HÅLL mot där pappa lutar sig ut (`MOBLER.tavla.avsloja`
+    // speglad av platsen) — en ram som svängde åt samma håll följde med och täckte honom
+    // igen. `spegel` kommer från `makeGomstalle.placera()`.
+    // ⚠️ RAMEN FÅR INTE FÖRFLYTTA SIG, bara vicka. Ett `x: -26` såg ofarligt ut men drog
+    //    ramen 19 px BORT från pappa i samma sekund han lutade sig ut, och där emellan
+    //    öppnade sig ett tomrum: ett litet huvud som svävar fritt i tapeten i stället för
+    //    ett som tittar fram BAKOM en tavla. Vinkeln 0,07 flyttar underkanten 6 px.
+    oppna: (spegel = 1) => { to(ram, { rotation: -0.07 * spegel, duration: 0.4, ease: 'back.out(2.2)' }) },
+    stang: () => { to(ram, { rotation: 0, duration: 0.36, ease: 'power2.inOut' }) },
+  }
+}
+
+// Väggklockan. Urtavlan är en HEL cirkel med radie 104 kring (0, −104) — det är den som ska
+// täcka det krympta ansiktet, och `layout.validera()` mäter mot den.
+function byggKlocka(to) {
+  const bakG = nyG()
+  bakG.circle(6, -98, 106).fill({ color: F.morkt, alpha: 0.12 })
+  bakG.circle(0, -222, 5).fill(sphereFill(F.metallMork))
+
+  const ur = nyC()
+  const g = nyG()
+  g.circle(0, -104, 104).fill(topLightFill(F.tra)).stroke({ width: 7, color: F.traMork })
+  g.circle(0, -104, 88).fill(sphereFill(0xfffaf0, { highlight: 0.5, dark: 0.14 }))
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2
+    const r1 = 74
+    const r2 = i % 3 === 0 ? 56 : 63
+    g.moveTo(Math.cos(a) * r1, -104 + Math.sin(a) * r1)
+      .lineTo(Math.cos(a) * r2, -104 + Math.sin(a) * r2)
+      .stroke({ width: i % 3 === 0 ? 8 : 5, color: F.morkt, alpha: 0.6 })
+  }
+  ur.addChild(g)
+
+  // Visarna på egna noder — de snurrar när klockan gläntas, och det är klockans egen skämt.
+  const visare = nyC()
+  visare.position.set(0, -104)
+  const vg = nyG()
+  vg.roundRect(-5, -52, 10, 58, 5).fill(F.morkt)
+  const vg2 = nyG()
+  vg2.roundRect(-4, -6, 74, 8, 4).fill(F.morkt)
+  const lang = nyC()
+  lang.addChild(vg2)
+  visare.addChild(vg, lang)
+  const nav = nyG()
+  nav.circle(0, -104, 9).fill(0xe0603f).stroke({ width: 3, color: shade(0xe0603f, 0.3) })
+
+  ur.addChild(visare, nav)
+  ur.pivot.set(0, -222)
+  ur.position.set(0, -222)
+
+  return {
+    bakDelar: [bakG],
+    framDelar: [ur],
+    buktNod: ur,
+    bukt: { sx: 0.03, sy: 0.03 },
+    livNoder: [{ n: ur, bob: 0, sway: 0.014, duration: 3.8 }],
+    noder: [ur, g, visare, vg, vg2, lang, nav, bakG],
+    oppna: (spegel = 1) => {
+      // …och urtavlan vickar åt motsatt håll mot pappa, utan att flytta sig (se tavlan).
+      to(ur, { rotation: -0.07 * spegel, duration: 0.4, ease: 'back.out(2.2)' })
+      to(visare, { rotation: visare.rotation + Math.PI * 4, duration: 0.9, ease: 'power2.out' })
+      to(lang, { rotation: lang.rotation + Math.PI * 9, duration: 0.9, ease: 'power2.out' })
+    },
+    stang: () => { to(ur, { rotation: 0, duration: 0.36, ease: 'power2.inOut' }) },
+  }
+}
+
+// TRASMATTAN på golvet (ägarens punkt 4). Han ligger UNDER den; hela mattan är en kulle med
+// fransar, och vid avslöjandet lyfts närmaste hörn undan. Samma familj som filten, men med
+// randigt trasväv och ett eget prassel.
+function byggMatta(to) {
+  const bakG = nyG()
+  bakG.ellipse(0, -46, 116, 40).fill({ color: 0x8a6a4a, alpha: 0.26 })
+
+  const RAND = [0xe08a7b, 0xf1b6a8, 0x7fb6a6, 0xf0d79a, 0xa9d6c9]
+  const hog = nyG()
+  hog.ellipse(0, 14, 128, 20).fill({ color: F.morkt, alpha: 0.16 })
+  // ⚠️ DEN STATISKA MATTAN MÅSTE SJÄLV NÅ UPP TILL KANTLINJEN (−112). Hörnet som lyfts får
+  //    aldrig vara det som täcker hakan — samma fälla som filtens vik, se `byggFilt`.
+  hog.moveTo(-118, -96).quadraticCurveTo(-56, -142, 6, -124)
+    .quadraticCurveTo(64, -108, 118, -130).lineTo(118, -16)
+    .quadraticCurveTo(0, -2, -118, -16).closePath()
+    .fill(topLightFill(F.matta, { highlight: 0.28, dark: 0.2 }))
+  for (let i = 0; i < 5; i++) {
+    hog.moveTo(-114, -86 + i * 20).quadraticCurveTo(0, -62 + i * 20, 114, -88 + i * 20)
+      .stroke({ width: 11, color: RAND[i % RAND.length], alpha: 0.7 })
+  }
+  // Fransarna längs framkanten — det som gör en trasmatta till en trasmatta.
+  for (let fx = -114; fx <= 114; fx += 12) {
+    hog.moveTo(fx, -12).lineTo(fx + 3, 12).stroke({ width: 4, color: 0xf6e4c0, alpha: 0.85 })
+  }
+
+  const horn = nyC()
+  const hg = nyG()
+  hg.moveTo(-112, -74).quadraticCurveTo(-58, -112, -2, -98)
+    .quadraticCurveTo(-24, -56, -110, -40).closePath()
+    .fill(topLightFill(F.mattaLjus, { highlight: 0.3, dark: 0.18 }))
+  hg.moveTo(-104, -70).quadraticCurveTo(-56, -96, -14, -88).stroke({ width: 7, color: F.lopare, alpha: 0.6 })
+  hg.moveTo(-106, -56).quadraticCurveTo(-58, -76, -12, -80).stroke({ width: 5, color: 0xf0d79a, alpha: 0.6 })
+  horn.addChild(hg)
+  horn.pivot.set(-112, -58)
+  horn.position.set(-112, -58)
+  const hornLiv = livHylsa(horn)
+
+  return {
+    bakDelar: [bakG],
+    framDelar: [hog, hornLiv],
+    buktNod: hog,
+    bukt: { sx: 0.035, sy: -0.15 },
+    livNoder: [{ n: hornLiv, bob: 2.2, sway: 0.012, duration: 3.4 }],
+    noder: [hog, hornLiv, horn, hg, bakG],
+    // Hörnet slås UPPÅT-UTÅT och lägger sig tillbaka. Fria änden räknad ur pivoten:
+    // (110, −40) roterat −0,5 rad ⇒ (77, −88), alltså utåt vänster och något upp — bort
+    // från ansiktet, som ligger till höger om gångjärnet.
+    oppna: () => { to(horn, { rotation: -0.5, x: -132, duration: 0.36, ease: 'back.out(1.3)' }) },
+    stang: () => { to(horn, { rotation: 0, x: -112, duration: 0.34, ease: 'power2.inOut' }) },
   }
 }
 
@@ -1015,32 +1162,65 @@ function byggLampa(to) {
   skarm.pivot.set(0, -310)
   skarm.position.set(0, -310)
 
-  // ⚠️ GLASKUPAN LYFTER INTE MED SKÄRMEN, OCH DET ÄR HELA POÄNGEN MED DEN. En taklampa har
-  //    ingenting UNDER sig, så när skärmen lyfts hänger pappa fritt i luften — och fotorutans
-  //    RAKA UNDERKANT (på `kantY + 24`, alltså 78 px under skärmens vilokant) stod naken i
-  //    bild. Kupan är ett riktigt lampdel, står still när skärmen åker upp, och täcker
-  //    exakt det bandet. Han avslöjas därför från ögonen och upp — samma silhuett som varje
-  //    annat gömställe i rummet.
-  const kupa = nyG()
-  kupa.ellipse(0, 6, 112, 22).fill({ color: 0xf3e2bd, alpha: 0.55 })
-  kupa.moveTo(-112, 2).quadraticCurveTo(-104, 74, 0, 84)
-    .quadraticCurveTo(104, 74, 112, 2)
-    .quadraticCurveTo(0, 26, -112, 2).closePath()
+  // ⚠️ KRAGEN ÄR DET SOM TÄCKER FOTORUTANS RAKA UNDERKANT, och den STÅR STILL. En taklampa
+  //    har ingenting under sig: lyfts skärmen hänger pappa fritt i luften, och fotots raka
+  //    nederkant står naken i bild. Förut var det KUPAN som gjorde det jobbet — och därför
+  //    kunde kupan inte röra sig, vilket är precis vad ägaren såg ("kupan svävar medan
+  //    skärmen åker"). Kragen är en riktig lampdel (diffusorns fattningsring), den täcker
+  //    bandet −10 … 40 över hela bredden, och den frigör kupan till att bli en LUCKA.
+  //    `MOBLER.lampa.avsloja` håller hakan inne i det bandet — ändras det ena måste det
+  //    andra räknas om.
+  const krage = nyG()
+  // Frostad glascylinder mellan skärmen och luckan. Bandet −10 … 56 är MÄTT mot
+  // `MOBLER.lampa.avsloja`: hakan hamnar på lokal 44 och fotorutans raka kant på 52, båda
+  // innanför. Ändras det ena måste det andra räknas om — det finns ingen annan yta som
+  // kan ta det jobbet, för en taklampa har ingenting under sig.
+  krage.roundRect(-128, -6, 256, 62, 16).fill(verticalFill(0xfdf3dc, 0xecd6a4))
+    .stroke({ width: 3, color: 0xc79f5f })
+  krage.roundRect(-132, -12, 264, 20, 10).fill(cylinderFill(0xe8b877, { axis: 'x' }))
+    .stroke({ width: 3, color: 0xb5813f })
+  krage.roundRect(-130, 40, 260, 18, 9).fill(cylinderFill(0xe8b877, { axis: 'x' }))
+    .stroke({ width: 3, color: 0xb5813f })
+  krage.moveTo(-108, 6).quadraticCurveTo(-114, 24, -106, 40).stroke({ width: 10, color: 0xffffff, alpha: 0.34 })
+  krage.ellipse(0, 24, 112, 16).fill({ color: F.glod, alpha: 0.34 })
+
+  // KUPAN ÄR EN LUCKA SOM SLÅR UPP NEDÅT (ägarens punkt 2). Gångjärnet sitter i den nedre
+  // mässingsringens vänstra rand, och där ritas ett synligt beslag — utan det läser en
+  // lucka som en bit som lossnade.
+  const kupa = nyC()
+  const kg = nyG()
+  kg.moveTo(-112, 0).quadraticCurveTo(-104, 72, 0, 82)
+    .quadraticCurveTo(104, 72, 112, 0)
+    .quadraticCurveTo(0, 24, -112, 0).closePath()
     .fill(verticalFill(0xfdf3dc, 0xe9cf9c))
     .stroke({ width: 3, color: 0xc79f5f })
-  kupa.moveTo(-84, 20).quadraticCurveTo(-72, 58, -22, 70).stroke({ width: 9, color: 0xffffff, alpha: 0.4 })
-  kupa.ellipse(0, 78, 44, 9).fill({ color: F.glod, alpha: 0.65 })
+  kg.moveTo(-84, 18).quadraticCurveTo(-72, 56, -22, 68).stroke({ width: 9, color: 0xffffff, alpha: 0.4 })
+  kg.ellipse(0, 76, 44, 9).fill({ color: F.glod, alpha: 0.65 })
+  kupa.addChild(kg)
+  kupa.pivot.set(-108, 0)
+  kupa.position.set(-108, 54)
+
+  const gangjarn = nyG()
+  gangjarn.roundRect(-124, 44, 28, 18, 7).fill(cylinderFill(F.metall, { axis: 'y' }))
+    .stroke({ width: 2.5, color: F.metallMork })
+  gangjarn.circle(-110, 53, 4.5).fill(F.metallMork)
 
   return {
     bakDelar: [bakG],
-    framDelar: [skarm, kupa],
+    framDelar: [skarm, krage, kupa, gangjarn],
     buktNod: skarm,
     bukt: { sx: 0.055, sy: 0.05 },
     // Lampan svänger kring TAKET, inte kring skärmens underkant.
     livNoder: [{ n: null, bob: 2.5, sway: 0.026, duration: 4.6, pivotY: -410 }],
-    noder: [skarm, skarmG, kupa, bakG],
-    oppna: () => { to(skarm, { rotation: -0.22, y: -470, duration: 0.44, ease: 'back.out(1.4)' }) },
-    stang: () => { to(skarm, { rotation: 0, y: -310, duration: 0.36, ease: 'power2.inOut' }) },
+    noder: [skarm, skarmG, kupa, kg, krage, gangjarn, bakG],
+    oppna: () => {
+      to(skarm, { rotation: -0.22, y: -470, duration: 0.44, ease: 'back.out(1.4)' })
+      to(kupa, { rotation: 1.28, duration: 0.5, ease: 'back.out(1.2)' })
+    },
+    stang: () => {
+      to(skarm, { rotation: 0, y: -310, duration: 0.36, ease: 'power2.inOut' })
+      to(kupa, { rotation: 0, duration: 0.4, ease: 'power2.inOut' })
+    },
   }
 }
 
@@ -1053,9 +1233,12 @@ const BYGGARE = {
   fatolj: byggFatolj,
   leksaklada: byggLeksaklada,
   filt: byggFilt,
+  matta: byggMatta,
   kuddhog: byggKuddhog,
   kruka: byggKruka,
   lampa: byggLampa,
+  tavla: byggTavla,
+  klocka: byggKlocka,
 }
 
 // --------------------------------------------------------------- städning ---
@@ -1146,6 +1329,9 @@ export function makeGomstalle(key) {
     placera(slot) {
       const { x, y, s } = platsInfo(slot)
       this.skala = s
+      // Platsens spegling går vidare till `oppna()`: tavlan och klockan måste glänta ÅT
+      // MOTSATT HÅLL mot där pappa lutar sig ut, och vilket håll det är beror på platsen.
+      this.spegel = slot.spegel ?? 1
       for (const c of [bak, fram]) {
         if (c.destroyed) continue
         c.position.set(x, y)
@@ -1171,14 +1357,27 @@ export function makeGomstalle(key) {
     oppna() {
       if (!this._levande || this._oppen) return
       this._oppen = true
-      spec.oppna()
+      spec.oppna(this.spegel ?? 1)
     },
 
     stang() {
       if (!this._levande || !this._oppen) return
       this._oppen = false
-      spec.stang()
+      spec.stang(this.spegel ?? 1)
     },
+
+    /**
+     * MÖBELNS EGNA SKVALLERGESTER. Alla tre är valfria — en möbel som saknar dem gör
+     * ingenting, och spelet behöver inte veta vilka som har vilka.
+     *
+     * ⚠️ EN METOD SOM BARA FINNS I `spec` NÅR ALDRIG SPELET. Det här objektet är hela
+     *    gömställets yta utåt, och `glugg()` låg först bara i dörrens byggare: spelet
+     *    anropade `plats.g.glugg?.()`, `?.` svalde det tyst, och dörrens kikande blev en
+     *    osynlig tween bakom ett stängt dörrblad. Grönt test, noll konsolfel, ingen bild.
+     */
+    glugg() { if (this._levande && !this._oppen) spec.glugg?.() },
+    stangGlugg() { if (this._levande && !this._oppen) spec.stangGlugg?.() },
+    gnissla() { if (this._levande) spec.gnissla?.() },
 
     // Vilo-rörelse med EGEN FAS: två gömställen ska aldrig gunga i takt.
     liv() {

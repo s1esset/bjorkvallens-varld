@@ -396,6 +396,54 @@ export function makeFluga() {
         .to(huvud, { rotation: 0, duration: 0.34, ease: 'sine.inOut' }, 0.24)
     },
 
+    /**
+     * PLATT. Ett verktyg har träffat henne, och hon trycks ut mot den yta slaget kom emot.
+     *
+     * `vinkel` är ytans normal i radianer (0 = slaget kom rakt uppifrån). Hela kroppen
+     * roteras dit och plattas TVÄRS den, så hon läser som klistrad mot ytan och inte som
+     * en fluga som råkar ligga ner. Vingarna stannar (`vingar(false)` görs av spelet), och
+     * benen sprattlar en gång innan de stelnar — det är den enda rörelsen som får finnas,
+     * annars läser hon som skadad i stället för som tecknad.
+     *
+     * Ingenting här är permanent: `resa()` tar tillbaka precis samma noder.
+     */
+    platt(vinkel = 0) {
+      if (dod || krop.destroyed) return
+      rorelse.doda()
+      const tl = rorelse.tid()
+      tl.to(riktnod, { rotation: vinkel, duration: 0.06, ease: 'power2.out' }, 0)
+      // Sammantryckningen: 1,55 på tvären mot 0,3 på höjden. Talen är valda så att
+      // silhuetten (54×40) blir 84×12 — bredare än hon är lång, alltså tydligt UTPLATTAD
+      // även i 40 px.
+      tl.to(krop.scale, { x: 1.55, y: 0.3, duration: 0.07, ease: 'power3.out' }, 0)
+        .to(krop.scale, { x: 1.42, y: 0.36, duration: 0.5, ease: 'elastic.out(1, 0.6)' }, 0.07)
+      tl.to(ben.scale, { x: 1.5, y: 1.5, duration: 0.09, ease: 'power2.out' }, 0)
+        .to(ben.scale, { x: 1.28, y: 1.34, duration: 0.5, ease: 'elastic.out(1, 0.5)' }, 0.09)
+      // Ett sista sprattel i huvudet, sedan stilla.
+      tl.to(huvud, { rotation: 0.5, duration: 0.06, ease: 'power2.out' }, 0)
+        .to(huvud, { rotation: -0.32, duration: 0.12, ease: 'sine.inOut' }, 0.1)
+        .to(huvud, { rotation: 0.16, duration: 0.5, ease: 'sine.out' }, 0.22)
+    },
+
+    /**
+     * RESER SIG. Hon skakar av sig plattheten, pumpar tillbaka formen och står upp igen.
+     * Rotationen går tillbaka till 0 så `vand()` (som äger `riktnod.scale.x`) fungerar
+     * som förut — den och den här skriver på OLIKA fält och kan därför inte slåss.
+     */
+    resa() {
+      if (dod || krop.destroyed) return
+      rorelse.doda()
+      const tl = rorelse.tid()
+      tl.to(riktnod, { rotation: 0, duration: 0.42, ease: 'back.out(1.6)' }, 0)
+      // Uppumpningen: en överskjutning på höjden gör att hon "puffar upp sig" igen.
+      tl.to(krop.scale, { x: 0.82, y: 1.3, duration: 0.24, ease: 'back.out(2.2)' }, 0.06)
+        .to(krop.scale, { x: 1, y: 1, duration: 0.32, ease: 'elastic.out(1, 0.55)' }, 0.3)
+      tl.to(ben.scale, { x: 1, y: 1, duration: 0.4, ease: 'back.out(2)' }, 0.06)
+      tl.to(huvud, { rotation: -0.24, duration: 0.16, ease: 'power2.out' }, 0)
+        .to(huvud, { rotation: 0, duration: 0.4, ease: 'elastic.out(1, 0.5)' }, 0.16)
+      tl.to(krop, { y: 0, duration: 0.3, ease: 'sine.out' }, 0)
+    },
+
     destroy() {
       if (dod) return
       dod = true

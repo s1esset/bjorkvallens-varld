@@ -17,23 +17,32 @@ bor numera här nedan.*
 | **kategori** | `roligt` → flik **Roligt** |
 | **input** | mixed (tap + enkelt drag med snäpp + tap-tap-fallback) |
 | **ålder** | [2, 5] |
-| **kärnloop** | En fluga surrar runt pappa; **han följer den med blicken hela tiden**. Den landar → `traffar()` avgör zonen (näsa · panna · kind · öra · haka · lugg) → egen min + eget ljud. Barnet viftar, blåser eller lockar den mot det öppna fönstret. |
-| **mål** | Tre flugor ut genom fönstret → `progress.complete()` |
-| **agens** | Tre verktyg, alla lika giltiga: **vifta** (den lyfter bort från trycket, alltså styr träffpunkten riktningen), **fläkten** (vindpust i en kon, tak en pust var 2:a s), **sylten** (ställ den vid fönstret så flyger flugan ut själv — 4-åringens aha). |
-| **variation** | Zonpool + flugbanor roterar; sällsynt wow (~1 på 8): flugan sätter sig på ögat och han går vindögd. |
-| **mottagare** | **Bobo** stänger fönstret och delar ut en medalj; pappa ger Bobo en `blinkning()`. |
-| **finish** | Fönstret stängs, medaljen, winken. |
+| **kärnloop** | Flugor surrar in genom fönstret och besvärar pappa; **han följer den närmaste med blicken hela tiden**. Barnet väljer ett **verktyg** ur den utdragna skrivbordslådan och trycker där flugan är. Träffad fluga **plattas mot ytan**, glider ner på bordet, ligger 1–3 s — och flyger sedan **rakt ut genom fönstret**. Landar hon i stället på honom avgör `traffar()` zonen (näsa · panna · kind · öra · haka · lugg) → egen min + eget ljud. |
+| **mål** | Rundans alla flugor ut genom fönstret → `progress.complete()`. 3 flugor i runda 0, upp till 6. |
+| **agens** | **Fem verktyg** med var sin verkanstyp — flugsmälla (`slag`), sprayflaska (`vind`+`vat`), pilbössa (`slag`, med flygtid), hoprullad tidning (`slag`+`vind`, bred), klibbig slemhand (`klibb`). Plus **fläkten** (vindpust, tak en pust var 2:a s) och **sylten** (ställ den vid fönstret så flyger flugorna ut själva — 4-åringens aha). |
+| **variation** | Rundan eskalerar: fart 300 → 540 px/s, 2 → **6 flugor samtidigt**, kortare `ryck` (nervösare bana) och större område. Landningen lottas mellan sex ansiktszoner, kaffekoppen och **rummets sju föremål**. Sällsynt wow (~1 på 8): flugan sätter sig på ögat och han går vindögd. |
+| **rummet** | Sju träffbara saker med egen materialegenskap: klockan svajar och visarna snurrar · tavlan blir SNED och minns det · lampan blinkar/slocknar/tänds · pappren flaxar · kaffekoppen VÄLTER och spiller en pöl som lockar flugor och gör dem kladdiga · krukväxten skakar (och sträcker på sig av vatten) · gardinen bågnar. |
+| **mottagare** | **Bobo** stänger fönstret och delar ut en medalj; pappa ger Bobo en `blinkning()`. Pappas andningstakt stiger med antalet flugor som sitter på honom (2,2 → 1,3 s). |
+| **finish** | Fönstret stängs, medaljen, winken — sedan nästa, snabbare runda. |
 
-**Röstrepliker (7 literaler)**
+**Röstrepliker (12 literaler + fem verktygsrepliker)**
 ```
-"Titta, en fluga! Den kittlar pappa på näsan."   ← voiceIntro
-"Tryck på flugan så flyger den iväg."
-"Ställ sylten där du vill att flugan ska flyga."
+"Titta, en fluga! Ta ett verktyg ur lådan och hjälp pappa."   ← voiceIntro
+"Välj ett verktyg i lådan och tryck där flugan är."
+"Ställ sylten i fönstret så flyger flugan ut."
 "Blås med fläkten!"
 "Hihi, den satte sig på örat!"
 "Nu flög den ut genom fönstret!"
+"Titta, den blev alldeles platt!"
+"Oj, kaffet rann ut! Flugorna älskar det."
+"Hoppsan, där tog du pappa i stället!"
+"Fler flugor kommer in!"
 "Tack, säger pappa. Nu är det lugnt igen."
 ```
+Verktygens egna cue-repliker ligger som `cue` i `verktyg.js` och sägs vid verktygsbyte. De
+byggs INTE av en template literal, men de står inte heller som `voice.say('literal')` på
+anropsstället — `check.mjs` kan alltså inte se dem statiskt, och de är därför inlagda för hand
+i `scripts/voice-phrases.json` (den dokumenterade backstoppen).
 
 ## 1. Nuläge (sett som spelare)
 
@@ -127,16 +136,55 @@ skriven och anropas betyder inte att den inträffar.** Alla tre var gröna i tes
 
 Sonden mäter numera alla tre.
 
+## 3b. Ombyggnaden 2026-08-16 (ägaruppdrag) — verktygen, rummet, rundan
+
+Ägaren gav fem punkter. Alla fem är byggda; det som mätte dem är `scripts/_verktygprobe.mjs`,
+som SPELAR spelet med riktiga muspekningar och läser spelets eget tillstånd (ingen skärmdump
+kan svara på om en fluga faktiskt blev platt).
+
+| ägarens punkt | vad som byggdes |
+|---|---|
+| ⓵ större ansikte | `ANS_H` 300 → **380**. `PLATS.ansikte.y` 330 → **292** i samma andetag: bordslinjen (472) står still, och hakan skulle annars ha sjunkit 34 px ner UNDER skivan. `rummet.js` bär kvoterna (hjässa H/2 upp, haka 0,4467·H ner, bredd 0,527·H) så nästa ändring går att räkna i stället för att gissa. |
+| ⓶ verktyg med fysik | Fem verktyg i en **utdragen skrivbordslåda**, var och en med `radie · kraft · typ · droj · kyla`. Rummets föremål reagerar på **TYPEN**, inte på verktyget — därför skvätter kaffet av ett slag men inte av en spray, och ett sjätte verktyg kan läggas till utan att röra rummet. |
+| ⓷ snabbare + fler flugor | `_sattRunda()`: fart 300 → 540 (tak), 2 → **6 samtidigt** (tak), 3 → 6 per runda, kortare `ryck` och större område per runda. Rundan bor i profilen. |
+| ⓸ pappas komiska roll | Blicken följer den NÄRMASTE flugan (som förut, nu med upp till sex). Träffas hans ansikte av ett verktyg får han `chock`/`acklad`/`aj` + ryck + "Aj!" — aldrig ett straff, aldrig något som nollställs. Andningstakten stiger med antalet flugor på honom (2,2 → 1,7 → 1,3 s). |
+| ⓹ mer i rummet | NYTT: skrivbordslampa (tänd lockar flugor), krukväxt, utdragen låda. GJORDA TRÄFFBARA: klocka, tavla, gardin, papper, kaffekopp. FLYTTADE: fläkten 700 → 660, sylten 500 → 430, pappren 900 → 880, koppen 1110 → 1086, tavlan 690 → 650. |
+
+### Vad sonden mätte (`node scripts/_verktygprobe.mjs`)
+
+Kontrollarmen först, alltid: ett tryck **långt** från varje fluga med samma verktyg.
+
+| arm | tal |
+|---|---|
+| KONTROLL — smälla 400+ px från varje fluga | **0** plattade |
+| MÄT — smälla rakt på flugan | **1** platt direkt |
+| MÄT — 1,4 s senare | 1 vilar, **på bordet** (y > 500) |
+| MÄT — 4,8 s senare | 1 rest sig / ute (`brattom` = flyr rakt mot fönstret) |
+| spray (`vind`+`vat`) mot kaffekoppen | pöl: **nej** — vind välter inte |
+| smälla (`slag`) mot kaffekoppen | pöl: **ja** |
+| slemhand (`klibb`) mot lampan | tänd → släckt (**slog om**) |
+| runda 8 | fart **540**, max/mål **6 / 6**, **6** flugor faktiskt i luften |
+| exit mitt i ett verktygssvep | rent, 0 konsolfel |
+
+⚠️ **Sonden räknar sidladdningar.** Vite skickar full-reload när en fil i projektet ändras, och
+en omladdning mitt i mätningen byter ut `window.__barnspel` — alla tal efter den punkten är
+tagna på ett annat spel. Det såg ut som en bugg i spelet ("tillståndet försvann") tre gånger
+innan räknaren fanns. Kör aldrig sonden medan något annat skriver i repot.
+
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Kärnloop**
-- **[Quick] Verktygsbalansen lutar mot viftningen.** Den har ingen nedkylning och 192 px
-  diameter, medan fläkten har 2 s cooldown och en fast kon. Doc-kortets "tre verktyg, alla
-  lika giltiga" är sannare i avsikt än i praktiken. Inte trasigt — men sylten och fläkten
-  skulle må bra av att vara snabbare vägar, inte bara andra.
+- ~~**[Quick] Verktygsbalansen lutar mot viftningen.**~~ **STRUKEN** — viftningen finns inte
+  längre. De fem verktygen har var sin `kyla` (0,45–1,1 s) och var sin verkanstyp, så
+  balansen ligger numera i tabellen i `verktyg.js` och går att mäta om per verktyg.
 - **[Quick] Zonfördelningen är ojämn** (uppmätt över 240 s: öra 16, haka 2). Poolen lottar
-  jämnt, men de breda partierna nås lättare än hakan. Ett siktmål som inte nåtts inom N
-  sekunder borde behållas i stället för att lottas om.
+  jämnt, men de breda partierna nås lättare än hakan. Siktmålet ges nu upp efter **7 s** och
+  lottas om — det är RÄTT för ett föremål högt på väggen (annars cirklar hon där för alltid)
+  men fel för hakan, som bara behöver längre tid. Mät om per zon innan talet ändras.
+- **[Medium] Klibbet drar inte MED sig rumsföremål.** Ägarens formulering var "sticky things
+  will get stuck for a while and drag things". Flugorna dras (`knuff` med negativ kraft), och
+  tavlan MINNS sin snedhet, men koppen och pappren dras inte ur läge — de står ritade på fasta
+  koordinater i `rummet.js` och skulle behöva ett eget läges-tillstånd först.
 
 **Juice**
 - **[Quick] Fönsterstängningen läser som ett fallande föremål**, inte som en lucka som
@@ -151,3 +199,5 @@ Sonden mäter numera alla tre.
 ## 5. Status / loggar
 
 `2026-08-16 · doc skriven, mätfrågan avgjord (blickflimret: 1,2 byten/s, filtret behövs inte)`
+`2026-08-16 · ägaruppdrag: fem verktyg, sju träffbara rumsföremål, större ansikte, eskalerande
+rundor (max 6 flugor). Mätt med scripts/_verktygprobe.mjs — kontrollarm 0, mätarm 1.`

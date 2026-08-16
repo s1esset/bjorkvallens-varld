@@ -25,11 +25,24 @@
 import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { drawIcon } from '../../lib/artikoner.js'
-import { topLightFill, sphereFill, cylinderFill, rimLight } from '../../lib/form.js'
+import { topLightFill, sphereFill, cylinderFill, rimLight, verticalFill } from '../../lib/form.js'
 import { COLORS, shade } from '../../lib/theme.js'
 import { liv as fbLiv, squash } from '../../lib/feedback.js'
 
-export const VERKTYG = ['klocka', 'katt', 'trumpet', 'gardin', 'kaffe', 'kittla']
+// TOLV verktyg, ett per busskategori. `index.js` delar dem i tre HYLLSIDOR om fyra (se
+// SIDOR där) — tolv saker får inte plats i en rad utan att bryta P0:s träffyteavstånd.
+//
+//   klocka   ljud (skarpt)      strumpa  lukt (äcklig)
+//   trumpet  ljud (fanfar)      lampa    ljus
+//   ballong  slag / smäll       gardin   ljus (dagsljus)
+//   kaffe    lukt (god)         spruta   blött
+//   flakt    vind               kittla   insekt som kryper en sträcka
+//   katt     djur som sätter sig på honom
+//   hund     djur som pruttar på honom
+export const VERKTYG = [
+  'klocka', 'katt', 'trumpet', 'gardin', 'kaffe', 'kittla',
+  'ballong', 'strumpa', 'lampa', 'spruta', 'flakt', 'hund',
+]
 
 // Radien index.js ska använda till träffytan. 64 ⇒ 128 px yta, över P0:s 96 px, och med
 // ≥24 px luft blir centrumavståndet 152 px — grannens träffyta börjar alltså 88 px från
@@ -713,6 +726,575 @@ function byggKittla(v) {
   }
 }
 
+// 7) BALLONG — en uppblåst ballong med knut, snöre och en liten träpinne att hålla i.
+// Gummit är en egen nod: det är DEN som sväller inför smällen, medan pinnen står still.
+function byggBallong(v) {
+  const { krop, tid } = v
+  const SKAL = 0xef5b5b
+  const MORK = shade(SKAL, 0.34)
+
+  const pinne = new Graphics()
+  pinne.roundRect(-3.5, 30, 7, 30, 3.5).fill(cylinderFill(0xd9a56b, { axis: 'x' }))
+    .stroke({ width: 2, color: shade(0xd9a56b, 0.3) })
+
+  const snore = new Graphics()
+  snore.moveTo(0, 30).quadraticCurveTo(-11, 20, -2, 12).quadraticCurveTo(7, 6, 0, 0)
+    .stroke({ width: 2.6, color: 0xf0e2c8, cap: 'round' })
+
+  // Gummit: droppform, bredast strax under mitten — en cirkel läser som en boll.
+  const gummi = new Container()
+  const bg = new Graphics()
+  bg.moveTo(0, -62)
+    .quadraticCurveTo(40, -60, 40, -20)
+    .quadraticCurveTo(40, 8, 0, 12)
+    .quadraticCurveTo(-40, 8, -40, -20)
+    .quadraticCurveTo(-40, -60, 0, -62)
+    .closePath()
+    .fill(sphereFill(SKAL, { lightY: 0.26, dark: 0.36 }))
+    .stroke({ width: 3.5, color: MORK, join: 'round' })
+  bg.ellipse(-14, -38, 9, 14).fill({ color: COLORS.white, alpha: 0.5 })
+  bg.ellipse(-19, -22, 4, 6).fill({ color: COLORS.white, alpha: 0.3 })
+  // Knuten: den lilla trekanten som gör en oval till en ballong.
+  bg.moveTo(-9, 9).lineTo(9, 9).lineTo(0, 26).closePath()
+    .fill(topLightFill(SKAL, { dark: 0.34 })).stroke({ width: 2.5, color: MORK, join: 'round' })
+  gummi.addChild(bg)
+
+  krop.addChild(pinne, snore, gummi)
+  krop.position.set(0, 4)
+
+  const aterstall = () => {
+    if (!gummi.destroyed) {
+      gummi.scale.set(1)
+      gummi.rotation = 0
+    }
+  }
+
+  return {
+    skugga: { y: 62, rx: 22, ry: 8 },
+    liv: { bob: 6, sway: 0.05, duration: 2.5 },
+    aterstall,
+    // BALLONGEN BLÅSES UPP: gummit sväller i tre andetag och gnisslar tillbaka. Taket är
+    // 1,18 — 40 px halva bredden × 1,18 = 47 px, långt innanför grannens träffyta (88).
+    tryck() {
+      const tl = tid()
+      tl.to(gummi.scale, { x: 1.18, y: 1.14, duration: 0.13, ease: 'power2.out' }, 0)
+        .to(gummi.scale, { x: 1.02, y: 1.05, duration: 0.14, ease: 'sine.inOut' }, 0.13)
+        .to(gummi.scale, { x: 1.14, y: 1.1, duration: 0.12, ease: 'sine.inOut' }, 0.27)
+        .to(gummi.scale, { x: 1, y: 1, duration: 0.5, ease: 'elastic.out(1, 0.4)' }, 0.39)
+      tl.to(gummi, { rotation: 0.1, duration: 0.09, ease: 'sine.inOut', yoyo: true, repeat: 3 }, 0)
+        .to(gummi, { rotation: 0, duration: 0.24, ease: 'sine.out' }, 0.36)
+      tl.to(krop, { y: v.vilo.y - 9, duration: 0.14, ease: 'power2.out' }, 0)
+        .to(krop, { y: v.vilo.y, duration: 0.46, ease: 'sine.inOut' }, 0.14)
+    },
+  }
+}
+
+// 8) STRUMPA — en hopskrynklad, illaluktande strumpa: mudd, häl och tå i en enda böjd
+// silhuett, med ett hål vid tån. Stanken stiger av sig själv (ambient) i gröna slingor —
+// det är den som säger LUKT utan ett ord.
+function byggStrumpa(v) {
+  const { krop, tid } = v
+  const TYG = 0xdfd6c2
+  const TYG_M = shade(TYG, 0.28)
+  const RAND = 0x9fb36b
+
+  const stank = new Container()
+  const slingor = []
+  for (let i = 0; i < 3; i++) {
+    const w = new Graphics()
+    const x = -22 + i * 17
+    w.moveTo(x, 0)
+      .quadraticCurveTo(x - 7, -7, x, -14)
+      .quadraticCurveTo(x + 7, -21, x, -26)
+      .stroke({ width: 5, color: 0x9ed46a, cap: 'round', alpha: 0.9 })
+    w.position.set(0, -16)
+    w.alpha = 0
+    stank.addChild(w)
+    slingor.push(w)
+  }
+
+  // Strumpan som EN sluten kontur: mudd uppe till vänster, ner genom vristen, ut i tån.
+  const tyg = new Container()
+  const sg = new Graphics()
+  sg.moveTo(-44, -34)
+    .quadraticCurveTo(-52, -4, -40, 20)
+    .quadraticCurveTo(-30, 42, 6, 44)
+    .quadraticCurveTo(44, 46, 52, 26)
+    .quadraticCurveTo(58, 10, 34, 4)
+    .quadraticCurveTo(4, -2, -4, -18)
+    .quadraticCurveTo(-8, -32, -14, -40)
+    .closePath()
+    .fill(topLightFill(TYG, { highlight: 0.2, dark: 0.26 }))
+    .stroke({ width: 3.5, color: TYG_M, join: 'round' })
+  // Mudden: ribbad kant, egen ton.
+  sg.moveTo(-44, -34).quadraticCurveTo(-30, -46, -14, -40)
+    .quadraticCurveTo(-18, -26, -22, -22)
+    .quadraticCurveTo(-36, -22, -44, -34)
+    .closePath()
+    .fill(topLightFill(shade(TYG, 0.1), { dark: 0.2 })).stroke({ width: 3, color: TYG_M })
+  for (let i = 0; i < 5; i++) {
+    const t = i / 4
+    sg.moveTo(-43 + t * 28, -35 - t * 5).lineTo(-40 + t * 24, -24 - t * 2)
+      .stroke({ width: 2, color: TYG_M, alpha: 0.6 })
+  }
+  // Ränder tvärs över foten.
+  for (const [ax, ay, bx, by] of [[-24, 14, -16, 40], [-6, 12, 2, 43], [14, 8, 22, 42]]) {
+    sg.moveTo(ax, ay).quadraticCurveTo((ax + bx) / 2 + 5, (ay + by) / 2, bx, by)
+      .stroke({ width: 7, color: RAND, alpha: 0.55 })
+  }
+  // Hålet vid tån — smutsstrecken och hålet är det som gör den ANVÄND.
+  sg.ellipse(40, 24, 9, 7).fill({ color: 0x6f6353, alpha: 0.75 })
+  sg.ellipse(41, 23, 5.5, 4).fill({ color: 0xf1c9a2, alpha: 0.9 })
+  sg.ellipse(-14, 26, 13, 8).fill({ color: 0xb9ae94, alpha: 0.5 })
+  sg.ellipse(12, 30, 10, 6).fill({ color: 0xb9ae94, alpha: 0.4 })
+  tyg.addChild(sg)
+
+  krop.addChild(stank, tyg)
+  krop.position.set(-2, 2)
+
+  const aterstall = () => {
+    if (!tyg.destroyed) {
+      tyg.rotation = 0
+      tyg.scale.set(1)
+    }
+  }
+
+  return {
+    skugga: { y: 50, rx: 46, ry: 10 },
+    liv: { bob: 3, sway: 0.02, duration: 3.5 },
+    aterstall,
+    // Stanken stiger hela tiden — samma grepp som kaffets ånga, men grönt och långsammare.
+    ambient(btid) {
+      const tls = []
+      slingor.forEach((w, i) => {
+        const tl = btid({ repeat: -1, repeatDelay: 0.7, delay: i * 0.8 })
+        tl.set(w, { y: -16, alpha: 0 }, 0)
+          .set(w.scale, { x: 0.7, y: 1 }, 0)
+          .to(w, { alpha: 0.7, duration: 0.6, ease: 'sine.out' }, 0)
+          .to(w, { y: -38, duration: 2.2, ease: 'sine.out' }, 0)
+          .to(w.scale, { x: 1.3, duration: 2.2, ease: 'sine.out' }, 0)
+          .to(w, { alpha: 0, duration: 1.2, ease: 'sine.in' }, 1)
+        tls.push(tl)
+      })
+      return tls
+    },
+    // STRUMPAN VIFTAS: den flaxar som en trasa och stanken pyser ut i en stöt.
+    tryck() {
+      const tl = tid()
+      tl.to(tyg, { rotation: -0.22, duration: 0.12, ease: 'power2.out' }, 0)
+        .to(tyg, { rotation: 0.18, duration: 0.15, ease: 'sine.inOut' })
+        .to(tyg, { rotation: -0.1, duration: 0.13, ease: 'sine.inOut' })
+        .to(tyg, { rotation: 0, duration: 0.44, ease: 'elastic.out(1, 0.45)' })
+      tl.to(tyg.scale, { x: 1.06, y: 0.92, duration: 0.12, ease: 'power2.out' }, 0)
+        .to(tyg.scale, { x: 1, y: 1, duration: 0.5, ease: 'back.out(2.2)' }, 0.14)
+      tl.to(stank.scale, { x: 1.35, y: 1.2, duration: 0.24, ease: 'power2.out' }, 0.02)
+        .to(stank.scale, { x: 1, y: 1, duration: 0.66, ease: 'sine.inOut' }, 0.26)
+      tl.to(krop, { y: v.vilo.y - 8, duration: 0.13, ease: 'power2.out' }, 0)
+        .to(krop, { y: v.vilo.y, duration: 0.44, ease: 'bounce.out' }, 0.13)
+    },
+  }
+}
+
+// 9) FICKLAMPA — ett räfflat rör med reflektorhuvud, lins och hängring. Ljuskäglan är en
+// egen nod framför linsen som bara syns när knappen trycks; strömbrytaren rör sig på riktigt.
+function byggLampa(v) {
+  const { krop, tid } = v
+  const SKAL = 0x4d5a6b
+  const MORK = shade(SKAL, 0.4)
+  const LJUS = 0xfff3b0
+
+  const LUT = -0.6
+  const lampa = new Container()
+  lampa.rotation = LUT
+
+  // Käglan ligger i EGEN behållare vid linsen och växer kring sig själv — en skalning
+  // kring lampans origo hade kastat spetsen rakt in i grannknappens träffyta.
+  const kagla = new Container()
+  kagla.position.set(28, 0)
+  const kg = new Graphics()
+  kg.moveTo(0, -14).lineTo(42, -28).lineTo(42, 28).lineTo(0, 14).closePath()
+    .fill({ color: LJUS, alpha: 0.55 })
+  kg.moveTo(0, -9).lineTo(38, -17).lineTo(38, 17).lineTo(0, 9).closePath()
+    .fill({ color: 0xfffdf0, alpha: 0.5 })
+  kagla.addChild(kg)
+  kagla.alpha = 0
+
+  const ror = new Graphics()
+  ror.roundRect(-46, -13, 66, 26, 12).fill(cylinderFill(SKAL, { axis: 'y' })).stroke({ width: 3, color: MORK })
+  for (let i = 0; i < 5; i++) {
+    ror.moveTo(-40 + i * 9, -11).lineTo(-40 + i * 9, 11).stroke({ width: 3, color: MORK, alpha: 0.45 })
+  }
+  // Bakänden med hängringen.
+  ror.circle(-50, 0, 7).stroke({ width: 4, color: MORK })
+  // Reflektorhuvudet: konen som vidgas mot linsen.
+  ror.moveTo(14, -15).lineTo(30, -22).lineTo(30, 22).lineTo(14, 15).closePath()
+    .fill(cylinderFill(0x7b8899, { axis: 'y', dark: 0.32 })).stroke({ width: 3, color: MORK, join: 'round' })
+  ror.ellipse(30, 0, 6, 22).fill(topLightFill(0xfff8d8, { highlight: 0.4, dark: 0.1 })).stroke({ width: 3, color: MORK })
+  ror.ellipse(29, 0, 3.5, 13).fill({ color: 0xfffdf0, alpha: 0.9 })
+
+  // Strömbrytaren — en liten knopp som verkligen glider fram.
+  const knapp = new Container()
+  const kb = new Graphics()
+  kb.roundRect(-16, -20, 15, 10, 4).fill(topLightFill(0xe06060, { dark: 0.3 })).stroke({ width: 2.5, color: 0x8f3a3a })
+  knapp.addChild(kb)
+
+  lampa.addChild(kagla, ror, knapp)
+  krop.addChild(lampa)
+  krop.position.set(-4, 2)
+
+  const aterstall = () => {
+    if (!kagla.destroyed) {
+      kagla.alpha = 0
+      kagla.scale.set(1)
+    }
+    if (!knapp.destroyed) knapp.x = 0
+    if (!lampa.destroyed) lampa.rotation = LUT
+  }
+
+  return {
+    skugga: { y: 56, rx: 40, ry: 10 },
+    liv: { bob: 3.5, sway: 0.024, duration: 3 },
+    aterstall,
+    // KLICK: knoppen glider fram, käglan tänds med ett ryck och lampan rekylerar lite.
+    tryck() {
+      const tl = tid()
+      tl.to(knapp, { x: 9, duration: 0.07, ease: 'power2.out' }, 0)
+        .to(knapp, { x: 0, duration: 0.4, ease: 'back.out(2.4)' }, 0.9)
+      tl.to(kagla, { alpha: 1, duration: 0.06, ease: 'power2.out' }, 0.05)
+        .to(kagla, { alpha: 0.75, duration: 0.1, ease: 'sine.inOut' }, 0.13)
+        .to(kagla, { alpha: 1, duration: 0.1, ease: 'sine.inOut' }, 0.23)
+        .to(kagla, { alpha: 0, duration: 0.4, ease: 'power2.in' }, 0.7)
+      tl.to(kagla.scale, { x: 1.12, y: 1.06, duration: 0.5, ease: 'sine.out' }, 0.05)
+        .set(kagla.scale, { x: 1, y: 1 }, 1.12)
+      tl.to(lampa, { rotation: LUT + 0.1, duration: 0.08, ease: 'power2.out' }, 0)
+        .to(lampa, { rotation: LUT, duration: 0.5, ease: 'elastic.out(1, 0.45)' }, 0.08)
+      squash(krop, { intensity: 0.35 })
+    },
+  }
+}
+
+// 10) VATTENSPRUTA — en sprayflaska: kropp med SYNLIG vattennivå (egen nod som skvalpar),
+// hals, avtryckare på egen nod och ett munstycke. Dropparna är tre ritade droppar som
+// skjuts ut ur munstycket vid tryck.
+function byggSpruta(v) {
+  const { krop, tid } = v
+  const PLAST = 0x9fd9e8
+  const PLAST_M = shade(PLAST, 0.34)
+  const VATTEN = 0x4aa3df
+  const GRA = 0x8894a3
+
+  const flaska = new Graphics()
+  flaska.moveTo(-26, -6)
+    .quadraticCurveTo(-30, 24, -26, 46)
+    .quadraticCurveTo(-24, 54, -14, 55)
+    .lineTo(14, 55)
+    .quadraticCurveTo(24, 54, 26, 46)
+    .quadraticCurveTo(30, 24, 26, -6)
+    .closePath()
+    .fill(topLightFill(PLAST, { highlight: 0.3, dark: 0.2 }))
+    .stroke({ width: 3.5, color: PLAST_M, join: 'round' })
+
+  // Vattnet: egen nod, så den kan skvalpa oberoende av flaskan.
+  const vatten = new Container()
+  const vg = new Graphics()
+  vg.moveTo(-24, 10).quadraticCurveTo(0, 4, 24, 10).lineTo(24, 46)
+    .quadraticCurveTo(22, 52, 12, 52).lineTo(-12, 52)
+    .quadraticCurveTo(-22, 52, -24, 46).closePath()
+    .fill(verticalFill(0x7fc4ea, VATTEN))
+  vg.moveTo(-24, 10).quadraticCurveTo(0, 4, 24, 10).stroke({ width: 3, color: 0x8fd0f5, alpha: 0.9 })
+  vg.circle(-12, 26, 4).fill({ color: COLORS.white, alpha: 0.35 })
+  vatten.addChild(vg)
+
+  const etikett = new Graphics()
+  etikett.roundRect(-19, 18, 38, 22, 6).fill({ color: 0xfffdf7, alpha: 0.85 }).stroke({ width: 2.5, color: PLAST_M })
+  etikett.moveTo(-12, 26).quadraticCurveTo(-6, 20, 0, 26).quadraticCurveTo(6, 33, 0, 35)
+    .quadraticCurveTo(-8, 34, -12, 26).closePath().fill({ color: VATTEN, alpha: 0.85 })
+  etikett.moveTo(6, 24).lineTo(15, 24).moveTo(6, 31).lineTo(13, 31)
+    .stroke({ width: 2.5, color: 0x9aa7b4 })
+
+  const hals = new Graphics()
+  hals.roundRect(-13, -20, 26, 18, 5).fill(cylinderFill(GRA, { axis: 'x' })).stroke({ width: 2.5, color: shade(GRA, 0.34) })
+
+  // Sprayhuvudet + munstycket, riktat uppåt-höger.
+  const huvud = new Graphics()
+  huvud.moveTo(-16, -22).lineTo(16, -22).quadraticCurveTo(26, -24, 30, -34)
+    .lineTo(38, -42).lineTo(30, -50).lineTo(18, -40)
+    .quadraticCurveTo(10, -36, -4, -36).lineTo(-16, -36).closePath()
+    .fill(topLightFill(GRA, { highlight: 0.24, dark: 0.3 }))
+    .stroke({ width: 3, color: shade(GRA, 0.4), join: 'round' })
+  huvud.circle(33, -45, 3.4).fill(shade(GRA, 0.5))
+
+  // Avtryckaren: egen nod med vridpunkt uppe, så den verkligen kläms in.
+  const avtryck = pivotNod(-14, -32)
+  const ag = new Graphics()
+  ag.moveTo(-14, -32).quadraticCurveTo(-30, -26, -30, -12)
+    .quadraticCurveTo(-24, -14, -18, -20).quadraticCurveTo(-12, -26, -8, -30).closePath()
+    .fill(topLightFill(GRA, { dark: 0.3 })).stroke({ width: 2.5, color: shade(GRA, 0.42), join: 'round' })
+  avtryck.addChild(ag)
+
+  // Dropparna ur munstycket — egen behållare vid munstycket, växer kring sig själv.
+  const stralen = new Container()
+  stralen.position.set(36, -46)
+  const dg = new Graphics()
+  for (const [dx, dy, r] of [[8, -6, 5], [18, -11, 4], [26, -18, 3]]) {
+    dg.moveTo(dx, dy - r * 1.6).quadraticCurveTo(dx + r, dy, dx, dy + r)
+      .quadraticCurveTo(dx - r, dy, dx, dy - r * 1.6).closePath()
+      .fill({ color: 0x9fd9f5, alpha: 0.95 })
+  }
+  stralen.addChild(dg)
+  stralen.alpha = 0
+
+  krop.addChild(flaska, vatten, etikett, hals, huvud, avtryck, stralen)
+  krop.position.set(-4, -2)
+
+  const aterstall = () => {
+    if (!avtryck.destroyed) avtryck.rotation = 0
+    if (!vatten.destroyed) {
+      vatten.position.set(0, 0)
+      vatten.rotation = 0
+    }
+    if (!stralen.destroyed) {
+      stralen.alpha = 0
+      stralen.scale.set(1)
+    }
+  }
+
+  return {
+    skugga: { y: 60, rx: 32, ry: 9 },
+    liv: { bob: 3, sway: 0.018, duration: 3.2 },
+    aterstall,
+    // PSST: avtryckaren kläms, vattnet skvalpar bakåt och tre droppar far ut ur munstycket.
+    tryck() {
+      const tl = tid()
+      tl.to(avtryck, { rotation: 0.42, duration: 0.07, ease: 'power2.out' }, 0)
+        .to(avtryck, { rotation: 0, duration: 0.34, ease: 'back.out(2.6)' }, 0.12)
+        .to(avtryck, { rotation: 0.36, duration: 0.07, ease: 'power2.out' }, 0.46)
+        .to(avtryck, { rotation: 0, duration: 0.4, ease: 'back.out(2.4)' }, 0.55)
+      tl.to(vatten, { x: -5, rotation: 0.07, duration: 0.12, ease: 'sine.inOut' }, 0.04)
+        .to(vatten, { x: 4, rotation: -0.05, duration: 0.16, ease: 'sine.inOut' })
+        .to(vatten, { x: 0, rotation: 0, duration: 0.4, ease: 'sine.out' })
+      tl.to(stralen, { alpha: 1, duration: 0.05, ease: 'power2.out' }, 0.05)
+        .to(stralen, { alpha: 0, duration: 0.3, ease: 'power2.in' }, 0.2)
+        .to(stralen, { alpha: 1, duration: 0.05, ease: 'power2.out' }, 0.5)
+        .to(stralen, { alpha: 0, duration: 0.3, ease: 'power2.in' }, 0.62)
+      tl.to(stralen.scale, { x: 1.5, y: 1.25, duration: 0.42, ease: 'power2.out' }, 0.05)
+        .set(stralen.scale, { x: 1, y: 1 }, 0.5)
+      tl.to(krop, { rotation: -0.08, duration: 0.07, ease: 'power2.out' }, 0)
+        .to(krop, { rotation: 0, duration: 0.44, ease: 'elastic.out(1, 0.45)' }, 0.09)
+    },
+  }
+}
+
+// 11) BORDSFLÄKT — galler med ekrar, TRE blad på en egen roterande nod bakom gallret, en
+// hals och en tung fot. Bladen snurrar långsamt hela tiden (ambient) och rusar vid tryck.
+function byggFlakt(v) {
+  const { krop, tid } = v
+  const HOLJE = 0x6fb3c9
+  const MORK = shade(HOLJE, 0.36)
+  const METALL = 0xd7dee6
+
+  const fot = new Graphics()
+  fot.ellipse(0, 56, 34, 11).fill(topLightFill(HOLJE, { dark: 0.32 })).stroke({ width: 3, color: MORK })
+  fot.roundRect(-26, 44, 52, 14, 7).fill(cylinderFill(HOLJE, { axis: 'x' })).stroke({ width: 3, color: MORK })
+  fot.roundRect(-6, 16, 12, 32, 6).fill(cylinderFill(shade(HOLJE, 0.16), { axis: 'x' })).stroke({ width: 3, color: MORK })
+
+  // Bladen: tre skovlar kring navet, egen nod = de snurrar på riktigt.
+  const blad = new Container()
+  blad.position.set(0, -14)
+  const bg = new Graphics()
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2
+    const c = Math.cos(a)
+    const s = Math.sin(a)
+    const px = (rx, ry) => [c * rx - s * ry, s * rx + c * ry]
+    const [x1, y1] = px(8, -6)
+    const [x2, y2] = px(32, -16)
+    const [x3, y3] = px(34, 8)
+    const [x4, y4] = px(9, 7)
+    bg.moveTo(x1, y1).quadraticCurveTo((x1 + x2) / 2 - s * 8, (y1 + y2) / 2 + c * 8, x2, y2)
+      .quadraticCurveTo(x3, y3, x4, y4).closePath()
+      .fill(topLightFill(METALL, { highlight: 0.3, dark: 0.26 }))
+      .stroke({ width: 2.5, color: 0x9aa7b4, join: 'round' })
+  }
+  bg.circle(0, 0, 8).fill(sphereFill(0xb8c2cc)).stroke({ width: 2.5, color: 0x8d99a6 })
+  blad.addChild(bg)
+
+  // Gallret framför bladen: ringar + ekrar, allt i EN Graphics.
+  const galler = new Graphics()
+  galler.circle(0, -14, 40).fill({ color: 0xffffff, alpha: 0.07 })
+  for (const r of [16, 26, 36]) galler.circle(0, -14, r).stroke({ width: 2.4, color: 0xeaf1f6, alpha: 0.75 })
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2
+    galler.moveTo(Math.cos(a) * 7, -14 + Math.sin(a) * 7)
+      .lineTo(Math.cos(a) * 39, -14 + Math.sin(a) * 39)
+      .stroke({ width: 2, color: 0xeaf1f6, alpha: 0.6 })
+  }
+  galler.circle(0, -14, 41).stroke({ width: 5, color: HOLJE })
+  galler.circle(0, -14, 41).stroke({ width: 2, color: MORK, alpha: 0.6 })
+
+  // Vindbågarna ut ur gallret — osynliga i vila, egen behållare vid gallrets kant.
+  const vind = new Container()
+  vind.position.set(44, -14)
+  const vg = new Graphics()
+  for (const r of [8, 15, 22]) {
+    vg.arc(0, 0, r, -0.8, 0.8).stroke({ width: 3.4, color: 0xdff2ff, cap: 'round' })
+  }
+  vind.addChild(vg)
+  vind.alpha = 0
+
+  krop.addChild(fot, blad, galler, vind)
+  krop.position.set(0, -6)
+
+  // ⚠️ BLADEN HAR INGEN AMBIENT-SNURR MED FLIT. En evig `rotation`-tween och trycket rör
+  //    SAMMA egenskap, och gsap skriver då om varandra varje bildruta (samma fälla som
+  //    kattens zzz). En avstängd fläkt SKA dessutom stå stilla — bladen behåller den vinkel
+  //    de stannade på, vilket är sant och gratis.
+  const aterstall = () => {
+    if (!vind.destroyed) {
+      vind.alpha = 0
+      vind.scale.set(1)
+    }
+  }
+
+  return {
+    skugga: { y: 62, rx: 36, ry: 9 },
+    liv: { bob: 2.5, sway: 0.012, duration: 3.4 },
+    aterstall,
+    // FULL FART: bladen rusar ett par varv och vindbågarna far ut ur gallret.
+    tryck() {
+      const tl = tid()
+      tl.to(blad, { rotation: `+=${Math.PI * 8}`, duration: 1.1, ease: 'power2.out' }, 0)
+      tl.to(vind, { alpha: 0.95, duration: 0.09, ease: 'power2.out' }, 0.04)
+        .to(vind, { alpha: 0, duration: 0.5, ease: 'power2.in' }, 0.5)
+      tl.to(vind.scale, { x: 1.5, y: 1.3, duration: 0.9, ease: 'power2.out' }, 0.04)
+        .set(vind.scale, { x: 1, y: 1 }, 1)
+      tl.to(krop, { rotation: -0.05, duration: 0.06, ease: 'sine.inOut', yoyo: true, repeat: 9 }, 0)
+        .to(krop, { rotation: 0, duration: 0.2, ease: 'sine.out' }, 0.62)
+    },
+  }
+}
+
+// 12) HUNDVALP — en sittande valp i sidovy: bakdel, framben, bringa, huvud med nos och ett
+// slokande öra, plus en svans på egen nod. Örat och svansen är egna noder — det är de som
+// lever när hon vaknar. (Den som far iväg till sängen är en KOPIA av samma bygge.)
+function byggHund(v) {
+  const { krop, tid } = v
+  const PALS = 0xd7a86e
+  const MORK = shade(PALS, 0.34)
+  const LJUS = 0xf6e3c6
+
+  const svans = pivotNod(-34, 18)
+  const sv = new Graphics()
+  sv.moveTo(-34, 18).quadraticCurveTo(-58, 12, -54, -12).stroke({ width: 13, color: MORK, cap: 'round' })
+  sv.moveTo(-34, 18).quadraticCurveTo(-58, 12, -54, -12).stroke({ width: 8, color: PALS, cap: 'round' })
+  sv.circle(-54, -12, 5).fill(LJUS)
+  svans.addChild(sv)
+
+  const kropp = new Graphics()
+  // Sittande bakdel + bringa som lutar framåt.
+  kropp.ellipse(-18, 22, 32, 28).fill(sphereFill(PALS, { lightY: 0.22, dark: 0.3 })).stroke({ width: 3.5, color: MORK })
+  kropp.moveTo(-38, 4).quadraticCurveTo(-10, -16, 16, -6)
+    .quadraticCurveTo(30, 2, 28, 30).quadraticCurveTo(20, 48, -12, 48)
+    .quadraticCurveTo(-40, 46, -38, 4).closePath()
+    .fill(topLightFill(PALS, { highlight: 0.2, dark: 0.24 })).stroke({ width: 3.5, color: MORK, join: 'round' })
+  // Framben med tassar.
+  for (const bx of [6, 22]) {
+    kropp.roundRect(bx - 7, 20, 14, 30, 7).fill(topLightFill(PALS, { dark: 0.2 })).stroke({ width: 3, color: MORK })
+    kropp.ellipse(bx, 50, 10, 6).fill(LJUS).stroke({ width: 2.5, color: MORK })
+  }
+  kropp.ellipse(2, 20, 18, 14).fill({ color: LJUS, alpha: 0.75 })
+
+  const huvud = pivotNod(14, -12)
+  const hg = new Graphics()
+  hg.circle(20, -30, 25).fill(sphereFill(PALS, { lightY: 0.24, dark: 0.28 })).stroke({ width: 3.5, color: MORK })
+  // Nosparti + svart nos.
+  hg.ellipse(42, -22, 16, 12).fill(topLightFill(LJUS, { dark: 0.16 })).stroke({ width: 3, color: MORK })
+  hg.ellipse(52, -26, 6.5, 5).fill(0x3a2f2a)
+  hg.moveTo(42, -18).lineTo(42, -12).stroke({ width: 2.5, color: MORK })
+  hg.moveTo(42, -12).quadraticCurveTo(35, -9, 33, -14)
+    .moveTo(42, -12).quadraticCurveTo(49, -9, 51, -14).stroke({ width: 2.5, color: MORK })
+  // Ögat: slutet i vila (hon sover), locket ritat som en båge.
+  hg.circle(30, -36, 6).fill(LJUS)
+  huvud.addChild(hg)
+
+  const oga = new Graphics()
+  oga.circle(30, -36, 5.5).fill(PALS)
+  oga.moveTo(25, -35).quadraticCurveTo(30, -41, 35, -35).stroke({ width: 2.6, color: COLORS.ink, cap: 'round' })
+  huvud.addChild(oga)
+
+  // Slokörat: egen nod med vridpunkt uppe vid skallen.
+  const oraNod = pivotNod(10, -44)
+  const og = new Graphics()
+  og.moveTo(10, -44).quadraticCurveTo(-8, -40, -6, -14)
+    .quadraticCurveTo(-2, -4, 8, -10).quadraticCurveTo(16, -22, 10, -44).closePath()
+    .fill(topLightFill(shade(PALS, 0.18), { dark: 0.24 })).stroke({ width: 3, color: MORK, join: 'round' })
+  oraNod.addChild(og)
+  huvud.addChild(oraNod)
+
+  // Två små z:n — hon sover på nattduksbordet tills hon används.
+  const zzz = new Container()
+  const zg = new Graphics()
+  const ritZ = (x, y, s) => {
+    zg.moveTo(x - 6 * s, y - 6 * s).lineTo(x + 6 * s, y - 6 * s)
+      .lineTo(x - 6 * s, y + 6 * s).lineTo(x + 6 * s, y + 6 * s)
+      .stroke({ width: 3.4 * s, color: 0xdfe9f5, cap: 'round', join: 'round' })
+  }
+  ritZ(46, -54, 0.92)
+  ritZ(60, -66, 0.66)
+  zzz.addChild(zg)
+  zzz.alpha = 0.85
+
+  krop.addChild(svans, kropp, huvud, zzz)
+  krop.position.set(-6, 4)
+
+  let ambTl = null
+  const aterstall = () => {
+    if (!oga.destroyed) oga.alpha = 1
+    if (!oraNod.destroyed) oraNod.rotation = 0
+    if (!svans.destroyed) svans.rotation = 0
+    if (!huvud.destroyed) huvud.rotation = 0
+    if (!zzz.destroyed) {
+      zzz.alpha = 0.85
+      zzz.position.set(0, 0)
+    }
+    if (ambTl?.parent) ambTl.play(0)
+  }
+
+  return {
+    skugga: { y: 54, rx: 42, ry: 10 },
+    liv: { bob: 3, sway: 0.014, duration: 3.3 },
+    aterstall,
+    ambient(btid) {
+      ambTl = btid({ repeat: -1 })
+      ambTl.to(zzz, { y: -12, alpha: 0.3, duration: 1.9, ease: 'sine.inOut' }, 0)
+        .to(zzz, { y: 0, alpha: 0.85, duration: 1.9, ease: 'sine.inOut' }, 1.9)
+      return ambTl
+    },
+    // VALPEN VAKNAR: ögat far upp, örat flaxar, svansen viftar och hon skuttar till.
+    tryck() {
+      if (ambTl?.parent) ambTl.pause(0)
+      const tl = tid()
+      tl.to(oga, { alpha: 0, duration: 0.08 }, 0)
+        .to(oga, { alpha: 1, duration: 0.3 }, 1.6)
+      tl.to(zzz, { alpha: 0, y: -20, duration: 0.3, ease: 'power2.out' }, 0)
+        .to(zzz, { alpha: 0.85, y: 0, duration: 0.5, ease: 'sine.inOut' }, 1.6)
+      tl.to(huvud, { rotation: -0.24, duration: 0.14, ease: 'back.out(2.6)' }, 0)
+        .to(huvud, { rotation: 0.08, duration: 0.22, ease: 'sine.inOut' }, 0.34)
+        .to(huvud, { rotation: 0, duration: 0.4, ease: 'sine.inOut' }, 0.6)
+      tl.to(oraNod, { rotation: -0.5, duration: 0.12, ease: 'power2.out' }, 0)
+        .to(oraNod, { rotation: 0.24, duration: 0.16, ease: 'sine.inOut' }, 0.12)
+        .to(oraNod, { rotation: 0, duration: 0.5, ease: 'elastic.out(1, 0.4)' }, 0.3)
+      tl.to(svans, { rotation: -0.6, duration: 0.11, ease: 'sine.inOut', yoyo: true, repeat: 5 }, 0.05)
+        .to(svans, { rotation: 0, duration: 0.24, ease: 'sine.out' }, 0.75)
+      tl.to(krop, { y: v.vilo.y - 11, duration: 0.14, ease: 'power2.out' }, 0)
+        .to(krop, { y: v.vilo.y, duration: 0.5, ease: 'bounce.out' }, 0.14)
+      tl.call(() => {
+        if (ambTl?.parent) ambTl.play(0)
+      }, null, 2.1)
+    },
+  }
+}
+
 const BYGG = {
   klocka: byggKlocka,
   katt: byggKatt,
@@ -720,6 +1302,12 @@ const BYGG = {
   gardin: byggGardin,
   kaffe: byggKaffe,
   kittla: byggKittla,
+  ballong: byggBallong,
+  strumpa: byggStrumpa,
+  lampa: byggLampa,
+  spruta: byggSpruta,
+  flakt: byggFlakt,
+  hund: byggHund,
 }
 
 // --- fabriken för verktygen -------------------------------------------------
@@ -770,6 +1358,18 @@ export function makeVerktyg(key) {
       if (dod || krop.destroyed) return
       stoppa()
       spec.tryck()
+    },
+
+    /**
+     * Vänder saken (hunden som visar rumpan). Speglingen sitter på LIVNODEN och aldrig på
+     * `view.scale`: den senare ägs av `DragController`s val-puls (en evig yoyo-tween om
+     * samma `scale.x`), och två tweens om samma egenskap skriver om varandra varje bildruta
+     * — vändningen hade blivit en osynlig nollverkan. `krop.scale` går bort av samma skäl,
+     * den ägs av tryck-reaktionerna.
+     */
+    vand(sx) {
+      if (dod || livnod.destroyed) return
+      gsap.to(livnod.scale, { x: sx < 0 ? -1 : 1, duration: 0.24, ease: 'back.out(2)' })
     },
 
     // Vilo-rörelse med EGEN slumpad fas + sakens eventuella ambient (ånga, zzz).
@@ -1048,6 +1648,12 @@ export function makeKatt() {
 //   gardin   108 × 110     54 / 56   (ljusstrålen)
 //   kaffe     96 × 110     48 / 52   (ångan)
 //   kittla    72 × 106     42 / 65   (viftningen svänger fjädern kring spolen)
+//   ballong   80 × 120     40 / 47   (gummit sväller 1,18 kring sin egen mitt)
+//   strumpa  110 ×  92     56 / 61   (stanken stiger rakt upp, aldrig i sidled)
+//   lampa    118 × 110     74 / 81   (käglan, roterad −0,6 rad och skalad 1,12)
+//   spruta    72 × 105     41 / 76   (dropparna ur munstycket, skalade 1,5)
+//   flakt     82 × 122     41 / 77   (vindbågarna vid gallrets kant, skalade 1,5)
+//   hund     116 × 122     64 / 64   (svansroten bak, nosen fram — inget växer i sidled)
 //
 //   KATTEN (makeKatt) ~132 × 112 px — den bor på kudden, inte i verktygsraden.
 export const KONST_HALVBREDD = KONST_TAK

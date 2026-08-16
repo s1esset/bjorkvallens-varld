@@ -15,11 +15,11 @@ bor numera här nedan.*
 | **titleSv** | Vakna, pappa! |
 | **icon** | 😴 |
 | **kategori** | `roligt` → flik **Roligt** |
-| **input** | tap |
+| **input** | mixed (tryck + enkelt drag med snäpp + tap-tap-fallback) |
 | **ålder** | [2, 5] |
-| **kärnloop** | Pappa sover. En sömnmätare (måne som sjunker, sol som stiger) **sjunker av ljud och kryper tillbaka upp av tystnad**, så barnet måste kedja ihop sina tryck. Sex verktyg med olika verkan och egna skämt. |
+| **kärnloop** | Pappa vill bara SOVA, och barnet vill busa. En sömnmätare (andningstakten, plus måne/sol) **sjunker av ljud och kryper tillbaka upp av tystnad**, så barnet måste kedja ihop sina tryck. **Tolv saker**, en per busskategori, var och en med sin egen mekanism och sin egen min. |
 | **mål** | Fem vakenlägen uppnådda → gäspningen och soluppgången → `progress.complete()` |
-| **agens** | VILKET verktyg, och i vilken ordning. Kaffet biter bara från läge 2; rullgardinen ger −0 men **dubblar allt annat**; väckarklockan är starkast men får filten över huvudet. Inget verktyg är fel. |
+| **agens** | VILKEN sak, VAR man släpper den, och i vilken ordning. **Tre vägar in:** ⓐ välj sak + tryck på stora VÄCK-knappen, ⓑ dra saken på honom (ansikte · täcke · bar fot ger olika utfall), ⓒ tryck på saker i rummet (fönstret, hyllan, tavlan, täcket, honom själv). Kaffet biter bara från läge 2; rullgardinen ger ±0 men **dubblar allt annat**; väckarklockan är starkast men får filten över huvudet. Inget verktyg är fel. |
 | **variation** | Verktygsuppsättning och ordning roterar; sällsynt wow (~1 på 8): han sätter sig upp och **snarkar vidare sittande**. |
 | **mottagare** | Väckarklockan, katten och trumpeten hoppar och jublar i finalen. |
 | **finish** | Han sätter sig upp, gäspar stort, sträcker på sig, solen far upp — och sen: "en gång till?" → han dimper ner och börjar snarka igen, vilket **är** slutklämmen. |
@@ -37,26 +37,43 @@ bor numera här nedan.*
 Läge 3 och 5 finns ingen annanstans i appen: **ett öga i taget** och ett **långsamt** gap
 (allt `mata-munnen` gör är snabba tuggap). Gäspningen ensam är värd spelet.
 
-**Verktygen**
+**De tolv sakerna — en per busskategori (ägaruppdraget 2026-08-16)**
 
-| Verktyg | Effekt | Skämtet / haken |
-|---|---|---|
-| väckarklockan | +2 lägen, starkast | han drar **filten över huvudet** → nästa 2 ljud dämpas tills barnet trycker bort filten |
-| katten | +1, och den **stannar** på kudden och kan tryckas igen | den går på hans ansikte; `traffar()` ger rätt min per ställe |
-| trumpeten | +1 + luggen flyger rakt upp och ramlar ner | ren komik |
-| rullgardinen | +0, men **dubblar allt annat** medan dagsljuset flödar in | den listiga vägen |
-| kaffekoppen | +2, men **bara från läge 2** | doften driver som en synlig slinga mot näsan, `blick()` följer den, han snusar |
-| viska/kittla | +1, alltid tillgänglig | den snälla vägen; funkar alltid, långsammast |
+| Sak | Kategori | Lägen | Mekanismen · skämtet |
+|---|---|---|---|
+| väckarklockan | ljud (skarpt) | +2 | starkast — men han drar **filten över huvudet**, och då HALVERAS nästa saks verkan tills barnet trycker bort den |
+| trumpeten | ljud (fanfar) | +1 | G4 → C5, en ren kvart; luggen flyger rakt upp |
+| ballongen | slag / smäll | +2 | `pop` + samplat slag + en basstöt 120 → 52 Hz, konfetti, täcket fladdrar |
+| kaffekoppen | lukt (god) | +2 | **bara från läge 2**; doften driver som en synlig slinga mot näsan, `blick()` följer den, han snusar |
+| strumpan | lukt (äcklig) | +2 | gröna stinkslingor — han **vänder bort huvudet** |
+| ficklampan | ljus | +1 | ritad ljuskägla mot ansiktet; han kisar (`blunda` båda) |
+| rullgardinen | ljus (dagsljus) | ±0 | **dubblar allt annat** — den listiga vägen, och den enda saken som med flit inte höjer något själv |
+| vattensprutan | blött | +2 | droppar + ringar i ansiktet, `kyla`, huttring |
+| fläkten | vind | +1 (+1) | vindbågar över sängen; **blåser av filten** om den ligger över huvudet |
+| fjädern | insekt som kryper | +1 | **tre nedslag längs en sträcka**, 0,42 s isär, stämd stege 660/784/988 — min per zon via `traffar()` |
+| katten | djur som sätter sig | +1 | hon GÅR på hans ansikte och **stannar** på kudden; nästa tryck är en klapp |
+| hundvalpen | djur som pruttar | +2 | skäller, **vänder rumpan till**, ett grönt moln driver mot näsan |
 
-**Röstrepliker (7 literaler)**
+Zonen ändrar utfallet: **ansikte** full verkan · **täcke** −1 (aldrig under 1) · **fot** +1 för
+fjädern och sprutan, annars −1.
+
+**Slumpade kryddor** (tak: en i taget, ≥8 s emellan, 30 % chans, alla hjälpsamma): katten
+pruttar · en bok ramlar ner · åska med blixt (bara när det regnar; ljudet 0,35 s efter
+ljuset) · han drömmer och ler.
+
+**Röstrepliker (18 literaler)**
 ```
-"Pappa sover! Väck honom med ljuden."        ← voiceIntro
-"Titta, han rör på sig!"
-"Ett öga är öppet! Fortsätt."
-"Oj, han somnade om igen. Prova igen!"
-"Dra av filten så han hör dig."
-"God morgon, pappa!"
-"Vill du väcka honom en gång till?"
+"Pappa sover! Välj en sak och busa med honom."   ← voiceIntro
+"Tryck på den stora knappen, eller dra saken på pappa."
+"Välj en sak på bordet först!"
+"Tryck på pilarna, det finns fler saker."
+"Titta, han rör på sig!"          "Ett öga är öppet! Fortsätt."
+"Oj, han somnade om igen. Prova igen!"   "Dra av filten så han hör dig."
+"God morgon, pappa!"              "Vill du väcka honom en gång till?"
+"Usch, vad strumpan luktar!"      "Hundvalpen pruttade på pappa!"
+"Katten sitter kvar på kudden."   "Nu regnar det ute."
+"Åska! Vilket dunder!"            "Boken ramlade ner på pappa."
+"Nu ligger pappa utan täcke. Brrr!"
 ```
 
 ## 1. Nuläge (sett som spelare)
@@ -151,6 +168,39 @@ på ägarens inspelningslista. Spelet ska vara klart och grönt utan dem.
 
 *(fylls i av `spelkritiker` efter bygget)*
 
+## 3b. Ombyggnaden 2026-08-16 (ägaruppdrag) — tolv sätt att busa
+
+Ägaren gav två punkter: ⓵ pappa vill bara sova och spelaren ska BUSA med valda saker, via
+en väck-knapp ELLER genom att dra saker på honom ELLER genom att klicka på saker i rummet;
+⓶ sakerna ska väcka honom på OLIKA sätt (lukt · ljud · ljus · slag · blött · vind · djur som
+sätter sig · insekt som kryper · djur som pruttar · täcket av · saker som ramlar · väder ·
+slumpade händelser), och han ska bli irriterad och vilja somna om.
+
+Sömnmätaren (andningstakten per läge), återinsomnandet, taken och gäspningsfinalen står
+**oförändrade** — allt nytt är byggt ovanpå.
+
+### Vad sonden mätte (`node scripts/_busprobe.mjs`)
+
+Kontrollarmen först: ett tryck på VÄCK-knappen UTAN vald sak.
+
+| arm | tal |
+|---|---|
+| KONTROLL — VÄCK utan vald sak | **+0** (och hyllan hoppar — knappen är aldrig en död yta) |
+| de tolv sakerna, en i taget, isolerade | **11 av 12 höjer**; `gardin` ±0 **med flit** (den dubblar allt annat) |
+| olika miner över uppsättningen | 5 (`aj` `forvanad` `lycksalig` `nojd` `skeptisk`) |
+| tid till verkan | 0,50 s för elva · **6,00 s för katten** — hon GÅR dit, och vägen är showen |
+| tryck på täcket | `false → true`, täcket åker ner |
+| exit mitt i en väckning | rent, 0 konsolfel |
+
+⚠️ **Tre fällor gjorde mätaren fel innan den var rätt, och alla tre gav FALSKA NOLLOR.**
+⓵ Verktygsplatserna gissades (`sida = index/4`) — 11 av 12 saker valdes då aldrig, och deras
+"+1/+2" var den FÖRRA sakens verkan som låg kvar vald. Alla tolv talen såg rimliga ut. Läs
+`g._verktyg` ur spelet i stället. ⓶ `_filtPa` nollställdes inte: väckarklockan drar filten
+över hans huvud, och då halveras nästa saks verkan (`Math.floor(n/2)`), så ett +1 blev +0 —
+tre saker efter klockan såg stumma ut i två körningar i rad. ⓷ Baslinjen 0: kaffet doftar
+först från läge 2, alltså är en nolla där spelets REGEL och inte sakens verkan. Baslinjen är
+nu 1. Och fönstret var 5,5 s, vilket är kortare än kattens promenad.
+
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Juice**
@@ -181,3 +231,8 @@ på ägarens inspelningslista. Spelet ska vara klart och grönt utan dem.
 ## 5. Status / loggar
 
 `2026-08-16 · doc skriven, spec flyttad hit ur IDEER post 2 ⓶ · (bygget följer)`
+
+`2026-08-16 · ägaruppdrag: tolv saker på tre bläddringsbara sidor, VÄCK-knapp + drag + sju
+klickbara rumssaker, slumpade kryddor. Mätt med scripts/_busprobe.mjs (kontrollarm +0,
+11 av 12 höjer). Rättat efter skärmdumpen: bläddringspilarnas spetsar pekade ÅT FEL HÅLL,
+och VÄCK-knappens hand pekade ut ur bild i stället för mot pappa.`

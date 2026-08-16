@@ -80,6 +80,13 @@ export const PLATS = {
   fonster: { x: FX + FW / 2, y: FY + FH / 2, w: FW, h: FH },
   katt: { x: 172, y: 282 },
   hylla: { y: 596 },
+  // Släppzonerna på pappa (`index.js` ZONER) och rummets tryckbara saker. Alla fyra är
+  // MÄTTA mot ritningen ovan, inte valda: magen är täckets kulle (y 396–490), foten är
+  // den bara foten i fotändan, vägghyllan är hyllplanet med sina tre böcker.
+  mage: { x: 570, y: 446 },
+  fot: { x: 874, y: 436 },
+  vagghylla: { x: 752, y: 312 },
+  tavla: { x: 650, y: 178 },
 }
 
 // ------------------------------------------------------------------ palett ---
@@ -363,7 +370,39 @@ export function byggSovrum(ctx) {
   solG.circle(0, 0, 30).fill(sphereFill(F.sol, { highlight: 0.42, dark: 0.22 }))
   sol.addChild(solGlod, solG)
 
-  himmelL.addChild(skyNatt, stjarnor, skyGry, skyDag, moln, kullar, mane, sol)
+  // ------------------------------------------------------------ VÄDRET ---
+  //
+  // Regnet bor INNANFÖR himmelsmasken, annars skulle strecken smattra rakt ut på tapeten.
+  // Varje droppe är en egen nod med egen fas — 22 streck som faller i samma tween läser
+  // som en gardin, inte som regn. Molnvalvet är en enda mörk hinna över himlen som tonas
+  // in: en åskhimmel är MÖRKARE, och utan den syns inte att vädret slog om i mörkret.
+  const regn = nyC()
+  const regnMork = nyG()
+  regnMork.rect(FX, FY, FW, FH).fill(verticalFillAlpha(0x2b3550, 0x4a5570, 0.85, 0.5))
+  regn.addChild(regnMork)
+  const droppar = []
+  const rrnd = slumpare(31415926)
+  for (let i = 0; i < 22; i++) {
+    const d = nyC()
+    const dg = nyG()
+    const langd = 12 + rrnd() * 12
+    dg.moveTo(0, 0).lineTo(-3, langd).stroke({ width: 2.6, color: 0xcfe6ff, alpha: 0.75, cap: 'round' })
+    d.addChild(dg)
+    d.position.set(FX + 8 + rrnd() * (FW - 16), FY + rrnd() * FH)
+    d._wFas = rrnd()
+    d._wFart = 0.8 + rrnd() * 0.5
+    regn.addChild(d)
+    droppar.push(d)
+  }
+  regn.alpha = 0
+  regn.visible = false
+
+  // Blixten inuti rutan: en vit hinna över hela glaset.
+  const blixtG = nyG()
+  blixtG.rect(FX, FY, FW, FH).fill({ color: 0xffffff })
+  blixtG.alpha = 0
+
+  himmelL.addChild(skyNatt, stjarnor, skyGry, skyDag, moln, kullar, mane, sol, regn, blixtG)
   // Masken måste ligga i scengrafen för att räknas — den bor därför i fönstercontainern
   // och rivs med den.
   const himmelMask = nyG()
@@ -431,7 +470,14 @@ export function byggSovrum(ctx) {
 
   // =========================================================== VÄGGDEKOR ===
   // Den enda väggytan ingen möbel och ingen träffyta rör: x 540–860 ovanför sängen.
-  bak.addChild(_tavla(650, 178), _hylla(752, 336))
+  const hyllan = _hylla(752, 336)
+  // ⚠️ TAVLAN RITAS I ABSOLUTA KOORDINATER. Ska den kunna gunga måste pivot OCH position
+  //    flyttas till dess mitt — en rotation kring (0,0) hade svingat den tvärs över rummet.
+  const tavlan = nyC()
+  tavlan.addChild(_tavla(650, 178))
+  tavlan.pivot.set(650, 178)
+  tavlan.position.set(650, 178)
+  bak.addChild(tavlan, hyllan)
 
   // ================================================================ SÄNGEN ===
   // Gaveln (x 30–510, y 118–470) är stoppad och hög med flit: hjässan ligger på y 130, och
@@ -501,6 +547,39 @@ export function byggSovrum(ctx) {
 
   // ======================================================= FRAM: KROPPEN ===
   //
+  // PYJAMASEN ligger UNDER täcket och syns bara när barnet drar ner det (`taketAv`). Utan
+  // den vore pappa ett fritt svävande huvud i samma sekund täcket åkte ner — och hela
+  // busvägen "dra av täcket" hade varit obyggbar.
+  const pyjamas = nyG()
+  pyjamas.moveTo(352, 486)
+    .quadraticCurveTo(392, 416, 466, 412)
+    .quadraticCurveTo(560, 406, 636, 408)
+    .quadraticCurveTo(700, 410, 720, 434)
+    .quadraticCurveTo(754, 408, 800, 412)
+    .quadraticCurveTo(842, 416, 852, 458)
+    .lineTo(854, 490)
+    .lineTo(352, 490)
+    .closePath()
+    .fill(topLightFill(0xa8c4e8, { highlight: 0.28, dark: 0.22 }))
+  // Randigt pyjamastyg — en enfärgad platta läser som en presenning.
+  for (let i = 0; i < 14; i++) {
+    const px = 366 + i * 36
+    pyjamas.moveTo(px, 490).quadraticCurveTo(px + 6, 452, px + 2, 412)
+      .stroke({ width: 9, color: 0x7fa5d6, alpha: 0.5 })
+  }
+  // Knappraden längs bröstet + en krage.
+  for (let i = 0; i < 5; i++) {
+    pyjamas.circle(430 + i * 62, 424 + i * 3, 5).fill({ color: 0xfffdf7, alpha: 0.9 })
+  }
+  pyjamas.moveTo(356, 470).quadraticCurveTo(396, 420, 452, 414)
+    .stroke({ width: 7, color: 0xfffdf7, alpha: 0.6 })
+  fram.addChild(pyjamas)
+
+  // TÄCKNODEN bär täckets läge (uppe/nere). Fladdret bor i `kropp` INUTI den, så en fläkt
+  // som skakar tyget aldrig slåss med tweenen som drar ner det.
+  const taketNod = new Container()
+  taketNod.eventMode = 'none'
+  //
   // Filten över kroppen börjar på x 346, alltså 39 px till höger om ansiktets synliga
   // högerkant (385)... nej: den börjar UNDER hakan och tuckar in sig. Bulan stiger till
   // y 392 vid axeln, sjunker vid midjan och stiger igen vid knäna — en rak korv läser som
@@ -529,13 +608,18 @@ export function byggSovrum(ctx) {
     .stroke({ width: 5, color: F.filtMork, alpha: 0.3 })
   kropp.moveTo(640, 398).quadraticCurveTo(652, 440, 640, 488)
     .stroke({ width: 4, color: F.filtMork, alpha: 0.22 })
-  // En bar fot som sticker ut i fotändan — den lilla komiken som gör bädden bebodd.
-  kropp.moveTo(846, 430).quadraticCurveTo(890, 418, 898, 442)
+  taketNod.addChild(kropp)
+  fram.addChild(taketNod)
+
+  // FOTEN ligger UTANFÖR täcknoden — den är ju bar, och ska stå kvar när täcket åker ner.
+  // (Den lilla komiken som gör bädden bebodd, och en egen träffyta i `index.js`.)
+  const fot = nyG()
+  fot.moveTo(846, 430).quadraticCurveTo(890, 418, 898, 442)
     .quadraticCurveTo(902, 462, 872, 462).quadraticCurveTo(846, 458, 846, 430)
     .fill(topLightFill(F.hud, { highlight: 0.2, dark: 0.18 }))
-  kropp.circle(888, 436, 4).fill({ color: 0xd9a077, alpha: 0.7 })
-  kropp.circle(880, 430, 3.4).fill({ color: 0xd9a077, alpha: 0.6 })
-  fram.addChild(kropp)
+  fot.circle(888, 436, 4).fill({ color: 0xd9a077, alpha: 0.7 })
+  fot.circle(880, 430, 3.4).fill({ color: 0xd9a077, alpha: 0.6 })
+  fram.addChild(fot)
 
   // ======================================================= FRAM: FILTEN ===
   //
@@ -666,6 +750,14 @@ export function byggSovrum(ctx) {
   }, 1, 0.72)
   fram.addChild(natt)
 
+  // ÅSKANS SKEN I RUMMET. Ligger allra sist, alltså över nattens scrim och över ansiktet:
+  // en blixt som bara lyser upp fönstret men lämnar rummet becksvart läser som en bugg.
+  // Taket är 0,5 — vitare än så och fotot av pappa blir en vit lapp i två bildrutor.
+  const rumBlixt = nyG()
+  rumBlixt.rect(x0, yTop, x1 - x0, yBot - yTop).fill({ color: 0xeaf2ff })
+  rumBlixt.alpha = 0
+  fram.addChild(rumBlixt)
+
   // ================================================== TILLSTÅND + MÅLNING ===
 
   let levande = true
@@ -745,7 +837,24 @@ export function byggSovrum(ctx) {
   const allaNoder = [
     bak, fram, filtNod, gardinDuk, gardinList, snore, damm, ...dammNoder,
     mane, sol, natt, kil, fonsterGlod, ansGlod, himmelL,
+    taketNod, kropp, fot, pyjamas, regn, blixtG, rumBlixt, hyllan, ...hyllan.bocker, tavlan,
   ]
+
+  // REGNET drivs av EN proxy-tween, inte av 22 egna tidslinjer: varje droppe har sin egen
+  // fas och fart, och positionen räknas ur `regnFas.t`. Tweenen pausas när det är uppehåll,
+  // så ett torrt sovrum kostar exakt noll per bildruta.
+  const regnFas = { t: 0 }
+  const REGN_START = FY - 40
+  const REGN_SPANN = FH + 60
+  let regnTw = null
+  function malaRegn() {
+    if (!levande || regn.destroyed) return
+    for (const d of droppar) {
+      if (d.destroyed) continue
+      const f = (regnFas.t * d._wFart + d._wFas) % 1
+      d.y = REGN_START + f * REGN_SPANN
+    }
+  }
 
   return {
     bak,
@@ -794,6 +903,122 @@ export function byggSovrum(ctx) {
           mala()
         },
       })
+    },
+
+    /** Böckerna på vägghyllan — `index.js` tippar ner en av dem på täcket. */
+    bocker: hyllan.bocker,
+
+    /**
+     * VÄDRET utanför fönstret: `false` = uppehåll, `true` = regn som smattrar.
+     * Regnet mörknar himlen och lägger 22 fallande streck innanför glasmasken.
+     */
+    vader(regnar) {
+      if (!levande || regn.destroyed) return
+      gsap.killTweensOf(regn)
+      if (regnar) {
+        regn.visible = true
+        if (!regnTw) {
+          regnTw = gsap.to(regnFas, {
+            t: 100, duration: 100, ease: 'none', repeat: -1,
+            onUpdate: malaRegn,
+          })
+          tweens.push(regnTw)
+        }
+        regnTw.play()
+        to(regn, { alpha: 1, duration: 0.7, ease: 'power2.out' })
+      } else {
+        to(regn, {
+          alpha: 0,
+          duration: 0.7,
+          ease: 'power2.in',
+          onComplete: () => {
+            if (!regn.destroyed) regn.visible = false
+            regnTw?.pause()
+          },
+        })
+      }
+    },
+
+    /**
+     * ETT BLIXTNEDSLAG: två snabba sken, ett i rutan och ett över hela rummet. Dundret
+     * är `index.js` sak (ljudet ska komma EFTER ljuset, precis som i verkligheten).
+     */
+    blixt() {
+      if (!levande || blixtG.destroyed) return
+      const tl = gsap.timeline()
+      tweens.push(tl)
+      tl.to(blixtG, { alpha: 0.95, duration: 0.05, ease: 'power2.out' }, 0)
+        .to(blixtG, { alpha: 0.1, duration: 0.12, ease: 'power2.in' }, 0.05)
+        .to(blixtG, { alpha: 0.8, duration: 0.05, ease: 'power2.out' }, 0.2)
+        .to(blixtG, { alpha: 0, duration: 0.45, ease: 'power2.in' }, 0.26)
+      tl.to(rumBlixt, { alpha: 0.5, duration: 0.05, ease: 'power2.out' }, 0)
+        .to(rumBlixt, { alpha: 0.06, duration: 0.12, ease: 'power2.in' }, 0.05)
+        .to(rumBlixt, { alpha: 0.42, duration: 0.05, ease: 'power2.out' }, 0.2)
+        .to(rumBlixt, { alpha: 0, duration: 0.45, ease: 'power2.in' }, 0.26)
+      return tl
+    },
+
+    /**
+     * TÄCKET ÖVER KROPPEN dras ner (`true`) eller upp igen (`false`). Nere glider det bakom
+     * sängkanten och pappa ligger i randiga pyjamas — och fryser. 86 px räcker: sargen
+     * börjar på y 456 och täckets överkant ligger på 396, så inget tyg sticker fram.
+     */
+    taketAv(av) {
+      if (!levande || taketNod.destroyed) return null
+      return to(taketNod, {
+        y: av ? 86 : 0,
+        duration: av ? 0.5 : 0.6,
+        ease: av ? 'power2.in' : 'back.out(1.2)',
+      })
+    },
+
+    /** Fladdrar täcket — vind, en boll som landar, en hund som skuttar upp. */
+    filtFladdra(styrka = 1) {
+      if (!levande || kropp.destroyed) return null
+      gsap.killTweensOf(kropp)
+      const tl = gsap.timeline()
+      tweens.push(tl)
+      tl.to(kropp, { y: -9 * styrka, duration: 0.14, ease: 'power2.out' }, 0)
+        .to(kropp, { y: 3 * styrka, duration: 0.18, ease: 'sine.inOut' }, 0.14)
+        .to(kropp, { y: -4 * styrka, duration: 0.16, ease: 'sine.inOut' }, 0.32)
+        .to(kropp, { y: 0, duration: 0.46, ease: 'elastic.out(1, 0.5)' }, 0.48)
+      return tl
+    },
+
+    /** Den bara foten rycks in — svaret på ett tryck eller en fjäder under fotsulan. */
+    fotRyck() {
+      if (!levande || fot.destroyed) return null
+      gsap.killTweensOf(fot)
+      const tl = gsap.timeline()
+      tweens.push(tl)
+      tl.to(fot, { x: -22, y: -8, duration: 0.11, ease: 'power2.out' }, 0)
+        .to(fot, { x: -6, y: -2, duration: 0.16, ease: 'sine.inOut' }, 0.11)
+        .to(fot, { x: -16, y: -6, duration: 0.14, ease: 'sine.inOut' }, 0.27)
+        .to(fot, { x: 0, y: 0, duration: 0.6, ease: 'elastic.out(1, 0.5)' }, 0.41)
+      return tl
+    },
+
+    /** Hyllan skakar till (utan att tappa något) — svaret när alla böcker redan ligger nere. */
+    hyllaSkak() {
+      if (!levande || hyllan.destroyed) return null
+      gsap.killTweensOf(hyllan)
+      const tl = gsap.timeline()
+      tweens.push(tl)
+      tl.to(hyllan, { x: 4, duration: 0.05, ease: 'sine.inOut', yoyo: true, repeat: 5 }, 0)
+        .to(hyllan, { x: 0, duration: 0.16, ease: 'sine.out' }, 0.3)
+      return tl
+    },
+
+    /** Tavlans sovande måne gungar till. Ren glädje, noll vakenhet. */
+    tavlaGunga() {
+      if (!levande || tavlan.destroyed) return null
+      gsap.killTweensOf(tavlan)
+      const tl = gsap.timeline()
+      tweens.push(tl)
+      tl.to(tavlan, { rotation: 0.05, duration: 0.13, ease: 'power2.out' }, 0)
+        .to(tavlan, { rotation: -0.04, duration: 0.18, ease: 'sine.inOut' })
+        .to(tavlan, { rotation: 0, duration: 0.7, ease: 'elastic.out(1, 0.4)' })
+      return tl
     },
 
     /**
@@ -865,25 +1090,47 @@ function _tavla(x, y) {
   return g
 }
 
-// En vägghylla med tre böcker och en liten kruka. Ger väggen ett andra djup utan att bli
-// ett föremål barnet vill trycka på.
+/**
+ * En vägghylla med tre böcker och en liten kruka.
+ *
+ * ⚠️ BÖCKERNA ÄR EGNA NODER, inte streck i hyllans Graphics. `index.js` gör hyllan
+ *    tryckbar och låter en bok RAMLA NER på täcket — och en bok som är inbakad i samma
+ *    Graphics som hyllplanet går inte att tippa. Varje bok står i en container vars origo
+ *    är dess NEDRE MITT, så en rotation svänger den kring ryggens fot precis som en
+ *    riktig bok som tappar balansen.
+ */
 function _hylla(x, y) {
+  const c = nyC()
   const g = nyG()
+  c.addChild(g)
   g.roundRect(x - 96, y + 24, 192, 8, 4).fill({ color: F.morkt, alpha: 0.16 })
   g.roundRect(x - 96, y + 12, 192, 14, 6).fill(topLightFill(F.tra)).stroke({ width: 3, color: F.traMork })
   g.moveTo(x - 72, y + 26).lineTo(x - 66, y + 42).stroke({ width: 5, color: F.traMork, alpha: 0.7 })
   g.moveTo(x + 72, y + 26).lineTo(x + 66, y + 42).stroke({ width: 5, color: F.traMork, alpha: 0.7 })
-  // Böckerna: tre olika höjder, en lutande.
+  // Böckerna: tre olika höjder, en lutande. Var bok är en EGEN container med origo i
+  // ryggens fot (nedre mitt), så `index.js` kan tippa och tappa den.
+  const bocker = []
   const bok = (bx, bh, bw, farg, lut = 0) => {
+    const n = nyC()
+    n.position.set(bx + bw / 2, y + 12)
+    const bg = nyG()
+    const ox = -bw / 2
     if (lut) {
-      g.moveTo(bx, y + 12).lineTo(bx + bw, y + 12)
-        .lineTo(bx + bw + lut, y + 12 - bh).lineTo(bx + lut, y + 12 - bh).closePath()
-        .fill(topLightFill(farg)).stroke({ width: 2.5, color: 0x00000022 })
+      bg.moveTo(ox, 0).lineTo(ox + bw, 0)
+        .lineTo(ox + bw + lut, -bh).lineTo(ox + lut, -bh).closePath()
+        .fill(topLightFill(farg)).stroke({ width: 2.5, color: 0x2a2118, alpha: 0.3 })
     } else {
-      g.roundRect(bx, y + 12 - bh, bw, bh, 3).fill(topLightFill(farg))
+      bg.roundRect(ox, -bh, bw, bh, 3).fill(topLightFill(farg))
         .stroke({ width: 2.5, color: 0x2a2118, alpha: 0.35 })
     }
-    g.rect(bx + 3 + lut * 0.5, y + 8 - bh, 3, bh - 8).fill({ color: 0xffffff, alpha: 0.35 })
+    // Guldband på ryggen — det är de som gör en färgad pinne till en bok.
+    bg.rect(ox + 3 + lut * 0.5, -bh + 4, 3, bh - 12).fill({ color: 0xffffff, alpha: 0.35 })
+    bg.rect(ox + 2 + lut * 0.7, -bh + 10, bw - 5, 3).fill({ color: 0xfff0c0, alpha: 0.65 })
+    bg.rect(ox + 2 + lut * 0.2, -12, bw - 5, 3).fill({ color: 0xfff0c0, alpha: 0.55 })
+    n.addChild(bg)
+    c.addChild(n)
+    bocker.push(n)
+    return n
   }
   bok(x - 86, 62, 18, 0xd8695f)
   bok(x - 64, 74, 20, 0x5f9ed8)
@@ -900,5 +1147,6 @@ function _hylla(x, y) {
       .stroke({ width: 4, color: 0x3f8548, alpha: 0.85 })
     g.ellipse(sx + dx, sy + dy, bw, bw * 0.62).fill(topLightFill(0x63b063))
   }
-  return g
+  c.bocker = bocker
+  return c
 }

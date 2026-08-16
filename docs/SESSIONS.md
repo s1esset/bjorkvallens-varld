@@ -14,6 +14,58 @@ Format:
 
 ---
 
+## 2026-08-16 · v1.225.0 → v1.226.0 · ÄGARUPPDRAG: sex spel, tre av dem ombyggda
+
+**Byggt:** ägaren gav en lista på sex spel. Tre var små rättningar, tre var ombyggnader.
+
+- **`elementlekplatsen` 🔥** — sjätte elementet **Tomrummet**, sandlådans suddgummi. Egen
+  `sudda()` i automaten som tömmer en HEL cirkel: penseln skriver bara 72 % av cellerna med
+  flit, och ett suddgummi som lämnar en fjärdedel kvar läser som trasigt.
+- **`balanstornet` ⚖️** — höbalarna vid sidorna borta. De hade klossarnas exakta silhuett
+  (rundad rektangel med band) och lästes som byggbitar. Ersatta av buskar UTAN fysikkropp.
+- **`leksakslada` 🧸** — dubbla högen (8–11 → 16–22). Två stödändringar, båda räknade:
+  mynningen 300 → 244 och leksakerna ×0,76 — med densiteten delad med 0,76² så MASSAN, och
+  därmed hela den mätta tyngdkänslan i tågloket, är oförändrad.
+- **`flugan-pa-nasan` 🪰** — **fem verktyg** i en utdragen skrivbordslåda (flugsmälla ·
+  spray · pilbössa · tidning · slemhand). Rummets föremål reagerar på VERKANSTYPEN, inte på
+  verktyget, så kaffet skvätter av ett slag men inte av en spray. En träffad fluga plattas
+  mot ytan, glider ner på bordet, ligger 1–3 s och flyger sedan RAKT ut genom fönstret.
+  Ansiktet 300 → 380 px. Rundan eskalerar 300 → 540 px/s och 2 → **6 flugor samtidigt**.
+- **`vakna-pappa` 😴** — sex verktyg → **tolv**, en per busskategori (lukt · ljud · ljus ·
+  slag · blött · vind · djur som sätter sig · insekt som kryper · djur som pruttar · täcket
+  av · saker som ramlar · väder). Tre vägar in: välj+VÄCK-knapp, drag med tre släppzoner,
+  och sju klickbara rumssaker. Sömnmätaren och taken oförändrade — allt nytt ligger ovanpå.
+- **`titt-ut-pappa` 🫣** — 6 gömställen → en **katalog om 11 möbler, 7 i bild** (288 olika
+  startrum), djupskala per plats (`0.72 + 0.28·djup`, samma tal på möbel, huvud och kompis)
+  och platsbyten mellan rundor. Ny `layout.js` utan pixi-import: hela geometrin går att
+  mäta i ren Node, och det är enda skälet att träffytorna går att påstå något om alls.
+
+**Fyra nya sonder:** `_verktygprobe.mjs` (spelar flugan med riktiga muspekningar) ·
+`_busprobe.mjs` (alla tolv sakerna isolerade) · `_gombild.mjs` (en bild per gömställe med
+pappa avslöjad) · `_fotokant.mjs` (syns fotorutans raka underkant?).
+
+**Vad passet lärde ut — mätaren var fel oftare än spelet.** Elva av de sexton första
+"fynden" var fel i SONDEN, inte i koden: möblering utan rivning som staplade möbel på möbel,
+spelets egen rundtimer som sköt in mellan mätning och skärmdump, verktygsplatser som gissats
+i stället för lästs ur spelet (11 av 12 saker valdes då aldrig, och deras tal var den förra
+sakens verkan som låg kvar), en baslinje på 0 där spelets egen nivågrind gav en ärlig nolla,
+ett mätfönster kortare än kattens promenad, och ett mått som jämförde mot fotorutans
+underkant i stället för mot hakan och rapporterade "dold" för alla elva medan bilden visade
+motsatsen. **Kontrollarmen först, alltid** — och sonderna räknar numera sidladdningar, för
+Vite skickar full-reload vid varje filändring och en omladdning mitt i mätningen byter ut
+hela spelet under fötterna på en.
+
+**Och en riktig rättning avslöjade en gammal dold bugg:** `feedback.liv()` skriver `y` OCH
+`rotation` varje bildruta, så tvättkorgens och leksakslådans lock TIPPADE ALDRIG. När
+`livHylsa()` gjorde att de äntligen rörde sig syntes att de rörde sig **tvärs över pappas
+ansikte** — locken satt i `fram`-lagret trots att gångjärnet sitter i bakkanten. En
+fungerande mekanism kan dölja en kompositionsbugg i månader.
+
+**Öppet:** inget är pushat — sajten publiceras av `npm run deploy` och det är ägarens beslut.
+Klibbet i flugan drar flugor men inte rumsföremål (de står på fasta koordinater i `rummet.js`
+och behöver ett eget lägestillstånd först). `vakna-pappa` har fortfarande två katter i bild
+när verktygskatten och den gående katten reagerar samtidigt.
+
 ## 2026-08-16 · v1.224.0 → v1.225.0 · NATTPASSET: tre ansiktsspel byggda på en natt
 
 **Byggt:** hela `docs/NATTPASS.md` genomfört — de tre spec-korten i IDEER post 2 är nu tre

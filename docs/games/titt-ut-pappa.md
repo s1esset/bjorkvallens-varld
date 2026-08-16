@@ -17,10 +17,11 @@ bor numera här nedan.*
 | **kategori** | `roligt` → flik **Roligt** |
 | **input** | tap |
 | **ålder** | [2, 5] |
-| **kärnloop** | 6 gömställen i ett rum. Pappa är i ETT av dem och **skvallrar** (bukt i andningens takt · ögonen över kanten som följer barnets senaste tryck · fniss + synlig skakning). Barnet trycker → pappa upp med min + eget ljud, ELLER en rolig sak som blir en insamlad kompis. |
+| **kärnloop** | **7 platser** i ett rum, möblerade ur en katalog på **11 möbler**. Pappa är i ETT av dem och **skvallrar** (bukt i andningens takt · ögonen över kanten som följer barnets senaste tryck · fniss + synlig skakning). Barnet trycker → pappa upp med min + eget ljud, ELLER en rolig sak som blir en insamlad kompis. |
 | **mål** | Fem fynd av pappa (mätaren = fem små ansikten som tänds, noll siffror) → `progress.complete()` |
 | **agens** | VILKET gömställe barnet trycker på, läst ur tre olika slags skvaller. Slumpen avgör aldrig ensam: gömstället talar om sig självt hela tiden. |
-| **variation** | Pappas gömställe och överraskningspoolen lottas om varje runda; progression i hur mycket det skvallrar; sällsynt wow (~1 på 8): han gömmer sig i **taklampan**. |
+| **variation** | **Rummet möbleras om varje omgång** (7 av 11 möbler ⇒ 288 olika startrum), och från runda 2 kan **två möbler byta plats** med varandra mitt i leken. Pappas gömställe och överraskningspoolen lottas om varje runda; progression i hur mycket det skvallrar; sällsynt wow (~1 på 8): han gömmer sig i **taklampan**. |
+| **djup** | Platserna ligger på tre avstånd. EN funktion styr allt: `skala(djup) = 0.72 + 0.28·djup` och `golvY(djup) = 560 + 144·djup`, och samma skala läggs på möbeln, på pappas huvud OCH på kompisen. Träffytan kläms ALLTID upp till ≥96 px efter skalningen — P0 vinner över perspektivet. |
 | **mottagare** | De insamlade kompisarna — de reagerar när de hittas och **jublar i finalen** tillsammans med pappa. |
 | **finish** | Allt barnet hittat far upp ur sina gömställen samtidigt: strumpan vinkar, katten jamar, ballongen far i taket, pappa blinkar. Klistermärke. |
 
@@ -128,6 +129,56 @@ _klickL   träffytorna (≥96 px + 24 px halo), överst så inget kan svälja en
 
 *(fylls i av `spelkritiker` efter bygget)*
 
+## 3b. Ombyggnaden 2026-08-16 (ägaruppdrag) — fler saker, djup, platsbyten
+
+Ägaren gav tre punkter: ⓵ fler möbler så rummet inte känns likadant varje gång, ⓶ ett
+större rum med DJUP (saker längre bort blir mindre), ⓷ några gömställen ska byta plats
+mellan rundorna, med regler som hindrar omöjliga placeringar.
+
+**Katalogen, inte fler klickbara saker.** Premissen i ⓵ föll på P0: 1 140 px användbar bredd
+delat på träffytor ≥96 px med 48 px emellan räcker till **sju** samtidiga gömställen, inte
+elva. Lösningen är därför en katalog — 11 möbler, 7 i bild, ombytta varje omgång — inte fler
+saker på skärmen samtidigt. Fyra nya möbler ritades: **bokhylla · fåtölj · leksakslåda ·
+kuddhög**, var och en med egen silhuett, egen skugga, eget liv och egen avslöjande-gest.
+
+**Djupet.** `layout.js` är ny och importerar VARKEN pixi eller gsap — hela geometrin går
+därför att räkna på i ren Node, och det är enda skälet till att träffytorna går att påstå
+något om alls. Uppmätt över 20 000 möbleringar: 0 tomma platser, 0 fel sort, 0 ytor under
+96 px, 0 halon i en skalknapp, minsta yta 150×130 px, minsta avstånd 53 px, 288 startrum.
+
+**Bytesreglerna** står som fyra rader kod: samma `sort` (vägghängt ≠ golv ≠ lågt ≠ tak) och
+"ryms i platsens uppmätta bredd". Resten följer gratis, eftersom bytet bara går mellan två
+FÄRDIGMÄTTA platser. Bytet teleporterar synkront och tonas in — en animerad flytt hade dragit
+en levande `hitArea` under barnets finger. Tak: max 2 byten per omgång.
+
+### Vad bilden avslöjade som talen inte kunde
+
+Möblerna var mätta men **aldrig renderade**. `scripts/_gombild.mjs` (en bild per möbel med
+pappa AVSLÖJAD) och `scripts/_fotokant.mjs` (samma sak, men mätt i tal + tight beskärning)
+hittade fem fel som `npm run check` och `npm run test` båda var gröna på:
+
+| fel | vad som hände |
+|---|---|
+| tvättkorgens lock | gångjärnet sitter i BAKKANTEN, men locket låg i `fram` — det svepte upp tvärs över hans ansikte som en käpp genom näsan. Locket ligger nu i `bak`. |
+| leksakslådans lock | samma sak, samma rättning. |
+| filtens vik | flippade UPP 130 px och la sig över hans mun. Vänder nu NEDÅT (−0,16 rad). |
+| kuddhögens topp | samma fel, samma rättning (−0,22 rad). |
+| filten + kuddhögen | …och när det rörliga inte längre låg över ansiktet stod **fotorutans raka underkant** bar: det som TÄCKER hakan får aldrig vara det som RÖR SIG. Den statiska högen är höjd så den ensam täcker bandet. |
+| krukan · taklampan | fotorutans raka kant syntes av samma skäl. Krukan fick hängande blad (±104 px), lampan en **glaskupa som inte lyfter med skärmen**. |
+
+⚠️ **Den dolda buggen som en riktig rättning avslöjade.** Locken TIPPADE ALDRIG förut:
+`feedback.liv()` skriver `y` OCH `rotation` på sin nod varje bildruta, och locket var både
+`livNod` och `oppna`-mål. Rättningen (`livHylsa()` mellan dem) gjorde att de äntligen
+rörde sig — och först då syntes att de rörde sig ÖVER ansiktet. En fungerande mekanism kan
+alltså dölja en kompositionsbugg i månader.
+
+⚠️ **Och sonden hade tre egna fel före det första riktiga fyndet:** den möblerade om utan att
+riva (spelet kallar alltid `_rivPlatser()` först) och staplade möbel på möbel i samma slot;
+den lät spelets egen rundtimer skjuta in mellan mätning och skärmdump, så bilden visade en
+annan möbel än den påstod; och den mätte mot fotorutans underkant i stället för mot HAKAN och
+rapporterade "dold" för alla elva medan den tighta beskärningen visade motsatsen. Kontrollera
+alltid att måttet kan skilja ett känt fel från ett känt rätt.
+
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Juice**
@@ -148,3 +199,7 @@ _klickL   träffytorna (≥96 px + 24 px halo), överst så inget kan svälja en
 ## 5. Status / loggar
 
 `2026-08-15 · doc skriven, spec flyttad hit ur IDEER post 2 · (bygget följer)`
+
+`2026-08-16 · ägaruppdrag: 11 möbler i katalog (7 i bild), djupskala per plats, platsbyten
+mellan rundor. layout.js ny (ren Node-mätbar). Sju kompositionsfel hittade i BILD efter att
+alla tal var gröna — se §3b.`

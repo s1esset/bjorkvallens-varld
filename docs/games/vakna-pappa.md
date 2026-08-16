@@ -201,6 +201,33 @@ tre saker efter klockan såg stumma ut i två körningar i rad. ⓷ Baslinjen 0:
 först från läge 2, alltså är en nolla där spelets REGEL och inte sakens verkan. Baslinjen är
 nu 1. Och fönstret var 5,5 s, vilket är kortare än kattens promenad.
 
+## 3c. Ägarrapporten 2026-08-16 kväll — trippelvalet och ficklampan (v1.228.0)
+
+Mätt med `node scripts/_komboprobe.mjs` (kontrollarmar först: ett tryck på tomt bord lägger
+inget i listan, väckknappen utan val flyttar inte sömnmätaren).
+
+**TRE SAKER PÅ EN GÅNG.** Valet ägdes av `DragController.selected`, som rymmer EN post och
+nollas vid varje nytt tryck — det gick alltså inte att bygga ett trippelval på den. Spelet
+äger nu listan (`_valda`, tak 3) och släpper bibliotekets val direkt i `pointertap`. Ett
+FJÄRDE tryck byter ut den äldsta i stället för att avvisas (P0: ingen död yta); ett andra
+tryck på samma sak tar bort den. Tonen stiger 523/659/784 med antalet valda — barnet HÖR hur
+många det har valt utan en enda siffra. Tre markeringsringar i stället för en.
+
+Både VÄCK-knappen och ett tap-tap på en zon skickar hela kombon, en sak var 0,34 s, var och
+en till sitt eget läge kring zonen. `_resa`/`_resaTw` (ETT fack) blev `_resor` +
+`post._resaTw`: förut snäppte sak två hem sak ett innan den ens landat.
+
+**Finalen skjuts upp tills sista saken landat.** Två starka saker räcker hela vägen, och
+`_final` gör `_avbrytResa()` — sak två och tre hade rivits mitt i flykten utan att visa vad
+de gjorde. Barnet valde tre saker; det ska få se tre saker. Backstopp i loopen om en resa
+aldrig kommer fram (sidbyte mitt i flykten).
+
+**FICKLAMPAN lyste 180° fel.** Vilovinkeln −0,6 rad riktar linsen UPP ÅT HÖGER medan lampan
+landar till höger om pappa och käglan ritas åt VÄNSTER. `sikta()` vrider den mot målet FÖRE
+`tryck()` (så rekylen räknas kring siktet och inte kring hyllposen), och strålen utgår nu ur
+LINSEN. Speglingen sitter på `scale.y` och inte `scale.x` — en x-spegling hade flyttat linsen
+till bakänden av röret. Uppmätt: linsen pekar 156°, mot målet är 158°, fel **2°** (vila −37°).
+
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Juice**
@@ -236,3 +263,4 @@ nu 1. Och fönstret var 5,5 s, vilket är kortare än kattens promenad.
 klickbara rumssaker, slumpade kryddor. Mätt med scripts/_busprobe.mjs (kontrollarm +0,
 11 av 12 höjer). Rättat efter skärmdumpen: bläddringspilarnas spetsar pekade ÅT FEL HÅLL,
 och VÄCK-knappens hand pekade ut ur bild i stället för mot pappa.`
+`2026-08-16 · ägarrapport: trippelval (1–3 saker) + riktad ficklampa (v1.228.0). Se §3c.`

@@ -179,6 +179,49 @@ annan möbel än den påstod; och den mätte mot fotorutans underkant i stället
 rapporterade "dold" för alla elva medan den tighta beskärningen visade motsatsen. Kontrollera
 alltid att måttet kan skilja ett känt fel från ett känt rätt.
 
+## 3c. Ägarrapporten 2026-08-16 kväll — dörren, lampan, tre nya gömställen (v1.229.0)
+
+Mätt med `node scripts/_gomprobe.mjs`, som ställer pappa i VARJE möbel och fotograferar tre
+lägen: gömd · kikande · hittad. Ett gömställe går inte att bedöma i tal, och det var precis
+därför dörrbuggen överlevde: kantY, ansY och träffytan var alla lagliga.
+
+**DÖRREN.** `_uppY` lade alltid hakan strax ovanför `kantY`, alltså **91 px ovanför
+dörrkarmen** — huvudet hängde fritt i väggen. En dörr gömmer i en ÖPPNING, inte bakom en
+kant. De nya valfria fälten `MOBLER.kika`/`avsloja` låter möbeln äga var han tittar ut;
+dörren lutar sig nu bara ut ur öppningen. Kikandet går genom en GLUGG: bladet öppnar en
+springa och halva ansiktet syns i den, klippt av högra karmen. Plus ljud som ledtråd —
+`MOBEL_LJUD` ger dörren ett gnissel, tavlan/klockan ett skrammel, mattan ett prassel.
+
+⚠️ **Gluggen var först helt osynlig, med grönt test och noll konsolfel.** `bukt()` skriver
+`buktNod.scale` VARJE bildruta (det är andningen genom möbeln) och bladet ÄR buktnoden, så
+öppningen slogs tillbaka i samma bildruta den sattes. Bladet har nu två noder: en för bukten
+och en för öppningen. `oppna()` slapp undan bara därför att `_busy` pausar bukten under
+avslöjandet — en ren tillfällighet. Och en metod som bara finns i `spec` når aldrig spelet:
+`glugg`/`stangGlugg`/`gnissla` måste exporteras ur `makeGomstalle`, annars sväljer `?.`
+anropet tyst.
+
+**TAKLAMPAN.** Kupan kunde inte röra sig, för det var DEN som täckte fotorutans raka
+underkant när skärmen lyftes — alltså "svävar medan skärmen åker". En stillastående
+GLASKRAGE (lokal −6 … 56) tar över det jobbet, och kupan blir en lucka som slår upp NEDÅT på
+ett synligt gångjärn. `MOBLER.lampa.avsloja` +44 håller hakan inne i kragen (uppmätt: förut
+skar kragen över munnen och hela hakpartiet låg bart). Lampan är 13 % mindre — `SLOTS.T1`
+får ett eget `s` 0,75 i stället för djupskalan 0,86, så all lokal geometri håller oförändrad.
+
+**TAVLA, KLOCKA OCH TRASMATTA blir riktiga gömställen.** Tavlan och klockan var ritad dekor i
+`byggRum`; nu är de möbler på två nya platser W1/W2 (sort `liten`). Pappa KRYMPER bakom dem —
+nya `MOBLER.ansSkala` 0,55, som `validera()` räknar alla täckningsregler mot. `slot.spegel`
+avgör åt vilket håll han lutar sig ut: på W1 är ytan fri åt höger, på W2 åt vänster. Ramen
+gläntar åt MOTSATT håll och får inte förflytta sig — ett `x`-drag på 19 px öppnade ett tomrum
+mellan honom och ramen, och då svävar ett litet huvud fritt i tapeten i stället för att titta
+fram bakom en tavla. Trasmattan är en ny `lag`-möbel bredvid filten och kuddhögen.
+
+De små väggsakerna lottas som taklampan (22 %, aldrig runda 1) — nio lika sannolika
+gömställen hade gjort leken mätbart svårare för en tvååring. Kompisarna följer samma regel:
+de kommer också ut vid SIDAN och i möbelns egen skala.
+
+`layout.validera()`: 0 fel, minsta avstånd mellan två träffytor 48,2 px (P0 kräver 48).
+20 000 lottningar: alla nio platser fyllda, skämtet alltid med.
+
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Juice**
@@ -203,3 +246,4 @@ alltid att måttet kan skilja ett känt fel från ett känt rätt.
 `2026-08-16 · ägaruppdrag: 11 möbler i katalog (7 i bild), djupskala per plats, platsbyten
 mellan rundor. layout.js ny (ren Node-mätbar). Sju kompositionsfel hittade i BILD efter att
 alla tal var gröna — se §3b.`
+`2026-08-16 · ägarrapport: dörrens glugg, lampans lucka, tavla/klocka/matta som gömställen (v1.229.0). Se §3c.`

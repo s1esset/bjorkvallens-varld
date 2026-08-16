@@ -5802,3 +5802,37 @@ fel djur (`djur_hona/uggla/anka/tupp`) tills MOSS kan generera riktiga mås/gås
 - 50 röstrepliker saknas i `scripts/voice-phrases.json` → kör `/rost` när narratorn är uppe.
 - 2 spel saknar `voiceIntro` (`npm run check` pekar ut dem).
 - Pipelinen är byggd men ännu inte körd skarpt — första riktiga testet är nästa `/spel`.
+
+## 2026-08-16 kväll — ägarrapport på tre spel (v1.227–1.229)
+
+Tre spel, sju rapporterade fel, alla mätta med egna sonder innan något byggdes.
+
+**`flugan-pa-nasan` (v1.227.0)** — syltburken gick inte att greppa i underkanten: burkens fot
+låg 34 px under bordskanten och dess träffyta räckte ner i lådans verktygsrad, som ligger ett
+lager ovanför (`_syltprobe3` kartlade Pixis egen träffsökning: `verktyg1` tog 6 av 15 punkter).
+Släppplatserna var dessutom osynliga, och ett tryck på burken gjorde ingenting synligt.
+Fläkten hade **tre fel i varandra**: konen mättes från fotens y medan den ritas ur huvudet
+128 px längre upp; pusten gavs i `vx/vy` och raderades av fartspärren i samma bildruta
+(567 → 22 px/s); och riktningen pekade bort från fönstret. Ny `Flugbana.vind()` utanför
+spärren, fläkten blåser mot fönstret med ett INSUG bakåt (fälttäckning 22/200 → 199/200).
+`DragController` släppte aldrig tap-tap-markeringen efter ett drag — rättat för alla spel.
+
+**`vakna-pappa` (v1.228.0)** — barnet kan nu välja **1–3 saker** och skicka dem tillsammans.
+Valet ägdes av `DragController.selected` (rymmer EN post) och flyttades till spelet. Finalen
+skjuts upp tills sista saken landat, annars rev `_final`s `_avbrytResa()` sak två och tre mitt
+i flykten. Ficklampan lyste **180° fel** — `sikta()` vrider den mot målet före `tryck()`, och
+strålen utgår ur linsen (uppmätt fel: 2°, vilovinkel −37°).
+
+**`titt-ut-pappa` (v1.229.0)** — pappa kom upp 91 px **ovanför dörrkarmen** och hängde fritt i
+väggen; en dörr gömmer i en öppning, inte bakom en kant. Nya `MOBLER.kika`/`avsloja` låter
+möbeln äga var han tittar ut. Taklampans kupa kunde inte röra sig därför att det var DEN som
+täckte fotorutans raka underkant — en stillastående glaskrage tog över, och kupan blev en
+lucka som slår upp nedåt. Tavlan, klockan och en ny trasmatta är nu riktiga gömställen (pappa
+KRYMPER bakom väggsakerna, `MOBLER.ansSkala`).
+
+**Två tysta fällor, båda med grönt test och noll konsolfel:**
+- **`bukt()` skriver `buktNod.scale` varje bildruta**, och dörrbladet ÄR buktnoden — dörrens
+  nya glugg slogs tillbaka i samma bildruta den sattes. Öppningen behövde en egen nod.
+  (`oppna()` slapp undan bara därför att `_busy` pausar bukten, en ren tillfällighet.)
+- **En metod som bara finns i `spec` når aldrig spelet.** `makeGomstalle` är gömställets hela
+  yta utåt; `plats.g.glugg?.()` svaldes tyst av `?.` tills metoden exporterades.

@@ -171,6 +171,41 @@ en omladdning mitt i mätningen byter ut `window.__barnspel` — alla tal efter 
 tagna på ett annat spel. Det såg ut som en bugg i spelet ("tillståndet försvann") tre gånger
 innan räknaren fanns. Kör aldrig sonden medan något annat skriver i repot.
 
+## 3c. Ägarrapporten 2026-08-16 kväll — syltburken och fläkten (v1.227.0)
+
+Två fel, båda uppmätta med `node scripts/_syltprobe.mjs` (grepp-karta, drag, fläktens fält)
+och `_syltprobe3.mjs` (Pixis egen träffsökning i ett rutnät över burken).
+
+**SYLTBURKEN gick inte att greppa i underkanten.** Burkens ritade fot låg på y 586 — 34 px
+UNDER bordets framkant — och dess `hitArea` räckte ner till 618, alltså in i lådans
+verktygsrad som ligger ETT LAGER OVANFÖR. Träffkartan: `verktyg0`/`verktyg1` tog **6 av 15
+punkter** i burkens nedre tredjedel. Ett tryck på burkens fot BYTTE verktyg i stället för
+att lyfta burken. Ankaret 540 → 512 och `hitArea` slutar nu på +40 (design y 552); kartan
+är ren.
+
+**De två släppplatserna var osynliga** (`alpha: 0`). Barnet drog burken och den snäppte hem
+så fort släppet låg mer än 110 px från en punkt ingen kunde se. Nu tänds en ring vid varje
+plats medan burken hålls eller är tap-tap-markerad, och snäppradien är 130.
+
+**Trycket gjorde ingenting synligt.** Locket kunde bara åka av som en bieffekt av ett lyckat
+släpp — "svår att öppna" var en korrekt beskrivning. Ett tryck öppnar nu burken.
+
+**`DragController` släppte aldrig tap-tap-markeringen efter ett drag** (rättat i biblioteket,
+gäller alla spel): nästa tryck på en godtycklig målyta teleporterade föremålet dit, alltså
+ryckte ett tryck på tomma bordet tillbaka burken från fönsterbrädan.
+
+**FLÄKTEN — tre fel satt i varandra.** ⓵ Konen mättes från fotens y 536 men RITAS ur huvudet
+på 408; flugorna cirklar kring pappa på y 100–430 och föll utanför villkorsraden. ⓶ Pusten
+gavs som `bana.knuff()`, alltså i `vx/vy` — och `Flugbana.steg()` klämmer dem till flugans
+egen fart i SAMMA bildruta: **567 px/s pust blev 22 px/s kvar**. ⓷ Riktningen räknades "mot
+pappa", alltså BORT från fönstret, och motarbetade spelets eget mål.
+
+Nu: `Flugbana.vind()` lägger farten utanför spärren och låter den klinga av; fläkten blåser
+mot fönstret och har dessutom ett INSUG bakåt (flugorna ligger bakom den — en ren utblåskon
+täckte **22 av 200** flugpositioner ur spelets eget område, med insuget **199 av 200**);
+vindfältet lever 1,15 s och syns hela vägen som elva strimmor. Uppmätt med en fluga låst på
+(380, 250): kontrollarm utan pust står still, med pust bärs hon till (522, 330).
+
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Kärnloop**
@@ -201,3 +236,4 @@ innan räknaren fanns. Kör aldrig sonden medan något annat skriver i repot.
 `2026-08-16 · doc skriven, mätfrågan avgjord (blickflimret: 1,2 byten/s, filtret behövs inte)`
 `2026-08-16 · ägaruppdrag: fem verktyg, sju träffbara rumsföremål, större ansikte, eskalerande
 rundor (max 6 flugor). Mätt med scripts/_verktygprobe.mjs — kontrollarm 0, mätarm 1.`
+`2026-08-16 · ägarrapport: syltburkens greppyta + fläktens vindfält (v1.227.0). Se §3c.`

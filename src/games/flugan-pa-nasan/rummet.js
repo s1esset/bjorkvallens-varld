@@ -65,7 +65,12 @@ const BORD_FRAM = 552
 const BORD_KANT = 574   // underkanten på skivans bullnose — sargen börjar här
 
 // Fläktens huvud sitter `HUVUD_Y` px ovanför ankaret (foten på bordet).
-const HUVUD_Y = -128
+//
+// ⚠️ EXPORTERAS, och det är inte kosmetik. `index.js` mätte fläktens vindkon från
+//    `PLATS.flakt.y` — alltså från FOTEN på bordsskivan — medan konen RITAS ur huvudet
+//    128 px längre upp. Flugorna flyger kring pappas ansikte (y ~100–430) och föll därför
+//    utanför konens villkorsrad fast de såg ut att stå mitt i luftströmmen.
+export const HUVUD_Y = -128
 
 /**
  * Ankarpunkter som `index.js` bygger mot.
@@ -97,7 +102,12 @@ export const PLATS = {
   ansikte: { x: 360, y: 292 },
   fonster: { x: FX + FW / 2, y: FY + FH / 2, w: FW, h: FH },
   flakt: { x: 660, y: 536 },
-  sylt: { x: 430, y: 540 },
+  // ⚠️ y 540 → 512: burkens RITADE fot ligger på lokal +46, alltså 586 med det gamla talet
+  //    — 34 px under skivans framkant (552). Burken hängde ut över bordskanten, och dess
+  //    träffyta räckte ner i lådans verktygsrad (som ligger ETT LAGER OVANFÖR): uppmätt tog
+  //    `verktyg1` 6 av 15 punkter i burkens nedre tredjedel. Ett tryck på burkens fot BYTTE
+  //    alltså verktyg i stället för att lyfta burken.
+  sylt: { x: 430, y: 512 },
   bord: { y: BORD_BAK },
   // Skrivbordets föremål, vänster → höger. Talen är RÄKNADE mot varandras träffytor, inte
   // valda efter ögat: se `FOREMAL` längre ner, där varje radie står bredvid grannens.

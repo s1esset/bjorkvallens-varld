@@ -319,6 +319,13 @@ export class DragController {
   }
 
   _resolveDrop(rec, target) {
+    // ⚠️ ETT DRAG MÅSTE SLÄPPA TAP-TAP-MARKERINGEN. Trycker barnet på föremålet (markering,
+    // `_toggleSelect`) och DRAR det sedan, gick draget hela vägen genom `_onUp` utan att
+    // någon rörde `this.selected` — posten låg kvar som vald efteråt, och nästa tryck på
+    // en godtycklig MÅLYTA teleporterade föremålet dit. I `flugan-pa-nasan` betydde det att
+    // en tryckning på tomma bordet ryckte tillbaka syltburken från fönsterbrädan.
+    // (Tap-tap-vägen anropar redan `_deselect()` före det här — då är raden en nollåtgärd.)
+    if (this.selected === rec) this._deselect()
     this._restoreScale(rec)
     this._dropShadow(rec)
     this._levelOut(rec)

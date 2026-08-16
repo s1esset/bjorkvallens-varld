@@ -23,6 +23,9 @@ export class Flugbana {
     this.y = y
     this.vx = 0
     this.vy = 0
+    // Vindfarten ligger UTANFÖR `vx/vy` med flit — se `vind()`.
+    this.gvx = 0
+    this.gvy = 0
     this._omr = omrade || { x: 640, y: 300, w: 620, h: 400 }
     this._fart = fart
     this._accel = accel
@@ -68,6 +71,23 @@ export class Flugbana {
     this._t = 0
   }
 
+  /**
+   * VINDPUST — en fart som ligger UTANFÖR fartspärren och klingar av av sig själv.
+   *
+   * ⚠️ `knuff()` DUGER INTE TILL FLÄKTEN, och det är inte en smaksak. Knuffen skriver i
+   *    `vx/vy`, och `steg()` klämmer dem till `_fart` i SAMMA bildruta som knuffen gavs:
+   *    uppmätt blev 567 px/s pust till 22 px/s kvar. En pust som raderas innan den syns
+   *    är precis vad ägaren rapporterade ("fläkten gör ingenting").
+   *
+   * `tid` är avklingningens tidskonstant i sekunder.
+   */
+  vind(vx, vy, tid = 0.55) {
+    this.gvx += vx
+    this.gvy += vy
+    this._vindTid = tid
+    return this
+  }
+
   /** Ett steg. `dt` i sekunder — klämd av anroparen, precis som spelets egen loop gör. */
   steg(dt) {
     this._t -= dt
@@ -86,8 +106,13 @@ export class Flugbana {
     }
     this.vx *= 0.985
     this.vy *= 0.985
-    this.x += this.vx * dt
-    this.y += this.vy * dt
+    // Vinden läggs på EFTER spärren och klingar av exponentiellt — den bär alltså flugan
+    // fortare än hon kan flyga själv, precis som en riktig pust gör.
+    this.x += (this.vx + this.gvx) * dt
+    this.y += (this.vy + this.gvy) * dt
+    const k = Math.exp(-dt / (this._vindTid || 0.55))
+    this.gvx *= k
+    this.gvy *= k
     return this
   }
 }

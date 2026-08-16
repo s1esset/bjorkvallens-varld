@@ -37,7 +37,7 @@
 //    flugan är precis det spelet handlar om.
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PLATS, byggRum } from './rummet.js'
+import { PLATS, HUVUD_Y, byggRum } from './rummet.js'
 import { makeFluga, makeMedalj, makeSylt } from './props.js'
 import { Effekter, VERKTYG, makeIkon, inomVerkan } from './verktyg.js'
 import { BLICK_RADIE, Flugbana } from './fluga.js'
@@ -53,6 +53,24 @@ import { PLAYFUL } from '../../lib/theme.js'
 const ANS_H = 380
 
 const FLAKT_CD = 2         // s mellan två pustar — taket på fläkten
+
+// FLÄKTEN, mätta tal (se `scripts/_syltprobe.mjs`).
+//
+// ⚠️ TRE FEL SATT I VARANDRA OCH GJORDE FLÄKTEN TILL EN KNAPP UTAN VERKAN:
+//    ⓵ konen mättes från fläktens FOT (y 536) medan den RITAS ur huvudet (y 408) — 128 px
+//      fel, och flugorna som cirklar kring pappa (y ~100–430) föll utanför villkorsraden.
+//    ⓶ pusten gavs som `bana.knuff()`, alltså i `vx/vy` — och `Flugbana.steg()` klämmer
+//      dem till flugans egen fart i SAMMA bildruta: 567 px/s pust blev 22 px/s kvar.
+//    ⓷ riktningen räknades "mot pappa", alltså åt VÄNSTER, bort från fönstret. Målet är
+//      att få ut flugorna, så en pust som drev dem djupare in i rummet motarbetade spelet.
+//    Nu är det ett VINDFÄLT som lever `FLAKT_VIND_TID` sekunder efter tryckningen, mätt
+//    från huvudet, riktat mot fönstret.
+const FLAKT_VIND_TID = 1.15   // s som luftströmmen ligger kvar efter en pust
+const FLAKT_RACKVIDD = 760    // px från huvudet där pusten fortfarande biter
+const FLAKT_HOJD = 260        // px halv konhöjd vid huvudet (den vidgar sig utåt)
+const FLAKT_KRAFT = 430       // px/s tillskott i luftströmmens mitt
+const FLAKT_SUG_RACK = 620    // px bakom gallret där insuget når
+const FLAKT_SUG_DEL = 0.62    // insugets styrka som andel av utblåsets
 const SITT_MIN = 2.2
 const SITT_MAX = 4.6
 const NYS_TID = 6          // s på näsan innan nysningen byggs upp
@@ -132,6 +150,14 @@ export default {
     this._cueVaxel = 0
     this._sylt = null
     this._syltPunkt = null
+    this._syltOppen = false
+    this._syltMarken = []
+    this._syltVisa = false
+    this._vindT = 0
+    this._vindNoder = []
+    // Fläkten blåser MOT FÖNSTRET — det är dit flugorna ska. Talet räknas ur layouten så
+    // en flyttad fläkt eller ett flyttat fönster inte tyst vänder pusten åt fel håll.
+    this._flaktRikt = PLATS.fonster.x >= PLATS.flakt.x ? 1 : -1
     this._verktygKnappar = []
     this._valdIx = 0
     this._kylT = 0
@@ -348,12 +374,30 @@ export default {
       { namn: 'hem', x: PLATS.sylt.x, y: PLATS.sylt.y },
       { namn: 'fonster', x: 1010, y: PLATS.fonster.y + PLATS.fonster.h / 2 + 24 },
     ]
+    // ⚠️ PLATSERNA VAR HELT OSYNLIGA (`alpha: 0`). Barnet drog burken och den snäppte
+    //    tillbaka hem så fort släppet låg mer än 110 px från en punkt ingen kunde se —
+    //    exakt det ägaren beskrev som "beter sig konstigt". Ringarna tänds medan burken
+    //    HÅLLS och slocknar när den släpps: en markering som alltid syns är brus, en som
+    //    aldrig syns är en gissning.
+    this._syltMarken = []
     for (const p of platser) {
+      const ring = new Graphics()
+      for (let a = 0; a < 20; a++) {
+        const v = (a / 20) * Math.PI * 2
+        ring.circle(Math.cos(v) * 66, Math.sin(v) * 66 * 0.42, 5).fill({ color: 0xffe9a8, alpha: 0.95 })
+      }
+      ring.ellipse(0, 0, 64, 27).fill({ color: 0xffe9a8, alpha: 0.16 })
+      ring.position.set(p.x, p.y + 44)
+      ring.alpha = 0
+      ring.eventMode = 'none'
+      this._syltL.addChild(ring)
+
       const mal = new Graphics().circle(0, 0, 74).fill({ color: 0xffffff, alpha: 0 })
       mal.position.set(p.x, p.y)
       this._syltL.addChild(mal)
-      this._drag.addTarget(mal, () => true, { hitRadius: 110 })
+      this._drag.addTarget(mal, () => true, { hitRadius: 130 })
       mal._wNamn = p.namn
+      this._syltMarken.push(ring)
     }
 
     const sylt = makeSylt()
@@ -362,18 +406,28 @@ export default {
     // ⚠️ `DragController.addItem()` SÄTTER INGEN `hitArea` — den sätter bara `eventMode`,
     //    och då träfftestar Pixi mot den RITADE silhuetten. Burken är 70×94 px och halsen
     //    bara 56, alltså långt under P0:s 96.
-    sylt.view.hitArea = new Rectangle(-62, -78, 124, 156)
+    //    Rektangeln slutar på lokal +40 (design y 552 = bordets framkant) MED FLIT: lådans
+    //    verktygsknappar börjar på 582 och ligger ett lager ovanför, så allt under det talet
+    //    var burkens yta bara på pappret.
+    sylt.view.hitArea = new Rectangle(-62, -84, 124, 124)
     this._syltL.addChild(sylt.view)
     sylt.liv?.()
     this._sylt = sylt
     this._drag.addItem(sylt.view, { sylt: true }, {
+      onSelect: () => {
+        // ETT TRYCK ÖPPNAR BURKEN. Förut kunde locket bara åka av som en bieffekt av ett
+        // lyckat släpp — trycket gjorde ingenting synligt alls, och "svår att öppna" var
+        // en korrekt beskrivning av just det.
+        if (!this._alive) return
+        this._oppnaSylt(ctx)
+      },
       onCorrect: (rec, target) => {
         if (!this._alive) return
         this._idle = 0
-        sylt.oppna?.()
-        ctx.services.audio.sfx('plopp')
+        this._oppnaSylt(ctx)
         this._syltPunkt = { x: target.view.x, y: target.view.y - 30 }
         this._lockaAlla()
+        if (target.view._wNamn === 'fonster') sparkle(ctx.fxLayer, target.view.x, target.view.y - 20, { count: 12 })
         // ⚠️ BURKEN MÅSTE BLI DRAGBAR IGEN. `_resolveDrop` låser ett accepterat föremål
         //    DUBBELT (`placed = true` OCH `eventMode = 'none'`), och inget i biblioteket
         //    öppnar låset av sig självt.
@@ -381,10 +435,43 @@ export default {
       },
       onMiss: () => {
         if (!this._alive) return
-        this._syltPunkt = null
-        this._lockaAlla()
+        // Snäppet hem tar 0,32 s — lockbetet följer med burken dit i stället för att slockna.
+        ctx.later(0.36, () => {
+          if (!this._alive || !this._sylt || this._sylt.view.destroyed) return
+          this._syltPunkt = this._syltOppen ? { x: this._sylt.view.x, y: this._sylt.view.y - 30 } : null
+          this._lockaAlla()
+        })
       },
     })
+  },
+
+  /** Locket av + doften igång. Idempotent — burken kan bara öppnas en gång. */
+  _oppnaSylt(ctx) {
+    if (this._syltOppen || !this._sylt) return
+    this._syltOppen = true
+    this._sylt.oppna?.()
+    ctx.services.audio.sfx('plopp')
+    ctx.services.audio.tone({ freq: 520, slideTo: 780, dur: 0.18, type: 'triangle', vol: 0.18 })
+    const v = this._sylt.view
+    if (!v.destroyed) sparkle(ctx.fxLayer, v.x, v.y - 40, { count: 8 })
+    this._syltPunkt = { x: v.x, y: v.y - 30 }
+    this._lockaAlla()
+  },
+
+  /**
+   * Ringarna lyser medan burken HÅLLS eller är TAP-TAP-MARKERAD — alltså i exakt de lägen
+   * barnet behöver veta vart den ska. Läget läses ur `DragController` i loopen i stället
+   * för ur krokarna: `_deselect()` har ingen krok, och en markering som blev kvar tänd
+   * efter ett avbrutet tap-tap hade varit ett nytt fel i stället för en fix.
+   */
+  _visaSyltMarken(pa) {
+    if (pa === this._syltVisa) return
+    this._syltVisa = pa
+    for (const r of this._syltMarken || []) {
+      if (!r || r.destroyed) continue
+      gsap.killTweensOf(r)
+      gsap.to(r, { alpha: pa ? 1 : 0, duration: pa ? 0.18 : 0.3 })
+    }
   },
 
   _byggFlakt(ctx) {
@@ -571,7 +658,7 @@ export default {
     }
 
     // Fläkten står utanför föremålslistan — men ett slag i den ska ändå blåsa.
-    if (spec.typ.includes('slag') && Math.hypot(x - PLATS.flakt.x, y - (PLATS.flakt.y - 128)) < 92) {
+    if (spec.typ.includes('slag') && Math.hypot(x - this._flaktHuvud.x, y - this._flaktHuvud.y) < 92) {
       nagot = true
       this._blas(ctx)
     }
@@ -720,26 +807,152 @@ export default {
     this._ans?.slappMin?.()
   },
 
+  /** Fläktens huvud i designkoordinater — konen ritas här, alltså mäts den härifrån. */
+  get _flaktHuvud() {
+    return { x: PLATS.flakt.x, y: PLATS.flakt.y + HUVUD_Y }
+  },
+
+  /**
+   * LUFTEN VID (x, y): riktning + styrka, eller `null` om det står stilla där.
+   *
+   * ⚠️ EN REN UTBLÅSKON DUGER INTE, och det är MÄTT och inte tyckt. Fläkten står på x 660,
+   *    fönstret på 1010 och flugorna cirklar kring pappa på x 160–680 — alltså BAKOM
+   *    fläkten. En kon som bara blåser framåt täckte **22 av 200** flugpositioner ur
+   *    spelets eget område (kontrollarm: den gamla konen åt andra hållet tog 105, men drev
+   *    dem då bort från fönstret). En riktig fläkt SUGER också, och det är den halvan som
+   *    gör verktyget helt: flugan dras in bakifrån, passerar huvudet och kastas ut mot
+   *    fönstret. Hela rummet blir nåbart utan att en enda pust pekar åt fel håll.
+   */
+  _vindKraft(x, y) {
+    const h = this._flaktHuvud
+    const langs = (x - h.x) * this._flaktRikt
+    const dy = y - h.y
+
+    if (langs >= 0) {
+      // UTBLÅSET: en kon som vidgar sig framåt och avtar med avståndet.
+      if (langs > FLAKT_RACKVIDD) return null
+      const halv = FLAKT_HOJD + langs * 0.42
+      if (Math.abs(dy) > halv) return null
+      const s = (1 - langs / FLAKT_RACKVIDD) * (1 - (Math.abs(dy) / halv) * 0.72)
+      if (s <= 0) return null
+      // Riktningen blandas mot fönstret så flugan driver ut genom öppningen i stället för
+      // att blåsas rakt in i väggen bredvid den.
+      const F = PLATS.fonster
+      const fx = F.x - x
+      const fy = F.y - y
+      const d = Math.hypot(fx, fy) || 1
+      return { vx: this._flaktRikt * 0.55 + (fx / d) * 0.45, vy: (fy / d) * 0.45, s }
+    }
+
+    // INSUGET: allt bakom gallret dras MOT huvudet. Svagare än utblåset (annars rycks
+    // flugan iväg i stället för att glida in), men med god räckvidd — det är den här
+    // halvan som når flugorna som sitter och surrar kring pappa.
+    const bak = -langs
+    if (bak > FLAKT_SUG_RACK) return null
+    const halv = FLAKT_HOJD * 1.25
+    if (Math.abs(dy) > halv) return null
+    const s = (1 - bak / FLAKT_SUG_RACK) * (1 - (Math.abs(dy) / halv) * 0.55) * FLAKT_SUG_DEL
+    if (s <= 0) return null
+    const d = Math.hypot(bak, dy) || 1
+    return { vx: (this._flaktRikt * bak) / d, vy: -dy / d, s }
+  },
+
+  /** Bara styrkan — sonderna och `_blas` behöver ett skalärt "blåser det här?". */
+  _vindStyrka(x, y) {
+    return this._vindKraft(x, y)?.s || 0
+  },
+
   _blas(ctx) {
     this._idle = 0
     if (!this._alive) return
     if (this._flaktT > 0) {
-      kvittera(ctx.fxLayer, PLATS.flakt.x, PLATS.flakt.y, ctx.services.audio)
+      kvittera(ctx.fxLayer, this._flaktHuvud.x, this._flaktHuvud.y, ctx.services.audio)
       return
     }
     this._flaktT = FLAKT_CD
-    const riktning = PLATS.flakt.x < PLATS.ansikte.x ? 1 : -1
-    this._rum.blas?.(riktning)
+    this._vindT = FLAKT_VIND_TID
+    this._rum.blas?.(this._flaktRikt)
     this._rum.papper?.()
     ctx.services.audio.sfx('whoosh')
-    // Vindkonen: allt inom konen får en knuff i blåsriktningen.
+    ctx.services.audio.tone({ freq: 320, slideTo: 190, dur: 0.5, type: 'sawtooth', vol: 0.09 })
+    this._vindStrimmor(ctx)
+    // Allt som SITTER i strömmen lyfter genast — det är den tydligaste bilden av att
+    // fläkten gjorde något, och den kommer i samma bildruta som tryckningen (P0).
     for (const f of this._flugor) {
-      if (f.lage === 'ut' || f.lage === 'platt' || f.lage === 'vilar') continue
-      const dy = Math.abs(f.vy.view.y - PLATS.flakt.y)
-      const framfor = (f.vy.view.x - PLATS.flakt.x) * riktning
-      if (framfor < 0 || framfor > 620 || dy > 180 + framfor * 0.35) continue
-      if (f.lage === 'sitter') this._lyft(ctx, f)
-      f.bana.knuff(PLATS.flakt.x, PLATS.flakt.y, 1.35)
+      if (f.lage !== 'sitter') continue
+      if (this._vindStyrka(f.vy.view.x, f.vy.view.y) <= 0) continue
+      this._lyft(ctx, f)
+    }
+  },
+
+  /**
+   * LUFTSTRÖMMEN SKA SYNAS HELA VÄGEN. Rummets egen kon slocknar efter 130 px; utan något
+   * som når fram till fönstret ser en pust ut som en liten puff vid fläkten, och ägaren
+   * läste den — helt korrekt — som "fläkten gör ingenting".
+   */
+  _vindStrimmor(ctx) {
+    const h = this._flaktHuvud
+    const rita = ({ x0, y0, x1, tjock, alfa, tid, drojd }) => {
+      const langd = 70 + Math.random() * 70
+      const bukt = -8 + Math.random() * 16
+      const s = new Graphics()
+      // TVÅ strimmor på varandra: en svalblå bredare under och en vit smalare över. En
+      // ensam vit linje försvann mot den ljusgröna väggen — luft syns bara mot en kant.
+      s.moveTo(0, 0).quadraticCurveTo(langd * 0.5, bukt, langd, 0)
+        .stroke({ width: tjock + 3, color: 0x6fb8d8, alpha: 0.4, cap: 'round' })
+      s.moveTo(0, 0).quadraticCurveTo(langd * 0.5, bukt, langd, 0)
+        .stroke({ width: tjock, color: 0xffffff, alpha: 0.95, cap: 'round' })
+      s.position.set(x0, y0)
+      s.alpha = 0
+      s.eventMode = 'none'
+      if (this._flaktRikt < 0) s.scale.x = -1
+      ctx.fxLayer.addChild(s)
+      // Strimman drivs på NODEN och inte på en proxy: `gsap.killTweensOf(s)` i `destroy()`
+      // ska kunna nå den, och en proxy-tween hade levt vidare efter att spelet lämnats.
+      gsap.to(s, { alpha: alfa, duration: 0.1, delay: drojd })
+      gsap.to(s, {
+        x: x1,
+        alpha: 0,
+        duration: tid,
+        delay: drojd + 0.12,
+        ease: 'power1.out',
+        onComplete: () => {
+          if (s.destroyed) return
+          s.parent?.removeChild(s)
+          s.destroy()
+          const ix = this._vindNoder?.indexOf(s) ?? -1
+          if (ix >= 0) this._vindNoder.splice(ix, 1)
+        },
+      })
+      ;(this._vindNoder ||= []).push(s)
+    }
+
+    // UTBLÅSET: sju strimmor som far hela vägen mot fönstret. Rummets egen kon slocknar
+    // efter 130 px, och utan något som når fram läste en pust som en liten puff vid
+    // fläkten — precis det ägaren rapporterade som "fläkten gör ingenting".
+    for (let i = 0; i < 7; i++) {
+      rita({
+        x0: h.x + this._flaktRikt * 46,
+        y0: h.y + (Math.random() - 0.5) * FLAKT_HOJD * 1.1,
+        x1: h.x + this._flaktRikt * (FLAKT_RACKVIDD * (0.6 + Math.random() * 0.5)),
+        tjock: 3.5 + Math.random() * 2,
+        alfa: 0.7,
+        tid: 0.82 + Math.random() * 0.3,
+        drojd: i * 0.045,
+      })
+    }
+    // INSUGET: fyra tunnare strimmor som dras IN mot gallret bakifrån. Utan dem är
+    // sugkraften en osynlig regel, och en osynlig regel är ingen leksak.
+    for (let i = 0; i < 4; i++) {
+      rita({
+        x0: h.x - this._flaktRikt * (240 + Math.random() * 280),
+        y0: h.y + (Math.random() - 0.5) * FLAKT_HOJD * 1.6,
+        x1: h.x - this._flaktRikt * 62,
+        tjock: 2.2 + Math.random() * 1.2,
+        alfa: 0.42,
+        tid: 0.62 + Math.random() * 0.2,
+        drojd: i * 0.05,
+      })
     }
   },
 
@@ -1063,6 +1276,11 @@ export default {
     if (!this._busy) this._idle += dt
     if (this._flaktT > 0) this._flaktT -= dt
     if (this._kylT > 0) this._kylT -= dt
+    if (this._vindT > 0) this._vindT -= dt
+
+    // Syltens platsringar lyser medan burken hålls eller är markerad. Läget läses här och
+    // inte i krokarna — `_deselect()` har ingen krok att haka i.
+    this._visaSyltMarken(!!(this._drag && (this._drag.active || this._drag.selected)))
 
     const F = PLATS.fonster
     let narmast = null
@@ -1107,6 +1325,22 @@ export default {
         if (f.sitter) paPappa += 1
         if (f.sittT <= 0) this._lyft(ctx, f)
       } else {
+        // VINDFÄLTET, innan steget. Pusten ligger kvar drygt en sekund och bär flugan mot
+        // fönstret — utanför fartspärren, annars raderas den i samma bildruta (`Flugbana.vind`).
+        if (this._vindT > 0) {
+          const v = this._vindKraft(f.bana.x, f.bana.y)
+          if (v) {
+            const k = v.s * FLAKT_KRAFT * dt * 3.4
+            f.bana.vind(v.vx * k, v.vy * k, 0.5)
+            // Hon SLÄPPER lockbetet i vinden — annars styr hon rakt tillbaka dit medan
+            // pusten pågår, och fläkten ser overksam ut fast den arbetar. Fönstret och
+            // brådskan är undantagna: de pekar redan åt rätt håll.
+            if (!f.brattom && f.bana._lockad && this._syltPunkt && this._syltPunkt.x < PLATS.flakt.x) {
+              f.bana.lockaMot(null)
+            }
+            f.landPaus = Math.max(f.landPaus, 0.5)
+          }
+        }
         f.bana.steg(dt)
         const vy = f.vy.view
         vy.x = f.bana.x
@@ -1220,6 +1454,17 @@ export default {
     this._doda = []
     this._effekter?.destroy?.()
     this._effekter = null
+    // Vindstrimmorna bor i `ctx.fxLayer` — appens EGET lager, som överlever spelet. De
+    // måste därför rivas här och inte av `_root.destroy()`.
+    for (const s of this._vindNoder || []) {
+      if (!s || s.destroyed) continue
+      gsap.killTweensOf(s)
+      s.parent?.removeChild(s)
+      s.destroy()
+    }
+    this._vindNoder = []
+    for (const r of this._syltMarken || []) if (r && !r.destroyed) gsap.killTweensOf(r)
+    this._syltMarken = []
     if (this._ans && !this._ans.view.destroyed) gsap.killTweensOf(this._ans.view)
     if (this._ruta && !this._ruta.destroyed) gsap.killTweensOf(this._ruta)
     this._ruta = null

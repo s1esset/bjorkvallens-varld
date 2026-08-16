@@ -1,7 +1,7 @@
 // Leksakslådan — böka i en riktig hög och gräv fram det Bobo bad om (2–5 år).
 //
 // Skillnaden mot `sortera-skrap` är HÖGEN. Där ligger sakerna prydligt uppradade på
-// en rad och snäpper i en tunna; här ligger tolv leksaker huller om buller i en låda
+// en rad och snäpper i en tunna; här ligger ett par dussin leksaker huller om buller i en låda
 // med äkta matter.js-kollisioner, olika storlek och olika MASSA. Bobo håller upp en
 // beställningslapp ("Hittar du tågloket?") och det man beställt ligger nästan alltid
 // UNDER något annat. Man måste dra undan, knuffa, lyfta bort — grävandet ÄR spelet.
@@ -51,7 +51,12 @@ const L_UT_V = 84 // lådans yttre vänsterkant
 const L_UT_H = 768 // lådans yttre högerkant
 const L_IN_V = 128 // innerväggarnas insida
 const L_IN_H = 724
-const L_TOPP = 300 // lådans mynning
+// Mynningen låg på 300 när lådan rymde 8–11 leksaker. Med dubbla högen (16–22) räcker
+// inte volymen: innerytan 596×340 = 202 640 px² tar ~130 000 px² leksak innan högen
+// reser sig ovanför kanten och rullar ut på golvet. 244 ger 596×396 = 236 016 px²
+// (×1,17) och leksakerna krymptes samtidigt med SKALA (×0,58 i yta) — tillsammans
+// dryga dubbla rymden, alltså en HÖG som når upp mot kanten utan att svämma över.
+const L_TOPP = 244 // lådans mynning
 const L_BOTTEN = 640 // innergolvet
 const L_MITT = (L_IN_V + L_IN_H) / 2 // 426
 // Hur brett leksakerna släpps ner. Med hela innerbredden (416 px band) la sig 8–11
@@ -71,7 +76,7 @@ const LOCK_VILA = { x: 426, y: 150, rot: 0.06 } // hänger på väggen ovanför 
 const LOCK_W = 700
 const LOCK_H = 46
 const LOCK_BESLAG_DX = LOCK_W / 2 - 40
-const LOCK_STANGT = { x: 426, y: 320, rot: 0 }
+const LOCK_STANGT = { x: 426, y: L_TOPP + 20, rot: 0 } // vilar på mynningen
 
 // ---- Fysik ----------------------------------------------------------------
 const G = 1.0
@@ -88,7 +93,10 @@ const FANFAR = [523.25, 659.25, 783.99, 1046.5]
 // Leksakerna. `fart` är styrningens tak i px/steg — det är DEN som gör tågloket trögt,
 // medan `d` (densiteten) avgör hur mycket det knuffar undan när det ändå rör sig.
 // Ungefärlig massa = area · d: boll 7,6 · nalle 13,7 · tågloke 54 · robot 35 · bil 21.
-const SPEC = {
+//
+// Måtten nedan är den RITADE naturliga storleken. Kroppen (och träffytan) byggs av
+// samma mått gånger SKALA — se `SPEC` under tabellen.
+const NATUR = {
   boll: { key: 'boll', form: 'cirkel', r: 52, d: 0.0009, fart: 22, mtrl: 'gummi', studs: 0.5, farg: COLORS.red },
   nalle: { key: 'nalle', form: 'cirkel', r: 58, d: 0.0013, fart: 15, mtrl: 'tra', studs: 0.05, farg: 0xb07a4a },
   tagloke: { key: 'tagloke', form: 'ruta', w: 150, h: 86, d: 0.0042, fart: 9, mtrl: 'metall', studs: 0.08, farg: 0xd94c4c },
@@ -103,6 +111,19 @@ const SPEC = {
   // Sällsynt. Beställs ALDRIG (den skulle vara orättvis att jaga) — den är ren lek.
   studsboll: { key: 'studsboll', form: 'cirkel', r: 42, d: 0.0009, fart: 22, mtrl: 'gummi', studs: 0.86, farg: COLORS.purple },
 }
+// Dubbla högen kräver mindre leksaker (se L_TOPP). SKALA krymper både bilden och
+// kroppen; densiteten kompenseras med 1/SKALA² så MASSAN — och därmed hela den mätta
+// tyngdkänslan i tågloket och roboten — är exakt densamma som förut. `fart`-taken är
+// px/steg och rörs inte alls.
+const SKALA = 0.76
+const skalad = (s) => ({
+  ...s,
+  ...(s.r != null ? { r: s.r * SKALA } : null),
+  ...(s.w != null ? { w: s.w * SKALA, h: s.h * SKALA } : null),
+  d: s.d / (SKALA * SKALA),
+})
+const SPEC = Object.fromEntries(Object.entries(NATUR).map(([k, s]) => [k, skalad(s)]))
+
 const BESTALLBARA = ['boll', 'nalle', 'tagloke', 'anka', 'bil', 'kloss', 'stjarna', 'tarning', 'robot', 'trumma', 'dino']
 
 const KROPP_OPTS = (s) =>
@@ -370,8 +391,9 @@ export default {
     g.clear()
     if (!key) return
     ritaLeksak(g, key)
-    const s = 104 / storsta(SPEC[key])
-    this._lappIkon.scale.set(s)
+    // NATUR, inte SPEC: `ritaLeksak` ritar i naturlig storlek — lappens ikon ska vara
+    // 104 px oavsett hur mycket leksaken krymps i lådan.
+    this._lappIkon.scale.set(104 / storsta(NATUR[key]))
   },
 
   // ---- Runda --------------------------------------------------------------
@@ -406,12 +428,20 @@ export default {
     }
 
     // VARIATION: uppsättningen slumpas, och en sällsynt studsboll läggs i ibland.
-    const antal = clamp(8 + this._niva, 8, 11)
-    const lista = shuffle([...BESTALLBARA]).slice(0, antal)
+    // DUBBLA högen (16–22 mot 8–11): det finns bara elva beställbara sorter, så listan
+    // fylls med hela omgångar — varje sort ligger i lådan en eller TVÅ gånger. Det gör
+    // både letandet och grävandet svårare utan att någon beställning blir omöjlig:
+    // hittar barnet den ena bilen räcker det, den andra är bara mer stök att böka i.
+    const antal = clamp(16 + this._niva * 2, 16, 22)
+    const pott = []
+    while (pott.length < antal) pott.push(...shuffle(BESTALLBARA))
+    const lista = shuffle(pott.slice(0, antal)) // `shuffle` returnerar en KOPIA
     if (Math.random() < 0.28) lista.push('studsboll')
 
+    // 0,08 s mellan varje — med 0,14 hade 23 leksaker tagit 3,2 s att hälla i, och
+    // första beställningen kommit efter dryga fem sekunders väntan.
     lista.forEach((key, i) => {
-      ctx.later(0.12 + i * 0.14, () => {
+      ctx.later(0.12 + i * 0.08, () => {
         if (!this._alive) return
         const x = L_MITT - SPRIDNING / 2 + Math.random() * SPRIDNING
         this._nyLeksak(ctx, key, x, 40 + Math.random() * 130)
@@ -419,7 +449,7 @@ export default {
       })
     })
 
-    ctx.later(0.5 + lista.length * 0.14 + 1.5, () => {
+    ctx.later(0.5 + lista.length * 0.08 + 1.5, () => {
       if (!this._alive) return
       this._planeraOrdning()
       this._nastaBestallning(ctx)
@@ -466,6 +496,9 @@ export default {
     const inner = new Container()
     const g = new Graphics()
     ritaLeksak(g, key)
+    // Krympningen sitter på GRAPHICSEN, inte på `inner` — `pop()` tweenar `inner.scale`
+    // tillbaka till 1 och hade nollat en skala som låg där.
+    g.scale.set(SKALA)
     g.eventMode = 'none'
     inner.addChild(g)
     inner.eventMode = 'none'
@@ -742,7 +775,7 @@ export default {
     g.eventMode = 'none'
     ikon.addChild(g)
     ikon.eventMode = 'none'
-    ikon.scale.set(52 / storsta(SPEC[key]))
+    ikon.scale.set(52 / storsta(NATUR[key]))
     ikon.position.set(-46 + this._korgIkoner.length * 31, -18 - (this._korgIkoner.length % 2) * 10)
     ikon.rotation = (Math.random() * 0.5 - 0.25)
     ikon._lekKey = key
@@ -754,8 +787,9 @@ export default {
     this._berom(ctx)
     floatText(ctx.fxLayer, KORG.x, KORG.y - 130, 'Tack!', { fontSize: 46, fontFamily: FONT.display })
 
-    // Högen fylls på så grävandet aldrig blir grunt. Inte efter SISTA beställningen:
-    // då ska kropparna räknas ner mot finalen, inte upp (taket är ~18 kroppar).
+    // Högen fylls på så grävandet aldrig blir grunt (en levererad leksak lämnar en
+    // lucka, en ny faller ner i den — antalet står alltså stilla). Inte efter SISTA
+    // beställningen: då ska kropparna räknas ner mot finalen, inte upp.
     ctx.later(0.35, () => {
       if (!this._alive || this._klar || this._klara >= MAL_PER_RUNDA) return
       const ny = BESTALLBARA[(Math.random() * BESTALLBARA.length) | 0]

@@ -137,3 +137,9 @@ mycket, lätta går snabbt men flyttar lite.
   förkastat.
 
 `2026-08-14 · byggt från spelkö-specen (fysik · drag · 4 beställningar · låda med 8–12 kroppar) · <commit>`
+
+`2026-08-16 · ägaruppdrag: DUBBLA högen, 8–11 → 16–22 leksaker (duplikat tillåtna — det finns
+bara elva sorter). Två stödändringar, båda räknade och inte gissade: mynningen 300 → 244
+(+17 % volym) och leksakerna krympta till 0,76 (−42 % yta), med densiteten delad med 0,76²
+så MASSAN — och därmed hela den mätta tyngdkänslan i tågloket och roboten — är oförändrad.
+Utan dem hade högen rest sig över kanten och rullat ut på golvet.`

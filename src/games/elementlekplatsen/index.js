@@ -1,6 +1,6 @@
 // Elementlekplatsen — en sandlåda där barnet MÅLAR med naturkrafter och ser dem
-// bråka med varandra. Fem fristående element står på rad under lådan (eld · vatten ·
-// is · vind · jord); man plockar ett och drar fingret i rutan. Sanden faller, vattnet
+// bråka med varandra. Sex fristående element står på rad under lådan (eld · vatten ·
+// is · vind · jord · tomrum); man plockar ett och drar fingret i rutan. Sanden faller, vattnet
 // rinner, elden brinner ut, isen växer. Sex reaktioner går att hitta, och varje ny
 // tänder en ruta i upptäcktsbandet högst upp. Alla sex → regnbåge, och sandlådan
 // fortsätter för alltid — ingenting låses, ingenting kan gå sönder.
@@ -49,8 +49,9 @@ const GW = COLS * CELL // 928
 const GH = ROWS * CELL // 416
 
 // Verktygsraden. P0: träffyta ≥96 px OCH ≥24 px MELLAN träffytorna. Halon är 24 px per
-// sida, så två 96 px-verktyg behöver 96+24+24+24 = 168 px mellan centrumen. Fem verktyg
-// på 168 px avstånd spänner 816 px inklusive halo — får gott och väl plats.
+// sida, så två 96 px-verktyg behöver 96+24+24+24 = 168 px mellan centrumen. SEX verktyg
+// på 168 px avstånd spänner 984 px inklusive halo (x 128–1112) — ryms med marginal, och
+// varken hemknappen (x 0–140) eller högtalaren (x 1140–1280) ligger i vägen.
 const VERKTYG_Y = 648
 const VERKTYG_STEG = 168
 const HALO = 24
@@ -66,6 +67,10 @@ const MITT_X = GX + GW / 2 // 620
 
 const BORSTE_R = 2.6 // penselradie i celler (~42 px)
 const VIND_R = 4.2
+// Suddet är BREDARE än penseln (~54 px). Att ta bort ska gå fortare än att lägga dit,
+// annars blir det jobbigt att städa en ruta man fyllt i tio sekunder — och eftersom
+// `sudda()` täcker hela cirkeln (ingen mjuk kant) blir spåret dessutom rent.
+const SUDD_R = 3.4
 
 // --- material → färg -------------------------------------------------------------
 // TOPP är en 4 px ljus remsa på varje ytas ÖVERKANT. Utan den läser en fylld hög som en
@@ -94,6 +99,10 @@ const VERKTYG = [
   { key: 'is', mat: IS, farg: 0xbdeefa, ton: 392.0 },
   { key: 'vind', mat: -1, farg: 0xa9d6e5, ton: 587.33 },
   { key: 'jord', mat: JORD, farg: 0xb07a4a, ton: 261.63 },
+  // Tomrummet — sandlådans suddgummi. Ligger SIST, så jordens plats (index 4, det
+  // förvalda verktyget) står kvar. Tonen A3 är samma pentatonik en oktav ner: att
+  // sudda ska låta som att något sänks, inte som ett fel.
+  { key: 'tomrum', mat: TOM, farg: 0x7b6cc4, ton: 220.0 },
 ]
 
 // --- upptäckterna ----------------------------------------------------------------
@@ -168,6 +177,26 @@ function ritaVerktyg(key) {
     }
     g.stroke({ width: 6, color: 0xc4e6f2, cap: 'round' })
     g.circle(px, py, 4).fill(0xe6f6fb)
+  } else if (key === 'tomrum') {
+    // Tomrummet: ett hål i världen. Mörk violett rymd med en ljus kantring så det
+    // läser som en ÖPPNING och inte som en svart klump, plus några stjärnor inuti och
+    // två stoftkorn på väg in — riktningen visar att saker försvinner HIT.
+    g.circle(0, 6, 42).fill({ color: 0x2a2350, alpha: 0.28 })
+    g.circle(0, 0, 40).fill(0x2e2657)
+    g.circle(0, 0, 40).stroke({ width: 5, color: 0xb7a9f5 })
+    g.circle(-9, -8, 22).fill({ color: 0x4a3d86, alpha: 0.75 })
+    g.circle(-13, -12, 11).fill({ color: 0x6a5bb0, alpha: 0.6 })
+    for (const [sx, sy, sr] of [[14, -16, 4.6], [-20, 12, 3.4], [18, 14, 3], [2, -24, 2.6], [-2, 4, 3.8]]) {
+      g.moveTo(sx, sy - sr * 2.2).quadraticCurveTo(sx + sr * 0.35, sy - sr * 0.35, sx + sr * 2.2, sy)
+      g.quadraticCurveTo(sx + sr * 0.35, sy + sr * 0.35, sx, sy + sr * 2.2)
+      g.quadraticCurveTo(sx - sr * 0.35, sy + sr * 0.35, sx - sr * 2.2, sy)
+      g.quadraticCurveTo(sx - sr * 0.35, sy - sr * 0.35, sx, sy - sr * 2.2)
+      g.fill(0xfdf6ff)
+    }
+    for (const [dx, dy, dr] of [[52, -30, 5], [-50, 26, 4]]) {
+      g.circle(dx, dy, dr).fill({ color: 0xb7a9f5, alpha: 0.85 })
+      g.moveTo(dx, dy).lineTo(dx * 1.34, dy * 1.34).stroke({ width: 3, color: 0xb7a9f5, alpha: 0.45, cap: 'round' })
+    }
   } else {
     // jord — en jordkoka med gräs och småsten
     g.moveTo(-38, 28).quadraticCurveTo(-44, -4, -18, -16)
@@ -278,6 +307,7 @@ export default {
     this._sistTon = 0
     this._sistPuff = 0
     this._vindRord = 0
+    this._sagtSudd = false
     this._paradTw = []
     this._paradFigurer = []
     this._eldMitt = { x: MITT_X, y: GY + GH / 2, n: 0 }
@@ -613,6 +643,11 @@ export default {
     ctx.services.audio.tone({ freq: rec.ton, dur: 0.14, type: 'triangle', vol: 0.26 })
     ripple(ctx.fxLayer, rec.vy.x, rec.vy.y, { color: rec.farg, maxR: 96, duration: 0.45 })
     this._bobo?.look(rec.vy.x, rec.vy.y)
+    // Suddet är det enda verktyget som TAR BORT — det förklaras en gång, sedan aldrig mer.
+    if (rec.key === 'tomrum' && !this._sagtSudd) {
+      this._sagtSudd = true
+      ctx.services.voice.say('Tomrummet suddar bort allt du drar över.')
+    }
   },
 
   _sattVald(vald) {
@@ -688,8 +723,12 @@ export default {
       const r = Math.floor((y - GY) / CELL)
       if (c < 0 || c >= COLS || r < 0 || r >= ROWS) continue
       if (v.key === 'vind') rord += this._aut.blas(c, r, VIND_R, this._vindDir)
+      else if (v.key === 'tomrum') this._aut.sudda(c, r, SUDD_R)
       else this._aut.mala(c, r, BORSTE_R, v.mat)
     }
+    // Blommorna är egna Pixi-noder ovanpå rutnätet, inte celler. Utan det här hade en
+    // suddad lerhög lämnat blomman svävande i luften.
+    if (v.key === 'tomrum') this._suddaBlommor(ctx, p.x, p.y)
     const nu = performance.now()
     if (nu - this._sistTon > 145) {
       this._sistTon = nu
@@ -709,6 +748,28 @@ export default {
       if (this._vindRord > 8) this._upptack(ctx, 'vind')
     }
     this._pekPrev = { x: p.x, y: p.y }
+  },
+
+  // En blomma som hamnar under suddet försvinner i ett litet plopp. `liv()` och
+  // inväxt-tweenen dödas FÖRST — en levande tween mot en förstörd nod kraschar på en
+  // nollad transform, och `liv` tar aldrig slut av sig självt.
+  _suddaBlommor(ctx, x, y) {
+    const lista = this._blommor
+    if (!lista?.length) return
+    const rad = SUDD_R * CELL + 12
+    for (let i = lista.length - 1; i >= 0; i--) {
+      const b = lista[i]
+      if (!b || b.destroyed) {
+        lista.splice(i, 1)
+        continue
+      }
+      if (Math.hypot(b.x - x, b.y - y) > rad) continue
+      lista.splice(i, 1)
+      gsap.killTweensOf(b)
+      gsap.killTweensOf(b.scale)
+      puff(ctx.fxLayer, b.x, b.y, { count: 7, color: 0xb7a9f5 })
+      b.destroy({ children: true })
+    }
   },
 
   // ---- upptäckter ---------------------------------------------------------
@@ -799,7 +860,7 @@ export default {
       this._bagar.push(g)
       bounceIn(g, { delay: 0.09 * i, duration: 0.55 })
     })
-    // ...och alla fem elementen gör en RUNDA i rutan, ett i taget.
+    // ...och alla sex elementen gör en RUNDA i rutan, ett i taget.
     //
     // Första versionen lät paraden MÅLA en kolumn av varje element tvärs över lådan.
     // Skärmdumpen dömde ut den: 900 celler material föll ner och begravde exakt det

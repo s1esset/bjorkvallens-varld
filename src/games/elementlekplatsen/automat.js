@@ -170,6 +170,28 @@ export class Sandlada {
     return n
   }
 
+  /**
+   * Sudda: tömmer en HEL cirkel. Till skillnad från `mala` är penseln inte mjuk —
+   * ett suddgummi som lämnar 28 % av materialet kvar läses inte som ett suddgummi,
+   * det läses som att det är trasigt. Livräknaren nollas också, så en suddad eld
+   * inte kan tändas igen av sin egen nedräkning.
+   */
+  sudda(cc, cr, radie) {
+    const r2 = radie * radie
+    let n = 0
+    for (let dr = -Math.ceil(radie); dr <= Math.ceil(radie); dr++) {
+      const r = cr + dr
+      if (r < 0 || r >= this.rows) continue
+      for (let dc = -Math.ceil(radie); dc <= Math.ceil(radie); dc++) {
+        const c = cc + dc
+        if (c < 0 || c >= this.cols) continue
+        if (dc * dc + dr * dr > r2) continue
+        if (this._satt(this.idx(c, r), TOM, 0)) n++
+      }
+    }
+    return n
+  }
+
   /** Fyll en rektangel (celler). */
   fyll(c0, r0, c1, r1, m) {
     for (let r = Math.max(0, r0); r <= Math.min(this.rows - 1, r1); r++) {

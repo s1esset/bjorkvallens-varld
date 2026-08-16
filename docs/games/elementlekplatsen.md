@@ -134,3 +134,9 @@ Mätningar vid bygget (`node scripts/_elementprobe.mjs`):
   strypt. Automaten + omritningen kostar alltså ~0,2 FPS på en strypt maskin.
 - **Startvärldarna:** 4 s helt utan input → 0 tända rutor i alla fyra (`_idleprobe`-kravet).
 - **Exit mitt i en reaktion:** 0 konsolfel.
+
+`2026-08-16 · ägaruppdrag: sjätte elementet **Tomrummet** — sandlådans suddgummi. Egen
+`sudda()` i automaten som tömmer en HEL cirkel (penseln skriver bara 72 % av cellerna, och
+ett suddgummi som lämnar en fjärdedel kvar läser som trasigt, inte som mjukt). Radien 3,4
+celler mot penselns 2,6: att ta bort ska gå fortare än att lägga dit. Blommor under suddet
+puffar bort — de är egna Pixi-noder, inte celler, och hade annars svävat kvar i luften.`

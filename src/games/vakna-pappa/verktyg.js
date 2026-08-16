@@ -903,7 +903,13 @@ function byggLampa(v) {
   const MORK = shade(SKAL, 0.4)
   const LJUS = 0xfff3b0
 
+  // ⚠️ FICKLAMPAN ÄR DEN ENDA SAKEN VARS BILD BÄR EN RIKTNING, och den ska peka DIT den
+  //    lyser. Vilovinkeln −0,6 rad riktar linsen UPP ÅT HÖGER, medan ficklampan landar
+  //    till höger om pappa och strålen ritas åt VÄNSTER: lampan lyste alltså 180° fel
+  //    (ägarens rapport). `sikta()` vrider den mot målet; `sikte` bär vinkeln så
+  //    `tryck()`s rekyl och `aterstall()` inte drar tillbaka den till vilovinkeln.
   const LUT = -0.6
+  let sikte = LUT
   const lampa = new Container()
   lampa.rotation = LUT
 
@@ -948,13 +954,31 @@ function byggLampa(v) {
       kagla.scale.set(1)
     }
     if (!knapp.destroyed) knapp.x = 0
-    if (!lampa.destroyed) lampa.rotation = LUT
+    if (!lampa.destroyed) lampa.rotation = sikte
   }
 
   return {
     skugga: { y: 56, rx: 40, ry: 10 },
     liv: { bob: 3.5, sway: 0.024, duration: 3 },
     aterstall,
+
+    // Linsens nod — spelet ritar sin stora ljuskägla ur DEN och inte ur lampans mitt.
+    stralNod: kagla,
+
+    /**
+     * Rikta linsen längs `vinkel` (rad, 0 = åt höger). `null` = tillbaka till vilovinkeln.
+     *
+     * ⚠️ SPEGLINGEN SITTER PÅ `scale.y`, INTE PÅ `scale.x`. En x-spegling flyttar linsen
+     *    till fel sida av röret och strålen hade utgått ur bakänden; en y-spegling vänder
+     *    bara röret rätt igen när det pekar åt vänster (strömbrytaren stannar uppe).
+     */
+    sikta(vinkel) {
+      if (lampa.destroyed) return
+      sikte = vinkel == null ? LUT : vinkel
+      gsap.killTweensOf(lampa)
+      lampa.scale.y = Math.cos(sikte) < 0 ? -1 : 1
+      gsap.to(lampa, { rotation: sikte, duration: 0.16, ease: 'power2.out' })
+    },
     // KLICK: knoppen glider fram, käglan tänds med ett ryck och lampan rekylerar lite.
     tryck() {
       const tl = tid()
@@ -966,8 +990,10 @@ function byggLampa(v) {
         .to(kagla, { alpha: 0, duration: 0.4, ease: 'power2.in' }, 0.7)
       tl.to(kagla.scale, { x: 1.12, y: 1.06, duration: 0.5, ease: 'sine.out' }, 0.05)
         .set(kagla.scale, { x: 1, y: 1 }, 1.12)
-      tl.to(lampa, { rotation: LUT + 0.1, duration: 0.08, ease: 'power2.out' }, 0)
-        .to(lampa, { rotation: LUT, duration: 0.5, ease: 'elastic.out(1, 0.45)' }, 0.08)
+      // Rekylen går kring SIKTET, inte kring vilovinkeln — annars svänger en riktad
+      // ficklampa tillbaka till hyllposen mitt i att den lyser på pappa.
+      tl.to(lampa, { rotation: sikte + 0.1, duration: 0.08, ease: 'power2.out' }, 0)
+        .to(lampa, { rotation: sikte, duration: 0.5, ease: 'elastic.out(1, 0.45)' }, 0.08)
       squash(krop, { intensity: 0.35 })
     },
   }
@@ -1370,6 +1396,27 @@ export function makeVerktyg(key) {
     vand(sx) {
       if (dod || livnod.destroyed) return
       gsap.to(livnod.scale, { x: sx < 0 ? -1 : 1, duration: 0.24, ease: 'back.out(2)' })
+    },
+
+    /**
+     * Riktar en sak vars BILD bär en riktning (i dag bara ficklampan) längs `vinkel` i
+     * radianer, 0 = åt höger. `null` återställer vilovinkeln. Saknar saken en riktning är
+     * anropet en nollåtgärd — spelet behöver inte veta vilka som har en.
+     */
+    sikta(vinkel) {
+      if (dod || krop.destroyed) return
+      spec.sikta?.(vinkel)
+    },
+
+    /**
+     * Var strålen ska UTGÅ ifrån, i designkoordinater (`getGlobalPosition` × appens skala
+     * är fel — vyerna ligger i ett lager utan egen transform, så förälderns lokala rum ÄR
+     * designrummet). `null` när saken inte har någon utgångspunkt.
+     */
+    stralPunkt() {
+      const n = spec.stralNod
+      if (dod || !n || n.destroyed || !view.parent || view.destroyed) return null
+      return view.parent.toLocal(n.getGlobalPosition())
     },
 
     // Vilo-rörelse med EGEN slumpad fas + sakens eventuella ambient (ånga, zzz).

@@ -70,6 +70,12 @@ const SIDOR = [
   ['ballong', 'strumpa', 'flakt', 'gardin'],
 ]
 
+// Hur många saker som får väljas samtidigt (ägarens punkt 1). Taket är tre, och det är
+// inte godtyckligt: fyra saker på en sida, och kan man välja alla fyra finns inget val
+// kvar att göra. Tre av fyra är en KOMBINATION; fyra av fyra är bara knappen.
+const MAX_VAL = 3
+const KOMBO_STEG = 0.34   // s mellan två utskickade saker — de ska landa i följd, inte i klump
+
 const HIT_R = 64          // P0: 128 px träffyta …
 const HALO = 24           // … plus 24 px osynlig halo
 const SLOT_X = [190, 370, 550, 730]   // 180 px isär = 52 px luft mellan träffytorna
@@ -189,7 +195,11 @@ export default {
     this._wow = Math.random() < 0.125
     this._cueVaxel = 0
     this._sida = 0
-    this._resa = null
+    this._valda = []
+    this._resor = new Set()
+    this._komboKvar = 0
+    this._finalVantar = false
+    this._sagtKombo = false
     this._sistKey = null
     this._upprepning = 0
     this._kryddT = KRYDD_PAUS
@@ -284,21 +294,27 @@ export default {
    * draget hade aldrig startat.
    */
   _byggHylla(ctx) {
-    // Markeringsringen ligger UNDER sakerna, så en stor silhuett aldrig döljs av den.
-    const ring = new Graphics()
-    ring.circle(0, 0, 68).stroke({ width: 7, color: COLORS.yellow, alpha: 0.95 })
-    ring.circle(0, 0, 78).stroke({ width: 4, color: COLORS.yellow, alpha: 0.35 })
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2
-      ring.circle(Math.cos(a) * 68, Math.sin(a) * 68, 5).fill({ color: 0xfff3b0 })
+    // ⚠️ TRE RINGAR, INTE EN. Ägaren bad om att få välja upp till tre saker och skicka
+    //    iväg dem tillsammans, och en enda markering hade gjort de två andra valen
+    //    osynliga — ett val man inte ser är inget val.
+    this._ringar = []
+    this._ringTws = []
+    for (let n = 0; n < MAX_VAL; n++) {
+      const ring = new Graphics()
+      ring.circle(0, 0, 68).stroke({ width: 7, color: COLORS.yellow, alpha: 0.95 })
+      ring.circle(0, 0, 78).stroke({ width: 4, color: COLORS.yellow, alpha: 0.35 })
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2
+        ring.circle(Math.cos(a) * 68, Math.sin(a) * 68, 5).fill({ color: 0xfff3b0 })
+      }
+      ring.eventMode = 'none'
+      ring.visible = false
+      this._hyllL.addChild(ring)
+      this._ringar.push(ring)
+      this._ringTws.push(gsap.to(ring.scale, {
+        x: 1.07, y: 1.07, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut',
+      }))
     }
-    ring.eventMode = 'none'
-    ring.visible = false
-    this._hyllL.addChild(ring)
-    this._ring = ring
-    this._ringTw = gsap.to(ring.scale, {
-      x: 1.07, y: 1.07, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut',
-    })
 
     SIDOR.forEach((sida, si) => {
       shuffle([...sida]).forEach((key, i) => {
@@ -393,10 +409,10 @@ export default {
     const ny = (this._sida + d + SIDOR.length) % SIDOR.length
     ctx.services.audio.sfx('flip')
     this._avbrytResa()
-    // Valet släpps vid sidbyte. Annars kunde väckknappen skicka iväg en sak som ligger på
-    // en gömd sida — den hade flugit in från ingenstans, osynlig hela vägen.
-    // (`_deselect` är bibliotekets enda väg att släppa ett val utan att riva hela draget.)
-    this._drag._deselect?.()
+    // Valen släpps vid sidbyte. Annars kunde väckknappen skicka iväg en sak som ligger på
+    // en gömd sida — den hade flugit in från ingenstans, osynlig hela vägen. Det gäller
+    // hela trippelvalet: sidan bär fyra saker, och tre av dem är kombinationen.
+    this._rensaVal()
     this._sida = ny
     const in_ = []
     for (const post of this._verktyg) {
@@ -445,24 +461,58 @@ export default {
     this._idle = 0
     post.v.tryck?.()
     this._forhandsljud(ctx, post.key)
-    const vald = this._drag?.selected === post.rec
-    ripple(ctx.fxLayer, post.x, post.y, { color: vald ? 0xffe9a8 : 0xffffff, maxR: vald ? 84 : 58 })
+
+    // ⚠️ VALET ÄGS AV SPELET, INTE AV `DragController`. Bibliotekets `selected` rymmer EN
+    //    post och nollas vid varje nytt tryck — det går alltså inte att bygga ett trippelval
+    //    på den. `_toggleSelect` har redan hunnit köra när det här `pointertap` kommer, så
+    //    dess val släpps direkt och listan här är den enda sanningen. Tap-tap-vägen (P0
+    //    GESTER) bärs vidare av zonernas EGNA lyssnare, som läser samma lista.
+    this._drag?._deselect?.()
+    const ix = this._valda.indexOf(post)
+    let lagg = true
+    if (ix >= 0) {
+      this._valda.splice(ix, 1)
+      lagg = false
+    } else {
+      // Fullt? Den ÄLDSTA får lämna plats. Ett tryck får aldrig vara en död yta (P0
+      // ÅTERKOPPLING), så ett fjärde val byter ut i stället för att avvisas.
+      if (this._valda.length >= MAX_VAL) this._valda.shift()
+      this._valda.push(post)
+    }
+
+    ripple(ctx.fxLayer, post.x, post.y, { color: lagg ? 0xffe9a8 : 0xffffff, maxR: lagg ? 84 : 58 })
+    if (lagg) {
+      ctx.services.audio.tone({
+        // Tonen STIGER med antalet valda: ett, två, tre saker låter som en treklang som
+        // byggs. Barnet hör hur många det har valt utan en enda siffra.
+        freq: [523, 659, 784][this._valda.length - 1] || 523,
+        dur: 0.12, type: 'triangle', vol: 0.16,
+      })
+    } else {
+      ctx.services.audio.tone({ freq: 392, dur: 0.1, type: 'sine', vol: 0.13 })
+    }
+    if (this._valda.length === 2 && !this._sagtKombo) {
+      this._sagtKombo = true
+      this._sag(ctx, 'Två saker på en gång! Tryck på knappen.')
+    }
     this._syncRing()
   },
 
-  _valdPost() {
-    const key = this._drag?.selected?.data?.key
-    if (!key) return null
-    return this._verktyg.find((p) => p.key === key) || null
+  _rensaVal() {
+    this._valda = []
+    this._drag?._deselect?.()
+    this._syncRing()
   },
 
   _syncRing() {
-    const ring = this._ring
-    if (!ring || ring.destroyed) return
-    const post = this._valdPost()
-    const visa = !!post && post.sida === this._sida
-    ring.visible = visa
-    if (visa) ring.position.set(post.x, post.y)
+    const ringar = this._ringar || []
+    ringar.forEach((ring, i) => {
+      if (!ring || ring.destroyed) return
+      const post = this._valda[i]
+      const visa = !!post && post.sida === this._sida
+      ring.visible = visa
+      if (visa) ring.position.set(post.x, post.y)
+    })
   },
 
   // ---------------------------------------------------------------- zonerna ---
@@ -485,6 +535,19 @@ export default {
       n.cursor = 'pointer'
       n.hitArea = z.hit
       n.on('pointertap', () => {
+        // TAP-TAP-VÄGEN (P0 GESTER) går numera genom spelets egen vallista: har barnet
+        // valt en till tre saker skickas ALLA hit. `_deselect()` först, så bibliotekets
+        // egen mål-hanterare (som körs efter den här) inte också flyttar ett föremål.
+        if (this._valda.length) {
+          this._drag?._deselect?.()
+          if (this._busy) {
+            kvittera(ctx.fxLayer, z.x, z.y, ctx.services.audio)
+            return
+          }
+          this._idle = 0
+          this._anvandValda(ctx, z.id)
+          return
+        }
         if (!this._drag?.selected) this._peta(ctx, z.id)
       })
       this._zonL.addChild(n)
@@ -706,13 +769,37 @@ export default {
   _vackTryck(ctx) {
     if (!this._alive) return
     this._idle = 0
-    const post = this._valdPost()
-    if (!post) return this._tomKnapp(ctx)
+    if (!this._valda.length) return this._tomKnapp(ctx)
     if (this._busy) {
       kvittera(ctx.fxLayer, VACK.x, VACK.y - 60, ctx.services.audio)
       return
     }
-    this._skickaIvag(ctx, post, 'ansikte')
+    this._anvandValda(ctx, 'ansikte')
+  },
+
+  /**
+   * ÄGARENS PUNKT 1: alla valda saker far iväg TILLSAMMANS, en efter en med `KOMBO_STEG`
+   * emellan. Turordningen är den barnet valde i — den som trycktes först landar först.
+   *
+   * ⚠️ LISTAN TÖMS FÖRE avfärden. Varje sak stänger av sin egen träffyta under resan
+   *    (`_skickaIvag`), och en post som ligger kvar som "vald" medan den flyger hade
+   *    kunnat skickas iväg en gång till av nästa tryck på knappen.
+   */
+  _anvandValda(ctx, zon) {
+    const valda = this._valda.filter((p) => p.sida === this._sida)
+    if (!valda.length) return
+    this._rensaVal()
+    // ⚠️ FINALEN HÅLLS TILLBAKA TILLS HELA KOMBON LANDAT. Två starka saker räcker för att
+    //    ta honom hela vägen, och `_final` gör `_avbrytResa()` — sak två och tre hade
+    //    snäppts hem mitt i luften och aldrig visat vad de gjorde. Barnet valde tre saker;
+    //    det ska få se tre saker.
+    this._komboKvar = valda.length
+    valda.forEach((post, i) => {
+      if (i === 0) return this._skickaIvag(ctx, post, zon, 0)
+      ctx.later(i * KOMBO_STEG, () => {
+        if (this._alive && !this._busy) this._skickaIvag(ctx, post, zon, i)
+      })
+    })
   },
 
   _tomKnapp(ctx) {
@@ -743,20 +830,26 @@ export default {
    *    upptagen-flagga som sväljer ett tryck — den som trycker på tom hyllplats får ändå
    *    rummets eget svar av `_tomtTryck`.)
    */
-  _skickaIvag(ctx, post, zon) {
+  _skickaIvag(ctx, post, zon, ordning = 0) {
     const view = post.v?.view
     if (!view || view.destroyed) return
-    this._avbrytResa()
-    this._resa = post
+    // ⚠️ BARA DEN HÄR SAKENS EGEN RESA AVBRYTS. Förut fanns ETT `_resa`-fack, och en ny
+    //    avfärd snäppte hem den förra — med tre saker i luften samtidigt (ägarens punkt 1)
+    //    hade sak två slagit hem sak ett innan den ens landat.
+    this._avbrytPost(post)
+    this._resor.add(post)
     view.eventMode = 'none'
     gsap.killTweensOf(view)
     const rakt = this._zonPunkt(zon)
     const off = LANDNING[post.key] || { x: 0, y: 0 }
-    const mal = { x: rakt.x + off.x, y: rakt.y + off.y }
+    // Flera saker på samma zon får var sitt läge, annars står de i varandra. Fjäderformen
+    // är medveten: mitten först, sedan lite ovanför och lite nedanför.
+    const spridd = ordning ? { x: off.x + (ordning % 2 ? 46 : -40), y: off.y + (ordning % 2 ? -52 : 48) } : off
+    const mal = { x: rakt.x + spridd.x, y: rakt.y + spridd.y }
     const start = { x: view.x, y: view.y }
     const topp = Math.min(start.y, mal.y) - 110
     const st = { t: 0 }
-    this._resaTw = gsap.to(st, {
+    post._resaTw = gsap.to(st, {
       t: 1,
       duration: 0.42,
       ease: 'power2.inOut',
@@ -771,16 +864,26 @@ export default {
       onComplete: () => {
         if (!this._alive || view.destroyed) return
         this._verkan(ctx, post, zon)
+        this._komboLandade(ctx)
         ctx.later(RESA_HALL[post.key] ?? HALL_STANDARD, () => this._resaHem(ctx, post))
       },
     })
+  },
+
+  /** En sak ur kombon är framme. Är den sista framme släpps en uppskjuten final. */
+  _komboLandade(ctx) {
+    if (this._komboKvar > 0) this._komboKvar -= 1
+    if (this._komboKvar > 0 || !this._finalVantar) return
+    this._finalVantar = false
+    ctx.later(0.6, () => { if (this._alive) this._final(ctx) })
   },
 
   _resaHem(ctx, post) {
     const view = post.v?.view
     if (!this._alive || !view || view.destroyed) return
     gsap.killTweensOf(view)
-    this._resaTw = gsap.to(view, {
+    post.v.sikta?.(null)
+    post._resaTw = gsap.to(view, {
       x: post.x,
       y: post.y,
       rotation: 0,
@@ -789,23 +892,32 @@ export default {
       onComplete: () => {
         if (!this._alive || view.destroyed) return
         if (post.sida === this._sida) view.eventMode = 'static'
-        if (this._resa === post) this._resa = null
+        post._resaTw = null
+        this._resor.delete(post)
       },
     })
   },
 
-  /** Snäpper hem en pågående resa direkt — används vid sidbyte och vid en ny avfärd. */
-  _avbrytResa() {
-    const post = this._resa
-    this._resaTw?.kill()
-    this._resaTw = null
-    this._resa = null
-    const view = post?.v?.view
+  /** Snäpper hem EN saks resa direkt. */
+  _avbrytPost(post) {
+    if (!post) return
+    post._resaTw?.kill()
+    post._resaTw = null
+    this._resor.delete(post)
+    const view = post.v?.view
     if (!view || view.destroyed) return
     gsap.killTweensOf(view)
+    post.v.sikta?.(null)
     view.position.set(post.x, post.y)
     view.rotation = 0
     view.eventMode = post.sida === this._sida ? 'static' : 'none'
+  },
+
+  /** Snäpper hem ALLA pågående resor — sidbyte och final. */
+  _avbrytResa() {
+    for (const post of [...this._resor]) this._avbrytPost(post)
+    this._resor.clear()
+    this._komboKvar = 0
   },
 
   /** VÄG ⓑ: `DragController` har redan flugit saken till zonen — verka och skicka hem den. */
@@ -818,6 +930,10 @@ export default {
     // hyllplatsen, och `_resaHem` tänder den igen när den står på sin plats.)
     this._drag.aterstall(post.v.view)
     if (!post.v.view.destroyed) post.v.view.eventMode = 'none'
+    // Ett DRAG är sin egen handling: den dragna saken lämnar trippelvalet, annars hade den
+    // skickats iväg en gång till av nästa tryck på väckknappen.
+    const ix = this._valda.indexOf(post)
+    if (ix >= 0) { this._valda.splice(ix, 1); this._syncRing() }
     if (this._busy) {
       kvittera(ctx.fxLayer, post.v.view.x, post.v.view.y, ctx.services.audio)
     } else {
@@ -825,7 +941,7 @@ export default {
     }
     ctx.later(RESA_HALL[post.key] ?? HALL_STANDARD, () => {
       if (!this._alive || post.v.view.destroyed) return
-      this._resa = post
+      this._resor.add(post)
       this._resaHem(ctx, post)
     })
   },
@@ -874,10 +990,25 @@ export default {
    */
   _verkan(ctx, post, zon) {
     if (!this._alive) return
+    // ⚠️ TRE SAKER I LUFTEN KAN LANDA EFTER FINALEN. Kombinationen skickas iväg med
+    //    `KOMBO_STEG` emellan, och den första kan mycket väl ta honom hela vägen — då är
+    //    `_busy` sann när nummer två och tre kommer fram. De kvitterar och far hem i
+    //    stället för att köra en verkan ovanpå gäspningen.
+    if (this._busy) {
+      kvittera(ctx.fxLayer, post.v?.view?.x ?? post.x, post.v?.view?.y ?? post.y, ctx.services.audio)
+      return
+    }
     const key = post.key
     const audio = ctx.services.audio
     const a = this._ans
     const p = this._zonPunkt(zon)
+    // ⚠️ SIKTET SÄTTS FÖRE `tryck()`. `tryck()` nollställer saken mot sin vilopose och
+    //    lägger sin rekyl kring den — vrids lampan efteråt slåss de två om `rotation`, och
+    //    vred man den före blir rekylen automatiskt rätt (den räknas kring `sikte`).
+    if (key === 'lampa') {
+      const kl0 = this._kallaPunkt(post, p)
+      post.v.sikta?.(Math.atan2(p.y - kl0.y, p.x - kl0.x))
+    }
     post.v.tryck?.()
     // Vilket håll ljudet kom ifrån — det öppnade ögat i läge 3 tittar dit. Landar saken
     // MITT i ansiktet finns ingen riktning i släpp-punkten (dx = 0), så då används sakens
@@ -957,7 +1088,9 @@ export default {
       // LJUSET: en kägla över ansiktet, och han kisar med båda ögonen ett ögonblick.
       audio.sfx('flip')
       audio.tone({ freq: 1320, dur: 0.18, type: 'sine', vol: 0.1, slideTo: 1760 })
-      const kl = this._kallaPunkt(post, p)
+      // Strålen utgår ur LINSEN (siktet är redan satt längre upp), inte ur lampans mitt.
+      const lins = post.v.stralPunkt?.()
+      const kl = lins && Math.hypot(p.x - lins.x, p.y - lins.y) > 40 ? lins : this._kallaPunkt(post, p)
       this._kagla(ctx, kl.x, kl.y, p)
       sparkle(ctx.fxLayer, p.x, p.y - 20, { count: 10 })
       a?.slappMin?.()
@@ -1313,6 +1446,12 @@ export default {
     const nu = this._niva()
     if (nu !== forr) this._satLage(ctx, nu)
     if (this._vaken >= MAX) {
+      // Väntar resten av kombon i luften? Då skjuts finalen upp till sista saken landat
+      // (`_komboLandade`) — annars river `_final`s `_avbrytResa()` dem mitt i flykten.
+      if (this._komboKvar > 0) {
+        this._finalVantar = true
+        return
+      }
       this._final(ctx)
       return
     }
@@ -1524,10 +1663,12 @@ export default {
       this._idle = 0
       sparkle(ctx.fxLayer, PLATS.ansikte.x, PLATS.ansikte.y - 60, { count: 10 })
       this._sagPappa(ctx, 'oj')
-      // Hade barnet ett verktyg valt drogs filten av MED saken i handen — då ska saken
-      // också få användas, annars kostade filten ett helt tryck.
-      const post = medVerktyg ? this._valdPost() : null
-      if (post && !this._busy) ctx.later(0.35, () => this._skickaIvag(ctx, post, 'ansikte'))
+      // Hade barnet saker valda drogs filten av MED dem i handen — då ska de också få
+      // användas, annars kostade filten ett helt tryck. Hela kombon följer med, av samma
+      // skäl som väckknappen skickar hela kombon.
+      if (medVerktyg && this._valda.length && !this._busy) {
+        ctx.later(0.35, () => { if (this._alive) this._anvandValda(ctx, 'ansikte') })
+      }
     }
   },
 
@@ -1547,6 +1688,8 @@ export default {
     if (!this._alive || this._busy) return
     this._busy = true
     this._idle = 0
+    this._komboKvar = 0
+    this._finalVantar = false
     this._avbrytResa()
     this._luta(ctx, 0, 0.3)
     const a = this._ans
@@ -1732,6 +1875,14 @@ export default {
 
     this._syncRing()
 
+    // BACKSTOPP för den uppskjutna finalen: blev en sak ur kombon aldrig framme (sidbyte
+    // mitt i flykten) får spelet inte fastna en bildruta från gäspningen.
+    if (this._finalVantar && this._komboKvar <= 0 && !this._busy) {
+      this._finalVantar = false
+      this._final(ctx)
+      return
+    }
+
     if (this._idle > 6.5 && !this._busy) {
       this._idle = 0
       this._cueVaxel = (this._cueVaxel + 1) % 3
@@ -1741,7 +1892,7 @@ export default {
         // Hyllan vinkar till sig: en sak i taget guppar, aldrig hela raden på en gång.
         const pa = this._verktyg.filter((p) => p.sida === this._sida)
         const post = randomFrom(pa)
-        if (post && !post.v.view.destroyed && this._resa !== post) wiggle(post.v.view)
+        if (post && !post.v.view.destroyed && !this._resor.has(post)) wiggle(post.v.view)
       }
     }
   },
@@ -1757,11 +1908,14 @@ export default {
     this._snusTw = null
     this._lutTw?.kill()
     this._lutTw = null
-    this._resaTw?.kill()
-    this._resaTw = null
-    this._ringTw?.kill()
-    this._ringTw = null
-    this._resa = null
+    for (const post of this._verktyg || []) {
+      post._resaTw?.kill()
+      post._resaTw = null
+    }
+    this._resor?.clear()
+    for (const tw of this._ringTws || []) tw?.kill()
+    this._ringTws = []
+    this._valda = []
     this._drag?.destroy()
     this._drag = null
     for (const f of this._fx || []) {
@@ -1780,8 +1934,8 @@ export default {
       post.v?.destroy?.()
     }
     this._verktyg = []
-    if (this._ring && !this._ring.destroyed) gsap.killTweensOf(this._ring.scale)
-    this._ring = null
+    for (const r of this._ringar || []) if (r && !r.destroyed) gsap.killTweensOf(r.scale)
+    this._ringar = []
     if (this._katt?.view && !this._katt.view.destroyed) gsap.killTweensOf(this._katt.view)
     this._katt?.destroy?.()
     this._katt = null

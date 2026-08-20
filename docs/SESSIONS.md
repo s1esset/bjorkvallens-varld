@@ -38,7 +38,7 @@ gjorda än?"* och slutade i ett godkänt spec-kort.
 **Ägarnotis:** pappa-fotona i ComfyUI:s `output/` ligger numera i en egen undermapp
 **`output/pappa/`**. Noterat på båda ställena i `docs/IDEER.md` (post 1 ⓶ och post 4).
 
-**Commits:** <hash> docs(borsta-tanderna): godkant spec-kort + plan infor bygget
+**Commits:** `1ee34d3` docs(borsta-tanderna): godkant spec-kort + plan infor bygget
 
 **Öppet:** `/spel borsta-tanderna` står på **steg `bygg`** i `.claude/state/korning.json` —
 plocka upp med `/aterta` nästa session. Spec och plan är klara, ingen kod är skriven.

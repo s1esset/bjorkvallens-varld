@@ -29,9 +29,34 @@ const ID = 'borsta-tanderna'
 mkdirSync('.test-shots', { recursive: true })
 
 const errors = []
+const stackar = new Map()
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 const rad = []
+// Varje arm bär sitt eget felantal: 172 konsolfel i en klumpsumma säger inte VILKEN
+// arm som föder dem, och tre engångssonder gick åt att gissa fel skede.
+const _push = rad.push.bind(rad)
+rad.push = (r) => _push([r[0], `${r[1]} · fel ${errors.length}`, r[2]])
 const ok = (b) => (b ? '✓' : '✗')
+
+// Spöktweens: gsap-tweens vars MÅL redan är förstört. Stacken bakom ett null-fel säger
+// bara att någon skriver `.y` på en riven nod — den här avläsningen namnger noden. Måste
+// gå via spelets EGEN gsap-instans; en nyimporterad kopia har en egen global tidslinje
+// och rapporterar 0 oavsett vad som pågår.
+const spoken = (page) => page.evaluate(async () => {
+  const u = performance.getEntriesByType('resource').map((r) => r.name).find((n) => /gsap/.test(n))
+  if (!u) return 'ingen gsap-resurs'
+  const g = (await import(u)).gsap || (await import(u)).default
+  const ut = []
+  for (const tw of g.globalTimeline.getChildren(true, true, true)) {
+    const mal = typeof tw.targets === 'function' ? tw.targets() : []
+    for (const t of mal) {
+      if (t && typeof t === 'object' && t.destroyed === true) {
+        ut.push(`${t.constructor?.name || '?'}{${Object.keys(tw.vars || {}).filter((k) => !['ease', 'onUpdate', 'onComplete', 'onRepeat', 'repeat', 'yoyo', 'duration', 'delay'].includes(k)).join(',')}}${typeof tw.repeat === 'function' && tw.repeat() === -1 ? ' EVIG' : ''}`)
+      }
+    }
+  }
+  return ut.length ? ut.join(' · ') : 'inga'
+})
 
 const las = (page) => page.evaluate(async () => {
   const g = (await import('/src/games/registry.js')).getGame('borsta-tanderna')
@@ -61,6 +86,11 @@ const las = (page) => page.evaluate(async () => {
     // Diagnostik för gap-frågan: vem håller tillbaka gapet, och tror spelet ens att
     // borsten är på raden?
     minKvar: Math.max(0, Math.round((g._minTill || 0) - performance.now())),
+    // Tungan: fas, om noden lever, och om bonusen bokförts den här omgången.
+    tungFas: g._tungFas ?? null,
+    tungaUte: !!(g._tunga && !g._tunga.destroyed),
+    tungBonus: !!g._tungBonus,
+    smutsiga: (g._flackar || []).filter((f) => f.kvar > 0).length,
     gapNu: Math.round((g._gapNu ?? 0) * 1000) / 1000,
     iRad: k ? !!g._iTandraden?.(k.x, k.y) : null,
   }
@@ -69,7 +99,13 @@ const las = (page) => page.evaluate(async () => {
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 180)) })
-  page.on('pageerror', (e) => errors.push('PAGEERROR: ' + (e.message || String(e)).slice(0, 180)))
+  // Stacken sparas, inte bara meddelandet: ett felmeddelande utan stack är en gissning
+  // som ser ut som ett fynd (det kostade tre engångssonder att lära sig).
+  page.on('pageerror', (e) => {
+    errors.push('PAGEERROR: ' + (e.message || String(e)).slice(0, 180))
+    const k = (e.stack || e.message || '').split('\n').slice(0, 5).join('\n')
+    stackar.set(k, (stackar.get(k) || 0) + 1)
+  })
 
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
@@ -166,11 +202,154 @@ try {
   await page.waitForTimeout(1300)
   rad.push(['H · exit mitt i sköljningen', `${errors.length - foreExit} konsolfel`, errors.length === foreExit])
 
+  // ---------- TUNGAN: motgången, bonusen, återvändsgränden ----------
+  //
+  // ⚠️ EGEN OMGÅNG PER ARM, aldrig mitt i den pågående. Första försöket sköt in armarna
+  //    efter E — men då hade arm D redan borstat brädet rent och fasen stod på `skolj`,
+  //    där tungan aldrig startar. Att skriva tillbaka smuts i det läget gav ett tillstånd
+  //    spelet inte kan hamna i själv, 50 konsolfel som var SONDENS, och en trasig arm F.
+  //    Varje tungarm monterar därför om spelet och börjar om.
+  // ⚠️ HELT FÄRSK SIDA, inte bara en ny omgång. Appen bär en app-bred exit-läcka (spöktweens
+  //    från `DragController._snapHome` och badrummets droppe skriver `.y` på rivna noder —
+  //    uppmätt LIKA på HEAD, se docs/ATGARDER.md). Felen kastas inne i gsap-tickern och
+  //    kortsluter bildrutan, så en tubtryckning efter dem kan tappas: utan omladdning
+  //    rapporterade J/K/L "fas valj" och mätte ingenting. Omladdningen isolerar tungarmarna
+  //    från en läcka som inte är deras.
+  const nyOmgang = async () => {
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
+    await page.evaluate((id) => window.__barnspel.nav.go('game', { id }), ID)
+    await page.waitForTimeout(1800)
+    await page.mouse.click(L.TUB[1].x, L.TUB[1].y)
+    await page.waitForTimeout(1500)
+  }
+
+  const stall = () => page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('borsta-tanderna')
+    g._flackar.forEach((f, i) => { f.kvar = i === g._flackar.length - 1 ? 1 : 0; g._ritaFlack(f) })
+    g._tungaTill = 0
+    g._minTill = 0
+  })
+  // Väntar tills tungan nått ett visst skede — eller ger upp. Att sova en fast tid hade
+  // mätt fel skede så fort någon rör vid ett av talen (svep 0,62 · park 0,2 · vift 1,56).
+  const vantaFas = async (fas, tak = 4000) => {
+    const t0 = Date.now()
+    while (Date.now() - t0 < tak) {
+      const s = await page.evaluate(async () => (await import('/src/games/registry.js')).getGame('borsta-tanderna')._tungFas ?? null)
+      if (s === fas) return true
+      await page.waitForTimeout(60)
+    }
+    return false
+  }
+  const tungLage = () => page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('borsta-tanderna')
+    const t = g._tunga
+    if (!t || t.destroyed) return null
+    const d = g._franRuta(t.x, t.y)
+    return d ? { x: Math.round(d.x), y: Math.round(d.y) } : null
+  })
+
+  // I · KONTROLLARM: tungan går sin väg medan borsten hålls VID VÄGGEN. Utan den här armen
+  //     säger ett bonustal ingenting — då kan bonusen ha fyrat av sig själv.
+  await page.mouse.up().catch(() => {})
+  await nyOmgang()
+  await stall()
+  await page.mouse.move((await las(page)).borste?.x ?? L.HEM.x, (await las(page)).borste?.y ?? L.HEM.y)
+  await page.mouse.down()
+  await page.mouse.move(1080, 280, { steps: 6 })
+  const komI = await vantaFas('vift')
+  const foreI = await las(page)
+  for (let i = 0; i < 10; i++) { // samma sveprörelse, fast vid väggen
+    await page.mouse.move(1080 + (i % 2 ? 60 : -60), 280, { steps: 2 })
+    await page.waitForTimeout(60)
+  }
+  await page.waitForTimeout(1400)
+  const missI = await las(page)
+  rad.push(['I · KONTROLL tungan missas', `nådde vift ${komI} · bonus ${missI.tungBonus} · smutsiga ${foreI.smutsiga} → ${missI.smutsiga} · min ${missI.min}`,
+    komI && missI.tungBonus === false && missI.smutsiga > foreI.smutsiga && !missI.tungaUte])
+
+  // J · MÄTARM: samma tunga, men borsten förs DIT. Siktet läggs med flit snett — 46 px i x
+  //     och 40 px i y från mitten — så armen mäter både att bonusen går att träffa OCH att
+  //     träffytan når P0:s 96 px tvärs över (±48). Fyrar den inte där prövas mitten, så ett
+  //     ✗ går att skilja från en trasig mekanism.
+  await page.mouse.up()
+  await nyOmgang()
+  await stall()
+  const startJ = (await las(page)).borste || L.HEM
+  await page.mouse.move(startJ.x, startJ.y)
+  await page.mouse.down()
+  const komJ = await vantaFas('vift')
+  const tl = await tungLage()
+  let traffJ = null
+  let vid = 'ingen tunga'
+  if (tl) {
+    await page.mouse.move(tl.x + 46 - hv.x, tl.y + 40 - hv.y, { steps: 6 })
+    await page.waitForTimeout(260)
+    traffJ = await las(page)
+    vid = 'P0-hörnet (+46,+40)'
+    if (!traffJ.tungBonus && traffJ.tungaUte) {
+      await page.mouse.move(tl.x - hv.x, tl.y - hv.y, { steps: 4 })
+      await page.waitForTimeout(260)
+      traffJ = await las(page)
+      vid = 'mitten (P0-hörnet bommade)'
+    }
+  }
+  await page.mouse.up()
+  await page.waitForTimeout(700)
+  const efterJ = traffJ ? await las(page) : null
+  console.log(`  [spöken efter J] ${await spoken(page)}`)
+  rad.push(['J · går bonusen att träffa?', `nådde vift ${komJ} · tunga ${JSON.stringify(tl)} · träff vid ${vid} · bonus ${traffJ?.tungBonus} · smutsiga ${efterJ?.smutsiga}`,
+    !!(komJ && tl && traffJ?.tungBonus && vid.startsWith('P0') && efterJ && !efterJ.tungaUte)])
+
+  // ---------- K + L: återvändsgränden och exit MITT I viftfönstret ----------
+  //
+  // Det längre fönstret (~2,4 s mot 0,62 s) gör den gamla återvändsgränden fyra gånger
+  // troligare: blir sista fläcken ren medan tungan är ute står fasen på `skolj`, och en
+  // återställd fläck går då aldrig att borsta bort igen (uppmätt: rena 3/4, 26 extravarv).
+  await nyOmgang()
+  console.log(`  [spöken efter omladdning inför K] ${await spoken(page)}`)
+  await stall()
+  const komK = await vantaFas('vift')
+  // Fläcken som fortfarande är smutsig — den ska bli ren MEDAN tungan viftar.
+  const kvarLage = await page.evaluate(async () => {
+    const g = (await import('/src/games/registry.js')).getGame('borsta-tanderna')
+    const f = (g._flackar || []).find((x) => x.kvar > 0)
+    if (!f) return null
+    f.kvar = 0.12 // nästan ren, så några svep räcker inom fönstret
+    g._ritaFlack(f)
+    const d = g._franRuta(f.rx, f.ry)
+    return d ? { x: Math.round(d.x), y: Math.round(d.y) } : null
+  })
+  if (kvarLage) {
+    const st = await las(page)
+    await page.mouse.move((st.borste || L.HEM).x, (st.borste || L.HEM).y)
+    await page.mouse.down()
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.move(kvarLage.x + (i % 2 ? 14 : -14) - hv.x, kvarLage.y - hv.y, { steps: 3 })
+      await page.waitForTimeout(55)
+    }
+    await page.mouse.up()
+  }
+  await page.waitForTimeout(1800)
+  const slutK = await las(page)
+  rad.push(['K · återvändsgränd i viftfönstret', `nådde vift ${komK} · fas ${slutK.fas} · smutsiga ${slutK.smutsiga} · tunga kvar ${slutK.tungaUte} · glaset ${slutK.glasAktiv}`,
+    komK && slutK.smutsiga === 0 && slutK.fas === 'skolj' && !slutK.tungaUte && slutK.glasAktiv])
+
+  await nyOmgang()
+  await stall()
+  const komL = await vantaFas('vift')
+  const foreL = errors.length
+  await page.evaluate(() => window.__barnspel.nav.go('library'))
+  await page.waitForTimeout(1300)
+  rad.push(['L · exit mitt i viftfönstret', `nådde vift ${komL} · ${errors.length - foreL} konsolfel`,
+    komL && errors.length === foreL])
+
   console.log('\n  BORSTA-TANDERNA — spelad av sonden\n')
   for (const [namn, text, bra] of rad) console.log(`  ${ok(bra)} ${namn.padEnd(32)} ${text}`)
   const fel = rad.filter((r) => !r[2]).length
   console.log(`\n  ${fel === 0 ? '✓ alla ' + rad.length + ' matningar grona' : '✗ ' + fel + ' av ' + rad.length + ' FALLER'}`)
   console.log(errors.length ? `  ✗ ${errors.length} konsolfel: ${errors[0]}` : '  ✓ 0 konsolfel')
+  for (const [k, n] of stackar) console.log(`\n  ×${n}\n${k}`)
 } finally {
   await browser.close()
 }

@@ -271,8 +271,9 @@ export function byggBadrum(ctx) {
 
   // ================================================================ HANDDUKEN ===
   // Till höger, under hyllans högra ände (hyllplankan slutar 1275, konsolen står på 1180).
-  // Kroken sitter på 332 så handduken börjar under konsolens fot.
-  const handduk = _handduk(1216, 330)
+  // Stången sitter på 329 (nod 336 minus 7) och tygets vik toppar på 311 — hyllkonsolens
+  // fot slutar på 302, så både fästet och viket går fritt under den.
+  const handduk = _handduk(1214, 336)
   bak.addChild(handduk.nod)
 
   // ============================================================= KAKELSOCKEL ===
@@ -795,75 +796,168 @@ function _spegelskap(x, y, w, h) {
 }
 
 /**
- * Handduken på en krok. `x, y` = krokens fästpunkt i väggen; handduken hänger under den
- * och vaggar kring den i `liv()`. Returnerar krok + tygets två svajnoder.
+ * Handduken. `x, y` = handdukstångens mitt i väggen; tyget är VIKT över stången och
+ * hänger i två lager under den. Returnerar stång + tygets två svajnoder (`inre` vaggar
+ * kring stången, `snibb` i sin egen takt).
+ *
+ * ⚠️ FORMEN ÄR OMRITAD EFTER KRITIKERRUNDAN 2026-08-20. Handduken hängde förut på en
+ *    KROK, och en lodrät kapsel med rundade ändar under ett litet metallhuvud läser som
+ *    en jättetub tandkräm — mer tub-lik än de riktiga tuberna på hyllan, i ett spel som
+ *    handlar om just tandkräm. Det är en falsk affordans: barnet pekar på den och
+ *    ingenting händer. Tre saker bär den nya läsningen, och alla tre behövs:
+ *      ⓵ en VÅGRÄT stång som bryter silhuetten på tvären (en krok pekar bara nedåt och
+ *        kan läsas som en skruvkork),
+ *      ⓶ en VÅGIG fåll med frans i stället för en rundad botten — en tub har en
+ *        pressad söm, en handduk har en kant som faller olika på olika ställen,
+ *      ⓷ en ASYMMETRISK kontur: bakre lagret sticker fram åt vänster, fållen lutar 26 px
+ *        uppåt åt höger, och snibben hänger utanför fållen i nedre vänstra hörnet.
  */
 function _handduk(x, y) {
   const nod = nyC()
   nod.position.set(x, y)
 
-  // Kroken sitter i den YTTRE noden så den står still när tyget vaggar.
-  const krok = nyG()
-  krok.roundRect(-13, -22, 26, 20, 7).fill(cylinderFill(F.metall, { axis: 'x' }))
-  krok.circle(-5, -13, 3).fill({ color: F.metallMork, alpha: 0.7 })
-  krok.circle(5, -13, 3).fill({ color: F.metallMork, alpha: 0.7 })
-  krok.moveTo(0, -4).quadraticCurveTo(0, 12, 13, 12)
-    .stroke({ width: 9, color: F.metallMork, cap: 'round' })
-  krok.moveTo(0, -4).quadraticCurveTo(0, 10, 11, 10)
-    .stroke({ width: 5, color: F.metallLjus, alpha: 0.8, cap: 'round' })
-  nod.addChild(krok)
+  // Stången sitter i den YTTRE noden så den står still när tyget vaggar. Den går 8 px
+  // förbi sina konsoler åt båda håll — en stång som slutar exakt vid fästet ser avbruten
+  // ut, och på en bred telefon syns väggen långt förbi 1280.
+  const stang = nyG()
+  for (const bx of [-56, 62]) {
+    stang.roundRect(bx - 6, -20, 12, 28, 5).fill(cylinderFill(F.metall, { axis: 'x' }))
+      .stroke({ width: 2, color: F.metallMork, alpha: 0.5 })
+    stang.circle(bx, -13, 2.6).fill({ color: F.metallMork, alpha: 0.6 })
+  }
+  stang.roundRect(-66, -13, 140, 12, 6)
+    .fill(cylinderFill(F.metall, { axis: 'x', dark: 0.26, highlight: 0.34 }))
+    .stroke({ width: 2, color: F.metallMork, alpha: 0.55 })
+  stang.roundRect(-62, -11, 132, 3.5, 1.8).fill({ color: F.metallLjus, alpha: 0.85 })
+  nod.addChild(stang)
 
-  // Tyget: en inre nod som svajar kring kroken.
+  // Tyget: en inre nod som svajar kring stången.
   const inre = nyC()
-  const w = 44
-  const H = 226
-  const t = nyG()
-  // Bakre halvan, en aning bredare — då läser handduken som VIKT över kroken.
-  t.moveTo(-w - 6, 6)
-    .lineTo(w + 4, 2)
-    .lineTo(w + 12, H - 26)
-    .quadraticCurveTo(w * 0.4, H - 6, 0, H - 18)
-    .quadraticCurveTo(-w * 0.5, H - 30, -w - 12, H - 14)
+
+  // Fållens punkter räknas EN gång och används av tre saker: tygets kontur, de broderade
+  // banden och fransen. Byggs fransen ur egna tal hänger den i luften så fort fållen
+  // ändras — det var precis så den gamla handdukens frans satt.
+  const HEM = []
+  for (let i = 0; i <= 8; i++) {
+    const u = i / 8
+    HEM.push([-40 + u * 84, 150 - u * 22 + Math.sin(i * 0.9) * 5])
+  }
+  // Vågen ritas med styrpunkten på (mitten-x, förra punktens y) — en liggande S-kurva.
+  const vagTill = (g, pts) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [px, py] = pts[i - 1]
+      const [qx, qy] = pts[i]
+      g.quadraticCurveTo(px + (qx - px) * 0.5, py, qx, qy)
+    }
+  }
+  // Exakt punkt på samma kurva — fransen får inte gissa var fållen ligger.
+  const paHem = (i, u) => {
+    const [px, py] = HEM[i]
+    const [qx, qy] = HEM[i + 1]
+    const cx = px + (qx - px) * 0.5
+    const k = (1 - u) * (1 - u)
+    const m = 2 * u * (1 - u)
+    const n = u * u
+    return [k * px + m * cx + n * qx, k * py + m * py + n * qy]
+  }
+
+  // --- bakre lagret: bredare, mörkare, kortare -------------------------------
+  const bakG = nyG()
+  bakG.moveTo(-47, -4)
+    .quadraticCurveTo(-49, -18, -28, -20)
+    .lineTo(34, -21)
+    .quadraticCurveTo(49, -19, 48, -2)
+    .lineTo(46, 100)
+    .quadraticCurveTo(14, 114, -14, 106)
+    .quadraticCurveTo(-34, 100, -49, 110)
     .closePath()
     .fill(verticalFill(F.handdukLjus, F.handdukMork))
-  // Främre halvan.
-  t.moveTo(-w + 2, 10)
-    .lineTo(w - 4, 8)
-    .lineTo(w - 2, H - 44)
-    .quadraticCurveTo(0, H - 22, -w + 4, H - 36)
+  bakG.moveTo(-44, 92).quadraticCurveTo(-16, 104, 20, 96)
+    .stroke({ width: 4, color: F.handdukMork, alpha: 0.32 })
+  inre.addChild(bakG)
+
+  // --- främre lagret: viket över stången, vågig fåll ------------------------
+  const t = nyG()
+  t.moveTo(HEM[0][0], HEM[0][1])
+  vagTill(t, HEM)
+  t.lineTo(46, -8)
+    .quadraticCurveTo(44, -24, 18, -25)
+    .quadraticCurveTo(-14, -26, -31, -22)
+    .quadraticCurveTo(-42, -18, -41, -6)
+    // Vänsterkanten bågnar in ett par pixlar: tyg som hänger fritt gathar sig, och två
+    // exakt lodräta kanter gör vilket mjukt föremål som helst till en låda.
+    .quadraticCurveTo(-36, 72, HEM[0][0], HEM[0][1])
     .closePath()
-    .fill(verticalFill(F.handduk, shade(F.handduk, 0.16)))
-  // Vecken: fyra mjuka linjer som följer fallet.
-  for (const [vx, vk] of [[-30, 8], [-8, -4], [16, 6], [36, -6]]) {
-    t.moveTo(vx, 16).quadraticCurveTo(vx + vk, H * 0.55, vx + vk * 1.6, H - 52)
-      .stroke({ width: 3, color: F.handdukMork, alpha: 0.32 })
+    .fill(verticalFill(F.handduk, shade(F.handduk, 0.2)))
+
+  // Viket över stången: en ljus ås överst säger att tyget går ÖVER något, inte att det
+  // är avskuret där. Under den ligger en skuggad linje där stången trycker.
+  t.moveTo(-33, -17).quadraticCurveTo(2, -25, 40, -16)
+    .stroke({ width: 6, color: 0xffffff, alpha: 0.55, cap: 'round' })
+  t.moveTo(-38, 3).quadraticCurveTo(2, 14, 44, 0)
+    .stroke({ width: 5, color: F.handdukMork, alpha: 0.2, cap: 'round' })
+
+  // Lodräta veck: tyget hänger i mjuka fall, aldrig som en platta. Ljusa och mörka om
+  // vartannat — bara mörka linjer läser som ränder, inte som skuggor mellan veck.
+  for (const [vx, drift, bredd, farg, a] of [
+    [-30, 7, 7, F.handdukMork, 0.2],
+    [-10, -6, 5, F.handdukMork, 0.15],
+    [10, 6, 7, F.handdukMork, 0.18],
+    [32, -7, 5, F.handdukMork, 0.13],
+    [-20, 4, 8, 0xffffff, 0.22],
+    [21, -4, 7, 0xffffff, 0.17],
+  ]) {
+    t.moveTo(vx, 6).quadraticCurveTo(vx + drift, 66, vx + drift * 1.7, 116)
+      .stroke({ width: bredd, color: farg, alpha: a, cap: 'round' })
   }
-  // Två vita band nedtill — en handduk utan bård läser som en filt.
-  t.moveTo(-w + 3, H - 92).quadraticCurveTo(0, H - 82, w - 3, H - 90)
-    .stroke({ width: 9, color: 0xfff6ee, alpha: 0.9 })
-  t.moveTo(-w + 3, H - 74).quadraticCurveTo(0, H - 64, w - 3, H - 72)
-    .stroke({ width: 5, color: 0xfff6ee, alpha: 0.7 })
-  // Frans i underkanten.
-  for (let fx = -w + 6; fx < w - 4; fx += 9) {
-    const fy = H - 40 + Math.sin((fx + w) * 0.06) * 7
-    t.moveTo(fx, fy).lineTo(fx + 1, fy + 9)
-      .stroke({ width: 3, color: F.handdukMork, alpha: 0.5, cap: 'round' })
+
+  // Broderade band: två ränder som följer fållen men med HALVA dess vågrörelse. Ett band
+  // som följer fållen punkt för punkt slingrar sig som en korv — vävda ränder är rakare
+  // än kanten de sitter ovanför.
+  for (const [dy, bredd, alpha] of [[38, 6, 0.85], [28, 3, 0.6]]) {
+    const band = HEM.map(([hx, hy], i) => {
+      const rak = 150 - (i / 8) * 22
+      return [hx + (i === 0 ? 5 : i === 8 ? -5 : 0), rak + (hy - rak) * 0.45 - dy]
+    })
+    t.moveTo(band[0][0], band[0][1])
+    vagTill(t, band)
+    t.stroke({ width: bredd, color: 0xfff6ee, alpha, cap: 'butt' })
   }
-  t.moveTo(-w - 4, 8).quadraticCurveTo(0, 20, w + 2, 6)
-    .stroke({ width: 4, color: 0xffffff, alpha: 0.45 })
+
+  // Frans: tre strån per fållsegment, hängda i punkter som läses UR kurvan.
+  for (let i = 0; i < HEM.length - 1; i++) {
+    for (const u of [0.2, 0.5, 0.8]) {
+      const [fx, fy] = paHem(i, u)
+      t.moveTo(fx, fy - 1).quadraticCurveTo(fx + 1.5, fy + 5, fx + 0.5, fy + 10)
+        .stroke({ width: 2.6, color: F.handdukMork, alpha: 0.55, cap: 'round' })
+    }
+  }
   inre.addChild(t)
 
   // Den lösa snibben hänger i sin egen takt — utan den rör sig hela handduken som EN
-  // stel platta och vilorörelsen läser som en glidning.
+  // stel platta och vilorörelsen läser som en glidning. Den sitter i NEDRE VÄNSTRA hörnet
+  // och sticker ut under fållen: det är den som gör konturen olika på höger och vänster
+  // sida, och en symmetrisk kontur är halva tub-läsningen.
   const snibb = nyC()
-  snibb.position.set(w - 8, H - 66)
+  snibb.position.set(30, 126)
   const s = nyG()
-  s.moveTo(-14, -8).lineTo(16, -14).quadraticCurveTo(24, 22, 6, 44)
-    .quadraticCurveTo(-6, 26, -14, -8)
+  // RAK vikkant upptill och en spets nedtill: det är vikningen som gör att fliken läser
+  // som ett hörn av handduken och inte som en lös klump.
+  s.moveTo(-22, -9)
+    .lineTo(19, -15)
+    .quadraticCurveTo(20, 8, 11, 27)
+    .quadraticCurveTo(-1, 34, -13, 20)
+    .quadraticCurveTo(-21, 6, -22, -9)
     .closePath()
     .fill(verticalFill(F.handdukLjus, F.handduk))
-  s.moveTo(-8, 0).quadraticCurveTo(6, 18, 4, 38)
-    .stroke({ width: 3, color: F.handdukMork, alpha: 0.3 })
+  s.moveTo(-21, -8).lineTo(18, -14)
+    .stroke({ width: 3, color: 0xffffff, alpha: 0.5, cap: 'round' })
+  s.moveTo(-8, -10).quadraticCurveTo(3, 6, 2, 26)
+    .stroke({ width: 5, color: F.handdukMork, alpha: 0.18, cap: 'round' })
+  for (const [sx, sy] of [[-11, 21], [-4, 28], [4, 29], [11, 24]]) {
+    s.moveTo(sx, sy).quadraticCurveTo(sx + 1.5, sy + 5, sx, sy + 9)
+      .stroke({ width: 2.4, color: F.handdukMork, alpha: 0.5, cap: 'round' })
+  }
   snibb.addChild(s)
   inre.addChild(snibb)
 

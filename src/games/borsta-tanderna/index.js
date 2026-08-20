@@ -27,16 +27,25 @@
 //    måste dödas FÖRE `ans.destroy()`: den river `view` med barn, och en tween mot ett rivet
 //    barnbarn är precis den tysta läckan `bygg-en-kompis` betalade för.
 //
-// ⚠️ TUNGAN ÄR MOTGÅNGEN, och den slickar INTE bakom en grimas. Ordningen är: tungan sveper
-//    medan munnen står öppen (annars ser barnet ingenting), DÄREFTER kommer `retas`-lappen.
-//    Taket: en fläck åt gången, tidigast var 8:e sekund, och den återställs bara till 0,55 —
-//    aldrig till full smuts. Att borsta om den tar ~0,4 s mot 8 s väntan, så framsteget
-//    vinner alltid (P0 MOTGÅNG: sakta ner, aldrig stoppa).
+// ⚠️ TUNGAN ÄR MOTGÅNGEN — OCH BONUSEN, i samma rörelse. Ordningen är: tungan sveper medan
+//    munnen står öppen (annars ser barnet ingenting), PARKERAR mitt på tandraden och VIFTAR
+//    i 1,56 s, och först DÄREFTER kommer `retas`-lappen. En min bär sin egen mun (`gap(0)`),
+//    så en grimas under viftfönstret hade dolt hela motgången.
+//    Viftfönstret är samtidigt spec-kortets tungbonus: hinner barnet borsta tungan medan den
+//    viftar blir pappa ERTAPPAD — fläcken återställs aldrig, han skrattar, en stjärna
+//    studsar upp ur munnen och sköljningen blir extra fräsch. Motgången uteblir alltså när
+//    barnet är uppmärksamt, vilket är hela poängen med valet (spec §0 `agens`).
+//    En tungzon INNE i munnen var aldrig möjlig: den synliga mun-inre är 186 × 37 px (§3),
+//    så tungan måste ut ur munnen för att kunna bli en träffyta över P0:s 96 px.
+//    Taket: en tunga åt gången, tidigast var 8:e sekund, aldrig sista fläcken, och den
+//    återställs bara till 0,55 — aldrig till full smuts. Att borsta om den tar ~0,4 s mot 8 s
+//    väntan, så framsteget vinner alltid (P0 MOTGÅNG: sakta ner, aldrig stoppa).
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Ansikte, laddaAnsikte } from '../../lib/ansikte.js'
 import { DragController } from '../../lib/DragController.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { PLAYFUL, tint } from '../../lib/theme.js'
 import { burst, kvittera, liv, pop, puff, ripple, sparkle, wiggle } from '../../lib/feedback.js'
 import { byggBadrum } from './badrum.js'
 import { BORSTE_HUVUD, SMUTS, TUBER, makeBorste, makeGlas, makeMugg, makeSkumklick, makeSmutsflack, makeTandglans, makeTub } from './verktyg.js'
@@ -59,6 +68,20 @@ const ZON_PAUS = 1.15      // s mellan två ansiktsreaktioner (annars grimaserar
 const KITTEL_PAUS = 3.6    // s mellan två kittlingar
 const TUNGA_PAUS = 8       // s mellan två tungslickningar (spec-kortets tak)
 const TUNGA_ATER = 0.55    // hur mycket smuts en slickning lägger tillbaka
+
+// TUNGBONUSENS FÖNSTER. 1,56 s (6 × 0,26 s vaggning) är valt mot två mätta tal: pappas egna
+// klipp ligger på 0,3–0,6 s, så han hinner slurpa färdigt innan fönstret ens öppnar, och en
+// tvååring som redan HÅLLER borsten hinner flytta den ~200 px inom fönstret. Kortare och
+// bonusen blir en reflexövning; längre och tungan hänger kvar tills barnet slutat titta.
+const TUNGA_VIFT = 0.26    // s per halv vaggning; 6 halvor = 1,56 s fönster
+const TUNGA_PARK = 1.45    // skalfaktor medan tungan är parkerad (se TUNG_TRAFF)
+
+// TRÄFFYTAN PÅ DEN PARKERADE TUNGAN, i DESIGNpixlar runt dess mittpunkt: 150 × 116 px.
+// P0 kräver ≥96 px, och tungans egen konst är bara 108 × 48 designpixlar vid TUNGA_PARK
+// (ellipsen är 34 × 15 rutpixlar × 1,45 × K 1,10). Ytan är alltså med flit VIDARE än
+// konsten — och bredare än hög av samma skäl som tandraden är det: tungan är en bred, låg
+// form och ett tvåårigt svep kommer vågrätt. Ingen precision ska krävas.
+const TUNG_TRAFF = { h: 75, v: 58 }
 const SKRUBB_PAUS = 0.085  // s mellan två skrubb-korn
 const IDLE_CUE = 6.5       // s stillhet innan en mjuk om-cue
 const SKRUBB_SLINGA = 'borsta_skrubb'
@@ -131,6 +154,12 @@ export default {
     this._pappaTill = 0
     this._sagtSkummar = false
     this._tubIx = 0
+    this._tungFas = null        // null | 'svep' | 'vift' | 'fangad'
+    this._tungBonus = false     // bokförs per omgång; gör sköljningen extra fräsch
+    this._tungOffer = null      // fläcken den pågående tungan slickat på — se `_tungStors`
+    this._gapTvang = 0          // ms-stämpel: håll munnen öppen med tvång till dess
+    this._skumFargIx = 0        // regnbågsskummets varvräknare (bara wow-tuben)
+    this._glansTlar = []
 
     this._runda = klamp(ctx.progress.get().highestLevel | 0, 0, 20)
 
@@ -260,11 +289,14 @@ export default {
       ring.eventMode = 'none'
       plan.addChildAt(ring, plan.getChildIndex(konst))
 
-      const yta = new Graphics().rect(-60, -68, 120, 136).fill({ color: 0xffffff, alpha: 0 })
+      // 112 px bred, inte 120: tubplatserna står 140 px isär, så 120 lämnade bara 20 px
+      // mellan grannarnas träffytor och P0 kräver ≥24. Konsten är 86 px, så ytan är
+      // fortfarande vidare än tuben — och 112 ligger med god marginal över P0:s 96.
+      const yta = new Graphics().rect(-56, -68, 112, 136).fill({ color: 0xffffff, alpha: 0 })
       yta.position.set(p.x, p.y)
       yta.eventMode = 'static'
       yta.cursor = 'pointer'
-      yta.hitArea = new Rectangle(-60, -68, 120, 136)
+      yta.hitArea = new Rectangle(-56, -68, 112, 136)
       const tryck = () => this._valjTub(ctx, i)
       yta.on('pointertap', tryck)
       this._klickL.addChild(yta)
@@ -375,6 +407,11 @@ export default {
     this._skumNiva = 0
     this._nastaSkum = 0
     this._sagtSkummar = false
+    // Bonusen är per OMGÅNG: en ny uppsättning smuts är en ny chans att ertappa honom, och
+    // en gammal flagga hade gett "extra fräsch" gratis i alla följande sköljningar.
+    this._tungBonus = false
+    this._gapTvang = 0
+    this._tungAvbryt()
     this._borste?.kram?.(null)
     this._rensaFlackar()
     this._rensaSkum()
@@ -528,6 +565,12 @@ export default {
 
   _smakar(ctx, spec) {
     if (!this._alive) return
+    // ⚠️ SMAK-MINEN ÄR SPELETS TYDLIGASTE ÅTERKOPPLING och `_visaMin` sväljer varje min
+    //    medan en tunga är ute. Ett barn som trycker på en tub mitt i retandet hade
+    //    alltså fått ljud och skum men INGEN grimas — precis den sortens tysta hål som
+    //    varken ett grönt test eller en skärmdump visar. Tungan städas därför undan
+    //    först, så minen har fri väg.
+    if (this._tungaUte()) this._tungStors()
     sparkle(this._fxL, TANDRAD.x, TANDRAD.y, { count: 7 })
     this._visaMin(spec.min, 1.15)
     // Tubens `ljud` är sample-nyckeln ('pappa_chock'); ROST-tabellen är nycklad utan
@@ -535,7 +578,18 @@ export default {
     const nyckel = String(spec.ljud || '').replace('pappa_', '')
     this._pappaLjud(ctx, ROST[nyckel] ? nyckel : 'mmm')
     if (spec.frost) this._frostglimt(ctx)
-    if (spec.wow) this._glitterglans(ctx)
+    // ⚠️ GLIMTEN FÖLL MOT ETT STÄNGT ANSIKTE. `_visaMin` två rader upp låser munnen stängd i
+    //    (in 0,11 + håll 1,15 + ut 0,20) = **1,46 s** — och glittersekvensen är klar på 0,5 s.
+    //    Spec-kortet lovar "alla tänder blixtrar samtidigt"; det som faktiskt hände var att
+    //    fem sparklar landade på ett leende med hopknipen mun. Vänta ut låset genom att räkna
+    //    kvarvarande tid ur `_minTill` — talet 1,46 får ALDRIG hårdkodas, hållet är ett
+    //    argument som kan ändras.
+    if (spec.wow) {
+      const vanta = Math.max(0, (this._minTill - performance.now()) / 1000) + 0.14
+      ctx.later(vanta, () => {
+        if (this._alive && this._fas === 'borsta') this._glitterglans(ctx)
+      })
+    }
     this._bobo?.react?.('nyfiken')
     this._narTyst(ctx, () => {
       if (this._alive && this._fas === 'borsta' && !this._sagtSkummar) {
@@ -564,15 +618,76 @@ export default {
     puff(this._fxL, TANDRAD.x, TANDRAD.y, { count: 9, color: 0xdff6ff })
   },
 
+  /**
+   * WOW-KRÄMENS LÖFTE: "alla tänder blixtrar samtidigt". Två saker krävs för att det ska
+   * vara sant och inte bara påstått — munnen måste vara ÖPPEN (annars finns ingen tandrad
+   * att blixtra på), och det måste finnas ett blänk på själva raden, inte bara gnistor i
+   * luften ovanför den.
+   */
   _glitterglans(ctx) {
+    // Tvångsgap: barnet som just tryckt på en tub håller fortfarande borsten i muggen,
+    // 380 px bort, och gapet styrs annars av borstens avstånd. Utan tvånget blixtrar
+    // krämen mot en stängd mun.
+    this._gapTvang = performance.now() + 1100
+    // Gapet interpoleras med `dt * 9` och behöver ~0,25 s för att gå från stängt till
+    // fullt. Bandet väntar in det — annars sveper det över en mun som fortfarande öppnar
+    // sig, och de första 0,2 s av blixten hamnar bakom överläppen.
+    ctx.later(0.24, () => { if (this._alive) this._tandblank() })
     for (let i = 0; i < 5; i++) {
       const t = i / 4
-      ctx.later(0.1 * i, () => {
+      ctx.later(0.3 + 0.1 * i, () => {
         if (!this._alive) return
         sparkle(this._fxL, TANDRAD.v + t * (TANDRAD.h - TANDRAD.v), TANDRAD.y, { count: 5 })
       })
     }
     ctx.services.audio.sfx('magi')
+  },
+
+  /**
+   * BLÄNKET PÅ TANDRADEN: ett smalt, lutande ljusband som sveper längs raden. Det ligger i
+   * `_radL` — alltså vid mun-lagrets index — så käken och överläppen klipper det gratis,
+   * precis som de klipper smutsen. Bandet bor i en egen Container och inte som en bar
+   * Graphics med stor `.position`: den vägen renderas som en helskärmsstapel (uppmätt
+   * fälla i `sortera-skrap`).
+   */
+  _tandblank() {
+    const lag = this._radL
+    if (!lag) return
+    // Ett blänk åt gången: ett nytt får aldrig lämna ett gammalt band tickande mot en nod
+    // som redan tagits bort.
+    this._blankTl?.kill()
+    this._blankTl = null
+    if (this._blankNod && !this._blankNod.destroyed) this._blankNod.destroy({ children: true })
+    this._blankNod = null
+    const h = RAD_RUTA.y1 - RAD_RUTA.y0 + 46
+    const c = new Container()
+    c.eventMode = 'none'
+    const g = new Graphics()
+    g.roundRect(-20, -h / 2, 40, h, 15).fill({ color: 0xffffff, alpha: 0.7 })
+    g.roundRect(-8, -h / 2 + 5, 13, h - 10, 6).fill({ color: 0xfffdf7, alpha: 0.95 })
+    c.addChild(g)
+    c.rotation = 0.24
+    c.alpha = 0
+    c.position.set(RAD_RUTA.v - 48, (RAD_RUTA.y0 + RAD_RUTA.y1) / 2)
+    lag.addChild(c)
+    this._blankNod = c
+
+    const st = { x: RAD_RUTA.v - 48, a: 0 }
+    const tl = gsap.timeline({
+      onUpdate: () => {
+        if (!this._alive || c.destroyed) return
+        c.x = st.x
+        c.alpha = st.a
+      },
+      onComplete: () => {
+        if (!c.destroyed) c.destroy({ children: true })
+        if (this._blankNod === c) this._blankNod = null
+      },
+    })
+    tl.to(st, { x: RAD_RUTA.h + 48, duration: 0.52, ease: 'sine.inOut' }, 0)
+    tl.to(st, { a: 0.92, duration: 0.13 }, 0)
+    tl.to(st, { a: 0, duration: 0.2 }, 0.34)
+    this._blankTl = tl
   },
 
   // ------------------------------------------------------------------- borstandet ---
@@ -641,6 +756,10 @@ export default {
     this._blickDriv(k)
     if (k?.aktiv) this._arbeta(ctx, k, dt)
     else this._slutaSkrubba(ctx)
+    // ⚠️ BONUSTRÄFFEN LÄSES I BILDRUTELOOPEN, aldrig i en pekhanterare. Tap-tap-fallbacken
+    //    (`_slappPaMunnen`) sveper borsten över raden UTAN att ett enda pekar-event föds —
+    //    ett barn som inte klarar ett drag hade då aldrig kunnat vinna bonusen.
+    this._tungMalDriv(ctx, k)
     this._tungaDriv(ctx)
     this._idleDriv(ctx)
   },
@@ -667,6 +786,11 @@ export default {
     } else if (this._fas === 'skolj') {
       mal = this._gapMal ?? 0
     }
+    // TVÅNGSGAP. Två skeden ska SYNAS inne i munnen och kan inte lita på att borsten råkar
+    // vara i närheten: tungans svep/viftfönster (motgången OCH bonusen) och wow-krämens
+    // blixt. Utan tvånget kunde tungan slicka bakom en stängd mun — barnet hade fått
+    // bakslaget utan att någonsin se orsaken, och P0 kräver tydlig orsak.
+    if (this._fas === 'borsta' && (this._tungaUte() || performance.now() < this._gapTvang)) mal = 1
     this._gapNu += (mal - this._gapNu) * Math.min(1, dt * 9)
     a.gap(this._gapNu)
   },
@@ -730,7 +854,10 @@ export default {
     //    en min anropar `gap(0)` betydde det att gapet aldrig kom: `_borstprobe` mätte
     //    `gap 0,00` med borsten bevisligen på raden och `min gasp` med 399 ms kvar. Man
     //    kittlar inte heller någon långt inne i en STÄNGD mun.
-    if (this._gapNu > 0.6 && this._skrubbatNu > 0.6 && k.y > TANDRAD.y + 14 && this._tid > this._kittelTill) {
+    // ⚠️ … OCH INTE MEDAN TUNGAN ÄR UTE. `_visaMin` sväljer minen då (den hade stängt munnen
+    //    mitt i motgången), men kittlingen hade ändå bränt sin `KITTEL_PAUS` på en grimas
+    //    ingen får se. Ljudet + nicken i else-grenen är rätt återkoppling just då.
+    if (this._gapNu > 0.6 && this._skrubbatNu > 0.6 && k.y > TANDRAD.y + 14 && this._tid > this._kittelTill && !this._tungaUte()) {
       this._kittelTill = this._tid + KITTEL_PAUS
       this._visaMin('gasp', 0.5)
       this._pappaLjud(ctx, 'gasp')
@@ -745,6 +872,28 @@ export default {
     }
   },
 
+  /**
+   * SKUMMETS FÄRG — och wow-krämens andra löfte: "regnbågsskum".
+   *
+   * Normalt är svaret tubens egen `skum`. Glittertuben har `skum: 0xffffff`, alltså exakt
+   * samma vita lödder som ett skum utan färg — det sällsynta valet (~1 på 8) såg ut som
+   * ingenting alls. Här får varje NYTT skumklick i stället nästa färg ur `PLAYFUL`, blandad
+   * 42 % mot cream: rena PLAYFUL-toner läser som färgklickar, medan `makeSkumklick` redan
+   * ljusar upp kärnan ytterligare — resultatet är ett pastellregnbågslödder som fortfarande
+   * läser som SKUM. Färgen bestäms per klick, inte per omgång, så lödret blir flerfärgat.
+   *
+   * `TUBER` rörs inte: tabellen bor i `verktyg.js`, och wow-egenskapen hör hemma i den kod
+   * som föder klickarna.
+   */
+  _skumFarg() {
+    const t = this._tub
+    if (!t) return 0xffffff
+    if (!t.wow) return t.skum ?? 0xffffff
+    const c = PLAYFUL[this._skumFargIx % PLAYFUL.length]
+    this._skumFargIx = (this._skumFargIx + 1) % PLAYFUL.length
+    return tint(c, 0.42)
+  },
+
   _ritaFlack(f) {
     if (f.nod && !f.nod.destroyed) {
       f.nod.alpha = f.kvar
@@ -754,7 +903,7 @@ export default {
     if (s > 0.08) {
       if (!f.skum) {
         try {
-          f.skum = makeSkumklick(this._tub?.skum ?? 0xffffff, f.r * 1.5)
+          f.skum = makeSkumklick(this._skumFarg(), f.r * 1.5)
           f.skum.position.set(f.rx, f.ry)
           f.skum.scale.set(0.2)
           this._radL?.addChild(f.skum)
@@ -814,7 +963,7 @@ export default {
     const ry = MUN_RUTA.y + Math.sin(v) * (26 + t * 46) * (Math.sin(v) > 0 ? 1.5 : 0.7) + (Math.random() - 0.5) * 12
     let n = null
     try {
-      n = makeSkumklick(this._tub?.skum ?? 0xffffff, 13 + Math.random() * 8)
+      n = makeSkumklick(this._skumFarg(), 13 + Math.random() * 8)
     } catch { return }
     n.position.set(rx, ry)
     n.scale.set(0.1)
@@ -968,67 +1117,249 @@ export default {
   // ---------------------------------------------------------------------- tungan ---
 
   /**
-   * MOTGÅNGEN (P0): pappa retas och slickar bort skummet från EN redan borstad fläck.
+   * MOTGÅNGEN (P0) OCH BONUSEN — samma tunga, två utgångar.
    *
-   * Taken, alla tre mätbara: en fläck åt gången · tidigast var `TUNGA_PAUS` sekund ·
-   * återställer bara till `TUNGA_ATER`, aldrig till full smuts. Och den slickar aldrig
-   * den SISTA fläcken ren-status bort när allt annat redan är rent — då hade motgången
-   * skjutit upp finalen i stället för att krydda mitten.
+   * Pappa retas och slickar skummet av EN redan borstad fläck. Men han drar sig inte undan
+   * direkt: tungan parkerar mitt på tandraden och VIFTAR i 1,56 s. Hinner barnet borsta
+   * den blir han ertappad (`_tungTraff`) — fläcken återställs aldrig, sköljningen blir
+   * extra fräsch. Missar barnet fönstret händer exakt det gamla (`_tungMissar`).
    *
-   * Ordningen är viktig: tungan sveper medan munnen står ÖPPEN, och `retas`-lappen kommer
-   * först efteråt. En min stänger munnen, så tvärtom hade barnet inte sett någonting.
+   * Det är spec-kortets tungbonus, och den ligger HÄR för att en tungzon inne i munnen är
+   * omöjlig: den synliga mun-inre är 186 × 37 px (§3, `_gapprobe`), alltså under P0:s 96 i
+   * höjd även innan man räknar med att barnet ska sikta. Tungan måste ut ur munnen för att
+   * kunna bli en träffyta — och en tunga som sträcks ut och viftar är dessutom precis den
+   * gest ett barn läser som "han retas med mig".
+   *
+   * Taken, alla mätbara: EN tunga åt gången (`_tungaUte`) · tidigast var `TUNGA_PAUS`
+   * sekund · aldrig den sista fläcken (≥2 rena OCH ≥1 smutsig) · återställer bara till
+   * `TUNGA_ATER`, aldrig till full smuts.
+   *
+   * Ordningen är viktig: tungan sveper och viftar medan munnen står ÖPPEN, och lappen —
+   * `retas` eller `skratt` — kommer först efteråt. En min stänger munnen, så tvärtom hade
+   * barnet inte sett någonting.
    */
+  // Lever en tunga just nu? Både `_visaMin` och `_gapDriv` frågar: en min stänger munnen,
+  // och medan tungan är ute är munnen det enda som får bestämma.
+  _tungaUte() {
+    return !!(this._tunga && !this._tunga.destroyed)
+  },
+
   _tungaDriv(ctx) {
     if (this._fas !== 'borsta' || this._busy) return
+    // TAKET, del 1: max EN tunga åt gången. Episoden är nu ~2,4 s lång (0,62 svep + 0,2
+    // parkering + 1,56 vift) mot `TUNGA_PAUS` 8 s, så fönstren kan inte överlappa av sig
+    // själva — men taket ska hålla även om någon ändrar ett av talen.
+    if (this._tungaUte()) return
     if (this._tid < this._tungaTill) return
+    // En grimas äger gap-fältet tills den tonat ut (`_minTill`). Startar tungan då blir
+    // hela svepet osynligt bakom en stängd mun.
+    if (performance.now() < this._minTill) return
     const rena = this._flackar.filter((f) => f.kvar <= 0)
     const smutsiga = this._flackar.filter((f) => f.kvar > 0)
+    // TAKET, del 2: aldrig den sista fläcken. Krävs ≥2 rena OCH ≥1 smutsig kvar, så
+    // motgången kryddar mitten i stället för att skjuta upp finalen.
     if (rena.length < 2 || smutsiga.length < 1) return
     this._tungaTill = this._tid + TUNGA_PAUS
     const offer = rena[Math.floor(Math.random() * rena.length)]
     this._slicka(ctx, offer)
   },
 
+  // Tungan som fristående föremål (P0 ASSETS): egen silhuett med skuggkant, ljus rygg,
+  // mittfåra och en glansfläck. Aldrig en 👅 i en ruta.
+  _nyTunga() {
+    const g = new Graphics()
+    g.ellipse(0, 1.5, 35, 16).fill({ color: 0xb8443f })
+    g.ellipse(0, 0, 34, 15).fill({ color: 0xe0736f })
+    g.ellipse(0, -4, 26, 9).fill({ color: 0xef938f, alpha: 0.8 })
+    g.moveTo(-21, -1).quadraticCurveTo(0, 3.5, 21, -1).stroke({ width: 2, color: 0xc1524e, alpha: 0.5 })
+    g.ellipse(-12, -6.5, 7, 3).fill({ color: 0xffd0cd, alpha: 0.5 })
+    g.eventMode = 'none'
+    return g
+  },
+
+  /**
+   * TUNGANS EPISOD i tre steg, alla på ETT tillståndsobjekt (`st`) som skrivs över till
+   * noden — aldrig en rå tween mot ett Pixi-objekt som spelaren kan riva mitt i.
+   *
+   *   ⓵ SVEPET, 0,62 s tvärs över tandraden — oförändrat.
+   *   ⓶ PARKERINGEN, 0,2 s: tillbaka till mitten av raden och UPP i storlek. Skalan är
+   *      inte kosmetik utan P0: vid `TUNGA_PARK` är konsten 108 designpixlar bred.
+   *   ⓷ VIFTFÖNSTRET, 6 × `TUNGA_VIFT` = 1,56 s. Här är tungan ett MÅL (`_tungMalDriv`).
+   *
+   * Går fönstret ut orörd → `_tungMissar` = exakt det gamla beteendet (fläcken tillbaka
+   * till `TUNGA_ATER`, `retas`, slurp, Bobo `hoppsan`, replik).
+   */
   _slicka(ctx, f) {
     const a = this._ans
     if (!a || !this._radL) return
+    this._tungAvbryt()
+
     // Tungan ritas i tandradens lager — den ligger då bakom käken och överläppen precis
     // som en riktig tunga gör, och syns bara i den öppna remsan.
-    const tunga = new Graphics()
-      .ellipse(0, 0, 34, 15).fill({ color: 0xe0736f })
-      .ellipse(0, -4, 26, 9).fill({ color: 0xef938f, alpha: 0.8 })
-    tunga.position.set(RAD_RUTA.v - 30, f.ry + 4)
-    tunga.eventMode = 'none'
+    const tunga = this._nyTunga()
+    tunga.position.set(RAD_RUTA.v - 34, f.ry + 4)
     this._radL.addChild(tunga)
     this._tunga = tunga
-
+    this._tungOffer = f
+    this._tungFas = 'svep'
     this._pappaLjud(ctx, 'slurp')
-    const st = { x: RAD_RUTA.v - 30 }
+
+    const mitt = (RAD_RUTA.v + RAD_RUTA.h) / 2
+    const st = { x: RAD_RUTA.v - 34, y: f.ry + 4, s: 1, rot: 0 }
+    const skriv = () => {
+      if (!this._alive || tunga.destroyed) return
+      tunga.x = st.x
+      tunga.y = st.y
+      tunga.rotation = st.rot
+      tunga.scale.set(st.s)
+    }
+    this._tungSt = st
+    this._tungSkriv = skriv
+
+    const tl = gsap.timeline({ onUpdate: skriv, onComplete: () => this._tungMissar(ctx, f) })
+    tl.to(st, { x: RAD_RUTA.h + 30, duration: 0.62, ease: 'sine.inOut' })
+    tl.to(st, { x: mitt, y: f.ry + 6, s: TUNGA_PARK, duration: 0.2, ease: 'back.out(1.5)' })
+    tl.call(() => { this._tungFas = 'vift' })
+    tl.to(st, { x: mitt - 15, rot: -0.1, duration: TUNGA_VIFT, ease: 'sine.inOut', yoyo: true, repeat: 5 })
+    // Skalpulsen går i EGEN takt (0,31 mot 0,26) — samma takt hade gett en stel maskin i
+    // stället för en tunga som retas.
+    tl.to(st, { s: TUNGA_PARK * 1.07, y: f.ry + 12, duration: 0.31, ease: 'sine.inOut', yoyo: true, repeat: 4 }, '<')
+    this._tungTl = tl
+  },
+
+  /**
+   * BONUSMÅLET, läst varje bildruta (se `_update` om varför inte i en pekhanterare).
+   *
+   * ⚠️ SAMMA VAKT SOM SVEPETS gamla `onComplete` bar, och nu behövs den på TVÅ ställen:
+   *    fönstret är ~2,4 s i stället för 0,62 s, alltså fyra gånger så stor chans att sista
+   *    fläcken blir ren under tiden. Blev den det står fasen på `skolj`, `_arbeta` bailar,
+   *    och en återställd fläck går aldrig att borsta bort igen — den uppmätta
+   *    återvändsgränden (rena 3/4, fas skolj, 26 extravarv utan att talet rörde sig).
+   *    Här avbryts hela episoden i stället: ingen återställning, ingen tunga kvar i en mun
+   *    som ska gurgla.
+   */
+  _tungMalDriv(ctx, k) {
+    if (!this._tungaUte()) return
+    if (this._fas !== 'borsta' || this._busy) { this._tungAvbryt(); return }
+    if (this._tungFas !== 'vift') return
+    if (!k || !k.aktiv) return
+    const t = this._tunga
+    const p = this._tillRuta(k.x, k.y)
+    if (!p) return
+    // Jämförelsen görs i FOTORUTANS koordinater, precis som `_skrubba` — samma karta,
+    // samma fel. Trösklarna är designpixlar delade med K, så P0-talen ovan är sanna.
+    if (Math.abs(p.rx - t.x) > TUNG_TRAFF.h / K) return
+    if (Math.abs(p.ry - t.y) > TUNG_TRAFF.v / K) return
+    this._tungTraff(ctx)
+  },
+
+  /**
+   * ERTAPPAD. Fläcken återställs ALDRIG här — barnet hann före, och motgången uteblir som
+   * följd av uppmärksamhet. Det är hela agens-löftet i spec §0: valet påverkar utfallet.
+   */
+  _tungTraff(ctx) {
+    const st = this._tungSt
+    const t = this._tunga
+    if (!t || t.destroyed || !st) return
+    // Timeline-killen är det som gör att `_tungMissar` ALDRIG körs: `kill()` triggar inte
+    // `onComplete`. Fläcken står kvar ren.
+    this._tungTl?.kill()
+    this._tungTl = null
+    this._tungFas = 'fangad'
+    this._tungBonus = true
+    this._tungaTill = this._tid + TUNGA_PAUS
+    this._idle = 0
+
+    // BILDEN KOMMER GENAST, bara orden köar (`_narTyst`).
+    const d = this._franRuta(st.x, st.y) || { x: TANDRAD.x, y: TANDRAD.y }
+    const ljud = ctx.services.audio
+    ljud.sfx('pling')
+    ljud.tone({ freq: 880, slideTo: 1318, dur: 0.24, type: 'sine', vol: 0.16, delay: 0.06 })
+    sparkle(this._fxL, d.x, d.y, { count: 10 })
+    // SPELETS EGEN stjärnglimt från finishen, inte generisk konfetti — den studsar upp ur
+    // munnen i stället för snett åt sidan.
+    this._glansStjarna(ctx, d.x, d.y, { dx: -10, dy: -158, rot: -1.1, pling: false })
+    this._pappaLjud(ctx, 'fniss')
+    this._bobo?.react?.('jubel')
+    this._narTyst(ctx, () => {
+      if (this._alive) ctx.services.voice.say('Du borstade tungan också!')
+    })
+
+    // Tungan åker in — snabbt, för han blev tagen på bar gärning. Minen kommer FÖRST när
+    // den är borta: `min()` anropar `gap(0)`, och en stängd mun mitt i indragningen hade
+    // dolt just den bild som förklarar vad barnet vann.
     gsap.to(st, {
-      x: RAD_RUTA.h + 30, duration: 0.62, ease: 'sine.inOut',
-      onUpdate: () => { if (this._alive && !tunga.destroyed) tunga.x = st.x },
+      s: 0.12, y: st.y + 12, rot: 0, duration: 0.18, ease: 'power2.in',
+      onUpdate: this._tungSkriv,
       onComplete: () => {
-        if (!tunga.destroyed) tunga.destroy({ children: true })
-        if (this._tunga === tunga) this._tunga = null
+        this._tungAvbryt()
         if (!this._alive) return
-        // ⚠️ SVEPET ÄR 0,62 s LÅNGT och kan landa EFTER att sista fläcken blev ren. Då står
-        //    fasen på 'skolj', `_arbeta` bailar, och den återställda fläcken går aldrig att
-        //    borsta bort igen — målet blir onåbart. Uppmätt av `_borstprobe`: rena 3/4, fas
-        //    skolj, 26 extravarv utan att talet rörde sig. Samma återvändsgränd som
-        //    `mata-munnen`s busade mat, och lika osynlig utan en sond som spelar klart.
-        if (this._fas !== 'borsta') return
-        // Fläcken kommer tillbaka — men bara till 0,55, och skummet krymper med den.
-        f.kvar = TUNGA_ATER
-        if (f.nod && !f.nod.destroyed) f.nod.visible = true
-        this._ritaFlack(f)
-        this._visaMin('retas', 0.7)
-        this._pappaLjud(ctx, 'retas')
-        this._bobo?.react?.('hoppsan')
-        this._narTyst(ctx, () => {
-          if (this._alive) ctx.services.voice.say('Oj, tungan slickade bort skummet!')
-        })
+        this._visaMin('skratt', 0.55)
       },
     })
+  },
+
+  /**
+   * Tungan STÖRS av något annat (i dag: barnet väljer en ny tandkräm mitt i retandet).
+   *
+   * Motgången räknas som utspelad — han HANN slicka under svepet — så fläcken kommer
+   * tillbaka precis som i `_tungMissar`. Men ingen `retas`-lapp, ingen replik och inget
+   * eget ljud: allt det tillhör den min och det ljud som smaken är på väg att spela, och
+   * `voice.say()` kapar ändå den förra repliken. Det barnet ser är att tungan far in och
+   * att lödret på en fläck krymper — orsaken stod på skärmen en halv sekund tidigare.
+   *
+   * Ingen bonus här: att trycka på en tub är inte att ertappa honom.
+   */
+  _tungStors() {
+    // ⚠️ ÄR HAN REDAN ERTAPPAD (`fangad`) ÄGER BONUSEN FLÄCKEN. Indragningstweenen lever
+    //    fortfarande, så tungan räknas som "ute" — utan den här vakten hade en tub tryckt
+    //    under de 0,18 sekunderna tagit tillbaka smutsen barnet just vunnit.
+    if (this._tungFas === 'fangad') { this._tungAvbryt(); return }
+    const f = this._tungOffer
+    this._tungAvbryt()
+    if (!this._alive || this._fas !== 'borsta' || !f) return
+    f.kvar = TUNGA_ATER
+    if (f.nod && !f.nod.destroyed) f.nod.visible = true
+    this._ritaFlack(f)
+  },
+
+  _tungMissar(ctx, f) {
+    this._tungAvbryt()
+    if (!this._alive) return
+    // ⚠️ ÅTERVÄNDSGRÄNDEN — se `_tungMalDriv`. Fasen kan ha bytt under fönstret.
+    if (this._fas !== 'borsta') return
+    // Fläcken kommer tillbaka — men bara till 0,55, och skummet krymper med den.
+    f.kvar = TUNGA_ATER
+    if (f.nod && !f.nod.destroyed) f.nod.visible = true
+    this._ritaFlack(f)
+    this._visaMin('retas', 0.7)
+    this._pappaLjud(ctx, 'retas')
+    this._bobo?.react?.('hoppsan')
+    this._narTyst(ctx, () => {
+      if (this._alive) ctx.services.voice.say('Oj, tungan slickade bort skummet!')
+    })
+  },
+
+  // River hela episoden: timeline, indragningstween och noden. Anropas av bonusen, av
+  // missen, av `_alltRent`, av `_nyRunda` och av `destroy` — allt som kan avbryta en tunga
+  // går genom exakt en väg.
+  _tungAvbryt() {
+    this._tungTl?.kill()
+    this._tungTl = null
+    // Indragningens tween ligger på SAMMA `st` som timelinens steg, så en killTweensOf
+    // täcker båda.
+    if (this._tungSt) gsap.killTweensOf(this._tungSt)
+    this._tungSt = null
+    this._tungSkriv = null
+    this._tungFas = null
+    this._tungOffer = null
+    const t = this._tunga
+    this._tunga = null
+    if (t && !t.destroyed) {
+      gsap.killTweensOf(t)
+      gsap.killTweensOf(t.scale)
+      t.destroy({ children: true })
+    }
   },
 
   // ------------------------------------------------------------------ sköljningen ---
@@ -1036,6 +1367,11 @@ export default {
   _alltRent(ctx) {
     if (this._fas !== 'borsta') return
     this._fas = 'skolj'
+    // ⚠️ FÖRE `_visaMin('nojd')` NEDAN, av två skäl: `_visaMin` sväljer minen så länge en
+    //    tunga är ute (den hade stängt munnen mitt i motgången), och en tunga kvar i munnen
+    //    hade följt med in i gurglingen. Sista fläcken kan bli ren MITT i viftfönstret —
+    //    det är precis den återvändsgränd som redan kostat ett pass.
+    this._tungAvbryt()
     this._slutaSkrubba(ctx)
     this._sattGlas(true)
     this._visaMin('nojd', 1.2)
@@ -1130,7 +1466,14 @@ export default {
       this._bobo?.react?.('jubel')
       this._rum?.kran?.pa?.(false)
       this._narTyst(ctx, () => {
-        if (this._alive) ctx.services.voice.say('Wow, vilka blanka tänder pappa har!')
+        if (!this._alive) return
+        // ⚠️ TVÅ LITERALER, ALDRIG EN BYGGD STRÄNG. `check.mjs` läser bara `voice.say('…')`
+        //    med en literal; en variabel eller en template literal får aldrig ett klipp och
+        //    hamnar tyst på Web Speech. Bonusberömmet ERSÄTTER standardraden i stället för
+        //    att läggas efter den — `say()` kapar den förra repliken, och två repliker i rad
+        //    här hade blivit ett avbrutet "Wow, vilka blan—".
+        if (this._tungBonus) ctx.services.voice.say('Wow, vilka blanka tänder — och extra fräsch tunga!')
+        else ctx.services.voice.say('Wow, vilka blanka tänder pappa har!')
       })
     })
 
@@ -1180,7 +1523,7 @@ export default {
     burst(this._fxL, HO.x, HO.rim + 26, { count: 16, colors: [0xffffff, 0xdff6ff, 0xbdeefa], power: 0.8 })
     ripple(this._fxL, HO.x, HO.rim + 30, { color: 0xffffff, maxR: 120 })
     for (let i = 0; i < 4; i++) {
-      const n = makeSkumklick(this._tub?.skum ?? 0xffffff, 12 + Math.random() * 8)
+      const n = makeSkumklick(this._skumFarg(), 12 + Math.random() * 8)
       n.position.set(HO.x + (Math.random() - 0.5) * 150, HO.rim + 18 + Math.random() * 26)
       n.alpha = 0.9
       ho.addChild(n)
@@ -1193,24 +1536,47 @@ export default {
     }
   },
 
-  // Glansstjärnan STUDSAR AV framtanden — den föds på raden, far uppåt-höger och blinkar
-  // bort. Ingen konfetti över hela skärmen: det här är pappas tand, inte en tombola.
-  _tandglans(ctx) {
+  /**
+   * SPELETS EGEN STJÄRNGLIMT, utbruten ur `_tandglans` så att tungbonusen kan låna exakt
+   * samma glimt i stället för att hitta på en andra sorts firande. Ingen konfetti över hela
+   * skärmen: det här är pappas tand, inte en tombola.
+   */
+  _glansStjarna(ctx, x, y, { dx = 126, dy = -92, rot = 1.6, pling = true } = {}) {
     let st = null
-    try { st = makeTandglans() } catch { return }
-    st.position.set(TANDRAD.x - 30, TANDRAD.y)
+    try { st = makeTandglans() } catch { return null }
+    st.position.set(x, y)
     st.scale.set(0.2)
     this._fxL.addChild(st)
-    ctx.services.audio.sfx('pling')
-    ctx.services.audio.tone({ freq: 1318, dur: 0.22, type: 'sine', vol: 0.16, delay: 0.08 })
+    if (pling) {
+      ctx.services.audio.sfx('pling')
+      ctx.services.audio.tone({ freq: 1318, dur: 0.22, type: 'sine', vol: 0.16, delay: 0.08 })
+    }
     const tl = gsap.timeline({
-      onComplete: () => { if (!st.destroyed) st.destroy({ children: true }) },
+      onComplete: () => {
+        if (!st.destroyed) st.destroy({ children: true })
+        this._glansTlar = (this._glansTlar || []).filter((x2) => x2 !== tl)
+      },
     })
     tl.to(st.scale, { x: 1, y: 1, duration: 0.2, ease: 'back.out(3)' })
-    tl.to(st, { x: TANDRAD.x + 96, y: TANDRAD.y - 92, rotation: 1.6, duration: 0.5, ease: 'power2.out' }, 0)
+    tl.to(st, { x: x + dx, y: y + dy, rotation: rot, duration: 0.5, ease: 'power2.out' }, 0)
     tl.to(st, { alpha: 0, duration: 0.26 }, 0.42)
-    this._glansTl = tl
+    ;(this._glansTlar ||= []).push(tl)
+    return tl
+  },
+
+  // Glansstjärnan STUDSAR AV framtanden — den föds på raden, far uppåt-höger och blinkar
+  // bort. Borstade barnet tungan under viftfönstret får finalen en ANDRA stjärna som far
+  // åt andra hållet, en tersa högre: bonusen ska synas i sköljningen, inte bara i stunden.
+  _tandglans(ctx) {
+    this._glansStjarna(ctx, TANDRAD.x - 30, TANDRAD.y)
     sparkle(this._fxL, TANDRAD.x, TANDRAD.y, { count: 8 })
+    if (!this._tungBonus) return
+    ctx.later(0.26, () => {
+      if (!this._alive) return
+      this._glansStjarna(ctx, TANDRAD.x + 30, TANDRAD.y - 6, { dx: -128, dy: -104, rot: -1.5, pling: false })
+      ctx.services.audio.tone({ freq: 1568, dur: 0.26, type: 'sine', vol: 0.15 })
+      sparkle(this._fxL, TANDRAD.x, TANDRAD.y - 24, { count: 7 })
+    })
   },
 
   _aterstallGlas() {
@@ -1233,6 +1599,12 @@ export default {
   _visaMin(namn, hall = 0.8) {
     const a = this._ans
     if (!a) return
+    // ⚠️ INGEN MIN MEDAN TUNGAN ÄR UTE. `min()` anropar `gap(0)` och den synliga mun-inre
+    //    är bara 186 × 37 px vid FULLT gap — vid gap 0 är den 0 px (mätt, `_gapprobe`
+    //    kontrollarm). En grimas under svepet eller viftfönstret raderar alltså både
+    //    motgången och bonusmålet ur bild. Alla vägar som avslutar en tunga (`_tungAvbryt`)
+    //    kör före sin egen min, så inget beröm går förlorat här.
+    if (this._tungaUte()) return
     a.min(namn, { hall, in: 0.11, ut: 0.2 })
     this._minTill = performance.now() + (0.11 + hall + 0.2) * 1000
     this._gapNu = 0
@@ -1307,7 +1679,12 @@ export default {
     // ⚠️ TWEENS MOT BARNBARN FÖRST. `ans.destroy()` river `view` med barn — och smutsen,
     // skummet och tungan bor INNE i riggen. En tween som lever vidare mot en riven nod är
     // den tysta läckan som varken ett konsolfel eller en skärmdump visar.
-    this._glansTl?.kill()
+    for (const tl of this._glansTlar || []) tl?.kill()
+    this._glansTlar = []
+    this._blankTl?.kill()
+    this._blankTl = null
+    if (this._blankNod && !this._blankNod.destroyed) gsap.killTweensOf(this._blankNod)
+    this._blankNod = null
     this._flygTw?.kill()
     if (this._nivaTw) gsap.killTweensOf(this._nivaTw)
     if (this._autoTw) gsap.killTweensOf(this._autoTw)
@@ -1326,7 +1703,20 @@ export default {
     }
     this._skumKlickar = []
     this._hoSkum = []
-    if (this._tunga && !this._tunga.destroyed) gsap.killTweensOf(this._tunga)
+    // ⚠️ TUNGANS EPISOD ÄR TRE LEVANDE SAKER, inte en: viftfönstrets timeline, indragningens
+    //    tween och tillståndsobjektet `_tungSt` som båda skriver igenom. `_alive`-flaggan
+    //    räcker inte — tweensen ligger på ett EGET objekt, och en timeline som fortsätter
+    //    ticka efter exit skriver mot en nod som `ans.destroy()` redan rivit.
+    this._tungTl?.kill()
+    this._tungTl = null
+    if (this._tungSt) gsap.killTweensOf(this._tungSt)
+    this._tungSt = null
+    this._tungSkriv = null
+    this._tungFas = null
+    if (this._tunga && !this._tunga.destroyed) {
+      gsap.killTweensOf(this._tunga)
+      gsap.killTweensOf(this._tunga.scale)
+    }
     this._tunga = null
 
     for (const k of this._tubKnappar) {

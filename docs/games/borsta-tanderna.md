@@ -1,14 +1,14 @@
 # Borsta Pappas tänder (`borsta-tanderna`)
 
-> 🪥 roligt · mixed · 2–5 år · status: byggt v1.230.0, kritikerrundan återstår
+> 🪥 roligt · mixed · 2–5 år · status: KLART v1.231.0 — kritikerrundan körd och åtgärdad
 
-**LÄGET 2026-08-20 (v1.230.0):** BYGGT och testat. `npm run check` 0/0 ·
-`npm run test borsta-tanderna` grön, 0 konsolfel · `node scripts/_borstprobe.mjs` **9/9 gröna**.
+**LÄGET 2026-08-20 (v1.231.0):** BYGGT, testat OCH granskat som lek. `npm run check` 0/0 ·
+`npm run test borsta-tanderna` grön, 0 konsolfel · `node scripts/_borstprobe.mjs` **13/13 gröna**
+(fyra nya armar för tungan).
 Spelet är femte spelet i ansiktssektionen (`docs/IDEER.md` post 4) efter `mata-munnen`,
 `titt-ut-pappa`, `vakna-pappa` och `flugan-pa-nasan`. Commit `4b9e361`.
 
-⚠️ **KVAR INNAN SPELET ÄR MARKNADSKLART:** kritikerrundan (steg 6–7 i `/spel`) är INTE körd,
-och tre saker syns i skärmdumpen — se §6.
+Kritikerrundan (steg 6–7) är körd och alla blockerande fynd är åtgärdade — se §7.
 
 ⚠️ **Läs `docs/games/mata-munnen.md` §3 innan bygget** — den bär vad ansiktsriggen faktiskt
 klarar, och den bär den återvändsgränd som bara en sond som SPELAR spelet hittade.
@@ -25,7 +25,7 @@ klarar, och den bär den återvändsgränd som bara en sond som SPELAR spelet hi
 | **ålder** | [2, 5] |
 | **kärnloop** | ⓵ tryck på en tandkrämstub på hyllan → klicket kläms ut på borsten, och han smakar den direkt (mint → `chock` + frostglimt · jordgubb → `lycksalig` · banan → `skratt`). ⓶ DRA borsten in i den gapande munnen och skrubba fram och tillbaka — där borsten går försvinner smutsen och skummet växer, och skrubbljudets tonhöjd följer farten. ⓷ ansiktet reagerar på VAR borsten är, löpande: framtänder → `nojd` + hummande · långt in → `gasp` (kittlas) · utanför munnen (kind/näsa/öra) → `skratt` + han lutar undan (`lutaMot`) · hakan → `forvanad`. ⓸ alla fläckar borta → tryck på vattenglaset → skölj |
 | **mål** | 5–7 smutsfläckar bortborstade + sköljningen → `progress.complete()` + klistermärke, sedan **ny omgång med ny smuts** (fri lek fortsätter, aldrig slut) |
-| **agens** | VILKEN tandkräm (skummets färg, hans smak-min, ljudet) · VAR du borstar (smuts försvinner bara där du varit, och varje zon har sin reaktion) · om du borstar tungan också (bonus: extra fräsch, en stjärna) |
+| **agens** | VILKEN tandkräm (skummets färg, hans smak-min, ljudet) · VAR du borstar (smuts försvinner bara där du varit, och varje zon har sin reaktion) · **om du ertappar honom när han räcker ut tungan** (bonus: motgången uteblir, en stjärna, extra fräsch final) ⚠️ formulerades först som "om du borstar tungan också" — se §7 för varför den läsningen inte gick att bygga |
 | **variation** | smutstyp per omgång (spenat · choklad · sylt · blåbär — olika färg och antal) · tubpoolen roterar · sällsynt wow (~1 på 8): glittertandkräm → regnbågsskum och alla tänder blixtrar samtidigt |
 | **motgång** | **TUNGAN SLICKAR** — han retas och slickar bort skummet från EN fläck (`retas`-minen finns i manifestet, + slurp-ljud). Tak: max 1 åt gången, tidigast var 8:e sekund, går att borsta om direkt. Saktar ner, avslutar aldrig (P0 MOTGÅNG) |
 | **mottagare** | Pappa själv (han beundrar resultatet) + **Bobo** på handfatskanten som räcker fram vattenglaset och jublar |
@@ -182,17 +182,99 @@ kindzonen, sedan kittlingen) och byggde en fix på varje gissning innan jag lade
 direkt. Båda gissningarna råkade peka på riktiga buggar, vilket är precis varför de kändes
 bekräftade — men ordningen var fel, och den kostade två sondkörningar.
 
+## 7. Kritikerrundan (steg 6–7) — vad den hittade och vad som gjordes
+
+Kritikern spelade spelet som ett krävande 3-åring och dömde **"behöver åtgärd"**. Fem av de
+sju kvalitetspunkterna höll (juice · mottagare · ton/SFX · progression · finish); agens och
+variation höll bara **delvis**, och två av fynden var P0.
+
+**Starkast, enligt kritikern:** zonreaktionerna. Att HELA ansiktet svarar på var borsten är
+— inte bara munnen — gör att ett barn som trycker planlöst ändå får olika återkoppling på
+varje ställe det landar.
+
+### ⓵ P0-brott: tub-knapparnas träffytor låg 20 px isär (MÄTT, fixat)
+
+`TUB_PLATS` står 140 px isär och `hitArea` var 120 px bred → **20 px mellan grannarna**, mot
+P0:s ≥24. Exakt samma sorts fynd som kylens hyllplan i `mata-munnen` (16 av 24). Ytan är nu
+112 px (28 px lucka, fortfarande långt över P0:s 96). Konsten är 86 px och rördes inte —
+**bild och träffyta är två budgetar**.
+
+### ⓶ Tre art-fynd (bildbekräftade, fixade)
+
+| Läste som | Nu | Fil |
+|---|---|---|
+| förstoringsglas (rund vit skiva) | avlångt huvud 38 × 76 px i skaftets blå, hals som nyper av till 14 px, borsttofsar som en **kam längs en långsida** | `verktyg.js` |
+| jättetub tandkräm (och gick inte att trycka på) | handduk vikt över en **stång**, två tyglager, vågig lutande fåll, frans och en vikt hörnflik | `badrum.js` |
+| pump-schampoflaskor | proportionen 1 : 1,7 → **1 : 2,2**, liten skruvkork på synlig hals, rak konisk axel, klämbuckla, plattpressat krympveck med pinkad kant | `verktyg.js` |
+
+⚠️ **Formen räckte inte för tuberna.** Med rätt silhuett läste de fortfarande som flaskor i
+skärmdumpen, för **kroppen var vit** med en liten färgetikett — precis vad en schampoflaska
+är. Färgen bor nu i själva röret (kork och etikett vita, krympvecket i rörets eget material).
+Det syns bara i bilden; ingen sond och ingen `getLocalBounds` kunde ställa den frågan.
+
+### ⓷ Två löften i spec-kortet som koden aldrig infriade
+
+**Tungbonusen fanns inte alls** (0 träffar i en full grep). Spec-kortets läsning — "borsta
+tungan inne i munnen" — går inte att bygga: den synliga mun-inre är **186 × 37 px** (§3), så
+en tungzon där blir en remsa på ~15 px och kan aldrig bli en pålitlig träffyta. **Ägarens
+beslut:** bonusen hänger i stället på motgångens EGEN tunga. Episoden är nu tre steg —
+svep 0,62 s → parkering 0,2 s → **viftfönster 1,56 s** — och under fönstret är tungan ett mål
+på 108 × 48 px konst med **±75 / ±58 px träffyta** (P0 kräver ±48). Ertappas han: fläcken
+återställs aldrig, han skrattar, spelets egen stjärnglimt studsar upp ur munnen, Bobo jublar
+och sköljningen blir extra fräsch. Missas fönstret händer exakt den gamla motgången.
+**Motgången blev därmed en möjlighet — agens där det förut bara fanns otur.**
+
+**Wow-tandkrämen levererade inte "regnbågsskum och alla tänder blixtrar".** Skummet var
+`0xffffff`, alltså enfärgat vitt, och `_glitterglans` sparklade **under de 1,46 s då
+`_visaMin` håller munnen låst stängd** — glimten föll mot ett leende med hopknipen mun.
+Skumfärgen roterar nu genom `PLAYFUL` per klick, och glimten skjuts upp tills låset släppt
+(uträknat ur `_minTill`, aldrig hårdkodat till 1,46) med ett ljusband som sveper längs raden.
+
+### ⓸ Hålet som fixen SJÄLV öppnade — och som inget test kunde se
+
+För att munnen ska stå öppen medan tungan är ute sväljer `_visaMin` numera varje min under
+episoden. Följden: ett barn som trycker på en tandkrämstub mitt i retandet fick ljud, skum
+och glitter men **ingen grimas** — spelets tydligaste återkoppling, tyst borta i ett fönster
+som återkommer var åttonde sekund. `_tungStors` städar därför undan tungan först: motgången
+räknas som utspelad (fläcken kommer tillbaka), men utan `retas`-lapp och utan replik, för
+smakens egen min och ljud är på väg in. Är han redan **ertappad** skyddas bonusen — ett tryck
+under indragningens 0,18 s får inte ta tillbaka det barnet just vann.
+
+### ⓹ Vad kritiken lämnade kvar med flit
+
+- **Autosvepets tröskel** (`_skrubbatNu > 0.4`) kan ta över äkta men oprecisa dragförsök.
+  Kritikern märkte fyndet **[kodläst, ej speltestat]** — det kräver en riktig platta och ett
+  riktigt barn, inte en kodändring. Ingen ändring gjord.
+- **Smutsen är 11–15 px** och i praktiken osynlig bakom skummet. Medvetet (§3: belöningen bor
+  i skummet), men det försvagar kopplingen "jag borstade bort DEN fläcken".
+
+### ⓺ Sondens fyra nya armar (och tre mätfel på vägen)
+
+`_borstprobe.mjs` går nu **13/13**. Nytt: **I** kontrollarm (tungan missas med borsten vid
+väggen → fläcken restaureras, `retas`), **J** bonusen — siktet lagt med flit i **P0-hörnet
+(+46, +40 px från tungans mitt)** så samma arm mäter både att den går att träffa och att ytan
+når 96 px tvärs över, **K** återvändsgränden när sista fläcken blir ren mitt i viftfönstret,
+**L** exit mitt i samma fönster.
+
+⚠️ **Tre mätfel innan armarna var rätt, alla av det dyra slaget:**
+1. **Fel skede.** Armarna sköts först in efter arm E — men arm D hade redan borstat brädet
+   rent och fasen stod på `skolj`, där tungan aldrig startar. Att skriva tillbaka smuts i det
+   läget gav ett tillstånd spelet inte kan hamna i själv **och sabbade arm F**.
+2. **Ett felantal utan ägare.** 172 konsolfel i en klumpsumma sa inte vilken arm som födde
+   dem. Varje arm bär nu sitt eget felantal — den ena raden pekade direkt på arm J.
+3. **Ett meddelande utan stack.** "Cannot set properties of null (setting 'y')" namnger ingen
+   rad. Först när `_nullprobe.mjs` hakade på spelets EGEN `gsap.to` och sparade skapelse-
+   stacken på varje tween gick spöket att peka ut. **Och det var inte spelets:** samma läcka
+   mättes på HEAD med dagens filer utcheckade. → `docs/ATGARDER.md` **V17** (delad kod).
+
 ## 6. Öppna trådar (INTE gjorda)
 
-- **Kritikerrundan är inte körd** (`/spel` steg 6–7). Spelet är testat, inte granskat som lek.
-- **Borsthuvudet läser som ett förstoringsglas** — en stor rund vit skiva med borst i. Skaftet
-  är däremot omedelbart läsbart. Art-fix i `verktyg.js`.
-- **Handduken läser som en jättetub tandkräm** — mer tub-lik än de riktiga tuberna, och den
-  går inte att trycka på. Ett barn kommer att peka på den. Art-fix i `badrum.js`.
-- **Tuberna läser som burkar**, inte som hoprullningsbara tuber.
-- **`TUBER` bär ett oanvänt `replik`-fält** (6 repliker, en per smak). Antingen koppla in dem
-  OCH lägg dem för hand i `voice-phrases.json` (`check.mjs` kan inte se tabellbyggda
-  strängar), eller ta bort fältet. Död data som ser levande ut är sämre än båda.
+- **Handduken går fortfarande inte att trycka på.** Den läser inte längre som något man ska
+  trycka på, vilket var själva felet — men en handduk som vaggar när man petar på den vore
+  billig glädje. Hör hemma i `index.js`, inte i badrummets ritning.
+- **Autosvepets tröskel** (§7 ⓹) — kräver ett speltest på riktig platta.
+- **V17 i `docs/ATGARDER.md`** är app-bred, inte det här spelets: spöktweens ur
+  `DragController._snapHome` och `Karaktar._track`. Spelet ärver dem som alla andra.
 - **`pappa_slurp` och `pappa_gurgla` finns inte inspelade.** Spelet faller på en stämd ton och
   tar klippen i bruk automatiskt via `audio.harSample()` när de landar. `borsta_skrubb` ligger
   i `scripts/sfx-phrases.json` och väntar på `npm run sfx`.
@@ -205,4 +287,10 @@ bekräftade — men ordningen var fel, och den kostade två sondkörningar.
 `2026-08-20 · BYGGT v1.230.0 (commit 4b9e361) · check 0/0 · test grön · _borstprobe 9/9 ·
 två nya sonder (_gapprobe, _borstprobe) · fyra buggar hittade av sonden, varav en
 P0-återvändsgränd · kritikerrundan återstår`
+
+`2026-08-20 · KRITIKERRUNDAN körd och åtgärdad, v1.231.0 · check 0/0 · test grön ·
+_borstprobe 13/13 (fyra nya tungarmar) · P0-fix på tub-träffytorna (20 → 28 px lucka) ·
+tre art-fynd omritade · tungbonusen byggd på retas-tungan · wow-tandkrämen infriad ·
+_tungStors täpper hålet fixen själv öppnade · app-bred spöktween-läcka mätt och lagd som
+ÅTGÄRDER V17 (finns lika på HEAD)`
 

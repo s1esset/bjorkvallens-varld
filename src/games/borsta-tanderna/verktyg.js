@@ -2,13 +2,16 @@
 //
 // Filen är delad i två halvor som inte känner till varandra:
 //   ⓵ TABELLERNA (`TUBER`, `SMUTS`) — vad en tandkräm respektive en smuts ÄR i tal.
-//      `index.js` läser dem, väljer min/ljud/replik ur dem och skickar tillbaka färgerna
+//      `index.js` läser dem, väljer min och ljud ur dem och skickar tillbaka färgerna
 //      hit när något ska RITAS. Ingen färg står alltså på två ställen.
 //   ⓶ BYGGARNA (`makeTub`, `makeBorste`, `makeMugg`, `makeGlas`, `makeSmutsflack`,
 //      `makeSkumklick`, `makeTandglans`) — hur sakerna ser ut. Var sak är ett FRISTÅENDE
-//      föremål med egen silhuett (P0 ASSETS): en tub har krymplåda-veck, hals och
-//      skruvkork; en tandborste har grepp-räfflor och enskilda borststrån. Ingen emoji,
+//      föremål med egen silhuett (P0 ASSETS): en tub står på ett plattpressat krympveck
+//      som är BREDARE än röret och bär en liten skruvkork på en smal hals; en tandborste
+//      har ett avlångt huvud på en hals och borsttofsar längs EN sida. Ingen emoji,
 //      ingen bricka, ingen `Text`.
+//      Båda formerna är omritade efter kritikerrundan 2026-08-20 — den gamla tuben lästes
+//      som en pumpflaska för handtvål och det gamla borsthuvudet som ett förstoringsglas.
 //
 // ⚠️ TVÅ SKALOR I SAMMA FIL. Tuberna, borsten, muggen och glaset ritas i DESIGN-koordinater
 //    (1280×720) och är 90–210 px stora. Smutsen och skummet ritas i FOTORUTANS koordinater
@@ -47,8 +50,6 @@ import {
  * `skum`   skummets färg i munnen — samma smak ska ge samma färg lödder
  * `min`    pappas min ur fotoriggen när smaken slår till
  * `ljud`   sample-nyckel för pappas egen reaktion (`audio.sample`)
- * `replik` narratorns rad när smaken väljs (byggs ur tabellen — måste därför in i
- *          `voice-phrases.json` för hand, `check.mjs` ser inga tabelluppslag)
  * `frost`  smaken är ISKALL — mint är den enda
  * `wow`    sällsynt vinstval; `index.js` avgör NÄR den dyker upp, filen här levererar
  *          bara posten och den regnbågsskimrande tuben
@@ -62,7 +63,6 @@ export const TUBER = [
     min: 'chock',
     ljud: 'pappa_chock',
     frost: true,
-    replik: 'Mintkräm! Nu blir det iskallt i pappas mun!',
   },
   {
     key: 'jordgubb',
@@ -71,7 +71,6 @@ export const TUBER = [
     skum: 0xffc3d8,
     min: 'lycksalig',
     ljud: 'pappa_mmm',
-    replik: 'Jordgubbskräm! Den där älskar pappa.',
   },
   {
     key: 'banan',
@@ -80,7 +79,6 @@ export const TUBER = [
     skum: 0xfff0a8,
     min: 'skratt',
     ljud: 'pappa_fniss',
-    replik: 'Banankräm! Pappa kan inte sluta skratta.',
   },
   {
     key: 'blabar',
@@ -89,7 +87,6 @@ export const TUBER = [
     skum: 0xc9c4f0,
     min: 'forvanad',
     ljud: 'pappa_oj',
-    replik: 'Blåbärskräm! Pappa blir alldeles blå i munnen.',
   },
   {
     key: 'lakrits',
@@ -98,7 +95,6 @@ export const TUBER = [
     skum: 0xb9b9c6,
     min: 'skeptisk',
     ljud: 'pappa_ehh',
-    replik: 'Lakritskräm! Pappa vet inte riktigt vad han tycker.',
   },
   {
     key: 'glitter',
@@ -108,7 +104,6 @@ export const TUBER = [
     min: 'lycksalig',
     ljud: 'pappa_aaah',
     wow: true,
-    replik: 'Glitterkräm! Nu blir pappas tänder alldeles magiska!',
   },
 ]
 
@@ -200,19 +195,30 @@ function arMork(hex) {
 
 // Tubens mått. Talen används både när kroppen ritas och när etiketten placeras — ett
 // enda ställe, så att en smalare tub aldrig kan få en etikett som sticker ut.
+//
+// ⚠️ KROPPEN ÄR SMALARE ÄN KRYMPVECKET, med flit. En tub som är lika bred hela vägen ner
+//    läser som en burk eller en pumpflaska (det var precis kritikerns fynd), och det enda
+//    som skiljer en tandkrämstub från en schampoflaska i silhuett är att botten är
+//    PLATTPRESSAD och därför bredare än det runda röret ovanför. `krympB` är alltså den
+//    yttersta punkten i hela konsten, och den — inte kroppen — är måttet mot P0-marginalen.
 const TUB = {
-  halvB: 43, // kroppens halva bredd → 86 px total
-  toppY: -38, // axeln där halsen börjar
-  bottenY: 54, // kroppens underkant (krympvecket ligger ovanpå)
-  korkTopp: -66,
-  veckBotten: 64, // → total höjd 130 px
-  etikett: { x: -36, y: -8, b: 72, h: 40 },
+  halvB: 32, // rörets halva bredd → 64 px, parallella sidor
+  krympB: 36, // krympvecket, konstens bredaste punkt → 72 px + kantlinje
+  halsB: 9, // halsens halva bredd, där skruvkorken sitter
+  axelTopp: -44, // axelns övre ände, vid halsroten
+  axelY: -22, // där axeln möter röret och sidorna blir parallella
+  halsY: -58, // halsens överkant
+  bottenY: 52, // rörets underkant (krympvecket tar vid)
+  korkTopp: -74,
+  veckTopp: 52,
+  veckBotten: 64, // → total höjd 138 px
+  etikett: { x: -29, y: -6, b: 58, h: 40 },
 }
 
 /** Ett litet ritat motiv i mitten av etiketten. Aldrig en emoji — riktiga former. */
 function ritaMotiv(g, key, farg) {
   const cx = 0
-  const cy = TUB.etikett.y + TUB.etikett.h / 2 // 12
+  const cy = TUB.etikett.y + TUB.etikett.h / 2 // 14
   const ljus = arMork(farg)
   const kontur = ljus ? 0xfffdf7 : shade(farg, 0.55)
 
@@ -320,12 +326,19 @@ function ritaStjarna(g, cx, cy, r, farg, alpha = 1) {
 }
 
 /**
- * En tandkrämstub som STÅR på hyllan: krymplåda-veck i botten, avsmalnande hals,
- * räfflad skruvkork och en etikett i smakens färg med ett litet ritat motiv.
+ * En tandkrämstub som STÅR på sitt plattpressade krympveck: liten skruvkork på en smal
+ * hals, skarpt avsmalnande axlar, ett rör som går att klämma (det finns en buckla i det)
+ * och en etikett i smakens färg med ett litet ritat motiv.
  *
- * Mått ~86 × 130 px, origo i mitten. Tubplatserna i `layout.js` står 140 px isär, så
- * konsten håller sig innanför ±43 px medan grannens träffyta börjar 70 px bort — konsten
- * och träffytan är TVÅ budgetar (CLAUDE.md), och den här ligger med 27 px marginal.
+ * Mått 72 × 138 px, origo i mitten (bbox 78 × 143 med kantlinje och kontaktskugga) —
+ * smalare och högre än den gamla (86 × 130). Ett rör
+ * i förhållandet 1 : 2,2 läser som en tub; 1 : 1,7 läser som en flaska hur välritad
+ * axeln än är, och det var halva kritikerns fynd.
+ *
+ * Tubplatserna i `layout.js` står 140 px isär och grannens träffyta börjar 56 px bort.
+ * Konsten är bredast i krympvecket (`TUB.krympB` ±36 + kantlinjens hörn ⇒ **±39,2**
+ * uppmätt med `getLocalBounds`), alltså innanför taket på ±43 med 3,8 px marginal —
+ * konsten och träffytan är TVÅ budgetar (CLAUDE.md). Röret självt är bara ±32.
  *
  * @param {{key:string,tub:number,wow?:boolean,frost?:boolean}} spec post ur `TUBER`
  */
@@ -337,40 +350,52 @@ export function makeTub(spec) {
   // när noden byter typ (CLAUDE.md / check.mjs-tripwiren).
   c.__key = s.key
 
-  c.addChild(skugga(TUB.veckBotten - 2, 38, 6))
+  c.addChild(skugga(TUB.veckBotten - 1, 27, 5))
 
   const g = nyG()
   c.addChild(g)
 
-  const korkFarg = shade(s.tub, 0.18)
-
-  // --- kork + hals ---------------------------------------------------------
-  g.roundRect(-13, -46, 26, 16, 4).fill(cylinderFill(P.plastVit, { axis: 'x', dark: 0.24 }))
-    .stroke({ width: 2.4, color: P.plastMork })
-  g.roundRect(-18, TUB.korkTopp, 36, 26, 7).fill(cylinderFill(korkFarg, { axis: 'x', dark: 0.3, highlight: 0.34 }))
-    .stroke({ width: 3, color: shade(s.tub, 0.5) })
-  for (let i = 0; i < 5; i++) {
-    const rx = -13 + i * 6.5
-    g.moveTo(rx, TUB.korkTopp + 4).lineTo(rx, TUB.korkTopp + 22)
-      .stroke({ width: 1.8, color: shade(s.tub, 0.45), alpha: 0.55, cap: 'round' })
-  }
-  g.roundRect(-15, TUB.korkTopp + 2, 6, 20, 3).fill({ color: 0xffffff, alpha: 0.3 })
+  // Vit kork pa fargat ror. Tvartom - fargad kork pa vitt ror - var precis den
+  // pumpflasklasning kritikern fastnade pa; en tandkramstub bar sin farg i SJALVA roret.
+  const korkFarg = P.plastVit
+  const HB = TUB.halvB
+  const AY = TUB.axelY
+  const AT = TUB.axelTopp
+  const BY = TUB.bottenY
 
   // --- kroppen -------------------------------------------------------------
-  // Silhuetten: smala axlar upp mot halsen, bredast på mitten, rak ner mot vecket.
-  g.moveTo(-24, TUB.toppY)
-    .quadraticCurveTo(-40, TUB.toppY + 8, -TUB.halvB, -4)
-    .lineTo(-40, TUB.bottenY - 8)
-    .quadraticCurveTo(-40, TUB.bottenY, -32, TUB.bottenY)
-    .lineTo(32, TUB.bottenY)
-    .quadraticCurveTo(40, TUB.bottenY, 40, TUB.bottenY - 8)
-    .lineTo(TUB.halvB, -4)
-    .quadraticCurveTo(40, TUB.toppY + 8, 24, TUB.toppY)
+  // Silhuetten bär hela igenkänningen, och den vilar på tre val:
+  //   ⓵ AXELN ÄR EN RAK LINJE från halsroten (±9) ut till rörets fulla bredd (±32) på
+  //      22 px höjd — en kon, inte en båge. Varje kurva där gör axeln till en FLASKHALS,
+  //      och det var precis den läsningen kritikern fastnade på.
+  //   ⓶ SIDORNA ÄR PARALLELLA därunder. En tub buktar inte; den är ett hoprullat rör.
+  //   ⓷ VÄNSTERKANTEN ÄR INTRYCKT mellan y 6 och botten. En tub som är perfekt rak går
+  //      inte att klämma, och då hjälper ingen kork i världen.
+  g.moveTo(-9, AT)
+    .lineTo(-31, AY - 3)
+    .quadraticCurveTo(-HB, AY, -HB, AY + 4)
+    .lineTo(-HB, 8)
+    .quadraticCurveTo(-22, 28, -31, BY)
+    .lineTo(31, BY)
+    .lineTo(HB, 8)
+    .lineTo(HB, AY + 4)
+    .quadraticCurveTo(HB, AY, 31, AY - 3)
+    .lineTo(9, AT)
     .closePath()
-    .fill(cylinderFill(P.plastVit, { axis: 'x', dark: 0.22, highlight: 0.3 }))
-    .stroke({ width: 3, color: P.plastMork })
-  // Blänket längs vänsterkanten säger att plasten är blank, inte papper.
-  g.roundRect(-33, -24, 9, 62, 4).fill({ color: 0xffffff, alpha: 0.5 })
+    .fill(cylinderFill(s.tub, { axis: 'x', dark: 0.22, highlight: 0.3 }))
+    .stroke({ width: 3, color: shade(s.tub, 0.5) })
+  // Vecken i bucklan: skuggade rynkor tvärs över där tummen har tryckt.
+  g.moveTo(-26, 26).quadraticCurveTo(-16, 34, -5, 30)
+    .stroke({ width: 3, color: shade(s.tub, 0.45), alpha: 0.55, cap: 'round' })
+  g.moveTo(-24, 36).quadraticCurveTo(-16, 41, -8, 39)
+    .stroke({ width: 2.2, color: shade(s.tub, 0.45), alpha: 0.38, cap: 'round' })
+  // Blänket ligger längs axelns raka lutning och fortsätter ner på rörets vänstersida.
+  g.moveTo(-14, AT + 2).lineTo(-25, AY - 3)
+    .stroke({ width: 5, color: 0xffffff, alpha: 0.45, cap: 'round' })
+  g.moveTo(-27, AY + 7).lineTo(-27, 10)
+    .stroke({ width: 6, color: 0xffffff, alpha: 0.5, cap: 'round' })
+  g.moveTo(28, AY + 7).lineTo(28, 6)
+    .stroke({ width: 3, color: 0xffffff, alpha: 0.28, cap: 'round' })
 
   // --- etiketten -----------------------------------------------------------
   const E = TUB.etikett
@@ -390,19 +415,61 @@ export function makeTub(spec) {
     g.roundRect(E.x, E.y, E.b, E.h, 9).stroke({ width: 3, color: shade(s.tub, 0.4) })
   } else {
     g.roundRect(E.x, E.y, E.b, E.h, 9)
-      .fill(topLightFill(s.tub, { highlight: 0.22, dark: 0.2 }))
+      .fill(topLightFill(P.plastVit, { highlight: 0.18, dark: 0.14 }))
       .stroke({ width: 3, color: shade(s.tub, 0.42) })
   }
-  ritaMotiv(g, s.key, s.wow ? 0x8a5a9a : s.tub)
+  ritaMotiv(g, s.key, s.wow ? 0x8a5a9a : shade(s.tub, 0.32))
 
-  // --- krympvecket i botten ------------------------------------------------
-  g.roundRect(-34, 46, 68, 18, 5)
-    .fill(cylinderFill(P.plastMork, { axis: 'y', dark: 0.2, highlight: 0.34 }))
-    .stroke({ width: 2.6, color: shade(P.plastMork, 0.35) })
-  for (let i = 0; i < 8; i++) {
-    const vx = -29 + i * 8.3
-    g.moveTo(vx, 49).lineTo(vx, 61).stroke({ width: 2, color: shade(P.plastMork, 0.34), alpha: 0.7, cap: 'round' })
+  // --- halsen och den lilla skruvkorken ------------------------------------
+  // Korken är 22 px bred mot rörets 64. En BRED räfflad cylinder överst är vad en
+  // pumpflaska har, och det var precis den läsningen kritikern fastnade på — så här är
+  // den smalare än halsen är hög, och kragen under den är det enda som sticker ut.
+  g.roundRect(-TUB.halsB, TUB.halsY, TUB.halsB * 2, 18, 3)
+    .fill(cylinderFill(P.plastVit, { axis: 'x', dark: 0.26 }))
+    .stroke({ width: 2.4, color: P.plastMork })
+  for (const gy of [TUB.halsY + 4, TUB.halsY + 9]) {
+    g.moveTo(-TUB.halsB + 1, gy).lineTo(TUB.halsB - 1, gy)
+      .stroke({ width: 1.6, color: P.plastMork, alpha: 0.5 })
   }
+  g.roundRect(-12.5, TUB.korkTopp + 15, 25, 7, 2.5)
+    .fill(cylinderFill(korkFarg, { axis: 'x', dark: 0.34, highlight: 0.26 }))
+    .stroke({ width: 2.2, color: shade(s.tub, 0.5) })
+  g.roundRect(-11, TUB.korkTopp, 22, 15, 3.5)
+    .fill(cylinderFill(korkFarg, { axis: 'x', dark: 0.3, highlight: 0.34 }))
+    .stroke({ width: 2.6, color: shade(s.tub, 0.5) })
+  for (let i = 0; i < 4; i++) {
+    const rx = -6.6 + i * 4.4
+    g.moveTo(rx, TUB.korkTopp + 3).lineTo(rx, TUB.korkTopp + 12)
+      .stroke({ width: 1.4, color: shade(s.tub, 0.45), alpha: 0.5, cap: 'round' })
+  }
+  g.roundRect(-9, TUB.korkTopp + 2, 3.2, 10, 1.6).fill({ color: 0xffffff, alpha: 0.34 })
+
+  // --- det plattpressade krympvecket ---------------------------------------
+  // BREDARE än röret, med hörn-öron och en pinkad (sicksackad) underkant. Det är den här
+  // formen — och bara den — som gör att silhuetten inte kan läsas som en flaska: en
+  // flaska står på en rund fot, en tub står på sin egen hopklämda söm.
+  const KB = TUB.krympB
+  const T = TUB.veckTopp
+  const TANDER = 11
+  const zy0 = T + 7
+  const zy1 = T + 12
+  g.moveTo(-31, T - 4).lineTo(-KB, T + 1).lineTo(-KB, zy0)
+  for (let i = 1; i <= TANDER; i++) {
+    g.lineTo(-KB + (i / TANDER) * KB * 2, i % 2 ? zy1 : zy0)
+  }
+  g.lineTo(KB, zy0).lineTo(KB, T + 1).lineTo(31, T - 4).closePath()
+    .fill(cylinderFill(shade(s.tub, 0.14), { axis: 'x', dark: 0.24, highlight: 0.26 }))
+    .stroke({ width: 2.8, color: shade(s.tub, 0.5) })
+  // Sömmens press-ränder, och en mörkare linje där röret viks ihop.
+  for (let i = 0; i < 9; i++) {
+    const vx = -30 + i * 7.5
+    g.moveTo(vx, T + 1).lineTo(vx, zy0 - 1)
+      .stroke({ width: 1.8, color: shade(s.tub, 0.5), alpha: 0.5, cap: 'round' })
+  }
+  g.moveTo(-30, T - 2).quadraticCurveTo(0, T + 2, 30, T - 2)
+    .stroke({ width: 3, color: shade(s.tub, 0.55), alpha: 0.85, cap: 'round' })
+  g.moveTo(-32, T + 3).lineTo(32, T + 3)
+    .stroke({ width: 2.4, color: 0xffffff, alpha: 0.4, cap: 'round' })
 
   return c
 }
@@ -411,21 +478,30 @@ export function makeTub(spec) {
 // ⓶ TANDBORSTEN
 // ---------------------------------------------------------------------------
 
-// Borstens geometri på ETT ställe. `RAD_Y` är borstradernas mittlinjer, och `HUVUD`
-// räknas ur dem — det exporterade läget kan alltså inte glida ifrån konsten om huvudet
-// flyttas (CLAUDE.md: "en hårdkodad spets rapporterade samma tal efter att vingen krympts").
-const RAD_Y = [-88, -68, -48] // tipprad först — ritordningen vänds nedan
-const TUFT_X = [-22, -11, 0, 11, 22]
+// Borstens geometri på ETT ställe. `RAD_Y` är borsttofsarnas fästpunkter längs huvudets
+// vänstra långsida, och `HUVUD` räknas ur dem — det exporterade läget kan alltså inte
+// glida ifrån konsten om huvudet ritas om (CLAUDE.md: "en hårdkodad spets rapporterade
+// samma tal efter att vingen krympts").
+//
+// ⚠️ TOFSARNA SITTER PÅ EN SIDA, INTE RUNT OM. Ett borstfält som täcker hela huvudet gör
+//    silhuetten till en skiva med prickar i — och en rund vit skiva med borst i läser som
+//    ett FÖRSTORINGSGLAS, vilket är exakt vad kritikern såg. Med tofsarna som en kam längs
+//    ena långsidan är konturen igenkännbar som tandborste även i svartvitt.
+const RAD_Y = [-90, -79, -68, -57, -46] // spetsens tofs först — ritordningen vänds nedan
+const TOFS_X = -12 // tofsarnas fäste, en bit in på borstbädden
+const TOFS_LANGD = 22 // hur långt stråna sticker ut ur huvudets kontur
+const TOFS_LUT = 0.36 // rad: stråna lutar MOT SPETSEN, inte rakt ut åt sidan
 const HUVUD = { x: 0, y: (RAD_Y[0] + RAD_Y[RAD_Y.length - 1]) / 2 } // → { 0, -68 }
 // Vilovinkel: borsthuvudet pekar UPPÅT-VÄNSTER. Konsten ritas längs lokala −Y, så en
 // negativ rotation svänger huvudet åt vänster medan handtaget går ner till höger — precis
-// som man håller en tandborste.
+// som man håller en tandborste. Tofsarna pekar då upp-vänster, alltså mot tandraden.
 const BORSTE_VILA = -0.35
 export { HUVUD as BORSTE_HUVUD, BORSTE_VILA }
 
-// Krämklickens mittlinje över borstfältet — en vågig korv, inte en rak stapel.
+// Krämklickens mittlinje — en vågig korv LÄNGS tofsarna, på deras yttersida. Tandkräm
+// ligger på borstet, inte på huvudets rygg.
 const KRAM_VAG = [
-  [-28, -74], [-14, -84], [0, -70], [14, -60], [27, -72],
+  [-30, -88], [-38, -77], [-31, -66], [-38, -55], [-31, -44],
 ]
 
 /**
@@ -440,7 +516,8 @@ const KRAM_VAG = [
  * }}
  *
  * `view` — origo MITT PÅ SKAFTET (det är där fingret håller). Total längd ~210 px,
- *   borsthuvudet ~64 px brett. Vilorotationen är satt till `BORSTE_VILA` (−0,35 rad).
+ *   borsthuvudet 38 × 76 px (avlångt LÄNGS skaftet) plus tofsarnas 24 px ut åt vänster.
+ *   Vilorotationen är satt till `BORSTE_VILA` (−0,35 rad).
  * `huvud` — borststråfältets mittpunkt i `view`s LOKALA koordinater, alltså FÖRE rotation
  *   och skala. `index.js` räknar kontaktpunkten som fingrets läge + `huvud` roterad med
  *   `view.rotation`. Talet härleds ur `RAD_Y` och är samma tal som konsten ritas med.
@@ -487,24 +564,45 @@ export function makeBorste() {
     kropp.roundRect(-9, gy, 18, 5.5, 2.8).fill({ color: P.gummi, alpha: 0.92 })
   }
   kropp.roundRect(-11, 58, 22, 40, 9).stroke({ width: 2, color: P.gummi, alpha: 0.5 })
-  // Halsens färgband — det som gör att den läser som en tandborste och inte som en sked.
-  kropp.roundRect(-8, -14, 16, 22, 7).fill(cylinderFill(P.borstBla, { axis: 'y', dark: 0.28 }))
+  // Halsens färgband går ända upp i huvudets hals: skaft, hals och huvud blir EN blå del
+  // i stället för ett vitt skaft med en lös bricka på.
+  kropp.roundRect(-8, -20, 16, 28, 7).fill(cylinderFill(P.borstBla, { axis: 'y', dark: 0.28 }))
   // Blänk längs skaftet.
   kropp.roundRect(-8, 6, 4.5, 84, 2.4).fill({ color: 0xffffff, alpha: 0.45 })
 
   // --- borsthuvudet --------------------------------------------------------
+  // AVLÅNGT längs skaftets axel (38 × 76 px) och avsatt från skaftet med en tydlig hals
+  // som smalnar till 14 px. Huvudet bär skaftets EGEN blå — samma ton som halsbandet —
+  // för att den vita skiva som stod här förut inte hörde ihop med något annat på borsten
+  // och därför läste som en lins.
   const huvudG = nyG()
   view.addChild(huvudG)
-  huvudG.roundRect(-32, -106, 64, 82, 26)
-    .fill(topLightFill(P.plastVit, { highlight: 0.28, dark: 0.16 }))
-    .stroke({ width: 3, color: P.plastMork })
-  // Gummikant i spetsen: en mjuk båge tvärs över änden.
-  huvudG.moveTo(-27, -96).quadraticCurveTo(0, -110, 27, -96)
-    .stroke({ width: 5, color: P.gummi, alpha: 0.85, cap: 'round' })
+  huvudG.moveTo(-7, -22)
+    .quadraticCurveTo(-6, -30, -15, -40)
+    .quadraticCurveTo(-20, -54, -19, -72)
+    .quadraticCurveTo(-18, -90, -10, -99)
+    .quadraticCurveTo(-2, -108, 6, -100)
+    .quadraticCurveTo(15, -91, 17, -72)
+    .quadraticCurveTo(19, -52, 12, -38)
+    .quadraticCurveTo(6, -29, 7, -22)
+    .closePath()
+    .fill(cylinderFill(P.borstBla, { axis: 'y', dark: 0.34, highlight: 0.38 }))
+    .stroke({ width: 3, color: P.borstMork })
+  // Borstbädden: den ljusa remsan längs vänstra långsidan är DÄR tofsarna växer ur
+  // huvudet. Utan den ser stråna fastklistrade på kanten ut i stället för isatta.
+  huvudG.moveTo(-13, -93).quadraticCurveTo(-16, -70, -10, -43)
+    .stroke({ width: 12, color: 0xeaf6ff, alpha: 0.92, cap: 'round' })
+  huvudG.moveTo(-13, -93).quadraticCurveTo(-16, -70, -10, -43)
+    .stroke({ width: 4, color: P.plastMork, alpha: 0.28, cap: 'round' })
+  // Gummidyna på ryggen (den sida som INTE borstar) och ett blänk på den blanka plasten.
+  huvudG.moveTo(13, -86).quadraticCurveTo(16, -68, 11, -48)
+    .stroke({ width: 5, color: P.gummi, alpha: 0.8, cap: 'round' })
+  huvudG.moveTo(4, -92).quadraticCurveTo(8, -72, 5, -52)
+    .stroke({ width: 4.5, color: 0xffffff, alpha: 0.42, cap: 'round' })
 
-  // Borststråna. Var rad är en EGEN container med pivot i sin egen baslinje, så `boj()`
-  // kan luta dem utan att flytta huvudet. Raderna ritas från spetsen och inåt, så att den
-  // rad som ligger närmast handtaget hamnar överst — annars sticker de bakre stråna fram
+  // Borsttofsarna. Var tofs är en EGEN container med pivot i sitt eget fäste, så `boj()`
+  // kan svänga den utan att flytta huvudet. Tofsarna ritas från spetsen och inåt, så att
+  // den som sitter närmast handtaget hamnar överst — annars sticker de bakre stråna fram
   // genom de främre.
   const borstFalt = new Container()
   borstFalt.eventMode = 'none'
@@ -515,28 +613,28 @@ export function makeBorste() {
     const ry = RAD_Y[i]
     const rad = new Container()
     rad.eventMode = 'none'
-    rad.pivot.set(0, ry + 8) // pivot i strånas FÄSTE, inte i deras mitt
-    rad.position.set(0, ry + 8)
+    rad.pivot.set(TOFS_X, ry) // pivot i tofsens FÄSTE, inte i dess mitt
+    rad.position.set(TOFS_X, ry)
     const rg = nyG()
     rad.addChild(rg)
-    for (let k = 0; k < TUFT_X.length; k++) {
-      const tx = TUFT_X[k]
-      // Tofsens fot: en liten mörk ellips som ger fältet djup.
-      rg.ellipse(tx, ry + 7, 7, 3.4).fill({ color: P.plastMork, alpha: 0.45 })
-      // Fyra enskilda strån per tofs, lite olika höga och lite fanande — fem lika höga
-      // streck läser som en kam, inte som borst.
-      for (let s = 0; s < 4; s++) {
-        const off = (s - 1.5) * 2.6
-        const hojd = 13 + ((k + s) % 3) * 1.8
-        const farg = s === 1 ? P.stråBla : s === 3 ? P.stråGron : P.stråVit
-        rg.moveTo(tx + off * 0.6, ry + 7)
-          .quadraticCurveTo(tx + off, ry + 1, tx + off * 1.5, ry + 7 - hojd)
-          .stroke({ width: 2.6, color: farg, alpha: 0.95, cap: 'round' })
-      }
+    // Tofsens fot: en liten mörk fläck där stråna går ner i bädden.
+    rg.ellipse(TOFS_X + 1, ry, 3.2, 5.5).fill({ color: P.borstMork, alpha: 0.35 })
+    // Fyra enskilda strån per tofs, olika långa och lätt fanande — fyra lika långa
+    // streck läser som en kam, inte som borst.
+    for (let s = 0; s < 4; s++) {
+      const off = (s - 1.5) * 3.1 // spridning längs huvudets axel
+      const langd = TOFS_LANGD + ((i + s) % 3) * 2.2
+      const lut = TOFS_LUT + off * 0.012
+      const bx = TOFS_X + Math.abs(off) * 0.25
+      const by = ry + off
+      const farg = s === 1 ? P.stråBla : s === 3 ? P.stråGron : P.stråVit
+      rg.moveTo(bx, by)
+        .quadraticCurveTo(bx - langd * 0.5, by - off * 0.3, bx - Math.cos(lut) * langd, by - Math.sin(lut) * langd)
+        .stroke({ width: 2.8, color: farg, alpha: 0.95, cap: 'round' })
     }
     rader.push(rad)
   }
-  // Spetsraden längst bak, handtagsraden överst.
+  // Spetstofsen längst bak, handtagstofsen överst.
   for (let i = 0; i < rader.length; i++) borstFalt.addChild(rader[i])
 
   // --- tandkrämsklicken ----------------------------------------------------
@@ -552,33 +650,41 @@ export function makeBorste() {
     const kant = shade(farg, 0.26)
     // Konturen först i en bredare stroke: en VIT glitterkräm på vita strån behöver en
     // kant för att synas alls.
-    for (const [bredd, f, alpha] of [[23, kant, 1], [19, farg, 1]]) {
+    // Korven går LODRÄTT längs tofsarna, så styrpunkten sitter på förra punktens x och
+    // halvvägs ner i y — spegelvänt mot en liggande korv. Byts vågen ut mot en vågrät
+    // igen måste den här raden vändas tillbaka, annars blir S-kurvan en zickzack.
+    for (const [bredd, f, alpha] of [[21, kant, 1], [17, farg, 1]]) {
       kramG.moveTo(KRAM_VAG[0][0], KRAM_VAG[0][1])
       for (let i = 1; i < KRAM_VAG.length; i++) {
         const [px, py] = KRAM_VAG[i - 1]
         const [qx, qy] = KRAM_VAG[i]
-        kramG.quadraticCurveTo(px + (qx - px) * 0.5, py, qx, qy)
+        kramG.quadraticCurveTo(px, py + (qy - py) * 0.5, qx, qy)
       }
       kramG.stroke({ width: bredd, color: f, alpha, cap: 'round', join: 'round' })
     }
-    // Ljuskammen längs ovansidan gör korven rund i stället för platt.
-    kramG.moveTo(KRAM_VAG[0][0] + 3, KRAM_VAG[0][1] - 5)
+    // Ljuskammen längs korvens yttersida gör den rund i stället för platt.
+    kramG.moveTo(KRAM_VAG[0][0] - 3.5, KRAM_VAG[0][1] + 3)
     for (let i = 1; i < KRAM_VAG.length; i++) {
       const [px, py] = KRAM_VAG[i - 1]
       const [qx, qy] = KRAM_VAG[i]
-      kramG.quadraticCurveTo(px + (qx - px) * 0.5, py - 5, qx, qy - 5)
+      kramG.quadraticCurveTo(px - 3.5, py + (qy - py) * 0.5, qx - 3.5, qy)
     }
-    kramG.stroke({ width: 6, color: tint(farg, 0.55), alpha: 0.7, cap: 'round', join: 'round' })
+    kramG.stroke({ width: 5.5, color: tint(farg, 0.55), alpha: 0.7, cap: 'round', join: 'round' })
     // Den lilla curlen i änden — spetsen som blir kvar när man släpper tuben.
-    kramG.moveTo(27, -72).quadraticCurveTo(38, -74, 34, -84)
-      .stroke({ width: 13, color: farg, cap: 'round' })
-    kramG.moveTo(27, -72).quadraticCurveTo(38, -74, 34, -84)
-      .stroke({ width: 4, color: tint(farg, 0.5), alpha: 0.6, cap: 'round' })
+    kramG.moveTo(-30, -88).quadraticCurveTo(-25, -96, -35, -98)
+      .stroke({ width: 12, color: farg, cap: 'round' })
+    kramG.moveTo(-30, -88).quadraticCurveTo(-25, -96, -35, -98)
+      .stroke({ width: 3.6, color: tint(farg, 0.5), alpha: 0.6, cap: 'round' })
   }
 
-  // Basvärden som `boj()` skriver relativt — läses en gång, aldrig per bildruta.
-  const bojX = [-14, -9, -4]
-  const bojR = [-0.17, -0.11, -0.05]
+  // Basvärden som `boj()` skriver relativt — läses en gång, aldrig per bildruta. Positivt
+  // x trycker tofsen IN mot huvudet och NEGATIV rotation svänger stråna bakåt mot
+  // handtaget: det är åt det hållet borst viker sig när man pressar dem mot en tandyta.
+  // Positiv rotation svängde dem i stället FRAMÅT förbi spetsen, och då sköt spetstofsen
+  // 1,6 px utanför den träffyta index.js sätter (uppmätt i getLocalBounds).
+  // Spetstofsen ger efter mest — den har längst hävarm.
+  const bojX = [6, 5, 4, 3, 2]
+  const bojR = [-0.3, -0.25, -0.2, -0.15, -0.1]
 
   return {
     view,
@@ -614,10 +720,13 @@ export function makeBorste() {
       for (let i = 0; i < rader.length; i++) {
         const rad = rader[i]
         if (rad.destroyed) continue
-        rad.x = bojX[i] * t
+        // ⚠️ TOFS_X MÅSTE MED. Tofsarna står på x = TOFS_X, inte på 0 som de gamla
+        //    raderna gjorde — en bar `rad.x = bojX[i] * t` skulle flytta hela tofsen
+        //    till huvudets mittlinje första gången borsten rörde en tandyta.
+        rad.x = TOFS_X + bojX[i] * t
         rad.rotation = bojR[i] * t
       }
-      if (!borstFalt.destroyed) borstFalt.scale.y = 1 - t * 0.07
+      if (!borstFalt.destroyed) borstFalt.scale.x = 1 - t * 0.06
       if (!kramNod.destroyed && kramNod.visible) {
         kramNod.x = bojX[0] * 0.6 * t
         kramNod.y = t * 3

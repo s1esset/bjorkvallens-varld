@@ -14,6 +14,55 @@ Format:
 
 ---
 
+## 2026-08-20 (sen kväll) · v1.231.0 · `borsta-tanderna` KRITIKERRUNDAN körd och åtgärdad
+
+**Byggt:** steg 6–7 i `/spel`. Kritikern spelade spelet som ett krävande 3-åring och dömde
+**"behöver åtgärd"** — fem av sju kvalitetspunkter höll, agens och variation bara delvis.
+Allt blockerande är åtgärdat och spelet står nu som ✅ i indexet.
+
+**Commits:** `9051bba` feat(borsta-tanderna)
+
+**P0-brottet:** tub-knapparnas träffytor låg **20 px isär** (140 px platsavstånd − 2 × 60 px
+halvbredd) mot kravet ≥24 — samma sorts fynd som kylens hyllplan i `mata-munnen`. Ytan är nu
+112 px → 28 px lucka. Konsten rördes inte.
+
+**Två löften i spec-kortet som koden aldrig infriade.** Tungbonusen fanns inte alls (0 träffar
+i full grep), och spec-kortets läsning gick inte att bygga — synlig mun-inre är 186 × 37 px, en
+tungzon där blir ~15 px. **Ägarbeslut:** bonusen hänger på motgångens EGEN tunga, som nu
+parkerar och viftar 1,56 s efter svepet. Ertappar barnet honom uteblir motgången helt.
+**Motgången blev en möjlighet — agens där det förut bara fanns otur.** Wow-tandkrämens
+"regnbågsskum" var enfärgat vitt och glimten föll under de 1,46 s då munnen är låst stängd;
+båda infriade nu.
+
+**Och fixen öppnade sitt eget hål:** för att munnen ska stå öppen sväljer `_visaMin` varje min
+medan tungan är ute — ett barn som tryckte på en tub mitt i retandet fick ljud och skum men
+INGEN grimas. Tyst borta var åttonde sekund, med grönt test. `_tungStors` täpper det.
+
+### ⚠️ TRE MÄTFEL I SONDEN — de kostade mer tid än hela speländringen
+
+1. **Fel skede.** Tungarmarna sköts in efter arm E, men brädet var redan rent och fasen stod
+   på `skolj` där tungan aldrig startar. Att skriva tillbaka smuts där gav ett tillstånd
+   spelet inte kan nå själv — och sabbade en arm som fungerat i månader.
+2. **Ett felantal utan ägare.** 172 konsolfel i en klumpsumma sa inte vilken arm som födde
+   dem. En rad som ger varje arm sitt eget felantal pekade direkt på rätt arm.
+3. **Ett felmeddelande utan stack.** "Cannot set properties of null (setting 'y')" namnger
+   ingen rad — och en typlista ("_Graphics{x,y,alpha}") gör det inte heller. Först när
+   **`scripts/_nullprobe.mjs`** (ny) hakade på spelets EGEN `gsap.to` och sparade
+   skapelse-stacken på varje tween gick spöket att peka ut.
+
+**Och spöket var inte spelets.** Samma läcka mättes på **HEAD** med dagens filer utcheckade
+(4 fel mot 10–13) → `docs/ATGARDER.md` **V17**: `DragController._snapHome` sparar aldrig sin
+hemtween, och `Karaktar._track` filtrerar listan på `isActive()` — den kända FEL mätaren, som
+kastar ut väntande tweens så just de aldrig dödas. `t?.parent` är måttet som håller, och
+`badrum.js` bär det redan. **Delad kod, app-bred — inte fixad i den här commiten.**
+
+**Öppet:** V17 (delad kod, väntar på `/fixa`) · 9 röstrepliker väntar på `/rost` ·
+`borsta_skrubb` väntar på `npm run sfx` · autosvepets tröskel behöver ett speltest på riktig
+platta · handduken går fortfarande inte att trycka på (nu ett önskemål, inte en falsk
+affordans) · **inte pushat** — `origin/master` står kvar på `970baff`/v1.229.
+
+---
+
 ## 2026-08-20 (kväll) · v1.230.0 · `borsta-tanderna` BYGGT — kritikerrundan återstår
 
 **Byggt:** spelet ur morgonens godkända spec-kort. Femte spelet i ansiktssektionen.

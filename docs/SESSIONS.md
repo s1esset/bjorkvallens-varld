@@ -14,6 +14,83 @@ Format:
 
 ---
 
+## 2026-08-20 (kväll) · v1.230.0 · `borsta-tanderna` BYGGT — kritikerrundan återstår
+
+**Byggt:** spelet ur morgonens godkända spec-kort. Femte spelet i ansiktssektionen.
+Barnet väljer en tandkräm på hyllan, drar tandborsten till pappas gapande mun och skrubbar;
+smutsen försvinner där borsten går, skummet växer och svämmar ut över läpparna, ansiktet
+reagerar på VAR borsten är, och när allt är rent lyser vattenglaset → han gurglar, spottar i
+handfatet och ler. Fyra filer: `index.js` · `layout.js` · `badrum.js` · `verktyg.js`
+(de två sista byggda av `spelbyggare`-agenter).
+
+**Commits:** `4b9e361` feat(borsta-tanderna) · `655a04d` docs(borsta-tanderna)
+
+### ⚠️ SPEC-KORTETS PREMISS FÖLL PÅ EN MÄTNING — läs `borsta-tanderna.md` §3
+
+Kortet sa att munnen blir **191×155 px** vid `hojd: 880`. Det är manifestets mun-RUTA, och
+den är till tre fjärdedelar skymd av överläppen och käken. Ny sond **`scripts/_gapprobe.mjs`**
+bytte mun-lagret mot en magenta platta i samma läge och samma index och mätte den yta som
+faktiskt SYNS: **186 × 37 px** vid fullt gap (kontrollarm gap 0 = 0 px).
+
+Munnen är alltså ingen HÅLA att föra in en borste i — den är en bred, låg **TANDRAD**, vilket
+också är vad tandborstning är. Kärnloopen överlevde oförändrad; det som flyttade sig är var
+belöningen bor: **skummet**, som svämmar ut över läppar och haka där det finns plats.
+37 px rymmer inget lödder som växer.
+
+`hojd: 1100` prövades för nio extra pixlar remsa och **föll på BILDEN** (590 px brett ansikte
+i en 1280-ruta tränger undan hyllan, kranen och maskoten). Tillbaka på kortets 880 — nu av ett
+mätt skäl. **Ett tal ensamt kunde inte avgöra den frågan.**
+
+### Fyra buggar som bara `scripts/_borstprobe.mjs` (ny) kunde hitta
+
+Harnessen rörde aldrig borsten: `drag/foremal 1`, **noll** `drag/ratt`. Hela kärnloopen var
+grön och omätt — exakt `mata-munnen`s läxa. Sonden spelar spelet med två kontrollarmar
+(vila, och samma sveprörelse vid VÄGGEN med draget bevisat levande). Alla fyra hade grönt
+test och noll konsolfel:
+
+1. **Borsten gick inte att TA I.** `verktyg.js` sätter `eventMode = 'none'` på alla innernoder
+   och en bar `Container` utan `hitArea` träfftestar aldrig sig själv. Permanent död träffyta
+   i spelets enda dragbara föremål. → explicit `hitArea` 112 × 220 px.
+2. **Gapet öppnade sig aldrig.** Borsten förs in NERIFRÅN → kittlingen sköt igång första
+   bildrutan → och `min()` anropar `gap(0)`. Uppmätt `gap 0,00` med borsten på raden.
+3. **Kinden åt upp det barnet gjorde** — genomfarten mot munnen utlöste `skratt`, som stängde
+   munnen vid framkomsten. Zoner kräver nu 0,3 s DRÖJANDE.
+4. **P0-ÅTERVÄNDSGRÄND:** tungans svep (0,62 s) kunde landa EFTER att sista fläcken blev ren.
+   Då står fasen på `skolj`, `_arbeta` bailar, och fläcken går aldrig att borsta igen.
+   Uppmätt **rena 3/4, fas skolj, 26 extravarv utan att talet rörde sig.**
+
+`_borstprobe` står nu 9/9 · `check` 0/0 · `npm run test` grön, ingen `tom-scen`.
+
+**Läxa om arbetssättet:** jag gissade orsaken till gap-nollan TVÅ gånger och byggde en fix på
+varje gissning innan jag lade in `minKvar`/`_gapNu`/`iRad` i sondens avläsning — den ena raden
+diagnostik avgjorde frågan direkt. Båda gissningarna råkade peka på riktiga buggar, vilket är
+precis varför de kändes bekräftade. Ordningen var ändå fel.
+
+### Öppet — NÄSTA SESSION BÖRJAR HÄR
+
+**Körningen `.claude/state/korning.json` är MEDVETET kvar**, på steg **`kritik`**
+(klara: `plan`, `bygg`). Plocka upp med **`/aterta`** — den går direkt in i `/spel` steg 6.
+
+- **Steg 6 `kritik`:** kör `spelkritiker`-agenten mot `borsta-tanderna`. Spelet är testat men
+  aldrig granskat som LEK. Därför står indexraden som kvalitet 🔧 / polerad ⬜, inte ✅.
+- **Steg 7 `fix`:** åtgärda kritiken + de tre art-fynden som redan syns i skärmdumpen
+  (`.test-shots/borsta-tanderna.png`, `_borstprobe-skum.png`):
+  - **borsthuvudet läser som ett förstoringsglas** (stor rund vit skiva) — `verktyg.js`
+  - **handduken läser som en jättetub tandkräm** — mer tub-lik än de riktiga tuberna, och den
+    går inte att trycka på. Ett barn kommer att peka på den. — `badrum.js`
+  - **tuberna läser som burkar**, inte hoprullningsbara tuber — `verktyg.js`
+- **Steg 10–11:** leverans + logg. **Inget är pushat** — appen på Pages är kvar på v1.229.0.
+- `TUBER` bär ett **oanvänt `replik`-fält** (6 repliker). Koppla in dem OCH lägg dem för hand i
+  `voice-phrases.json` (`check.mjs` ser inte tabellbyggda strängar), eller ta bort fältet.
+- `pappa_slurp` / `pappa_gurgla` finns inte inspelade (faller på stämd ton, tas i bruk av
+  `harSample()` när de landar). `borsta_skrubb` ligger i `sfx-phrases.json` → `npm run sfx`.
+- 7 repliker väntar på `/rost`.
+- **`samlaNoder`/`rivTrad` är nu skriven en TREDJE gång** (`borsta-tanderna` ·
+  `flugan-pa-nasan` · `vakna-pappa`). Hör hemma i `lib/feedback.js` — delade filer rördes inte
+  under bygget.
+
+---
+
 ## 2026-08-20 · v1.229.0 · SPEC-SESSION: `borsta-tanderna` godkänd, ingen kod
 
 **Byggt:** ingen kod. Sessionen svarade på ägarens fråga *"har vi några spelidéer som inte är

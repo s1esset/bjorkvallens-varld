@@ -26,6 +26,8 @@ ansiktet var fel åt båda hållen samtidigt). Det avgörs i en bild, se "Vad so
 (64 från shoot 1 + 11 från shoot 2), och **72 av dem är redan tilldelade** de 19 rollerna i
 `roller.json`. Fria bilder: **45, 94 och 112 — tre stycken.** Resten (~54 bilder ur shoot 1)
 står kvar i ComfyUI:s output-katalog på ägarens maskin och har aldrig granskats.
+**Uppdatering 2026-08-20 (ägaren):** de ligger numera i en egen undermapp `pappa/` under
+ComfyUI:s `output/` — alltså `…/output/pappa/`, inte löst bland allt annat.
 ➜ **Fler ansiktsuttryck är en ÄGARUPPGIFT först:** kopiera in resten, så görs kontaktkartor och
 nya roller skärs med `npm run ansikte`. Disken är inget hinder — riggen ligger på **1 416 kB av
 budgetens 3 072** (34 filer).
@@ -208,12 +210,14 @@ tallriken men räknades in i mättnadsmålet, så ett barn som busade en bit av 
 tallriken utan att finalen kunde komma. Tallriken fyller nu på sig själv. **Läs spelets doc
 §3 innan nästa spel i sektionen byggs** — den bär vad riggen faktiskt klarar.
 
-Kvar i sektionen: `harma-grimasen` · `borsta-tanderna` · `prat-ansiktet` (tabellen nedan), plus
+Kvar i sektionen: `harma-grimasen` · **`borsta-tanderna` (spec godkänd 2026-08-20, bygget står
+på tur — se `docs/games/borsta-tanderna.md`)** · `prat-ansiktet` (tabellen nedan), plus
 **ägarens inspelningsuppgift**: pappas uttrycksljud. Kopplingen finns redan och tar klippen i
 bruk automatiskt (`ROST`-tabellen + `audio.harSample()`).
 
 **Fotoshooten är levererad:** 129 frilagda PNG, **768×1024** (inte 1024×1024 som det sades),
-ren alfakant, i ComfyUI:s egen output-katalog (`s1face__NNNNN_.png`, nummer 1-129).
+ren alfakant, i ComfyUI:s egen output-katalog (`s1face__NNNNN_.png`, nummer 1-129) —
+numera samlade i undermappen `output/pappa/` (ägaren, 2026-08-20).
 De 49 som används ligger i repot under `assets-src/ansikte/pappa/`.
 
 **Tre ägarbeslut 2026-08-13:**
@@ -292,7 +296,7 @@ sur min, chili ger het min, tårta ger lycksalig min, broccoli ger en fundersam 
 | `vakna-pappa` | väck honom med ljud; sömnmätare + ett öga i taget — ✅ **BYGGT v1.225.0** |
 | `flugan-pa-nasan` | han följer flugan med blicken; vifta ut den — ✅ **BYGGT v1.225.0** |
 | `harma-grimasen` | ansiktet gör en min, barnet trycker på rätt min bland tre |
-| `borsta-tanderna` | dra tandborsten i den gapande munnen, ansiktet reagerar på var man är |
+| `borsta-tanderna` | dra tandborsten i den gapande munnen, ansiktet reagerar på var man är — 📝 **SPEC GODKÄND 2026-08-20**, kortet ligger i `docs/games/borsta-tanderna.md` §0, bygget väntar |
 | `prat-ansiktet` | tryck på ord/ikoner → käken rör sig i takt med röstklippet |
 
 ### Beslut (2026-08-07)

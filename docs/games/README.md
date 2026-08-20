@@ -83,6 +83,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 81 | Titt ut, pappa! | `titt-ut-pappa` | tap | ✅ | ✅ |
 | 82 | Vakna, pappa! | `vakna-pappa` | tap | ✅ | ✅ |
 | 83 | Flugan | `flugan-pa-nasan` | mixed | ✅ | ✅ |
+| 84 | Borsta Pappas tänder | `borsta-tanderna` | mixed | 📝 | ⬜ |
 
 ✅ **Pappa ÖNSKAR sig en bit, och kyldörren minns** (v1.214): målet räknade förut "N tuggor",
 aldrig VILKA — varje matbit var exakt lika rätt, och tallrik 7 såg likadan ut som tallrik 1.

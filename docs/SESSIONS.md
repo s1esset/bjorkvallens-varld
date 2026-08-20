@@ -14,6 +14,38 @@ Format:
 
 ---
 
+## 2026-08-20 · v1.229.0 · SPEC-SESSION: `borsta-tanderna` godkänd, ingen kod
+
+**Byggt:** ingen kod. Sessionen svarade på ägarens fråga *"har vi några spelidéer som inte är
+gjorda än?"* och slutade i ett godkänt spec-kort.
+
+- **Idébanken inventerad:** 21 obyggda idéer i `docs/IDEER.md` — 15 i post 1 (Pappa får en
+  KROPP), 3 kvar i ansiktssektionens tabell (post 4), `egna-ansikten` (post 3), plus de två
+  ägaruppgifter som blockerar post 1 (fotomaterialet + `_kroppbild`-frågan). Inget id ur
+  listan finns i `src/games/`.
+- **`borsta-tanderna` valdes och specades.** Kortet är **godkänt av ägaren 2026-08-20** och
+  ligger i `docs/games/borsta-tanderna.md` §0 med hela planen. Fjärde spelet i
+  ansiktssektionen. Kärnloop: välj tandkräm → dra borsten i det gapande munhålet → ansiktet
+  reagerar på VAR borsten är → skölj. Motgång: tungan slickar bort skummet från en fläck
+  (`retas`-minen, tak 1 åt gången / var 8:e sekund).
+- **Två designval är mätta ur manifestet, inte gissade** (står i doc §0 och ska inte ändras
+  utan ny mätning): ⓵ ansiktet ritas på **`hojd: 880`**, inte `mata-munnen`s 520 — mun-lagret
+  är `170×138` i en `733×800` ruta, så vid 520 blir munnen **110×90 px** (under P0:s 96 med
+  noll marginal) medan 880 ger **191×155 px** för bara 1,13× uppskalning. ⓶ munnen är EN yta
+  med generös borstradie, inte sex tandknappar — enskilda tänder blir ~30 px och kan aldrig
+  bli träffytor.
+
+**Ägarnotis:** pappa-fotona i ComfyUI:s `output/` ligger numera i en egen undermapp
+**`output/pappa/`**. Noterat på båda ställena i `docs/IDEER.md` (post 1 ⓶ och post 4).
+
+**Commits:** <hash> docs(borsta-tanderna): godkant spec-kort + plan infor bygget
+
+**Öppet:** `/spel borsta-tanderna` står på **steg `bygg`** i `.claude/state/korning.json` —
+plocka upp med `/aterta` nästa session. Spec och plan är klara, ingen kod är skriven.
+Läs `docs/games/mata-munnen.md` §3 först (vad riggen klarar + återvändsgränden som bara en
+sond som SPELAR spelet hittade). Ovidkommande i övrigt: idébankens post 1 väntar fortfarande
+på ägaruppgiften (kopiera in resten av fotoshooten) och på `scripts/_kroppbild.mjs`.
+
 ## 2026-08-16 · v1.225.0 → v1.226.0 · ÄGARUPPDRAG: sex spel, tre av dem ombyggda
 
 **Byggt:** ägaren gav en lista på sex spel. Tre var små rättningar, tre var ombyggnader.

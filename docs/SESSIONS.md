@@ -14,7 +14,7 @@ Format:
 
 ---
 
-## 2026-08-20 (sen kväll) · v1.231.0 · `borsta-tanderna` KRITIKERRUNDAN körd och åtgärdad
+## 2026-08-20 (sen kväll) · v1.232.0 · `borsta-tanderna` KRITIKERRUNDAN körd och åtgärdad
 
 **Byggt:** steg 6–7 i `/spel`. Kritikern spelade spelet som ett krävande 3-åring och dömde
 **"behöver åtgärd"** — fem av sju kvalitetspunkter höll, agens och variation bara delvis.
@@ -56,10 +56,15 @@ hemtween, och `Karaktar._track` filtrerar listan på `isActive()` — den kända
 kastar ut väntande tweens så just de aldrig dödas. `t?.parent` är måttet som håller, och
 `badrum.js` bär det redan. **Delad kod, app-bred — inte fixad i den här commiten.**
 
-**Öppet:** V17 (delad kod, väntar på `/fixa`) · 9 röstrepliker väntar på `/rost` ·
-`borsta_skrubb` väntar på `npm run sfx` · autosvepets tröskel behöver ett speltest på riktig
-platta · handduken går fortfarande inte att trycka på (nu ett önskemål, inte en falsk
-affordans) · **inte pushat** — `origin/master` står kvar på `970baff`/v1.229.
+**Röst (v1.232.0):** `/rost` kört — **9 klipp gjorda, 0 misslyckade** (F5-TTS, 1766 hoppade
+över som redan fanns). Testkörningen är nu helt utan loggfynd: `rost-utan-klipp` är borta, så
+spelet talar med riktiga klipp i stället för Web Speech. Två av de nio är finalens if/else-par
+("…pappa har!" respektive "…och extra fräsch tunga!") — de får aldrig sägas efter varandra,
+`say()` kapar den förra repliken.
+
+**Öppet:** V17 (delad kod, väntar på `/fixa`) · `borsta_skrubb` väntar på `npm run sfx` ·
+autosvepets tröskel behöver ett speltest på riktig platta · handduken går fortfarande inte att
+trycka på (nu ett önskemål, inte en falsk affordans).
 
 ---
 

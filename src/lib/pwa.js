@@ -82,10 +82,14 @@ export function hasPendingUpdate() {
 }
 
 export function applyPendingUpdateAtMenu() {
-  if (pending) {
-    pending = false
-    updateSW(true) // laddar om till nya versionen vid en lugn punkt
-  }
+  if (!pending) return
+  pending = false
+  const w = swRegistration?.waiting
+  // Egen aktivering när vi har en väntande SW: `updateSW(true)` laddar bara om sidan om
+  // pluginets `controlling`-lyssnare hunnit sättas (se `forceUpdate`). Här HAR den det —
+  // `pending` sattes av just den vägen — men vi går samma väg för att bara ha ETT beteende.
+  if (w) aktivera(w)
+  else updateSW(true)
 }
 
 // Kort versionsstämpel "vM.NN" (MINOR zero-paddat, se docs/DESIGN.md §9). Visas som
@@ -104,65 +108,109 @@ export function appVersionFull() {
   return `v${v} · ${b}`
 }
 
-// TVINGA fram senaste versionen (förälder-knapp i menyn). Strategi:
-//  1) Väntar redan en uppdatering -> aktivera den direkt.
-//  2) Annars fråga servern efter en ny service worker (reg.update()); om en hittas,
-//     vänta in att den installeras och aktivera + ladda om.
-//  3) Hittades ingen ny version -> ladda ändå om sidan (hämtar färska sidresurser),
-//     så knappen alltid känns som att den "gör något".
-// Returnerar 'updating' (ny version aktiveras) eller 'reloaded' (ingen ny hittad).
-export async function forceUpdate() {
-  if (pending) {
-    pending = false
-    await safeUpdate()
-    return 'updating'
-  }
-  try {
-    const reg = swRegistration || (await navigator.serviceWorker?.getRegistration?.())
-    if (reg) {
-      await reg.update()
-      const fresh = reg.installing || reg.waiting
-      if (fresh) {
-        await waitInstalled(fresh, 4000)
-        pending = false
-        await safeUpdate()
-        return 'updating'
-      }
-    }
-  } catch (e) {
-    console.warn('Uppdateringskoll misslyckades', e)
-  }
-  fallbackReload()
-  return 'reloaded'
-}
+// TVINGA fram senaste versionen (förälder-knapp i menyn).
+//
+// ⚠️ VARFÖR DEN HÄR INTE GÅR VIA `updateSW(true)` NÄR INGEN UPPDATERING REDAN VÄNTAR:
+// det var HELA orsaken till "man måste trycka två gånger". I prompt-läge lägger
+// vite-plugin-pwa sin omladdningslyssnare först INNE i `showSkipWaitingPrompt`, som körs
+// på workbox `waiting`-händelsen — alltså samma stund som `onNeedRefresh` sätter `pending`
+// (`node_modules/vite-plugin-pwa/dist/client/build/register.js`). Första trycket, när inget
+// väntade ännu, skickade därför SKIP_WAITING utan att någon lyssnade på `controlling`:
+// sidan laddades aldrig om. Strax efter kom `waiting`, `pending` blev sann, och ANDRA
+// trycket gick den redan fungerande vägen. Den gamla koden gav dessutom installationen
+// **4 sekunder** — appen precachar 84 spel med ljud, så tidsgränsen löpte i praktiken alltid
+// ut, och `safeUpdate()` skickade SKIP_WAITING till en SW som fortfarande installerade.
+//
+// Nu äger vi hela kedjan: fråga servern → vänta in att den nya arbetaren blir `waiting` →
+// skicka SKIP_WAITING själva → ladda om på `controllerchange` (med en tidsgräns som
+// skyddsnät). `onSteg` får 'letar' / 'laddar' så menyn kan säga vad som händer.
+//
+// Returnerar 'updating' (ny version aktiveras, sidan laddas om), 'aktuell' (ingen nyare
+// version finns — ingen omladdning, för en oväntad omstart är dyrare än en avi) eller
+// 'reloaded' (ingen service worker alls, t.ex. i en vanlig flik utan HTTPS).
+const INSTALL_TIMEOUT = 60000
 
-// updateSW(true) skickar SKIP_WAITING och laddar om på controllerchange. Skydda med
-// en fallback-reload om något oväntat kastar.
-async function safeUpdate() {
+export async function forceUpdate(onSteg) {
+  let reg = swRegistration
   try {
-    await updateSW(true)
-  } catch (e) {
-    console.warn('Kunde inte aktivera uppdateringen', e)
+    if (!reg) reg = await navigator.serviceWorker?.getRegistration?.()
+  } catch {
+    reg = null
+  }
+  if (!reg) {
     fallbackReload()
+    return 'reloaded'
   }
+
+  let w = reg.waiting
+  if (!w) {
+    onSteg?.('letar')
+    try {
+      await reg.update()
+    } catch (e) {
+      console.warn('Uppdateringskoll misslyckades', e)
+    }
+    w = reg.waiting
+    if (!w && reg.installing) {
+      onSteg?.('laddar')
+      w = await vantaPaWaiting(reg, INSTALL_TIMEOUT)
+    }
+  }
+  pending = false
+  if (!w) return 'aktuell'
+
+  onSteg?.('byter')
+  await aktivera(w)
+  return 'updating'
 }
 
-// Vänta tills en (ny)installerande SW är färdiginstallerad (blir "waiting"), max timeoutMs.
-function waitInstalled(worker, timeoutMs) {
-  if (!worker || worker.state === 'installed' || worker.state === 'activated') return Promise.resolve()
+// Vänta tills den installerande arbetaren blivit `waiting` (= färdig och redo att ta över).
+// Ger `null` om den blir `redundant` (installationen föll) eller om tiden tar slut.
+function vantaPaWaiting(reg, timeoutMs) {
+  const worker = reg.installing
+  if (!worker) return Promise.resolve(reg.waiting || null)
   return new Promise((resolve) => {
-    let done = false
-    const finish = () => {
-      if (done) return
-      done = true
+    let klar = false
+    const slut = (v) => {
+      if (klar) return
+      klar = true
       worker.removeEventListener('statechange', onChange)
-      resolve()
+      resolve(v)
     }
     const onChange = () => {
-      if (worker.state === 'installed' || worker.state === 'activated') finish()
+      if (worker.state === 'installed' || worker.state === 'activated') slut(reg.waiting || worker)
+      else if (worker.state === 'redundant') slut(null)
     }
     worker.addEventListener('statechange', onChange)
-    setTimeout(finish, timeoutMs)
+    setTimeout(() => slut(reg.waiting || null), timeoutMs)
+  })
+}
+
+// Låt den väntande arbetaren ta över och ladda om sidan. SKIP_WAITING är exakt det
+// meddelande workbox egen `messageSkipWaiting()` skickar, och den genererade servicearbetaren
+// lyssnar på det. Tidsgränsen är skyddsnätet: byter den ändå inte, ladda om — den nya
+// arbetaren tar då över vid nästa start.
+function aktivera(w) {
+  return new Promise((resolve) => {
+    let klar = false
+    const ladda = () => {
+      if (klar) return
+      klar = true
+      fallbackReload()
+      resolve()
+    }
+    try {
+      navigator.serviceWorker?.addEventListener?.('controllerchange', ladda, { once: true })
+    } catch {
+      /* ingen serviceWorker-yta — tidsgränsen nedan tar hand om det */
+    }
+    setTimeout(ladda, 5000)
+    try {
+      w.postMessage({ type: 'SKIP_WAITING' })
+    } catch (e) {
+      console.warn('Kunde inte aktivera uppdateringen', e)
+      ladda()
+    }
   })
 }
 

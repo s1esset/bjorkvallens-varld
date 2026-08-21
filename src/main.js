@@ -52,7 +52,7 @@ async function boot() {
     applyPendingUpdateAtMenu,
     forceUpdate,
     appVersion,
-    toast: (msg) => showToast(ctx.gateLayer, msg),
+    toast: (msg, opts) => showToast(ctx.gateLayer, msg, opts),
   }
   gate.services = services
   nav.services = services

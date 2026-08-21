@@ -92,9 +92,17 @@ export async function createMenuScreen(services) {
   exit.y = SPACING.edge + 52
   view.addChild(exit)
 
-  // "Hämta senaste" – grindad förälder-knapp som tvingar fram nyaste versionen.
-  // Liten pill nere i högra hörnet vars etikett ÄR versionsnumret ("v1.00", se
-  // docs/DESIGN.md §9) — så föräldern med en blick ser om uppdateringen slog igenom.
+  // "Hämta senaste" – ETT tryck hämtar nyaste versionen. Liten pill nere i högra hörnet
+  // vars etikett ÄR versionsnumret ("v1.00", se docs/DESIGN.md §9) — så föräldern med en
+  // blick ser om uppdateringen slog igenom.
+  //
+  // ⚠️ INGEN GRIND OCH INGEN BEKRÄFTELSE här, till skillnad från kugghjulet och dörren.
+  // P0 GRIND räknar upp inställningar/avsluta/ta bort/nollställ/länkar — en uppdatering är
+  // inget av det: den tar inte bort något, den nollställer ingenting, och spardatan ligger
+  // kvar. Grinden plus dialogen gjorde det till fyra moment (håll 2,5 s → bekräfta → …),
+  // och föräldern gjorde det ändå två gånger i rad för att det inte fungerade. Träffar ett
+  // barn pillen händer i värsta fall en omstart — och står appen redan på senaste versionen
+  // laddas sidan inte ens om, den säger bara till.
   const update = new Button({
     label: services.appVersion?.() || 'v?',
     width: 124,
@@ -110,25 +118,30 @@ export async function createMenuScreen(services) {
   update.alpha = 0.85
   view.addChild(update)
 
+  let letar = false
   async function onForceUpdate() {
-    const ok = await gate.open({ title: 'Hämta senaste versionen' })
-    if (!ok) return
-    const yes = await confirmDialog(services.gateLayer, services, {
-      title: 'Hämta senaste versionen? Appen startas om.',
-      yes: 'Uppdatera',
-      no: 'Avbryt',
-      yesColor: COLORS.teal,
-    })
-    if (!yes) return
+    // Dubbeltryck ska inte starta två sökningar — den andra hade hittat en SW som redan
+    // installerar och sett ut som "inget nytt".
+    if (letar) return
+    letar = true
+    update.setEnabled(false)
     services.toast?.('Letar efter senaste versionen…')
     save.flush()
     try {
-      const res = await services.forceUpdate?.()
-      // Vid 'updating'/'reloaded' laddas sidan om av sig själv; detta är bara en fallback-avi.
-      if (res === undefined) services.toast?.('Uppdatering ej tillgänglig')
+      const res = await services.forceUpdate?.((steg) => {
+        // Installationen kan ta tiotals sekunder (84 spel med ljud precachas). Utan den här
+        // avin ser en fungerande uppdatering ut som en död knapp.
+        if (steg === 'laddar') services.toast?.('Laddar ner uppdateringen…', { duration: 6 })
+        if (steg === 'byter') services.toast?.('Startar om med nya versionen…')
+      })
+      // 'updating' laddar om sidan av sig själv.
+      if (res === 'aktuell') services.toast?.('Du har redan senaste versionen')
+      else if (res === undefined) services.toast?.('Uppdatering ej tillgänglig')
     } catch {
       services.toast?.('Kunde inte uppdatera nu')
     }
+    letar = false
+    update.setEnabled(true)
   }
 
   async function onExit() {

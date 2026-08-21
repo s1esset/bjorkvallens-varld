@@ -116,6 +116,8 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_glodkandidat.mjs [--spara]` | tjänar additiv glöd spelet? `glod()` på spelets EGEN botten, växelvis add/normal (vinst · vitklippning · kroma), med två kända fall som kontrollrader |
 | `node scripts/_textprobe.mjs` | skriver något spel om en `Text` varje bildruta? (BitmapText-kandidater — svaret var noll) |
 | `node scripts/_installningsbild.mjs` | skärmdump av inställningsskärmen — **ingen testkörning öppnar den**, så panelgeometri syns bara här |
+| `node scripts/_grindprobe.mjs` | föräldragrindens utvägar i tal OCH bild: avbryt-ytan ur `getBounds()` mot P0 · tryck utanför/på kortet · att hållkravet inte försvagats · versionspillens grind |
+| `node scripts/_uppdatprobe.mjs --arm head\|fix` | **hur många RUNDOR tills appen hämtar en ny version?** Kräver ett riktigt bygge + `vite preview` — dev-servern har ingen service worker. Bygger om mitt i körningen och läser entry-chunkens namn |
 | `node scripts/kenney-sfx.mjs <Audio-katalog>` | importera CC0-ljud → `public/audio/sfx/` |
 
 ## Var kunskapen finns (ladda vid behov — läs inte allt i förväg)

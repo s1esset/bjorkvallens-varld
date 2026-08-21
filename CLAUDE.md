@@ -51,9 +51,13 @@ EXIT-SÄKERT   spelaren kan lämna mitt i en animation → _alive-flagga + feedb
 Appen ligger publikt på **<https://s1esset.github.io/bjorkvallens-varld/>** (repo `s1esset/bjorkvallens-varld`).
 Varje push till `master` publicerar via `.github/workflows/deploy.yml` — kör `npm run deploy`, som
 vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldrarnas installationssida
-är `public/start.html` → `…/start.html`. `npm run serve` är **bara lokalt** — utan HTTPS finns
-ingen PWA-install, ingen service worker och inget uppdateringsflöde att prova. (Tailscale-vägen
-togs bort 2026-08-15.)
+är `public/start.html` → `…/start.html`. (Tailscale-vägen togs bort 2026-08-15.)
+⚠️ **Rättat 2026-08-21:** raden här sa att inget PWA-flöde går att prova lokalt. Det gäller
+**LAN-adressen** — men `localhost` är en säker kontext, så `npm run build && npx vite preview
+--port 4173` ger en RIKTIG service worker med precache och hela uppdateringsvägen. Det var så
+ÅTGÄRDER #14 gick att mäta (`_uppdatprobe.mjs`). Install-prompten kräver fortfarande HTTPS.
+⚠️ `npm run serve` startas från **PowerShell** — kör man den via Bash-verktyget faller
+`start.ps1` på ett teckenkodningsfel (tankstrecket i en `Write-Error`-sträng).
 
 Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grönt):
 

@@ -86,6 +86,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_kastprobe.mjs` | `mata-munnen`s KAST: tröskel · åldersspärr · ansats · träffandel · svep utan tunnling · exit mitt i flykten — 4 kontrollarmar före mätarmarna |
 | `node scripts/_frysprobe.mjs [--tuggor 60]` | **fastnar ansiktet?** matar pappa N gånger och läser riggens tillstånd: SPÖKMIN (synlig lapp som inte är `_aktivMin`) · eviga tweens som läcker · blinkar han fortfarande · matade dragen honom alls. Kräver ≥40 tuggor för att nå mättnaden |
 | `node scripts/_tweenprobe.mjs` | vad `tween.parent` betyder i gsap (levande · väntande · färdig · dödad) — **utan webbläsare**. Hela ringbuffertens filter vilar på den |
+| `node scripts/_riggprobe.mjs [--sek N]` | bär `Karaktar._tw` taket 48 i verklig lek? (max · komprimeringar · **väntande tweens som HEADs mätare tappade**) — skugglista med båda predikaten på SAMMA tween-ström |
 | `node scripts/_silprobe.mjs [--bild]` | ansiktets träffyta mot fotots kontur: **falsk yta OCH missat ansikte** (ett mått åt bara ett håll rankar en oändligt liten yta som bäst) |
 | `node scripts/silhuett.mjs [--person]` | skriver konturen rad för rad till `manifest.geometri.silhuett` (körs av `ansikte.mjs`; fristående för ett redan klippt manifest) |
 | `node scripts/_minprobe.mjs [--bild]` | vad KOSTAR en min, och hur mycket av lappen bär information? (skillnad mot referensen per tröskel + bbox + GPU-tal). Svaret var **12 %** — diff-beskärning är ingen besparing |
@@ -96,6 +97,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_stillaprobe.mjs [id…]` | **står spelet stilla när barnet inte gör något?** urvalssåll över hela registret. Kör i TRE svep — bara tal som håller i alla tre är ett fynd |
 | `node scripts/_vilkaprobe.mjs <id>` | **VILKA noder rör sig** (storlek · typ · väg). `_stillaprobe` säger bara HUR MÅNGA — kör den här innan du bygger något på ett stillhetstal |
 | `node scripts/_navprobe.mjs [BxH]` | skärmbyten: riktning · cremeblänk mitt i övergången · fastnar routern? |
+| `node scripts/_bytprobe.mjs [--spel id]` | hur länge lever det gamla spelet in i nästa skärm? (tryck → monterad → riven, med `voice.say/cancel` + `stopAllLoops` i fönstret) |
 | `node scripts/_perspektivprobe.mjs` | läses badet som en SIDOVY? ytlinje · golv under karet · fötter mot golvet · ankan i ytan · vattnet innanför porslinet |
 | `node scripts/_repprobe.mjs` | verlet-repet: vilolängd · fästpunkt · mjukt stopp · golv · spänd lina — **utan webbläsare** |
 | `node scripts/_mjukprobe.mjs` | mjuka kroppar: håller formen · sjunker när de mjuknar · knuff · exit — **utan webbläsare** |

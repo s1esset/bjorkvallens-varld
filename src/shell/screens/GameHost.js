@@ -147,8 +147,24 @@ export async function createGameHost(services, params) {
   view.scale.set(1.06)
   gsap.to(view.scale, { x: 1, y: 1, duration: ANIM.enter.duration, ease: 'power3.out' })
 
+  // Har omgången redan tystats av `Nav.go()`? Se `destroy()` — flaggan avgör om rivningen
+  // fortfarande får röra rösten, och vid rivningen är rösten någon annans.
+  let pausad = false
+
   return {
     view,
+    // Skalet river den här skärmen först när övergången glidit klart. `Nav.go()` kallar
+    // `pause()` i stället direkt vid trycket, så omgången inte låter vidare ovanpå nästa
+    // skärm (ÅTGÄRDER V18). Bara det som HÖRS och det som kan HÄNDA tystas — tickern rullar
+    // vidare, för bilden ska glida undan levande.
+    pause() {
+      pausad = true
+      if (timers.size) diag('timer', 'dodade-vid-paus', { antal: timers.size })
+      for (const t of timers) t.kill()
+      timers.clear()
+      voice.cancel()
+      audio.stopAllLoops()
+    },
     destroy() {
       gsap.killTweensOf(view.scale)
       // Döda omgångens fördröjda anrop FÖRE spelets egen städning, så inget hinner
@@ -165,6 +181,11 @@ export async function createGameHost(services, params) {
       }
       endGame('exit')
       assets.unloadBundle(game.bundle)
+      // ⚠️ BARA om ingen paus hunnit före. Rivningen sker 270–285 ms efter trycket (uppmätt,
+      // `_bytprobe`), och då talar NÄSTA skärm sedan 270 ms — dess replik startar 1–3 ms in.
+      // `voice.cancel()` här kapade alltså den nya skärmens mening mitt i, varje gång barnet
+      // lämnade ett spel. Kvar som skyddsnät för en väg som river utan att pausa.
+      if (pausad) return
       voice.cancel()
       // Kontinuerliga ljud (kranen, fläkten) hör till OMGÅNGEN. Ett spel som glömmer att
       // stoppa sin slinga — eller vars `destroy` kraschar ovan — hade annars låtit vidare

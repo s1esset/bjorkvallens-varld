@@ -39,10 +39,31 @@ export class Nav {
     const holder = this.ctx.screenHolder
     const old = this.current
 
+    // Den gamla skärmen rivs först när undanglidningen är klar — uppmätt **280 ms** efter
+    // trycket (`scripts/_bytprobe.mjs`, ÅTGÄRDER V18). Under hela det fönstret körde förut
+    // spelomgångens timers, dess röst och dess ljudslingor vidare OVANPÅ nästa skärm, som
+    // redan monterats och redan börjat tala. `pause()` låter skärmen tystna i det ögonblick
+    // barnet trycker.
+    // ⚠️ ORDNINGEN ÄR HELA POÄNGEN: nästa skärm säger sin replik redan i sin FABRIK (uppmätt
+    // 2–3 ms efter trycket), och `voice.say()` kapar det som låter. Ligger pausen efter
+    // fabriken är det alltså den NYA repliken `voice.cancel()` sköljer bort. Före fabriken
+    // blir ordningen rätt: spelet tyst → nästa skärms replik startar.
+    // ⚠️ Bilden rörs INTE. Undanglidningen är Navs egen gsap-tween och spelets ticker lämnas
+    // igång med flit — den gamla skärmen ska glida undan levande, precis som den mättes.
+    // Enkelriktat: efter `pause()` följer alltid `destroy()`, aldrig en återgång.
+    try {
+      old?.pause?.()
+    } catch (err) {
+      console.warn('Fel vid paus av skärm', err)
+    }
+
     let next
     try {
       next = await factory(this.services, params)
     } catch (err) {
+      // Den gamla skärmen är redan pausad här — den står kvar men tyst. Vägen hit är redan
+      // trasig (skärmen gick inte att bygga), och att låta ljudet komma tillbaka vore att
+      // gissa att omgången fortfarande är spelbar.
       console.error('Kunde inte skapa skärm', name, err)
       this._busy = false
       return

@@ -50,6 +50,8 @@ const HAKA = () => {
         const h = async (...arg) => {
           const s = await f(...arg)
           window.__spar.push({ t: nu(), vad: 'monterad:' + namn })
+          const q = s.pause?.bind(s)
+          if (q) s.pause = (...x) => { window.__spar.push({ t: nu(), vad: 'pausad:' + namn }); return q(...x) }
           const d = s.destroy?.bind(s)
           s.destroy = (...x) => { window.__spar.push({ t: nu(), vad: 'riven:' + namn }); return d?.(...x) }
           return s
@@ -85,6 +87,11 @@ try {
     const mont = s.find((x) => x.vad.startsWith('monterad:'))
     console.log(`\n  ${etikett}`)
     for (const x of s) console.log(`    +${String(x.t - t0).padStart(4)} ms  ${x.vad}${x.text ? '  "' + x.text + '"' : ''}`)
+    // DOMSLUTET: kapas den NYA skärmens replik? Allt `voice.cancel` som kommer EFTER dess
+    // egen `say` (och inte är sayens egen inbyggda cancel) sköljer bort en mening barnet hör.
+    const nySay = s.find((x) => x.vad === 'voice.say')
+    const kap = nySay ? s.filter((x) => x.vad === 'voice.cancel' && x.t > nySay.t + 5) : []
+    console.log(`    → NYA REPLIKEN: ${nySay ? '"' + nySay.text + '" @+' + (nySay.t - t0) + ' ms' : '(ingen)'} · kapad av ${kap.length} senare cancel${kap.length ? ' (+' + kap.map((x) => x.t - t0).join(', +') + ' ms) ⚠️' : ''}`)
     console.log(`    → fönster tryck→rivning: ${riven ? riven.t - t0 : '?'} ms · ny skärm uppe efter ${mont ? mont.t - t0 : '?'} ms`)
     return riven ? riven.t - t0 : null
   }

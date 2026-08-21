@@ -24,7 +24,7 @@ const haka = (page) => page.evaluate(async () => {
   if (g.__hakad) return 'redan hakad'
   for (const namn of ['to', 'from', 'fromTo']) {
     const orig = g[namn].bind(g)
-    g[namn] = (...a) => { const tw = orig(...a); try { tw.__fodd = new Error().stack } catch {} return tw }
+    g[namn] = (...a) => { const tw = orig(...a); try { tw.__fodd = new Error().stack; tw.__t = performance.now() } catch {} return tw }
   }
   g.__hakad = true
   window.__gsap = g
@@ -41,7 +41,7 @@ const spoken = (page) => page.evaluate(() => {
       if (t && typeof t === 'object' && t.destroyed === true) {
         const falt = Object.keys(tw.vars || {}).filter((k) => !['ease', 'onUpdate', 'onComplete', 'onRepeat', 'repeat', 'yoyo', 'duration', 'delay', 'overwrite', 'immediateRender', 'parent', 'data', 'callbackScope'].includes(k))
         const rad = (tw.__fodd || '').split('\n').find((l) => /\/src\//.test(l)) || '(okänd födelse)'
-        ut.push(`${t.constructor?.name}{${falt.join(',')}}${typeof tw.repeat === 'function' && tw.repeat() === -1 ? ' EVIG' : ''}  ←  ${rad.trim()}`)
+        ut.push(`${t.constructor?.name}{${falt.join(',')}} fodd@${Math.round(tw.__t || -1)}${typeof tw.repeat === 'function' && tw.repeat() === -1 ? ' EVIG' : ''}  ←  ${rad.trim()}`)
       }
     }
   }
@@ -50,6 +50,9 @@ const spoken = (page) => page.evaluate(() => {
 
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+  const UT = process.argv.includes('--ut') ? process.argv[process.argv.indexOf('--ut') + 1] : 'library'
+  await page.addInitScript((u) => { globalThis.__ut = u }, UT)
+  console.log(`  utgång: ${UT}`)
   page.on('pageerror', (e) => {
     const k = (e.message || '').slice(0, 90)
     sedda.set(k, (sedda.get(k) || 0) + 1)
@@ -75,8 +78,35 @@ try {
     const g = (await import('/src/games/registry.js')).getGame('borsta-tanderna')
     const orig = g.destroy.bind(g)
     window.__destroyFel = []
+    window.__spar = []
+    const om = g.mount.bind(g)
+    g.mount = (...a) => {
+      const r = om(...a)
+      window.__spar.push(`mount@${Math.round(performance.now())} borste=${Math.round(g._borste?.view?.x ?? -1)},${Math.round(g._borste?.view?.y ?? -1)}`)
+      return r
+    }
     g.destroy = (...a) => {
+      window.__spar.push(`destroy@${Math.round(performance.now())} borste=${Math.round(g._borste?.view?.x ?? -1)},${Math.round(g._borste?.view?.y ?? -1)}`)
       try { return orig(...a) } catch (e) { window.__destroyFel.push(String((e && e.stack) || e).slice(0, 400)); throw e }
+    }
+    const v = window.__barnspel.voice
+    for (const n of ['say', 'cancel']) {
+      const o = v[n].bind(v)
+      v[n] = (...a) => { window.__spar.push(`voice.${n}@${Math.round(performance.now())} ${String(a[0] || '').slice(0, 30)}`); return o(...a) }
+    }
+    const DC = (await import('/src/lib/DragController.js')).DragController
+    const oc = DC.prototype.clear
+    DC.prototype.clear = function (...a) {
+      const G = window.__gsap
+      const vyer = this.items.map((r) => r.view)
+      const fore = vyer.map((v) => G.getTweensOf(v).length)
+      const r = oc.apply(this, a)
+      const alla = G.globalTimeline.getChildren(true, true, true)
+      const cont = alla.filter((t) => (typeof t.targets === 'function' ? t.targets() : []).some((x) => x && x.constructor && /Container/.test(x.constructor.name)))
+      const beskriv = (o) => o ? `${o.constructor.name}${o.destroyed ? ':RIVEN' : ''} x=${Math.round(o.x)} y=${Math.round(o.y)} far=${o.parent?.constructor?.name || 'INGEN'}` : 'null'
+      window.__spar.push(`clear@${Math.round(performance.now())} item=${beskriv(vyer[0])} tweensPaItem=${fore[0]}`)
+      for (const t of cont) window.__spar.push('  livTween fodd@' + Math.round(t.__t || -1) + ' vars=' + Object.keys(t.vars).join(',') + ' mal=' + beskriv(t.targets()[0]) + ' rad=' + ((t.__fodd || '').split(String.fromCharCode(10)).find((l) => l.indexOf('/src/') >= 0) || '?').trim())
+      return r
     }
   })
 
@@ -107,12 +137,13 @@ try {
 
   // SLÄPPET LÅNGT FRÅN MUNNEN, och ut ur spelet direkt efteråt.
   await page.mouse.up()
-  await page.evaluate((id) => window.__barnspel.nav.go('game', { id }), ID)
+  await page.evaluate(() => window.__barnspel.nav.go(globalThis.__ut || 'library'))
   await page.waitForTimeout(1800)
   console.log(`  efter släpp + omladdning · fel ${antal()}`)
   for (const s of await spoken(page)) console.log('    SPÖKE: ' + s)
 
   console.log('  destroy kastade: ' + JSON.stringify(await page.evaluate(() => window.__destroyFel || []), null, 1))
+  console.log('  spar: ' + JSON.stringify(await page.evaluate(() => window.__spar || []), null, 1))
 
   console.log('\n  FEL:')
   for (const [m, n] of sedda) console.log(`  ×${n} ${m}`)

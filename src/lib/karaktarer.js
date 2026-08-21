@@ -370,8 +370,14 @@ export class Karaktar {
   // växer listan hela spelpasset: ett humörbyte är fem tweens och ett blink ett till,
   // så ett tio minuters pass hade lagt tusentals döda referenser på hög. Ingen krasch,
   // bara minne som aldrig lämnas tillbaka.
+  // ⚠️ Mätaren MÅSTE vara `t.parent`, inte `t.isActive()`. `isActive()` är falsk för en
+  // VÄNTANDE tween (fördröjd, eller ett steg som köar i en timeline) — filtret kastade
+  // alltså ut precis de tweens som ÄNNU inte hunnit skriva något, och `destroy()` såg dem
+  // aldrig igen. `parent` är sann för löpande OCH väntande, falsk för både färdiga och
+  // dödade (läge för läge i `scripts/_tweenprobe.mjs`). Samma rättning finns redan i
+  // `Ansikte._track` och `badrum.js:211`. Inget dödas här — listan komprimeras bara.
   _track(tw) {
-    if (this._tw.length > 48) this._tw = this._tw.filter((t) => t && t.isActive?.())
+    if (this._tw.length > 48) this._tw = this._tw.filter((t) => t?.parent)
     this._tw.push(tw)
     return tw
   }
@@ -396,7 +402,11 @@ export class Karaktar {
     // här — allt annat i riggen fångades av sin egen rad. Så länge ingen kund använde
     // `look()` syntes hålet inte alls.
     for (const nod of [this.ogon, this.mun, this.huvud, this.bal, ...(this.pupiller || []), ...(this.armar || []), ...(this.bryn || [])]) {
-      if (nod && !nod.destroyed) gsap.killTweensOf(nod)
+      if (!nod || nod.destroyed) continue
+      gsap.killTweensOf(nod)
+      // Blink och humörbyten tweenar `.scale`, inte noden — och `killTweensOf(nod)` når
+      // inte det objektet. Samma rad finns sedan tidigare för `view.scale` nedan.
+      if (nod.scale) gsap.killTweensOf(nod.scale)
     }
     if (this.view && !this.view.destroyed) {
       gsap.killTweensOf(this.view)

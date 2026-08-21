@@ -14,6 +14,66 @@ Format:
 
 ---
 
+## 2026-08-21 · v1.235.0 · V17/V18 stängda + tre ägarrapporter om SKALET (publicerat)
+
+**Byggt:** ingen spelkod alls — hela passet låg i **delad kod och skalet**, och fyra av fem
+fynd handlade om att en mätning saknades, inte om att en fix saknades.
+
+**Commits:** `37243a0` fix(karaktarer) · `27e2448` docs(atgarder) · `67a5ff9` docs(claude) ·
+`21edf89` fix(skal) V18 · `2bb9ead` fix(skal) ägarrapporterna · `95ea904` docs · `7d8abc0` docs(claude)
+— **publicerat på Pages** (bygg 37 s, publicera 11 s, båda gröna).
+
+**V17 höll inte som den var skriven.** Rubriken (spöktweens som skriver på rivna Pixi-noder)
+gick inte att återskapa på någon **spelbar** väg — den krävde sondens egen sekvens, och
+mekanismen bakom felen är Navs mount-före-destroy (→ V18), inte `_snapHome`. `DragController`
+lämnades orörd. Kvar stod bokföringsfelet i `Karaktar._track` (`isActive()` är falsk för en
+VÄNTANDE tween), rättat till `t?.parent` + `killTweensOf(nod.scale)` i `destroy()`.
+**Premissen mättes med `_riggprobe.mjs` (ny)** — en skugglista med HEADs predikat vid sidan av
+den riktiga, så båda mätarna ser samma tween-ström i samma körning: taket 48 nås bara i **1 av
+4 spel** (`elementlekplatsen` max 49; `balanstornet` 16, `borsta-tanderna` 23, `leksakslada` 32),
+och 120 s hård lek där tappar 11 väntande tweens — men `missadeAvHead = 0` och
+`kvarEfterRivning = 0` vid **varje** exit. **Rätt bokföring till noll kostnad, mätt effekt på
+läckan 0.**
+
+**V18 visade sig vara en kapad replik, inte bara en efterhängsen ljudslinga.** `_bytprobe.mjs`
+(ny) tidsstämplade skärmbytet: nästa skärm är monterad och talar **1–3 ms** efter trycket,
+medan `GameHost.destroy()` — timers, `voice.cancel()`, `stopAllLoops()` — kör först vid
+**273–283 ms**. Den sena `voice.cancel()` sköljde alltså bort bibliotekets *"Välj ett spel!"*
+**varje gång barnet lämnade ett spel**. Fix: `Nav.go()` kallar `old.pause?.()` **före** fabriken
+(ordningen är hela poängen — en paus efter fabriken hade kapat den NYA repliken i stället), och
+`GameHost.pause()` tystar timers/röst/slingor men lämnar **tickern igång** så bilden glider
+undan levande. Växelvis A/B: **HEAD kapade i 3 av 3 armar, fixen 0 av 3**; kontrollarmen
+meny→bibliotek läser 0 i båda. `_navprobe` grön i båda armarna.
+
+**Tre ägarrapporter från speltestet, alla mätta mot HEAD innan en rad skrevs:**
+⓵ *"måste uppdatera två gånger i rad"* — orsaken satt i **vite-plugin-pwa**: i prompt-läge
+fästs omladdningslyssnaren först INNE i `showSkipWaitingPrompt`, som körs på workbox
+`waiting`-händelsen, alltså samma stund som `pending` sätts. Första trycket skickade SKIP_WAITING
+utan att någon lyssnade på `controlling` — arbetaren bytte, sidan gjorde det inte. Plus en
+**4-sekundersgräns** mot **1 911 precachade filer / 35 MB**. `forceUpdate()` äger nu hela kedjan
+själv. Uppmätt: **HEAD 2 rundor, fixen 1**, och det nya bygget körs verkligen
+(`index-DkOOqngJ.js` → `index-BGwsrB8B.js`).
+⓶ *"ska gå på ett enkelt tryck"* — grind + bekräftelsedialog borta från versionspillen
+(P0 GRIND räknar upp inställningar/avsluta/ta bort/nollställ/länkar; en uppdatering är inget av
+det). Hittas ingen ny version laddas sidan inte längre om — den säger till.
+⓷ *"avbryt-knappen är för liten, barnet blir fast"* — uppmätt träffyta **112×28 px** mot P0:s
+≥96. Nu en riktig knapp **300×112 px**, och tryck **utanför** kortet stänger också. Kortet fick
+`eventMode = static` så ett tryck PÅ det inte faller igenom till bakgrunden.
+
+**Två sidofynd som rättades i CLAUDE.md:** PWA-flödet **går** att mäta lokalt — `localhost` är
+en säker kontext, så `npm run build && npx vite preview --port 4173` ger en riktig service
+worker (påståendet om motsatsen gällde LAN-adressen). Och `npm run serve` måste startas från
+PowerShell; via Bash-verktyget faller `start.ps1` på ett teckenkodningsfel.
+
+**Öppet:**
+- **Plattan behöver troligen två rundor EN sista gång** — den kör fortfarande det gamla bygget
+  med den gamla knappen. Snabbaste vägen förbi: stäng appen helt och starta om från
+  hemskärmen, så aktiverar `applyPendingUpdateAtMenu()` den väntande arbetaren av sig själv.
+- V16 (`destroy({ children: true })` river inte `GraphicsContext`, 251 anrop i 89 filer) står
+  kvar orörd — blastradien är fortfarande **omätt**, och det är villkoret för att röra den.
+- V10 (48 nollade `restitution` på statiska kroppar i 19 spel) står kvar som avsiktlig skuld.
+- Ingen spelfil rördes, så inget `docs/games/<id>.md` eller indexstatus ändrades.
+
 ## 2026-08-20 (sen kväll) · v1.232.0 · `borsta-tanderna` KRITIKERRUNDAN körd och åtgärdad
 
 **Byggt:** steg 6–7 i `/spel`. Kritikern spelade spelet som ett krävande 3-åring och dömde

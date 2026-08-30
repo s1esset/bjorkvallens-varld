@@ -53,7 +53,15 @@ den lägger föremålet snett. `ceremoni.js` går runt den, `lib/` är orört ti
 står kvar i planens §4. Uppehållsmätningen (`takt/spak`) är igång och är underlaget för §4b —
 men talet måste komma ur ägarens eget speltest, inte ur harnessens tidtabell.
 
-**Commits:** `8440b1f`.
+**Commits:** `8440b1f` · `cd0abf0`.
+
+**Nästa steg (ägarens instruktion vid sessionsavslut):** kör `/simplify` på `unika-knytt`,
+med **högst 2 agenter** — och bara om uppgiften tjänar på dem. De fem filerna skrevs i ETT
+pass av fyra parallella byggare som inte såg varandras kod, så duplicerade rithjälpare, egna
+klamp/lerp-funktioner som redan finns i `lib/`, och tre stavningar av samma städ-loop
+(`stadNod` · `stadKnytt` · `stadTrad`) är de mest sannolika fynden. Grinden är redan grön —
+`/simplify` är kvalitet, inte buggjakt. Därefter `/felsok unika-knytt`, eftersom
+`spelkritiker`-steget stoppades i det här passet och spelet aldrig fått en oberoende kritik.
 
 ## ÅÅÅÅ-MM-DD · v<version>
 **Byggt:** vad som gjordes, i klartext

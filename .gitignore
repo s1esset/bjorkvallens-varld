@@ -27,3 +27,8 @@ old/
 # ansiktsriggens mellanfiler (klippet byggs om med npm run ansikte)
 .tmp-ansikte/
 .tmp-ljud/
+
+# Kits Library (CC0) — 547 MB rå källkonst, ligger LOKALT och committas aldrig.
+# Det som faktiskt används plockas ut nedskalat till public/ per spel.
+# Se docs/BACKLOG.md #4.
+assets-src/kits-library-assets-main/

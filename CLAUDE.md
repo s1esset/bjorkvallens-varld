@@ -401,3 +401,9 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   Workflows och deep-research kräver alltid att ägaren ber om det.
 - **Assets utifrån:** bara CC0 (Kenney m.fl.), aldrig CC-BY — appen har ingen credits-yta.
   Allt bäddas in offline; P0 ALDRIG gäller nätanrop vid körning.
+  **Lokalt bildbibliotek:** `assets-src/kits-library-assets-main/` — Kits Library, CC0, ~2 300
+  PNG+SVG-par i 14 kit (mat · natur · interiör · medeltid · rymd · vinter · pirat …). Ligger
+  **ospårat och committas aldrig** (547 MB). Det som ska användas plockas ut, skalas ner till
+  webp och committas under `public/bilder/<kit>/` — se `docs/BACKLOG.md` #4 för mätningarna,
+  stilkrocken (3/4-vy + inbakad markskugga mot appens platta front-/sidovy) och de assets som
+  bär varumärkeslika märken och alltså ska sorteras bort.

@@ -13,6 +13,64 @@ Nyast överst. Status: ⬜ ej påbörjad · 🟨 pågår · ✅ klar (raden stry
 
 ---
 
+## 4. Kits Library — CC0-bildbibliotek som ligger lokalt 🟨
+
+*Inlagt 2026-08-30. Ägaren har bestämt lagringen: **råkittet ligger kvar lokalt i sin katalog
+och committas aldrig; det som faktiskt används plockas ut till en egen mapp när det används.**
+Raden står som 🟨 för att första uttaget inte är gjort — inte för att något väntar på ett beslut.*
+
+`assets-src/kits-library-assets-main/` · **CC0 1.0** · 547 MB · ospårad via `.gitignore`.
+
+**Vad som finns.** 16 kataloger, ~2 300 PNG+SVG-par. Två är inte kit: `example-worlds/`
+(13 webp-kompositioner) och `terrain-kit/`. De övriga:
+
+| | | | |
+|---|---|---|---|
+| medieval 347 | nature 314 | interior 285 | terrain 227 |
+| space 170 | cyberpunk 158 | pirate 146 | halloween 133 |
+| city 123 | ruins 106 | food 98 | winter 88 |
+| western 85 | dungeon 78 | barbieland 53 | |
+
+**Uttagsvägen.** Plocka ut → skala ner → webp → `public/bilder/<kit>/` → ladda som bundle via
+`services/AssetService.js`, med `import.meta.env.BASE_URL` som bas precis som `lib/ansikte.js`
+gör (Pages ligger på underväg — en absolut sökväg bryter). Bara det ett spel faktiskt använder
+committas.
+
+**Mätt 2026-08-30, inte gissat:**
+
+- **Vikten är inget hinder.** Hela food-kittet (98 föremål) nedskalat till 256 px webp väger
+  **680 KB**, median 3 KB per fil. Rå-PNG för samma kit är 6,7 MB. Det som är tungt är
+  `city-kit` (119 MB, enstaka filer på 4,5 MB) — skala ALLTID ner, kopiera aldrig rått.
+- **Filantalet är den verkliga kostnaden, inte megabyten.** Precachen ligger redan på ~1 900
+  filer mot en mätt 4-sekundersgräns för installationen (se minnet *PWA-uppdatering krävde två
+  tryck*). `globPatterns` i `vite.config.js:56` fångar webp, så varje uttagen fil hamnar i
+  precachen. Håll uttagen små och per spel.
+- **Stilkrocken är verklig och riktningsberoende.** Kittet är mjukt skuggat, rundat och matt i
+  **3/4-vy med en inbakad markskugga**; appen är platt front-/sidovy. Mat och lösa föremål
+  transfererar bra — träd, möbler och byggnader ser ditsatta ut. Skuggan går att stryka: den
+  ligger som separata `<ellipse>` + filter i SVG:n.
+- **Läsbarheten i småformat är kittets starkaste kort.** Kittets mat mot `pizzabageriet`s
+  nuvarande ingredienshylla i samma höjd (86 px) är ingen jämn match — appens egna ikoner
+  försvinner (strösslet är nästan osynligt), kittets läser direkt.
+
+**Två fallgropar.**
+
+1. **Varumärken.** CC0 täcker uttryckligen *inte* varumärken, och några assets bär
+   varumärkeslika märken — en Coca-Cola-liknande läskburk, en "ROBOTOS"-sirapsflaska, ett
+   chokladomslag med "R". De ska sorteras bort vid uttaget.
+2. **Food-kittet lutar mot godis.** Munkar, glass, klubbor och läsk dominerar; av riktiga
+   råvaror finns bara en handfull (äpple, morot, tomat, jordgubbe, körsbär, majs, kokos).
+   Räkna inte med att kittet ensamt kan klä ett spel om att äta riktig mat.
+
+**Var det troligen tjänar mest.** Matspelen — `pizzabageriet`, `hamburgerbygget`,
+`mata-munnen`, `mata-monstret` — där vinsten är mätbar och 3/4-projektionen spelar minst roll.
+Det vore också appens FÖRSTA `Sprite`/`Texture` i ett spel: `docs/LYFTPLAN.md:21` räknar dem
+till **0** idag, allt är procedurell `Graphics`. Vägen är byggd och bevisad (`AssetService` +
+`lib/ansikte.js` laddar 33 webp), men den är oprövad i gameplay — och ett sprite-föremål kan
+inte deformeras som en `Graphics` kan, vilket flera fysikspel bygger på.
+
+---
+
 ## 1. Publicera appen via GitHub så telefonen slipper min dator ✅
 
 *Inlagd 2026-08-09, **klar 2026-08-15**. Ägaren sa ja till publikt repo med öppna ögon om

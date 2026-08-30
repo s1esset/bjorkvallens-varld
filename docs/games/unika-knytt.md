@@ -3,7 +3,10 @@
 > roligt · tap · 2–5 · 📝
 > Status: ⬜ ej granskat · 📝 doc skriven (plan klar) · 🔧 förbättringar pågår · ✅ marknadsklar
 
-⬜ **Inte byggt ännu.** Det här är planen som skrivs FÖRE koden (husregeln i `docs/PIPELINE.md`).
+✅ **Leverans 1 byggd 2026-08-30 (v1.237.0).** Verkstan, kupan, de fem maskindelarna, spaken,
+ceremonin F0–F5, fyrknacks-kläckningen, "världen kommer ut", knyttet med femlägesriggen, hyllan
+med de tre senaste och persistensen ligger i koden. **Leverans 2 (sällsynthet · foil · Knyttboden)
+är INTE byggd** — se §4. Planen nedan står kvar som skriven; §5 bär vad som faktiskt hände.
 Källmaterialet — ägarens Gemini-konversation — ligger kvar orört i
 [`_kalla-unika-knytt.md`](_kalla-unika-knytt.md). Den är råmaterial, aldrig plan: dess
 gränssnittslager är byggt för en annan produkt (stående telefon, 3–8 år, reglage, gyroskop,
@@ -626,7 +629,28 @@ samling-först). Planen är en syntes: maskinvokabulären ur den första, kupans
 sällsynthetsetiken ur den andra, den INTERAKTIVA degfasen ur den tredje, den levande hyllan ur
 den fjärde. Ingen kod skriven.`
 
-⬜ **Inte byggt. Inte testat. Aldrig speltestat av ett barn.**
+`2026-08-30 · LEVERANS 1 BYGGD (v1.237.0), 5 201 rader över fem filer: index.js 780 ·
+dna.js 426 · knytt.js 1218 · kupan.js 1282 · ceremoni.js 1495. Fyra parallella byggare mot ett
+i förväg spikat exportkontrakt, en ägare per fil; index.js skrevs av orkestratorn eftersom
+check.mjs bara läser den och alla grindregler biter där.
+**Grind:** check --game strikt 0 fel/0 varningar · test 0 konsolfel, 0 fynd, bildkoll ren.
+**Hela loopen körd med egna tryck** (harnessens nio rör aldrig spaken — layout-invarianten i
+§1b höll): spak → ceremoni → ägg vid 11,4 s → fyra knackningar → kläckning 14,2 s → setCustom
++ complete + stjärna 15,9 s → namnet "Flisa" sagt 18,0 s. 0 fel.
+**Mätt:** morfen deg→ägg landar 0,09 px från en Mjukkropp byggd direkt på äggformen;
+kontrollarmen utan `_kant` gav kvot 1,01 (nästan rund) — specen bekräftad. Städhjälparen:
+18 levande tweens på barnbarn efter killTweensOf(roten)+destroy → 0 med stadKnytt.
+dna._sanity(): 500 frön ur samma recept → 500 unika, 0 kollisioner.
+**Fyra fel som bara bilden/loggen hittade, alla rättade:** spakens kvadrantplåt lästes som ett
+LIEBLAD (tunn skära i järnton → fylld mässingssektor) · takbjälken slutade i luften (konsoler +
+genomgående bjälke) · skalhalvorna ritades i äggets fulla 390 px mot ett 110 px knytt (0,72×) ·
+en KÖAD replik ("Knacka en gång till") fyrade EFTER kläckningen och trängde undan belöningsraden
+(`_sag` tar nu en fas-vakt och kastar repliken om spelet gått vidare).
+**Uppehållsmätningen är igång** (`takt/spak` i .test-logs) — underlaget för §4b-beslutet om
+Skrället. Harnessens egen rytm gav 2,55 s, vilket är HARNESSENS tidtabell och inte ett barns:
+talet måste läsas ur ägarens eget speltest innan Skrället byggs eller avfärdas.
+**Öppet:** V19 i docs/ATGARDER.md (`Mjukkropp.tyngdpunkt` är inte en tyngdpunkt — ceremoni.js
+går runt den, `lib/` är orört). Aldrig speltestat av ett barn.`
 
 ## 6. Teknisk ritning
 

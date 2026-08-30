@@ -927,11 +927,24 @@ class Knytt {
     return this
   }
 
+  // `delay` läggs på LJUDMOTORNS egen klocka (AudioService._tone gör `o.start(currentTime +
+  // delay)` och sparar noden ingenstans), så varken `destroy()`, `stadKnytt()` eller
+  // `audio.stopAllLoops()` når den: tryckte barnet på ett knytt i ett bo och sedan på
+  // hem-knappen spelade upp till 0,5 s av motivet vidare på menyn, utan bild. `_senare` är
+  // `ctx.later` och dör med omgången — samma mönster som `_vakna` redan använder nedan.
+  // Första tonen går direkt, så återkopplingen ligger kvar under 100 ms (P0).
   _spelaMotiv() {
     const motiv = Array.isArray(this._dna.motiv) ? this._dna.motiv : []
     for (let i = 0; i < motiv.length; i++) {
       const f = tal(motiv[i], 0)
-      if (f > 40) this._ljud?.tone?.({ freq: f, dur: 0.17, type: 'triangle', vol: 0.15, delay: i * 0.11 })
+      if (f <= 40) continue
+      const spela = () => this._ljud?.tone?.({ freq: f, dur: 0.17, type: 'triangle', vol: 0.15 })
+      if (i === 0) spela()
+      else if (this._senare) {
+        this._senare(i * 0.11, () => { if (this._alive && !this.view.destroyed) spela() })
+      } else {
+        this._ljud?.tone?.({ freq: f, dur: 0.17, type: 'triangle', vol: 0.15, delay: i * 0.11 })
+      }
     }
   }
 

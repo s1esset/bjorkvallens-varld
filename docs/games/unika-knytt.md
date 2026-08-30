@@ -652,6 +652,111 @@ talet måste läsas ur ägarens eget speltest innan Skrället byggs eller avfär
 **Öppet:** V19 i docs/ATGARDER.md (`Mjukkropp.tyngdpunkt` är inte en tyngdpunkt — ceremoni.js
 går runt den, `lib/` är orört). Aldrig speltestat av ett barn.`
 
+`2026-08-30 · /felsok — tio fel hittade och rättade, alla verifierade före fix. Två sonder
+byggda (`_pekprobe.mjs` · `_spakprobe.mjs`) plus `_knyttbild.mjs` för födelsebilderna.
+Genomgående mönster: **fyra parallella byggare byggde varsin halva av samma mekanism och
+ingen kopplade ihop dem.**
+
+**1. Fingret nådde aldrig fram (index.js).** `this._pekare` sattes till null i `init()` och
+skrevs sedan aldrig, medan TRE moduler läser den varje bildruta: kupans blobb följer fingret
+med blicken, knyttet räknar fingerrörelse som liv, ceremonin räknar om koordinaten åt knyttet
+den håller. Hela vägen fanns byggd och omatad. Uppmätt med `_pekprobe`: pupillsvängning
+**0,00 px** och `_pekare` satt i **0/48** prov → efter fixen **8,04 px** av ett tak på 9,2,
+med den stillastående musen kvar på 0,00 som kontrollarm. Följdfälla som `felsokare` fångade
+i tid: `knytt._blicka` gör `toLocal(p, view.parent)`, och efter `_tillBanken` bor knyttet i
+`bar` på (800,470) — en rå designkoordinat hade låst blicken i ett hörn. `_knyttPekare()`
+räknar därför om per förälder; ceremonin gjorde redan rätt åt sitt håll.
+
+**2. Spaken var en tyst, verkningslös träffyta i två faser (index.js).** `byggSpak.onTap` har
+ingen egen återkoppling alls — allt ljud och all rörelse ligger i `dra()` — men träffytan står
+`static` i ALLA faser. I `klacka` och `avtack` returnerade `_spakTryckt` bara. Värst i
+`avtack`, för där SÄGER spelet högt "Tryck på spaken igen så gör vi ett nytt knytt!". Uppmätt
+med `_spakprobe` (varje tal har en kontrollrad bredvid sig): trycket LANDADE på spaken
+(egen lyssnare, träff 1) men gav **0 ljud över tomgången, armrörelse 0,000 och oförändrad fas**
+— medan ett tryck på BAR GOLV i samma fas kvitterade. Nu: `avtack` stänger rundan som rösten
+lovar, `klacka` kvitterar och pekar tillbaka på ägget. ⚠️ Första försöket införde en egen bugg
+som sonden fångade: `avtack` börjar redan vid kläckningen, och att nollställa där (före
+`_tillBanken`, 2,6 s efter 'klar') **kastade bort knyttet barnet just gjort**. Rundan stängs
+därför bara när knyttet faktiskt står på bänken.
+
+**3. Dammpuffen yrde vid fel bo (index.js).** Flygturen gick till `BO_X[antal − 1]`, puffen
+till `BO_X[HYLLA_MAX − 1]` — de två första knytten landade tyst i ett bo medan dammet yrde
+240 px bort, vid ett tomt.
+
+**4. `locka()` fanns aldrig (kupan.js).** `this._spak?.locka?.()` i vilohjälpens steg 2–3
+anropade en metod `byggSpak` aldrig exporterat; `?.` svalde den tyst. Handpiktogrammet svävade
+över en spak som stod blick stilla, precis när barnet fastnat.
+
+**5. Föremål ramlade ner i den TÖMDA kupan (kupan.js).** `laggIn('varld')`s callback på 0,34 s
+hade bara en `dod`-vakt. Trycker barnet på spaken inom 0,34 s har `tomma()` redan nollat
+`antal` — callbacken lade då tillbaka ett träd i den kupa barnet just sett tömmas, och
+eftersom `_aterstall` anropar `setVal` med OFÖRÄNDRAD värld byggs props aldrig om: föremålet
+stod kvar hela nästa omgång. `tomKupa`-vakt tillagd i både callbacken och `nyttKorn`.
+
+**6. Vädret slocknade mitt i luften (kupan.js).** Löv/snö/gnista faller 34–60 px/s och behöver
+248–278 px till marken, men `liv: 4` räcker till högst 240 — **inget** korn nådde någonsin
+marklinjen. Alla 14 försvann i SAMMA bildruta (samma liv, samma dt) vid full opacitet. Bara
+regnet (150–210 px/s) fungerade. Kornen tonar nu ut sista 0,4 s. Att i stället låta dem landa
+prövades och valdes bort: `liv: 9` driver antalet i luften över taket 64 när två snömoln matar
+samtidigt, och då hade en vevvridning kunnat ge INGET väder alls — sämre än en mjuk uttoning.
+
+**7. Fisken poppade upp i stället för att ramla in (kupan.js).** Infallstweenen skriver
+`nod.y`, men `tick()` äger `nod.x/y` för rörelsen 'simmar' och skrev över den varje bildruta.
+En `faller`-flagga pausar tickens skrivning under tweenens halvsekund.
+
+**8. Knyttet fick två skuggor, och lämnade en kvar (ceremoni.js).** `foderKnytt` ritade en
+skugga i `knyttHall` medan `Knytt` redan ritar sin egen i `view`. `_tillBanken` flyttar
+`knytt.view` till bänken — och lämnade ceremonins skugga kvar som en mörk fläck på världens
+gräs tills barnet tryckt hem knyttet. Verifierat i bild (`_knyttbild.mjs`): en skugga vid
+födelsen, ingen kvarlämnad vid bänken.
+
+**9. Storleken räknades TVÅ gånger (ceremoni.js).** `r = 92 · storlek` skickades till en rigg
+som skalar med `storlek` själv (`_bas` → `_skala.scale.set`), alltså 92·s². Barnet ställde in
+storlek på bälgen och fick ett annat knytt än förhandsvisningen visade. `index.js:_ritaHylla`
+skickade redan `r: 40` utan faktor — anropsställena var oense, och hyllan hade rätt. Mätt
+ISOLERAT (samma dna, bara storlek varierad — höjden mellan levande varv är inte jämförbar,
+nytt frö ger andra öron och horn): `höjd/storlek` konstant inom **0,2 %** och spannet
+**1,62×**, exakt vad kupans blobb lovar. Före fixen hade spannet varit 2,63×.
+
+**10. Andra spaktrycket var ljud utan bild (ceremoni.js).** Efter FAS[4] (5,3 s) gör
+`hoppaTillFall()` bara `kachunk()` — ren ljudkod — och hoppar inte i tidslinjen. Trycket på
+skärmens största röda föremål gav ett ljud och noll bild i över en sekund (P0 ÅTERKOPPLING).
+Kvittot i bild är nu ovillkorligt, av samma skäl som `skynda()` puffar även när taket är slut.
+
+**Plus:** knyttets fyrtonsmotiv låg på `tone({ delay })`, alltså på ljudmotorns EGEN klocka,
+som varken `destroy()`, `stadKnytt()` eller `stopAllLoops()` når — tryck på ett knytt i ett bo
+och sedan hem-knappen spelade upp till 0,5 s vidare på menyn. Går nu via `_senare` (`ctx.later`),
+med första tonen kvar direkt för P0:s 100 ms. Två per-bildruta-kostnader borta: `malaKorn()`
+gjorde `clear()` + omritning varje bildruta även med tom lista (Pixis `GraphicsContext.clear()`
+har ingen tom-vakt), och `[ogonV, ogonH]` allokerade en array per bildruta.
+
+**Grind:** `check` (hela appen) 0 fel/0 varningar · `test unika-knytt` 0 konsolfel · exit mitt
+i ceremonin 0 konsolfel · `_idleprobe` 0 (spelet klarar sig inte självt).
+
+**MEDVETET INTE ÅTGÄRDAT — kandidater för `/polera`:**
+- **Hornvarianten `krona` kan aldrig ritas.** `knytt.js` har fyra horn, `dna.js:318` kan bara
+  producera 0–2. Reproducerat oberoende över 20 000 frön: `[12367, 4834, 2799, 0]` (vingarna
+  når alla tre). Inte rättat här: att tända en ritväg som ALDRIG renderats är innehåll, inte
+  en buggfix, och den behöver en bildgranskning först. `dna.js:120-126` äger ordningen på de
+  övriga deltabellerna men listar varken HORN eller VINGAR — det är därför de kunde glida isär.
+- **`VARLDAR[].rekvisita` i `dna.js` listar fem id:n som inte finns i `kupan.js` REKVISITA**,
+  och fältet läses av ingen (`kupan.js` och `ceremoni.js` slår båda upp via världsnyckeln).
+  Dött fält med fel innehåll — en fälla för nästa ändring, ingen körningseffekt idag.
+- **`dna.js:200`s doc-rad säger att `val.r` väljer motivform**, men `dnaFromSeed` läser aldrig
+  `val.r` — `r` härleds ur fröet. Sparpostens plats 5 bär ett tal ingen läser. Ingen
+  körningseffekt (individen återskapas rätt ändå).
+- **Sömntrösklarna (12 s → sömnig, 20 s → sover) motsäger §1 "De fem slingorna"** (20 s → sömnig,
+  12 s till → sover). Kodens egen kommentar följer koden. Vilken som är gällande spec är en
+  fråga till ägaren, inte en fix.
+- **`ritaDeg()` allokerar ~75 objekt per bildruta** under F2+F3 (~225 bildrutor). Omätt —
+  `.test-logs` når aldrig ceremonin. Mät med `_fpsprobe --cpu 6` innan något ändras.
+- **Dött tillstånd** i ceremoni.js (`morf`, `halvor`, `ur`/`sistKnack`, getterna `fas`/`lage`)
+  och knytt.js (`this.bredd`/`this.hojd`, som kostar en `getLocalBounds()` per bygge inklusive
+  hyllans tre vid varje `_ritaHylla`). Städning, inte fel — hör till `/simplify`.
+- **Läget `'lekfull'` nås aldrig** — `setLage('lekfull')` anropas från ingenstans, så kroppen
+  som lutar efter fingret och öron/svans ×2,5 kan inte inträffa. Byggd men aldrig kopplad, som
+  fynd 1 — men att koppla in den är ett designval om NÄR den ska gälla, inte en buggfix.`
+
 ## 6. Teknisk ritning
 
 ### Filer

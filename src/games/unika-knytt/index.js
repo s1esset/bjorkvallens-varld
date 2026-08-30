@@ -99,6 +99,10 @@ export default {
     this._hintSteg = 0
     this._valGjorda = 0
     this._pekare = null
+    this._pekPunkt = { x: 0, y: 0 }
+    this._pekGlobal = { x: 0, y: 0 }
+    this._knyttPunkt = { x: 0, y: 0 }
+    this._knyttYta = null
     this._tick = null
     this._losa = []
     this._eviga = []
@@ -120,6 +124,11 @@ export default {
       .fill({ color: COLORS.brown, alpha: 0.001 })
     this._fangare.eventMode = 'static'
     this._fangare.on('pointertap', (e) => this._tomtTryck(ctx, e))
+    // Fingret matar TRE moduler genom `_uppdatera`: kupans blobb följer det med blicken,
+    // knyttet räknar fingerrörelse som liv (och somnar utan den), ceremonin räknar om
+    // koordinaten åt knyttet den håller. Utan den här raden står `this._pekare` kvar på
+    // null och alla tre får aldrig veta något — hela vägen fanns byggd men omatad.
+    this._fangare.on('globalpointermove', (e) => this._flyttaPekare(e))
     this._rot.addChild(this._fangare)
 
     this._rum = this._byggRum(ctx)
@@ -381,6 +390,27 @@ export default {
 
   // ---------------------------------------------------------------- input
 
+  // Skrivs i _rot:s koordinater — samma rum som kupan, ceremonin och knyttet räknar i.
+  // Punkten återanvänds så bildrutan inte allokerar.
+  _flyttaPekare(e) {
+    if (!this._alive || !e?.global) return
+    const r = this._rot
+    if (!r || r.destroyed) return
+    this._pekGlobal.x = e.global.x
+    this._pekGlobal.y = e.global.y
+    this._pekare = r.toLocal(e.global, undefined, this._pekPunkt)
+  },
+
+  // Knyttet läser pekaren i sin FÖRÄLDERS rymd — `_blicka` gör `toLocal(p, view.parent)`.
+  // Ceremonin räknar redan om åt sitt håll (`pekare − knyttHall`), men efter `_tillBanken`
+  // bor knyttet i `bar` på (800,470): en rå designkoordinat skulle peka 800/470 px fel och
+  // låsa blicken i ett hörn i stället för att följa fingret.
+  _knyttPekare() {
+    const par = this._knytt?.view?.parent
+    if (!this._pekare || !par || par.destroyed) return null
+    return par.toLocal(this._pekGlobal, undefined, this._knyttPunkt)
+  },
+
   _tomtTryck(ctx, e) {
     this._vakna()
     const p = e?.global ? this._rot.toLocal(e.global) : { x: 640, y: 360 }
@@ -440,6 +470,30 @@ export default {
       // Utfallet är redan rullat, så ingenting står på spel.
       this._cer?.hoppaTillFall()
       ctx.services.audio.sfx('whoosh')
+      return
+    }
+    // `byggSpak.onTap` har INGEN egen återkoppling — allt ljud och all rörelse ligger i
+    // `dra()`. Spakens träffyta står däremot kvar `static` i varje fas, så varje gren som
+    // bara `return`:ar gör den till en tyst, verkningslös träffyta (P0 dod-traffyta).
+    if (this._fas === 'avtack') {
+      // Och just här SÄGER spelet högt "Tryck på spaken igen så gör vi ett nytt knytt!" —
+      // då måste spaken också göra det.
+      const yta = this._knyttYta
+      if (yta && !yta.destroyed) {
+        this._hemTillBoet(ctx, yta)
+        return
+      }
+      // ...men bara när knyttet FÖRESTÅR på bänken. Fas 'avtack' börjar redan vid
+      // kläckningen, och fram till `_tillBanken` (2,6 s efter 'klar') är knyttet varken
+      // sparat eller framme: att nollställa där kastar bort det barnet just gjort.
+      // Världen strömmar dessutom fortfarande ut — finalen ska inte gå att avbryta.
+      kvittera(ctx.fxLayer, SPAK_X, SPAK_Y - 60, ctx.services.audio)
+      return
+    }
+    if (this._fas === 'klacka') {
+      // Ägget är uppgiften — spaken gör ingenting nu, men den kvitterar och pekar tillbaka.
+      kvittera(ctx.fxLayer, SPAK_X, SPAK_Y - 60, ctx.services.audio)
+      this._visaHand(AGG_X, AGG_Y - 96)
       return
     }
     if (this._fas !== 'bygga') return
@@ -600,25 +654,33 @@ export default {
     yta.on('pointertap', () => this._hemTillBoet(ctx, yta))
     this._rot.addChild(yta)
     this._losa.push(yta)
+    this._knyttYta = yta
     ctx.later(1.6, () => this._sag(ctx, 'Tryck på spaken igen så gör vi ett nytt knytt!'))
   },
 
   _hemTillBoet(ctx, yta) {
-    if (!this._alive) return
+    if (!this._alive || !this._knyttYta) return
+    // Nollas FÖRST: knyttets egen träffyta och spaken pekar båda hit, och ett andra anrop
+    // skulle starta om flygturen mitt i den första.
+    this._knyttYta = null
     yta.eventMode = 'none'
     const k = this._knytt
     ctx.services.audio.sfx('whoosh')
     if (k && !k.view.destroyed) k.glad()
     const bar = this._knyttNod
+    // Boets index räknas EN gång: dammpuffen låg på BO_X[HYLLA_MAX - 1] medan flygturen
+    // gick till BO_X[antal - 1], så de två första knytten landade tyst i ett bo medan
+    // dammet yrde 240 px bort, vid ett tomt.
+    const bo = Math.min(this._hyllData.length, HYLLA_MAX) - 1
     if (bar && !bar.destroyed) {
       gsap.to(bar, {
-        x: BO_X[Math.min(this._hyllData.length, HYLLA_MAX) - 1],
+        x: BO_X[bo],
         y: BO_Y,
         duration: 0.7,
         ease: 'power2.in',
         onComplete: () => {
           if (!this._alive) return
-          puff(ctx.fxLayer, BO_X[HYLLA_MAX - 1], BO_Y, { count: 8, color: 0xffe6a8 })
+          puff(ctx.fxLayer, BO_X[bo], BO_Y, { count: 8, color: 0xffe6a8 })
           this._aterstall(ctx)
         },
       })
@@ -639,6 +701,7 @@ export default {
     this._knyttNod = null
     for (const n of this._losa) if (!n.destroyed) n.destroy()
     this._losa.length = 0
+    this._knyttYta = null
     this._cer?.destroy()
     this._cer = null
     this._klar = false
@@ -759,7 +822,7 @@ export default {
 
     this._kupa?.tick(dt, this._pekare)
     this._cer?.tick(dt, this._pekare)
-    this._knytt?.tick(dt, this._pekare)
+    this._knytt?.tick(dt, this._knyttPekare())
     for (const b of this._bon) b.knytt?.tick(dt, null)
 
     if (nu - this._sistAktiv > HINT_S * 1000) this._viloHjalp(ctx)

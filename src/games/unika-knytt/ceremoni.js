@@ -1210,16 +1210,22 @@ export function byggCeremoni(opts = {}) {
 
   function foderKnytt() {
     if (!dnaNu) return
-    const r = 92 * klam(dnaNu.storlek ?? 1, 0.5, 1.6)
+    // `Knytt` skalar SJÄLV med `dna.storlek` (knytt.js:615 `_bas` → `_skala.scale.set`), så
+    // en storleksfaktor även här multiplicerade in den TVÅ gånger: ritad radie blev 92·s²
+    // och spannet 2,63× medan blobben i kupan lovar 1,62× (STORLEKAR 0,74–1,20). Barnet
+    // ställde in en storlek på bälgen och fick ett annat knytt än förhandsvisningen visade.
+    // index.js:_ritaHylla skickade redan `r: 40` UTAN faktor — anropsställena var oense.
+    const r = 92
+    // Effekterna ska däremot sitta vid knyttets SYNLIGA topp, och den är 92·s.
+    const synligR = r * klam(dnaNu.storlek ?? 1, 0.5, 1.6)
     knyttHall = new Container()
     knyttHall.position.set(AGG.x, KNYTT_Y)
     knyttHall.eventMode = 'none'
     figurLag.addChild(knyttHall)
 
-    const skugga = new Graphics().ellipse(0, 6, r * 0.72, r * 0.2).fill({ color: 0x000000, alpha: 0.17 })
-    skugga.eventMode = 'none'
-    knyttHall.addChild(skugga)
-
+    // Ingen skugga här: `Knytt` ritar sin egen i `view` (knytt.js:684), och den FÖLJER MED
+    // när index.js:_tillBanken flyttar `knytt.view` till bänken. En skugga på hållaren blev
+    // dubbel under födseln och lämnades sedan kvar som en mörk fläck på världens gräs.
     knytt = byggKnytt(dnaNu, { r, senare: senareRa, audio })
     if (knytt?.view) knyttHall.addChild(knytt.view)
 
@@ -1227,8 +1233,8 @@ export function byggCeremoni(opts = {}) {
     // Reser sig ur skalhalvan. bounceIn äger `scale` på HÅLLAREN; knyttets egen rigg
     // summerar sina egna skalärer på sina egna innernoder, så de kan aldrig krocka.
     bounceIn(knyttHall, { duration: 0.55 })
-    sparkle(fx, AGG.x, KNYTT_Y - r, { count: 8 })
-    burst(fx, AGG.x, KNYTT_Y - r * 0.6, { count: 14, colors: ton.stoft })
+    sparkle(fx, AGG.x, KNYTT_Y - synligR, { count: 8 })
+    burst(fx, AGG.x, KNYTT_Y - synligR * 0.6, { count: 14, colors: ton.stoft })
 
     strax(0.5, () => {
       knytt?.setLage?.('glad')
@@ -1382,6 +1388,12 @@ export function byggCeremoni(opts = {}) {
   function hoppaTillFall() {
     if (!levande || lage !== 'ceremoni') return
     kachunk(true)
+    // Kvittot i BILD är ovillkorligt, av samma skäl som `skynda()` puffar även när dess tak
+    // är slut: `kachunk` är rent ljud, spakens `onTap` ritar ingenting, och efter FAS[4]
+    // (5,3 s) hoppar tidslinjen inte heller — trycket på skärmens största röda föremål gav
+    // då ett ljud och noll bild i över en sekund (P0 ÅTERKOPPLING kräver ljud OCH bild).
+    ripple(fx, AGG.x, AGG.y, { color: ton.stoft?.[0] ?? 0xffd8a0 })
+    puff(fx, AGG.x, AGG.y + 30, { count: 6, color: ton.stoft?.[0] ?? 0xffe6a8 })
     if (t < FAS[4].t) t = FAS[4].t - 0.02
   }
 

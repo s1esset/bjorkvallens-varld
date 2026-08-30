@@ -433,6 +433,7 @@ export function byggKupa(opts = {}) {
   }
   byggOga(ogonV)
   byggOga(ogonH)
+  const OGON = [ogonV, ogonH]   // hoistad: `[ogonV, ogonH]` i tick() var en array per bildruta
 
   // --- tillstånd ---
   const val = { f: 0, z: 1, m: 0, v: 0, g: 0 }
@@ -448,6 +449,7 @@ export function byggKupa(opts = {}) {
   let pekX = 0
   let pekY = -30
   let tomKupa = false
+  let kornRitade = false
 
   // ---- färg och skalärer ----
   function raknaSkalarer() {
@@ -684,9 +686,13 @@ export function byggKupa(opts = {}) {
       // faller in genom kragen och landar
       const y0 = nod.y
       nod.y = -R_INRE - 20
+      post.faller = true
       gsap.to(nod, {
         y: y0, duration: 0.5, ease: 'back.out(1.4)',
-        onComplete: () => { if (!dod && !nod.destroyed) squash(inner, { intensity: 0.7 }) },
+        onComplete: () => {
+          post.faller = false
+          if (!dod && !nod.destroyed) squash(inner, { intensity: 0.7 })
+        },
       })
       nod.scale.set(p.skala * 0.7)
       gsap.to(nod.scale, { x: p.skala, y: p.skala, duration: 0.4, ease: 'back.out(2)' })
@@ -741,7 +747,9 @@ export function byggKupa(opts = {}) {
 
   // ---- korn (regn, snö, väder som ramlar in) ----
   function nyttKorn(x, y, typ) {
-    if (korn.length > 64) return
+    // Samma skäl som i laggIn('varld'): under tömningen ska ingenting ramla ner i kupan.
+    // Gnistpaketets callback landar också efter ett snabbt spaktryck.
+    if (korn.length > 64 || tomKupa) return
     korn.push({
       x, y, typ,
       vx: typ === 'sno' ? (Math.random() - 0.5) * 14 : (Math.random() - 0.5) * 5,
@@ -749,13 +757,19 @@ export function byggKupa(opts = {}) {
       liv: 4,
     })
   }
+  // Kornen tonar ut sista 0,4 s av sin livstid. Utan det slocknar de med FULL opacitet:
+  // löv/snö/gnista faller 34–60 px/s och hinner aldrig till marken (de behöver 248–278 px
+  // men `liv: 4` räcker till högst 240), så alla 14 försvann i samma bildruta mitt i luften
+  // — samma liv och samma dt ger exakt samma dödsögonblick. Bara regnet (150–210 px/s) når
+  // marklinjen och togs bort av y-villkoret som det var tänkt.
   function malaKorn() {
     kornG.clear()
     for (const k of korn) {
-      if (k.typ === 'regn') kornG.roundRect(k.x - 1.4, k.y - 7, 2.8, 14, 1.4).fill({ color: 0xbfe6ff, alpha: 0.85 })
-      else if (k.typ === 'sno') kornG.circle(k.x, k.y, 3).fill({ color: 0xffffff, alpha: 0.95 })
-      else if (k.typ === 'lov') kornG.ellipse(k.x, k.y, 5, 3).fill({ color: 0x7ec46a, alpha: 0.95 })
-      else kornG.star(k.x, k.y, 4, 4.5, 1.8).fill({ color: 0xfff3b0, alpha: 0.95 })
+      const a = Math.min(1, k.liv * 2.5)
+      if (k.typ === 'regn') kornG.roundRect(k.x - 1.4, k.y - 7, 2.8, 14, 1.4).fill({ color: 0xbfe6ff, alpha: 0.85 * a })
+      else if (k.typ === 'sno') kornG.circle(k.x, k.y, 3).fill({ color: 0xffffff, alpha: 0.95 * a })
+      else if (k.typ === 'lov') kornG.ellipse(k.x, k.y, 5, 3).fill({ color: 0x7ec46a, alpha: 0.95 * a })
+      else kornG.star(k.x, k.y, 4, 4.5, 1.8).fill({ color: 0xfff3b0, alpha: 0.95 * a })
     }
   }
 
@@ -867,7 +881,12 @@ export function byggKupa(opts = {}) {
       const typ = ['lov', 'regn', 'sno', 'gnista'][val.v]
       for (let i = 0; i < 14; i++) nyttKorn((Math.random() - 0.5) * 110, -R_INRE - 8 - Math.random() * 30, typ)
       senare(0.34, () => {
-        if (dod) return
+        // `tomKupa` MÅSTE vaktas här: trycker barnet på spaken inom 0,34 s har `tomma()`
+        // redan nollat `antal` och rensat föremålen, och den här callbacken lade då
+        // tillbaka ett träd i den kupa barnet just sett tömmas. Eftersom `_aterstall`
+        // anropar setVal med OFÖRÄNDRAD värld byggs props aldrig om — föremålet stod
+        // kvar hela nästa omgång.
+        if (dod || tomKupa) return
         if (antal[val.v] < SLOT.length) {
           antal[val.v] += 1
           laggProp(antal[val.v] - 1, true)
@@ -929,6 +948,10 @@ export function byggKupa(opts = {}) {
     // föremålens egna rörelser (utöver liv()s gupp)
     for (const p of props) {
       const r = p.def.rorelse
+      // `faller` är infallstweenens halvsekund. Utan den vakten skriver raderna nedan
+      // `nod.x/nod.y` varje bildruta OVANPÅ tweenen — fisken (rörelse 'simmar') ramlade
+      // aldrig in genom kragen som de andra föremålen, den bara poppade upp på sin plats.
+      if (p.faller) continue
       if (r === 'snurr') p.inner.rotation += dt * 0.55
       else if (r === 'driver') p.nod.x = p.wx + Math.sin(tid * 0.42 + p.fas * 6.28) * 22
       else if (r === 'simmar') {
@@ -947,7 +970,15 @@ export function byggKupa(opts = {}) {
       k.liv -= dt
       if (k.y > MARK_Y + 6 || k.liv <= 0) korn.splice(i, 1)
     }
-    malaKorn()
+    // Förändringsvakt: Pixis GraphicsContext.clear() har ingen tom-vakt — den sätter
+    // `dirty` och sänder 'update' även med noll instruktioner, så en ovillkorlig
+    // clear+omritning byggde om kontexten varje bildruta också när kornlistan var tom
+    // (vilket den är i de flesta bildrutorna). En sista omritning krävs när listan
+    // NYSS tömdes, annars blir sista kornet stående kvar.
+    if (korn.length || kornRitade) {
+      malaKorn()
+      kornRitade = korn.length > 0
+    }
     // gnistorna kretsar kring blobben
     for (const g of gnistor) {
       g.fas += dt * g.fart
@@ -957,7 +988,7 @@ export function byggKupa(opts = {}) {
       g.nod.scale.set(0.8 + Math.sin(g.fas * 2) * 0.2)
     }
     // ögonen följer fingret som en KLAMPAD vektor — pupillen kryper aldrig ur ögat
-    for (const oga of [ogonV, ogonH]) {
+    for (const oga of OGON) {
       const ox = blobb.x + oga.x * blobb.scale.x
       const oy = blobb.y + oga.y * blobb.scale.y
       const dx = pekX - ox
@@ -1273,6 +1304,15 @@ export function byggSpak(opts = {}) {
     if (dod) return
     gsap.killTweensOf(arm)
     gsap.to(arm, { rotation: 0, duration: 0.6, ease: 'elastic.out(1, 0.6)' })
+  }
+
+  // Vilohjälpen i index.js (`_viloHjalp` steg 2–3) lockar med knoppen medan
+  // handpiktogrammet svävar över den. Den anropades som `this._spak?.locka?.()` mot en
+  // metod som aldrig exporterats — `?.` svalde anropet tyst, så handen pekade på en spak
+  // som stod blick stilla. Kommentaren där sa hela tiden att knoppen "studsar".
+  function locka() {
+    if (dod) return
+    pop(knopp, { scale: 1.12 })
   }
 
   function onTap() {

@@ -7,6 +7,62 @@ Format:
 
 ```
 
+## 2026-08-30 — Unika Knytt: /felsok · v1.238.0
+
+**Gjort:** granskning av `unika-knytt` (5 248 rader, fem filer) efter buggar. **Tio fel
+hittade och rättade**, alla verifierade före fix. Ingen ny funktionalitet.
+
+**Genomgående mönster:** spelet byggdes på en kväll av fyra parallella byggare med en ägare
+per fil, och felen ligger nästan alla i FOGARNA — en mekanism byggd i två halvor där ingen
+kopplade ihop dem. Tre av tio är exakt samma form: en färdig väg som aldrig matades
+(`_pekare`), en metod som aldrig exporterades (`locka`), en tabell vars andra halva aldrig
+kunde nås (hornet `krona`).
+
+**De två som barnet märkte mest:**
+- **`this._pekare` sattes till null i `init()` och skrevs aldrig** — medan tre moduler läser
+  den varje bildruta: kupans blobb följer fingret med blicken, knyttet räknar fingerrörelse
+  som liv, ceremonin räknar om koordinaten åt knyttet den håller. Uppmätt: pupillsvängning
+  **0,00 px**, `_pekare` satt i **0/48** prov → **8,04 px** av tak 9,2 efter fixen, med den
+  stillastående musen kvar på 0,00 som kontrollarm.
+- **Spaken var en tyst, verkningslös träffyta i fas `klacka` och `avtack`** — och i `avtack`
+  säger spelet högt "Tryck på spaken igen så gör vi ett nytt knytt!". Uppmätt: trycket
+  LANDADE på spaken men gav 0 ljud över tomgången, armrörelse 0,000 och oförändrad fas, medan
+  ett tryck på bart golv i samma fas kvitterade.
+
+**Metodanteckning värd att bära vidare:** sonden fångade en bugg i MIN EGEN fix. Första
+versionen lät spaken nollställa rundan i hela `avtack` — men fasen börjar redan vid
+kläckningen, 2,6 s före `_tillBanken`, och där hade den **kastat bort knyttet barnet just
+gjort**. Det syntes bara för att mätaren skrev ut ljudNAMN och inte bara ett antal:
+`_hemTillBoet`s `whoosh` saknades, alltså hade en annan gren körts. Ett rent antal hade sett
+grönt ut. Samma pass bar två andra mätfel som fångades i tid: ett ljudantal utan tomgång
+bredvid sig läste scenens egen bakgrund som ett svar från spaken, och knyttets höjd i ett
+LEVANDE varv går inte att jämföra mellan körningar (nytt frö = andra öron och horn) — den
+mätningen fick byggas om till samma dna med bara storleken varierad.
+
+**Resten:** dammpuff vid fel bo · föremål som ramlade ner i den tömda kupan och stod kvar
+nästa omgång · löv/snö/gnista som slocknade i luften vid full opacitet (de behöver 248–278 px
+till marken men hann högst 240) · fisken som poppade upp i stället för att ramla in (tick ägde
+`nod.y`) · knyttet som fick två skuggor och lämnade en kvar på gräset · storleken som räknades
+två gånger (spann 2,63× mot kupans utlovade 1,62×; isolerat mätt konstant inom 0,2 % efter
+fixen) · andra spaktrycket som gav ljud utan bild · knyttets motiv på `tone({ delay })` som
+spelade vidare på menyn efter exit · två per-bildruta-kostnader.
+
+**Sonder:** `_pekprobe.mjs` · `_spakprobe.mjs` (fas för fas, med tomgång och kontrollrader) ·
+`_knyttbild.mjs` (födelsebilder — harnessens nio tryck rör aldrig spaken, så ceremonins
+slutbild hade ingen mätare alls).
+
+**Grind:** `check` (hela appen) 0 fel/0 varningar · `test unika-knytt` 0 konsolfel · exit mitt
+i ceremonin 0 konsolfel · `_idleprobe` 0 · `build` grön.
+
+**Commit:** `efc0421 fix(unika-knytt): pekaren nadde aldrig fram, spaken var dod i tva faser`
+
+**Öppna trådar:** sex medvetet ej åtgärdade fynd står i `docs/games/unika-knytt.md` §5 som
+`/polera`-kandidater — hornet `krona` som aldrig kan ritas (0 av 20 000 frön), `dna.js`
+döda `rekvisita`-fält med fel id:n, `val.r` som doc:en säger läses men inte gör det,
+sömntrösklar som motsäger §1 (fråga till ägaren), `ritaDeg()`s ~75 allokeringar per bildruta
+(omätt), och läget `'lekfull'` som aldrig nås. Spelet är fortfarande aldrig speltestat av ett
+barn, och §4b:s uppehållsmätning väntar fortfarande på ägarens eget speltest.
+
 ## 2026-08-30 — Unika Knytt (leverans 1) · v1.237.0
 
 **Byggt:** `unika-knytt` — spelet nr 85, hela leverans 1 ur den plan som skrevs 2026-08-30.

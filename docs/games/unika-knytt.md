@@ -406,36 +406,6 @@ Det är den viktigaste designfrågan, eftersom repot redan HAR en procedurell va
 * **Namnen.** Ett genererat namn kan aldrig få ett röstklipp (`check.mjs` läser bara literaler).
   Narratorn får därför aldrig säga namnet — det står på plaketten, för förälderns skull.
 
-## 3c. Vad granskningen fällde (och som redan är rättat ovan)
-
-Åtta oberoende granskare läste designerna genom två linser — *ett barn som faktiskt spelar* och
-*P0 + byggrindarna*. Ingen design fick över 6,5 av 10 i första rundan. Det här är fynden som
-ändrade planen, bevarade så att ingen bygger tillbaka dem:
-
-| Fynd | Varför det var allvarligt | Rättat |
-|---|---|---|
-| **`skala()` raderar äggprofilen** | `Mjukkropp.skala()` räknar om `_kant`/`_eker` ur de orörda byggmåtten. Att både växa och lerpa i F3 ger en klump som aldrig blir ett ägg — utan ett enda konsolfel. | §6: väx display-nodens `scale`, aldrig `Mjukkropp.skala()`. |
-| **Vräkningen bröt spelets eget löfte** | "Bor hos dig" i samma stycke som en oåterkallelig radering utan grind. Och det fanns inget lagringsskäl. | §1: taket är 200, hyllan paginerar, ingenting tas bort. |
-| **Ingen vilohjälp i verkstan** | Hela belöningen ligger bakom att hitta spaken. Den här åldern letar inte av en skärm. | §1: tre stegs vilohjälp med samma handpiktogram som på ägget. |
-| **Loopen stängdes aldrig** | Ceremonin slutade på en annan skärm; barnet skulle känna igen en trälucka som *navigation* direkt efter spelets bästa 20 sekunder. | §1: knyttet klättrar upp på bänken, verkstan är alltid startskärmen. |
-| **Kupans tillstånd efter kläckning odefinierat** | På den enklaste läsningen öppnar runda 2 med full kupa → inget nytt kan läggas i → hela loopen död från spelomgång två. | §1: kläckningen tömmer kupan (världen åkte ju ut). |
-| **Kupan var ett lockbete** | Skärmens största, ljusaste föremål saknade verkan. En 2-årings hand går dit först. | §1: ett tryck på glaset rullar om fröet, synligt och komiskt. |
-| **Boden kunde öppna tom** | Fem flikar utan angivet förval: tre skogsknytt + fliken Vattnet = en tom sida. Exakt den frånvaro planen förbjuder överallt annars. | §1: "Alla" är första fliken och förval. |
-| **Ceremonin identisk och oavbrytbar** | Byte-identisk på kläckning 1 och 20; ett andra spaktryck gav en återvändsgränd. | §1: tryck kortar tidslinjen (tak 1,2 s), andra spaktrycket hoppar till äggfallet. |
-| **Skalan** | 3 500–4 500 rader mot `bygg-en-kompis` 1 834 för något enklare. Ryms inte i ett pass, och halvbyggt landar som 🔧. | §4: två leveranser, båda hela spel för ett barn. |
-| **Delvokabulären odesignad** | Åtta härledda axlar angivna som heltalsantal, utan en enda del beskriven. En byggare kan inte börja. | Kvarstår som **den största specluckan** — se §8 sista punkten. |
-
-Två fynd som blev förbättringar snarare än rättelser:
-
-* **Knyttets namn KAN sägas.** Planen antog att ett genererat namn aldrig kan få ett röstklipp.
-  Det stämmer för fritt genererad text — men en **fast tabell på 24 tvåstaviga namn** valda med
-  fröet är 24 literaler, och de kan alla ligga i `voice-phrases.json`. `VoiceService` slår upp
-  klipp på exakt text vid körning, och filen bär redan enordsposter. Alltså: `voice.say(NAMN[i])`
-  vid avtäckningen — barnet får **höra** vad det heter.
-* **Sömnen ska gå att orsaka.** Två osynliga timers (20 s + 12 s) är ingen mekanik. Kortare
-  (12 s + 8 s) och ett barnvänt handtag: ett tryck på nattmånen i kortets fond får knyttet att
-  gäspa och somna direkt; vilket tryck som helst väcker det.
-
 ## 3b. Sällsynthet — ägarens tal, husets etik
 
 Ägarens siffror ligger kvar exakt. Leveransen kopierar `roliga-snurran`s uttryckligen
@@ -477,6 +447,36 @@ dokumenterade och uppmätta anti-bandit-design.
 med tre metallpiedestaler (brons/silver/guld) i stället för tre separata flikar — se §8 fråga 1,
 där valet läggs fram för ägaren. Ett skimrande knytt syns i BÅDA sin världshylla och där, för ett
 gyllene snöknytt är fortfarande ett snöknytt och barnet letar där det bor.
+
+## 3c. Vad granskningen fällde (och som redan är rättat ovan)
+
+Åtta oberoende granskare läste designerna genom två linser — *ett barn som faktiskt spelar* och
+*P0 + byggrindarna*. Ingen design fick över 6,5 av 10 i första rundan. Det här är fynden som
+ändrade planen, bevarade så att ingen bygger tillbaka dem:
+
+| Fynd | Varför det var allvarligt | Rättat |
+|---|---|---|
+| **`skala()` raderar äggprofilen** | `Mjukkropp.skala()` räknar om `_kant`/`_eker` ur de orörda byggmåtten. Att både växa och lerpa i F3 ger en klump som aldrig blir ett ägg — utan ett enda konsolfel. | §6: väx display-nodens `scale`, aldrig `Mjukkropp.skala()`. |
+| **Vräkningen bröt spelets eget löfte** | "Bor hos dig" i samma stycke som en oåterkallelig radering utan grind. Och det fanns inget lagringsskäl. | §1: taket är 200, hyllan paginerar, ingenting tas bort. |
+| **Ingen vilohjälp i verkstan** | Hela belöningen ligger bakom att hitta spaken. Den här åldern letar inte av en skärm. | §1: tre stegs vilohjälp med samma handpiktogram som på ägget. |
+| **Loopen stängdes aldrig** | Ceremonin slutade på en annan skärm; barnet skulle känna igen en trälucka som *navigation* direkt efter spelets bästa 20 sekunder. | §1: knyttet klättrar upp på bänken, verkstan är alltid startskärmen. |
+| **Kupans tillstånd efter kläckning odefinierat** | På den enklaste läsningen öppnar runda 2 med full kupa → inget nytt kan läggas i → hela loopen död från spelomgång två. | §1: kläckningen tömmer kupan (världen åkte ju ut). |
+| **Kupan var ett lockbete** | Skärmens största, ljusaste föremål saknade verkan. En 2-årings hand går dit först. | §1: ett tryck på glaset rullar om fröet, synligt och komiskt. |
+| **Boden kunde öppna tom** | Fem flikar utan angivet förval: tre skogsknytt + fliken Vattnet = en tom sida. Exakt den frånvaro planen förbjuder överallt annars. | §1: "Alla" är första fliken och förval. |
+| **Ceremonin identisk och oavbrytbar** | Byte-identisk på kläckning 1 och 20; ett andra spaktryck gav en återvändsgränd. | §1: tryck kortar tidslinjen (tak 1,2 s), andra spaktrycket hoppar till äggfallet. |
+| **Skalan** | 3 500–4 500 rader mot `bygg-en-kompis` 1 834 för något enklare. Ryms inte i ett pass, och halvbyggt landar som 🔧. | §4: två leveranser, båda hela spel för ett barn. |
+| **Delvokabulären odesignad** | Åtta härledda axlar angivna som heltalsantal, utan en enda del beskriven. En byggare kan inte börja. | Kvarstår som **den största specluckan** — se §8 sista punkten. |
+
+Två fynd som blev förbättringar snarare än rättelser:
+
+* **Knyttets namn KAN sägas.** Planen antog att ett genererat namn aldrig kan få ett röstklipp.
+  Det stämmer för fritt genererad text — men en **fast tabell på 24 tvåstaviga namn** valda med
+  fröet är 24 literaler, och de kan alla ligga i `voice-phrases.json`. `VoiceService` slår upp
+  klipp på exakt text vid körning, och filen bär redan enordsposter. Alltså: `voice.say(NAMN[i])`
+  vid avtäckningen — barnet får **höra** vad det heter.
+* **Sömnen ska gå att orsaka.** Två osynliga timers (20 s + 12 s) är ingen mekanik. Kortare
+  (12 s + 8 s) och ett barnvänt handtag: ett tryck på nattmånen i kortets fond får knyttet att
+  gäspa och somna direkt; vilket tryck som helst väcker det.
 
 ## 4. Byggplan
 
@@ -904,7 +904,7 @@ själv), `_mjukprobe` (degen), `_vilkaprobe` (bevisa att det som rör sig i bode
 ⚠️ **Bygg inte sonden före spelet.** Uppmätt har en sond kostat fler rader än ändringen den
 mätte, och varit fel fyra gånger innan den var rätt.
 
-## 8. Beslut som ägaren ska ta innan bygget
+## 8. Ägarens beslut — alla tagna 2026-08-30
 
 **✅ 1. AVGJORD 2026-08-30 — boden blir en rullande popup som bara visar det man fått.**
 Ägarens svar löste frågan i stället för att välja mellan alternativen: hyllplan staplas nedåt

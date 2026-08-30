@@ -27,8 +27,8 @@ och varför står i **§2**.
 | **mottagare** | Bobo står vid spaken och sköter maskinen (rigg ur `lib/karaktarer.js`), och Knyttboden tar emot: alla tidigare knytt andas, blinkar, kvittrar till varandra och vinkar när barnet kommer tillbaka efter ett dygn. |
 | **finish** | Kläckningen: skalet klyvs i två halvor som far iväg med fjäderfysik, världen strömmar ut ur ägget och vecklar ut sig (mark, himmel, fyra rekvisita, partiklar), knyttet reser sig med `bounceIn` och gör tre glädjeskutt, och en ram svänger in BAKOM det. |
 | **motgång** | **Imman på glaset** — kupan immar långsamt igen (max 3 steg, hårt tak) så världen blir svårare att se. En ritad trasa hänger på sin krok: ett tryck och den sveper rent med ett gnissel. Saktar ner ~2 s, blockerar aldrig spaken, läker sig själv efter 20 s. Se §4. |
-| **sällsynthet** | Ägarens tal exakt: **guld 2 % · silver 5 % · brons 10 % · vanlig 83 %**, rullat FÖRE spaken dras. Stjärnstoftsburken höjer chansen synligt. Första kläckningen någonsin är garanterat brons. Ingen räknare, ingen procentsats, inga låsta siluetter. Vanliga knytt får något ett skimrande aldrig får. Se §3b. |
-| **samling** | **Knyttboden** — fyra världshyllor (Skogen · Vattnet · Snölandet · Stjärnnatten) + **Skimmerhyllan** med tre metallpiedestaler (brons/silver/guld). 8 bon per hylla. Knyttet är större än boet — en fågel i ett bo, aldrig ett föremål i en låda. |
+| **sällsynthet** | Ägarens tal exakt: **guld 2 % · silver 5 % · brons 10 % · vanlig 83 %**, rullat FÖRE spaken dras. Stjärnstoftsburken höjer chansen synligt, med tak +5 pp (17 % → 22 % skimmer; guld bara 2,00 → 2,50 %). Första kläckningen någonsin är garanterat brons. Ingen räknare, ingen procentsats, inga låsta siluetter. Vanliga knytt får något ett skimrande aldrig får. Se §3b. |
+| **samling** | **Knyttboden** — en RULLANDE POPUP som bara visar de knytt man FÅTT, aldrig tomma platser. Fyra världshyllor (Skogen · Vattnet · Snölandet · Stjärnnatten) + Skimmerhyllan; hyllplan staplas nedåt, 4 bon per plan, och ett plan finns först när det har ett knytt. Knyttet är större än boet — en fågel i ett bo, aldrig ett föremål i en låda. |
 
 **Röstrepliker**
 
@@ -234,11 +234,31 @@ och `breathe()` (äger scale) används därför ALDRIG på knyttriggen.
 ### Knyttboden
 
 En snidad trävägg med fem hängande skyltar, nådd genom bodluckan. Fyra världshyllor +
-**Skimmerhyllan**. 4×2 = **8 bon** per hylla.
+**Skimmerhyllan**.
+
+**Boden är en RULLANDE POPUP som bara visar det man fått** (ägarens beslut 2026-08-30, och det
+är den bästa enskilda ändringen i hela planen). Ett tryck på en skylt öppnar en overlay med
+hyllplan staplade nedåt, 4 bon per plan, som rullar. **Det finns inga tomma platser alls** —
+ett hyllplan existerar först när det har ett knytt, och listan slutar där samlingen slutar.
+
+Varför det löser mer än det ser ut att göra:
+* **FOMO försvinner vid roten.** Tidigare versioner brottades med tomma bon, låsta siluetter
+  och "12/50". Visar man bara det man HAR finns ingen frånvaro att visa. P0:s FOMO-förbud blir
+  uppfyllt av strukturen i stället för av en regel.
+* **8-taket försvinner.** Ingen paginering, inget trävred, ingen vräkning att ens fresta.
+  Samlingen växer nedåt så länge det finns knytt (taket 200 står kvar som lagringsgräns, och
+  200 × 27 byte = 5,4 KB).
+* **Skimmerhyllan blir ärlig.** Guldplanet finns inte förrän du har ett guldknytt — vilket är
+  exakt alternativ (c) i den gamla §8-frågan, men lösning i stället för kompromiss.
+
+⚠️ **Rullning under P0.** P0 förbjuder `snabbsvep-nav`, men `DESIGN.md` §8 tillåter mjukt
+axellåst drag på en INNEHÅLLSyta. Kopiera `LibraryScreen`: axellås vid ~12 px på
+`globalpointermove`, plus en `scrolling()`-vakt som gör att ett drag aldrig kan öppna ett
+knytt. **Och en tap-väg måste finnas** (P0 kräver tap-tap-fallback): två 96 px pilknappar
+▲ / ▼ som stegar ett hyllplan i taget, för ett barn som inte kan dra.
 
 Ett bo är en oregelbunden halmskål, och **knyttet som står i det är högre och bredare än boet**
-med sin siluett väl över kanten — en fågel i ett bo, aldrig ett föremål i en låda. Tomma bon
-håller en sovande eldfluga som pulserar, så en färsk samling är mysig i stället för gles.
+med sin siluett väl över kanten — en fågel i ett bo, aldrig ett föremål i en låda.
 
 * **Alla synliga knytt LEVER** — de sju sovande delar en enda andningstidslinje, det framme
   körs med hela femlägesriggen. (`_stillaprobe` kommer att flagga spelet som rörligt i vila.
@@ -427,10 +447,21 @@ dokumenterade och uppmätta anti-bandit-design.
   innan en enda bildruta av ceremonin ritas. Inget barnet gör under animationen kan ändra det.
   Ceremonin är därmed en **avtäckning, inte en snurr** — och ett guldägg får glöda guld redan i
   F3, ärligt.
-* **Burken är ratten.** Varje gnista ur Stjärnstoftsburken ger +1 pp guld, +3 pp silver,
-  +6 pp brons. Vid 3 gnistor: 5 / 14 / 28 = 47 % skimmer. **Sannolikheten är ett fysiskt
-  föremål barnet kan se och räkna**, inte ett dolt tal. Det är skillnaden mellan en generator
-  och en gacha.
+* **Burken är ratten — med ett tak på +5 procentenheter** (ägarens beslut 2026-08-30).
+  Varje gnista ger **+1,0 pp brons · +0,5 pp silver · +0,17 pp guld**. Tre gnistor är taket och
+  ger exakt **+5,0 pp** (3,0 + 1,5 + 0,5).
+
+  | Gnistor | Guld | Silver | Brons | Skimmer totalt |
+  |---|---|---|---|---|
+  | 0 | 2,00 % | 5,00 % | 10,00 % | **17,0 %** |
+  | 1 | 2,17 % | 5,50 % | 11,00 % | 18,7 % |
+  | 2 | 2,33 % | 6,00 % | 12,00 % | 20,3 % |
+  | 3 | 2,50 % | 6,50 % | 13,00 % | **22,0 %** |
+
+  **Sannolikheten är ett fysiskt föremål barnet kan se och räkna**, inte ett dolt tal — men
+  burken är en krydda, inte en genväg. Guld rör sig 2,00 → 2,50 %, alltså förblir guld
+  genuint sällsynt oavsett hur mycket stjärnstoft barnet häller i. Det är skillnaden mellan
+  en generator och en gacha, och taket är det som håller den skillnaden.
 * **Garantier i stället för jakt:** allra första kläckningen på en profil är garanterat minst
   brons (barnet ska få se vad skimmer ÄR på ägg ett). En torkräknare ger garanterat minst brons
   efter 6 vanliga i rad. Räknarna sparas men **renderas aldrig, sägs aldrig, syftas aldrig på**.
@@ -509,7 +540,6 @@ antaget, och sällsyntheten läggs ovanpå en loop som redan bevisat sig rolig u
 * [Medium] Två knytt på samma hylla blir VÄNNER efter tillräckligt många duetter och delar bo.
 * [Medium] Dra ut ett knytt ur boet och ner på golvet, där det springer runt en stund.
 * [Medium] Lägg ett bär framför ett knytt på hyllan → det äter, squashar av glädje och rapar en gnista.
-* [Quick] Tre separata folieflikar i stället för Skimmerhyllan, om ägaren vill (§8 fråga 1) — en rad i `HYLLOR`, samma bogeometri.
 * [Deep] Kamera-parallax i boden via `lib/kamera.js` när flikraden växer förbi fem.
 
 ## 5. Status / loggar
@@ -834,24 +864,20 @@ mätte, och varit fel fyra gånger innan den var rätt.
 
 ## 8. Beslut som ägaren ska ta innan bygget
 
-Tre frågor där planen har valt ett svar men där valet är ägarens. Inget av dem blockerar
-starten — de går att svänga om senare — men fråga 1 påverkar boden mest.
+**✅ 1. AVGJORD 2026-08-30 — boden blir en rullande popup som bara visar det man fått.**
+Ägarens svar löste frågan i stället för att välja mellan alternativen: hyllplan staplas nedåt
+och rullar, ett plan existerar först när det har ett knytt, och tomma platser finns inte alls.
+Därmed blir guldplanet ärligt (det finns inte förrän du har ett guldknytt), 8-taket och
+vräkningen försvinner, och FOMO-förbudet uppfylls av strukturen i stället för av en regel.
+Detaljerna i §1 "Knyttboden". Kvar att bevaka: rullningen måste vara mjukt axellåst drag med
+`scrolling()`-vakt **plus** två 96 px pilknappar som tap-väg.
 
-**1. Ska brons/silver/guld ha tre EGNA flikar, som du skrev, eller en gemensam Skimmerhylla?**
-Du bad om egna flikar. Planen föreslår i stället **en** Skimmerhylla med tre metallpiedestaler,
-av två skäl: sju flikar är mycket ikonurskiljning för en 2-åring, och en egen guldflik som står
-tom det mesta av tiden visar barnet vad det INTE har (det är den FOMO P0 förbjuder). Sju flikar
-ryms dock i P0-måtten (7 × 144 px + 6 × 24 px = 1152 av 1280), så det går att göra som du sa.
-→ **(a)** en Skimmerhylla med tre piedestaler *(planens förslag)* · **(b)** tre egna flikar,
-som du skrev · **(c)** flikarna VÄXER fram: guldfliken existerar först när du har ett guldknytt.
+**✅ 2. AVGJORD 2026-08-30 — burken får höja med högst +5 procentenheter.**
+Varje gnista ger +1,0 pp brons · +0,5 pp silver · +0,17 pp guld; tre gnistor är taket och ger
+exakt +5,0 pp (17 % → 22 % skimmer). Guld rör sig 2,00 → 2,50 % och förblir alltså genuint
+sällsynt oavsett hur mycket stjärnstoft barnet häller i. Tabellen i §3b.
 
-**2. Ska Stjärnstoftsburken få höja chansen för skimmer?**
-Det gör sällsyntheten till ett fysiskt föremål barnet kan se och räkna i stället för ett dolt
-tal, och det gör 2 % guld nåbart för ett barn som vill. Men det är ett tillägg utöver det du
-bad om, och det gör att grundoddsen inte längre är hela sanningen.
-→ **(a)** ja, 3 gnistor ger 5/14/28 % *(planens förslag)* · **(b)** nej, alltid 2/5/10.
-
-**3. Motgången — imma på glaset, eller en buse som snor en sak?**
+**❓ 3. ÖPPEN — motgången: imma på glaset, eller en buse som snor en sak?**
 P0 säger att motgång gör spelet bättre. Planen valde **imman + trasan** (mjukast, lättast att
 förstå, syns direkt). Alternativet är **Skrället**, en liten rufsig busvätte som klättrar upp och
 snor ett föremål ur kupan tills man petar på den — roligare och mer karaktär, men en sak till

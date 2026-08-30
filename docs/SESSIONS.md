@@ -6,6 +6,55 @@ En post per avslutad session, **nyast överst**. Skrivs av `/avsluta`. Syftet: n
 Format:
 
 ```
+
+## 2026-08-30 — Unika Knytt (leverans 1) · v1.237.0
+
+**Byggt:** `unika-knytt` — spelet nr 85, hela leverans 1 ur den plan som skrevs 2026-08-30.
+Barnet fyller en glaskupa med en liten värld via fem ritade maskindelar, drar i spaken, knådar
+degen med fingret, knackar fram ägget — och ur ägget strömmar världen ut och ett unikt knytt
+föds stående i den. 5 201 rader över fem filer.
+
+**Så byggdes det:** exportkontraktet mellan filerna spikades FÖRE fan-outen, sedan fyra
+parallella byggare med en ägare per fil (`dna` · `knytt` · `kupan` · `ceremoni`). `index.js`
+skrevs av orkestratorn, eftersom `check.mjs` bara läser den filen och alla grindregler biter
+just där (naken `ageRange`, literala `voice.say`, förbjudna strängar även i kommentarer,
+svartlistade Pixi-fältnamn). Före allt: en recon-fan-out över lib-API:erna, grindarna och
+närmaste mall — den betalade sig direkt, se nästa stycke.
+
+**Två saker i planen var fel mot koden och rättades före bygget:** det finns inget snö- eller
+skogstema i `scene.js` (bara sky·meadow·sunset·candy·water·night·warm, och en okänd sträng
+faller TYST till blå himmel), så Snölandet blev ett eget tema-objekt; och verkstaden kunde inte
+använda `'warm'` rakt av eftersom det temat bär gräs.
+
+**Mjukkroppsmorfen** (repots första kund som ändrar en viloform): lerpa `_kant`/`_eker`/
+`_viloArea` direkt och väx DISPLAY-nodens `scale` — `Mjukkropp.skala()` hade överskrivit morfen
+ur byggmåtten varje bildruta, och dess `if (s === this._skala) return` hade dessutom gjort ett
+anrop med samma värde två rutor i rad till en nullhandling. Uppmätt 0,09 px från en kropp byggd
+direkt på äggformen; kontrollarmen utan `_kant` gav kvot 1,01, alltså nästan rund.
+
+**Fyra fel som bara bilden och loggen hittade** (alla med grönt test): spakens kvadrantplåt var
+en tunn skära i järnton och läste som ett LIEBLAD · takbjälken slutade tvärt i luften · skal-
+halvorna ritades i äggets fulla 390 px mot ett 110 px knytt · och en KÖAD replik ("Knacka en
+gång till på ägget!") fyrade EFTER kläckningen och trängde undan belöningsraden. Den sista är
+en ny variant av den kända röstfällan: `_narTyst` väntar in narratorn, och under väntan kan
+spelet ha gått vidare — `_sag` tar nu en fas-vakt och kastar repliken som blivit inaktuell.
+
+**Andra halvan var grön och omätt tills den drevs för hand.** Harnessens nio standardtryck rör
+aldrig spaken (en avsiktlig layout-invariant i §1b), så ceremoni, kläckning och födelse hade
+noll täckning i den vanliga körningen. Driven med `--taps`: ägg 11,4 s → kläckning 14,2 s →
+`setCustom` + `complete` + stjärna 15,9 s → namnet "Flisa" sagt 18,0 s, 0 fel.
+
+**Öppet:** V19 i `ATGARDER.md` — `Mjukkropp.tyngdpunkt` summerar n+1 punkter men delar med n,
+så den är ringens mitt × (n+1)/n och felet växer med koordinaternas storlek (uppmätt 46 px fel
+mitt på scenen). Att FÖRANKRA mot den är driftfritt (`flyttaTill` räknar likadant); att RITA mot
+den lägger föremålet snett. `ceremoni.js` går runt den, `lib/` är orört tills blastradien mätts.
+
+**Leverans 2 är INTE byggd:** sällsynthet (guld/silver/brons), foliegradienterna och Knyttboden
+står kvar i planens §4. Uppehållsmätningen (`takt/spak`) är igång och är underlaget för §4b —
+men talet måste komma ur ägarens eget speltest, inte ur harnessens tidtabell.
+
+**Commits:** `8440b1f`.
+
 ## ÅÅÅÅ-MM-DD · v<version>
 **Byggt:** vad som gjordes, i klartext
 **Commits:** <hash> <ämne> · <hash> <ämne>

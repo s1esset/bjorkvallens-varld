@@ -6059,3 +6059,49 @@ KRYMPER bakom väggsakerna, `MOBLER.ansSkala`).
   (`oppna()` slapp undan bara därför att `_busy` pausar bukten, en ren tillfällighet.)
 - **En metod som bara finns i `spec` når aldrig spelet.** `makeGomstalle` är gömställets hela
   yta utåt; `plats.g.glugg?.()` svaldes tyst av `?.` tills metoden exporterades.
+
+---
+
+## 2026-08-30 — `unika-knytt` planerad (ingen kod)
+
+Ägaren la in en Gemini-konversation som `docs/games/Unika_knytt.md` och bad om en genomarbetad
+plan att bygga på nästa session. Utfallet:
+
+- **`docs/games/unika-knytt.md`** — full plan i husformat (§0 spec … §8 ägarbeslut), plus
+  §6 teknisk ritning, §7 grindar/mätning.
+- Källan flyttad till **`docs/games/_kalla-unika-knytt.md`** och behandlad som råmaterial.
+  Den var det enda av 85 docnamn med versal + understreck.
+- **19 röstrepliker inlagda i `scripts/voice-phrases.json`** — kör `npm run voice` innan bygget,
+  det är den långsamma offline-delen.
+- `npm run check` grön (0 fel · 0 varningar).
+
+**Spelet i en mening:** barnet fyller en glaskupa med en liten värld genom sex ritade
+maskindelar (varje del GÖR det den ändrar), drar i spaken, knådar degklumpen med fingret medan
+den härdas till ett ägg, knackar fram knyttet — och ur ägget kommer **hela världen** ut.
+Knyttet flyttar in i Knyttboden, en levande hylla av bon.
+
+**Tre beslut väntar på ägaren** (§8): flikstrukturen för brons/silver/guld · om
+Stjärnstoftsburken ska få höja skimmerchansen · vilken motgång (imma+trasa eller busvätten
+Skrället). Inget av dem blockerar starten.
+
+**Det farligaste i bygget** står i §6: `Mjukkropp` driver **+2257 px på 300 steg** för en
+asymmetrisk form utan `flyttaTill()` efter varje steg — och ett ägg ÄR asymmetriskt. Fast
+tidssteg (`steg(1)` alltid) + ankare är obligatoriskt, och reservvägen (deg som `Graphics` med
+seedat värde-brus) ska prövas med `_mjukprobe` INNAN bygget, inte efter.
+
+**Layout-invariant att inte råka bryta:** de sex verktygen ligger på harnessens egna nio
+standardtryck och spaken ligger utanför dem, så standardtestets skärmdump vid 4,4–4,6 s alltid
+är den ljusa verkstan. Flyttas spaken — räkna om §1b först.
+
+**Tillägg samma dag — granskningen kördes och planen rättades.** Åtta granskare läste förslagen
+genom två linser (barnet som spelar · P0 + byggrindarna). Ingen fick över 6,5/10 i första
+rundan. Tio fynd ändrade planen; de står i **§3c** så ingen bygger tillbaka dem. Det dyraste:
+**`Mjukkropp.skala()` raderar den lerpade äggprofilen varje bildruta** (den räknar om
+`_kant`/`_eker` ur de orörda byggmåtten), så ägget hade förblivit en rund klump utan ett enda
+konsolfel — väx display-nodens `scale` i stället. Dessutom: vräkningen ur boden ströks (bröt
+spelets eget löfte och P0 `GRIND`), verkstan fick vilohjälp i tre steg, loopen stängs nu i
+verkstan, kupan töms av kläckningen, och **spelet byggs i TVÅ leveranser** — skalan mättes till
+3 500–4 500 rader mot `bygg-en-kompis` 1 834, vilket inte ryms i ett pass. Leverans 1 (verkstan
++ födelsen) är ett helt spel för ett barn och kan landa ✅ utan sällsynthet och foil.
+**24 knyttnamn** lades till i `voice-phrases.json` — en FAST namntabell kan få riktiga klipp,
+till skillnad från fritt genererad text, så barnet får höra vad knyttet heter.

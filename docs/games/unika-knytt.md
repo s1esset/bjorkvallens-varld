@@ -23,7 +23,7 @@ och varför står i **§2**.
 | **kärnloop** | Barnet fyller en glaskupa med en liten värld genom att sköta sex ritade maskindelar — varje del GÖR det den ändrar (kranen glugger färg ner i ett glasrör, bälgen blåser upp klumpen, veven öppnar en lucka så vädret ramlar in). Sedan: dra i mässingsspaken → allt sugs in → en degklump som barnet KNÅDAR med fingret → den härdas, lyfter, glöder, skjuter strålar, växer → POP → ägget faller → barnet knackar fram knyttet. |
 | **mål** | Ägget kläcks: skalet klyvs, **världen strömmar ut** och vecklar ut sig till en hel miljö, och knyttet föds stående mitt i den. `progress.complete()` + knyttet flyttar in i Knyttboden. |
 | **agens** | Sex oberoende val (10 färger × 4 storlekar × 6 mönster × 4 världar × 5 röster × 4 gnistnivåer = **19 200 recept**), var och en synlig i kupan i samma bildruta som trycket. Valen STYR dessutom slumpen: ett snörecept drar mot iskristallöron, ett skogsrecept mot lövöron. |
-| **variation** | Fröet härleder kroppsform, öron, svans, ben, ögonform, ögonantal, mun, horn, vingar och namn — viktat av barnets val. Två knytt ur samma recept blir aldrig lika. Nya delar låses upp vid 4 / 8 / 12 / 16 kläckta. |
+| **variation** | Fröet härleder både VILKEN del (7 tabeller, 16 200 uppsättningar) och dess PROPORTIONER (22 kontinuerliga drag, §6c) — viktat av barnets val. **8,25 × 10¹³ distinkta individer**; risken att se två identiska på 200 knytt ur samma recept är 0,00046 %. Nya delar låses upp vid 4 / 8 / 12 / 16 kläckta. |
 | **mottagare** | Bobo står vid spaken och sköter maskinen (rigg ur `lib/karaktarer.js`), och Knyttboden tar emot: alla tidigare knytt andas, blinkar, kvittrar till varandra och vinkar när barnet kommer tillbaka efter ett dygn. |
 | **finish** | Kläckningen: skalet klyvs i två halvor som far iväg med fjäderfysik, världen strömmar ut ur ägget och vecklar ut sig (mark, himmel, fyra rekvisita, partiklar), knyttet reser sig med `bounceIn` och gör tre glädjeskutt, och en ram svänger in BAKOM det. |
 | **motgång** | **Imman på glaset** — kupan immar långsamt igen (max 3 steg, hårt tak) så världen blir svårare att se. En ritad trasa hänger på sin krok: ett tryck och den sveper rent med ett gnissel. Saktar ner ~2 s, blockerar aldrig spaken, läker sig själv efter 20 s. Se §4. |
@@ -695,7 +695,61 @@ omisskännlig. Två axlar måste vara lärbara för ett barn: **färgen** och **
 syns redan på blobben i kupan innan spaken dras. Det är regeln som gör "blå flaska ger blå
 kompis" sann, och den är bärande — inte kosmetisk.
 
-**Kombinationer:** 6 × 6 × 5 × 3 × 6 × 5 × 6 = **97 200 varelser** ovanpå 19 200 recept.
+**Kombinationer av DELVAL:** 6 × 6 × 5 × 3 × 6 × 5 = **16 200** kroppsuppsättningar.
+
+### 6c. Proportionslagret — det som gör namnet sant
+
+🚨 **Deltabellerna ensamma räcker inte, och det är räknat.** Med bara 16 200 diskreta
+uppsättningar har ett barn som gör 200 knytt ur sitt favoritrecept **70,7 % risk att se två
+identiska** (födelsedagsparadoxen). Det är precis det barn som älskar spelet mest som först
+upptäcker att knytten tar slut — och ett spel som heter *Unika* Knytt får inte ha den
+egenskapen. Ägarens ursprungliga parameterkatalog var kontinuerlig av exakt det skälet.
+
+**Lösningen kostar ingenting.** Barnets kontroller måste vara diskreta (P0 förbjuder reglage) —
+men **de frö-härledda dragen behöver inte vara det.** De syns aldrig i något UI, barnet ställer
+dem aldrig, och de lagras aldrig: de härleds ur fröet vid ritning. Deltabellen väljer alltså
+vilken FORM en del har; fröet sätter dess PROPORTIONER, kontinuerligt.
+
+**22 kontinuerliga drag, alla klampade innanför sötma-envelopen (ägarens "neoteni-spärrar"):**
+
+| Del | Drag och spann |
+|---|---|
+| Kropp | `bredd` 0,82–1,18 · `hojd` 0,85–1,15 · `taper` 0,00–0,40 · `asymmetri` 0,00–0,06 · `brusAmp` 0–5 px · `brusFrek` 2,0–4,0 |
+| Ögon | `skala` 0,78–1,30 · `avstand` 0,80–1,25 · `hojdlage` −0,06…+0,14 (**lägre = sötare**) · `pupill` 0,55–0,85 · `blank` 1–2 |
+| Öron | `langd` 0,70–1,40 · `lutning` −0,35…+0,35 · `hang` 0,00–0,80 |
+| Svans | `langd` 0,70–1,50 · `tjocklek` 0,70–1,30 |
+| Ben | `langd` 0,70–1,30 · `tjocklek` 0,80–1,20 |
+| Mun | `bredd` 0,80–1,25 · `bage` 0,30–1,00 |
+| Kinder | `alfa` 0,25–0,60 · `radie` 0,80–1,30 |
+
+Vilorörelsen får sina egna: `andningstakt` 1,4–2,2 · `guppamplitud` 3–7 px · en egen
+fasförskjutning per del. **Två knytt rör sig alltså inte likadant heller.**
+
+**Följden — och det här är svaret på "hur många":**
+
+| | |
+|---|---|
+| Recept barnet kan ställa in | **19 200** |
+| Frö-rymd per recept (`mulberry32`, uint32) | **4 294 967 296** |
+| Distinkta individer totalt | **≈ 8,25 × 10¹³** (82 biljoner) |
+| Risk för två identiska på 200 knytt ur SAMMA recept | **0,00046 %** |
+
+Fröet blir den bindande gränsen i stället för tabellerna — vilket är rätt ordning. Och
+sparposten är oförändrad: **ett enda heltal** bär hela individen.
+
+⚠️ **Vad det kostar:** varje ritfunktion måste ta emot och tillämpa sina proportioner
+(`rita(g, p, m, prop, look)`) i stället för att rita fasta tal. Det är mer arbete per del än en
+fast tabell, och det är den enda platsen i planen där jag medvetet köper komplexitet — men det
+är det som gör spelets namn sant.
+
+⚠️ **Fästpunktsposten `m` måste skalas med kroppens proportioner**, annars hamnar ögon, mun och
+svans fel så fort `bredd`/`hojd` avviker från 1,0. `m` beräknas alltså EFTER att kroppens
+proportioner är dragna, aldrig som konstanter i kroppstabellen.
+
+⚠️ **Klampen är inte kosmetisk.** Utan den ger slumpen smala ögon högt upp på en avlång kropp —
+en varelse som läser som obehaglig i stället för söt. Spannen ovan ÄR sötma-regelverket, och de
+ska verifieras i bild med `_scenbild`-liknande rutnät över ~24 slumpade frön innan något annat
+byggs ovanpå.
 
 **NAMN (24, fast tabell):** Bubbel · Glimma · Knoppe · Lurvi · Snöfnatt · Gnista · Mossa ·
 Droppe · Stjärne · Vippa · Dunge · Frosta · Blicka · Pyre · Skimra · Tussa · Kvista · Rimma ·

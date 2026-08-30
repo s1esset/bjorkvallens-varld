@@ -6105,3 +6105,27 @@ verkstan, kupan töms av kläckningen, och **spelet byggs i TVÅ leveranser** �
 + födelsen) är ett helt spel för ett barn och kan landa ✅ utan sällsynthet och foil.
 **24 knyttnamn** lades till i `voice-phrases.json` — en FAST namntabell kan få riktiga klipp,
 till skillnad från fritt genererad text, så barnet får höra vad knyttet heter.
+
+**Ägarens tre beslut (§8) — alla tagna samma dag.**
+⓵ **Knyttboden blir en rullande popup som bara visar de knytt man FÅTT.** Ägarens svar löste
+frågan i stället för att välja mellan alternativen: finns inga tomma platser finns ingen
+frånvaro att visa, så P0:s FOMO-förbud uppfylls av STRUKTUREN. Guldplanet existerar först när
+du har ett guldknytt. 8-taket, pagineringen och hela vräkningsfrågan försvann på köpet.
+⓶ **Stjärnstoftsburken höjer med högst +5 pp** (per gnista +1,0 brons / +0,5 silver / +0,17
+guld; tre gnistor = taket). 17 % → 22 % skimmer, men guld rör sig bara 2,00 → 2,50 % och
+förblir alltså genuint sällsynt.
+⓷ **Ingen motgång i leverans 1.** Imma-på-glaset förkastad. **Skrället** (busvätten som snor ett
+föremål och sugs med in i degen om spaken dras) är färdigspecad i §4b men **grindad på en
+mätning**: motgången kräver att barnet DRÖJER i verkstan, och den tiden är omätt. Leverans 1
+loggar mount → spaktryck och mellan spaktryck. >20 s → bygg den · 12–20 s → halverad takt ·
+<12 s → ingen alls.
+
+**Och en rättelse ägaren framkallade med en fråga.** "Är det fortfarande lika proceduralt som
+jag tänkt?" — nej, det var det inte. Planen hade kokat ner den ursprungliga KONTINUERLIGA
+parameterkatalogen till 7 diskreta deltabeller (16 200 uppsättningar). Räknat: ett barn som gör
+200 knytt ur sitt favoritrecept hade då **70,7 % risk att se två identiska**. Nytt **§6c**:
+deltabellen väljer vilken FORM en del har, fröet sätter dess PROPORTIONER — 22 kontinuerliga
+drag klampade innanför sötma-envelopen. Barnets kontroller förblir diskreta (P0 förbjuder
+reglage), men de frö-härledda dragen behövde aldrig vara det. Fröet blir då den bindande
+gränsen: **19 200 recept × 2³² = 8,25 × 10¹³ individer**, och dubblettrisken faller till
+0,00046 %. Sparposten är oförändrad — ett heltal bär hela individen.

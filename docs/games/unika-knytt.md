@@ -26,7 +26,7 @@ och varför står i **§2**.
 | **variation** | Fröet härleder både VILKEN del (7 tabeller, 16 200 uppsättningar) och dess PROPORTIONER (22 kontinuerliga drag, §6c) — viktat av barnets val. **8,25 × 10¹³ distinkta individer**; risken att se två identiska på 200 knytt ur samma recept är 0,00046 %. Nya delar låses upp vid 4 / 8 / 12 / 16 kläckta. |
 | **mottagare** | Bobo står vid spaken och sköter maskinen (rigg ur `lib/karaktarer.js`), och Knyttboden tar emot: alla tidigare knytt andas, blinkar, kvittrar till varandra och vinkar när barnet kommer tillbaka efter ett dygn. |
 | **finish** | Kläckningen: skalet klyvs i två halvor som far iväg med fjäderfysik, världen strömmar ut ur ägget och vecklar ut sig (mark, himmel, fyra rekvisita, partiklar), knyttet reser sig med `bounceIn` och gör tre glädjeskutt, och en ram svänger in BAKOM det. |
-| **motgång** | **Imman på glaset** — kupan immar långsamt igen (max 3 steg, hårt tak) så världen blir svårare att se. En ritad trasa hänger på sin krok: ett tryck och den sveper rent med ett gnissel. Saktar ner ~2 s, blockerar aldrig spaken, läker sig själv efter 20 s. Se §4. |
+| **motgång** | **Ingen i leverans 1 — med flit** (ägarens beslut 2026-08-30). Motgången kräver att barnet DRÖJER i verkstan, och den tiden är omätt. Leverans 1 mäter uppehållstiden; är den >20 s byggs **Skrället** (§4b), är den <12 s byggs ingen alls. Imma-på-glaset är förkastad. |
 | **sällsynthet** | Ägarens tal exakt: **guld 2 % · silver 5 % · brons 10 % · vanlig 83 %**, rullat FÖRE spaken dras. Stjärnstoftsburken höjer chansen synligt, med tak +5 pp (17 % → 22 % skimmer; guld bara 2,00 → 2,50 %). Första kläckningen någonsin är garanterat brons. Ingen räknare, ingen procentsats, inga låsta siluetter. Vanliga knytt får något ett skimrande aldrig får. Se §3b. |
 | **samling** | **Knyttboden** — en RULLANDE POPUP som bara visar de knytt man FÅTT, aldrig tomma platser. Fyra världshyllor (Skogen · Vattnet · Snölandet · Stjärnnatten) + Skimmerhyllan; hyllplan staplas nedåt, 4 bon per plan, och ett plan finns först när det har ett knytt. Knyttet är större än boet — en fågel i ett bo, aldrig ett föremål i en låda. |
 
@@ -53,7 +53,6 @@ Varje rad är en HEL mening och en literal i `voice.say('…')` — inget byggs 
 "Titta, dina knytt har saknat dig!"
 "Tryck på ett knytt så vaknar det."
 "Nu sover det. Väck det försiktigt!"
-"Glaset blev immigt. Torka med trasan!"
 "Tryck på spaken igen så gör vi ett nytt knytt!"
 ```
 
@@ -492,7 +491,7 @@ spel som byggs halvt landar som 🔧 — vilket huset inte tillåter för ett ny
 **Därför byggs det i två leveranser, och båda är hela spel för ett barn:**
 
 **LEVERANS 1 — verkstan och födelsen (~1 400 rader).** Rummet, den levande kupan, de sex
-maskindelarna, imman + trasan, spaken, hela ceremonin F0–F5, fyrknacks-kläckningen, "världen
+maskindelarna, spaken, hela ceremonin F0–F5, fyrknacks-kläckningen, "världen
 kommer ut", knyttet med alla fem slingorna stående i sin värld, loopstängningen tillbaka till
 bänken, och en **hylla med de tre senaste knytten** i verkstan. Persistens av postlistan.
 **Ingen sällsynthet, ingen foil, ingen bod** — kortet får en enkel gloss.
@@ -510,7 +509,7 @@ antaget, och sällsyntheten läggs ovanpå en loop som redan bevisat sig rolig u
 **Kärnloop**
 * [Deep] `dna.js`: `mulberry32` (repot har **ingen** seedad PRNG), en billig värde-brusfunktion ur samma ström, `hslHex()` (repot har **ingen** HSL-hjälpare), `dnaFromSeed(seed, val)`, namngenerator, motivgenerator.
 * [Deep] `knytt.js`: `byggKnytt(dna)` med fästpunktspost per kropp (`m = {topY, faceY, munY, bredd, axelY, svansY}`) — det är den mekanism som gör kombinationsexplosionen gratis. Sex kroppar, sex öron/horn, fem svansar, fem munnar, sex ögonformer, tre bentyper, sex mönster. Plus `stadKnytt(nod)`.
-* [Deep] `kupan.js`: dioramat, de fem världsskalärerna, blobben, de sex maskindelarna, spaken, imman + trasan.
+* [Deep] `kupan.js`: dioramat, de fem världsskalärerna, blobben, de sex maskindelarna, spaken.
 * [Deep] Ceremonin F0–F5 med `Mjukkropp` (se §6), interaktiv knådning.
 * [Deep] Kläckningen: fyra knackningar, seedad sprickväg, ljus genom sprickorna.
 * [Deep] "Världen kommer ut": marken växer ut, fyra rekvisita per värld, partiklar, knyttet reser sig.
@@ -528,11 +527,54 @@ antaget, och sällsyntheten läggs ovanpå en loop som redan bevisat sig rolig u
 **Juice**
 * [Deep] `kort.js`: fonden, den öppna underkanten, de cachade foliegradienterna per tier, svepet under masken, de tre fysiska tier-skillnaderna.
 * [Medium] Ljusstormen i normal alfa med täckningstak.
-* [Quick] Motgången: imman + trasan, med tak och självläkning.
+* [Quick] **Uppehållsmätning:** logga tiden från mount till spaktryck, och mellan spaktryck, via `gamelog`. Det är underlaget för motgångsbeslutet i §4b — utan det byggs Skrället mot ett antagande.
 
 **Ljud**
 * [Medium] Sugets brus-loop + tontrappa, degens squelch, den stigande knacktrappan, metallklangen per tier.
 * [Quick] Alla 19 repliker i `voice-phrases.json` + `npm run voice`. `_narTyst`-mönstret så ingen replik kapas.
+
+### 4b. Skrället — motgången, byggklar men GRINDAD på en mätning
+
+**Ägarens beslut 2026-08-30: bygg den inte i leverans 1, men ha den färdigspecad.**
+
+Skälet är inte tvekan om idén — den är den roligare av de två — utan att **båda**
+motgångsalternativen förutsätter att barnet DRÖJER i verkstan, och den tiden är omätt. Trycker
+ett barn fyra gånger och drar i spaken på åtta sekunder hinner ingen motgång existera: Skrället
+hinner inte ens klättra upp. Då hade vi byggt ~200 rader som aldrig syns, mot ett antagande om
+beteende i stället för mot en mätning — repots dyraste återkommande misstag.
+
+**Grinden:** leverans 1 loggar tid mount → spaktryck och mellan spaktryck.
+* **> 20 s** → bygg Skrället enligt specen nedan.
+* **12–20 s** → bygg den med halverad takt (44 s mellan besök).
+* **< 12 s** → bygg ingen motgång alls; lägg budgeten på verkstadens vilo-liv i stället.
+
+**Imma-på-glaset är förkastad** och ska inte återuppstå: den klarar P0 men är en städsyssla som
+aktivt försämrar spelets vackraste yta.
+
+**Specen (klar att bygga när grinden öppnar):**
+
+En liten rufsig busvätte med **egen ritad siluett** (aldrig en emoji) klättrar upp på kupans
+kant, **snor ett föremål ur världen** och sitter och tuggar på det med ett fräckt flin.
+
+* **Tydlig orsak:** man SER den ta saken. Zonen den tömde blir tom i kupan och valet går
+  tillbaka ett steg. Ingen text behövs.
+* **Rolig ton:** den hickar, fnissar och håller upp saken som en trofé.
+* **Åtgärdas direkt:** ETT tryck. Den hickar till, tappar tillbaka föremålet (som `pop`:ar
+  tillbaka på plats) och kilar iväg skrattande. Kostnad ~2 sekunder.
+* **Taket, femdelat:** högst EN åt gången · håller högst ETT föremål · rör **aldrig**
+  världsvalet (det som bestämmer hyllan) · aldrig under ceremonin, kläckningen, boden eller de
+  första 12 sekunderna · minst 22 s mellan besök, aldrig två gånger i rad på samma axel.
+* **Läker sig själv:** ignorerad i 7 s blir den uttråkad, lägger tillbaka saken och går.
+  **Den kan alltså aldrig blockera spaken.**
+* **Och det bästa:** drar barnet i spaken medan den håller något, **sugs Skrället med in i
+  degen** — knyttet får en tofs av dess päls och ett vikt öra. Rent kosmetiskt, påverkar aldrig
+  tier. Det är den bästa möjliga versionen av ett bakslag: det förvägrar ingenting, det gör
+  utfallet roligare.
+* **Träffyta:** nod (620, 210), `hitArea = Rectangle(-72,-72,144,144)` → x 548–692, y 138–282.
+  Kupan sätts till `eventMode='none'` medan Skrället sitter där, så det finns ingen konkurrens
+  om trycket alls.
+* **Repliker** (måste in i `voice-phrases.json` när den byggs — de ligger INTE där nu):
+  `'Oj, Skrället tog en sak! Peta på den.'` · `'Bra jobbat, Skrället lämnade tillbaka den.'`
 
 ### Senare (V2+)
 
@@ -567,7 +609,7 @@ Tio spel i repot är redan flerfils, så det här är inget nytt mönster. Alla 
 | `index.js` | `GameModule`, fasmaskin, layout, **alla `voice.say()`** | ~700 |
 | `dna.js` | PRNG, brus, HSL, `dnaFromSeed`, namn, motiv | ~220 |
 | `knytt.js` | `byggKnytt` · `stadKnytt` · femlägesmaskinen | ~650 |
-| `kupan.js` | diorama, maskindelar, spak, imma, ceremonin F0–F5 | ~750 |
+| `kupan.js` | diorama, maskindelar, spak, ceremonin F0–F5 | ~700 |
 | `kort.js` | fonden, foliegradienter, svepet, tier-skillnader | ~300 |
 | `boden.js` | hyllor, bon, levande samling, vräkning | ~450 |
 
@@ -877,12 +919,14 @@ Varje gnista ger +1,0 pp brons · +0,5 pp silver · +0,17 pp guld; tre gnistor �
 exakt +5,0 pp (17 % → 22 % skimmer). Guld rör sig 2,00 → 2,50 % och förblir alltså genuint
 sällsynt oavsett hur mycket stjärnstoft barnet häller i. Tabellen i §3b.
 
-**❓ 3. ÖPPEN — motgången: imma på glaset, eller en buse som snor en sak?**
-P0 säger att motgång gör spelet bättre. Planen valde **imman + trasan** (mjukast, lättast att
-förstå, syns direkt). Alternativet är **Skrället**, en liten rufsig busvätte som klättrar upp och
-snor ett föremål ur kupan tills man petar på den — roligare och mer karaktär, men en sak till
-att bygga och att sätta tak på.
-→ **(a)** imman + trasan *(planens förslag)* · **(b)** Skrället · **(c)** båda, i V1 respektive V2.
+**✅ 3. AVGJORD 2026-08-30 — Skrället, men INTE i leverans 1.**
+Imma-på-glaset är förkastad. Skrället är färdigspecad i **§4b** och byggs när uppehållstiden är
+mätt: >20 s → bygg den · 12–20 s → halverad takt · <12 s → ingen motgång alls. Leverans 1
+loggar tiden. Skälet till grinden är att motgången kräver att barnet dröjer i verkstan, och
+den tiden är omätt — bygger vi mot ett antagande blir det ~200 rader som kanske aldrig syns.
 
-Ett fjärde, mindre val: **Ljudtratten (T6)** är den kontroll som ger minst synlig skillnad på
-varelsen. Ska den vara med i V1, eller sparas till V2 så verkstan börjar med fem verktyg?
+**Alla tre besluten är därmed tagna. Inget blockerar bygget.**
+
+Ett fjärde, mindre val som ägaren inte svarat på: **Ljudtratten (T6)** är den kontroll som ger
+minst synlig skillnad på varelsen. Arbetsordern säger åt nästa session att bygga den **sist av
+de sex**, så den är billig att stryka om den känns överflödig.

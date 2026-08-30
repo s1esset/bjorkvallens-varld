@@ -20,10 +20,10 @@ och varför står i **§2**.
 | **kategori** | roligt → flik Roligt |
 | **input** | `tap` — **medvetet val, inte en beskrivning.** `mixed`/`drag` ger NOLL autotryck i harnessen (`test-games.mjs`), och då blir hela kärnloopen grön och oprövad. Med `tap` avfyras de nio standardtrycken, och layouten i §1 är ritad så att alla nio landar på en riktig kontroll. Knådningen är ett drag men alltid frivillig. |
 | **ålder** | [2, 5] |
-| **kärnloop** | Barnet fyller en glaskupa med en liten värld genom att sköta sex ritade maskindelar — varje del GÖR det den ändrar (kranen glugger färg ner i ett glasrör, bälgen blåser upp klumpen, veven öppnar en lucka så vädret ramlar in). Sedan: dra i mässingsspaken → allt sugs in → en degklump som barnet KNÅDAR med fingret → den härdas, lyfter, glöder, skjuter strålar, växer → POP → ägget faller → barnet knackar fram knyttet. |
+| **kärnloop** | Barnet fyller en glaskupa med en liten värld genom att sköta fem ritade maskindelar — varje del GÖR det den ändrar (kranen glugger färg ner i ett glasrör, bälgen blåser upp klumpen, veven öppnar en lucka så vädret ramlar in). Sedan: dra i mässingsspaken → allt sugs in → en degklump som barnet KNÅDAR med fingret → den härdas, lyfter, glöder, skjuter strålar, växer → POP → ägget faller → barnet knackar fram knyttet. |
 | **mål** | Ägget kläcks: skalet klyvs, **världen strömmar ut** och vecklar ut sig till en hel miljö, och knyttet föds stående mitt i den. `progress.complete()` + knyttet flyttar in i Knyttboden. |
-| **agens** | Sex oberoende val (10 färger × 4 storlekar × 6 mönster × 4 världar × 5 röster × 4 gnistnivåer = **19 200 recept**), var och en synlig i kupan i samma bildruta som trycket. Valen STYR dessutom slumpen: ett snörecept drar mot iskristallöron, ett skogsrecept mot lövöron. |
-| **variation** | Fröet härleder både VILKEN del (7 tabeller, 16 200 uppsättningar) och dess PROPORTIONER (22 kontinuerliga drag, §6c) — viktat av barnets val. **8,25 × 10¹³ distinkta individer**; risken att se två identiska på 200 knytt ur samma recept är 0,00046 %. Nya delar låses upp vid 4 / 8 / 12 / 16 kläckta. |
+| **agens** | Fem oberoende val (10 färger × 4 storlekar × 6 mönster × 4 världar × 4 gnistnivåer = **3 840 recept**), var och en synlig i kupan i samma bildruta som trycket. Valen STYR dessutom slumpen: ett snörecept drar mot iskristallöron, ett skogsrecept mot lövöron. |
+| **variation** | Fröet härleder både VILKEN del (7 tabeller, 16 200 uppsättningar) och dess PROPORTIONER (22 kontinuerliga drag, §6c) — viktat av barnets val. **1,65 × 10¹³ distinkta individer**; risken att se två identiska på 200 knytt ur samma recept är 0,00046 %. Nya delar låses upp vid 4 / 8 / 12 / 16 kläckta. |
 | **mottagare** | Bobo står vid spaken och sköter maskinen (rigg ur `lib/karaktarer.js`), och Knyttboden tar emot: alla tidigare knytt andas, blinkar, kvittrar till varandra och vinkar när barnet kommer tillbaka efter ett dygn. |
 | **finish** | Kläckningen: skalet klyvs i två halvor som far iväg med fjäderfysik, världen strömmar ut ur ägget och vecklar ut sig (mark, himmel, fyra rekvisita, partiklar), knyttet reser sig med `bounceIn` och gör tre glädjeskutt, och en ram svänger in BAKOM det. |
 | **motgång** | **Ingen i leverans 1 — med flit** (ägarens beslut 2026-08-30). Motgången kräver att barnet DRÖJER i verkstan, och den tiden är omätt. Leverans 1 mäter uppehållstiden; är den >20 s byggs **Skrället** (§4b), är den <12 s byggs ingen alls. Imma-på-glaset är förkastad. |
@@ -66,7 +66,7 @@ rummet står **kupan** — en glasklot på en sockel, med en öppen mässingskra
 läser som en PLATS, aldrig som en ram runt en bild. Inuti svävar en liten blobb med två stora
 ögon som följer fingret.
 
-Runt kupan sitter **sex ritade maskindelar**. Ingen av dem är en pilknapp — det är
+Runt kupan sitter **fem ritade maskindelar** (en sjätte, Ljudtratten, är uppskjuten — §4c). Ingen av dem är en pilknapp — det är
 `bygg-en-kompis` vokabulär och den ägs redan. Varje del UTFÖR det den ändrar, i samma bildruta
 som trycket:
 
@@ -77,7 +77,7 @@ som trycket:
 | T3 | **Bälgen** | storlek (4) | Trätrampan slås ner, en synlig luftpuff skjuter genom en slang in i kupan och blobben blåses upp ett steg. Femte trycket: en lång pfffff och blobben tömmer sig tillbaka till minst, med en generad blick. |
 | T4 | **Mönsterhjulet** | mönster (6) | Trätrumman ratschar 60° med ett klack, och motivet som rullar upp TRYCKS på blobben av en färgvals som sveper vänster→höger på 0,30 s. |
 | T5 | **Väderveven** | värld (4) | En lucka i taket över kupan öppnas och vädret ramlar IN — snö virvlar ner, löv lägger sig, vatten stiger, natten tänds. Kupans himmel, mark och ljus byter tema i samma sekund. **Bestämmer också vilken hylla knyttet hamnar på.** |
-| T6 | **Ljudtratten** | röst (5) | Grammofontratten lutas mot kupan och blobben öppnar ett munhål och SJUNGER sin fras — tre stämda toner. Knyttet föds med den rösten. |
+| ~~T6~~ | ~~**Ljudtratten**~~ | ~~röst (5)~~ | **Uppskjuten till en senare version** (ägarens beslut 2026-08-30). Knyttet har fortfarande ett eget fyrtonsmotiv — det härleds nu ur FRÖET i stället för att väljas. Se §4c. |
 
 Till höger står **skaparspaken** i mässing med en fet röd knopp, och nere till vänster en liten
 **bodlucka** där ett knytt kikar ut var åttonde sekund. Bobo står vid spaken och sköter maskinen.
@@ -293,22 +293,21 @@ med +24 halo → träffytor x 0–140 och x 1140–1280, y −6–134.
 | T3 Bälgen | (300, 450) | 168×168 | 216–384 | 366–534 |
 | T4 Mönsterhjulet | (950, 450) | 168×168 | 866–1034 | 366–534 |
 | T5 Väderveven | (480, 630) | 144×144 | 408–552 | 558–702 |
-| T6 Ljudtratten | (800, 630) | 144×144 | 728–872 | 558–702 |
 | Kupan | (640, 330) | `Circle(0,0,190)` | 450–830 | 140–520 |
 | Spaken | (1160, 350) | `Rect(-100,-120,200,240)` | 1060–1260 | 230–470 |
 | Bodluckan | (120, 630) | 144×168 | 48–192 | 546–714 |
 | Ägget (bara kläckfasen) | (640, 470) | `Circle(0,0,120)` | 520–760 | 350–590 |
 
 **P0-avstånd (varje par ≥24 px; en lucka på EN axel är en lucka):**
-T1–T3 y 32 · T2–T4 y 32 · T1–T2 x 482 · T3–T5 y 24 · T4–T6 y 24 · T5–T6 x 176 ·
+T1–T3 y 32 · T2–T4 y 32 · T1–T2 x 482 · T3–T5 y 24 ·
 T2–spak x 26 · T4–spak x 26 · spak–högtalare y 96 · T1–hem y 32 · T2–högtalare y 32 ·
 bodlucka–T5 x 216 · bodlucka–hem y 412.
 Kupans cirkel (r 190) till närmaste hörn av varje verktygsyta: T1 256 · T2 226 · T3 258 ·
-T4 229 · T5 244 · T6 244 — alltså 36–68 px fri marginal runt hela klotet.
+T4 229 · T5 244 — alltså 36–68 px fri marginal runt hela klotet.
 
 **Harnessens nio standardtryck landar allihop på en riktig kontroll:**
 (300,250)→T1 · (640,250)→kupan · (950,250)→T2 · (300,450)→T3 · (640,450)→kupan ·
-(950,450)→T4 · (480,600)→T5 · (800,600)→T6 · (640,360)→kupan.
+(950,450)→T4 · (480,600)→T5 · (800,600)→**bakgrundsfångaren** · (640,360)→kupan.
 **Inget av dem ligger i spakens träffyta** (min x-avstånd 1060 − 950 = 110). Det är en stående
 layout-invariant: **flyttas spaken någonsin, räkna om det här FÖRST**, annars börjar
 standardtestet dra spaken och skärmdumpen landar mitt i en ceremoni.
@@ -490,7 +489,7 @@ spel som byggs halvt landar som 🔧 — vilket huset inte tillåter för ett ny
 
 **Därför byggs det i två leveranser, och båda är hela spel för ett barn:**
 
-**LEVERANS 1 — verkstan och födelsen (~1 400 rader).** Rummet, den levande kupan, de sex
+**LEVERANS 1 — verkstan och födelsen (~1 400 rader).** Rummet, den levande kupan, de fem
 maskindelarna, spaken, hela ceremonin F0–F5, fyrknacks-kläckningen, "världen
 kommer ut", knyttet med alla fem slingorna stående i sin värld, loopstängningen tillbaka till
 bänken, och en **hylla med de tre senaste knytten** i verkstan. Persistens av postlistan.
@@ -509,7 +508,7 @@ antaget, och sällsyntheten läggs ovanpå en loop som redan bevisat sig rolig u
 **Kärnloop**
 * [Deep] `dna.js`: `mulberry32` (repot har **ingen** seedad PRNG), en billig värde-brusfunktion ur samma ström, `hslHex()` (repot har **ingen** HSL-hjälpare), `dnaFromSeed(seed, val)`, namngenerator, motivgenerator.
 * [Deep] `knytt.js`: `byggKnytt(dna)` med fästpunktspost per kropp (`m = {topY, faceY, munY, bredd, axelY, svansY}`) — det är den mekanism som gör kombinationsexplosionen gratis. Sex kroppar, sex öron/horn, fem svansar, fem munnar, sex ögonformer, tre bentyper, sex mönster. Plus `stadKnytt(nod)`.
-* [Deep] `kupan.js`: dioramat, de fem världsskalärerna, blobben, de sex maskindelarna, spaken.
+* [Deep] `kupan.js`: dioramat, de fem världsskalärerna, blobben, de fem maskindelarna, spaken.
 * [Deep] Ceremonin F0–F5 med `Mjukkropp` (se §6), interaktiv knådning.
 * [Deep] Kläckningen: fyra knackningar, seedad sprickväg, ljus genom sprickorna.
 * [Deep] "Världen kommer ut": marken växer ut, fyra rekvisita per värld, partiklar, knyttet reser sig.
@@ -517,7 +516,7 @@ antaget, och sällsyntheten läggs ovanpå en loop som redan bevisat sig rolig u
 **Karaktär**
 * [Deep] Femlägesmaskinen med EN `_apply()` som summerar skalärer.
 * [Medium] Bobo vid spaken (`lib/karaktarer.js`), nyfiken under ceremonin, jubel vid kläckning.
-* [Medium] Knyttets eget fyrtonsmotiv ur fröet — varje knytt har sin egen röst.
+* [Medium] Knyttets eget fyrtonsmotiv **ur fröet** — varje knytt har sin egen röst, även utan Ljudtratten.
 
 **Progression & samling**
 * [Deep] `boden.js`: fem hyllor, 4×2 bon, levande knytt, grannkvitter, favoriten framme, dygnshälsningen, synlig och vänlig vräkning.
@@ -576,8 +575,40 @@ kant, **snor ett föremål ur världen** och sitter och tuggar på det med ett f
 * **Repliker** (måste in i `voice-phrases.json` när den byggs — de ligger INTE där nu):
   `'Oj, Skrället tog en sak! Peta på den.'` · `'Bra jobbat, Skrället lämnade tillbaka den.'`
 
+### 4c. Ljudtratten — uppskjuten, men motivet lever kvar
+
+**Ägarens beslut 2026-08-30: verkstan har FEM verktyg i leverans 1.** Ljudtratten var den
+kontroll som gav minst synlig skillnad på varelsen — barnet valde en röst men såg ingenting nytt
+i kupan, vilket bryter mot maskinens egen premiss ("varje del GÖR det den ändrar").
+
+**Motivet stryks INTE.** Varje knytt har fortfarande sina fyra stämda toner — de spelas när det
+är glatt, när det föds och i grannduetterna på hyllan. Skillnaden är bara att motivet **härleds
+ur fröet** i stället för att väljas. Det är dessutom en förbättring: rösten blir en del av
+individens identitet, precis som sprickmönstret och namnet, i stället för en inställning.
+
+**Sparposten ändras inte.** Fältet `r` finns kvar i den åttaställiga arrayen och skrivs i
+leverans 1 med det frö-härledda motivindexet. När Ljudtratten byggs senare sätter barnet samma
+fält — **noll migrering, ingen versionsbump i spardatan.** Det är därför fältet får kosta sina
+två tecken redan nu.
+
+**Följder som måste hanteras i bygget:**
+
+* **Recepten går från 19 200 till 3 840**, och individerna från 8,25 × 10¹³ till
+  **1,65 × 10¹³**. Fröet är fortfarande den bindande gränsen och dubblettrisken är oförändrad
+  (0,00046 % på 200 knytt ur samma recept) — det är antalet *inställningar* som minskar, inte
+  variationen.
+* **Harnesstrycket (800,600) träffar nu bakgrundsfångaren** i stället för ett verktyg. Det är
+  fortfarande ett lagligt svar (ripple + `sfx('soft')` inom 100 ms), men en kontroll färre
+  motioneras av standardtestet. `_knyttprobe` måste därför peka på alla fem verktygen
+  explicit — förlita dig inte på standardtrycken.
+* **Bänkplatsen vid (800, 630) blir ledig.** Fyll den med rekvisita (`eventMode='none'`) — en
+  burk penslar, en trave brickor, en oljekanna. Det är inte dekoration för dekorationens skull:
+  `bildkoll` fäller `heltackande-falt` på 45 % av duken i EN kvantiserad ton, och en tom
+  bänkskiva i en träton är precis den risken. **Lämna den inte tom.**
+
 ### Senare (V2+)
 
+* [Medium] **Ljudtratten (T6)** — sjätte verktyget på den lediga bänkplatsen (800, 630). Barnet väljer motivet i stället för fröet; fältet `r` finns redan i sparposten, så ingen migrering behövs. Återställ då även harnesstrycket (800,600) i §1b.
 * [Medium] Fler världar (Öknen, Grottan) och de hyllor de för med sig — modellen har redan plats.
 * [Medium] Två knytt på samma hylla blir VÄNNER efter tillräckligt många duetter och delar bo.
 * [Medium] Dra ut ett knytt ur boet och ner på golvet, där det springer runt en stund.
@@ -633,7 +664,7 @@ startar 1000 ms efter mount och är ett fynd på nivå **fel**.
 ### DNA och sparmodell
 
 **Barnet väljer 6 fält:** `f` färg 0–9 · `z` storlek 0–3 · `m` mönster 0–5 · `v` värld 0–3 ·
-`r` röst 0–4 · `g` gnistor 0–3 → **19 200 recept**.
+`g` gnistor 0–3 → **3 840 recept**. (`r` finns kvar i posten men skrivs av FRÖET i leverans 1 — se §4c.)
 
 **Fröet härleder** (viktat av valen): kroppsform · öron · svans · ben · ögonform · ögonantal ·
 mun · horn · vingar · mönsterjitter · namn · motiv.
@@ -801,9 +832,9 @@ fasförskjutning per del. **Två knytt rör sig alltså inte likadant heller.**
 
 | | |
 |---|---|
-| Recept barnet kan ställa in | **19 200** |
+| Recept barnet kan ställa in | **3 840** |
 | Frö-rymd per recept (`mulberry32`, uint32) | **4 294 967 296** |
-| Distinkta individer totalt | **≈ 8,25 × 10¹³** (82 biljoner) |
+| Distinkta individer totalt | **≈ 1,65 × 10¹³** (16 biljoner) |
 | Risk för två identiska på 200 knytt ur SAMMA recept | **0,00046 %** |
 
 Fröet blir den bindande gränsen i stället för tabellerna — vilket är rätt ordning. Och
@@ -927,6 +958,5 @@ den tiden är omätt — bygger vi mot ett antagande blir det ~200 rader som kan
 
 **Alla tre besluten är därmed tagna. Inget blockerar bygget.**
 
-Ett fjärde, mindre val som ägaren inte svarat på: **Ljudtratten (T6)** är den kontroll som ger
-minst synlig skillnad på varelsen. Arbetsordern säger åt nästa session att bygga den **sist av
-de sex**, så den är billig att stryka om den känns överflödig.
+**✅ 4. AVGJORD 2026-08-30 — Ljudtratten skjuts upp.** Verkstan har fem verktyg i leverans 1.
+Motivet är inte struket, bara flyttat till fröet. Detaljerna i **§4c**.

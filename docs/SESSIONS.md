@@ -6129,3 +6129,14 @@ drag klampade innanför sötma-envelopen. Barnets kontroller förblir diskreta (
 reglage), men de frö-härledda dragen behövde aldrig vara det. Fröet blir då den bindande
 gränsen: **19 200 recept × 2³² = 8,25 × 10¹³ individer**, och dubblettrisken faller till
 0,00046 %. Sparposten är oförändrad — ett heltal bär hela individen.
+
+**⓸ Ljudtratten uppskjuten** (ägaren, samma dag). Verkstan har **fem** verktyg i leverans 1 —
+Ljudtratten var den kontroll som gav minst synlig skillnad på varelsen, vilket bröt mot
+maskinens egen premiss ("varje del GÖR det den ändrar"). **Motivet stryks inte**, det härleds
+ur fröet i stället, vilket dessutom är bättre: rösten blir en del av individens identitet i
+stället för en inställning. Fältet `r` ligger kvar i sparposten och skrivs av fröet, så att en
+senare version kan lägga till kontrollen med **noll migrering**. Recepten går 19 200 → 3 840
+och individerna 8,25 → **1,65 × 10¹³**; dubblettrisken är oförändrad (0,00046 %) eftersom fröet
+fortfarande är den bindande gränsen. Två följder står i §4c: harnesstrycket (800,600) träffar nu
+bakgrundsfångaren, och den lediga bänkplatsen måste fyllas med rekvisita eller riskera
+`heltackande-falt`.

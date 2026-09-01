@@ -18,7 +18,10 @@ import { log as diag } from '../../lib/gamelog.js'
 import { byggKupa, byggVerktyg, byggSpak } from './kupan.js'
 import { byggCeremoni } from './ceremoni.js'
 import { byggKnytt } from './knytt.js'
-import { dnaFromSeed, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR } from './dna.js'
+import {
+  dnaFromSeed, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR,
+  MILSTOLPAR, START_TAK, takFor, antalFranPoster,
+} from './dna.js'
 
 // Verkstadens egen värld. createScene tar ett eget tema-objekt lika gärna som en nyckel —
 // och det behövs: temanycklarna är sky·meadow·sunset·candy·water·night·warm, och 'warm' bär
@@ -60,6 +63,18 @@ const HYLLA_MAX = 3
 // tatt nog att kannas kontinuerligt, glest nog att inte oversvamma Mjukkroppen.
 const KNAD_MS = 70
 
+// Vad narratorn säger när en milstolpe låser upp något. Replikerna står som LITERALER
+// här och inte i tabellen i dna.js: `check.mjs` läser bara index.js, och en replik den
+// inte ser statiskt kan aldrig få ett röstklipp (CLAUDE.md). Nyckeln är verktygets
+// axelnamn — samma nyckel som `T_LAGE` och `_verktyg` redan använder, alltså ingen andra
+// kopia av ordningen (det var den glidningen som gjorde hornet `krona` onåbart).
+const UPPLAS_REPLIK = {
+  farg: 'Titta! Två nya färger i kranen!',
+  monster: 'Titta! Två nya mönster på hjulet!',
+  varld: 'Titta! En ny värld — stjärnnatten!',
+  storlek: 'Titta! Nu kan bälgen blåsa ännu större!',
+}
+
 const HINT_S = 7
 const KNACK_SPARR = 0.18
 const AGG_KNACK = 4
@@ -90,6 +105,11 @@ export default {
     this._knytt = null
     this._knyttNod = null
     this._hyllData = []
+    // TOTALEN kläckta knytt (hyllan bär bara de tre senaste), högsta FIRADE milstolpen och
+    // dygnet för senaste besöket. Alla tre bor i samma sparblob, alla tre nollas här.
+    this._antal = 0
+    this._firad = 0
+    this._dag = 0
     this._bon = []
     this._aggYta = null
     this._hand = null
@@ -175,8 +195,18 @@ export default {
   mount(ctx) {
     this._monterad = performance.now()
     this._sistAktiv = this._monterad
-    ctx.services.voice.say(this.voiceIntro)
-    diag('takt', 'mount', { hylla: this._hyllData.length })
+    // ÅTGÄRDER U4: klippet "Titta, dina knytt har saknat dig!" var genererat, betalat och
+    // aldrig anropat — det fanns ingen datumlogik alls i modulen, så dag två lät exakt som
+    // dag ett. Ett dygnstal i sparposten räcker: HAR barnet knytt på hyllan OCH kommer
+    // tillbaka en annan dag är det hälsningen som gäller, annars den vanliga introrepliken.
+    const dag = this._idag()
+    const ater = this._hyllData.length > 0 && this._dag > 0 && dag > this._dag
+    ctx.services.voice.say(ater ? 'Titta, dina knytt har saknat dig!' : this.voiceIntro)
+    if (dag !== this._dag) {
+      this._dag = dag
+      this._spara(ctx)
+    }
+    diag('takt', 'mount', { hylla: this._hyllData.length, antal: this._antal, ater })
   },
 
   // ---------------------------------------------------------------- rummet
@@ -265,6 +295,10 @@ export default {
   },
 
   _synkaVerktyg() {
+    // Taket FÖRE steget, alltid: `satSteg` räknar modulo taket, så omvänd ordning kan
+    // lämna kvar ett läge ovanför ett nyss sänkt tak.
+    const tak = this._tak
+    for (const axel of Object.keys(T_LAGE)) this._verktyg[axel]?.satTak(tak[axel])
     this._verktyg.farg?.satSteg(this._val.f)
     this._verktyg.gnista?.satSteg(this._val.g)
     this._verktyg.storlek?.satSteg(this._val.z)
@@ -327,6 +361,42 @@ export default {
       if (p) rent.push(p)
     }
     this._hyllData = rent.slice(-HYLLA_MAX)
+
+    // Räknaren är TOTALEN kläckta, inte hyllan — hyllan bär bara de tre senaste. Saknas
+    // den är sparposten skriven före upplåsningarna fanns (`v: 1`), och då härleds antalet
+    // ur vad barnet REDAN gjort: ingen ska vakna till en verkstad där en värld hen använt
+    // har försvunnit. `firad` följer med samma resonemang — en migrerad spelare ska inte
+    // få fyra firanden på raken för delar hen redan haft i veckor.
+    const tal = (x) => (Number.isFinite(x) ? Math.max(0, Math.trunc(x)) : null)
+    const sparat = tal(rå?.n)
+    this._antal = sparat === null ? antalFranPoster(rent) : Math.max(sparat, rent.length)
+    this._firad = tal(rå?.firad) ?? this._antal
+    this._dag = tal(rå?.dag) ?? 0
+  },
+
+  // Verkstadens tak HÄRLEDS ur räknaren, alltid — aldrig ett eget fält som uppdateras på
+  // några ställen och glöms på ett. Första versionen var ett fält, och `_provaUpplasning`
+  // glömde det: sonden fick ett recept som pekade på en del vars tak inte hade växt.
+  // Två sanningar om samma axel är exakt det fel `satSteg` en gång byggdes för.
+  get _tak() {
+    return takFor(this._antal)
+  },
+
+  /** Dygnsnummer, för U4:s återkomsthälsning. Grovt med flit — datum, aldrig klockslag. */
+  _idag() {
+    return Math.floor(Date.now() / 86400000)
+  },
+
+  // EN skrivare för hela sparblobben. Hyllan, räknaren, den firade milstolpen och dygnet
+  // bor i samma post, och två skrivare hade oundvikligen tappat varandras fält.
+  _spara(ctx) {
+    ctx.progress.setCustom('knytt', {
+      v: 2,
+      lista: this._hyllData.map((x) => x.slice()),
+      n: this._antal,
+      firad: this._firad,
+      dag: this._dag,
+    })
   },
 
   // Fältvis sanering: progress.get() ger en LEVANDE referens och setCustom sparar utan kopia,
@@ -357,7 +427,11 @@ export default {
     const lista = this._hyllData.map((x) => x.slice())
     lista.push(p)
     this._hyllData = lista.slice(-HYLLA_MAX)
-    ctx.progress.setCustom('knytt', { v: 1, lista: this._hyllData.map((x) => x.slice()) })
+    // Taket växer HÄR, i samma andetag som räknaren (det HÄRLEDS ur den) — men
+    // avtäckningen sker först när knyttet flyttat hem (`_provaUpplasning`), så den aldrig
+    // krockar med ceremonin.
+    this._antal++
+    this._spara(ctx)
   },
 
   _byggHylla(ctx) {
@@ -465,11 +539,14 @@ export default {
     this._vakna()
     const a = ctx.services.audio
     const steg = Number.isFinite(d?.steg) ? d.steg : 0
-    if (axel === 'farg') this._val.f = steg % FARGER.length
-    else if (axel === 'varld') this._val.v = steg % VARLDAR.length
-    else if (axel === 'monster') this._val.m = steg % MONSTER.length
-    else if (axel === 'gnista') this._val.g = steg % 4
-    else if (axel === 'storlek') this._val.z = steg % STORLEKAR.length
+    // Modulo TAKET, inte tabellen: verktyget cyklar redan inom sitt tak, och den här raden
+    // är den andra vakten mot att ett recept pekar på en del som inte är upplåst än.
+    const tak = this._tak
+    if (axel === 'farg') this._val.f = steg % tak.farg
+    else if (axel === 'varld') this._val.v = steg % tak.varld
+    else if (axel === 'monster') this._val.m = steg % tak.monster
+    else if (axel === 'gnista') this._val.g = steg % tak.gnista
+    else if (axel === 'storlek') this._val.z = steg % tak.storlek
     this._valGjorda++
     this._rorda.add(axel)
     this._kupa?.setVal(this._val)
@@ -772,12 +849,14 @@ export default {
     // fick därför nästan-lika knytt i all evighet, rakt mot spelets eget namn.
     //
     // Bara de TRE frusna axlarna cyklas. Storlek och gnistor är MÄNGD-axlar, inte identitet,
-    // och lämnas åt barnet. Stegen 10 · 6 · 4 är inbördes olika, så kombinationen upprepas
-    // först efter 60 rundor.
+    // och lämnas åt barnet. Cyklingen går mot TAKET, inte tabellen — annars hade den pekat
+    // ut en del som inte är upplåst än. Kombinationen upprepas efter 24 rundor med
+    // startverkstan (8 · 4 · 3) och efter 60 när allt är upplåst (10 · 6 · 4).
     if (this._rorda.size === 0) {
-      this._val.f = (this._val.f + 1) % FARGER.length
-      this._val.m = (this._val.m + 1) % MONSTER.length
-      this._val.v = (this._val.v + 1) % VARLDAR.length
+      const tak = this._tak
+      this._val.f = (this._val.f + 1) % tak.farg
+      this._val.m = (this._val.m + 1) % tak.monster
+      this._val.v = (this._val.v + 1) % tak.varld
     }
     this._valGjorda = 0
     this._rorda.clear()
@@ -787,16 +866,62 @@ export default {
     for (const v of Object.values(this._verktyg)) v.satLast(false)
     // Varje del äger sin EGEN räknare. Cyklas receptet utan att delarna får veta står de
     // kvar på gamla steg, och nästa tryck på färgkranen hoppar tillbaka — två sanningar om
-    // samma axel är precis det fel `satSteg` finns för.
-    this._verktyg.farg?.satSteg(this._val.f)
-    this._verktyg.monster?.satSteg(this._val.m)
-    this._verktyg.varld?.satSteg(this._val.v)
+    // samma axel är precis det fel `satSteg` finns för. `_synkaVerktyg` bär dessutom det
+    // NYA taket, så en milstolpe som just passerats blir nåbar i samma andetag.
+    this._synkaVerktyg()
     this._kupaAktiv(true)
     this._kupa?.setVal(this._val)
     this._ritaHylla(ctx)
     this._bobo?.setMood('nyfiken')
     this._sistAktiv = performance.now()
     this._hintSteg = 0
+    this._provaUpplasning(ctx)
+  },
+
+  // ---------------------------------------------------------------- upplåsningar
+
+  // Milstolpen firas i VERKSTAN, efter att knyttet flyttat hem — aldrig mitt i ceremonin,
+  // där barnet har en annan uppgift. Lämnar barnet spelet däremellan står `firad` kvar och
+  // firandet kommer i stället i slutet av nästa runda: delarna är redan barnets (taket
+  // växte vid kläckningen), det är bara avtäckningen som är skjuten.
+  _provaUpplasning(ctx) {
+    const m = MILSTOLPAR.find((x) => x.vid > this._firad && x.vid <= this._antal)
+    if (!m) return
+    this._firad = m.vid
+    this._spara(ctx)
+    this._firaUpplasning(ctx, m)
+  },
+
+  _firaUpplasning(ctx, m) {
+    const p = T_LAGE[m.axel]
+    const v = this._verktyg[m.axel]
+    if (!p || !v) return
+    // Receptet ställs på det FÖRSTA nya läget och maskinen kör in det i kupan direkt. En
+    // belöning barnet inte kan se är ingen belöning — och det går samma väg som ett vanligt
+    // tryck, så premissen "varje del GÖR det den ändrar" gäller även här. Bara den axel som
+    // växte rörs; resten av barnets recept står kvar (ägarens U1-beslut).
+    const nytt = START_TAK[m.axel]
+    if (m.axel === 'farg') this._val.f = nytt
+    else if (m.axel === 'monster') this._val.m = nytt
+    else if (m.axel === 'varld') this._val.v = nytt
+    else if (m.axel === 'storlek') this._val.z = nytt
+    this._synkaVerktyg()
+    this._kupa?.setVal(this._val)
+    this._kupa?.laggIn(m.axel)
+    v.locka?.()
+    // Stämd kvint, aldrig ett UI-klick — se CLAUDE.md om stämda ljud.
+    ctx.services.audio.sfx('correct')
+    sparkle(ctx.fxLayer, p.x, p.y - 40)
+    ripple(ctx.fxLayer, p.x, p.y, { color: 0xffe6a8 })
+    this._visaHand(p.x, p.y - 120)
+    // ...men bara tills barnet rör något. `_hintSteg` vaktar så vilohjälpens egen hand
+    // inte släcks av den här timern om den hunnit ta över.
+    ctx.later(2.4, () => { if (this._alive && this._hintSteg === 0) this._doljHand() })
+    this._bobo?.react('jubel')
+    ctx.later(1.0, () => this._bobo?.setMood('nyfiken'))
+    const rad = UPPLAS_REPLIK[m.axel]
+    if (rad) this._sag(ctx, rad, 'bygga')
+    diag('takt', 'upplasning', { axel: m.axel, vid: m.vid, antal: this._antal })
   },
 
   // ---------------------------------------------------------------- vilohjälp

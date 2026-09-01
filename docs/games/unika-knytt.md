@@ -26,7 +26,7 @@ och varför står i **§2**.
 | **kärnloop** | Barnet fyller en glaskupa med en liten värld genom att sköta fem ritade maskindelar — varje del GÖR det den ändrar (kranen glugger färg ner i ett glasrör, bälgen blåser upp klumpen, veven öppnar en lucka så vädret ramlar in). Sedan: dra i mässingsspaken → allt sugs in → en degklump som barnet KNÅDAR med fingret → den härdas, lyfter, glöder, skjuter strålar, växer → POP → ägget faller → barnet knackar fram knyttet. |
 | **mål** | Ägget kläcks: skalet klyvs, **världen strömmar ut** och vecklar ut sig till en hel miljö, och knyttet föds stående mitt i den. `progress.complete()` + knyttet flyttar in i Knyttboden. |
 | **agens** | Fem oberoende val (10 färger × 4 storlekar × 6 mönster × 4 världar × 4 gnistnivåer = **3 840 recept**), var och en synlig i kupan i samma bildruta som trycket. Valen STYR dessutom slumpen: ett snörecept drar mot iskristallöron, ett skogsrecept mot lövöron. |
-| **variation** | Fröet härleder både VILKEN del (7 tabeller, 16 200 uppsättningar) och dess PROPORTIONER (22 kontinuerliga drag, §6c) — viktat av barnets val. **1,65 × 10¹³ distinkta individer**; risken att se två identiska på 200 knytt ur samma recept är 0,00046 %. Nya delar låses upp vid 4 / 8 / 12 / 16 kläckta. |
+| **variation** | Fröet härleder både VILKEN del (7 tabeller, 16 200 uppsättningar) och dess PROPORTIONER (22 kontinuerliga drag, §6c) — viktat av barnets val. **1,65 × 10¹³ distinkta individer**; risken att se två identiska på 200 knytt ur samma recept är 0,00046 %. Verkstan **växer**: startläget är 8 färger · 4 mönster · 3 världar · 3 storlekar, och nya delar låses upp vid 4 → två färger · 8 → två mönster · 12 → Stjärnnatten · 16 → största bälgsteget (byggt 2026-09-01, §5). |
 | **mottagare** | Bobo står vid spaken och sköter maskinen (rigg ur `lib/karaktarer.js`), och Knyttboden tar emot: alla tidigare knytt andas, blinkar, kvittrar till varandra och vinkar när barnet kommer tillbaka efter ett dygn. |
 | **finish** | Kläckningen: skalet klyvs i två halvor som far iväg med fjäderfysik, världen strömmar ut ur ägget och vecklar ut sig (mark, himmel, fyra rekvisita, partiklar), knyttet reser sig med `bounceIn` och gör tre glädjeskutt, och en ram svänger in BAKOM det. |
 | **motgång** | **Ingen i leverans 1 — med flit** (ägarens beslut 2026-08-30). Motgången kräver att barnet DRÖJER i verkstan, och den tiden är omätt. Leverans 1 mäter uppehållstiden; är den >20 s byggs **Skrället** (§4b), är den <12 s byggs ingen alls. Imma-på-glaset är förkastad. |
@@ -524,7 +524,7 @@ antaget, och sällsyntheten läggs ovanpå en loop som redan bevisat sig rolig u
 **Progression & samling**
 * [Deep] `boden.js`: fem hyllor, 4×2 bon, levande knytt, grannkvitter, favoriten framme, dygnshälsningen, synlig och vänlig vräkning.
 * [Medium] Sparmodellen (§6) med kopia vid läsning OCH skrivning och fältvis sanering.
-* [Quick] Upplåsningar vid 4 / 8 / 12 / 16 kläckta (ny värld, två mönster, två färger, en röst).
+* [Quick] ✅ **BYGGD 2026-09-01.** Upplåsningar vid 4 / 8 / 12 / 16 kläckta. ⚠️ Den fjärde stod som "en röst" — den finns inte att låsa upp sedan Ljudtratten sköts upp (§4c) och rösten härleds ur fröet, så posten är omskriven till bälgens fjärde steg. Ägarens ordning (2026-09-01): två färger → två mönster → Stjärnnatten → största storleken, alltså växande spänning i stället för spec-radens egen ordning.
 
 **Juice**
 * [Deep] `kort.js`: fonden, den öppna underkanten, de cachade foliegradienterna per tier, svepet under masken, de tre fysiska tier-skillnaderna.
@@ -880,6 +880,66 @@ flit** att nollställa, eftersom fasen börjar redan vid kläckningen och en nol
 kastat bort knyttet barnet just gjort. Båda gångerna var svaret att läsa spelets egen garde och
 mäta efter den. Sammanlagt var mätaren fel **sex gånger** i det här passet mot tre kodfixar +
 två ägarbeslut — och exakt det är varför en ny sond kostar mer än speländringen.`
+
+`2026-09-01 (kväll) · **UPPLÅSNINGARNA BYGGDA — ÅTGÄRDER U3 + U4 stängda** (v1.242.0).
+Spelets enda tänkta SAMLINGS-krok fanns i spec §0 och i byggplanen, men inte i koden. Nu gör den
+det, och verkstan är därmed det första i spelet som VÄXER.
+
+**Premissen prövades mot koden först, och föll till en fjärdedel.** Spec-radens fyra belöningar
+var "ny värld, två mönster, två färger, en röst" — men rösten går inte att låsa upp: Ljudtratten
+sköts upp 2026-08-30 (§4c) och motivet härleds sedan dess ur fröet. Posten är därför OMSKRIVEN
+till bälgens fjärde steg, inte räddad med en uppfunnen kontroll. **Ägarens beslut samma dag:**
+växande spänning — 4 → två färger (rosa + sand) · 8 → två mönster (fläckar + stjärnor) ·
+12 → **Stjärnnatten** · 16 → största bälgsteget. Startverkstan är alltså 8 · 4 · 3 · 3.
+
+**Mekanismen.** `START_TAK` · `MILSTOLPAR` · `takFor()` · `antalFranPoster()` ligger i `dna.js`
+(ren logik, inget Pixi — det är det som gör dem mätbara utan webbläsare). Verktyget fick
+`satTak()`; `onTap` cyklar mot taket i stället för mot `spec.steg`. Tabellerna rör sig ALDRIG —
+index sparas — så en upplåsning kan bara lägga till i slutet av en tabell.
+
+🚨 **`_tak` var först ett fält, och det var fel.** `_provaUpplasning` glömde uppdatera det, och
+firandet ställde då receptet på ett läge vars tak inte hade växt. Det är samma familj som varje
+"två sanningar om samma axel" i den här filen. `_tak` är nu en **getter härledd ur `_antal`** —
+det finns ingen andra plats att glömma. Sonden hittade det; jag hade inte sett det själv.
+
+**Firandet är i verkstan, aldrig i ceremonin.** Sist i `_aterstall`, efter att knyttet flyttat
+hem: receptet ställs på det FÖRSTA nya läget, `laggIn(axel)` kör in det i kupan (samma väg som ett
+vanligt tryck — premissen "varje del GÖR det den ändrar" gäller även här), delen `locka()`:r,
+Bobo jublar, handen pekar, och narratorn säger vad som hänt. Bilden kommer genast, bara orden
+köar (`_narTyst`). Lämnar barnet spelet mitt emellan står `firad` kvar och avtäckningen kommer i
+slutet av nästa runda — delarna är redan barnets, det är bara ceremonin som är skjuten.
+**Ingen räknare, ingen procentsats, ingen låst siluett syns någonstans** (P0 FOMO): det enda
+barnet möter är att något NYTT dyker upp.
+
+**Gamla sparposter förlorar aldrig något.** `antalFranPoster()` härleder antalet ur vad barnet
+REDAN gjort — har hyllan ett stjärnnattsknytt är milstolpe 12 passerad. Utan den hade en spelare
+vaknat till en verkstad där en värld hen använt var borta. Sparblobben är `v: 2` med `n`, `firad`
+och `dag`; **en enda skrivare** (`_spara`) äger den, för två hade tappat varandras fält.
+
+**U4 i samma andetag:** `dag` (dygnstal, aldrig klockslag) gör att det betalda men aldrig anropade
+klippet "Titta, dina knytt har saknat dig!" nu spelas — men bara när hyllan har knytt OCH besöket
+är en annan dag.
+
+**Mätt, två sonder, kontrollarm före mätarm hela vägen.** `scripts/_upplasprobe.mjs` (ny,
+node-only, 11 armar) tar den rena logiken: startverkstan smalare, exakt EN axel per milstolpe,
+inget tak som krymper, migreringens fem fall, och `falt` läst UR `_sparaKnytt` i stället för
+antaget. `_knyttprobe.mjs` fick armarna **U0–U2 + D0–D2**: tolv tryck på färgkranen når
+**7 mot barlastens 9**, en kläckning tar taket **8 → 10**, alla fyra firandena tända ger
+**0 konsolfel** (världen bygger om dioramat och bälgen skalar blobben — helt andra vägar än
+färgen, och U1 rör dem aldrig), och dagshälsningen har två kontrollarmar mot en mätarm.
+
+⚠️ **Barlasten (START_TAK = hela tabellen = HEAD) avslöjade ett mätfel i min egen sond:**
+U1 läste bara slutvärdet `tak === 10` och var därför **grön på HEAD**, där taket är 10 hela tiden.
+Den kräver nu att taket VÄXTE under rundan. En arm som inte kan skilja två KÄNDA lägen åt mäter
+ingenting — och den här hade jag skrivit och trott på utan barlasten.
+
+**Grind:** `check` 0 fel/0 varningar · `test unika-knytt` 0 konsolfel, bildkoll ren ·
+`_upplasprobe` 11/11 · `_knyttprobe` 26/26 (alla gamla armar orörda och gröna).
+De fyra nya replikerna är genererade offline med F5-TTS (3,43–4,49 s, alla under `_narTyst`-taket).
+
+**Öppet:** spelet är fortfarande **aldrig speltestat av ett barn**, och §4b:s uppehållsmätning
+väntar fortfarande på ägarens eget speltest (harnessens 2,55 s är harnessens tidtabell). Kvar
+sedan tidigare: leverans 2 (sällsynthet · folie · Knyttboden) och V19.`
 
 
 ## 6. Teknisk ritning

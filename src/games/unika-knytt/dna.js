@@ -424,3 +424,62 @@ export function _sanity(recept = { f: 6, z: 2, m: 3, v: 2, g: 1 }, antal = 500) 
   }
   return { unika: sedda.size, kollisioner }
 }
+
+// ---------------------------------------------------------------------------
+// Upplasningar — spelets enda SAMLINGS-krok (ATGARDER U3)
+// ---------------------------------------------------------------------------
+//
+// Verkstan borjar SMALARE an tabellerna ovan och vaxer med antalet klackta knytt.
+// Ordningen ar vald sa spanningen stiger: fargerna forst (minst dramatiskt),
+// Stjarnnatten som den stora belonigen, storsta balgsteget sist.
+//
+// 🚨 Spec-radens fjarde belonig var "en rost". Den finns inte att lasa upp langre:
+// Ljudtratten skots upp 2026-08-30 (docens §4c) och rosten harleds nu ur froet. Posten
+// ar darfor omskriven till det som faktiskt gar att bygga — balgens fjarde steg — i
+// stallet for att en kontroll uppfinns for att radda formuleringen.
+//
+// `tak` ar antalet steg axeln far EFTER milstolpen; det som lases upp ar alltsa
+// indexen START_TAK[axel] .. tak-1, i tabellernas egen ordning. Tabellerna ror sig
+// aldrig (index sparas), sa en upplasning kan bara lagga till i slutet.
+
+/** Verkstans tak vid noll klackta knytt. Nycklarna ar verktygens axelnamn. */
+export const START_TAK = { farg: 8, monster: 4, varld: 3, storlek: 3, gnista: 4 }
+
+/**
+ * `falt` ar postens index i sparposten [fro, f, z, m, v, r, g, 0] — det ar den som
+ * later en GAMMAL sparpost (utan raknare) beratta hur langt barnet redan kommit.
+ */
+export const MILSTOLPAR = [
+  { vid: 4, axel: 'farg', tak: FARGER.length, falt: 1 },
+  { vid: 8, axel: 'monster', tak: MONSTER.length, falt: 3 },
+  { vid: 12, axel: 'varld', tak: VARLDAR.length, falt: 4 },
+  { vid: 16, axel: 'storlek', tak: STORLEKAR.length, falt: 2 },
+]
+
+/** Vilka tak galler efter `n` klackta knytt? Ett nytt objekt varje gang — aldrig delat. */
+export function takFor(n) {
+  const t = { ...START_TAK }
+  const k = Number.isFinite(n) ? Math.trunc(n) : 0
+  for (const m of MILSTOLPAR) if (k >= m.vid) t[m.axel] = m.tak
+  return t
+}
+
+/**
+ * Migrering for sparposter skrivna FORE raknaren fanns (`v: 1`, ingen `n`).
+ * Regeln ar att ingen nagonsin far forlora nagot hen redan gjort: har barnet ett knytt
+ * i en varld/farg/storlek som ligger bakom en milstolpe, sa ar den milstolpen passerad.
+ * Utan den hade en spelare som redan byggt ett stjarnnattsknytt vaknat till en verkstad
+ * dar Stjarnnatten var borta.
+ */
+export function antalFranPoster(lista) {
+  const rader = Array.isArray(lista) ? lista : []
+  let n = rader.length
+  for (const post of rader) {
+    if (!Array.isArray(post)) continue
+    for (const m of MILSTOLPAR) {
+      const v = post[m.falt]
+      if (Number.isFinite(v) && v >= START_TAK[m.axel] && n < m.vid) n = m.vid
+    }
+  }
+  return n
+}

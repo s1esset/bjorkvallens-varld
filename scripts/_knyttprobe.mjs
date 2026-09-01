@@ -17,6 +17,23 @@
 //   C0 kontroll  en runda DAR barnet rort fargkranen               -> receptet star kvar
 //   C1 matarm    en runda dar barnet inte rort nagot                -> receptet cyklat
 //   D  matarm    tiden 'avtack' -> `_klar` maste rymma taglinen (3,232 s klipp)
+//   U0 matarm    tolv tryck pa fargkranen i STARTverkstan         -> f nar aldrig 8
+//                ⚠️ MATARM, inte kontroll: den FALLER pa barlasten (dar nar samma tolv
+//                tryck 9). U-familjens kontrollarm ar barlasten sjalv — satt START_TAK i
+//                dna.js till hela tabellen (= HEAD) och kor om: U0 · U0b · U1a · U1 · U1c
+//                · U1d ska da falla, medan U1b star kvar gron. Det ar precis darfor U1b ar
+//                markt "bokforing": den mater raknaren, inte taket. (Att felmarka en
+//                matarm som kontroll ar husets aterkommande misstag — se docens §5.)
+//   U1 matarm    en kladning som passerar milstolpe 4              -> taket 8 -> 10,
+//                firandet kort, och det NYA laget ar det kupan visar
+//   U2 matarm    ALLA fyra firandena tanda, ett i taget             -> varje axel vaxer,
+//                receptet star pa det forsta nya laget, noll konsolfel. Varlden bygger om
+//                dioramat och balgen skalar blobben — helt andra vagar in i kupan an fargen,
+//                och de nas aldrig av U1 (som bara passerar milstolpe 4)
+//   D0 kontroll  aterbesok SAMMA dag, knytt pa hyllan             -> vanliga introrepliken
+//   D1 matarm    aterbesok en ANNAN dag, knytt pa hyllan           -> "har saknat dig"
+//   D2 kontroll  annan dag men TOM hylla                           -> vanliga introrepliken
+//                (ATGARDER U4: klippet fanns, genererat och betalat, men anropades aldrig)
 //   B0 kontroll  alla fem delar provade, sedan vilostund          -> spaken lockar
 //   B1 matarm    fars verkstad, upprepade vilostunder             -> OLIKA delar lockar,
 //                var och en med SIN EGEN ton (farg 523 · gnista 659 · storlek 392 ·
@@ -234,7 +251,8 @@ try {
   await rundan(true)
   const f1 = await page.evaluate(() => window.__barnspel.game._val.f)
   // Ett tryck stegar fargen ett steg; darefter far `_aterstall` INTE rora den.
-  rader.push(['C0 kontroll  rort recept lamnas ifred', `f ${f0} → tryck → ${f1} (ett steg, inte tva)`, f1 === (f0 + 1) % 10])
+  // Modulo TAKET, inte tabellen: startverkstan har 8 farger (ATGARDER U3), inte 10.
+  rader.push(['C0 kontroll  rort recept lamnas ifred', `f ${f0} → tryck → ${f1} (ett steg, inte tva)`, f1 === (f0 + 1) % 8])
 
   await page.evaluate(() => clearInterval(window.__vakt))
 
@@ -285,6 +303,116 @@ try {
   await vila()
   const b2 = await las()
   rader.push(['B2 matarm    allt provat → spaken lockar', b2.lock.join(',') || '(inget)', b2.lock.includes('SPAK')])
+
+  // =========================================================== U: upplasningarna
+  // Verkstan borjar smalare an tabellerna och vaxer med antalet klackta (ATGARDER U3).
+  // Den rena logiken mats av `_upplasprobe.mjs`; HAR matas att spelet faktiskt bar den.
+  await start()
+  await satMatare()
+
+  // U0 KONTROLLARM. Tolv tryck pa fargkranen i en ny verkstad far aldrig na index 8.
+  // Pa HEAD (utan tak) nar samma tolv tryck 9 — armen faller dar, alltsa mater den.
+  let maxF = 0
+  for (let i = 0; i < 12; i++) {
+    await klick(T_LAGE.farg.x, T_LAGE.farg.y)
+    await page.waitForTimeout(120)
+    maxF = Math.max(maxF, await page.evaluate(() => window.__barnspel.game._val.f))
+  }
+  const tak0 = await page.evaluate(() => ({ ...window.__barnspel.game._tak }))
+  rader.push(['U0 matarm    startverkstan har 8 farger', `hogsta f pa 12 tryck: ${maxF} (HEAD ger 9) · tak ${tak0.farg}`, maxF <= 7 && tak0.farg === 8])
+  rader.push(['U0b          och 4 monster · 3 varldar · 3 storlekar', `${tak0.monster} · ${tak0.varld} · ${tak0.storlek}`, tak0.monster === 4 && tak0.varld === 3 && tak0.storlek === 3])
+
+  // U1 MATARM. Sattet att na milstolpe 4 utan att spela fyra rundor: sparposten sags redan
+  // ha tre klackta. Sedan EN riktig runda -> raknaren gar 3 -> 4 och firandet ska komma.
+  await page.evaluate(() => {
+    window.__barnspel.ctx.progress.setCustom('knytt', { v: 2, lista: [], n: 3, firad: 3, dag: 0 })
+  })
+  await page.evaluate(() => window.__barnspel.nav.go('library'))
+  await page.waitForTimeout(500)
+  await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
+  await page.waitForTimeout(1400)
+  const fore = await page.evaluate(() => ({ n: window.__barnspel.game._antal, f: window.__barnspel.game._tak.farg }))
+  rader.push(['U1a matarm   sparad raknare las tillbaka', `antal ${fore.n} · tak ${fore.f}`, fore.n === 3 && fore.f === 8])
+
+  await rundan(false)
+  await page.waitForTimeout(900) // firandet ligger sist i `_aterstall`
+  const efter = await page.evaluate(() => {
+    const g = window.__barnspel.game
+    return { n: g._antal, firad: g._firad, tak: g._tak.farg, f: g._val.f }
+  })
+  // Kravet ar att taket VAXTE under rundan, inte bara att det ar 10 efterat. Forsta
+  // versionen las bara slutvardet och var da GRON pa barlasten (tak 10 fore OCH efter) —
+  // en matarm som inte kan skilja armarna at mater ingenting. Barlasten hittade den.
+  rader.push(['U1 matarm    milstolpe 4 oppnar fargkranen', `tak ${fore.f} → ${efter.tak} · antal ${efter.n}`, efter.n === 4 && efter.tak === 10 && efter.tak > fore.f])
+  // BOKFORING, inte tak: den har haller aven pa barlasten (raknaren ar oberoende av
+  // taken) och far darfor aldrig lasas som bevis for att nagot lastes upp.
+  rader.push(['U1b bokforing milstolpen ar FIRAD, en gang', `firad ${efter.firad}`, efter.firad === 4])
+  // Avtackningen: receptet stalls pa det FORSTA nya laget sa kupan visar belonigen direkt.
+  // En beloning barnet inte kan se ar ingen beloning.
+  rader.push(['U1c          kupan visar den nya fargen', `_val.f ${efter.f} (forsta nya = 8)`, efter.f === 8])
+  // ...och det sista laget ska nu ga att na — taket ar inte bara ett tal i en variabel.
+  await klick(T_LAGE.farg.x, T_LAGE.farg.y)
+  await page.waitForTimeout(200)
+  const f9 = await page.evaluate(() => window.__barnspel.game._val.f)
+  rader.push(['U1d          och det tionde laget gar att na', `f ${efter.f} → tryck → ${f9}`, f9 === 9])
+
+  // U2 MATARM: de tre ovriga firandena. Att spela 16 rundor for att na dem vore 10 minuter;
+  // i stallet flyttas raknaren och spelets EGEN `_provaUpplasning` anropas (ctx tas ur
+  // `window.__barnspel.ctx`, samma ctx spelet fick). Vagen fram till anropet ar alltsa
+  // genvag — men firandet sjalvt ar spelets, inte sondens.
+  const felFore = errors.length
+  const u2 = []
+  for (const [vid, axel, nyttLage, takNyckel, vantatTak] of [
+    [8, 'monster', 4, 'monster', 6],
+    [12, 'varld', 3, 'varld', 4],
+    [16, 'storlek', 3, 'storlek', 4],
+  ]) {
+    const r = await page.evaluate(([v, ax, nytt, nyckel]) => {
+      const g = window.__barnspel.game
+      g._antal = v
+      g._firad = v - 1
+      g._provaUpplasning(window.__barnspel.ctx)
+      return { firad: g._firad, tak: g._tak[nyckel], val: { ...g._val }, ax, nytt }
+    }, [vid, axel, nyttLage, takNyckel])
+    await page.waitForTimeout(900) // laggIn ar animerad; fel dyker upp i callbacken
+    const lage = { monster: r.val.m, varld: r.val.v, storlek: r.val.z }[axel]
+    u2.push(`${axel} tak ${r.tak} lage ${lage}`)
+    rader.push([`U2 matarm    milstolpe ${vid} (${axel})`, `tak ${r.tak}/${vantatTak} · recept ${lage}/${nyttLage} · firad ${r.firad}`, r.tak === vantatTak && lage === nyttLage && r.firad === vid])
+  }
+  rader.push(['U2b          inga konsolfel ur de tre firandena', `${errors.length - felFore} fel · ${u2.join(' · ')}`, errors.length === felFore])
+
+  // ============================================================ D: aterkomsthalsningen
+  const HALSNING = 'Titta, dina knytt har saknat dig!'
+  const INTRO = 'Här bygger vi en liten värld åt ett nytt knytt!'
+  /** Ett besok med en pahittad sparpost: returnerar allt narratorn sa vid monteringen. */
+  const besok = async (dagOffset, lista) => {
+    await page.evaluate(([off, l]) => {
+      const dag = Math.floor(Date.now() / 86400000) + off
+      window.__barnspel.ctx.progress.setCustom('knytt', { v: 2, lista: l, n: l.length, firad: 99, dag })
+    }, [dagOffset, lista])
+    await page.evaluate(() => window.__barnspel.nav.go('library'))
+    await page.waitForTimeout(500)
+    // Kroken sätts pa TJANSTEN, inte pa spelet: `mount()` talar innan sonden hinner nagot.
+    await page.evaluate(() => {
+      const v = window.__barnspel.voice
+      if (!v.__hakad) {
+        const s = v.say.bind(v)
+        v.say = (t, o) => { window.__sagt.push(String(t)); return s(t, o) }
+        v.__hakad = true
+      }
+      window.__sagt = []
+    })
+    await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
+    await page.waitForTimeout(1300)
+    return page.evaluate(() => (window.__sagt || []).slice())
+  }
+  const POST = [[123, 0, 0, 0, 0, 0, 0, 0]]
+  const d0 = await besok(0, POST)
+  rader.push(['D0 kontroll  samma dag → vanliga introt', d0.includes(HALSNING) ? 'HALSNING (fel)' : 'intro', !d0.includes(HALSNING) && d0.includes(INTRO)])
+  const d1 = await besok(-1, POST)
+  rader.push(['D1 matarm    annan dag → "har saknat dig"', d1.includes(HALSNING) ? 'halsning' : d1.join(' | ').slice(0, 60), d1.includes(HALSNING)])
+  const d2 = await besok(-1, [])
+  rader.push(['D2 kontroll  annan dag men tom hylla → intro', d2.includes(HALSNING) ? 'HALSNING (fel)' : 'intro', !d2.includes(HALSNING) && d2.includes(INTRO)])
 
   // =================================================================== exit
   await page.evaluate(() => window.__barnspel.nav.go('library'))

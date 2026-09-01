@@ -1038,6 +1038,11 @@ export function byggVerktyg(axel, opts = {}) {
   let dod = false
   let steg = 0
   let last = false
+  // Hur många av `spec.steg` som är UPPLÅSTA just nu. Verkstan börjar smalare än
+  // tabellerna och växer med antalet kläckta knytt (ÅTGÄRDER U3) — men taket ägs av
+  // index.js, för det är där räknaren och sparposten bor. Utan `satTak` står den på
+  // hela tabellen, alltså precis som före upplåsningarna.
+  let tak = spec.steg
 
   const view = new Container()
   view.eventMode = 'static'
@@ -1172,7 +1177,7 @@ export function byggVerktyg(axel, opts = {}) {
 
   function onTap() {
     if (dod || last) return
-    const cyk = spec.steg
+    const cyk = tak
     let event = 'verktyg'
     let tomt = false
     if (spec.tomt && steg >= cyk - 1) {
@@ -1220,7 +1225,15 @@ export function byggVerktyg(axel, opts = {}) {
   }
 
   // Låt index.js synka delens räknare med sitt eget värde (t.ex. efter en kläckning).
-  function satSteg(n) { steg = ((n | 0) % spec.steg + spec.steg) % spec.steg }
+  function satSteg(n) { steg = ((n | 0) % tak + tak) % tak }
+
+  // Upplåsningarnas enda ingång. Klampas mot tabellen — en axel kan aldrig växa förbi
+  // sina egna delar — och steget dras med, så en synk kan inte lämna kvar ett läge
+  // ovanför taket (två sanningar om samma axel är precis det `satSteg` finns för).
+  function satTak(n) {
+    tak = Math.max(1, Math.min(spec.steg, n | 0))
+    steg = ((steg % tak) + tak) % tak
+  }
 
   function destroy() {
     dod = true
@@ -1231,7 +1244,7 @@ export function byggVerktyg(axel, opts = {}) {
 
   // `locka` MÅSTE stå här. Spakens `locka()` skrevs en gång utan att läggas i sitt
   // returobjekt, och `?.()` svalde anropet tyst i två dygn — se docens §5 punkt 4.
-  return { view, tryck, locka, satLast, satSteg, destroy }
+  return { view, tryck, locka, satLast, satSteg, satTak, destroy }
 }
 
 // =====================================================================================

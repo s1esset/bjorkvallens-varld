@@ -51,7 +51,9 @@ try {
     const s = Math.min(r.width / 1280, r.height / 720)
     return { x0: r.left + (r.width - 1280 * s) / 2, y0: r.top + (r.height - 720 * s) / 2, s }
   })
-  const klick = (x, y) => page.mouse.click(geo.x0 + x * geo.s, geo.y0 + y * geo.s)
+  const X = (x) => geo.x0 + x * geo.s
+  const Y = (y) => geo.y0 + y * geo.s
+  const klick = (x, y) => page.mouse.click(X(x), Y(y))
   const fas = () => page.evaluate(() => window.__barnspel.game?._fas || '?')
 
   // Ställ storleksbälgen på önskat steg (den stegar ett steg per tryck).
@@ -83,7 +85,7 @@ try {
   // lutar eller om knyttet alltid stått så.
   const svep = async (x0, x1, y, n) => {
     for (let i = 0; i <= n; i++) {
-      await page.mouse.move(geo.x0 + (x0 + ((x1 - x0) * i) / n) * geo.s, geo.y0 + y * geo.s)
+      await page.mouse.move(X(x0 + ((x1 - x0) * i) / n), Y(y))
       await page.waitForTimeout(40)
     }
   }
@@ -91,7 +93,7 @@ try {
     const t0 = Date.now()
     let i = 0
     while (Date.now() - t0 < ms) {
-      await page.mouse.move(geo.x0 + (x + (i % 2 ? 5 : -5)) * geo.s, geo.y0 + y * geo.s)
+      await page.mouse.move(X(x + (i % 2 ? 5 : -5)), Y(y))
       await page.waitForTimeout(40)
       i++
     }
@@ -106,7 +108,7 @@ try {
   const lekH = await lut()
   await page.screenshot({ path: '.test-shots/knytt-lek-hoger.png' })
 
-  await page.mouse.move(geo.x0 + 200 * geo.s, geo.y0 + 200 * geo.s)
+  await page.mouse.move(X(200), Y(200))
   await page.waitForTimeout(1200)
   const lekVila = await lut()
   await page.screenshot({ path: '.test-shots/knytt-lek-vila.png' })
@@ -126,63 +128,59 @@ try {
     return { h: Math.round(b.height), b: Math.round(b.width), storlek: g?._dna?.storlek ?? null }
   })
 
-  // --- ISOLERAD skalmätning -------------------------------------------------------
-  // Höjden i en LEVANDE omgång går inte att jämföra mellan körningar: varje varv har ett
-  // nytt frö, och öron/horn/vingar ändrar höjden mer än storleken gör. Bygg därför fyra
-  // knytt ur SAMMA dna där bara `storlek` skiljer — då är storleken den enda variabeln.
-  const skala = await page.evaluate(async () => {
-    const kn = await import('/src/games/unika-knytt/knytt.js')
-    const dn = await import('/src/games/unika-knytt/dna.js')
-    // `stadKnytt` fanns i knytt.js till 2026-09-01, da de tre stad-looparna slogs ihop till
-    // `lib/feedback.js:stadFx`. Sonden kraschade pa den raden fran den dagen till 2026-09-02
-    // — HELA den isolerade skalmatningen har alltsa varit dod, utan att nagon markt det.
-    const fb = await import('/src/lib/feedback.js')
-    const bas = dn.dnaFromSeed(1234567, { f: 2, z: 0, m: 1, v: 0, g: 1 })
-    const ut = []
-    for (const s of dn.STORLEKAR) {
-      const k = kn.byggKnytt({ ...bas, storlek: s }, { r: 92 })
-      const b = k.view.getBounds()
-      ut.push({ s, h: Math.round(b.height) })
-      fb.stadFx(k.view)
-      k.destroy()
-    }
-    return ut
-  })
-
-  // --- OGONLOCKETS utbredning mot HUVUDETS -----------------------------------------
-  // `lockG` (knytt.js:_byggOga) ar en KROPPSFARGAD lucka, 3e bred och 3,5e hog, som sanks
-  // over ogat. Att den ar storre an ogat ar med flit — den ska tacka helt — men den ar inte
-  // klippt mot huvudet, och da malar den kroppsfarg utanfor siluetten vid VARJE blinkning.
+  // --- ISOLERADE MÄTNINGAR ---------------------------------------------------------
+  // Två frågor som båda kräver knytt byggda UTANFÖR det levande varvet, och som därför
+  // delar ställningsverk: samma tre importer, samma bygg → mät → städa → riv.
   //
-  // ⚠️ FORSTA INSTRUMENTET VAR FEL och gav +0,0 px pa sex fron: `view.getBounds()` ar
-  // unionen over HELA knyttet, inklusive oron, svans och vingar, som stracker sig langt
-  // utanfor huvudet. Ett lock som gar utanfor KROPPEN ryms latt innanfor den unionen.
-  // Matningen ar darfor geometrisk i stallet: lockets ytterkant (`ogats x + 1,5e`) mot
-  // kroppens halva bredd vid ansiktshojd (`m.bredd * 0.86`, samma tal `dx`-klampen anvander).
-  const lock = await page.evaluate(async () => {
+  // ⓵ SKALAN. Höjden i en LEVANDE omgång går inte att jämföra mellan körningar: varje varv
+  //   har ett nytt frö, och öron/horn/vingar ändrar höjden mer än storleken gör. Bygg därför
+  //   fyra knytt ur SAMMA dna där bara `storlek` skiljer — då är storleken enda variabeln.
+  //
+  // ⓶ ÖGONLOCKET. `lockG` (knytt.js:_byggOga) är en KROPPSFÄRGAD lucka, 3e bred och 3,5e hög,
+  //   som sänks över ögat. Att den är större än ögat är med flit — den ska täcka helt — men
+  //   den är inte klippt mot huvudet, och då målar den kroppsfärg utanför siluetten vid VARJE
+  //   blinkning.
+  //   ⚠️ FÖRSTA INSTRUMENTET VAR FEL och gav +0,0 px på sex frön: `view.getBounds()` är
+  //   unionen över HELA knyttet, inklusive öron, svans och vingar, som sträcker sig långt
+  //   utanför huvudet. Ett lock som går utanför KROPPEN ryms lätt innanför den unionen.
+  //   Mätningen är därför geometrisk i stället: lockets ytterkant (`ögats x + 1,5e`) mot
+  //   kroppens halva bredd vid ansiktshöjd (`m.bredd * 0.86`, samma tal `dx`-klampen använder).
+  //
+  // `stadKnytt` fanns i knytt.js till 2026-09-01, da de tre stad-looparna slogs ihop till
+  // `lib/feedback.js:stadFx`. Sonden kraschade pa den raden fran den dagen till 2026-09-02
+  // — HELA den isolerade skalmatningen har alltsa varit dod, utan att nagon markt det.
+  const { skala, lock } = await page.evaluate(async () => {
     const kn = await import('/src/games/unika-knytt/knytt.js')
     const dn = await import('/src/games/unika-knytt/dna.js')
     const fb = await import('/src/lib/feedback.js')
-    const ut = []
-    for (const fro of [1234567, 42, 987654, 5150, 31337, 271828]) {
-      const k = kn.byggKnytt(dn.dnaFromSeed(fro, { f: 2, z: 2, m: 1, v: 0, g: 1 }), { r: 92 })
-      const kant = k._m.bredd * 0.86
-      let varst = -Infinity
-      let e0 = 0
-      for (const o of k._ogon) {
-        e0 = o.e
-        varst = Math.max(varst, Math.abs(o.nod.x) + 1.5 * o.e - kant)
-      }
-      ut.push({
-        fro,
-        kant: Math.round(kant),
-        e: Math.round(e0),
-        over: Math.round(varst * 10) / 10,
-      })
+    /** Bygg ett knytt ur `dna`, mat det med `f`, riv det igen. */
+    const mat = (dna, f) => {
+      const k = kn.byggKnytt(dna, { r: 92 })
+      const ut = f(k)
       fb.stadFx(k.view)
       k.destroy()
+      return ut
     }
-    return ut
+
+    const bas = dn.dnaFromSeed(1234567, { f: 2, z: 0, m: 1, v: 0, g: 1 })
+    const skala = dn.STORLEKAR.map((s) =>
+      mat({ ...bas, storlek: s }, (k) => ({ s, h: Math.round(k.view.getBounds().height) })))
+
+    const lock = [1234567, 42, 987654, 5150, 31337, 271828].map((fro) =>
+      mat(dn.dnaFromSeed(fro, { f: 2, z: 2, m: 1, v: 0, g: 1 }), (k) => {
+        const kant = k._m.bredd * 0.86
+        let varst = -Infinity
+        let eVarst = 0
+        // `e` ska hora ihop med det VARSTA ogat — annars rapporterar raden ett matt och en
+        // storlek fran tva olika ogon, och talen gar inte att rakna efter for hand.
+        for (const o of k._ogon) {
+          const over = Math.abs(o.nod.x) + 1.5 * o.e - kant
+          if (over > varst) { varst = over; eVarst = o.e }
+        }
+        return { fro, kant: Math.round(kant), e: Math.round(eVarst), over: Math.round(varst * 10) / 10 }
+      }))
+
+    return { skala, lock }
   })
 
   console.log('')
@@ -205,7 +203,6 @@ try {
   console.log('')
   console.log(`  höjd/storlek varierar ${(spr * 100).toFixed(1)} % — nära 0 betyder att storleken räknas EN gång`)
   console.log(`  spann största/minsta: ${(skala[3].h / skala[0].h).toFixed(2)}x  (kupans blobb lovar 1.62x)`)
-  console.log('')
   console.log('')
   console.log('  ogonlocket mot KROPPENS kant vid ansiktshojd (negativt = innanfor):')
   for (const r of lock) {

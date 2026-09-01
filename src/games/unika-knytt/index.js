@@ -93,7 +93,7 @@ export default {
     // --- fältnollställning (singleton) ---
     this._alive = true
     this._fas = 'bygga'
-    this._val = { f: 0, z: 1, m: 0, v: 0, g: 0, r: 0 }
+    this._val = { f: 0, z: 1, m: 0, v: 0, g: 0 }
     this._dna = null
     this._fro = 0
     this._verktyg = {}
@@ -320,7 +320,6 @@ export default {
     g.moveTo(834, 590).lineTo(820, 583).stroke({ width: 5, color: MASSING_MORK, cap: 'round' })
     g.moveTo(890, 622).quadraticCurveTo(912, 634, 890, 650).stroke({ width: 7, color: MASSING_MORK, cap: 'round' })
 
-    g.eventMode = 'none'
     return g
   },
 
@@ -498,7 +497,11 @@ export default {
       this._val.z,
       this._val.m,
       this._val.v,
-      this._val.r,
+      // Plats 5 är RESERVERAD åt Ljudtratten (§4c: noll migrering senare) och är alltså inget
+      // barnval — den bär det `r` genetiken FAKTISKT använder. `dnaFromSeed` läser aldrig
+      // `val.r`, motivet dras ur fröströmmen, så värdet hämtas UR returen: ett härlett
+      // `_fro % 5` såg rätt ut och var ett annat tal.
+      this._dna?.val.r ?? 0,
       this._val.g,
       0,
     ]
@@ -736,11 +739,6 @@ export default {
     // Fröet rullas HÄR, före en enda bildruta av ceremonin. Den är en avtäckning, inte en snurr.
     if (!this._fro) this._fro = slumpFro(mulberry32((Math.random() * 0xffffffff) >>> 0))
     this._dna = dnaFromSeed(this._fro, this._val)
-    // Sparpostens plats 5 är RESERVERAD åt Ljudtratten (§4c: noll migrering senare), men den
-    // måste bära det `r` genetiken FAKTISKT använder. `dnaFromSeed` läser aldrig `val.r` —
-    // motivet dras ur fröströmmen — så värdet hämtas UR returen. Ett härlett `_fro % 5` såg
-    // rätt ut och var ett annat tal: den dag någon börjar läsa fältet får den tyst fel motiv.
-    this._val.r = this._dna.val.r
 
     for (const v of Object.values(this._verktyg)) v.satLast(true)
     this._kupaAktiv(false)

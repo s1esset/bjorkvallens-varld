@@ -650,7 +650,11 @@ class Knytt {
       gladhet: 0, lut: 0, wobble: 0, sank: 0, lock: 0, blink: 0, gasp: 0, vakna: 0, sido: 0,
     }
     this._lutV = 0
-    this._lutMal = 0
+    // Lekzonen och dess två mättnadsnämnare är konstanta för knyttets livstid — `_r` sätts
+    // en gång och skrivs aldrig om. Kvadraten sparar en Math.hypot per bildruta i `tick()`.
+    this._lekR = this._r * LEK_R
+    this._lekR2 = this._lekR * this._lekR
+    this._lekSido = this._r * LEK_SIDO
     this._rotSlap = 0
     this._skuttKvar = 0
     this._skuttFas = 0
@@ -987,16 +991,14 @@ class Knytt {
 
     // Fingret räknas som liv bara när det RÖR sig: en still muspekare ska inte hindra
     // knyttet från att somna.
-    let rort = false
     let flytt = 0
     if (pekare && typeof pekare.x === 'number') {
       if (this._pekHar) flytt = Math.hypot(pekare.x - this._pekPx, pekare.y - this._pekPy)
-      if (flytt > 6) rort = true
       this._pekHar = true
       this._pekPx = pekare.x
       this._pekPy = pekare.y
     } else this._pekHar = false
-    if (rort) this._stilla = 0
+    if (flytt > 6) this._stilla = 0
     else this._stilla += dt
 
     // LEKFULLT — fingret lever NÄRA mig.
@@ -1008,17 +1010,19 @@ class Knytt {
     // Hyllans knytt får `tick(dt, null)` och kan därför aldrig gå in i det, vilket är rätt:
     // de har inget finger att luta sig mot.
     //
-    // Egen rörelsetröskel, inte `rort`: den kräver 6 px MELLAN två bildrutor för att en
-    // darrande muspekare inte ska hålla knyttet vaket i evighet, och ett långsamt
-    // AVSIKTLIGT drag (3 px/ruta) hade då lästs som stillastående och fått läget att
-    // blinka av och på. Sömnlogiken behåller sin gamla tröskel oförändrad.
+    // Egen rörelsetröskel (0,5 px), inte sömnlogikens 6 px ovan: den senare kräver 6 px
+    // MELLAN två bildrutor för att en darrande muspekare inte ska hålla knyttet vaket i
+    // evighet, och ett långsamt AVSIKTLIGT drag (3 px/ruta) hade då lästs som stillastående
+    // och fått läget att blinka av och på. Sömnlogiken är oförändrad.
     //
     // Bara från 'idle': 'glad' är belöningen efter ett tryck (skutt + eget motiv + glada
     // ögon) och får aldrig kapas, och 'somnig'/'sover' väcks av tryck, inte av ett finger
     // som svävar förbi. När 'glad' tar slut faller det tillbaka till 'idle' och nästa
     // bildruta går in i 'lekfull' om fingret är kvar — trycket blir alltså inte ett avbrott
     // i leken utan en topp i den.
-    const nara = !!pekare && Math.hypot(pekare.x - this.view.x, pekare.y - this.view.y) < this._r * LEK_R
+    const pdx = pekare ? pekare.x - this.view.x : 0
+    const pdy = pekare ? pekare.y - this.view.y : 0
+    const nara = !!pekare && pdx * pdx + pdy * pdy < this._lekR2
     if (nara && flytt > 0.5) this._lekKvar = LEK_SLAPP
     else this._lekKvar = Math.max(0, this._lekKvar - dt)
     if (this._lage === 'idle' && this._lekKvar > 0) this._lage = 'lekfull'
@@ -1073,10 +1077,10 @@ class Knytt {
     // Lekfullt: kroppen lutar efter fingret med tröghet och FJÄDRAR tillbaka vid släpp.
     // En fjäder behöver en hastighetsterm — utan den är det bara en easing som aldrig
     // svänger över och alltså aldrig studsar.
-    this._lutMal = lekfull && pekare ? clamp((pekare.x - this.view.x) / (this._r * LEK_R), -1, 1) * 0.24 : 0
-    this._lutV += ((this._lutMal - s.lut) * 30 - this._lutV * 7.5) * dt
+    const lutMal = lekfull && pekare ? clamp(pdx / this._lekR, -1, 1) * 0.24 : 0
+    this._lutV += ((lutMal - s.lut) * 30 - this._lutV * 7.5) * dt
     s.lut = clamp(s.lut + this._lutV * dt, -0.5, 0.5)
-    s.sido = naerma(s.sido, lekfull && pekare ? clamp((pekare.x - this.view.x) / (this._r * LEK_SIDO), -1, 1) * this._r * 0.1 : 0, 6, dt)
+    s.sido = naerma(s.sido, lekfull && pekare ? clamp(pdx / this._lekSido, -1, 1) * this._r * 0.1 : 0, 6, dt)
 
     // Sömnigheten: sjunker ihop och plattas till.
     s.sank = naerma(s.sank, sover ? 1 : somnig ? 0.55 : 0, 2.4, dt)

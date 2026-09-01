@@ -74,6 +74,7 @@ const CPU = (() => {
   return i >= 0 ? Number(process.argv[i + 1]) : 4
 })()
 const SPAK = { x: 1160, y: 350 }
+const KNACK = { x: 640, y: 470 }  // aggets mitt i 'klacka' — samma punkt for varje familj
 const TONER = { farg: 523, gnista: 659, storlek: 392, monster: 587, varld: 440 }
 const T_LAGE = {
   farg: { x: 300, y: 250 },
@@ -226,8 +227,12 @@ try {
     }, 16)
   })
 
-  /** Spelar en runda till slut. `rorVerktyg` avgor om barnet trycker pa fargkranen. */
-  const rundan = async (rorVerktyg) => {
+  /**
+   * Spelar en runda till slut. `rorVerktyg` avgor om barnet trycker pa fargkranen.
+   * `stannaPaBanken` lamnar knyttet STAENDE pa banken i stallet for att stanga rundan —
+   * L-familjen mater pa det knyttet, och ett spaktryck till hade skickat hem det.
+   */
+  const rundan = async (rorVerktyg, stannaPaBanken = false) => {
     if (rorVerktyg) {
       await klick(T_LAGE.farg.x, T_LAGE.farg.y)
       await page.waitForTimeout(300)
@@ -237,7 +242,7 @@ try {
     await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
     // Fyra knackningar, over KNACK_SPARR (0,18 s).
     for (let i = 0; i < 4; i++) {
-      await klick(640, 470)
+      await klick(KNACK.x, KNACK.y)
       await page.waitForTimeout(260)
     }
     // Rundan aterstaller sig INTE sjalv, och det ar med flit: knyttet star kvar pa banken
@@ -251,6 +256,7 @@ try {
     // att stanga rundan dar hade kastat bort knyttet barnet just gjort (docens §5 punkt 2).
     // Sondens version 2 tryckte efter 400 ms, trafade den garden och hangde. Spelet ratt.
     await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 })
+    if (stannaPaBanken) return
     await klick(SPAK.x, SPAK.y)
     await page.waitForFunction(() => window.__barnspel.game._fas === 'bygga', null, { timeout: 20000 })
     await page.waitForTimeout(300)
@@ -449,15 +455,10 @@ try {
   // Alla armar mats pa knyttet DAR DET STAR PA BANKEN, alltsa efter en hel runda. Det ar
   // enda stallet dar barnet och knyttet delar skarm utan att ceremonin styr laget.
   await start()
-  await klick(SPAK.x, SPAK.y)
-  await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
-  for (let i = 0; i < 4; i++) {
-    await klick(640, 470)
-    await page.waitForTimeout(260)
-  }
-  // Vanta in att knyttet star pa banken — men tryck INTE pa det: `_knyttYta` skickar hem
-  // det, och da finns inget knytt kvar att mata pa.
-  await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 })
+  // SAMMA runda som C och U kor, bara stannad pa banken. Den bar fyra hart vunna vantevillkor
+  // (`klacka` · `_klar` · `_knyttYta`) som en egen kopia har garanterat glider ifran.
+  // Knyttet trycks ALDRIG pa har: `_knyttYta` skickar hem det, och da finns inget att mata pa.
+  await rundan(false, true)
   await page.waitForTimeout(500)
 
   const lage = () => page.evaluate(() => window.__barnspel.game._knytt?.lage ?? '(inget knytt)')
@@ -499,6 +500,9 @@ try {
   const l3b = await lage()
   rader.push(['L3 matarm    glad vinner over leken', `${l3a} → (1,8 s) → ${l3b}`, l3a === 'glad' && l3b === 'lekfull'])
 
+  // L5 kors FORE L4 med flit: L4 snabbspolar `_stilla` och parkerar knyttet SOVANDE, och
+  // ur det laget finns ingen lutning kvar att mata. Numret foljer docens §9 B1, inte klockan.
+  //
   // L5 — DET HAR ar arme som skiljer "laget nas" fran "laget gor nagot". L0-L4 laser
   // `_lage`, alltsa mekanismen; den har laser vad kroppen FAKTISKT gor. Lutningen ar
   // signerad, sa den bar sin egen kontrollarm: samma rorelse pa andra sidan maste ge

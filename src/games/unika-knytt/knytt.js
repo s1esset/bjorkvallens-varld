@@ -603,6 +603,18 @@ const LAGEN = ['idle', 'glad', 'lekfull', 'somnig', 'sover']
 const VARLD_TAKT = [1, 0.96, 0.9, 1.07]
 // Hur långt efter kroppen öron och svans släpar (rad). §1 "De fem slingorna".
 const SLAP = 0.5
+// Lekfullt läge. `LEK_R` är hur nära fingret måste röra sig, mätt i knyttets EGNA radier
+// (r 92 i ceremonin → ~230 px), och `LEK_SLAPP` hur länge läget lever kvar efter att
+// fingret stannat.
+//
+// ⚠️ Lekzonen är också lutningens MÄTTNAD, och det är samma tal med flit. Lutningen skrevs
+// mot `_r * 4` (368 px) medan zonen är 230 — kroppen hade då aldrig kunnat nå mer än 62 %
+// av den amplitud någon en gång valde, alltså ett värde som är skrivet men oåtkomligt
+// (samma klass som hornet `krona`). Uppmätt vid samma fingerläge: 0,086 → 0,136 rad.
+// Sidoförflyttningen behåller sin egen, långsammare ramp (4:5 mot lutningen).
+const LEK_R = 2.5
+const LEK_SIDO = LEK_R * 1.25
+const LEK_SLAPP = 0.45
 
 class Knytt {
   constructor(dna, opts = {}) {
@@ -630,6 +642,7 @@ class Knytt {
     this._pekHar = false
     this._pekPx = 0
     this._pekPy = 0
+    this._lekKvar = 0
 
     // Varje gest äger sin egen skalär. `_apply()` är den ENDA som skriver transformer.
     this.s = {
@@ -975,8 +988,10 @@ class Knytt {
     // Fingret räknas som liv bara när det RÖR sig: en still muspekare ska inte hindra
     // knyttet från att somna.
     let rort = false
+    let flytt = 0
     if (pekare && typeof pekare.x === 'number') {
-      if (this._pekHar && Math.hypot(pekare.x - this._pekPx, pekare.y - this._pekPy) > 6) rort = true
+      if (this._pekHar) flytt = Math.hypot(pekare.x - this._pekPx, pekare.y - this._pekPy)
+      if (flytt > 6) rort = true
       this._pekHar = true
       this._pekPx = pekare.x
       this._pekPy = pekare.y
@@ -984,7 +999,34 @@ class Knytt {
     if (rort) this._stilla = 0
     else this._stilla += dt
 
+    // LEKFULLT — fingret lever NÄRA mig.
+    //
+    // Läget fanns skrivet men gick inte att nå: `setLage()` anropades bara med 'glad'.
+    // Vad det ska betyda står redan i dess egen kod och behövde inte hittas på — två av
+    // dess fyra effekter (kroppens lutning och sidoförflyttningen) står och faller med
+    // att `pekare` finns alls, alltså handlar läget om fingret och ingenting annat.
+    // Hyllans knytt får `tick(dt, null)` och kan därför aldrig gå in i det, vilket är rätt:
+    // de har inget finger att luta sig mot.
+    //
+    // Egen rörelsetröskel, inte `rort`: den kräver 6 px MELLAN två bildrutor för att en
+    // darrande muspekare inte ska hålla knyttet vaket i evighet, och ett långsamt
+    // AVSIKTLIGT drag (3 px/ruta) hade då lästs som stillastående och fått läget att
+    // blinka av och på. Sömnlogiken behåller sin gamla tröskel oförändrad.
+    //
+    // Bara från 'idle': 'glad' är belöningen efter ett tryck (skutt + eget motiv + glada
+    // ögon) och får aldrig kapas, och 'somnig'/'sover' väcks av tryck, inte av ett finger
+    // som svävar förbi. När 'glad' tar slut faller det tillbaka till 'idle' och nästa
+    // bildruta går in i 'lekfull' om fingret är kvar — trycket blir alltså inte ett avbrott
+    // i leken utan en topp i den.
+    const nara = !!pekare && Math.hypot(pekare.x - this.view.x, pekare.y - this.view.y) < this._r * LEK_R
+    if (nara && flytt > 0.5) this._lekKvar = LEK_SLAPP
+    else this._lekKvar = Math.max(0, this._lekKvar - dt)
+    if (this._lage === 'idle' && this._lekKvar > 0) this._lage = 'lekfull'
+    else if (this._lage === 'lekfull' && this._lekKvar <= 0) this._lage = 'idle'
+
     // Sömnen kommer av sig själv: 12 s till sömnig, 8 s till efter det till sover.
+    // Står EFTER lekfullheten med flit: den bildruta då leken släpper ska kunna somna
+    // direkt om fingret redan varit borta länge, i stället för att vänta en ruta till.
     if (this._lage === 'idle' && this._stilla > 12) this._lage = 'somnig'
     else if (this._lage === 'somnig' && this._stilla > 20) this._lage = 'sover'
     if (this._lage === 'glad') {
@@ -1031,10 +1073,10 @@ class Knytt {
     // Lekfullt: kroppen lutar efter fingret med tröghet och FJÄDRAR tillbaka vid släpp.
     // En fjäder behöver en hastighetsterm — utan den är det bara en easing som aldrig
     // svänger över och alltså aldrig studsar.
-    this._lutMal = lekfull && pekare ? clamp((pekare.x - this.view.x) / (this._r * 4), -1, 1) * 0.24 : 0
+    this._lutMal = lekfull && pekare ? clamp((pekare.x - this.view.x) / (this._r * LEK_R), -1, 1) * 0.24 : 0
     this._lutV += ((this._lutMal - s.lut) * 30 - this._lutV * 7.5) * dt
     s.lut = clamp(s.lut + this._lutV * dt, -0.5, 0.5)
-    s.sido = naerma(s.sido, lekfull && pekare ? clamp((pekare.x - this.view.x) / (this._r * 5), -1, 1) * this._r * 0.1 : 0, 6, dt)
+    s.sido = naerma(s.sido, lekfull && pekare ? clamp((pekare.x - this.view.x) / (this._r * LEK_SIDO), -1, 1) * this._r * 0.1 : 0, 6, dt)
 
     // Sömnigheten: sjunker ihop och plattas till.
     s.sank = naerma(s.sank, sover ? 1 : somnig ? 0.55 : 0, 2.4, dt)

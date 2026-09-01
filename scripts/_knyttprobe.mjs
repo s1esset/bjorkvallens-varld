@@ -40,6 +40,19 @@
 //                monster 587 · varld 440). Fore fixen lyste `farg` alltid upp och tonen
 //                var 392 — `storlek`s ton — oavsett vilken del det gallde.
 //
+//   L0 kontroll  pekaren ror sig LANGT fran knyttet         -> laget star kvar pa 'idle'
+//                (gron aven pa HEAD — det ar precis vad en kontrollarm ska vara)
+//   L1 matarm    pekaren ror sig NARA knyttet                -> 'lekfull'. FALLER pa HEAD,
+//                dar `setLage` bara nas med 'glad' och laget aldrig kan intraffa
+//   L2 matarm    pekaren STANNAR                             -> tillbaka till 'idle'
+//   L3 matarm    `glad()` mitt i leken                       -> 'glad' vinner, och leken
+//                aterupptas nar den 1,8 s langa gladjen tagit slut
+//   L4 matarm    somnen nas fortfarande                      -> 'somnig' och 'sover'
+//                (docens §9 B1: `_lage` styr FEM slingor, de fyra andra maste finnas kvar)
+//   L5 matarm    GOR laget nagot, eller flippade bara en flagga? Lutningen ar SIGNERAD:
+//                fingret till hoger ska luta kroppen at hoger och tvartom. L0-L4 laser
+//                bara `_lage` — "byggd ar inte fungerar"
+//
 //   P0 kontroll  verkstan i vila, CPU strypt              -> maskinens billiga bildruta
 //   P1 matarm    degfasen F2+F3, samma strypning            -> ritaDeg() + Mjukkropp +
 //                bubblorna + ljusstormen, alltsa rundans dyraste fonster
@@ -426,6 +439,107 @@ try {
   rader.push(['D1 matarm    annan dag → "har saknat dig"', d1.includes(HALSNING) ? 'halsning' : d1.join(' | ').slice(0, 60), d1.includes(HALSNING)])
   const d2 = await besok(-1, [])
   rader.push(['D2 kontroll  annan dag men tom hylla → intro', d2.includes(HALSNING) ? 'HALSNING (fel)' : 'intro', !d2.includes(HALSNING) && d2.includes(INTRO)])
+
+  // ======================================== L: lekfulla laget (docens §9 B1)
+  // Laget fanns skrivet men gick inte att na: `setLage()` anropades bara med 'glad'.
+  // Vad det SKA betyda stod redan i dess egen kod — tva av dess fyra effekter (kroppens
+  // lutning och sidoforflyttningen) star och faller med att `pekare` finns alls — sa
+  // inkopplingen ar "fingret lever nara mig", inte ett pahittat villkor.
+  //
+  // Alla armar mats pa knyttet DAR DET STAR PA BANKEN, alltsa efter en hel runda. Det ar
+  // enda stallet dar barnet och knyttet delar skarm utan att ceremonin styr laget.
+  await start()
+  await klick(SPAK.x, SPAK.y)
+  await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
+  for (let i = 0; i < 4; i++) {
+    await klick(640, 470)
+    await page.waitForTimeout(260)
+  }
+  // Vanta in att knyttet star pa banken — men tryck INTE pa det: `_knyttYta` skickar hem
+  // det, och da finns inget knytt kvar att mata pa.
+  await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 })
+  await page.waitForTimeout(500)
+
+  const lage = () => page.evaluate(() => window.__barnspel.game._knytt?.lage ?? '(inget knytt)')
+  /** For pekaren i sma steg, sa `globalpointermove` fyras pa riktigt hela vagen. */
+  const svep = async (x0, y0, x1, y1, n = 10) => {
+    for (let i = 0; i <= n; i++) {
+      await page.mouse.move(X(x0 + ((x1 - x0) * i) / n), Y(y0 + ((y1 - y0) * i) / n))
+      await page.waitForTimeout(40)
+    }
+  }
+
+  // L0 — samma ROLSE, men langt bort. Utan den mater L1 bara "pekaren rorde sig".
+  await svep(140, 250, 300, 250)
+  const l0 = await lage()
+  rader.push(['L0 kontroll  pekaren ror sig LANGT bort', l0, l0 === 'idle'])
+
+  // L1 — knyttet star pa (800, 470) med r 92, alltsa en lekzon pa 230 px.
+  await svep(730, 500, 870, 500)
+  const l1 = await lage()
+  rader.push(['L1 matarm    pekaren ror sig NARA', `${l1} (HEAD kan bara ge idle)`, l1 === 'lekfull'])
+
+  // L2 — fingret stannar. LEK_SLAPP ar 0,45 s.
+  await page.waitForTimeout(900)
+  const l2 = await lage()
+  rader.push(['L2 matarm    pekaren stannar → slapper', l2, l2 === 'idle'])
+
+  // L3 — 'glad' far ALDRIG kapas av leken. Anropet ar spelets egen vag in (`_boTryck` och
+  // `_hemTillBoet` gor samma sak); knyttets traffyta gar inte att trycka pa har, for den
+  // skickar hem det.
+  await svep(730, 500, 870, 500)
+  // Blockkropp, inte uttryck: `glad()` returnerar `this` och playwright kan inte
+  // serialisera en Pixi-nod ("object reference chain is too long").
+  await page.evaluate(() => { window.__barnspel.game._knytt.glad() })
+  await page.waitForTimeout(200)
+  const l3a = await lage()
+  // ...och efter gladjens 1,8 s ska leken kunna aterupptas.
+  await page.waitForTimeout(1900)
+  await svep(730, 500, 870, 500)
+  const l3b = await lage()
+  rader.push(['L3 matarm    glad vinner over leken', `${l3a} → (1,8 s) → ${l3b}`, l3a === 'glad' && l3b === 'lekfull'])
+
+  // L5 — DET HAR ar arme som skiljer "laget nas" fran "laget gor nagot". L0-L4 laser
+  // `_lage`, alltsa mekanismen; den har laser vad kroppen FAKTISKT gor. Lutningen ar
+  // signerad, sa den bar sin egen kontrollarm: samma rorelse pa andra sidan maste ge
+  // motsatt tecken, och ett matt som ger samma tal at bada sidorna mater nagot annat.
+  /** Jigga pa plats sa laget lever medan fjadern (styvhet 30, dampning 7,5) hinner ikapp. */
+  const dittra = async (x, y, ms) => {
+    const t0 = Date.now()
+    let i = 0
+    while (Date.now() - t0 < ms) {
+      await page.mouse.move(X(x + (i % 2 ? 5 : -5)), Y(y))
+      await page.waitForTimeout(40)
+      i++
+    }
+  }
+  const kropp = () => page.evaluate(() => {
+    const k = window.__barnspel.game._knytt
+    return { lut: k.s.lut, sido: k.s.sido, lage: k.lage }
+  })
+  await svep(830, 480, 930, 480, 10)
+  await dittra(930, 480, 700)
+  const lH = await kropp()
+  await svep(930, 480, 670, 480, 16)
+  await dittra(670, 480, 700)
+  const lV = await kropp()
+  rader.push([
+    'L5 matarm    lutningen foljer fingrets SIDA',
+    `hoger ${lH.lut.toFixed(3)} rad / ${lH.sido.toFixed(1)} px · vanster ${lV.lut.toFixed(3)} / ${lV.sido.toFixed(1)}`,
+    lH.lage === 'lekfull' && lV.lage === 'lekfull' && lH.lut > 0.04 && lV.lut < -0.04,
+  ])
+
+  // L4 — de tva somnlagena. `_stilla` snabbspolas: det ar SAMMA maskin som raknar upp den,
+  // bara utan 20 s vantan. Fingret flyttas forst ut ur lekzonen.
+  await page.mouse.move(X(200), Y(200))
+  await page.waitForTimeout(700)
+  await page.evaluate(() => { window.__barnspel.game._knytt._stilla = 11.9 })
+  await page.waitForTimeout(250)
+  const l4a = await lage()
+  await page.evaluate(() => { window.__barnspel.game._knytt._stilla = 19.9 })
+  await page.waitForTimeout(250)
+  const l4b = await lage()
+  rader.push(['L4 matarm    somnen nas fortfarande', `${l4a} → ${l4b}`, l4a === 'somnig' && l4b === 'sover'])
 
   // ========================================== P: haller degfasen bildrutebudgeten?
   // Docens §9 C ville mata "ritaDeg()s ~75 allokeringar per bildruta" med

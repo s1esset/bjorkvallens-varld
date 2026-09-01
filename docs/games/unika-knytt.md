@@ -1286,9 +1286,9 @@ någon post. En köpost vars premiss har fallit ska SKRIVAS OM till det som går
 ersättas med något större — det hände C:s första punkt, se den.*
 
 **Grönt i dag, rör inte:** `npm run check` 0/0 · `npm run test unika-knytt` 0 konsolfel, bildkoll
-ren · `_knyttprobe` 30/30 · `_upplasprobe` 11/11 · `_variantprobe` · `_idleprobe` 0 · `_tystprobe`
-utan kandidat · `_montageprobe` 24–28 ms · noll väntande röstklipp. Inget nedan är en trasig
-sak — det är beslut, obyggt, eller omätt.
+ren · `_knyttprobe` 36/36 · `_upplasprobe` 11/11 · `_variantprobe` · `_idleprobe` 0 · `_tystprobe`
+utan kandidat · `_montageprobe` 24–28 ms · `_knyttbild` utan konsolfel · noll väntande röstklipp.
+Inget nedan är en trasig sak — det är beslut, obyggt, eller omätt.
 
 ### A. Blockerat på ägaren (fråga, bygg inte förbi)
 
@@ -1309,13 +1309,25 @@ sparpostens plats 5 skrivs nu ur `this._dna.val.r` i stället för det härledda
 och en framtida läsare hade fått tyst fel motiv. Platsen är fortfarande reserverad åt
 Ljudtratten och migreringen fortfarande noll.
 
-* [Medium] **Läget `lekfull` går inte att nå.** `setLage()` anropas bara med `'glad'`
-  (`knytt.js:913`), aldrig med `'lekfull'`. Hela beteendet — kroppen lutar efter fingret
-  (`:1040`), öron och svans piskar ×2,5 (`:1143`), snabbare vift (`:1158`) — finns skrivet och
-  kan aldrig inträffa. **Det här är den enda posten i B som ger barnet något nytt.**
-  ⚠️ Att koppla in den är ett DESIGNVAL om när den ska gälla (medan fingret rör sig nära
-  knyttet? efter ett bo-tryck?), inte en buggfix — och `_lage` styr fem slingor, så mät att de
-  fyra andra fortfarande nås efteråt.
+* ✅ **Läget `lekfull` — STÄNGT 2026-09-01 (sen natt).** Designvalet behövde inte hittas på:
+  **två av lägets fyra effekter (kroppens lutning och sidoförflyttningen) står och faller med
+  att `pekare` finns alls**, så läget handlar om fingret och ingenting annat. Villkoret är
+  därför "fingret LEVER nära mig" — inom `LEK_R` (2,5 knyttradier ≈ 230 px) och med rörelse,
+  med `LEK_SLAPP` 0,45 s efterglöd. Egen rörelsetröskel (0,5 px) i stället för sömnlogikens
+  6 px: den senare hade läst ett långsamt AVSIKTLIGT drag som stillastående och fått läget att
+  blinka. Bara från `idle`, så `glad` aldrig kapas och en sovande inte väcks av ett finger som
+  svävar förbi. Hyllans knytt får `tick(dt, null)` och kan aldrig gå in i läget — rätt, de har
+  inget finger att luta sig mot.
+  **Samtidigt rättat:** lutningen mättade på `_r * 4` (368 px) medan lekzonen är 230, så
+  kroppen kunde aldrig nå mer än 62 % av den amplitud någon en gång valde — ett värde skrivet
+  men oåtkomligt, samma klass som hornet `krona`. Mättnaden är nu zonen själv (0,086 → 0,138 rad
+  vid samma fingerläge; full 0,24 rad = 13,8° vid zonens kant).
+  **Mätt** med `_knyttprobe` L0–L5, och §9:s egen varning ("de fyra andra lägena måste finnas
+  kvar") är en arm: `idle` L0/L2 · `lekfull` L1 · `glad` L3 · `somnig`+`sover` L4. L5 läser
+  EFFEKTEN och inte flaggan — lutningen är signerad, så samma rörelse på andra sidan måste ge
+  motsatt tecken (+0,138 / −0,140 rad, +4,1 / −4,1 px). **Barlast körd:** med `LEK_R = 0`
+  (= HEAD:s beteende) faller L1 och L3 medan L0, L2 och L4 står kvar gröna, alltså mäter
+  familjen ändringen och inget annat.
 * [Quick] **`morf` är skrivbar-bara** (`ceremoni.js:286`, satt på `:495 :643 :1305 :1417`, läst
   ingenstans). Städning.
 * [Quick] **`halvor` fylls men itereras aldrig** (`ceremoni.js:308`, push på `:958`, nollas
@@ -1398,10 +1410,11 @@ ett knytt på golvet · mata ett bär · kamera-parallax). Inget av det är kval
 
 ### Om du bara har ett kort pass
 
-*Den förra listans punkt 1 och 2 är gjorda (v1.243.0). Kvar, i ordning:*
+*Hela B, C och E är gjorda (v1.243.0 · v1.244.0). Kvar, i ordning:*
 
-1. **B1 (`lekfull`)** — det enda i B–E som barnet MÄRKER, men det är ett designval först: NÄR
-   ska läget gälla? Och `_lage` styr fem slingor, så mät att de fyra andra fortfarande nås.
-2. **A** — de tre frågorna till ägaren. Ingen av dem går att bygga förbi.
+1. **A** — de tre frågorna till ägaren. Ingen av dem går att bygga förbi, och två av dem
+   (Skrället, upplåsningarnas takt) väntar på samma sak: ett riktigt speltest.
+2. **ÅTGÄRDER U6** — ögonlockets platta band över ansiktet vid varje blinkning. Kosmetiskt men
+   ständigt synligt; fixen har designinnehåll och måste bedömas i bild över flera `ogonform`.
 3. **D (leverans 2)** — planera in ett eget pass. Börja inte på det i slutet av ett annat.
 4. **F** — V19 och V16 i `docs/ATGARDER.md`, delad kod: mät blastradien före ändring.

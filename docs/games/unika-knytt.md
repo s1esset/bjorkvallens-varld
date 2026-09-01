@@ -232,8 +232,8 @@ och `breathe()` (äger scale) används därför ALDRIG på knyttriggen.
 1. **idle** — andning `sin(t·ω)·0,04`, ω seedat 1,4–2,2 och modulerat av världen (sten = trögare, natt = piggare); pupillerna följer fingret; öron och svans släpar 0,5 rad efter kroppen; slumpad blick var 3–5 s; blink var 3,5 s ±1,2.
 2. **glad** — vid tryck: tre skutt, `rotation = sin(t·12)·0,12`, ögonen kniper ihop till ∩-bågar, kinderna +40 % alfa, munnen till 1,0, och knyttets **eget fyrtonsmotiv** spelas.
 3. **lekfull** — vid drag: kroppen lutar efter fingret med tröghet och fjädrar tillbaka vid släpp; öron och svans piskar ×2,5.
-4. **sömnig** — efter 20 s: andningen ×0,5, kroppen sjunker 15 px och plattas, ögonlocken till 70 %, en procedurgäspning var ~8 s.
-5. **sover** — efter 12 s till: locken helt slutna som två ⌣, mycket långsam djup andning, och **världens egna partiklar blir sömnkorn** som stiger i sicksack (vattenbubblor, glöder, sporer, stjärnor). Vilket tryck som helst väcker det med en stor förskräckt pop — rolig, aldrig en skräck.
+4. **sömnig** — efter 12 s: andningen ×0,5, kroppen sjunker 15 px och plattas, ögonlocken till 70 %, en procedurgäspning var ~8 s.
+5. **sover** — efter 8 s till (alltså 20 s stillhet): locken helt slutna som två ⌣, mycket långsam djup andning, och **världens egna partiklar blir sömnkorn** som stiger i sicksack (vattenbubblor, glöder, sporer, stjärnor). Vilket tryck som helst väcker det med en stor förskräckt pop — rolig, aldrig en skräck.
 
 ### Knyttboden
 
@@ -753,9 +753,10 @@ i ceremonin 0 konsolfel · `_idleprobe` 0 (spelet klarar sig inte självt).
 - **`dna.js:200`s doc-rad säger att `val.r` väljer motivform**, men `dnaFromSeed` läser aldrig
   `val.r` — `r` härleds ur fröet. Sparpostens plats 5 bär ett tal ingen läser. Ingen
   körningseffekt (individen återskapas rätt ändå).
-- **Sömntrösklarna (12 s → sömnig, 20 s → sover) motsäger §1 "De fem slingorna"** (20 s → sömnig,
-  12 s till → sover). Kodens egen kommentar följer koden. Vilken som är gällande spec är en
-  fråga till ägaren, inte en fix.
+- ✅ **Sömntrösklarna — BESVARAT 2026-09-01 (ägaren): KODEN gäller** (12 s → sömnig, 8 s till →
+  sover). §1 "De fem slingorna" var den inaktuella halvan och är rättad: §3c hade redan kortat
+  trösklarna från 20+12 med motiveringen "två osynliga timers är ingen mekanik", och §1 följde
+  aldrig med. Ingen kodändring — det var en doc-rättning hela tiden.
 - **`ritaDeg()` allokerar ~75 objekt per bildruta** under F2+F3 (~225 bildrutor). Omätt —
   `.test-logs` når aldrig ceremonin. Mät med `_fpsprobe --cpu 6` innan något ändras.
 - **Dött tillstånd** i ceremoni.js (`morf`, `halvor`, `ur`/`sistKnack`, getterna `fas`/`lage`)
@@ -1294,7 +1295,7 @@ Inget nedan är en trasig sak — det är beslut, obyggt, eller omätt.
 
 | | |
 |---|---|
-| **Sömntrösklarna** | Koden säger 12 s → `somnig`, 20 s → `sover` (`knytt.js:993-995`). §1 "De fem slingorna" säger 20 s → sömnig, 12 s *till* → sover. Kodens egen kommentar följer koden. Vilken som är gällande spec är ett svar, inte en fix. |
+| ~~**Sömntrösklarna**~~ | ✅ **BESVARAT 2026-09-01: koden gäller** (12 s → `somnig`, 8 s till → `sover`). §1 rättad — den hade inte följt med när §3c kortade trösklarna från 20+12. Ingen kodändring. |
 | **§4b Skrället** | Färdigspecad, grindad på hur länge ett barn DRÖJER i verkstan. Harnessens 2,55 s är harnessens tidtabell, inte ett barns. Kräver ägarens eget speltest. |
 | **Upplåsningarnas takt** | Nytt 2026-09-01: är 16 kläckningar till sista milstolpen rimligt eller för långt för ett barn? Bara ett speltest dömer det. |
 

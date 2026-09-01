@@ -12,7 +12,7 @@ import { createScene } from '../../lib/scene.js'
 import { COLORS } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, groundFill, topLightFill } from '../../lib/form.js'
-import { squash, landa, puff, sparkle, ripple, kvittera, stadFx } from '../../lib/feedback.js'
+import { landa, puff, sparkle, ripple, kvittera, stadFx } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { log as diag } from '../../lib/gamelog.js'
 import { byggKupa, byggVerktyg, byggSpak } from './kupan.js'
@@ -47,11 +47,18 @@ const SPAK_X = 1160
 const SPAK_Y = 350
 const AGG_X = 640
 const AGG_Y = 470
+// `_narTyst`-pollningens tak i varv à 0,35 s. 20 = 7,0 s, satt över spelets längsta
+// röstklipp (5,12 s, uppmätt) — se den långa noten vid `_narTyst`.
+const NAR_TYST_TAK = 20
 // Hyllan i verkstan: de tre senaste knytten. 96 px träffytor, 120 px isär → 24 px lucka,
 // och 30 px kvar till vädervevens vänsterkant (408).
 const BO_X = [90, 210, 330]
 const BO_Y = 620
 const HYLLA_MAX = 3
+
+// Trottling for knadning under ett drag. 70 ms ~ var fjarde bildruta i 60 fps —
+// tatt nog att kannas kontinuerligt, glest nog att inte oversvamma Mjukkroppen.
+const KNAD_MS = 70
 
 const HINT_S = 7
 const KNACK_SPARR = 0.18
@@ -97,6 +104,12 @@ export default {
     this._sistAktiv = 0
     this._hintSteg = 0
     this._valGjorda = 0
+    // Vilka axlar barnet FAKTISKT rort — `_valGjorda` ar bara ett antal och kan inte
+    // saga vilken del som anda ar oprovad.
+    this._rorda = new Set()
+    this._lockIdx = 0
+    this._pekNere = false
+    this._sistKnad = 0
     this._pekare = null
     this._pekPunkt = { x: 0, y: 0 }
     this._pekGlobal = { x: 0, y: 0 }
@@ -128,6 +141,17 @@ export default {
     // null och alla tre får aldrig veta något — hela vägen fanns byggd men omatad.
     this._fangare.on('globalpointermove', (e) => this._flyttaPekare(e))
     this._rot.addChild(this._fangare)
+
+    // Ar fingret NEDE? Kravs for att knadningen ska folja ett drag och inte ett svavande
+    // musljus. Bada slapp-vagarna gar uppfor en FORALDRAKEDJA, aldrig i sidled, sa
+    // lyssnaren maste sitta pa den gemensamma foraldern till degen och fangaren — inte pa
+    // fangaren sjalv (`skattjakt-i-morkret`s doda traffyta var precis det felet).
+    // `eventMode = 'static'` ar inte valfritt: `notifyTarget` bortar tyst pa allt annat.
+    // En bar Container utan hitArea traffestar aldrig sjalv, sa roten stjal inga tryck.
+    this._rot.eventMode = 'static'
+    this._rot.on('pointerdown', () => { this._pekNere = true })
+    this._rot.on('pointerup', () => { this._pekNere = false })
+    this._rot.on('pointerupoutside', () => { this._pekNere = false })
 
     this._rum = this._byggRum(ctx)
     this._rot.addChild(this._rum)
@@ -397,6 +421,22 @@ export default {
     this._pekGlobal.x = e.global.x
     this._pekGlobal.y = e.global.y
     this._pekare = r.toLocal(e.global, undefined, this._pekPunkt)
+
+    // Degen ska svara pa att fingret GNUGGAR, inte bara pa att det slapper. Rosten sager
+    // "Knada degen med fingret sa lyser den mer!" (4,49 s — spelets nast langsta klipp),
+    // men `knada()` nads bara fran `_skynda`, som i sin tur bara hanger pa `pointertap`.
+    // Ett barn som holl fingret nere och gnuggade runt fick alltsa EN knuff vid slappet.
+    //
+    // Bara `knada` har — INTE `skynda`. `skynda()` kortar tidslinjen 0,12 s per anrop, och
+    // ett drag hade brant hela taket (1,2 s) pa en brakdel av en sekund och gjort degfasen
+    // omojlig att vara kvar i.
+    if (this._pekNere && this._fas === 'ceremoni') {
+      const nu = performance.now()
+      if (nu - this._sistKnad >= KNAD_MS) {
+        this._sistKnad = nu
+        this._cer?.knada(this._pekare.x, this._pekare.y)
+      }
+    }
   },
 
   // Knyttet läser pekaren i sin FÖRÄLDERS rymd — `_blicka` gör `toLocal(p, view.parent)`.
@@ -431,6 +471,7 @@ export default {
     else if (axel === 'gnista') this._val.g = steg % 4
     else if (axel === 'storlek') this._val.z = steg % STORLEKAR.length
     this._valGjorda++
+    this._rorda.add(axel)
     this._kupa?.setVal(this._val)
     this._kupa?.laggIn(axel)
     this._bobo?.look(this._boboWrap.toLocal({ x: T_LAGE[axel].x, y: T_LAGE[axel].y }).x, 0)
@@ -707,6 +748,8 @@ export default {
     this._dna = null
     this._knackar = 0
     this._valGjorda = 0
+    this._rorda.clear()
+    this._lockIdx = 0
     this._fas = 'bygga'
     this._spak?.aterstall()
     for (const v of Object.values(this._verktyg)) v.satLast(false)
@@ -758,26 +801,38 @@ export default {
     const steg = this._hintSteg + 1
     this._hintSteg = steg
     this._sistAktiv = performance.now()
-    const a = ctx.services.audio
     if (this._fas === 'klacka') {
       this._visaHand(AGG_X, AGG_Y - 96)
       return
     }
     if (this._fas !== 'bygga') return
-    if (steg === 1 && this._valGjorda === 0) {
-      // Närmaste maskindel hoppar och spelar sin ton.
-      const v = this._verktyg.farg
-      if (v && !v.view.destroyed) {
-        squash(v.view.children[0], { intensity: 1.1 })
-        a.tone({ freq: 392, dur: 0.16, type: 'triangle', vol: 0.22 })
+
+    // En OPROVAD del lockar, och nästa vilostund tar nästa oprovade — hjälpen visar hela
+    // verkstan i stället för samma del om och om igen.
+    //
+    // Före: `this._verktyg.farg` var hårdkodat (kommentaren intill sa "Närmaste maskindel"
+    // men ingen närhet räknades någonsin ut), och steg 2–3 pekade mot spaken UTAN att läsa
+    // `_valGjorda`. Ett barn som provat en enda del fick alltså "dra i spaken" som nästa
+    // ledtråd — assistmekaniken drog mot avslut i stället för mot upptäckt, i det spel vars
+    // hela premiss är fem oberoende val.
+    // Ordningen läses ur `T_LAGE` i stället för en egen lista — en andra kopia av
+    // axelnamnen är exakt den glidning som gjorde hornet `krona` onåbart.
+    const oprovade = Object.keys(T_LAGE).filter((ax) => !this._rorda.has(ax))
+    if (oprovade.length) {
+      const ax = oprovade[this._lockIdx++ % oprovade.length]
+      this._verktyg[ax]?.locka?.()
+      if (steg >= 2) this._visaHand(T_LAGE[ax].x, T_LAGE[ax].y - 120)
+      if (steg === 1 && this._valGjorda === 0) return
+      if (steg === 1) return
+      // Har barnet provat något men inte allt är det UPPTÄCKT som saknas, inte spaken.
+      if (this._valGjorda < 2) {
+        this._sag(ctx, 'Tryck på maskinen och se vad som händer.')
+        return
       }
-      return
     }
-    if (steg === 1) {
-      this._sag(ctx, 'Tryck på maskinen och se vad som händer.')
-      return
-    }
-    // Steg 2 och 3: spakens knopp studsar med samma handpiktogram som på ägget.
+
+    // Först när minst två val är gjorda (eller allt är provat) pekar hjälpen mot utgången.
+    this._doljHand()
     this._visaHand(SPAK_X, SPAK_Y - 150)
     this._spak?.locka?.()
     if (steg >= 3) {
@@ -788,12 +843,20 @@ export default {
 
   // ---------------------------------------------------------------- röst
 
-  // voice.say() kapar den förra repliken som första sak, och klippen är 2,3–4,1 s.
-  // Bilden går genast — bara orden köar.
+  // voice.say() kapar den förra repliken som första sak. Bilden går genast — bara orden köar.
+  //
+  // ⚠️ TAKET MÅSTE VARA LÄNGRE ÄN DET LÄNGSTA KLIPPET, annars kapar den här mekanismen
+  // själv det den byggdes för att skydda. Kommentaren här sa "klippen är 2,3–4,1 s" och
+  // taket stod på 10 varv = 3,5 s. Båda talen var fel: uppmätt med `ffprobe` på spelets
+  // elva egna klipp är spannet **2,60–5,12 s**, och FEM av elva är längre än 3,5 s
+  // ("Tryck på spaken igen…" 5,12 · "Knåda degen…" 4,49 · "Tryck på maskinen…" 4,38 ·
+  // "Nu blandas allt ihop…" 3,97 · "Titta så ägget lyser…" 3,54). När taket löpte ut
+  // fyrade `fn()` OVILLKORLIGT mitt i meningen. 20 varv = 7,0 s ligger över 5,12 med
+  // marginal för att ett klipp byts mot ett längre.
   _narTyst(ctx, fn, varv = 0) {
     if (!this._alive) return
     const v = ctx.services.voice
-    if (varv >= 10 || (!v.talar && !v.kvar)) {
+    if (varv >= NAR_TYST_TAK || (!v.talar && !v.kvar)) {
       fn()
       return
     }

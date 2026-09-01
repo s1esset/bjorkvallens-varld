@@ -785,11 +785,65 @@ i kupan och ute i världen (solen 11,4 s mot 24 s per varv) · `AXEL.steg` hård
 och vilohjälpen spelar fel ton (392 mot 523 Hz) och når in med `view.children[0]` i stället för
 `tryck()` — den sista är en BUGG och hör till `/felsok`.`
 
-`2026-09-01 · ÖPPET: spelet har fortfarande ALDRIG fått en oberoende kvalitetskritik.
-`spelkritiker` stoppades när det byggdes, och kritik-workflown 2026-08-30 dog på sessionsgränsen
-med noll utfall (7 agenter, 865 894 tokens, `result.plan === null`). Nästa steg enligt ägaren:
-1–3 granskningsagenter med frågan "är det roligt för ett barn?". Leverans 2 (sällsynthet · folie ·
-Knyttboden) står kvar i §4, och §4b:s uppehållsmätning väntar på ägarens EGET speltest.`
+`2026-09-01 · **DEN OBEROENDE KVALITETSKRITIKEN ÄR KÖRD.** Tre `spelkritiker` med var sin lins
+(verkstan · ceremonin · återkomsten), alla fynd verifierade i koden av orkestratorn innan de
+skrevs in. Tre buggar rättade, fyra frågor lyfta till ägaren. `_knyttprobe.mjs` — sonden §7
+kallar obligatorisk — är byggd i samma pass.
+
+**Vad granskarna INTE hittade är värt lika mycket:** verkstadens fem delar UTFÖR verkligen det de
+ändrar (blobben målas om när paketet FYSISKT når den, `kupan.js:800`, inte när variabeln ändras),
+varje del har egen ton OCH eget sfx, knackfasen är äkta obligatorisk agens (`_idleprobe` = 0),
+exit-säkerheten är ovanligt grundlig (varje `onUpdate` har egen `destroyed`-vakt ovanpå
+tween-dödandet), och "världen kommer ut" är en riktig händelse med fyra ritade rekvisita, inte ett
+bakgrundsbyte. Ingen P0-överträdelse hittades av någon av de tre.
+
+**Tre buggar rättade, alla mätta mot HEAD med `_knyttprobe.mjs`** (två kontrollarmar; HEAD faller
+på alla fem mätarmar och klarar båda kontrollerna):
+- **`_narTyst`s tak var kortare än spelets egna klipp.** Taket stod på 10 varv à 0,35 s = **3,5 s**
+  och fyrade sedan OVILLKORLIGT. Uppmätt med `ffprobe` på spelets elva klipp: spannet är
+  **2,60–5,12 s**, och **fem av elva** är längre än taket ("Tryck på spaken igen…" 5,12 ·
+  "Knåda degen…" 4,49 · "Tryck på maskinen…" 4,38 · "Nu blandas allt ihop…" 3,97 · "Titta så
+  ägget lyser…" 3,54). Mekanismen som byggdes för att hindra kapning orsakade den alltså själv.
+  Kommentaren intill sa dessutom "klippen är 2,3–4,1 s" — fel i båda ändar. Taket är nu 20 varv
+  (7,0 s) i konstanten `NAR_TYST_TAK`.
+- **Vilohjälpen lärde ut EN av fem delar och skyndade sedan mot spaken.** `_viloHjalp`
+  highlightade **hårdkodat** `_verktyg.farg` (kommentaren intill sa "Närmaste maskindel" men
+  ingen närhet räknades någonsin ut), och steg 2–3 pekade mot spaken **utan att läsa
+  `_valGjorda`** — ett barn som provat en enda del fick "dra i spaken" som nästa ledtråd. I det
+  spel vars hela premiss är fem oberoende val drog alltså assistmekaniken mot avslut i stället
+  för mot upptäckt. Nu roterar hjälpen över de OPROVADE delarna (`_rorda`-mängden; `_valGjorda`
+  är bara ett antal och kan inte säga vilken del som är oprovad) och når spaken först vid ≥2 val.
+  Samma ändring stänger fyndet ⓺ nedan: delarna har fått ett `locka()` i `kupan.js` som gör
+  delens EGEN rörelse och spelar dess EGEN ton, i stället för att index.js nådde
+  `squash(view.children[0])` förbi modulen och spelade 392 Hz (`storlek`s ton) för varje del.
+  Uppmätt: HEAD `- → SPAK → SPAK → SPAK` (0 unika delar, ton 392) mot `farg → gnista → storlek →
+  monster` (4 unika, 523/659/392/587 — var och en sin egen).
+- **Knådningen svarade bara på släpp, aldrig på att gnugga.** Rösten säger "Knåda degen med
+  fingret så lyser den mer!" (4,49 s — spelets näst längsta klipp), men `knada()` nåddes bara via
+  `_skynda`, som hänger på `pointertap`. Ett barn som höll fingret nere och gnuggade fick **EN**
+  knuff, vid släppet. Nu knådar draget, trottlat på 70 ms. Uppmätt över 12 pekarflyttar:
+  **HEAD 1 knådning (bara den avslutande tappen) → 8–9 med fixen**, kontrollarm med knappen UPPE
+  **0 i båda**. `skynda()` följer avsiktligt INTE draget (den kortar tidslinjen 0,12 s per anrop
+  och hade bränt hela taket 1,2 s på ett drag): uppmätt 1 mot 8. Pekar-nere-flaggan sitter på
+  `_rot` med `eventMode='static'`, för båda släppvägarna går uppför en föräldrakedja och aldrig
+  i sidled — och en bar `Container` utan `hitArea` träfftestar aldrig själv, så roten stjäl inga
+  tryck (verifierat: 9/9 tryck svarar, alla fem verktyg nås, 0 svar över 100 ms).
+
+**⚠️ Sonderna var själva fel FYRA gånger i det här passet — alla fyra fångade av kontrollarmar:**
+⓵ `_variantprobe` v1 räknade hur ofta två knytt var IDENTISKA och fick 0,00 % i BÅDA armarna
+(15 843 unika siluetter på 20 000) — sant, men fel fråga, och armarna kunde inte skiljas åt.
+⓶ `_knyttprobe` läste `toner[0]` och fick delens MEKANISKA ljud (färgkranens trähandtag 300 Hz,
+mönsterhjulets ratsch 220 Hz) i stället för identitetstonen som kommer strax efter.
+⓷ `_knyttprobe` krävde `skynda === 0` av ett drag — men ett drag avslutas med en `pointertap` i
+Pixi, och den tappen FÅR korta tidslinjen; rätt fråga är om `skynda` skalar med rörelsen.
+⓸ Två armar var gröna på HEAD utan att mäta något: `knad > 0` passerade på den avslutande tappen
+ensam, och tonkontrollen var **vakuöst** sann eftersom ingen del någonsin lockades på HEAD.
+Båda är nu skärpta (`knad >= 3`, och tonarmen kräver `unika.size > 0`). En arm som är grön för
+att den inte mätte får inte räknas som grön. **Och `B0` var felmärkt som kontrollarm** — den
+faller på HEAD, alltså är den en mätarm; en riktig kontroll (ingen vilostund → inget lockas) står
+nu i dess ställe.
+
+**Fyra frågor lyfta till ägaren, inte avgjorda här** — se ÅTGÄRDER U1–U4.`
 
 
 ## 6. Teknisk ritning

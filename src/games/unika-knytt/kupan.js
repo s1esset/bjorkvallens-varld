@@ -1198,6 +1198,17 @@ export function byggVerktyg(axel, opts = {}) {
   }
   view.on('pointertap', onTap)
 
+  // Vilohjälpens "titta hit" — delen gör sin EGNA rörelse och säger sin EGNA ton, utan att
+  // röra räknaren. `tryck()` är ren animation (stegningen sker i `onTap` innan den kallas),
+  // så spelet spelar aldrig åt barnet. Före den här fanns ingen väg in: index.js nådde
+  // `squash(v.view.children[0])` förbi modulen och spelade 392 Hz — `storlek`s ton — oavsett
+  // vilken del som lystes upp.
+  function locka() {
+    if (dod || last) return
+    tryck({ tomt: false })
+    ton({ freq: spec.ton, dur: 0.16, type: 'triangle', vol: 0.2 })
+  }
+
   function satLast(v) {
     last = !!v
     view.eventMode = last ? 'none' : 'static'
@@ -1218,7 +1229,9 @@ export function byggVerktyg(axel, opts = {}) {
     if (!view.destroyed) view.destroy({ children: true })
   }
 
-  return { view, tryck, satLast, satSteg, destroy }
+  // `locka` MÅSTE stå här. Spakens `locka()` skrevs en gång utan att läggas i sitt
+  // returobjekt, och `?.()` svalde anropet tyst i två dygn — se docens §5 punkt 4.
+  return { view, tryck, locka, satLast, satSteg, destroy }
 }
 
 // =====================================================================================

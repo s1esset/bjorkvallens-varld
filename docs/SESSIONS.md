@@ -6,6 +6,82 @@ En post per avslutad session, **nyast överst**. Skrivs av `/avsluta`. Syftet: n
 Format:
 
 ```
+## ÅÅÅÅ-MM-DD · v<version>
+**Byggt:** vad som gjordes, i klartext
+**Commits:** <hash> <ämne> · <hash> <ämne>
+**Öppet:** vad som återstår / nästa naturliga steg
+```
+
+---
+
+## 2026-09-01 (natt) — Unika Knytt: verkstan som växer · v1.242.0
+
+**Gjort:** ÅTGÄRDER **U3** (upplåsningarna vid 4/8/12/16 kläckta) och **U4** (det döda
+röstklippet) — de två posterna förra passet lämnade som "nästa naturliga steg". U3 var spelets
+enda tänkta SAMLINGS-krok: den stod i spec §0 och i leverans 1:s byggplan, men fanns inte i
+koden. Nu är verkstan det första i spelet som VÄXER.
+
+**Premissen prövades mot koden först — och föll till en fjärdedel.** Spec-radens fyra belöningar
+var "ny värld, två mönster, två färger, **en röst**". Rösten går inte att låsa upp: Ljudtratten
+sköts upp 2026-08-30 och motivet härleds sedan dess ur fröet (§4c). Posten skrevs därför om till
+det som faktiskt går att bygga — bälgens fjärde steg — i stället för att en kontroll uppfanns för
+att rädda formuleringen. **Ägarens beslut samma pass** (växande spänning i stället för spec-radens
+egen ordning):
+
+| kläckta | belöning | startverkstan |
+|---|---|---|
+| 4 | två färger (rosa + sand) | 8 färger |
+| 8 | två mönster (fläckar + stjärnor) | 4 mönster |
+| 12 | **Stjärnnatten** | 3 världar |
+| 16 | största bälgsteget | 3 storlekar |
+
+**Mekanismen.** `START_TAK` · `MILSTOLPAR` · `takFor()` · `antalFranPoster()` i `dna.js` (ren
+logik, inget Pixi — det är det som gör dem mätbara utan webbläsare), `satTak()` på verktyget, och
+`_tak` i `index.js` som en **getter härledd ur `_antal`**. Tabellerna rör sig aldrig (index
+sparas), så en upplåsning kan bara lägga till i slutet.
+
+**Firandet ligger i verkstan, aldrig i ceremonin** — sist i `_aterstall`, efter att knyttet
+flyttat hem. Receptet ställs på det FÖRSTA nya läget och `laggIn(axel)` kör in det i kupan, samma
+väg som ett vanligt tryck: premissen "varje del GÖR det den ändrar" gäller även belöningen, och en
+belöning barnet inte kan se är ingen belöning. Ingen räknare, ingen procentsats, ingen låst
+siluett syns någonstans (P0 FOMO) — det enda barnet möter är att något NYTT dyker upp.
+**Gamla sparposter förlorar aldrig något:** `antalFranPoster()` härleder antalet ur vad barnet
+REDAN gjort, så den som har ett stjärnnattsknytt på hyllan har milstolpe 12 passerad.
+
+**U4 i samma andetag:** ett dygnstal i sparblobben gör att det genererade, betalade och aldrig
+anropade klippet "Titta, dina knytt har saknat dig!" nu spelas — men bara när hyllan har knytt
+OCH besöket är en annan dag.
+
+**⚠️ Två fel som bara en BARLAST kunde hitta, och båda var mina.**
+⓵ `_tak` var först ett vanligt fält, och `_provaUpplasning` glömde uppdatera det: firandet
+ställde receptet på ett läge vars tak inte hade växt. Samma familj som varje "två sanningar om
+samma axel" i den här filen — nu en getter, och det finns ingen andra plats att glömma.
+⓶ Mätarmen `U1` läste bara slutvärdet (`tak === 10`) och var därför **grön på HEAD**, där taket
+är 10 hela tiden. Den kräver nu att taket VÄXTE under rundan. Dessutom hade jag märkt `U0` som
+kontrollarm fast den FALLER på barlasten — alltså en mätarm, exakt det felmärkningsfel förra
+passet dokumenterade. U-familjens riktiga kontroll är barlasten själv (sätt `START_TAK` till hela
+tabellen = HEAD), och sondhuvudet säger nu hur man kör den.
+
+**Mätt:** `scripts/_upplasprobe.mjs` (ny, node-only, 11 armar, barlast inbyggd) tar den rena
+logiken — inklusive att `falt` läses UR `_sparaKnytt` i stället för att antas, så en omordnad
+sparpost inte kan göra migreringen tyst fel. `_knyttprobe.mjs` fick **U0–U2 + D0–D2**: tolv tryck
+på färgkranen når **7 mot barlastens 9** · en kläckning tar taket **8 → 10** · alla fyra firandena
+tända ger **0 konsolfel** (världen bygger om dioramat, bälgen skalar blobben — helt andra vägar än
+färgen) · dagshälsningen har två kontrollarmar mot en mätarm.
+
+**Sidofynd:** sessionsloggens tio senaste poster låg **inuti formatexemplets kodstaket**
+(rad 8 → 296) och renderades som en enda kodruta. Staketet omslutet nu bara mallen.
+
+**Grind:** `check` 0 fel/0 varningar (och 0 väntande röstklipp — de fyra nya replikerna
+genererades offline med F5-TTS, 3,43–4,49 s, alla under `_narTyst`-taket) · `test unika-knytt`
+0 konsolfel, bildkoll ren · `_upplasprobe` 11/11 · `_knyttprobe` 26/26 med alla gamla armar orörda.
+
+**ÖPPET:**
+- **Spelet är fortfarande aldrig speltestat av ett barn** — och nu finns dessutom en progression
+  vars TAKT bara ett riktigt speltest kan döma: är 16 kläckningar rimligt eller för långt?
+- §4b:s uppehållsmätning väntar fortfarande på ägarens eget speltest (Skrället är grindad på den).
+- Kvar sedan tidigare: leverans 2 (sällsynthet · folie · Knyttboden), ÅTGÄRDER V19
+  (`Mjukkropp.tyngdpunkt`), V16 (`destroy({ children: true })` river inte kontexten).
 
 ## 2026-09-01 (kväll) — Unika Knytt: den oberoende kvalitetskritiken · v1.241.0
 
@@ -289,11 +365,6 @@ klamp/lerp-funktioner som redan finns i `lib/`, och tre stavningar av samma stä
 `/simplify` är kvalitet, inte buggjakt. Därefter `/felsok unika-knytt`, eftersom
 `spelkritiker`-steget stoppades i det här passet och spelet aldrig fått en oberoende kritik.
 
-## ÅÅÅÅ-MM-DD · v<version>
-**Byggt:** vad som gjordes, i klartext
-**Commits:** <hash> <ämne> · <hash> <ämne>
-**Öppet:** vad som återstår / nästa naturliga steg
-```
 
 ---
 

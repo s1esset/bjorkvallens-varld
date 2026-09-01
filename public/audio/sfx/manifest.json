@@ -1,5 +1,6 @@
 {
   "boing": "boing.mp3",
+  "borsta_skrubb": "borsta_skrubb.mp3",
   "celebrate": "celebrate.mp3",
   "djur_anka": "djur_anka.mp3",
   "djur_bi": "djur_bi.mp3",
@@ -13,6 +14,7 @@
   "djur_ko": "djur_ko.mp3",
   "djur_tupp": "djur_tupp.mp3",
   "djur_uggla": "djur_uggla.mp3",
+  "duns": "duns.mp3",
   "fart": "fart.mp3",
   "flip": "flip.mp3",
   "kast": "kast.mp3",
@@ -20,6 +22,7 @@
     "klunk_1.mp3",
     "klunk_2.mp3"
   ],
+  "kristall_klirr": "kristall_klirr.mp3",
   "lucka": "lucka.mp3",
   "magi": "magi.mp3",
   "pappa_aaah": "pappa_aaah.mp3",

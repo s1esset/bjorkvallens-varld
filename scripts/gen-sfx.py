@@ -24,6 +24,7 @@ import argparse
 import base64
 import io
 import json
+import re
 import os
 import subprocess
 import sys
@@ -179,7 +180,26 @@ def main() -> None:
     # (scripts/kenney-sfx.mjs imports the CC0 UI blips tap/soft/flip); rebuilding
     # from `phrases` alone dropped those keys silently and muted the tap sounds
     # the clip path serves. See ATGARDER V6.
-    manifest = {p.stem: p.name for p in sorted(out_dir.glob("*.mp3"))}
+    # Varianter grupperas till ETT namn. `<namn>_<n>.mp3` ar en SERIE (fem prutt, fyra
+    # svalj), och AudioService slumpar en av dem via ett FALT i manifestet. En platt
+    # `{stem: name}` gjorde varje variant till en egen nyckel och raderade serienamnet:
+    # `klunk`, `pappa_prutt`, `svalj`, `traff_hard`, `traff_mjuk` och `tugg_mjuk` foll
+    # bort, vilket tystade ljud i mata-munnen, vakna-pappa och borsta-tanderna. Samma
+    # familj som ATGARDER V6 ovan -- manifestet ar app-brett, inte den har korningens.
+    # Suffixet maste vara ett TAL: `pappa_prutt_lang` och `plopp_av` ar egna klipp.
+    serier: dict[str, list[tuple[int, str]]] = {}
+    ensamma: dict[str, str] = {}
+    for f in sorted(out_dir.glob("*.mp3")):
+        m = re.match(r"^(.*)_(\d+)$", f.stem)
+        if m:
+            serier.setdefault(m.group(1), []).append((int(m.group(2)), f.name))
+        else:
+            ensamma[f.stem] = f.name
+    manifest = dict(ensamma)
+    for namn, lista in serier.items():
+        lista.sort()
+        manifest[namn] = lista[0][1] if len(lista) == 1 else [n for _, n in lista]
+    manifest = {k: manifest[k] for k in sorted(manifest)}
     (out_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )

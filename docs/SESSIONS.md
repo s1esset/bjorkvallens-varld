@@ -14,6 +14,103 @@ Format:
 
 ---
 
+## 2026-09-01 (sen natt) — Unika Knytt: §9 tömd på allt utom ägarfrågorna · v1.244.0
+
+**Gjort:** hela **B, C och E** i `docs/games/unika-knytt.md` §9 "Kvar att göra". Två commits:
+`68970d8` (B2–B5 + E + C:s tre sonder) och `86e5cf0` (B1, det lekfulla läget).
+
+**Städningen (B2–B5).** `morf` skrevs på fem ställen och lästes ingenstans — `satMorf` var hela
+mekanismen. `halvor` fylldes men itererades aldrig; svepet över `scen.removeChildren()` gör
+städningen. `Knytt.bredd`/`.hojd` lästes av ingen och kostade en `getLocalBounds()` per bygge,
+inklusive hyllans tre vid *varje* `_ritaHylla`. **B5 var däremot ingen städning:** sparpostens
+plats 5 bar `_fro % 5`, medan `dnaFromSeed` aldrig läser `val.r` utan drar motivet ur
+fröströmmen. Talen var alltså olika, och den dag någon börjar läsa fältet hade den fått **tyst
+fel motiv**. Skriver nu `_dna.val.r`; platsen är fortfarande reserverad åt Ljudtratten och
+migreringen fortfarande noll.
+
+**Bänkplatsen (E).** §4c:s tre föremål ritade som ett stilleben på golvet — burk med penslar,
+trave brickor, oljekanna (`_ritaPrylar`). Bor i `_rum` (`eventMode='none'`,
+`interactiveChildren=false`), så harnessens tryck på (800, 600) faller igenom till
+bakgrundsfångaren precis som förut, och inget ritas ovanför y 544 (knyttets träffyta på bänken
+slutar vid 494). Första ritningen läste som en andelampa i skärmdumpen; pipen går nu ut från
+axeln i stället för rakt upp.
+
+**🚨 En köad sond var FEL SOND.** §9 C ville mäta `ritaDeg()`s ~75 allokeringar per bildruta med
+`_fpsprobe --cpu 6`. Den navigerar till **menyn** och sprutar partiklar i `fxLayer` för att
+jämföra de två partikelvägarna — den öppnar aldrig ett spel och kan omöjligt se ceremonins kod.
+Posten skrevs om till den fråga som går att svara på (*spräcker degfasen bildrutebudgeten?*) och
+mättes med fyra nya armar i `_knyttprobe`: vila **17,4** · degfasen F2+F3 **17,4** · knackfasen
+**17,6 ms**, alltså **0,0 ms extra**, samma svar vid 12× strypning. **Fällan är en nivå upp från
+den vanliga:** husets regel säger *pröva köpostens premiss mot koden* — den här posten hade en
+riktig premiss men fel instrument.
+
+**⚠️ De tre P-talen var värdelösa tills barlasten fanns.** Alla tre landade på 17,4 ms, vilket
+*är* headless Chromes vsync-intervall, och ett **mättat** mått kan inte skilja "billig fas" från
+"trasig mätare". `P3` bränner 25 ms per bildruta och flyttar samma mätare till **26,2 (+8,8)** —
+först då betyder de gröna talen något. Mätaren är per konstruktion blind för allt som ryms
+innanför budgeten; den svarar på *spräcker det budgeten?*, aldrig på *vad kostar `ritaDeg`?*.
+
+**De två andra sonderna:** `_tystprobe` ger ingen kandidat — men dess flaggordlista (`_busy` ·
+`_resolving` …) är inte spelets idiom (`_fas`), så alla sju pekhanterare lästes för hand samma
+pass; var och en svarar eller är inget träffmål. `_montageprobe --cpu 4 --varv 3` ger **24,2 och
+28,3 ms** mot kontrollarmarna `pizzabageriet` 51,9/52,4 (V14b mätte 50,0 — maskinen kalibrerad)
+och `golvet-ar-lava` 31,2/41,7. Spelet är det billigaste av de tre.
+
+**B1 — det lekfulla läget, och designvalet som inte behövde hittas på.** Docen kallade det ett
+designval ("medan fingret rör sig nära knyttet? efter ett bo-tryck?"). Koden svarade själv:
+**två av lägets fyra effekter — kroppens lutning och sidoförflyttningen — står och faller med
+att `pekare` finns alls**, så läget handlar om fingret och ingenting annat. Villkoret blev
+*fingret lever nära mig*: inom `LEK_R` 2,5 knyttradier (~230 px) och med rörelse, 0,45 s
+efterglöd. **Egen rörelsetröskel (0,5 px)** i stället för sömnlogikens 6 px — den senare hade
+läst ett långsamt AVSIKTLIGT drag som stillastående och fått läget att blinka. Bara från
+`idle`, så `glad` aldrig kapas och en sovande inte väcks av ett finger som svävar förbi.
+Hyllans knytt får `tick(dt, null)` och kan aldrig gå in i läget.
+
+**Ett värde som var skrivet men oåtkomligt** rättades i samma andetag: lutningen mättade på
+`_r * 4` (368 px) medan lekzonen är 230, så kroppen kunde aldrig nå mer än **62 %** av den
+amplitud någon en gång valde — samma klass som hornet `krona`. Mättnaden är nu zonen själv
+(0,086 → 0,138 rad vid samma fingerläge; full 0,24 rad = 13,8° vid kanten).
+
+**Mätt, och §9:s egen varning gjordes till en arm.** `_knyttprobe` L0–L5: `idle` L0/L2 ·
+`lekfull` L1 · `glad` L3 · `somnig`+`sover` L4 — alla fem lägen nås fortfarande. **L5 läser
+EFFEKTEN, inte flaggan** (lutningen är signerad, så samma rörelse på andra sidan måste ge
+motsatt tecken: +0,138 / −0,140 rad, +4,1 / −4,1 px). **Barlast körd:** med `LEK_R = 0`
+(= HEADs beteende) faller L1 och L3 medan L0, L2 och L4 står kvar gröna.
+
+**Två sidofynd ur bilderna.**
+⓵ **`_knyttbild.mjs` hade varit DÖD sedan 2026-09-01** — den anropade `kn.stadKnytt`, som togs
+bort när de tre städ-looparna slogs ihop till `lib/feedback.js:stadFx`. Hela dess isolerade
+skalmätning kraschade från den dagen utan att någon märkte det. Nu rättad: 0,2 % variation i
+höjd/storlek (storleken räknas EN gång) och spannet 1,62×, precis vad kupans blobb lovar.
+**Engångssonder körs sällan nog att en refaktor hinner ruttna dem.**
+⓶ **ÅTGÄRDER U6 (ny, öppen):** varje blinkning blixtrar ett platt rektangulärt band över
+ansiktet — ögonlocket är en flat `p.bas`-lucka med rak överkant mot en skuggad kropp.
+⚠️ Min första hypotes (locket sticker ut utanför huvudet) är **mätt falsk**, och det första
+instrumentet var också fel: `view.getBounds()` med locken uppe mot nere gav **+0,0 px på sex
+frön**, men den unionen innehåller öron, svans och vingar och kan därför inte se ett lock som
+går utanför KROPPEN. Geometriskt mått mot kroppens kant: locket ligger **6,7–21,2 px innanför**.
+Det är en ton- och kantfråga, inte en utbredningsfråga — det står så i ÅTGÄRDER så nästa läsare
+inte återuppfinner fel hypotes.
+
+**Grind:** `check` 0/0 · `test unika-knytt` 0 konsolfel, bildkoll ren · `_knyttprobe` **36/36** ·
+`_upplasprobe` 11/11 · `_variantprobe` · `_idleprobe` 0 · `_knyttbild` utan konsolfel · noll
+väntande röstklipp.
+
+**ÖPPET — nästa session, i ordning:**
+1. **`/simplify` på det här passets ändringar** (ägarens instruktion, och samma villkor som
+   förra gången: **högst 2 agenter**). Ytan är `src/games/unika-knytt/{index,knytt,ceremoni}.js`
+   plus `scripts/_knyttprobe.mjs` och `scripts/_knyttbild.mjs` — sonderna växte mest
+   (`_knyttprobe` bär nu tre familjer med var sin lokala hjälpare: `svep` · `dittra` · `rutor`,
+   och `_knyttbild` har en egen kopia av `svep`/`dittra`).
+2. **§9 A — de tre ägarfrågorna.** Sömntrösklarna (koden säger 12/20 s, §1 säger 20/12) är ett
+   svar, inte en fix. Skrället och upplåsningarnas takt väntar båda på **samma sak: ägarens
+   eget speltest.** Det är fortfarande den största omätta saken i hela spelet.
+3. **ÅTGÄRDER U6** — ögonlocket. Kosmetiskt men syns vid varje blink; fixen har designinnehåll
+   och måste bedömas i BILD över flera `ogonform`.
+4. **Leverans 2** (sällsynthet · folie · Knyttboden) — eget stort pass, börja inte i slutet av
+   ett annat.
+5. **Publicera:** tre commits ligger lokalt (`1d68909` · `68970d8` · `86e5cf0`).
+
 ## 2026-09-01 (natt) — Unika Knytt: verkstan som växer · v1.242.0
 
 **Gjort:** ÅTGÄRDER **U3** (upplåsningarna vid 4/8/12/16 kläckta) och **U4** (det döda

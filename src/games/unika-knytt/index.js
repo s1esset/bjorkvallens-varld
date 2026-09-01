@@ -9,9 +9,9 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import gsap from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { COLORS } from '../../lib/theme.js'
+import { COLORS, shade } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { verticalFill, groundFill, topLightFill } from '../../lib/form.js'
+import { verticalFill, groundFill, topLightFill, cylinderFill } from '../../lib/form.js'
 import { landa, puff, sparkle, ripple, kvittera, stadFx } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { log as diag } from '../../lib/gamelog.js'
@@ -243,7 +243,85 @@ export default {
       .fill(groundFill(0x8d5c38, { light: 0.12, dark: 0.24 }))
     c.addChild(golv)
 
+    c.addChild(this._ritaPrylar())
+
     return c
+  },
+
+  /**
+   * Verkstadens stilleben på golvet: burk med penslar · trave brickor · oljekanna.
+   *
+   * Platsen (800, 630) speglar världsveven på (480, 630) och stod tom sedan Ljudtratten
+   * sköts upp (§4c). Det är en TRIVSELFRÅGA, inte en grindfråga — `bildkoll` fäller inte
+   * `heltackande-falt` på golvet, som redan är en gradient. Rekvisitan påstår alltså inget
+   * annat än att verkstan är bebodd.
+   *
+   * Två gränser den håller sig innanför:
+   * ⓵ Den bor i `_rum`, som är `eventMode = 'none'` med `interactiveChildren = false`.
+   *    Harnessens tryck på (800, 600) faller därför igenom till bakgrundsfångaren precis
+   *    som förut — rekvisitan kan aldrig bli en träffyta som stjäl ett tryck.
+   * ⓶ Inget ritas ovanför y 544. Knyttets träffyta på bänken är en cirkel r=62 kring
+   *    (800, 432) och slutar vid y 494; konstens utbredning och träffytans utbredning är
+   *    två olika budgetar, och den här konsten ligger 50 px under grannens hitArea.
+   */
+  _ritaPrylar() {
+    const g = new Graphics()
+    const TRA = 0xb98050
+    const MASSING = 0xe0a53c
+    const MASSING_MORK = 0xa9741f
+    const MARK = 666
+
+    const skugga = (x, w) => g.ellipse(x, MARK, w, 9).fill({ color: 0x3d2716, alpha: 0.2 })
+    skugga(727, 42)
+    skugga(803, 48)
+    skugga(874, 34)
+
+    // --- burk med penslar
+    const LERA = 0xe3cda6
+    g.roundRect(699, 606, 56, 58, 9).fill(cylinderFill(LERA, { axis: 'x' }))
+    g.rect(699, 632, 56, 7).fill({ color: shade(LERA, 0.2), alpha: 0.75 })
+    g.ellipse(727, 606, 28, 8).fill(shade(LERA, 0.16))
+    g.ellipse(727, 607, 22, 5.5).fill(shade(LERA, 0.44))
+
+    // Skaft → holk → borst längs samma linje, så varje pensel lutar åt sitt eget håll.
+    const pensel = (x0, y0, x1, y1, skaft) => {
+      const px = (t) => x0 + (x1 - x0) * t
+      const py = (t) => y0 + (y1 - y0) * t
+      g.moveTo(x0, y0).lineTo(px(0.72), py(0.72)).stroke({ width: 8, color: skaft, cap: 'round' })
+      g.moveTo(px(0.68), py(0.68)).lineTo(px(0.82), py(0.82)).stroke({ width: 10, color: MASSING })
+      g.moveTo(px(0.82), py(0.82)).lineTo(x1, y1).stroke({ width: 11, color: 0x6a4a30, cap: 'round' })
+      g.moveTo(px(0.9), py(0.9)).lineTo(x1, y1).stroke({ width: 4, color: 0x50361f, cap: 'round' })
+    }
+    pensel(715, 610, 701, 556, TRA)
+    pensel(729, 610, 733, 546, 0xc8703f)
+    pensel(741, 610, 753, 562, shade(TRA, 0.22))
+
+    // --- trave brickor
+    const BRICKA = [0, -3, 2, -2, 4]
+    for (let i = 0; i < BRICKA.length; i++) {
+      const y = 654 - i * 12
+      const ton = i % 2 ? shade(TRA, 0.18) : TRA
+      g.roundRect(763 + BRICKA[i], y, 80, 12, 4).fill(topLightFill(ton, { highlight: 0.22, dark: 0.26 }))
+    }
+    g.roundRect(767 + BRICKA[4], 606, 72, 3, 2).fill({ color: 0xffffff, alpha: 0.22 })
+
+    // --- oljekanna
+    g.roundRect(852, 648, 44, 14, 6).fill(cylinderFill(MASSING_MORK, { axis: 'y' }))
+    g.moveTo(855, 650)
+      .quadraticCurveTo(850, 618, 874, 612)
+      .quadraticCurveTo(898, 618, 893, 650)
+      .closePath()
+      .fill(cylinderFill(MASSING, { axis: 'x' }))
+    g.ellipse(874, 612, 15, 6).fill(shade(MASSING, 0.14))
+    g.ellipse(866, 630, 4, 10).fill({ color: 0xffffff, alpha: 0.22 })
+    // Pipen går UT från axeln, inte rakt upp. En pip som slutar ovanför sin egen rot blir
+    // en svanhals, och kannan läste som en andelampa i den första skärmdumpen.
+    g.moveTo(866, 616).quadraticCurveTo(848, 598, 830, 588).stroke({ width: 8, color: MASSING, cap: 'round' })
+    g.moveTo(834, 590).lineTo(820, 583).stroke({ width: 5, color: MASSING_MORK, cap: 'round' })
+    g.moveTo(890, 622).quadraticCurveTo(912, 634, 890, 650).stroke({ width: 7, color: MASSING_MORK, cap: 'round' })
+
+    g.eventMode = 'none'
+    return g
   },
 
   _byggHand() {
@@ -657,8 +735,12 @@ export default {
 
     // Fröet rullas HÄR, före en enda bildruta av ceremonin. Den är en avtäckning, inte en snurr.
     if (!this._fro) this._fro = slumpFro(mulberry32((Math.random() * 0xffffffff) >>> 0))
-    this._val.r = this._fro % 5
     this._dna = dnaFromSeed(this._fro, this._val)
+    // Sparpostens plats 5 är RESERVERAD åt Ljudtratten (§4c: noll migrering senare), men den
+    // måste bära det `r` genetiken FAKTISKT använder. `dnaFromSeed` läser aldrig `val.r` —
+    // motivet dras ur fröströmmen — så värdet hämtas UR returen. Ett härlett `_fro % 5` såg
+    // rätt ut och var ett annat tal: den dag någon börjar läsa fältet får den tyst fel motiv.
+    this._val.r = this._dna.val.r
 
     for (const v of Object.values(this._verktyg)) v.satLast(true)
     this._kupaAktiv(false)

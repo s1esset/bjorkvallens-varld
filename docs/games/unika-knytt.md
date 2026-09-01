@@ -1280,14 +1280,15 @@ Motivet är inte struket, bara flyttat till fröet. Detaljerna i **§4c**.
 
 ## 9. Kvar att göra
 
-*Skriven 2026-09-01 (natt), efter att U3+U4 landat (v1.242.0). **Punkterna under B och E är
-verifierade i koden samma dag**, inte lästa ur en äldre doc — men husets regel gäller ändå:
-läs `src/games/unika-knytt/*.js` innan du bygger på någon av dem. En köpost vars premiss har
-fallit ska SKRIVAS OM till det som går att bygga, aldrig ersättas med något större.*
+*Skriven 2026-09-01 (natt) efter U3+U4, **uppdaterad 2026-09-01 (sen natt) sedan B2–B5, C och E
+landat (v1.243.0)**. Husets regel gäller: läs `src/games/unika-knytt/*.js` innan du bygger på
+någon post. En köpost vars premiss har fallit ska SKRIVAS OM till det som går att bygga, aldrig
+ersättas med något större — det hände C:s första punkt, se den.*
 
 **Grönt i dag, rör inte:** `npm run check` 0/0 · `npm run test unika-knytt` 0 konsolfel, bildkoll
-ren · `_knyttprobe` 26/26 · `_upplasprobe` 11/11 · `_variantprobe` · `_idleprobe` 0 · noll
-väntande röstklipp. Inget nedan är en trasig sak — det är beslut, obyggt, eller omätt.
+ren · `_knyttprobe` 30/30 · `_upplasprobe` 11/11 · `_variantprobe` · `_idleprobe` 0 · `_tystprobe`
+utan kandidat · `_montageprobe` 24–28 ms · noll väntande röstklipp. Inget nedan är en trasig
+sak — det är beslut, obyggt, eller omätt.
 
 ### A. Blockerat på ägaren (fråga, bygg inte förbi)
 
@@ -1298,6 +1299,15 @@ väntande röstklipp. Inget nedan är en trasig sak — det är beslut, obyggt, 
 | **Upplåsningarnas takt** | Nytt 2026-09-01: är 16 kläckningar till sista milstolpen rimligt eller för långt för ett barn? Bara ett speltest dömer det. |
 
 ### B. Byggt men aldrig inkopplat, eller dött (allt verifierat i koden 2026-09-01)
+
+**B2–B5 är STÄNGDA 2026-09-01 (sen natt).** `morf` (skrivbar-bara, fem skrivningar — `satMorf`
+var hela mekanismen) och `halvor` (fylldes, itererades aldrig; svepet över
+`scen.removeChildren()` gör städningen) är borta. `Knytt.bredd`/`.hojd` är borta med sin
+`getLocalBounds()`, alltså också hyllans tre per `_ritaHylla`. Minan i B5 är avväpnad:
+sparpostens plats 5 skrivs nu ur `this._dna.val.r` i stället för det härledda `_fro % 5` —
+`dnaFromSeed` läser aldrig `val.r`, den drar motivet ur fröströmmen, så de två talen var olika
+och en framtida läsare hade fått tyst fel motiv. Platsen är fortfarande reserverad åt
+Ljudtratten och migreringen fortfarande noll.
 
 * [Medium] **Läget `lekfull` går inte att nå.** `setLage()` anropas bara med `'glad'`
   (`knytt.js:913`), aldrig med `'lekfull'`. Hela beteendet — kroppen lutar efter fingret
@@ -1322,14 +1332,36 @@ väntande röstklipp. Inget nedan är en trasig sak — det är beslut, obyggt, 
 
 ### C. Omätt
 
-* [Quick] **`ritaDeg()` allokerar ~75 objekt per bildruta** under F2+F3 (~225 bildrutor).
-  Aldrig mätt — `.test-logs` når aldrig ceremonin, eftersom harnessens nio tryck inte når
-  spaken (§1b). `node scripts/_fpsprobe.mjs --cpu 6`.
-* [Quick] **Tre av §7:s obligatoriska sonder har aldrig körts på spelet:** `_tystprobe`,
-  `_montageprobe --cpu 4 --varv 3`, `_fpsprobe --cpu 6`. (`_idleprobe` 0 ✓, `_mjukprobe` ✓,
-  `bildkoll` ✓, `_knyttprobe` ✓, `_variantprobe` ✓, `_upplasprobe` ✓. `_vilkaprobe` och
-  `_glodkandidat` väntar på boden respektive folien, alltså på leverans 2.)
-  ⚠️ Kör aldrig två webbläsarsonder samtidigt, och aldrig en bredvid `npm run test:all`.
+**Alla tre sonderna är körda 2026-09-01 (sen natt) — och en av dem visade sig vara fel sond.**
+
+* ✅ **`_tystprobe`: ingen kandidat i `unika-knytt`.** Med förbehållet att sondens flaggordlista
+  (`_busy` · `_resolving` · `_locked` …) inte är spelets idiom — spelet styr på `_fas`. Därför
+  lästes alla sju pekhanterare för hand samma pass, och var och en av dem svarar eller är inget
+  träffmål: `_aggTryck`s takt-spärr kvitterar med `tap` + en knack-animation · `_boTryck`
+  kvitterar på ett tomt bo · `byggVerktyg`s `if (dod || last)` är onåbar, för `satLast(true)`
+  sätter `eventMode = 'none'` och trycket faller igenom till bakgrundsfångaren, som kvitterar.
+* ✅ **`_montageprobe --cpu 4 --varv 3`: 24,2 och 28,3 ms över två körningar.** Kontrollarmar i
+  samma körningar: `pizzabageriet` 51,9/52,4 mot V14b:s uppmätta 50,0 — maskinen är alltså
+  kalibrerad; `golvet-ar-lava` 31,2/41,7, mycket brusigare än sina historiska 16,8. Spelet är
+  det BILLIGASTE av de tre, ungefär halva `pizzabageriet`, och ligger inom det vanliga bandet
+  mot V14b:s svitmedian 16,9 ms. Monteringskostnaden är inte ett problem.
+* 🚨 **`_fpsprobe --cpu 6` var FEL SOND — premissen föll.** Den navigerar till MENYN och sprutar
+  partiklar i `fxLayer` för att jämföra de två partikelvägarna mot varandra; den öppnar aldrig
+  ett spel och kan alltså omöjligt se `ritaDeg()`. Posten är omskriven till den fråga som går
+  att svara på: **spräcker degfasen bildrutebudgeten?** Mätt med fyra nya armar i `_knyttprobe`
+  (`P0`–`P3`, tre fönster i SAMMA runda så maskinens dagsform inte kan förväxlas med fasens
+  kostnad): verkstan i vila **17,4 ms** · degfasen F2+F3 **17,4 ms** · knackfasen **17,6 ms**,
+  alltså **0,0 ms extra** för degfasen — och samma svar vid 12× strypning.
+  ⚠️ **De tre talen var värdelösa tills `P3` fanns.** Alla tre landade på 17,4 ms, vilket ÄR
+  headless Chromes vsync-intervall, och ett MÄTTAT mått kan inte skilja "billig fas" från
+  "trasig mätare". `P3` bränner 25 ms per bildruta och flyttar samma mätare till **26,2 ms
+  (+8,8)** — först då betyder de gröna talen något. Och mätaren är per konstruktion blind för
+  allt som ryms innanför budgeten: den svarar på "spräcker det budgeten?", aldrig på "vad kostar
+  `ritaDeg`?". Den andra frågan kräver en profilerare och är inte värd ett pass förrän den
+  första ger fel svar.
+* (`_idleprobe` 0 ✓, `_mjukprobe` ✓, `bildkoll` ✓, `_knyttprobe` ✓, `_variantprobe` ✓,
+  `_upplasprobe` ✓. `_vilkaprobe` och `_glodkandidat` väntar på boden respektive folien, alltså
+  på leverans 2.) ⚠️ Kör aldrig två webbläsarsonder samtidigt, och aldrig en bredvid `test:all`.
 * **Spelet är aldrig speltestat av ett barn.** Det är fortfarande den största omätta saken i
   hela spelet, och ingen sond ersätter den.
 
@@ -1343,11 +1375,14 @@ gjorde hornet `krona` onåbart.
 
 ### E. Kosmetik
 
-* [Quick] **Bänkplatsen (800, 630) står tom.** §4c säger uttryckligen "Lämna den inte tom" och
-  föreslår rekvisita med `eventMode='none'` (burk penslar, trave brickor, oljekanna).
-  Verifierat 2026-09-01: ingenting ritas där. ⚠️ Men risken den skulle skydda mot är MÄTT
-  BORTA — `bildkoll` fäller inte `heltackande-falt`, golvet är en gradient och inte en flat
-  ton. Det är alltså en trivselfråga, inte en grindfråga, och ska inte säljas in som det senare.
+* ✅ **Bänkplatsen (800, 630) — STÄNGD 2026-09-01 (sen natt).** §4c:s tre föreslagna föremål är
+  ritade som ett stilleben på golvet: burk med penslar · trave brickor · oljekanna
+  (`index.js._ritaPrylar`). De bor i `_rum`, som är `eventMode = 'none'` med
+  `interactiveChildren = false`, så harnessens tryck på (800, 600) faller igenom till
+  bakgrundsfångaren precis som förut. Inget ritas ovanför y 544 — knyttets träffyta på bänken
+  är en cirkel r=62 kring (800, 432) och slutar vid y 494; konstens utbredning och träffytans
+  utbredning är två olika budgetar. Det var en TRIVSELFRÅGA hela tiden och såldes inte in som
+  annat: `bildkoll` fällde aldrig `heltackande-falt`, golvet är redan en gradient.
 
 ### F. Delad kod som rör spelet
 
@@ -1363,8 +1398,10 @@ ett knytt på golvet · mata ett bär · kamera-parallax). Inget av det är kval
 
 ### Om du bara har ett kort pass
 
-1. **B2–B5 + E** — ren städning plus bänkplatsen, allt i verkstan, ingen ny mekanik. Ett halvt
-   pass, och B5 tar bort en mina innan någon trampar på den.
-2. **C:s tre sonder** — en halvtimme, och `_fpsprobe` svarar på degfasens allokeringar.
-3. **B1 (`lekfull`)** — det enda i B–E som barnet MÄRKER, men det är ett designval först.
-4. **D (leverans 2)** — planera in ett eget pass. Börja inte på det i slutet av ett annat.
+*Den förra listans punkt 1 och 2 är gjorda (v1.243.0). Kvar, i ordning:*
+
+1. **B1 (`lekfull`)** — det enda i B–E som barnet MÄRKER, men det är ett designval först: NÄR
+   ska läget gälla? Och `_lage` styr fem slingor, så mät att de fyra andra fortfarande nås.
+2. **A** — de tre frågorna till ägaren. Ingen av dem går att bygga förbi.
+3. **D (leverans 2)** — planera in ett eget pass. Börja inte på det i slutet av ett annat.
+4. **F** — V19 och V16 i `docs/ATGARDER.md`, delad kod: mät blastradien före ändring.

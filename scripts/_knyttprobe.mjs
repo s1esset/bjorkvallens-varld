@@ -40,13 +40,26 @@
 //                monster 587 · varld 440). Fore fixen lyste `farg` alltid upp och tonen
 //                var 392 — `storlek`s ton — oavsett vilken del det gallde.
 //
-//   node scripts/_knyttprobe.mjs
+//   P0 kontroll  verkstan i vila, CPU strypt              -> maskinens billiga bildruta
+//   P1 matarm    degfasen F2+F3, samma strypning            -> ritaDeg() + Mjukkropp +
+//                bubblorna + ljusstormen, alltsa rundans dyraste fonster
+//   P2           knackfasen, samma strypning                -> ceremonins scen UTAN
+//                ritaDeg och utan losaren (andra referensen, i samma runda)
+//   P3 barlast   25 ms brand per bildruta                   -> medianen MASTE stiga.
+//                Utan den ar P0-P2 vardelosa: alla tre landar pa vsync-intervallet, och
+//                ett mattat matt kan inte skilja "billig fas" fran "trasig matare"
+//
+//   node scripts/_knyttprobe.mjs [--cpu 4]
 //
 // ⚠️ Kor ALDRIG bredvid en annan webblasarsond eller `npm run test:all` — tva headless
 // Chrome svalter varandras ticker och forfalskar varandras svar.
 import { chromium } from 'playwright'
 
 const ID = 'unika-knytt'
+const CPU = (() => {
+  const i = process.argv.indexOf('--cpu')
+  return i >= 0 ? Number(process.argv[i + 1]) : 4
+})()
 const SPAK = { x: 1160, y: 350 }
 const TONER = { farg: 523, gnista: 659, storlek: 392, monster: 587, varld: 440 }
 const T_LAGE = {
@@ -413,6 +426,84 @@ try {
   rader.push(['D1 matarm    annan dag → "har saknat dig"', d1.includes(HALSNING) ? 'halsning' : d1.join(' | ').slice(0, 60), d1.includes(HALSNING)])
   const d2 = await besok(-1, [])
   rader.push(['D2 kontroll  annan dag men tom hylla → intro', d2.includes(HALSNING) ? 'HALSNING (fel)' : 'intro', !d2.includes(HALSNING) && d2.includes(INTRO)])
+
+  // ========================================== P: haller degfasen bildrutebudgeten?
+  // Docens §9 C ville mata "ritaDeg()s ~75 allokeringar per bildruta" med
+  // `_fpsprobe --cpu 6`. DEN PREMISSEN FALLER: `_fpsprobe` navigerar till MENYN och
+  // sprutar partiklar i fxLayer for att jamfora de tva partikelvagarna — den oppnar
+  // aldrig ett spel, och kan alltsa inte se ceremonins kod. Posten ar darfor omskriven
+  // till den fraga som gar att svara pa och som ar den foraldern kanner:
+  //
+  //   HALLER degfasen bildrutebudgeten pa en strypt processor?
+  //
+  // Tre fonster i SAMMA runda pa samma maskin, sa dagsformen inte kan forvaxlas med
+  // fasens kostnad. Attributionen ar medvetet grov: P1 bar ritaDeg OCH Mjukkropp-losaren
+  // OCH bubblorna OCH ljusstormen. Sticker P1 inte ut behovs ingen attribution — och
+  // gor den det ar DET passet som far isolera vilken av de fyra som kostar.
+  //
+  // ⚠️ VAD MATTET INTE SER: allt som ryms INNANFOR bildrutebudgeten. rAF-intervallet
+  // klipps av vsync, sa en fas som kostar 6 ms rapporterar samma 17,4 ms som en som
+  // kostar 1. Sonden svarar alltsa pa "spracker degfasen budgeten?", aldrig pa
+  // "vad kostar ritaDeg?". Den forsta fragan ar den barnet kanner; den andra kraver en
+  // profilerare och ar inte vard ett pass forran den forsta ger fel svar.
+  const cdp = await page.context().newCDPSession(page)
+  /** Bildrutetider i ms over `ms` millisekunder, forsta rutan kastad (den bar starten). */
+  const rutor = (ms) => page.evaluate((ms) => new Promise((res) => {
+    const d = []
+    const t0 = performance.now()
+    let f = t0
+    const steg = () => {
+      const n = performance.now()
+      d.push(n - f)
+      f = n
+      if (n - t0 < ms) requestAnimationFrame(steg)
+      else res(d.slice(1))
+    }
+    requestAnimationFrame(steg)
+  }), ms)
+  const median = (a) => { const b = [...a].sort((x, y) => x - y); return b[b.length >> 1] || 0 }
+  const p95 = (a) => { const b = [...a].sort((x, y) => x - y); return b[Math.floor(b.length * 0.95)] || 0 }
+  const tal = (a) => `median ${median(a).toFixed(1)} ms · p95 ${p95(a).toFixed(1)} ms · ${a.length} rutor`
+
+  await start()
+  if (CPU > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU })
+  await page.waitForTimeout(500)
+  const pVila = await rutor(2500)
+
+  await klick(SPAK.x, SPAK.y)
+  // F2 borjar 1,55 s efter spaktrycket och F3 slutar 5,30 s — matningen halls inne i
+  // fonstret med marginal i bada andar. Inga tryck under tiden: `_skynda` kortar
+  // tidslinjen 0,12 s per anrop och hade flyttat fasgransen mitt i matningen.
+  await page.waitForTimeout(1750)
+  const pDeg = await rutor(3200)
+
+  await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
+  const pKnack = await rutor(2000)
+
+  // P3 BARLAST — utan den ar de tre talen ovan vardelosa. De landade alla pa 17,5 ms,
+  // alltsa exakt headless Chromes vsync-intervall (~57 fps), och ett matt som ar MATTAT
+  // kan inte skilja "billig fas" fran "trasig matare". Barlasten branner en KAND budget
+  // per bildruta: 25 ms ryms inte i en ruta, sa medianen MASTE stiga. Gor den inte det
+  // mater sonden ingenting och de gronna P-talen ska ignoreras.
+  await page.evaluate(() => {
+    window.__barlast = () => { const t = performance.now(); while (performance.now() - t < 25); }
+    window.__barlastTick = () => { window.__barlast(); window.__barlastId = requestAnimationFrame(window.__barlastTick) }
+    window.__barlastTick()
+  })
+  const pBar = await rutor(1600)
+  await page.evaluate(() => { cancelAnimationFrame(window.__barlastId); window.__barlastId = 0 })
+  if (CPU > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
+
+  const TAK = 33.4 // tva bildrutor pa 60 Hz — over det kanns det som hack, inte som tyngd
+  rader.push([`P0 kontroll  verkstan i vila (CPU ${CPU}x)`, tal(pVila), pVila.length > 30])
+  rader.push(['P1 matarm    degfasen F2+F3', tal(pDeg), median(pDeg) < TAK])
+  rader.push(['P2           knackfasen (ingen ritaDeg)', tal(pKnack), pKnack.length > 20])
+  rader.push(['P3 barlast   25 ms brand per bildruta', tal(pBar), median(pBar) > median(pVila) + 6])
+  rader.push([
+    '   degfasen mot vilan',
+    `${(median(pDeg) / Math.max(0.1, median(pVila))).toFixed(2)}x medianen · ${(median(pDeg) - median(pVila)).toFixed(1)} ms extra · barlasten ${(median(pBar) - median(pVila)).toFixed(1)} ms`,
+    true,
+  ])
 
   // =================================================================== exit
   await page.evaluate(() => window.__barnspel.nav.go('library'))

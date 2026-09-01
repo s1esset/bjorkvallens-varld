@@ -283,7 +283,6 @@ export function byggCeremoni(opts = {}) {
   let fasIx = -1
   let skyndKvar = SKYND_TAK
   let ack = 0 // ackumulator för det fasta tidssteget
-  let morf = 0
   let lyster = 0 // hur mycket barnet knådat — köper spektakel, aldrig framsteg
   let bubbel = 0
   let bubbelA = 0
@@ -305,7 +304,6 @@ export function byggCeremoni(opts = {}) {
   let aggMal = 0xffd7a0 // äggets slutfärg, räknad EN gång per omgång
   let aggFarg = aggMal
   let sugKorn = []
-  let halvor = []
   let stoftFlod = null
   let knytt = null
   let knyttHall = null
@@ -492,7 +490,6 @@ export function byggCeremoni(opts = {}) {
     }
     ritmitt = { x: sx / deg.n, y: sy / deg.n }
     deg.mjukhet(0.8)
-    morf = 0
     ack = 0
   }
 
@@ -634,13 +631,12 @@ export function byggCeremoni(opts = {}) {
    * Allt F3 gör, garanterat färdigt. Kallas alltid före frysningen — både när fasen
    * körts normalt och när `hoppaTillFall()` hoppat förbi den.
    *
-   * Skälet till att den kör 18 extra fasta steg även i det normala fallet: `morf` når 1
+   * Skälet till att den kör 18 extra fasta steg även i det normala fallet: morfen når 1
    * i SAMMA bildruta som F4 börjar, och kroppen hinner då inte relaxera in i de nya
    * vilolängderna. Utan de här stegen fryses en nästan rund klump — utan ett konsolfel.
    */
   function sakraAgg() {
     if (!deg) byggDeg()
-    morf = 1
     satMorf(1)
     deg.mjukhet(0)
     deg.falt(0, 0)
@@ -955,7 +951,6 @@ export function byggCeremoni(opts = {}) {
       // Ingen tidslinje rör `scale`, så en engångskrympning är säker här.
       hall.scale.set(0.72)
       scen.addChildAt(hall, scen.getChildIndex(boFramH))
-      halvor.push(hall)
       return hall
     }
 
@@ -1262,7 +1257,6 @@ export function byggCeremoni(opts = {}) {
         c.destroy({ children: true })
       }
     }
-    halvor = []
     // Scenen bär FYRA fasta noder; allt annat där (skalhalvor, skalflisor på väg ner)
     // är förra omgångens. Ett svep är säkrare än en lista, för en flisa som är mitt i
     // sin flykt står inte i någon lista alls.
@@ -1302,7 +1296,6 @@ export function byggCeremoni(opts = {}) {
     t = 0
     fasIx = -1
     skyndKvar = SKYND_TAK
-    morf = 0
     lyster = 0
     bubbel = 0
     bubbelA = 0
@@ -1414,7 +1407,6 @@ export function byggCeremoni(opts = {}) {
         ritaDeg(lerpColor(DEG_BAS, aggMal, 0.3 * lyster))
       } else if (namn === 'F3') {
         const p = klam((t - FAS[3].t) / (FAS[4].t - FAS[3].t), 0, 1)
-        morf = p
         satMorf(p)
         deg?.mjukhet(0.8 * (1 - p))
         bubbla(dt, 1 - p) // bubblandet dör ut medan degen härdas
@@ -1471,7 +1463,6 @@ export function byggCeremoni(opts = {}) {
     deg = null
     facit = null
     sugKorn = []
-    halvor = []
     // Städhjälparen FÖRE rivningen, aldrig efter: `destroy({ children: true })` lämnar
     // levande tweens på barnbarn helt tyst — gsap skriver bara vidare på en nollad
     // transform och Pixi v8 kastar ingenting. Noll konsolfel i båda armarna.

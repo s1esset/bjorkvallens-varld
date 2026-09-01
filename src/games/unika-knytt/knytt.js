@@ -835,12 +835,6 @@ class Knytt {
     this._ansikte.addChild(this._gap, this._mun)
 
     for (const nod of this._liv.children) nod.eventMode = 'none'
-
-    // Måtten läses ur den RITADE geometrin, inte ur talen ovan — en gäspande larv och ett
-    // hornförsett klot har helt olika utbredning, och anroparen placerar mot den.
-    const b = this._skala.getLocalBounds()
-    this.bredd = b.width * this._bas
-    this.hojd = b.height * this._bas
   }
 
   _byggOga(x, y, e, form) {

@@ -68,7 +68,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_lastprobe.mjs` · `_exitprobe.mjs` | *spelar* ett spel för balans · lämnar mitt i en finish |
 | `node scripts/_idleprobe.mjs <id>` | klarar spelet sig själv utan input? (ska vara 0) |
 | `node scripts/_partikelprobe.mjs [id]` | tas partikelvägen på riktigt? (fält · antal · pixlar · läckage) |
-| `node scripts/_fpsprobe.mjs --cpu 6` | kostnadskurva för rendering — **kräver CPU-strypning** |
+| `node scripts/_fpsprobe.mjs --cpu 6` | partikelvägarnas kostnadskurva, mätt på MENYN — **öppnar aldrig ett spel**, kräver CPU-strypning |
 | `node scripts/_montageprobe.mjs --cpu 4 --varv 3` | vad en MONTERING kostar per spel (blockerande ruta + tid till lugn) — rangordnat |
 | `node scripts/_vatskeprobe.mjs <id> [--losa]` | vätskan: antal · ytans höjd · målade pixlar · FPS · exit |
 | `node scripts/_plaskprobe.mjs` | plask-i-vattnet: stänk över ytan · undanträngd volym · taket · konstant volym |
@@ -84,7 +84,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_lampprobe.mjs` | släpps draget på BÅDA greppytorna? (`_drar`/`_pekId` efter släpp + flyttar en NY pekare något) — två finger-id, kontrollarm före mätarm |
 | `node scripts/_onskeprobe.mjs` | `mata-munnen`s ÖNSKAN (ring · blick · replik · att mätarsteget är IDENTISKT för fel bit) + kyldörrens klistermärken över en OMLADDNING · att narratorn får tala till punkt (gamla schemat kortslutet som kontrollarm) |
 | `node scripts/_vinstprobe.mjs [--snurr 8]` | `roliga-snurran`s lägesväljare · autoläget · vinstgarantin (aldrig >3 snurr utan vinst) · ceremonins lager/storlek/rotation/glans · trofehyllan över en OMLADDNING · exit mitt i firandet |
-| `node scripts/_knyttprobe.mjs` | `unika-knytt`s HELA runda — spak → ceremoni → fyra knackningar → bänken → spaken igen → ny runda. Harnessens nio tryck maxar på **x 950** och spaken står på **1160**, så halva spelet nås bara här. Sedan 2026-09-01 även **upplåsningarna** (U0-U2: taket växer, alla fyra firandena tanda) och **återkomsthälsningen** (D0-D2). 26 armar; U-familjens kontroll ar en BARLAST (satt `START_TAK` till hela tabellen = HEAD och kor om) |
+| `node scripts/_knyttprobe.mjs` | `unika-knytt`s HELA runda — spak → ceremoni → fyra knackningar → bänken → spaken igen → ny runda. Harnessens nio tryck maxar på **x 950** och spaken står på **1160**, så halva spelet nås bara här. Sedan 2026-09-01 även **upplåsningarna** (U0-U2: taket växer, alla fyra firandena tanda), **återkomsthälsningen** (D0-D2) och **degfasens bildrutebudget** (P0-P3, `--cpu 4`; P3 är barlasten som bevisar att mätaren kan röra sig — utan den är P0-P2 mättade vid vsync och säger ingenting). 30 armar; U-familjens kontroll ar en BARLAST (satt `START_TAK` till hela tabellen = HEAD och kor om) |
 | `node scripts/_variantprobe.mjs` | **syns unikheten?** hur många av fyra HÖGSALIENTA axlar (kulör · värld · mönster · siluett) som faktiskt skiljer två knytt i rad — utan webbläsare, med fryst mot cyklat recept som armar |
 | `node scripts/_upplasprobe.mjs` | **upplåsningarna** i `unika-knytt` (ÅTGÄRDER U3): startverkstans tak · en axel per milstolpe · migrering av en sparpost skriven före räknaren fanns · att `falt` läses UR `_sparaKnytt` — utan webbläsare, med barlast = HEAD som kontrollarm |
 | `node scripts/_kompisbild.mjs [--kittel] [--galleri N] [--exitvid S]` | `bygg-en-kompis` i bild per delval + `--kittel`: kittelytan med RIKTIGA muspekningar (kontrollarm på tomt golv först) · träffordningen fjäril-över-kittel · vingspetsen ur `getBounds()` per storlek mot P0-avståndet till kameran · **levande tweens på innernoder före/efter `destroy()`** |
@@ -172,6 +172,12 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   där är det en dokumenterad layout-invariant så skärmdumpen inte landar mitt i en ceremoni —
   men följden är densamma: grönt betyder bara att den nåbara halvan monterar. **Kolla var
   spelets primära kontroll sitter innan du litar på en grön körning.**
+  **Och en sond som mäter bildrutetid kan vara MÄTTAD utan att säga det.** rAF-intervallet
+  klipps av vsync, så tre helt olika faser rapporterade alla 17,4 ms (headless Chromes ~57 fps)
+  — ett mättat mått kan inte skilja "billig fas" från "trasig mätare", och de tre gröna talen
+  var värdelösa tills en barlast som bränner 25 ms per bildruta flyttade samma mätare till
+  26,2. Ett bildrutemått svarar på "spräcker det budgeten?", aldrig på "vad kostar den här
+  raden?" — den andra frågan kräver en profilerare.
   **Och spela minst TVÅ rundor, och tryck så fort spelet tillåter i stället för att vänta
   artigt.** Den otåliga vägen är barnets väg, och det är där rivningskapplöpningarna bor: i
   `unika-knytt` levde en 0,9 s-tween kvar när nästa tryck rev dess mål, och gsap skrev på en

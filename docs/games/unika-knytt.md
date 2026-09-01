@@ -944,6 +944,51 @@ De fyra nya replikerna är genererade offline med F5-TTS (3,43–4,49 s, alla un
 väntar fortfarande på ägarens eget speltest (harnessens 2,55 s är harnessens tidtabell). Kvar
 sedan tidigare: leverans 2 (sällsynthet · folie · Knyttboden) och V19.`
 
+`2026-09-01 (dag) · /simplify + ÅTGÄRDER U6 (v1.245.0 → v1.246.0).
+**/simplify** kördes med ägarens tak på HÖGST 2 agenter (fyra granskningsvinklar, två och två).
+9 fynd applicerade: `rort` var härledbar ur `flytt` · `_lutMal` var ett instansfält som bara lästes
+på raden efter att det skrevs · lekzonens tre produkter räknades om varje bildruta trots att `_r`
+sätts en gång (städning, inte mätbart — hyllans knytt kortsluter på `!!pekare`) · `_val.r` var ett
+spökfält (`_val` är barnets UI-val, `r` är genetikhärlett; `_sparaKnytt` skriver `_dna.val.r`
+direkt, identiska bytes på disk) · `g.eventMode='none'` i `_ritaPrylar` var en no-op · L-familjen
+i `_knyttprobe` byggde om `rundan()`s kropp rad för rad (nu `stannaPaBanken`, och L får tillbaka
+`_klar`-väntan den saknade) · `_knyttbild` hade duk-mappningen inlinad på fyra ställen och två
+`page.evaluate` med identiskt ställningsverk · och den rapporterade `e` från SISTA ögat medan
+`over` var maximum över alla. Fyra fynd lämnades med flit, motiven står i commit `04b8e99`.
+
+**§9 A:s första fråga besvarad av ägaren: KODEN gäller** (12 s → sömnig, 8 s till → sover). Det
+var en ren doc-rättning — §3c hade redan kortat trösklarna från 20+12 med motiveringen "två
+osynliga timers är ingen mekanik", och §1 följde aldrig med.
+
+**ÅTGÄRDER U6 stängd.** Ögonlocket var en flat `p.bas`-lucka med rak överkant över ett
+`sphereFill`-tonat ansikte, och de två locken MÖTTES (ögonen 2,93e isär, locken 3e breda) till ett
+band tvärs över hela ansiktet. Ny sond **`scripts/_lockbild.mjs`** (en blink varar 0,2 s och går
+inte att fånga på måfå — locken tvingas till kända lägen, sex `ogonform` sida vid sida).
+⚠️ **Mätaren var fel fyra gånger**, varje gång fångad av en kontrollarm: provpunkterna lästes ur
+`getGlobalPosition()` FÖRE första renderingen · referensen 2,2e åt sidan landade i GRANNÖGATS lock
+· kantsvepet mätte ⌣-bågens mörka streck · och **luminans är blind på en gul kropp** (−8,5 lum men
+−37 i BLÅ).
+⚠️ **Fixen tog tre försök, och de två första är lärdomen: ingen FAST TON kan matcha en bakgrund som
+ytan GLIDER över.** Kalibrerad mot pannan (`tint(bas, 0.23)` = dess uppmätta 241,229,126 på
+pricken) försvann överkanten helt stängd (16 → 2), men gradienten är bakad i lockets EGET rum, så
+vid `somnig` (0,7) trycker `scale.y` ner den ljusa toppen över ögat och locken lyste som två ljusa
+lådor. Kalibrerad mot ögonhöjd: halvläget rätt, överkanten **18** — sämre än den platta. Locket
+tonar därför in ur genomskinligt (**`fadeTopFill`, ny i `lib/form.js`** — ny export, ingen
+befintlig anropare rörd), och intoningen måste vara FÄRDIG ovanför ögat: första fadet nådde ner
+över ögat som lyste igenom och mätte **37**, då på ÖGATS kant och inte på lockets.
+Formen är nu en mandel: smalast vid brynet (±1,31e → 2,61e < 2,93e, locken möts inte längre) och
+bredast rakt över ögat (±1,53e, täcker `stjarna`s 1,34e), med bryn-båge och en mörkare lockkant.
+**Uppmätt: överkanten 16 → 4–5 kanalsteg · sidokanten 5 → 5 · locket fortfarande innanför kroppen
+(värsta −6,1 px).**
+
+**Grind:** `check` 0/0 · `test unika-knytt` 0 konsolfel, bildkoll ren · **`test:all` 85/85** (delad
+`lib/form.js` rörd) · `_knyttprobe` 36/36 · `_upplasprobe` 11/11 · `_variantprobe` · `_knyttbild`
+0 konsolfel · `_idleprobe` 0.
+
+**Öppet:** spelet är fortfarande **aldrig speltestat av ett barn**. §9 A har två frågor kvar och
+båda väntar på samma sak — ägarens eget speltest: Skrället (§4b) och upplåsningarnas takt.
+Därefter leverans 2 (sällsynthet · folie · Knyttboden), och V19/V16 i delad kod.`
+
 
 ## 6. Teknisk ritning
 

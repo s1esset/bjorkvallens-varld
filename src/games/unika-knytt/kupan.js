@@ -23,7 +23,7 @@ import {
   verticalFill, verticalFillAlpha, groundFill, topLightFill, cylinderFill, sphereFill,
 } from '../../lib/form.js'
 import { lerpColor } from '../../lib/scene.js'
-import { liv, pop, squash, wiggle, shake, puff, sparkle } from '../../lib/feedback.js'
+import { liv, pop, squash, wiggle, shake, puff, sparkle, stadFx } from '../../lib/feedback.js'
 import { FARGER, STORLEKAR, MONSTER, hslHex } from './dna.js'
 
 // --- verkstadens material (fyra+ toner, aldrig en enda kvantiserad yta) ---------------
@@ -69,22 +69,6 @@ const kurva = (k, t) => {
     x: u * u * k.fran.x + 2 * u * t * k.styr.x + t * t * k.till.x,
     y: u * u * k.fran.y + 2 * u * t * k.styr.y + t * t * k.till.y,
   }
-}
-
-// Städhjälpare: killTweensOf(roten) når BARA roten. Öron, ögon, valsar och blad är
-// barnbarn och överlever destroy() med LEVANDE tweens, helt tyst. Anropas FÖRE destroy().
-function stadNod(nod) {
-  if (!nod) return
-  nod._fxLiv?.kill()
-  nod._fxHopTl?.kill()
-  nod._fxSquashTl?.kill()
-  nod._fxPopTl?.kill()
-  nod._fxWiggleTl?.kill()
-  nod._fxShakeTw?.kill()
-  gsap.killTweensOf(nod)
-  if (nod.scale) gsap.killTweensOf(nod.scale)
-  const barn = nod.children
-  if (barn) for (let i = 0; i < barn.length; i++) stadNod(barn[i])
 }
 
 // =====================================================================================
@@ -671,7 +655,7 @@ export function byggKupa(opts = {}) {
     nod.scale.set(p.skala)
     nod.eventMode = 'none'
     ;(def.luft >= 1 ? bakProp : framProp).addChild(nod)
-    const post = { nod, livNod, inner, def, slot: i, fas: (i * 0.37 + val.v * 0.19) % 1, wx: p.x, wy: p.y, wr: 0 }
+    const post = { nod, livNod, inner, def, fas: (i * 0.37 + val.v * 0.19) % 1, wx: p.x, wy: p.y }
     props.push(post)
     // vilo-liv med EGEN fas per föremål (P0 ASSETS). Stenen ligger blick stilla.
     if (def.rorelse !== 'still') {
@@ -710,11 +694,11 @@ export function byggKupa(opts = {}) {
         // världen åker UT genom kragen
         gsap.to(nod, {
           y: -R_INRE - 60, x: nod.x * 0.3, duration: 0.55, ease: 'power2.in',
-          onComplete: () => { stadNod(nod); if (!nod.destroyed) nod.destroy({ children: true }) },
+          onComplete: () => { stadFx(nod); if (!nod.destroyed) nod.destroy({ children: true }) },
         })
         gsap.to(nod.scale, { x: 0.2, y: 0.2, duration: 0.55, ease: 'power2.in' })
       } else {
-        stadNod(nod)
+        stadFx(nod)
         if (!nod.destroyed) nod.destroy({ children: true })
       }
     }
@@ -731,7 +715,7 @@ export function byggKupa(opts = {}) {
   function satGnistor(n) {
     while (gnistor.length > n) {
       const g = gnistor.pop()
-      stadNod(g.nod)
+      stadFx(g.nod)
       if (!g.nod.destroyed) g.nod.destroy({ children: true })
     }
     while (gnistor.length < n) {
@@ -1021,14 +1005,14 @@ export function byggKupa(opts = {}) {
     view.off('pointertap', onTap)
     rensaProps(false)
     korn.length = 0
-    for (const g of gnistor) { stadNod(g.nod) }
+    for (const g of gnistor) { stadFx(g.nod) }
     gnistor.length = 0
     inre.mask = null                 // masken kopplas loss FÖRE rivningen
-    stadNod(view)
+    stadFx(view)
     if (!view.destroyed) view.destroy({ children: true })
   }
 
-  return { view, setVal, laggIn, rullaOm, tomma, skalarer, tick, destroy }
+  return { view, setVal, laggIn, tomma, tick, destroy }
 }
 
 // =====================================================================================
@@ -1230,7 +1214,7 @@ export function byggVerktyg(axel, opts = {}) {
   function destroy() {
     dod = true
     view.off('pointertap', onTap)
-    stadNod(view)
+    stadFx(view)
     if (!view.destroyed) view.destroy({ children: true })
   }
 
@@ -1324,9 +1308,9 @@ export function byggSpak(opts = {}) {
   function destroy() {
     dod = true
     view.off('pointertap', onTap)
-    stadNod(view)
+    stadFx(view)
     if (!view.destroyed) view.destroy({ children: true })
   }
 
-  return { view, dra, aterstall, destroy }
+  return { view, dra, aterstall, locka, destroy }
 }

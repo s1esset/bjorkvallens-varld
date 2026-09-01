@@ -19,13 +19,13 @@
 //
 // Rörelsen är dessutom PROCEDURELL: skalärerna dras mot sina mål i `tick()` i stället för
 // att tweenas. Det gör riggen exit-säker av konstruktion — det finns ingen tween som kan
-// överleva en rivning och skriva på en nollad transform. `stadKnytt()` finns ändå, för
+// överleva en rivning och skriva på en nollad transform. `stadFx()` anropas ändå, för
 // anroparen får animera `view` och för kopior som ligger i en hylla.
 import { Container, Graphics, Point } from 'pixi.js'
 import { gsap } from 'gsap'
 import { COLORS, shade, tint } from '../../lib/theme.js'
 import { sphereFill, topLightFill } from '../../lib/form.js'
-import { puff, sparkle } from '../../lib/feedback.js'
+import { puff, sparkle, stadFx } from '../../lib/feedback.js'
 import { mulberry32 } from './dna.js'
 
 const TAU = Math.PI * 2
@@ -625,7 +625,11 @@ class Knytt {
     this._stilla = 0
     this._pt = new Point()
     this._pt2 = new Point()
-    this._pekPrev = null
+    // Skalarer, inte ett objekt: det har jamfors och skrivs om VARJE bildruta sa lange
+    // ett finger ror skarmen, och ett nytt {x,y} per ruta ar ren GC-last.
+    this._pekHar = false
+    this._pekPx = 0
+    this._pekPy = 0
 
     // Varje gest äger sin egen skalär. `_apply()` är den ENDA som skriver transformer.
     this.s = {
@@ -928,7 +932,7 @@ class Knytt {
   }
 
   // `delay` läggs på LJUDMOTORNS egen klocka (AudioService._tone gör `o.start(currentTime +
-  // delay)` och sparar noden ingenstans), så varken `destroy()`, `stadKnytt()` eller
+  // delay)` och sparar noden ingenstans), så varken `destroy()`, `stadFx()` eller
   // `audio.stopAllLoops()` når den: tryckte barnet på ett knytt i ett bo och sedan på
   // hem-knappen spelade upp till 0,5 s av motivet vidare på menyn, utan bild. `_senare` är
   // `ctx.later` och dör med omgången — samma mönster som `_vakna` redan använder nedan.
@@ -978,9 +982,11 @@ class Knytt {
     // knyttet från att somna.
     let rort = false
     if (pekare && typeof pekare.x === 'number') {
-      if (this._pekPrev && Math.hypot(pekare.x - this._pekPrev.x, pekare.y - this._pekPrev.y) > 6) rort = true
-      this._pekPrev = { x: pekare.x, y: pekare.y }
-    } else this._pekPrev = null
+      if (this._pekHar && Math.hypot(pekare.x - this._pekPx, pekare.y - this._pekPy) > 6) rort = true
+      this._pekHar = true
+      this._pekPx = pekare.x
+      this._pekPy = pekare.y
+    } else this._pekHar = false
     if (rort) this._stilla = 0
     else this._stilla += dt
 
@@ -1184,7 +1190,7 @@ class Knytt {
     this._alive = false
     // Städhjälparen FÖRE rivningen, aldrig efter: en tween som redan skriver på en nollad
     // transform hinner kasta innan destroy() ens är klar.
-    stadKnytt(this.view)
+    stadFx(this.view)
     if (this.view && !this.view.destroyed) this.view.destroy({ children: true })
     this._ogon = []
     this._oron = []
@@ -1198,34 +1204,3 @@ export function byggKnytt(dna, opts = {}) {
   return new Knytt(dna, opts)
 }
 
-// Släck ALLT som animeras inuti en nod — inte bara noden själv.
-//
-// `gsap.killTweensOf(roten)` når bara roten. Öron, svans, ögon och vingar är barnbarn och
-// överlever `destroy({children:true})` helt tyst: gsap skriver vidare på en nollad transform
-// och Pixi v8 kastar ingenting. Uppmätt i ett annat spel: 2 levande tweens efter rivningen,
-// 0 konsolfel i BÅDA armarna — "grönt test" är alltså blint för precis den här läckan.
-//
-// `.scale` måste stå med som eget mål: gsap ser noden och dess `scale` som två olika mål.
-// Feedback-hjälparnas egna handtag (`_fxLiv` m.fl.) tweenar dessutom ett PROXY-objekt, som
-// `killTweensOf` aldrig kan nå — de måste dödas via sina handtag.
-export function stadKnytt(nod) {
-  const rot = nod && nod.view ? nod.view : nod
-  if (!rot || rot.destroyed) return
-  const ga = (n, djup) => {
-    if (!n || n.destroyed) return
-    n._fxLiv?.kill?.()
-    n._fxShakeTw?.kill?.()
-    n._fxPopTl?.kill?.()
-    n._fxSquashTl?.kill?.()
-    n._fxHopTl?.kill?.()
-    n._fxWiggleTl?.kill?.()
-    gsap.killTweensOf(n)
-    if (n.scale) gsap.killTweensOf(n.scale)
-    if (n.position) gsap.killTweensOf(n.position)
-    if (djup > 12) return
-    const barn = n.children
-    if (!barn) return
-    for (let i = 0; i < barn.length; i++) ga(barn[i], djup + 1)
-  }
-  ga(rot, 0)
-}

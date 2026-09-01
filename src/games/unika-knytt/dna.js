@@ -117,11 +117,11 @@ export const STORLEKAR = [0.74, 0.88, 1.03, 1.20]
 /** Monsterhjulets sex motiv (ritas i kroppens statiska Graphics, matt mot m.bredd). */
 export const MONSTER = ['enfarg', 'prickar', 'ranger', 'mage', 'flackar', 'stjarnor']
 
-// Deltabellerna knytt.js ritar. De ligger har for att ORDNINGEN ska ha en enda agare.
-export const KROPPAR = ['klot', 'paron', 'bona', 'droppe', 'kloss', 'larv']
-export const ORON = ['inga', 'runda', 'spetsiga', 'hang', 'horn', 'antenner']
-export const SVANSAR = ['ingen', 'tofs', 'lang', 'fena', 'blixt']
-export const BEN = ['inga', 'stubbar', 'langa']
+// OBS: knytt.js hall sina EGNA deltabeller (KROPPAR/ORON/SVANSAR/BEN/HORN/VINGAR) och
+// importerar inget harifran. Den bindande kopplingen ar i stallet LANGDEN pa viktarrayen
+// i varld.vikter mot langden pa knytt.js tabell — det ar den som avgor vilka delar som
+// nagonsin kan valjas (se hornet krona i docs §5). Fyra namnlistor stod har och pastod
+// sig aga ordningen utan att nagon las dem; de ar borttagna hellre an missvisande.
 export const OGONFORMER = ['runda', 'stora', 'smala', 'stjarna', 'spiral', 'tre']
 export const MUNNAR = ['leende', 'katt', 'nabb', 'glipa', 'prick']
 

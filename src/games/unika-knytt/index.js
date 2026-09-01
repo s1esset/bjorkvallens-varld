@@ -12,12 +12,12 @@ import { createScene } from '../../lib/scene.js'
 import { COLORS } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, groundFill, topLightFill } from '../../lib/form.js'
-import { squash, landa, puff, sparkle, ripple, kvittera } from '../../lib/feedback.js'
+import { squash, landa, puff, sparkle, ripple, kvittera, stadFx } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { log as diag } from '../../lib/gamelog.js'
 import { byggKupa, byggVerktyg, byggSpak } from './kupan.js'
 import { byggCeremoni } from './ceremoni.js'
-import { byggKnytt, stadKnytt } from './knytt.js'
+import { byggKnytt } from './knytt.js'
 import { dnaFromSeed, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR } from './dna.js'
 
 // Verkstadens egen värld. createScene tar ett eget tema-objekt lika gärna som en nyckel —
@@ -82,7 +82,6 @@ export default {
     this._boboWrap = null
     this._knytt = null
     this._knyttNod = null
-    this._hylla = []
     this._hyllData = []
     this._bon = []
     this._aggYta = null
@@ -105,7 +104,6 @@ export default {
     this._knyttYta = null
     this._tick = null
     this._losa = []
-    this._eviga = []
     this._monterad = 0
     this._sisteSpak = 0
     this._klar = false
@@ -368,7 +366,7 @@ export default {
     for (let i = 0; i < this._bon.length; i++) {
       const b = this._bon[i]
       if (b.knytt) {
-        stadKnytt(b.knytt.view)
+        stadFx(b.knytt.view)
         b.knytt.destroy()
         b.knytt = null
       }
@@ -693,7 +691,7 @@ export default {
     if (!this._alive) return
     // Rundan börjar om: tom kupa, uppfjädrad spak, fem utfällda maskindelar.
     if (this._knytt) {
-      stadKnytt(this._knytt.view)
+      stadFx(this._knytt.view)
       this._knytt.destroy()
       this._knytt = null
     }
@@ -840,16 +838,16 @@ export default {
     gsap.killTweensOf(this._boboWrap?.scale)
     for (const n of this._losa) gsap.killTweensOf(n)
 
-    // stadKnytt måste köras FÖRE destroy — efteråt är noderna destroyed och loopen hoppar
+    // stadFx måste köras FÖRE destroy — efteråt är noderna destroyed och loopen hoppar
     // över precis den läcka den skulle stoppa. killTweensOf(roten) når bara roten.
     if (this._knytt) {
-      stadKnytt(this._knytt.view)
+      stadFx(this._knytt.view)
       this._knytt.destroy()
       this._knytt = null
     }
     for (const b of this._bon) {
       if (b.knytt) {
-        stadKnytt(b.knytt.view)
+        stadFx(b.knytt.view)
         b.knytt.destroy()
         b.knytt = null
       }
@@ -871,6 +869,5 @@ export default {
     this._rot?.destroy({ children: true })
     this._rot = null
     this._losa.length = 0
-    this._hylla.length = 0
   },
 }

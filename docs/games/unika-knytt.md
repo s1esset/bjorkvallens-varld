@@ -686,6 +686,12 @@ till `BO_X[HYLLA_MAX − 1]` — de två första knytten landade tyst i ett bo m
 **4. `locka()` fanns aldrig (kupan.js).** `this._spak?.locka?.()` i vilohjälpens steg 2–3
 anropade en metod `byggSpak` aldrig exporterat; `?.` svalde den tyst. Handpiktogrammet svävade
 över en spak som stod blick stilla, precis när barnet fastnat.
+⚠️ **RÄTTELSE 2026-09-01:** fixen landade bara till hälften. Funktionen skrevs, men lades
+aldrig till i `byggSpak`s returobjekt (`return { view, dra, aterstall, destroy }`), så `?.` fortsatte
+svälja anropet och spaken stod still i ytterligare två dygn. Två oberoende granskare hittade det
+i `/simplify`-passet. Nu returnerad. **Lärdomen är generell:** en fix som består i att SKRIVA en
+funktion är inte klar förrän anroparen bevisligen når den — `?.()` mot en icke-exporterad medlem
+är tyst i båda ändar, och grönt test ser den aldrig.
 
 **5. Föremål ramlade ner i den TÖMDA kupan (kupan.js).** `laggIn('varld')`s callback på 0,34 s
 hade bara en `dod`-vakt. Trycker barnet på spaken inom 0,34 s har `tomma()` redan nollat

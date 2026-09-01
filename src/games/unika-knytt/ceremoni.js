@@ -24,9 +24,9 @@ import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { verticalFill, groundFill, topLightFill } from '../../lib/form.js'
 import { lerpColor } from '../../lib/scene.js'
 import { shade, tint } from '../../lib/theme.js'
-import { bounceIn, burst, landa, liv, pop, puff, ripple, sparkle, squash } from '../../lib/feedback.js'
+import { bounceIn, burst, landa, liv, pop, puff, ripple, sparkle, squash, stadFx } from '../../lib/feedback.js'
 import { Emitter } from '../../lib/partiklar.js'
-import { byggKnytt, stadKnytt } from './knytt.js'
+import { byggKnytt } from './knytt.js'
 import { REKVISITA } from './kupan.js'
 
 // ---- geometri (designkoordinater) ------------------------------------------
@@ -113,13 +113,16 @@ function aggForm(a) {
 function mjukKurva(g, pts) {
   const n = pts.length
   if (n < 3) return g
-  const mitt = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
-  const m = mitt(pts[n - 1], pts[0])
-  g.moveTo(m.x, m.y)
+  // Allokeringsfri med flit: den har anropas tre ganger per bildruta ur ritaDeg(), och
+  // en mitt()-closure med ett objekt per punkt kostade 45 kortlivade objekt i sekunden
+  // deg-fasen pagar. Samma kurva som knytt.js silhuett() — halls medvetet identiska.
+  const sista = pts[n - 1]
+  const forsta = pts[0]
+  g.moveTo((sista.x + forsta.x) / 2, (sista.y + forsta.y) / 2)
   for (let i = 0; i < n; i++) {
     const a = pts[i]
-    const nasta = mitt(a, pts[(i + 1) % n])
-    g.quadraticCurveTo(a.x, a.y, nasta.x, nasta.y)
+    const b = pts[(i + 1) % n]
+    g.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2)
   }
   g.closePath()
   return g
@@ -195,34 +198,10 @@ function klyvSkal(poly, bana) {
   return [a, b]
 }
 
-/**
- * Städhjälparen. `gsap.killTweensOf(rot)` når BARA roten — skalflisor, rekvisita, ögon
- * och svansar är barnbarn och överlever `destroy({children:true})` med LEVANDE tweens,
- * helt tyst. Den här går igenom varje nod OCH dess `.scale` (gsap ser dem som två mål)
- * OCH feedback-hjälparnas egna handtag, som tweenar proxy-objekt och därför aldrig nås
- * av `killTweensOf(noden)`.
- */
-function stadTrad(nod) {
-  if (!nod || nod.destroyed) return
-  nod._fxLiv?.kill()
-  nod._fxShakeTw?.kill()
-  nod._fxPopTl?.kill()
-  nod._fxSquashTl?.kill()
-  nod._fxHopTl?.kill()
-  nod._fxWiggleTl?.kill()
-  nod._wPuls?.kill()
-  gsap.killTweensOf(nod)
-  if (nod.scale) gsap.killTweensOf(nod.scale)
-  // Flaggorna nollas också. En dödad effekt hinner aldrig köra sin `onComplete`, så
-  // `_fxScaleBusy` hade stått kvar som `true` — och nästa `pop`/`squash` läser då ett
-  // GAMMALT viloläge som ny bas i stället för nodens verkliga skala.
-  nod._fxScaleBusy = false
-  nod._fxWiggleBusy = false
-  nod._fxHopBusy = false
-  nod._fxShakeBusy = false
-  const barn = nod.children
-  if (barn) for (let i = barn.length - 1; i >= 0; i--) stadTrad(barn[i])
-}
+// Ceremonin sparar ett eget tween-handtag (`_wPuls` pa ljusnoden, eget prefix enligt
+// CLAUDE.md). `stadFx` kanner bara feedback.js egna handtag, sa detta foljer med vid
+// varje rivning — annars overlever ljuspulsen sin nod.
+const EGNA_FX = { extra: ['_wPuls'] }
 
 export function byggCeremoni(opts = {}) {
   const audio = opts.audio || null
@@ -533,12 +512,11 @@ export function byggCeremoni(opts = {}) {
    */
   function satMorf(k) {
     if (!deg || !kantA) return
-    const s = 1
     for (let i = 0; i < deg.n; i++) {
       deg._kant[i] = lerp(kantR[i], kantA[i], k)
       deg._eker[i] = lerp(ekerR[i], ekerA[i], k)
     }
-    deg._viloArea = lerp(areaR, areaA, k) * s * s
+    deg._viloArea = lerp(areaR, areaA, k)
   }
 
   // Fast tidssteg, alltid `steg(1)`. Ett för STORT steg viker ihop kroppen för gott
@@ -1254,7 +1232,7 @@ export function byggCeremoni(opts = {}) {
   // en annan fil.
   function slappKnytt() {
     if (knytt?.view && !knytt.view.destroyed) {
-      stadKnytt(knytt.view)
+      stadFx(knytt.view, EGNA_FX)
       knytt.destroy?.()
     }
     knytt = null
@@ -1273,7 +1251,7 @@ export function byggCeremoni(opts = {}) {
     stoftFlod = null
     for (const l of [bak, markLag, propLag, figurLag]) {
       for (const c of l.removeChildren()) {
-        stadTrad(c)
+        stadFx(c, EGNA_FX)
         c.destroy({ children: true })
       }
     }
@@ -1283,7 +1261,7 @@ export function byggCeremoni(opts = {}) {
     // sin flykt står inte i någon lista alls.
     for (const c of scen.removeChildren()) {
       if (SCEN_FAST.includes(c)) continue
-      stadTrad(c)
+      stadFx(c, EGNA_FX)
       c.destroy({ children: true })
     }
     scen.addChild(...SCEN_FAST)
@@ -1329,7 +1307,7 @@ export function byggCeremoni(opts = {}) {
 
     // Hela äggträdet OCH boet tvättas: en bounceIn eller en landa från förra omgången
     // skriver annars vidare på noder vi just satt tillbaka i viloläge.
-    for (const n of SCEN_FAST) stadTrad(n)
+    for (const n of SCEN_FAST) stadFx(n, EGNA_FX)
     aggVagga.visible = true
     aggVagga.rotation = 0
     aggVilo.rotation = 0
@@ -1492,7 +1470,7 @@ export function byggCeremoni(opts = {}) {
     // transform och Pixi v8 kastar ingenting. Noll konsolfel i båda armarna.
     slappKnytt()
     knyttHall = null
-    stadTrad(view)
+    stadFx(view, EGNA_FX)
     view.destroy({ children: true })
   }
 

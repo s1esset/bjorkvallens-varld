@@ -587,3 +587,46 @@ export function sparkle(layer, x, y, { count = 6 } = {}) {
     })
   }
 }
+
+// --- Rivning ---------------------------------------------------------------
+// Dödar varje effekt den här modulen kan ha startat på `nod` OCH i hela dess underträd,
+// och nollar viloläges-flaggorna. Anropas FÖRE `destroy()`.
+//
+// Varför den behövs: `gsap.killTweensOf(noden)` når BARA noden. Armar, ögon och svansar
+// är barnbarn och överlever `destroy({ children: true })` med LEVANDE tweens, helt tyst —
+// gsap skriver vidare på en nollad transform och Pixi v8 kastar ingenting. "0 konsolfel
+// efter exit" är alltså blind för precis den här läckan (uppmätt i bygg-en-kompis: 2
+// levande tweens efter rivningen, 0 fel i BÅDA armarna).
+//
+// Tre mål per nod, inte ett: gsap ser `nod`, `nod.scale` och `nod.position` som skilda
+// mål. Och hjälparna här ovanför (liv · pop · squash · landa · wiggle · hop · shake)
+// tweenar PROXY-objekt som `killTweensOf(nod)` aldrig kan nå — de måste dödas via sina
+// handtag, därför listan nedan.
+//
+// Flaggorna nollas med flit: en dödad effekt hinner aldrig köra sin `onComplete`, så
+// `_fxScaleBusy` hade stått kvar `true` och nästa `pop`/`squash` läst ett GAMMALT
+// viloläge som ny bas i stället för nodens verkliga skala.
+//
+// Ett spel som sparar EGNA tween-handtag på sina noder (eget prefix, se CLAUDE.md)
+// skickar dem i `extra` — den här modulen kan bara känna till sina egna.
+const FX_HANDTAG = ['_fxLiv', '_fxPopTl', '_fxSquashTl', '_fxWiggleTl', '_fxHopTl', '_fxShakeTw']
+const FX_FLAGGOR = ['_fxScaleBusy', '_fxWiggleBusy', '_fxHopBusy', '_fxShakeBusy']
+
+export function stadFx(nod, { extra = null, maxDjup = 24 } = {}) {
+  const rot = nod && nod.view ? nod.view : nod
+  if (!rot || rot.destroyed) return
+  const ga = (n, djup) => {
+    if (!n || n.destroyed) return
+    for (const h of FX_HANDTAG) n[h]?.kill?.()
+    if (extra) for (const h of extra) n[h]?.kill?.()
+    gsap.killTweensOf(n)
+    if (n.scale) gsap.killTweensOf(n.scale)
+    if (n.position) gsap.killTweensOf(n.position)
+    for (const f of FX_FLAGGOR) n[f] = false
+    if (djup >= maxDjup) return
+    const barn = n.children
+    if (!barn) return
+    for (let i = barn.length - 1; i >= 0; i--) ga(barn[i], djup + 1)
+  }
+  ga(rot, 0)
+}

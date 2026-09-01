@@ -143,8 +143,11 @@ try {
   //   ⚠️ FÖRSTA INSTRUMENTET VAR FEL och gav +0,0 px på sex frön: `view.getBounds()` är
   //   unionen över HELA knyttet, inklusive öron, svans och vingar, som sträcker sig långt
   //   utanför huvudet. Ett lock som går utanför KROPPEN ryms lätt innanför den unionen.
-  //   Mätningen är därför geometrisk i stället: lockets ytterkant (`ögats x + 1,5e`) mot
-  //   kroppens halva bredd vid ansiktshöjd (`m.bredd * 0.86`, samma tal `dx`-klampen använder).
+  //   Mätningen är därför geometrisk i stället: lockets ytterkant mot kroppens halva bredd vid
+  //   ansiktshöjd (`m.bredd * 0.86`, samma tal `dx`-klampen använder).
+  //   ⚠️ Halvbredden är INTE 1,5e sedan ÅTGÄRDER U6: luckan är en mandel, smalast vid brynet
+  //   (1,5 × 0,87) och bredast rakt över ögat (1,5 × 1,02). Det är den BREDASTE punkten som
+  //   kan gå utanför kroppen, så det är den som mäts.
   //
   // `stadKnytt` fanns i knytt.js till 2026-09-01, da de tre stad-looparna slogs ihop till
   // `lib/feedback.js:stadFx`. Sonden kraschade pa den raden fran den dagen till 2026-09-02
@@ -174,7 +177,7 @@ try {
         // `e` ska hora ihop med det VARSTA ogat — annars rapporterar raden ett matt och en
         // storlek fran tva olika ogon, och talen gar inte att rakna efter for hand.
         for (const o of k._ogon) {
-          const over = Math.abs(o.nod.x) + 1.5 * o.e - kant
+          const over = Math.abs(o.nod.x) + 1.5 * 1.02 * o.e - kant
           if (over > varst) { varst = over; eVarst = o.e }
         }
         return { fro, kant: Math.round(kant), e: Math.round(eVarst), over: Math.round(varst * 10) / 10 }

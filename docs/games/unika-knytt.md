@@ -1388,6 +1388,16 @@ gjorde hornet `krona` onåbart.
 
 ### E. Kosmetik
 
+* ✅ **Ögonlocket (ÅTGÄRDER U6) — STÄNGT 2026-09-01.** Locket var en flat `p.bas`-lucka med rak
+  överkant, och de två locken MÖTTES (ögonen står 2,93e isär, locken var 3e breda) till ett band
+  tvärs över ansiktet. Nu en mandel som tonar in ur genomskinligt (`fadeTopFill`, ny i
+  `lib/form.js`), smalast vid brynet (2,61e < 2,93e — de möts inte längre) och bredast över ögat.
+  **Uppmätt med `scripts/_lockbild.mjs` (ny): överkanten 16 → 4–5 kanalsteg.**
+  ⚠️ Två saker som kostade tid och står i ÅTGÄRDER: **ingen fast ton kan matcha en bakgrund som
+  ytan GLIDER över** (en ton kalibrerad mot pannan tog överkanten 16 → 2 helt stängd men lyste som
+  två ljusa lådor vid `somnig` 0,7, och en kalibrerad mot ögonhöjd gav 18 — sämre än den platta),
+  och **luminans är blind på en gul kropp** (−8,5 lum men −37 i blå).
+
 * ✅ **Bänkplatsen (800, 630) — STÄNGD 2026-09-01 (sen natt).** §4c:s tre föreslagna föremål är
   ritade som ett stilleben på golvet: burk med penslar · trave brickor · oljekanna
   (`index.js._ritaPrylar`). De bor i `_rum`, som är `eventMode = 'none'` med
@@ -1415,7 +1425,7 @@ ett knytt på golvet · mata ett bär · kamera-parallax). Inget av det är kval
 
 1. **A** — de tre frågorna till ägaren. Ingen av dem går att bygga förbi, och två av dem
    (Skrället, upplåsningarnas takt) väntar på samma sak: ett riktigt speltest.
-2. **ÅTGÄRDER U6** — ögonlockets platta band över ansiktet vid varje blinkning. Kosmetiskt men
-   ständigt synligt; fixen har designinnehåll och måste bedömas i bild över flera `ogonform`.
-3. **D (leverans 2)** — planera in ett eget pass. Börja inte på det i slutet av ett annat.
-4. **F** — V19 och V16 i `docs/ATGARDER.md`, delad kod: mät blastradien före ändring.
+2. **D (leverans 2)** — planera in ett eget pass. Börja inte på det i slutet av ett annat.
+3. **F** — V19 och V16 i `docs/ATGARDER.md`, delad kod: mät blastradien före ändring.
+
+*(ÅTGÄRDER U6, ögonlocket, är stängt 2026-09-01 — se E.)*

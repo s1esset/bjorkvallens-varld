@@ -85,6 +85,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_onskeprobe.mjs` | `mata-munnen`s ÖNSKAN (ring · blick · replik · att mätarsteget är IDENTISKT för fel bit) + kyldörrens klistermärken över en OMLADDNING · att narratorn får tala till punkt (gamla schemat kortslutet som kontrollarm) |
 | `node scripts/_vinstprobe.mjs [--snurr 8]` | `roliga-snurran`s lägesväljare · autoläget · vinstgarantin (aldrig >3 snurr utan vinst) · ceremonins lager/storlek/rotation/glans · trofehyllan över en OMLADDNING · exit mitt i firandet |
 | `node scripts/_knyttprobe.mjs` | `unika-knytt`s HELA runda — spak → ceremoni → fyra knackningar → bänken → spaken igen → ny runda. Harnessens nio tryck maxar på **x 950** och spaken står på **1160**, så halva spelet nås bara här. Sedan 2026-09-01 även **upplåsningarna** (U0-U2: taket växer, alla fyra firandena tanda), **återkomsthälsningen** (D0-D2) och **degfasens bildrutebudget** (P0-P3, `--cpu 4`; P3 är barlasten som bevisar att mätaren kan röra sig — utan den är P0-P2 mättade vid vsync och säger ingenting) och **lekfulla läget** (L0-L5: alla fem lägen nås, och L5 läser lutningens TECKEN, inte flaggan). 36 armar; U-familjens kontroll ar en BARLAST (satt `START_TAK` till hela tabellen = HEAD och kor om) |
+| `node scripts/_lockbild.mjs [--lock 0,0.55,1] [--bara …] [--r N]` | `unika-knytt`s ÖGONLOCK i bild + tal (ÅTGÄRDER U6). En blink varar 0,2 s och går inte att fånga på måfå — locken tvingas till kända lägen, sex `ogonform` sida vid sida, med ton · sidokant · överkant och en kontrollarm på mätaren själv |
 | `node scripts/_knyttbild.mjs [--storlek 0-3]` | `unika-knytt`s FÖDELSE i bild — det enda stället där knyttets storlek och skuggor går att bedöma. Skriver även lekfulla lägets tre rutor (höger · vila · vänster) och mäter ögonlocket mot kroppens kant |
 | `node scripts/_variantprobe.mjs` | **syns unikheten?** hur många av fyra HÖGSALIENTA axlar (kulör · värld · mönster · siluett) som faktiskt skiljer två knytt i rad — utan webbläsare, med fryst mot cyklat recept som armar |
 | `node scripts/_upplasprobe.mjs` | **upplåsningarna** i `unika-knytt` (ÅTGÄRDER U3): startverkstans tak · en axel per milstolpe · migrering av en sparpost skriven före räknaren fanns · att `falt` läses UR `_sparaKnytt` — utan webbläsare, med barlast = HEAD som kontrollarm |
@@ -308,6 +309,19 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   och tal som faktiskt är effektens. Använd ⓷. Och frys förloppet: pinna läget **varje**
   bildruta, `positionPrev` med (matter härleder farten ur skillnaden), annars mäter du loopens
   egen reaktion i stället för din variabel.
+- **Ingen FAST TON kan matcha en bakgrund som ytan GLIDER över — och luminans är blind på en
+  färgad kropp.** `unika-knytt`s ögonlock är kroppsfärgat och sänks med `scale.y` över ett
+  `sphereFill`-tonat ansikte. Kalibrerad mot PANNAN (`tint(bas, 0.23)` träffade dess uppmätta
+  241,229,126 på pricken) försvann överkanten helt stängd (16 → 2 kanalsteg) — men gradienten är
+  bakad i lockets EGET rum, så vid halvstängt tryckte `scale.y` ner den ljusa toppen över ögat där
+  kroppen är mörkare, och locken lyste som två ljusa lådor. Kalibrerad mot ögonhöjd i stället:
+  halvläget rätt, överkanten **18**, alltså SÄMRE än den platta. Svaret är att kanten inte ska
+  finnas — tona in ur genomskinligt (`lib/form.js:fadeTopFill`), då finns ingen kant i något läge.
+  ⚠️ Och intoningen måste vara FÄRDIG innan den når det som ska döljas: ett fade som nådde ner
+  över ögat lät ögat lysa igenom och mätte **37**, då på ÖGATS kant och inte på lockets.
+  ⚠️ **Mät inte en färgskillnad i luminans.** Locket och ansiktet skilde bara −8,5 lum men **−37 i
+  BLÅ** — på en gul kropp bär blå-kanalen hela mättnadsskillnaden, och ögat ser mättnad. Ett
+  luminansmått gav 1,1–1,3 och sa "ingen kant" om en kant som syns tydligt i bilden.
 - **Räkna pixlar mäter YTA — styrkan bor i ALFAN.** Ett band täcker ungefär samma bana oavsett
   hur starkt det är, så pixelantalet växte 1 011 → 1 587 medan summan av avvikelserna gick
   **33k → 205k**. Ska du visa att något blev *starkare*: summera skillnaden, tröskla den inte.

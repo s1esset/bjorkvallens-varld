@@ -107,6 +107,38 @@ export function topLightFill(color, opts = {}) {
   return g
 }
 
+// Som `topLightFill`, men överkanten börjar GENOMSKINLIG och tonar in.
+//
+// För en yta som GLIDER över sin bakgrund. Att i stället matcha bakgrundens TON löser bara
+// kanten i det läge man råkade kalibrera i: flyttas ytan hamnar kanten där bakgrunden har en
+// annan ton, och kanten kommer tillbaka. En alfa-intoning har ingen kant i NÅGOT läge.
+// Uppmätt på `unika-knytt`s ögonlock (`scripts/_lockbild.mjs`, största kanalhopp mellan två
+// grannpixlar tvärs överkanten): platt kroppsfärg **16** · ton kalibrerad mot pannan **2** vid
+// helt stängt men **18** så fort locket stod halvstängt · intoning **1** i båda lägena.
+//
+// MEDVETET UTAN `_detalj`-avstängning, av samma skäl som `verticalFillAlpha`: toningen bär
+// genomskinligheten, så en råfärg skulle göra överkanten HELT TÄCKANDE — alltså precis den
+// hårda kant funktionen finns för att ta bort. Att tappa volym är kosmetiskt; att tappa
+// alfan är en bugg.
+const _fadeCache = new Map()
+export function fadeTopFill(color, opts = {}) {
+  const { fade = 0.26, dark = 0.2, mid = 0.6 } = opts
+  const key = `${color}|${fade}|${dark}|${mid}`
+  let g = _fadeCache.get(key)
+  if (g) return g
+  const hex = (c, a) => `#${c.toString(16).padStart(6, '0')}${Math.round(a * 255).toString(16).padStart(2, '0')}`
+  g = new FillGradient({
+    colorStops: [
+      { offset: 0, color: hex(color, 0) },
+      { offset: fade, color: hex(color, 1) },
+      { offset: mid, color: hex(color, 1) },
+      { offset: 1, color: hex(shade(color, dark), 1) },
+    ],
+  })
+  _fadeCache.set(key, g)
+  return g
+}
+
 // En rak lodrät toning mellan två färger — för himlar, marker och andra stora ytor där
 // det inte handlar om att ge ett FÖREMÅL volym utan om att ytan inte ska vara en enda ton.
 // (`scene.js` har en egen, identisk cache för scenens himmel; den ligger kvar där för att

@@ -24,7 +24,7 @@
 import { Container, Graphics, Point } from 'pixi.js'
 import { gsap } from 'gsap'
 import { COLORS, shade, tint } from '../../lib/theme.js'
-import { sphereFill, topLightFill } from '../../lib/form.js'
+import { fadeTopFill, sphereFill, topLightFill } from '../../lib/form.js'
 import { puff, sparkle, stadFx } from '../../lib/feedback.js'
 import { mulberry32 } from './dna.js'
 
@@ -871,11 +871,52 @@ class Knytt {
 
     // Ögonlocket: en kropps-färgad lucka som sänks uppifrån. Noden sitter i lockets ÖVERKANT
     // så `scale.y` sänker den i stället för att krympa den mot ögats mitt.
+    //
+    // ÅTGÄRDER U6: locket var en FLAT `p.bas`-lucka med rak överkant, och blixtrade förbi som
+    // ett band tvärs över ansiktet vid varje blink. Uppmätt på sex ogonform (`_lockbild.mjs`):
+    // ⓵ locket låg −37 i BLÅ mot pannan medan luminansen bara skilde −8,5 — på en gul kropp
+    //   bär blå-kanalen hela mättnadsskillnaden, och ögat ser mättnad. Kroppen runt omkring
+    //   är `sphereFill`-tonad; en platt lapp mitt i den läser som ett klistermärke.
+    //   ⚠️ ATT MATCHA ANSIKTETS TON GÅR INTE, och det kostade två försök att lära sig. Locket
+    //   GLIDER över ansiktet, och gradienten är bakad i lockets EGET rum: kalibrerad mot
+    //   pannan (`tint(bas, 0.23)` = 241,229,126 på pricken) försvann överkanten helt stängd
+    //   (16 → 2 kanalsteg) men vid `somnig` (0,7) trycktes den ljusa toppen ner över ögat, där
+    //   kroppen är mörkare, och locken lyste som två ljusa lådor. Kalibrerad mot ögonhöjd i
+    //   stället (238,223,93 ≈ `p.bas`) blev halvläget rätt och överkanten 18 — SÄMRE än den
+    //   platta. Ingen fast ton kan matcha en bakgrund ytan rör sig över.
+    //   Locket tonar därför in ur GENOMSKINLIGT (`fadeTopFill`): då finns ingen överkant att
+    //   se i något stängningsläge, och botten läser som den skugga locket KASTAR.
+    //   ⚠️ Intoningen måste vara FÄRDIG ovanför ögat. Första försöket lade den över de översta
+    //   0,26 av luckan (0,91e) — och eftersom ögats överkant ligger på 1,34e hamnade ögat
+    //   INNE i det halvgenomskinliga skedet och lyste igenom locket: 37 kanalsteg, mätt vid
+    //   −1,22e, alltså på ÖGATS kant och inte på lockets. Luckan börjar därför 0,92e HÖGRE
+    //   upp, så hela fadet ligger mellan −2,52e och −1,62e — ovanför ögat i varje läge.
+    // ⓶ överkanten var en rak vågrät linje och gav 16 kanalsteg mellan två grannpixlar. Den
+    //   är nu en grund bryn-BÅGE; sidorna svänger in så luckan blir en kupa, inte en låda.
+    // ⓷ ögonen står 2,93e isär och locken var 3e breda RAKT UPP — de möttes vid brynet, och
+    //   det var därför bandet gick tvärs över HELA ansiktet i stället för att sitta över
+    //   varsitt öga. Luckan är därför inte längre lika bred hela vägen: den är smalast vid
+    //   brynet (±1,31e → 2,61e < 2,93e, alltså åtskilda) och bredast RAKT ÖVER ögat (±1,53e,
+    //   som täcker `stjarna`s 1,34e med marginal). Formen blev en mandel i stället för en
+    //   låda, vilket är vad ett ögonlock är.
     const lockNod = new Container()
     lockNod.position.set(0, -e * 1.6)
     const lockG = new Graphics()
     const lw = e * 1.5
-    lockG.moveTo(-lw, 0).lineTo(lw, 0).lineTo(lw, e * 2.5).quadraticCurveTo(0, e * 3.5, -lw, e * 2.5).closePath().fill(this._pal.bas)
+    lockG
+      .moveTo(-lw * 0.87, -e * 0.6)
+      .quadraticCurveTo(0, -e * 1.24, lw * 0.87, -e * 0.6)
+      .quadraticCurveTo(lw * 1.02, e * 1.5, lw * 0.9, e * 2.5)
+      .quadraticCurveTo(0, e * 3.5, -lw * 0.9, e * 2.5)
+      .quadraticCurveTo(-lw * 1.02, e * 1.5, -lw * 0.87, -e * 0.6)
+      .closePath()
+      .fill(fadeTopFill(tint(p.bas, 0.09), { fade: 0.2, dark: 0.22, mid: 0.62 }))
+    // Lockkanten. Utan den slutar locket bara — och det är kanten som gör att ett ögonlock
+    // läses som ett ögonlock och inte som en lucka.
+    lockG
+      .moveTo(-lw * 0.9, e * 2.5)
+      .quadraticCurveTo(0, e * 3.5, lw * 0.9, e * 2.5)
+      .stroke({ width: e * 0.16, color: shade(p.bas, 0.34), cap: 'round' })
     lockNod.addChild(lockG)
     lockNod.scale.y = 0
 

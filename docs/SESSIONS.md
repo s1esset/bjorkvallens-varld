@@ -76,9 +76,16 @@ färgen) · dagshälsningen har två kontrollarmar mot en mätarm.
 genererades offline med F5-TTS, 3,43–4,49 s, alla under `_narTyst`-taket) · `test unika-knytt`
 0 konsolfel, bildkoll ren · `_upplasprobe` 11/11 · `_knyttprobe` 26/26 med alla gamla armar orörda.
 
-**ÖPPET:**
+**ÖPPET — allt som återstår på spelet står nu samlat i `docs/games/unika-knytt.md` §9 "Kvar att
+göra"**, sorterat i A–F med storlek per post och med ett förslag på vad som ryms i ett kort pass.
+Den skrevs i det här passet just för att nästa session ska kunna plocka upp spelet utan att läsa
+chatthistorik. Punkterna om död/oinkopplad kod är **verifierade i koden samma dag**, inte lästa ur
+en äldre plan — bland dem att läget `lekfull` är byggt men aldrig anropat, och att sparpostens
+plats 5 bär ett `r` som inte är det `r` genetiken använder. I korthet:
 - **Spelet är fortfarande aldrig speltestat av ett barn** — och nu finns dessutom en progression
   vars TAKT bara ett riktigt speltest kan döma: är 16 kläckningar rimligt eller för långt?
+- Tre av §7:s obligatoriska sonder har aldrig körts på spelet (`_tystprobe` · `_montageprobe` ·
+  `_fpsprobe`), och degfasens ~75 allokeringar per bildruta är därför omätta.
 - §4b:s uppehållsmätning väntar fortfarande på ägarens eget speltest (Skrället är grindad på den).
 - Kvar sedan tidigare: leverans 2 (sällsynthet · folie · Knyttboden), ÅTGÄRDER V19
   (`Mjukkropp.tyngdpunkt`), V16 (`destroy({ children: true })` river inte kontexten).

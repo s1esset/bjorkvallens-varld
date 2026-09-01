@@ -7,6 +7,8 @@
 ceremonin F0–F5, fyrknacks-kläckningen, "världen kommer ut", knyttet med femlägesriggen, hyllan
 med de tre senaste och persistensen ligger i koden. **Leverans 2 (sällsynthet · foil · Knyttboden)
 är INTE byggd** — se §4. Planen nedan står kvar som skriven; §5 bär vad som faktiskt hände.
+👉 **Ska du plocka upp spelet? Börja i [§9 Kvar att göra](#9-kvar-att-göra)** — allt som återstår,
+sorterat, med storlek per post och med det som är verifierat i koden märkt som sådant.
 Källmaterialet — ägarens Gemini-konversation — ligger kvar orört i
 [`_kalla-unika-knytt.md`](_kalla-unika-knytt.md). Den är råmaterial, aldrig plan: dess
 gränssnittslager är byggt för en annan produkt (stående telefon, 3–8 år, reglage, gyroskop,
@@ -1274,3 +1276,95 @@ den tiden är omätt — bygger vi mot ett antagande blir det ~200 rader som kan
 
 **✅ 4. AVGJORD 2026-08-30 — Ljudtratten skjuts upp.** Verkstan har fem verktyg i leverans 1.
 Motivet är inte struket, bara flyttat till fröet. Detaljerna i **§4c**.
+
+
+## 9. Kvar att göra
+
+*Skriven 2026-09-01 (natt), efter att U3+U4 landat (v1.242.0). **Punkterna under B och E är
+verifierade i koden samma dag**, inte lästa ur en äldre doc — men husets regel gäller ändå:
+läs `src/games/unika-knytt/*.js` innan du bygger på någon av dem. En köpost vars premiss har
+fallit ska SKRIVAS OM till det som går att bygga, aldrig ersättas med något större.*
+
+**Grönt i dag, rör inte:** `npm run check` 0/0 · `npm run test unika-knytt` 0 konsolfel, bildkoll
+ren · `_knyttprobe` 26/26 · `_upplasprobe` 11/11 · `_variantprobe` · `_idleprobe` 0 · noll
+väntande röstklipp. Inget nedan är en trasig sak — det är beslut, obyggt, eller omätt.
+
+### A. Blockerat på ägaren (fråga, bygg inte förbi)
+
+| | |
+|---|---|
+| **Sömntrösklarna** | Koden säger 12 s → `somnig`, 20 s → `sover` (`knytt.js:993-995`). §1 "De fem slingorna" säger 20 s → sömnig, 12 s *till* → sover. Kodens egen kommentar följer koden. Vilken som är gällande spec är ett svar, inte en fix. |
+| **§4b Skrället** | Färdigspecad, grindad på hur länge ett barn DRÖJER i verkstan. Harnessens 2,55 s är harnessens tidtabell, inte ett barns. Kräver ägarens eget speltest. |
+| **Upplåsningarnas takt** | Nytt 2026-09-01: är 16 kläckningar till sista milstolpen rimligt eller för långt för ett barn? Bara ett speltest dömer det. |
+
+### B. Byggt men aldrig inkopplat, eller dött (allt verifierat i koden 2026-09-01)
+
+* [Medium] **Läget `lekfull` går inte att nå.** `setLage()` anropas bara med `'glad'`
+  (`knytt.js:913`), aldrig med `'lekfull'`. Hela beteendet — kroppen lutar efter fingret
+  (`:1040`), öron och svans piskar ×2,5 (`:1143`), snabbare vift (`:1158`) — finns skrivet och
+  kan aldrig inträffa. **Det här är den enda posten i B som ger barnet något nytt.**
+  ⚠️ Att koppla in den är ett DESIGNVAL om när den ska gälla (medan fingret rör sig nära
+  knyttet? efter ett bo-tryck?), inte en buggfix — och `_lage` styr fem slingor, så mät att de
+  fyra andra fortfarande nås efteråt.
+* [Quick] **`morf` är skrivbar-bara** (`ceremoni.js:286`, satt på `:495 :643 :1305 :1417`, läst
+  ingenstans). Städning.
+* [Quick] **`halvor` fylls men itereras aldrig** (`ceremoni.js:308`, push på `:958`, nollas
+  `:1265 :1474`). Städning.
+* [Quick] **`this.bredd`/`this.hojd` läses av ingen** (`knytt.js:841-843`) och kostar en
+  `getLocalBounds()` per bygge — inklusive hyllans tre vid *varje* `_ritaHylla`. Ta bort eller
+  gör lat.
+* [Quick] ⚠️ **Sparpostens plats 5 (`r`) är en laddad mina, inte död kod.** Fältet är medvetet
+  reserverat åt Ljudtratten (§4c: noll migrering senare) — men värdet som skrivs är
+  `_fro % 5` (`index.js._startaCeremoni`), och det är **inte** det `r` som `dnaFromSeed`
+  faktiskt använder (den drar sitt eget ur strömmen, `dna.js`). Börjar en framtida version
+  läsa fältet får den tyst fel motiv. Antingen skriv det RIKTIGA `r`:et (`dna.val.r` finns i
+  returen) eller skriv 0 och en kommentar om att platsen är reserverad.
+
+### C. Omätt
+
+* [Quick] **`ritaDeg()` allokerar ~75 objekt per bildruta** under F2+F3 (~225 bildrutor).
+  Aldrig mätt — `.test-logs` når aldrig ceremonin, eftersom harnessens nio tryck inte når
+  spaken (§1b). `node scripts/_fpsprobe.mjs --cpu 6`.
+* [Quick] **Tre av §7:s obligatoriska sonder har aldrig körts på spelet:** `_tystprobe`,
+  `_montageprobe --cpu 4 --varv 3`, `_fpsprobe --cpu 6`. (`_idleprobe` 0 ✓, `_mjukprobe` ✓,
+  `bildkoll` ✓, `_knyttprobe` ✓, `_variantprobe` ✓, `_upplasprobe` ✓. `_vilkaprobe` och
+  `_glodkandidat` väntar på boden respektive folien, alltså på leverans 2.)
+  ⚠️ Kör aldrig två webbläsarsonder samtidigt, och aldrig en bredvid `npm run test:all`.
+* **Spelet är aldrig speltestat av ett barn.** Det är fortfarande den största omätta saken i
+  hela spelet, och ingen sond ersätter den.
+
+### D. Leverans 2 — samlingen och skimret (~1 200 rader)
+
+Ett eget, stort pass. Innehållet står redan i **§4** (Knyttboden som rullande popup ·
+sällsynthetsrullningen med garantierna · folien och de tre fysiska tier-skillnaderna ·
+`kort.js` · det levande hyllivet) och besluten som styr det i **§8** — de listorna kopieras
+medvetet INTE hit. Två lokala listor om samma sak driver isär; det är precis den glidning som
+gjorde hornet `krona` onåbart.
+
+### E. Kosmetik
+
+* [Quick] **Bänkplatsen (800, 630) står tom.** §4c säger uttryckligen "Lämna den inte tom" och
+  föreslår rekvisita med `eventMode='none'` (burk penslar, trave brickor, oljekanna).
+  Verifierat 2026-09-01: ingenting ritas där. ⚠️ Men risken den skulle skydda mot är MÄTT
+  BORTA — `bildkoll` fäller inte `heltackande-falt`, golvet är en gradient och inte en flat
+  ton. Det är alltså en trivselfråga, inte en grindfråga, och ska inte säljas in som det senare.
+
+### F. Delad kod som rör spelet
+
+**V19** (`Mjukkropp.tyngdpunkt` är inte en tyngdpunkt — ceremonin går runt den, `lib/` är orört)
+och **V16** (`destroy({ children: true })` river inte `GraphicsContext`, repo-brett) står i
+`docs/ATGARDER.md` med sina mätkrav. Båda rör delad kod som hela sviten går igenom: mät
+blastradien före ändring.
+
+### Senare (V2+)
+
+Står i **§4** sist (Ljudtratten som sjätte verktyg · fler världar · vänner som delar bo · dra ut
+ett knytt på golvet · mata ett bär · kamera-parallax). Inget av det är kvalitetsgäld.
+
+### Om du bara har ett kort pass
+
+1. **B2–B5 + E** — ren städning plus bänkplatsen, allt i verkstan, ingen ny mekanik. Ett halvt
+   pass, och B5 tar bort en mina innan någon trampar på den.
+2. **C:s tre sonder** — en halvtimme, och `_fpsprobe` svarar på degfasens allokeringar.
+3. **B1 (`lekfull`)** — det enda i B–E som barnet MÄRKER, men det är ett designval först.
+4. **D (leverans 2)** — planera in ett eget pass. Börja inte på det i slutet av ett annat.

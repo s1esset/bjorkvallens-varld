@@ -7,6 +7,97 @@ Format:
 
 ```
 
+## 2026-09-01 — Unika Knytt: /simplify · tre MOSS-klipp · v1.239.0
+
+**Gjort:** ⓵ `/simplify` på `unika-knytt` — ägarens stående instruktion sedan leverans 1, den
+stod kvar eftersom passet 2026-08-30 körde `/felsok` i stället. ⓶ De tre SFX-klipp som legat i
+kön sedan 2026-08-06 genererades offline. Ingen ny funktionalitet i något av dem.
+
+**Först: en återhämtning.** Förra sessionen dog på sessionsgränsen mitt i en kritik-workflow och
+trodde att den producerat en plan. Det hade den inte: körningen rapporterade `completed · 4m 34s ·
+7 agenter · 865 894 tokens` men `result` var `{ plan: null, linser: 0, antalFynd: 0 }` — **alla
+sju agenterna dog på gränsen**. Körningen låg kvar på disk och gick att läsa
+(`~/.claude/projects/<projekt>/<session>/workflows/wf_*.json` + `subagents/.../journal.jsonl`).
+Lärdomen är minnesförd: `completed` betyder att SKRIPTET gick klart, inte att agenterna svarade.
+
+**`/simplify` — två granskare, fyra linser, högst 2 agenter enligt ägaren.** Spelet 5 476 → 5 310
+rader, `lib` +43.
+
+- **Tre städloopar blev en.** `stadTrad` (ceremoni) · `stadNod` (kupan) · `stadKnytt` (knytt) var
+  samma mekanism i tre stavningar, och var och en bar en egenskap de två andra saknade
+  (flaggnollning · `position` som eget gsap-mål · djuptak). Nu **`stadFx()` i `lib/feedback.js`** —
+  rätt höjd, för modulen äger själv de `_fx*`-handtag som städas. Ceremonins egna `_wPuls`
+  deklareras vid anropet, eftersom lib bara kan känna sina egna. 79 rader duplicering borta.
+- **`locka()` var skriven men aldrig returnerad.** `this._spak?.locka?.()` svaldes tyst, så
+  handpiktogrammet svävade över en död spak precis när barnet fastnat. Båda granskarna hittade det
+  oberoende. **§5 påstod att det var fixat i `/felsok`-passet** — fixen hade landat till hälften.
+  Doket är rättat med en generell lärdom: en fix som består i att SKRIVA en funktion är inte klar
+  förrän anroparen bevisligen når den.
+- **Per bildruta:** `mjukKurva` var byte-ekvivalent med `silhuett` men allokerade en closure + 15
+  objekt per anrop och anropas 3 ggr/bildruta i degfasen → allokeringsfri, **−45 objekt/ruta**.
+  `_pekPrev` allokerade ett nytt `{x,y}` varje ruta så länge ett finger rör skärmen → skalärer.
+- **Död kod:** fyra namnlistor i `dna.js` som påstod sig äga ORDNINGEN men lästes av ingen (det är
+  mekanismen bakom `krona`-glidningen i §5), `_hylla`, `_eviga`, `post.slot/wr`, `skalarer` och
+  `rullaOm` ur kupans publika API, och ett `* s * s` där `s` var literalen `1`.
+
+**Sonden var själv det trasiga — två gånger.** `scripts/_stadprobe.mjs` mäter levande tweens efter
+rivning. Version 1 navigerade bort och väntade 1,4 s, och då hade de korta tweenarna tagit slut av
+sig själva. Version 2 mätte bara `gsap.isTweening(noden)` och såg **2 av 16** — de flesta tweens
+ligger på PROXY-objekt som bara nås via `_fx*`-handtagen, vilket är hela skälet till att `stadFx`
+finns. **Båda gav samma svar som en barlastarm med `stadFx` urkopplad**, alltså mätte de ingenting.
+Med rätt mått (handtagens `tw.parent`, rivning i SAMMA evaluate): **barlast 9 → 7 levande (läcka),
+riktig kod 9 → 0**. Barlasten kräver en rads redigering i `feedback.js`; sondhuvudet säger vilken.
+
+**Ljudet: tre klipp, och en laddad mina som sköt.** `duns` (0,46 s · golvet-ar-lava, klambubblor,
+knuffa-tornet) · `kristall_klirr` (1,36 s · glittergrottan) · `borsta_skrubb` (1,95 s ·
+borsta-tanderna). Nivåerna ligger i familjen (topp −0,7…−1,1 dB mot befintliga −0,8…−1,2), så
+topp-normaliseringens kända fälla bet inte. **Men `gen-sfx.py` byggde om manifestet platt som
+`{stem: filnamn}` och RADERADE varje varianserie** — `klunk`, `pappa_prutt`, `svalj`, `traff_hard`,
+`traff_mjuk` och `tugg_mjuk` försvann som nycklar och varje variant blev en egen. Det hade tystat
+`mata-munnen`, `vakna-pappa` och `borsta-tanderna` **utan ett konsolfel**, eftersom en saknad
+nyckel faller tyst till syntesen. Minan laddades 2026-08-13 när serierna importerades men sköt inte
+förrän nu — den hade smällt vid VARJE framtida körning. Fixen ligger i GENERATORN (**ÅTGÄRDER
+V20**), med kravet att suffixet är ett TAL så `pappa_prutt_lang` och `plopp_av` inte sugs in som
+varianter. Manifestet 51 → 54 poster, diffen enbart de tre nya nycklarna.
+
+**GPU-anteckning värd att bära:** MOSS behöver ~16 GB och ComfyUI höll 19,4 GB fastän dess kö var
+tom. `POST http://127.0.0.1:8188/free {"unload_models":true,"free_memory":true}` gav **19,4 → 0,9
+GB** utan att döda processen. `llama-swap` var oskyldig (ingen modell laddad, 8001 lyssnade inte).
+
+**Grind:** `check` 0 fel/0 varningar · `test unika-knytt` 0 konsolfel · de sju ljudberörda spelen
+7/7 gröna · `test:all` kört efter `lib`-ändringen.
+
+**Commits:** `14261ef` (ljud + V20) · `5a015dd` (simplify + v1.239.0).
+
+**NÄSTA STEG — ägarens instruktion vid sessionsavslut:** kör **1–3 granskningsagenter** på
+`unika-knytt`. Spelet har fortfarande **aldrig fått en oberoende kvalitetskritik** —
+`spelkritiker`-steget stoppades när spelet byggdes, och kritik-workflown 2026-08-30 dog på
+sessionsgränsen med noll utfall. `/felsok` (buggar) och `/simplify` (kodkvalitet) är båda körda;
+det som saknas är frågan **"är det roligt för ett barn?"**.
+
+**Sex fynd som `/simplify` medvetet INTE tog** — de ändrar bild, ljud eller kräver mätning, och är
+alltså `/polera`-material och ett färdigt utgångsläge för granskarna:
+
+⓵ `satPalett` (kupan) och `dnaFromSeed` (dna) räknar paletten med **olika formler** (drag 0,20
+oklampad mot 0,14 klampad ±8°, och `matt` skiljer i tre av fyra världar) — förhandsvisningen lovar
+en färg knyttet inte föds med.
+⓶ Frö-härledda kontinuerliga nyanser **bakar en ny `FillGradient` per kläckning** in i en
+modulcache utan eviction, ~40–70 KB GPU per kläckning. `kupan.js` löste redan samma sak för sig med
+kvantisering till fem steg och dokumenterar varför i en kommentar.
+⓷ `ritaDeg` ritar EN geometri **tre gånger per bildruta** — `degBak` är samma väg, `degLjus` är
+bevisligen `scale(0,62)` + offset. Största kvarvarande vinsten; kräver `_fpsprobe --cpu 6` mot HEAD.
+⓸ Samma rekvisita **beter sig olika inne i kupan och ute i världen** (solen 11,4 s/varv inne mot
+24 s ute, månen guppar 60 % högre) — vilket tal som är rätt är ett designbeslut.
+⓹ `AXEL.steg` hårdkodar tabellängder, så en elfte färg vore permanent onåbar utan ett enda fel;
+världsantalet står som literalen `3` på tre ställen medan `dna.js` gör rätt.
+⓺ Vilohjälpen spelar **fel ton** (392 Hz = bälgens, inte färgkranens 523) och når in i kupans
+nodträd med `view.children[0]` i stället för det `tryck()` modulen exporterar. Den är en BUGG och
+hör till `/felsok`, inte hit.
+
+**Övrigt öppet:** leverans 2 (sällsynthet · folie · Knyttboden) står kvar i planens §4, och §4b:s
+uppehållsmätning väntar fortfarande på ägarens EGET speltest — harnessens 2,55 s är inte ett barns.
+Spelet är fortfarande aldrig speltestat av ett barn.
+
 ## 2026-08-30 — Unika Knytt: /felsok · v1.238.0
 
 **Gjort:** granskning av `unika-knytt` (5 248 rader, fem filer) efter buggar. **Tio fel

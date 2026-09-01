@@ -763,6 +763,35 @@ i ceremonin 0 konsolfel · `_idleprobe` 0 (spelet klarar sig inte självt).
   som lutar efter fingret och öron/svans ×2,5 kan inte inträffa. Byggd men aldrig kopplad, som
   fynd 1 — men att koppla in den är ett designval om NÄR den ska gälla, inte en buggfix.`
 
+`2026-09-01 · /simplify KÖRD (v1.239.0), 5 476 → 5 310 rader; lib +43. Två granskare, fyra
+linser, högst 2 agenter enligt ägaren. Kvalitet, inte buggjakt — grinden var grön före och efter.
+**Slaget ihop:** `stadTrad` · `stadNod` · `stadKnytt` var samma mekanism i tre stavningar, var och
+en med en egenskap de andra två saknade (flaggnollning · `position` som eget gsap-mål · djuptak).
+Nu **`stadFx()` i `lib/feedback.js`** — rätt höjd, eftersom den modulen äger de `_fx*`-handtag som
+städas; ceremonins egna `_wPuls` deklareras vid anropet via `extra`. 79 rader duplicering borta.
+**Rättat:** `locka()` returneras nu (se rättelsen i fynd 4 ovan). **Per bildruta:** `mjukKurva`
+allokeringsfri (−45 objekt/ruta i degfasen), `_pekPrev` → skalärer. **Borttaget dött:** fyra
+namnlistor i dna.js som ingen läste, `_hylla`, `_eviga`, `post.slot/wr`, `skalarer`/`rullaOm` ur
+kupans publika API, `* s * s` med `s === 1`.
+**Mätt, inte antaget:** `scripts/_stadprobe.mjs` river i SAMMA evaluate som mätningen och läser
+`_fx*`-handtagens `tw.parent` — barlast (stadFx urkopplad) **9 → 7 levande**, riktig kod **9 → 0**.
+Två tidigare versioner av sonden gav samma svar i BÅDA armarna och mätte alltså ingenting; se
+sessionsloggen.
+**Sex fynd togs medvetet INTE** och är `/polera`-material: palettformeln skiljer mellan `satPalett`
+och `dnaFromSeed` (förhandsvisningen lovar fel färg) · frö-härledda nyanser bakar en `FillGradient`
+per kläckning i en cache utan eviction (~40–70 KB GPU/kläckning) · `ritaDeg` ritar en geometri tre
+gånger per bildruta (`degLjus` är bevisligen `scale(0,62)` + offset) · rekvisitan rör sig olika inne
+i kupan och ute i världen (solen 11,4 s mot 24 s per varv) · `AXEL.steg` hårdkodar tabellängder ·
+och vilohjälpen spelar fel ton (392 mot 523 Hz) och når in med `view.children[0]` i stället för
+`tryck()` — den sista är en BUGG och hör till `/felsok`.`
+
+`2026-09-01 · ÖPPET: spelet har fortfarande ALDRIG fått en oberoende kvalitetskritik.
+`spelkritiker` stoppades när det byggdes, och kritik-workflown 2026-08-30 dog på sessionsgränsen
+med noll utfall (7 agenter, 865 894 tokens, `result.plan === null`). Nästa steg enligt ägaren:
+1–3 granskningsagenter med frågan "är det roligt för ett barn?". Leverans 2 (sällsynthet · folie ·
+Knyttboden) står kvar i §4, och §4b:s uppehållsmätning väntar på ägarens EGET speltest.`
+
+
 ## 6. Teknisk ritning
 
 ### Filer

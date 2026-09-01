@@ -1218,7 +1218,14 @@ export function byggCeremoni(opts = {}) {
       knytt?.setLage?.('glad')
       knytt?.hoppa?.(3) // tre glädjeskutt, och dess EGET fyrtonsmotiv
     })
-    strax(1.5, () => {
+    // 2,15 s och inte 1,5 — talet är satt av RÖSTEN, inte av rytmen, så rör det inte utan
+    // att räkna om. `pa('klar')` når `_fardigt`, som kallar `ctx.progress.complete()`, som
+    // gör `voice.say(beröm)`, som gör `cancel()` som första sak (`VoiceService.js:119`).
+    // Spelets tagline "Titta, hela världen kommer ut!" sägs vid `pa('klack')` och är
+    // uppmätt **3,232 s** lång; avståndet hit var 1,15 + 1,50 = 2,65 s, alltså kapades den
+    // egna kärnrepliken efter 82 % — mitt i den mening som förklarar hela speldesignen.
+    // 1,15 + 2,15 = 3,30 s ger den 0,07 s marginal att tala till punkt.
+    strax(2.15, () => {
       knytt?.setLage?.('idle')
       lage = 'klar'
       overlamnat = true

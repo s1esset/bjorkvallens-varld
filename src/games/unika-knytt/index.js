@@ -712,6 +712,14 @@ export default {
     // dammet yrde 240 px bort, vid ett tomt.
     const bo = Math.min(this._hyllData.length, HYLLA_MAX) - 1
     if (bar && !bar.destroyed) {
+      // FLYGTUREN MÅSTE DÖ FÖRST. `_tillBanken` tweenar samma `bar` mot bänken i 0,9 s, och
+      // träffytan barnet trycker på föds i samma andetag — trycker barnet direkt (och det
+      // gör ett otåligt barn) lever den tweenen fortfarande. gsap överskriver inte per
+      // automatik, så båda kördes, och den här tweenens `onComplete` river `bar` via
+      // `_aterstall` medan flygturen har tid kvar. Resultatet var ett gsap-fel PER BILDRUTA
+      // resten av rundan: "Cannot set properties of null (setting 'y')" — och eftersom ett
+      // gsap-fel kortsluter bildrutan tappades tryck EFTER det tyst.
+      gsap.killTweensOf(bar)
       gsap.to(bar, {
         x: BO_X[bo],
         y: BO_Y,
@@ -736,6 +744,10 @@ export default {
       this._knytt.destroy()
       this._knytt = null
     }
+    // Samma ordning som `destroy()` redan har: döda tweens FÖRE rivningen. En riven nod
+    // som fortfarande tweenas ger inget konsolfel förrän nästa bildruta, och då pekar
+    // stacken på gsap i stället för på den som rev.
+    gsap.killTweensOf(this._knyttNod)
     this._knyttNod?.destroy({ children: true })
     this._knyttNod = null
     for (const n of this._losa) if (!n.destroyed) n.destroy()
@@ -747,12 +759,38 @@ export default {
     this._fro = 0
     this._dna = null
     this._knackar = 0
+    // Rörde barnet ingen enda del den här rundan? Då cyklas receptet ett steg, så nästa
+    // knytt ändå blir synligt nytt. Rörde det något gäller dess val fullt ut och NÅGONTING
+    // HÄR ÄNDRAS INTE — ett barn som medvetet byggt en snövärld ska få en till i samma
+    // familj. (Ägarens beslut 2026-09-01, ÅTGÄRDER U1.)
+    //
+    // Varför det behövdes: `_val` nollställdes aldrig, och `setVal(this._val)` lade tillbaka
+    // samma recept. Uppmätt med `_variantprobe.mjs` över 20 000 kläckningar var kulör, värld
+    // och mönster identiska i **100 %** av alla par — bara siluetten varierade, alltså
+    // 1,00 av 4 synliga axlar. Största hue-avstånd 6,4°, innanför spelets egen ±8°-klamp:
+    // samma färg, alltid. Ett barn som bara matar spaken (den största kontrollen i rummet)
+    // fick därför nästan-lika knytt i all evighet, rakt mot spelets eget namn.
+    //
+    // Bara de TRE frusna axlarna cyklas. Storlek och gnistor är MÄNGD-axlar, inte identitet,
+    // och lämnas åt barnet. Stegen 10 · 6 · 4 är inbördes olika, så kombinationen upprepas
+    // först efter 60 rundor.
+    if (this._rorda.size === 0) {
+      this._val.f = (this._val.f + 1) % FARGER.length
+      this._val.m = (this._val.m + 1) % MONSTER.length
+      this._val.v = (this._val.v + 1) % VARLDAR.length
+    }
     this._valGjorda = 0
     this._rorda.clear()
     this._lockIdx = 0
     this._fas = 'bygga'
     this._spak?.aterstall()
     for (const v of Object.values(this._verktyg)) v.satLast(false)
+    // Varje del äger sin EGEN räknare. Cyklas receptet utan att delarna får veta står de
+    // kvar på gamla steg, och nästa tryck på färgkranen hoppar tillbaka — två sanningar om
+    // samma axel är precis det fel `satSteg` finns för.
+    this._verktyg.farg?.satSteg(this._val.f)
+    this._verktyg.monster?.satSteg(this._val.m)
+    this._verktyg.varld?.satSteg(this._val.v)
     this._kupaAktiv(true)
     this._kupa?.setVal(this._val)
     this._ritaHylla(ctx)

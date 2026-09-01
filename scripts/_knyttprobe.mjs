@@ -14,6 +14,9 @@
 //   A1 matarm    pekaren ror sig med knappen NERE                 -> knada() ska vara >0
 //                och `skynda()` far INTE folja med draget (den kortar tidslinjen 0,12 s
 //                per anrop och hade brant hela taket 1,2 s pa ett enda drag)
+//   C0 kontroll  en runda DAR barnet rort fargkranen               -> receptet star kvar
+//   C1 matarm    en runda dar barnet inte rort nagot                -> receptet cyklat
+//   D  matarm    tiden 'avtack' -> `_klar` maste rymma taglinen (3,232 s klipp)
 //   B0 kontroll  alla fem delar provade, sedan vilostund          -> spaken lockar
 //   B1 matarm    fars verkstad, upprepade vilostunder             -> OLIKA delar lockar,
 //                var och en med SIN EGEN ton (farg 523 · gnista 659 · storlek 392 ·
@@ -162,6 +165,78 @@ try {
   // alltsa foljer den inte draget. (Forsta versionen krävde 0 och var darfor fel.)
   rader.push(['A1b          skynda skalar INTE med draget', `skynda ${a1.skynda} mot knada ${a1.knad}`, a1.skynda <= 1 && a1.knad >= 3 * Math.max(1, a1.skynda)])
   rader.push([`   (fas vid matningen: ${fasNu})`, '', true])
+
+  // ============================================ C+D: en HEL runda (docens §7-kedja)
+  // Harnessens nio tryck nar aldrig hit — spaken star pa 1160, dess hogsta x ar 950.
+  await start()
+  await satMatare()
+
+  // Tidtagare pa fasbytet. `_fas` gar till 'avtack' vid pa('klack') och `_klar` satts i
+  // `_fardigt`, som ar exakt det anrop som utloser `progress.complete()` -> `cancel()`.
+  await page.evaluate(() => {
+    const g = window.__barnspel.game
+    window.__tAvtack = 0
+    window.__tKlar = 0
+    window.__vakt = setInterval(() => {
+      if (!window.__tAvtack && g._fas === 'avtack') window.__tAvtack = performance.now()
+      if (!window.__tKlar && g._klar) window.__tKlar = performance.now()
+    }, 16)
+  })
+
+  /** Spelar en runda till slut. `rorVerktyg` avgor om barnet trycker pa fargkranen. */
+  const rundan = async (rorVerktyg) => {
+    if (rorVerktyg) {
+      await klick(T_LAGE.farg.x, T_LAGE.farg.y)
+      await page.waitForTimeout(300)
+    }
+    await klick(SPAK.x, SPAK.y)
+    // Ceremonin ar 6,5 s; vanta in 'klacka' i stallet for att gissa pa en klocka.
+    await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
+    // Fyra knackningar, over KNACK_SPARR (0,18 s).
+    for (let i = 0; i < 4; i++) {
+      await klick(640, 470)
+      await page.waitForTimeout(260)
+    }
+    // Rundan aterstaller sig INTE sjalv, och det ar med flit: knyttet star kvar pa banken
+    // tills barnet skickar hem det, precis som repliken "Tryck pa spaken igen sa gor vi ett
+    // nytt knytt!" lovar. (Sondens forsta version vantade pa 'bygga' och hangde i 20 s —
+    // spelet var ratt, matningen fel.) Vanta darfor in `_klar`, tryck sedan pa spaken.
+    await page.waitForFunction(() => window.__barnspel.game._klar === true, null, { timeout: 20000 })
+    // ...och vanta in att knyttet FAKTISKT star pa banken. `_spakTryckt`s 'avtack'-gren
+    // kraver `_knyttYta`; trycks spaken tidigare kvitterar den bara och vagrar nollstalla,
+    // med flit — fasen 'avtack' borjar redan vid klackningen, 2,6 s fore `_tillBanken`, och
+    // att stanga rundan dar hade kastat bort knyttet barnet just gjort (docens §5 punkt 2).
+    // Sondens version 2 tryckte efter 400 ms, trafade den garden och hangde. Spelet ratt.
+    await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 })
+    await klick(SPAK.x, SPAK.y)
+    await page.waitForFunction(() => window.__barnspel.game._fas === 'bygga', null, { timeout: 20000 })
+    await page.waitForTimeout(300)
+  }
+
+  const valFore = await page.evaluate(() => ({ ...window.__barnspel.game._val }))
+  await rundan(false)
+  const valEfter = await page.evaluate(() => ({ ...window.__barnspel.game._val }))
+  const tider = await page.evaluate(() => ({ a: window.__tAvtack, k: window.__tKlar }))
+
+  const cyklat = ['f', 'm', 'v'].filter((k) => valFore[k] !== valEfter[k])
+  rader.push([
+    'C1 matarm    orort recept cyklas',
+    `f ${valFore.f}→${valEfter.f} · m ${valFore.m}→${valEfter.m} · v ${valFore.v}→${valEfter.v}`,
+    cyklat.length === 3,
+  ])
+
+  // D: taglinen "Titta, hela varlden kommer ut!" ar 3,232 s (ffprobe). HEAD gav 2,65 s.
+  const gap = (tider.k - tider.a) / 1000
+  rader.push(['D  matarm    avtack→klar rymmer taglinen', `${gap.toFixed(2)} s mot klippets 3,23 s (HEAD 2,65)`, gap >= 3.23])
+
+  // C0 kontroll: nu ROR barnet fargkranen -> dess val ska sta kvar, inget cyklas.
+  const f0 = await page.evaluate(() => window.__barnspel.game._val.f)
+  await rundan(true)
+  const f1 = await page.evaluate(() => window.__barnspel.game._val.f)
+  // Ett tryck stegar fargen ett steg; darefter far `_aterstall` INTE rora den.
+  rader.push(['C0 kontroll  rort recept lamnas ifred', `f ${f0} → tryck → ${f1} (ett steg, inte tva)`, f1 === (f0 + 1) % 10])
+
+  await page.evaluate(() => clearInterval(window.__vakt))
 
   // =================================================================== B: vilohjalpen
   await start()

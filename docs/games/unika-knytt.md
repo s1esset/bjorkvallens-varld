@@ -843,7 +843,43 @@ att den inte mätte får inte räknas som grön. **Och `B0` var felmärkt som ko
 faller på HEAD, alltså är den en mätarm; en riktig kontroll (ingen vilostund → inget lockas) står
 nu i dess ställe.
 
-**Fyra frågor lyfta till ägaren, inte avgjorda här** — se ÅTGÄRDER U1–U4.`
+**Fyra frågor lyftes till ägaren i stället för att avgöras här** — ÅTGÄRDER U1–U4. Ägaren
+svarade samma dag: **U1 och U2 byggda** (se nedan), **U3 och U4 ligger kvar** som egna pass.
+
+`2026-09-01 (samma pass, andra halvan) · U1 + U2 byggda, och den HELA RUNDAN avslöjade en
+krasch ingen test kunnat se.` Sonden fick två armar till (`C` recept, `D` röstutrymme) och
+spelar nu hela §7-kedjan: spak → ceremoni → fyra knackningar → knyttet på bänken → spaken igen
+→ ny runda.
+
+- **U1 — receptet cyklas bara när barnet inte rört något.** `_aterstall` stegar `f`/`m`/`v` när
+  `_rorda.size === 0`; rörde barnet en del gäller dess val fullt ut. Delarnas egna räknare
+  synkas med `satSteg`, annars står de kvar på gamla steg och nästa tryck hoppar tillbaka.
+  Uppmätt i det LEVANDE spelet: orört recept `f 0→1 · m 0→1 · v 0→1`, kontrollarm med ett tryck
+  på färgkranen `f 1 → 2` (ett steg, inte två — `_aterstall` rör den inte).
+- **U2 — `pa('klar')` 1,5 → 2,15 s.** Uppmätt avstånd `avtack`→`_klar`: **2,64 s → 3,31 s**, mot
+  taglinens 3,232 s. Talet är satt av RÖSTEN, inte av rytmen; kommentaren i koden säger det så
+  nästa läsare inte trimmar tillbaka det.
+- **⚠️ Spöktweenen (ÅTGÄRDER U5) — den dyraste buggen i hela passet, och den hittades bara för
+  att sonden spelade en ANDRA runda.** `_tillBanken` tweenar knyttets bärare mot bänken i 0,9 s,
+  och träffytan barnet ska trycka på föds i samma andetag. Ett otåligt barn trycker direkt →
+  `_hemTillBoet` startade en andra tween på samma nod (gsap överskriver inte per automatik) och
+  rev noden via `_aterstall` medan flygturen hade tid kvar. Sedan skrev den döda tweenen `.y` på
+  en riven nod **varje bildruta resten av rundan**, och ett gsap-fel kortsluter bildrutan — så
+  tryck EFTER det tappades tyst. Uppmätt: **22 konsolfel på ursprungskoden `1c3f9ab` → 0**, och
+  levande tweens mot rivna noder **1 → 0**. `destroy()` gjorde redan rätt, alltså var EXIT säkert
+  hela tiden; det var ÅTERSPELET som brann. Ägaren till tweenen namngavs genom att haka på
+  **appens egen** `gsap.to` och spara skapelse-stacken — en nyimporterad kopia har egen global
+  tidslinje och rapporterar 0 oavsett vad som pågår.
+
+**⚠️ Och sonden var fel ytterligare två gånger, båda gångerna för att SPELET hade rätt:**
+⓹ den väntade på att fasen skulle gå tillbaka till `'bygga'` av sig själv och hängde i 20 s —
+men rundan återställs med flit inte automatiskt: knyttet står kvar tills barnet skickar hem det,
+precis som repliken lovar. ⓺ den tryckte sedan på spaken 400 ms efter `_klar` och hängde igen —
+`_spakTryckt`s `'avtack'`-gren kräver `_knyttYta`, och trycks spaken tidigare **vägrar den med
+flit** att nollställa, eftersom fasen börjar redan vid kläckningen och en nollställning där hade
+kastat bort knyttet barnet just gjort. Båda gångerna var svaret att läsa spelets egen garde och
+mäta efter den. Sammanlagt var mätaren fel **sex gånger** i det här passet mot tre kodfixar +
+två ägarbeslut — och exakt det är varför en ny sond kostar mer än speländringen.`
 
 
 ## 6. Teknisk ritning

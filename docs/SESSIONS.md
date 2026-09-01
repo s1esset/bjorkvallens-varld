@@ -7,6 +7,85 @@ Format:
 
 ```
 
+## 2026-09-01 (kväll) — Unika Knytt: den oberoende kvalitetskritiken · v1.241.0
+
+**Gjort:** ägarens stående instruktion från förra sessionsavslutet — 1–3 granskningsagenter på
+`unika-knytt` med frågan *"är det roligt för ett barn?"*. Spelet hade aldrig fått en oberoende
+kritik: `spelkritiker`-steget stoppades när det byggdes, och kritik-workflown 2026-08-30 dog på
+sessionsgränsen med noll utfall. **Tre granskare med var sin lins** (verkstan · ceremonin ·
+återkomsten), varje fynd verifierat i koden av orkestratorn innan det skrevs ner. **Fem buggar
+rättade, tre ägarbeslut inhämtade och byggda, två frågor lämnade öppna.**
+
+**Ingen av de tre hittade en P0-överträdelse**, och det är värt att bära vidare: maskindelarna
+UTFÖR verkligen det de ändrar (blobben målas om när paketet fysiskt når den, `kupan.js:800` —
+inte när variabeln sätts), varje del har egen ton OCH eget sfx, knackfasen är äkta obligatorisk
+agens (`_idleprobe` = 0), exit-säkerheten är ovanligt grundlig, och "världen kommer ut" är en
+riktig händelse med fyra ritade rekvisita.
+
+| fynd | före | efter |
+|---|---|---|
+| Konsolfel under två rundor | **22** | **0** |
+| Knådning under ett drag | 1 (bara släppet) | 8 av 12 flyttar |
+| Vilohjälpen, fyra vilostunder | `– → SPAK → SPAK → SPAK`, ton 392 | fyra olika delar, var sin ton |
+| `_narTyst`-taket mot längsta klipp | 3,5 s mot 5,12 s | 7,0 s |
+| Taglinen "…hela världen kommer ut!" | kapad vid 82 % | 3,31 s mot klippets 3,23 |
+| Recept efter en orörd runda | `f 0→0 · m 0→0 · v 0→0` | `f 0→1 · m 0→1 · v 0→1` |
+
+**Den dyraste buggen hittades av att spela en ANDRA runda** (ÅTGÄRDER U5). `_tillBanken` skickar
+knyttet mot bänken i en 0,9 s flygtur och föder träffytan i samma andetag. Trycker barnet direkt
+— vilket ett otåligt barn gör — startade `_hemTillBoet` en andra tween på samma nod (gsap
+överskriver inte per automatik) och rev noden via `_aterstall` medan flygturen hade tid kvar.
+Den döda tweenen skrev sedan `.y` på en riven nod **varje bildruta resten av rundan**, och
+eftersom ett gsap-fel kortsluter bildrutan tappades tryck EFTER det tyst. Hade passerat varje
+grind i två dygn. **`destroy()` gjorde redan rätt — EXIT var säkert hela tiden, det var
+ÅTERSPELET som brann.** De är olika egenskaper, och en sond som bara mäter exit rapporterar
+allt-klart. Ägaren till tweenen namngavs genom att haka på **appens egen** `gsap.to` och spara
+skapelse-stacken; en nyimporterad kopia har egen global tidslinje och rapporterar 0 oavsett.
+
+**Varför ingen sett det:** harnessens nio autotryck maxar på **x = 950** (`test-game.mjs:51-53`)
+medan spaken står på **1160**, så ceremonin, ägget, kläckningen, knyttet och hyllan aldrig körts
+automatiskt — bekräftat två vägar (geometri + **noll `takt/spak`** i båda loggarna). Det är
+*avsiktligt och dokumenterat* (§1b, så en skärmdump aldrig landar mitt i en ceremoni), alltså
+ingen bugg — men följden är densamma: grönt betydde bara att den nåbara halvan monterar.
+**`scripts/_knyttprobe.mjs`, som §7 kallat obligatorisk sedan spelet byggdes, är nu byggd** och
+spelar hela kedjan: spak → ceremoni → fyra knackningar → bänken → spaken igen → ny runda.
+
+**Ägarens tre beslut** (inhämtade mitt i passet, inte gissade): U1 receptet cyklas **bara** när
+barnet inte rört någon del den rundan · U2 `pa('klar')` 1,5 → 2,15 s · U3+U4 ligger kvar.
+
+**⚠️ Mätaren var fel SEX gånger mot tre kodfixar.** Fyra fångades av kontrollarmar — och två av
+dem var **gröna på HEAD utan att mäta någonting** (`knad > 0` passerade på den avslutande tappen
+ensam; tonkontrollen var *vakuöst* sann eftersom ingen del någonsin lockades på HEAD). Dessutom
+hade jag **felmärkt en mätarm som kontrollarm** — `B0` faller på HEAD, alltså mäter den; en
+riktig kontroll (ingen vilostund → inget lockas) står nu i dess ställe. De två sista mätfelen
+var fel för att **spelet hade rätt**: rundan återställs med flit inte av sig själv (barnet
+skickar hem knyttet), och spaken vägrar med flit att nollställa före `_tillBanken` eftersom
+`avtack` börjar redan vid kläckningen. Allt står i sondhuvudet och docens §5.
+
+`_variantprobe.mjs` (ny, ingen webbläsare) avgjorde en tvist mellan två granskare med ett tal:
+med fryst recept varierade **1,00 av 4** synliga axlar (kulör/värld/mönster identiska i 100 % av
+paren, största hue-avstånd 6,4° mot spelets egen ±8°-klamp). Granskarens *stödpåstående* att
+formlotteriet ofta träffar samma favorit i 30–60 % var däremot **mätt falskt** — 15 843 unika
+siluetter på 20 000 drag. Siluettlotteriet är utmärkt; det bar bara hela lasten ensamt.
+
+**Grind:** `check` 0 fel/0 varningar · `test unika-knytt` 0 konsolfel · `_knyttprobe` alla elva
+armar gröna med båda kontrollarmarna rätt.
+
+**Commits:** `c0517ed` (rösttaket · vilohjälpen · knådningen + `_knyttprobe` + `_variantprobe`) ·
+`cda87dd` (U1 · U2 · spöktweenen).
+
+**ÖPPET — nästa naturliga steg:**
+- **ÅTGÄRDER U3** — "nya delar låses upp vid 4/8/12/16" står i **leverans 1:s** spec men finns
+  inte i koden (noll träffar). Det är spelets enda tänkta SAMLINGS-krok; utan den är svaret på
+  "varför göra ett till?" bara ceremonin själv. I praktiken ett eget pass.
+- **ÅTGÄRDER U4** — "Titta, dina knytt har saknat dig!" är ett genererat, betalat klipp som
+  aldrig anropas; ingen datumlogik finns i modulen. Antingen en minimal dagräknare i
+  `progress`-custom, eller stryk frasen så nästa läsare inte tror funktionen finns.
+- **§4b:s uppehållsmätning väntar fortfarande på ägarens EGET speltest.** Harnessens 2,55 s är
+  harnessens tidtabell, inte ett barns, och Skrället är grindad på det talet.
+- **Spelet är fortfarande aldrig speltestat av ett barn.**
+- Kvar sedan tidigare: leverans 2 (sällsynthet · folie · Knyttboden), ÅTGÄRDER V19 (`Mjukkropp.tyngdpunkt`).
+
 ## 2026-09-01 — Unika Knytt: /simplify · tre MOSS-klipp · v1.239.0
 
 **Gjort:** ⓵ `/simplify` på `unika-knytt` — ägarens stående instruktion sedan leverans 1, den

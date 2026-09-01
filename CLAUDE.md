@@ -84,6 +84,8 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_lampprobe.mjs` | släpps draget på BÅDA greppytorna? (`_drar`/`_pekId` efter släpp + flyttar en NY pekare något) — två finger-id, kontrollarm före mätarm |
 | `node scripts/_onskeprobe.mjs` | `mata-munnen`s ÖNSKAN (ring · blick · replik · att mätarsteget är IDENTISKT för fel bit) + kyldörrens klistermärken över en OMLADDNING · att narratorn får tala till punkt (gamla schemat kortslutet som kontrollarm) |
 | `node scripts/_vinstprobe.mjs [--snurr 8]` | `roliga-snurran`s lägesväljare · autoläget · vinstgarantin (aldrig >3 snurr utan vinst) · ceremonins lager/storlek/rotation/glans · trofehyllan över en OMLADDNING · exit mitt i firandet |
+| `node scripts/_knyttprobe.mjs` | `unika-knytt`s HELA runda — spak → ceremoni → fyra knackningar → bänken → spaken igen → ny runda. Harnessens nio tryck maxar på **x 950** och spaken står på **1160**, så halva spelet nås bara här. Elva armar, tre kontrollarmar |
+| `node scripts/_variantprobe.mjs` | **syns unikheten?** hur många av fyra HÖGSALIENTA axlar (kulör · värld · mönster · siluett) som faktiskt skiljer två knytt i rad — utan webbläsare, med fryst mot cyklat recept som armar |
 | `node scripts/_kompisbild.mjs [--kittel] [--galleri N] [--exitvid S]` | `bygg-en-kompis` i bild per delval + `--kittel`: kittelytan med RIKTIGA muspekningar (kontrollarm på tomt golv först) · träffordningen fjäril-över-kittel · vingspetsen ur `getBounds()` per storlek mot P0-avståndet till kameran · **levande tweens på innernoder före/efter `destroy()`** |
 | `node scripts/_ansiktebild.mjs [--bara "vila,wink h"]` | fotoriggens alla lägen i ett rutnät (vila · gap · blink · wink · hetta/kyla · gester · 13 miner) + **andas den efter 40 gester?** + exit-koll — **ett ansikte går inte att bedöma i tal**, och `--bara` gör rutorna stora nog för en wink |
 | `node scripts/_munprobe.mjs [--trace]` | *spelar* `mata-munnen`: gapar munnen vid maten (mot kontrollarm långt bort) · lutar han sig mot den · **antal sammanbitningar mot spelets egen tuggprofil** · mätaren per tugga · rätt min · mättar bus (ska INTE) · **ljudslingan följer stationen och dör vid exit** · finalen. `--trace` skriver ut den råa gapkurvan — den förklarar en felräknad tugga på ett sätt inget tal gör |
@@ -161,6 +163,20 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
   i `mata-munnen` (loggen: fyra `drag/foremal`, noll `drag/ratt`), så hela kärnloopen var grön
   och omätt. Läs `drag/ratt` i `.test-logs/<id>.json`: står den på 0 har testet aldrig spelat
   spelet, och en sond som drar från föremålets FAKTISKA läge till målet är enda mätningen.
+  **Samma hål finns för TRYCK, och det är geometriskt:** de nio autotrycken är ett fast rutnät
+  vars högsta x är **950** och lägsta y **600** (`test-game.mjs:51-53`) på en 1280×720-duk —
+  allt bortom det är ONÅBART för varje automatisk körning. `unika-knytt`s spak står på 1160, så
+  ceremonin, ägget, kläckningen, knyttet och hyllan hade aldrig körts en enda gång (bekräftat
+  två vägar: geometrin, och **noll `takt/spak`** i båda loggarna). Det kan vara AVSIKTLIGT —
+  där är det en dokumenterad layout-invariant så skärmdumpen inte landar mitt i en ceremoni —
+  men följden är densamma: grönt betyder bara att den nåbara halvan monterar. **Kolla var
+  spelets primära kontroll sitter innan du litar på en grön körning.**
+  **Och spela minst TVÅ rundor, och tryck så fort spelet tillåter i stället för att vänta
+  artigt.** Den otåliga vägen är barnets väg, och det är där rivningskapplöpningarna bor: i
+  `unika-knytt` levde en 0,9 s-tween kvar när nästa tryck rev dess mål, och gsap skrev på en
+  död nod **varje bildruta resten av rundan** (22 konsolfel på kod som passerat varje grind i
+  två dygn). `destroy()` gjorde redan rätt — **exit-säkerhet och ÅTERSPELS-säkerhet är olika
+  egenskaper**, och en sond som bara mäter exit rapporterar allt-klart.
 - **Repliker som inte står som `voice.say('literal')` får aldrig ett klipp.** `check.mjs` kan bara
   läsa literaler; byggs texten vid körning (template literal, tabelluppslag) syns den inte statiskt.
   Backstoppen är mätt, inte gissad: `check.mjs` läser `rost-utan-klipp` ur `.test-logs/<id>.json`

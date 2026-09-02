@@ -13,6 +13,73 @@ Nyast överst. Status: ⬜ ej påbörjad · 🟨 pågår · ✅ klar (raden stry
 
 ---
 
+## 5. GitHub Actions kör publiceringen på en utgången Node ⬜
+
+*Inlagt 2026-09-02, upptäckt i publiceringen av `88ce266` (`/doctor`-passet). Bygget är
+**grönt idag** — GitHub tvingar de gamla actionsen till Node 24 åt oss. Posten finns för att
+den tvingningen tar slut, och då är det vägen ut till barnens telefon som brister.*
+
+Varje körning av `.github/workflows/deploy.yml` skriver numera:
+
+> Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to
+> run on Node.js 24: `actions/checkout@v4`, `actions/configure-pages@v5`,
+> `actions/setup-node@v4`, `actions/upload-artifact@v4`
+
+**Uppmätt 2026-09-02** (`gh api repos/<action>/contents/action.yml?ref=<tag>` → `runs.using`):
+
+| action i `deploy.yml` | pinnad | kör på | senaste major | kör på |
+|---|---|---|---|---|
+| `actions/checkout` | v4 | **node20** | v7 (v7.0.1) | node24 |
+| `actions/setup-node` | v4 | **node20** | v7 (v7.0.0) | node24 |
+| `actions/configure-pages` | v5 | **node20** | v6 (v6.0.0) | node24 |
+| `actions/upload-pages-artifact` | v3 | composite | v5 (v5.0.0) | composite |
+| `actions/deploy-pages` | v4 | **node20** | v5 (v5.0.1) | node24 |
+
+⚠️ **GitHubs varningslista är INTE en att-göra-lista — den är ofullständig.**
+`actions/deploy-pages@v4` kör på node20 och nämns ändå *inte* i varningen. En session som
+fixar "de fyra som GitHub räknade upp" lämnar kvar `deploy-pages` och publiceringen brister
+ändå, i det enda jobb som faktiskt lägger ut sajten. Läs `runs.using` själv, action för action.
+
+⚠️ **`upload-pages-artifact` är en `composite`** och har ingen egen Node-runtime — den ANROPAR
+`actions/upload-artifact`. Det är därför varningen nämner `upload-artifact@v4`, som inte står
+någonstans i vår workflow. Uppmätt: `@v3` → `actions/upload-artifact@v4`; `@v5` →
+`actions/upload-artifact@v7.0.0` (SHA-pinnad). Bumpar man wrappern följer den nästlade med.
+
+**Ändringen — fem rader i `.github/workflows/deploy.yml`:**
+
+| rad | från | till |
+|---|---|---|
+| 27 | `actions/checkout@v4` | `actions/checkout@v7` |
+| 29 | `actions/setup-node@v4` | `actions/setup-node@v7` |
+| 38 | `actions/configure-pages@v5` | `actions/configure-pages@v6` |
+| 40 | `actions/upload-pages-artifact@v3` | `actions/upload-pages-artifact@v5` |
+| 52 | `actions/deploy-pages@v4` | `actions/deploy-pages@v5` |
+
+**INTE undersökt än — gör det FÖRST.** Jag har verifierat versionsnummer, Node-runtime och den
+nästlade pinnen. Ingenting annat. Vilka BRYTANDE ändringar som ligger mellan majorerna är
+oläst, och det är tre till fyra major-hopp per action. `setup-node` och `upload-artifact` har
+historiskt haft brytande majorbyten (cache-beteendet respektive att artefakter inte längre går
+att slå ihop). Läs release notes för varje hopp innan du bumpar:
+
+```
+gh api repos/actions/setup-node/releases --jq '.[] | select(.tag_name|test("^v[5-7]\\.0\\.0$")) | .tag_name + "\n" + .body'
+```
+
+`node-version: 22` på rad 31 är vår egen byggnod och har inget med saken att göra — den rör
+inte actionsens runtime. Låt den stå.
+
+**Hur det testas — och varför en push till master faktiskt ÄR det säkra sättet:** workflowen
+går inte att köra lokalt och det finns ingen staging. Men båda jobben fallerar säkert:
+
+- `publicera` har `needs: bygg`, så spricker bygget publiceras ingenting alls.
+- Spricker `publicera` ligger den FÖRRA lyckade deployen kvar på Pages — sajten går inte ner.
+
+Så: bumpa → committa → `npm run deploy` → läs Actions-loggen.
+⚠️ **Kontrollera att varningen är BORTA, inte bara att bygget är grönt.** Grönt är det redan
+idag — det är hela poängen med posten. Blir något rött är sajten orörd; rulla tillbaka commiten.
+
+---
+
 ## 4. Kits Library — CC0-bildbibliotek som ligger lokalt 🟨
 
 *Inlagt 2026-08-30. Ägaren har bestämt lagringen: **råkittet ligger kvar lokalt i sin katalog

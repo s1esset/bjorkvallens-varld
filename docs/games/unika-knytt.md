@@ -1037,10 +1037,13 @@ mun · horn · vingar · mönsterjitter · namn · motiv.
 [seed, f, z, m, v, r, g, t]      →  [1846231095,3,2,4,1,0,2,2]  = 26 tecken
 ```
 
-* Tak **8 per hylla × 4 världshyllor = 32 knytt** → 32 × 27 ≈ **864 tecken ≈ 0,9 KB**.
-* Fyra profiler ≈ 3,5 KB i dokumentet, 7 KB på disk (dokumentet skrivs **två gånger**).
+* **Hela samlingen sparas, tak 200** (`ALLA_MAX`, leverans 2 steg 1, 2026-09-05) → 200 × 27 ≈
+  **5,4 KB**. Hyllan i verkstan visar `_alla.slice(-3)`; Knyttboden visar allt. ⚠️ Före det
+  sparades BARA hyllans tre, och varje fjärde kläckning kastade det äldsta knyttet för gott —
+  uppmätt med `_knyttprobe` S0/S1: fem poster + en runda gav **3 på disk på HEAD, 6 nu**.
+* Fyra profiler ≈ 22 KB i dokumentet vid fullt tak (dokumentet skrivs **två gånger**).
 * Mätt referens: 150 poster med fullt DNA = 1,04 MB / 2,07 MB, **på taket**. Det här ligger på
-  ~0,3 % av det. Det finns ingen väg härifrån till en kvotspräckning.
+  ~2 % av det. Det finns ingen väg härifrån till en kvotspräckning.
 
 Nycklar: `progress.setCustom('knytt', {v:1, lista:[…]})` · `setCustom('bok', {fram, dag, torka, klackta})`.
 

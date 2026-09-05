@@ -34,6 +34,9 @@
 //   D1 matarm    aterbesok en ANNAN dag, knytt pa hyllan           -> "har saknat dig"
 //   D2 kontroll  annan dag men TOM hylla                           -> vanliga introrepliken
 //                (ATGARDER U4: klippet fanns, genererat och betalat, men anropades aldrig)
+//   S0 kontroll  fem sparade poster, hyllan visar TRE              -> hyllan ar orord
+//   S1 matarm    en runda till                                     -> 6 poster pa disk
+//                (HEAD gav 3: bara hyllan sparades, det aldsta kastades — leverans 2)
 //   B0 kontroll  alla fem delar provade, sedan vilostund          -> spaken lockar
 //   B1 matarm    fars verkstad, upprepade vilostunder             -> OLIKA delar lockar,
 //                var och en med SIN EGEN ton (farg 523 · gnista 659 · storlek 392 ·
@@ -445,6 +448,27 @@ try {
   rader.push(['D1 matarm    annan dag → "har saknat dig"', d1.includes(HALSNING) ? 'halsning' : d1.join(' | ').slice(0, 60), d1.includes(HALSNING)])
   const d2 = await besok(-1, [])
   rader.push(['D2 kontroll  annan dag men tom hylla → intro', d2.includes(HALSNING) ? 'HALSNING (fel)' : 'intro', !d2.includes(HALSNING) && d2.includes(INTRO)])
+
+  // ============================================ S: samlingen overlever hyllan (leverans 2)
+  // Fore leverans 2 sparades bara hyllans TRE senaste, och varje fjarde klackning kastade
+  // det aldsta knyttet for gott — Knyttboden kan bara visa det som finns pa disk. Fem poster
+  // laggs in, en runda spelas, och sparposten lases tillbaka: HEAD ger 3 (hyllans tak),
+  // den nya koden 6. Hyllan i verkstan ska fortfarande visa exakt tre.
+  const FEM = [0, 1, 2, 3, 4].map((i) => [1000 + i, i, 0, i % 4, i % 3, 0, 0, 0])
+  await besok(0, FEM)
+  await satMatare()
+  const sFore = await page.evaluate(() => {
+    const g = window.__barnspel.game
+    return { alla: g._alla?.length ?? -1, hylla: g._hyllData.length, bon: g._bon.filter((b) => b.knytt).length }
+  })
+  rader.push(['S0 kontroll  hyllan visar fortfarande tre', `hylla ${sFore.hylla} · bon med knytt ${sFore.bon}`, sFore.hylla === 3 && sFore.bon === 3])
+  await rundan(false)
+  const sEfter = await page.evaluate(() => {
+    const g = window.__barnspel.game
+    const sparat = window.__barnspel.ctx.progress.get()?.custom?.knytt
+    return { alla: g._alla?.length ?? -1, hylla: g._hyllData.length, disk: sparat?.lista?.length ?? -1, n: sparat?.n }
+  })
+  rader.push(['S1 matarm    alla poster overlever en runda', `disk ${sEfter.disk} (HEAD ger 3) · minne ${sEfter.alla} · hylla ${sEfter.hylla} · n ${sEfter.n}`, sEfter.disk === 6 && sEfter.alla === 6 && sEfter.hylla === 3 && sEfter.n === 6])
 
   // ======================================== L: lekfulla laget (docens §9 B1)
   // Laget fanns skrivet men gick inte att na: `setLage()` anropades bara med 'glad'.

@@ -58,6 +58,11 @@ const NAR_TYST_TAK = 20
 const BO_X = [90, 210, 330]
 const BO_Y = 620
 const HYLLA_MAX = 3
+// Hela samlingen sparas — hyllan i verkstan visar bara de tre senaste, men Knyttboden visar
+// allt. Före leverans 2 sparades bara hyllans tre, och varje fjärde kläckning kastade det
+// äldsta knyttet för gott. 200 poster × 27 tecken ≈ 5,4 KB; taket är en lagringsgräns som
+// ett barn aldrig når, inte en vräkning (P0: ingenting tas bort, ingenting nollställs).
+const ALLA_MAX = 200
 
 // Trottling for knadning under ett drag. 70 ms ~ var fjarde bildruta i 60 fps —
 // tatt nog att kannas kontinuerligt, glest nog att inte oversvamma Mjukkroppen.
@@ -104,6 +109,7 @@ export default {
     this._boboWrap = null
     this._knytt = null
     this._knyttNod = null
+    this._alla = []
     this._hyllData = []
     // TOTALEN kläckta knytt (hyllan bär bara de tre senaste), högsta FIRADE milstolpen och
     // dygnet för senaste besöket. Alla tre bor i samma sparblob, alla tre nollas här.
@@ -437,7 +443,8 @@ export default {
       const p = this._rensaPost(post)
       if (p) rent.push(p)
     }
-    this._hyllData = rent.slice(-HYLLA_MAX)
+    this._alla = rent.slice(-ALLA_MAX)
+    this._hyllData = this._alla.slice(-HYLLA_MAX)
 
     // Räknaren är TOTALEN kläckta, inte hyllan — hyllan bär bara de tre senaste. Saknas
     // den är sparposten skriven före upplåsningarna fanns (`v: 1`), och då härleds antalet
@@ -446,7 +453,7 @@ export default {
     // få fyra firanden på raken för delar hen redan haft i veckor.
     const tal = (x) => (Number.isFinite(x) ? Math.max(0, Math.trunc(x)) : null)
     const sparat = tal(rå?.n)
-    this._antal = sparat === null ? antalFranPoster(rent) : Math.max(sparat, rent.length)
+    this._antal = sparat === null ? antalFranPoster(rent) : Math.max(sparat, this._alla.length)
     this._firad = tal(rå?.firad) ?? this._antal
     this._dag = tal(rå?.dag) ?? 0
   },
@@ -469,7 +476,7 @@ export default {
   _spara(ctx) {
     ctx.progress.setCustom('knytt', {
       v: 2,
-      lista: this._hyllData.map((x) => x.slice()),
+      lista: this._alla.map((x) => x.slice()),
       n: this._antal,
       firad: this._firad,
       dag: this._dag,
@@ -505,9 +512,10 @@ export default {
       this._val.g,
       0,
     ]
-    const lista = this._hyllData.map((x) => x.slice())
+    const lista = this._alla.map((x) => x.slice())
     lista.push(p)
-    this._hyllData = lista.slice(-HYLLA_MAX)
+    this._alla = lista.slice(-ALLA_MAX)
+    this._hyllData = this._alla.slice(-HYLLA_MAX)
     // Taket växer HÄR, i samma andetag som räknaren (det HÄRLEDS ur den) — men
     // avtäckningen sker först när knyttet flyttat hem (`_provaUpplasning`), så den aldrig
     // krockar med ceremonin.

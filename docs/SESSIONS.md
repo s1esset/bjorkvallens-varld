@@ -14,6 +14,51 @@ Format:
 
 ---
 
+## 2026-09-05 — Snabbpass: V19 rättad + fyra listor som ljög + deploy ur node20 · v1.248.0
+
+**Byggt:** ett kort städpass över köerna, inget spelarbete.
+
+**⓵ ÅTGÄRDER V19 stängd** (`src/lib/mjukkropp.js`). `tyngdpunkt` summerade ringens n punkter
+PLUS mittpunkten men delade med `n` — ringens mitt gånger (n+1)/n, ett fel som växer med
+KOORDINATERNA och inte med kroppen. Nämnaren är nu `pts.length` (`|| 1`, annars ger en riven
+kropp NaN i stället för 0) och `flyttaTill()` **läser gettern** i stället för att räkna om samma
+sak. ⚠️ **Kontrollarmen visade att ÅTGÄRDER-raden hade en punkt fel:** den påstod att paret var
+självkonsistent, men `flyttaTill(700, 300)` gav `tyngdpunkt` **734,69** — 1/n fel per anrop.
+Att förankringen ändå mätte sig driftfri (0,0000 px över 300 steg) berodde på att felet
+KONVERGERAR: tecknet vänder och beloppet delas med n varje steg, så ett anrop per bildruta
+dolde det helt. En engångsförflyttning hade tagit fel. Fyra nya armar i `_mjukprobe` (körda mot
+HEAD först: 3 föll, den fjärde — driften — var grön i BÅDA armarna och mäter alltså inte fixen).
+Alla 8 `Mjukkropp`-kunder testade gröna, `_kastprobe` (geggan föds) och `_knyttprobe` 44/44.
+
+**⓶ Fyra listor rättade — poster som var GJORDA men stod som öppna.** `POLERINGSRUNDA` kö 3
+(Lära) stod på nio tomma rutor i en månad trots att kön kördes 2026-08-06 (v1.11.0) · `IDEER`
+hade `borsta-tanderna` som "spec godkänd" fast den byggdes v1.230.0 · `unika-knytt` §9B listade
+fyra [Quick]-poster som stycket ovanför dem själv sa var gjorda i v1.243.0. Allt verifierat mot
+koden, inte mot dokumenten. Det här är samma bokföringsfälla som CLAUDE.md redan varnar för i
+spel-docernas §4, och den har nu slagit till i fyra dokument till: **stryk posten i samma commit
+som du bygger den.**
+
+**⓷ BACKLOG #5 — de fem actionsen bumpade ur node20.** Läxan posten krävde är gjord: alla
+`runs.using` omlästa (`deploy-pages@v4` ÄR node20 och stod inte i GitHubs varning — listan är
+ofullständig precis som posten sa) och release notes lästa per majorhopp. Två brytande
+ändringar finns och båda är no-ops för oss, **mätt**: `setup-node@v5`s automatiska cache kräver
+ett `packageManager`-fält vi inte har (och vi sätter `cache: npm` explicit), och
+`upload-pages-artifact@v4`s dotfil-strykning träffar ingenting — ett riktigt `npm run build`
+gav **0 dotfiler i `dist/`** av 1963 precache-poster. ⚠️ **Ändringen är aldrig körd** — det går
+inte lokalt. Nästa push till master är testet.
+
+**⓸ BACKLOG #2 stängd utan att något dödades** (ingen `.server.pid`, exakt en vite-process som
+äger 5173). **#3 står kvar blockerad** — MOSS svarar inte på 8003.
+
+**Commits:** `8a36d34` fix(mjukkropp) V19 · `d539ae4` docs: bokforingsskuld i fyra listor ·
+`4da4385` chore(deploy): bumpa de fem actionsen
+
+**Öppet:** **V16** är nu den enda öppna ⬜ i ÅTGÄRDER (251 `destroy({ children: true })` i 89
+filer — blastradien i GPU-minne omätt, och det är grinden). V10:s 48 nollade `restitution`-tal
+väntar på migrering per spel. `unika-knytt` §9 A väntar fortfarande på ägaren: Skrället är
+grindad på hur länge ett barn dröjer i verkstan, och spelet är aldrig speltestat av ett barn.
+**Och nästa push publicerar den ändrade workflowen — håll ett öga på `gh run list` direkt efter.**
+
 ## 2026-09-05 — Unika Knytt: LEVERANS 2 byggd (samlingen, skimret, boden, variationen) · v1.247.0
 
 **Gjort:** ägarens speltest var "bra", och riktningen blev *mer variation + de saknade

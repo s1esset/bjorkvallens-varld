@@ -186,6 +186,37 @@ export const VARLDAR = [
     rekvisita: ['mane', 'stjarna', 'eldfluga', 'nattblomma'],
     kompis: 'nattfjaril',
   },
+  // Leverans 2 steg 4 (2026-09-05): tva nya varldar, lasta upp vid 20 och 24 klackta.
+  {
+    id: 'oken',
+    tema: {
+      top: 0xffe3b0, bottom: 0xfff3d6, ground: 0xe8c07a, groundDark: 0xc79a55,
+      sun: 0xffd35c, clouds: 1, gras: false, bokeh: 6, stars: 0,
+    },
+    hyMin: 22, hyMax: 52, matt: 0.94,
+    vikter: {
+      kropp: [1, 2, 1, 1, 3, 3], // kloss (sten) + larv (insekt)
+      oron: [1, 2, 3, 1, 1, 1], // spetsiga (okenrav)
+      svans: [1, 2, 1, 1, 3], // blixt (skorpion)
+    },
+    rekvisita: ['kaktus', 'okensol', 'sanddyna', 'odla'],
+    kompis: 'grashoppa',
+  },
+  {
+    id: 'grotta',
+    tema: {
+      top: 0x2b2440, bottom: 0x4a3f6b, ground: 0x5a4d7a, groundDark: 0x3b3152,
+      sun: 0x4a3f6b, clouds: 0, gras: false, bokeh: 10, stars: 0,
+    },
+    hyMin: 296, hyMax: 324, matt: 0.98,
+    vikter: {
+      kropp: [1, 1, 2, 3, 1, 1], // droppe + bona
+      oron: [1, 1, 1, 3, 1, 2], // hang + antenner
+      svans: [1, 1, 3, 1, 1], // lang
+    },
+    rekvisita: ['kristall', 'droppsten', 'lyktsvamp', 'glodmask'],
+    kompis: 'fladdermus',
+  },
 ]
 
 /**
@@ -458,14 +489,19 @@ export function _sanity(recept = { f: 6, z: 2, m: 3, v: 2, g: 1 }, antal = 500) 
 export const START_TAK = { farg: 8, monster: 4, varld: 3, storlek: 3, gnista: 4 }
 
 /**
- * `falt` ar postens index i sparposten [fro, f, z, m, v, r, g, 0] — det ar den som
+ * `falt` ar postens index i sparposten [fro, f, z, m, v, r, g, t] — det ar den som
  * later en GAMMAL sparpost (utan raknare) beratta hur langt barnet redan kommit.
+ * `fran` ar det FORSTA index milstolpen lagger till (= taket fore den): varlden vaxer i
+ * tre milstolpar (12 → stjarnnatten, 20 → oknen, 24 → grottan), sa ett fast START_TAK
+ * racker inte som troskel for migreringen.
  */
 export const MILSTOLPAR = [
-  { vid: 4, axel: 'farg', tak: FARGER.length, falt: 1 },
-  { vid: 8, axel: 'monster', tak: MONSTER.length, falt: 3 },
-  { vid: 12, axel: 'varld', tak: VARLDAR.length, falt: 4 },
-  { vid: 16, axel: 'storlek', tak: STORLEKAR.length, falt: 2 },
+  { vid: 4, axel: 'farg', fran: START_TAK.farg, tak: FARGER.length, falt: 1 },
+  { vid: 8, axel: 'monster', fran: START_TAK.monster, tak: MONSTER.length, falt: 3 },
+  { vid: 12, axel: 'varld', fran: 3, tak: 4, falt: 4 },
+  { vid: 16, axel: 'storlek', fran: START_TAK.storlek, tak: STORLEKAR.length, falt: 2 },
+  { vid: 20, axel: 'varld', fran: 4, tak: 5, falt: 4 },
+  { vid: 24, axel: 'varld', fran: 5, tak: VARLDAR.length, falt: 4 },
 ]
 
 /** Vilka tak galler efter `n` klackta knytt? Ett nytt objekt varje gang — aldrig delat. */
@@ -490,7 +526,7 @@ export function antalFranPoster(lista) {
     if (!Array.isArray(post)) continue
     for (const m of MILSTOLPAR) {
       const v = post[m.falt]
-      if (Number.isFinite(v) && v >= START_TAK[m.axel] && n < m.vid) n = m.vid
+      if (Number.isFinite(v) && v >= m.fran && n < m.vid) n = m.vid
     }
   }
   return n

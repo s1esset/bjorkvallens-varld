@@ -68,12 +68,12 @@ arm('U1b          exakt EN axel per milstolpe', steg.join(' · '), ordningOk)
 
 // =================================================================== U2 monotoni
 let krymper = ''
-for (let n = 1; n <= 24; n++) {
+for (let n = 1; n <= 28; n++) {
   const a = takFor(n - 1)
   const b = takFor(n)
   for (const ax of AXLAR) if (b[ax] < a[ax]) krymper = `${ax} vid ${n}`
 }
-arm('U2 matarm    inget tak krymper (n 0..24)', krymper || 'inget', !krymper)
+arm('U2 matarm    inget tak krymper (n 0..28)', krymper || 'inget', !krymper)
 
 // =================================================================== U3 tak = tabell
 const overTak = AXLAR.filter((a) => takFor(999)[a] !== TABELL[a])
@@ -90,6 +90,9 @@ const fall = [
   ['monster 5 (stjarnor)', [post(0, 0, 5, 0)], 8],
   ['varld 3 (stjarnnatten)', [post(0, 0, 0, 3)], 12],
   ['storlek 3 (storsta)', [post(0, 3, 0, 0)], 16],
+  ['varld 4 (oknen)', [post(0, 0, 0, 4)], 20],
+  ['varld 5 (grottan)', [post(0, 0, 0, 5)], 24],
+  ['grottknytt lyfter forbi alla tre varldsmilstolpar', [post(0, 0, 0, 5), post(0, 0, 0, 0)], 24],
   ['tre poster, hogsta vinner', [post(9, 0, 0, 0), post(0, 0, 0, 3), post(0, 0, 0, 0)], 12],
 ]
 let migOk = true
@@ -130,7 +133,7 @@ arm('U5 matarm    `falt` matchar _sparaKnytt', MILSTOLPAR.map((m) => `${m.axel} 
 // i stallet for mot taket pekar receptet pa en last del — och kupan hade visat en varld
 // verkstaden inte kan bygga.
 let utanfor = ''
-for (const n of [0, 4, 8, 12, 16]) {
+for (const n of [0, 4, 8, 12, 16, 20, 24]) {
   const t = takFor(n)
   const val = { f: 0, m: 0, v: 0 }
   for (let i = 0; i < 200; i++) {
@@ -140,7 +143,7 @@ for (const n of [0, 4, 8, 12, 16]) {
     if (val.f >= t.farg || val.m >= t.monster || val.v >= t.varld) utanfor = `n=${n} varv ${i}`
   }
 }
-arm('U6 matarm    cyklingen halls innanfor taket', utanfor || '200 varv × 5 nivaer, allt innanfor', !utanfor)
+arm('U6 matarm    cyklingen halls innanfor taket', utanfor || '200 varv × 7 nivaer, allt innanfor', !utanfor)
 
 // =================================================================== U7 replikerna
 // Replikerna bor i index.js (check.mjs laser bara den filen) medan milstolparna bor i
@@ -149,10 +152,11 @@ arm('U6 matarm    cyklingen halls innanfor taket', utanfor || '200 varv × 5 niv
 const rMatch = idx.slice(idx.indexOf('const UPPLAS_REPLIK'), idx.indexOf('const HINT_S'))
 const repliker = Object.fromEntries([...rMatch.matchAll(/(\w+):\s*'([^']+)'/g)].map((m) => [m[1], m[2]]))
 const fraser = new Set(JSON.parse(las('scripts/voice-phrases.json')))
-const saknas = MILSTOLPAR.filter((m) => !repliker[m.axel])
-const utanFras = MILSTOLPAR.filter((m) => repliker[m.axel] && !fraser.has(repliker[m.axel]))
+// Nyckeln ar milstolpens  sedan steg 4 (varlden vaxer i tre milstolpar).
+const saknas = MILSTOLPAR.filter((m) => !repliker[m.vid])
+const utanFras = MILSTOLPAR.filter((m) => repliker[m.vid] && !fraser.has(repliker[m.vid]))
 arm('U7 matarm    varje milstolpe har en replik', `${Object.keys(repliker).length} repliker, ${saknas.length} saknas`, saknas.length === 0)
-arm('U7b          varje replik finns i voice-phrases', utanFras.length ? utanFras.map((m) => m.axel).join(',') : 'alla 4', utanFras.length === 0)
+arm('U7b          varje replik finns i voice-phrases', utanFras.length ? utanFras.map((m) => m.vid).join(',') : 'alla ' + MILSTOLPAR.length, utanFras.length === 0)
 
 // =================================================================== utskrift
 let fel = 0

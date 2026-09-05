@@ -27,7 +27,7 @@ import { shade, tint } from '../../lib/theme.js'
 import { bounceIn, burst, landa, liv, pop, puff, ripple, sparkle, squash, stadFx } from '../../lib/feedback.js'
 import { Emitter } from '../../lib/partiklar.js'
 import { byggKnytt } from './knytt.js'
-import { REKVISITA } from './kupan.js'
+import { rekvisitaOrdning } from './kupan.js'
 
 // ---- geometri (designkoordinater) ------------------------------------------
 const KNAD = { x: 640, y: 384 } // degens plats — mitt på skärmen, bekväm för ett finger
@@ -68,6 +68,8 @@ const VARLDSTON = [
   { nyckel: 'vatten', him: [0xb6ecff, 0xe2f7ff], mark: 0x3f97c4, luft: 0x8fdcf5, stoft: [0x7fd8f2, 0xcaf2ff, 0xffffff] },
   { nyckel: 'sno', him: [0xd9ecff, 0xf6fbff], mark: 0xc4dbe9, luft: 0xeaf6ff, stoft: [0xffffff, 0xdcefff, 0xbfe0f5] },
   { nyckel: 'natt', him: [0x39306c, 0x7161ad], mark: 0x4a4080, luft: 0x9b8ede, stoft: [0xffe9a8, 0xc9bcff, 0xffffff] },
+  { nyckel: 'oken', him: [0xffe0a6, 0xfff4dc], mark: 0xdcb46a, luft: 0xffd98a, stoft: [0xf4d58a, 0xffffff, 0xe8b45c] },
+  { nyckel: 'grotta', him: [0x2b2342, 0x5a4a86], mark: 0x4e4270, luft: 0x9be9dc, stoft: [0x9ff2e6, 0xd6b8ff, 0xffffff] },
 ]
 
 // Rekvisitans platser. VAR ett föremål hör hemma står i dess EGEN data, inte här:
@@ -83,8 +85,10 @@ const VARLDSTON = [
 //   hyllbon  Rect(-48,-48,96,96) @ (90|210|330, 620) → x 42–378 · y 572–668
 // Den fjärde rekvisitan låg först på x 1096 och stack då 98 px in i spakens träffyta.
 const MARK_PLATS = [{ x: 186, s: 96 }, { x: 430, s: 76 }, { x: 900, s: 88 }]
-const MELLAN_PLATS = { x: 862, y: 356, s: 72 }
-const HIMMEL_PLATS = { x: 400, y: 220, s: 86 }
+// Två platser var i luften: poolen är 7 per värld sedan steg 4 och dragningen kan ge två
+// himlaföremål — med EN plats hade de staplats på varandra. Alla innanför fonden (x 338–942).
+const MELLAN_PLATS = [{ x: 862, y: 356, s: 72 }, { x: 424, y: 336, s: 62 }]
+const HIMMEL_PLATS = [{ x: 400, y: 220, s: 86 }, { x: 890, y: 196, s: 66 }]
 const PROP_TONER = [392, 466, 523, 659] // en stämd trappa, ett steg per föremål som landar
 
 const DEG_BAS = 0xe8d3a8 // rå degfärg innan världen färgar den
@@ -1232,20 +1236,23 @@ export function byggCeremoni(opts = {}) {
   }
 
   function byggProps() {
-    const lista = REKVISITA?.[ton.nyckel]
+    // SAMMA seedade ordning som kupan visade — förhandsvisningen och finalen är samma
+    // värld. Fröet permuterar poolen (7 per värld), och de fyra första kommer ut.
+    const lista = rekvisitaOrdning(dnaNu?.fro ?? 1, ton.nyckel)
     if (!Array.isArray(lista) || !lista.length) return
     let markIx = 0
+    let mellanIx = 0
+    let himmelIx = 0
     for (let i = 0; i < 4; i++) {
       const spec = lista[i % lista.length]
       if (typeof spec?.rita !== 'function') continue
       const luft = Number.isFinite(spec.luft) ? spec.luft : 0
-      // Ingen värld har fler än tre markföremål (mätt över alla fyra tabellerna), så
-      // markplatserna räcker alltid; skulle en ny värld få en fjärde staplas den på den
-      // sista i stället för att ritas utanför bilden.
+      // Platserna räknas per slag; tar de slut staplas föremålet på den sista i stället
+      // för att ritas utanför bilden (eller inne i spakens träffyta).
       const plats = luft >= 0.9
-        ? HIMMEL_PLATS
+        ? HIMMEL_PLATS[Math.min(himmelIx++, HIMMEL_PLATS.length - 1)]
         : luft >= 0.4
-          ? MELLAN_PLATS
+          ? MELLAN_PLATS[Math.min(mellanIx++, MELLAN_PLATS.length - 1)]
           : MARK_PLATS[Math.min(markIx++, MARK_PLATS.length - 1)]
       const mal = { x: plats.x, y: plats.y ?? MARK_Y + 4 }
 
@@ -1458,7 +1465,7 @@ export function byggCeremoni(opts = {}) {
     dnaNu = dna || null
     // `dna.varld` ÄR `val.v` enligt kontraktet; `val` läses bara som reserv om ett
     // ofullständigt dna någonsin skickas in.
-    ton = VARLDSTON[klam(dna?.varld ?? val?.v ?? 0, 0, 3)] || VARLDSTON[0]
+    ton = VARLDSTON[klam(dna?.varld ?? val?.v ?? 0, 0, VARLDSTON.length - 1)] || VARLDSTON[0]
     // Skalet bär knyttets EGEN färg, bara en aning dragen mot världens ljus — ett
     // guldknytt ska glöda guld redan i F3, ärligt. För mycket världsljus gjorde varje
     // ägg beige oavsett vad barnet valde.

@@ -28,7 +28,7 @@ och varför står i **§2**.
 | **kärnloop** | Barnet fyller en glaskupa med en liten värld genom att sköta fem ritade maskindelar — varje del GÖR det den ändrar (kranen glugger färg ner i ett glasrör, bälgen blåser upp klumpen, veven öppnar en lucka så vädret ramlar in). Sedan: dra i mässingsspaken → allt sugs in → en degklump som barnet KNÅDAR med fingret → den härdas, lyfter, glöder, skjuter strålar, växer → POP → ägget faller → barnet knackar fram knyttet. |
 | **mål** | Ägget kläcks: skalet klyvs, **världen strömmar ut** och vecklar ut sig till en hel miljö, och knyttet föds stående mitt i den. `progress.complete()` + knyttet flyttar in i Knyttboden. |
 | **agens** | Fem oberoende val (10 färger × 4 storlekar × 6 mönster × 4 världar × 4 gnistnivåer = **3 840 recept**), var och en synlig i kupan i samma bildruta som trycket. Valen STYR dessutom slumpen: ett snörecept drar mot iskristallöron, ett skogsrecept mot lövöron. |
-| **variation** | Fröet härleder både VILKEN del (7 tabeller, 16 200 uppsättningar) och dess PROPORTIONER (22 kontinuerliga drag, §6c) — viktat av barnets val. **1,65 × 10¹³ distinkta individer**; risken att se två identiska på 200 knytt ur samma recept är 0,00046 %. Verkstan **växer**: startläget är 8 färger · 4 mönster · 3 världar · 3 storlekar, och nya delar låses upp vid 4 → två färger · 8 → två mönster · 12 → Stjärnnatten · 16 → största bälgsteget (byggt 2026-09-01, §5). |
+| **variation** | Fröet härleder både VILKEN del (7 tabeller, 16 200 uppsättningar) och dess PROPORTIONER (22 kontinuerliga drag, §6c) — viktat av barnets val. **1,65 × 10¹³ distinkta individer**; risken att se två identiska på 200 knytt ur samma recept är 0,00046 %. Verkstan **växer**: startläget är 8 färger · 4 mönster · 3 världar · 3 storlekar, och nya delar låses upp vid 4 → två färger · 8 → två mönster · 12 → Stjärnnatten · 16 → största bälgsteget (byggt 2026-09-01, §5). **Steg 4 (2026-09-05): 20 → Öknen · 24 → Grottan, och rekvisitapoolen är 7 per värld — fröet drar 4, så samma värld ger olika finaler.** |
 | **mottagare** | Bobo står vid spaken och sköter maskinen (rigg ur `lib/karaktarer.js`), och Knyttboden tar emot: alla tidigare knytt andas, blinkar, kvittrar till varandra och vinkar när barnet kommer tillbaka efter ett dygn. |
 | **finish** | Kläckningen: skalet klyvs i två halvor som far iväg med fjäderfysik, världen strömmar ut ur ägget och vecklar ut sig (mark, himmel, fyra rekvisita, partiklar), knyttet reser sig med `bounceIn` och gör tre glädjeskutt, och en ram svänger in BAKOM det. |
 | **motgång** | **Ingen i leverans 1 — med flit** (ägarens beslut 2026-08-30). Motgången kräver att barnet DRÖJER i verkstan, och den tiden är omätt. Leverans 1 mäter uppehållstiden; är den >20 s byggs **Skrället** (§4b), är den <12 s byggs ingen alls. Imma-på-glaset är förkastad. |
@@ -621,7 +621,7 @@ två tecken redan nu.
 ### Senare (V2+)
 
 * [Medium] **Ljudtratten (T6)** — sjätte verktyget på den lediga bänkplatsen (800, 630). Barnet väljer motivet i stället för fröet; fältet `r` finns redan i sparposten, så ingen migrering behövs. Återställ då även harnesstrycket (800,600) i §1b.
-* [Medium] Fler världar (Öknen, Grottan) och de hyllor de för med sig — modellen har redan plats.
+* ✅ **BYGGT 2026-09-05 (leverans 2 steg 4):** Fler världar (Öknen, Grottan) och de hyllor de för med sig — låses upp vid 20 och 24.
 * [Medium] Två knytt på samma hylla blir VÄNNER efter tillräckligt många duetter och delar bo.
 * [Medium] Dra ut ett knytt ur boet och ner på golvet, där det springer runt en stund.
 * [Medium] Lägg ett bär framför ett knytt på hyllan → det äter, squashar av glädje och rapar en gnista.
@@ -1071,7 +1071,28 @@ först · exit med boden öppen 0 fel. Bilder: `.test-shots/knytt-bod-alla.png` 
 `knytt-bod-skimmer.png`.
 ⚠️ **`innehall.eventMode = 'none'` gjorde varje bo till en död träffyta utan konsolfel** —
 `'none'` ignorerar händelser även på BARNEN (till skillnad från `passive`). B5 hittade det;
-B0–B4 var gröna för de aldrig tryckte på ett bo.`
+B0–B4 var gröna för de aldrig tryckte på ett bo.
+
+**Steg 4 — variation (ägarens två val).** ⓐ **Rekvisitapoolen är 7 per värld** (var 4):
+skog +stubbe/blomma/moln · vatten +bubbla/sjöstjärna/näckros · snö +snögubbe/istapp/snöflinga ·
+natt +stjärna/uggla/lykta. Fröet permuterar poolen (`kupan.js:rekvisitaOrdning`, Fisher–Yates
+ur `mulberry32(fro ^ …)`); kupan visar de första `antal` i den ordningen och ceremonin de fyra
+första — SAMMA ordning, så förhandsvisningen och finalen är samma värld. Fröet rullas därför
+redan i `init`/`_aterstall` (inte först vid spaken), och glaset rullar om det: `kupa.setFro()`
+byter föremålen på plats med en squash, barnet SER att glaset gav nya saker. Ceremonin fick
+två himla- och två mellanplatser (poolen kan ge två luftföremål; med EN plats hade de
+staplats). ⓑ **Två världar:** **Öknen** (nyans 22–52°, kloss+larv, spetsiga öron, blixtsvans,
+sand som driver i sidled genom taket, kompis gräshoppa) och **Grottan** (296–324°, droppe+böna,
+hängöron+antenner, lång svans, glödande sporer som dalar, kompis fladdermus), sju föremål var,
+egna toner i kupan (`VARLDSTON`) och i fonden. Låses upp vid **20 → Öknen · 24 → Grottan**.
+`MILSTOLPAR` bär nu `fran` per milstolpe (världen växer i TRE steg, så `START_TAK` räckte inte
+som migreringströskel; `antalFranPoster` och `_firaUpplasning` läser `fran`), och
+`UPPLAS_REPLIK` nycklas på `vid`. Två nya repliker i `voice-phrases.json`, väntar på
+`npm run voice`. Bodens skyltar för de två världarna fanns redan ritade (steg 3).
+**Mätt:** `_upplasprobe` 12/12 (nya fall: v 4 → 20, v 5 → 24, ett grottknytt lyfter förbi alla
+tre världsmilstolpar) · `_tierprobe` 12/12 · `test` 0 fel · `_knyttprobe` U2 med milstolpe 20
+och 24 · bilder `.test-shots/knytt-tier0-varld4.png` (öknen) · `knytt-tier2-varld5.png`
+(grottan) · `_bodprobe` 11/11.`
 
 
 ## 6. Teknisk ritning
@@ -1241,6 +1262,8 @@ en viktvektor per axel; fröet drar ur den viktade fördelningen, inte ur en jä
 | Vattnet | `droppe`·`bona` ×3 | `inga`·`hang` ×3 | `fena` ×4 | 186–210° |
 | Snölandet | `klot`·`kloss` ×3 | `spetsiga`·`horn` ×3 | `tofs`·`ingen` ×3 | 190–215°, låg mättnad |
 | Stjärnnatten | `klot`·`droppe` ×3 | `antenner` ×4 | `lang` ×3 | 258–286° |
+| Öknen (steg 4, låses upp vid 20) | `kloss`·`larv` ×3 | `spetsiga` ×3 | `blixt` ×3 | 22–52° |
+| Grottan (steg 4, låses upp vid 24) | `droppe` ×3·`bona` ×2 | `hang` ×3·`antenner` ×2 | `lang` ×3 | 296–324° |
 
 ⚠️ **Nyansjittret klampas till ±8°** (inte ±18 som först skrivet) så världens färgfamilj är
 omisskännlig. Två axlar måste vara lärbara för ett barn: **färgen** och **storleken**, och båda
@@ -1520,7 +1543,7 @@ Ljudtratten och migreringen fortfarande noll.
 ### D. Leverans 2 — samlingen och skimret (~1 200 rader)
 
 **Pågår 2026-09-05 (v1.247.0), ägarens ordning:** ① persistens ✅ `c7ccc63` · ② sällsynthet +
-folie + tier-skillnader + kompisen ✅ `ce25322` · ③ Knyttboden ✅ · ④ variation ⬜ (större rekvisitapool
+folie + tier-skillnader + kompisen ✅ `ce25322` · ③ Knyttboden ✅ `f7f8550` · ④ variation ✅ (större rekvisitapool
 per värld, den seedade dragningen väljer 4, + två nya världar Öknen och Grottan med egna
 milstolpar efter 16). Se §5 2026-09-05.
 

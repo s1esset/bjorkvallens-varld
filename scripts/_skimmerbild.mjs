@@ -14,6 +14,8 @@ const SPAK = { x: 1160, y: 350 }
 const AGG = { x: 640, y: 470 }
 const arg = process.argv.slice(2)
 const TIERS = arg.includes('--tier') ? arg[arg.indexOf('--tier') + 1].split(',').map(Number) : [0, 1, 2, 3]
+// `--varld n` staller varlden direkt (forbi taket) innan varje runda — bilder av oknen (4) och grottan (5).
+const VARLD = arg.includes('--varld') ? Number(arg[arg.indexOf('--varld') + 1]) : -1
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 try {
@@ -43,7 +45,11 @@ try {
   const klick = (x, y) => page.mouse.click(X(x), Y(y))
 
   for (const t of TIERS) {
-    await page.evaluate((t) => { window.__barnspel.game._tvingaTier = t }, t)
+    await page.evaluate(([t, v]) => {
+      const g = window.__barnspel.game
+      g._tvingaTier = t
+      if (v >= 0) { g._val.v = v; g._synkaVerktyg(); g._kupa?.setVal(g._val) }
+    }, [t, VARLD])
     await klick(SPAK.x, SPAK.y)
     await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
     for (let i = 0; i < 4; i++) { await klick(AGG.x, AGG.y); await page.waitForTimeout(260) }
@@ -53,7 +59,7 @@ try {
     // Fingret bort fran knyttet sa blicken och leken inte styr bilden.
     await page.mouse.move(X(200), Y(120))
     await page.waitForTimeout(150)
-    const fil = `.test-shots/knytt-tier${t}.png`
+    const fil = `.test-shots/knytt-tier${t}${VARLD >= 0 ? '-varld' + VARLD : ''}.png`
     await page.screenshot({ path: fil })
     const info = await page.evaluate(() => {
       const g = window.__barnspel.game

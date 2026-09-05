@@ -71,14 +71,16 @@ const KNAD_MS = 70
 
 // Vad narratorn säger när en milstolpe låser upp något. Replikerna står som LITERALER
 // här och inte i tabellen i dna.js: `check.mjs` läser bara index.js, och en replik den
-// inte ser statiskt kan aldrig få ett röstklipp (CLAUDE.md). Nyckeln är verktygets
-// axelnamn — samma nyckel som `T_LAGE` och `_verktyg` redan använder, alltså ingen andra
-// kopia av ordningen (det var den glidningen som gjorde hornet `krona` onåbart).
+// inte ser statiskt kan aldrig få ett röstklipp (CLAUDE.md). Nyckeln är milstolpens `vid`
+// ur `MILSTOLPAR` (världen växer i tre milstolpar sedan steg 4, så axelnamnet räcker inte
+// längre som nyckel); `_upplasprobe` U7 mäter att varje milstolpe har sin rad.
 const UPPLAS_REPLIK = {
-  farg: 'Titta! Två nya färger i kranen!',
-  monster: 'Titta! Två nya mönster på hjulet!',
-  varld: 'Titta! En ny värld — stjärnnatten!',
-  storlek: 'Titta! Nu kan bälgen blåsa ännu större!',
+  4: 'Titta! Två nya färger i kranen!',
+  8: 'Titta! Två nya mönster på hjulet!',
+  12: 'Titta! En ny värld — stjärnnatten!',
+  16: 'Titta! Nu kan bälgen blåsa ännu större!',
+  20: 'Titta! En ny värld — öknen!',
+  24: 'Titta! En ny värld — grottan!',
 }
 
 const HINT_S = 7
@@ -111,7 +113,10 @@ export default {
     this._fas = 'bygga'
     this._val = { f: 0, z: 1, m: 0, v: 0, g: 0 }
     this._dna = null
-    this._fro = 0
+    // Fröet rullas redan HÄR (och i `_aterstall`), inte först vid spaken: det styr vilka
+    // rekvisita kupan visar (steg 4, seedad dragning ur poolen), så förhandsvisningen och
+    // finalen måste dela frö. Glaset rullar om det, spaken rullar bara om det saknas.
+    this._fro = slumpFro(mulberry32((Math.random() * 0xffffffff) >>> 0))
     // Sällsyntheten (§3b): tiern för RUNDANS ägg, torkräknaren (vanliga i rad, aldrig
     // visad) och en DEV-krok som sonden sätter för att tvinga ett utfall. Nollas här.
     this._tier = 0
@@ -383,6 +388,7 @@ export default {
     })
     this._kupa.view.position.set(KUPA_X, KUPA_Y)
     this._spelLager.addChild(this._kupa.view)
+    this._kupa.setFro(this._fro)
     this._kupa.setVal(this._val)
   },
 
@@ -759,6 +765,8 @@ export default {
       // Kupan är skärmens största, ljusaste föremål — den får inte vara det enda utan verkan.
       // Trycket rullar om fröet, synligt och komiskt.
       this._fro = slumpFro(mulberry32((Math.random() * 0xffffffff) >>> 0))
+      // ...och rekvisitan följer med fröet: nya saker i samma värld, synligt och direkt.
+      this._kupa?.setFro(this._fro)
       ctx.services.audio.sfx('pop')
       sparkle(ctx.fxLayer, KUPA_X, KUPA_Y)
     }
@@ -1043,7 +1051,8 @@ export default {
     this._cer?.destroy()
     this._cer = null
     this._klar = false
-    this._fro = 0
+    this._fro = slumpFro(mulberry32((Math.random() * 0xffffffff) >>> 0))
+    this._kupa?.setFro(this._fro)
     this._dna = null
     this._knackar = 0
     // Rörde barnet ingen enda del den här rundan? Då cyklas receptet ett steg, så nästa
@@ -1110,7 +1119,7 @@ export default {
     // belöning barnet inte kan se är ingen belöning — och det går samma väg som ett vanligt
     // tryck, så premissen "varje del GÖR det den ändrar" gäller även här. Bara den axel som
     // växte rörs; resten av barnets recept står kvar (ägarens U1-beslut).
-    const nytt = START_TAK[m.axel]
+    const nytt = Number.isFinite(m.fran) ? m.fran : START_TAK[m.axel]
     if (m.axel === 'farg') this._val.f = nytt
     else if (m.axel === 'monster') this._val.m = nytt
     else if (m.axel === 'varld') this._val.v = nytt
@@ -1129,7 +1138,7 @@ export default {
     ctx.later(2.4, () => { if (this._alive && this._hintSteg === 0) this._doljHand() })
     this._bobo?.react('jubel')
     ctx.later(1.0, () => this._bobo?.setMood('nyfiken'))
-    const rad = UPPLAS_REPLIK[m.axel]
+    const rad = UPPLAS_REPLIK[m.vid]
     if (rad) this._sag(ctx, rad, 'bygga')
     diag('takt', 'upplasning', { axel: m.axel, vid: m.vid, antal: this._antal })
   },

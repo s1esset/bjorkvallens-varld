@@ -682,7 +682,7 @@ const KOMPISAR = {
 
 const LAGEN = ['idle', 'glad', 'lekfull', 'somnig', 'sover']
 // Vilorörelsens takt per värld: sten (snölandet) är trögare, natten piggare.
-const VARLD_TAKT = [1, 0.96, 0.9, 1.07]
+const VARLD_TAKT = [1, 0.96, 0.9, 1.07, 1.03, 0.93] // skog · vatten · sno · natt · oken · grotta
 // Hur långt efter kroppen öron och svans släpar (rad). §1 "De fem slingorna".
 const SLAP = 0.5
 // Lekfullt läge. `LEK_R` är hur nära fingret måste röra sig, mätt i knyttets EGNA radier
@@ -709,7 +709,7 @@ class Knytt {
     this._bas = clamp(tal(d.storlek, 1), 0.5, 1.7)
     this._prop = laesProp(d)
     this._pal = laesPalett(d)
-    this._varld = clamp(Math.round(tal(d.varld, 0)), 0, 3)
+    this._varld = clamp(Math.round(tal(d.varld, 0)), 0, VARLD_TAKT.length - 1)
     // Sällsyntheten (§3b): tier 3 bär en gloria, tier 0 en kompis på huvudet. `opts.kompis`
     // 'sen' = kompisen finns men är inte här än (ceremonin flyger in den med `kompisIn()`),
     // false = ingen alls; annars sitter den från första bildrutan (hyllan, boden).

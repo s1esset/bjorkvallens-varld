@@ -24,7 +24,7 @@ import {
 } from '../../lib/form.js'
 import { lerpColor } from '../../lib/scene.js'
 import { liv, pop, squash, wiggle, shake, puff, sparkle, stadFx } from '../../lib/feedback.js'
-import { FARGER, STORLEKAR, MONSTER, hslHex } from './dna.js'
+import { FARGER, STORLEKAR, MONSTER, hslHex, mulberry32 } from './dna.js'
 
 // --- verkstadens material (fyra+ toner, aldrig en enda kvantiserad yta) ---------------
 const TRA = 0xb98050
@@ -44,13 +44,16 @@ const G = () => new Graphics()
 const klamp = (v, a, b) => (v < a ? a : v > b ? b : v)
 const vinkelDiff = (a, b) => ((b - a + 540) % 360) - 180
 
-// Världarnas interiör. v 0..3 == dna.js VARLDAR-ordningen (skog · vatten · sno · natt).
-const VARLDSNYCKEL = ['skog', 'vatten', 'sno', 'natt']
+// Världarnas interiör. v 0..5 == dna.js VARLDAR-ordningen (skog · vatten · sno · natt ·
+// oken · grotta) — ordningen är sparad i varje post och får aldrig ändras, bara växa sist.
+const VARLDSNYCKEL = ['skog', 'vatten', 'sno', 'natt', 'oken', 'grotta']
 const VARLDSTON = {
   skog: { hy: 113, matt: 1, himmelT: 0xbfe9ff, himmelB: 0xdcf5cf, mark: 0x7cc86f, bas: { grono: 0.6, varm: 0.3 } },
   vatten: { hy: 198, matt: 1, himmelT: 0xbdeefa, himmelB: 0x9adcef, mark: 0x4aa3df, bas: { vatt: 0.8, grono: 0.15 } },
   sno: { hy: 202, matt: 0.62, himmelT: 0xe8f4ff, himmelB: 0xd3e6f4, mark: 0xf1f8ff, bas: { sten: 0.3, vatt: 0.28 } },
   natt: { hy: 272, matt: 1, himmelT: 0x33407c, himmelB: 0x533f86, mark: 0x3a3170, bas: { natt: 0.88, sten: 0.12 } },
+  oken: { hy: 36, matt: 0.95, himmelT: 0xffe4b3, himmelB: 0xfff2d4, mark: 0xe9c57c, bas: { varm: 0.7, sten: 0.35 } },
+  grotta: { hy: 310, matt: 0.9, himmelT: 0x2f2747, himmelB: 0x4b3f70, mark: 0x5b4d7d, bas: { natt: 0.75, sten: 0.5 } },
 }
 
 // Kanalerna: var maskindel möter kupan. Talen är lokala mot kupans mitt (640,330) och är
@@ -130,6 +133,37 @@ export const REKVISITA = {
         g.circle(0, 0, s * 0.58).fill(sphereFill(0xffc93c, { highlight: 0.5 }))
       },
     },
+    {
+      id: 'stubbe', luft: 0, rorelse: 'still', skalar: 'sten',
+      rita(g, s) {
+        g.ellipse(0, -s * 0.02, s * 0.5, s * 0.12).fill({ color: INK, alpha: 0.16 })
+        g.roundRect(-s * 0.36, -s * 0.5, s * 0.72, s * 0.52, s * 0.08).fill(cylinderFill(TRA_MORK, { axis: 'x' }))
+        g.ellipse(0, -s * 0.5, s * 0.36, s * 0.14).fill(topLightFill(0xd9b07a, { highlight: 0.2 }))
+        g.ellipse(0, -s * 0.5, s * 0.22, s * 0.08).stroke({ width: s * 0.03, color: 0xb98a55 })
+        g.ellipse(0, -s * 0.5, s * 0.1, s * 0.04).stroke({ width: s * 0.03, color: 0xb98a55 })
+      },
+    },
+    {
+      id: 'blomma', luft: 0, rorelse: 'gupp', skalar: 'grono',
+      rita(g, s) {
+        g.moveTo(0, 0).quadraticCurveTo(s * 0.08, -s * 0.4, 0, -s * 0.7).stroke({ width: s * 0.07, color: 0x3f8f4a, cap: 'round' })
+        g.ellipse(s * 0.14, -s * 0.34, s * 0.16, s * 0.08).fill(0x58b35e)
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2
+          g.ellipse(Math.cos(a) * s * 0.2, -s * 0.74 + Math.sin(a) * s * 0.2, s * 0.16, s * 0.12).fill(sphereFill(0xff8fb1, { highlight: 0.4 }))
+        }
+        g.circle(0, -s * 0.74, s * 0.12).fill(0xffe27a)
+      },
+    },
+    {
+      id: 'moln', luft: 1, rorelse: 'driver', skalar: 'vatt',
+      rita(g, s) {
+        g.ellipse(0, s * 0.06, s * 0.76, s * 0.3).fill(0xc9d6e0)
+        g.circle(-s * 0.34, 0, s * 0.28).fill(sphereFill(0xffffff, { dark: 0.1 }))
+        g.circle(s * 0.02, -s * 0.16, s * 0.36).fill(sphereFill(0xffffff, { dark: 0.1 }))
+        g.circle(s * 0.4, s * 0.02, s * 0.25).fill(sphereFill(0xffffff, { dark: 0.1 }))
+      },
+    },
   ],
   vatten: [
     {
@@ -174,6 +208,37 @@ export const REKVISITA = {
           .closePath().fill(0xf0913c)
         g.circle(-s * 0.24, -s * 0.06, s * 0.09).fill(0xffffff)
         g.circle(-s * 0.26, -s * 0.06, s * 0.05).fill(INK)
+      },
+    },
+    {
+      id: 'bubbla', luft: 0.5, rorelse: 'driver', skalar: 'vatt',
+      rita(g, s) {
+        g.circle(0, 0, s * 0.34).fill({ color: 0xbfe9ff, alpha: 0.35 })
+        g.circle(0, 0, s * 0.34).stroke({ width: s * 0.05, color: 0xffffff, alpha: 0.8 })
+        g.ellipse(-s * 0.12, -s * 0.14, s * 0.1, s * 0.06).fill({ color: 0xffffff, alpha: 0.8 })
+        g.circle(s * 0.3, s * 0.3, s * 0.1).fill({ color: 0xffffff, alpha: 0.5 })
+      },
+    },
+    {
+      id: 'sjostjarna', luft: 0, rorelse: 'still', skalar: 'sten',
+      rita(g, s) {
+        g.star(0, -s * 0.3, 5, s * 0.42, s * 0.18).fill(topLightFill(0xff9c6b, { highlight: 0.3 }))
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2 - Math.PI / 2
+          g.circle(Math.cos(a) * s * 0.22, -s * 0.3 + Math.sin(a) * s * 0.22, s * 0.04).fill(0xffd8c2)
+        }
+      },
+    },
+    {
+      id: 'nackros', luft: 0, rorelse: 'gupp', skalar: 'grono',
+      rita(g, s) {
+        g.ellipse(0, -s * 0.04, s * 0.5, s * 0.2).fill(topLightFill(0x4f9f5a, { highlight: 0.24 }))
+        g.moveTo(0, -s * 0.04).lineTo(s * 0.5, -s * 0.16).lineTo(s * 0.5, s * 0.06).closePath().fill(0x3f97c4)
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2 - Math.PI / 2
+          g.ellipse(Math.cos(a) * s * 0.12, -s * 0.2 + Math.sin(a) * s * 0.08, s * 0.1, s * 0.16).fill(sphereFill(0xffe6f2, { highlight: 0.4 }))
+        }
+        g.circle(0, -s * 0.2, s * 0.07).fill(0xffd35c)
       },
     },
   ],
@@ -223,6 +288,39 @@ export const REKVISITA = {
         g.circle(0, 0, s * 0.15).fill(0xffffff)
       },
     },
+    {
+      id: 'snogubbe', luft: 0, rorelse: 'still', skalar: 'sten',
+      rita(g, s) {
+        g.circle(0, -s * 0.3, s * 0.34).fill(sphereFill(0xffffff, { dark: 0.12 }))
+        g.circle(0, -s * 0.82, s * 0.25).fill(sphereFill(0xffffff, { dark: 0.12 }))
+        g.moveTo(s * 0.06, -s * 0.84).lineTo(s * 0.34, -s * 0.8).lineTo(s * 0.06, -s * 0.76).closePath().fill(0xf5892f)
+        g.circle(-s * 0.08, -s * 0.9, s * 0.04).fill(INK)
+        g.circle(s * 0.04, -s * 0.92, s * 0.04).fill(INK)
+        g.circle(0, -s * 0.4, s * 0.04).fill(INK)
+        g.circle(0, -s * 0.24, s * 0.04).fill(INK)
+        g.roundRect(-s * 0.2, -s * 1.2, s * 0.4, s * 0.1, s * 0.03).fill(0x4a3526)
+        g.roundRect(-s * 0.13, -s * 1.4, s * 0.26, s * 0.24, s * 0.04).fill(0x4a3526)
+      },
+    },
+    {
+      id: 'istapp', luft: 1, rorelse: 'still', skalar: 'sten',
+      rita(g, s) {
+        g.roundRect(-s * 0.5, -s * 0.4, s, s * 0.16, s * 0.05).fill(topLightFill(0xeaf6ff, { highlight: 0.2 }))
+        for (const [x, h] of [[-s * 0.3, s * 0.5], [0, s * 0.8], [s * 0.28, s * 0.6]]) {
+          g.moveTo(x - s * 0.1, -s * 0.3).lineTo(x, -s * 0.3 + h).lineTo(x + s * 0.1, -s * 0.3).closePath().fill(topLightFill(0xd8f0ff, { highlight: 0.3 }))
+        }
+      },
+    },
+    {
+      id: 'snoflinga', luft: 0.5, rorelse: 'snurr', skalar: 'vatt',
+      rita(g, s) {
+        for (let i = 0; i < 3; i++) {
+          const a = (i / 3) * Math.PI
+          g.moveTo(Math.cos(a) * -s * 0.4, Math.sin(a) * -s * 0.4).lineTo(Math.cos(a) * s * 0.4, Math.sin(a) * s * 0.4).stroke({ width: s * 0.07, color: 0xffffff, cap: 'round' })
+        }
+        g.circle(0, 0, s * 0.09).fill(0xffffff)
+      },
+    },
   ],
   natt: [
     {
@@ -267,7 +365,212 @@ export const REKVISITA = {
         g.star(s * 0.18, -s * 0.56, 4, s * 0.12, s * 0.05).fill(0xfff3b0)
       },
     },
+    {
+      id: 'stjarna', luft: 1, rorelse: 'gupp', skalar: 'natt',
+      rita(g, s) {
+        g.star(0, 0, 5, s * 0.5, s * 0.22).fill({ color: 0xfff3b0, alpha: 0.35 })
+        g.star(0, 0, 5, s * 0.36, s * 0.16).fill(topLightFill(0xffe98a, { highlight: 0.4 }))
+      },
+    },
+    {
+      id: 'uggla', luft: 0, rorelse: 'gupp', skalar: 'natt',
+      rita(g, s) {
+        g.ellipse(0, -s * 0.4, s * 0.3, s * 0.4).fill(topLightFill(0x8a6a4a, { highlight: 0.2 }))
+        g.ellipse(0, -s * 0.3, s * 0.18, s * 0.22).fill({ color: 0xd9b88a, alpha: 0.9 })
+        g.circle(-s * 0.11, -s * 0.62, s * 0.1).fill(0xfff3b0)
+        g.circle(s * 0.11, -s * 0.62, s * 0.1).fill(0xfff3b0)
+        g.circle(-s * 0.11, -s * 0.62, s * 0.05).fill(INK)
+        g.circle(s * 0.11, -s * 0.62, s * 0.05).fill(INK)
+        g.moveTo(-s * 0.05, -s * 0.52).lineTo(s * 0.05, -s * 0.52).lineTo(0, -s * 0.44).closePath().fill(0xf5892f)
+        g.moveTo(-s * 0.26, -s * 0.78).lineTo(-s * 0.2, -s * 0.94).lineTo(-s * 0.1, -s * 0.78).closePath().fill(0x8a6a4a)
+        g.moveTo(s * 0.26, -s * 0.78).lineTo(s * 0.2, -s * 0.94).lineTo(s * 0.1, -s * 0.78).closePath().fill(0x8a6a4a)
+      },
+    },
+    {
+      id: 'lykta', luft: 0.5, rorelse: 'driver', skalar: 'natt',
+      rita(g, s) {
+        g.circle(0, 0, s * 0.42).fill({ color: 0xffe98a, alpha: 0.22 })
+        g.roundRect(-s * 0.18, -s * 0.26, s * 0.36, s * 0.5, s * 0.06).fill(topLightFill(0xffd35c, { highlight: 0.4 }))
+        g.roundRect(-s * 0.22, -s * 0.32, s * 0.44, s * 0.08, s * 0.03).fill(0x6a4a30)
+        g.roundRect(-s * 0.22, s * 0.22, s * 0.44, s * 0.08, s * 0.03).fill(0x6a4a30)
+        g.moveTo(0, -s * 0.32).lineTo(0, -s * 0.5).stroke({ width: s * 0.05, color: 0x6a4a30 })
+      },
+    },
   ],
+  // Leverans 2 steg 4: två nya världar, sju föremål var.
+  oken: [
+    {
+      id: 'kaktus', luft: 0, rorelse: 'vajar', skalar: 'grono',
+      rita(g, s) {
+        g.roundRect(-s * 0.16, -s * 0.96, s * 0.32, s * 0.98, s * 0.14).fill(cylinderFill(0x5faa5a, { axis: 'x' }))
+        g.roundRect(-s * 0.5, -s * 0.6, s * 0.2, s * 0.36, s * 0.09).fill(cylinderFill(0x5faa5a, { axis: 'x' }))
+        g.roundRect(-s * 0.5, -s * 0.34, s * 0.4, s * 0.16, s * 0.07).fill(cylinderFill(0x5faa5a, { axis: 'y' }))
+        g.roundRect(s * 0.3, -s * 0.74, s * 0.2, s * 0.4, s * 0.09).fill(cylinderFill(0x6ab865, { axis: 'x' }))
+        g.roundRect(s * 0.1, -s * 0.46, s * 0.4, s * 0.16, s * 0.07).fill(cylinderFill(0x6ab865, { axis: 'y' }))
+        g.ellipse(0, -s * 1.0, s * 0.12, s * 0.08).fill(sphereFill(0xff8fb1, { highlight: 0.4 }))
+      },
+    },
+    {
+      id: 'okensol', luft: 1, rorelse: 'snurr', skalar: 'varm',
+      rita(g, s) {
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * Math.PI * 2
+          g.moveTo(Math.cos(a) * s * 0.6, Math.sin(a) * s * 0.6)
+            .lineTo(Math.cos(a + 0.09) * s * 0.96, Math.sin(a + 0.09) * s * 0.96)
+            .lineTo(Math.cos(a - 0.09) * s * 0.96, Math.sin(a - 0.09) * s * 0.96)
+            .closePath()
+            .fill({ color: 0xffb24d, alpha: 0.9 })
+        }
+        g.circle(0, 0, s * 0.56).fill(sphereFill(0xffc25c, { highlight: 0.5 }))
+      },
+    },
+    {
+      id: 'sanddyna', luft: 0, rorelse: 'still', skalar: 'sten',
+      rita(g, s) {
+        g.moveTo(-s * 0.78, 0).quadraticCurveTo(-s * 0.3, -s * 0.56, s * 0.1, -s * 0.44)
+          .quadraticCurveTo(s * 0.5, -s * 0.34, s * 0.8, 0).closePath()
+          .fill(topLightFill(0xf0cf8a, { highlight: 0.24, dark: 0.16 }))
+        g.moveTo(-s * 0.4, -s * 0.2).quadraticCurveTo(0, -s * 0.34, s * 0.4, -s * 0.24).stroke({ width: s * 0.04, color: 0xd9b26e, alpha: 0.8 })
+      },
+    },
+    {
+      id: 'odla', luft: 0, rorelse: 'gupp', skalar: 'varm',
+      rita(g, s) {
+        g.moveTo(-s * 0.5, -s * 0.1).quadraticCurveTo(-s * 0.9, -s * 0.34, -s * 0.8, -s * 0.02).stroke({ width: s * 0.09, color: 0xe4a24a, cap: 'round' })
+        g.ellipse(0, -s * 0.16, s * 0.46, s * 0.16).fill(topLightFill(0xf3b357, { highlight: 0.3 }))
+        g.circle(s * 0.46, -s * 0.22, s * 0.16).fill(topLightFill(0xf3b357, { highlight: 0.3 }))
+        g.circle(s * 0.5, -s * 0.28, s * 0.05).fill(INK)
+        for (const x of [-s * 0.26, s * 0.2]) g.roundRect(x, -s * 0.08, s * 0.08, s * 0.14, s * 0.03).fill(0xd8923d)
+        for (const x of [-s * 0.14, s * 0.06, s * 0.26]) g.circle(x, -s * 0.24, s * 0.03).fill(0xc7782f)
+      },
+    },
+    {
+      id: 'palm', luft: 0, rorelse: 'vajar', skalar: 'grono',
+      rita(g, s) {
+        g.moveTo(0, 0).quadraticCurveTo(s * 0.16, -s * 0.5, s * 0.06, -s * 0.94).stroke({ width: s * 0.12, color: TRA_MORK, cap: 'round' })
+        for (let i = 0; i < 5; i++) {
+          const a = -Math.PI * (0.15 + i * 0.175)
+          g.moveTo(s * 0.06, -s * 0.94)
+            .quadraticCurveTo(s * 0.06 + Math.cos(a) * s * 0.4, -s * 0.94 + Math.sin(a) * s * 0.5, s * 0.06 + Math.cos(a) * s * 0.62, -s * 0.94 + Math.sin(a) * s * 0.36)
+            .stroke({ width: s * 0.1, color: 0x4f9f5a, cap: 'round' })
+        }
+        g.circle(0, -s * 0.9, s * 0.06).fill(0x8a5a3b)
+        g.circle(s * 0.12, -s * 0.88, s * 0.06).fill(0x8a5a3b)
+      },
+    },
+    {
+      id: 'kaktusblomma', luft: 0, rorelse: 'gupp', skalar: 'varm',
+      rita(g, s) {
+        g.ellipse(0, -s * 0.3, s * 0.34, s * 0.32).fill(sphereFill(0x6ab865, { highlight: 0.3 }))
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2
+          g.moveTo(Math.cos(a) * s * 0.3, -s * 0.3 + Math.sin(a) * s * 0.28).lineTo(Math.cos(a) * s * 0.42, -s * 0.3 + Math.sin(a) * s * 0.4).stroke({ width: s * 0.03, color: 0xf3e2bd })
+        }
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2
+          g.ellipse(Math.cos(a) * s * 0.14, -s * 0.66 + Math.sin(a) * s * 0.1, s * 0.12, s * 0.08).fill(sphereFill(0xffb347, { highlight: 0.4 }))
+        }
+        g.circle(0, -s * 0.66, s * 0.07).fill(0xfff3b0)
+      },
+    },
+    {
+      id: 'sandvirvel', luft: 0.5, rorelse: 'driver', skalar: 'varm',
+      rita(g, s) {
+        for (let i = 0; i < 4; i++) {
+          const y = -s * 0.36 + i * s * 0.2
+          const w = s * (0.18 + i * 0.1)
+          g.ellipse(0, y, w, s * 0.07).fill({ color: 0xe9c57c, alpha: 0.55 - i * 0.08 })
+        }
+      },
+    },
+  ],
+  grotta: [
+    {
+      id: 'kristall', luft: 0, rorelse: 'still', skalar: 'natt',
+      rita(g, s) {
+        g.ellipse(0, -s * 0.02, s * 0.5, s * 0.12).fill({ color: 0x9be9dc, alpha: 0.2 })
+        g.moveTo(-s * 0.4, 0).lineTo(-s * 0.2, -s * 0.8).lineTo(0, 0).closePath().fill(topLightFill(0xb08cff, { highlight: 0.45 }))
+        g.moveTo(-s * 0.06, 0).lineTo(s * 0.16, -s * 1.0).lineTo(s * 0.38, 0).closePath().fill(topLightFill(0x8ad8ff, { highlight: 0.45 }))
+        g.moveTo(s * 0.18, 0).lineTo(s * 0.4, -s * 0.5).lineTo(s * 0.54, 0).closePath().fill(topLightFill(0xc9b8ff, { highlight: 0.4 }))
+        g.circle(s * 0.16, -s * 0.9, s * 0.04).fill(0xffffff)
+      },
+    },
+    {
+      id: 'droppsten', luft: 1, rorelse: 'still', skalar: 'sten',
+      rita(g, s) {
+        g.roundRect(-s * 0.7, -s * 0.5, s * 1.4, s * 0.2, s * 0.06).fill(topLightFill(0x5b4d7d, { highlight: 0.16 }))
+        for (const [x, h, w] of [[-s * 0.4, s * 0.5, s * 0.12], [-s * 0.05, s * 0.8, s * 0.16], [s * 0.34, s * 0.6, s * 0.12]]) {
+          g.moveTo(x - w, -s * 0.34).quadraticCurveTo(x, -s * 0.34 + h * 0.6, x, -s * 0.34 + h).quadraticCurveTo(x, -s * 0.34 + h * 0.6, x + w, -s * 0.34).closePath().fill(topLightFill(0x7d6ba3, { highlight: 0.22 }))
+        }
+        g.circle(-s * 0.05, s * 0.5, s * 0.05).fill({ color: 0x9be9dc, alpha: 0.9 })
+      },
+    },
+    {
+      id: 'lyktsvamp', luft: 0, rorelse: 'gupp', skalar: 'natt',
+      rita(g, s) {
+        g.circle(0, -s * 0.6, s * 0.5).fill({ color: 0x9be9dc, alpha: 0.18 })
+        g.roundRect(-s * 0.1, -s * 0.5, s * 0.2, s * 0.52, s * 0.08).fill(topLightFill(0xe8f4ff, { highlight: 0.2 }))
+        g.moveTo(-s * 0.46, -s * 0.48).quadraticCurveTo(0, -s * 0.98, s * 0.46, -s * 0.48).closePath().fill(topLightFill(0x62d9c8, { highlight: 0.4 }))
+        g.circle(-s * 0.18, -s * 0.6, s * 0.06).fill(0xe8fffb)
+        g.circle(s * 0.14, -s * 0.66, s * 0.05).fill(0xe8fffb)
+      },
+    },
+    {
+      id: 'glodmask', luft: 0.5, rorelse: 'driver', skalar: 'natt',
+      rita(g, s) {
+        g.circle(0, 0, s * 0.4).fill({ color: 0x9ff2e6, alpha: 0.2 })
+        for (let i = 0; i < 4; i++) g.circle(-s * 0.3 + i * s * 0.2, Math.sin(i * 1.6) * s * 0.06, s * 0.11).fill(sphereFill(i === 3 ? 0xd9fff8 : 0x7fe3d2, { highlight: 0.4 }))
+        g.circle(s * 0.34, -s * 0.04, s * 0.03).fill(INK)
+      },
+    },
+    {
+      id: 'grottsten', luft: 0, rorelse: 'still', skalar: 'sten',
+      rita(g, s) {
+        g.ellipse(0, -s * 0.04, s * 0.66, s * 0.14).fill({ color: 0x000000, alpha: 0.2 })
+        g.moveTo(-s * 0.58, 0).quadraticCurveTo(-s * 0.62, -s * 0.5, -s * 0.1, -s * 0.62)
+          .quadraticCurveTo(s * 0.4, -s * 0.7, s * 0.56, -s * 0.24).quadraticCurveTo(s * 0.62, 0, s * 0.4, 0).closePath()
+          .fill(topLightFill(0x6f6289, { highlight: 0.28 }))
+        g.ellipse(-s * 0.14, -s * 0.42, s * 0.18, s * 0.08).fill({ color: 0xffffff, alpha: 0.2 })
+      },
+    },
+    {
+      id: 'kristallklase', luft: 0, rorelse: 'still', skalar: 'natt',
+      rita(g, s) {
+        for (const [x, h, c] of [[-s * 0.3, s * 0.5, 0xff9ec4], [-s * 0.05, s * 0.7, 0xffb3d6], [s * 0.22, s * 0.44, 0xff9ec4]]) {
+          g.moveTo(x - s * 0.12, 0).lineTo(x, -h).lineTo(x + s * 0.12, 0).closePath().fill(topLightFill(c, { highlight: 0.45 }))
+        }
+        g.circle(-s * 0.05, -s * 0.62, s * 0.04).fill(0xffffff)
+      },
+    },
+    {
+      id: 'mossa', luft: 0, rorelse: 'still', skalar: 'grono',
+      rita(g, s) {
+        g.ellipse(0, -s * 0.08, s * 0.5, s * 0.14).fill(topLightFill(0x3f8f5a, { highlight: 0.24 }))
+        g.ellipse(-s * 0.2, -s * 0.16, s * 0.22, s * 0.12).fill(topLightFill(0x4fa868, { highlight: 0.24 }))
+        g.ellipse(s * 0.18, -s * 0.14, s * 0.18, s * 0.1).fill(topLightFill(0x58b872, { highlight: 0.24 }))
+        g.circle(-s * 0.1, -s * 0.24, s * 0.04).fill(0x9be9dc)
+      },
+    },
+  ],
+}
+
+/**
+ * Rekvisitans ORDNING för en runda: fröet permuterar världens pool (Fisher–Yates ur
+ * mulberry32), så samma värld ger olika föremål i olika rundor och samma frö alltid samma.
+ * Kupan visar de första `antal` i den här ordningen och ceremonin de fyra första —
+ * förhandsvisningen och finalen är alltså SAMMA värld (steg 4, 2026-09-05).
+ */
+export function rekvisitaOrdning(fro, nyckel) {
+  const lista = REKVISITA[nyckel] || REKVISITA.skog
+  const idx = lista.map((_, i) => i)
+  const rnd = mulberry32(((fro >>> 0) ^ 0x2545f491) >>> 0)
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1))
+    const t = idx[i]
+    idx[i] = idx[j]
+    idx[j] = t
+  }
+  return idx.map((i) => lista[i])
 }
 
 // =====================================================================================
@@ -421,7 +724,8 @@ export function byggKupa(opts = {}) {
 
   // --- tillstånd ---
   const val = { f: 0, z: 1, m: 0, v: 0, g: 0 }
-  const antal = [0, 0, 0, 0]             // hur många föremål varje värld har fått
+  const antal = new Array(VARLDSNYCKEL.length).fill(0) // hur många föremål varje värld har fått
+  let fro = 1                             // rundans frö — styr rekvisitans ordning (setFro)
   const props = []                       // { nod, inner, def, slot, fas, wx, wy }
   const gnistor = []                     // { nod, fas, r, fart }
   const korn = []                        // { x, y, vx, vy, typ, liv }
@@ -635,7 +939,7 @@ export function byggKupa(opts = {}) {
   }
 
   function laggProp(i, fladdra) {
-    const lista = REKVISITA[VARLDSNYCKEL[val.v]]
+    const lista = rekvisitaOrdning(fro, VARLDSNYCKEL[val.v])
     const def = lista[i % lista.length]
     const p = slotPos(def, i)
     // TRE nivåer, en skrivare var: `nod` bär läget (fallet in + tick:ens drift), `livNod`
@@ -734,10 +1038,11 @@ export function byggKupa(opts = {}) {
     // Samma skäl som i laggIn('varld'): under tömningen ska ingenting ramla ner i kupan.
     // Gnistpaketets callback landar också efter ett snabbt spaktryck.
     if (korn.length > 64 || tomKupa) return
+    // Sanden driver i sidled (öknens vind), sporerna dalar långsamt och lyser (grottan).
     korn.push({
       x, y, typ,
-      vx: typ === 'sno' ? (Math.random() - 0.5) * 14 : (Math.random() - 0.5) * 5,
-      vy: typ === 'regn' ? 150 + Math.random() * 60 : 34 + Math.random() * 26,
+      vx: typ === 'sno' ? (Math.random() - 0.5) * 14 : typ === 'sand' ? 26 + Math.random() * 22 : (Math.random() - 0.5) * 5,
+      vy: typ === 'regn' ? 150 + Math.random() * 60 : typ === 'sand' ? 14 + Math.random() * 10 : typ === 'spor' ? 18 + Math.random() * 14 : 34 + Math.random() * 26,
       liv: 4,
     })
   }
@@ -753,7 +1058,11 @@ export function byggKupa(opts = {}) {
       if (k.typ === 'regn') kornG.roundRect(k.x - 1.4, k.y - 7, 2.8, 14, 1.4).fill({ color: 0xbfe6ff, alpha: 0.85 * a })
       else if (k.typ === 'sno') kornG.circle(k.x, k.y, 3).fill({ color: 0xffffff, alpha: 0.95 * a })
       else if (k.typ === 'lov') kornG.ellipse(k.x, k.y, 5, 3).fill({ color: 0x7ec46a, alpha: 0.95 * a })
-      else kornG.star(k.x, k.y, 4, 4.5, 1.8).fill({ color: 0xfff3b0, alpha: 0.95 * a })
+      else if (k.typ === 'sand') kornG.ellipse(k.x, k.y, 4, 2.2).fill({ color: 0xe9c57c, alpha: 0.9 * a })
+      else if (k.typ === 'spor') {
+        kornG.circle(k.x, k.y, 5).fill({ color: 0x9ff2e6, alpha: 0.3 * a })
+        kornG.circle(k.x, k.y, 2.4).fill({ color: 0xd9fff8, alpha: 0.95 * a })
+      } else kornG.star(k.x, k.y, 4, 4.5, 1.8).fill({ color: 0xfff3b0, alpha: 0.95 * a })
     }
   }
 
@@ -791,7 +1100,7 @@ export function byggKupa(opts = {}) {
     val.f = nyVal.f | 0
     val.z = nyVal.z | 0
     val.m = nyVal.m | 0
-    val.v = klamp(nyVal.v | 0, 0, 3)
+    val.v = klamp(nyVal.v | 0, 0, VARLDSNYCKEL.length - 1)
     val.g = klamp(nyVal.g | 0, 0, 3)
     if (bytteVarld) byggProps(false)
     raknaSkalarer()
@@ -815,6 +1124,15 @@ export function byggKupa(opts = {}) {
     gsap.to(blobbSkugga.scale, { x: s, y: s, duration: 0.34, ease: 'back.out(2)' })
     satGnistor(val.g)
     if (bytteFarg) sparkle(inre, 0, MARK_Y - 50, { count: 5 })
+  }
+
+  // Rundans frö: rekvisitans ordning följer det. Finns redan föremål i kupan byts de ut på
+  // plats med en squash — barnet SER att glaset gav nya saker (omrullningen, index.js 'glas').
+  function setFro(nyttFro) {
+    fro = (Number.isFinite(nyttFro) ? nyttFro : 1) >>> 0
+    if (dod || !props.length || tomKupa) return
+    byggProps(false)
+    for (const p of props) squash(p.inner, { intensity: 0.6 })
   }
 
   // Spelar delens SYNLIGA kanal in i kupan. Det här är premissen: varje maskindel utför
@@ -862,7 +1180,7 @@ export function byggKupa(opts = {}) {
       })
       sfx('whoosh')
       ton({ freq: 330, dur: 0.26, type: 'triangle', vol: 0.18, slideTo: 440 })
-      const typ = ['lov', 'regn', 'sno', 'gnista'][val.v]
+      const typ = ['lov', 'regn', 'sno', 'gnista', 'sand', 'spor'][val.v] || 'lov'
       for (let i = 0; i < 14; i++) nyttKorn((Math.random() - 0.5) * 110, -R_INRE - 8 - Math.random() * 30, typ)
       senare(0.34, () => {
         // `tomKupa` MÅSTE vaktas här: trycker barnet på spaken inom 0,34 s har `tomma()`
@@ -907,7 +1225,7 @@ export function byggKupa(opts = {}) {
     satGnistor(0)
     korn.length = 0
     malaKorn()
-    antal[0] = antal[1] = antal[2] = antal[3] = 0
+    antal.fill(0)
     tomKupa = true
     gsap.killTweensOf(blobb.scale)
     gsap.killTweensOf(blobb)
@@ -1012,7 +1330,7 @@ export function byggKupa(opts = {}) {
     if (!view.destroyed) view.destroy({ children: true })
   }
 
-  return { view, setVal, laggIn, tomma, tick, destroy }
+  return { view, setVal, setFro, laggIn, tomma, tick, destroy }
 }
 
 // =====================================================================================
@@ -1026,7 +1344,7 @@ const AXEL = {
   gnista: { steg: 4, ton: 659, storlek: 168, tomt: true },
   storlek: { steg: 4, ton: 392, storlek: 168, tomt: true },
   monster: { steg: 6, ton: 587, storlek: 168 },
-  varld: { steg: 4, ton: 440, storlek: 144 },
+  varld: { steg: VARLDSNYCKEL.length, ton: 440, storlek: 144 },
 }
 
 export function byggVerktyg(axel, opts = {}) {

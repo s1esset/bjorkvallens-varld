@@ -417,6 +417,8 @@ try {
     [8, 'monster', 4, 'monster', 6],
     [12, 'varld', 3, 'varld', 4],
     [16, 'storlek', 3, 'storlek', 4],
+    [20, 'varld', 4, 'varld', 5],
+    [24, 'varld', 5, 'varld', 6],
   ]) {
     const r = await page.evaluate(([v, ax, nytt, nyckel]) => {
       const g = window.__barnspel.game
@@ -430,7 +432,7 @@ try {
     u2.push(`${axel} tak ${r.tak} lage ${lage}`)
     rader.push([`U2 matarm    milstolpe ${vid} (${axel})`, `tak ${r.tak}/${vantatTak} · recept ${lage}/${nyttLage} · firad ${r.firad}`, r.tak === vantatTak && lage === nyttLage && r.firad === vid])
   }
-  rader.push(['U2b          inga konsolfel ur de tre firandena', `${errors.length - felFore} fel · ${u2.join(' · ')}`, errors.length === felFore])
+  rader.push(['U2b          inga konsolfel ur de fem firandena', `${errors.length - felFore} fel · ${u2.join(' · ')}`, errors.length === felFore])
 
   // ============================================================ D: aterkomsthalsningen
   const HALSNING = 'Titta, dina knytt har saknat dig!'

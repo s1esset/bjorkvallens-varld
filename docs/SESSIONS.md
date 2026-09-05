@@ -14,6 +14,46 @@ Format:
 
 ---
 
+## 2026-09-05 — Unika Knytt: LEVERANS 2 byggd (samlingen, skimret, boden, variationen) · v1.247.0
+
+**Gjort:** ägarens speltest var "bra", och riktningen blev *mer variation + de saknade
+funktionerna*. Hela leverans 2 (`docs/games/unika-knytt.md` §4) byggd i fyra commits, en per
+steg, i den ordning ägaren valde: `c7ccc63` (persistens) · `ce25322` (sällsynthet · folie ·
+tier-skillnader · kompisen) · `f7f8550` (Knyttboden) · `7cafd57` (variation: rekvisitapool 7
+per värld + seedad dragning, och två nya världar Öknen/Grottan vid 20/24 kläckta).
+
+**Det viktigaste fyndet kom först:** sparposten bar bara hyllans tre senaste, så varje fjärde
+kläckning kastade det äldsta knyttet för gott — boden kan bara visa det som finns på disk.
+Uppmätt `_knyttprobe` S1: fem poster + en runda gav 3 på disk på HEAD, 6 nu. Tak 200.
+
+**Sällsyntheten** är ägarens tal exakt (`dna.js:rullaTier`), rullad FÖRE spaken dras, sparad på
+plats 7; tiern rör aldrig genetiken. Ägget glöder i sin metall i F3, metallklang + flingor vid
+kläckningen; folien är ett cachat linjärt band under en mask ur fondens egen geometri; brons
+hamrad kopparlist · silver regnbågskant + gnistor · guld solkrona + **gloria på knyttet**.
+Vanliga knytt får **kompisen** (en per värld, flyger in och sätter sig på hjässan). Båda
+replikerna fanns redan som klipp sedan 2026-08-30 utan att någonsin ha anropats.
+
+**Knyttboden** (`boden.js`, ny): rullande popup som bara visar det man fått — skyltar bara för
+världar med knytt, plan bara där det finns knytt, lat byggda riggar, axellåst drag +
+96 px-pilar, favoriten först, grannprat, metallpiedestal för skimrande. Bodluckan är en stuga
+under spaken (hyllan tog vänsterhörnet); tom samling öppnar aldrig ett tomt rum. Bobo flyttad.
+
+**Sonder:** `_tierprobe.mjs` (ny), `_skimmerbild.mjs` (ny), `_bodprobe.mjs` (ny), S/T-familjer
+i `_knyttprobe` (38 → 44 armar), `_upplasprobe` 12 armar. **Tre saker bara mätningen fann:**
+⓵ `_knyttprobe`s `start()` rensade ALDRIG — `SaveService` flushar vid `pagehide`, så
+`removeItem` + `reload` skrev tillbaka förra familjens sparpost (U0 var grön av tur);
+`save.resetAll()` var fel väg (dokument utan profil → GameHost kraschar tyst); rätt väg är
+`ctx.progress.setCustom` + in i spelet igen. ⓶ `innehall.eventMode = 'none'` gjorde bodens
+bon till döda träffytor utan konsolfel (`'none'` ignorerar även barnen). ⓷ knackhandens
+1,2 s-timer visade handen ovanpå den nyfödda världen vid snabb knackning — syntes bara i bild.
+
+**Grind:** `check` 0/0 (två repliker väntade på `npm run voice`) · `test unika-knytt` 0 fel ·
+`build` grönt · alla sonder gröna · bilder i `.test-shots/knytt-*.png`.
+
+**Öppet:** spelet är fortfarande aldrig speltestat av ett barn MED leverans 2. §9 A: Skrället
+(uppehållstiden är inte rapporterad). V19/V16 i delad kod. BACKLOG #5 (Node 20). De två nya
+replikerna (öknen/grottan) fick sina klipp med `npm run voice` (2 made, 0 failed) i samma pass.
+
 ## 2026-09-01 (dag) — Unika Knytt: /simplify, sömnfrågan och ögonlocket · v1.246.0
 
 **Gjort:** ÖPPET-listans punkt 1, 2 och 3 från förra passet. Fyra commits:

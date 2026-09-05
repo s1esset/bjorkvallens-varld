@@ -521,14 +521,15 @@ export function byggCeremoni(opts = {}) {
     const tp = deg.tyngdpunkt
     ankare = { x: tp.x, y: tp.y }
 
-    // ⚠️ UPPMÄTT: `tyngdpunkt` är INTE ritbar mitt. Getteren summerar alla n+1 punkter
-    // (ringen PLUS mittpunkten) men delar med n, så den returnerar ringens mitt gånger
-    // (n+1)/n — för en kropp på (640, 384) med 14 punkter blir det (685,7 · 411,4),
-    // alltså 46 px höger och 27 px ner. `flyttaTill()` räknar likadant, så ATT
-    // FÖRANKRA mot den är rätt och driftfritt (0,011 px över 300 knådade steg) — men
-    // att RITA mot den hade lagt hela ägget snett i förhållande till boet och till
-    // fingret. Ringens verkliga mitt läses därför separat, en gång, och står stilla
-    // exakt så länge ankaret gör det.
+    // ÅTGÄRDER V19 ÄR RÄTTAD (2026-09-05): `tyngdpunkt` delade förut summan av alla n+1
+    // punkter med n och returnerade alltså ringens mitt gånger (n+1)/n — för en kropp
+    // på (640, 384) med 14 punkter (685,7 · 411,4). Den ger nu ett riktigt medelvärde,
+    // och `flyttaTill()` läser samma getter, så paret är exakt i ETT anrop (förut
+    // konvergerade det bara över flera steg, 1/n fel per anrop).
+    // Ringens mitt läses ändå separat här, och det är inte bokföringsskuld: `tyngdpunkt`
+    // räknar med MITTPUNKTEN, som är en egen partikel och dras åt sitt eget håll när
+    // degen knådas. Det är ringen ägget RITAS ur, alltså är det ringens mitt bilden ska
+    // hänga på — den står stilla exakt så länge ankaret gör det.
     let sx = 0
     let sy = 0
     for (let i = 0; i < deg.n; i++) {

@@ -147,5 +147,48 @@ console.log('\nexit')
   ok('steg() efter destroy() är ofarligt', m.pts.length === 0)
 }
 
+
+// ÅTGÄRDER V19: `tyngdpunkt` summerade alla n+1 punkter men delade med n, alltså ringens
+// mitt × (n+1)/n. Felet växer med KOORDINATERNAS storlek, inte med kroppens — nära origo
+// syns det inte, mitt på en 1280×720-scen är det ett halvt föremål. Armen mäter just den
+// egenskapen: SAMMA kropp på två olika platser måste ge samma avvikelse.
+console.log('\ntyngdpunkten är ett medelvärde, inte en skalad lägesvektor')
+{
+  const bygg = (x, y) => new Mjukkropp({ x, y, w: 90, h: 70, n: 14, grav: 0 })
+  const avv = (m, x, y) => {
+    const t = m.tyngdpunkt
+    return Math.hypot(t.x - x, t.y - y)
+  }
+  const nara = bygg(0, 0)
+  const mitt = bygg(640, 384)
+  ok('avvikelsen växer INTE med koordinaterna',
+    Math.abs(avv(mitt, 640, 384) - avv(nara, 0, 0)) < 0.5,
+    `origo ${avv(nara, 0, 0).toFixed(2)} px · (640,384) ${avv(mitt, 640, 384).toFixed(2)} px`)
+  ok('en kropp född på (640,384) rapporterar sig DÄR', avv(mitt, 640, 384) < 1,
+    `${mitt.tyngdpunkt.x.toFixed(1)} · ${mitt.tyngdpunkt.y.toFixed(1)}`)
+
+  // Paret måste vara självkonsistent: de två kunderna läser `tyngdpunkt` EN gång vid
+  // födseln och förankrar mot det värdet varje steg. Skiljer sig formlerna åt vandrar
+  // kroppen i första bildrutan.
+  const p = bygg(200, 120)
+  p.flyttaTill(700, 300)
+  const t = p.tyngdpunkt
+  ok('flyttaTill() och tyngdpunkt räknar likadant',
+    Math.hypot(t.x - 700, t.y - 300) < 1e-6, `${t.x.toFixed(6)} · ${t.y.toFixed(6)}`)
+
+  // Ankaret ska stå still över en hel knådning (ceremonins 300 steg).
+  const d = bygg(640, 384)
+  const ank = d.tyngdpunkt
+  d.mjukhet(0.8)
+  let max = 0
+  for (let i = 0; i < 300; i++) {
+    d.knuff(1.2, -0.8, { form: true })
+    d.steg(1)
+    d.flyttaTill(ank.x, ank.y)
+    max = Math.max(max, Math.hypot(d.tyngdpunkt.x - ank.x, d.tyngdpunkt.y - ank.y))
+  }
+  ok('ankaret driver inte över 300 knådade steg', max < 0.01, `max ${max.toFixed(5)} px`)
+}
+
 console.log(fel === 0 ? '\n✓ mjukprobe: allt grönt\n' : `\n✗ mjukprobe: ${fel} fel\n`)
 process.exit(fel === 0 ? 0 : 1)

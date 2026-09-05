@@ -225,7 +225,12 @@ export class Mjukkropp {
     let cx = 0
     let cy = 0
     for (const p of this.pts) { cx += p.x; cy += p.y }
-    return { x: cx / this.n, y: cy / this.n }
+    // Dela med ANTALET summerade punkter, inte med `n`. `pts` är ringens n punkter PLUS
+    // mittpunkten, så `/ this.n` gav ringens mitt gånger (n+1)/n — en skalad lägesvektor
+    // vars fel växer med KOORDINATERNA, inte med kroppen (ÅTGÄRDER V19: en kropp på
+    // (640, 384) med 14 punkter rapporterade (685,7 · 411,4)).
+    const k = this.pts.length || 1
+    return { x: cx / k, y: cy / k }
   }
 
   /**
@@ -239,11 +244,10 @@ export class Mjukkropp {
    * återställer en osymmetrisk deformation (uppmätt i `_busprobe`).
    */
   flyttaTill(x, y) {
-    let cx = 0
-    let cy = 0
-    for (const p of this.pts) { cx += p.x; cy += p.y }
-    cx /= this.n
-    cy /= this.n
+    // Läser `tyngdpunkt` i stället för att räkna om samma sak: hade de två formlerna
+    // kunnat glida isär vore en enda `flyttaTill()` inte längre exakt (den gamla paret
+    // landade 1/n fel per anrop och konvergerade först efter flera steg).
+    const { x: cx, y: cy } = this.tyngdpunkt
     const dx = x - cx
     const dy = y - cy
     for (const p of this.pts) { p.x += dx; p.y += dy; p.px += dx; p.py += dy }

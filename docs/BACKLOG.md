@@ -13,11 +13,35 @@ Nyast överst. Status: ⬜ ej påbörjad · 🟨 pågår · ✅ klar (raden stry
 
 ---
 
-## 5. GitHub Actions kör publiceringen på en utgången Node ⬜
+## 5. GitHub Actions kör publiceringen på en utgången Node 🟨 *(bumpad 2026-09-05, verifieras av nästa push)*
 
 *Inlagt 2026-09-02, upptäckt i publiceringen av `88ce266` (`/doctor`-passet). Bygget är
 **grönt idag** — GitHub tvingar de gamla actionsen till Node 24 åt oss. Posten finns för att
 den tvingningen tar slut, och då är det vägen ut till barnens telefon som brister.*
+
+**LÄGET 2026-09-05 (v1.248.0): läxan är gjord och de fem raderna är ändrade.** Det som
+saknas är den enda verifiering som finns — en push. Alla fem `runs.using` är omlästa och
+stämmer med tabellen nedan (inklusive att `deploy-pages@v4` är node20 och INTE står i
+GitHubs varning). Release notes lästa för varje majorhopp; **två brytande ändringar finns,
+och båda är no-ops för oss — mätt, inte antaget:**
+
+* `setup-node@v5` slog på **automatisk cache** när `package.json` har ett `packageManager`-
+  fält (v6 begränsade den till npm). Vår workflow sätter redan `cache: npm` explicit och
+  `package.json` har **inget** `packageManager`-fält · `package-lock.json` finns.
+* `upload-pages-artifact@v4` slutade ta med **dolda filer (dotfiles)** i artefakten. Ett
+  riktigt `npm run build` kördes och räknades: **0 dotfiler i `dist/`** av 1963 precache-
+  poster, och `public/` har inga heller. (v5 har dessutom `include-hidden-files` om det
+  någonsin behövs.)
+* Resten är runtime-hopp utan beteendeändring för oss: `checkout@v7` blockerar utcheckning
+  av fork-PR för `pull_request_target`/`workflow_run` (vi har bara `push` + `workflow_dispatch`),
+  `checkout@v6` lägger creds i en egen fil, `configure-pages@v6` och `deploy-pages@v5` är
+  rena node24-hopp. `checkout@v5+` kräver runner ≥ v2.327.1 — GitHub-hostade runners ligger
+  långt över.
+
+⚠️ **Kvar: ändringen är aldrig körd.** Workflowen går inte att köra lokalt. Nästa push till
+`master` är testet, och den är säker på det sätt som beskrivs sist i posten: `publicera` har
+`needs: bygg`, och spricker `publicera` ligger förra deployen kvar. Håll ett öga på
+`gh run list` direkt efter pushen.
 
 Varje körning av `.github/workflows/deploy.yml` skriver numera:
 
@@ -191,7 +215,14 @@ körts; Pages ligger uppe alltid.
 
 ---
 
-## 2. Miljöstädning: två dev-servrar och en död `.server.pid` ⬜
+## 2. ~~Miljöstädning: två dev-servrar och en död `.server.pid`~~ ✅ BORTA 2026-09-05
+
+*Mätt 2026-09-05, ingen process dödades: `.server.pid` finns inte längre i repot, och
+`Get-CimInstance Win32_Process` ger **exakt en** vite-process (PID 19060), som också är
+den som äger 5173 — alltså harnessens egen. Inget lyssnar på 4173. Tillståndet posten
+beskrev fanns inte kvar; troligen städat av en omstart. Skulle det komma tillbaka står
+diagnosen kvar nedan.*
+
 
 *Inlagd 2026-08-09 (upptäckt i nattpasset, se `SESSIONS.md` v1.62.0). Ingen har rörts —
 jag dödar inga processer på ägarens maskin utan att bli ombedd.*
@@ -207,6 +238,10 @@ preview-server (4173) och löser alltså inte det här.
 ## 3. `npm run sfx` är skyldig tre spel sina klipp ⬜
 
 *Inlagd 2026-08-09. Blockerad av att MOSS-SoundEffect är nere.*
+
+**Kollad igen 2026-09-05: MOSS svarar inte på 8003 (`curl` → 000), posten står alltså kvar
+blockerad.** Se minnet `sfx-pipeline-moss` — GPU-minnet hålls oftast av ComfyUI, och
+`POST /free` ger tillbaka det utan att döda den.
 
 `saknat-ljudklipp` i `test:all`: `sapbubblor` ×9 · `bajs-och-kiss` ×3 · `kittla-figuren` ×1.
 Det är klipp som saknas i manifestet, **inte** ett kallstarts-race (den buggen är fixad, se

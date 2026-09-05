@@ -100,11 +100,27 @@ try {
   const start = async () => {
     await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' })
     await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
+    // ⚠️ Att tomma localStorage och ladda om RENSAR INGENTING: SaveService flushar det
+    // levande dokumentet vid `pagehide`, alltsa EFTER removeItem och FORE omladdningen —
+    // varje `start()` bar med sig forra familjens sparpost. Det syntes forst nar T0 fick
+    // `torka 2` efter EN runda (S1:s runda hade lackt in). U0:s "startverkstan har 8
+    // farger" var gron bara for att de lackta rundorna stannade under milstolpe 4.
+    // Nollstall darfor spelets EGEN sparblob via ctx.progress (samma vag som `besok`)
+    // och ga in i spelet en gang till, sa `init()` laser den tomma posten.
+    // (`save.resetAll()` provades forst: den ger ett dokument UTAN profil, och GameHost
+    // kraschar tyst i `ensure` — spelet gick, men varje `setCustom` kastade.)
     await page.evaluate(() => {
       for (const k of Object.keys(localStorage)) if (k.startsWith('pwagames')) localStorage.removeItem(k)
     })
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 15000 })
+    await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
+    await page.waitForTimeout(900)
+    await page.evaluate(() => {
+      window.__barnspel.ctx.progress.setCustom('knytt', { v: 2, lista: [], n: 0, firad: 0, dag: 0, torka: 0 })
+    })
+    await page.evaluate(() => window.__barnspel.nav.go('library'))
+    await page.waitForTimeout(400)
     await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
     await page.waitForTimeout(1600)
   }
@@ -469,6 +485,47 @@ try {
     return { alla: g._alla?.length ?? -1, hylla: g._hyllData.length, disk: sparat?.lista?.length ?? -1, n: sparat?.n }
   })
   rader.push(['S1 matarm    alla poster overlever en runda', `disk ${sEfter.disk} (HEAD ger 3) · minne ${sEfter.alla} · hylla ${sEfter.hylla} · n ${sEfter.n}`, sEfter.disk === 6 && sEfter.alla === 6 && sEfter.hylla === 3 && sEfter.n === 6])
+
+  // ============================================ T: sallsyntheten (leverans 2 steg 2)
+  // Tiern rullas i `_startaCeremoni` ur Math.random — sonden tvingar den via `_tvingaTier`
+  // (DEV-krok, nollas i init) och laser vad rundan FAKTISKT bygger: kompis eller gloria,
+  // folie eller inte, och vilken tier sparposten bar. T0 ar kontrollarmen (vanlig), T3
+  // matarmen (guld). Fordelningen i tal mats av `_tierprobe.mjs` utan webblasare.
+  const tierRunda = async (t) => {
+    await page.evaluate((t) => { window.__barnspel.game._tvingaTier = t }, t)
+    await rundan(false, true)
+    await page.waitForTimeout(1900) // kompisen flyger in 1,5 s efter fodseln, flygturen 1,05 s
+    const r = await page.evaluate(() => {
+      const g = window.__barnspel.game
+      const k = g._knytt
+      return { tier: g._tier, ktier: k?.tier, kompis: k?.kompis, gloria: k?.gloria, folie: g._cer?.folie, cerTier: g._cer?.tier }
+    })
+    await klick(SPAK.x, SPAK.y)
+    await page.waitForFunction(() => window.__barnspel.game._fas === 'bygga', null, { timeout: 20000 })
+    await page.waitForTimeout(300)
+    const sp = await page.evaluate(() => {
+      const sparat = window.__barnspel.ctx.progress.get()?.custom?.knytt
+      const l = sparat?.lista || []
+      const g = window.__barnspel.game
+      const bo = g._bon.filter((b) => b.knytt).pop()
+      return { t: l[l.length - 1]?.[7], torka: sparat?.torka, hyllGloria: bo?.knytt?.gloria, hyllKompis: bo?.knytt?.kompis }
+    })
+    return { ...r, ...sp }
+  }
+  await start()
+  await satMatare()
+  const t0 = await tierRunda(0)
+  rader.push([
+    'T0 kontroll  vanlig: kompis, ingen gloria, ingen folie',
+    `tier ${t0.tier}/${t0.ktier}/${t0.cerTier} · kompis ${t0.kompis} · gloria ${t0.gloria} · folie ${t0.folie} · disk t=${t0.t} torka ${t0.torka} · hyllan ${t0.hyllKompis}`,
+    t0.tier === 0 && t0.ktier === 0 && t0.cerTier === 0 && t0.kompis === 'sitter' && t0.gloria === false && t0.folie === false && t0.t === 0 && t0.torka === 1 && t0.hyllKompis === 'sitter',
+  ])
+  const t3 = await tierRunda(3)
+  rader.push([
+    'T3 matarm    guld: gloria + folie, ingen kompis',
+    `tier ${t3.tier}/${t3.ktier}/${t3.cerTier} · kompis ${t3.kompis} · gloria ${t3.gloria} · folie ${t3.folie} · disk t=${t3.t} torka ${t3.torka} · hyllan gloria ${t3.hyllGloria}`,
+    t3.tier === 3 && t3.ktier === 3 && t3.cerTier === 3 && t3.kompis === 'ingen' && t3.gloria === true && t3.folie === true && t3.t === 3 && t3.torka === 0 && t3.hyllGloria === true,
+  ])
 
   // ======================================== L: lekfulla laget (docens §9 B1)
   // Laget fanns skrivet men gick inte att na: `setLage()` anropades bara med 'glad'.

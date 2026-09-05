@@ -598,6 +598,88 @@ const MUNNAR = [
   },
 ]
 
+// --- KOMPISAR — det ett VANLIGT knytt får och ett skimrande aldrig får (docens §3b) -------
+// En per värld. Ritas med FOTEN i origo och kroppen uppåt, i skalan `s` (~0,19 r), och sätter
+// sig på hjässan. `fladder` = vingar som slår (snabbare vickning), annars en lugn vaggning.
+// Egen siluett, eget liv — aldrig en ikon (P0 ASSETS).
+const KOMPISAR = {
+  skalbagge: {
+    rita(g, s) {
+      g.ellipse(0, -s * 0.55, s * 0.72, s * 0.55).fill(shade(0xd9432f, 0.25))
+      g.ellipse(0, -s * 0.6, s * 0.66, s * 0.5).fill(topLightFill(0xe04a34, { highlight: 0.32, dark: 0.2 }))
+      g.moveTo(0, -s * 0.15).lineTo(0, -s * 1.05).stroke({ width: s * 0.07, color: 0x2b1d1a })
+      for (const [x, y] of [[-0.32, -0.62], [0.3, -0.58], [-0.14, -0.3], [0.16, -0.32]]) g.circle(x * s, y * s, s * 0.1).fill(0x2b1d1a)
+      g.circle(0, -s * 1.02, s * 0.27).fill(0x2b1d1a)
+      g.circle(-s * 0.1, -s * 1.06, s * 0.06).fill(0xffffff)
+      g.circle(s * 0.1, -s * 1.06, s * 0.06).fill(0xffffff)
+    },
+  },
+  smafisk: {
+    rita(g, s) {
+      g.moveTo(-s * 0.55, -s * 0.5).lineTo(-s * 0.95, -s * 0.9).lineTo(-s * 0.95, -s * 0.1).closePath().fill(0x3f9fd0)
+      g.ellipse(0, -s * 0.5, s * 0.66, s * 0.4).fill(topLightFill(0x62c4ea, { highlight: 0.34, dark: 0.2 }))
+      g.ellipse(s * 0.04, -s * 0.36, s * 0.42, s * 0.16).fill({ color: 0xffffff, alpha: 0.35 })
+      g.moveTo(-s * 0.1, -s * 0.85).quadraticCurveTo(s * 0.1, -s * 1.1, s * 0.3, -s * 0.8).closePath().fill(0x3f9fd0)
+      g.circle(s * 0.36, -s * 0.56, s * 0.11).fill(0xffffff)
+      g.circle(s * 0.39, -s * 0.56, s * 0.06).fill(0x1d2a3a)
+    },
+  },
+  snosparv: {
+    fladder: true,
+    rita(g, s) {
+      g.moveTo(-s * 0.5, -s * 0.5).lineTo(-s * 0.9, -s * 0.66).lineTo(-s * 0.84, -s * 0.4).closePath().fill(0xb9c3cf)
+      g.ellipse(0, -s * 0.5, s * 0.6, s * 0.46).fill(topLightFill(0xf4f7fb, { highlight: 0.2, dark: 0.18 }))
+      g.ellipse(-s * 0.1, -s * 0.5, s * 0.36, s * 0.24).fill({ color: 0xb9c3cf, alpha: 0.8 })
+      g.circle(s * 0.34, -s * 0.86, s * 0.3).fill(topLightFill(0xf8fafc, { highlight: 0.2, dark: 0.16 }))
+      g.moveTo(s * 0.58, -s * 0.86).lineTo(s * 0.8, -s * 0.8).lineTo(s * 0.58, -s * 0.74).closePath().fill(0xf2a23a)
+      g.circle(s * 0.4, -s * 0.92, s * 0.06).fill(0x1d2a3a)
+    },
+  },
+  nattfjaril: {
+    fladder: true,
+    rita(g, s) {
+      for (const sida of [-1, 1]) {
+        g.ellipse(sida * s * 0.42, -s * 0.66, s * 0.44, s * 0.3).fill(topLightFill(0xd9cff6, { highlight: 0.24, dark: 0.16 }))
+        g.ellipse(sida * s * 0.36, -s * 0.34, s * 0.3, s * 0.2).fill(0xc4b6ee)
+        g.circle(sida * s * 0.5, -s * 0.7, s * 0.09).fill({ color: 0x5a4b8a, alpha: 0.7 })
+      }
+      g.ellipse(0, -s * 0.52, s * 0.14, s * 0.4).fill(0x5a4b8a)
+      g.circle(0, -s * 0.92, s * 0.14).fill(0x5a4b8a)
+      g.moveTo(-s * 0.06, -s * 1.02).quadraticCurveTo(-s * 0.28, -s * 1.28, -s * 0.36, -s * 1.22).stroke({ width: s * 0.05, color: 0x5a4b8a, cap: 'round' })
+      g.moveTo(s * 0.06, -s * 1.02).quadraticCurveTo(s * 0.28, -s * 1.28, s * 0.36, -s * 1.22).stroke({ width: s * 0.05, color: 0x5a4b8a, cap: 'round' })
+    },
+  },
+  grashoppa: {
+    rita(g, s) {
+      g.moveTo(-s * 0.3, -s * 0.2).lineTo(-s * 0.7, -s * 0.9).lineTo(-s * 0.5, -s * 0.05).closePath().fill(0x4f9a3a)
+      g.moveTo(s * 0.3, -s * 0.2).lineTo(s * 0.7, -s * 0.9).lineTo(s * 0.5, -s * 0.05).closePath().fill(0x4f9a3a)
+      g.ellipse(0, -s * 0.5, s * 0.62, s * 0.3).fill(topLightFill(0x7ccf4f, { highlight: 0.3, dark: 0.2 }))
+      g.circle(s * 0.5, -s * 0.66, s * 0.22).fill(topLightFill(0x8ad85a, { highlight: 0.3, dark: 0.18 }))
+      g.circle(s * 0.58, -s * 0.72, s * 0.06).fill(0x1d2a1a)
+      g.moveTo(s * 0.5, -s * 0.86).quadraticCurveTo(s * 0.6, -s * 1.2, s * 0.86, -s * 1.22).stroke({ width: s * 0.05, color: 0x3d7a2c, cap: 'round' })
+      g.moveTo(s * 0.44, -s * 0.86).quadraticCurveTo(s * 0.3, -s * 1.2, s * 0.14, -s * 1.28).stroke({ width: s * 0.05, color: 0x3d7a2c, cap: 'round' })
+    },
+  },
+  fladdermus: {
+    fladder: true,
+    rita(g, s) {
+      for (const sida of [-1, 1]) {
+        g.moveTo(sida * s * 0.16, -s * 0.66)
+          .quadraticCurveTo(sida * s * 0.6, -s * 1.1, sida * s * 0.96, -s * 0.74)
+          .quadraticCurveTo(sida * s * 0.7, -s * 0.66, sida * s * 0.6, -s * 0.44)
+          .quadraticCurveTo(sida * s * 0.36, -s * 0.5, sida * s * 0.16, -s * 0.36)
+          .closePath()
+          .fill(topLightFill(0x6b56a8, { highlight: 0.22, dark: 0.22 }))
+      }
+      g.ellipse(0, -s * 0.56, s * 0.24, s * 0.4).fill(topLightFill(0x7f68bd, { highlight: 0.26, dark: 0.2 }))
+      g.moveTo(-s * 0.18, -s * 0.86).lineTo(-s * 0.26, -s * 1.16).lineTo(-s * 0.02, -s * 0.94).closePath().fill(0x6b56a8)
+      g.moveTo(s * 0.18, -s * 0.86).lineTo(s * 0.26, -s * 1.16).lineTo(s * 0.02, -s * 0.94).closePath().fill(0x6b56a8)
+      g.circle(-s * 0.08, -s * 0.8, s * 0.05).fill(0xfff1a8)
+      g.circle(s * 0.08, -s * 0.8, s * 0.05).fill(0xfff1a8)
+    },
+  },
+}
+
 const LAGEN = ['idle', 'glad', 'lekfull', 'somnig', 'sover']
 // Vilorörelsens takt per värld: sten (snölandet) är trögare, natten piggare.
 const VARLD_TAKT = [1, 0.96, 0.9, 1.07]
@@ -628,6 +710,16 @@ class Knytt {
     this._prop = laesProp(d)
     this._pal = laesPalett(d)
     this._varld = clamp(Math.round(tal(d.varld, 0)), 0, 3)
+    // Sällsyntheten (§3b): tier 3 bär en gloria, tier 0 en kompis på huvudet. `opts.kompis`
+    // 'sen' = kompisen finns men är inte här än (ceremonin flyger in den med `kompisIn()`),
+    // false = ingen alls; annars sitter den från första bildrutan (hyllan, boden).
+    this._tier = clamp(Math.round(tal(d.tier, 0)), 0, 3)
+    this._kompisNyckel = typeof d.kompis === 'string' ? d.kompis : 'skalbagge'
+    this._kompisLage = this._tier > 0 || opts.kompis === false ? 'ingen' : opts.kompis === 'sen' ? 'borta' : 'sitter'
+    this._kompis = null
+    this._kompisBild = null
+    this._kompisDef = null
+    this._gloria = null
     // En egen ström ur fröet: mönstrets prickar, öronens faser och blinktakten ska vara
     // knyttets egna och EXAKT desamma varje gång det ritas — aldrig ur en oseedad slumpkälla.
     this._rnd = mulberry32(((tal(d.fro, 1) >>> 0) ^ 0x9e3779b9) >>> 0)
@@ -851,6 +943,43 @@ class Knytt {
     this._gap.alpha = 0
     this._ansikte.addChild(this._gap, this._mun)
 
+    // --- kompisen på hjässan (bara vanliga knytt) -----------------------------
+    // Hållaren `_kompis` bär platsen (och flygturen in, som tweenas av `kompisIn`);
+    // bilden `_kompisBild` bär fladdret, skrivet av `_apply` varje bildruta. Två noder,
+    // två skrivare — samma regel som resten av riggen.
+    if (this._kompisLage !== 'ingen') {
+      const def = KOMPISAR[this._kompisNyckel] || KOMPISAR.skalbagge
+      const hall = new Container()
+      hall._wx = m.bw * 0.24
+      hall._wy = m.topY + r * 0.03
+      hall._wfas = rnd() * TAU
+      hall.position.set(hall._wx, hall._wy)
+      hall.visible = this._kompisLage === 'sitter'
+      const bild = new Container()
+      const kg = new Graphics()
+      def.rita(kg, r * 0.19)
+      bild.addChild(kg)
+      hall.addChild(bild)
+      this._liv.addChild(hall)
+      this._kompis = hall
+      this._kompisBild = bild
+      this._kompisDef = def
+    }
+
+    // --- glorian (bara guld) — ett guldknytt känns igen på SILUETTEN, inte bara på skimret --
+    if (this._tier === 3) {
+      const gl = new Container()
+      gl._wy = m.topY - r * 0.3
+      gl.position.set(0, gl._wy)
+      const gg = new Graphics()
+      const rx = Math.max(r * 0.22, m.bw * 0.46)
+      gg.ellipse(0, 0, rx, rx * 0.32).stroke({ width: r * 0.07, color: 0xf3c74f })
+      gg.ellipse(0, -r * 0.012, rx * 0.9, rx * 0.22).stroke({ width: r * 0.024, color: 0xfff3c0, alpha: 0.85 })
+      gl.addChild(gg)
+      this._liv.addChild(gl)
+      this._gloria = gl
+    }
+
     for (const nod of this._liv.children) nod.eventMode = 'none'
   }
 
@@ -980,6 +1109,48 @@ class Knytt {
       this._skuttAktiv = true
       this._skuttFas = 0
     }
+    return this
+  }
+
+  get tier() { return this._tier }
+  /** 'sitter' · 'borta' (finns, har inte flugit in än) · 'ingen' (skimrande knytt). */
+  get kompis() { return this._kompisLage }
+  get gloria() { return !!this._gloria }
+
+  /**
+   * Kompisen flyger in och sätter sig på hjässan — vanliga knytts egen gåva (§3b). `fran`
+   * anges i r-enheter i knyttets EGEN rymd (ceremonin skickar ett hörn långt bort uppe
+   * till vänster). Tweenen ligger på hållaren, som `_apply()` aldrig rör: bilden i den
+   * fladdrar per bildruta, hållaren flyger. `stadFx` når hållaren vid rivning.
+   */
+  kompisIn(fran = { x: -4, y: -3 }) {
+    const k = this._kompis
+    if (!this._alive || this.view.destroyed || !k || k.destroyed || this._kompisLage !== 'borta') return this
+    this._kompisLage = 'sitter'
+    const r = this._r
+    const x0 = tal(fran?.x, -4) * r
+    const y0 = tal(fran?.y, -3) * r
+    k.position.set(x0, y0)
+    k.visible = true
+    gsap.killTweensOf(k)
+    const topp = Math.min(y0, k._wy) - r * 0.6
+    gsap.timeline()
+      .to(k, { x: k._wx, duration: 1.05, ease: 'sine.inOut' }, 0)
+      .to(k, { y: topp, duration: 0.5, ease: 'sine.out' }, 0)
+      .to(k, {
+        y: k._wy,
+        duration: 0.55,
+        ease: 'bounce.out',
+        onComplete: () => {
+          if (!this._alive || this.view.destroyed) return
+          sparkle(this._fx, k._wx * this._bas, k._wy * this._bas, { count: 5 })
+          this._ljud?.tone?.({ freq: 988, dur: 0.12, type: 'sine', vol: 0.12 })
+          this._senare?.(0.1, () => {
+            if (this._alive && !this.view.destroyed) this._ljud?.tone?.({ freq: 1319, dur: 0.14, type: 'sine', vol: 0.1 })
+          })
+          this.hoppa(1)
+        },
+      }, 0.5)
     return this
   }
 
@@ -1265,6 +1436,22 @@ class Knytt {
     this._mun.alpha = 1 - s.gasp * 0.85
     this._gap.alpha = s.gasp
     this._gap.scale.set(0.7 + s.gasp * 0.5, 0.5 + s.gasp * 0.9)
+
+    // Kompisen fladdrar (vingar) eller vaggar (skalbagge, fisk), piggare när knyttet är glatt,
+    // och SLÄPAR efter kroppen som öronen gör. Bara bilden — hållaren är flygturens.
+    const kb = this._kompisBild
+    if (kb && !kb.destroyed) {
+      const f = this._kompisDef?.fladder ? 1.7 : 1
+      const fas = this._kompis?._wfas || 0
+      kb.rotation = Math.sin(this._t * 3.4 * f + fas) * 0.09 + slap * 0.5
+      kb.scale.set(1, 1 + Math.sin(this._t * 7 * f + fas) * 0.05 * (1 + s.gladhet))
+    }
+    // Glorian guppar i sin EGEN takt ovanför huvudet och sjunker med i sömnen.
+    const gl = this._gloria
+    if (gl && !gl.destroyed) {
+      gl.y = gl._wy - Math.sin(this._t * 1.9 + this._prop.fas) * this._r * 0.035 + s.sank * this._r * 0.12
+      gl.rotation = Math.sin(this._t * 0.8) * 0.05
+    }
   }
 
   destroy() {
@@ -1272,7 +1459,11 @@ class Knytt {
     // Städhjälparen FÖRE rivningen, aldrig efter: en tween som redan skriver på en nollad
     // transform hinner kasta innan destroy() ens är klar.
     stadFx(this.view)
+    if (this._kompis) gsap.killTweensOf(this._kompis)
     if (this.view && !this.view.destroyed) this.view.destroy({ children: true })
+    this._kompis = null
+    this._kompisBild = null
+    this._gloria = null
     this._ogon = []
     this._oron = []
     this._svans = []

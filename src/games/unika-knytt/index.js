@@ -20,7 +20,7 @@ import { byggCeremoni } from './ceremoni.js'
 import { byggKnytt } from './knytt.js'
 import {
   dnaFromSeed, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR,
-  MILSTOLPAR, START_TAK, takFor, antalFranPoster,
+  MILSTOLPAR, START_TAK, takFor, antalFranPoster, rullaTier,
 } from './dna.js'
 
 // Verkstadens egen värld. createScene tar ett eget tema-objekt lika gärna som en nyckel —
@@ -101,6 +101,11 @@ export default {
     this._val = { f: 0, z: 1, m: 0, v: 0, g: 0 }
     this._dna = null
     this._fro = 0
+    // Sällsyntheten (§3b): tiern för RUNDANS ägg, torkräknaren (vanliga i rad, aldrig
+    // visad) och en DEV-krok som sonden sätter för att tvinga ett utfall. Nollas här.
+    this._tier = 0
+    this._torka = 0
+    this._tvingaTier = null
     this._verktyg = {}
     this._kupa = null
     this._spak = null
@@ -456,6 +461,7 @@ export default {
     this._antal = sparat === null ? antalFranPoster(rent) : Math.max(sparat, this._alla.length)
     this._firad = tal(rå?.firad) ?? this._antal
     this._dag = tal(rå?.dag) ?? 0
+    this._torka = tal(rå?.torka) ?? 0
   },
 
   // Verkstadens tak HÄRLEDS ur räknaren, alltid — aldrig ett eget fält som uppdateras på
@@ -480,6 +486,7 @@ export default {
       n: this._antal,
       firad: this._firad,
       dag: this._dag,
+      torka: this._torka,
     })
   },
 
@@ -510,8 +517,10 @@ export default {
       // `_fro % 5` såg rätt ut och var ett annat tal.
       this._dna?.val.r ?? 0,
       this._val.g,
-      0,
+      this._tier,
     ]
+    // Torkräknaren: sex vanliga i rad ger nästa garanterat brons. Sparas, visas aldrig.
+    this._torka = this._tier === 0 ? this._torka + 1 : 0
     const lista = this._alla.map((x) => x.slice())
     lista.push(p)
     this._alla = lista.slice(-ALLA_MAX)
@@ -559,7 +568,7 @@ export default {
       }
       const data = this._hyllData[i]
       if (!data) continue
-      const dna = dnaFromSeed(data[0], { f: data[1], z: data[2], m: data[3], v: data[4], g: data[6] })
+      const dna = dnaFromSeed(data[0], { f: data[1], z: data[2], m: data[3], v: data[4], g: data[6], t: data[7] })
       const k = byggKnytt(dna, {
         r: 40,
         senare: (s, fn) => ctx.later(s, fn),
@@ -744,9 +753,17 @@ export default {
     this._knackar = 0
     this._doljHand()
 
-    // Fröet rullas HÄR, före en enda bildruta av ceremonin. Den är en avtäckning, inte en snurr.
+    // Fröet OCH tiern rullas HÄR, före en enda bildruta av ceremonin. Den är en avtäckning,
+    // inte en snurr: inget barnet gör under animationen kan ändra utfallet. Burken (g) är
+    // ratten med tak +5 pp; första kläckningen och sex vanliga i rad garanterar brons (§3b).
+    // `_tvingaTier` är sondens DEV-krok (null i spelet).
     if (!this._fro) this._fro = slumpFro(mulberry32((Math.random() * 0xffffffff) >>> 0))
-    this._dna = dnaFromSeed(this._fro, this._val)
+    const tvang = this._tvingaTier
+    this._tier = Number.isFinite(tvang)
+      ? Math.max(0, Math.min(3, Math.trunc(tvang)))
+      : rullaTier(Math.random(), this._val.g, { forsta: this._antal === 0, torka: this._torka })
+    this._dna = dnaFromSeed(this._fro, { ...this._val, t: this._tier })
+    diag('takt', 'tier', { tier: this._tier, g: this._val.g, torka: this._torka, forsta: this._antal === 0 })
 
     for (const v of Object.values(this._verktyg)) v.satLast(true)
     this._kupaAktiv(false)
@@ -777,7 +794,9 @@ export default {
       this._fas = 'klacka'
       this._aggYta.visible = true
       this._sag(ctx, 'Ett ägg! Knacka på det!')
-      ctx.later(1.2, () => this._visaHand(AGG_X, AGG_Y - 96))
+      // Ett otåligt barn har knackat färdigt på under 1,2 s — då ska handen inte dyka upp
+      // ovanpå den nyfödda världen (syntes i `_skimmerbild` innan vakten fanns).
+      ctx.later(1.2, () => { if (this._fas === 'klacka') this._visaHand(AGG_X, AGG_Y - 96) })
       this._bobo?.setMood('nyfiken')
     } else if (h === 'klack') {
       this._fas = 'avtack'
@@ -818,9 +837,14 @@ export default {
     if (!this._alive) return
     const namn = this._dna?.namn
     if (!namn) return
+    // Skimret eller kompisen får sin egen mening DIREKT efter namnet, aldrig ovanpå det:
+    // `_narTyst` väntar in namnklippet (`talar` är sann så fort kön satts). Raden fångas
+    // i en lokal här — `_aterstall` nollar `_dna` och kan hinna emellan.
+    const rad = this._tier > 0 ? 'Oj, vad det glittrar!' : 'Ditt knytt har fått en liten kompis med sig!'
     this._narTyst(ctx, () => {
       if (!this._alive) return
       ctx.services.voice.say(namn)
+      this._narTyst(ctx, () => { if (this._alive) ctx.services.voice.say(rad) })
     })
   },
 

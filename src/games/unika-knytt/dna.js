@@ -142,6 +142,7 @@ export const VARLDAR = [
       svans: [1, 3, 1, 1, 1], // tofs
     },
     rekvisita: ['trad', 'sten', 'svamp', 'stubbe'],
+    kompis: 'skalbagge',
   },
   {
     id: 'vatten',
@@ -153,6 +154,7 @@ export const VARLDAR = [
       svans: [1, 1, 1, 4, 1], // fena
     },
     rekvisita: ['sjogras', 'snacka', 'sten', 'bubbla'],
+    kompis: 'smafisk',
   },
   {
     id: 'sno',
@@ -170,6 +172,7 @@ export const VARLDAR = [
       svans: [3, 3, 1, 1, 1], // ingen + tofs
     },
     rekvisita: ['gran', 'snodriva', 'istapp', 'snoflinga'],
+    kompis: 'snosparv',
   },
   {
     id: 'natt',
@@ -181,6 +184,7 @@ export const VARLDAR = [
       svans: [1, 1, 3, 1, 1], // lang
     },
     rekvisita: ['mane', 'stjarna', 'eldfluga', 'nattblomma'],
+    kompis: 'nattfjaril',
   },
 ]
 
@@ -379,10 +383,18 @@ export function dnaFromSeed(seed, val = {}) {
   const rot = heltal(rnd, 4)
   const motiv = MOTIVFORM[r].map((steg) => SKALA[Math.min(SKALA.length - 1, rot + steg)])
 
+  // Tiern ar INTE genetik: den rullas i index.js ur ett eget slumptal och sparas pa plats 7.
+  // Den laser inget ur strommen (regel 1: ordningen ar identitet), sa samma fro ger samma
+  // knytt oavsett tier — skimret laggs OVANPA individen, det byter aldrig ut den.
+  // Kompisen ar det ett VANLIGT knytt far och ett skimrande aldrig far (§3b), en per varld.
+  const tier = klamp(val.t | 0, 0, 3)
+
   return {
     fro,
     val: { f, z, m, v, g, r },
     varld: v,
+    tier,
+    kompis: varld.kompis || 'skalbagge',
     storlek: STORLEKAR[z],
     kropp, oron, svans, ben, ogonform, ogonantal, mun, horn, vingar,
     monster: m,
@@ -482,4 +494,42 @@ export function antalFranPoster(lista) {
     }
   }
   return n
+}
+
+// ---------------------------------------------------------------------------
+// Sallsynthet — agarens tal, husets etik (docens §3b). Ren logik, matt av _tierprobe.
+// ---------------------------------------------------------------------------
+//
+// Grundrullning per spakdrag: guld 2 % · silver 5 % · brons 10 % · vanlig 83 %.
+// Burken ar ratten, med TAK: varje gnista ger +1,0 pp brons · +0,5 pp silver · +1/6 pp
+// guld, tre gnistor ar taket (17,0 % -> 22,0 % skimmer; guld 2,00 -> 2,50 %). Guld
+// forblir alltsa genuint sallsynt hur mycket stjarnstoft barnet an haller i — det ar
+// skillnaden mellan en generator och en gacha.
+//
+// Utfallet rullas FORE spaken dras, i `_startaCeremoni`, ur ETT slumptal u. Ceremonin ar
+// darmed en avtackning, inte en snurr: inget barnet gor under animationen andrar det.
+// Garantier i stallet for jakt: forsta klackningen pa en profil ar minst brons, och efter
+// sex vanliga i rad (`torka`) ar nasta minst brons. Raknarna renderas aldrig, sags aldrig.
+
+export const TIER = ['vanlig', 'brons', 'silver', 'guld']
+
+/** Oddsen som ANDELAR efter burkens g gnistor (0-3). Taket +5 pp ligger i talen. */
+export function tierOdds(g) {
+  const k = klamp(g | 0, 0, 3)
+  return { guld: 0.02 + k / 600, silver: 0.05 + k * 0.005, brons: 0.10 + k * 0.01 }
+}
+
+/**
+ * Tier 0-3 ur ett slumptal u (0..1). `forsta` och `torka >= 6` lyfter en vanlig till brons.
+ * Kontrollarm i _tierprobe: utan garantier ar 0 mojlig (~83 %), med dem aldrig.
+ */
+export function rullaTier(u, g, { forsta = false, torka = 0 } = {}) {
+  const o = tierOdds(g)
+  const x = klamp(Number.isFinite(u) ? u : 0.5, 0, 0.999999)
+  let t = 0
+  if (x < o.guld) t = 3
+  else if (x < o.guld + o.silver) t = 2
+  else if (x < o.guld + o.silver + o.brons) t = 1
+  if (t === 0 && (forsta || torka >= 6)) t = 1
+  return t
 }

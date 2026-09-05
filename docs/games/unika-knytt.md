@@ -989,6 +989,56 @@ bredast rakt över ögat (±1,53e, täcker `stjarna`s 1,34e), med bryn-båge och
 båda väntar på samma sak — ägarens eget speltest: Skrället (§4b) och upplåsningarnas takt.
 Därefter leverans 2 (sällsynthet · folie · Knyttboden), och V19/V16 i delad kod.`
 
+`2026-09-05 · LEVERANS 2 påbörjad (v1.247.0). Ägarens speltest är gjort ("bra"), och ägarens
+riktning är variation + de saknade funktionerna. Ordning vald av ägaren: persistens →
+sällsynthet+folie+kompis → Knyttboden → variation (större rekvisitapool per värld + två nya
+världar, Öknen och Grottan). En commit per steg.
+
+**Steg 1 — persistens (`c7ccc63`).** Hela samlingen sparas (`_alla`, tak 200); hyllan visar
+`_alla.slice(-3)`. Före det sparades BARA hyllans tre, och varje fjärde kläckning kastade det
+äldsta knyttet för gott — boden kan bara visa det som finns på disk, så det här kom först.
+Uppmätt med `_knyttprobe` S0/S1: fem poster + en runda gav **3 på disk på HEAD, 6 nu**.
+
+**Steg 2 — sällsyntheten, folien, tier-skillnaderna och kompisen.** Ägarens tal exakt
+(`dna.js:rullaTier` · `tierOdds`): guld 2 % · silver 5 % · brons 10 %, burken +1/6 · +0,5 ·
++1,0 pp per gnista med tak +5 pp, första kläckningen och sex vanliga i rad ger minst brons.
+Rullas i `_startaCeremoni` ur ETT slumptal FÖRE en bildruta ritats; sparas på plats 7 i posten
+(`_rensaPost` klampade den redan mot 4). Tiern läser inget ur fröströmmen — samma frö ger samma
+individ oavsett tier (uppmätt: `_tierprobe` T4). **Avtäckningen:** ägget glöder i sin metall
+redan i F3 (`aggMal` dras mot `TIER_FARG`), ljusstormen tar metallen, metallklang (784 · 1047 ·
+1319 Hz med oktav) + metallflingor vid kläckningen. **Folien** (`ceremoni.js:byggSkimmer`): ett
+cachat linjärt flerstoppsband per tier (modulnivå-`Map`) sveper under en mask klippt ur fondens
+egna `roundRect`, normal alfa; `mask = null` innan noden rivs. **Fysiska tier-skillnader:**
+brons hamrad kopparlist (26 gropar med ljus kant) · silver regnbågskantljus (stroke med
+gradient-`fill`) + tre drivande gnistor · guld bred guldram + solkrona (8 strålar i `bak`,
+andas i egen tidslinje) + **gloria på knyttet självt** (`knytt.js`, guppar i egen takt, sjunker i
+sömnen — syns på hyllan vid r 40). **Kompisen** (vanliga knytt, det ett skimrande aldrig får):
+`KOMPISAR` i `knytt.js`, en per värld (skalbagge · småfisk · snösparv · nattfjäril; gräshoppa och
+fladdermus ligger klara för Öknen/Grottan), ritad fristående med foten i origo, sitter på
+hjässan i `_liv` — hållaren bär platsen och flygturen (`kompisIn()`, tween på hållaren), bilden
+fladdrar per bildruta i `_apply`. Ceremonin flyger in den 1,5 s efter födseln; hyllan får den
+sittande. Narratorn: "Oj, vad det glittrar!" eller "Ditt knytt har fått en liten kompis med
+sig!" DIREKT efter namnet, kedjat via `_narTyst` (båda klippen fanns redan, betalda 2026-08-30
+och aldrig anropade). `torka` bor i samma sparblob som `n`/`firad`/`dag` — en skrivare.
+
+**Mätt:** `_tierprobe.mjs` (ny, node-only, 12 armar, u ur ett jämnt rutnät så andelarna är
+exakta): tabellen på hundradelen (g0 2,00/5,00/10,00 = 17,00 … g3 2,50/6,50/13,00 = 22,00), taket
+(g7 = g3), garantierna (första · torka 6 → 0,00 % vanlig; torka 5 → 83,00 %, kontrollarm),
+genetiken orörd, en kompis per värld, plats 7 läst UR `_sparaKnytt`. `_knyttprobe` T0/T3
+(`_tvingaTier`, DEV-krok nollad i `init`): vanlig → kompis sitter, ingen gloria, ingen folie,
+disk t=0; guld → gloria + folie, ingen kompis, disk t=3, hyllans knytt bär glorian.
+`_skimmerbild.mjs` (ny): en runda per tier, fyra bilder + hyllan — och det var BILDEN som
+hittade att knackhandens 1,2 s-timer visade handen ovanpå den nyfödda världen när barnet
+knackat färdigt på under 1,2 s (vaktad på `_fas === 'klacka'` nu).
+
+⚠️ **Sondens `start()` rensade aldrig.** `localStorage.removeItem` + `reload` nollställer
+ingenting: `SaveService` flushar det levande dokumentet vid `pagehide`, alltså EFTER
+rensningen — varje familj ärvde förra familjens sparpost. Det syntes först när T0 fick
+`torka 2` efter EN runda. U0 ("startverkstan har 8 färger") var grön bara för att de läckta
+rundorna stannade under milstolpe 4. `save.resetAll()` var fel väg (ett dokument utan profil,
+GameHost kraschar tyst i `ensure` och varje `setCustom` kastar); rätt väg är spelets egen
+sparblob via `ctx.progress.setCustom` + in i spelet en gång till, som `besok` redan gjorde.`
+
 
 ## 6. Teknisk ritning
 
@@ -1288,6 +1338,12 @@ ceremonin** och räkna `gsap.isTweening` på innernoder som plockats undan **fö
 (med **spelets** gsap-instans — en nyimporterad kopia har en egen global tidslinje och
 rapporterar 0 oavsett vad som pågår).
 
+**Leverans 2:s egna sonder (2026-09-05):** `_tierprobe.mjs` (node-only — oddsen, taket,
+garantierna, att tiern inte rör genetiken, plats 7 läst ur `_sparaKnytt`) · `_knyttprobe`
+S-familjen (samlingen överlever hyllan) och T-familjen (`_tvingaTier`: vanlig → kompis, guld →
+gloria + folie, sparposten) · `_skimmerbild.mjs` (en runda per tier i BILD — folie, ram, krona,
+gloria, kompis; det var den som såg knackhanden ovanpå den nyfödda världen).
+
 Befintliga sonder som ska köras: `_idleprobe` (**ska vara 0** — spelet får aldrig klara sig
 själv), `_mjukprobe` (degen), `_vilkaprobe` (bevisa att det som rör sig i boden ÄR knytten),
 `_fpsprobe --cpu 6` och `_montageprobe --cpu 4 --varv 3` (boden med åtta levande knytt),
@@ -1344,8 +1400,8 @@ Inget nedan är en trasig sak — det är beslut, obyggt, eller omätt.
 | | |
 |---|---|
 | ~~**Sömntrösklarna**~~ | ✅ **BESVARAT 2026-09-01: koden gäller** (12 s → `somnig`, 8 s till → `sover`). §1 rättad — den hade inte följt med när §3c kortade trösklarna från 20+12. Ingen kodändring. |
-| **§4b Skrället** | Färdigspecad, grindad på hur länge ett barn DRÖJER i verkstan. Harnessens 2,55 s är harnessens tidtabell, inte ett barns. Kräver ägarens eget speltest. |
-| **Upplåsningarnas takt** | Nytt 2026-09-01: är 16 kläckningar till sista milstolpen rimligt eller för långt för ett barn? Bara ett speltest dömer det. |
+| **§4b Skrället** | Färdigspecad, grindad på hur länge ett barn DRÖJER i verkstan. Harnessens 2,55 s är harnessens tidtabell, inte ett barns. **Ägarens speltest är gjort 2026-09-05 ("bra")** men uppehållstiden är inte rapporterad — frågan står kvar. |
+| **Upplåsningarnas takt** | Nytt 2026-09-01: är 16 kläckningar till sista milstolpen rimligt eller för långt för ett barn? **Speltestet 2026-09-05 sa "bra" utan invändning**; ägarens riktning blev MER variation (leverans 2 steg 4 lägger två världar och två milstolpar till efter 16). |
 
 ### B. Byggt men aldrig inkopplat, eller dött (allt verifierat i koden 2026-09-01)
 
@@ -1427,6 +1483,11 @@ Ljudtratten och migreringen fortfarande noll.
   hela spelet, och ingen sond ersätter den.
 
 ### D. Leverans 2 — samlingen och skimret (~1 200 rader)
+
+**Pågår 2026-09-05 (v1.247.0), ägarens ordning:** ① persistens ✅ `c7ccc63` · ② sällsynthet +
+folie + tier-skillnader + kompisen ✅ · ③ Knyttboden ⬜ · ④ variation ⬜ (större rekvisitapool
+per värld, den seedade dragningen väljer 4, + två nya världar Öknen och Grottan med egna
+milstolpar efter 16). Se §5 2026-09-05.
 
 Ett eget, stort pass. Innehållet står redan i **§4** (Knyttboden som rullande popup ·
 sällsynthetsrullningen med garantierna · folien och de tre fysiska tier-skillnaderna ·

@@ -18,7 +18,7 @@
 // sin volym av tre platta lager (mörk baksida · kropp · ljusfläck), och gradienter
 // används bara på ytor som ritas EN gång: fonden, marken och det frysta ägget.
 
-import { Container, Graphics } from 'pixi.js'
+import { Container, FillGradient, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { verticalFill, groundFill, topLightFill } from '../../lib/form.js'
@@ -89,6 +89,46 @@ const PROP_TONER = [392, 466, 523, 659] // en stämd trappa, ett steg per förem
 
 const DEG_BAS = 0xe8d3a8 // rå degfärg innan världen färgar den
 const HALM = 0xc9a15a
+
+// ---- sällsyntheten (docens §3b) — rullad i index.js FÖRE spaken dras, AVTÄCKT här ----
+const TIER_FARG = [0, 0xd08a4a, 0xd9dde8, 0xf2c94c] // vanlig · brons · silver · guld
+const TIER_KLANG = [0, 784, 1047, 1319] // metallklangen, en ton per tier
+// Foliebandet: EN cachad linjär flerstoppsgradient per tier, på modulnivå. En ny
+// FillGradient per montering destabiliserar hela sviten (CLAUDE.md: `tom-scen` 1 av 3),
+// så Map:en gör att varje tier bakas exakt en gång per app-livstid. Linjär = 256×1 px.
+const _folie = new Map()
+function folieFill(t) {
+  let g = _folie.get(t)
+  if (g) return g
+  const m = TIER_FARG[t] || 0xffffff
+  const hex = (c, a) => `#${c.toString(16).padStart(6, '0')}${Math.round(a * 255).toString(16).padStart(2, '0')}`
+  g = new FillGradient({
+    type: 'linear',
+    start: { x: 0, y: 0 },
+    end: { x: 1, y: 0 },
+    colorStops: [
+      { offset: 0, color: hex(0xffffff, 0) },
+      { offset: 0.38, color: hex(tint(m, 0.5), 0.55) },
+      { offset: 0.5, color: hex(0xffffff, 0.85) },
+      { offset: 0.62, color: hex(m, 0.5) },
+      { offset: 1, color: hex(0xffffff, 0) },
+    ],
+  })
+  _folie.set(t, g)
+  return g
+}
+let _regnbage = null
+function regnbageFill() {
+  if (_regnbage) return _regnbage
+  const stopp = [0xff6b6b, 0xffc35c, 0xfff06a, 0x7fe08a, 0x6ad3ff, 0xb08cff, 0xff6b6b]
+  _regnbage = new FillGradient({
+    type: 'linear',
+    start: { x: 0, y: 0 },
+    end: { x: 1, y: 1 },
+    colorStops: stopp.map((c, i) => ({ offset: i / (stopp.length - 1), color: c })),
+  })
+  return _regnbage
+}
 
 const klam = (v, a, b) => (v < a ? a : v > b ? b : v)
 const lerp = (a, b, t) => a + (b - a) * t
@@ -277,6 +317,8 @@ export function byggCeremoni(opts = {}) {
   // ---- tillstånd ---------------------------------------------------------
   let dnaNu = null
   let ton = VARLDSTON[0]
+  let tier = 0 // 0 vanlig · 1 brons · 2 silver · 3 guld — läses ur dna.tier i start()
+  let folieSvep = null // den maskade noden; masken nollas INNAN den rivs
   let lage = 'vila' // 'vila' | 'ceremoni' | 'knack' | 'varld' | 'klar'
   let t = 0 // ceremonins klocka
   let ur = 0 // monoton klocka (knack-spärren)
@@ -383,7 +425,8 @@ export function byggCeremoni(opts = {}) {
       g.lineTo(Math.cos(a + h) * R, Math.sin(a + h) * R)
       g.closePath()
     }
-    g.fill(tint(ton.luft, 0.62))
+    // Ett skimrande ägg får sin metall i ljusstormen också — avtäckningen börjar i F3.
+    g.fill(tier > 0 ? tint(TIER_FARG[tier], 0.3) : tint(ton.luft, 0.62))
     g.eventMode = 'none'
     stralLag.addChild(g)
     stralLag.position.set(AGG.x, LYFT_Y)
@@ -596,7 +639,7 @@ export function byggCeremoni(opts = {}) {
     sfx('pop')
     ton1({ freq: 880, dur: 0.24, type: 'triangle', vol: 0.2 })
     blomning()
-    burst(fx, AGG.x, LYFT_Y, { count: Math.round(14 + 10 * lyster), colors: ton.stoft, power: 1.2 })
+    burst(fx, AGG.x, LYFT_Y, { count: Math.round(14 + 10 * lyster), colors: metallStoft(), power: 1.2 })
     sparkle(fx, AGG.x, LYFT_Y, { count: 8 })
     ripple(fx, AGG.x, LYFT_Y, { color: tint(ton.luft, 0.5), maxR: 190, duration: 0.62, width: 8, alpha: 0.5 })
     spara(gsap.to(stralLag, { alpha: 0, duration: 0.4, ease: 'power2.out' }))
@@ -917,6 +960,7 @@ export function byggCeremoni(opts = {}) {
     sparkle(fx, AGG.x, AGG.y, { count: 10 })
     ripple(fx, AGG.x, AGG.y, { color: tint(ton.luft, 0.4), maxR: 260, duration: 0.7, width: 10, alpha: 0.55 })
     ;[523, 659, 784].forEach((f, i) => strax(i * 0.07, () => ton1({ freq: f, dur: 0.34, type: 'triangle', vol: 0.2 })))
+    if (tier > 0) klang()
 
     klyvOchKasta()
     aggVagga.visible = false
@@ -973,6 +1017,127 @@ export function byggCeremoni(opts = {}) {
     sfx('whoosh')
   }
 
+  // ---- skimret -----------------------------------------------------------
+
+  /** Världens stoft, med metallen inblandad när ägget skimrar. */
+  function metallStoft() {
+    if (tier <= 0) return ton.stoft
+    const m = TIER_FARG[tier]
+    return [m, tint(m, 0.55), 0xffffff, ...ton.stoft]
+  }
+
+  // Metallklangen + metallflingorna: skimrets ENDA tillägg vid kläckningen (§3b), en ton
+  // per tier (784 · 1047 · 1319 Hz) med sin oktav ovanpå — en klocka, aldrig ett UI-blipp.
+  function klang() {
+    const f = TIER_KLANG[tier]
+    const m = TIER_FARG[tier]
+    ton1({ freq: f, dur: 1.1, type: 'sine', vol: 0.15 })
+    strax(0.03, () => ton1({ freq: f * 2, dur: 0.6, type: 'sine', vol: 0.06 }))
+    strax(0.5, () => burst(fx, AGG.x, AGG.y - 40, { count: 10 + tier * 6, colors: [m, tint(m, 0.55), 0xffffff], power: 1.4 }))
+  }
+
+  /**
+   * Skimret — det ett skimrande knytt får och ett vanligt inte får (§3b). Folien är ett
+   * cachat band under en mask klippt ur fondens EGNA geometri: normal alfa, aldrig additiv,
+   * aldrig ett filter, aldrig radiell. Knyttet står UTANFÖR masken (figurLag ligger ovanpå
+   * bak), så svepet når aldrig ansiktet. Varje tier har dessutom en FYSISK skillnad:
+   * brons en hamrad kopparlist · silver ett regnbågskantljus + tre drivande gnistor ·
+   * guld en solkrona som andas BAKOM ramen (och en gloria på knyttet självt, i knytt.js —
+   * ett guldknytt känns igen på siluetten, inte bara på skimret).
+   */
+  function byggSkimmer(hall, y0, y1, h) {
+    const B = FOND.halvB
+    const metall = TIER_FARG[tier]
+
+    const klipp = new Graphics().roundRect(-B, y0, B * 2, h, 34).fill(0xffffff)
+    klipp.eventMode = 'none'
+    const band = new Graphics()
+      .poly([-46, y0 - 24, 46, y0 - 24, 46 + h * 0.5, y1 + 24, -46 + h * 0.5, y1 + 24])
+      .fill(folieFill(tier))
+    band.eventMode = 'none'
+    const svep = new Container()
+    svep.eventMode = 'none'
+    svep.addChild(klipp, band)
+    svep.mask = klipp
+    hall.addChild(svep)
+    folieSvep = svep
+    const st = { p: 0.2 }
+    const tw = gsap.to(st, {
+      p: 1.2,
+      duration: 2.8,
+      repeat: -1,
+      ease: 'none',
+      onUpdate: () => {
+        if (band.destroyed) { tw.kill(); return }
+        band.x = -B * 1.4 + (st.p % 1) * B * 2.8
+      },
+    })
+    spara(tw)
+
+    const ram = new Graphics()
+    ram.eventMode = 'none'
+    if (tier === 1) {
+      // Hamrad kopparlist: listen, och hammarslagen som små gropar med en ljus kant.
+      ram.roundRect(-B + 5, y0 + 5, B * 2 - 10, h - 10, 30).stroke({ width: 10, color: metall, alpha: 0.95 })
+      const n = 26
+      for (let i = 0; i < n; i++) {
+        const u = i / n
+        let x
+        let y
+        if (u < 0.35) { x = -B + 30 + (u / 0.35) * (B * 2 - 60); y = y0 + 10 }
+        else if (u < 0.5) { x = B - 10; y = y0 + 30 + ((u - 0.35) / 0.15) * (h - 60) }
+        else if (u < 0.85) { x = B - 30 - ((u - 0.5) / 0.35) * (B * 2 - 60); y = y1 - 10 }
+        else { x = -B + 10; y = y1 - 30 - ((u - 0.85) / 0.15) * (h - 60) }
+        ram.circle(x, y, 2.6).fill({ color: shade(metall, 0.4), alpha: 0.55 })
+        ram.circle(x - 1, y - 1, 1.2).fill({ color: tint(metall, 0.5), alpha: 0.7 })
+      }
+    } else if (tier === 2) {
+      ram.roundRect(-B + 5, y0 + 5, B * 2 - 10, h - 10, 30).stroke({ width: 9, color: metall, alpha: 0.95 })
+      ram.roundRect(-B + 5, y0 + 5, B * 2 - 10, h - 10, 30).stroke({ width: 4, fill: regnbageFill(), alpha: 0.85 })
+    } else {
+      ram.roundRect(-B + 4, y0 + 4, B * 2 - 8, h - 8, 31).stroke({ width: 13, color: metall, alpha: 0.98 })
+      ram.roundRect(-B + 4, y0 + 4, B * 2 - 8, h - 8, 31).stroke({ width: 3, color: 0xfff3c0, alpha: 0.8 })
+    }
+    hall.addChild(ram)
+
+    if (tier === 2) {
+      // Tre drivande gnistor, var och en med sin egen fas.
+      for (let i = 0; i < 3; i++) {
+        const k = new Container()
+        k.eventMode = 'none'
+        const g = new Graphics().star(0, 0, 4, 9, 3.5).fill({ color: 0xffffff, alpha: 0.9 })
+        g.eventMode = 'none'
+        k.addChild(g)
+        k.position.set(-B + 60 + (i * (B * 2 - 120)) / 2, y0 + 40 + (i % 2) * (h * 0.5))
+        hall.addChild(k)
+        liv(k, { bob: 10, sway: 0.4, duration: 2.4 + i * 0.5, phase: i / 3 })
+      }
+    }
+
+    if (tier === 3) {
+      // Solkronan: åtta korta strålar BAKOM fonden (`bak` fylls på innan `hall` läggs
+      // till, så kronan hamnar under den), som andas i sin egen tidslinje.
+      const krona = new Graphics()
+      const R0 = B * 0.98
+      const R1 = B * 1.3
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + Math.PI / 8
+        const w = 0.09
+        krona.moveTo(Math.cos(a - w) * R0, Math.sin(a - w) * R0 * 0.62)
+          .lineTo(Math.cos(a) * R1, Math.sin(a) * R1 * 0.62)
+          .lineTo(Math.cos(a + w) * R0, Math.sin(a + w) * R0 * 0.62)
+          .closePath()
+      }
+      krona.fill({ color: metall, alpha: 0.85 })
+      krona.eventMode = 'none'
+      krona.position.set(hall.x, hall.y)
+      krona.alpha = 0
+      bak.addChild(krona)
+      spara(gsap.to(krona, { alpha: 1, duration: 0.5, delay: 0.3 }))
+      spara(gsap.to(krona.scale, { x: 1.07, y: 1.07, duration: 1.7, yoyo: true, repeat: -1, ease: 'sine.inOut' }))
+    }
+  }
+
   // ---- världen strömmar ut ----------------------------------------------
 
   /**
@@ -1016,6 +1181,7 @@ export function byggCeremoni(opts = {}) {
       .fill(groundFill(ton.mark, { light: 0.16, dark: 0.24 }))
     mg.eventMode = 'none'
     hall.addChild(him, mg)
+    if (tier > 0) byggSkimmer(hall, y0, y1, h)
 
     // Drivande partiklar i fonden — nio korn, var och en med sin EGEN fas, så de läser
     // som nio levande saker och inte som en pulserande yta.
@@ -1199,8 +1365,11 @@ export function byggCeremoni(opts = {}) {
     // Ingen skugga här: `Knytt` ritar sin egen i `view` (knytt.js:684), och den FÖLJER MED
     // när index.js:_tillBanken flyttar `knytt.view` till bänken. En skugga på hållaren blev
     // dubbel under födseln och lämnades sedan kvar som en mörk fläck på världens gräs.
-    knytt = byggKnytt(dnaNu, { r, senare: senareRa, audio })
+    // Kompisen finns i riggen från början men är 'borta' tills den flugit in (vanliga
+    // knytt); skimrande knytt får ingen. Ett guldknytt bär sin gloria från första bildrutan.
+    knytt = byggKnytt(dnaNu, { r, senare: senareRa, audio, kompis: 'sen' })
     if (knytt?.view) knyttHall.addChild(knytt.view)
+    if (tier === 0) strax(1.5, () => knytt?.kompisIn?.({ x: -4.2, y: -3.2 }))
 
     sfx('reveal')
     // Reser sig ur skalhalvan. bounceIn äger `scale` på HÅLLAREN; knyttets egen rigg
@@ -1251,6 +1420,11 @@ export function byggCeremoni(opts = {}) {
     knyttHall = null
     stoftFlod?.destroy()
     stoftFlod = null
+    // Masken nollas INNAN den maskade noden rivs (docens §6 Folien).
+    if (folieSvep) {
+      if (!folieSvep.destroyed) folieSvep.mask = null
+      folieSvep = null
+    }
     for (const l of [bak, markLag, propLag, figurLag]) {
       for (const c of l.removeChildren()) {
         stadFx(c, EGNA_FX)
@@ -1290,6 +1464,10 @@ export function byggCeremoni(opts = {}) {
     // ägg beige oavsett vad barnet valde.
     const bas = dnaNu?.palett?.ljus ?? dnaNu?.palett?.bas ?? ton.luft
     aggMal = lerpColor(bas, tint(ton.luft, 0.3), 0.18)
+    // Tiern är rullad innan en bildruta ritats — ett skimrande ägg glöder i sin metall
+    // redan när det härdas. Avtäckning, inte snurr.
+    tier = klam(Math.round(dna?.tier ?? val?.t ?? 0), 0, 3)
+    if (tier > 0) aggMal = lerpColor(aggMal, TIER_FARG[tier], tier === 3 ? 0.62 : 0.5)
     aggFarg = aggMal
 
     lage = 'ceremoni'
@@ -1468,6 +1646,10 @@ export function byggCeremoni(opts = {}) {
     // transform och Pixi v8 kastar ingenting. Noll konsolfel i båda armarna.
     slappKnytt()
     knyttHall = null
+    if (folieSvep) {
+      if (!folieSvep.destroyed) folieSvep.mask = null
+      folieSvep = null
+    }
     stadFx(view, EGNA_FX)
     view.destroy({ children: true })
   }
@@ -1483,5 +1665,7 @@ export function byggCeremoni(opts = {}) {
     destroy,
     get fas() { return FAS[fasIx]?.namn || 'vila' },
     get lage() { return lage },
+    get tier() { return tier },
+    get folie() { return !!folieSvep && !folieSvep.destroyed },
   }
 }

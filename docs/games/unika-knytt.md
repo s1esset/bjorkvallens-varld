@@ -84,8 +84,10 @@ som trycket:
 | T5 | **Väderveven** | värld (4) | En lucka i taket över kupan öppnas och vädret ramlar IN — snö virvlar ner, löv lägger sig, vatten stiger, natten tänds. Kupans himmel, mark och ljus byter tema i samma sekund. **Bestämmer också vilken hylla knyttet hamnar på.** |
 | ~~T6~~ | ~~**Ljudtratten**~~ | ~~röst (5)~~ | **Uppskjuten till en senare version** (ägarens beslut 2026-08-30). Knyttet har fortfarande ett eget fyrtonsmotiv — det härleds nu ur FRÖET i stället för att väljas. Se §4c. |
 
-Till höger står **skaparspaken** i mässing med en fet röd knopp, och nere till vänster en liten
-**bodlucka** där ett knytt kikar ut var åttonde sekund. Bobo står vid spaken och sköter maskinen.
+Till höger står **skaparspaken** i mässing med en fet röd knopp, och nere till höger, under spaken,
+en liten **bodlucka** (en stuga med rött tak) där ett par ögon kikar ut var åttonde sekund. Bobo
+står bredvid stugan och sköter maskinen. *(Luckan stod först nere till vänster i planen; hyllan
+med de tre senaste tog den platsen i leverans 1, så luckan bor till höger sedan 2026-09-05.)*
 
 **Vilohjälp i tre steg** (`HINT_S = 7`, modellen är `bygg-en-kompis` och `roliga-snurran`).
 Verkstan är den enda skärmen med en icke-uppenbar nästa handling — hela belöningen ligger bakom
@@ -300,13 +302,18 @@ med +24 halo → träffytor x 0–140 och x 1140–1280, y −6–134.
 | T5 Väderveven | (480, 630) | 144×144 | 408–552 | 558–702 |
 | Kupan | (640, 330) | `Circle(0,0,190)` | 450–830 | 140–520 |
 | Spaken | (1160, 350) | `Rect(-100,-120,200,240)` | 1060–1260 | 230–470 |
-| Bodluckan | (120, 630) | 144×168 | 48–192 | 546–714 |
+| Bodluckan (flyttad 2026-09-05: hyllan tog vänsterhörnet) | (1160, 612) | 144×168 | 1088–1232 | 528–696 |
+| Bobo (ingen träffyta, flyttad från 1120,572) | (1000, 600) | — | — | — |
 | Ägget (bara kläckfasen) | (640, 470) | `Circle(0,0,120)` | 520–760 | 350–590 |
 
 **P0-avstånd (varje par ≥24 px; en lucka på EN axel är en lucka):**
 T1–T3 y 32 · T2–T4 y 32 · T1–T2 x 482 · T3–T5 y 24 ·
 T2–spak x 26 · T4–spak x 26 · spak–högtalare y 96 · T1–hem y 32 · T2–högtalare y 32 ·
-bodlucka–T5 x 216 · bodlucka–hem y 412.
+bodlucka–spak y 58 · bodlucka–T4 x 54 · hyllbon–T5 x 30.
+**Bodens overlay** (boden.js): skyltar y 206 (träffyta 104×96, x från 150 i steg om 130) — 24 px
+under skalets knappar (slutar 134 → 158) · pilarna (1160, 330) och (1160, 490) · dörren (1160, 630),
+alla 120×120; bon 100×120 på x 280/500/720/940, plan var 200:e px. Overlayn har egen heltäckande
+träffyta, så inget under den kan nås medan den är öppen.
 Kupans cirkel (r 190) till närmaste hörn av varje verktygsyta: T1 256 · T2 226 · T3 258 ·
 T4 229 · T5 244 — alltså 36–68 px fri marginal runt hela klotet.
 
@@ -1037,7 +1044,34 @@ rensningen — varje familj ärvde förra familjens sparpost. Det syntes först 
 `torka 2` efter EN runda. U0 ("startverkstan har 8 färger") var grön bara för att de läckta
 rundorna stannade under milstolpe 4. `save.resetAll()` var fel väg (ett dokument utan profil,
 GameHost kraschar tyst i `ensure` och varje `setCustom` kastar); rätt väg är spelets egen
-sparblob via `ctx.progress.setCustom` + in i spelet en gång till, som `besok` redan gjorde.`
+sparblob via `ctx.progress.setCustom` + in i spelet en gång till, som `besok` redan gjorde.
+
+**Steg 3 — Knyttboden (`boden.js`, ny, ~570 rader).** En rullande popup som bara visar det
+man FÅTT: en skylt bara för världar som HAR knytt (Alla alltid först, Skimmer när något
+skimrar), ett hyllplan bara där det finns knytt, fyra bon per plan. Riggarna (r 44) byggs LAT
+för raderna i bild (±1) och rivs utanför, så 200 knytt kostar som åtta. Rullning: axellåst
+drag på innehållsytan med `scrolling()`-vakt (LibraryScreen-mönstret) + två 96 px pilar som
+stegar ett plan, snäpp till närmaste plan. Favoriten = det knytt barnet senast tryckte på
+(fröet i `fram`, samma sparblob, samma skrivare), står FÖRST i Alla och gör sin glada slinga
+vid öppning; är besöket "en annan dag" hoppar alla i bild till, ett i taget. Grannprat var
+5–9 s: ett grannpar lutar sig mot varandra och kvittrar sina motiv i tur (`Knytt.sjung()`, ny),
+högst ett åt gången och aldrig medan barnet rör skärmen. Skimrande knytt får en list i sin
+metall runt boet i ALLA flikar. Bodluckan är en stuga under spaken (1160, 612) där ett par
+ögon kikar ut var åttonde sekund; ett tryck öppnar boden. **Tom samling → luckan är en
+leksak** (ögonen kikar, en ton, handen pekar mot spaken), aldrig ett tomt rum. Repliker i
+index.js: "Här bor dina knytt." vid öppning · "Tryck på ett knytt så vaknar det." efter 7 s
+stillhet · "Nu sover det. Väck det försiktigt!" när det första synliga somnar. Bobo flyttade
+till (1000, 600). §1b har luckans och overlayns träffytor.
+**Mätt:** `_bodprobe.mjs` (ny, 11 armar): K0 tom samling öppnar INTE · B0 luckan öppnar
+(fas `boden`, kupan `none`) · B1 flikar = Alla + skog + vatten + natt + skimmer (ingen snö,
+ingen sno-skylt) · B2 11 poster, 8 i bild, rullbar · B3 pilen −200 och tredje raden byggd ·
+B4 drag på ett bo rullar utan att något blir glatt · B5 tryck → glatt + `fram` sparat ·
+B6 världs- och skimmerflik filtrerar · B7 dörren → `bygga`, kupan `static` · B8 favoriten
+först · exit med boden öppen 0 fel. Bilder: `.test-shots/knytt-bod-alla.png` ·
+`knytt-bod-skimmer.png`.
+⚠️ **`innehall.eventMode = 'none'` gjorde varje bo till en död träffyta utan konsolfel** —
+`'none'` ignorerar händelser även på BARNEN (till skillnad från `passive`). B5 hittade det;
+B0–B4 var gröna för de aldrig tryckte på ett bo.`
 
 
 ## 6. Teknisk ritning
@@ -1342,7 +1376,8 @@ rapporterar 0 oavsett vad som pågår).
 garantierna, att tiern inte rör genetiken, plats 7 läst ur `_sparaKnytt`) · `_knyttprobe`
 S-familjen (samlingen överlever hyllan) och T-familjen (`_tvingaTier`: vanlig → kompis, guld →
 gloria + folie, sparposten) · `_skimmerbild.mjs` (en runda per tier i BILD — folie, ram, krona,
-gloria, kompis; det var den som såg knackhanden ovanpå den nyfödda världen).
+gloria, kompis; det var den som såg knackhanden ovanpå den nyfödda världen) · `_bodprobe.mjs`
+(Knyttboden: luckan, flikarna, rullningen med pil och drag, trycket, favoriten, dörren, exit).
 
 Befintliga sonder som ska köras: `_idleprobe` (**ska vara 0** — spelet får aldrig klara sig
 själv), `_mjukprobe` (degen), `_vilkaprobe` (bevisa att det som rör sig i boden ÄR knytten),
@@ -1485,7 +1520,7 @@ Ljudtratten och migreringen fortfarande noll.
 ### D. Leverans 2 — samlingen och skimret (~1 200 rader)
 
 **Pågår 2026-09-05 (v1.247.0), ägarens ordning:** ① persistens ✅ `c7ccc63` · ② sällsynthet +
-folie + tier-skillnader + kompisen ✅ · ③ Knyttboden ⬜ · ④ variation ⬜ (större rekvisitapool
+folie + tier-skillnader + kompisen ✅ `ce25322` · ③ Knyttboden ✅ · ④ variation ⬜ (större rekvisitapool
 per värld, den seedade dragningen väljer 4, + två nya världar Öknen och Grottan med egna
 milstolpar efter 16). Se §5 2026-09-05.
 

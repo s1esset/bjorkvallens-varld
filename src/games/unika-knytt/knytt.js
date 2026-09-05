@@ -1112,6 +1112,15 @@ class Knytt {
     return this
   }
 
+  /** Kvittrar sitt motiv och tar ett litet skutt — bodens grannprat, utan hela glädjeläget. */
+  sjung() {
+    if (!this._alive || this.view.destroyed) return this
+    if (this._lage === 'sover') this._vakna()
+    this.hoppa(1)
+    this._spelaMotiv()
+    return this
+  }
+
   get tier() { return this._tier }
   /** 'sitter' · 'borta' (finns, har inte flugit in än) · 'ingen' (skimrande knytt). */
   get kompis() { return this._kompisLage }

@@ -18,6 +18,7 @@ import { log as diag } from '../../lib/gamelog.js'
 import { byggKupa, byggVerktyg, byggSpak } from './kupan.js'
 import { byggCeremoni } from './ceremoni.js'
 import { byggKnytt } from './knytt.js'
+import { byggBoden, byggLucka } from './boden.js'
 import {
   dnaFromSeed, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR,
   MILSTOLPAR, START_TAK, takFor, antalFranPoster, rullaTier,
@@ -83,6 +84,16 @@ const UPPLAS_REPLIK = {
 const HINT_S = 7
 const KNACK_SPARR = 0.18
 const AGG_KNACK = 4
+// Bodluckan står under spaken, till höger — den enda lediga platsen sedan hyllan tog
+// bottenvänstra hörnet. Träffyta 144×168 → x 1088–1232, y 528–696: 58 px under spakens
+// yta (slutar 470), 54 px höger om mönsterhjulets (slutar 1034). Onåbar för harnessens nio
+// tryck (max x 950) precis som spaken — `_bodprobe` pekar på den. Bobo flyttade till
+// (1000, 600) för att lämna plats; han är ingen träffyta.
+const LUCKA_X = 1160
+const LUCKA_Y = 612
+const BOBO_X = 1000
+const BOBO_Y = 600
+const KIK_S = 8
 
 export default {
   id: 'unika-knytt',
@@ -106,6 +117,13 @@ export default {
     this._tier = 0
     this._torka = 0
     this._tvingaTier = null
+    // Knyttboden: favoritens frö (står framme), luckan, overlayn, kiktimern och om det här
+    // besöket är "en annan dag" (bodens hälsning, en gång per besök).
+    this._fram = 0
+    this._boden = null
+    this._lucka = null
+    this._kikT = KIK_S
+    this._ater = false
     this._verktyg = {}
     this._kupa = null
     this._spak = null
@@ -196,8 +214,11 @@ export default {
     this._byggVerktyg(ctx)
     this._byggSpak(ctx)
     this._byggBobo(ctx)
+    this._byggLucka(ctx)
     this._byggAggYta(ctx)
     this._byggHand()
+    // Boden SIST: overlayn ska ligga över allt annat i roten.
+    this._byggBoden(ctx)
 
     this._tick = (t) => this._uppdatera(ctx, t)
     ctx.ticker.add(this._tick, this)
@@ -212,6 +233,7 @@ export default {
     // tillbaka en annan dag är det hälsningen som gäller, annars den vanliga introrepliken.
     const dag = this._idag()
     const ater = this._hyllData.length > 0 && this._dag > 0 && dag > this._dag
+    this._ater = ater
     ctx.services.voice.say(ater ? 'Titta, dina knytt har saknat dig!' : this.voiceIntro)
     if (dag !== this._dag) {
       this._dag = dag
@@ -407,12 +429,86 @@ export default {
   _byggBobo(ctx) {
     // Riggen äger view.scale och view.y — allt spelet animerar går på en YTTRE container.
     this._boboWrap = new Container()
-    this._boboWrap.position.set(1120, 572)
+    this._boboWrap.position.set(BOBO_X, BOBO_Y)
     this._bobo = makeKaraktar({ r: 48 })
     this._boboWrap.addChild(this._bobo.view)
     this._spelLager.addChild(this._boboWrap)
     this._bobo.setMood('nyfiken')
     this._bobo.idle()
+  },
+
+  // ---------------------------------------------------------------- boden
+
+  _byggLucka(ctx) {
+    this._lucka = byggLucka({
+      audio: ctx.services.audio,
+      pa: () => this._luckaTryck(ctx),
+    })
+    this._lucka.view.position.set(LUCKA_X, LUCKA_Y)
+    this._spelLager.addChild(this._lucka.view)
+  },
+
+  _byggBoden(ctx) {
+    this._boden = byggBoden({
+      senare: (s, fn) => ctx.later(s, fn),
+      audio: ctx.services.audio,
+      varldar: VARLDAR,
+      pa: (h, d) => this._bodHandelse(ctx, h, d),
+    })
+    this._rot.addChild(this._boden.view)
+  },
+
+  _luckaTryck(ctx) {
+    this._vakna()
+    const a = ctx.services.audio
+    if (this._fas !== 'bygga') {
+      // Mitt i en ceremoni är luckan en leksak, inte en dörr — ögonen kikar, det klackar.
+      this._lucka?.kika()
+      kvittera(ctx.fxLayer, LUCKA_X, LUCKA_Y - 60, a)
+      return
+    }
+    if (!this._alla.length) {
+      // Tom samling: boden vore ett tomt rum, alltså en frånvaro (P0 FOMO). Dörren svänger,
+      // ögonen kikar, en ton — och handen pekar mot spaken, där det första knyttet börjar.
+      this._lucka?.kika()
+      a.sfx('soft')
+      this._visaHand(SPAK_X, SPAK_Y - 150)
+      ctx.later(2.0, () => { if (this._alive && this._hintSteg === 0) this._doljHand() })
+      return
+    }
+    this._fas = 'boden'
+    this._doljHand()
+    this._kupaAktiv(false)
+    // Överst i roten igen — noder som lagts till senare (bänkens träffyta) ska aldrig
+    // hamna ovanpå overlayn.
+    this._rot.addChild(this._boden.view)
+    this._boden.oppna(this._alla, { fram: this._fram, ater: this._ater })
+    this._ater = false
+    diag('takt', 'boden', { antal: this._alla.length, flikar: this._boden.flikar.length })
+  },
+
+  _bodHandelse(ctx, h, d) {
+    if (!this._alive) return
+    if (h === 'oppnad') {
+      this._sag(ctx, 'Här bor dina knytt.', 'boden')
+    } else if (h === 'vila') {
+      this._sag(ctx, 'Tryck på ett knytt så vaknar det.', 'boden')
+    } else if (h === 'somnar') {
+      this._sag(ctx, 'Nu sover det. Väck det försiktigt!', 'boden')
+    } else if (h === 'fram') {
+      // Favoriten: det knytt barnet senast tryckte på står framme nästa gång. Samma
+      // skrivare som allt annat i sparblobben.
+      this._fram = Number.isFinite(d) ? d >>> 0 : 0
+      this._spara(ctx)
+    } else if (h === 'stangd') {
+      this._fas = 'bygga'
+      this._kupaAktiv(true)
+      this._sistAktiv = performance.now()
+      this._hintSteg = 0
+      this._kikT = KIK_S
+    } else if (h === 'flik') {
+      diag('takt', 'flik', { flik: d })
+    }
   },
 
   // Kupans träffyta är en cirkel med r=190 kring (640,330) — den ligger rakt över knyttets
@@ -462,6 +558,7 @@ export default {
     this._firad = tal(rå?.firad) ?? this._antal
     this._dag = tal(rå?.dag) ?? 0
     this._torka = tal(rå?.torka) ?? 0
+    this._fram = (tal(rå?.fram) ?? 0) >>> 0
   },
 
   // Verkstadens tak HÄRLEDS ur räknaren, alltid — aldrig ett eget fält som uppdateras på
@@ -487,6 +584,7 @@ export default {
       firad: this._firad,
       dag: this._dag,
       torka: this._torka,
+      fram: this._fram,
     })
   },
 
@@ -1160,8 +1258,19 @@ export default {
     this._cer?.tick(dt, this._pekare)
     this._knytt?.tick(dt, this._knyttPekare())
     for (const b of this._bon) b.knytt?.tick(dt, null)
+    this._boden?.tick(dt)
 
-    if (nu - this._sistAktiv > HINT_S * 1000) this._viloHjalp(ctx)
+    // Ett par ögon kikar ut genom bodluckan var åttonde sekund — bara i verkstan, aldrig
+    // medan ceremonin eller boden pågår.
+    if (this._fas === 'bygga') {
+      this._kikT -= dt / 1000
+      if (this._kikT <= 0) {
+        this._kikT = KIK_S + Math.random() * 3
+        this._lucka?.kika()
+      }
+    }
+
+    if (this._fas !== 'boden' && nu - this._sistAktiv > HINT_S * 1000) this._viloHjalp(ctx)
   },
 
   destroy(ctx) {
@@ -1202,6 +1311,10 @@ export default {
     this._verktyg = {}
     this._bobo?.destroy()
     this._bobo = null
+    this._boden?.destroy()
+    this._boden = null
+    this._lucka?.destroy()
+    this._lucka = null
 
     ctx.services.audio.stopAllLoops()
     this._rot?.destroy({ children: true })

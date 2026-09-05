@@ -296,7 +296,7 @@ sur min, chili ger het min, tårta ger lycksalig min, broccoli ger en fundersam 
 | `vakna-pappa` | väck honom med ljud; sömnmätare + ett öga i taget — ✅ **BYGGT v1.225.0** |
 | `flugan-pa-nasan` | han följer flugan med blicken; vifta ut den — ✅ **BYGGT v1.225.0** |
 | `harma-grimasen` | ansiktet gör en min, barnet trycker på rätt min bland tre |
-| `borsta-tanderna` | dra tandborsten i den gapande munnen, ansiktet reagerar på var man är — 📝 **SPEC GODKÄND 2026-08-20**, kortet ligger i `docs/games/borsta-tanderna.md` §0, bygget väntar |
+| `borsta-tanderna` | dra tandborsten i den gapande munnen, ansiktet reagerar på var man är — ✅ **BYGGT v1.230.0** (commit `4b9e361`, granskat v1.231.0; `_borstprobe` 9/9) |
 | `prat-ansiktet` | tryck på ord/ikoner → käken rör sig i takt med röstklippet |
 
 ### Beslut (2026-08-07)

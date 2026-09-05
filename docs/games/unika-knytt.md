@@ -1491,19 +1491,14 @@ Ljudtratten och migreringen fortfarande noll.
   motsatt tecken (+0,138 / −0,140 rad, +4,1 / −4,1 px). **Barlast körd:** med `LEK_R = 0`
   (= HEAD:s beteende) faller L1 och L3 medan L0, L2 och L4 står kvar gröna, alltså mäter
   familjen ändringen och inget annat.
-* [Quick] **`morf` är skrivbar-bara** (`ceremoni.js:286`, satt på `:495 :643 :1305 :1417`, läst
-  ingenstans). Städning.
-* [Quick] **`halvor` fylls men itereras aldrig** (`ceremoni.js:308`, push på `:958`, nollas
-  `:1265 :1474`). Städning.
-* [Quick] **`this.bredd`/`this.hojd` läses av ingen** (`knytt.js:841-843`) och kostar en
-  `getLocalBounds()` per bygge — inklusive hyllans tre vid *varje* `_ritaHylla`. Ta bort eller
-  gör lat.
-* [Quick] ⚠️ **Sparpostens plats 5 (`r`) är en laddad mina, inte död kod.** Fältet är medvetet
-  reserverat åt Ljudtratten (§4c: noll migrering senare) — men värdet som skrivs är
-  `_fro % 5` (`index.js._startaCeremoni`), och det är **inte** det `r` som `dnaFromSeed`
-  faktiskt använder (den drar sitt eget ur strömmen, `dna.js`). Börjar en framtida version
-  läsa fältet får den tyst fel motiv. Antingen skriv det RIKTIGA `r`:et (`dna.val.r` finns i
-  returen) eller skriv 0 och en kommentar om att platsen är reserverad.
+
+*De fyra [Quick]-posterna som stod här (`morf` skrivbar-bara · `halvor` itereras aldrig ·
+`bredd`/`hojd` läses av ingen · sparpostens plats 5) är **strukna 2026-09-05** — de var
+redan gjorda i v1.243.0 och beskrivs i stycket ovan, men listan under det stod kvar och
+läste som fyra öppna punkter. Verifierat mot koden: `grep` på `morf`/`halvor` ger bara
+löpande text, inga fält; `this.bredd`/`this.hojd` finns inte; `index.js:622` skriver
+`this._dna?.val.r ?? 0` och inte `_fro % 5`. Samma bokföringsfälla som §4 i spel-docerna:
+**stryk punkten i samma commit som du bygger den.***
 
 ### C. Omätt
 
@@ -1576,10 +1571,15 @@ gjorde hornet `krona` onåbart.
 
 ### F. Delad kod som rör spelet
 
-**V19** (`Mjukkropp.tyngdpunkt` är inte en tyngdpunkt — ceremonin går runt den, `lib/` är orört)
-och **V16** (`destroy({ children: true })` river inte `GraphicsContext`, repo-brett) står i
-`docs/ATGARDER.md` med sina mätkrav. Båda rör delad kod som hela sviten går igenom: mät
-blastradien före ändring.
+~~**V19**~~ **är rättad 2026-09-05 (v1.248.0)** — `Mjukkropp.tyngdpunkt` delar nu med
+`pts.length` och `flyttaTill()` läser gettern. Ceremonin påverkas inte: den förankrar mot
+värdet den läste vid födseln och RITAR mot ringens egen mitt, som den räknar själv (den
+kommentaren är omskriven — den beskrev buggen som om den stod kvar). `_knyttprobe` 44/44
+efter ändringen.
+
+**V16** (`destroy({ children: true })` river inte `GraphicsContext`, repo-brett) står kvar i
+`docs/ATGARDER.md` med sitt mätkrav: delad kod som hela sviten går igenom — mät blastradien
+i GPU-minne före ändring.
 
 ### Senare (V2+)
 
@@ -1593,6 +1593,7 @@ ett knytt på golvet · mata ett bär · kamera-parallax). Inget av det är kval
 1. **A** — de tre frågorna till ägaren. Ingen av dem går att bygga förbi, och två av dem
    (Skrället, upplåsningarnas takt) väntar på samma sak: ett riktigt speltest.
 2. **D (leverans 2)** — planera in ett eget pass. Börja inte på det i slutet av ett annat.
-3. **F** — V19 och V16 i `docs/ATGARDER.md`, delad kod: mät blastradien före ändring.
+3. **F** — V16 i `docs/ATGARDER.md`, delad kod: mät blastradien före ändring. (V19 är
+   stängd 2026-09-05.)
 
 *(ÅTGÄRDER U6, ögonlocket, är stängt 2026-09-01 — se E.)*

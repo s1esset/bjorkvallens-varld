@@ -202,19 +202,24 @@ och sänk till 🔧 om något visar sig inte hålla.
 | 18 | `harma-melodin` | 2 | ✅ |
 | 19 | `glittergrottan` | 0 | ✅ |
 
-## Kö 3 — 🔤 Lära (9 spel)
+## Kö 3 — 🔤 Lära ✅ KLAR (9/9, v1.11.0, 2026-08-06)
+
+*Rättad 2026-09-05: tabellen stod kvar på ⬜ i en månad trots att kön kördes i ett svep
+2026-08-06 (`SESSIONS.md` v1.11.0: "hela 🔤 Lära-kön (9 spel) körd med checkpoint mellan
+varje") och `docs/games/README.md` sedan dess säger **71/71 klara**. Bokföringsskuld,
+inte kvalitetsskuld — samma fälla som §4-punkterna i spel-docen.*
 
 | # | id | skuld | status |
 |--:|----|------:|:--:|
-| 1 | `ballonglyft` | 14 | ⬜ |
-| 2 | `vilket-djur-later` | 12 | ⬜ |
-| 3 | `blixt-och-dunder` | 8 | ⬜ |
-| 4 | `kla-efter-vadret` | 5 | ⬜ |
-| 5 | `siffertaget` | 4 | ⬜ |
-| 6 | `djurorkester` | 4 | ⬜ |
-| 7 | `peka-pa-kroppen` | 3 | ⬜ |
-| 8 | `fargregn` | 0 | ⬜ |
-| 9 | `rakna-applen` | 0 | ⬜ |
+| 1 | `ballonglyft` | 14 | ✅ |
+| 2 | `vilket-djur-later` | 12 | ✅ |
+| 3 | `blixt-och-dunder` | 8 | ✅ |
+| 4 | `kla-efter-vadret` | 5 | ✅ |
+| 5 | `siffertaget` | 4 | ✅ |
+| 6 | `djurorkester` | 4 | ✅ |
+| 7 | `peka-pa-kroppen` | 3 | ✅ |
+| 8 | `fargregn` | 0 | ✅ |
+| 9 | `rakna-applen` | 0 | ✅ |
 
 > **Obs om `vilket-djur-later` och `djurorkester`:** där är emoji-djuren delvis *avsiktliga*
 > som svarsalternativ på kort. Läs P0 `ASSETS` noga — kort och paneler får bära TEXT och

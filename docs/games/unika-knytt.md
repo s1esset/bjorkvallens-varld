@@ -303,6 +303,8 @@ med +24 halo → träffytor x 0–140 och x 1140–1280, y −6–134.
 | T5 Väderveven | (480, 630) | 144×144 | 408–552 | 558–702 |
 | T6 Ljudtratten (sedan 2026-09-10) | (800, 630) | 144×144 | 728–872 | 558–702 |
 | Skrället (BARA medan det sitter, sedan 2026-09-10) | (620, 210) | 144×144 | 548–692 | 138–282 |
+| Bärskålen — smultronet bär skålens yta (steg 5) | (96, 470) | Circle r 64 | 32–160 | 406–534 |
+| Ett knytt på golvet (ytan följer knyttet, steg 5) | fil y 700, x 430–1030 | Circle r 50 | — | — |
 | Kupan | (640, 330) | `Circle(0,0,190)` | 450–830 | 140–520 |
 | Spaken | (1160, 350) | `Rect(-100,-120,200,240)` | 1060–1260 | 230–470 |
 | Bodluckan (flyttad 2026-09-05: hyllan tog vänsterhörnet) | (1160, 612) | 144×168 | 1088–1232 | 528–696 |
@@ -317,6 +319,10 @@ T6–bodlucka x 216 · T6–bänkknyttet (cirkel r 62 kring (800, 432)) y 64 · 
 Skrället–T2 x 174. **Skrällets yta ligger MED FLIT ovanpå kupans cirkel:** den är 'static' bara
 medan Skrället sitter på kragen, och den ligger ovanför kupan i z-ordningen — ett tryck på figuren
 når figuren, ett tryck bredvid rullar fortfarande om kupan (§4b ⓵).
+Bärskålen–bälgen x 56 · bärskålen–hyllbon y 38 · bärskålen–skalets hem y 272. **Ett knytt på golvet**
+springer framför väderveven och tratten och har en egen yta som följer det — ett husdjur kan inte
+ha en stillastående yta. Det ligger ovanpå verktygen i z-ordningen (`_byggHyllliv` byggs efter dem),
+så ett tryck på knyttet når knyttet, aldrig maskindelen bakom.
 **Bodens overlay** (boden.js): skyltar y 206 (träffyta 104×96, x från 150 i steg om 130) — 24 px
 under skalets knappar (slutar 134 → 158) · pilarna (1160, 340) och (1160, 484) · dörren (1160, 628),
 alla 120×120 → y 280–400 · 424–544 · 568–688, alltså 24 px isär och 26 px under skyltradens
@@ -659,8 +665,8 @@ två tecken redan nu.
 * ✅ **BYGGT 2026-09-10 (poleringsrundan steg 2):** Ljudtratten (T6) på bänkplatsen (800, 630). Barnet väljer motivet i stället för fröet. ⚠️ "Ingen migrering behövs" höll inte: plats 5 bar fröets motiv, så posten fick ett nionde fält med generationen (se §4c). Harnesstrycket (800,600) i §1b återställt.
 * ✅ **BYGGT 2026-09-05 (leverans 2 steg 4):** Fler världar (Öknen, Grottan) och de hyllor de för med sig — låses upp vid 20 och 24.
 * [Medium] Två knytt på samma hylla blir VÄNNER efter tillräckligt många duetter och delar bo.
-* [Medium] Dra ut ett knytt ur boet och ner på golvet, där det springer runt en stund.
-* [Medium] Lägg ett bär framför ett knytt på hyllan → det äter, squashar av glädje och rapar en gnista.
+* ✅ **BYGGT 2026-09-10 (poleringsrundan steg 5, `hylla.js`):** Dra ut ett knytt ur boet och ner på golvet, där det springer runt en stund och sedan hoppar hem själv. Tryck-sedan-tryck: knyttet, sedan golvet. Ett tryck på det tomma boet kallar hem det.
+* ✅ **BYGGT 2026-09-10 (steg 5):** En bärskål på bänkens vänstra ände — dra ett smultron till ett knytt i ett bo (eller tryck på skålen, sedan på boet): det gapar, tuggar tre gånger och rapar en gnista.
 * [Deep] Kamera-parallax i boden via `lib/kamera.js` när flikraden växer förbi fem.
 
 ## 5. Status / loggar
@@ -1283,6 +1289,33 @@ krävde repliken inom 2,6 s i en kö som var längre. Bilder: `.test-shots/knytt
 N 10/10 med solen både som rekvisita (400, 220) och som fondens egen (890, 196) · `_knyttprobe` 44/44 ·
 `_bodprobe` 11/11 · `_lyftbild` 0 konsolfel.`
 
+`2026-09-10 · STEG 5 — VERKSTADSHYLLAN LEVER.` Ny fil `hylla.js`; två leksaker kring hyllans tre bon.
+**Bärskålen** står på bänkens vänstra ände med en hög smultron, och smultronet överst bär hela skålens
+träffyta (Circle r 64 kring skålens mitt, 38 px till hyllan, 56 till bälgen). Dra det till ett knytt i
+ett bo — eller tryck på skålen, sedan på boet — och knyttet gapar, tuggar tre gånger med ett stämt
+"mums" per tugga, och **rapar en gnista** (en sågtand 196 → 110 Hz, glitter och ett `pling`), med ett
+glädjeskutt. Skålen tar aldrig slut: ett nytt smultron ligger där 0,6 s senare. Drag och tap-tap går
+genom `lib/DragController` med hyllans bon som mål, och `accepts` läser läget vid släppet — bara ett bo
+med ett knytt HEMMA. Tuggandet delar gap-noden med gäspningen (`_apply` tar den störst öppna).
+**Ett knytt ut på golvet:** dra ut det ur boet (eget drag med 14 px tröskel — släppt nära sitt eget bo
+går det tillbaka in), eller tryck på knyttet och sedan på golvet. Det springer i en fil framför
+väderveven och tratten (y 700, x 430–1030) med små studsande steg och pauser i 9 s, springer sedan
+under sitt bo och hoppar in. Ett tryck på knyttet gör det glatt; ett tryck på det TOMMA boet kallar
+hem det direkt. Spaken, boden och en omritad hylla ställer varje knytt hemma i ett synkront steg
+(`hemNu()`), och modulen rivs före hyllans knytt, så ingen rigg rivs medan den är ute. Bobo tittar dit
+det händer.
+
+**Mätt, `_knyttlyftprobe` H — och kontrollkörningen fällde två av MINA armar igen.** Mot koden utan
+hyllmodulen var H5 och H7 gröna: "inte ute + hemma" är sant för ett knytt som aldrig gick ut. Samma
+fälla som S2/S4 i steg 3; båda kräver nu att knyttet VAR ute först. Efter inkopplingen: H0 ett vanligt
+tryck på ett bo → ingen måltid · H1 draget bär → bo 1 äter (0/0/0 → 0/1/0), nytt bär i skålen · H2
+tap-tap → bo 0 äter · H3 bär släppt på golvet → tillbaka, ingen måltid · H4 utdraget knytt springer
+115 px på 2 s · H5 hem av sig självt · H6 tap-tap ut · H7 tomma boet kallar hem · H8 spaken → hemma
+direkt. Bilder: `.test-shots/knytt-skal.png` · `knytt-at.png` · `knytt-golv.png`.
+
+**Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` alla familjer (I · B9 · K · R · S · O · N · H) 45/45 ·
+`_knyttprobe` 44/44 · `_bodprobe` 11/11 · `_lyftbild` 0 konsolfel.`
+
 
 ## 6. Teknisk ritning
 
@@ -1792,7 +1825,7 @@ den, och den här var nära att göra det. En commit per steg; sonden är `_knyt
 | 2 | **Ljudtratten (T6)** på bänkplatsen (800, 630): en speldosa, varje tryck vrider fram en ny melodi, noterna flyger in i kupan och blobben sjunger med. Knyttets motiv blir barnets val. | ✅ 2026-09-10 |
 | 3 | **Skrället** (§4b, som specat). ⚠️ Byggs UTAN uppehållsmätningen §4b väntade på — ägarens beslut 2026-09-10. Specens spärrar (12 s · 22 s · 7 s) är enda bromsen. | ✅ 2026-09-10 |
 | 4 | **Knyttet efter födseln:** namnplakett i trä (namnet sägs samtidigt) · tryck på solen i fonden → den går ner, knyttet gäspar och somnar · sömnkorn av världens egna partiklar · folien följer fingret | ✅ 2026-09-10 |
-| 5 | **Verkstadshyllan lever:** en bärskål — dra ett bär till ett knytt, det äter och rapar en gnista · dra ut ett knytt på golvet, där det springer runt och sedan går hem (tryck-sedan-tryck också) | ⬜ |
+| 5 | **Verkstadshyllan lever:** en bärskål — dra ett bär till ett knytt, det äter och rapar en gnista · dra ut ett knytt på golvet, där det springer runt och sedan går hem (tryck-sedan-tryck också) | ✅ 2026-09-10 |
 | 6 | **Vänner i boden:** tre duetter mellan samma grannar → de blir vänner och delar bo | ⬜ |
 
 Sparposten får ett **nionde fält** (generation + tofs). Hornet `krona` (onåbart i dag) och barnets

@@ -20,6 +20,7 @@ import { byggCeremoni } from './ceremoni.js'
 import { byggKnytt } from './knytt.js'
 import { byggBoden, byggLucka } from './boden.js'
 import { byggSkrallet } from './skrallet.js'
+import { byggHyllliv } from './hylla.js'
 import {
   dnaFromSeed, dnaFranPost, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR,
   MILSTOLPAR, START_TAK, takFor, antalFranPoster, rullaTier,
@@ -148,6 +149,8 @@ export default {
     // Skrället (§4b, steg 3): figuren, sekunder kvar till nästa möjliga besök (räknar bara i
     // verkstan), axeln förra besöket tog, om RUNDANS knytt får tofsen, och tiden för senaste
     // verktygstrycket.
+    // Verkstadshyllan (steg 5): bärskålen och knytten som springer på golvet.
+    this._hyllliv = null
     this._skrall = null
     this._skrallT = SKRALL_NAD_S
     this._skrallAxel = null
@@ -246,6 +249,9 @@ export default {
     this._byggLucka(ctx)
     // Skrället efter allt det kan klättra på, så det ligger ovanpå kupan i z-ordningen.
     this._byggSkrallet(ctx)
+    // Hyllans liv EFTER verktygen och Skrället: golvfilen och bäret ska ligga ovanpå dem i
+    // z-ordningen, så ett knytt som springer förbi tratten syns framför den, aldrig bakom.
+    this._byggHyllliv(ctx)
     this._byggAggYta(ctx)
     this._byggHand()
     // Boden SIST: overlayn ska ligga över allt annat i roten.
@@ -414,6 +420,25 @@ export default {
     this._rot.addChild(this._boden.view)
   },
 
+  // ---------------------------------------------------------------- verkstadshyllan (steg 5)
+
+  _byggHyllliv(ctx) {
+    this._hyllliv = byggHyllliv({
+      space: this._spelLager,
+      bon: this._bon,
+      boX: BO_X,
+      boY: BO_Y,
+      audio: ctx.services.audio,
+      senare: (s, fn) => ctx.later(s, fn),
+      pa: (h, d) => {
+        if (!this._alive) return
+        // Bobo tittar dit det händer — hyllan är hans grannar också.
+        if (h === 'at' || h === 'ute') this._bobo?.look(this._boboWrap.toLocal({ x: BO_X[d?.i ?? 1] ?? 210, y: BO_Y }).x, 0)
+        diag('takt', `hylla-${h}`, d || {})
+      },
+    })
+  },
+
   // ---------------------------------------------------------------- Skrället (§4b, steg 3)
 
   _byggSkrallet(ctx) {
@@ -535,6 +560,7 @@ export default {
     }
     // Skrället har inget i boden att göra — det lämnar tillbaka det det håller och går.
     this._skrall?.lamna('fly')
+    this._hyllliv?.hemNu()
     this._fas = 'boden'
     this._doljHand()
     this._kupaAktiv(false)
@@ -715,6 +741,8 @@ export default {
       bo.eventMode = 'static'
       bo.hitArea = new Rectangle(-48, -48, 96, 96)
       bo.on('pointertap', () => this._boTryck(ctx, i))
+      // Ett drag ur boet lyfter ut knyttet på golvet (steg 5) — `_hyllliv` avgör om det blev ett drag.
+      bo.on('pointerdown', (e) => this._hyllliv?.boNer(i, e))
       this._spelLager.addChild(bo)
       this._bon.push({ nod: bo, inner, knytt: null })
     }
@@ -722,6 +750,8 @@ export default {
   },
 
   _ritaHylla(ctx) {
+    // Ett knytt som springer på golvet måste hem INNAN dess rigg rivs och byggs om.
+    this._hyllliv?.hemNu()
     for (let i = 0; i < this._bon.length; i++) {
       const b = this._bon[i]
       if (b.knytt) {
@@ -790,6 +820,8 @@ export default {
     kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio)
     ctx.services.audio.sfx('soft')
     if (this._fas === 'ceremoni') this._skynda(ctx, p)
+    // Tap-tap-vägen ut på golvet (steg 5): ett nyss tryckt knytt hoppar dit trycket landade.
+    else if (this._fas === 'bygga') this._hyllliv?.golvTryck(p)
     // Ett sovande knytt vaknar av VILKET tryck som helst (§1 "sover", steg 4).
     else if (this._fas === 'avtack' && (this._knytt?.lage === 'sover' || this._knytt?.lage === 'somnig')) this._knytt.vakna()
   },
@@ -840,6 +872,11 @@ export default {
 
   _boTryck(ctx, i) {
     this._vakna()
+    // Verkstadshyllan (steg 5) frågar först: ett valt bär ska ätas (DragController tar trycket),
+    // trycket avslutade ett drag ut ur boet, eller boets knytt är ute och kallas nu hem.
+    const svar = this._hyllliv?.boTryck(i)
+    if (svar === 'hem') ctx.services.audio.sfx('soft')
+    if (svar) return
     const b = this._bon[i]
     if (!b?.knytt) {
       kvittera(ctx.fxLayer, BO_X[i], BO_Y, ctx.services.audio)
@@ -934,6 +971,8 @@ export default {
     // av dess päls och ett vikt öra. En snodd GNISTA går tillbaka i receptet innan tiern rullas
     // nedan — Skrället får aldrig röra sällsyntheten, det är ren kosmetik. Är det på väg in
     // eller ut flyr det bara (och lämnar tillbaka det det bär).
+    // Ett knytt ute på golvet går hem i samma ögonblick — ceremonins värld täcker golvet.
+    this._hyllliv?.hemNu()
     this._tofsNu = 0
     const skrall = this._skrall
     if (skrall?.haller) {
@@ -1405,6 +1444,7 @@ export default {
     for (const b of this._bon) b.knytt?.tick(dt, null)
     this._boden?.tick(dt)
     this._skrall?.tick(dt)
+    this._hyllliv?.tick(dt)
     // Skrällets timer räknar BARA i verkstan och bara när det inte redan är på besök.
     if (this._fas === 'bygga' && this._skrall && !this._skrall.aktiv) {
       this._skrallT -= dt / 1000
@@ -1445,6 +1485,10 @@ export default {
       this._knytt.destroy()
       this._knytt = null
     }
+    // Hyllans liv FÖRE hyllans knytt: `hemNu()` ställer ett knytt som springer på golvet tillbaka
+    // i sitt bo medan riggen lever, och dragkontrollerns lyssnare släpps innan noderna rivs.
+    this._hyllliv?.destroy()
+    this._hyllliv = null
     for (const b of this._bon) {
       if (b.knytt) {
         stadFx(b.knytt.view)

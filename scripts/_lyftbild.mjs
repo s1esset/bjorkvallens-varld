@@ -184,6 +184,32 @@ try {
     await page.evaluate(() => { window.__barnspel.game._tvingaTier = null })
   }
 
+  // Steg 5: verkstadshyllan — skålen i vila, ett knytt som tuggar, och ett knytt ute på golvet.
+  if (vill('hylla')) {
+    await besok([[6101, 1, 1, 0, 0, 0, 0, 0, 1], [6102, 4, 1, 1, 1, 1, 0, 0, 1], [6103, 6, 2, 2, 2, 2, 0, 0, 1]])
+    await bort()
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: '.test-shots/knytt-skal.png' })
+    const dra = async (x0, y0, x1, y1, n = 14) => {
+      await page.mouse.move(X(x0), Y(y0))
+      await page.mouse.down()
+      for (let i = 1; i <= n; i++) {
+        await page.mouse.move(X(x0 + ((x1 - x0) * i) / n), Y(y0 + ((y1 - y0) * i) / n))
+        await page.waitForTimeout(30)
+      }
+      await page.mouse.up()
+    }
+    await dra(96, 452, 210, 610)
+    await page.waitForTimeout(700) // bäret har landat, knyttet gapar och tuggar
+    await page.screenshot({ path: '.test-shots/knytt-at.png', clip: { x: X(0), y: Y(380), width: 440 * geo.s, height: 320 * geo.s } })
+    await page.waitForTimeout(1200)
+    await dra(330, 610, 620, 690, 16)
+    await page.waitForTimeout(1400)
+    await page.screenshot({ path: '.test-shots/knytt-golv.png' })
+    const d = await page.evaluate(() => ({ ute: window.__barnspel.game._hyllliv?.ute, atna: window.__barnspel.game._hyllliv?.atna }))
+    console.log(`  .test-shots/knytt-skal.png · knytt-at.png · knytt-golv.png · ${JSON.stringify(d)}`)
+  }
+
   console.log(`  ${errors.length} konsolfel${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`)
 } finally {
   await browser.close()

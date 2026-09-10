@@ -38,8 +38,15 @@
 //             KONTROLL: ingen rör solen → knyttet vaket, inga sömnkorn · N3 tryck på solen →
 //             den sjunker ≥ 60 px, knyttet sover, repliken sägs · N4 sömnkorn i luften · N5
 //             solen igen → upp, knyttet vaknar.
+//   H   verkstadshyllan lever (steg 5). Tre knytt på hyllan. H0 KONTROLL: ett tryck på ett bo
+//             utan valt bär → ingen måltid · H1 dra ett smultron från skålen till bo 1 → det
+//             knyttet äter, och ett NYTT bär ligger i skålen · H2 tap-tap: skålen, sedan bo 0 → äter
+//             · H3 KONTROLL: ett bär släppt på golvet → tillbaka i skålen, ingen måltid · H4 dra ut
+//             knyttet i bo 2 → det springer (x rör sig) · H5 det går hem av sig självt · H6 tap-tap:
+//             knyttet, sedan golvet → ute · H7 tryck på det TOMMA boet → hem · H8 spaken → hemma
+//             direkt (och exit mitt i ceremonin räknas i exit-armen).
 //
-//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R,S,O,N]
+//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R,S,O,N,H]
 //
 // ⚠️ Kör ALDRIG bredvid en annan webbläsarsond eller `npm run test:all`.
 import { chromium } from 'playwright'
@@ -127,7 +134,7 @@ if (kor('R')) {
 }
 
 // =================================================================== webbläsarfamiljerna
-if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N')) {
+if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N') || kor('H')) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
@@ -584,6 +591,103 @@ if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N')) {
       await page.evaluate(() => { window.__barnspel.game._tvingaTier = null })
       await klick(1160, 350)
       await page.waitForFunction(() => window.__barnspel.game._fas === 'bygga', null, { timeout: 20000 })
+    }
+
+    // ================================================================= H verkstadshyllan
+    if (kor('H')) {
+      await besok([[6101, 1, 1, 0, 0, 0, 0, 0, 1], [6102, 4, 1, 1, 1, 1, 0, 0, 1], [6103, 6, 2, 2, 2, 2, 0, 0, 1]])
+      const BOX = [90, 210, 330]
+      const BOY = 620
+      const lasH = () => page.evaluate(() => {
+        const g = window.__barnspel.game
+        const h = g._hyllliv
+        return {
+          finns: !!h, ute: h?.ute ?? null, valt: h?.valt ?? null, atna: h?.atna ?? -1, harBar: h?.harBar ?? null,
+          mal: g._bon.map((b) => b.knytt?.maltider ?? -1),
+          hemma: g._bon.map((b) => !!b.knytt && b.knytt.view.parent === b.inner),
+        }
+      })
+      const dra = async (x0, y0, x1, y1, n = 14) => {
+        await page.mouse.move(X(x0), Y(y0))
+        await page.mouse.down()
+        for (let i = 1; i <= n; i++) {
+          await page.mouse.move(X(x0 + ((x1 - x0) * i) / n), Y(y0 + ((y1 - y0) * i) / n))
+          await page.waitForTimeout(30)
+        }
+        await page.mouse.up()
+      }
+
+      // H0 KONTROLL: ett vanligt tryck på ett bo — inget bär valt, alltså ingen måltid.
+      const h0f = await lasH()
+      await klick(BOX[1], BOY)
+      await page.waitForTimeout(3400) // låt tap-tap-valet (3 s) löpa ut innan nästa arm
+      const h0 = await lasH()
+      rader.push(['H0 kontroll  tryck på ett bo utan bär → ingen måltid', `modul ${h0.finns} · måltider ${h0f.mal.join('/')} → ${h0.mal.join('/')}`, h0.finns && h0.mal.join() === h0f.mal.join()])
+
+      // H1: dra ett smultron från skålen till bo 1.
+      await dra(96, 452, BOX[1], BOY - 10)
+      await page.waitForTimeout(2200)
+      const h1 = await lasH()
+      rader.push(['H1 matarm    dra ett bär till bo 1 → knyttet äter', `måltider ${h0.mal.join('/')} → ${h1.mal.join('/')} · nytt bär ${h1.harBar}`, h1.mal[1] === h0.mal[1] + 1 && h1.mal[0] === h0.mal[0] && h1.harBar === true])
+
+      // H2: tap-tap — skålen, sedan bo 0.
+      await klick(96, 470)
+      await page.waitForTimeout(300)
+      const h2v = await lasH()
+      await klick(BOX[0], BOY)
+      await page.waitForTimeout(2200)
+      const h2 = await lasH()
+      rader.push(['H2 matarm    tap-tap: skålen, sedan bo 0 → äter', `valt ${h2v.valt} · måltider ${h1.mal.join('/')} → ${h2.mal.join('/')}`, h2v.valt === true && h2.mal[0] === h1.mal[0] + 1])
+
+      // H3 KONTROLL: ett bär släppt på golvet hoppar hem — ingen måltid.
+      await dra(96, 452, 640, 700)
+      await page.waitForTimeout(900)
+      const h3 = await lasH()
+      rader.push(['H3 kontroll  bär släppt på golvet → tillbaka, ingen måltid', `måltider ${h2.mal.join('/')} → ${h3.mal.join('/')} · bär ${h3.harBar}`, h3.mal.join() === h2.mal.join() && h3.harBar === true])
+
+      // H4: dra ut knyttet i bo 2 på golvet.
+      await dra(BOX[2], BOY - 10, 700, 690, 16)
+      await page.waitForTimeout(700)
+      const h4a = await lasH()
+      await page.waitForTimeout(2000)
+      const h4b = await lasH()
+      const rorde = h4a.ute && h4b.ute ? Math.abs(h4b.ute.x - h4a.ute.x) : 0
+      rader.push(['H4 matarm    dra ut knyttet i bo 2 → det springer', `ute ${JSON.stringify(h4a.ute)} · rörde sig ${Math.round(rorde)} px på 2 s`, !!h4a.ute && h4a.ute.i === 2 && h4b.ute?.lage === 'springer' && rorde > 40])
+
+      // H5: det går hem av sig självt (9 s ute + vägen hem + hoppet in).
+      await page.waitForFunction(() => !window.__barnspel.game._hyllliv?.ute, null, { timeout: 16000 }).catch(() => {})
+      const h5 = await lasH()
+      // Kräver att knyttet VAR ute (H4): mot koden utan hyllmodulen var "inte ute + hemma" grönt —
+      // en arm som är grön för att den inte mätte (samma fälla som S2/S4 i steg 3).
+      rader.push(['H5 matarm    och går hem av sig självt', `ute ${JSON.stringify(h5.ute)} · hemma ${h5.hemma.join('/')}`, h4a.ute?.i === 2 && !h5.ute && h5.hemma[2] === true])
+
+      // H6: tap-tap — knyttet i bo 1, sedan golvet.
+      await klick(BOX[1], BOY)
+      await page.waitForTimeout(300)
+      await klick(640, 712)
+      await page.waitForTimeout(900)
+      const h6 = await lasH()
+      rader.push(['H6 matarm    tap-tap: knyttet, sedan golvet → ute', `ute ${JSON.stringify(h6.ute)}`, h6.ute?.i === 1])
+
+      // H7: tryck på det TOMMA boet → kallas hem.
+      await klick(BOX[1], BOY)
+      await page.waitForFunction(() => !window.__barnspel.game._hyllliv?.ute, null, { timeout: 8000 }).catch(() => {})
+      const h7 = await lasH()
+      // Samma vakt: kräver att knyttet var ute i H6 innan hemkomsten räknas.
+      rader.push(['H7 matarm    tryck på det tomma boet → hem', `ute ${JSON.stringify(h7.ute)} · hemma ${h7.hemma.join('/')}`, h6.ute?.i === 1 && !h7.ute && h7.hemma[1] === true])
+
+      // H8: ut igen, sedan spaken — alla hemma i samma ögonblick.
+      await klick(BOX[0], BOY)
+      await page.waitForTimeout(300)
+      await klick(700, 712)
+      await page.waitForTimeout(900)
+      const h8a = await lasH()
+      await klick(1160, 350)
+      await page.waitForTimeout(250)
+      const h8 = await lasH()
+      rader.push(['H8 matarm    spaken medan ett knytt är ute → hemma direkt', `ute före ${h8a.ute?.i ?? '—'} · efter ${JSON.stringify(h8.ute)} · hemma ${h8.hemma.join('/')}`, h8a.ute?.i === 0 && !h8.ute && h8.hemma.every(Boolean)])
+      await page.mouse.move(X(40), Y(400))
+      await page.screenshot({ path: '.test-shots/knytt-hylla-ceremoni.png' })
     }
 
     await page.evaluate(() => window.__barnspel.nav.go('library'))

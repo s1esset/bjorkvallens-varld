@@ -733,6 +733,8 @@ function ritaKorn(g, varld, k) {
 const KORN_MAX = 5
 const KORN_LIV = 2.2 // sekunder från hjässan till borta
 const KORN_TAKT = 0.55
+// Maten (steg 5, verkstadshyllan): gapet, tre tuggor, rapet. Sekunder.
+const AT_S = 1.4
 
 const LAGEN = ['idle', 'glad', 'lekfull', 'somnig', 'sover']
 // Vilorörelsens takt per värld: sten (snölandet) är trögare, natten piggare.
@@ -794,6 +796,7 @@ class Knytt {
     this.s = {
       andasFas: this._prop.fas, andasAmp: 1, gupp: 0, hoppH: 0, strack: 0, landa: 0,
       gladhet: 0, lut: 0, wobble: 0, sank: 0, lock: 0, blink: 0, gasp: 0, vakna: 0, sido: 0,
+      tugg: 0,
     }
     this._lutV = 0
     // Lekzonen och dess två mättnadsnämnare är konstanta för knyttets livstid — `_r` sätts
@@ -817,6 +820,10 @@ class Knytt {
     this._somnKvar = 0
     this._korn = []
     this._kornT = 0
+    // Steg 5: tuggandet och hur många smultron knyttet ätit (sonden H läser det).
+    this._atT = 0
+    this._tuggN = 0
+    this._maltider = 0
 
     this._bygg()
   }
@@ -1239,6 +1246,31 @@ class Knytt {
     return this
   }
 
+  /**
+   * Ett smultron (steg 5, verkstadshyllan): knyttet gapar, tuggar tre gånger och RAPAR EN GNISTA.
+   * Drivs i tick (`_atT`), så ingen tween kan överleva en rivning; munnen delar gap-noden med
+   * gäspningen (`_apply` tar den störst öppna). Ett sovande knytt vaknar av maten.
+   */
+  at() {
+    if (!this._alive || this.view.destroyed) return this
+    if (this._lage === 'sover' || this._lage === 'somnig') this._vakna()
+    this._atT = AT_S
+    this._tuggN = 0
+    this._maltider++
+    this._ljud?.tone?.({ freq: 392, dur: 0.08, type: 'triangle', vol: 0.1 })
+    return this
+  }
+
+  /** Hur många smultron knyttet ätit (`_knyttlyftprobe` H). */
+  get maltider() { return this._maltider }
+
+  _rapa() {
+    this._ljud?.tone?.({ freq: 196, dur: 0.3, type: 'sawtooth', vol: 0.09, slideTo: 110 })
+    sparkle(this._fx, 0, this._m.munY * this._bas, { count: 7 })
+    this._senare?.(0.12, () => { if (this._alive && !this.view.destroyed) this._ljud?.sfx?.('pling') })
+    this.hoppa(1)
+  }
+
   /** Hur många sömnkorn som svävar just nu (`_knyttlyftprobe` N4). */
   get somnkorn() {
     let n = 0
@@ -1468,6 +1500,23 @@ class Knytt {
     }
     s.gasp = this._gaspFas >= 0 ? Math.sin(this._gaspFas * Math.PI) : 0
 
+    // Maten (steg 5): munnen öppnas, tuggar tre gånger — ett stämt "mums" per tugga — och rapar.
+    if (this._atT > 0) {
+      this._atT -= dt
+      const u = clamp(1 - this._atT / AT_S, 0, 1)
+      const v = (u - 0.18) / 0.82
+      s.tugg = u < 0.18 ? u / 0.18 : Math.abs(Math.sin(v * Math.PI * 3)) * 0.75
+      const tugga = u < 0.18 ? 0 : Math.min(3, Math.floor(v * 3) + 1)
+      if (tugga > this._tuggN) {
+        this._tuggN = tugga
+        this._ljud?.tone?.({ freq: 262 + tugga * 33, dur: 0.06, type: 'sine', vol: 0.08 })
+      }
+      if (this._atT <= 0) {
+        s.tugg = 0
+        this._rapa()
+      }
+    } else s.tugg = 0
+
     s.vakna = Math.max(0, s.vakna - dt * 1.7)
 
     this._blicka(dt, pekare, somnig)
@@ -1632,9 +1681,11 @@ class Knytt {
     }
     this._kinder.alpha = this._prop.kindAlfa * (1 + s.gladhet * 0.4 + s.vakna * 0.3)
     this._mun.scale.set(1 + s.gladhet * 0.22, 1 + s.gladhet * 0.55)
-    this._mun.alpha = 1 - s.gasp * 0.85
-    this._gap.alpha = s.gasp
-    this._gap.scale.set(0.7 + s.gasp * 0.5, 0.5 + s.gasp * 0.9)
+    // Gäspningen och tuggandet delar gapet — den som öppnar mest vinner.
+    const gap = Math.max(s.gasp, s.tugg)
+    this._mun.alpha = 1 - gap * 0.85
+    this._gap.alpha = gap
+    this._gap.scale.set(0.7 + gap * 0.5, 0.5 + gap * 0.9)
 
     // Kompisen fladdrar (vingar) eller vaggar (skalbagge, fisk), piggare när knyttet är glatt,
     // och SLÄPAR efter kroppen som öronen gör. Bara bilden — hållaren är flygturens.

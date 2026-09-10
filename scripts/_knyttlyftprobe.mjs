@@ -19,8 +19,20 @@
 //             (800,600) når tratten · R1 fem tryck = fem OLIKA melodier, var och en exakt det
 //             motiv knyttet får · R3 noterna når kupan · R6 en gammal post migreras till nio
 //             fält · R2 knyttet som föds sjunger barnets melodi och posten bär r + generation.
+//   S   Skrället (steg 3). Besöken tvingas med spelets EGEN timer (`_skrallT = 0`) — vägen dit
+//             är en genväg, men besöket självt är spelets. S8 nådtiden 12 s vid montering ·
+//             S0 KONTROLL: inget att sno → ingen kommer · S1 en sak i kupan → den snor den, och
+//             världsvalet står kvar · S2 petad → saken tillbaka + beröm · S3 nästa besök tar den
+//             ANDRA axeln · S4 ignorerad 7 s → lämnar tillbaka själv · S6 KONTROLL: under
+//             ceremonin kommer ingen · S5 spaken medan den håller → sugs in, knyttet får tofs
+//             (dna, rigg och flagga bit 4) · S7 exit mitt i ett besök (felen räknas i exit-armen).
+//   O   ögonen efter födseln — fyndet i steg 3:s bildgranskning: det nyfödda knyttet stod på
+//             bänken med två VITA ögon utan pupill, och `_blick` var NaN. Ceremonin studsar in
+//             knyttets hållare med `bounceIn`, som sätter scale 0, och `toLocal` genom en förälder
+//             med skala 0 ger NaN — som `naerma()` sedan bär vidare för alltid. O0 KONTROLL: ett
+//             hyllknytt (aldrig genom bounceIn) · O1 ett nyfött knytt med fingret över skärmen.
 //
-//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R]
+//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R,S,O]
 //
 // ⚠️ Kör ALDRIG bredvid en annan webbläsarsond eller `npm run test:all`.
 import { chromium } from 'playwright'
@@ -108,7 +120,7 @@ if (kor('R')) {
 }
 
 // =================================================================== webbläsarfamiljerna
-if (kor('B9') || kor('K') || kor('R')) {
+if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O')) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
@@ -331,6 +343,146 @@ if (kor('B9') || kor('K') || kor('R')) {
         `valt r ${fore2.r} · fött ${fodd} · valt ${fore2.vald} · fröets ${fore2.frosMotiv} · post[5] ${post[5]} · flagga ${post[8]}`,
         fodd === fore2.vald && fodd !== fore2.frosMotiv && post[5] === fore2.r && ((post[8] ?? 0) & 15) === 1,
       ])
+    }
+
+    // ================================================================= S Skrället
+    if (kor('S')) {
+      await besok([])
+      await page.evaluate(() => {
+        const v = window.__barnspel.voice
+        if (!v.__lyftSagt) {
+          const s = v.say.bind(v)
+          v.say = (t, o) => { window.__sagt?.push(String(t)); return s(t, o) }
+          v.__lyftSagt = true
+        }
+        window.__sagt = []
+      })
+      const lasS = () => page.evaluate(() => {
+        const g = window.__barnspel.game
+        return {
+          lage: g._skrall?.lage ?? '(inget skrälle)', sak: g._skrall?.sak ?? null, t: g._skrallT,
+          props: g._kupa?.antalProps?.() ?? -1, gn: g._val.g, v: g._val.v, fas: g._fas, sagt: window.__sagt.slice(),
+        }
+      })
+      const tvinga = () => page.evaluate(() => { window.__barnspel.game._skrallT = 0 })
+      const haller = () => page.waitForFunction(() => window.__barnspel.game._skrall?.haller === true, null, { timeout: 8000 }).catch(() => {})
+      const borta = () => page.waitForFunction(() => window.__barnspel.game._skrall?.lage === 'borta', null, { timeout: 6000 }).catch(() => {})
+
+      const s8 = await lasS()
+      rader.push(['S8 bokföring nådtiden vid montering (12 s)', `skrallT ${Number.isFinite(s8.t) ? s8.t.toFixed(1) : s8.t}`, Number.isFinite(s8.t) && s8.t > 9 && s8.t <= 12])
+
+      // S0 KONTROLL: tom kupa, inga gnistor — ingenting att sno, så ingen får komma.
+      await tvinga()
+      await page.waitForTimeout(1200)
+      const s0 = await lasS()
+      rader.push(['S0 kontroll  inget att sno → ingen kommer', `läge ${s0.lage} · props ${s0.props} · g ${s0.gn}`, s0.lage === 'borta'])
+
+      // S1: väderveven lägger in ett föremål; sedan > 1,5 s stilla innan besöket tvingas.
+      await klick(480, 630)
+      await page.waitForTimeout(2200)
+      const fore1 = await lasS()
+      await page.evaluate(() => { window.__sagt.length = 0 })
+      await tvinga()
+      await haller()
+      const s1 = await lasS()
+      rader.push(['S1 matarm    en sak i kupan → Skrället snor den', `läge ${s1.lage} · sak ${s1.sak} · props ${fore1.props} → ${s1.props} · värld ${fore1.v} → ${s1.v}`, s1.lage === 'sitter' && s1.sak === 'prop' && s1.props === fore1.props - 1 && s1.v === fore1.v])
+      rader.push(['S1b          narratorn säger vad som hänt', s1.sagt.join(' | ').slice(0, 70) || '(tyst)', s1.sagt.includes('Oj, Skrället tog en sak! Peta på den.')])
+
+      // S2: ETT tryck på Skrället.
+      await page.evaluate(() => { window.__sagt.length = 0 })
+      await klick(620, 210)
+      await page.waitForTimeout(1800)
+      const s2 = await lasS()
+      // Kräver att stölden FAKTISKT skedde (S1): kontrollkörningen mot koden utan Skrället gav
+      // annars grönt på "props −1 = −1" — en arm som är grön för att den inte mätte.
+      rader.push(['S2 matarm    petad → saken tillbaka, den går', `läge ${s2.lage} · props ${s2.props} (före stölden ${fore1.props})`, s1.sak === 'prop' && s2.props === fore1.props && s2.props >= 1 && s2.lage !== 'sitter'])
+      rader.push(['S2b          beröm för att den lämnade tillbaka', s2.sagt.join(' | ').slice(0, 70) || '(tyst)', s2.sagt.includes('Bra jobbat, Skrället lämnade tillbaka den.')])
+
+      // S3: nu finns både ett föremål och en gnista — förra besöket tog ett föremål.
+      await borta()
+      await klick(950, 250)
+      await page.waitForTimeout(2200)
+      const fore3 = await lasS()
+      await tvinga()
+      await haller()
+      const s3 = await lasS()
+      rader.push(['S3 matarm    nästa besök tar den ANDRA axeln', `sak ${s3.sak} (förra: prop) · g ${fore3.gn} → ${s3.gn} · props ${fore3.props} → ${s3.props}`, s3.sak === 'gnista' && s3.gn === fore3.gn - 1 && s3.props === fore3.props])
+
+      // S4: ingen rör den — efter 7 s lämnar den tillbaka själv.
+      await page.waitForTimeout(8000)
+      const s4 = await lasS()
+      // Samma vakt som S2: utan en verklig stöld i S3 var "g 1 = 1" grönt mot kod utan Skrället.
+      rader.push(['S4 matarm    ignorerad 7 s → lämnar tillbaka själv', `läge ${s4.lage} · g ${s4.gn} (före stölden ${fore3.gn})`, s3.sak === 'gnista' && s3.gn === fore3.gn - 1 && s4.gn === fore3.gn && s4.lage !== 'sitter'])
+
+      // S5: spaken medan den håller något.
+      await borta()
+      await tvinga()
+      await haller()
+      const fore5 = await lasS()
+      await klick(1160, 350)
+      await page.waitForTimeout(300)
+      const s5a = await lasS()
+      // S6 KONTROLL: under ceremonin får ingen komma, hur timern än står.
+      await tvinga()
+      await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 }).catch(() => {})
+      const s6 = await lasS()
+      rader.push(['S6 kontroll  under ceremonin kommer ingen', `läge ${s6.lage} · fas ${s6.fas}`, s6.lage === 'borta' && s6.fas === 'klacka'])
+      for (let i = 0; i < 4; i++) { await klick(640, 470); await page.waitForTimeout(260) }
+      await page.waitForFunction(() => window.__barnspel.game._klar === true, null, { timeout: 20000 }).catch(() => {})
+      const tofs = await page.evaluate(() => ({ dna: window.__barnspel.game._dna?.tofs, rigg: window.__barnspel.game._knytt?.tofs }))
+      await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 }).catch(() => {})
+      await page.mouse.move(X(200), Y(120))
+      await page.waitForTimeout(200)
+      await page.screenshot({ path: '.test-shots/knytt-tofs.png' })
+      await klick(1160, 350)
+      await page.waitForFunction(() => window.__barnspel.game._fas === 'bygga', null, { timeout: 20000 }).catch(() => {})
+      const post = await page.evaluate(() => { const l = window.__barnspel.ctx.progress.get()?.custom?.knytt?.lista || []; return l[l.length - 1] || [] })
+      rader.push([
+        'S5 matarm    spaken medan den håller → sugs in, tofs',
+        `läge ${fore5.lage} → ${s5a.lage} · dna.tofs ${tofs.dna} · riggen ${tofs.rigg} · flagga ${post[8]}`,
+        fore5.lage === 'sitter' && s5a.lage === 'sugs' && tofs.dna === 1 && tofs.rigg === true && ((post[8] ?? 0) & 16) === 16,
+      ])
+
+      // S7: exit MITT i ett besök. Felen räknas i den gemensamma exit-armen nedan.
+      await klick(480, 630)
+      await page.waitForTimeout(2200)
+      await tvinga()
+      await page.waitForTimeout(700)
+      const s7 = await lasS()
+      rader.push(['S7           exit mitt i ett besök (läge vid exit)', s7.lage, s7.lage === 'kommer' || s7.lage === 'sitter'])
+    }
+
+    // ================================================================= O ögonen efter födseln
+    if (kor('O')) {
+      await besok([[4243, 2, 1, 1, 0, 0, 0, 0, 1]])
+      const blickAv = (vag) => page.evaluate((vag) => {
+        const g = window.__barnspel.game
+        const k = vag === 'hylla' ? g._bon.find((b) => b.knytt)?.knytt : g._knytt
+        const o = k?._ogon?.[0]
+        // NaN blir null i JSON — och `Number.isFinite(null)` är falskt, precis som för NaN.
+        return k ? { x: k._blick.x, y: k._blick.y, px: o?.pup.position.x, py: o?.pup.position.y } : null
+      }, vag)
+      const ok = (o) => !!o && [o.x, o.y, o.px, o.py].every(Number.isFinite)
+      const txt = (o) => (o ? `blick ${o.x} , ${o.y} · pupill ${o.px} , ${o.py}` : 'inget knytt')
+
+      // O0 KONTROLL: hyllans knytt byggs av `_ritaHylla` och passerar aldrig ceremonins bounceIn.
+      const o0 = await blickAv('hylla')
+      rader.push(['O0 kontroll  hyllans knytt: blicken ändlig', txt(o0), ok(o0)])
+
+      // O1: en födsel med fingret ÖVER skärmen och i rörelse, som ett barns — det är just då
+      // ceremonin räknar om pekaren genom hållaren medan bounceIn står på skala 0.
+      await page.mouse.move(X(900), Y(300))
+      await klick(1160, 350)
+      await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
+      for (let i = 0; i < 4; i++) { await klick(640, 470); await page.waitForTimeout(260) }
+      for (let i = 0; i < 14; i++) { await page.mouse.move(X(900 + (i % 2) * 24), Y(300)); await page.waitForTimeout(100) }
+      await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 })
+      await page.waitForTimeout(1400)
+      const o1 = await blickAv('fodd')
+      rader.push(['O1 matarm    nyfött knytt: blicken ändlig, pupillen syns', txt(o1), ok(o1)])
+      await page.screenshot({ path: '.test-shots/knytt-ogon-bank.png', clip: { x: X(700), y: Y(300), width: 200 * geo.s, height: 200 * geo.s } })
+      await klick(1160, 350)
+      await page.waitForFunction(() => window.__barnspel.game._fas === 'bygga', null, { timeout: 20000 })
     }
 
     await page.evaluate(() => window.__barnspel.nav.go('library'))

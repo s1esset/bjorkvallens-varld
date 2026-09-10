@@ -1285,6 +1285,98 @@ export function byggKupa(opts = {}) {
     })
   }
 
+  // ---- Skrället (steg 3): det enda i kupan det får röra är en rekvisita eller en gnista ----
+  // Aldrig världsvalet (§4b) — `val.v` skrivs aldrig härifrån. Flykterna tweenar ett
+  // {}-proxy och kopierar bara till en levande nod: en exit mitt i en flykt skriver aldrig på
+  // en riven transform.
+
+  /** Hur många rekvisita världen i kupan har just nu (Skrället snor bara det som finns). */
+  function antalProps() {
+    return dod || tomKupa ? 0 : antal[val.v]
+  }
+
+  /**
+   * Skrället snor den SENASTE saken ur världen. Noden flyger upp mot `till` (kupans rum, dit
+   * Skrällets hand är) och krymper; antalet sjunker, så zonen den tömde blir tom och världens
+   * skalärer svalnar — barnet SER vad som hände. Returnerar det Skrället ritar i handen och
+   * index.js lämnar tillbaka (`lamnaProp`).
+   */
+  function snoProp(till) {
+    if (dod || tomKupa || !antal[val.v] || !props.length) return null
+    const p = props.pop()
+    antal[val.v] -= 1
+    const nod = p.nod
+    stadFx(p.livNod)
+    stadFx(p.inner)
+    gsap.killTweensOf(nod)
+    gsap.killTweensOf(nod.scale)
+    const x0 = nod.x
+    const y0 = nod.y
+    const s0 = nod.scale.x
+    const st = { t: 0 }
+    gsap.to(st, {
+      t: 1,
+      duration: 0.45,
+      ease: 'power2.in',
+      onUpdate: () => {
+        if (nod.destroyed) return
+        nod.position.set(x0 + (till.x - x0) * st.t, y0 + (till.y - y0) * st.t)
+        nod.scale.set(s0 * (1 - 0.6 * st.t))
+      },
+      onComplete: () => { if (!nod.destroyed) nod.destroy({ children: true }) },
+    })
+    raknaSkalarer()
+    satTon(false)
+    return { typ: 'prop', v: val.v, def: p.def }
+  }
+
+  /**
+   * Saken kommer tillbaka och faller in genom kragen — samma väg som vädret — och landar på
+   * sin gamla plats (samma frö, samma ordning). Hann barnet byta värld medan Skrället höll
+   * den räknas den bara upp i sin EGEN värld och syns när barnet vevar tillbaka dit.
+   */
+  function lamnaProp(sak) {
+    if (dod || tomKupa || !sak || sak.typ !== 'prop') return false
+    const v = klamp(sak.v | 0, 0, VARLDSNYCKEL.length - 1)
+    if (antal[v] >= SLOT.length) return false
+    antal[v] += 1
+    if (v === val.v) {
+      laggProp(antal[v] - 1, true)
+      raknaSkalarer()
+      satTon(false)
+    }
+    sfx('pop')
+    return true
+  }
+
+  /**
+   * En gnista ur omloppsbanan flyger upp till Skrällets hand. Kupans eget `val.g` följer med,
+   * så index.js nästa `setVal` (med det sänkta receptet) blir en nollåtgärd för gnistorna.
+   */
+  function snoGnista(till) {
+    if (dod || tomKupa || !gnistor.length) return false
+    const g = gnistor.pop()
+    val.g = gnistor.length
+    const nod = g.nod
+    const x0 = nod.x
+    const y0 = nod.y
+    const st = { t: 0 }
+    gsap.to(st, {
+      t: 1,
+      duration: 0.4,
+      ease: 'power2.in',
+      onUpdate: () => {
+        if (nod.destroyed) return
+        nod.position.set(x0 + (till.x - x0) * st.t, y0 + (till.y - y0) * st.t)
+      },
+      onComplete: () => {
+        stadFx(nod)
+        if (!nod.destroyed) nod.destroy()
+      },
+    })
+    return true
+  }
+
   // Ett tryck på glaset: hela förhandsvisningen skakar, blobben byter siluett komiskt,
   // föremålen guppar. Samtidigt omrullningen av fröet (index.js lyssnar på 'glas').
   function rullaOm() {
@@ -1418,6 +1510,7 @@ export function byggKupa(opts = {}) {
   // den färg knyttet sedan får. Spelet läser den aldrig.
   return {
     view, setVal, setFro, laggIn, sjung, tomma, tick, destroy,
+    antalProps, snoProp, lamnaProp, snoGnista,
     get palett() { return { ...palett } },
     get noter() { return noterIn },
   }

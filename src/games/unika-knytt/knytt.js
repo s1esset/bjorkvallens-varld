@@ -27,6 +27,7 @@ import { COLORS, shade, tint } from '../../lib/theme.js'
 import { fadeTopFill, sphereFill, topLightFill } from '../../lib/form.js'
 import { puff, sparkle, stadFx } from '../../lib/feedback.js'
 import { mulberry32 } from './dna.js'
+import { SKRALL_PALS } from './skrallet.js'
 
 const TAU = Math.PI * 2
 
@@ -891,6 +892,15 @@ class Knytt {
         this._liv.addChild(nod)
         this._oron.push(nod)
       }
+      // Skrällets vikta öra (steg 3): det vänstra viker sig ner — ett minne av att Skrället
+      // åkte med in i degen. Ren kosmetik; `_apply` läser `_wbas` varje bildruta, så vikningen
+      // följer med i släpet och vickningen i stället för att frysa örat.
+      if (d.tofs && this._oron.length) {
+        const o = this._oron[0]
+        o._wbas -= 0.85
+        o.rotation = o._wbas
+        o.scale.y = 0.8
+      }
     }
 
     // --- horn ---------------------------------------------------------------
@@ -925,6 +935,27 @@ class Knytt {
     monster.rita(kg, p, m, prop, look)
     this._liv.addChild(kg)
     if (hornForan) this._liv.addChild(hornForan)
+
+    // --- Skrällets tofs (steg 3) ------------------------------------------------
+    // Fyra lockar av Skrällets päls på hjässan, lite till vänster så en krona i mitten inte
+    // döljer dem. Öppna vägar med stroke — en mörkare under, pälsen ovanpå — drar inga streck
+    // tvärs över någon silhuett.
+    this._tofsNod = null
+    if (d.tofs) {
+      const tg = new Graphics()
+      const bx = -m.bredd * 0.14
+      const by = m.topY + r * 0.05
+      const LOCKAR = [[-0.16, -0.3, -0.26], [-0.04, -0.37, -0.08], [0.08, -0.33, 0.14], [0.18, -0.25, 0.3]]
+      for (const [lager, bredd] of [[shade(SKRALL_PALS, 0.36), 0.095], [SKRALL_PALS, 0.058]]) {
+        for (const [dx, h, lut] of LOCKAR) {
+          tg.moveTo(bx + dx * r * 0.5, by)
+            .quadraticCurveTo(bx + dx * r + lut * r * 0.5, by + h * r * 0.6, bx + dx * r + lut * r * 0.3, by + h * r)
+            .stroke({ width: r * bredd, color: lager, cap: 'round' })
+        }
+      }
+      this._liv.addChild(tg)
+      this._tofsNod = tg
+    }
 
     // --- ansiktet -----------------------------------------------------------
     this._ansikte = new Container()
@@ -1155,6 +1186,8 @@ class Knytt {
   /** 'sitter' · 'borta' (finns, har inte flugit in än) · 'ingen' (skimrande knytt). */
   get kompis() { return this._kompisLage }
   get gloria() { return !!this._gloria }
+  /** Bär knyttet Skrällets tofs (steg 3)? */
+  get tofs() { return !!this._tofsNod }
 
   /**
    * Kompisen flyger in och sätter sig på hjässan — vanliga knytts egen gåva (§3b). `fran`

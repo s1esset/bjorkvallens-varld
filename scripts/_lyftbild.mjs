@@ -110,6 +110,49 @@ try {
     console.log(`  .test-shots/knytt-krona-stor.png · horn ${d.horn} · kompis ${d.kompis}`)
   }
 
+  // Skrället (steg 3): på bjälken mitt i språnget, och sittande på kragen med sin trofé.
+  // Besöket tvingas med spelets egen timer; väderveven lägger först in något att sno.
+  if (vill('skralle')) {
+    await besok([])
+    await klick(480, 630)
+    await page.waitForTimeout(2200)
+    await page.evaluate(() => { window.__barnspel.game._skrallT = 0 })
+    await page.waitForTimeout(650)
+    await bort()
+    await page.screenshot({ path: '.test-shots/knytt-skralle-bjalke.png' })
+    console.log('  .test-shots/knytt-skralle-bjalke.png')
+    await page.waitForFunction(() => window.__barnspel.game._skrall?.haller === true, null, { timeout: 8000 }).catch(() => {})
+    await page.waitForTimeout(700) // trofén syns i handen 0,4 s efter stölden
+    await page.screenshot({ path: '.test-shots/knytt-skralle.png' })
+    const l = await page.evaluate(() => window.__barnspel.game._skrall?.lage)
+    console.log(`  .test-shots/knytt-skralle.png · läge ${l}`)
+  }
+
+  // Tofsen (steg 3) på ett knytt som LANDAT på bänken — plus en närbild av huvudet, så ett
+  // ögonblicksläge (blink, flygtur) inte kan förväxlas med ett fel i ansiktet. Skrället måste
+  // sugas in på riktigt: `_tofsNu` sätts bara i `_startaCeremoni`, när det håller något.
+  if (vill('tofs')) {
+    await besok([])
+    await klick(480, 630)
+    await page.waitForTimeout(2200)
+    await page.evaluate(() => { window.__barnspel.game._skrallT = 0 })
+    await page.waitForFunction(() => window.__barnspel.game._skrall?.haller === true, null, { timeout: 8000 }).catch(() => {})
+    await klick(1160, 350)
+    await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
+    for (let i = 0; i < 4; i++) { await klick(640, 470); await page.waitForTimeout(260) }
+    await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 })
+    await page.waitForTimeout(1600) // flygturen (0,9 s) + landningen + skutten
+    await bort()
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: '.test-shots/knytt-tofs-bank.png' })
+    await page.screenshot({ path: '.test-shots/knytt-tofs-nara.png', clip: { x: X(700), y: Y(300), width: 200 * geo.s, height: 200 * geo.s } })
+    const d = await page.evaluate(() => {
+      const k = window.__barnspel.game._knytt
+      return { tofs: k?.tofs, lage: k?.lage, oron: k?._dna?.oron, ogon: k?._dna?.ogonform, blick: k?._blick ? [+k._blick.x.toFixed(2), +k._blick.y.toFixed(2)] : null, lock: k?.s ? +k.s.lock.toFixed(2) : null, glad: k?.s ? +k.s.gladhet.toFixed(2) : null }
+    })
+    console.log(`  .test-shots/knytt-tofs-bank.png + -nara.png · ${JSON.stringify(d)}`)
+  }
+
   console.log(`  ${errors.length} konsolfel${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`)
 } finally {
   await browser.close()

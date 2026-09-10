@@ -32,7 +32,7 @@ och varför står i **§2**.
 | **variation** | Fröet härleder både VILKEN del (7 tabeller, 16 200 uppsättningar) och dess PROPORTIONER (22 kontinuerliga drag, §6c) — viktat av barnets val. **1,65 × 10¹³ distinkta individer**; risken att se två identiska på 200 knytt ur samma recept är 0,00046 %. Verkstan **växer**: startläget är 8 färger · 4 mönster · 3 världar · 3 storlekar, och nya delar låses upp vid 4 → två färger · 8 → två mönster · 12 → Stjärnnatten · 16 → största bälgsteget (byggt 2026-09-01, §5). **Steg 4 (2026-09-05): 20 → Öknen · 24 → Grottan, och rekvisitapoolen är 7 per värld — fröet drar 4, så samma värld ger olika finaler.** |
 | **mottagare** | Bobo står vid spaken och sköter maskinen (rigg ur `lib/karaktarer.js`), och Knyttboden tar emot: alla tidigare knytt andas, blinkar, kvittrar till varandra och vinkar när barnet kommer tillbaka efter ett dygn. |
 | **finish** | Kläckningen: skalet klyvs i två halvor som far iväg med fjäderfysik, världen strömmar ut ur ägget och vecklar ut sig (mark, himmel, fyra rekvisita, partiklar), knyttet reser sig med `bounceIn` och gör tre glädjeskutt, och en ram svänger in BAKOM det. |
-| **motgång** | **Ingen i leverans 1 — med flit** (ägarens beslut 2026-08-30). Motgången kräver att barnet DRÖJER i verkstan, och den tiden är omätt. Leverans 1 mäter uppehållstiden; är den >20 s byggs **Skrället** (§4b), är den <12 s byggs ingen alls. Imma-på-glaset är förkastad. |
+| **motgång** | **Skrället** (§4b), byggt 2026-09-10 i poleringsrundan — utan uppehållsmätningen, efter ägarens beslut. *Historik:* **Ingen i leverans 1 — med flit** (ägarens beslut 2026-08-30). Motgången kräver att barnet DRÖJER i verkstan, och den tiden är omätt. Leverans 1 mäter uppehållstiden; är den >20 s byggs **Skrället** (§4b), är den <12 s byggs ingen alls. Imma-på-glaset är förkastad. |
 | **sällsynthet** | Ägarens tal exakt: **guld 2 % · silver 5 % · brons 10 % · vanlig 83 %**, rullat FÖRE spaken dras. Stjärnstoftsburken höjer chansen synligt, med tak +5 pp (17 % → 22 % skimmer; guld bara 2,00 → 2,50 %). Första kläckningen någonsin är garanterat brons. Ingen räknare, ingen procentsats, inga låsta siluetter. Vanliga knytt får något ett skimrande aldrig får. Se §3b. |
 | **samling** | **Knyttboden** — en RULLANDE POPUP som bara visar de knytt man FÅTT, aldrig tomma platser. Fyra världshyllor (Skogen · Vattnet · Snölandet · Stjärnnatten) + Skimmerhyllan; hyllplan staplas nedåt, 4 bon per plan, och ett plan finns först när det har ett knytt. Knyttet är större än boet — en fågel i ett bo, aldrig ett föremål i en låda. |
 
@@ -302,6 +302,7 @@ med +24 halo → träffytor x 0–140 och x 1140–1280, y −6–134.
 | T4 Mönsterhjulet | (950, 450) | 168×168 | 866–1034 | 366–534 |
 | T5 Väderveven | (480, 630) | 144×144 | 408–552 | 558–702 |
 | T6 Ljudtratten (sedan 2026-09-10) | (800, 630) | 144×144 | 728–872 | 558–702 |
+| Skrället (BARA medan det sitter, sedan 2026-09-10) | (620, 210) | 144×144 | 548–692 | 138–282 |
 | Kupan | (640, 330) | `Circle(0,0,190)` | 450–830 | 140–520 |
 | Spaken | (1160, 350) | `Rect(-100,-120,200,240)` | 1060–1260 | 230–470 |
 | Bodluckan (flyttad 2026-09-05: hyllan tog vänsterhörnet) | (1160, 612) | 144×168 | 1088–1232 | 528–696 |
@@ -312,7 +313,10 @@ med +24 halo → träffytor x 0–140 och x 1140–1280, y −6–134.
 T1–T3 y 32 · T2–T4 y 32 · T1–T2 x 482 · T3–T5 y 24 ·
 T2–spak x 26 · T4–spak x 26 · spak–högtalare y 96 · T1–hem y 32 · T2–högtalare y 32 ·
 bodlucka–spak y 58 · bodlucka–T4 x 54 · hyllbon–T5 x 30 · T6–T4 y 24 · T6–T5 x 176 ·
-T6–bodlucka x 216 · T6–bänkknyttet (cirkel r 62 kring (800, 432)) y 64.
+T6–bodlucka x 216 · T6–bänkknyttet (cirkel r 62 kring (800, 432)) y 64 · Skrället–T1 x 164 ·
+Skrället–T2 x 174. **Skrällets yta ligger MED FLIT ovanpå kupans cirkel:** den är 'static' bara
+medan Skrället sitter på kragen, och den ligger ovanför kupan i z-ordningen — ett tryck på figuren
+når figuren, ett tryck bredvid rullar fortfarande om kupan (§4b ⓵).
 **Bodens overlay** (boden.js): skyltar y 206 (träffyta 104×96, x från 150 i steg om 130) — 24 px
 under skalets knappar (slutar 134 → 158) · pilarna (1160, 340) och (1160, 484) · dörren (1160, 628),
 alla 120×120 → y 280–400 · 424–544 · 568–688, alltså 24 px isär och 26 px under skyltradens
@@ -553,6 +557,19 @@ antaget, och sällsyntheten läggs ovanpå en loop som redan bevisat sig rolig u
 * [Quick] Alla 19 repliker i `voice-phrases.json` + `npm run voice`. `_narTyst`-mönstret så ingen replik kapas.
 
 ### 4b. Skrället — motgången, byggklar men GRINDAD på en mätning
+
+✅ **BYGGD 2026-09-10** (poleringsrundan steg 3, `skrallet.js`) — **UTAN uppehållsmätningen
+grinden nedan väntade på, efter ägarens uttryckliga beslut samma dag.** Uppehållstiden är alltså
+fortfarande omätt, och specens egna spärrar (12 s · 22 s · 7 s) är enda bromsen. Avvikelser från
+specen, alla med skäl: ⓵ **kupan behåller sin träffyta** — Skrällets nod ligger ovanpå i
+z-ordningen, så ett tryck på Skrället når Skrället och ett tryck bredvid rullar fortfarande om
+kupan; att stänga av skärmens största föremål vore en död yta. ⓶ De två **axlarna** är det kupan
+har som FÖREMÅL: en rekvisita eller en gnista — aldrig färg, mönster eller storlek, som inte är
+saker man kan bära. ⓷ En snodd **gnista går tillbaka i receptet innan tiern rullas** när Skrället
+sugs in — annars hade det sänkt oddsen, och specen säger "påverkar aldrig tier". ⓸ En tredje
+replik, **"Oj! Skrället åkte med in i degen!"** — tofsen ska ha en orsak barnet hör. ⓹ Det kommer
+in längs **takbjälken**, inte ur tomma intet, så barnet ser det komma. Resten står nedan som
+specat. Mätt: `_knyttlyftprobe` S (§5).
 
 **Ägarens beslut 2026-08-30: bygg den inte i leverans 1, men ha den färdigspecad.**
 
@@ -1178,6 +1195,42 @@ R4 kronan 0 i generation 0 (kontroll), 7,8 % i generation 1. Två äldre sonder 
 **Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` 15/15 · `_knyttprobe` 44/44 · `_bodprobe`
 11/11 · `_upplasprobe` 11/11 · `_tierprobe` 12/12 · `_lyftbild` 0 konsolfel.`
 
+`2026-09-10 · STEG 3 — SKRÄLLET (§4b), byggt UTAN uppehållsmätningen efter ägarens beslut.` Ny fil
+`skrallet.js`. En lila rufsig busvätte springer in längs takbjälken, hoppar ner på kupans krage och
+snor den SENASTE rekvisitan eller en gnista — den flyger upp ur glaset till handen — och sitter och
+fnissar och hickar med den som en trofé. **Ett tryck** på den: den hickar, saken faller tillbaka in
+genom kragen (samma väg som vädret), Bobo jublar och narratorn berömmer. **Ignorerad i 7 s:** den
+gäspar, lämnar tillbaka saken och går. **Spaken medan den håller något:** den sugs i en spiral in i
+degen, och knyttet föds med en tofs av dess päls och ett vikt öra (flaggfältets bit 4) — en snodd
+gnista går tillbaka i receptet innan tiern rullas, så Skrället rör aldrig sällsyntheten.
+
+**Tidtabellen står på ETT ställe** (`index.js:_skrallForsok`): bara i verkstan, 12 s nåd vid montering
+och efter varje ny runda, minst 22 s mellan besök, aldrig samma axel två gånger i rad, aldrig inom
+1,5 s efter ett verktygstryck (saken barnet just lade in ska hinna landa), och de enda axlarna är
+rekvisita och gnistor — världsvalet rörs aldrig. Vilohjälpen tiger medan det är på besök. Öppnas
+boden mitt i ett besök lämnar det tillbaka saken och går. Avvikelserna från specen står i §4b.
+
+**Mätt, `_knyttlyftprobe` S — och kontrollkörningen fällde två av MINA armar.** Mot koden utan Skrället
+var S2 ("props −1 = −1") och S4 ("g 1 = 1") gröna: armar som var gröna för att de inte mätte. Båda
+kräver nu att stölden faktiskt skedde. Efter bygget: S8 nåden 10,5 s kvar vid första läsningen · S0
+inget att sno → ingen kommer · S1 snor ett föremål (1 → 0), världen står kvar · S1b + S2b repliken och
+berömmet sägs · S2 petad → föremålet tillbaka · S3 nästa besök tar gnistan (förra: föremål) · S4
+ignorerad → gnistan tillbaka själv · S6 under ceremonin kommer ingen · S5 insugen → `dna.tofs` 1, riggen
+bär tofsen, posten bär flagga 17 (generation 1 + tofs) · S7 exit mitt i ett besök, 0 konsolfel.
+Tre nya repliker genererade offline (`npm run voice`: 3 gjorda, 0 misslyckade). Bilder:
+`.test-shots/knytt-skralle-bjalke.png` · `knytt-skralle.png` · `knytt-tofs-bank.png`.
+
+🚨 **Bildgranskningen hittade ett fel som inte var Skrällets:** det nyfödda knyttet stod på bänken med två
+VITA ögon utan pupill. `_blick` var NaN — ceremonin studsar in knyttets hållare med `bounceIn`, som
+sätter scale 0, och `toLocal` genom en förälder med skala 0 ger NaN, som `naerma()` bär vidare för
+alltid. Koden bakom (`bounceIn(knyttHall)` + `_blicka`) är orörd sedan leverans 1; felet syns bara när
+fingret är över skärmen under födseln och döljs av de glada ∩-ögonen de första sekunderna. Mätt med
+`_knyttlyftprobe` O innan något rättades: **O0 (hyllknytt) blick 0,0 · O1 (nyfött) blick NaN, NaN.**
+Rättat i en egen commit (nästa post) — steg 3 committades med felet kvar, som det alltid legat.
+
+**Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` S 12/12 · `_knyttprobe` 44/44 · `_upplasprobe`
+11/11 · `_tierprobe` 12/12 · I 0 av 12 000 olika.`
+
 
 ## 6. Teknisk ritning
 
@@ -1552,7 +1605,7 @@ Inget nedan är en trasig sak — det är beslut, obyggt, eller omätt.
 | | |
 |---|---|
 | ~~**Sömntrösklarna**~~ | ✅ **BESVARAT 2026-09-01: koden gäller** (12 s → `somnig`, 8 s till → `sover`). §1 rättad — den hade inte följt med när §3c kortade trösklarna från 20+12. Ingen kodändring. |
-| **§4b Skrället** | Färdigspecad, grindad på hur länge ett barn DRÖJER i verkstan. Harnessens 2,55 s är harnessens tidtabell, inte ett barns. **Ägarens speltest är gjort 2026-09-05 ("bra")** men uppehållstiden är inte rapporterad — frågan står kvar. |
+| **§4b Skrället** | ✅ **BYGGT 2026-09-10 utan mätningen** — ägarens beslut i poleringsrundan (§9 G steg 3). Frågan som återstår är TAKTEN: uppehållstiden är fortfarande omätt, så om 12 s nåd · 22 s mellan besök · 7 s till uttråkad är rätt för ett riktigt barn kan bara ett speltest svara på. Loggen har underlaget: `takt/spak` (ms i verkstan) och `takt/skrall` (varje besök). |
 | **Upplåsningarnas takt** | Nytt 2026-09-01: är 16 kläckningar till sista milstolpen rimligt eller för långt för ett barn? **Speltestet 2026-09-05 sa "bra" utan invändning**; ägarens riktning blev MER variation (leverans 2 steg 4 lägger två världar och två milstolpar till efter 16). |
 
 ### B. Byggt men aldrig inkopplat, eller dött (allt verifierat i koden 2026-09-01)
@@ -1685,7 +1738,7 @@ den, och den här var nära att göra det. En commit per steg; sonden är `_knyt
 |---|---|---|
 | 1 | Rättelser: bodens P0-avstånd med åtta skyltar · kupans färglöfte · döda `rekvisita` · solens varvtid · knackhanden i bild | ✅ 2026-09-10 |
 | 2 | **Ljudtratten (T6)** på bänkplatsen (800, 630): en speldosa, varje tryck vrider fram en ny melodi, noterna flyger in i kupan och blobben sjunger med. Knyttets motiv blir barnets val. | ✅ 2026-09-10 |
-| 3 | **Skrället** (§4b, som specat). ⚠️ Byggs UTAN uppehållsmätningen §4b väntade på — ägarens beslut 2026-09-10. Specens spärrar (12 s · 22 s · 7 s) är enda bromsen. | ⬜ |
+| 3 | **Skrället** (§4b, som specat). ⚠️ Byggs UTAN uppehållsmätningen §4b väntade på — ägarens beslut 2026-09-10. Specens spärrar (12 s · 22 s · 7 s) är enda bromsen. | ✅ 2026-09-10 |
 | 4 | **Knyttet efter födseln:** namnplakett i trä (namnet sägs samtidigt) · tryck på solen i fonden → den går ner, knyttet gäspar och somnar · sömnkorn av världens egna partiklar · folien följer fingret | ⬜ |
 | 5 | **Verkstadshyllan lever:** en bärskål — dra ett bär till ett knytt, det äter och rapar en gnista · dra ut ett knytt på golvet, där det springer runt och sedan går hem (tryck-sedan-tryck också) | ⬜ |
 | 6 | **Vänner i boden:** tre duetter mellan samma grannar → de blir vänner och delar bo | ⬜ |

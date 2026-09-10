@@ -19,6 +19,7 @@ import { byggKupa, byggVerktyg, byggSpak } from './kupan.js'
 import { byggCeremoni } from './ceremoni.js'
 import { byggKnytt } from './knytt.js'
 import { byggBoden, byggLucka } from './boden.js'
+import { byggSkrallet } from './skrallet.js'
 import {
   dnaFromSeed, dnaFranPost, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR,
   MILSTOLPAR, START_TAK, takFor, antalFranPoster, rullaTier,
@@ -57,6 +58,15 @@ const SPAK_X = 1160
 const SPAK_Y = 350
 const AGG_X = 640
 const AGG_Y = 470
+// Degens mitt (ceremoni.js KNAD) — dit Skrället sugs när spaken dras medan det håller något.
+const KNAD_X = 640
+const KNAD_Y = 384
+// Skrällets tidtabell (§4b): nåd efter montering och efter varje ny runda, och minsta avstånd
+// mellan två besök. Aldrig inom `SKRALL_LUGN_MS` efter ett verktygstryck — saken barnet just
+// lade in ska hinna landa innan någon snor den.
+const SKRALL_NAD_S = 12
+const SKRALL_MELLAN_S = 22
+const SKRALL_LUGN_MS = 1500
 // `_narTyst`-pollningens tak i varv à 0,35 s. 20 = 7,0 s, satt över spelets längsta
 // röstklipp (5,12 s, uppmätt) — se den långa noten vid `_narTyst`.
 const NAR_TYST_TAK = 20
@@ -135,6 +145,14 @@ export default {
     this._lucka = null
     this._kikT = KIK_S
     this._ater = false
+    // Skrället (§4b, steg 3): figuren, sekunder kvar till nästa möjliga besök (räknar bara i
+    // verkstan), axeln förra besöket tog, om RUNDANS knytt får tofsen, och tiden för senaste
+    // verktygstrycket.
+    this._skrall = null
+    this._skrallT = SKRALL_NAD_S
+    this._skrallAxel = null
+    this._tofsNu = 0
+    this._sistVerktyg = 0
     this._verktyg = {}
     this._kupa = null
     this._spak = null
@@ -226,6 +244,8 @@ export default {
     this._byggSpak(ctx)
     this._byggBobo(ctx)
     this._byggLucka(ctx)
+    // Skrället efter allt det kan klättra på, så det ligger ovanpå kupan i z-ordningen.
+    this._byggSkrallet(ctx)
     this._byggAggYta(ctx)
     this._byggHand()
     // Boden SIST: overlayn ska ligga över allt annat i roten.
@@ -394,6 +414,101 @@ export default {
     this._rot.addChild(this._boden.view)
   },
 
+  // ---------------------------------------------------------------- Skrället (§4b, steg 3)
+
+  _byggSkrallet(ctx) {
+    this._skrall = byggSkrallet({
+      senare: (s, fn) => ctx.later(s, fn),
+      audio: ctx.services.audio,
+      pa: (h, d) => this._skrallHandelse(ctx, h, d),
+    })
+    this._spelLager.addChild(this._skrall.view)
+  },
+
+  /**
+   * Tidtabellen — §4b:s tak står alla HÄR: bara i verkstan (fas 'bygga'), aldrig de första
+   * `SKRALL_NAD_S` (timern börjar där och sätts om vid varje ny runda), minst `SKRALL_MELLAN_S`
+   * mellan besök, aldrig två gånger i rad på samma axel, aldrig strax efter ett verktygstryck,
+   * högst EN åt gången, och den rör ALDRIG världsvalet — de enda axlarna är rekvisita och gnistor.
+   * ⚠️ Byggd utan uppehållsmätningen §4b väntade på (ägarens beslut 2026-09-10).
+   */
+  _skrallForsok(ctx) {
+    const s = this._skrall
+    if (!s || s.aktiv || this._fas !== 'bygga') return
+    if (performance.now() - this._sistVerktyg < SKRALL_LUGN_MS) {
+      this._skrallT = 1.5
+      return
+    }
+    const kand = []
+    if (this._kupa?.antalProps() > 0) kand.push('prop')
+    if (this._val.g > 0) kand.push('gnista')
+    const tillatna = kand.filter((a) => a !== this._skrallAxel)
+    if (!tillatna.length) {
+      // Inget att sno — eller bara samma sak som förra gången. Titta igen om en stund.
+      this._skrallT = 3
+      return
+    }
+    const axel = tillatna[(Math.random() * tillatna.length) | 0]
+    this._skrallT = Infinity // under besöket räknar ingen timer; 'borta' sätter nästa
+    s.kom(() => this._skrallFramme(ctx, axel))
+    diag('takt', 'skrall', { axel })
+  },
+
+  // Framme på kragen: kupan låter saken flyga upp till handen, och Skrället äger den från
+  // första stund (`tog(sak, 0.4)` — den SYNS i handen när flykten är klar).
+  _skrallFramme(ctx, axel) {
+    const s = this._skrall
+    if (!this._alive || !s) return
+    if (this._fas !== 'bygga') {
+      s.lamna('fly')
+      return
+    }
+    const till = { x: s.hand.x - KUPA_X, y: s.hand.y - KUPA_Y }
+    let sak = null
+    if (axel === 'prop') {
+      sak = this._kupa?.snoProp(till) || null
+    } else if (this._kupa?.snoGnista(till)) {
+      sak = { typ: 'gnista' }
+      this._val.g = Math.max(0, this._val.g - 1)
+      this._verktyg.gnista?.satSteg(this._val.g)
+      this._kupa?.setVal(this._val)
+    }
+    if (!sak) {
+      // Saken hann försvinna medan Skrället klättrade (glaset rullade om, spaken …).
+      s.lamna('fly')
+      return
+    }
+    this._skrallAxel = axel
+    s.tog(sak, 0.4)
+    this._sag(ctx, 'Oj, Skrället tog en sak! Peta på den.', 'bygga')
+  },
+
+  _skrallHandelse(ctx, h, d) {
+    if (!this._alive) return
+    if (h === 'tillbaka') {
+      const sak = d?.sak
+      if (sak?.typ === 'prop') {
+        this._kupa?.lamnaProp(sak)
+      } else if (sak?.typ === 'gnista') {
+        this._val.g = Math.min(3, this._val.g + 1)
+        this._verktyg.gnista?.satSteg(this._val.g)
+        this._kupa?.setVal(this._val)
+      }
+      if (d?.orsak === 'petad') {
+        // Barnet löste det — det är en seger, inte bara ett slut på ett hinder.
+        this._vakna()
+        ctx.services.audio.sfx('correct')
+        sparkle(ctx.fxLayer, 620, 200)
+        this._bobo?.react('jubel')
+        ctx.later(1.0, () => this._bobo?.setMood('nyfiken'))
+        this._sag(ctx, 'Bra jobbat, Skrället lämnade tillbaka den.', 'bygga')
+      }
+      diag('takt', 'skrall-tillbaka', { orsak: d?.orsak, typ: sak?.typ })
+    } else if (h === 'borta') {
+      this._skrallT = SKRALL_MELLAN_S
+    }
+  },
+
   _luckaTryck(ctx) {
     this._vakna()
     const a = ctx.services.audio
@@ -412,6 +527,8 @@ export default {
       ctx.later(2.0, () => { if (this._alive && this._hintSteg === 0) this._doljHand() })
       return
     }
+    // Skrället har inget i boden att göra — det lämnar tillbaka det det håller och går.
+    this._skrall?.lamna('fly')
     this._fas = 'boden'
     this._doljHand()
     this._kupaAktiv(false)
@@ -557,7 +674,7 @@ export default {
       this._val.g,
       this._tier,
       // Plats 8: flaggorna — generationen knyttet föddes i (bit 0–3) och Skrällets tofs (bit 4).
-      packaFlaggor({ gen: GEN_NU }),
+      packaFlaggor({ gen: GEN_NU, tofs: this._tofsNu }),
     ]
     // Torkräknaren: sex vanliga i rad ger nästa garanterat brons. Sparas, visas aldrig.
     this._torka = this._tier === 0 ? this._torka + 1 : 0
@@ -686,6 +803,7 @@ export default {
     else if (axel === 'gnista') this._val.g = steg % tak.gnista
     else if (axel === 'storlek') this._val.z = steg % tak.storlek
     else if (axel === 'rost') this._val.r = steg % tak.rost
+    this._sistVerktyg = performance.now()
     this._valGjorda++
     this._rorda.add(axel)
     this._kupa?.setVal(this._val)
@@ -803,12 +921,31 @@ export default {
     // inte en snurr: inget barnet gör under animationen kan ändra utfallet. Burken (g) är
     // ratten med tak +5 pp; första kläckningen och sex vanliga i rad garanterar brons (§3b).
     // `_tvingaTier` är sondens DEV-krok (null i spelet).
+    //
+    // Skrället FÖRST (§4b): håller det något sugs det med in i degen, och knyttet får en tofs
+    // av dess päls och ett vikt öra. En snodd GNISTA går tillbaka i receptet innan tiern rullas
+    // nedan — Skrället får aldrig röra sällsyntheten, det är ren kosmetik. Är det på väg in
+    // eller ut flyr det bara (och lämnar tillbaka det det bär).
+    this._tofsNu = 0
+    const skrall = this._skrall
+    if (skrall?.haller) {
+      const sak = skrall.sugIn(KNAD_X, KNAD_Y)
+      if (sak?.typ === 'gnista') {
+        this._val.g = Math.min(3, this._val.g + 1)
+        this._verktyg.gnista?.satSteg(this._val.g)
+      }
+      this._tofsNu = 1
+      this._sag(ctx, 'Oj! Skrället åkte med in i degen!')
+      diag('takt', 'skrall-sugs', { typ: sak?.typ })
+    } else if (skrall?.aktiv) {
+      skrall.lamna('fly')
+    }
     if (!this._fro) this._fro = slumpFro(mulberry32((Math.random() * 0xffffffff) >>> 0))
     const tvang = this._tvingaTier
     this._tier = Number.isFinite(tvang)
       ? Math.max(0, Math.min(3, Math.trunc(tvang)))
       : rullaTier(Math.random(), this._val.g, { forsta: this._antal === 0, torka: this._torka })
-    this._dna = dnaFromSeed(this._fro, { ...this._val, t: this._tier, gen: GEN_NU })
+    this._dna = dnaFromSeed(this._fro, { ...this._val, t: this._tier, gen: GEN_NU, tofs: this._tofsNu })
     diag('takt', 'tier', { tier: this._tier, g: this._val.g, torka: this._torka, forsta: this._antal === 0 })
 
     for (const v of Object.values(this._verktyg)) v.satLast(true)
@@ -1020,6 +1157,10 @@ export default {
     this._valGjorda = 0
     this._rorda.clear()
     this._lockIdx = 0
+    // En ny runda: ingen tofs än, och Skrället får nåd igen — golvet 12 s, och taket 22 s
+    // (timern står på Infinity om det sögs in, för då kom aldrig något 'borta').
+    this._tofsNu = 0
+    this._skrallT = Math.max(SKRALL_NAD_S, Math.min(this._skrallT, SKRALL_MELLAN_S))
     this._fas = 'bygga'
     this._spak?.aterstall()
     for (const v of Object.values(this._verktyg)) v.satLast(false)
@@ -1208,6 +1349,12 @@ export default {
     this._knytt?.tick(dt, this._knyttPekare())
     for (const b of this._bon) b.knytt?.tick(dt, null)
     this._boden?.tick(dt)
+    this._skrall?.tick(dt)
+    // Skrällets timer räknar BARA i verkstan och bara när det inte redan är på besök.
+    if (this._fas === 'bygga' && this._skrall && !this._skrall.aktiv) {
+      this._skrallT -= dt / 1000
+      if (this._skrallT <= 0) this._skrallForsok(ctx)
+    }
 
     // Ett par ögon kikar ut genom bodluckan var åttonde sekund — bara i verkstan, aldrig
     // medan ceremonin eller boden pågår.
@@ -1219,7 +1366,9 @@ export default {
       }
     }
 
-    if (this._fas !== 'boden' && nu - this._sistAktiv > HINT_S * 1000) this._viloHjalp(ctx)
+    // Vilohjälpen tiger medan Skrället är på besök: repliken har redan sagt "peta på den", och
+    // en hand som pekar på en maskindel skulle dra blicken bort från det som händer.
+    if (this._fas !== 'boden' && !this._skrall?.aktiv && nu - this._sistAktiv > HINT_S * 1000) this._viloHjalp(ctx)
   },
 
   destroy(ctx) {
@@ -1264,6 +1413,8 @@ export default {
     this._boden = null
     this._lucka?.destroy()
     this._lucka = null
+    this._skrall?.destroy()
+    this._skrall = null
 
     ctx.services.audio.stopAllLoops()
     this._rot?.destroy({ children: true })

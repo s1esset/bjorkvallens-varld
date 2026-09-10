@@ -31,8 +31,15 @@
 //             knyttets hållare med `bounceIn`, som sätter scale 0, och `toLocal` genom en förälder
 //             med skala 0 ger NaN — som `naerma()` sedan bär vidare för alltid. O0 KONTROLL: ett
 //             hyllknytt (aldrig genom bounceIn) · O1 ett nyfött knytt med fingret över skärmen.
+//   N   knyttet efter födseln (steg 4). En silverrunda (tiern tvingas, så folien finns). N0
+//             KONTROLL: ingen namnskylt vid kläckningen · N1 skylten bär namnet och syns inom
+//             300 ms från att namnet SÄGS · N6 KONTROLL: svepet fruset på mitten, fingret stilla
+//             → bandet står · N6b fingret flyttas 400 px → bandet följer (> 200 px) · N2
+//             KONTROLL: ingen rör solen → knyttet vaket, inga sömnkorn · N3 tryck på solen →
+//             den sjunker ≥ 60 px, knyttet sover, repliken sägs · N4 sömnkorn i luften · N5
+//             solen igen → upp, knyttet vaknar.
 //
-//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R,S,O]
+//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R,S,O,N]
 //
 // ⚠️ Kör ALDRIG bredvid en annan webbläsarsond eller `npm run test:all`.
 import { chromium } from 'playwright'
@@ -120,7 +127,7 @@ if (kor('R')) {
 }
 
 // =================================================================== webbläsarfamiljerna
-if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O')) {
+if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N')) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
@@ -384,6 +391,10 @@ if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O')) {
       await page.evaluate(() => { window.__sagt.length = 0 })
       await tvinga()
       await haller()
+      // Stölderepliken KÖAR bakom narratorn och sägs bara om Skrället fortfarande håller något —
+      // vänta in den (Skrället blir uttråkat först efter 7 s, så en rad som inte kommer inom 8 s
+      // är en rad som villkoret släppte, och då ska armen falla).
+      await page.waitForFunction(() => (window.__sagt || []).includes('Oj, Skrället tog en sak! Peta på den.'), null, { timeout: 8000 }).catch(() => {})
       const s1 = await lasS()
       rader.push(['S1 matarm    en sak i kupan → Skrället snor den', `läge ${s1.lage} · sak ${s1.sak} · props ${fore1.props} → ${s1.props} · värld ${fore1.v} → ${s1.v}`, s1.lage === 'sitter' && s1.sak === 'prop' && s1.props === fore1.props - 1 && s1.v === fore1.v])
       rader.push(['S1b          narratorn säger vad som hänt', s1.sagt.join(' | ').slice(0, 70) || '(tyst)', s1.sagt.includes('Oj, Skrället tog en sak! Peta på den.')])
@@ -392,6 +403,9 @@ if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O')) {
       await page.evaluate(() => { window.__sagt.length = 0 })
       await klick(620, 210)
       await page.waitForTimeout(1800)
+      // Berömmet KÖAR bakom stölderepliken (rösten kapas aldrig) — i hela sviten talade den
+      // fortfarande när sonden tryckte, och ett fönster på 1,8 s gav "(tyst)" fast raden kom.
+      await page.waitForFunction(() => (window.__sagt || []).includes('Bra jobbat, Skrället lämnade tillbaka den.'), null, { timeout: 8000 }).catch(() => {})
       const s2 = await lasS()
       // Kräver att stölden FAKTISKT skedde (S1): kontrollkörningen mot koden utan Skrället gav
       // annars grönt på "props −1 = −1" — en arm som är grön för att den inte mätte.
@@ -481,6 +495,93 @@ if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O')) {
       const o1 = await blickAv('fodd')
       rader.push(['O1 matarm    nyfött knytt: blicken ändlig, pupillen syns', txt(o1), ok(o1)])
       await page.screenshot({ path: '.test-shots/knytt-ogon-bank.png', clip: { x: X(700), y: Y(300), width: 200 * geo.s, height: 200 * geo.s } })
+      await klick(1160, 350)
+      await page.waitForFunction(() => window.__barnspel.game._fas === 'bygga', null, { timeout: 20000 })
+    }
+
+    // ================================================================= N knyttet efter födseln
+    if (kor('N')) {
+      await besok([])
+      await page.evaluate(() => {
+        const v = window.__barnspel.voice
+        if (!v.__lyftTid) {
+          const s = v.say.bind(v)
+          v.say = (t, o) => { (window.__sagtT ||= []).push({ t: String(t), ms: performance.now() }); return s(t, o) }
+          v.__lyftTid = true
+        }
+        window.__sagtT = []
+        window.__barnspel.game._tvingaTier = 2 // silver: folien finns (N6)
+      })
+      const lasN = () => page.evaluate(() => {
+        const g = window.__barnspel.game
+        return {
+          lage: g._knytt?.lage ?? null, korn: g._knytt?.somnkorn ?? -1, solY: g._cer?.solY ?? null,
+          sagt: (window.__sagtT || []).map((x) => x.t),
+        }
+      })
+      await klick(1160, 350)
+      await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
+      for (let i = 0; i < 4; i++) { await klick(640, 470); await page.waitForTimeout(260) }
+
+      // N0 KONTROLL: vid kläckningen är namnet inte sagt — då får ingen skylt synas.
+      const n0 = await page.evaluate(() => window.__barnspel.game._cer?.namnSkylt ?? null)
+      rader.push(['N0 kontroll  vid kläckningen: ingen namnskylt än', JSON.stringify(n0), !n0 || n0.synlig === false])
+
+      await page.waitForFunction(() => window.__barnspel.game._klar === true, null, { timeout: 20000 })
+      await page.waitForFunction(() => window.__barnspel.game._cer?.namnSkylt?.synlig === true, null, { timeout: 12000 }).catch(() => {})
+      const n1 = await page.evaluate(() => {
+        const g = window.__barnspel.game
+        const s = g._cer?.namnSkylt
+        const namn = g._dna?.namn
+        const say = (window.__sagtT || []).find((x) => x.t === namn)
+        return { text: s?.text ?? null, namn, visad: g._cer?.namnVisadT ?? null, sagd: say?.ms ?? null }
+      })
+      const d1 = Number.isFinite(n1.visad) && Number.isFinite(n1.sagd) ? Math.abs(n1.visad - n1.sagd) : null
+      rader.push(['N1 matarm    skylten bär namnet när det sägs', `"${n1.text}" · namnet "${n1.namn}" · Δ ${d1 === null ? '—' : Math.round(d1) + ' ms'}`, n1.text === n1.namn && d1 !== null && d1 <= 300])
+
+      // N6: folien. Svepet FRYSES på mitten (`frysFolie`, DEV-krok) — annars kan bandets egen
+      // rörelse inte skiljas från fingrets.
+      const harFolie = await page.evaluate(() => !!window.__barnspel.game._cer?.folie)
+      await page.evaluate(() => window.__barnspel.game._cer?.frysFolie?.(0.5))
+      await page.mouse.move(X(440), Y(300), { steps: 6 })
+      // 1,8 s, inte 0,9: fingret UTJÄMNAS (dt·4 per ruta → 97 % vid 0,9 s, 99,9 % vid 1,8 s).
+      // Första versionen läste kontrollen vid 0,9 och 1,6 s och mätte utjämningens svans
+      // (−196 → −200) i stället för ett stillastående band — sondens fel, inte kodens.
+      await page.waitForTimeout(1800)
+      const fA = await page.evaluate(() => window.__barnspel.game._cer?.folieBandX ?? null)
+      await page.waitForTimeout(700)
+      const fA2 = await page.evaluate(() => window.__barnspel.game._cer?.folieBandX ?? null)
+      await page.mouse.move(X(840), Y(300), { steps: 8 })
+      await page.waitForTimeout(900)
+      const fB = await page.evaluate(() => window.__barnspel.game._cer?.folieBandX ?? null)
+      await page.evaluate(() => window.__barnspel.game._cer?.frysFolie?.(null))
+      const tal = (x) => (Number.isFinite(x) ? Math.round(x) : x)
+      rader.push(['N6 kontroll  fruset svep, stilla finger → bandet står', `folie ${harFolie} · ${tal(fA)} → ${tal(fA2)}`, harFolie && Number.isFinite(fA) && Number.isFinite(fA2) && Math.abs(fA2 - fA) < 2])
+      rader.push(['N6b matarm   fingret 400 px åt höger → bandet följer', `${tal(fA)} → ${tal(fB)}`, Number.isFinite(fA) && Number.isFinite(fB) && fB - fA > 200])
+
+      // N2–N5: solen (eller månen) i fonden. Knyttet står på bänken när det här börjar.
+      await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 })
+      await page.mouse.move(X(200), Y(650))
+      const sol = await page.evaluate(() => window.__barnspel.game._cer?.solPlats ?? null)
+      await page.waitForTimeout(2500)
+      const n2 = await lasN()
+      rader.push(['N2 kontroll  ingen rör solen → knyttet vaket', `läge ${n2.lage} · sömnkorn ${n2.korn} · sol ${sol ? `${Math.round(sol.x)},${Math.round(sol.y)}` : 'saknas'}`, !!sol && n2.lage !== 'sover' && n2.lage !== 'somnig' && n2.korn === 0])
+      if (sol) await klick(sol.x, sol.y)
+      await page.waitForTimeout(2600)
+      const n3 = await lasN()
+      rader.push(['N3 matarm    tryck på solen → ner, knyttet sover', `solY ${tal(n2.solY)} → ${tal(n3.solY)} · läge ${n3.lage}`, !!sol && Number.isFinite(n3.solY) && n3.solY - n2.solY >= 60 && n3.lage === 'sover'])
+      rader.push(['N4 matarm    sömnkornen stiger ur det sovande knyttet', `${n3.korn} i luften`, n3.korn >= 1])
+      await page.screenshot({ path: '.test-shots/knytt-sover.png' })
+      // N3b: repliken KÖAR bakom narratorn (rösten kapas aldrig), och strax efter födseln är kön
+      // lång — vänta in den så länge knyttet sover, i stället för att kräva den inom 2,6 s.
+      await page.waitForFunction(() => (window.__sagtT || []).some((x) => x.t === 'Nu sover det. Väck det försiktigt!'), null, { timeout: 14000 }).catch(() => {})
+      const n3b = await lasN()
+      rader.push(['N3b          narratorn säger det (när kön är fri)', `${n3b.sagt.slice(-2).join(' | ').slice(0, 60)} · knyttet ${n3b.lage}`, n3b.sagt.includes('Nu sover det. Väck det försiktigt!') && n3b.lage === 'sover'])
+      if (sol) await klick(sol.x, sol.y)
+      await page.waitForTimeout(1800)
+      const n5 = await lasN()
+      rader.push(['N5 matarm    solen igen → upp, knyttet vaknar', `solY ${tal(n3.solY)} → ${tal(n5.solY)} (start ${tal(n2.solY)}) · läge ${n5.lage}`, Number.isFinite(n5.solY) && Math.abs(n5.solY - n2.solY) < 10 && n5.lage !== 'sover'])
+      await page.evaluate(() => { window.__barnspel.game._tvingaTier = null })
       await klick(1160, 350)
       await page.waitForFunction(() => window.__barnspel.game._fas === 'bygga', null, { timeout: 20000 })
     }

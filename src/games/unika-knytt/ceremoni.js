@@ -18,16 +18,16 @@
 // sin volym av tre platta lager (mörk baksida · kropp · ljusfläck), och gradienter
 // används bara på ytor som ritas EN gång: fonden, marken och det frysta ägget.
 
-import { Container, FillGradient, Graphics } from 'pixi.js'
+import { Container, FillGradient, Graphics, Text } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { verticalFill, groundFill, topLightFill } from '../../lib/form.js'
 import { lerpColor } from '../../lib/scene.js'
-import { shade, tint } from '../../lib/theme.js'
+import { FONT, shade, tint } from '../../lib/theme.js'
 import { bounceIn, burst, landa, liv, pop, puff, ripple, sparkle, squash, stadFx } from '../../lib/feedback.js'
 import { Emitter } from '../../lib/partiklar.js'
 import { byggKnytt } from './knytt.js'
-import { rekvisitaOrdning, SNURR_VARV_S } from './kupan.js'
+import { rekvisitaOrdning, REKVISITA, SNURR_VARV_S } from './kupan.js'
 
 // ---- geometri (designkoordinater) ------------------------------------------
 const KNAD = { x: 640, y: 384 } // degens plats — mitt på skärmen, bekväm för ett finger
@@ -90,6 +90,17 @@ const MARK_PLATS = [{ x: 186, s: 96 }, { x: 430, s: 76 }, { x: 900, s: 88 }]
 const MELLAN_PLATS = [{ x: 862, y: 356, s: 72 }, { x: 424, y: 336, s: 62 }]
 const HIMMEL_PLATS = [{ x: 400, y: 220, s: 86 }, { x: 890, y: 196, s: 66 }]
 const PROP_TONER = [392, 466, 523, 659] // en stämd trappa, ett steg per föremål som landar
+
+// ---- steg 4 (poleringsrundan 2026-09-10): knyttet efter födseln ------------------------
+// Namnskylten står NEDTILL, som docen alltid sagt: en träskylt på en stolpe i marken framför
+// knyttets fötter (fötterna står på 582, plankan 622–672). Himlens mitt behövs för solen.
+const SKYLT_Y = 650
+// Rekvisita som ÄR en himlakropp. Kommer en av dem ut ur ägget blir den fondens tryckbara
+// sol/måne — annars ritar fonden en egen, så himlen aldrig får två solar.
+const HIMLA_ID = new Set(['sol', 'okensol', 'mane'])
+// Folien följer fingret: med svepet mitt i fonden står bandets mitt rakt under fingret (1:1),
+// eftersom en hel fas är 2,8 halvbredder.
+const FOLIE_FINGER = 1 / 2.8
 
 const DEG_BAS = 0xe8d3a8 // rå degfärg innan världen färgar den
 const HALM = 0xc9a15a
@@ -323,6 +334,15 @@ export function byggCeremoni(opts = {}) {
   let ton = VARLDSTON[0]
   let tier = 0 // 0 vanlig · 1 brons · 2 silver · 3 guld — läses ur dna.tier i start()
   let folieSvep = null // den maskade noden; masken nollas INNAN den rivs
+  // Steg 4: namnskylten, himlakroppen i fonden, mörkret som tonar in när den går ner, och
+  // folien som följer fingret. Alla nollas i `rensaVarld` — noderna rivs med sina lager.
+  let skylt = null // { nod, text, visadT }
+  let himla = null // { hall, x, y, r, nere, tw }
+  let fondNatt = null
+  let folieBand = null
+  let folieSt = null
+  let folieDrag = 0 // fingrets läge över fonden, utjämnat (−1..1)
+  let folieFrys = null // sondens DEV-krok: svepets fas fryst på ett tal, annars null
   let lage = 'vila' // 'vila' | 'ceremoni' | 'knack' | 'varld' | 'klar'
   let t = 0 // ceremonins klocka
   let ur = 0 // monoton klocka (knack-spärren)
@@ -1066,18 +1086,19 @@ export function byggCeremoni(opts = {}) {
     svep.mask = klipp
     hall.addChild(svep)
     folieSvep = svep
+    // Svepet driver bara FASEN; `tick` lägger fingret ovanpå och skriver `band.x` (steg 4:
+    // "folien drivs av fingret plus en långsam egen svepning", §1 Kortet). En skrivare.
     const st = { p: 0.2 }
     const tw = gsap.to(st, {
       p: 1.2,
       duration: 2.8,
       repeat: -1,
       ease: 'none',
-      onUpdate: () => {
-        if (band.destroyed) { tw.kill(); return }
-        band.x = -B * 1.4 + (st.p % 1) * B * 2.8
-      },
+      onUpdate: () => { if (band.destroyed) tw.kill() },
     })
     spara(tw)
+    folieBand = band
+    folieSt = st
 
     const ram = new Graphics()
     ram.eventMode = 'none'
@@ -1186,6 +1207,12 @@ export function byggCeremoni(opts = {}) {
       .fill(groundFill(ton.mark, { light: 0.16, dark: 0.24 }))
     mg.eventMode = 'none'
     hall.addChild(him, mg)
+    // Mörkret när solen går ner (steg 4): samma form som himlen, över himmel OCH mark, alfa 0
+    // tills barnet trycker. Folien och ramen läggs ovanpå — skimret slocknar inte i natten.
+    fondNatt = new Graphics().roundRect(-FOND.halvB, y0, FOND.halvB * 2, h, 34).fill(0x15122e)
+    fondNatt.alpha = 0
+    fondNatt.eventMode = 'none'
+    hall.addChild(fondNatt)
     if (tier > 0) byggSkimmer(hall, y0, y1, h)
 
     // Drivande partiklar i fonden — nio korn, var och en med sin EGEN fas, så de läser
@@ -1270,6 +1297,9 @@ export function byggCeremoni(opts = {}) {
       hall.addChild(livNod)
       hall.position.set(AGG.x, AGG.y)
       propLag.addChild(hall)
+      // En sol eller måne ur ägget BLIR fondens himlakropp — tryckbar först när den landat.
+      const arHimla = !himla && HIMLA_ID.has(spec.id)
+      if (arHimla) himla = { hall, x: mal.x, y: mal.y, r: plats.s * 0.62, nere: false, tw: null, klar: false }
 
       // Bara det som STÅR på marken kastar en skugga där. En sol i skyn gör det inte.
       let skugga = null
@@ -1300,6 +1330,7 @@ export function byggCeremoni(opts = {}) {
         },
         onComplete: () => {
           if (!levande || hall.destroyed) return
+          if (arHimla && himla?.hall === hall) himla.klar = true
           pop(bild, { scale: 1.12 })
           if (skugga) skugga.alpha = 1
           ton1({ freq: PROP_TONER[i], dur: 0.2, type: 'triangle', vol: 0.16 })
@@ -1310,6 +1341,93 @@ export function byggCeremoni(opts = {}) {
       spara(tw)
       bounceIn(bild, { duration: 0.5, delay: 0.12 * i })
     }
+    if (!himla) byggEgenHimla(himmelIx)
+  }
+
+  /**
+   * Ingen sol eller måne kom ut ur ägget — fonden får en egen, på första lediga himmelsplats
+   * (annars mitt i himlen). Natt och grotta får månen, öknen sin ökensol, resten solen, alla
+   * ritade av samma `rita` som kupans rekvisita.
+   */
+  function byggEgenHimla(ix) {
+    const natt = ton.nyckel === 'natt' || ton.nyckel === 'grotta'
+    const pool = natt ? REKVISITA.natt : ton.nyckel === 'oken' ? REKVISITA.oken : REKVISITA.skog
+    const def = pool?.find((d) => d.id === (natt ? 'mane' : ton.nyckel === 'oken' ? 'okensol' : 'sol'))
+    if (!def) return
+    const plats = ix < HIMMEL_PLATS.length ? HIMMEL_PLATS[ix] : { x: AGG.x, y: 176, s: 52 }
+    const hall = new Container()
+    const livNod = new Container()
+    const bild = new Graphics()
+    def.rita(bild, plats.s)
+    for (const n of [hall, livNod, bild]) n.eventMode = 'none'
+    livNod.addChild(bild)
+    hall.addChild(livNod)
+    hall.position.set(plats.x, plats.y)
+    propLag.addChild(hall)
+    bounceIn(bild, { duration: 0.5, delay: 0.5 })
+    gorLiv(def.rorelse, livNod, hall, plats.x)
+    himla = { hall, x: plats.x, y: plats.y, r: plats.s * 0.62, nere: false, tw: null, klar: true }
+  }
+
+  /**
+   * Barnet trycker på solen (månen): den sjunker och himlen mörknar — eller stiger igen. Index.js
+   * söver och väcker knyttet på `pa('sol')`. Ett {}-proxy tweenas och kopieras bara till levande
+   * noder, och förra tweenen dör först, så tre snabba tryck aldrig slåss om samma `y`.
+   */
+  function solTryck() {
+    if (!levande || !himla || himla.hall.destroyed || !himla.klar) return null
+    himla.nere = !himla.nere
+    const nere = himla.nere
+    const hall = himla.hall
+    himla.tw?.kill()
+    const st = { y: hall.y, a: hall.alpha, m: fondNatt && !fondNatt.destroyed ? fondNatt.alpha : 0 }
+    himla.tw = spara(gsap.to(st, {
+      y: nere ? MARK_Y - 20 : himla.y,
+      a: nere ? 0.3 : 1,
+      m: nere ? 0.42 : 0,
+      duration: nere ? 1.1 : 0.8,
+      ease: nere ? 'power1.in' : 'back.out(1.4)',
+      onUpdate: () => {
+        if (!hall.destroyed) {
+          hall.y = st.y
+          hall.alpha = st.a
+        }
+        if (fondNatt && !fondNatt.destroyed) fondNatt.alpha = st.m
+      },
+    }))
+    ton1(nere ? { freq: 523, dur: 0.9, type: 'sine', vol: 0.12, slideTo: 196 } : { freq: 262, dur: 0.6, type: 'triangle', vol: 0.14, slideTo: 659 })
+    sfx(nere ? 'soft' : 'pling')
+    pa('sol', { nere })
+    return nere ? 'nere' : 'uppe'
+  }
+
+  /**
+   * Namnskylten — spelets ENDA text — sticker upp ur marken framför knyttet i samma bildruta
+   * som narratorn säger namnet (index.js `_sagNamn`). En panel får bära text (P0 ASSETS);
+   * den behöver aldrig läsas, den finns för förälderns skull.
+   */
+  function visaNamn(namn) {
+    if (!levande || !namn || skylt) return
+    const TRA = 0xc68b55
+    const nod = new Container()
+    nod.position.set(AGG.x, SKYLT_Y)
+    nod.eventMode = 'none'
+    const g = new Graphics()
+    g.roundRect(-6, 0, 12, 46, 4).fill(topLightFill(shade(TRA, 0.32)))
+    g.roundRect(-110, -32, 220, 58, 15).fill(shade(TRA, 0.42))
+    g.roundRect(-106, -29, 212, 52, 13).fill(topLightFill(TRA, { highlight: 0.26, dark: 0.22 }))
+    g.circle(-92, -3, 4).fill(shade(TRA, 0.5))
+    g.circle(92, -3, 4).fill(shade(TRA, 0.5))
+    g.eventMode = 'none'
+    const text = new Text({ text: namn, style: { fontFamily: FONT.title, fontSize: 32, fontWeight: '800', fill: 0x4a2e1a } })
+    text.anchor.set(0.5)
+    text.position.set(0, -3)
+    text.eventMode = 'none'
+    nod.addChild(g, text)
+    propLag.addChild(nod)
+    bounceIn(nod, { duration: 0.5 })
+    skylt = { nod, text: namn, visadT: performance.now() }
+    sfx('pop')
   }
 
   // Vilorörelsen läses ur rekvisitans EGEN `rorelse`. En sten som guppar är en sten som
@@ -1426,6 +1544,14 @@ export function byggCeremoni(opts = {}) {
   function rensaVarld() {
     slappKnytt()
     knyttHall = null
+    himla?.tw?.kill()
+    skylt = null
+    himla = null
+    fondNatt = null
+    folieBand = null
+    folieSt = null
+    folieDrag = 0
+    folieFrys = null
     stoftFlod?.destroy()
     stoftFlod = null
     // Masken nollas INNAN den maskade noden rivs (docens §6 Folien).
@@ -1625,6 +1751,17 @@ export function byggCeremoni(opts = {}) {
       }
     }
 
+    // Folien följer fingret (steg 4): fingrets läge över fonden läggs på svepets fas, utjämnat,
+    // så bandet glider efter handen i stället för att hoppa. Fasen lindas runt 0..1 — och
+    // där den lindas ligger bandet utanför masken, så lindningen syns aldrig.
+    if (folieBand && !folieBand.destroyed && folieSt) {
+      const mal = pekare && Number.isFinite(pekare.x) ? klam((pekare.x - AGG.x) / FOND.halvB, -1, 1) : 0
+      folieDrag += (mal - folieDrag) * Math.min(1, dt * 4)
+      const p = folieFrys ?? folieSt.p
+      const q = (((p + folieDrag * FOLIE_FINGER) % 1) + 1) % 1
+      folieBand.x = -FOND.halvB * 1.4 + q * FOND.halvB * 2.8
+    }
+
     if (!overlamnat && knytt?.tick && knyttHall && !knyttHall.destroyed) {
       const p = pekare && Number.isFinite(pekare.x)
         ? { x: pekare.x - knyttHall.x, y: pekare.y - knyttHall.y }
@@ -1671,9 +1808,20 @@ export function byggCeremoni(opts = {}) {
     knacka,
     tick,
     destroy,
+    visaNamn,
+    solTryck,
+    /** DEV-krok för `_knyttlyftprobe` N6: frys svepets fas på `p` (0..1), eller släpp med null. */
+    frysFolie(p) { folieFrys = Number.isFinite(p) ? p : null },
     get fas() { return FAS[fasIx]?.namn || 'vila' },
     get lage() { return lage },
     get tier() { return tier },
     get folie() { return !!folieSvep && !folieSvep.destroyed },
+    get folieBandX() { return folieBand && !folieBand.destroyed ? folieBand.x : null },
+    get namnSkylt() { return skylt ? { text: skylt.text, synlig: !skylt.nod.destroyed && skylt.nod.visible } : null },
+    get namnVisadT() { return skylt?.visadT ?? null },
+    /** Himlakroppens VILOLÄGE (där index.js lägger träffytan) — inte var den står just nu. */
+    get solPlats() { return himla ? { x: himla.x, y: himla.y, r: himla.r } : null },
+    get solY() { return himla && !himla.hall.destroyed ? himla.hall.y : null },
+    get solNere() { return !!himla?.nere },
   }
 }

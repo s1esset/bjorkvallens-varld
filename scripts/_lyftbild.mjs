@@ -153,6 +153,37 @@ try {
     console.log(`  .test-shots/knytt-tofs-bank.png + -nara.png · ${JSON.stringify(d)}`)
   }
 
+  // Steg 4: namnskylten, solen i fonden och folien under fingret — sedan ansiktet på bänken
+  // (pupillerna ska synas efter NaN-rättelsen) och natten när solen gått ner.
+  if (vill('namn')) {
+    await besok([])
+    await page.evaluate(() => { window.__barnspel.game._tvingaTier = 2 })
+    await page.mouse.move(X(900), Y(300))
+    await klick(1160, 350)
+    await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
+    for (let i = 0; i < 4; i++) { await klick(640, 470); await page.waitForTimeout(260) }
+    await page.waitForFunction(() => window.__barnspel.game._cer?.namnSkylt?.synlig === true, null, { timeout: 15000 }).catch(() => {})
+    await page.waitForTimeout(600)
+    await page.mouse.move(X(880), Y(300), { steps: 6 })
+    await page.waitForTimeout(600)
+    await page.screenshot({ path: '.test-shots/knytt-namn.png' })
+    await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 })
+    await page.waitForTimeout(1600)
+    await page.mouse.move(X(1000), Y(300), { steps: 4 })
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: '.test-shots/knytt-ogon-nara.png', clip: { x: X(700), y: Y(240), width: 200 * geo.s, height: 230 * geo.s } })
+    const sol = await page.evaluate(() => window.__barnspel.game._cer?.solPlats ?? null)
+    if (sol) await klick(sol.x, sol.y)
+    await page.waitForTimeout(3000)
+    await page.screenshot({ path: '.test-shots/knytt-natt.png' })
+    const d = await page.evaluate(() => {
+      const g = window.__barnspel.game
+      return { namn: g._cer?.namnSkylt?.text, sol: g._cer?.solPlats, lage: g._knytt?.lage, korn: g._knytt?.somnkorn, blick: g._knytt?._blick }
+    })
+    console.log(`  .test-shots/knytt-namn.png · knytt-ogon-nara.png · knytt-natt.png · ${JSON.stringify(d)}`)
+    await page.evaluate(() => { window.__barnspel.game._tvingaTier = null })
+  }
+
   console.log(`  ${errors.length} konsolfel${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`)
 } finally {
   await browser.close()

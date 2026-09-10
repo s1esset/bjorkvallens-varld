@@ -705,6 +705,35 @@ const KOMPISAR = {
   },
 }
 
+// Sömnkornen (steg 4, §1 "De fem slingorna" punkt 5): världens EGNA partiklar som stiger ur ett
+// sovande knytt — sporer · bubblor · snöflingor · stjärnor · glöd · grottsporer, i `dna.varld`s
+// ordning. Ritas EN gång per korn och återanvänds; `k` skalar mot knyttets storlek.
+function ritaKorn(g, varld, k) {
+  if (varld === 1) {
+    g.circle(0, 0, 4.2 * k).stroke({ width: 1.4 * k, color: 0xffffff, alpha: 0.9 })
+    g.circle(-1.3 * k, -1.4 * k, 1.1 * k).fill({ color: 0xffffff, alpha: 0.9 })
+  } else if (varld === 2) {
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI
+      g.moveTo(Math.cos(a) * -5 * k, Math.sin(a) * -5 * k).lineTo(Math.cos(a) * 5 * k, Math.sin(a) * 5 * k).stroke({ width: 1.5 * k, color: 0xffffff, cap: 'round' })
+    }
+  } else if (varld === 3) {
+    g.star(0, 0, 5, 5 * k, 2.2 * k).fill(0xfff3b0)
+  } else if (varld === 4) {
+    g.circle(0, 0, 6 * k).fill({ color: 0xffd98a, alpha: 0.3 })
+    g.circle(0, 0, 3 * k).fill(0xffe9b8)
+  } else if (varld === 5) {
+    g.circle(0, 0, 5.5 * k).fill({ color: 0x9ff2e6, alpha: 0.3 })
+    g.circle(0, 0, 2.6 * k).fill(0xd9fff8)
+  } else {
+    g.circle(0, 0, 5 * k).fill({ color: 0xcfe98a, alpha: 0.35 })
+    g.circle(0, 0, 2.8 * k).fill(0xe8f7b0)
+  }
+}
+const KORN_MAX = 5
+const KORN_LIV = 2.2 // sekunder från hjässan till borta
+const KORN_TAKT = 0.55
+
 const LAGEN = ['idle', 'glad', 'lekfull', 'somnig', 'sover']
 // Vilorörelsens takt per värld: sten (snölandet) är trögare, natten piggare.
 const VARLD_TAKT = [1, 0.96, 0.9, 1.07, 1.03, 0.93] // skog · vatten · sno · natt · oken · grotta
@@ -784,6 +813,10 @@ class Knytt {
     this._blickMal = { x: 0, y: 0 }
     this._gaspT = 5 + this._rnd() * 4
     this._gaspFas = -1
+    // Steg 4: tvingad sömn (solen i fonden gick ner) och sömnkornens pool.
+    this._somnKvar = 0
+    this._korn = []
+    this._kornT = 0
 
     this._bygg()
   }
@@ -1182,6 +1215,37 @@ class Knytt {
     return this
   }
 
+  /**
+   * Somna NU — solen i fonden gick ner (steg 4; §3c: "sömnen ska gå att orsaka"). Gäspningen
+   * först, sedan sömnen efter `_somnKvar`; sömnens egen timer (`_stilla`) behövs inte. Vilket
+   * tryck som helst väcker (setLage/hoppa/glad går alla genom `_vakna`).
+   */
+  somna() {
+    if (!this._alive || this.view.destroyed || this._lage === 'sover') return this
+    this._lage = 'somnig'
+    this._gladKvar = 0
+    this._gaspFas = 0.001
+    this._gaspT = 8 + this._rnd() * 3
+    this._somnKvar = 1.25
+    this._ljud?.tone?.({ freq: 300, dur: 0.5, type: 'sine', vol: 0.08, slideTo: 200 })
+    return this
+  }
+
+  /** Väck ett sömnigt eller sovande knytt (solen gick upp igen, eller ett tryck bredvid). */
+  vakna() {
+    if (!this._alive || this.view.destroyed) return this
+    this._somnKvar = 0
+    if (this._lage === 'sover' || this._lage === 'somnig') this._vakna()
+    return this
+  }
+
+  /** Hur många sömnkorn som svävar just nu (`_knyttlyftprobe` N4). */
+  get somnkorn() {
+    let n = 0
+    for (const k of this._korn) if (!k.g.destroyed && k.g.visible) n++
+    return n
+  }
+
   get tier() { return this._tier }
   /** 'sitter' · 'borta' (finns, har inte flugit in än) · 'ingen' (skimrande knytt). */
   get kompis() { return this._kompisLage }
@@ -1317,6 +1381,11 @@ class Knytt {
     // direkt om fingret redan varit borta länge, i stället för att vänta en ruta till.
     if (this._lage === 'idle' && this._stilla > 12) this._lage = 'somnig'
     else if (this._lage === 'somnig' && this._stilla > 20) this._lage = 'sover'
+    // Tvingad sömn (`somna()`): gäspningen hinner klart, sedan sover det — oavsett fingret.
+    if (this._somnKvar > 0) {
+      this._somnKvar -= dt
+      if (this._somnKvar <= 0 && this._lage === 'somnig') this._lage = 'sover'
+    }
     if (this._lage === 'glad') {
       this._gladKvar -= dt
       if (this._gladKvar <= 0) this._lage = 'idle'
@@ -1403,6 +1472,49 @@ class Knytt {
 
     this._blicka(dt, pekare, somnig)
     this._apply(dt, lekfull)
+    this._stegKorn(dt, sover)
+  }
+
+  // Sömnkornen: en pool på `KORN_MAX` Graphics i `_fx`, allt drivet HÄR i tick — ingen tween kan
+  // överleva en rivning. Ett sovande knytt släpper ett korn var `KORN_TAKT` s från hjässan; de
+  // stiger i sicksack och tonar ut, och ett knytt som vaknar låter de sista stiga klart.
+  _stegKorn(dt, sover) {
+    if (sover) {
+      this._kornT -= dt
+      if (this._kornT <= 0) {
+        this._kornT = KORN_TAKT
+        let k = this._korn.find((x) => !x.g.visible)
+        if (!k && this._korn.length < KORN_MAX) {
+          const g = new Graphics()
+          ritaKorn(g, this._varld, clamp(this._r / 60, 0.6, 1.8))
+          g.eventMode = 'none'
+          g.visible = false
+          this._fx.addChild(g)
+          k = { g, t: 0, x0: 0, y0: 0, fas: 0 }
+          this._korn.push(k)
+        }
+        if (k && !k.g.destroyed) {
+          k.t = 0
+          k.x0 = (this._rnd() - 0.5) * this._m.bw * 0.7 * this._bas
+          k.y0 = (this._m.topY + 15) * this._bas // hjässan, sänkt som kroppen sjunker i sömnen
+          k.fas = this._rnd() * TAU
+          k.g.visible = true
+        }
+      }
+    } else this._kornT = 0
+    const hojd = this._r * 0.9
+    for (const k of this._korn) {
+      if (k.g.destroyed || !k.g.visible) continue
+      k.t += dt
+      const u = k.t / KORN_LIV
+      if (u >= 1) {
+        k.g.visible = false
+        continue
+      }
+      k.g.position.set(k.x0 + Math.sin(k.t * 3.2 + k.fas) * this._r * 0.1, k.y0 - u * hojd)
+      k.g.alpha = u < 0.15 ? u / 0.15 : u > 0.75 ? (1 - u) / 0.25 : 1
+      k.g.scale.set(0.6 + 0.4 * Math.min(1, u * 3))
+    }
   }
 
   // Blicken. Pupillen rör sig som en KLAMPAD VEKTOR — den kan aldrig krypa ut ur ögat, hur
@@ -1556,6 +1668,7 @@ class Knytt {
     this._svans = []
     this._vingar = []
     this._ben = []
+    this._korn = []
   }
 }
 

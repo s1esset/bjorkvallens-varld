@@ -480,7 +480,13 @@ export default {
     }
     this._skrallAxel = axel
     s.tog(sak, 0.4)
-    this._sag(ctx, 'Oj, Skrället tog en sak! Peta på den.', 'bygga')
+    // Repliken KÖAR bakom narratorn (rösten kapas aldrig) och kan komma sekunder senare — den
+    // sägs därför bara om Skrället FORTFARANDE håller något. Petade barnet redan bort det hade
+    // rösten sagt "peta på den" om ett Skrälle som gått (fynd i hela `_knyttlyftprobe`-sviten).
+    this._narTyst(ctx, () => {
+      if (!this._alive || this._fas !== 'bygga' || !this._skrall?.haller) return
+      ctx.services.voice.say('Oj, Skrället tog en sak! Peta på den.')
+    })
   },
 
   _skrallHandelse(ctx, h, d) {
@@ -784,6 +790,8 @@ export default {
     kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio)
     ctx.services.audio.sfx('soft')
     if (this._fas === 'ceremoni') this._skynda(ctx, p)
+    // Ett sovande knytt vaknar av VILKET tryck som helst (§1 "sover", steg 4).
+    else if (this._fas === 'avtack' && (this._knytt?.lage === 'sover' || this._knytt?.lage === 'somnig')) this._knytt.vakna()
   },
 
   // Verktyget äger stegningen (inklusive den roliga överfyllningen: burken vänder sig upp
@@ -1012,6 +1020,51 @@ export default {
     this._sag(ctx, 'Vilket fint knytt du gjorde!')
     if (this._dna?.namn) ctx.later(1.4, () => this._sagNamn(ctx))
     ctx.later(2.6, () => this._tillBanken(ctx))
+    // Solen i fonden blir tryckbar nu — alla föremål har landat (sista flykten slutar ~1 s
+    // efter kläckningen, 'klar' kommer 3,3 s efter).
+    this._byggSolYta(ctx)
+  },
+
+  // Solen (månen) i fonden (steg 4): ett tryck och den går ner — knyttet gäspar och somnar —
+  // ett tryck till och den går upp igen. Träffytan är SPELETS, som alla andra: ceremonin äger
+  // inga ytor. Den ligger i `_losa` och rivs med rundan. Uppmätt fri från alla ytor som lever i
+  // 'avtack': bänkknyttet (738–862 × 370–494) ≥ 114 px, spaken (från x 1060) ≥ 110 px.
+  _byggSolYta(ctx) {
+    const sol = this._cer?.solPlats
+    if (!sol) return
+    const r = Math.max(60, sol.r)
+    const yta = new Graphics().circle(0, 0, r).fill({ color: COLORS.cream, alpha: 0.001 })
+    yta.position.set(sol.x, sol.y)
+    yta.eventMode = 'static'
+    yta.cursor = 'pointer'
+    yta.hitArea = new Circle(0, 0, r)
+    yta.on('pointertap', () => this._solTryck(ctx))
+    this._rot.addChild(yta)
+    this._losa.push(yta)
+  },
+
+  _solTryck(ctx) {
+    if (!this._alive || this._fas !== 'avtack') return
+    this._vakna()
+    const lage = this._cer?.solTryck()
+    if (lage === 'nere') {
+      this._knytt?.somna()
+      // Repliken KÖAR bakom narratorn (`_narTyst`: rösten kapas aldrig) — och kön kan vara lång
+      // strax efter födseln ("Tryck på spaken igen…" är 5,1 s). Den sägs därför bara om knyttet
+      // FORTFARANDE sover när det blir dess tur; väcktes det under tiden vore raden osann.
+      this._narTyst(ctx, () => {
+        if (!this._alive || this._fas !== 'avtack') return
+        const l = this._knytt?.lage
+        if (l === 'sover' || l === 'somnig') ctx.services.voice.say('Nu sover det. Väck det försiktigt!')
+      })
+    } else if (lage === 'uppe') {
+      this._knytt?.vakna()
+    } else {
+      // Solen har inte landat än — trycket är aldrig tyst.
+      const sol = this._cer?.solPlats
+      if (sol) kvittera(ctx.fxLayer, sol.x, sol.y, ctx.services.audio)
+    }
+    diag('takt', 'sol', { lage })
   },
 
   // Namnet fångas i en LOKAL innan _narTyst skjuter upp callbacken — _aterstall() hinner
@@ -1026,6 +1079,8 @@ export default {
     const rad = this._tier > 0 ? 'Oj, vad det glittrar!' : 'Ditt knytt har fått en liten kompis med sig!'
     this._narTyst(ctx, () => {
       if (!this._alive) return
+      // Namnskylten sticker upp ur marken i SAMMA bildruta som namnet sägs (steg 4).
+      this._cer?.visaNamn(namn)
       ctx.services.voice.say(namn)
       this._narTyst(ctx, () => { if (this._alive) ctx.services.voice.say(rad) })
     })

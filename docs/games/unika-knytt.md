@@ -500,6 +500,10 @@ Två fynd som blev förbättringar snarare än rättelser:
 * **Sömnen ska gå att orsaka.** Två osynliga timers (20 s + 12 s) är ingen mekanik. Kortare
   (12 s + 8 s) och ett barnvänt handtag: ett tryck på nattmånen i kortets fond får knyttet att
   gäspa och somna direkt; vilket tryck som helst väcker det.
+  ✅ **Byggt 2026-09-10** (poleringsrundan steg 4) — som SOLEN eller månen: en sol/måne som
+  kommer ut ur ägget blir den tryckbara, annars får fonden en egen (natt och grotta en måne,
+  öknen ökensolen), så himlen aldrig får två. Ett tryck: den sjunker och fonden mörknar, knyttet
+  gäspar och somnar, och sömnkornen stiger. Ett tryck till: den stiger och knyttet vaknar.
 
 ## 4. Byggplan
 
@@ -1246,6 +1250,39 @@ aldrig genom bounceIn) blick 0,0 · O1 (nyfött) NaN, NaN → ändlig efter.** B
 noden till NaN under sin första bildruta — och en exponentiell närmning som `naerma` gör ett enda NaN
 permanent. Samma par finns i alla spel som tweenar en förälder från noll och läser en pekare genom den.`
 
+`2026-09-10 · STEG 4 — KNYTTET EFTER FÖDSELN.` Fyra saker ur planen som aldrig byggts:
+**⓵ Namnskylten** — spelets enda text — sticker upp ur marken framför knyttets fötter (en träskylt på
+en stolpe, nedtill, som §1 "Kortet" alltid sagt) i SAMMA bildruta som narratorn säger namnet
+(`index.js:_sagNamn` → `ceremoni.visaNamn`). Husets textstil: `FONT.title`, 800. **⓶ Solen i fonden:**
+en sol eller måne som kommer ut ur ägget BLIR den tryckbara; annars får fonden en egen på första lediga
+himmelsplatsen (natt/grotta en måne, öknen ökensolen) — himlen får aldrig två. Ett tryck: den sjunker,
+fonden mörknar, knyttet gäspar och somnar; ett tryck till: den stiger och knyttet vaknar. Träffytan är
+spelets (`_byggSolYta`, byggd vid 'klar' när alla föremål landat) och ligger ≥ 110 px från varje yta
+som lever i 'avtack'. **⓷ Sömnkornen:** ett sovande knytt — var som helst, också i boden och på hyllan
+— släpper sin världs egna partiklar ur hjässan (sporer · bubblor · snöflingor · stjärnor · glöd ·
+grottsporer) som stiger i sicksack; en pool på fem, allt i tick. **⓸ Folien följer fingret:** svepet
+driver fasen, `tick` lägger fingrets läge ovanpå (utjämnat), och med svepet i mitten står bandet
+rakt under fingret.
+
+**Två repliker som KÖAR fick villkor.** Rösten kapas aldrig (`_narTyst`), så en replik kan komma flera
+sekunder efter orsaken — strax efter födseln är kön lång ("Tryck på spaken igen…" är 5,1 s). "Nu
+sover det. Väck det försiktigt!" sägs därför bara om knyttet FORTFARANDE sover när det blir dess tur,
+och Skrällets "Oj, Skrället tog en sak! Peta på den." bara om Skrället fortfarande håller något —
+annars hade rösten sagt "peta på den" om ett Skrälle som redan gått. (Fyndet kom ur `_knyttlyftprobe`
+i hela sviten: S2b väntade 1,8 s på berömmet medan stölderepliken fortfarande talade.)
+
+**Mätt, `_knyttlyftprobe` N (alla mätarmar RÖDA mot koden före bygget):** N1 skylten bär namnet och
+syns 0 ms från att det sägs · N6b fingret 400 px → bandet −200 → 193 · N3 solen 220 → 508, knyttet
+sover · N4 tre sömnkorn i luften · N5 solen upp, knyttet vaknar · N3b repliken när kön är fri, med
+knyttet fortfarande sovande. **Mätaren var fel två gånger, båda fångade av kontrollarmar:** N6
+läste bandet under utjämningens svans (−196 → −200 på ett stilla finger; nu efter konvergens), och N3b
+krävde repliken inom 2,6 s i en kö som var längre. Bilder: `.test-shots/knytt-namn.png` ·
+`knytt-natt.png` · `knytt-ogon-nara.png` (pupillerna syns — NaN-rättelsen i bild).
+
+**Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` alla familjer (I · B9 · K · R · S · O · N) gröna,
+N 10/10 med solen både som rekvisita (400, 220) och som fondens egen (890, 196) · `_knyttprobe` 44/44 ·
+`_bodprobe` 11/11 · `_lyftbild` 0 konsolfel.`
+
 
 ## 6. Teknisk ritning
 
@@ -1754,7 +1791,7 @@ den, och den här var nära att göra det. En commit per steg; sonden är `_knyt
 | 1 | Rättelser: bodens P0-avstånd med åtta skyltar · kupans färglöfte · döda `rekvisita` · solens varvtid · knackhanden i bild | ✅ 2026-09-10 |
 | 2 | **Ljudtratten (T6)** på bänkplatsen (800, 630): en speldosa, varje tryck vrider fram en ny melodi, noterna flyger in i kupan och blobben sjunger med. Knyttets motiv blir barnets val. | ✅ 2026-09-10 |
 | 3 | **Skrället** (§4b, som specat). ⚠️ Byggs UTAN uppehållsmätningen §4b väntade på — ägarens beslut 2026-09-10. Specens spärrar (12 s · 22 s · 7 s) är enda bromsen. | ✅ 2026-09-10 |
-| 4 | **Knyttet efter födseln:** namnplakett i trä (namnet sägs samtidigt) · tryck på solen i fonden → den går ner, knyttet gäspar och somnar · sömnkorn av världens egna partiklar · folien följer fingret | ⬜ |
+| 4 | **Knyttet efter födseln:** namnplakett i trä (namnet sägs samtidigt) · tryck på solen i fonden → den går ner, knyttet gäspar och somnar · sömnkorn av världens egna partiklar · folien följer fingret | ✅ 2026-09-10 |
 | 5 | **Verkstadshyllan lever:** en bärskål — dra ett bär till ett knytt, det äter och rapar en gnista · dra ut ett knytt på golvet, där det springer runt och sedan går hem (tryck-sedan-tryck också) | ⬜ |
 | 6 | **Vänner i boden:** tre duetter mellan samma grannar → de blir vänner och delar bo | ⬜ |
 

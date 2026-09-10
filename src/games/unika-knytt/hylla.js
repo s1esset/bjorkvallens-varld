@@ -11,7 +11,9 @@
 //
 // Geometri (designrymden): skålen på (96, 470), bäret vilar på (96, 446) och bär hela skålens
 // träffyta — Circle r 64 kring skålens MITT → x 32–160 · y 406–534: 56 px till bälgen (från 216),
-// 38 px till hyllans bon (från 572). Golvfilen är y 700, x 430–1030: framför väderveven, tratten och mönsterhjulets fot.
+// 38 px till hyllans bon (från 572). Golvfilen är y 700, x 460–1000: framför väderveven, tratten och
+// mönsterhjulets fot. Knyttets yta (Circle r 56 kring (x, 660)) står i filens ändar 26 px från hyllbo 2
+// (till 378) och 32 px från bodluckan (från 1088) — med 430–1030 och r 50 var det 2 och 8 px.
 // Ett knytt på golvet är ovanpå verktygen i z-ordningen och har en EGEN träffyta som följer det —
 // ett tryck på knyttet når knyttet, aldrig verktyget bakom. (Ett husdjur som springer över golvet
 // kan inte ha en stillastående yta; regeln "noden som bär hitArea animeras aldrig" gäller släppmål.)
@@ -30,8 +32,10 @@ export const SKAL = { x: 96, y: 470 }
 const BAR_HEM = { x: 96, y: 446 }
 const BAR_R = 64
 const GOLV_Y = 700
-const GOLV_X0 = 430
-const GOLV_X1 = 1030
+const GOLV_X0 = 460
+const GOLV_X1 = 1000
+/** Golvknyttets träffyta — 112 px, alltså luft över P0:s 96 för ett mål som rör sig. */
+const YTA_R = 56
 /** Hur länge ett knytt springer på golvet innan det går hem av sig självt. */
 export const UTE_S = 9
 const FART = 150 // px/s
@@ -158,7 +162,7 @@ export function byggHyllliv(opts = {}) {
   nyttBar()
 
   // ---- ett knytt ute på golvet ---------------------------------------------------------------
-  let ute = null // { i, knytt, hall, yta, lage: 'dras'|'hoppar'|'springer'|'hem'|'in', t, malX, paus, fas, tw }
+  let ute = null // { i, knytt, hall, yta, lage: 'dras'|'hoppar'|'springer'|'hem'|'in', t, malX, paus, fas, tw, hemSen }
   let drag = null // { i, sx, sy, moved, nod }
   let vald = null // { i, tills } — tap-tap: knyttet väntar på ett tryck på golvet
   let drogNyss = -1e9
@@ -173,7 +177,7 @@ export function byggHyllliv(opts = {}) {
     hall.addChild(k.view)
     k.view.position.set(0, 0)
     const yta = new Container()
-    yta.hitArea = new Circle(0, -40, 50)
+    yta.hitArea = new Circle(0, -40, YTA_R)
     yta.eventMode = 'none'
     yta.cursor = 'pointer'
     yta.on('pointertap', () => {
@@ -184,7 +188,7 @@ export function byggHyllliv(opts = {}) {
     })
     hall.addChild(yta)
     b.ute = true
-    ute = { i, knytt: k, hall, yta, lage: 'dras', t: UTE_S, malX: p.x, paus: 0, fas: 0, tw: null }
+    ute = { i, knytt: k, hall, yta, lage: 'dras', t: UTE_S, malX: p.x, paus: 0, fas: 0, tw: null, hemSen: false }
     vald = null
     sfx('whoosh')
     pa('ute', { i })
@@ -219,8 +223,10 @@ export function byggHyllliv(opts = {}) {
       landa(ute.knytt.view)
       sfx('tap')
       ute.lage = 'springer'
-      ute.yta.eventMode = 'static'
       ute.malX = ute.hall.x
+      // Kallat hem medan det var i luften: nu, med fötterna på golvet, springer det hem.
+      if (ute.hemSen) return gaHem()
+      ute.yta.eventMode = 'static'
       ute.paus = 0.35
     })
   }
@@ -244,7 +250,16 @@ export function byggHyllliv(opts = {}) {
 
   function gaHem() {
     if (!ute || ute.lage === 'hem' || ute.lage === 'in') return
+    // Mitt i landningshoppet äger hoppet läget. Sattes 'hem' här skrev både hoppet och `tick`
+    // hållaren, och hoppets slut gjorde det till 'springer' igen — hemkallningen försvann.
+    if (ute.lage === 'hoppar') {
+      ute.hemSen = true
+      return
+    }
     ute.lage = 'hem'
+    // På väg hem tar det inga tryck (dess tryck gäller bara medan det springer fritt). Vägen går
+    // under hyllbona, och en påslagen yta där svalde trycken på dem utan ett ljud.
+    ute.yta.eventMode = 'none'
     ute.malX = boX[ute.i] ?? GOLV_X0
     ute.paus = 0
   }

@@ -52,8 +52,13 @@
 //             en duett → räknad men inte vänner · V2 tre → vänner, ett gemensamt bo, sparat, repliken ·
 //             V3 boden öppnas igen → fortfarande ihop · V4 KONTROLL en sparad vänskap över två världar
 //             → ihop i Alla, men den ena ensam i skogsfliken.
+//   G   golvknyttets grannar (spelkritikens fynd i steg 5). Träffytorna läses ur den LEVANDE
+//             scenen, trycken är riktiga musklick. G1 filens vänstra ände → ≥ 24 px till hyllbo 2 ·
+//             G2 högra änden → ≥ 24 px till bodluckan · G3 KONTROLL: ett tryck på bo 2 når boet
+//             (sonden lindar om spelets `_boTryck`) · G4 ett tryck på bo 2 medan ett knytt springer
+//             hem UNDER det → boet får det · G5 kallat hem mitt i landningshoppet → går hem direkt.
 //
-//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R,S,O,N,H,V]
+//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R,S,O,N,H,V,G]
 //
 // ⚠️ Kör ALDRIG bredvid en annan webbläsarsond eller `npm run test:all`.
 import { chromium } from 'playwright'
@@ -161,7 +166,7 @@ if (kor('V')) {
 }
 
 // =================================================================== webbläsarfamiljerna
-if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N') || kor('H') || kor('V')) {
+if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N') || kor('H') || kor('V') || kor('G')) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
@@ -792,6 +797,111 @@ if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N') || kor
       await page.waitForTimeout(500)
       const v4b = await lasV()
       rader.push(['V4 kontroll  Alla: ihop · skogen: den ena ensam', `Alla ${JSON.stringify(v4a.platser)} · skog ${JSON.stringify(v4b.platser)}`, JSON.stringify(v4a.platser) === '[1,2]' && JSON.stringify(v4b.platser) === '[1,1]'])
+    }
+
+    // ================================================================= G golvknyttets grannar
+    if (kor('G')) {
+      await besok([[6101, 1, 1, 0, 0, 0, 0, 0, 1], [6102, 4, 1, 1, 1, 1, 0, 0, 1], [6103, 6, 2, 2, 2, 2, 0, 0, 1]])
+      const BOX = [90, 210, 330]
+      const BOY = 620
+      // Golvknyttets yta ur den LEVANDE scenen (hållaren står där `ute` säger) och grannarnas ur
+      // deras egna noder — sonden bär inga egna tal om geometrin.
+      const lasG = () => page.evaluate(() => {
+        const g = window.__barnspel.game
+        const u = g._hyllliv?.ute ?? null
+        let yta = null
+        if (u) {
+          for (const c of g._spelLager.children) {
+            for (const hall of c.children ?? []) {
+              if (hall.x !== u.x || hall.y !== u.y) continue
+              for (const n of hall.children) {
+                if (n.hitArea && typeof n.hitArea.radius === 'number') yta = { x: hall.x + n.hitArea.x, y: hall.y + n.hitArea.y, r: n.hitArea.radius }
+              }
+            }
+          }
+        }
+        const rekt = (nod) => ({ x0: nod.x + nod.hitArea.x, y0: nod.y + nod.hitArea.y, x1: nod.x + nod.hitArea.x + nod.hitArea.width, y1: nod.y + nod.hitArea.y + nod.hitArea.height })
+        return {
+          ute: u, yta, bo2: rekt(g._bon[2].nod), lucka: rekt(g._lucka.view),
+          hemma: g._bon.map((b) => !!b.knytt && b.knytt.view.parent === b.inner),
+          boT: window.__boT ? [...window.__boT] : [],
+        }
+      })
+      // Kortaste avståndet mellan en cirkel och en rektangel (en lucka på EN axel är en lucka).
+      const glapp = (c, R) => Math.hypot(Math.max(R.x0 - c.x, 0, c.x - R.x1), Math.max(R.y0 - c.y, 0, c.y - R.y1)) - c.r
+      const springer = () => page.waitForFunction(() => window.__barnspel.game._hyllliv?.ute?.lage === 'springer', null, { timeout: 4000 }).catch(() => {})
+      const hemma = () => page.waitForFunction(() => !window.__barnspel.game._hyllliv?.ute, null, { timeout: 12000 }).catch(() => {})
+      // Varje tryck som når ett bo, via spelets EGEN metod — lyssnaren slår upp `this._boTryck` vid
+      // varje tryck, så en omlindad metod ser exakt det spelet ser.
+      await page.evaluate(() => {
+        const g = window.__barnspel.game
+        window.__boT = []
+        g.__boTryckOrig = g._boTryck
+        g._boTryck = function (ctx, i) { window.__boT.push(i); return g.__boTryckOrig.call(this, ctx, i) }
+      })
+
+      // G1: tap-tap ut — bo 0, sedan golvet långt till vänster: landningen klampas till filens ände,
+      // och knyttet vilar där ≥ 0,75 s (landningspaus + nästa paus) innan det springer vidare.
+      await klick(BOX[0], BOY)
+      await page.waitForTimeout(300)
+      await klick(300, 712)
+      await springer()
+      const g1 = await lasG()
+      const d1 = g1.yta ? glapp(g1.yta, g1.bo2) : -999
+      rader.push(['G1 matarm    filens vänstra ände → ≥ 24 px till hyllbo 2', `x ${Math.round(g1.ute?.x ?? -1)} · ytan Ø ${g1.yta ? 2 * g1.yta.r : '—'} · glapp ${d1.toFixed(1)} px`, g1.ute?.i === 0 && !!g1.yta && 2 * g1.yta.r >= 96 && d1 >= 24])
+      await klick(BOX[0], BOY) // det tomma boet kallar hem det
+      await hemma()
+
+      // G2: samma sak åt höger — golvet bortom bodluckan.
+      await klick(BOX[0], BOY)
+      await page.waitForTimeout(300)
+      await klick(1270, 712)
+      await springer()
+      const g2 = await lasG()
+      const d2 = g2.yta ? glapp(g2.yta, g2.lucka) : -999
+      rader.push(['G2 matarm    filens högra ände → ≥ 24 px till bodluckan', `x ${Math.round(g2.ute?.x ?? -1)} · glapp ${d2.toFixed(1)} px`, g2.ute?.i === 0 && !!g2.yta && d2 >= 24])
+
+      // G3 KONTROLL: ett tryck på bo 2 medan knyttet står långt bort till höger → boet får det.
+      // Visar att haken på `_boTryck` ser ett tryck när ingenting ligger i vägen.
+      await page.evaluate(() => { window.__boT.length = 0 })
+      await klick(BOX[2], 640)
+      await page.waitForTimeout(150)
+      const g3 = await lasG()
+      rader.push(['G3 kontroll  tryck på bo 2, knyttet långt borta → boet får det', `boT ${JSON.stringify(g3.boT)} · knyttet vid x ${Math.round(g3.ute?.x ?? -1)}`, !!g3.ute && g3.boT.includes(2)])
+
+      // G4: kalla hem det — det springer längs golvet UNDER hyllbona. Tryck på bo 2 i det ögonblick
+      // knyttet passerar under det: trycket ska nå boet, inte sväljas av ett knytt som ändå inte
+      // gör något med det (dess tryck gäller bara medan det springer fritt).
+      await klick(BOX[0], BOY)
+      await page.evaluate(() => { window.__boT.length = 0 })
+      const g4v = await page.waitForFunction(() => {
+        const u = window.__barnspel.game._hyllliv?.ute
+        return u && u.lage === 'hem' && u.x <= 342 ? { x: u.x } : null
+      }, null, { polling: 'raf', timeout: 12000 }).then((h) => h.jsonValue()).catch(() => null)
+      await klick(BOX[2], 640)
+      await page.waitForTimeout(150)
+      const g4 = await lasG()
+      rader.push(['G4 matarm    tryck på bo 2 när ett knytt springer hem under det → boet får det', `knyttet vid x ${g4v ? Math.round(g4v.x) : '—'} · boT ${JSON.stringify(g4.boT)}`, !!g4v && Math.abs(g4v.x - BOX[2]) <= 30 && g4.boT.includes(2)])
+      await hemma()
+
+      // G5: tap-tap ut igen, och kalla hem det MEDAN det ännu är i landningshoppet (0,42 s).
+      await klick(BOX[1], BOY)
+      await page.waitForTimeout(300)
+      await klick(700, 712)
+      const g5f = await lasG()
+      const t5 = Date.now()
+      await klick(BOX[1], BOY)
+      const hem5 = await page.waitForFunction(() => !window.__barnspel.game._hyllliv?.ute, null, { timeout: 7000 }).then(() => true).catch(() => false)
+      const s5 = (Date.now() - t5) / 1000
+      const g5 = await lasG()
+      rader.push(['G5 matarm    kallat hem mitt i landningshoppet → går hem direkt', `läge vid trycket ${g5f.ute?.lage ?? '—'} · hemma ${hem5 ? `efter ${s5.toFixed(1)} s` : 'inte inom 7 s'} · ${g5.hemma.join('/')}`, g5f.ute?.lage === 'hoppar' && hem5 && g5.hemma[1] === true])
+
+      await page.evaluate(() => {
+        const g = window.__barnspel.game
+        g._boTryck = g.__boTryckOrig
+        delete g.__boTryckOrig
+        delete window.__boT
+      })
     }
 
     await page.evaluate(() => window.__barnspel.nav.go('library'))

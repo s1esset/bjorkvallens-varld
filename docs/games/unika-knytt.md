@@ -307,7 +307,7 @@ med +24 halo → träffytor x 0–140 och x 1140–1280, y −6–134.
 | T6 Ljudtratten (sedan 2026-09-10) | (800, 630) | 144×144 | 728–872 | 558–702 |
 | Skrället (BARA medan det sitter, sedan 2026-09-10) | (620, 210) | 144×144 | 548–692 | 138–282 |
 | Bärskålen — smultronet bär skålens yta (steg 5) | (96, 470) | Circle r 64 | 32–160 | 406–534 |
-| Ett knytt på golvet (ytan följer knyttet, steg 5) | fil y 700, x 430–1030 | Circle r 50 | — | — |
+| Ett knytt på golvet (ytan följer knyttet, steg 5 — r och fil rättade efter kritiken) | fil y 700, x 460–1000 | Circle r 56 kring (x, 660) | 404–1056 | 604–716 |
 | Kupan | (640, 330) | `Circle(0,0,190)` | 450–830 | 140–520 |
 | Spaken | (1160, 350) | `Rect(-100,-120,200,240)` | 1060–1260 | 230–470 |
 | Bodluckan (flyttad 2026-09-05: hyllan tog vänsterhörnet) | (1160, 612) | 144×168 | 1088–1232 | 528–696 |
@@ -322,9 +322,12 @@ T6–bodlucka x 216 · T6–bänkknyttet (cirkel r 62 kring (800, 432)) y 64 · 
 Skrället–T2 x 174. **Skrällets yta ligger MED FLIT ovanpå kupans cirkel:** den är 'static' bara
 medan Skrället sitter på kragen, och den ligger ovanför kupan i z-ordningen — ett tryck på figuren
 når figuren, ett tryck bredvid rullar fortfarande om kupan (§4b ⓵).
-Bärskålen–bälgen x 56 · bärskålen–hyllbon y 38 · bärskålen–skalets hem y 272. **Ett knytt på golvet**
+Bärskålen–bälgen x 56 · bärskålen–hyllbon y 38 · bärskålen–skalets hem y 272 · golvknyttet i filens
+ändar–hyllbo 2 x 26 · golvknyttet–bodluckan x 32 (var 2 och 8 med r 50 och filen 430–1030 —
+`_knyttlyftprobe` G1/G2). **Ett knytt på golvet**
 springer framför väderveven och tratten och har en egen yta som följer det — ett husdjur kan inte
-ha en stillastående yta. Det ligger ovanpå verktygen i z-ordningen (`_byggHyllliv` byggs efter dem),
+ha en stillastående yta. På väg HEM tar ytan inga tryck: vägen går under hyllbona, och trycken där
+ska nå boet (G4). Det ligger ovanpå verktygen i z-ordningen (`_byggHyllliv` byggs efter dem),
 så ett tryck på knyttet når knyttet, aldrig maskindelen bakom.
 **Bodens overlay** (boden.js): skyltar y 206 (träffyta 104×96, x från 150 i steg om 130) — 24 px
 under skalets knappar (slutar 134 → 158) · pilarna (1160, 340) och (1160, 484) · dörren (1160, 628),
@@ -1344,6 +1347,29 @@ genererad offline (`npm run voice`: 1 gjord, 0 misslyckade). Bild: `.test-shots/
 **Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` alla familjer (I · B9 · K · R · S · O · N · H · V)
 gröna · `_knyttprobe` 44/44 · `_bodprobe` 11/11.`
 
+`2026-09-10 · KRITIKEN — GOLVKNYTTETS GRANNAR.` Spelkritikern (efter steg 6) fann inget blockerande
+och tre saker värda att nämna. **⓵ Skrället växlar strikt** mellan rekvisita och gnista: specens tak
+"aldrig samma axel två gånger i rad" gör det med bara två axlar. Taket står kvar — frågan ligger i
+§9 A till speltestet. **⓶ Bälgen** läser fortfarande som plankor: redan känt och medvetet lämnat.
+**⓷ Golvknyttets träffyta** var 100 px (r 50), bara 4 px över P0 för ett mål som rör sig — och den
+pekade på något större. I filens ändar stod ytan **2 px** från hyllbo 2 och **8 px** från bodluckan,
+där P0 kräver 24. Två fel till i samma modul (min egen, steg 5) kom fram när koden lästes: ett knytt
+på väg HEM hade kvar sin yta påslagen och sprang under hyllbona, så ett tryck på ett bo i det
+ögonblicket försvann utan ljud (knyttets eget tryck gäller bara medan det springer fritt) · och en
+hemkallning MITT I landningshoppet försvann: hoppets slut skrev `'springer'` över `'hem'`, och i upp
+till 0,42 s skrev både hoppet och `tick` hållaren. Rättat i `hylla.js`: r 56 (112 px), filen 460–1000,
+ytan av på väg hem, och en hemkallning i luften sparas (`hemSen`) tills fötterna når golvet.
+
+**Mätt, `_knyttlyftprobe` G (ny familj, körd mot koden FÖRE rättelsen: 4 av 5 röda, kontrollen
+grön):** G1 vänstra änden 2,0 → **26,0 px** till hyllbo 2 (ytan Ø 100 → 112) · G2 högra änden 8,0 →
+**32,0 px** till bodluckan · G3 KONTROLL ett tryck på bo 2 när ingenting är i vägen når boet
+(`boT [2]` — sonden lindar om spelets egen `_boTryck`) · G4 ett tryck på bo 2 medan knyttet springer
+hem under det (x 340 resp. 341): `boT []` → **`[2]`** · G5 kallat hem i landningshoppet: inte hemma
+inom 7 s → **hemma efter 4,2 s**. H 9/9 gröna efteråt.
+
+**Grind:** check 0/0 · test 0 fel (bilden granskad: verkstan hel, inget ur läge) · `_knyttlyftprobe`
+G 5/5 · H 9/9 · `_knyttprobe` 44/44.`
+
 
 ## 6. Teknisk ritning
 
@@ -1718,7 +1744,7 @@ Inget nedan är en trasig sak — det är beslut, obyggt, eller omätt.
 | | |
 |---|---|
 | ~~**Sömntrösklarna**~~ | ✅ **BESVARAT 2026-09-01: koden gäller** (12 s → `somnig`, 8 s till → `sover`). §1 rättad — den hade inte följt med när §3c kortade trösklarna från 20+12. Ingen kodändring. |
-| **§4b Skrället** | ✅ **BYGGT 2026-09-10 utan mätningen** — ägarens beslut i poleringsrundan (§9 G steg 3). Frågan som återstår är TAKTEN: uppehållstiden är fortfarande omätt, så om 12 s nåd · 22 s mellan besök · 7 s till uttråkad är rätt för ett riktigt barn kan bara ett speltest svara på. Loggen har underlaget: `takt/spak` (ms i verkstan) och `takt/skrall` (varje besök). |
+| **§4b Skrället** | ✅ **BYGGT 2026-09-10 utan mätningen** — ägarens beslut i poleringsrundan (§9 G steg 3). Frågan som återstår är TAKTEN: uppehållstiden är fortfarande omätt, så om 12 s nåd · 22 s mellan besök · 7 s till uttråkad är rätt för ett riktigt barn kan bara ett speltest svara på. Loggen har underlaget: `takt/spak` (ms i verkstan) och `takt/skrall` (varje besök). **Och en fråga till, från kritikern 2026-09-10:** med bara två axlar (rekvisita, gnistor) gör specens tak "aldrig samma axel två gånger i rad" besöken till en ren växling — efter ett besök vet man vad nästa tar. Taket står kvar (det är ett av specens fem). Se i speltestet om ett barn märker mönstret; är svaret ja är nästa steg antingen en tredje sak att sno (så att taket kan stå kvar) eller att taket mjukas till en viktning — ägarens val, inte mitt. |
 | **Upplåsningarnas takt** | Nytt 2026-09-01: är 16 kläckningar till sista milstolpen rimligt eller för långt för ett barn? **Speltestet 2026-09-05 sa "bra" utan invändning**; ägarens riktning blev MER variation (leverans 2 steg 4 lägger två världar och två milstolpar till efter 16). |
 
 ### B. Byggt men aldrig inkopplat, eller dött (allt verifierat i koden 2026-09-01)

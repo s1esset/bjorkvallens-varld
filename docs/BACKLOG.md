@@ -13,7 +13,7 @@ Nyast överst. Status: ⬜ ej påbörjad · 🟨 pågår · ✅ klar (raden stry
 
 ---
 
-## 5. GitHub Actions kör publiceringen på en utgången Node 🟨 *(bumpad 2026-09-05, verifieras av nästa push)*
+## 5. GitHub Actions kör publiceringen på en utgången Node ✅ *(bumpad 2026-09-05, verifierad av pushen 2026-09-10)*
 
 *Inlagt 2026-09-02, upptäckt i publiceringen av `88ce266` (`/doctor`-passet). Bygget är
 **grönt idag** — GitHub tvingar de gamla actionsen till Node 24 åt oss. Posten finns för att
@@ -38,10 +38,12 @@ och båda är no-ops för oss — mätt, inte antaget:**
   rena node24-hopp. `checkout@v5+` kräver runner ≥ v2.327.1 — GitHub-hostade runners ligger
   långt över.
 
-⚠️ **Kvar: ändringen är aldrig körd.** Workflowen går inte att köra lokalt. Nästa push till
-`master` är testet, och den är säker på det sätt som beskrivs sist i posten: `publicera` har
-`needs: bygg`, och spricker `publicera` ligger förra deployen kvar. Håll ett öga på
-`gh run list` direkt efter pushen.
+✅ **VERIFIERAD 2026-09-10 (v1.249.0).** Första pushen efter bumpen (`npm run deploy`, `526d2f6`)
+körde den ändrade workflowen: run 34497323938 **grön** (bygg 37 s · publicera 11 s), och — det
+posten sa att man skulle kontrollera, inte bara att bygget var grönt — **noll annotationer**:
+node20-varningen är borta. Live-sajten serverar det nya bygget (`index-BRgpm88V.js` med 1.249.0).
+Resten av posten står kvar som referens till nästa runtime-byte: GitHubs varningslista är
+ofullständig, och en `composite` bär sin nästlade pinne med sig.
 
 Varje körning av `.github/workflows/deploy.yml` skriver numera:
 

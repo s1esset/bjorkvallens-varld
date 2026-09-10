@@ -54,9 +54,11 @@ rättelsen (bara `hylla.js` rörd) · `_knyttprobe` 44/44 · `_bodprobe` 11/11.
 steg 4 · `1cadec5` steg 5 · `096e40e` steg 6 · `acda86b` kritikens fynd.
 
 **Öppet:**
-- **Publicera.** 13 commits ligger lokalt (från `8a36d34`, alltså även 2026-09-05-passet), och nästa
-  push kör dessutom den ändrade deploy-workflowen för första gången (fem actions ur node20):
-  `npm run deploy`, sedan `gh run list`.
+- ✅ **Publicerat samma dag** (`npm run deploy`, ägarens ja): alla 13 commits ute, `origin/master` =
+  `526d2f6`, och live-sajten serverar `index-BRgpm88V.js` med 1.249.0. Den ändrade
+  deploy-workflowen körde för första gången och gick **grön** (run 34497323938: bygg 37 s ·
+  publicera 11 s) **utan en enda annotation** — node20-varningen är borta, och BACKLOG #5 är
+  därmed stängd.
 - **Speltest med ett barn:** Skrällets takt (12 s nåd · 22 s mellan besök · 7 s till uttråkad) och
   om växlingen märks · hittar barnet hyllans lekar och vänskaperna i boden?
 - Bälgen (T3) läser fortfarande som plankor (kosmetik) · V16 i ÅTGÄRDER.

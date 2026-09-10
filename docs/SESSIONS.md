@@ -14,6 +14,55 @@ Format:
 
 ---
 
+## 2026-09-10 — unika-knytt: poleringsrundans sex steg + kritikens rättelse · v1.249.0
+
+**Byggt:** ägarens sex steg ur förra sessionens förslag ("ja, kör alla sex steg"), en commit per
+steg. Varje steg fick en egen familj i `scripts/_knyttlyftprobe.mjs`, körd mot koden FÖRE ändringen.
+
+⓵ **Rättelser** — bodens P0-avstånd med åtta skyltar (pil ▼ och dörren låg 20 px isär) · kupans
+färglöfte (kupan räknade nyansen på ett annat sätt än `dna.js`: gul i vattenvärlden blev ~76° i
+kupan men ~54° på knyttet) · solens varvtid · ett dött rekvisitafält.
+⓶ **Ljudtratten (T6)** på (800, 630): barnet vrider fram melodin, noterna flyger in i kupan, och det
+nyfödda knyttet sjunger barnets motiv. Sparposten fick ett **nionde fält** (generation + tofs);
+`dnaFranPost` är enda avkodaren, och `dnaFromSeed` är byte-identisk mot `0da98f6` för varje recept
+utan generation (familj I). Kronan finns bara i generation 1 (~8 %).
+⓷ **Skrället** enligt §4b, byggt UTAN uppehållsmätningen (ägarens beslut): snor en rekvisita eller
+en gnista, lämnar tillbaka vid ett tryck, tröttnar efter 7 s — och drar barnet i spaken medan det
+håller något sugs det med in i degen, och knyttet föds med en tofs av dess päls.
+➕ **Ögonfixen:** det nyfödda knyttets pupiller var NaN sedan leverans 1 (`bounceIn` sätter skala 0,
+`toLocal` genom den ger NaN, och `naerma` bär det vidare för alltid).
+⓸ **Knyttet efter födseln:** namnskylt i trä (syns när namnet sägs) · solen i fonden söver knyttet ·
+sömnkorn av världens egna partiklar · folien följer fingret.
+⓹ **Verkstadshyllan lever:** bärskålen (knyttet äter och rapar en gnista) och knytt som springer på
+golvet.
+⓺ **Vänner i boden:** tre duetter mellan samma grannar → vänner som delar bo, sparat i blobben.
+**Kritiken** (spelkritiker, inga blockerande fynd): golvknyttets yta stod 2 och 8 px från grannarna i
+filens ändar — nu 26 och 32 — och två fel till i steg 5-koden kom fram och rättades: tryck som
+svaldes medan ett knytt sprang hem under hyllbona, och en hemkallning mitt i landningshoppet som
+försvann. Skrällets strikta växling rekvisita/gnista är specens tak och står kvar som en fråga till
+speltestet (docens §9 A).
+
+**Läxan som gick igen:** fyra armar (S2/S4, H5/H7) var gröna mot koden UTAN funktionen — "inte X" är
+sant när X aldrig hände. Varje sådan arm kräver nu att förutsättningen inträffat. Och en yta som är
+`static` men vars hanterare bara `return`:ar i ett läge sväljer trycket åt allt som ligger under den
+(G4: `boT []` → `[2]` när ytan stängs av i det läget).
+
+**Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` I–V gröna på steg 6, G + H gröna efter
+rättelsen (bara `hylla.js` rörd) · `_knyttprobe` 44/44 · `_bodprobe` 11/11.
+
+**Commits:** `a62c472` steg 1 · `91b05f2` steg 2 · `486be55` steg 3 · `62a03cb` ögonfixen · `f808d2d`
+steg 4 · `1cadec5` steg 5 · `096e40e` steg 6 · `acda86b` kritikens fynd.
+
+**Öppet:**
+- **Publicera.** 13 commits ligger lokalt (från `8a36d34`, alltså även 2026-09-05-passet), och nästa
+  push kör dessutom den ändrade deploy-workflowen för första gången (fem actions ur node20):
+  `npm run deploy`, sedan `gh run list`.
+- **Speltest med ett barn:** Skrällets takt (12 s nåd · 22 s mellan besök · 7 s till uttråkad) och
+  om växlingen märks · hittar barnet hyllans lekar och vänskaperna i boden?
+- Bälgen (T3) läser fortfarande som plankor (kosmetik) · V16 i ÅTGÄRDER.
+
+---
+
 ## 2026-09-05 — Snabbpass: V19 rättad + fyra listor som ljög + deploy ur node20 · v1.248.0
 
 **Byggt:** ett kort städpass över köerna, inget spelarbete.

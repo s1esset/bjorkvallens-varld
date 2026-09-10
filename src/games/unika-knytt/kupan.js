@@ -24,7 +24,7 @@ import {
 } from '../../lib/form.js'
 import { lerpColor } from '../../lib/scene.js'
 import { liv, pop, squash, wiggle, shake, puff, sparkle, stadFx } from '../../lib/feedback.js'
-import { FARGER, STORLEKAR, MONSTER, mulberry32, palettFran } from './dna.js'
+import { FARGER, STORLEKAR, MONSTER, MOTIV_ANTAL, mulberry32, palettFran } from './dna.js'
 
 // --- verkstadens material (fyra+ toner, aldrig en enda kvantiserad yta) ---------------
 const TRA = 0xb98050
@@ -72,6 +72,10 @@ const KANAL = {
   storlek: { fran: { x: -258, y: 146 }, styr: { x: -200, y: 128 }, till: { x: -146, y: 66 }, farg: LADER },
   monster: { fran: { x: 258, y: 120 }, styr: { x: 200, y: 122 }, till: { x: 146, y: 66 }, farg: TRA },
   varld: { fran: { x: 0, y: -214 }, styr: { x: 0, y: -196 }, till: { x: 0, y: -180 }, farg: 0xffffff },
+  // Ljudtratten har inget rör: ljud färdas genom luften. Noterna följer den här bågen från
+  // trattens mynning (T6 på (800,630), mynningen ~(751,572) i skärmen) in genom glaset till
+  // blobben — `sjung()`. Ritas aldrig av `ritaKanal`.
+  rost: { fran: { x: 111, y: 240 }, styr: { x: 212, y: 70 }, till: { x: 24, y: 6 }, farg: 0xffffff },
 }
 const kurva = (k, t) => {
   const u = 1 - t
@@ -704,9 +708,16 @@ export function byggKupa(opts = {}) {
   const kroppG = G()
   const monsterG = G()
   const ansikteG = G()
+  // Blobbens SJUNGANDE mun — Ljudtratten (steg 2). Ritas en gång och visas bara medan en not
+  // landar (`tick` läser `munTill`), så ingen timer eller tween kan lämna den öppen.
+  const munO = G()
+  munO.ellipse(0, 0, 7, 8.5).fill(0x5a2c34)
+  munO.ellipse(0, 3.4, 4.2, 2.8).fill(0xff8fa6)
+  munO.position.set(0, 9)
+  munO.visible = false
   const ogonV = new Container()
   const ogonH = new Container()
-  blobbKrop.addChild(extraG, kroppG, monsterG, ansikteG, ogonV, ogonH)
+  blobbKrop.addChild(extraG, kroppG, monsterG, ansikteG, munO, ogonV, ogonH)
   blobbLiv.addChild(blobbKrop)
   blobb.addChild(blobbLiv)
   blobb.position.set(0, MARK_Y - 46)
@@ -740,6 +751,8 @@ export function byggKupa(opts = {}) {
   const palett = { bas: 0xffb85c, ljus: 0xffd08a, mork: 0xd08c30, buk: 0xffe0b4, monster: 0xc06a1e, kind: 0xff9ec4 }
   let ton0 = null                        // nuvarande interiörton (lerpas vid världsbyte)
   let tid = 0
+  let noterIn = 0                         // hur många av Ljudtrattens noter som nått blobben
+  let munTill = 0                         // blobbens mun är öppen till den här tiden
   let extraLage = 0                       // vilken komisk siluett rullaOm() satte
   let pekX = 0
   let pekY = -30
@@ -1202,6 +1215,76 @@ export function byggKupa(opts = {}) {
     }
   }
 
+  // ---- Ljudtratten: noterna flyger ur tratten in i glaset, och blobben sjunger med ----
+  // Varje not SPELAS när den lämnar tratten — den första i samma bildruta som trycket (P0
+  // 100 ms) — och blobben svarar en oktav upp när noten når fram, med öppen mun och ett
+  // litet skutt. Tonerna schemaläggs med `senare` (ctx.later), aldrig med `tone({ delay })`:
+  // ett delay ligger på ljudmotorns egen klocka och spelar vidare på menyn efter exit.
+  const NOT_FARG = [0xe8443c, 0xf2a23a, 0x3f97c4, 0x5faa5a]
+  function flygNot(i, f) {
+    const k = KANAL.rost
+    const nod = new Container()
+    const g = G()
+    const c = NOT_FARG[i % NOT_FARG.length]
+    // En åttondelsnot: huvud, skaft, flagga — tre former, tre fyllningar, först en VIT kopia
+    // bakom för kontrasten mot glaset och väggen. Bildgranskningen 2026-09-10 fann den första
+    // versionen (8×6 px-huvud som krympte hela vägen) för liten för att läsa som en not.
+    const S = 1.7
+    const halo = { color: 0xffffff, alpha: 0.9 }
+    g.ellipse(0, 0, 8 * S + 3, 6 * S + 3).fill(halo)
+    g.roundRect(5.5 * S - 1.5, -26 * S - 3, 3.2 * S + 3, 26 * S + 3, 3).fill(halo)
+    g.moveTo(8.7 * S, -26 * S - 3).quadraticCurveTo(18 * S + 4, -20 * S, 15 * S + 3, -9 * S + 2).quadraticCurveTo(14 * S, -15 * S, 8.7 * S, -17 * S).closePath().fill(halo)
+    g.ellipse(0, 0, 8 * S, 6 * S).fill(c)
+    g.roundRect(5.5 * S, -26 * S, 3.2 * S, 26 * S, 1.6 * S).fill(c)
+    g.moveTo(8.7 * S, -26 * S).quadraticCurveTo(18 * S, -20 * S, 15 * S, -9 * S).quadraticCurveTo(14 * S, -15 * S, 8.7 * S, -17 * S).closePath().fill(c)
+    g.eventMode = 'none'
+    nod.addChild(g)
+    nod.eventMode = 'none'
+    const p0 = kurva(k, 0)
+    nod.position.set(p0.x, p0.y)
+    nod.rotation = -0.3
+    view.addChild(nod) // överst: noten ska läsas när den flyger in genom glaset
+    // Ett {}-proxy tweenas och kopieras bara till en levande nod (exit-säkert).
+    const st = { t: 0 }
+    gsap.to(st, {
+      t: 1,
+      duration: 0.55,
+      ease: 'sine.inOut',
+      onUpdate: () => {
+        if (nod.destroyed) return
+        const p = kurva(k, st.t)
+        nod.position.set(p.x, p.y)
+        nod.rotation = -0.3 + Math.sin(st.t * Math.PI * 3) * 0.25
+        // Full storlek större delen av vägen — noten krymper först när den går in i blobben.
+        nod.scale.set(st.t < 0.7 ? 1 : 1 - ((st.t - 0.7) / 0.3) * 0.45)
+      },
+      onComplete: () => {
+        if (!nod.destroyed) nod.destroy()
+        if (dod || tomKupa) return
+        noterIn++
+        munTill = tid + 0.2
+        squash(blobbKrop, { intensity: 0.35, hop: 5 })
+        sparkle(inre, 0, MARK_Y - 60, { count: 2 })
+        ton({ freq: f * 2, dur: 0.12, type: 'sine', vol: 0.07 })
+      },
+    })
+  }
+
+  /** Spela en melodi ur tratten (fyra toner, ~0,2 s isär) — index.js skickar knyttets motiv. */
+  function sjung(motiv) {
+    if (dod || tomKupa) return
+    const toner = Array.isArray(motiv) ? motiv.filter((f) => Number.isFinite(f) && f > 40) : []
+    toner.forEach((f, i) => {
+      const spela = () => {
+        if (dod || tomKupa) return
+        ton({ freq: f, dur: 0.24, type: 'triangle', vol: 0.18 })
+        flygNot(i, f)
+      }
+      if (i === 0) spela()
+      else senare(i * 0.2, spela)
+    })
+  }
+
   // Ett tryck på glaset: hela förhandsvisningen skakar, blobben byter siluett komiskt,
   // föremålen guppar. Samtidigt omrullningen av fröet (index.js lyssnar på 'glas').
   function rullaOm() {
@@ -1301,6 +1384,7 @@ export function byggKupa(opts = {}) {
       pupNod.x += (dx / d * k - pupNod.x) * Math.min(1, dt * 9)
       pupNod.y += (dy / d * k - pupNod.y) * Math.min(1, dt * 9)
     }
+    munO.visible = !tomKupa && tid < munTill
   }
 
   function onTap() {
@@ -1332,7 +1416,11 @@ export function byggKupa(opts = {}) {
 
   // `palett` är en KOPIA — för sonden (`_knyttlyftprobe` K), som mäter om kupans blobb lovar
   // den färg knyttet sedan får. Spelet läser den aldrig.
-  return { view, setVal, setFro, laggIn, tomma, tick, destroy, get palett() { return { ...palett } } }
+  return {
+    view, setVal, setFro, laggIn, sjung, tomma, tick, destroy,
+    get palett() { return { ...palett } },
+    get noter() { return noterIn },
+  }
 }
 
 // =====================================================================================
@@ -1341,12 +1429,17 @@ export function byggKupa(opts = {}) {
 // kan bo i delen; det NYA värdet skickas med i `pa('verktyg', { axel, steg })`, så
 // index.js och delen kan aldrig glida isär.
 // =====================================================================================
+// `steg` läses ur TABELLERNA, aldrig ett tal för hand — en hårdkodad längd är samma glidning
+// som gjorde hornet `krona` onåbart (fynd i /simplify 2026-09-01, stängt i steg 2).
 const AXEL = {
-  farg: { steg: 10, ton: 523, storlek: 168 },
+  farg: { steg: FARGER.length, ton: 523, storlek: 168 },
   gnista: { steg: 4, ton: 659, storlek: 168, tomt: true },
-  storlek: { steg: 4, ton: 392, storlek: 168, tomt: true },
-  monster: { steg: 6, ton: 587, storlek: 168 },
+  storlek: { steg: STORLEKAR.length, ton: 392, storlek: 168, tomt: true },
+  monster: { steg: MONSTER.length, ton: 587, storlek: 168 },
   varld: { steg: VARLDSNYCKEL.length, ton: 440, storlek: 144 },
+  // Ljudtratten spelar ingen egen ton vid trycket — MELODIN är svaret, och dess första ton
+  // går i samma bildruta (`kupa.sjung`). `lockTon` är vilohjälpens.
+  rost: { steg: MOTIV_ANTAL, ton: 0, lockTon: 784, storlek: 144 },
 }
 
 export function byggVerktyg(axel, opts = {}) {
@@ -1382,6 +1475,8 @@ export function byggVerktyg(axel, opts = {}) {
 
   const rG = G()
   rorlig.addChild(rG)
+  // Ljudtrattens klocka: en egen nod, så pop() kan äga dess scale medan veven (rorlig) snurrar.
+  const hornNod = new Container()
 
   // --- ritningarna ---
   if (axel === 'farg') {
@@ -1443,6 +1538,34 @@ export function byggVerktyg(axel, opts = {}) {
     rorlig.position.set(0, -6)
     // spärrhaken sitter UTANFÖR hjulets radie (54) så klacket syns när trumman ratschar
     bas.moveTo(52, -40).lineTo(76, -54).lineTo(80, -40).lineTo(58, -28).closePath().fill(topLightFill(MASSING_MORK))
+  } else if (axel === 'rost') {
+    // Ljudtratten (steg 2, 2026-09-10): en speldosa i trä med en mässingstratt som pekar mot
+    // kupan och en vev på sidan. Varje tryck vevar fram NÄSTA melodi — noterna flyger ur
+    // trattens mynning in i glaset (`kupa.sjung`), och blobben sjunger med.
+    bas.roundRect(-58, 48, 116, 20, 8).fill(topLightFill(TRA_MORK))
+    bas.roundRect(-48, 6, 96, 48, 10).fill(topLightFill(TRA, { highlight: 0.24 }))
+    bas.roundRect(-51, 0, 102, 13, 6).fill(topLightFill(TRA_MORK, { highlight: 0.2 }))
+    bas.roundRect(-30, 22, 60, 20, 6).fill(cylinderFill(MASSING, { axis: 'y' }))
+    for (let i = 0; i < 6; i++) bas.roundRect(-26 + i * 9.6, 24, 4, 16, 2).fill({ color: MASSING_MORK, alpha: 0.7 })
+    bas.circle(48, 30, 7).fill(MASSING_MORK)
+    // Trattens hals ur locket; klockan sitter i `hornNod`, vriden upp mot kupan.
+    bas.moveTo(-16, 4).quadraticCurveTo(-20, -12, -28, -24).stroke({ width: 9, color: MASSING_MORK, cap: 'round' })
+    const klocka = G()
+    klocka.moveTo(-5, 0).quadraticCurveTo(-7, -22, -26, -40).lineTo(26, -40).quadraticCurveTo(7, -22, 5, 0).closePath()
+      .fill(cylinderFill(MASSING, { axis: 'x' }))
+    klocka.ellipse(0, -40, 26, 9).fill(shade(MASSING, 0.25))
+    klocka.ellipse(0, -40, 20, 6).fill(shade(MASSING_MORK, 0.5))
+    klocka.eventMode = 'none'
+    hornNod.addChild(klocka)
+    hornNod.position.set(-28, -24)
+    hornNod.rotation = -0.55
+    hornNod.eventMode = 'none'
+    kropp.addChild(hornNod)
+    // Veven: mässingsarm och trähandtag kring navet.
+    rG.roundRect(-3.5, -24, 7, 26, 3.5).fill(cylinderFill(MASSING, { axis: 'x' }))
+    rG.circle(0, -24, 8).fill(topLightFill(TRA_MORK))
+    rG.circle(0, 0, 5).fill(MASSING)
+    rorlig.position.set(48, 30)
   } else {
     // Väderveven: mässingsväxellåda med ett trähandtag.
     bas.roundRect(-40, 10, 80, 40, 10).fill(topLightFill(MASSING_MORK))
@@ -1459,7 +1582,7 @@ export function byggVerktyg(axel, opts = {}) {
   skugga.eventMode = 'none'
 
   // vilo-liv med EGEN fas per verktyg — samma axel ger alltid samma fas, aldrig ett lås
-  const fas = { farg: 0.05, gnista: 0.37, storlek: 0.62, monster: 0.81, varld: 0.24 }[axel] || 0
+  const fas = { farg: 0.05, gnista: 0.37, storlek: 0.62, monster: 0.81, varld: 0.24, rost: 0.49 }[axel] || 0
   liv(kropp, { bob: 3, sway: 0.012, duration: 2.5 + fas, phase: fas })
 
   // Delens EGNA rörelse. Anropas av pekningen, men också av vilohjälpen i index.js —
@@ -1488,6 +1611,11 @@ export function byggVerktyg(axel, opts = {}) {
       gsap.killTweensOf(rorlig)
       gsap.to(rorlig, { rotation: rorlig.rotation + Math.PI / 3, duration: 0.26, ease: 'back.out(1.8)' })
       ton({ freq: 220, dur: 0.05, type: 'square', vol: 0.1 })
+    } else if (axel === 'rost') {
+      gsap.killTweensOf(rorlig)
+      gsap.to(rorlig, { rotation: rorlig.rotation + Math.PI * 2, duration: 0.55, ease: 'power1.inOut' })
+      pop(hornNod, { scale: 1.16 })
+      ton({ freq: 1568, dur: 0.04, type: 'square', vol: 0.05 }) // vevens klick
     } else {
       gsap.killTweensOf(rorlig)
       gsap.to(rorlig, { rotation: rorlig.rotation + Math.PI * 2, duration: 0.5, ease: 'power2.inOut' })
@@ -1517,7 +1645,7 @@ export function byggVerktyg(axel, opts = {}) {
       ton({ freq: 180, dur: 0.5, type: 'sawtooth', vol: 0.14, slideTo: 90 })
     } else {
       sfx('tap')
-      ton({ freq: spec.ton, dur: 0.14, type: 'triangle', vol: 0.2 })
+      if (spec.ton) ton({ freq: spec.ton, dur: 0.14, type: 'triangle', vol: 0.2 })
     }
     pa(event, { axel, steg, tomt })
   }
@@ -1531,7 +1659,7 @@ export function byggVerktyg(axel, opts = {}) {
   function locka() {
     if (dod || last) return
     tryck({ tomt: false })
-    ton({ freq: spec.ton, dur: 0.16, type: 'triangle', vol: 0.2 })
+    ton({ freq: spec.lockTon || spec.ton, dur: 0.16, type: 'triangle', vol: 0.2 })
   }
 
   function satLast(v) {

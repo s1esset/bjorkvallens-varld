@@ -100,7 +100,10 @@ const falt = [...post.matchAll(/this\._(val\.[fzmvrg]|dna\?\.val\.r|tier|fro)\b/
 arm('T6 matarm    `_sparaKnytt` skriver tiern pa plats 7', falt.join(' · '), falt.length === 8 && falt[7] === 'tier')
 const rensa = idx.slice(idx.indexOf('_rensaPost(post) {'), idx.indexOf('_sparaKnytt(ctx) {'))
 const tak = rensa.match(/const tak = \[([^\]]+)\]/)?.[1] || ''
-arm('T6b          `_rensaPost` klampar plats 7 mot fyra tier', `tak [${tak.trim()}]`, tak.trim().endsWith(String(TIER.length)))
+// PLATS 7, inte sista värdet: sedan steg 2 (2026-09-10) har posten ett nionde fält
+// (flaggorna), och "slutar på 4" hade då mätt flaggtaket i stället för tiern.
+const takLista = tak.split(',').map((s) => s.trim())
+arm('T6b          `_rensaPost` klampar plats 7 mot fyra tier', `tak [${tak.trim()}]`, takLista[7] === String(TIER.length))
 
 // =================================================================== T7 replikerna
 const fraser = new Set(JSON.parse(las('scripts/voice-phrases.json')))

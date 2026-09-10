@@ -23,7 +23,7 @@ import { COLORS, shade, tint } from '../../lib/theme.js'
 import { topLightFill, verticalFill, groundFill, cylinderFill, sphereFill } from '../../lib/form.js'
 import { kvittera, pop, puff, sparkle, squash, stadFx } from '../../lib/feedback.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { dnaFromSeed, VARLDAR } from './dna.js'
+import { dnaFranPost, VARLDAR } from './dna.js'
 import { byggKnytt } from './knytt.js'
 
 const W = 1280
@@ -447,9 +447,7 @@ export function byggBoden(opts = {}) {
 
   function byggKnyttI(b) {
     if (b.knytt || !levande) return
-    const p = b.post.post
-    const dna = dnaFromSeed(p[0], { f: p[1], z: p[2], m: p[3], v: p[4], g: p[6], t: p[7] })
-    const k = byggKnytt(dna, { r: KNYTT_R, senare: senareRa, audio })
+    const k = byggKnytt(dnaFranPost(b.post.post), { r: KNYTT_R, senare: senareRa, audio })
     k.view.position.set(0, 4)
     b.luta.addChild(k.view)
     b.knytt = k
@@ -519,7 +517,8 @@ export function byggBoden(opts = {}) {
   // ---- publikt ----------------------------------------------------------------
   function oppna(poster, opt = {}) {
     if (!levande) return
-    alla = (Array.isArray(poster) ? poster : []).filter((p) => Array.isArray(p) && p.length === 8).map(tolka)
+    // Nio fält sedan steg 2 (flaggorna); index.js migrerar åttafältsposter innan de når hit.
+    alla = (Array.isArray(poster) ? poster : []).filter((p) => Array.isArray(p) && p.length >= 8).map(tolka)
     fram = Number.isFinite(opt.fram) ? opt.fram >>> 0 : 0
     flik = 'alla'
     oppen = true

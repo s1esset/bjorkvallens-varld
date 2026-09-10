@@ -9,9 +9,9 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import gsap from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { COLORS, shade } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { verticalFill, groundFill, topLightFill, cylinderFill } from '../../lib/form.js'
+import { verticalFill, groundFill, topLightFill } from '../../lib/form.js'
 import { landa, puff, sparkle, ripple, kvittera, stadFx } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { log as diag } from '../../lib/gamelog.js'
@@ -20,8 +20,9 @@ import { byggCeremoni } from './ceremoni.js'
 import { byggKnytt } from './knytt.js'
 import { byggBoden, byggLucka } from './boden.js'
 import {
-  dnaFromSeed, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR,
+  dnaFromSeed, dnaFranPost, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR,
   MILSTOLPAR, START_TAK, takFor, antalFranPoster, rullaTier,
+  GEN_NU, MOTIV_ANTAL, FLAGG_TAK, packaFlaggor,
 } from './dna.js'
 
 // Verkstadens egen värld. createScene tar ett eget tema-objekt lika gärna som en nyckel —
@@ -38,12 +39,17 @@ const VERKSTAD = {
 
 // Layouten i designkoordinater. P0-avstånden är räknade mot varandra OCH mot skalets
 // hem (70,64) och högtalare (1210,64) — flyttas något här måste de räknas om.
+// Ljudtratten (T6, steg 2) står på bänkplatsen som var reserverad för den sedan 2026-08-30:
+// träffyta x 728–872 · y 558–702 → 24 px under mönsterhjulet (slutar 534), 176 px höger om
+// veven, 54 px från kupans cirkel. Harnessens tryck på (800,600) landar nu HÄR i stället för
+// på bakgrundsfångaren — med flit (§4c), så standardtestet motionerar tratten.
 const T_LAGE = {
   farg: { x: 300, y: 250, w: 168 },
   gnista: { x: 950, y: 250, w: 168 },
   storlek: { x: 300, y: 450, w: 168 },
   monster: { x: 950, y: 450, w: 168 },
   varld: { x: 480, y: 630, w: 144 },
+  rost: { x: 800, y: 630, w: 144 },
 }
 const KUPA_X = 640
 const KUPA_Y = 330
@@ -111,7 +117,7 @@ export default {
     // --- fältnollställning (singleton) ---
     this._alive = true
     this._fas = 'bygga'
-    this._val = { f: 0, z: 1, m: 0, v: 0, g: 0 }
+    this._val = { f: 0, z: 1, m: 0, v: 0, g: 0, r: 0 }
     this._dna = null
     // Fröet rullas redan HÄR (och i `_aterstall`), inte först vid spaken: det styr vilka
     // rekvisita kupan visar (steg 4, seedad dragning ur poolen), så förhandsvisningen och
@@ -281,84 +287,7 @@ export default {
       .fill(groundFill(0x8d5c38, { light: 0.12, dark: 0.24 }))
     c.addChild(golv)
 
-    c.addChild(this._ritaPrylar())
-
     return c
-  },
-
-  /**
-   * Verkstadens stilleben på golvet: burk med penslar · trave brickor · oljekanna.
-   *
-   * Platsen (800, 630) speglar världsveven på (480, 630) och stod tom sedan Ljudtratten
-   * sköts upp (§4c). Det är en TRIVSELFRÅGA, inte en grindfråga — `bildkoll` fäller inte
-   * `heltackande-falt` på golvet, som redan är en gradient. Rekvisitan påstår alltså inget
-   * annat än att verkstan är bebodd.
-   *
-   * Två gränser den håller sig innanför:
-   * ⓵ Den bor i `_rum`, som är `eventMode = 'none'` med `interactiveChildren = false`.
-   *    Harnessens tryck på (800, 600) faller därför igenom till bakgrundsfångaren precis
-   *    som förut — rekvisitan kan aldrig bli en träffyta som stjäl ett tryck.
-   * ⓶ Inget ritas ovanför y 544. Knyttets träffyta på bänken är en cirkel r=62 kring
-   *    (800, 432) och slutar vid y 494; konstens utbredning och träffytans utbredning är
-   *    två olika budgetar, och den här konsten ligger 50 px under grannens hitArea.
-   */
-  _ritaPrylar() {
-    const g = new Graphics()
-    const TRA = 0xb98050
-    const MASSING = 0xe0a53c
-    const MASSING_MORK = 0xa9741f
-    const MARK = 666
-
-    const skugga = (x, w) => g.ellipse(x, MARK, w, 9).fill({ color: 0x3d2716, alpha: 0.2 })
-    skugga(727, 42)
-    skugga(803, 48)
-    skugga(874, 34)
-
-    // --- burk med penslar
-    const LERA = 0xe3cda6
-    g.roundRect(699, 606, 56, 58, 9).fill(cylinderFill(LERA, { axis: 'x' }))
-    g.rect(699, 632, 56, 7).fill({ color: shade(LERA, 0.2), alpha: 0.75 })
-    g.ellipse(727, 606, 28, 8).fill(shade(LERA, 0.16))
-    g.ellipse(727, 607, 22, 5.5).fill(shade(LERA, 0.44))
-
-    // Skaft → holk → borst längs samma linje, så varje pensel lutar åt sitt eget håll.
-    const pensel = (x0, y0, x1, y1, skaft) => {
-      const px = (t) => x0 + (x1 - x0) * t
-      const py = (t) => y0 + (y1 - y0) * t
-      g.moveTo(x0, y0).lineTo(px(0.72), py(0.72)).stroke({ width: 8, color: skaft, cap: 'round' })
-      g.moveTo(px(0.68), py(0.68)).lineTo(px(0.82), py(0.82)).stroke({ width: 10, color: MASSING })
-      g.moveTo(px(0.82), py(0.82)).lineTo(x1, y1).stroke({ width: 11, color: 0x6a4a30, cap: 'round' })
-      g.moveTo(px(0.9), py(0.9)).lineTo(x1, y1).stroke({ width: 4, color: 0x50361f, cap: 'round' })
-    }
-    pensel(715, 610, 701, 556, TRA)
-    pensel(729, 610, 733, 546, 0xc8703f)
-    pensel(741, 610, 753, 562, shade(TRA, 0.22))
-
-    // --- trave brickor
-    const BRICKA = [0, -3, 2, -2, 4]
-    for (let i = 0; i < BRICKA.length; i++) {
-      const y = 654 - i * 12
-      const ton = i % 2 ? shade(TRA, 0.18) : TRA
-      g.roundRect(763 + BRICKA[i], y, 80, 12, 4).fill(topLightFill(ton, { highlight: 0.22, dark: 0.26 }))
-    }
-    g.roundRect(767 + BRICKA[4], 606, 72, 3, 2).fill({ color: 0xffffff, alpha: 0.22 })
-
-    // --- oljekanna
-    g.roundRect(852, 648, 44, 14, 6).fill(cylinderFill(MASSING_MORK, { axis: 'y' }))
-    g.moveTo(855, 650)
-      .quadraticCurveTo(850, 618, 874, 612)
-      .quadraticCurveTo(898, 618, 893, 650)
-      .closePath()
-      .fill(cylinderFill(MASSING, { axis: 'x' }))
-    g.ellipse(874, 612, 15, 6).fill(shade(MASSING, 0.14))
-    g.ellipse(866, 630, 4, 10).fill({ color: 0xffffff, alpha: 0.22 })
-    // Pipen går UT från axeln, inte rakt upp. En pip som slutar ovanför sin egen rot blir
-    // en svanhals, och kannan läste som en andelampa i den första skärmdumpen.
-    g.moveTo(866, 616).quadraticCurveTo(848, 598, 830, 588).stroke({ width: 8, color: MASSING, cap: 'round' })
-    g.moveTo(834, 590).lineTo(820, 583).stroke({ width: 5, color: MASSING_MORK, cap: 'round' })
-    g.moveTo(890, 622).quadraticCurveTo(912, 634, 890, 650).stroke({ width: 7, color: MASSING_MORK, cap: 'round' })
-
-    return g
   },
 
   _byggHand() {
@@ -420,6 +349,7 @@ export default {
     this._verktyg.storlek?.satSteg(this._val.z)
     this._verktyg.monster?.satSteg(this._val.m)
     this._verktyg.varld?.satSteg(this._val.v)
+    this._verktyg.rost?.satSteg(this._val.r)
   },
 
   _byggSpak(ctx) {
@@ -596,14 +526,19 @@ export default {
 
   // Fältvis sanering: progress.get() ger en LEVANDE referens och setCustom sparar utan kopia,
   // så allt som läses kopieras och allt som är trasigt kastas.
+  //
+  // ÅTTA fält = en post skriven före steg 2 (2026-09-10). Den får ett nionde, flaggfältet med
+  // generation 0, och läses exakt som förut — utan den raden hade längdkontrollen kastat
+  // varje knytt barnet redan hade (`_knyttlyftprobe` R6).
   _rensaPost(post) {
-    if (!Array.isArray(post) || post.length !== 8) return null
+    if (!Array.isArray(post) || (post.length !== 8 && post.length !== 9)) return null
     for (const n of post) if (!Number.isFinite(n)) return null
-    const tak = [0, FARGER.length, STORLEKAR.length, MONSTER.length, VARLDAR.length, 5, 4, 4]
+    const tak = [0, FARGER.length, STORLEKAR.length, MONSTER.length, VARLDAR.length, MOTIV_ANTAL, 4, 4, FLAGG_TAK]
     const ut = [post[0] >>> 0]
-    for (let i = 1; i < 8; i++) {
+    for (let i = 1; i < 9; i++) {
       const t = tak[i]
-      ut.push(((Math.trunc(post[i]) % t) + t) % t)
+      const x = i < post.length ? Math.trunc(post[i]) : 0
+      ut.push(((x % t) + t) % t)
     }
     return ut
   },
@@ -615,13 +550,14 @@ export default {
       this._val.z,
       this._val.m,
       this._val.v,
-      // Plats 5 är RESERVERAD åt Ljudtratten (§4c: noll migrering senare) och är alltså inget
-      // barnval — den bär det `r` genetiken FAKTISKT använder. `dnaFromSeed` läser aldrig
-      // `val.r`, motivet dras ur fröströmmen, så värdet hämtas UR returen: ett härlett
-      // `_fro % 5` såg rätt ut och var ett annat tal.
-      this._dna?.val.r ?? 0,
+      // Plats 5: barnets melodi ur Ljudtratten (steg 2, 2026-09-10) — platsen var reserverad
+      // åt den sedan 2026-08-30. Knytt skrivna FÖRE steg 2 bär här fröets motiv (före v1.243
+      // `_fro % 5`) och läses som generation 0, där plats 5 aldrig läses.
+      this._val.r,
       this._val.g,
       this._tier,
+      // Plats 8: flaggorna — generationen knyttet föddes i (bit 0–3) och Skrällets tofs (bit 4).
+      packaFlaggor({ gen: GEN_NU }),
     ]
     // Torkräknaren: sex vanliga i rad ger nästa garanterat brons. Sparas, visas aldrig.
     this._torka = this._tier === 0 ? this._torka + 1 : 0
@@ -672,7 +608,7 @@ export default {
       }
       const data = this._hyllData[i]
       if (!data) continue
-      const dna = dnaFromSeed(data[0], { f: data[1], z: data[2], m: data[3], v: data[4], g: data[6], t: data[7] })
+      const dna = dnaFranPost(data)
       const k = byggKnytt(dna, {
         r: 40,
         senare: (s, fn) => ctx.later(s, fn),
@@ -749,10 +685,14 @@ export default {
     else if (axel === 'monster') this._val.m = steg % tak.monster
     else if (axel === 'gnista') this._val.g = steg % tak.gnista
     else if (axel === 'storlek') this._val.z = steg % tak.storlek
+    else if (axel === 'rost') this._val.r = steg % tak.rost
     this._valGjorda++
     this._rorda.add(axel)
     this._kupa?.setVal(this._val)
-    this._kupa?.laggIn(axel)
+    // Ljudtratten spelar EXAKT den melodi knyttet får — samma frö, samma generation som
+    // `_startaCeremoni` bygger med. Tonarten är fröets, så glaset (omrullningen) byter den.
+    if (axel === 'rost') this._kupa?.sjung(dnaFromSeed(this._fro, { ...this._val, gen: GEN_NU }).motiv)
+    else this._kupa?.laggIn(axel)
     this._bobo?.look(this._boboWrap.toLocal({ x: T_LAGE[axel].x, y: T_LAGE[axel].y }).x, 0)
     a.sfx('tap')
     diag('takt', 'verktyg', { axel, n: this._valGjorda })
@@ -868,7 +808,7 @@ export default {
     this._tier = Number.isFinite(tvang)
       ? Math.max(0, Math.min(3, Math.trunc(tvang)))
       : rullaTier(Math.random(), this._val.g, { forsta: this._antal === 0, torka: this._torka })
-    this._dna = dnaFromSeed(this._fro, { ...this._val, t: this._tier })
+    this._dna = dnaFromSeed(this._fro, { ...this._val, t: this._tier, gen: GEN_NU })
     diag('takt', 'tier', { tier: this._tier, g: this._val.g, torka: this._torka, forsta: this._antal === 0 })
 
     for (const v of Object.values(this._verktyg)) v.satLast(true)

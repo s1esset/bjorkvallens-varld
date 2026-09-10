@@ -1,7 +1,10 @@
 // Unika Knytt — genetiken. Ren logik, inget Pixi, inga sidoeffekter.
 //
-// Hela spelets variation bor har: ett uint32-fro + barnets recept ({f,z,m,v,g}) racker for
-// att aterskapa en individ exakt, sa sparposten kan vara atta tal. Barnet valjer DISKRET
+// Hela spelets variation bor har: ett uint32-fro + barnets recept ({f,z,m,v,g,r}) racker for
+// att aterskapa en individ exakt, sa sparposten kan vara nio tal (`dnaFranPost` avkodar den).
+// Det nionde ar FLAGGORNA — generation och tofs. En generation ar ett lofte: en post skriven
+// under en aldre regel laser alltid som den gjorde da, sa ett sparat knytt byter aldrig
+// utseende eller melodi nar spelet vaxer (steg 2, 2026-09-10). Barnet valjer DISKRET
 // (P0 forbjuder reglage) men de fro-harledda dragen ar KONTINUERLIGA — deltabellen valjer
 // vilken FORM en del har, froet satter dess PROPORTIONER.
 //
@@ -226,7 +229,8 @@ export const NAMN = [
 
 // Durskala i Hz (C-dur, pentatonisk stomme) — motivet blir stamd musik, aldrig en blipp.
 const SKALA = [262, 294, 330, 392, 440, 523, 587, 659, 784]
-// Fem motivformer. `r` i sparposten valjer form; i leverans 1 satts den av froet.
+// Fem motivformer. Generation 0 drar formen ur froet; fran generation 1 valjer barnet den i
+// Ljudtratten och `r` (plats 5 i sparposten) bar valet. Tonarten (`rot`) ar alltid froets.
 const MOTIVFORM = [
   [0, 1, 2, 4], // stigande
   [4, 3, 1, 0], // fallande
@@ -234,6 +238,8 @@ const MOTIVFORM = [
   [0, 4, 1, 3], // hopp
   [2, 0, 2, 4], // vaggande
 ]
+/** Hur manga melodier Ljudtratten kan veva fram. */
+export const MOTIV_ANTAL = MOTIVFORM.length
 
 // ---------------------------------------------------------------------------
 // Sprickvagen — byggd EN gang ur froet (kallan ritade om med Math.random varje
@@ -353,7 +359,8 @@ export function palettFran(f, v, jit = {}) {
 
 /**
  * Bygger en hel individ ur ett fro + barnets recept.
- * val = { f farg 0-9, z storlek 0-3, m monster 0-5, v varld 0-3, g gnistor 0-3 }.
+ * val = { f farg 0-9, z storlek 0-3, m monster 0-5, v varld 0-5, g gnistor 0-3,
+ *         r melodi 0-4 (bara generation ≥ 1), t tier 0-3, gen generation, tofs 0/1 }.
  * Deterministisk: samma (fro, val) ger byte-identiskt utfall varje gang.
  */
 export function dnaFromSeed(seed, val = {}) {
@@ -363,6 +370,9 @@ export function dnaFromSeed(seed, val = {}) {
   const m = klamp(val.m | 0, 0, MONSTER.length - 1)
   const v = klamp(val.v | 0, 0, VARLDAR.length - 1)
   const g = klamp(val.g | 0, 0, 3)
+  // Generationen andrar vad nagra drag BETYDER, aldrig vilka drag som gors — strommen ar
+  // densamma, sa en generation 0-individ ar byte-identisk med hur den alltid sett ut.
+  const gen = klamp(val.gen | 0, 0, 15)
   const varld = VARLDAR[v]
 
   // EN strom for hela varelsen. Varldens val syns som VIKTER, inte som en egen strom:
@@ -380,11 +390,20 @@ export function dnaFromSeed(seed, val = {}) {
   const hornDrag = rnd()
   const vingDrag = rnd()
   const ogonDrag = rnd()
-  const horn = hornDrag < 0.62 ? 0 : hornDrag < 0.86 ? 1 : 2 // extra horn ovanpa oronvalet
+  // Extra horn ovanpa oronvalet. Kronan (HORN[3] i knytt.js) fanns ritad men kunde ALDRIG
+  // dras — tabellen gav 0–2 (§5: 20 000 fron gav [12367, 4834, 2799, 0]). Fran generation 1
+  // ar den nabar (~8 %); generation 0 behaller exakt sin gamla fordelning, annars byter
+  // sparade knytt horn.
+  const horn = gen >= 1
+    ? (hornDrag < 0.62 ? 0 : hornDrag < 0.80 ? 1 : hornDrag < 0.92 ? 2 : 3)
+    : (hornDrag < 0.62 ? 0 : hornDrag < 0.86 ? 1 : 2)
   const vingar = vingDrag < 0.70 ? 0 : vingDrag < 0.90 ? 1 : 2
   // 'tre' (ogonform 5) bar sitt tredje oga i pannan; annars nastan alltid tva.
   const ogonantal = ogonform === 5 ? 3 : ogonDrag < 0.08 ? 1 : 2
-  const r = heltal(rnd, MOTIVFORM.length)
+  // Draget gors ALLTID (regel 1). Fran generation 1 ar det barnets val i Ljudtratten som
+  // galler och froets tal kastas; generation 0 har aldrig last `val.r` och gor det inte nu.
+  const rFro = heltal(rnd, MOTIVFORM.length)
+  const r = gen >= 1 ? klamp(val.r | 0, 0, MOTIVFORM.length - 1) : rFro
 
   // --- 2. De 22 kontinuerliga dragen + vilororelsens tre
   const p = {
@@ -442,6 +461,9 @@ export function dnaFromSeed(seed, val = {}) {
     val: { f, z, m, v, g, r },
     varld: v,
     tier,
+    gen,
+    // Skrallets tofs (steg 3): ren kosmetik, ror varken tier eller genetik.
+    tofs: klamp(val.tofs | 0, 0, 1),
     kompis: varld.kompis || 'skalbagge',
     storlek: STORLEKAR[z],
     kropp, oron, svans, ben, ogonform, ogonantal, mun, horn, vingar,
@@ -486,6 +508,38 @@ export function _sanity(recept = { f: 6, z: 2, m: 3, v: 2, g: 1 }, antal = 500) 
 }
 
 // ---------------------------------------------------------------------------
+// Sparposten — [fro, f, z, m, v, r, g, t, flaggor]
+// ---------------------------------------------------------------------------
+//
+// Plats 8 (flaggorna) kom med steg 2 (2026-09-10): generation i bit 0–3, Skrallets tofs i
+// bit 4. En post med ATTA falt ar skriven fore det och ar generation 0 — den laser som den
+// alltid gjort, och dess plats 5 (som bar froets motiv, fore v1.243 `_fro % 5`) ignoreras.
+
+/** Generationen varje NYTT knytt fods i. Hojs bara nar en regel for utseende/ljud andras. */
+export const GEN_NU = 1
+/** Flaggfaltets tak: fem bitar (generation 0–15 + tofs). */
+export const FLAGG_TAK = 32
+
+export function packaFlaggor({ gen = 0, tofs = 0 } = {}) {
+  return klamp(gen | 0, 0, 15) | (tofs ? 16 : 0)
+}
+
+export function lasFlaggor(x) {
+  const n = Number.isFinite(x) ? x | 0 : 0
+  return { gen: n & 15, tofs: (n >> 4) & 1 }
+}
+
+/**
+ * EN avkodning av en sparpost, for hyllan i verkstan OCH for boden — tva egna kopior av
+ * samma platsordning ar precis den glidning som gjorde hornet `krona` onabart.
+ */
+export function dnaFranPost(post) {
+  const p = Array.isArray(post) ? post : []
+  const fl = lasFlaggor(p[8])
+  return dnaFromSeed(p[0] >>> 0, { f: p[1], z: p[2], m: p[3], v: p[4], r: p[5], g: p[6], t: p[7], gen: fl.gen, tofs: fl.tofs })
+}
+
+// ---------------------------------------------------------------------------
 // Upplasningar — spelets enda SAMLINGS-krok (ATGARDER U3)
 // ---------------------------------------------------------------------------
 //
@@ -502,11 +556,12 @@ export function _sanity(recept = { f: 6, z: 2, m: 3, v: 2, g: 1 }, antal = 500) 
 // indexen START_TAK[axel] .. tak-1, i tabellernas egen ordning. Tabellerna ror sig
 // aldrig (index sparas), sa en upplasning kan bara lagga till i slutet.
 
-/** Verkstans tak vid noll klackta knytt. Nycklarna ar verktygens axelnamn. */
-export const START_TAK = { farg: 8, monster: 4, varld: 3, storlek: 3, gnista: 4 }
+/** Verkstans tak vid noll klackta knytt. Nycklarna ar verktygens axelnamn. Ljudtrattens
+ * fem melodier ar alla oppna fran borjan — rosten ar ingen belonig, den ar knyttets. */
+export const START_TAK = { farg: 8, monster: 4, varld: 3, storlek: 3, gnista: 4, rost: MOTIV_ANTAL }
 
 /**
- * `falt` ar postens index i sparposten [fro, f, z, m, v, r, g, t] — det ar den som
+ * `falt` ar postens index i sparposten [fro, f, z, m, v, r, g, t, flaggor] — det ar den som
  * later en GAMMAL sparpost (utan raknare) beratta hur langt barnet redan kommit.
  * `fran` ar det FORSTA index milstolpen lagger till (= taket fore den): varlden vaxer i
  * tre milstolpar (12 → stjarnnatten, 20 → oknen, 24 → grottan), sa ett fast START_TAK

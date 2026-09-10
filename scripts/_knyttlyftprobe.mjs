@@ -13,8 +13,14 @@
 //   K   kupans blobb lovar knyttets färg: kupans nyans mot knyttets över 40 frön per recept.
 //             Före steg 1 räknade kupan `h + vinkelDiff·0,2` medan dna.js klampar ±8°, och
 //             gul i vattenvärlden blev ~76° i kupan men ~54° på knyttet.
+//   R   Ljudtratten (steg 2). Node: R0 en åttafältspost läses EXAKT som förut (generation 0,
+//             plats 5 ignoreras — den bar `_fro % 5` i leverans 1) · R4 kronan: aldrig i
+//             generation 0 (kontroll), ~8 % i generation 1. Webbläsare: R5 harnessens tryck
+//             (800,600) når tratten · R1 fem tryck = fem OLIKA melodier, var och en exakt det
+//             motiv knyttet får · R3 noterna når kupan · R6 en gammal post migreras till nio
+//             fält · R2 knyttet som föds sjunger barnets melodi och posten bär r + generation.
 //
-//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K]
+//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R]
 //
 // ⚠️ Kör ALDRIG bredvid en annan webbläsarsond eller `npm run test:all`.
 import { chromium } from 'playwright'
@@ -40,10 +46,11 @@ function likadan(gammal, ny) {
   return true
 }
 
+const src = execSync(`git show ${BAS}:src/games/unika-knytt/dna.js`, { encoding: 'utf8' })
+const GAMMAL = await import('data:text/javascript;base64,' + Buffer.from(src).toString('base64'))
+
 // =================================================================== I: identiteten
 if (kor('I')) {
-  const src = execSync(`git show ${BAS}:src/games/unika-knytt/dna.js`, { encoding: 'utf8' })
-  const GAMMAL = await import('data:text/javascript;base64,' + Buffer.from(src).toString('base64'))
   const RECEPT = [
     {}, { f: 2, v: 1 }, { f: 7, z: 3, m: 5, v: 5, g: 3 }, { f: 0, z: 0, m: 0, v: 3, g: 0 },
     { f: 9, z: 2, m: 4, v: 4, g: 2, t: 3 }, { f: 5, v: 2, m: 2, r: 4 },
@@ -64,8 +71,44 @@ if (kor('I')) {
   arm(`I1 matarm    utan generation: identisk mot ${BAS}`, `${olika} olika av ${n}`, olika === 0)
 }
 
+// =================================================================== R (node-delen)
+if (kor('R')) {
+  const har = typeof NY.dnaFranPost === 'function' && typeof NY.GEN_NU === 'number'
+  // R0 KONTROLL: en post skriven FÖRE steg 2 (åtta fält, ingen generation) ska ge exakt den
+  // individ den alltid gett. Plats 5 bär här `_fro % 5` — det leverans 1 skrev (docens §9 B5)
+  // och som genetiken aldrig läste. Läser generation 0 plats 5 byter gamla knytt melodi.
+  let r0 = 'dnaFranPost saknas'
+  let r0ok = false
+  if (har) {
+    let olika = 0
+    const rnd = NY.mulberry32(77)
+    for (let i = 0; i < 3000; i++) {
+      const fro = NY.slumpFro(rnd)
+      const post = [fro, i % 10, i % 4, i % 6, i % 6, fro % 5, i % 4, i % 4]
+      const gammal = GAMMAL.dnaFromSeed(fro, { f: post[1], z: post[2], m: post[3], v: post[4], g: post[6], t: post[7] })
+      if (!likadan(gammal, NY.dnaFranPost(post))) olika++
+    }
+    r0 = `${olika} olika av 3000`
+    r0ok = olika === 0
+  }
+  arm('R0 kontroll  en åttafältspost läses som förut', r0, r0ok)
+
+  // R4: kronan. Generation 0 får den ALDRIG (§5: 20 000 frön gav [12367, 4834, 2799, 0]) —
+  // det är kontrollarmen, och den ska hålla i båda armarna. Generation 1 ska ge ~8 %.
+  const hornFord = (gen) => {
+    const c = [0, 0, 0, 0]
+    const rnd = NY.mulberry32(99)
+    for (let i = 0; i < 20000; i++) c[NY.dnaFromSeed(NY.slumpFro(rnd), { gen }).horn]++
+    return c
+  }
+  const h0 = hornFord(0)
+  const h1 = hornFord(1)
+  arm('R4 kontroll  generation 0: kronan aldrig', h0.join(' / '), h0[3] === 0)
+  arm('R4b matarm   generation 1: kronan finns (~8 %)', `${h1.join(' / ')} → krona ${((100 * h1[3]) / 20000).toFixed(1)} %`, h1[3] > 1200 && h1[3] < 2000)
+}
+
 // =================================================================== webbläsarfamiljerna
-if (kor('B9') || kor('K')) {
+if (kor('B9') || kor('K') || kor('R')) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
@@ -193,6 +236,101 @@ if (kor('B9') || kor('K')) {
       // nya formeln ense (±5°). Faller den här mäter K1 något annat än formeln.
       rader.push(['K0 kontroll  grön i skogen: formlerna ense', `kupa ${kontroll.hk}° · största avvikelse ${kontroll.max}°`, kontroll.max <= 5])
       rader.push(['K1 matarm    kupans nyans = knyttets (≤ 3,5°)', `${matt.map((x) => `${x.namn} ${x.max}°`).join(' · ')} — värst ${varst.namn}`, matt.every((x) => x.max <= 3.5)])
+    }
+
+    // ================================================================= R Ljudtratten
+    if (kor('R')) {
+      // R6 först: en post skriven FÖRE steg 2 har åtta fält. Den ska läsas in som nio, med
+      // generation 0 — annars kastar `_rensaPost` den (längdkontrollen) och barnet förlorar ett knytt.
+      await besok([[4242, 1, 1, 1, 1, 3, 0, 0]])
+      const r6 = await page.evaluate(() => {
+        const p = window.__barnspel.game._alla?.[0]
+        return p ? { langd: p.length, flagga: p[8] } : null
+      })
+      rader.push(['R6 matarm    en åttafältspost migreras till nio', r6 ? `längd ${r6.langd} · flagga ${r6.flagga}` : 'posten kastades', !!r6 && r6.langd === 9 && r6.flagga === 0])
+
+      await page.evaluate(() => {
+        const a = window.__barnspel.audio
+        if (!a.__lyft) {
+          const t = a.tone.bind(a)
+          a.tone = (o) => { window.__toner?.push(o?.freq | 0); return t(o) }
+          a.__lyft = true
+        }
+        window.__toner = []
+      })
+      /** Finns melodin `m` som en DELSEKVENS i tonerna (i ordning, andra toner får ligga emellan)? */
+      const innehaller = (toner, m) => {
+        if (!Array.isArray(m) || !m.length) return false
+        let j = 0
+        for (const f of toner) if (Math.abs(f - m[j]) <= 1 && ++j === m.length) return true
+        return false
+      }
+      const tryck = async (x, y) => {
+        await page.evaluate(() => { window.__toner.length = 0 })
+        const fore = await page.evaluate(() => window.__barnspel.game._val.r)
+        await klick(x, y)
+        await page.waitForTimeout(1300)
+        return page.evaluate(async (fore) => {
+          const g = window.__barnspel.game
+          const dna = await import('/src/games/unika-knytt/dna.js')
+          const vantat = typeof dna.GEN_NU === 'number' ? dna.dnaFromSeed(g._fro, { ...g._val, gen: dna.GEN_NU }).motiv : null
+          return { fore, r: g._val.r, vantat, toner: window.__toner.slice(), noter: g._kupa?.noter ?? -1 }
+        }, fore)
+      }
+
+      // R5: harnessens eget tryck (800,600) — det som `npm run test` gör — ska nå tratten.
+      const r5 = await tryck(800, 600)
+      rader.push(['R5 matarm    harnessens (800,600) når tratten', `r ${r5.fore} → ${r5.r}`, Number.isFinite(r5.r) && r5.r === ((r5.fore ?? -9) + 1) % 5])
+
+      // R1: fyra tryck till — alla fem melodier, var och en EXAKT det motiv knyttet får.
+      const res = [r5]
+      for (let i = 0; i < 4; i++) res.push(await tryck(800, 630))
+      const hittade = res.filter((x) => innehaller(x.toner, x.vantat)).length
+      const unika = new Set(res.map((x) => (x.vantat || []).join('-'))).size
+      rader.push(['R1 matarm    fem tryck = fem olika melodier', `${unika} unika · ${hittade}/5 spelade exakt knyttets motiv · r ${res.map((x) => x.r).join('→')}`, unika === 5 && hittade === 5])
+      const noter = res[res.length - 1].noter
+      rader.push(['R3 matarm    noterna når kupan', `${noter} noter framme (fem melodier × 4)`, noter >= 20])
+
+      // R2: en hel runda. Barnets val ställs så det SKILJER sig från det fröet hade gett, annars
+      // kan en slump (1 på 5) göra armen grön utan att valet betytt något.
+      const mal = await page.evaluate(async () => {
+        const g = window.__barnspel.game
+        const dna = await import('/src/games/unika-knytt/dna.js')
+        return (dna.dnaFromSeed(g._fro, {}).val.r + 2) % 5
+      })
+      for (let i = 0; i < 5; i++) {
+        const nu = await page.evaluate(() => window.__barnspel.game._val.r)
+        if (nu === mal) break
+        await klick(800, 630)
+        await page.waitForTimeout(250)
+      }
+      const fore2 = await page.evaluate(async () => {
+        const g = window.__barnspel.game
+        const dna = await import('/src/games/unika-knytt/dna.js')
+        return {
+          r: g._val.r,
+          vald: typeof dna.GEN_NU === 'number' ? dna.dnaFromSeed(g._fro, { ...g._val, gen: dna.GEN_NU }).motiv.join('-') : '',
+          frosMotiv: dna.dnaFromSeed(g._fro, { ...g._val }).motiv.join('-'),
+        }
+      })
+      await klick(1160, 350)
+      await page.waitForFunction(() => window.__barnspel.game._fas === 'klacka', null, { timeout: 20000 })
+      for (let i = 0; i < 4; i++) { await klick(640, 470); await page.waitForTimeout(260) }
+      await page.waitForFunction(() => window.__barnspel.game._klar === true, null, { timeout: 20000 })
+      const fodd = await page.evaluate(() => window.__barnspel.game._dna?.motiv?.join('-') || '')
+      await page.waitForFunction(() => !!window.__barnspel.game._knyttYta, null, { timeout: 20000 })
+      await klick(1160, 350)
+      await page.waitForFunction(() => window.__barnspel.game._fas === 'bygga', null, { timeout: 20000 })
+      await page.waitForTimeout(300)
+      const post = await page.evaluate(() => {
+        const l = window.__barnspel.ctx.progress.get()?.custom?.knytt?.lista || []
+        return l[l.length - 1] || []
+      })
+      rader.push([
+        'R2 matarm    knyttet sjunger barnets melodi',
+        `valt r ${fore2.r} · fött ${fodd} · valt ${fore2.vald} · fröets ${fore2.frosMotiv} · post[5] ${post[5]} · flagga ${post[8]}`,
+        fodd === fore2.vald && fodd !== fore2.frosMotiv && post[5] === fore2.r && ((post[8] ?? 0) & 15) === 1,
+      ])
     }
 
     await page.evaluate(() => window.__barnspel.nav.go('library'))

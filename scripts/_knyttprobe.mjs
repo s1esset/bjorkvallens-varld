@@ -78,13 +78,17 @@ const CPU = (() => {
 })()
 const SPAK = { x: 1160, y: 350 }
 const KNACK = { x: 640, y: 470 }  // aggets mitt i 'klacka' — samma punkt for varje familj
-const TONER = { farg: 523, gnista: 659, storlek: 392, monster: 587, varld: 440 }
+// `rost` (Ljudtratten, steg 2 2026-09-10) har ingen ton vid trycket — melodin är svaret —
+// men vilohjälpen lockar med `lockTon` 784. Står den inte här lockar B2 tratten (en oprovad
+// del) i stället för spaken, och armen faller på en sond som inte känner till verktyget.
+const TONER = { farg: 523, gnista: 659, storlek: 392, monster: 587, varld: 440, rost: 784 }
 const T_LAGE = {
   farg: { x: 300, y: 250 },
   gnista: { x: 950, y: 250 },
   storlek: { x: 300, y: 450 },
   monster: { x: 950, y: 450 },
   varld: { x: 480, y: 630 },
+  rost: { x: 800, y: 630 },
 }
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true })

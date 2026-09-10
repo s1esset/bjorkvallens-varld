@@ -362,13 +362,37 @@ const HORN = [
     },
   },
   {
+    // Kronan kunde inte dras förrän generation 1 (steg 2, 2026-09-10). Den första ritningen —
+    // tre 7 px-taggar i mönsterfärgen, BAKOM kroppen — syntes inte i bildgranskningen på hyllan
+    // (r 40), och kompisen satt dessutom där den skulle stå. Nu en riktig liten krona som sitter
+    // PÅ hjässan (`foran`): band + fem uddar med stenar, i knyttets EGEN palett. Aldrig guld —
+    // guld är sällsynthetens färg (§3b), och en krona är en kroppsdel, inte ett skimmer.
     nyckel: 'krona',
+    foran: true,
     rita(g, p, m) {
-      for (const s of [-1, 0, 1]) {
-        const x = s * m.bredd * 0.24
-        const h = m.r * (s === 0 ? 0.24 : 0.17)
-        g.moveTo(x - m.r * 0.05, m.topY + m.r * 0.04).lineTo(x, m.topY - h).lineTo(x + m.r * 0.05, m.topY + m.r * 0.04).closePath().fill(p.monster)
+      const r = m.r
+      const w = r * 0.3
+      const y0 = m.topY + r * 0.07
+      const bh = r * 0.09
+      const H = [0.13, 0.19, 0.25, 0.19, 0.13]
+      // Silhuetten som EN polygon: fot, sedan udd–dal–udd … och tillbaka ner.
+      const kontur = (k, dy) => {
+        const pts = [-w * k, y0 + dy]
+        for (let i = 0; i < 5; i++) {
+          const x = (-1 + i * 0.5) * w * k
+          if (i > 0) pts.push(x - w * 0.25 * k, y0 - bh + dy)
+          pts.push(x, y0 - bh - r * H[i] * k + dy)
+        }
+        pts.push(w * k, y0 + dy)
+        return pts
       }
+      // Konturen är en MÖRKARE FORM bakom, aldrig en stroke (samma regel som kroppen).
+      g.poly(kontur(1.12, r * 0.02)).fill(p.mork)
+      g.poly(kontur(1, 0)).fill(topLightFill(p.ljus, { highlight: 0.36, dark: 0.22 }))
+      g.roundRect(-w, y0 - bh, w * 2, bh, bh * 0.4).fill({ color: p.mork, alpha: 0.35 })
+      for (let i = 0; i < 5; i++) g.circle((-1 + i * 0.5) * w, y0 - bh - r * H[i], r * 0.035).fill(p.monster)
+      g.circle(0, y0 - bh * 0.5, r * 0.04).fill(p.monster)
+      g.circle(-r * 0.012, y0 - bh * 0.5 - r * 0.012, r * 0.013).fill({ color: 0xffffff, alpha: 0.85 })
     },
   },
 ]
@@ -870,10 +894,14 @@ class Knytt {
     }
 
     // --- horn ---------------------------------------------------------------
+    // Horn växer UR hjässan och ligger bakom kroppen. Kronan (`foran`) sitter PÅ den och läggs
+    // därför efter kroppen, nedan — bakom kroppen syntes bara uddarnas spetsar.
+    let hornForan = null
     if (horn.nyckel !== 'inga') {
       const g = new Graphics()
       horn.rita(g, p, m, prop, look)
-      this._liv.addChild(g)
+      if (horn.foran) hornForan = g
+      else this._liv.addChild(g)
     }
 
     // --- ben ----------------------------------------------------------------
@@ -896,6 +924,7 @@ class Knytt {
     ritaKropp(kg, p, m, prop, look)
     monster.rita(kg, p, m, prop, look)
     this._liv.addChild(kg)
+    if (hornForan) this._liv.addChild(hornForan)
 
     // --- ansiktet -----------------------------------------------------------
     this._ansikte = new Container()
@@ -951,7 +980,8 @@ class Knytt {
       const def = KOMPISAR[this._kompisNyckel] || KOMPISAR.skalbagge
       const hall = new Container()
       hall._wx = m.bw * 0.24
-      hall._wy = m.topY + r * 0.03
+      // Har knyttet en krona sätter sig kompisen PÅ den, inte i den (uddarna når −0,27 r).
+      hall._wy = m.topY + r * 0.03 - (hornForan ? r * 0.3 : 0)
       hall._wfas = rnd() * TAU
       hall.position.set(hall._wx, hall._wy)
       hall.visible = this._kompisLage === 'sitter'
@@ -969,7 +999,7 @@ class Knytt {
     // --- glorian (bara guld) — ett guldknytt känns igen på SILUETTEN, inte bara på skimret --
     if (this._tier === 3) {
       const gl = new Container()
-      gl._wy = m.topY - r * 0.3
+      gl._wy = m.topY - r * (hornForan ? 0.52 : 0.3) // ovanför kronans uddar, aldrig i dem
       gl.position.set(0, gl._wy)
       const gg = new Graphics()
       const rx = Math.max(r * 0.22, m.bw * 0.46)

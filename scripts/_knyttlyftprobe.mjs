@@ -45,8 +45,15 @@
 //             knyttet i bo 2 → det springer (x rör sig) · H5 det går hem av sig självt · H6 tap-tap:
 //             knyttet, sedan golvet → ute · H7 tryck på det TOMMA boet → hem · H8 spaken → hemma
 //             direkt (och exit mitt i ceremonin räknas i exit-armen).
+//   V   vänner i boden (steg 6). Node: V0 reglerna i `vanner.js` (två duetter räcker INTE ·
+//             tre gör vänner · ett knytt med en vän räknar ingen duett med någon annan · sparformatet
+//             håller vänskaper · sammanslagningen ger vänner ett bo och lämnar inga hål · trasig data
+//             kastas). Webbläsare, duetterna tvingas med bodens DEV-krok `skvallraNu()`: V1 KONTROLL
+//             en duett → räknad men inte vänner · V2 tre → vänner, ett gemensamt bo, sparat, repliken ·
+//             V3 boden öppnas igen → fortfarande ihop · V4 KONTROLL en sparad vänskap över två världar
+//             → ihop i Alla, men den ena ensam i skogsfliken.
 //
-//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R,S,O,N,H]
+//   node scripts/_knyttlyftprobe.mjs [--bara I,B9,K,R,S,O,N,H,V]
 //
 // ⚠️ Kör ALDRIG bredvid en annan webbläsarsond eller `npm run test:all`.
 import { chromium } from 'playwright'
@@ -133,8 +140,28 @@ if (kor('R')) {
   arm('R4b matarm   generation 1: kronan finns (~8 %)', `${h1.join(' / ')} → krona ${((100 * h1[3]) / 20000).toFixed(1)} %`, h1[3] > 1200 && h1[3] < 2000)
 }
 
+// =================================================================== V (node-delen)
+if (kor('V')) {
+  const V = await import('../src/games/unika-knytt/vanner.js')
+  const st = V.lasVanner([])
+  const d1 = V.duett(st, 10, 20)
+  const d2 = V.duett(st, 20, 10)
+  rader.push(['V0 kontroll  två duetter räcker INTE', `${d1.raknad}/${d2.raknad} · vän till 10: ${V.vanTill(st, 10)}`, d1.raknad && d2.raknad && V.vanTill(st, 10) === null])
+  const d3 = V.duett(st, 10, 20)
+  rader.push(['V0a matarm   den tredje gör dem till vänner', `blev vänner ${d3.blevVanner} · 10 → ${V.vanTill(st, 10)} · 20 → ${V.vanTill(st, 20)}`, d3.blevVanner && V.vanTill(st, 10) === 20 && V.vanTill(st, 20) === 10])
+  const d4 = V.duett(st, 10, 30)
+  rader.push(['V0b matarm   ett knytt med en vän räknar ingen annan duett', `räknad ${d4.raknad}`, d4.raknad === false])
+  const ater = V.lasVanner(V.sparaVanner(st))
+  rader.push(['V0c matarm   sparformatet håller vänskapen', JSON.stringify(V.sparaVanner(st)), V.vanTill(ater, 10) === 20 && V.vanTill(ater, 20) === 10])
+  const slots = V.slaIhop([{ seed: 30 }, { seed: 10 }, { seed: 40 }, { seed: 20 }, { seed: 50 }], ater)
+  const form = JSON.stringify(slots.map((s) => s.map((p) => p.seed)))
+  rader.push(['V0d matarm   vänner delar bo, inga hål', form, form === '[[30],[10,20],[40],[50]]'])
+  const trasig = V.lasVanner([[1, 2, 3], [1, 3, 3], ['x', 2, 1], [5, 5, 2]])
+  rader.push(['V0e matarm   trasig data kastas (dubbel vänskap, fel typ, samma frö)', `par ${trasig.duett.size} · 1 → ${V.vanTill(trasig, 1)} · 3 → ${V.vanTill(trasig, 3)}`, trasig.duett.size === 1 && V.vanTill(trasig, 1) === 2 && V.vanTill(trasig, 3) === null])
+}
+
 // =================================================================== webbläsarfamiljerna
-if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N') || kor('H')) {
+if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N') || kor('H') || kor('V')) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
@@ -688,6 +715,83 @@ if (kor('B9') || kor('K') || kor('R') || kor('S') || kor('O') || kor('N') || kor
       rader.push(['H8 matarm    spaken medan ett knytt är ute → hemma direkt', `ute före ${h8a.ute?.i ?? '—'} · efter ${JSON.stringify(h8.ute)} · hemma ${h8.hemma.join('/')}`, h8a.ute?.i === 0 && !h8.ute && h8.hemma.every(Boolean)])
       await page.mouse.move(X(40), Y(400))
       await page.screenshot({ path: '.test-shots/knytt-hylla-ceremoni.png' })
+    }
+
+    // ================================================================= V vänner i boden
+    if (kor('V')) {
+      const besokV = async (lista, van) => {
+        await page.evaluate(([l, v]) => {
+          const dag = Math.floor(Date.now() / 86400000)
+          window.__barnspel.ctx.progress.setCustom('knytt', { v: 2, lista: l, n: l.length, firad: 99, dag, torka: 0, fram: 0, van: v })
+        }, [lista, van])
+        await page.evaluate(() => window.__barnspel.nav.go('library'))
+        await page.waitForTimeout(400)
+        await page.evaluate((gid) => window.__barnspel.nav.go('game', { id: gid }), ID)
+        await page.waitForTimeout(1500)
+      }
+      const lasV = () => page.evaluate(() => {
+        const g = window.__barnspel.game
+        return {
+          platser: g._boden?.platser ?? null,
+          sparat: window.__barnspel.ctx.progress.get()?.custom?.knytt?.van ?? null,
+          sagt: (window.__sagtV || []).slice(),
+        }
+      })
+      // DEV-kroken kör EN duett nu och skjuter upp det naturliga grannpratet, så inga extra duetter
+      // räknas medan sonden väntar. 2,3 s mellan dem: en duett (luta + två motiv) tar ~2,1 s.
+      const skvallra = async () => {
+        const par = await page.evaluate(() => window.__barnspel.game._boden?.skvallraNu?.() ?? null)
+        await page.waitForTimeout(2300)
+        return par
+      }
+      const A = 8101
+      const B = 8102
+      await besokV([[A, 1, 1, 0, 0, 0, 0, 0, 1], [B, 4, 1, 1, 0, 1, 0, 0, 1]], [])
+      await page.evaluate(() => {
+        const v = window.__barnspel.voice
+        if (!v.__lyftV) {
+          const s = v.say.bind(v)
+          v.say = (t, o) => { (window.__sagtV ||= []).push(String(t)); return s(t, o) }
+          v.__lyftV = true
+        }
+        window.__sagtV = []
+      })
+      await klick(1160, 612)
+      await page.waitForTimeout(900)
+      const p1 = await skvallra()
+      const v1 = await lasV()
+      rader.push(['V1 kontroll  en duett → räknad, inte vänner än', `par ${JSON.stringify(p1)} · platser ${JSON.stringify(v1.platser)} · sparat ${JSON.stringify(v1.sparat)}`, JSON.stringify(v1.platser) === '[1,1]' && Array.isArray(v1.sparat) && v1.sparat.length === 1 && v1.sparat[0][2] === 1])
+      await skvallra()
+      await skvallra()
+      await page.waitForFunction(() => (window.__sagtV || []).includes('Titta, de har blivit vänner!'), null, { timeout: 9000 }).catch(() => {})
+      await page.waitForTimeout(1500) // firandet, sedan flyttar de ihop
+      const v2 = await lasV()
+      rader.push(['V2 matarm    tre duetter → vänner, ETT gemensamt bo', `platser ${JSON.stringify(v2.platser)} · sparat ${JSON.stringify(v2.sparat)}`, JSON.stringify(v2.platser) === '[2]' && v2.sparat?.[0]?.[2] === 3])
+      rader.push(['V2b          narratorn säger det', v2.sagt.slice(-1)[0] || '(tyst)', v2.sagt.includes('Titta, de har blivit vänner!')])
+      // V3: stäng och öppna — vänskapen ligger i sparblobben, inte bara i bodens minne.
+      await klick(1160, 628)
+      await page.waitForTimeout(500)
+      await klick(1160, 612)
+      await page.waitForTimeout(900)
+      const v3 = await lasV()
+      rader.push(['V3 matarm    boden öppnas igen → de bor fortfarande ihop', `platser ${JSON.stringify(v3.platser)}`, JSON.stringify(v3.platser) === '[2]'])
+      await page.mouse.move(X(40), Y(400))
+      await page.screenshot({ path: '.test-shots/knytt-vanner.png' })
+      await klick(1160, 628)
+      await page.waitForTimeout(400)
+      // V4 KONTROLL: vänner i OLIKA världar. Alla (nyast först: E, D, C) → [E] [D+C]. Skogsfliken
+      // har bara C och E — C:s vän bor inte där, så C bor ensam: inga hål, ingen frånvaro.
+      const C = 8201
+      const D = 8202
+      const E = 8203
+      await besokV([[C, 1, 1, 0, 0, 0, 0, 0, 1], [D, 2, 1, 0, 1, 0, 0, 0, 1], [E, 3, 1, 0, 0, 0, 0, 0, 1]], [[C, D, 3]])
+      await klick(1160, 612)
+      await page.waitForTimeout(900)
+      const v4a = await lasV()
+      await klick(150 + 130, 206) // skylt 1 = skogen
+      await page.waitForTimeout(500)
+      const v4b = await lasV()
+      rader.push(['V4 kontroll  Alla: ihop · skogen: den ena ensam', `Alla ${JSON.stringify(v4a.platser)} · skog ${JSON.stringify(v4b.platser)}`, JSON.stringify(v4a.platser) === '[1,2]' && JSON.stringify(v4b.platser) === '[1,1]'])
     }
 
     await page.evaluate(() => window.__barnspel.nav.go('library'))

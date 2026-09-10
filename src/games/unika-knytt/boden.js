@@ -24,6 +24,7 @@ import { topLightFill, verticalFill, groundFill, cylinderFill, sphereFill } from
 import { kvittera, pop, puff, sparkle, squash, stadFx } from '../../lib/feedback.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { dnaFranPost, VARLDAR } from './dna.js'
+import { duett, lasVanner, slaIhop, sparaVanner } from './vanner.js'
 import { byggKnytt } from './knytt.js'
 
 const W = 1280
@@ -50,6 +51,9 @@ const BO_X = [280, 500, 720, 940] // fyra bon per plan — 220 isär, träffytor
 const PIL = { x: 1160, upp: 340, ner: 484 }
 const STANG = { x: 1160, y: 628 }
 const KNYTT_R = 44
+// Två vänner i samma bo (steg 6) är lite mindre, så båda ryms över kanten sida vid sida.
+const VAN_R = 36
+const VAN_LUT = 0.06
 const SKVALLER_MIN = 5
 const SKVALLER_MAX = 9
 const HINT_S = 7
@@ -140,8 +144,11 @@ export function byggBoden(opts = {}) {
   let alla = [] // tolkade poster, i sparordning (äldst först)
   let fram = 0 // favoritens frö (0 = ingen)
   let flik = 'alla' // 'alla' | världens id | 'skimmer'
-  let lista = [] // fliken sorterad, det som visas
-  let bon = [] // { nod, luta, knytt, post, rad, kol }
+  // Fliken sorterad och SAMMANSLAGEN till bon: varje plats är [post] eller [post, vän] (steg 6).
+  let lista = []
+  let bon = [] // { nod, luta, knytt, knytt2, post, post2, rad, kol }
+  // Vänskaperna (vanner.js) — läses ur sparblobben vid varje öppning; index.js äger sparandet.
+  let vanSt = lasVanner([])
   let tweens = []
   let skvallerT = SKVALLER_MIN
   let skvallrar = false
@@ -381,7 +388,10 @@ export function byggBoden(opts = {}) {
   }
 
   function rivBon() {
-    for (const b of bon) rivKnytt(b)
+    for (const b of bon) {
+      gsap.killTweensOf(b.luta)
+      rivKnytt(b)
+    }
     for (const c of innehall.removeChildren()) {
       stadFx(c)
       c.destroy({ children: true })
@@ -391,7 +401,7 @@ export function byggBoden(opts = {}) {
 
   function byggLista() {
     rivBon()
-    lista = sortera()
+    lista = slaIhop(sortera(), vanSt)
     gsap.killTweensOf(innehall)
     innehall.y = 0
     // Hyllplanen: en bräda per rad, bara där det finns knytt.
@@ -404,23 +414,27 @@ export function byggBoden(opts = {}) {
       br.eventMode = 'none'
       innehall.addChild(br)
     }
-    lista.forEach((post, i) => {
+    lista.forEach((plats, i) => {
+      const post = plats[0]
+      const post2 = plats[1] || null // en vän i samma bo (steg 6)
       const rad = Math.floor(i / BO_X.length)
       const kol = i % BO_X.length
       const nod = new Container()
       nod.position.set(BO_X[kol], VY.y0 + RAD_Y0 + rad * RAD_H)
       nod.eventMode = 'static'
       nod.cursor = 'pointer'
-      nod.hitArea = new Rectangle(-50, -70, 100, 120)
+      // Ett delat bo är bredare — 124 px, fortfarande 96 px till grannboets yta (bon 220 isär).
+      nod.hitArea = post2 ? new Rectangle(-62, -70, 124, 120) : new Rectangle(-50, -70, 100, 120)
       const luta = new Container() // skvallret lutar den här — aldrig träffytan
       const bo = G()
-      ritaBo(bo)
+      ritaBo(bo, post2 ? 1.2 : 1)
       bo.eventMode = 'none'
       luta.addChild(bo)
-      if (post.t > 0) {
+      const t = Math.max(post.t, post2?.t ?? 0)
+      if (t > 0) {
         // Skimmerhyllans metallpiedestal, i varje flik: en list i tierns metall runt boet
         // (brons · silver · guld) — så ett skimrande knytt känns igen även bland de vanliga.
-        const m = [0, 0xd08a4a, 0xd9dde8, 0xf2c94c][post.t]
+        const m = [0, 0xd08a4a, 0xd9dde8, 0xf2c94c][t]
         const ring = G()
         ring.ellipse(0, 12, 54, 20).stroke({ width: 6, color: m, alpha: 0.95 })
         ring.ellipse(0, 12, 54, 20).stroke({ width: 2, color: tint(m, 0.5), alpha: 0.8 })
@@ -428,7 +442,7 @@ export function byggBoden(opts = {}) {
         luta.addChildAt(ring, 0)
       }
       nod.addChild(luta)
-      if (post.seed === fram && fram) {
+      if (fram && (post.seed === fram || post2?.seed === fram)) {
         // Favoriten: en liten röd vimpel i boet — aldrig text.
         const v = G()
         v.moveTo(48, -30).lineTo(48, 14).stroke({ width: 3, color: TRA_MORK })
@@ -436,7 +450,7 @@ export function byggBoden(opts = {}) {
         v.eventMode = 'none'
         luta.addChild(v)
       }
-      const b = { nod, luta, knytt: null, post, rad, kol }
+      const b = { nod, luta, knytt: null, knytt2: null, post, post2, rad, kol }
       nod.on('pointertap', () => boTryck(b))
       innehall.addChild(nod)
       bon.push(b)
@@ -447,16 +461,35 @@ export function byggBoden(opts = {}) {
 
   function byggKnyttI(b) {
     if (b.knytt || !levande) return
+    if (b.post2) {
+      // Vänner delar bo (steg 6): två lite mindre knytt sida vid sida, lutade mot varandra.
+      // `view` är riggens grund och fri för anroparen — lutningen sitter där, aldrig i riggen.
+      const k1 = byggKnytt(dnaFranPost(b.post.post), { r: VAN_R, senare: senareRa, audio })
+      const k2 = byggKnytt(dnaFranPost(b.post2.post), { r: VAN_R, senare: senareRa, audio })
+      k1.view.position.set(-26, 6)
+      k1.view.rotation = VAN_LUT
+      k2.view.position.set(26, 6)
+      k2.view.rotation = -VAN_LUT
+      b.luta.addChild(k1.view, k2.view)
+      b.knytt = k1
+      b.knytt2 = k2
+      return
+    }
     const k = byggKnytt(dnaFranPost(b.post.post), { r: KNYTT_R, senare: senareRa, audio })
     k.view.position.set(0, 4)
     b.luta.addChild(k.view)
     b.knytt = k
   }
   function rivKnytt(b) {
-    if (!b.knytt) return
-    stadFx(b.knytt.view)
-    b.knytt.destroy()
+    for (const k of [b.knytt, b.knytt2]) {
+      if (!k) continue
+      // Körens lutning tweenar knyttets `view` — den ska dö före rivningen, aldrig efter.
+      gsap.killTweensOf(k.view)
+      stadFx(k.view)
+      k.destroy()
+    }
     b.knytt = null
+    b.knytt2 = null
   }
 
   /** Bygg knytt i de rader som är i (eller intill) bild, riv de andra. */
@@ -484,6 +517,7 @@ export function byggBoden(opts = {}) {
     if (!k) return
     const sov = k.lage === 'sover'
     k.glad()
+    b.knytt2?.glad() // vännen i samma bo blir glad med
     puff(view, b.nod.x, innehall.y + b.nod.y - 30, { count: 5, color: 0xfff0c4 })
     if (!sov) sfx('pop')
     // Favoriten: det knytt barnet senast tryckte på står framme nästa gång.
@@ -493,17 +527,35 @@ export function byggBoden(opts = {}) {
     }
   }
 
-  // ---- skvaller: ett grannpar lutar sig mot varandra och kvittrar i tur --------
+  // ---- skvaller: grannar som kvittrar — och tre duetter gör dem till vänner (steg 6) -------
+  // Två sorters grannprat, högst ett i taget: två ENSAMMA grannbon bredvid varandra lutar sig
+  // mot varandra och kvittrar i tur (en duett, som räknas i `vanner.js`), eller två vänner som
+  // redan delar bo sjunger i kör (ingenting räknas). Returnerar paret (fröna) eller null.
   function skvaller() {
     const kand = synliga()
     const par = []
     for (const a of kand) {
-      const g = kand.find((x) => x.rad === a.rad && x.kol === a.kol + 1)
+      if (a.post2) {
+        if (a.knytt2) par.push([a, null])
+        continue
+      }
+      const g = kand.find((x) => x.rad === a.rad && x.kol === a.kol + 1 && !x.post2)
       if (g) par.push([a, g])
     }
-    if (!par.length) return
+    if (!par.length) return null
     const [a, b] = par[(Math.random() * par.length) | 0]
     skvallrar = true
+    if (!b) {
+      const tl = gsap.timeline({ onComplete: () => { skvallrar = false } })
+      tl.to(a.knytt.view, { rotation: VAN_LUT * 2.4, duration: 0.4, ease: 'sine.inOut' }, 0)
+        .to(a.knytt2.view, { rotation: -VAN_LUT * 2.4, duration: 0.4, ease: 'sine.inOut' }, 0)
+        .to(a.knytt.view, { rotation: VAN_LUT, duration: 0.5, ease: 'sine.inOut' }, 1.5)
+        .to(a.knytt2.view, { rotation: -VAN_LUT, duration: 0.5, ease: 'sine.inOut' }, 1.5)
+      spara(tl)
+      a.knytt.sjung?.()
+      strax(0.35, () => { if (a.knytt2 && !a.knytt2.view.destroyed) a.knytt2.sjung?.() })
+      return [a.post.seed, a.post2.seed]
+    }
     const lutaTl = gsap.timeline({ onComplete: () => { skvallrar = false } })
     lutaTl.to(a.luta, { rotation: 0.09, duration: 0.45, ease: 'sine.inOut' }, 0)
       .to(b.luta, { rotation: -0.09, duration: 0.45, ease: 'sine.inOut' }, 0)
@@ -512,6 +564,61 @@ export function byggBoden(opts = {}) {
     spara(lutaTl)
     a.knytt.sjung?.()
     strax(0.7, () => { if (b.knytt && !b.knytt.view.destroyed) b.knytt.sjung?.() })
+    // Duetten räknas. Index.js sparar (EN skrivare för blobben); den tredje gör dem till vänner,
+    // och de flyttar ihop när duetten sjungits klart.
+    const r = duett(vanSt, a.post.seed, b.post.seed)
+    if (r.raknad) pa('van', sparaVanner(vanSt))
+    if (r.blevVanner) strax(2.1, () => firaVanner(a, b))
+    return [a.post.seed, b.post.seed]
+  }
+
+  // Två har blivit vänner: hjärtan stiger mellan dem, ett durackord, båda blir glada — och när
+  // firandet är klart byggs hyllan om med dem i SAMMA bo (listan krymper, inga hål). Rullningen
+  // står kvar där barnet hade den.
+  function firaVanner(a, b) {
+    if (!levande || !oppen) return
+    const x = (a.nod.x + b.nod.x) / 2
+    const y = a.nod.y - 70
+    for (let i = 0; i < 3; i++) hjarta(x + (i - 1) * 28, y, 0.12 * i)
+    sfx('match')
+    a.knytt?.glad?.()
+    b.knytt?.glad?.()
+    pa('vanner', { a: a.post.seed, b: b.post.seed })
+    strax(1.5, () => {
+      if (!levande || !oppen) return
+      const y0 = innehall.y
+      byggLista()
+      satY(y0)
+    })
+  }
+
+  // Ett ritat hjärta (två cirklar och en spets — aldrig en emoji, P0 ASSETS) som stiger och tonar
+  // ut. Ett {}-proxy tweenas och kopieras bara till en levande nod.
+  function hjarta(x, y, delay) {
+    const g = G()
+    const c = 0xff6f9c
+    g.circle(-6, 0, 7).fill(c)
+    g.circle(6, 0, 7).fill(c)
+    g.moveTo(-12.5, 3).lineTo(0, 17).lineTo(12.5, 3).closePath().fill(c)
+    g.circle(-8, -3, 2.2).fill({ color: 0xffffff, alpha: 0.7 })
+    g.eventMode = 'none'
+    g.position.set(x, y)
+    g.alpha = 0
+    innehall.addChild(g)
+    const st = { t: 0 }
+    spara(gsap.to(st, {
+      t: 1,
+      duration: 1.2,
+      delay,
+      ease: 'power1.out',
+      onUpdate: () => {
+        if (g.destroyed) return
+        g.y = y - st.t * 70
+        g.alpha = st.t < 0.2 ? st.t / 0.2 : 1 - (st.t - 0.2) / 0.8
+        g.scale.set(0.7 + st.t * 0.5)
+      },
+      onComplete: () => { if (!g.destroyed) g.destroy() },
+    }))
   }
 
   // ---- publikt ----------------------------------------------------------------
@@ -520,6 +627,7 @@ export function byggBoden(opts = {}) {
     // Nio fält sedan steg 2 (flaggorna); index.js migrerar åttafältsposter innan de når hit.
     alla = (Array.isArray(poster) ? poster : []).filter((p) => Array.isArray(p) && p.length >= 8).map(tolka)
     fram = Number.isFinite(opt.fram) ? opt.fram >>> 0 : 0
+    vanSt = lasVanner(opt.van)
     flik = 'alla'
     oppen = true
     hintad = false
@@ -573,9 +681,11 @@ export function byggBoden(opts = {}) {
     klocka += dt
     let nagonSover = false
     for (const b of bon) {
-      if (!b.knytt) continue
-      b.knytt.tick(dtMS, null)
-      if (b.knytt.lage === 'sover') nagonSover = true
+      for (const k of [b.knytt, b.knytt2]) {
+        if (!k) continue
+        k.tick(dtMS, null)
+        if (k.lage === 'sover') nagonSover = true
+      }
     }
     if (nagonSover && !somnSagd) {
       somnSagd = true
@@ -624,13 +734,25 @@ export function byggBoden(opts = {}) {
     destroy,
     get oppen() { return oppen },
     get flik() { return flik },
-    get antal() { return lista.length },
+    /** Hur många KNYTT fliken visar (ett delat bo räknas som två). */
+    get antal() { return lista.reduce((n, p) => n + p.length, 0) },
     get synliga() { return synliga().length },
     get flikar() { return flikar().map((f) => f.id) },
     get rullbar() { return scroll.minY < 0 },
     get y() { return innehall.y },
-    get forst() { return lista[0]?.seed ?? 0 },
-    get lagen() { return synliga().map((b) => b.knytt.lage) },
+    get forst() { return lista[0]?.[0]?.seed ?? 0 },
+    get lagen() { return synliga().flatMap((b) => [b.knytt, b.knytt2].filter(Boolean).map((k) => k.lage)) },
+    /** Bonas storlek i ordning: 1 = ensamt knytt, 2 = två vänner i samma bo (steg 6). */
+    get platser() { return lista.map((p) => p.length) },
+    /**
+     * DEV-krok för `_knyttlyftprobe` V: kör EN duett nu och skjut upp det naturliga grannpratet,
+     * så inga extra duetter räknas medan sonden väntar. Returnerar paret eller null.
+     */
+    skvallraNu() {
+      if (!levande || !oppen || skvallrar) return null
+      skvallerT = 99
+      return skvaller()
+    },
     stega,
   }
 }

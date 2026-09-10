@@ -273,6 +273,9 @@ med sin siluett väl över kanten — en fågel i ett bo, aldrig ett föremål i
   `_vilkaprobe` för att bevisa att det som rör sig ÄR knytten.)
 * **De pratar med varandra.** Var 5–9:e sekund lutar sig ett grannpar mot varandra och kvittrar
   sina motiv i tur och ordning. Högst en växling åt gången, aldrig medan barnet rör skärmen.
+  **Och tre duetter gör två grannar till vänner** som flyttar in i samma bo, två lite mindre knytt
+  sida vid sida (byggt 2026-09-10, poleringsrundan steg 6 — `vanner.js`). En vän per knytt, och
+  en vänskap tas aldrig bort.
 * **Favoriten står framme** och sparas, så nästa gång appen startas står barnets favorit redan
   där och gör sin glada slinga.
 * **De har saknat dig — utan skuld.** Har ≥1 dygn gått vänder sig alla framåt och vinkar en
@@ -664,7 +667,7 @@ två tecken redan nu.
 
 * ✅ **BYGGT 2026-09-10 (poleringsrundan steg 2):** Ljudtratten (T6) på bänkplatsen (800, 630). Barnet väljer motivet i stället för fröet. ⚠️ "Ingen migrering behövs" höll inte: plats 5 bar fröets motiv, så posten fick ett nionde fält med generationen (se §4c). Harnesstrycket (800,600) i §1b återställt.
 * ✅ **BYGGT 2026-09-05 (leverans 2 steg 4):** Fler världar (Öknen, Grottan) och de hyllor de för med sig — låses upp vid 20 och 24.
-* [Medium] Två knytt på samma hylla blir VÄNNER efter tillräckligt många duetter och delar bo.
+* ✅ **BYGGT 2026-09-10 (poleringsrundan steg 6, `vanner.js` + `boden.js`):** Två grannar i boden som sjunger tre duetter tillsammans blir VÄNNER och flyttar in i samma bo.
 * ✅ **BYGGT 2026-09-10 (poleringsrundan steg 5, `hylla.js`):** Dra ut ett knytt ur boet och ner på golvet, där det springer runt en stund och sedan hoppar hem själv. Tryck-sedan-tryck: knyttet, sedan golvet. Ett tryck på det tomma boet kallar hem det.
 * ✅ **BYGGT 2026-09-10 (steg 5):** En bärskål på bänkens vänstra ände — dra ett smultron till ett knytt i ett bo (eller tryck på skålen, sedan på boet): det gapar, tuggar tre gånger och rapar en gnista.
 * [Deep] Kamera-parallax i boden via `lib/kamera.js` när flikraden växer förbi fem.
@@ -1316,6 +1319,31 @@ direkt. Bilder: `.test-shots/knytt-skal.png` · `knytt-at.png` · `knytt-golv.pn
 **Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` alla familjer (I · B9 · K · R · S · O · N · H) 45/45 ·
 `_knyttprobe` 44/44 · `_bodprobe` 11/11 · `_lyftbild` 0 konsolfel.`
 
+`2026-09-10 · STEG 6 — VÄNNER I BODEN.` Ny fil `vanner.js` — ren logik, inget Pixi, så reglerna mäts i
+node precis som dna.js. Två ENSAMMA grannbon bredvid varandra som sjunger en duett i bodens grannprat
+(var 5–9:e sekund) får den räknad; den TREDJE gör dem till vänner: hjärtan stiger mellan dem (ritade,
+aldrig emoji), ett durackord (`match`), båda blir glada, narratorn säger "Titta, de har blivit vänner!",
+och när firandet är klart byggs hyllan om med dem i SAMMA bo — två lite mindre knytt (r 36) sida vid
+sida, lutade mot varandra, i ett bredare bo. Listan krymper, inga hål (P0: ingen frånvaro), och
+rullningen står kvar där barnet hade den. Vänner i samma bo sjunger i kör i grannpratet (räknas inte).
+**Reglerna:** ett knytt har högst EN vän, och en duett med någon annan räknas inte när det redan har en
+· en vänskap tas aldrig bort; bara PÅGÅENDE par har ett tak (40) i sparblobben, och de är osynliga
+räknare, inte något barnet äger · ingen räknare syns, sägs eller antyds (P0 FOMO). Vänskapen bor i
+blobbens `van` ([[a, b, n], …], fröna — samma identitet som favoriten `fram`), index.js är dess enda
+skrivare, och i en världsflik där bara den ena bor står den ensam.
+
+**Mätt, `_knyttlyftprobe` V (webbläsararmarna RÖDA mot boden före inkopplingen):** V0 reglerna i node
+(två duetter räcker inte · den tredje gör vänner · ett knytt med en vän räknar ingen annan duett ·
+sparformatet håller · vänner delar bo utan hål · trasig data kastas) · V1 en duett räknas (sparat
+`[[8101,8102,1]]`) men de bor var för sig · V2 tre → `platser [2]`, sparat `…,3`, repliken sägs · V3
+boden öppnas igen → fortfarande ihop · V4 en sparad vänskap över två världar → ihop i Alla (`[1,2]`), den
+ena ensam i skogsfliken (`[1,1]`). Duetterna tvingas med bodens DEV-krok `skvallraNu()`, som också
+skjuter upp det naturliga grannpratet så att inga extra duetter räknas medan sonden väntar. Ny replik
+genererad offline (`npm run voice`: 1 gjord, 0 misslyckade). Bild: `.test-shots/knytt-vanner.png`.
+
+**Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` alla familjer (I · B9 · K · R · S · O · N · H · V)
+gröna · `_knyttprobe` 44/44 · `_bodprobe` 11/11.`
+
 
 ## 6. Teknisk ritning
 
@@ -1826,7 +1854,7 @@ den, och den här var nära att göra det. En commit per steg; sonden är `_knyt
 | 3 | **Skrället** (§4b, som specat). ⚠️ Byggs UTAN uppehållsmätningen §4b väntade på — ägarens beslut 2026-09-10. Specens spärrar (12 s · 22 s · 7 s) är enda bromsen. | ✅ 2026-09-10 |
 | 4 | **Knyttet efter födseln:** namnplakett i trä (namnet sägs samtidigt) · tryck på solen i fonden → den går ner, knyttet gäspar och somnar · sömnkorn av världens egna partiklar · folien följer fingret | ✅ 2026-09-10 |
 | 5 | **Verkstadshyllan lever:** en bärskål — dra ett bär till ett knytt, det äter och rapar en gnista · dra ut ett knytt på golvet, där det springer runt och sedan går hem (tryck-sedan-tryck också) | ✅ 2026-09-10 |
-| 6 | **Vänner i boden:** tre duetter mellan samma grannar → de blir vänner och delar bo | ⬜ |
+| 6 | **Vänner i boden:** tre duetter mellan samma grannar → de blir vänner och delar bo | ✅ 2026-09-10 |
 
 Sparposten får ett **nionde fält** (generation + tofs). Hornet `krona` (onåbart i dag) och barnets
 melodi gäller bara knytt som föds efter steg 2 — inget sparat knytt byter utseende eller melodi.

@@ -21,6 +21,7 @@ import { byggKnytt } from './knytt.js'
 import { byggBoden, byggLucka } from './boden.js'
 import { byggSkrallet } from './skrallet.js'
 import { byggHyllliv } from './hylla.js'
+import { lasVanner, sparaVanner } from './vanner.js'
 import {
   dnaFromSeed, dnaFranPost, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR,
   MILSTOLPAR, START_TAK, takFor, antalFranPoster, rullaTier,
@@ -142,6 +143,8 @@ export default {
     // Knyttboden: favoritens frö (står framme), luckan, overlayn, kiktimern och om det här
     // besöket är "en annan dag" (bodens hälsning, en gång per besök).
     this._fram = 0
+    // Vänskaperna i boden (steg 6), i sparformatet [[a, b, n], …] — `vanner.js` äger reglerna.
+    this._van = []
     this._boden = null
     this._lucka = null
     this._kikT = KIK_S
@@ -567,7 +570,7 @@ export default {
     // Överst i roten igen — noder som lagts till senare (bänkens träffyta) ska aldrig
     // hamna ovanpå overlayn.
     this._rot.addChild(this._boden.view)
-    this._boden.oppna(this._alla, { fram: this._fram, ater: this._ater })
+    this._boden.oppna(this._alla, { fram: this._fram, ater: this._ater, van: this._van })
     this._ater = false
     diag('takt', 'boden', { antal: this._alla.length, flikar: this._boden.flikar.length })
   },
@@ -593,6 +596,13 @@ export default {
       this._kikT = KIK_S
     } else if (h === 'flik') {
       diag('takt', 'flik', { flik: d })
+    } else if (h === 'van') {
+      // En duett räknades (steg 6). Samma skrivare som allt annat i blobben.
+      if (Array.isArray(d)) this._van = d
+      this._spara(ctx)
+    } else if (h === 'vanner') {
+      this._sag(ctx, 'Titta, de har blivit vänner!', 'boden')
+      diag('takt', 'vanner', d || {})
     }
   },
 
@@ -644,6 +654,8 @@ export default {
     this._dag = tal(rå?.dag) ?? 0
     this._torka = tal(rå?.torka) ?? 0
     this._fram = (tal(rå?.fram) ?? 0) >>> 0
+    // Genom samma sanering som boden läser med: trasiga rader och dubbla vänskaper faller bort.
+    this._van = sparaVanner(lasVanner(rå?.van))
   },
 
   // Verkstadens tak HÄRLEDS ur räknaren, alltid — aldrig ett eget fält som uppdateras på
@@ -670,6 +682,7 @@ export default {
       dag: this._dag,
       torka: this._torka,
       fram: this._fram,
+      van: this._van.map((x) => x.slice()),
     })
   },
 

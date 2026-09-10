@@ -42,8 +42,13 @@ const VY = { x0: 120, y0: 262, x1: 1100, y1: 672 } // rullytan (masken)
 const RAD_H = 200 // ett hyllplan
 const RAD_Y0 = 112 // första planets mitt, mätt från rullytans topp
 const BO_X = [280, 500, 720, 940] // fyra bon per plan — 220 isär, träffytor 96 → 124 fritt
-const PIL = { x: 1160, upp: 330, ner: 490 }
-const STANG = { x: 1160, y: 630 }
+// Pilkolumnen: tre knappar à 120 px (96 + halo) — pil ▲ y 280–400 · pil ▼ 424–544 · dörren
+// 568–688, alltså 24 px isär, och 26 px under skyltradens underkant (254). Stod förut på
+// 330/490/630: pil ▼ och dörren 20 px isär, och den ÅTTONDE skylten (Alla + sex världar +
+// Skimmer, x 1008–1112) 16 px ovanför pil ▲. Uppmätt i `_knyttlyftprobe` B9 — ingen
+// sond hade mätt bodens avstånd förut, och de flesta samlingar har inte åtta skyltar än.
+const PIL = { x: 1160, upp: 340, ner: 484 }
+const STANG = { x: 1160, y: 628 }
 const KNYTT_R = 44
 const SKVALLER_MIN = 5
 const SKVALLER_MAX = 9

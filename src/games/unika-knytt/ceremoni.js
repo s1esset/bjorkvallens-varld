@@ -27,7 +27,7 @@ import { shade, tint } from '../../lib/theme.js'
 import { bounceIn, burst, landa, liv, pop, puff, ripple, sparkle, squash, stadFx } from '../../lib/feedback.js'
 import { Emitter } from '../../lib/partiklar.js'
 import { byggKnytt } from './knytt.js'
-import { rekvisitaOrdning } from './kupan.js'
+import { rekvisitaOrdning, SNURR_VARV_S } from './kupan.js'
 
 // ---- geometri (designkoordinater) ------------------------------------------
 const KNAD = { x: 640, y: 384 } // degens plats — mitt på skärmen, bekväm för ett finger
@@ -1324,7 +1324,7 @@ export function byggCeremoni(opts = {}) {
       const st = { r: 0 }
       const tw = gsap.to(st, {
         r: Math.PI * 2,
-        duration: 24,
+        duration: SNURR_VARV_S, // samma varvtid som i kupan (steg 1, 2026-09-10)
         repeat: -1,
         ease: 'none',
         onUpdate: () => {

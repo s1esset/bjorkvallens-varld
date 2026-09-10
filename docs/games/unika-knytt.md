@@ -311,8 +311,11 @@ T1–T3 y 32 · T2–T4 y 32 · T1–T2 x 482 · T3–T5 y 24 ·
 T2–spak x 26 · T4–spak x 26 · spak–högtalare y 96 · T1–hem y 32 · T2–högtalare y 32 ·
 bodlucka–spak y 58 · bodlucka–T4 x 54 · hyllbon–T5 x 30.
 **Bodens overlay** (boden.js): skyltar y 206 (träffyta 104×96, x från 150 i steg om 130) — 24 px
-under skalets knappar (slutar 134 → 158) · pilarna (1160, 330) och (1160, 490) · dörren (1160, 630),
-alla 120×120; bon 100×120 på x 280/500/720/940, plan var 200:e px. Overlayn har egen heltäckande
+under skalets knappar (slutar 134 → 158) · pilarna (1160, 340) och (1160, 484) · dörren (1160, 628),
+alla 120×120 → y 280–400 · 424–544 · 568–688, alltså 24 px isär och 26 px under skyltradens
+underkant (254); bon 100×120 på x 280/500/720/940, plan var 200:e px. *(Stod på 330/490/630 fram
+till 2026-09-10: pil ▼–dörren 20 px, och den ÅTTONDE skylten — Alla + sex världar + Skimmer, x
+1008–1112 — 16 px ovanför pil ▲. `_knyttlyftprobe` B9 mäter hela overlayn med åtta skyltar.)* Overlayn har egen heltäckande
 träffyta, så inget under den kan nås medan den är öppen.
 Kupans cirkel (r 190) till närmaste hörn av varje verktygsyta: T1 256 · T2 226 · T3 258 ·
 T4 229 · T5 244 — alltså 36–68 px fri marginal runt hela klotet.
@@ -1094,6 +1097,38 @@ tre världsmilstolpar) · `_tierprobe` 12/12 · `test` 0 fel · `_knyttprobe` U2
 och 24 · bilder `.test-shots/knytt-tier0-varld4.png` (öknen) · `knytt-tier2-varld5.png`
 (grottan) · `_bodprobe` 11/11.`
 
+`2026-09-10 · POLERINGSRUNDAN (ägarens sex steg) — STEG 1, RÄTTELSERNA. Förslaget lades fram
+förmiddagen 2026-09-10 och godkändes samma dag ("ja, kör alla sex steg"); det fanns bara i
+chatten och står nu i §9 G. Ny sond för hela rundan: `scripts/_knyttlyftprobe.mjs`, där varje
+familj körs mot koden FÖRE sin ändring innan den räknas som bevis.
+
+**Bodens P0-avstånd.** Pilkolumnen stod på 330/490/630: pil ▼ och dörren 20 px isär, och den
+ÅTTONDE skylten (Alla + sex världar + Skimmer, x 1008–1112) 16 px ovanför pil ▲. Ingen sond hade
+mätt bodens avstånd, och åtta skyltar kräver knytt i alla sex världar — felet fanns sedan Öknen
+och Grottan kom (leverans 2 steg 4) men hade aldrig körts. Pilkolumnen står nu på 340/484/628.
+**B9b: 16 → 24 px** (minsta paret är nu pil ▲ ↔ pil ▼, exakt på gränsen).
+
+**Kupans färglöfte.** Kupan räknade en EGEN palett (`h + vinkelDiff·0,2` utan klamp, egen
+mättnadstabell `VARLDSTON.hy/.matt`) medan dna.js klampar nyansen ±8°. Nu delar båda
+`dna.js:palettFran`; `dnaFromSeed` drar fortfarande exakt tre tal ur strömmen i samma ordning.
+**K1: värsta avvikelsen 22,7° → 3,4°** (gul/vatten 22,7 → 0,6 · röd/natt 10,5 → 0,5 · lila/öken
+18,1 → 0,5). Kontrollarmen K0 (grön i skogen, där formlerna redan var ense) 4° → 3°.
+**Identitetsarmen I1: 0 olika av 12 000 individer mot `0da98f6`** — inget sparat knytt har bytt
+utseende, och I0 visar att jämförelsen kan se en skillnad (grannfröet: 12 000 av 12 000 olika).
+Harnessens eget recept (orange i vattenvärlden) visade en GUL blobb i kupan före ändringen; nu
+orange, som knyttet.
+Döda fält borttagna: `VARLDAR[].rekvisita` (sex listor med fem id:n som inte fanns, lästa av
+ingen — §5-fyndet från 2026-08-30) och kupans `VARLDSTON.hy/.matt`.
+
+**Solen** varvade 11,4 s i kupan och 24 s ute i världen. Nu `SNURR_VARV_S` = 12 s, en konstant i
+kupan.js som ceremoni.js importerar. Inte vinkelmätt — det är samma tal på båda ställena.
+
+**Knackhanden** i ny bild (`.test-shots/knytt-tier0.png`): ingen hand över den nyfödda världen,
+leverans 2:s vakt (`_fas === 'klacka'`) håller.
+
+**Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` 7/7 (B9b och K1 RÖDA mot koden före
+ändringen) · `_bodprobe` 11/11 · `_upplasprobe` · `_tierprobe`.`
+
 
 ## 6. Teknisk ritning
 
@@ -1580,6 +1615,28 @@ efter ändringen.
 **V16** (`destroy({ children: true })` river inte `GraphicsContext`, repo-brett) står kvar i
 `docs/ATGARDER.md` med sitt mätkrav: delad kod som hela sviten går igenom — mät blastradien
 i GPU-minne före ändring.
+
+### G. Poleringsrundan 2026-09-10 — ägarens sex steg
+
+*Förslaget lades fram förmiddagen 2026-09-10 och godkändes samma dag: "ja, kör alla sex steg".
+Det fanns bara i chatten tills det skrevs hit — en plan som bara bor i en session försvinner med
+den, och den här var nära att göra det. En commit per steg; sonden är `_knyttlyftprobe.mjs`.*
+
+| steg | innehåll | status |
+|---|---|---|
+| 1 | Rättelser: bodens P0-avstånd med åtta skyltar · kupans färglöfte · döda `rekvisita` · solens varvtid · knackhanden i bild | ✅ 2026-09-10 |
+| 2 | **Ljudtratten (T6)** på bänkplatsen (800, 630): en speldosa, varje tryck vrider fram en ny melodi, noterna flyger in i kupan och blobben sjunger med. Knyttets motiv blir barnets val. | ⬜ |
+| 3 | **Skrället** (§4b, som specat). ⚠️ Byggs UTAN uppehållsmätningen §4b väntade på — ägarens beslut 2026-09-10. Specens spärrar (12 s · 22 s · 7 s) är enda bromsen. | ⬜ |
+| 4 | **Knyttet efter födseln:** namnplakett i trä (namnet sägs samtidigt) · tryck på solen i fonden → den går ner, knyttet gäspar och somnar · sömnkorn av världens egna partiklar · folien följer fingret | ⬜ |
+| 5 | **Verkstadshyllan lever:** en bärskål — dra ett bär till ett knytt, det äter och rapar en gnista · dra ut ett knytt på golvet, där det springer runt och sedan går hem (tryck-sedan-tryck också) | ⬜ |
+| 6 | **Vänner i boden:** tre duetter mellan samma grannar → de blir vänner och delar bo | ⬜ |
+
+Sparposten får ett **nionde fält** (generation + tofs). Hornet `krona` (onåbart i dag) och barnets
+melodi gäller bara knytt som föds efter steg 2 — inget sparat knytt byter utseende eller melodi.
+**Medvetet utanför:** speltest med barn · gradientcachen i `lib/form.js` som växer med varje unik
+knyttfärg (delad kod, samma GPU-mätkrav som V16) · kamera-parallax i boden (premissen föll: högst
+åtta skyltar, och de ryms) · `ritaDeg` (uppmätt inom budget) · bälgen som läser som en trave
+plankor (en egen fråga).
 
 ### Senare (V2+)
 

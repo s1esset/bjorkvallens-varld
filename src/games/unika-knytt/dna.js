@@ -141,7 +141,6 @@ export const VARLDAR = [
       oron: [1, 3, 1, 3, 1, 1], // runda + hang
       svans: [1, 3, 1, 1, 1], // tofs
     },
-    rekvisita: ['trad', 'sten', 'svamp', 'stubbe'],
     kompis: 'skalbagge',
   },
   {
@@ -153,7 +152,6 @@ export const VARLDAR = [
       oron: [3, 1, 1, 3, 1, 1], // inga + hang
       svans: [1, 1, 1, 4, 1], // fena
     },
-    rekvisita: ['sjogras', 'snacka', 'sten', 'bubbla'],
     kompis: 'smafisk',
   },
   {
@@ -171,7 +169,6 @@ export const VARLDAR = [
       oron: [1, 1, 3, 1, 3, 1], // spetsiga + horn
       svans: [3, 3, 1, 1, 1], // ingen + tofs
     },
-    rekvisita: ['gran', 'snodriva', 'istapp', 'snoflinga'],
     kompis: 'snosparv',
   },
   {
@@ -183,7 +180,6 @@ export const VARLDAR = [
       oron: [1, 1, 1, 1, 1, 4], // antenner
       svans: [1, 1, 3, 1, 1], // lang
     },
-    rekvisita: ['mane', 'stjarna', 'eldfluga', 'nattblomma'],
     kompis: 'nattfjaril',
   },
   // Leverans 2 steg 4 (2026-09-05): tva nya varldar, lasta upp vid 20 och 24 klackta.
@@ -199,7 +195,6 @@ export const VARLDAR = [
       oron: [1, 2, 3, 1, 1, 1], // spetsiga (okenrav)
       svans: [1, 2, 1, 1, 3], // blixt (skorpion)
     },
-    rekvisita: ['kaktus', 'okensol', 'sanddyna', 'odla'],
     kompis: 'grashoppa',
   },
   {
@@ -214,7 +209,6 @@ export const VARLDAR = [
       oron: [1, 1, 1, 3, 1, 2], // hang + antenner
       svans: [1, 1, 3, 1, 1], // lang
     },
-    rekvisita: ['kristall', 'droppsten', 'lyktsvamp', 'glodmask'],
     kompis: 'fladdermus',
   },
 ]
@@ -318,6 +312,42 @@ function sotmaVakt(p, ogonform) {
 }
 
 // ---------------------------------------------------------------------------
+// Paletten — EN formel for kupans forhandsvisning OCH for knyttet
+// ---------------------------------------------------------------------------
+
+/**
+ * Paletten ur barnets farg `f` och varlden `v`. `jit` ar knyttets egna fro-dragna
+ * avvikelser ({ h, l, mHy }); kupan skickar inga och far mitten av det spann knyttet sedan
+ * hamnar i.
+ *
+ * Kupan raknade forut en EGEN formel — `h + vinkelDiff·0,2` utan klamp, och en egen
+ * mattnadstabell — sa gul i vattenvarlden blev ~76° i glaset men ~54° pa knyttet. Barnet
+ * valde en farg i en forhandsvisning som lovade en annan (uppmatt i `_knyttlyftprobe` K1:
+ * 22,7° i varsta receptet, 5–18° i fyra av fem varldar).
+ */
+export function palettFran(f, v, jit = {}) {
+  const grund = FARGER[klamp(f | 0, 0, FARGER.length - 1)]
+  const varld = VARLDAR[klamp(v | 0, 0, VARLDAR.length - 1)]
+  const mittHy = (varld.hyMin + varld.hyMax) / 2
+  const drag = vinkelDiff(grund.h, mittHy) * 0.14 + (jit.h || 0)
+  const h = grund.h + klamp(drag, -8, 8) // ±8° — varldens familj syns, fargvalet vinner
+  const s = klamp(grund.s * varld.matt, 0.52, 0.80)
+  const l = klamp(grund.l + (jit.l || 0), 0.56, 0.72)
+  const mHy = Number.isFinite(jit.mHy) ? jit.mHy : mittHy // monstret bar varldens egen familj
+  const kindH = grund.h + vinkelDiff(grund.h, 348) * 0.8
+  return {
+    bas: hslHex(h, s, l),
+    ljus: hslHex(h + 4, s * 0.90, Math.min(l + 0.13, 0.88)),
+    mork: hslHex(h - 6, Math.min(s * 1.06, 0.88), Math.max(l - 0.17, 0.30)),
+    buk: hslHex(h - 3, s * 0.52, Math.min(l + 0.21, 0.92)),
+    monster: hslHex(mHy, klamp(0.62 * varld.matt, 0.20, 0.85), klamp(l - 0.19, 0.26, 0.62)),
+    kind: hslHex(kindH, 0.72, 0.74),
+    oga: 0xfffdf7,
+    pupill: hslHex(h, 0.42, 0.15),
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Hjartat
 // ---------------------------------------------------------------------------
 
@@ -389,25 +419,12 @@ export function dnaFromSeed(seed, val = {}) {
   p.andning = klamp(p.andning, 1.2, 2.5)
   p.gupp = klamp(p.gupp, 3, 9)
 
-  // --- 3. Paletten: barnets farg + varldens nyansjitter, klampad i sotma-envelopen
-  const grund = FARGER[f]
-  const mittHy = (varld.hyMin + varld.hyMax) / 2
-  const drag = vinkelDiff(grund.h, mittHy) * 0.14 + spann(rnd, -3, 3)
-  const h = grund.h + klamp(drag, -8, 8) // ±8° — varldens familj syns, fargvalet vinner
-  const s = klamp(grund.s * varld.matt, 0.52, 0.80)
-  const l = klamp(grund.l + spann(rnd, -0.03, 0.03), 0.56, 0.72)
-  const mHy = spann(rnd, varld.hyMin, varld.hyMax) // monstret bar varldens egen familj
-  const kindH = grund.h + vinkelDiff(grund.h, 348) * 0.8
-  const palett = {
-    bas: hslHex(h, s, l),
-    ljus: hslHex(h + 4, s * 0.90, Math.min(l + 0.13, 0.88)),
-    mork: hslHex(h - 6, Math.min(s * 1.06, 0.88), Math.max(l - 0.17, 0.30)),
-    buk: hslHex(h - 3, s * 0.52, Math.min(l + 0.21, 0.92)),
-    monster: hslHex(mHy, klamp(0.62 * varld.matt, 0.20, 0.85), klamp(l - 0.19, 0.26, 0.62)),
-    kind: hslHex(kindH, 0.72, 0.74),
-    oga: 0xfffdf7,
-    pupill: hslHex(h, 0.42, 0.15),
-  }
+  // --- 3. Paletten: barnets farg + varldens nyansjitter, klampad i sotma-envelopen.
+  // TRE drag ur strommen, i SAMMA ordning som alltid (regel 1: nyans, ljushet, monstrets
+  // nyans — objektets egenskaper evalueras i kallkodens ordning). Formeln sjalv bor i
+  // `palettFran`, som kupan delar, sa forhandsvisningen aldrig kan lova en annan farg.
+  const jit = { h: spann(rnd, -3, 3), l: spann(rnd, -0.03, 0.03), mHy: spann(rnd, varld.hyMin, varld.hyMax) }
+  const palett = palettFran(f, v, jit)
 
   // --- 4. Namn och motiv
   const namn = NAMN[heltal(rnd, NAMN.length)]

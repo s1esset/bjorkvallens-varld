@@ -24,7 +24,7 @@ import {
 } from '../../lib/form.js'
 import { lerpColor } from '../../lib/scene.js'
 import { liv, pop, squash, wiggle, shake, puff, sparkle, stadFx } from '../../lib/feedback.js'
-import { FARGER, STORLEKAR, MONSTER, hslHex, mulberry32 } from './dna.js'
+import { FARGER, STORLEKAR, MONSTER, mulberry32, palettFran } from './dna.js'
 
 // --- verkstadens material (fyra+ toner, aldrig en enda kvantiserad yta) ---------------
 const TRA = 0xb98050
@@ -40,20 +40,27 @@ const R = 190          // klotets radie — samma tal som index.js hitArea Circl
 const R_INRE = 176     // masken innanför glaset
 const MARK_Y = 58      // marklinjen inuti kupan
 
+// En snurrande rekvisita (solen, iskristallen, snöflingan) varvar lika fort i kupan som ute
+// i världen — förhandsvisningen och finalen är samma värld. Stod på 11,4 s per varv här och
+// 24 s i ceremonin; ceremoni.js importerar talet härifrån så de inte kan glida isär igen.
+export const SNURR_VARV_S = 12
+
 const G = () => new Graphics()
 const klamp = (v, a, b) => (v < a ? a : v > b ? b : v)
-const vinkelDiff = (a, b) => ((b - a + 540) % 360) - 180
 
 // Världarnas interiör. v 0..5 == dna.js VARLDAR-ordningen (skog · vatten · sno · natt ·
 // oken · grotta) — ordningen är sparad i varje post och får aldrig ändras, bara växa sist.
 const VARLDSNYCKEL = ['skog', 'vatten', 'sno', 'natt', 'oken', 'grotta']
+// Blobbens färg läses INTE här: den kommer ur `dna.js:palettFran`, samma formel som knyttet.
+// Tabellen bar förut en egen nyans (`hy`) och mättnad (`matt`) och lovade då en annan färg
+// än den barnet fick — de två fälten är borttagna, inte bara oanvända.
 const VARLDSTON = {
-  skog: { hy: 113, matt: 1, himmelT: 0xbfe9ff, himmelB: 0xdcf5cf, mark: 0x7cc86f, bas: { grono: 0.6, varm: 0.3 } },
-  vatten: { hy: 198, matt: 1, himmelT: 0xbdeefa, himmelB: 0x9adcef, mark: 0x4aa3df, bas: { vatt: 0.8, grono: 0.15 } },
-  sno: { hy: 202, matt: 0.62, himmelT: 0xe8f4ff, himmelB: 0xd3e6f4, mark: 0xf1f8ff, bas: { sten: 0.3, vatt: 0.28 } },
-  natt: { hy: 272, matt: 1, himmelT: 0x33407c, himmelB: 0x533f86, mark: 0x3a3170, bas: { natt: 0.88, sten: 0.12 } },
-  oken: { hy: 36, matt: 0.95, himmelT: 0xffe4b3, himmelB: 0xfff2d4, mark: 0xe9c57c, bas: { varm: 0.7, sten: 0.35 } },
-  grotta: { hy: 310, matt: 0.9, himmelT: 0x2f2747, himmelB: 0x4b3f70, mark: 0x5b4d7d, bas: { natt: 0.75, sten: 0.5 } },
+  skog: { himmelT: 0xbfe9ff, himmelB: 0xdcf5cf, mark: 0x7cc86f, bas: { grono: 0.6, varm: 0.3 } },
+  vatten: { himmelT: 0xbdeefa, himmelB: 0x9adcef, mark: 0x4aa3df, bas: { vatt: 0.8, grono: 0.15 } },
+  sno: { himmelT: 0xe8f4ff, himmelB: 0xd3e6f4, mark: 0xf1f8ff, bas: { sten: 0.3, vatt: 0.28 } },
+  natt: { himmelT: 0x33407c, himmelB: 0x533f86, mark: 0x3a3170, bas: { natt: 0.88, sten: 0.12 } },
+  oken: { himmelT: 0xffe4b3, himmelB: 0xfff2d4, mark: 0xe9c57c, bas: { varm: 0.7, sten: 0.35 } },
+  grotta: { himmelT: 0x2f2747, himmelB: 0x4b3f70, mark: 0x5b4d7d, bas: { natt: 0.75, sten: 0.5 } },
 }
 
 // Kanalerna: var maskindel möter kupan. Talen är lokala mot kupans mitt (640,330) och är
@@ -847,18 +854,11 @@ export function byggKupa(opts = {}) {
     })
   }
 
+  // EN palettformel för kupan och knyttet (`dna.js:palettFran`). Kupan skickar inga frö-drag
+  // och får alltså MITTEN av det spann knyttet sedan hamnar i — uppmätt ≤ 3,5° från varje
+  // knytt ur samma recept (`_knyttlyftprobe` K1), mot 5–23° med kupans egen formel.
   function satPalett() {
-    const f = FARGER[val.f] || FARGER[0] || { h: 32, s: 0.72, l: 0.64 }
-    const vt = VARLDSTON[VARLDSNYCKEL[val.v]]
-    const h = (((f.h + vinkelDiff(f.h, vt.hy) * 0.2) % 360) + 360) % 360
-    const s = klamp((f.s ?? 0.7) * (vt.matt ?? 1), 0.52, 0.8)
-    const l = klamp(f.l ?? 0.64, 0.56, 0.72)
-    palett.bas = hslHex(h, s, l)
-    palett.ljus = hslHex(h, s * 0.9, klamp(l + 0.14, 0, 0.94))
-    palett.mork = hslHex(h, klamp(s + 0.06, 0, 1), klamp(l - 0.17, 0.1, 1))
-    palett.buk = hslHex(h, s * 0.55, klamp(l + 0.18, 0, 0.95))
-    palett.monster = hslHex((h + 16) % 360, s, klamp(l - 0.22, 0.12, 1))
-    palett.kind = hslHex((h + 340) % 360, 0.66, 0.74)
+    Object.assign(palett, palettFran(val.f, val.v))
   }
 
   // ---- blobben ----
@@ -1254,7 +1254,7 @@ export function byggKupa(opts = {}) {
       // `nod.x/nod.y` varje bildruta OVANPÅ tweenen — fisken (rörelse 'simmar') ramlade
       // aldrig in genom kragen som de andra föremålen, den bara poppade upp på sin plats.
       if (p.faller) continue
-      if (r === 'snurr') p.inner.rotation += dt * 0.55
+      if (r === 'snurr') p.inner.rotation += (dt * Math.PI * 2) / SNURR_VARV_S
       else if (r === 'driver') p.nod.x = p.wx + Math.sin(tid * 0.42 + p.fas * 6.28) * 22
       else if (r === 'simmar') {
         p.nod.x = p.wx + Math.sin(tid * 0.75 + p.fas * 6.28) * 30
@@ -1330,7 +1330,9 @@ export function byggKupa(opts = {}) {
     if (!view.destroyed) view.destroy({ children: true })
   }
 
-  return { view, setVal, setFro, laggIn, tomma, tick, destroy }
+  // `palett` är en KOPIA — för sonden (`_knyttlyftprobe` K), som mäter om kupans blobb lovar
+  // den färg knyttet sedan får. Spelet läser den aldrig.
+  return { view, setVal, setFro, laggIn, tomma, tick, destroy, get palett() { return { ...palett } } }
 }
 
 // =====================================================================================

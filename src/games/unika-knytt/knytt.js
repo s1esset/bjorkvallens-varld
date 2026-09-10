@@ -1411,9 +1411,18 @@ class Knytt {
   _blicka(dt, pekare, somnig) {
     let mx = 0
     let my = 0
+    let lp = null
     if (pekare && typeof pekare.x === 'number' && !somnig && this.view.parent) {
       this._pt.set(pekare.x, pekare.y)
-      const lp = this._ansikte.toLocal(this._pt, this.view.parent, this._pt2)
+      lp = this._ansikte.toLocal(this._pt, this.view.parent, this._pt2)
+      // ⚠️ En förälder med SKALA 0 har ingen invers — ceremonins `bounceIn` av knyttets hållare
+      // börjar exakt där — och `toLocal` ger då NaN. Den bildrutan räknas som "ingen pekare".
+      // Utan vakten bar `naerma()` ett enda NaN vidare för alltid: det nyfödda knyttet stod på
+      // bänken med två VITA ögon utan pupill så fort fingret varit över skärmen under födseln
+      // (bildgranskningen i poleringsrundans steg 3; `_knyttlyftprobe` O1: NaN → ändlig).
+      if (!Number.isFinite(lp.x) || !Number.isFinite(lp.y)) lp = null
+    }
+    if (lp) {
       const dx = lp.x
       const dy = lp.y - this._m.faceY
       const len = Math.hypot(dx, dy) || 1
@@ -1435,6 +1444,12 @@ class Knytt {
     }
     this._blick.x = naerma(this._blick.x, mx, 9, dt)
     this._blick.y = naerma(this._blick.y, my, 9, dt)
+    // Sista vakten: ett NaN som ändå slunkit in från någon annan väg nollställs, i stället för
+    // att sitta kvar i pupillen resten av knyttets liv.
+    if (!Number.isFinite(this._blick.x) || !Number.isFinite(this._blick.y)) {
+      this._blick.x = 0
+      this._blick.y = 0
+    }
   }
 
   // ENDA stället där transformer skrivs. Varje skalär summeras exakt en gång per bildruta.

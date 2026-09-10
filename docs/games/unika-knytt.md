@@ -1231,6 +1231,21 @@ Rättat i en egen commit (nästa post) — steg 3 committades med felet kvar, so
 **Grind:** check 0/0 · test 0 fel · `_knyttlyftprobe` S 12/12 · `_knyttprobe` 44/44 · `_upplasprobe`
 11/11 · `_tierprobe` 12/12 · I 0 av 12 000 olika.`
 
+`2026-09-10 · RÄTTAT: DET NYFÖDDA KNYTTETS PUPILLER (fynd i steg 3:s bildgranskning).` Knyttet stod på
+bänken med två vita ögon utan pupill så fort fingret varit över skärmen under födseln. Ceremonin
+studsar in knyttets hållare med `bounceIn`, som börjar på `scale 0`; `_blicka` räknade om pekaren med
+`toLocal` genom den hållaren, och en förälder med skala 0 har ingen invers — resultatet blev NaN, och
+`naerma()` bar det vidare för alltid (NaN in, NaN ut). Pupillen fick position NaN och ritades ingenstans.
+Felet fanns sedan leverans 1 och syntes aldrig: de första sekunderna är ögonen glada ∩-bågar som döljer
+pupillen, och varken test eller sond läste blicken. Rättelsen i `knytt.js:_blicka` är två vakter: ett
+icke-ändligt `toLocal` räknas som "ingen pekare" den bildrutan, och ett NaN som ändå slinker in nollställs
+i stället för att sitta kvar. **`_knyttlyftprobe` O, kört mot koden FÖRE rättelsen: O0 (hyllknytt,
+aldrig genom bounceIn) blick 0,0 · O1 (nyfött) NaN, NaN → ändlig efter.** Bild:
+`.test-shots/knytt-ogon-bank.png`.
+**Lärdomen, bredare än spelet:** en animation som börjar på `scale 0` gör varje `toLocal` genom den
+noden till NaN under sin första bildruta — och en exponentiell närmning som `naerma` gör ett enda NaN
+permanent. Samma par finns i alla spel som tweenar en förälder från noll och läser en pekare genom den.`
+
 
 ## 6. Teknisk ritning
 

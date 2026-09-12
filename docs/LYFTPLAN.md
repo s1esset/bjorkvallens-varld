@@ -985,7 +985,7 @@ Före: `FillGradient` (linjär **och** radiell) fanns i Pixi 8.19 och användes 
 `DESIGN.md §4` fick tillägget att gradienter är **fyllningar**, inte filter — ingen konflikt
 med lip-tricket, som fortfarande äger allt tryckbart i skalet.
 
-### C2. `lib/atlas.js` — baka en gång, återanvänd **[Medium]** — ⬜ ÖPPEN
+### C2. `lib/atlas.js` — baka en gång, återanvänd **[Medium]** — VILANDE (riven 2026-08-08)
 
 `renderer.generateTexture(graphics)` per distinkt föremål → `Sprite`. Ger tint-varianter gratis
 och slipper omtesselering. Målgrupp: upprepad dekor (moln, träd, stenar, snöflingor).
@@ -1327,7 +1327,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | # | Vad | Spår | Lyfter | Status |
 |--:|---|:--:|---|:--:|
 | 1 | `lib/partiklar.js` + `feedback.js` internt, 3× täthet | C3 | **alla 72 spel** | ✅ v1.39.0 |
-| 2 | `lib/atlas.js` — bakning av Pixi-grafik till textur | C2 | repeterad dekor | ⬜ *(revs, se C2)* |
+| 2 | `lib/atlas.js` — bakning av Pixi-grafik till textur | C2 | repeterad dekor | vilande *(byggd och riven 2026-08-08 — byggs när ett spel behöver den, se C2)* |
 | 3 | `FillGradient` i `scene.js` + `lib/form.js` | C1 | 57 scener + moln | ✅ v1.40.0 *(delvis — se C1)* |
 | 4 | Fördjupad `scene.js` (djupband, dis, vinjett, tid) | C7 | 55 spel | ✅ v1.43.0 |
 | 5 | `lib/kamera.js` | C6 | nya spel; scenens djupband blir parallax | ✅ v1.44.0 |

@@ -1863,9 +1863,10 @@ värdet den läste vid födseln och RITAR mot ringens egen mitt, som den räknar
 kommentaren är omskriven — den beskrev buggen som om den stod kvar). `_knyttprobe` 44/44
 efter ändringen.
 
-**V16** (`destroy({ children: true })` river inte `GraphicsContext`, repo-brett) står kvar i
-`docs/ATGARDER.md` med sitt mätkrav: delad kod som hela sviten går igenom — mät blastradien
-i GPU-minne före ändring.
+~~**V16**~~ **är stängd 2026-09-12 (v1.250.0)** — blastradien mättes först (`_graflackprobe.mjs`:
+Pixi 8.19:s GC städade redan inom 60–80 s, så det var en topp efter varje spelbyte, aldrig en
+evig läcka) och lappades sedan på ett ställe, `lib/pixilapp.js`. Knyttets egna rivningar följer
+med utan en ändrad rad.
 
 ### G. Poleringsrundan 2026-09-10 — ägarens sex steg
 
@@ -1901,7 +1902,6 @@ ett knytt på golvet · mata ett bär · kamera-parallax). Inget av det är kval
 1. **A** — de tre frågorna till ägaren. Ingen av dem går att bygga förbi, och två av dem
    (Skrället, upplåsningarnas takt) väntar på samma sak: ett riktigt speltest.
 2. **D (leverans 2)** — planera in ett eget pass. Börja inte på det i slutet av ett annat.
-3. **F** — V16 i `docs/ATGARDER.md`, delad kod: mät blastradien före ändring. (V19 är
-   stängd 2026-09-05.)
+3. ~~**F**~~ — tom: V19 stängd 2026-09-05, V16 stängd 2026-09-12 (se F).
 
 *(ÅTGÄRDER U6, ögonlocket, är stängt 2026-09-01 — se E.)*

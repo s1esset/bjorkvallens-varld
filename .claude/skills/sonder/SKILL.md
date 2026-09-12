@@ -27,6 +27,8 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_partikelprobe.mjs [id]` | tas partikelvägen på riktigt? (fält · antal · pixlar · läckage) |
 | `node scripts/_fpsprobe.mjs --cpu 6` | partikelvägarnas kostnadskurva, mätt på MENYN — **öppnar aldrig ett spel**, kräver CPU-strypning |
 | `node scripts/_montageprobe.mjs --cpu 4 --varv 3` | vad en MONTERING kostar per spel (blockerande ruta + tid till lugn) — rangordnat |
+| `node scripts/_graflackprobe.mjs [--arm head,fix,utanGC] [--vila 120]` | **vad blir KVAR efter spelbyten?** (ÅTGÄRDER V16) föräldralösa GraphicsContexts · deras geometri · GL-buffertar · heap, efter tolv spelbyten och under vila. `utanGC` är barlasten (renderarens GC av). ⚠️ Redigera ingen `src/` medan den kör — Vite laddar om sidan och hakarna försvinner |
+| `node scripts/_studsprobe.mjs` | statisk restitution och `studs` (V10) i naken fysik, plus §7 `bowling`s kantstöd: pricklinjen mot klotet vid käglornas rader i tre armar — **utan webbläsare** |
 | `node scripts/_vatskeprobe.mjs <id> [--losa]` | vätskan: antal · ytans höjd · målade pixlar · FPS · exit |
 | `node scripts/_plaskprobe.mjs` | plask-i-vattnet: stänk över ytan · undanträngd volym · taket · konstant volym |
 | `node scripts/_plattprobe.mjs` | vilka spel ritar stora ytor i EN platt ton? (rankat) |

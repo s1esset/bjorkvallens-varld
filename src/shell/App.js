@@ -7,8 +7,10 @@
 //     gateLayer    – föräldra-grind, dialoger, avier (överst)
 import { Application, Container, Graphics } from 'pixi.js'
 import { Scaler } from '../services/Scaler.js'
+import { lappaPixi } from '../lib/pixilapp.js'
 
 export async function createApp(mountEl) {
+  lappaPixi()
   const app = new Application()
   await app.init({
     resizeTo: window,

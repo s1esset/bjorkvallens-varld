@@ -123,6 +123,11 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
   och varnar för den **exakta** text körningen sa. Den kontrollen kräver alltså att spelet har
   körts — `npm run check` ensam ser dem fortfarande inte. Lägg in frasen i
   `scripts/voice-phrases.json` för hand och kör `npm run voice`.
+- **Redigera aldrig `src/` medan en sond kör mot dev-servern.** Vite laddar om sidan vid varje
+  sparad modul i appens graf, och sondens hakar (lappade prototyper, räknare på `window`) försvinner
+  med den gamla sidan. `_graflackprobe`s tredje arm dog så 2026-09-12 — mitt i den ändrade jag sju
+  spelfiler. Den gången blev det en krasch; en sond som bara läser tal efter omladdningen hade i
+  stället rapporterat en helt ny sidas nollor som ett mätresultat.
 - **Kör ALDRIG två webbläsarsonder samtidigt — de förfalskar varandras svar.** `_elementprobe`
   och `_snurrprobe` startade i samma tool-block mot samma dev-server, och `_elementprobe`
   rapporterade då att `jord+vatten` gav **noll lera**: en av spelets sex reaktioner såg

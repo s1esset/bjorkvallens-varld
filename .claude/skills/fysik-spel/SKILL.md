@@ -58,7 +58,14 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
   CLAUDE.md. Studsen blir alltid den dynamiska kroppens egen. **Ska ytan studsa: `{ isStatic:
   true, studs: 0.75 }`** — opt-in, sätts efter `setStatic` och bärs även av `_original`, så en
   kropp som väcks behåller den. Uppmätt: 4,7 → 143,3 px hopp mot en `heavy`-kropp.
-  De gamla talen i 19 spel är fortfarande nollade med flit (`npm run check -- --studs`).
+  De gamla talen är fortfarande nollade med flit (`npm run check -- --studs`); de som aldrig
+  kunde göra något ens väckta är strukna (2026-09-12).
+  ⚠️ **`studs` väcker BARA studsen — friktionen står kvar på 1.** Paret tar `min` av
+  friktionerna, alltså den rörliga kroppens egen, och en studs med hög friktion äter farten
+  LÄNGS ytan. `bowling`s kantstöd: pricklinjens fel 214 px idag → 79 px med bara `studs` → 9 px
+  när räckets deklarerade 0,1 också sattes tillbaka (`body.friction = 0.1` efter skapandet —
+  `_make` rör medvetet aldrig friktion). Ska en förhandsvisning stämma mot en studsande statisk
+  yta: sätt båda. Mätt i `node scripts/_studsprobe.mjs` §7.
 - `predictTrajectory(…)` + re-exporterade `Body` / `Composite` / `Vector`.
 
 ## Material som LÅTER (`MATERIAL` + `onImpact` / `impactAudio`)

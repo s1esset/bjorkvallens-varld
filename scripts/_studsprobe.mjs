@@ -17,7 +17,7 @@
 //
 // Arm A = idag (talet nollat). Arm B = fixen, simulerad genom att återställa `_original`
 // på den skapade kroppen — så mätningen kräver ingen ändring i delad kod.
-import { PhysicsWorld } from '../src/lib/physics.js'
+import { PhysicsWorld, MATERIALS, Body, predictTrajectory } from '../src/lib/physics.js'
 
 const PLANK = { x: 640, y: 400, w: 200, h: 32 }
 const BALL_R = 26
@@ -183,6 +183,91 @@ console.log('\n  `studs`-opten (ÅTGÄRDER V10, byggd):')
   const noll = slapp({ statiskR: 0.9, dynamiskR: 0.18, fixad: false, studs: 0 })
   ok('`studs: 0` är ett medvetet dött golv, inte "använd talet"',
     noll.plankRest === 0 && noll.hopp < 10, `hopp ${noll.hopp.toFixed(1)} px`)
+}
+
+// --- 7. `bowling`s kantstöd (ÅTGÄRDER V10b ①): ljuger siktet om studsen? ----
+// Kantstödet är spelets tillgänglighetshjälp — "på" ska få klotet att studsa IN mot käglorna
+// i stället för ut i rännan. Räckena deklarerar 0,75 och pricklinjen ritar 0,75
+// (`_previewBounds`), men klotet är `MATERIALS.heavy` (0,18) och räckets tal nollas av
+// `setStatic`, så studsen blir klotets egen. Måttet är det spelet självt lovar i sitt
+// filhuvud — att pricklinjen följer klotet "till ~några px" — alltså klotets x när det når
+// käglornas rader, mot pricklinjens x på samma höjd. Spelets geometri, ingen webbläsare.
+// KONTROLL: ett rakt skott som aldrig rör räcket ska stämma i BÅDA armarna, annars mäter
+// jämförelsen något annat än studsen. Och varje bankskott måste faktiskt TRÄFFA räcket —
+// "ingen skillnad" är sant om studsen aldrig hände.
+console.log('\n  `bowling`s kantstöd — klotets x vid käglornas rader mot pricklinjens (V10b ①):')
+{
+  const RADER = [330, 210] // främre raden på nivå 4+ · tredje raden
+  const PRICK = { leftX: 368 + 46, rightX: 912 - 46, restitution: 0.75 } // = _previewBounds(), kantstöd PÅ
+  const korsning = (punkter, y) => {
+    let prev = { x: 640, y: 600 }
+    for (const p of punkter) {
+      if (p.y <= y) return prev.x + (p.x - prev.x) * ((prev.y - y) / (prev.y - p.y))
+      prev = p
+    }
+    return null
+  }
+  const klot = ({ vx, vy }, form) => {
+    const v = new PhysicsWorld({ gravityY: 0, gravityX: 0, walls: [] })
+    v.rectangle(312, 400, 24, 580, { isStatic: true, restitution: 0.2, friction: 0.2, label: 'wall' })
+    v.rectangle(968, 400, 24, 580, { isStatic: true, restitution: 0.2, friction: 0.2, label: 'wall' })
+    // 'head' = räcket som spelet skrev det · 'studs' = bara studsen väckt · 'fix' = studsen OCH
+    // räckets egen friktion 0,1 tillbaka. `setStatic` sätter även friktionen till 1, och paret tar
+    // min(klot 0,5 · räcke 1) = 0,5 — kontakten åt upp klotets fart LÄNGS räcket (vy −13,7 →
+    // −11,5 i ett brant bankskott), så bara studsen hade halverat felet men inte tagit bort det.
+    const rack = form === 'head' ? { restitution: 0.75 } : { studs: 0.75 }
+    const l = v.rectangle(360, 400, 16, 540, { isStatic: true, friction: 0.1, label: 'bumper', ...rack })
+    const r = v.rectangle(920, 400, 16, 540, { isStatic: true, friction: 0.1, label: 'bumper', ...rack })
+    if (form === 'fix') l.friction = r.friction = 0.1
+    const b = v.circle(640, 600, 46, { ...MATERIALS.heavy, frictionAir: 0.012, label: 'ball' })
+    Body.setInertia(b, Infinity)
+    Body.setVelocity(b, { x: vx, y: vy })
+    let traff = 0
+    v.onCollision((e) => {
+      for (const p of e.pairs) if (p.bodyA.label === 'bumper' || p.bodyB.label === 'bumper') traff++
+    })
+    const bana = []
+    for (let i = 0; i < 240 && b.position.y > Math.min(...RADER) - 5; i++) {
+      v.update(1000 / 60)
+      bana.push({ x: b.position.x, y: b.position.y })
+    }
+    v.destroy()
+    return { bana, traff }
+  }
+  const SKOTT = [
+    { namn: 'rakt (kontroll)', vx: -2, vy: -26, kontroll: true },
+    { namn: 'vänster brant', vx: -18, vy: -16 },
+    { namn: 'vänster flack', vx: -22, vy: -12 },
+    { namn: 'höger', vx: 20, vy: -14 },
+  ]
+  const ARMAR = ['head', 'studs', 'fix']
+  const avvik = Object.fromEntries(ARMAR.map((a) => [a, []]))
+  let kontrollOk = true
+  let traffOk = true
+  for (const s of SKOTT) {
+    const prick = predictTrajectory({ x: 640, y: 600, vx: s.vx, vy: s.vy, gy: 0, damp: 1 - 0.012, ...PRICK, steps: 240, every: 1 })
+    const k = Object.fromEntries(ARMAR.map((a) => [a, klot(s, a)]))
+    const bitar = []
+    for (const y of RADER) {
+      const px = korsning(prick, y)
+      const e = ARMAR.map((a) => Math.abs(korsning(k[a].bana, y) - px))
+      bitar.push(`y ${y}: ${e.map((x) => x.toFixed(1)).join(' / ')}`)
+      if (s.kontroll) kontrollOk &&= e.every((x) => x < 3)
+      else ARMAR.forEach((a, i) => avvik[a].push(e[i]))
+    }
+    const t = ARMAR.map((a) => k[a].traff)
+    if (s.kontroll) kontrollOk &&= t.every((x) => x === 0)
+    else traffOk &&= t.every((x) => x > 0)
+    console.log(`    ${s.namn.padEnd(16)} träffar ${t.join('/')}  px fel HEAD / bara studs / fix:  ${bitar.join('  ·  ')}`)
+  }
+  const max = Object.fromEntries(ARMAR.map((a) => [a, Math.max(...avvik[a])]))
+  ok('kontroll: ett skott som aldrig rör räcket stämmer i alla tre armarna', kontrollOk, 'fel < 3 px och 0 räckträffar')
+  ok('varje bankskott träffar räcket i alla tre armarna (studsen hände)', traffOk)
+  ok('HEAD: pricklinjen ljuger om kantstödet', max.head >= 30, `största fel ${max.head.toFixed(1)} px`)
+  ok('friktionen är andra halvan: bara studsen räcker inte', max.studs > 2 * max.fix,
+    `bara studs ${max.studs.toFixed(1)} px mot fix ${max.fix.toFixed(1)} px`)
+  ok('fix (studs 0,75 + räckets friktion 0,1): pricklinjen håller spelets löfte (~några px)', max.fix <= 10,
+    `största fel ${max.fix.toFixed(1)} px`)
 }
 
 console.log(`\n${fel === 0 ? '✓ alla mått gröna' : `✗ ${fel} mått röda`}\n`)

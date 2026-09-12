@@ -116,6 +116,19 @@ auto-hjälpen gör siktet kosmetiskt**.
 
 ## 5. Status / loggar
 
+- 2026-09-12 ✅ **Kantstödet studsar på riktigt — och pricklinjen slutade ljuga** (ÅTGÄRDER
+  V10b ①, v1.250.0). Räckena deklarerade `restitution: 0.75, friction: 0.1`, men matters
+  `Body.setStatic` nollade BÅDA: studsen blev klotets egen (`heavy` 0,18) och friktionen 1, så
+  paret tog klotets 0,5 och studsen åt upp farten längs räcket. Pricklinjen (`_previewBounds`)
+  ritade under tiden en studs på 0,75 — siktet ljög alltså just för de barn som slagit PÅ
+  hjälpen. Nu `studs: 0.75` och räckets 0,1 tillbaka efter skapandet (`_make` rör aldrig
+  friktion). **MÄTT** (`_studsprobe.mjs` §7, spelets geometri, tre bankskott + ett rakt
+  kontrollskott): pricklinjens största fel vid käglornas rader **214 px → 79 px med bara
+  studsen → 9 px med båda**; kontrollskottet 0,0 px i alla tre armarna, och varje bankskott
+  träffade räcket i alla tre. Kantstöd AV mättes också: lanväggarnas låga 0,2 gör
+  friktionsförlusten liten (≤ 10 px redan i dag), så de är orörda. ⚠️ Käglorna studsar också
+  livligare mot räckena nu (paret tar max: `light` 0,5 mot 0,75).
+
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`4b00a8c`, v1.115.0).
   `_plattprobe --medbakgrund` mätte **162 945 px = 18 % av skärmen** i EN ton.
   Banan var två platta band (banan + kägeldäckets överdrag på 124 666 px). En bowlingbana

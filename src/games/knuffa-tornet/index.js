@@ -209,7 +209,7 @@ export default {
       (LEDGE_Y + FLOOR_Y) / 2,
       PED.x2 - PED.x1,
       FLOOR_Y - LEDGE_Y,
-      { isStatic: true, friction: 0.6, frictionStatic: 0.9, restitution: 0.05, label: 'pedestal' },
+      { isStatic: true, friction: 0.6, frictionStatic: 0.9, label: 'pedestal' },
     )
 
     // Kloss-lager (under rep/kula i z-led).

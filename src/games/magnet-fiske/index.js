@@ -273,7 +273,7 @@ export default {
 
     // Fysik: ingen gravitation (ovanifrån-damm), inga skärmväggar — egna pondväggar.
     this._phys = new PhysicsWorld({ gravityY: 0, gravityX: 0, walls: [] })
-    const wopt = { isStatic: true, restitution: 0.3, label: 'wall' }
+    const wopt = { isStatic: true, label: 'wall' }
     this._phys.rectangle(540, POND.y0 - 20, 900, 40, wopt) // topp
     this._phys.rectangle(540, POND.y1 + 20, 900, 40, wopt) // botten
     this._phys.rectangle(POND.x0 - 20, 405, 40, 450, wopt) // vänster

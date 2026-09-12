@@ -374,13 +374,12 @@ export default {
     // Golv.
     this._phys.rectangle(cx, FLOOR_TOP + T / 2, WALL_R - WALL_L + T * 2, T, {
       isStatic: true,
-      restitution: 0.04,
       friction: 0.6,
       label: 'tankfloor',
     })
     // Sidoväggar (höga -> täcker även ovanför ytan, så inget kan glida ut i sidled).
-    this._phys.rectangle(WALL_L - T / 2, 300, T, 900, { isStatic: true, restitution: 0.04, friction: 0.3, label: 'tankwall' })
-    this._phys.rectangle(WALL_R + T / 2, 300, T, 900, { isStatic: true, restitution: 0.04, friction: 0.3, label: 'tankwall' })
+    this._phys.rectangle(WALL_L - T / 2, 300, T, 900, { isStatic: true, friction: 0.3, label: 'tankwall' })
+    this._phys.rectangle(WALL_R + T / 2, 300, T, 900, { isStatic: true, friction: 0.3, label: 'tankwall' })
   },
 
   // ---- Scenbyggen ---------------------------------------------------------

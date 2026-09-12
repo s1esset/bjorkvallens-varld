@@ -239,8 +239,8 @@ export default {
     // Korgen i fysiken: två studsiga kant-knoppar + en sensor i munnen. Statiska kroppar
     // som flyttas varje bildruta med korgens x (mjuk rörelse -> inga teleport-smällar).
     const bx = this._basket.x
-    this._rimL = this._phys.circle(bx - MOUTH_DX, this._mouthY, RIM_R, { isStatic: true, restitution: 0.35, friction: 0.4, label: 'rim' })
-    this._rimR = this._phys.circle(bx + MOUTH_DX, this._mouthY, RIM_R, { isStatic: true, restitution: 0.35, friction: 0.4, label: 'rim' })
+    this._rimL = this._phys.circle(bx - MOUTH_DX, this._mouthY, RIM_R, { isStatic: true, friction: 0.4, label: 'rim' })
+    this._rimR = this._phys.circle(bx + MOUTH_DX, this._mouthY, RIM_R, { isStatic: true, friction: 0.4, label: 'rim' })
     this._sensor = this._phys.rectangle(bx, this._mouthY + 26, SENSOR_W, SENSOR_H, { isStatic: true, isSensor: true, label: 'basket' })
 
     this._bMin = BASKET_HALF + 8

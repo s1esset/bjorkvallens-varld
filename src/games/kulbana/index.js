@@ -470,9 +470,9 @@ export default {
 
     // Fångväggar + mjuk botten (riktiga statiska kroppar) så kulan stannar i hinken.
     this._bucketWalls = [
-      this._phys.rectangle(bx - 72, by, 14, 100, { isStatic: true, restitution: 0.1, friction: 0.4, label: 'bucketwall' }),
-      this._phys.rectangle(bx + 72, by, 14, 100, { isStatic: true, restitution: 0.1, friction: 0.4, label: 'bucketwall' }),
-      this._phys.rectangle(bx, by + 54, 150, 16, { isStatic: true, restitution: 0.1, friction: 0.6, label: 'bucketwall' }),
+      this._phys.rectangle(bx - 72, by, 14, 100, { isStatic: true, friction:0.4, label: 'bucketwall' }),
+      this._phys.rectangle(bx + 72, by, 14, 100, { isStatic: true, friction:0.4, label: 'bucketwall' }),
+      this._phys.rectangle(bx, by + 54, 150, 16, { isStatic: true, friction:0.6, label: 'bucketwall' }),
     ]
   },
 
@@ -574,7 +574,7 @@ export default {
     g.eventMode = 'none'
     g.position.set(o.x, o.y)
     this._obstacleLayer.addChild(g)
-    const body = this._phys.rectangle(o.x, o.y, o.w, o.h, { isStatic: true, restitution: 0.2, friction: 0.4, label: 'obstacle' })
+    const body = this._phys.rectangle(o.x, o.y, o.w, o.h, { isStatic: true, friction: 0.4, label: 'obstacle' })
     this._obstacles.push({ view: g, body })
   },
 
@@ -646,7 +646,7 @@ export default {
       g.roundRect(-92, -12, 184, 7, 4).fill({ color: 0xffffff, alpha: 0.25 })
       g.eventMode = 'none'
       part.addChild(g)
-      part._body = this._phys.rectangle(x, y, 200, 30, { isStatic: true, friction: 0.06, restitution: 0.2, label: 'ramp' })
+      part._body = this._phys.rectangle(x, y, 200, 30, { isStatic: true, friction: 0.06, label:'ramp' })
       hitW = 240
       hitH = 100
       this._addKnob(ctx, part, 124)
@@ -724,7 +724,7 @@ export default {
         pg.rotation = pl.ang
         pg.eventMode = 'none'
         part.addChild(pg)
-        const body = this._phys.rectangle(x + pl.ox, y + pl.oy, 120, 26, { isStatic: true, friction: 0.06, restitution: 0.2, label: 'funnel' })
+        const body = this._phys.rectangle(x + pl.ox, y + pl.oy, 120, 26, { isStatic: true, friction: 0.06, label:'funnel' })
         Body.setAngle(body, pl.ang)
         part._subBodies.push({ body, ox: pl.ox, oy: pl.oy, ang: pl.ang })
       }

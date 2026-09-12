@@ -419,7 +419,7 @@ export default {
     this._columnMax = v.columnMax
 
     const add = (x, y, w, h, opts) => this._vesselBodies.push(this._phys.rectangle(x, y, w, h, opts))
-    const wall = { isStatic: true, friction: 0.35, restitution: 0.05, label: 'rim' }
+    const wall = { isStatic: true, friction: 0.35, label: 'rim' }
     add(TOWER_CX, 558, 108, 72, { isStatic: true, friction: 0.9, label: 'cone' })
 
     const g = this._coneG

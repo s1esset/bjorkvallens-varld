@@ -4132,7 +4132,7 @@ export default {
 
     // Fysik: sidovy med gravitation + eget mark-golv (trottoaren). Inga standardväggar.
     this._phys = new PhysicsWorld({ gravityY: 1.15, walls: [] })
-    this._phys.rectangle(640, GROUND + 46, 4400, 92, { isStatic: true, friction: 0.9, restitution: 0.18, label: 'mark' })
+    this._phys.rectangle(640, GROUND + 46, 4400, 92, { isStatic: true, friction: 0.9, label: 'mark' })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
 
     // Sådd: kuliss över hela bredden + några mål direkt (scenen ska leva från ruta 1).

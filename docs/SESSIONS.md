@@ -14,6 +14,40 @@ Format:
 
 ---
 
+## 2026-09-12 — V16 stängd, bowlings kantstöd, 15 döda studstal, listorna städade · v1.250.0
+
+**Uppdraget:** "gör allt som inte kräver mig eller ett beslut, och alla små quick wins".
+
+⓵ **V16 stängd** (`b64b046`). Blastradien MÄTTES först med `scripts/_graflackprobe.mjs` (ny, tre
+armar): Pixi 8.19 har en GC som redan städade föräldralösa `GraphicsContext`s inom 60–80 s, så
+det var en topp efter varje spelbyte (1 883 kontexter · 8,1 MB GL · heap 120 MB efter tolv byten),
+aldrig en evig läcka — barlasten med GC:n av stod kvar i två minuter. Lappat på ETT ställe,
+`lib/pixilapp.js` (körs av `createApp`), i stället för 251 handändrade anrop: 0 kontexter · 1,9 MB ·
+84 MB i appen. `test:all` 85/85.
+⓶ **`bowling`s kantstöd studsar på riktigt** (ÅTGÄRDER V10b ①). `setStatic` nollade BÅDE studsen
+och friktionen — `studs` ensam tog pricklinjens fel 214 → 79 px, räckets deklarerade friktion 0,1
+tillbaka tog det till 9 px (`_studsprobe.mjs` §7, ny). Lärdomen står i skill fysik-spel.
+⓷ **15 döda statiska studstal strukna i 7 spel** (`check --studs` 48 → 31) — utom
+`natskott-pa-stan`s kruka, som ÅTGÄRDER hade fel om: den väcks och talet lever.
+⓸ **ÅTGÄRDER städad** (`fac348c`): 15 fixade rader flyttade till Avklarat; öppet är nu bara V14b,
+V10b, V10. LYFTPLAN rad 2 markerad vilande.
+⓹ **Kartläggning av alla öppna [Quick]-punkter** (två läsande agenter, 83 docs): ~105 går att
+bygga utan ägaren, ~75 är redan byggda men står kvar som öppna. Allt sparat i
+**`docs/SNABBVINSTER.md`** — kampanjen hann INTE starta (sessionen tog slut).
+
+**Nytt fynd, inte åtgärdat:** `progress.complete()` firar själv (`GameHost.js:29-32`), och spel som
+firar i samma ögonblick får dubbelt vinstljud och en KAPAD replik — bekräftat i `regnbagsmalaren`,
+44 spel att pröva. Står först i SNABBVINSTER.
+
+**Ny fälla (CLAUDE.md):** redigera aldrig `src/` medan en sond kör — registret importerar alla spel
+statiskt, så Vite laddar om varje öppen sida och sondens hakar försvinner.
+
+**Öppet:** SNABBVINSTER-kampanjen (3 agenter × 3 vågor; agenterna testar aldrig i webbläsare) ·
+speltest med barn (Skrället) · V10b ② `spindelhjalten` + `flipperspel`s dynor (ägarbeslut) ·
+BACKLOG #3 (MOSS och F5 svarar inte). **Inte publicerat** — `npm run deploy` väntar på ägarens ja.
+
+---
+
 ## 2026-09-10 — unika-knytt: poleringsrundans sex steg + kritikens rättelse · v1.249.0
 
 **Byggt:** ägarens sex steg ur förra sessionens förslag ("ja, kör alla sex steg"), en commit per

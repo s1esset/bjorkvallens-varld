@@ -80,22 +80,24 @@ Stark grund, men flera billiga drag som en kräsen förälder märker:
   kurvan (inte räta hopp). Vägen blir en värld, inte spridda prickar.
 
 ### Variation & överraskning
-- **[Quick] Gömda fynd i fotspåren.** Vart 3:e–4:e fotspår gömmer en liten blomma/morot/stjärna
-  som plockas upp när figuren skuttar dit (flyger till en liten samling-hörna) → "en till!"-känsla.
+- ✅ ~~**[Quick] Gömda fynd i fotspåren.**~~ Redan byggd (`FINDS` index.js:47, `_collectFind`
+  :584, 2026-07-02) — uppdagat 2026-09-23.
 - **[Medium] Tema per nivå.** Rotera äng → strand → snö → skog (bakgrund + figur + hus-skrud),
   samma mekanik. Tar bort "samma matta varje gång".
 
 ### Juice
-- **[Quick] Stigande tonhöjd på fotspåren.** Låt fotspår 1..N spela en stigande skala i
-  demon *och* vid härmning → örat får en melodisk ledtråd till ordningen (samma grepp som
-  Härma Melodin borde ha), och varje runda bygger mot ett litet crescendo vid huset.
+- ✅ ~~**[Quick] Stigande tonhöjd på fotspåren.**~~ Redan byggd (`toneFreq` index.js:40,
+  C-dur-pentatonik i demo och härmning, 2026-07-02) — uppdagat 2026-09-23.
 - **[Quick] Spår-efterklang.** Ett tänt fotspår lämnar en kvardröjande grön glöd/avtryck så
   den färdiga delen av vägen *syns lysa* bakom figuren (känsla av framsteg).
+  *Not 2026-09-23:* klara fotspår står redan kvar ljusgröna (`_paintFoot 'done'`, :413, sedan
+  första bygget). Det som saknas är själva glöden.
 
 ### Progression
-- **[Quick] Synlig "hemfärds-mätare".** Eftersom alla fotspår ingår i vägen syns redan
-  framstegen som tända fotspår — förstärk med ett litet hus-ljus som tänds starkare ju
-  närmare figuren kommer.
+- ✅ ~~**[Quick] Synlig "hemfärds-mätare".**~~ Klar 2026-09-23 (v1.251.0): Husets två fönster
+  har ett eget ljuslager (`_houseLight`) som tonar mot varmgult i takt med andelen rätt
+  tryckta fotspår (`_lightHouse`, :671). Huset är fullt upplyst när figuren kommer hem och
+  släcks mjukt när nästa spår byggs.
 - **[Medium] Aktiv demofas.** Låt barnet (frivilligt) trycka *med* under demon utan straff
   ("klappa takten") så handen inte bara väntar — gör den långa 7-stegsdemon levande.
 
@@ -108,9 +110,16 @@ Stark grund, men flera billiga drag som en kräsen förälder märker:
 - **[Quick] Riktiga klipp via SFX-pipelinen.** Byt `pling`/`correct` mot mjuka, distinkta
   fotsteg-/pluttoner och ett glatt "hemma!"-sting (se [[real-audio-sfx]]). Lägg en lugn
   ängs-ambient (fågelkvitter, vind) i bakgrunden.
+  *Blockerad 2026-09-23:* kräver nya SFX-klipp (MOSS nere). Fotstegen är redan stämda toner.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Hemrepliken (`HOME_PRAISE`)
+  sades direkt efter `complete()`. Den sägs nu före, i samma tick, så berömmet utgår i stället
+  för att kapas. Snabbvinst: hemfärds-mätaren. Husets fönster tänds varmgult steg för steg med
+  sekvensen och är fullt upplysta när figuren skuttar in. Huset är nu en Container med
+  ljuslagret som barn, så `pop` vid hemkomsten tar med ljuset. [Quick] spår-glöd står öppen.
+  SFX-klippen är blockerade.
 - 2026-08-12 🔍 **Prövad som N10-kandidat och lämnad ORÖRD — punkten var redan byggd**
   (v1.177.0, ingen kodändring). `_stillaprobe` mätte spelet till **4,6 px i tre svep av tre**,
   bara 2 av 30 noder i rörelse, vilket såg ut som ett nästan dött spel. Det var det inte:

@@ -158,19 +158,32 @@ export default {
     this._root.addChild(this._finds)
 
     // Hus (mål) + figur (start) — persistenta, flyttas/byts per runda.
-    // RITAT hus (var en 🏠-emoji): stomme, tak, dörr, fönster och skorsten.
-    this._house = new Graphics()
-    this._house.roundRect(38, -52, 16, 30, 4).fill(0xb5544a).stroke({ width: 3, color: 0x8a3d36 }) // skorsten
-    this._house.roundRect(-46, -14, 92, 62, 6).fill(0xf0d7ae).stroke({ width: 4, color: 0xb08d62 })
-    this._house.moveTo(-58, -12).lineTo(0, -60).lineTo(58, -12).closePath()
-    this._house.fill(0xe0574f).stroke({ width: 4, color: 0xb03f3a })
-    this._house.roundRect(-14, 6, 28, 42, 4).fill(0x9a5c33).stroke({ width: 3, color: 0x6f4a2e }) // dörr
-    this._house.circle(7, 28, 3.5).fill(0xffd35c)
-    this._house.roundRect(18, 4, 22, 22, 4).fill(0x8ee0ff).stroke({ width: 3, color: 0x5aa6c4 }) // fönster
-    this._house.moveTo(29, 4).lineTo(29, 26).moveTo(18, 15).lineTo(40, 15).stroke({ width: 2.5, color: 0x5aa6c4 })
-    this._house.roundRect(-40, 4, 22, 22, 4).fill(0x8ee0ff).stroke({ width: 3, color: 0x5aa6c4 })
-    this._house.moveTo(-29, 4).lineTo(-29, 26).moveTo(-40, 15).lineTo(-18, 15).stroke({ width: 2.5, color: 0x5aa6c4 })
+    // RITAT hus (var en 🏠-emoji): stomme, tak, dörr, fönster och skorsten. Huset är en
+    // Container så att fönsterljuset (ett eget lager ovanpå) poppar med huset vid hemkomsten.
+    this._house = new Container()
+    const hus = new Graphics()
+    hus.roundRect(38, -52, 16, 30, 4).fill(0xb5544a).stroke({ width: 3, color: 0x8a3d36 }) // skorsten
+    hus.roundRect(-46, -14, 92, 62, 6).fill(0xf0d7ae).stroke({ width: 4, color: 0xb08d62 })
+    hus.moveTo(-58, -12).lineTo(0, -60).lineTo(58, -12).closePath()
+    hus.fill(0xe0574f).stroke({ width: 4, color: 0xb03f3a })
+    hus.roundRect(-14, 6, 28, 42, 4).fill(0x9a5c33).stroke({ width: 3, color: 0x6f4a2e }) // dörr
+    hus.circle(7, 28, 3.5).fill(0xffd35c)
+    hus.roundRect(18, 4, 22, 22, 4).fill(0x8ee0ff).stroke({ width: 3, color: 0x5aa6c4 }) // fönster
+    hus.moveTo(29, 4).lineTo(29, 26).moveTo(18, 15).lineTo(40, 15).stroke({ width: 2.5, color: 0x5aa6c4 })
+    hus.roundRect(-40, 4, 22, 22, 4).fill(0x8ee0ff).stroke({ width: 3, color: 0x5aa6c4 })
+    hus.moveTo(-29, 4).lineTo(-29, 26).moveTo(-40, 15).lineTo(-18, 15).stroke({ width: 2.5, color: 0x5aa6c4 })
+    // Hemfärds-mätaren: fönstren tänds varmgult i takt med sekvensen (alfa = andel rätt
+    // tryckta fotspår) — huset "väntar" på figuren och är fullt upplyst när den kommer hem.
+    this._houseLight = new Graphics()
+    for (const wx of [18, -40]) {
+      this._houseLight.roundRect(wx - 3, 1, 28, 28, 6).fill({ color: 0xffe9a0, alpha: 0.45 }) // sken
+      this._houseLight.roundRect(wx, 4, 22, 22, 4).fill(0xffd35c).stroke({ width: 3, color: 0xd99a2b })
+      this._houseLight.moveTo(wx + 11, 4).lineTo(wx + 11, 26).moveTo(wx, 15).lineTo(wx + 22, 15).stroke({ width: 2.5, color: 0xd99a2b })
+    }
+    this._houseLight.alpha = 0
+    this._house.addChild(hus, this._houseLight)
     this._house.eventMode = 'none'
+    this._house.interactiveChildren = false
     this._house.position.set(HOUSE.x, HOUSE.y)
     this._root.addChild(this._house)
 
@@ -228,6 +241,8 @@ export default {
     this._hintFoot = null
     this._eagerTween?.kill()
     this._eagerTween = null
+    // Nytt spår = husets fönster släcks mjukt igen (förra rundans tända hus tonar ut).
+    this._lightHouse(0, 0.5)
 
     // Töm förra rundans uppsamlade fynd + deras flyg-tweens.
     for (const t of this._findTweens) t?.kill?.()
@@ -500,6 +515,7 @@ export default {
       }
       this._collectFind(ctx, fp) // ev. gömt fynd flyger till samlingen
       this._expected++
+      this._lightHouse(this._expected / this._sequence.length)
       if (this._expected >= this._sequence.length) this._win(ctx, fp)
       else this._hopRabbit(ctx, fp)
     } else {
@@ -636,11 +652,12 @@ export default {
       puff(ctx.fxLayer, HOUSE.x, HOUSE.y - 16, { color: COLORS.cream })
     }, 1.2)
 
-    // Delat firande (celebrate-ljud + konfetti + stjärna + klistermärke) + tema-röst.
-    ctx.progress.complete()
-    // Egna hel-repliker, inte 'Hurra! ' + PRAISE: en konkatenerad sträng kan
+    // Tema-rösten sägs FÖRE complete() i samma tick: då utgår berömmet i stället för att
+    // kapas av den. Egna hel-repliker, inte 'Hurra! ' + PRAISE: en konkatenerad sträng kan
     // check.mjs inte hitta och /rost kan därför aldrig klippa den (POLERINGSRUNDA).
     ctx.services.voice.say(randomFrom(HOME_PRAISE))
+    // Delat firande (celebrate-ljud + konfetti + stjärna + klistermärke).
+    ctx.progress.complete()
     this._level = clampLevel(this._level + 1)
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
@@ -648,6 +665,14 @@ export default {
     this._nextCall = gsap.delayedCall(1.6, () => {
       if (this._alive) this._build(ctx)
     })
+  },
+
+  // Hemfärds-mätaren: fönsterljuset glider mot andelen klara fotspår (0 = släckt, 1 = hemma).
+  _lightHouse(frac, duration = 0.35) {
+    const l = this._houseLight
+    if (!l || l.destroyed) return
+    this._houseLightTw?.kill()
+    this._houseLightTw = gsap.to(l, { alpha: Math.max(0, Math.min(1, frac)), duration, ease: 'sine.out' })
   },
 
   // Mjuk puls på nästa förväntade fotspår (vänlig ledtråd, avslöjar inte för hårt).
@@ -703,6 +728,8 @@ export default {
     this._nextCall?.kill?.()
     this._hintTween?.kill()
     this._eagerTween?.kill()
+    this._houseLightTw?.kill()
+    this._houseLightTw = null
     for (const t of this._findTweens || []) t?.kill?.()
     if (this._rabbit && !this._rabbit.destroyed) {
       gsap.killTweensOf(this._rabbit)

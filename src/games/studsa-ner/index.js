@@ -870,7 +870,10 @@ export default {
 
     // Mjukare auto-hjälp (låt barnets egen sikt betyda något): först en vänlig röst-
     // vink vid ~6s, och bara om ingen rör skärmen ännu en stund kommer ett hjälp-släpp.
-    this._idle += t.deltaMS / 1000
+    // Tomgången står STILL medan rösten talar (V21): röst-vinken kan då aldrig kapa en
+    // replik. Pausad, inte nollad — samma klocka driver hjälpsläppet vid 12 s, och vinkens
+    // egen replik hade annars skjutit upp det till ~20 s.
+    if (!ctx.services.voice.talar) this._idle += t.deltaMS / 1000
     if (!this._helpCued && this._idle > 6) {
       this._helpCued = true
       this._announceTarget(ctx, 0)

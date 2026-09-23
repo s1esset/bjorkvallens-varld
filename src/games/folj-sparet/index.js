@@ -711,6 +711,10 @@ export default {
   _update(ctx, ticker) {
     if (!this._alive || this._busy) return
     this._idle += ticker.deltaMS / 1000
+    // V21/V24: tomgången räknas från TYSTNAD — påminnelsen kapade annars introt (9,0 s, appens
+    // längsta klipp) 8,8 s in. V21-svepet missade spelet: sondens långa replik ÄR det här
+    // introt, och rösten spärrar en exakt upprepning, så sonden kunde aldrig se det kapas.
+    if (ctx.services.voice.talar) this._idle = 0
     if (this._idle >= IDLE_DELAY) {
       this._idle = 0
       ctx.services.voice.say('Tryck på fötterna i samma ordning som de lyste.')

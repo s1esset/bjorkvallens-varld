@@ -14,6 +14,46 @@ Format:
 
 ---
 
+## 2026-09-24 natt — NYTT SPEL: Grodan Slurp 🐸 (nattpass, publicerat) · v1.254.0
+
+**Uppdraget (ägarens idé, 2026-09-23 23:45):** en ragdoll-groda med leder och muskler, en
+klibbtunga som fastnar överallt där massan avgör vem som flyger, insekter som äts, tumling vid
+smällar. Spelet ska vara oförutsägbart och kreativt, och man ska försöka igen. Spec-kortet
+godkändes, och bygget kördes som nattpass som startade av ett CronCreate-jobb i samma session.
+
+**Byggt:** `src/games/grodan-slurp/` i sex moduler.
+- `groda.js` (orkestratorn): aktiv ragdoll i matter.js, 12 kroppar. Vinkelgränser och
+  PD-muskler läggs som moment-PAR, grodan speglas vid vändning, och ett bålstöd verkar bara mot
+  mark.
+- `tunga.js`: fjädern stäms mot den reducerade massan μ = M·m/(M+m), så fördelningen blir
+  Newtons tredje lag utan specialkod.
+- `index.js`: rundflöde, sikthjälp, väjande insekter, "munnen äter själv", autohjälp som kommer
+  sent, och finishen (rap → magplask → grodkör).
+- `hinder.js`: kotte, sköldpadda och anka (vattenskidor), fisk och vind. Aldrig mer än en åt gången.
+- `dammen.js` och `insekter.js` byggdes av spelbyggar-agenter mot ett fast API.
+
+**Mätt, inte gissat:**
+- `_grodprobe.mjs` (Node): sittposens posfel 0,16 mot 1,15 utan muskler. Kotte 0,10 (Newton
+  0,09) och stock 1,62× (förväntat 1,57×). Hoppet är 198 px, och en smäll ger 1,1 s slak.
+- `_grodspelprobe.mjs` (Chrome, två otåliga rundor): riktade tryck ger 17–22 ätna/min, **blinda**
+  ger 4,7/min, alltså avgör skicklighet. 0 konsolfel, inklusive exit mitt i ett tungdrag.
+  **Kontrollarmen fällde två av mina egna antaganden.** Med fångstkorridor +30 åt slumptryck lika
+  mycket som riktade tryck; korridoren är nu +12. Min första "blinda" arm tryckte dessutom i
+  insektsbandet, så sikthjälpen räddade den; den trycker nu ≥150 px från varje insekt.
+- Två buggar hittades bara med sonden. Vassen fångade 284 av 286 tungskott vid munnen (tungan
+  går nu igenom det munnen sitter inne i). Skötseln spawnade en fluga var 0,6 s medan den förra
+  flög in (den räknar nu på HEM, inte läge).
+- Kritikern gav 7 av 8 punkter. Åtgärdat: röstklippen genererades (`npm run voice`, 10 st), den
+  mätta magen gjordes tydlig, "munnen äter själv" byggdes, och skalets hörnknappar hålls fria
+  från både insekter och gren.
+
+**Commits:** `e68b8be` feat(grodan-slurp): ragdoll-groda med klibbtunga i en damm (v1.254.0)
+**Grind:** check 0/0 · `test grodan-slurp` grönt utan fynd · `test:all` 86/86 (`leksakslada`
+bär en gammal `snal-snappyta`-varning) · `npm run build` ok · **publicerat** (Pages-körning
+35932343240, headSha e68b8be, live-bundlen innehåller 1.254.0 + grodan-slurp).
+**Öppet:** speltest med barn. Är 8 insekter lagom? Riktade rundor tar ~30–45 s för en exakt
+sond. Slangbella-hopp och en bredare damm (kamera) står i doc §4b.
+
 ## 2026-09-23 sen kväll — V24 (rundflödet kapade introt) + V23 (arc-strecket, väg b) · v1.253.0
 
 **Uppdraget:** "kör på V24 och ta sen V23 som alternativ b".

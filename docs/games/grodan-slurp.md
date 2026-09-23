@@ -1,7 +1,7 @@
 # Grodan Slurp (`grodan-slurp`)
 
-> ⚙️ fysik · tap · 3–5 år · 📝
-> Status: 📝 spec godkänd av ägaren 2026-09-23 kväll · bygget beställt som nattpass
+> ⚙️ fysik · tap · 3–5 år · ✅
+> Status: ✅ marknadsklar · byggd och publicerad i nattpasset 2026-09-23/24 (v1.254.0)
 
 ## 0. Spec (fylls i av `/spel` innan kod skrivs)
 
@@ -29,8 +29,8 @@ man lär sig att inte ge upp."*
 | **agens** | VAR tungan fastnar avgör allt: massan bestämmer vem som flyger mot vem. Högt uppe-insekter nås bara genom att kombinera: hopp → tunga i luften, svinga från grenen, dra en flytande stock närmare och använda den som plattform. Grodan som flyger genom luften med öppen mun äter insekter i vägen av sig själv. |
 | **variation** | Slumpad damm varje omgång (näckrosblad, vass, stockar, grenar, stenar) · tid på dagen (morgondimma / eftermiddag / skymning med lysande eldflugor) · insektsblandning: fluga (lugn), mygga, trollslända (pilar), fjäril (fladdrig), humla (TUNG — drar grodan runt i tungan). Sällsynt wow: guldfluga · en anka simmar förbi → fastnar tungan i den blir det vattenskidor över dammen. |
 | **motgång** | EN i taget, var ~10–15 s, först efter de 2 första insekterna: kotte som faller från trädet · sköldpadda som simmar förbi (hårt skal) · fisk som hoppar · vindpust. Träffas grodan → studsar av, ragdollar, tumlar, plaskar i, flyter upp och sätter sig igen. Uppätna insekter försvinner ALDRIG — motgången saktar bara ner. |
-| **ragdoll** | Aktiv ragdoll i matter.js, 11 kroppsdelar: huvud (bulliga ögon, bred mun), kropp, 2× överarm+underarm, 2× lår+underben+lång fot (simhud, tåkuddar). Leder med vinkelgränser + "muskler" som strävar mot en pose: hopkrupen sittpose i vila, fullt utsträckta ben i hoppet, bröstsim-spark i vattnet. Vid smäll → musklerna slaknar (ren ragdoll), sedan samlar grodan sig igen. Halsen blåses upp när den kvackar, magen växer för varje insekt. |
-| **autohjälp** | Sent och synligt: minst en lugn fluga surrar alltid inom räckhåll; efter flera bommar sjunker en tjock fluga ner mot grodan. Tomma tungskott = roligt "slurp-snärt" tillbaka, aldrig fel-ljud. |
+| **ragdoll** | Aktiv ragdoll i matter.js, 12 kroppsdelar (kortet sa 11 — räknefel; byggd: 2 + 2×2 arm + 2×3 ben): huvud (bulliga ögon, bred mun), kropp, 2× överarm+underarm, 2× lår+underben+lång fot (simhud, tåkuddar). Leder med vinkelgränser + "muskler" som strävar mot en pose: hopkrupen sittpose i vila, fullt utsträckta ben i hoppet, bröstsim-spark i vattnet. Vid smäll → musklerna slaknar (ren ragdoll), sedan samlar grodan sig igen. Halsen blåses upp när den kvackar, magen växer för varje insekt. |
+| **autohjälp** | Sent och synligt: en lugn fluga inom räckhåll under de FYRA FÖRSTA (sedan måste grodan ta sig dit — se §3); efter flera bommar sjunker en tjock fluga ner mot grodan. Tomma tungskott = roligt "slurp-snärt" tillbaka, aldrig fel-ljud. |
 | **mottagare** | Tre grodungar på ett näckrosblad vid kanten — kvackar en STÄMD stigande ton för varje insekt (skalan klättrar mot målet), hejar när grodan tumlar. |
 | **finish** | Mätt, rund groda → jätterap som blåser en bubbelring över dammen → grodan gör magplask (våg på ytan) → grodkören kvackar en melodi i stämd skala. |
 
@@ -227,3 +227,4 @@ som tweenas (barnbarn!) · repliker via `ctx.narTyst` (instruktion) eller `if (!
 ## 5. Status / loggar
 
 `2026-09-23 · spec-kort godkänt, bygget beställt som nattpass · —`
+`2026-09-24 · leverans 1 byggd: ragdoll, tunga, insekter, damm, hinder, finish; kritik åtgärdad; röstklipp; publicerad v1.254.0 · e68b8be`

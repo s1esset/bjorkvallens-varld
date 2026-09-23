@@ -555,15 +555,23 @@ export default {
     // Lite glad krydda ibland — utan att spamma.
     if (!guld && Math.random() < 0.5) floatText(ctx.fxLayer, bx, this._mouthY - 16, randomFrom(HAPPY_FX), { fontSize: 46 })
     const now = performance.now()
+    // V24: fångst-ropen är reaktioner på ett ögonblick — de hoppas över medan något talar
+    // i stället för att kapa det. Uppmätt: "Mums, precis vad jag ville ha!" kapade själva
+    // önskan ("Jag vill ha ett p—") 1,2 s in. Ekorrens hopp och gnistorna bär ögonblicket.
+    const talar = ctx.services.voice.talar
     if (guld) {
-      this._lastVoice = now
-      ctx.services.voice.say('En guldfrukt! Den räknas dubbelt!')
+      if (!talar) {
+        this._lastVoice = now
+        ctx.services.voice.say('En guldfrukt! Den räknas dubbelt!')
+      }
     } else if (wished) {
-      this._lastVoice = now
-      ctx.services.voice.say('Mums, precis vad jag ville ha!')
+      if (!talar) {
+        this._lastVoice = now
+        ctx.services.voice.say('Mums, precis vad jag ville ha!')
+      }
       sparkle(ctx.fxLayer, bx, this._mouthY - 40, { count: 12 })
       this._newWish(ctx, 1.1)
-    } else if (Math.random() < 0.35 && now - this._lastVoice > 2200) {
+    } else if (!talar && Math.random() < 0.35 && now - this._lastVoice > 2200) {
       this._lastVoice = now
       ctx.services.voice.say(randomFrom(CATCH_PRAISE))
     }

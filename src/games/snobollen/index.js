@@ -292,9 +292,11 @@ export default {
     this._lastVoice = this._gt
   },
 
-  // Talar bara om det gått en stund sedan sist — barnet ska inte dränkas i röst.
+  // Talar bara om det gått en stund sedan sist — barnet ska inte dränkas i röst. V24: och
+  // aldrig ovanpå en replik som talar; ropen här är reaktioner, och "Oj då!" kapade annars
+  // introt när snöbollen rullade in i något av sig själv. Bilden bär ögonblicket ändå.
   _say(ctx, text, gap = 2.4) {
-    if (!this._alive || this._gt - this._lastVoice < gap) return
+    if (!this._alive || this._gt - this._lastVoice < gap || ctx.services.voice.talar) return
     this._lastVoice = this._gt
     ctx.services.voice.say(text)
   },

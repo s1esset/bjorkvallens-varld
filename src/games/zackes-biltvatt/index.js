@@ -1934,6 +1934,8 @@ export default {
   },
 
   _idleTick(ctx, dt) {
+    // Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
     if (this._idle <= 6 || this._locked || this._spots.length === 0) return
     this._idle = 0

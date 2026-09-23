@@ -951,6 +951,9 @@ export default {
 
     // Idle: vänlig röst-repris + vink på närmaste kontroll + liten hjälpsam vindpust.
     if (!this._resolving) {
+      // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+      // annars kapar påminnelsens say() en replik som redan talar).
+      if (ctx.services.voice.talar) this._idle = 0
       this._idle += ticker.deltaMS
       if (this._idle >= IDLE_MS) {
         this._idle = 0

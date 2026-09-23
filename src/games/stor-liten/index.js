@@ -534,6 +534,12 @@ export default {
     this._idle?.kill()
     this._idle = gsap.delayedCall(6, () => {
       if (!this._alive || this._resolving) return
+      // Tomgången räknas från TYSTNAD: talar rösten (även den här raden själv, 8,4 s)
+      // bokas påminnelsen om i stället för att kapa repliken mitt i meningen.
+      if (ctx.services.voice.talar) {
+        this._resetIdle(ctx)
+        return
+      }
       ctx.services.voice.say(this._intro)
       this._hintRandom()
       this._resetIdle(ctx)

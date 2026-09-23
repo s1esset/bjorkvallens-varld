@@ -1156,8 +1156,11 @@ export default {
   _kaffe(ctx, post, zon, p) {
     const a = this._ans
     const audio = ctx.services.audio
-    audio.sfx('soft')
+    // Kaffets EGNA ljud i stället för ett 'soft': den varma doft-tonen (E4 → G4) och två små
+    // snus-toner i takt med gap-pulserna nedan (topp vid 0,16 s, ett varv per 0,32 s).
     audio.tone({ freq: 330, dur: 0.3, type: 'sine', vol: 0.1, slideTo: 392 })
+    audio.tone({ freq: 659.25, dur: 0.06, type: 'triangle', vol: 0.07, slideTo: 783.99, delay: 0.1 })
+    audio.tone({ freq: 659.25, dur: 0.06, type: 'triangle', vol: 0.07, slideTo: 783.99, delay: 0.42 })
     const kk = this._kallaPunkt(post, p)
     this._spar(ctx, kk.x, kk.y - 24, p.x, p.y - 22, 0xd9c0a0)
     if (a) {
@@ -1679,10 +1682,10 @@ export default {
    * en blink i toppen, taket 40 px käkfall (över det glider underkäkens kontur utanför
    * basens — mätt i `ansikte.js`). Solen far upp, verktygen jublar.
    *
-   * ⚠️ `progress.complete()` SÄGER SJÄLV EN REPLIK. `GameHost.js` kör
-   *    `voice.say(randomFrom(PRAISE))` inuti den, och `VoiceService.say()` kallar `cancel()`
-   *    som första sak — spelets egen "God morgon, pappa!" hade aldrig hunnit bli hörbar om
-   *    den stod före. complete() FÖRST, spelets replik efter: `_narTyst` ställer sig då i kö.
+   * ⚠️ `progress.complete()` FIRAR SJÄLV: vinstljud + konfettiregn + ett PRAISE (som den
+   *    hoppar över om berättaren redan talar). complete() FÖRST, spelets replik efter:
+   *    `_narTyst` ställer "God morgon, pappa!" i kö bakom berömmet, så båda hörs hela.
+   *    Spelet spelar alltså inget eget vinstljud — det vore samma ljud två gånger.
    */
   _final(ctx) {
     if (!this._alive || this._busy) return
@@ -1693,7 +1696,6 @@ export default {
     this._avbrytResa()
     this._luta(ctx, 0, 0.3)
     const a = this._ans
-    ctx.services.audio.sfx('celebrate')
 
     ctx.progress.setLevel((ctx.progress.get().highestLevel || 0) + 1)
     ctx.progress.complete()

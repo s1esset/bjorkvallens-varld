@@ -235,8 +235,10 @@ till bakänden av röret. Uppmätt: linsen pekar 156°, mot målet är 158°, fe
   är lätt att missa i en snabb blick. Den bärs upp av repliken och av att blicken följer
   ljudkällan, alltså är den inte ensam bärare — men ska den vara en höjdpunkt kan
   closure-deltat ökas (håll det slutna ögat något mer slutet).
-- **[Quick] `kittla` och `kaffe` delar fortfarande `audio.sfx('soft')`.** Filten fick eget
-  ljud (`flip` på, `whoosh` av), de två andra står kvar.
+- ✅ ~~**[Quick] `kittla` och `kaffe` delar fortfarande `audio.sfx('soft')`.**~~ Klar 2026-09-23
+  (v1.251.0). Halva premissen var inaktuell: `kittla` (`_kryp` index.js:1199) hade redan en egen
+  stämd stege, 660/784/988 Hz per nedslag. `kaffe` (`_kaffe` :1156) har nu i stället för `soft`
+  två små snus-toner (E5 → G5) i takt med gap-pulserna, ovanpå den varma doft-tonen.
 
 **Variation**
 - **[Medium] Sömnstegen 1→5 spelas identiskt varje omgång** — samma repliker, samma miner i
@@ -245,7 +247,8 @@ till bakänden av röret. Uppmätt: linsen pekar 156°, mot målet är 158°, fe
 **Karaktär**
 - **[Quick] Trumpetens "luggen flyger rakt upp" är approximerad.** Spec-kortet vill ha håret
   som far upp och ramlar ner; riggen har inget hårlager, så det är ett `ryck()` plus en puff
-  ovanför hjässan. En egen lugg-nod i `ansikte.js` vore det riktiga.
+  ovanför hjässan. En egen lugg-nod i `ansikte.js` vore det riktiga. ⛔ `ansikte.js` är delad
+  (`src/lib/`) — en lugg-nod där är en lib-ändring, inte en snabbvinst i spelet (prövat 2026-09-23).
 - **[Quick] Verktygskatten på nattduksbordet och den gående katten på kudden reagerar
   samtidigt** — kan läsa som två katter första gången. Behöver ses i verkligt spel innan
   något ändras.
@@ -253,9 +256,14 @@ till bakänden av röret. Uppmätt: linsen pekar 156°, mot målet är 158°, fe
 **Ljud**
 - **[Quick] Ägarens inspelningslista** — `snark` · `god-morgon` · `gaspning`. Spelet är klart
   och grönt utan dem (procedurell snarkning + stämda reserver), och `harSample()` tar klippen
-  i bruk samma dag de läggs i `public/audio/sfx/`.
+  i bruk samma dag de läggs i `public/audio/sfx/`. ⛔ Kräver ägarens inspelningar.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): finalen spelade ett eget vinstljud i
+  samma tick som `complete()` — struket (värdet firar). Ordningen `complete()` → "God morgon,
+  pappa!" via spelets `_narTyst` står kvar med flit: berömmet och repliken hörs båda hela.
+  Kaffet fick egna snus-toner i stället för `soft` (kittlingen hade redan sin egen stege).
 
 `2026-08-16 · doc skriven, spec flyttad hit ur IDEER post 2 ⓶ · (bygget följer)`
 

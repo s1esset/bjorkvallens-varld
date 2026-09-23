@@ -1076,6 +1076,8 @@ export default {
     const dt = t.deltaMS / 1000
     this._phys.update(t.deltaMS)
     this._idle += dt
+    // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
 
     if (this._flying && this._turd?.body) {
       this._flightTime += dt

@@ -1162,6 +1162,9 @@ export default {
     if (!this._alive) return
     const dt = ticker.deltaMS / 1000
     this._t += dt
+    // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+    // annars kapar påminnelsens say() en replik som redan talar).
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
 
     // Flytkraft FÖRE motorsteget (krafterna nollställs i Engine.update).

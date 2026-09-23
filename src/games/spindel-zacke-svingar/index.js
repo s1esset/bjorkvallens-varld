@@ -1246,7 +1246,10 @@ export default {
 
       // Idle: om-cue ~6s, sedan auto-släpp i bästa stund FÖRST ~11s (barnet ska hinna
       // släppa själv länge först) och bara i den goda framåt-stunden.
-      this._idle += ticker.deltaMS
+      // Tomgången står STILL medan rösten talar (V21): om-cuen kan då aldrig kapa en
+      // replik. Pausad, inte nollad — samma klocka driver auto-släppet vid 11 s, och
+      // om-cuens egen replik hade annars skjutit upp det till ~19 s.
+      if (!ctx.services.voice.talar) this._idle += ticker.deltaMS
       if (this._idle > 6000 && !this._didCue) {
         this._didCue = true
         this._idleCue(ctx)

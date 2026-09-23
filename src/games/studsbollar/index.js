@@ -20,7 +20,7 @@ import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
-import { bigCelebration, puff, sparkle, floatText, pop, ripple, shake, burst } from '../../lib/feedback.js'
+import { puff, sparkle, floatText, pop, ripple, shake, burst } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
@@ -166,6 +166,20 @@ export default {
     }
     floor.eventMode = 'none'
     this._root.addChild(floor)
+
+    // Bollhinken vid trädets fot: en boll läggs i för var fjärde korg (custom.korgar),
+    // tak 9. Den växer mellan spelomgångar och kan aldrig tömmas — något att komma
+    // tillbaka till. Dekor utan träffyta; högerkanten (x 86) ligger 27 px från redo-bollens
+    // greppyta (x 113) och långt under hemknappen. Ritad FÖRE spellagret, så bollar som
+    // rullar hit hamnar framför den.
+    this._hink = new Container()
+    this._hink.eventMode = 'none'
+    this._hink.interactiveChildren = false
+    this._hinkG = new Graphics()
+    this._hink.addChild(this._hinkG)
+    this._hink.position.set(54, 606)
+    this._root.addChild(this._hink)
+    this._ritaHink(ctx.progress.get().custom?.korgar || 0)
 
     // Korg (byggs/flyttas per nivå). Glöd-ring + programmatisk korg.
     this._basketView = new Container()
@@ -733,21 +747,61 @@ export default {
     this._readyBreathe?.kill()
     if (this._readyBall && !this._readyBall.destroyed) this._readyBall.visible = false
 
-    ctx.services.audio.sfx('celebrate')
+    // Vinstljud och konfettiregn spelar complete() själv (nedan); repliken sägs FÖRE så
+    // den ersätter berömmet i stället för att kapas av det.
     ctx.services.voice.say(randomFrom(FULL_SAY))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     sparkle(ctx.fxLayer, this._basket.x, this._basket.openingY, { count: 10 })
     this._catcherCheer(true) // Bobos egen vinstdans
 
     this._level += 1
     ctx.progress.setLevel(this._level)
-    ctx.progress.setCustom('korgar', (ctx.progress.get().custom?.korgar || 0) + this._need)
+    const korgar = (ctx.progress.get().custom?.korgar || 0) + this._need
+    ctx.progress.setCustom('korgar', korgar)
+    this._fyllHink(ctx, korgar)
     ctx.progress.complete()
 
     this._levelTimer?.kill()
     this._levelTimer = ctx.later(1.9, () => {
       if (this._alive) this._loadLevel(ctx, this._level)
     })
+  },
+
+  // ---- Bollhinken (synlig samling) -------------------------------------------
+
+  _ritaHink(korgar) {
+    const g = this._hinkG
+    if (!g || g.destroyed) return
+    const n = Math.min(9, Math.floor(korgar / 4))
+    this._hinkN = n
+    g.clear()
+    g.ellipse(0, 34, 38, 7).fill({ color: 0x000000, alpha: 0.14 })
+    // Handtaget ritas först, så högen ligger framför det.
+    g.moveTo(-30, -32).quadraticCurveTo(0, -80, 30, -32).stroke({ width: 3, color: 0x2f7fb8 })
+    // Högen: 4 + 3 + 2 bollar nedifrån; nedersta raden sitter nere i hinken bakom kanten.
+    const rader = [4, 3, 2]
+    let k = 0
+    for (let r = 0; r < rader.length && k < n; r++) {
+      for (let i = 0; i < rader[r] && k < n; i++, k++) {
+        const x = (i - (rader[r] - 1) / 2) * 16
+        const y = -38 - r * 13
+        const col = PLAYFUL[k % PLAYFUL.length]
+        g.circle(x, y, 8).fill(col).stroke({ width: 2, color: shade(col, 0.22) })
+        g.circle(x - 2.5, y - 2.5, 2.6).fill({ color: 0xffffff, alpha: 0.6 })
+      }
+    }
+    g.poly([-32, -30, 32, -30, 25, 32, -25, 32]).fill(0x4aa3df).stroke({ width: 4, color: 0x2f7fb8 })
+    g.roundRect(-35, -36, 70, 10, 5).fill(0x6cc0f0).stroke({ width: 3, color: 0x2f7fb8 })
+    g.roundRect(-24, -20, 7, 40, 3).fill({ color: 0xffffff, alpha: 0.3 }) // glans
+  },
+
+  // Full mätare → en boll till i hinken (om fyran är full). Bara det som VÄXER syns.
+  _fyllHink(ctx, korgar) {
+    const fore = this._hinkN || 0
+    this._ritaHink(korgar)
+    if (this._hinkN > fore && this._hink && !this._hink.destroyed) {
+      pop(this._hink, { scale: 1.22 })
+      sparkle(ctx.fxLayer, this._hink.x, this._hink.y - 56, { count: 8 })
+    }
   },
 
   // ---- Mätare-UI -----------------------------------------------------------
@@ -852,6 +906,10 @@ export default {
     if (this._basketGlow && !this._basketGlow.destroyed) gsap.killTweensOf(this._basketGlow.scale)
     if (this._meterLayer && !this._meterLayer.destroyed) gsap.killTweensOf(this._meterLayer.scale)
     if (this._matBtn && !this._matBtn.destroyed) gsap.killTweensOf(this._matBtn.scale)
+    if (this._hink && !this._hink.destroyed) {
+      this._hink._fxPopTl?.kill()
+      gsap.killTweensOf(this._hink.scale)
+    }
 
     this._balls.forEach((b) => {
       if (b.view && !b.view.destroyed) {

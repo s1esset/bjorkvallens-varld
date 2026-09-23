@@ -68,35 +68,42 @@ betyder något, och korgen saknar mottagare/själ.
 - **[Medium] Ge bolltyp en konsekvens.** Inför nivåer/hinder där valet spelar roll: en
   klibbig "kardborr-vägg" som bara den tunga bollen tränger igenom, eller en låg ribba som
   bara den studsiga hoppar över. Behåll no-fail (fel typ studsar bara tillbaka, försök igen).
-- **[Deep] Levande gropbollar.** Låt hinder-bollarna sakta rulla/guppa i gropen så de blir
-  *rörliga* mål — lite mer sikte, mer liv — med fortsatt generösa träffytor.
+- ✅ ~~**[Deep] Levande gropbollar.**~~ Redan byggd 2026-08-04 (`index.js:843`, svag sidkraft i
+  `_update`) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] Specialbollar.** Ibland en glittrande "stjärnboll" som ger en extra mätar-plats,
-  eller en stor "ballong-boll" som studsar extra högt. Rotera per nivå så tur 2 ≠ tur 1.
+- ✅ ~~**[Quick] Specialbollar.**~~ Redan byggd 2026-07-01 (`index.js:36`, `SPECIAL_CYCLE`) —
+  uppdagat 2026-09-23.
 - **[Quick] Varierande korgplacering** finns redan (flyttar/krymper) — lägg till att korgen
   ibland sitter på en liten *kulle* eller gungar långsamt i sidled på högre nivåer.
 
 ### Juice
-- **[Quick] Stigande kombo-ljud.** När en boll knuffar en boll in i korgen: en uppåtklättrande
-  pling-kaskad istället för tystade studsar. Skärm-mikroskak skalar med bollens fart i korgen.
-- **[Quick] Korg-reaktion.** Korgen "slukar" bollen (öppningen squashar), nät-ring krusar,
-  och en liten dammpuff far upp — i stället för bara ett emoji som flyter.
+- ✅ ~~**[Quick] Stigande kombo-ljud.**~~ Redan byggd 2026-07-01 (`index.js:43`, `COMBO_SCALE` +
+  `_screenShake`) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Korg-reaktion.**~~ Redan byggd 2026-07-01 (`index.js:691`, `_basketGulp` + ring
+  + dammpuff) — uppdagat 2026-09-23.
 
 ### Progression
-- **[Quick] Synlig samling.** Låt bollarna stapla sig synligt i en hink/på en hylla över nivåer
-  (samma idé som bubbelbok) så det känns som att man *bygger* något.
+- ✅ ~~**[Quick] Synlig samling.**~~ Klar 2026-09-23 (v1.251.0): en ritad bollhink vid trädets fot
+  (x 54, 27 px från redo-bollens greppyta) får en boll per fyra korgar ur `custom.korgar`, tak 9.
+  Den växer mellan omgångar och kan aldrig tömmas; en ny boll poppar hinken vid full mätare.
 
 ### Karaktär & berättelse
-- **[Deep] En mottagare vid korgen.** Maskoten Bobo (eller ett djur) sitter vid korgen, hejar
-  när man siktar, sträcker upp armarna och fångar bollen, och gör en egen vinst-dans i stället
-  för generisk konfetti. Ger en anledning att bry sig om varje skott.
+- ✅ ~~**[Deep] En mottagare vid korgen.**~~ Redan byggd 2026-08-04 (`index.js:986` `makeCatcher`,
+  `_catcherCheer` :577) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Bind upp riktiga SFX** (studs, "swish", korg-plopp) från SFX-pipelinen
   ([[real-audio-sfx]]) när MOSS kör; variera vinst-stinget per nivå.
+  *Not 2026-09-23:* `plopp` och `whoosh` är redan riktiga klipp och vinst-stinget varieras
+  app-brett; ett eget studs-/swish-klipp väntar på SFX-pipelinen (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): synlig samling — bollhinken (se §4).
+  Dubbelfirandet: `_levelComplete` spelade själv `sfx('celebrate')` och `bigCelebration` i samma
+  tick som `complete()` — båda strukna; repliken ur `FULL_SAY` (sagd före `complete()`), glittret
+  och Bobos vinstdans är kvar. Omätt i webbläsare (koordinatorn testar).
 
 - 2026-08-10 🎨 **D1: golvet fick ljus från horisonten** (`ec9a241`, v1.122.0).
   Golvet låg på **70 290 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.

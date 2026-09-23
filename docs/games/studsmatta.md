@@ -56,37 +56,52 @@ Kort sagt: *en riktigt fin kontroll som spelet både motarbetar (centrering) och
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Lätta på auto-centreringen.** Låt sidledskontrollen faktiskt styra var kaninen
-  landar — minska/dröj centreringskraften så att flytta mattan ger en kännbar sidled-studs.
-  Behåll en mjuk mitt-dragning bara som anti-vingel, inte som en osynlig autopilot.
-- **[Quick] Skjut auto-glidet senare / gör det mjukare.** Behåll no-fail, men låt barnet få
-  fler studsar att lyckas själv innan kaninen glider — så känns fångsten som *deras*.
+- ✅ ~~**[Medium] Lätta på auto-centreringen.**~~ Redan byggd (anti-vingel 0,008 per bildruta,
+  `index.js:294`; byggd 2026-07-01, se §5) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Skjut auto-glidet senare / gör det mjukare.**~~ Redan byggd (`ASSIST_DELAY` 10 s,
+  `GLIDE_DELAY` 18 s, :52–53; byggd 2026-07-01) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
 - **[Quick] Rörliga & speciella mål.** En ballong som sakta driver i sidled, ett moln som
   gömmer en stjärna, en gyllene jätte-morot (värd extra) — så varje nivå överraskar.
+  ✅ *Gyllene jättemoroten klar 2026-09-23 (v1.251.0):* ungefär var sjätte nivå är ett mål en
+  guldmorot, 1,4× så stor (bara konsten — fångsten är samma avstånd), räknas dubbelt i korgen
+  och får en egen arpeggio + gnistskur (`GULD_CHANS` :69, `makeMal` :982, fångst :649).
+  Kvar: ballongen som driver och molnet som gömmer en stjärna.
 - **[Quick] Mat på studsmattan.** Då och då studsar ett extra föremål (en boll, en fjäder) som
   ändrar studsen lekfullt.
 
 ### Juice
-- **[Quick] Höjd-ton.** En ton som stiger med kaninens höjd på väg upp och faller på väg ner;
-  ett mjukt "wheee" vid de stora studsarna. Mattan vibrerar lite kvar efter ett hårt studs.
+- ✅ ~~**[Quick] Höjd-ton.**~~ Klar 2026-09-23 (v1.251.0): en låg glidton uppåt vid varje studs
+  (C5 → G5/C6/E6 efter studskraften, :385, strypt till en per 250 ms) och en fallande när
+  kaninen vänder i luften (:274). Kvar och **blockerat**: det talade/inspelade "wheee" (nytt
+  klipp, TTS och MOSS nere).
 - **[Quick] Kaninen lever.** Glada ögon som tittar mot närmaste mål, utsträckta ben i toppen,
   ett litet "hopp!"-ansikte — utöver dagens squash.
+  ✅ *Ögonen klara 2026-09-23 (v1.251.0):* pupillerna är egna noder som glider mot närmaste
+  kvarvarande mål, räknat i kaninens eget (lutande) rum, och mot Bobo när allt är fångat
+  (`_titta` :848). Kvar: utsträckta ben i toppen och ett "hopp!"-ansikte.
 
 ### Progression
-- **[Medium] Samla det du fångar.** Morötter landar i en korg/kaninens mage (mätt-mätare) i
-  stället för att bara försvinna — något att se växa över nivåer.
+- ✅ ~~**[Medium] Samla det du fångar.**~~ Redan byggd (korgen fylls, `_toBasket` :556 +
+  `_fillBasket` :542; byggd 2026-08-06, se §5) — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
-- **[Deep] Ge kaninen ett varför.** Den samlar morötter till en picknick / matar en kompis vid
-  kanten som hejar och firar — egen finish i stället för generisk konfetti.
+- ✅ ~~**[Deep] Ge kaninen ett varför.**~~ Redan byggd (picknicken med Bobo, `_buildPicnic` :499 +
+  `_boboMunch` :591; byggd 2026-08-06, se §5) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Riktiga SFX** (studs-boing, morots-knapr, "wheee") via SFX-pipelinen
-  ([[real-audio-sfx]]); variera vinst-stinget.
+  ([[real-audio-sfx]]); variera vinst-stinget. *2026-09-23:* studs-boinget är ett riktigt klipp
+  (`public/audio/sfx/boing.mp3`, spelas vid stora studsar) och vinststinget varieras av skalet.
+  Morots-knapret och "wheee" är **blockerade** på SFX-pipelinen (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_winLevel` spelade själv vinstljud
+  och konfettiregn i samma tick som `complete()` — strukna (WIN_CHEERS sägs före och står kvar).
+  Nytt: sällsynt gyllene jättemorot (räknas dubbelt), höjdton upp och ned per studs, och
+  kaninens ögon följer närmaste mål. §4 stämd mot koden: 4 punkter var redan byggda, 1 blockerad.
 
 - 2026-06-30: Doc skriven (granskning + plan). Spelet testat (errorCount 0, skärmdump sedd).
   Nyligen ombyggt (dra-matta x/y-kontroll) — kontrollen är stark men motarbetas av auto-centrering.

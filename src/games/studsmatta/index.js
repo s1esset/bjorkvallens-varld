@@ -15,7 +15,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, nudge, Matter } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { makeStjarna } from '../../lib/foremal.js'
-import { floatText, sparkle, puff, burst, bigCelebration, pop , kvittera} from '../../lib/feedback.js'
+import { floatText, sparkle, puff, burst, pop, kvittera } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS } from '../../lib/theme.js'
@@ -63,6 +63,22 @@ const COLLECT_CHEERS = ['Mums!', 'En till!', 'Bra fångat!', 'Ja!']
 const WIN_CHEERS = ['Du fångade alla! Hurra!', 'Allihop! Vad duktig du är!', 'Bravo! Alla fångade!']
 const BOOST_FLOATS = ['🎵', '⭐', '🎶', '✨']
 
+// Sällsynt GYLLENE JÄTTEMOROT: ungefär var sjätte nivå är ett av målen en guldmorot som är
+// 1,4× så stor och räknas dubbelt i korgen. Bara KONSTEN växer — fångsten är ett avstånd
+// (COLLECT_R), inte en träffyta, och den är densamma för alla mål.
+const GULD_CHANS = 1 / 6
+const GULD_SKALA = 1.4
+
+// Höjdtonen: en mjuk glidton uppåt vid varje studs (toppen efter hur hårt det studsar) och
+// en fallande när kaninen vänder i luften. Stämda ändpunkter i C-dur; låg volym, för den
+// ljuder vid VARJE studs, även när ingen rör skärmen.
+const HOJD_BAS = 523.25 // C5
+const HOJD_TOPP = [783.99, 1046.5, 1318.51] // G5 · C6 · E6 efter studskraften
+const HOJD_VOL = 0.05
+
+// Ögonen tittar mot närmaste mål (flyttas högst så här många px från sin vila).
+const OGON_UTSLAG = 3
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 export default {
@@ -85,6 +101,11 @@ export default {
     this._bedX = 640
     this._bedY = DEFAULT_BED_Y
     this._tapBoost = false // tryck-fallback: en gångs extra-studs
+    // Höjdtonen (se HOJD_*): nollställs per omgång — modulen är en singleton, och en topp
+    // kvar från förra omgången hade gett en ensam fallande ton vid första studsen.
+    this._prevVy = 0
+    this._hojdTopp = 0
+    this._hojdAt = 0
     this._dragging = false
     this._gliding = false
     this._resolving = false
@@ -248,6 +269,16 @@ export default {
     this._shadow.scale.set(1 - h * 0.5, 1)
     this._shadow.alpha = 0.18 * (1 - h * 0.6)
 
+    // Höjdtonens andra halva: kaninen vände i toppen → en fallande glidton, en gång per studs.
+    const vy = char.velocity.y
+    if (this._hojdTopp && this._prevVy < 0 && vy >= 0) {
+      ctx.services.audio.tone({ freq: this._hojdTopp, slideTo: HOJD_BAS, dur: 0.45, type: 'sine', vol: HOJD_VOL * 0.8 })
+      this._hojdTopp = 0
+    }
+    this._prevVy = vy
+
+    this._titta()
+
     if (this._gliding) return // hjälp-glid styr kaninen helt
 
     // Mjukt tak: kommer kaninen ändå för högt, studsa lugnt tillbaka ned.
@@ -349,6 +380,14 @@ export default {
     this._dipBed()
     this._squash(this._charView, big)
     ctx.services.audio.sfx(big ? 'boing' : 'soft')
+    // Höjdtonen: glider upp mot en topp som följer studskraften; fallet spelas när kaninen
+    // vänder (se _update). Golvet på 250 ms stryper dubbelstudsar.
+    if (now - (this._hojdAt || 0) > 250) {
+      this._hojdAt = now
+      const topp = HOJD_TOPP[power < 0.34 ? 0 : power < 0.67 ? 1 : 2]
+      ctx.services.audio.tone({ freq: HOJD_BAS, slideTo: topp, dur: 0.3 + power * 0.25, type: 'sine', vol: HOJD_VOL })
+      this._hojdTopp = topp
+    }
 
     if (big) {
       Body.setAngularVelocity(char, (Math.random() - 0.5) * 0.3)
@@ -445,12 +484,13 @@ export default {
     // Toppen sjunker (högre upp) med nivån; aldrig högre än kaninen säkert når.
     const top = Math.max(210, 460 - level * 55)
     const jit = level >= 4 ? () => (Math.random() * 50 - 25) : () => 0
+    const guldIdx = Math.random() < GULD_CHANS ? Math.floor(Math.random() * n) : -1
     for (let i = 0; i < n; i++) {
       const f = n === 1 ? 0.5 : i / (n - 1)
       const x = clamp(380 + f * 520 + jit(), 360, 920)
       // Varannan högt (top), varannan mitt — tvingar barnet att variera höjden.
       const y = clamp((i % 2 === 0 ? top : Math.min(460, top + 150)) + jit(), 200, 470)
-      const kind = Math.random() < 0.5 ? 'star' : 'carrot'
+      const kind = i === guldIdx ? 'guld' : Math.random() < 0.5 ? 'star' : 'carrot'
       this._addGoal(x, y, kind)
     }
   },
@@ -516,7 +556,7 @@ export default {
   _toBasket(ctx, fromX, fromY, kind) {
     const bx = PICNIC_X - 74
     const by = PICNIC_GROUND - 22
-    const view = kind === 'star' ? makeStar() : makeCarrot()
+    const view = makeMal(kind)
     view.position.set(fromX, fromY)
     view.scale.set(0.7)
     view.eventMode = 'none'
@@ -556,7 +596,7 @@ export default {
   },
 
   _addGoal(x, y, kind) {
-    const view = kind === 'star' ? makeStar() : makeCarrot()
+    const view = makeMal(kind)
     view.position.set(x, y)
     this._goalLayer.addChild(view)
     // Lugn andning + mjuk gunga (drar blicken; exit-säkert via gsap-tween på view).
@@ -605,13 +645,21 @@ export default {
   _collectGoal(ctx, g) {
     if (!this._alive || g.got) return
     g.got = true
-    this._collected++
+    const guld = g.kind === 'guld'
+    this._collected += guld ? 2 : 1 // guldmoroten räknas dubbelt i korgen
     this._sinceCollect = 0
     this._helpStage = 0
 
     sparkle(ctx.fxLayer, g.x, g.view.y, { count: 7 })
-    puff(ctx.fxLayer, g.x, g.view.y, { count: 8, color: g.kind === 'star' ? COLORS.yellow : COLORS.orange })
-    ctx.services.audio.sfx(g.kind === 'star' ? 'magi' : 'pling')
+    puff(ctx.fxLayer, g.x, g.view.y, { count: 8, color: g.kind === 'carrot' ? COLORS.orange : COLORS.yellow })
+    ctx.services.audio.sfx(g.kind === 'carrot' ? 'pling' : 'magi')
+    if (guld) {
+      // Guldet får en egen klang: C-dur-arpeggio uppåt och en gnistskur.
+      for (const [f, d] of [[1046.5, 0], [1318.51, 0.08], [1567.98, 0.16], [2093, 0.24]]) {
+        ctx.services.audio.tone({ freq: f, dur: 0.14, type: 'triangle', vol: 0.12, delay: d })
+      }
+      burst(ctx.fxLayer, g.x, g.view.y, { count: 14, colors: [0xffd84a, 0xfff3b0, 0xffb300] })
+    }
     // Flyger till Bobos picknickkorg i stället för att bara försvinna — det är
     // DÄRFÖR kaninen samlar. (Ersätter den svävande emoji-texten.)
     this._toBasket(ctx, g.x, g.view.y, g.kind)
@@ -692,9 +740,9 @@ export default {
     this._idle = 0
 
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
+    // Vinstljud och konfettiregn kommer från complete() nedan. Vinstrepliken sägs FÖRE
+    // complete() i samma tick — då står den kvar och skalets beröm utgår.
     this._say(ctx, randomFrom(WIN_CHEERS), 0)
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, this._charView.x, this._charView.y, { count: 16 })
     this._boboMunch(ctx, true) // picknicken är serverad
 
@@ -794,6 +842,46 @@ export default {
       .to(this._bedProxy, { dip: 0, duration: 0.5, ease: 'elastic.out(1, 0.45)' })
   },
 
+  // Kaninens ögon tittar mot närmaste mål som är kvar — och mot Bobo när allt är fångat.
+  // Riktningen räknas i kaninens EGET rum (vyn lutar med farten), och ögonen glider dit i
+  // stället för att hoppa. Ögonnoderna ägs bara av den här raden; squash äger vyns skala.
+  _titta() {
+    const v = this._charView
+    const ogon = v?._ogon
+    if (!ogon || v.destroyed) return
+    const c = this._char.position
+    let mx = null
+    let my = null
+    let best = Infinity
+    for (const g of this._goals) {
+      if (g.got || !g.view || g.view.destroyed) continue
+      const d = (g.x - c.x) ** 2 + (g.view.y - c.y) ** 2
+      if (d < best) {
+        best = d
+        mx = g.x
+        my = g.view.y
+      }
+    }
+    if (mx === null) {
+      mx = this._bobo && !this._bobo.destroyed ? this._bobo.x : PICNIC_X
+      my = this._bobo && !this._bobo.destroyed ? this._bobo.y : PICNIC_GROUND - 100
+    }
+    const dx = mx - v.x
+    const dy = my - v.y
+    const cos = Math.cos(-v.rotation)
+    const sin = Math.sin(-v.rotation)
+    const lx = dx * cos - dy * sin
+    const ly = dx * sin + dy * cos
+    const len = Math.hypot(lx, ly) || 1
+    const ox = (lx / len) * OGON_UTSLAG
+    const oy = (ly / len) * OGON_UTSLAG
+    for (const o of ogon) {
+      if (o.destroyed) continue
+      o.x += (o._vilaX + ox - o.x) * 0.2
+      o.y += (o._vilaY + oy - o.y) * 0.2
+    }
+  },
+
   // Squash (platt) -> stretch (lång) -> tillbaka. Tweenar bara scale.
   _squash(view, big = false) {
     if (!view || view.destroyed) return
@@ -860,10 +948,6 @@ function makeBunny() {
   g.ellipse(-R * 0.62, R * 0.86, R * 0.3, R * 0.16).fill(0xe8ded0) // fötter
   g.ellipse(R * 0.62, R * 0.86, R * 0.3, R * 0.16).fill(0xe8ded0)
   g.circle(0, -R * 0.32, R * 0.66).fill(0xf4ede3) // huvud
-  g.circle(-R * 0.24, -R * 0.4, R * 0.11).fill(0x33291f)
-  g.circle(R * 0.24, -R * 0.4, R * 0.11).fill(0x33291f)
-  g.circle(-R * 0.2, -R * 0.45, R * 0.04).fill(0xffffff)
-  g.circle(R * 0.28, -R * 0.45, R * 0.04).fill(0xffffff)
   g.ellipse(0, -R * 0.16, R * 0.1, R * 0.08).fill(0xe79ab0) // nos
   g.moveTo(-R * 0.14, -R * 0.06).quadraticCurveTo(0, R * 0.06, R * 0.14, -R * 0.06)
     .stroke({ width: 2.6, color: 0x8a685a, cap: 'round' })
@@ -875,21 +959,49 @@ function makeBunny() {
       .stroke({ width: 1.6, color: 0xb9ada0 })
   }
   c.addChild(g)
+  // Ögonen är EGNA noder (pupill + glans) så de kan titta mot målet (`_titta`). Vilan
+  // sparas på noden; eget prefix, aldrig Pixis `_cx/_cy`.
+  c._ogon = [-1, 1].map((s) => {
+    const o = new Graphics()
+    o.circle(0, 0, R * 0.11).fill(0x33291f)
+    o.circle(R * 0.04, -R * 0.05, R * 0.04).fill(0xffffff)
+    o.position.set(s * R * 0.24, -R * 0.4)
+    o._vilaX = o.x
+    o._vilaY = o.y
+    o.eventMode = 'none'
+    c.addChild(o)
+    return o
+  })
   c.eventMode = 'none'
   c.interactiveChildren = false
   return c
 }
 
-// Morot med blast.
-function makeCarrot() {
+// Målets bild efter sort. Guldmoroten ritas i sitt eget barn som skalas — yttre noden får
+// målets andning och gupp (`_addGoal`) precis som de andra, så ingen tween slåss om skalan.
+function makeMal(kind) {
+  if (kind === 'star') return makeStar()
+  if (kind !== 'guld') return makeCarrot()
+  const c = new Container()
+  const art = makeCarrot(true)
+  art.scale.set(GULD_SKALA)
+  c.addChild(art)
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  return c
+}
+
+// Morot med blast (guld = den sällsynta jättemoroten: guldkropp och en glansstrimma).
+function makeCarrot(guld = false) {
   const c = new Container()
   const g = new Graphics()
-  g.moveTo(-16, -14).lineTo(16, -14).lineTo(0, 32).closePath().fill(0xff8a3d)
+  g.moveTo(-16, -14).lineTo(16, -14).lineTo(0, 32).closePath().fill(guld ? 0xffc93c : 0xff8a3d)
   for (let i = 1; i <= 3; i++) {
     const t = i / 4
     g.moveTo(-16 + 32 * t * 0.5 - 8 * (1 - t), -14 + 46 * t).lineTo(16 - 32 * t * 0.5 + 8 * (1 - t), -14 + 46 * t)
-      .stroke({ width: 2.4, color: 0xd9661f, alpha: 0.7 })
+      .stroke({ width: 2.4, color: guld ? 0xd99a00 : 0xd9661f, alpha: 0.7 })
   }
+  if (guld) g.moveTo(-8, -9).lineTo(-2, 16).stroke({ width: 3, color: 0xfff6c8, alpha: 0.85, cap: 'round' })
   for (const [dx, rot] of [[-11, -0.5], [0, 0], [11, 0.5]]) {
     const leaf = new Graphics()
     leaf.ellipse(0, -14, 6, 16).fill(0x5bbf6a)

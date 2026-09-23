@@ -170,6 +170,9 @@ export default {
           sparkle(ctx.fxLayer, CX + a.R * Math.cos(ang), CY + a.R * Math.sin(ang), { count: 2 })
         }
       }
+      // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+      // annars kapar påminnelsens say() en replik som redan talar).
+      if (ctx.services.voice.talar) this._idle = 0
       this._idle += t.deltaMS
       if (this._idle > IDLE_DELAY) this._idleHelp(ctx)
     }

@@ -358,6 +358,8 @@ export default {
   _update(ctx, ticker) {
     if (!this._alive || this._state !== 'listening') return
     this._idle += ticker.deltaMS / 1000
+    // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     if (this._idle > 6) {
       this._idle = 0
       ctx.services.voice.say('Din tur — tryck på plattorna!')

@@ -403,7 +403,14 @@ export default {
     this._lastInteract = performance.now()
     // Kopparna "landar" — ett sista mjukt tock innan gissningen.
     this._tock(ctx, 0.13)
-    ctx.services.voice.say('Var tog den vägen? Tryck på koppen!')
+    // V24: gissningen börjar 3,3 s in och introt är 5,3 s — frågan kapade "Tryck på rätt
+    // kopp." varje start. Kopparna är tryckbara genast; bara frågan väntar in rösten, och den
+    // ställs bara om barnet inte redan hunnit gissa i den här rundan.
+    const runda = this._rundaNr
+    ctx.narTyst(() => {
+      if (!this._alive || this._rundaNr !== runda || this._phase !== 'guess' || this._resolving) return
+      ctx.services.voice.say('Var tog den vägen? Tryck på koppen!')
+    })
   },
 
   // Tap på en kopp.

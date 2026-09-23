@@ -18,8 +18,8 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { puff, sparkle, ripple, floatText, pop, wiggle, bigCelebration, breathe , kvittera} from '../../lib/feedback.js'
-import { COLORS, PRAISE, shade } from '../../lib/theme.js'
+import { puff, sparkle, ripple, floatText, pop, wiggle, breathe , kvittera} from '../../lib/feedback.js'
+import { COLORS, shade } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { verticalFillAlpha, groundFill } from '../../lib/form.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
@@ -2509,8 +2509,8 @@ export default {
     if (this._charging?.view && !this._charging.view.destroyed) this._charging.view.destroy()
     this._charging = null
     this._hideHint()
-    this._sound(ctx, null, 'celebrate', 'celebrate', 300)
-    ctx.services.voice.say(randomFrom(PRAISE))
+    // Vinstljud, beröm och konfettiregn spelar complete() själv (nedan) — här bara det
+    // som är badets eget: Zackes jubel, plasket och pruttsvärmen.
     if (this._zacke && !this._zacke.destroyed) pop(this._zacke)
     this._setMood('jubel', 2.4)
     this._splash()
@@ -2522,7 +2522,6 @@ export default {
       const x = WALL_L + 60 + Math.random() * (WALL_R - WALL_L - 120)
       this._pushBubble(x, r, -2 - Math.random() * 2)
     }
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     ctx.progress.complete()
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -2533,8 +2532,15 @@ export default {
   _newRound() {
     if (!this._alive) return
     this._applyLevel()
-    // Säg vilket bad det blev — den hörbara halvan av "runda 2 ≠ runda 1".
-    this._ctx?.services?.voice?.say(this._bath().say)
+    // Säg vilket bad det blev — den hörbara halvan av "runda 2 ≠ runda 1". Köar bakom
+    // berömmet från complete() (1,0–2,3 s) i stället för att kapa det 1,5 s in; badet
+    // byter färg genast, bara orden väntar. Har nästa bad hunnit bli klart tappas den.
+    const ctx = this._ctx
+    const bad = this._bath().say
+    const lvl = this._level
+    ctx?.narTyst(() => {
+      if (this._alive && this._level === lvl) ctx.services.voice.say(bad)
+    })
     this._drawGoal()
     // Rensa kvarvarande firande-bubblor så de inte direkt poppar och fyller det nya
     // badet igen (det skapade en re-complete-loop = upprepade firanden + ljud-distorsion).

@@ -166,8 +166,16 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
 ### Ljud
 - **[Quick] Variera fart/pop-klippen + lugn vatten-ambient** (skvalp + droppande kran) för
   lugn och rikedom; behåll den befintliga ljud-strypningen.
+  *Not 2026-09-23:* blockerad — `fart` har ett enda klipp i SFX-manifestet; varianter kräver
+  SFX-pipelinen (MOSS nere). `pappa_prutt_1–5` finns men är Pappas röst, inte Zackes.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): inga öppna A-snabbvinster (den enda
+  [Quick] väntar på SFX-klipp). Dubbelfirandet: `_onComplete` spelade själv vinstljud, ett PRAISE
+  och `bigCelebration` i samma tick som `complete()` — alla tre strukna (Zackes jubel, plasket och
+  pruttsvärmen är kvar). Nästa bads namn ("Jordgubbsbad!") kom 1,5 s in och kapade berömmet; det
+  köas nu i `ctx.narTyst` medan badet byter färg genast. Omätt i webbläsare.
 
 - 2026-08-12 🫧 **BUBBLAN LIGGER AN MOT YTAN INNAN DEN BRISTER** (v1.182.0, LYFTPLAN B2 / N4).
   Bubblan poppade i **samma bildruta** som toppen bröt ytan — det fanns inget liggande skede

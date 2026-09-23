@@ -75,24 +75,29 @@ bildbyte utan eget uttryck**, och världen minns inget av det jag skapat.
   blev — agens utan svårighet.
 
 ### Variation & överraskning
-- **[Quick] Kedjespecifik poff.** Egna partiklar/färg per kedja: gröna blad när växten
-  gror, blå droppar ur molnet, rök + gnistor när raketen tänds, hjärtan vid djuren,
-  stjärnstoft vid måne/stjärna. Direkt mycket mer "magi" för låg insats.
-- **[Quick] Fler kedjor + temarundor.** Utöka poolen och kör ibland tematiska omgångar
-  (en "djur"-runda, en "väder"-runda) så två rundor aldrig känns lika.
+- ✅ ~~**[Quick] Kedjespecifik poff.**~~ Redan byggd (`FLAVORS` + `_poof` :426; se §5 2026-07-01) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Temarundor.**~~ Klar 2026-09-23 (v1.251.0): `_pickChains` (:171) gör ibland (35 %,
+  aldrig spelets första omgång, aldrig två i rad) en ren djur- eller himmelsrunda (`TEMAN`),
+  med plattor i temats egna färger. Dubbletter tillåts hellre än att temat blandas upp.
+- **[Quick] Fler kedjor.** Utöka poolen. *(Blockerad 2026-09-23: varje ny kedja behöver en ny
+  resultatreplik — "En …!" — och TTS är nere.)*
 - **[Medium] Grannreaktion.** När en sak blir klar puttar den grannen lite (en klar sol
   får grannblomman att blomma snabbare / gnistra). Saker som *känns* sammanlänkade.
 
 ### Juice
-- **[Quick] Förvandlingsljud med stigande tonhöjd** — varje steg uppåt i kedjan låter en
-  ton högre, sista steget = ett litet "ta-da". Egen klang per kedjetyp (sprätt för växt,
-  whoosh för raket).
-- **[Quick] Starkare slutpose per sak.** Vid sista steget: stjärnan tindrar, månen får
-  ett mjukt sken, blomman vajar — en kort egen "klar"-animation utöver floatText.
+- ✅ ~~**[Quick] Förvandlingsljud med stigande tonhöjd.**~~ Redan byggd (ett halvtonssteg per steg
+  :290, "ta-da" 784→1047 Hz på sista; se §5 2026-07-01) — uppdagat 2026-09-23. Egen klang per
+  kedjetyp (sprätt, whoosh) byggdes inte.
+- ✅ ~~**[Quick] Starkare slutpose per sak.**~~ Klar 2026-09-23 (v1.251.0): `SLUTPOSE` + `_slutpose`
+  (:343) — blomma/snögubbe vajar, höna/hund/katt skuttar, fjärilen slår med vingarna, raketen
+  lättar och darrar, stjärnan tindrar (gnistor + två höga pling), månen/regnbågen får ett mjukt
+  sken som stannar kvar. Allt på konsten (`label`; hopp via pivot eftersom tickern äger y), och
+  posen spelas igen vid tryck på en klar sak.
 
 ### Progression
-- **[Medium] Stegtrappa per pod.** Visa små punkter ovanför varje pad (t.ex. ●○○ för en
-  3-stegskedja) så barnet *ser* hur många tryck som är kvar → förväntan och "en till!".
+- ✅ ~~**[Medium] Stegtrappa per pod.**~~ Redan byggd (`_refreshSteps` :436; se §5 2026-07-01) —
+  uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
 - **[Deep] Bobo i ängen.** Maskoten vandrar bakom sakerna, säger "Oooh!" när något
@@ -101,9 +106,16 @@ bildbyte utan eget uttryck**, och världen minns inget av det jag skapat.
 
 ### Ljud
 - **[Quick] Varierad resultat-röst** (fler formuleringar per resultat) + en lugn
-  ängs-ambient (fågel/vind) i bakgrunden.
+  ängs-ambient (fågel/vind) i bakgrunden. *(Blockerad 2026-09-23: nya repliker kräver TTS,
+  ambienten ett slingklipp — båda tjänsterna nere.)*
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `complete()`-flödet var redan rent
+  (resultatrepliken sägs före `complete()`, inga egna kopior). Nytt: temarundor (ren djur- eller
+  himmelsrunda med egna plattfärger, ~35 %) och en egen slutpose per resultat (vaja · skutt ·
+  vingslag · lyft · tindra · sken) som också spelas igen vid tryck på en klar sak. §4: tre
+  punkter var redan byggda.
 
 - 2026-06-30: Doc skriven (ersätter den gamla bygg-specen med en spelar-granskning).
   Speltestad (errorCount 0, skärmdump granskad). Inga kodändringar ännu.

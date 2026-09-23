@@ -52,6 +52,30 @@ const FLAVORS = {
   mane: { colors: [0xa78bfa, 0xfff3b0], puff: '✨' },
 }
 
+// Temarundor: ibland är hela omgången djur eller himmel/väder, med plattor i temats egna
+// färger — så två rundor aldrig ser likadana ut. Nyckel = kedjans FÖRSTA ritnyckel.
+const TEMAN = {
+  djur: { kedjor: ['agg', 'larv', 'valp', 'kattunge'], farger: [0xff9ec4, 0xffb86b, 0xff8a8a] },
+  himmel: { kedjor: ['moln', 'snoflinga', 'gnista', 'mane'], farger: [0x7fc8f8, 0xa78bfa, 0x9ad0f0] },
+}
+const TEMA_CHANS = 0.35
+
+// Slutposen när en sak blivit klar — en kort egen "klar"-animation per resultat.
+// Den ligger på `label` (konsten), aldrig på `cont` som bär träffytan; tickern skriver
+// label.y varje bildruta, så hopp och lyft går via PIVOT, inte y.
+const SLUTPOSE = {
+  blomma: 'vaja',
+  snogubbe: 'vaja',
+  hona: 'hopp',
+  hund: 'hopp',
+  katt: 'hopp',
+  fjaril: 'fladder',
+  raket: 'lyft',
+  stjarna: 'tindra',
+  fullmane: 'sken',
+  regnbage: 'sken',
+}
+
 const MAX_LEVEL = 6
 const MAX_OBJ = 6
 
@@ -83,6 +107,7 @@ export default {
     this._objects = []
     this._dots = []
     this._timers = []
+    this._tema = null
 
     const stored = ctx.progress.get()
     this._rounds = stored.custom?.rundor || 0
@@ -145,7 +170,18 @@ export default {
   // Välj n distinkta kedjor som ryms inom nivåns max-längd.
   _pickChains(n) {
     const max = maxStagesFor(this._level)
-    const elig = CHAINS.filter((c) => c.length <= max)
+    const alla = CHAINS.filter((c) => c.length <= max)
+    // Temarunda: aldrig spelets allra första omgång och aldrig två i rad. Temat blir
+    // rent — hellre en valp till än en bil i en djurrunda — så dubbletter tillåts när
+    // temat har färre kedjor än sakerna på scenen.
+    const forra = this._tema
+    this._tema = null
+    if (this._rounds > 0 && !forra && Math.random() < TEMA_CHANS) {
+      const namn = randomFrom(Object.keys(TEMAN))
+      const tema = alla.filter((c) => TEMAN[namn].kedjor.includes(c[0].k))
+      if (tema.length >= 2) this._tema = namn
+    }
+    const elig = this._tema ? alla.filter((c) => TEMAN[this._tema].kedjor.includes(c[0].k)) : alla
     const out = []
     let pool = shuffle(elig)
     while (out.length < n) {
@@ -179,7 +215,8 @@ export default {
   _makeObject(ctx, chain, pt, podR, delay) {
     const cont = new Container()
     cont.position.set(pt.x, pt.y)
-    const tint = PLAYFUL[(Math.random() * PLAYFUL.length) | 0]
+    const palett = this._tema ? TEMAN[this._tema].farger : PLAYFUL
+    const tint = palett[(Math.random() * palett.length) | 0]
 
     // Mjuk markskugga (ger djup; krymper när saken "svävar" upp i tickern).
     const shadow = new Graphics().ellipse(0, podR * 0.72, podR * 0.72, podR * 0.26).fill({ color: COLORS.shadow, alpha: 0.12 })
@@ -213,7 +250,7 @@ export default {
     cont.eventMode = 'static'
     cont.cursor = 'pointer'
 
-    const obj = { chain, stage: 0, cont, label, shadow, stepDots, tint, x: pt.x, y: pt.y, done: false, busy: false, breatheT: null, phase: Math.random() * Math.PI * 2 }
+    const obj = { chain, stage: 0, cont, label, shadow, stepDots, tint, x: pt.x, y: pt.y, done: false, busy: false, breatheT: null, phase: Math.random() * Math.PI * 2, bas: podR / 62, poseTl: null, sken: null }
     cont.on('pointertap', () => this._advance(ctx, obj))
     this._play.addChild(cont)
 
@@ -278,6 +315,7 @@ export default {
       sparkle(this._fx, obj.x, obj.y - 10, { count: 8 })
       floatText(this._fx, obj.x, obj.y - 40, '🎉', { fontSize: 64, rise: 72 })
       this._sayResult(ctx, st.k) // rösten ropar resultatet
+      this._slutpose(ctx, obj, st.k, 0.45) // efter förvandlingens studs (0,48 s)
       this._refreshDots()
       this._checkRound(ctx)
     } else {
@@ -295,6 +333,81 @@ export default {
     pop(obj.cont)
     sparkle(this._fx, obj.x, obj.y - 10, { count: 6 })
     this._sayResult(ctx, st.k)
+    this._slutpose(ctx, obj, st.k, 0.1)
+  },
+
+  // Slutposen: en kort egen "klar"-animation per sak (SLUTPOSE). Allt på `label` —
+  // rotation, skala runt basskalan och PIVOT för hopp (tickern äger label.y). Dödar
+  // förra posen och återställer konsten först, så ett nytt tryck aldrig ärver ett
+  // halvfärdigt läge. Tidslinjen dödas i `_clearObjects` och `destroy`.
+  _slutpose(ctx, obj, k, delay) {
+    const lab = obj.label
+    if (!this._alive || !lab || lab.destroyed) return
+    obj.poseTl?.kill()
+    gsap.killTweensOf(lab, 'rotation')
+    gsap.killTweensOf(lab.scale)
+    gsap.killTweensOf(lab.pivot)
+    const b = obj.bas
+    lab.rotation = 0
+    lab.scale.set(b)
+    lab.pivot.set(0, 0)
+    const au = ctx.services.audio
+    const tl = gsap.timeline({ delay })
+    switch (SLUTPOSE[k]) {
+      case 'vaja': // blomman och snögubben vajar av och an
+        tl.to(lab, { rotation: 0.16, duration: 0.2, ease: 'sine.out' })
+          .to(lab, { rotation: -0.13, duration: 0.3, ease: 'sine.inOut' })
+          .to(lab, { rotation: 0.08, duration: 0.26, ease: 'sine.inOut' })
+          .to(lab, { rotation: 0, duration: 0.24, ease: 'sine.in' })
+        break
+      case 'hopp': // djuren skuttar två gånger av glädje
+        for (let i = 0; i < 2; i++) {
+          tl.to(lab.pivot, { y: 16, duration: 0.13, ease: 'power2.out' })
+            .to(lab.pivot, { y: 0, duration: 0.15, ease: 'power2.in' })
+            .to(lab.scale, { x: b * 1.12, y: b * 0.9, duration: 0.06, yoyo: true, repeat: 1 })
+        }
+        break
+      case 'fladder': // fjärilen slår med vingarna
+        tl.to(lab.scale, { x: b * 0.55, duration: 0.09, yoyo: true, repeat: 7, ease: 'sine.inOut' })
+        break
+      case 'lyft': // raketen lättar en bit, darrar och sjunker tillbaka
+        tl.call(() => {
+          if (this._alive) au.tone({ freq: 220, slideTo: 660, dur: 0.4, type: 'triangle', vol: 0.09 })
+        })
+          .to(lab.pivot, { y: 30, duration: 0.4, ease: 'power2.out' })
+          .to(lab, { rotation: 0.05, duration: 0.05, yoyo: true, repeat: 5 }, '<')
+          .to(lab.pivot, { y: 0, duration: 0.45, ease: 'bounce.out' })
+        break
+      case 'tindra': // stjärnan tindrar: pulser + gnistor + två höga pling
+        tl.call(() => {
+          if (!this._alive) return
+          sparkle(this._fx, obj.x, obj.y - 20, { count: 10 })
+          au.tone({ freq: 1567.98, dur: 0.12, type: 'sine', vol: 0.08 })
+          au.tone({ freq: 2093, dur: 0.16, type: 'sine', vol: 0.07, delay: 0.12 })
+        })
+          .to(lab.scale, { x: b * 1.2, y: b * 1.2, duration: 0.12, yoyo: true, repeat: 3, ease: 'sine.inOut' })
+        break
+      case 'sken': { // månen och regnbågen får ett mjukt sken bakom sig som stannar kvar
+        let sken = obj.sken
+        const cont = obj.cont
+        if ((!sken || sken.destroyed) && cont && !cont.destroyed) {
+          sken = new Graphics().circle(0, -4, 60 * b).fill({ color: 0xfff3b0, alpha: 1 })
+          sken.eventMode = 'none'
+          sken.alpha = 0
+          cont.addChildAt(sken, cont.getChildIndex(lab))
+          obj.sken = sken
+        }
+        if (sken && !sken.destroyed) {
+          tl.to(sken, { alpha: 0.34, duration: 0.3, ease: 'sine.out' })
+            .to(sken, { alpha: 0.16, duration: 0.6, ease: 'sine.inOut' })
+        }
+        tl.to(lab.scale, { x: b * 1.08, y: b * 1.08, duration: 0.3, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 0)
+        break
+      }
+      default:
+        tl.to(lab.scale, { x: b * 1.1, y: b * 1.1, duration: 0.15, yoyo: true, repeat: 1 })
+    }
+    obj.poseTl = tl
   },
 
   // Tomt tryck bredvid sakerna: mjukt ljud + ring + en sak vinglar lekfullt.
@@ -358,11 +471,26 @@ export default {
     }))
   },
 
+  // Slutposens tweens ligger på label, label.scale, label.pivot och skenet — killTweensOf
+  // på en av dem når inte de andra, och tidslinjens .call() överlever dem alla.
+  _dodaPose(obj) {
+    obj.poseTl?.kill()
+    obj.poseTl = null
+    const lab = obj.label
+    if (lab && !lab.destroyed) {
+      gsap.killTweensOf(lab)
+      gsap.killTweensOf(lab.scale)
+      gsap.killTweensOf(lab.pivot)
+    }
+    if (obj.sken && !obj.sken.destroyed) gsap.killTweensOf(obj.sken)
+  },
+
   // Krymp bort gamla saker (exit-säkert: rör Pixi-objektet bara om det lever).
   _clearObjects() {
     for (const obj of this._objects) {
       gsap.killTweensOf(obj.cont.scale)
       obj.breatheT?.kill()
+      this._dodaPose(obj)
       const cont = obj.cont
       const stt = { s: cont.scale.x || 1, a: cont.alpha }
       const tw = gsap.to(stt, {
@@ -469,6 +597,7 @@ export default {
     this._timers = []
     for (const o of this._objects) {
       o.breatheT?.kill()
+      this._dodaPose(o)
       gsap.killTweensOf(o.cont)
       gsap.killTweensOf(o.cont.scale)
       gsap.killTweensOf(o.label)

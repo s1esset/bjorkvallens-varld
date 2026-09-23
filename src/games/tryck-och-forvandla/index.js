@@ -553,6 +553,8 @@ export default {
       }
     }
 
+    // Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
     if (this._idle > 7 && !this._roundDone) {
       this._idle = 0

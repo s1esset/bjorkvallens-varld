@@ -179,11 +179,14 @@ export default {
     this._started = true
     if (this._reservlage) { ctx.services.voice.say(RESERV_LINE); return }
     ctx.services.voice.say(this.voiceIntro)
-    // Regeln talas strax efter introt (introt är kort med flit).
-    this._later(2.8, () => {
-      if (this._phase !== 'play') return
+    // Regeln talas strax efter introt (introt är kort med flit). V24: men klippet är 4,1 s,
+    // och en fast 2,8 s kapade "i rätt ordning!" varje start — regeln väntar nu också in
+    // rösten, med 2,8 s kvar som minsta paus, och bara i samma runda.
+    const rund = this._rundNr
+    this._later(2.8, () => ctx.narTyst(() => {
+      if (!this._alive || this._phase !== 'play' || this._rundNr !== rund) return
       ctx.services.voice.say(this._ruleLine)
-    })
+    }))
   },
 
   // Fördröjd callback som ALLTID dör med spelet. Modulen är en singleton: en

@@ -806,6 +806,8 @@ export default {
     // Idle-recue: ingen interaktion ~6 s.
     if (!this._resolving) {
       this._idle += dt
+      // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       if (this._idle > IDLE_DELAY) {
         this._idle = 0
         ctx.services.voice.say(this.voiceIntro)

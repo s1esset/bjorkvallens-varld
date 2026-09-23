@@ -1212,8 +1212,13 @@ export default {
     // Idle-vink + auto-hjälp (garanterar 100 % utan precision).
     if (this._resolving) return
     const ds = tk.deltaMS / 1000
+    // Tomgången räknas från TYSTNAD — annars kapar vinken en replik som talar. Auto-
+    // hjälpens klocka PAUSAS i stället (den kan tala via duschen/firandet): nollad hade
+    // vinkens egen replik var ~6:e tyst sekund svultit ut hjälpen helt.
+    const talar = ctx.services.voice.talar
+    if (talar) this._idle = 0
     this._idle += ds
-    this._noProgress += ds
+    if (!talar) this._noProgress += ds
     if (this._idle > 6) {
       this._idle = 0
       this._idleCue(ctx)

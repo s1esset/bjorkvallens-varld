@@ -765,6 +765,8 @@ export default {
       this._drawHolder()
       this._drawGuide()
       this._idle += dms
+      // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       if (this._idle > IDLE_MS) {
         this._idle = 0
         const v = ctx.services.voice
@@ -783,7 +785,9 @@ export default {
       // Magneten (steg 2) delas bara ut på den SISTA kulan, och först efter lång
       // stiltje — så länge barnet gör framsteg är det siktet som bygger tornet.
       if (this._count === this._goal - 1) {
-        this._stallT += dms
+        // V21: magnetens replik ("Jag hjälper till!") får inte heller kapa en som talar.
+        // Klockan PAUSAS (nollas inte) — annars nollar om-cuens replik den (6 s < 11 s).
+        if (!ctx.services.voice.talar) this._stallT += dms
         if (this._stallT > 11000 && !this._magnetHelp) this._giveHelp(ctx, true)
       }
     } else if (this._holderG && !this._holderG.destroyed) {

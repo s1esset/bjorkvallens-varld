@@ -126,6 +126,44 @@ const SPEC = Object.fromEntries(Object.entries(NATUR).map(([k, s]) => [k, skalad
 
 const BESTALLBARA = ['boll', 'nalle', 'tagloke', 'anka', 'bil', 'kloss', 'stjarna', 'tarning', 'robot', 'trumma', 'dino']
 
+// Varje leksak låter som sig själv när den lyfts — stämda toner i fanfarens C-dur, lågt i
+// volym. { freq, dur, type, vol, slideTo?, delay? } — flera poster spelas som en liten fras.
+const LEK_LJUD = {
+  boll: [{ freq: 392, slideTo: 783.99, dur: 0.14, type: 'sine', vol: 0.12 }], // boing
+  nalle: [{ freq: 196, slideTo: 174.61, dur: 0.22, type: 'triangle', vol: 0.14 }], // mjukt brum
+  tagloke: [
+    { freq: 523.25, dur: 0.12, type: 'triangle', vol: 0.11 },
+    { freq: 523.25, dur: 0.18, type: 'triangle', vol: 0.11, delay: 0.16 },
+  ], // tut-tut
+  anka: [
+    { freq: 1046.5, slideTo: 1318.51, dur: 0.07, type: 'sine', vol: 0.09 },
+    { freq: 1046.5, slideTo: 1318.51, dur: 0.07, type: 'sine', vol: 0.09, delay: 0.1 },
+  ], // pip-pip
+  bil: [{ freq: 440, dur: 0.16, type: 'triangle', vol: 0.11 }], // tut
+  kloss: [{ freq: 783.99, dur: 0.05, type: 'triangle', vol: 0.12 }], // knack
+  stjarna: [
+    { freq: 1046.5, dur: 0.08, type: 'sine', vol: 0.08 },
+    { freq: 1318.51, dur: 0.08, type: 'sine', vol: 0.08, delay: 0.05 },
+    { freq: 1567.98, dur: 0.12, type: 'sine', vol: 0.08, delay: 0.1 },
+  ], // glitter
+  tarning: [
+    { freq: 880, dur: 0.04, type: 'triangle', vol: 0.1 },
+    { freq: 987.77, dur: 0.04, type: 'triangle', vol: 0.1, delay: 0.07 },
+  ], // klick-klick
+  robot: [
+    { freq: 659.25, dur: 0.08, type: 'square', vol: 0.05 },
+    { freq: 523.25, dur: 0.1, type: 'square', vol: 0.05, delay: 0.1 },
+  ], // bip-bop
+  trumma: [{ freq: 130.81, slideTo: 82.41, dur: 0.18, type: 'sine', vol: 0.22 }], // duns
+  dino: [{ freq: 196, slideTo: 146.83, dur: 0.26, type: 'sawtooth', vol: 0.06 }], // rawr
+}
+const LEK_LJUD_MS = 150 // strypning: ett snabbt grepp-grepp-grepp blir aldrig en ljudmatta
+// Leveranstonen per leksak (C-dur pentatonik) — fyra leveranser blir en liten melodi.
+const LEVERANS_TON = {
+  trumma: 261.63, dino: 329.63, tagloke: 392, robot: 440, boll: 523.25, nalle: 587.33,
+  bil: 659.25, kloss: 783.99, tarning: 880, anka: 1046.5, stjarna: 1318.51,
+}
+
 const KROPP_OPTS = (s) =>
   mat(s.mtrl, {
     density: s.d,
@@ -154,6 +192,7 @@ export default {
   init(ctx) {
     this._alive = true
     this._t = 0
+    this._hjalpBlick = null // { lek, tills } — ny omgång, ny klocka: förra omgångens blick gäller inte
     this._idle = 0
     this._sokT = 0
     this._sortT = 0
@@ -478,7 +517,15 @@ export default {
     pop(this._lappInner, { scale: 1.12 })
     ctx.services.audio.sfx('pling')
     this._kar?.react('nyfiken')
-    this._fraga(ctx, key)
+    // Lappen och Bobos min kommer genast; FRÅGAN väntar in berättaren — berömmet för förra
+    // leksaken (2,5–3,1 s) talar oftast fortfarande, och say() kapar. Bara om samma
+    // beställning fortfarande gäller när det blir tyst.
+    const nr = this._klara
+    ctx.narTyst(() => {
+      if (!this._alive || this._klar || this._onskad !== key || this._klara !== nr) return
+      this._idle = 0
+      this._fraga(ctx, key)
+    })
   },
 
   _finns(key) {
@@ -565,6 +612,11 @@ export default {
     this._visaLyft(lek)
 
     const key = lek.spec.key
+    const nu = performance.now()
+    if (LEK_LJUD[key] && nu - (this._lekLjudVid || 0) > LEK_LJUD_MS) {
+      this._lekLjudVid = nu
+      for (const t of LEK_LJUD[key]) ctx.services.audio.tone(t)
+    }
     if (key === 'studsboll') {
       ctx.services.audio.sfx('boing')
       if (!this._sagt.studs) {
@@ -766,6 +818,9 @@ export default {
     pop(this._korgInner, { scale: 1.12 })
 
     const key = lek.spec.key
+    // Varje leksak har sin egen ton i korgen, så rundans fyra leveranser blir en liten
+    // melodi av just de sakerna (C-dur pentatonik, samma tonart som fanfaren).
+    if (LEVERANS_TON[key]) ctx.services.audio.tone({ freq: LEVERANS_TON[key], dur: 0.24, type: 'triangle', vol: 0.14, delay: 0.05 })
     this._taBortLeksak(lek)
 
     // Mini-versionen av leksaken ligger kvar i korgen — Bobo SER vad han fått.
@@ -784,7 +839,9 @@ export default {
 
     this._klara++
     this._ritaPrickar()
-    this._berom(ctx)
+    // Sista leveransen får sitt beröm av finalens egen replik 0,9 s senare — ett beröm
+    // här (2,5–3,1 s) hade kapats av den mitt i meningen.
+    if (this._klara < MAL_PER_RUNDA) this._berom(ctx)
     floatText(ctx.fxLayer, KORG.x, KORG.y - 130, 'Tack!', { fontSize: 46, fontFamily: FONT.display })
 
     // Högen fylls på så grävandet aldrig blir grunt (en levererad leksak lämnar en
@@ -821,10 +878,10 @@ export default {
     this._niva += 1
     ctx.progress.setLevel(this._niva)
     ctx.progress.setCustom('korgar', (ctx.progress.get().custom?.korgar || 0) + 1)
-    ctx.progress.complete()
-
-    ctx.services.audio.sfx('celebrate')
+    // Spelets egen vinstreplik sägs FÖRE complete(): då står den kvar och complete()s
+    // beröm utgår (say() kapar). Vinstljud och regn kommer från complete().
     ctx.services.voice.say('Titta, korgen är full! Nu åker allting ner i lådan igen.')
+    ctx.progress.complete()
     this._kar?.react('jubel')
 
     // 1) Korgens leksaker hoppar tillbaka i lådan i en glad kaskad.
@@ -904,7 +961,11 @@ export default {
       }
       shake(this._framLager, { intensity: 11, duration: 0.45 })
       for (const px of [200, 340, 500, 660]) puff(ctx.fxLayer, px, L_TOPP + 14, { count: 5, color: 0xd9a05b })
-      ctx.services.voice.say('Alla leksaker är i lådan. Locket smäller igen!')
+      // Vinstrepliken ovan är 6,2 s och talar fortfarande här (2,88 s in) — say() hade
+      // kapat den mitt i meningen. Smällen bär sig själv med ljud och skak; repliken sägs
+      // bara när den inte avbryter något (att köa den gör den inaktuell: nästa runda
+      // börjar 6,2 s efter finalen, och då står locket redan öppet).
+      if (!ctx.services.voice.talar) ctx.services.voice.say('Alla leksaker är i lådan. Locket smäller igen!')
     }, 2.88)
     // Leksaksfanfar: fyra toner i durtreklang + en glad avslutning.
     FANFAR.forEach((f, i) => {
@@ -1019,6 +1080,9 @@ export default {
     if (!lek) return
     ctx.services.voice.say('Jag hjälper till! Titta, den glittrar där nere.')
     ctx.services.audio.sfx('magi')
+    // Bobo blir nyfiken och tittar dit han pekar (blicken hålls i `_uppdatera`).
+    this._kar?.react('nyfiken')
+    this._hjalpBlick = { lek, tills: this._t + 2.6 }
     sparkle(ctx.fxLayer, lek.body.position.x, lek.body.position.y, { count: 12 })
     pop(lek.inner, { scale: 1.3 })
     ctx.later(0.5, () => {
@@ -1058,9 +1122,13 @@ export default {
       this._lyftNod.position.set(h.lek.body.position.x, h.lek.body.position.y + storsta(h.lek.spec) * 0.48)
     }
 
-    // Blicken: Bobo tittar på det barnet gräver med, annars ner i lådan.
+    // Blicken: Bobo tittar på det barnet gräver med; medan autohjälpen glittrar tittar han
+    // på den leksak han pekar ut; annars ner i lådan. (Skrivs varje bildruta — en engångs-
+    // `look()` i `_hjalp` hade skrivits över i nästa bildruta.)
     if (this._kar) {
+      const hb = this._hjalpBlick
       if (h?.lek?.body) this._kar.look(h.lek.body.position.x, h.lek.body.position.y)
+      else if (hb && this._t < hb.tills && hb.lek.body && !hb.lek.flyger) this._kar.look(hb.lek.body.position.x, hb.lek.body.position.y)
       else this._kar.look(L_MITT + 120, L_BOTTEN - 90)
     }
 

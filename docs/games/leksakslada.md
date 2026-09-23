@@ -95,8 +95,8 @@ mycket, lätta går snabbt men flyttar lite.
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Kärnloop**
-- **[Quick]** Leksaks-röst vid lyft: ankan piper, trumman får ett dovt slag, tågloket
-  ett tut — ett `audio.tone()` per nyckel, inte ett klipp.
+- ✅ ~~**[Quick]** Leksaks-röst vid lyft~~ Klar 2026-09-23 (v1.251.0): varje leksak låter som sig själv
+  när den lyfts — stämda toner per nyckel (`LEK_LJUD`, strypt 150 ms) i `_grepp` :616.
 - **[Medium]** Andra beställningstypen: "två likadana" eller "den STÖRSTA" — samma
   gräva-loop, ny fråga. Lappen bär redan ikonen och kan bära två.
 - **[Deep]** Ett andra mål (en hylla) så draget får en riktning till att välja mellan.
@@ -108,7 +108,8 @@ mycket, lätta går snabbt men flyttar lite.
   beställningarna hänger ihop.
 
 **Juice**
-- **[Quick]** Damm som yr när något tungt landar i botten.
+- ✅ ~~**[Quick]** Damm som yr när något tungt landar i botten.~~ Redan byggd (`_anslag` :1030,
+  puff i materialets färg vid hårda anslag) — uppdagat 2026-09-23.
 - **[Medium]** Högens leksaker som vickar till när grannen rycks bort (i dag sköter
   fysiken det, men utslaget är litet).
 
@@ -117,13 +118,24 @@ mycket, lätta går snabbt men flyttar lite.
   leksaker.
 
 **Karaktär**
-- **[Quick]** Bobo pekar mot lådan när autohjälpen går igång i stället för bara glittret.
+- ✅ ~~**[Quick]** Bobo pekar mot lådan när autohjälpen går igång~~ Klar 2026-09-23 (v1.251.0): han blir
+  `nyfiken` och TITTAR på den glittrande leksaken i 2,6 s (`_hjalp` :1085 — blicken skrivs varje
+  bildruta i `_uppdatera`, så en engångs-`look()` hade skrivits över). Riggen har ingen pekarm.
 
 **Ljud**
-- **[Quick]** Egen ton per leksak vid leverans, så fyra rätt bildar en liten melodi som
-  hör ihop med just de sakerna.
+- ✅ ~~**[Quick]** Egen ton per leksak vid leverans~~ Klar 2026-09-23 (v1.251.0): `LEVERANS_TON` i C-dur
+  pentatonik (:823), så rundans fyra leveranser blir en melodi av just de sakerna.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): finalen spelade ett eget vinstljud direkt
+  efter `complete()` — struket. "Titta, korgen är full!" sägs nu FÖRE `complete()`, så berömmet
+  utgår i stället för att kapa den. Sista leveransens `_berom` hoppas över (finalens rad kapade
+  den). Nästa beställnings fråga kapade berömmet efter 1,4 s och köas nu med `ctx.narTyst`
+  (:524, token på beställningen). Lock-repliken sägs bara om rösten är tyst (:968) — i
+  praktiken aldrig, eftersom vinstrepliken är 6,2 s. Ägarbeslut: stryka eller korta den?
+  Nytt: leksaksljud vid lyft, en ton per leksak vid leverans och Bobos blick vid autohjälp.
+  `check` 0/0.
 
 ### Mätt 2026-08-14 (`scripts/_leksakprobe.mjs`)
 

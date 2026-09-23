@@ -18,6 +18,7 @@ import { DragController } from '../../lib/DragController.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { bounceIn, sparkle, ripple, pop, wiggle, breathe, shake, floatText, puff, burst } from '../../lib/feedback.js'
+import { bage } from '../../lib/form.js'
 
 // Talade svenska fraser (TTS). Korta, varma, alltid positiva.
 const VOICE = {
@@ -186,7 +187,7 @@ function drawTrash(key) {
     case 'bag':
       g.moveTo(-22, -8).lineTo(22, -8).lineTo(26, 30).lineTo(-26, 30).closePath()
       g.fill(col).stroke({ width: 3, color: dk })
-      g.arc(0, -8, 13, Math.PI, 0).stroke({ width: 4, color: dk })
+      bage(g, 0, -8, 13, Math.PI, 0).stroke({ width: 4, color: dk })
       break
     case 'carton':
       g.moveTo(-16, -18).lineTo(16, -18).lineTo(16, 28).lineTo(-16, 28).closePath()
@@ -197,7 +198,7 @@ function drawTrash(key) {
     case 'bucket':
       g.moveTo(-22, -14).lineTo(22, -14).lineTo(16, 28).lineTo(-16, 28).closePath()
       g.fill(col).stroke({ width: 3, color: dk })
-      g.arc(0, -16, 22, Math.PI, 0).stroke({ width: 4, color: dk })
+      bage(g, 0, -16, 22, Math.PI, 0).stroke({ width: 4, color: dk })
       break
     case 'brush':
       g.roundRect(-5, -30, 10, 52, 5).fill(col).stroke({ width: 3, color: dk })

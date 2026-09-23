@@ -454,6 +454,9 @@ export default {
     if (!this._alive) return
     const dt = ticker.deltaMS
     this._t += dt
+    // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+    // annars kapar påminnelsens say() en replik som redan talar).
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt / 1000
 
     // Playhead glider mjukt (ren positionsuppdatering, ingen fysik).

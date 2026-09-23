@@ -14,7 +14,7 @@ import { createScene } from '../../lib/scene.js'
 import { sphereFill } from '../../lib/form.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { puff, sparkle, floatText, bounceIn, pop, bigCelebration } from '../../lib/feedback.js'
+import { puff, sparkle, floatText, bounceIn, pop, squash } from '../../lib/feedback.js'
 
 // Frukterna RITAS (P0 ASSETS): egen silhuett, egen färg, egna detaljer — aldrig en emoji
 // som hela föremålet. `kind` är ascii-id:t som ekorrens önskan pekar på.
@@ -105,6 +105,8 @@ function makeFruit(kind, s = 1) {
 }
 const HAPPY_FX = ['😋', '😄', '🎉', '⭐', '🍓']
 const CATCH_PRAISE = ['Mums!', 'Nam nam!', 'Vad gott!', 'En till!']
+// Fångsttonens stege (C-durpentatonik) — en ton högre för varje frukt i rad.
+const KOMBO_TON = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66]
 const FULL_SAY = ['Hela korgen är full! Hurra!', 'Vilken fruktplockare!', 'Bravo! Så många frukter!']
 
 // Fruktstorlekar -> radie + täthet (massa). Större frukt = lite tyngre (varierat fall).
@@ -143,6 +145,7 @@ export default {
     this._spawnT = 0
     this._caught = 0
     this._misses = 0
+    this._kombo = 0 // fångster i rad utan miss — driver den stigande fångsttonen
     this._busy = false // sant under nivåfirande (pausar spawn/räkning)
     this._dragging = false
     this._lastVoice = 0
@@ -294,6 +297,7 @@ export default {
     this._busy = false
     this._caught = 0
     this._misses = 0
+    this._kombo = 0
     this._caughtEmojis = []
     this._goal = clamp(3 + level, 3, 6) // mål växer med nivån (3..6)
     this._spawnEvery = clamp(1.3 - level * 0.08, 0.85, 1.3) // släpps lite tätare högre upp
@@ -471,8 +475,14 @@ export default {
       gsap.killTweensOf(this._wishIcon.scale)
       gsap.fromTo(this._wishIcon.scale, { x: 0.2, y: 0.2 }, { x: 1, y: 1, duration: 0.42, ease: 'back.out(2.4)' })
     }
+    // Önskan köar bakom det som redan talar: fångsten som fyller korgen säger sin vinstrad
+    // i samma ögonblick som den här önskan schemaläggs, och 1,1 s senare hade önskan kapat
+    // den mitt i meningen. En nyare önskan tar över en som fortfarande köar.
     ctx.later(delay, () => {
-      if (this._alive) ctx.services.voice.say(FRUIT_WISH[pick])
+      if (!this._alive) return
+      ctx.narTyst(() => {
+        if (this._alive && this._wish === pick) ctx.services.voice.say(FRUIT_WISH[pick])
+      })
     })
   },
 
@@ -510,9 +520,14 @@ export default {
     this._misses = 0
     this._idle = 0
     ctx.services.audio.sfx('pop')
+    // Fångster i RAD klättrar uppför en C-durpentatonik (en miss börjar om nerifrån), och
+    // korgen sväljer tydligare ju längre raden är. Guldfrukten har sin egen treklang.
+    const steg = Math.min(this._kombo, KOMBO_TON.length - 1)
+    this._kombo++
+    if (f.kind !== 'guld') ctx.services.audio.tone({ freq: KOMBO_TON[steg], dur: 0.14, type: 'triangle', vol: 0.15, delay: 0.05 })
     const bx = this._basket && !this._basket.destroyed ? this._basket.x : f.view.x
     sparkle(ctx.fxLayer, bx, this._mouthY, { count: 6 })
-    if (this._basket && !this._basket.destroyed) pop(this._basket, { scale: 1.08 })
+    if (this._basket && !this._basket.destroyed) squash(this._basket, { intensity: 0.45 + steg * 0.08 })
 
     // Frukten ploppar ner i korgen (exit-säker proxy-tween).
     this._tuck(f, bx)
@@ -580,6 +595,7 @@ export default {
       v.destroy()
     }
     this._misses++
+    this._kombo = 0
   },
 
   // Tweena ett vanligt objekt och kopiera till frukten bara om den lever.
@@ -623,9 +639,9 @@ export default {
     this._busy = true
 
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
+    // Egen vinstreplik FÖRE complete(): då står den kvar och berömmet utgår. Vinstljudet
+    // och konfettin kommer från complete().
     ctx.services.voice.say(randomFrom(FULL_SAY))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     const bx = this._basket && !this._basket.destroyed ? this._basket.x : ctx.width / 2
     sparkle(ctx.fxLayer, bx, this._mouthY, { count: 10 })
     if (this._basket && !this._basket.destroyed) pop(this._basket, { scale: 1.18 })
@@ -636,9 +652,13 @@ export default {
     ctx.progress.complete()
 
     this._levelTimer?.kill()
+    const niva = this._level
     this._levelTimer = ctx.later(1.9, () => {
       if (!this._alive) return
-      ctx.services.voice.say('Fler frukter!')
+      // Vinstrepliken ovan är 2,2–2,9 s — orden köar tills den är klar, bilden gör det inte.
+      ctx.narTyst(() => {
+        if (this._alive && this._level === niva) ctx.services.voice.say('Fler frukter!')
+      })
       this._loadLevel(this._level)
     })
   },

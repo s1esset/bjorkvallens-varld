@@ -52,11 +52,10 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] En hungrig mottagare som behöver din hjälp.** Sätt ett djur/Bobo vid korgen som
-  vill ha *vissa* frukter ("Jag vill ha bananer!") — då blir dra-och-fånga ett val (fånga rätt
-  sort) och frukten har en mening. Fel frukt är fortfarande kul (djuret fnissar, ingen poäng).
-- **[Quick] Dämpa hjälpen lite.** Behåll no-fail, men låt magneten kicka in senare/svagare så
-  barnet känner att *det* fångade frukten de första gångerna. Glid-hjälpen kvar som backstop.
+- ✅ ~~**[Medium] En hungrig mottagare som behöver din hjälp.**~~ Redan byggd (ekorren på grenen
+  önskar en sort, `_newWish` :468 / `_feedFriend` :490; se §5 2026-08-04) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Dämpa hjälpen lite.**~~ Redan byggd (magneten är av tills två missar, sedan svag
+  och växande, :344; se §5 2026-07-01) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
 - ✅ **[Quick] Specialfrukt — guldfrukten.** *(2026-08-12)* En glittrande guldfrukt (~1 på 9
@@ -69,8 +68,10 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
   bladpuff där frukten lossnar (`:421-430`).
 
 ### Juice
-- **[Quick] Riktigt mums-ljud + knaprande** vid fångst (i stället för `pop`), och en stigande
-  pling-kombo om man fångar flera i rad. Korgen squashar tydligare när den slukar.
+- ✅ ~~**[Quick] Stigande pling-kombo + tydligare korg-squash vid fångst.**~~ Klar 2026-09-23
+  (v1.251.0): `_catchFruit` spelar en ton ur C-durpentatoniken per frukt i rad (`KOMBO_TON`,
+  nollas vid miss och ny nivå) och korgen `squash`ar starkare ju längre raden är. Själva
+  mums-/knaprljudet ligger kvar under Ljud (kräver MOSS).
 - ✅ **[Quick] Fångad frukt syns** *(byggt sedan tidigare, verifierat 2026-08-12)* — mätaren
   ritar de faktiska frukterna barnet fångat (`_drawMeter`, `:630`), inte abstrakta prickar.
 
@@ -84,9 +85,16 @@ i en tom värld, och hjälpen gör att man knappt behöver röra korgen.
 
 ### Ljud
 - **[Quick] Riktiga SFX** (knapr, plopp, "mums") via SFX-pipelinen ([[real-audio-sfx]]) när
-  MOSS kör; variera vinst-stinget.
+  MOSS kör. *(Blockerad 2026-09-23: MOSS nere. Vinststinget varieras redan i
+  `AudioService._celebrate`.)*
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_levelComplete` spelade eget
+  `celebrate` + `bigCelebration` i samma tick som `complete()` — strukna; vinstrepliken sägs före
+  `complete()` och står kvar. "Fler frukter!" (1,9 s) och ekorrens önskan (1,1 s efter en
+  önskad sista frukt) kapade den — båda köar nu i `ctx.narTyst` med nivå-/önsketoken. Nytt:
+  stigande fångstton per frukt i rad + korg-squash.
 
 - 2026-06-30: Doc skriven (granskning + plan). Spelet testat (errorCount 0, skärmdump sedd).
   Inga kodändringar.

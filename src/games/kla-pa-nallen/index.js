@@ -20,6 +20,7 @@ import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, sparkle, ripple, floatText, breathe, shake, puff } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
+import { drawIcon } from '../../lib/artikoner.js'
 
 // Nallens center (= pivot, så hon kan studsa OCH snurra runt sin mitt).
 const BEAR_CX = 640
@@ -405,6 +406,8 @@ export default {
     const hr = nSlots >= 5 ? 86 : nSlots >= 4 ? 104 : 122
 
     this._weather = outfit.weather
+    // Sällsynt överraskning: ungefär var åttonde runda landar en fjäril på huvudplagget.
+    this._fjarilRunda = Math.random() < 1 / 8
 
     // Ledtråds-ringar + snäppzoner per kroppsdel.
     slots.forEach((slot, i) => {
@@ -485,7 +488,16 @@ export default {
     })
 
     this._cue = `Nu klär vi nallen i ${outfit.say}! Välj vad nallen ska ha på sig.`
-    if (announce && this._started) ctx.services.voice.say(this._cue)
+    // Nästa rundas instruktion byggs 1,45 s efter complete() — på fast tid kapade den
+    // väderrepliken (2,4–4,7 s). Bilden kommer genast, bara orden köar; en instruktion
+    // som hunnit bli en annan rundas tappas.
+    if (announce && this._started) {
+      const cue = this._cue
+      const lvl = this._level
+      ctx.narTyst(() => {
+        if (this._alive && this._level === lvl) ctx.services.voice.say(cue)
+      })
+    }
   },
 
   // En mysig, uttrycksfull nalle byggd av Pixi Graphics. Pivot i mitten så hela
@@ -625,6 +637,11 @@ export default {
     const ring = this._rings[slot]
     if (ring && !ring.destroyed) ring.visible = false
 
+    if (slot === 'huvud' && this._fjarilRunda) {
+      const c = gsap.delayedCall(0.55, () => this._fjarilLandar(ctx))
+      this._calls.push(c)
+    }
+
     this._filled.add(slot)
     this._remaining -= 1
     if (this._remaining <= 0) this._roundComplete(ctx)
@@ -658,6 +675,67 @@ export default {
     if (t) ctx.services.audio.tone(t)
   },
 
+  // Sällsynt överraskning (~1 runda av 8): en ritad fjäril fladdrar in och landar på
+  // huvudplagget, och flyger vidare när outfiten är klar. Ingen träffyta — den får aldrig
+  // stå i vägen för ett drag. Fladdret sitter på KONSTENS skala (ett barn); flygturen
+  // skriver behållarens läge via en proxy, så en riven nod aldrig får en tween.
+  _fjarilLandar(ctx) {
+    if (!this._alive || this._resolving || this._fjaril || !this._root) return
+    const f = new Container()
+    f.eventMode = 'none'
+    const konst = drawIcon('🦋', 58)
+    f.addChild(konst)
+    f.position.set((ctx.view?.right ?? ctx.width) + 60, 190) // utanför bild även på en bred telefon
+    this._root.addChild(f)
+    this._fjaril = f
+    this._fjarilFladder = gsap.to(konst.scale, { x: 0.35, duration: 0.12, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    // Landar strax till höger om huvudplaggets topp (plagget sitter på 144 i y, ~45 px högt).
+    const mx = BEAR_CX + 26
+    const my = 86
+    const x0 = f.x
+    const y0 = f.y
+    const st = { p: 0 }
+    this._fjarilTur = gsap.to(st, {
+      p: 1,
+      duration: 1.8,
+      ease: 'sine.inOut',
+      onUpdate: () => {
+        if (f.destroyed) return
+        f.x = x0 + (mx - x0) * st.p
+        f.y = y0 + (my - y0) * st.p + Math.sin(st.p * Math.PI * 3) * 26 * (1 - st.p)
+      },
+      onComplete: () => {
+        if (!this._alive || f.destroyed) return
+        this._fjarilFladder?.timeScale(0.3) // vilar: långsamma vingslag
+        sparkle(ctx.fxLayer, f.x, f.y, { count: 6 })
+        // E6 → G6: en liten glad tvåtonsfras när den landar.
+        ctx.services.audio.tone({ freq: 1318.51, dur: 0.12, type: 'sine', vol: 0.15 })
+        ctx.services.audio.tone({ freq: 1567.98, dur: 0.18, type: 'sine', vol: 0.13, delay: 0.1 })
+      },
+    })
+  },
+
+  _fjarilFlyger() {
+    const f = this._fjaril
+    if (!f || f.destroyed) return
+    this._fjarilTur?.kill()
+    this._fjarilFladder?.timeScale(1)
+    const x0 = f.x
+    const y0 = f.y
+    const st = { p: 0 }
+    this._fjarilTur = gsap.to(st, {
+      p: 1,
+      duration: 1.3,
+      ease: 'sine.in',
+      onUpdate: () => {
+        if (f.destroyed) return
+        f.x = x0 - 260 * st.p + Math.sin(st.p * Math.PI * 4) * 18
+        f.y = y0 - 240 * st.p
+        f.alpha = 1 - Math.max(0, st.p - 0.6) / 0.4
+      },
+    })
+  },
+
   // Väder-payoff när hela outfiten sitter: mjuka väder-glyfer ramlar över scenen
   // (snö/regn/blomblad/gnistror) + en talad "därför klädde vi nallen"-fras. Visar
   // barnet VARFÖR outfiten valdes. Exit-säkert: delayedCalls i this._calls (dödas i
@@ -671,8 +749,18 @@ export default {
       })
       this._calls.push(call)
     }
+    // Repliken KÖAR bakom sista plaggets "Mössan sitter!" (sagt 0,45 s tidigare, 1,1–2,6 s
+    // lång) i stället för att kapa den — say() kallar cancel(). Den köas före complete() i
+    // samma tick, så något talar alltid när complete() frågar och berömmet utgår; och
+    // narTyst-kön är FIFO, så nästa rundas instruktion kommer alltid EFTER den.
     const say = WEATHER_SAY[this._weather]
-    if (say) ctx.services.voice.say(randomFrom(say))
+    if (say) {
+      const rad = randomFrom(say)
+      const lvl = this._level
+      ctx.narTyst(() => {
+        if (this._alive && this._level === lvl) ctx.services.voice.say(rad)
+      })
+    }
   },
 
   // En enskild fallande väder-glyf (exit-säker proxy-tween: skriver bara till Pixi-
@@ -749,11 +837,13 @@ export default {
 
     const c1 = gsap.delayedCall(0.45, () => {
       if (!this._alive) return
+      // Väder-payoff: glyfer ramlar (snö/regn/blomblad ...) + talad "därför"-fras
+      // som visar barnet varför just den här outfiten passade. FÖRE complete(): den
+      // egna repliken ersätter berömmet i stället för att kapa det.
+      this._weatherPayoff(ctx)
+      this._fjarilFlyger()
       ctx.progress.complete()
       shake(this._root, { intensity: 5, duration: 0.5 })
-      // Väder-payoff: glyfer ramlar (snö/regn/blomblad ...) + talad "därför"-fras
-      // som visar barnet varför just den här outfiten passade.
-      this._weatherPayoff(ctx)
     })
     const c2 = gsap.delayedCall(1.9, () => {
       if (!this._alive) return
@@ -835,6 +925,13 @@ export default {
       this._calls.forEach((c) => c?.kill())
       this._calls = []
     }
+    // Fjärilens två tweens: flygturen (proxy) och fladdret (repeat:-1 på ett BARN, som
+    // killTweensOf(roten) aldrig når). Noden själv rivs med _root nedan.
+    this._fjarilTur?.kill()
+    this._fjarilFladder?.kill()
+    this._fjarilTur = null
+    this._fjarilFladder = null
+    this._fjaril = null
     if (this._bear && !this._bear.destroyed) {
       gsap.killTweensOf(this._bear)
       gsap.killTweensOf(this._bear.scale)

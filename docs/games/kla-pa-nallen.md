@@ -52,21 +52,26 @@ Strikt felfritt, allt ritat programmatiskt, all transient-effekt exit-säker via
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Låt barnet *välja* plagg.** Erbjud 2–3 alternativ per zon (alla "rätt") så barnet
-  uttrycker sig — keps *eller* solhatt, röd *eller* blå tröja. Förvandlar en-rätt-svar-pussel
-  till verklig påklädning/anpassning, fortfarande no-fail (allt sitter).
+- ✅ ~~**[Medium] Låt barnet *välja* plagg.** Erbjud 2–3 alternativ per zon (alla "rätt") så barnet
+  uttrycker sig — keps *eller* solhatt, röd *eller* blå tröja.~~ Redan byggd 2026-07-02
+  (`index.js:443`, `chosen`/`pool` i `_build`) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Medium] Narrativt väder-payoff.** När nallen är klädd för regn → det börjar regna och nallen
-  står torr och nöjd under paraplyet; vinter → snö faller, nallen blir varm; sommar → solen
-  strålar. Knyter ihop *varför* man klär på och belönar valet av rätt outfit.
-- **[Quick] Sällsynt rolig accessoar** (fjärilen som landar på hatten, en bubbla) för "wow".
+- ✅ ~~**[Medium] Narrativt väder-payoff.** När nallen är klädd för regn → det börjar regna …~~
+  Redan byggd 2026-07-02 (`index.js:743`, `_weatherPayoff` + `WEATHER_SAY`/`WEATHER_GLYPH`) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Sällsynt rolig accessoar** (fjärilen som landar på hatten, en bubbla) för "wow".~~ Klar
+  2026-09-23 (v1.251.0): ungefär var åttonde runda fladdrar en ritad fjäril (`drawIcon('🦋')`) in
+  och landar på huvudplagget, och flyger vidare när outfiten är klar. Ingen träffyta; fladdret
+  sitter på konstens skala, flygturen på en proxy — båda dödas i `_teardown`.
 
 ### Juice
-- **[Quick] Plagg-specifik SFX** (tygprassel, dragkedja, stövel-plask, "ploj" för rosett) via
-  [[real-audio-sfx]] i stället för enbart 'correct'.
-- **[Quick] Spegel-/poseringsögonblick** vid varje påsatt plagg: nallen tittar ner och ler, eller
-  poserar (solglasögon → cool pose).
+- ✅ ~~**[Quick] Plagg-specifik SFX** (tygprassel, dragkedja, stövel-plask, "ploj" för rosett)~~
+  Redan byggd 2026-07-02 som stämda toner (`index.js:139`, `GARMENT_TONE` + `_garmentSound`) —
+  uppdagat 2026-09-23. Riktiga klipp väntar på SFX-pipelinen.
+- ✅ ~~**[Quick] Spegel-/poseringsögonblick** vid varje påsatt plagg~~ Redan byggd i enkel form
+  (`index.js:293`, `REACT_EMOJI` 🕶️→😎 osv. + kroppsdelens popp och nallens studs i `_onCorrect`)
+  — uppdagat 2026-09-23. En riktig pose (nallen tittar ner och ler) vore en [Medium].
 
 ### Progression
 - **[Medium] Garderob/album.** Spara den färdigklädda nallen som en liten "kort"-bild i en
@@ -75,16 +80,25 @@ Strikt felfritt, allt ritat programmatiskt, all transient-effekt exit-säker via
 ### Karaktär & berättelse
 - **[Medium] Nallen *känner* klädseln.** Innan påklädning: huttrar/ser frusen ut (vinter) eller
   fläktar sig (sommar); efter: mysigt nöjd. Ger påklädningen en känslobåge.
-- **[Quick] Reaktion per plagg** — kittlas av halsduken, blir pigg av kepsen — så varje del känns.
+- ✅ ~~**[Quick] Reaktion per plagg** — kittlas av halsduken, blir pigg av kepsen~~ Redan byggd
+  2026-07-02 (`REACT_EMOJI`, `index.js:293`) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Variera beröm-/nalle-fraserna + lugn ambient** så loopen andas.
+  *Not 2026-09-23:* fraserna varieras redan (sex repliker per placerat plagg i `_onCorrect`);
+  ambienten kvarstår.
 
 ### Konst
-- **[Deep] Rita enkla vektor-plagg** som matchar nallens stil (i stället för emoji) så outfiten
-  ser *klädd* ut, inte påklistrad.
+- ✅ ~~**[Deep] Rita enkla vektor-plagg** som matchar nallens stil (i stället för emoji)~~ Redan byggd
+  (`index.js:153`, `drawGarment` — alla 23 plagg ritas; emojin är bara nyckel) — uppdagat 2026-09-23.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): sällsynt fjäril som landar på hatten
+  (se §4). Dubbelfirandet: väderrepliken kapade förut sista plaggets "Mössan sitter!" 0,45 s in
+  och kapades i sin tur av nästa rundas instruktion 1,45 s efter `complete()`. Nu köas båda i
+  `ctx.narTyst` (FIFO) — väderrepliken FÖRE `complete()`, så berömmet utgår — och alla tre
+  hörs hela, i ordning. Bilden (glyfer, snurr, nytt bräde) väntar inte. Omätt i webbläsare.
 
 - 2026-06-30: Doc skriven (granskning + plan; ersätter äldre build-spec). Inga kodändringar.
   Testkörning ren (errorCount 0), skärmdump verifierad (nalle med keps, jacka på hyllan).

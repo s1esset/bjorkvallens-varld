@@ -595,6 +595,8 @@ export default {
 
     // Idle-recue (~6s): upprepa instruktionen, lyft fram en målfärg-droppe.
     this._idle += dt
+    // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     if (this._idle > 6 && !this._paused) {
       this._idle = 0
       ctx.services.voice.say(this._introPhrase)

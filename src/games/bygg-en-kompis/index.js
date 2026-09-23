@@ -1631,9 +1631,14 @@ export default {
       ctx.progress.setLevel(this._niva)
       ctx.progress.complete()
     })
+    // Orden köar bakom berömmet från complete() (en fast 1,7 s kapade det) — och nästa
+    // rundas rad köar i sin tur bakom den här (4,8 s lång; 2,7 s kapade den efter 1 s).
     ctx.later(1.7, () => {
       if (!this._alive) return
-      ctx.services.voice.say('Vilken fin kompis! Nu hänger den på väggen.')
+      const niva = this._niva
+      ctx.narTyst(() => {
+        if (this._alive && this._niva === niva) ctx.services.voice.say('Vilken fin kompis! Nu hänger den på väggen.')
+      })
     })
     ctx.later(2.7, () => this._nyRunda(ctx))
   },
@@ -1657,12 +1662,19 @@ export default {
     this._idle = 0
     this._busTid = 0
 
-    if (las === 'topp') ctx.services.voice.say('Titta! Nu finns något nytt att sätta på huvudet!')
-    else if (las === 'kropp') ctx.services.voice.say('Titta! Nu finns en ny kroppsform!')
-    else if (las === 'ogon') ctx.services.voice.say('Titta! Nu finns nya ögon att välja!')
-    else if (las === 'mun') ctx.services.voice.say('Titta! Nu finns en ny mun!')
-    else if (las === 'farg') ctx.services.voice.say('Titta! Nu finns en ny färg att välja!')
-    else ctx.services.voice.say('Nu bygger vi en ny kompis!')
+    // Bilden är redan här; bara orden köar bakom berömmet och väggrepliken. Hann barnet
+    // bygga klart nästa kompis under väntan är raden inaktuell och utgår.
+    const niva = this._niva
+    ctx.narTyst(() => {
+      if (!this._alive || this._niva !== niva || this._resolving) return
+      this._idle = 0 // om-cuen (HINT_S) räknas från raden, annars kapar den en sen rad
+      if (las === 'topp') ctx.services.voice.say('Titta! Nu finns något nytt att sätta på huvudet!')
+      else if (las === 'kropp') ctx.services.voice.say('Titta! Nu finns en ny kroppsform!')
+      else if (las === 'ogon') ctx.services.voice.say('Titta! Nu finns nya ögon att välja!')
+      else if (las === 'mun') ctx.services.voice.say('Titta! Nu finns en ny mun!')
+      else if (las === 'farg') ctx.services.voice.say('Titta! Nu finns en ny färg att välja!')
+      else ctx.services.voice.say('Nu bygger vi en ny kompis!')
+    })
   },
 
   _satKnappar(pa) {

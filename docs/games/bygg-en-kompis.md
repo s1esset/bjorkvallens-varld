@@ -120,6 +120,13 @@ Två designbeslut värda att minnas:
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Väggrepliken "Vilken fin kompis!
+  Nu hänger den på väggen." (4,8 s) låg på fast 1,7 s och kapade berömmet från `complete()`.
+  Nästa rundas upplåsningsrad låg på 2,7 s och kapade i sin tur väggrepliken efter 1 s. Båda
+  köas nu med `ctx.narTyst`, vaktade av `_niva` (och `_resolving`). Upplåsningsraden nollställer
+  `_idle` så att om-cuen inte kapar en sen rad. Alla [Quick] i §4 var redan klara; [Medium] är
+  obyggda.
+
 `2026-08-14 · byggd (spelko §6): sex delrader, 6·6·6·6·10·3 kombinationer, 12 upplåsningar,
 bildvägg med 6 sparade kompisar via progress.setCustom('galleri'), kamera-finish med blixt och
 spik, bus-fjäril som motgång. Bilder + exit-kontroll via scripts/_kompisbild.mjs (0 konsolfel

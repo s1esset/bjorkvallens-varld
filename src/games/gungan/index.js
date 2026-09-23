@@ -24,6 +24,7 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { pop, wiggle, sparkle, floatText, burst, breathe, puff , kvittera} from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { bage } from '../../lib/form.js'
 
 // --- Pendel-konstanter (egen integrator, px/sekund) ---
 const OMEGA0 = 2.5 // rad/s naturlig vinkelfrekvens → period ≈ 2,5 s (lugn, lärbar rytm)
@@ -351,7 +352,7 @@ export default {
     face.circle(0, -84, 30).fill(skin)
     face.circle(-10, -88, 3.5).fill(COLORS.ink) // ögon
     face.circle(10, -88, 3.5).fill(COLORS.ink)
-    face.arc(0, -82, 11, 0.18 * Math.PI, 0.82 * Math.PI).stroke({ width: 3, color: COLORS.ink }) // leende
+    bage(face, 0, -82, 11, 0.18 * Math.PI, 0.82 * Math.PI).stroke({ width: 3, color: COLORS.ink }) // leende
 
     c.addChild(back, legs, arms, dress, face)
     return c

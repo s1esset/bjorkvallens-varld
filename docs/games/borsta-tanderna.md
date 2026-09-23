@@ -75,36 +75,37 @@ ihållande gap är alltså outnyttjad yta i den rigg som redan är byggd och mä
 
 ## 4. Plan inför bygget (taggad)
 
+*Hela planen nedan är byggd (v1.230.0–v1.231.0). Prövad punkt för punkt mot koden 2026-09-23.*
+
 **Kärnloop** · [Medium]
-- `DragController` för borsten med munnen som mottagare — men släppet är INTE poängen; det är
-  **rörelsen medan man håller** som borstar. Läs `drag/ratt` i `.test-logs/borsta-tanderna.json`
-  efter första testkörningen: står den på 0 har harnessen aldrig spelat spelet
-  (`docs/games/mata-munnen.md` §3), och då krävs en sond som drar från borstens FAKTISKA läge.
-- Smutsen som en lista fläckar med `{ x, y, r, kvar: 0–1 }`; borstens kontaktradie sänker
-  `kvar` per bildruta den överlappar. Skummet växer i samma takt i samma punkter.
+- ✅ ~~`DragController` för borsten med munnen som mottagare — rörelsen medan man håller
+  borstar.~~ Redan byggd (index.js:348) — uppdagat 2026-09-23.
+- ✅ ~~Smutsen som en lista fläckar; borstens kontaktradie sänker `kvar`, skummet växer i samma
+  punkter.~~ Redan byggd (`_flackar`, index.js:135) — uppdagat 2026-09-23.
 
 **Juice** · [Quick]
-- Skrubbljudet: `audio.tone()`/brus vars tonhöjd följer dragets fart (samma familj som
-  `_slagprobe`s fart→volym+tonhöjd). Aldrig ett generiskt UI-klick.
-- Borsten är ett **fristående ritat föremål** (P0 ASSETS): eget skaft, egna borst, vilo-guppning
-  och böjda borst mot tandytan när man trycker. Aldrig en 🪥 i en ruta.
+- ✅ ~~Skrubbljudet: `audio.tone()`/brus vars tonhöjd följer dragets fart.~~ Redan byggd
+  (`_skrubbLjudDriv` index.js:981: brusslinga + strypta fartkorn) — uppdagat 2026-09-23.
+- ✅ ~~Borsten är ett fristående ritat föremål med böjda borst mot tandytan.~~ Redan byggd
+  (`makeBorste` verktyg.js:530, `boj()` :526) — uppdagat 2026-09-23.
 
 **Karaktär** · [Quick]
-- Ansiktet ska LEVA under hela borstningen: `liv()` fortsätter, `nick()` när det kittlas,
-  `lutaMot()` när borsten går utanför munnen.
+- ✅ ~~Ansiktet lever under hela borstningen: `liv()`, `nick()` när det kittlas, `lutaMot()`
+  utanför munnen.~~ Redan byggd (index.js:204 / :871 / :1048) — uppdagat 2026-09-23.
 - ⚠️ Minerna ligger ÖVER ögonlagren i riggen, så han kan inte blinka medan en grimas visas —
   håll minerna korta under borstningen och låt `nick()` bära livet (se filhuvudet i
   `src/lib/ansikte.js`).
 
 **Ljud** · [Quick]
-- De 7 replikerna in i `scripts/voice-phrases.json` som pending; Web Speech täcker upp tills
-  `/rost` körs.
-- Pappas egna uttrycksljud (`brr`, `puh`) finns inte inspelade än — förbered sample-namnen och
-  låt `audio.harSample()` ta dem i bruk automatiskt när de landar, precis som `mata-munnen`.
+- ✅ ~~De 7 replikerna in i `scripts/voice-phrases.json`.~~ Redan byggd: alla repliker har
+  klipp i manifestet — uppdagat 2026-09-23.
+- ✅ ~~Pappas egna uttrycksljud via `audio.harSample()` när de landar.~~ Redan byggd
+  (`_pappaLjud` index.js:1619, stämd ton som reserv; klippen själva väntar, se §6) — uppdagat
+  2026-09-23.
 
 **Exit-säkerhet** · [Quick]
-- `_alive`-flagga + `feedback.js`-hjälparna. Sköljningens gurgling är en flerstegsanimation —
-  exit mitt i den är precis det testharnessen kör.
+- ✅ ~~`_alive`-flagga + `feedback.js`-hjälparna, exit mitt i gurglingen.~~ Redan byggd
+  (index.js:129 / :1675, allt fördröjt via `ctx.later`) — uppdagat 2026-09-23.
 
 ## 3. Vad som mättes (och vad mätningen ändrade)
 
@@ -282,6 +283,11 @@ når 96 px tvärs över, **K** återvändsgränden när sista fläcken blir ren 
   `vakna-pappa/verktyg.js`). Hör hemma i `lib/feedback.js` — delade filer rördes inte under bygget.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Ingen kodändring. `complete()`
+  anropas redan via spelets egen `_narTyst` efter wow-raden, och nästa rundas replik köas
+  likaså, så inget firar dubbelt och inget kapas. §4 är prövad mot koden och var redan byggd
+  i sin helhet (SNABBVINSTER C). Öppna trådar står kvar i §6.
 
 `2026-08-20 · spec-kortet framlagt och godkänt av ägaren; ingen kod skriven · —`
 `2026-08-20 · BYGGT v1.230.0 (commit 4b9e361) · check 0/0 · test grön · _borstprobe 9/9 ·

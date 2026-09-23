@@ -56,39 +56,44 @@ livlös rekvisita.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Deep] Ge drop-läget verklig betydelse.** Inför element som gör placeringen avgörande utan
-  att bli "magnetisk": en **flyttbar tratt/ränna** överst som barnet siktar med, eller 2–3
-  pinnar som barnet kan *dra* åt sidan för att öppna en väg mot målfickan. Då blir "var släpper
-  jag?" ett riktigt val (och fysiken är fortfarande äkta).
+- ✅ ~~**[Deep] Ge drop-läget verklig betydelse.**~~ Redan byggd (flyttbar tratt 2026-07-01
+  `_positionFunnel` :647, fläkten 2026-08-09 `_buildFan` :286) — uppdagat 2026-09-23.
 - **[Medium] Sikt-fönster.** Visa en mjuk, ärlig sannolikhets-tratt (var myntet *troligen*
   landar givet drop-x) i stället för en rak pricklinje som ljuger. Hjälper barnet koppla
   handling till utfall.
 
 ### Variation & överraskning
-- **[Quick] Special-mynt & special-fickor.** Ibland en gyllene "stjärnficka" som ger två
-  mätar-platser, eller ett "studsmynt" som pingar extra. Rotera per nivå.
+- ✅ ~~**[Quick] Special-mynt & special-fickor.**~~ Stjärnfickan klar 2026-09-23 (v1.251.0): ungefär var femte
+  nivå (aldrig den första) bär målfickan guldkant, en ritad stjärna och guldglöd, och ett mynt i
+  den fyller TVÅ mätarsteg med en egen stjärnklang (:460, :908). Studsmyntet är inte byggt.
 - **[Quick] Rörliga pinnar/snurror.** Någon enstaka liten snurrande pinne eller en vimpel som
   myntet studsar mot — ger banan karaktär och varierar varje fall.
 
 ### Juice
-- **[Quick] Pinn-melodi.** Låt varje pinn-träff spela en ton ur en stigande skala medan myntet
-  faller (mjukt, strypt) — ett litet "plink-plink-plong" som klättrar. Jackpott-ljud i målet.
-- **[Quick] Fickan slukar.** Målfickan "gapar" och svälter myntet (öppningen squashar), och
-  fyllda mynt staplas synligt i en glaskruka bredvid mätaren.
+- ✅ ~~**[Quick] Pinn-melodi.**~~ Redan byggd 2026-07-01 (`PEG_SCALE` :83) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Fickan slukar.**~~ Redan byggd (`_gulpBin` :671, myntkrukan `_addCoinToJar` :623) —
+  uppdagat 2026-09-23.
 
 ### Progression
-- **[Quick] Synlig myntsamling** (krukan ovan) som växer över nivåer — något att återkomma till.
+- ✅ ~~**[Quick] Synlig myntsamling**~~ Redan byggd 2026-08-04 (myntkrukan, `custom.mynt`) — uppdagat
+  2026-09-23.
 
 ### Karaktär & berättelse
-- **[Deep] En figur under fickorna.** Maskoten Bobo (eller ett djur med öppen mun per ficka)
-  som hejar när myntet rasslar och gör en glädjeskutt när rätt ficka träffas — egen
-  vinst-animation i stället för generisk konfetti.
+- ✅ ~~**[Deep] En figur under fickorna.**~~ Redan byggd 2026-08-04 (varje ficka har ögon och mun,
+  målfickan gapar och gulpar myntet, `_buildBins` :472) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Riktiga SFX** (trä-plink, mynt-plopp) via SFX-pipelinen ([[real-audio-sfx]]);
-  variera vinst-stinget.
+  variera vinst-stinget. *(2026-09-23: vinst-stinget varieras redan av `complete()`; klippen är
+  blockerade — MOSS nere.)*
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_levelComplete` spelade eget vinstljud,
+  eget PRAISE och eget konfettiregn i samma tick som `complete()` — strukna (magin står kvar).
+  "Nästa nivå!" kapade berömmet efter 1,7 s, och målfickan kom 0,2 s senare och kapade "Nästa
+  nivå!". Nu en kedja med `ctx.narTyst` (:964): beröm → "Nästa nivå!" → målfickan, nivå-token.
+  Brädet byggs fortfarande direkt. Nytt: stjärnfickan. `check` 0/0.
 
 - 2026-08-10 🎨 **D1: spelbrädan fick ljus uppifrån** (`054e424`, v1.123.0).
   Brädan låg på **115 361 px i EN ton** (`_plattprobe --medbakgrund`) — appens största

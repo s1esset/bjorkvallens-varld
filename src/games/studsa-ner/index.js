@@ -21,9 +21,9 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Body, speedToAccel } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
-import { sparkle, puff, floatText, bigCelebration, breathe, pop } from '../../lib/feedback.js'
+import { sparkle, puff, floatText, breathe, pop } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { COLORS, DESIGN_W, DESIGN_H, PRAISE } from '../../lib/theme.js'
+import { COLORS, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 
 const MAX_BALLS = 6 // tak för prestanda; äldsta myntet tonar bort över detta
@@ -35,6 +35,20 @@ const BINS_TOP = 560 // fickornas överkant
 const SETTLE_Y = 600 // myntet räknas som "nere i en ficka" under denna y
 const SETTLE_SPEED = 0.6 // ... och långsammare än så här
 const VOICE_THROTTLE = 2500 // ms mellan glada röst-rop (annars hackar rösten)
+// STJÄRNFICKA: ungefär var femte nivå (aldrig den första) bär målfickan en guldkant och en
+// stjärna, och ett mynt i den fyller TVÅ mätarsteg. Samma mål, samma ledtråd — bara mer glädje.
+const STJARN_CHANS = 0.2
+const GULD = 0xffc93c
+const STJARN_TON = [1046.5, 1318.51, 1567.98, 2093] // C-E-G-C, uppåt
+function stjarnPunkter(R, r, cy = 0) {
+  const pts = []
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5
+    const rr = i % 2 ? r : R
+    pts.push(Math.cos(a) * rr, cy + Math.sin(a) * rr)
+  }
+  return pts
+}
 
 // ---- FLÄKTEN (spår 3 runda P1: agens i stället för plinko-tur) --------------
 // Myntet faller fritt — men barnet kan STYRA det på vägen ner genom att flytta en
@@ -443,6 +457,7 @@ export default {
     this._targetIdx = idx
     this._targetColor = PALETTE[idx % PALETTE.length].color
     this._targetName = PALETTE[idx % PALETTE.length].name
+    this._stjarnficka = level > 0 && Math.random() < STJARN_CHANS
 
     this._clearBalls()
     this._buildBins(ctx, cfg.bins)
@@ -496,6 +511,16 @@ export default {
       }
       face.eventMode = 'none'
       fill.addChild(face)
+      if (isTarget && this._stjarnficka) {
+        // Guldkant runt fickan + en ritad stjärna som sitter på kanten.
+        fill.roundRect(-(binW - 16) / 2, -h, binW - 16, h, 16).stroke({ width: 6, color: GULD })
+        // Läget bakat i geometrin (samma mönster som ansiktet ovan), ingen `.position`.
+        const stjarna = new Graphics()
+          .poly(stjarnPunkter(20, 9, -h)).fill(GULD).stroke({ width: 3, color: 0xffffff, alpha: 0.9 })
+          .circle(-5, -h - 7, 3).fill({ color: 0xffffff, alpha: 0.9 })
+        stjarna.eventMode = 'none'
+        fill.addChild(stjarna)
+      }
       fill.position.set(x0 + binW / 2, top + h)
       this._binLayer.addChild(fill)
       this._binFills.push(fill)
@@ -634,7 +659,7 @@ export default {
     this._glowG
       .clear()
       .roundRect(-this._binW / 2 + 6, -h / 2 - 2, this._binW - 12, h + 4, 16)
-      .stroke({ width: 7, color: COLORS.white, alpha: 0.95 })
+      .stroke({ width: 7, color: this._stjarnficka ? GULD : COLORS.white, alpha: 0.95 })
     this._glowTween?.kill()
     this._glow.scale.set(1)
     this._glowTween = breathe(this._glow, { scale: 1.05, duration: 0.9 })
@@ -879,7 +904,8 @@ export default {
 
   _score(ctx, x, y) {
     this._missStreak = 0
-    this._collected = Math.min(TARGET_PER_LEVEL, this._collected + 1)
+    const fore = this._collected
+    this._collected = Math.min(TARGET_PER_LEVEL, this._collected + (this._stjarnficka ? 2 : 1))
     ctx.services.audio.sfx('correct')
     ctx.services.audio.sfx('pling')
     // Liten jackpott-flärp (stigande), skild från pinn-melodin.
@@ -890,13 +916,20 @@ export default {
 
     this._addCoinToJar(ctx) // myntet läggs i krukan och stannar där
 
-    // Mätare fylls med en liten studs.
-    const dot = this._meterDots[this._collected - 1]
-    if (dot && !dot.destroyed) {
+    // Stjärnfickan: två mätarsteg, en stigande stjärnklang och extra gnistor.
+    if (this._stjarnficka) {
+      STJARN_TON.forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.14, type: 'triangle', vol: 0.12, delay: 0.26 + 0.07 * i }))
+      sparkle(this._root, x, y - 20, { count: 14 })
+    }
+
+    // Mätare fylls med en liten studs — ett steg i taget om det är två.
+    for (let i = fore; i < this._collected; i++) {
+      const dot = this._meterDots[i]
+      if (!dot || dot.destroyed) continue
       this._drawMeterDot(dot, true, this._targetColor)
       gsap.killTweensOf(dot.scale)
       dot.scale.set(0.4)
-      gsap.to(dot.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out(2.4)' })
+      gsap.to(dot.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out(2.4)', delay: (i - fore) * 0.14 })
     }
 
     if (this._collected >= TARGET_PER_LEVEL) {
@@ -912,11 +945,9 @@ export default {
 
   _levelComplete(ctx) {
     if (!this._alive) return
-    ctx.services.audio.sfx('celebrate')
+    // Vinstljud, beröm och konfettiregn kommer från complete() nedan — här bara magin.
     ctx.services.audio.sfx('magi')
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
-    ctx.services.voice.say(randomFrom(PRAISE))
-    this._lastVoice = performance.now()
+    this._lastVoice = performance.now() // berömmet talar nu: inga glada rop ovanpå det
 
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -925,8 +956,20 @@ export default {
     this._levelTimer?.kill()
     this._levelTimer = ctx.later(1.7, () => {
       if (!this._alive) return
-      ctx.services.voice.say('Nästa nivå!')
-      this._loadLevel(ctx, this._level, true)
+      // Brädet byggs genast; bara orden väntar. Berömmet från complete() är 1,0–2,3 s och
+      // say() kapar — och målfickan kom förr 0,2 s efter "Nästa nivå!" och kapade den.
+      // Nu i en kedja: beröm → "Nästa nivå!" → målfickan, och bara på samma nivå.
+      this._loadLevel(ctx, this._level, false)
+      const niva = this._level
+      ctx.narTyst(() => {
+        if (!this._alive || this._level !== niva) return
+        ctx.services.voice.say('Nästa nivå!')
+        this._lastVoice = performance.now()
+        ctx.narTyst(() => {
+          if (!this._alive || this._level !== niva) return
+          this._announceTarget(ctx, 0)
+        })
+      })
     })
   },
 

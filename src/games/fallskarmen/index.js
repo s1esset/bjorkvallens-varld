@@ -10,9 +10,9 @@
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, puff, sparkle, burst, bigCelebration, floatText , kvittera} from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, kvittera, shake } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Motstandsvolym } from '../../lib/luftmotstand.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
@@ -892,6 +892,16 @@ export default {
     ctx.services.audio.tone({ freq: 880, dur: 0.12, type: 'sine', vol: 0.2, slideTo: 1240, delay: 0.11 })
     if (this._kid && !this._kid.destroyed) pop(this._kid, { scale: 1.18 })
 
+    // Studsmattan SÄGER boing: riktigt klipp om det finns, annars en stämd glidton
+    // (G3 → G4), och ett mindre eko vid andra studsen (C4 → G4, 0,54 s = timelinens
+    // första nedslag). Damm yr ur mattan på båda sidor och bilden rycker till lite.
+    const au = ctx.services.audio
+    if (!au.sample('boing')) au.tone({ freq: 196, slideTo: 392, dur: 0.28, type: 'sine', vol: 0.24 })
+    au.tone({ freq: 261.63, slideTo: 392, dur: 0.18, type: 'sine', vol: 0.1, delay: 0.54 })
+    puff(ctx.fxLayer, chute.x - 56, GROUND_Y + 14, { count: 6, color: 0xe6d8bf })
+    puff(ctx.fxLayer, chute.x + 56, GROUND_Y + 14, { count: 6, color: 0xe6d8bf })
+    shake(this._root, { intensity: 3, duration: 0.25 })
+
     // Mjuk studs-sekvens (direkt på fallskärmen; dödas i destroy).
     this._landTl?.kill()
     this._landTl = gsap
@@ -901,9 +911,7 @@ export default {
       .to(chute, { y: GROUND_Y - 38, duration: 0.2, ease: 'power2.out' })
       .to(chute, { y: GROUND_Y, duration: 0.22, ease: 'bounce.out' })
 
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    // Vinstljud, beröm och konfettiregn kommer från complete() nedan — här bara det egna.
     burst(ctx.fxLayer, this._targetX, GROUND_Y, { count: 16 })
 
     // Progress: höj nivå + räkna mjuka landningar + delat firande (stjärna + sticker).

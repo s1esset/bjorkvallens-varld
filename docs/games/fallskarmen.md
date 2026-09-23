@@ -57,38 +57,6 @@ Solid kärna, men flera tunna drag:
 Kort sagt: **krafterna är välgjorda men föraren är en själlös emoji och himlen är tom** — det
 styrs hem, men det berättas ingen liten resa.
 
-## 5. Status / loggar
-
-- 2026-08-10 ✅ **Luften blev en KRAFT + kupolen blev tyg** (v1.86.0, spår 3 runda P2,
-  commits `1ff0d98` · `7690ccd`). Ny delad primitiv `src/lib/luftmotstand.js`
-  (`Motstandsvolym`) med fallskärmen som första kund, och `lib/mjukkropp.js` fick
-  `falt(ax, ay)` med kupolen som fjärde kund.
-  - **Vad HEAD faktiskt gjorde** (uppmätt med nya `scripts/_fallprobe.mjs`, inte gissat):
-    95 % av fallfarten nåddes efter **0,07 s** — alltså ingen acceleration alls, fallet var
-    `chute.y += sink * dt`. Styrningen gav **248 px (Lätt) mot 245 px (Tung)** på en
-    sekund, så tyngdknappen gjorde ingenting åt styrförmågan. Vinden var ett eget tal med
-    en handsatt tyngdfaktor (0,45).
-  - **Nu en lag:** motstånd mot farten *relativt luften*. Gränsfarten faller ut ur massa
-    mot kupolarea, vinden är luftens egen hastighet (därför driver en lätt last med byn
-    medan en tung släpar efter), styrningen möter samma motstånd.
-  - **Efter** (samma sond): Lätt 4,87 s och 75 → 82 px/s · Tung 2,97 s och 119 → 137 px/s ·
-    **kvot 1,67× = exakt HEADs uppmätta kvot** · accelerationen syns (95 % efter 0,20
-    resp. 0,32 s) · vinddrift@1s 148/108 px · **styrning@1s 227/190 px** — knappen ändrar
-    nu tre saker samtidigt i stället för två.
-  - **Kupolen buktar av kraften den bär:** 2,8 px på en lätt last, 7,8 px på en tung
-    (2,8×), 10,4 px insida i en by, och ett lastbyte *svänger* in på 0,18 s.
-  - **Fyra fällor, alla dokumenterade i koden:** (1) en acceleration och en kraft är inte
-    samma sak — med styrningen som acceleration drev den TUNGA lasten längre i sidled än
-    den lätta; (2) `skjut()` är en impuls, inte en kraft, och en `skjut` per bildruta blev
-    en konstant fart som vek ihop kupolen till en trekant; (3) med bara tre fästen
-    *roterade* mjukkroppen och kraftfältet drunknade i rörelsen; (4) `form(a)` skalar båda
-    axlarna, så en platt underkant drog in skärmkantens hörn till ±11 px.
-  - Sonderna: `_fallprobe.mjs` (spelets känsla), `_motstandprobe.mjs` (17/17, utan
-    webbläsare), `_kupolprobe.mjs` (6/6 + `--svep`).
-  - §4-punkter avbockade nedan: **[Medium] Gör tyngd-valet kännbart** och **[Quick]
-    Vind-lut på fallskärmen** (den senare fanns delvis redan; lutningen läses nu ur den
-    verkliga relativfarten mot luften i stället för ur vindtalet).
-
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
@@ -109,12 +77,17 @@ styrs hem, men det berättas ingen liten resa.
   ett kort, lekfullt sväng (fortfarande inom no-fail).
 
 ### Juice
-- **[Quick] Vind-sus som stiger med byn** (loop vars volym följer `Math.abs(this._wind)`) + ett
-  mjukt tyg-fladder på kupolen vid sid-rörelse.
-- **[Quick] Föraren reagerar:** dinglande ben (liten pendel-graf under emojin), armar upp, och
-  ett "iiih!"/skratt vid landningen.
-- **[Quick] Landnings-boing med karaktär** + dammpuff (redan `puff` vid gräs — lägg motsvarande
-  vid mattan) och en kort kamera-mikroskak.
+- ✅ ~~**[Quick] Vind-sus som stiger med byn** (loop vars volym följer `Math.abs(this._wind)`) + ett
+  mjukt tyg-fladder på kupolen vid sid-rörelse.~~ Redan byggd — uppdagat 2026-09-23: suset är två
+  `audio.tone`-lager vars volym och täthet följer byn (index.js:635-645, 2026-07-01), och kupolen
+  är tyg som trycks in av byn (`Mjukkropp`, 2026-08-10).
+- ✅ ~~**[Quick] Föraren reagerar:** dinglande ben (liten pendel-graf under emojin), armar upp, och
+  ett "iiih!"/skratt vid landningen.~~ Redan byggd (benen :588-590, "Iiih!" + toner i `_celebrate`,
+  armarna ritade uppsträckta i `makeKid`) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Landnings-boing med karaktär** + dammpuff (redan `puff` vid gräs — lägg motsvarande
+  vid mattan) och en kort kamera-mikroskak.~~ Klar 2026-09-23 (v1.251.0): `_celebrate` (:895-903)
+  spelar `boing`-klippet (stämd G3→G4 om det saknas) + ett mindre eko vid andra studsen, dammpuffar
+  på båda sidor om mattan och `shake(this._root)` 3 px / 0,25 s.
 
 ### Progression
 - **[Medium] "Landningsbok".** Räkna och visa de olika mål-typer barnet landat på (mattan,
@@ -123,18 +96,26 @@ styrs hem, men det berättas ingen liten resa.
   reset.
 
 ### Karaktär & berättelse
-- **[Deep] Mottagare vid mattan.** Bobo (eller en kompis) står vid målet, vinkar in föraren,
+- ✅ ~~**[Deep] Mottagare vid mattan.**~~ Redan byggd (`_boboWave`/`_boboCatch`, 2026-08-06) — uppdagat
+  2026-09-23. Bobo (eller en kompis) står vid målet, vinkar in föraren,
   fångar/kramar vid träff och hejar — en egen vinst-scen i stället för generisk konfetti, och en
   anledning att vilja landa just där.
-- **[Quick] Föraren får en kropp** (enkel programmatisk Zacke/Lova som i `gungan`/`spindel-zacke`)
-  i stället för bara ett ansikte.
+- ✅ ~~**[Quick] Föraren får en kropp** (enkel programmatisk Zacke/Lova som i `gungan`/`spindel-zacke`)
+  i stället för bara ett ansikte.~~ Redan byggd (`makeKid`, 2026-08-04; noterad i §5 2026-08-06 men
+  aldrig struken) — uppdagat 2026-09-23.
 
 ### Ljud
-- **[Quick] Riktiga SFX från [[real-audio-sfx]]:** vind-sus, tyg-fladder, studs-boing, plask —
-  ersätt syntetblippen; ersätt TTS-fraserna med förgenererade röstklipp.
+- **[Quick] Riktiga SFX från [[real-audio-sfx]]:** vind-sus, tyg-fladder, plask — ersätt
+  syntetblippen. ⛔ Kräver nya SFX-klipp (MOSS nere). Studs-boingen använder redan det befintliga
+  `boing`-klippet (2026-09-23), och röst-halvan är klar: alla fyra repliker har klipp.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_celebrate` spelade eget
+  vinstljud + PRAISE + konfettiregn i samma tick som `complete()` — strukna (värdet firar;
+  "Nästan! Jag hjälper till." 0,5 s före får nu tala klart i stället för att kapas). Landningen
+  på mattan fick boing (befintligt klipp, stämd reserv) + eko, dammpuffar och en 3 px mikroskak.
+  Docen: det felplacerade 2026-08-10-blocket (låg före §4) är flyttat hit, sist i loggen.
 - 2026-06-30: Doc skriven (granskning + plan, ersätter gammal bygg-spec). Testat headless med
   drag (errorCount 0), skärmdump läst. Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] vind-lut på fallskärmen + dinglande ben/skratt + stigande
@@ -173,3 +154,32 @@ styrs hem, men det berättas ingen liten resa.
     skor, bål, armar, huvud och hår sedan tidigare. Stryks som klar i stället för att
     byggas om.
   - Exit-säkert: `_boboIdle` + skal-tweens dödas i `destroy`.
+- 2026-08-10 ✅ **Luften blev en KRAFT + kupolen blev tyg** (v1.86.0, spår 3 runda P2,
+  commits `1ff0d98` · `7690ccd`). Ny delad primitiv `src/lib/luftmotstand.js`
+  (`Motstandsvolym`) med fallskärmen som första kund, och `lib/mjukkropp.js` fick
+  `falt(ax, ay)` med kupolen som fjärde kund.
+  - **Vad HEAD faktiskt gjorde** (uppmätt med nya `scripts/_fallprobe.mjs`, inte gissat):
+    95 % av fallfarten nåddes efter **0,07 s** — alltså ingen acceleration alls, fallet var
+    `chute.y += sink * dt`. Styrningen gav **248 px (Lätt) mot 245 px (Tung)** på en
+    sekund, så tyngdknappen gjorde ingenting åt styrförmågan. Vinden var ett eget tal med
+    en handsatt tyngdfaktor (0,45).
+  - **Nu en lag:** motstånd mot farten *relativt luften*. Gränsfarten faller ut ur massa
+    mot kupolarea, vinden är luftens egen hastighet (därför driver en lätt last med byn
+    medan en tung släpar efter), styrningen möter samma motstånd.
+  - **Efter** (samma sond): Lätt 4,87 s och 75 → 82 px/s · Tung 2,97 s och 119 → 137 px/s ·
+    **kvot 1,67× = exakt HEADs uppmätta kvot** · accelerationen syns (95 % efter 0,20
+    resp. 0,32 s) · vinddrift@1s 148/108 px · **styrning@1s 227/190 px** — knappen ändrar
+    nu tre saker samtidigt i stället för två.
+  - **Kupolen buktar av kraften den bär:** 2,8 px på en lätt last, 7,8 px på en tung
+    (2,8×), 10,4 px insida i en by, och ett lastbyte *svänger* in på 0,18 s.
+  - **Fyra fällor, alla dokumenterade i koden:** (1) en acceleration och en kraft är inte
+    samma sak — med styrningen som acceleration drev den TUNGA lasten längre i sidled än
+    den lätta; (2) `skjut()` är en impuls, inte en kraft, och en `skjut` per bildruta blev
+    en konstant fart som vek ihop kupolen till en trekant; (3) med bara tre fästen
+    *roterade* mjukkroppen och kraftfältet drunknade i rörelsen; (4) `form(a)` skalar båda
+    axlarna, så en platt underkant drog in skärmkantens hörn till ±11 px.
+  - Sonderna: `_fallprobe.mjs` (spelets känsla), `_motstandprobe.mjs` (17/17, utan
+    webbläsare), `_kupolprobe.mjs` (6/6 + `--svep`).
+  - §4-punkter avbockade ovan: **[Medium] Gör tyngd-valet kännbart** och **[Quick]
+    Vind-lut på fallskärmen** (den senare fanns delvis redan; lutningen läses nu ur den
+    verkliga relativfarten mot luften i stället för ur vindtalet).

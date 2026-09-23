@@ -60,10 +60,8 @@ vägg, och glöden tänker åt barnet.**
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Låt antalet betyda något — lasta vagnarna.** Rita `n` små föremål i varje vagn
-  (3 äpplen i vagn 3, 4 ankungar i vagn 4) som matchar siffran. Då kopplar barnet *siffra ↔
-  antal* och kan räkna sakerna, inte bara läsa glöden. Prickraden finns redan — uppgradera
-  den till tematiska föremål.
+- ✅ ~~**[Medium] Låt antalet betyda något — lasta vagnarna.**~~ Redan byggd (`index.js:369–377`:
+  n ritade föremål per vagn via `drawIcon`) — uppdagat 2026-09-23.
 - **[Medium] Tona ned auto-glöden till ett efterfrågat stöd.** Visa glöden först efter ~4s
   tvekan (eller efter ett felförsök), inte direkt. Lägg en talad fråga "Vilken vagn är
   nummer **tre**?" vid varje steg så barnet *söker* talet i stället för att jaga blinket.
@@ -72,18 +70,24 @@ vägg, och glöden tänker åt barnet.**
   vagn visar 🍓🍓🍓, slot visar siffran. Samma drag-mekanik, helt ny tanke.
 
 ### Variation & överraskning
-- **[Quick] Slumpa loksfärg + vagnsinnehåll per runda** så två rundor aldrig ser lika ut.
+- ✅ ~~**[Quick] Slumpa loksfärg per runda.**~~ Klar 2026-09-23 (v1.251.0): lokets kropp målas om
+  i röd/blå/grön/turkos/lila medan det står utanför bild (`LOK_FARGER` :53, `_ritaLok` :216,
+  bytet :429) — aldrig samma två rundor i rad, första rundan alltid röd, inget orange (vagn 1
+  är orange). **Vagnsinnehållet** slumpas inte: lasten är bunden till räkneramsans klipp ("Tre!
+  Tre äpplen!") och ett nytt innehåll kräver nya röstklipp (TTS nere).
 - **[Medium] En passagerare/överraskning emellanåt:** en vagn gömmer ett vinkande djur som
   tittar fram när den kopplas på (liten "wow", anledning att vilja se nästa).
 
 ### Juice
-- **[Quick] Riktigt tågljud.** Lägg `chuff`/`tut`-nycklar i SFX-pipelinen ([[real-audio-sfx]]):
-  ett mjukt tut vid varje koppling och ett stolt ångvissel vid full tåg. Stigande tonhöjd ju
-  fler vagnar (kombo-känsla som klättrar).
-- **[Quick] Levande lok medan man spelar:** lätt ång-puff ur skorstenen i loop, små guppande
-  hjul, en svag fram-och-tillbaka-vagga. Loket ska *leva*, inte vänta.
-- **[Quick] Koppel-snäpp:** när en vagn landar rätt, låt den glida sista biten och "klicka"
-  i loket med en liten ryck-animation + dammpuff vid hjulen.
+- ✅ ~~**[Quick] Riktigt tågljud.**~~ Redan byggd som stämda toner: ett tut per koppling som
+  klättrar med antalet vagnar (:485) och en tvåstämmig ångvissel vid fullt tåg (:543) —
+  uppdagat 2026-09-23. Riktiga `chuff`-klipp skulle kräva MOSS (nere).
+- ✅ ~~**[Quick] Levande lok medan man spelar.**~~ Redan byggd (`_startLocoLife` :246 hjulgupp +
+  ångpuffar, `_startRock` :267 vagga) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Koppel-snäpp.**~~ Klar 2026-09-23 (v1.251.0): glidningen in fanns redan
+  (DragControllers översläng); nu klickar vagnen i kopplet — kort metallisk tvåtons-klick (E6
+  + G5), grusdamm vid båda hjulen och ett ryck på 9 px mot loket som studsar tillbaka
+  (`_koppelSnapp` :513). Rycket går på vagnens BARN via ett proxy-objekt, ett per vagn.
 
 ### Progression
 - **[Quick] Rälsen rullar.** Vid full tåg: panorera bakgrunden (parallax-kullar/träd) medan
@@ -99,8 +103,17 @@ vägg, och glöden tänker åt barnet.**
 ### Ljud
 - **[Quick] Variera räkne-frasen ibland** ("Ett! En vagn!", "Två vagnar!") så ramsan inte
   blir helt mekanisk, och lägg en lugn bakgrunds-ambient (fågelkvitter/vind) för värme.
+  ⛔ Blockerad: nya fraser kräver nya röstklipp (TTS nere) och ambienten ett nytt SFX-klipp
+  (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_finishRound` spelade eget
+  vinstljud och eget konfettiregn i samma tick som `complete()` — strukna. "Tut tut! <beröm>"
+  sades i samma tick EFTER `complete()` och kapade sista vagnens räkneord ("Fem! Fem
+  stjärnor!") innan det hördes; nu väntar den med `ctx.narTyst` (och utgår om barnet redan
+  kopplat en vagn i nästa runda). Två A-rader byggda: **slumpad loksfärg** och **koppelsnäpp**.
+  §4 städad: 3 redan byggda; räknefraser och ambient väntar på TTS/MOSS.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`ec8ee2b`, v1.99.0).
   `_plattprobe --medbakgrund` mätte **697 730 px = 76 % av skärmen** i EN ton.

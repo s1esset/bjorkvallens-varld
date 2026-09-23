@@ -10,7 +10,7 @@ import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle, puff, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, puff } from '../../lib/feedback.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT, PLAYFUL, PRAISE } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
@@ -48,6 +48,9 @@ const C_HILL_NEAR = 0xc2db9d
 const C_GROUND_TOP = 0xb4d78d
 const C_GROUND_BOT = 0x99c471
 const C_BALLAST_TOP = 0xd9c8a8
+// Lokets kropp byter färg per runda (aldrig samma två gånger i rad). Första rundan är alltid
+// röd som förut. Inget orange: vagn 1 — den som kopplas närmast loket — är orange.
+const LOK_FARGER = [COLORS.red, COLORS.blue, COLORS.green, COLORS.teal, COLORS.purple]
 const C_BALLAST_BOT = 0xc0ab87
 
 const RAIL_Y = 300
@@ -74,6 +77,7 @@ export default {
 
   init(ctx) {
     this._alive = true
+    this._forstaLok = true // första rundans lok är alltid rött (se LOK_FARGER)
     this._idle = 0
     this._resolving = false
     this._cars = []
@@ -201,19 +205,28 @@ export default {
     eng._wheels = wheels
 
     const g = new Graphics()
+    this._lokFarg = LOK_FARGER[0]
+    this._ritaLok(g, this._lokFarg)
+    eng.addChild(g)
+    eng._kropp = g
+    return eng
+  },
 
+  // Lokets kropp i en given färg. Ritas om (clear + samma geometri) när rundan byter färg.
+  _ritaLok(g, farg) {
+    g.clear()
     // Kofångare (pilot) längst fram till vänster.
     g.poly([-96, 22, -120, 52, -96, 52]).fill(COLORS.orangeDark)
     // Chassi/fotplåt.
     g.roundRect(-98, 24, 200, 18, 7).fill(COLORS.ink)
 
     // Pannans kropp (boiler) + mörkare smokebox-ring + strålkastare fram.
-    g.roundRect(-100, -34, 150, 64, 22).fill(COLORS.red).stroke({ width: 5, color: COLORS.white, alpha: 0.45 })
+    g.roundRect(-100, -34, 150, 64, 22).fill(farg).stroke({ width: 5, color: COLORS.white, alpha: 0.45 })
     g.roundRect(-99, -30, 24, 56, 13).fill(COLORS.orangeDark)
     g.circle(-89, -2, 11).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.white, alpha: 0.6 })
 
     // Hytt (cab) bak till höger, med tak-överhäng och fönster mot vagnarna.
-    g.roundRect(36, -60, 60, 90, 16).fill(COLORS.red).stroke({ width: 5, color: COLORS.white, alpha: 0.45 })
+    g.roundRect(36, -60, 60, 90, 16).fill(farg).stroke({ width: 5, color: COLORS.white, alpha: 0.45 })
     g.roundRect(28, -68, 80, 16, 8).fill(COLORS.orangeDark) // tak
     g.roundRect(50, -46, 38, 34, 9).fill(COLORS.yellow).stroke({ width: 4, color: COLORS.white, alpha: 0.5 })
 
@@ -226,9 +239,6 @@ export default {
 
     // Koppel mot första vagnen.
     g.roundRect(94, 6, 16, 12, 4).fill(COLORS.ink)
-
-    eng.addChild(g)
-    return eng
   },
 
   // Levande lok: hjulen guppar lätt + ång-puffar ur skorstenen i loop. Vaggan
@@ -416,6 +426,13 @@ export default {
     // Parkeringen utgår från ctx.view.right (läses vid användning): på en bred telefon
     // syns designkoordinater bortom 1280, och loket får inte stå synligt och vänta.
     this._engine.x = ctx.view.right + 240
+    // Nytt lok, ny färg — bytet sker medan loket står utanför bild. Första rundan är röd.
+    if (!this._forstaLok && this._engine._kropp && !this._engine._kropp.destroyed) {
+      const val = LOK_FARGER.filter((f) => f !== this._lokFarg)
+      this._lokFarg = randomFrom(val)
+      this._ritaLok(this._engine._kropp, this._lokFarg)
+    }
+    this._forstaLok = false
     this._rollIn = gsap.to(this._engine, { x: this._engineX, duration: 1.1, ease: 'power2.out' })
 
     // Kopplingsplatser: en target per slot, men accepts kräver rätt siffra OCH att
@@ -473,6 +490,7 @@ export default {
     ctx.services.voice.say(`${SIFFROR[n] || n}! ${n === 1 ? 'En' : SIFFROR[n]} ${n === 1 ? lo.ental : lo.flertal}!`)
     sparkle(ctx.fxLayer, target.view.x, target.view.y)
     pop(rec.view)
+    this._koppelSnapp(ctx, rec.view)
     // Spökrutan har gjort sitt när vagnen sitter i — tona bort den, annars står tomma
     // streckade rutor kvar på rälsen när tåget rullar iväg.
     const ghost = target.view
@@ -488,6 +506,28 @@ export default {
     if (this._placedCount >= this._N) this._finishRound(ctx)
   },
 
+  // Koppelsnäpp: vagnen KLICKAR i kopplet — en kort metallisk klick-ton, damm vid hjulen
+  // och ett ryck mot loket. Rycket går på vagnens BARN via ett proxy-objekt: vagnen själv
+  // bär träffytan, DragControllers landning och `pop`. Ett ryck per vagn (`_ryckTl`), så
+  // två snabba kopplingar aldrig lämnar en vagn halvvägs förskjuten.
+  _koppelSnapp(ctx, car) {
+    if (!this._alive || !car || car.destroyed) return
+    const audio = ctx.services.audio
+    audio.tone({ freq: 1318.51, dur: 0.035, type: 'square', vol: 0.05 })
+    audio.tone({ freq: 783.99, dur: 0.06, type: 'triangle', vol: 0.12, delay: 0.035 })
+    for (const wx of [-45, 45]) puff(ctx.fxLayer, car.x + wx, car.y + 90, { count: 3, color: C_BALLAST_TOP })
+    const barn = [...car.children]
+    const st = { dx: 0 }
+    const flytta = () => {
+      for (const b of barn) if (!b.destroyed) b.x = st.dx
+    }
+    car._ryckTl?.kill()
+    car._ryckTl = gsap
+      .timeline({ onUpdate: flytta, onComplete: flytta })
+      .to(st, { dx: -9, duration: 0.06, ease: 'power2.out' })
+      .to(st, { dx: 0, duration: 0.36, ease: 'elastic.out(1, 0.4)' })
+  },
+
   // Hela tåget klart: tut + firande + tåget rullar ut, sedan ny runda. Oändlig lek.
   _finishRound(ctx) {
     if (!this._alive) return
@@ -496,7 +536,7 @@ export default {
     this._pulse?.kill()
     this._pulse = null
 
-    ctx.services.audio.sfx('celebrate')
+    // Vinstljud och konfettiregn kommer från progress.complete() nedan.
     ctx.services.audio.sfx('whoosh')
     // Stolt ångvissel när hela tåget är fullt: en varm, rätt hög ton som stiger och
     // hålls (två stämmor = ångvisslans övertoner).
@@ -505,7 +545,6 @@ export default {
     this._rollIn?.kill()
     this._rollIn = null
     puff(ctx.fxLayer, this._engine.x - 68, this._engine.y - 82, { color: COLORS.inkSoft })
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // AVFÄRD ÅT VÄNSTER. Loket har fronten (kofångare/skorsten) åt vänster och vagnarna
     // åt höger, så tåget måste rulla åt VÄNSTER för att köra framlänges: loket lämnar
@@ -529,9 +568,16 @@ export default {
 
     ctx.progress.setLevel(this._level + 1)
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
-    ctx.progress.complete() // delat firande: stjärna + klistermärke (+ röst-beröm)
-    // Sista (hörbara) frasen: glatt tut + beröm medan tåget åker.
-    ctx.services.voice.say(`Tut tut! ${randomFrom(PRAISE)}`)
+    // Delat firande: vinstljud + regn + stjärna + klistermärke. Berömmet utgår — sista
+    // vagnens räkneord ("Fem! Fem stjärnor!", 1,8–2,1 s) talar redan i samma tick.
+    ctx.progress.complete()
+    // Sista frasen: glatt tut + beröm medan tåget åker. Den sades förut i samma tick och
+    // kapade räkneordet innan det hörts; nu väntar den in det. Har barnet redan kopplat
+    // en vagn i nästa runda är den inaktuell och utgår.
+    ctx.narTyst(() => {
+      if (!this._alive || (!this._resolving && this._placedCount > 0)) return
+      ctx.services.voice.say(`Tut tut! ${randomFrom(PRAISE)}`)
+    })
 
     // Vänta tills hela tågsättet (inkl. stafett-fördröjningen på sista vagnen) lämnat
     // bilden innan nästa lok rullar in från höger.
@@ -568,6 +614,7 @@ export default {
         gsap.killTweensOf(c)
         gsap.killTweensOf(c.scale)
         if (c._glow) gsap.killTweensOf(c._glow)
+        c._ryckTl?.kill()
       }
     })
     this._roundLayer.removeChildren().forEach((o) => o.destroy({ children: true }))
@@ -594,6 +641,7 @@ export default {
         gsap.killTweensOf(c)
         gsap.killTweensOf(c.scale)
         if (c._glow) gsap.killTweensOf(c._glow)
+        c._ryckTl?.kill()
       }
     })
     if (this._engine) gsap.killTweensOf(this._engine)

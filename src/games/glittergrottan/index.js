@@ -321,7 +321,14 @@ export default {
 
     this._ruleLine = rule === 'form' ? (this._formCube ? FORM_CUBE_LINES : FORM_LINES)[this._formFirst] : RULE_LINES[rule]
     this._buildFacit()
-    if (this._started) ctx.services.voice.say(this._ruleLine)
+    // Nya rundan byggs 2,2 s efter complete(), medan hejaraden (upp till 3,75 s) ännu kan
+    // tala — regeln köar bakom den i stället för att kapa den. Kristallerna kommer genast.
+    if (this._started) {
+      const rund = (this._rundNr = (this._rundNr || 0) + 1)
+      ctx.narTyst(() => {
+        if (this._alive && this._phase === 'play' && this._rundNr === rund) ctx.services.voice.say(this._ruleLine)
+      })
+    }
   },
 
   // Bestäm färg/form/storlek/plats OCH rang (turordning) för rundans kristaller.

@@ -132,6 +132,12 @@ namnger den). Samma skärm bär båda åldrarna.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Spelet firar inte dubbelt. Men
+  nästa rundas regelrad sades direkt i `_build`, 2,2 s efter `complete()`, och kapade
+  hejaraden "Glimma jublar — vilken fin melodi!" (3,75 s) vid 3–5 kristaller. Regelraden köas
+  nu med `ctx.narTyst`, vaktad av en rund-token (`_rundNr`) och `_phase === 'play'`.
+  Kristallerna kommer genast. Alla [Quick] i §4 var redan klara; [Medium] principfacit är obyggt.
+
 `2026-07-04 · nybyggt som 3D-mall (tryck/orsak-verkan) · bf548fc`
 
 `2026-07-25 · OMBYGGT till ordningsspel efter ägarens omdöme ("ingen struktur eller mål").`

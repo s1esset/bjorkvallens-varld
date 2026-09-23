@@ -95,9 +95,10 @@ const lasRost = () =>
   })
 
 // En replik som har ett klipp och är lång nog att fortfarande spela efter 600 ms.
-const REPLIK = await page.evaluate(async () => {
+const [REPLIK, REPLIK2] = await page.evaluate(async () => {
   const m = await (await fetch('/audio/voice/manifest.json')).json()
-  return Object.keys(m).find((t) => t.length > 40) || Object.keys(m)[0]
+  const k = Object.keys(m)
+  return [k.find((t) => t.length > 40) || k[0], k.find((t) => t.length > 14 && t.length < 30) || k[1]]
 })
 
 const rapport = []
@@ -146,9 +147,9 @@ const E = await arm('E efter', () => {}, async () => {
 
 // ctx.narTyst: en replik EFTER complete() ska vänta in berömmet, inte kapa det.
 // L är kontrollarmen (fast fördröjning, som spelen gjorde) — den MÅSTE kapa, annars mäter N inget.
-async function efterArm(namn, kod, vantaMs) {
+async function efterArm(namn, kod, vantaMs, arg = REPLIK) {
   await montera()
-  await page.evaluate(kod, REPLIK)
+  await page.evaluate(kod, arg)
   await page.waitForTimeout(vantaMs)
   const f = await page.evaluate(() => window.__firar)
   console.log(`${namn.padEnd(12)} sagt=${JSON.stringify(f.sagt.map((t) => t.slice(0, 18)))} kapade=${JSON.stringify(f.kapade)}`)
@@ -177,6 +178,29 @@ await page.waitForTimeout(3500)
 const X = await page.evaluate(() => window.__firar)
 console.log(`X exit       sagt=${JSON.stringify(X.sagt.map((t) => t.slice(0, 18)))}`)
 
+// O: två köade repliker, den andra köad 0,2 s efter den första, båda medan berömmet talar.
+// Med en pollning per anrop avgjorde fasen vem som talade först; kön ska ge A före B, och
+// B ska vänta in A i stället för att kapa den.
+const O = await efterArm('O ordning', ([a, b]) => {
+  const c = window.__barnspel.ctx
+  c.progress.complete()
+  c.narTyst(() => c.services.voice.say(a))
+  c.later(0.2, () => c.narTyst(() => c.services.voice.say(b)))
+}, 12000, [REPLIK2, REPLIK])
+
+// W: en replik UTAN klipp går till talsyntesen — `talar` måste se den, annars kapar
+// complete() den. (Headless Chrome kan sakna röster; då rapporteras armen som ej mätbar.)
+await montera()
+const W = await page.evaluate(async () => {
+  const v = window.__barnspel.ctx.services.voice
+  v.say('Sonden säger en mening som inte har något klipp alls.')
+  await new Promise((r) => setTimeout(r, 300))
+  let speaking = null
+  try { speaking = window.speechSynthesis.speaking } catch { /* saknas */ }
+  return { speaking, talar: v.talar }
+})
+console.log(`W talsyntes  speaking=${W.speaking} talar=${W.talar}`)
+
 let fel = 0
 const ok = (namn, v, d = '') => { console.log(`  ${v ? '✓' : '✗'} ${namn}${d ? ' · ' + d : ''}`); if (!v) fel++ }
 console.log('\nförutsättningar (kontrollarm):')
@@ -198,6 +222,12 @@ ok('L: kontroll — fast fördröjning KAPAR berömmet (annars mäter N inget)',
 const iN = N.sagt.indexOf(REPLIK)
 ok('N: narTyst väntar in berömmet', iN > 0 && N.kapade[iN] === false, `index ${iN} · ${JSON.stringify(N.kapade)}`)
 ok('X: köad replik dör med omgången', !X.sagt.includes(REPLIK), JSON.stringify(X.sagt.map((t) => t.slice(0, 14))))
+const iA = O.sagt.indexOf(REPLIK2)
+const iB = O.sagt.indexOf(REPLIK)
+ok('O: köade repliker talar i köordning', iA > 0 && iB > iA, `A@${iA} B@${iB}`)
+ok('O: ingen köad replik kapar en annan', iA > 0 && O.kapade[iA] === false && O.kapade[iB] === false, JSON.stringify(O.kapade))
+if (W.speaking) ok('W: talar ser talsyntesen', W.talar === true)
+else console.log('  – W: talsyntesen talar inte i den här webbläsaren — ej mätbar här')
 ok('inga konsolfel', konsolfel.length === 0, konsolfel.slice(0, 3).join(' | '))
 console.log(fel ? `\n${fel} RÖDA` : '\nalla gröna')
 process.exit(fel ? 1 : 0)

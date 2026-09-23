@@ -72,13 +72,38 @@ export async function createGameHost(services, params) {
   // ligger över appens längsta klipp: 8,99 s (ffprobe över alla 1 829; medianen är 2,4 s),
   // för en fn som fyrar när taket löper ut kapar precis det mekanismen skyddar. Pollningen
   // går via later() och dör alltså med omgången. Mönstret kommer från unika-knytts `_narTyst`.
+  //
+  // En KÖ, inte en pollning per anrop: två repliker som köats var för sig pollade med var sin
+  // fas, och den som råkade polla först när rösten tystnade talade först — "En skål!" före
+  // "Mums!" (glasstornet). Här körs fn:erna i den ordning de köades, en i taget, och varje
+  // fn väntar in det den förra sa. Ett tomt och tyst läge kör fn direkt, som förut.
   const NAR_TYST_TAK = 30
-  const narTyst = (fn, varv = 0) => {
-    if (varv >= NAR_TYST_TAK || (!voice.talar && !voice.kvar)) {
-      fn()
-      return
+  const narKo = []
+  let narPoll = null
+  let narVarv = 0
+  // Sätts av pause()/destroy(): efter trycket på hem-knappen är rösten nästa skärms, och en
+  // köad replik som fyrar då (rösten är ju tyst efter cancel) hade talat ovanpå menyn.
+  let narStopp = false
+  const narSteg = () => {
+    narPoll = null
+    // En fn som inte sa något (dess vakt föll) lämnar rösten tyst — nästa får gå direkt.
+    while (!narStopp && narKo.length && (narVarv >= NAR_TYST_TAK || (!voice.talar && !voice.kvar))) {
+      narVarv = 0
+      try {
+        narKo.shift()()
+      } catch (err) {
+        console.error('ctx.narTyst: köad fn kastade', game.id, err)
+      }
     }
-    later(0.35, () => narTyst(fn, varv + 1))
+    if (!narStopp && narKo.length) {
+      narVarv++
+      narPoll = later(0.35, narSteg)
+    }
+  }
+  const narTyst = (fn) => {
+    if (narStopp) return
+    narKo.push(fn)
+    if (!narPoll) narSteg()
   }
 
   const ctx = {
@@ -181,6 +206,8 @@ export async function createGameHost(services, params) {
     // vidare, för bilden ska glida undan levande.
     pause() {
       pausad = true
+      narStopp = true
+      narKo.length = 0
       if (timers.size) diag('timer', 'dodade-vid-paus', { antal: timers.size })
       for (const t of timers) t.kill()
       timers.clear()
@@ -188,6 +215,8 @@ export async function createGameHost(services, params) {
       audio.stopAllLoops()
     },
     destroy() {
+      narStopp = true
+      narKo.length = 0
       gsap.killTweensOf(view.scale)
       // Döda omgångens fördröjda anrop FÖRE spelets egen städning, så inget hinner
       // köra mot halvrivna objekt (och inget överlever till nästa omgång).

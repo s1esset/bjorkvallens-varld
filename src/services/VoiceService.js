@@ -63,9 +63,18 @@ export class VoiceService {
 
   // Sant så länge narratorn har något kvar att säga — inklusive meningar som köats men
   // ännu inte fått ett `Audio`-objekt (då är `kvar` fortfarande 0).
+  //
+  // En replik utan klipp går till talsyntesen och har inget `Audio`-objekt. Utan raden för
+  // `speechSynthesis` såg `complete()` och `ctx.narTyst` tystnad och kapade den (hamburger-
+  // byggets grillrader "Lite mörk och knaprig!" m.fl. saknar klipp).
   get talar() {
     const a = this._audio
-    return this._queue.length > 0 || !!(a && !a.paused && !a.ended)
+    if (this._queue.length > 0 || !!(a && !a.paused && !a.ended)) return true
+    try {
+      return !!(this._supported && window.speechSynthesis.speaking)
+    } catch {
+      return false
+    }
   }
 
   get _volume() {

@@ -47,7 +47,7 @@ ctx.fxLayer   // för konfetti/firande OVANPÅ spelet
 ctx.exitToLibrary()
 ctx.later(sekunder, fn)  // fördröjt anrop som DÖR med spelomgången — använd i stället
                          // för gsap.delayedCall/setTimeout (se nedan)
-ctx.narTyst(fn)          // kör fn när berättaren tystnat (dör med omgången) — för en
+ctx.narTyst(fn)          // kör fn när berättaren tystnat, i KÖORDNING (dör med omgången) — för en
                          // replik som ska höras EFTER beröm eller en annan replik
 ctx.services  // se nedan
 ctx.progress  // se nedan

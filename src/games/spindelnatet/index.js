@@ -873,6 +873,8 @@ export default {
 
     // Idle: lockning vid ~3 s, snäll auto-hjälp vid ~6 s (garanterar framgång).
     if (!this._resolving) {
+      // Tomgången räknas från TYSTNAD — annars kapar auto-hjälpens replik en som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       this._idle += dt
       if (this._idle > 6) {
         this._autoHelp(ctx)

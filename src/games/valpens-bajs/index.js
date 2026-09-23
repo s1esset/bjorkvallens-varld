@@ -11,8 +11,9 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, puff, sparkle, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, floatText, kvittera } from '../../lib/feedback.js'
 import { makeElvira } from '../../lib/figurer.js'
+import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 
@@ -27,6 +28,20 @@ const METER_X = 1230
 const METER_Y = 470
 const SCOOP_HOME = { x: 200, y: 650 }
 const PICK_R = 70 // skopa griper hög inom denna radie
+
+// Varierat bajs: högens RITNING (inre `g`) skalas 0,8–1,25 — aldrig högen själv, som bär
+// träffytan (60 px) och som deposit-tweenen krymper. Ungefär var femte hög gömmer ett fynd
+// (ett ben eller en stjärna) som flyger upp när skyffeln tar den.
+const BAJS_SKALA = [0.8, 1.25]
+const FYND_CHANS = 0.2
+// Skyffelns tyngd: skopans RITNING (inre barn) sjunker så här många px med en hög på.
+const SKOPA_SJUNK = 7
+// Surret blir enträget: en andra våg flugor efter så här många sekunder (tak per hög).
+const SURR_VAG2_S = 10
+const FLUGOR_MAX = 4
+// Parkens finish: blommor som slår ut och fåglar som lyfter (ritade ikoner, inga emoji).
+const FIN_BLOMMOR = [[360, 330], [640, 312], [920, 336], [520, 652], [820, 662]]
+const FIN_FAGLAR = [[180, 230], [470, 300], [760, 290]]
 
 export default {
   id: 'valpens-bajs',
@@ -49,6 +64,7 @@ export default {
     this._carry = null
     this._poops = []
     this._loose = [] // lösa {}-proxy-tweens (deposit) att döda vid exit
+    this._finTw = [] // finishens och fyndens tweens: överlever rundbytet, dör i destroy
     this._collected = 0
     this._needed = 3
     this._lastPoop = 0
@@ -402,23 +418,29 @@ export default {
     const s = new Container()
     s.position.set(SCOOP_HOME.x, SCOOP_HOME.y)
     // Origin (0,0) = skopans tip (den punkt som skyfflar = den punkt barnet drar).
+    // Allt RITAT bor i ett inre barn: det är det som sjunker när en hög läggs på (`_tyngd`).
+    // Den dragna noden `s` bär träffytan och flyttas av fingret — den får aldrig tweenas.
+    const art = new Container()
+    art.eventMode = 'none'
+    s.addChild(art)
+    this._scoopArt = art
 
     // Öppen skopa/pan med fronttippen vid origin.
     const pan = new Graphics()
     pan.moveTo(-38, 0).lineTo(38, 0).lineTo(30, 36).lineTo(-30, 36).closePath().fill(0xd2d6dd).stroke({ width: 4, color: 0x9aa0aa })
     pan.roundRect(-42, -7, 84, 11, 6).fill(0xe6e9ee) // front-lip glans
     pan.eventMode = 'none'
-    s.addChild(pan)
+    art.addChild(pan)
 
     // Brunt handtag som lutar nedåt-höger till ett grepp.
     const handle = new Graphics().roundRect(-7, 0, 14, 92, 7).fill(COLORS.brown).stroke({ width: 3, color: COLORS.ink })
     handle.position.set(14, 30)
     handle.rotation = 0.5
     handle.eventMode = 'none'
-    s.addChild(handle)
+    art.addChild(handle)
     const gx = 14 + Math.sin(0.5) * 92
     const gy = 30 + Math.cos(0.5) * 92
-    s.addChild(new Graphics().circle(gx, gy, 15).fill(COLORS.brown).stroke({ width: 3, color: COLORS.ink }))
+    art.addChild(new Graphics().circle(gx, gy, 15).fill(COLORS.brown).stroke({ width: 3, color: COLORS.ink }))
 
     s.eventMode = 'static'
     s.cursor = 'pointer'
@@ -531,14 +553,21 @@ export default {
     if (!this._alive) return
     const pile = new Container()
     pile.position.set(x, y)
-    pile.addChild(new Graphics().ellipse(0, 18, 26, 8).fill({ color: COLORS.shadow, alpha: 0.16 }))
+    const storlek = BAJS_SKALA[0] + Math.random() * (BAJS_SKALA[1] - BAJS_SKALA[0])
+    const skugga = new Graphics().ellipse(0, 18, 26, 8).fill({ color: COLORS.shadow, alpha: 0.16 })
+    skugga.scale.x = storlek
+    pile.addChild(skugga)
     const g = new Graphics()
     g.ellipse(0, 12, 26, 13).fill(COLORS.brown)
     g.ellipse(0, 1, 20, 11).fill(0x6f4530)
     g.ellipse(0, -8, 13, 9).fill(COLORS.brown)
     g.circle(-5, -10, 3).fill({ color: 0xffffff, alpha: 0.4 }) // glansprick
     g.eventMode = 'none'
+    g.pivot.y = 18 // skala kring högens fot, så en stor hög växer uppåt och inte ner i gräset
+    g.y = 18
+    g.scale.set(storlek)
     pile.addChild(g)
+    pile._fynd = Math.random() < FYND_CHANS ? (Math.random() < 0.5 ? 'ben' : 'stjarna') : null
 
     pile.eventMode = 'static'
     pile.cursor = 'pointer'
@@ -573,9 +602,19 @@ export default {
     })
   },
 
-  _addFlies(ctx, pile) {
+  // Våg 1 kommer ~4 s efter högen, våg 2 ~10 s senare: fler och snabbare flugor och ett
+  // lågt surr — högen som legat länge blir tydligare, aldrig stressigare (tak FLUGOR_MAX).
+  _addFlies(ctx, pile, vag = 1) {
     if (!this._alive || pile.destroyed || pile._taken) return
-    const n = 1 + (Math.random() < 0.5 ? 1 : 0)
+    const plats = FLUGOR_MAX - (pile._flies?.length || 0)
+    if (plats <= 0) return
+    const n = Math.min(plats, 1 + (Math.random() < 0.5 ? 1 : 0))
+    if (vag === 2) {
+      for (const f of pile._flies) if (f && !f.destroyed) f._spd *= 1.5
+      // Surret: en kort, låg sågtand som darrar mellan två stämda toner (G3 ↔ A3).
+      ctx.services.audio.tone({ freq: 196, slideTo: 220, dur: 0.22, type: 'sawtooth', vol: 0.05 })
+      ctx.services.audio.tone({ freq: 220, slideTo: 196, dur: 0.22, type: 'sawtooth', vol: 0.04, delay: 0.2 })
+    }
     for (let i = 0; i < n; i++) {
       // RITAD fluga (P0 ASSETS) — var en 🪰-emoji.
       const f = new Graphics()
@@ -587,10 +626,17 @@ export default {
       f.circle(1.5, -7, 1.4).fill(0xff6b6b)
       f.eventMode = 'none'
       f._ang = Math.random() * Math.PI * 2
-      f._spd = 0.06 + Math.random() * 0.04
+      f._spd = (0.06 + Math.random() * 0.04) * (vag === 2 ? 1.5 : 1)
       f._r = 34 + Math.random() * 12
       this._poopLayer.addChild(f)
       pile._flies.push(f)
+    }
+    // Den andra vågen dör med omgången (ctx.later) och med högen (_clearFlies dödar
+    // `_flyCall` när högen tas eller rundan rivs).
+    if (vag === 1) {
+      pile._flyCall = ctx.later(SURR_VAG2_S, () => {
+        if (this._alive && !pile._taken && !pile.destroyed) this._addFlies(ctx, pile, 2)
+      })
     }
   },
 
@@ -633,7 +679,8 @@ export default {
     this._idle = 0
 
     if (this._carry) {
-      if (!this._carry.destroyed) this._carry.position.set(x, y)
+      // Högen ligger på skopan — och skopans ritning har sjunkit av tyngden.
+      if (!this._carry.destroyed) this._carry.position.set(x, y + (this._scoopArt?.y || 0))
       if (Math.hypot(x - DROP.x, y - DROP.y) < DROP.r) this._deposit(ctx)
       return
     }
@@ -657,9 +704,10 @@ export default {
       this._clearFlies(ctx, best, true)
       ctx.services.audio.sfx('pop')
       if (!best.destroyed) {
-        best.position.set(x, y)
+        best.position.set(x, y + (this._scoopArt?.y || 0))
         pop(best)
       }
+      this._plockat(ctx, best)
     }
   },
 
@@ -676,6 +724,7 @@ export default {
     if (this._carry) {
       const pile = this._carry
       this._carry = null
+      this._tyngd(false)
       if (pile && !pile.destroyed) {
         const gx = clamp(this._scooper.x, 140, 1040)
         const gy = clamp(this._scooper.y, 320, WALK.y1)
@@ -723,6 +772,7 @@ export default {
       this._carry = pile
       ctx.services.audio.sfx('pop')
       if (!this._scooper.destroyed) pop(this._scooper)
+      this._plockat(ctx, pile)
     })
     tl.to(
       this._scooper.position,
@@ -732,7 +782,7 @@ export default {
         duration: 0.5,
         ease: 'power2.inOut',
         onUpdate: () => {
-          if (this._carry === pile && !pile.destroyed) pile.position.set(this._scooper.x, this._scooper.y)
+          if (this._carry === pile && !pile.destroyed) pile.position.set(this._scooper.x, this._scooper.y + (this._scoopArt?.y || 0))
         },
       },
       '>',
@@ -753,6 +803,7 @@ export default {
     const idx = this._poops.indexOf(pile)
     if (idx >= 0) this._poops.splice(idx, 1)
 
+    this._tyngd(false) // skopan lättar när högen är i tunnan
     // Hög faller i tunnan: tweena en {}-proxy och rör Pixi-objektet bara om det lever.
     if (!pile.destroyed) {
       const st = { x: pile.x, y: pile.y, s: pile.scale.x || 1 }
@@ -825,6 +876,12 @@ export default {
         f._ang += f._spd * dt
         f.position.set(pile.x + Math.cos(f._ang) * f._r, pile.y - 6 + Math.sin(f._ang) * f._r * 0.6)
       }
+    }
+
+    // En buren hög ligger PÅ skopan: följ skyffeln och skopans sjunkna ritning varje bildruta,
+    // så tyngden syns även när fingret står still.
+    if (this._carry && !this._carry.destroyed && this._scooper && !this._scooper.destroyed) {
+      this._carry.position.set(this._scooper.x, this._scooper.y + (this._scoopArt?.y || 0))
     }
 
     // Levande tunna: locket gläntar upp när skyffeln (eller en buren hög) närmar sig munnen.
@@ -942,11 +999,11 @@ export default {
     this._resolving = true
     this._scooping = false
 
-    ctx.services.audio.sfx('celebrate')
+    // Vinstljud och konfettiregn kommer från complete() nedan. Vinstrepliken sägs FÖRE
+    // complete() i samma tick — då står den kvar och skalets beröm utgår.
     this._yip(ctx) // valpen gläfser av glädje
     ctx.services.voice.say('Hurra! Parken är ren!')
     this._lovaCheer(ctx, true)
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // Valpen skuttar glatt, tunnan vickar.
     if (this._dog && !this._dog.destroyed) {
@@ -961,6 +1018,7 @@ export default {
       tl.to(this._dog, { y: baseY, duration: 0.26, ease: 'bounce.out' })
     }
     if (this._bin && !this._bin.destroyed) wiggle(this._bin)
+    this._parkFinish(ctx)
 
     ctx.progress.complete()
     this._level += 1
@@ -970,6 +1028,129 @@ export default {
     this._finishCall = gsap.delayedCall(1.6, () => {
       if (this._alive) this._resetRound()
     })
+  },
+
+  // Håll listan över finishens/fyndens tweens kort: rensa FÄRDIGA (tw.parent är falsk för
+  // både färdiga och dödade, se CLAUDE.md) i stället för att den växer en post per fynd.
+  _spara(tw) {
+    this._finTw = (this._finTw || []).filter((t) => t && t.parent)
+    this._finTw.push(tw)
+    return tw
+  },
+
+  // Skyffelns tyngd: skopans RITNING sjunker med en hög på och lättar när den släpps. Den
+  // dragna noden rör vi inte — den bär träffytan (se _buildScooper).
+  _tyngd(lastad) {
+    const art = this._scoopArt
+    if (!art || art.destroyed) return
+    gsap.killTweensOf(art)
+    if (lastad) {
+      gsap.timeline()
+        .to(art, { y: SKOPA_SJUNK + 3, rotation: 0.05, duration: 0.1, ease: 'power2.out' })
+        .to(art, { y: SKOPA_SJUNK, rotation: 0.03, duration: 0.3, ease: 'back.out(2.4)' })
+    } else {
+      gsap.to(art, { y: 0, rotation: 0, duration: 0.3, ease: 'back.out(2)' })
+    }
+  },
+
+  // En hög hamnar på skopan (för hand eller med hjälp): tyngd, skrap och ev. ett fynd.
+  _plockat(ctx, pile) {
+    this._tyngd(true)
+    // Skrapet: en kort fallande sågtand mellan två stämda toner (G3 → D3), lågt.
+    ctx.services.audio.tone({ freq: 196, slideTo: 146.83, dur: 0.12, type: 'sawtooth', vol: 0.07 })
+    if (pile?._fynd) this._visaFynd(ctx, pile)
+  },
+
+  // Fyndet flyger upp ur högen, snurrar och tonar bort. Ritat (ett ben, eller artikonens
+  // stjärna) — aldrig en emoji. Bor i roten så det rivs med spelet; tweenen dödas i destroy.
+  _visaFynd(ctx, pile) {
+    const typ = pile._fynd
+    pile._fynd = null // ett fynd per hög, även om den tappas och tas igen
+    const nod = typ === 'stjarna' ? drawIcon('⭐', 56) : ritaBen()
+    nod.eventMode = 'none'
+    nod.position.set(pile.x, pile.y - 20)
+    this._root.addChild(nod)
+    const st = { y: pile.y - 20, s: 0.3, r: 0, p: 0 }
+    this._spara(gsap.to(st, {
+      y: pile.y - 150,
+      s: 1,
+      r: Math.PI * 2,
+      p: 1,
+      duration: 1,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (nod.destroyed) return
+        nod.y = st.y
+        nod.scale.set(st.s)
+        nod.rotation = st.r
+        nod.alpha = st.p < 0.75 ? 1 : 1 - (st.p - 0.75) / 0.25 // tonar bort sista fjärdedelen
+      },
+      onComplete: () => {
+        if (!nod.destroyed) nod.destroy({ children: true })
+      },
+    }))
+    // "En till!": C-dur-treklang uppåt, stjärnan en oktav högre än benet.
+    const toner = typ === 'stjarna' ? [1046.5, 1318.51, 1567.98] : [523.25, 659.25, 783.99]
+    toner.forEach((freq, i) => ctx.services.audio.tone({ freq, dur: 0.12, type: 'triangle', vol: 0.12, delay: i * 0.08 }))
+    sparkle(ctx.fxLayer, pile.x, pile.y - 40, { count: 8 })
+  },
+
+  // Parkens egen finish: blommorna slår ut över gräsmattan, fåglar lyfter ur träden och
+  // valpen rullar runt av glädje. Allt tweenas via proxy och rivs när det är klart, så
+  // nästa runda (1,6 s senare) inte ärver något; destroy() dödar det som ännu lever.
+  _parkFinish(ctx) {
+    FIN_BLOMMOR.forEach(([x, y], i) => {
+      const b = drawIcon('🌸', 46)
+      b.eventMode = 'none'
+      b.position.set(x, y)
+      b.scale.set(0)
+      this._root.addChild(b)
+      const st = { s: 0 }
+      const upd = () => { if (!b.destroyed) b.scale.set(st.s) }
+      const tl = gsap.timeline({ onComplete: () => { if (!b.destroyed) b.destroy({ children: true }) } })
+      tl.to(st, { s: 1, duration: 0.45, delay: 0.1 + i * 0.09, ease: 'back.out(2.2)', onUpdate: upd })
+        .to(st, { s: 0, duration: 0.35, delay: 1.1, ease: 'power2.in', onUpdate: upd })
+      this._spara(tl)
+    })
+    FIN_FAGLAR.forEach(([x, y], i) => {
+      const f = drawIcon('🐦', 52)
+      f.eventMode = 'none'
+      f.position.set(x, y)
+      this._root.addChild(f)
+      const top = (ctx.view?.top ?? 0) - 90 // parkerar utanför det SYNLIGA, även på en hög skärm
+      const st = { x, y, t: 0 }
+      const tw = gsap.to(st, {
+        x: x + 260 + i * 60,
+        y: top,
+        t: 1,
+        duration: 1.6,
+        delay: 0.15 + i * 0.12,
+        ease: 'power1.in',
+        onUpdate: () => {
+          if (f.destroyed) return
+          f.position.set(st.x, st.y)
+          f.scale.y = 1 - Math.abs(Math.sin(st.t * Math.PI * 9)) * 0.35 // vingslag
+        },
+        onComplete: () => { if (!f.destroyed) f.destroy({ children: true }) },
+      })
+      this._spara(tw)
+      // Kvitter: tre korta stämda pip uppåt (G6 → C7).
+      ctx.services.audio.tone({ freq: 1567.98, slideTo: 2093, dur: 0.06, type: 'sine', vol: 0.07, delay: 0.15 + i * 0.12 })
+    })
+    // Valpen rullar runt: ETT varv på `_dogFacing` (ingen annan skriver dess rotation;
+    // hoppet äger `_dog.y`, vandringen `_dogBob`).
+    const fc = this._dogFacing
+    if (fc && !fc.destroyed) {
+      gsap.killTweensOf(fc)
+      const dir = fc.scale.x < 0 ? -1 : 1
+      this._spara(gsap.fromTo(fc, { rotation: 0 }, {
+        rotation: Math.PI * 2 * dir,
+        duration: 0.8,
+        delay: 0.2,
+        ease: 'power2.inOut',
+        onComplete: () => { if (!fc.destroyed) fc.rotation = 0 },
+      }))
+    }
   },
 
   _resetRound() {
@@ -1032,11 +1213,18 @@ export default {
     gsap.killTweensOf(this._dogBob.scale)
     this._dog.position.set(DOG_HOME.x, DOG_HOME.y)
     this._dog.scale.set(1)
+    gsap.killTweensOf(this._dogFacing) // finishens rullning
+    this._dogFacing.rotation = 0
     this._dogFacing.scale.x = 1
     this._dogBob.position.set(0, 0)
     this._dogBob.scale.set(1, 1)
 
-    // Skyffeln hem.
+    // Skyffeln hem — och tom, så ritningen står i vila igen.
+    if (this._scoopArt && !this._scoopArt.destroyed) {
+      gsap.killTweensOf(this._scoopArt)
+      this._scoopArt.position.set(0, 0)
+      this._scoopArt.rotation = 0
+    }
     gsap.killTweensOf(this._scooper)
     gsap.killTweensOf(this._scooper.position)
     gsap.killTweensOf(this._scooper.scale)
@@ -1077,6 +1265,10 @@ export default {
     this._finishCall?.kill?.()
     this._scoopCueCall?.kill?.()
     this._loose?.forEach((t) => t?.kill?.())
+    this._finTw?.forEach((t) => t?.kill?.()) // finishens blommor/fåglar/rullning + fynd
+    this._finTw = []
+    if (this._scoopArt && !this._scoopArt.destroyed) gsap.killTweensOf(this._scoopArt)
+    if (this._dogFacing && !this._dogFacing.destroyed) gsap.killTweensOf(this._dogFacing)
     if (this._binLid && !this._binLid.destroyed) gsap.killTweensOf(this._binLid)
 
     for (const pile of this._poops || []) {
@@ -1117,4 +1309,20 @@ export default {
     ctx?.services?.voice?.cancel?.()
     this._root?.destroy({ children: true })
   },
+}
+
+// Ett ritat hundben (fyndet i en hög): skaft + två knölar i var ände, med kontur och en
+// glansstrimma. Fristående föremål med egen silhuett (P0 ASSETS).
+function ritaBen() {
+  const c = new Container()
+  const g = new Graphics()
+  const ben = 0xfbf3e2
+  const kant = 0xc9b48f
+  for (const [x, y] of [[-24, -7], [-24, 7], [24, -7], [24, 7]]) g.circle(x, y, 9).fill(ben).stroke({ width: 2.5, color: kant })
+  g.roundRect(-24, -7, 48, 14, 6).fill(ben)
+  g.moveTo(-18, -7).lineTo(18, -7).moveTo(-18, 7).lineTo(18, 7).stroke({ width: 2.5, color: kant })
+  g.moveTo(-12, -2).lineTo(10, -2).stroke({ width: 2.5, color: 0xffffff, alpha: 0.8, cap: 'round' })
+  g.eventMode = 'none'
+  c.addChild(g)
+  return c
 }

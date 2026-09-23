@@ -67,44 +67,62 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Knyt bajset till barnets handling.** Låt valpen **alltid** lämna en hög där den
-  stannar (ta bort slumpen, behåll cooldown) — då blir "tryck dit → valpen bajsar där" en
-  tydlig, repeterbar orsak-verkan som 2-åringar älskar. Auto-vandring blir reserv, inte motor.
+- ✅ ~~**[Medium] Knyt bajset till barnets handling.**~~ Redan byggd (`wantPoop = !opts.auto`,
+  `index.js:519`; byggd 2026-07-01, se §5) — uppdagat 2026-09-23.
 - **[Medium] Låt hjälpen bjuda in.** Behåll hint-strecket, men gör auto-skyffeln till sista
   utväg (fler idle-cykler / bara om verkligen inget händer) så ett aktivt barn alltid gör
   jobbet självt.
-- **[Quick] Ge skyffeln vikt.** Liten fördröjning/studs när högen lyfts, en aning "tyngd"
-  (skyffeln sjunker lite) — gör lyftet till en handling, inte en teleport-snäpp.
+- ✅ ~~**[Quick] Ge skyffeln vikt.**~~ Klar 2026-09-23 (v1.251.0): skyffelns ritning bor nu i ett
+  inre barn (`_scoopArt`) som sjunker 7 px med en liten studs och tippar när en hög läggs på och
+  lättar när den släpps (`_tyngd` :1043); högen följer den sjunkna skopan varje bildruta. Den
+  dragna noden med träffytan rörs aldrig.
 
 ### Variation & överraskning
-- **[Quick] Variera bajs & fynd.** Olika högstorlekar, ibland en hög som gömmer en 🦴/⭐ som
-  flyger upp vid upphämtning — en liten "en till!"-morot.
+- ✅ ~~**[Quick] Variera bajs & fynd.**~~ Klar 2026-09-23 (v1.251.0): högens ritning skalas
+  0,8–1,25 kring foten (inre `g` :568 — högen och dess 60 px-träffyta är orörda), och var femte hög
+  gömmer ett ritat ben eller en stjärna som snurrar upp ur högen med en C-dur-treklang när skyffeln
+  tar den (`_visaFynd` :1066).
 - **[Medium] Valpen gör roliga saker.** Nosar i marken, jagar en fjäril, sätter sig och kliar
   — småliv mellan tap som gör henne till en kompis, inte en markör.
 
 ### Juice
-- **[Quick] Tunnan lever.** Lock som öppnas när skyffeln närmar sig, ett "glufs"/plask när
-  bajset ramlar i, och en synlig fyllnad inuti (eller tunnan blir gladare för varje hög).
-- **[Quick] Surr som signal.** Låt flug-surret bli lite mer enträget ju längre högen ligger,
-  och en extra liten glädje-puff + "skönt!" när man tar en flug-omsvärmad hög.
-- **[Quick] Skyffel-skrap/plask-feedback** vid upptag och nedsläpp.
+- ✅ ~~**[Quick] Tunnan lever.**~~ Redan byggd (locket `_setLid` :351, fyllnaden `_drawBinFill`
+  :337, glufs + plask-ton i `_deposit`; byggd 2026-07-01, se §5) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Surr som signal.**~~ Klar 2026-09-23 (v1.251.0): en andra våg ~10 s efter den
+  första — fler och snabbare flugor (tak 4 per hög) och ett lågt, stämt surr (`_addFlies` :607,
+  våg 2 via `ctx.later`). Puffen när en omsvärmad hög tas fanns redan. **Blockerat:** repliken
+  "Skönt!" har inget röstklipp (TTS nere).
+- ✅ ~~**[Quick] Skyffel-skrap/plask-feedback**~~ Klar 2026-09-23 (v1.251.0): ett kort, lågt
+  skrap (stämd sågtand G3 → D3) när högen hamnar på skopan (`_plockat` :1057); plasket vid
+  nedsläpp fanns redan.
 
 ### Progression
 - **[Medium] "Ren park"-känsla.** För varje hög som städas: en liten blomma/grön fläck spirar
   där den låg, så planen blir synligt finare över rundan — konkret progress utöver mätaren.
 
 ### Karaktär & berättelse
-- **[Deep] Lova i scenen.** Lova (enda namngivna människan) väntar vid grinden, hejar när en
-  hög städas och kramar valpen vid vinst — en mottagare/publik istället för generisk konfetti.
-- **[Quick] Park-specifik finish:** fåglar flyger upp, blommorna öppnar sig, "Parken är ren!"
-  med valpen som rullar runt av glädje.
+- ✅ ~~**[Deep] Lova i scenen.**~~ Redan byggd (grinden, `_lovaCheer`; byggd 2026-08-06, se §5) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Park-specifik finish.**~~ Klar 2026-09-23 (v1.251.0): fem blommor slår ut över
+  gräsmattan och vissnar in igen, tre fåglar lyfter med vingslag och kvitter ut ur bild, och
+  valpen rullar ett varv (`_parkFinish` :1101). "Parken är ren!" fanns redan.
 
 ### Ljud
 - **[Quick] Riktiga klipp** ([[real-audio-sfx]]): valp-gläfs/flås, mjukt "plopp", plask i
   tunnan, flug-surr-loop — ersätt röst-/emoji-uttalade "Hihi!"/💨. Hund-sample finns i andra spel.
-- **[Quick] Lugn park-ambient** (fågelkvitter) + varierat vinst-sting.
+  *2026-09-23:* gläfset (`djur_hund`) och ploppet (`plopp`) är riktiga klipp sedan 2026-07-01.
+  Plasket och surr-loopen är **blockerade** på SFX-pipelinen (MOSS nere).
+- **[Quick] Lugn park-ambient** (fågelkvitter) + varierat vinst-sting. *2026-09-23:* vinststinget
+  varieras redan av skalet (`AudioService._celebrate`); ambienten är **blockerad** (nytt ljudklipp,
+  MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_finish` spelade själv vinstljud och
+  konfettiregn i samma tick som `complete()` — strukna ("Hurra! Parken är ren!" sägs före och står
+  kvar). Nytt: skyffeln har tyngd och skrap, högarna varierar i storlek och ibland gömmer de ett
+  fynd, flugsurret kommer i en andra våg, och finishen är parkens egen (blommor, fåglar, valpen
+  rullar). §4 stämd mot koden: 3 punkter var redan byggda, 3 delvis blockerade på röst/SFX.
 
 - 2026-08-10 🎨 **D1: grusstigen fick djup — och markfyllningen lärde sig alpha** (`a1bb4e0`, v1.120.0).
   Stigens inneryta låg på **108 064 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största
@@ -156,3 +174,4 @@ Allt programmatiskt, flugor flyttas i tickern (ingen GSAP → exit-säkra), depo
     generisk konfetti. Lugn vaggning i vila.
   - Exit-säkert: `_lovaIdle` och skal-tweenen dödas i `destroy`.
   - Kvar sedan tidigare: [Quick] park-specifik finish (fåglar lyfter, blommorna öppnar sig).
+    *(Byggd 2026-09-23, se överst.)*

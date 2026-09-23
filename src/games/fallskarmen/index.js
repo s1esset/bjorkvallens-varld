@@ -847,7 +847,9 @@ export default {
     } else if (dx <= this._targetR * 1.8) {
       // Nära: snäll auto-glid in mot mitten, sedan firas som en träff.
       ctx.services.audio.sfx('soft')
-      ctx.services.voice.say('Nästan! Jag hjälper till.')
+      // V24: landningen sker på fysikens tid, inte rösten — ett rop kapar aldrig en replik
+      // som talar. Glidet in mot mitten visar ändå vad som händer.
+      if (!ctx.services.voice.talar) ctx.services.voice.say('Nästan! Jag hjälper till.')
       sparkle(ctx.fxLayer, (chute.x + this._targetX) / 2, GROUND_Y - 20, { count: 6 })
       const st = { x: chute.x }
       this._glideTw = gsap.to(st, {
@@ -872,7 +874,7 @@ export default {
       ctx.services.audio.sfx('soft')
       wiggle(chute)
       puff(ctx.fxLayer, chute.x, GROUND_Y + 8, { count: 9, color: COLORS.green })
-      ctx.services.voice.say('Hoppsan! Vi provar igen!')
+      if (!ctx.services.voice.talar) ctx.services.voice.say('Hoppsan! Vi provar igen!')
       this._misses++
       this._retryTimer?.kill()
       this._retryTimer = gsap.delayedCall(1.0, () => {

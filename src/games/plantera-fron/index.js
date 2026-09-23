@@ -20,7 +20,7 @@ import { DragController } from '../../lib/DragController.js'
 import { bounceIn, pop, wiggle, puff, sparkle , kvittera} from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { COLORS, FONT, tint } from '../../lib/theme.js'
-import { verticalFill } from '../../lib/form.js'
+import { verticalFill, bage } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Himlen var tidigare den platta tonen 0xbfe6ff; de två nedan spänner om den.
@@ -149,7 +149,7 @@ export default {
     sun.circle(0, 0, 38).fill(0xffd35c).stroke({ width: 4, color: 0xe0a94f })
     sun.circle(-13, -6, 4).fill(0x8a6a2a)
     sun.circle(13, -6, 4).fill(0x8a6a2a)
-    sun.arc(0, 2, 14, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3.5, color: 0x8a6a2a })
+    bage(sun, 0, 2, 14, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3.5, color: 0x8a6a2a })
     sun.circle(-24, 8, 6).fill({ color: 0xff9d9d, alpha: 0.5 })
     sun.circle(24, 8, 6).fill({ color: 0xff9d9d, alpha: 0.5 })
     sun.position.set(1080, 132) // medvetet undan hörn-knapparna
@@ -279,7 +279,7 @@ export default {
     // Litet ansikte → eget liv (P0: egen silhuett OCH egen personlighet).
     g.circle(-8, 8, 3.5).fill(0x3a2616)
     g.circle(8, 8, 3.5).fill(0x3a2616)
-    g.arc(0, 12, 7, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: 0x3a2616 })
+    bage(g, 0, 12, 7, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: 0x3a2616 })
     c.addChild(sh, g)
     c.hitArea = new Circle(0, 0, 70) // hit-halo ≥96px Ø
     return c
@@ -318,7 +318,7 @@ export default {
     g.circle(0, -46, 10).fill(0xdf959b) // huvudet
     g.circle(-3.6, -48, 2.4).fill(0x3a2616)
     g.circle(3.6, -48, 2.4).fill(0x3a2616)
-    g.arc(0, -45, 5, 0.2 * Math.PI, 0.8 * Math.PI).stroke({ width: 2, color: 0x7d4a4e })
+    bage(g, 0, -45, 5, 0.2 * Math.PI, 0.8 * Math.PI).stroke({ width: 2, color: 0x7d4a4e })
     body.addChild(g)
     body.y = WORM_RISE // börjar nere i jorden
     c.addChild(body)

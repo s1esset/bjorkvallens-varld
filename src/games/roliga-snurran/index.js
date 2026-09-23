@@ -36,7 +36,8 @@
 //     symbol — och runda 0 är den varje nytt barn möter. Uppmätt över 200 000 dragningar.
 // Efter fem snurr: complete() + maskinen får en ny färgpalett och en ny symboluppsättning.
 //
-// TON: varje trumma har sin egen ton (C5 · E5 · G5). När alla tre står klingar de
+// TON: varje trumma har sin egen ton (C5 · E5 · G5 i första rundan; tonarten byts per runda,
+// se TONARTER). När alla tre står klingar de
 // tillsammans som en durtreklang — och en stillastående trumma går att trycka på för att
 // spela sin ton igen, så maskinen också är ett litet instrument.
 //
@@ -118,7 +119,13 @@ const STOP_DUR = 0.42 // s mjuk inbromsning
 // varje tiondel framåt äter av tåligheten för ett SENT tryck, och sent är det ett barn är.
 const LEAD = 0.06
 const MIN_SPIN = 0.35 // s minsta snurrvarv; ett tidigare tryck BOKAS (se _reelTap)
-const REEL_TONES = [523.25, 659.25, 783.99] // C5 · E5 · G5 = durtreklang
+// Trummornas treklang byter tonart per runda (C-dur → F-dur → G-dur), så maskinen inte låter
+// identisk i runda fyra. Liksvävande tal, som resten av appens stämda toner.
+const TONARTER = [
+  [523.25, 659.25, 783.99], // C5 · E5 · G5
+  [698.46, 880, 1046.5], // F5 · A5 · C6
+  [783.99, 987.77, 1174.66], // G5 · H5 · D6
+]
 const RAINBOW_CHANCE = 0.16 // sällsynt regnbågstrumma
 const SPINS_PER_ROUND = 5
 const IDLE_DELAY = 6 // s tystnad innan mjuk om-cue
@@ -327,6 +334,10 @@ export default {
     // Rundans DELADE symbol: den enda som garanterat finns på alla tre hjulen, alltså den
     // som gör tre lika möjligt över huvud taget. Se noten i filhuvudet (⓶).
     this._delad = randomFrom(this._set)
+    // Tonarten följer rundan men byts HÄR, samtidigt som färgerna — inte när räknaren tickar
+    // i `_finishRound`, för då hade ett tryck på ett stilla hjul under firandet redan låtit
+    // i nästa rundas tonart.
+    this._tonart = TONARTER[this._round % TONARTER.length]
     this._paintMachine()
     for (const r of this._reels) this._fillStrip(r)
     this._lampLit = 0
@@ -742,7 +753,7 @@ export default {
         // Autoläget: maskinen sköter stoppet. Trycket är ändå ALDRIG tyst — hjulet svarar
         // med sin egen ton och en ring, precis som ett stillastående hjul gör. Att bara
         // borta här vore P0-brottet `dod-traffyta`.
-        a.tone({ freq: REEL_TONES[r.i], dur: 0.24, type: 'triangle', vol: 0.16 })
+        a.tone({ freq: this._tonart[r.i], dur: 0.24, type: 'triangle', vol: 0.16 })
         ripple(ctx.fxLayer, REEL_X[r.i], REEL_Y, { maxR: 88, color: 0xffffff, width: 5, alpha: 0.45 })
         return
       }
@@ -768,10 +779,10 @@ export default {
       return
     }
     // Stillastående trumma: symbolen är ett FÖREMÅL, inte en bild — den svarar.
-    // Maskinen blir ett litet instrument: C, E och G går att spela när som helst.
+    // Maskinen blir ett litet instrument: rundans treklang går att spela när som helst.
     const n = this._centreNode(r)
     if (n && !n.destroyed) pop(n, { scale: 1.16 })
-    a.tone({ freq: REEL_TONES[r.i], dur: 0.3, type: 'triangle', vol: 0.2 })
+    a.tone({ freq: this._tonart[r.i], dur: 0.3, type: 'triangle', vol: 0.2 })
     sparkle(ctx.fxLayer, REEL_X[r.i], REEL_Y - 20, { count: 4 })
   },
 
@@ -793,7 +804,7 @@ export default {
 
     const a = ctx.services.audio
     a.tone({ freq: 150, dur: 0.08, type: 'square', vol: 0.1 })
-    a.tone({ freq: REEL_TONES[r.i], dur: 0.44, type: 'triangle', vol: 0.24 })
+    a.tone({ freq: this._tonart[r.i], dur: 0.44, type: 'triangle', vol: 0.24 })
     const n = this._centreNode(r)
     if (n && !n.destroyed) squash(n, { intensity: 0.9 })
     sparkle(ctx.fxLayer, REEL_X[r.i], REEL_Y, { count: 5 })
@@ -809,7 +820,7 @@ export default {
     this._lightMode = 'vila'
     const a = ctx.services.audio
     // Alla tre står → tonerna klingar TILLSAMMANS som en durtreklang.
-    for (let i = 0; i < 3; i++) a.tone({ freq: REEL_TONES[i], dur: 0.55, type: 'triangle', vol: 0.15, delay: 0.06 })
+    for (let i = 0; i < 3; i++) a.tone({ freq: this._tonart[i], dur: 0.55, type: 'triangle', vol: 0.15, delay: 0.06 })
 
     const keys = this._reels.map((r) => r.key)
     const rb = this._reels.find((r) => r.rainbow)
@@ -1339,9 +1350,19 @@ export default {
     ctx.progress.setCustom('rundor', this._round)
     ctx.progress.setLevel(Math.min(9, 1 + this._round))
 
-    // Egen replik EFTER skalets beröm, annars talar de i mun på varandra.
+    // Egen replik EFTER skalets beröm, annars talar de i mun på varandra. De fasta 1,4 s
+    // räckte inte: berömklippen är upp till 2,3 s och say() kallar cancel(), så repliken
+    // kapade dem — nu väntar orden in rösten. Barnet kan hinna dra i spaken i den nya
+    // rundan under väntan; då är repliken inaktuell och utgår.
+    const runda = this._round
     ctx.later(1.4, () => {
-      if (this._alive) this._say(ctx, 'Hurra! Snurran fick nya färger!', true)
+      if (!this._alive) return
+      ctx.narTyst(() => {
+        if (!this._alive || this._round !== runda) return
+        const firar = this._phase === 'firar' && this._spins >= SPINS_PER_ROUND
+        const foreForstaDraget = this._phase === 'redo' && this._spins === 0
+        if (firar || foreForstaDraget) this._say(ctx, 'Hurra! Snurran fick nya färger!', true)
+      })
     })
     ctx.later(2.6, () => {
       if (!this._alive) return

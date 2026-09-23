@@ -115,8 +115,11 @@ utgången inte får vara den tråkigaste.
 ## 4. Förbättringar & förhöjningar (plan)
 
 **Kärnloop**
-* **[Quick]** Låt en trumma som redan står kunna *pilla igång igen* med ett andra tryck
-  (en enda trumma i taget), så barnet kan "rätta" ett hjul utan att dra spaken om.
+* ~~**[Quick]** Låt en trumma som redan står kunna *pilla igång igen* med ett andra tryck
+  (en enda trumma i taget), så barnet kan "rätta" ett hjul utan att dra spaken om.~~
+  Struken 2026-09-23 — premissen föll: ett tryck på en stillastående trumma är redan
+  medvetet ett instrument (den spelar sin ton, `index.js:781`), och ett eget omsnurr per hjul
+  vore precis den jakt på nästa utfall som autolägets vinstgaranti (⓵ i filhuvudet) stänger.
 * **[Medium]** Ett valfritt "önskeläge": Bobo håller upp en lapp med en symbol, och
   träffar barnet den på minst ett hjul blir det extra jubel. Ger sikte ett syfte utan att
   införa fel.
@@ -128,22 +131,30 @@ utgången inte får vara den tråkigaste.
 
 **Juice**
 * **[Quick]** Riktiga klipp för trum-tick och spak-klonk via `npm run sfx` (idag stämda
-  syntestoner).
+  syntestoner). *Blockerad 2026-09-23:* kräver SFX-pipelinen (MOSS nere).
 * **[Medium]** Låt myntregnet studsa mot luckans kant innan det faller ur bild.
 
 **Progression**
-* **[Quick]** Spara vilken symboluppsättning barnet senast såg så en ny session inte
-  alltid börjar med djuren.
+* ✅ ~~**[Quick]** Spara vilken symboluppsättning barnet senast såg~~ Redan byggd (rundan läses ur
+  `custom.rundor` :205 och väljer `SETS[_round % …]` :330, så en ny session fortsätter där
+  förra slutade) — uppdagat 2026-09-23.
 
 **Karaktär**
 * **[Medium]** Låt Bobo kommentera EN symbol per runda ("En båt!") så maskinen också
   benämner det som händer.
 
 **Ljud**
-* **[Quick]** Transponera trummornas treklang per runda (C-dur → F-dur → G-dur) så
-  maskinen inte låter identisk i runda fyra.
+* ✅ ~~**[Quick]** Transponera trummornas treklang per runda (C-dur → F-dur → G-dur)~~ Klar
+  2026-09-23 (v1.251.0): `TONARTER` :124, bytt i `_applyRound` :340 samtidigt som färgerna
+  (inte när räknaren tickar i `_finishRound`, så ett tryck under firandet låter i rätt tonart).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): "Hurra! Snurran fick nya färger!"
+  låg på en fast `later(1.4)` och kapade skalets beröm (upp till 2,3 s) — nu väntar den in rösten
+  via `ctx.narTyst` och utgår om barnet hunnit dra i spaken i den nya rundan. Treklangen byter
+  tonart per runda (C → F → G). §4 stämd mot koden: 1 punkt redan byggd, 1 struken (premissen
+  föll), 1 blockerad på SFX-pipelinen.
 
 `2026-08-14 · byggd från spelkön (spelko.md §5): spelautomatens form utan dess mekanik,
 WYSIWYG-stopp, tre firandegrenar, blandfigur, lampring, myntregn · (commit sätts av

@@ -978,14 +978,18 @@ export default {
 
     // Idle-recue.
     if (!this._dragging) {
-      this._idle += dt
+      // V21: tomgången räknas från TYSTNAD — varken om-cuen eller vindpusten får kapa en
+      // replik som talar. Om-cue-klockan står på noll medan rösten talar; hjälpklockan
+      // PAUSAS i stället, annars nollar om-cuens egen replik den varje varv (6 s < 14 s).
+      const talar = ctx.services.voice.talar
+      this._idle = talar ? 0 : this._idle + dt
       if (this._idle > IDLE_DELAY) {
         this._idle = 0
         this._reCue(ctx)
       }
       // Mjuk hjälp: bara efter en LÅNG paus, och bara som en sista knuff när lasten
       // redan är nästan färdig. Målet sänks aldrig — barnets egna grävtag bär lasten.
-      this._helpT += dt
+      if (!talar) this._helpT += dt
       if (this._helpT > HELP_IDLE) {
         this._helpT = 0
         if (total >= this._target * HELP_NEAR) this._gust(ctx, total)

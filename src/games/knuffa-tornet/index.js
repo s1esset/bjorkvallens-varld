@@ -1017,6 +1017,8 @@ export default {
         // Inbjudan har sin egen klocka (och tystar den vanliga recuen). Rör barnet
         // inte kulan i tid svingar spelet ändå — garantin är kvar, men den kommer sist.
         this._idle = 0
+        // Inbjudans klocka går från TYSTNAD, precis som recuen nedan (V21).
+        if (ctx.services.voice.talar) this._inviteT = 0
         this._inviteT += dt
         if (this._inviteT > INVITE_WAIT) {
           this._hideInvite()
@@ -1024,6 +1026,9 @@ export default {
         }
         return
       }
+      // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+      // annars kapar påminnelsens say() en replik som redan talar).
+      if (ctx.services.voice.talar) this._idle = 0
       this._idle += dt
       if (this._idle >= IDLE_DELAY) {
         this._idle = 0

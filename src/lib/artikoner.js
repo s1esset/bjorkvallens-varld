@@ -15,7 +15,7 @@
 import { Graphics } from 'pixi.js'
 import { lerpColor } from './scene.js'
 import { logIcon } from './gamelog.js'
-import { sphereFill, cylinderFill, topLightFill, detaljniva } from './form.js'
+import { sphereFill, cylinderFill, topLightFill, detaljniva, bage } from './form.js'
 
 const ART = {
   // djur: [pälsfärg, öronform, nosfärg, extra]
@@ -228,7 +228,8 @@ export function drawIcon(key, size = 100) {
       g.circle(5 * S, 12 * S, 3 * S).fill(0xc4647c)
     } else g.ellipse(0, 8 * S, 7 * S, 5 * S).fill(0x2b2b2b)
     if (!bird && ear !== 'horse' && ear !== 'cow') {
-      g.arc(-5 * S, 18 * S, 6 * S, 0, Math.PI).arc(5 * S, 18 * S, 6 * S, 0, Math.PI).stroke({ width: 3, color: dk })
+      bage(g, -5 * S, 18 * S, 6 * S, 0, Math.PI)
+      bage(g, 5 * S, 18 * S, 6 * S, 0, Math.PI).stroke({ width: 3, color: dk })
     }
   } else if (tpl === 'fruit') {
     const [, shape, col, leaf] = a
@@ -272,7 +273,7 @@ export function drawIcon(key, size = 100) {
       g.circle(0, 0, 32 * S).fill(sphereFill(col)).stroke({ width: 4, color: 0x6f4a2e })
       g.circle(-10 * S, -8 * S, 5 * S).fill(0x5c3720)
       g.circle(6 * S, -12 * S, 5 * S).fill(0x5c3720)
-      g.arc(0, 6 * S, 20 * S, Math.PI, 0).fill(0xfff0e8)
+      bage(g, 0, 6 * S, 20 * S, Math.PI, 0).fill(0xfff0e8)
     } else if (shape === 'pine') {
       g.ellipse(0, 12 * S, 24 * S, 30 * S).fill(sphereFill(col)).stroke({ width: 4, color: dk })
       for (let r = -14; r <= 30; r += 11) g.moveTo(-22 * S, r * S).lineTo(22 * S, r * S).stroke({ width: 2, color: dk, alpha: 0.6 })
@@ -607,7 +608,7 @@ export function drawIcon(key, size = 100) {
       g.arc(0, 2 * S, 40 * S, Math.PI, 0).fill(topLightFill(col, { highlight: 0.34 })).stroke({ width: 4, color: dk })
       for (const dx of [-20, 0, 20]) g.moveTo(dx * S, 2 * S).lineTo(dx * S, -26 * S).stroke({ width: 3, color: dk, alpha: 0.5 })
       g.roundRect(-3 * S, 2 * S, 6 * S, 36 * S, 3 * S).fill(cylinderFill(0x8a5a3b))
-      g.arc(-9 * S, 38 * S, 9 * S, 0, Math.PI).stroke({ width: 5, color: 0x8a5a3b })
+      bage(g, -9 * S, 38 * S, 9 * S, 0, Math.PI).stroke({ width: 5, color: 0x8a5a3b })
     } else if (form === 'gift') {
       g.roundRect(-30 * S, -12 * S, 60 * S, 44 * S, 5 * S).fill(topLightFill(col)).stroke({ width: 4, color: dk })
       g.roundRect(-34 * S, -22 * S, 68 * S, 14 * S, 5 * S).fill(topLightFill(col)).stroke({ width: 4, color: dk })
@@ -667,7 +668,7 @@ export function drawIcon(key, size = 100) {
     } else if (form === 'cookie') {
       g.circle(0, 0, 30 * S).fill(sphereFill(col, { spread: 0.6, dark: 0.24 })).stroke({ width: 4, color: dk })
       for (const [cx, cy] of [[-12, -10], [8, -14], [14, 6], [-6, 12], [-16, 6]]) g.circle(cx * S, cy * S, 4.5 * S).fill(0x5c3720)
-      g.arc(-14 * S, -18 * S, 8 * S, 0.9 * Math.PI, 1.6 * Math.PI).stroke({ width: 3, color: dk, alpha: 0.5 })
+      bage(g, -14 * S, -18 * S, 8 * S, 0.9 * Math.PI, 1.6 * Math.PI).stroke({ width: 3, color: dk, alpha: 0.5 })
     } else {
       // clock
       g.circle(0, 4 * S, 30 * S).fill(0xfff0d8).stroke({ width: 5, color: col })

@@ -231,3 +231,15 @@ export function rimLight(r, opts = {}) {
   g.eventMode = 'none'
   return g
 }
+
+// En båge som börjar i sin EGEN startpunkt (ÅTGÄRDER V23). `g.arc()` fortsätter pennans öppna
+// väg, så den drar alltid ett streck från pennan till bågens start — och efter varje fill()/
+// stroke() sår Pixi 8.19 nästa väg med moveTo(förra vägens sista punkt), som efter en sluten form
+// (circle, rect, ellipse …) är ORIGO. Så blev en mun ett streck ner i bröstet och en hatt en
+// solfjäder från figurens mitt. Två kedjade bågar i samma väg får på samma sätt ett streck
+// mellan sig. `bage` flyttar pennan till bågens start först; en avsiktlig tårtbit skriver
+// fortfarande `moveTo(mitten).arc(…)` själv. Returnerar g, så `.fill()`/`.stroke()` kedjar.
+// Mätt med `scripts/_bagprobe.mjs` (streck per båge, penna → start).
+export function bage(g, cx, cy, r, a0, a1, ccw = false) {
+  return g.moveTo(cx + r * Math.cos(a0), cy + r * Math.sin(a0)).arc(cx, cy, r, a0, a1, ccw)
+}

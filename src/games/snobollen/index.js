@@ -1234,8 +1234,10 @@ export default {
 
     // Stillastående -> SEN, synlig autohjälp (gäller även mot ett hinder och även
     // när barnet håller fingret nere; annars skulle bollen kunna låsa sig).
+    // Klockan STÅR medan rösten talar ("Jag hjälper till!" kapar annars en replik). Den
+    // pausas i stället för att nollas, så hjälpen aldrig kan svältas ut av tal.
     if (spd < 0.8) {
-      this._stillT += dt
+      if (!ctx.services.voice.talar) this._stillT += dt
       if (this._stillT >= STUCK) {
         this._stillT = 0
         this._autoNudge(ctx)
@@ -1244,7 +1246,8 @@ export default {
       this._stillT = 0
     }
 
-    // Idle-recue.
+    // Idle-recue. Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
     if (this._idle >= IDLE) {
       this._idle = 0

@@ -66,11 +66,8 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Mjuka upp auto-hjälpen.** Skjut upp trappan (fler/longare försök innan hjälp),
-  och gör hjälpen *synlig och frivillig*: en "Hjälp mig"-knapp dyker upp efter några missar i
-  stället för att banan tyst löser sig. När hjälpen väl kickar in: en tydlig hand-/Bobo-gest
-  ("Jag putar lite!") så barnet förstår att det var hjälp, inte deras bygge. Skicklighet ska
-  kännas.
+- ✅ ~~**[Medium] Mjuka upp auto-hjälpen.**~~ Redan byggd 2026-07-02 ("Hjälp mig?"-knappen,
+  `_assistTiltRamp`, `_glideHome`) — uppdagat 2026-09-23.
 - **[Deep] Replay av den lyckade rullningen.** Vid mål: spela kort om kulans väg i slow-motion
   (eller en spår-linje som ritas) så barnet *ser* banan de byggde fungera — belönar bygget,
   inte bara träffen.
@@ -79,20 +76,20 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
 - **[Medium] Roliga banelement.** Lägg in valbara delar med karaktär: en snurrande propeller
   som knuffar kulan, en kort "loop", en studsmatta-kedja, en klocka/blomma som kulan kan slå
   till på vägen (pling + poäng-fri gnista). Ger nya pussel och wow.
-- **[Quick] Banbitar med personlighet.** Studsplattan komprimeras vid studs (squash), rampen
-  får en liten "swoosh"-rörelse när kulan rullar, tratten "slukar" kulan med en mun-animation.
+- **[Quick] Banbitar med personlighet.** Studsplattan är klar (en riktig fjäderbräda,
+  `Fjaderbrada` :663, 2026-08-09). Kvar: rampens "swoosh" när kulan rullar och trattens
+  sluk-animation.
 
 ### Juice
-- **[Quick] Material-specifika ljud + skvätt.** Trä-"klonk" på ramp, metallisk "boing" på
-  studsplatta, ett saftigt "plums" + vattenskvätt i hinken (se Ljud). Kort skärm-mikroskak vid
-  studsplatta och vid mål.
+- ✅ ~~**[Quick] Material-specifika ljud + skvätt.**~~ Redan byggd 2026-07-02 (trä-klonk :1345,
+  boing, plums + skvätt + mikroskak vid mål) — uppdagat 2026-09-23.
 - ✅ **[Quick] Kul-svans + rull-damm.** *(2026-08-12)* En strimma i kulans egen färg bakom
   den, vars styrka följer farten (osynlig under 3 px/steg, full vid 11) — och damm i
   kontaktpunkten vid varje anslag, mängd och färg efter kraft och material. Mätvärden i §5.
 
 ### Progression
-- **[Quick] Visa målet starkare när kulan närmar sig.** Hinkens glödring pulsar snabbare/
-  ljusare när kulan är nära → spänning och tydlig "nästan!"-känsla, fortfarande no-fail.
+- ✅ ~~**[Quick] Visa målet starkare när kulan närmar sig.**~~ Redan byggd 2026-07-02 (`NEAR_TARGET`,
+  :999) — uppdagat 2026-09-23.
 - **[Medium] Spara favoritbana / "min maskin".** Låt barnet (frivilligt) behålla sin bygge-
   layout mellan släpp i stället för att den nollställs per bana — mer känsla av ägande.
 
@@ -105,9 +102,15 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
 ### Ljud
 - **[Quick] Riktiga klipp via SFX-pipelinen.** Trä-klonk, studs-boing, whoosh, plums-i-vatten,
   ett glatt "klart!"-sting (se [[real-audio-sfx]]). Lägg en lugn, lätt verkstads-/utomhus-ambient.
+  *(2026-09-23: blockerad — kräver nya SFX-klipp, MOSS nere.)*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_win` spelade eget vinstljud, eget PRAISE
+  och eget konfettiregn i samma tick som `complete()` — strukna (rätt-ljudet, plumset och
+  skvätten står kvar). Tjat-påminnelsen (`_idleRecue` :1036) körde `replayLast()` och upprepade
+  därför berömmet efter varje mål — den påminner nu om UPPGIFTEN (eller om hjälpknappen när den
+  syns). `check` 0/0.
 - 2026-06-30: Doc skriven (granskning + plan). Speltestat med drag (errorCount 0; skärmdump
   verifierad: himmel, SLÄPP + kula, ramper med ↻, hink, "Delar"-hylla). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Medium] mjukare/synlig auto-hjälp + [Quick] material-ljud &

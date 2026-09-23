@@ -18,9 +18,8 @@ import { PhysicsWorld, Body, nudge } from '../../lib/physics.js'
 import { Fjaderbrada } from '../../lib/fjader.js'
 import { createScene } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, bigCelebration, floatText, shake , kvittera} from '../../lib/feedback.js'
-import { COLORS, FONT, PRAISE } from '../../lib/theme.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, floatText, shake , kvittera} from '../../lib/feedback.js'
+import { COLORS, FONT } from '../../lib/theme.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const CHUTE = { x: 300, y: 168 } // utsläppet uppe till vänster (kulans startläge)
@@ -1035,7 +1034,12 @@ export default {
   },
 
   _idleRecue(ctx) {
-    ctx.services.voice.replayLast()
+    // Påminn om UPPGIFTEN. `replayLast()` upprepade det som sades senast — efter ett mål var
+    // det berömmet ("Bravo!" mitt i nästa bygge), efter en putt "Jag putar lite!". Syns
+    // hjälpknappen påminner vi om den i stället.
+    const hjalpSyns = this._helpBtn && !this._helpBtn.destroyed && this._helpBtn.visible
+    if (hjalpSyns) ctx.services.voice.say('Prova igen! Tryck på handen om du vill ha hjälp.')
+    else ctx.services.voice.say('Lägg ramperna så kulan rullar ner i hinken! Tryck sedan på släpp.')
     if (this._releaseBtn && !this._releaseBtn.destroyed) pop(this._releaseBtn)
     const ramp = this._parts.find((p) => p && !p.destroyed && p._kind === 'ramp')
     if (ramp) wiggle(ramp)
@@ -1060,12 +1064,12 @@ export default {
     nudge(b, 0, 0)
     Body.setPosition(b, { x: bx, y: by - 16 })
 
+    // Vinstljud, beröm och konfettiregn kommer från ctx.progress.complete() nedan —
+    // här bara banans egna: rätt-ljudet och plumset i hinken.
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
     // Saftigt "plums" i vattnet (två snabba nedåt-toner) + mjuk mikroskak.
     ctx.services.audio.tone({ freq: 520, dur: 0.12, type: 'sine', vol: 0.22, slideTo: 180 })
     ctx.services.audio.tone({ freq: 300, dur: 0.18, type: 'sine', vol: 0.16, slideTo: 120, delay: 0.06 })
-    ctx.services.voice.say(randomFrom(PRAISE))
     gsap.killTweensOf(this._root) // nolla ev. pågående studs-skak innan mål-skaket (undvik kvar-offset)
     this._root.position.set(0, 0)
     shake(this._root, { intensity: 9, duration: 0.4 })
@@ -1098,7 +1102,6 @@ export default {
       })
     }
 
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, bx, by - 30, { count: 16 })
     // Vattenskvätt: blå droppar spritter upp ur hinken.
     burst(ctx.fxLayer, bx, by - 40, { count: 12, colors: [COLORS.blue, COLORS.teal, 0xbfe6ff], power: 0.8 })

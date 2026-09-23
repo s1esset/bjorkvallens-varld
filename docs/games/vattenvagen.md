@@ -60,11 +60,13 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Quick] Visa Elvira vid muggen.** Rita Elvira (eller maskoten) bredvid muggen som väntar
+- ✅ ~~**[Quick] Visa Elvira vid muggen.** Rita Elvira (eller maskoten) bredvid muggen som väntar
   törstig, sträcker sig mot vattnet och *dricker* när muggen fylls. Direkt blir hela spelet
-  "hjälp Elvira" i stället för "fyll en mugg". Liten kod, stor mening.
-- **[Medium] Fler tomma celler, färre förplacerade.** Låt barnet bygga en större del av vägen
-  själv (behåll bara käll-/mugg-bitarna fasta) så pusslet känns som *barnets* ledning.
+  "hjälp Elvira" i stället för "fyll en mugg". Liten kod, stor mening.~~ Redan byggd 2026-07-02
+  (`makeElvira` :401, hoppar när vattnet rinner och när muggen är full) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Fler tomma celler, färre förplacerade.** Låt barnet bygga en större del av vägen
+  själv (behåll bara käll-/mugg-bitarna fasta) så pusslet känns som *barnets* ledning.~~ Redan
+  byggd 2026-07-02 (bara käll- och muggbiten förplaceras, :336) — uppdagat 2026-09-23.
 - **[Medium] Mjuka upp auto-hjälpen.** Behåll glöd-hinten, men låt 14s-hjälpen bara lägga *en*
   bit och sedan vänta igen — och visa tydligt "Jag hjälper lite!" så barnet ser skillnaden
   mellan sitt eget bygge och hjälpen.
@@ -76,10 +78,15 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
   klimax-moment innan vattnet släpps på.
 
 ### Juice
-- **[Quick] Rör som fylls synligt.** Låt innerkanalen färgas blå allteftersom vattnet passerar
-  (en löpande fyllning), inte bara fristående droppar — då *ser* barnet flödet hitta vägen.
-- **[Quick] Mugg-fyllning med liv.** Stigande vattenyta med liten våg + bubblor + ett "glugg"-
-  ljud per nivå-höjning; plantan vippar glatt när den får vatten.
+- ✅ ~~**[Quick] Rör som fylls synligt.** Låt innerkanalen färgas blå allteftersom vattnet passerar
+  (en löpande fyllning), inte bara fristående droppar — då *ser* barnet flödet hitta vägen.~~
+  Redan byggd 2026-07-02 (`_paintFlow` :798) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Mugg-fyllning med liv.** Stigande vattenyta med liten våg + bubblor + ett "glugg"-
+  ljud per nivå-höjning~~ Redan byggd i det väsentliga — uppdagat 2026-09-23: ytan är riktig
+  vätska sedan 2026-08-09 (vågen kommer på köpet) och "glugg" spelas per femtedel som en stigande
+  pentatonisk ton (:969). Bubblorna byggdes aldrig — en riktig vätskeyta rör sig redan själv.
+- **[Quick] Plantan vippar glatt när den får vatten** (utbruten ur punkten ovan 2026-09-23 — den
+  enda halvan som inte fanns): en liten gungning på plantan vid varje glugg-steg.
 
 ### Progression
 - **[Quick] Receptbok/karta över klarade ledningar** eller en liten trädgård som får en ny
@@ -93,9 +100,16 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
 ### Ljud
 - **[Quick] Riktiga vatten-SFX via MOSS-pipelinen** ([[real-audio-sfx]]): rinnande porl, droppe-
   plopp, mugg-glugg, plus en mjuk vatten-ambient. Rör-vridningen får en taktil klonk.
+  *Blockerad så länge MOSS är nere (glugget finns som stämd ton, :969).*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): inga A-rader för spelet; passet var
+  firandet. `_bloom` firade bara via `complete()` (rent), men nästa banas `voiceIntro` sades 2,1 s
+  efter (bygget 1,6 s + 0,5 s), mitt i berömmet, och kapade det. Den köar nu i `ctx.narTyst` och
+  sägs bara om det fortfarande är samma bana och vattnet inte redan hittat fram (:483). Banan syns
+  genast. §4 städad: Elvira, de tomma cellerna, rörflödet och glugget var redan byggda; plantans
+  vipp bröts ut som egen punkt. Grind: `check --game vattenvagen` 0/0.
 - 2026-06-30: Doc skriven (granskning + plan). Speltest grönt (errorCount 0), skärmdump läst.
   Notering: utlovade Elvira renderas inte i nuläget. Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] visa & drickande Elvira + [Quick] synligt rör-flöde +
@@ -160,4 +174,3 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
     [Quick] trädgård/karta-progression, [Quick] riktiga vatten-SFX (MOSS), [Deep] växande planta
     över banor. Not: för höga banor (rows=4) hamnar muggen lågt (mugY≈690) och beskärs något i
     nederkant — pre-existerande, ej rört här (skulle bryta nedförs-flödet om muggen lyfts).
-</content>

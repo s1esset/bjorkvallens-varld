@@ -477,7 +477,13 @@ export default {
     this._recomputePath(ctx, false)
 
     if (this._mounted && this._level > 1) {
-      ctx.later(0.5, () => ctx.services.voice.say(this.voiceIntro))
+      // Nästa bana byggs 1,6 s efter complete(), och den här repliken kom 0,5 s senare —
+      // mitt i berömmet (1,0–2,3 s), som `say()` kapade. Banan syns genast; bara orden
+      // väntar in rösten, och bara så länge vattnet inte redan hittat fram på DEN här banan.
+      const bana = this._level
+      ctx.later(0.5, () => ctx.narTyst(() => {
+        if (this._alive && this._level === bana && !this._connected) ctx.services.voice.say(this.voiceIntro)
+      }))
     }
   },
 

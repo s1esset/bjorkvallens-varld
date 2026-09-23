@@ -94,19 +94,35 @@ Två designbeslut styr resten:
 - [Medium] Låt lådan byta skepnad mellan rundor (trälåda → målad leksakskista → skattkista).
 
 **Juice**
-- [Quick] Kören i finalen: låt varje form hoppa i takt med sin ton i stället för att bara vinka.
-- [Quick] Damm/sågspån i lådans skugga när locket smäller igen vid ny runda.
+- ✅ ~~**[Quick] Kören i finalen: låt varje form hoppa i takt med sin ton i stället för att bara vinka.**~~
+  Klar 2026-09-23 (v1.251.0): i `_korPopp` hoppar varje figur tre gånger på varannat slag av
+  sångens puls (`KOR_SLAG` 0,19 s), med start tre slag efter sin egen ton — kören blir en våg i
+  tempot. Hoppet på `kropp`, landningen squashar `mitt`, tidslinjen dödas i `killFigur`.
+- ✅ ~~**[Quick] Damm/sågspån i lådans skugga när locket smäller igen vid ny runda.**~~ Klar
+  2026-09-23 (v1.251.0): locket faller på 0,2 s i `_buildRound` i stället för att hoppa ner,
+  och `_lockSmall` ger en låg duns i C + träklick, sågspån ur skarven och i skuggan och ett
+  litet skak i lådan. Bara efter en final — första rundan ligger locket redan still.
 
 **Progression**
 - [Medium] Efter nivå 6: två rader hål (låda med lock uppe och nere) i stället för fler i bredd.
 
 **Karaktär**
-- [Quick] Bobo kan peka mot ett hål vid idle-ledtråden i stället för bara ringen.
+- ✅ ~~**[Quick] Bobo kan peka mot ett hål vid idle-ledtråden i stället för bara ringen.**~~ Klar
+  2026-09-23 (v1.251.0), omskriven: riggen har ingen pekgest, så Bobo TITTAR på det lysande
+  hålet (`look()` i `_update` medan ledtråden är tänd och inget hålls) och blir `nyfiken`. Samma
+  hål som ringen redan visar — ingen ny ledtråd.
 
 **Ljud**
 - [Quick] Byt trä-klonken mot ett riktigt CC0-träljud om ett sådant importeras (`npm run sfx`).
+  *(Blockerad 2026-09-23: kräver ett nytt SFX-klipp — MOSS nere.)*
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `complete()` hade inga egna kopior,
+  men nästa rundas "Vilken form passar i hålet?" kom 2,55 s efter — berömmet är upp till 2,30 s —
+  och köar nu i `ctx.narTyst` med rundtoken. Nytt: kören hoppar i en våg i sångens takt, locket
+  smäller igen med duns + sågspån vid ny runda, och Bobo tittar på det lysande hålet vid
+  idle-ledtråden.
 
 `2026-08-14 · byggd (index.js + former.js) · 7 former, mus-motgång med tak, gyllene form,
 kör-final · verifierad med en egen sond innan registrering: formarket (alla 7 former + hål +

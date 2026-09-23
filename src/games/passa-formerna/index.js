@@ -67,6 +67,9 @@ const ton = (halvtoner) => 523.25 * Math.pow(2, halvtoner / 12)
 
 const BEROM = ['Precis rätt!', 'Den passade fint!', 'Så duktig du är!']
 
+// Körens puls i finalen: en ton per figur med 0,19 s emellan, och hoppen följer samma slag.
+const KOR_SLAG = 0.19
+
 export default {
   id: 'passa-formerna',
   titleSv: 'Passa Formerna',
@@ -226,10 +229,24 @@ export default {
     this._musNasta = 11 + Math.random() * 6
     this._resolving = false
 
-    // Locket tillbaka till viloläge (finalen lyfte det).
+    // Locket tillbaka till viloläge. Efter finalen står det lyft — då SMÄLLER det igen:
+    // faller på 0,2 s och landar med duns + sågspån (`_lockSmall`). Första rundan ligger
+    // det redan still, och då finns inget att smälla.
     gsap.killTweensOf(this._lock)
-    this._lock.y = LOCK_Y
-    this._lock.rotation = 0
+    if (announce && LOCK_Y - this._lock.y > 8) {
+      gsap.to(this._lock, {
+        y: LOCK_Y,
+        rotation: 0,
+        duration: 0.2,
+        ease: 'power2.in',
+        onComplete: () => {
+          if (this._alive) this._lockSmall(ctx)
+        },
+      })
+    } else {
+      this._lock.y = LOCK_Y
+      this._lock.rotation = 0
+    }
 
     const n = ANTAL[this._level]
     const nycklar = shuffle(FORM_KEYS).slice(0, n)
@@ -311,7 +328,14 @@ export default {
       bounceIn(fig.view, { delay: 0.1 + i * 0.06, duration: 0.34 })
     })
 
-    if (announce && this._startad) ctx.services.voice.say('Vilken form passar i hålet?')
+    // Kommer 2,55 s efter complete(), vars beröm är upp till 2,30 s — orden köar hellre än
+    // att kapa svansen. Figurerna och hålen väntar inte.
+    if (announce && this._startad) {
+      const runda = this._rundor
+      ctx.narTyst(() => {
+        if (this._alive && this._rundor === runda) ctx.services.voice.say('Vilken form passar i hålet?')
+      })
+    }
   },
 
   // --- rätt hål -------------------------------------------------------------
@@ -411,6 +435,21 @@ export default {
         if (!v.destroyed) v.destroy({ children: true })
       },
     })
+  },
+
+  // Locket slår igen: en låg duns i C (skalans grundton två oktaver ner) med ett kort
+  // träklick ovanpå, sågspån ur lockets skarv och i lådans skugga, och lådan hoppar till.
+  _lockSmall(ctx) {
+    if (!this._alive || !this._fx || this._fx.destroyed) return
+    const a = ctx.services.audio
+    a.tone({ freq: 130.81, slideTo: 68, dur: 0.18, type: 'sine', vol: 0.26 })
+    a.tone({ freq: 261.63, slideTo: 180, dur: 0.05, type: 'square', vol: 0.06 })
+    const x0 = LADA.cx - LADA.w / 2
+    for (const x of [x0 + 60, LADA.cx - 240, LADA.cx + 240, x0 + LADA.w - 60]) {
+      puff(this._fx, x, LOCK_Y + LOCK_H / 2, { count: 4, color: 0xd9a86b })
+    }
+    for (const x of [x0 + 24, x0 + LADA.w - 24]) puff(this._fx, x, GOLV + 10, { count: 5, color: 0xcaa878 })
+    if (this._boxSkak && !this._boxSkak.destroyed) shake(this._boxSkak, { intensity: 3, duration: 0.2 })
   },
 
   _lockStuds() {
@@ -559,7 +598,7 @@ export default {
     // Kören: alla formvänner poppar upp ur lådan och sjunger skalan uppifrån.
     const n = this._formar.length
     this._formar.forEach((f, i) => {
-      ctx.later(1.05 + i * 0.19, () => this._korPopp(ctx, f, i, n))
+      ctx.later(1.05 + i * KOR_SLAG, () => this._korPopp(ctx, f, i, n))
     })
 
     ctx.later(1.15 + n * 0.19 + 0.45, () => {
@@ -601,6 +640,23 @@ export default {
     // Skalan uppifrån: sista formen får grundtonen.
     ctx.services.audio.tone({ freq: ton(SKALA[Math.min(n - 1 - i, SKALA.length - 1)]), dur: 0.3, type: 'sine', vol: 0.22 })
     sparkle(this._fx, f.mal.x, LADA.topp - 60, { count: 5 })
+
+    // ...och hoppar i takt: tre små hopp på varannat slag av sångens puls (KOR_SLAG, samma
+    // takt som tonerna), med start tre slag efter figurens EGEN ton — när uppstigningen
+    // (0,42 s) är klar. Kören blir en våg i sångens tempo. Hoppet ligger på `kropp` (vyn
+    // äger uppstigningen), landningen `squash`ar `mitt`; tidslinjen dödas i killFigur.
+    const kropp = fig.kropp
+    const y0 = kropp.y
+    const tl = gsap.timeline({ delay: KOR_SLAG * 3 })
+    for (let k = 0; k < 3; k++) {
+      const t = k * KOR_SLAG * 2
+      tl.to(kropp, { y: y0 - 20, duration: 0.09, ease: 'power2.out' }, t)
+      tl.to(kropp, { y: y0, duration: 0.1, ease: 'power2.in' }, t + 0.09)
+      tl.call(() => {
+        if (this._alive && fig.mitt && !fig.mitt.destroyed) squash(fig.mitt, { intensity: 0.45 })
+      }, null, t + 0.19)
+    }
+    fig._hoppTl = tl
   },
 
   // --- per bildruta ---------------------------------------------------------
@@ -613,8 +669,11 @@ export default {
     const halls = this._drag?.active?.view || this._drag?.selected?.view || null
     const h = halls && !halls.destroyed ? halls : null
 
-    // Bobo följer det som dras med blicken (mottagaren är närvarande hela tiden).
-    if (this._bobo) this._bobo.look(h ? h.x : LADA.cx, h ? h.y : HAL_Y - 30)
+    // Bobo följer det som dras med blicken (mottagaren är närvarande hela tiden). Hålls
+    // inget och idle-ledtråden är tänd tittar han på det lysande hålet i stället — samma
+    // hål som ringen redan visar, alltså ingen ny ledtråd, bara en publik som pekar med blicken.
+    const tips = !h && this._hint?.mal && !this._hint.mal.destroyed && !this._hint.klar ? this._hint.mal : null
+    if (this._bobo) this._bobo.look(h ? h.x : tips ? tips.x : LADA.cx, h ? h.y : tips ? tips.y : HAL_Y - 30)
 
     // Hålen GAPAR när något närmar sig — sätts per bildruta, inga tweens (exit-säkert).
     for (const f of this._formar) {
@@ -653,6 +712,7 @@ export default {
         const f = randomFrom(kvar)
         this._hint = f
         this._hintTw = breathe(f.fig.kropp, { scale: 1.1, duration: 0.7 })
+        this._bobo?.react('nyfiken')
         if (f.hal && !f.hal.destroyed) {
           ripple(this._fx, f.mal.x, f.mal.y, { color: f.farg, maxR: f.r * 2.4, width: 5, alpha: 0.5 })
         }
@@ -722,6 +782,7 @@ function klamp(l) {
 
 function killFigur(fig) {
   if (!fig) return
+  fig._hoppTl?.kill() // kör-hoppens tidslinje: dess .call() överlever killTweensOf(kropp)
   fig.kropp?._fxLiv?.kill()
   for (const nod of [fig.view, fig.kropp, fig.mitt, fig.ogon, fig.mun, fig.body, fig.skugga, ...(fig.armar || [])]) {
     if (nod && !nod.destroyed) {

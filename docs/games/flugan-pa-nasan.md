@@ -216,22 +216,27 @@ vindfältet lever 1,15 s och syns hela vägen som elva strimmor. Uppmätt med en
   jämnt, men de breda partierna nås lättare än hakan. Siktmålet ges nu upp efter **7 s** och
   lottas om — det är RÄTT för ett föremål högt på väggen (annars cirklar hon där för alltid)
   men fel för hakan, som bara behöver längre tid. Mät om per zon innan talet ändras.
+  *(2026-09-23: öppen — kräver en sondkörning per zon, inget att bygga blint.)*
 - **[Medium] Klibbet drar inte MED sig rumsföremål.** Ägarens formulering var "sticky things
   will get stuck for a while and drag things". Flugorna dras (`knuff` med negativ kraft), och
   tavlan MINNS sin snedhet, men koppen och pappren dras inte ur läge — de står ritade på fasta
   koordinater i `rummet.js` och skulle behöva ett eget läges-tillstånd först.
 
 **Juice**
-- **[Quick] Fönsterstängningen läser som ett fallande föremål**, inte som en lucka som
-  stängs: rutan ritas av `index.js` (`_stangFonster`) och glider ner med `power2.in`, för
-  `rummet.js` exponerar ingen styrning av bågen. Byt till avtagande ease, och gör om det
-  ordentligt den dag rummet exponerar `bageNod`.
+- ✅ ~~**[Quick] Fönsterstängningen läser som ett fallande föremål**~~ Klar 2026-09-23 (v1.251.0): rutan
+  glider igen med `power2.out` och bromsar in mot karmen (`_stangFonster` :1228). Bågen i
+  `rummet.js` exponerar fortfarande ingen `bageNod` — gör om det ordentligt den dagen.
 
 **Ljud**
-- **[Quick] Ägarens inspelningslista** — spelet använder `pappa_oj aj huh retas fniss hmm
-  gasp ehh` som alla finns. Inga nya klipp krävs.
+- ~~**[Quick] Ägarens inspelningslista**~~ **STRUKEN** 2026-09-23 — premissen föll: spelet använder
+  `pappa_oj aj huh retas fniss hmm gasp ehh` och alla klippen finns. Inget att spela in.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): finalens egna `sfx('celebrate')` i samma
+  tick som `complete()` struken (complete() spelar vinstljudet själv); rösten var redan rätt —
+  `_sag` köar bakom berömmet. Fönstret glider nu igen med avtagande ease i stället för att falla.
+  `check` 0/0.
 
 `2026-08-16 · doc skriven, mätfrågan avgjord (blickflimret: 1,2 byten/s, filtret behövs inte)`
 `2026-08-16 · ägaruppdrag: fem verktyg, sju träffbara rumsföremål, större ansikte, eskalerande

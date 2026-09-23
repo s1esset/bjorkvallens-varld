@@ -1147,15 +1147,15 @@ export default {
    * FINALEN — spelets egen (kvalitetsgrind 7): Bobo stänger fönstret, ger pappa en medalj,
    * och pappa ger Bobo en `blinkning()` tillbaka.
    *
-   * ⚠️ `progress.complete()` säger själv en PRAISE-replik (`GameHost.js:29–37`) och
-   *    `voice.say()` kallar `cancel()` först — spelets egen slutreplik måste komma EFTER.
+   * ⚠️ `progress.complete()` spelar själv vinstljudet och säger en PRAISE-replik, och
+   *    `voice.say()` kallar `cancel()` först — spelets egen slutreplik måste komma EFTER
+   *    (`_sag` köar den bakom berömmet).
    */
   _final(ctx) {
     if (!this._alive || this._busy) return
     this._busy = true
     this._idle = 0
     const a = this._ans
-    ctx.services.audio.sfx('celebrate')
 
     this._runda = Math.min(12, this._runda + 1)
     ctx.progress.setLevel(this._runda)
@@ -1222,8 +1222,10 @@ export default {
     this._boboL.addChild(ruta)
     this._ruta = ruta
     ctx.services.audio.sfx('lucka')
+    // Avtagande ease: rutan GLIDER igen och bromsar in mot karmen som en lucka som stängs —
+    // med `power2.in` accelererade den hela vägen och läste som ett föremål som faller.
     gsap.to(ruta, {
-      y: F.y, duration: 0.55, ease: 'power2.in',
+      y: F.y, duration: 0.55, ease: 'power2.out',
       onComplete: () => {
         if (!this._alive || ruta.destroyed) return
         sparkle(ctx.fxLayer, F.x, F.y, { count: 10 })

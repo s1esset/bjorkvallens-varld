@@ -1648,11 +1648,18 @@ export default {
     })
 
     if (art.ljud) ctx.services.audio.sample(art.ljud)
+    // V24: fåglarna kommer på sin egen klocka, inte rösten — första fågeln landade 6,2 s in
+    // i ett intro på 7,4 s och kapade det. Utropet om regnbågsfågeln hoppas över medan något
+    // talar (fågeln syns ändå); spol-tipset är en instruktion och väntar in rösten, men bara
+    // så länge fågeln fortfarande flyger. Munstycket vinkar genast.
     if (art.glitter && this._started) {
-      ctx.services.voice.say('En regnbågsfågel! Den bajsade glitter!')
+      if (!ctx.services.voice.talar) ctx.services.voice.say('En regnbågsfågel! Den bajsade glitter!')
     } else if (!this._hintedHose && this._started) {
       this._hintedHose = true
-      ctx.services.voice.say('Spola på fågeln så flyger den iväg!')
+      ctx.narTyst(() => {
+        if (this._alive && !bird._gone && !bird.view.destroyed) ctx.services.voice.say('Spola på fågeln så flyger den iväg!')
+        else this._hintedHose = false // fågeln hann flyga — tipset tas vid nästa fågel
+      })
       this._nudgeNozzle()
     }
   },
@@ -1726,7 +1733,8 @@ export default {
       onComplete: () => this._removeBird(bird),
     })
 
-    if (byHose && !this._hosedBird) {
+    // Ett engångsberöm som inte får kapa något — hoppas det över tas det nästa gång.
+    if (byHose && !this._hosedBird && !ctx.services.voice.talar) {
       this._hosedBird = true
       ctx.services.voice.say('Bra spolat! Den hann inte bajsa.')
     }
@@ -1782,10 +1790,10 @@ export default {
         if (traffar && this._car && !this._car.destroyed && !this._locked) {
           this._addSpot(ctx, pos, 'bajs', art, art.poopR)
           shake(this._car, { intensity: 4, duration: 0.3 })
-          if (this._started) ctx.services.voice.say('Akta! Fågeln bajsade på bilen!')
+          if (this._started && !ctx.services.voice.talar) ctx.services.voice.say('Akta! Fågeln bajsade på bilen!')
         } else {
           puff(this._fx, landX, landY, { count: 8, color: art.poop })
-          if (this._started) ctx.services.voice.say('Puh! Den missade bilen!')
+          if (this._started && !ctx.services.voice.talar) ctx.services.voice.say('Puh! Den missade bilen!')
         }
       },
     })

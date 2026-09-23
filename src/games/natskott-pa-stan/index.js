@@ -6033,7 +6033,11 @@ export default {
         this._monsterHeist(ctx)
       }
       if (this._missionActive) {
-        this._missionT += dt
+        // Uppdragshjälpen talar också (replayLast), så dess klocka går inte medan en replik
+        // talar (V21). Den PAUSAR i stället för att nollas: tomgångs-recuen nedan talar var
+        // ~6:e s när barnet inte trycker, och en nollställning hade svultit ut den här
+        // hjälpen helt — den mäter "inget framsteg", inte "ingen röst".
+        if (!ctx.services.voice.talar) this._missionT += dt
         if (this._missionT > 24) {
           this._missionT = 0
           // mjuk hjälp, sent och synligt: peka ut ett uppdrags-mål + repetera repliken
@@ -6048,6 +6052,9 @@ export default {
           ctx.services.voice.replayLast()
         }
       }
+      // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+      // annars kapar påminnelsens say() en replik som redan talar).
+      if (ctx.services.voice.talar) this._idle = 0
       this._idle += dt
       if (this._idle >= IDLE_DELAY) {
         this._idle = 0

@@ -836,7 +836,10 @@ export default {
 
     // Idle-recue (glöd vid ~6s) + auto-hjälp (vid ~14s) — bara om ej klar.
     if (!this._resolving && !this._connected) {
-      this._idle += dt
+      // Tomgången står STILL medan rösten talar (V21): ledtråden kan då aldrig kapa en
+      // replik. Pausad, inte nollad — samma klocka driver auto-hjälpen vid 14 s, och
+      // ledtrådens egen replik hade annars skjutit upp den till ~22 s.
+      if (!ctx.services.voice.talar) this._idle += dt
       if (this._idle >= 6000 && !this._hintShown) {
         this._hintShown = true
         this._showHint(ctx)

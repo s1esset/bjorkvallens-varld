@@ -912,6 +912,10 @@ export default {
     this._stepDrops(ctx, dt)
     this._stepWorms(dt / 1000)
 
+    // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+    // annars kapar påminnelsens say() en replik som redan talar).
+    // Gäller båda klockorna nedan (vattnings-hjälpen och så-recuen talar båda).
+    if (ctx.services.voice.talar) this._idle = 0
     if (this._phase === 'water') {
       if (this._pouring) {
         this._idle = 0

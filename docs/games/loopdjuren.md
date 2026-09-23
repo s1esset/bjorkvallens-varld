@@ -61,29 +61,33 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Deep] Stämda instrument per djur.** Ge varje djur en egen ton-uppsättning på en gemensam
-  pentatonisk skala (kon = bas, katten = marimba, hunden = klockor) så att block på olika djur
-  *alltid* klingar ihop. Då bygger staplade block riktig harmoni — det enda som lyfter detta från
-  rytm-leksak till "musiklek". Behåll röst-blocket som djurets eget läte ovanpå.
-- **[Medium] Block med tonhöjd.** Låt åtminstone tut/klapp få en tonhöjd som *stiger* med radens
-  position (eller med slot-index), så en rad block blir en liten melodislinga i stället för
-  identiska blipp.
+- ✅ ~~**[Deep] Stämda instrument per djur.**~~ Redan byggd (`INSTRUMENTS` index.js:46 på
+  gemensam pentatonik, 2026-07-01) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Block med tonhöjd.**~~ Redan byggd (skalsteg efter slot-index, `_noteFreq`
+  :520) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] Förhandslyssna vid tryck.** Tryck-och-håll (kort) på en stämpel spelar dess ljud en
-  gång innan man drar — barnet lär sig paletten och drar inte blint.
+- ✅ ~~**[Quick] Förhandslyssna vid tryck.** Tryck-och-håll (kort) på en stämpel …~~ Premissen
+  bröt mot P0 (inget långtryck), så punkten skrevs om till "stämpelns ljud när den lyfts".
+  Klar 2026-09-23 (v1.251.0): Samma pointerdown som DragController lyfter på spelar blockets
+  eget ljud ur `_perform` på en neutral marimba-ton (`_stampLjud` :286). Röst-blocket låter som
+  djuren i tur och ordning, via sample och aldrig via berättarrösten.
 - **[Medium] Nya block/teman per nivå.** Lägg till t.ex. ett "studsa"-block, ett shaker/maracas,
   eller ett "eko"-block på högre nivåer, och byt scenfärg per nivå så varje besök känns nytt.
 
 ### Juice
-- **[Quick] Beat-puls på rutnätet.** Låt den aktiva kolumnen blinka mjukt / rutan studsa när
-  spelhuvudet når den, så takten *syns*. En liten nedslags-betoning på varv-starten ger groove.
+- ✅ ~~**[Quick] Beat-puls på rutnätet.**~~ Redan byggd (kolumnens slots studsar på slaget,
+  index.js:477, 2026-07-01) — uppdagat 2026-09-23.
 - **[Medium] Riktig dans.** Ge avatarerna ett par extra leder (öron/svans/fötter som studsar i
   motfas) så rörelsen läser som dans, inte bara en skal-pop.
 
 ### Progression
-- **[Quick] Spara och återuppta loopen.** Lägg arrangemanget i `custom` så barnets skapelse finns
-  kvar nästa gång — en anledning att komma tillbaka till "min låt".
+- ✅ ~~**[Quick] Spara och återuppta loopen.**~~ Klar 2026-09-23 (v1.251.0): Varje ändring
+  sparar `custom.loop` (en rad per djur, `_sparaLoop` :318). Vid start läggs låten tillbaka
+  tyst (`_aterstallLoop` :325). Har nätet vuxit sedan sist (3→4 djur, 4→6 fack) läggs det som
+  ryms tillbaka och de nya facken står tomma. Firandet kräver att barnet lägger eller byter
+  minst ett block den här gången (`_barnetsTur` :501). Annars hade varje öppning gett ett
+  gratis klistermärke efter första varvet.
 
 ### Karaktär & berättelse
 - **[Deep] Ett litet band/scen.** Sätt djuren på en scen med strålkastare som tänds när en rad är
@@ -96,6 +100,12 @@ djuren är utbytbara emoji snarare än ett band med var sin röst.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Dubbelfirandet fanns inte:
+  `complete()` står ensamt, utan egna kopior och utan replik efter. Snabbvinster: ⓵ barnets låt
+  sparas och kommer tillbaka nästa besök, även när nätet vuxit. Firandet kräver en egen ändring
+  per besök. ⓶ Stämpeln låter som sitt block när den lyfts. Punkten var tryck-och-håll, vilket
+  bryter mot P0, och skrevs om. Kvar öppet: [Medium] nya block/teman, riktig dans, groove;
+  [Deep] bandet/scenen.
 - 2026-06-30: Doc skriven efter källäsning + playtest (errorCount 0, drag verifierad, skärmdump
   granskad). Inga kodändringar. Rekommenderad första-omgång: **[Deep] stämda instrument per djur +
   [Quick] beat-puls på rutnätet** — det enda som gör skillnaden mellan "rytm-leksak" och riktig

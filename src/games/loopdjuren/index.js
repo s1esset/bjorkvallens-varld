@@ -100,6 +100,10 @@ export default {
 
     this._buildRows(ctx)
     this._buildTray(ctx)
+    // Barnets sparade låt kommer tillbaka. Firandet kräver ändå att barnet lägger/byter
+    // minst ett block DEN HÄR gången — annars gav varje öppning ett gratis klistermärke.
+    this._barnetsTur = false
+    this._aterstallLoop(ctx)
 
     this._tick = (ticker) => this._loop(ticker, ctx)
     ctx.ticker.add(this._tick)
@@ -246,6 +250,10 @@ export default {
       stamp.y = 666
       this._root.addChild(stamp)
       this._stamps.push(stamp)
+      // Förhandslyssning i lyftet (samma pointerdown som DragController lyfter på).
+      stamp.on('pointerdown', () => {
+        if (this._alive) this._stampLjud(ctx, type)
+      })
       this._drag.addItem(stamp, { type }, {
         onCorrect: (rec, target) => {
           if (!this._alive) return
@@ -269,6 +277,69 @@ export default {
     c.addChild(makeBlockArt(type))
     c.hitArea = new Rectangle(-58, -58, 116, 116)
     return c
+  },
+
+  // FÖRHANDSLYSSNING: stämpeln låter som sitt block i samma ögonblick som den lyfts (samma
+  // pointerdown som DragController lyfter på) — barnet hör paletten innan det drar. Samma
+  // ljud som `_perform` spelar i loopen, på en neutral marimba-ton. Röst-blocket låter som
+  // ett djur — i tur och ordning, så det hörs att det är DJURETS röst som läggs.
+  _stampLjud(ctx, type) {
+    const nu = performance.now()
+    if (nu - (this._stampLjudAt || 0) < 120) return // ett tryck = ett ljud
+    this._stampLjudAt = nu
+    const audio = ctx.services.audio
+    const note = this._noteFreq('katt', 0)
+    switch (type) {
+      case 'hopp':
+        audio.tone({ freq: note.freq, dur: 0.18, type: note.type, vol: 0.18 })
+        break
+      case 'snurr':
+        audio.tone({ freq: note.freq, dur: 0.22, type: note.type, vol: 0.16, slideTo: note.freq * 1.5 })
+        break
+      case 'tut':
+        audio.tone({ freq: note.freq, dur: 0.34, type: note.type, vol: 0.18 })
+        break
+      case 'klapp':
+        audio.tone({ freq: note.freq, dur: 0.1, type: note.type, vol: 0.18 })
+        audio.tone({ freq: note.freq, dur: 0.1, type: note.type, vol: 0.14, delay: 0.13 })
+        break
+      case 'rost': {
+        const n = this._rows.length || 1
+        this._rostIdx = ((this._rostIdx ?? -1) + 1) % n
+        const id = this._rows[this._rostIdx]?.id
+        // Aldrig rösten här: en förhandslyssning får inte kapa berättaren.
+        if (!id || !audio.sample('djur_' + id)) audio.tone({ freq: note.freq, dur: 0.16, type: note.type, vol: 0.16, slideTo: note.freq * 1.25 })
+        break
+      }
+    }
+  },
+
+  // Spara barnets låt (bara vilka block som ligger var) — en rad per djur.
+  _sparaLoop(ctx) {
+    ctx.progress.setCustom('loop', this._rows.map((r) => r.slots.map((t) => t || null)))
+  },
+
+  // Lägg tillbaka en sparad låt TYST (ingen gnista/pling per block vid start). Nätet kan ha
+  // vuxit sedan sist (nivån styr 3–4 djur × 4–6 fack): det som ryms läggs tillbaka, resten
+  // av de nya facken står tomma. Okända typer hoppas över.
+  _aterstallLoop(ctx) {
+    const sparad = ctx.progress.get().custom?.loop
+    if (!Array.isArray(sparad)) return
+    for (let r = 0; r < Math.min(sparad.length, this._rows.length); r++) {
+      const row = this._rows[r]
+      const rad = Array.isArray(sparad[r]) ? sparad[r] : []
+      for (let i = 0; i < Math.min(rad.length, this._slots); i++) {
+        const type = rad[i]
+        if (!type || !BLOCKS[type]) continue
+        row.slots[i] = type
+        const bv = this._makeBlockView(type)
+        row.slotC[i].addChild(bv)
+        row.blockViews[i] = bv
+        this._placedCount++
+      }
+    }
+    // Är nätet redan fullt ska milstolpen inte smälla vid första ändringen.
+    this._fullDone = this._placedCount >= this._rows.length * this._slots
   },
 
   // Återställ stämpeln till sin hemplats så den är en oändlig källa.
@@ -334,6 +405,8 @@ export default {
       sparkle(ctx.fxLayer, row.slotC[i].x, row.yc)
       ctx.services.audio.sfx('pling')
     }
+    this._barnetsTur = true
+    this._sparaLoop(ctx)
     this._checkFullMilestone(ctx)
   },
 
@@ -425,7 +498,7 @@ export default {
   _onLoopWrap(ctx) {
     if (!this._celebrated) {
       const active = this._rows.filter((r) => r.active)
-      if (this._placedCount > 0 && active.length > 0 && active.every((r) => r._playedThisLoop)) {
+      if (this._barnetsTur && this._placedCount > 0 && active.length > 0 && active.every((r) => r._playedThisLoop)) {
         this._celebrate(ctx)
       }
     }

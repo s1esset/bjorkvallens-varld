@@ -59,10 +59,10 @@ fyra skepnader som beter sig likadant.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Skratt-crescendo.** Låt intensiteten rampa med mätaren: större skutt, snabbare
-  vingel, bredare mun, fler skratt-emoji, en lätt skakning som byggs upp — och vid full mätare
-  ett "kan-inte-hålla-mig"-utbrott (figuren faller bakåt och sparkar med benen) som flyter rakt
-  in i firandet. Då känns slutet *intjänat*, inte plötsligt.
+- ✅ ~~**[Medium] Skratt-crescendo.**~~ Redan byggd (`prog` skalar squash, skutt, mun, ögonknip,
+  emoji-skur och skrattårar — `_giggle`/`_laugh` :576, tårar :525; byggd 2026-07-01 och
+  2026-08-05, se §5) — uppdagat 2026-09-23. Utbrottet "faller bakåt och sparkar" hör till
+  [Medium] Posevariation nedan.
 - **[Medium] Posevariation.** Då och då (eller vid hög intensitet) byter figuren pose — rullar,
   faller bakåt, håller om magen — istället för att alltid stå rakt fram.
 
@@ -76,13 +76,18 @@ fyra skepnader som beter sig likadant.
 ### Juice
 - **[Quick] Riktiga skratt-SFX.** Byt de talade "Hihi!" mot inspelade fniss-klipp (via `npm run
   sfx`) — den enskilt största lyftet. Variera mellan flera giggel-takes.
-- **[Quick] Mer mimik.** Tunga ut, ihopknipta ögon, fördjupad rodnad ju mer den skrattar, en
-  liten tår av skratt vid crescendot.
-- **[Quick] Skratt-emoji-skur som skalar** med intensiteten istället för fast `count`.
+  *Blockerad 2026-09-23:* kroken finns (`audio.sample('skratt')` i `_giggleSound` :567) men
+  klippet `skratt` saknas i `public/audio/sfx/` — kräver SFX-pipelinen (MOSS nere).
+- ✅ ~~**[Quick] Mer mimik.**~~ Klar 2026-09-23 (v1.251.0): sista delen, **rodnaden fördjupas** —
+  kinderna börjar på alfa 0,5 och blir starkare och djupare rosa med skrattet (`_blush` :553,
+  alfa + tint, aldrig skala, eftersom `pop` äger kindernas skala); full rodnad när rundan är
+  full (:790). Ögonknip, skrattårar och tungan i den öppna skrattmunnen fanns redan.
+- ✅ ~~**[Quick] Skratt-emoji-skur som skalar**~~ Redan byggd (`index.js:500`, antal och storlek
+  efter `prog`) — uppdagat 2026-09-23.
 
 ### Progression
-- **[Quick] Mål-glimt i fri kittling.** Lägg en mjuk glöd/gnista på en slumpzon även på låg
-  nivå, så de yngsta har någonstans att sikta — utan att göra det till en följd.
+- ✅ ~~**[Quick] Mål-glimt i fri kittling.**~~ Redan byggd (`_hintZone` :729, mjuk glödring som
+  hoppar vidare; byggd 2026-08-05, se §5) — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
 - **[Medium] Art-personlighet i rösten.** Egen kort replik/röstkaraktär per skepnad
@@ -90,8 +95,15 @@ fyra skepnader som beter sig likadant.
 
 ### Ljud
 - **[Quick] Lugn godis-ambient** i bakgrunden + varierat berömsting vid firandet.
+  *2026-09-23:* berömstinget varieras redan av skalet (`AudioService._celebrate`). Ambienten är
+  **blockerad** — kräver ett nytt ljudklipp via SFX-pipelinen (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): nästa rundas instruktion kom på en
+  fast tid 1,6 s efter `complete()` och kapade skalets beröm (1,0–2,3 s) — nu väntar den in rösten
+  via `ctx.narTyst`, vaktad med en rundtoken. Rodnaden fördjupas med skrattet (`_blush`).
+  §4 stämd mot koden: 3 punkter var redan byggda, 2 blockerade på SFX-pipelinen.
 
 - 2026-08-10 🎨 **D1: figuren fick volym — kropp, huvud och armar** (`7c62404`, v1.124.0).
   Figuren var spelets största fält (**75 809 px**, `_plattprobe --medbakgrund`). Till skillnad

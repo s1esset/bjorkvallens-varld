@@ -15,7 +15,7 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { pop, wiggle, puff, sparkle, floatText, ripple, burst, breathe , kvittera} from '../../lib/feedback.js'
-import { createScene } from '../../lib/scene.js'
+import { createScene, lerpColor } from '../../lib/scene.js'
 import { COLORS, DESIGN_W } from '../../lib/theme.js'
 import { sphereFill, cylinderFill } from '../../lib/form.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -34,6 +34,10 @@ const MAX_LEVEL = 6
 
 const MOUTH = 0x5a2d22 // mörk mun/kontur
 const CHEEK = 0xff8fa3 // rosa kinder
+// Rodnaden fördjupas med skrattet: kinderna börjar svaga och ljusa och blir starka och
+// djupare rosa ju fullare rundan är. Tinten multiplicerar CHEEK (0xff8fa3 → ~0xff566a).
+const CHEEK_ALFA = [0.5, 1]
+const CHEEK_DJUP = 0xff9aa6
 const HORN = 0xffe7a8 // ljus horn/tand-färg
 
 // Svävande skratt-emoji vid kittling.
@@ -213,11 +217,22 @@ export default {
     }
 
     const sp = this._species
+    // Rundans token: en köad replik från en runda som hunnit ta slut får aldrig tala.
+    const runda = (this._rundaId = (this._rundaId || 0) + 1)
     if (first) ctx.services.voice.say(this.voiceIntro)
-    // Hel literal, inte en mall-sträng: check.mjs hittar bara literaler, så en
-    // konkatenerad replik kan aldrig få ett röstklipp via /rost (läcka #4).
-    else if (this._mode === 'sequence') ctx.services.voice.say('Kittla där det lyser!')
-    else ctx.services.voice.say(sp.intro)
+    else {
+      // Nästa rundas instruktion kommer 1,6 s efter complete(), vars beröm är 1,0–2,3 s —
+      // på den fasta tiden kapade den berömmet (say() kallar cancel()). Figuren och
+      // prickarna kommer genast; bara orden väntar in rösten.
+      const mode = this._mode
+      ctx.narTyst(() => {
+        if (!this._alive || this._rundaId !== runda || this._resolving) return
+        // Hel literal, inte en mall-sträng: check.mjs hittar bara literaler, så en
+        // konkatenerad replik kan aldrig få ett röstklipp via /rost (läcka #4).
+        if (mode === 'sequence') ctx.services.voice.say('Kittla där det lyser!')
+        else ctx.services.voice.say(sp.intro)
+      })
+    }
 
     pop(this._figure) // liten "fräsch start"-studs
   },
@@ -300,7 +315,10 @@ export default {
     p.eyeR = this._makeEye(38, -12)
     p.cheekL = this._g(-CHEEK_DX, CHEEK_DY)
     p.cheekR = this._g(CHEEK_DX, CHEEK_DY)
-    for (const c of [p.cheekL, p.cheekR]) c.circle(0, 0, 26).fill({ color: CHEEK, alpha: 0.92 })
+    for (const c of [p.cheekL, p.cheekR]) {
+      c.circle(0, 0, 26).fill({ color: CHEEK, alpha: 0.92 })
+      c.alpha = CHEEK_ALFA[0] // ny skepnad = ny, blek rodnad
+    }
     p.mouth = this._g(0, 34)
     head.addChild(p.eyeL, p.eyeR, p.cheekL, p.cheekR, p.mouth)
     this._drawMouth(false)
@@ -523,10 +541,24 @@ export default {
 
   // Hela giggel-paketet, skalat av intensiteten (crescendo): skvätt + skutt + vingel + skratt.
   _giggle(intensity = 0) {
+    this._blush(intensity)
     this._squash(intensity)
     this._hop(intensity > 0.5)
     wiggle(this._figure)
     this._laugh(intensity)
+  },
+
+  // Kinderna rodnar mer ju mer figuren skrattat. Alfa + tint, aldrig skala — kindernas
+  // skala ägs av `pop` i `_react` ('kind_v'/'kind_h'), och två ägare vore ett ryck.
+  _blush(intensity = 0) {
+    const p = this._parts
+    const alpha = CHEEK_ALFA[0] + (CHEEK_ALFA[1] - CHEEK_ALFA[0]) * intensity
+    const tint = lerpColor(0xffffff, CHEEK_DJUP, intensity)
+    for (const c of [p.cheekL, p.cheekR]) {
+      if (!c || c.destroyed) continue
+      c.tint = tint
+      gsap.to(c, { alpha, duration: 0.25, ease: 'sine.out', overwrite: 'auto' })
+    }
   },
 
   // Skratt-ljud: riktigt inspelat klipp om det finns (genereras senare via MOSS-pipelinen,
@@ -755,6 +787,7 @@ export default {
         if (!f.destroyed) f.scale.set(1)
       },
     })
+    this._blush(1) // full rodnad när rundan är full
     // Lokal partikel-skur (kompletterar shellens konfetti — inget dubbelfirande).
     burst(this._layer, CX, FIG_Y + HEAD_Y, { count: 18, power: 1.2 })
 

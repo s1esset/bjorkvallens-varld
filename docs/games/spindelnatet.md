@@ -63,45 +63,57 @@ fångar försvinner in i abstrakta prickar.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Levande jägare.** Låt hjälten vrida torso/huvud mot närmaste fallande föremål och
-  luta sig lätt åt det hållet (billig lerp av rotation/skew mot `_lowestItem`), och faktiskt
-  **flaxa skjut-armen** vid varje skott. Skjut tråden från handens världsposition, inte basens.
+- ✅ ~~**[Medium] Levande jägare.**~~ Redan byggd (lutar mot lägsta bytet i `_update`, flaxande
+  skjut-arm `_flapArm` :419, tråden från handen `_handPos` :412; se §5 2026-07-01) — uppdagat
+  2026-09-23.
 - **[Medium] Kombo-fångst.** Två föremål nära varandra som fångas i samma tråd-skott (eller inom
   ~0,4 s) ger en synlig "dubbel!" + extra gnista — belönar sikte utan svårighetsstraff.
-- **[Deep] Levande byte.** Ge krypen (🐛🪲) egen krypbana på marken (mot en spricka/hål) i stället
-  för slump-jitter; godis (🍬🍭) ligger still och glittrar. Att de *vill iväg* gör fångsten mer
-  meningsfull (fortfarande no-fail — auto-hjälp kvar).
+- ✅ ~~**[Deep] Levande byte.**~~ Redan byggd (krypen kryper mot `HOLES` :31, godiset ligger still
+  och glittrar; se §5 2026-08-06) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] Sällsynt guldgodis** (✨-omramat) som ger en liten gnistkaskad + fyller två
-  mätar-steg — ett "wow" likt regnbågsbubblan.
-- **[Quick] Väder/scen-variation per nivå:** månfas, eldflugor, ett dis — så natthimlen inte är
-  identisk varje omgång.
+- ✅ ~~**[Quick] Sällsynt guldgodis.**~~ Klar 2026-09-23 (v1.251.0): ~1 på 10 (`GULD_CHANS`, aldrig
+  rundans första, aldrig två samtidigt, aldrig ett kryp) — en gyllene karamell i gloria som
+  glittrar i fallet, landar med gnistkaskad + stigande durtreklang och fyller TVÅ gyllene
+  mätarfack (`_addToMeter(ctx, 2, true)`).
+- ✅ ~~**[Quick] Väder/scen-variation per nivå.**~~ Klar 2026-09-23 (v1.251.0): `_ritaNatt` ritar
+  om natten per runda — månen i fyra faser (`MANFAS`, en sluten väg, inget skuggskivs-trick) och
+  3/5/7 eldflugor som driver och blinkar (sinus i `_update`, inga tweens). Diset byggdes inte.
 
 ### Juice
-- **[Quick] Klistrigt trådljud.** Lägg ett "tjong/sproing" vid trådfäste och ett mjukt "mums/
-  plopp" när bytet landar i nätet; vid bred-kaskaden en stigande ton per fångst.
-- **[Quick] Nätet reagerar.** Låt `_web` darra/svikta lätt (kort scale-puls) varje gång ett byte
-  landar — nätet "tar emot" tyngden.
-- **[Quick] Trådens indrag** kan få en liten elastisk översläng (`back.out`) så fångsten studsar
-  in i nätet i stället för rak glidning.
+- ✅ ~~**[Quick] Klistrigt trådljud.**~~ Redan byggd ("tjong" när tråden fäster i `_capture`,
+  "mums/plopp" i `_landInNet` :520, stigande ton per fångst i bred-kaskaden; se §5 2026-07-01) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Nätet reagerar.**~~ Klar 2026-09-23 (v1.251.0): `squash` på `_web` varje gång ett
+  byte landar (tickern skriver bara nätets x); tidslinjen dödas i `destroy`.
+- ✅ ~~**[Quick] Trådens indrag med översläng.**~~ Klar 2026-09-23 (v1.251.0): `_reelIn` :475 går
+  med `back.out(1.4)` på 0,34 s i stället för `power2.in` — bytet rycks in och studsar till ro.
 
 ### Progression
 - **[Medium] Skafferi/skattkista.** De faktiska fångade emojierna samlas i en liten rad/burk vid
   mätaren (inte bara 🍬-prickar) som fylls över omgångar — något att minnas och återkomma till.
-- **[Quick] Mätaren bågnar vid full** (hela panelen studsar + glittrar) som tydlig "klart!".
+- ✅ ~~**[Quick] Mätaren bågnar vid full.**~~ Klar 2026-09-23 (v1.251.0): `_onComplete` poppar
+  hela panelen (1,25) och glittrar i varje fack.
 
 ### Karaktär & berättelse
-- **[Deep] Hjälten äter/firar.** Vid målet: nätet fylls synligt och hjälten gör en egen
-  glädje-gest (hoppar i nätet, kramar om en godisbunt) i stället för generisk konfetti — en
-  spelspecifik finish.
-- **[Quick] Bobo eller en kompis-insekt** som hejar från kanten när mätaren fylls.
+- ✅ ~~**[Deep] Hjälten äter/firar.**~~ Redan byggd (hoppar i nätet tre gånger, `_onComplete` :611;
+  se §5 2026-08-06) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Bobo eller en kompis-insekt som hejar från kanten när mätaren fylls.**~~ Klar
+  2026-09-23 (v1.251.0): Bobo (`makeKaraktar`, r 30) står på marken i vänsterkanten, tittar mot
+  nätet och `heja`r vid varje fångst (strypt 0,4 s för bred-kaskaden) och `jubel` vid full mätare.
 
 ### Ljud
 - **[Quick] Riktiga SFX från [[real-audio-sfx]]:** tjong/sproing, mums, kryp-prassel — ersätt de
-  syntetiska blippen och TTS-"Bra fångat!" med förgenererade klipp.
+  syntetiska blippen med förgenererade klipp. *(Blockerad 2026-09-23: MOSS nere. "Bra fångat!"
+  har redan ett F5-klipp.)*
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onComplete` spelade eget
+  `celebrate` + `PRAISE` + `bigCelebration` i samma tick som `complete()` — strukna (complete()
+  firar). Sex snabbvinster: sällsynt guldgodis (två mätarsteg), månfas + eldflugor per nivå,
+  nätet sviktar vid landning, indraget studsar (`back.out`), mätaren bågnar vid full, och Bobo
+  hejar från vänsterkanten. §4: fyra punkter var redan byggda.
 
 - 2026-08-10 🌙 **Marken är månbelyst i stället för soljord** (v1.128.0).
   Spelet ligger under `createScene('night')` — stjärnhimmel, silhuettkullar — men markremsan

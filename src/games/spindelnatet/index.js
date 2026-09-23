@@ -15,11 +15,12 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { Rep, repPath } from '../../lib/rep.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { COLORS, PRAISE, shade, tint } from '../../lib/theme.js'
+import { COLORS, shade, tint } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { pop, wiggle, sparkle, burst, floatText, bigCelebration, bounceIn, breathe, puff , kvittera} from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, burst, floatText, bounceIn, breathe, puff, kvittera, squash } from '../../lib/feedback.js'
+import { makeKaraktar } from '../../lib/karaktarer.js'
 
 // Bytena RITAS (P0 ASSETS) — ascii-id:n, aldrig emoji som hela föremålet.
 const TREATS = ['karamell', 'klubba', 'choklad', 'larv', 'skalbagge']
@@ -77,6 +78,12 @@ const GRAV = [0.9, 1.1, 1.3, 1.5]
 const SPAWN_EVERY = [1.6, 1.3, 1.1, 0.9]
 const MAX_ON = [4, 5, 6, 7]
 
+// Natthimlen varierar per nivå: månen har fyra faser (terminatorns x-radie som andel av
+// radien: −1 = full, 0 = halv, + = skära) och eldflugorna blir fler eller färre.
+const MANFAS = [-1, -0.45, 0, 0.5]
+const MANE = { x: 1030, y: 118, r: 34 } // fri från högtalarknappen (1210, 64)
+const GULD_CHANS = 0.1 // sällsynt guldgodis: fyller två mätarsteg
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const pick = (arr, lvl) => arr[Math.min(Math.max(0, lvl - 1), arr.length - 1)]
 
@@ -116,6 +123,13 @@ export default {
 
     // Stjärnhimmel (FÖRSTA barn) + mörk markremsa nederst.
     this._root.addChild(createScene('night', { width: ctx.width, height: ctx.height }))
+    // Månen och eldflugorna (byts per nivå i `_ritaNatt`) — bakom mark, nät och byten.
+    this._natt = new Container()
+    this._natt.eventMode = 'none'
+    this._natt.interactiveChildren = false
+    this._root.addChild(this._natt)
+    this._eldflugor = []
+    this._nattT = 0
     const ground = new Graphics()
     // Markremsan lag pa 73 096 px i EN ton (`_plattprobe --medbakgrund`). Delad
     // markfyllning — se lib/form.js. Tonen är månbelyst, se NIGHT_GROUND.
@@ -140,6 +154,13 @@ export default {
     this._onTapHandler = (e) => this._onTap(ctx, e)
     this._catcher.on('pointertap', this._onTapHandler)
     this._root.addChild(this._catcher)
+
+    // Publiken: Bobo står på marken i vänsterkanten, hejar vid varje fångst och jublar när
+    // nätet är fullt. Ren dekor (riggens vy tar inga tryck) — trycken går till fångstytan.
+    this._kar = makeKaraktar({ r: 30 })
+    this._kar.view.position.set(58, 648 - 30 * 2.2)
+    this._root.addChild(this._kar.view)
+    this._sistHeja = 0
 
     // Spindelväv (dekorativ), centrerad på basen, följer spindelns x.
     this._web = makeWeb()
@@ -253,7 +274,43 @@ export default {
     this._phys.setGravity(this._gravityY)
 
     this._buildMeter()
+    this._ritaNatt(lvl)
     this._spawn(ctx) // seed
+  },
+
+  // Natthimlen för nivån: månfas + ett litet eldflugesvärm. Rivs och ritas om per runda,
+  // så en ny runda aldrig ärver förra rundans flugor.
+  _ritaNatt(lvl) {
+    const lager = this._natt
+    if (!lager || lager.destroyed) return
+    for (const c of lager.removeChildren()) c.destroy({ children: true })
+    this._eldflugor = []
+
+    const mane = new Graphics()
+    const R = MANE.r
+    mane.circle(0, 0, R * 1.6).fill({ color: 0xfff3c4, alpha: 0.07 })
+    mane.circle(0, 0, R * 1.25).fill({ color: 0xfff3c4, alpha: 0.08 })
+    mane.circle(0, 0, R).fill({ color: 0xfff3c4, alpha: 0.12 }) // jordsken: hela skivan anas
+    ritaMane(mane, R, MANFAS[lvl % MANFAS.length])
+    mane.fill(0xfff3c4)
+    mane.position.set(MANE.x, MANE.y)
+    lager.addChild(mane)
+
+    const n = 3 + (lvl % 3) * 2
+    for (let i = 0; i < n; i++) {
+      const fluga = new Container()
+      fluga.addChild(new Graphics().circle(0, 0, 9).fill({ color: 0xeaff8a, alpha: 0.22 }))
+      fluga.addChild(new Graphics().circle(0, 0, 3.2).fill(0xf6ffb0))
+      const bx = 170 + ((i + 0.5) / n) * 940 + (Math.random() * 2 - 1) * 50
+      const by = 320 + Math.random() * 230
+      fluga.position.set(bx, by)
+      lager.addChild(fluga)
+      this._eldflugor.push({
+        nod: fluga, bx, by,
+        ax: 26 + Math.random() * 26, ay: 12 + Math.random() * 14,
+        f: 0.35 + Math.random() * 0.35, blink: 1.2 + Math.random() * 1.1, fas: Math.random() * 6.28,
+      })
+    }
   },
 
   _buildMeter() {
@@ -282,7 +339,10 @@ export default {
   _spawn(ctx) {
     if (!this._alive || this._resolving) return
     if (this._items.length >= this._maxOnScreen) return
-    const emoji = randomFrom(TREATS)
+    // Sällsynt guldgodis: glittrar på väg ner och fyller TVÅ mätarsteg. Aldrig rundans
+    // första fångst, aldrig två samtidigt, och aldrig ett kryp (det ska gå att ta lugnt).
+    const guld = this._caughtCount > 0 && !this._items.some((it) => it._guld) && Math.random() < GULD_CHANS
+    const emoji = guld ? 'guld' : randomFrom(TREATS)
     const x = 120 + Math.random() * (1160 - 120)
 
     const view = new Container()
@@ -306,7 +366,7 @@ export default {
     const bug = emoji === 'larv' || emoji === 'skalbagge'
     this._items.push({
       body, view, _caught: false, _onGround: false, _groundAge: 0,
-      _bug: bug, _hole: bug ? (x < 640 ? HOLES[0] : HOLES[1]) : null, _glint: Math.random() * 6,
+      _bug: bug, _hole: bug ? (x < 640 ? HOLES[0] : HOLES[1]) : null, _glint: Math.random() * 6, _guld: guld,
     })
   },
 
@@ -426,8 +486,10 @@ export default {
       x: this._baseX,
       y: BASE_Y - 8,
       s: 0.35,
-      duration: 0.3,
-      ease: 'power2.in',
+      // Elastisk översläng: bytet rycks in, skjuter en aning förbi och studsar till ro i
+      // nätet i stället för en rak glidning.
+      duration: 0.34,
+      ease: 'back.out(1.4)',
       onUpdate: () => {
         if (v.destroyed) {
           tw.kill()
@@ -462,30 +524,50 @@ export default {
     // Mjukt "mums/plopp" när bytet landar i nätet.
     ctx.services.audio.tone({ freq: 320, slideTo: 150, dur: 0.12, type: 'sine', vol: 0.32 })
     if (this._spider && !this._spider.destroyed) pop(this._spider)
+    // Nätet tar emot tyngden: en kort svikt (tickern skriver bara nätets x, aldrig skalan).
+    if (this._web && !this._web.destroyed) squash(this._web, { intensity: 0.32 })
     sparkle(ctx.fxLayer, this._baseX, BASE_Y - 10, { count: 6 })
     if (Math.random() < 0.5) floatText(ctx.fxLayer, this._baseX, BASE_Y - 60, '🍬', { fontSize: 40 })
+    if (obj?._guld) {
+      // Guldgodiset: en gnistkaskad uppför nätet och en stigande durtreklang.
+      for (let k = 0; k < 4; k++) sparkle(ctx.fxLayer, this._baseX + (k - 1.5) * 34, BASE_Y - 30 - k * 26, { count: 5 })
+      for (const [i, freq] of [1046.5, 1318.51, 1567.98].entries()) {
+        ctx.services.audio.tone({ freq, dur: 0.16, type: 'triangle', vol: 0.18, delay: 0.08 + i * 0.09 })
+      }
+    }
+    // Publiken hejar (strypt: bred-svepets kaskad landar flera på en gång).
+    const nu = performance.now()
+    if (this._kar && nu - this._sistHeja > 400) {
+      this._sistHeja = nu
+      this._kar.look(this._baseX, BASE_Y)
+      this._kar.react('heja')
+    }
     if (!this._firstCatch) {
       this._firstCatch = true
       ctx.services.voice.say('Bra fångat!')
     }
-    this._addToMeter(ctx)
+    this._addToMeter(ctx, obj?._guld ? 2 : 1, !!obj?._guld)
   },
 
-  _addToMeter(ctx) {
+  _addToMeter(ctx, varde = 1, guld = false) {
     if (this._resolving) return // räkna inte fångster som landar under firandet
-    const idx = this._caughtCount
-    this._caughtCount++
-    if (idx < this._slots.length) {
-      const slot = this._slots[idx]
-      // RITAD karamell (P0 ASSETS) — var en 🍬-emoji.
-      const candy = new Graphics()
-      candy.ellipse(0, 0, 11, 9).fill(0xff6b9d)
-      candy.moveTo(-11, 0).lineTo(-21, -8).lineTo(-19, 8).closePath().fill(0xff9ec4)
-      candy.moveTo(11, 0).lineTo(21, -8).lineTo(19, 8).closePath().fill(0xff9ec4)
-      candy.circle(-3, -3, 3).fill({ color: 0xffffff, alpha: 0.7 })
-      candy.position.set(slot.x, 0)
-      candy.eventMode = 'none'
-      this._meterLayer.addChild(candy)
+    for (let k = 0; k < varde; k++) {
+      const idx = this._caughtCount
+      this._caughtCount++
+      if (idx < this._slots.length) {
+        const slot = this._slots[idx]
+        // RITAD karamell (P0 ASSETS) — var en 🍬-emoji. Guldgodiset fyller två gyllene.
+        const kropp = guld ? 0xffd24a : 0xff6b9d
+        const papper = guld ? 0xffe27a : 0xff9ec4
+        const candy = new Graphics()
+        candy.ellipse(0, 0, 11, 9).fill(kropp)
+        candy.moveTo(-11, 0).lineTo(-21, -8).lineTo(-19, 8).closePath().fill(papper)
+        candy.moveTo(11, 0).lineTo(21, -8).lineTo(19, 8).closePath().fill(papper)
+        candy.circle(-3, -3, 3).fill({ color: 0xffffff, alpha: 0.7 })
+        candy.position.set(slot.x, 0)
+        candy.eventMode = 'none'
+        this._meterLayer.addChild(candy)
+      }
     }
     if (this._meterLayer && !this._meterLayer.destroyed) pop(this._meterLayer, { scale: 1.06 })
     if (this._caughtCount >= this._goal) this._onComplete(ctx)
@@ -531,10 +613,16 @@ export default {
     this._resolving = true
     this._clearLure()
 
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    // Vinstljud, beröm och konfetti kommer från complete() nedan — bara det egna här.
     sparkle(ctx.fxLayer, this._baseX, BASE_Y, { count: 10 })
+    // Mätaren bågnar: hela panelen studsar och varje fyllt fack glittrar — "klart!" syns
+    // där barnet har räknat. Bobo jublar från kanten.
+    const ml = this._meterLayer
+    if (ml && !ml.destroyed) {
+      pop(ml, { scale: 1.25 })
+      for (const slot of this._slots) sparkle(ctx.fxLayer, ml.x + slot.x, ml.y, { count: 3 })
+    }
+    this._kar?.react('jubel')
     // Spelspecifik finish: hjälten HOPPAR I NÄTET tre gånger som på en studsmatta,
     // i stället för bara två pop-studsar ovanpå den delade konfettin. Exit-säker
     // proxy-tween — Pixi-noden rörs bara om den lever.
@@ -663,6 +751,17 @@ export default {
     this._phys.update(t.deltaMS)
     const dt = Math.min(0.05, (t.deltaMS || 16.67) / 1000)
 
+    // Eldflugorna driver och blinkar (ren sinus per bildruta — inga tweens att städa).
+    this._nattT += dt
+    const T = this._nattT
+    for (const e of this._eldflugor) {
+      const n = e.nod
+      if (!n || n.destroyed) continue
+      n.x = e.bx + Math.sin(T * e.f + e.fas) * e.ax
+      n.y = e.by + Math.sin(T * e.f * 1.3 + e.fas * 2) * e.ay
+      n.alpha = 0.3 + 0.7 * Math.max(0, Math.sin(T * e.blink + e.fas))
+    }
+
     // Levande jägare: luta hjälten mjukt mot närmaste (lägsta) fallande föremål (billig lerp
     // av rotation). Låter honom kännas närvarande — han tittar/vänder sig mot bytet.
     const sp = this._spider
@@ -726,6 +825,8 @@ export default {
       const b = it.body
       if (!b) continue
       if (b.velocity.y > MAX_FALL) Body.setVelocity(b, { x: b.velocity.x, y: MAX_FALL })
+      // Guldgodiset glittrar redan på väg ner — så barnet ser att det är särskilt.
+      if (it._guld && !it._onGround && Math.random() < 0.07) sparkle(ctx.fxLayer, b.position.x, b.position.y, { count: 2 })
       const py = b.position.y
       if (!it._onGround && py > GROUND_MARK_Y) {
         it._onGround = true
@@ -829,6 +930,13 @@ export default {
     if (this._wideBtn && !this._wideBtn.destroyed) this._wideBtn.off('pointertap', this._onWideTap)
     if (this._wideFace && !this._wideFace.destroyed) gsap.killTweensOf(this._wideFace.scale)
     if (this._meterLayer && !this._meterLayer.destroyed) gsap.killTweensOf(this._meterLayer.scale)
+    if (this._web && !this._web.destroyed) {
+      this._web._fxSquashTl?.kill() // squash()-tidslinjen överlever killTweensOf(scale)
+      gsap.killTweensOf(this._web.scale)
+    }
+    this._kar?.destroy() // riggens alla tweens (idle, blink, heja, jubel)
+    this._kar = null
+    this._eldflugor = []
 
     this._clearItems()
     this._tweens.forEach((t) => t.kill())
@@ -846,6 +954,20 @@ export default {
 // --- Programmatiska figurer ------------------------------------------------
 
 // Spindelväv: 8 radiella ekrar + 3 koncentriska ringar (vit, halvgenomskinlig).
+// Månens upplysta del som EN sluten väg (inget skuggskivs-trick — en fast ton kan aldrig
+// matcha himlens gradient): höger halvcirkel ut, terminatorn som ett halvt ellipsvarv
+// tillbaka. k = terminatorns x-radie som andel av R (−1 = full, 0 = halv, + = skära).
+function ritaMane(g, R, k) {
+  g.moveTo(0, -R)
+  g.arc(0, 0, R, -Math.PI / 2, Math.PI / 2)
+  const N = 20
+  for (let i = 1; i <= N; i++) {
+    const t = Math.PI / 2 - (i / N) * Math.PI
+    g.lineTo(k * R * Math.cos(t), R * Math.sin(t))
+  }
+  g.closePath()
+}
+
 function makeWeb() {
   const g = new Graphics()
   const R = 150
@@ -998,7 +1120,16 @@ function makeWebIcon(r = 28) {
 function makeTreat(kind) {
   const c = new Container()
   const g = new Graphics()
-  if (kind === 'karamell') {
+  if (kind === 'guld') {
+    // Guldgodiset: en gyllene karamell i en mjuk gloria.
+    g.circle(0, 0, 38).fill({ color: 0xffe27a, alpha: 0.18 })
+    g.circle(0, 0, 38).stroke({ width: 3, color: 0xfff3b0, alpha: 0.55 })
+    g.ellipse(0, 0, 22, 17).fill(0xffd24a).stroke({ width: 3, color: 0xe0a92c })
+    g.moveTo(-22, 0).lineTo(-40, -15).lineTo(-36, 15).closePath().fill(0xffe27a)
+    g.moveTo(22, 0).lineTo(40, -15).lineTo(36, 15).closePath().fill(0xffe27a)
+    g.moveTo(-12, -12).quadraticCurveTo(0, 0, -12, 12).stroke({ width: 4, color: 0xfffdf7, alpha: 0.8 })
+    g.circle(-6, -6, 5).fill({ color: 0xffffff, alpha: 0.75 })
+  } else if (kind === 'karamell') {
     g.ellipse(0, 0, 22, 17).fill(0xff6b9d)
     g.moveTo(-22, 0).lineTo(-40, -15).lineTo(-36, 15).closePath().fill(0xff9ec4)
     g.moveTo(22, 0).lineTo(40, -15).lineTo(36, 15).closePath().fill(0xff9ec4)

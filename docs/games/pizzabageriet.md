@@ -73,13 +73,10 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] En kund med en bild-order.** Sätt en hungrig figur (Elvira/Bobo) vid sidan med en liten
-  pratbubbla som visar t.ex. "🍄🍄⭐" — barnet *kan* uppfylla önskan men straffas aldrig för att låta
-  bli. Vid servering tuggar kunden och blir lycklig. Ger tillagningen en mottagare och ett (mjukt,
-  frivilligt) mål utan att bryta sandlådan.
-- **[Deep] Skär & servera som final.** Efter "Ta ut": ett drag-moment där barnet skär pizzan i
-  bitar (dra en pizzaskärare över) och drar en bit till kunden. En riktig, fysisk payoff i stället
-  för en automatisk reset.
+- ✅ ~~**[Medium] En kund med en bild-order.**~~ Redan byggd 2026-08-05 (`_newOrder` :583, frivillig
+  önskan i pratbubblan) — uppdagat 2026-09-23.
+- **[Deep] Skär & servera som final.** Den automatiska versionen finns (`_cutPizza` :1096,
+  `_serveToBaker` :1143, 2026-08-05). Kvar: att barnet SJÄLV drar skäraren och biten.
 
 ### Variation & överraskning
 - **[Quick] Sås- och ostval.** Lägg ett par baser (vit/röd sås, mer/mindre ost) som dras/bres
@@ -88,25 +85,31 @@ inga ingredienser som lever i ugnen** — och den självklara belöningen (skär
   eller en "dagens" som dyker upp ibland och ger extra gnistor — en liten wow-krok.
 
 ### Juice
-- **[Medium] Ingredienser som lever i ugnen.** Låt osten *smälta* (flyter ut lite), pepperoni
-  krympa/krulla och kanterna bubbla under gräddningen — per-topping-reaktion, inte bara helhets-tint.
-- **[Quick] Flytta mätaren till pizzan.** Lägg ton-mätaren (eller en liten färgring) precis vid
-  ugnsluckan/under pizzan så blick och färg är på samma plats. Lägg en värme-flimmer-effekt över
-  hålan.
+- ✅ ~~**[Medium] Ingredienser som lever i ugnen.**~~ Redan byggd 2026-08-05 (osten smälter, topparna
+  puttrar, ostbubblor) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Flytta mätaren till pizzan.**~~ Redan byggd 2026-07-01 (doneness-ringen :1003) —
+  uppdagat 2026-09-23. Värme-flimret över hålan är inte byggt.
 
 ### Progression
 - **[Quick] Pizzabok/galleri.** Spara en liten miniatyr av varje gräddad pizza i en "meny" (i
   `custom`) så barnet kan bläddra sina skapelser — något att samla och komma tillbaka till.
 
 ### Karaktär & berättelse
-- **[Medium] En bagar-maskot.** Bobo i kockmössa som tar emot, sätter in i ugnen och räcker fram
-  pizzan — reagerar på topping ("Oj, en strumpa! Hihi") och firar med barnet. Befolkar köket.
+- ✅ ~~**[Medium] En bagar-maskot.**~~ Redan byggd (bagar-Bobo med kockmössa 2026-08-05, rigg
+  2026-08-09) — uppdagat 2026-09-23.
 
 ### Ljud
-- **[Quick] Köks-ambient + fräs.** En lågmäld ugnshum + ett fräsande/bubblande ljud som tilltar med
-  `_bake`, och ett mjukt "knaster" när skorpan blir gyllene. Gör köket levande.
+- ✅ ~~**[Quick] Köks-ambient + fräs.**~~ Redan byggd 2026-08-05 (ugnsfräs :1010, ugnshum vid start,
+  pling vid gyllene :1017) — uppdagat 2026-09-23.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Dubbelfirandet** (v1.251.0): tonrepliken stod redan före `complete()`. Bagarens tack när biten
+  landar (~1,8 s efter) kapade berömmet, och nästa önskan (3,4 s) kapade tacket. Båda köas nu
+  med `ctx.narTyst` (:1172 och :1220, runda- och fas-token), och önskan nollställer tjat-
+  timern när den sägs. Tonreplikerna (`toneSpeech` i `lib/cooking.js`) saknar klipp och går
+  till talsyntesen. Inga snabbvinster var kartlagda för spelet; sås-/ostval och pizzabok står
+  kvar öppna. `check` 0/0.
 
 - 2026-08-13 🎨 **N12: ugnen blev en LÅDA i stället för ett svart hål** (`5430a5b`, v1.192.0).
   Raden under (D1, 08-10) slutade med *"spelets topp är nu ugnens mörka insida"* — det här är

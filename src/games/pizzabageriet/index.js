@@ -1165,15 +1165,23 @@ export default {
         this._kar?.react('nam')
         ctx.later(0.5, () => this._kar?.react('jubel'))
         ctx.services.audio.sfx('pop')
+        // Biten landar ~1,8 s efter complete(), vars beröm är 1,0–2,3 s — say() hade kapat
+        // det. Bilden kommer genast; bara bagarens tack väntar in berättaren, och bara så
+        // länge det är samma pizza som visas.
+        const runda = this._rounds
+        const tack = (fn) => ctx.narTyst(() => {
+          if (!this._alive || this._rounds !== runda || this._phase !== 'reveal') return
+          fn()
+        })
         if (filled) {
           // Önskan uppfylld → extra lycka (aldrig ett krav, bara en bonus).
           sparkle(ctx.fxLayer, c.x, c.y, { count: 14 })
           floatText(ctx.fxLayer, c.x, c.y - 78, '❤️', { fontSize: 48 })
           ctx.services.audio.sfx('correct')
-          ctx.services.voice.say('Precis som jag önskade mig! Tack så mycket!')
+          tack(() => ctx.services.voice.say('Precis som jag önskade mig! Tack så mycket!'))
         } else {
           floatText(ctx.fxLayer, c.x, c.y - 78, randomFrom(['😋', 'Mums!']), { fontSize: 42 })
-          ctx.services.voice.say(randomFrom(SERVE_CHEERS))
+          tack(() => ctx.services.voice.say(randomFrom(SERVE_CHEERS)))
         }
       },
     })
@@ -1206,7 +1214,14 @@ export default {
     this._setHint('En ny pizza! Pynta igen 🍕')
     // Ny önskelista varje omgång = ny variation att upptäcka.
     this._newOrder()
-    ctx.services.voice.say(randomFrom(ORDER_CUES))
+    // Bagarens tack (upp till 4,7 s) kan fortfarande tala här — önskan väntar in det,
+    // och sägs bara om barnet fortfarande pyntar samma pizza.
+    const runda = this._rounds
+    ctx.narTyst(() => {
+      if (!this._alive || this._rounds !== runda || this._phase !== 'decorate') return
+      this._idle = 0 // tjatet räknas från när önskan faktiskt sägs
+      ctx.services.voice.say(randomFrom(ORDER_CUES))
+    })
   },
 
   // ---- Hjälpare -----------------------------------------------------------

@@ -9,7 +9,7 @@
 // Allt ritas programmatiskt (Pixi Graphics) — inga externa assets.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { puff, pop, wiggle, bounceIn, sparkle , kvittera} from '../../lib/feedback.js'
+import { puff, pop, wiggle, bounceIn, sparkle, shake , kvittera} from '../../lib/feedback.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill, cylinderFill, sphereFill, topLightFill } from '../../lib/form.js'
@@ -82,7 +82,10 @@ export default {
     this._cakeVel = { x: 0, y: 0 }
     this._flightElapsed = 0
     this._vSamples = [] // peksamplingar {x,y,t} för att mäta flick-hastighet
-    this._rubCount = 0 // räknare för att stryppa gnugg-ljud
+    this._rubCount = 0 // gnugg-bildrutor som faktiskt torkade något
+    this._lastSqueak = 0 // tidsstrypning av gnisslet (ms)
+    this._lastBubble = 0 // tidsstrypning av skumbubblorna (ms)
+    this._squeakHi = false
     this._splats = 0 // antal grädde-lager på ansiktet just nu
     this._throws = 0 // kast i den pågående rundan
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
@@ -632,6 +635,9 @@ export default {
     pop(this._clown)
     ctx.services.voice.say(randomFrom(SPLATS))
     this._splats++
+    // Mikroskak i ansiktet — kraftigare ju kladdigare det redan är (2,7 → 6,2 px).
+    // Clownen skrivs inte av tickern (bara pop/vingel på skala/rotation), så skaket står sig.
+    shake(this._clown, { intensity: 2 + Math.min(this._splats, 6) * 0.7, duration: 0.22 })
     if (this._splats === 1) this._showSponge(ctx)
   },
 
@@ -644,7 +650,7 @@ export default {
       const ang = Math.random() * Math.PI * 2
       const dist = Math.random() * 100
       const p = PIES[this._pieIdx % PIES.length]
-      const blob = new Graphics().circle(0, 0, r).fill(p.cream).stroke({ width: 3, color: p.creamEdge })
+      const blob = ritaKlump(r, p)
       blob.position.set(Math.cos(ang) * dist, 15 + Math.sin(ang) * dist * 0.7)
       blob.eventMode = 'none'
       blob._r = r
@@ -777,7 +783,20 @@ export default {
     }
     if (wipedAny) {
       this._rubCount++
-      if (this._rubCount % 6 === 0) ctx.services.audio.sfx('soft')
+      // Skrubbkänsla: ett strypt gnissel (två stämda toner om vartannat — svampen
+      // gnisslar mot kinden) och små skumbubblor där svampen gnuggar. Pekarflyttar kan
+      // komma >60 gånger/s, därför TIDSstrypning och låg volym.
+      const nu = performance.now()
+      if (nu - this._lastSqueak > 150) {
+        this._lastSqueak = nu
+        this._squeakHi = !this._squeakHi
+        const f = this._squeakHi ? 1318.51 : 1174.66 // E6 / D6
+        ctx.services.audio.tone({ freq: f, slideTo: f * 1.12, dur: 0.05, type: 'triangle', vol: 0.045 })
+      }
+      if (nu - this._lastBubble > 120) {
+        this._lastBubble = nu
+        puff(ctx.fxLayer, sx + (Math.random() * 40 - 20), sy + (Math.random() * 30 - 15), { count: 3, color: 0xeaf6ff })
+      }
       if (Math.random() < 0.12) sparkle(ctx.fxLayer, sx, sy, { count: 4 })
     }
     if (layer.children.length === 0 && this._splats > 0) this._finishWipe(ctx)
@@ -955,6 +974,7 @@ export default {
     this._faceTimer?.kill()
     this._detachCake()
     this._detachSponge()
+    this._clown?._fxShakeTw?.kill() // skaket går på en proxy — killTweensOf(clown) når det inte
     for (const o of [this._cake, this._clown, this._sponge, this._eyeL, this._eyeR]) {
       if (!o) continue
       gsap.killTweensOf(o)
@@ -976,6 +996,35 @@ export default {
     gsap.killTweensOf(this._root)
     this._root?.destroy({ children: true })
   },
+}
+
+// En grädde-klump med egen form, så träff sex inte ser ut som träff ett: en ellips med
+// slumpad sida/höjd-kvot, 2–3 lober längs kanten och 1–3 stänk strax utanför. Ellipsen
+// är AXELPARALLELL med flit — klumpen får inte roteras, då lutar den rinnande strimman
+// (`_stepDrip` ritar den lodrätt i klumpens egen rymd). Konturen ritas först som något
+// större fyllningar i kantfärgen och grädden ovanpå, så lober och ellips smälter ihop
+// till EN silhuett utan inre streck. `r` är fortfarande klumpens storlek för `_rub`.
+function ritaKlump(r, p) {
+  const ax = 0.8 + Math.random() * 0.45
+  const ay = 1.9 - ax // 1,10 … 0,65: bred eller hög, aldrig både och
+  const former = [{ x: 0, y: 0, rx: r * ax, ry: r * ay }]
+  const lober = 2 + ((Math.random() * 2) | 0)
+  for (let i = 0; i < lober; i++) {
+    const a = Math.random() * Math.PI * 2
+    const lr = r * (0.36 + Math.random() * 0.2)
+    former.push({ x: Math.cos(a) * r * ax * 0.72, y: Math.sin(a) * r * ay * 0.72, rx: lr, ry: lr })
+  }
+  const stank = 1 + ((Math.random() * 3) | 0)
+  for (let i = 0; i < stank; i++) {
+    const a = Math.random() * Math.PI * 2
+    const d = r * (1.2 + Math.random() * 0.25)
+    const sr = Math.max(3.5, r * (0.13 + Math.random() * 0.1))
+    former.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, rx: sr, ry: sr })
+  }
+  const g = new Graphics()
+  for (const f of former) g.ellipse(f.x, f.y, f.rx + 2, f.ry + 2).fill(p.creamEdge)
+  for (const f of former) g.ellipse(f.x, f.y, f.rx, f.ry).fill(p.cream)
+  return g
 }
 
 // Publik-Zacke: liten glad pojke som ser på från scengolvet.

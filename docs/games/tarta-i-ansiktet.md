@@ -60,24 +60,35 @@ inte en medspelare, och flicken har inget att sikta på.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Reaktivt ansikte.** Vid träff: ögonen knips, munnen blir ett förvånat "O", hon
+- ✅ ~~**[Medium] Reaktivt ansikte.** Vid träff: ögonen knips, munnen blir ett förvånat "O", hon
   blinkar bort grädde, kikar fram mellan klumparna. Ögonen FÖLJER tårtan under flygningen.
-  Detta är det enskilt största komiska lyftet och rör inte fysiken.
+  Detta är det enskilt största komiska lyftet och rör inte fysiken.~~ Kärnan redan byggd
+  (`_faceSplat` :320 knip + "O", `_lookAt` :289/:566 blicken följer tårtan, blinkningar
+  :335) — uppdagat 2026-09-23. Att "kika fram mellan klumparna" är inte byggt.
 - **[Deep] Låt siktet betyda något (fortsatt no-fail).** Dämpa auto-styrningen så flick-
   riktningen avgör var den landar; missar plaskar på ridån/hatten med ett roligt ljud
   (aldrig "fel"), och olika träffpunkter belönas: nosen → tut, hatten → den snurrar av.
 
 ### Variation & överraskning
 - **[Medium] Fler kastobjekt** som roterar per runda — gräddpaj, gul vaniljkräm, rosa bär,
-  vattenballong (blöter, kräver annan torkning). [Quick] varierad splat-färg och -form.
+  vattenballong (blöter, kräver annan torkning). *(Fyra tårtsorter roterar redan per kast —
+  `PIES` :25; vattenballongen återstår.)*
+  ✅ ~~[Quick] varierad splat-färg och -form.~~ Färgen fanns redan (`PIES`); formen klar
+  2026-09-23 (v1.251.0): varje klump är en egen ellips med lober och stänk (`ritaKlump` :1007).
 - ✅ ~~**[Quick] Grädden droppar**~~ Klar 2026-08-12 (v1.171.0) — med ett TAK, så kladdet aldrig
   blir ett mål som flyr undan svampen. Se §5.
 
 ### Juice
-- **[Quick] Riktiga SFX:** squelch/plask vid träff + komisk boing, mikroskak på skärmen
-  skalad efter träffen. Inspelat fniss istället för TTS-ord.
-- **[Quick] Skrubb-känsla:** svampen lämnar en blank, ren strimma + några tvålbubblor medan
-  den gnuggar, och ett mjukt gnissel-ljud.
+- **[Quick] Riktiga SFX:** squelch/plask vid träff + komisk boing, ✅ ~~mikroskak på skärmen
+  skalad efter träffen~~ (klar 2026-09-23: ansiktet skakar 2,7–6,2 px efter hur kladdigt det
+  är, :640). Inspelat fniss istället för TTS-ord. *(Resten blockerad: `plask` och fniss är
+  oinspelade klipp — `_splat` faller tillbaka på syntetisk squelch + boing — MOSS nere.)*
+- ✅ ~~**[Quick] Skrubb-känsla:** svampen lämnar en blank, ren strimma + några tvålbubblor medan
+  den gnuggar, och ett mjukt gnissel-ljud.~~ Klar 2026-09-23 (v1.251.0): tidsstrypta skum-
+  bubblor (≥120 ms) och ett stämt gnissel D6/E6 (≥150 ms, låg volym) ersätter `soft`-klicket
+  i `_rub` :790. Den blanka strimman är kvar som egen post:
+- **[Quick] Blank strimma efter svampen.** En kort, blank glans som tonar ut där svampen just
+  torkat — gör "rent" synligt och inte bara "mindre kladd".
 
 ### Progression
 - **[Medium] Skrattande publik.** Små ansikten i kanten som fnissar/jublar mer ju kladdigare
@@ -89,9 +100,16 @@ inte en medspelare, och flicken har inget att sikta på.
 
 ### Ljud
 - **[Quick] Dedikerade plask/skratt-klipp** ersätter de talade orden; lugn cirkus-ambient.
+  *(Blockerad 2026-09-23: kräver nya SFX-klipp — MOSS nere.)*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): **varierad splat-form** — varje
+  grädde-klump ritas av `ritaKlump` som en axelparallell ellips med 2–3 lober och 1–3 stänk
+  (kontur först, grädde ovanpå → en silhuett); `_r` bär fortfarande storleken åt `_rub` och
+  strimman. **Mikroskak** på clownen efter varje träff, ∝ `_splats`. **Skrubbkänsla** —
+  tidsstrypta skumbubblor + gnissel i stället för `soft` var 6:e bildruta. **Dubbelfirandet:**
+  redan rent — `SPLATS`-repliken sägs i samma tick före `complete()`.
 - 2026-08-12 🍰 **Grädden rinner** (v1.171.0, N10 pass 7). Klumparna satt frusna exakt där de
   träffade: sex tårtor gav sex stillastående cirkelhögar. Nu har varje klump en egen fart, ett
   eget tak och ett **spår** — en kapsel som ligger kvar vid träffpunkten medan klumpen glider.

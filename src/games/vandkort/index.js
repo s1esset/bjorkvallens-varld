@@ -533,6 +533,8 @@ export default {
   // Lugn idle-lockelse: upprepa instruktionen och låt ett nedvänt kort "andas".
   _update(ctx, ticker) {
     if (!this._alive || this._cleared || this._busy) return
+    // Tomgången räknas från TYSTNAD — annars kapar lockelsen en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += ticker.deltaMS / 1000
     if (this._idle > 6) {
       this._idle = 0

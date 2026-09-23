@@ -14,9 +14,9 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Body, nudge, speedToAccel } from '../../lib/physics.js'
 import { Magnetfalt } from '../../lib/magnet.js'
 import { createScene } from '../../lib/scene.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
-import { randomFrom, shuffle } from '../../lib/swedish.js'
-import { sparkle, pop, wiggle, puff, floatText, breathe, bigCelebration, ripple, bounceIn, kvittera } from '../../lib/feedback.js'
+import { COLORS } from '../../lib/theme.js'
+import { shuffle } from '../../lib/swedish.js'
+import { sparkle, pop, wiggle, puff, floatText, breathe, ripple, bounceIn, kvittera } from '../../lib/feedback.js'
 
 // P0 ASSETS: varje sak i dammen är ett RITAT föremål med egen silhuett, aldrig
 // en emoji. Nycklarna nedan är id:n — formen ligger i makeThing().
@@ -182,6 +182,8 @@ export default {
     this._flipHints = 0 // hur många idle-vinkar i rad som bara kunde svaras med en vändning
     this._saidPull = false
     this._inWater = false // för plask-ljud när magneten doppas i dammen
+    this._lastDrip = 0 // strypning: droppar när magneten lyfts ur vattnet
+    this._livT = 0 // klocka för sakernas egen tomgångsrörelse
     this._items = [] // { body, view, metal, stuck, delivered, slot }
     this._stuck = []
     this._proxyTweens = []
@@ -456,7 +458,9 @@ export default {
     this._phys.link(body, view)
 
     // `pol`: 0 = omagnetiserat järn (dras av båda polerna), ±1 = en egen magnet.
-    const it = { body, view, metal, emoji, pol: STAV[emoji] || 0, stuck: false, delivered: false, slot: 0, wt: Math.random() * 1.2, wh: Math.random() * Math.PI * 2 }
+    // `art` är den RITADE saken — ett barn till vyn. Tomgångsrörelsen skrivs dit och aldrig
+    // på vyn, som bär `hitArea`, `wiggle`/`pop` och fysikens position.
+    const it = { body, view, art: t, fas: Math.random() * Math.PI * 2, metal, emoji, pol: STAV[emoji] || 0, stuck: false, delivered: false, slot: 0, wt: Math.random() * 1.2, wh: Math.random() * Math.PI * 2 }
     view.on('pointertap', () => {
       if (!this._alive || this._resolving || it.delivered || it.stuck) return
       if (it.metal) {
@@ -604,7 +608,19 @@ export default {
       ctx.services.audio.tone({ freq: 200, dur: 0.18, type: 'sine', vol: 0.14, slideTo: 90 })
       ripple(ctx.fxLayer, tip.x, tip.y, { color: COLORS.white, maxR: 70, alpha: 0.5 })
     }
+    // …och vatten rinner av när den lyfts upp igen. Strypt: ett barn som sveper längs
+    // dammkanten går in och ut många gånger i sekunden.
+    if (!inWater && this._inWater && !this._resolving) {
+      const now = performance.now()
+      if (now - this._lastDrip > 400) {
+        this._lastDrip = now
+        puff(ctx.fxLayer, tip.x, tip.y + 10, { count: 5, color: 0x8fd3f4 })
+        ctx.services.audio.tone({ freq: 1174.66, dur: 0.06, type: 'sine', vol: 0.06, slideTo: 880 })
+        ctx.services.audio.tone({ freq: 987.77, dur: 0.06, type: 'sine', vol: 0.05, slideTo: 783.99, delay: 0.09 })
+      }
+    }
     this._inWater = inWater
+    this._livSaker(dt)
 
     // Kraftfältet sitter i magnetspetsen och är levande bara under vattnet.
     this._falt.flytta(tip.x, tip.y)
@@ -688,6 +704,28 @@ export default {
       if (this._idle > 6) {
         this._idle = 0
         this._recue(ctx)
+      }
+    }
+  },
+
+  // Varje sort har sin egen tomgång, skriven på det RITADE barnet (`it.art`): myntet snurrar
+  // långsamt (smalnar av och vidgas som ett mynt på högkant), burken guppar stelt, fisken
+  // vajar. Vyn — träffytan, fysikens position och `wiggle`/`pop` — rörs aldrig härifrån.
+  _livSaker(dt) {
+    this._livT += dt
+    const t = this._livT
+    for (const it of this._items) {
+      const a = it.art
+      if (!a || a.destroyed || it.delivered) continue
+      const f = it.fas
+      if (it.emoji === 'mynt') {
+        a.scale.x = 0.3 + 0.7 * Math.abs(Math.cos(t * 1.3 + f))
+      } else if (it.emoji === 'burk') {
+        a.y = Math.sin(t * 2.4 + f) * 3
+        a.rotation = Math.sin(t * 1.2 + f) * 0.05
+      } else if (it.emoji === 'fisk') {
+        a.rotation = Math.sin(t * 2.2 + f) * 0.14
+        a.scale.y = 1 + Math.sin(t * 4.4 + f) * 0.04
       }
     }
   },
@@ -792,9 +830,7 @@ export default {
     this._resolving = true
     this._clearHint()
 
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    // Vinstljud, beröm och konfettiregn kommer från progress.complete() nedan.
     if (this._bucketText && !this._bucketText.destroyed) pop(this._bucketText, { scale: 1.18 })
 
     ctx.progress.setLevel(this._level + 1)
@@ -806,7 +842,11 @@ export default {
     this._completeTimer?.kill()
     this._completeTimer = gsap.delayedCall(1.5, () => {
       if (!this._alive) return
-      ctx.services.voice.say('Fler saker att fiska!')
+      // Berömmet är 1,0–2,3 s och say() kapar: raden väntar in rösten, dammen gör det inte.
+      const lvl = this._level
+      ctx.narTyst(() => {
+        if (this._alive && this._level === lvl) ctx.services.voice.say('Fler saker att fiska!')
+      })
       this._buildPond(ctx)
     })
   },

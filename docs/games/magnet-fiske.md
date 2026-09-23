@@ -69,29 +69,33 @@ Stark, polerad kärna — men några tunna kanter återstår:
 > låt fältet bara verka i en kon framför/under magneten.
 
 ### Kärnloop & agens
-- **[Medium] Förstärk metall-lärandet.** När en anka knuffas undan: visa kort *varför* med en
-  liten ikon/röst ("Trä! Magneten gillar inte trä." / "Gummi!"). Gör kontrasten tydlig och
-  pedagogisk utan att straffa — själva poängen med spelet bör höras, inte bara "Hihi!".
+- ✅ ~~**[Medium] Förstärk metall-lärandet.**~~ Redan byggd (`_fniss` :481–490: "Trä!/Gummi!"
+  som svävande text + röst, strypt) — uppdagat 2026-09-23.
 - **[Deep] Sorterings-final.** På högre nivåer: två hinkar (metall vs "kasta tillbaka"-ankor),
   så barnet aktivt *sorterar* fångsten. Lägger ett pussel-lager ovanpå utan fail (fel hink →
   mjuk studs tillbaka).
 
 ### Variation & överraskning
-- **[Quick] Saker med egen rörelse.** Låt fisken simma i mjuka S-kurvor, myntet snurra långsamt,
-  burken guppa stelt — billig per-typ-variation som gör dammen levande.
+- ✅ ~~**[Quick] Saker med egen rörelse.**~~ Klar 2026-09-23 (v1.251.0): myntet snurrar på
+  högkant, burken guppar stelt och fisken vajar — skrivet varje bildruta på det RITADE barnet
+  (`it.art`, `_livSaker` :714), aldrig på vyn som bär träffyta och fysik.
 - **[Medium] Skämt- och skatt-fångster.** En sällsynt gammal stövel 🥾 (skratt-fångst), en
   skinande skattkista 🧰 (extra gnistor/beröm), en "blank" guldfisk som blänker — sällsynta
   wow-ögonblick som bryter monotonin.
 
 ### Juice
-- **[Quick] Riktiga vatten- & metall-ljud.** Plask när magneten doppas, ett mjukt "klונk/kläck"
+- **[Quick] Riktiga vatten- & metall-ljud.** Plask när magneten doppas, ett mjukt "klonk/kläck"
   när metall snäpper fast, porlande ambient. Den enskilt största känslo-vinsten (se Ljud).
-- **[Quick] Vattenrespons.** En liten krusnings-ring där magneten rör vattnet och där en sak
-  fastnar; droppar som rinner av magneten när den lyfts mot hinken.
+  *Delvis byggd (kontrollerat 2026-09-23):* plasket (:608) och metall-kläcket (:756) finns som
+  stämda toner. ⛔ Den porlande ambienten kräver ett nytt SFX-klipp (MOSS nere).
+- ✅ ~~**[Quick] Vattenrespons.**~~ Klar 2026-09-23 (v1.251.0): krusningen där magneten doppas
+  (:609) och där en sak fastnar (:758) fanns redan; nu droppar det också — ljusblå puff och en
+  fallande tvåtons-droppe (D6→A5, B5→G5) när magneten lyfts ur vattnet, strypt till en per
+  0,4 s (:613).
 
 ### Progression
-- **[Medium] Synligt fylld hink.** Låt fångade saker faktiskt *synas* hopa sig i hinken (små
-  staplade emoji) i stället för att försvinna — en konkret "samlat"-känsla per runda.
+- ✅ ~~**[Medium] Synligt fylld hink.**~~ Redan byggd (`_addToBucketPile` :937, ritade saker
+  ligger kvar i hinken) — uppdagat 2026-09-23.
 - **[Quick] Mjuk damm-övergång.** Cross-fade scenen mellan nivåer (ny vattenton/ny tid på
   dygnet) i stället för hård rebuild, så världen känns sammanhängande.
 
@@ -99,12 +103,22 @@ Stark, polerad kärna — men några tunna kanter återstår:
 - **[Deep] En fiskare + mottagare.** Sätt Bobo/Zacke på en liten brygga vid spöets pivot som
   *håller* spöet och reagerar (lutar sig, jublar vid fångst), och en figur vid hinken som tar
   emot och firar. Ger spöet en hand och fångsten en publik — och ett spel-specifikt slut.
+  *Mottagarhalvan finns (kontrollerat 2026-09-23):* en ritad katt vid hinken hoppar till vid
+  varje fångst (`_catCheer` :979). Kvar: fiskaren på bryggan som håller spöet.
 
 ### Ljud
 - **[Quick] Byt UI-blipp mot fiske-SFX via pipelinen.** Plask, metall-kläck, plopp-i-hink,
   vatten-ambient (se [[real-audio-sfx]]). Behåll rösten för det pedagogiska ("Metall!"/"Trä!").
+  ⛔ Blockerad: kräver nya SFX-klipp (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onComplete` spelade eget
+  vinstljud, eget beröm och eget konfettiregn i samma tick som `complete()` — alla tre strukna.
+  "Fler saker att fiska!" (1,5 s efter, kapade berömmet) väntar nu med `ctx.narTyst` och
+  utgår om dammen hunnit bytas. Två A-rader byggda: **egen rörelse per sort** (mynt, burk,
+  fisk — på det ritade barnet) och **droppar när magneten lyfts**. §4 städad: 2 redan byggda (+2 delvis);
+  MOSS-ljuden väntar.
 
 - 2026-08-10 ✨ **Poler från nivå 2** (`c41d451`, v1.94.0) — Spår 3 P3/B3.
   `lib/magnet.js` fick `polaritet` + `polDra(body, pol)`: **pol 0 = omagnetiserat järn och

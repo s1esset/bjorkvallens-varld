@@ -65,48 +65,52 @@ Kort sagt: *mekaniskt rikt, scenografiskt och karaktärsmässigt fattigt*. Humor
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Knip-anticipation före kast.** Låt den aktiva ungen göra en kort, fnissig
-  "stånka"-pose (lutar fram, kinder puffar, 💨-pip) precis innan korven föds — så blir varje
-  kast en liten komisk uppladdning istället för att korven bara dyker upp i handen.
-- **[Medium] Gör pruttvinden till ett aktivt val igen.** Slå inte på den automatiskt; låt den
-  istället *erbjudas* (knappen guppar/lyser) när pottan står långt bort, så barnet känner att
-  *det* löste kastet med vinden. Behåll auto-assist som säkerhetsnät.
+- ✅ ~~**[Medium] Knip-anticipation före kast.**~~ Redan byggd (`_stankaPose`, index.js:858) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Gör pruttvinden till ett aktivt val igen.**~~ Redan byggd (`_maybeInviteWind`,
+  index.js:529; auto-assist kvar) — uppdagat 2026-09-23.
 - **[Deep] Fler siktemål & lekfulla hinder.** Variera vad man siktar på per nivå: en gungande
   potta på hjul, en pall i vägen att studsa över, två pottor (välj vilken). Allt fortfarande
   no-fail — hinder gör bara bågen roligare att lista ut.
 
 ### Variation & överraskning
-- **[Quick] Olika bajs-typer per kast/nivå.** Glitterbajs ✨, regnbågsbajs 🌈, jätte-plums-bajs
-  som ger extra-stor ploppe. Rotera så tur 2 inte ser ut som tur 1.
-- **[Medium] Knyt spol-gagen till loopen.** Låt spol-knoppen lysa upp som en *belöning* efter
-  full mätare ("spola allt!") så pappa-virveln blir en upptäckt alla får se, inte en gömd
-  slump. Lägg fler spolbara busgäster (badanka, en strumpa, en leksak) för upprepningsvärde.
+- ✅ ~~**[Quick] Olika bajs-typer per kast/nivå.**~~ Redan byggd (`TURD_TYPES` vanlig/glitter/
+  regnbåge, index.js:36, slumpas per kast i `_readyThrow`; storleken stor = jätte-plums) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Knyt spol-gagen till loopen.**~~ Redan byggd (`_setFlushInvite` index.js:606 +
+  fyra busgäster `GUESTS` :58) — uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Saftigare plopp.** Stigande tonhöjd vid plopp-i-rad (kombo som klättrar) + ett
-  litet stänk av "pott-vatten"-droppar + en mikroskak som skalar med bajs-storleken.
-- **[Quick] Tematisk mätare.** Byt de abstrakta ringarna mot en liten potta som *fylls*
-  synligt korv för korv (och puttrar nöjt när den är full), så framsteget blir begripligt utan
-  läsning.
+- ✅ ~~**[Quick] Saftigare plopp.**~~ Klar 2026-09-23 (v1.251.0): kombo-tonen (:727) och
+  pott-stänket (:753) fanns redan; nu skakar `_root` efter korvens storlek, 4–5,8 px i 0,25 s (:759).
+- ✅ ~~**[Quick] Tematisk mätare.**~~ Redan byggd (`makePotty`, index.js:1518) — uppdagat 2026-09-23.
 
 ### Progression
-- **[Quick] Mjuk scenövergång mellan nivåer.** Cross-fada bakgrunden / låt ett nytt badrums-
-  tema glida in istället för hård ompositionering av pottan, så världen känns sammanhängande.
+- ✅ ~~**[Quick] Mjuk scenövergång mellan nivåer.**~~ Redan byggd (pottan tonar ut/in i
+  `_setToilet` :314, väggtonen glider i `_tintWall` :367) — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
-- **[Medium] Levande badrum.** Bygg in handfat, spegel (där barnens min syns!), handdukshängare,
-  toarulle, en kackel-vägg och kanske en nyfiken katt — så rummet bär humorn. Använd bara
-  godkända namn (Elvira/Zacke/Alissa/Lova) på avbildade personer.
-- **[Deep] Reaktiva barn.** Ge Elvira/Zacke uttryck som byter med utfallet: stora ögon under
-  flygningen, jubel-min vid plopp, fnitter-min vid miss, "heja"-vift mot kompisen. Det är här
-  spelets själ skulle vakna.
+- ✅ ~~**[Medium] Levande badrum.**~~ Redan byggd (`makeBathroom`, index.js:1257, med katten) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Deep] Reaktiva barn.**~~ Redan byggd (`drawKidFace` fyra miner, index.js:1699) —
+  uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Spol-svisch som vinstljud** + variera plopp- och fart-klippen så de inte blir
   monotona; lägg en lugn badrums-ambient (droppande kran) i botten.
+  *Delvis byggd (2026-09-23):* spol-svischen finns i `_flushCelebrate` (:950) och den
+  droppande kranen i `_scheduleDrip` (:1046). ⛔ Kvar är att variera `plopp.mp3`/`fart.mp3`.
+  Det kräver nya SFX-klipp (MOSS nere). Kombo-tonen varierar redan varje plopp.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Vid full potta spelades
+  `celebrate`/`bigCelebration` en gång till, fast `complete()` redan firar. De raderna är strukna.
+  `FULL_SAY` sägs före `complete()`, så berömmet utgår. Spolknapp-repliken låg på fast 1,5 s och
+  kapade vinstraden (2,1–2,9 s), och nästa nivås tur-/glitterrad kapade i sin tur spolrepliken.
+  Båda köas nu med `ctx.narTyst`; turraden har en kast-token och utgår om barnet redan kastat.
+  Snabbvinst: mikroskak på `_root` efter korvens storlek vid plopp. Hela §4 är nu prövad mot koden.
+  Allt utom klippvariationen (kräver nya SFX-klipp) och [Deep] siktemål var redan byggt.
 - 2026-08-10 🎨 **D1: badrumsgolvet fick ljus uppifrån** (`f16b2ef`, v1.123.0).
   Golvet låg på **88 856 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.
   Delad `groundFill()` med dämpad ramp (0,06/0,10): ytan är nästan vit och standardvärdena

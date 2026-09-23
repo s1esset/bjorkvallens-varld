@@ -17,7 +17,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { bigCelebration, puff, sparkle, floatText, pop } from '../../lib/feedback.js'
+import { puff, sparkle, floatText, pop, shake } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
@@ -429,11 +429,18 @@ export default {
     this._setKidFace(this._activeKid, 'glad')
     this._stankaPose(ctx, this._activeKid) // knip-anticipation när korven dyker upp
 
+    // Orden köar bakom det som redan talar (berömmet/vinstrepliken när en ny nivå byggs
+    // strax efter complete()) — gnistan kommer genast. Kastet hann gå → repliken utgår.
+    const kast = (this._kastNr = (this._kastNr || 0) + 1)
+    const sag = (rad) =>
+      ctx.narTyst(() => {
+        if (this._alive && this._ready && this._kastNr === kast) ctx.services.voice.say(rad)
+      })
     if (ti > 0 && this._turdType !== prev) {
       sparkle(ctx.fxLayer, hand.x, hand.y, { count: 7 })
-      ctx.services.voice.say(RARE_SAY[ti])
+      sag(RARE_SAY[ti])
     } else if (Math.random() < 0.4) {
-      ctx.services.voice.say(TURN_SAY[this._activeKid])
+      sag(TURN_SAY[this._activeKid])
     }
   },
 
@@ -747,6 +754,9 @@ export default {
     sparkle(ctx.fxLayer, bx, by - 8, { count: this._turdType === 'vanlig' ? 6 : 14 })
     if (this._turdType !== 'vanlig') puff(ctx.fxLayer, bx, by - 20, { count: 10, color: type.glow })
     floatText(ctx.fxLayer, bx, by - 46, 'Plopp!', { fontSize: 48 })
+    // Mikroskak efter storlek: en stor korv landar tyngre (4 → 5,8 px). `_root` har ingen
+    // annan som skriver dess x/y, så skaket slås inte tillbaka.
+    shake(this._root, { intensity: 2 + this._sizes[this._sizeIdx].r / 12, duration: 0.25 })
 
     this._misses = 0
     this._assistNext = false
@@ -899,9 +909,9 @@ export default {
     this._breatheTween?.kill()
     if (this._held && !this._held.destroyed) this._held.visible = false
 
-    ctx.services.audio.sfx('celebrate')
+    // Vinstljud + konfettiregn kommer från progress.complete() nedan. Den egna repliken
+    // sägs FÖRE complete() i samma tick, så berömmet utgår i stället för att kapa den.
     ctx.services.voice.say(randomFrom(FULL_SAY))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // Spel-specifik finish: pottan SPOLAS. En vattenvirvel snurrar i skålen, bubblor
     // stiger och spol-svischen faller i tonhöjd — inte samma konfetti som alla andra.
@@ -925,7 +935,8 @@ export default {
 
     // Spol-knoppen tänds som belöning: nu FÅR man spola, och gaget hittas av alla.
     this._setFlushInvite(true)
-    ctx.later(1.5, () => {
+    // Köar bakom vinstrepliken (2,1–2,9 s) — en fast 1,5 s kapade den mitt i meningen.
+    ctx.narTyst(() => {
       if (this._alive && this._flushInvite) ctx.services.voice.say('Tryck på den gröna spolknappen!')
     })
 
@@ -1146,6 +1157,7 @@ export default {
 
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
+    this._root?._fxShakeTw?.kill() // plopp-skakets tween ligger på ett proxy-objekt
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },

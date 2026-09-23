@@ -628,7 +628,12 @@ export default {
       ctx.services.voice.say(`Du hittade ${SPECIES_NAME[sp]}!`)
       sparkle(ctx.fxLayer, BOOK_X, BOOK_Y0 + SPECIES.indexOf(sp) * BOOK_GAP, { count: 10 })
       if (this._found.size === SPECIES.length) {
-        ctx.later(1.2, () => { if (this._alive) ctx.services.voice.say('Alla djuren är med i boken!') })
+        // "Du hittade …!" är 1,8–2,3 s: orden köar i stället för att kapa den (och
+        // berömmet, om samma klapp fyllde rundan).
+        ctx.later(1.2, () => {
+          if (!this._alive) return
+          ctx.narTyst(() => { if (this._alive) ctx.services.voice.say('Alla djuren är med i boken!') })
+        })
       }
     }
 

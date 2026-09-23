@@ -52,29 +52,28 @@ ger upptäckarglädje utan att någonsin bli stressande.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Artspecifikt beteende.** Låt grodan studsa upp högre, musen kika snabbt fram-
-  och-tillbaka, igelkotten resa taggar vid klapp. Då blir *vilket* djur som dyker upp ett
-  litet val ("vänta på grodan!") snarare än utbytbar grafik.
-- **[Quick] Tell före uppdyk.** Jorden i ett hål skakar/buktar 0,4s innan djuret kommer →
-  barnet hinner förvänta sig och sikta. Bygger spänning utan tidspress.
+- ✅ ~~**[Medium] Artspecifikt beteende.**~~ Redan byggd (`BEHAVIOR` :62, igelkottens taggar vid
+  klapp; se §5 2026-08-04) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Tell före uppdyk.**~~ Redan byggd (`_tell` :434; se §5 2026-07-01) — uppdagat
+  2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] Organisk hålplacering.** Lägg in jitter/poisson-spridning + lite storleks- och
-  rotationsvariation på jordhögarna så ängen ser handgjord ut, inte som ett rutnät.
-- **[Medium] Sällsynt gyllene djur / överraskning.** Ibland kikar en kronprydd mullvad eller
-  ett djur som håller en blomma upp — klapp ger extra gnistor + bonusstjärna (egen wow,
-  som guldballongen i grannspelen).
+- ✅ ~~**[Quick] Organisk hålplacering.**~~ Redan byggd (jitter + storlek/rotation per hål, :213;
+  se §5 2026-07-01) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Sällsynt gyllene djur / överraskning.**~~ Redan byggd (kunglig varelse ~9 %,
+  `_royal` :408; se §5 2026-08-04) — uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Riktiga djurläten + fniss.** Knyt klapp till inspelade söta pip/fniss via
-  SFX-pipelinen ([[real-audio-sfx]], `sample('djur_…')`) per art — inte TTS "Hihi!".
+- ✅ ~~**[Quick] Riktiga djurläten + fniss.**~~ Redan byggd i den del som går utan MOSS
+  (`_critterSound` :547: grodan är inspelad, övriga arter har en egen stämd pip; TTS "Hihi!" är
+  borta) — uppdagat 2026-09-23. Inspelade läten för de fyra andra arterna väntar på MOSS.
 - ~~**[Quick] Stigande klapp-pling i rad** + en liten gräs-/jord-skvätt och mjuk hål-mikroskak
   vid varje klapp för mer taktil känsla.~~ ✅ 2026-08-12 (v1.159.0). Jord-skvätten fanns redan
   (`puff` × 7 i jordfärg sedan 08-04); stegen och skaket byggdes nu.
 
 ### Progression
-- **[Medium] Bestående samling.** Låt 🐾-raden eller en liten "vänbok" nedtill fyllas med ett
-  djur-ansikte per art man klappat och *behållas* mellan rundor — något att återkomma till.
+- ✅ ~~**[Medium] Bestående samling.**~~ Redan byggd (vänboken `_buildBook` :241,
+  `custom.arter`; se §5 2026-08-04) — uppdagat 2026-09-23.
 - **[Quick] Mjuk bakgrundsväxling** (cross-fade ängen mot kväll/blommande) vid nya nivåer så
   världen känns sammanhängande, inte bara "samma äng igen".
 
@@ -84,10 +83,16 @@ ger upptäckarglädje utan att någonsin bli stressande.
   och ger en egen vinst-animation istället för generisk konfetti.
 
 ### Ljud
-- **[Quick] Lugn äng-ambient** (fågel/vind) i bakgrunden + varierat berömsting (verifiera att
-  global variation triggas här).
+- **[Quick] Lugn äng-ambient** (fågel/vind) i bakgrunden. *(Blockerad 2026-09-23: kräver ett
+  slingklipp — MOSS nere. Berömstinget varieras redan globalt i `AudioService._celebrate`.)*
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `complete()` var redan rent (inga
+  egna kopior). "Alla djuren är med i boken!" kom på en fast `later(1.2)` och kapade
+  "Du hittade …!" (1,8–2,3 s) när sista arten hittades — köar nu i `ctx.narTyst`. Inga
+  A-punkter i SNABBVINSTER för spelet; §4 städad: sex punkter var redan byggda, ambienten
+  väntar på MOSS.
 
 - 2026-06-30: Doc skriven (granskning + plan), ersätter gammal build-spec. Inga kodändringar.
   Spelet testat (errorCount 0; äng + 6 hål + mullvad renderar korrekt).

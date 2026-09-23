@@ -719,6 +719,12 @@ Bumpa MINOR, en commit per post, aldrig `git add -A`.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): prövad mot koden och **ren** — ingen
+  kodändring. `_final` säger "Nu är pappa mätt och belåten!" före `complete()` i samma tick (så
+  skalets beröm utgår), har inga egna kopior av vinstljud/beröm/regn, och nästa tallriks replik
+  väntar redan in både pappa och berättaren via spelets eget `_narTyst`. Ingen A-rad i
+  snabbvinstkartan och inga öppna [Quick]-punkter i §4 att stämma av.
+
 - 2026-08-14 ✨ **Önskan + kyldörrens klistermärken** (`c78e894` + `5fa2835`, v1.214.0).
   `/polera`-omgång vald mot kvalitetsgrinden: spelets två svagaste ben var punkt 1 (agens)
   och 6 (progression). Målet var **"N tuggor", aldrig VILKA** — varje matbit var exakt lika

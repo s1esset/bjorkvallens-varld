@@ -37,7 +37,7 @@ import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, floatText, ripple
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { COLORS, FONT, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { verticalFill } from '../../lib/form.js'
+import { verticalFill, bage } from '../../lib/form.js'
 import { glod } from '../../lib/glod.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
@@ -414,8 +414,8 @@ export default {
       g.moveTo(-24, -22).lineTo(24, -22).lineTo(16, 6).lineTo(-16, 6).closePath().fill(0xffd24a).stroke({ width: 3, color: 0xd79a1e })
       g.roundRect(-6, 4, 12, 14, 3).fill(0xd79a1e)
       g.roundRect(-20, 16, 40, 9, 4).fill(0xffd24a).stroke({ width: 3, color: 0xd79a1e })
-      g.arc(-26, -14, 9, 0.5 * Math.PI, 1.5 * Math.PI, true).stroke({ width: 4, color: 0xd79a1e })
-      g.arc(26, -14, 9, 1.5 * Math.PI, 0.5 * Math.PI, true).stroke({ width: 4, color: 0xd79a1e })
+      bage(g, -26, -14, 9, 0.5 * Math.PI, 1.5 * Math.PI, true).stroke({ width: 4, color: 0xd79a1e })
+      bage(g, 26, -14, 9, 1.5 * Math.PI, 0.5 * Math.PI, true).stroke({ width: 4, color: 0xd79a1e })
     } else if (kind === 'mynt') {
       g.circle(0, 0, 24).fill(0xffd24a).stroke({ width: 4, color: 0xd79a1e })
       g.circle(0, 0, 16).stroke({ width: 3, color: 0xd79a1e, alpha: 0.7 })
@@ -1172,7 +1172,7 @@ export default {
     body.roundRect(-44, 0, 88, 24, 12).fill(0xffffff)
     body.circle(-11, -8, 4).fill(0x5a6472)
     body.circle(11, -8, 4).fill(0x5a6472)
-    body.arc(0, -2, 9, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3, color: 0x5a6472 })
+    bage(body, 0, -2, 9, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 3, color: 0x5a6472 })
     // Vinkande hand (arm + handflata med fingrar), roteras i tickern.
     const hand = new Graphics()
     hand.roundRect(-5, 0, 10, 22, 5).fill(0xffffff)

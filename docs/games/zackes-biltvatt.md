@@ -134,27 +134,50 @@ inga spelobjekt är emoji-i-en-ruta längre. Kvarstående risker:
 - [Deep] Vaxning som valfritt sista steg: blank vs matt lack ger synligt olika glansfinish.
 
 **Variation**
-- [Quick] Fler karossfärger + fler fordon (brandbil finns; lägg till polisbil, sopbil, husbil).
+- ✅ ~~[Quick] Fler karossfärger~~ Klar 2026-09-23 (v1.251.0): varje fordon utom brandbilen har
+  en lista kulörer (`VEHICLES[].farger`, `index.js:42`) och kommer tillbaka i en slumpad — som
+  en kopia, tabellen rörs aldrig (:876). Alla är mättade mellantoner så smuts, skum och bajs
+  syns. **Fler fordon** (polisbil, sopbil, husbil) står kvar: ⛔ "Här kommer polisbilen! Tvätta
+  den ren." m.fl. saknar röstklipp (TTS nere).
 - [Medium] Väder: regnskur som sköljer bilen halvvägs (gratis hjälp) eller lera som stänker upp.
 
 **Juice**
 - ~~[Quick] Skum som byggs upp där svampen gnuggat och sköljs bort av slangen.~~ **GJORT** — det
   är numera hela kärnloopen.
-- [Medium] Vattenpöl som växer under bilen medan man spolar.
-- [Quick] Munstycket kryper långsamt hem mot posten efter lång vila.
+- ✅ ~~[Medium] Vattenpöl som växer under bilen medan man spolar.~~ Redan byggd (N3: strålen är
+  riktig vätska som samlas på hallgolvet medan barnet spolar och rinner undan i golvbrunnen,
+  `DRAIN_*` :112–119) — uppdagat 2026-09-23.
+- ✅ ~~[Quick] Munstycket kryper långsamt hem mot posten efter lång vila.~~ Klar 2026-09-23
+  (v1.251.0): efter 10 s utan slang (inget drag, ingen auto-spolning, inte vald) glider
+  greppets mål i 55 px/s mot det viloläge slangen föll till vid start (`_hoseHemTick` :749,
+  `HEM_*` :92). Rep-solvern gör resten — slangen släpar efter längs golvet. Allt som rör
+  slangen avbryter.
 
 **Progression**
 - [Medium] Låt fordonstypen avgöra tvättytan (buss = större yta, fler fläckar men lugnare fåglar).
 
 **Karaktär**
-- [Quick] Zacke reagerar mer: torkar pannan, tummen upp när en fläck försvinner.
+- ✅ ~~[Quick] Zacke reagerar mer: torkar pannan, tummen upp när en fläck försvinner.~~ Klar
+  2026-09-23 (v1.251.0): armen fick en hand och en tumme som bara syns i gesten. En fläck som
+  försvinner ger **tummen upp** (`_zackeTumme` :1416); hela bilen ren ger efter 1,0 s ett
+  **torka pannan** — två svep, svettdroppe och en stämd suck E5→A4 (`_zackeTorka` :1433).
+  Skum som bildas behåller den gamla vinkningen. Allt på armen (ett barn till figuren).
 - [Medium] Återkommande stamkund som kommer tillbaka med samma bil och känner igen barnet.
 
 **Ljud**
 - [Quick] Riktigt måsläte via MOSS när tjänsten är uppe (nu återanvänds `djur_anka`/`djur_tupp`).
+  ⛔ Blockerad: kräver nytt SFX-klipp (MOSS nere).
 - [Medium] Vattenstråle som loopande ljud i stället för upprepade `whoosh`.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): firandet var redan rätt —
+  ägarens "Bilen är skinande ren! Bra jobbat!" (3,65 s från 0,7 s) talar när `complete()`
+  kommer efter 2,2 s, så berömmet utgår. Men de fyra finish-stegen gick på omärkta
+  `gsap.delayedCall` som överlevde `destroy`: gick barnet ut och in inom 4,2 s körde förra
+  omgångens `complete()` och `_nextCar()` mitt i den nya. Nu `ctx.later`. Tre A-rader byggda:
+  **fler karossfärger**, **munstycket kryper hem**, **Zacke reagerar mer** (tumme upp + torka
+  pannan). §4 städad: vattenpölen var redan byggd; fler fordon och måslätet väntar på TTS/MOSS.
 
 - 2026-08-12 ⚙️ **NATTKÖ N3: STRÅLEN ÄR RIKTIG VÄTSKA** (v1.179.0, `lib/vatska.js`, sjunde kunden).
   Strålen var **28 ritade cirklar** i en kon som tog tvärt slut vid `JET_LEN`: den föll inte,

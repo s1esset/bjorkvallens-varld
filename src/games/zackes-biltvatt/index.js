@@ -36,13 +36,16 @@ import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { FONT, DESIGN_W } from '../../lib/theme.js'
 
 // --- Fordon: karossform + färg + en ritad detalj. Allt programmatiskt. ---
+// `farger`: kulörer fordonet kan komma tillbaka i (den första är originalet). Alla är
+// mättade mellantoner, så smutsen (brun), skummet (vitt) och bajset syns på dem. Brandbilen
+// har ingen lista — den är alltid röd.
 const VEHICLES = [
-  { key: 'bil', namn: 'bilen', color: 0xe94f4f, w: 340, h: 130, roof: 0.58, roofW: 0.52, wheels: [-0.28, 0.3] },
-  { key: 'buss', namn: 'bussen', color: 0xf5b73d, w: 420, h: 165, roof: 0.9, roofW: 0.9, wheels: [-0.32, 0.32] },
+  { key: 'bil', namn: 'bilen', color: 0xe94f4f, farger: [0xe94f4f, 0x4aa3df, 0x7bc47f, 0xb08bd8, 0xf5b73d], w: 340, h: 130, roof: 0.58, roofW: 0.52, wheels: [-0.28, 0.3] },
+  { key: 'buss', namn: 'bussen', color: 0xf5b73d, farger: [0xf5b73d, 0x4aa3df, 0x5bbf6a], w: 420, h: 165, roof: 0.9, roofW: 0.9, wheels: [-0.32, 0.32] },
   { key: 'brandbil', namn: 'brandbilen', color: 0xd93c3c, w: 400, h: 150, roof: 0.62, roofW: 0.4, wheels: [-0.33, 0.3] },
-  { key: 'traktor', namn: 'traktorn', color: 0x5bbf6a, w: 300, h: 140, roof: 0.7, roofW: 0.42, wheels: [-0.3, 0.32], bigRear: true },
-  { key: 'glassbil', namn: 'glassbilen', color: 0x63c7d6, w: 360, h: 150, roof: 0.72, roofW: 0.6, wheels: [-0.3, 0.3] },
-  { key: 'lastbil', namn: 'lastbilen', color: 0x6b8dd6, w: 420, h: 155, roof: 0.64, roofW: 0.38, wheels: [-0.34, 0.28] },
+  { key: 'traktor', namn: 'traktorn', color: 0x5bbf6a, farger: [0x5bbf6a, 0xe94f4f, 0x4aa3df], w: 300, h: 140, roof: 0.7, roofW: 0.42, wheels: [-0.3, 0.32], bigRear: true },
+  { key: 'glassbil', namn: 'glassbilen', color: 0x63c7d6, farger: [0x63c7d6, 0xff9ec4, 0xb08bd8], w: 360, h: 150, roof: 0.72, roofW: 0.6, wheels: [-0.3, 0.3] },
+  { key: 'lastbil', namn: 'lastbilen', color: 0x6b8dd6, farger: [0x6b8dd6, 0xef8f5b, 0x5bbf6a], w: 420, h: 155, roof: 0.64, roofW: 0.38, wheels: [-0.34, 0.28] },
 ]
 
 // --- Fåglar: storlek + bajsnyans + hur segt bajset sitter (skrubbsteg = seg*2). ---
@@ -84,6 +87,11 @@ const HOSE_REACH = (HOSE_N - 2) * HOSE_SEG * 0.94
 const HOSE_GRAV = 0.62              // px per fast steg²
 const HOSE_DAMP = 0.93
 const JET_LEN = 235                 // strålens RÄCKVIDD (spelmekaniken, se `_inJet`)
+// Munstycket kryper hem: efter HEM_VILA s orört drar greppet långsamt tillbaka mot det läge
+// slangen hade när spelet startade (uppmätt i `_initHose`, efter att den fallit till ro).
+const HEM_VILA = 10                 // s utan slang (drag, auto-spolning eller vald) innan den kryper
+const HEM_FART = 55                 // px/s — en krypning, inte en fjäder
+const HEM_NARA = 40                 // px: redan hemma, gör ingenting
 
 // --- Vattnet (lib/vatska.js) ----------------------------------------------
 //
@@ -156,6 +164,8 @@ export default {
     this._hoseDrag = false
     this._hoseTarget = null
     this._hoseAuto = null
+    this._hoseVila = 0 // s sedan slangen senast användes (för hemkrypningen)
+    this._hemT = null // rörligt mål medan munstycket kryper hem
     this._nozPress = 1
     this._jetSound = 0
     this._dropT = 0
@@ -372,9 +382,16 @@ export default {
       .stroke({ width: 5, color: 0x2b2b2b, cap: 'round' })
     c.addChild(mouth)
     const arm = new Graphics().roundRect(-9, -10, 18, 62, 9).fill(0x4aa3df)
+    arm.circle(0, 54, 10).fill(0xf7d9b8) // handen
     arm.position.set(30, -28)
+    // Tummen — syns bara under "tummen upp". Den fortsätter längs armen förbi näven, så
+    // när armen står rakt upp pekar tummen upp.
+    const tumme = new Graphics().roundRect(-9, 56, 8, 18, 4).fill(0xf7d9b8)
+    tumme.visible = false
+    arm.addChild(tumme)
     c.addChild(arm)
     c._arm = arm
+    c._tumme = tumme
     c.eventMode = 'none'
     c.interactiveChildren = false
     return c
@@ -673,6 +690,9 @@ export default {
     // pekar dit barnet siktar i stället för dit slangen råkar ligga.
     this._hose.tyngd(this._hose.sista, 3.2)
     for (let i = 0; i < 60; i++) this._hoseSubstep() // låt den falla till ro
+    // Viloläget ÄR hemmet: dit kryper greppet tillbaka efter lång vila.
+    const grepp = this._hose.pts[this._hose.sista - 1]
+    this._hoseHem = { x: grepp.x, y: grepp.y }
 
     // Slangen ritas som ett MATERIAL (MeshRope med en Canvas2D-textur), inte som tre
     // strokes ovanpå varandra. Texturen bär ribborna tvärs slangen och den blanka
@@ -698,6 +718,9 @@ export default {
       // Auto-spolning: greppet ställer sig ovanför måltavlan så strålen faller ner på den.
       const a = this._hoseAuto
       t = { x: a.x, y: Math.max(70, a.y - 205) }
+    } else if (this._hemT) {
+      // Hemkrypning: greppet följer ett mål som glider mot viloläget i HEM_FART.
+      t = { x: this._hemT.x, y: this._hemT.y }
     }
     if (!t) return null
     // Räckviddsstopp: målet klipps till kedjans längd → slangen tänjs aldrig, den
@@ -721,8 +744,44 @@ export default {
     rep.steg(1)
   },
 
+  // Efter HEM_VILA s utan slang kryper munstycket tillbaka mot posten. Allt som använder
+  // slangen (drag, auto-spolning, vald i tap-tap-läget) avbryter och nollar klockan.
+  _hoseHemTick(dt) {
+    const rep = this._hose
+    const hem = this._hoseHem
+    if (!rep || !hem) return
+    if (this._hoseDrag || this._hoseAuto || this._selected === 'slang') {
+      this._hoseVila = 0
+      this._hemT = null
+      return
+    }
+    this._hoseVila += dt
+    if (this._hoseVila < HEM_VILA) return
+    if (!this._hemT) {
+      const g = rep.pts[rep.sista - 1]
+      if (Math.hypot(g.x - hem.x, g.y - hem.y) < HEM_NARA) {
+        this._hoseVila = 0 // redan hemma — titta igen om en stund
+        return
+      }
+      this._hemT = { x: g.x, y: g.y }
+    }
+    const t = this._hemT
+    const dx = hem.x - t.x
+    const dy = hem.y - t.y
+    const d = Math.hypot(dx, dy)
+    const steg = HEM_FART * dt
+    if (d <= steg) {
+      this._hemT = null // framme: släpp greppet, slangen lägger sig till ro
+      this._hoseVila = 0
+      return
+    }
+    t.x += (dx / d) * steg
+    t.y += (dy / d) * steg
+  },
+
   _stepHose(dt) {
     if (!this._hose) return
+    this._hoseHemTick(dt)
     const steps = clamp(Math.round(dt * 60), 1, 3)
     for (let i = 0; i < steps; i++) this._hoseSubstep()
     this._drawHose()
@@ -812,7 +871,9 @@ export default {
     this._cleanedInCar = 0
 
     const n = this._carsDone || 0
-    const v = VEHICLES[n % VEHICLES.length]
+    // Samma fordon kan komma tillbaka i en ny kulör — en KOPIA, tabellen rörs aldrig.
+    const bas = VEHICLES[n % VEHICLES.length]
+    const v = bas.farger ? { ...bas, color: bas.farger[(Math.random() * bas.farger.length) | 0] } : bas
     this._vehicle = v
 
     if (this._car && !this._car.destroyed) {
@@ -1308,7 +1369,7 @@ export default {
       sparkle(this._fx, w.x, w.y, { count: 12 })
       floatText(this._fx, w.x, w.y - 20, '✨', { fontSize: 52 })
     }
-    this._zackeCheer()
+    this._zackeTumme()
     // Ägaren hejar också — `heja`, inte `jubel`: en bil har upp till 8 fläckar, och
     // ett hopp på var och en hade ätit upp firandet när bilen faktiskt blir ren.
     this._kar?.react('heja')
@@ -1340,7 +1401,56 @@ export default {
     const arm = this._zacke?._arm
     if (!arm || arm.destroyed) return
     gsap.killTweensOf(arm)
+    this._visaTumme(false)
     gsap.fromTo(arm, { rotation: 0 }, { rotation: -0.9, duration: 0.16, yoyo: true, repeat: 1, ease: 'power2.out' })
+  },
+
+  _visaTumme(pa) {
+    const t = this._zacke?._tumme
+    if (t && !t.destroyed) t.visible = pa
+  },
+
+  // En fläck försvann: armen upp, tummen upp, och ner igen. Två fristående tweens (den
+  // andra med delay) i stället för en tidslinje, så `killTweensOf(arm)` från nästa gest
+  // tar båda och ingen onComplete från en halvdödad tidslinje kan släcka en ny tumme.
+  _zackeTumme() {
+    const arm = this._zacke?._arm
+    if (!arm || arm.destroyed) return
+    gsap.killTweensOf(arm)
+    this._visaTumme(true)
+    gsap.to(arm, { rotation: -2.8, duration: 0.18, ease: 'back.out(2)' })
+    gsap.to(arm, {
+      rotation: 0,
+      duration: 0.3,
+      delay: 0.7,
+      ease: 'power2.inOut',
+      onComplete: () => this._visaTumme(false),
+    })
+  },
+
+  // Hela bilen ren: Zacke torkar sig i pannan — handen upp över ansiktet, två svep, en
+  // svettdroppe och en lättad suck (stämd E5→A4), sedan ner. Samma två-tweens-mönster.
+  _zackeTorka(ctx) {
+    const z = this._zacke
+    const arm = z?._arm
+    if (!arm || arm.destroyed) return
+    gsap.killTweensOf(arm)
+    this._visaTumme(false)
+    gsap.to(arm, { rotation: 2.9, duration: 0.22, ease: 'power2.out' })
+    gsap.to(arm, {
+      rotation: 2.55,
+      duration: 0.14,
+      delay: 0.22,
+      ease: 'sine.inOut',
+      yoyo: true,
+      repeat: 3,
+      onStart: () => {
+        if (!this._alive || z.destroyed) return
+        puff(this._fx, z.x - 34, z.y - 96, { count: 3, color: 0xbfe6fa })
+        ctx.services.audio.tone({ freq: 659.25, slideTo: 440, dur: 0.32, type: 'sine', vol: 0.07 })
+      },
+    })
+    gsap.to(arm, { rotation: 0, duration: 0.3, delay: 0.84, ease: 'power2.inOut' })
   },
 
   // ---------------------------------------------------------------- stråle
@@ -1723,9 +1833,17 @@ export default {
     sparkle(this._fx, CAR_X - 90, CAR_Y - 60, { count: 10 })
     sparkle(this._fx, CAR_X + 90, CAR_Y - 40, { count: 10 })
     ctx.services.audio.sfx('reveal')
+    // Zacke har jobbat: han torkar sig i pannan — när sista fläckens tumme-upp (0,7 s upp
+    // + 0,3 s ner) hunnit klart, annars kapar svepet tummen.
+    ctx.later(1.0, () => {
+      if (this._alive) this._zackeTorka(ctx)
+    })
 
     // 2. Tuta — riktig tvåtons-signal.
-    gsap.delayedCall(0.45, () => {
+    //    Stegen går på ctx.later, inte gsap.delayedCall: spelet är en singleton, och en
+    //    omärkt delayedCall överlever destroy — gick barnet ut och in inom 4,2 s körde
+    //    förra omgångens complete() och _nextCar() mitt i den nya (`_alive` är då åter sann).
+    ctx.later(0.45, () => {
       if (!this._alive) return
       ctx.services.audio.tone({ freq: 392, dur: 0.22, type: 'square', vol: 0.16 })
       ctx.services.audio.tone({ freq: 523.25, dur: 0.3, type: 'square', vol: 0.16, delay: 0.16 })
@@ -1735,7 +1853,7 @@ export default {
     })
 
     // 3. Ägaren jublar.
-    gsap.delayedCall(0.7, () => {
+    ctx.later(0.7, () => {
       if (!this._alive) return
       const o = this._owner
       if (o && !o.destroyed) {
@@ -1749,9 +1867,9 @@ export default {
       ctx.services.voice.say('Bilen är skinande ren! Bra jobbat!')
     })
 
-    // 4. Bilen rullar ut genom glansbågen. progress.complete() säger ett slumpat
-    //    beröm och voice.say avbryter pågående tal — därför ligger den långt efter.
-    gsap.delayedCall(2.2, () => {
+    // 4. Bilen rullar ut genom glansbågen. progress.complete() firar själv (vinstljud,
+    //    beröm, regn); berömmet utgår medan ägarens rad (3,65 s, från 0,7 s) ännu talar.
+    ctx.later(2.2, () => {
       if (!this._alive) return
       const o = this._owner
       if (o && !o.destroyed) gsap.to(o, { alpha: 0, duration: 0.3 })
@@ -1771,7 +1889,7 @@ export default {
     })
 
     // 5. Nästa bil rullar in.
-    gsap.delayedCall(4.2, () => {
+    ctx.later(4.2, () => {
       if (!this._alive) return
       if (this._owner && !this._owner.destroyed) {
         this._owner.alpha = 1

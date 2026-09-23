@@ -53,11 +53,10 @@ loopen är "töm rutnät → töm större rutnät".
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Levande bubblor.** Ge varje bubbla en långsam egen drift uppåt + svaj (sin-bana),
-  mjuk studs mot väggar/varandra (billig cirkel-kollision, ingen matter.js). Då blir varje pop
-  ett *rörligt* mål — lite sikte, mer levande. Behåll generösa hit-halos så 2-åringar klarar det.
-- **[Quick] Storleksspridning + klustring.** Placera i lekfulla kluster (poisson-ish) med större
-  spridning i radie istället för jämnt rutnät. Tar bort "genererat"-känslan direkt.
+- ✅ ~~**[Medium] Levande bubblor.**~~ Redan byggd 2026-08-05 (ticker-driven drift, gupp och
+  kantstuds, `b._vx` :194 / :460) — uppdagat 2026-09-23. Studs mot varandra är inte byggd.
+- ✅ ~~**[Quick] Storleksspridning + klustring.**~~ Redan byggd 2026-07-01 (hex-förskjutning +
+  jitter :181) — uppdagat 2026-09-23.
 - **[Deep] Sammanslagning/kombo.** Två bubblor som rör vid varandra kan smälta till en större
   (som ger en fetare pop). Belönar att vänta = en grund av strategi utan svårighet.
 
@@ -68,17 +67,17 @@ loopen är "töm rutnät → töm större rutnät".
   hylla/"bubbelbok" längst ner som fylls över tur — något att samla (se Karaktär).
 
 ### Juice
-- **[Quick] Stigande tonhöjd vid snabba pop i rad** (kombo-pling som klättrar) + en mjuk
-  bubbel-"blubb" istället för bara 'pop'. Regnbåge-kedjan = uppåtgående kaskad-ljud.
+- ✅ ~~**[Quick] Stigande tonhöjd vid snabba pop i rad**~~ Kombo-blubben redan byggd 2026-07-01
+  (:347). Regnbågskedjans stigande kaskad (C-dur pentatonik per kedjepopp, :324) klar 2026-09-23
+  (v1.251.0).
 - **[Quick] Pop-efterklang:** en kvardröjande, krympande färgdimma + en eller två mikro-bubblor
   som studsar bort. Skärm-mikroskak skalar med bubbelstorlek.
 
 ### Progression
-- **[Medium] Visuellt färgmål.** När ett färgmål är aktivt: visa en liten "måltavla"-bubbla i
-  hörnet i målfärgen (talad + *visuell*). Rätt färg → den fylls; klart → den studsar. Gör målet
-  begripligt utan ljud, fortfarande no-fail.
-- **[Quick] Tema-progression känns:** låt bakgrunden byta *mjukt* (cross-fade) vid nytt fält
-  istället för hård rebuild, så världen känns sammanhängande.
+- ✅ ~~**[Medium] Visuellt färgmål.**~~ Redan byggd 2026-07-01 (`_makeTarget` :292, studsar vid rätt
+  färg) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Tema-progression känns**~~ Klar 2026-09-23 (v1.251.0): förra fältets bakgrund läggs över
+  den nya och tonas ut på 0,7 s i stället för att rivas i samma bildruta (`_build`, :97).
 
 ### Karaktär & berättelse
 - **[Deep] Maskoten Bobo i scenen.** En liten figur (fisk/Bobo) som simmar bakom bubblorna,
@@ -86,11 +85,16 @@ loopen är "töm rutnät → töm större rutnät".
   anledning att bry sig och en egen vinst-animation istället för generisk konfetti.
 
 ### Ljud
-- **[Quick] Variera vinst-stinget** (redan globalt varierat — verifiera att det triggas här) och
-  lägg en mjuk vatten-ambient-loop i bakgrunden för lugn.
+- **[Quick] Variera vinst-stinget** — verifierat 2026-09-23: `complete()` (:399) spelar det globalt
+  varierade vinstljudet. Vatten-ambient-loopen kräver ett SFX-klipp (MOSS nere) — öppen.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): nästa fälts instruktion kom 1,3 s efter
+  `complete()` och kapade berömmet — köas nu med `ctx.narTyst` (bygg-token). Ombyggnaden och
+  regnbågskedjan gick på `gsap.delayedCall` och kunde köra in i nästa omgång efter exit — nu
+  `ctx.later` (:418). Nytt: mjuk crossfade mellan temana och en stigande kaskad i regnbågskedjan.
+  `check` 0/0.
 - 2026-06-30: Doc skriven (exempel-doc, sätter kvalitetsribban). Inga kodändringar ännu.
 - Rekommenderad första-omgång om vi bygger: **[Quick] kluster-layout + stigande kombo-ljud +
   visuell måltavla** — störst upplevd lyft för minst risk.

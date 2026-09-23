@@ -14,6 +14,8 @@ import { PLAYFUL } from '../../lib/theme.js'
 
 // Scen-tema per nivå (alla "bubbel-vänliga"; vatten/himmel passar bäst).
 const THEME_CYCLE = ['water', 'sky', 'sunset', 'candy', 'meadow', 'night']
+// Regnbågskedjans kaskad: varje kedjepopp ett steg upp i C-dur pentatonik.
+const KASKAD = [523.25, 587.33, 659.25, 783.99, 880, 1046.5]
 
 // Hex -> svensk färgform för det talade färgmålet (full åäö).
 const COLOR_WORDS = {
@@ -76,12 +78,32 @@ export default {
       gsap.killTweensOf(b)
       gsap.killTweensOf(b.scale)
     })
+    // Förra fältets BAKGRUND får leva en stund till: den läggs ovanpå den nya och tonas ut,
+    // så världen byter mjukt i stället för att hoppa. Allt annat rivs som förut.
+    this._scenFade?.kill()
+    this._scenFade = null
+    const gammal = this._scene && !this._scene.destroyed ? this._scene : null
+    if (gammal) this._root.removeChild(gammal)
     this._root.removeChildren().forEach((c) => c.destroy({ children: true }))
 
     const L = ctx.progress.get().highestLevel || 0
 
     // Bakgrundsscen (varierar per nivå).
-    this._root.addChild(createScene(THEME_CYCLE[L % THEME_CYCLE.length]))
+    this._scene = createScene(THEME_CYCLE[L % THEME_CYCLE.length])
+    this._root.addChild(this._scene)
+    if (gammal) {
+      gammal.alpha = 1
+      this._root.addChild(gammal) // över nya scenen, under bubblorna som läggs till nedan
+      this._scenFade = gsap.to(gammal, {
+        alpha: 0,
+        duration: 0.7,
+        ease: 'sine.inOut',
+        onComplete: () => {
+          this._scenFade = null
+          if (!gammal.destroyed) gammal.destroy({ children: true })
+        },
+      })
+    }
 
     // Små bubblor som stiger i bakgrunden — scenen var stillastående tapet.
     this._miniLayer = new Container()
@@ -201,7 +223,17 @@ export default {
       this._fx.addChild(this._targetView)
     }
 
-    if (announce && this._started) ctx.services.voice.say(this._cue)
+    // announce kommer efter en rensning, 1,3 s efter complete() — vars beröm är 1,0–2,3 s,
+    // och say() kapar. Fältet står redan här; bara instruktionen väntar in berättaren, och
+    // bara om inget nytt fält hunnit byggas under tiden.
+    if (announce && this._started) {
+      const bygge = (this._bygge = (this._bygge || 0) + 1)
+      const cue = this._cue
+      ctx.narTyst(() => {
+        if (!this._alive || this._bygge !== bygge) return
+        ctx.services.voice.say(cue)
+      })
+    }
   },
 
   _makeBubble(ctx, { color, r, rainbow, surprise }) {
@@ -284,9 +316,12 @@ export default {
         .sort((p, q) => p.d - q.d)
         .slice(0, 6)
       live.forEach((nb, i) => {
-        gsap.delayedCall(0.09 * (i + 1), () => {
-          if (!this._alive || nb.x._popped) return
+        // ctx.later, inte gsap.delayedCall: en kedja som hann starta före exit får inte
+        // poppa (förstörda) bubblor i nästa omgång.
+        ctx.later(0.09 * (i + 1), () => {
+          if (!this._alive || nb.x._popped || nb.x.destroyed) return
           sparkle(this._fx, nb.x.x, nb.x.y, { count: 8 })
+          ctx.services.audio.tone({ freq: KASKAD[i % KASKAD.length], dur: 0.12, type: 'triangle', vol: 0.1 })
           this._popOne(ctx, nb.x, { special: true })
           this._checkClear(ctx)
         })
@@ -378,7 +413,9 @@ export default {
         },
       })
     }
-    gsap.delayedCall(1.3, () => {
+    // ctx.later, inte gsap.delayedCall: går barnet ut och in inom 1,3 s efter en rensning
+    // får förra omgångens ombyggnad inte köra i den nya (singleton — `_alive` är sann igen).
+    ctx.later(1.3, () => {
       if (!this._alive) return
       this._build(ctx, true)
     })
@@ -511,6 +548,9 @@ export default {
     this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
     this._kar = null
     this._bobo = null
+    this._scenFade?.kill()
+    this._scenFade = null
+    this._scene = null
     gsap.killTweensOf(this._root)
     gsap.killTweensOf(this._layer)
     ctx?.services?.voice?.cancel()

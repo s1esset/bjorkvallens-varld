@@ -20,9 +20,9 @@ import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Body, nudge, applyForce } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { bigCelebration, burst, puff, sparkle, floatText, pop, wiggle , kvittera} from '../../lib/feedback.js'
-import { COLORS, PLAYFUL, PRAISE } from '../../lib/theme.js'
-import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { burst, puff, sparkle, floatText, pop, wiggle , kvittera} from '../../lib/feedback.js'
+import { COLORS, PLAYFUL } from '../../lib/theme.js'
+import { shuffle } from '../../lib/swedish.js'
 
 // ---- Geometri & konstanter (designkoordinater 1280×720) -----------------
 const UNICORN = { x: 320, y: 300 }
@@ -44,6 +44,16 @@ const AGE_LIMIT = 10 // s livslängd -> auto-glid (garanterad framgång)
 const CATCH_SFX_MS = 90 // throttla fångst-ljud
 const BOUNCE_SFX_MS = 150 // throttla studs-ljud
 const IDLE_DELAY = 6
+
+// Stämda toner (C-dur pentatonik). Portionerna stiger en durtreklang, fångst-plinget klättrar
+// uppför skalan så länge glittret kommer tätt, och jackpotten får ett eget arpeggio.
+const PORTION_TON = [523.25, 659.25, 783.99]
+const FANGST_TON = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51]
+const FANGST_KOMBO_MS = 1500 // längre paus än så -> plinget börjar om längst ner
+const JACKPOT_TON = [523.25, 659.25, 783.99, 1046.5, 1318.51]
+const JACKPOT_CHANS = 1 / 12 // per prutt
+const JACKPOT_VARDE = 3 // mätarsteg för en fångad jackpot-stjärna
+const JACKPOT_R = 15 // kroppens radie — konsten är större (21)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const rand = (a, b) => a + Math.random() * (b - a)
@@ -130,6 +140,10 @@ export default {
     this._dragFood = null
     this._dragChest = false
     this._glitterKind = 'coin' // sätts av senast matade mat (FOOD_GLITTER)
+    this._pruttVantar = null // en prutt som väntar på fler portioner (se _feed)
+    this._portioner = 0
+    this._fangstSteg = 0
+    this._senasteFangst = -1e9
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
 
@@ -456,12 +470,23 @@ export default {
     this._idle = 0
     this._selectedFood = null
     this._glitterKind = food.glitter || 'coin' // maten bestämmer glittersorten
-    if (this._unicorn && !this._unicorn.destroyed) pop(this._unicorn, { scale: 1.12 })
+    // Matmängden SYNS: matar barnet igen innan prutten hunnit komma blir det EN större
+    // prutt (längre glitterstråle, större puff) i stället för två likadana. Varje ny
+    // portion skjuter upp prutten 0,6 s och enhörningen blåses upp ett snäpp mer. Tak 3.
+    const k = Math.min(3, (this._pruttVantar ? this._portioner : 0) + 1)
+    this._portioner = k
+    if (this._unicorn && !this._unicorn.destroyed) pop(this._unicorn, { scale: 1.06 + 0.06 * k })
     ctx.services.audio.sfx('soft')
+    if (k > 1) ctx.services.audio.tone({ freq: PORTION_TON[k - 1], dur: 0.14, type: 'triangle', vol: 0.12 })
     this._eatFood(food)
+    this._pruttVantar?.kill()
     const tw = gsap.delayedCall(0.6, () => {
-      if (this._alive && !this._resolving) this._fart(ctx)
+      this._pruttVantar = null
+      const portioner = this._portioner
+      this._portioner = 0
+      if (this._alive && !this._resolving) this._fart(ctx, portioner)
     })
+    this._pruttVantar = tw
     this._timers.push(tw)
   },
 
@@ -508,33 +533,49 @@ export default {
 
   // ---- Prutt: spruta ut glitterregnet -------------------------------------
 
-  _fart(ctx) {
+  _fart(ctx, portioner = 1) {
     if (!this._alive || this._resolving) return
     this._idle = 0
+    const k = clamp(portioner | 0, 1, 3) // hur många portioner som hann ätas (se _feed)
     // Riktig prutt: fart-sampel om det finns (MOSS, #3), annars en synt-sawtooth-prutt.
-    if (!ctx.services.audio.sample?.('fart')) ctx.services.audio.tone({ freq: 200, dur: 0.24, type: 'sawtooth', vol: 0.15, slideTo: 75 })
-    floatText(ctx.fxLayer, BUTT.x + 30, BUTT.y, '💨', { fontSize: 56 })
-    puff(ctx.fxLayer, BUTT.x + 18, BUTT.y, { count: 6, color: 0xd9b8ff }) // liten rök-puff
-    if (this._unicorn && !this._unicorn.destroyed) pop(this._unicorn, { scale: 1.06 }) // enhörningen skuttar
+    // En större måltid pruttar längre och djupare.
+    if (!ctx.services.audio.sample?.('fart')) {
+      ctx.services.audio.tone({ freq: 200 - 30 * (k - 1), dur: 0.24 + 0.12 * (k - 1), type: 'sawtooth', vol: 0.15, slideTo: 75 - 10 * (k - 1) })
+    } else if (k > 1) {
+      ctx.services.audio.tone({ freq: 120, dur: 0.2 + 0.1 * k, type: 'sawtooth', vol: 0.08, slideTo: 55, delay: 0.12 })
+    }
+    floatText(ctx.fxLayer, BUTT.x + 30, BUTT.y, '💨', { fontSize: 56 + 16 * (k - 1) })
+    puff(ctx.fxLayer, BUTT.x + 18, BUTT.y, { count: 6 + 4 * (k - 1), color: 0xd9b8ff }) // rök-puff, större måltid = större moln
+    if (this._unicorn && !this._unicorn.destroyed) pop(this._unicorn, { scale: 1.06 + 0.04 * (k - 1) }) // enhörningen skuttar
     if (this._elvira && !this._elvira.destroyed) pop(this._elvira, { scale: 1.16 })
     sparkle(ctx.fxLayer, BUTT.x, BUTT.y, { count: 6 })
 
-    let n = this._batch
-    if (this._pellets.length + n > MAX_PELLETS) n = Math.max(0, MAX_PELLETS - this._pellets.length)
-    for (let i = 0; i < n; i++) this._spawnPellet()
-    if (n > 0) ctx.services.audio.sfx('pling')
+    // Glittret kommer i k skurar, 0,14 s isär: en större måltid syns som en LÄNGRE stråle
+    // (och kropparna föds inte alla på samma punkt i samma bildruta). Då och då (1/12)
+    // är en pellet i första skuren en jackpot-stjärna.
+    const jackpot = Math.random() < JACKPOT_CHANS
+    const skur = (i) => {
+      if (!this._alive || this._resolving) return
+      let n = this._batch
+      if (this._pellets.length + n > MAX_PELLETS) n = Math.max(0, MAX_PELLETS - this._pellets.length)
+      for (let j = 0; j < n; j++) this._spawnPellet(jackpot && i === 0 && j === 0)
+      if (n > 0) ctx.services.audio.sfx('pling')
+    }
+    skur(0)
+    for (let i = 1; i < k; i++) ctx.later(0.14 * i, () => skur(i))
     if (Math.random() < 0.5) ctx.services.voice.say('Pruttbajs! Massa glitter!')
   },
 
-  _spawnPellet() {
-    const view = makePelletView(this._glitterKind)
+  _spawnPellet(jackpot = false) {
+    const view = jackpot ? makeJackpotView() : makePelletView(this._glitterKind)
     view.position.set(BUTT.x, BUTT.y)
     this._pelletLayer.addChild(view)
-    const body = this._phys.circle(BUTT.x, BUTT.y, PELLET_R, { ...MATERIALS.bouncy, label: 'pellet' })
+    const body = this._phys.circle(BUTT.x, BUTT.y, jackpot ? JACKPOT_R : PELLET_R, { ...MATERIALS.bouncy, label: 'pellet' })
     // Utåt-uppåt-höger med spridning -> en glittrig båge bakåt från rumpan.
     nudge(body, 3 + Math.random() * 4, -(2 + Math.random() * 4))
     this._phys.link(body, view)
-    this._pellets.push({ body, view, restT: 0, age: 0, caught: false })
+    this._pellets.push({ body, view, restT: 0, age: 0, caught: false, jackpot })
+    if (jackpot) sparkle(this._ctx.fxLayer, BUTT.x, BUTT.y, { count: 10 })
   },
 
   // ---- Kollision: fångst (sensor) + lekfull studs -------------------------
@@ -590,16 +631,29 @@ export default {
     this._tuckPellet(pellet, auto ? 0.5 : 0.3)
 
     const now = performance.now()
+    // Fångst-plinget klättrar uppför skalan så länge glittret kommer tätt (paus > 1,5 s
+    // börjar om längst ner). Samma strypning som plopp-ljudet, och lågt i volym.
+    const tatt = now - (this._senasteFangst || -1e9) < FANGST_KOMBO_MS
+    this._senasteFangst = now
     if (now - this._lastCatchSfx > CATCH_SFX_MS) {
       this._lastCatchSfx = now
       ctx.services.audio.sfx('pop')
+      this._fangstSteg = tatt ? Math.min(FANGST_TON.length - 1, (this._fangstSteg || 0) + 1) : 0
+      ctx.services.audio.tone({ freq: FANGST_TON[this._fangstSteg], dur: 0.1, type: 'triangle', vol: 0.07 })
     }
     const cx = this._chest && !this._chest.destroyed ? this._chest.x : CHEST_START
     puff(ctx.fxLayer, cx, CHEST_Y - 40, { count: 4, color: COLORS.yellow })
-    if (this._chest && !this._chest.destroyed) pop(this._chest, { scale: 1.05 })
+    if (this._chest && !this._chest.destroyed) pop(this._chest, { scale: pellet.jackpot ? 1.15 : 1.05 })
 
     if (!this._resolving) {
-      this._caught++
+      // En jackpot-stjärna fyller mätaren tre steg (aldrig förbi målet).
+      this._caught = Math.min(this._goal, this._caught + (pellet.jackpot ? JACKPOT_VARDE : 1))
+      if (pellet.jackpot) {
+        burst(ctx.fxLayer, cx, CHEST_Y - 50, { count: 14, colors: PLAYFUL })
+        sparkle(ctx.fxLayer, cx, CHEST_Y - 60, { count: 12 })
+        JACKPOT_TON.forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.16, type: 'triangle', vol: 0.13, delay: 0.07 * i }))
+        if (this._elvira && !this._elvira.destroyed) pop(this._elvira, { scale: 1.2 })
+      }
       this._drawChestFill()
       this._drawMeter(true)
       if (this._caught >= this._goal) this._onComplete(ctx)
@@ -729,6 +783,8 @@ export default {
       if (!p.body || p.caught) continue
       const pos = p.body.position
       p.age += dt
+      // Jackpot-stjärnan glimmar (skala på det ritade BARNET — kroppen och länken rör vi inte).
+      if (p.jackpot && p.view && !p.view.destroyed && p.view.children[0]) p.view.children[0].scale.set(1 + 0.12 * Math.sin(p.age * 9))
 
       // Fartgräns nedåt (fångbart + ingen tunneling genom sensorn).
       if (p.body.velocity.y > MAX_FALL) Body.setVelocity(p.body, { x: p.body.velocity.x, y: MAX_FALL })
@@ -805,9 +861,8 @@ export default {
     this._selectedFood = null
     this._dragFood = null
 
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    // Vinstljud, beröm och konfettiregn kommer från ctx.progress.complete() nedan —
+    // här bara det som är spelets eget: stjärnbursten vid burken och figurernas skutt.
     const cx = this._chest && !this._chest.destroyed ? this._chest.x : CHEST_START
     burst(ctx.fxLayer, cx, CHEST_Y - 40, { count: 18, colors: [COLORS.yellow, COLORS.orange, COLORS.pink] })
     sparkle(ctx.fxLayer, cx, CHEST_Y - 40, { count: 10 })
@@ -823,8 +878,14 @@ export default {
 
     const tw = gsap.delayedCall(1.5, () => {
       if (!this._alive) return
-      ctx.services.voice.say('Mer glitter!')
       this._loadLevel(++this._level)
+      // Berömmet från complete() är 1,0–2,3 s och say() kapar — nivån byggs genast,
+      // bara orden väntar tills berättaren tystnat (och bara om vi fortfarande är på nivån).
+      const niva = this._level
+      ctx.narTyst(() => {
+        if (!this._alive || this._level !== niva) return
+        ctx.services.voice.say('Mer glitter!')
+      })
     })
     this._timers.push(tw)
   },
@@ -1180,6 +1241,30 @@ function makePelletView(kind = 'coin') {
     s.eventMode = 'none'
     c.addChild(s)
   }
+  c.eventMode = 'none'
+  return c
+}
+
+// Jackpot-stjärna: tre kapslade regnbågsstjärnor, större än vanligt glitter. Barnet (index
+// 0) glimmar i tickern; containern är den som länkas till kroppen.
+function makeJackpotView() {
+  const c = new Container()
+  const g = new Graphics()
+  const stjarna = (R, r) => {
+    const pts = []
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5
+      const rr = i % 2 ? r : R
+      pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
+    }
+    return pts
+  }
+  g.poly(stjarna(21, 10)).fill(0xff6fa8).stroke({ width: 3, color: COLORS.white })
+  g.poly(stjarna(15, 7)).fill(COLORS.yellow)
+  g.poly(stjarna(8, 4)).fill(COLORS.blue)
+  g.circle(-5, -7, 2.6).fill({ color: COLORS.white, alpha: 0.9 })
+  g.eventMode = 'none'
+  c.addChild(g)
   c.eventMode = 'none'
   return c
 }

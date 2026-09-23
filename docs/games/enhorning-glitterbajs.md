@@ -64,23 +64,24 @@ glittret blir ett osynligt nummer* — agensen och samlandet är tunnare än det
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Gör maten till ett verkligt val.** Låt varje mat ge sin egen sorts glitter: 🍓 →
-  rosa hjärtan 💖, 🧁 → regnbågs-strössel, 🍪 → guldmynt 🪙. Olika form/färg (och kanske olika
-  studsighet) gör att barnet *väljer* sin glitter — kärnloopen får djup utan svårighet.
-- **[Quick] Visa matmängdens effekt.** Mata två gånger i rad → en synligt större prutt-sväng /
-  fler pellets, så "mer mat = mer glitter" blir kännbart, inte bara en intern siffra.
+- ✅ ~~**[Medium] Gör maten till ett verkligt val.**~~ Redan byggd (`FOODS` :63 + `makePelletView(kind)` :1211 —
+  hjärtan/strössel/mynt) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Visa matmängdens effekt.**~~ Klar 2026-09-23 (v1.251.0): portioner som äts innan prutten
+  kommit staplas (tak 3) till EN större prutt — längre stråle i skurar, större puff, djupare ton
+  (`_feed` :468, `_fart` :536).
 
 ### Variation & överraskning
-- **[Quick] Sällsynt jackpot-pellet.** Då och då en stor regnbågs-stjärna som ger extra mätar-
-  fyllning + ett eget "wow"-ljud — varierar regnet och skapar "en till!"-känsla.
-- **[Medium] Karaktärsfulla plattformar.** Byt de lila plattorna mot studsande svampar/moln/
-  godisar som squash:ar och boing:ar när glittret träffar, så studsbanan blir egen lek.
+- ✅ ~~**[Quick] Sällsynt jackpot-pellet.**~~ Klar 2026-09-23 (v1.251.0): var 12:e prutt (i snitt) bär en ritad
+  regnbågsstjärna som glimmar; fångad fyller den tre mätarsteg (aldrig förbi målet) med eget
+  arpeggio och burst (`makeJackpotView` :1250, `_catch` :650).
+- ✅ ~~**[Medium] Karaktärsfulla plattformar.**~~ Redan byggd (`makePlatform` :1149 randiga godisbitar
+  med studsknoppar, `pop` + ljud vid träff :608) — uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Riktig prutt + saftigare bajs.** Använd `fart`-samplet istället för `whoosh`, ge
-  prutten en liten rök-puff och enhörningen ett gung/skutt — temat förtjänar det.
-- **[Quick] Synlig kista som fylls.** Lägg en liten glittrig hög som växer inuti kistan per
-  fångst (och svämmar över vid full mätare), så samlandet blir synligt och belönande.
+- ✅ ~~**[Quick] Riktig prutt + saftigare bajs.**~~ Redan byggd (`_fart` :542 fart-sampel/synt-prutt,
+  rök-puff, enhörnings-skutt) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Synlig kista som fylls.**~~ Redan byggd (`_drawChestFill` :664) — uppdagat 2026-09-23.
+  Överflödet vid full mätare är inte byggt.
 
 ### Progression
 - **[Quick] Lås upp glitter-färger/teman över nivåer** som ett mjukt samlarspår (sparas i
@@ -94,11 +95,18 @@ glittret blir ett osynligt nummer* — agensen och samlandet är tunnare än det
   allt insamlat glitter över tid — ger en anledning att bry sig om varje fångst.
 
 ### Ljud
-- **[Quick] Eget fångst-pling som stiger** med antalet i rad, och variera vinst-stinget; lägg en
-  lugn godishimmel-ambient i botten.
+- ✅ ~~**[Quick] Eget fångst-pling som stiger**~~ Klar 2026-09-23 (v1.251.0): plinget klättrar C-dur pentatonik så
+  länge glittret kommer tätt, börjar om efter 1,5 s paus (strypt 90 ms, vol 0,07) (`_catch` :642).
+  Vinst-stinget varieras redan av `complete()`. Godishimmel-ambient kräver ett SFX-klipp (MOSS
+  nere) — öppen.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onComplete` spelade eget vinstljud, eget
+  PRAISE och eget konfettiregn i samma tick som `complete()` — strukna. "Mer glitter!" kapade
+  berömmet efter 1,5 s och köas nu med `ctx.narTyst` (nivå-token). Nytt: matmängden syns (staplade
+  portioner = en större prutt i skurar), stigande fångst-pling, och en sällsynt jackpot-stjärna
+  (+3 mätarsteg). `check` 0/0.
 - 2026-06-30: Doc skriven (granskad i spelet, errorCount 0). Inga kodändringar ännu. (Ersatte den
   äldre bygg-specen i samma fil med review-format enligt mallen.)
 - Rekommenderad första-omgång: **[Medium] mat → olika glitter + [Quick] synlig kista som fylls +

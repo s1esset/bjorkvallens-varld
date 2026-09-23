@@ -99,6 +99,10 @@ function darken(hex, amt) {
   return (d(r) << 16) | (d(g) << 8) | d(b)
 }
 
+// En båge som börjar i sin EGEN startpunkt. `Graphics.arc()` utan en föregående moveTo drar
+// ett streck från origo till bågen (V22-sidofyndet: Elviras hår och mun).
+const bage = (g, cx, cy, r, a0, a1) => g.moveTo(cx + r * Math.cos(a0), cy + r * Math.sin(a0)).arc(cx, cy, r, a0, a1)
+
 export default {
   id: 'kugghjulen',
   titleSv: 'Kugghjulen',
@@ -277,24 +281,31 @@ export default {
     this._flaktBlad.visible = false
     this._machineLayer.addChild(this._flaktBlad)
 
-    // RITAD Elvira med KROPP (var en 👧-emoji, alltså ett svävande huvud).
-    this._elvira = new Graphics()
-    this._elvira.roundRect(-13, 14, 10, 24, 5).fill(0x7b5bd6)
-    this._elvira.roundRect(3, 14, 10, 24, 5).fill(0x7b5bd6)
-    this._elvira.roundRect(-17, 34, 15, 8, 4).fill(0x5c3720)
-    this._elvira.roundRect(2, 34, 15, 8, 4).fill(0x5c3720)
-    this._elvira.moveTo(-14, -12).lineTo(14, -12).lineTo(21, 18).lineTo(-21, 18).closePath()
-    this._elvira.fill(0xef6aa8).stroke({ width: 3, color: 0xc4487f })
-    this._elvira.roundRect(-25, -10, 9, 26, 4).fill(0xef6aa8).stroke({ width: 3, color: 0xc4487f })
-    this._elvira.roundRect(16, -10, 9, 26, 4).fill(0xef6aa8).stroke({ width: 3, color: 0xc4487f })
-    this._elvira.circle(0, -30, 20).fill(0xffd7b0).stroke({ width: 3, color: 0xe0b48c })
-    this._elvira.arc(0, -30, 21, Math.PI, 0).fill(0xf2c14e)
-    this._elvira.circle(-22, -24, 9).fill(0xf2c14e)
-    this._elvira.circle(22, -24, 9).fill(0xf2c14e)
-    this._elvira.circle(-7, -30, 3.5).fill(0x2b2b2b)
-    this._elvira.circle(7, -30, 3.5).fill(0x2b2b2b)
-    this._elvira.arc(0, -25, 7, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: 0xb5504f })
+    // RITAD Elvira med KROPP (var en 👧-emoji, alltså ett svävande huvud) — i tre lager så
+    // uttrycket går att byta: kropp, armar och ansikte. Förut satte `_setElvira` `.text` på
+    // EN Graphics, som saknar textfält: uttrycket bytte aldrig (ÅTGÄRDER V22, uppmätt 0 px
+    // ändrade för alla fyra uttryck med `scripts/_elviraminprobe.mjs`).
+    this._elvira = new Container()
     this._elvira.eventMode = 'none'
+    this._elvira.interactiveChildren = false
+    const kropp = new Graphics()
+    kropp.roundRect(-13, 14, 10, 24, 5).fill(0x7b5bd6)
+    kropp.roundRect(3, 14, 10, 24, 5).fill(0x7b5bd6)
+    kropp.roundRect(-17, 34, 15, 8, 4).fill(0x5c3720)
+    kropp.roundRect(2, 34, 15, 8, 4).fill(0x5c3720)
+    kropp.moveTo(-14, -12).lineTo(14, -12).lineTo(21, 18).lineTo(-21, 18).closePath()
+    kropp.fill(0xef6aa8).stroke({ width: 3, color: 0xc4487f })
+    kropp.circle(0, -30, 20).fill(0xffd7b0).stroke({ width: 3, color: 0xe0b48c })
+    // Hårkalotten: moveTo till bågens start FÖRST. Utan den drog `arc()` en linje från
+    // origo (fötterna), så håret blev en gul kil över hela ansiktet och ner i klänningen
+    // — synligt i varje skärmdump sedan figuren ritades, inget konsolfel.
+    bage(kropp, 0, -30, 21, Math.PI, 0).closePath().fill(0xf2c14e)
+    kropp.circle(-22, -24, 9).fill(0xf2c14e)
+    kropp.circle(22, -24, 9).fill(0xf2c14e)
+    this._elviraArmar = new Graphics()
+    this._elviraAnsikte = new Graphics()
+    this._elvira.addChild(kropp, this._elviraArmar, this._elviraAnsikte)
+    this._ritaElvira('lugn')
     this._machineLayer.addChild(this._elvira)
 
     // Flagga 🚩 (klättrar längs stången).
@@ -557,7 +568,7 @@ export default {
     this._carousel.position.set(T.x + 96, T.y + 96)
     this._elviraHome = { x: T.x + 150, y: T.y + 96 }
     if (this._elvira && !this._elvira.destroyed) {
-      this._elvira.text = '👧'
+      this._ritaElvira('lugn')
       this._elvira.position.set(this._elviraHome.x, this._elviraHome.y)
     }
     this._pole.clear()
@@ -790,7 +801,7 @@ export default {
 
     // Karusellen är det barnet tittar på — låt den kvittera med en liten studs.
     if (this._carousel && !this._carousel.destroyed) this._popScale(this._carousel, 1.14)
-    this._setElvira(rem.korsad ? '😮' : '😊')
+    this._setElvira(rem.korsad ? 'oj' : 'glad')
     if (!rem._vandSagt) {
       rem._vandSagt = true
       ctx.services.voice.say('Nu snurrar den åt andra hållet!')
@@ -1060,7 +1071,7 @@ export default {
     this._spawnGear(ctx, peg, rec.data.size, {})
     sparkle(ctx.fxLayer, peg.x, peg.y, { count: 5 })
     // Elvira följer bygget med blicken (liten nyfiken puls per hjul).
-    if (!this._chainComplete) this._setElvira('😊')
+    if (!this._chainComplete) this._setElvira('glad')
     this._rebuildMesh(ctx)
     const after = this._frontierIndex()
     if (after > before) this._stuck = 0
@@ -1313,16 +1324,16 @@ export default {
     })
     if (this._targetWheel && !this._targetWheel.destroyed) this._popScale(this._targetWheel, 1.14)
     // Elvira ser att det greppar och klappar i händerna.
-    this._setElvira('🙌', { hop: true })
+    this._setElvira('jubel', { hop: true })
     // Fira storleks-skillnaden: det minsta hjulet snurrar fortast ("Vroom!").
     gsap.delayedCall(0.08 * chain.length + 0.15, () => this._alive && this._celebrateSpeed(ctx))
     ctx.services.voice.say('Den greppar! Veva nu!')
   },
 
   // Elvira är en levande mottagare: byt uttryck + liten hopp/puls (aldrig bara dekor).
-  _setElvira(emoji, { hop = false } = {}) {
+  _setElvira(min, { hop = false } = {}) {
     if (!this._alive || !this._elvira || this._elvira.destroyed) return
-    this._elvira.text = emoji
+    this._ritaElvira(min)
     this._popScale(this._elvira, 1.2)
     if (hop && this._elviraHome) {
       const base = this._elviraHome.y
@@ -1332,6 +1343,44 @@ export default {
         onUpdate: () => { if (this._alive && this._elvira && !this._elvira.destroyed) this._elvira.y = st.y },
         onComplete: () => { if (this._alive && this._elvira && !this._elvira.destroyed) this._elvira.y = base },
       })
+    }
+  },
+
+  // Elviras uttryck: armarna och ansiktet ritas om, kroppen står kvar.
+  //   lugn  — liten mun, armarna ner (vila)        glad  — större leende, rosiga kinder
+  //   oj    — runda ögon, liten öppen mun          jubel — armarna upp, öppet leende
+  //   fest  — armarna upp, glada stängda ögon ^^, öppet skratt
+  _ritaElvira(min) {
+    const a = this._elviraArmar
+    const f = this._elviraAnsikte
+    if (!a || a.destroyed || !f || f.destroyed) return
+    a.clear()
+    f.clear()
+    const upp = min === 'jubel' || min === 'fest'
+    if (upp) {
+      for (const s of [-1, 1]) {
+        a.moveTo(s * 17, -6).lineTo(s * 34, -36).stroke({ width: 12, color: 0xc4487f, cap: 'round' })
+        a.moveTo(s * 17, -6).lineTo(s * 34, -36).stroke({ width: 7, color: 0xef6aa8, cap: 'round' })
+        a.circle(s * 35, -39, 5.5).fill(0xffd7b0).stroke({ width: 2, color: 0xe0b48c })
+      }
+    } else {
+      a.roundRect(-25, -10, 9, 26, 4).fill(0xef6aa8).stroke({ width: 3, color: 0xc4487f })
+      a.roundRect(16, -10, 9, 26, 4).fill(0xef6aa8).stroke({ width: 3, color: 0xc4487f })
+    }
+    if (min === 'fest') {
+      for (const s of [-1, 1]) bage(f, s * 7, -28, 4, Math.PI, 0).stroke({ width: 2.5, color: 0x2b2b2b })
+    } else {
+      const r = min === 'oj' ? 4.6 : 3.5
+      f.circle(-7, -30, r).fill(0x2b2b2b)
+      f.circle(7, -30, r).fill(0x2b2b2b)
+    }
+    if (min === 'oj') f.ellipse(0, -20, 4, 5).fill(0x8a3a3a)
+    else if (upp) bage(f, 0, -24, 8, 0, Math.PI).closePath().fill(0x8a3a3a)
+    else if (min === 'glad') bage(f, 0, -25, 8.5, 0.12 * Math.PI, 0.88 * Math.PI).stroke({ width: 3, color: 0xb5504f })
+    else bage(f, 0, -25, 7, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: 0xb5504f })
+    if (min !== 'lugn' && min !== 'oj') {
+      f.circle(-13, -23, 3.6).fill({ color: 0xff8fa8, alpha: 0.6 })
+      f.circle(13, -23, 3.6).fill({ color: 0xff8fa8, alpha: 0.6 })
     }
   },
 
@@ -1642,6 +1691,13 @@ export default {
     }
 
     if (!this._resolving) {
+      // Tomgången räknas från TYSTNAD, inte från senaste tryck: annars kapade påminnelsen
+      // en replik som fortfarande talade (ÅTGÄRDER V21, `_tomgangprobe.mjs`).
+      // Auto-hjälpen säger "Titta!" och följer samma regel.
+      if (ctx.services.voice.talar) {
+        this._idle = 0
+        this._helpIdle = Math.min(this._helpIdle, IDLE_HELP - 1)
+      }
       this._idle += dtSec
       this._helpIdle += dtSec
       if (this._idle >= IDLE_RECUE) {
@@ -1726,7 +1782,7 @@ export default {
     ctx.services.audio.sfx('correct')
 
     // Elvira firar och åker karusellen: byt till glad min och guppa runt på hjulet.
-    this._setElvira('🥳')
+    this._setElvira('fest')
     if (this._elvira && !this._elvira.destroyed && this._carousel && !this._carousel.destroyed) {
       const cx = this._carousel.x
       const cy = this._carousel.y - 24

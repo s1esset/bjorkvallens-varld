@@ -1087,21 +1087,32 @@ export default {
 
   // Spelets egen finish: den fyllda dumpern KÖR IVÄG med lasten (hela riggen — flak,
   // last och allt — rullar ut ur bild), och en tom backar in med en ny sorts last.
+  //
+  // Kedjan är lastraden → "Bobo kör iväg med lasten!" → nästa lasts intro, och bilden
+  // följer orden: dumpern står kvar full medan lastraden (2,3–3,7 s) sägs och kör iväg i
+  // SAMMA ögonblick som Bobo säger att den gör det. Förut körde den efter fasta 0,85 s,
+  // raden köade bakom lastraden och utgick när den tomma dumpern redan parkerat — hörd i
+  // 1 av 3 laster (`scripts/_bobokedja.mjs`, ägarens beslut 2026-09-23). Introt köas av
+  // _loadLevel mitt i tidslinjen och hamnar efter Bobo i narTyst-kön (FIFO).
   _deliver(ctx) {
     const rig = this._rig
     if (!rig || rig.destroyed) return
     this._deliverTl?.kill()
-    this._deliverTl = gsap
-      .timeline({ delay: 0.85 })
-      .add(() => {
-        if (!this._alive) return
-        // "Full last …" är 2,3–3,7 s och say() kapar — raden väntar in rösten. Har den
-        // tomma dumpern hunnit parkera (tidslinjen klar) är den inaktuell och utgår.
-        const tl = this._deliverTl
-        ctx.narTyst(() => {
-          if (this._alive && this._deliverTl === tl && tl?.isActive()) ctx.services.voice.say('Bobo kör iväg med lasten!')
-        })
+    const tok = (this._deliverTok = (this._deliverTok || 0) + 1)
+    ctx.later(0.85, () => {
+      if (!this._alive) return
+      ctx.narTyst(() => {
+        if (!this._alive || this._deliverTok !== tok || rig.destroyed) return
+        ctx.services.voice.say('Bobo kör iväg med lasten!')
+        this._korIvag(ctx, rig)
       })
+    })
+  },
+
+  _korIvag(ctx, rig) {
+    this._deliverTl?.kill()
+    this._deliverTl = gsap
+      .timeline()
       .to(rig, { x: -22, duration: 0.3, ease: 'back.in(2)' }) // liten sats bakåt före starten
       .to(rig, {
         x: 620,

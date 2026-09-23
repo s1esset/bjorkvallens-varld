@@ -117,6 +117,14 @@ rekvisita, och auto-hjälp + tap-fusk kan kringgå själva grävandet**.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Leveranskedjan följer orden** (ägarens beslut, samma dag): lastraden →
+  "Bobo kör iväg med lasten!" → nästa lasts intro. Dumpern står kvar full medan lastraden
+  sägs och kör iväg i SAMMA ögonblick som Bobo-raden (`_deliver` köar starten via
+  `ctx.narTyst`, `_korIvag` är tidslinjen). **MÄTT** (`scripts/_bobokedja.mjs`, ny, spelets
+  riktiga `_onFull`): Bobo-raden hörd **1/3 → 4/4**, introt efter Bobo 4/4, riggen i rörelse
+  0,5 s efter raden 2/2, 0 kapningar. Priset: finalen är 0–2,9 s längre (dumpern väntar in
+  lastraden). Det öppna designvalet nedan är därmed stängt.
+
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onFull` spelade eget vinstljud
   och eget konfettiregn i samma tick som `complete()` — strukna. Lastens egen rad ("Full last
   med grus! …") sägs före `complete()` och står kvar. "Bobo kör iväg med lasten!" och nästa

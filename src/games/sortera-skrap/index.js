@@ -17,7 +17,7 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { bounceIn, sparkle, ripple, pop, wiggle, breathe, shake, floatText, puff } from '../../lib/feedback.js'
+import { bounceIn, sparkle, ripple, pop, wiggle, breathe, shake, floatText, puff, burst } from '../../lib/feedback.js'
 
 // Talade svenska fraser (TTS). Korta, varma, alltid positiva.
 const VOICE = {
@@ -49,6 +49,13 @@ const LEVELS = [
 ]
 
 const ITEM_R = 58 // föremålets skivradie (designkoordinater)
+
+// SÄLLSYNT GULDSKRÄP. Ungefär var fjärde runda bär EN sak ett guldsken och glittrar.
+// Saken själv är oförändrad (samma form, samma tunna) — bara skenet är nytt — så ingen
+// regel och ingen ledtråd ändras. Hamnar den rätt: gnistregn i guld + ett ljust arpeggio.
+const GULD_CHANS = 0.25
+const GULD_FARGER = [0xffd35c, 0xffc233, 0xfff3b0, 0xffe27a]
+const GULD_ARPEGGIO = [1046.5, 1318.51, 1567.98, 2093] // C6–E6–G6–C7
 
 // FULL TUNNA. Saken försvann tidigare bakom tunnan och lämnade inget spår — tunnan såg
 // exakt likadan ut efter tio saker som före den första. Nu lägger varje svald sak en
@@ -241,6 +248,8 @@ export default {
   init(ctx) {
     this._alive = true
     this._started = false
+    this._tid = 0 // speltid (s) för guldskräpets tindrande
+    this._guldGnista = 0 // speltid för guldskräpets senaste gnistor
     this._level = clampLevel(ctx.progress.get().highestLevel | 0)
 
     this._root = new Container()
@@ -329,6 +338,7 @@ export default {
 
     // --- skräp-högen (varierad varje runda) ---
     const batch = this._makeBatch(lvl, activeKeys)
+    if (Math.random() < GULD_CHANS) batch[(Math.random() * batch.length) | 0].guld = true
     const spots = layoutItems(ctx, batch.length)
     batch.forEach((data, i) => {
       const c = this._makeItem(data, ITEM_R)
@@ -358,7 +368,14 @@ export default {
     })
 
     this._cue = VOICE.cue
-    if (announce && this._started) ctx.services.voice.say(this._cue)
+    // Nya rundan byggs 1,4 s efter complete(), mitt i dess beröm (1,0–2,3 s) — och `say()`
+    // kallar `cancel()`. Tunnorna och högen kommer genast; bara instruktionen väntar in
+    // rösten. Är rundan redan klar när det blir dess tur har den inget att säga.
+    if (announce && this._started) {
+      ctx.narTyst(() => {
+        if (this._alive && !this._roundDone) ctx.services.voice.say(this._cue)
+      })
+    }
   },
 
   // En varierad, jämnt fördelad hög: round-robin över aktiva kategorier, distinkta
@@ -406,6 +423,13 @@ export default {
     pop(bin, { scale: 1.05 - 0.035 * binFill(bin) })
     if (Math.random() < 0.55) ctx.services.voice.say(randomFrom(PRAISE_SV))
     if (Math.random() < 0.4) floatText(this._fx, mx, my - 10, '⭐', { fontSize: 44, rise: 64 })
+    if (it.data.guld) {
+      // Guldskräpet: gnistregn i guld över tunnan + ett ljust, stigande C-dur-arpeggio
+      // (efter lockets klonk, så de två inte ligger på varandra).
+      burst(this._fx, mx, my - 10, { count: 22, colors: GULD_FARGER, power: 1.3 })
+      sparkle(this._fx, mx, my - 40, { count: 10 })
+      GULD_ARPEGGIO.forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.14, type: 'triangle', vol: 0.1, delay: 0.1 + i * 0.07 }))
+    }
 
     this._dropIntoBin(it, bin)
 
@@ -609,13 +633,16 @@ export default {
       gsap.delayedCall(0.3 + 0.22 * i, () => this._burp(ctx, b))
     })
 
-    gsap.delayedCall(0.4, () => {
+    // `ctx.later`, inte `gsap.delayedCall`: modulen är en singleton, så en delayedCall från
+    // förra omgången överlevde exit — och gick barnet ut och in inom 1,8 s var `_alive` åter
+    // sann, så gamla anropet firade och byggde om rundan mitt i den nya omgången.
+    ctx.later(0.4, () => {
       if (!this._alive) return
       ctx.progress.complete()
       shake(this._root, { intensity: 5, duration: 0.5 })
     })
 
-    gsap.delayedCall(1.8, () => {
+    ctx.later(1.8, () => {
       if (!this._alive) return
       this._buildRound(ctx, true)
     })
@@ -628,12 +655,21 @@ export default {
     const dt = ticker.deltaMS / 1000
     const k = Math.min(1, dt * 12)
 
+    this._tid += dt
     for (const it of this._items) {
       const c = it.container
       if (!c || c.destroyed || it.sorted) continue
       const lifted = this._drag.active?.view === c || this._drag.selected?.view === c
       it.lift += ((lifted ? 1 : 0) - it.lift) * k
       if (c._content && !c._content.destroyed) c._content.y = -22 * it.lift
+      // Guldskräpet tindrar och strör då och då ett par gnistor (strypt: en gång per 0,8 s).
+      if (c._glitter && !c._glitter.destroyed) {
+        c._glitter.alpha = 0.55 + 0.45 * Math.sin(this._tid * 5)
+        if (this._tid - this._guldGnista > 0.8) {
+          this._guldGnista = this._tid
+          sparkle(this._fx, c.x + (Math.random() * 2 - 1) * 40, c.y - 22 * it.lift + (Math.random() * 2 - 1) * 40, { count: 2 })
+        }
+      }
       if (c._shadow && !c._shadow.destroyed) {
         const s = 1 + 0.5 * it.lift
         c._shadow.scale.set(s)
@@ -837,6 +873,23 @@ export default {
     const emoji = drawTrash(data.emoji)
     emoji.scale.set(r / 50)
     content.addChild(disc, emoji)
+    if (data.guld) {
+      // Guldskräp: ett varmt sken + en guldring bakom saken och fyra ritade glitterstjärnor
+      // runt den. Stjärnorna tindrar via `_update` (alfa varje bildruta, inga tweens).
+      disc.clear()
+        .circle(0, 0, r * 1.02).fill({ color: 0xffd35c, alpha: 0.38 })
+        .circle(0, 0, r * 0.95).stroke({ width: 5, color: 0xffc233, alpha: 0.9 })
+      const glitter = new Graphics()
+      for (const [sx, sy, s] of [[-0.74, -0.66, 12], [0.8, -0.42, 9], [0.64, 0.72, 11], [-0.82, 0.5, 8]]) {
+        const x = sx * r
+        const y = sy * r
+        const k = s * 0.3
+        glitter.poly([x, y - s, x + k, y - k, x + s, y, x + k, y + k, x, y + s, x - k, y + k, x - s, y, x - k, y - k]).fill(0xfff3b0)
+      }
+      glitter.eventMode = 'none'
+      content.addChild(glitter)
+      c._glitter = glitter
+    }
 
     c.addChild(shadow, content)
     c._shadow = shadow

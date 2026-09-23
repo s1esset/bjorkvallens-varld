@@ -52,10 +52,11 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Tunnorna blir glada varelser.** Ge varje tunna ögon ovanför munnen som följer den
+- ✅ ~~**[Medium] Tunnorna blir glada varelser.** Ge varje tunna ögon ovanför munnen som följer den
   sak man håller, gapar när den närmar sig och *tuggar/rapar* belåtet vid rätt material (lånar
   mönstret från `mata-monstret`). Då blir varje släpp ett möte, inte en inlämning — och fel
-  tunna kan vänligt skaka på huvudet ("inte min sort!") utan bestraffning.
+  tunna kan vänligt skaka på huvudet ("inte min sort!") utan bestraffning.~~ Redan byggd
+  2026-07-02 (`_makeBin`, `_chew`, `_headShake`; rapen 2026-08-12) — uppdagat 2026-09-23.
 - **[Deep] En mottagare/maskot.** Bobo som sopgubbe (eller en liten återvinningsbil) som rullar
   in, tar emot full hög och *tackar* med en egen vinst-animation istället för generisk konfetti.
 
@@ -66,8 +67,11 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
 - ~~**[Quick] Lekfullare hög.**~~ ✅ **REDAN BYGGD 2026-07-02** (`layoutItems` jitterar x/y,
   `_makeItem` lutar varje sak ±0,22 rad) — punkten stod kvar som öppen i §4 fast §5 loggade
   den. Struken 2026-08-12.
-- **[Quick] Sällsynt guld-skräp.** Då och då en glittrande sak som ger extra gnistregn när den
-  hamnar rätt — ett litet "wow" som driver "en till!".
+- ✅ ~~**[Quick] Sällsynt guld-skräp.** Då och då en glittrande sak som ger extra gnistregn när den
+  hamnar rätt — ett litet "wow" som driver "en till!".~~ Klar 2026-09-23 (v1.251.0): ungefär var
+  fjärde runda (`GULD_CHANS` :56) bär EN sak ett guldsken med fyra ritade glitterstjärnor som
+  tindrar och strör gnistor (strypt, en gång per 0,8 s). Rätt tunna → gnistregn i guld + ett ljust
+  C6–E6–G6–C7-arpeggio (:426). Saken själv är oförändrad, så ingen regel eller ledtråd ändras.
 
 ### Juice
 - ~~**[Quick] Materialspecifik SFX**~~ ✅ **REDAN BYGGD 2026-07-02** (`_materialSound`:
@@ -85,8 +89,10 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
 ### Progression
 - **[Medium] Städad-värld-mätare.** Lägg lite skräp på marken i scenen som krymper när jag
   sorterar; full runda → ängen blir blank/blommar. Ger ett *synligt* mål bortom "töm högen".
-- **[Quick] Mjuk scen-progression** (cross-fade mellan scener mellan rundor) så världen känns
-  sammanhängande, inte hård-ombyggd.
+- ~~**[Quick] Mjuk scen-progression** (cross-fade mellan scener mellan rundor) så världen känns
+  sammanhängande, inte hård-ombyggd.~~ Premissen föll (SNABBVINSTER D, bekräftat 2026-09-23):
+  spelet har EN scen — ängen byggs en gång i `init` (:258) och byts aldrig mellan rundor, så det
+  finns inget att tona mellan. Bara tunnorna och högen byggs om, och de studsar redan in.
 
 ### Karaktär & berättelse
 - **[Deep] Liten värld kring tunnorna** — en park med en bänk, en fågel som hejar, så scenen
@@ -95,9 +101,21 @@ kategorierna är medvetet lätta att skilja (papper vs mat). Strikt felfritt.
 ### Ljud
 - **[Quick] Variera vinst-stinget** (verifiera att den globala variationen triggas här) + en
   lugn fågel-/vind-ambient i bakgrunden.
+  *Variationen triggas (verifierat i koden 2026-09-23): spelet firar bara via `complete()`, som
+  spelar `sfx('celebrate')` → `AudioService._celebrate` (:166) med slumpad tonhöjd/tempo och
+  variant. Kvar är ambienten, som kräver ett SFX-klipp — blockerad så länge MOSS är nere.*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0):
+  - **Firandet:** spelet firade bara via `complete()` (rent), men nästa rundas instruktion sades
+    1,4 s efter `complete()`, mitt i berömmet, och kapade det. Den köar nu i `ctx.narTyst` och
+    tystnar om rundan hunnit bli klar. Tunnorna och högen kommer genast.
+  - **Exitsäkerhet:** `complete()` (0,4 s) och rundbygget (1,8 s) gick via `gsap.delayedCall`,
+    som överlever exit — gick barnet ut och in inom 1,8 s firade och byggde det gamla anropet om
+    rundan mitt i den nya omgången (`_alive` var åter sann). Nu `ctx.later` (:639/:645).
+  - **Sällsynt guldskräp** (se §4). **Scen-crossfaden struken** — spelet har en enda scen.
+  - Grind: `check --game sortera-skrap` 0/0. Ej webbläsartestad av agenten.
 - 2026-06-30: Doc skriven (granskning + plan). Inga kodändringar. Testkörning ren (errorCount 0),
   skärmdump verifierad (äng, två tunnor, varierad hög).
 - Rekommenderad första-omgång: **[Medium] tunnor med ögon/tugg + [Quick] materialspecifik SFX +

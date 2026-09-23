@@ -19,6 +19,7 @@ import { floatText, sparkle, puff, burst, pop, kvittera } from '../../lib/feedba
 import { randomFrom } from '../../lib/swedish.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS } from '../../lib/theme.js'
+import { bage } from '../../lib/form.js'
 
 const { Body } = Matter
 
@@ -521,7 +522,7 @@ export default {
     for (let i = -1; i <= 1; i++) basket.moveTo(i * 22, -18).lineTo(i * 18, 24)
     basket.moveTo(-38, 2).lineTo(38, 2)
     basket.stroke({ width: 3, color: 0x8a5a3b, alpha: 0.5 })
-    basket.arc(0, -20, 30, Math.PI, 0).stroke({ width: 6, color: 0x8a5a3b })
+    bage(basket, 0, -20, 30, Math.PI, 0).stroke({ width: 6, color: 0x8a5a3b })
     basket.position.set(PICNIC_X - 74, PICNIC_GROUND - 22)
     p.addChild(basket)
     this._basket = basket

@@ -546,8 +546,13 @@ export default {
     }
 
     // Mjuka timers.
-    this._idle += dts
-    this._sinceLight += dts
+    // V21: tomgången räknas från TYSTNAD — varken om-cuen eller Bobos hjälp-replik får
+    // kapa en replik som talar. Om-cue-klockan står på noll medan rösten talar;
+    // hjälpklockan PAUSAS i stället, annars nollar om-cuens egen replik den varje varv
+    // (6 s < 7 s) och auto-hjälpen kommer aldrig.
+    const talar = ctx.services.voice.talar
+    this._idle = talar ? 0 : this._idle + dts
+    if (!talar) this._sinceLight += dts
     if (this._idle >= IDLE_DELAY && !this._resolving) {
       this._idle = 0
       this._recue(ctx)

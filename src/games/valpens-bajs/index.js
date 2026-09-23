@@ -584,11 +584,15 @@ export default {
     // Flugor börjar surra efter ~4s (rent komiskt).
     this._scheduleFlies(ctx, pile)
 
-    // Lär ut skyffeln en gång, strax efter intro.
+    // Lär ut skyffeln en gång, strax efter intro. V24: första högen kommer ~5,2 s in och
+    // introt är 6,0 s — repliken väntar in rösten i stället för att kapa introts slut.
     if (!this._saidScoop) {
       this._saidScoop = true
       this._scoopCueCall = gsap.delayedCall(0.6, () => {
-        if (this._alive && !this._resolving) ctx.services.voice.say('Skyffla bajset i tunnan!')
+        if (!this._alive) return
+        ctx.narTyst(() => {
+          if (this._alive && !this._resolving) ctx.services.voice.say('Skyffla bajset i tunnan!')
+        })
       })
     }
   },

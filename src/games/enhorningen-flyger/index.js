@@ -13,10 +13,10 @@
 import { Container, Graphics, Text, Rectangle, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { COLORS, PLAYFUL, FONT, PRAISE } from '../../lib/theme.js'
+import { COLORS, PLAYFUL, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { makeElvira } from '../../lib/figurer.js'
-import { sparkle, puff, wiggle, pop, bounceIn, breathe, floatText, burst, bigCelebration , kvittera} from '../../lib/feedback.js'
+import { sparkle, puff, wiggle, pop, bounceIn, breathe, floatText, burst, kvittera } from '../../lib/feedback.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -296,7 +296,7 @@ export default {
     for (const c of [...layer.children]) c.destroy()
     this._pipNodes = []
     const n = this._target
-    const gap = 50
+    const gap = 58
     const startX = -((n - 1) * gap) / 2
     for (let i = 0; i < n; i++) {
       const g = new Graphics()
@@ -307,10 +307,11 @@ export default {
     }
   },
 
-  _lightPip(i) {
+  // Pipen fylls med RINGENS färg — barnet ser att det var just den ringen som räknades.
+  _lightPip(i, color) {
     const g = this._pipNodes[i]
     if (!g || g.destroyed) return
-    drawPip(g, true, PLAYFUL[i % PLAYFUL.length])
+    drawPip(g, true, color ?? PLAYFUL[i % PLAYFUL.length])
     pop(g, { scale: 1.3 })
   },
 
@@ -419,6 +420,9 @@ export default {
     const gallop = this._t * 0.28
     this._uniEmoji.y = Math.sin(gallop) * 4
     this._uniEmoji.scale.set(1, 1 + Math.sin(gallop) * 0.05)
+    // Vingen flaxar i galoppens takt (den var en egen nod för just det, men stod still).
+    const wing = this._uniEmoji._wing
+    if (wing && !wing.destroyed) wing.rotation = Math.sin(gallop) * 0.32
     const aim = nextRing ? clamp((nextRing.ry - uni.y) * 0.0016, -0.13, 0.13) : 0
     this._uniEmoji.rotation = clamp(this._vy * 0.01 + aim, -0.22, 0.22)
 
@@ -538,7 +542,7 @@ export default {
     floatText(ctx.fxLayer, UNI_X, uni.y - 60, '⭐', { fontSize: 56 })
     this._ringBurst(ctx, r)
     if (this._rider && !this._rider.destroyed) pop(this._rider, { scale: 1.14 })
-    this._lightPip(this._ringsDone)
+    this._lightPip(this._ringsDone, r.color)
     this._ringsDone++
     // Variation + sparsamt beröm var 3:e ring.
     if (this._ringsDone % 3 === 0) {
@@ -632,10 +636,8 @@ export default {
     if (!this._alive || this._resolving) return
     this._resolving = true
     const uni = this._uni
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
+    // Vinstljud, beröm och konfettiregn kommer från complete() nedan — här bara det egna.
     if (uni && !uni.destroyed) pop(uni, { scale: 1.25 })
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, UNI_X, uni ? uni.y : 360)
 
     ctx.progress.setLevel(this._level + 1)
@@ -657,7 +659,13 @@ export default {
     }
     this._vy = 0
     this._buildLevel(ctx)
-    ctx.services.voice.say('Fler ringar!')
+    // Banan startar genast; orden väntar tills berömmet från complete() är klart (say()
+    // kapar annars det). Nivå-token: en kö som hann bli inaktuell säger ingenting.
+    const lvl = this._level
+    ctx.narTyst(() => {
+      if (!this._alive || this._level !== lvl) return
+      ctx.services.voice.say('Fler ringar!')
+    })
   },
 
   // ---- Styrning (egen vertikal pointer-logik) ------------------------------
@@ -830,9 +838,10 @@ function makeParallaxCloud(scale = 1) {
 function drawPip(g, lit, color) {
   g.clear()
   if (lit) {
-    g.circle(0, 0, 16).fill(color).stroke({ width: 5, color: 0xffffff })
+    g.circle(0, 0, 20).fill(color).stroke({ width: 6, color: 0xffffff })
+    g.circle(-6, -7, 5).fill({ color: 0xffffff, alpha: 0.5 }) // glans
   } else {
-    g.circle(0, 0, 16).stroke({ width: 6, color: 0xffffff, alpha: 0.85 })
+    g.circle(0, 0, 20).stroke({ width: 7, color: 0xffffff, alpha: 0.85 })
   }
 }
 

@@ -61,13 +61,15 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Tätare, mer varierad bana.** Minska luckorna något och blanda in ring-par på olika
+- ✅ ~~**[Medium] Tätare, mer varierad bana.**~~ Redan byggd (index.js:252-281, sicksack + syskonpar +
+  stjärnbågar, 2026-07-01) — uppdagat 2026-09-23. Minska luckorna något och blanda in ring-par på olika
   höjd, sicksack-stigar och stjärn-bågar man "skördar" genom att glida i en kurva — gör höjd-valet
   till ett kontinuerligt sikte i stället för enstaka glesa ringar.
 - **[Medium] Synligt sikte.** Rita en svag prickad "ideallinje" eller en glöd i nästa rings mitt
   som svarar när enhörningen är på rätt höjd — gör barnets styrning till ett tydligt val (och låt
   auto-magneten skärpas först när barnet verkligen sackar).
-- **[Deep] Ringen reagerar på passage.** Låt ringen spricka i en färgvåg / studsa undan / skicka
+- ✅ ~~**[Deep] Ringen reagerar på passage.**~~ Redan byggd (`_ringBurst` index.js:558, 2026-08-06) —
+  uppdagat 2026-09-23. Låt ringen spricka i en färgvåg / studsa undan / skicka
   ut konfetti i sin egen färg vid genomflygning, i stället för en generisk `pop` — varje ring ett
   litet eget ögonblick.
 
@@ -78,19 +80,28 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
   `createScene`-tema/crossfade, så långa sessioner känns nya.
 
 ### Juice
-- **[Quick] Enhörningen lever:** lägg vingslag/galopp-bob (liten y-oscillation kopplad till `_t`),
-  fladdrande man, och låt huvudet luta *mot nästa ring*. Förstärk svansen vid hög fart.
-- **[Quick] Magiskt genomflygnings-ljud** (uppåtgående klang) + ett mjukt vind-sus vars tonhöjd
-  följer scroll-farten (lägre när 🐢 slow är på).
-- **[Quick] Ring-genomflygning** ger en kort ljus-ring/skärmglimt i ringens färg.
+- ✅ ~~**[Quick] Enhörningen lever:**~~ Klar 2026-09-23 (v1.251.0): galopp-bob, lutning mot nästa
+  ring och tätare svans fanns sedan 2026-07-01 (index.js:416-424, :490-496) — men vingen, egen
+  nod sedan 2026-08-04 just för att flaxa, stod still. Nu flaxar den i galoppens takt (:425).
+  Manen fladdrar inte (ritad i samma Graphics som kroppen). Ursprunglig text: lägg vingslag/
+  galopp-bob (liten y-oscillation kopplad till `_t`), fladdrande man, och låt huvudet luta *mot
+  nästa ring*. Förstärk svansen vid hög fart.
+- ✅ ~~**[Quick] Magiskt genomflygnings-ljud** (uppåtgående klang)~~ Redan byggd (index.js:537-540)
+  — uppdagat 2026-09-23.
+- **[Quick] Vind-sus** vars tonhöjd följer scroll-farten (lägre när 🐢 slow är på). ⛔ Kräver ett
+  slingklipp — `audio.tone` är en blipp, inte ett sus, och SFX-pipelinen (MOSS) är nere.
+- ✅ ~~**[Quick] Ring-genomflygning** ger en kort ljus-ring/skärmglimt i ringens färg.~~ Redan byggd
+  (`_ringBurst` index.js:558, färgvågen i ringens färg) — uppdagat 2026-09-23.
 
 ### Progression
 - **[Medium] Tydligare mål i världen.** Visa "regnbågsporten" eller Elvira i fjärran till höger
   som närmar sig när pipsen fylls — så barnet ser *vart* resan går, inte bara abstrakta hoops.
-- **[Quick] Pip-raden större och mer levande** (fyll med ringens faktiska färg, studs vid varje).
+- ✅ ~~**[Quick] Pip-raden större och mer levande**~~ Klar 2026-09-23 (v1.251.0): pipen 16 → 20 px med
+  glans, och den fylls med den passerade RINGENS färg (`_lightPip(i, color)` :311); studsen fanns.
 
 ### Karaktär & berättelse
-- **[Deep] Elvira med.** Sätt Elvira som ryttare på enhörningen (eller väntande i mål som vinkar
+- ✅ ~~**[Deep] Elvira med.**~~ Redan byggd (hon rider, index.js:157, 2026-08-06) — uppdagat 2026-09-23.
+  Sätt Elvira som ryttare på enhörningen (eller väntande i mål som vinkar
   in henne och kramar vid varje nivåslut) — ger berättelsen ett ansikte och en spelspecifik
   vinst-scen i stället för generisk konfetti.
 - **[Quick] Insamlade stjärnor landar i en liten "stjärnpåse"** vid pipsen — något att samla över
@@ -98,10 +109,16 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
 
 ### Ljud
 - **[Quick] Riktiga SFX från [[real-audio-sfx]]:** galopp, magiskt sus, ring-klang — ersätt
-  syntetblippen; ersätt TTS-fraserna med förgenererade klipp.
+  syntetblippen. ⛔ Kräver nya SFX-klipp (MOSS nere). Röst-halvan är klar: alla sex repliker
+  har förgenererade klipp (kontrollerat mot manifestet 2026-09-23).
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_win` spelade eget vinstljud +
+  PRAISE + konfettiregn i samma tick som `complete()` — strukna (värdet firar). "Fler ringar!" kom
+  på en fast 1,6 s och kapade berömmet; köar nu via `ctx.narTyst` med nivå-token. Pipsen fylls
+  med den passerade ringens färg och är större (20 px + glans); vingen flaxar i galoppens takt
+  (den var en egen nod men stod still sedan 2026-08-04).
 - 2026-06-30: Doc skriven (granskning + plan, ersätter gammal bygg-spec). Testat headless med drag
   (errorCount 0), skärmdump läst (gles scen noterad). Inga kodändringar.
 - Rekommenderad första-omgång: **[Medium] tätare/varierad bana + [Quick] levande enhörning

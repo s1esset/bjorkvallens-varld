@@ -808,6 +808,9 @@ export default {
 
   _update(ctx, ticker) {
     if (!this._alive) return
+    // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+    // annars kapar påminnelsens say() en replik som redan talar).
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += ticker.deltaMS / 1000
     if (this._idle > 6 && !this._resolving) {
       this._idle = 0

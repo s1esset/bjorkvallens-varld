@@ -316,8 +316,11 @@ export default {
     // Fånga mål (vid kontakt).
     this._checkCollect(ctx)
 
-    // Auto-hjälp så ett mål ALLTID nås (no-fail).
-    this._sinceCollect += dtSec
+    // Auto-hjälp så ett mål ALLTID nås (no-fail). Klockan STÅR medan rösten talar, så
+    // hjälpens replik aldrig kapar en som talar. Den pausas i stället för att nollas:
+    // tomgångs-cuen nedan talar var ~6:e tyst sekund, och en nollning då hade svultit
+    // ut hjälpen helt.
+    if (!ctx.services.voice.talar) this._sinceCollect += dtSec
     const remaining = this._goals.filter((g) => !g.got)
     if (remaining.length) {
       if (this._sinceCollect >= GLIDE_DELAY) {
@@ -329,6 +332,8 @@ export default {
     }
 
     // Tyst om-tilltal om barnet inte tryckt på ~6 s (kaninen studsar ändå vidare).
+    // Tomgången räknas från TYSTNAD — annars kapar om-tilltalet en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dtSec
     if (this._idle > IDLE_DELAY) {
       this._idle = 0

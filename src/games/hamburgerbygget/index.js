@@ -970,6 +970,8 @@ export default {
 
     if (this._phase === 'decorate') {
       this._idle += dt
+      // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       if (this._idle > 6.5) {
         this._idle = 0
         ctx.services.voice.say(randomFrom(RECUE))

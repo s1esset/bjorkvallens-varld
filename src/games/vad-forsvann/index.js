@@ -228,6 +228,15 @@ const LEVELS = [
 
 const HALF = 95 // halv cell -> generös träffyta (190px ≫ 96px minimum)
 
+// STJÄRNRADEN: klarade rundor (`custom.rundor`) syns som ritade stjärnor överst mellan
+// skalets två knappar (hem x 24–116, högtalare x 1164–1256). Raden växer åt höger från en
+// fast start och stannar vid STJARN_MAX — den kan aldrig minska. Nedersta kanten (y 62)
+// ligger 43 px ovanför det översta rutnätets träffyta även när 2-radsnivån glidit upp.
+const STJARN_MAX = 10
+const STJARN_Y = 46
+const STJARN_STEG = 40
+const STJARN_X0 = 640 - ((STJARN_MAX - 1) * STJARN_STEG) / 2
+
 // VILORÖRELSE per motiv. `_livprobe` mätte spelet på NOLL levande objekt: raden stod
 // blick stilla medan barnet memorerade den, alltså läste den som fyra utklippta kort och
 // inte som fyra saker på en hylla. Karaktären ligger i att de INTE guppar likadant —
@@ -338,6 +347,15 @@ export default {
     }
     room.on('pointertap', this._onRoomTap)
     this._root.addChild(room)
+
+    // Klarade rundor som ritade stjärnor (under rutnätet och filten i ritordningen).
+    this._stjarnRad = new Container()
+    this._stjarnRad.eventMode = 'none'
+    this._stjarnRad.interactiveChildren = false
+    this._root.addChild(this._stjarnRad)
+    this._nyStjarna = null
+    const klarade = Math.min(STJARN_MAX, ctx.progress.get().custom?.rundor || 0)
+    for (let i = 0; i < klarade; i++) this._stjarnRad.addChild(makeRundStjarna(i))
 
     // Rutnätet bor i ett eget lager så vi kan glida upp det när svarskorten kommer.
     this._gridShift = lvl.rows > 1 ? 90 : 0
@@ -648,7 +666,19 @@ export default {
       : `Ja! Det var ju ${namn}! ${randomFrom(PRAISE)}`
     ctx.services.voice.say(line)
 
-    ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
+    const rundor = (ctx.progress.get().custom?.rundor || 0) + 1
+    ctx.progress.setCustom('rundor', rundor)
+    // En ny stjärna i raden (tills den är full) — studsar in där den ska sitta.
+    if (rundor <= STJARN_MAX && this._stjarnRad && !this._stjarnRad.destroyed) {
+      const st = makeRundStjarna(rundor - 1)
+      this._stjarnRad.addChild(st)
+      this._nyStjarna = st
+      bounceIn(st, { delay: 0.25 })
+      const sp = ctx.fxLayer.toLocal(st.getGlobalPosition())
+      ctx.later(0.3, () => {
+        if (this._alive && !st.destroyed) sparkle(ctx.fxLayer, sp.x, sp.y, { count: 8 })
+      })
+    }
     this._level = clampLevel(this._level + 1)
     ctx.progress.setLevel(this._level)
     ctx.progress.complete()
@@ -711,7 +741,15 @@ export default {
   _newRound(ctx) {
     if (!this._alive) return
     this._build(ctx)
-    ctx.services.voice.say(this._introLine())
+    // Rundan kommer 1,7 s efter rätt svar, men "Ja! Det var ju …! <beröm>" är längre än så
+    // och say() kapar. Sakerna står redan här; bara introt väntar in berättaren — och
+    // sägs bara om det fortfarande är samma runda och barnet inte redan gömt sakerna.
+    const runda = (this._runda = (this._runda || 0) + 1)
+    ctx.narTyst(() => {
+      if (!this._alive || this._runda !== runda || this._phase !== 'show') return
+      this._idle = 0 // tjatet räknas från när introt faktiskt sägs
+      ctx.services.voice.say(this._introLine())
+    })
   },
 
   // Idle ~6s: locka vänligt vidare beroende på fas (aldrig press).
@@ -768,6 +806,8 @@ export default {
       gsap.killTweensOf(this._button.scale)
     }
     if (this._blanket) gsap.killTweensOf(this._blanket)
+    if (this._nyStjarna && !this._nyStjarna.destroyed) gsap.killTweensOf(this._nyStjarna.scale)
+    this._nyStjarna = null
   },
 
   destroy(ctx) {
@@ -790,6 +830,27 @@ function clampLevel(l) {
 // Versal första bokstav (svensk mening: "Äpplet kom till!").
 function cap(s) {
   return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// En klarad runda: en ritad guldstjärna med glans (fristående föremål, ingen ruta runt).
+function makeRundStjarna(i) {
+  const pts = []
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5
+    const r = k % 2 ? 7 : 16
+    pts.push(Math.cos(a) * r, Math.sin(a) * r)
+  }
+  // Husmönstret: containern får läget, Graphics ritas i origo inuti (en bar Graphics i
+  // origo med stor `.position` är en känd helskärmsstapel-fälla).
+  const c = new Container()
+  const g = new Graphics()
+    .poly(pts).fill(COLORS.yellow).stroke({ width: 3, color: COLORS.orange, alpha: 0.85 })
+    .circle(-4, -5, 2.6).fill({ color: COLORS.white, alpha: 0.9 })
+  g.eventMode = 'none'
+  c.addChild(g)
+  c.eventMode = 'none'
+  c.position.set(STJARN_X0 + i * STJARN_STEG, STJARN_Y)
+  return c
 }
 
 // Cellpositioner (center) för en nivå.

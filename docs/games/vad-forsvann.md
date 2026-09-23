@@ -73,22 +73,22 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
 ### Variation & överraskning
 - ✅ ~~**[Quick] Liv medan man memorerar.**~~ Klar 2026-08-12 (v1.167.0): vilorörelse per motiv
   i ett inre lager — ballongen driver, bilen vaggar på hjulen, fjärilen fladdrar. Se §5.
-- **[Quick] "Magiskt försvinnande".** När saken göms bakom filten: lägg en liten glitter-pluff
-  + ett mjukt "poff" så att försvinnandet känns trolskt i stället för att rutan bara tystnar.
+- ✅ ~~**[Quick] "Magiskt försvinnande".**~~ Redan byggd (poff-ton :524 + `reveal` bakom filten,
+  gnist-pluff när den glider undan) — uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Riktiga ljud.** Mjukt tyg-frasande medan filten glider ([[real-audio-sfx]]), ett
-  "poff"/gnist-ljud vid försvinnandet, och ett sak-specifikt ljud när den kommer tillbaka
-  (hund → voff, bil → tut) ovanpå namn-TTS via `audio.sample`.
-- **[Quick] Tydligare "rätt"-ögonblick.** När saken studsar tillbaka: en stråle/ring kring dess
-  ruta + stigande pling, så att återkomsten känns som en liten triumf, inte bara en `bounceIn`.
+- **[Quick] Riktiga ljud.** Poffet och de sak-specifika ljuden finns (`SAMPLES` via `audio.sample`,
+  :661). Kvar: tyg-frasandet medan filten glider — kräver ett SFX-klipp (MOSS nere).
+- ✅ ~~**[Quick] Tydligare "rätt"-ögonblick.**~~ Redan byggd (triumf-ring :658 + stigande pling) —
+  uppdagat 2026-09-23.
 
 ### Progression
 - **[Medium] Dämpa platshållar-spoilern på högre nivåer.** Låt den tomma rutan bli mer neutral
   (eller försvinna helt) på nivå 2+, så att barnet verkligen måste minnas *vad* och inte luta
   sig mot *var* luckan är. Behåll tydlig "❔" för de yngsta.
-- **[Quick] Visa "rundor klarade".** Gör `custom.rundor` synligt som små samlade ikoner — en
-  växande behållning mellan rundor.
+- ✅ ~~**[Quick] Visa "rundor klarade".**~~ Klar 2026-09-23 (v1.251.0): `custom.rundor` som en rad ritade
+  guldstjärnor överst mellan skalets knappar (tak 10, kan aldrig minska). Den nya stjärnan
+  studsar in vid rätt svar (:352, `makeRundStjarna` :836).
 
 ### Karaktär & berättelse
 - **[Deep] En figur som gömmer sakerna.** Bobo (eller en busig skata 🐦 / trollkarl) som drar
@@ -96,10 +96,16 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
   rätt. Ger filt-mekaniken en aktör och firandet en mottagare i stället för generisk konfetti.
 
 ### Ljud
-- **[Quick] Verifiera varierat vinst-sting** vid `complete()` och lägg en lugn, lite mysteriös
-  bakgrunds-ambient som passar "vad göms"-tonen.
+- **[Quick] Verifiera varierat vinst-sting** — verifierat 2026-09-23: `complete()` spelar det globalt
+  varierade vinstljudet. Ambienten kräver ett SFX-klipp (MOSS nere) — öppen.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): spelets rad "Ja! Det var ju …! <beröm>"
+  stod redan före `complete()`, men nästa rundas intro kom efter 1,7 s och kapade den. Introt
+  köas nu med `ctx.narTyst` (:747, runda- och fas-token) och nollställer tjat-timern när det
+  sägs. I läget 'added' saknas klipp för "<Namn> kom till!", så raden går till talsyntesen. Nytt:
+  stjärnraden för klarade rundor. `check` 0/0.
 
 - 2026-08-12 ✨ **Hyllan lever medan barnet memorerar** (v1.167.0, N10 pass 6).
   `_livprobe` mätte spelet på **noll** levande objekt: raden stod blick stilla i visa-fasen,

@@ -11,7 +11,7 @@ import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, sparkle, ripple, shake, breathe, floatText } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, burst, ripple, shake, breathe, floatText } from '../../lib/feedback.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 
 // Föremålspool — bred variation så rundorna inte upprepar sig. Varje post har en
@@ -94,6 +94,10 @@ const SAMPLE = {
 }
 
 const ITEM_Y = 235 // föremålsraden (källor) upptill
+// Sällsynt gyllene skugga (~1 runda av 6): samma svarta silhuett — reglerna ändras inte —
+// men den ligger på en gyllene markskugga med glitterstjärnor som tindrar runt den.
+const GOLD_CHANCE = 1 / 6
+const GOLD = 0xffc233
 const SHADOW_Y = 560 // skuggraden (mål) på gräset
 
 export default {
@@ -180,6 +184,7 @@ export default {
     this._placed = 0
     this._resolving = false
     this._idle = 0
+    this._roundNr = (this._roundNr || 0) + 1
 
     // DJUP: fler föremål (2 → 6) och mindre figurer ju fler de blir.
     const count = Math.min(Math.max(2, 2 + Math.floor(this._level / 2)), 6)
@@ -197,10 +202,11 @@ export default {
     const itemOrder = shuffle(picks)
     const xs = this._slots(ctx, count)
     const hitR = Math.max(120, 150 * scale)
+    const goldIdx = Math.random() < GOLD_CHANCE ? Math.floor(Math.random() * count) : -1
 
     // Skuggor (mål) på gräset.
     shadowOrder.forEach((pick, i) => {
-      const sh = this._makeShadow(pick, scale)
+      const sh = this._makeShadow(pick, scale, i === goldIdx)
       sh.x = xs[i]
       sh.y = SHADOW_Y
       this._play.addChild(sh)
@@ -271,12 +277,14 @@ export default {
   // En skugg-plats: en svag markskugga + ett gömt varmt sken (tänds vid rätt) +
   // svart silhuett + färgföremål (börjar osynligt, litet). INGEN platta/ring bakom —
   // silhuetten ÄR målet (ägaråterkoppling: bara figuren, separerad).
-  _makeShadow(pick, scale) {
+  _makeShadow(pick, scale, golden = false) {
     const plateR = 78 * scale
     const slotR = plateR + 12
     const s = new Container()
 
-    const oval = new Graphics().ellipse(0, slotR * 0.78, slotR * 0.95, slotR * 0.34).fill({ color: 0x000000, alpha: 0.14 })
+    const oval = new Graphics()
+      .ellipse(0, slotR * 0.78, slotR * 0.95, slotR * 0.34)
+      .fill(golden ? { color: GOLD, alpha: 0.42 } : { color: 0x000000, alpha: 0.14 })
     oval.eventMode = 'none'
     const glow = new Graphics().circle(0, 0, slotR * 1.05).fill({ color: 0xfff3b0 })
     glow.alpha = 0
@@ -297,6 +305,21 @@ export default {
     s._dark = dark
     s._color = color
     s._glow = glow
+    s._golden = golden
+    s._twinkles = []
+    if (golden) {
+      // Tindrande glitter runt silhuetten (egna barn — målets träffyta står still).
+      // Ingen platta bakom figuren: silhuetten ÄR målet.
+      const spots = [[-0.95, 0.9], [-2.35, 0.95], [0.35, 1.0], [2.75, 0.85]]
+      spots.forEach(([a, f], i) => {
+        const t = makeTwinkle(9 + (i % 2) * 4)
+        t.position.set(Math.cos(a) * slotR * f, Math.sin(a) * slotR * f * 0.9)
+        t.scale.set(0.4)
+        s.addChild(t)
+        s._twinkles.push(t)
+        gsap.to(t.scale, { x: 1.15, y: 1.15, duration: 0.7, delay: i * 0.22, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+      })
+    }
     // Osynlig släpp-/tap-yta (>=96px). Drop-radien styrs separat via addTarget(hitRadius).
     s.hitArea = new Circle(0, 0, slotR)
     return s
@@ -351,6 +374,7 @@ export default {
 
     // Föremålets egen lilla reaktion (hoppar/rullar/fladdrar/snurrar) efter blomningen.
     this._reactFigure(sh, made.key)
+    if (sh._golden) this._goldenReward(ctx, sh)
 
     // Det dragna föremålet: glad puls, sedan göm/destruera (färgen sitter i skuggan).
     pop(rec.view)
@@ -495,6 +519,26 @@ export default {
     })
   },
 
+  // Gyllene skuggan hittad: guldregn, ett glittrigt C-dur-arpeggio ovanpå snäppet och en
+  // glad rad EFTER namnet (namnet sägs alltid — ordinlärningen går först, raden köar).
+  _goldenReward(ctx, sh) {
+    for (const t of sh._twinkles || []) {
+      if (t.destroyed) continue
+      gsap.killTweensOf(t.scale)
+      gsap.to(t.scale, { x: 1.6, y: 1.6, duration: 0.25, ease: 'power2.out' })
+      gsap.to(t, { alpha: 0, duration: 0.45, delay: 0.1 })
+    }
+    burst(ctx.fxLayer, sh.x, sh.y, { count: 18, colors: [GOLD, 0xffe27a, 0xffffff] })
+    sparkle(ctx.fxLayer, sh.x, sh.y - 30, { count: 12 })
+    ;[1046.5, 1318.5, 1568.0, 2093.0].forEach((f, i) =>
+      ctx.services.audio.tone({ freq: f, dur: 0.16, type: 'sine', vol: 0.1, delay: 0.24 + i * 0.07 })
+    )
+    const nr = this._roundNr
+    ctx.narTyst(() => {
+      if (this._alive && this._roundNr === nr) ctx.services.voice.say('Oj, vad det glittrar!')
+    })
+  },
+
   // --- Sken / ledtråd / idle ----------------------------------------------
 
   // Tänder slottens varma sken kort (exit-säkert: skriver bara om det lever).
@@ -555,6 +599,10 @@ export default {
       gsap.killTweensOf(s._glow)
       gsap.killTweensOf(s._glow.scale)
     }
+    for (const t of s._twinkles || []) {
+      gsap.killTweensOf(t)
+      gsap.killTweensOf(t.scale)
+    }
   },
 
   _killItemTweens(m) {
@@ -591,4 +639,17 @@ export default {
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },
+}
+
+// Fyrudd glitterstjärna för den gyllene skuggan (ritad, aldrig en emoji).
+function makeTwinkle(r) {
+  const pts = []
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4 - Math.PI / 2
+    const rr = i % 2 === 0 ? r : r * 0.3
+    pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
+  }
+  const g = new Graphics().poly(pts).fill(0xffe27a).stroke({ width: 1.5, color: 0xffffff, alpha: 0.9 })
+  g.eventMode = 'none'
+  return g
 }

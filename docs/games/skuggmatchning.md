@@ -71,18 +71,23 @@ håller det utmanande utan att bli svårt.
   no-fail.
 
 ### Variation & överraskning
-- **[Quick] Föremåls-reaktion vid match.** Låt den framblommade figuren göra något eget:
+- ✅ ~~**[Quick] Föremåls-reaktion vid match.** Låt den framblommade figuren göra något eget:
   grodan hoppar till, bilen rullar en bit, fjärilen fladdrar upp ett ögonblick, stjärnan
-  snurrar. Liten per-objekt-animation (tabell key → effekt) bryter en-utfalls-känslan direkt.
-- **[Quick] Sällsynt "gyllene skugga".** En skimrande skugga då och då som ger extra gnistor +
-  en glad röst — ett litet wow utan att ändra reglerna.
+  snurrar. Liten per-objekt-animation (tabell key → effekt) bryter en-utfalls-känslan direkt.~~
+  Redan byggd 2026-07-01 (`REACTION` :81, `_reactFigure` :450) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Sällsynt "gyllene skugga".** En skimrande skugga då och då som ger extra gnistor +
+  en glad röst — ett litet wow utan att ändra reglerna.~~ Klar 2026-09-23 (v1.251.0): ~1 runda
+  av 6 ligger en skugga på gyllene mark med tindrande glitterstjärnor; match ger guldregn,
+  ett C-dur-arpeggio och "Oj, vad det glittrar!" efter namnet (`_goldenReward` :524).
 
 ### Juice
-- **[Quick] Riktiga föremåls-ljud.** `audio.sample('djur_hund')` finns redan — spela djurläte
+- ✅ ~~**[Quick] Riktiga föremåls-ljud.** `audio.sample('djur_hund')` finns redan — spela djurläte
   vid rätt djur, bil-tut vid bil, surr vid bi (falla tillbaka på namn-TTS om inget klipp). En
-  [Quick]-vinst när SFX-pipelinen kör ([[real-audio-sfx]]).
-- **[Quick] Stigande ton när raden fylls** (komboklättring), och ett tydligt "snäpp"-ljud när
-  silhuetten morfar — gör förvandlingen ännu mer tillfredsställande.
+  [Quick]-vinst när SFX-pipelinen kör ([[real-audio-sfx]]).~~ Redan byggd 2026-07-01 (`SAMPLE`
+  :91, `_objectSound` :413) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Stigande ton när raden fylls** (komboklättring), och ett tydligt "snäpp"-ljud när
+  silhuetten morfar — gör förvandlingen ännu mer tillfredsställande.~~ Redan byggd 2026-07-01
+  (`_matchSound` :398) — uppdagat 2026-09-23.
 
 ### Progression
 - **[Medium] Ängen fylls över rundor.** Låt matchade djur/saker *bli kvar* i en liten samling
@@ -97,10 +102,19 @@ håller det utmanande utan att bli svårt.
 
 ### Ljud
 - **[Quick] Verifiera varierat vinst-sting** vid `complete()` och lägg en mjuk äng-ambient
-  (fågel/insekt-sus) som lugn botten.
+  (fågel/insekt-sus) som lugn botten. *(2026-09-23: vinst-stinget ÄR varierat —
+  `AudioService._celebrate` slumpar det vid varje `complete()`. Ambienten är blockerad: fågel/
+  insekt-sus kräver ett nytt SFX-klipp, MOSS nere.)*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): **Gyllene skugga** — ~1 runda av
+  6 (`GOLD_CHANCE`) får EN skugga en gyllene markskugga och fyra tindrande glitterstjärnor
+  runt silhuetten (egna barn — målets träffyta står still; ingen platta bakom figuren).
+  Silhuetten är fortfarande svart, så uppgiften är densamma. Match ger guldregn, ett högt
+  C-dur-arpeggio och "Oj, vad det glittrar!" som köar bakom namnet (`ctx.narTyst` + rund-token).
+  **Dubbelfirandet:** redan rent — namnet sägs i samma tick före `complete()`. Fyra `[Quick]`
+  visade sig redan byggda; ambienten väntar på SFX-klipp.
 - 2026-06-30: Doc skriven efter kodläsning + huvudlöst speltest (errorCount 0; ren 2-föremåls-
   runda med tydliga svarta silhuetter verifierad). Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] per-objekt-reaktion vid match + riktiga föremåls-/

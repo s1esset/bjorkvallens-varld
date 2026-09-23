@@ -55,23 +55,25 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Quick] Höj golvet till 3 kort** (eller 2 kort bara allra första rundan), så valet
-  kräver att man faktiskt lyssnar redan från start.
-- **[Medium] Lägg till ett fri-utforska-läge / "smek"-tap.** Ett långt tryck eller en liten
-  "lyssna"-ikon per kort som spelar djurets läte utan att räknas som svar — nyfikenhet ska
-  belönas, inte vinglas bort. (Håll det enkelt: tap = svara, en tydlig öron-ikon = lyssna.)
+- ✅ ~~**[Quick] Höj golvet till 3 kort**~~ Redan byggd 2026-07-02 (`index.js:44`, `MIN_CARDS`) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Lägg till ett fri-utforska-läge / "smek"-tap.**~~ Redan byggd 2026-07-02
+  (`index.js:354`, `_listen` via öron-ikonen per kort) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
 - **[Medium] Vänd ibland på det:** visa ett djur stort och spela två läten — "Vilket ljud
   hör DU kon säga?" Eller en "härma"-runda ("Säg muu!") med glad bekräftelse oavsett.
-- **[Quick] Fler djur i poolen syns** genom att rotera vilka 12 som kan dyka upp per session
-  så att samma fyra inte återkommer.
+- ~~**[Quick] Fler djur i poolen syns** genom att rotera vilka 12 som kan dyka upp per session~~
+  Premissen föll: poolen ÄR alla 12 djur, varje runda slumpar ur hela `DJUR` (svaret aldrig
+  samma två rundor i rad) — det finns ingen delmängd att rotera (SNABBVINSTER D, 2026-09-23).
 
 ### Juice
-- **[Medium] Låt djuret *göra* lätet visuellt** när det spelas: kortet studsar i takt /
-  munnen öppnas / örat-knappen skickar "ljudvågor" mot rätt kort vid repris. Kopplar ljud→djur.
-- **[Quick] Vinnardjuret gör en egen liten gest** (kon vickar på huvudet, hönan picker) i
-  stället för bara en generell hopp-studs.
+- ✅ ~~**[Medium] Låt djuret *göra* lätet visuellt**~~ Redan byggd 2026-07-02 (`index.js:371`,
+  `_speak` + `_noteTo`) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Vinnardjuret gör en egen liten gest** (kon vickar på huvudet, hönan picker)~~ Klar
+  2026-09-23 (v1.251.0): tabellen `GEST` ger alla 12 djur en egen rörelse på ANSIKTET (kon vickar,
+  hunden viftar, hönan picker, grodan hoppar, ugglan vrider på huvudet …) i stället för samma
+  vickning; kortets hopp och träffyta är orörda.
 
 ### Progression
 - **[Quick] Mild kategori-tematik:** bondgårdsdjur först, sedan damm/skog (groda/uggla/bi)
@@ -82,11 +84,16 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
   värld och firandet en plats-specifik glädje istället för generisk konfetti.
 
 ### Ljud
-- **[Quick] Spela det riktiga klippet IGEN vid rätt svar**, tillsammans med namnet ("Det är
-  en ko! *muu*"), inte bara som ledtråd — då blir belöningen multisensorisk. Klippen finns
-  redan ([[real-audio-sfx]]); detta är nästan gratis.
+- ✅ ~~**[Quick] Spela det riktiga klippet IGEN vid rätt svar**~~ Redan byggd 2026-07-02
+  (`index.js:459`) — uppdagat 2026-09-23.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): vinnardjurets egen gest (se §4).
+  Dubbelfirandet: spelet firade redan inte själv, men nästa rundas fråga kom 1,6 s efter
+  milstolpens `complete()` och kapade berömmet. Frågan köas nu i `ctx.narTyst` och lätet följer
+  1,1 s efter FRÅGAN som förut; den tappas om barnet redan svarat. I vanliga rundor är rösten
+  tyst och allt sker som förut. Omätt i webbläsare (koordinatorn testar).
 
 - 2026-08-10 🎨 **D1: brickorna fick ljus** (`5613a7b`, v1.124.0).
   Brickorna låg tillsammans på **66 327 px i EN ton** — spelets största fält. Kort FÅR bära text

@@ -51,6 +51,25 @@ const ROUND_PROMPTS = [
   'Vilket djur hör du?',
 ]
 
+// Vinnardjurets EGEN gest vid rätt svar, i stället för samma allmänna vickning för alla.
+// Sitter på ANSIKTET (ett barn) — aldrig på kortet, som bär träffytan. Rör bara x/y/
+// rotation: `_speak` äger ansiktets skala 0,85 s senare. `skak` = svänger åt båda håll
+// runt vila; annars fram och tillbaka från vila. Alla slutar i vila inom ~1,2 s.
+const GEST = {
+  ko: { prop: 'rotation', amp: 0.18, n: 2, t: 0.12, skak: true }, // vickar på huvudet
+  hund: { prop: 'rotation', amp: 0.1, n: 4, t: 0.06, skak: true }, // viftar av glädje
+  katt: { prop: 'rotation', amp: -0.22, n: 1, t: 0.3 }, // lutar huvudet, mysigt
+  gris: { prop: 'y', amp: -14, n: 2, t: 0.12 }, // nosknuffar uppåt
+  far: { prop: 'x', amp: 6, n: 3, t: 0.07, skak: true }, // bää-skakar
+  hast: { prop: 'rotation', amp: -0.28, n: 1, t: 0.25 }, // stegrar sig
+  anka: { prop: 'rotation', amp: 0.15, n: 2, t: 0.12, skak: true }, // vaggar
+  hona: { prop: 'rotation', amp: 0.32, n: 3, t: 0.08 }, // picker framåt
+  groda: { prop: 'y', amp: -30, n: 2, t: 0.16 }, // hoppar
+  bi: { prop: 'x', amp: 5, n: 5, t: 0.045, skak: true }, // surrar på stället
+  tupp: { prop: 'rotation', amp: -0.2, n: 1, t: 0.3 }, // sträcker på halsen och gal
+  uggla: { prop: 'rotation', amp: 0.4, n: 1, t: 0.32 }, // vrider på huvudet
+}
+
 // Glada svävande emoji vid rätt svar.
 const HAPPY = ['⭐', '🌟', '✨', '💛', '😄']
 
@@ -293,9 +312,16 @@ export default {
     })
 
     // Talad rundinstruktion (första rundan täcks av voiceIntro i mount) + ledtråd.
+    // Efter en milstolpe kommer rundan 1,6 s efter complete() — på fast tid kapade
+    // frågan berömmet (1,0–2,3 s). Korten delas ut genast; frågan köar, och lätet följer
+    // 1,1 s efter FRÅGAN som förut. Har barnet redan svarat, eller rundan bytts, tappas den.
     if (!this._first) {
-      ctx.services.voice.say(randomFrom(ROUND_PROMPTS))
-      this._cueSoon(ctx, 1.1)
+      const svar = this._answer
+      ctx.narTyst(() => {
+        if (!this._alive || this._answer !== svar || this._busy) return
+        ctx.services.voice.say(randomFrom(ROUND_PROMPTS))
+        this._cueSoon(ctx, 1.1)
+      })
     }
     this._first = false
   },
@@ -472,13 +498,40 @@ export default {
     if (card._face) {
       gsap.killTweensOf(card._face)
       card._face.y = -8
-      gsap.fromTo(card._face, { rotation: -0.14 }, { rotation: 0, duration: 0.6, ease: 'elastic.out(1, 0.4)' })
+      if (!this._gest(card)) {
+        gsap.fromTo(card._face, { rotation: -0.14 }, { rotation: 0, duration: 0.6, ease: 'elastic.out(1, 0.4)' })
+      }
     }
     this._cards.forEach((c) => {
       if (c === card || c.destroyed) return
       gsap.to(c, { alpha: 0.5, duration: 0.3, ease: 'sine.out' })
       gsap.to(c.scale, { x: 0.92, y: 0.92, duration: 0.3, ease: 'sine.out' })
     })
+  },
+
+  // Spelar GEST[id] på vinnarkortets ansikte. Sant om djuret hade en egen gest.
+  // Tweensen dödas av _killCardTweens (killTweensOf(c._face)) vid nästa runda och i destroy.
+  _gest(card) {
+    const face = card?._face
+    const g = GEST[card?._djur?.id]
+    if (!face || face.destroyed || !g) return false
+    const bas = g.prop === 'y' ? -8 : 0
+    face.x = 0
+    face.y = -8
+    face.rotation = 0
+    const tl = gsap.timeline({
+      onComplete: () => {
+        if (!face.destroyed) face[g.prop] = bas
+      },
+    })
+    if (g.skak) {
+      tl.to(face, { [g.prop]: bas + g.amp, duration: g.t, ease: 'sine.out' })
+        .to(face, { [g.prop]: bas - g.amp, duration: g.t * 2, ease: 'sine.inOut', yoyo: true, repeat: g.n * 2 - 1 })
+        .to(face, { [g.prop]: bas, duration: g.t, ease: 'sine.in' })
+    } else {
+      tl.to(face, { [g.prop]: bas + g.amp, duration: g.t, ease: 'sine.out', yoyo: true, repeat: g.n * 2 - 1 })
+    }
+    return true
   },
 
   _nextRound(ctx) {

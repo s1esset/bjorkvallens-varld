@@ -22,7 +22,7 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, puff, burst, floatText, bigCelebration, sparkle, shake, kvittera, liv } from '../../lib/feedback.js'
+import { pop, wiggle, puff, burst, floatText, sparkle, shake, kvittera, liv } from '../../lib/feedback.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { COLORS } from '../../lib/theme.js'
 
@@ -502,7 +502,13 @@ export default {
     this._bucket.position.set(BUCKET_HOME.x, BUCKET_HOME.y)
     this._renderSand()
 
-    if (announce) ctx.services.voice.say(this._cargo.intro)
+    // Efter en full last talar vinstraden (och ev. Bobo) fortfarande — köa, kapa inte.
+    // Rundan väntar inte: bara orden gör det.
+    if (announce) {
+      ctx.narTyst(() => {
+        if (this._alive && this._level === level) ctx.services.voice.say(this._cargo.intro)
+      })
+    }
   },
 
   _setWalls(cfg) {
@@ -1048,13 +1054,13 @@ export default {
   _onFull(ctx) {
     if (!this._alive || this._resolving) return
     this._resolving = true
+    // Vinstljud, beröm och konfettiregn kommer från progress.complete() nedan. Lastens
+    // egen rad sägs FÖRE complete(), så den står kvar och det slumpade berömmet utgår.
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
     // Riktig två-tons lastbils-tuta.
     ctx.services.audio.tone({ freq: 320, dur: 0.3, type: 'square', vol: 0.22 })
     ctx.services.audio.tone({ freq: 250, dur: 0.45, type: 'square', vol: 0.22, delay: 0.28 })
     ctx.services.voice.say(this._cargo.full)
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, (this._cfg.leftX + this._cfg.rightX) / 2, TOP_Y)
     // Bobo vinkar från hytten — mottagaren som tar emot lasten.
     const arm = this._driverArm
@@ -1088,7 +1094,13 @@ export default {
     this._deliverTl = gsap
       .timeline({ delay: 0.85 })
       .add(() => {
-        if (this._alive) ctx.services.voice.say('Bobo kör iväg med lasten!')
+        if (!this._alive) return
+        // "Full last …" är 2,3–3,7 s och say() kapar — raden väntar in rösten. Har den
+        // tomma dumpern hunnit parkera (tidslinjen klar) är den inaktuell och utgår.
+        const tl = this._deliverTl
+        ctx.narTyst(() => {
+          if (this._alive && this._deliverTl === tl && tl?.isActive()) ctx.services.voice.say('Bobo kör iväg med lasten!')
+        })
       })
       .to(rig, { x: -22, duration: 0.3, ease: 'back.in(2)' }) // liten sats bakåt före starten
       .to(rig, {

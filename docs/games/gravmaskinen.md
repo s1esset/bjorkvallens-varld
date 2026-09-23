@@ -71,52 +71,62 @@ rekvisita, och auto-hjälp + tap-fusk kan kringgå själva grävandet**.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Belöna *hur* man gräver/häller.** Låt djupare/längre svep i högen fylla skopan
-  mer, och låt en lugn, riktad häll lägga sanden snyggare än ett slarvigt släpp. Då blir
-  drag-gesten en skicklighet, inte en på/av-knapp.
-- **[Medium] Mjuka upp auto-hjälpen.** Låt vindpusten bara ge en sista liten knuff när
-  flaket är *nästan* fullt efter lång idle, i stället för att sänka `_target` och sopa in 26
-  korn — så barnets egna grävtag bär lasten.
-- **[Quick] Ta bort tap-fusket från illusionen.** Låt tap-vid-hög *animera* skopan ner i
-  högen och fylla den medan munnen är i sanden (återanvänd `_inPile`-logiken) i stället för
-  att sätta `_bucketCount` rakt av.
+- ✅ ~~**[Medium] Belöna *hur* man gräver/häller.**~~ Redan byggd (`_digAt` :648 djup × svep;
+  lugn häll kvitteras i `_tip` :765, 2026-08-06) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Mjuka upp auto-hjälpen.**~~ Redan byggd (`_gust` :1042: bara det som fattas,
+  högst 14 korn, målet sänks aldrig, 2026-08-06) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Ta bort tap-fusket från illusionen.**~~ Redan byggd (`_tapDig` :725: skopan åker
+  ner och fyller via samma `_digAt` som draget) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] Färgad/varierad sand & fynd.** Lager av olika sandfärger, enstaka glittrande
-  guldkorn, och ibland en begravd skatt (🦴/💎/snäcka) som dyker upp när man gräver djupt och
-  firas extra — ger en anledning att gräva mer.
-- **[Medium] Olika laster per nivå:** grus, småsten, snö, godis-strössel — varje med lite
-  olika rasvinkel/färg, så nivå 3 inte bara har "mer sand".
+- ✅ ~~**[Quick] Färgad/varierad sand & fynd.**~~ Redan byggd (specialkorn `SPECIAL` :37 per
+  last, begravd skatt `_maybeFynd` :669) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Olika laster per nivå.**~~ Redan byggd (`CARGOS` :51: sand · grus · snö · småsten ·
+  godis, egen palett och rasvinkel, 2026-08-06) — uppdagat 2026-09-23.
 - **[Quick] Befolka bygget:** trafikkoner, en skylt, en kompis-maskin (hjullastare), en
   liten fågel på sandhögen — fyll det tomma mittfältet.
 
 ### Juice
-- **[Quick] Kornigt sand-ljud** ([[real-audio-sfx]]): ett rinnande sand-rassel medan korn
-  faller (intensitet ∝ antal rörliga korn), ett skrap när skopan gräver, en riktig
-  lastbils-tuta vid full last — ersätt `soft`/TTS.
-- **[Quick] Damm & skak.** Dammpuff när sanden landar i flaket, ett litet skärm-skutt när en
-  stor mängd rasar, och en kort skopa-darrning vid grävning.
-- **[Quick] Hydraulik-känsla i bommen.** Låt bommen ha en knäled och en mjuk
-  "sätt-sig"-rörelse vid tipp så den känns som en maskin, inte en pinne.
+- ✅ ~~**[Quick] Kornigt sand-ljud.**~~ Redan byggd som stämda toner (rassel ∝ rörliga korn :948,
+  skrap i lastens klangfärg :659, tvåtons-tuta :1060) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Damm & skak.**~~ Redan byggd (dammpuff vid grävning :661 och tipp :775, skutt vid
+  ≥18 korn :776, skopa-darrning i `_tapDig`) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Hydraulik-känsla i bommen.**~~ Redan byggd (`_drawBoom` :997: knäled + armen
+  sjunker med lasten; tippen studsar tillbaka med `back.out`) — uppdagat 2026-09-23.
 
 ### Progression
-- **[Medium] Lastbils-kö / leverans.** Spara `custom.lastbilar` (görs redan) som en rad
-  fyllda lastbilar som kör iväg och en ny som backar in — gör finalen till en leverans med
-  mottagare i stället för en gupp på stället.
-- **[Quick] Tydlig fyllnads-mätare** (utöver linjen) som fylls, så barnet ser framsteg.
+- ✅ ~~**[Medium] Lastbils-kö / leverans.**~~ Redan byggd (`_deliver` :1090: full dumper kör
+  iväg, en tom backar in, Bobo vinkar) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Tydlig fyllnads-mätare.**~~ Redan byggd (`_drawMeter` :571, fast avläsbar färg)
+  — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
 - **[Medium] Zacke reagerar.** Låt Zacke titta mot skopan, luta sig fram vid grävning, och
   jubla/vinka vid full last; ge lastbilen en förare (Bobo?) som tackar — knyter ihop
   grävare och mottagare (jfr README:s "ingen mottagare"-mönster).
-- **[Quick] Koppla flaket till lastbilen** visuellt (flaket *sitter på* 🚛, eller rita en
-  egen lastbil i Graphics) så det är tydligt att man fyller *lastbilen*.
+  *Delvis byggd (kontrollerat 2026-09-23):* Zacke lutar sig fram vid grävning
+  (`_animateFigures` :350) och Bobo sitter vid ratten och vinkar vid full last. Kvar: Zackes
+  eget jubel vid full last.
+- ✅ ~~**[Quick] Koppla flaket till lastbilen.**~~ Redan byggd (ritad dumper `_makeTruck` :366,
+  flak + last + mätare i en rigg) — uppdagat 2026-09-23.
 
 ### Ljud
-- **[Quick] Lugn bygg-ambient** (avlägsen maskin-surr) i botten + ersätt "Gräv mer sand!"/
-  "Full last! Tuut tuut!" med riktiga klipp + tuta.
+- **[Quick] Lugn bygg-ambient** (avlägsen maskin-surr) i botten. ⛔ Blockerad: kräver ett nytt
+  SFX-klipp (MOSS nere). Andra halvan är gjord: alla fem lasters repliker har klipp, och
+  "Tuut tuut!" är ersatt av den stämda tutan.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onFull` spelade eget vinstljud
+  och eget konfettiregn i samma tick som `complete()` — strukna. Lastens egen rad ("Full last
+  med grus! …") sägs före `complete()` och står kvar. "Bobo kör iväg med lasten!" och nästa
+  lasts intro kapade den raden — båda väntar nu med `ctx.narTyst` (FIFO-kö: Bobo före
+  introt). ⚠️ **Öppet designval:** Bobo-raden gäller bara medan leveransen pågår (tomma
+  dumpern parkerar efter 3,3 s) och utgår annars — vinstraden är 2,3–3,7 s, så den hörs efter
+  sand, är på gränsen efter grus/snö och utgår nästan alltid efter småsten/godis. Förut
+  kapades den ändå alltid efter 1,3 s. Vill vi alltid höra den räcker det att släppa vakten
+  (kön håller ordningen) — priset är en rad om att Bobo kör iväg medan en tom dumper står där. §4 städad: 11 punkter var redan byggda (7 Quick + 4 Medium);
+  "Befolka bygget" är öppen, bygg-ambienten väntar på MOSS.
 
 - 2026-06-30: Doc skriven utifrån kodläsning + playtest (errorCount 0; sandhög, skopa, Zacke
   och tomt flak renderar). Ersatte den gamla byggspecen. Inga kodändringar.

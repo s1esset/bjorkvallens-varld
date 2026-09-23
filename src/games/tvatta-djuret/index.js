@@ -22,8 +22,8 @@
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, puff, sparkle, burst, breathe, floatText, shake, bigCelebration , kvittera} from '../../lib/feedback.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
+import { bounceIn, pop, wiggle, puff, sparkle, burst, breathe, floatText, shake , kvittera, liv } from '../../lib/feedback.js'
+import { COLORS, shade } from '../../lib/theme.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { topLightFill } from '../../lib/form.js'
 import { drawIcon } from '../../lib/artikoner.js'
@@ -75,11 +75,18 @@ const FIND_KEYS = ['⭐', '❤️', '💎', '🐚']
 const FIND_GLIM_MS = 2400 // hur ofta gömstället glimmar till (tellen som gör det HITTBART)
 
 // Djurtyper per nivå.
+// `badsak` = djurets eget badtillbehör som flyter i karet (igenkänning per djur), `rosett` =
+// färgen på rosetten djuret får när det är rent (vald för att synas mot pälsen).
 const TYPES = [
-  { kind: 'pony', color: 0xe9d2a8, dark: 0xcbb085, emoji: '🐴', sample: 'hast', step: 44 },
-  { kind: 'pig', color: COLORS.pink, dark: 0xe87fa6, emoji: '🐷', sample: 'gris', step: 38, scale: 1.05 },
-  { kind: 'puppy', color: 0xcaa472, dark: 0xa9824f, emoji: '🐶', sample: 'hund', step: 32, doubles: true },
+  { kind: 'pony', color: 0xe9d2a8, dark: 0xcbb085, emoji: '🐴', sample: 'hast', step: 44, badsak: 'borste', rosett: 0xff6fa8 },
+  { kind: 'pig', color: COLORS.pink, dark: 0xe87fa6, emoji: '🐷', sample: 'gris', step: 38, scale: 1.05, badsak: 'bat', rosett: 0x4aa3df },
+  { kind: 'puppy', color: 0xcaa472, dark: 0xa9824f, emoji: '🐶', sample: 'hund', step: 32, doubles: true, badsak: 'anka', rosett: 0xe0574f },
 ]
+// "Renare"-tonen: varje borttagen lerklump klättrar uppför C-dur-pentatoniken (två oktaver).
+const RENARE_TONER = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760]
+const RENARE_PAUS_MS = 90 // flera klumpar i samma svep = en ton, inte en kvarn
+// Badsaken flyter i vattenlinjen vid karets vänstra ände (långt från verktygens hemplatser).
+const BADSAK_POS = { x: 400, y: 486 }
 
 export default {
   id: 'tvatta-djuret',
@@ -126,6 +133,13 @@ export default {
     this._root.addChild(createScene('meadow'))
 
     this._buildTub()
+    // Djurets badtillbehör (byts per djur i _buildAnimal) — dekor, ingen träffyta. Lagret
+    // ligger FRAMFÖR djuret (under leran): vid karets vänstra ände är det bara ~40 px fritt
+    // mellan karkanten och kroppen, så saken flyter i vattnet framför djurets kant.
+    this._badsakLayer = new Container()
+    this._badsakLayer.eventMode = 'none'
+    this._badsakLayer.interactiveChildren = false
+    this._badsak = null
 
     // Osynlig tap-yta över djuret (tap-tap-fallback). Ligger under de eventMode-'none'
     // visuella lagren men fångar tap eftersom de släpper igenom hit-testet.
@@ -162,7 +176,7 @@ export default {
     // att mäta för sig (dölj allt annat, räkna pixlar).
     this._findLayer = new Container()
     this._findLayer.eventMode = 'none'
-    this._root.addChild(this._clean, this._mudLayer, this._foamLayer, this._tubFx, this._findLayer)
+    this._root.addChild(this._clean, this._badsakLayer, this._mudLayer, this._foamLayer, this._tubFx, this._findLayer)
 
     this._fluid = new FluidWorld({
       max: FLUID_MAX,
@@ -331,6 +345,7 @@ export default {
   _buildAnimal(ctx) {
     if (!this._alive) return
     this._clearRound()
+    this._rundNr = (this._rundNr || 0) + 1 // token för köade ljud (djurlätet vid duschen)
 
     this._resolving = false
     this._held = null
@@ -359,6 +374,7 @@ export default {
     ]
 
     this._drawClean(t)
+    this._placeBadsak(t)
     this._genZones()
     this._genMud(t)
     this._hasSticky = this._flakes.some((f) => f.kind === 'klibb')
@@ -414,6 +430,21 @@ export default {
     this._face = face // spara minen så den kan reagera på beröring
 
     c.addChild(shadow, g, face)
+  },
+
+  // Djurets eget badtillbehör flyter i karet: ponnyn har sin borste, grisen en leksaksbåt,
+  // valpen en gummianka. Ritat fristående (P0 ASSETS) och guppar i egen takt på vattnet.
+  _placeBadsak(t) {
+    this._badsak?._fxLiv?.kill()
+    if (this._badsak && !this._badsak.destroyed) this._badsak.destroy({ children: true })
+    this._badsak = null
+    const layer = this._badsakLayer
+    if (!layer || layer.destroyed || !t.badsak) return
+    const b = makeBadsak(t.badsak)
+    b.position.set(BADSAK_POS.x, BADSAK_POS.y)
+    layer.addChild(b)
+    this._badsak = b
+    liv(b, { bob: 2.5, sway: 0.07, duration: 2.8 })
   },
 
   _bbox() {
@@ -829,6 +860,15 @@ export default {
     this._spawnFoam(flake.x, flake.y)
     this._fadeOut(flake.view, 0.4)
     puff(ctx.fxLayer, flake.x, flake.y, { count: 4, color: 0xffffff })
+    // "Renare"-tonen: varje borttagen klump ett snäpp ljusare uppför C-dur-pentatoniken, så
+    // örat hör djuret bli renare. Strypt: ett svep över flera klumpar ger EN ton.
+    const nu = performance.now()
+    if (nu - (this._renareAt || 0) >= RENARE_PAUS_MS) {
+      this._renareAt = nu
+      const frac = this._totalMud > 0 ? this._scrubbed / this._totalMud : 0
+      const ti = Math.min(RENARE_TONER.length - 1, Math.round(frac * (RENARE_TONER.length - 1)))
+      ctx.services.audio.tone({ freq: RENARE_TONER[ti], dur: 0.12, type: 'sine', vol: 0.09 })
+    }
     if (flake === this._findFlake) this._revealFind(ctx, flake)
   },
 
@@ -987,6 +1027,13 @@ export default {
     if (this._showerReady || this._totalMud === 0) return
     if (this._scrubbed / this._totalMud < 0.7) return
     this._revealShower(ctx, 'Bra! Ta duschen och skölj.')
+    // Djuret låter glatt när duschen låses upp — EFTER repliken, för ett läte ovanpå
+    // instruktionen hade gjort den svårhörd. Samma runda, annars utgår det.
+    const rund = this._rundNr
+    const t = this._type
+    ctx.narTyst(() => {
+      if (this._alive && this._rundNr === rund && !this._resolving) ctx.services.audio.sample('djur_' + t.sample)
+    })
   },
 
   // Duschen tänds. Finns kladdlera på banan MÅSTE den vara tillgänglig direkt — annars
@@ -1284,11 +1331,18 @@ export default {
     burst(ctx.fxLayer, 640, 430, { count: 18, colors: [0x9ed8f5, 0xeaf6ff] })
     sparkle(ctx.fxLayer, 560, 380, { count: 8 })
     sparkle(ctx.fxLayer, 760, 420, { count: 8 })
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
     ctx.services.audio.sample('djur_' + this._type.sample) // tyst fallback om klippet saknas
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    // Rent och stolt: djuret får en rosett på huvudet — djurets EGEN finish. Den bor i
+    // `_clean` (skakar med djuret, rivs med rundan) och tweenen spåras i `_tweens`.
+    const huvud = this._silh[1]
+    const bow = makeRosett(this._type.rosett)
+    bow.position.set(huvud.cx + 34, huvud.cy - huvud.ry + 14)
+    this._clean.addChild(bow)
+    const bowTw = bounceIn(bow, { delay: 0.12, duration: 0.5 })
+    if (bowTw) this._tweens.push(bowTw)
+    sparkle(ctx.fxLayer, bow.x, bow.y, { count: 10 })
 
+    // Vinstljud + beröm + konfettiregn kommer från complete() — inga egna kopior.
     ctx.progress.complete()
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -1379,6 +1433,8 @@ export default {
     })
     if (this._clean && !this._clean.destroyed) gsap.killTweensOf(this._clean)
     gsap.killTweensOf(this._gaugeFill)
+    this._badsak?._fxLiv?.kill() // badsakens gupp ligger på ett proxy-objekt
+    this._badsak = null
 
     ctx?.services?.voice?.cancel()
     // Vätskan FÖRE roten: vyn äger ett filter och en renderingstextur som inte rivs
@@ -1391,6 +1447,59 @@ export default {
     this._root?.destroy({ children: true })
     this._root = null
   },
+}
+
+// Djurets badtillbehör (P0 ASSETS: fristående ritat föremål, ingen emoji i en ruta). Origo
+// ligger i vattenlinjen; ett halvgenomskinligt vattenband över underkanten får saken att
+// FLYTA i stället för att sväva framför karet.
+function makeBadsak(kind) {
+  const c = new Container()
+  c.eventMode = 'none'
+  const g = new Graphics()
+  if (kind === 'anka') {
+    g.moveTo(-25, -4).lineTo(-33, -14).lineTo(-19, -10).closePath().fill(0xffd35c).stroke({ width: 3, color: 0xe0a92c })
+    g.ellipse(0, 0, 25, 14).fill(0xffd35c).stroke({ width: 3, color: 0xe0a92c })
+    g.ellipse(-4, -1, 11, 6).fill({ color: 0xffe9a8, alpha: 0.9 }) // vinge/glans
+    g.circle(13, -17, 11).fill(0xffd35c).stroke({ width: 3, color: 0xe0a92c })
+    g.ellipse(25, -15, 7, 4).fill(0xff9d3d).stroke({ width: 2, color: 0xd9722b })
+    g.circle(16, -20, 2.4).fill(0x2a1f3d)
+    g.circle(16.8, -20.8, 0.9).fill(0xffffff)
+  } else if (kind === 'borste') {
+    for (let i = 0; i < 8; i++) g.roundRect(-22 + i * 6, 2, 4, 11, 2).fill(0x6f4a2e)
+    g.roundRect(-26, -12, 52, 16, 8).fill(0xc98a4b).stroke({ width: 3, color: 0x8a5a3b })
+    g.roundRect(-20, -11, 40, 5, 3).fill({ color: 0xffffff, alpha: 0.3 })
+    g.roundRect(-15, -18, 30, 7, 3).fill(0x8a5a3b) // handremmen
+  } else {
+    // Leksaksbåt: skrov, mast, segel och en liten vimpel.
+    g.roundRect(-1.5, -34, 3, 34, 1.5).fill(0x8a5a3b)
+    g.moveTo(3, -32).lineTo(3, -6).lineTo(22, -6).closePath().fill(0xffffff).stroke({ width: 2, color: 0xc3ccd4 })
+    g.moveTo(-1, -34).lineTo(-13, -30).lineTo(-1, -26).closePath().fill(0x4aa3df)
+    g.moveTo(-27, -4).lineTo(27, -4).lineTo(19, 10).lineTo(-19, 10).closePath().fill(0xe0574f).stroke({ width: 3, color: 0xb03f3a })
+    g.roundRect(-22, -3, 44, 3, 1.5).fill({ color: 0xffffff, alpha: 0.35 })
+  }
+  // Vattnet runt saken: ett mjukt band i vattenlinjen.
+  g.ellipse(0, 9, 32, 5).fill({ color: 0x9ed8f5, alpha: 0.55 })
+  g.ellipse(-8, 8, 10, 1.6).fill({ color: 0xffffff, alpha: 0.6 })
+  c.addChild(g)
+  return c
+}
+
+// Rosetten djuret får när det är rent: två öglor, en knut och två band.
+function makeRosett(color) {
+  const dk = shade(color, 0.28)
+  const c = new Container()
+  c.eventMode = 'none'
+  const g = new Graphics()
+  g.eventMode = 'none'
+  c.addChild(g)
+  g.moveTo(-5, 4).lineTo(-13, 24).lineTo(-6, 21).lineTo(-2, 26).lineTo(1, 6).closePath().fill(color).stroke({ width: 2.5, color: dk })
+  g.moveTo(5, 4).lineTo(13, 24).lineTo(6, 21).lineTo(2, 26).lineTo(-1, 6).closePath().fill(color).stroke({ width: 2.5, color: dk })
+  g.ellipse(-15, -2, 15, 10).fill(color).stroke({ width: 3, color: dk })
+  g.ellipse(15, -2, 15, 10).fill(color).stroke({ width: 3, color: dk })
+  g.ellipse(-16, -5, 6, 3).fill({ color: 0xffffff, alpha: 0.45 })
+  g.ellipse(14, -5, 6, 3).fill({ color: 0xffffff, alpha: 0.45 })
+  g.circle(0, 0, 7).fill(dk).stroke({ width: 2.5, color: shade(color, 0.45) })
+  return c
 }
 
 // Ritat ansikte per art (P0 ASSETS). Djuret var tidigare en form med en emoji-min;

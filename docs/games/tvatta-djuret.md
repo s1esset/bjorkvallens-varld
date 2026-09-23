@@ -68,9 +68,8 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Djuret reagerar på beröring.** Liten rys/skälvning + glad/njutande min under
-  svampen, blund vid sköljningen, ett "kittlat"-hopp om man gnuggar samma ställe — gör formen
-  till en varelse. Allt på egna tweens (döda i destroy).
+- ✅ ~~**[Medium] Djuret reagerar på beröring.**~~ Redan byggd (`_reactFace` index.js:707:
+  njutpuls, blund, kittlat hopp, 2026-07-01) — uppdagat 2026-09-23.
 - **[Medium] Ge svampen materialitet.** Låt svampen samla brun lera (blir smutsig), och låt
   duschen även skölja svampen ren — ett litet extra orsak-verkan-moment som motiverar
   två-verktygs-flödet bortom en upplåsningsgräns.
@@ -92,14 +91,19 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   (⭐/❤️/💎/🐚 ur `artikoner.js`) med ett sken bakom sig, vänder sig och far iväg — **2,1 s**
   från lerklump till borta, för ett ögonblick som far förbi är ingen belöning. Ny replik med
   genererat klipp. Mätt med `scripts/_fyndprobe.mjs`: **10/10** (HEAD: 9 röda).
-- **[Quick] Variera badtillbehör per djur** (gummianka för valpen, borste för ponnyn) som
-  pyntar karet och ger igenkänning.
+- ✅ ~~**[Quick] Variera badtillbehör per djur**~~ Klar 2026-09-23 (v1.251.0): ponnyn har en
+  borste, grisen en leksaksbåt och valpen en gummianka (`TYPES.badsak`). Saken är ritad
+  fristående (`makeBadsak` :1455), flyter i vattenlinjen vid karets vänstra ände, guppar med
+  `liv()` och byts per djur (`_placeBadsak` :437). Ingen ikonnyckel används, så den grå
+  cirkeln kan inte uppstå.
 
 ### Juice
-- **[Quick] Skvalpande vatten + stigande tvålbubblor** i karet; ånga som virvlar. Fyller den
-  inerta kulissen billigt.
-- **[Quick] "Renare"-ton som stiger** med mätaren (varje borttagen klump ett snäpp ljusare) +
-  en mjuk gnugg-textur medan svampen dras.
+- ✅ ~~**[Quick] Skvalpande vatten + stigande tvålbubblor**~~ Redan byggd (`_tubFx`, index.js:172
+  + `_update`, 2026-07-01) — uppdagat 2026-09-23. Ångan byggdes aldrig.
+- ✅ ~~**[Quick] "Renare"-ton som stiger**~~ Klar 2026-09-23 (v1.251.0): varje borttagen
+  lerklump spelar nästa steg på C-dur-pentatoniken över två oktaver, efter andelen skrubbat.
+  Tonen är strypt till en per 90 ms, så ett svep ger en ton (`_removeFlake` :865). Gnugget är
+  fortfarande det strypta `soft`; ett riktigt gnugg-klipp kräver SFX-pipelinen.
 - **[Quick] Rinnande skum.** Låt skum-fläckar glida nedåt en aning innan de sköljs, och vatten
   pärla av den rena pälsen — mer "riktigt bad".
 
@@ -113,6 +117,11 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   `audio.sample('djur_' + type.sample)` — `index.js:905-912`. *Kvar som [Quick]:* rosett/krona
   och att djuret beundrar sig i vattenytan; `bigCelebration` ligger dessutom kvar OVANPÅ den
   djur-specifika finishen i stället för att ersättas.
+  ✅ *Rosetten klar 2026-09-23 (v1.251.0):* djuret får en ritad rosett på huvudet i djurets
+  egen färgaccent. Den studsar in med glitter, skakar med djuret och rivs med rundan
+  (`makeRosett` :1488, `_onComplete` :1338). Spelets egna kopior av `bigCelebration`/`celebrate`/
+  PRAISE är strukna samma dag, eftersom `complete()` firar själv. Kvar: djuret beundrar sig i
+  vattenytan.
 - ~~**[Quick] Ansiktet alltid synligt.**~~ ✅ **REDAN BYGGD** — `FACE_R = 82` håller en lerfri
   ruta runt ansiktet i både `_genMud` och `_genZones`. Punkten stod kvar som öppen i §4.
   Struken 2026-08-12.
@@ -121,10 +130,21 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
 - **[Quick] Riktiga klipp** ([[real-audio-sfx]]): mjukt gnugg/skrubb, rinnande dusch, skak +
   vattenstänk. Djur-samples (hast/gris/hund) finns redan — spela ett gladare läte även vid
   upplåsning av duschen, inte bara vinst.
+  ✅ *Djurlätet vid duschen klart 2026-09-23 (v1.251.0):* när duschen låses upp vid 70 %
+  spelar djurets eget sample. Det köas med `ctx.narTyst` bakom "Bra! Ta duschen och skölj." så
+  att instruktionen hörs, och utgår om rundan hunnit bytas (`_maybeRevealShower`).
+  *Blockerat:* gnugg-, dusch- och stänkklippen kräver SFX-pipelinen (MOSS nere).
 - **[Quick] Lugn bad-ambient** (vatten, fågel) + varierat vinst-sting.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onComplete` hade egna
+  `celebrate` + PRAISE + `bigCelebration` i samma tick som `complete()`. De är strukna;
+  skak, droppring, glitter och djurläte står kvar. Fyra snabbvinster: ⓵ badtillbehör per djur
+  (borste, båt, anka) som flyter i karet, ⓶ en "renare"-ton som klättrar uppför pentatoniken
+  per borttagen klump (strypt), ⓷ en rosett på huvudet vid finishen, ⓸ djurets läte när
+  duschen låses upp, köat bakom repliken. Kvar öppet: svampens materialitet, rinnande skum,
+  före/efter-miniatyr, ambient och klippen (SFX blockerat).
 - 2026-08-12 ⚙️ **NATTKÖ N3: DUSCHEN ÄR RIKTIG VÄTSKA** (`lib/vatska.js`, åttonde kunden).
   **Fyndet som startade passet är mätt, inte tyckt:** sprayen var 24 egna droppar på **4 px**
   radie i blekblått, **6,8 px** till närmaste granne — alltså långt inom en metaboll-radie, men

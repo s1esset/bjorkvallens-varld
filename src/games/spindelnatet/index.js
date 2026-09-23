@@ -16,7 +16,7 @@ import { PhysicsWorld, MATERIALS, Body } from '../../lib/physics.js'
 import { Rep, repPath } from '../../lib/rep.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { COLORS, shade, tint } from '../../lib/theme.js'
-import { groundFill } from '../../lib/form.js'
+import { groundFill, bage } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, burst, floatText, bounceIn, breathe, puff, kvittera, squash } from '../../lib/feedback.js'
@@ -1054,7 +1054,7 @@ function makeSpider() {
     const a = Math.PI / 2 + i * 0.5
     bodyWeb.moveTo(0, 2).lineTo(Math.cos(a) * 19, 4 + Math.sin(a) * 22)
   }
-  for (const r of [8, 14, 20]) bodyWeb.arc(0, 2, r, 0.16 * Math.PI, 0.84 * Math.PI)
+  for (const r of [8, 14, 20]) bage(bodyWeb, 0, 2, r, 0.16 * Math.PI, 0.84 * Math.PI)
   bodyWeb.stroke({ width: 1.3, color: BLACK, alpha: 0.5 })
   bodyWeb.eventMode = 'none'
   c.addChild(bodyWeb)

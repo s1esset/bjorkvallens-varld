@@ -601,6 +601,10 @@ export default {
     if (this._resolving || this._sending) return
 
     this._idleMs += ctx.ticker.deltaMS
+    // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+    // Efter lockandet hålls klockan vid dess tröskel i stället för noll, så lockandets
+    // egen replik inte skjuter upp auto-hjälpen en hel omgång: HELP_MS räknas från tystnad.
+    if (ctx.services.voice.talar) this._idleMs = this._enticed ? IDLE_MS : 0
 
     // ALLA BALLONGER SITTER — då är nästa handling att SKICKA, inte att räkna mer.
     // Utan den här grenen skulle en färdigräknad runda stå still i evighet, eftersom

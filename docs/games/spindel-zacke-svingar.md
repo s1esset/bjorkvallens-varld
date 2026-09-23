@@ -93,14 +93,19 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
   (armarna rakt fram förbi huvudet, benen ihop bakåt) och vrids mot `atan2(vy,vx) + π/2`, med
   fart-streck vars längd följer farten. Se §5.
 - 🔶 2026-08-07 **[Quick] Nät-"thwip" + vind-sus.** Ett klistrigt nätskott vid varje fäste och ett sus vars
-  tonhöjd följer fart i flykten; en mjuk "boing" när pendeln vänder. *(thwip klart; vind-sus/boing kvar)*
+  tonhöjd följer fart i flykten; en mjuk "boing" när pendeln vänder. *(thwip klart 2026-08-07;
+  boingen klar 2026-09-23 (v1.251.0): en stämd glidton när `_omega` byter tecken vid |θ| > 0,3,
+  ljusare på framåtsidan, strypt 500 ms, vol 0,07 — index.js:1232-1245. Vind-suset kvar: ⛔ kräver
+  ett slingklipp, SFX-pipelinen/MOSS är nere)*
 - ✅ 2026-08-07 **[Quick] Kattungen jamar och hoppar** när Zacke närmar sig sista fästet (inte bara vid finalen).
 
 ### Progression
 - **[Medium] Räddnings-räknare med ansikte.** `svingar` finns redan — visa de räddade kattungarna
   i en liten rad/galleri som växer, så det blir något att samla.
-- **[Quick] Elvira reagerar längs vägen** (vinkar ivrigare ju närmare han kommer) i stället för
-  bara vid målet.
+- ✅ ~~**[Quick] Elvira reagerar längs vägen** (vinkar ivrigare ju närmare han kommer) i stället för
+  bara vid målet.~~ Klar 2026-09-23 (v1.251.0): armen har pivot i axeln och vinkar varje bildruta
+  (`_vinka` :1297) — amplitud 0,12 → 0,62 rad och takt 4 → 10 rad/s med Zackes väg mot målet.
+  Ingen tween, alltså inget att städa.
 
 ### Karaktär & berättelse
 - ✅ 2026-08-07 **[Deep] Mini-berättelse per nivå.** Kort intro ("kattungen sitter fast på taket!") + Elvira som
@@ -111,10 +116,16 @@ glida förbi på auto-hjälp utan att barnet känt att det styrde.
 ### Ljud
 - 🔶 2026-08-07 **[Quick] Riktiga SFX från [[real-audio-sfx]]:** nät-thwip, vind-sus, jamande katt, mjuk
   moln-"pluff" — ersätt syntetblippen; ersätt TTS-fraserna med förgenererade klipp.
-  *(thwip + jamande katt + alla repliker som riktiga klipp klart; vind-sus/moln-pluff kvar)*
+  *(thwip + jamande katt + alla repliker som riktiga klipp klart; vind-sus/moln-pluff kvar —
+  ⛔ kräver nya SFX-klipp, MOSS nere 2026-09-23)*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): "En kattunge till behöver hjälp!"
+  låg på en fast 4,2 s, 0,1 s efter berömmets längsta slut — köar nu via `ctx.narTyst` med
+  nivå-token (kattungens vickning och jam kommer fortfarande genast). Spelet hade ingen egen
+  kopia av firandet. Nytt: pendeln säger en mjuk stämd "boing" i vändlägena (strypt), och
+  Elvira vinkar hela vägen — ivrigare ju närmare Zacke kommer.
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`00f3c1b`, v1.113.0).
   `_plattprobe --medbakgrund` mätte **185 601 px = 20 % av skärmen** i EN ton.
   Stadens alla husväggar delade exakt samma brun, så kvarteret läste som en vägg av block.

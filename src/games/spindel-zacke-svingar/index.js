@@ -36,6 +36,7 @@ const LONG = 260 // långt nät-radie
 const AMP = 1.1 // garanterad framåt-amplitud (~63°) → räcker till nästa fäste
 const THETA_MAX = 1.4 // hård spärr — går aldrig över toppen
 const ROOF_Y = 520 // fångst-golv (taklinje): under denna i flykt → moln-fångst
+const BOING_MS = 500 // pendelns vänd-"boing" (§4 Juice) — högst en per halvsekund
 
 // --- Världen (LYFTPLAN A4.4 — kamerans första kund) ---
 //
@@ -695,7 +696,12 @@ export default {
       .arc(0, -57, 6, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 2.5, color: COLORS.ink })
     const arm = new Graphics()
     arm.moveTo(16, -44).lineTo(34, -58).stroke({ width: 6, color: skin, cap: 'round' }) // vinkar
+    // Pivot i AXELN (och position på samma punkt, så vilobilden är oförändrad) — armen
+    // vinkar kring axeln i `_vinka`, en vinkel per bildruta.
+    arm.pivot.set(16, -44)
+    arm.position.set(16, -44)
     c.addChild(legs, dress, hair, face, arm)
+    c._arm = arm
     return c
   },
 
@@ -1054,8 +1060,8 @@ export default {
 
   // Mål nått → spelets EGEN vinstscen: Zacke landar på taket, Elvira springer fram
   // och kramar honom, kattungen jamar och hoppar upp i famnen — SEDAN det delade
-  // firandet (complete() säger PRAISE och avbryter allt tal, därför sist, efter att
-  // spelets egen replik hunnit klart). Alla fördröjningar via ctx.later (dör med
+  // firandet (complete() hoppar över sitt beröm så länge spelets egen replik talar,
+  // så den får tala klart). Alla fördröjningar via ctx.later (dör med
   // omgången), alla tweens på proxys med destroyed-vakter (exit mitt i scenen ofarligt).
   _reachGoal(ctx) {
     if (this._resolving) return
@@ -1159,9 +1165,15 @@ export default {
     ctx.progress.setCustom('svingar', (ctx.progress.get().custom?.svingar || 0) + 1)
 
     ctx.later(3.0, () => this._buildLevel(this._level))
-    // 5) Berättelsen fortsätter: nästa kattunge ropar (efter nybygget, efter PRAISE).
+    // 5) Berättelsen fortsätter: nästa kattunge ropar (efter nybygget). Kattungen rör sig
+    // genast; orden köar bakom det som talar (berömmet från complete() slutar upp till
+    // 4,1 s — en fast 4,2 s hade 0,1 s marginal). Nivå-token: inaktuell kö säger inget.
+    const niva = this._level
     ctx.later(4.2, () => {
-      ctx.services.voice.say('En kattunge till behöver hjälp!')
+      ctx.narTyst(() => {
+        if (!this._alive || this._level !== niva) return
+        ctx.services.voice.say('En kattunge till behöver hjälp!')
+      })
       if (this._kitten && !this._kitten.destroyed) {
         wiggle(this._kitten)
         if (!ctx.services.audio.sample('djur_katt')) ctx.services.audio.sfx('pop')
@@ -1200,6 +1212,7 @@ export default {
   _update(ctx, ticker) {
     if (!this._alive || this._resolving) return
     const dt = Math.min(ticker.deltaMS / 16.67, 2) // klampa flikbyte
+    this._vinka(ticker)
 
     if (this._state === 'swing') {
       this._L += (this._ropeLen - this._L) * 0.1 // mjuk längd-justering
@@ -1216,6 +1229,21 @@ export default {
       z.y = this._anchor.y + this._L * Math.cos(this._theta)
       z.rotation = this._theta * 0.5
 
+      // En mjuk "boing" när pendeln vänder: stämd, lågmäld och strypt (BOING_MS) — den kommer
+      // ungefär en gång i sekunden och får inte bli ett tjat. Framåtsidan klingar ljusare.
+      // `omega !== 0` på båda sidor: en ny nivå och en moln-räddning börjar på omega = 0,
+      // och flykten nollar `_vandPrev` så fästet i sig aldrig räknas som en vändning.
+      const prev = this._vandPrev || 0
+      if (prev !== 0 && this._omega !== 0 && Math.sign(prev) !== Math.sign(this._omega) && Math.abs(this._theta) > 0.3) {
+        const nu = performance.now()
+        if (nu - (this._lastBoing || 0) >= BOING_MS) {
+          this._lastBoing = nu
+          const [f0, f1] = this._theta > 0 ? [392, 523.25] : [329.63, 440]
+          ctx.services.audio.tone({ freq: f0, slideTo: f1, dur: 0.14, type: 'sine', vol: 0.07 })
+        }
+      }
+      this._vandPrev = this._omega
+
       // Idle: om-cue ~6s, sedan auto-släpp i bästa stund FÖRST ~11s (barnet ska hinna
       // släppa själv länge först) och bara i den goda framåt-stunden.
       this._idle += ticker.deltaMS
@@ -1227,6 +1255,7 @@ export default {
         this._release(ctx, true)
       }
     } else if (this._state === 'flight') {
+      this._vandPrev = 0
       this.vy += G * dt
       const z = this._zacke
       z.x += this.vx * dt
@@ -1260,6 +1289,20 @@ export default {
     // state 'rescue' → moln-tween driver positionen.
 
     this._drawWeb()
+  },
+
+  // Elvira vinkar hela vägen — ivrigare (större och snabbare) ju närmare Zacke kommer
+  // kattungen, i stället för att stå still tills räddningen. Ingen tween: en vinkel per
+  // bildruta på armens EGEN nod, så inget finns att städa (armen rivs med Elvira).
+  _vinka(ticker) {
+    const arm = this._elvira?._arm
+    const z = this._zacke
+    if (!arm || arm.destroyed || !z || z.destroyed || !this._anchors?.length) return
+    const a0 = this._anchors[0]
+    const mal = this._anchors[this._anchors.length - 1]
+    const p = Math.min(1, Math.max(0, (z.x - a0.x) / Math.max(1, mal.x - a0.x)))
+    this._vinkT = (this._vinkT || 0) + (ticker.deltaMS / 1000) * (4 + p * 6)
+    arm.rotation = Math.sin(this._vinkT) * (0.12 + p * 0.5)
   },
 
   _idleCue(ctx) {

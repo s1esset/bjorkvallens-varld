@@ -521,6 +521,7 @@ export default {
     this._combo++
     this._comboDecay = 0.7
     ripple(this._layer, b.x, b.y, { color: 0xffffff, maxR: 70 * b._size, alpha: 0.55 })
+    this._efterklang(b)
 
     if (b._golden) {
       ctx.services.audio.sfx('pling')
@@ -581,9 +582,15 @@ export default {
       ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
       this._level++
       ctx.progress.setLevel(this._level)
+      const niva = this._level
       this._respawnCall = ctx.later(1.8, () => {
         if (!this._alive) return
-        if (Math.random() < 0.5) ctx.services.voice.say('Här kommer fler ballonger!')
+        // Berömmet från complete() är upp till 2,3 s: orden köar, ballongerna gör det inte.
+        if (Math.random() < 0.5) {
+          ctx.narTyst(() => {
+            if (this._alive && this._level === niva) ctx.services.voice.say('Här kommer fler ballonger!')
+          })
+        }
         this._build(ctx)
       })
     }
@@ -698,11 +705,77 @@ export default {
         }
         this._boboReact()
         if (this._friendKinds.length === FRIENDS.length) {
-          ctx.services.voice.say('Du hittade alla kompisar!')
+          // 1,35 s efter kompisens egen replik (och ev. complete()) — köa, kapa inte.
+          ctx.narTyst(() => { if (this._alive) ctx.services.voice.say('Du hittade alla kompisar!') })
           sparkle(ctx.fxLayer, FRIEND_X0 + FRIEND_GAP * 2, FRIEND_Y - 40, { count: 14 })
         }
       },
     })
+  },
+
+  // Popens efterklang: en färgdimma som dröjer kvar och krymper där ballongen var, 1–2
+  // gummibitar i ballongens färg som studsar iväg, och ett mikroskak som växer med
+  // storleken (bara de stora ballongerna känns i skärmen). Allt är proxy-tweens som rör
+  // Pixi-noden bara om den lever — `_build` river lagren och då dör tweensen av sig själva.
+  _efterklang(b) {
+    const col = b._golden ? 0xffd24a : b._color
+    const size = b._size || 1
+
+    const par = b.parent
+    if (par && !par.destroyed) {
+      const dimma = new Graphics().circle(0, 0, 48 * size).fill({ color: col, alpha: 1 })
+      dimma.eventMode = 'none'
+      dimma.position.set(b.x, b.y - 8 * size)
+      dimma.alpha = 0.3
+      par.addChildAt(dimma, par.getChildIndex(b))
+      const st = { s: 1.05, a: 0.3 }
+      const tw = gsap.to(st, {
+        s: 0.5,
+        a: 0,
+        duration: 0.95,
+        ease: 'power1.in',
+        onUpdate: () => {
+          if (dimma.destroyed) { tw.kill(); return }
+          dimma.scale.set(st.s)
+          dimma.alpha = st.a
+        },
+        onComplete: () => { if (!dimma.destroyed) dimma.destroy() },
+      })
+    }
+
+    const n = size > 1.1 || Math.random() < 0.5 ? 2 : 1
+    for (let i = 0; i < n; i++) {
+      const bit = new Graphics()
+      const w = (7 + Math.random() * 5) * size
+      bit.moveTo(-w, 0).quadraticCurveTo(-w * 0.2, -w * 0.9, w * 0.3, -w * 0.2).quadraticCurveTo(w * 0.8, w * 0.4, w, -w * 0.3)
+        .stroke({ width: 5 * size, color: darken(col, 0.12), cap: 'round', join: 'round' })
+      bit.eventMode = 'none'
+      bit.position.set(b.x, b.y)
+      this._layer.addChild(bit)
+      const dir = i === 0 ? -1 : 1
+      const vx = dir * (90 + Math.random() * 110)
+      const spin = dir * (6 + Math.random() * 6)
+      const st = { x: b.x, y: b.y, vy: -220 - Math.random() * 120, t: 0 }
+      const tw = gsap.to(st, {
+        t: 1,
+        duration: 0.85,
+        ease: 'none',
+        onUpdate: () => {
+          if (bit.destroyed) { tw.kill(); return }
+          const dt = 1 / 60
+          st.vy += 900 * dt
+          st.x += vx * dt
+          st.y += st.vy * dt
+          bit.position.set(st.x, st.y)
+          bit.rotation += spin * dt
+          bit.alpha = 1 - st.t * st.t
+        },
+        onComplete: () => { if (!bit.destroyed) bit.destroy() },
+      })
+    }
+
+    const skak = (size - 0.9) * 10
+    if (skak >= 1.2) shake(this._layer, { intensity: Math.min(6, skak), duration: 0.2 })
   },
 
   // En ritad vattendroppe som skvätter iväg och faller (ersätter 💧-emoji, P0 ASSETS).
@@ -926,6 +999,7 @@ export default {
       gsap.killTweensOf(b.scale)
     })
     gsap.killTweensOf(this._layer)
+    this._layer?._fxShakeTw?.kill() // shake() tweenar ett proxy — killTweensOf når det inte
     this._layer?.destroy({ children: true })
   },
 }

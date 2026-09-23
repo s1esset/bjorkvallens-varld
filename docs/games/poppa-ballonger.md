@@ -52,30 +52,28 @@ det någonsin blir svårt på ett bestraffande sätt.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Ballonger som lever.** Låt ballonger guppa mot varandra (billig cirkel-stöt,
-  ingen matter.js) och driva i sidled — då blir varje pop ett *rörligt* mål man måste sikta
-  på (behåll de generösa 82–90px-halona). En ballong som når toppen utan att poppas kan
-  "släppa taget" och flyga iväg med ett litet pys-ljud — en mjuk anledning att hinna med.
+- ✅ ~~**[Medium] Ballonger som lever.**~~ Redan byggd i kärnan (cirkelstöt mellan ballongerna
+  :917, egen vagga/tilt per ballong; se §5 2026-08-04) — uppdagat 2026-09-23. "Släpper taget
+  och flyger iväg vid toppen" byggdes inte.
 - **[Deep] Trådar att klippa.** Vissa ballonger sitter fast i en liten figur/korg nedtill;
   att poppa dem släpper figuren som studsar ner glatt. Ger snöret en funktion och ett mål.
 
 ### Variation & överraskning
-- **[Quick] Fler ballongtyper:** vattenballong (poppar i en blå skvätt + flera mini-droppar),
-  jätteballong (kräver två tryck, första gör en stor wobble), klusterballong (poppar 3 små
-  intill sig). Rotera per nivå så tur 2 ≠ tur 1.
-- **[Medium] Gömda figurer.** ~1/10 ballong gömmer en söt emoji/djur som flyter upp och
-  landar i en liten hylla nedtill (se Karaktär) — något att samla över rundor.
+- ✅ ~~**[Quick] Fler ballongtyper.**~~ Redan byggd (vatten · kluster · jätte, roterade per nivå,
+  :311-317; se §5 2026-07-01) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Gömda figurer.**~~ Redan byggd (kompis som rörlig skugga i en ballong per runda,
+  `_releaseFriend`, `custom.vanner`; se §5 2026-08-04) — uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Stigande kombo-ton.** Snabba pop i rad → pling som klättrar i tonhöjd; ett riktigt
-  "ballong-pop" + luft-pys via SFX-pipelinen ([[real-audio-sfx]]) istället för UI-'pop'.
-- **[Quick] Pop-efterklang.** En kvardröjande, krympande färgdimma + 1–2 gummibitar som
-  studsar bort; skärm-mikroskak skalar med ballongstorleken.
+- ✅ ~~**[Quick] Stigande kombo-ton.**~~ Redan byggd (`COMBO_STEP` :34, svalnar efter ~0,7 s; se
+  §5 2026-07-01) — uppdagat 2026-09-23. Inspelat ballong-pop + luft-pys väntar på MOSS.
+- ✅ ~~**[Quick] Pop-efterklang.**~~ Klar 2026-09-23 (v1.251.0): `_efterklang` (:720) lägger en
+  färgdimma som dröjer och krymper där ballongen satt, 1–2 ritade gummibitar i ballongens färg
+  som studsar iväg, och ett mikroskak ∝ storlek (bara de stora ballongerna, max 6 px).
 
 ### Progression
-- **[Quick] Synlig räknerad.** När det är en räknerunda: visa en rad tomma cirklar (1..N)
-  upptill som fylls med en siffra/ballong-ikon per pop — då blir räkningen begriplig utan
-  ljud. Fortfarande no-fail.
+- ✅ ~~**[Quick] Synlig räknerad.**~~ Redan byggd (pluppar i HUD:en under räknerundor, `_fillPip`
+  :373; se §5 2026-07-01) — uppdagat 2026-09-23.
 - **[Medium] Färgmål som i `klambubblor`.** Ibland "Poppa de röda!" med en liten visuell
   måltavla i hörnet som fylls vid rätt färg — extra gnistor, aldrig fel vid annan färg.
 
@@ -86,9 +84,16 @@ det någonsin blir svårt på ett bestraffande sätt.
 
 ### Ljud
 - **[Quick] Riktigt pop + glad röst.** Knyt 'pop' till ett inspelat ballong-pop; lägg en
-  mjuk vind/utomhus-ambient för lugn. Variera berömfrasen (verifiera global variation når hit).
+  mjuk vind/utomhus-ambient för lugn. *(Blockerad 2026-09-23: kräver SFX-klipp — MOSS nere.
+  Berömfrasen varieras redan i `progress.complete()`.)*
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `complete()` hade inga egna kopior,
+  men "Här kommer fler ballonger!" (fast 1,8 s) och "Du hittade alla kompisar!" (tween-
+  `onComplete` 1,35 s efter kompisens egen replik) kunde kapa berömmet/repliken — båda köar nu
+  i `ctx.narTyst` (den första med nivåtoken). Nytt: pop-efterklang (färgdimma + gummibitar +
+  mikroskak för stora ballonger).
 
 - 2026-06-30: Doc skriven (granskning + plan), ersätter gammal build-spec. Inga kodändringar.
   Spelet testat (errorCount 0; himmelsscen + 4 ballonger renderar korrekt).

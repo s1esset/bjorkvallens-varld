@@ -49,27 +49,37 @@ inget distraherar från storleksjämförelsen.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Deep] Mottagar-figurer i stället för lådor.** En stor gosig figur (mamma-björn) som vill ha
+- ✅ ~~**[Deep] Mottagar-figurer i stället för lådor.** En stor gosig figur (mamma-björn) som vill ha
   *stora* saker och en liten (bebis-björn) som vill ha *små* — "ge rätt storlek till rätt
-  kompis". Samma mekanik, men nu finns ett *varför* och en publik som jublar proportionerligt.
+  kompis". Samma mekanik, men nu finns ett *varför* och en publik som jublar proportionerligt.~~
+  Redan byggd 2026-07-01 (`_makeFriend` :169) — uppdagat 2026-09-23.
 - **[Medium] Jämförelse-moment.** Då och då en mini-variant: två föremål visas bredvid varandra
   och barnet pekar på "den största/minsta" — gör begreppet *relativt* (störst/minst), inte bara
   två fack.
 
 ### Variation & överraskning
-- **[Quick] Blanda figurtyp mellan rundor tydligare** (redan emoji-rotation) + en sällsynt
-  "jätte"-figur och en "pytte"-figur som ger extra-roliga reaktioner.
+- ✅ ~~**[Quick] Blanda figurtyp mellan rundor tydligare** (redan emoji-rotation) + en sällsynt
+  "jätte"-figur och en "pytte"-figur som ger extra-roliga reaktioner.~~ Klar 2026-09-23
+  (v1.251.0): figurtypen byts redan varje runda (33 ritade figurer). Nytt: ungefär var femte runda
+  (`VARIANT_CHANS` :57) blir EN stor sak en jätte (1,3×) eller EN liten en pytte (0,75×). Bara
+  konsten skalas — träffytan och storleksklassen står kvar. Jätten sväljs tungt (djup dubbelbom
+  C3→C2/G2→G1, större squash och skak, damm vid fötterna), pytten med ett högt pip (G6→C7) och
+  glitter (`_reactReceive` :260).
 - **[Medium] Superlativ-runda** på högre nivå: störst/mellan/minst i en rad som ska ordnas — ett
   litet nytt grepp ovanpå samma koncept.
 
 ### Juice
-- **[Quick] Storleksbunden SFX + studs.** Stor figur ner = djup *bom* + stor korg-studs + större
-  skärmskak; liten = hög *tink* + liten studs. Reinforce stor/liten med örat.
-- **[Quick] Korgen "sväljer" synligt** — den guppar tyngre för en stor sak, lättare för en liten.
+- ✅ ~~**[Quick] Storleksbunden SFX + studs.** Stor figur ner = djup *bom* + stor korg-studs + större
+  skärmskak; liten = hög *tink* + liten studs. Reinforce stor/liten med örat.~~ Redan byggd
+  2026-07-01 (`SIZES.tone` + `_reactReceive` :260) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Korgen "sväljer" synligt** — den guppar tyngre för en stor sak, lättare för en liten.~~
+  Redan byggd 2026-07-01 (kompisens mun öppnas och kroppen skvätter efter `squashY`/`stretchX`,
+  `_reactReceive` :260) — uppdagat 2026-09-23.
 
 ### Progression
-- **[Quick] Räkna upp korgens innehåll** med en liten siffer-/prick-rad (frö till antal) utan att
-  bli ett poängsystem som sjunker.
+- ✅ ~~**[Quick] Räkna upp korgens innehåll** med en liten siffer-/prick-rad (frö till antal) utan att
+  bli ett poängsystem som sjunker.~~ Redan byggd 2026-07-01 (prickraden, `_fillNextDot` :411) —
+  uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
 - **[Medium] Bobo som domare** som håller upp "stor!"/"liten!" och blir glad — en återkommande
@@ -77,9 +87,16 @@ inget distraherar från storleksjämförelsen.
 
 ### Ljud
 - **[Quick] Variera berömfraserna + lägg lugn ambient** så loopen känns mindre upprepad.
+  *Berömfraserna varierar redan (`WORDS` :72, fem per storlek, alla med röstklipp). Kvar är
+  ambienten, som kräver ett SFX-klipp — blockerad så länge MOSS är nere.*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): firandet prövades och var rent —
+  spelet firar bara via `complete()`, och sista sakens egen replik sägs före `complete()` i samma
+  tick (berömmet utgår). Nytt: sällsynt jätte/pytte (se §4). §4 städad: mottagarkompisarna,
+  storleksljudet, sväljandet och prickraden var redan byggda. Grind: `check --game stor-liten`
+  0/0. Ej webbläsartestad av agenten.
 - 2026-06-30: Doc skriven (granskning + plan; ersätter äldre build-spec). Inga kodändringar.
   Testkörning ren (errorCount 0), skärmdump verifierad (två korgar med spök-figurer).
 - Rekommenderad första-omgång: **[Quick] storleksbunden SFX/studs + [Deep/Medium] mottagar-

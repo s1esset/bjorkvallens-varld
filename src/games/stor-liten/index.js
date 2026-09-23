@@ -14,7 +14,7 @@ import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
-import { pop, wiggle, sparkle, ripple, shake, breathe, bounceIn, floatText } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, ripple, shake, breathe, bounceIn, floatText, puff } from '../../lib/feedback.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
@@ -46,6 +46,25 @@ const SIZES = {
     plate: 44, font: 54, bw: 130, bh: 128, color: COLORS.orange, label: 'Liten',
     shakeAmt: 2, squashY: 0.92, stretchX: 1.06,
     tone: { freq: 1180, slideTo: 1560, dur: 0.14, type: 'triangle', vol: 0.24 }, // hög *tink*
+  },
+}
+
+// SÄLLSYNT JÄTTE/PYTTE. Ungefär var femte runda blir EN stor sak en jätte (1,3×) eller EN
+// liten sak en pytte (0,75×). Bara KONSTEN skalas — träffytan (`plate`, ≥ 96 px diameter)
+// och storleksklassen står kvar, så en jätte är fortfarande "stor" (ännu tydligare) och en
+// pytte "liten". Reaktionen blir extra: jätten sväljs tungt med en djup dubbelbom (C3→C2,
+// G2→G1) och större skak, pytten med ett högt pip (G6→C7, C7).
+const VARIANT_CHANS = 0.2
+const VARIANT = {
+  jatte: {
+    art: 1.3, squashY: 0.68, stretchX: 1.26, mouthY: 2.6, shakeAmt: 12,
+    tone: { freq: 130.81, slideTo: 65.41, dur: 0.42, type: 'sine', vol: 0.36 },
+    tone2: { freq: 98, slideTo: 49, dur: 0.3, type: 'sine', vol: 0.28, delay: 0.14 },
+  },
+  pytte: {
+    art: 0.75, squashY: 0.96, stretchX: 1.03, mouthY: 1.4, shakeAmt: 1,
+    tone: { freq: 1567.98, slideTo: 2093, dur: 0.1, type: 'triangle', vol: 0.2 },
+    tone2: { freq: 2093, dur: 0.09, type: 'triangle', vol: 0.15, delay: 0.1 },
   },
 }
 
@@ -238,16 +257,18 @@ export default {
   // Storleksbunden reaktion när rätt storlek når rätt kompis: ton (bom/tink),
   // munnen öppnas, kroppen skvätter proportionellt (stor = tung, liten = lätt),
   // glada ögon och en proportionell skärmskak.
-  _reactReceive(ctx, friend, key) {
+  _reactReceive(ctx, friend, key, variant = null) {
     const s = SIZES[key]
-    ctx.services.audio.tone(s.tone)
+    const v = VARIANT[variant] // jätte = tyngre svälj + djupare dubbelbom, pytte = pip
+    ctx.services.audio.tone(v?.tone || s.tone)
+    if (v?.tone2) ctx.services.audio.tone(v.tone2)
 
     if (!friend.destroyed) {
       gsap.killTweensOf(friend._mouth.scale)
-      gsap.timeline().to(friend._mouth.scale, { y: 2, duration: 0.12, ease: 'power2.out' }).to(friend._mouth.scale, { y: 1, duration: 0.24, ease: 'power2.inOut' }, '+=0.05')
+      gsap.timeline().to(friend._mouth.scale, { y: v?.mouthY ?? 2, duration: 0.12, ease: 'power2.out' }).to(friend._mouth.scale, { y: 1, duration: 0.24, ease: 'power2.inOut' }, '+=0.05')
 
       gsap.killTweensOf(friend._body.scale)
-      gsap.timeline().to(friend._body.scale, { x: s.stretchX, y: s.squashY, duration: 0.12, ease: 'power2.out' }).to(friend._body.scale, { x: 1, y: 1, duration: 0.42, ease: 'back.out(2.2)' })
+      gsap.timeline().to(friend._body.scale, { x: v?.stretchX ?? s.stretchX, y: v?.squashY ?? s.squashY, duration: 0.12, ease: 'power2.out' }).to(friend._body.scale, { x: 1, y: 1, duration: 0.42, ease: 'back.out(2.2)' })
 
       for (const eye of friend._eyes) {
         if (eye.destroyed) continue
@@ -255,7 +276,7 @@ export default {
         gsap.timeline().to(eye.scale, { y: 0.35, duration: 0.12 }).to(eye.scale, { y: 1, duration: 0.28 }, '+=0.1')
       }
     }
-    this._shakePlay(s.shakeAmt, 0.35)
+    this._shakePlay(v?.shakeAmt ?? s.shakeAmt, 0.35)
   },
 
   // Reset + skaka spel-lagret (undviker drift om två släpp överlappar).
@@ -306,12 +327,24 @@ export default {
     this._remaining = count
     this._itemRecs = []
 
+    // Ibland blir EN stor sak en jätte eller EN liten sak en pytte (se VARIANT_CHANS).
+    let variantIdx = -1
+    let variant = null
+    if (Math.random() < VARIANT_CHANS) {
+      variant = Math.random() < 0.5 ? 'jatte' : 'pytte'
+      variantIdx = sizes.indexOf(variant === 'jatte' ? 'stor' : 'liten')
+    }
+
     sizes.forEach((key, i) => {
       const slot = slots[i]
-      const made = this._makeItem(emoji, key)
+      const v = i === variantIdx ? variant : null
+      const made = this._makeItem(emoji, key, v)
       made.key = key
+      made.variant = v
       const view = made.container
-      view.position.set(slot.x + (Math.random() * 2 - 1) * 20, slot.y + (Math.random() * 2 - 1) * 16)
+      // Jätten hålls ovanför kompisarnas prickrader (konsten når 78 px nedåt).
+      const y = slot.y + (Math.random() * 2 - 1) * 16
+      view.position.set(slot.x + (Math.random() * 2 - 1) * 20, v === 'jatte' ? Math.min(y, 300) : y)
       this._play.addChild(view)
       bounceIn(view, { delay: i * 0.05, duration: 0.34 })
 
@@ -389,13 +422,15 @@ export default {
   // Föremål = bara figuren (emoji) + mjuk markskugga — ingen platta/ruta bakom.
   // Storleken bär hela poängen. En osynlig, generös träffyta (>=96px i diameter)
   // gör att pekningen alltid funkar trots att den synliga konsten kan vara liten.
-  _makeItem(emoji, key) {
+  _makeItem(emoji, key, variant = null) {
     const s = SIZES[key]
     const c = new Container()
-    const shadow = new Graphics().ellipse(0, s.font * 0.5 + 8, s.font * 0.4, s.font * 0.15).fill({ color: 0x000000, alpha: 0.18 })
+    // Jätte/pytte skalar bara KONSTEN (figur + skugga) — träffytan nedan står kvar.
+    const font = s.font * (VARIANT[variant]?.art ?? 1)
+    const shadow = new Graphics().ellipse(0, font * 0.5 + 8, font * 0.4, font * 0.15).fill({ color: 0x000000, alpha: 0.18 })
     const body = new Container()
     // P0 ASSETS: RITAD figur (var en emoji-Text). Storleken bär hela poängen.
-    const e = drawIcon(emoji, s.font)
+    const e = drawIcon(emoji, font)
     body.addChild(e)
     c.addChild(shadow, body)
     // Osynlig träffyta runt figuren (minst 96px diameter -> radie >=48) så även
@@ -410,11 +445,14 @@ export default {
     if (!this._alive || rec._done) return
     rec._done = true
     const key = target.view._size
-    this._reactReceive(ctx, target.view, key) // storleksbunden ton + mun + skvätt + skak
+    this._reactReceive(ctx, target.view, key, made.variant) // storleksbunden ton + mun + skvätt + skak
     ctx.services.voice.say(randomFrom(WORDS[key]))
     this._fillNextDot(target.view)
     ripple(ctx.fxLayer, target.view.x, target.view.y - 12, { color: 0xffffff, maxR: 120 })
     sparkle(ctx.fxLayer, rec.view.x, rec.view.y)
+    // Jätten landar så det dammar kring kompisens fötter; pytten ger ett litet glitter i munnen.
+    if (made.variant === 'jatte') puff(ctx.fxLayer, target.view.x, target.view.y + target.view._h / 2, { count: 12, color: 0xe8dcc0 })
+    else if (made.variant === 'pytte') sparkle(ctx.fxLayer, target.view.x, target.view.y, { count: 8 })
     if (Math.random() < 0.4) floatText(ctx.fxLayer, rec.view.x, rec.view.y - 40, randomFrom(HAPPY))
 
     gsap.killTweensOf(made.body)

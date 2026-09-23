@@ -878,6 +878,8 @@ export default {
   _update(ctx, t) {
     if (!this._alive) return
     this._phys.update(t.deltaMS) // `_tame` körs inifrån, per fast steg
+    // Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += t.deltaMS / 1000
 
     // Mottagaren följer grodan med blicken — på plankan, i luften, hela vägen. Det är

@@ -24,9 +24,9 @@
 // träffytor, tap-tap-fallback, snäll respons på varje pekning).
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, breathe, pop, wiggle, sparkle, bigCelebration , kvittera} from '../../lib/feedback.js'
+import { bounceIn, breathe, pop, wiggle, sparkle, kvittera } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { COLORS, PRAISE, shade, tint } from '../../lib/theme.js'
+import { COLORS, shade, tint } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
@@ -518,7 +518,7 @@ export default {
     this._cued = false
 
     points.forEach((pt, i) => {
-      const d = this._makeDot(pt.x, pt.y)
+      const d = this._makeDot(pt.x, pt.y, points.length > 1 ? i / (points.length - 1) : 0)
       this._dotsLayer.addChild(d)
       this._dots.push(d)
       bounceIn(d, { delay: i * 0.05 })
@@ -658,14 +658,17 @@ export default {
         if (this._alive) sparkle(ctx.fxLayer, mx, my, { count: 5 })
       })
     }
-    ctx.services.voice.say(randomFrom(PRAISE))
+    // Berömmet säger progress.complete() själv, i samma tick som det här anropas.
   },
 
-  _makeDot(x, y) {
+  // `t` = prickens plats längs banan (0 = första, 1 = sista). De otända prickarna tonar från
+  // tydlig till blek i ritordning, så barnet ser VART linjen går även utan pulsen. Förut hade
+  // alla samma ton (fyllning 0,18 / kant 0,5); mitt på banan är kanten kvar på 0,5.
+  _makeDot(x, y, t = 0.5) {
     const g = new Graphics()
       .circle(0, 0, DOT_R)
-      .fill({ color: COLORS.inkSoft, alpha: 0.18 })
-      .stroke({ width: 4, color: COLORS.inkSoft, alpha: 0.5 })
+      .fill({ color: COLORS.inkSoft, alpha: 0.3 - 0.18 * t })
+      .stroke({ width: 4, color: COLORS.inkSoft, alpha: 0.66 - 0.32 * t })
     g.position.set(x, y)
     g.eventMode = 'none'
     g._lit = false
@@ -816,8 +819,9 @@ export default {
     this._pulseTween?.kill()
     this._pulseTween = null
 
+    // Vinstljud, beröm och konfettiregn kommer från progress.complete() nedan. Ett
+    // motivs egen rad ("Titta, en katt!") sägs före complete() och får stå kvar.
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
 
     // Linjen "vaknar": varje prick pulsar i följd (städbar timeline).
     this._celebrateTL = gsap.timeline()
@@ -830,7 +834,6 @@ export default {
     // faller vi tillbaka på det generella firandet.
     if (this._motif) this._revealMotif(ctx)
     else this._celebrateLine(ctx)
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // Förlopp: höj nivå/svårighet + räkna rundor (oändligt) + delat firande.
     this._round += 1

@@ -83,8 +83,10 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
   och valet minns sig mellan besök.
 
 ### Variation & överraskning
-- **[Quick] Numrerade/färgtonade prickar.** Visa en svag siffra eller en gradvis ljusnande
-  ton så ordningen syns även utan att gissa via pulsen.
+- ✅ ~~**[Quick] Numrerade/färgtonade prickar.**~~ Klar 2026-09-23 (v1.251.0) som **tonade**
+  prickar: de otända prickarna går från tydlig (fyllning 0,30 / kant 0,66) till blek (0,12 /
+  0,34) i ritordning, så riktningen syns även utan pulsen (`_makeDot` :667). Siffror valdes
+  bort — spelet är för 2–4 år och ska läsas utan att kunna läsa.
 - **[Medium] Överraskningsprick.** En glitterprick på vägen som ger extra gnistor + ett litet
   ljud, eller en prick som "släpper" en fjäril när den tänds.
 
@@ -108,8 +110,16 @@ upptäckarglädje, och auto-hjälpen garanterar att varje runda går att slutfö
 
 ### Ljud
 - **[Quick] Lugn pyssel-ambient** + varierat berömsting (PRAISE varieras redan — verifiera).
+  *Berömhalvan klar (kontrollerat 2026-09-23):* berömmet kommer nu ENBART från `complete()`,
+  som slumpar PRAISE och varierar vinstljudet. ⛔ Ambienten kräver ett nytt SFX-klipp (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onComplete` spelade eget
+  vinstljud och eget konfettiregn, och kurv-rundornas `_celebrateLine` sa ett eget PRAISE — allt
+  i samma tick som `complete()`, som gör alla tre själv. Strukna; ett motivs egen rad ("Titta,
+  en katt!") sägs före `complete()` och står kvar. A-raden **färgtonade prickar** byggd (tonad
+  ramp längs banan). §4 städad: krit-krafs och ambient väntar på MOSS.
 
 - 2026-08-10 🎨 **D1: pappret ligger på ett bord i stället för att vara ett hål**
   (`3e239b4`, v1.96.0). `_plattprobe`s eget filhuvud kallar ett vitt ritpapper *legitimt*

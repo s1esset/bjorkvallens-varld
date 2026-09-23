@@ -38,7 +38,7 @@ import { puff, sparkle, pop, wiggle, floatText } from '../../lib/feedback.js'
 import { FONT, COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { verticalFill } from '../../lib/form.js'
+import { verticalFill, bage } from '../../lib/form.js'
 
 // Layout i designkoordinater (1280×720).
 const FIELD = { x: 60, y: 120, w: 1160, h: 560, r: 32 }
@@ -327,8 +327,8 @@ export default {
     frame.circle(640, 400, 9).fill({ color: 0xffffff, alpha: 0.5 })
     frame.rect(FIELD.x + 14, 250, 130, 300).stroke(L)
     frame.rect(FIELD.x + FIELD.w - 144, 250, 130, 300).stroke(L)
-    frame.arc(FIELD.x + 14, FIELD.y + 14, 34, 0, Math.PI / 2).stroke(L)
-    frame.arc(FIELD.x + FIELD.w - 14, FIELD.y + 14, 34, Math.PI / 2, Math.PI).stroke(L)
+    bage(frame, FIELD.x + 14, FIELD.y + 14, 34, 0, Math.PI / 2).stroke(L)
+    bage(frame, FIELD.x + FIELD.w - 14, FIELD.y + 14, 34, Math.PI / 2, Math.PI).stroke(L)
     frame.eventMode = 'none'
     this._root.addChild(frame)
 

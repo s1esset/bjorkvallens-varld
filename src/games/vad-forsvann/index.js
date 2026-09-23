@@ -18,7 +18,7 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, wiggle, sparkle, breathe, ripple, kvittera, liv } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
-import { verticalFill } from '../../lib/form.js'
+import { verticalFill, bage } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Saker som slumpas per runda. Emoji-strängen är bara NYCKELN (NAMES/SAMPLES
@@ -55,7 +55,8 @@ function drawMotif(key) {
       g.circle(11, -7, 4.5).fill(0x2b2b2b)
       g.ellipse(0, 8, 7, 5).fill(0x2b2b2b)
       g.moveTo(0, 12).lineTo(0, 18).stroke({ width: 2.5, color: 0x6f4a2e })
-      g.arc(-6, 18, 6, 0, Math.PI).arc(6, 18, 6, 0, Math.PI).stroke({ width: 2.5, color: 0x6f4a2e })
+      bage(g, -6, 18, 6, 0, Math.PI)
+      bage(g, 6, 18, 6, 0, Math.PI).stroke({ width: 2.5, color: 0x6f4a2e })
       break
     case '⭐':
       star(38, 16, 0xffd35c, 0xe0a94f)
@@ -110,7 +111,8 @@ function drawMotif(key) {
       g.circle(-11, -5, 5).fill(0x2b2b2b)
       g.circle(11, -5, 5).fill(0x2b2b2b)
       g.moveTo(-4, 8).lineTo(0, 12).lineTo(4, 8).closePath().fill(0xff9d9d)
-      g.arc(-5, 15, 5, 0, Math.PI).arc(5, 15, 5, 0, Math.PI).stroke({ width: 2.5, color: 0x74808e })
+      bage(g, -5, 15, 5, 0, Math.PI)
+      bage(g, 5, 15, 5, 0, Math.PI).stroke({ width: 2.5, color: 0x74808e })
       for (const s of [-1, 1]) {
         g.moveTo(s * 14, 6).lineTo(s * 36, 2).moveTo(s * 14, 12).lineTo(s * 36, 14)
         g.stroke({ width: 2, color: 0x74808e })
@@ -144,7 +146,7 @@ function drawMotif(key) {
       g.circle(18, -22, 6).fill(0x2b2b2b)
       g.ellipse(0, 8, 32, 26).fill(0x7ed06a).stroke({ width: 4, color: 0x3f8a44 })
       g.ellipse(0, 16, 20, 13).fill(0xdff3c4)
-      g.arc(0, 4, 16, 0.1 * Math.PI, 0.9 * Math.PI).stroke({ width: 3.5, color: 0x3f8a44 })
+      bage(g, 0, 4, 16, 0.1 * Math.PI, 0.9 * Math.PI).stroke({ width: 3.5, color: 0x3f8a44 })
       g.ellipse(-28, 28, 12, 7).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
       g.ellipse(28, 28, 12, 7).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
       break

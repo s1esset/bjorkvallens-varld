@@ -48,7 +48,7 @@ ett perfekt verktyg från början: båda hålen i `narTyst` kom från fältet.
 **Commits:** `48dd169` värden · `759258d` kön + talsyntesen · 85 spelcommits (`feat/fix/docs(<id>)`).
 
 **Öppet:**
-- **Inte publicerat** — `npm run deploy` väntar på ägarens ja.
+- ✅ **Publicerat samma dag** (`npm run deploy`, ägarens ja): `origin/master` = `df6d970`, live-sajten serverar 1.251.0 (bygg 39 s · publicera 32 s). Annotation: `ubuntu-latest` flyttar till Ubuntu 26 från 2026-10-19.
 - **Ägarbeslut:** `leksakslada`s "Alla leksaker är i lådan. Locket smäller igen!" hörs i
   praktiken aldrig (stryk/korta?) · `gravmaskinen`s "Bobo kör iväg med lasten!" utgår oftast
   (kedja introt efter?) · `skattjakt-i-morkret`s Bobo-lykta ändrar ledtrådarna · `plantera-fron`s

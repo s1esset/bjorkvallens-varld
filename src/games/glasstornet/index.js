@@ -33,7 +33,7 @@ import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, puff, sparkle, ripple, burst, bigCelebration, floatText, kvittera } from '../../lib/feedback.js'
+import { bounceIn, pop, puff, sparkle, ripple, burst, floatText, kvittera } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS } from '../../lib/theme.js'
 
@@ -536,7 +536,14 @@ export default {
 
     // Nytt kärl för nivån (strut → bägare → skål) — ny silhuett OCH ny fysik.
     this._buildVessel()
-    if (announce) ctx.services.voice.say(this._vessel.line)
+    if (announce) {
+      // Nya tornet visas genast; bara repliken köar (bakom berömmet och firandets rader).
+      const n = this._placeN
+      const rad = this._vessel.line
+      ctx.narTyst(() => {
+        if (this._alive && this._placeN === n) ctx.services.voice.say(rad)
+      })
+    }
 
     // Körsbäret sitter överst på måttstocken tills tornet nått upp.
     this._goalTopY = STACK_Y[this._goal - 1] - 30
@@ -1061,6 +1068,8 @@ export default {
 
     // Hitta tornets topp (lägsta y bland liggande kulor).
     const top = this._towerTop()
+    // Firandets repliker gäller tills barnet lagt första kulan i nästa torn.
+    const firarN = this._placeN
 
     // Körsbäret lämnar måttstocken och kröner glassen (exit-säkert: {}-proxy).
     const cherry = this._cherry
@@ -1097,17 +1106,23 @@ export default {
             pop(cherry, { scale: 1.25 })
             ctx.services.audio.tone({ freq: 1046.5, dur: 0.2, type: 'sine', vol: 0.24 })
             sparkle(ctx.fxLayer, top.x, top.y - 52, { count: 8 })
-            ctx.services.voice.say('Ett körsbär på toppen!')
+            ctx.narTyst(() => {
+              if (this._alive && this._placeN === firarN) ctx.services.voice.say('Ett körsbär på toppen!')
+            })
           },
         })
     }
 
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+    // Konfettiregnet kommer från complete() nedan — bara glassens egna effekter här.
     burst(ctx.fxLayer, top.x, top.y - 40, { count: 16 })
     this._sprinkleRain(ctx, top.x, top.y) // glass-eget firande: strössel över tornet
     this._serveToCustomer(ctx, top.x, top.y - 40) // glassen flyger till den hungriga Bobo
 
-    // Spara förlopp + delat firande (celebrate-ljud, beröm, stjärna + klistermärke).
+    // Spara förlopp + delat firande (celebrate-ljud, beröm, konfetti, stjärna + klistermärke).
+    // Körsbärets, mumsandets och nästa kärls repliker kommer 0,8 · 2,2 · 3,4 s efter. På
+    // fasta tider kapade varje rad den förra (klippen är 2,5–3,0 s) och den första kapade
+    // berömmet; nu köar de i `ctx.narTyst` (i tur och ordning, en i taget) och kastas om
+    // barnet hunnit lägga en kula i nästa torn. Bilden väntar inte — bara orden.
     ctx.progress.setLevel(this._level + 1)
     ctx.progress.setCustom('torn', (ctx.progress.get().custom?.torn || 0) + 1)
     ctx.progress.complete()
@@ -1179,6 +1194,7 @@ export default {
     item.visible = false // syns först när den lyfter (annars dubbelglass på toppen)
     this._root.addChild(item)
     this._serveItem = item
+    const firarN = this._placeN // repliken gäller tills nästa torn fått sin första kula
     const st = { x: fromX, y: fromY, s: 1 }
     this._serveTween = gsap.to(st, {
       x: c.x,
@@ -1205,7 +1221,9 @@ export default {
           this._kar?.react('nam') // han TUGGAR på glassen, inte bara studsar
           pop(c, { scale: 1.3 })
           floatText(ctx.fxLayer, c.x, c.y - 100, 'Mums!', { fontSize: 46 })
-          ctx.services.voice.say('Mums! Tack för glassen!')
+          ctx.narTyst(() => {
+            if (this._alive && this._placeN === firarN) ctx.services.voice.say('Mums! Tack för glassen!')
+          })
           ctx.services.audio.tone({ freq: 660, dur: 0.14, type: 'sine', vol: 0.26 })
           ctx.services.audio.tone({ freq: 990, dur: 0.18, type: 'sine', vol: 0.22, delay: 0.12 })
         }

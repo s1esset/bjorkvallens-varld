@@ -115,18 +115,33 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
 - **[Medium] Glass-galleri / kund-kö.** Spara `custom.torn` (görs redan) som en rad
   färdiga glassar; eller en liten kö av kunder (Bobo/djur) som var och en får sin glass —
   ett skäl att bygga "en till".
-- **[Quick] Höjd-mätare** som visar hur nära toppen/körsbäret tornet är (positiv inramning).
+- ✅ ~~**[Quick] Höjd-mätare** som visar hur nära toppen/körsbäret tornet är (positiv inramning).~~
+  Redan byggd (`_drawGoalPole` :1300 — måttstocken med körsbäret överst, en ruta per våning som
+  tänds gul när kulan ligger kvar) — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
-- **[Medium] En mottagare.** En glassugen figur (Bobo/djur/Elvira) vid sidan som tittar upp
+- ✅ ~~**[Medium] En mottagare.** En glassugen figur (Bobo/djur/Elvira) vid sidan som tittar upp
   längs tornet, gör stora ögon ju högre det blir, och *äter* glassen vid finalen med ett
-  "Mums! Tack!" — ger bygget ett syfte och en publik (jfr README:s "ingen mottagare"-mönster).
+  "Mums! Tack!" — ger bygget ett syfte och en publik (jfr README:s "ingen mottagare"-mönster).~~
+  Redan byggd (Bobo-riggen :336 reagerar per kula, glassen flyger till honom i `_serveToCustomer`
+  :1207 och han tuggar, "Mums! Tack för glassen!") — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Lugn glassbar-ambient** + ersätt "Hihi!"/place-lines med riktiga, gladare klipp.
+  *Place-linjerna ("En till!", "Så fint!", "Pling!") har riktiga röstklipp; "Hihi!"/"Hoppsan!"
+  är bara flytande text, inget ljud att byta. Kvar är ambienten, som kräver ett SFX-klipp —
+  blockerad så länge MOSS är nere.*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): inga A-rader för spelet; passet var
+  firandet. `_finishTower` regnade egen konfetti i samma tick som `complete()` (struken). Efter
+  `complete()` föll tre egna repliker på fasta tider — körsbäret 0,8 s, "Mums!" 2,2 s, nästa kärl
+  3,4 s, klippen 2,5–3,0 s — och varje kapade den förra (och berömmet). Nu köar de i
+  `ctx.narTyst` (som sedan samma pass är en FIFO-kö i `GameHost` — det här spelet var fallet som
+  visade att den behövdes: "En skål!" kunde komma före "Mums!"), och kastas om barnet hunnit lägga
+  en kula i nästa torn (`_placeN`-token). Bilden väntar inte.
+  §4: höjdmätaren och mottagaren var redan byggda. Grind: `check --game glasstornet` 0/0.
 - 2026-06-30: Doc skriven utifrån kodläsning + playtest (errorCount 0; carrier-kula i hand,
   guide-linje + landningsring syns). Ersatte den gamla byggspecen. Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] riktiga glass-smaker + nestle-squash + plopp/smask-

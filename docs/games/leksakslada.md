@@ -35,7 +35,6 @@
 "Oj, tågloket är tungt! Dra det långsamt."  ·  "Roboten är också tung. Ta i lite!"
 "En studsboll! Den studsar runt i lådan."
 "Titta, korgen är full! Nu åker allting ner i lådan igen."
-"Alla leksaker är i lådan. Locket smäller igen!"
 ```
 
 ## 1. Nuläge (sett som spelare)
@@ -127,6 +126,11 @@ mycket, lätta går snabbt men flyttar lite.
   pentatonik (:823), så rundans fyra leveranser blir en melodi av just de sakerna.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Lock-repliken struken** (ägarens beslut, samma dag): "Alla leksaker är i
+  lådan. Locket smäller igen!" hördes aldrig — vinstrepliken (6,2 s) talar fortfarande när
+  locket smäller 2,88 s in. Smällen bär sig själv med plopp, dunston, skak och sågspån.
+  Klippet ligger kvar i manifestet (oanvänt).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): finalen spelade ett eget vinstljud direkt
   efter `complete()` — struket. "Titta, korgen är full!" sägs nu FÖRE `complete()`, så berömmet

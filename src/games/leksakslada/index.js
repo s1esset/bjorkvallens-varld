@@ -961,11 +961,9 @@ export default {
       }
       shake(this._framLager, { intensity: 11, duration: 0.45 })
       for (const px of [200, 340, 500, 660]) puff(ctx.fxLayer, px, L_TOPP + 14, { count: 5, color: 0xd9a05b })
-      // Vinstrepliken ovan är 6,2 s och talar fortfarande här (2,88 s in) — say() hade
-      // kapat den mitt i meningen. Smällen bär sig själv med ljud och skak; repliken sägs
-      // bara när den inte avbryter något (att köa den gör den inaktuell: nästa runda
-      // börjar 6,2 s efter finalen, och då står locket redan öppet).
-      if (!ctx.services.voice.talar) ctx.services.voice.say('Alla leksaker är i lådan. Locket smäller igen!')
+      // Smällen bär sig själv med ljud och skak. Här fanns en replik ("Alla leksaker är i
+      // lådan. Locket smäller igen!") men vinstrepliken ovan är 6,2 s och talar fortfarande
+      // 2,88 s in, så den hördes aldrig — struken på ägarens beslut 2026-09-23.
     }, 2.88)
     // Leksaksfanfar: fyra toner i durtreklang + en glad avslutning.
     FANFAR.forEach((f, i) => {

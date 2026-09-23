@@ -7,7 +7,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, wiggle, sparkle, puff, liv, kvittera } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, puff, liv, kvittera, shake } from '../../lib/feedback.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
 import { verticalFill, sphereFill, topLightFill } from '../../lib/form.js'
@@ -33,6 +33,10 @@ const MAX_PIECES = 9
 
 // Glada beröm vid varannan rätt bit.
 const NUDGES = ['Så där ja!', 'Den passar!', 'Bra!']
+
+// Snäpptonen klättrar med antalet bitar som sitter: E-dur-pentatonik, samma tonart som
+// `match` (E–H–E) den följer efter, så bit nio landar en oktav och en kvint över bit ett.
+const STEG_TON = [659.25, 739.99, 830.61, 987.77, 1108.73, 1318.51, 1479.98, 1661.22, 1975.53]
 
 // Klar-repliker som HELA strängar (se _win): check.mjs matchar bara literaler.
 const DONE_PRAISE = [
@@ -568,6 +572,9 @@ export default {
     // Släck spök-konturen under biten.
     if (slot.ghost && !slot.ghost.destroyed) gsap.to(slot.ghost, { alpha: 0, duration: 0.3 })
     this._placed += 1
+    // Ett steg upp i skalan per bit — barnet HÖR att bilden närmar sig klar.
+    const steg = STEG_TON[Math.min(this._placed, STEG_TON.length) - 1]
+    ctx.services.audio.tone({ freq: steg, dur: 0.18, type: 'triangle', vol: 0.13, delay: 0.3 })
     // Dämpa förhandsvisnings-ledtråden gradvis medan bitarna hamnar rätt (mot ~30 %
     // av start vid sista biten) så hjälpen tonar bort när barnet redan är på gång.
     if (this._preview && !this._preview.destroyed && this._pieces.length) {
@@ -582,6 +589,9 @@ export default {
     if (!this._alive || this._done) return
     this._done = true
     ctx.services.audio.sfx('reveal')
+    // Sista biten sätter sig med en liten mikroskak i bilden (rundans lager — ingen annan
+    // skriver dess läge, och ingen drar i en bit när alla sitter).
+    shake(this._layer, { intensity: 5, duration: 0.3 })
     // Bilden vaknar till liv: en glad studs-våg över bitarna ...
     this._pieces.forEach((p, i) => {
       this._delay(i * 0.07, () => {
@@ -597,10 +607,12 @@ export default {
     ctx.progress.setLevel(this._level)
     this._round += 1
     ctx.progress.setCustom('round', this._round)
-    ctx.progress.complete() // delat firande + stjärna + klistermärke + konfetti
     // Hela repliker, inte PRAISE + ' Titta, bilden är klar!': en konkatenerad
     // sträng kan check.mjs inte hitta och /rost kan därför aldrig klippa den.
+    // Sägs FÖRE complete() i samma tick: då står den kvar och skalets beröm utgår.
+    // Efteråt kapade den berömmet redan i första stavelsen (say() kallar cancel()).
     ctx.services.voice.say(randomFrom(DONE_PRAISE))
+    ctx.progress.complete() // delat firande + stjärna + klistermärke + konfetti
 
     this._delay(1.6, () => this._newRound(ctx))
   },
@@ -702,7 +714,10 @@ export default {
     this._ghosts?.forEach((g) => this._killViewTweens(g))
     this._slotViews?.forEach((s) => this._killViewTweens(s))
     gsap.killTweensOf(this._root)
-    if (this._layer) gsap.killTweensOf(this._layer)
+    if (this._layer) {
+      gsap.killTweensOf(this._layer)
+      this._layer._fxShakeTw?.kill() // skaket tweenar ett proxy, inte lagret
+    }
     this._root?.destroy({ children: true })
   },
 }

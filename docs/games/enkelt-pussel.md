@@ -60,9 +60,8 @@ blomman, katten ta form. Tema-cykeln ger variation över rundor.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Quick] Dämpa ledtråden gradvis.** Låt förhandsvisningen tona bort efter de första
-  rundorna (eller bli valbar via svårighet), och gör spök-konturerna svagare på högre nivåer —
-  så att de äldre barnen faktiskt resonerar om bildinnehållet. Behåll full ledtråd för de yngsta.
+- ✅ ~~**[Quick] Dämpa ledtråden gradvis.**~~ Redan byggd (`index.js:391` per runda, `:581` inom
+  rundan; byggd 2026-07-02, se §5) — uppdagat 2026-09-23.
 - **[Medium] Rotation som mjuk option.** På de högsta nivåerna: låt bitar ligga lätt vridna i
   trayn och snäppa rätt rotation vid placering (med generös tolerans) — en extra dimension av
   agens utan fel-läge.
@@ -76,12 +75,12 @@ blomman, katten ta form. Tema-cykeln ger variation över rundor.
   som att man väcker bilden bit för bit.
 
 ### Juice
-- **[Quick] Stigande ton + riktigt "klick".** Låt match-tonen klättra ju fler bitar som sitter,
-  och lägg ett mjukt trä-/klick-ljud vid snäpp ([[real-audio-sfx]]). Skärm-mikroskak vid sista
-  biten.
-- **[Medium] Bilden vaknar på riktigt vid klart.** Animera varje motivs självklara liv: solen
-  stiger, tåget rullar in/visslar, raketen lyfter med rök, regnbågen tonar in, fisken simmar.
-  Det är spelets klimax — gör det motiv-specifikt i stället för generisk studs-våg.
+- ✅ ~~**[Quick] Stigande ton + mikroskak vid sista biten.**~~ Klar 2026-09-23 (v1.251.0): en ton
+  i E-dur-pentatonik (samma tonart som `match`) klättrar ett steg per placerad bit
+  (`STEG_TON` :39), och sista biten skakar rundans lager (`_finishRound` :594).
+  Kvar: ett riktigt trä-/klick-ljud vid snäpp — kräver SFX-pipelinen (MOSS nere).
+- ✅ ~~**[Medium] Bilden vaknar på riktigt vid klart.**~~ Redan byggd (`_wakePicture` :623 +
+  `WAKE` :218; byggd 2026-07-02, se §5) — uppdagat 2026-09-23.
 
 ### Progression
 - **[Quick] Visa "min pusselbok".** Spara vilka motiv barnet klarat (`custom`) och visa dem som
@@ -95,10 +94,18 @@ blomman, katten ta form. Tema-cykeln ger variation över rundor.
   animation vid klart. Ger scenen en själ och firandet en mottagare.
 
 ### Ljud
-- **[Quick] Verifiera varierat vinst-sting** vid `complete()` och lägg en lugn ambient som
-  passar aktuellt motiv (havsbrus för hav, fåglar för trädgård).
+- ✅ ~~**[Quick] Verifiera varierat vinst-sting**~~ vid `complete()`: verifierat 2026-09-23 —
+  skalets vinstljud varieras varje gång (`AudioService._celebrate`, tonhöjd/tempo eller slumpad
+  tonart + mönster). Kvar och **blockerad**: **[Quick] lugn ambient per motiv** (havsbrus för hav,
+  fåglar för trädgård) — kräver nya ljudklipp via SFX-pipelinen (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): klar-repliken (`DONE_PRAISE`)
+  sades direkt EFTER `complete()` och kapade skalets beröm i första stavelsen — nu sägs den
+  före, i samma tick, och berömmet utgår. Snäpptonen klättrar i E-dur-pentatonik per bit och
+  sista biten ger en mikroskak. §4 stämd mot koden: 3 punkter var redan byggda, 1 blockerad
+  på SFX-pipelinen.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`4494a51`, v1.105.0).
   `_plattprobe --medbakgrund` mätte **391 766 px = 43 % av skärmen** i EN ton.

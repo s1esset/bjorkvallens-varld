@@ -726,6 +726,10 @@ export default {
 
         // Idle-om-cue + auto-hjälp (medvinden dröjer längre på högre nivåer).
         this._sinceTap += dt
+        // V21: tomgången räknas från TYSTNAD — om-cuen får aldrig kapa en replik som talar.
+        // Klockan hålls på högst noll (en negativ "head start" står kvar) bara FÖRE om-cuen:
+        // efter den ska cuens egen replik inte skjuta upp medvinden, som då redan är igång.
+        if (!this._didIdleCue && ctx.services.voice.talar) this._sinceTap = Math.min(this._sinceTap, 0)
         if (this._sinceTap > this._assistDelay + 1 && !this._didIdleCue) {
           this._didIdleCue = true
           ctx.services.voice.say(this.voiceIntro)

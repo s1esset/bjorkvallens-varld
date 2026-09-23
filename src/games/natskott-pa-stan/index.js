@@ -4615,17 +4615,26 @@ export default {
       bounceIn(this._panel)
     }
     ctx.services.audio.sfx('reveal')
-    // Literala repliker (aldrig ternärer i say — check.mjs ser bara literaler).
-    if (key === 'katt') {
-      ctx.services.voice.say('Fånga katten med dragnätet!')
-    } else if (key === 'paket') {
-      ctx.services.voice.say('Fäst paketen så de inte blåser iväg!')
-    } else {
-      ctx.services.voice.say('Hämta hem tre ballonger!')
-    }
+    // V24: uppdraget ropas ut på en fast klocka (4,6 s efter start, 6,0 s efter förra
+    // uppdraget, 3,4 s efter hemkomsten) — panelen kommer genast, men orden väntar in rösten
+    // och sägs bara medan SAMMA uppdrag pågår. Växel-tipset köar efter uppdraget, aldrig före.
+    const nr = this._missionsDone
+    ctx.narTyst(() => {
+      if (!this._alive || !this._missionActive || this._missionsDone !== nr) return
+      // Literala repliker (aldrig ternärer i say — check.mjs ser bara literaler).
+      if (key === 'katt') {
+        ctx.services.voice.say('Fånga katten med dragnätet!')
+      } else if (key === 'paket') {
+        ctx.services.voice.say('Fäst paketen så de inte blåser iväg!')
+      } else {
+        ctx.services.voice.say('Hämta hem tre ballonger!')
+      }
+    })
     // Aldrig bytt nät efter 2 uppdrag → visa vägen till växelknappen.
     if (this._missionsDone >= 2 && !this._everToggled) {
-      ctx.later(2.8, () => this._sayByt(ctx))
+      ctx.later(2.8, () => ctx.narTyst(() => {
+        if (this._alive && this._missionActive && this._missionsDone === nr) this._sayByt(ctx)
+      }))
     }
   },
 
@@ -5269,7 +5278,8 @@ export default {
     if (!ctx.services.audio.sample('plopp')) ctx.services.audio.sfx('pop')
     ctx.services.audio.tone({ freq: 1046.5, dur: 0.12, type: 'sine', vol: 0.16 })
     ctx.services.audio.tone({ freq: 1318.5, dur: 0.16, type: 'sine', vol: 0.14, delay: 0.07 })
-    if (this._t - this._lastRutaSaid > 14 && Math.random() < 0.5) {
+    // V24: slumphändelsernas rop är valfria — aldrig ovanpå en replik som talar.
+    if (this._t - this._lastRutaSaid > 14 && Math.random() < 0.5 && !ctx.services.voice.talar) {
       this._lastRutaSaid = this._t
       ctx.services.voice.say('Hoppsan! Där rök en ruta!')
     }
@@ -5586,7 +5596,7 @@ export default {
         if (mons.inner && !mons.inner.destroyed) wiggle(mons.inner)
         if (paket.inner && !paket.inner.destroyed) pop(paket.inner, { scale: 1.2 })
         floatText(ctx.fxLayer, mons.view.x, mons.view.y - 86, '❗', { fontSize: 46 })
-        if (this._t - this._lastTjuvSaid > 15) {
+        if (this._t - this._lastTjuvSaid > 15 && !ctx.services.voice.talar) {
           this._lastTjuvSaid = this._t
           ctx.services.voice.say('Monstret tog ett paket!')
         }

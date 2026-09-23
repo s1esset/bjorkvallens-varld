@@ -490,7 +490,16 @@ export default {
       this._rings[slot].alpha = 0.32
     }
 
-    if (!silent) ctx.services.voice.say(this._weather.intro)
+    // Väderbytet syns genast; bara orden köar bakom lagom-raden (3,2 s) som en fast
+    // 1,7 s kapade. Om-cuen (6 s) räknas från raden, annars kapar den en sen intro.
+    if (!silent) {
+      const w = this._weather
+      ctx.narTyst(() => {
+        if (!this._alive || this._weather !== w || this._resolving) return
+        this._idle = 0
+        ctx.services.voice.say(w.intro)
+      })
+    }
   },
 
   // Rätt plagg på rätt zon (DragController har redan snäppt det dit).
@@ -553,6 +562,8 @@ export default {
     this._level += 1
     ctx.progress.setLevel(this._level)
 
+    // Egen replik FÖRE complete() i samma tick: då utgår berömmet i stället för att kapas.
+    ctx.services.voice.say('Nu går Elvira ut!')
     ctx.progress.complete() // celebrate-ljud + beröm + konfetti + stjärna + klistermärke
     this._goOutside(ctx)
   },
@@ -563,7 +574,6 @@ export default {
     const fig = this._figure
     if (!fig || fig.destroyed) return
     gsap.killTweensOf(fig)
-    ctx.services.voice.say('Nu går Elvira ut!')
     ctx.services.audio.sfx('whoosh')
     this._payoff?.kill()
     const tl = gsap.timeline()
@@ -580,7 +590,11 @@ export default {
   _showLagom(ctx) {
     if (!this._alive) return
     const w = this._weather
-    ctx.services.voice.say(w.lagom)
+    // Köar bakom "Nu går Elvira ut!" (1,9 s) som annars kapades efter 0,7 s. Hann nästa
+    // väder komma under väntan är raden fel väder och utgår.
+    ctx.narTyst(() => {
+      if (this._alive && this._weather === w && this._resolving) ctx.services.voice.say(w.lagom)
+    })
     ctx.services.audio.sfx('reveal')
     const hx = 640 + (this._figure?.x || 0)
     floatText(ctx.fxLayer, hx, 150, w.proof, { fontSize: 76, rise: 74, duration: 1.4 })

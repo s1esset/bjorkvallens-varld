@@ -57,23 +57,23 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Lägg till en "gå ut"-payoff.** När alla zoner är fyllda: Elvira tar ett par
-  steg ut i vädret och visar att hon är lagom — torr under regnhatten, varm i snön, sval i
-  solen — med en glad replik ("Nu blir jag lagom i regnet!"). Sluter resonemangs-loopen och
-  gör belöningen *om* lärandet.
-- **[Medium] Tillåt flera dugliga val per zon** (t.ex. både keps och regnhatt funkar i regn)
-  så barnet faktiskt resonerar i stället för att hitta det enda rätta. Behåll uppenbart fel
-  som mjuk vink.
+- ✅ ~~**[Medium] Lägg till en "gå ut"-payoff.**~~ Redan byggd (`_goOutside` index.js:573 +
+  `_showLagom`, 2026-07-02) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Tillåt flera dugliga val per zon.**~~ Redan byggd (`valid`-listor per väder,
+  index.js:70/:82/:94, 2026-07-02) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
 - **[Medium] Fler väder/nyanser:** blåsigt (behöver något som sitter fast), halvkallt höst
   (jacka men ingen mössa), regnbåge efter regn. Ger nya kombinationer att tänka kring.
 - **[Quick] Variera figuren ibland** (Elvira / Zacke / Lova) så omsorgen känns bredare —
   alla är tillåtna karaktärsnamn.
+  *Blockerad 2026-09-23:* intro-, payoff- och lagom-replikerna säger "Elvira", och
+  motsvarigheterna för Zacke/Lova har inga klipp ("Nu går Zacke ut!" saknas i manifestet).
+  Kräver nya röstklipp (TTS nere).
 
 ### Juice
-- **[Quick] Snäpp-"klick" + tyg-frasande** när ett plagg sätter sig, och en liten studs på
-  zonen. Idag är fastsättningen ljudmässigt platt.
+- ✅ ~~**[Quick] Snäpp-"klick" + tyg-frasande**~~ Redan byggd (stämda toner + `pop` på zonringen
+  i `_onCorrect`, 2026-07-02) — uppdagat 2026-09-23.
 - ~~**[Quick] Elvira reagerar på fel:** huttrar till vid för lite kläder, viftar bort för
   varmt — per-plagg-reaktion gör vinken levande i stället för bara wiggle + TTS.~~
   ✅ **BYGGD 2026-08-12 (v1.176.0)** — och byggd bredare än punkten bad om: obehaget är
@@ -90,9 +90,20 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
 ### Ljud
 - **[Quick] Riktig väder-ambient via SFX-pipelinen** ([[real-audio-sfx]]): mjukt regn,
   vind-sus, fågelkvitter i sol; ett "brr"-huttrande och snäpp-ljud. Gör vädret kännbart i örat.
+  *Not 2026-09-23:* ambienten finns redan som stämda toner (`_playAmbient`, :688) och snäppet
+  likaså. Det som återstår är de riktiga klippen, och de kräver SFX-pipelinen (MOSS nere).
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Tre repliker i rundslutet kapade
+  varandra. Lagom-raden (3,2 s) kom på fast 0,68 s mitt i "Nu går Elvira ut!" (1,9 s), och
+  nästa vädrets intro (5,6 s) kom på fast 1,7 s mitt i lagom-raden. "Nu går Elvira ut!" sägs
+  nu före `complete()`, så berömmet utgår. Lagom-raden och intron köas med `ctx.narTyst`,
+  vaktade av väder-identiteten. Intron nollställer `_idle` så att 6 s-om-cuen inte kapar den.
+  Ingen A-snabbvinst fanns för spelet. §4 är prövad: "variera figuren" är blockerad av
+  röstklipp, och garderoben står öppen.
+  ⚠️ Lyssna i test: lagom-raden hinner normalt fyra runt 2,1 s. Nytt väder byggs vid 2,38 s,
+  och startar klippet ovanligt sent utgår raden hellre än att tala fel väder.
 - 2026-08-12 🥶 **Elvira känner vädret** (v1.176.0). Punkten valdes av **mätning**:
   `_stillaprobe` läste scenen som nästan död — 84 noder, **3** i rörelse, största utslag
   **4,1–4,2 px i tre svep av tre**, och de tre var vädersymbolens glow-puls (`_glowPulse`,

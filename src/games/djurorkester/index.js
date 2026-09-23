@@ -269,6 +269,8 @@ export default {
     if (!this._alive) return
     const dt = ticker.deltaMS / 1000
     this._idle += dt
+    // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._beatTime += dt
 
     // Slå ett nytt slag när vi passerar en takt-gräns (lugn bas-groove).

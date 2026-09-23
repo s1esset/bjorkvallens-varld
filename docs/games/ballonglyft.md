@@ -89,13 +89,16 @@ aldrig.
 
 ### Juice
 - ✅ ~~**[Quick] Ljudkurva för lyft.**~~ Klar 2026-07-02 (helium-"fffp" + stigande lyft-ton).
-- **[Quick] Levande paket + ballonger.** Låt paketet gunga/vrida sig lätt medan det stiger
-  och ballongerna studsa till vid varje ny — i stället för ett stelt steg. Litet damm-/
-  glitterspår uppåt.
+- ✅ ~~**[Quick] Levande paket + ballonger.**~~ Redan byggd (paketet gungar och lutar efter farten
+  under avfärden `index.js:529`, stegen går med `back.out`, varje ny ballong poppar :393 och
+  glitter stiger vid fäst :454 och avfärd :514) — uppdagat 2026-09-23.
 
 ### Progression
 - **[Quick] Mjuk parallax-himmel.** Driv moln, en sol som ler, kanske en fågel — så väntan
   mellan tryck inte är en stillbild. Vid nivåbyte: en mjuk höjning av kameran/balkongen.
+  *2026-09-23:* molnen driver och solen finns redan (delade `createScene('meadow')`, `driftCloud`
+  i `lib/scene.js`). Kvar: en fågel och den mjuka höjningen av balkongen vid nivåbyte (den
+  flyttas i dag i en bildruta i `_loadLevel`).
 - ✅ ~~**[Medium] Paketet öppnas.**~~ Klar 2026-07-02 (åtta överraskningar, Elvira kramar).
 
 ### Karaktär & berättelse
@@ -106,8 +109,17 @@ aldrig.
 ### Ljud
 - **[Quick] Variera räkne-frasen + lägg pop-vid-fäst som riktigt klipp** ([[real-audio-sfx]]).
   Ett mjukt "tack!" från Elvira (förinspelat) vid leverans i stället för generiskt `correct`.
+  *2026-09-23:* tacket finns redan i överraskningsrepliken ("Titta, en … Tack så mycket!").
+  Resten är **blockerat**: nya räknefraser kräver röstklipp (TTS nere), pop-klippet SFX-pipelinen
+  (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Dubbelfirandet** (v1.251.0): överraskningsrepliken "Titta, en … Tack så mycket!"
+  kom 0,45 s efter `complete()` och kapade skalets beröm mitt i ordet — nu väntar den in rösten
+  via `ctx.narTyst` och utgår om nästa nivå hunnit riva överraskningen. Ingen A-rad i
+  snabbvinstkartan; §4 stämd mot koden: 1 punkt var redan byggd, 1 blockerad, 1 fick en not om
+  vad som återstår.
 
 - 2026-08-10 🐛 **Auto-hjälpens replik klipptes av sin egen räkning** (`f1da22c`).
   `_attachLoose(ctx, b, opts = {})` tog emot `{ auto: true }` och läste aldrig `opts`.

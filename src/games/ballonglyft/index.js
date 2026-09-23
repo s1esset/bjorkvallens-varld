@@ -720,7 +720,13 @@ export default {
         },
       })
 
-    ctx.services.voice.say(`Titta, en ${pick.namn}! Tack så mycket!`)
+    // Repliken väntar in berömmet: complete() talade 0,45 s tidigare, och say() kallar
+    // cancel() — på en fast tidpunkt kapade den berömmet mitt i ordet. Bilden kommer genast,
+    // bara orden köar. Har nästa nivå hunnit riva överraskningen är repliken inaktuell.
+    ctx.narTyst(() => {
+      if (!this._alive || this._surprise !== s || s.destroyed) return
+      ctx.services.voice.say(`Titta, en ${pick.namn}! Tack så mycket!`)
+    })
   },
 
   destroy(ctx) {

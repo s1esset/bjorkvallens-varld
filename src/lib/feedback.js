@@ -295,7 +295,16 @@ export function puff(layer, x, y, { count = 8, color } = {}) {
 
 // Stor men kort hyllning: konfetti regnar över skärmen. "Skärmen" är det som faktiskt
 // syns (VIEW) — på en bred telefon bredare än designytan; vid 16:9 exakt som förut.
+//
+// ETT regn i taget: `progress.complete()` regnar själv, och ett spel som också regnar strax
+// före eller efter complete dubblade tätheten (uppmätt +360 bitar mot +180, `_firarprobe.mjs`).
+// Ett andra anrop inom REGN_FONSTER_MS gör därför ingenting — oavsett vem som kom först.
+const REGN_FONSTER_MS = 1500
+let _senasteRegn = -Infinity
 export function bigCelebration(layer, { width = 1280, height = 720 } = {}) {
+  const nu = performance.now()
+  if (nu - _senasteRegn < REGN_FONSTER_MS) return
+  _senasteRegn = nu
   const N = 60
   if (rain(layer, { width, height, count: N })) return
   for (let i = 0; i < N; i++) {

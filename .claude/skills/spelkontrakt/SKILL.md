@@ -47,6 +47,8 @@ ctx.fxLayer   // för konfetti/firande OVANPÅ spelet
 ctx.exitToLibrary()
 ctx.later(sekunder, fn)  // fördröjt anrop som DÖR med spelomgången — använd i stället
                          // för gsap.delayedCall/setTimeout (se nedan)
+ctx.narTyst(fn)          // kör fn när berättaren tystnat (dör med omgången) — för en
+                         // replik som ska höras EFTER beröm eller en annan replik
 ctx.services  // se nedan
 ctx.progress  // se nedan
 ```
@@ -84,6 +86,16 @@ get()                 // { unlocked, highestLevel, stars, custom }
 update(patch) · setLevel(n) · addStars(n=1) · setCustom(key, value)
 complete()            // ETT tillfredsställande "klart": firande 1–2 s + stjärna + klistermärke
 ```
+
+**`complete()` FIRAR SJÄLV** — vinstljud (`sfx('celebrate')`) + ett slumpat `PRAISE` +
+`bigCelebration`. Upprepa inte de tre i spelet i samma ögonblick. Värden tål det (ljudet och
+regnet spärrar dubbletter i ett 1,5 s-fönster, och berömmet hoppas över om något redan talar),
+men koden ljuger om vad som händer. Två regler för rösten runt complete():
+- Har spelet en **egen** vinstreplik: säg den **före** `complete()` — då får den stå kvar och
+  berömmet utgår. Sägs den efter, kapar den berömmet.
+- En replik som ska komma **efter** firandet (nästa rundas instruktion, en reaktion) läggs i
+  `ctx.narTyst(() => voice.say(...))`, aldrig på ett fast `later(t)`. Berömklippen är
+  1,0–2,3 s och `say()` kallar `cancel()`. Bilden ska inte vänta — bara orden.
 
 ## Regler för spelmoduler
 

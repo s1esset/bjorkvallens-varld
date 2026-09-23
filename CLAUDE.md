@@ -328,8 +328,10 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
   ett barn hör att någon blev avbruten mitt i meningen. Samma familj som "två röster
   samtidigt" (v1.194), fast åt andra hållet, och den fanns i ett spel som redan hade rättat
   den andra halvan. Vänta in **`voice.kvar` / `voice.talar`** (narratorn) OCH
-  `audio.sampleDuration()` (figurens eget klipp) — mönstret heter `_narTyst`. **Bilden
-  väntar inte:** ring, gest och glitter kommer genast, bara orden köar.
+  `audio.sampleDuration()` (figurens eget klipp) — mönstret heter `_narTyst`, och finns
+  sedan v1.251 i kontraktet som **`ctx.narTyst(fn)`**. **Bilden väntar inte:** ring, gest
+  och glitter kommer genast, bara orden köar. `complete()` firar SJÄLV (ljud + beröm + regn)
+  och hoppar över berömmet om något redan talar — säg spelets egen vinstrad FÖRE complete().
 - **`killTweensOf(figuren)` når BARA figurens rot — barnbarnen städas aldrig.** Armar som
   vinkar, ögon som kisar och en del som studsar in ligger en nivå längre in, och en rivning
   som bara tar roten lämnar dem levande. I `bygg-en-kompis` hann en vinkning (0,72 s) nästan

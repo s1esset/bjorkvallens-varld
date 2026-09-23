@@ -26,9 +26,14 @@ export async function createGameHost(services, params) {
 
   // Förlopps-API kopplat till aktiv profil + detta spel.
   const progress = makeProgress(services, game.id)
+  // Firandet här är en GARANTI, inte ett tillägg: har spelet redan firat i samma ögonblick
+  // ska barnet höra och se det EN gång. Ljudet och regnet spärrar sig själva mot dubbletter
+  // (1,5 s-fönster i AudioService.sfx och bigCelebration), och berömmet väntar inte bakom
+  // en replik som redan talar — `say()` kallar `cancel()`, så det skulle kapa spelets egen
+  // rad mitt i meningen (uppmätt: 5,4 s kvar av repliken → avbruten, `_firarprobe.mjs` T).
   progress.complete = () => {
     audio.sfx('celebrate')
-    voice.say(randomFrom(PRAISE))
+    if (!voice.talar) voice.say(randomFrom(PRAISE))
     bigCelebration(services.fxLayer, { width: DESIGN_W, height: DESIGN_H })
     progress.update({}) // stämpla lastPlayedAt på spelet
     progress.addStars(1)
@@ -60,6 +65,22 @@ export async function createGameHost(services, params) {
     return call
   }
 
+  // ctx.narTyst(fn): kör fn när berättaren tystnat. För en replik som ska höras EFTER något
+  // som redan talar — berömmet från complete() (klippen är 1,0–2,3 s, uppmätt med ffprobe),
+  // eller spelets egen rad. `say()` kallar `cancel()`, så en replik på en fast fördröjning
+  // kapar den förra mitt i meningen. Bilden ska INTE vänta — bara orden köar. Taket (10,5 s)
+  // ligger över appens längsta klipp: 8,99 s (ffprobe över alla 1 829; medianen är 2,4 s),
+  // för en fn som fyrar när taket löper ut kapar precis det mekanismen skyddar. Pollningen
+  // går via later() och dör alltså med omgången. Mönstret kommer från unika-knytts `_narTyst`.
+  const NAR_TYST_TAK = 30
+  const narTyst = (fn, varv = 0) => {
+    if (varv >= NAR_TYST_TAK || (!voice.talar && !voice.kvar)) {
+      fn()
+      return
+    }
+    later(0.35, () => narTyst(fn, varv + 1))
+  }
+
   const ctx = {
     stage,
     ticker: services.app.ticker,
@@ -73,6 +94,7 @@ export async function createGameHost(services, params) {
     progress,
     exitToLibrary,
     later,
+    narTyst: (fn) => narTyst(fn),
     fxLayer: services.fxLayer,
   }
 

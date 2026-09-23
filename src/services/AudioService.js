@@ -86,9 +86,13 @@ export class AudioService {
     // Globalt anti-loop-skydd: samma ljud kan inte spela snabbare än var 30:e ms.
     // Ett ljud som triggas varje frame (~60/s) är alltid en bugg/loop som distar —
     // 30ms-golvet (~33/s) stoppar det men är omärkbart för riktig lek (tap ≤ ~5/s).
+    //
+    // Vinstljudet har ett längre golv: `progress.complete()` spelar det själv, och ett spel
+    // som firar en stund före eller efter complete fick det två gånger (uppmätt 2 anrop med
+    // 400 ms emellan, `_firarprobe.mjs` arm F). Ett vinstljud per 1,5 s är aldrig för få.
     const t = c.currentTime * 1000
     if (!this._lastSfxAt) this._lastSfxAt = new Map()
-    if (t - (this._lastSfxAt.get(name) || -1e9) < 30) return
+    if (t - (this._lastSfxAt.get(name) || -1e9) < (name === 'celebrate' ? 1500 : 30)) return
     this._lastSfxAt.set(name, t)
     // Vinstljudet varieras varje gång så det inte blir enformigt (se _celebrate).
     if (name === 'celebrate') return this._celebrate()

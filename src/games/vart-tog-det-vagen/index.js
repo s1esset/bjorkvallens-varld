@@ -628,6 +628,9 @@ export default {
   // vippar rätt kopp, sist lyfts den (auto-hjälp). Aldrig bestraffande.
   _update(ctx) {
     if (!this._alive || this._phase !== 'guess' || this._resolving) return
+    // Tomgången räknas från TYSTNAD: medan rösten talar står klockan på noll, annars
+    // kapar hjälpstegen en replik som talar.
+    if (ctx.services.voice.talar) this._lastInteract = performance.now()
     if (performance.now() - this._lastInteract > 6000) {
       this._lastInteract = performance.now()
       this._idleCues++

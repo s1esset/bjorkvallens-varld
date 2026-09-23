@@ -1167,6 +1167,9 @@ export default {
     if (this._frame % 12 === 0 && !this._busy) this._checkGlasses(ctx)
 
     // mjuk om-cue
+    // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+    // annars kapar påminnelsens say() en replik som redan talar).
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
     if (this._idle > 6800 && !this._busy) {
       this._idle = 0

@@ -60,22 +60,19 @@ loopen är "töm bricka → bredare flod".**
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Gör molnet sent, synligt och sällsynt.** Låt barnets placeringar faktiskt avgöra:
-  molnet kickar bara in om ett gap är ohjälpligt stort *och* visar tydligt "Jag hjälper till!"
-  (vinkande moln-figur) — och bara efter att figuren tvekat en sekund på kanten. När barnet
-  byggt en hel kedja ska den känna sig som *deras* hopp, inte molnets. Skicklighet ska kännas.
-- **[Medium] Distinkta stenar med olika egenskaper.** Förutom studs: en bred **bro-platta**
-  (täcker ett dubbelt gap), en **vinglig sten** som vippar lite (lite spänning, fortfarande
-  no-fail), en **flytande lilja** som guppar. Då blir VILKEN sten ett val, inte bara var.
-- **[Deep] Låt barnet se bygget testas innan Gå!.** En spök-figur (eller streckad båge) som
-  förhandsvisar hoppvägen när en sten läggs — så barnet förstår "det här gapet är för långt"
-  och vill lägga en sten till. Gör pusslet begripligt utan att lösa det.
+- ✅ ~~**[Medium] Gör molnet sent, synligt och sällsynt.**~~ Redan byggd (`index.js:1154` tvekan
+  0,7 s + vinkande moln `_spawnCloud` :1163, 2026-07-02) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Distinkta stenar med olika egenskaper.**~~ Redan byggd till största delen (bro +
+  lilja med egen räckvidd, `_stoneKindsFor` :711 + `REACH`) — uppdagat 2026-09-23. Kvar som
+  egen idé: den **vingliga stenen** som vippar.
+- ✅ ~~**[Deep] Låt barnet se bygget testas innan Gå!.**~~ Redan byggd (`_drawPreview` :1066,
+  prickad bana + molnmarkör, 2026-08-06) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] Stigande sten-arsenal per nivå.** Introducera en ny stentyp var-/vartannat nivå
-  (studs → bro → lilja) så brickan känns rikare ju längre man kommer.
-- **[Quick] Variera skatten.** Kistan innehåller olika fynd (💎/👑/🏆/🪙) som flyger ut vid
-  vinst — små överraskningar i stället för samma 💎.
+- ✅ ~~**[Quick] Stigande sten-arsenal per nivå.**~~ Redan byggd (`_stoneKindsFor` :711: studs →
+  bro → lilja) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Variera skatten.**~~ Redan byggd (`FYND` :68, ritade fynd `_makeFynd` :405 som
+  flyger ut i `_flyFynd` :1299) — uppdagat 2026-09-23.
 
 ### Juice
 - ✅ **Hettan lyser (v1.152.0, LYFTPLAN C4).** Floden kastar additivt ljus: ett band liggande
@@ -85,31 +82,39 @@ loopen är "töm bricka → bredare flod".**
   klippan, 0,0 % vitklippning, kroma 0,51–0,52 kvar. Uppmätt i bilden: luften ovanför lavan
   255,173,104 → 255,203,116, klippan närmast floden 158,112,76 → 201,133,84, avtagande med
   avståndet. Himlen högt uppe och lavaytan är oförändrade.
-- **[Quick] Lava som reagerar.** Stänk + kort glöd-puls när en sten landar över ytan; ringar på
-  lavan när figuren hoppar förbi; mikroskak vid landning som skalar med fallhöjden.
-- **[Quick] Hopp-juice.** Ett mjukt "boing" vid avstamp (extra fjäderton på studs-stenen), en
-  liten dammpuff vid landning (finns redan — förstärk), och en svans/streck efter figuren i
-  toppen av bågen.
+- ✅ ~~**[Quick] Lava som reagerar.**~~ Redan byggd (`_lavaReact` :933 stänk + glöd; landningen
+  :1206–1222 ring, riktiga lavadroppar och skak efter fallhöjd) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Hopp-juice.**~~ Klar 2026-09-23 (v1.251.0): boinget (:1149) och landningspuffen
+  (:1212) fanns redan; nu drar figuren ett varmvitt streck efter sig som är starkast i toppen av
+  bågen och dör ut på 0,3 s (`_pushTrail`/`_stepTrail` :1402–1427, ETT Graphics).
 
 ### Progression
-- **[Quick] Synlig "samlad sträcka".** En liten mätare/stig-ikon som fylls för varje klarad
-  flod, så barnet ser att floderna blir bredare och att det "går framåt".
+- ✅ ~~**[Quick] Synlig "samlad sträcka".**~~ Klar 2026-09-23 (v1.251.0): ett **stenröse** i
+  nedre högra hörnet får en ritad sten per klarad flod (`custom.rundor`, högst 10: 4+3+2+1).
+  Nya stenen faller på plats 0,9 s efter vinsten med ett stämt klick (G5→C6); fullt röse
+  glittrar i stället. Kan bara växa (`_addRoseStone`/`_roseStoneIn` :1438–1486).
 - **[Medium] Mjuk scen-cykel.** Låt bakgrunden växla tema mellan nivåer (vulkan → grotta →
   natt-lava) med cross-fade så världen känns som en resa, inte en upprepad rebuild.
 
 ### Karaktär & berättelse
-- **[Deep] En väntande mottagare vid skatten.** Maskoten Bobo (eller en glad drake) sitter på
-  höger klippa, hejar när figuren hoppar, och firar tillsammans vid kistan — en anledning att
-  bry sig och en spel-specifik vinst-animation i stället för generisk konfetti.
-- **[Quick] Figuren reagerar.** Liten "titta mot skatten"-vridning vid start och en armar-upp-
-  pose vid vinst (byt emoji till 🙌/🎉 ett kort ögonblick).
+- ✅ ~~**[Deep] En väntande mottagare vid skatten.**~~ Redan byggd (draken `_buildDragon` :366,
+  hejar per hopp i `_dragonCheer` :1235 och firar i `_onWin`, 2026-08-06) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Figuren reagerar.**~~ Redan byggd (blicken mot skatten :322, armarna upp via
+  `_setHeroPose('cheer')` :1267) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Riktiga lava/hopp-SFX via MOSS-pipelinen** ([[real-audio-sfx]]): bubbel-"blubb",
   hopp-"boing", landnings-"duns", och en låg lava-ambient-loop för värme. Byt TTS-"Hihi!" mot
-  ett riktigt litet barnfniss.
+  ett riktigt litet barnfniss. ⛔ Blockerad: kräver nya SFX-klipp (MOSS nere). `sample('duns')`
+  är redan inkopplad (:1206) och tar över av sig själv när klippet finns.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onWin` spelade själv vinstljud,
+  beröm och konfettiregn i samma tick som `complete()` — alla tre strukna (dubbelt ljud/regn,
+  och berömmet kapade sig självt). Två A-rader byggda: **stenröset** (synlig samlad sträcka, en
+  ritad sten per klarad flod, max 10) och **strecket efter figuren i hoppet**. §4 städad: 8
+  punkter var redan byggda; MOSS-ljuden väntar.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`022999d`, v1.114.0).
   `_plattprobe --medbakgrund` mätte **163 026 px = 18 % av skärmen** i EN ton.

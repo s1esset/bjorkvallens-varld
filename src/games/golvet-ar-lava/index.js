@@ -33,13 +33,12 @@
 import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, bigCelebration, floatText, ripple, shake, kvittera } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, breathe, puff, sparkle, burst, floatText, ripple, shake, kvittera } from '../../lib/feedback.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
-import { COLORS, FONT, PRAISE, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
+import { COLORS, FONT, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill } from '../../lib/form.js'
 import { glod } from '../../lib/glod.js'
-import { randomFrom } from '../../lib/swedish.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const SURFACE_Y = 438 // lavans ytlinje
@@ -67,6 +66,23 @@ const REACH = { normal: 280, bounce: 460, bro: 360, lilja: 300 }
 // Skatten varierar per nivå → liten överraskning i st.f. samma fynd varje gång.
 // P0 ASSETS: fynden RITAS (egen silhuett), aldrig emoji.
 const FYND = ['diamant', 'krona', 'pokal', 'mynt', 'ring']
+// Stenröset = den synliga "samlade sträckan": en ritad sten per klarad flod (custom.rundor),
+// aldrig en siffra, och det kan bara växa. Nedre högra hörnet på högra klippans framsida —
+// långt från skalets knappar (hem 70,64 · högtalare 1210,64), Gå! (112,592) och draken.
+const ROSE_X = 1168
+const ROSE_Y = 702 // rösets fot
+// Platser nerifrån och upp, 4 + 3 + 2 + 1 = 10: [dx, fotens dy, halvbredd, halvhöjd].
+const ROSE_SLOTS = [
+  [-51, 0, 19, 13], [-17, 1, 19, 14], [17, 0, 18, 13], [51, 1, 18, 12],
+  [-34, -24, 17, 12], [0, -25, 18, 12], [34, -24, 16, 12],
+  [-17, -46, 15, 11], [17, -47, 15, 11],
+  [0, -67, 13, 10],
+]
+const ROSE_TONER = [0x9a8474, 0xa89484, 0x8c7768, 0xb09c8a]
+// Strecket efter figuren i hoppet: punkter med ålder, ETT Graphics som ritas om bara
+// medan det finns punkter kvar.
+const TRAIL_N = 18
+const TRAIL_LIV = 0.3 // s tills en punkt dött ut
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 export default {
@@ -116,6 +132,17 @@ export default {
     this._terrain = new Graphics()
     this._terrain.eventMode = 'none'
     this._root.addChild(this._terrain)
+
+    // 2b) Stenröset (se ROSE_*) — byggs ur sparad data, växer med en sten per klarad flod.
+    this._rose = new Container()
+    this._rose.eventMode = 'none'
+    this._rose.interactiveChildren = false
+    this._rose.position.set(ROSE_X, ROSE_Y)
+    this._root.addChild(this._rose)
+    this._roseN = 0
+    this._roseTween = null
+    const rundor = ctx.progress.get().custom?.rundor | 0
+    for (let i = 0; i < Math.min(ROSE_SLOTS.length, rundor); i++) this._addRoseStone(i)
 
     // 3) Lava: ritat berg i djupet + ett riktigt vätskeskikt överst.
     this._lavaBase = new Graphics()
@@ -198,6 +225,12 @@ export default {
     this._previewIcons = new Container()
     this._previewIcons.eventMode = 'none'
     this._root.addChild(this._previewIcons)
+
+    // 9b) Strecket efter figuren i hoppet (under figuren — det är luften hen lämnat).
+    this._trailG = new Graphics()
+    this._trailG.eventMode = 'none'
+    this._root.addChild(this._trailG)
+    this._trail = []
 
     // 10) Figur (skugga + RITAD kropp — P0 ASSETS, aldrig emoji).
     this._heroShadow = new Graphics().ellipse(0, 0, 40, 13).fill({ color: 0x000000, alpha: 0.18 })
@@ -555,6 +588,7 @@ export default {
     this._heroShadow.position.set(this._heroStartX, EDGE_Y)
     this._heroShadow.scale.set(1)
     this._heroShadow.alpha = 0.18
+    this._clearTrail() // förra banans streck får inte hänga kvar vid den nya starten
     bounceIn(this._hero)
 
     this._walking = false
@@ -1221,10 +1255,9 @@ export default {
     this._setGoEnabled(false)
 
     const tx = this._treasure && !this._treasure.destroyed ? this._treasure.x : this._treasureNodeX
+    // Vinstljud, beröm och konfettiregn kommer från progress.complete() nedan —
+    // här bara det som är spelets eget: rätt-tonen och glittret vid kistan.
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, tx, 360, { count: 18 })
     sparkle(ctx.fxLayer, tx, 360, { count: 8 })
     this._flyFynd(tx) // det RITADE fyndet flyger upp ur kistan
@@ -1250,6 +1283,10 @@ export default {
     const cur = ctx.progress.get().custom || {}
     ctx.progress.setCustom('rundor', (cur.rundor || 0) + 1)
     ctx.progress.complete()
+    // Floden är klarad → en sten till på röset, när det värsta firandet lagt sig.
+    ctx.later(0.9, () => {
+      if (this._alive) this._roseStoneIn(ctx)
+    })
 
     this._winTimer?.kill()
     this._winTimer = ctx.later(1.6, () => {
@@ -1299,6 +1336,7 @@ export default {
     this._lavaView.update()
     this._updateBubbles(ctx, dt)
     this._updateHetta(dt)
+    this._stepTrail(dt)
 
     if (this._walking) {
       this._updateWalk(ctx, dt)
@@ -1346,6 +1384,7 @@ export default {
       this._heroArt.rotation = 0 // nollställ ev. tvekan-lutning
     }
     const lift = arc / Math.max(this._H, 1)
+    this._pushTrail(x, y - 60, lift) // kroppens mitt; starkast i toppen av bågen
     if (this._heroShadow && !this._heroShadow.destroyed) {
       this._heroShadow.position.set(x, ay + (by - ay) * t)
       this._heroShadow.scale.set(Math.max(0.4, 1 - 0.5 * lift))
@@ -1356,6 +1395,94 @@ export default {
       if (this._cloudHand && !this._cloudHand.destroyed) this._cloudHand.rotation = Math.sin(this._tnow * 16) * 0.5
     }
     if (t >= 1) this._onLand(ctx)
+  },
+
+  // ---- Strecket efter figuren -------------------------------------------
+
+  _pushTrail(x, y, lift) {
+    const p = this._trail
+    if (!p) return
+    const sist = p[p.length - 1]
+    if (sist && Math.hypot(x - sist.x, y - sist.y) < 6) return
+    p.push({ x, y, a: lift, age: 0 })
+    if (p.length > TRAIL_N) p.shift()
+  },
+
+  // Tunnare och blekare bakåt, och starkast där figuren var HÖGST när punkten lades — ett
+  // streck i toppen av bågen, inget vid avstamp och landning. Dör ut på TRAIL_LIV s.
+  _stepTrail(dt) {
+    const p = this._trail
+    const g = this._trailG
+    if (!p || !p.length || !g || g.destroyed) return
+    for (const q of p) q.age += dt
+    while (p.length && p[0].age > TRAIL_LIV) p.shift()
+    g.clear()
+    for (let i = 1; i < p.length; i++) {
+      const a = p[i].a * (1 - p[i].age / TRAIL_LIV)
+      if (a < 0.03) continue
+      const t = i / (p.length - 1)
+      g.moveTo(p[i - 1].x, p[i - 1].y).lineTo(p[i].x, p[i].y)
+      g.stroke({ width: 3 + t * 9, color: 0xfffbe8, alpha: 0.6 * a, cap: 'round' })
+    }
+  },
+
+  _clearTrail() {
+    if (this._trail) this._trail.length = 0
+    if (this._trailG && !this._trailG.destroyed) this._trailG.clear()
+  },
+
+  // ---- Stenröset (synlig samlad sträcka) ----------------------------------
+
+  // Lägger sten nr i på sin plats (utan animation) och returnerar den. Tonen och den lätta
+  // lutningen är fasta per plats, så röset ser likadant ut varje gång spelet startar.
+  _addRoseStone(i) {
+    const r = this._rose
+    const s = ROSE_SLOTS[i]
+    if (!r || r.destroyed || !s) return null
+    const [dx, dy, hw, hh] = s
+    if (i === 0) {
+      const skugga = new Graphics().ellipse(0, 2, 86, 9).fill({ color: 0x000000, alpha: 0.16 })
+      r.addChildAt(skugga, 0)
+    }
+    const g = new Graphics()
+    const ton = ROSE_TONER[i % ROSE_TONER.length]
+    g.ellipse(0, 0, hw, hh).fill(ton).stroke({ width: 3, color: 0x6f5d4e })
+    g.ellipse(-hw * 0.3, -hh * 0.35, hw * 0.4, hh * 0.28).fill({ color: 0xffffff, alpha: 0.28 })
+    g.position.set(dx, dy - hh)
+    g.rotation = ((i * 37) % 11 - 5) * 0.02
+    r.addChild(g)
+    this._roseN = i + 1
+    return g
+  },
+
+  // Vinst: nästa sten faller ner på röset med ett stämt "klick" (sten mot sten). Är röset
+  // fullt glittrar toppen i stället — det växer aldrig förbi ROSE_SLOTS och krymper aldrig.
+  _roseStoneIn(ctx) {
+    const audio = ctx.services.audio
+    if (this._roseN >= ROSE_SLOTS.length) {
+      const top = ROSE_SLOTS[ROSE_SLOTS.length - 1]
+      sparkle(ctx.fxLayer, ROSE_X + top[0], ROSE_Y + top[1] - top[3] * 2, { count: 8 })
+      audio.tone({ freq: 1046.5, dur: 0.12, type: 'triangle', vol: 0.12 })
+      return
+    }
+    const g = this._addRoseStone(this._roseN)
+    if (!g) return
+    const y1 = g.y
+    g.y = y1 - 70
+    g.alpha = 0
+    this._roseTween?.kill()
+    this._roseTween = gsap.to(g, {
+      y: y1,
+      alpha: 1,
+      duration: 0.34,
+      ease: 'bounce.out',
+      onComplete: () => {
+        if (!this._alive || g.destroyed) return
+        audio.tone({ freq: 783.99, dur: 0.07, type: 'triangle', vol: 0.16 })
+        audio.tone({ freq: 1046.5, dur: 0.09, type: 'triangle', vol: 0.12, delay: 0.06 })
+        puff(ctx.fxLayer, ROSE_X + g.x, ROSE_Y + g.y + 6, { count: 4, color: 0xcdbfae })
+      },
+    })
   },
 
   _idleRecue(ctx) {
@@ -1455,6 +1582,10 @@ export default {
     this._treasureGlowTween?.kill()
     this._dragonBreathe?.kill()
     this._fyndTween?.kill()
+    this._roseTween?.kill()
+    this._roseTween = null
+    this._trail = null // strecket rivs med _root; tickern är redan bortkopplad
+    this._trailG = null
 
     this._deselect()
     this._hettor = null // sprites rivs med _root; listan får inte peka på döda objekt

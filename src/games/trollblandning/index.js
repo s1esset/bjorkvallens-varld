@@ -27,7 +27,7 @@ import { Varmefalt } from '../../lib/varme.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, bigCelebration, ripple, kvittera, liv } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { COLORS, FONT, PRAISE, tint } from '../../lib/theme.js'
+import { COLORS, FONT, tint } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { emitter } from '../../lib/partiklar.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -1282,8 +1282,10 @@ export default {
     } else if (isGoal) {
       this._wizardGesture('cheer')
       ctx.services.audio.sfx('reveal')
-      this._fxDelay(0.18, () => ctx.services.audio.sfx('celebrate'))
       this._fillRow(ctx, resId)
+      // Sista raden: complete() (via _checkComplete nedan) spelar vinstljudet självt.
+      const rader = this._rows || []
+      if (!(rader.length && rader.every((r) => r.done))) this._fxDelay(0.18, () => ctx.services.audio.sfx('celebrate'))
       ctx.services.voice.say(`${E.namn}! Vad fint!`)
     } else if (!already) {
       this._wizardGesture('cheer')
@@ -1393,10 +1395,10 @@ export default {
     ripple(ctx.fxLayer, 1090, 330, { color: COLORS.yellow, maxR: 190, duration: 0.7, width: 10 })
     sparkle(ctx.fxLayer, 1090, 330, { count: 10 })
 
+    // Vinstljud, beröm och konfettiregn kommer från complete() nedan. Radens egen
+    // replik ("<Namn>! Vad fint!") sades nyss i _onRecipe och talar kvar, så berömmet
+    // utgår i stället för att kapa den.
     floatText(ctx.fxLayer, CX, BREW_Y - 10, '🧪', { fontSize: 120, rise: 220 })
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, CX, BREW_Y, { count: 22, power: 1.3 })
     this._wizardGesture('cheer')
 

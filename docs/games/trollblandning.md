@@ -68,43 +68,58 @@ inte spelar någon roll, och vars hjälp gärna fyller boken åt barnet.**
 - **[Medium] Senare, en-stegs auto-hjälp.** Behåll de lysande ledtrådarna, men låt trollkarlen
   som mest blanda EN kombo själv och sedan vänta — och bara efter en längre tystnad. Boken ska
   fyllas av barnets upptäckter, inte av trollkarlens.
-- **[Quick] Låt barnet välja "smak" på en upptäckt.** För resultat med flera möjliga vägar
+- ✅ ~~**[Quick] Låt barnet välja "smak" på en upptäckt.** För resultat med flera möjliga vägar
   (t.ex. snö via is+vatten *eller* moln+is), fira att barnet hittade en *annan* väg ("En till
-  väg till snö!") — belönar experiment, inte bara den första lösningen.
+  väg till snö!") — belönar experiment, inte bara den första lösningen.~~ Redan byggd
+  (`_paths` + "En till väg till …!" i `_onRecipe` :1299) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Deep] Per-element-reaktioner.** Ge varje resultat sin egen lilla föreställning: ånga
+- ✅ ~~**[Deep] Per-element-reaktioner.** Ge varje resultat sin egen lilla föreställning: ånga
   billowar uppåt och immar skärmen lite, lava bubblar trögt och glöder, is fryser kitteln-
-  kanten, regnbåge spänner en båge över kitteln. Då blir varje upptäckt ett eget "wow".
-- **[Quick] Sällsynt hemligt recept.** Ett gömt par (t.ex. sol+regnbåge=enhörning 🦄) som inte
-  står i boken och ger en extra-stor överraskning — skapar "en till!"-jakt.
+  kanten, regnbåge spänner en båge över kitteln. Då blir varje upptäckt ett eget "wow".~~
+  Redan byggd 2026-07-02 (`_reactShow`/`_signatureReact` :1596/:1605) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Sällsynt hemligt recept.** Ett gömt par (t.ex. sol+regnbåge=enhörning 🦄) som inte
+  står i boken och ger en extra-stor överraskning — skapar "en till!"-jakt.~~ Redan byggd
+  2026-07-02 (sol + regnbåge = enhörning, :1277) — uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Lekfullt "fel"-svar.** Saknat recept: kitteln ryker grått, trollkarlen rycker på
+- ✅ ~~**[Quick] Lekfullt "fel"-svar.** Saknat recept: kitteln ryker grått, trollkarlen rycker på
   axlarna/kliar hatten, en mjuk komisk "plopp" — fortfarande positivt, men roligt i stället
-  för neutralt.
-- **[Quick] Boken firar.** Rad som fylls får en bock-stämpel + kort gyllene lyse, och hela boken
-  glöder/blänker när sista raden klaras (innan över-kok-firandet).
+  för neutralt.~~ Redan byggd 2026-07-02 (`_onNoRecipe` :1310) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Boken firar.** Rad som fylls får en bock-stämpel + kort gyllene lyse, och hela boken
+  glöder/blänker när sista raden klaras (innan över-kok-firandet).~~ Redan byggd 2026-07-02
+  (`_fillRow` :1344, hela boken lyser i `_checkComplete` :1394) — uppdagat 2026-09-23.
 
 ### Progression
 - **[Medium] Bestående receptbok mellan rundor.** `custom.recept` sparas redan — visa en
   *samling* upptäckta element (ett galleri/encyklopedi bakom föräldra-grind eller på menyn) som
   växer över tid. Ger en anledning att minnas och återkomma.
-- **[Quick] Fixa hyll-trängseln.** Scrolla/sidindela hyllan eller flytta upptäckta element till
-  en egen "låda" så bas-dropparna alltid är lätta att peka på.
+- ✅ ~~**[Quick] Fixa hyll-trängseln.** Scrolla/sidindela hyllan eller flytta upptäckta element till
+  en egen "låda" så bas-dropparna alltid är lätta att peka på.~~ Redan byggd 2026-08-11
+  (v1.143.0): tvåradig hylla med P0-mått, `_platser` :1122 — se §5. Uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
-- **[Medium] Levande trollkarl.** Bobo lutar sig mot kitteln, blåser i den, höjer staven när
+- ✅ ~~**[Medium] Levande trollkarl.** Bobo lutar sig mot kitteln, blåser i den, höjer staven när
   något lyckas, och pekar uppmuntrande mot hyllan vid ledtråd — gester i stället för `pop`. Gör
-  honom till lekledaren, inte tapeten.
+  honom till lekledaren, inte tapeten.~~ Kärnan redan byggd (`_wizardGesture` :1551: lutar sig,
+  jublar med stavstjärnan, rycker på axlarna, pekar vid ledtråd) — uppdagat 2026-09-23. Att
+  blåsa i kitteln är inte byggt.
 
 ### Ljud
 - **[Quick] Riktig kittel- och element-ljudbild via MOSS-pipelinen** ([[real-audio-sfx]]): en
   låg bubblande ambient, plus korta element-läten (eld-spräck, vatten-plask, is-knäpp, magisk
-  shimmer) per reaktion så örat hör skillnad på upptäckterna.
+  shimmer) per reaktion så örat hör skillnad på upptäckterna. *(Blockerad 2026-09-23: kräver
+  nya SFX-klipp — MOSS nere.)*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Dubbelfirandet + snabbvinstsvepet** (v1.251.0): `_checkComplete` spelade
+  själv `sfx('celebrate')`, `say(randomFrom(PRAISE))` och `bigCelebration` — alla tre strukna,
+  `complete()` gör dem. Berömmet kapade dessutom radens egen replik ("<Namn>! Vad fint!"), som
+  nu står kvar (berömmet hoppas över medan den talar). Målradens fördröjda `celebrate` (0,18 s)
+  hoppas över på SISTA raden, där den bara krockade med `complete()`s. Premissen "enhörningen
+  spelar två vinstljud med flit" föll: grenen spelar ett, och krocken var sista-radens. Sju
+  `[Quick]`/`[Medium]`/`[Deep]` visade sig redan byggda (bl.a. hyllträngseln sedan v1.143.0).
 - 2026-08-11 🪜 **Hyllan är tvåradig — träffytorna klarar P0 igen** (v1.143.0).
   Ägaren godkände förslaget ur ÅTGÄRDER #5:s efterhand ("tvåradig hylla blir bra"). Det som
   låg kvar efter ikonfixen var inte utseendet utan **träffytorna**: en rad rymmer bara så

@@ -29,7 +29,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Matter, MATERIAL, mat } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
-import { topLightFill } from '../../lib/form.js'
+import { topLightFill, bage } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
 import { puff, floatText, sparkle, burst, bounceIn, pop, shake } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
@@ -1631,7 +1631,7 @@ function makeBlock(w, h, color, kind = 'normal') {
     face.moveTo(22, -15).lineTo(9, -11).stroke({ width: 3, color: COLORS.ink })
     face.moveTo(-10, 8).lineTo(10, 8).stroke({ width: 3, color: COLORS.ink })
   } else {
-    face.arc(0, -1, kind === 'studs' ? 15 : 12, 0.18 * Math.PI, 0.82 * Math.PI).stroke({ width: 3, color: COLORS.ink })
+    bage(face, 0, -1, kind === 'studs' ? 15 : 12, 0.18 * Math.PI, 0.82 * Math.PI).stroke({ width: 3, color: COLORS.ink })
   }
   face.eventMode = 'none'
   c.addChild(face)

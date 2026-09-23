@@ -35,6 +35,8 @@ const BINS_TOP = 560 // fickornas överkant
 const SETTLE_Y = 600 // myntet räknas som "nere i en ficka" under denna y
 const SETTLE_SPEED = 0.6 // ... och långsammare än så här
 const VOICE_THROTTLE = 2500 // ms mellan glada röst-rop (annars hackar rösten)
+// V24: ett glatt rop är valfritt — det hoppas över medan något talar (introt är 4,7 s och ett
+// barn släpper sitt första mynt långt innan dess). Bilden och ljudet bär ögonblicket ändå.
 // STJÄRNFICKA: ungefär var femte nivå (aldrig den första) bär målfickan en guldkant och en
 // stjärna, och ett mynt i den fyller TVÅ mätarsteg. Samma mål, samma ledtråd — bara mer glädje.
 const STJARN_CHANS = 0.2
@@ -820,7 +822,7 @@ export default {
 
     if (!demo) {
       const now = performance.now()
-      if (now - this._lastVoice > VOICE_THROTTLE) {
+      if (now - this._lastVoice > VOICE_THROTTLE && !ctx.services.voice.talar) {
         this._lastVoice = now
         ctx.services.voice.say(randomFrom(DROP_CHEERS))
       }
@@ -898,7 +900,7 @@ export default {
       ctx.services.audio.sfx('plopp')
       puff(this._root, p.x, p.y, { count: 6 })
       const now = performance.now()
-      if (now - this._lastVoice > VOICE_THROTTLE) {
+      if (now - this._lastVoice > VOICE_THROTTLE && !ctx.services.voice.talar) {
         this._lastVoice = now
         ctx.services.voice.say(randomFrom(MISS_CHEERS))
       }
@@ -939,7 +941,7 @@ export default {
       this._levelComplete(ctx)
     } else {
       const now = performance.now()
-      if (now - this._lastVoice > VOICE_THROTTLE) {
+      if (now - this._lastVoice > VOICE_THROTTLE && !ctx.services.voice.talar) {
         this._lastVoice = now
         ctx.services.voice.say('Rätt ficka!')
       }
@@ -978,11 +980,18 @@ export default {
 
   _announceTarget(ctx, delay) {
     if (delay > 0) {
+      // V24: målfickan kom på fast 1,2 s och introt är 4,7 s — den kapade introt vid varje
+      // start. Fördröjningen är kvar som minsta paus; sedan väntar den in rösten. Fickan
+      // lyser redan, så bara orden väntar — och bara så länge nivån är densamma.
       this._announceTimer?.kill()
+      const niva = this._level
       this._announceTimer = ctx.later(delay, () => {
         if (!this._alive) return
-        ctx.services.voice.say(`Släpp i den ${this._targetName} fickan!`)
-        this._lastVoice = performance.now()
+        ctx.narTyst(() => {
+          if (!this._alive || this._level !== niva) return
+          ctx.services.voice.say(`Släpp i den ${this._targetName} fickan!`)
+          this._lastVoice = performance.now()
+        })
       })
     } else {
       ctx.services.voice.say(`Släpp i den ${this._targetName} fickan!`)

@@ -35,6 +35,10 @@ const PETAL_COLORS = [0xff8ab0, 0xffd35c, 0xff6b6b, 0xa78bfa, 0xff9ec4, 0xffb84d
 const POLLEN = 0xffe08a
 const DROP_BLUE = 0x6fc3ef
 const STEM_H = 150 // full stjälkhöjd
+// Sällsynt jätteblomma: var sjätte blomning får ett 1,35 gånger större huvud. Plantan är
+// ingen träffyta (eventMode 'none'), så skalan rör bara konsten.
+const JATTE_CHANS = 1 / 6
+const JATTE_SKALA = 1.35
 const POUR_MS = 2600 // ms sammanhängande vattning för att blomma en planta
 const SPROUT0 = 0.06 // liten startgrodd så det syns något att vattna
 const CAN_HOME_X = 640
@@ -753,6 +757,13 @@ export default {
     gsap.to(p.bud.scale, { x: 1.35, y: 0.7, duration: 0.12, ease: 'power2.out' })
     gsap.to(p.bud, { alpha: 0, duration: 0.28, delay: 0.12 })
 
+    // Sällsynt JÄTTEBLOMMA: samma skådespel med större huvud, en djup C-durtreklang och mer
+    // glitter. Ingen fjäril här — fjärilarna är finalens belöning.
+    const jatte = Math.random() < JATTE_CHANS
+    const hs = jatte ? JATTE_SKALA : 1
+    p.jatte = jatte
+    p.petals.scale.set(hs)
+
     // 2) Kronbladen vecklar ut sig ETT i taget, med en stigande liten "pling".
     const petals = p.petals.children
     petals.forEach((pet, i) => {
@@ -768,16 +779,22 @@ export default {
     gsap.killTweensOf(p.flower.scale)
     p.flower.scale.set(0)
     gsap.to(p.flower.scale, {
-      x: 1,
-      y: 1,
-      duration: 0.42,
+      x: hs,
+      y: hs,
+      duration: jatte ? 0.6 : 0.42,
       delay: faceDelay,
       ease: 'back.out(2.6)',
       onStart: () => {
         if (!this._alive) return
         ctx.services.audio.sfx('magi')
-        sparkle(ctx.fxLayer, p.node.x, p.flowerY)
-        puff(ctx.fxLayer, p.node.x, p.flowerY, { count: 8, color: POLLEN })
+        sparkle(ctx.fxLayer, p.node.x, p.flowerY, jatte ? { count: 18 } : undefined)
+        puff(ctx.fxLayer, p.node.x, p.flowerY, { count: jatte ? 14 : 8, color: POLLEN })
+        if (jatte) {
+          // C3–E3–G3–C4 brett arpeggio under magi-klippet: den stora blomman låter stor.
+          ;[130.81, 164.81, 196.0, 261.63].forEach((f, i) => {
+            ctx.services.audio.tone({ freq: f, dur: 0.5, type: 'triangle', vol: 0.12, delay: 0.1 + i * 0.09 })
+          })
+        }
       },
     })
 

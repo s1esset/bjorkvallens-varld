@@ -78,9 +78,12 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
   andra mer vatten. Två lätta spakar → utfallet (blomstorlek/färg) varierar med barnets val.
 
 ### Variation & överraskning
-- **[Quick] Variera blommor rejält per planta** (redan slumpat ur `FLOWERS`/`BUD_COLORS`) men
-  lägg till sällsynta överraskningar: ibland växer en **jättesolros**, ett **litet träd** eller
-  en blomma som en 🐝/🦋 genast landar på.
+- ✅ ~~**[Quick] Variera blommor rejält per planta** med sällsynta överraskningar.~~ Klar
+  2026-09-23 (v1.251.0): var sjätte blomning blir en **jätteblomma** — huvudet (kronblad +
+  blomma) 1,35 gånger större, en djup C-durtreklang (C3–E3–G3–C4) under magi-klippet och
+  dubbelt glitter (`JATTE_CHANS`/`JATTE_SKALA` :40, `_bloom` :762). Plantan är ingen
+  träffyta, så skalan rör bara konsten. Medvetet utelämnat: insekten som landar (fjärilarna
+  är finalens belöning) och det lilla trädet (egen ritning — egen idé om den ska göras).
 - ~~**[Quick] Liv i jorden vid sådd:** en mask 🪱 som tittar upp ur ett hål, en sten man flyttar,
   en fjäril som redan sitter — små variationer så ingen runda ser exakt likadan ut.~~
   ✅ **BYGGD 2026-08-12 (v1.175.0)** — maskarna, se §5. Stenen och fjärilen lämnades med skäl:
@@ -91,24 +94,25 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
   vattningen, kvällsljus där blommorna lyser. Byt bakgrundston mjukt mellan rundor.
 
 ### Juice
-- **[Quick] Riktigt vatten-ljud.** Knyt an till SFX-pipelinen ([[real-audio-sfx]]): ett mjukt
-  porlande/rinnande loop medan kannan hålls, ett "pluff" när fröet landar i jorden, ett
-  stigande "pling" när en blomma slår ut. Ersätt TTS-"Plopp!".
-- **[Quick] Fuktig jord:** måla en mörkare, växande fuktfläck runt plantan medan man vattnar,
-  och låt jordhögen "andas" lite. Droppar som studsar ger redan bra känsla — lägg en liten
-  vattenpöl-glimt där de landar.
-- **[Medium] Blomman slår ut steg för steg.** I stället för en `pop` på hela blomman: låt
-  kronbladen veckla ut sig ett i taget med back.out, knoppen spricka, en liten pollen-pluff.
-  Det är spelets klimax — gör det till ett litet skådespel.
+- ✅ ~~**[Quick] Riktigt vatten-ljud.**~~ Redan byggd (riktigt `plopp`-klipp vid sådd :416 i
+  stället för TTS, porlande ton medan man vattnar :683, stigande pling per kronblad :774) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Fuktig jord.**~~ Redan byggd (fuktfläck som växer och mörknar :493, droppar
+  som stänker blått där de landar :734) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Blomman slår ut steg för steg.**~~ Redan byggd (`_bloom` :748: knoppen
+  spricker, kronbladen ett i taget, pollen-pluff) — uppdagat 2026-09-23.
+- ⚠️ **Sidofynd (SNABBVINSTER, tittat 2026-09-23, inte åtgärdat):** blomhuvudet är en
+  emoji-`Text` i storlek 92 ovanpå de ritade kronbladen. Kronbladen sticker ut ~48 px från
+  mitten och emojin täcker ~46, så emojin ÄR i praktiken blommans ansikte — på gränsen till
+  P0 ASSETS ("detalj ovanpå, aldrig hela föremålet"). Lösningen vore en ritad pistill/ansikte
+  i stället för `FLOWERS`, men det byter blommornas utseende och är ett ägarbeslut.
 
 ### Progression
 - **[Medium] En trädgård som minns.** Visa `custom.flowers` som en faktisk **rabatt** längst ner
   som fylls med de blommor man odlat över tur (eller på en "min trädgård"-skärm). Ger en
   samlar-känsla och en anledning att komma tillbaka.
-- **[Quick] Mjuka upp auto-hjälpen.** Höj idle-tröskeln (t.ex. 9–10s), låt första cue vara
-  *bara* en vinkande kanna + röst ("Håll kannan över blomman!"), och låt själva
-  auto-vattningen kicka in *sent* och *synligt* ("Jag hjälper lite!") med svagare dos, så
-  barnets hållande faktiskt avgör.
+- ✅ ~~**[Quick] Mjuka upp auto-hjälpen.**~~ Redan byggd (`_autoHelp` :830: 9 s, första stöten
+  bara kanna + röst, sedan svagare dos, 2026-07-02) — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
 - **[Deep] En trädgårdsmästare/Bobo i scenen.** En liten figur (Bobo eller en mullvad) som
@@ -119,8 +123,16 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
 ### Ljud
 - **[Quick] Verifiera varierat vinst-sting** vid `complete()` och lägg en lugn, låg
   trädgårds-ambient (fågelkvitter, lätt vind) som botten — passar spelets stillsamma ton.
+  *Första halvan klar (kontrollerat 2026-09-23):* vinstljudet varieras redan i
+  `AudioService._celebrate` varje gång. ⛔ Ambienten kräver ett nytt SFX-klipp (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): spelet firade aldrig dubbelt —
+  bara `complete()` firar, och nästa runda (1,4 s) säger ingenting (fas 1: orört). A-raden
+  **sällsynt jätteblomma** byggd (var sjätte blomning, huvudet 1,35×, djup treklang, ingen
+  fjäril). §4 städad: 4 punkter var redan byggda. Sidofyndet (emoji-blomhuvudet) noterat i
+  §4 som ägarbeslut.
 
 - 2026-08-12 🪱 **Liv i jorden: maskar som kikar upp — och som känner nedslaget** (v1.175.0).
   Punkten valdes av **mätning**: `_stillaprobe` läste spelet som ett äkta TABLEAU — 17 noder,

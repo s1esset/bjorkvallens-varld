@@ -24,6 +24,8 @@ const BASE_Y = 470 // y-referenslinje: koppen nedsänkt på bordet
 const LIFT_Y = BASE_Y - 120 // koppens y i lyft-läge (visa/kika)
 const PEEK_Y = BASE_Y - 60 // litet lyft vid fel gissning (visar tom plats)
 const ROUNDS_PER_LEVEL = 3
+// Trumvirvelns avstånd mellan tickarna (s) — tätnar mot slutet, 0,645 s totalt.
+const VIRVEL_GAP = [0.11, 0.1, 0.09, 0.08, 0.07, 0.06, 0.05, 0.045, 0.04]
 
 // Layout: koppar centreras kring CENTER och sprids med jämnt mellanrum (max
 // MAX_SPACING) men hålls inom bordets bredd (SPAN) även när det blir fler.
@@ -253,7 +255,13 @@ export default {
 
     // Visa: lyft alla koppar så leksaken syns under en av dem.
     ctx.services.audio.sfx('pling')
-    ctx.services.voice.say('Titta var leksaken är!')
+    // Efter en nivåhöjning byggs rundan 1,8 s efter complete(), mitt i dess beröm — och
+    // `say()` kallar `cancel()`. Kopparna lyfts genast; bara repliken väntar in rösten, och
+    // den sägs bara medan leksaken fortfarande syns (samma runda, visa-fasen).
+    const runda = (this._rundaNr = (this._rundaNr || 0) + 1)
+    ctx.narTyst(() => {
+      if (this._alive && this._rundaNr === runda && this._phase === 'reveal') ctx.services.voice.say('Titta var leksaken är!')
+    })
     this._cups.forEach((cup) => this._liftCup(cup, LIFT_Y))
     pop(this._prize)
 
@@ -290,6 +298,20 @@ export default {
     moves.forEach((mv, mi) => {
       const prog = moves.length > 1 ? mi / (moves.length - 1) : 0
       this._addMove(ctx, tl, order, mv, params, prog)
+    })
+
+    // Trumvirvel: nio stämda tick (G3) som tätnar och växer mot blandningens slut, så att
+    // ögonblicket innan gissningen blir laddat — och `_beginGuess`s tock blir slagets
+    // landning. Virveln ligger INNE i tidslinjen: gissningen börjar exakt när den gjorde
+    // förut, och tickarna dör med `_shuffleTl` vid exit.
+    const T = tl.duration()
+    let t = Math.max(0, T - VIRVEL_GAP.reduce((a, b) => a + b, 0))
+    VIRVEL_GAP.forEach((gap, i) => {
+      const vol = 0.03 + (i / (VIRVEL_GAP.length - 1)) * 0.06
+      tl.call(() => {
+        if (this._alive) ctx.services.audio.tone({ freq: 196, dur: 0.035, type: 'triangle', vol })
+      }, null, t)
+      t += gap
     })
   },
 
@@ -410,8 +432,11 @@ export default {
         sparkle(ctx.fxLayer, gp.x, gp.y)
         // Leksaken gör SITT eget (anka kvackar, groda hoppar, stjärna snurrar…).
         this._reactPrize(ctx)
-        ctx.services.voice.say(randomFrom(PRAISE))
         this._roundsDone++
+        // Rundan som höjer nivån firas av complete() 1,3 s härifrån (vinstljud + beröm +
+        // regn). Ett eget beröm även här blev dubbelberöm: de korta klippen (1,03–1,31 s)
+        // hann tystna före complete(), som då lade ett andra ovanpå.
+        if (this._roundsDone < ROUNDS_PER_LEVEL) ctx.services.voice.say(randomFrom(PRAISE))
         this._later(1.3, () => this._finishRound(ctx))
       })
     } else {
@@ -582,16 +607,38 @@ export default {
     })
   },
 
-  // Idle-recue: i gissa-fasen efter ~6s tystnad — först upprepa uppmaningen,
-  // andra gången auto-hjälp (lyft rätt kopp). Aldrig bestraffande.
+  // Mjuk ledtråd (hjälpens steg 2): rätt kopp vippar till och gör ett litet skutt, med ett
+  // stämt "hallå" (G4→C5). Skuttet är 10 px — kanten når aldrig upp förbi leksaken, så den
+  // förblir gömd. y + rotation dödas av `_newRound`/`destroy` (killTweensOf(cup)).
+  _vippaKopp(ctx) {
+    if (!this._alive || this._phase !== 'guess' || this._resolving) return
+    const cup = this._prizeCup
+    if (!cup || cup.destroyed || cup._peeking) return
+    ctx.services.audio.tone({ freq: 392, dur: 0.08, type: 'triangle', vol: 0.12 })
+    ctx.services.audio.tone({ freq: 523.25, dur: 0.1, type: 'triangle', vol: 0.12, delay: 0.12 })
+    gsap.killTweensOf(cup, 'y,rotation')
+    gsap.timeline()
+      .to(cup, { y: BASE_Y - 10, rotation: -0.09, duration: 0.12, ease: 'power2.out' })
+      .to(cup, { y: BASE_Y, rotation: 0.07, duration: 0.14, ease: 'power2.in' })
+      .to(cup, { y: BASE_Y - 6, rotation: -0.04, duration: 0.1, ease: 'power2.out' })
+      .to(cup, { y: BASE_Y, rotation: 0, duration: 0.14, ease: 'power2.in' })
+  },
+
+  // Idle-recue: i gissa-fasen efter ~6s tystnad — först upprepa uppmaningen, sedan
+  // vippar rätt kopp, sist lyfts den (auto-hjälp). Aldrig bestraffande.
   _update(ctx) {
     if (!this._alive || this._phase !== 'guess' || this._resolving) return
     if (performance.now() - this._lastInteract > 6000) {
       this._lastInteract = performance.now()
       this._idleCues++
-      if (this._idleCues >= 2) {
+      // Hjälpen kommer i steg, mjukast först: 6 s → frågan igen, 12 s → rätt kopp VIPPAR
+      // (drar blicken dit utan att visa leksaken), 18 s → koppen lyfts och visar den.
+      // Förut lyftes den redan vid 12 s — facit kom innan barnet hunnit gissa en gång till.
+      if (this._idleCues >= 3) {
         this._idleCues = 0
         this._hintPrize(ctx)
+      } else if (this._idleCues === 2) {
+        this._vippaKopp(ctx)
       } else {
         ctx.services.voice.say('Var tog den vägen? Tryck på koppen!')
       }

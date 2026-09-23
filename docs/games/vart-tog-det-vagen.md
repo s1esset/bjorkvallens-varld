@@ -63,28 +63,39 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
 - **[Medium] Låt barnet "kika" före blandning.** En kort fas där barnet själv får trycka för
   att lyfta-och-titta på leksaken innan den göms — ger en aktiv handling i den annars passiva
   upptakten och förstärker minnesförankringen.
-- **[Quick] Barn-styrt tempo.** En liten "Blanda igen / sakta"-känsla: t.ex. tryck-och-håll på
-  bordet under blandningen saktar svepen lite (rent visuellt) — en mjuk agens utan att bryta no-fail.
+- ~~**[Quick] Barn-styrt tempo.** En liten "Blanda igen / sakta"-känsla: t.ex. tryck-och-håll på
+  bordet under blandningen saktar svepen lite (rent visuellt) — en mjuk agens utan att bryta no-fail.~~
+  Premissen föll (SNABBVINSTER D, bekräftat 2026-09-23): tryck-och-håll är ett långtryck, och
+  långtryck är förbjudet i P0 GESTER. Ett tempo som styrs med tap vore en annan, större idé.
 
 ### Variation & överraskning
-- **[Medium] Varierade blandningsbanor.** Inför cirkulär virvel, korsande byten och en
+- ✅ ~~**[Medium] Varierade blandningsbanor.** Inför cirkulär virvel, korsande byten och en
   ofarlig "fint" (en kopp gör en falsk rörelse) så att ingen blandning ser exakt likadan ut.
-  Skala upp variationen med nivån i stället för bara antal/tempo.
+  Skala upp variationen med nivån i stället för bara antal/tempo.~~ Redan byggd 2026-07-02
+  (`planMoves` :690 + `_addMove`) — uppdagat 2026-09-23.
 - ✅ ~~**[Quick] Leksaks-reaktion vid fynd.**~~ Byggd 2026-07-02 — men **död sedan 2026-08-06**
   och lagad 2026-08-12 (v1.168.0). Se §5: tabellen läste `p.text` på en Container.
 
 ### Juice
-- **[Quick] Riktiga ljud.** Ett mjukt "tock" när en kopp sänks mot bordet, ett lågt glids-/svisch
+- ✅ ~~**[Quick] Riktiga ljud.** Ett mjukt "tock" när en kopp sänks mot bordet, ett lågt glids-/svisch
   under varje byte (varieras i tonhöjd), och ett leksaks-specifikt ljud vid fynd
-  ([[real-audio-sfx]]). Stigande spännings-ton ju snabbare blandningen går.
-- **[Quick] Spännings-känsla.** En lätt "trumvirvel"/andetag precis innan gissa-fasen, och en
+  ([[real-audio-sfx]]). Stigande spännings-ton ju snabbare blandningen går.~~ Redan byggd
+  2026-07-02 som stämd syntes (`_tock` :509, glid-tonen stiger med blandningen :328, ljud per
+  leksak i `_reactPrize` :518) — uppdagat 2026-09-23. Riktiga klipp väntar på MOSS.
+- **[Quick] Spännings-känsla.** ~~En lätt "trumvirvel"/andetag precis innan gissa-fasen~~, och en
   liten kamera-/scenfokus på kopparna under blandningen (mild). Gör ögonblicket innan tryck
-  laddat.
+  laddat. *Trumvirveln klar 2026-09-23 (v1.251.0): nio stämda tick (G3, `VIRVEL_GAP` :28) som
+  tätnar och växer under blandningens sista 0,65 s och landar i `_beginGuess`s tock. Den ligger
+  inne i blandningens tidslinje — gissningen börjar exakt när den gjorde förut. Kvar:
+  kamerafokuset.*
 
 ### Progression
-- **[Quick] Mjuka upp auto-hjälpen.** Låt första auto-hjälpen vara *delvis* (en kopp vippar
+- ✅ ~~**[Quick] Mjuka upp auto-hjälpen.** Låt första auto-hjälpen vara *delvis* (en kopp vippar
   bara lite, eller alla vippar snabbt så man får en repris) innan den lyfter och pekar ut rätt —
-  så att gissandet uppmuntras längre innan facit ges.
+  så att gissandet uppmuntras längre innan facit ges.~~ Klar 2026-09-23 (v1.251.0): hjälpen har
+  nu tre steg (`_update` :629) — 6 s frågan igen, 12 s **vippar** rätt kopp (`_vippaKopp` :613:
+  gungning ±0,09 rad + 10 px skutt + G4→C5, leksaken förblir gömd), 18 s lyfts den som förut.
+  Tidigare kom facit redan vid 12 s. ⚠️ Omätt: ingen `_idleprobe`-körning i passet.
 - **[Medium] En synlig "skattkista".** Samla hittade leksaker i en liten hylla/kista mellan
   rundor — en konkret behållning som växer, en anledning att fortsätta.
 
@@ -96,9 +107,20 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
 ### Ljud
 - **[Quick] Verifiera varierat vinst-sting** vid `complete()` och lägg en lågmäld, lite spänd
   bakgrunds-ambient som passar "magi-show"-tonen.
+  *Variationen triggas (verifierat i koden 2026-09-23): `complete()` spelar `sfx('celebrate')`,
+  som `AudioService._celebrate` varierar i tonhöjd/tempo och variant. Kvar är ambienten, som
+  kräver ett SFX-klipp — blockerad så länge MOSS är nere.*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0):
+  - **Firandet:** rundan som höjer nivån fick två beröm — spelets eget vid fyndet och
+    `complete()`s 1,3 s senare (de korta klippen, 1,03–1,31 s, hann tystna). Spelets eget hoppas
+    nu över på just den rundan. Och "Titta var leksaken är!" sades 1,8 s efter `complete()`, mitt
+    i berömmet: den köar nu i `ctx.narTyst` och sägs bara medan leksaken syns (rund-token + visa-
+    fasen). Kopparna lyfts genast.
+  - **Trumvirvel** före gissningen och **hjälp i tre steg** (vippa före facit), se §4.
+  - Grind: `check --game vart-tog-det-vagen` 0/0. Ej webbläsartestad av agenten.
 - 2026-08-12 🐛 **Leksaks-reaktionerna hade varit döda i sex veckor** (v1.168.0, N10 pass 6).
   Punkten stod som öppen i §4 och såg ut att vara "ännu ett redan byggt fall" — `_reactPrize`
   fanns med hela tabellen på plats. Den var byggd `004f4f5` (2026-07-02), när leksaken var en
@@ -162,6 +184,5 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
   - Deferred: [Medium] kika-före-blandning + barn-styrt tempo (agens), [Medium] skattkista-hylla,
     [Quick] mjukare tvåstegs-auto-hjälp, [Quick] trumvirvel/ambient före gissa-fas, [Deep] gycklare/
     Bobo som blandar (värd/föreställning), samt leksaks-specifika sample-klipp (kvack) om MOSS-SFX.
-</content>
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): bakgrunden breddad (tomma-tryck-fångaren täcker kantremsorna). Bakgrundsfärgen är exakt `COLORS.bg` → flaggan släcks av design-undantaget, inte av breddningen. Testad båda viewports: 0 fel.
 - 2026-08-09 ✅ **Vilorörelse [Quick]** (v1.70.0): kopparna vaggar medan de väntar — rörelsen på den inre grafiken, spelet äger blandning och kik. Delad `feedback.liv()` med egen fas per föremål. Mätt med `_livprobe`: 4,8 px / 0,14, 0 tweens kvar efter exit.

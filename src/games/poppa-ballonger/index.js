@@ -959,6 +959,9 @@ export default {
       if (this._comboDecay <= 0) this._combo = 0
     }
 
+    // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+    // annars kapar påminnelsens say() en replik som redan talar).
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
     if (this._idle > 6 && this._remaining > 0 && !this._resolving) {
       this._idle = 0

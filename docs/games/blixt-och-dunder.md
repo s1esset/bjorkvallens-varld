@@ -70,26 +70,31 @@ räknar ingenting, auto-hjälpen kortsluter agensen och byn vaknar aldrig till l
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Quick] Gör ladd-molnen omisskännliga.** Ge dem en distinkt åskmolnsstil (mörkare grå/
+- ✅ ~~**[Quick] Gör ladd-molnen omisskännliga.** Ge dem en distinkt åskmolnsstil (mörkare grå/
   blådaskig kropp, plufsigare, ev. en svag "tryck"-puls vid start) så de aldrig förväxlas med
-  scenens dekorativa moln. Detta är den enskilt viktigaste läsbarhets-fixen.
+  scenens dekorativa moln. Detta är den enskilt viktigaste läsbarhets-fixen.~~ Redan byggd
+  (`makeThunderCloudBody` :1003, tryck-pulsen på prickarna :322) — uppdagat 2026-09-23.
 - **[Medium] Skjut upp och mjuka upp auto-hjälpen.** Höj HELP_DELAY till ~12s och låt Bobo
   först *peka* på två moln och vänta — kicka bara in glid-ihop om barnet fortfarande inte
   agerar. Skicklighet (sikta + ladda) ska kännas, aldrig tas över för tidigt.
-- **[Medium] Synliga laddningssteg + röst-räkning.** Visa tre prickar/ringar på molnet som
+- ✅ ~~**[Medium] Synliga laddningssteg + röst-räkning.** Visa tre prickar/ringar på molnet som
   fylls per tryck och låt rösten räkna "ett… två… tre — fullt!". Nu *räknar* spelet (hör
-  hemma i Lära) och barnet ser hur nära fullt det är.
+  hemma i Lära) och barnet ser hur nära fullt det är.~~ Redan byggd (`CHARGE_WORDS` :35,
+  `_afterCharge` :413) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] Mätar-räkning.** Säg antalet vid varje tändning ("En lampa! …Två lampor!") och
-  poppa rätt mätar-ikon synkront — knyt ljud, siffra och bild ihop.
+- ✅ ~~**[Quick] Mätar-räkning.** Säg antalet vid varje tändning ("En lampa! …Två lampor!") och
+  poppa rätt mätar-ikon synkront — knyt ljud, siffra och bild ihop.~~ Redan byggd (`LAMP_COUNT`
+  :37 sägs i `_lightLamp` :729, mätarlyktan poppar :715) — uppdagat 2026-09-23.
 - **[Medium] Olika molntyper.** Ett "regnmoln" (vattnar en blomma som växer), ett snabbt litet
   moln, ett tungt långsamt — rotera per by så nivåerna känns olika, inte bara fler lampor.
 
 ### Juice
-- **[Quick] Riktigt åskljud.** Lägg ett mjukt, varmt mullrande dunder-klipp ([[real-audio-sfx]])
+- ✅ ~~**[Quick] Riktigt åskljud.** Lägg ett mjukt, varmt mullrande dunder-klipp ([[real-audio-sfx]])
   med lätt variation i stället för `whoosh`+`pop` — temats bärande ljud. Ett litet "fräs" när
-  ett moln blir fullt.
+  ett moln blir fullt.~~ Redan byggd som stämd syntes: `_thunderRumble` :470 (tre lager med
+  slumpad grundton) och fräset i `_becameFull` :458 — uppdagat 2026-09-23. Ett inspelat
+  åskklipp vore nästa steg men kräver MOSS (nere).
 - ✅ **[Quick] Byn vaknar.** *(2026-08-12)* Huset SOVER tills dess egen lampa tänds: mörk
   ruta (`0x53627a`), väggen i kvällston (`0xd6cfe4`), kall skorsten. Tändningen väcker
   hus `lamp.index` — varm ruta + `pop`, ljus på väggen (tre ringar med avtagande alfa) och
@@ -97,8 +102,10 @@ räknar ingenting, auto-hjälpen kortsluter agensen och byn vaknar aldrig till l
   redan berättelsen, och en Text per hus hade kostat mer än den säger.)*
 
 ### Progression
-- **[Quick] Knyt regnbågen till räkningen.** Låt regnbågens bågar tändas en per lampa under
-  spelets gång (inte bara på slutet) så barnet ser samlingen växa mot helheten.
+- ✅ ~~**[Quick] Knyt regnbågen till räkningen.** Låt regnbågens bågar tändas en per lampa under
+  spelets gång (inte bara på slutet) så barnet ser samlingen växa mot helheten.~~ Klar
+  2026-09-23 (v1.251.0): sex svaga band väntar i himlen bakom byn och varje lampa tänder sin
+  andel (`_buildRainbow`/`_lightRainbow` :842/:865) — sista lampan tänder de sista banden.
 - **[Medium] En sovande by → en vaken by.** Bygg progressionen som en berättelse: först
   becksvart by, varje blixt tänder ett liv, sista lampan = hela byn lyser, fåglar/röksignaler
   — en tydlig "vi väckte byn"-båge i stället för "fler lampor nästa runda".
@@ -116,6 +123,13 @@ räknar ingenting, auto-hjälpen kortsluter agensen och byn vaknar aldrig till l
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): regnbågen byggs nu med byn —
+  sex svaga band (alfa 0,14) står i himlen bakom husen från start, och varje tänd lampa tänder
+  `round(6·tända/lampor)` band med en liten gnista (2 lampor → 3+3, 5 → 1,2,4,5,6). Bågen
+  ligger BAKOM byn (förr över den, under molnen) och tweens spåras/rivs i `_clearVillage` och
+  `destroy`. Dubbelfirandet: spelet var redan rent — "Hela byn lyser nu!" sägs före
+  `complete()`, som då hoppar över berömmet. Fyra `[Quick]` visade sig redan byggda.
+  Kvar att se: sista lampans räknerad kapas fortfarande i samma bildruta av "Hela byn lyser nu!".
 - 2026-06-30: Doc skriven efter kodläsning + headless playtest (errorCount 0; skärmdump
   verifierad: skymningsby, 2 grå lampor, Bobo, mätare). Ersatte gammal build-spec med
   granskningsdoc. Noterat: byggd kod gör ladda-para-tänd, INTE sekund-räkning som uppgiftens

@@ -42,6 +42,10 @@ const HOUSE_SLEEP = 0xd6cfe4 // huset i kvällens kalla ton
 const SMOKE_DUR = 2.8 // s för en rökpuff hela vägen upp
 const SMOKE_RISE = 74 // px puffen stiger innan den tunnas ut
 
+// Regnbågen som tänds en andel per lampa (se _buildRainbow/_lightRainbow).
+const RAINBOW_COLS = [0xff6b6b, 0xff8a3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa]
+const RAINBOW_DIM = 0.14 // otänt band: en aning i himlen, inte ett mål att trycka på
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 export default {
@@ -68,6 +72,8 @@ export default {
     this._houses = []
     this._meterIcons = []
     this._litCount = 0
+    this._rainbowTws = []
+    this._rainbowBands = []
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -176,6 +182,9 @@ export default {
     // Mätare: en liten ritad lykta per lampa, grå tills lampan tänds.
     this._buildMeter(ctx, lay.lampXs.length)
 
+    // Regnbågen väntar svagt i himlen och tänds en andel per lampa.
+    this._buildRainbow(ctx)
+
     // Moln spridda i himmel-bandet med liten drift.
     this._clouds = []
     const n = lay.cloudCount
@@ -210,9 +219,10 @@ export default {
   _clearVillage() {
     if (this._bolt && !this._bolt.destroyed) this._bolt.clear()
     this._boltTween?.kill()
+    this._killRainbow()
     if (this._rainbow && !this._rainbow.destroyed) {
       gsap.killTweensOf(this._rainbow)
-      this._rainbow.destroy()
+      this._rainbow.destroy({ children: true })
     }
     this._rainbow = null
     // Lampor (döda tweens innan destroy).
@@ -710,6 +720,7 @@ export default {
 
     // Huset under lampan vaknar — tändningen blir en händelse i byn, inte en tint.
     this._wakeHouse(this._houses[lamp.index])
+    this._lightRainbow(ctx)
 
     ctx.services.audio.sfx('correct')
     burst(ctx.fxLayer, lamp.cx, lamp.cy, { colors: [COLORS.yellow, 0xffffff] })
@@ -804,7 +815,7 @@ export default {
     this._completing = true
     this._resolving = true
 
-    this._drawRainbow(ctx)
+    this._lightRainbow(ctx) // sista lampan har redan tänt de sista banden — säkerhet
     this._lamps.forEach((lamp, i) => {
       gsap.delayedCall(0.14 * i, () => {
         if (this._alive && lamp.emoji && !lamp.emoji.destroyed) pop(lamp.emoji)
@@ -824,34 +835,68 @@ export default {
     })
   },
 
-  _drawRainbow(ctx) {
-    const g = new Graphics()
-    g.eventMode = 'none'
+  // Regnbågen byggs med byn: sex svaga band i himlen BAKOM husen, och varje tänd lampa
+  // tänder sin andel av dem (2 lampor → 3+3 band, 5 → 1,2,4,5,6). Sista lampan tänder de
+  // sista banden — barnet ser samlingen växa mot helheten i stället för att bågen dyker
+  // upp först på slutet.
+  _buildRainbow(ctx) {
+    const c = new Container()
+    c.eventMode = 'none'
+    c.interactiveChildren = false
     const cx = ctx.width / 2
     const cy = 560
-    const cols = [0xff6b6b, 0xff8a3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa]
-    let r = 380
-    for (const col of cols) {
+    this._rainbowBands = RAINBOW_COLS.map((col, i) => {
+      // Ett Graphics per band (egen alfa), ritat på sina riktiga koordinater.
+      const g = new Graphics()
+      g.eventMode = 'none'
+      const r = 380 - i * 22
       g.arc(cx, cy, r, Math.PI, Math.PI * 2).stroke({ width: 22, color: col, alpha: 0.9 })
-      r -= 22
-    }
-    // Lägg precis under molnlagret (över by + blixt).
-    this._root.addChildAt(g, this._root.getChildIndex(this._cloudLayer))
-    this._rainbow = g
-    g.alpha = 0
-    const st = { a: 0 }
-    const tw = gsap.to(st, {
-      a: 1,
-      duration: 0.5,
-      ease: 'power2.out',
-      onUpdate: () => {
-        if (g.destroyed) {
-          tw.kill()
-          return
-        }
-        g.alpha = st.a
-      },
+      g.alpha = RAINBOW_DIM
+      c.addChild(g)
+      return { g, r, lit: false }
     })
+    // Bakom byn (över himlen): husen och lamporna står framför bågens fötter.
+    this._root.addChildAt(c, this._root.getChildIndex(this._village))
+    this._rainbow = c
+  },
+
+  // Tänd banden upp till lampornas andel. Proxy-tweens (exit-säkra), spårade så att
+  // en ny by eller ett avslut river dem.
+  _lightRainbow(ctx) {
+    const bands = this._rainbowBands || []
+    const n = this._lamps.length || 1
+    const want = Math.min(bands.length, Math.round((bands.length * this._litCount) / n))
+    let k = 0
+    for (let i = 0; i < want; i++) {
+      const b = bands[i]
+      if (b.lit) continue
+      b.lit = true
+      const g = b.g
+      const st = { a: g.alpha }
+      const tw = gsap.to(st, {
+        a: 1,
+        duration: 0.45,
+        delay: 0.1 * k++,
+        ease: 'power2.out',
+        onStart: () => {
+          if (this._alive && !g.destroyed) sparkle(ctx.fxLayer, ctx.width / 2, 560 - b.r, { count: 3 })
+        },
+        onUpdate: () => {
+          if (g.destroyed) {
+            tw.kill()
+            return
+          }
+          g.alpha = st.a
+        },
+      })
+      this._rainbowTws.push(tw)
+    }
+  },
+
+  _killRainbow() {
+    for (const tw of this._rainbowTws || []) tw.kill()
+    this._rainbowTws = []
+    this._rainbowBands = []
   },
 
   // ---- Exit-säkra partiklar -----------------------------------------------
@@ -942,6 +987,7 @@ export default {
     if (this._bobo && !this._bobo.destroyed) gsap.killTweensOf(this._bobo.scale)
     this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
     this._kar = null
+    this._killRainbow()
     if (this._rainbow && !this._rainbow.destroyed) gsap.killTweensOf(this._rainbow)
     if (this._bolt && !this._bolt.destroyed) this._bolt.clear()
     gsap.killTweensOf(this._root)

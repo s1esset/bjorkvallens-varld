@@ -1196,7 +1196,14 @@ export default {
       if (other.lit && other !== bump && other.view && !other.view.destroyed) pop(other.view, { scale: 1.1 })
     }
     if (Math.random() < 0.4) floatText(ctx.fxLayer, bump.x, bump.y - 46, '⭐', { fontSize: 40 })
-    if (this._litCount === 1) ctx.services.voice.say('Titta, den lyser!')
+    // V24: första tändningen kan ske 0,2 s efter start — kulan är redan i rörelse — och
+    // repliken kapade då hela introt (4,4 s). Bumpern lyser genast; orden väntar in rösten,
+    // och sägs bara medan bordet inte redan firar.
+    if (this._litCount === 1) {
+      ctx.narTyst(() => {
+        if (this._alive && this._litCount < this._total) ctx.services.voice.say('Titta, den lyser!')
+      })
+    }
     if (this._litCount >= this._total) this._celebrate(ctx)
   },
 

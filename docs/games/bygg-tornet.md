@@ -53,42 +53,46 @@ garanterar att flaggan alltid nås. Räkneorden gör stapeln till en mjuk siffer
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Dämpa auto-magneten.** Behåll no-fail men gör hjälpen mindre "spela åt mig":
-  låt magneten/auto-place bara träda in efter fler missar, och låt en lyckad egen placering
-  kännas tydligt mer firad än en hjälpt — så barnets träff betyder något.
-- **[Quick] Markör som vägledning, inte facit.** Låt spök-markören visa en *bredare* trygg
-  zon (eller blekna när barnet siktar bra) i stället för en exakt klossruta, så det finns en
-  liten bedömning kvar.
+- ✅ ~~**[Medium] Dämpa auto-magneten.**~~ Redan byggd (magneten först vid misses≥2 :604,
+  kranens hjälp vid ≥3 :402, egen träff firas mer) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Markör som vägledning, inte facit.**~~ Redan byggd (bred trygg zon
+  1,7 × ACCEPT_DX i `_moveGhost` :454) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] Varierade klossar.** Olika bredd/höjd (smala, breda, en rund tunna som rullar
-  lite) gör balansen levande och stapeln unik varje gång — fortfarande generösa träffytor.
-- **[Medium] Topp-belöning.** På toppen väntar något att nå: en fågel/ballong/stjärna som
-  klossen "når upp till" och som reagerar när tornet är klart.
+- ✅ ~~**[Quick] Varierade klossar.**~~ Redan byggd (`SPECS` kloss/planka/smal/tunna :60) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Topp-belöning.**~~ Redan byggd (kattungen på flaggans avsats,
+  `_rescueKitten` :504) — uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Tyngd-ljud.** Riktig träklack/duns vid landning (skalar med fart) via
-  SFX-pipelinen ([[real-audio-sfx]]); en stigande "pling"-skala där varje våning är en ton
-  högre — tornet får en hörbar höjd.
-- **[Quick] Vaj-juice.** Liten dammpuff + mikroskak när en tung kloss sätter sig; klossarna
-  guppar mjukt en stund efter placering.
+- ✅ ~~**[Quick] Tyngd-ljud.**~~ Redan byggd som stämda toner: låg duns + en pentatonisk ton
+  per våning i `_lockActive` (:366–367) — uppdagat 2026-09-23. Ett inspelat träklack-klipp
+  kräver SFX-pipelinen (MOSS nere) och behövs inte för poängen.
+- ✅ ~~**[Quick] Vaj-juice.**~~ Klar 2026-09-23 (v1.251.0): dammpuffen och `pop` fanns redan.
+  Nu skakar `_root` när en tung kloss sätter sig: vanlig kloss 1,5 px, planka 4 px (:373).
+  Smal och tunna skakar inte.
 
 ### Progression
-- **[Medium] Bestående bygge.** Spara silhuetter av byggda torn i en liten "stad"-rad
-  nedtill som växer över rundor — något att samla och vara stolt över i stället för rivning.
+- ✅ ~~**[Medium] Bestående bygge.**~~ Redan byggd (skyline `custom.torn`, `_drawSkyline`
+  :694) — uppdagat 2026-09-23.
 - **[Quick] Tema per runda.** Klossfärg/bakgrund byter mjukt (dag → kväll, stad → slott) så
   varje torn känns som en ny plats.
 
 ### Karaktär & berättelse
-- **[Deep] Någon som bor/klättrar.** En liten figur (Bobo) som klättrar uppför tornet medan
-  det byggs och vinkar från toppen vid mål, eller en katt på toppen som ska räddas — ger
-  bygget mening och en egen vinst-animation i stället för generisk konfetti.
+- ✅ ~~**[Deep] Någon som bor/klättrar.**~~ Redan byggd: kattungen räddas via tornet och
+  byggaren Bobo hejar (2026-08-04) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Kran-ambient** (mjukt gnissel/motor) medan klossen bärs + varierat berömsting.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): När kattungen landade, 1,8–2,7 s
+  efter `complete()`, kom ett andra `celebrate` + `bigCelebration`. Det låg utanför värdets
+  1,5 s-spärr, så barnet fick dubbelt firande. Nu blir det en kort stämd durtreklang (C–E–G–C)
+  ovanpå katt-samplet och det lokala glittret. "Tack för hjälpen!" kapade "Hurra! Nu kan
+  kattungen komma ner!" (3,5 s) och köas nu med `ctx.narTyst`. Snabbvinst: mikroskak för tunga
+  klossar. Öppna [Quick] kvar: tema per runda och kran-ambient.
 - 2026-08-10 🎨 **D1 (delat mönster): marken fick ljus från horisonten** (`b3cde53`, v1.119.0).
   Gruset låg på **94 613 px i EN ton** (`_plattprobe --medbakgrund`) — spelets största fält.
   Fyndet togs inte som ett engångsfall: `#8a5a3b` (`COLORS.brown`) var största fältet i TRE

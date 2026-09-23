@@ -14,7 +14,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Body, mat } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, puff, sparkle, breathe, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, pop, puff, sparkle, breathe, shake } from '../../lib/feedback.js'
 import { COLORS, PLAYFUL, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 
@@ -368,6 +368,9 @@ export default {
     if (!block.view.destroyed) pop(block.view)
     // Dammpuff när den tunga klossen sätter sig.
     puff(ctx.fxLayer, block.body.position.x, block.body.position.y + BH / 2, { count: 6, color: 0xc9a06a })
+    // Mikroskak för de TUNGA klossarna: vanlig kloss 1,5 px, planka 4 px. Smal och tunna är
+    // lätta och sätter sig utan skak. `_root` skrivs inte av någon annan varje bildruta.
+    if (block.w >= 190) shake(this._root, { intensity: 1.5 + (block.w - 190) / 24, duration: 0.22 })
     this._boboCheer()
     // Barnets EGEN träff firas tydligt — extra gnistor när klossen satt direkt.
     sparkle(ctx.fxLayer, block.body.position.x, block.body.position.y - BH / 2, { count: clean ? 12 : 7 })
@@ -532,15 +535,25 @@ export default {
     // Sista skuttet ner till Bobo + jubel.
     tl.to(st, { x: 300, y: GROUND_TOP_Y - 90, r: 0.4, duration: 0.26, ease: 'power2.out' })
     tl.to(st, { x: 268, y: GROUND_TOP_Y - 24, r: 0, duration: 0.26, ease: 'power2.in' })
+    // Landningen sker 1,8–2,7 s efter complete(), medan dess vinstljud och konfettiregn
+    // (1,6–3,2 s) ännu pågår — ett andra regn och en andra fanfar vore dubbelfirande.
+    // Kattungens eget ögonblick blir en kort stämd durtreklang + det lokala glittret.
+    const niva = this._level
     tl.add(() => {
       if (!this._alive) return
-      if (!ctx.services.audio.sample('djur_katt')) ctx.services.audio.sfx('pling')
-      ctx.services.audio.sfx('celebrate')
+      const a = ctx.services.audio
+      if (!a.sample('djur_katt')) a.sfx('pling')
+      a.tone({ freq: 523.25, dur: 0.12, type: 'triangle', vol: 0.18 })
+      a.tone({ freq: 659.25, dur: 0.12, type: 'triangle', vol: 0.18, delay: 0.1 })
+      a.tone({ freq: 783.99, dur: 0.12, type: 'triangle', vol: 0.18, delay: 0.2 })
+      a.tone({ freq: 1046.5, dur: 0.26, type: 'triangle', vol: 0.2, delay: 0.3 })
       puff(ctx.fxLayer, 268, GROUND_TOP_Y - 8, { count: 8, color: 0xc9a06a })
       sparkle(ctx.fxLayer, 268, GROUND_TOP_Y - 52, { count: 12 })
-      bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
       this._boboCheer(true)
-      ctx.services.voice.say('Tack för hjälpen!')
+      // Köar bakom "Hurra! Nu kan kattungen komma ner!" (3,5 s) som annars kapades mitt i.
+      ctx.narTyst(() => {
+        if (this._alive && this._level === niva) ctx.services.voice.say('Tack för hjälpen!')
+      })
     })
     this._kittenTw = tl
   },
@@ -752,6 +765,7 @@ export default {
 
     this._phys?.destroy()
     gsap.killTweensOf(this._root)
+    this._root?._fxShakeTw?.kill() // mikroskakets tween ligger på ett proxy-objekt
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
   },

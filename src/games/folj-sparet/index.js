@@ -13,7 +13,7 @@ import { bounceIn, pop, wiggle, sparkle, puff, floatText, kvittera } from '../..
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { Button } from '../../lib/Button.js'
-import { verticalFill } from '../../lib/form.js'
+import { verticalFill, bage } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Ängens och markens toningar (D1 — se kommentarerna vid ritningen). Båda spänner om
@@ -364,8 +364,8 @@ export default {
     g.circle(-5.5, -24.5, 1.6).fill(0xffffff)
     g.circle(8.5, -24.5, 1.6).fill(0xffffff)
     g.moveTo(-3, -14).lineTo(0, -11).lineTo(3, -14).closePath().fill(0xff9d9d) // nos
-    g.arc(-4, -10, 4, 0, Math.PI).stroke({ width: 2, color: dark })
-    g.arc(4, -10, 4, 0, Math.PI).stroke({ width: 2, color: dark })
+    bage(g, -4, -10, 4, 0, Math.PI).stroke({ width: 2, color: dark })
+    bage(g, 4, -10, 4, 0, Math.PI).stroke({ width: 2, color: dark })
     r.addChild(g)
   },
 

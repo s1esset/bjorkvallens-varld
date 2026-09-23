@@ -545,6 +545,11 @@ antaget, och sällsyntheten läggs ovanpå en loop som redan bevisat sig rolig u
 
 ### Leverans 1 — måste finnas för att spelet ska få landa
 
+✅ **Hela leverans 1 är byggd sedan 2026-08-30 (v1.237.0), leverans 2 sedan 2026-09-05** — se §5
+och §9. Listan nedan står kvar som byggplan, inte som kö. Två avvikelser från filnamnen här
+(prövat mot koden 2026-09-23): `kort.js` blev aldrig en egen fil — kortet och folien bor i
+`ceremoni.js` — och knyttets städning heter `stadFx()` i `knytt.js`, inte `stadKnytt`.
+
 **Kärnloop**
 * [Deep] `dna.js`: `mulberry32` (repot har **ingen** seedad PRNG), en billig värde-brusfunktion ur samma ström, `hslHex()` (repot har **ingen** HSL-hjälpare), `dnaFromSeed(seed, val)`, namngenerator, motivgenerator.
 * [Deep] `knytt.js`: `byggKnytt(dna)` med fästpunktspost per kropp (`m = {topY, faceY, munY, bredd, axelY, svansY}`) — det är den mekanism som gör kombinationsexplosionen gratis. Sex kroppar, sex öron/horn, fem svansar, fem munnar, sex ögonformer, tre bentyper, sex mönster. Plus `stadKnytt(nod)`.
@@ -566,11 +571,11 @@ antaget, och sällsyntheten läggs ovanpå en loop som redan bevisat sig rolig u
 **Juice**
 * [Deep] `kort.js`: fonden, den öppna underkanten, de cachade foliegradienterna per tier, svepet under masken, de tre fysiska tier-skillnaderna.
 * [Medium] Ljusstormen i normal alfa med täckningstak.
-* [Quick] **Uppehållsmätning:** logga tiden från mount till spaktryck, och mellan spaktryck, via `gamelog`. Det är underlaget för motgångsbeslutet i §4b — utan det byggs Skrället mot ett antagande.
+* ✅ ~~[Quick] **Uppehållsmätning:** logga tiden från mount till spaktryck, och mellan spaktryck, via `gamelog`. Det är underlaget för motgångsbeslutet i §4b — utan det byggs Skrället mot ett antagande.~~ Redan byggd (`index.js:966-971`, `diag('takt', 'spak', { ms })` från montering respektive förra spaktrycket) — uppdagat 2026-09-23. Det som saknas är inte loggningen utan **data från ett barn** (§4b).
 
 **Ljud**
 * [Medium] Sugets brus-loop + tontrappa, degens squelch, den stigande knacktrappan, metallklangen per tier.
-* [Quick] Alla 19 repliker i `voice-phrases.json` + `npm run voice`. `_narTyst`-mönstret så ingen replik kapas.
+* ✅ ~~[Quick] Alla 19 repliker i `voice-phrases.json` + `npm run voice`. `_narTyst`-mönstret så ingen replik kapas.~~ Redan byggd (`_narTyst` `index.js:1426`; `check` rapporterar noll repliker utan klipp) — uppdagat 2026-09-23. Mönstret flyttade 2026-09-23 till kontraktet som `ctx.narTyst`; spelets egen `_narTyst` står kvar orörd (samma väntan på `voice.talar`/`voice.kvar`, tak 7 s).
 
 ### 4b. Skrället — motgången, byggklar men GRINDAD på en mätning
 
@@ -676,6 +681,12 @@ två tecken redan nu.
 * [Deep] Kamera-parallax i boden via `lib/kamera.js` när flikraden växer förbi fem.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): prövad och ren, ingen kod rörd.
+  `_fardigt` firar bara via `complete()`, och allt som sägs efter den (`_sag`, `_sagNamn`,
+  `_tillBanken`) köar redan i spelets egen `_narTyst` — mönstret som samma dag flyttades till
+  kontraktet som `ctx.narTyst`. Inga A-rader i SNABBVINSTER. §4 städad: uppehållsmätningen och
+  röst-/`_narTyst`-posten var redan byggda, och leverans 1-listan märkt som byggd.
 
 `2026-08-30 · plan skriven. Källan (Geminis konversation) flyttad till
 docs/games/_kalla-unika-knytt.md och behandlad som råmaterial. Underlaget: 13 parallella

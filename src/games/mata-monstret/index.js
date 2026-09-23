@@ -1271,7 +1271,9 @@ export default {
 
     // Idle-recue (lugn) — guidar/hjälper alltid framåt.
     if (!this._resolving) {
-      const busy = !!food || !!this._flightFood || this._holding
+      // Tomgången räknas också från TYSTNAD: en replik som talar håller klockan på noll
+      // (V21 — annars kapar påminnelsens say() en replik som redan talar).
+      const busy = !!food || !!this._flightFood || this._holding || ctx.services.voice.talar
       if (busy) this._idle = 0
       else this._idle += dt
       if (this._idle > 6) {

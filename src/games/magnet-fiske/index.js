@@ -17,6 +17,7 @@ import { createScene } from '../../lib/scene.js'
 import { COLORS } from '../../lib/theme.js'
 import { shuffle } from '../../lib/swedish.js'
 import { sparkle, pop, wiggle, puff, floatText, breathe, ripple, bounceIn, kvittera } from '../../lib/feedback.js'
+import { bage } from '../../lib/form.js'
 
 // P0 ASSETS: varje sak i dammen är ett RITAT föremål med egen silhuett, aldrig
 // en emoji. Nycklarna nedan är id:n — formen ligger i makeThing().
@@ -52,7 +53,7 @@ function makeThing(kind) {
     g.ellipse(-4, -6, 12, 6).fill({ color: 0xffffff, alpha: 0.35 })
     g.circle(-14, -4, 4.5).fill(0xffffff)
     g.circle(-14.5, -4, 2.5).fill(0x2b2b2b)
-    g.arc(-24, 2, 6, -0.5, 0.5).stroke({ width: 2, color: 0x5d8ba6 })
+    bage(g, -24, 2, 6, -0.5, 0.5).stroke({ width: 2, color: 0x5d8ba6 })
   } else if (kind === 'nyckel') {
     g.circle(-16, 0, 13).stroke({ width: 7, color: 0xd9b44a })
     g.roundRect(-4, -4, 34, 8, 4).fill(0xd9b44a)
@@ -250,8 +251,8 @@ export default {
     ce.circle(-6.5, -30.5, 1.5).fill(0xffffff)
     ce.circle(9.5, -30.5, 1.5).fill(0xffffff)
     ce.moveTo(-3, -20).lineTo(0, -17).lineTo(3, -20).closePath().fill(0xff9d9d)
-    ce.arc(-4, -16, 4, 0, Math.PI).stroke({ width: 2, color: 0x8a6a4a })
-    ce.arc(4, -16, 4, 0, Math.PI).stroke({ width: 2, color: 0x8a6a4a })
+    bage(ce, -4, -16, 4, 0, Math.PI).stroke({ width: 2, color: 0x8a6a4a })
+    bage(ce, 4, -16, 4, 0, Math.PI).stroke({ width: 2, color: 0x8a6a4a })
     this._cat.addChild(cg, ce)
     this._cat.position.set(1042, 596)
     this._root.addChild(this._cat)
@@ -507,7 +508,7 @@ export default {
     g.roundRect(19, -6, 22, 30, 4).fill(c)
     g.roundRect(-41, 18, 22, 20, 4).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
     g.roundRect(19, 18, 22, 20, 4).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
-    g.arc(0, -4, 30, Math.PI + 0.25, Math.PI + 0.75).stroke({ width: 6, color: 0xffffff, alpha: 0.35 })
+    bage(g, 0, -4, 30, Math.PI + 0.25, Math.PI + 0.75).stroke({ width: 6, color: 0xffffff, alpha: 0.35 })
   },
 
   // Knappen visar den färg magneten BLIR — ikon-först, noll läsning: en liten magnet i
@@ -519,7 +520,7 @@ export default {
     const c = POLE_COLOR[this._falt.polaritet > 0 ? -1 : 1]
     g.circle(0, 8, FLIP_BTN.r).fill({ color: COLORS.shadow, alpha: 0.16 })
     g.circle(0, 0, FLIP_BTN.r).fill(COLORS.cream).stroke({ width: 6, color: c })
-    g.arc(0, -3, 17, Math.PI, 0).stroke({ width: 13, color: c })
+    bage(g, 0, -3, 17, Math.PI, 0).stroke({ width: 13, color: c })
     g.roundRect(-23.5, -4, 13, 17, 3).fill(c)
     g.roundRect(10.5, -4, 13, 17, 3).fill(c)
     g.roundRect(-23.5, 9, 13, 11, 3).fill(0xf0f2f5).stroke({ width: 2, color: 0xc3ccd4 })
@@ -532,7 +533,7 @@ export default {
     const py = 2 + Math.sin(a) * R
     const tx = -Math.sin(a)
     const ty = Math.cos(a)
-    g.arc(0, 2, R, -2.95, a).stroke({ width: 7, color: COLORS.brown, cap: 'round' })
+    bage(g, 0, 2, R, -2.95, a).stroke({ width: 7, color: COLORS.brown, cap: 'round' })
     g.moveTo(px + tx * 15, py + ty * 15)
       .lineTo(px - tx * 2 + Math.cos(a) * 12, py - ty * 2 + Math.sin(a) * 12)
       .lineTo(px - tx * 2 - Math.cos(a) * 12, py - ty * 2 - Math.sin(a) * 12)

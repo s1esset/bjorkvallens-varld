@@ -64,9 +64,10 @@ inget ljud-"bom" och ingen som tittar på.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Smäll-former.** Ge `_explode` flera mönster — ring, willow (gnistor som bågar och
+- ✅ ~~**[Medium] Smäll-former.** Ge `_explode` flera mönster — ring, willow (gnistor som bågar och
   droppar långsamt), hjärta, crackle (blinkande mini-gnistor) — vald per stjärnas hue. Varje
-  tändning blir ett eget litet skådespel istället för samma spray.
+  tändning blir ett eget litet skådespel istället för samma spray.~~ Redan byggd 2026-07-01
+  (`_explode` :445, fem mönster, slumpade per smäll i stället för per hue) — uppdagat 2026-09-23.
 - **[Medium] Kombo-fest.** När ETT skott tänder 2+ stjärnor: extra "BOM", större sken, en glad
   "Dubbelt!"/"Trippel!" och en kort kedje-gnistlänk mellan dem. Belönar smart sikte utan att
   straffa annars.
@@ -74,28 +75,45 @@ inget ljud-"bom" och ingen som tittar på.
 ### Variation & överraskning
 - **[Medium] Stjärn-konstellationer.** Lägg stjärnorna i en form (hjärta, smiley, blomma) som
   framträder som en bild när alla är tända → ett "wow, det blev något!"-ögonblick.
-- **[Quick] Rakettyper.** Variera färg/form; ibland en "stor raket" som ger en jättesmäll.
+- ✅ ~~**[Quick] Rakettyper.** Variera färg/form; ibland en "stor raket" som ger en jättesmäll.~~
+  Klar 2026-09-23 (v1.251.0): ungefär vart sjätte skott (`STOR_CHANS` :43) är en större
+  guldraket med djupare vissel, 1,7× så många gnistor som når 1,25× längre, djupare bom,
+  starkare blixt/skak och ett glittrande nedfall i C-dur. Tänd-radien är densamma — reglerna står.
 
 ### Juice
-- **[Quick] Riktiga fyrverkeri-SFX:** uppskjutnings-vissel + "bom" + sprakande crackle (via
-  `npm run sfx`). Det enskilt mest definierande lyftet.
-- **[Quick] Smäll-blixt + mikroskak.** En kort, subtil ljusning av hela skyn och en liten skärm-
-  skak skalad efter smällens storlek. Rök-puff vid rampen och kvardröjande glöd-strån.
+- ✅ ~~**[Quick] Riktiga fyrverkeri-SFX:** uppskjutnings-vissel + "bom" + sprakande crackle (via
+  `npm run sfx`). Det enskilt mest definierande lyftet.~~ Redan byggd 2026-07-01 som stämd
+  syntes (vissel :331, bom + sprak :453) — uppdagat 2026-09-23. Kroken `sample('vissel'/'bom')`
+  tar riktiga klipp när MOSS kört; det är den enda halvan som är kvar, och den är blockerad.
+- ✅ ~~**[Quick] Smäll-blixt + mikroskak.** En kort, subtil ljusning av hela skyn och en liten skärm-
+  skak skalad efter smällens storlek. Rök-puff vid rampen och kvardröjande glöd-strån.~~
+  Klar 2026-09-23 (v1.251.0): blixt och skak fanns sedan 2026-07-01 (`_flashG`/`_shakeAmt`);
+  nu puffar det gråblå rök ur rampen vid varje uppskjutning (:336). Glöd-strånen är
+  willow-mönstret (gnistor som faller långsamt i 1,4–1,9 s).
 
 ### Progression
-- **[Medium] Levande himmel högre upp.** Lägg en måne / en stadssiluett / långsamt drivande
-  målstjärnor, och låt tända stjärnor sitta kvar och bygga en bild över nivån.
+- ✅ ~~**[Medium] Levande himmel högre upp.** Lägg en måne / en stadssiluett / långsamt drivande
+  målstjärnor, och låt tända stjärnor sitta kvar och bygga en bild över nivån.~~ Redan byggd
+  2026-08-05 (`makeHorizon`: måne, stadssiluett med tända fönster, granar) — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
-- **[Deep] En publik som tittar.** Bobo (eller Elvira) står på marken och ropar "Oooh! Aaah!"
-  vid varje smäll och klappar vid finalen — fyrverkeriet får någon att imponera på.
+- ✅ ~~**[Deep] En publik som tittar.** Bobo (eller Elvira) står på marken och ropar "Oooh! Aaah!"
+  vid varje smäll och klappar vid finalen — fyrverkeriet får någon att imponera på.~~ Redan
+  byggd 2026-08-05 (`_cheer` :429, Bobo + Elvira vaggar och hoppar till) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Egen fyrverkeri-ljuduppsättning** (vissel/bom/crackle/final-salva) + lugn natt-
-  ambient med syrsor.
+  ambient med syrsor. *Vissel/bom/sprak finns som syntes och finalen har sin salva; kvar är
+  natt-ambienten, som kräver ett SFX-klipp — blockerad så länge MOSS är nere.*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_win` spelade eget vinstljud och
+  konfettiregn i samma tick som `complete()`, som gör båda själv — de egna kopiorna är strukna, och
+  "Hurra! Alla stjärnor lyser!" sägs före `complete()` så berömmet utgår i stället för att kapa den.
+  Nytt: rökpuff ur rampen vid varje skott, och ungefär vart sjätte skott en stor guldraket med
+  jättesmäll (fler/större gnistor, djupare bom, starkare blixt, glittrande C-dur-nedfall).
+  Grind: `check --game fyrverkeri` 0/0. Ej webbläsartestad av agenten — koordinatorn testar.
 - 2026-06-30: Doc skriven. Speltestad (errorCount 0, skärmdump granskad — natthimmel + ramp).
   Inga kodändringar ännu.
 - Rekommenderad första-omgång: **[Quick] riktiga fyrverkeri-SFX + smäll-blixt + [Medium] smäll-

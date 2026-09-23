@@ -20,7 +20,7 @@ import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
 import { AimLauncher } from '../../lib/launcher.js'
 import { predictTrajectory } from '../../lib/physics.js'
-import { bigCelebration, sparkle, pop, floatText, liv } from '../../lib/feedback.js'
+import { sparkle, pop, puff, floatText, liv } from '../../lib/feedback.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { PLAYFUL } from '../../lib/theme.js'
@@ -40,6 +40,8 @@ const TARGET_HIT = 92 // träffradie i luften (generös, barnvänlig)
 const BURST_LIGHT = 130 // tänd-radie runt en smäll
 const ASSIST_RADIUS = 260 // tänd-radie under hjälp-skott (garanterar tändning)
 const ASSIST_MISSES = 3 // missar innan auto-hjälp
+const STOR_CHANS = 1 / 6 // andel skott som blir en stor guldraket (jättesmäll)
+const STOR_FARG = 0xf2b632 // den stora raketens guldkropp
 
 // Ljusa, festliga nyanser till raketer/gnistor.
 const HUES = [...PLAYFUL, 0xffffff, 0xffe27a, 0x9be3ff, 0xff7ad9]
@@ -304,8 +306,11 @@ export default {
     this._launcher.setEnabled(false)
 
     const color = randomFrom(HUES)
+    // Ibland (~1/6) en STOR guldraket: större i luften och en jättesmäll (`_explode`,
+    // `stor`). Bara bilden och ljudet växer — tänd-radien är densamma, så reglerna står.
+    const stor = Math.random() < STOR_CHANS
     // Liten flygande raket i glödlagret (roterar mot färdriktningen).
-    const fly = makeRocket(0.72)
+    const fly = stor ? makeRocket(1.0, STOR_FARG) : makeRocket(0.72)
     fly.position.set(ORIGIN.x, ORIGIN.y)
     fly.eventMode = 'none'
     this._fx.addChild(fly)
@@ -319,10 +324,16 @@ export default {
     this._rocket.scale.set(1)
     this._rocket.visible = false
 
-    this._flight = { x: ORIGIN.x, y: ORIGIN.y, vx, vy, prevVy: vy, color, steps: 0, trail: 0 }
+    this._flight = { x: ORIGIN.x, y: ORIGIN.y, vx, vy, prevVy: vy, color, steps: 0, trail: 0, stor }
     ctx.services.audio.sfx('whoosh')
     // Uppskjutnings-vissel: en stigande ton (riktigt klipp om det finns via MOSS, #3).
-    if (!ctx.services.audio.sample?.('vissel')) ctx.services.audio.tone({ freq: 380, dur: 0.5, type: 'sine', vol: 0.1, slideTo: 1300 })
+    // Den stora raketen visslar djupare och längre.
+    if (!ctx.services.audio.sample?.('vissel')) {
+      if (stor) ctx.services.audio.tone({ freq: 260, dur: 0.7, type: 'sine', vol: 0.13, slideTo: 1050 })
+      else ctx.services.audio.tone({ freq: 380, dur: 0.5, type: 'sine', vol: 0.1, slideTo: 1300 })
+    }
+    // Rökpuff ur rampen när raketen lämnar den (gråblå, syns mot natten).
+    puff(ctx.fxLayer, ORIGIN.x, ORIGIN.y + 28, { count: stor ? 12 : 8, color: 0xaab3cc })
   },
 
   // Ett fast fysiksteg för raketen (matchar prick-banan exakt).
@@ -375,7 +386,7 @@ export default {
 
   _burstAt(ctx, x, y, color) {
     if (!this._alive) return
-    this._explode(ctx, x, y, color)
+    this._explode(ctx, x, y, color, undefined, !!this._flight?.stor)
     this._flight = null
     if (this._flyRocket && !this._flyRocket.destroyed) this._flyRocket.destroy()
     this._flyRocket = null
@@ -429,48 +440,60 @@ export default {
     }
   },
 
-  _explode(ctx, x, y, color, shape) {
+  // `stor` = den stora guldraketens jättesmäll: ~1,7× så många gnistor, 1,25× längre ut,
+  // större gnistor, djupare bom, starkare blixt/skak och ett glittrande nedfall (C-dur).
+  _explode(ctx, x, y, color, shape, stor = false) {
     if (!this._alive) return
     shape = shape || randomFrom(['burst', 'ring', 'willow', 'heart', 'crackle'])
+    const nk = stor ? 1.7 : 1 // antal gnistor
+    const vk = stor ? 1.25 : 1 // räckvidd
+    const rk = stor ? 1.3 : 1 // gnistans storlek
 
     // Ljud: riktigt "bom"-klipp om det finns (MOSS senare, #3), annars synt-bom + sprak.
     if (!ctx.services.audio.sample?.('bom')) {
-      ctx.services.audio.tone({ freq: 95, dur: 0.34, type: 'sine', vol: 0.26, slideTo: 46 })
-      for (let i = 0; i < 3; i++) {
+      ctx.services.audio.tone({ freq: stor ? 72 : 95, dur: stor ? 0.5 : 0.34, type: 'sine', vol: stor ? 0.3 : 0.26, slideTo: stor ? 34 : 46 })
+      for (let i = 0; i < (stor ? 6 : 3); i++) {
         ctx.services.audio.tone({ freq: 1100 + Math.random() * 700, dur: 0.04, type: 'square', vol: 0.05, delay: 0.06 + i * 0.05 })
       }
     }
+    if (stor) {
+      // Glittrande nedfall: fallande C-dur (C6–G5–E5–C5), tyst och ljust.
+      const nedfall = [1046.5, 783.99, 659.25, 523.25]
+      for (let i = 0; i < nedfall.length; i++) {
+        ctx.services.audio.tone({ freq: nedfall[i], dur: 0.14, type: 'triangle', vol: 0.08, delay: 0.3 + i * 0.09 })
+      }
+    }
     // Kort, subtil smäll-blixt (hela skyn ljusnar) + mikroskak på _fx.
-    this._flash = Math.min(0.22, Math.max(this._flash, 0.13 + Math.random() * 0.06))
-    this._shakeAmt = 3
+    this._flash = stor ? 0.28 : Math.min(0.22, Math.max(this._flash, 0.13 + Math.random() * 0.06))
+    this._shakeAmt = stor ? 6 : 3
     this._cheer(ctx)
 
     const spark = (vx, vy, opts = {}) => {
-      const r = opts.r ?? 4 + Math.random() * 5
+      const r = (opts.r ?? 4 + Math.random() * 5) * rk
       const c = opts.c ?? (Math.random() < 0.18 ? 0xffffff : color)
       const g = new Graphics().circle(0, 0, r).fill({ color: c })
       g.blendMode = 'add'
       g.eventMode = 'none'
       g.position.set(x, y)
       this._fx.addChild(g)
-      this._pushParticle({ g, x, y, vx, vy, grav: opts.grav ?? PART_GRAVITY, life: 0, maxLife: opts.maxLife ?? 0.8 + Math.random() * 0.4 })
+      this._pushParticle({ g, x, y, vx: vx * vk, vy: vy * vk, grav: opts.grav ?? PART_GRAVITY, life: 0, maxLife: opts.maxLife ?? 0.8 + Math.random() * 0.4 })
     }
 
     if (shape === 'ring') {
-      const n = 28
+      const n = Math.round(28 * nk)
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2
         spark(Math.cos(a) * 240, Math.sin(a) * 240, { grav: 120, maxLife: 0.9 })
       }
     } else if (shape === 'willow') {
-      const n = 22
+      const n = Math.round(22 * nk)
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2
         const sp = 80 + Math.random() * 90
         spark(Math.cos(a) * sp, Math.sin(a) * sp - 60, { grav: 360, maxLife: 1.4 + Math.random() * 0.5 })
       }
     } else if (shape === 'heart') {
-      const n = 26
+      const n = Math.round(26 * nk)
       for (let i = 0; i < n; i++) {
         const t = (i / n) * Math.PI * 2
         const hx = 16 * Math.pow(Math.sin(t), 3)
@@ -478,19 +501,19 @@ export default {
         spark(hx * 13, -hy * 13, { grav: 90, maxLife: 1.1 + Math.random() * 0.3 })
       }
     } else if (shape === 'crackle') {
-      const n = 16 + ((Math.random() * 10) | 0)
+      const n = Math.round((16 + ((Math.random() * 10) | 0)) * nk)
       for (let i = 0; i < n; i++) {
         const a = Math.random() * Math.PI * 2
         const sp = 120 + Math.random() * 300
         spark(Math.cos(a) * sp, Math.sin(a) * sp, { r: 2 + Math.random() * 3, maxLife: 0.5 + Math.random() * 0.3 })
       }
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < Math.round(8 * nk); i++) {
         const a = Math.random() * Math.PI * 2
         const sp = 60 + Math.random() * 160
         spark(Math.cos(a) * sp, Math.sin(a) * sp, { r: 2, c: 0xffffff, maxLife: 0.4 })
       }
     } else {
-      const n = 18 + ((Math.random() * 13) | 0)
+      const n = Math.round((18 + ((Math.random() * 13) | 0)) * nk)
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 + Math.random() * 0.25
         const sp = 140 + Math.random() * 280
@@ -606,10 +629,10 @@ export default {
     this._flyRocket = null
     this._flight = null
 
+    // Vinstljud + konfettiregn + stjärna kommer från complete() nedan. Den egna vinstrepliken
+    // sägs FÖRE complete() i samma tick, så berömmet utgår i stället för att kapa den.
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
     this._say(ctx, 'Hurra! Alla stjärnor lyser!', true)
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     // En glad final-salva av fyrverkerier över hela skyn.
     for (let i = 0; i < 7; i++) {

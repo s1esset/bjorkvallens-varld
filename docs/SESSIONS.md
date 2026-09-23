@@ -49,9 +49,9 @@ ett perfekt verktyg från början: båda hålen i `narTyst` kom från fältet.
 
 **Öppet:**
 - ✅ **Publicerat samma dag** (`npm run deploy`, ägarens ja): `origin/master` = `df6d970`, live-sajten serverar 1.251.0 (bygg 39 s · publicera 32 s). Annotation: `ubuntu-latest` flyttar till Ubuntu 26 från 2026-10-19.
-- **Ägarbeslut:** `leksakslada`s "Alla leksaker är i lådan. Locket smäller igen!" hörs i
-  praktiken aldrig (stryk/korta?) · `gravmaskinen`s "Bobo kör iväg med lasten!" utgår oftast
-  (kedja introt efter?) · `skattjakt-i-morkret`s Bobo-lykta ändrar ledtrådarna · `plantera-fron`s
+- **Ägarbeslut, två tagna samma kväll:** lock-repliken i `leksakslada` struken (`e3a57a9`) ·
+  `gravmaskinen`s leveranskedja följer orden, Bobo-raden 1/3 → 4/4 (`b179f84`,
+  `_bobokedja.mjs`). **Kvar:** `skattjakt-i-morkret`s Bobo-lykta ändrar ledtrådarna · `plantera-fron`s
   emoji-blomhuvud täcker de ritade kronbladen (P0 ASSETS-gräns).
 - **ÅTGÄRDER V21** (tomgångs-påminnelser som kapar långa repliker, flera spel) och **V22**
   (kugghjulens döda Elvira-uttryck).

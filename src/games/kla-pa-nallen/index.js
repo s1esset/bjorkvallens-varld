@@ -21,6 +21,7 @@ import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, sparkle, ripple, floatText, breathe, shake, puff } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { drawIcon } from '../../lib/artikoner.js'
+import { bage } from '../../lib/form.js'
 
 // Nallens center (= pivot, så hon kan studsa OCH snurra runt sin mitt).
 const BEAR_CX = 640
@@ -196,7 +197,7 @@ function drawGarment(key) {
       break
     case '👒': // solhatt
       g.ellipse(0, 14, 56, 18).fill(0xffe08a).stroke({ width: 4, color: 0xd9a52b })
-      g.arc(0, 16, 30, Math.PI, 0).fill(0xffd35c).stroke({ width: 4, color: 0xd9a52b })
+      bage(g, 0, 16, 30, Math.PI, 0).fill(0xffd35c).stroke({ width: 4, color: 0xd9a52b })
       g.roundRect(-32, 6, 64, 12, 6).fill(0xff9d9d)
       break
     case '🕶️': // solglasögon
@@ -212,7 +213,7 @@ function drawGarment(key) {
       g.moveTo(-30, -26).lineTo(30, -26).lineTo(48, -6).lineTo(38, 6).lineTo(32, -2).lineTo(32, 38)
       g.lineTo(-32, 38).lineTo(-32, -2).lineTo(-38, 6).lineTo(-48, -6).closePath()
       g.fill(col).stroke({ width: 4, color: dk })
-      g.arc(0, -26, 13, 0, Math.PI).stroke({ width: 4, color: dk })
+      bage(g, 0, -26, 13, 0, Math.PI).stroke({ width: 4, color: dk })
       break
     }
     case '🩳': // shorts
@@ -230,7 +231,7 @@ function drawGarment(key) {
       g.moveTo(-24, -28).lineTo(24, -28).lineTo(46, 42).lineTo(-46, 42).closePath()
       g.fill(0xef6aa8).stroke({ width: 4, color: 0xc4487f })
       g.roundRect(-26, -6, 52, 8, 4).fill(0xffd35c)
-      g.arc(0, -28, 12, 0, Math.PI).stroke({ width: 4, color: 0xc4487f })
+      bage(g, 0, -28, 12, 0, Math.PI).stroke({ width: 4, color: 0xc4487f })
       break
     case '👟':
       shoe(0xffffff, 0x9aa4b0, false)
@@ -257,7 +258,7 @@ function drawGarment(key) {
       g.arc(0, 4, 48, Math.PI, 0).fill(0xe0392b).stroke({ width: 4, color: 0xb02b20 })
       for (const dx of [-24, 0, 24]) g.moveTo(dx, 4).lineTo(dx, -30).stroke({ width: 3, color: 0xb02b20, alpha: 0.5 })
       g.roundRect(-3, 4, 6, 42, 3).fill(0x8a5a3b)
-      g.arc(-10, 46, 10, 0, Math.PI).stroke({ width: 6, color: 0x8a5a3b })
+      bage(g, -10, 46, 10, 0, Math.PI).stroke({ width: 6, color: 0x8a5a3b })
       break
     case '🎩': // hög hatt
       g.ellipse(0, 30, 48, 13).fill(0x3a3a4a).stroke({ width: 4, color: 0x1c1c28 })

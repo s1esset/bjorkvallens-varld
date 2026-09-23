@@ -155,6 +155,11 @@ export default {
     this._alive = true
     this._ctxRef = ctx
     this._busy = false
+    // Modulen är en singleton: lämnas spelet mitt i en drickning ligger förra omgångens
+    // glas kvar här. Nästa omgångs ticker hittar ingen saft vid det gamla glasets läge och
+    // "dricker klart" det inom en sekund — ett gratis "Precis den färgen Bobo ville ha!" +
+    // complete() innan barnet ens hunnit börja (läst i koden, inte uppmätt).
+    this._drink = null
     this._selected = null
     this._idle = 0
     this._hint = 0
@@ -240,6 +245,7 @@ export default {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._tick = null
+    this._drink = null // se init: ett kvarlämnat glas gav nästa omgång ett falskt complete()
     gsap.killTweensOf(this._glasses?.map((g) => g.front) || [])
     for (const g of this._glasses || []) {
       gsap.killTweensOf(g)
@@ -1004,7 +1010,15 @@ export default {
     this._paintBubble(want)
     gsap.killTweensOf(this._bubble)
     gsap.to(this._bubble, { alpha: 1, duration: 0.25 })
-    if (!first) ctx.services.voice.say(ORDER_ROST[want])
+    // Nästa beställning kommer 1,8 s efter "Precis den färgen Bobo ville ha!" (3,4 s) —
+    // på fast tid kapade den repliken. Bubblan visas genast, bara orden köar; har
+    // beställningen bytts eller Bobo redan börjat dricka när det blir tyst tappas den.
+    if (!first) {
+      const order = this._order
+      ctx.narTyst(() => {
+        if (this._alive && this._order === order && !this._drink) ctx.services.voice.say(ORDER_ROST[want])
+      })
+    }
     pop(this._bubble, { scale: 1.12 })
   },
 
@@ -1075,7 +1089,8 @@ export default {
         if (!bubbla.destroyed) bubbla.destroy()
       },
     })
-    ctx.services.audio.sfx('celebrate')
+    // Vinstljud och konfetti spelar complete() själv; repliken sägs FÖRE så den ersätter
+    // berömmet i stället för att kapas av det.
     ctx.services.voice.say('Precis den färgen Bobo ville ha!')
     ctx.progress.complete()
     ctx.later(1.8, () => {

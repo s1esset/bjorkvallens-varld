@@ -75,10 +75,14 @@ strunta i beställningen hur länge som helst och bara leka.
 
 **Kärnloop**
 - [Quick] Fjärde spakläge: **vatten** som späder färgen ett steg ljusare.
+  *Not 2026-09-23:* blockerad — de ljusare nyanserna behöver egna färgutrop i rösten (TTS nere)
+  och egna PAL-poster; större än en snabbvinst.
 - [Medium] Olika glasformer (smalt/brett/högt) → samma mängd ser olika ut, mer att upptäcka.
 
 **Variation**
 - [Quick] Bobo ber ibland om "mer i glaset" (nivå) i stället för färg.
+  *Not 2026-09-23:* blockerad — beställningen är en talad replik och det finns inget klipp för
+  en nivå-beställning (TTS nere).
 - [Medium] Kunder som kommer och går (Elvira, Lova) med egna favoritfärger.
 
 **Juice**
@@ -89,6 +93,14 @@ strunta i beställningen hur länge som helst och bara leka.
 - [Medium] Bobo blir törstigare ju längre man leker (blinkar mot glasen).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): båda öppna [Quick] kräver nya röstklipp
+  (se §4). Dubbelfirandet: spelets eget `sfx('celebrate')` struket ("Precis den färgen Bobo ville
+  ha!" sägs före `complete()` och ersätter berömmet). Nästa beställning kom 1,8 s in och kapade
+  den 3,4 s långa repliken; den köas nu i `ctx.narTyst` (tappas om beställningen bytts eller Bobo
+  redan dricker). **Singleton-bugg:** `this._drink` nollställdes aldrig — lämnade man spelet mitt
+  i en drickning "drack" nästa omgång klart det gamla glaset inom en sekund: gratis replik +
+  `complete()` innan barnet börjat (läst i koden). Nollställs nu i `init` och `destroy`. Omätt i webbläsare.
 
 - 2026-08-12 🥤 **Bubblor i glaset** (v1.173.0, N10 pass 8).
   Fyndet kom ur `scripts/_stillaprobe.mjs`: `saftbaren` har repots **största scen (679 noder)**

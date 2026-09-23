@@ -155,6 +155,12 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
   men `_cx`/`_cy`/`_sx`/`_sy` är Container-transformens interna cache: `lt.a = _cx * scale.x`.
   Snöbollens snöfält renderades därför med vågrät skala 3660 — osynliga, utan ett enda
   konsolfel. `check.mjs` felar numera på hela namnlistan; använd ett eget prefix (`_wx`).
+- **`Graphics.arc()` som inleder en väg drar ett streck från ORIGO.** Pixi v8 lägger in (0,0)
+  som första punkt när ingen `moveTo` står före bågen — en streckad båge får en linje från
+  figurens origo, en FYLLD blir en solfjäder dit. `kugghjulen`s Elvira hade en gul kil över
+  hela ansiktet och en mun som ett streck ner i klänningen i varje skärmdump, utan ett
+  konsolfel. `moveTo(cx + r·cos a0, cy + r·sin a0)` först (hjälparen `bage` i kugghjulen).
+  `scripts/_bagscan.mjs` listar kandidaterna → ÅTGÄRDER V23.
 - **`renderer.generateTexture()` fäller hela testsviten, inte spelet.** Att baka en form till en
   textur byter rendermål mitt i en bildruta. Ensamt syns inget; i `npm run test:all` (72 spel,
   fyra parallella webbläsare) gav det **`tom-scen` i 5 av 7 körningar mot 0 av 7 på HEAD**, plus

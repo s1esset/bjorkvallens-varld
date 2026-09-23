@@ -14,6 +14,39 @@ Format:
 
 ---
 
+## 2026-09-23 kväll — V21 (tomgången kapade rösten i 77 spel) + V22 (Elviras uttryck) · v1.252.0
+
+**Uppdraget:** "fixa V21 och V22, bobo behöver inte egen lykta, plantera fron kan ha kvar sin emoji".
+Före det, samma kväll: lock-repliken struken (`e3a57a9`) och gravmaskinens leveranskedja (`b179f84`,
+`_bobokedja.mjs`: Bobo-raden 1/3 → 4/4) — båda publicerade.
+
+⓵ **V21 mättes först, och var mycket större än posten sa.** `scripts/_tomgangprobe.mjs` (ny) gör
+samma sak i alla 85 spel — en 8,99 s replik, ingen input — och räknar varje say() som kommer mitt i:
+**77 av 85** kapade den med sin tomgångs-påminnelse (posten nämnde tre). Kontrollarmen `--kontroll`
+kapar alltid, så ett grönt utfall är en mätning. Tre agenter; regeln "tomgången räknas från tystnad"
+(`if (voice.talar) this._idle = 0`). **Fällan som fångades innan commit:** där samma klocka också
+driver auto-hjälpen sköt påminnelsens EGEN replik upp hjälpen med hela sin längd (studsa-ner
+12 → ~20 s) eller svalt ut den — de klockorna PAUSAS i stället. Efter: **0** kapningar från en
+påminnelse; 12 spel kvar med rundflöde/händelser på fast tid → **V24**.
+⓶ **V22:** Elvira i tre lager med fem uttryck, `_elviraminprobe`: 0/4 → 4/4 uttryck syns. **Sidofynd
+i samma ansikte:** hår och mun började med `arc()` utan `moveTo` och Pixi v8 drog ett streck från
+origo — en gul kil över ansiktet i varje skärmdump sedan figuren ritades. Rättat där; klassen
+(`scripts/_bagscan.mjs`: 88 kandidater i 38 filer, `lib/figurer.js` kände redan till den) är **V23**
+och en ny fälla i CLAUDE.md.
+
+**Läxan:** en köpost om ett fel i "tre spel" var en egenskap hos 77 — mät klassen i hela sviten
+innan du bygger fixen. Och en rättning som stoppar en klocka måste fråga vad MER den klockan driver.
+
+**Grind:** check 0/0 · `test:all` 85/85 (en `fysik-svalt` i bajs-och-kiss under svitens last, ren
+ensam två gånger) · `_tomgangprobe` 77 → 0 · `_elviraminprobe` 0/4 → 4/4.
+
+**Commits:** kugghjulen (V22 + V21) · 76 × `fix(<id>): paminnelsen kapar inte langre…` · docs.
+
+**Öppet:** V23 (arc-strecket, ägarbeslut: central lapp eller per ställe) · V24 (rundflöde som kapar,
+12 spel) · Skattjaktens lykta och plantera-frons emoji: **ägaren sa nej — stängda**.
+
+---
+
 ## 2026-09-23 — SNABBVINSTER-kampanjen: dubbelfirandet stängt + A-raderna i 85 spel · v1.251.0
 
 **Uppdraget:** "börja med dubbelfirandet och sen kör på med alla små förbättringar + städningen,

@@ -61,26 +61,34 @@ upplevelsen runt den.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Quick] Synlig knuff.** Vid varje tryck: en liten hand/Bobo-tass (eller en färgad
+- ✅ ~~**[Quick] Synlig knuff.**~~ Redan byggd (`_boboPush(q)` + puff bakom sitsen skalad med `q`,
+  index.js:571-581) — uppdagat 2026-09-23. Vid varje tryck: en liten hand/Bobo-tass (eller en färgad
   "push"-puff) bakom sitsen som skjuter till, så barnet *ser* sin handling driva Lova. Skala
   puffen med fas-kvaliteten `q` (stor puff nära ytterläget).
 - **[Medium] Belöna takten tydligare.** Vid 2–3 bra knuffar i rad (`q ≥ 0.7`): en synlig
   kombo-glöd runt sitsen + stigande ton, och auto-medvinden skjuts upp ännu längre ("du klarar
   det själv!"). Gör skillnaden mellan egen rytm och auto-hjälp *kännbar*.
-- **[Deep] Mål som lever.** Låt målet reagera: fågeln flaxar och hoppar ett snäpp högre när hon
+- ✅ ~~**[Deep] Mål som lever.**~~ Redan byggd (nästa mål guppar och lutar ivrigare ju närmare hon
+  når, index.js:680-697) — uppdagat 2026-09-23. Låt målet reagera: fågeln flaxar och hoppar ett snäpp högre när hon
   närmar sig (sikta-spänning), ballongen guppar undan i vinden, äpplet darrar. Fortfarande
   no-fail (hon når det till slut), men nu finns ett *möte*, inte bara en kollision.
 
 ### Variation & överraskning
-- **[Quick] Variera målen mer.** Rotera in fjäril som lyfter, stjärna som gnistrar, kompis-emoji
-  som vinkar — med olika plock-ljud per typ.
+- ✅ ~~**[Quick] Variera målen mer.** Rotera in fjäril som lyfter, stjärna som gnistrar, kompis-emoji
+  som vinkar — med olika plock-ljud per typ.~~ Klar 2026-09-23 (v1.251.0): fjäril och stjärna fanns
+  redan i `GOAL_EMOJIS` (:42); nu har varje måltyp sitt eget stämda plockljud (`PLOCK_LJUD`) —
+  fågeln kvittrar, äpplena ploppar loss (befintligt klipp), ballongen gnäller uppåt, fjärilen
+  fladdrar, stjärnan klirrar. Kompisen som vinkar utgår: en avbildad människa är ingen emoji-sak.
 - **[Medium] Tema-cykel** som i `klambubblor`: äng → solnedgång → stjärnhimmel → höstlöv per
   några nivåer, så världen känns ny när man kommer långt.
 
 ### Juice
+- ✅ ~~**[Quick] Gung-gnissel vid varje vändning; `whoosh` klättrar i tonhöjd ju högre hon redan
+  är.**~~ Klar 2026-09-23 (v1.251.0): en bra knuff får en stämd ton som klättrar G4 → A5 med
+  `_maxAbs` mot nivåns toppmål (strypt 150 ms, :563-572), och vändlägena gnisslar mjukt med ett
+  fallande tonpar per sida (bara vid |θ| > 0,3, strypt 450 ms, vol 0,045).
 - **[Quick] Vind-sus som stiger med amplituden** (loopande brus vars volym/tonhöjd följer
-  `this._maxAbs`) + ett mjukt gung-gnissel vid varje vändning; `whoosh` får klättra i tonhöjd ju
-  högre hon redan är.
+  `this._maxAbs`). ⛔ Kräver ett slingklipp (SFX-pipelinen/MOSS nere) — `audio.tone` är en blipp.
 - ✅ **[Quick] Lova reagerar — håret.** *(2026-08-12)* `back`-grafiken pivoterar kring HUVUDETS
   mitt (inte höfterna) och släpar `-tanh(omega / (cap·0,5)) · 0,34`, alltså motsatt
   färdriktningen och mättat så tofsarna aldrig slår runt. Största utslag **18,8°**. Håret ligger
@@ -107,13 +115,23 @@ upplevelsen runt den.
   tryck, hejar vid toppen och fångar de nedfallande målen i en korg vid nivåslut — en egen
   vinst-animation i stället för generisk konfetti.
 - **[Quick] En kompis i kö** vid sidan som klappar händerna när Lova når ett mål (levande scen).
+  ⚠️ Prövat 2026-09-23: kommentaren i `init` (:119) påstod att parken hade "en bänk och en kompis
+  som väntar på sin tur", men koden ritar bara sandlåda, träd och gräs — punkten är INTE byggd
+  (kommentaren rättad).
+  Kompisen blir en avbildad människa (Zacke/Alissa/Elvira, ritad figur), alltså inte en emoji.
 
 ### Ljud
 - **[Quick] Spelspecifik vinst-stinger** + verifiera att gung-/vind-/barn-SFX hämtas från
   [[real-audio-sfx]]-pipelinen (gnissel, vind, skratt) i stället för syntetiska UI-blipp.
+  ⛔ SFX-halvan kräver nya klipp (MOSS nere); gnisslet är tills vidare stämda toner (2026-09-23).
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): nivårepliken kom 1,7 s efter
+  `complete()` och kapade berömmet — köar nu via `ctx.narTyst` med nivå-token (nivån byggs genast).
+  Varje måltyp har ett eget stämt plockljud (`PLOCK_LJUD`), en bra knuff får en ton som klättrar
+  med höjden hon nått, och gungan gnisslar mjukt i vändlägena (båda strypta). Prövat: synlig
+  knuff och levande mål var redan byggda; "kompisen i kön" fanns bara i en kommentar.
 - 2026-06-30: Doc skriven (granskning + plan, ersätter gammal bygg-spec). Testat headless
   (errorCount 0), skärmdump läst. Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] synlig knuff-puff + Lova-hår i farten + stigande

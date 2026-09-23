@@ -48,6 +48,33 @@ const LEVEL_LINES_SOLO = ['Nu gungar vi ännu högre!', 'Pumpa i takt så når v
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
+// Plockljud per måltyp: varje sak låter som sig själv (stämt, C-dur-pentatonik), så barnet
+// HÖR vad Lova nuddade — förut fick fågeln och äpplet samma pling. Äpplena "ploppar" loss
+// med det befintliga klippet (stämd reserv om det inte hunnit avkodas).
+const plopp = (a) => {
+  if (!a.sample('plopp')) a.tone({ freq: 392, slideTo: 196, dur: 0.14, type: 'sine', vol: 0.22 })
+}
+const PLOCK_LJUD = {
+  '🐦': (a) => { // kvitter: två snabba uppåtglidningar
+    a.tone({ freq: 1567.98, slideTo: 2093, dur: 0.07, type: 'sine', vol: 0.14 })
+    a.tone({ freq: 1760, slideTo: 2349.32, dur: 0.07, type: 'sine', vol: 0.12, delay: 0.1 })
+  },
+  '🍎': plopp,
+  '🍏': plopp,
+  '🎈': (a) => a.tone({ freq: 523.25, slideTo: 783.99, dur: 0.2, type: 'triangle', vol: 0.16 }), // gummi-gnäll uppåt
+  '🦋': (a) => { // fladder: tre lätta toner uppåt
+    a.tone({ freq: 1046.5, dur: 0.08, type: 'sine', vol: 0.1 })
+    a.tone({ freq: 1318.51, dur: 0.08, type: 'sine', vol: 0.1, delay: 0.06 })
+    a.tone({ freq: 1567.98, dur: 0.1, type: 'sine', vol: 0.1, delay: 0.12 })
+  },
+  '🌟': (a) => a.sfx('kristall_klirr'),
+}
+// Knuff-tonen klättrar med hur högt hon redan nått (G4 → A5), och gungan gnisslar i
+// vändlägena. Båda strypta: ett barn kan trumma, och vändningen kan studsa vid spärren.
+const KLATTER = [392, 440, 523.25, 587.33, 659.25, 783.99, 880]
+const KLATTER_MS = 150
+const GNISSEL_MS = 450
+
 export default {
   id: 'gungan',
   titleSv: 'Gungan',
@@ -73,6 +100,8 @@ export default {
     this._didIdleCue = false
     this._maxAbs = 0
     this._lastSoft = 0
+    this._lastKlatter = 0
+    this._lastGnissel = 0
     this._lastReveal = 0
     this._targets = [] // [{ sign, amp, char, collected, pos, ring, emoji, glowTween }]
     this._topAmp = 0.85
@@ -88,8 +117,8 @@ export default {
     // Bakgrund (FÖRSTA barn): grön äng + himmel/sol/moln. Aldrig tryckbar.
     this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
 
-    // Publik och plats: en sandlåda, ett par träd, en bänk och en kompis som väntar på
-    // sin tur. Scenen var tidigare en helt tom äng (§3 "endast Lova, ingen publik").
+    // Plats: en sandlåda, ett par träd och gräs (publiken är Bobo). Scenen var tidigare en
+    // helt tom äng (§3). Bänken och "kompisen i kön" som kommentaren lovade ritas INTE.
     const park = new Graphics()
     for (const [tx, ts] of [[130, 1], [1180, 0.9]]) {
       park.rect(tx - 12 * ts, 470 * 1, 24 * ts, 170 * ts).fill(0x8a5a3b)
@@ -237,7 +266,13 @@ export default {
     this._drawArc()
 
     if (announce && this._alive) {
-      ctx.services.voice.say(randomFrom(this._targets.length > 1 ? LEVEL_LINES_MULTI : LEVEL_LINES_SOLO))
+      // Nivån byggs genast; orden väntar tills berömmet från complete() tystnat (say()
+      // kapar annars det). Nivå-token: en kö som hann bli inaktuell säger ingenting.
+      const line = randomFrom(this._targets.length > 1 ? LEVEL_LINES_MULTI : LEVEL_LINES_SOLO)
+      ctx.narTyst(() => {
+        if (!this._alive || this._level !== level) return
+        ctx.services.voice.say(line)
+      })
     }
   },
 
@@ -526,6 +561,15 @@ export default {
     if (this._lova && !this._lova.destroyed) pop(this._lova, { scale: 1.08 })
     const b = this._bobWorld(this._theta, this._L - 20)
     ctx.services.audio.sfx(q >= 0.7 ? 'whoosh' : 'soft')
+    if (q >= 0.7) {
+      const nu = performance.now()
+      if (nu - this._lastKlatter >= KLATTER_MS) {
+        this._lastKlatter = nu
+        const hojd = clamp(this._maxAbs / (this._topAmp || 1), 0, 1)
+        const f = KLATTER[Math.round(hojd * (KLATTER.length - 1))]
+        ctx.services.audio.tone({ freq: f, slideTo: f * 1.5, dur: 0.16, type: 'sine', vol: 0.1 })
+      }
+    }
     sparkle(ctx.fxLayer, b.x, b.y, { count: q >= 0.7 ? 7 : 4 })
     // Synlig knuff: Bobo kastar upp tassarna och en puff trycker till BAKOM sitsen,
     // skalad med fas-kvaliteten — barnet ser sin handling driva gungan.
@@ -697,6 +741,23 @@ export default {
       }
     }
 
+    // Gung-gnissel i vändläget: ett fallande tonpar, A5→G5 på ena sidan och G5→E5 på den
+    // andra, mjukt.
+    // Bara när hon gungar ordentligt — en nästan stilla gunga gnisslar inte.
+    if (
+      this._prevOmega !== 0 &&
+      Math.sign(this._omega) !== Math.sign(this._prevOmega) &&
+      Math.abs(this._theta) > 0.3
+    ) {
+      const nu = performance.now()
+      if (nu - this._lastGnissel >= GNISSEL_MS) {
+        this._lastGnissel = nu
+        const [f1, f2] = this._theta > 0 ? [880, 783.99] : [783.99, 659.25]
+        ctx.services.audio.tone({ freq: f1, dur: 0.1, type: 'triangle', vol: 0.045 })
+        ctx.services.audio.tone({ freq: f2, dur: 0.08, type: 'triangle', vol: 0.03, delay: 0.07 })
+      }
+    }
+
     this._prevOmega = this._omega
   },
 
@@ -711,6 +772,7 @@ export default {
     if (tg.ring && !tg.ring.destroyed) tg.ring.alpha = 0
     floatText(ctx.fxLayer, tg.pos.x, tg.pos.y, tg.char, { rise: 110, duration: 1.0, fontSize: 78 })
     sparkle(ctx.fxLayer, tg.pos.x, tg.pos.y, { count: 8 })
+    ;(PLOCK_LJUD[tg.char] || ((a) => a.sfx('pling')))(ctx.services.audio)
     this._boboCheer(ctx)
     this._drawArc() // bågspåret syftar nu mot nästa, högre mål
 
@@ -718,8 +780,7 @@ export default {
     if (remaining === 0) {
       this._levelComplete(ctx)
     } else {
-      // Mellan-mål: glatt men kort, ingen ny nivå än.
-      ctx.services.audio.sfx('pling')
+      // Mellan-mål: glatt men kort, ingen ny nivå än (sakens eget plockljud spelades ovan).
       floatText(ctx.fxLayer, tg.pos.x, tg.pos.y - 54, randomFrom(['Bra!', 'Ja!', '⭐']))
     }
   },

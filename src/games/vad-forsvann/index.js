@@ -755,6 +755,8 @@ export default {
   // Idle ~6s: locka vänligt vidare beroende på fas (aldrig press).
   _update(ctx, ticker) {
     if (!this._alive || this._busy) return
+    // Tomgången räknas från TYSTNAD — annars kapar lockningen en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += ticker.deltaMS / 1000
     if (this._idle < 6) return
     this._idle = 0

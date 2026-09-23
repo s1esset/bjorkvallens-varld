@@ -325,6 +325,19 @@ export default {
     bounceIn(dot, { duration: 0.35 })
   },
 
+  // Prickraden "blinkar klart": en våg av ringar längs raden när den blivit full. Vågen går
+  // på de tomma KONTURERNA (som ingen annan tweenar) — frukt-prickarna ovanpå har sin egen
+  // bounceIn som annars hade slagits med den.
+  _pricksvep() {
+    this._sweepTl?.kill()
+    const dots = (this._progDots || []).filter((d) => d && !d.destroyed)
+    if (!dots.length) return
+    this._sweepTl = gsap.timeline({ delay: 0.3 })
+    dots.forEach((d, i) => {
+      this._sweepTl.to(d.scale, { x: 1.35, y: 1.35, duration: 0.12, ease: 'power2.out', yoyo: true, repeat: 1 }, i * 0.07)
+    })
+  },
+
   // Stapelplats i korgen för det i:te plockade frukten (upp till 5 per rad).
   _stackPos(i, total) {
     const cols = Math.min(5, total)
@@ -382,6 +395,7 @@ export default {
     this._bigNum.scale.set(1)
     this._bigNum.text = ''
 
+    this._sweepTl?.kill() // förra rundans prickvåg får inte skriva på rivna konturer
     this._buildProgress(this._target)
 
     // Synlig mål-siffra: bara i "tryck på N"-läget (i "räkna alla" finns inget
@@ -412,9 +426,15 @@ export default {
       bounceIn(a, { delay: i * 0.07 })
     })
 
-    // Talad instruktion per runda (första rundan täcks av voiceIntro i mount).
+    // Talad instruktion per runda (första rundan täcks av voiceIntro i mount). Rundan
+    // byggs 1,7 s efter complete(), vars beröm är 1,0–2,3 s — och say() kapar. Orden
+    // väntar in rösten; frukterna gör det inte. Vakten släpper inte en förra rundans rad.
     if (!this._first) {
-      ctx.services.voice.say(this._goalMode ? goalIntro(this._target, this._fruit) : countAllIntro(this._fruit))
+      const lvl = this._level
+      ctx.narTyst(() => {
+        if (!this._alive || this._level !== lvl || this._resolving) return
+        ctx.services.voice.say(this._goalMode ? goalIntro(this._target, this._fruit) : countAllIntro(this._fruit))
+      })
     }
     this._first = false
 
@@ -481,9 +501,11 @@ export default {
       onComplete: () => {
         if (!this._alive) return
         if (!a.destroyed) puff(ctx.fxLayer, stack.x, stack.y + 8, { count: 5, color: this._fruit.body })
-        // Taktil landning: "plums"-ljud + en liten studs på korgen.
+        // Taktil landning: "plums"-ljud + en studs på korgen som blir DJUPARE ju fullare
+        // korgen är (n = den här fruktens plats, inte `_count` — snabba tryck landar sent).
         this._plums(ctx)
-        this._basketBounce(0.9, 1.06)
+        const fyll = Math.min(1, n / Math.max(1, this._target))
+        this._basketBounce(0.94 - 0.08 * fyll, 1.04 + 0.06 * fyll)
         this._cheer(1)
       },
     })
@@ -572,6 +594,7 @@ export default {
 
     ctx.services.audio.sfx('pling')
     ctx.services.voice.say(recountIntro)
+    this._pricksvep()
 
     // Avslutande omräkning: peka blicken mot korgen och räkna de samlade
     // frukterna EN gång till ("ett, två, tre — tre äpplen!") medan var och en
@@ -663,6 +686,7 @@ export default {
     this._breathTween?.kill()
     this._shakeTween?.kill()
     this._recountTl?.kill()
+    this._sweepTl?.kill()
     ;(this._apples || []).forEach((a) => {
       gsap.killTweensOf(a)
       gsap.killTweensOf(a.scale)

@@ -57,9 +57,9 @@ ber barnet *förstå* mängd, känna igen siffran eller stanna vid rätt antal.
 - **[Medium] Inför "Hur många?"-beat tidigt.** Efter en uppräknad korg: visa frukten +
   en stor **siffra att välja** (eller fingrar att räkna) och låt barnet bekräfta antalet
   — kopplar mängd→siffra aktivt. No-fail: fel val ger bara "Vi räknar igen!" + omräkning.
-- **[Quick] Flytta in "tryck på N"-läget tidigare och oftare**, gärna med en synlig
-  mål-siffra ("Tryck på **2** äpplen") så barnet övar att stanna vid rätt antal redan
-  från nivå 2 — det är där den verkliga räkneförståelsen sitter.
+- ✅ ~~**[Quick] Flytta in "tryck på N"-läget tidigare och oftare.**~~ Redan byggd (`index.js:367`
+  mål-läget från runda 2, tre av fyra rundor; synlig mål-siffra i `_goalBanner` :408) —
+  uppdagat 2026-09-23.
 
 ### Variation & överraskning
 - **[Quick] Subitiserings-runda:** visa korta stunder en grupp om 1–3 frukter och fråga
@@ -68,28 +68,36 @@ ber barnet *förstå* mängd, känna igen siffran eller stanna vid rätt antal.
   saft) som payoff. Roterar känslan utan att ändra mekaniken.
 
 ### Juice
-- **[Quick] Riktigt plock + "plums"-ljud** när frukten lossnar och landar i korgen
-  (taktilt), plus en liten studs på korgen vid varje landning.
-- **[Quick] Korgen reagerar:** den gungar/svämmar lite mer ju fullare den blir, och
-  prickraden "blinkar" klart när den fylls.
+- ✅ ~~**[Quick] Riktigt plock + "plums"-ljud.**~~ Redan byggd (stämd plums `_plums` :534 +
+  korgstuds `_basketBounce` :557 vid varje landning) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Korgen reagerar.**~~ Klar 2026-09-23 (v1.251.0): studsen vid landningen blir
+  djupare ju fullare korgen är (:507, 0,93 → 0,86 i höjd), och när raden är full går en våg
+  av ringar längs prickraden (`_pricksvep` :331 — på de tomma konturerna, inte på
+  frukt-prickarna som har egen `bounceIn`).
 
 ### Progression
-- **[Medium] Avsluta med en omräkning.** På slutet: kameran/blicken går till korgen och
-  rösten räknar de samlade frukterna igen ("ett, två, tre — tre äpplen!") medan var och en
-  studsar — sluter kardinalitets-loopen visuellt.
-- **[Quick] Sifferigenkänning som mild krydda:** låt jättesiffran ibland visas *före* sista
-  plocket ("Vi ska ha **3**") så barnet siktar mot ett tal.
+- ✅ ~~**[Medium] Avsluta med en omräkning.**~~ Redan byggd (`_finish` :580: räknar korgen igen
+  medan var frukt studsar, sedan totalen) — uppdagat 2026-09-23.
+- ~~**[Quick] Sifferigenkänning som mild krydda.**~~ Premissen föll (SNABBVINSTER D, kontrollerat
+  2026-09-23): i mål-läget står mål-siffran redan synlig från rundans början (`_goalBanner`
+  :408), och det är tre rundor av fyra — barnet siktar redan mot ett tal.
 
 ### Karaktär & berättelse
-- **[Deep] En mottagar-figur (Bobo/ekorre)** som håller korgen, räknar med, och blir
-  gladare ju fler frukter den får — ger en anledning att plocka och en egen finish istället
-  för generisk konfetti.
+- ✅ ~~**[Deep] En mottagar-figur (Bobo/ekorre).**~~ Redan byggd (ekorren vid korgen jublar vid
+  varje landning och rodnar mer ju fullare korgen blir, `_cheer` :540) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Riktiga frukt/korg-klipp via SFX-pipelinen** ([[real-audio-sfx]]): plock-knäpp,
   plums, en mjuk "full korg"-klang. Behåll den talade räkningen som bär pedagogiken.
+  ⛔ Blockerad: kräver nya SFX-klipp (MOSS nere). Plumsen finns redan som stämd ton.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): spelet firade aldrig dubbelt, men
+  nästa rundas instruktion byggdes 1,7 s efter `complete()` och kapade berömmet — den väntar nu
+  med `ctx.narTyst` och utgår om rundan hunnit bytas. A-raden **korgen reagerar** byggd
+  (fullhetsstuds + prickvåg). §4 städad: 4 redan byggda, sifferigenkänningen struken (siffran
+  syns redan), frukt-klippen väntar på MOSS.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`9e007f4`, v1.110.0).
   `_plattprobe --medbakgrund` mätte **265 955 px = 29 % av skärmen** i EN ton.

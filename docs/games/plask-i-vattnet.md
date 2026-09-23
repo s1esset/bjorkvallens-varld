@@ -53,12 +53,14 @@ garanterar minst 2 av varje så mönstret framträder över tid.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Gissa först (valfritt, no-fail).** Innan släpp kan rösten/en liten tankebubbla
+- ✅ ~~**[Medium] Gissa först (valfritt, no-fail).**~~ Redan byggd (`_showGuessUi` index.js:703,
+  reaktionen i `_splash`) — uppdagat 2026-09-23. Innan släpp kan rösten/en liten tankebubbla
   fråga "flyter eller sjunker?"; två stora ikon-knappar (🔼 flyter / 🔽 sjunker). Rätt
   gissning → extra gnistor + jubel; fel → mjukt "Vi ser efter!" och plasket avslöjar svaret.
   Gör det till *tänkande*, aldrig straff. Kan slås av för de yngsta (ren plask-lek).
-- **[Quick] Trycka ner en flytare.** Låt ett tryck på en flytande sak doppa den (extra
-  nedåt-impuls) så den studsar upp igen med ett plask — leksam agens på det som redan flyter.
+- ✅ ~~**[Quick] Trycka ner en flytare.** Låt ett tryck på en flytande sak doppa den (extra
+  nedåt-impuls) så den studsar upp igen med ett plask — leksam agens på det som redan flyter.~~
+  Redan byggd (`_waterTap` index.js:1048-1061, loggad i §5 men aldrig struken) — uppdagat 2026-09-23.
 - **[Deep] Fiska upp.** En liten håv/krok-knapp som lyfter en sjunkare till hyllan igen →
   barnet kan experimentera om och om.
 
@@ -69,30 +71,45 @@ garanterar minst 2 av varje så mönstret framträder över tid.
   långsammare) eller högre/lägre vattennivå — samma fysik, ny känsla.
 
 ### Juice
-- **[Quick] Riktigt plask + plopp.** Knyt 'splash' till inspelade vattenplask via
+- ✅ ~~**[Quick] Riktigt plask + plopp.** Knyt 'splash' till inspelade vattenplask via
   SFX-pipelinen ([[real-audio-sfx]]) i två varianter (lätt plask för flytare, djup plopp för
-  sjunkare) i stället för syntes.
-- **[Quick] Levande föremål.** Ge båten en liten segel-vaja, anden ögon + ett "kvack" vid
-  plask, äpplet en studs vid ytan — billig per-objekt-personlighet.
+  sjunkare) i stället för syntes.~~ Redan byggd (`pop`- resp. `plopp`-klippet med stämd reserv,
+  `_splash` index.js:1011) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Anden kvackar vid plask.**~~ Klar 2026-09-23 (v1.251.0): `_kvack` (:987) spelar det
+  befintliga `djur_anka`-klippet (stämt G4→E4-kvack om det saknas) och vickar ankans FIGUR (vyn
+  ägs av fysiklänken) 0,35 s efter plasket — och när en flytande anka doppas. Strypt 700 ms.
+  Ögon hade anden redan.
+- **[Quick] Levande föremål, resten:** båten en liten segel-vaja, äpplet en studs vid ytan —
+  billig per-objekt-personlighet.
 
 ### Progression
-- **[Medium] Synlig upptäckts-logg.** Två små hyllor vid sidan ("Flyter" / "Sjunker") där en
+- ✅ ~~**[Medium] Synlig upptäckts-logg.**~~ Redan byggd (`_logItem` index.js:646, hyllorna "Flyter" /
+  "Sjunker" sparas i custom) — uppdagat 2026-09-23. Två små hyllor vid sidan ("Flyter" / "Sjunker") där en
   miniatyr av varje testat föremål landar och *stannar* över rundor — visuellt mönster utan
   ljud, något att fylla.
 - **[Quick] Mjuk svårighetsväxling.** Inför "kluriga" föremål (apelsin med/utan skal-känsla,
   flaska med lock) på högre nivåer som retar förväntan — fortfarande no-fail.
 
 ### Karaktär & berättelse
-- **[Deep] En invånare i tanken.** En liten fisk/groda (Bobo som dykare?) som bor i vattnet,
+- ✅ ~~**[Deep] En invånare i tanken.**~~ Redan byggd (fisken `_pet`: flyr plask, nosar på sjunkare,
+  hopp vid runda klar `_jumpFish` :1122) — uppdagat 2026-09-23. En liten fisk/groda (Bobo som dykare?) som bor i vattnet,
   simmar undan när något plaskar, nyfiket nosar på det som sjunker och firar vid runda klar
   — ger scenen liv och en egen vinst-animation.
 
 ### Ljud
-- **[Quick] Lugn vatten-ambient-loop** (mjukt porlande) + varierat berömsting; säkerställ att
-  namngivnings-frasen alltid hörs innan firandet.
+- ✅ ~~**[Quick] Säkerställ att namngivnings-frasen alltid hörs innan firandet.**~~ Klar 2026-09-23
+  (v1.251.0) i värdet: `complete()` hoppar nu över sitt beröm så länge en replik talar, och
+  namngivningen sägs i samma tick före `complete()` — den kapas aldrig längre.
+- **[Quick] Lugn vatten-ambient-loop** (mjukt porlande) + varierat berömsting. ⛔ Slingan kräver
+  ett nytt klipp (SFX-pipelinen/MOSS nere).
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): spelet hade ingen egen kopia av
+  firandet; namngivningen ("Anden flyter!") sägs i samma tick före `complete()` och står nu kvar
+  i stället för att kapas av berömmet (värdets ändring). Ny: **ankan kvackar** (befintligt
+  `djur_anka`-klipp) och vickar när den plaskar i eller doppas. Prövat: gissningen, doppet,
+  plask/plopp-klippen, upptäcktshyllorna och fisken var redan byggda.
 - 2026-08-10 🎨 **D1: golvet fick ljus från horisonten** (`65556d9`, v1.125.0).
   Golvet låg på **57 525 px i EN ton** — spelets största fält sedan vattnet tonades.
   **MÄTT** (största enskilda fältet, bakgrunden medräknad): **57 525 → 30 283 px.**

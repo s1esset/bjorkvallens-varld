@@ -140,6 +140,17 @@ const POOL_SINK = [
 ]
 const ALL_KINDS = new Set([...POOL_FLOAT, ...POOL_SINK].map((d) => d.kind))
 
+const KVACK_MS = 700
+
+// Ankans kvack-vickning ligger på vyns figur (`_fig`, se `_kvack`) — `killTweensOf(vyn)`
+// når inte dit, så den dödas här innan vyn rivs.
+function stoppaVick(v) {
+  const art = v._fig
+  if (!art || art.destroyed) return
+  art._fxWiggleTl?.kill()
+  gsap.killTweensOf(art)
+}
+
 const IDLE_LINES = ['Plaska lite till!', 'Släpp en sak till i vattnet!', 'Vad flyter och vad sjunker?']
 
 // ---- Ritade föremål (P0 ASSETS) ------------------------------------------
@@ -888,6 +899,7 @@ export default {
       if (!v || v.destroyed) return
       gsap.killTweensOf(v)
       gsap.killTweensOf(v.scale)
+      stoppaVick(v)
       v.destroy({ children: true })
     })
     this._itemViews = []
@@ -940,9 +952,10 @@ export default {
     // glider lugnt till botten och ligger still där.
     this._vatten.lagg(body, { flyt: data.floatFactor, r: BODY_R, hemX: homeX, liv: data.floats })
 
-    this._objects.push({ body, view, floats: data.floats, floatFactor: data.floatFactor, r: BODY_R, homeX })
+    this._objects.push({ body, view, kind: data.kind, floats: data.floats, floatFactor: data.floatFactor, r: BODY_R, homeX })
 
     this._splash(ctx, x, data, guessed)
+    if (data.kind === 'and') this._kvack(ctx, view)
     this._petStartle(x) // fisken flyr undan plasket och kommer tillbaka nyfiket
     this._logItem(ctx, data) // lägg en miniatyr i rätt upptäckts-hylla (om ny)
     this._surfaceWave(x, body) // ytsvall: redan flytande saker guppar mjukt när något nytt plaskar i
@@ -964,6 +977,27 @@ export default {
         if (o.view && !o.view.destroyed) pop(o.view, { scale: 1.06 })
       }
     }
+  },
+
+  // Ankan KVACKAR när den guppat upp efter plasket: riktigt andklipp om det finns, annars
+  // ett stämt kvack (två G4→E4). Vickningen sitter på vyns figur — fysiklänken skriver vyns
+  // läge och vinkel varje steg, så en vickning på vyn själv skrevs över i nästa bildruta.
+  // `ctx.later` dör med omgången; en ny runda river vyn, därav `destroyed`-vakten. Strypt
+  // (KVACK_MS): ett barn som trummar på den doppade ankan får inte en kvack-kulspruta.
+  _kvack(ctx, view) {
+    ctx.later(0.35, () => {
+      if (!this._alive || !view || view.destroyed) return
+      const nu = performance.now()
+      if (nu - (this._lastKvack || 0) < KVACK_MS) return
+      this._lastKvack = nu
+      const a = ctx.services.audio
+      if (!a.sample('djur_anka')) {
+        a.tone({ freq: 392, slideTo: 329.63, dur: 0.1, type: 'sawtooth', vol: 0.12 })
+        a.tone({ freq: 392, slideTo: 329.63, dur: 0.12, type: 'sawtooth', vol: 0.1, delay: 0.15 })
+      }
+      const art = view._fig
+      if (art && !art.destroyed) wiggle(art)
+    })
   },
 
   // Plask vid ytan: ljud + ring + bubbelpuff + glad röst som namnger flyt/sjunk
@@ -1020,6 +1054,7 @@ export default {
       ripple(ctx.fxLayer, hit.body.position.x, SURFACE_Y, { color: 0xbfeefa, maxR: 78, alpha: 0.7 })
       puff(ctx.fxLayer, hit.body.position.x, SURFACE_Y, { count: 10, color: 0x9fd8f0 })
       if (hit.view && !hit.view.destroyed) pop(hit.view, { scale: 1.1 })
+      if (hit.kind === 'and') this._kvack(ctx, hit.view) // doppad anka protesterar glatt
       this._petStartle(hit.body.position.x)
       return
     }
@@ -1183,6 +1218,7 @@ export default {
       if (!v || v.destroyed) return
       gsap.killTweensOf(v)
       gsap.killTweensOf(v.scale)
+      stoppaVick(v)
     })
     // Upptäckts-hyllornas miniatyrer (skal-tween) + gissningsknapparna.
     this._logIcons?.forEach((t) => {

@@ -6,7 +6,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
-import { sparkle, pop, wiggle, bigCelebration, kvittera } from '../../lib/feedback.js'
+import { sparkle, pop, wiggle, kvittera } from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill } from '../../lib/form.js'
@@ -31,6 +31,15 @@ const START_LEN = 2 // startsekvensens längd
 const MAX_LEN = 6 // längden slutar växa här (men nya slumpsekvenser fortsätter)
 const LIT_MS = 450 // hur länge en platta "lyser" vid uppspelning
 const GAP_MS = 280 // paus mellan plattorna vid uppspelning (lugnt tempo)
+
+// MELODIBOKEN: en rad ritade noter nere till höger som fylls, en per klarad melodi
+// (`custom.rundor`). Nedre mitten är "Visa igen" (x 490–790) och plattorna slutar på
+// y 620 — raden ligger på y 672, x 870–1220: 80 px från knappen, 30 px under plattan,
+// långt från skalets knappar i topphörnen. Max BOK_MAX noter; fylld är fylld för gott.
+const BOK_MAX = 8
+const BOK_X0 = 870
+const BOK_DX = 50
+const BOK_Y = 672
 
 export default {
   id: 'harma-melodin',
@@ -115,6 +124,32 @@ export default {
     this._btn.position.set(640, 672)
     this._btn.setEnabled(false) // av tills första uppspelningen är klar
     this._root.addChild(this._btn)
+
+    // Melodiboken (se BOK_*): tomma noter är svaga konturer, klarade har plattornas färger.
+    this._bok = new Container()
+    this._bok.eventMode = 'none'
+    this._bok.interactiveChildren = false
+    this._root.addChild(this._bok)
+    const klara = Math.min(BOK_MAX, ctx.progress.get().custom?.rundor || 0)
+    this._bokNoter = []
+    for (let i = 0; i < BOK_MAX; i++) {
+      const g = new Graphics()
+      g.position.set(BOK_X0 + i * BOK_DX, BOK_Y)
+      drawNot(g, i < klara, PAD_DEFS[i % PAD_DEFS.length].color)
+      this._bok.addChild(g)
+      this._bokNoter.push(g)
+    }
+  },
+
+  // En ny not i boken: fylls i sin färg, studsar och gnistrar. Över BOK_MAX är boken full
+  // — den växer inte vidare, men ingenting töms heller.
+  _fyllBok(ctx, rundor) {
+    const i = rundor - 1
+    const g = this._bokNoter?.[i]
+    if (i < 0 || !g || g.destroyed) return
+    drawNot(g, true, PAD_DEFS[i % PAD_DEFS.length].color)
+    pop(g, { scale: 1.45 })
+    sparkle(ctx.fxLayer, g.x, g.y - 8, { count: 6 })
   },
 
   // En platta: rundad färgruta + vit glödplatta (för "tändning") + centrerad ikon.
@@ -271,16 +306,28 @@ export default {
     this._kar?.react('jubel')
     // Slut-ackord: alla fyra toner samtidigt -> ett litet glatt "klart!"-ackord.
     PAD_FREQ.forEach((freq) => ctx.services.audio.tone({ freq, dur: 0.7, type: 'sine', vol: 0.24 }))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
-    ctx.progress.complete() // delat firande (celebrate + beröm) + stjärna + klistermärke
+    ctx.progress.complete() // delat firande (celebrate + beröm + regn) + stjärna + klistermärke
 
     // Väx sekvensen med ett steg (upp till MAX_LEN) och spara framsteg.
     this._len = Math.min(MAX_LEN, this._len + 1)
     ctx.progress.setLevel(this._len)
-    ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
+    const rundor = (ctx.progress.get().custom?.rundor || 0) + 1
+    ctx.progress.setCustom('rundor', rundor)
+    this._fyllBok(ctx, rundor)
     this._newSequence()
 
-    this._schedule(1.8, () => this._playSequence(ctx, { announce: true }))
+    this._schedule(1.8, () => {
+      this._playSequence(ctx, { announce: false })
+      // "Lyssna!" väntar tills berömmet från complete() tystnat (say() kapar annars det);
+      // melodin startar ändå genast. Token: samma uppspelning, och bara medan första
+      // plattan lyser — senare är melodin redan i gång och "Din tur!" nära.
+      const tl = this._seqTl
+      ctx.narTyst(() => {
+        if (!this._alive || this._seqTl !== tl || this._state !== 'showing') return
+        if (tl.time() >= (LIT_MS + GAP_MS) / 1000) return
+        ctx.services.voice.say('Lyssna!')
+      })
+    })
   },
 
   // Fel tryck — ALDRIG straff: mjukt ljud, vänlig vingel på fel + rätt platta,
@@ -361,6 +408,11 @@ export default {
       gsap.killTweensOf(p.scale)
       if (p._glow) gsap.killTweensOf(p._glow)
     })
+    for (const g of this._bokNoter || []) {
+      g._fxPopTl?.kill()
+      if (!g.destroyed) gsap.killTweensOf(g.scale)
+    }
+    this._bokNoter = []
     // Riggen äger sina egna tweens (andning, blink, reaktioner) och river dem själv.
     this._kar?.destroy()
     this._kar = null
@@ -369,4 +421,19 @@ export default {
     ctx.services.voice.cancel?.()
     this._root?.destroy({ children: true })
   },
+}
+
+// En ritad åttondelsnot (P0 ASSETS): lutande huvud, skaft och flagga — fristående, ingen
+// ruta. Tom = svag kontur i bläckton, fylld = plattans färg med vit glans.
+function drawNot(g, fylld, color) {
+  g.clear()
+  if (fylld) {
+    g.ellipse(-6, 10, 13, 9.5).fill(color).stroke({ width: 3, color: 0xffffff, alpha: 0.85 })
+    g.rect(4, -26, 5, 36).fill(color)
+    g.moveTo(9, -26).quadraticCurveTo(24, -18, 20, -2).quadraticCurveTo(20, -14, 9, -14).fill(color)
+    g.ellipse(-10, 6, 4, 2.6).fill({ color: 0xffffff, alpha: 0.6 })
+  } else {
+    g.ellipse(-6, 10, 13, 9.5).stroke({ width: 3, color: COLORS.ink, alpha: 0.18 })
+    g.moveTo(6.5, 8).lineTo(6.5, -26).stroke({ width: 3, color: COLORS.ink, alpha: 0.18 })
+  }
 }

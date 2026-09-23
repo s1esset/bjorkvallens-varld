@@ -58,7 +58,8 @@ Grunden är korrekt och snäll, men loopen är en läroboks-Simon utan egen sjä
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Gör det till riktig musik.** Ge de fyra plattorna fyra *stigande* toner (t.ex.
+- ✅ ~~**[Medium] Gör det till riktig musik.**~~ Redan byggd (C-dur-pentaton per platta, `PAD_FREQ`
+  index.js:23-28, spelas i `_lightPad`) — uppdagat 2026-09-23. Ge de fyra plattorna fyra *stigande* toner (t.ex.
   C–E–G–C i en glad durskala) via en liten Web Audio-oscillator eller fyra förgenererade
   ton-mp3:er. Då blir sekvensen en faktisk melodi som örat kan minnas — kroken i titeln
   infrias och ljud-minnet börjar bära lika mycket som färg-minnet.
@@ -67,8 +68,9 @@ Grunden är korrekt och snäll, men loopen är en läroboks-Simon utan egen sjä
   sekvens startar. Ger agens och kreativ paus i en annars helt reaktiv loop.
 
 ### Variation & överraskning
-- **[Quick] Ingen-repeat-sekvens.** Undvik samma platta två gånger i rad i generatorn (eller
-  begränsa till max 2 i följd) så melodin känns avsiktlig, inte slumpig.
+- ✅ ~~**[Quick] Ingen-repeat-sekvens.** Undvik samma platta två gånger i rad i generatorn (eller
+  begränsa till max 2 i följd) så melodin känns avsiktlig, inte slumpig.~~ Redan byggd
+  (`_newSequence` index.js:386) — uppdagat 2026-09-23.
 - **[Medium] Tema-rundor.** Rotera plattuppsättningen var några rundor: djur-set (🐸🐶🐱🦊),
   frukt-set, väder-set — samma mekanik, ny skrud + nya småljud. Tar bort "exakt likadant
   varje gång".
@@ -76,33 +78,48 @@ Grunden är korrekt och snäll, men loopen är en läroboks-Simon utan egen sjä
   förvarning från maskoten) som ett litet wow — fortfarande no-fail.
 
 ### Juice
-- **[Quick] Tonhöjd + glöd i takt.** Glödens styrka och plattans studs skalar med tonen; vid
-  uppspelning lägg en mjuk ljus-svans så ögat följer melodin. Vid härmning: varje rätt tryck
-  klättrar en aning i tonhöjd → känsla av att bygga mot ett crescendo.
-- **[Quick] Slut-ackord.** När hela sekvensen härmats rätt: spela alla fyra toner samtidigt
-  som ett litet ackord + konfetti i alla fyra plattfärgerna.
+- ✅ ~~**[Quick] Tonhöjd + glöd i takt.** Glödens styrka och plattans studs skalar med tonen~~
+  Redan byggd (`_lightPad` index.js:219-227) — uppdagat 2026-09-23. ~~Vid härmning: varje rätt
+  tryck klättrar en aning i tonhöjd~~ — premissen föll: plattan MÅSTE låta som sig själv, annars
+  lär spelet ut en annan melodi än den barnet härmar (samma skäl som kvittot i `_onPadTap`).
+  Kvar, öppet: **[Quick] mjuk ljus-svans** mellan plattorna vid uppspelning.
+- ✅ ~~**[Quick] Slut-ackord.** När hela sekvensen härmats rätt: spela alla fyra toner samtidigt
+  som ett litet ackord + konfetti i alla fyra plattfärgerna.~~ Redan byggd (ackordet index.js:308)
+  — uppdagat 2026-09-23. Konfettin är värdets gemensamma regn från `complete()`, inte i
+  plattfärgerna.
 
 ### Progression
 - **[Medium] Mildare fel-omtag.** Vid fel på ett sent steg: visa bara om från *några steg
   bakåt* (eller pulsa nästa rätta platta) istället för hela sekvensen från noll — snabbare
   tillbaka i leken utan att bli lättare på ett bestraffande sätt.
-- **[Quick] Synlig melodi-bok.** En liten rad med noter/stjärnor längst ner som fylls per
-  klarad sekvens (likt magnet-fiskes räknare) → en "samlat"-känsla över rundorna.
+- ✅ ~~**[Quick] Synlig melodi-bok.** En liten rad med noter/stjärnor längst ner som fylls per
+  klarad sekvens (likt magnet-fiskes räknare) → en "samlat"-känsla över rundorna.~~ Klar
+  2026-09-23 (v1.251.0): åtta ritade noter nere till höger (x 870–1220, y 672 — fritt från
+  "Visa igen" och plattorna) läser `custom.rundor`; en ny not fylls i plattornas färger, studsar
+  och gnistrar vid varje klarad melodi (`_fyllBok`). Full bok står kvar full — inget töms.
 
 ### Karaktär & berättelse
-- **[Medium] Ge maskoten identitet (Bobo).** Byt den anonyma cirkeln mot maskoten Bobo som
+- ✅ ~~**[Medium] Ge maskoten identitet (Bobo).**~~ Redan byggd (riggen `makeKaraktar` :206, nickar i
+  takt `_nod` :233, jublar :306) — uppdagat 2026-09-23. Byt den anonyma cirkeln mot maskoten Bobo som
   *nickar i takt* under uppspelningen, pekar mot rätt platta vid hint, och dansar vid vinst.
   En anledning att bry sig + en egen vinst-animation istället för generisk konfetti.
 
 ### Ljud
-- **[Quick] Riktiga toner via SFX-pipelinen.** Knyt fyra distinkta ton-klipp till `PAD_SFX`
+- ~~**[Quick] Riktiga toner via SFX-pipelinen.** Knyt fyra distinkta ton-klipp till `PAD_SFX`
   (se [[real-audio-sfx]]) i stället för återanvända UI-blipp — den enskilt största
-  ljud-vinsten här.
+  ljud-vinsten här.~~ Premissen föll (SNABBVINSTER D, bekräftat 2026-09-23): plattorna spelar
+  redan stämda toner (`PAD_FREQ`) — det ÄR de riktiga tonerna, och `PAD_SFX` finns inte.
 - **[Quick] Mjuk bakgrunds-ambient.** En lugn, låg ton-matta under leken så de tysta
-  pauserna mellan sekvenserna inte känns döda.
+  pauserna mellan sekvenserna inte känns döda. ⛔ Kräver ett slingklipp (SFX-pipelinen/MOSS
+  nere) — och den får inte dränka plattornas toner.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onRoundComplete` regnade egen
+  konfetti i samma tick som `complete()` — struken (värdet regnar). "Lyssna!" kom på en fast 1,8 s
+  och kapade berömmet; melodin startar nu genast och repliken köar via `ctx.narTyst`, men bara
+  medan första plattan lyser (klippet är 2,3 s och "Din tur!" hade annars kapat det i sin tur).
+  Ny **melodibok**: åtta ritade noter nere till höger som fylls per klarad melodi.
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`ea3654c`, v1.101.0).
   `_plattprobe --medbakgrund` mätte **546 990 px = 59 % av skärmen** i EN ton.
   Plattorna låg som tryck på ett platt papper: ingen yta, inget djup, ingen skillnad

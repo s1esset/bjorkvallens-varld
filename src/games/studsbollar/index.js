@@ -634,7 +634,10 @@ export default {
 
     ctx.services.audio.sfx('plopp')
     ctx.services.audio.sfx('correct')
-    ctx.services.voice.say(special === 'star' ? 'Stjärnboll! Så fin!' : randomFrom(SCORE_PRAISE))
+    // V24: korgen tar emot bollar på fysikens tid — en seedad boll kan rulla i redan 1 s efter
+    // start, och berömmet kapade då introt. Ropet hoppas över medan något talar; pling-kaskaden
+    // och Bobos jubel bär ögonblicket ändå.
+    if (!ctx.services.voice.talar) ctx.services.voice.say(special === 'star' ? 'Stjärnboll! Så fin!' : randomFrom(SCORE_PRAISE))
     this._catcherCheer() // Bobo sträcker upp armarna och hoppar — någon tar emot bollen
 
     // Korg-reaktion: korgen "slukar" bollen (öppningen squashar), en nät-ring krusar och
@@ -727,8 +730,11 @@ export default {
     this._misses++
     if (this._misses >= 2) {
       this._assistNext = true
-      ctx.services.voice.say('Nästa gång hjälper jag dig!')
-    } else if (Math.random() < 0.6) {
+      // Löftet väntar in rösten, men bara så länge hjälpen fortfarande är på väg.
+      ctx.narTyst(() => {
+        if (this._alive && this._assistNext) ctx.services.voice.say('Nästa gång hjälper jag dig!')
+      })
+    } else if (Math.random() < 0.6 && !ctx.services.voice.talar) {
       ctx.services.voice.say(randomFrom(MISS_SAY))
     }
 

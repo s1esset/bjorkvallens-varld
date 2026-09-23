@@ -23,7 +23,7 @@ import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
 import { Button } from '../../lib/Button.js'
 // bigCelebration medvetet BORTA: vinsten är Elviras egen galopp över regnbågen (grindpunkt 7).
-import { puff, sparkle, pop, breathe, ripple } from '../../lib/feedback.js'
+import { puff, sparkle, pop, breathe, ripple, squash, floatText } from '../../lib/feedback.js'
 import { COLORS, FONT, DESIGN_W } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 
@@ -49,6 +49,9 @@ const MAX_FLIGHT = 7 // s i luften innan vi tvingar fram en landning (säkerhets
 const IDLE_DELAY = 6
 const BOUNCE_SFX_THROTTLE = 0.16 // s min-intervall mellan studsljud (>=140ms, aldrig spammigt)
 const BOUNCE_SFX_MIN_SPEED = 5 // spela bara studsljud vid en RIKTIG studs (inte småskvalp)
+// Klättringsskalan: varje molnstuds i samma kast tar nästa ton i galoppens C-dur-
+// pentatonik, så en bana moln-för-moln LÅTER som en trappa uppåt. Taket är sista tonen.
+const KLATTER_TONER = [523.25, 587.33, 659.25, 783.99, 880, 1046.5]
 // Standard-skott (Hoppa-knapp + litet-barn-tap): lagom kraft mot regnbågen.
 const DEFAULT_POWER = 12
 // Sikt-kontroll (dra Elvira -> välj riktning + kraft/fart).
@@ -801,6 +804,13 @@ export default {
     // Den insamlade stenen ritas och stiger — floatText skrev tidigare ut ikon-STRÄNGEN
     // ("gem"/"star") som text över scenen efter att emojin bytts mot ritade föremål.
     this._floatGem(ctx, g.x, g.y, g.icon)
+    // Elvira blir glad i luften: en liten studs i skalan och ett hjärta över henne.
+    // (Skala, inte rotation — fysiklänken äger rotationen under flykten.)
+    const v = this._elvira
+    if (this._state === 'flying' && v && !v.destroyed) {
+      pop(v, { scale: 1.14 })
+      floatText(ctx.fxLayer, v.x + 22, v.y - 60, '💖', { fontSize: 36, rise: 50, duration: 0.7 })
+    }
     g.tw?.kill()
     if (g.view && !g.view.destroyed) {
       gsap.killTweensOf(g.view.scale)
@@ -837,21 +847,33 @@ export default {
         }
         this._bounceFx(ctx, cloud, speed)
       } else if (other.label === 'ground' || other.label === 'wall') {
-        this._bounceSfx(ctx, 'soft', speed)
+        // Väggstuds: hon trycks ihop och blir yr ("oj!") — samma strypning som ljudet, så
+        // bara en riktig smäll reagerar. SKALA, inte vingel: fysiklänken skriver hennes
+        // rotation varje bildruta och hade slagit tillbaka en rotationstween osynligt.
+        if (this._bounceSfx(ctx, 'soft', speed) && other.label === 'wall' && !this._elvira.destroyed) {
+          squash(this._elvira, { intensity: 0.8 })
+          floatText(ctx.fxLayer, body.position.x, body.position.y - 58, '💫', { fontSize: 40, rise: 46, duration: 0.7 })
+        }
       }
     }
   },
 
   // Mjukt, sällan, och bara vid en rejäl studs -> aldrig ett spammigt "boing-boing".
+  // Sant om ljudet spelades (då räknas studsen som en riktig studs).
   _bounceSfx(ctx, name, speed) {
-    if (speed < BOUNCE_SFX_MIN_SPEED) return
-    if (this._t - this._lastBounceSfx < BOUNCE_SFX_THROTTLE) return
+    if (speed < BOUNCE_SFX_MIN_SPEED) return false
+    if (this._t - this._lastBounceSfx < BOUNCE_SFX_THROTTLE) return false
     this._lastBounceSfx = this._t
     ctx.services.audio.sfx(name)
+    return true
   },
 
   _bounceFx(ctx, cloud, speed) {
-    this._bounceSfx(ctx, 'pop', speed) // mjuk "plopp" istället för hårt boing
+    // mjuk "plopp" istället för hårt boing — och klättringstonen ett steg högre per studs
+    if (this._bounceSfx(ctx, 'pop', speed)) {
+      const f = KLATTER_TONER[Math.min(this._bounces, KLATTER_TONER.length) - 1]
+      ctx.services.audio.tone({ freq: f, dur: 0.16, type: 'triangle', vol: 0.24 })
+    }
     if (cloud && cloud.view && !cloud.view.destroyed) {
       gsap.killTweensOf(cloud.view.scale)
       gsap.to(cloud.view.scale, {
@@ -1054,7 +1076,15 @@ export default {
       },
       onComplete: () => {
         if (!this._alive || v.destroyed) return
-        ctx.services.audio.sample('djur_hast') || ctx.services.voice.say('Ijaaa!')
+        // Rösten är bara reserven när hästklippet inte spelas (ljudeffekter av). Den köar
+        // bakom "Bra! Elvira nådde regnbågen!" i stället för att kapa den 0,3 s in (klippet
+        // är 3,1 s, say() kallar cancel()), och tappas om galoppen hunnit ta slut.
+        if (!ctx.services.audio.sample('djur_hast')) {
+          const lvl = this._level
+          ctx.narTyst(() => {
+            if (this._alive && this._state === 'win' && this._level === lvl) ctx.services.voice.say('Ijaaa!')
+          })
+        }
         this._winTween = gsap.to(st, {
           p: 1, duration: 1.5, ease: 'sine.inOut',
           onUpdate: () => {
@@ -1097,7 +1127,11 @@ export default {
     puff(ctx.fxLayer, fx, fy, { count: 12 })
     sparkle(ctx.fxLayer, fx, fy - 30, { count: 10 })
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
+    // Fölets eget svar: ett kort stämt arpeggio i galoppens C-dur. Här låg ett andra
+    // sfx('celebrate') — samma vinstljud som complete() redan spelat 1,8 s tidigare.
+    ;[1047, 1319, 1568].forEach((freq, i) => {
+      ctx.services.audio.tone({ freq, dur: i === 2 ? 0.3 : 0.14, type: 'triangle', vol: 0.24, delay: 0.16 + i * 0.1 })
+    })
     if (!f || f.destroyed) return
     gsap.killTweensOf(f)
     gsap.killTweensOf(f.scale)

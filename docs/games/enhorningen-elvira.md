@@ -78,14 +78,17 @@ Allt programmatiskt, exit-säkert.
   punkt i `spindelhjalten`, som ännu skjuter åt barnet.
 
 ### Variation & överraskning
-- **[Quick] Fyll scenen.** Flytta startpunkten/regnbågen så banan spänner över hela ytan;
-  strö in moln-pelare, en sol med ansikte, fjärilar — gör den tomma vänster/övre delen levande.
+- ✅ ~~**[Quick] Fyll scenen.** Flytta startpunkten/regnbågen så banan spänner över hela ytan;
+  strö in moln-pelare, en sol med ansikte, fjärilar — gör den tomma vänster/övre delen levande.~~
+  Redan byggd (`index.js:147`: godis-öar med glittervattenfall, fjärran molnbankar och en
+  stjärnström, 2026-08-04; banan går från hörnet uppe till vänster till regnbågen) — uppdagat 2026-09-23.
 - **[Medium] Gömd överraskning:** var 3:e bana en regnbågs-ädelsten som ger en glittersvans
   eller studsar Elvira vidare i en extra studs.
 
 ### Juice
-- **[Quick] Klättrings-ljud som stiger.** Varje molnstuds uppåt ger en ton ett snäpp högre
-  (`_bounceFx` kan ta studs-nummer) — en kaskad som belönar en fin bana.
+- ✅ ~~**[Quick] Klättrings-ljud som stiger.**~~ Klar 2026-09-23 (v1.251.0): varje riktig molnstuds i
+  samma kast tar nästa ton i galoppens C-dur-pentatonik (`KLATTER_TONER`, tak på sjätte tonen),
+  med samma strypning som studsljudet.
 - ✅ **[Quick] Regnbågen vaknar.** *(2026-08-12)* Innanför `NEAR_R` 250 px växer svaret
   GRADVIS med närheten (0 vid 250, 1 vid målet): glöden tänds och går mot gyllene,
   fotmolnen pulserar och gnistor faller över bågen. Signalen somnar när hon inte flyger,
@@ -115,14 +118,26 @@ Allt programmatiskt, exit-säkert.
   (`makeFoal`, ritad varelse) hoppar och möter henne. Spelets egen `bigCelebration` borttagen
   (skalets klistermärkes-firande i `GameHost.js:32` är kvar — det ska alla spel ha).
   Mätt med `scripts/_elviraprobe.mjs`: **10/10**.
-- **[Quick] Elvira reagerar i luften** (glad min vid ädelsten, "ojj" vid väggstuds).
+- ✅ ~~**[Quick] Elvira reagerar i luften** (glad min vid ädelsten, "ojj" vid väggstuds).~~ Klar
+  2026-09-23 (v1.251.0): ädelsten → studs i skalan + ett 💖 över henne; väggstuds → squash + 💫.
+  Skala, aldrig rotation: fysiklänken skriver hennes rotation varje bildruta.
 
 ### Ljud
 - **[Quick] Riktiga klipp** ([[real-audio-sfx]]): mjukt gnägg, studs-"poff", regnbågs-shimmer,
   ädelsten-"pling". Idag allt syntat.
+  *Not 2026-09-23:* gnägget (`djur_hast`) och ädelstenens `magi` är redan riktiga klipp; studs-poff
+  och regnbågs-shimmer väntar på SFX-pipelinen (MOSS nere).
 - **[Quick] Lugn pastell-ambient** + varierat vinst-sting.
+  *Not 2026-09-23:* vinst-stinget varieras redan app-brett (`AudioService._celebrate`); ambienten kvarstår.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): klättringstoner per molnstuds och
+  Elvira som reagerar i luften (💖 vid ädelsten, squash + 💫 vid väggstuds), se §4.
+  Dubbelfirandet: fölets andra `sfx('celebrate')` (1,8 s efter `complete()`, utanför ljudets
+  1,5 s-golv — vinstljudet hördes två gånger) är utbytt mot ett kort stämt C-dur-arpeggio, och
+  röst-reserven "Ijaaa!" (bara när hästklippet inte spelas) köar i `ctx.narTyst` i stället för
+  att kapa "Bra! Elvira nådde regnbågen!" 0,3 s in. Omätt i webbläsare (koordinatorn testar).
 
 - 2026-08-10 🎨 **D1: marken fick ljus från horisonten** (`9e49103`, v1.124.0).
   Marken låg på **57 734 px i EN ton** — spelets största fält. Delad `groundFill()` med något

@@ -34,7 +34,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { Button } from '../../lib/Button.js'
-import { bigCelebration, puff, sparkle, pop, wiggle, floatText } from '../../lib/feedback.js'
+import { puff, sparkle, pop, wiggle, floatText } from '../../lib/feedback.js'
 import { FONT, COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
@@ -617,7 +617,12 @@ export default {
       if (hints.length) {
         this._hintTimer?.kill()
         this._hintTimer = ctx.later(0.6, () => {
-          if (this._alive) ctx.services.voice.say(randomFrom(hints))
+          if (!this._alive) return
+          // Vänta in vinstraden (2,2–2,5 s, sades 1,9 s före banan) eller introt vid start
+          // — på den fasta 0,6 s kapades de.
+          ctx.narTyst(() => {
+            if (this._alive && this._level === level) ctx.services.voice.say(randomFrom(hints))
+          })
         })
       }
     }
@@ -892,7 +897,7 @@ export default {
     const hx = this._home.x
     const hy = this._home.y
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
+    // Egen vinstrad FÖRE complete() — då står den kvar och berömmet utgår.
     ctx.services.voice.say(randomFrom(WIN_CUES))
 
     // Bollen åker in i målet och krymper. Kroppen flyttas till målet (link följer);
@@ -905,13 +910,13 @@ export default {
       gsap.to(this._ball.scale, { x: 0.5, y: 0.5, duration: 0.4, ease: 'power2.in' })
     }
 
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     puff(ctx.fxLayer, hx, hy, { count: 14, color: C_GOAL })
     sparkle(ctx.fxLayer, hx, hy, { count: 8 })
     // Målvakten fångar bollen och hoppar av glädje — spelets EGEN slutbild.
     this._keeperCatch(ctx)
 
-    // Förlopp: höj nivå, räkna hemrullningar, kör delat firande (stjärna + klistermärke).
+    // Förlopp: höj nivå, räkna hemrullningar, kör delat firande (vinstljud + konfetti +
+    // stjärna + klistermärke — complete() firar själv).
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('rounds', (ctx.progress.get().custom?.rounds || 0) + 1)

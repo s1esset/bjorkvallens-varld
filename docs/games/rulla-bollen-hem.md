@@ -70,27 +70,40 @@ Banorna trappar svårighet (rak → vinkel → hörn/studs → vind → hinder) 
 ### Juice
 - **[Quick] Riktigt rull + mål-jubel.** Rullande boll-ljud som skalar med fart, yt-specifika
   studsklang (is = ljust, sand = dovt) via SFX-pipelinen ([[real-audio-sfx]]); en liten publik-
-  jubel-sample vid mål.
-- **[Quick] Spårlinje efter bollen.** Ett bleknande hjul-/gräsavtryck där bollen rullat så
-  skottet får ett synligt efterspel.
+  jubel-sample vid mål. *(Blockerad 2026-09-23: rull- och jubelklippen finns inte — MOSS nere.
+  Målvaktens stämda C-dur-jubel i `_keeperCatch` :932 täcker målögonblicket tills vidare.)*
+- ✅ ~~**[Quick] Spårlinje efter bollen.** Ett bleknande hjul-/gräsavtryck där bollen rullat så
+  skottet får ett synligt efterspel.~~ Redan byggd (`_trail` :335–339, ritas i tickern :759) —
+  uppdagat 2026-09-23.
 
 ### Progression
-- **[Medium] Synlig bankarta/räknare.** En liten "hål 1, 2, 3…"-rad eller stig som fylls per
-  klarad bana — konkret framsteg och en anledning att fortsätta.
+- ✅ ~~**[Medium] Synlig bankarta/räknare.** En liten "hål 1, 2, 3…"-rad eller stig som fylls per
+  klarad bana — konkret framsteg och en anledning att fortsätta.~~ Redan byggd (hål-raden
+  upptill, `_drawHoleRow` :957) — uppdagat 2026-09-23.
 - **[Quick] Tydligare yt-/vind-tema.** Låt banans tema (vinter-is, strand-sand) prägla hela
   scenen mjukt, inte bara en overlay.
 
 ### Karaktär & berättelse
-- **[Deep] En målvakt/vän vid målet.** En figur (Bobo/valp) som står i målet, vinkar, fångar
+- ✅ ~~**[Deep] En målvakt/vän vid målet.** En figur (Bobo/valp) som står i målet, vinkar, fångar
   bollen och jublar — ger målet liv och en egen vinst-animation. Bollen kan få ögon och en
-  glad min när den rullar hem.
+  glad min när den rullar hem.~~ Redan byggd (`makeKeeper` :126 med vilo-gång, `_keeperCatch`
+  :932 hopp + armar + jubel, bollens ansikte :108) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Lugn utomhus-ambient** + varierat berömsting; säkerställ yt-röstledtrådarna inte
-  tjattrar vid snabba byten.
+  tjattrar vid snabba byten. *(2026-09-23: berömstinget är varierat — `WIN_CUES` slumpas och
+  vinstljudet varieras i `AudioService._celebrate`; yt-repliken ersätter den förra vid varje
+  byte i stället för att staplas. Ambienten är blockerad: kräver ett nytt klipp, MOSS nere.)*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Dubbelfirandet + snabbvinstsvepet** (v1.251.0): spelets egna
+  `sfx('celebrate')` och `bigCelebration` i `_reachGoal` strukna — `complete()` gör båda;
+  vinstraden (`WIN_CUES`, 2,2–2,5 s) sägs före `complete()` och står kvar. Banans ledtråd låg
+  på en fast 0,6 s efter att banan laddats — alltså 2,5 s efter målet — och kapade vinstraden
+  (och introt vid start); nu köar den via `ctx.narTyst` med en nivå-token. SNABBVINSTER hade
+  ingen A-rad här; tre punkter (spårlinjen, hål-raden, målvakten) visade sig redan byggda.
+  Kvar att se: idle-påminnelsen (6 s) kan kapa den 6,4 s långa vindledtråden.
 - 2026-08-10 🎨 **D1: planen fick klipparränder som faktiskt syns** (`0c03928`, v1.95.0).
   `_plattprobe` rankade spelet som appens plattaste: **443 000 px (48 % av skärmen) i två
   gröna som skiljer 3/2/3 i RGB**. Orsaken var inte att ränderna saknades — de ritades

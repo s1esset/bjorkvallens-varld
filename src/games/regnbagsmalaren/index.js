@@ -11,10 +11,10 @@
 // OBS: använder INTE DragController — egen spårnings-lyssnare på himlen (likt spara-linjen).
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, pop, breathe, sparkle, burst, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
+import { bounceIn, pop, breathe, sparkle, burst, floatText , kvittera} from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 
 // Regnbåge-rymd: centrum precis ovanför marken.
 const CX = 640
@@ -30,6 +30,14 @@ const CAN_X = [350, 466, 582, 698, 814, 930]
 const CAN_Y = 668
 
 const IDLE_DELAY = 6000 // ms utan interaktion → röst-recue + mjuk auto-hjälp
+
+// Spår av tidigare regnbågar (custom.regnbagar): upp till tre svaga småregnbågar i himlens
+// kanter — utanför den stora bågen (x 210–1070), under skalets knappar och över burkarna.
+const HISTORY_SPOTS = [
+  { x: 112, y: 592, r: 82 },
+  { x: 1168, y: 592, r: 82 },
+  { x: 160, y: 332, r: 60 },
+]
 
 export default {
   id: 'regnbagsmalaren',
@@ -51,6 +59,9 @@ export default {
     this._lastPling = 0
     this._lastSoft = 0
     this._level = Math.max(1, ctx.progress.get().highestLevel | 0)
+    this._regnbagar = ctx.progress.get().custom?.regnbagar || 0
+    this._histShown = null // första bygget poppar inte in något
+    this._histTween = null
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -77,6 +88,12 @@ export default {
     this._sun.alpha = 0
     this._sun.eventMode = 'none'
     this._root.addChild(this._sun)
+
+    // Tidigare regnbågar dröjer kvar i himlen (bakom dekor och den nya bågen).
+    this._history = new Container()
+    this._history.eventMode = 'none'
+    this._history.interactiveChildren = false
+    this._root.addChild(this._history)
 
     // Dekor som byggs om varje runda (blommor m.m.).
     this._decor = new Container()
@@ -202,6 +219,8 @@ export default {
     this._rainbow.removeChildren().forEach((c) => c.destroy({ children: true }))
     this._decor.removeChildren().forEach((c) => c.destroy({ children: true }))
 
+    this._buildHistory()
+
     this._K = this._level >= 3 ? 28 : 24
     const defs = this._arcDefs(this._level)
 
@@ -252,6 +271,32 @@ export default {
     this._painting = false
     this._idle = 0
     this._setActive(0)
+  },
+
+  // Upp till tre färdiga småregnbågar ur tidigare rundor — "regnbågshimlen" växer vid
+  // återkomst. Den senast tillkomna poppar in när nästa runda byggs. Kan aldrig bli färre.
+  _buildHistory() {
+    const n = Math.min(HISTORY_SPOTS.length, this._regnbagar | 0)
+    if (n === this._histShown) return
+    this._histTween?.kill()
+    this._histTween = null
+    this._history.removeChildren().forEach((c) => c.destroy({ children: true }))
+    for (let i = 0; i < n; i++) {
+      const s = HISTORY_SPOTS[i]
+      const c = new Container()
+      c.position.set(s.x, s.y)
+      c.eventMode = 'none'
+      const g = new Graphics()
+      const w = s.r / 7
+      COLOR_LIST.forEach((col, k) => {
+        g.arc(0, 0, s.r - k * w, Math.PI, Math.PI * 2).stroke({ width: w, color: col, alpha: 0.38 })
+      })
+      g.eventMode = 'none'
+      c.addChild(g)
+      this._history.addChild(c)
+      if (this._histShown != null && i === n - 1) this._histTween = bounceIn(c, { duration: 0.6 })
+    }
+    this._histShown = n
   },
 
   // ---- Aktiv färg / glödring ----------------------------------------------
@@ -548,16 +593,14 @@ export default {
     })
 
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
     // Full regnbåge → hela den stigande melodin spelas.
     RAINBOW_NOTES.forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.22, type: 'triangle', vol: 0.18, delay: i * 0.11 }))
-    ctx.services.voice.say(randomFrom(PRAISE))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
     this._level += 1
-    ctx.progress.complete()
+    ctx.progress.complete() // firar själv: vinstljud + beröm + konfettiregn
     ctx.progress.setLevel(this._level)
-    ctx.progress.setCustom('regnbagar', (ctx.progress.get().custom?.regnbagar || 0) + 1)
+    this._regnbagar = (ctx.progress.get().custom?.regnbagar || 0) + 1
+    ctx.progress.setCustom('regnbagar', this._regnbagar)
 
     this._nextRoundCall = gsap.delayedCall(1.8, () => {
       if (this._alive) this._buildRound()
@@ -615,6 +658,7 @@ export default {
     this._uniBob?.kill()
     this._uniBlink?.kill()
     this._elviraHop?.kill()
+    this._histTween?.kill()
     if (this._uniEye && !this._uniEye.destroyed) gsap.killTweensOf(this._uniEye.scale)
     for (const d of this._decor?.children || []) if (!d.destroyed) gsap.killTweensOf(d)
     if (this._sky && !this._sky.destroyed) {

@@ -67,43 +67,59 @@ ljudet saknar den magi titeln lovar — och den fasta mallen begränsar agensen.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Magiskt penselspår.** Låt enhörningen lämna ett kort, lysande glitter-/stjärn-
+- ✅ ~~**[Medium] Magiskt penselspår.** Låt enhörningen lämna ett kort, lysande glitter-/stjärn-
   spår som tonar ut bakom draget (egen lätt partikelslinga, exit-säker), så svepet *känns*
-  som att måla med magi — inte bara avslöja en mall.
+  som att måla med magi — inte bara avslöja en mall.~~ Redan byggd 2026-07-01 (`_paintAt`
+  :404–406) — uppdagat 2026-09-23.
 - **[Deep] Lite verklig valfrihet.** Behåll den guidade regnbågen men lägg en fri "måla-vad-
   du-vill"-yta ovanpå (moln, solen, blommor som färgas där barnet sveper) så skapandet blir
   mindre låst utan att tappa no-fail-strukturen.
 
 ### Variation & överraskning
-- **[Quick] Gömda överraskningar i bågarna.** När en båge snäpper hel kan en fjäril 🦋, en
-  fågel eller en liten stjärna ibland flyga ut längs den — en "wow"-krydda som varierar rundan.
+- ✅ ~~**[Quick] Gömda överraskningar i bågarna.** När en båge snäpper hel kan en fjäril 🦋, en
+  fågel eller en liten stjärna ibland flyga ut längs den — en "wow"-krydda som varierar rundan.~~
+  Redan byggd 2026-08-05 (`_releaseSurprise` :499, ritade) — uppdagat 2026-09-23.
 - **[Medium] Olika himlar/teman per runda.** Natthimmel med stjärnor, regnig himmel som
   klarnar, solnedgång — så tur 2 ser annorlunda ut än tur 1 och payoffen byter skrud.
 
 ### Juice
-- **[Quick] Regnbågen sjunger.** Mappa de 6 färgerna till en stigande skala (röd = låg → lila =
+- ✅ ~~**[Quick] Regnbågen sjunger.** Mappa de 6 färgerna till en stigande skala (röd = låg → lila =
   hög); varje snäppt båge spelar sin ton, och full regnbåge spelar hela ackordet/melodin.
-  Störst upplevd magi för minst kod.
-- **[Quick] Skimrande band.** Ge bandet en lätt gradient/glans + små gnistor som vandrar längs
-  den färdiga bågen, så den ser *våt och magisk* ut istället för platt.
+  Störst upplevd magi för minst kod.~~ Redan byggd 2026-07-01 (`RAINBOW_NOTES` :28, per båge
+  :488, hela melodin :597) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Skimrande band.** Ge bandet en lätt gradient/glans + små gnistor som vandrar längs
+  den färdiga bågen, så den ser *våt och magisk* ut istället för platt.~~ Redan byggd
+  2026-07-01 (glans-randen i `_strokeBand` :437, vandrande gnistor i tickern :170) —
+  uppdagat 2026-09-23.
 
 ### Progression
-- **[Quick] Behåll fler spår av tidigare regnbågar.** Låt en svag, färdig regnbåge dröja kvar
-  i bakgrunden mellan rundor (en "regnbågshimmel" som byggs upp) så återkomst känns belönande.
+- ✅ ~~**[Quick] Behåll fler spår av tidigare regnbågar.** Låt en svag, färdig regnbåge dröja kvar
+  i bakgrunden mellan rundor (en "regnbågshimmel" som byggs upp) så återkomst känns belönande.~~
+  Klar 2026-09-23 (v1.251.0): upp till tre svaga småregnbågar i himlens kanter efter
+  `custom.regnbagar`, den nyaste poppar in när nästa runda byggs (`_buildHistory` :278).
 
 ### Karaktär & berättelse
 - **[Medium] Levande enhörning.** Ge 🦄 en mjuk galopp/sväv-animation, vajande man och blink,
   och låt den vid klart **galoppera längs den färdiga regnbågen** som egen vinstanimation. Det
   är här Elviras enhörning skulle få själ.
-- **[Quick] Elvira i bild.** Låt Elvira (godkänt namn) stå i ängen och jubla/peka när
-  regnbågen blir klar, så spelet får en avsändare och inte bara en sväv-emoji.
+- ✅ ~~**[Quick] Elvira i bild.** Låt Elvira (godkänt namn) stå i ängen och jubla/peka när
+  regnbågen blir klar, så spelet får en avsändare och inte bara en sväv-emoji.~~ Redan byggd
+  2026-08-05 (`makeElviraCheer` :586/:789) — uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Lugn ambient + variera vinst-stinget** (regn som tystnar → fågelkvitter när solen
-  går upp) för en tydligare känslomässig båge.
+  går upp) för en tydligare känslomässig båge. *(Blockerad 2026-09-23: regn- och fågelslingor
+  kräver nya SFX-klipp — MOSS nere. Vinst-stinget varieras redan i `AudioService._celebrate`.)*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): **Regnbågshimlen** — upp till
+  tre svaga, färdiga småregnbågar (`HISTORY_SPOTS`, alfa 0,38) står i himlens kanter efter
+  `custom.regnbagar`, utanför den stora bågen och fria från skalets knappar och burkarna; den
+  nyaste poppar in när nästa runda byggs. **Dubbelfirandet:** spelets egna `sfx('celebrate')`,
+  `say(randomFrom(PRAISE))` och `bigCelebration` i `_onComplete` strukna — `complete()` gör alla
+  tre själv (regnbågsmelodin och `correct` står kvar). Fem `[Quick]` + en `[Medium]` visade sig
+  redan byggda; ambient-posten väntar på SFX-klipp.
 - 2026-06-30: Doc skriven (granskad i spelet, errorCount 0; den vinkelbaserade inner-arch-fixen
   verifierad — röda bågen fylls helt). Inga kodändringar ännu. (Ersatte den äldre bygg-specen i
   samma fil med review-format enligt mallen.)

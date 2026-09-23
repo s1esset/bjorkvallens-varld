@@ -809,6 +809,9 @@ export default {
     this._bobo?.look(this._lx, this._ly)
 
     // Idle: mjuk om-cue, andra gången en ring där något gömmer sig. Aldrig en tillsägelse.
+    // Tomgången räknas från TYSTNAD: medan rösten talar står klockan på noll, annars
+    // kapar om-cuen en replik mitt i meningen (say() avbryter alltid).
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
     if (this._idle > 7) {
       this._idle = 0

@@ -17,7 +17,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, Matter, mat } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
-import { pop, wiggle, sparkle, burst, breathe, bigCelebration, ripple, puff, shake } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, burst, breathe, ripple, puff, shake } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, DESIGN_W, DESIGN_H, shade, tint } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
@@ -893,7 +893,9 @@ export default {
     ctx.services.audio.tone({ freq: 1046.5, dur: 0.9, type: 'sine', vol: 0.18 })
     ctx.services.audio.tone({ freq: 1568, dur: 0.7, type: 'sine', vol: 0.12, delay: 0.06 })
     ctx.services.audio.tone({ freq: 2093, dur: 0.5, type: 'sine', vol: 0.08, delay: 0.12 })
-    ctx.services.audio.sfx('celebrate')
+    // Vinstljud och konfettiregn kommer från complete() nedan. Klockrepliken sägs FÖRE
+    // complete() i samma tick — då står den kvar och skalets beröm utgår i stället för
+    // att kapa den (say() kallar cancel()).
     ctx.services.voice.say(SAY.ring)
     // Liten skärm-mikroskak i takt med klock-slaget (mjuk, aldrig hård).
     shake(this._root, { intensity: 6, duration: 0.4 })
@@ -926,9 +928,8 @@ export default {
     sparkle(ctx.fxLayer, BELL_X - 44, BELL_Y + 60, { count: 10 })
     burst(ctx.fxLayer, BELL_X - 44, BELL_Y + 60, { count: 14, colors: RAINBOW })
     ripple(ctx.fxLayer, BELL_X - 44, BELL_Y + 60, { color: COLORS.yellow, maxR: 160, width: 10 })
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
-    // Förlopp: höj nivå + delat firande (stjärna + klistermärke).
+    // Förlopp: höj nivå + delat firande (vinstljud + konfetti + stjärna + klistermärke).
     const next = this._level + 1
     ctx.progress.setLevel(next)
     ctx.progress.complete()

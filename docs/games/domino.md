@@ -86,15 +86,17 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
   bara flaggan finns i dag.
 
 ### Juice
-- **[Quick] Accelererande ras-ljud.** Låt klick-ljudet stiga i tonhöjd/tempo medan kedjan
-  rullar (ett crescendo) i stället för enstaka strypta `tap`. Liten skärm-mikroskak när
-  klockan ringer.
-- **[Quick] Damm & studs.** Liten dammpuff där varje bricka slår i golvet; sista brickan
-  träffar klock-snöret med en extra gnista.
+- ✅ ~~**[Quick] Accelererande ras-ljud.**~~ Redan byggd (varje fallen bricka spelar nästa ton i en
+  stigande pentatonisk melodi, `_onTileFell` `index.js:854`; mikroskaket när klockan ringer :901) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Damm & studs.**~~ Redan byggd (dammpuff i brickans färg vid golvet :856; gnistor,
+  skur och ring vid klockan i `_ringBell` :929) — uppdagat 2026-09-23.
 
 ### Progression
-- **[Quick] Banan känns längre/rikare** visuellt (en slingrande väg, en liten kulle) i stället
-  för en spikrak rad — så nivåhöjningen syns.
+- ~~**[Quick] Banan känns längre/rikare** visuellt (en slingrande väg, en liten kulle) i stället
+  för en spikrak rad — så nivåhöjningen syns.~~ Struken 2026-09-23 — premissen föll: ägarbeslutet
+  2026-08-11 (§5) låser banan vid `nSlots`-taket 13 (`index.js:315`), ingen kamera och ingen
+  längre bana.
 
 ### Karaktär & berättelse
 - **[Deep] ~~Någon vid klockan.~~** ✅ Bobo väntar under klockan, andas i vila och hoppar två
@@ -103,9 +105,15 @@ Kort sagt: *en fin pyssel-loop med en fejkad rasfysik*, generiska brickor och en
 
 ### Ljud
 - **[Quick] Riktiga SFX** (trä-klick, klock-pling) via SFX-pipelinen ([[real-audio-sfx]]);
-  variera vinst-stinget.
+  variera vinst-stinget. *2026-09-23:* vinststinget varieras redan av skalet
+  (`AudioService._celebrate`); trä-klicket och klock-plinget är **blockerade** (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Dubbelfirandet** (v1.251.0): `_ringBell` spelade själv vinstljud och
+  konfettiregn i samma tick som `complete()` — strukna; klockrepliken sägs före `complete()` och
+  står kvar, klocktonerna, skaket och Bobos hopp är orörda. Ingen A-rad i snabbvinstkartan; §4
+  stämd mot koden: 2 punkter var redan byggda, 1 struken (ägarbeslutet 2026-08-11), 1 blockerad.
 
 - 2026-08-11 🚫 **ÄGARBESLUT: ingen kamera, ingen längre bana. `nSlots`-taket STÅR KVAR.**
   Frågan som ställdes: får bricktråget och luckan sluta synas samtidigt, så att en panorerande

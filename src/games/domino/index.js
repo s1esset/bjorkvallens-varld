@@ -230,8 +230,13 @@ export default {
   mount(ctx) {
     this._idle = 0
     ctx.services.voice.say(this.voiceIntro)
+    // V24: introt är 7,3 s och andra instruktionen kom på fast 3,6 s — say() kallar cancel(),
+    // så "då ringer klockan!" hördes aldrig. Nu väntar den också in rösten.
     const call = gsap.delayedCall(3.6, () => {
-      if (this._alive && !this._running && this._firstUnfilledGap()) ctx.services.voice.say(SAY.intro2)
+      if (!this._alive) return
+      ctx.narTyst(() => {
+        if (this._alive && !this._running && this._firstUnfilledGap()) ctx.services.voice.say(SAY.intro2)
+      })
     })
     this._cascadeCalls.push(call)
   },

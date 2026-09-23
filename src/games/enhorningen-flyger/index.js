@@ -501,6 +501,8 @@ export default {
 
     // Tyst om-cue om ingen rört skärmen på ett tag.
     this._idle += (tk.deltaMS || 16.67) / 1000
+    // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     if (this._idle > IDLE_DELAY) {
       this._idle = 0
       this._recue(ctx)

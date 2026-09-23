@@ -267,7 +267,14 @@ export default {
     this._idle = 0
     this._btn?.setEnabled(true)
     this._setMood('happy')
-    ctx.services.voice.say('Din tur!')
+    // V24: första melodin är slut 2 s in och introt är 4,1 s — "Din tur!" kapade "Härma sedan
+    // melodin." varje start. Plattorna är tryckbara genast; bara orden väntar, och bara så
+    // länge barnet inte redan börjat härma just den här uppspelningen.
+    const tl = this._seqTl
+    ctx.narTyst(() => {
+      if (!this._alive || this._seqTl !== tl || this._state !== 'listening' || this._step !== 0) return
+      ctx.services.voice.say('Din tur!')
+    })
   },
 
   // HÄRMA: tryck på en platta.

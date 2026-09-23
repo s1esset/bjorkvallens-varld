@@ -614,6 +614,8 @@ export default {
     // Idle-recue (endast medan klossen väntar): upprepa instruktionen + locka klossen.
     if (this._phase === 'carry') {
       this._idle += dt
+      // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       if (this._idle > IDLE_DELAY) {
         this._idle = 0
         ctx.services.voice.say(this.voiceIntro)

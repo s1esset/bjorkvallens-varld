@@ -152,6 +152,8 @@ export default {
     this._tickerRef = ctx.ticker
     this._tick = (t) => {
       if (!this._alive || this._resolving) return
+      // Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       this._idle += t.deltaMS
       if (this._idle >= 6000) {
         this._idle = 0

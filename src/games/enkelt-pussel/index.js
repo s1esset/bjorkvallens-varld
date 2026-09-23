@@ -348,6 +348,8 @@ export default {
     this._tick = (t) => {
       if (!this._alive) return
       this._idle += t.deltaMS
+      // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       if (this._idle >= 6000) {
         this._idle = 0
         ctx.services.voice.say(this.voiceIntro)

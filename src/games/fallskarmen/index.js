@@ -652,6 +652,8 @@ export default {
 
     // Idle-cue.
     this._idle += ds
+    // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     if (this._idle >= IDLE_DELAY) {
       this._idle = 0
       ctx.services.voice.replayLast()

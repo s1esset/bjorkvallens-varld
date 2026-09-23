@@ -18,7 +18,7 @@ import { PhysicsWorld, MATERIALS, Body, predictTrajectory } from '../../lib/phys
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene } from '../../lib/scene.js'
 import { makeStjarna } from '../../lib/foremal.js'
-import { sphereFill } from '../../lib/form.js'
+import { sphereFill, bage } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
 import { puff, sparkle, burst, floatText, pop, wiggle, ripple } from '../../lib/feedback.js'
 import { FONT, COLORS } from '../../lib/theme.js'
@@ -1223,7 +1223,7 @@ function makeHero() {
   }
   web.stroke({ width: 1.5, color: 0xffffff, alpha: 0.5 })
   for (let r = 0.18; r <= 0.5; r += 0.16) {
-    web.arc(0, wy, HERO_R * r, -Math.PI / 2 - 0.9, -Math.PI / 2 + 0.9)
+    bage(web, 0, wy, HERO_R * r, -Math.PI / 2 - 0.9, -Math.PI / 2 + 0.9)
   }
   web.stroke({ width: 1.5, color: 0xffffff, alpha: 0.45 })
   web.eventMode = 'none'

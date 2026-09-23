@@ -897,6 +897,8 @@ export default {
       this._stepFlight(ctx, dtDrip)
       return
     }
+    // Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += ticker.deltaMS / 1000
     if (this._idle > 6 && !this._resolving) {
       this._idle = 0

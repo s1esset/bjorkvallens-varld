@@ -217,6 +217,8 @@ export default {
         return
       }
       this._idle += t.deltaMS / 1000
+      // V21: tomgången räknas från TYSTNAD — hjälpstegen får aldrig kapa en replik som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       if (this._idle > IDLE_DELAY) {
         this._idle = 0
         this._idleHelp(ctx)

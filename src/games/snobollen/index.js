@@ -24,7 +24,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, MATERIALS } from '../../lib/physics.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
-import { puff, sparkle, burst, bigCelebration, floatText, pop, bounceIn, breathe , kvittera} from '../../lib/feedback.js'
+import { puff, sparkle, burst, floatText, pop, bounceIn, breathe, shake, kvittera } from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
@@ -183,6 +183,8 @@ export default {
     this._flakes = []
     this._decorTweens = []
     this._rollT = 0 // nedräkning till nästa rull-knaster
+    this._glodFull = false // glödringen fullt laddad förra bildrutan (se _updateGlod)
+    this._glodPling = -9 // spel-tid för senaste laddnings-plinget (nollas per omgång: _gt gör det)
     this._prevX = START.x // förra frames position (för rull-distans)
     this._prevY = START.y
     this._lastTrailX = START.x
@@ -579,6 +581,15 @@ export default {
     // Bollens container skalas med radien; grafiken ligger i ett BARN så att pop/squash
     // kan spela utan att slåss med tillväxt-skalningen.
     this._ball = new Container()
+    // Knuff-laddningen syns: en glödring BAKOM bollen som växer med farten och blir guld när
+    // bollen har fart nog att plöja rakt igenom ett hinder (`_krossLaddning`). Ritas vit och
+    // färgas med `tint`; bara `_updateGlod` skriver den, så inget kan slåss om den.
+    this._glod = new Graphics()
+      .circle(0, 0, BASE_R * 1.34).fill({ color: 0xffffff, alpha: 0.28 })
+      .circle(0, 0, BASE_R * 1.2).stroke({ width: 7, color: 0xffffff, alpha: 0.9 })
+    this._glod.eventMode = 'none'
+    this._glod.alpha = 0
+    this._ball.addChild(this._glod)
     this._ballArt = new Container()
     const main = new Graphics().circle(0, 0, BASE_R).fill(0xffffff).stroke({ width: 3, color: 0xdfeaf4 })
     const hi = new Graphics().circle(-BASE_R * 0.32, -BASE_R * 0.32, BASE_R * 0.34).fill({ color: 0xf2f8ff, alpha: 0.9 })
@@ -1081,12 +1092,43 @@ export default {
 
   // ---- Spel-loop ----------------------------------------------------------
 
+  // Hur nära en KROSS bollen är (1 = plöjer rakt igenom nästa hinder). Samma villkor som
+  // `_updateTargets` avgör krossen med: fart ≥ 8,5 px/steg, eller momentum (fart × radie/70)
+  // ≥ 5 vid minst 2,5 px/steg — en stor boll laddas alltså fullt vid lägre fart.
+  _krossLaddning(vx) {
+    if (!(vx > 0)) return 0
+    const momentum = vx >= 2.5 ? (vx * (this._r / 70)) / 5 : 0
+    return Math.max(vx / 8.5, momentum)
+  },
+
+  // Glödringen bakom bollen följer laddningen: syns först vid rejäl fart (under ~25 % är
+  // den osynlig, så en lugn rullning inte glöder), blir guld vid full laddning. Den fulla
+  // laddningen får ett litet stämt pling (G5→C6), strypt till ett per 1,5 s.
+  _updateGlod(ctx, dt) {
+    const g = this._glod
+    if (!g || g.destroyed) return
+    const b = this._ballBody
+    const f = this._resolving || !b ? 0 : this._krossLaddning(b.velocity.x)
+    const syns = clamp((f - 0.25) / 0.75, 0, 1)
+    g.alpha += (syns * 0.85 - g.alpha) * Math.min(1, dt * 10)
+    g.scale.set(1 + 0.14 * syns)
+    const full = f >= 1
+    g.tint = full ? 0xffc94d : 0x8fd0ff
+    if (full && !this._glodFull && this._gt - (this._glodPling || -9) > 1.5) {
+      this._glodPling = this._gt
+      ctx.services.audio.tone({ freq: 783.99, dur: 0.1, type: 'triangle', vol: 0.08 })
+      ctx.services.audio.tone({ freq: 1046.5, dur: 0.16, type: 'triangle', vol: 0.08, delay: 0.08 })
+    }
+    this._glodFull = full
+  },
+
   _gameTick(ctx, ticker) {
     const dt = Math.min(ticker.deltaMS / 1000, 0.05)
     this._gt += dt
     this._updateFlakes(dt, ctx)
     this._updateDebris(dt)
     this._updateCamera(dt)
+    this._updateGlod(ctx, dt)
     if (!this._alive || this._resolving) return
 
     const b = this._ballBody
@@ -1267,8 +1309,7 @@ export default {
     // "Plöja igenom" avgörs av MOMENTUM (fart × storlek): en fullvuxen eller rejält
     // knuffad snöboll valsar rakt igenom, annars måste man pressa/banka.
     const incoming = Math.max(this._vxPrev, b.velocity.x)
-    const power = incoming * (this._r / 70)
-    const smash = incoming >= 8.5 || (power >= 5 && incoming >= 2.5)
+    const smash = this._krossLaddning(incoming) >= 1
     if (t.press === 0) {
       // Första kontakten: ljud + snöspray direkt (<100 ms).
       ctx.services.audio.sfx('soft')
@@ -1341,14 +1382,23 @@ export default {
 
     const b = this._ballBody
     if (smash) {
-      // Plöjde rakt igenom: behåll farten, få extra snö, stort ljud.
+      // Plöjde rakt igenom: behåll farten, få extra snö, stort ljud. Fanfaren är stämd
+      // (E–G–C, C-dur som vimplarna) och INTE `sfx('celebrate')`: vinstljudet har ett
+      // 1,5 s-golv, och ett krossat SISTA hinder står 240–300 px före snögubbe-platsen —
+      // i krossfart (≥ 8,5 px/steg) under en sekund bort (räknat ur `_layoutFor`, inte
+      // uppmätt). Då svalde krossen complete()s vinstljud.
       ctx.services.audio.sfx('pop')
-      ctx.services.audio.sfx('celebrate')
+      ctx.services.audio.tone({ freq: 659.25, dur: 0.1, type: 'triangle', vol: 0.18 })
+      ctx.services.audio.tone({ freq: 783.99, dur: 0.1, type: 'triangle', vol: 0.18, delay: 0.07 })
+      ctx.services.audio.tone({ freq: 1046.5, dur: 0.24, type: 'triangle', vol: 0.18, delay: 0.14 })
       ctx.services.audio.tone({ freq: 220, dur: 0.18, type: 'square', vol: 0.14, slideTo: 90 })
       Body.setVelocity(b, { x: Math.max(b.velocity.x, incoming * 0.85), y: b.velocity.y })
       this._growBall(SMASH_GROW + (t.spec.snow || 0))
       if (this._ballArt && !this._ballArt.destroyed) pop(this._ballArt, { scale: 1.24 })
       sparkle(ctx.fxLayer, this._fx(b.position.x), this._fy(b.position.y), { count: 10 })
+      // Ett litet skärm-skutt, större ju större bollen är. På `_root` — INTE `_world`, vars
+      // x/y kameran skriver varje bildruta (skaket hade skrivits över, eller slagits med den).
+      shake(this._root, { intensity: clamp(3 + this._r / 22, 4, 8), duration: 0.28 })
       this._say(ctx, 'Pang!', 3.5)
     } else {
       // Pressade sig igenom: hindret välter, men lite snö ramlade av bollen.
@@ -1630,8 +1680,9 @@ export default {
     const R = this._r
     const big = R >= (this._bigEnough || 80)
 
+    // Vinstljud + konfettiregn kommer från complete() nedan. Snögubbe-repliken sägs FÖRE
+    // complete() i samma tick, så den står kvar och berömmet utgår i stället för att kapa den.
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
     // Liten glad melodislinga (stämd durtreklang) ovanpå firandet.
     const notes = [523.25, 659.25, 783.99, 1046.5]
     notes.forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.22, type: 'triangle', vol: 0.16, delay: i * 0.12 }))
@@ -1688,7 +1739,6 @@ export default {
 
     this._snowParts.forEach((p, i) => bounceIn(p, { delay: 0.06 * i }))
 
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, this._fx(bx), this._fy(by), { count: 16 })
 
     // MOTTAGAREN hejar: vakt-pingvinen hoppar och jublar.

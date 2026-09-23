@@ -69,20 +69,26 @@ auto-hjälpen kan spela banan åt barnet**.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Kontinuerlig rull-tillväxt.** Låt bollen samla en aning snö hela tiden den
+- ✅ ~~**[Medium] Kontinuerlig rull-tillväxt.** Låt bollen samla en aning snö hela tiden den
   rullar på backen (inte bara vid fält), och låt fälten vara feta "bonus-klumpar". Då blir
   *att hålla farten uppe* via styrning/knuff en verklig strategi — bollen växer för att jag
-  rullar bra, inte bara för att jag nuddade en fläck.
+  rullar bra, inte bara för att jag nuddade en fläck.~~ Redan byggd 2026-07-01 (`GROW_PER_PX`,
+  distansbaserad sedan 2026-07-25) — uppdagat 2026-09-23.
 - ~~**[Medium] Mjuka upp auto-knuffen.** Höj `STUCK`-tröskeln och gör auto-knuffen svagare,
   mer som en "liten puff i ryggen", så barnets egna knuffar bär farten. Behåll garantin men
   gör den till sista utväg.~~ **GJORT 2026-07-25 (2)** — `STUCK` 2,5 → 4,5 s, hjälpen är sen
   och synlig, och pressen mot ett hinder byggs bara av barnets fart/tryck/tap.
-- **[Quick] Knuff-laddning syns.** Visa en fart-svans/glow som växer med upprepade knuffar
-  så barnet ser att "fler knuffar = kraftigare smäll" (som kodhuvudet lovar).
+- ✅ ~~**[Quick] Knuff-laddning syns.** Visa en fart-svans/glow som växer med upprepade knuffar
+  så barnet ser att "fler knuffar = kraftigare smäll" (som kodhuvudet lovar).~~ Klar 2026-09-23
+  (v1.251.0): en glödring bakom bollen (:587, `_updateGlod` :1107) växer med `_krossLaddning`
+  (:1098) — SAMMA villkor som avgör om bollen plöjer igenom (fart ≥ 8,5, eller momentum ≥ 5 vid
+  ≥ 2,5; smash-raden använder nu hjälparen, så de två kan inte glida isär). Ljusblå när den
+  laddas, guld när nästa hinder krossas, med ett stämt pling (G5→C6, högst ett per 1,5 s).
 
 ### Variation & överraskning
-- **[Quick] Befolka backen:** granar, snöiga stenar, en stuga med rykande skorsten, ett
-  litet gupp/hoppbacke som kastar bollen i en glad båge. Tar bort tom-ramp-känslan.
+- ✅ ~~**[Quick] Befolka backen:** granar, snöiga stenar, en stuga med rykande skorsten, ett
+  litet gupp/hoppbacke som kastar bollen i en glad båge. Tar bort tom-ramp-känslan.~~ Redan
+  byggd 2026-07-01 (`_buildDecor` :420) + hoppkullar 2026-07-25 — uppdagat 2026-09-23.
 - **[Medium] Mål med personlighet + förväntan.** Ge pingviner/lådor ögon som tittar mot
   bollen och hoppar undan i sista stund (eller vinkar). Lägg till varianter: en snögubbe att
   krocka i bitar, en hög lösa lådor som rasar, en flock pingviner som sprids.
@@ -90,14 +96,17 @@ auto-hjälpen kan spela banan åt barnet**.
   bollen plockar upp och *bär med sig till snögubben* (kopplar till samlaren nedan).
 
 ### Juice
-- **[Quick] Rull-ljud som stiger med farten** ([[real-audio-sfx]]): ett mjukt knastrande
+- ✅ ~~**[Quick] Rull-ljud som stiger med farten** ([[real-audio-sfx]]): ett mjukt knastrande
   snö-rull som blir intensivare ju snabbare/större bollen är, + ett "fwomp" när snö samlas
-  och ett pip/"pang" när mål flyger.
-- ~~**[Quick] Snö-virvel vid tillväxt.** När bollen äter ett fält, sug in en kort spiral av
+  och ett pip/"pang" när mål flyger.~~ Redan byggd 2026-07-01 som stämd syntes (rull-knastret
+  :1205, "Pang!" + fanfar vid kross) — uppdagat 2026-09-23. Riktiga klipp väntar på MOSS.
+- ✅ ~~**[Quick] Snö-virvel vid tillväxt.** När bollen äter ett fält, sug in en kort spiral av
   vita partiklar i bollen (i stället för en stillsam `sparkle`)~~ **GJORT 2026-08-06** —
-  återstår: + ett litet skärm-skutt vid stora smällar.
-- **[Quick] Spår i snön.** Låt bollen lämna ett brett, ljust släpspår på backen — visar fart
-  och väg, gör backen mindre tom.
+  ~~återstår: + ett litet skärm-skutt vid stora smällar.~~ Klar 2026-09-23 (v1.251.0): en
+  kross skakar `_root` (:1401) — inte `_world`, vars x kameran skriver varje bildruta —
+  starkare ju större bollen är (4–8 px, 0,28 s).
+- ✅ ~~**[Quick] Spår i snön.** Låt bollen lämna ett brett, ljust släpspår på backen — visar fart
+  och väg, gör backen mindre tom.~~ Redan byggd 2026-07-01 (`_trail` :244) — uppdagat 2026-09-23.
 
 ### Progression
 - **[Medium] Snögubbe-galleri / samlare.** Spara `custom.snogubbar` (görs redan) som en rad
@@ -114,9 +123,21 @@ auto-hjälpen kan spela banan åt barnet**.
 ### Ljud
 - **[Quick] Ersätt TTS-utrop med klipp.** "Wii!"/"Pang!"/auto-knuffens "Jag hjälper till!"
   blir riktiga, gladare ljud; lägg en lugn vinter-vind-ambient i botten.
+  *Utropen har riktiga röstklipp (F5-TTS, i manifestet) — ingen talsyntes kvar. "Wii!" är
+  dessutom flytande text + en stigande ton. Kvar är vind-ambienten, som kräver ett SFX-klipp —
+  blockerad så länge MOSS är nere.*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0):
+  - **Firandet:** `_buildSnowman` spelade eget vinstljud och konfettiregn i samma tick som
+    `complete()` (strukna; snögubbe-repliken sägs före `complete()` och står kvar). Krossens
+    `sfx('celebrate')` blev en stämd E–G–C-fanfar: vinstljudet har numera ett 1,5 s-golv, och en
+    kross av SISTA hindret (240–300 px före målet, under en sekund bort i krossfart — räknat, inte
+    mätt) hade svalt `complete()`s vinstljud.
+  - **Knuff-laddningen syns:** glödring bakom bollen, guld när nästa hinder krossas (se §4).
+  - **Skärm-skutt vid kross** på `_root`, 4–8 px efter bollens storlek.
+  - Grind: `check --game snobollen` 0/0. Ej webbläsartestad av agenten.
 - 2026-08-10 ⬜ **D1: mätt och MEDVETET LÄMNAD.** Backen kom upp i platthetsmätningen
   (`_plattprobe --medbakgrund`) med ~82 000 px i EN ton, men fältet visade sig vara *ett band
   i en redan avsiktlig sexbands-djupgradient* (`_paintHill`, `:354–360`): `mix(1)`, alltså den

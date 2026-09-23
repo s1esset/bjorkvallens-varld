@@ -49,7 +49,7 @@
 //    Flyttar du något här: räkna om HELA raden, inte bara det du flyttade.
 import { Container, Graphics } from 'pixi.js'
 import { gsap } from 'gsap'
-import { verticalFill, verticalFillAlpha, topLightFill, cylinderFill, groundFill, sphereFill } from '../../lib/form.js'
+import { verticalFill, verticalFillAlpha, topLightFill, cylinderFill, groundFill, sphereFill, bage } from '../../lib/form.js'
 import { liv as fbLiv, shake as fbShake } from '../../lib/feedback.js'
 
 // Fönstrets ÖPPNING i absoluta designkoordinater (rektangel, inte mittpunkt).
@@ -651,7 +651,7 @@ export function byggRum(ctx) {
   galler.circle(0, 0, 53).stroke({ width: 2.5, color: F.flaktMork, alpha: 0.55 })
   galler.circle(0, 0, 12).fill(sphereFill(F.flakt, { highlight: 0.4, dark: 0.24 }))
     .stroke({ width: 2.5, color: F.flaktMork, alpha: 0.6 })
-  galler.arc(0, 0, 46, Math.PI * 1.15, Math.PI * 1.62)
+  bage(galler, 0, 0, 46, Math.PI * 1.15, Math.PI * 1.62)
     .stroke({ width: 6, color: 0xffffff, alpha: 0.45 })
   huvud.addChild(galler)
 

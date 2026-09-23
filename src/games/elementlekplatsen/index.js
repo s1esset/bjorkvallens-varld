@@ -25,7 +25,7 @@
 // ljud — är kopierat från den. Upptäcktsbandet är UI och får bära små ritade ikoner.
 //
 // EXIT-SÄKERT: _alive, ticker tas bort, alla tweens dödas, partikel-emittern rivs, och
-// BÅDA ljudslingorna (vind + eld) stoppas i destroy.
+// ALLA TRE ljudslingorna (vind + eld + vatten) stoppas i destroy.
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { Sandlada, TOM, JORD, VATTEN, IS, ELD, ANGA, LERA, GLOD, STEN, FRO, ANTAL_MAT } from './automat.js'
@@ -93,12 +93,14 @@ ALFA[ANGA] = 0.72
 // --- verktygen -------------------------------------------------------------------
 // Tonhöjderna är en C-durpentatonik (C4 E4 G4 A4 D5) — varje element har sin egen ton,
 // och två element efter varandra låter alltid som musik, aldrig som en kollision.
+// `r` = penselradie i celler när den skiljer sig från BORSTE_R: en eldgnista är liten
+// och en skopa jord stor. Vinden och tomrummet har egna radier (VIND_R, SUDD_R).
 const VERKTYG = [
-  { key: 'eld', mat: ELD, farg: 0xff8a3d, ton: 440.0 },
+  { key: 'eld', mat: ELD, farg: 0xff8a3d, ton: 440.0, r: 1.9 },
   { key: 'vatten', mat: VATTEN, farg: 0x4aa3df, ton: 329.63 },
   { key: 'is', mat: IS, farg: 0xbdeefa, ton: 392.0 },
   { key: 'vind', mat: -1, farg: 0xa9d6e5, ton: 587.33 },
-  { key: 'jord', mat: JORD, farg: 0xb07a4a, ton: 261.63 },
+  { key: 'jord', mat: JORD, farg: 0xb07a4a, ton: 261.63, r: 3.3 },
   // Tomrummet — sandlådans suddgummi. Ligger SIST, så jordens plats (index 4, det
   // förvalda verktyget) står kvar. Tonen A3 är samma pentatonik en oktav ner: att
   // sudda ska låta som att något sänks, inte som ett fel.
@@ -306,6 +308,10 @@ export default {
     this._eldLjud = false
     this._sistTon = 0
     this._sistPuff = 0
+    this._sistTakPuff = 0
+    this._sistBlick = 0
+    this._vattenFlod = 0
+    this._vattenLjud = false
     this._vindRord = 0
     this._sagtSudd = false
     this._paradTw = []
@@ -481,7 +487,7 @@ export default {
       c.cursor = 'pointer'
       c.interactiveChildren = false
       c.hitArea = new Rectangle(-VERKTYG_R - HALO, -VERKTYG_R - HALO, (VERKTYG_R + HALO) * 2, (VERKTYG_R + HALO) * 2)
-      const rec = { key: v.key, mat: v.mat, farg: v.farg, ton: v.ton, vy: c, ring, krop }
+      const rec = { key: v.key, mat: v.mat, farg: v.farg, ton: v.ton, r: v.r, vy: c, ring, krop }
       const valj = () => this._valj(ctx, rec)
       c.on('pointertap', valj)
       rec.off = () => c.off('pointertap', valj)
@@ -541,12 +547,14 @@ export default {
   destroy(ctx) {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
-    // Båda slingorna MÅSTE stoppas här: en AudioBufferSourceNode med loop=true dör
+    // Alla tre slingorna MÅSTE stoppas här: en AudioBufferSourceNode med loop=true dör
     // inte med spelet och skulle brumma vidare på menyn.
     ctx?.services?.audio?.stopLoop('elementvind')
     ctx?.services?.audio?.stopLoop('elementeld')
+    ctx?.services?.audio?.stopLoop('elementvatten')
     this._vindLjud = false
     this._eldLjud = false
+    this._vattenLjud = false
     this._eldFx?.destroy()
     this._eldFx = null
     if (this._yta && !this._yta.destroyed) {
@@ -677,7 +685,9 @@ export default {
       this._vindLjud = ctx.services.audio.loop('elementvind', { typ: 'brus', freq: 640, q: 0.7, vol: 0.06 }) !== false
     }
     // P0 ÅTERKOPPLING: bild+ljud under 100 ms, redan innan automaten hunnit stega.
-    ripple(ctx.fxLayer, p.x, p.y, { color: v?.farg ?? 0xffffff, maxR: 60, duration: 0.36, alpha: 0.4 })
+    // Ringen följer penselns storlek, så en liten eldgnista och en stor jordskopa syns.
+    const ringR = 60 * ((v?.r ?? BORSTE_R) / BORSTE_R)
+    ripple(ctx.fxLayer, p.x, p.y, { color: v?.farg ?? 0xffffff, maxR: ringR, duration: 0.36, alpha: 0.4 })
     this._mala(ctx, true)
   },
 
@@ -712,7 +722,8 @@ export default {
     // Ett stillastående finger ska inte hälla ut hela hinken: full takt när fingret rör
     // sig, var tredje steg när det står still.
     if (!forsta && dist < 3 && this._steg % 3 !== 0) return
-    const langd = BORSTE_R * CELL * 0.75
+    const borste = v.r ?? BORSTE_R
+    const langd = borste * CELL * 0.75
     const n = Math.max(1, Math.min(12, Math.ceil(dist / langd)))
     if (v.key === 'vind' && Math.abs(dx) > 2) this._vindDir = dx > 0 ? 1 : -1
     let rord = 0
@@ -724,7 +735,7 @@ export default {
       if (c < 0 || c >= COLS || r < 0 || r >= ROWS) continue
       if (v.key === 'vind') rord += this._aut.blas(c, r, VIND_R, this._vindDir)
       else if (v.key === 'tomrum') this._aut.sudda(c, r, SUDD_R)
-      else this._aut.mala(c, r, BORSTE_R, v.mat)
+      else this._aut.mala(c, r, borste, v.mat)
     }
     // Blommorna är egna Pixi-noder ovanpå rutnätet, inte celler. Utan det här hade en
     // suddad lerhög lämnat blomman svävande i luften.
@@ -958,6 +969,7 @@ export default {
     if (h.glod) this._upptack(ctx, 'glod')
     if (h.is) this._upptack(ctx, 'is')
     while (this._aut.groddar.length) this._planteraBlomma(ctx, this._aut.groddar.pop())
+    this._flode(ctx, this._aut.taFlode(), steg)
 
     if (this._aut.andrad) {
       this._ritaGrid()
@@ -980,8 +992,38 @@ export default {
       this._eldFx.o.bredd = Math.min(240, 18 + m.n * 1.4)
       this._eldFx.rate = Math.min(34, 5 + m.n * 0.35)
       this._eldFx.start()
+      // Bobo följer elden med blicken när inget finger pekar — han tittar på det som
+      // HÄNDER i lådan, inte bara på handen. Strypt: look() startar en tween per ny blick.
+      const nu = performance.now()
+      if (!this._pekar && nu - this._sistBlick > 300) {
+        this._sistBlick = nu
+        this._bobo?.look(m.x, m.y)
+      }
     } else {
       this._eldFx.stop()
+    }
+  },
+
+  // Ångan som når lådans tak puffar i stället för att bara försvinna, och vatten som
+  // rinner porlar. Båda läser automatens flödesräknare (`taFlode`) — rena tal, ingen
+  // cell påverkas.
+  _flode(ctx, f, steg) {
+    const nu = performance.now()
+    if (f.tak.length && nu - this._sistTakPuff > 90) {
+      this._sistTakPuff = nu
+      const c = f.tak[(Math.random() * f.tak.length) | 0]
+      puff(ctx.fxLayer, GX + c * CELL + CELL / 2, GY + 6, { count: 3, color: TOPP[ANGA] })
+    }
+    // Porlet: glidande medel av fallande vattenceller per steg, med hysteres (på över 10,
+    // av under 3) så slingan inte fladdrar av och på när en stråle tunnas ut. Lågt i
+    // volym — det är en bädd under allt annat, som eldens.
+    this._vattenFlod += (f.fall / steg - this._vattenFlod) * 0.2
+    const a = ctx.services.audio
+    if (this._vattenFlod > 10 && !this._vattenLjud) {
+      this._vattenLjud = a.loop('elementvatten', { typ: 'brus', freq: 1150, q: 1.3, vol: 0.035 }) !== false
+    } else if (this._vattenFlod < 3 && this._vattenLjud) {
+      a.stopLoop('elementvatten')
+      this._vattenLjud = false
     }
   },
 

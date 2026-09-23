@@ -96,14 +96,18 @@ kvar åt lådan är 928 × 416 px, och 16 px-celler ger fler celler i den ytan �
 **Kärnloop**
 - [Medium] Bränsle-material (ved/torv) som brinner långsamt och sprider elden — ger elden
   ett eget beteende i stället för bara en livstid.
-- [Quick] Penselstorlek per element (eld liten, jord stor).
+- ✅ ~~**[Quick] Penselstorlek per element (eld liten, jord stor).**~~ Klar 2026-09-23 (v1.251.0): egen
+  radie per verktyg (`r` i `VERKTYG`: eld 1,9 celler, jord 3,3, övriga 2,6), och tryckringen följer
+  penselns storlek.
 
 **Variation**
 - [Medium] Fler startvärldar: en grotta med istappar i taket, en lerbädd med tre frön.
 - [Quick] Fler sällsyntheter i klass med fröet (en glödmask som gräver, en isfjäril).
 
 **Juice**
-- [Quick] Ångan borde puffa när den når lådans tak i stället för att bara försvinna.
+- ✅ ~~**[Quick] Ångan borde puffa när den når lådans tak i stället för att bara försvinna.**~~ Klar
+  2026-09-23 (v1.251.0): automaten noterar kolumnen där ånga raderas mot taket (`takAnga`,
+  `taFlode()` — ingen cell påverkas) och spelet puffar där, strypt till en puff per 90 ms.
 - [Medium] Ljud per material när det landar (`impactAudio`-tanken, fast för celler).
 
 **Progression**
@@ -111,12 +115,23 @@ kvar åt lådan är 928 × 416 px, och 16 px-celler ger fler celler i den ytan �
   sidan av rundans band.
 
 **Karaktär**
-- [Quick] Bobo borde titta på det som brinner/rinner, inte bara på fingret.
+- ✅ ~~**[Quick] Bobo borde titta på det som brinner/rinner, inte bara på fingret.**~~ Klar 2026-09-23
+  (v1.251.0) för ELDEN: när inget finger pekar följer Bobo eldens mittpunkt (`_eldMitt`) med
+  blicken, strypt till en ny blick per 0,3 s. Rinnande vatten har ingen mittpunkt att titta på.
 
 **Ljud**
-- [Quick] Vattenslinga (porl) medan mycket vatten rör sig, som eldslingan.
+- ✅ ~~**[Quick] Vattenslinga (porl) medan mycket vatten rör sig, som eldslingan.**~~ Klar 2026-09-23
+  (v1.251.0): brus-slinga `elementvatten` (bandpass 1150 Hz, vol 0,035) styrd av hur många
+  vattenceller som FALLER per steg (sidledes vickning i ett stilla hav räknas inte), med
+  hysteres på/av 10/3. Stoppas i `destroy` som de två andra slingorna.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): penselstorlek per element, ångan
+  puffar vid taket, Bobo följer elden med blicken och en porl-slinga när vatten rinner (se §4).
+  Automaten fick bara två räknare (`takAnga`, `vattenFall` via `taFlode()`) — reglerna är orörda.
+  Dubbelfirandet prövades och var rent: spelets egen replik ("Du hittade allihop!") sägs 1,0 s
+  före `complete()`, så berömmet utgår utan att något kapas. Omätt i webbläsare (koordinatorn testar).
 
 `2026-08-14 · byggd (automat + spel + sond `scripts/_elementprobe.mjs`) · <commit>`
 

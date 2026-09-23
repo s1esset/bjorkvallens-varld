@@ -87,6 +87,12 @@ export class Sandlada {
     this.steget = 0
     this.groddar = [] // celler där ett frö grott (spelet planterar en blomma där)
     this.handelser = { anga: 0, smalt: 0, lera: 0, glod: 0, is: 0 }
+    // Bara för bilden och ljudet — rör ingen cell och ingen upptäckt. Spelet tömmer dem
+    // efter varje bildruta (`taFlode`). `takAnga`: kolumner där ånga slog i lådans tak
+    // (spelet puffar där). `vattenFall`: vattenceller som flyttat NEDÅT — ett stilla hav
+    // vickar sina ytdroppar i sidled för evigt, så sidledes flytt räknas inte som porl.
+    this.takAnga = []
+    this.vattenFall = 0
     this._seed = (seed || (Math.random() * 0xffffffff)) >>> 0 || 12345
   }
 
@@ -264,6 +270,14 @@ export class Sandlada {
     return h
   }
 
+  // Egen metod, inte fler nycklar i `handelser`: sonden summerar handelsernas nycklar.
+  taFlode() {
+    const f = { tak: this.takAnga, fall: this.vattenFall }
+    this.takAnga = []
+    this.vattenFall = 0
+    return f
+  }
+
   // --- grannuppslag ---------------------------------------------------------
   _granne(c, r, m) {
     if (r > 0 && this.mat[this.idx(c, r - 1)] === m) return this.idx(c, r - 1)
@@ -362,6 +376,7 @@ export class Sandlada {
       case ANGA: {
         const l = this.liv[i]
         if (l <= 1 || r === 0) {
+          if (r === 0 && this.takAnga.length < 12) this.takAnga.push(c)
           this._satt(i, TOM)
           return true
         }
@@ -430,6 +445,7 @@ export class Sandlada {
         const ner = i + cols
         if (TATHET[VATTEN] > TATHET[this.mat[ner]]) {
           this._byt(i, ner)
+          this.vattenFall++
           return
         }
         const s = this._rnd() < 0.5 ? -1 : 1
@@ -439,6 +455,7 @@ export class Sandlada {
           const j = ner + d
           if (TATHET[VATTEN] > TATHET[this.mat[j]]) {
             this._byt(i, j)
+            this.vattenFall++
             return
           }
         }

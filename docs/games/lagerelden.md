@@ -68,48 +68,53 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Ge marshmallowen en mottagare.** Sätt en hungrig kompis (Bobo, eller Alissa/Elvira)
-  bredvid Zacke som *väntar* med öppen mun. Varje gyllene marshmallow flyger till kompisen som
-  tuggar, ler och säger "mums" — och fatet blir en liten *önskelista* ("Bobo vill ha 3 gyllene!").
-  Då blir målet begripligt utan läsning och rostandet får en känslomässig adressat.
-- **[Medium] Gör veden betydelsefull.** Höj vedens vikt i värme-formeln och låt elden *visuellt*
-  växa i bredd/höjd per pinne (inte bara fler partiklar). Då blir "lägg på ved" ett kännbart val:
-  liten eld = långsam mys-rostning, stockeld = snabb. Fortfarande no-fail (elden dör aldrig).
+- ✅ ~~**[Medium] Ge marshmallowen en mottagare.**~~ Redan byggd (Bobo-riggen håller fatet och
+  mumsar, `_boboChomp` :471; byggd 2026-07-01, rigg 2026-08-09, se §5) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Gör veden betydelsefull.**~~ Redan byggd (`_fuel`-vikt 0,30, bredare låga och
+  glödbädd; byggd 2026-08-05, se §5) — uppdagat 2026-09-23.
 - **[Deep] S'more-montering som final.** När en marshmallow är gyllene: dra den mellan två kex med
   en chokladbit → ett *s'more* som kompisen äter. Lägger ett extra litet drag-moment och en riktig
   "klart"-artefakt istället för en abstrakt fylld plats.
 
 ### Variation & överraskning
-- **[Quick] Fler saker att rosta.** Rotera marshmallow / majskolv 🌽 / korv 🌭 / äpple per order.
-  Samma rost-modell, men varje order känns ny och man lär sig att olika saker "blir klara" olika.
-- **[Quick] Synlig het zon.** Rita en tydlig glödande "rosta här"-ring (pulserande) kring lågans
-  topp som följer vinden, så barnet *ser* vart marshmallowen ska — siktet blir lekfullt synligt.
+- ✅ ~~**[Quick] Fler saker att rosta.**~~ Redan byggd (fyra ritade sorter per order, `cfg.kind`
+  + `_sayKind`; byggd 2026-08-05, se §5) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Synlig het zon.**~~ Redan byggd (`_hotMark` :191, pulserar och följer vinden;
+  byggd 2026-07-01, se §5) — uppdagat 2026-09-23.
 
 ### Juice
 - **[Medium] Levande marshmallow.** Låt den svälla en aning, få en lätt bubblande/förkolnad
   yt-textur och en glansig droppe när den blir gyllene — inte bara en färg-lerp. Liten skärm-glöd
   pulserar med värmen.
-- **[Quick] Vindpust som syns.** När man svepar bälgen: rita en kort böjd "luftlinje" från pipen in
-  i lågan som böjer flammorna i sidled ett ögonblick — pusten får en riktning och en synlig effekt.
+- ✅ ~~**[Quick] Vindpust som syns.**~~ Redan byggd (luftlinjen från pipen, `index.js:233` +
+  ritningen i `_update`) — uppdagat 2026-09-23.
 
 ### Progression
-- **[Quick] Vädret berättar nivån.** Koppla de befintliga temana (sunset → night) tydligare till
-  ordern: stjärnhimmel + mer vind = "kvällsorder". Cross-fade bakgrunden mjukt i `_nextFire` i
-  stället för hård rebuild så världen känns sammanhängande.
+- ✅ ~~**[Quick] Vädret berättar nivån.**~~ Klar 2026-09-23 (v1.251.0): skymningen glider över i
+  natt — den nya scenen och lägerplatsen läggs under de gamla, som tonar bort på 1,4 s och rivs
+  när de är osynliga, medan eldflugorna tonar in (`_tonaOverTema` :1109, anropas :1057). Förr
+  byttes hela världen i en bildruta.
 
 ### Karaktär & berättelse
 - **[Medium] Zacke reagerar.** Låt hans blick följa marshmallowen, le bredare ju gyllenare den blir,
   och ge en liten glädjestuds när ordern är klar. Billigt (tween på befintlig Graphics) men gör den
-  enda figuren levande.
-- **[Deep] En liten lägerplats-värld.** Tält i bakgrunden, en sovande kompis, eldflugor i natten —
-  små ambient-detaljer som gör att man *vill* sitta kvar vid elden.
+  enda figuren levande. *(2026-09-23: blicken och leendet är byggda sedan 2026-08-05 — kvar är
+  bara glädjestudsen vid klar order.)*
+- ✅ ~~**[Deep] En liten lägerplats-värld.**~~ Redan byggd (tält, granar och buskar i `makeCamp`
+  :1224, eldflugor i natten `_buildFireflies` :349; byggd 2026-08-05) — uppdagat 2026-09-23.
+  Den sovande kompisen finns inte; den är inte längre en [Deep]-sak utan en detalj.
 
 ### Ljud
-- **[Quick] Sprakande eld-ambient + fräs.** En lugn loopande knastereld i bakgrunden (volym skalar
-  med värmen) och ett mjukt *fräs* medan marshmallowen rostas. En stigande liten ton när `_toast`
-  närmar sig 1 ("snart!") gör gyllene-ögonblicket hörbart.
+- ✅ ~~**[Quick] Sprakande eld-ambient + fräs.**~~ Redan byggd (knaster ∝ värme :857, fräset som
+  stiger mot gyllene :939; byggd 2026-07-01 med stämda toner) — uppdagat 2026-09-23.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_winOrder` spelade själv vinstljud,
+  PRAISE och konfettiregn i samma tick som `complete()` — strukna (skalet gör alla tre). Nästa
+  eldens rubrik kom 1,8 s efter och kapade berömmet; nu väntar den in rösten via `ctx.narTyst`
+  (vaktad med nivån). Temabytet skymning → natt är en mjuk övertoning. §4 stämd mot koden:
+  7 punkter var redan byggda.
 
 - 2026-08-10 🎨 **D1 (repo-brett svep): platt yta fick ljus** (`f254093`, v1.116.0).
   `_plattprobe --medbakgrund` mätte **158 419 px = 17 % av skärmen** i EN ton.

@@ -20,9 +20,9 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { glod } from '../../lib/glod.js'
-import { puff, sparkle, burst, pop, wiggle, breathe, floatText, bigCelebration , kvittera} from '../../lib/feedback.js'
+import { puff, sparkle, burst, pop, wiggle, breathe, floatText, kvittera } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
+import { COLORS } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
@@ -1010,10 +1010,9 @@ export default {
   },
 
   // Hela ordern klar → stort firande + ny (svårare, slumpad) eld/order.
+  // Vinstljud, beröm och konfettiregn kommer från complete() nedan — bara spelets egna
+  // delar (skuren vid elden, Bobos hopp) står här.
   _winOrder(ctx) {
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, FIRE_X, 110, { count: 16 })
     floatText(ctx.fxLayer, FIRE_X, 64, '😋', { fontSize: 64 })
     if (this._bobo && !this._bobo.destroyed) {
@@ -1044,15 +1043,18 @@ export default {
     if (cfg.theme !== this._theme) {
       this._theme = cfg.theme
       this._addLjus = cfg.theme === 'night'
-      if (this._bg && !this._bg.destroyed) this._bg.destroy({ children: true })
+      // Skymningen GLIDER över i natt i stället för att bytas i en bildruta: den nya världen
+      // läggs UNDER den gamla (index 0/1 knuffar upp de gamla till 2/3), och den gamla tonar
+      // bort och rivs först när den är osynlig. Eldflugorna tonar in i samma andetag.
+      const gamla = [this._bg, this._camp].filter((o) => o && !o.destroyed)
       this._bg = createScene(this._theme, { ground: true, groundH: GROUND_H })
       this._root.addChildAt(this._bg, 0)
-      if (this._camp && !this._camp.destroyed) this._camp.destroy({ children: true })
       this._camp = makeCamp(this._theme === 'night')
       this._camp.eventMode = 'none'
       this._camp.interactiveChildren = false
       this._root.addChildAt(this._camp, 1)
       this._buildFireflies()
+      this._tonaOverTema(gamla)
     }
     this._fuelMax = cfg.fuelMax
     this._hotR = cfg.hotR
@@ -1090,8 +1092,47 @@ export default {
     this._resolving = false
     this._idle = 0
     // Ny sorts mat får sin egen rubrik; annars den vanliga "ny eld"-repliken.
-    if (cfg.kind !== prevKind) this._sayKind(ctx)
-    else ctx.services.voice.say('En ny eld! Lägg på ved igen.')
+    // Den nya elden syns genast, men orden väntar in berömmet: complete() talade 1,8 s
+    // tidigare och klippen är upp till 2,3 s — say() kallar cancel() och kapade det.
+    // Hinner nivån bytas igen under väntan är repliken inaktuell.
+    const niva = this._level
+    ctx.narTyst(() => {
+      if (!this._alive || this._level !== niva) return
+      if (cfg.kind !== prevKind) this._sayKind(ctx)
+      else ctx.services.voice.say('En ny eld! Lägg på ved igen.')
+    })
+  },
+
+  // Tonar bort den gamla stämningen ovanpå den nya och river den när den är osynlig.
+  // Proxy-tween: skrivs bara till noder som lever, och en ny övergång mitt i en gammal
+  // river först den gamlas rester (annars stod de kvar halvgenomskinliga för alltid).
+  _tonaOverTema(gamla) {
+    this._temaFade?.kill()
+    this._rivTemaRester()
+    this._temaGamla = gamla
+    for (const n of gamla) n.eventMode = 'none'
+    const ff = this._fireflyLayer
+    if (ff && !ff.destroyed) ff.alpha = 0
+    const st = { a: 1 }
+    this._temaFade = gsap.to(st, {
+      a: 0,
+      duration: 1.4,
+      ease: 'sine.inOut',
+      onUpdate: () => {
+        for (const n of gamla) if (!n.destroyed) n.alpha = st.a
+        if (ff && !ff.destroyed) ff.alpha = 1 - st.a
+      },
+      onComplete: () => {
+        this._temaFade = null
+        this._rivTemaRester()
+      },
+    })
+  },
+
+  _rivTemaRester() {
+    for (const n of this._temaGamla || []) if (!n.destroyed) n.destroy({ children: true })
+    this._temaGamla = null
+    if (this._fireflyLayer && !this._fireflyLayer.destroyed) this._fireflyLayer.alpha = 1
   },
 
   // ---- Städning (exit-säkert) ---------------------------------------------
@@ -1105,6 +1146,9 @@ export default {
 
     this._goldenTimer?.kill?.()
     this._flyTimer?.kill?.()
+    this._temaFade?.kill() // de gamla noderna är barn till roten och rivs med den nedan
+    this._temaFade = null
+    this._temaGamla = null
     this._glowBreathe?.kill?.()
 
     this._detachBellows()

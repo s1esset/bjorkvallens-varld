@@ -102,6 +102,7 @@ export default {
     this._idle = 0
     this._bake = 0
     this._lastPlaceCheer = 0
+    this._tackKo = false // ett tack som köade när förra omgången lämnades får inte hänga kvar
     this._lastSmoke = 0
     this._lastSizzle = 0
     this._flameAcc = 0
@@ -1068,7 +1069,16 @@ export default {
           pop(c, { scale: 1.2 })
           puff(ctx.fxLayer, c.x, c.y - 10, { count: 8 })
           floatText(ctx.fxLayer, c.x, c.y - 92, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 42 })
-          ctx.services.voice.say(filled ? 'Precis som jag önskade mig! Tack så mycket!' : randomFrom(SERVE_CHEERS))
+          // Tacket väntar in grillrepliken (2,8 s, sades 0,6 s före) i stället för att kapa
+          // den — bara orden köar, tuggandet ovan kommer genast. `_tackKo` håller nästa
+          // rundas beställning (_reset) bakom tacket så ordningen står sig.
+          const tack = filled ? 'Precis som jag önskade mig! Tack så mycket!' : randomFrom(SERVE_CHEERS)
+          const runda = this._rounds
+          this._tackKo = true
+          ctx.narTyst(() => {
+            this._tackKo = false
+            if (this._alive && this._rounds === runda) ctx.services.voice.say(tack)
+          })
         }
       },
     })
@@ -1107,7 +1117,16 @@ export default {
     this._newOrder()
     if (this._orderBubble && !this._orderBubble.destroyed) bounceIn(this._orderBubble)
     this._setHint('En ny burgare! Bygg igen 🍔')
-    ctx.services.voice.say(randomFrom(ORDER_CUES))
+    // Beställningen köar bakom grillrepliken och Bobos tack (narTyst + `_tackKo`) — på den
+    // fasta 2,6 s kapade den båda mitt i meningen. Bilden ovan kommer genast.
+    const runda = this._rounds
+    const bestall = () => {
+      if (!this._alive || this._rounds !== runda || this._phase !== 'decorate') return
+      if (this._tackKo) return void ctx.later(0.35, () => ctx.narTyst(bestall))
+      this._idle = 0 // påminnelsen (6,5 s) räknar från instruktionen, så den inte kapar den
+      ctx.services.voice.say(randomFrom(ORDER_CUES))
+    }
+    ctx.narTyst(bestall)
   },
 
   // ---- Hjälpare -----------------------------------------------------------

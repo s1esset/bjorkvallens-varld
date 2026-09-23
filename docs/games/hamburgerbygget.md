@@ -116,11 +116,22 @@ Originaltexten för de avbockade punkterna står kvar nedan.
   fram den klara burgaren — kommenterar roliga pålägg ("En strumpa?! Hihi"). Befolkar köket.
 
 ### Ljud
-- **[Quick] Grill-ambient.** En lågmäld fräsande grill-loop (volym/intensitet följer `_bake`) och
-  ett mjukt sizzel när maten läggs på. Gör scenen levande.
+- ✅ ~~**[Quick] Grill-ambient.** En lågmäld fräsande grill-loop (volym/intensitet följer `_bake`) och
+  ett mjukt sizzel när maten läggs på. Gör scenen levande.~~ Redan byggd — som tidsstrypta
+  fräs-toner som tätnar med `_bake` under grillningen (:952) och ett sizzel per pålägg
+  (`sample('sizzle')` med syntes-reserv, :746) — uppdagat 2026-09-23.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Dubbelfirandet + snabbvinstsvepet** (v1.251.0): **Rösten kapades i tre led.**
+  Grillrepliken (2,8 s) sägs vid avtagningen, Bobos tack kom på en fast 0,6 s-tween och kapade
+  den, och nästa rundas beställning kom på en fast 2,6 s och kapade tacket. Nu köar tacket
+  (`ctx.narTyst` + rund-token) och beställningen väntar på både berättaren och tacket
+  (`_tackKo`), så ordningen är alltid grillrad → tack → beställning; bilden byts ändå vid 2,6 s.
+  Idle-påminnelsen räknar från beställningen. Inga generiska firande-kopior fanns. SNABBVINSTER
+  hade ingen A-rad här; grill-ambienten visade sig redan byggd.
+  ⚠️ Tre av fyra `toneSpeech`-rader och "Jättegott!" saknar klipp och går till talsyntesen,
+  som `voice.talar` inte ser — där kan berömmet fortfarande kapa (tas i delad kod).
 - 2026-08-11 🍞 **LYFTPLAN B2: bröden är MJUKA KROPPAR** (natt VI N4).
   §3:s "ingredienserna interagerar inte" hade en tvilling ingen skrivit ner: en burgare med nio
   lager såg exakt lika lätt ut som en tom, för bullarna var två `roundRect` som aldrig ändrade

@@ -702,6 +702,9 @@ export default {
     this._musUppdatera(ctx, dt)
 
     if (this._resolving) return
+    // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
+    // annars kapar påminnelsens say() en replik som redan talar).
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
     if (this._idle > 6) {
       this._idle = 0

@@ -121,7 +121,9 @@ pakettjuv) återstår:
   **GJORT 2026-08-08** — vikta fingrar med veck + tumme tvärs över + nätskjutardosa på handleden.
 - ~~**[Quick] Dubbelkrediten:** kreditera bara första klibbningen per paket.~~
   **GJORT 2026-08-08** — `rec.credited` sätts vid första klibbningen.
-- **[Quick] Hemkomst-huset lever:** dörren öppnas / fönster tänds när paraden står klar.
+- ✅ ~~**[Quick] Hemkomst-huset lever:** dörren öppnas / fönster tänds när paraden står klar.~~
+  Klar 2026-09-23 (v1.251.0): dörren är en egen nod som svänger upp (ding-dong) när bilen står
+  still, och fönstren tänds med ljus på väggen när sista vännen landat (`_homeWelcome` :5829).
 - **[Medium] Fler kulisser:** natt-läge med lysande fönster, regnväder med paraplyer.
 - **[Medium] Uppdrag som använder de NYA systemen:** "snärj in tre saker med nätbollen" ·
   "fånga monstret i fönstret" · "spruta brandposten" — i dag rör alla tre uppdragen bara
@@ -131,11 +133,18 @@ pakettjuv) återstår:
 - **[Quick] Krossbara skyltfönster:** butikernas stora skyltfönster är dekor, för `_drawWindow`
   fyller rutan med ogenomskinligt glas och skulle radera de ritade varorna. Kräver ett
   genomskinligt läge i `_drawWindow` först.
-- **[Quick] `thwip`-klippet:** signaturljudet för VARJE skott är oinspelat och faller tillbaka
-  på `whoosh`. Kör sfx-pipen när MOSS är uppe.
+- ✅ ~~**[Quick] `thwip`-klippet:** signaturljudet för VARJE skott är oinspelat och faller tillbaka
+  på `whoosh`. Kör sfx-pipen när MOSS är uppe.~~ Redan byggd (`sample('thwip')` :4830, och
+  `thwip.mp3` har legat i sfx-manifestet sedan 2026-06-29) — uppdagat 2026-09-23.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): hemkomsthuset lever — dörren
+  (egen nod, gångjärn i vänsterkanten) svänger upp med en ding-dong (G5→E5) när bilen stannat,
+  och de blekta fönstren tänds med tre ljusringar på väggen när paraden står klar (proxy-tweens
+  i `_tws`). Dubbelfirandet: spelet var redan rent — hemrepliken (3,75 s) talar när
+  `complete()` kommer vid 3,9 s, så berömmet hoppas över; den inaktuella kommentaren vid
+  `complete()` är omskriven. `thwip`-posten var redan byggd.
 - 2026-08-11 🕸️ **LYFTPLAN B3: nätlinans egen solver borta** (natt VI N5).
   Spelet bar 59 rader verlet som var `lib/rep.js` i kopia — `stepRope` ÄR `Rep.spann()`
   (båda ändar spikade, vilolängd = avståndet gånger `sag`). Konstanterna skickas in

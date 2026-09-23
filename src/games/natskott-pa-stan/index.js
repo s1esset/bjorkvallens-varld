@@ -172,6 +172,8 @@ const MONSTER_TINTS = [0x9bd06b, 0xa78bfa, 0x57c8c3, 0xff9ec4]
 
 // Pentatonisk skala för hemkomst-skutten + samla-plingar (stämda, aldrig blipp)
 const NOTES = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]
+// Hemkomsthusets två fönster (andel av husets bredd) — delas av ritningen och ljuslagret.
+const HOME_WIN_XS = [0.2, 0.8]
 
 // ---- Ritade spelobjekt (P0 ASSETS: egen silhuett, aldrig emoji-i-ruta) -----
 
@@ -5745,8 +5747,11 @@ export default {
       ctx.services.voice.say('Nu är vi hemma — vilket äventyr!')
       ctx.services.audio.sfx('reveal')
       this._hopOut(ctx)
+      this._homeWelcome(ctx, Math.min(8, this._seatList.length))
     })
-    // complete säger PRAISE och avbryter tal — spelets replik måste hinna klart
+    // Hemrepliken (3,75 s) talar fortfarande när complete() kommer — då hoppar complete()
+    // över sitt beröm i stället för att kapa den (GameHost, v1.251). Firandet i bild och
+    // ljud kommer ändå.
     ctx.later(3.9, () => {
       if (!this._alive) return
       this._level += 1
@@ -5766,24 +5771,102 @@ export default {
     g.rect(0, topY, bw, bh).fill(0xffe3a9).stroke({ width: 4, color: 0xd9a021 })
     g.moveTo(-20, topY).lineTo(bw / 2, topY - 78).lineTo(bw + 20, topY).closePath().fill(0xc0574f)
     g.rect(bw * 0.72, topY - 52, 20, 46).fill(0x8a5a3b)
-    // dörr med runt fönster + trappa
-    g.roundRect(bw / 2 - 34, SIDEWALK_TOP - 104, 68, 104, 8).fill(0x8a5a3b)
-    g.circle(bw / 2, SIDEWALK_TOP - 76, 12).fill(0xffe9b0)
-    g.circle(bw / 2 + 22, SIDEWALK_TOP - 52, 4.5).fill(0xffd35c)
+    // dörröppningen: hallens varma ljus, som syns när dörren (egen nod nedan) går upp
+    g.roundRect(bw / 2 - 34, SIDEWALK_TOP - 104, 68, 104, 8).fill(0xffd35c)
     g.rect(bw / 2 - 44, SIDEWALK_TOP - 10, 88, 10).fill(0xd9c9a8)
-    // varma fönster med blomlådor
-    for (const wx of [bw * 0.2, bw * 0.8]) {
-      g.roundRect(wx - 28, topY + 62, 56, 60, 4).fill(0xffe9b0).stroke({ width: 4, color: 0xfffdf7 })
-      g.moveTo(wx, topY + 62).lineTo(wx, topY + 122).moveTo(wx - 28, topY + 92).lineTo(wx + 28, topY + 92).stroke({ width: 3, color: 0xfffdf7 })
+    // fönster med blomlådor — släckta (blekt glas) tills vännerna är hemma
+    const blommor = (gg, wx) => {
+      for (let i = 0; i < 3; i++) gg.circle(wx - 18 + i * 18, topY + 120, 6).fill([0xff9ec4, 0xff6b6b, 0xffd35c][i])
+    }
+    const sprojsar = (gg, wx) =>
+      gg.moveTo(wx, topY + 62).lineTo(wx, topY + 122).moveTo(wx - 28, topY + 92).lineTo(wx + 28, topY + 92).stroke({ width: 3, color: 0xfffdf7 })
+    for (const wx of HOME_WIN_XS.map((f) => bw * f)) {
+      g.roundRect(wx - 28, topY + 62, 56, 60, 4).fill(0xd8e6ee).stroke({ width: 4, color: 0xfffdf7 })
+      sprojsar(g, wx)
       g.roundRect(wx - 32, topY + 122, 64, 10, 4).fill(0x8a5a3b)
-      for (let i = 0; i < 3; i++) g.circle(wx - 18 + i * 18, topY + 120, 6).fill([0xff9ec4, 0xff6b6b, 0xffd35c][i])
+      blommor(g, wx)
     }
     // buskar + lykta
     g.circle(-24, SIDEWALK_TOP - 16, 18).fill(0x7fae84)
     g.circle(bw + 26, SIDEWALK_TOP - 14, 15).fill(0x8fbe8f)
     g.eventMode = 'none'
     c.addChild(g)
+    // Tänt fönsterlager (alfa 0 → 1 i _homeWelcome): ljus på väggen som tre ringar med
+    // avtagande alfa (samma knep som byn i blixt-och-dunder), varm ruta, spröjsar och
+    // blommor ritade om ovanpå så att ljuset ligger BAKOM dem.
+    const lit = new Graphics()
+    lit.eventMode = 'none'
+    for (const wx of HOME_WIN_XS.map((f) => bw * f)) {
+      for (const [d, a] of [[20, 0.1], [13, 0.14], [7, 0.2]]) {
+        lit.roundRect(wx - 28 - d, topY + 62 - d, 56 + 2 * d, 60 + 2 * d, 10 + d).fill({ color: 0xffd35c, alpha: a })
+      }
+      lit.roundRect(wx - 26, topY + 64, 52, 56, 3).fill(0xffd35c)
+      sprojsar(lit, wx)
+      blommor(lit, wx)
+    }
+    lit.alpha = 0
+    c.addChild(lit)
+    // Dörren är en egen nod med gångjärnet i vänsterkanten: scale.x mot 0 = den går upp.
+    // Höjden 94 (inte 104) — trappan täckte förut dörrens nedersta 10 px.
+    const door = new Container()
+    door.eventMode = 'none'
+    door.position.set(bw / 2 - 34, SIDEWALK_TOP - 104)
+    const dg = new Graphics()
+    dg.roundRect(0, 0, 68, 94, 8).fill(0x8a5a3b)
+    dg.circle(34, 28, 12).fill(0xffe9b0)
+    dg.circle(56, 52, 4.5).fill(0xffd35c)
+    dg.eventMode = 'none'
+    door.addChild(dg)
+    c.addChild(door)
+    c._door = door
+    c._lit = lit
     return c
+  },
+
+  // Hemmet välkomnar paraden: dörren går upp när bilen står still (ding-dong), och
+  // fönstren tänds när den sista vännen landat framför huset. Proxy-tweens (exit-säkra,
+  // dödas i destroy via _tws); huset självt scrollar bort som ett vanligt segment.
+  _homeWelcome(ctx, n) {
+    const house = this._homeHouse
+    if (!house || house.destroyed) return
+    const door = house._door
+    const lit = house._lit
+    const a = ctx.services.audio
+    a.tone({ freq: 783.99, dur: 0.22, type: 'triangle', vol: 0.14 })
+    a.tone({ freq: 659.25, dur: 0.32, type: 'triangle', vol: 0.14, delay: 0.2 })
+    const ds = { s: 1 }
+    const tw = gsap.to(ds, {
+      s: 0.16,
+      duration: 0.45,
+      delay: 0.15,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (!door || door.destroyed) {
+          tw.kill()
+          return
+        }
+        door.scale.x = ds.s
+      },
+    })
+    this._tws.push(tw)
+    const ls = { a: 0 }
+    const tw2 = gsap.to(ls, {
+      a: 1,
+      duration: 0.5,
+      delay: 0.18 * n + 0.6,
+      ease: 'power2.out',
+      onStart: () => {
+        if (this._alive) a.tone({ freq: 1046.5, dur: 0.3, type: 'sine', vol: 0.1 })
+      },
+      onUpdate: () => {
+        if (!lit || lit.destroyed) {
+          tw2.kill()
+          return
+        }
+        lit.alpha = ls.a
+      },
+    })
+    this._tws.push(tw2)
   },
 
   _hopOut(ctx) {

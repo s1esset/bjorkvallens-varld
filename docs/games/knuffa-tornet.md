@@ -69,52 +69,57 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Quick] Ge tillbaka en *snäll* smäll.** Lägg ett mjukt, rundat duns-/träklots-ljud vid
-  kraftig kula-träffar-kloss i `_onCollision` (skala volym med `pair.speed`, behåll
-  throttlen). Det är ingen buzzer — det är belöningen för en bra sving. Lägg en liten
-  skärm-mikroskak som skalar med slagkraft.
-- **[Medium] Låt hjälpen *bjuda in* istället för att spela klart.** Innan auto-svinget:
-  flytta kulan till perfekt läge och låt den **blinka/andas "släpp mig!"** så barnet gör
-  sista trycket självt. Auto-knuffa-allt blir då sista, sällsynta utvägen — inte ett
-  resultat passivitet ger på 10s.
-- **[Deep] Special-klossar som gör tyngd/rep meningsfullt.** Tung sockelkloss (kräver Stor
-  kula), studsig kloss (elastiskt rep studsar vidare), staplad "ömtålig" glaskloss som
-  spricker i gnistror. Då blir *valet* av verktyg ett pussel, inte bara smak.
+- ✅ ~~**[Quick] Ge tillbaka en *snäll* smäll.**~~ Redan byggd (materialröst + mikroskak i
+  `_onCollision` index.js:1378, 2026-07-01/08-09) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Låt hjälpen *bjuda in* istället för att spela klart.**~~ Redan byggd
+  (`_offerAssist` :1183, `_autoAssistSwing` :1217, 2026-08-07) — uppdagat 2026-09-23.
+- ✅ ~~**[Deep] Special-klossar som gör tyngd/rep meningsfullt.**~~ Redan byggd (sten · studs ·
+  glas, 2026-08-07) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] Tornform varierar per nivå.** Pyramid, bro, två torn med glapp, krona längst
-  bak — `_layoutFor` returnerar en form-mall istället för bara rader×kolumner. Tur 2 ≠ tur 1.
+- ✅ ~~**[Quick] Tornform varierar per nivå.**~~ Redan byggd (fem former i `_layoutFor` :574,
+  2026-08-07) — uppdagat 2026-09-23.
 - **[Medium] Gömda fynd i tornet.** Var 3:e bana göms en ⭐/🎈 bakom en kloss som flyger
   upp när den ramlar — en liten "en till!"-morot.
 
 ### Juice
-- **[Quick] Klossarna lever inför slaget.** När kulan är nära: närmsta klossar **vinglar
-  lätt** (förväntan). När en ramlar: snabb squash + en liten "aj/hoppsan"-piip-emoji.
-- **[Quick] Rasande-mur-kaskad.** När ≥3 klossar ramlar inom kort: stigande pling-kaskad +
-  ett litet dammoln (`puff`) vid avsatsens kant. Belönar en fet sving.
-- **[Quick] Rep-spänn-feedback.** Mjukt stigande "gnissel/spänn"-ljud medan man drar kulan
-  bakåt (tonhöjd ∝ kraft), släpp-whoosh som idag.
+- ✅ ~~**[Quick] Klossarna lever inför slaget.**~~ Redan byggd (`_spookBlocks` :1459, squash +
+  `PIPS` i `_onClear`, 2026-07-01) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Rasande-mur-kaskad.**~~ Klar 2026-09-23 (v1.251.0): Faller ≥3 klossar inom 1 s
+  av barnets sving (inte hjälpens, inte vinstklossen) spelas EN stigande durtreklang
+  (C–E–G–C–E, schemalagd i ljudmotorn) och ett dammoln puffar vid avsatsens kant. Paus på 2 s
+  mellan kaskader (`_kaskad` :1116). Inga nya tweens per kloss.
+- ✅ ~~**[Quick] Rep-spänn-feedback.**~~ Klar 2026-09-23 (v1.251.0): Under draget blir kraften
+  (samma mått som bågvisningens färg) ett tonsteg på C-dur-pentatoniken. En kort, låg ton
+  spelas när steget byts, högst var 0,07 s (`_spannLjud` :848). Släpp-whooshen är kvar.
 
 ### Progression
-- **[Medium] Konkret mål-räknare.** Byt/komplettera den abstrakta stapeln mot små
-  kloss-ikoner som tänds (som `valpens-bajs` slot-prickar) eller "klossar kvar: 3" i
-  ikon-form — läs-fritt men begripligt.
+- ✅ ~~**[Medium] Konkret mål-räknare.**~~ Redan byggd (en prick per kloss, `_paintPip` :472,
+  2026-08-07) — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
-- **[Deep] En anledning att riva.** En liten arbetar-Bobo i hjälm som väntar, hejar vid
-  bra sving och jublar/bockar med kranen vid vinst — ersätt den generiska konfettin med en
-  spel-specifik finish (muren rasar i dammoln, Bobo planterar en flagga på rivningsplatsen).
-- **[Quick] Ge klossarna ansikten.** Två prickögon + leende på varje kloss gör tornet till
-  "gänget" man knuffar — direkt mer charm, noll fysik-risk.
+- ✅ ~~**[Deep] En anledning att riva.**~~ Redan byggd (arbetar-Bobo `_workerCheer` :333 +
+  `_demolitionFinish` :1266 med dammoln och flagga) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Ge klossarna ansikten.**~~ Redan byggd (`makeBlock` :1589, 2026-07-01) —
+  uppdagat 2026-09-23.
 
 ### Ljud
 - **[Quick] Riktiga klipp via SFX-pipelinen** ([[real-audio-sfx]]): trä-duns, sten-skrap,
   rep-spänn, mur-ras. Idag är allt procedurella blippar.
+  *Blockerad 2026-09-23:* kräver nya SFX-klipp (MOSS nere). Duns, rep-spänn och mur-ras finns
+  nu som stämda toner.
 - **[Quick] Variera vinst-stinget** + lägg en lugn bakgrunds-ambient (fågel/vind) så scenen
   inte är ljudtyst mellan svingar.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_demolitionFinish` hade ett
+  eget `celebrate` + `bigCelebration` 1,05 s efter `complete()`. Båda sväljs av värdets
+  1,5 s-spärr och var alltså död kod, så de är strukna. "Ett större torn!" låg på fast 2,3 s,
+  kapade "Hurra! Du knuffade ner alla klossar!" (3,75 s) och köas nu med `ctx.narTyst`.
+  Snabbvinster: rasande-mur-kaskad (stigande durtreklang + dammoln vid ≥3 fall/s) och
+  repspänn-toner under draget. Kvar öppet: gömda fynd [Medium], variera vinst-stinget/ambient.
+  SFX-klippen är blockerade.
 - 2026-06-30: Doc skriven (granskad mot rep/pendel-bygget i commit 33178c3). Inga
   kodändringar i denna omgång.
 - Rekommenderad första-omgång: **[Quick] snäll smäll + skärmskak + klossar med ansikten/

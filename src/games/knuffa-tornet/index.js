@@ -31,7 +31,7 @@ import { createScene } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
 import { topLightFill } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
-import { puff, floatText, sparkle, burst, bounceIn, bigCelebration, pop, shake } from '../../lib/feedback.js'
+import { puff, floatText, sparkle, burst, bounceIn, pop, shake } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 
@@ -92,6 +92,15 @@ const REST_SPEED = 1.6 // matter-fart under detta = svinget har lugnat sig
 const MAX_FLIGHT = 3.6 // s innan en sving avbryts (no-fail)
 const IDLE_DELAY = 6 // s utan handling -> röst-recue
 const HIT_THROTTLE = 0.07 // s mellan kloss-nere-ljud (plopp)
+// Rasande-mur-kaskaden: så många fall inom fönstret → en stigande durtreklang (C–E–G–C–E).
+const KASKAD_MIN = 3
+const KASKAD_FONSTER = 1.0 // s
+const KASKAD_PAUS = 2.0 // s mellan två kaskader
+const KASKAD_TONER = [523.25, 659.25, 783.99, 1046.5, 1318.51]
+// Repspänningen under draget: kraften klättrar uppför C-dur-pentatoniken, en ton per steg,
+// strypt så ett darrande finger inte blir en tonkvarn.
+const SPANN_TONER = [392, 440, 523.25, 587.33, 659.25, 783.99, 880]
+const SPANN_PAUS = 0.07 // s
 
 // Små "hoppsan"-emoji som pipar upp när en kloss ramlar (ger klossarna karaktär).
 const PIPS = ['😮', '😆', '😲', '🙃', '😵']
@@ -172,6 +181,10 @@ export default {
     this._clearedAtStart = 0
     this._misses = 0
     this._crownDown = false
+    this._fallTider = [] // när klossar föll (för rasande-mur-kaskaden)
+    this._kaskadT = -99
+    this._spannSteg = -1 // repspänningens tonsteg under draget
+    this._spannT = -1
     this._sizeIdx = 1
     this._ballFactor = 1
     this._ropeIdx = 0
@@ -614,6 +627,7 @@ export default {
     this._misses = 0
     this._cleared = 0
     this._crownDown = false
+    this._fallTider = []
     this._flightT = 0
     this._restT = 0
     this._assistT = 0
@@ -825,6 +839,20 @@ export default {
     this._freezeAt(this._pivot.x + dirx * useDist, this._pivot.y + diry * useDist)
     this._drawHint(theta)
     this._drawChain()
+    this._spannLjud(ctx)
+  },
+
+  // Repspänn-ljudet: kraften (samma mått som bågvisningens färg i `_drawHint`) blir ett
+  // tonsteg. Tonen spelas bara när steget BYTS och högst var SPANN_PAUS, lågt och kort:
+  // man hör spänningen klättra när man drar bakåt och sjunka när man släpper efter.
+  _spannLjud(ctx) {
+    const aFrac = clamp(this._theta / THETA_MAX, 0, 1)
+    const power = this._rope.elastic ? clamp((this._stretch - 0.6) / (STRETCH_MAX - 0.6), 0, 1) : aFrac
+    const steg = Math.round(power * (SPANN_TONER.length - 1))
+    if (steg === this._spannSteg || this._t - this._spannT < SPANN_PAUS) return
+    this._spannSteg = steg
+    this._spannT = this._t
+    ctx.services.audio.tone({ freq: SPANN_TONER[steg], dur: 0.07, type: 'triangle', vol: 0.06 })
   },
 
   _ballUp(ctx, e) {
@@ -1077,7 +1105,25 @@ export default {
         floatText(ctx.fxLayer, v.x, v.y - 24, PIPS[(Math.random() * PIPS.length) | 0], { fontSize: 32, rise: 62, duration: 0.7 })
       }
     }
+    this._kaskad(ctx)
     if (this._cleared >= this._total) this._win(ctx)
+  },
+
+  // RASANDE-MUR-KASKAD: ≥3 klossar ner inom 1 s av BARNETS sving → EN stigande durtreklang
+  // + ett dammoln vid avsatsens kant. En händelse, inte en per kloss (tweenflod-noten i
+  // `_onClear`): tonerna schemaläggs i ljudmotorn (`delay`) och puffen är ett enda anrop.
+  // Hjälpens rivning (`assist`) och vinstklossen firas inte här — de har sina egna ögonblick.
+  _kaskad(ctx) {
+    const t = this._t
+    this._fallTider = (this._fallTider || []).filter((x) => t - x < KASKAD_FONSTER)
+    this._fallTider.push(t)
+    if (this._phase === 'assist' || this._won || this._cleared >= this._total) return
+    if (this._fallTider.length < KASKAD_MIN || t - this._kaskadT < KASKAD_PAUS) return
+    this._kaskadT = t
+    this._fallTider = []
+    const a = ctx.services.audio
+    KASKAD_TONER.forEach((freq, i) => a.tone({ freq, dur: 0.14, type: 'triangle', vol: 0.13, delay: i * 0.07 }))
+    puff(ctx.fxLayer, PED.x2 - 20, LEDGE_Y - 6, { count: 9, color: 0xd9c9a8 })
   },
 
   // Svinget tog slut utan full rivning -> tillbaka till sikte + ev. hjälp.
@@ -1216,7 +1262,7 @@ export default {
 
   // Spel-specifik finish (gate-punkt 7): rivningen är KLAR. Dammoln rullar längs den
   // tomma avsatsen där muren stod, en flagga reser sig på rivningsplatsen till en stämd
-  // durtreklang, och först därefter kommer jublet. Ingen anonym konfetti först.
+  // durtreklang och arbetaren jublar. (Det generiska regnet kommer från complete().)
   _demolitionFinish(ctx) {
     const later = (t, fn) => {
       const c = gsap.delayedCall(t, () => {
@@ -1241,14 +1287,12 @@ export default {
       chord.forEach((freq, i) => later(i * 0.13, () => ctx.services.audio.tone({ freq, dur: 0.42, type: 'sine', vol: 0.24 })))
     })
 
-    // 3. Arbetaren jublar vid sin färdiga rivningsplats, sedan flyger jublet upp.
+    // 3. Arbetaren jublar vid sin färdiga rivningsplats. Vinstljud + konfettiregn kommer
+    //    från progress.complete() i _win — en egen kopia 1,05 s senare svaldes ändå av
+    //    värdets 1,5 s-spärr och var alltså död kod.
     later(0.65, () => {
       this._workerCheer(ctx, true)
       burst(ctx.fxLayer, TOWER_X, LEDGE_Y - 90, { count: 10 })
-    })
-    later(1.05, () => {
-      ctx.services.audio.sfx('celebrate')
-      bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     })
   },
 
@@ -1319,7 +1363,12 @@ export default {
 
     this._reloadCall = gsap.delayedCall(2.3, () => {
       if (!this._alive) return
-      ctx.services.voice.say('Ett större torn!')
+      // Nya tornet kommer genast; orden köar bakom "Hurra! Du knuffade ner alla klossar!"
+      // (3,75 s), som en fast 2,3 s kapade mitt i meningen.
+      const niva = this._level
+      ctx.narTyst(() => {
+        if (this._alive && this._level === niva) ctx.services.voice.say('Ett större torn!')
+      })
       this._loadLevel(ctx, this._level)
     })
   },

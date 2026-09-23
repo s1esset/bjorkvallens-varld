@@ -75,6 +75,8 @@ const MOBEL_LJUD = {
   klocka: { sfx: 'tap', ton: [1046, 990], dur: 0.22, typ: 'sine' },     // urverket tickar till
   matta: { sfx: 'soft', ton: [520, 380], dur: 0.3, typ: 'sawtooth' },   // prassel i trasväven
   kartong: { sfx: 'soft', ton: [280, 220], dur: 0.26, typ: 'sawtooth' },
+  lampa: { sfx: 'tap', ton: [1567.98, 1396.91], dur: 0.16, typ: 'sine' }, // skärmen klirrar (glas: högt, rent, G6→F6)
+  kruka: { sfx: 'soft', ton: [698.46, 523.25], dur: 0.28, typ: 'sawtooth' }, // bladen prasslar (F5→C5)
 }
 
 // Rummet byter om sig mellan rundorna — och det ska HÖRAS, annars är det bara en möbel som
@@ -865,11 +867,11 @@ export default {
     this._busy = true
     this._idle = 0
     const a = this._ans
-    ctx.services.audio.sfx('celebrate')
 
-    // ⚠️ `progress.complete()` SÄGER SJÄLV EN REPLIK — och den kapar spelets egen.
-    //    Ordningen är därför complete() FÖRST, och spelets replik efter; `_narTyst` ställer
-    //    sig då i kö bakom PRAISE i stället för att bli överkörd av den.
+    // ⚠️ `progress.complete()` FIRAR SJÄLV — vinstljud, konfetti och en PRAISE-replik (som
+    //    utgår om narratorn redan talar, t.ex. "Titt ut! Där var han!"). Spelet spelar
+    //    därför inget eget vinstljud här. Ordningen är complete() FÖRST, och spelets replik
+    //    efter; `_narTyst` ställer sig då i kö bakom PRAISE i stället för att kapa den.
     ctx.progress.setLevel((ctx.progress.get().highestLevel || 0) + 1)
     ctx.progress.complete()
     this._sag(ctx, 'Du hittade pappa fem gånger! Vilken mästare du är.')

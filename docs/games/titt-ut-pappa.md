@@ -232,14 +232,22 @@ de kommer också ut vid SIDAN och i möbelns egen skala.
   någon annanstans. **Ägarens öga avgör** — det är en smakfråga, inte ett fel.
 
 **Kärnloop**
-- **[Quick] Taklampan och krukan skvallrar inte med ögonen.** Kiken är en tween UPPÅT förbi
-  möbelns kant, och de två har ingen kant att titta över: lampans skydd sitter *ovanför*
-  ansiktet (en nedåtkik exponerar hela nedre 2/3 av ansiktet, inte ett par ögon), och krukan
-  visar honom redan till 3/4. Båda skvallrar med bukt, skakning och fniss i stället. Uppmätt
-  och medvetet undantagna i `_gommaprobe.mjs` — men en egen skvallergest för dem (skärmen som
-  gungar, bladen som prasslar) vore rikare.
+- ✅ ~~**[Quick] Taklampan och krukan skvallrar inte med ögonen.**~~ Klar 2026-09-23 (v1.251.0)
+  som LJUD: i `MOBEL_LJUD` (`index.js:78–79`) klirrar lampskärmen (glas, G6→F6) och krukans
+  blad prasslar (F5→C5) ovanpå bukt, skakning och fniss — samma ledtråd för örat som dörrens
+  gnissel. Kiken förblir undantagen (ingen kant att titta över, uppmätt i `_gommaprobe.mjs`).
+  Kvar som egen idé: en SYNLIG gest för dem (skärmen som gungar, bladen som vajar) via
+  möbelns `gnissla()` i `rummet.js`.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_final` spelade eget vinstljud i
+  samma tick som `complete()` — struket; ordningen (complete först, spelets repliker köade
+  bakom via `_narTyst`) står kvar. A-raden **skvaller för lampa och kruka** byggd som ljud
+  (klirr + prassel). ⚠️ Känd, ej åtgärdad: finalens "Titta så många kompisar du hittade!"
+  (köad 3,4 s) och nya rummets "Nu ser rummet nytt ut. Var är pappa?" (6,2 s) väntar båda på
+  finalrepliken (5,54 s) och kan byta ordning. Flyttas inte till FIFO-kön `ctx.narTyst`,
+  eftersom spelets `_narTyst` också väntar in pappas eget klipp (`_pappaTill`).
 
 `2026-08-15 · doc skriven, spec flyttad hit ur IDEER post 2 · (bygget följer)`
 

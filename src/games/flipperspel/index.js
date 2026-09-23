@@ -28,9 +28,8 @@ import { createScene, lerpColor } from '../../lib/scene.js'
 import { makeBoll } from '../../lib/foremal.js'
 import { pop, bounceIn, breathe, sparkle, puff, floatText, ripple, shake, burst, kvittera } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { COLORS, PLAYFUL, FONT, PRAISE, tint, shade } from '../../lib/theme.js'
+import { COLORS, PLAYFUL, FONT, tint, shade } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
-import { randomFrom } from '../../lib/swedish.js'
 import { slumpaUt, hinderUrFysik, hittaFickor, klarhetsfalt } from '../../lib/utplacering.js'
 
 // ---- Bordets geometri (designrymd 1280×720) --------------------------------
@@ -1213,9 +1212,7 @@ export default {
   _celebrate(ctx) {
     if (this._resolving) return
     this._resolving = true
-    ctx.services.audio.sfx('celebrate')
-    ctx.services.voice.say(randomFrom(PRAISE))
-    ctx.progress.complete()
+    ctx.progress.complete() // vinstljud + beröm + konfettiregn (delat) + stjärna
 
     // Maskinen går igång: snurran rusar, fenornas gummiband blixtrar.
     if (this._spinner) {
@@ -1264,8 +1261,14 @@ export default {
           if (!this._alive) return
           // Bobo fångar kulan och kastar konfetti — firandet kommer FRÅN honom.
           this._boboReact(true)
-          ctx.services.audio.sfx('celebrate')
-          ctx.services.audio.tone({ freq: 1046.5, dur: 0.3, type: 'sine', vol: 0.26, slideTo: 1568 })
+          // Fångsten kommer 0,9 s efter complete(), inom vinstljudets 1,5 s-golv — ett
+          // andra vinstljud hörs inte. Bobo får i stället en egen kort fanfar:
+          // C-durtreklang uppåt (bordets pentaskala) som landar i den stigande glansen.
+          const au = ctx.services.audio
+          au.tone({ freq: 523.25, dur: 0.12, type: 'triangle', vol: 0.22 })
+          au.tone({ freq: 659.25, dur: 0.12, type: 'triangle', vol: 0.22, delay: 0.07 })
+          au.tone({ freq: 783.99, dur: 0.14, type: 'triangle', vol: 0.22, delay: 0.14 })
+          au.tone({ freq: 1046.5, dur: 0.3, type: 'sine', vol: 0.26, slideTo: 1568, delay: 0.21 })
           burst(ctx.fxLayer, MID, this._boboBaseY + 20, { count: 22, power: 1.35 })
           puff(ctx.fxLayer, MID, this._boboBaseY + 30, { count: 10 })
           ripple(ctx.fxLayer, MID, this._boboBaseY + 20, { color: COLORS.yellow, maxR: 160, alpha: 0.55, duration: 0.6 })

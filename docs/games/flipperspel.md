@@ -110,7 +110,9 @@ passiva en gång tända**.
 ### Juice
 - **[Quick] Riktiga flipper-ljud** ([[real-audio-sfx]]): en mekanisk paddel-"klack", ett
   fett bumper-"donk", ett klingande mål-pling. Behåll den stigande skalan men på riktiga
-  klipp.
+  klipp. ⛔ Delvis (prövat 2026-09-23): paddeln spelar redan `thwip`-klippet + en syntetisk klack
+  och kicken `boing`-klippet (index.js:895, :1051); bumper-donken och klacken kräver nya
+  SFX-klipp (MOSS nere).
 - ✅ **[Quick] Bumper-träff-skak + ljus-blixt.** En kort skärm-mikroskak och en
   expanderande ljusring vid varje tändning gör studsarna saftigare.
 - **[Medium] Synlig serve-ränna.** Animera in nya kulan från en liten ränna upptill (skjuts
@@ -130,10 +132,17 @@ passiva en gång tända**.
 ### Ljud
 - **[Quick] Lugn arkad-ambient-loop** i bakgrunden + ett tydligare ljud-/visuellt svar på
   lutnings-knappen (t.ex. hela bordet "andas" långsammare i Lugnt läge) så dess effekt blir
-  begriplig.
+  begriplig. ⛔ Slingan kräver ett nytt klipp (MOSS nere). Knappens svar finns delvis sedan
+  tidigare (färg + ritad ikon byter, replik, ripple — `_toggleTilt` :900-912); "bordet andas"
+  är inte byggt.
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_celebrate` spelade eget vinstljud +
+  PRAISE i samma tick som `complete()` — strukna (värdet firar). Bobos fångst 0,9 s senare
+  spelade ett ANDRA vinstljud som värdets 1,5 s-golv nu sväljer; det är ersatt med en egen kort
+  C-durtreklang (523/659/784 Hz) som leder in i den befintliga glidtonen. Inga A-snabbvinster
+  var kartlagda för spelet; §4:s öppna [Quick] är prövade — två blockerade av SFX-pipelinen.
 - 2026-08-11 🔔 **Dynorna studsar på riktigt — men bara ihop med en svagare knuff** (v1.142.0).
   Ägaren gav klartecken ("kör vi på det som du rekommenderar"). Rekommendationen blev **inte**
   den uppenbara, och det är hela posten.

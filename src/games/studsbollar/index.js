@@ -835,6 +835,8 @@ export default {
     if (!this._alive) return
     const dt = t.deltaMS / 1000
     this._phys.update(t.deltaMS)
+    // Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
 
     // Levande gropbollar: de liggande målbollarna rullar sakta fram och tillbaka i

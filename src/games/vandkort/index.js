@@ -47,6 +47,19 @@ const SETS = [
 // ASCII-nycklar (asciiFold) matchar public/audio/sfx/djur_*.mp3.
 const ANIMAL_SOUND = { '🐶': 'djur_hund', '🐱': 'djur_katt', '🐮': 'djur_ko', '🐷': 'djur_gris', '🐸': 'djur_groda' }
 const ANIMAL_NAME = { '🦊': 'Räv', '🐰': 'Kanin', '🐻': 'Björn', '🦁': 'Lejon', '🐵': 'Apa', '🐼': 'Panda', '🐧': 'Pingvin' }
+// TEMA-AVSLÖJANDE: när BARNET vänder upp ett kort (inte under tittfasen) klingar en kort
+// ton som hör till temat, ovanpå vänd-ljudet och i samma ögonblick som bilden syns (0,13 s
+// in i vändningen). Stämt i C-dur, lågt i volym — ett tema-färgat klick, ingen fanfar.
+const TEMA_TON = {
+  animal: [{ freq: 392, slideTo: 523.25, dur: 0.14, type: 'triangle', vol: 0.13 }], // "boop" uppåt
+  fruit: [{ freq: 783.99, dur: 0.08, type: 'sine', vol: 0.15 }], // krispigt "plopp"
+  vehicle: [
+    { freq: 523.25, dur: 0.07, type: 'triangle', vol: 0.12 },
+    { freq: 523.25, dur: 0.09, type: 'triangle', vol: 0.12, delay: 0.1 },
+  ], // "tut-tut"
+  figure: [{ freq: 1046.5, dur: 0.12, type: 'sine', vol: 0.11 }], // glitter-pling
+  sea: [{ freq: 440, slideTo: 880, dur: 0.12, type: 'sine', vol: 0.13 }], // bubbla
+}
 const SEA_NAME = { '🐠': 'Fisk', '🐙': 'Bläckfisk', '🐳': 'Val', '🦀': 'Krabba', '🐬': 'Delfin', '🐡': 'Blåsfisk', '🐢': 'Sköldpadda', '🦈': 'Haj', '🦐': 'Räka', '🐚': 'Snäcka', '🦑': 'Bläckfisk', '🪼': 'Manet' }
 
 export default {
@@ -64,6 +77,8 @@ export default {
     this._started = false
     this._level = clampLevel(ctx.progress.get().highestLevel | 0)
     this._setIdx = (Math.random() * SETS.length) | 0
+    this._scen = null
+    this._tittar = false
     this._root = new Container()
     ctx.stage.addChild(this._root)
     this._build(ctx, false)
@@ -88,6 +103,12 @@ export default {
       c._goldTween?.kill() // tweenar ett internt objekt — killTweensOf(c) når den inte
       c._goldTween = null
     })
+    // Mjuk tema-övertoning: förra brädets SCEN ligger kvar ovanpå den nya och tonar ut
+    // (0,5 s) i stället för att bytas i ett hårt klipp. Bara scenen — korten rivs genast,
+    // och scenen har ingen träffyta (createScene sätter eventMode 'none').
+    const gammal = announce && this._scen && !this._scen.destroyed ? this._scen : null
+    if (gammal) this._root.removeChild(gammal)
+    this._scenFade?.kill()
     this._root.removeChildren().forEach((o) => o.destroy({ children: true }))
 
     this._cards = []
@@ -95,13 +116,26 @@ export default {
     this._busy = false
     this._matched = 0
     this._cleared = false
+    this._tittar = false
     this._idle = 0
 
     const set = SETS[this._setIdx]
     this._set = set // aktivt tema (används av tema-belöningen när ett par hittas)
 
     // Bakgrundsscen (varierar med temat).
-    this._root.addChild(createScene(set.scene))
+    this._scen = createScene(set.scene)
+    this._root.addChild(this._scen)
+    if (gammal) {
+      this._root.addChild(gammal) // ovanpå den nya scenen, under kortlagret nedan
+      this._scenFade = gsap.to(gammal, {
+        alpha: 0,
+        duration: 0.5,
+        ease: 'sine.inOut',
+        onComplete: () => {
+          if (!gammal.destroyed) gammal.destroy({ children: true })
+        },
+      })
+    }
     // Kort-lager + ett fx-lager ovanpå för ringar/gnistor/text (städas med roten).
     this._layer = new Container()
     this._fx = new Container()
@@ -163,7 +197,16 @@ export default {
     })
 
     this._cue = `Hitta ${set.name} som hör ihop!`
-    if (announce && this._started) ctx.services.voice.say(this._cue)
+    // Nästa bräde byggs 1,25 s efter complete() — på fast tid kapade instruktionen
+    // berömmet (1,0–2,3 s). Korten delas ut genast, bara orden köar; är brädet redan
+    // tömt eller utbytt när det blir tyst tappas den.
+    if (announce && this._started) {
+      const cue = this._cue
+      const cards = this._cards
+      ctx.narTyst(() => {
+        if (this._alive && this._cards === cards && !this._cleared) ctx.services.voice.say(cue)
+      })
+    }
 
     // Rotera temat för NÄSTA runda (garanterar variation).
     this._setIdx = (this._setIdx + 1) % SETS.length
@@ -175,21 +218,34 @@ export default {
 
   // Kort förhandstitt: efter att korten delats ut vänds alla upp ~1,5s, sedan ner.
   // Blockerar tryck under tiden (inget negativt — bara "titta"). Exit-/rebuild-säkert.
+  //
+  // Replikerna KÖAR (ctx.narTyst, FIFO) i stället för att ligga på fasta tider: annars
+  // kapade "Titta noga på korten!" rundans instruktion 1,1 s in, och "Kom ihåg!" kapade i
+  // sin tur den. "Titta noga" hör till bilden — hinner korten vändas ner innan det blir
+  // tyst tappas den; "Kom ihåg!" gäller hela brädet och sägs när rösten är fri.
   _peekBoard(ctx) {
     this._busy = true
-    gsap.delayedCall(1.1, () => {
-      if (!this._alive || this._cleared) return
+    const cards = this._cards
+    ctx.later(1.1, () => {
+      if (!this._alive || this._cleared || this._cards !== cards) return
+      this._tittar = true
       this._cards?.forEach((c) => this._showFace(c, true))
-      ctx.services.voice.say('Titta noga på korten!')
-      gsap.delayedCall(1.5, () => {
-        if (!this._alive || this._cleared) return
+      ctx.narTyst(() => {
+        if (this._alive && this._tittar && this._cards === cards) ctx.services.voice.say('Titta noga på korten!')
+      })
+      ctx.later(1.5, () => {
+        if (!this._alive || this._cleared || this._cards !== cards) return
+        this._tittar = false
         this._cards?.forEach((c) => {
           if (!c.destroyed && !c._done) this._showFace(c, false)
         })
         this._busy = false
         this._idle = 0
-        gsap.delayedCall(0.35, () => {
-          if (this._alive && !this._cleared) ctx.services.voice.say('Kom ihåg!')
+        ctx.later(0.35, () => {
+          if (!this._alive || this._cleared || this._cards !== cards) return
+          ctx.narTyst(() => {
+            if (this._alive && !this._cleared && this._cards === cards) ctx.services.voice.say('Kom ihåg!')
+          })
         })
       })
     })
@@ -287,6 +343,7 @@ export default {
     ripple(this._fx, card.x, card.y, { color: 0xffffff, maxR: card._w * 0.75, width: 5, alpha: 0.55 })
     ctx.services.audio.sfx('flip')
     this._showFace(card, true)
+    for (const t of TEMA_TON[this._set?.kind] || []) ctx.services.audio.tone({ ...t, delay: 0.13 + (t.delay || 0) })
 
     if (!this._first) {
       this._first = card
@@ -300,7 +357,7 @@ export default {
 
     if (a._symbol === b._symbol) {
       // PAR: kort paus så barnet hinner se båda, sedan firande.
-      gsap.delayedCall(0.4, () => {
+      ctx.later(0.4, () => {
         if (!this._alive || a.destroyed || b.destroyed) return
         a._done = b._done = true
         this._matched++
@@ -319,7 +376,7 @@ export default {
       })
     } else {
       // INGET par: vänlig vingel och mjuk ton, vänd sedan tillbaka. Ingen bestraffning.
-      gsap.delayedCall(0.85, () => {
+      ctx.later(0.85, () => {
         if (!this._alive || a.destroyed || b.destroyed) return
         ctx.services.audio.sfx('soft')
         // Saftigare (men vänlig) miss: korten "skakar nej" mot varandra + vinglar,
@@ -377,7 +434,7 @@ export default {
     }
     const au = ctx.services.audio
     ;[880, 1108, 1320].forEach((f, i) => {
-      gsap.delayedCall(i * 0.07, () => { if (this._alive) au.tone({ freq: f, dur: 0.3, type: 'triangle', vol: 0.22 }) })
+      ctx.later(i * 0.07, () => { if (this._alive) au.tone({ freq: f, dur: 0.3, type: 'triangle', vol: 0.22 }) })
     })
     ctx.services.voice.say('Ett gyllene kort! Så fint!')
   },
@@ -417,7 +474,7 @@ export default {
       if (c.destroyed) return
       gsap.to(c, { y: c.y - c._h * 0.16, duration: 0.16, yoyo: true, repeat: 1, ease: 'power2.out' })
     })
-    gsap.delayedCall(0.22, () => {
+    ctx.later(0.22, () => {
       if (!this._alive || a.destroyed) return
       const audio = ctx.services.audio
       const voice = ctx.services.voice
@@ -453,19 +510,21 @@ export default {
 
     // Liten gnist-svep över korten innan firandet (extra juice, ingen konfetti-dubbel).
     this._cards?.forEach((c, i) => {
-      gsap.delayedCall(0.05 * i, () => {
+      ctx.later(0.05 * i, () => {
         if (!this._alive || c.destroyed) return
         sparkle(this._fx, c.x, c.y, { count: 5 })
       })
     })
 
-    gsap.delayedCall(0.45, () => {
+    // ctx.later, inte gsap.delayedCall: modulen är en singleton, och en delayedCall från en
+    // omgång man lämnat hade kört complete() och byggt om brädet mitt i nästa omgång.
+    ctx.later(0.45, () => {
       if (!this._alive) return
       ctx.progress.complete()
       shake(this._root, { intensity: 5, duration: 0.5 })
     })
 
-    gsap.delayedCall(1.7, () => {
+    ctx.later(1.7, () => {
       if (!this._alive) return
       this._build(ctx, true)
     })
@@ -518,6 +577,9 @@ export default {
     })
     gsap.killTweensOf(this._root)
     gsap.killTweensOf(this._layer)
+    this._scenFade?.kill() // övertoningen skriver alfa på en scen som rivs med roten nedan
+    this._scenFade = null
+    this._scen = null
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })
     this._root = null

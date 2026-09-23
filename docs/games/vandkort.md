@@ -47,27 +47,29 @@ progression. Strikt felfritt — fel par vänds vänligt tillbaka, ingen timer, 
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Paret *gör* något — temat får mening.** När ett par hittas: djuret spelar sitt
-  riktiga läte och studsar fram, frukten blir uppäten med "mums", fordonet kör iväg, havsdjuret
-  simmar undan. Det förvandlar "två bilder är lika" till en liten belöningsscen och knyter an
-  till det pedagogiska (djurnamn/-ljud) utan att bryta no-fail.
+- ✅ ~~**[Medium] Paret *gör* något — temat får mening.**~~ Redan byggd 2026-07-02 (`index.js:468`,
+  `_rewardPair`) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Quick] "Titta först"-peek för de yngsta** (nivå 0–1): visa alla kort uppvända i ~1,5s, vänd
-  ner mjukt, säg "kom ihåg!". Sänker tröskeln för 2-åringen utan att bli svårare.
+- ✅ ~~**[Quick] "Titta först"-peek för de yngsta** (nivå 0–1)~~ Redan byggd 2026-07-02
+  (`index.js:226`, `_peekBoard`) — uppdagat 2026-09-23. Replikerna köar sedan 2026-09-23 (§5).
 - ✅ ~~**[Quick] Gyllene kort.**~~ Klar 2026-08-12 (v1.170.0) — men som ett ENSAMT kort, inte ett
   gyllene par. Se §5 för varför den skillnaden är hela poängen.
 
 ### Juice
-- **[Quick] Stigande tonhöjd ju fler par** (kombo-pling som klättrar mot tomt bräde) + tema-
-  specifikt avslöjande-ljud i `_showFace`.
+- ✅ ~~**[Quick] Stigande tonhöjd ju fler par** + tema-specifikt avslöjande-ljud~~ Kombo-plinget
+  var redan byggt 2026-07-02 (`index.js:365`); temaljudet Klar 2026-09-23 (v1.251.0): en kort
+  stämd ton per tema (`TEMA_TON` — boop, plopp, tut-tut, pling, bubbla) när BARNET vänder ett
+  kort, aldrig under tittfasen.
 - ✅ ~~**[Quick] Saftigare miss-feedback:**~~ REDAN BYGGD (kontrollerad mot koden 2026-08-12,
   `index.js:254–260`): korten skakar mot varandra + `wiggle` innan de vänds tillbaka.
 
 ### Progression
 - **[Medium] Par-galleri / bilderbok.** Varje funnet par läggs i en liten samling som fylls över
   tur — något att återkomma till och bläddra (talar djurets namn vid tryck). Ger spelet ett minne.
-- **[Quick] Mjuk scen-cross-fade** vid temabyte istället för hård ombyggnad.
+- ✅ ~~**[Quick] Mjuk scen-cross-fade** vid temabyte istället för hård ombyggnad.~~ Klar 2026-09-23
+  (v1.251.0): förra brädets scen ligger kvar ovanpå den nya och tonar ut på 0,5 s; korten byts
+  som förut. Tweenen dödas i `destroy`.
 
 ### Karaktär & berättelse
 - **[Deep] Bobo som medspelare.** En liten figur i hörnet som "tittar bort" medan jag väljer,
@@ -77,8 +79,22 @@ progression. Strikt felfritt — fel par vänds vänligt tillbaka, ingen timer, 
 ### Ljud
 - **[Quick] Riktiga djur-/temaljud via `audio.sample(...)`** (knyt an till [[real-audio-sfx]]) —
   genomgående [Quick]-vinst som ensam lyfter hela djur-/havstemat.
+  *Not 2026-09-23:* byggd där klipp finns (`index.js:48`, `ANIMAL_SOUND`: hund, katt, ko, gris,
+  groda); räv/kanin/björn/lejon/apa/panda/pingvin och havsdjuren saknar klipp och talas —
+  blockerad på SFX-pipelinen (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): temaljud när barnet vänder ett kort
+  och mjuk scen-övertoning vid temabyte (se §4). Dubbelfirandet: nästa rundas instruktion kom
+  1,25 s efter `complete()` och kapade berömmet; den köas nu i `ctx.narTyst`. Tittfasens "Titta
+  noga på korten!" och "Kom ihåg!" låg på fasta tider och kapade instruktionen (även vid varje
+  start på nivå ≤1); nu köar de också — "Titta noga" tappas om korten hunnit vändas ner, så
+  instruktionen alltid hörs hel. **Exitsäkerhet:** alla `gsap.delayedCall` → `ctx.later` —
+  en kvarlämnad delayedCall hade kunnat köra `complete()` och bygga om brädet mitt i nästa
+  omgång (modulen är en singleton). Omätt i webbläsare (koordinatorn testar).
+  Kvar: guldparets "Ett gyllene kort! Så fint!" kapas 0,22 s in av parets egen tema-replik
+  ("Mums!"/djurnamnet) — orört.
 
 - 2026-08-12 ✨ **Gyllene kort — som ett ENSAMT kort, inte ett par** (v1.170.0, N10 pass 7).
   Punkten kom inte ur docen utan ur en mätning: ny sond `scripts/_stillaprobe.mjs` körde hela

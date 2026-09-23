@@ -987,6 +987,8 @@ export default {
 
     // Mjuk om-cue vid inaktivitet — aldrig tjat, aldrig tidspress.
     this._idle += dt
+    // V21: tomgången räknas från TYSTNAD — påminnelsen får aldrig kapa en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     if (this._idle > 7 && this._phase === 'play') {
       this._idle = 0
       ctx.services.voice.say(this._ruleLine)

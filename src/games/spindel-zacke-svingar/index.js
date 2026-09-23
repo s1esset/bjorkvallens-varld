@@ -235,7 +235,9 @@ export default {
     this._idle = 0
     this._didCue = false
     // Mini-berättelse: kattungen ropar först, sedan instruktionen (say avbryter
-    // alltid pågående tal — därför i följd via ctx.later, inte samtidigt).
+    // alltid pågående tal — därför i följd, inte samtidigt). V24: den fasta 2,3 s var
+    // kortare än klippet (3,3 s) och kapade "på taket!" varje start — instruktionen väntar
+    // nu också in rösten, med 2,3 s kvar som minsta paus.
     ctx.services.voice.say('Kattungen sitter fast på taket!')
     ctx.later(0.4, () => {
       if (this._kitten && !this._kitten.destroyed) {
@@ -243,7 +245,10 @@ export default {
         if (!ctx.services.audio.sample('djur_katt')) ctx.services.audio.sfx('pop')
       }
     })
-    ctx.later(2.3, () => ctx.services.voice.say(this.voiceIntro))
+    const niva = this._level
+    ctx.later(2.3, () => ctx.narTyst(() => {
+      if (this._alive && this._level === niva) ctx.services.voice.say(this.voiceIntro)
+    }))
   },
 
   // ------------------------------------------------------------------ nivåer

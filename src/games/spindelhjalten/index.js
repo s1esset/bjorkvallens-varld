@@ -20,7 +20,7 @@ import { createScene } from '../../lib/scene.js'
 import { makeStjarna } from '../../lib/foremal.js'
 import { sphereFill } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
-import { bigCelebration, puff, sparkle, burst, floatText, pop, wiggle } from '../../lib/feedback.js'
+import { puff, sparkle, burst, floatText, pop, wiggle, ripple } from '../../lib/feedback.js'
 import { FONT, COLORS } from '../../lib/theme.js'
 
 // --- Layout (designkoordinater 1280×720) ---
@@ -42,6 +42,8 @@ const MAX_FLIGHT = 5 // s i luften innan han zippar hem (no-fail)
 const IDLE_DELAY = 6 // s utan handling innan röst-recue
 const OFFER_PATIENCE = 12 // s med Skjut!-erbjudandet uppe innan no-fail-glidet tar vid
 const BOING_THROTTLE = 0.12
+// Bandet sjunger när det spänns: ett steg i C-dur-pentatoniken (G4 … G5) per kraftsjättedel.
+const SPANN_TONER = [392, 440, 523.25, 587.33, 659.25, 783.99]
 
 // Insamlingsradier (generösa träffytor — barnvänligt).
 const STAR_HIT = HERO_R + 34
@@ -160,7 +162,7 @@ export default {
       },
       onAim: (v) => {
         this._idle = 0
-        this._tension(v)
+        this._tension(v, ctx)
       },
       onLaunch: (v) => {
         this._assisting = false
@@ -212,19 +214,35 @@ export default {
     const x0 = 520
     const x1 = clamp(900 + level * 50, 900, 1170)
     const yHi = clamp(360 - level * 30, 150, 360)
+    // Ibland (~30 %, när det finns minst tre stjärnor — två är ingen form) ligger de i en
+    // BÅGE, en ∩ som liknar en kastbana: ett enda välsiktat skott kan följa den och ta flera
+    // på en gång. Belönar skicklighet utan att kräva den — varje stjärna går att ta en och en.
+    const bage = starCount >= 3 && Math.random() < 0.3
+    const bx = rnd(820, 920)
+    const halv = 150 + starCount * 12
+    const topp = clamp(yHi, 170, 300)
     for (let i = 0; i < starCount; i++) {
       const f = starCount === 1 ? 0.5 : i / (starCount - 1)
-      stars.push({
-        x: clamp(x0 + (x1 - x0) * f + rnd(-30, 30), 480, 1180),
-        y: clamp(rnd(yHi, yHi + 170) - i * 8, 130, 460),
-        kind: 'star',
-        r: 30,
-      })
+      const u = 2 * f - 1
+      stars.push(
+        bage
+          ? { x: clamp(bx + u * halv, 480, 1180), y: clamp(topp + 120 * u * u, 130, 460), kind: 'star', r: 30 }
+          : {
+              x: clamp(x0 + (x1 - x0) * f + rnd(-30, 30), 480, 1180),
+              y: clamp(rnd(yHi, yHi + 170) - i * 8, 130, 460),
+              kind: 'star',
+              r: 30,
+            },
+      )
     }
     // Kattunge på en ledge från nivå 2 (längst bort, högt upp).
     const kitten = level >= 2 ? { x: clamp(1080 + level * 8, 1080, 1190), y: clamp(220 - level * 12, 150, 220), kind: 'kitten', r: 40 } : null
     // Flytande studsknopp från nivå 1 (att studsa runt).
-    const bumper = level >= 1 ? { x: clamp(620 + rnd(-40, 60), 560, 760), y: clamp(rnd(360, 440), 340, 460), r: clamp(46 + level * 4, 46, 78) } : null
+    const mkBumper = () => ({ x: clamp(620 + rnd(-40, 60), 560, 760), y: clamp(rnd(360, 440), 340, 460), r: clamp(46 + level * 4, 46, 78) })
+    let bumper = level >= 1 ? mkBumper() : null
+    // Bågens vänstra ände kan nå knoppens hörn; en stjärna inne i knoppen går inte att ta
+    // utan att studsa bort. Ett omkast, som för molnen nedan.
+    if (bumper && stars.some((s) => Math.hypot(bumper.x - s.x, bumper.y - s.y) < bumper.r + 44)) bumper = mkBumper()
     // 1–2 passiva studsmoln som fyller den tomma luften på vägen till stjärnorna
     // (fler "boing", mer bana). Slumpad placering + antal ger mjuk variation per nivå.
     const clouds = []
@@ -254,6 +272,7 @@ export default {
     this._clearLevel()
     this._clearOffer()
 
+    this._bandVib?.kill()
     this._mode = 'aim'
     this._won = false
     this._misses = 0
@@ -340,7 +359,11 @@ export default {
     this._combo = 0 // nytt skott -> kombo-räknaren nollas
     this._trailT = 0
     this._launcher.setEnabled(false)
-    this._clearBand()
+    this._spannSteg = -1
+    // "TJONG": bandet släpper — en oktavslinga uppåt (G3 → G4) och en kort vibration i
+    // själva bandet i stället för att det bara försvinner.
+    ctx.services.audio.tone({ freq: 196, slideTo: 392, dur: 0.16, type: 'triangle', vol: 0.22 })
+    this._vibreraBand()
 
     // Återställ hjälten exakt i slangbellan (drag-spänningen kan ha flyttat honom).
     gsap.killTweensOf(this._hero)
@@ -813,11 +836,11 @@ export default {
       this._heroBody = null
     }
 
+    // Vinstljud och konfettiregn spelar complete() själv (nedan); repliken sägs FÖRE så
+    // den ersätter berömmet i stället för att kapas av det.
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say('Hurra! Spindelhjälten tog alla stjärnor!')
 
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     sparkle(ctx.fxLayer, this._hero.x, this._hero.y, { count: 10 })
     if (this._hero && !this._hero.destroyed) {
       gsap.killTweensOf(this._hero.scale)
@@ -908,7 +931,12 @@ export default {
           puff(ctx.fxLayer, this._hero.x, this._hero.y, { count: 5 })
           if (other === 'bumper') {
             const bm = this._bumpers.find((b) => b.body === pair.bodyA || b.body === pair.bodyB)
-            if (bm && bm.view && !bm.view.destroyed) pop(bm.view)
+            if (bm && bm.view && !bm.view.destroyed) {
+              pop(bm.view)
+              // En ring som går UT från knoppen och några studs-stjärnor: knoppen svarar.
+              ripple(ctx.fxLayer, bm.x, bm.y, { color: 0xffffff, maxR: bm.r + 46, width: 5, alpha: 0.6 })
+              sparkle(ctx.fxLayer, bm.x, bm.y - bm.r * 0.6, { count: 6 })
+            }
           }
         }
       }
@@ -917,13 +945,44 @@ export default {
 
   // ---- Slangbella-band + drag-spänning -----------------------------------
 
-  _tension(v) {
+  _tension(v, ctx) {
+    this._bandVib?.kill()
     const mag = Math.hypot(v.vx, v.vy) || 1
     const pull = Math.min(mag * 2.4, 66)
     const hx = SLING.x - (v.vx / mag) * pull
     const hy = SLING.y - (v.vy / mag) * pull
     if (this._hero && !this._hero.destroyed) this._hero.position.set(hx, hy)
     this._drawBand(hx, hy)
+    // Spänn-tonen stiger med kraften (launcherns 9…28). Den spelar bara när STEGET byts,
+    // och högst var 70:e ms — ett finger som står still, eller darrar på en gräns, är tyst.
+    const f = Math.max(0, Math.min(0.999, (mag - 9) / 19))
+    const steg = Math.floor(f * SPANN_TONER.length)
+    const nu = performance.now()
+    if (ctx && steg !== this._spannSteg && nu - (this._spannT || 0) > 70) {
+      this._spannSteg = steg
+      this._spannT = nu
+      ctx.services.audio.tone({ freq: SPANN_TONER[steg], dur: 0.07, type: 'triangle', vol: 0.08 })
+    }
+  },
+
+  // Bandet dallrar efter släppet: mittpunkten svänger kring vila mellan klykorna och
+  // dör ut på 0,35 s. Proxy-tween → skriver bara via _drawBand, som vaktar en riven Graphics.
+  _vibreraBand() {
+    this._bandVib?.kill()
+    const py = SLING.y - PRONG.dy
+    const st = { t: 0 }
+    this._bandVib = gsap.to(st, {
+      t: 1,
+      duration: 0.35,
+      ease: 'none',
+      onUpdate: () => {
+        if (!this._alive) return
+        this._drawBand(SLING.x, py + 30 * (1 - st.t) * Math.cos(st.t * Math.PI * 7))
+      },
+      onComplete: () => {
+        if (this._alive) this._clearBand()
+      },
+    })
   },
 
   _drawBand(hx, hy) {
@@ -1079,6 +1138,7 @@ export default {
     this._glideTween?.kill()
     this._kittenTween?.kill()
     this._hangTl?.kill()
+    this._bandVib?.kill()
 
     for (const t of this._targets) {
       if (t.view && !t.view.destroyed) {

@@ -87,16 +87,19 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   med ängens dekor-moln, så ingen kunde veta vilka moln som studsade — jag läste dem själv som
   bakgrund i skärmdumpen. Åtgärdat den här omgången: krans av blå studsprickar + två uppåtpilar,
   och stjärnor spawnar inte längre ovanpå ett moln (`_layoutFor` kastar om en gång).
-- **[Quick] Stjärn-kluster i former.** Lägg ibland stjärnorna i en båge/hjärta/trappa så ett
-  enda välsiktat skott kan ta flera — belönar skicklighet utan att kräva den.
+- ✅ ~~**[Quick] Stjärn-kluster i former.**~~ Klar 2026-09-23 (v1.251.0) som BÅGE: med minst tre
+  stjärnor ligger de ~30 % av gångerna i en ∩ som liknar en kastbana (ett välsiktat skott tar
+  flera). Studsknoppen kastas om en gång om en stjärna hamnar i den. Hjärta/trappa inte byggda.
 - **[Medium] Sällsynt regnbågs-stjärna** som zippar hjälten vidare i en gnistsvans (kedje-tag).
 
 ### Juice
-- **[Quick] Kombo-pling som klättrar** när flera stjärnor tas i ett skott (stigande tonhöjd),
-  + en liten gnistsvans efter hjälten i luften så banan han ritar syns.
-- **[Quick] Band-spänn-feedback.** Stigande "tjiing" medan man drar bakåt (tonhöjd ∝ kraft);
-  en fet "TJONG" + bandvibration vid släpp.
-- **[Quick] Studsknopp reagerar mer** (gör redan `pop`): lägg en utåtgående ring + studs-stjärnor.
+- ✅ ~~**[Quick] Kombo-pling som klättrar** + en liten gnistsvans efter hjälten~~ Redan byggd
+  2026-07-01 (`index.js:473` kombo-ton, `:546` `_dropTrail`) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Band-spänn-feedback.**~~ Klar 2026-09-23 (v1.251.0): spänn-tonen tar ett steg i
+  C-dur-pentatoniken (G4…G5) per kraftsjättedel — bara när steget byts, högst var 70:e ms — och
+  släppet ger ett "tjong" (G3→G4) + ett band som dallrar ut på 0,35 s.
+- ✅ ~~**[Quick] Studsknopp reagerar mer** (gör redan `pop`): lägg en utåtgående ring + studs-stjärnor.~~
+  Klar 2026-09-23 (v1.251.0): `ripple` ut från knoppen + `sparkle` på toppen, gäller även studsmolnen.
 
 ### Progression
 - **[Medium] Stjärnhimmel som fylls.** Insamlade stjärnor flyger upp till en liten räknare/
@@ -109,11 +112,19 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   `index.js:689`.
 
 ### Ljud
-- **[Quick] Riktiga klipp** ([[real-audio-sfx]]): web-thwip, mjukt boing, kattens "mjau",
-  band-tjong. Idag allt syntat.
+- ✅ ~~**[Quick] Riktiga klipp** ([[real-audio-sfx]]): web-thwip, mjukt boing, kattens "mjau",
+  band-tjong.~~ Redan byggd — `thwip`, `boing` och `djur_katt` är riktiga klipp i SFX-manifestet
+  (`index.js:380`, `:928`, `:491`); tjonget är en stämd ton sedan 2026-09-23 — uppdagat 2026-09-23.
 - **[Quick] Lugn äng-ambient** (vind/fågel) + varierat vinst-sting.
+  *Not 2026-09-23:* vinst-stinget varieras redan app-brett (`AudioService._celebrate`); ambienten kvarstår.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): stjärnor i båge, bandspänn-toner +
+  tjong med dallrande band, och en studsknopp som svarar med ring + gnistor (se §4).
+  Dubbelfirandet: `_win` spelade själv `sfx('celebrate')` och `bigCelebration` i samma tick som
+  `complete()` — båda strukna; `sfx('correct')`, spelets egen replik (sagd före `complete()`)
+  och hängfinalen är kvar. Omätt i webbläsare (koordinatorn testar).
 
 - 2026-06-30: Doc skriven (granskad mot kalibrerings-noterna i koden + ARCHITECTURE physics-
   avsnittet). Inga kodändringar.

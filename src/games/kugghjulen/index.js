@@ -16,8 +16,8 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { Rep, ritaRep } from '../../lib/rep.js'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, puff, sparkle, burst, breathe, bigCelebration, floatText, ripple , kvittera} from '../../lib/feedback.js'
-import { COLORS, PRAISE } from '../../lib/theme.js'
+import { bounceIn, pop, puff, sparkle, burst, breathe, floatText, ripple , kvittera} from '../../lib/feedback.js'
+import { COLORS } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -1722,9 +1722,8 @@ export default {
       this._flag.y = FLAG_TOP_Y
       pop(this._flag, { scale: 1.3 })
     }
-    ctx.services.audio.sfx('celebrate')
+    // Vinstljud, beröm och konfettiregn kommer från complete() nedan — bara maskinens egna här.
     ctx.services.audio.sfx('correct')
-    ctx.services.voice.say(randomFrom(PRAISE))
 
     // Elvira firar och åker karusellen: byt till glad min och guppa runt på hjulet.
     this._setElvira('🥳')
@@ -1745,7 +1744,6 @@ export default {
       gsap.to(this._carousel, { rotation: this._carousel.rotation + Math.PI * 4, duration: 1.6, ease: 'power1.out' })
     }
 
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, this._T.x, 170)
     sparkle(ctx.fxLayer, this._T.x, FLAG_TOP_Y + 10, { count: 10 })
 

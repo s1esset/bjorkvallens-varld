@@ -70,6 +70,8 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   barnets. Skicklighet ska kännas, aldrig krävas.
 - **[Quick] Belöna långsam vevning vs snabb.** Låt vev-farten påverka karusellen/flaggan
   märkbart (snabbare veva → gladare karusell-musik/fart) så vevandet blir uttrycksfullt.
+  *Farthalvan finns redan: karusellen och flaggan följer målhjulets vinkel (:1632), så de går
+  exakt så fort barnet vevar. Kvar är musiken.*
 
 ### Variation & överraskning
 - ~~**[Deep] Special-hjul per nivå:** en **rem/kedja** som överbryggar ett gap mellan två
@@ -112,10 +114,14 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   driver — variera vad maskinen *gör*.
 
 ### Juice
-- **[Quick] Fira storleks-skillnaden.** När kedjan greppar, lägg en kort fart-streck eller
-  siffer-puff på det snabbaste lilla hjulet ("Vroom!") så pedagogiken blir synlig och rolig.
-- **[Quick] Greppa-juice.** Ett distinkt "klick-i-läge"-ryck + gnistra precis när två kuggar
-  möts (inte bara glöd), och ett mjukt ryck genom hela kedjan när vevningen startar.
+- ✅ ~~**[Quick] Fira storleks-skillnaden.** När kedjan greppar, lägg en kort fart-streck eller
+  siffer-puff på det snabbaste lilla hjulet ("Vroom!") så pedagogiken blir synlig och rolig.~~
+  Redan byggd (`_celebrateSpeed` :1340 — "Vroom!", gnistor och piggpuls på det snabbaste
+  hjulet) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Greppa-juice.** Ett distinkt "klick-i-läge"-ryck + gnistra precis när två kuggar
+  möts (inte bara glöd), och ett mjukt ryck genom hela kedjan när vevningen startar.~~ Redan
+  byggd (`_onChainGrips` :1299 — "klonk", och en glödpuls + gnistor som vandrar kedjan i
+  djupordning) — uppdagat 2026-09-23.
 
 ### Progression
 - **[Quick] Synlig maskin-bok/galleri** över byggda maskiner, eller att verkstaden fylls med
@@ -125,6 +131,12 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
 - **[Medium] Elvira reagerar och hejar.** Låt henne titta på bygget, klappa när kedjan greppar,
   och åka karusellen vid vinst — byt uttryck/pose i stället för bara `pop`×2. En levande
   mottagare i stället för en dekor-emoji.
+  *Hälften byggd och hälften DÖD (uppdagat 2026-09-23):* hon hoppar när kedjan greppar och åker
+  karusellen vid vinst, men uttrycksbytet är en no-op. `_setElvira` (:1323) och
+  `_positionMachine` (:560) skriver `this._elvira.text = '🥳'/'👧'` — en kvarleva från när hon
+  var en emoji-`Text`. Nu är hon en ritad `Graphics`, så fältet läses aldrig: samma dödsorsak som
+  `vart-tog-det-vagen`s leksaksreaktioner. Kvar: ge den ritade figuren uttryck (egna noder för
+  mun/ögon) och stryk `.text`-raderna.
 - **[Quick] Liten verkstads-rekvisita** (hängande verktyg, en oljekanna, en sovande katt) som
   vaknar/guppar när maskinen går — fyller den tomma pegboarden med liv.
 
@@ -132,9 +144,17 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
 - **[Quick] Riktiga maskin-SFX via MOSS-pipelinen** ([[real-audio-sfx]]): spärrhjuls-klack vid
   vevning, kugg-grepp-"klonk", och en låg surr-ambient medan kedjan snurrar. Ett stigande
   "maskinen drar igång"-svep när vevningen startar.
+  *Klacket (:1478, djupare ju tyngre bygget) och klonket (`_onChainGrips`) finns som stämd
+  syntes. Kvar är riktiga klipp och surr-ambienten — blockerade så länge MOSS är nere.*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): inga A-rader för spelet; passet var
+  firandet. `_onComplete` spelade eget vinstljud, ett eget slumpat beröm och eget konfettiregn i
+  samma tick som `complete()`, som gör alla tre själv — de egna kopiorna är strukna (maskinens egna
+  firande står kvar: `correct`, Elvira på karusellen, burst vid flaggan). §4: "Vroom!" och
+  greppa-juicen var redan byggda. **Nytt fynd, inte rättat:** Elviras uttrycksbyte är en no-op
+  (`this._elvira.text` på en `Graphics`, :560/:1325) — se §4 Karaktär. Grind: `check` 0/0.
 - 2026-08-12 ⚙️ **NATTKÖ N2b: DEN KORSADE REMMEN — riktningen blir barnets val** (v1.178.0).
   Kuggar vänder alltid riktningen, så en kedja av dem kan bara ge det håll pariteten råkar ge.
   Remmen är spelets enda del som kan **välja**: rak behåller hållet, korsad vänder det. Ett
@@ -331,5 +351,4 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
     veva-fart→karusell-uttryck, [Deep] special-hjul (rem/dubbelhjul/back), [Quick] varierade
     mål-belöningar, [Quick] maskin-galleri/verkstads-rekvisita, [Quick] riktiga maskin-SFX (MOSS).
 - 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 13 px släp, 0,108 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.
-</content>
 

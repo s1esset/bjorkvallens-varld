@@ -850,7 +850,10 @@ export default {
 
   _update(ctx, ticker) {
     if (!this._alive || this._resolving || this._tracing) return
-    this._idle += ticker.deltaMS / 1000
+    // Tomgången står STILL medan rösten talar (V21): om-cuen kan då aldrig kapa en replik.
+    // Pausad, inte nollad — samma klocka driver auto-hjälpen, och om-cuens egen replik hade
+    // annars skjutit upp hjälpen med hela sin längd plus tröskeln.
+    if (!ctx.services.voice.talar) this._idle += ticker.deltaMS / 1000
 
     // 1) Första stillastående: vänlig röst-recue + vink mot rätt nästa-prick.
     if (!this._cued && this._idle >= IDLE_DELAY) {

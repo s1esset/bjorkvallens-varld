@@ -892,7 +892,9 @@ export default {
 
     if (this._resolving) return
 
-    // Idle-recue + mjuk auto-hjälp (~6s).
+    // Idle-recue + mjuk auto-hjälp (~6s). Tomgången räknas från TYSTNAD — annars kapar
+    // om-cuen (replayLast) en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._idle += tk.deltaMS / 1000
     if (this._idle >= 6) {
       this._idle = 0

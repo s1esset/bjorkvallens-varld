@@ -21,7 +21,7 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
-import { bounceIn, pop, wiggle, puff, sparkle, ripple, shake, burst, breathe, floatText, bigCelebration } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, puff, sparkle, ripple, shake, burst, breathe, floatText } from '../../lib/feedback.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS } from '../../lib/theme.js'
 import { verticalFill, cylinderFill, sphereFill } from '../../lib/form.js'
@@ -53,6 +53,11 @@ const JAW_UP = -32 // övre tandradens INNERkant i munnens egen rymd (samma tal 
 const JAW_LOW = 36 // undre tandradens innerkant
 const CHEW_X = 82 // kindernas insida — tuggan får inte buktas ut förbi tandraden
 const CHEW_TID = 0.42 // hur länge tugget varar innan den sväljs (= _chomp-kedjans längd)
+// Sällsynt JÄTTE-godbit på hyllan: konsten 1,5× (gripytan är densamma — P0 gäller redan),
+// kroppen växer när den släpps, och monstret tuggar två gånger och skakar av den.
+const JATTE_CHANS = 1 / 8
+const JATTE_SKALA = 1.5
+const JATTE_TON = [392, 523.25, 659.25] // stämt "oj!" när den dyker upp (G-C-E)
 
 const MODES = ['classic', 'walk', 'shelf', 'plinko']
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -262,9 +267,17 @@ export default {
     })
 
     // Röst: första rundan säger mount() introt; därefter monstrets replik + läge + favorit.
+    // Den kommer 1,9 s efter "mätt"-repliken (3,4–4,4 s) — say() hade kapat den. Rundan
+    // står redan här; bara orden väntar in berättaren, och bara om rundan är kvar.
     if (!first) {
       const pref = this._prefCat ? ' ' + PREF_INTRO[this._prefCat] : ''
-      ctx.services.voice.say(mon.intro + ' ' + modeIntro(this._mode) + pref)
+      const replik = mon.intro + ' ' + modeIntro(this._mode) + pref
+      const runda = this._round
+      ctx.narTyst(() => {
+        if (!this._alive || this._round !== runda) return
+        this._idle = 0 // tjatet räknas från när repliken faktiskt sägs
+        ctx.services.voice.say(replik)
+      })
     }
   },
 
@@ -409,10 +422,16 @@ export default {
   _serveShelf(ctx) {
     if (!this._alive || this._resolving) return
     const pick = this._picks[this._servedIdx % this._picks.length]
-    const made = this._makeFood(pick.key, 0.8)
+    const jatte = this._servedIdx > 0 && Math.random() < JATTE_CHANS // aldrig den första
+    const made = this._makeFood(pick.key, jatte ? 0.8 * JATTE_SKALA : 0.8)
+    made._jatte = jatte
     made.shadow.visible = false
     const view = made.container
     view.position.set(this._shelfX, this._shelfTopY)
+    if (jatte) {
+      sparkle(ctx.fxLayer, this._shelfX, this._shelfTopY, { count: 10 })
+      JATTE_TON.forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.14, type: 'triangle', vol: 0.12, delay: 0.08 * i }))
+    }
     view.eventMode = 'static'
     view.cursor = 'pointer'
     view.hitArea = new Circle(0, 0, 80)
@@ -474,7 +493,7 @@ export default {
     made.shadow.visible = false
     const px = made.container.x
     const py = made.container.y
-    const b = this._phys.circle(px, py, 40, { restitution: 0.3, friction: 0.3, frictionAir: 0.005, density: 0.0012, label: 'food' })
+    const b = this._phys.circle(px, py, made._jatte ? 40 * JATTE_SKALA : 40, { restitution: 0.3, friction: 0.3, frictionAir: 0.005, density: 0.0012, label: 'food' })
     Body.setVelocity(b, { x: this._shelfDir * 2.2, y: 1.0 })
     this._phys.link(b, made.container)
     made.phys = b
@@ -657,8 +676,13 @@ export default {
     const eaten = this._roundCount - this._remaining
     this._bellyScale = 1 + BELLY_FULL * (this._roundCount ? eaten / this._roundCount : 1)
     // Maten blir en mjuk TUGGA mellan tandraderna; magen växer först när den sväljs.
-    this._startChew(made.key)
+    this._startChew(made.key, made._jatte)
     this._reactEat(ctx, pref, m.x, m.y)
+    if (made._jatte) {
+      // Jättebiten: monstret skakar till och sväljer med ett djupt "glupp".
+      shake(this._play, { intensity: 5, duration: 0.35 })
+      ctx.services.audio.tone({ freq: 196, slideTo: 98, dur: 0.3, type: 'sine', vol: 0.18, delay: CHEW_TID })
+    }
     this._shrinkInto(made, m.x, m.y)
     if (this._remaining <= 0) this._finishRound(ctx)
   },
@@ -1001,9 +1025,10 @@ export default {
 
   // ---- tuggan: maten blir en mjuk klick som käken faktiskt trycker ihop ----
 
-  _startChew(key) {
+  _startChew(key, jatte = false) {
     this._killChew()
     if (!this._parts.chew || this._parts.chew.destroyed) return
+    this._chewJatte = jatte
     this._chewCol = foodColor(key)
     this._chewBody = new Mjukkropp({
       x: 0, y: MOUTH_DY + 2, w: CHEW_W, h: CHEW_H,
@@ -1011,7 +1036,9 @@ export default {
     })
     this._chewBody.mjukhet(0.5)
     this._drawChew(true)
-    this._chewCall = gsap.delayedCall(CHEW_TID, () => this._swallowChew())
+    // En jättebit tuggas två varv: ett extra bett när det första är klart, sväljs sedan.
+    if (jatte) this._extraChomp = gsap.delayedCall(CHEW_TID, () => this._chomp())
+    this._chewCall = gsap.delayedCall(jatte ? CHEW_TID * 2 : CHEW_TID, () => this._swallowChew())
   },
 
   // KÄKEN ÄR TVÅ VÄGGAR SOM RÖR SIG. Tuggan plattas till för att tandraderna faktiskt
@@ -1058,14 +1085,18 @@ export default {
   // tuggan faktiskt låg, så en bit som gick ner snett skvalpar snett.
   _swallowChew() {
     const cx = this._chewBody && this._chewBody.pts.length ? this._chewBody.centrum.x : 0
+    const jatte = this._chewJatte
     this._killChew()
     this._belly?.skala(this._bellyScale)
-    this._bellyWobble(cx * 0.5, 9)
+    this._bellyWobble(cx * 0.5, jatte ? 15 : 9)
   },
 
   _killChew() {
     this._chewCall?.kill()
     this._chewCall = null
+    this._extraChomp?.kill()
+    this._extraChomp = null
+    this._chewJatte = false
     this._chewBody?.destroy()
     this._chewBody = null
     const g = this._parts.chew
@@ -1436,10 +1467,10 @@ export default {
     shake(this._play, { intensity: 6, duration: 0.4 })
     burst(ctx.fxLayer, this._monster.x, this._monster.y + EYE_Y * this._mscale, { count: 18, power: 1.2 })
     sparkle(ctx.fxLayer, this._monster.x, this._monster.y, { count: 10 })
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
 
+    // Vinstljud och konfettiregn kommer från complete() nedan. Monstrets egen "mätt"-
+    // replik sägs FÖRE complete() — då står den kvar och berömmet utgår (say() kapar).
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
     ctx.services.voice.say(randomFrom(FULL))
 
     this._round++
@@ -1578,6 +1609,8 @@ export default {
     this._serveCall?.kill()
     this._hint?.kill()
     this._chewCall?.kill()
+    this._extraChomp?.kill() // jättebitens andra bett
+    this._extraChomp = null
     gsap.killTweensOf(this._jaw)
     this._chewBody?.destroy()
     this._chewBody = null

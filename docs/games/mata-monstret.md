@@ -54,39 +54,48 @@ detta spel beskrev en enklare 3-bitars en-läges-mun; den är nu överspelad av 
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Låt valet avgöra — dämpa auto-glidet.** I plinko: monstret står (eller glider bara
-  *sent och synligt*) så att *luckan jag väljer* faktiskt styr var maten landar; en mjuk assist
-  kickar in först om maten skulle missa, och då tydligt ("Jag sträcker mig!"). I hylla: monstret
-  väntar och fångar med en liten lutning/hopp som belönar bra släpp-timing. Fortfarande no-fail —
-  men nu *känns* träffen som min.
-- **[Quick] Synlig favorit.** En tankebubbla över monstret med önskad kategori-ikon (🍎/🥕/🍬).
-  Rätt kategori → bubblan fylls/studsar; gör preferensen begriplig utan ljud, fortfarande no-fail.
+- ✅ ~~**[Medium] Låt valet avgöra — dämpa auto-glidet.**~~ Redan byggd 2026-07-02 (ren fångst
+  inom `CATCH_CLEAN_R`, synlig sträckning + "Jag sträcker mig!") — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Synlig favorit.**~~ Redan byggd 2026-07-02 (`makePrefBubble` :1689) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
 - **[Medium] Smak-reaktioner.** Monstret gör en rolig "äsch men gott ändå"-grimas på icke-
   favorit och stora glittriga hjärtögon på favorit — utfall som beror på *vad* jag valde, inte
   bara mängd gnistor.
-- **[Quick] Sällsynt jätte-godbit** som ger ett extra stort tugg + skärmskak.
+- ✅ ~~**[Quick] Sällsynt jätte-godbit**~~ Klar 2026-09-23 (v1.251.0) i hyll-läget: var 8:e servering
+  (aldrig den första) är 1,5× i konsten med samma gripyta, kroppen växer när den släpps, och
+  monstret tuggar två varv, skakar och sväljer med ett djupt glupp (`_serveShelf` :425, `_onEatMade`
+  :681). Inte i plinko: en större kropp fastnar mellan pinnarna (lucka 91 px, se `_buildPegs`),
+  och bara större konst hade synligt gått igenom dem.
 
 ### Juice
 - **[Quick] Riktig mat-SFX** (mums/krasch/slurp + ett belåtet *rap* vid rundslut) via
-  [[real-audio-sfx]] — ersätter 'match'/'boing'/TTS-yum.
-- **[Quick] Mage som fylls:** låt magen växa ett snäpp per uppäten bit och bli rund vid "mätt".
+  [[real-audio-sfx]] — ersätter 'match'/'boing'/TTS-yum. *(2026-09-23: blockerad — kräver nya
+  SFX-klipp, MOSS nere.)*
+- ✅ ~~**[Quick] Mage som fylls**~~ Redan byggd (mjuk mage som växer per bit, `_bellyScale` :677)
+  — uppdagat 2026-09-23.
 
 ### Progression
 - **[Medium] Mättnadsmätare som figur.** Den växande magen *är* mätaren; vid full mage rapar
   monstret nöjt och klappar sig — egen vinst-animation istället för generisk konfetti.
 
 ### Karaktär & berättelse
-- **[Quick] Visa monstrets namn** (liten skylt/talad presentation som redan finns) *visuellt* så
-  varje skepnad får identitet, inte bara färg.
+- ✅ ~~**[Quick] Visa monstrets namn**~~ Redan byggd 2026-07-02 (`floatText` med `mon.name` vid varje
+  rundstart :263) — uppdagat 2026-09-23.
 - **[Deep] Små personlighetsrepliker** per monster (Gnaffsa fnissar, Sötis blir blyg) för
   återkommande igenkänning.
 
 ### Ljud
-- **[Quick] Variera fullmätt-frasen + lägg en lugn ambient** så loopen andas mellan rundor.
+- **[Quick] Variera fullmätt-frasen + lägg en lugn ambient.** Frasen varieras redan (`FULL` :68,
+  tre varianter). Ambienten kräver ett SFX-klipp (MOSS nere) — öppen.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_finishRound` spelade eget vinstljud och
+  eget konfettiregn i samma tick som `complete()` — strukna. "Mätt"-repliken (3,4–4,4 s) stod
+  redan före `complete()` men kapades av nästa rundas intro efter 1,9 s. Introt köas nu med
+  `ctx.narTyst` (:276, runda-token). Nytt: sällsynt jätte-godbit i hyll-läget. Introt saknar
+  klipp för flera meningar och går till talsyntesen (fanns före ändringen). `check` 0/0.
 
 - 2026-08-12 🧠 **N4: maten går att TUGGA, och magen tar emot den** (v1.181.0). Två mjuka
   kroppar (`lib/mjukkropp.js`) ersätter två skal-tweens.

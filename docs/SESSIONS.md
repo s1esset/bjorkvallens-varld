@@ -14,6 +14,41 @@ Format:
 
 ---
 
+## 2026-09-23 sen kväll — V24 (rundflödet kapade introt) + V23 (arc-strecket, väg b) · v1.253.0
+
+**Uppdraget:** "kör på V24 och ta sen V23 som alternativ b".
+
+⓵ **V24 var större än posten sa, och sonden var blind för en del av den.** Posten trodde att två av
+tolv var realistiska (domino, valpens-bajs). `_klipplangd.mjs` (ny) mätte introklippen mot spelens
+fasta fördröjningar, och `_tomgangprobe.mjs --eget` (nytt läge: sonden säger inget själv) visade
+**9 av 12 som kapade sin egen replik vid varje start utan ett tryck** — domino hördes aldrig säga
+"då ringer klockan!". Kontrollarm: domino på HEAD. Över alla 85 fann `--eget` tre till som
+standardläget inte KAN se: flipperspel (kapade 0,1 s in, före sondens 0,9 s), studsbollar och
+folj-sparet — vars intro ÄR sondens långa replik, så rösten spärrade upprepningen och V21-svepet
+aldrig såg spelet. **Två verktyg:** instruktion köar (`ctx.narTyst` + vakt att den gäller), utrop
+hoppas över (`if (!voice.talar)`). 12 → 0 och 9 → 0 och 3 → 0; varje flyttad replik hörs fortfarande.
+⓶ **V23: premissen föll mot Pixis källa.** `arc()` lägger inte in origo — en färsk Graphics ritar
+rent. Strecket kommer från PENNAN: sådden efter fill/stroke (origo efter en sluten form) och
+kedjade bågar. `_bagprobe.mjs` (ny, körtid, tre kontrollarmar) mätte 22 äkta platser vid
+montering; statisk genomgång av resten gav 10 till → **32 av 88** kandidater. Två träffar var
+AVSIKTLIGA tårtbitar (uttryckligt `moveTo(mitten)`) — exakt varför väg (a), en central lapp, hade
+varit fel. `bage()` i `lib/form.js`, 16 commits. 22 → 0, varje rättad båge 0,0 px; före/efter i
+bild (rulla-bollen-hem 172 px från skärmens hörn, saftbaren, gungan, studsmatta).
+⓷ **Sondens egna fel, fångade innan de blev fynd:** den första `_bagprobe` ignorerade uttryckliga
+moveTo — och `bage()` ÄR ett uttryckligt moveTo, så "0 efter" mätte ingenting. Nu redovisas de för
+sig och måste stå på 0,0 px. Och en stash-körning för HEAD-bilder skrev över `.test-shots/gungan.png`
+— bilden jag först läste som "efter" var HEAD.
+
+**Läxan:** en köposts antal ("12 spel", "2 realistiska", "88 kandidater") är en hypotes; mät
+fenomenet i barnets läge (spelets eget flöde, pennan i körtid) innan fixen byggs. Och en sond som
+undantar en klass måste fråga om rättningen själv hör till klassen.
+
+**Grind:** check 0/0 · `test:all` 85/85 (en ⚠ `snal-snappyta` i sortera-skrap, 0 av 2 omkörningar i
+båda armarna — harnessens slumpdrag).
+**Commits:** 15 × `fix(<id>): … (V24)` · `afbb9ba`-serien 16 × `fix(…): … (V23)` · docs+sonder (v1.253.0)
+**Öppet:** ~15 bågloopar vilar på Pixis NaN-sådd — `_bagprobe` efter varje Pixi-uppgradering ·
+speltest med barn · V10b ② · BACKLOG #3 (MOSS nere). Inte publicerad förrän ägaren säger till.
+
 ## 2026-09-23 kväll — V21 (tomgången kapade rösten i 77 spel) + V22 (Elviras uttryck) · v1.252.0
 
 **Uppdraget:** "fixa V21 och V22, bobo behöver inte egen lykta, plantera fron kan ha kvar sin emoji".

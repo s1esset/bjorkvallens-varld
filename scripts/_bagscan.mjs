@@ -3,6 +3,10 @@
 // kugghjulens Elvira (håret blev en gul kil över ansiktet, munnen ett streck ner i klänningen).
 // Listar varje `x.arc(` som börjar ett nytt uttryck utan en moveTo/lineTo framför sig i samma
 // kedja. Kandidater, inte fynd — en arc direkt efter en lineTo på raden ovan är ofarlig.
+// ⚠️ Mekanismen ovan är FEL i detaljen (rättat 2026-09-23): en färsk Graphics ritar rent; det
+// är pennan efter fill()/stroke() och kedjade bågar som drar strecket. Av 88 kandidater var 32
+// äkta, och två äkta (tårtbitar med uttryckligt moveTo) ska INTE rättas. Mät med
+// `_bagprobe.mjs` (körtid) — det här är bara en läslista för det sonden inte når.
 //   node scripts/_bagscan.mjs
 import fs from 'node:fs'
 import path from 'node:path'

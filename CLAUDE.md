@@ -155,12 +155,21 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
   men `_cx`/`_cy`/`_sx`/`_sy` är Container-transformens interna cache: `lt.a = _cx * scale.x`.
   Snöbollens snöfält renderades därför med vågrät skala 3660 — osynliga, utan ett enda
   konsolfel. `check.mjs` felar numera på hela namnlistan; använd ett eget prefix (`_wx`).
-- **`Graphics.arc()` som inleder en väg drar ett streck från ORIGO.** Pixi v8 lägger in (0,0)
-  som första punkt när ingen `moveTo` står före bågen — en streckad båge får en linje från
-  figurens origo, en FYLLD blir en solfjäder dit. `kugghjulen`s Elvira hade en gul kil över
-  hela ansiktet och en mun som ett streck ner i klänningen i varje skärmdump, utan ett
-  konsolfel. `moveTo(cx + r·cos a0, cy + r·sin a0)` först (hjälparen `bage` i kugghjulen).
-  `scripts/_bagscan.mjs` listar kandidaterna → ÅTGÄRDER V23.
+- **`Graphics.arc()` drar ett streck från PENNAN till bågens start.** ⚠️ *Rättat 2026-09-23:*
+  inte "när ingen moveTo står före" — en färsk Graphics eller en efter `clear()` ritar rent.
+  Fällan är att `arc()` fortsätter en ÖPPEN väg, och Pixi 8.19 lämnar pennan kvar på två sätt:
+  ⓵ efter varje `fill()`/`stroke()` sår den nästa väg med `moveTo(förra vägens sista punkt)` —
+  efter en SLUTEN form (circle, rect, ellipse …) är den punkten **origo** (`getLastPoint` har
+  inget fall för den); ⓶ två kedjade bågar `g.arc(A).arc(B)` får ett streck mellan sig.
+  `kugghjulen`s Elvira fick en gul kil över ansiktet, gungans Lova ett streck genom kroppen,
+  `rulla-bollen-hem` ett 172 px streck från skärmens hörn — i varje skärmdump, noll konsolfel.
+  **Använd `bage(g, cx, cy, r, a0, a1, ccw)` ur `lib/form.js`.** En tårtbit skriver
+  `moveTo(mitten).arc(…)` själv (sapbubblornas fläktblad) — därför lappas inte Pixi centralt.
+  Mät med `scripts/_bagprobe.mjs` (körtid, penna → start per båge; `_bagscan.mjs` är bara
+  statiska kandidater, 88 st varav 32 var äkta). Latent: en båge direkt efter en båge sås med
+  (undefined, undefined) — Pixi läser `data[5..6]` av sex argument — och den ritar i dag
+  ingenting (`_bagnanprobe.mjs`). Rättar Pixi sin bugg vaknar ~15 bågloopar; **kör `_bagprobe`
+  efter varje Pixi-uppgradering.** → ÅTGÄRDER V23.
 - **`renderer.generateTexture()` fäller hela testsviten, inte spelet.** Att baka en form till en
   textur byter rendermål mitt i en bildruta. Ensamt syns inget; i `npm run test:all` (72 spel,
   fyra parallella webbläsare) gav det **`tom-scen` i 5 av 7 körningar mot 0 av 7 på HEAD**, plus
@@ -338,6 +347,11 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
   sedan v1.251 i kontraktet som **`ctx.narTyst(fn)`**. **Bilden väntar inte:** ring, gest
   och glitter kommer genast, bara orden köar. `complete()` firar SJÄLV (ljud + beröm + regn)
   och hoppar över berömmet om något redan talar — säg spelets egen vinstrad FÖRE complete().
+  **Två verktyg, välj efter repliken (V24):** en INSTRUKTION köar (`ctx.narTyst` + en vakt att
+  den fortfarande gäller — samma runda, fågeln flyger kvar); ett UTROP på ett ögonblick ("Oj
+  då!", "Mums!") hoppas över med `if (!voice.talar)` — köat kommer det för sent. Och **mät
+  spelets EGET flöde:** `_tomgangprobe.mjs --eget` hittade 9 spel som kapade sitt eget intro
+  vid varje start, bland dem tre som standardläget aldrig kunde se.
 - **`killTweensOf(figuren)` når BARA figurens rot — barnbarnen städas aldrig.** Armar som
   vinkar, ögon som kisar och en del som studsar in ligger en nivå längre in, och en rivning
   som bara tar roten lämnar dem levande. I `bygg-en-kompis` hann en vinkning (0,72 s) nästan

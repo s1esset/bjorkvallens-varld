@@ -36,7 +36,7 @@ import { gsap } from 'gsap'
 import { drawIcon } from '../../lib/artikoner.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { pop, wiggle, sparkle, puff, burst, liv, ripple, kvittera, squash } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, puff, burst, liv, ripple, kvittera, squash, shake } from '../../lib/feedback.js'
 import { COLORS, PRAISE, shade } from '../../lib/theme.js'
 import { verticalFill, groundFill, topLightFill, sphereFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
@@ -100,6 +100,91 @@ const NIVAER = [
 // Fyndens ton: en pentatonisk stege uppåt (C5 D5 E5 G5 A5) — varje fynd är nästa steg,
 // så rundan i sig blir en melodi som stiger mot finalen.
 const STEGE = [523.25, 587.33, 659.25, 783.99, 880.0]
+
+// PER-SAK-REAKTION vid fynd (§4 Juice): ett eget stämt ljud (C-dur-pentatonik, EFTER
+// upptäcktsblippen — därav `EFTER`) och en egen rörelse på KONSTEN. Konsten är ett barn till
+// `_bild`, vars läge och vinkel `liv` skriver varje bildruta, och saken själv bär träffytan
+// och flygs till kistan — rörelsen får inte ligga på någon av dem.
+const EFTER = 0.2
+const klang = (a, freq, dur, type, vol, delay, slideTo) => a.tone({ freq, dur, type, vol, delay, slideTo })
+const REAKTION = {
+  '⏰': (a, k) => { // klockan tickar och skakar
+    klang(a, 1318.51, 0.04, 'square', 0.05, EFTER)
+    klang(a, 1046.5, 0.04, 'square', 0.05, EFTER + 0.18)
+    klang(a, 1318.51, 0.04, 'square', 0.05, EFTER + 0.36)
+    wiggle(k)
+  },
+  '🎈': (a, k) => { // ballongen guppar uppåt med ett gummignäll
+    klang(a, 523.25, 0.22, 'triangle', 0.12, EFTER, 783.99)
+    squash(k, { intensity: 0.6, hop: 18 })
+  },
+  '🚂': (a, k) => { // tåget tutar två gånger (G4+E4) och skakar till
+    for (const t of [EFTER, EFTER + 0.22]) {
+      klang(a, 392, 0.14, 'square', 0.05, t)
+      klang(a, 329.63, 0.14, 'square', 0.05, t)
+    }
+    shake(k, { intensity: 3, duration: 0.35 })
+  },
+  '⛵': (a, k) => { // båten gungar på en våg
+    klang(a, 261.63, 0.3, 'sine', 0.1, EFTER, 329.63)
+    wiggle(k)
+  },
+  '🔑': (a, k) => { // nyckeln klirrar
+    klang(a, 2093, 0.06, 'triangle', 0.07, EFTER)
+    klang(a, 2637.02, 0.06, 'triangle', 0.06, EFTER + 0.07)
+    klang(a, 2093, 0.06, 'triangle', 0.05, EFTER + 0.14)
+    wiggle(k)
+  },
+  '🧸': (a, k) => { // nallen brummar mjukt och trycker ihop sig
+    klang(a, 196, 0.3, 'triangle', 0.12, EFTER, 164.81)
+    squash(k, { intensity: 0.8 })
+  },
+  '⭐': (a, k) => { // stjärnan glittrar uppåt
+    klang(a, 1318.51, 0.08, 'sine', 0.08, EFTER)
+    klang(a, 1567.98, 0.08, 'sine', 0.08, EFTER + 0.07)
+    klang(a, 2093, 0.1, 'sine', 0.08, EFTER + 0.14)
+    pop(k, { scale: 1.3 })
+  },
+  '⚽': (a, k) => { // bollen studsar: duns upp, mindre duns när den landar
+    klang(a, 329.63, 0.1, 'sine', 0.14, EFTER, 261.63)
+    klang(a, 329.63, 0.08, 'sine', 0.08, EFTER + 0.4, 261.63)
+    squash(k, { intensity: 1, hop: 22 })
+  },
+  '🎁': (a, k) => { // paketet skramlar
+    klang(a, 659.25, 0.05, 'triangle', 0.07, EFTER)
+    klang(a, 783.99, 0.05, 'triangle', 0.07, EFTER + 0.08)
+    klang(a, 659.25, 0.05, 'triangle', 0.07, EFTER + 0.16)
+    wiggle(k)
+  },
+  '☂️': (a, k) => { // paraplyet fälls upp
+    klang(a, 523.25, 0.18, 'sine', 0.1, EFTER, 1046.5)
+    squash(k, { intensity: 0.7 })
+  },
+  '💎': (a, k) => { // diamanten klingar (C7/E7/G7 — samma klang som kristallklirret)
+    klang(a, 2093, 0.14, 'sine', 0.12, EFTER)
+    klang(a, 2637.02, 0.12, 'sine', 0.08, EFTER + 0.03)
+    klang(a, 3135.96, 0.1, 'triangle', 0.04, EFTER + 0.06)
+    pop(k, { scale: 1.25 })
+  },
+  '🍪': (a, k) => { // kakan: ett förtjust "mmm" uppåt
+    klang(a, 392, 0.16, 'triangle', 0.1, EFTER, 523.25)
+    klang(a, 523.25, 0.18, 'triangle', 0.1, EFTER + 0.18, 659.25)
+    squash(k, { intensity: 0.6, hop: 8 })
+  },
+}
+
+// Konstens reaktionstweens (wiggle/squash/hopp/pop/shake) lever på KONSTEN — varken
+// `killTweensOf(saken)` eller `_bild` når dit, så de dödas här innan saken rivs.
+function stoppaKonst(k) {
+  if (!k || k.destroyed) return
+  k._fxWiggleTl?.kill()
+  k._fxSquashTl?.kill()
+  k._fxHopTl?.kill()
+  k._fxPopTl?.kill()
+  k._fxShakeTw?.kill()
+  gsap.killTweensOf(k)
+  gsap.killTweensOf(k.scale)
+}
 
 export default {
   id: 'skattjakt-i-morkret',
@@ -442,6 +527,7 @@ export default {
     if (Math.random() < 0.45) {
       const offer = randomFrom(this._mal)
       offer._blockad = true
+      offer._underKatt = true // får en extra fanfar när den väl syns (`_upptack`)
       this._byggKatt(offer)
     }
 
@@ -498,6 +584,7 @@ export default {
         gsap.killTweensOf(s._bild)
         gsap.killTweensOf(s._bild.scale)
       }
+      stoppaKonst(s._konst)
       if (s._glimt && !s._glimt.destroyed) gsap.killTweensOf(s._glimt)
     }
     const k = this._katt
@@ -531,6 +618,7 @@ export default {
     const konst = drawIcon(key, 92)
     konst.eventMode = 'none'
     bild.addChild(konst)
+    s._konst = konst // reaktionen vid fynd rör konsten, aldrig `_bild` (liv) eller saken
     liv(bild, { bob: 4, sway: 0.025, duration: 2.4 + Math.random() * 1.2 })
     s._bild = bild
     s.addChild(skugga, bild)
@@ -864,6 +952,16 @@ export default {
     a.tone({ freq: 1568, dur: 0.12, type: 'triangle', vol: 0.08, delay: 0.07 })
     sparkle(this._fx, sak.x, sak.y, { count: 8 })
     pop(sak._bild, { scale: 1.24 })
+    const konst = sak._konst
+    if (konst && !konst.destroyed) REAKTION[sak._nyckel]?.(a, konst)
+    if (sak._underKatt) {
+      // Saken katten sov på: en egen liten fanfar (G5–A5–C6–E6) och guldregn när den
+      // äntligen syns — barnet väntade ut katten och får något för det.
+      ;[783.99, 880, 1046.5, 1318.51].forEach((f, i) => {
+        a.tone({ freq: f, dur: 0.16, type: 'triangle', vol: 0.13, delay: 0.55 + i * 0.09 })
+      })
+      burst(this._fx, sak.x, sak.y - 10, { count: 14, colors: [0xffe14a, 0xf0c33c, 0xfff3c4], power: 1.1 })
+    }
     this._bobo?.react('nyfiken')
     if (!this._forstaFyndet) {
       this._forstaFyndet = true
@@ -940,11 +1038,13 @@ export default {
     sparkle(this._fx, KISTA.x, KISTA.y - 30, { count: 10 })
     this._oppnaLock(-0.5, 0.42)
     this._bobo?.react('jubel')
-    if (Math.random() < 0.55) ctx.services.voice.say(randomFrom(PRAISE))
 
     if (this._funna >= this._mal.length) {
+      // Sista fyndet får inget eget beröm: finalens replik 0,5 s senare kapade det mitt
+      // i meningen (klippen är 1,0–2,3 s), och finalens complete() hör till samma stund.
       ctx.later(0.5, () => this._final(ctx))
     } else {
+      if (Math.random() < 0.55) ctx.services.voice.say(randomFrom(PRAISE))
       this._kanskeFlimmer(ctx)
     }
   },

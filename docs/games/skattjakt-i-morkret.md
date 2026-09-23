@@ -108,7 +108,9 @@ trappsteg och de upplysta sakerna fick en rutig slöja. Rutnätet ligger kvar so
 **Kärnloop**
 * [Medium] Gömställen som *interagerar*: en låda vars lock går att lyfta med ljuset, en
   matta som rullas upp — så ljuset avslöjar i två steg.
-* [Quick] Låt saken som ligger under katten få en extra fanfar när den avslöjas.
+* ✅ ~~[Quick] Låt saken som ligger under katten få en extra fanfar när den avslöjas.~~ Klar
+  2026-09-23 (v1.251.0): saken märks `_underKatt` (index.js:530) och `_upptack` (:957) spelar en
+  egen G5–A5–C6–E6-fanfar + guldregn när den äntligen syns.
 
 **Variation**
 * [Medium] Två–tre rums-teman (vind · källare · vindsgarderob) med egen palett och egen
@@ -117,19 +119,34 @@ trappsteg och de upplysta sakerna fick en rutig slöja. Rutnätet ligger kvar so
   ljuset, en mus som tittar upp).
 
 **Juice**
-* [Quick] Per-sak-reaktion vid fynd (klockan tickar, ballongen guppar, tåget tutar).
+* ✅ ~~[Quick] Per-sak-reaktion vid fynd (klockan tickar, ballongen guppar, tåget tutar).~~ Klar
+  2026-09-23 (v1.251.0): tabellen `REAKTION` (index.js:110) ger alla tolv skatter ett eget stämt
+  ljud efter upptäcktsblippen och en egen rörelse på KONSTEN (inte `_bild`, som `liv` skriver,
+  och inte saken, som bär träffytan) — klockan tickar, ballongen guppar, tåget tutar, bollen
+  studsar, nyckeln klirrar …; tweensen dödas med rundan (`stoppaKonst`).
 * [Medium] Dammkorn som virvlar i ljuskäglan (partiklar bundna till käglans mitt).
 
 **Progression**
-* [Quick] Nivå 3+: två saker gömda bakom samma möbel så käglan måste svepa.
+* ~~[Quick] Nivå 3+: två saker gömda bakom samma möbel så käglan måste svepa.~~ Premissen föll
+  (SNABBVINSTER D, bekräftat 2026-09-23): sakerna gömmer sig i MÖRKRET, inte bakom möbler —
+  bråten är ren dekor (`_byggBrate`) och sakerna ligger i ett eget rutnät med minsta avstånd
+  176 px (P0-avstånd mellan träffytorna). Det finns ingen möbel att gömma två saker bakom.
 
 **Karaktär**
 * [Quick] Bobo håller en egen liten lykta som pulserar när barnet är nära en sak.
+  ⚠️ Gränsfall, INTE byggd 2026-09-23: en lykta som pulserar "varmare" nära en sak är en ny
+  ledtråd (varmt/kallt) och ändrar alltså spelets pussel — det kräver ägarens beslut.
 
 **Ljud**
 * [Medium] En lugn vind-/regnbädd via `audio.loop` (kom ihåg `stopAllLoops`).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): vid SISTA fyndet sades ett slumpat
+  PRAISE som finalens "Kistan lyser upp hela rummet!" kapade 0,5 s senare — det sägs nu bara vid
+  de andra fynden (finalens replik står 0,9 s före `complete()`, som då hoppar över berömmet).
+  Nytt: varje skatt reagerar på sitt eget sätt när ljuset hittar den (`REAKTION`, ljud + rörelse
+  på konsten), och saken under katten får en egen fanfar. Bobos lykta lämnad (ny ledtråd).
 
 `2026-08-14 · byggt från spelkö §2 (checklista på hylla, katt, flimmer med tak,
 gardin-final) · <commit>`

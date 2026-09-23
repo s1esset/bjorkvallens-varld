@@ -426,6 +426,8 @@ export default {
     }
 
     if (this._mode === 'aim') {
+      // Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       this._idle += dt
       // NO-FAIL-GOLVET: ett erbjudande som ingen trycker på får inte bli en återvändsgränd.
       // Efter OFFER_PATIENCE tar det garanterade glidet vid precis som förr — inbjudan

@@ -1804,6 +1804,8 @@ export default {
     if (!this._alive || this._resolving) return
     const dt = tk.deltaMS / 1000
     this._idle += dt
+    // V21: tomgången räknas från TYSTNAD — om-cuen får aldrig kapa en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     this._busTid += dt
 
     if (this._busTid > BUS_S && !this._fjaril) this._slappFjaril(ctx)

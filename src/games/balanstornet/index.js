@@ -38,7 +38,7 @@ import { PhysicsWorld, Body, Composite, Matter, mat } from '../../lib/physics.js
 import { createScene } from '../../lib/scene.js'
 import { DragController } from '../../lib/DragController.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { pop, wiggle, puff, sparkle, floatText, bigCelebration, liv, stegra, kvittera } from '../../lib/feedback.js'
+import { pop, wiggle, puff, sparkle, floatText, liv, stegra, kvittera } from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { groundFill, topLightFill, cylinderFill } from '../../lib/form.js'
@@ -165,6 +165,8 @@ export default {
     this._bastaY = PLANK_TOP
 
     this._niva = Math.max(0, ctx.progress.get().highestLevel | 0)
+    this._rekordH = Math.max(0, ctx.progress.get().custom?.rekordH | 0) // px över plankan
+    this._rekordY = 0
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -417,6 +419,15 @@ export default {
     // hamnar därför BAKOM klossarna — strecket skymmer inget.
     for (let x = PX - 40; x < FLAGG_X - 48; x += 36) {
       g.roundRect(x, this._flaggY - 3, 20, 6, 3).fill({ color: COLORS.white, alpha: 0.5 })
+    }
+    // Rekordet: en guldring runt stången + en liten stjärna där det högsta tornet som
+    // nått flaggan slutade. Ingen siffra — bara ett märke att bygga förbi. Klämt under
+    // högtalarknappen (skalets 92×92 vid 1210,64) och ovanför foten.
+    if (this._rekordH > 0) {
+      const ry = clamp(PLANK_TOP - this._rekordH, Math.max(136, topp + 20), GY - 60)
+      g.roundRect(FLAGG_X - 12, ry - 5, 24, 10, 5).fill(COLORS.yellow).stroke({ width: 2.5, color: COLORS.orangeDark })
+      g.star(FLAGG_X - 28, ry, 5, 11, 5).fill(COLORS.yellow).stroke({ width: 2, color: COLORS.orangeDark })
+      this._rekordY = ry
     }
     this._flaggToppY = topp + 18
   },
@@ -715,7 +726,10 @@ export default {
     this._ritaPass(band)
     if (band === 2 && !this._tippar && this._t - this._sistKnak > 1.4) {
       this._sistKnak = this._t
-      ctx.services.audio.tone({ freq: 165, slideTo: 118, dur: 0.22, type: 'triangle', vol: 0.17 })
+      // Knaket låter som stödet: det smala knakar ljust och nervöst, det breda djupt och
+      // tryggt (mellan = den gamla 165 Hz). Samma fall 165→118 i alla lägen.
+      const knak = clamp(165 * (46 / this._stodHalv), 110, 220)
+      ctx.services.audio.tone({ freq: knak, slideTo: knak * 0.715, dur: 0.22, type: 'triangle', vol: 0.17 })
       if (this._klossar.length >= 2 && Math.random() < 0.5) {
         ctx.services.voice.say('Oj, plankan lutar! Lägg nästa kloss på andra sidan.')
       }
@@ -911,6 +925,14 @@ export default {
     this._niva += 1
     ctx.progress.setLevel(this._niva)
     ctx.progress.setCustom('torn', (ctx.progress.get().custom?.torn || 0) + 1)
+    // Rekordlinjen på stången flyttas bara UPPÅT (inget som kan minska).
+    const hojd = Math.round(PLANK_TOP - this._toppY())
+    if (hojd > this._rekordH + 4) {
+      this._rekordH = hojd
+      ctx.progress.setCustom('rekordH', hojd)
+      this._ritaFlaggstang()
+      if (this._rekordY) sparkle(ctx.fxLayer, FLAGG_X - 14, this._rekordY, { count: 8 })
+    }
     ctx.progress.complete()
 
     const ordning = [...this._klossar].sort((a, b) => b.body.position.y - a.body.position.y)
@@ -953,10 +975,17 @@ export default {
       }, 0.7 + i * 0.16)
     })
 
+    // Toppen: tornet är tänt ända upp. Vinstljudet och konfettin kom redan med
+    // `complete()` — ett eget celebrate + regn här landade 1,43 s efter vid tre klossar
+    // (sväljs av 1,5 s-spärren) men 1,59 s+ vid fyra eller fler, alltså ETT firande eller
+    // TVÅ beroende på tornets storlek. Toppen får i stället en egen durtreklang uppåt
+    // (G–C–E–G), samma tonart som våningstonerna under den.
     tl.add(() => {
       if (!this._alive) return
-      ctx.services.audio.sfx('celebrate')
-      bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
+      const au = ctx.services.audio
+      for (const [i, freq] of [783.99, 1046.5, 1318.51, 1567.98].entries()) {
+        au.tone({ freq, dur: i === 3 ? 0.34 : 0.14, type: 'triangle', vol: 0.17, delay: i * 0.08 })
+      }
       this._kar?.react('jubel')
       floatText(ctx.fxLayer, BOBO_X, BOBO_Y - 90, randomFrom(['Hurra!', 'Bravo!', '❤️']), { fontSize: 46 })
     }, 0.95 + ordning.length * 0.16)

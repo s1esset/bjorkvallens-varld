@@ -96,19 +96,31 @@ placeringssekvenser).
 - [Quick] En vindpust som puttar tornet lite (med tak: högst en per runda).
 
 **Juice**
-- [Quick] Damm och strån som yr när en kloss landar i höet.
+- ✅ ~~**[Quick] Damm och strån som yr när en kloss landar i höet.**~~ Redan byggd i sak
+  (`index.js:830` `_anslag` puffar damm i materialets färg vid varje hårt anslag, även i höet;
+  strån som egen partikel finns inte och har ingen egen kund) — uppdagat 2026-09-23.
 - [Medium] Klossarna som mjuka kroppar (`lib/mjukkropp.js`) — bara den kloss som just landar.
 
 **Progression**
-- [Quick] Spara högsta torn i `progress.custom` och rita en liten "rekordlinje" på flaggstången.
+- ✅ ~~**[Quick] Spara högsta torn i `progress.custom` och rita en liten "rekordlinje" på flaggstången.**~~
+  Klar 2026-09-23 (v1.251.0): `custom.rekordH` (px över plankan) sparas i `_klarat` och flyttas
+  bara uppåt; stången får en guldring + stjärna på den höjden (`_ritaFlaggstang`, klämd under
+  högtalarknappen), med glitter när rekordet slås.
 
 **Karaktär**
-- [Quick] Bobo får en tumme upp när bubblan står mitt i vattenpasset.
+- [Quick] Bobo får en tumme upp när bubblan står mitt i vattenpasset. *(2026-09-23: riggen har
+  ingen tumgest — `heja` är närmast; behöver ett tak så den inte fyrar vid varje svaj.)*
 
 **Ljud**
-- [Quick] Ett eget knak-läge per stödbredd (smalt stöd knakar ljusare).
+- ✅ ~~**[Quick] Ett eget knak-läge per stödbredd (smalt stöd knakar ljusare).**~~ Klar 2026-09-23
+  (v1.251.0): knakets ton = 165·46/`_stodHalv` Hz (smalt ~220, brett ~126, samma fall).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): tornets topp spelade eget
+  celebrate + konfetti 0,95 + n·0,16 s efter `complete()` — ett firande vid tre klossar, TVÅ vid
+  fyra+ (1,5 s-spärren). Ersatt av en egen durtreklang G–C–E–G. Rekordring på flaggstången
+  (`custom.rekordH`) och knak som följer stödets bredd.
 
 `2026-08-14 · byggt från spelkö-specen (spelko.md §3); fysikkonstanterna kalibrerade mot matter
 utan webbläsare (jämvikt per klosstyp + åtta spelade placeringssekvenser) · 2384aed`

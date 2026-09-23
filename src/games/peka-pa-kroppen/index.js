@@ -72,6 +72,24 @@ const KIND_EMOJI = {
 }
 const emojiFor = (key, charKey) => KIND_EMOJI[charKey]?.[key] || PARTS[key].emoji
 
+// Varje kroppsdel låter som sig själv när den hittas: näsan piper, magen skrattar "ho-ho-ho",
+// foten kittlas i en drill. Stämda toner i C-dur-pentatonik (inga nya klipp). Spelas EFTER
+// rätt-ljudet och Zackes skratt (de slutar ~0,43 s in), så de tre aldrig ligger ovanpå varandra.
+const DEL_LJUD_START = 0.45
+const DEL_LJUD = {
+  nasa: [[1567.98, 0, 0.06, 'sine'], [1567.98, 0.1, 0.06, 'sine']],
+  mage: [[392, 0, 0.1, 'triangle'], [329.63, 0.13, 0.1, 'triangle'], [261.63, 0.26, 0.14, 'triangle']],
+  fot: [[1318.51, 0, 0.045], [1174.66, 0.05, 0.045], [1318.51, 0.1, 0.045], [1174.66, 0.15, 0.045], [1318.51, 0.2, 0.045], [1567.98, 0.25, 0.08]],
+  hand: [[1046.5, 0, 0.05], [1046.5, 0.14, 0.05]],
+  huvud: [[880, 0, 0.16, 'sine', 440]],
+  ora: [[659.25, 0, 0.16, 'sine', 1318.51]],
+  oga: [[1318.51, 0, 0.07, 'sine'], [1567.98, 0.08, 0.09, 'sine']],
+  mun: [[659.25, 0, 0.1], [523.25, 0.13, 0.12]],
+  arm: [[392, 0, 0.18, 'sine', 783.99]],
+  ben: [[261.63, 0, 0.2, 'triangle', 523.25]],
+  kna: [[783.99, 0, 0.05], [783.99, 0.1, 0.05]],
+}
+
 // Delar som räknas som "på huvudet" — så ett pek på näsan/ögat/munnen/örat vid
 // frågan "huvud" godkänns på låga nivåer (generöst för de yngsta).
 const HEAD_REGION = new Set(['huvud', 'nasa', 'oga', 'mun', 'ora'])
@@ -643,6 +661,7 @@ export default {
     this._idle = 0
     const part = PARTS[this._target] // namnge alltid den EFTERFRÅGADE delen
     pop(zone._react)
+    this._delReaktion(ctx, zone)
     this._glowRing(ctx, zone)
     sparkle(ctx.fxLayer, fp.x, fp.y, { count: 9 })
     floatText(ctx.fxLayer, fp.x, fp.y - 30, `${part.namn}!`, { fontSize: 52, fontFamily: FONT.title })
@@ -714,6 +733,21 @@ export default {
     })
   },
 
+  // Den efterfrågade delen reagerar på sitt eget sätt (ljud ur DEL_LJUD). Två delar rör sig
+  // dessutom: magen skakar och foten sprattlar. Skaket skriver läge och vicket rotation —
+  // `pop` ovan äger skalan, så ingen av dem slåss om samma egenskap.
+  _delReaktion(ctx, zone) {
+    const key = this._target
+    const a = ctx.services.audio
+    for (const [freq, d, dur, type = 'triangle', slideTo] of DEL_LJUD[key] || []) {
+      a.tone({ freq, dur, type, vol: 0.13, delay: DEL_LJUD_START + d, ...(slideTo ? { slideTo } : {}) })
+    }
+    const node = zone?._react
+    if (!node || node.destroyed) return
+    if (key === 'mage') shake(node, { intensity: 5, duration: 0.4 })
+    else if (key === 'fot') wiggle(node)
+  },
+
   // Zacke skrattar glatt: riktigt skratt-klipp om det finns, annars en varm liten
   // "hehehe"-gigg via toner (audio-context-schemalagd -> exit-säker, inga Pixi-objekt).
   _joy(ctx) {
@@ -763,7 +797,17 @@ export default {
 
     this._roundTimer?.kill()
     this._roundTimer = gsap.delayedCall(1.7, () => {
-      if (this._alive) this._startRound(ctx, true)
+      if (!this._alive) return
+      // Ny skepnad och bubbla genast, men frågan väntar in berömmet: complete() talade
+      // 1,7 s tidigare och klippen är upp till 2,3 s — say() kallar cancel() och kapade
+      // det. Har barnet hunnit svara (eller rundan bytts) är frågan inaktuell.
+      this._startRound(ctx, false)
+      const runda = this._rounds
+      const fraga = this._currentPrompt
+      ctx.narTyst(() => {
+        if (!this._alive || this._rounds !== runda || this._step !== 0 || this._resolving) return
+        ctx.services.voice.say(fraga)
+      })
     })
   },
 

@@ -56,25 +56,27 @@ Kort sagt: en *stark igenkännings-loop med fin karaktär*, men teaching är enk
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Knyt an till barnets egen kropp.** Varannan fråga: "Kan du peka på DIN mage?"
-  med en kort paus + glad bekräftelse oavsett (kameran kan inte se barnet — fira alltid).
-  Det är den verkliga pedagogiska vinsten för 2–3-åringar och gör leken kroppslig.
+- ✅ ~~**[Medium] Knyt an till barnets egen kropp.**~~ Redan byggd (varannan fråga, `_ownBody`
+  :611 + `_confirmOwnBody`; byggd 2026-07-02, se §5) — uppdagat 2026-09-23.
 - **[Medium] Lägg till en "vad är det här?"-vändning.** Ibland lyser en del upp av sig
   själv och rösten frågar "Vad är det här?" → efter en stund säger den namnet (produktion +
   bekräftelse), så barnet får chansen att säga ordet först.
 
 ### Variation & överraskning
-- **[Quick] Matcha bubbel-emojin till skepnaden** (eller byt till en liten ritad pil/cirkel
-  på figuren) så stödet pekar mot rätt bild — särskilt för nalle/kanin.
+- ✅ ~~**[Quick] Matcha bubbel-emojin till skepnaden**~~ Redan byggd (`KIND_EMOJI` :68; byggd
+  2026-07-02, se §5) — uppdagat 2026-09-23.
 - **[Quick] Roliga delar ibland:** "Var är svansen?" (på kaninen), "Var är öronen?" stora
   på nallen — utnyttja skepnaderna så delarna känns olika mellan rundor.
+  *Blockerad 2026-09-23:* frågorna och berömmet om svansen finns inte som röstklipp (inget
+  "svans" i manifestet), och TTS-tjänsten är nere.
 
 ### Juice
-- **[Quick] Mildra "huvud"-zonen för de yngsta:** låt hela huvudet (inte bara pannan)
-  godkännas på låga nivåer även när ansiktet är aktivt, så ett pek på näsan vid "huvud"
-  inte blir en vingel.
-- **[Quick] Kroppsdels-reaktioner:** näsan piper, magen skakar/skrattar, foten "kittlar"
-  — per-dels-reaktion gör varje rätt unik istället för samma puls+ring.
+- ✅ ~~**[Quick] Mildra "huvud"-zonen för de yngsta**~~ Redan byggd (`_softHead` :297 +
+  `HEAD_REGION` :95; byggd 2026-07-02, se §5) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Kroppsdels-reaktioner**~~ Klar 2026-09-23 (v1.251.0): varje del har en egen
+  stämd tonsignatur i C-dur-pentatonik (`DEL_LJUD` :79 — näsan piper, magen "ho-ho-ho", foten
+  en drill, örat ett uppåt-vipp …), spelad efter rätt-ljudet och skrattet; magen skakar och
+  foten sprattlar (`_delReaktion` :739).
 
 ### Progression
 - **[Medium] Mastery-spår:** håll koll på vilka delar barnet ofta missar och ta upp dem
@@ -87,8 +89,17 @@ Kort sagt: en *stark igenkännings-loop med fin karaktär*, men teaching är enk
 ### Ljud
 - **[Quick] Riktigt barn-skratt + glädje-klipp via SFX-pipelinen** ([[real-audio-sfx]]) vid
   rätt — fullfölj kommentarens "Zacke skrattar glatt". Mjuka kittel/pip-ljud per kroppsdel.
+  *2026-09-23:* kittel/pip-ljuden per del är byggda som stämda toner (se Kroppsdels-reaktioner).
+  Skrattet är **blockerat** — kroken `audio.sample('skratt')` finns i `_joy` men klippet saknas
+  (SFX-pipelinen/MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): nästa rundas första fråga kom 1,7 s
+  efter `complete()` och kapade skalets beröm — nu byggs figuren genast och frågan väntar in
+  rösten via `ctx.narTyst` (utgår om barnet hunnit svara). Varje kroppsdel reagerar med en egen
+  tonsignatur; magen skakar, foten sprattlar. §4 stämd mot koden: 3 punkter var redan byggda,
+  2 blockerade (röstklipp resp. SFX-klipp).
 
 - 2026-06-30: Doc skriven (granskning + plan; gammal byggspec överskriven). Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] matcha bubbel-emoji + mildra huvud-zonen + riktigt

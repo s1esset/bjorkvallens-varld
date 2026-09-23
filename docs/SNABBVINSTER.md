@@ -1,5 +1,11 @@
 # SNABBVINSTER.md — kartlagda [Quick]-punkter som går att bygga utan ägaren
 
+> ✅ **KÖRD 2026-09-23 (v1.251.0).** Dubbelfirandet stängt i värden (`48dd169`, `759258d`) och i
+> alla 85 spel, A-raderna byggda där premissen höll, och varje `docs/games/<id>.md` §4 prövad mot
+> koden (C-listan uppdaterad per spel, D-posterna strukna). En commit per spel. Det som INTE
+> byggdes står i respektive speldocs §4/§5 — blockerat av TTS/MOSS, ägarbeslut eller fallen
+> premiss. Tabellerna nedan är historik, inte en kö.
+
 *Kartlagt 2026-09-12 (v1.250.0) av två läsande agenter som gick igenom varje `docs/games/<id>.md`
 och prövade varje öppen `[Quick]`-punkt mot koden. **Inget här är byggt än** — kampanjen
 planerades men hann inte starta innan sessionen tog slut. Radnummer gäller `src/games/<id>/index.js`

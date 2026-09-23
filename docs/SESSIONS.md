@@ -14,6 +14,53 @@ Format:
 
 ---
 
+## 2026-09-23 — SNABBVINSTER-kampanjen: dubbelfirandet stängt + A-raderna i 85 spel · v1.251.0
+
+**Uppdraget:** "börja med dubbelfirandet och sen kör på med alla små förbättringar + städningen,
+använd agenter om du behöver, max 10".
+
+⓵ **Dubbelfirandet stängt i värden** (`48dd169`). Premissen i SNABBVINSTER var halvt fel och
+MÄTTES först (`scripts/_firarprobe.mjs`, ny, HEAD 5 röda): i samma tick räddade AudioServices
+30 ms-golv redan ljudet — skadan var ett DUBBELT regn, två vinstljud när spelet firade 0,4 s
+före, och en replik som kapades mitt i meningen (5,4 s kvar). Nu: vinstljud och regn spärrar
+sig i ett 1,5 s-fönster, `complete()` hoppar över berömmet om något talar, och kontraktet fick
+**`ctx.narTyst(fn)`** för repliker efter firandet (tak 10,5 s — appens längsta klipp är 8,99 s,
+ffprobe över alla 1 829; 7 s hade fyrat mitt i en 8,4 s-replik).
+⓶ **Två hål som agenterna hittade** (`759258d`): `narTyst` pollade per anrop och talade i fel
+ordning → FIFO-kö som stoppas vid pause/destroy; `voice.talar` såg inte talsyntesen, så repliker
+utan klipp kapades ändå → läser `speechSynthesis.speaking`. Sonden 18/18 (armar O + W nya).
+⓷ **85 spel, en commit var** — 9 parallella agenter i två faser: fas 1 dubbelfirandet (eget
+firande strukit, egna vinstrader FÖRE complete, repliker efter i `narTyst`), fas 2 A-raderna ur
+SNABBVINSTER + prövning av varje §4 mot koden. Agenterna redigerade men testade aldrig i
+webbläsare; koordinatorn körde check 0/0, `test:all` 85/85 **utan ett enda fynd**, och tittade
+på skärmdumparna + `scripts/_samlingbild.mjs` (ny: samlingsvisningar med ifylld custom-data).
+⓸ **Sessionsgränsen slog till mitt i fas 2.** Inget förlorades: arbetsträdet låg kvar, alla
+filer var syntaktiskt hela, och de nio agenterna återupptogs med sitt sammanhang via
+SendMessage — billigare än nya agenter som läser om allt.
+
+**Läxan:** en köpost om ett FEL ska mätas innan den byggs, även när den ser bekräftad ut —
+"dubbelt vinstljud + kapad replik" var i samma tick fel på ljudet och rätt på regnet. Och
+agenter som hittar hål i ett nytt delat verktyg medan de använder det är värda mer än
+ett perfekt verktyg från början: båda hålen i `narTyst` kom från fältet.
+
+**Grind:** check 0/0 · `test:all` 85/85 utan fynd · `_firarprobe` 18/18.
+
+**Commits:** `48dd169` värden · `759258d` kön + talsyntesen · 85 spelcommits (`feat/fix/docs(<id>)`).
+
+**Öppet:**
+- **Inte publicerat** — `npm run deploy` väntar på ägarens ja.
+- **Ägarbeslut:** `leksakslada`s "Alla leksaker är i lådan. Locket smäller igen!" hörs i
+  praktiken aldrig (stryk/korta?) · `gravmaskinen`s "Bobo kör iväg med lasten!" utgår oftast
+  (kedja introt efter?) · `skattjakt-i-morkret`s Bobo-lykta ändrar ledtrådarna · `plantera-fron`s
+  emoji-blomhuvud täcker de ritade kronbladen (P0 ASSETS-gräns).
+- **ÅTGÄRDER V21** (tomgångs-påminnelser som kapar långa repliker, flera spel) och **V22**
+  (kugghjulens döda Elvira-uttryck).
+- Det mesta nya är bara statiskt prövat + harnessens autotryck — sällsynta varianter (jätte,
+  guld, jackpot, fjäril) och finaler når harnessen inte. Speltest, eller riktade sonder.
+- Speltest med barn (Skrället) och V10b ② står kvar från förra passet. BACKLOG #3 blockerad (MOSS).
+
+---
+
 ## 2026-09-12 — V16 stängd, bowlings kantstöd, 15 döda studstal, listorna städade · v1.250.0
 
 **Uppdraget:** "gör allt som inte kräver mig eller ett beslut, och alla små quick wins".
@@ -44,7 +91,7 @@ statiskt, så Vite laddar om varje öppen sida och sondens hakar försvinner.
 
 **Öppet:** SNABBVINSTER-kampanjen (3 agenter × 3 vågor; agenterna testar aldrig i webbläsare) ·
 speltest med barn (Skrället) · V10b ② `spindelhjalten` + `flipperspel`s dynor (ägarbeslut) ·
-BACKLOG #3 (MOSS och F5 svarar inte). **Inte publicerat** — `npm run deploy` väntar på ägarens ja.
+BACKLOG #3 (MOSS och F5 svarar inte). ✅ **Publicerat samma dag** (`npm run deploy`, ägarens ja): `origin/master` = `190b484`, workflow-körning 34676938098 grön. *(Rättat 2026-09-23 — raden skrevs före deployen.)*
 
 ---
 

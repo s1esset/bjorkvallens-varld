@@ -59,28 +59,37 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Knyt skenan till armen visuellt.** Lägg vikt-skenan PÅ höger arm (följ plankans
+- ✅ ~~**[Medium] Knyt skenan till armen visuellt.** Lägg vikt-skenan PÅ höger arm (följ plankans
   vinkel) eller rita en tydlig "vikt-vagn på rälsen" så barnet ser att vikten faller på brädan
-  som vippar. Kopplingen kontroll→fysik blir begriplig utan ord.
+  som vippar. Kopplingen kontroll→fysik blir begriplig utan ord.~~ Redan byggd 2026-07-01
+  (`RAIL_Y` :39 strax ovanför höger arm, stödben ner till plankan) — uppdagat 2026-09-23.
 - **[Quick] Dra ner magnet-marginalen en aning.** Behåll no-fail (assist kvar), men gör
-  magnetkorgen lite snävare så en välsiktad båge känns som *barnets* förtjänst.
+  magnetkorgen lite snävare så en välsiktad båge känns som *barnets* förtjänst. *(Öppen
+  2026-09-23: en balansfråga — ska avgöras med en sond som skjuter alla läge×vikt mot HEAD,
+  eller ett speltest, inte gissas fram.)*
 
 ### Variation & överraskning
-- **[Quick] Vikt-variation.** Byt de tre stenarna mot roliga föremål (fjäder/äpple/städ) eller
-  små djur — samma massa-roll men charm och igenkänning. Liten "tung/lätt"-min på vikten.
+- ✅ ~~**[Quick] Vikt-variation.** Byt de tre stenarna mot roliga föremål (fjäder/äpple/städ) eller
+  små djur — samma massa-roll men charm och igenkänning. Liten "tung/lätt"-min på vikten.~~
+  Redan byggd 2026-08-04 (fjäder · äpple · städ, `makeWeight`) — uppdagat 2026-09-23. Minen
+  på vikten byggdes inte.
 - **[Medium] Varierade mål.** Ibland två korgar (välj vilken), en korg på en pall, eller en
   korg som långsamt gungar i sidled på högre nivåer — får läge×vikt-valet att betyda mer.
 
 ### Juice
-- **[Quick] Grodan lever.** Ögon som spårar korgen medan den siktar, ett "wheee!" och utsträckta
-  ben under flykten, en glad plums-animation i korgen (i stället för bara krymp).
+- ✅ ~~**[Quick] Grodan lever.** Ögon som spårar korgen medan den siktar, ett "wheee!" och utsträckta
+  ben under flykten, en glad plums-animation i korgen (i stället för bara krymp).~~ Redan byggd
+  2026-07-01 (lutar sig mot korgen :892, andas :383, "Wheee!" :683, squash-plums i `_land`) —
+  uppdagat 2026-09-23.
 - ~~**[Quick] Brädan känns.**~~ ✅ 2026-08-12 (v1.158.0) — dammpuff i kontaktpunkten,
   anslagsljud som skalar med farten och egen röst per material, och en planka som går
   djupare och fjädrar tillbaka mer ju tyngre vikten är.
 
 ### Progression
-- **[Quick] Samla i korgen.** Visa hur många grodor man landat (en liten grodkör i korgen som
-  växer) i stället för bara nivåhöjning.
+- ✅ ~~**[Quick] Samla i korgen.** Visa hur många grodor man landat (en liten grodkör i korgen som
+  växer) i stället för bara nivåhöjning.~~ Klar 2026-09-23 (v1.251.0): upp till sex små
+  grodor tittar upp över korgkanten (`custom.landningar`), hoppar till när en groda landar och
+  den nya tar sin plats (`_addChoirFrog`/`_choirCheer` :785/:804).
 
 ### Karaktär & berättelse
 - ~~**[Deep] En mottagare.**~~ ✅ 2026-08-07 (verifierad i kod, gjord redan 2026-08-04). Bobo
@@ -90,10 +99,20 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
 
 ### Ljud
 - **[Quick] Riktiga SFX** (boing, korg-plums, "wheee") via SFX-pipelinen ([[real-audio-sfx]]);
-  variera vinst-stinget och låt grodan ge ett litet kväk vid landning.
+  variera vinst-stinget och låt grodan ge ett litet kväk vid landning. *(2026-09-23: kväket
+  klart — `djur_groda`-klippet när grodan plumsar ner, stämd syntes som reserv, `_kvak`
+  :777. `boing` spelas redan som samplat klipp och vinst-stinget varieras i
+  `AudioService._celebrate`. Korg-plums och "wheee" väntar på nya klipp — MOSS nere.)*
 
 ## 5. Status / loggar
 
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): **Grodkören** — upp till sex små
+  ritade grodor sitter i korgen (mellan öppningen och flätkanten, så bara ögon och hjässa syns),
+  en per landning ur `custom.landningar`; de guppar på ett inre barn, hoppar i en våg när en
+  groda landar och den nya poppar in. **Kväk** vid landning (`djur_groda`, syntes-reserv).
+  **Dubbelfirandet:** spelets egna `sfx('celebrate')` och `bigCelebration` strukna —
+  `complete()` gör båda; `LAND_PRAISE` sägs före `complete()` och står kvar. Tre `[Quick]` och
+  en `[Medium]` visade sig redan byggda.
 - 2026-06-30: Doc skriven (granskning + plan). Spelet testat (errorCount 0, skärmdump sedd).
   Nyligen fixat (riktig revolut-fysik, dra-läge, kalibrerad båge) — därför enrichment, inte räddning.
 - Rekommenderad första-omgång: **[Medium] knyt skenan till armen + [Quick] levande groda &

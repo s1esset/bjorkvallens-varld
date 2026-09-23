@@ -13,7 +13,7 @@ import { PhysicsWorld, MATERIALS, Matter, predictTrajectory } from '../../lib/ph
 import { createScene } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Button } from '../../lib/Button.js'
-import { bigCelebration, puff, sparkle, floatText, pop, wiggle , kvittera} from '../../lib/feedback.js'
+import { puff, sparkle, floatText, pop, wiggle, bounceIn , kvittera} from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 
@@ -63,6 +63,12 @@ const IDLE_CUES = [
 const LAND_PRAISE = ['Hurra! Grodan landade i korgen!', 'Grodan i korgen! Bravo!', 'Pang i korgen! Vad duktig du är!']
 const MISS_SAY = ['Hoppsan! Försök igen!', 'Nästan! En gång till!', 'Oj, prova en annan vikt!']
 const LAUNCH_SAY = ['Hoppla!', 'Boing!', 'Iväg!']
+
+// Grodkören: varje landning (custom.landningar) lämnar en liten groda som tittar upp över
+// korgkanten — högst sex, och de blir aldrig färre. Platserna följer kantens ellips
+// (överkanten ligger på y = −22·√(1 − (x/80)²)), så varje huvud sticker upp lika mycket.
+const CHOIR_MAX = 6
+const CHOIR_SLOTS = [-11, 11, -33, 33, -54, 54].map((x) => [x, -22 * Math.sqrt(1 - (x / 80) ** 2) + 3])
 
 export default {
   id: 'vippbradan',
@@ -174,8 +180,14 @@ export default {
     this._basket.eventMode = 'none'
     this._basketGlow = new Graphics()
     this._basket.addChild(this._basketGlow)
-    this._basket.addChild(makeBasket())
+    const korg = makeBasket()
+    this._basket.addChild(korg)
     this._root.addChild(this._basket)
+    this._choir = korg._choir
+    this._choirKids = []
+    this._choirTws = []
+    const landade = Math.min(CHOIR_MAX, ctx.progress.get().custom?.landningar || 0)
+    for (let i = 0; i < landade; i++) this._addChoirFrog()
 
     // Mottagare: Bobo står vid korgen, tittar efter grodan medan den flyger och
     // firar när den landar (pattern #2 — ger varje skott ett "varför"). Placeras per
@@ -719,7 +731,7 @@ export default {
     this._removeWeight()
 
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
+    // Egen vinstrad FÖRE complete() — då står den kvar och berömmet utgår.
     ctx.services.voice.say(randomFrom(LAND_PRAISE))
 
     // Grodan plumsar ner i korgen med en glad squash-studs (i stället för bara krymp).
@@ -733,6 +745,13 @@ export default {
         .to(this._frog.scale, { x: 0.55, y: 0.6, duration: 0.2, ease: 'back.out(2.2)' })
     }
     if (!this._basket.destroyed) pop(this._basket, { scale: 1.1 })
+    // Kväk när grodan plumsar ner (0,25 s) — och kören i korgen hälsar på den.
+    this._addTimer(0.25, () => {
+      if (this._alive) this._kvak(ctx)
+    })
+    this._addTimer(0.45, () => {
+      if (this._alive) this._choirCheer()
+    })
 
     // Mottagaren fångar grodan: riggens `jubel` (hopp + utsträckta armar) i stället
     // för en skal-puls på lådan runt honom — gesten kommer nu ur figuren själv.
@@ -741,18 +760,57 @@ export default {
       floatText(ctx.fxLayer, this._bobo.x, this._bobo.y - 66, randomFrom(['❤️', 'Bravo!', 'Hurra!']), { fontSize: 44 })
     }
 
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     puff(ctx.fxLayer, tx, ty, { count: 14, color: COLORS.yellow })
     sparkle(ctx.fxLayer, tx, ty, { count: 8 })
 
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('landningar', (ctx.progress.get().custom?.landningar || 0) + 1)
-    ctx.progress.complete()
+    ctx.progress.complete() // firar själv: vinstljud + konfettiregn (+ beröm om ingen talar)
 
     this._addTimer(1.7, () => {
       if (this._alive) this._loadLevel(ctx, this._level)
     })
+  },
+
+  // Riktigt grodläte om klippet finns, annars ett stämt syntetiskt kväk (G3→E3, A3→F3).
+  _kvak(ctx) {
+    const a = ctx.services.audio
+    if (a.sample('djur_groda')) return
+    a.tone({ freq: 196, slideTo: 164.81, dur: 0.1, type: 'square', vol: 0.1 })
+    a.tone({ freq: 220, slideTo: 174.61, dur: 0.12, type: 'square', vol: 0.1, delay: 0.13 })
+  },
+
+  // En liten groda i korgen. Guppet går på ett INRE barn, hoppet på platsens container.
+  _addChoirFrog() {
+    const i = this._choirKids.length
+    if (i >= CHOIR_MAX || !this._choir || this._choir.destroyed) return null
+    const [x, y] = CHOIR_SLOTS[i]
+    const k = new Container()
+    k.eventMode = 'none'
+    k.position.set(x, y)
+    k._platsY = y
+    const bob = makeMiniFrog(i)
+    k.addChild(bob)
+    this._choir.addChild(k)
+    this._choirKids.push(k)
+    this._choirTws.push(
+      gsap.to(bob, { y: -2.5, duration: 0.8 + (i % 3) * 0.17, delay: i * 0.21, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    )
+    return k
+  },
+
+  // Kören hoppar till en efter en när en groda landar, och den nya tar sin plats.
+  _choirCheer() {
+    this._choirTws = this._choirTws.filter((t) => t.parent) // släpp färdiga, behåll väntande
+    this._choirKids.forEach((k, i) => {
+      if (k.destroyed) return
+      gsap.killTweensOf(k, 'y')
+      k.y = k._platsY
+      this._choirTws.push(gsap.to(k, { y: k._platsY - 9, duration: 0.14, delay: i * 0.08, yoyo: true, repeat: 1, ease: 'power2.out' }))
+    })
+    const ny = this._addChoirFrog()
+    if (ny) this._choirTws.push(bounceIn(ny, { delay: 0.1 + this._choirKids.length * 0.08 }))
   },
 
   // ---- Miss (alltid roligt, aldrig straff) ---------------------------------
@@ -906,6 +964,9 @@ export default {
     this._launchWatchdog?.kill()
     this._assistTween?.kill()
     this._basketTween?.kill()
+    for (const tw of this._choirTws || []) tw?.kill()
+    this._choirTws = []
+    this._choirKids = []
     this._frogBreathe?.kill()
     this._dragHintTween?.kill()
     if (this._bobo && !this._bobo.destroyed) {
@@ -1050,14 +1111,34 @@ function makeBasket() {
   // Öppningskant (ellips).
   const rim = new Graphics().ellipse(0, 0, 80, 22).fill(0xd8a566).stroke({ width: 5, color: dark })
   const inner = new Graphics().ellipse(0, 0, 66, 15).fill({ color: 0x6b4a2a, alpha: 0.5 })
+  // Grodkören sitter I korgen: efter öppningen men före kanten, så bara ögonen och
+  // hjässan tittar upp över flätkanten.
+  const choir = new Container()
+  choir.eventMode = 'none'
   // Liten ritad rosett på korgen (P0 ASSETS — var en 🧺-emoji ovanpå korgen).
   const tag = new Graphics()
   tag.moveTo(0, 66).lineTo(-22, 52).lineTo(-22, 80).closePath().fill(0xff9ec4)
   tag.moveTo(0, 66).lineTo(22, 52).lineTo(22, 80).closePath().fill(0xff9ec4)
   tag.circle(0, 66, 8).fill(0xff6b9d)
   tag.eventMode = 'none'
-  c.addChild(body, inner, rim, tag)
+  c.addChild(body, inner, choir, rim, tag)
+  c._choir = choir
   return c
+}
+
+// Liten körgroda (huvud + ögonkullar), ritad kring origo. Bara överdelen syns ovanför
+// korgkanten; tre grönskiftningar så kören inte ser klonad ut.
+function makeMiniFrog(i) {
+  const kropp = [0x6ac96a, 0x7fd36b, 0x5dbb73][i % 3]
+  const g = new Graphics()
+  g.ellipse(0, 0, 15, 12).fill(kropp).stroke({ width: 2, color: 0x3f8f45 })
+  for (const sx of [-8, 8]) {
+    g.circle(sx, -9, 7).fill(kropp).stroke({ width: 2, color: 0x3f8f45 })
+    g.circle(sx, -10, 4.6).fill(0xfffdf7)
+    g.circle(sx + (i % 2 ? 1 : -1), -10, 2.3).fill(0x33291f)
+  }
+  g.eventMode = 'none'
+  return g
 }
 
 function shade(hex, amt) {

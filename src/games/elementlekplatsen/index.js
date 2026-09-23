@@ -945,6 +945,8 @@ export default {
     // av en UPPTÄCKT: fingret nere saktar ner klockan till hälften i stället för att
     // frysa den, så den som är igång får sitt tips senare, inte aldrig.
     this._idle += (this._pekar ? 0.5 : 1) * (dt / 1000)
+    // V21: tomgången räknas från TYSTNAD — tipset får aldrig kapa en replik som talar.
+    if (ctx.services.voice.talar) this._idle = 0
     if (this._idle > 8.5) {
       this._idle = 0
       this._locka(ctx)

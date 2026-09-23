@@ -69,52 +69,54 @@ auto-hjälpen gör siktet kosmetiskt**.
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Låt siktet faktiskt betyda något.** Mjuka upp auto-hjälpen från "garanterad
-  strike varje kast" till "stötta de 1–2 sista käglorna efter ~2 s". Träffar barnet snett →
-  några käglor står kvar och ett glatt **andra kast** (klotet serveras igen) får resten — så
-  blir bra sikte = strike på *första*, svagt sikte = fortfarande lyckat, men loopen får en
-  riktig båge (sikta → se → fira).
-- **[Quick] "Spare"-andrakast som mekanik, inte tvång.** Står käglor kvar, servera klotet
-  igen med en pil mot resterande klunga (no-fail behålls, men barnet får sikta en gång till
-  i stället för att vinden gör jobbet).
+- ✅ ~~**[Medium] Låt siktet faktiskt betyda något.**~~ Redan byggd (`_serveSpare` :703 serverar ett
+  andra kast; vindpust-backstopet `_autoHelp` först efter det; se §5 2026-07-01) — uppdagat
+  2026-09-23.
+- ✅ ~~**[Quick] "Spare"-andrakast som mekanik, inte tvång.**~~ Redan byggd (`_serveSpare` :703,
+  pricklinje + målzon flyttas mot resterande klunga) — uppdagat 2026-09-23.
 - **[Deep] Lekfulla specialkäglor med varierande utfall:** en "studskägla" som studsar två
   grannar, en stor "bjässe-kägla" som kräver mer fart, en kägla som tänder en stjärna när
   den välts. Rotera per nivå så triangeln inte bara *växer* utan *varierar*.
 
 ### Variation & överraskning
-- **[Quick] Fyll banan med riktmärken:** klassiska bowling-pilar i mattan, en mittlinje, och
-  en målzon-glow runt huvudkäglan. Tar bort "tom vit yta"-känslan direkt och hjälper sikte.
-- **[Medium] Käglor med ansikten + förväntan.** Ge käglorna ögon (som glass-/snöbolls-
-  spelen) som tittar mot klotet och spärrar upp sig precis innan smällen. Levande mål >
-  emoji-rekvisita.
-- **[Quick] Banteman per nivå** (rymd, djungel, glass) via `createScene`-cykel, mjuk
-  cross-fade vid ny triangel — så nivå 4 inte ser identisk ut med nivå 1.
+- ✅ ~~**[Quick] Fyll banan med riktmärken.**~~ Redan byggd (banmarkeringar :200/:387 med pilbåge,
+  målzon-glow `_aimGlow` :207) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Käglor med ansikten + förväntan.**~~ Redan byggd (pupiller mot klotet, uppspärrade
+  när det närmar sig, :904) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Banteman per nivå.**~~ Redan byggd (`THEMES` :54, korsfadas i `_setTheme` :348) —
+  uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Riktig smäll-ljudbild.** Knyt an SFX-pipelinen ([[real-audio-sfx]]): en fet
-  trä-"klong" vid första kontakt, ett kägel-rassel-kluster vid massvält, och en **stigande
-  kombo-ton** ju fler som faller i rad (ersätt fasta `pop/pling`-växlingen).
-- **[Quick] STRIKE-skylt + skärmskak.** En studsande "ALLA!"/"STRIKE!"-banner + kort
-  skärm-mikroskak skalad mot antal välta käglor — gör vinsten kägel-specifik, inte generisk.
+- ✅ ~~**[Quick] Riktig smäll-ljudbild.**~~ Redan byggd som stämd variant (trä-klonk 190→96 Hz +
+  pentatonisk kombo-ton per kägla, :675; se §5 2026-08-06) — uppdagat 2026-09-23. Inspelat
+  kägelrassel väntar på MOSS.
+- ✅ ~~**[Quick] STRIKE-skylt + skärmskak.**~~ Redan byggd (`_showBanner` :823, `_shakeAmp` skalad
+  mot fallna käglor) — uppdagat 2026-09-23.
 - **[Medium] Käglorna reser sig till nästa frame** med en "snäpp upp"-animation (de har
   redan `back.out`-intro) i stället för att bara poppa in — en bowling-rytm.
 
 ### Progression
-- **[Quick] Synlig "Kantstöd PÅ/AV"-stämpel** på banänden (lysande räck-pilar + liten ikon)
-  så toggeln läses utan ljud och utan text.
-- **[Medium] Bobos pokalhylla:** visa `custom.strikes` som en rad pokaler/stjärnor bredvid
-  Bobo som fylls över tid — en samlare att återkomma till.
+- ✅ ~~**[Quick] Synlig "Kantstöd PÅ/AV"-stämpel.**~~ Redan byggd (:241, två olika former för
+  PÅ/AV) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Bobos pokalhylla.**~~ Redan byggd (`_drawTrophies` :408, 8 stjärnfack) — uppdagat
+  2026-09-23.
 
 ### Karaktär & berättelse
-- **[Medium] Bobo som domare/publik.** Låt Bobo (+ ett par åskådare på en bänk i
-  bakgrunden) följa klotet med blicken, hålla andan, och vid strike resa sig och dansa en
-  egen animation i stället för dagens enkla hopp.
+- ✅ ~~**[Medium] Bobo som domare/publik.**~~ Redan byggd (`look()` efter klotet :924, egen dans
+  `_boboDance` :856, publik `_cheerCrowd` :873) — uppdagat 2026-09-23.
 
 ### Ljud
-- **[Quick] Hall-ambient + tut.** En låg, lugn bowlinghall-ambient och ett glatt "tuut"/
-  klockspel vid strike (utöver `celebrate`). Verifiera att vinst-stinget varieras här.
+- ✅ ~~**[Quick] Klockspel vid strike.**~~ Klar 2026-09-23 (v1.251.0): C-durtreklang C6–E6–G6–C7
+  i `_strike` efter `correct` (vinststinget varieras redan i `AudioService._celebrate`).
+- **[Quick] Hall-ambient.** En låg, lugn bowlinghall-ambient. *(Blockerad 2026-09-23: kräver
+  ett slingklipp — MOSS nere.)*
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_strike` spelade eget
+  `celebrate` + `bigCelebration` i samma tick som `complete()` — strukna; strike-repliken sägs
+  före `complete()` och står kvar (berömmet utgår). Nytt klockspel (C-durtreklang) vid strike.
+  §4 städad: tio punkter var redan byggda, hall-ambienten väntar på MOSS.
 
 - 2026-09-12 ✅ **Kantstödet studsar på riktigt — och pricklinjen slutade ljuga** (ÅTGÄRDER
   V10b ①, v1.250.0). Räckena deklarerade `restitution: 0.75, friction: 0.1`, men matters

@@ -22,7 +22,7 @@ import { PhysicsWorld, MATERIALS, nudge, Body } from '../../lib/physics.js'
 import { AimLauncher } from '../../lib/launcher.js'
 import { createScene, lerpColor } from '../../lib/scene.js'
 import { makeBoll, makeStjarna } from '../../lib/foremal.js'
-import { bigCelebration, burst, puff, sparkle, pop } from '../../lib/feedback.js'
+import { burst, puff, sparkle, pop } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
@@ -777,11 +777,15 @@ export default {
     this._phys.setWind(0, 0)
 
     ctx.services.audio.sfx('correct')
-    ctx.services.audio.sfx('celebrate')
+    // Klockspel: en C-durtreklang som ringer ut ovanpå kombo-stegen (samma C-tonart som
+    // PENTA). Kommer efter `correct` och ligger under vinstljudet från complete().
+    for (const [i, freq] of [1047, 1319, 1568, 2093].entries()) {
+      ctx.services.audio.tone({ freq, dur: i === 3 ? 0.6 : 0.34, type: 'sine', vol: 0.12, delay: 0.26 + i * 0.1 })
+    }
     // Hela repliken som literal (inte konkatenerad) så check.mjs hittar den och /rost
-    // kan generera ett klipp.
+    // kan generera ett klipp. Den sägs FÖRE complete() nedan — då står den kvar och
+    // complete() hoppar över sitt beröm. Vinstljudet och konfettin kommer från complete().
     ctx.services.voice.say(randomFrom(STRIKE_SAY))
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     burst(ctx.fxLayer, 640, 300, { count: 18 })
     this._showBanner()
     this._shakeAmp = Math.min(14, this._shakeAmp + 10)

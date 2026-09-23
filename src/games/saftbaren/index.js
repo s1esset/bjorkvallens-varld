@@ -6,7 +6,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { COLORS, DESIGN_W, DESIGN_H, shade } from '../../lib/theme.js'
-import { groundFill } from '../../lib/form.js'
+import { groundFill, bage } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { FluidWorld, FluidView } from '../../lib/vatska.js'
 import { lerpColor } from '../../lib/scene.js'
@@ -380,7 +380,7 @@ export default {
     g.moveTo(-53, -22).lineTo(53, -22).stroke({ width: 8, color: 0x6f4c30 })
     g.ellipse(0, -110, 62, 14).fill(0x7d5636)
     g.ellipse(0, -110, 52, 9).fill(0x4a3120)
-    g.arc(0, -112, 74, Math.PI * 1.15, Math.PI * 1.85).stroke({ width: 7, color: 0x6f4c30 })
+    bage(g, 0, -112, 74, Math.PI * 1.15, Math.PI * 1.85).stroke({ width: 7, color: 0x6f4c30 })
     g.x = HINK_X
     g.y = GRATE_Y
     g.eventMode = 'static'

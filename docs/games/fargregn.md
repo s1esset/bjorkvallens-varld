@@ -58,31 +58,31 @@ Kort sagt: *snyggt och korrekt färg-matchning*, men det **lär inte färgord** 
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Lär ut färg-*ordet*, inte bara matchningen.** Gradera mjukt: efter ett par
-  rundor med synlig målskylt → en runda där skylten visar **bara färgordet stort i färgen**
-  (ingen droppe-form att matcha mot), så barnet måste koppla ord→färg. Visa droppe-formen
-  igen om barnet tvekar ~6s. Pedagogik utan straff.
-- **[Quick] Behåll lätt men gör valet till ett val:** sänk inte målfärgsandelen, men låt
-  rätt droppar pulsera lite extra först, så valet känns som ett val.
+- ✅ ~~**[Medium] Lär ut färg-*ordet*, inte bara matchningen.**~~ Redan byggd (ord-runda var 3:e
+  runda, droppformen avslöjas efter ~6 s tvekan, `_wordRound` :257; se §5 2026-07-02) —
+  uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Behåll lätt men gör valet till ett val.**~~ Klar 2026-09-23 (v1.251.0): målfärgens
+  droppar pulserar ~1,5 s när de föds (`_spawnDrop`, i konstbarnet — träffytan står still).
+  Inte i en ord-runda förrän formen avslöjats, så ordet bär fortfarande ledtråden där.
 
 ### Variation & överraskning
 - **[Quick] Fler dropptyper:** en "tvilling"-droppe (poppar i två färgstänk), en stor
   "skvätt"-droppe med extra-fett plask, en långsam glittrande droppe. Rotera per nivå.
-- **[Medium] "Blanda färger"-bonus.** Två droppar som landar i samma pöl blandas synligt
-  (gul+blå→grön) med talat "Gul och blå blir grön!" — ett äkta färgkoncept, fortfarande no-fail.
+- ✅ ~~**[Medium] "Blanda färger"-bonus.**~~ Redan byggd (`MIXES` :33, `_rippleNearestPuddle`
+  :623; se §5 2026-08-06) — uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Stigande kombo-ton** vid flera rätt i snabb följd (klättrande pling) +
-  ett mjukt vått "plopp" istället för bara 'pling'.
-- **[Quick] Pölplask med ljud + ringar:** när en droppe landar ska det både *höras* (mjukt
-  plask) och synas; pölen ska krusa sig. Idag är pölnedslaget helt tyst.
+- ✅ ~~**[Quick] Stigande kombo-ton + vått plopp.**~~ Redan byggd (`COMBO_LADDER` :40, `_plop`
+  :614) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Pölplask med ljud + ringar.**~~ Redan byggd (plopp + krusning :579 + pölen
+  studsar) — uppdagat 2026-09-23.
 
 ### Progression
 - **[Medium] Färg-fokus per runda.** Annonsera en "dagens färg" som återkommer extra ofta
   ett par rundor (mastery), och introducera nya färger en i taget med namnet ("Det här är
   lila!") första gången färgen dyker upp i paletten.
-- **[Quick] Samla regnbågen.** En liten färgtavla i hörnet som fylls med en klick per
-  bemästrad färg — något att återkomma till och en anledning att minnas orden.
+- ✅ ~~**[Quick] Samla regnbågen.**~~ Redan byggd (färgtavlan `_paintSwatch` :187,
+  `custom.mastered`) — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
 - **[Deep] En liten paraply-figur (Bobo/Elvira) i markremsan** som blir glad när rätt
@@ -92,8 +92,15 @@ Kort sagt: *snyggt och korrekt färg-matchning*, men det **lär inte färgord** 
 ### Ljud
 - **[Quick] Riktiga regn/plask-klipp via SFX-pipelinen** ([[real-audio-sfx]]): mjukt
   droppklick, pöl-plopp, regnbågs-kaskad. Lägg en stillsam regn-ambient på låg volym för lugn.
+  *(Blockerad 2026-09-23: MOSS nere.)*
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): rundans vinstreplik (`done`)
+  sades EFTER `complete()` och kapade berömmet — flyttad före, så den står kvar och berömmet
+  utgår. Nästa rundas instruktion (1,4 s efter) köar i `ctx.narTyst` med rundtoken. Nytt:
+  målfärgens droppar pulserar kort när de föds (ej i ord-rundan). §4: fem punkter var redan
+  byggda.
 
 - 2026-06-30: Doc skriven (granskning + plan; gammal byggspec överskriven). Inga kodändringar.
 - Rekommenderad första-omgång: **[Quick] pöl-plask med ljud + kombo-ton + "samla regnbågen"-tavla**

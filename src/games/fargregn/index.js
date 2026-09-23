@@ -260,7 +260,14 @@ export default {
     this._updateSign()
     this._buildDots()
 
-    if (speak) ctx.services.voice.say(this._introPhrase)
+    // Nästa rundas instruktion kommer 1,4 s efter vinstrepliken — orden köar tills den
+    // är klar (bilden gör det inte), och en runda som hunnit bytas säger inte sin gamla.
+    if (speak) {
+      const tgt = this._target
+      ctx.narTyst(() => {
+        if (this._alive && this._target === tgt) ctx.services.voice.say(this._introPhrase)
+      })
+    }
   },
 
   _updateSign() {
@@ -410,11 +417,39 @@ export default {
     this._dropsLayer.addChild(drop)
     this._drops.push(drop)
     bounceIn(drop)
+
+    // Målfärgens droppar pulserar en kort stund när de föds (~1,5 s), så valet syns som ett
+    // val. Pulsen går i KONSTBARNET — droppens träffyta sitter på containern och står still.
+    // Inte i en ord-runda innan formen avslöjats: där ska ORDET bära ledtråden.
+    if (!drop._def.rainbow && drop._def.key === this._target.key && (!this._wordRound || this._wordHintShown)) {
+      const konst = drop.children[1]
+      const st = { s: 1 }
+      drop._pulsTw = gsap.to(st, {
+        s: 1.13,
+        duration: 0.25,
+        delay: 0.25,
+        yoyo: true,
+        repeat: 5,
+        ease: 'sine.inOut',
+        onUpdate: () => {
+          if (!konst || konst.destroyed) {
+            drop._pulsTw?.kill()
+            return
+          }
+          konst.scale.set(st.s)
+        },
+        onComplete: () => {
+          if (konst && !konst.destroyed) konst.scale.set(1)
+          drop._pulsTw = null
+        },
+      })
+    }
   },
 
   _removeDrop(drop) {
     const i = this._drops.indexOf(drop)
     if (i >= 0) this._drops.splice(i, 1)
+    drop._pulsTw?.kill()
     gsap.killTweensOf(drop)
     gsap.killTweensOf(drop.scale)
     if (!drop.destroyed) drop.destroy({ children: true })
@@ -477,10 +512,12 @@ export default {
     if (!this._alive) return
     this._paused = true
     this._combo = 0
-    // complete() = celebrate-ljud + beröm + konfetti + stjärna + klistermärke (GameHost).
+    // Egen vinstreplik FÖRE complete(): då står den kvar och complete() hoppar över sitt
+    // beröm (sagd efter kapade den berömmet). complete() = celebrate-ljud + konfetti +
+    // stjärna + klistermärke (GameHost).
+    ctx.services.voice.say(this._target.done)
     ctx.progress.complete()
     shake(this._content, { intensity: 7, duration: 0.5 }) // mjukt, glatt firande-skak
-    ctx.services.voice.say(this._target.done)
 
     // Fyll färgen på "samla regnbågen"-tavlan (första gången den bemästras).
     if (!this._mastered.has(this._target.key)) {
@@ -624,6 +661,7 @@ export default {
     this._nextRoundCall?.kill()
     this._breaths?.forEach((t) => t?.kill())
     this._drops?.forEach((d) => {
+      d._pulsTw?.kill()
       gsap.killTweensOf(d)
       gsap.killTweensOf(d.scale)
     })

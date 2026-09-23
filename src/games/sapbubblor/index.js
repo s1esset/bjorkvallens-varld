@@ -20,7 +20,7 @@
 // mild auto-hjälp ser till att ringen alltid blir full.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { sparkle, puff, bigCelebration, pop } from '../../lib/feedback.js'
+import { sparkle, puff, pop } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -460,7 +460,13 @@ export default {
     this._buildMeter(L.need)
     if (!this._hoop.destroyed) pop(this._hoop)
 
-    if (!silent) ctx.services.voice.say('Ny ring! Blås in bubblorna.')
+    // Vinstrepliken före är 2,39 s och nästa ring kommer 2,4 s efter — orden köar hellre
+    // än att kapa svansen. Ringen väntar inte.
+    if (!silent) {
+      ctx.narTyst(() => {
+        if (this._alive && this._level === level) ctx.services.voice.say('Ny ring! Blås in bubblorna.')
+      })
+    }
   },
 
   // ---- Bubblor -------------------------------------------------------------
@@ -796,9 +802,9 @@ export default {
     this._resolving = true
     this._idle = 0
 
-    ctx.services.audio.sfx('celebrate')
+    // Egen vinstreplik FÖRE complete(): då står den kvar och berömmet utgår. Vinstljudet
+    // och konfettin kommer från complete().
     ctx.services.voice.say('Ringen är full! Bravo!')
-    bigCelebration(ctx.fxLayer, { width: ctx.width, height: ctx.height })
     this._bubbleShower(ctx)
     this._boboCheer()
 

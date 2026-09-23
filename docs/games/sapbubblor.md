@@ -74,15 +74,18 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
   som stiger och går att blåsa in i ringen.
 
 ### Variation & överraskning
-- **[Quick] Specialbubblor:** regnbågsbubbla (firar en bonusprick), trög jättebubbla, en bubbla
-  med en gömd emoji som flyter ut när den poppas, tvillingbubblor som poppar ihop. Rotera per nivå.
-- **[Quick] Variera glans/ton** så bubblorna ser individuella ut, inte stansade.
+- ✅ ~~**[Quick] Specialbubblor.**~~ Redan byggd i huvudsak (`_spawn` :587: regnbåge ~6 %,
+  överraskning med ritad figur ~8 %, trög jätte ~6 %) — uppdagat 2026-09-23. Tvillingbubblor
+  och rotation per nivå byggdes inte.
+- ✅ ~~**[Quick] Variera glans/ton.**~~ Redan byggd (`_drawBubble` :482: slumpad vridning av
+  glansbågarna + slumpad färg ur `SHEEN` per båge) — uppdagat 2026-09-23.
 
 ### Juice
-- **[Quick] Riktiga bubbel-SFX:** mjukt "blubb/plopp" vid pop + fläktvirr medan man blåser; en
-  fångst ger ett tillfredsställande "shloop" + en ringkrusning.
-- **[Quick] Levande maskiner:** fläktbladen idlar långsamt och snurrar upp vid tryck; ringen gör
-  en mjuk "svälj"-squash när en bubbla åker in.
+- ✅ ~~**[Quick] Riktiga bubbel-SFX.**~~ Redan byggd som syntes (blubb efter storlek :650, fläktvirr
+  :342, "shloop" + ringen poppar vid fångst :689; se Ljud nedan) — uppdagat 2026-09-23. Riktiga
+  MOSS-klipp väntar.
+- ✅ ~~**[Quick] Levande maskiner.**~~ Redan byggd (bladen idlar och snurrar upp, `IDLE_SPIN` :67 /
+  :884; Bobo sväljer vid ringen, `_boboSwallow` :240) — uppdagat 2026-09-23.
 
 ### Progression
 - ~~**[Medium] Ringen blir en karaktär.**~~ ✅ 2026-08-05. Bobo håller ringen, gapar och sväljer
@@ -99,6 +102,12 @@ och poppa-leksaken och ring-målet pratar aldrig med varandra.
   bubbelns storlek). Riktiga MOSS-klipp för `blubb`/`flakt` väntar fortfarande på att tjänsten är uppe.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_levelComplete` spelade eget
+  `celebrate` + `bigCelebration` i samma tick som `complete()` — strukna; "Ringen är full!
+  Bravo!" (2,39 s) sägs före `complete()` och står kvar. "Ny ring! Blås in bubblorna." kom
+  2,4 s efter och klippte svansen — köar nu i `ctx.narTyst` med nivåtoken. Inga A-punkter i
+  SNABBVINSTER för spelet; §4 städad: fyra punkter var redan byggda.
 
 - 2026-08-10 ✅ **Hinnan ger efter för vinden** (v1.88.0, spår 3 runda P2). Bubblorna var
   perfekta cirklar oavsett hur hårt det blåste — hela fläktmekaniken syntes bara som en

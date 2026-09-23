@@ -1759,6 +1759,8 @@ export default {
 
     // Idle → eskalerande ledtrådar (no-fail).
     if (!this._resolving && !this._completed) {
+      // Tomgången räknas från TYSTNAD — annars kapar ledtråden en replik som talar.
+      if (ctx.services.voice.talar) this._idle = 0
       this._idle += tk.deltaMS
       if (this._idle > HINT_MS) {
         this._idle = 0

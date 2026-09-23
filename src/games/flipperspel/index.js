@@ -981,8 +981,13 @@ export default {
     }
 
     // Idle-recue + auto-hjälp (garanterad framgång).
-    this._sinceTap += dms
-    this._sinceLit += dms
+    // V21: tomgången räknas från TYSTNAD — varken om-cuen eller den magiska tändningen
+    // (sista bumpern → firandets beröm) får kapa en replik som talar. Om-cue-klockan står
+    // på noll medan rösten talar; hjälpklockan PAUSAS i stället, annars nollar om-cuens
+    // egen replik den varje varv (6 s < 16 s) och slutklämmen räddas aldrig.
+    const talar = ctx.services.voice.talar
+    this._sinceTap = talar ? 0 : this._sinceTap + dms
+    if (!talar) this._sinceLit += dms
     if (this._sinceTap > 6000) {
       this._sinceTap = 0
       ctx.services.voice.say(this.voiceIntro)

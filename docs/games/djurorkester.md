@@ -54,16 +54,12 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### Kärnloop & agens
-- **[Medium] Gör det till en riktig orkester — lägg en takt.** En lugn rytmisk
-  bakgrundsloop (ljus puls-beat) gör att tryck *hamnar i takt* och bildar en groove. Då blir
-  "spela flera djur i följd" en faktisk musikupplevelse, inte sex isolerade pip. Kortet kan
-  pulsera i takt så barnet känner pulsen.
-- **[Medium] Sekvens-belöning ("kören").** Spela 3 olika djur i rad → de tre korten gungar
-  *tillsammans* och lätena lägger sig i harmoni (en liten ackord-stack) + extra gnistor. Ger
-  ett "wow, de sjunger ihop!" och belönar utforskande utan att kräva det.
-- **[Quick] Varierad tonhöjd per tryck.** Små slumpmässiga pitch-skift (eller en stigande
-  skala vid snabba tryck) gör att samma djur inte låter mekaniskt likadant — instrumentet
-  känns levande.
+- ✅ ~~**[Medium] Gör det till en riktig orkester — lägg en takt.**~~ Redan byggd
+  (`index.js:56` `BEAT` 0,75 s + slag-ton och kortpuls i `_update`) — uppdagat 2026-09-23.
+- ✅ ~~**[Medium] Sekvens-belöning ("kören").**~~ Redan byggd (`index.js:210–246`,
+  `_trackSequence` → `_chorus`: gung, ackord, gnistor, KOR_BEROM) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Varierad tonhöjd per tryck.**~~ Redan byggd (`index.js:179`, ±3 % på djurets
+  ton) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
 - ✅ ~~**[Quick] Ge djuren instrument.**~~ REDAN BYGGD (kontrollerad mot koden 2026-08-12,
@@ -90,11 +86,18 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
   jublar vid konsert-slut.
 
 ### Ljud
-- **[Quick] Verifiera att alla sex `djur_<id>`-klipp finns** i SFX-pipelinen
-  ([[real-audio-sfx]]) så inget djur faller tillbaka till TTS (anka/groda delar "kvack" —
-  ge dem distinkta klipp). Lägg ett mjukt "applåd"-klipp vid konsert-firandet.
+- ✅ ~~**[Quick] Verifiera att alla sex `djur_<id>`-klipp finns**~~ Redan byggd — alla sex
+  ligger i `public/audio/sfx/` som egna klipp (anka och groda är olika filer), så inget djur
+  faller till TTS — uppdagat 2026-09-23.
+- **[Quick] Mjukt "applåd"-klipp vid konsert-firandet.** ⛔ Blockerad: kräver ett nytt
+  SFX-klipp (MOSS nere) — en applåd är brus, inte något `audio.tone()` kan stämma.
 
 ## 5. Status / loggar
+
+- 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): ingen kodändring. Spelet firade
+  aldrig dubbelt — kören säger sin rad FÖRE `complete()` i samma tick (berömmet utgår), och
+  inget talar på en fast fördröjning efteråt. §4 städad: takt, kör och tonvariation var redan
+  byggda; applåden väntar på MOSS.
 
 - 2026-08-12 🥁 **Dånet sprider sig till grannkorten** (v1.172.0, N10 pass 8).
   Fyndet kom ur `scripts/_stillaprobe.mjs`: 24 av 33 noder "rörde sig", men **största utslaget

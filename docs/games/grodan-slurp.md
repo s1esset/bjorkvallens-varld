@@ -2,7 +2,8 @@
 
 > ⚙️ fysik · tap · 3–5 år · ✅
 > Status: ✅ marknadsklar · byggd och publicerad i nattpasset 2026-09-23/24 (v1.254.0) ·
-> superhoppet + grodkörens hem-knapp 2026-09-24 (v1.255.0)
+> superhoppet + grodkörens hem-knapp 2026-09-24 (v1.255.0) · bajsloopen (L3 av biomplanen, §4d)
+> 2026-09-24 (v1.257.0)
 
 ## 0. Spec (fylls i av `/spel` innan kod skrivs)
 
@@ -23,10 +24,10 @@ man lär sig att inte ge upp."*
 | **titleSv** | Grodan Slurp |
 | **icon** | 🐸 |
 | **kategori** | `fysik` → flik Fysik |
-| **input** | `tap` — tryck = tungan skjuts mot punkten · tryck PÅ grodan = hopp · HÅLL på grodan = superhopp (valfritt: ett kort tryck är alltid ett vanligt hopp) · håll 2,5 s på grodkören = grodan hem. Inget drag (medvetet val, se nedan) |
+| **input** | `tap` — tryck = tungan skjuts mot punkten · tryck PÅ grodan = hopp · HÅLL på grodan = superhopp (valfritt: ett kort tryck är alltid ett vanligt hopp) · tryck på grodkören med en korv i munnen = kast · håll 2,5 s på grodkören = grodan hem. Inget drag (medvetet val, se nedan) |
 | **ålder** | [3, 5] |
 | **kärnloop** | Grodan sitter på ett näckrosblad i dammen. Tryck någonstans → tungan skjuts mot punkten och fastnar på det FÖRSTA den träffar. Insekt → rullas in i munnen, GULP. Gren/sten/stock (fast eller tung) → grodan slungas dit och dinglar i tungan. Lätt sak (löv, kotte) → saken dras till grodan. Tryck igen = släpp + ny tunga. |
-| **mål** | 8 insekter uppätna → magen är rund som en boll → `progress.complete()` |
+| **mål** | ~~8 insekter~~ → sedan L3 (v1.257.0): tre matade grodungar. En full mage (8 insekter, sedan 5) blir en bajskorv; tungan hämtar den, grodan bär den och ett tryck på kören kastar den → `progress.complete()` när alla tre fått varsin |
 | **agens** | VAR tungan fastnar avgör allt: massan bestämmer vem som flyger mot vem. Högt uppe-insekter nås bara genom att kombinera: hopp → tunga i luften, svinga från grenen, dra en flytande stock närmare och använda den som plattform. Grodan som flyger genom luften med öppen mun äter insekter i vägen av sig själv. |
 | **variation** | Slumpad damm varje omgång (näckrosblad, vass, stockar, grenar, stenar) · tid på dagen (morgondimma / eftermiddag / skymning med lysande eldflugor) · insektsblandning: fluga (lugn), mygga, trollslända (pilar), fjäril (fladdrig), humla (TUNG — drar grodan runt i tungan). Sällsynt wow: guldfluga · en anka simmar förbi → fastnar tungan i den blir det vattenskidor över dammen. |
 | **motgång** | EN i taget, var ~10–15 s, först efter de 2 första insekterna: kotte som faller från trädet · sköldpadda som simmar förbi (hårt skal) · fisk som hoppar · vindpust. Träffas grodan → studsar av, ragdollar, tumlar, plaskar i, flyter upp och sätter sig igen. Uppätna insekter försvinner ALDRIG — motgången saktar bara ner. |
@@ -87,6 +88,32 @@ Val som gjordes i bygget:
   skala). Ett kort tryck får kören att heja. Kören ligger i hörnet under spelytan, så ett barn
   hamnar sällan där av misstag.
 
+**Ägarens tillägg 2026-09-24 (biomer + bajsloopen), ordagrant:** *"Istället för bara ha en damm
+bana vill vi ha slumpmässiga varierande banor med olika biosfärer där varje biosfär har dess
+fysiska egenskaper och objekt / hinder och plattformar anpassade av miljön (dammen, skogen, öken,
+träsk, snö damm som är frusen, fors med strömmande vatten, sandstrand, innomhus kök, innomhus
+vardagsrum, innomhus badrum) vi vill kunna utforska mer av världarna sidleds och hoppa uppåt mer
+så kameran / skärmen följer med. Fler insekter och djur som är anpassade efter miljön och banan.
+Istället för att banan tar slut direkt efter ett visst antal insekter så vill kunna fortsätta och
+när vi uppnått att äta till gränsen där vi egentligen skulle klarat banan så bajsar grodan ut
+olika typer av bajs som baseras på vad man ätit. Målet som gör att man klarar banan är att bajsa
+ut 3 olika bajskorvar och mata grodkören med dem (en bajskorv för varje kör medlem). Man kan
+använda tungan och stoppa in bajskorven i munnen för att bära den och då kan man inte äta mer
+under tiden man bär den i munnen, när man är i närheten av grodkören kan man trycka på dem för
+att kasta ut bajskorven mot en av dem och när alla 3 fått varsin klarar man banan."*
+
+Val som ägaren gjorde (frågat 2026-09-24):
+- **`/polera`, inte `/storbarn`.** Inget i önskemålet handlar om storbarnens motgång (liv, poäng,
+  mindre hjälp) — allt är innehåll och ett nytt mål, och allt ryms i småbarnens P0. En värld
+  större än skärmen finns redan i ett 3–5-spel (`spindel-zacke-svingar`). Ett senare
+  `/storbarn grodan-slurp` ärver biomerna och lägger bara till det svåra.
+- **Vilka tre korvar som helst** klarar banan. Sorten följer maten och syns, men ingen dold regel.
+- **Med en korv i munnen svingar tungan men äter inte.** Insekter studsar mot munnen.
+- **Leveranser** (§4d): L3 bajsloopen på dagens damm → L4 kamera + större värld → L5
+  biomramverket + is/fors/skog → L6 träsk/öken/strand → L7 kök/vardagsrum/badrum. Bajsloopen
+  först, eftersom den är det vi inte vet om en treåring klarar — det ska vi veta innan tio biomer
+  byggs ovanpå den.
+
 ## 1. Nuläge (sett som spelare)
 
 *(v1.254.0, nattpasset 2026-09-23/24.)* En damm från sidan: himmel efter tid på dagen (eftermiddag
@@ -127,7 +154,23 @@ kören, och allt annat släpps.
 **Grodkören är hem-knappen.** Håll 2,5 s på de tre ungarna: en ring fylls runt dem, de kvackar en
 stigande skala, och grodan kallas hem till startbladet. Det fungerar även mitt i ett superhopp. Ett
 kort tryck får kören att heja.
-Skärmdumpar: `.test-shots/grodan-slurp.png`, `_grodspel-*.png`, `_grodfinal-*.png`, `_grodbild.png`.
+
+**Bajsloopen (L3, v1.257.0).** Rundan tar inte längre slut när magen är full. Efter 8 insekter
+sätter sig grodan (eller flyter), krystar (hukar, kisar, darrar, ett ansträngt "nnngh" i tre tag)
+och ploppar ut en **bajskorv** bakom sig med ett prutt och ett plopp. Kören hejar. Korven är brun
+med en led per insekt i den ordning de åts, och det ovanliga färgar sin led: rosa med prickar
+(fjäril), gul med rand (humla), turkos (trollslända), grön med sken (eldfluga), guld med glitter
+(guldfluga). Den flyter, stinklinjerna stiger och vattnet för den sakta ut ur vassen. **Tryck på
+korven** så hämtar tungan den in i munnen, och grodan bär den som en pinne i en hundmun. Då
+längtar ungarna: de gapar och skuttar ivrigt. Med korv i munnen kan tungan svinga i grenar men
+inte äta, och en insekt som flyger in i munnen studsar av ("mmf"). En kotte, fisk, sköldpadda
+eller anka som smäller till grodan kan knocka ut korven. **Tryck på kören** så flyger korven i en
+båge till ungen närmast fingret. Ungen gapar, tuggar, sväljer (GULP, en stigande ters) och får
+rund mage i korvens färgton. Nästa korv kommer efter 5 insekter. När tre ungar är matade rapar de
+varsin ring i sin korvfärg, grodan en stor, sedan magplask, kören sjunger och rösten säger "Alla
+grodungar är mätta! Kvack kvack!".
+Skärmdumpar: `.test-shots/grodan-slurp.png`, `_grodspel-*.png`, `_grodfinal-*.png`, `_grodbild.png`,
+`_bajsbild-0…3.png` (fri korv · bär · kast · matade ungar), `_bajsloop-*.png`.
 
 ## 2. Ursprunglig plan & tankeprocess
 
@@ -143,6 +186,20 @@ inom räckhåll så en 3-åring får sitt GULP inom sekunder medan en 5-åring j
 uppe vid grenen.
 
 ## 3. Vad gör det lättjefullt / tunt
+
+**Spelkritikern 2026-09-24 (L3, bajsloopen):** 8 av 8 punkter höll, "klar att committa".
+Starkast: kopplingen mat → korvens färger → ungens magfärg ("barnet kan SE sambandet"). Tre fynd
+åtgärdades direkt: kasta-tipset sades bara en gång per sidladdning (nu en gång per runda), det
+var svårt att se vilka ungar som var matade (en matad unge vaggar nu nöjt), och kombinationen
+korv i munnen + superhopp var omätt (`_bajssuperprobe` 3/3: korven kvar, repet fångar inget,
+0 ätna under bärandet). Kvar, medvetet:
+- **Rundlängden för en riktig treåring.** En runda kräver 18 insekter (8 + 5 + 5) och tre
+  hämta-bära-kasta-cykler. Sonden klarar det på 46–70 s, men ett barn är långsammare och lär sig
+  mekaniken samtidigt. Varje steg har egen belöning. Spaken om det känns segt: `NASTA_KORV` 5 → 4.
+  Se ett barn spela först.
+- **Kören kastar i stället för att kalla hem** medan grodan bär en korv (ett tryck på kören är ett
+  kast). Det skadar inget, och grodan som står vid kanten hoppar ut av sig själv (`_autohjalp`).
+  L4 flyttar "grodan hem" till en egen skärmknapp ändå.
 
 **Spelkritikern 2026-09-24:** 7 av 8 punkter höll före åtgärderna nedan, varav mottagaren och de
 fristående objekten klart. Tre fynd åtgärdades direkt: röstklippen saknades, den mätta magen syntes
@@ -168,6 +225,32 @@ Uppmätt under bygget (så att nästa pass inte behöver gissa):
 - Två buggar hittades bara med sonden: ① grodan bland vassen fick varje tungskott att fastna
   direkt vid munnen (284 av 286), och ② skötseln spawnade en ny "lätt fluga" var 0,6 s medan
   den förra flög in utifrån (6 flugor efter 4 s). Båda syntes aldrig i ett grönt test.
+
+Uppmätt i L3 (bajsloopen, 2026-09-24):
+- `_bajsloopprobe.mjs` (Chrome, ett målmedvetet otåligt barn): **5 av 5 rundor klara på 46–70 s**,
+  första korven efter 14–22 s, högst en korv åt gången. 0 konsolfel, och exit mitt i ett kast,
+  mitt i en krystning och med korven på väg in på tungan gav 0 fel efter återinträde. Rundan är
+  alltså ~1,5× den gamla (30–45 s för 8 insekter) för en exakt sond. En riktig treåring är
+  långsammare, men ingenting kan misslyckas och varje korv firas.
+- **VASS-FÄLLAN** (hittad av `_bajsloopprobe`, inte av något test): en runda stod still i **590 s**.
+  Grodan låg i vattnet vid kanten, vänd MOT väggen och omgiven av fyra vasstrån, med en insekt i
+  magen och ingen korv. Mekanismen rör ingen L3-kod. Alla 576 tungskott fastnade i vassen (skotten
+  mot insekterna passerade stråna precis framför munnen), hoppen från vattnet gick åt det håll
+  grodan tittade (in i väggen), och den sena hjälpens tjockfluga hamnade bakom vassen.
+  `_vassfalleprobe.mjs` bygger läget med flit: **kontrollarmen 4/6 kom loss** (ett pass åt 0 på
+  40 s, 128 av 128 skott i vassen; 419/663 = 63 % i vassen totalt). Med rättelsen **6/6 loss**,
+  121 ätna mot 73, **65/537 = 12 %** i vassen. Rättelsen: vassen klibbar bara när fingret pekar på
+  strået (`_inuti` med tungans mål), grodan vänder sig mot målet även i vattnet, hopp vid kanten
+  går in mot dammen (`_bortFranKanten`, `groda.hoppa` vänder även i vattnet), och den sena hjälpen
+  hoppar ut en groda som står vid kanten.
+- `_grodfastprobe.mjs` (envis strategi: alltid närmaste insekt, inga hopp): 6 pass × 90 s, 12–29
+  ätna, längsta lucka 29 s (insekter högt uppe utom räckhåll — andra halvans design, hjälpen kom).
+- Regression: `_grodprobe` oförändrad (posfel 0,16 · hopp 200 px · kotte 0,09 · stock 1,64),
+  `_superspelprobe` 4/4 superhopp klara, kort tryck = vanligt hopp 192 px, kören kallar hem mitt i
+  ett superhopp (7 px från start), exit med repet ute 0 fel.
+- `_bajsbildprobe.mjs` ställer upp lägena en spelsond aldrig hinner fota. Första korven (rena
+  färger, 24 px tjock) läste som ett pärlband eller en larv, inte som bajs, och försvann bakom
+  grodan. Nu 32 px, brunt med insektsfärgen inblandad och tydligare stinklinjer.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
@@ -347,6 +430,53 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 - *Inte åtgärdat, medvetet:* ingen röstledtråd för grodkören. En replik som ber barnet hålla på
   kören skulle få grodan att kallas hem hela tiden, och ägaren bad om en knapp som smälter in.
 
+### 4d. Biomer och bajsloopen — leveransplan (ägarens tillägg 2026-09-24)
+
+- [x] **L3 — bajsloopen på dagens damm** (v1.257.0). Se §4e.
+- [ ] **L4 — kamera och större värld (dammen).** `lib/kamera.js` med värld åt sidan OCH uppåt
+  (egna `parallax()`-lager — `createScene` följer inte med i höjd). Kören blir ett ställe i
+  världen (pil i skärmkanten + körgrodor som ropar när den är utanför bild). "Grodan hem" flyttar
+  från kören till en egen fast skärmknapp (faktor 0), fortfarande håll 2,5 s. Kostnaden är känd
+  (minnet *Kamerans första kund*): `ctx.fxLayer` är skärmrymd, `moveTo()` vid teleport, ~47
+  ställen i `dammen.js`/`insekter.js` räknar med bredden 1280, och varje bakgrundslager måste
+  delas upp per parallaxfaktor. `KAST_RACKVIDD` (hur nära kören man måste vara) föds här.
+- [ ] **L5 — biomramverket + is, fors, skog.** En biom = fysik (friktion, ström, flytkraft),
+  palett, plattformar, hinder och djur. Frusen damm: halka, vakar. Fors: strömmen för med sig
+  grodan och korven. Skog: lodrätt, grenar överallt, lite vatten. `Dammen` blir en av flera.
+- [ ] **L6 — träsk, öken, sandstrand.** Tjockt vatten/lera, en värld utan vatten, vågor.
+- [ ] **L7 — kök, vardagsrum, badrum.** Eget bildspråk: möbler som plattformar, diskho/badkar som
+  vatten, fruktflugor vid fruktskålen.
+- Per biom: egna insekter och djur (ägarens "anpassade efter miljön") — och egna korvfärger.
+
+### 4e. Bajsloopen — teknisk ritning (L3)
+
+- **Magen:** `_iMagen` samlar insektstyperna sedan förra korven. Full mage = 8 insekter första
+  gången (där rundan tog slut förut), sedan 5 (`FORSTA_KORV`/`NASTA_KORV`). Kvacket klättrar
+  skalan mot toppen oavsett gräns.
+- **Bajsa:** `_bajsUppdatera` väntar tills grodan sitter eller flyter (högst 6 s), sedan
+  `groda.krysta()` (bara bild: hukar, kisar, darrar — ingen kropp rörs) och efter 0,95 s
+  `_plopp`: korven ur bakänden (kroppens lokala −x), `fart`-klippet, kören hejar. Högst 3 korvar
+  finns samtidigt (`Bajs.fullt`) — då väntar magen.
+- **Korven** (`bajs.js`): en led per insekt i ätordning (4–8 leder), färg ur `KOST`; humla ger
+  svart rand, fjäril prickar, guldfluga glitter. En riktig kropp som flyter och kan knuffas —
+  men i grodans negativa kollisionsgrupp, så grodan aldrig sitter på sin egen korv.
+- **Hämta:** tungan tar korven via insektsvägen (`hitta.insekt` → `tunga.js` 'bar'), sikthjälpen
+  prioriterar en korv inom 70 px. Framme i munnen → `_taKorv`: grodan bär, ungarna längtar.
+- **Bära:** tungan returnerar inga insekter (svingar bara), sikthjälpen är av, munnen äter inte
+  själv (insekter studsar: "mmf"), superhoppet äter inte och repet fångar inga insekter
+  (`Klibbrep.fangar`). En smäll från kotte/fisk/sköldpadda/anka knockar ut korven (styrka
+  > 0,45, aldrig i superhoppet, högst var 8:e s).
+- **Kasta:** tryck på kören med en korv → ungen närmast fingret som inte är matad; bågen är
+  skriptad (siktet är gratis) och ungen gapar. Framme → tugga 1 s, GULP, rund mage i korvens
+  färgton, en stigande ters. Ungen räknas som matad direkt, så nästa kast aldrig siktar dit.
+- **Final:** tre matade → ungarna rapar var sin ring i sin korvfärg, grodan en stor, magplask,
+  kören sjunger, "Alla grodungar är mätta!" → `complete()`.
+- **Hjälpen** (sent, synligt): om-cuen efter läget (hämta korven / tryck på en grodunge) med en
+  krusning på målet; efter bommar eller 25 s utan framsteg driver vattnet korven mot grodan och
+  den glittrar.
+- **Rivning:** `_nollaTunga()` ersätter `tunga.nollstall()` — en korv på väg in på tungan blir
+  fri igen i stället för att hänga i luften. Inga tweens i `bajs.js` eller i kören.
+
 ### 4b. Senare (inte i leverans 1)
 
 - [Medium] Slangbella-hopp (dra från grodan, prickad bana via `predictTrajectory`).
@@ -359,3 +489,4 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 `2026-09-23 · spec-kort godkänt, bygget beställt som nattpass · —`
 `2026-09-24 · leverans 1 byggd: ragdoll, tunga, insekter, damm, hinder, finish; kritik åtgärdad; röstklipp; publicerad v1.254.0 · e68b8be`
 `2026-09-24 · leverans 2: superhopp (sats → volt → stjärnläge → klibbrep → tumla → vakna → slurp) + grodkören som hem-knapp; 4 röstklipp; spelkritiker 6/6 (2 fynd åtgärdade); publicerad v1.255.0 · 38b6347`
+`2026-09-24 · L3 bajsloopen (ägarens biom-önskemål, §0/§4d): full mage → bajskorv i kostens färger → tungan hämtar → bär → kasta till kören, tre matade = klar; vass-fällan rättad (2/6 → 6/6 loss); 9 röstklipp; spelkritiker 8/8 "klar att committa" (3 fynd åtgärdade); v1.257.0`

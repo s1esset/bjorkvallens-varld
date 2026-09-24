@@ -1514,6 +1514,7 @@ class Grodungar {
     this._audio = audio
     this._t = 0
     this._kor = null
+    this._langta = false
     this._mal = { x: 640, y: 430 }
     const rot = dekor(lager)
     this._rotC = rot
@@ -1580,6 +1581,10 @@ class Grodungar {
     g.circle(-3, -33, 1).fill(shade(farg, 0.5))
     g.circle(3, -33, 1).fill(shade(farg, 0.5))
     g.moveTo(-12, -27).quadraticCurveTo(0, -20, 12, -27).stroke({ width: 2, color: shade(farg, 0.55), cap: 'round' })
+    // Den matade magen: ritas först när ungen fått sin korv (färgen kommer ur korven) och
+    // sväller fram — ett matat barn i kören syns på långt håll.
+    const magC = dekor(inre, 0, -8)
+    magC.scale.set(0)
     // Ögonkulor ovanpå huvudet.
     g.circle(-10, -41, 8.5).fill(sphereFill(farg, { lightY: 0.25 }))
     g.circle(10, -41, 8.5).fill(sphereFill(farg, { lightY: 0.25 }))
@@ -1606,6 +1611,13 @@ class Grodungar {
       .stroke({ width: 1.4, color: shade(farg, 0.25), alpha: 0.6 })
       .ellipse(-3.4, 4, 3.4, 2)
       .fill({ color: 0xffffff, alpha: 0.9 })
+    // Munnen som gapar (väntar på korven), tuggar och sväljer. Stängd = skalan 0 (då syns
+    // det ritade leendet under).
+    const munC = dekor(inre, 0, -24)
+    ritning(munC).ellipse(0, 2, 9, 6.5).fill(0x6e1f30).stroke({ width: 1.6, color: shade(farg, 0.55) })
+      .ellipse(0, 5.2, 5.4, 2.6).fill(0xe0607e)
+    munC.scale.y = 0
+    munC.visible = false
     // Framben — vilar ner, viftar vid heja.
     const armar = []
     for (const s of [-1, 1]) {
@@ -1624,13 +1636,86 @@ class Grodungar {
       bl.circle(7, -46, 2.2).fill(0xffd35c)
     }
     return {
-      i, c, inre, skugga, pupiller, lock, sack, armar,
+      i, c, inre, skugga, pupiller, lock, sack, armar, munC, magC, farg,
+      matad: false, gap: 0, gapNu: 0, tuggT: 0, svaljT: 0, magNu: 0, magMal: 0, ivrigVid: rnd(0.5, 1.5),
       fas: rnd(0, TAU),
       hopY: 0, hopV: 0, hoppVid: -1, hoppFart: 0, sq: 0,
       blinkNasta: rnd(1, 4), blinkT: -9,
       sackStart: -9, sackDur: 0.35, sackMax: 1,
       viftaTill: -1,
     }
+  }
+
+  // ── Matningen (bajsloopen, index.js) ──────────────────────────────────────────────────
+
+  // Ungens mun i världen (dit korven kastas). Följer hoppet.
+  munVarld(i) {
+    const u = this._ungar[i]
+    if (!u || u.c.destroyed) return { x: this.plats.x, y: this.plats.y - 40 }
+    return { x: this._rotC.x + this._bladC.x + u.c.x, y: this._rotC.y + this._bladC.y + u.c.y - u.hopY - 22 }
+  }
+
+  get matade() {
+    return this._ungar.filter((u) => u.matad).length
+  }
+
+  // Den omatade unge som står närmast x (i världen), annars -1.
+  omatad(x) {
+    let bast = -1
+    let bastD = Infinity
+    for (const u of this._ungar) {
+      if (u.matad) continue
+      const d = Math.abs(this._rotC.x + this._bladC.x + u.c.x - x)
+      if (d < bastD) {
+        bastD = d
+        bast = u.i
+      }
+    }
+    return bast
+  }
+
+  // Gapa (0…1): en korv är på väg till just den här ungen.
+  gapa(i, v = 1) {
+    const u = this._ungar[i]
+    if (u) u.gap = v
+  }
+
+  // Grodan bär en korv: de omatade ungarna längtar (små gap, ivriga skutt).
+  langta(ja) {
+    this._langta = !!ja
+  }
+
+  // Korven landade i munnen: ungen tuggar (1 s), sväljer och blir rund om magen. Räknas som
+  // matad DIREKT, så att nästa kast aldrig siktar på samma unge.
+  mata(i, farg) {
+    if (!this._alive) return
+    const u = this._ungar[i]
+    if (!u || u.matad) return
+    u.matad = true
+    u.korvFarg = farg ?? 0x8b5a32
+    u.gap = 0
+    u.tuggT = 1
+    const mg = ritning(u.magC)
+    mg.ellipse(0, 0, 21, 14).fill(sphereFill(0xf1f5c4, { lightX: 0.4, lightY: 0.3, dark: 0.16 }))
+      .stroke({ width: 1.4, color: shade(u.farg, 0.3), alpha: 0.55 })
+    mg.ellipse(0, 3, 13, 7).fill({ color: farg ?? 0x8b5a32, alpha: 0.3 })
+    mg.ellipse(-6, -4, 5, 2.6).fill({ color: 0xffffff, alpha: 0.7 })
+    this._audio?.tone?.({ freq: 330, slideTo: 262, dur: 0.1, type: 'triangle', vol: 0.18 })
+  }
+
+  // Färgen på korven ungen fick (finalens rap-ring).
+  magfarg(i) {
+    return this._ungar[i]?.korvFarg ?? 0xe8f7ff
+  }
+
+  // En liten rap i finalen (säcken + ett skutt + en låg ton). Returnerar munnens läge.
+  rap(i) {
+    if (!this._alive) return null
+    this._sack(i, 0.4, 1.3)
+    this._hopp(i, 200, 0)
+    const f = [131, 147, 165][i % 3]
+    this._audio?.tone?.({ freq: f, slideTo: f * 0.7, dur: 0.3, type: 'triangle', vol: 0.24 })
+    return this.munVarld(i)
   }
 
   // Vart ungarna tittar (spelet kan låta dem följa grodan). Standard: dammens mitt.
@@ -1751,10 +1836,42 @@ class Grodungar {
         }
       }
       u.sq = Math.max(0, u.sq - dt * 5)
+      // Munnen: gapar efter korven, längtar medan grodan bär en, tuggar när den fått den.
+      let gapMal = u.gap
+      let tugg = 0
+      if (this._langta && !u.matad) {
+        gapMal = Math.max(gapMal, 0.55 + 0.2 * Math.sin(T * 4 + u.fas))
+        if (T >= u.ivrigVid && u.hopY <= 0) {
+          u.ivrigVid = T + rnd(1.1, 2.2)
+          this._hopp(u.i, rnd(110, 160), 0)
+        }
+      }
+      if (u.tuggT > 0) {
+        u.tuggT -= dt
+        tugg = Math.abs(Math.sin(T * 19))
+        gapMal = 0.15 + 0.55 * tugg
+        if (u.tuggT <= 0) {
+          // GULP: ögonen trycks ned, magen sväller, ett glatt skutt och en stigande ters.
+          u.svaljT = 0.3
+          u.magMal = 1
+          this._hopp(u.i, 250, 0.05)
+          this._audio?.tone?.({ freq: 392, slideTo: 196, dur: 0.16, type: 'sine', vol: 0.22 })
+          ;[523.25, 659.25, 783.99].forEach((f, k) => this._audio?.tone?.({ freq: f, dur: 0.12, type: 'triangle', vol: 0.16, delay: 0.14 + k * 0.09 }))
+        }
+      }
+      u.svaljT = Math.max(0, u.svaljT - dt)
+      u.gapNu += (gapMal - u.gapNu) * Math.min(1, dt * 18)
+      if (!u.munC.destroyed) {
+        u.munC.visible = u.gapNu > 0.03
+        u.munC.scale.y = u.gapNu
+      }
+      u.magNu += (u.magMal - u.magNu) * Math.min(1, dt * 6)
+      if (!u.magC.destroyed) u.magC.scale.set(u.magNu)
       const andas = Math.sin(T * 2.3 + u.fas)
       const luft = u.hopY > 0 ? klamp(u.hopV / 400, -0.5, 0.5) : 0
       u.inre.y = -u.hopY
-      u.inre.scale.set(1 + 0.16 * u.sq - 0.06 * luft, 1 - 0.18 * u.sq + 0.1 * luft + 0.015 * andas)
+      u.inre.scale.set(1 + 0.16 * u.sq - 0.06 * luft + 0.07 * tugg + 0.05 * u.magNu, 1 - 0.18 * u.sq + 0.1 * luft + 0.015 * andas)
+      u.inre.rotation = 0.09 * u.magNu * Math.sin(T * 2.4 + u.fas)
       const ls = 1 - Math.min(0.5, u.hopY / 60)
       u.skugga.scale.set(ls)
       u.skugga.alpha = ls
@@ -1771,7 +1888,8 @@ class Grodungar {
       }
       const bt = (T - u.blinkT) / 0.16
       const blink = bt >= 0 && bt <= 1 ? Math.sin(Math.PI * bt) : 0
-      const lock = Math.max(blink, sjunger ? 0.38 : 0)
+      // En matad unge ser nöjd ut (lite kisande), och trycker ned ögonen när den sväljer.
+      const lock = Math.max(blink, sjunger ? 0.38 : 0, u.matad && u.tuggT <= 0 ? 0.3 : 0, u.svaljT > 0 ? 0.95 : 0)
       for (const l of u.lock) l.scale.y = lock
       // Pupillerna mot målet.
       const gx = this._rotC.x + this._bladC.x + u.c.x

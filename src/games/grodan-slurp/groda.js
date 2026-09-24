@@ -378,6 +378,7 @@ export class Groda {
     this.sover = false // stjärnläget: ögonen stängda (tumlat klart, väntar på att vakna)
     this._laddPose = {}
     this._popp = 0 // 1 → 0: stjärnan slår ut (bild)
+    this._krystT = 0 // s kvar av en krystning (bajset är på väg) — bara bild
     this._flax = LEDER.map(() => ({ w: 0.1 + Math.random() * 0.12, fas: Math.random() * TAU, amp: 0.3 + Math.random() * 0.25 }))
 
     this._byggKroppar(x, y)
@@ -585,7 +586,7 @@ export class Groda {
   hoppa(dirX = this.riktning) {
     const iV = !this.paMark && this._naraVatten
     if (!this.paMark && !iV) return false
-    if (Math.sign(dirX) !== this.riktning && this.paMark) this.vand()
+    if (Math.sign(dirX) !== this.riktning) this.vand()
     const s = Math.sign(dirX) || this.riktning
     this.kraft = Math.max(this.kraft, 0.9)
     this._kraftPaus = 0
@@ -1325,6 +1326,16 @@ export class Groda {
     this.mage = clamp(v, 0, 1)
   }
 
+  // Grodan krystar (bajset är på väg): den hukar, kisar, darrar och blåser upp säcken. Bara
+  // bild, som satsen — kropparna rörs inte, så ett hopp mitt i krystningen är ett vanligt hopp.
+  krysta(sek = 0.9) {
+    this._krystT = sek
+  }
+
+  get krystar() {
+    return this._krystT > 0
+  }
+
   // Per bildruta: vyer följer kroppar, ansiktet lever.
   rita(dtS) {
     if (!this._alive) return
@@ -1335,7 +1346,9 @@ export class Groda {
     // en tredjedel på 0,08 s, sedan följer bilden satsen. Ett kort tryck blir en liten sats
     // före ett vanligt hopp.
     if (this.superFas === 'ladda') this._laddT = (this._laddT || 0) + dtS
-    const c = this.superFas === 'ladda' ? Math.max(this.laddning, 0.3 * Math.min(1, this._laddT / 0.08)) : 0
+    if (this._krystT > 0) this._krystT = Math.max(0, this._krystT - dtS)
+    const kryst = this._krystT > 0 && !this.superFas ? 0.62 : 0
+    const c = this.superFas === 'ladda' ? Math.max(this.laddning, 0.3 * Math.min(1, this._laddT / 0.08)) : kryst
     if (this._popp > 0) this._popp = Math.max(0, this._popp - dtS / 0.16)
     if (this._vakenT > 0) this._vakenT = Math.max(0, this._vakenT - dtS)
     const popp = this._popp * this._popp

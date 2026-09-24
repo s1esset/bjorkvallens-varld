@@ -14,6 +14,41 @@ Format:
 
 ---
 
+## 2026-09-24 kväll — Grodan Slurp L3: bajsloopen + vass-fällan · v1.257.0
+
+**Uppdraget (ägaren):** slumpade banor i tio biomer (damm, skog, öken, träsk, frusen damm, fors,
+sandstrand, kök, vardagsrum, badrum) med egen fysik, hinder och djur, en värld som går att
+utforska åt sidan och uppåt med följande kamera — och i stället för att banan tar slut vid 8
+insekter ska grodan BAJSA efter vad den ätit, bära korven i munnen och mata grodkören: tre matade
+= banan klar. Frågan var om det är `/storbarn` eller `/polera`.
+
+**Beslut:** `/polera`, inte `/storbarn` — inget i önskemålet är storbarnens motgång, allt ryms i
+småbarnens P0 (en värld större än skärmen finns redan i `spindel-zacke-svingar`, 3–5 år).
+Ägaren valde: vilka tre korvar som helst räcker · med korv i munnen svingar tungan men äter inte ·
+biomordning is/fors/skog först. Leveranser: **L3 bajsloopen på dagens damm** (det vi inte vet om
+en treåring klarar) → L4 kamera + större värld → L5 biomramverket + is/fors/skog → L6 träsk/öken/
+strand → L7 inomhus. Planen står i `docs/games/grodan-slurp.md` §4d–4e.
+
+**Byggt (L3):** `bajs.js` (korven: en led per insekt i ätordning, brun med insektens färg
+inblandad, flyter, stinklinjer, i grodans kollisionsgrupp) · `groda.krysta()` · grodungarna kan
+gapa, längta, tugga, svälja och få rund mage i korvens färgton · rundflödet i `index.js` (magen →
+krysta → plopp → tungan hämtar via insektsvägen → bär → tryck på kören = kast i båge → tre matade →
+final med rap-ringar i korvfärgerna) · 9 röstklipp (+ 6 storbarnsberöm som låg i kö).
+**Vass-fällan** hittades av den nya sonden, inte av något test: en runda stod still i 590 s (grodan
+i vassen vid kanten, vänd mot väggen, 576/578 tungskott fast i vassen, hoppen in i väggen).
+Rättad: vassen klibbar bara när fingret pekar på den, grodan vänder sig även i vattnet, hopp vid
+kanten går inåt, och den sena hjälpen hoppar ut en groda vid kanten. `_vassfalleprobe` 2/6 fast →
+6/6 loss. Korvens första utseende läste som ett pärlband (rena färger) — omgjord efter bildsond.
+
+**Mätt:** `_bajsloopprobe` 5/5 rundor klara på 46–70 s, 0 konsolfel, exit mitt i kast/krystning/
+korv-på-tungan 0 fel · `_bajssuperprobe` 3/3 (superhopp med korv i munnen) · regression
+`_grodprobe` oförändrad, `_superspelprobe` 4/4 · spelkritikern 8/8 "klar att committa".
+
+**Commits:** se git log (`feat(grodan-slurp)` + `feat(voice)`).
+**Öppet:** L4 (kamera + större värld i dammen, "grodan hem" till en egen skärmknapp) när ägaren
+vill. Se en riktig treåring spela L3 — är 8+5+5 insekter för långt så är `NASTA_KORV` 5 → 4 spaken.
+Inte publicerad (`npm run deploy` bara på begäran).
+
 ## 2026-09-24 eftermiddag — Två åldersband: storbarn 6–12 + fliken Utmaning · v1.256.0
 
 **Uppdraget (ägaren):** gå igenom reglerna som formar spelen och släpp på dem för att kunna

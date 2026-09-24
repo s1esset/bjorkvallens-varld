@@ -81,7 +81,7 @@ export class Tunga {
     this.insekt = null
     // Det munnen redan sitter inne i (vass grodan simmar bland) går tungan igenom —
     // annars fastnade varje skott direkt vid munnen.
-    this._undanta = this.hitta.inuti ? this.hitta.inuti(m.x, m.y) : []
+    this._undanta = this.hitta.inuti ? this.hitta.inuti(m.x, m.y, x, y) : []
     this.groda.oppnaMun(1)
     return true
   }

@@ -40,6 +40,8 @@ export class Klibbrep {
     this.pa = pa
     this._alive = true
     this.lage = 'av' // av | fysik | slurp | klar
+    // Falskt när grodan bär en bajskorv i munnen: repet klibbar i saker men fångar inga insekter.
+    this.fangar = true
     this.lankar = []
     this._leder = []
     this._mun = null
@@ -208,6 +210,7 @@ export class Klibbrep {
   }
 
   _fangaInsekter() {
+    if (!this.fangar) return
     const lista = this._svarm.lista
     if (!lista.length) return
     for (const ins of lista) {

@@ -3,7 +3,7 @@
 > ⚙️ fysik · tap · 3–5 år · ✅
 > Status: ✅ marknadsklar · byggd och publicerad i nattpasset 2026-09-23/24 (v1.254.0) ·
 > superhoppet + grodkörens hem-knapp 2026-09-24 (v1.255.0) · bajsloopen (L3 av biomplanen, §4d)
-> 2026-09-24 (v1.257.0) · kamera + stor värld (L4, v1.258.0)
+> 2026-09-24 (v1.257.0) · kamera + stor värld (L4, v1.258.0) · biomerna is/fors/skog (L5, v1.259.0)
 
 ## 0. Spec (fylls i av `/spel` innan kod skrivs)
 
@@ -27,7 +27,7 @@ man lär sig att inte ge upp."*
 | **input** | `tap` — tryck = tungan skjuts mot punkten · tryck PÅ grodan = hopp · HÅLL på grodan = superhopp (valfritt: ett kort tryck är alltid ett vanligt hopp) · tryck på grodkören med en korv i munnen = kast · håll 2,5 s på grodkören = grodan hem. Inget drag (medvetet val, se nedan) |
 | **ålder** | [3, 5] |
 | **kärnloop** | Grodan sitter på ett näckrosblad i dammen. Tryck någonstans → tungan skjuts mot punkten och fastnar på det FÖRSTA den träffar. Insekt → rullas in i munnen, GULP. Gren/sten/stock (fast eller tung) → grodan slungas dit och dinglar i tungan. Lätt sak (löv, kotte) → saken dras till grodan. Tryck igen = släpp + ny tunga. |
-| **mål** | ~~8 insekter~~ → sedan L3 (v1.257.0): tre matade grodungar. En full mage (8 insekter, sedan 5) blir en bajskorv; tungan hämtar den, grodan bär den och ett tryck på kören kastar den → `progress.complete()` när alla tre fått varsin |
+| **mål** | ~~8 insekter~~ → sedan L3 (v1.257.0): tre matade grodungar. En full mage (8 insekter, sedan 4 — 5 före L5) blir en bajskorv; tungan hämtar den, grodan bär den och ett tryck på kören kastar den → `progress.complete()` när alla tre fått varsin |
 | **agens** | VAR tungan fastnar avgör allt: massan bestämmer vem som flyger mot vem. Högt uppe-insekter nås bara genom att kombinera: hopp → tunga i luften, svinga från grenen, dra en flytande stock närmare och använda den som plattform. Grodan som flyger genom luften med öppen mun äter insekter i vägen av sig själv. |
 | **variation** | Slumpad damm varje omgång (näckrosblad, vass, stockar, grenar, stenar) · tid på dagen (morgondimma / eftermiddag / skymning med lysande eldflugor) · insektsblandning: fluga (lugn), mygga, trollslända (pilar), fjäril (fladdrig), humla (TUNG — drar grodan runt i tungan). Sällsynt wow: guldfluga · en anka simmar förbi → fastnar tungan i den blir det vattenskidor över dammen. |
 | **motgång** | EN i taget, var ~10–15 s, först efter de 2 första insekterna: kotte som faller från trädet · sköldpadda som simmar förbi (hårt skal) · fisk som hoppar · vindpust. Träffas grodan → studsar av, ragdollar, tumlar, plaskar i, flyter upp och sätter sig igen. Uppätna insekter försvinner ALDRIG — motgången saktar bara ner. |
@@ -278,6 +278,20 @@ Uppmätt i L4 (den stora världen, 2026-09-24) — sex fällor hittade och stän
   `kamera.js` resp. `flytkraft.js`). Parallaxen mätt: 1280 → 384, 720 → 216, himmel/HUD 0.
 - `physics.js`: "kropp rymde"-diagnosen räknar nu mot världens `bounds` (en stock på x 1999 i en
   2560 bred damm larmade).
+Uppmätt i L5 (biomerna, 2026-09-24):
+- `_bajsloopprobe --biom X`: hela loopen klar i isen (139 s), forsen (211 s), skogen (212 s) och
+  dammen (104–183 s), ingen fastnade, 0 konsolfel, exit-proven 0 fel. `_klatterprobe` 3/3 (biomen
+  byts vid varje start, så varven gick i olika biomer), `_vassfalleprobe --falla stubbe` 4/4 loss.
+- `_svampprobe`: 5/6 fall mot en flugsvamp (8 och 16 px/steg) studsar 29–195 px och landar på
+  hatten, 1/6 studsar av åt sidan och landar på marken (inte igenom); ett riktigt superhopp intill
+  en svamp går hela vägen. `_varldbildprobe --biom X` fotar varje biom från sju kameralägen — den
+  hittade skogsmarkens polygon som bara ritade ena bitens kant (fjärranbandet lyste igenom).
+- `npm run test:all` 86/86 gröna (tre delade bibliotek ändrades: kamera, fysik, flytkraft).
+- **Spelkritikern L4+L5:** 8/8, "klar att committa", inga P0-brott. Starkast: biomerna känns olika
+  att SPELA (isens glid, forsens ström som hjälper, skogens drag-längs-marken), inte bara att se.
+  Åtgärdat: nästa korv efter 4 insekter i stället för 5 (rundan var 109–212 s för en exakt sond),
+  vintergrenarna hade gröna lövknippen och mossa (nu bara snö), superhopp mot svamp mätt. Kvar,
+  kosmetiskt: högt uppe ritas trädkronan in bakom skalets hörnknappar (ingen träffyta påverkas).
 - `_bajsbildprobe.mjs` ställer upp lägena en spelsond aldrig hinner fota. Första korven (rena
   färger, 24 px tjock) läste som ett pärlband eller en larv, inte som bajs, och försvann bakom
   grodan. Nu 32 px, brunt med insektsfärgen inblandad och tydligare stinklinjer.
@@ -470,7 +484,7 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
   (minnet *Kamerans första kund*): `ctx.fxLayer` är skärmrymd, `moveTo()` vid teleport, ~47
   ställen i `dammen.js`/`insekter.js` räknar med bredden 1280, och varje bakgrundslager måste
   delas upp per parallaxfaktor. `KAST_RACKVIDD` (hur nära kören man måste vara) föds här.
-- [ ] **L5 — biomramverket + is, fors, skog.** En biom = fysik (friktion, ström, flytkraft),
+- [x] **L5 — biomramverket + is, fors, skog** (v1.259.0). Se §4g. Planen stod så här: En biom = fysik (friktion, ström, flytkraft),
   palett, plattformar, hinder och djur. Frusen damm: halka, vakar. Fors: strömmen för med sig
   grodan och korven. Skog: lodrätt, grenar överallt, lite vatten. `Dammen` blir en av flera.
 - [ ] **L6 — träsk, öken, sandstrand.** Tjockt vatten/lera, en värld utan vatten, vågor.
@@ -559,6 +573,33 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
   nedanför ett skutt ned genom grenarna (`_hoppaNed`), ett tryck på en lägre gren/ett blad går med
   tungan som vanligt.
 
+### 4g. Biomerna — teknisk ritning (L5)
+
+- **En biom är data** (`biomer.js`: `BIOMER`, `BIOM_PALETT`, `BIOM_ORDNING`): vatten (`oppet` ·
+  `is` · `strom` · `gol`), plattformar (blad · stenar · stubbe · stockar · svampar), antal träd,
+  snö, insekter, hinder, och färger OVANPÅ tid-på-dagen-paletten. `dammen.js` bygger efter den,
+  `index.js` väljer insekter och hinder ur den.
+- **Val av biom:** första rundan när spelet öppnas = nästa i `BIOM_ORDNING` (damm → is → fors →
+  skog), sparat i `progress.custom.biomNasta` — barnet får en ny värld varje gång, och den som
+  vill prova alla går ut och in. Inom en session: slump bland de andra. `_tvingaBiom` (sonder).
+  Varje biom utom dammen får en egen kort replik efter instruktionen (`_sagBiom`).
+- **Isen** (`_byggIs`): isflak mellan 2–3 vakar, kroppen från ytan ned till botten (vakarna är
+  brunnar — ingen groda kan simma in under isen, samma läxa som bladen i L4), friktion 0,012
+  (grodan och korven GLIDER), snö på stränder, stenar, stubbe, kronor och grenar, snöfall i
+  skärmen. Inga blad; kören sitter i den vak som ligger närmast en strand. Snöboll i stället för
+  kotte (samma kropp och etikett — samma regler), inga sköldpaddor, ankor eller fiskar.
+- **Forsen:** `Flytvolym.stromX` (nytt i `lib/flytkraft.js`, standard 0): farten i sidled dras mot
+  strömmen i proportion till nedsänkningen — grodan, korven och två stockar driver MOT KÖREN.
+  6–8 stenar att hoppa mellan, inga blad, vågor som vandrar med strömmen, strimmor och skum vid
+  stenarna. Laxar hoppar (fisk ×2 i hinderpoolen).
+- **Skogen** (`_byggMark`, `_byggSvampar`): marken från kant till kant (typ `strand` — klibbig:
+  tungan i marken DRAR grodan dit), en göl vid ena kanten där kören sitter (vattnet, flytvolymen
+  och vassen bara där), stubben på marken, två extra träd mitt i världen, 3–4 flugsvampar
+  (studs 0,8, envägs som grenarna). Fjärilar och humlor. Insekterna håller sig över marken
+  (`golvY` 528).
+- **Simhjälpen** (`_simHem`) söker nu alla landningsplatser (`landningar()`: blad, isflak,
+  stenar), inte bara blad.
+
 ### 4b. Senare (inte i leverans 1)
 
 - [Medium] Slangbella-hopp (dra från grodan, prickad bana via `predictTrajectory`).
@@ -572,4 +613,5 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 `2026-09-24 · leverans 1 byggd: ragdoll, tunga, insekter, damm, hinder, finish; kritik åtgärdad; röstklipp; publicerad v1.254.0 · e68b8be`
 `2026-09-24 · leverans 2: superhopp (sats → volt → stjärnläge → klibbrep → tumla → vakna → slurp) + grodkören som hem-knapp; 4 röstklipp; spelkritiker 6/6 (2 fynd åtgärdade); publicerad v1.255.0 · 38b6347`
 `2026-09-24 · L3 bajsloopen (ägarens biom-önskemål, §0/§4d): full mage → bajskorv i kostens färger → tungan hämtar → bär → kasta till kören, tre matade = klar; vass-fällan rättad (2/6 → 6/6 loss); 9 röstklipp; spelkritiker 8/8 "klar att committa" (3 fynd åtgärdade); v1.257.0`
-`2026-09-24 · L4 kamera + stor värld (2560 × 1440, §4f): två stränder med höga träd, stubbe, kör vid stranden med körpil, hem-bladet i HUD, klättra/hoppa ned, envägsgrenar/-blad, simtag; sex fällor stängda (§3 L4); v1.258.0`
+`2026-09-24 · L4 kamera + stor värld (2560 × 1440, §4f): två stränder med höga träd, stubbe, kör vid stranden med körpil, hem-bladet i HUD, klättra/hoppa ned, envägsgrenar/-blad, simtag; sex fällor stängda (§3 L4); v1.258.0 · e31b2c8`
+`2026-09-24 · L5 biomer (§4g): damm · is (halt golv, vakar, snö) · fors (ström mot kören, stenar, skum) · skog (mark att dra sig längs, göl, flugsvampar); ny biom vid varje start; nästa korv efter 4; spelkritiker 8/8; test:all 86/86; v1.259.0`

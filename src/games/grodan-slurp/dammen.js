@@ -15,6 +15,13 @@
 // (`FJARRAN`) och resten i världen. `vy()` (från spelet) är den synliga världsytan just nu —
 // allt som förut läste `ctx.view` för att placera något utanför bild läser den i stället.
 //
+// BIOMERNA (L5, biomer.js): samma bygge, olika världar. `biom` väljer vatten (öppet · is med
+// vakar · fors med ström · skogsmark med en göl), plattformar (blad · stenar · stubbe · svampar),
+// antal träd, snö, och färger ovanpå tid-på-dagen-paletten. Isen är ett halt golv som går ned
+// till botten (vakarna är brunnar — ingen groda kan simma in under isen, samma läxa som bladen i
+// L4), forsens ström läggs i flytvolymen (`stromX`) och går mot kören, och i skogen är marken en
+// klibbig yta från kant till kant utom vid gölen — tungan kan dra grodan längs marken.
+//
 // VAL SOM GJORDES UTAN ÄGAREN (nattpass — se docs/games/grodan-slurp.md §4a):
 //  1. STAMMEN är en statisk kropp (`label: 'stam'`, `typ: 'gren'`) — grodan kan slå i den
 //     och tungan fastna i den. Den ligger EFTER grenen i `foremal`, så
@@ -53,6 +60,7 @@ import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { shade, tint } from '../../lib/theme.js'
 import { shuffle } from '../../lib/swedish.js'
 import { puff, stadFx } from '../../lib/feedback.js'
+import { BIOMER, BIOM_PALETT } from './biomer.js'
 
 const { Body } = Matter
 
@@ -65,6 +73,8 @@ const H = 720
 export const FJARRAN = { x: 0.3, y: 0.3 }
 const TAU = Math.PI * 2
 const BLAD_TOPP = YT_Y - 6 // näckrosbladets ovansida (kroppens topp)
+const MARK_Y = 528 // strandbankens/skogsmarkens ovansida
+const IS_TOPP = YT_Y - 4 // isens ovansida
 const BLAD_H = 14
 const STOCK_W = 190
 const STOCK_H = 34
@@ -238,8 +248,10 @@ function lovknippe(g, x, y, ang, n, len) {
 export class Dammen {
   // phys: PhysicsWorld · lager: { himmel, fjarran, bakom, vatten, fram } · audio: ctx.services.audio
   // tid: en av TIDER · varld: { w, topp } · vy: () => synlig världsyta { left, right, top, bottom }
-  constructor({ phys, lager, audio, tid, varld = {}, vy = null }) {
+  constructor({ phys, lager, audio, tid, varld = {}, vy = null, biom = 'damm' }) {
     this._alive = true
+    this.biomNamn = BIOMER[biom] ? biom : 'damm'
+    this.biom = BIOMER[this.biomNamn]
     this._phys = phys
     this._lager = lager
     this._audio = audio
@@ -250,7 +262,7 @@ export class Dammen {
     // Fjärranbandet glider med FJARRAN.x — det måste räcka från kamerans ena ände till den andra.
     this._fjB = W + (this.VW - W) * FJARRAN.x + 2 * BLEED_X + 80
     this.tid = TIDER.includes(tid) ? tid : valj(TIDER)
-    this._pal = PALETT[this.tid]
+    this._pal = { ...PALETT[this.tid], ...(BIOM_PALETT[this.biomNamn] || {}) }
     this._t = 0
     this._stegT = null
     this._sida = Math.random() < 0.5 ? 'v' : 'h' // trädets sida
@@ -290,24 +302,51 @@ export class Dammen {
     this._framRot.tint = this._pal.ton
     this._kronor = []
     this._strander = []
+    this._stockar = []
+    this._isSeg = []
+    this._snoFlingor = []
+    this._strak = []
 
     this._planera()
+    const B = this.biom
+    // Vattnet (och flytvolymen) bara där det finns vatten: i skogen är det gölen.
+    this._vx0 = B.vatten === 'gol' ? this._plan.gol.x0 : -BLEED_X
+    this._vx1 = B.vatten === 'gol' ? this._plan.gol.x1 : this.VW + BLEED_X
+    if (B.vatten === 'gol') {
+      this.flytvolym.vanster = this._plan.gol.x0
+      this.flytvolym.hoger = this._plan.gol.x1
+    }
+    if (B.vatten === 'strom') this.flytvolym.stromX = this._plan.stromDir * (B.strom || 1)
     this._byggHimmel()
     this._byggBotten()
     this._byggStenar()
-    this._byggStrand(1)
-    this._byggStrand(2)
+    if (B.vatten === 'gol') this._byggMark()
+    else {
+      this._byggStrand(1)
+      this._byggStrand(2)
+    }
     for (const t of this._plan.trad) this._byggTrad(t)
     this._byggStubbe()
     this._byggVass()
     this._byggStock()
     this._byggBlad()
+    this._byggSvampar()
     this._byggVatten()
+    this._byggIs()
     this._byggFram()
     this.grodungar = new Grodungar({ lager: this._framRot, audio, x: this._plan.kor.x, sida: this._plan.kor.sida })
     this._droppG = ritning(this._framRot) // dropparna överst i förgrunden
+    if (B.sno) this._snoG = ritning(this._himmelRot) // snöfall i skärmen (ovanför himlen, bakom allt)
 
-    this.startPunkt = { x: this.blad[0].x, y: BLAD_TOPP - 40 }
+    // Var grodan börjar: startbladet (dammen), isen, stenen i mitten (forsen) eller marken.
+    this.startPaBlad = false
+    this.startPunkt = this._plan.start
+    if (this.blad.length && this._plan.startBlad) {
+      this.startPunkt = { x: this.blad[0].x, y: BLAD_TOPP - 40 }
+      this.startPaBlad = true
+    }
+    // Insekterna håller sig över marken i skogen (528), annars över vattenytan.
+    this.golvY = B.vatten === 'gol' ? MARK_Y : YT_Y
   }
 
   _rot(lager) {
@@ -358,8 +397,11 @@ export class Dammen {
     // grenen (tungans kortaste längd 64 + kroppen), så nästa gren måste ligga inom ~400 px från
     // munnen. Första versionen hade ~300 px mellan grenarna och grodan nådde aldrig mellangrenen
     // (_klatterprobe: högsta y 317 av 4 varv) — nu ~200.
-    const tradFor = (bank) => ({
+    const B = this.biom
+    const tradFor = (bank, x = null, sgn = null) => ({
       bank, // 1 = trädsidan, 2 = andra stranden (speglad)
+      x,
+      sgn,
       stamU: rnd(60, 80),
       topp: rnd(-500, -460),
       grenar: [
@@ -373,8 +415,12 @@ export class Dammen {
     // Vattenlinjen: blad + stenar + den döda stammen packas i u ∈ [Z0, Z1] (val 3).
     const Z0 = 205
     const Z1 = VW - 205
-    let nBlad = valj([6, 6, 7, 7, 8])
-    let nSten = valj([2, 2, 3])
+    const [bMin, bMax] = B.blad || [6, 8]
+    const [sMin, sMax] = B.stenar || [2, 3]
+    let nBlad = B.vatten === 'oppet' ? rint(bMin, bMax) : 0
+    let nSten = B.vatten === 'gol' ? 0 : rint(sMin, sMax)
+    const nVak = B.vatten === 'is' ? rint(...(B.vakar || [2, 3])) : 0
+    const medStubbe = !!B.stubbe && B.vatten !== 'gol'
     const minLucka = (a, b) => {
       if (a.typ === 'blad' && b.typ === 'blad') return Math.max(30, 220 - (a.w + b.w) / 2)
       if (a.typ === 'sten' && b.typ === 'sten') return 36
@@ -383,14 +429,16 @@ export class Dammen {
     }
     let rad = null
     for (let forsok = 0; forsok < 12 && !rad; forsok++) {
-      const saker = [{ typ: 'stubbe', w: 70 }]
+      const saker = medStubbe ? [{ typ: 'stubbe', w: 70 }] : []
       for (let i = 0; i < nBlad; i++) saker.push({ typ: 'blad', w: rnd(130, 170) })
-      for (let i = 0; i < nSten; i++) saker.push({ typ: 'sten', w: rnd(84, 120) })
+      for (let i = 0; i < nSten; i++) saker.push({ typ: 'sten', w: B.vatten === 'strom' ? rnd(74, 104) : rnd(84, 120) })
+      for (let i = 0; i < nVak; i++) saker.push({ typ: 'vak', w: rnd(200, 260) })
+      if (!saker.length) break
       for (let p = 0; p < 40 && !rad; p++) {
         const ord = shuffle(saker)
         // Den döda stammen står inte ytterst — den ska vara något att klättra i MITT i dammen.
         const iS = ord.findIndex((o) => o.typ === 'stubbe')
-        if (iS < 2 || iS > ord.length - 3) continue
+        if (medStubbe && (iS < 2 || iS > ord.length - 3)) continue
         const luckor = []
         let krav = 0
         for (let i = 0; i < ord.length; i++) {
@@ -408,6 +456,7 @@ export class Dammen {
         else if (nBlad > 3) nBlad--
       }
     }
+    if (!rad && B.vatten === 'gol') rad = { ord: [], luckor: [], krav: 0 }
     if (!rad) {
       // Kan inte hända med den här bredden, men en scen utan blad vore död.
       rad = { ord: [{ typ: 'blad', w: 150 }, { typ: 'sten', w: 96 }, { typ: 'stubbe', w: 70 }, { typ: 'blad', w: 150 }, { typ: 'blad', w: 150 }], luckor: [24, 60, 60, 70], krav: 830 }
@@ -418,56 +467,99 @@ export class Dammen {
     let u = Z0 + (slack * vikt[0]) / summa
     const blad = []
     P.stenar = []
+    P.vakar = []
     rad.ord.forEach((s, i) => {
       if (i > 0) u += rad.luckor[i - 1] + (slack * vikt[i]) / summa
       const mitt = u + s.w / 2
       u += s.w
       if (s.typ === 'blad') blad.push({ u: mitt, w: s.w })
       else if (s.typ === 'stubbe') P.stubbe = { u: mitt, topp: rnd(130, 190), grenar: [] }
-      else P.stenar.push({ u: mitt, w: s.w, topp: rnd(470, 520), farg: valj(STEN_FARGER), mossa: Math.random() < 0.75 })
+      else if (s.typ === 'vak') P.vakar.push({ u: mitt, w: s.w })
+      else P.stenar.push({ u: mitt, w: s.w, topp: B.vatten === 'strom' ? rnd(495, 530) : rnd(470, 520), farg: valj(STEN_FARGER), mossa: !B.sno && Math.random() < 0.75 })
     })
+    // Skogen: marken från strand till strand, gölen vid ena kanten (där kören sitter), och
+    // stubben på marken.
+    if (B.vatten === 'gol') {
+      const golV = Math.random() < 0.5
+      const gw = rnd(560, 660)
+      const g0u = rnd(260, 360)
+      P.golSida = golV ? 'v' : 'h'
+      const gx0 = golV ? g0u : VW - g0u - gw
+      P.gol = { x0: gx0, x1: gx0 + gw }
+      // 1–2 blad i gölen.
+      const [gbMin, gbMax] = B.blad || [1, 2]
+      const nb = rint(gbMin, gbMax)
+      for (let i = 0; i < nb; i++) blad.push({ u: this._u(gx0 + gw * (0.3 + 0.4 * (nb === 1 ? 0.5 : i / (nb - 1)))), w: rnd(130, 150) })
+      if (B.stubbe) {
+        const sx = golV ? VW - rnd(700, 900) : rnd(700, 900)
+        P.stubbe = { u: this._u(sx), topp: rnd(170, 230), grenar: [], paMark: true }
+      }
+    }
     // Stubben: bruten ~400 px över vattnet, med en grenstump lågt (nås från vattnet) och en högt
     // åt andra hållet (en trappa upp mot insekterna). Första försöket var 950 px hög och stod som
     // en telefonstolpe genom hela startbilden (_varldbildprobe).
     const st = P.stubbe
-    const sida = Math.random() < 0.5 ? 1 : -1
-    st.grenar.push({ topp: st.topp + rnd(160, 210), L: rnd(140, 175), sida })
-    st.grenar.push({ topp: st.topp + rnd(35, 60), L: rnd(120, 150), sida: -sida })
+    if (st) {
+      const sida = Math.random() < 0.5 ? 1 : -1
+      st.grenar.push({ topp: st.topp + rnd(160, 210), L: rnd(140, 175), sida })
+      st.grenar.push({ topp: st.topp + rnd(35, 60), L: rnd(120, 150), sida: -sida })
+    }
 
     // Startbladet: det som ligger närmast världens mitt, men inte tätt intill den döda stammen.
     const siktet = VW / 2 + rnd(-150, 150)
-    const avst = (b) => Math.abs(b.u - siktet) + (Math.abs(b.u - st.u) < 200 ? 10000 : 0)
-    const start = blad.reduce((a, b) => (avst(b) < avst(a) ? b : a))
-    P.blad = [start, ...blad.filter((b) => b !== start)]
+    const avst = (b) => Math.abs(b.u - siktet) + (st && Math.abs(b.u - st.u) < 200 ? 10000 : 0)
+    const start = B.vatten === 'oppet' && blad.length ? blad.reduce((a, b) => (avst(b) < avst(a) ? b : a)) : blad[0] || null
+    P.startBlad = B.vatten === 'oppet'
+    P.blad = start ? [start, ...blad.filter((b) => b !== start)] : []
     P.blad.forEach((b, i) => {
       b.farg = BLAD_FARGER[i % BLAD_FARGER.length]
       b.skara = Math.random() < 0.5 ? rnd(0.85, 1.25) : Math.PI - rnd(0.85, 1.25)
     })
     // Blommor: 2–3 blad, aldrig startbladet (grodan skulle sitta på den).
     const utan = P.blad.slice(1)
-    for (const b of shuffle(utan).slice(0, Math.min(utan.length, rint(2, 3)))) b.ros = { dx: rnd(-0.26, 0.26) * b.w, farg: valj(ROS_FARGER), s: rnd(0.9, 1.15) }
+    if (B.vatten === 'oppet') for (const b of shuffle(utan).slice(0, Math.min(utan.length, rint(2, 3)))) b.ros = { dx: rnd(-0.26, 0.26) * b.w, farg: valj(ROS_FARGER), s: rnd(0.9, 1.15) }
 
-    // Stocken: inte i en sten eller stammen, inte under startbladet, helst inte bakom ett blad.
+    // Stockarna: inte i en sten, stammen eller en vak, inte under startbladet, helst inte bakom
+    // ett blad. Dammen har en, forsen två (de driver med strömmen), isen ingen, skogen en på marken.
     const uMin = P.strand + 105
     const uMax = VW - P.strand2 - 105
-    const kandidater = []
-    for (let pass = 0; pass < 2 && !kandidater.length; pass++) {
-      let bast = Infinity
-      for (let su = Math.max(uMin, 295); su <= Math.min(uMax, VW - 295); su += 5) {
-        if (P.stenar.some((s) => Math.abs(su - s.u) < STOCK_W / 2 + s.w / 2 + 12)) continue
-        if (Math.abs(su - st.u) < STOCK_W / 2 + 60) continue
-        if (pass === 0 && Math.abs(su - start.u) < STOCK_W / 2 + start.w / 2 + 20) continue
-        const straff = P.blad.filter((b) => Math.abs(su - b.u) < STOCK_W / 2 + b.w / 2 + 6).length
-        if (straff < bast) {
-          bast = straff
-          kandidater.length = 0
+    const nStock = B.vatten === 'is' || B.vatten === 'gol' ? 0 : B.stockar ?? 1
+    P.stockar = []
+    for (let n = 0; n < nStock; n++) {
+      const kandidater = []
+      for (let pass = 0; pass < 2 && !kandidater.length; pass++) {
+        let bast = Infinity
+        for (let su = Math.max(uMin, 295); su <= Math.min(uMax, VW - 295); su += 5) {
+          if (P.stenar.some((s) => Math.abs(su - s.u) < STOCK_W / 2 + s.w / 2 + 12)) continue
+          if (st && Math.abs(su - st.u) < STOCK_W / 2 + 60) continue
+          if (P.stockar.some((o) => Math.abs(su - o) < STOCK_W + 120)) continue
+          if (pass === 0 && start && Math.abs(su - start.u) < STOCK_W / 2 + start.w / 2 + 20) continue
+          const straff = P.blad.filter((b) => Math.abs(su - b.u) < STOCK_W / 2 + b.w / 2 + 6).length
+          if (straff < bast) {
+            bast = straff
+            kandidater.length = 0
+          }
+          if (straff === bast) kandidater.push(su)
         }
-        if (straff === bast) kandidater.push(su)
       }
+      P.stockar.push(kandidater.length ? valj(kandidater) : VW / 2 + 400 * (n ? -1 : 1))
     }
-    P.stockU = kandidater.length ? valj(kandidater) : VW / 2 + 400
     P.stockU0 = uMin
     P.stockU1 = uMax
+    // Skogen: en fallen stock på marken och 3–4 flugsvampar att studsa på.
+    P.svampar = []
+    if (B.vatten === 'gol') {
+      const upptaget = [P.gol.x0 - 80, P.gol.x1 + 80]
+      const ledigt = (x, w) => (x + w < upptaget[0] || x - w > upptaget[1]) && x > 300 && x < VW - 300 && (!st || Math.abs(x - this._x(st.u)) > 180)
+      const n = rint(...(B.svampar || [3, 4]))
+      for (let i = 0, forsok = 0; i < n && forsok < 60; forsok++) {
+        const x = rnd(300, VW - 300)
+        const w = rnd(110, 150)
+        if (!ledigt(x, w) || P.svampar.some((o) => Math.abs(o.x - x) < 260)) continue
+        P.svampar.push({ x, w, topp: rnd(370, 440), farg: valj([0xd8352a, 0xe0482c, 0xc9412e]) })
+        i++
+      }
+    }
 
     // Vass: 1–2 strån vid varje strandkant.
     P.vass = []
@@ -479,14 +571,74 @@ export class Dammen {
         i++
       }
     }
-    lagg(rint(1, 2), Math.max(118, P.strand - 22), P.strand + 18, 12)
-    lagg(rint(1, 3), VW - P.strand2 - 22, VW - P.strand2 + 30, 16)
+    if (B.vatten === 'gol') {
+      // Skogen: vass runt gölens kanter.
+      lagg(rint(1, 2), this._u(P.gol.x0 + 20), this._u(P.gol.x0 + 60), 14)
+      lagg(rint(1, 2), this._u(P.gol.x1 - 60), this._u(P.gol.x1 - 20), 14)
+      P.vass.forEach((v) => (v.u = Math.min(v.u, VW)))
+    } else if (B.vatten !== 'strom') {
+      lagg(rint(1, 2), Math.max(118, P.strand - 22), P.strand + 18, 12)
+      lagg(rint(1, 3), VW - P.strand2 - 22, VW - P.strand2 + 30, 16)
+    } else {
+      lagg(1, Math.max(118, P.strand - 22), P.strand + 18, 12)
+      lagg(1, VW - P.strand2 - 22, VW - P.strand2 + 30, 16)
+    }
 
-    // Grodkören: på ett eget blad i förgrunden vid ena stranden — en bit att ta sig till.
-    const korBank = Math.random() < 0.5 ? 1 : 2
-    const korU = korBank === 1 ? P.strand + rnd(150, 190) : VW - P.strand2 - rnd(150, 190)
-    const korX = this._x(korU)
+    // Grodkören: på ett eget blad i förgrunden vid ena stranden — en bit att ta sig till. I skogen
+    // i gölen, i forsen vid den strand strömmen går mot.
+    let korX
+    if (B.vatten === 'gol') korX = (P.gol.x0 + P.gol.x1) / 2 + rnd(-60, 60)
+    else if (B.vatten === 'is' && P.vakar.length) {
+      // Isen: kören sitter i den vak som ligger närmast en strand (ett blad på öppet vatten).
+      const v = P.vakar.reduce((a, b) => (Math.min(a.u, VW - a.u) < Math.min(b.u, VW - b.u) ? a : b))
+      korX = this._x(v.u)
+    } else {
+      const korBank = Math.random() < 0.5 ? 1 : 2
+      const korU = korBank === 1 ? P.strand + rnd(150, 190) : VW - P.strand2 - rnd(150, 190)
+      korX = this._x(korU)
+    }
     P.kor = { x: korX, sida: korX < VW / 2 ? 'v' : 'h' }
+    P.stromDir = korX < VW / 2 ? -1 : 1
+
+    // Skogen: två träd till, stående på marken mitt i världen (inte i gölen, inte på stubben).
+    if (B.vatten === 'gol' && (B.trad || 2) > 2) {
+      for (let i = 0, forsok = 0; i < (B.trad || 2) - 2 && forsok < 60; forsok++) {
+        const x = rnd(560, VW - 560)
+        if (x > P.gol.x0 - 260 && x < P.gol.x1 + 260) continue
+        if (st && Math.abs(x - this._x(st.u)) < 300) continue
+        if (P.svampar.some((o) => Math.abs(o.x - x) < 200)) continue
+        if (P.trad.some((t) => t.x != null && Math.abs(t.x - x) < 700)) continue
+        P.trad.push(tradFor(3, x, Math.random() < 0.5 ? 1 : -1))
+        i++
+      }
+    }
+
+    // Startpunkten när grodan inte börjar på ett blad: isen (inte över en vak), stenen närmast
+    // mitten (forsen) eller marken i mitten (skogen, inte i gölen).
+    if (B.vatten === 'is') {
+      let x = VW / 2
+      for (let f = 0; f < 40; f++) {
+        const k = VW / 2 + rnd(-300, 300)
+        if (P.vakar.every((v) => Math.abs(this._x(v.u) - k) > v.w / 2 + 80) && (!st || Math.abs(this._x(st.u) - k) > 120)) {
+          x = k
+          break
+        }
+      }
+      P.start = { x, y: IS_TOPP - 40 }
+    } else if (B.vatten === 'strom') {
+      const sten = P.stenar.reduce((a, b) => (Math.abs(this._x(b.u) - VW / 2) < Math.abs(this._x(a.u) - VW / 2) ? b : a), P.stenar[0])
+      P.start = sten ? { x: this._x(sten.u), y: sten.topp - 40 } : { x: VW / 2, y: YT_Y - 40 }
+    } else if (B.vatten === 'gol') {
+      let x = VW / 2
+      for (let f = 0; f < 40; f++) {
+        const k = VW / 2 + rnd(-250, 250)
+        if ((!st || Math.abs(this._x(st.u) - k) > 150) && P.svampar.every((o) => Math.abs(o.x - k) > 120) && P.trad.every((t) => t.x == null || Math.abs(t.x - k) > 120)) {
+          x = k
+          break
+        }
+      }
+      P.start = { x, y: MARK_Y - 40 }
+    } else P.start = null
   }
 
   // ---- himmel, fjärran skog, bortre vatten ------------------------------------------
@@ -729,6 +881,9 @@ export class Dammen {
       }
       // Glansyta på axeln.
       g.ellipse(-u * 0.58, u * 0.62, u * 0.2, u * 0.1).fill({ color: 0xffffff, alpha: 0.32 })
+      if (this.biom.sno) g.ellipse(0, u * 0.12, u * 0.9, u * 0.26).fill({ color: 0xffffff, alpha: 0.96 })
+      // Forsen: skum runt stenen där vattnet slår emot.
+      if (this.biom.vatten === 'strom') this._skum = (this._skum || []).concat([{ x, fas: rnd(0, TAU), w: u }])
       this._kropp(body, 'sten', view)
     }
   }
@@ -790,7 +945,9 @@ export class Dammen {
     }
     // Rötter som sticker ut i banken.
     g.moveTo(...L(S - 30, 540)).quadraticCurveTo(...L(S - 6, 560), ...L(S - 18, 588)).stroke({ width: 3, color: shade(BARK, 0.25), alpha: 0.7, cap: 'round' })
-    // Gräskanten.
+    // Gräskanten (snötäcke på isen).
+    const sno = !!this.biom.sno
+    const GR = sno ? 0xf1f6fc : GRAS
     const gr = ritning(view)
     gr.moveTo(...L(uL - 10, 518))
     for (let u = uL - 10; u < S - 22; u += 22) gr.quadraticCurveTo(...L(u + 11, 511 + rnd(-2, 2)), ...L(u + 22, 518))
@@ -798,20 +955,26 @@ export class Dammen {
       .lineTo(...L(S - 6, 538))
       .lineTo(...L(uL - 10, 536))
       .closePath()
-      .fill(topLightFill(GRAS, { highlight: 0.3, dark: 0.18 }))
-    for (let u = uL; u < S + 4; u += rnd(4, 8)) {
-      const h = rnd(7, 18)
-      const luta = u > S - 16 ? rnd(4, 10) : rnd(-5, 5)
-      gr.moveTo(...L(u, 523)).quadraticCurveTo(...L(u + 1, 523 - h * 0.6), ...L(u + luta, 523 - h))
+      .fill(topLightFill(GR, { highlight: 0.3, dark: sno ? 0.08 : 0.18 }))
+    if (!sno) {
+      for (let u = uL; u < S + 4; u += rnd(4, 8)) {
+        const h = rnd(7, 18)
+        const luta = u > S - 16 ? rnd(4, 10) : rnd(-5, 5)
+        gr.moveTo(...L(u, 523)).quadraticCurveTo(...L(u + 1, 523 - h * 0.6), ...L(u + luta, 523 - h))
+      }
+      gr.stroke({ width: 2.2, color: shade(GRAS, 0.28), alpha: 0.85, cap: 'round' })
+      for (let u = uL + 3; u < S; u += rnd(9, 16)) {
+        const h = rnd(6, 13)
+        gr.moveTo(...L(u, 521)).quadraticCurveTo(...L(u - 1, 521 - h * 0.6), ...L(u + rnd(-4, 4), 521 - h))
+      }
+      gr.stroke({ width: 1.8, color: tint(GRAS, 0.35), alpha: 0.85, cap: 'round' })
+    } else {
+      // Snödrivor: mjuka kullar och ett glittrande skimmer.
+      for (let u = uL; u < S; u += rnd(40, 70)) gr.ellipse(...L(u, 516), rnd(26, 40), rnd(7, 11)).fill({ color: 0xffffff, alpha: 0.85 })
+      for (let i = 0; i < 10; i++) gr.circle(...L(rnd(uL, S), rnd(512, 530)), 1.4).fill({ color: 0xcfe8ff, alpha: 0.9 })
     }
-    gr.stroke({ width: 2.2, color: shade(GRAS, 0.28), alpha: 0.85, cap: 'round' })
-    for (let u = uL + 3; u < S; u += rnd(9, 16)) {
-      const h = rnd(6, 13)
-      gr.moveTo(...L(u, 521)).quadraticCurveTo(...L(u - 1, 521 - h * 0.6), ...L(u + rnd(-4, 4), 521 - h))
-    }
-    gr.stroke({ width: 1.8, color: tint(GRAS, 0.35), alpha: 0.85, cap: 'round' })
     // Små blommor i gräset.
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < (sno ? 0 : 4); i++) {
       const [bx, by] = L(rnd(10, S - 20), rnd(512, 518))
       const f = valj([0xffffff, 0xffe36e, 0xffc6e0])
       for (let k = 0; k < 5; k++) gr.circle(bx + Math.cos((k * TAU) / 5) * 2.8, by + Math.sin((k * TAU) / 5) * 2.8, 2.2).fill(f)
@@ -831,8 +994,9 @@ export class Dammen {
   _byggTrad(t) {
     const R = this._bakomRot
     const nr = t.bank
-    const sgn = nr === 1 ? this._sgn : -this._sgn
-    const sx = this._xb(nr, t.stamU)
+    const sgn = t.sgn ?? (nr === 1 ? this._sgn : -this._sgn)
+    const sx = t.x ?? this._xb(nr, t.stamU)
+    const sno = !!this.biom.sno
     const puff = (du, r, lift) => ({ du: du + rnd(-15, 15), r: r * rnd(0.9, 1.1), y: 0, lift })
 
     // Kronans bakre puffar i toppen (bakom stammen) + mörka klungor bakom varje gren.
@@ -851,10 +1015,10 @@ export class Dammen {
     for (const b of bak) kb.circle(b.du, b.y, b.r).fill(sphereFill(KRONA_BAK, { lightY: 0.25, dark: 0.3 }))
     this._lovkant(ritning(kronaBak), bak)
 
-    // Stammen (egen kropp, se val 1).
+    // Stammen (egen kropp, se val 1). Står på banken/marken (MARK_Y).
     const stamTopp = t.topp
-    const stamCy = (stamTopp + 528) / 2
-    const stamH = 528 - stamTopp
+    const stamCy = (stamTopp + MARK_Y) / 2
+    const stamH = MARK_Y - stamTopp
     const stamBody = this._phys.rectangle(sx, stamCy, 52, stamH, { isStatic: true, ...mat('tra'), label: 'stam' })
     const stamView = dekor(R, sx, stamCy)
     stamView.scale.x = sgn
@@ -864,14 +1028,14 @@ export class Dammen {
     const grenRecs = []
     for (const g of t.grenar) {
       const a = g.a
-      const bu = t.stamU + (g.L / 2) * Math.cos(a)
       const by = g.topp + 13 + (g.L / 2) * Math.sin(a)
-      const bx = this._xb(nr, bu)
+      const bx = sx + sgn * (g.L / 2) * Math.cos(a)
       const grenBody = this._phys.rectangle(bx, by, g.L, 26, { isStatic: true, ...mat('tra'), angle: sgn * a, label: 'gren' })
       const grenView = dekor(R, bx, by)
       grenView.rotation = sgn * a
       grenView.scale.x = sgn
       this._ritaGren(grenView, g.L)
+      if (sno) ritning(grenView).roundRect(-g.L / 2 - 6, -20, g.L - 6, 9, 4.5).fill({ color: 0xffffff, alpha: 0.95 })
       grenRecs.push({ body: grenBody, view: grenView })
     }
 
@@ -889,8 +1053,9 @@ export class Dammen {
         fram.push({ du, r, y: g.topp - r * 0.55 - 6, lift: 0 })
       }
     }
+    const KF = sno ? [0x3f7a5f, 0x4a8468, 0x366f55] : KRONA_FRAM
     for (const [i, f] of fram.entries()) {
-      f.farg = KRONA_FRAM[i % 3]
+      f.farg = KF[i % 3]
       kf.circle(f.du, f.y, f.r).fill(sphereFill(f.farg, { lightY: 0.22, spread: 0.6, dark: 0.26 }))
     }
     // Löv längs puffarnas ytterkant: kronan får en taggig lövsilhuett i stället för bollar.
@@ -906,6 +1071,11 @@ export class Dammen {
         const ljus = ly < f.y
         spetsblad(lt, lx, ly, rnd(-1.2, 1.2), rnd(12, 19), rnd(4, 6)).fill({ color: ljus ? 0xb8e07a : 0x2f6e2f, alpha: ljus ? 0.35 : 0.3 })
       }
+    }
+    // Snö på kronan: en mjuk hätta på varje puff (isbiomen).
+    if (sno) {
+      const sg = ritning(kronaFram)
+      for (const f of fram) sg.ellipse(f.du, f.y - f.r * 0.62, f.r * 0.78, f.r * 0.32).fill({ color: 0xffffff, alpha: 0.95 })
     }
     // Hängande löv i toppkronans underkant — vajar var för sig.
     const toppFram = fram.slice(0, 7)
@@ -939,7 +1109,7 @@ export class Dammen {
     const R = this._bakomRot
     const x = this._x(st.u)
     const topp = st.topp
-    const bas = 740
+    const bas = st.paMark ? MARK_Y + 6 : 740
     const h = bas - topp
     const cy = (topp + bas) / 2
     // Stammen står från botten och en bit upp — som FAST kropp var den en vägg som delade dammen
@@ -964,8 +1134,9 @@ export class Dammen {
     // Ett hackhål och mossa en bit ovanför ytan.
     g.ellipse(-4, t + 90, 8, 11).fill(0x2e2418)
     for (let i = 0; i < 7; i++) g.ellipse(rnd(-18, 16), (YT_Y - cy) - rnd(10, 60), rnd(5, 10), rnd(3, 5)).fill({ color: valj([MOSSA, tint(MOSSA, 0.25)]), alpha: 0.85 })
+    if (this.biom.sno) g.ellipse(0, t + 12, 20, 7).fill({ color: 0xffffff, alpha: 0.95 })
     // En liten svamp på sidan.
-    const my = (YT_Y - cy) - rnd(110, 170)
+    const my = (Math.min(YT_Y, bas) - cy) - rnd(110, 170)
     g.moveTo(20, my).quadraticCurveTo(38, my - 7, 36, my + 5).quadraticCurveTo(30, my + 9, 20, my + 7).closePath().fill(0xe8c07a)
     this._kropp(body, 'stubbe', view)
     // Grenstumparna.
@@ -1065,10 +1236,12 @@ export class Dammen {
     g.ellipse(b + 3, -0.5, 3.5, 8).fill(0xc79a62)
     const kx = rnd(-L * 0.1, L * 0.2)
     g.ellipse(kx, 3, 6, 4).fill(shade(bark, 0.5))
-    // Mossa längs ovansidan.
+    // Mossa längs ovansidan (på vintern: snöklumpar i stället — spelkritikern såg gröna prickar på
+    // en snötäckt gren).
+    const vinter = !!this.biom?.sno
     for (let i = 0; i < 6; i++) {
       const mx = rnd(a + 40, b - 30)
-      g.ellipse(mx, -12, rnd(8, 16), 3.5).fill({ color: valj([MOSSA, tint(MOSSA, 0.3)]), alpha: 0.9 })
+      g.ellipse(mx, -12, rnd(8, 16), vinter ? 4.5 : 3.5).fill(vinter ? { color: 0xffffff, alpha: 0.95 } : { color: valj([MOSSA, tint(MOSSA, 0.3)]), alpha: 0.9 })
     }
     // Kvistar med lövknippen — egna containrar som vajar.
     const kvist = (x, y, ang, len, lov, bas) => {
@@ -1080,6 +1253,7 @@ export class Dammen {
       lovknippe(kg, ex, ey, ang, lov, 20)
       this._svaj.push({ nod: c, bas, amp: rnd(0.04, 0.08), w: rnd(1.1, 1.8), fas: rnd(0, TAU) })
     }
+    if (vinter) return // vintergrenen: bar, med snö (ritas i _byggTrad) — inga lövknippen
     kvist(rnd(-L * 0.25, L * 0.05), -12, rnd(0.2, 0.6), rnd(26, 38), 4, 0)
     kvist(b + 4, -3, rnd(0.9, 1.3), 24, 3, 0)
     if (Math.random() < 0.7) kvist(rnd(L * 0.1, L * 0.3), -11, rnd(-0.5, -0.2), rnd(18, 26), 3, 0)
@@ -1090,6 +1264,136 @@ export class Dammen {
     hg.moveTo(0, 0).lineTo(0, 9).stroke({ width: 1.5, color: 0x4a6a2a })
     spetsblad(hg, 0, 8, Math.PI + 0.2, 20, 6).fill(LOV[0]).stroke({ width: 1, color: shade(LOV[0], 0.3), alpha: 0.4 })
     this._svaj.push({ nod: c, bas: 0, amp: 0.14, w: 1.9, fas: rnd(0, TAU) })
+  }
+
+  // ---- skogsmarken (L5, skog): från kant till kant utom vid gölen ---------------------------
+
+  _byggMark() {
+    const R = this._bakomRot
+    const VW = this.VW
+    const G = this._plan.gol
+    const JORD2 = 0x6b5033
+    const bitar = [[-BLEED_X - 60, G.x0 + 30], [G.x1 - 30, VW + BLEED_X + 60]]
+    for (const [a, b] of bitar) {
+      if (b - a < 40) continue
+      const cx = (a + b) / 2
+      const body = this._phys.rectangle(cx, (MARK_Y + 900) / 2, b - a, 900 - MARK_Y, { isStatic: true, ...mat('tra'), label: 'strand' })
+      this._kroppar.push(body)
+      this._strander.push({ body, view: null })
+      const g = ritning(R)
+      // Jord, som sluttar ned i gölen vid kanten.
+      // `kant` = biten mot gölen, `ytter` = bitens andra ände (världens kant). Första versionen
+      // utgick alltid från `a` och ritade nästan ingenting av den HÖGRA biten (_varldbildprobe).
+      const inat = a < G.x0 ? 1 : -1
+      const kant = inat > 0 ? b : a
+      const ytter = inat > 0 ? a : b
+      g.moveTo(ytter, MARK_Y - 4).lineTo(kant - inat * 40, MARK_Y - 4)
+        .bezierCurveTo(kant - inat * 14, MARK_Y - 2, kant + inat * 4, 560, kant + inat * 14, 600)
+        .lineTo(kant + inat * 30, 900).lineTo(ytter, 900).closePath()
+      g.fill(topLightFill(JORD2, { highlight: 0.16, dark: 0.45, mid: 0.25 }))
+      for (let i = 0; i < (b - a) / 60; i++) g.ellipse(rnd(a, b), rnd(MARK_Y + 30, 720), rnd(4, 10), rnd(3, 6)).fill({ color: valj([0x8a7358, 0x5d4630, 0x9a8a70]), alpha: 0.8 })
+      // Mossa och gräs överst, nedfallna löv och små svampar.
+      const gx0 = inat > 0 ? a : kant + 30
+      const gx1 = inat > 0 ? kant - 30 : b
+      const gr = ritning(R)
+      gr.moveTo(gx0, MARK_Y + 8)
+      for (let x = gx0; x < gx1; x += 24) gr.quadraticCurveTo(x + 12, MARK_Y - 8 + rnd(-2, 2), x + 24, MARK_Y + 2)
+      gr.lineTo(gx1, MARK_Y + 10).lineTo(gx0, MARK_Y + 10).closePath()
+      gr.fill(topLightFill(0x5d8f3e, { highlight: 0.28, dark: 0.18 }))
+      for (let x = gx0; x < gx1 + 10; x += rnd(5, 10)) {
+        const h = rnd(6, 16)
+        gr.moveTo(x, MARK_Y + 2).quadraticCurveTo(x + 1, MARK_Y + 2 - h * 0.6, x + rnd(-4, 4), MARK_Y + 2 - h)
+      }
+      gr.stroke({ width: 2, color: 0x3f6f2c, alpha: 0.85, cap: 'round' })
+      for (let i = 0; i < (b - a) / 90; i++) {
+        const lx = rnd(a, b)
+        const f = valj([0xd98a2b, 0xc9542e, 0xe8b53a, 0x9a6a3a])
+        spetsblad(gr, lx, MARK_Y - 2, rnd(-1.4, 1.4) + Math.PI / 2, rnd(10, 15), 4).fill(f)
+      }
+      for (let i = 0; i < (b - a) / 400; i++) {
+        const mx = rnd(a + 40, b - 40)
+        gr.rect(mx - 2, MARK_Y - 12, 4, 12).fill(0xf0e6d0)
+        gr.ellipse(mx, MARK_Y - 13, 9, 5).fill(0xb5652e)
+      }
+    }
+  }
+
+  // Flugsvampar (skog): studsiga hattar att landa på (envägs, som grenarna — index.js).
+  _byggSvampar() {
+    for (const sv of this._plan.svampar || []) {
+      const R = this._bakomRot
+      const x = sv.x
+      const w = sv.w
+      const T = sv.topp
+      const hatt = this._phys.rectangle(x, T + 13, w, 26, { isStatic: true, studs: 0.8, chamfer: { radius: [12, 12, 6, 6] }, label: 'svamp' })
+      const view = dekor(R, x, 0)
+      const g = ritning(view)
+      // Foten.
+      g.moveTo(-w * 0.14, MARK_Y + 4).quadraticCurveTo(-w * 0.2, (T + MARK_Y) / 2, -w * 0.11, T + 18)
+        .lineTo(w * 0.11, T + 18).quadraticCurveTo(w * 0.2, (T + MARK_Y) / 2, w * 0.14, MARK_Y + 4).closePath()
+        .fill(cylinderFill(0xf2ead6, { axis: 'y', dark: 0.25, highlight: 0.2 }))
+      g.ellipse(0, T + 34, w * 0.16, 6).fill({ color: 0xe8dcc0, alpha: 0.95 }) // kragen
+      // Hatten: en rund kupol med vita prickar.
+      g.moveTo(-w / 2, T + 24).bezierCurveTo(-w / 2, T - 26, w / 2, T - 26, w / 2, T + 24).closePath()
+        .fill(sphereFill(sv.farg, { lightX: 0.38, lightY: 0.25, dark: 0.3 })).stroke({ width: 2.5, color: shade(sv.farg, 0.45) })
+      g.ellipse(0, T + 24, w / 2, 5).fill({ color: shade(sv.farg, 0.35), alpha: 0.6 })
+      for (let i = 0; i < 7; i++) g.ellipse(rnd(-w * 0.36, w * 0.36), T + rnd(-12, 14), rnd(4, 7), rnd(3, 5)).fill({ color: 0xffffff, alpha: 0.95 })
+      this._svaj.push({ nod: view, bas: 0, amp: 0.004, w: 0.9, fas: rnd(0, TAU) })
+      this._kropp(hatt, 'svamp', view)
+    }
+  }
+
+  // Isen (L5, is): isflak mellan vakarna. Kroppen går från ytan ned till botten — vakarna är
+  // brunnar, så ingen groda kan simma in under isen. Halt: friktionen sätts EFTER skapandet
+  // (setStatic sätter den till 1, se physics.js).
+  _byggIs() {
+    if (this.biom.vatten !== 'is') return
+    const VW = this.VW
+    const vakar = (this._plan.vakar || []).map((v) => ({ x0: this._x(v.u) - v.w / 2, x1: this._x(v.u) + v.w / 2 })).sort((a, b) => a.x0 - b.x0)
+    const seg = []
+    let x = this._plan.strand - 10
+    const slut = VW - this._plan.strand2 + 10
+    const x0v = this._sida === 'v' ? x : VW - slut
+    const x1v = this._sida === 'v' ? slut : VW - x
+    x = x0v
+    for (const v of vakar) {
+      if (v.x0 > x + 20) seg.push({ x0: x, x1: v.x0 })
+      x = v.x1
+    }
+    if (x1v > x + 20) seg.push({ x0: x, x1: x1v })
+    const g = ritning(this._vattenRot)
+    const p = this._pal
+    for (const sg of seg) {
+      const w = sg.x1 - sg.x0
+      const cx = (sg.x0 + sg.x1) / 2
+      const body = this._phys.rectangle(cx, (IS_TOPP + 740) / 2, w, 740 - IS_TOPP, { isStatic: true, label: 'is' })
+      body.friction = this.biom.isFriktion ?? 0.02
+      body.frictionStatic = 0.05
+      this._isSeg.push({ ...sg, body })
+      this._kropp(body, 'is', null)
+      // Frusen yta: ett ljust band överst med sprickor, isblått "genom isen" nedåt.
+      g.rect(sg.x0, IS_TOPP + 10, w, 740 - IS_TOPP).fill({ color: 0xcfe6f2, alpha: 0.62 })
+      g.roundRect(sg.x0, IS_TOPP - 2, w, 16, 6).fill(verticalFill(0xf6fbff, 0xbfdcec))
+      g.rect(sg.x0, IS_TOPP - 2, w, 3).fill({ color: 0xffffff, alpha: 0.9 })
+      for (let i = 0; i < w / 90; i++) {
+        const sx = rnd(sg.x0 + 20, sg.x1 - 20)
+        g.moveTo(sx, IS_TOPP + 2).lineTo(sx + rnd(-18, 18), IS_TOPP + rnd(8, 14)).lineTo(sx + rnd(-30, 30), IS_TOPP + rnd(40, 90))
+      }
+      g.stroke({ width: 1.4, color: 0xffffff, alpha: 0.7 })
+      for (let i = 0; i < w / 160; i++) g.ellipse(rnd(sg.x0 + 30, sg.x1 - 30), IS_TOPP - 2, rnd(18, 34), rnd(4, 6)).fill({ color: 0xffffff, alpha: 0.95 })
+      // Vakens mörka iskant.
+      g.rect(sg.x0, IS_TOPP - 2, 4, 30).fill({ color: shade(p.yta, 0.2), alpha: 0.5 })
+      g.rect(sg.x1 - 4, IS_TOPP - 2, 4, 30).fill({ color: shade(p.yta, 0.2), alpha: 0.5 })
+    }
+  }
+
+  // Där grodan kan landa när den simmar hem (index.js _simHem): bladen, isflakens kanter och
+  // stenarna. { x, bredd }
+  landningar() {
+    const L = this.blad.map((b) => ({ x: b.x, bredd: b.bredd }))
+    for (const sg of this._isSeg) L.push({ x: (sg.x0 + sg.x1) / 2, bredd: sg.x1 - sg.x0 })
+    for (const st of this._plan.stenar || []) L.push({ x: this._x(st.u), bredd: st.w })
+    return L
   }
 
   // ---- vass (sensorer: tungan fastnar, grodan krockar inte) -----------------------------
@@ -1123,8 +1427,12 @@ export class Dammen {
   // ---- stocken (dynamisk, flyter) ----------------------------------------------------------
 
   _byggStock() {
-    const P = this._plan
-    const x = this._x(P.stockU)
+    for (const u of this._plan.stockar || []) this._byggEnStock(u)
+    this._stock = this._stockar[0] || null
+  }
+
+  _byggEnStock(stockU) {
+    const x = this._x(stockU)
     const body = this._phys.rectangle(
       x,
       YT_Y,
@@ -1160,8 +1468,9 @@ export class Dammen {
     g.moveTo(kx, -h / 2 + 2).quadraticCurveTo(kx + 6, -h / 2 - 14, kx + 18, -h / 2 - 22).stroke({ width: 3.5, color: bark, cap: 'round' })
     lovknippe(g, kx + 18, -h / 2 - 22, 0.7, 3, 15)
     this._phys.link(body, view)
-    this.flytvolym.lagg(body, { flyt: 1.8, hemX: x })
-    this._stock = { body, view, hemX: x, frac: 1 }
+    // I forsen har stockarna ingen hemfjäder — strömmen ska få ta dem.
+    this.flytvolym.lagg(body, { flyt: 1.8, hemX: this.biom.vatten === 'strom' ? null : x })
+    this._stockar.push({ body, view, hemX: x, frac: 1 })
     this._kropp(body, 'stock', view)
   }
 
@@ -1202,16 +1511,21 @@ export class Dammen {
     const stral = dekor(R)
     const sg = ritning(stral)
     const bort = (this._sida === 'v' ? p.solU : W - p.solU) > W / 2 ? -1 : 1
-    for (let i = 0; i < 6 * (this.VW / W); i++) {
-      const x0 = rnd(-BLEED_X, this.VW + BLEED_X)
+    const vb = this._vx1 - this._vx0
+    for (let i = 0; i < 6 * (vb / W); i++) {
+      const x0 = rnd(this._vx0, this._vx1)
       const w0 = rnd(24, 60)
       sg.poly([x0, 574, x0 + w0, 574, x0 + w0 + bort * 170 + 50, H + BLEED_Y, x0 + bort * 170 - 20, H + BLEED_Y]).fill({ color: 0xffffff, alpha: p.stral })
     }
     this._stral = stral
     // Glitter på ytan.
     this._glitter = []
-    for (let i = 0; i < 28 * (this.VW / W); i++) {
-      this._glitter.push({ x: rnd(-BLEED_X, this.VW + BLEED_X), dy: rnd(3, 16), r: rnd(4, 10), w: rnd(1.4, 3.4), fas: rnd(0, TAU) })
+    for (let i = 0; i < 28 * (vb / W); i++) {
+      this._glitter.push({ x: rnd(this._vx0, this._vx1), dy: rnd(3, 16), r: rnd(4, 10), w: rnd(1.4, 3.4), fas: rnd(0, TAU) })
+    }
+    // Forsen: strimmor som driver med strömmen (ritas om per bildruta i _ritaVatten).
+    if (this.biom.vatten === 'strom') {
+      for (let i = 0; i < 90; i++) this._strak.push({ x: rnd(0, this.VW), y: rnd(YT_Y + 8, 690), L: rnd(24, 70), v: rnd(0.7, 1.3) })
     }
     this._ytPts = new Float32Array(this._vagN * 2)
     // Morgondimma: mjuka slöjor som driver sakta över bortre vattnet. De ligger i FJÄRRANBANDET
@@ -1241,7 +1555,8 @@ export class Dammen {
     for (let i = 0, forsok = 0; i < 2 && forsok < 30; forsok++) {
       const x = rnd(420, VW - 420)
       // Inte framför kören eller startbladet, och inte klumpat.
-      if (Math.abs(x - kor) < 260 || Math.abs(x - this._x(this._plan.blad[0].u)) < 220) continue
+      const sb = this._plan.blad[0]
+      if (Math.abs(x - kor) < 260 || (sb && Math.abs(x - this._x(sb.u)) < 220)) continue
       if (platser.some((q) => Math.abs(q.x - x) < 500)) continue
       platser.push({ x, kant: x < VW / 2 ? 'v' : 'h' })
       i++
@@ -1259,11 +1574,14 @@ export class Dammen {
         const f = valj([0x3f7a3a, 0x4d8a3f, 0x437f3a])
         g.moveTo(bx - 4, 760).quadraticCurveTo(bx + luta * 0.3 - 8, (760 + topp) / 2, bx + luta, topp).quadraticCurveTo(bx + luta * 0.3 + 6, (760 + topp) / 2, bx + 5, 760).closePath().fill(f)
       }
-      const kt = rnd(500, 540)
-      const kx = inat * rnd(4, 12)
-      g.moveTo(0, 760).quadraticCurveTo(kx * 0.5, (760 + kt) / 2, kx, kt + 12).stroke({ width: 4, color: 0x5e7f3a, cap: 'round' })
-      g.roundRect(kx - 6, kt + 10, 12, 40, 6).fill(cylinderFill(0x5f3c24, { axis: 'y', dark: 0.35, highlight: 0.25 }))
-      g.moveTo(kx, kt + 11).lineTo(kx, kt - 4).stroke({ width: 2, color: 0x8a6a3a, cap: 'round' })
+      if (this.biom.vatten !== 'gol') {
+        const kt = rnd(500, 540)
+        const kx = inat * rnd(4, 12)
+        g.moveTo(0, 760).quadraticCurveTo(kx * 0.5, (760 + kt) / 2, kx, kt + 12).stroke({ width: 4, color: 0x5e7f3a, cap: 'round' })
+        g.roundRect(kx - 6, kt + 10, 12, 40, 6).fill(cylinderFill(0x5f3c24, { axis: 'y', dark: 0.35, highlight: 0.25 }))
+        g.moveTo(kx, kt + 11).lineTo(kx, kt - 4).stroke({ width: 2, color: 0x8a6a3a, cap: 'round' })
+      }
+      if (this.biom.sno) g.ellipse(0, 758, 34, 10).fill({ color: 0xffffff, alpha: 0.9 })
       this._framVass.push({ c, kant })
       this._svaj.push({ nod: inre, bas: 0, amp: rnd(0.018, 0.03), w: rnd(0.7, 1.1), fas: rnd(0, TAU) })
     }
@@ -1324,10 +1642,12 @@ export class Dammen {
     }
   }
 
-  // Stocken hålls inom dammen (u ∈ [strand+105, 1080]) och plaskar när den faller i.
+  // Stockarna hålls inom dammen (u ∈ [strand+105, VW−strand2−105]) och plaskar när de faller i.
   _stockVakt() {
-    const s = this._stock
-    if (!s) return
+    for (const s of this._stockar) this._enStockVakt(s)
+  }
+
+  _enStockVakt(s) {
     const b = s.body
     const p = b.position
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || p.y > 900 || p.y < this.TOPP - 700 || p.x < -300 || p.x > this.VW + 300) {
@@ -1422,6 +1742,11 @@ export class Dammen {
 
   // Svag omgivningsvåg — bara bild, aldrig i simuleringen (kan alltså inte pumpa fältet).
   _amb(x, T) {
+    // Forsen: vågorna vandrar med strömmen, fortare och lite högre.
+    if (this.biom?.vatten === 'strom') {
+      const d = this._plan?.stromDir || 1
+      return 1.8 * Math.sin(x * 0.024 - d * T * 3.2) + 1.1 * Math.sin(x * 0.061 - d * T * 4.4)
+    }
     return 1.3 * Math.sin(x * 0.019 + T * 1.25) + 0.7 * Math.sin(x * 0.051 - T * 0.8)
   }
 
@@ -1436,11 +1761,15 @@ export class Dammen {
     if (!g || g.destroyed) return
     const p = this._pal
     const pts = this._ytPts
-    const N = this._vagN
-    for (let i = 0; i < N; i++) {
+    // Bara där det finns vatten (skogens göl) — resten av fältet simuleras men ritas inte.
+    const i0 = Math.max(0, Math.floor((this._vx0 - VAG_X0) / VAG_DX))
+    const i1 = Math.min(this._vagN - 1, Math.ceil((this._vx1 - VAG_X0) / VAG_DX))
+    const N = i1 - i0 + 1
+    for (let j = 0; j < N; j++) {
+      const i = i0 + j
       const x = VAG_X0 + i * VAG_DX
-      pts[i * 2] = x
-      pts[i * 2 + 1] = YT_Y + this._vag[i] + this._amb(x, T)
+      pts[j * 2] = x
+      pts[j * 2 + 1] = YT_Y + this._vag[i] + this._amb(x, T)
     }
     const x0 = pts[0]
     const x1 = pts[(N - 1) * 2]
@@ -1464,7 +1793,7 @@ export class Dammen {
     // Glitter som tindrar och driver.
     for (const gl of this._glitter) {
       gl.x += 0.08
-      if (gl.x > this.VW + BLEED_X) gl.x = -BLEED_X
+      if (gl.x > this._vx1) gl.x = this._vx0
       const s = Math.sin(T * gl.w + gl.fas)
       if (s < 0.4) continue
       const k = (s - 0.4) / 0.6
@@ -1472,6 +1801,26 @@ export class Dammen {
       g.ellipse(gl.x, y, gl.r * (0.5 + 0.5 * k), 1.3).fill({ color: p.glitter, alpha: 0.85 * k })
     }
     if (this._stral && !this._stral.destroyed) this._stral.alpha = 0.75 + 0.25 * Math.sin(T * 0.55)
+    // Forsen: strimmor som driver med strömmen, och skum där vattnet slår mot stenarna.
+    if (this._strak.length) {
+      const dir = this._plan.stromDir || 1
+      const dt = Math.min(0.05, T - (this._strakT ?? T))
+      this._strakT = T
+      for (const st of this._strak) {
+        st.x += dir * st.v * 150 * dt
+        if (st.x > this.VW + 60) st.x = -60
+        else if (st.x < -60) st.x = this.VW + 60
+        g.moveTo(st.x, st.y).lineTo(st.x + dir * st.L, st.y + Math.sin(st.x * 0.02) * 2)
+      }
+      g.stroke({ width: 2, color: 0xffffff, alpha: 0.35, cap: 'round' })
+      for (const sk of this._skum || []) {
+        const y = this.ytaVid(sk.x)
+        for (let k = 0; k < 4; k++) {
+          const a = T * 3 + sk.fas + k * 1.7
+          g.ellipse(sk.x - dir * (sk.w + 6 + (k % 2) * 8), y + 2 + Math.sin(a) * 2, 9 + 4 * Math.sin(a * 0.7), 4).fill({ color: 0xffffff, alpha: 0.75 })
+        }
+      }
+    }
   }
 
   _ritaBladen(T) {
@@ -1496,6 +1845,23 @@ export class Dammen {
       if (d.c.x - d.bw > this._fjB + 40) d.c.x = -BLEED_X - d.bw - 40
     }
     if (this._skimmer && !this._skimmer.destroyed) this._skimmer.alpha = 0.7 + 0.3 * Math.sin(T * 1.7)
+    // Snöfall: 50 flingor som driver ned över skärmen (himlen står still, flingorna i skärmen).
+    const sg = this._snoG
+    if (sg && !sg.destroyed) {
+      if (!this._snoFlingor.length) {
+        for (let i = 0; i < 50; i++) this._snoFlingor.push({ x: rnd(-BLEED_X, W + BLEED_X), y: rnd(-BLEED_Y, H + BLEED_Y), r: rnd(1.6, 3.6), v: rnd(28, 60), fas: rnd(0, TAU) })
+      }
+      sg.clear()
+      for (const f of this._snoFlingor) {
+        f.y += f.v * dt
+        f.x += Math.sin(T * 0.8 + f.fas) * 12 * dt
+        if (f.y > H + BLEED_Y + 10) {
+          f.y = -BLEED_Y - 10
+          f.x = rnd(-BLEED_X, W + BLEED_X)
+        }
+        sg.circle(f.x, f.y, f.r).fill({ color: 0xffffff, alpha: 0.85 })
+      }
+    }
   }
 
   // Den synliga världsytan just nu (spelet ger en funktion — kameran flyttar den).
@@ -1648,6 +2014,11 @@ export class Dammen {
     this._molnStrak = []
     this._dimma = []
     this._framVass = []
+    this._stockar = []
+    this._isSeg = []
+    this._snoFlingor = []
+    this._strak = []
+    this._skum = []
     this._dropp = []
     this._bubblor = []
     this._glitter = []

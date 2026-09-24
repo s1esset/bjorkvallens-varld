@@ -51,12 +51,15 @@ import { Svarm } from './insekter.js'
 import { Dammen, YT_Y, TIDER, FJARRAN } from './dammen.js'
 import { Hinder } from './hinder.js'
 import { Bajs } from './bajs.js'
+import { BIOMER, BIOM_ORDNING } from './biomer.js'
 
 const { Body, Query } = Matter
 
 // Insekter till en full mage (= en bajskorv). Första korven kommer där rundan tog slut förut.
 const FORSTA_KORV = 8
-const NASTA_KORV = 5
+// Sänkt från 5 i L5: världen gör resorna längre (sonden 109–212 s per runda), och en treåring är
+// långsammare än sonden (spelkritikern L4/L5). Första korven kommer fortfarande vid 8.
+const NASTA_KORV = 4
 const UNGAR = 3 // matade grodungar → banan klar
 // Världen (L4): två skärmar bred, och upp till en skärm ovanför dammen.
 const VARLD_B = 2560
@@ -150,12 +153,50 @@ export default {
   mount(ctx) {
     this._idle = 0
     ctx.services.voice.say(this.voiceIntro)
+    this._sagBiom(ctx)
+  },
+
+  // En kort replik om världen (L5) — efter instruktionen, aldrig över den.
+  _sagBiom(ctx) {
+    const b = this._biomNamn
+    const voice = ctx.services.voice
+    ctx.narTyst(() => {
+      if (!this._alive || this._biomNamn !== b) return
+      if (b === 'is') voice.say('Isen är hal!')
+      else if (b === 'fors') voice.say('Strömmen tar med sig allt!')
+      else if (b === 'skog') voice.say('Grodan är i skogen!')
+    })
   },
 
   // ── Världen (byggs om varje runda) ─────────────────────────────────────────────────────
 
+  // Vilken biom rundan får (L5). Första rundan när spelet öppnas: nästa i ordningen (damm → is
+  // → fors → skog → …), sparad i progress — så ser barnet en ny värld varje gång, och ägaren kan
+  // prova alla genom att gå ut och in. Inom en session: slump bland de andra.
+  _valjBiom(ctx) {
+    if (this._runda === 1) {
+      const n = BIOM_ORDNING.length
+      let i = 0
+      try {
+        i = Number(ctx.progress.get()?.custom?.biomNasta) || 0
+      } catch {
+        i = 0
+      }
+      const b = BIOM_ORDNING[((i % n) + n) % n]
+      try {
+        ctx.progress.setCustom('biomNasta', (((i + 1) % n) + n) % n)
+      } catch {
+        /* progress saknas i en sond — ingen fara */
+      }
+      return b
+    }
+    return valj(BIOM_ORDNING.filter((b) => b !== this._biomNamn))
+  },
+
   _byggVarld(ctx) {
     this._runda++
+    this._biomNamn = this._tvingaBiom && BIOMER[this._tvingaBiom] ? this._tvingaBiom : this._valjBiom(ctx)
+    this._biom = BIOMER[this._biomNamn]
     const tider = TIDER.filter((t) => t !== this._senasteTid)
     const tid = this._runda === 1 ? 'eftermiddag' : valj(tider)
     this._senasteTid = tid
@@ -217,6 +258,7 @@ export default {
       tid,
       varld: { w: VARLD_B, topp: VARLD_TOPP },
       vy: this._vyFn,
+      biom: this._biomNamn,
     })
     // Vassen är BARA ett mål för tungan: den krockar med ingenting (en sensor ger ändå
     // collisionStart — grodan "tumlade" mot vass hon simmade förbi). Query.point bryr sig
@@ -240,7 +282,7 @@ export default {
     // Grenarna (träden + stubbens stumpar) och näckrosbladen — ENVÄGS för grodan, se _envagsgrenar.
     // Varje kropps halva tjocklek (i sin egen lutande ram) läses ur dess hörn: gren 13, stump 11,
     // blad 7 — "ovanpå" betyder olika mycket.
-    this._grenar = this._dammen.foremal.filter((f) => f.body.label === 'gren' || f.body.label === 'blad').map((f) => {
+    this._grenar = this._dammen.foremal.filter((f) => f.body.label === 'gren' || f.body.label === 'blad' || f.body.label === 'svamp').map((f) => {
       const b = f.body
       const a = -b.angle
       let halv = 0
@@ -257,7 +299,7 @@ export default {
     // Korvarna krockar aldrig med grodan (samma negativa grupp) — tungan hämtar dem.
     this._bajs = new Bajs({ phys, lager: { bakom: L.bakom, bar: L.tunga, luft: L.effekt }, flytvolym: this._dammen.flytvolym, grupp: this._groda._grupp, vw: VARLD_B })
 
-    this._svarm = new Svarm({ lager: L.insekter, ytY: YT_Y, view: ctx.view, granser: { x0: 40, x1: VARLD_B - 40, y0: VARLD_TOPP + 60 }, vy: this._vyFn })
+    this._svarm = new Svarm({ lager: L.insekter, ytY: this._dammen.golvY, view: ctx.view, granser: { x0: 40, x1: VARLD_B - 40, y0: VARLD_TOPP + 60 }, vy: this._vyFn })
     if (tid === 'skymning') this._svarm.skymning = true
 
     this._hinder = new Hinder({
@@ -1248,10 +1290,12 @@ export default {
     const a = this._atna
     let typ = 'fluga'
     if (a >= 2) {
-      const pool = ['fluga', 'fjaril', 'trollslanda', this._svarm.skymning ? 'eldfluga' : 'mygga']
+      // Biomens insekter (L5): vinterns flugor, forsens trollsländor, skogens fjärilar och humlor.
+      // I skymningen blir myggorna eldflugor, som förut.
+      const pool = (this._biom?.insekter || ['fluga', 'fjaril', 'trollslanda', 'mygga']).map((t) => (t === 'mygga' && this._svarm.skymning ? 'eldfluga' : t))
       typ = valj(pool)
     }
-    if (!this._humlaKom && a >= 3 && a <= 6 && Math.random() < 0.45) {
+    if (!this._humlaKom && a >= 3 && a <= 6 && Math.random() < 0.45 && this._biomNamn !== 'is') {
       typ = 'humla'
       this._humlaKom = true
     }
@@ -1422,6 +1466,7 @@ export default {
         this._byggVarld(ctx)
         gsap.to(rot, { alpha: 1, duration: 0.4 })
         ctx.narTyst(() => this._alive && ctx.services.voice.say(this.voiceIntro))
+        this._sagBiom(ctx)
       },
     })
   },
@@ -1611,8 +1656,8 @@ export default {
   },
 
   _startaHinder(ctx) {
-    const pool = ['kotte', 'kotte', 'skoldpadda', 'fisk', 'vind']
-    if (!this._ankaKom && Math.random() < 0.18) pool.push('anka', 'anka', 'anka')
+    const pool = [...(this._biom?.hinder || ['kotte', 'kotte', 'skoldpadda', 'fisk', 'vind'])]
+    if (this._biom?.anka !== false && !this._ankaKom && Math.random() < 0.18) pool.push('anka', 'anka', 'anka')
     let typ = valj(pool)
     if (typ === this._senasteHinder) typ = valj(pool)
     this._senasteHinder = typ
@@ -1624,15 +1669,15 @@ export default {
       if (!audio.sample('djur_anka')) audio.tone({ freq: 500, slideTo: 380, dur: 0.18, type: 'square', vol: 0.1 })
     } else if (typ === 'vind') {
       if (!audio.sample('whoosh')) audio.tone({ freq: 300, slideTo: 900, dur: 0.5, type: 'sine', vol: 0.12 })
-    } else if (typ === 'kotte') {
-      audio.tone({ freq: 900, slideTo: 600, dur: 0.12, type: 'triangle', vol: 0.1 })
+    } else if (typ === 'kotte' || typ === 'snoboll') {
+      audio.tone({ freq: typ === 'snoboll' ? 700 : 900, slideTo: 600, dur: 0.12, type: 'triangle', vol: 0.1 })
     }
     log('grodan', 'hinder', { typ })
   },
 
   _simHem(dtS) {
     const g = this._groda
-    const blad = this._dammen.blad
+    const blad = this._dammen.landningar ? this._dammen.landningar() : this._dammen.blad
     if (!blad?.length) return
     let bast = null
     let bastD = Infinity
@@ -1731,6 +1776,7 @@ export default {
   // ovansida — envägsregeln hann aldrig se "hela grodan ovanför", och grodan föll igenom bladet
   // (_startbladdiag: 4 av 4 starter i vattnet). Bladet den placeras på är fast från början.
   _startBladFast() {
+    if (!this._dammen?.startPaBlad) return
     const b = this._dammen?.blad?.[0]?.body
     if (b?.plugin) {
       b.plugin.envagFast = true

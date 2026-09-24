@@ -13,6 +13,8 @@ import { chromium } from 'playwright'
 const argv = process.argv.slice(2)
 const val = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d }
 const TID = val('--tid', null)
+const BIOM = val('--biom', null) // L5: damm | is | fors | skog (via spelets _tvingaBiom)
+const PREFIX = val('--prefix', BIOM ? `_varld-${BIOM}` : '_varld')
 
 const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--autoplay-policy=no-user-gesture-required', '--mute-audio'] })
 const page = await b.newPage({ viewport: { width: 1280, height: 720 } })
@@ -24,6 +26,15 @@ await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 20000 })
 await page.evaluate(() => window.__barnspel.nav.go('game', { id: 'grodan-slurp' }))
 await page.waitForFunction(() => !!window.__barnspel?.game?._groda, null, { timeout: 15000 })
 await page.waitForTimeout(1200)
+if (BIOM && !TID) {
+  await page.evaluate((biom) => {
+    const g = window.__barnspel.game
+    g._tvingaBiom = biom
+    g._rivVarld()
+    g._byggVarld(g._ctx)
+  }, BIOM)
+  await page.waitForTimeout(1200)
+}
 if (TID) {
   await page.evaluate((tid) => {
     const g = window.__barnspel.game
@@ -33,6 +44,7 @@ if (TID) {
     g._rivVarld()
     // Bygg om med vald tid: _byggVarld väljer 'eftermiddag' i runda 1, annars slump bland övriga.
     g._runda = tid === 'eftermiddag' ? 0 : 1
+    if (window.__vbBiom) g._tvingaBiom = window.__vbBiom
     g._senasteTid = tid === 'morgon' ? 'skymning' : 'morgon'
     Math.random = () => 0.01
     try { g._byggVarld(g._ctx) } finally { Math.random = orig }
@@ -45,7 +57,7 @@ const info = await page.evaluate(() => {
   const d = g._dammen
   const P = d._plan
   return {
-    tid: d.tid, VW: d.VW, TOPP: d.TOPP, kor: P.kor, start: d.startPunkt,
+    biom: d.biomNamn, tid: d.tid, VW: d.VW, TOPP: d.TOPP, kor: P.kor, start: d.startPunkt,
     trad: P.trad.map((t) => ({ bank: t.bank, x: Math.round(d._xb(t.bank, t.stamU)), grenar: t.grenar.map((q) => Math.round(q.topp)) })),
     stubbe: P.stubbe && { x: Math.round(d._x(P.stubbe.u)), topp: Math.round(P.stubbe.topp) },
   }
@@ -72,7 +84,7 @@ for (const [i, [namn, x, y]] of lagen.entries()) {
     return { kamX: Math.round(k.x), kamY: Math.round(k.y), varld: { x: Math.round(g._scen.x), y: Math.round(g._scen.y) }, fjarran: { x: Math.round(f.x), y: Math.round(f.y) }, himmel: { x: Math.round(g._L.himmel.x), y: Math.round(g._L.himmel.y) }, hud: { x: Math.round(g._hud.x), y: Math.round(g._hud.y) } }
   }, [x, y])
   await page.waitForTimeout(450)
-  await page.screenshot({ path: `.test-shots/_varld-${i}.png` })
+  await page.screenshot({ path: `.test-shots/${PREFIX}-${i}.png` })
   matt.push({ i, namn, ...m })
 }
 await page.evaluate(() => window.__barnspel.nav.go('library'))

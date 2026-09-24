@@ -76,6 +76,9 @@ export class Flytvolym {
     vaggW = 1.4,
     bottenLugn = 0.7,
     bottenMarg = 8,
+    // Ström i sidled (px/steg): farten i x dras mot `stromX · nedsänkning` — det som flyter följer
+    // med, det som ligger djupare följer med mer. 0 = stilla vatten (standard). grodan-slurps fors.
+    stromX = 0,
   } = {}) {
     this._engine = varld?.engine || varld || null
     this._bas = bas
@@ -94,6 +97,7 @@ export class Flytvolym {
     this.vaggW = vaggW
     this.bottenLugn = bottenLugn
     this.bottenMarg = bottenMarg
+    this.stromX = stromX
     this._alive = true
     this._items = []
   }
@@ -165,8 +169,10 @@ export class Flytvolym {
         }
         sidA = clamp(sidA, -this.maxSid, this.maxSid)
         Body.applyForce(b, pos, { x: b.mass * sidA, y: b.mass * vAcc })
-        // Vätskemotstånd: farten dämpas → lugnt, aldrig studsigt.
-        Body.setVelocity(b, { x: b.velocity.x * this.motstand, y: b.velocity.y * this.motstand })
+        // Vätskemotstånd: farten dämpas → lugnt, aldrig studsigt. Med ström dras farten i sidled
+        // mot strömmens (jämvikt v = stromX · frac, eftersom v' = v·m + stromX·(1−m)·frac).
+        const strom = this.stromX ? this.stromX * (1 - this.motstand) * frac : 0
+        Body.setVelocity(b, { x: b.velocity.x * this.motstand + strom, y: b.velocity.y * this.motstand })
       }
       // Det som lagt sig på botten lugnas extra, annars darrar det mot golvet.
       if (this.botten != null && pos.y > this.botten - o.r - this.bottenMarg) {

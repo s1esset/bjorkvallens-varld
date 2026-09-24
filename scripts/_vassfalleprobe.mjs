@@ -55,6 +55,14 @@ for (let n = 0; n < PASS; n++) {
   await page.waitForTimeout(600)
   await page.evaluate((id) => window.__barnspel.nav.go('game', { id }), ID)
   await page.waitForFunction(() => !!window.__barnspel?.game?._groda, null, { timeout: 15000 })
+  // L5: biomen byts vid varje start — fällorna finns i DAMMEN, så den tvingas fram.
+  await page.evaluate(() => {
+    const g = window.__barnspel.game
+    if (g._biomNamn === 'damm') return
+    g._tvingaBiom = 'damm'
+    g._rivVarld()
+    g._byggVarld(g._ctx)
+  })
   await page.waitForTimeout(700)
   // Ställ grodan i vassen vid kanten, vänd mot väggen.
   const stalld = await page.evaluate((falla) => {

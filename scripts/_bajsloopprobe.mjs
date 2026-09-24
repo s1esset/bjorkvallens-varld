@@ -25,6 +25,7 @@ const val = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] :
 const SEK = Number(val('--sek', 400))
 const RUNDOR = Number(val('--rundor', 2))
 const BILDER = argv.includes('--bilder')
+const BIOM = val('--biom', null) // L5: tvinga en biom (damm | is | fors | skog) i ALLA rundor
 const ID = 'grodan-slurp'
 
 const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--autoplay-policy=no-user-gesture-required', '--mute-audio'] })
@@ -38,6 +39,14 @@ await page.waitForFunction(() => !!window.__barnspel, null, { timeout: 20000 })
 const starta = async () => {
   await page.evaluate((id) => window.__barnspel.nav.go('game', { id }), ID)
   await page.waitForFunction(() => !!window.__barnspel?.game?._groda, null, { timeout: 15000 })
+  if (BIOM) {
+    await page.evaluate((biom) => {
+      const g = window.__barnspel.game
+      g._tvingaBiom = biom
+      g._rivVarld()
+      g._byggVarld(g._ctx)
+    }, BIOM)
+  }
   await page.waitForTimeout(800)
 }
 await starta()
@@ -74,6 +83,8 @@ const lage = () => page.evaluate(() => {
     flyger: g._bajs.lista.some((k) => k.lage === 'flyger'),
     kor: kor.plats,
     nara: g._naraKoren ? g._naraKoren() : true,
+    markY: g._dammen.golvY ?? 560,
+    biom: g._biomNamn || 'damm',
     vy: g._vyNu ? { ...g._vyNu } : { left: 0, right: 1280, top: 0, bottom: 720 },
     groda: { x: gr.pos.x, y: gr.pos.y, lage: gr.lage, riktning: gr.riktning },
     tunga: g._tunga.lage,
@@ -108,6 +119,14 @@ async function gaMot(L, x) {
   if (L.groda.lage === 'vatten') {
     await tryck(L.groda.x + dir * 160, 640)
     return 'sim'
+  }
+  // Skogen (L5): tungan i MARKEN en bit bort drar grodan dit.
+  if (L.markY < 540 && Math.random() < 0.7) {
+    const gx = L.groda.x + dir * 330
+    if (synlig(gx, L.markY + 14, L.vy)) {
+      await tryck(gx, L.markY + 14)
+      return 'foremal'
+    }
   }
   await tryck(L.groda.x, L.groda.y)
   return 'hopp'

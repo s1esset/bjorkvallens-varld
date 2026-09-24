@@ -35,6 +35,14 @@ function ritaKotte(g) {
   g.moveTo(0, -19).lineTo(1, -25).stroke({ width: 2.5, color: 0x6b4423, cap: 'round' })
 }
 
+// Snöbollen (isbiomen): kottens kropp och bana, men en vit boll med blå skugga och glitter.
+function ritaSnoboll(g) {
+  g.clear()
+  g.circle(0, 0, 16).fill(sphereFill(0xf6fbff, { lightX: 0.35, lightY: 0.3, dark: 0.22 })).stroke({ width: 2, color: 0xa9c6dc })
+  for (const [x, y, r] of [[-5, -6, 3], [6, 2, 2.4], [-2, 7, 2]]) g.circle(x, y, r).fill({ color: 0xdbe9f5, alpha: 0.9 })
+  g.circle(-6, -8, 2.2).fill({ color: 0xffffff, alpha: 0.95 })
+}
+
 function ritaSkoldpadda(c) {
   // Huvud och fenor bakom skalet, skalet överst.
   const kropp = new Graphics()
@@ -136,17 +144,19 @@ export class Hinder {
     view.eventMode = 'none'
     let h = null
     const v = this._vy()
-    if (typ === 'kotte') {
+    if (typ === 'kotte' || typ === 'snoboll') {
+      // (Snöbollen har kottens etikett — samma smäll, samma regler i index.js.)
       const x = Math.random() < 0.55 ? grodX + rnd(-110, 110) : rnd(v.left + 240, v.right - 240)
       const body = this._phys.circle(Math.max(160, Math.min(this._vw - 160, x)), v.top - 30, 15, { ...mat('tra'), density: 0.0022, frictionAir: 0.012, restitution: 0.35, label: 'kotte' })
       Body.setAngularVelocity(body, rnd(-0.08, 0.08))
       const g = new Graphics()
-      ritaKotte(g)
+      if (typ === 'snoboll') ritaSnoboll(g)
+      else ritaKotte(g)
       view.addChild(g)
       this._lager.bakom.addChild(view)
       this._phys.link(body, view)
       this._dammen.flytvolym.lagg(body, { flyt: 1.7 })
-      h = { typ, body, view, tid: 0, liv: 60 * 12 }
+      h = { typ: 'kotte', variant: typ, body, view, tid: 0, liv: 60 * 12 }
     } else if (typ === 'skoldpadda' || typ === 'anka') {
       const fran = Math.random() < 0.5 ? -1 : 1
       const x0 = fran < 0 ? v.left - 140 : v.right + 140

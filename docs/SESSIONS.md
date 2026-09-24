@@ -14,6 +14,37 @@ Format:
 
 ---
 
+## 2026-09-24 sen kväll — Grodan Slurp L4 (stor värld) + L5 (biomer) · v1.258.0–v1.259.0
+
+**Uppdraget (ägaren):** "publicera och kör sen L4", sedan "kör vidare med L5 … och sen slutligen
+spara och uppdatera, committa och deploya + allt som behövs för mig att testa". L3 publicerades
+(v1.257.0) innan L4 började.
+
+**Byggt — L4 (v1.258.0, `e31b2c8`):** världen 2560 × 1440 med `lib/kamera.js` (ny `worldY0` —
+dammen ligger kvar på y 0–720, himlen och träden växer uppåt); fyra lager (himmel fast, fjärranband
+i parallax 0,3, världen, HUD); två stränder med höga träd (grenar på tre höjder), en stubbe, kören
+vid ena stranden; HEM-BLADET i HUD:en (håll 2,5 s) och KÖRPILEN (visar vägen); kasthåll 800 px;
+klättra (envägsgrenar och -blad, kameralyft, hoppa ned på tom luft); simtag; effekterna i världen.
+**Sex fällor hittade av sonderna, alla med grönt test och 0 konsolfel:** stubb-fällan (1/6 → 6/6),
+stubben som vägg, grodan under ett blad (9 min), startbladet (föll igenom 4/4), klättringen
+(0/4 → 4/4 i fem steg), och **L3:s vassregel var död** — `hitta.inuti` skickade aldrig tungans mål
+(L3:s 6/6 kom från de andra rättelserna; nu rättat och dokumenterat i spelets doc).
+
+**Byggt — L5 (v1.259.0):** `biomer.js` (en biom = data), `dammen.js` bygger damm · IS (halt golv,
+vakar som brunnar, snö, snöfall, snöbollar) · FORS (`Flytvolym.stromX`, nytt i `lib/flytkraft.js`
+— ström mot kören, stenar, skum, strimmor, laxar) · SKOG (mark att dra sig längs med tungan, göl
+med kören, flugsvampar att studsa på, fler träd). **Ny biom vid varje start** (progress
+`biomNasta`: damm → is → fors → skog), slump inom en session, en kort replik per biom. Nästa korv
+efter 4 insekter (var 5). `physics.js`: rymde-diagnosen räknar mot världens `bounds`.
+
+**Mätt:** bajsloopen klar i alla fyra biomer (damm 104–183 s, is 139, fors 211, skog 212 s), 0 fel;
+klättring och ned igen; fällorna stängda; superhopp 4/4; korv+superhopp 3/3; svamplandning 5/6 på
+hatten (1/6 studsade av åt sidan); spelkritiker 8/8 ×2 (L3 och L4+L5); `npm run test:all` 86/86.
+
+**Commits:** `e31b2c8` L4 · L5 och röstklippen (se git log).
+**Öppet:** L6 (träsk, öken, sandstrand) och L7 (kök, vardagsrum, badrum) enligt §4d. Kosmetiskt:
+trädkronan ritas in bakom skalets hörnknappar när kameran är högt uppe. Se ett barn spela.
+
 ## 2026-09-24 kväll — Grodan Slurp L3: bajsloopen + vass-fällan · v1.257.0
 
 **Uppdraget (ägaren):** slumpade banor i tio biomer (damm, skog, öken, träsk, frusen damm, fors,

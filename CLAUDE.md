@@ -214,6 +214,15 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
   hastigheten på en statisk kropp. Ett drag på 230 px gav (−651, −230) i hela byggfasen, och
   lösaren läste sedan kontakten som **separerande** → ingen impuls → kulan föll rakt genom
   plankan, utan konsolfel. Driv med fart bara i `phys.beforeStep()`; bär med fart = 0.
+- **matter-ledernas `damping` bromsar varje STEL rotation.** Konstraintens dämpning jämför
+  kropparnas MITTPUNKTER, inte ankarpunkterna, så en ragdoll som snurrar som en stel kropp tappar
+  snurret: 0,18 → 0,002 rad/steg på 40 steg med musklerna, gränserna och luften avstängda
+  (`_superhoppprobe`). Med `damping 0` höll halva. Sänk den bara medan något ska snurra fritt
+  (`grodan-slurp`s superhopp: 0,01 i luften, 0,08 igen vid landning).
+- **`Flytvolym` verkar även OVANFÖR ytan.** Fartspärren (`maxFart`) och `vridDamp` (0,9 per
+  BILDRUTA) läggs på varje kropp i volymen, var den än är. En kropp som ska snurra eller flyga fort
+  i luften måste tas UR volymen och läggas tillbaka vid landning. Och en Node-sond utan spelets
+  flytvolym mäter en snällare värld: där överlevde grodans volt, i spelet gjorde den det inte.
 - **En mjuk kropp måste stega med FAST tidssteg.** `Mjukkropp` (som `PhysicsWorld`) räknar `damp`
   och villkorsstyvhet per STEG men kraftfält per `f²`. Ett för stort steg fyrdubblar tyngden utan
   att lösaren får mer att säga till om (`dtF` 2 = en tappad bildruta vek ihop hamburgerbullen

@@ -352,8 +352,8 @@ Uppmätt i L6 + L7 (sex nya världar, 2026-09-24):
   upp rundan (1 → 2), sonden trodde att rundan var klar och slutade med 0 tryck — sex "gröna"
   körningar som inte spelat alls. Rättat (`senRunda` läses ur spelet), och den undviker nu vändknappen.
 - `_biommekprobe.mjs` (var egenskap mot en kontrollarm): het sand 5 tripp på 7 s (skogen 0) · halt
-  kakel glid 177 px (vanligt kakel 50) · träskvatten simtag 29 px (dammen 57) · vågorna gungar en
-  flytande groda 142 px (vågorna av: 14). **Vågorna var först för svaga att märkas**: stocken
+  kakel glid 177 px (vanligt kakel 50) · träskvatten simtag 29 px (dammen 57) · och `_vagdiag.mjs`:
+  vågorna gungar en flytande groda 142 px (vågorna av: 14). **Vågorna var först för svaga att märkas**: stocken
   svängde 18 px mot 12 utan vågor — hemfjädern höll den, och även utan fjäder når ett flytande
   föremål bara ~40 % av strömmens jämviktsfart. Amplituden 1,3 → 2,6 och ingen hemfjäder för
   havets stock.
@@ -792,4 +792,5 @@ allt L3–L5 mätt (klättring, envägsgrenar, bajsloopen) gäller i de nya vär
 `2026-09-24 · L3 bajsloopen (ägarens biom-önskemål, §0/§4d): full mage → bajskorv i kostens färger → tungan hämtar → bär → kasta till kören, tre matade = klar; vass-fällan rättad (2/6 → 6/6 loss); 9 röstklipp; spelkritiker 8/8 "klar att committa" (3 fynd åtgärdade); v1.257.0`
 `2026-09-24 · L4 kamera + stor värld (2560 × 1440, §4f): två stränder med höga träd, stubbe, kör vid stranden med körpil, hem-bladet i HUD, klättra/hoppa ned, envägsgrenar/-blad, simtag; sex fällor stängda (§3 L4); v1.258.0 · e31b2c8`
 `2026-09-24 · L5 biomer (§4g): damm · is (halt golv, vakar, snö) · fors (ström mot kören, stenar, skum) · skog (mark att dra sig längs, göl, flugsvampar); ny biom vid varje start; nästa korv efter 4; spelkritiker 8/8; test:all 86/86; v1.259.0`
-`2026-09-24 · sikt-pil i superhoppet (dra fingret = riktning, pilen visar banan) + vändknapp nere till höger; fartspärren läckte rörelsemängd (rättad), grodan lättar ur underlaget; _siktprobe; v1.260.0`
+`2026-09-24 · sikt-pil i superhoppet (dra fingret = riktning, pilen visar banan) + vändknapp nere till höger; fartspärren läckte rörelsemängd (rättad), grodan lättar ur underlaget; _siktprobe; v1.260.0 · cd2e075`
+`2026-09-24 · L6 + L7 sex nya världar (träsk, öken, strand, kök, vardagsrum, badrum; §4i–4j) — ramverk + konst från tre hjälpare; bajsloopen klar i alla sex, fysiken mätt mot kontrollarmar, vågorna förstärkta; 9 röstklipp; spelkritiker "klar att committa"; v1.261.0 · 0c96019`

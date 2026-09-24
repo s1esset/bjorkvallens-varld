@@ -14,6 +14,45 @@ Format:
 
 ---
 
+## 2026-09-24 natt — Grodan Slurp: sikt-pil + vändknapp, L6 + L7 (sex nya världar) · v1.260.0–v1.261.0
+
+**Uppdraget (ägaren):** en liten knapp nere till höger som vänder grodan (att trycka bredvid den
+vände den inte alltid och sköt dessutom tungan); en diskret halvgenomskinlig animerad pil som visar
+superhoppets bana medan fingret håller, där fingret som drar väljer riktningen; sedan L6 och L7; sist
+spara, committa, publicera och avsluta.
+
+**Byggt — v1.260.0 (`cd2e075`, publicerad):** VÄNDKNAPPEN (HUD, bild r 32, träffyta r 60, ett
+grodhuvud i profil som vänder med grodan; glider upp ovanför kören när kören står i hörnet). SIKTET:
+prickar som glider längs banan, pilspets, landningsskugga; dra > 60 px från grodan = riktning
+(minst 30°), kort drag = superhopp, kort tryck = vanligt hopp som förut. `groda.superFart()` är EN
+formel för hoppet och pilen. **Två fysikrättelser för att pilen skulle stämma:** superhoppets
+fartspärr klippte delarnas fart runt tyngdpunkten var för sig och LÄCKTE rörelsemängd (rakt upp 52 px
+för lågt) — nu bevaras tyngdpunktens fart exakt (full sats: 472 px högt/692 långt, var 382/779 med
+läckan); fötterna skrapade i bladet de stod på — grodan lättar 4 px och underlaget släpper igenom den
+i 8 steg. `_siktprobe`: 0–7 px fel längs banan i fri flygning.
+
+**Byggt — v1.261.0 (`0c96019` + röst `d4d122d`, publicerad):** sex nya världar i biomrotationen —
+TRÄSK (tjockt vatten, tuvor, andmat, gasbubblor, gädda), ÖKEN (oas, het sand som får grodan att
+trippa, sanddyner, klippor, jättekaktusar, buskboll, pillerbagge med bajsboll), STRAND (havet med
+vågor som gungar allt mot land, brygga med hopptorn, livräddartorn, parasoll, luftmadrasser, krabba,
+mås, badboll, stor våg), KÖK (bänken, diskhon, gelé som studsar, slevkruka, apelsin), VARDAGSRUM
+(akvarium, soffa/puff som studsar, bokhyllor, golvlampa, katt, pappersflygplan), BADRUM (badkar med
+badring, halt vått kakel, dusch, badanka, tvål, såpbubbla). Fyra nya insekter med egna korvfärger.
+Ramverket i dammen.js/hinder.js/index.js/biomer.js (jag); konsten i konst-ute.js, konst-inne.js och
+djur.js av tre hjälpare efter ett ritkontrakt (docs/games/grodan-slurp.md §4i). 9 röstklipp.
+
+**Mätt:** bajsloopen klar i alla sex (69–109 s), 0 konsolfel, aldrig fast; het sand 5 tripp/7 s (skog
+0), halt kakel 177 px glid (50), träskvatten 29 px simtag (57), vågor 142 px gung (14) — vågorna var
+först omärkbara (hemfjädern + ~40 % av jämviktsfarten) och fick dubbel amplitud. `_bajsloopprobe
+--biom X --rundor 1` hade gjort NOLL tryck (ombyggnaden räknade upp rundan) — rättat. Spelkritikern:
+"klar att committa", inga P0-brott. `check` + `test grodan-slurp` gröna.
+
+**Commits:** `cd2e075` sikt-pil + vändknapp · `0c96019` L6 + L7 · `d4d122d` röstklipp.
+**Öppet:** biomplanen (§4d) är klar. Se ett barn spela: sikt-draget är ett håll-och-dra (den övre
+halvan av 3–5 hittar det), rundlängden och den heta sanden. Pilen stoppar vid hinder nära
+frånskjutet där benen slår i (kaotiskt, pilen visar hellre för kort). Inte gjort: `test:all`
+(bara grodan-slurp ändrad, inga delade bibliotek).
+
 ## 2026-09-24 sen kväll — Grodan Slurp L4 (stor värld) + L5 (biomer) · v1.258.0–v1.259.0
 
 **Uppdraget (ägaren):** "publicera och kör sen L4", sedan "kör vidare med L5 … och sen slutligen

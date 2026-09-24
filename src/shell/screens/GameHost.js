@@ -7,7 +7,7 @@ import { Button } from '../../lib/Button.js'
 import { bigCelebration } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { GAMES } from '../../games/registry.js'
-import { PRAISE, COLORS, DESIGN_W, DESIGN_H, ANIM } from '../../lib/theme.js'
+import { PRAISE, PRAISE_STOR, COLORS, DESIGN_W, DESIGN_H, ANIM, bandFor } from '../../lib/theme.js'
 import { startGame, endGame, log as diag, flag as diagFlag, logProgress } from '../../lib/gamelog.js'
 
 export async function createGameHost(services, params) {
@@ -24,6 +24,11 @@ export async function createGameHost(services, params) {
   const stage = new Container()
   view.addChild(stage)
 
+  // Åldersbandet ur spelets ageRange ('sma' | 'stor'). Ett storbarnsläge av ett befintligt
+  // spel är en egen variantmodul med eget ageRange (se /storbarn) — basspelets kod läser
+  // bandet härifrån, så samma fil kan bära båda lägena.
+  const band = bandFor(game)
+
   // Förlopps-API kopplat till aktiv profil + detta spel.
   const progress = makeProgress(services, game.id)
   // Firandet här är en GARANTI, inte ett tillägg: har spelet redan firat i samma ögonblick
@@ -33,7 +38,7 @@ export async function createGameHost(services, params) {
   // rad mitt i meningen (uppmätt: 5,4 s kvar av repliken → avbruten, `_firarprobe.mjs` T).
   progress.complete = () => {
     audio.sfx('celebrate')
-    if (!voice.talar) voice.say(randomFrom(PRAISE))
+    if (!voice.talar) voice.say(randomFrom(band === 'stor' ? PRAISE_STOR : PRAISE))
     bigCelebration(services.fxLayer, { width: DESIGN_W, height: DESIGN_H })
     progress.update({}) // stämpla lastPlayedAt på spelet
     progress.addStars(1)
@@ -115,6 +120,7 @@ export async function createGameHost(services, params) {
     // användning (spawn/wrap/cull-marginaler), cachea inte fälten, mutera aldrig.
     // Vid 16:9 är view identiskt med 0,0..1280,720.
     view: services.scaler.view,
+    band,
     services,
     progress,
     exitToLibrary,

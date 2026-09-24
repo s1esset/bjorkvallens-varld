@@ -92,14 +92,24 @@ for (const id of folders) {
   else if (!TAB_CATS.has(meta.category)) err(id, `category "${meta.category}" ingår inte i någon TAB_GROUP → spelet syns inte i biblioteket`)
   if (!meta.input) err(id, 'saknar input')
   else if (!INPUTS.includes(meta.input)) err(id, `okänt input "${meta.input}" (tap|drag|mixed)`)
+  // Två åldersband med OLIKA P0-regler (CLAUDE.md): småbarn [2–5], storbarn [6–12]. Ett spel
+  // tillhör ett band — ett ageRange som spänner över gränsen hade gjort det oklart om spelet
+  // får visa poäng eller låta ett försök misslyckas. `bandFor()` i theme.js läser ageRange[0].
   if (!meta.ageRange) err(id, 'saknar ageRange')
   else {
     const nums = (meta.ageRange.match(/\d+/g) || []).map(Number)
-    if (nums.length !== 2 || nums[0] > nums[1] || nums[0] < 1 || nums[1] > 6)
-      err(id, `orimlig ageRange ${meta.ageRange} (förväntas [2,5]-aktigt)`)
+    if (nums.length !== 2 || nums[0] > nums[1] || nums[0] < 2 || nums[1] > 12)
+      err(id, `orimlig ageRange ${meta.ageRange} (småbarn [2,5]-aktigt, storbarn [6,12]-aktigt)`)
+    else if (nums[0] < 6 && nums[1] > 6)
+      err(id, `ageRange ${meta.ageRange} går över bandgränsen vid 6 år — välj småbarn (≤6) eller storbarn (från 6). Ett storbarnsläge av ett befintligt spel blir en egen variantmodul (kommandot /storbarn)`)
   }
-  if (!/\binit\s*\(|\binit\s*:/.test(src)) err(id, 'saknar init()')
-  if (!/\bdestroy\s*\(|\bdestroy\s*:/.test(src)) err(id, 'saknar destroy()')
+  // En VARIANT (storbarnsläget av ett befintligt spel, se /storbarn) ärver livscykeln ur
+  // basspelet: `import bas from '../<id>/index.js'` + `export default { ...bas, id: … }`.
+  const arv = src.match(/import\s+(\w+)\s+from\s+'\.\.\/([^/']+)\/index\.js'/)
+  const arver = !!arv && new RegExp(`\\.\\.\\.${arv[1]}\\b`).test(head)
+  if (arver && !existsSync(join(gamesDir, arv[2], 'index.js'))) err(id, `ärver ur ../${arv[2]}/ som inte finns`)
+  if (!arver && !/\binit\s*\(|\binit\s*:/.test(src)) err(id, 'saknar init()')
+  if (!arver && !/\bdestroy\s*\(|\bdestroy\s*:/.test(src)) err(id, 'saknar destroy()')
   if (!meta.voiceIntro) warn(id, 'saknar voiceIntro (spelet startar utan talad instruktion)')
 
   // --- P0 / kodhälsa ---

@@ -1,5 +1,5 @@
-// Spelbibliotek: spelen är indelade i 4 färgglada flikar (Roligt / Fysik / Pussel /
-// Lära). Flikarna är stora "riktiga" flikar över hela bredden och sitter ovanpå en
+// Spelbibliotek: småbarnsspelen är indelade i 4 färgglada flikar (Roligt / Fysik / Pussel /
+// Lära), storbarnsspelen (6–12 år) i en femte, Utmaning. Flikarna är stora "riktiga" flikar över hela bredden och sitter ovanpå en
 // innehållspanel vars ram får den aktiva flikens färg. Byt flik genom att trycka på
 // fliken ELLER svepa vågrätt på spelytan (axellåst mot den lodräta skrollen).
 // En liten ikon-knapp växlar sortering "Nyast" (🆕) <-> "A–Ö" (🔤). Ingen läsning
@@ -10,15 +10,23 @@ import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
 import { bounceIn } from '../../lib/feedback.js'
 import { GAMES } from '../../games/registry.js'
-import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H, TAB_GROUPS, SPACING, RADIUS, ANIM, shade, tint } from '../../lib/theme.js'
+import { CATEGORIES, COLORS, FONT, DESIGN_W, DESIGN_H, TAB_GROUPS, SPACING, RADIUS, ANIM, shade, tint, bandFor, iFlik } from '../../lib/theme.js'
 
 // Säkerhet: varje spel-kategori MÅSTE ingå i någon fliks `cats`, annars göms de spelen
 // (filtreras bort ur alla flikar). Varna högt i dev så att en ny kategori inte tappas bort.
+// (Storbarnsspel går till sin egen flik oavsett kategori och räknas därför inte här.)
 if (import.meta.env?.DEV) {
   const covered = new Set(TAB_GROUPS.flatMap((g) => g.cats))
-  const missing = [...new Set(GAMES.map((g) => g.category))].filter((c) => !covered.has(c))
+  const smaSpel = GAMES.filter((g) => bandFor(g) === 'sma')
+  const missing = [...new Set(smaSpel.map((g) => g.category))].filter((c) => !covered.has(c))
   if (missing.length) console.warn('[bibliotek] kategorier utan flik (spelen göms!):', missing)
 }
+
+// Flikarna som faktiskt visas: bara de som har spel. Utmaning (storbarn) står alltså dold
+// tills det första storbarnsspelet finns — en tom flik vore en återvändsgränd för en
+// tvååring som sveper runt mellan flikarna. Den sitter sist, så de sparade flikindexen
+// för de fyra småbarnsflikarna ändras inte när den dyker upp.
+const FLIKAR = TAB_GROUPS.filter((g) => GAMES.some((s) => iFlik(g, s)))
 
 // Bibliotekets UI-läge (vald flik + sortering) minns över besök/omladdning.
 const UI_KEY = 'pwagames.library.ui'
@@ -26,7 +34,7 @@ function loadUI() {
   try {
     const v = JSON.parse(localStorage.getItem(UI_KEY) || '{}')
     return {
-      tab: Number.isInteger(v.tab) && v.tab >= 0 && v.tab < TAB_GROUPS.length ? v.tab : 0,
+      tab: Number.isInteger(v.tab) && v.tab >= 0 && v.tab < FLIKAR.length ? v.tab : 0,
       sort: v.sort === 'alpha' ? 'alpha' : 'added',
     }
   } catch {
@@ -59,7 +67,7 @@ export async function createLibraryScreen(services) {
   panel.eventMode = 'none'
   view.addChild(panel)
   function redrawPanel() {
-    const color = TAB_GROUPS[ui.tab].color
+    const color = FLIKAR[ui.tab].color
     panel
       .clear()
       .roundRect(PANEL_MARGIN, PANEL_TOP, DESIGN_W - PANEL_MARGIN * 2, DESIGN_H - PANEL_TOP - PANEL_MARGIN, RADIUS.panel)
@@ -113,8 +121,8 @@ export async function createLibraryScreen(services) {
   // --- Flikar: hela bredden, aktiv = full färg + lite högre, inaktiv = urblekt ---
   const tabBar = new Container()
   view.addChild(tabBar)
-  const tabW = (DESIGN_W - SPACING.edge * 2 - TAB_GAP * (TAB_GROUPS.length - 1)) / TAB_GROUPS.length
-  const tabs = TAB_GROUPS.map((group, i) => {
+  const tabW = (DESIGN_W - SPACING.edge * 2 - TAB_GAP * (FLIKAR.length - 1)) / FLIKAR.length
+  const tabs = FLIKAR.map((group, i) => {
     const t = makeTab(group, tabW, TAB_H, services, () => selectTab(i, 0))
     t.x = SPACING.edge + i * (tabW + TAB_GAP) + tabW / 2
     t.y = TAB_Y + TAB_H / 2
@@ -129,12 +137,12 @@ export async function createLibraryScreen(services) {
   // Flikbyte från tap eller svep. dir: -1 = nya rutnätet glider in från vänster,
   // +1 = från höger, 0 = ingen glid (tap).
   function selectTab(i, dir) {
-    if (ui.tab === i || i < 0 || i >= TAB_GROUPS.length) return
+    if (ui.tab === i || i < 0 || i >= FLIKAR.length) return
     ui.tab = i
     saveUI(ui)
     updateTabs()
     rebuildGrid(true, dir)
-    voice.say(TAB_GROUPS[i].label, true)
+    voice.say(FLIKAR[i].label, true)
   }
 
   // --- Rutnät (skrollbart), byggs om vid flik-/sorterings-byte ---
@@ -163,8 +171,8 @@ export async function createLibraryScreen(services) {
 
   // Aktuell flik + sortering → lista av spel.
   function orderedGames() {
-    const group = TAB_GROUPS[ui.tab]
-    const list = GAMES.filter((g) => group.cats.includes(g.category))
+    const group = FLIKAR[ui.tab]
+    const list = GAMES.filter((g) => iFlik(group, g))
     if (ui.sort === 'alpha') {
       return [...list].sort((a, b) => a.titleSv.localeCompare(b.titleSv, 'sv'))
     }
@@ -260,7 +268,7 @@ export async function createLibraryScreen(services) {
       dragDx = dx
       // rutnätet följer fingret med motstånd; extra trögt om det inte finns fler flikar åt hållet
       const target = ui.tab + (dx < 0 ? 1 : -1)
-      const hasNext = target >= 0 && target < TAB_GROUPS.length
+      const hasNext = target >= 0 && target < FLIKAR.length
       const limit = hasNext ? 90 : 26
       grid.x = Math.max(-limit, Math.min(limit, dx * 0.35))
     }
@@ -271,7 +279,7 @@ export async function createLibraryScreen(services) {
     if (scroll.axis !== 'h') return
     const dx = dragDx
     const target = ui.tab + (dx < 0 ? 1 : -1)
-    if (Math.abs(dx) > SWIPE_THRESHOLD && target >= 0 && target < TAB_GROUPS.length) {
+    if (Math.abs(dx) > SWIPE_THRESHOLD && target >= 0 && target < FLIKAR.length) {
       // nya rutnätet glider in från hållet barnet drog mot
       selectTab(target, dx < 0 ? 1 : -1)
     } else {

@@ -89,17 +89,33 @@ export const CATEGORIES = {
   minne: { label: 'Minne', color: 0xff9ec4 },
 }
 
-// Flik-grupper i biblioteket: de 8 kategorierna samlas i 4 barnvänliga flikar.
-// `cats` mappar GameModule.category -> flik. `color` matchar en representativ kategori.
+// Åldersband. Ett spel tillhör ETT band, och banden har olika P0-regler (CLAUDE.md):
+// småbarn 2–5 (ingen poäng, ingen läsning, hjälpen kommer själv) och storbarn 6–12 (poäng,
+// riktig motgång, större världar, ingen auto-hjälp). `ageRange[0] >= 6` avgör — check.mjs
+// vägrar ett ageRange som går över gränsen, så ett spel kan aldrig hamna mitt emellan.
+export const STORBARN_FRAN = 6
+export const bandFor = (game) => ((game?.ageRange?.[0] ?? 0) >= STORBARN_FRAN ? 'stor' : 'sma')
+
+// Flik-grupper i biblioteket. Småbarnens 8 kategorier samlas i 4 barnvänliga flikar
+// (`cats` mappar GameModule.category -> flik). Fliken med `band: 'stor'` tar i stället
+// ALLA storbarnsspel oavsett kategori — och de spelen syns bara där. `color` matchar en
+// representativ kategori.
 export const TAB_GROUPS = [
   { key: 'roligt', label: 'Roligt', icon: '🎉', color: 0xff8a3d, cats: ['roligt'] },
   { key: 'fysik', label: 'Fysik', icon: '⚙️', color: 0x5bbf6a, cats: ['fysik', 'motorik'] },
   { key: 'pussel', label: 'Pussel', icon: '🧩', color: 0x4aa3df, cats: ['pussel', 'minne', 'drag'] },
   { key: 'lara', label: 'Lära', icon: '🔤', color: 0xa78bfa, cats: ['larande', 'pedagogiskt'] },
+  { key: 'utmaning', label: 'Utmaning', icon: '🏆', color: 0x3f51b5, cats: [], band: 'stor' },
 ]
 
-// Beröm som spelas upp (röst) när ett spel klaras.
+// Hör spelet hemma i fliken? Ett storbarnsspel syns BARA i storbarnsfliken.
+export const iFlik = (group, game) =>
+  group.band === 'stor' ? bandFor(game) === 'stor' : bandFor(game) === 'sma' && group.cats.includes(game.category)
+
+// Beröm som spelas upp (röst) när ett spel klaras. Storbarn får en rakare, sportsligare ton —
+// "Vad duktig du är!" till en elvaåring är precis det inramade tonfall bandet ska slippa.
 export const PRAISE = ['Bravo!', 'Jättebra!', 'Toppen!', 'Vad duktig du är!', 'Hurra!', 'Fint jobbat!', 'Wow!']
+export const PRAISE_STOR = ['Snyggt!', 'Grymt!', 'Bra spelat!', 'Perfekt!', 'Starkt!', 'Klockrent!']
 
 // Namngivna människor i spelen. ALLA avbildade personer/figurer ska heta något av
 // dessa fyra (djur, monster, nallen och maskoten Bobo är undantagna). Lova är

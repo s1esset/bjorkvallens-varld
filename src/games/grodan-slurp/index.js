@@ -18,9 +18,16 @@
 // ligger still en sekund, vaknar och slurpar in repet med allt som fastnat. Ett kort tryck på
 // grodan är fortfarande ett vanligt hopp, så ingenting kräver att man kan hålla (P0).
 //
-// GRODKÖREN är mottagaren OCH en håll-knapp: bär grodan en korv kastas den till ungen man
-// tryckte närmast. Annars: håll på de tre ungarna i 2,5 s så kallas grodan hem till
-// startbladet (för en groda som fastnat), och ett kort tryck får kören att heja.
+// GRODKÖREN är mottagaren OCH en håll-knapp: bär grodan en korv (och är nära nog) kastas den
+// till ungen man tryckte närmast. Annars: håll på de tre ungarna i 2,5 s så kallas grodan hem
+// till startbladet (för en groda som fastnat), och ett kort tryck får kören att heja.
+//
+// VÄRLDEN (L4) är större än skärmen: VARLD_B bred och upp till VARLD_TOPP (lib/kamera.js).
+// Kameran följer grodan. Fyra lager: himlen (står still i skärmen), fjärranbandet (parallax),
+// världen (this._scen — allt spelbart, i världskoordinater) och HUD:en (skärmen): HEM-BLADET mitt
+// upptill (håll 2,5 s = grodan hem, eftersom kören inte alltid syns) och PILEN mot kören när
+// grodan bär en korv och kören är utanför bild (tryck = kameran visar vägen). Effekterna ligger
+// i världen (`this._fx`) — `this._fx` är skärmrum och hade ritat dem på fel ställe.
 //
 // Allt i grodans rörelse är fysik (groda.js: aktiv ragdoll med leder och muskler), tungans drag
 // fördelas efter massa (tunga.js), och dammen (dammen.js), insekterna (insekter.js) och
@@ -32,15 +39,16 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Matter, STEG2 } from '../../lib/physics.js'
-import { puff, sparkle, ripple, burst } from '../../lib/feedback.js'
+import { puff, sparkle, ripple, burst, stadFx } from '../../lib/feedback.js'
+import { Camera } from '../../lib/kamera.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { log } from '../../lib/gamelog.js'
-import { bage } from '../../lib/form.js'
+import { bage, sphereFill } from '../../lib/form.js'
 import { Groda } from './groda.js'
 import { Tunga, RACKVIDD } from './tunga.js'
 import { Klibbrep } from './klibbrep.js'
 import { Svarm } from './insekter.js'
-import { Dammen, YT_Y, TIDER } from './dammen.js'
+import { Dammen, YT_Y, TIDER, FJARRAN } from './dammen.js'
 import { Hinder } from './hinder.js'
 import { Bajs } from './bajs.js'
 
@@ -50,6 +58,18 @@ const { Body, Query } = Matter
 const FORSTA_KORV = 8
 const NASTA_KORV = 5
 const UNGAR = 3 // matade grodungar → banan klar
+// Världen (L4): två skärmar bred, och upp till en skärm ovanför dammen.
+const VARLD_B = 2560
+const VARLD_TOPP = -720
+// Så nära kören (i x) måste grodan vara för att ett tryck ska kasta — "när man är i närheten".
+const KAST_RACKVIDD = 800
+// HUD: hem-bladet mitt upptill (skärmrum) och körpilen vid skärmkanten.
+const HEM_HUD = { x: 640, y: 64, r: 40 }
+const HEM_HUD_TRAFF = 64 // radie inkl. osynlig halo (P0: ≥ 96 px diameter + 24 px)
+// Grodans kollisionskategori (L4): grenarna är ENVÄGSGRENAR — fasta för grodan bara när den är
+// OVANFÖR dem (_envagsgrenar). Allt annat (kotte, repet, korven) krockar med grenarna som förut.
+const GRODA_KAT = 0x0008
+const ALLT = 0xffffffff
 const TAPP_PAUS = 8 // s — en smäll kan knocka ut korven ur munnen högst så här ofta
 // Superhoppet: kortare tryck än TAP_GRANS är ett vanligt hopp; full sats efter LADD_FULL s.
 // Håller fingret kvar efter full sats hoppar grodan av sig själv (den orkar inte vänta).
@@ -91,16 +111,25 @@ export default {
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
-    this._scen = new Container()
-    this._root.addChild(this._scen)
+    // Kameran (L4). Lagren skapas EN gång; varje runda river och bygger om deras innehåll.
+    this._kam = new Camera({ worldW: VARLD_B, worldH: 720 - VARLD_TOPP, worldY0: VARLD_TOPP })
+    this._root.addChild(this._kam.root)
     this._L = {}
-    for (const n of ['himmel', 'bakom', 'grodaBak', 'grodaMitt', 'grodaFram', 'tunga', 'vatten', 'insekter', 'fram', 'effekt']) {
+    this._L.himmel = this._kam.parallax(0, { dekor: true })
+    this._L.fjarran = this._kam.parallax(FJARRAN, { dekor: true })
+    this._scen = this._kam.parallax(1, { dekor: true })
+    for (const n of ['bakom', 'grodaBak', 'grodaMitt', 'grodaFram', 'tunga', 'vatten', 'insekter', 'fram', 'effekt']) {
       const c = new Container()
       c.eventMode = 'none'
       c.interactiveChildren = false
       this._L[n] = c
       this._scen.addChild(c)
     }
+    this._fx = this._L.effekt // världsankrade effekter (this._fx är skärmrum)
+    this._hud = this._kam.parallax(0, { dekor: true, skak: false })
+    this._vyNu = { left: 0, right: 1280, top: 0, bottom: 720 }
+    this._vyFn = () => this._vyNu
+    this._byggHud()
 
     // Hela bilden (inkl. bleed) tar emot tryck.
     this._root.eventMode = 'static'
@@ -139,6 +168,8 @@ export default {
     this._kryst = null
     this._bar = null // korven grodan bär i munnen
     this._barTipsat = false // "tryck på en grodunge" sägs en gång per runda
+    this._bortaTipsat = false // "grodkören väntar där borta" likaså
+    this._visar = false // kameran visar kören just nu (körpilen)
     this._tappT = -99
     this._mmfT = -99
     this._senastBajsT = this._t
@@ -170,7 +201,9 @@ export default {
     this._ladd = null // { id, t, not, full, trill }
     this._hem = null // { id, t, steg } — håll på grodkören
 
-    const phys = new PhysicsWorld({ gravityY: 1, walls: ['floor', 'left', 'right'] })
+    // Väggarna står vid VÄRLDENS kanter (inte skärmens), och taket saknas med flit: ett superhopp
+    // från den högsta grenen får gå över världens topp — kameran klämmer, grodan faller tillbaka.
+    const phys = new PhysicsWorld({ gravityY: 1, walls: ['floor', 'left', 'right'], bounds: { left: 0, top: VARLD_TOPP, right: VARLD_B, bottom: 720 } })
     phys.engine.positionIterations = 8
     phys.engine.velocityIterations = 6
     phys.engine.constraintIterations = 5
@@ -179,28 +212,52 @@ export default {
     const L = this._L
     this._dammen = new Dammen({
       phys,
-      lager: { himmel: L.himmel, bakom: L.bakom, vatten: L.vatten, fram: L.fram },
+      lager: { himmel: L.himmel, fjarran: L.fjarran, bakom: L.bakom, vatten: L.vatten, fram: L.fram },
       audio: ctx.services.audio,
       tid,
-      view: ctx.view,
+      varld: { w: VARLD_B, topp: VARLD_TOPP },
+      vy: this._vyFn,
     })
     // Vassen är BARA ett mål för tungan: den krockar med ingenting (en sensor ger ändå
     // collisionStart — grodan "tumlade" mot vass hon simmade förbi). Query.point bryr sig
     // inte om filtret, så tungan kan fortfarande fastna i den.
+    // Stubbens stam (L4) likadant: grodan simmar framför den — som vägg delade den dammen i två.
     for (const f of this._dammen.foremal) {
-      if (f.typ === 'vass') f.body.collisionFilter = { group: 0, category: 0x0004, mask: 0 }
+      if (f.typ === 'vass' || f.typ === 'stubbe') f.body.collisionFilter = { group: 0, category: 0x0004, mask: 0 }
     }
     const sp = this._dammen.startPunkt
-    this._groda = new Groda(phys, { bak: L.grodaBak, mitt: L.grodaMitt, fram: L.grodaFram }, { x: sp.x, y: sp.y, riktning: sp.x < 640 ? 1 : -1 })
+    this._groda = new Groda(phys, { bak: L.grodaBak, mitt: L.grodaMitt, fram: L.grodaFram }, { x: sp.x, y: sp.y, riktning: sp.x < VARLD_B / 2 ? 1 : -1 })
+    // Kameran börjar längst ned (dammen i bild, som förut) och följer en punkt vid grodan som
+    // LYFTS uppåt när grodan är uppe i ett träd (_kamMalUppdatera) — annars låg nästa gren
+    // ovanför bildens överkant och gick inte att trycka på (_klatterprobe: 0 av 4 nådde
+    // mellangrenen, trots att den var inom tungans räckhåll).
+    this._kamMal = { x: sp.x, y: sp.y }
+    this._kam.moveTo(sp.x, 360)
+    this._kam.follow(this._kamMal, { lead: 90, deadzone: 140 })
+    this._vyUppdatera()
     this._groda.ytY = YT_Y
+    for (const b of this._groda.delar) b.collisionFilter.category = GRODA_KAT
+    // Grenarna (träden + stubbens stumpar) och näckrosbladen — ENVÄGS för grodan, se _envagsgrenar.
+    // Varje kropps halva tjocklek (i sin egen lutande ram) läses ur dess hörn: gren 13, stump 11,
+    // blad 7 — "ovanpå" betyder olika mycket.
+    this._grenar = this._dammen.foremal.filter((f) => f.body.label === 'gren' || f.body.label === 'blad').map((f) => {
+      const b = f.body
+      const a = -b.angle
+      let halv = 0
+      for (const v of b.vertices) halv = Math.max(halv, Math.abs(Math.sin(a) * (v.x - b.position.x) + Math.cos(a) * (v.y - b.position.y)))
+      b.plugin = b.plugin || {}
+      b.plugin.envagHalv = halv
+      return b
+    })
+    this._startBladFast()
     // Grodan flyter (lite) — huvudet och ryggen över ytan, benen under. Grodan äger sin plats i
     // volymen själv (den kliver ur den under superhoppets luftfas, se groda.js flytIn).
     this._groda.flytIn(this._dammen.flytvolym, (namn) => (namn === 'huvud' ? 2.4 : namn === 'kropp' ? 1.9 : 1.3))
 
     // Korvarna krockar aldrig med grodan (samma negativa grupp) — tungan hämtar dem.
-    this._bajs = new Bajs({ phys, lager: { bakom: L.bakom, bar: L.tunga, luft: L.effekt }, flytvolym: this._dammen.flytvolym, grupp: this._groda._grupp })
+    this._bajs = new Bajs({ phys, lager: { bakom: L.bakom, bar: L.tunga, luft: L.effekt }, flytvolym: this._dammen.flytvolym, grupp: this._groda._grupp, vw: VARLD_B })
 
-    this._svarm = new Svarm({ lager: L.insekter, ytY: YT_Y, view: ctx.view })
+    this._svarm = new Svarm({ lager: L.insekter, ytY: YT_Y, view: ctx.view, granser: { x0: 40, x1: VARLD_B - 40, y0: VARLD_TOPP + 60 }, vy: this._vyFn })
     if (tid === 'skymning') this._svarm.skymning = true
 
     this._hinder = new Hinder({
@@ -208,6 +265,7 @@ export default {
       lager: { bakom: L.bakom, fram: L.fram },
       dammen: this._dammen,
       ytY: YT_Y,
+      vy: this._vyFn,
       pa: {
         borta: (body) => {
           if (this._tunga?.body === body) this._tunga.slapp()
@@ -222,7 +280,7 @@ export default {
       ytY: YT_Y,
       hitta: {
         kropp: (ax, ay, bx, by, undanta) => this._hittaKropp(ax, ay, bx, by, undanta),
-        inuti: (x, y) => this._inuti(x, y),
+        inuti: (x, y, tx, ty) => this._inuti(x, y, tx, ty),
         // Smal fångstkorridor: sikthjälpen (tryck NÄRA en insekt) belönar avsikt, men en tunga
         // som sveper förbi i blindo ska inte plocka upp allt i sin väg. Med +30 åt slumptryck
         // i himlen lika många insekter som riktade tryck (_grodspelprobe --kontroll).
@@ -248,6 +306,7 @@ export default {
 
     // En gång per fast fysiksteg: grodans muskler, tungans fjäder, hindrens rörelser, humlan.
     phys.beforeStep(() => {
+      this._envagsgrenar()
       this._groda.steg()
       this._tunga.steg()
       this._rep?.steg()
@@ -288,6 +347,7 @@ export default {
     for (const n of Object.keys(this._L)) {
       const c = this._L[n]
       if (c.destroyed) continue
+      stadFx(c)
       for (const ch of c.removeChildren()) if (!ch.destroyed) ch.destroy({ children: true })
     }
   },
@@ -318,10 +378,26 @@ export default {
       return
     }
 
-    // Bär grodan en korv: ett tryck på kören kastar den till ungen närmast fingret. Kören går
-    // FÖRE grodan här — grodan som simmar ovanför kören täckte annars körens träffyta.
+    // HUD (skärmrum): hem-bladet är en HÅLL-knapp (grodan hem), körpilen visar vägen till kören.
+    const h = this._hud.toLocal(e.global)
+    if (Math.hypot(h.x - HEM_HUD.x, h.y - HEM_HUD.y) < HEM_HUD_TRAFF) {
+      this._hem = { id: e.pointerId, t: 0, steg: 0, hud: true }
+      this._hemHud.wiggle = 1
+      audio.tone({ freq: 330, slideTo: 392, dur: 0.1, type: 'triangle', vol: 0.16 })
+      return
+    }
+    const pil = this._korPil
+    if (pil.c.visible && Math.hypot(h.x - pil.c.x, h.y - pil.c.y) < 62) {
+      this._visaKoren(ctx)
+      return
+    }
+
+    // Bär grodan en korv: ett tryck på kören kastar den till ungen närmast fingret — om grodan är
+    // i närheten (ägaren: "när man är i närheten av grodkören"). Längre bort vinkar kören bara.
+    // Kören går FÖRE grodan här — grodan som simmar ovanför kören täckte annars körens träffyta.
     if (this._bar && this._paKoren(p)) {
-      this._kasta(ctx, p)
+      if (this._naraKoren()) this._kasta(ctx, p)
+      else this._korVinkar(ctx)
       return
     }
 
@@ -389,6 +465,23 @@ export default {
       }
     }
 
+    // Uppe i ett träd och barnet trycker på TOM LUFT långt nedanför (tungan skulle inte träffa
+    // något — bladen under toppgrenen ligger ~580 px ned, utom räckhåll och utanför bild): grodan
+    // hoppar ned dit i stället för att skjuta en tunga som bara bommar. Ett tryck som tungan når
+    // (en lägre gren, ett blad, en insekt) går som vanligt.
+    if (g.pos.y < 380 && p.y > g.pos.y + 160 && !this._super && !this._bar) {
+      const m = g.mun()
+      const d = Math.hypot(p.x - m.x, p.y - m.y) || 1
+      const r = Math.min(RACKVIDD, d + 46)
+      const ex = m.x + ((p.x - m.x) / d) * r
+      const ey = m.y + ((p.y - m.y) / d) * r
+      const traff = this._hittaKropp(m.x, m.y, ex, ey, this._inuti(m.x, m.y, p.x, p.y)) || this._svarm.traffSegment(m.x, m.y, ex, ey, 40) || this._svarm.narmast(p.x, p.y, 84)
+      if (!traff) {
+        this._hoppaNed(ctx, p)
+        return
+      }
+    }
+
     // Sitter grodan och målet ligger bakom den: ett litet vändhopp först. En groda som flyter
     // vänder sig också (ett simtag runt) — annars sköt en groda som flöt mot väggen varje skott
     // rakt genom sitt eget huvud och in i vassen bakom sig.
@@ -408,8 +501,15 @@ export default {
     if (this._ladd && e.pointerId === this._ladd.id) this._laddaSlapp(ctx)
     if (this._hem && e.pointerId === this._hem.id) {
       const kort = this._hem.t < 0.35
+      const hud = this._hem.hud
       this._hem = null
-      if (kort && !this._firar) this._dammen?.grodungar.heja()
+      if (kort && !this._firar) {
+        // Ett kort tryck: kören hejar / grodungen på hem-bladet kvackar och hoppar till.
+        if (hud) {
+          this._hemHud.hopp = 1
+          this._kvackLjud(ctx, 0.7)
+        } else this._dammen?.grodungar.heja()
+      }
     }
   },
 
@@ -447,7 +547,7 @@ export default {
     const audio = ctx.services.audio
     if (g.hoppa(this._bortFranKanten(g))) {
       audio.tone({ freq: 240, slideTo: 560, dur: 0.14, type: 'triangle', vol: 0.22 })
-      puff(ctx.fxLayer, g.pos.x, g.pos.y + 30, { count: 5, color: 0xd9f0c0 })
+      puff(this._fx, g.pos.x, g.pos.y + 30, { count: 5, color: 0xd9f0c0 })
       log('grodan', 'hopp', { x: Math.round(g.pos.x), vatten: g.iVatten })
       // Andra vanliga hoppet utan att barnet hittat superhoppet: berätta en gång.
       if (++this._hoppAntal === 2 && !this._superAntal && !this._tipsat) {
@@ -470,7 +570,7 @@ export default {
     this._superAntal++
     if (!audio.sample('whoosh')) audio.tone({ freq: 300, slideTo: 900, dur: 0.35, type: 'sine', vol: 0.14 })
     audio.tone({ freq: 220, slideTo: 880 + 300 * p, dur: 0.28, type: 'triangle', vol: 0.2 })
-    puff(ctx.fxLayer, g.pos.x, g.pos.y + 34, { count: Math.round(7 + p * 8), color: 0xd9f0c0 })
+    puff(this._fx, g.pos.x, g.pos.y + 34, { count: Math.round(7 + p * 8), color: 0xd9f0c0 })
     if (blad) this._dammen.bladTryck(blad, 0.6 + 0.4 * p)
     const voice = ctx.services.voice
     if ((this._superAntal <= 2 || Math.random() < 0.35) && !voice.talar) voice.say('Superhopp!')
@@ -508,7 +608,7 @@ export default {
         lager: this._L.tunga,
         flytvolym: this._dammen.flytvolym,
         svarm: this._svarm,
-        hitta: { maskKroppar: () => this._dammen.foremal.filter((f) => f.typ === 'vass').map((f) => f.body) },
+        hitta: { maskKroppar: () => this._dammen.foremal.filter((f) => f.typ === 'vass' || f.typ === 'stubbe').map((f) => f.body) },
         pa: {
           fastnade: (body, x, y) => this._repFast(ctx, body, x, y),
           fangade: (ins) => this._repFangade(ctx, ins),
@@ -530,7 +630,7 @@ export default {
   _repFast(ctx, body, x, y) {
     const audio = ctx.services.audio
     audio.tone({ freq: 430, slideTo: 250, dur: 0.1, type: 'triangle', vol: 0.22 })
-    sparkle(ctx.fxLayer, x, y, { count: 4 })
+    sparkle(this._fx, x, y, { count: 4 })
     // Fast i något som håller grodan kvar: den hänger slak och dinglar (räknas som landning).
     if (this._rep?.ankrad) this._groda.landa()
     if ((body.label === 'skoldpadda' || body.label === 'anka') && !ctx.services.voice.talar) {
@@ -541,7 +641,7 @@ export default {
 
   _repFangade(ctx, ins) {
     ctx.services.audio.tone({ freq: 880, slideTo: 1320, dur: 0.07, type: 'sine', vol: 0.16 })
-    sparkle(ctx.fxLayer, ins.x, ins.y, { count: 3 })
+    sparkle(this._fx, ins.x, ins.y, { count: 3 })
     log('grodan', 'repInsekt', { typ: ins.typ })
   },
 
@@ -577,7 +677,7 @@ export default {
     if (l.t >= LADD_FULL && !l.full) {
       l.full = true
       const k = g.pos
-      sparkle(ctx.fxLayer, k.x, k.y + 20, { count: 8 })
+      sparkle(this._fx, k.x, k.y + 20, { count: 8 })
       audio.tone({ freq: 523, dur: 0.18, type: 'triangle', vol: 0.14 })
       audio.tone({ freq: 784, dur: 0.18, type: 'triangle', vol: 0.1, delay: 0.04 })
     }
@@ -621,11 +721,11 @@ export default {
       s.uppe = true
       // Vänd mot närmaste insekt (annars mot dammens mitt) när den kommer på benen.
       const ins = this._svarm.narmast(g.pos.x, g.pos.y, 900)
-      const dir = Math.sign((ins ? ins.x : 640) - g.pos.x) || 1
+      const dir = Math.sign((ins ? ins.x : VARLD_B / 2) - g.pos.x) || 1
       const antal = this._rep?.antalInsekter ?? 0
       this._rep?.slurpa()
       g.vakna(dir)
-      puff(ctx.fxLayer, g.pos.x, g.pos.y + 24, { count: 6, color: 0xd9f0c0 })
+      puff(this._fx, g.pos.x, g.pos.y + 24, { count: 6, color: 0xd9f0c0 })
       audio.tone({ freq: 262, slideTo: 523, dur: 0.16, type: 'triangle', vol: 0.2 })
       if (antal && !audio.sample('slurp')) audio.tone({ freq: 900, slideTo: 300, dur: 0.3, type: 'sine', vol: 0.16 })
       log('grodan', 'vaknar', { insekter: antal })
@@ -695,11 +795,20 @@ export default {
     this._ritaHemRing()
   },
 
-  // En ring som fylls runt kören medan fingret håller — föräldern ser att något händer.
+  // En ring som fylls runt kören (eller hem-bladet) medan fingret håller — föräldern ser att
+  // något händer.
   _ritaHemRing() {
     const h = this._hem
-    if (!h) {
+    const hudG = this._hemHud?.ring
+    if (hudG && !hudG.destroyed && !h?.hud) hudG.clear()
+    if (!h || h.hud) {
       if (this._hemG && !this._hemG.destroyed) this._hemG.clear()
+      if (h?.hud && hudG && !hudG.destroyed) {
+        const u = Math.min(1, h.t / HEM_TID)
+        hudG.clear()
+        hudG.circle(HEM_HUD.x, HEM_HUD.y, HEM_HUD.r + 14).stroke({ width: 8, color: 0xffffff, alpha: 0.35 })
+        if (u > 0.01) bage(hudG, HEM_HUD.x, HEM_HUD.y, HEM_HUD.r + 14, -Math.PI / 2, -Math.PI / 2 + u * TAU).stroke({ width: 8, color: 0xfff6c8, alpha: 0.95, cap: 'round' })
+      }
       return
     }
     if (!this._hemG || this._hemG.destroyed) {
@@ -721,13 +830,16 @@ export default {
     const g = this._groda
     if (!g || this._firar) return
     const audio = ctx.services.audio
-    puff(ctx.fxLayer, g.pos.x, g.pos.y, { count: 10, color: 0xd9f0c0 })
+    puff(this._fx, g.pos.x, g.pos.y, { count: 10, color: 0xd9f0c0 })
     this._avslutaSuper()
     this._nollaTunga()
     const sp = this._dammen.startPunkt
-    g.teleportera(sp.x, sp.y, sp.x < 640 ? 1 : -1)
-    puff(ctx.fxLayer, sp.x, sp.y, { count: 12, color: 0xd9f0c0 })
-    sparkle(ctx.fxLayer, sp.x, sp.y - 20, { count: 8 })
+    g.teleportera(sp.x, sp.y, sp.x < VARLD_B / 2 ? 1 : -1)
+    this._startBladFast()
+    this._kam.moveTo(sp.x, 360)
+    this._vyUppdatera()
+    puff(this._fx, sp.x, sp.y, { count: 12, color: 0xd9f0c0 })
+    sparkle(this._fx, sp.x, sp.y - 20, { count: 8 })
     this._dammen.grodungar.heja()
     ;[523, 659, 784, 1047].forEach((f, i) => audio.tone({ freq: f, dur: 0.12, type: 'triangle', vol: 0.16, delay: i * 0.08 }))
     if (!ctx.services.voice.talar) ctx.services.voice.say('Grodan hoppar hem!')
@@ -742,20 +854,34 @@ export default {
     return lista
   },
 
-  // Kroppar som munnen redan sitter inne i (vassen grodan simmar bland) — tungan går igenom dem.
-  // Och VASSEN klibbar bara när fingret pekar på strået (tx, ty = tungans mål): en tunga som
-  // passerar ett tunt strå på väg mot en fluga fastnade annars i det. Vid kanten, med vass på
-  // båda sidor om munnen, blev det en fälla som aldrig släppte: 576 av 578 skott i vassen på
-  // 590 s (_bajsloopprobe), 2 av 6 pass utan att komma loss (_vassfalleprobe, kontrollarmen).
+  // Kroppar tungan går IGENOM vid ett skott mot (tx, ty):
+  //  ⓵ det munnen sitter inne i (vassen grodan simmar bland);
+  //  ⓶ SMALA LODRÄTA saker — vass och trädstammar — om fingret inte pekar på dem. En tunga som
+  //    passerar ett strå eller en stam på väg mot en fluga fastnade annars i det. Vid kanten blev
+  //    det vass-fällan (576 av 578 skott i vassen på 590 s; _vassfalleprobe 2/6 fast), och vid
+  //    L4:s döda stam mitt i dammen samma sak (694 av 756 skott i stammen, 1/6 loss —
+  //    `_vassfalleprobe --falla stubbe`, kontrollarmen);
+  //  ⓷ det munnen TRYCKS MOT (inom 30 px) om fingret inte pekar just dit — en groda som hänger
+  //    tätt intill en stam eller under en gren ska kunna skjuta förbi den.
+  // Pekar fingret på något av dem är det fortfarande ett mål (man ska kunna svinga i en stam).
   _inuti(x, y, tx, ty) {
-    const lista = Query.point(this._klibbKroppar(), { x, y }).map((b) => b.parent || b)
+    const kroppar = this._klibbKroppar()
+    const lista = Query.point(kroppar, { x, y }).map((b) => b.parent || b)
     if (tx === undefined) return lista
+    const pekar = (b, m) => tx > b.min.x - m && tx < b.max.x + m && ty > b.min.y - m && ty < b.max.y + m
     for (const f of this._dammen.foremal) {
-      if (f.typ !== 'vass' || lista.includes(f.body)) continue
-      const b = f.body.bounds
-      const pekar = tx > b.min.x - 26 && tx < b.max.x + 26 && ty > b.min.y - 26 && ty < b.max.y + 26
-      if (!pekar) lista.push(f.body)
+      if ((f.typ === 'vass' || f.body.label === 'stam') && !lista.includes(f.body) && !pekar(f.body.bounds, 26)) lista.push(f.body)
     }
+    for (let i = 0; i < 8; i++) {
+      const a = (i * TAU) / 8
+      for (const hit of Query.point(kroppar, { x: x + Math.cos(a) * 30, y: y + Math.sin(a) * 30 })) {
+        const b = hit.parent || hit
+        if (!lista.includes(b) && !pekar(b.bounds, 20)) lista.push(b)
+      }
+    }
+    // ⓸ Det grodan STÅR på (grenen, stenen) — ett skott ned mot bladet under ska inte fastna i den.
+    const u = this._groda?.underlag
+    if (u && !lista.includes(u) && !pekar(u.bounds, 20)) lista.push(u)
     return lista
   },
 
@@ -775,7 +901,7 @@ export default {
   _traffKropp(ctx, body, x, y) {
     const audio = ctx.services.audio
     audio.tone({ freq: 430, slideTo: 250, dur: 0.1, type: 'triangle', vol: 0.24 })
-    sparkle(ctx.fxLayer, x, y, { count: 4 })
+    sparkle(this._fx, x, y, { count: 4 })
     const tung = body.isStatic || body.mass >= this._groda.massa * 0.7
     if (tung) this._groda.lage = 'dingla'
     if ((body.label === 'skoldpadda' || body.label === 'anka') && !ctx.services.voice.talar) {
@@ -815,8 +941,8 @@ export default {
     const fyllt = this._iMagen.length
     g.setMage(Math.min(1, fyllt / grans))
     const m = g.mun()
-    sparkle(ctx.fxLayer, m.x, m.y, { count: ins.sallsynt ? 14 : 6 })
-    if (ins.sallsynt) burst(ctx.fxLayer, m.x, m.y, { count: 16, colors: [0xffd84a, 0xfff2a8, 0xf5b83a], power: 0.8 })
+    sparkle(this._fx, m.x, m.y, { count: ins.sallsynt ? 14 : 6 })
+    if (ins.sallsynt) burst(this._fx, m.x, m.y, { count: 16, colors: [0xffd84a, 0xfff2a8, 0xf5b83a], power: 0.8 })
     if (!audio.sample('svalj')) audio.tone({ freq: 330, slideTo: 150, dur: 0.18, type: 'sine', vol: 0.26 })
     // Skalan klättrar mot toppen när magen blir full — oavsett om det är 8 eller 5 insekter.
     const steg = Math.min(7, Math.round(((Math.min(fyllt, grans) - 1) * 7) / Math.max(1, grans - 1)))
@@ -890,7 +1016,7 @@ export default {
     this._senastBajsT = this._t
     if (!audio.sample('fart')) audio.tone({ freq: 120, slideTo: 80, dur: 0.35, type: 'sawtooth', vol: 0.12 })
     ctx.later(0.3, () => this._alive && !audio.sample('plopp') && audio.tone({ freq: 520, slideTo: 260, dur: 0.12, type: 'sine', vol: 0.2 }))
-    puff(ctx.fxLayer, x, y, { count: 7, color: 0xd9c9a6 })
+    puff(this._fx, x, y, { count: 7, color: 0xd9c9a6 })
     audio.tone({ freq: 523, slideTo: 392, dur: 0.24, type: 'triangle', vol: 0.12, delay: 0.35 }) // grodans lättade suck
     this._dammen.grodungar.heja()
     const voice = ctx.services.voice
@@ -910,7 +1036,12 @@ export default {
     const audio = ctx.services.audio
     audio.tone({ freq: 294, slideTo: 392, dur: 0.14, type: 'triangle', vol: 0.2 })
     audio.tone({ freq: 392, slideTo: 494, dur: 0.12, type: 'triangle', vol: 0.14, delay: 0.12 })
-    if (!this._barTipsat) {
+    if (!this._naraKoren()) {
+      if (!this._bortaTipsat) {
+        this._bortaTipsat = true
+        ctx.narTyst(() => this._alive && !this._firar && this._bar === k && ctx.services.voice.say('Grodkören väntar där borta!'))
+      }
+    } else if (!this._barTipsat) {
       this._barTipsat = true
       ctx.narTyst(() => this._alive && !this._firar && this._bar === k && ctx.services.voice.say('Tryck på en grodunge, så kastar grodan bajset!'))
     }
@@ -948,8 +1079,8 @@ export default {
     kor.mata(i, k.farg)
     this._matade++
     this._senastBajsT = this._t
-    sparkle(ctx.fxLayer, mv.x, mv.y, { count: 10 })
-    if (k.guld) burst(ctx.fxLayer, mv.x, mv.y, { count: 16, colors: [0xffd84a, 0xfff2a8, 0xf5b83a], power: 0.8 })
+    sparkle(this._fx, mv.x, mv.y, { count: 10 })
+    if (k.guld) burst(this._fx, mv.x, mv.y, { count: 16, colors: [0xffd84a, 0xfff2a8, 0xf5b83a], power: 0.8 })
     log('grodan', 'matad', { unge: i, matade: this._matade })
     const voice = ctx.services.voice
     if (this._matade >= UNGAR) {
@@ -973,6 +1104,15 @@ export default {
   _tungVatten(ctx, x, y) {
     this._bommar++
     this._dammen.plask(x, 0.35)
+    // I den stora dammen (L4) ska man kunna SIMMA dit man vill: en groda som flyter och trycker
+    // ned i vattnet tar ett simtag åt det hållet (ingen annan väg framåt kräver något att fastna i).
+    const g = this._groda
+    if (g?.lage === 'vatten' && !this._super) {
+      const d = Math.sign(x - g.pos.x) || g.riktning
+      if (d !== g.riktning) g.vand()
+      g.knuffa(d * 4.4, -0.8, 0.7)
+      g.simtag(d)
+    }
     if (!ctx.services.audio.sample('plopp')) ctx.services.audio.tone({ freq: 520, slideTo: 260, dur: 0.12, type: 'sine', vol: 0.2 })
     if (this._bommar >= 5 && this._t - this._senastAt > 12) this._autohjalp()
   },
@@ -1076,7 +1216,7 @@ export default {
     }
     const vilken = aG ? h.a : h.b
     if (vilken.plugin?.grodDel === 'huvud' || styrka > 0.6) g.yr(1.2 + styrka)
-    puff(ctx.fxLayer, h.x, h.y, { count: 6, color: 0xfff4c8 })
+    puff(this._fx, h.x, h.y, { count: 6, color: 0xfff4c8 })
     if (!ctx.services.audio.sample(styrka > 0.5 ? 'traff_hard' : 'traff_mjuk')) {
       ctx.services.audio.tone({ freq: 200, slideTo: 120, dur: 0.12, type: 'triangle', vol: 0.22 })
     }
@@ -1095,11 +1235,12 @@ export default {
   _spawnaLatt() {
     const g = this._groda
     const m = g.mun()
-    const hx = Math.max(160, Math.min(1120, m.x + g.riktning * rnd(90, 200)))
-    const hy = Math.max(140, Math.min(YT_Y - 150, m.y - rnd(150, 240)))
-    const fran = Math.random() < 0.5 ? -60 : 1340
+    const v = this._vyNu
+    const hx = Math.max(160, Math.min(VARLD_B - 160, m.x + g.riktning * rnd(90, 200)))
+    const hy = Math.max(v.top + 140, Math.min(YT_Y - 150, m.y - rnd(150, 240)))
+    const fran = Math.random() < 0.5 ? v.left - 60 : v.right + 60
     const typ = this._svarm.skymning && Math.random() < 0.5 ? 'eldfluga' : 'fluga'
-    return this._svarm.spawn(typ, { x: fran, y: rnd(120, 300), hem: { x: hx, y: hy, r: 90 } })
+    return this._svarm.spawn(typ, { x: fran, y: v.top + rnd(120, 300), hem: { x: hx, y: hy, r: 90 } })
   },
 
   // En insekt någonstans i dammen — typen följer hur långt barnet kommit.
@@ -1118,21 +1259,26 @@ export default {
       typ = 'guldfluga'
       this._guldKom = true
     }
-    // Hem: högt uppe eller långt bort — de svåra insekterna kräver att grodan tar sig dit.
+    // Hem: högt uppe eller långt bort — de svåra insekterna kräver att grodan tar sig dit. I den
+    // stora världen (L4) bor hälften i det barnet ser och hälften någonstans i dammen, och av de
+    // högt flygande sätter sig hälften uppe bland trädens grenar — något att klättra efter.
     const hoga = typ === 'fjaril' || typ === 'trollslanda' || typ === 'guldfluga' || Math.random() < 0.4
     const m = this._groda.mun()
+    const v = this._vyNu
+    const iBild = Math.random() < 0.5
     let hem = null
     // Andra halvan: helst ett hem UTOM räckhåll från där grodan sitter nu.
     for (let forsok = 0; forsok < 8; forsok++) {
+      const uppe = hoga && Math.random() < 0.5
       hem = {
-        x: rnd(200, 1080),
-        y: hoga ? rnd(170, 250) : rnd(230, YT_Y - 120),
+        x: iBild ? rnd(Math.max(200, v.left + 120), Math.min(VARLD_B - 200, v.right - 120)) : rnd(200, VARLD_B - 200),
+        y: uppe ? rnd(-470, -80) : hoga ? rnd(170, 250) : rnd(230, YT_Y - 120),
         r: typ === 'trollslanda' ? 200 : typ === 'fjaril' ? 150 : 110,
       }
       if (a < 4 || Math.hypot(hem.x - m.x, hem.y - m.y) > RACKVIDD + 40) break
     }
-    const fran = Math.random() < 0.5 ? -70 : 1350
-    const ins = this._svarm.spawn(typ, { x: fran, y: rnd(80, 320), hem })
+    const fran = hem.x < (v.left + v.right) / 2 ? v.left - 70 : v.right + 70
+    const ins = this._svarm.spawn(typ, { x: fran, y: Math.max(v.top + 80, Math.min(hem.y, YT_Y - 150)), hem })
     if (typ === 'guldfluga' && !this._ctx.services.voice.talar) this._ctx.services.voice.say('Oj, en guldfluga!')
     return ins
   },
@@ -1175,17 +1321,21 @@ export default {
       return
     }
     // Grodan vid kanten (i vassen, mot väggen): den vänder och hoppar ut av sig själv.
-    if (Math.min(g.pos.x, 1280 - g.pos.x) < 200 && g.kanHoppa && !this._super) {
+    if (Math.min(g.pos.x, VARLD_B - g.pos.x) < 200 && g.kanHoppa && !this._super) {
       this._nollaTunga()
       if (g.hoppa(this._bortFranKanten(g))) {
         this._ctx.services.audio.tone({ freq: 240, slideTo: 560, dur: 0.14, type: 'triangle', vol: 0.22 })
-        puff(this._ctx.fxLayer, g.pos.x, g.pos.y + 30, { count: 6, color: 0xd9f0c0 })
+        puff(this._fx, g.pos.x, g.pos.y + 30, { count: 6, color: 0xd9f0c0 })
         log('grodan', 'autohjalp', { kanten: true })
       }
     }
-    if (this._bar) return // kören är aldrig utom räckhåll — om-cuen pekar ut den
+    // Grodan bär en korv men kören är långt bort: kameran visar vägen (pilen pulsar).
+    if (this._bar) {
+      if (!this._naraKoren()) this._visaKoren(this._ctx)
+      return
+    }
     const m = g.mun()
-    const hem = { x: Math.max(150, Math.min(1130, m.x + g.riktning * 130)), y: Math.max(120, Math.min(YT_Y - 110, m.y - 110)), r: 40 }
+    const hem = { x: Math.max(150, Math.min(VARLD_B - 150, m.x + g.riktning * 130)), y: Math.max(this._vyNu.top + 120, Math.min(YT_Y - 110, m.y - 110)), r: 40 }
     const finns = this._svarm.lista.find((i) => i.typ === 'tjockfluga')
     if (finns) this._svarm.setHem(finns, hem)
     else this._svarm.spawn('tjockfluga', { x: hem.x + rnd(-80, 80), y: 40, hem })
@@ -1218,7 +1368,7 @@ export default {
           if (!this._alive || !this._dammen) return
           const m = kor.rap(i)
           if (m) this._ringar.push({ x: m.x, y: m.y - 6, r: 6, t: 0, fart: 170, skala: 0.45, farg: kor.magfarg(i) })
-          if (m) puff(ctx.fxLayer, m.x, m.y - 6, { count: 3, color: 0xdff4ff })
+          if (m) puff(this._fx, m.x, m.y - 6, { count: 3, color: 0xdff4ff })
         })
       }
       // …och grodan svarar med en jätterap som rullar ut över dammen.
@@ -1232,7 +1382,7 @@ export default {
           audio.tone({ freq: 104 + (i % 3) * 6, dur: 0.07, type: 'triangle', vol: 0.3, delay: i * 0.055 })
         }
         audio.tone({ freq: 150, slideTo: 70, dur: 0.5, type: 'sine', vol: 0.3, delay: 0.1 })
-        for (let i = 0; i < 6; i++) puff(ctx.fxLayer, m.x + g.riktning * 20, m.y - 10, { count: 3, color: 0xdff4ff })
+        for (let i = 0; i < 6; i++) puff(this._fx, m.x + g.riktning * 20, m.y - 10, { count: 3, color: 0xdff4ff })
       })
     })
     ctx.later(2.1, () => {
@@ -1261,15 +1411,16 @@ export default {
 
   _nyRunda(ctx) {
     if (!this._alive) return
-    gsap.killTweensOf(this._scen)
-    gsap.to(this._scen, {
+    const rot = this._kam.root
+    gsap.killTweensOf(rot)
+    gsap.to(rot, {
       alpha: 0,
       duration: 0.35,
       onComplete: () => {
-        if (!this._alive || this._scen.destroyed) return
+        if (!this._alive || rot.destroyed) return
         this._rivVarld()
         this._byggVarld(ctx)
-        gsap.to(this._scen, { alpha: 1, duration: 0.4 })
+        gsap.to(rot, { alpha: 1, duration: 0.4 })
         ctx.narTyst(() => this._alive && ctx.services.voice.say(this.voiceIntro))
       },
     })
@@ -1292,6 +1443,10 @@ export default {
 
     this._dammen.steg(t)
     this._phys.update(ticker.deltaMS)
+    // Kameran efter fysiken (samma bildruta), och den synliga världsytan som allt annat läser.
+    this._kamMalUppdatera()
+    this._kam.update(ticker.deltaMS)
+    this._vyUppdatera()
 
     this._laddUppdatera(ctx, dtS)
     this._superUppdatera(ctx)
@@ -1310,18 +1465,26 @@ export default {
     // Kören tittar på det som angår dem: grodan med korven, en korv som ligger och väntar.
     const kor = this._dammen.grodungar
     const fri = this._bar ? null : this._bajs.fria[0]
-    if (this._bar) kor.titta(g.pos.x, g.pos.y)
-    else if (fri) kor.titta(fri.x, fri.y)
-    else kor.titta(640, 430)
+    if (fri) kor.titta(fri.x, fri.y)
+    else kor.titta(g.pos.x, g.pos.y)
+    this._ritaHud(dtS)
+    // Framme vid kören med korven: nu (först nu) är det dags för "tryck på en grodunge".
+    if (this._bar && !this._barTipsat && this._naraKoren() && !this._firar) {
+      this._barTipsat = true
+      ctx.narTyst(() => this._alive && !this._firar && this._bar && voice.say('Tryck på en grodunge, så kastar grodan bajset!'))
+    }
 
     // Grodan rymde / blev trasig → tillbaka på startbladet med en puff.
     const p = g.pos
-    if (g.trasig() || p.x < -120 || p.x > 1400 || p.y > 800 || p.y < -900) {
+    if (g.trasig() || p.x < -120 || p.x > VARLD_B + 120 || p.y > 800 || p.y < VARLD_TOPP - 600) {
       this._avslutaSuper()
       this._nollaTunga()
       const sp = this._dammen.startPunkt
       g.teleportera(sp.x, sp.y)
-      puff(ctx.fxLayer, sp.x, sp.y, { count: 10, color: 0xd9f0c0 })
+      this._startBladFast()
+      this._kam.moveTo(sp.x, 360)
+      this._vyUppdatera()
+      puff(this._fx, sp.x, sp.y, { count: 10, color: 0xd9f0c0 })
       log('grodan', 'aterstall', {})
     }
 
@@ -1330,9 +1493,9 @@ export default {
     if (this._fallY !== null && this._fallY < YT_Y - 4 && p.y >= YT_Y - 4 && vy > 2) {
       const styrka = Math.min(1, vy / 13 + (this._magplask ? 0.6 : 0))
       this._dammen.plask(p.x, styrka)
-      puff(ctx.fxLayer, p.x, YT_Y - 6, { count: Math.round(4 + styrka * 8), color: 0xcfeeff })
+      puff(this._fx, p.x, YT_Y - 6, { count: Math.round(4 + styrka * 8), color: 0xcfeeff })
       if (!ctx.services.audio.sample('plopp')) ctx.services.audio.tone({ freq: 480, slideTo: 200, dur: 0.16, type: 'sine', vol: 0.24 })
-      if (this._magplask) ripple(ctx.fxLayer, p.x, YT_Y, { color: 0xffffff, maxR: 180, duration: 0.8, width: 8 })
+      if (this._magplask) ripple(this._fx, p.x, YT_Y, { color: 0xffffff, maxR: 180, duration: 0.8, width: 8 })
       this._magplask = false
     }
     this._fallY = p.y
@@ -1419,15 +1582,19 @@ export default {
     if (this._idle > 6.5 && !this._firar && (this._bar || this._bajs.fria.length)) {
       // Bajsloopen går före: det barnet ska göra NU är att hämta eller lämna korven.
       this._idle = 0
-      if (this._bar) {
+      if (this._bar && !this._naraKoren()) {
+        voice.say('Grodkören väntar där borta!')
+        this._korPil.puls = 1
+        this._dammen.grodungar.heja()
+      } else if (this._bar) {
         voice.say('Tryck på en grodunge, så kastar grodan bajset!')
         const k = this._dammen.grodungar.plats
-        ripple(ctx.fxLayer, k.x, k.y - 34, { color: 0xffffff, maxR: 110, duration: 0.8, width: 6 })
+        ripple(this._fx, k.x, k.y - 34, { color: 0xffffff, maxR: 110, duration: 0.8, width: 6 })
         this._dammen.grodungar.heja()
       } else {
         voice.say('Ta bajskorven med tungan!')
         const k = this._bajs.fria[0]
-        ripple(ctx.fxLayer, k.x, k.y, { color: 0xffffff, maxR: 80, duration: 0.7, width: 5 })
+        ripple(this._fx, k.x, k.y, { color: 0xffffff, maxR: 80, duration: 0.7, width: 5 })
       }
     } else if (this._idle > 6.5 && !this._firar) {
       this._idle = 0
@@ -1439,7 +1606,7 @@ export default {
       else voice.say('Prova att fastna i grenen!')
       const m = g.mun()
       const ins = this._svarm.narmast(m.x, m.y, RACKVIDD)
-      if (ins) ripple(ctx.fxLayer, ins.x, ins.y, { color: 0xffffff, maxR: 70, duration: 0.7, width: 5 })
+      if (ins) ripple(this._fx, ins.x, ins.y, { color: 0xffffff, maxR: 70, duration: 0.7, width: 5 })
     }
   },
 
@@ -1498,8 +1665,231 @@ export default {
   // Hoppets riktning: dit grodan tittar — utom vid kanten, där den hoppar in mot dammen.
   _bortFranKanten(g) {
     if (g.pos.x < 200 && g.riktning < 0) return 1
-    if (g.pos.x > 1080 && g.riktning > 0) return -1
+    if (g.pos.x > VARLD_B - 200 && g.riktning > 0) return -1
     return g.riktning
+  },
+
+  // ── Kameran och HUD:en (L4) ────────────────────────────────────────────────────────────
+
+  // Den synliga världsytan just nu (kamerans mitt ± vyn, med telefonens bleed via ctx.view).
+  // Ett och samma objekt skrivs om varje bildruta — insekterna och hindren läser det.
+  _vyUppdatera() {
+    const k = this._kam
+    if (!k) return
+    const v = this._ctx?.view
+    const ox = k.x - 640
+    const oy = k.y - 360
+    const o = this._vyNu
+    o.left = ox + (Number.isFinite(v?.left) ? v.left : 0)
+    o.right = ox + (Number.isFinite(v?.right) ? v.right : 1280)
+    o.top = oy + (Number.isFinite(v?.top) ? v.top : 0)
+    o.bottom = oy + (Number.isFinite(v?.bottom) ? v.bottom : 720)
+  },
+
+  // ENVÄGSGRENAR (L4): en gren (eller ett näckrosblad) är fast för grodan bara när grodan är
+  // ovanför den — underifrån svingar och drar tungan grodan rakt igenom. Bladen fick samma regel
+  // när en groda simmade in UNDER ett blad och flytkraften höll den där i 9 minuter (varje skott
+  // åt sidan fastnade i bladets undersida, _bajsloopprobe L4): nu flyter den upp genom bladet och
+  // landar på det. Grenarna sticker ut ur samma
+  // stam rakt över varandra, och en groda som tungan drog mot grenen ovanför stannade annars
+  // stående på grenen under (_klatterprobe: 0 av 4 nådde mellangrenen). Ovanifrån landar grodan
+  // och kan sitta på grenen som förut. Ett fast fysiksteg i taget, i grenens egen (lutande) ram.
+  _envagsgrenar() {
+    const g = this._groda
+    if (!g || !this._grenar) return
+    const k = g.b.kropp.position
+    for (const b of this._grenar) {
+      const a = -b.angle
+      const sa = Math.sin(a)
+      const ca = Math.cos(a)
+      const ly = (p) => sa * (p.x - b.position.x) + ca * (p.y - b.position.y)
+      const pl = b.plugin || (b.plugin = {})
+      const halv = pl.envagHalv || 13
+      if (this._t < (this._slappGrenar || 0) && b.label === 'gren') {
+        // Grodan hoppar ned (_hoppaNed): alla grenar släpper igenom en stund.
+        pl.envagFast = false
+      } else if (pl.envagFast) {
+        // Fast tills grodans KROPP är nere vid/under ovansidan: då hänger eller faller den förbi,
+        // inte står på den. Och drar tungan grodan NEDÅT (fästet under — barnet tryckte på bladet
+        // nedanför) släpper grenen igenom den, som "ned för att hoppa av" i ett plattformsspel;
+        // annars satt en groda som klättrat upp kvar i trädet.
+        const t = this._tunga
+        if (ly(k) > -halv || (b.label === 'gren' && t?.fast && ly(t.spets) > 20)) pl.envagFast = false
+      } else {
+        // Fast först när HELA grodan är ovanför — kroppen ensam räckte inte: benen hängde kvar
+        // under grenen när den blev fast och krokade fast grodan underifrån (_grendiag: vad/fot →
+        // gren, grodan lyfte aldrig mot toppgrenen).
+        let lagst = -Infinity
+        for (const d of g.delar) lagst = Math.max(lagst, ly(d.position))
+        if (lagst < -(halv + 2)) pl.envagFast = true
+      }
+      b.collisionFilter.mask = pl.envagFast ? ALLT : ALLT & ~GRODA_KAT
+    }
+  },
+
+  // Grodan placeras SITTANDE på startbladet (start, hem, räddning) med fötterna i bladets
+  // ovansida — envägsregeln hann aldrig se "hela grodan ovanför", och grodan föll igenom bladet
+  // (_startbladdiag: 4 av 4 starter i vattnet). Bladet den placeras på är fast från början.
+  _startBladFast() {
+    const b = this._dammen?.blad?.[0]?.body
+    if (b?.plugin) {
+      b.plugin.envagFast = true
+      b.collisionFilter.mask = ALLT
+    }
+  },
+
+  // Hoppa ned ur trädet mot p: släpp tungan, ett litet skutt åt det hållet, och grenarna släpper
+  // igenom grodan i 0,9 s så att den faller hela vägen (eller landar på ett blad på vägen).
+  _hoppaNed(ctx, p) {
+    const g = this._groda
+    this._nollaTunga()
+    this._slappGrenar = this._t + 0.9
+    const d = Math.sign(p.x - g.pos.x) || g.riktning
+    if (d !== g.riktning) g.vand()
+    g.knuffa(d * 3.4, -3.2, 0.8)
+    const audio = ctx.services.audio
+    audio.tone({ freq: 520, slideTo: 260, dur: 0.22, type: 'triangle', vol: 0.18 })
+    puff(this._fx, g.pos.x, g.pos.y + 20, { count: 5, color: 0xd9f0c0 })
+    log('grodan', 'hoppaNed', { x: Math.round(p.x) })
+  },
+
+  // Kamerans mål: grodan, men lyft uppåt när den är uppe i ett träd — 0 vid vattnet (y ≥ 520),
+  // fullt (110 px) från y 300 och uppåt. Mätt mot vad barnet måste SE: under den låga grenen både
+  // mellangrenen ovanför och vattnet nedanför (vid 200 px lyft syntes inte vattnet, och vägen
+  // ned försvann — _klatterprobe), under toppgrenen kronan och mellangrenen.
+  _kamMalUppdatera() {
+    const g = this._groda
+    const m = this._kamMal
+    if (!g || !m) return
+    const p = g.pos
+    const lyft = Math.max(0, Math.min(1, (520 - p.y) / 220)) * 110
+    m.x = p.x
+    m.y = p.y - lyft
+  },
+
+  // Är grodan i närheten av kören (så att ett tryck kastar)?
+  _naraKoren() {
+    const k = this._dammen?.grodungar?.plats
+    const g = this._groda
+    return !!k && !!g && Math.abs(g.pos.x - k.x) <= KAST_RACKVIDD
+  },
+
+  // Kören trycktes på långt bortifrån: ungarna vinkar "kom hit", ingen korv flyger.
+  _korVinkar(ctx) {
+    this._dammen.grodungar.heja()
+    this._korPil.puls = 1
+    if (!ctx.services.voice.talar) ctx.services.voice.say('Hoppa närmare grodkören!')
+    log('grodan', 'korForLangt', {})
+  },
+
+  // Körpilen trycktes (eller den sena hjälpen): kameran glider bort och VISAR kören en stund,
+  // sedan tillbaka till grodan. Grodan flyttas inte — barnet ser bara vart den ska.
+  _visaKoren(ctx) {
+    if (this._visar || !this._dammen) return
+    const k = this._dammen.grodungar.plats
+    this._visar = true
+    this._kam.panTo(k.x, 360, { duration: 0.8 })
+    this._dammen.grodungar.heja()
+    ;[392, 523, 659].forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.1, type: 'triangle', vol: 0.14, delay: 0.3 + i * 0.12 }))
+    log('grodan', 'visaKoren', {})
+    ctx.later(2.2, () => {
+      if (!this._alive || !this._groda || !this._kam) return
+      const p = this._groda.pos
+      this._kam.panTo(p.x, p.y, { duration: 0.8 })
+      ctx.later(0.85, () => {
+        this._visar = false
+      })
+    })
+  },
+
+  // HUD:en byggs EN gång (den överlever rundorna — det är skärmens, inte världens).
+  _byggHud() {
+    const hud = this._hud
+    // HEM-BLADET: ett litet näckrosblad sett uppifrån med en grodunge som tittar upp. Det hör
+    // till dammen, inte till skalet (som har sina runda-hörn-knappar i hörnen) — ägaren bad om en
+    // knapp "som smälter in". Håll 2,5 s = grodan hem.
+    const c = new Container()
+    c.position.set(HEM_HUD.x, HEM_HUD.y)
+    const inre = new Container()
+    c.addChild(inre)
+    const g = new Graphics()
+    const r = HEM_HUD.r
+    g.ellipse(3, 6, r + 1, r * 0.86).fill({ color: 0x173a1c, alpha: 0.28 })
+    const pts = [0, 0]
+    for (let i = 0; i <= 40; i++) {
+      const a = 1.42 + ((TAU - 0.44) * i) / 40
+      pts.push(Math.cos(a) * r, Math.sin(a) * r * 0.86)
+    }
+    g.poly(pts).fill(sphereFill(0x5aa845, { lightX: 0.35, lightY: 0.3, dark: 0.3 })).stroke({ width: 3, color: 0x3a7a2c })
+    for (let i = 0; i < 7; i++) {
+      const a = 1.7 + i * 0.72
+      g.moveTo(0, 0).lineTo(Math.cos(a) * r * 0.86, Math.sin(a) * r * 0.74)
+    }
+    g.stroke({ width: 1.5, color: 0x8fd06a, alpha: 0.6 })
+    // Grodungen: huvud + två ögonkulor + ett leende.
+    g.ellipse(0, 4, 21, 15).fill(sphereFill(0x7cc653, { lightX: 0.4, lightY: 0.25, dark: 0.26 }))
+    for (const ex of [-10, 10]) {
+      g.circle(ex, -8, 8).fill(sphereFill(0x7cc653, { lightY: 0.25 }))
+      g.circle(ex, -9, 6).fill(0xffffff)
+      g.circle(ex, -8.5, 3).fill(0x1d2a1a)
+      g.circle(ex - 1, -10, 1.1).fill(0xffffff)
+    }
+    g.moveTo(-9, 7).quadraticCurveTo(0, 13, 9, 7).stroke({ width: 2, color: 0x2c5a24, cap: 'round' })
+    inre.addChild(g)
+    hud.addChild(c)
+    const ring = new Graphics()
+    hud.addChild(ring)
+    this._hemHud = { c, inre, ring, wiggle: 0, hopp: 0, t: 0 }
+
+    // KÖRPILEN: en rund bubbla med en grodunge och en spets som pekar ut mot kören.
+    const pc = new Container()
+    const spets = new Graphics()
+    spets.poly([30, -16, 58, 0, 30, 16]).fill(0x4f9e3a).stroke({ width: 3, color: 0xffffff, join: 'round' })
+    const bub = new Graphics()
+    bub.circle(0, 0, 38).fill({ color: 0xffffff, alpha: 0.94 }).stroke({ width: 4, color: 0x4f9e3a })
+    bub.ellipse(0, 7, 20, 14).fill(sphereFill(0x7cc653, { lightX: 0.4, lightY: 0.25, dark: 0.26 }))
+    for (const ex of [-9, 9]) {
+      bub.circle(ex, -5, 7).fill(sphereFill(0x7cc653, { lightY: 0.25 }))
+      bub.circle(ex, -6, 5).fill(0xffffff)
+      bub.circle(ex, -5.5, 2.6).fill(0x1d2a1a)
+    }
+    bub.ellipse(0, 12, 6, 4).fill(0x6e1f30) // gapar — den väntar på korven
+    pc.addChild(spets, bub)
+    pc.visible = false
+    hud.addChild(pc)
+    this._korPil = { c: pc, spets, bub, puls: 0, t: 0 }
+  },
+
+  _ritaHud(dtS) {
+    const h = this._hemHud
+    if (h && !h.c.destroyed) {
+      h.t += dtS
+      h.wiggle = Math.max(0, h.wiggle - dtS * 3)
+      h.hopp = Math.max(0, h.hopp - dtS * 2.5)
+      const hoppY = -14 * Math.sin(Math.PI * h.hopp)
+      h.inre.y = 1.5 * Math.sin(h.t * 1.6) + hoppY
+      h.inre.rotation = 0.03 * Math.sin(h.t * 1.1) + 0.18 * h.wiggle * Math.sin(h.t * 40)
+    }
+    // Körpilen: syns när grodan bär en korv och kören är utanför bild.
+    const pil = this._korPil
+    if (!pil || pil.c.destroyed || !this._dammen) return
+    const k = this._dammen.grodungar.plats
+    const v = this._vyNu
+    const utanfor = k.x < v.left + 60 || k.x > v.right - 60
+    const syns = !!this._bar && utanfor && !this._firar
+    pil.c.visible = syns
+    if (!syns) return
+    pil.t += dtS
+    pil.puls = Math.max(0, pil.puls - dtS * 0.8)
+    const dir = k.x < v.left ? -1 : 1
+    const vv = this._ctx?.view
+    const sl = Number.isFinite(vv?.left) ? vv.left : 0
+    const sr = Number.isFinite(vv?.right) ? vv.right : 1280
+    const skarmY = k.y - 40 - (this._kam.y - 360)
+    pil.c.position.set(dir < 0 ? sl + 78 : sr - 78, Math.max(200, Math.min(600, skarmY)))
+    pil.spets.rotation = dir < 0 ? Math.PI : 0
+    const s = 1 + 0.06 * Math.sin(pil.t * 4) + 0.25 * pil.puls * Math.abs(Math.sin(pil.t * 10))
+    pil.c.scale.set(s)
   },
 
   _kvackLjud(ctx, vol = 1) {
@@ -1553,8 +1943,11 @@ export default {
       this._root.off('pointerdown', this._onDown)
       for (const ev of ['pointerup', 'pointerupoutside', 'pointercancel']) this._root.off(ev, this._onUp)
     }
-    if (this._scen) gsap.killTweensOf(this._scen)
+    if (this._kam?.root) gsap.killTweensOf(this._kam.root)
     this._rivVarld()
+    if (this._hud) stadFx(this._hud)
+    this._kam?.destroy()
+    this._kam = null
     this._ringG = null
     ctx?.services?.voice?.cancel()
     this._root?.destroy({ children: true })

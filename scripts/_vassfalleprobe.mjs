@@ -1,6 +1,9 @@
 // _vassfalleprobe.mjs — vass-fällan i grodan-slurp: kommer grodan loss ur vassen vid kanten?
 //
-//   node scripts/_vassfalleprobe.mjs [--pass 6] [--sek 40]
+//   node scripts/_vassfalleprobe.mjs [--pass 6] [--sek 40] [--falla vass|stubbe]
+//
+// --falla stubbe (L4): samma prov vid den döda stammen mitt i dammen — grodan tätt intill
+// stammen, vänd MOT den. Där fastnade _bajsloopprobe i L4:s första version (varje skott i 'stam').
 //
 // _bajsloopprobe fångade en runda som stod still i 590 s: grodan i vattnet vid kanten, med
 // ansiktet MOT väggen och fyra vasstrån runt sig. Alla 576 tungskott fastnade i vassen (skotten
@@ -22,6 +25,7 @@ const val = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] :
 const PASS = Number(val('--pass', 6))
 const SEK = Number(val('--sek', 40))
 const ID = 'grodan-slurp'
+const FALLA = val('--falla', 'vass')
 
 const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--autoplay-policy=no-user-gesture-required', '--mute-audio'] })
 const page = await b.newPage({ viewport: { width: 1280, height: 720 } })
@@ -53,17 +57,31 @@ for (let n = 0; n < PASS; n++) {
   await page.waitForFunction(() => !!window.__barnspel?.game?._groda, null, { timeout: 15000 })
   await page.waitForTimeout(700)
   // Ställ grodan i vassen vid kanten, vänd mot väggen.
-  const stalld = await page.evaluate(() => {
+  const stalld = await page.evaluate((falla) => {
     const g = window.__barnspel.game
+    g._nastaHinder = 9999
+    window.__vfFalla = falla
+    const VW = g._dammen.VW || 1280
+    if (falla === 'stubbe') {
+      const d = g._dammen
+      const sx = d._x(d._plan.stubbe.u)
+      const sida = Math.random() < 0.5 ? -1 : 1
+      const x = sx + sida * 48
+      g._tunga.nollstall()
+      g._groda.teleportera(x, 552, -sida)
+      g._kam?.moveTo(x, 360)
+      return { sida, x: Math.round(x), stubbeX: Math.round(sx) }
+    }
     const vass = g._dammen.foremal.filter((f) => f.typ === 'vass').map((f) => f.body.position.x)
     const v = vass.filter((x) => x < 220)
-    const h = vass.filter((x) => x > 1060)
+    const h = vass.filter((x) => x > VW - 220)
     const sida = v.length >= h.length ? -1 : 1
-    const x = sida < 0 ? 105 : 1175
+    const x = sida < 0 ? 105 : VW - 105
     g._tunga.nollstall()
     g._groda.teleportera(x, 552, sida)
-    return { sida, x, vassVid: sida < 0 ? v.map(Math.round) : h.map(Math.round) }
-  })
+    g._kam?.moveTo(x, 360)
+    return { sida, x, VW, vassVid: sida < 0 ? v.map(Math.round) : h.map(Math.round) }
+  }, FALLA)
   await page.waitForTimeout(500)
   const t0 = Date.now()
   let atna0 = null
@@ -74,11 +92,13 @@ for (let n = 0; n < PASS; n++) {
       const g = window.__barnspel.game
       if (!g?._groda) return null
       const m = g._groda.mun()
-      return { atna: g._atna, firar: g._firar, x: g._groda.pos.x, y: g._groda.pos.y, mun: m, bar: !!g._bar, kor: g._dammen.grodungar.plats, fria: (g._bajs?.fria || []).map((k) => ({ x: k.x, y: k.y })), insekter: g._svarm.lista.map((q) => ({ x: q.x, y: q.y })) }
+      const vy = g._vyNu || { left: 0, right: 1280, top: 0, bottom: 720 }
+      const syns = (q) => q.x > vy.left + 60 && q.x < vy.right - 60 && q.y > vy.top + 130 && q.y < vy.bottom - 40
+      return { atna: g._atna, firar: g._firar, x: g._groda.pos.x, y: g._groda.pos.y, mun: m, bar: !!g._bar, kor: g._dammen.grodungar.plats, fria: (g._bajs?.fria || []).map((k) => ({ x: k.x, y: k.y })), insekter: g._svarm.lista.filter(syns).map((q) => ({ x: q.x, y: q.y })) }
     })
     if (!L) break
     if (atna0 === null) atna0 = L.atna
-    if (Math.min(L.x, 1280 - L.x) > 220) ute = true
+    if (FALLA === 'stubbe' ? Math.abs(L.x - stalld.stubbeX) > 200 : Math.min(L.x, (stalld.VW || 1280) - L.x) > 220) ute = true
     if (!L.firar) {
       if (++i % 8 === 0) await tryck(L.x, L.y)
       else if (L.bar) await tryck(L.kor.x, L.kor.y - 30)
@@ -95,10 +115,11 @@ for (let n = 0; n < PASS; n++) {
     const tl = window.__gamelog?.snapshot()?.timeline || []
     let tunga = 0
     let vass = 0
+    const mal = window.__vfFalla === 'stubbe' ? 'stam' : 'vass'
     for (const h of tl) {
       if (h.cat !== 'grodan') continue
       if (h.event === 'tunga') tunga++
-      if (h.event === 'fast' && h.d?.mal === 'vass') vass++
+      if (h.event === 'fast' && h.d?.mal === mal) vass++
     }
     return { atna: g._atna, tunga, vass }
   })

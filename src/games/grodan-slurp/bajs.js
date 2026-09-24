@@ -65,8 +65,7 @@ const FLYT = 1.5
 const MAX_KORVAR = 3
 // En korv i vattnet dras sakta ut ur vassen vid kanterna (flytvolymens sidofjäder) — den ska gå
 // att nå utan att grodan måste in i vassen efter den.
-const HEM_MIN = 250
-const HEM_MAX = 1030
+const HEM_KANT = 250 // från världens kanter
 
 // Korvens längs-kurva: lederna i en mjuk båge, tunnare i ändarna.
 function leder(kost) {
@@ -160,7 +159,8 @@ function huvudfarg(kost) {
 export class Bajs {
   // lager: { bakom (fri korv), bar (i munnen), luft (kastad — över vattnet och kören) }
   // grupp: grodans negativa kollisionsgrupp (korven krockar aldrig med grodan)
-  constructor({ phys, lager, flytvolym, grupp }) {
+  constructor({ phys, lager, flytvolym, grupp, vw = 1280 }) {
+    this._vw = vw
     this._phys = phys
     this._lager = lager
     this._flyt = flytvolym
@@ -201,7 +201,7 @@ export class Bajs {
     })
     Body.setVelocity(body, { x: vx, y: vy })
     Body.setAngularVelocity(body, rnd(-0.05, 0.05))
-    this._flyt?.lagg(body, { flyt: FLYT, hemX: klamp(x, HEM_MIN, HEM_MAX) })
+    this._flyt?.lagg(body, { flyt: FLYT, hemX: klamp(x, HEM_KANT, this._vw - HEM_KANT) })
     const view = new Container()
     view.eventMode = 'none'
     const inre = new Container()
@@ -323,7 +323,7 @@ export class Bajs {
     Body.setAngle(body, k.view.rotation)
     Body.setVelocity(body, { x: vx, y: vy })
     Body.setAngularVelocity(body, rnd(-0.12, 0.12))
-    this._flyt?.lagg(body, { flyt: FLYT, hemX: klamp(k.x, HEM_MIN, HEM_MAX) })
+    this._flyt?.lagg(body, { flyt: FLYT, hemX: klamp(k.x, HEM_KANT, this._vw - HEM_KANT) })
     k.body = body
     k.lage = 'fri'
     k.view.scale.set(1)
@@ -366,8 +366,8 @@ export class Bajs {
     for (const k of this.lista) {
       if (k.lage !== 'fri' || !k.body) continue
       const b = k.body
-      if (!Number.isFinite(b.position.x) || b.position.y > 900 || b.position.x < -200 || b.position.x > 1480) {
-        Body.setPosition(b, { x: klamp(grodX, 160, 1120), y: 200 })
+      if (!Number.isFinite(b.position.x) || b.position.y > 900 || b.position.x < -200 || b.position.x > this._vw + 200) {
+        Body.setPosition(b, { x: klamp(grodX, 160, this._vw - 160), y: 200 })
         Body.setVelocity(b, { x: 0, y: 0 })
         continue
       }

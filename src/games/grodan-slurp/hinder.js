@@ -97,7 +97,10 @@ function ritaFisk(c) {
 export class Hinder {
   // lager: { bakom, fram } · dammen: Dammen (för ytY, plask och flytvolym)
   // pa: { borta(body) } — spelet släpper tungan om den satt i något som försvinner
-  constructor({ phys, lager, dammen, ytY = 560, pa = {} }) {
+  // vy: () => synlig världsyta (L4-kameran) — hindren kommer in där barnet TITTAR, inte i en
+  // fast skärmruta. Utan vy gäller skärmen 0–1280 som förut.
+  constructor({ phys, lager, dammen, ytY = 560, pa = {}, vy = null }) {
+    this._vyFn = vy
     this._phys = phys
     this._lager = lager
     this._dammen = dammen
@@ -107,6 +110,15 @@ export class Hinder {
     this._alive = true
     this._vind = 0
     this._lov = []
+  }
+
+  _vy() {
+    const v = this._vyFn?.()
+    return v && Number.isFinite(v.left) ? v : { left: 0, right: 1280, top: 0, bottom: 720 }
+  }
+
+  get _vw() {
+    return this._dammen?.VW || 1280
   }
 
   kroppar() {
@@ -123,9 +135,10 @@ export class Hinder {
     const view = new Container()
     view.eventMode = 'none'
     let h = null
+    const v = this._vy()
     if (typ === 'kotte') {
-      const x = Math.random() < 0.55 ? grodX + rnd(-110, 110) : rnd(240, 1040)
-      const body = this._phys.circle(Math.max(160, Math.min(1120, x)), -30, 15, { ...mat('tra'), density: 0.0022, frictionAir: 0.012, restitution: 0.35, label: 'kotte' })
+      const x = Math.random() < 0.55 ? grodX + rnd(-110, 110) : rnd(v.left + 240, v.right - 240)
+      const body = this._phys.circle(Math.max(160, Math.min(this._vw - 160, x)), v.top - 30, 15, { ...mat('tra'), density: 0.0022, frictionAir: 0.012, restitution: 0.35, label: 'kotte' })
       Body.setAngularVelocity(body, rnd(-0.08, 0.08))
       const g = new Graphics()
       ritaKotte(g)
@@ -136,7 +149,7 @@ export class Hinder {
       h = { typ, body, view, tid: 0, liv: 60 * 12 }
     } else if (typ === 'skoldpadda' || typ === 'anka') {
       const fran = Math.random() < 0.5 ? -1 : 1
-      const x0 = fran < 0 ? -140 : 1420
+      const x0 = fran < 0 ? v.left - 140 : v.right + 140
       const anka = typ === 'anka'
       const y = this.ytY + (anka ? -6 : 6)
       const body = anka
@@ -149,7 +162,7 @@ export class Hinder {
       this._lager.bakom.addChild(view)
       h = { typ, body, view, inner, delar, tid: 0, dir: -fran, fart: anka ? 1.5 : 1.9, x: x0, y0: y }
     } else if (typ === 'fisk') {
-      const x0 = rnd(300, 980)
+      const x0 = Math.max(300, Math.min(this._vw - 300, grodX + rnd(-340, 340)))
       const dir = Math.random() < 0.5 ? -1 : 1
       const body = this._phys.rectangle(x0, this.ytY + 40, 76, 32, { isStatic: true, studs: 0.5, chamfer: { radius: 14 }, label: 'fisk' })
       const inner = new Container()
@@ -168,7 +181,7 @@ export class Hinder {
         const f = [0x7dbf4f, 0xe0a33a, 0xc8662e][i % 3]
         l.moveTo(-9, 0).quadraticCurveTo(0, -8, 9, 0).quadraticCurveTo(0, 8, -9, 0).closePath().fill(f).stroke({ width: 1.2, color: 0x4a6a2a, alpha: 0.6 })
         l.moveTo(-9, 0).lineTo(9, 0).stroke({ width: 1, color: 0x4a6a2a, alpha: 0.5 })
-        l.position.set(dir > 0 ? rnd(-300, -20) : rnd(1300, 1580), rnd(80, 520))
+        l.position.set(dir > 0 ? v.left + rnd(-300, -20) : v.right + rnd(20, 300), v.top + rnd(80, 520))
         l.rotation = rnd(0, TAU)
         view.addChild(l)
         this._lov.push({ g: l, v: rnd(9, 15), fas: rnd(0, TAU) })
@@ -206,7 +219,9 @@ export class Hinder {
       h.x += h.dir * h.fart
       const y = h.y0 + Math.sin(h.tid / 22) * 2.5
       Body.setPosition(h.body, { x: h.x, y }, true)
-      if ((h.dir > 0 && h.x > 1440) || (h.dir < 0 && h.x < -160)) this.avsluta()
+      // Ute ur bild åt sitt håll (eller ur världen) → borta.
+      const v = this._vy()
+      if ((h.dir > 0 && (h.x > v.right + 240 || h.x > this._vw + 200)) || (h.dir < 0 && (h.x < v.left - 240 || h.x < -200))) this.avsluta()
     } else if (h.typ === 'fisk') {
       const u = h.tid / h.steg // 0 → 1 över bågen
       const x = h.x0 + h.dir * (u - 0.5) * h.bredd

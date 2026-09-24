@@ -208,10 +208,21 @@ for (let n = 0; n < HOPP; n++) {
   }
 }
 
-// ── grodkören: kort tryck (hejar, grodan stannar) ──────────────────────────────────────────
+// L4: kören är ofta utanför bild — hem-knappen är HEM-BLADET i HUD:en (skärmrum). `hemPunkt`
+// ger sidkoordinaten för det (eller körens, i en version utan HUD).
+const hemPunkt = (L) => page.evaluate(([kx, ky]) => {
+  const g = window.__barnspel.game
+  const c = document.querySelector('canvas')
+  const r = c.getBoundingClientRect()
+  const skala = r.width / (c.width / (window.devicePixelRatio || 1))
+  const p = g._hud ? g._hud.toGlobal({ x: 640, y: 64 }) : g._scen.toGlobal({ x: kx, y: ky })
+  return { x: r.left + p.x * skala, y: r.top + p.y * skala }
+}, [L.kor.x, L.kor.y - 30])
+
+// ── hem-knappen: kort tryck (grodan stannar) ─────────────────────────────────────────────────
 {
   const L = await vantaSitt()
-  const k = await sida(L.kor.x, L.kor.y - 30)
+  const k = await hemPunkt(L)
   await page.mouse.move(k.x, k.y)
   await page.mouse.down()
   await page.waitForTimeout(120)
@@ -231,7 +242,7 @@ for (let n = 0; n < HOPP; n++) {
   await page.mouse.up()
   await page.waitForTimeout(500)
   const I = await lage()
-  const k = await sida(I.kor.x, I.kor.y - 30)
+  const k = await hemPunkt(I)
   await page.mouse.move(k.x, k.y)
   await page.mouse.down()
   await page.waitForTimeout(1300)

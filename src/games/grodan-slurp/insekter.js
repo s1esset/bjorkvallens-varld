@@ -19,7 +19,8 @@
 //  ⓸ `spawn()` utan x/y lägger insekten strax UTANFÖR `view` på den sida som ligger närmast
 //     hemmet, så den flyger in. Utan `hem` blir hemmet en cirkel (r 160) runt startpunkten.
 //     Efter `destroy()` returnerar `spawn()` null.
-//  ⓹ Gränserna (x 40–1240, y 50 … ytY−36) hålls med MJUK styrning: målpunkter klämmas
+//  ⓹ Gränserna (standard x 40–1240, y 50 … ytY−36; spelet kan ge världens `granser` — L4:s
+//     värld är 2560 bred och går upp till −720) hålls med MJUK styrning: målpunkter klämmas
 //     innanför, och i en 20 px kantzon växer en styrkraft med djupet. Ett nödstopp (aldrig en
 //     studs — farten mot kanten nollas bara) finns vid ytY−22 för vattnet och 24 px utanför
 //     sidorna, för det fall att vind + skräm tillsammans vinner över styrningen.
@@ -73,7 +74,9 @@ const YTTRE_TAU = 0.6       // avklingning för vind + skräm (s)
 const HORN_X0 = 175
 const HORN_X1 = 1105
 const HORN_Y = 180
-const taketVid = (x, y0) => (x < HORN_X0 || x > HORN_X1 ? Math.max(y0, HORN_Y) : y0)
+// L4: en hem-knapp mitt upptill i skärmen (index.js) — insekterna håller sig under den också.
+const MITT_HALV = 95
+const MITT_Y = 150
 const YTTRE_MAX = 520       // tak för den yttre farten (px/s)
 const PIL_BROMS = 1100      // trollsländans inbromsning (px/s²) — v = √(2·a·d) ger mjuk ankomst
 const DT_MAX = 0.05
@@ -631,10 +634,13 @@ export class Svarm {
    *   ytY    vattenytans y (560)
    *   view   ctx.view — LEVANDE, läses vid användning, muteras aldrig
    */
-  constructor({ lager, ytY = 560, view } = {}) {
+  // granser: { x0, x1, y0 } i världen (standard skärmens) · vy: () => synlig världsyta (kameran)
+  constructor({ lager, ytY = 560, view, granser = null, vy = null } = {}) {
     this._alive = true
     this._ytY = Number.isFinite(ytY) ? ytY : 560
     this._view = view || null
+    this._vyFn = typeof vy === 'function' ? vy : null
+    this._gr = { x0: granser?.x0 ?? X_MIN, x1: granser?.x1 ?? X_MAX, y0: granser?.y0 ?? Y_MIN }
     this._vind = 0
     this._alla = []          // alla insekter som har en vy: flygande, fångade och de som äts just nu
     this._proxy = new Set()  // ata()-tweenernas proxy-objekt — dödas i destroy()
@@ -654,11 +660,26 @@ export class Svarm {
   }
 
   _granser() {
-    return { x0: X_MIN, x1: X_MAX, y0: Y_MIN, y1: this._ytY - YTA_AVSTAND }
+    return { x0: this._gr.x0, x1: this._gr.x1, y0: this._gr.y0, y1: this._ytY - YTA_AVSTAND }
   }
 
+  // Den synliga ytan i VÄRLDEN just nu (kameran flyttar den).
   _vy() {
-    return this._view || { left: 0, right: 1280, top: 0, bottom: 720 }
+    return this._vyFn?.() || this._view || { left: 0, right: 1280, top: 0, bottom: 720 }
+  }
+
+  // Taket vid x: lägre under skalets knappar i skärmens övre hörn (och mitt upptill, där L4:s
+  // hem-knapp sitter) — ett tryck på en insekt DÄR lämnade spelet. Hörnen sitter i skärmen, så
+  // taket följer kameran. Utan kamera (vy = 0…1280) är det exakt det gamla (175 / 1105 / 180).
+  _tak(x, y0) {
+    const v = this._vy()
+    const left = Number.isFinite(v.left) ? v.left : 0
+    const right = Number.isFinite(v.right) ? v.right : 1280
+    const top = Number.isFinite(v.top) ? v.top : 0
+    let t = y0
+    if (x < left + HORN_X0 || x > right - (1280 - HORN_X1)) t = Math.max(t, top + HORN_Y)
+    if (this._vyFn && Math.abs(x - (left + right) / 2) < MITT_HALV) t = Math.max(t, top + MITT_Y)
+    return t
   }
 
   _normHem(h, reserv) {
@@ -667,7 +688,7 @@ export class Svarm {
     const y = Number(h?.y)
     const r = Number(h?.r)
     return {
-      x: klam(Number.isFinite(x) ? x : reserv?.x ?? 640, b.x0, b.x1),
+      x: klam(Number.isFinite(x) ? x : reserv?.x ?? (b.x0 + b.x1) / 2, b.x0, b.x1),
       y: klam(Number.isFinite(y) ? y : reserv?.y ?? 300, b.y0, b.y1),
       r: klam(Number.isFinite(r) && r > 0 ? r : reserv?.r ?? 160, 40, 320),
     }
@@ -685,10 +706,10 @@ export class Svarm {
     const harXY = Number.isFinite(x) && Number.isFinite(y)
     const h = hem
       ? this._normHem(hem)
-      : this._normHem({ x: harXY ? klam(x, 160, 1120) : slump(200, 1080), y: harXY ? klam(y, 120, b.y1 - 60) : slump(140, 400), r: 160 })
+      : this._normHem({ x: harXY ? klam(x, b.x0 + 120, b.x1 - 120) : slump(b.x0 + 160, b.x1 - 160), y: harXY ? klam(y, 120, b.y1 - 60) : slump(140, 400), r: 160 })
     if (!harXY) {
       const v = this._vy()
-      x = h.x < 640 ? v.left - 40 : v.right + 40
+      x = h.x < (v.left + v.right) / 2 ? v.left - 40 : v.right + 40
       y = klam(h.y + slump(-60, 60), b.y0 + 30, b.y1 - 40)
     }
 
@@ -869,7 +890,7 @@ export class Svarm {
     if (s.inne) {
       if (ins.x < b.x0 + ZON) ax += Math.min(KANT_MAX, (KANT_K * (b.x0 + ZON - ins.x)) / ZON)
       else if (ins.x > b.x1 - ZON) ax -= Math.min(KANT_MAX, (KANT_K * (ins.x - (b.x1 - ZON))) / ZON)
-      const y0 = taketVid(ins.x, b.y0)
+      const y0 = this._tak(ins.x, b.y0)
       if (ins.y < y0 + ZON) ay += Math.min(KANT_MAX, (KANT_K * (y0 + ZON - ins.y)) / ZON)
     }
     // Vattnet gäller alltid — även för en insekt som fortfarande flyger in.
@@ -884,7 +905,7 @@ export class Svarm {
     s.uvy *= avt
     if (s.inne) {
       if ((ins.x < b.x0 + ZON && s.uvx < 0) || (ins.x > b.x1 - ZON && s.uvx > 0)) s.uvx *= Math.exp(-9 * dt)
-      if (ins.y < taketVid(ins.x, b.y0) + ZON && s.uvy < 0) s.uvy *= Math.exp(-9 * dt)
+      if (ins.y < this._tak(ins.x, b.y0) + ZON && s.uvy < 0) s.uvy *= Math.exp(-9 * dt)
     }
     if (ins.y > b.y1 - ZON && s.uvy > 0) s.uvy *= Math.exp(-12 * dt)
     const um = Math.hypot(s.uvx, s.uvy)
@@ -939,8 +960,8 @@ export class Svarm {
         s.fvx = Math.min(0, s.fvx)
         s.uvx = Math.min(0, s.uvx)
       }
-      if (ins.y < taketVid(ins.x, b.y0) - NOD_SIDA) {
-        ins.y = taketVid(ins.x, b.y0) - NOD_SIDA
+      if (ins.y < this._tak(ins.x, b.y0) - NOD_SIDA) {
+        ins.y = this._tak(ins.x, b.y0) - NOD_SIDA
         s.fvy = Math.max(0, s.fvy)
         s.uvy = Math.max(0, s.uvy)
       }
@@ -959,7 +980,7 @@ export class Svarm {
   _klamMal(x, y) {
     const b = this._granser()
     const kx = klam(x, b.x0 + MAL_KANT, b.x1 - MAL_KANT)
-    return { x: kx, y: klam(y, taketVid(kx, b.y0) + MAL_KANT, b.y1 - ZON - 4) }
+    return { x: kx, y: klam(y, this._tak(kx, b.y0) + MAL_KANT, b.y1 - ZON - 4) }
   }
 
   _hemPunkt(ins, hog = false) {

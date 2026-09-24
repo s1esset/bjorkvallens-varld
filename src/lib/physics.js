@@ -100,6 +100,7 @@ export class PhysicsWorld {
     this._windAx = windAx
     this._windAy = windAy
     this.walls = []
+    this._bounds = bounds
     this._buildWalls(walls, wallThickness, wallExtra, bounds)
     if (DIAG) this._diagInit({ gravityX, gravityY, walls, windAx, windAy, bounds })
   }
@@ -148,7 +149,13 @@ export class PhysicsWorld {
       }
       const s = Math.hypot(b.velocity.x, b.velocity.y)
       if (s > maxSpeed) maxSpeed = s
-      const ute = x < -600 || x > DESIGN_W + 600 || y > DESIGN_H + 600 || y < -1200
+      // Mot världens gränser om spelet angett dem (en värld bredare än skärmen, grodan-slurp L4),
+      // annars skärmens — en stock mitt i en 2560 bred damm är inte "rymd".
+      const bL = this._bounds?.left ?? 0
+      const bR = this._bounds?.right ?? DESIGN_W
+      const bT = this._bounds?.top ?? 0
+      const bB = this._bounds?.bottom ?? DESIGN_H
+      const ute = x < bL - 600 || x > bR + 600 || y > bB + 600 || y < bT - 1200
       if (ute && !d.escaped.has(b.id)) {
         d.escaped.add(b.id)
         logPhysics('rymde', { label: b.label || 'kropp', x: Math.round(x), y: Math.round(y) })

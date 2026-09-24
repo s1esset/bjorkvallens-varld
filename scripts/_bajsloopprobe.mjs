@@ -12,6 +12,11 @@
 // korv, tid per runda, korvar som tappades, sen hjälp, max antal korvar samtidigt, konsolfel.
 // Sist tre exit-prov: MITT I ett kast (korven i luften), MITT I en krystning, och in igen.
 //
+// L4 (världen större än skärmen): sonden trycker bara på det som SYNS (spelets `_vyNu`, utan
+// skalknapparna och hem-bladet). Det som ligger utanför bild GÅR den mot, som ett barn: tungan
+// mot ett synligt föremål åt det hållet (grodan flyger dit), annars ett simtag (trycka i vattnet)
+// eller ett hopp. Kören kastas det mot bara på nära håll (spelets `_naraKoren`).
+//
 // Kräver dev-servern (npm run dev) — `window.__barnspel` finns bara i DEV.
 import { chromium } from 'playwright'
 
@@ -68,6 +73,8 @@ const lage = () => page.evaluate(() => {
     antalKorvar: g._bajs.antal,
     flyger: g._bajs.lista.some((k) => k.lage === 'flyger'),
     kor: kor.plats,
+    nara: g._naraKoren ? g._naraKoren() : true,
+    vy: g._vyNu ? { ...g._vyNu } : { left: 0, right: 1280, top: 0, bottom: 720 },
     groda: { x: gr.pos.x, y: gr.pos.y, lage: gr.lage, riktning: gr.riktning },
     tunga: g._tunga.lage,
     fastI: g._tunga.body?.label || null,
@@ -77,7 +84,34 @@ const lage = () => page.evaluate(() => {
   }
 })
 
-const hornet = (x, y) => (x < 140 || x > 1140) && y < 130 // skalets knappar — ett tryck där lämnar spelet
+// Skalets knappar (hörnen) och hem-bladet (mitt upptill) — i SKÄRMEN, alltså relativt vyn.
+const hornet = (x, y, vy = { left: 0, right: 1280, top: 0 }) => {
+  const sx = x - vy.left
+  const sy = y - vy.top
+  const w = vy.right - vy.left
+  return ((sx < 140 || sx > w - 140) && sy < 130) || (Math.abs(sx - w / 2) < 80 && sy < 120)
+}
+const synlig = (x, y, vy) => x > vy.left + 50 && x < vy.right - 50 && y > vy.top + 50 && y < vy.bottom - 30 && !hornet(x, y, vy)
+
+// Gå mot x: tungan på ett synligt föremål åt det hållet inom räckhåll (grodan flyger dit), annars
+// ett simtag åt det hållet om grodan flyter, annars ett tryck på grodan (hopp).
+async function gaMot(L, x) {
+  const dir = Math.sign(x - L.groda.x) || 1
+  const kand = L.foremal
+    .filter((f) => (f.x - L.groda.x) * dir > 70 && Math.hypot(f.x - L.mun.x, f.y - L.mun.y) < 400 && synlig(f.x, Math.max(f.y, L.vy.top + 60), L.vy))
+    .sort((a, b) => (b.x - L.groda.x) * dir - (a.x - L.groda.x) * dir)
+  if (kand.length && Math.random() < 0.8) {
+    const f = kand[0]
+    await tryck(f.x, Math.max(f.y, L.vy.top + 70))
+    return 'foremal'
+  }
+  if (L.groda.lage === 'vatten') {
+    await tryck(L.groda.x + dir * 160, 640)
+    return 'sim'
+  }
+  await tryck(L.groda.x, L.groda.y)
+  return 'hopp'
+}
 
 const t0 = Date.now()
 const rundor = []
@@ -87,12 +121,12 @@ let senKorvar = 0
 let senMatade = 0
 let bildNr = 0
 let nastaBild = 4
-const tryckAv = { kor: 0, korv: 0, insekt: 0, foremal: 0, groda: 0, slump: 0 }
+const tryckAv = { kor: 0, korv: 0, insekt: 0, foremal: 0, groda: 0, slump: 0, sim: 0, hopp: 0 }
 const xHist = {}
 const fastHist = {}
 const lageHist = {}
 const fastnat = [] // ögonblicksbilder när inget ätits på 30 s
-let senAtna = 0
+let senAtna = ''
 let senAtT = Date.now()
 let sistFastnat = 0
 while ((Date.now() - t0) / 1000 < SEK) {
@@ -122,8 +156,11 @@ while ((Date.now() - t0) / 1000 < SEK) {
   xHist[hink] = (xHist[hink] || 0) + 1
   lageHist[L.groda.lage] = (lageHist[L.groda.lage] || 0) + 1
   if (L.fastI) fastHist[L.fastI] = (fastHist[L.fastI] || 0) + 1
-  if (L.atna !== senAtna || L.bar || L.fria.length || L.firar) {
-    senAtna = L.atna
+  // Framsteg = något RÄKNAS (ätna, korvar, matade) eller firandet pågår. Att bära räknas inte —
+  // en groda som bär men aldrig når kören är också fast.
+  const nyckel = `${L.atna}|${L.korvar}|${L.matade}|${L.runda}`
+  if (nyckel !== senAtna || L.firar) {
+    senAtna = nyckel
     senAtT = Date.now()
   } else if (Date.now() - senAtT > 30000 && Date.now() - sistFastnat > 20000 && fastnat.length < 4) {
     sistFastnat = Date.now()
@@ -145,36 +182,52 @@ while ((Date.now() - t0) / 1000 < SEK) {
     continue
   }
   if (L.bar) {
-    // Kören: en slumpad unge (spelet väljer närmaste omatade). Ibland väntar barnet en stund.
+    // Kören: en slumpad unge (spelet väljer närmaste omatade) — bara på nära håll och om den
+    // syns. Annars går barnet mot kören. Ibland väntar barnet en stund (slumptryck).
+    const korY = L.kor.y - 30
     if (Math.random() < 0.8) {
-      await tryck(L.kor.x + (Math.random() - 0.5) * 150, L.kor.y - 30 + (Math.random() - 0.5) * 40)
-      tryckAv.kor++
+      if (L.nara && synlig(L.kor.x, korY, L.vy)) {
+        await tryck(L.kor.x + (Math.random() - 0.5) * 150, korY + (Math.random() - 0.5) * 40)
+        tryckAv.kor++
+      } else {
+        tryckAv[await gaMot(L, L.kor.x)]++
+      }
     } else {
-      await tryck(160 + Math.random() * 900, 150 + Math.random() * 350)
+      await tryck(L.vy.left + 160 + Math.random() * 900, L.vy.top + 150 + Math.random() * 350)
       tryckAv.slump++
     }
   } else if (L.fria.length && Math.random() < 0.8) {
     const k = L.fria[0]
-    await tryck(k.x, k.y)
-    tryckAv.korv++
+    if (synlig(k.x, k.y, L.vy) && Math.hypot(k.x - L.mun.x, k.y - L.mun.y) < 430) {
+      await tryck(k.x, k.y)
+      tryckAv.korv++
+    } else tryckAv[await gaMot(L, k.x)]++
   } else {
     const r = Math.random()
+    const syns = L.insekter.filter((q) => synlig(q.x, q.y, L.vy))
     if (r < 0.62 && L.insekter.length) {
-      const ins = Math.random() < 0.7
-        ? L.insekter.slice().sort((a, c) => Math.hypot(a.x - L.mun.x, a.y - L.mun.y) - Math.hypot(c.x - L.mun.x, c.y - L.mun.y))[0]
-        : L.insekter[Math.floor(Math.random() * L.insekter.length)]
-      if (hornet(ins.x, ins.y)) continue
-      await tryck(ins.x, ins.y)
-      tryckAv.insekt++
+      if (!syns.length) {
+        const q = L.insekter.slice().sort((a, c) => Math.abs(a.x - L.groda.x) - Math.abs(c.x - L.groda.x))[0]
+        tryckAv[await gaMot(L, q.x)]++
+      } else {
+        const ins = Math.random() < 0.7
+          ? syns.slice().sort((a, c) => Math.hypot(a.x - L.mun.x, a.y - L.mun.y) - Math.hypot(c.x - L.mun.x, c.y - L.mun.y))[0]
+          : syns[Math.floor(Math.random() * syns.length)]
+        await tryck(ins.x, ins.y)
+        tryckAv.insekt++
+      }
     } else if (r < 0.78 && L.foremal.length) {
-      const f = L.foremal[Math.floor(Math.random() * L.foremal.length)]
-      await tryck(Math.max(150, Math.min(1130, f.x)), Math.max(135, f.y))
-      tryckAv.foremal++
+      const f = L.foremal.filter((q) => synlig(q.x, Math.max(q.y, L.vy.top + 70), L.vy))
+      if (f.length) {
+        const q = f[Math.floor(Math.random() * f.length)]
+        await tryck(q.x, Math.max(q.y, L.vy.top + 70))
+        tryckAv.foremal++
+      }
     } else if (r < 0.9) {
       await tryck(L.groda.x, L.groda.y)
       tryckAv.groda++
     } else {
-      await tryck(160 + Math.random() * 960, 140 + Math.random() * 420)
+      await tryck(L.vy.left + 160 + Math.random() * 960, L.vy.top + 140 + Math.random() * 420)
       tryckAv.slump++
     }
   }
@@ -208,11 +261,19 @@ async function spelaTill(villkor, maxSek = 120) {
     const L = await lage()
     if (!L) return false
     if (villkor(L)) return true
-    if (L.bar) await tryck(L.kor.x, L.kor.y - 30)
-    else if (L.fria.length) await tryck(L.fria[0].x, L.fria[0].y)
-    else if (L.insekter.length) {
-      const ins = L.insekter.slice().sort((a, c) => Math.hypot(a.x - L.mun.x, a.y - L.mun.y) - Math.hypot(c.x - L.mun.x, c.y - L.mun.y))[0]
-      if (!hornet(ins.x, ins.y)) await tryck(ins.x, ins.y)
+    if (L.bar) {
+      if (L.nara && synlig(L.kor.x, L.kor.y - 30, L.vy)) await tryck(L.kor.x, L.kor.y - 30)
+      else await gaMot(L, L.kor.x)
+    } else if (L.fria.length) {
+      const k = L.fria[0]
+      if (synlig(k.x, k.y, L.vy) && Math.hypot(k.x - L.mun.x, k.y - L.mun.y) < 430) await tryck(k.x, k.y)
+      else await gaMot(L, k.x)
+    } else if (L.insekter.length) {
+      const syns = L.insekter.filter((q) => synlig(q.x, q.y, L.vy))
+      const lista = syns.length ? syns : L.insekter
+      const ins = lista.slice().sort((a, c) => Math.hypot(a.x - L.mun.x, a.y - L.mun.y) - Math.hypot(c.x - L.mun.x, c.y - L.mun.y))[0]
+      if (syns.length) await tryck(ins.x, ins.y)
+      else await gaMot(L, ins.x)
     }
     await page.waitForTimeout(160 + Math.random() * 200)
   }
@@ -232,7 +293,7 @@ const utOchIn = async (namn) => {
 }
 // 1. Mitt i kastet: spela tills grodan bär, tryck på kören, lämna 180 ms senare.
 {
-  const nadde = await spelaTill((L) => L.bar && !L.firar)
+  const nadde = await spelaTill((L) => L.bar && !L.firar && L.nara && synlig(L.kor.x, L.kor.y - 30, L.vy))
   if (nadde) {
     const L = await lage()
     await tryck(L.kor.x, L.kor.y - 30)
@@ -250,7 +311,7 @@ const utOchIn = async (namn) => {
 }
 // 3. Mitt i ett tungdrag på en korv (korven på väg in på tungan).
 {
-  const nadde = await spelaTill((L) => L.fria.length > 0 && !L.bar)
+  const nadde = await spelaTill((L) => L.fria.length > 0 && !L.bar && synlig(L.fria[0].x, L.fria[0].y, L.vy) && Math.hypot(L.fria[0].x - L.mun.x, L.fria[0].y - L.mun.y) < 430)
   if (nadde) {
     const L = await lage()
     await tryck(L.fria[0].x, L.fria[0].y)

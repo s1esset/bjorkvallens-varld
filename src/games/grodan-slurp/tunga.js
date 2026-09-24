@@ -68,6 +68,7 @@ export class Tunga {
   // kant fastnar även om fingret landade precis innanför den.
   skjut(x, y) {
     if (!this._alive) return false
+    const forra = this.lage === 'fast' ? this.body : null
     if (this.lage === 'fast') this._lossa()
     const m = this.groda.mun()
     const dx = x - m.x
@@ -82,6 +83,14 @@ export class Tunga {
     // Det munnen redan sitter inne i (vass grodan simmar bland) går tungan igenom —
     // annars fastnade varje skott direkt vid munnen.
     this._undanta = this.hitta.inuti ? this.hitta.inuti(m.x, m.y, x, y) : []
+    // Grenen grodan HÄNGER i ligger mellan munnen och grenen ovanför: ett nytt skott uppåt fastnade
+    // annars i samma gren igen, och ingen kom högre än första grenen (_klatterprobe, L4). Den går
+    // tungan förbi — om inte fingret pekar på just den.
+    if (forra && !this._undanta.includes(forra)) {
+      const b = forra.bounds
+      const pekar = x > b.min.x - 20 && x < b.max.x + 20 && y > b.min.y - 20 && y < b.max.y + 20
+      if (!pekar) this._undanta.push(forra)
+    }
     this.groda.oppnaMun(1)
     return true
   }

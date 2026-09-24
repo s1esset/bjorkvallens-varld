@@ -63,6 +63,10 @@ export class Camera {
     height = DESIGN_H,
     worldW = width,
     worldH = height,
+    // Världens ÖVERKANT i världskoordinater (standard 0). Ett spel som vill växa UPPÅT utan att
+    // flytta allt det redan ritat sätter en negativ topp: `grodan-slurp`s damm ligger kvar på
+    // y 0–720 och himlen/träden fortsätter uppåt till −720. 0 = exakt det gamla beteendet.
+    worldY0 = 0,
     // Zoom-IN är gratis: den visar mindre, så inget lager behöver extra bredd (kontrollräknat
     // — vid 1.6 hamnar markens högerkant exakt på världens). Zoom-UT under 1 är det inte:
     // då sträcker sig varje lager utanför vyn åt BÅDA håll, och `lagerBredd` (som bara ger
@@ -81,7 +85,7 @@ export class Camera {
     maxShake = 10, // px
   } = {}) {
     this.view = { w: width, h: height }
-    this.world = { w: Math.max(width, worldW), h: Math.max(height, worldH) }
+    this.world = { w: Math.max(width, worldW), h: Math.max(height, worldH), y0: Number.isFinite(worldY0) ? worldY0 : 0 }
     this.minZoom = minZoom
     this.maxZoom = maxZoom
     this.zoom = 1
@@ -306,7 +310,8 @@ export class Camera {
     const hw = this._halfW()
     const hh = this._halfH()
     this.x = this.world.w <= hw * 2 ? this.world.w / 2 : klamp(x, hw, this.world.w - hw)
-    this.y = this.world.h <= hh * 2 ? this.world.h / 2 : klamp(y, hh, this.world.h - hh)
+    const y0 = this.world.y0 || 0
+    this.y = this.world.h <= hh * 2 ? y0 + this.world.h / 2 : klamp(y, y0 + hh, y0 + this.world.h - hh)
   }
 
   _stepZoom(dt) {

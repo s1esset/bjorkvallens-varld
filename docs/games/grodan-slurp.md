@@ -3,7 +3,7 @@
 > ⚙️ fysik · tap · 3–5 år · ✅
 > Status: ✅ marknadsklar · byggd och publicerad i nattpasset 2026-09-23/24 (v1.254.0) ·
 > superhoppet + grodkörens hem-knapp 2026-09-24 (v1.255.0) · bajsloopen (L3 av biomplanen, §4d)
-> 2026-09-24 (v1.257.0)
+> 2026-09-24 (v1.257.0) · kamera + stor värld (L4, v1.258.0)
 
 ## 0. Spec (fylls i av `/spel` innan kod skrivs)
 
@@ -239,15 +239,45 @@ Uppmätt i L3 (bajsloopen, 2026-09-24):
   grodan tittade (in i väggen), och den sena hjälpens tjockfluga hamnade bakom vassen.
   `_vassfalleprobe.mjs` bygger läget med flit: **kontrollarmen 4/6 kom loss** (ett pass åt 0 på
   40 s, 128 av 128 skott i vassen; 419/663 = 63 % i vassen totalt). Med rättelsen **6/6 loss**,
-  121 ätna mot 73, **65/537 = 12 %** i vassen. Rättelsen: vassen klibbar bara när fingret pekar på
-  strået (`_inuti` med tungans mål), grodan vänder sig mot målet även i vattnet, hopp vid kanten
-  går in mot dammen (`_bortFranKanten`, `groda.hoppa` vänder även i vattnet), och den sena hjälpen
-  hoppar ut en groda som står vid kanten.
+  121 ätna mot 73, **65/537 = 12 %** i vassen. Rättelsen: grodan vänder sig mot målet även i
+  vattnet, hopp vid kanten går in mot dammen (`_bortFranKanten`, `groda.hoppa` vänder även i
+  vattnet), och den sena hjälpen hoppar ut en groda som står vid kanten.
+  ⚠️ **Rättat i L4:** texten här sa också "vassen klibbar bara när fingret pekar på strået" — den
+  regeln var skriven men DÖD i v1.257.0. Omslaget `hitta.inuti: (x, y) => this._inuti(x, y)`
+  skickade aldrig vidare tungans mål, så `_inuti` fick `tx === undefined` och returnerade tidigt.
+  L3:s 6/6 kom alltså helt från de tre andra rättelserna. Hittat i L4 när samma fälla uppstod vid
+  den döda stammen och rättelsen inte bet (`_stubbdiag.mjs`: `_inuti` direkt gav stammen i
+  listan, tungans egen `_undanta` gjorde det inte). Mätt efter att omslaget skickar målet: se §3
+  L4.
 - `_grodfastprobe.mjs` (envis strategi: alltid närmaste insekt, inga hopp): 6 pass × 90 s, 12–29
   ätna, längsta lucka 29 s (insekter högt uppe utom räckhåll — andra halvans design, hjälpen kom).
 - Regression: `_grodprobe` oförändrad (posfel 0,16 · hopp 200 px · kotte 0,09 · stock 1,64),
   `_superspelprobe` 4/4 superhopp klara, kort tryck = vanligt hopp 192 px, kören kallar hem mitt i
   ett superhopp (7 px från start), exit med repet ute 0 fel.
+Uppmätt i L4 (den stora världen, 2026-09-24) — sex fällor hittade och stängda på vägen, alla med
+0 konsolfel och grönt test:
+- **Bajsloopen i världen:** `_bajsloopprobe` (kamerakunnig: trycker bara på det som syns, GÅR mot
+  resten) 4/4 rundor klara på 109–168 s (L3 på en skärm: 46–70 s), grodan över hela bredden.
+  Första versionen: 0/4 (stubb-fällan), sedan 3/4 (stubben som vägg), sedan 2/3 (under ett blad).
+- **Stubb-fällan:** grodan tätt intill den döda stammen — varje skott mot insekterna fastnade i
+  stammen. `_vassfalleprobe --falla stubbe` kontroll 1/6 loss, 694/756 skott i stammen → 6/6,
+  1/320. Rättelsen bet först när `hitta.inuti` skickade tungans mål (L3-rättelsen var död).
+- **Stubben som vägg:** från botten till 185 px över ytan delade den dammen — grodan drogs in i den
+  och kom aldrig förbi. Nu ett rent tungmål (krockar med ingenting), grenstumparna fasta.
+- **Under ett blad:** en groda som simmade in under ett näckrosblad hölls där av flytkraften i 9
+  min. Bladen är nu envägsplattformar (som grenarna).
+- **Startbladet:** med envägsbladen föll grodan igenom startbladet vid start och vid "hem" (4/4 i
+  `_startbladdiag`) — bladet grodan placeras på är fast från början.
+- **Klättra:** `_klatterprobe` 4/4 når alla tre grenarna, kameran följer upp till y ≈ −170, grodan
+  aldrig utanför bild; ned igen på 1–12 s. Vägen dit: 0/4 (grenavståndet ~300 px) → mellangrenen
+  ovanför bildkanten (kameralyft) → samma gren i vägen (`forra`) → benen krokade under grenen
+  (`_grendiag`, envägs med HELA grodan) → vägen ned dold (lyftet 200 → 110 px).
+- Regression: `_superspelprobe` 4/4 superhopp, kort tryck = hopp 192 px, hem-bladet mitt i ett
+  superhopp → 6 px från start; `_bajssuperprobe` 3/3 (korven kvar, 0 ätna, kast → matad);
+  `_grodprobe` oförändrad; `spindel-zacke-svingar`, `plask-i-vattnet`, `pruttbad` gröna (delar
+  `kamera.js` resp. `flytkraft.js`). Parallaxen mätt: 1280 → 384, 720 → 216, himmel/HUD 0.
+- `physics.js`: "kropp rymde"-diagnosen räknar nu mot världens `bounds` (en stock på x 1999 i en
+  2560 bred damm larmade).
 - `_bajsbildprobe.mjs` ställer upp lägena en spelsond aldrig hinner fota. Första korven (rena
   färger, 24 px tjock) läste som ett pärlband eller en larv, inte som bajs, och försvann bakom
   grodan. Nu 32 px, brunt med insektsfärgen inblandad och tydligare stinklinjer.
@@ -433,7 +463,7 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 ### 4d. Biomer och bajsloopen — leveransplan (ägarens tillägg 2026-09-24)
 
 - [x] **L3 — bajsloopen på dagens damm** (v1.257.0). Se §4e.
-- [ ] **L4 — kamera och större värld (dammen).** `lib/kamera.js` med värld åt sidan OCH uppåt
+- [x] **L4 — kamera och större värld (dammen)** (v1.258.0). Se §4f. Planen nedan stod så här: `lib/kamera.js` med värld åt sidan OCH uppåt
   (egna `parallax()`-lager — `createScene` följer inte med i höjd). Kören blir ett ställe i
   världen (pil i skärmkanten + körgrodor som ropar när den är utanför bild). "Grodan hem" flyttar
   från kören till en egen fast skärmknapp (faktor 0), fortfarande håll 2,5 s. Kostnaden är känd
@@ -477,6 +507,58 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 - **Rivning:** `_nollaTunga()` ersätter `tunga.nollstall()` — en korv på väg in på tungan blir
   fri igen i stället för att hänga i luften. Inga tweens i `bajs.js` eller i kören.
 
+### 4f. Den stora världen — teknisk ritning (L4)
+
+- **Kameran** (`lib/kamera.js`, fick `worldY0`): världen är `VARLD_B` = 2560 bred och går från
+  `VARLD_TOPP` = −720 ned till 720. Dammen ligger kvar på y 0–720 (inget redan ritat flyttades),
+  himlen och träden växer UPPÅT. `worldY0` är standard 0, så `spindel-zacke-svingar` är orörd.
+  Kameran följer grodans kropp (`lead 90`, `deadzone 140`), uppdateras i spelets egen bildruta
+  EFTER fysiken, och `moveTo` används vid varje teleport (hem, rymde, ny runda).
+- **Lagren:** `himmel` (faktor 0 — gradient, sol, moln, glöd, stjärnor; under horisonten fylls
+  skärmen med horisontens färg), `fjarran` (`FJARRAN` = {x 0,3, y 0,3} — kullar, skog, bortre
+  strand och vatten; när kameran klättrar sjunker bandet långsamt och det bortre vattnet växer),
+  `this._scen` (faktor 1 — allt spelbart, i världskoordinater; sonderna räknar om via
+  `_scen.toGlobal`), `hud` (faktor 0, skakar inte). Uppmätt: världen 1280 → bandet 384 (0,3),
+  720 upp → 216, himmel och HUD 0 (`_varldbildprobe.mjs`).
+- **`this._fx`** (= `L.effekt`, i världen) ersätter `ctx.fxLayer` överallt (skärmrum — effekterna
+  hade hamnat fel). `_rivVarld` kör `stadFx` på varje lager före rivningen (partikelfälten cachas
+  PÅ lagret).
+- **`_vyNu`** = synlig världsyta (kamerans mitt ± `ctx.view`, med telefonens bleed), ETT objekt som
+  skrivs om varje bildruta. Insekterna (gränser, hörntak som följer kameran, in-flygning från
+  bildens kant), hindren (kotte ovanför bilden, sköldpadda/anka från bildens kanter, fisk nära
+  grodan, vindlöv) och dammen (fisken, dimman) läser den i stället för 0–1280.
+- **Dammen** (`dammen.js`): två stränder (`_byggStrand(1|2)`), ett högt träd på varje (`_byggTrad`,
+  stam upp till −590…−650, grenar på tre höjder: ~165, ~−140, ~−400, toppkrona + en lövklunga
+  längs varje lägre gren), en **stubbe** mitt i dammen (`_byggStubbe`: bruten stam ~400 px över
+  vattnet, två grenstumpar; stammen är ett rent tungmål, grenstumparna fasta), 6–8 blad och 2–3
+  stenar packade över hela bredden, förgrundsvass i klungor på fasta ställen i världen, kören vid
+  ena stranden (`P.kor`). Grodan startar på bladet närmast världens mitt.
+- **Insekterna uppåt:** hälften av de nya insekternas hem ligger i det barnet ser, hälften någonstans
+  i dammen, och av de högt flygande sätter sig hälften bland trädens grenar (y −560…−110).
+- **HUD:** HEM-BLADET mitt upptill (ett näckrosblad med en grodunge — hör till dammen, inte till
+  skalet): håll 2,5 s = grodan hem (ringen fylls i HUD:en), kort tryck = ungen skuttar och kvackar.
+  KÖRPILEN vid skärmkanten när grodan bär en korv och kören är utanför bild: tryck = kameran visar
+  kören i 2,2 s och glider tillbaka (grodan flyttas inte). Samma "visa vägen" är den sena hjälpen.
+- **Kasthåll:** `KAST_RACKVIDD` 800 px (i x) — längre bort vinkar kören bara ("Hoppa närmare
+  grodkören!"). Framme med korven: "Tryck på en grodunge, så kastar grodan bajset!" (en gång per
+  runda). Långt borta: "Grodkören väntar där borta!".
+- **Simtag:** en groda som flyter och får ett tungskott ned i vattnet simmar åt det hållet — i en
+  damm som är två skärmar bred ska man kunna ta sig fram utan något att fastna i.
+- **Tungan passerar** vass och stammar som fingret inte pekar på, det munnen trycks mot, det
+  grodan står på, och grenen grodan hänger i (`tunga.skjut`: `forra`) — om fingret inte pekar just
+  dit (`_inuti` med tungans mål — omslaget skickar nu målet, se §3 L3-rättelsen).
+- **Klättra** (`_klatterprobe.mjs` spelar det): tryck på grenen ovanför → tungan fäster, grodan
+  svingar dit → nästa gren. Fem saker måste stämma samtidigt, och varje hittades av sonden:
+  ⓵ grenavståndet ~200 px (en hängande groda har kroppen ~160–260 px under grenen; ~300 px var
+  utom räckhåll); ⓶ kameran LYFTER (upp till 110 px ovanför grodan, `_kamMalUppdatera`) — annars
+  låg nästa gren ovanför bildens kant; 200 px lyft dolde i stället vattnet och vägen NED;
+  ⓷ grenen grodan hänger i är genomskinlig för nästa skott uppåt; ⓸ **envägsgrenar**
+  (`_envagsgrenar`, grodans kategori `GRODA_KAT`): fast först när HELA grodan är ovanför, lös igen
+  när kroppen är under ovansidan eller tungan drar nedåt — med bara kroppen som villkor krokade
+  benen fast under grenen (`_grendiag`); ⓹ **hoppa ned**: uppe i trädet ger ett tryck på tom luft
+  nedanför ett skutt ned genom grenarna (`_hoppaNed`), ett tryck på en lägre gren/ett blad går med
+  tungan som vanligt.
+
 ### 4b. Senare (inte i leverans 1)
 
 - [Medium] Slangbella-hopp (dra från grodan, prickad bana via `predictTrajectory`).
@@ -490,3 +572,4 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 `2026-09-24 · leverans 1 byggd: ragdoll, tunga, insekter, damm, hinder, finish; kritik åtgärdad; röstklipp; publicerad v1.254.0 · e68b8be`
 `2026-09-24 · leverans 2: superhopp (sats → volt → stjärnläge → klibbrep → tumla → vakna → slurp) + grodkören som hem-knapp; 4 röstklipp; spelkritiker 6/6 (2 fynd åtgärdade); publicerad v1.255.0 · 38b6347`
 `2026-09-24 · L3 bajsloopen (ägarens biom-önskemål, §0/§4d): full mage → bajskorv i kostens färger → tungan hämtar → bär → kasta till kören, tre matade = klar; vass-fällan rättad (2/6 → 6/6 loss); 9 röstklipp; spelkritiker 8/8 "klar att committa" (3 fynd åtgärdade); v1.257.0`
+`2026-09-24 · L4 kamera + stor värld (2560 × 1440, §4f): två stränder med höga träd, stubbe, kör vid stranden med körpil, hem-bladet i HUD, klättra/hoppa ned, envägsgrenar/-blad, simtag; sex fällor stängda (§3 L4); v1.258.0`

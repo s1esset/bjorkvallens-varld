@@ -92,14 +92,30 @@ for (let v = 0; v < VARV; v++) {
   r.korvIMunnenHelaTiden = korvHela
   r.atnaUnderBar = maxAt - r.atna0
   r.barEfter = L.bar
-  // Kasta till kören.
-  await page.waitForTimeout(400)
+  // Kasta till kören — i L4 måste grodan vara i närheten (KAST_RACKVIDD), så den ställs vid kören
+  // först (samma sätt som sonden ställer upp korven; kastet i sig är ett riktigt tryck).
+  await page.evaluate(() => {
+    const g = window.__barnspel.game
+    const k = g._dammen.grodungar.plats
+    if (!g._naraKoren || g._naraKoren()) return
+    g._groda.teleportera(k.x + (k.x < 1280 ? 260 : -260), 470, k.x < 1280 ? -1 : 1)
+    g._kam?.moveTo(k.x, 360)
+  })
+  // Låt grodan landa efter teleporten innan trycket (annars föll den fortfarande — 2 av 3 missade).
+  await page.waitForTimeout(1800)
+  L = await las()
   const k = await sida(L.kor.x, L.kor.y - 30)
   await page.mouse.click(k.x, k.y)
   await page.waitForTimeout(1600)
   L = await las()
   r.matadeEfter = L.matade - r.matade0
   r.firar = L.firar
+  if (!r.matadeEfter) {
+    r.kastLogg = await page.evaluate(() => {
+      const g = window.__barnspel.game
+      return { nara: g._naraKoren?.(), grodaX: Math.round(g._groda.pos.x), grodaY: Math.round(g._groda.pos.y), korX: Math.round(g._dammen.grodungar.plats.x), bar: !!g._bar, visar: g._visar, logg: (window.__gamelog?.snapshot()?.timeline || []).filter((h) => h.cat === 'grodan').slice(-5).map((h) => `${h.event} ${JSON.stringify(h.d || {})}`) }
+    })
+  }
   varv.push(r)
   if (L.firar) break
 }

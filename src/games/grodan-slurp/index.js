@@ -52,8 +52,12 @@ import { Dammen, YT_Y, TIDER, FJARRAN } from './dammen.js'
 import { Hinder } from './hinder.js'
 import { Bajs } from './bajs.js'
 import { BIOMER, BIOM_ORDNING } from './biomer.js'
+import * as DJUR_BILDER from './djur.js'
 
 const { Body, Query } = Matter
+
+// Hindrens bilder för L6/L7 (djur.js) — hinder.js ritar en enkel reserv om en saknas.
+const DJUR = { ...DJUR_BILDER }
 
 // Insekter till en full mage (= en bajskorv). Första korven kommer där rundan tog slut förut.
 const FORSTA_KORV = 8
@@ -190,6 +194,12 @@ export default {
       if (b === 'is') voice.say('Isen är hal!')
       else if (b === 'fors') voice.say('Strömmen tar med sig allt!')
       else if (b === 'skog') voice.say('Grodan är i skogen!')
+      else if (b === 'trask') voice.say('Träsket är tjockt och bubbligt!')
+      else if (b === 'oken') voice.say('Oj, vad varm sanden är!')
+      else if (b === 'strand') voice.say('Vågorna gungar på stranden!')
+      else if (b === 'kok') voice.say('Grodan är i köket!')
+      else if (b === 'vardagsrum') voice.say('Grodan är i vardagsrummet!')
+      else if (b === 'badrum') voice.say('Grodan är i badrummet!')
     })
   },
 
@@ -325,7 +335,7 @@ export default {
     this._bajs = new Bajs({ phys, lager: { bakom: L.bakom, bar: L.tunga, luft: L.effekt }, flytvolym: this._dammen.flytvolym, grupp: this._groda._grupp, vw: VARLD_B })
 
     this._svarm = new Svarm({ lager: L.insekter, ytY: this._dammen.golvY, view: ctx.view, granser: { x0: 40, x1: VARLD_B - 40, y0: VARLD_TOPP + 60 }, vy: this._vyFn })
-    if (tid === 'skymning') this._svarm.skymning = true
+    if (tid === 'skymning' && !this._biom.inne) this._svarm.skymning = true // eldflugor bara utomhus
 
     this._hinder = new Hinder({
       phys,
@@ -333,11 +343,14 @@ export default {
       dammen: this._dammen,
       ytY: YT_Y,
       vy: this._vyFn,
+      djur: DJUR,
+      grodPos: () => this._groda?.pos,
       pa: {
         borta: (body) => {
           if (this._tunga?.body === body) this._tunga.slapp()
           this._rep?.lossa(body)
         },
+        bubbla: (x, y, r) => this._bubbla(ctx, x, y, r),
       },
     })
 
@@ -527,7 +540,7 @@ export default {
     // Insekterna är inte dumma: första gången tungan siktar på en kan den väja (olika ofta per
     // sort). Nästa försök på SAMMA insekt lyckas alltid — försök igen, så går det.
     if (ins && this._atna >= 2 && !this._undvikit.has(ins)) {
-      const chans = { fluga: 0.22, mygga: 0.32, trollslanda: 0.5, fjaril: 0.28, eldfluga: 0.18, guldfluga: 0.45 }[ins.typ] || 0
+      const chans = { fluga: 0.22, mygga: 0.32, trollslanda: 0.5, fjaril: 0.28, eldfluga: 0.18, guldfluga: 0.45, grashoppa: 0.3, fruktfluga: 0.2, mal: 0.25, nyckelpiga: 0.2 }[ins.typ] || 0
       if (Math.random() < chans) {
         this._undvikit.add(ins)
         const m0 = g.mun()
@@ -754,9 +767,8 @@ export default {
     sparkle(this._fx, x, y, { count: 4 })
     // Fast i något som håller grodan kvar: den hänger slak och dinglar (räknas som landning).
     if (this._rep?.ankrad) this._groda.landa()
-    if ((body.label === 'skoldpadda' || body.label === 'anka') && !ctx.services.voice.talar) {
-      ctx.services.voice.say('Grodan åker vattenskidor!')
-    }
+    if (body.label === 'bubbla') this._hinder?.poppa()
+    else this._akaMed(ctx, body)
     log('grodan', 'repFast', { mal: body.label, statisk: !!body.isStatic })
   },
 
@@ -1187,14 +1199,52 @@ export default {
 
   _traffKropp(ctx, body, x, y) {
     const audio = ctx.services.audio
+    // Såpbubblan (badrummet): tungan spräcker den i stället för att fastna.
+    if (body.label === 'bubbla' && this._hinder?.poppa()) {
+      this._tunga.slapp()
+      return
+    }
     audio.tone({ freq: 430, slideTo: 250, dur: 0.1, type: 'triangle', vol: 0.24 })
     sparkle(this._fx, x, y, { count: 4 })
     const tung = body.isStatic || body.mass >= this._groda.massa * 0.7
     if (tung) this._groda.lage = 'dingla'
-    if ((body.label === 'skoldpadda' || body.label === 'anka') && !ctx.services.voice.talar) {
-      ctx.services.voice.say('Grodan åker vattenskidor!')
-    }
+    this._akaMed(ctx, body)
     log('grodan', 'fast', { mal: body.label, statisk: !!body.isStatic })
+  },
+
+  // Tungan fastnade i något som rör sig av sig självt: grodan åker med. I vattnet vattenskidor,
+  // på land (krabban, pillerbaggen, katten) åker den bara med.
+  _akaMed(ctx, body) {
+    const voice = ctx.services.voice
+    if (voice.talar) return
+    if (body.label === 'skoldpadda' || body.label === 'anka') voice.say('Grodan åker vattenskidor!')
+    else if (body.label === 'krabba' || body.label === 'pillerbagge' || body.label === 'katt') voice.say('Grodan åker med!')
+  },
+
+  // En bubbla sprack (träskets gasbubbla vid ytan, badrummets såpbubbla): det som är nära får en
+  // knuff uppåt — grodan, korven och insekterna. Tydlig orsak (blubb + stänk), aldrig farligt.
+  _bubbla(ctx, x, y, r) {
+    const g = this._groda
+    const audio = ctx.services.audio
+    audio.tone({ freq: 180, slideTo: 420, dur: 0.16, type: 'sine', vol: 0.2 })
+    audio.tone({ freq: 620, slideTo: 900, dur: 0.07, type: 'sine', vol: 0.1, delay: 0.1 })
+    sparkle(this._fx, x, y, { count: 7 })
+    puff(this._fx, x, y, { count: 6, color: 0xeef6d8 })
+    this._svarm?.skramma(x, y, r + 60)
+    for (const k of this._bajs?.fria || []) {
+      if (k.body && Math.hypot(k.x - x, k.y - y) < r + 40) Body.setVelocity(k.body, { x: k.body.velocity.x + (k.x - x) * 0.03, y: -5 })
+    }
+    if (!g || this._super || this._firar) return
+    const d = Math.hypot(g.pos.x - x, g.pos.y - y)
+    if (d > r + 50) return
+    const s = 1 - d / (r + 50)
+    g.knuffa(Math.sign(g.pos.x - x || 1) * (1.5 + 2 * s), -(4.5 + 5 * s), 0.8)
+    if (s > 0.5) g.slappna(0.35)
+    if (!ctx.services.voice.talar && this._t - (this._blubbT ?? -99) > 15) {
+      this._blubbT = this._t
+      ctx.services.voice.say('Blubb! En bubbla!')
+    }
+    log('grodan', 'bubbla', { d: Math.round(d) })
   },
 
   _traffInsekt(ctx, ins) {
@@ -1471,7 +1521,7 @@ export default {
     if (aG === bG) return
     const annan = aG ? h.b : h.a
     if (annan.label === 'wall' || annan.isSensor) return
-    const hart = annan.label === 'kotte' || annan.label === 'fisk' || annan.label === 'skoldpadda' || annan.label === 'sten' || annan.label === 'anka' || annan.label === 'stock' || annan.label === 'stam'
+    const hart = annan.label === 'kotte' || annan.label === 'fisk' || annan.label === 'skoldpadda' || annan.label === 'sten' || annan.label === 'anka' || annan.label === 'stock' || annan.label === 'stam' || annan.label === 'krabba' || annan.label === 'pillerbagge'
     // En groda LANDAR på fötterna: ben/fötter som tar emot är en landning (hög tröskel), men
     // huvud eller kropp in i något — det är en smäll, och hårda saker smäller tidigare.
     const del = (aG ? h.a : h.b).plugin?.grodDel || ''
@@ -1487,7 +1537,7 @@ export default {
     // En kotte, fisk, sköldpadda eller anka som smäller till grodan knockar ut korven ur munnen
     // (tydlig orsak, och den går att hämta igen direkt). Aldrig i superhoppet — där är tumlandet
     // meningen — och högst var TAPP_PAUS s.
-    const hinder = annan.label === 'kotte' || annan.label === 'fisk' || annan.label === 'skoldpadda' || annan.label === 'anka'
+    const hinder = ['kotte', 'fisk', 'skoldpadda', 'anka', 'krabba', 'pillerbagge', 'katt', 'mas', 'papper'].includes(annan.label)
     if (this._bar && hinder && styrka > 0.45 && !this._super && this._t - this._tappT > TAPP_PAUS) {
       const k = this._bar
       this._bar = null
@@ -1540,7 +1590,7 @@ export default {
       const pool = (this._biom?.insekter || ['fluga', 'fjaril', 'trollslanda', 'mygga']).map((t) => (t === 'mygga' && this._svarm.skymning ? 'eldfluga' : t))
       typ = valj(pool)
     }
-    if (!this._humlaKom && a >= 3 && a <= 6 && Math.random() < 0.45 && this._biomNamn !== 'is') {
+    if (!this._humlaKom && a >= 3 && a <= 6 && Math.random() < 0.45 && ['damm', 'fors', 'skog', 'trask', 'strand'].includes(this._biomNamn)) {
       typ = 'humla'
       this._humlaKom = true
     }
@@ -1562,7 +1612,7 @@ export default {
       hem = {
         x: iBild ? rnd(Math.max(200, v.left + 120), Math.min(VARLD_B - 200, v.right - 120)) : rnd(200, VARLD_B - 200),
         y: uppe ? rnd(-470, -80) : hoga ? rnd(170, 250) : rnd(230, YT_Y - 120),
-        r: typ === 'trollslanda' ? 200 : typ === 'fjaril' ? 150 : 110,
+        r: typ === 'trollslanda' ? 200 : typ === 'fjaril' || typ === 'grashoppa' ? 150 : 110,
       }
       if (a < 4 || Math.hypot(hem.x - m.x, hem.y - m.y) > RACKVIDD + 40) break
     }
@@ -1791,9 +1841,17 @@ export default {
     }
     this._fallY = p.y
 
-    // Landning på ett blad: bladet gungar.
+    // Landning på ett blad: bladet gungar. På en studsig möbel (gelén, soffan, puffen, parasollet)
+    // darrar den, och det säger boing.
     const paMark = g.paMark
     if (paMark && !this._varPaMark && g.underlag?.label === 'blad') this._dammen.bladTryck(g.underlag, Math.min(1, Math.abs(vy) / 8 + 0.3))
+    if (paMark && !this._varPaMark && g.underlag?.label === 'svamp') {
+      const m = this._dammen.mobler.find((o) => o.body === g.underlag)
+      this._dammen.mobelTryck(g.underlag, Math.min(1, Math.abs(vy) / 8 + 0.3))
+      if (m && m.studs >= 0.4 && Math.abs(vy) > 2.5) ctx.services.audio.tone({ freq: 220, slideTo: 440 + 200 * m.studs, dur: 0.16, type: 'sine', vol: 0.14 })
+    }
+    // Öknen (L6): HET SAND — sitter grodan på sanden trippar den.
+    if (this._biom?.het) this._hetSand(ctx, dtS)
     if (paMark && !this._varPaMark && this._magplask && g.underlag?.label !== 'blad') this._magplask = false
     this._varPaMark = paMark
 
@@ -1917,8 +1975,48 @@ export default {
       if (!audio.sample('whoosh')) audio.tone({ freq: 300, slideTo: 900, dur: 0.5, type: 'sine', vol: 0.12 })
     } else if (typ === 'kotte' || typ === 'snoboll') {
       audio.tone({ freq: typ === 'snoboll' ? 700 : 900, slideTo: 600, dur: 0.12, type: 'triangle', vol: 0.1 })
+    } else if (typ === 'katt') {
+      if (!audio.sample('djur_katt')) audio.tone({ freq: 600, slideTo: 420, dur: 0.3, type: 'triangle', vol: 0.12 })
+    } else if (typ === 'badanka') {
+      audio.tone({ freq: 880, slideTo: 700, dur: 0.12, type: 'square', vol: 0.06 })
+      audio.tone({ freq: 880, slideTo: 700, dur: 0.12, type: 'square', vol: 0.06, delay: 0.16 })
+    } else if (typ === 'badboll' || typ === 'leksaksboll' || typ === 'buskboll' || typ === 'apelsin') {
+      if (!audio.sample('boing')) audio.tone({ freq: 300, slideTo: 620, dur: 0.18, type: 'sine', vol: 0.12 })
+    } else if (typ === 'krabba' || typ === 'pillerbagge') {
+      for (let i = 0; i < 4; i++) audio.tone({ freq: 1300 + (i % 2) * 200, dur: 0.03, type: 'square', vol: 0.04, delay: i * 0.09 })
+    } else if (typ === 'mas' || typ === 'pappersflygplan' || typ === 'vag' || typ === 'sandvind' || typ === 'flakt' || typ === 'anga') {
+      if (!audio.sample('whoosh')) audio.tone({ freq: 300, slideTo: 900, dur: 0.5, type: 'sine', vol: 0.12 })
+    } else if (typ === 'gasbubbla') {
+      audio.tone({ freq: 90, slideTo: 140, dur: 0.5, type: 'sine', vol: 0.12 })
     }
     log('grodan', 'hinder', { typ })
+  },
+
+  // Öknens heta sand: en groda som sitter på sanden står inte still — efter 1,3 s trippar den till
+  // (ett litet skutt, ett tripp-tripp) och en gång ibland "Aj, varm sand!". Klipporna,
+  // kaktusarmarna och oasen är svala. Motgång som bara saktar ned (P0): inget går förlorat, och
+  // tungan fungerar mitt i tripp-tripp.
+  _hetSand(ctx, dtS) {
+    const g = this._groda
+    const paSand = g.paMark && g.lage === 'sitt' && g.underlag?.label === 'strand' && !this._ladd && !this._super && !g.superFas && this._tunga.lage === 'av' && !this._firar && !this._kryst
+    if (!paSand) {
+      this._hetT = 0
+      return
+    }
+    this._hetT = (this._hetT || 0) + dtS
+    if (this._hetT < 1.3) return
+    this._hetT = 0
+    g.knuffa(g.riktning * rnd(-0.5, 0.9), -4.4, 0.7)
+    const audio = ctx.services.audio
+    audio.tone({ freq: 1180, slideTo: 1400, dur: 0.05, type: 'sine', vol: 0.1 })
+    audio.tone({ freq: 1320, slideTo: 1560, dur: 0.05, type: 'sine', vol: 0.1, delay: 0.1 })
+    puff(this._fx, g.pos.x, g.pos.y + 34, { count: 4, color: 0xf2d9a0 })
+    const voice = ctx.services.voice
+    if (!voice.talar && this._t - (this._aiT ?? -99) > 14) {
+      this._aiT = this._t
+      voice.say('Aj, varm sand!')
+    }
+    log('grodan', 'hetSand', {})
   },
 
   _simHem(dtS) {
@@ -2254,7 +2352,14 @@ export default {
       const vv = this._ctx?.view
       const sr = Number.isFinite(vv?.right) ? vv.right : 1280
       const sb = Number.isFinite(vv?.bottom) ? vv.bottom : 720
-      vk.c.position.set(sr - VAND_KANT, sb - VAND_KANT)
+      // Står grodkören i hörnet (på stranden sitter den nära land, alltså ofta där) glider knappen
+      // upp ovanför den — annars tog knappen trycken på kören.
+      const kp = this._dammen?.grodungar?.plats
+      const kx = kp ? kp.x - (this._kam.x - 640) : -999
+      const ky = kp ? kp.y - (this._kam.y - 360) : -999
+      const iVagen = Math.abs(kx - (sr - VAND_KANT)) < 190 && ky > sb - 260 && ky < sb + 120
+      vk.lyft = (vk.lyft || 0) + ((iVagen ? 1 : 0) - (vk.lyft || 0)) * Math.min(1, dtS * 6)
+      vk.c.position.set(sr - VAND_KANT, sb - VAND_KANT - 170 * vk.lyft)
       vk.c.visible = !this._firar
       vk.t += dtS
       vk.tryck = Math.max(0, vk.tryck - dtS * 5)

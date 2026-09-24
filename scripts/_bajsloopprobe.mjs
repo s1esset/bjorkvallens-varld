@@ -95,12 +95,14 @@ const lage = () => page.evaluate(() => {
   }
 })
 
-// Skalets knappar (hörnen) och hem-bladet (mitt upptill) — i SKÄRMEN, alltså relativt vyn.
-const hornet = (x, y, vy = { left: 0, right: 1280, top: 0 }) => {
+// Skalets knappar (hörnen), hem-bladet (mitt upptill) och vändknappen (nere till höger, v1.260.0)
+// — i SKÄRMEN, alltså relativt vyn.
+const hornet = (x, y, vy = { left: 0, right: 1280, top: 0, bottom: 720 }) => {
   const sx = x - vy.left
   const sy = y - vy.top
   const w = vy.right - vy.left
-  return ((sx < 140 || sx > w - 140) && sy < 130) || (Math.abs(sx - w / 2) < 80 && sy < 120)
+  const h = (vy.bottom ?? vy.top + 720) - vy.top
+  return ((sx < 140 || sx > w - 140) && sy < 130) || (Math.abs(sx - w / 2) < 80 && sy < 120) || (sx > w - 140 && sy > h - 140)
 }
 const synlig = (x, y, vy) => x > vy.left + 50 && x < vy.right - 50 && y > vy.top + 50 && y < vy.bottom - 30 && !hornet(x, y, vy)
 
@@ -135,7 +137,9 @@ async function gaMot(L, x) {
 const t0 = Date.now()
 const rundor = []
 let R = { start: Date.now(), forstaKorv: null, korvTider: [], matTider: [], maxKorvar: 0 }
-let senRunda = 1
+// Rundan räknas från där spelet STÅR — `--biom` bygger om världen (runda 1 → 2), och med
+// `--rundor 1` avslutade sonden då direkt med 0 tryck (fyndet 2026-09-24).
+let senRunda = (await lage())?.runda ?? 1
 let senKorvar = 0
 let senMatade = 0
 let bildNr = 0

@@ -4,7 +4,8 @@
 > Status: ✅ marknadsklar · byggd och publicerad i nattpasset 2026-09-23/24 (v1.254.0) ·
 > superhoppet + grodkörens hem-knapp 2026-09-24 (v1.255.0) · bajsloopen (L3 av biomplanen, §4d)
 > 2026-09-24 (v1.257.0) · kamera + stor värld (L4, v1.258.0) · biomerna is/fors/skog (L5, v1.259.0) ·
-> sikt-pil för superhoppet + vändknapp (v1.260.0)
+> sikt-pil för superhoppet + vändknapp (v1.260.0) · sex nya världar: träsk, öken, strand, kök,
+> vardagsrum, badrum (L6 + L7, v1.261.0)
 
 ## 0. Spec (fylls i av `/spel` innan kod skrivs)
 
@@ -116,6 +117,36 @@ Val som ägaren gjorde (frågat 2026-09-24):
   byggs ovanpå den.
 
 ## 1. Nuläge (sett som spelare)
+
+**Sex nya världar (L6 + L7, v1.261.0).** Spelet går igenom tio världar, en ny vid varje start
+(damm → is → fors → skog → träsk → öken → strand → kök → vardagsrum → badrum), och inom en
+session slumpas nästa runda bland de andra. Varje värld har samma kärna (tunga, hopp, superhopp,
+bajsloopen, grodkören) men egen fysik, egna plattformar, egna hinder och egna insekter:
+- **Träsket:** grumligt olivgrönt vatten med andmat som är TJOCKT (grodan simmar trögt), gräs-
+  tuvor med tuvull att hoppa mellan, två ruttna stockar, döda träd med skägglav som vajar, kaveldun.
+  Gasbubblor stiger ur dyn och spricker med ett blubb — det som flyter där får en knuff. En busig
+  gädda hoppar. Myggor, trollsländor och eldflugor.
+- **Öknen:** varm sand med sanddyner (grodan glider nedför), sandstensklippor med små ödlor, två
+  jättekaktusar vars armar är grenarna, och oasen med palmer där kören sitter. Sanden är HET: sitter
+  grodan på den trippar den till ("Aj, varm sand!") — klipporna och kaktusarmarna är svala. En
+  buskboll rullar förbi, en pillerbagge rullar en bajsboll (tungan i den = grodan åker med).
+  Gräshoppor.
+- **Stranden:** sand, ett sandslott, palmer, ett parasoll (studsigt att landa på) och ett
+  livräddartorn på land; ute i havet en brygga med ett hopptorn, stenar med havstulpaner och
+  luftmadrasser. VÅGORNA gungar allt som flyter fram och tillbaka mot stranden, och ibland kommer en
+  stor våg. Kören flyter på en badring nära land. Krabbor går på sanden, en mås dyker, en badboll
+  studsar. Nyckelpigor och gräshoppor.
+- **Köket:** grodan lever på köksbänken; diskhon med en stor kran är gölen och kören sitter på en
+  disksvamp. Darrande gelé-puddingar studsar, ett kakfat, hyllställ med burkar att klättra i, en
+  slevkruka mitt på bänken. En apelsin rullar förbi, droppar faller, ångan blåser. Bananflugor.
+- **Vardagsrummet:** parkettgolv, ett akvarium (med fiskar och ett slott) där kören sitter, en
+  soffa och en puff som studsar, ett soffbord, bokhyllor och en golvlampa. En katt går förbi (tungan
+  i katten = grodan åker med), en leksaksboll studsar, ett pappersflygplan glider. Malar och
+  nyckelpigor.
+- **Badrummet:** kakelgolv, badkaret med skum där kören sitter på en badring. Kaklet närmast
+  badkaret är VÅTT och HALT (pölar syns). Handfat, pall, tvättkorg, en duschstång med tvålkorgar,
+  handdukshyllor. En badanka paddlar i badkaret (vattenskidor!), en tvål glider, en såpbubbla svävar
+  förbi och spricker.
 
 **Siktet och vändknappen (v1.260.0, ägarens önskemål 2026-09-24).** *"en liten knapp nere till
 höger som vänder grodans håll … då det inte alltid fungerar att vända genom att klicka på ena
@@ -313,6 +344,26 @@ Uppmätt i L5 (biomerna, 2026-09-24):
   färger, 24 px tjock) läste som ett pärlband eller en larv, inte som bajs, och försvann bakom
   grodan. Nu 32 px, brunt med insektsfärgen inblandad och tydligare stinklinjer.
 
+Uppmätt i L6 + L7 (sex nya världar, 2026-09-24):
+- `_bajsloopprobe --biom X`: hela loopen (tre korvar, tre matade ungar) klar i varje ny värld —
+  träsket 109 s, öknen 93, stranden 74 (med de starkare vågorna), köket 69, vardagsrummet 86,
+  badrummet 82. 0 konsolfel, sonden fastnade aldrig (inga 30 s utan framsteg).
+  ⚠️ Sonden själv var trasig med `--rundor 1 --biom X`: ombyggnaden till den tvingade biomen räknade
+  upp rundan (1 → 2), sonden trodde att rundan var klar och slutade med 0 tryck — sex "gröna"
+  körningar som inte spelat alls. Rättat (`senRunda` läses ur spelet), och den undviker nu vändknappen.
+- `_biommekprobe.mjs` (var egenskap mot en kontrollarm): het sand 5 tripp på 7 s (skogen 0) · halt
+  kakel glid 177 px (vanligt kakel 50) · träskvatten simtag 29 px (dammen 57) · vågorna gungar en
+  flytande groda 142 px (vågorna av: 14). **Vågorna var först för svaga att märkas**: stocken
+  svängde 18 px mot 12 utan vågor — hemfjädern höll den, och även utan fjäder når ett flytande
+  föremål bara ~40 % av strömmens jämviktsfart. Amplituden 1,3 → 2,6 och ingen hemfjäder för
+  havets stock.
+- `_biomrokprobe.mjs`: alla sex världar byggs, grodan sitter vid start, alla 23 hindertyper i
+  poolerna startar, 0 fel. Första körningen fångade ett fel som stoppade spelloopen (bottenbubblorna
+  valde en vattenväxt, och inomhus finns inga) — med stacken på en körning.
+- Konsten (tre hjälpare, egna filer) granskades statiskt mot fällorna: ingen `arc()`,
+  `generateTexture`, `FillGradient`, tween eller slumpad färg in i en gradient. Ett rum bakar ~50–60
+  gradientfärger första gången det byggs och sedan nästan inga.
+
 ## 4. Förbättringar & förhöjningar (plan)
 
 ### 4a. Teknisk ritning — LEVERANS 1 (det som byggs i nattpasset)
@@ -504,9 +555,9 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 - [x] **L5 — biomramverket + is, fors, skog** (v1.259.0). Se §4g. Planen stod så här: En biom = fysik (friktion, ström, flytkraft),
   palett, plattformar, hinder och djur. Frusen damm: halka, vakar. Fors: strömmen för med sig
   grodan och korven. Skog: lodrätt, grenar överallt, lite vatten. `Dammen` blir en av flera.
-- [ ] **L6 — träsk, öken, sandstrand.** Tjockt vatten/lera, en värld utan vatten, vågor.
-- [ ] **L7 — kök, vardagsrum, badrum.** Eget bildspråk: möbler som plattformar, diskho/badkar som
-  vatten, fruktflugor vid fruktskålen.
+- [x] **L6 — träsk, öken, sandstrand** (v1.261.0). Se §4i–4j.
+- [x] **L7 — kök, vardagsrum, badrum** (v1.261.0). Se §4i–4j. Fruktskålen blev gelé-puddingar och
+  ett kakfat (fruktflugorna finns), vardagsrummets "vatten" ett akvarium.
 - Per biom: egna insekter och djur (ägarens "anpassade efter miljön") — och egna korvfärger.
 
 ### 4e. Bajsloopen — teknisk ritning (L3)
@@ -616,6 +667,82 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
   (`golvY` 528).
 - **Simhjälpen** (`_simHem`) söker nu alla landningsplatser (`landningar()`: blad, isflak,
   stenar), inte bara blad.
+
+### 4i. L6 + L7 — sex nya världar (plan och ritkontrakt, 2026-09-24)
+
+Varje värld ska kännas olika att SPELA (L5-kritikerns starkaste punkt), inte bara att se:
+
+| biom | vatten | det fysiska | plattformar | "träd" | djur/hinder | insekter |
+|---|---|---|---|---|---|---|
+| **träsk** | hela dammen, TJOCKT (motstånd 0,87, maxfart 14: grodan simmar trögt, saker driver sakta) | gasbubblor stiger ur dyn och spricker — det som flyter där får en knuff uppåt | tuvor (gräsklumpar i vattnet), 2–3 blad, 2 ruttna stockar, stubbe | döda träd med skägglav | gasbubbla ×2, gädda (hoppar), vind | mygga ×2, trollslända, eldfluga, fluga |
+| **öken** | bara oasen (där kören sitter) | HET SAND: sitter grodan på sanden trippar den (små skutt) — klipporna, kaktusarmarna och oasen är svala | sanddyner (sluttningar), sandstensklippor | jättekaktusar (armarna = grenar) | buskboll (rullar), pillerbagge med bajsboll (går, tungan i bollen = sandskidor), sandvind | fluga, gräshoppa ×2, fjäril |
+| **strand** | havet på ena sidan | VÅGOR: strömmen i vattnet svänger fram och tillbaka mot stranden, och en stor våg ibland | brygga (envägs), stenar i havet, luftmadrasser (flyter), parasoll (envägs, lite studs) | livräddartorn (land) + hopptorn (i havet) | krabba (går på sanden), mås (dyker), badboll (studsar), stor våg | fluga, nyckelpiga, trollslända, fjäril, gräshoppa |
+| **kök** (L7) | diskhon i bänken (kören på en disksvamp) | bänken är golvet; GELÉ-puddingar studsar och darrar | gelé, kakfat | hyllställ med burkar | apelsin (rullar), droppe (kranen), vind (ånga) | fruktfluga ×3, fluga |
+| **vardagsrum** (L7) | akvariet | SOFFAN studsar | soffa, puff, soffbord | bokhyllor | leksaksboll, katt (går förbi — tungan i katten = kattskidor), pappersflygplan | fluga, mal ×2, nyckelpiga, fjäril |
+| **badrum** (L7) | badkaret (kören på en badring) | våt kakel nära badkaret är HALT | handfat, pall, tvättkorg | handdukshyllor | badanka (vattenskidor), tvål (glider), droppe (duschen), såpbubbla | fluga, mygga, mal, fruktfluga |
+
+Stubben blir en slevkruka (kök), golvlampa (vardagsrum) och duschstång (badrum); i öknen och på
+stranden finns ingen. Samma kroppar överallt — det är konsten och biomens data som skiljer — så att
+allt L3–L5 mätt (klättring, envägsgrenar, bajsloopen) gäller i de nya världarna också.
+
+**Ritkontraktet** (konsten ritas i egna filer, ramverket i `dammen.js` anropar dem):
+- Filer: `konst-ute.js` (träsk/öken/strand), `konst-inne.js` (kök/vardagsrum/badrum), `djur.js`
+  (hindrens bilder), nya insekter i `insekter.js` + `KOST` i `bajs.js`.
+- Varje funktion ritar i en given `Container` i VÄRLDENS koordinater (om inget annat sägs) och
+  returnerar `{ svaj?: [{ nod, amp, w, fas }], uppdatera?: (T, dt) => void }` — `svaj` vajar som
+  dammens (rotation = amp·sin(T·w + fas)), `uppdatera` får bara skriva transformer/alfa på sina
+  EGNA noder och ska tåla att noden är förstörd.
+- Regler (CLAUDE.md): `lib/form.js`-fyllningar (`sphereFill`, `cylinderFill`, `topLightFill`,
+  `verticalFill`, `verticalFillAlpha`) bara med FASTA palettfärger (aldrig slumpade/blandade färger
+  in i en gradient — cachen växer); aldrig `arc()` (polylinjer/ellips/cirkel), aldrig
+  `generateTexture`, aldrig `new FillGradient`, inga gsap-tweens eller timers, alla containrar
+  `eventMode = 'none'`, egna fält aldrig `_cx/_cy/_sx/_sy`. Fristående föremål med volym och egen
+  silhuett (P0 ASSETS) — ingen emoji som föremål.
+- Koordinater: vattenytan `YT_Y` 560, marken/golvet/bänken `MARK_Y` 528, världens botten 740,
+  världen x 0–2560, y −720–720. Träd-geometri `geo` = `{ sx, sgn, bas, topp, grenar: [{ bx, by, L,
+  rot }] }`: stammen är en kropp 52 px bred från `topp` till `bas`; varje gren en planka `L × 26`
+  med mitt (bx, by) och rotation `rot` (sgn redan inräknat) — ovansidan är det grodan står på.
+  Stubb-geometri `geo2` = `{ x, topp, bas, grenar: [{ bx, by, L, rot, sida }] }`: stammen 44 px
+  (bara ett tungmål), grenarna plankor `L × 22`. Möbel/svamp `it` = `{ x, w, topp, typ }`: en
+  envägsplanka `w × 26` med ovansidan på `topp`, ritad från golvet (528) upp.
+
+### 4j. L6 + L7 — teknisk ritning (ramverket)
+
+- **Data** (`biomer.js`): sex nya biomer i `BIOM_ORDNING` (damm → is → fors → skog → träsk → öken →
+  strand → kök → vardagsrum → badrum). Nya fält: `flyt`, `tuvor`, `golStil`, `markStil`, `mobler`,
+  `klippor`, `dyner`, `tradStil`, `stubbStil`, `korUnderlag`, `inne`, `het`, `vagor`, `halt`,
+  `bladStil`, `stenStil`. Paletterna för vattnet (inomhus: diskhon, akvariet, badkaret) i `BIOM_PALETT`.
+- **Konsten** anropas via `KONST` i `dammen.js` (`_konst(namn, args, reserv)` + `_liv` för
+  svaj/uppdatera) och `DJUR` i `index.js` → `hinder.js` (`_bild`). Varje funktion har en enkel
+  reserv, så en värld går att spela innan (eller utan) sin konst — det mättes så: röktestet
+  `_biomrokprobe.mjs` byggde alla sex på reserverna, 0 fel.
+- **Layout** (`_planera`): de gamla fyra oförändrade. `P.upptaget` (marklängder som redan har något)
+  ersätter skogens egna avståndsregler — möbler, klippor, dyner och extraträd letar plats utanför.
+  `P.vattenX` = var vattnet (och flytvolymen) finns: gölen, havet eller överallt.
+- **Stranden** (`vatten: 'hav'`, `_byggHav`): land på trädsidan (u 0 … `kustU` 700–780), en konvex
+  sluttning ned i havet (`_konvexKropp` — matter centrerar på tyngdpunkten, kroppen flyttas tillbaka
+  till konturen), havet därifrån. Bryggan (`P.flotte`, envägs 'gren') bär hopptornet (träd nr 2,
+  `tradFor(3, …, 'hopptorn')`); livräddartornet står på land. VÅGORNA: `Flytvolym.stromX` =
+  `landDir · (mot + amp·sin(2πt/per) + vagPuff)` varje steg — allt som flyter (grodan, korven,
+  madrasserna) gungar mot land och tillbaka. Den stora vågen (`storVag`) puffar strömmen och sväller
+  havet. Skum där vågorna slår mot sluttningen.
+- **Träsket:** `flyt { motstand 0,87, maxFart 14 }` (tjockt), tuvor (`_byggTuvor`, etikett 'tuva' —
+  inte hård i `_small`), andmat på ytan, långsam dyning (`_amb`).
+- **Öknen:** gölen = oasen, `markStil 'oken'`, dyner (`_byggDyner`, konvexa kroppar, etikett
+  'strand' så tungan drar grodan dit), klippor (`_byggKlippor`, 'sten'). HET SAND (`index._hetSand`):
+  sitter grodan på 'strand' i 1,3 s trippar den (knuff uppåt, tripp-tripp, ibland "Aj, varm sand!").
+- **Inomhus:** `_byggVagg` (väggen i himmellagret, rummets bortre del i fjärranbandet med ett fönster
+  mot himlen i tid på dagen), marken via `markStil`, gölens behållare via `_byggGol`, möblerna via
+  `_byggSvampar` (envägs 'svamp'; studsiga har `studs`, `mobelTryck` → konstens `darra`), stubben via
+  `stubbStil`. Badrummets kakel närmast badkaret är en egen kropp med friktion 0,02 (`halt`) och
+  vattenpölar i bilden. Inga eldflugor eller humlor inomhus.
+- **Hindren** (`hinder.js`) är familjer: FALLA (kotte, snöboll, droppe — droppen stänker sönder),
+  RULLA (buskboll, badboll, apelsin, leksaksboll, tvål — in från bildens kant längs `markVid`), GÅ
+  (krabba bara på land, pillerbagge, katt — kinematiska; tungan i dem = "Grodan åker med!"), SIMMA
+  (sköldpadda, anka, badanka — som stannar i badkaret), BÅGE (fisk, gädda, mås ned ur luften,
+  pappersflygplan tvärs), VIND (löv, sand, papperslappar, ånga), BUBBLA (gasbubblan stiger ur dyn,
+  såpbubblan svävar — båda spricker och knuffar det som är nära, `index._bubbla`), VÅG.
+- `dammen.markVid(x)` ger markens eller ytans höjd (dynernas och sluttningens konturer inräknade).
 
 ### 4h. Siktet och vändknappen — teknisk ritning (v1.260.0)
 

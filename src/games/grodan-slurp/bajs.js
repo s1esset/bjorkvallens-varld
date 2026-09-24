@@ -45,6 +45,11 @@ export const KOST = {
   humla: { farg: 0xffc83a, blanda: 0.62, extra: 'rand' },
   eldfluga: { farg: 0xcff26a, blanda: 0.58, extra: 'sken' },
   guldfluga: { farg: 0xf5c140, blanda: 0.78, extra: 'glitter' },
+  // L6/L7-insekterna (öken, strand, inomhus).
+  grashoppa: { farg: 0x7cc04a, blanda: 0.55, extra: 'rand' },
+  fruktfluga: { farg: 0xe07a2c, blanda: 0.5 },
+  mal: { farg: 0xb9a88c, blanda: 0.5 },
+  nyckelpiga: { farg: 0xe0372c, blanda: 0.62, extra: 'prickar' },
 }
 const blanda = (a, b, t) => {
   const k = (s) => Math.round(((a >> s) & 255) + (((b >> s) & 255) - ((a >> s) & 255)) * t)

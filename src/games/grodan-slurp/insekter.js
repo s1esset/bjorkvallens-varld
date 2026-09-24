@@ -50,7 +50,7 @@ import { glod } from '../../lib/glod.js'
 import { lerpColor } from '../../lib/scene.js'
 import { shade, tint } from '../../lib/theme.js'
 
-export const TYPER = ['fluga', 'mygga', 'trollslanda', 'fjaril', 'humla', 'eldfluga', 'guldfluga', 'tjockfluga']
+export const TYPER = ['fluga', 'mygga', 'trollslanda', 'fjaril', 'humla', 'eldfluga', 'guldfluga', 'tjockfluga', 'grashoppa', 'fruktfluga', 'mal', 'nyckelpiga']
 
 // ---------------------------------------------------------------------------------------
 // Konstanter
@@ -97,6 +97,13 @@ const TYP = {
   eldfluga:    { r: 16, skala: 1.3, fart: [28, 50], gain: 1.2, byte: [1.5, 3], bob: [6, 0.6, 0.9], vind: 1, flax: 9 },
   guldfluga:   { r: 16, skala: 1.3, fart: [70, 120], gain: 3.4, byte: [0.8, 1.7], svav: [0.4, 0.8], svavP: 0.25, zig: [3, 5, 8], bob: [1.5, 2.4, 3.2], vind: 1, flax: 18, sallsynt: true },
   tjockfluga:  { r: 22, skala: 1.25, fart: [34, 46], gain: 1.1, byte: [1.8, 3.2], svav: [0.8, 1.4], svavP: 0.2, bob: [10, 1.1, 1.5], vind: 0.6, flax: 21 },
+  // L6/L7. Gräshoppan: myggans korta ryck men långsammare, med paus mellan hoppen och stor bob.
+  // Fruktflugan: lugn, svävar ofta och länge kring sitt hem. Malen: fjärilens fladder, dammigare
+  // och trögare. Nyckelpigan: lugn, guppande.
+  grashoppa:   { r: 18, skala: 1.2, fart: [70, 110], gain: 5, byte: [0.45, 1.0], ryck: true, svav: [0.25, 0.6], svavP: 0.35, bob: [6, 1.4, 2], vind: 0.9, flax: 13, vandTrosk: 30, vandFart: 16 },
+  fruktfluga:  { r: 13, skala: 1.05, fart: [45, 80], gain: 2.6, byte: [0.9, 2], svav: [0.7, 1.4], svavP: 0.5, zig: [2, 4, 7], bob: [1.5, 2, 3], vind: 1.3, flax: 19 },
+  mal:         { r: 20, skala: 1.2, fart: [35, 60], gain: 1.5, byte: [1.4, 2.8], fladder: [8, 12, 1.8, 2.6], vind: 1.6, flax: 7, symmetrisk: true },
+  nyckelpiga:  { r: 16, skala: 1.2, fart: [40, 65], gain: 1.6, byte: [1.4, 2.6], bob: [5, 0.9, 1.3], vind: 1.1, flax: 16 },
 }
 
 const slump = (a, b) => a + Math.random() * (b - a)
@@ -613,6 +620,247 @@ function byggTjockfluga() {
   return m
 }
 
+// ---------------------------------------------------------------------------------------
+// GRÄSHOPPAN — grön, långa hoppben med knät högt över ryggen, långa antenner bakåt
+// ---------------------------------------------------------------------------------------
+const GRAS = { kropp: 0x74c244, mork: 0x3f7a22, ljus: 0xc8ec8e, tak: 0x5ea836, oga: 0x4a3420, ben: 0x4f8f2a, vinge: 0xf1f9d2, ader: 0xa8c886 }
+
+// Ett tjockt hopplår: en avsmalnande, lite bukig form från höften (x0,y0) till knät (x1,y1).
+// Returnerar g med vägen öppen för .fill()/.stroke().
+function lar(g, x0, y0, x1, y1, w0, w1) {
+  const dx = x1 - x0
+  const dy = y1 - y0
+  const L = Math.hypot(dx, dy) || 1
+  const nx = -dy / L
+  const ny = dx / L
+  const mx = (x0 + x1) / 2
+  const my = (y0 + y1) / 2
+  const wm = (w0 + w1) * 0.62
+  return g.moveTo(x0 + nx * w0, y0 + ny * w0)
+    .quadraticCurveTo(mx + nx * wm * 1.3, my + ny * wm * 1.3, x1 + nx * w1, y1 + ny * w1)
+    .lineTo(x1 - nx * w1, y1 - ny * w1)
+    .quadraticCurveTo(mx - nx * wm, my - ny * wm, x0 - nx * w0, y0 - ny * w0)
+    .closePath()
+}
+
+function byggGrashoppa() {
+  const f = GRAS
+  const m = skal(5)
+  const a = m.art
+  // Bortre sidan: flygvinge och ben i skugga bakom kroppen (hoppbenet med sitt lår).
+  sidovinge(a, -2, -6.5, 24, 8, 0.55, 0.5, 0.5, { farg: f.vinge, alpha: 0.26, kantA: 0.5 }, m)
+  const bort = benpar(a, 2, 4, [[4, 0, 7, 6, 10, 10], [0, 0, -1, 6, -3, 10], [-7, -2, -24, -12, -32, 6, -36, 7]], 1.5, f.ben, 0.55, m)
+  lar(ritning(bort), -7, -2, -23, -12, 3.2, 1.8).fill({ color: f.mork, alpha: 0.6 })
+
+  const k = ritning(a)
+  // Bakkroppen: lång och segmenterad, spetsen svagt uppåt.
+  k.moveTo(-1, -3.5).bezierCurveTo(-14, -5.5, -26, -4.5, -31, -1.5).quadraticCurveTo(-33.5, 1.5, -30, 4)
+    .bezierCurveTo(-22, 8, -10, 8.5, -1, 6).closePath()
+    .fill(sphereFill(f.kropp, { lightY: 0.25, dark: 0.32 })).stroke({ width: 1.4, color: shade(f.kropp, 0.45) })
+  for (const x of [-8, -13, -18, -23, -27.5]) k.moveTo(x, -3.8).quadraticCurveTo(x - 1.2, 1.5, x, 6.6).stroke({ width: 1, color: f.mork, alpha: 0.45 })
+  k.moveTo(-28, 4.2).quadraticCurveTo(-16, 7.6, -3, 5.6).stroke({ width: 1.6, color: f.ljus, alpha: 0.7, cap: 'round' })
+  // Täckvingen: smal, ligger längs ryggen och är lite lyft.
+  k.moveTo(3, -5).bezierCurveTo(-8, -9.5, -22, -9.5, -30, -6).quadraticCurveTo(-20, -3, 2, -2).closePath()
+    .fill(sphereFill(f.tak, { lightY: 0.3 })).stroke({ width: 1.2, color: shade(f.tak, 0.45), join: 'round' })
+  k.moveTo(0, -4).quadraticCurveTo(-14, -6.8, -27, -6).stroke({ width: 0.8, color: shade(f.tak, 0.4), alpha: 0.6 })
+  // Mellankroppen (sadeln).
+  k.ellipse(5, -0.5, 7.5, 6.8).fill(sphereFill(f.kropp, { lightY: 0.24 })).stroke({ width: 1.4, color: shade(f.kropp, 0.45) })
+  k.moveTo(0.5, -5.6).quadraticCurveTo(5, -8.3, 10, -5).stroke({ width: 1.6, color: f.ljus, alpha: 0.8, cap: 'round' })
+  // Antennerna svepte bakåt över ryggen — före huvudet, så huvudet täcker rötterna.
+  k.moveTo(15, -7).bezierCurveTo(14, -18, 2, -22, -12, -20).stroke({ width: 1.2, color: f.mork, cap: 'round' })
+  k.moveTo(17, -6.5).bezierCurveTo(18, -19, 8, -25, -4, -26).stroke({ width: 1.1, color: f.mork, alpha: 0.8, cap: 'round' })
+  // Huvudet: högt och ovalt, ett stort vänligt öga och en liten glad mun.
+  k.ellipse(14, 0.5, 6.5, 8).fill(sphereFill(f.kropp, { lightY: 0.22 })).stroke({ width: 1.4, color: shade(f.kropp, 0.45) })
+  k.ellipse(15.3, -2.6, 3.4, 4).fill(sphereFill(f.oga, { lightY: 0.25 })).stroke({ width: 1, color: shade(f.oga, 0.5) })
+  k.circle(14.3, -3.9, 1.3).fill({ color: 0xffffff, alpha: 0.95 })
+  k.moveTo(16.5, 5.6).quadraticCurveTo(18.4, 7, 20, 5.2).stroke({ width: 1.2, color: f.mork, cap: 'round' })
+
+  // Närmre sidan: hoppbenets lår med fiskbensmönster.
+  const nara = benpar(a, 3, 4.5, [[4, 0, 8, 6, 11, 11], [0, 0, -0.5, 6.5, -2.5, 11], [-7, -2, -25, -13, -33, 6, -37, 7]], 1.7, f.ben, 1, m)
+  const lg = ritning(nara)
+  lar(lg, -7, -2, -24, -13, 3.6, 2).fill(sphereFill(f.kropp, { lightY: 0.3 })).stroke({ width: 1.2, color: shade(f.kropp, 0.45) })
+  for (let i = 1; i <= 3; i++) {
+    const t = i / 4.2
+    const x = -7 - 17 * t
+    const y = -2 - 11 * t
+    lg.moveTo(x - 1.6, y - 1.6).lineTo(x + 1, y + 1.4).stroke({ width: 0.8, color: f.mork, alpha: 0.5 })
+  }
+  sidovinge(a, -1, -7, 26, 9, 0.45, 0.5, 0, { farg: f.vinge, alpha: 0.46, ader: f.ader }, m)
+  return m
+}
+
+// ---------------------------------------------------------------------------------------
+// FRUKTFLUGAN — liten, ljusbrun och randig, med jättestora röda ögon
+// ---------------------------------------------------------------------------------------
+const FRUKT = { kropp: 0xc98e4e, bak: 0xdca25a, rand: 0x6b3e1a, glans: 0xfff0c8, oga: 0xe8352a, ogaM: 0x8f1f18, ben: 0x8a6034, vinge: 0xf4f8fb, ader: 0xbccad6 }
+
+function byggFruktfluga() {
+  const f = FRUKT
+  const m = skal(0)
+  const a = m.art
+  sidovinge(a, -1, -5.5, 19, 6.5, 0.62, 0.55, 0.55, { farg: f.vinge, alpha: 0.26, kantA: 0.5 }, m)
+  benpar(a, 1, 4.5, [[3.5, 0, 7, 5, 9, 9.5], [1, 0, 1, 6, -1, 10], [-2, 0, -6, 4.5, -9.5, 8]], 1.4, f.ben, 0.55, m)
+
+  const k = ritning(a)
+  // Bakkroppen: rund, med bruna ränder.
+  k.ellipse(-6.5, 1.5, 8.5, 6.5).fill(sphereFill(f.bak, { lightY: 0.24, dark: 0.3 }))
+  ellipsBand(k, -6.5, 1.5, 8.5, 6.5, -11, -9, f.rand)
+  ellipsBand(k, -6.5, 1.5, 8.5, 6.5, -6.4, -4.4, f.rand)
+  ellipsBand(k, -6.5, 1.5, 8.5, 6.5, -1.8, -0.2, f.rand)
+  k.ellipse(-6.5, 1.5, 8.5, 6.5).stroke({ width: 1.3, color: shade(f.bak, 0.5) })
+  k.ellipse(-8.5, -2.4, 3.5, 1.6).fill({ color: f.glans, alpha: 0.55 })
+  // Mellankroppen med två borst.
+  k.ellipse(3, -0.5, 6, 5.6).fill(sphereFill(f.kropp, { lightY: 0.22 })).stroke({ width: 1.3, color: shade(f.kropp, 0.5) })
+  for (const [x0, y0, x1, y1] of [[1, -5.6, 0.2, -8.4], [4.2, -5.8, 4.8, -8.6]]) {
+    k.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 1, color: shade(f.kropp, 0.4), cap: 'round' })
+  }
+  // Snabeln först, så huvudet täcker roten.
+  k.moveTo(12.5, 4).quadraticCurveTo(14, 6.5, 14.8, 7.6).stroke({ width: 1.6, color: shade(f.kropp, 0.3), cap: 'round' })
+  // Huvudet är nästan bara öga — det är det som gör en bananfluga.
+  k.circle(10.5, 0.5, 5.4).fill(sphereFill(f.kropp, { lightY: 0.2 })).stroke({ width: 1.2, color: shade(f.kropp, 0.5) })
+  k.ellipse(11.3, -0.2, 4.8, 5.3).fill(sphereFill(f.oga, { lightY: 0.26, dark: 0.34 })).stroke({ width: 1.2, color: f.ogaM })
+  k.moveTo(7, -0.2).lineTo(15.8, -0.2).stroke({ width: 0.7, color: f.ogaM, alpha: 0.45 })
+  k.circle(9.8, -2.4, 1.5).fill({ color: 0xffffff, alpha: 0.9 })
+  k.moveTo(14.2, -4.4).lineTo(16.4, -7.2).stroke({ width: 1.1, color: f.ben, cap: 'round' })
+
+  benpar(a, 2, 5, [[3.5, 0, 7.5, 5, 10, 10], [1, 0, 1.5, 6.5, -0.5, 10.5], [-2, -0.5, -6.5, 4.5, -10, 8.5]], 1.5, f.ben, 1, m)
+  sidovinge(a, 0, -5.8, 20, 7, 0.5, 0.55, 0, { farg: f.vinge, alpha: 0.46, ader: f.ader }, m)
+  return m
+}
+
+// ---------------------------------------------------------------------------------------
+// MALEN — en luden, dammig nattfjäril; ritas ovanifrån som fjärilen (vingslag = skala i x)
+// ---------------------------------------------------------------------------------------
+const MAL = { vinge: 0xcdbd9f, inre: 0xe8dcc6, kant: 0x8a7658, band: 0x9e8a6a, prick: 0x6e5a44, kropp: 0xa8957a, luden: 0xe0d4bc, antenn: 0x6e5a44 }
+
+function ritMalVinge(g, sx, framre, s) {
+  const X = (v) => v * sx
+  const frans = (pts, nx, ny) => {
+    for (const [x, y] of pts) g.moveTo(X(x), y).lineTo(X(x + nx * 2.6), y + ny * 2.6).stroke({ width: 1.4, color: s.inre, alpha: 0.9, cap: 'round' })
+  }
+  if (framre) {
+    // Fransen först (den sticker ut under kanten) — den gör vingen mjuk och luden.
+    frans([[-30, -15], [-31.5, -11], [-31, -7], [-29, -3.5], [-26, -0.5]], -0.9, 0.3)
+    g.moveTo(X(-1), -5)
+      .bezierCurveTo(X(-9), -19, X(-27), -22, X(-31), -13)
+      .bezierCurveTo(X(-33), -5, X(-22), 2, X(-1), 1.5)
+      .closePath()
+      .fill(s.vinge)
+      .stroke({ width: 1.8, color: s.kant, join: 'round' })
+    // Två mjuka, dammiga band tvärs över och en ögonfläck.
+    g.moveTo(X(-8), -13).quadraticCurveTo(X(-13), -7, X(-10), 0.5).stroke({ width: 3, color: s.band, alpha: 0.5, cap: 'round' })
+    g.moveTo(X(-20), -18).quadraticCurveTo(X(-25), -9, X(-21), -0.5).stroke({ width: 2.4, color: s.band, alpha: 0.45, cap: 'round' })
+    g.circle(X(-16), -9.5, 2.8).fill({ color: s.prick, alpha: 0.7 })
+    g.circle(X(-16), -9.5, 1.2).fill(s.inre)
+    for (const [x, y] of [[-6, -6], [-12, -15], [-26, -12], [-24, -5], [-14, -2]]) g.circle(X(x), y, 0.9).fill({ color: s.prick, alpha: 0.4 })
+  } else {
+    frans([[-21, 9], [-20.5, 13], [-18.5, 16.5], [-15, 18.5], [-11, 18]], -0.5, 0.8)
+    g.moveTo(X(-1), 1.5)
+      .bezierCurveTo(X(-11), 0, X(-23), 5, X(-20), 13)
+      .bezierCurveTo(X(-17), 20, X(-6), 17, X(-1), 7)
+      .closePath()
+      .fill(s.inre)
+      .stroke({ width: 1.6, color: s.kant, join: 'round' })
+    g.moveTo(X(-5), 4).quadraticCurveTo(X(-14), 7, X(-15), 14).stroke({ width: 2.2, color: s.band, alpha: 0.35, cap: 'round' })
+  }
+}
+
+function byggMal() {
+  const s = MAL
+  const m = skal(0)
+  const a = m.art
+  m.fjaril = []
+  // Under varje fladdrande vinge ligger en STILLA kopia i 42 % bredd: fjärilens vingslag går
+  // ned till 16 % och då var malen bara en pinne med ansikte (sett i förhandsbilden). Kopian
+  // gör den lägsta synliga bredden 42 % utan att röra den delade vingslagskoden.
+  for (const [framre, off] of [[false, -0.45], [true, 0]]) {
+    for (const sx of [-1, 1]) {
+      const vila = nod(a)
+      vila.scale.x = 0.42
+      ritMalVinge(ritning(vila), sx, framre, s)
+      const n = nod(a)
+      ritMalVinge(ritning(n), sx, framre, s)
+      m.fjaril.push({ n, off })
+    }
+  }
+  const k = ritning(a)
+  // Fjäderlika antenner: en kam på varje sida.
+  for (const sx of [-1, 1]) {
+    k.moveTo(sx * 1.2, -12.5).quadraticCurveTo(sx * 5, -19, sx * 9, -22.5).stroke({ width: 1.2, color: s.antenn, cap: 'round' })
+    for (let i = 1; i <= 5; i++) {
+      const t = i / 6
+      const u = 1 - t
+      const x = sx * (2 * u * t * 5 + t * t * 9 + u * u * 1.2)
+      const y = u * u * -12.5 + 2 * u * t * -19 + t * t * -22.5
+      k.moveTo(x, y).lineTo(x - sx * 2, y - 1.2).stroke({ width: 0.8, color: s.antenn, alpha: 0.8, cap: 'round' })
+      k.moveTo(x, y).lineTo(x + sx * 1.4, y + 1.6).stroke({ width: 0.8, color: s.antenn, alpha: 0.8, cap: 'round' })
+    }
+  }
+  // Bakkroppen, luden och ringad.
+  k.ellipse(0, 9, 3.4, 9).fill(sphereFill(s.kropp, { lightX: 0.35 }))
+  for (const y of [4, 8, 12]) k.moveTo(-3, y).quadraticCurveTo(0, y + 1.4, 3, y).stroke({ width: 1.1, color: s.luden, alpha: 0.8 })
+  // Mellankroppen: en mjuk pälstofs.
+  for (let i = 0; i < 12; i++) {
+    const v = (i / 12) * TAU
+    k.moveTo(Math.cos(v) * 3.6, -2 + Math.sin(v) * 5).lineTo(Math.cos(v) * 6, -2 + Math.sin(v) * 7.4).stroke({ width: 1.8, color: s.luden, cap: 'round' })
+  }
+  k.ellipse(0, -2, 4.8, 6.2).fill(sphereFill(s.luden, { lightX: 0.35 }))
+  k.circle(0, -10, 3.9).fill(sphereFill(s.kropp))
+  for (const sx of [-1, 1]) {
+    k.circle(sx * 1.9, -10.5, 1.5).fill(0x2a2018)
+    k.circle(sx * 1.9 - 0.5, -11, 0.55).fill(0xffffff)
+  }
+  return m
+}
+
+// ---------------------------------------------------------------------------------------
+// NYCKELPIGAN — sidovy: röda täckvingar lite öppna, de genomskinliga vingarna surrar under
+// ---------------------------------------------------------------------------------------
+const PIGA = { rod: 0xe23a2e, rodB: 0xb82e25, rodM: 0x7e1a13, svart: 0x221c1e, vit: 0xfff8f0, ben: 0x201a1a, vinge: 0xf4efe6, ader: 0xc8b8a6 }
+
+// En täckvinge: en rund kupol som gångjärnar kring framkanten i (0,0) och går bakåt mot −x.
+function ritTackvinge(g, fyll, kant) {
+  g.moveTo(1, 2).bezierCurveTo(0, -12, -23, -14, -25, 1).quadraticCurveTo(-12, 6.5, 1, 2).closePath()
+    .fill(fyll).stroke({ width: 1.5, color: kant, join: 'round' })
+}
+
+function byggNyckelpiga() {
+  const f = PIGA
+  const m = skal(3)
+  const a = m.art
+  // Bortre sidan: flygvingen, benen och täckvingen (mörkare, högre upplyft).
+  sidovinge(a, -3, -8, 23, 7.5, 0.6, 0.55, 0.5, { farg: f.vinge, alpha: 0.28, kantA: 0.5 }, m)
+  benpar(a, 0, 6, [[4, 0, 6, 4, 8, 7.5], [0, 0, 0, 5, -2, 8], [-4, 0, -7, 4, -9, 7]], 1.6, f.ben, 0.55, m)
+  const bortTak = nod(a, 3, -5)
+  bortTak.rotation = -0.42
+  ritTackvinge(ritning(bortTak), sphereFill(f.rodB, { lightY: 0.3 }), f.rodM)
+
+  const k = ritning(a)
+  // Undersidan: svart och rund.
+  k.ellipse(-2, 2, 11, 6.5).fill(sphereFill(f.svart, { lightY: 0.3 }))
+  // Halsskölden med de två vita fläckarna, sedan huvudet.
+  k.moveTo(13, -3.5).lineTo(17, -8).stroke({ width: 1.1, color: f.svart, cap: 'round' })
+  k.circle(17.3, -8.4, 1.3).fill(f.svart)
+  k.ellipse(6, -1.5, 6, 5.2).fill(sphereFill(f.svart, { lightY: 0.25 }))
+  k.ellipse(5, -3.5, 2.4, 1.6).fill(f.vit)
+  k.circle(11.5, 1.5, 5.2).fill(sphereFill(f.svart, { lightY: 0.25 }))
+  k.ellipse(13.4, 0, 2.6, 2.9).fill(f.vit)
+  k.circle(14, 0.3, 1.5).fill(0x111111)
+  k.circle(13.4, -0.5, 0.6).fill(0xffffff)
+  k.moveTo(13.5, 4.2).quadraticCurveTo(15, 5.2, 16.2, 3.8).stroke({ width: 1, color: f.vit, alpha: 0.8, cap: 'round' })
+
+  benpar(a, 1, 6.5, [[4, 0, 6.5, 4.5, 8.5, 8], [0, 0, 0.5, 5.5, -1.5, 8.5], [-4, 0, -7.5, 4.5, -9.5, 7.5]], 1.7, f.ben, 1, m)
+  sidovinge(a, -2, -8.5, 25, 8.5, 0.52, 0.55, 0, { farg: f.vinge, alpha: 0.46, ader: f.ader }, m)
+  // Närmre täckvingen ovanpå allt: röd kupol med svarta prickar och en blank glans.
+  const tak = nod(a, 4, -4)
+  tak.rotation = -0.2
+  const tg = ritning(tak)
+  ritTackvinge(tg, sphereFill(f.rod, { lightX: 0.4, lightY: 0.25, dark: 0.3 }), f.rodM)
+  for (const [x, y, r] of [[-6, -4.5, 2.5], [-15, -5.5, 2.8], [-21, -0.5, 2.1], [-10, 1.5, 1.9]]) tg.circle(x, y, r).fill(f.svart)
+  tg.ellipse(-10, -7.5, 4.5, 1.7).fill({ color: 0xffffff, alpha: 0.55 })
+  return m
+}
+
 const BYGG = {
   fluga: () => byggFluga(FLUG_FARG),
   mygga: byggMygga,
@@ -622,6 +870,10 @@ const BYGG = {
   eldfluga: byggEldfluga,
   guldfluga: byggGuldfluga,
   tjockfluga: byggTjockfluga,
+  grashoppa: byggGrashoppa,
+  fruktfluga: byggFruktfluga,
+  mal: byggMal,
+  nyckelpiga: byggNyckelpiga,
 }
 
 // ---------------------------------------------------------------------------------------

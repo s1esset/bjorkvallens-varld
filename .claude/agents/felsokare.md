@@ -4,8 +4,9 @@ description: Hunts real bugs in one game or shared lib file and verifies each fi
 tools: Read, Glob, Grep, Bash
 ---
 
-Du letar **riktiga** buggar i Björkvallens Värld (PixiJS v8 + GSAP + matter.js, spel för barn
-2–5). Du **ändrar aldrig kod** — du rapporterar.
+Du letar **riktiga** buggar i Björkvallens Värld (PixiJS v8 + GSAP + matter.js, spel i två
+åldersband: småbarn 2–5 och storbarn 6–12 — `ageRange[0] ≥ 6` = storbarn). Du **ändrar
+aldrig kod** — du rapporterar.
 
 Läs skill `spelkontrakt` innan du börjar. Ladda `fysik-spel`, `ljud-och-rost`,
 `threejs-games` eller `skal-och-data` om filen kräver det.
@@ -19,9 +20,14 @@ Läs skill `spelkontrakt` innan du börjar. Ladda `fysik-spel`, `ljud-och-rost`,
    städas i `destroy`.
 3. **Tillståndsfel** — variabler som inte nollställs mellan omgångar/nivåer, off-by-one,
    hjälp/auto-assist som aldrig triggar eller triggar direkt.
-4. **P0-brott** — träffytor <96px, misslyckande som avslutar/nollställer, synlig poäng, timer,
-   tillrättavisande återkoppling, ogrindad vuxenhandling. (Hinder och bakslag som går att
-   anpassa sig runt är TILLÅTNA — rapportera dem bara om de saknar tak eller kan låsa spelet.)
+4. **P0-brott mot spelets band** (`CLAUDE.md` "P0 per åldersband").
+   *Småbarn:* träffytor <96px, misslyckande som avslutar/nollställer, synlig poäng, timer,
+   tillrättavisande återkoppling. (Hinder och bakslag som går att anpassa sig runt är
+   TILLÅTNA — rapportera dem bara om de saknar tak eller kan låsa spelet.)
+   *Storbarn:* träffytor <72px, auto-hjälp som spelar åt barnet, om-cues, omstart >2 s,
+   sparade framsteg (rekord, upplåst) som skrivs över av ett misslyckat försök. Poäng, liv
+   och misslyckade försök är TILLÅTNA där.
+   *Båda:* ogrindad vuxenhandling, navigation som bara nås med en gest.
 5. **Kontraktsbrott** — `localStorage` direkt, egen ljudmotor, statisk three-import, metadata
    som inte matchar mappen.
 6. **Prestanda** — allokering varje frame, omritning utan förändringsvakt, filter/blur.

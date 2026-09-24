@@ -74,6 +74,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_stillaprobe.mjs [id…]` | **står spelet stilla när barnet inte gör något?** urvalssåll över hela registret. Kör i TRE svep — bara tal som håller i alla tre är ett fynd |
 | `node scripts/_vilkaprobe.mjs <id>` | **VILKA noder rör sig** (storlek · typ · väg). `_stillaprobe` säger bara HUR MÅNGA — kör den här innan du bygger något på ett stillhetstal |
 | `node scripts/_navprobe.mjs [BxH]` | skärmbyten: riktning · cremeblänk mitt i övergången · fastnar routern? |
+| `node scripts/_flikprobe.mjs [--stor id] [--sma id]` | **åldersbanden i skalet:** syns Utmaning bara när ett storbarnsspel finns · hamnar det BARA där · rätt `ctx.band` · `complete()` berömmer ur `PRAISE_STOR` — varje fråga med småbarnsspelet som kontrollarm. Utan storbarnsspel i registret är "Utmaning dold" rätt svar |
 | `node scripts/_bytprobe.mjs [--spel id]` | hur länge lever det gamla spelet in i nästa skärm? (tryck → monterad → riven, med `voice.say/cancel` + `stopAllLoops` i fönstret) |
 | `node scripts/_perspektivprobe.mjs` | läses badet som en SIDOVY? ytlinje · golv under karet · fötter mot golvet · ankan i ytan · vattnet innanför porslinet |
 | `node scripts/_repprobe.mjs` | verlet-repet: vilolängd · fästpunkt · mjukt stopp · golv · spänd lina — **utan webbläsare** |

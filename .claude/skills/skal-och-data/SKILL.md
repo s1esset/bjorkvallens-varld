@@ -24,9 +24,13 @@ src/services/          Scaler · SaveService · ProfileService · AudioService �
 (tryck-och-håll 2,5 s). En väntande service worker-uppdatering appliceras **bara vid menyn**
 (`applyPendingUpdateAtMenu`) — aldrig mitt i ett spel.
 
-**Bibliotek:** fyra flikar ur `TAB_GROUPS` (`lib/theme.js`) + Nyast/A–Ö-sortering, båda
-persisterade i `localStorage` under `pwagames.library.ui`. Horisontell svep byter flik
-(axellåst mot vertikal scroll).
+**Bibliotek:** flikar ur `TAB_GROUPS` (`lib/theme.js`) + Nyast/A–Ö-sortering, båda
+persisterade i `localStorage` under `pwagames.library.ui` (flikens INDEX — nya flikar läggs
+därför sist). Horisontell svep byter flik (axellåst mot vertikal scroll). Fyra småbarnsflikar
+väljer spel på `category`; **Utmaning** (`band: 'stor'`) tar alla storbarnsspel
+(`ageRange[0] ≥ 6`) oavsett kategori, och de syns bara där (`iFlik`). En flik utan spel
+visas inte. `GameHost` sätter `ctx.band` och väljer `complete()`-berömmet efter bandet.
+Sond: `_flikprobe.mjs`.
 
 ## Designsystemet
 

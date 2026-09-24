@@ -14,7 +14,9 @@ Läs skill **spel-pipeline** (kvalitetsgrinden + checkpoint-protokollet) och ski
    taggad [Quick]/[Medium]/[Deep])** och **§5 (vad som redan gjorts)**.
 2. Läs spelets `src/games/<id>/index.js` så förslagen matchar verkligheten, inte docen.
 3. Kör `npm run test <id>` och titta på `.test-shots/<id>.png` — bedöm spelet som spelare.
-4. Föreslå **den omgång som ger störst lyft nu**, mätt mot kvalitetsgrindens 7 punkter:
+4. Föreslå **den omgång som ger störst lyft nu**, mätt mot kvalitetsgrindens 8 punkter i
+   spelets eget åldersband (ett storbarnsLÄGE av ett småbarnsspel är inte en polering — det är
+   `/storbarn <id>`):
 
 ```
 🔧 <TitleSv> — föreslagen omgång
@@ -39,7 +41,7 @@ Checkpoint: `node scripts/korning.mjs start polera <id>`
 4. **kritik** — `spelkritiker`-agent. Åtgärda det som är rimligt, om-testa.
 5. **commit** — `feat(<id>): <vad som lyftes>`, explicita sökvägar.
 6. **doc** — uppdatera `docs/games/<id>.md` **§5 Status/loggar** (vad som gjordes + commit) och
-   bocka av de punkter i §4 som nu är gjorda. Är alla 7 grindpunkter uppfyllda: sätt spelets
+   bocka av de punkter i §4 som nu är gjorda. Är alla 8 grindpunkter uppfyllda: sätt spelets
    status till ✅ i `docs/games/README.md`-indexet.
 7. **version + leverans** — bumpa MINOR, `npm run build` && `npm run serve`.
 8. **logg** — `docs/SESSIONS.md`, `npm run backup`, `node scripts/korning.mjs klar`.

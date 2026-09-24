@@ -52,21 +52,24 @@ Bara **ett** stopp: spec-kortet. Allt annat körs igenom.
 ## Kvalitetsgrinden — varför nya spel inte får bli 🔧
 
 Biblioteket har redan 69 spel. Ett till som "funkar men är tunt" gör biblioteket sämre, inte
-bättre. Därför måste varje nytt eller polerat spel klara sju punkter innan commit:
+bättre. Därför måste varje nytt eller polerat spel klara åtta punkter innan commit (den
+kanoniska listan, med en rad per åldersband där punkten betyder olika saker, står i skill
+**spel-pipeline**):
 
-1. **Agens** — trycket är ett *val* som påverkar utfallet, inte samma animation varje gång.
-2. **Variation** — omgång 2 ≠ omgång 1.
+1. **Agens** — trycket är ett *val* som påverkar utfallet. Storbarn: skickligheten avgör.
+2. **Variation** — omgång 2 ≠ omgång 1. Storbarn: banorna skiljer sig i utmaning.
 3. **Juice** — ljud+bild under 100 ms, squash/stretch, partiklar.
-4. **Mottagare** — någon tar emot skapelsen och blir glad.
+4. **Mottagare** — någon tar emot skapelsen och blir glad. Storbarn: en anledning att bry
+   sig (mottagare, mål, värld eller rekord).
 5. **Riktig ton/SFX** — stämd skala för musik, riktiga klipp där de finns.
-6. **Mjuk progression + motstånd** — växer lugnt, alltid nytt att upptäcka. Hinder som går att
-   anpassa sig runt hör hit; de får sakta ner, aldrig stoppa, och ska ha ett tak + lagom takt.
+6. **Progression + motstånd** — småbarn: växer lugnt, hinder sakta ner med tak, aldrig
+   misslyckande. Storbarn: riktig svårighetskurva, ett försök får misslyckas med snabb omstart.
 7. **Spel-specifik finish** — inte samma konfetti som alla andra.
 8. **Fristående objekt** — spelobjekt är riktiga ritade föremål med egen silhuett och eget
    liv, aldrig en emoji i en ruta (P0 `ASSETS`, `docs/DESIGN.md §8.1`).
 
-Plus P0 (`CLAUDE.md`) och exit-säkerhet. `npm run check` bevakar det som går att mäta
-maskinellt; `spelkritiker` bevakar resten.
+Plus P0 för spelets åldersband (`CLAUDE.md`) och exit-säkerhet. `npm run check` bevakar det
+som går att mäta maskinellt; `spelkritiker` bevakar resten.
 
 ## Om strömmen går
 

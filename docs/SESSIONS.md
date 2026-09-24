@@ -14,6 +14,43 @@ Format:
 
 ---
 
+## 2026-09-24 eftermiddag — Två åldersband: storbarn 6–12 + fliken Utmaning · v1.256.0
+
+**Uppdraget (ägaren):** gå igenom reglerna som formar spelen och släpp på dem för att kunna
+göra mer avancerade spel för äldre barn. Besluten: åldersband **6–12**; världar får vara större
+än skärmen (sidoscroll, plattform, top-down); **ingen automatisk hjälp**, bara enkla tips när det
+behövs; avancerade gester; **inga påminnelser**; läsning tillåten men ikon först; motgång på
+riktigt ("inte lika lätt, barnsligt eller inramat"); synlig poäng; **egen flik** för alla
+storbarnsspel; storbarnslägen av befintliga spel byggs **bara på begäran**, med en egen skill.
+
+**Byggt:**
+- `CLAUDE.md`: P0 delad i **grundlag** (båda banden) + **P0 per åldersband** (SMÅBARN 2–5 är de
+  gamla reglerna oförändrade; STORBARN 6–12 är de nya). Grundlagen fick en rad som inte fanns
+  förut: *sparade framsteg går aldrig förlorade* — det är det som gör att motgången får släppas.
+- Skalet: `theme.js` (`bandFor` · `iFlik` · femte fliken **Utmaning** 🏆 · `PRAISE_STOR`),
+  `LibraryScreen` visar bara flikar med spel (Utmaning dold tills första storbarnsspelet), och
+  `GameHost` sätter `ctx.band` och väljer beröm efter bandet.
+- `check.mjs`: ageRange 2–12, **fel** om det går över 6 år, och en **variantmodul**
+  (`...bas` ur `../<id>/index.js`) godkänns utan egen `init`/`destroy`.
+- Nytt kommando **`/storbarn <id>`**: storbarnsläget är en egen variantmodul (`<id>-stor`) med
+  skillnaderna bakom `ctx.band === 'stor'` i basspelet — invarianten är att småbarnsläget inte rörs.
+- Kritikern spelar nu i spelets band (3-åring resp. 9-åring med en 12-åring över axeln);
+  `spelbyggare`, `felsokare`, `/felsok`, `/spel`, `/polera`, `spelkontrakt`, `spel-pipeline`,
+  `PIPELINE.md`, `README`-indexet, `_MALL.md`, `DESIGN.md`, `skal-och-data` följer efter.
+- Städat på vägen: grinden hette "sju punkter" men hade åtta (nu åtta överallt), och
+  `spel-pipeline` sa fortfarande "aldrig `git push`".
+
+**Mätt:** ny `_flikprobe.mjs` mot en TILLFÄLLIG variant `klambubblor-stor` (borttagen efteråt):
+Utmaning syns och bär bara varianten, Roligt bär bara basen, `ctx.band` stor/sma, berömmet ur
+`PRAISE_STOR` resp. `PRAISE` — och utan varianten är Utmaning dold. `check.mjs` kontrollerad med
+tre kända fel ([4,8] · [6,14] · bruten spridning). `npm run test:all` 86/86.
+
+**Öppet:** inget storbarnsspel finns än — fliken syns först med det första. Sex nya berömklipp
++ "Utmaning" väntar på `npm run voice` (Web Speech tills dess). `BACKLOG` #6: föräldragrinden
+(håll 2,5 s) stoppar inte en sjuåring — ägarbeslut.
+
+---
+
 ## 2026-09-24 förmiddag — Grodan Slurp: SUPERHOPPET + grodkören som hem-knapp (publicerat) · v1.255.0
 
 **Uppdraget (ägaren, ordagrant i `docs/games/grodan-slurp.md` §0):** håll fingret på grodan →

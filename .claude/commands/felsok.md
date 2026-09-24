@@ -24,7 +24,7 @@ redan klagar på, och de största filerna.
 |---|---|
 | **Exit-säkerhet** | `gsap.to()` direkt på Pixi-objekt som förstörs i sin egen `onComplete`; fördröjda callbacks utan `_alive`-vakt; tweens som inte dödas i `destroy` |
 | **Läckor** | ticker-callbacks, lyssnare, `PhysicsWorld`, `ThreeLayer` som inte städas; containrar utan `destroy({children:true})` |
-| **P0-brott** | träffytor <96px, saknad hit-halo, misslyckande som avslutar/nollställer, synlig poäng, timer, tillrättavisande återkoppling, ogrindad vuxenhandling · **hinder utan tak** (kan låsa spelet) — men hinder man kan anpassa sig runt är tillåtna |
+| **P0-brott (mot spelets band)** | *småbarn:* träffytor <96px, saknad hit-halo, misslyckande som avslutar/nollställer, synlig poäng, timer, tillrättavisande återkoppling · **hinder utan tak** (kan låsa spelet) — men hinder man kan anpassa sig runt är tillåtna · *storbarn:* träffytor <72px, auto-hjälp som spelar åt barnet, om-cues, omstart >2 s, rekord/upplåst som ett misslyckat försök kan skriva över · *båda:* ogrindad vuxenhandling |
 | **Kontrakt** | metadata som inte matchar mappen, `localStorage` direkt, egen ljudmotor, statisk three-import |
 | **Prestanda** | allokering per frame, omritning utan förändringsvakt, filter/blur, otextade Graphics-omritningar i tickern |
 | **Ljud/röst** | repliker som saknas i `voice-phrases.json`, TTS-uttalade ljudeffekter ("plask!") där ett riktigt klipp finns, `sample()` som aldrig kopplats in |

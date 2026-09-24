@@ -117,8 +117,11 @@ skärmzon. Döda alla tweens i `destroy` (P0).
 - **Button** (`lib/Button.js`): godis-look, hit-halo +24 px, ljud + studs inbyggt. Varianter:
   ikon, text, ikon+text, `stacked`. Små vuxenknappar (< 96 px grafik) förlitar sig på halon
   för träffytan och måste vara grindade.
-- **Flikar** (bibliotek): full bredd, `edge`-marginal, 12 px gap. Aktiv flik = full
-  kategorifärg, något högre, ansluter till innehållspanelen (panelens ram har flikens färg).
+- **Flikar** (bibliotek): full bredd, `edge`-marginal, 12 px gap. Fyra småbarnsflikar +
+  **Utmaning** 🏆 för storbarnsspelen (6–12 år) — en flik utan spel visas inte, så Utmaning
+  står dold tills det första storbarnsspelet finns (`TAB_GROUPS` + `iFlik` i theme.js). Aktiv
+  flik = full kategorifärg, något högre, ansluter till innehållspanelen (panelens ram har
+  flikens färg).
   Inaktiv flik = urblekt (alpha ~0.55), något lägre. Flikbyte: tap ELLER vågrätt svep på
   innehållsytan (mjukt drag, axellåst mot lodrät skroll).
 - **Innehållspanel:** cream, `RADIUS.panel`, ram 5 px i aktiv kategorifärg. Innehåll får

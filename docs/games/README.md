@@ -1,14 +1,17 @@
 # Spel-genomgång & förbättringsplan (Björkvallens Värld)
 
-Per-spel designgenomgång **sett ur spelarens ögon** (barn 2–5 + förälder bredvid). Varje
-`docs/games/<id>.md` fångar spelets **nuläge**, den **ursprungliga tanken**, **vad som gör
-det lättjefullt/tunt**, och en konkret **förbättringsplan** för att lyfta spelet till en
-riktig, marknadsfärdig kvalitet — utan att bryta P0-reglerna (inget "game over", ingen poäng/timer,
-≥96px träffytor, bara positiv feedback, exit-säkert).
+Per-spel designgenomgång **sett ur spelarens ögon** — i spelets **åldersband**: småbarn 2–5
+(+ förälder bredvid) eller storbarn 6–12. Varje `docs/games/<id>.md` fångar spelets **nuläge**,
+den **ursprungliga tanken**, **vad som gör det lättjefullt/tunt**, och en konkret
+**förbättringsplan** för att lyfta spelet till en riktig, marknadsfärdig kvalitet — utan att
+bryta P0-reglerna för sitt band (`CLAUDE.md` "P0 per åldersband").
 
 ## Vad "marknadsfärdig kvalitet" betyder här
 
-Ett bra barnspel 2–5 är inte *svårare* — det är **rikare**. Mätstickan per spel:
+Ett bra barnspel 2–5 är inte *svårare* — det är **rikare**. Ett bra storbarnsspel 6–12 får
+vara svårare: skickligheten ska avgöra, motgången ska vara på riktigt och rättvis, och det
+ska finnas något att bemästra. Mätstickan per spel (punkt 7 gäller småbarnsbandet; för
+storbarn läses den som *tydliga kontroller och rättvis svårighet*):
 
 1. **Kärnloop med agens** — varje pekning/drag ska kännas som ett *val* som påverkar utfallet,
    inte en knapp som gör samma sak varje gång. (Lättjefullt = "tryck → samma animation, alltid.")
@@ -32,8 +35,9 @@ Ett bra barnspel 2–5 är inte *svårare* — det är **rikare**. Mätstickan p
 Varje förbättringsförslag taggas: **[Quick]** (timmar), **[Medium]** (en pass), **[Deep]**
 (omdesign/nya system). Vi jobbar i faser, ett spel i taget, och bockar av nedan.
 
-De sju punkterna ovan är **kvalitetsgrinden** i `docs/PIPELINE.md`. Ett spel som byggs eller
-poleras idag får inte landa som 🔧 — det passerar grinden eller är inte klart.
+Listan ovan är **granskningens mätsticka**. Själva **kvalitetsgrinden** är de åtta punkterna i
+skill `spel-pipeline` (speglad i `docs/PIPELINE.md`), med en rad per åldersband. Ett spel som
+byggs eller poleras idag får inte landa som 🔧 — det passerar grinden eller är inte klart.
 
 ## Doc-mall (varje spel följer denna)
 
@@ -218,6 +222,12 @@ stor del via det nya delade `src/lib/artikoner.js`.*
 | 30 | Djurorkester | `djurorkester` | tap | ✅ | ✅ |
 | 47 | Ballonglyft | `ballonglyft` | tap | ✅ | ✅ |
 | 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | ✅ | ✅ |
+
+### 🏆 Utmaning (storbarn 6–12) — *tom, fliken är dold tills första spelet finns*
+*Bandet infördes 2026-09-24 (v1.256.0). Hit hör nya storbarnsspel (`ageRange` [6–12]) och
+storbarnslägen av befintliga spel (`<id>-stor`, byggda med `/storbarn <id>` på ägarens begäran).*
+| # | Spel | id | input | kvalitet | polerad |
+|---|------|----|-------|:--:|:--:|
 
 **Läget just nu:** alla **70** spel är granskade och alla 4 flikar har fått en genomförd
 första-omgång. **Poleringsrundan: 71/71 KLARA** (🎉 Roligt 15 · ⚙️ Fysik 27 · 🧩 Pussel 20 · 🔤 Lära 9) —

@@ -13,6 +13,18 @@ Nyast överst. Status: ⬜ ej påbörjad · 🟨 pågår · ✅ klar (raden stry
 
 ---
 
+## 6. Föräldragrinden håller inte emot en storbarnsspelare ⬜ *(beslut väntar på ägaren)*
+
+*Inlagt 2026-09-24, när åldersbandet storbarn 6–12 infördes (v1.256.0).* Grinden är
+tryck-och-håll 2,5 s (P0 `GRIND`) och är byggd för att stoppa en tvååring. En sjuåring som ser
+en vuxen hålla inne knappen gör likadant — och bakom grinden finns inställningar, nollställ,
+ta bort profil och länkar. Ingenting är trasigt i dag; frågan är om grinden ska bli starkare
+nu när appen har spelare som kan läsa och räkna. Vanliga grepp i barnappar: en räknefråga som
+kräver läsning ("Vad är 7 × 8?"), eller ett håll som kräver två fingrar på angivna ställen.
+Båda gör grinden svårare även för föräldern — det är ett ägarbeslut, inte ett tekniskt.
+
+---
+
 ## 5. GitHub Actions kör publiceringen på en utgången Node ✅ *(bumpad 2026-09-05, verifierad av pushen 2026-09-10)*
 
 *Inlagt 2026-09-02, upptäckt i publiceringen av `88ce266` (`/doctor`-passet). Bygget är

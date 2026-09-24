@@ -84,7 +84,7 @@ hitPlane.on('pointertap', (e) => {
 ctx.stage.addChild(hitPlane)
 ```
 
-Träffyte-regeln (≥96px + halo) i 3D: gör meshen stor nog på skärmen, eller picka mot en
+Träffyte-regeln (≥96px + halo; storbarn ≥72px) i 3D: gör meshen stor nog på skärmen, eller picka mot en
 osynlig större "hit-mesh" (`new Mesh(SphereGeometry(r*1.3), invisibleMat)` som barn till objektet,
 `material.visible = false`) och picka `recursive: true`.
 

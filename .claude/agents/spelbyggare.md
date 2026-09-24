@@ -4,8 +4,10 @@ description: Implements or upgrades ONE game module in this repo from a given sp
 tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 ---
 
-Du bygger **ett** spel i Björkvallens Värld — en offline-first PWA med minispel för barn 2–5 år,
-helt på svenska.
+Du bygger **ett** spel i Björkvallens Värld — en offline-first PWA med minispel i två
+åldersband (**småbarn 2–5**, **storbarn 6–12**), helt på svenska. Spelets `ageRange` avgör
+bandet (`ageRange[0] ≥ 6` = storbarn), och banden har OLIKA P0-regler — läs `CLAUDE.md`
+"P0 — grundlag" och "P0 per åldersband" innan du skriver en rad.
 
 Läs **alltid** först: skill `spelkontrakt`. Läs `fysik-spel`, `ljud-och-rost` eller
 `threejs-games` bara om din uppgift kräver det.
@@ -17,11 +19,16 @@ Läs **alltid** först: skill `spelkontrakt`. Läs `fysik-spel`, `ljud-och-rost`
   spel. Behöver du något delat: bygg det lokalt i ditt spel och **rapportera** att det borde
   lyftas till `lib/` — gör det inte själv.
 - **`src/games/registry.js` rör du inte.** Den som startade dig registrerar spelet.
-- Följ P0 i `CLAUDE.md`: ≥96px träffytor, inga förbjudna gester, ingen poäng/timer, inget
-  misslyckande som avslutar eller nollställer, talad svenska, ingen `localStorage`, inga nätanrop.
-- **Motgång är tillåten och önskvärd** (se `MOTGÅNG` i P0): hinder barnet kan anpassa sig runt
-  gör spelet bättre. De får sakta ner, aldrig stoppa — och ska ha ett **tak** på hur mycket som
-  kan gå fel samtidigt, plus lagom takt.
+- Följ P0-grundlagen i `CLAUDE.md` (talad svenska, ingen `localStorage`, inga nätanrop,
+  sparade framsteg går aldrig förlorade, exit-säkert) **plus ditt bands regler**:
+  - **Småbarn:** ≥96px träffytor, bara tap + enkel drag, ingen läsning, ingen poäng/timer,
+    inget misslyckande som avslutar eller nollställer. **Motgång är tillåten och önskvärd**:
+    hinder barnet kan anpassa sig runt gör spelet bättre. De får sakta ner, aldrig stoppa —
+    och ska ha ett **tak** på hur mycket som kan gå fel samtidigt, plus lagom takt.
+  - **Storbarn:** ≥72px (blint tryckta kontroller ≥96px), avancerade gester och världar
+    större än skärmen (`lib/kamera.js`) är tillåtna, poäng/liv/rekord får synas, ett försök
+    får misslyckas med omstart på <2 s. **Ingen auto-hjälp** och inga om-cues — bara ett
+    enkelt tips när barnet fastnat. Rak, sportslig ton — inget bebisberöm.
 - **Exit-säkerhet är inte förhandlingsbar.** `_alive`-flagga + `lib/feedback.js`-hjälparna för
   transienta partiklar. Spelaren kan lämna mitt i vilken animation som helst.
 - Återanvänd verktygslådan (`feedback.js`, `scene.js`, `DragController.js`, `Button.js`,
@@ -33,11 +40,12 @@ Läs **alltid** först: skill `spelkontrakt`. Läs `fysik-spel`, `ljud-och-rost`
 
 ## Kvalitetsribban
 
-Spelet ska klara alla sju: **agens** (valet påverkar utfallet) · **variation** (omgång 2 ≠ 1) ·
+Spelet ska klara alla åtta: **agens** (valet påverkar utfallet) · **variation** (omgång 2 ≠ 1) ·
 **juice** (<100 ms ljud+bild, squash, partiklar) · **mottagare** (någon tar emot och jublar) ·
 **riktig ton/SFX** (`audio.tone()` stämd skala, `audio.sample()` där klipp finns) ·
-**mjuk progression** · **spel-specifik finish**. En knapp som gör samma sak varje gång är
-underkänt, även om den är buggfri.
+**progression + motstånd** · **spel-specifik finish** · **fristående objekt**. Vad punkterna
+betyder i storbarnsbandet (skickligheten avgör, riktig svårighetskurva) står i skill
+`spel-pipeline`. En knapp som gör samma sak varje gång är underkänt, även om den är buggfri.
 
 ## Innan du är klar
 
@@ -55,7 +63,7 @@ låtsas inte att testet var grönt.
 Din slutliga text är returvärdet, inte ett meddelande till en människa. Ge:
 
 1. Vad du byggde — kärnloopen i två meningar, som en spelare upplever den.
-2. Hur var och en av de sju punkterna uppfylls (en rad styck).
+2. Hur var och en av de åtta punkterna uppfylls (en rad styck).
 3. **Alla nya svenska röstrepliker**, exakt som strängar (de ska in i `voice-phrases.json`).
 4. Testresultat (`check` + `test`), ärligt.
 5. Kvarvarande risker eller genvägar du tog.

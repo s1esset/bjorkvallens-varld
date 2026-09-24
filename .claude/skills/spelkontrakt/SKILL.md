@@ -17,7 +17,9 @@ titleSv     // svensk titel MED åäö, "Klämbubblor"
 icon        // emoji till brickan, "🫧"
 category    // 'drag'|'larande'|'pedagogiskt'|'roligt'|'fysik'|'pussel'|'motorik'|'minne'
 input       // 'tap'|'drag'|'mixed'
-ageRange    // [2,3]
+ageRange    // [2,4] småbarn · [6,12] storbarn (fliken Utmaning). ETT band per spel —
+            // check.mjs vägrar ett ageRange som går över 6. Bandet avgör vilka P0-regler
+            // som gäller (CLAUDE.md "P0 per åldersband")
 bundle      // Assets-bundle (oftast == id; valfritt)
 voiceIntro  // svensk fras som spelas vid mount
 ```
@@ -43,6 +45,8 @@ ctx.view      // SYNLIG designyta {left,top,right,bottom,width,height} (lib/view
               // wrap/cull-marginaler), cachea aldrig fälten, mutera aldrig.
               // Allt som "parkerar utanför skärmen" ska stå utanför ctx.view,
               // inte utanför 0..1280 — annars syns det i bild på telefonen.
+ctx.band      // 'sma' | 'stor' — ur ageRange (bandFor i theme.js). Ett basspel som fått ett
+              // storbarnsläge (/storbarn) läser den för att veta vilket läge det kör i
 ctx.fxLayer   // för konfetti/firande OVANPÅ spelet
 ctx.exitToLibrary()
 ctx.later(sekunder, fn)  // fördröjt anrop som DÖR med spelomgången — använd i stället
@@ -87,7 +91,11 @@ update(patch) · setLevel(n) · addStars(n=1) · setCustom(key, value)
 complete()            // ETT tillfredsställande "klart": firande 1–2 s + stjärna + klistermärke
 ```
 
-**`complete()` FIRAR SJÄLV** — vinstljud (`sfx('celebrate')`) + ett slumpat `PRAISE` +
+Storbarnsspelens poäng och rekord sparas med `setCustom('rekord', …)` / `setLevel(n)` — de
+rörs aldrig av ett misslyckat försök (P0 `ALDRIG`: sparade framsteg går inte förlorade).
+
+**`complete()` FIRAR SJÄLV** — vinstljud (`sfx('celebrate')`) + ett slumpat `PRAISE` (i
+storbarnsbandet `PRAISE_STOR`) +
 `bigCelebration`. Upprepa inte de tre i spelet i samma ögonblick. Värden tål det (ljudet och
 regnet spärrar dubbletter i ett 1,5 s-fönster, och berömmet hoppas över om något redan talar),
 men koden ljuger om vad som händer. Två regler för rösten runt complete():
@@ -101,21 +109,51 @@ men koden ljuger om vad som händer. Två regler för rösten runt complete():
 
 - Rita i **designkoordinater 1280×720**. `ctx.stage` är redan skalad — bygg bara barn.
 - **Aldrig `localStorage` direkt** → `ctx.progress`. Aldrig egen ljudmotor → `ctx.services.audio`.
-- **Ingen synlig poäng, ingen tidspress, inget misslyckande som avslutar eller nollställer.**
-  `ctx.progress.complete()` vid ett tillfredsställande "klart".
-- **Motgång är tillåten och önskvärd.** Hinder som barnet kan anpassa sig runt — något blir
-  smutsigt igen, välter, kommer i vägen — gör spelet bättre. De får som mest **sakta ner**,
-  aldrig stoppa. Krav: rolig ton, tydlig orsak, går att åtgärda direkt, och ett **tak** på hur
-  mycket som kan gå fel samtidigt (t.ex. max 3 aktiva fläckar; därutöver missar hindret).
-- Fel/tomma tryck ska ändå vara **roliga** (wiggle + mjukt neutralt ljud) — aldrig sur summer,
-  rött kryss eller tillrättavisning.
+- **Åldersbandets regler** (fullt i `CLAUDE.md` "P0 per åldersband"). `ctx.progress.complete()`
+  vid ett tillfredsställande "klart" i båda banden.
+  - **Småbarn:** ingen synlig poäng, ingen tidspress, inget misslyckande som avslutar eller
+    nollställer. **Motgång är tillåten och önskvärd** — hinder som barnet kan anpassa sig runt
+    (något blir smutsigt igen, välter, kommer i vägen) gör spelet bättre. De får som mest
+    **sakta ner**, aldrig stoppa. Krav: rolig ton, tydlig orsak, går att åtgärda direkt, och
+    ett **tak** på hur mycket som kan gå fel samtidigt (t.ex. max 3 aktiva fläckar; därutöver
+    missar hindret). Fel/tomma tryck ska vara **roliga** (wiggle + mjukt neutralt ljud).
+    Hjälpen får komma själv, sent och synligt.
+  - **Storbarn:** poäng, liv, stjärnor, rekord och tidslopp är tillåtna. Ett försök får
+    misslyckas → omstart från checkpoint på under 2 s, med tydlig orsak. Svårigheten får
+    KRÄVA skicklighet. **Ingen auto-hjälp** — bara ett enkelt tips efter upprepade
+    misslyckanden på samma ställe eller på en tipsknapp. Rak, sportslig ton; ett miss får
+    synas ärligt ("Nästan!") men aldrig som skam.
+  - Båda: aldrig sur summer, rött kryss eller tillrättavisning.
 - **Fristående objekt (P0 `ASSETS`).** Rita spelobjekt som riktiga föremål med egen silhuett —
   aldrig en emoji i en `roundRect`. En svamp är en svamp med porer och rundade hörn, inte en
   bricka med 🧽 i. Ge dem eget liv: vilo-guppning (`liv` — egen fas per föremål; `breathe`
   är skala och synkron), reaktion vid tryck (`pop`,
   `wiggle`), skugga för djup. Paneler/kort är till för TEXT och UI-kontroller, inte för
   spelobjekt. Emoji får ligga som detalj *ovanpå* ett ritat föremål, aldrig vara föremålet.
-- Talad svenska vid `mount`; mjuk om-cue vid ~6 s inaktivitet; positiv reaktion på VARJE tryck.
+- Talad svenska vid `mount`; reaktion (ljud+bild) på VARJE tryck. Mjuk om-cue vid ~6 s
+  inaktivitet — **bara småbarn**; storbarnsspel har inga påminnelser.
+
+### Storbarnsläge av ett befintligt spel = en variantmodul
+
+Byggs **bara** på ägarens begäran, med kommandot `/storbarn <id>`. Varianten är ett eget spel
+i registret (egen bricka i Utmaning, egen progress, eget klistermärke, eget test) som ärver
+hela livscykeln ur basspelet:
+
+```js
+// src/games/<id>-stor/index.js
+import bas from '../<id>/index.js'
+export default {
+  ...bas,
+  id: '<id>-stor', titleSv: '<Titel> Proffs', icon: '🎳', category: 'fysik', input: 'drag',
+  ageRange: [6, 12],
+  voiceIntro: '<egen, kortare instruktion>',
+}
+```
+
+Metadatan skrivs som LITERALER (check.mjs läser dem med regex, inte med import). Skillnaderna
+bor i BASSPELETS fil bakom `ctx.band === 'stor'` — så småbarnsläget är oförändrat.
+`check.mjs` godkänner att `init`/`destroy` saknas i varianten när den sprider en importerad bas.
+⚠️ Modulnivå-variabler (utanför objektet) DELAS mellan bas och variant — nollställ dem i `init`.
 
 ## Exit-säkerhet (den vanligaste kraschkällan)
 
@@ -149,7 +187,7 @@ destroy(ctx) {
 | `lib/Button.js` | stor barnknapp (hit-halo, studs, ljud) |
 | `lib/mascot.js` · `lib/figurer.js` | Bobo som **stillbild** — huvud (`makeMascot`) resp. hel figur (`makeBobo`, `makeElvira`, …) |
 | `lib/karaktarer.js` | Bobo som **RIGG**: `makeKaraktar({ r, kropp })` → `setMood('glad'\|'stolt'\|'forvanad'\|'nyfiken'\|'hungrig'\|'ledsen'\|'somnig')` · `react('jubel'\|'hoppsan'\|'nyfiken'\|'hej'\|'nam')` · `look(x,y)` · `blink()` · `idle()` · `destroy()`. **Välj den här när figuren ska REAGERA** — det app-breda mönstret "ingen mottagare/publik" löses här, inte med en egen `_setMood` i spelet |
-| `lib/theme.js` | `DESIGN_W/H · FONT · COLORS · PLAYFUL · CATEGORIES · TAB_GROUPS · PRAISE · SPACING · RADIUS · ANIM · shade() · tint()` |
+| `lib/theme.js` | `DESIGN_W/H · FONT · COLORS · PLAYFUL · CATEGORIES · TAB_GROUPS · PRAISE · PRAISE_STOR · bandFor() · SPACING · RADIUS · ANIM · shade() · tint()` |
 | `lib/swedish.js` | `asciiFold · AVATARS · shuffle · randomFrom` |
 | `lib/physics.js` · `lib/launcher.js` | se skill **fysik-spel** |
 | `lib/three3d.js` | se skill **threejs-games** |
@@ -200,7 +238,8 @@ this._kam.attach(ctx.ticker)
 ## Lägga till ett spel
 
 1. `src/games/<id>/index.js` — default-exportera en GameModule (`id` ASCII == mappnamn).
-2. Välj `category` ur `CATEGORIES` (styr brickans färg) + en `icon`-emoji.
+2. Välj `category` ur `CATEGORIES` (styr brickans färg) + en `icon`-emoji, och **åldersband**
+   via `ageRange` ([2–5] småbarn → kategorins flik · [6–12] storbarn → fliken Utmaning).
 3. Bygg i `init`, tala i `mount`, riv i `destroy`.
 4. Dragspel → `lib/DragController.js`.
 5. Registrera: import + rad i `src/games/registry.js`.

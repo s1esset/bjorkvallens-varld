@@ -1,38 +1,87 @@
 # CLAUDE.md — Björkvallens Värld
 
-Offline-first, installerbar **PWA med minispel för barn 2–5 år**, helt på svenska. Tablet-först.
-Ett tunt skal (splash → meny → bibliotek → spel) kör 71 fristående **spelmoduler** med ett delat
-kontrakt. Stack: PixiJS v8 · three.js (dynamiskt) · matter.js · GSAP · Vite 5 · vanilla ESM.
-Motorerna är **verktyg att välja mellan per spel** — se skill **fysik-spel** för vilken som
-passar när (egen integrator · matter · SPH-vätska · three).
+Offline-first, installerbar **PWA med minispel i två åldersband** — **småbarn 2–5 år** och
+**storbarn 6–12 år** — helt på svenska. Tablet-först. Ett tunt skal (splash → meny → bibliotek →
+spel) kör fristående **spelmoduler** med ett delat kontrakt. Stack: PixiJS v8 · three.js
+(dynamiskt) · matter.js · GSAP · Vite 5 · vanilla ESM. Motorerna är **verktyg att välja mellan
+per spel** — se skill **fysik-spel** för vilken som passar när (egen integrator · matter ·
+SPH-vätska · three).
 
-## P0 — icke förhandlingsbart, gäller varje skärm och spel
+## P0 — grundlag: gäller varje skärm och spel, i BÅDA åldersbanden
 
 ```
-TRÄFFYTA      ≥96px (2cm), avstånd ≥24px, +24px osynlig hit-halo
 UPPLÖSNING    1280×720 landskap, Math.min letterbox (contain)
-GESTER        JA: tap, enkel drag (snäpp + tap-tap-fallback). NEJ: dubbeltryck, långtryck,
-              pinch, rotation, multitouch, snabbsvep-nav
-ÅTERKOPPLING  varje pekning → ljud+bild <100 ms. Fel tryck = roligt, aldrig summer, rött kryss
-              eller tillsägelse. Belöning = 1–2 s firande + svenskt beröm + klistermärke
-MOTGÅNG       hinder och bakslag är TILLÅTNA och gör spelet bättre (något blir smutsigt igen,
-              välter, kommer i vägen). De ska gå att anpassa sig runt och som mest SAKTA NER.
-              Krav: rolig ton, tydlig orsak, går att åtgärda direkt, TAK på hur mycket som kan
-              gå fel samtidigt, lagom takt. Svårighet = eftertanke, aldrig stress eller skam.
+ÅTERKOPPLING  varje pekning → ljud+bild <100 ms. Aldrig summer, rött kryss, skam eller
+              tillsägelse — ett misstag får SYNAS, aldrig straffa barnet som person
 ASSETS        spelobjekt ritas FRISTÅENDE — aldrig en emoji/ikon i en ruta, bricka eller box.
               Egen silhuett, egen form, eget liv (vilo-guppning, reaktion vid tryck). Paneler
               och kort får bära TEXT och UI-kontroller, aldrig spelobjekt. En emoji duger som
               detalj ovanpå ett riktigt ritat föremål, aldrig som hela föremålet.
-NAVIGATION    ikon-först, noll läsning; talad svensk instruktion + repetera-knapp per skärm
+NAVIGATION    ikon-först; talad svensk instruktion + repetera-knapp per skärm. Hem/avsluta är
+              alltid ETT tryck — aldrig en gest
 GRIND         tryck-och-håll 2,5 s före inställningar/avsluta/ta bort/nollställ/länkar
-ALDRIG        reklam, spårning, analytics, nätanrop vid körning, misslyckande som avslutar
-              eller nollställer, "game over", poäng som sjunker, bestraffande timers, FOMO
+ALDRIG        reklam, spårning, analytics, nätanrop vid körning, köp, FOMO — och att SPARADE
+              framsteg (upplåsta banor, klistermärken, rekord) går förlorade
 DATA          endast localStorage JSON, ingen PII lämnar enheten
 SVENSKA       å/ä/ö i UI/röst; asciiFold (a/a/o) för id:n, filnamn, ljudnycklar, commits
 KARAKTÄRER    avbildade människor heter ENDAST Zacke/Alissa/Elvira/Lova (djur, monster och
               maskoten Bobo undantas). FOTOkaraktärer heter en ROLL: Pappa/Mamma — se
               lib/theme.js (CHARACTERS · ROLLER)
 EXIT-SÄKERT   spelaren kan lämna mitt i en animation → _alive-flagga + feedback.js-hjälparna
+```
+
+## P0 per åldersband — spelets `ageRange` avgör vilket som gäller
+
+Ett spel tillhör **ETT** band: `ageRange[0] ≥ 6` = storbarn (`bandFor()` i `lib/theme.js`, i
+spelet `ctx.band` = `'sma'` | `'stor'`). `check.mjs` vägrar ett ageRange som går över 6.
+Storbarnsspel syns **bara** i fliken **Utmaning** 🏆 (dold tills det första finns). Ett
+**storbarnsläge av ett befintligt spel** byggs bara när ägaren ber om det — kommandot
+**`/storbarn <id>`** (en variantmodul, basspelets småbarnsläge rörs inte).
+
+### SMÅBARN 2–5 år — flikarna Roligt · Fysik · Pussel · Lära
+
+```
+TRÄFFYTA      ≥96px (2cm), avstånd ≥24px, +24px osynlig hit-halo
+GESTER        JA: tap, enkel drag (snäpp + tap-tap-fallback). NEJ: dubbeltryck, långtryck,
+              pinch, rotation, multitouch, snabbsvep-nav
+LÄSNING       noll — ikon, form, färg och röst bär allt
+FEL TRYCK     alltid ROLIGT (wiggle + mjukt neutralt ljud), aldrig ett "fel"
+MOTGÅNG       hinder och bakslag är TILLÅTNA och gör spelet bättre (något blir smutsigt igen,
+              välter, kommer i vägen). De ska gå att anpassa sig runt och som mest SAKTA NER.
+              Krav: rolig ton, tydlig orsak, går att åtgärda direkt, TAK på hur mycket som kan
+              gå fel samtidigt, lagom takt. Svårighet = eftertanke, aldrig stress eller skam.
+MÅL           ingen synlig poäng, ingen tidspress, inget misslyckande som avslutar eller
+              nollställer, ingen "game over". Belöning = 1–2 s firande + svenskt beröm + klistermärke
+HJÄLP         får komma av sig själv — SENT och SYNLIGT ("Jag hjälper till!"). Skicklighet ska
+              kännas, aldrig krävas
+PÅMINNELSE    mjuk om-cue vid ~6 s inaktivitet
+```
+
+### STORBARN 6–12 år — fliken Utmaning
+
+```
+TRÄFFYTA      ≥72px, avstånd ≥16px, +24px osynlig hit-halo. Kontroller man trycker BLINT på
+              om och om igen (hoppa, styra, skjuta) ≥96px
+GESTER        allt som ger bättre kontroll: håll inne (ladda, gasa), dubbeltryck, svep som
+              SPELHANDLING, multitouch (två tummar: styr + hoppa), pinch/rotation som mekanik.
+              Tap-tap-fallback är valfri. Aldrig en gest som enda väg till navigation
+VÄRLD         får vara större än skärmen — sidoscroll, plattformsspel, top-down-värld
+              (`lib/kamera.js`). UI och kontroller sitter fast i skärmen
+LÄSNING       tillåten som stöd (siffror, poäng, korta ord) — men ikon först, rösten kvar
+MOTGÅNG       på riktigt: ett försök kan misslyckas, liv kan ta slut, banan börjar om från en
+              checkpoint. Svårighet får KRÄVA skicklighet och eftertanke. Krav: tydlig orsak,
+              snabb omstart (<2 s till nytt försök), rimlig kurva. Tonen är rak och sportslig
+              — inte inramad, ombonad eller barnslig
+MÅL           synlig poäng, stjärnor per bana, rekord per profil och tidslopp är TILLÅTNA. En
+              runda får ta slut ("försök igen"), men barnet kastas aldrig ut ur spelet
+HJÄLP         ALDRIG automatisk hjälp som siktar, drar eller lyckas åt barnet. Bara ett ENKELT
+              TIPS när det behövs — efter upprepade misslyckanden på samma ställe, eller på
+              en tipsknapp
+PÅMINNELSE    inga om-cues vid tystnad — barnet får tänka ifred
+BERÖM         `complete()` väljer ur `PRAISE_STOR` ("Snyggt!", "Grymt!"); spelets egna
+              repliker håller samma ton — aldrig "Vad duktig du är!"
+TEST          harnessens autotryck provar varken håll, multitouch eller en värld bortom
+              skärmen — spelet är inte testat förrän en sond har spelat dess HUVUDKONTROLL
 ```
 
 ## Kommandon
@@ -64,6 +113,7 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
 | Ska du… | Skill / dok |
 |---|---|
 | skriva eller ändra ett spel | skill **spelkontrakt** |
+| ge ett befintligt spel ett storbarnsläge (bara på ägarens begäran) | kommando **`/storbarn <id>`** |
 | köra en pipeline, avsluta/återuppta | skill **spel-pipeline** · `docs/PIPELINE.md` |
 | fysik, sikte, banförhandsvisning | skill **fysik-spel** |
 | ljud, musik, röst, klipp-generering | skill **ljud-och-rost** |
@@ -398,7 +448,7 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
   `bjorkvallens-varld`) — varje push publicerar sajten via GitHub Actions, så grinden måste
   vara grön FÖRE pushen. Aldrig push till någon annan remote eller gren.
 - **Bumpa MINOR i `package.json`** per ändringsomgång; versionspillret är förälderns kvitto.
-- **Nya spel landar som ✅, aldrig 🔧** — kvalitetsgrindens 7 punkter i skill **spel-pipeline**.
+- **Nya spel landar som ✅, aldrig 🔧** — kvalitetsgrindens 8 punkter i skill **spel-pipeline**.
 - **Mät, resonera inte.** Balans, trösklar och "känns det rätt?" avgörs med en sond som spelar
   spelet och jämförs mot HEAD — aldrig med ett antagande i huvudet.
 - **Webbläsare:** använd node-harnessen (`npm run test`) i första hand. Behövs en *levande*

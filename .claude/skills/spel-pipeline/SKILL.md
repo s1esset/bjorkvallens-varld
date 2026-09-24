@@ -34,36 +34,46 @@ Regler:
 
 ## Kvalitetsgrinden (ett nytt/polerat spel får ALDRIG landa som 🔧)
 
-Ur `docs/games/README.md`-rubriken. Alla sju ska vara sanna, annars är spelet inte klart:
+Det här är DEN kanoniska listan (`docs/PIPELINE.md` speglar den). Alla åtta ska vara sanna,
+annars är spelet inte klart. Punkterna gäller båda åldersbanden — där de betyder olika saker
+står det en rad per band (P0 per band: `CLAUDE.md`).
 
 1. **Agens** — varje tryck/drag är ett *val* som påverkar utfallet, inte en knapp med samma
    animation varje gång.
+   *Storbarn:* skickligheten **avgör** — ett bättre försök ger ett märkbart bättre resultat.
 2. **Variation** — omgång 2 ≠ omgång 1 (innehåll, positioner, händelser). Sällsynta wow-ögonblick.
+   *Storbarn:* banorna skiljer sig i UTMANING, inte bara i utseende.
 3. **Juice** — ljud+bild <100 ms, squash/stretch, partiklar, efterklang.
 4. **Mottagare** — någon tar emot skapelsen och jublar (Bobo/Elvira/figur). Tomma scener = billigt.
+   *Storbarn:* en **anledning att bry sig** — en mottagare, ett mål, en värld eller ett rekord
+   att slå. Jublet får vara kortare och mindre ombonat.
 5. **Riktig ton/SFX** — `audio.tone()` stämd skala för musik, `audio.sample()` där riktiga klipp
    finns. Aldrig generiska UI-blipp som "musik".
-6. **Mjuk progression + motstånd** — fältet växer lugnt och har alltid *nytt att upptäcka*.
-   Hinder som barnet kan anpassa sig runt hör hit och gör spelet bättre; de får sakta ner,
-   aldrig stoppa, och ska ha ett tak (hur mycket kan gå fel samtidigt?) och lagom takt.
-   Aldrig ett misslyckande som avslutar eller nollställer.
+6. **Progression + motstånd**
+   *Småbarn:* fältet växer lugnt och har alltid *nytt att upptäcka*. Hinder som barnet kan
+   anpassa sig runt hör hit och gör spelet bättre; de får sakta ner, aldrig stoppa, och ska ha
+   ett tak (hur mycket kan gå fel samtidigt?) och lagom takt. Aldrig ett misslyckande som
+   avslutar eller nollställer.
+   *Storbarn:* en riktig **svårighetskurva**. Ett försök får misslyckas — med tydlig orsak och
+   omstart på under 2 s — och nästa försök ska kunna gå bättre för att barnet LÄRT sig något.
+   Ingen auto-hjälp; ett enkelt tips när det behövs. Sparade framsteg rörs aldrig.
 7. **Spel-specifik finish** — inte samma konfetti+stjärna som alla andra.
 8. **Fristående objekt** (P0 `ASSETS`) — spelobjekt är riktiga ritade föremål med egen
    silhuett och eget liv, aldrig en emoji/ikon i en ruta eller bricka.
 
-Plus P0 (se CLAUDE.md) och exit-säkerhet (se skill **spelkontrakt**).
+Plus P0 för spelets band (se CLAUDE.md) och exit-säkerhet (se skill **spelkontrakt**).
 
 ## `/spel` — ny idé → spelbart
 
 | # | Steg | Vad som händer |
 |---|---|---|
-| 0 | `spec` | Härled ur en fri svensk mening: `id` (asciiFold), `titleSv`, `icon`, `category`, `input`, `ageRange`, kärnloop, **mål**, mottagare, variationsaxel, finish, 4–8 röstrepliker. Visa **spec-kortet**. ✋ **Enda grinden** — vänta på ja. |
+| 0 | `spec` | Härled ur en fri svensk mening: `id` (asciiFold), `titleSv`, `icon`, `category`, `input`, **åldersband** (`ageRange` [2–5] småbarn eller [6–12] storbarn → fliken Utmaning), kärnloop, **mål**, mottagare, variationsaxel, finish, 4–8 röstrepliker. Visa **spec-kortet**. ✋ **Enda grinden** — vänta på ja. |
 | 1 | `plan` | Skriv `docs/games/<id>.md` ur `docs/games/_MALL.md` (nuläge→plan, taggat [Quick]/[Medium]/[Deep]). |
 | 2 | `bygg` | Parallella `spelbyggare`-agenter: **mekanik+mål**, **scen+juice+mottagare**, **ljud+röst**. En äger filen, övriga levererar block. Vid enklare spel: bygg själv. |
 | 3 | `registrera` | Import + rad i `src/games/registry.js`. Nya repliker → `scripts/voice-phrases.json` (pending). |
 | 4 | `kontroll` | `npm run check` — kontrakt, registry, P0, doc, röst-täckning. Måste vara grön. |
 | 5 | `test` | `npm run test <id>` (dragspel: `--drag`). **0 konsolfel** och inga `fel`-nivåfynd, inkl. exit-mitt-i-animation-cykeln. Harnessen kör `bildkoll.mjs` på skärmdumpen (tom scen · heltäckande fält · platt layout) — **öppna bilden själv också**, tre av fyra fel i gravmaskinens polering syntes bara där. Loopa fix→test tills grönt. |
-| 6 | `kritik` | `spelkritiker`-agent: spelar som 3-åring mot skärmdump+kod, listar vad som är tunt mot de 7 punkterna. |
+| 6 | `kritik` | `spelkritiker`-agent: spelar i spelets åldersband (3-åring resp. 9-åring) mot skärmdump+kod, listar vad som är tunt mot de 8 punkterna. |
 | 7 | `fix` | Åtgärda kritiken. Om-testa. |
 | 8 | `commit` | `feat(<id>): <kort svensk beskrivning>` — **explicita sökvägar**, aldrig `git add -A`. |
 | 9 | `version` | Bumpa MINOR i `package.json` (versionspillret `vM.NN` är förälderns kvitto). |
@@ -79,8 +89,9 @@ Commit: `feat(<id>): <vad som lyftes>`. Uppdatera §5 Status/loggar + indexstatu
 ## `/felsok <id>` — granskning + fixa allt som hittas
 
 Ingen ny funktionalitet. Fan-out över dimensioner: **exit-säkerhet** (tweens/timeouts utan
-`_alive`), **P0-brott** (träffytor <96px, misslyckande som avslutar, poäng, timer, hinder utan
-tak), **Pixi-läckor** (ticker/
+`_alive`), **P0-brott mot spelets band** (småbarn: träffytor <96px, misslyckande som avslutar,
+poäng, timer, hinder utan tak · storbarn: träffytor <72px, auto-hjälp som spelar åt barnet,
+omstart som tar >2 s, sparade framsteg som kan gå förlorade), **Pixi-läckor** (ticker/
 lyssnare/tweens som inte städas), **kontrakt**, **prestanda** (per-frame-allokering, ostrypta
 omritningar), **ljud/röst** (saknade klipp, TTS-uttalade ljudeffekter). Verifiera varje fynd
 adversariellt innan fix — plausibla men falska fynd får inte generera ändringar.
@@ -110,7 +121,8 @@ dev-servern (`window.__barnspel` är DEV-only — funkar EJ mot preview-bygget p
 ## Konventioner
 
 - **Commits:** `feat(<id>)` · `fix(<id>)` · `docs(…)` · `chore(…)`. En commit per spel.
-  Explicita sökvägar. Aldrig `git push` (repo är lokalt; backup sker med robocopy).
+  Explicita sökvägar. Push **bara** till `origin master`, via `npm run deploy` — varje push
+  publicerar sajten (se CLAUDE.md). Backup sker dessutom med robocopy.
 - **Version:** MINOR per hopslagen ändringsomgång; MAJOR vid milstolpe.
 - **Parallella agenter:** `registry.js` importerar ALLA spel — en agents halvsparade syntaxfel
   gör harness-körningar flakiga för alla. Kör därför verifieringen **efter** att hela batchen

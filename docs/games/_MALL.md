@@ -10,9 +10,11 @@
 | **id** | `<asciiFold, == mappnamn>` |
 | **titleSv** | <med å/ä/ö> |
 | **icon** | <emoji> |
-| **kategori** | <ur CATEGORIES> → flik <ur TAB_GROUPS> |
+| **band** | småbarn [2–5] → kategorins flik \| storbarn [6–12] → fliken Utmaning |
+| **kategori** | <ur CATEGORIES> → flik <ur TAB_GROUPS> (storbarn: bara brickans färg) |
 | **input** | tap \| drag \| mixed |
 | **ålder** | [n, m] |
+| **kontroller** | *(storbarn)* gester · värld större än skärmen? · poäng/liv/rekord · när ett tips visas |
 | **kärnloop** | <vad barnet gör, om och om igen> |
 | **mål** | <det tillfredsställande "klart" som utlöser progress.complete()> |
 | **agens** | <vilket VAL barnet gör som ändrar utfallet> |
@@ -25,7 +27,7 @@
 "<intro — sägs vid mount>"
 "<uppmuntran mitt i>"
 "<beröm vid delmål>"
-"<om-cue vid ~6s inaktivitet>"
+"<om-cue vid ~6s inaktivitet — bara småbarn>"
 ```
 
 ## 1. Nuläge (sett som spelare)

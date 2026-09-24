@@ -358,4 +358,4 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 
 `2026-09-23 · spec-kort godkänt, bygget beställt som nattpass · —`
 `2026-09-24 · leverans 1 byggd: ragdoll, tunga, insekter, damm, hinder, finish; kritik åtgärdad; röstklipp; publicerad v1.254.0 · e68b8be`
-`2026-09-24 · leverans 2: superhopp (sats → volt → stjärnläge → klibbrep → tumla → vakna → slurp) + grodkören som hem-knapp; 4 röstklipp; v1.255.0`
+`2026-09-24 · leverans 2: superhopp (sats → volt → stjärnläge → klibbrep → tumla → vakna → slurp) + grodkören som hem-knapp; 4 röstklipp; spelkritiker 6/6 (2 fynd åtgärdade); publicerad v1.255.0 · 38b6347`

@@ -14,6 +14,50 @@ Format:
 
 ---
 
+## 2026-09-24 förmiddag — Grodan Slurp: SUPERHOPPET + grodkören som hem-knapp (publicerat) · v1.255.0
+
+**Uppdraget (ägaren, ordagrant i `docs/games/grodan-slurp.md` §0):** håll fingret på grodan →
+den tar sats synligt och hoppar högre/längre ju längre man håller, gör en volt, lägger sig platt
+med magen mot oss och alla fyra benen ute medan den snurrar och flänger (ragdoll), äter det den far
+in i; tryck i luften → tungan blir ett mjukt klibbigt rep där insekter och saker fastnar; efter
+landningen tumlar den klart, ligger still en sekund, vaknar och slurpar in repet. Plus en dold
+knapp som kallar hem grodan om den fastnat (håll på grodkören).
+
+**Byggt:**
+- `groda.js`: faserna `ladda → volt → stjarna`, med `vakna()` och `avbrytSuper()`. Stjärnläget är
+  samma 12 kroppar med en ANNAN ledgeometri (`l.sid`/`l.stj`, som kopieras in i ledens fält), en
+  egen magritning och ett ansikte framifrån. Snurret är ett stelt v += ω×r kring tyngdpunkten, och
+  landning räknas bara vid kontakt UNDER grodan. Satsen är bild: hoptryckning, darr och kisande.
+- `klibbrep.js` (ny): 13 länkar i grodans grupp. Det klibbar via kontaktpar och `Query.point` mot
+  vassen (högst 2 saker), och slurpen sker kinematiskt längs den sparade formen.
+- `index.js`: håll/släpp på roten (`pointerup`/`upoutside`/`cancel`), satsens skala och trill,
+  superhoppets förlopp och ätandet/knuffarna i luften. Grodkören har en 2,5 s-håll med en ring,
+  och 4 nya röstklipp (F5-TTS).
+- `lib/physics.js`: valfritt `filter` i `onImpact`/`impactAudio`, bakåtkompatibelt och
+  `test:all` 86/86.
+
+**Mätt:** `_superhoppprobe` (Node, MED spelets flytvolym): höjd 267/332/382 px mot 192 för ett
+vanligt hopp, och stjärnposen håller (0,01 mot 0,48–0,76 utan muskler). `_superspelprobe`
+(Chrome): 5 av 5 superhopp går hela vägen, och exit med repet ute ger 0 fel. Målet mitt i ett
+superhopp startar firandet en gång. `_satsprobe`: trycket syns vid 90 ms, 2× HEAD. Spelkritikern:
+6/6. Två fynd åtgärdades: grodkören 2 → 2,5 s (P0), och stjärnan slår nu ut även vid tidig
+landning eller en studs i grenen (3/5 → 5/5).
+
+**Tre tysta fällor (nu i CLAUDE.md):** matter-ledernas `damping` bromsar varje STEL rotation
+(0,18 → 0,002 rad/steg på 40 steg), och `Flytvolym` spärrar farten och dämpar vridning även
+OVANFÖR ytan. En Node-sond utan spelets flytvolym mätte därför en snällare värld än spelets. Den
+tredje: `iVatten` fladdrar vid ytan, och ett enda gupp avbröt satsen.
+
+**Commits:** `38b6347` feat(grodan-slurp) superhopp · `892ae0b` docs tysta fällor + sonder ·
+(denna) docs sessionslogg. Publicerat via `npm run deploy`.
+
+**Öppet:** ägarens speltest av superhoppet på plattan. Frågor att ta ställning till där: är 1,55 s
+till full sats lagom, är 2,5 s på grodkören för långt för en förälder, och behövs en röstledtråd
+för grodkören (medvetet utelämnad). Sedan: speltest med barn · V10b ② · BACKLOG #3 (MOSS nere) ·
+`_bagprobe` efter varje Pixi-uppgradering.
+
+---
+
 ## 2026-09-24 natt — NYTT SPEL: Grodan Slurp 🐸 (nattpass, publicerat) · v1.254.0
 
 **Uppdraget (ägarens idé, 2026-09-23 23:45):** en ragdoll-groda med leder och muskler, en

@@ -44,7 +44,7 @@ import { Camera } from '../../lib/kamera.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { log } from '../../lib/gamelog.js'
 import { bage, sphereFill } from '../../lib/form.js'
-import { Groda } from './groda.js'
+import { Groda, LUFT_SUPER, SUPER_LATT } from './groda.js'
 import { Tunga, RACKVIDD } from './tunga.js'
 import { Klibbrep } from './klibbrep.js'
 import { Svarm } from './insekter.js'
@@ -79,6 +79,27 @@ const TAPP_PAUS = 8 // s — en smäll kan knocka ut korven ur munnen högst så
 const TAP_GRANS = 0.3
 const LADD_FULL = 1.55
 const LADD_SJALV = LADD_FULL + 1.2
+// Den som SIKTAR (drar fingret) får längre tid på sig innan grodan hoppar av sig själv.
+const LADD_SJALV_SIKT = LADD_FULL + 3
+// SIKTET (ägaren 2026-09-24): medan fingret håller på grodan visar en halvgenomskinlig pil var
+// hoppet landar, och fingret som drar bort från grodan väljer riktningen (dit fingret är, dit
+// grodan hoppar). Inom SIKT_DOD px från tyngdpunkten gäller grodans egen riktning. Hoppet går
+// alltid minst SIKT_MIN över vågrätt — ett hopp rakt in i bladet är inget hopp.
+const SIKT_DOD = 60
+const SIKT_MIN = 0.52 // rad (30°) — vid 20° skrapade benen i grannbladet efter 6 steg (_siktprobe)
+const SIKT_STEG = 220 // så många fysiksteg framåt räknas banan (3,7 s)
+// Så långt under tyngdpunkten hänger benen i luften — det är de som landar. Uppmätt
+// (_siktprobe, sex hopp): 33–56 px som minst, 64–106 i median, upp till 150 i voltens början.
+// Med 58 flög pilen över en stock som benen slog i (ett flackt hopp: 500 px för lång).
+const SIKT_FOT = 90
+const SIKT_BRED = 40 // grodans halva bredd i luften (sten och stam provas så här långt ut)
+const LATT_STEG = 8 // fysiksteg som underlaget släpper igenom grodan efter ett superhopp
+const SIKT_LUCKA = 24 // px mellan pilens prickar
+// VÄNDKNAPPEN nere till höger (ägaren 2026-09-24): grodan vänder sig utan att tungan åker ut —
+// ett tryck bredvid grodan vände den också, men sköt samtidigt tungan dit.
+const VAND_R = 32 // bildens radie — en LITEN knapp
+const VAND_TRAFF = 60 // träffradie: ≥ 96 px diameter + 24 px osynlig halo (P0)
+const VAND_KANT = 74 // knappens mitt så här långt in från bildens hörn
 const HEM_TID = 2.5 // s att hålla på grodkören — samma som P0-grinden för en nollställning
 const LEMMAR = ['fotN', 'fotB', 'underarmN', 'underarmB', 'vadN', 'vadB']
 const TAU = Math.PI * 2
@@ -143,6 +164,10 @@ export default {
     // aldrig ett syskon. `pointerupoutside`: fingret gled av bilden innan det lyftes.
     this._onUp = (e) => this._upp(ctx, e)
     for (const ev of ['pointerup', 'pointerupoutside', 'pointercancel']) this._root.on(ev, this._onUp)
+    // Fingret som drar medan grodan tar sats siktar superhoppet. `globalpointermove` — ett drag
+    // som lämnar rotens träffyta (bleeden) ska fortfarande sikta.
+    this._onMove = (e) => this._flytta(e)
+    this._root.on('globalpointermove', this._onMove)
 
     this._byggVarld(ctx)
 
@@ -349,6 +374,7 @@ export default {
     // En gång per fast fysiksteg: grodans muskler, tungans fjäder, hindrens rörelser, humlan.
     phys.beforeStep(() => {
       this._envagsgrenar()
+      this._lattaSteg()
       this._groda.steg()
       this._tunga.steg()
       this._rep?.steg()
@@ -376,6 +402,9 @@ export default {
     this._ladd = null
     this._hem = null
     this._hemG = null // ligger i effekt-lagret, rivs med det nedan
+    this._siktG = null // likaså
+    this._sikt = null
+    this._latt = null
     this._bar = null
     this._kryst = null
     this._bajs?.destroy()
@@ -433,6 +462,11 @@ export default {
       this._visaKoren(ctx)
       return
     }
+    const vk = this._vandKnapp
+    if (vk.c.visible && Math.hypot(h.x - vk.c.x, h.y - vk.c.y) < VAND_TRAFF) {
+      this._vandTryck(ctx)
+      return
+    }
 
     // Bär grodan en korv: ett tryck på kören kastar den till ungen närmast fingret — om grodan är
     // i närheten (ägaren: "när man är i närheten av grodkören"). Längre bort vinkar kören bara.
@@ -463,7 +497,7 @@ export default {
     if (paGrodan) {
       if (this._tunga.fast) this._tunga.slapp()
       if (g.kanHoppa && g.laddaStart()) {
-        this._ladd = { id: e.pointerId, t: 0, not: -1, full: false, trill: 0 }
+        this._ladd = { id: e.pointerId, t: 0, not: -1, full: false, trill: 0, finger: null, siktat: false }
         audio.tone({ freq: 196, slideTo: 247, dur: 0.1, type: 'triangle', vol: 0.14 })
         return
       }
@@ -576,12 +610,51 @@ export default {
       } else g.laddaAvbryt()
       return
     }
-    if (l.t < TAP_GRANS) {
+    // Ett kort tryck är ett vanligt hopp — om fingret inte drog iväg för att sikta (då är det ett
+    // superhopp dit pilen visade, även med nästan ingen sats).
+    if (l.t < TAP_GRANS && !l.siktat) {
       g.laddaAvbryt()
       this._vanligtHopp(ctx)
       return
     }
-    this._superHopp(ctx, Math.min(1, (l.t - TAP_GRANS) / (LADD_FULL - TAP_GRANS)))
+    this._superHopp(ctx, this._laddP(l), this._sikte(l))
+  },
+
+  // Satsen 0…1 (hur långt över tapp-gränsen fingret hållits).
+  _laddP(l) {
+    return Math.max(0, Math.min(1, (l.t - TAP_GRANS) / (LADD_FULL - TAP_GRANS)))
+  },
+
+  // Fingret flyttade sig: medan grodan tar sats är det siktet.
+  _flytta(e) {
+    const l = this._ladd
+    if (!l || e.pointerId !== l.id || !this._scen || this._scen.destroyed) return
+    const p = this._scen.toLocal(e.global)
+    l.finger = { x: p.x, y: p.y }
+    if (!l.siktat && this._groda) {
+      const c = this._groda.tyngdpunkt()
+      if (Math.hypot(p.x - c.x, p.y - c.y) >= SIKT_DOD) {
+        l.siktat = true
+        log('grodan', 'siktar', {})
+      }
+    }
+  },
+
+  // Riktningen fingret visar (enhetsvektor), eller null = grodans egen. Dit fingret är, dit
+  // hoppar grodan — men aldrig flackare än SIKT_MIN (fingret nedanför grodan ger det flackaste
+  // hoppet åt den sidan).
+  _sikte(l) {
+    const f = l?.finger
+    const g = this._groda
+    if (!f || !g) return null
+    const c = g.tyngdpunkt()
+    const dx = f.x - c.x
+    const dy = f.y - c.y
+    if (Math.hypot(dx, dy) < SIKT_DOD) return null
+    let a = Math.atan2(-dy, dx) // höjdvinkeln: 0 = åt höger, π/2 = rakt upp
+    if (a < SIKT_MIN) a = a < -Math.PI / 2 ? Math.PI - SIKT_MIN : SIKT_MIN
+    else if (a > Math.PI - SIKT_MIN) a = Math.PI - SIKT_MIN
+    return { x: Math.cos(a), y: -Math.sin(a) }
   },
 
   _vanligtHopp(ctx) {
@@ -602,12 +675,18 @@ export default {
     }
   },
 
-  _superHopp(ctx, p) {
+  _superHopp(ctx, p, sikt = null) {
     const g = this._groda
     const audio = ctx.services.audio
     this._nollaTunga()
     const blad = g.underlag?.label === 'blad' ? g.underlag : null
-    if (!g.superHopp(p, g.riktning)) return
+    const under = g.paMark ? g.underlag : null
+    // Utan sikte: dit grodan tittar (samma som pilen visade — _siktBana läser samma superFart).
+    if (!g.superHopp(p, g.riktning, sikt)) return
+    // Grodan LÄTTAR: det den stod på krockar inte med den under de första stegen. Fötterna som
+    // skrapade i bladet gav ett snett hopp en extra knuff (_siktprobe: kontakt på steg 4, −0,5 px/steg
+    // i x och −0,9 i y), och grodan landade en bit från där pilen visade.
+    if (under && under.label !== 'wall' && !under.isSensor) this._latt = { body: under, steg: LATT_STEG, mask: under.collisionFilter.mask }
     this._super = { fas: 'luft', t0: this._t, landT: null, vakT: null, uppe: false, p }
     this._superAntal++
     if (!audio.sample('whoosh')) audio.tone({ freq: 300, slideTo: 900, dur: 0.35, type: 'sine', vol: 0.14 })
@@ -616,7 +695,7 @@ export default {
     if (blad) this._dammen.bladTryck(blad, 0.6 + 0.4 * p)
     const voice = ctx.services.voice
     if ((this._superAntal <= 2 || Math.random() < 0.35) && !voice.talar) voice.say('Superhopp!')
-    log('grodan', 'superhopp', { p: Math.round(p * 100) / 100 })
+    log('grodan', 'superhopp', { p: Math.round(p * 100) / 100, sikt: sikt ? Math.round(Math.atan2(-sikt.y, sikt.x) * 57.3) : null })
   },
 
   // Ett tryck mitt i superhoppet. Första gången åker tungan ut som ett rep: på grodan dit
@@ -708,7 +787,12 @@ export default {
     }
     l.t += dtS
     g.setLaddning(Math.min(1, l.t / LADD_FULL))
-    g.tittMal = { x: g.pos.x + g.riktning * 260, y: g.pos.y - 240 }
+    // Grodan tittar dit hoppet går — och vänder sig om fingret drar åt andra sidan (tydligt åt
+    // sidan: fingret som drar förbi rakt ovanför ska inte få den att vicka fram och tillbaka).
+    const sikt = this._sikte(l)
+    if (sikt && Math.abs(sikt.x) > 0.3 && Math.sign(sikt.x) !== g.riktning && (g.paMark || g.lage === 'vatten')) g.vand()
+    const tp = g.tyngdpunkt()
+    g.tittMal = sikt ? { x: tp.x + sikt.x * 300, y: tp.y + sikt.y * 300 } : { x: g.pos.x + g.riktning * 260, y: g.pos.y - 240 }
     if (l.t > TAP_GRANS) {
       const not = Math.min(7, Math.floor(((l.t - TAP_GRANS) / (LADD_FULL - TAP_GRANS)) * 8))
       if (not > l.not) {
@@ -731,7 +815,168 @@ export default {
         audio.tone({ freq: l.hog ? 1047 : 880, dur: 0.07, type: 'sine', vol: 0.06 })
       }
     }
-    if (l.t > LADD_SJALV) this._laddaSlapp(ctx)
+    if (l.t > (l.siktat ? LADD_SJALV_SIKT : LADD_SJALV)) this._laddaSlapp(ctx)
+  },
+
+  // ── Siktet: pilen som visar superhoppets bana ─────────────────────────────────────────
+
+  // Banan grodans tyngdpunkt tar efter ett superhopp med sats p åt `sikt`: samma utgångsfart
+  // (groda.superFart), samma tyngd, samma luftmotstånd (LUFT_SUPER — grodan i luften) och samma
+  // vind som fysiken, steg för steg som matter räknar: v = v·(1 − luft) + a, sedan x += v.
+  // Banan slutar där FÖTTERNA (SIKT_FOT under tyngdpunkten) når något fast, ett envägsblad/-gren
+  // på väg NED, eller vattnet. Returnerar { pts: [x0, y0, x1, y1, …], landat, vx, vy }.
+  _siktBana(p, sikt) {
+    const g = this._groda
+    const phys = this._phys
+    const d = this._dammen
+    const c = g.tyngdpunkt()
+    const v = g.superFart(p, sikt)
+    const under = g.paMark ? g.underlag : null
+    const grav = phys.engine.gravity
+    const gy = grav.y * (grav.scale ?? 0.001) * STEG2
+    const wx = (this._hinder?.vind || 0) * 0.07
+    const luft = 1 - LUFT_SUPER
+    // Det grodan kan landa på. Vass och stubbens stam är bara tungmål (krockar inte).
+    const fast = []
+    const envag = []
+    for (const f of d.foremal) {
+      if (f.typ === 'vass' || f.typ === 'stubbe') continue
+      const l = f.body.label
+      if (l === 'gren' || l === 'blad' || l === 'svamp') envag.push(f.body)
+      else fast.push(f.body)
+    }
+    // Hoppet lyfter grodan SUPER_LATT px ur underlaget innan det första steget (groda.superHopp).
+    const pts = [c.x, c.y - SUPER_LATT]
+    let x = c.x
+    let y = c.y - SUPER_LATT
+    let vx = v.x
+    let vy = v.y
+    let landat = null
+    // Grodan är ingen punkt: ett hopp förbi en sten slog i den med benen medan en punktbana gick
+    // fri (_siktprobe: "sten" i kontaktloggen på steg 8, banan 790 px för lång). Fast mark provas
+    // därför i fötterna, framför, bakom och ovanför tyngdpunkten; envägsbladen bara med fötterna,
+    // på väg ned.
+    // Tyngdpunkten själv också: en trädstam (52 px) rymdes mellan sidopunkterna och banan gick
+    // rakt igenom den (sett i skärmdumpen).
+    const prov = [[0, 0], [0, SIKT_FOT], [-SIKT_BRED, SIKT_FOT * 0.5], [SIKT_BRED, SIKT_FOT * 0.5], [-SIKT_BRED, 0], [SIKT_BRED, 0], [0, -SIKT_BRED]]
+    const pt = { x: 0, y: 0 }
+    // Benen: vid frånskjutet där grodan sitter (dess lägsta punkt, lyft SUPER_LATT), sedan
+    // utsträckta mot SIKT_FOT på de första stegen. De envägsblad grodan redan är ovanför när den
+    // lättar bär den från början — som i spelet, där ett flackt hopp landade på grannbladet.
+    let lag0 = -Infinity
+    for (const b of g.delar) lag0 = Math.max(lag0, b.bounds.max.y)
+    lag0 = Math.min(SIKT_FOT, lag0 - SUPER_LATT - c.y)
+    const ovanfor = new Set()
+    for (const b of envag) if (b !== under && c.y + lag0 < b.bounds.min.y - 2) ovanfor.add(b)
+    for (let i = 0; i < SIKT_STEG; i++) {
+      vx = vx * luft + wx
+      vy = vy * luft + gy
+      x += vx
+      y += vy
+      pts.push(x, y)
+      if (x < -60 || x > VARLD_B + 60 || y > 780) break
+      if (i < 3) continue // grodan står på något just nu — det är inte ett nedslag
+      for (const [ox, oy] of prov) {
+        pt.x = x + ox
+        pt.y = y + oy
+        if (Query.point(fast, pt).some((b) => i >= LATT_STEG || (b.parent || b) !== under)) {
+          landat = 'mark'
+          break
+        }
+      }
+      if (landat) break
+      // Envägsbladen och -grenarna bär grodan först när HELA grodan varit ovanför dem
+      // (_envagsgrenar) — här: när fötterna en gång passerat ovanför deras ovansida. Då räknas de
+      // även på väg upp (ett flackt hopp skrapade benen i nästa näckrosblad), men inte en gren
+      // grodan fortfarande stiger förbi.
+      // "Ovanför" bedöms med grodans form som den är: de första stegen sitter benen kvar
+      // hopkrupna (lag0) — spelets regel ser då hela grodan ovanför grannbladet — och SEDAN
+      // sträcks de ned mot SIKT_FOT och slår i det.
+      const strackt = Math.min(1, i / 6)
+      pt.x = x
+      pt.y = y + (i < 6 ? lag0 : SIKT_FOT)
+      for (const b of envag) if (pt.y < b.bounds.min.y - 2) ovanfor.add(b)
+      pt.y = y + lag0 + (SIKT_FOT - lag0) * strackt
+      if (Query.point(envag, pt).some((b) => (i >= LATT_STEG || b !== under) && ovanfor.has(b))) {
+        landat = 'mark'
+        break
+      }
+      if (vy > 0 && pt.y >= YT_Y && x > d._vx0 && x < d._vx1) {
+        landat = 'vatten'
+        break
+      }
+    }
+    return { pts, landat, vx, vy }
+  },
+
+  // Pilen: prickar som glider längs banan från grodan mot nedslaget, en pilspets i änden och en
+  // liten skugga där fötterna landar. Diskret: halvgenomskinlig, tunnare närmast grodan.
+  // Syns medan fingret håller (efter tapp-gränsen, eller direkt när fingret drar) och bleknar
+  // bort på 0,15 s efter släppet.
+  _ritaSikt(dtS) {
+    const l = this._ladd
+    const g = this._groda
+    const visa = !!l && !l.slappt && !this._firar && g?.kanHoppa && (l.t > TAP_GRANS || l.siktat)
+    const s = this._sikt || (this._sikt = { a: 0, fas: 0, bana: null })
+    s.a = visa ? Math.min(1, s.a + dtS * 7) : Math.max(0, s.a - dtS * 7)
+    if (visa) s.bana = this._siktBana(this._laddP(l), this._sikte(l))
+    let sg = this._siktG
+    if (s.a <= 0.01 || !s.bana) {
+      if (sg && !sg.destroyed && s.ritad) {
+        sg.clear()
+        s.ritad = false
+      }
+      return
+    }
+    if (!sg || sg.destroyed) {
+      sg = this._siktG = new Graphics()
+      this._L.effekt.addChild(sg)
+    }
+    s.ritad = true
+    s.fas = (s.fas + dtS * 70) % SIKT_LUCKA // prickarna glider framåt, 70 px/s
+    sg.clear()
+    const pts = s.bana.pts
+    const n = pts.length / 2
+    // Längs banan: en prick var SIKT_LUCKA px, förskjutna med fasen.
+    const langd = []
+    let L = 0
+    langd.push(0)
+    for (let i = 1; i < n; i++) {
+      L += Math.hypot(pts[i * 2] - pts[i * 2 - 2], pts[i * 2 + 1] - pts[i * 2 - 1])
+      langd.push(L)
+    }
+    const full = l?.full || this._laddP(l || { t: 0 }) >= 1
+    const bas = 0.6 * s.a
+    let j = 1
+    for (let d = s.fas + 14; d < L - 22; d += SIKT_LUCKA) {
+      while (j < n - 1 && langd[j] < d) j++
+      const f = (d - langd[j - 1]) / Math.max(0.001, langd[j] - langd[j - 1])
+      const x = pts[j * 2 - 2] + (pts[j * 2] - pts[j * 2 - 2]) * f
+      const y = pts[j * 2 - 1] + (pts[j * 2 + 1] - pts[j * 2 - 1]) * f
+      const u = d / L
+      const a = bas * Math.min(1, (d - 14) / 50)
+      const r = 2.6 + 2 * Math.min(1, u * 2.5)
+      sg.circle(x, y, r + 1.4).fill({ color: 0x1d3a26, alpha: a * 0.45 })
+      sg.circle(x, y, r).fill({ color: full ? 0xfff6c8 : 0xffffff, alpha: a })
+    }
+    // Pilspetsen i änden, längs banans sista riktning.
+    const ex = pts[(n - 1) * 2]
+    const ey = pts[(n - 1) * 2 + 1]
+    const px = pts[Math.max(0, n - 4) * 2]
+    const py = pts[Math.max(0, n - 4) * 2 + 1]
+    const dd = Math.hypot(ex - px, ey - py) || 1
+    const ux = (ex - px) / dd
+    const uy = (ey - py) / dd
+    const spets = (k, w) => [ex + ux * k, ey + uy * k, ex - ux * (18 - k) - uy * w, ey - uy * (18 - k) + ux * w, ex - ux * (12 - k), ey - uy * (12 - k), ex - ux * (18 - k) + uy * w, ey - uy * (18 - k) - ux * w]
+    sg.poly(spets(1.5, 13)).fill({ color: 0x1d3a26, alpha: bas * 0.35 })
+    sg.poly(spets(0, 11)).fill({ color: full ? 0xfff6c8 : 0xffffff, alpha: bas * 1.3 })
+    // Där fötterna landar: en platt skugga (en ring på vattnet).
+    if (s.bana.landat) {
+      const ly = s.bana.landat === 'vatten' ? YT_Y : ey + SIKT_FOT
+      const puls = 1 + 0.08 * Math.sin(this._t * 6)
+      if (s.bana.landat === 'vatten') sg.ellipse(ex, ly, 30 * puls, 8 * puls).stroke({ width: 2.5, color: 0xffffff, alpha: bas })
+      else sg.ellipse(ex, ly, 26 * puls, 7 * puls).fill({ color: 0x1d3a26, alpha: bas * 0.4 })
+    }
   },
 
   // Superhoppets förlopp: luft → mark (tumlar) → vaknar (en sekund stilla) → uppe (på benen,
@@ -1507,6 +1752,7 @@ export default {
     const hv = g.b.huvud
     this._bajs.rita(dtS, this._bar ? { ...g.mun(), vinkel: hv.angle, riktning: g.riktning } : null)
     this._ritaRingar(dtS)
+    this._ritaSikt(dtS)
     // Kören tittar på det som angår dem: grodan med korven, en korv som ligger och väntar.
     const kor = this._dammen.grodungar
     const fri = this._bar ? null : this._bajs.fria[0]
@@ -1772,6 +2018,21 @@ export default {
     }
   },
 
+  // Superhoppets lättning: underlaget släpper igenom grodan i LATT_STEG steg, sedan får det
+  // tillbaka sin mask (envägsbladen och -grenarna sköts av _envagsgrenar i nästa steg).
+  _lattaSteg() {
+    const l = this._latt
+    if (!l) return
+    const f = l.body.collisionFilter
+    if (--l.steg > 0) {
+      f.mask = f.mask & ~GRODA_KAT
+      return
+    }
+    this._latt = null
+    const envag = l.body.label === 'gren' || l.body.label === 'blad' || l.body.label === 'svamp'
+    if (!envag) f.mask = l.mask
+  },
+
   // Grodan placeras SITTANDE på startbladet (start, hem, räddning) med fötterna i bladets
   // ovansida — envägsregeln hann aldrig se "hela grodan ovanför", och grodan föll igenom bladet
   // (_startbladdiag: 4 av 4 starter i vattnet). Bladet den placeras på är fast från början.
@@ -1904,6 +2165,75 @@ export default {
     pc.visible = false
     hud.addChild(pc)
     this._korPil = { c: pc, spets, bub, puls: 0, t: 0 }
+
+    // VÄNDKNAPPEN nere till höger: en liten ljus bubbla med ett grodhuvude i profil och två
+    // böjda pilar runt om. Huvudet tittar åt samma håll som grodan, och vänder sig med den.
+    const vc = new Container()
+    const vInre = new Container()
+    vc.addChild(vInre)
+    const vbg = new Graphics()
+    vbg.circle(2, 4, VAND_R).fill({ color: 0x173a1c, alpha: 0.22 })
+    vbg.circle(0, 0, VAND_R).fill({ color: 0xffffff, alpha: 0.8 }).stroke({ width: 3, color: 0x4f9e3a, alpha: 0.9 })
+    // Två böjda pilar (polylinjer — aldrig arc(), se CLAUDE.md), en överst och en nederst.
+    const pilar = new Graphics()
+    const rr = VAND_R - 7
+    for (const [a0, a1] of [[-2.55, -0.55], [0.59, 2.59]]) {
+      const pts = []
+      for (let i = 0; i <= 10; i++) {
+        const a = a0 + ((a1 - a0) * i) / 10
+        pts.push(Math.cos(a) * rr, Math.sin(a) * rr)
+      }
+      pilar.moveTo(pts[0], pts[1])
+      for (let i = 2; i < pts.length; i += 2) pilar.lineTo(pts[i], pts[i + 1])
+      pilar.stroke({ width: 3, color: 0x4f9e3a, cap: 'round' })
+      // Spetsen i bågens slut, längs tangenten.
+      const tx = -Math.sin(a1)
+      const ty = Math.cos(a1)
+      const ex = Math.cos(a1) * rr
+      const ey = Math.sin(a1) * rr
+      const nx = Math.cos(a1)
+      const ny = Math.sin(a1)
+      pilar.poly([ex + tx * 6, ey + ty * 6, ex - tx * 2 + nx * 6, ey - ty * 2 + ny * 6, ex - tx * 2 - nx * 6, ey - ty * 2 - ny * 6]).fill(0x4f9e3a)
+    }
+    // Grodhuvudet i profil, nosen åt +x (ikonen speglas med grodans riktning).
+    const ikon = new Container()
+    const hg = new Graphics()
+    hg.moveTo(-13, 7).bezierCurveTo(-15, -6, -6, -11, 3, -9).bezierCurveTo(12, -8, 15, -2, 15, 3)
+      .bezierCurveTo(15, 9, 8, 11, -2, 11).bezierCurveTo(-8, 11, -12, 10, -13, 7).closePath()
+      .fill(sphereFill(0x7cc653, { lightX: 0.4, lightY: 0.25, dark: 0.26 })).stroke({ width: 1.5, color: 0x2c5a24 })
+    hg.circle(1, -9, 6).fill(sphereFill(0x7cc653, { lightY: 0.25 }))
+    hg.circle(2, -10, 4.2).fill(0xffffff)
+    hg.circle(3.6, -10, 2.2).fill(0x1d2a1a)
+    hg.moveTo(4, 4).quadraticCurveTo(10, 6.5, 14, 3).stroke({ width: 1.6, color: 0x2c5a24, cap: 'round' })
+    ikon.addChild(hg)
+    vInre.addChild(vbg, pilar, ikon)
+    hud.addChild(vc)
+    this._vandKnapp = { c: vc, inre: vInre, pilar, ikon, tryck: 0, vick: 0, snurr: 0, t: 0, riktning: 1 }
+  },
+
+  // Vändknappen trycktes: grodan vänder sig (ett litet skutt om den sitter) — utan tunga.
+  _vandTryck(ctx) {
+    const g = this._groda
+    const vk = this._vandKnapp
+    const audio = ctx.services.audio
+    vk.tryck = 1
+    this._idle = 0
+    // Mitt i ett superhopp har stjärnläget ingen sida: knappen vickar och grodan kvackar.
+    if (this._super || g.superFas || g.stjarna) {
+      vk.vick = 1
+      g.kvacka()
+      this._kvackLjud(ctx, 0.6)
+      return
+    }
+    g.vand()
+    if (g.paMark) g.knuffa(0, -2.6, 0.5)
+    g.tittMal = { x: g.pos.x + g.riktning * 300, y: g.pos.y - 60 }
+    g.blinka()
+    vk.snurr = 1
+    audio.tone({ freq: 392, slideTo: 523, dur: 0.1, type: 'triangle', vol: 0.16 })
+    audio.tone({ freq: 523, slideTo: 659, dur: 0.08, type: 'triangle', vol: 0.1, delay: 0.08 })
+    puff(this._fx, g.pos.x, g.pos.y + 30, { count: 3, color: 0xd9f0c0 })
+    log('grodan', 'vand', { riktning: g.riktning })
   },
 
   _ritaHud(dtS) {
@@ -1915,6 +2245,31 @@ export default {
       const hoppY = -14 * Math.sin(Math.PI * h.hopp)
       h.inre.y = 1.5 * Math.sin(h.t * 1.6) + hoppY
       h.inre.rotation = 0.03 * Math.sin(h.t * 1.1) + 0.18 * h.wiggle * Math.sin(h.t * 40)
+    }
+    // Vändknappen: i bildens nedre högra hörn (med telefonens bleed), dold under finalen.
+    // Ikonen vänder sig genom skala 0 när grodan vänder sig (stjärnläget har ingen sida — då
+    // står ikonen kvar), pilarna snurrar ett varv vid tryck, och hela knappen trycks ihop.
+    const vk = this._vandKnapp
+    if (vk && !vk.c.destroyed) {
+      const vv = this._ctx?.view
+      const sr = Number.isFinite(vv?.right) ? vv.right : 1280
+      const sb = Number.isFinite(vv?.bottom) ? vv.bottom : 720
+      vk.c.position.set(sr - VAND_KANT, sb - VAND_KANT)
+      vk.c.visible = !this._firar
+      vk.t += dtS
+      vk.tryck = Math.max(0, vk.tryck - dtS * 5)
+      vk.vick = Math.max(0, vk.vick - dtS * 2.5)
+      vk.snurr = Math.max(0, vk.snurr - dtS * 2.2)
+      const g = this._groda
+      if (g && !g.stjarna) vk.riktning = g.riktning
+      const mal = vk.riktning
+      const nu = vk.ikon.scale.x
+      vk.ikon.scale.x = Math.abs(mal - nu) < 0.02 ? mal : nu + (mal - nu) * Math.min(1, dtS * 14)
+      vk.pilar.rotation = vk.snurr > 0 ? -mal * (1 - vk.snurr) * TAU * 0.5 : 0
+      const sq = Math.sin(Math.PI * vk.tryck)
+      vk.inre.scale.set(1 + 0.1 * sq, 1 - 0.12 * sq)
+      vk.inre.rotation = 0.22 * vk.vick * Math.sin(vk.t * 34)
+      vk.inre.y = 1.2 * Math.sin(vk.t * 1.9)
     }
     // Körpilen: syns när grodan bär en korv och kören är utanför bild.
     const pil = this._korPil
@@ -1988,6 +2343,7 @@ export default {
     if (this._root && !this._root.destroyed) {
       this._root.off('pointerdown', this._onDown)
       for (const ev of ['pointerup', 'pointerupoutside', 'pointercancel']) this._root.off(ev, this._onUp)
+      this._root.off('globalpointermove', this._onMove)
     }
     if (this._kam?.root) gsap.killTweensOf(this._kam.root)
     this._rivVarld()

@@ -3,7 +3,8 @@
 > ⚙️ fysik · tap · 3–5 år · ✅
 > Status: ✅ marknadsklar · byggd och publicerad i nattpasset 2026-09-23/24 (v1.254.0) ·
 > superhoppet + grodkörens hem-knapp 2026-09-24 (v1.255.0) · bajsloopen (L3 av biomplanen, §4d)
-> 2026-09-24 (v1.257.0) · kamera + stor värld (L4, v1.258.0) · biomerna is/fors/skog (L5, v1.259.0)
+> 2026-09-24 (v1.257.0) · kamera + stor värld (L4, v1.258.0) · biomerna is/fors/skog (L5, v1.259.0) ·
+> sikt-pil för superhoppet + vändknapp (v1.260.0)
 
 ## 0. Spec (fylls i av `/spel` innan kod skrivs)
 
@@ -24,7 +25,7 @@ man lär sig att inte ge upp."*
 | **titleSv** | Grodan Slurp |
 | **icon** | 🐸 |
 | **kategori** | `fysik` → flik Fysik |
-| **input** | `tap` — tryck = tungan skjuts mot punkten · tryck PÅ grodan = hopp · HÅLL på grodan = superhopp (valfritt: ett kort tryck är alltid ett vanligt hopp) · tryck på grodkören med en korv i munnen = kast · håll 2,5 s på grodkören = grodan hem. Inget drag (medvetet val, se nedan) |
+| **input** | `tap` — tryck = tungan skjuts mot punkten · tryck PÅ grodan = hopp · HÅLL på grodan = superhopp (valfritt: ett kort tryck är alltid ett vanligt hopp), och fingret som DRAR under hållet siktar (en pil visar banan) · tryck på grodkören med en korv i munnen = kast · håll 2,5 s på grodkören = grodan hem · VÄNDKNAPPEN nere till höger vänder grodan utan tunga |
 | **ålder** | [3, 5] |
 | **kärnloop** | Grodan sitter på ett näckrosblad i dammen. Tryck någonstans → tungan skjuts mot punkten och fastnar på det FÖRSTA den träffar. Insekt → rullas in i munnen, GULP. Gren/sten/stock (fast eller tung) → grodan slungas dit och dinglar i tungan. Lätt sak (löv, kotte) → saken dras till grodan. Tryck igen = släpp + ny tunga. |
 | **mål** | ~~8 insekter~~ → sedan L3 (v1.257.0): tre matade grodungar. En full mage (8 insekter, sedan 4 — 5 före L5) blir en bajskorv; tungan hämtar den, grodan bär den och ett tryck på kören kastar den → `progress.complete()` när alla tre fått varsin |
@@ -115,6 +116,22 @@ Val som ägaren gjorde (frågat 2026-09-24):
   byggs ovanpå den.
 
 ## 1. Nuläge (sett som spelare)
+
+**Siktet och vändknappen (v1.260.0, ägarens önskemål 2026-09-24).** *"en liten knapp nere till
+höger som vänder grodans håll … då det inte alltid fungerar att vända genom att klicka på ena
+sidan av den samt att då åker tungan ut"* och *"när vi håller in fingret på grodan för superhopp
+så vill vi se en diskret / halvtransparent animerad pil (trajectory path) som hela tiden
+uppdaterar banan … samt att man kan justera den genom att dra med fingret för att bestämma
+riktningen"*. Håller man på grodan tonar en prickad båge in efter 0,3 s (direkt om fingret drar):
+vita halvgenomskinliga prickar som glider från grodan längs banan, en pilspets i änden och en
+skugga (på vattnet en ring) där fötterna landar. Bågen växer med satsen och blir gräddgul vid full
+sats. Drar fingret bort från grodan (mer än 60 px) går hoppet DIT fingret är — grodan vänder sig
+och tittar dit — aldrig flackare än 30°. Ett kort tryck utan drag är fortfarande ett vanligt hopp,
+men ett kort tryck som DRAR blir ett superhopp åt det hållet. Den som siktar får 3 s efter full
+sats innan grodan hoppar själv (annars 1,2 s). Vändknappen är en liten ljus bubbla (bild r 32,
+träffyta r 60) med ett grodhuvud i profil som tittar åt samma håll som grodan och två gröna pilar:
+tryck = grodan vänder sig med ett litet skutt, huvudet i knappen vänder med den och pilarna snurrar
+ett halvt varv. Mitt i ett superhopp (stjärnläget har ingen sida) vickar knappen och grodan kvackar.
 
 *(v1.254.0, nattpasset 2026-09-23/24.)* En damm från sidan: himmel efter tid på dagen (eftermiddag
 först, sedan morgon eller skymning), ett stort träd på ena sidan med en gren över vattnet,
@@ -600,9 +617,42 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 - **Simhjälpen** (`_simHem`) söker nu alla landningsplatser (`landningar()`: blad, isflak,
   stenar), inte bara blad.
 
+### 4h. Siktet och vändknappen — teknisk ritning (v1.260.0)
+
+- **EN formel för farten:** `groda.superFart(p, aim)` ger utgångsfarten (px/steg) och läses av
+  både `superHopp` och pilen (`index._siktBana`). Utan sikte samma vinkel som förut; med sikte
+  samma fart åt fingrets håll. Hållet väljer kraften, fingret riktningen.
+- **Banan räknas som matter räknar:** `v = v·(1 − LUFT_SUPER) + g` (g = gravity.y · scale · STEG2,
+  plus vinden om den blåser), sedan `x += v`. Den slutar där grodan slår i något: fast mark provas i
+  sju punkter runt tyngdpunkten (tyngdpunkten, fötterna `SIKT_FOT` 90 px under, sidorna ±40, ovanför),
+  envägsblad/-grenar bara om fötterna en gång varit ovanför dem (spelets egen regel, `_envagsgrenar`),
+  vattnet på väg ned. Det grodan står på räknas inte de första `LATT_STEG` stegen.
+- **Två rättelser i hoppet för att banan skulle STÄMMA** (`scripts/_siktprobe.mjs` spelar in
+  tyngdpunkten varje fysiksteg och jämför med pilens punkt k):
+  ⓵ Superhoppets fartspärr klippte delarnas fart runt tyngdpunkten var för sig, och klippet läckte
+  rörelsemängd ur hela hoppet (rakt upp: 52 px lägre topp än banan). Nu dras de klippta farternas
+  massviktade medel av, så tyngdpunkten flyger en ren kastbana. Följd: full sats når 472 px högt och
+  692 långt (var 382 och 779 — det gamla talet innehöll läckan), `_superhoppprobe`.
+  ⓶ Fötterna skrapade i bladet de stod på de första stegen (−0,5 px/steg i x, −0,9 i y). Hoppet
+  lyfter nu grodan `SUPER_LATT` 4 px, och underlaget släpper igenom grodan i `LATT_STEG` 8 steg
+  (`_lattaSteg`).
+- **Uppmätt efter rättelserna** (21 hopp, 3 slumpade dammar): fel längs banan 0–7 px i fri flygning
+  (kontroll utan drag, brant, rakt upp: 0–3 px; landningen 0–80 px). Där det skiljer är det
+  ragdollens ben som slår i en sten, stock eller ett grannblad nära frånskjutet — det är kaotiskt,
+  och pilen stoppar då hellre vid hindret än flyger förbi det. Benen hänger 33–150 px under
+  tyngdpunkten i luften (median 64–106), därav `SIKT_FOT` 90.
+- **Vinkel:** `SIKT_MIN` 30°. Vid 20° skrapade benen i grannbladet efter 6 steg.
+- **Vändknappen** (`_byggHud`, `_ritaHud`, `_vandTryck`): HUD-lagret (skärmrum), `VAND_KANT` 74 px in
+  från vyns nedre högra hörn (med telefonens bleed). Går före grodan och tungan i `_tryck`. Kören kan
+  i sällsynta kameralägen hamna under knappen — då vinner knappen, kören har 250 px träffyta kvar.
+- **Sonden** `_siktprobe.mjs`: bana × 7 (kontroll utan drag + sex riktningar), kort drag = superhopp,
+  kort tryck = vanligt hopp (180–190 px), vändknappen (vänder, ingen tunga, halon 55 px från mitten
+  träffar, mitt i superhoppet ingen vändning), exit mitt i ett siktande drag — 0 konsolfel.
+
 ### 4b. Senare (inte i leverans 1)
 
-- [Medium] Slangbella-hopp (dra från grodan, prickad bana via `predictTrajectory`).
+- ~~[Medium] Slangbella-hopp (dra från grodan, prickad bana via `predictTrajectory`).~~ Byggt som
+  sikte i superhoppet (v1.260.0, §4h) — dit fingret drar, inte bort från det.
 - [Medium] Fler sällsynta händelser: regnskur (droppar som knuffar), näckrosblomma som öppnar
   sig, groda nummer två som tävlar om samma fluga (vänskapligt).
 - [Deep] Bredare damm med `lib/kamera.js` (världsbredd 2400).
@@ -615,3 +665,4 @@ vad ägaren bad om", repet är begripligt och vaknandet tar rimlig tid. Två fyn
 `2026-09-24 · L3 bajsloopen (ägarens biom-önskemål, §0/§4d): full mage → bajskorv i kostens färger → tungan hämtar → bär → kasta till kören, tre matade = klar; vass-fällan rättad (2/6 → 6/6 loss); 9 röstklipp; spelkritiker 8/8 "klar att committa" (3 fynd åtgärdade); v1.257.0`
 `2026-09-24 · L4 kamera + stor värld (2560 × 1440, §4f): två stränder med höga träd, stubbe, kör vid stranden med körpil, hem-bladet i HUD, klättra/hoppa ned, envägsgrenar/-blad, simtag; sex fällor stängda (§3 L4); v1.258.0 · e31b2c8`
 `2026-09-24 · L5 biomer (§4g): damm · is (halt golv, vakar, snö) · fors (ström mot kören, stenar, skum) · skog (mark att dra sig längs, göl, flugsvampar); ny biom vid varje start; nästa korv efter 4; spelkritiker 8/8; test:all 86/86; v1.259.0`
+`2026-09-24 · sikt-pil i superhoppet (dra fingret = riktning, pilen visar banan) + vändknapp nere till höger; fartspärren läckte rörelsemängd (rättad), grodan lättar ur underlaget; _siktprobe; v1.260.0`

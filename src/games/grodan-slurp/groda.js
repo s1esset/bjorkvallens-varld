@@ -132,7 +132,8 @@ const SITT_VINKEL = -0.62
 const LADDA_VINKEL = -0.3
 const LED_DAMP = 0.08 // ledernas dämpning (se _ledDamp om varför den sänks i superhoppet)
 const LUFT = 0.012 // kroppsdelarnas luftmotstånd
-const LUFT_SUPER = 0.004
+export const LUFT_SUPER = 0.004
+export const SUPER_LATT = 4 // px superhoppet lyfter grodan ur underlaget vid frånskjutet (superHopp)
 const HUVUD_SKALA = 1.12
 export const GRODA_MASSA_UNGEFAR = 18
 
@@ -632,23 +633,45 @@ export class Groda {
     this.laddning = 0
   }
 
-  // p 0…1 = hur länge fingret hölls. Samma vinkel, mer kraft: högre OCH längre.
-  superHopp(p, dirX = this.riktning) {
+  // Superhoppets utgångsfart (px/steg) — EN formel som både hoppet och sikt-pilen (index.js
+  // `_siktBana`) läser, så pilen aldrig kan visa ett annat hopp än det som kommer.
+  // p 0…1 = hur länge fingret hölls. aim = enhetsvektor dit fingret drar (null: dit grodan
+  // tittar, i hoppets egen vinkel). Farten är densamma åt alla håll — fingret väljer riktningen,
+  // hållet väljer kraften.
+  superFart(p, aim = null) {
+    const k = !this.paMark && this._naraVatten ? 0.78 : 1
+    const vx = (4.4 + 3.4 * p) * k
+    const vy = -(12.6 + 5 * p) * k
+    if (!aim) return { x: this.riktning * vx, y: vy }
+    const v = Math.hypot(vx, vy)
+    return { x: aim.x * v, y: aim.y * v }
+  }
+
+  // Samma vinkel, mer kraft: högre OCH längre. Med `aim` (fingret drog) går hoppet dit.
+  superHopp(p, dirX = this.riktning, aim = null) {
     const iV = !this.paMark && this._naraVatten
     if (!this.paMark && !iV) {
       this.laddaAvbryt()
       return false
     }
-    if (Math.sign(dirX) !== this.riktning && this.paMark) this.vand()
+    // Vänd mot hoppet. Siktat nästan rakt upp: ingen vändning (hållet ska inte vicka fram och
+    // tillbaka när fingret drar förbi mitten).
+    if (aim) {
+      if (Math.abs(aim.x) > 0.12 && Math.sign(aim.x) !== this.riktning) this.vand()
+    } else if (Math.sign(dirX) !== this.riktning && this.paMark) this.vand()
     const s = this.riktning
-    const k = iV ? 0.78 : 1
+    const v = this.superFart(p, aim)
     this.superFas = 'volt'
     this.laddning = 0
     this.kraft = 1
     this._kraftPaus = 0
     this._tvingadPose = 'hopp'
     this._poseTid = 6
-    this.knuffa(s * (4.4 + 3.4 * p) * k, -(12.6 + 5 * p) * k, 1)
+    this.knuffa(v.x, v.y, 1)
+    // Lätta från underlaget: fötterna som står kvar i bladet de första stegen gav ett sned hopp en
+    // extra knuff (friktion + frånskjut, −0,3 px/steg i x och y — _siktprobe), och då landade
+    // grodan en bit från där sikt-pilen visade. Translate flyttar även positionPrev (farten kvar).
+    for (const b of this.delar) Body.translate(b, { x: 0, y: -SUPER_LATT })
     // Bakåtvolt oftast (huvudet upp och bakåt), ibland framåt; ett fullt laddat hopp hinner
     // två varv. Snurret är stelt kring tyngdpunkten — musklerna kan inte skapa det själva.
     this._voltRikt = Math.random() < 0.72 ? -s : s
@@ -766,6 +789,11 @@ export class Groda {
     this.vilSteg = 0
     this.laddning = 0
     this._vakenT = 0
+  }
+
+  // Hela ragdollens tyngdpunkt — det superhoppet kastar iväg (sikt-pilen börjar här).
+  tyngdpunkt() {
+    return this._com()
   }
 
   _com() {
@@ -996,7 +1024,17 @@ export class Groda {
       const vc = this._comFart()
       const s = Math.hypot(vc.x, vc.y)
       const k = s > 24 ? 24 / s : 1
-      for (const b of this.delar) {
+      // Delarnas fart RUNT tyngdpunkten klipps var för sig — men då får klippet inte flytta
+      // tyngdpunkten: en klippt lem förlorade annars rörelsemängd åt ett håll och hela hoppet
+      // bromsades (sikt-pilen, _siktprobe: 52 px lägre topp än banan rakt upp). Medelvärdet av
+      // de klippta farterna (massviktat) dras därför av, så att tyngdpunktens fart blir exakt
+      // vc·k — hoppet blir en ren kastbana och pilen kan visa den.
+      let mx = 0
+      let my = 0
+      let m = 0
+      const rel = this._relFart || (this._relFart = this.delar.map(() => ({ x: 0, y: 0 })))
+      for (let i = 0; i < this.delar.length; i++) {
+        const b = this.delar[i]
         let rx = b.velocity.x - vc.x
         let ry = b.velocity.y - vc.y
         const r = Math.hypot(rx, ry)
@@ -1004,7 +1042,17 @@ export class Groda {
           rx *= 18 / r
           ry *= 18 / r
         }
-        Body.setVelocity(b, { x: vc.x * k + rx, y: vc.y * k + ry })
+        rel[i].x = rx
+        rel[i].y = ry
+        mx += rx * b.mass
+        my += ry * b.mass
+        m += b.mass
+      }
+      mx /= m
+      my /= m
+      for (let i = 0; i < this.delar.length; i++) {
+        const b = this.delar[i]
+        Body.setVelocity(b, { x: vc.x * k + rel[i].x - mx, y: vc.y * k + rel[i].y - my })
         if (Math.abs(b.angularVelocity) > 0.6) Body.setAngularVelocity(b, Math.sign(b.angularVelocity) * 0.6)
       }
       return

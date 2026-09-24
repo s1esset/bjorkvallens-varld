@@ -337,7 +337,10 @@ export class PhysicsWorld {
   // TAKET ÄR INTE VALFRITT. En domino-kedja eller en rasande stapel ger tiotals
   // par i EN bildruta; utan tak blir det ett skrik, inte en duns — och P0 säger
   // uttryckligen att återkoppling ska vara rolig, aldrig en summer.
-  onImpact(handler, { minSpeed = 1.6, hardSpeed = 14, maxPerFrame = 3 } = {}) {
+  // `filter(a, b)` (valfritt) → false = paret räknas inte alls, varken som ljud eller mot taket.
+  // För lätta småkroppar som nuddar hela tiden (grodan-slurps klibbrep) och annars skulle
+  // knacka i ett kör och äta upp taket för de smällar som betyder något.
+  onImpact(handler, { minSpeed = 1.6, hardSpeed = 14, maxPerFrame = 3, filter = null } = {}) {
     if (!this._alive) return
     let ruta = -1
     let iRutan = 0
@@ -351,6 +354,7 @@ export class PhysicsWorld {
         if (iRutan >= maxPerFrame) return
         const a = p.bodyA
         const b = p.bodyB
+        if (filter && !filter(a, b)) continue
         const rel = Math.hypot(a.velocity.x - b.velocity.x, a.velocity.y - b.velocity.y)
         if (!(rel >= minSpeed)) continue // NaN faller ut här med, inte bara små tal
         iRutan++
@@ -375,7 +379,7 @@ export class PhysicsWorld {
   // Hårdare anslag = högre OCH ljusare. Bara volym räcker inte: örat läser tonhöjd
   // som kraft, och två träffar med samma tonhöjd men olika volym låter som samma
   // träff på olika avstånd. `standard` används för kroppar utan eget material.
-  impactAudio(audio, { standard = 'tra', minSpeed = 1.6, hardSpeed = 14, vol = 0.24, maxPerFrame = 3, minGapMs = 28 } = {}) {
+  impactAudio(audio, { standard = 'tra', minSpeed = 1.6, hardSpeed = 14, vol = 0.24, maxPerFrame = 3, minGapMs = 28, filter = null } = {}) {
     if (!audio?.tone) return
     let sistAt = -1e9
     return this.onImpact(
@@ -397,7 +401,7 @@ export class PhysicsWorld {
           vol: vol * (0.3 + 0.7 * h.styrka),
         })
       },
-      { minSpeed, hardSpeed, maxPerFrame }
+      { minSpeed, hardSpeed, maxPerFrame, filter }
     )
   }
 

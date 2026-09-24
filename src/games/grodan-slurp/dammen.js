@@ -1519,6 +1519,8 @@ class Grodungar {
     this._rotC = rot
     const cx = sida === 'h' ? rnd(1122, 1148) : rnd(132, 158)
     const cy = 690
+    // Bladets mitt i världen — spelet gör kören till en håll-knapp ("kalla hem grodan").
+    this.plats = { x: cx, y: cy }
     // Krusningar på vattnet runt bladet (förgrunden flyter också).
     this._ringar = []
     for (let i = 0; i < 2; i++) {

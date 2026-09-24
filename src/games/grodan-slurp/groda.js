@@ -23,6 +23,22 @@
 // varje leds lokala ankarpunkt får y negerat. Bilden speglas med `scale.y = riktning` per
 // kroppsdel. Vändningen döljs i ett litet vändhopp (så gör riktiga grodor också).
 //
+// SUPERHOPPET (håll fingret på grodan). Fyra faser i `superFas`:
+//   ladda    grodan sitter och tar sats: målposen glider från `sitt` mot en djupare `ladda`,
+//            och bilden trycks ihop och darrar (bara bild — `rita()`), mer ju längre man håller.
+//   volt     frånskjut + ett stelt snurr kring tyngdpunkten, musklerna i en tät kula (`volt`).
+//            Kulan har lägre tröghet — snurret går FORTARE när benen dras in (äkta fysik).
+//   stjarna  efter ett varv byts VYN: grodan lägger sig platt med magen mot oss och alla fyra
+//            benen utsträckta (STJÄRNLÄGET). Samma tolv kroppar och elva leder; bara ledernas
+//            ankarpunkter, gränser och målvinklar byts (`l.sid` ↔ `l.stj`, Object.assign av
+//            fälten pa/pb/lo/hi/mitt — aldrig `c` eller `led`). I luften: svaga muskler med brus
+//            (lemmarna flänger) och ett långsamt slumpat snurr. Efter första kontakten: slak
+//            ragdoll som tumlar på riktigt. `vilSteg` räknar steg i vila.
+//   vakna    spelet avgör NÄR (index.js); `vakna()` byter tillbaka till sidovyn och sätter
+//            grodan på benen med ett litet hopp.
+// Vyn i stjärnläget: ryggraden längs bålens lokala x (mot huvudet), sidorna längs lokala y
+// (N = +y, B = −y). Huvudets vinkel är bålens + π/2, så huvudets lokala −y är hjässan.
+//
 // Koordinater: kanonisk groda tittar åt +x, y nedåt. En kroppsdels långa axel ligger längs dess
 // lokala x. Vinklar i radianer, medurs positivt (skärmens y nedåt).
 import { Container, Graphics } from 'pixi.js'
@@ -91,10 +107,32 @@ const POSER = {
   simIn: { nacke: 0.25, axel: 1.4, armbage: -0.9, hoft: 1.0, kna: 2.4, fotled: -2.4 },
   simUt: { nacke: 0.05, axel: 0.5, armbage: -0.3, hoft: 2.8, kna: 0.12, fotled: -0.15 },
   dingla: { nacke: 0.35, axel: 1.7, armbage: -0.7, hoft: 1.9, kna: 1.25, fotled: -1.3 },
+  // Tar sats: djupare vikt, armarna spjärnar, huvudet lågt och framåt.
+  ladda: { nacke: 0.02, axel: 2.25, armbage: -0.55, hoft: 0.42, kna: 2.9, fotled: -2.95 },
+  // Voltens kula: knäna mot bröstet, armarna om benen.
+  volt: { nacke: 0.5, axel: 2.1, armbage: -1.0, hoft: 0.4, kna: 2.85, fotled: -2.6 },
+  // Stjärnläget (magen mot oss). `stj` = vinklarna gäller N-sidan och speglas för B (se STJ).
+  stjarna: { stj: true, nacke: Math.PI / 2, axel: 0.95, armbage: -0.45, hoft: 2.25, kna: 0.35, fotled: 0.15 },
 }
 
-// Bålens mål-vinkel när grodan sitter (framänden upp).
+// Stjärnlägets ledgeometri för N-sidan (+y). B-sidan speglas: ankarets y byter tecken och
+// gränserna blir [−hi, −lo]. Nacken har ingen sida.
+const STJ = {
+  nacke: { pa: [38, 0], pb: [0, 17], lo: Math.PI / 2 - 0.4, hi: Math.PI / 2 + 0.4 },
+  axel: { pa: [22, 24], pb: [-11, 0], lo: 0.15, hi: 2.3 },
+  armbage: { pa: [11, 0], pb: [-11, 0], lo: -1.6, hi: 0.5 },
+  hoft: { pa: [-32, 20], pb: [-19, 0], lo: 1.4, hi: 3.0 },
+  kna: { pa: [19, 0], pb: [-19, 0], lo: -0.5, hi: 1.6 },
+  fotled: { pa: [19, 0], pb: [-21, 0], lo: -1.2, hi: 1.0 },
+}
+const GEO = ['pa', 'pb', 'lo', 'hi', 'mitt']
+
+// Bålens mål-vinkel när grodan sitter (framänden upp) — och när den tagit full sats.
 const SITT_VINKEL = -0.62
+const LADDA_VINKEL = -0.3
+const LED_DAMP = 0.08 // ledernas dämpning (se _ledDamp om varför den sänks i superhoppet)
+const LUFT = 0.012 // kroppsdelarnas luftmotstånd
+const LUFT_SUPER = 0.004
 const HUVUD_SKALA = 1.12
 export const GRODA_MASSA_UNGEFAR = 18
 
@@ -247,6 +285,72 @@ function ritaUnderarm(g) {
   }
 }
 
+// Stjärnläget: bålen sedd från MAGEN. Lokalt x = ryggraden (+x mot huvudet), y = tvärs.
+// Magen växer med `mage` precis som i sidovyn.
+function ritaMage(g, mage) {
+  const b = 1 + mage * 0.4
+  g.clear()
+  // Sidorna: den gröna kanten runt magen (lite bredare än kollisionsformen — en groda är platt).
+  g.moveTo(44, -18)
+    .bezierCurveTo(50, -6, 50, 6, 44, 18)
+    .bezierCurveTo(30, 34 * b, -30, 38 * b, -44, 20)
+    .bezierCurveTo(-50, 8, -50, -8, -44, -20)
+    .bezierCurveTo(-30, -38 * b, 30, -34 * b, 44, -18)
+    .closePath()
+    .fill(sphereFill(F.bas, { lightX: 0.4, lightY: 0.22, spread: 0.62, dark: 0.3 }))
+    .stroke({ width: 3, color: F.mork, alpha: 0.9, join: 'round' })
+  for (const [x, y, rx, ry] of [[-30, -25, 5, 3.5], [-10, -30, 4, 3], [16, -27, 4, 3], [-26, 26, 5, 3.5], [0, 30, 4, 3], [22, 25, 4, 3]]) {
+    g.ellipse(x, y * (0.85 + 0.15 * b), rx, ry).fill({ color: F.prick, alpha: 0.7 })
+  }
+  // Den ljusa magen och strupen mot huvudet.
+  g.ellipse(-4, 0, 36, 22 * b).fill(sphereFill(F.buk, { lightX: 0.4, lightY: 0.3, dark: 0.12 }))
+  g.ellipse(32, 0, 11, 15).fill({ color: F.hals, alpha: 0.95 })
+  g.moveTo(-26, -8 * b).bezierCurveTo(-18, -3, -18, 3, -26, 8 * b).stroke({ width: 2, color: 0xd8d19c, alpha: 0.7, cap: 'round' })
+  g.ellipse(-10, -9 * b, 13, 5).fill({ color: 0xffffff, alpha: 0.35 })
+}
+
+// Stjärnläget: huvudet sett FRAMIFRÅN. Lokalt x = tvärs, +y = mot bålen, −y = hjässan.
+// v = { bas, ogon: [{ c, pupill, lockC }], munC, munOppen }
+function ritaHuvudFram(v) {
+  const g = v.bas
+  g.clear()
+  // Ögonkulorna sticker upp över hjässan (ritas bakom huvudets kontur).
+  for (const s of [-1, 1]) {
+    g.circle(s * 17, -18, 14.5).fill(sphereFill(F.bas, { lightX: 0.4, lightY: 0.25, dark: 0.3 })).stroke({ width: 3, color: F.mork })
+  }
+  g.moveTo(-36, 2)
+    .bezierCurveTo(-37, -14, -22, -21, 0, -21)
+    .bezierCurveTo(22, -21, 37, -14, 36, 2)
+    .bezierCurveTo(35, 16, 18, 24, 0, 24)
+    .bezierCurveTo(-18, 24, -35, 16, -36, 2)
+    .closePath()
+    .fill(sphereFill(F.bas, { lightX: 0.45, lightY: 0.2, spread: 0.6, dark: 0.28 }))
+    .stroke({ width: 3, color: F.mork, alpha: 0.9, join: 'round' })
+  // Ljus haka, rosa kinder, näsborrar och ett brett grodleende.
+  g.moveTo(-24, 11).bezierCurveTo(-14, 23, 14, 23, 24, 11).bezierCurveTo(12, 16, -12, 16, -24, 11).closePath().fill({ color: F.hals, alpha: 0.9 })
+  g.ellipse(-25, 5, 5.5, 3.2).fill({ color: 0xff8fa0, alpha: 0.4 })
+  g.ellipse(25, 5, 5.5, 3.2).fill({ color: 0xff8fa0, alpha: 0.4 })
+  g.ellipse(-5, -7, 2.2, 1.5).fill(F.mork)
+  g.ellipse(5, -7, 2.2, 1.5).fill(F.mork)
+  g.moveTo(-27, 4).bezierCurveTo(-12, 13, 12, 13, 27, 4).stroke({ width: 2.6, color: F.mork, cap: 'round' })
+  g.ellipse(-8, -14, 9, 3.4).fill({ color: 0xffffff, alpha: 0.22 })
+  // Ögonen: gyllene iris, liggande pupill, glans och ett lock som fälls ned uppifrån.
+  for (const o of v.ogon) {
+    o.iris.clear()
+    o.iris.circle(0, 0, 10.5).fill(sphereFill(F.ogon, { lightX: 0.35, lightY: 0.28, dark: 0.4 })).stroke({ width: 2.4, color: F.mork })
+    o.pupill.clear()
+    o.pupill.ellipse(0, 0, 5.6, 3.4).fill(0x151515)
+    o.pupill.circle(-2, -1.6, 1.5).fill({ color: 0xffffff, alpha: 0.9 })
+    o.lock.clear()
+    o.lock.ellipse(0, 11, 12, 11.5).fill(F.bas)
+    o.lock.moveTo(-11.5, 11).bezierCurveTo(-8, 23, 8, 23, 11.5, 11).stroke({ width: 2.2, color: F.mork, alpha: 0.9 })
+  }
+  // Den öppna munnen (syns när tungan är ute eller grodan äter) — skalas i y från sin topp.
+  v.munOppen.clear()
+  v.munOppen.ellipse(0, 5, 17, 8).fill(F.mun).stroke({ width: 2.4, color: F.mork })
+  v.munOppen.ellipse(0, 8.5, 9, 3.6).fill({ color: 0xe57c94, alpha: 0.95 })
+}
+
 export class Groda {
   // phys: PhysicsWorld · lager: { bak, mitt, fram } (Containers i rätt ordning, ägs av spelet)
   constructor(phys, lager, { x = 400, y = 480, riktning = 1 } = {}) {
@@ -260,10 +364,21 @@ export class Groda {
     this.mage = 0 // 0…1, växer för varje insekt
     this._t = 0
     this._mark = 0 // steg sedan senaste markkontakt (0 = står på något nu)
+    this._markUnder = 0
     this._simFas = 0
     this._poseTid = 0 // steg kvar av en tvingad pose (hoppets frånskjut)
     this._tvingadPose = null
     this.ytY = 560
+    // Superhoppet (se huvudet i filen).
+    this.superFas = null // null | 'ladda' | 'volt' | 'stjarna'
+    this.stjarna = false // vyn: magen mot oss
+    this.laddning = 0 // 0…1 medan grodan tar sats
+    this.landat = false // stjärnläget: har grodan nuddat något sedan den lade sig?
+    this.vilSteg = 0 // stjärnläget: steg i rad som grodan legat stilla
+    this.sover = false // stjärnläget: ögonen stängda (tumlat klart, väntar på att vakna)
+    this._laddPose = {}
+    this._popp = 0 // 1 → 0: stjärnan slår ut (bild)
+    this._flax = LEDER.map(() => ({ w: 0.1 + Math.random() * 0.12, fas: Math.random() * TAU, amp: 0.3 + Math.random() * 0.25 }))
 
     this._byggKroppar(x, y)
     this._byggVyer(lager)
@@ -282,7 +397,7 @@ export class Groda {
         density: d.d,
         friction: 0.7,
         frictionStatic: 0.9,
-        frictionAir: 0.012,
+        frictionAir: LUFT,
         restitution: 0.12,
         collisionFilter: { group: this._grupp },
         label: 'groda',
@@ -315,12 +430,30 @@ export class Groda {
         pointB: { x: l.pb[0], y: l.pb[1] },
         length: 0,
         stiffness: 0.95,
-        damping: 0.08,
+        damping: LED_DAMP,
         label: 'grodled',
       })
       Composite.add(this._phys.world, c)
       return { ...l, A, B, led: c, typ: l.namn.replace(/[NB]$/, ''), sida: l.namn.endsWith('B') ? 'B' : 'N' }
     })
+    // Två geometrier per led: sidovyn (tabellen ovan) och stjärnläget (STJ, speglad för B).
+    // Den aktiva kopieras in i ledens egna fält, så all kod som läser l.pa/l.lo/l.mitt gäller båda.
+    for (const l of this.leder) {
+      l.sid = { pa: l.pa, pb: l.pb, lo: l.lo, hi: l.hi, mitt: l.mitt }
+      const s = STJ[l.typ]
+      const m = l.sida === 'B' ? -1 : 1
+      const lo = m === 1 ? s.lo : -s.hi
+      const hi = m === 1 ? s.hi : -s.lo
+      l.stj = { pa: [s.pa[0], s.pa[1] * m], pb: s.pb, lo, hi, mitt: (lo + hi) / 2 }
+      l.spegel = m
+    }
+  }
+
+  _geometri(stj) {
+    for (const l of this.leder) {
+      const G = stj ? l.stj : l.sid
+      for (const k of GEO) l[k] = G[k]
+    }
   }
 
   ar(body) {
@@ -375,6 +508,7 @@ export class Groda {
 
   _malFor(l, P) {
     let v = P[l.typ] ?? 0
+    if (P.stj) return v * l.spegel
     if (l.sida === 'B') v += l.typ === 'hoft' ? -0.08 : l.typ === 'kna' ? 0.06 : 0.04
     return v
   }
@@ -393,13 +527,22 @@ export class Groda {
     return Math.hypot(v.x, v.y)
   }
 
-  // Munnens läge i världen (där tungan kommer ut).
+  // Munnens läge i världen (där tungan kommer ut). I stjärnläget sitter munnen mitt på
+  // huvudets framsida (lokalt 0, 12).
   mun() {
     const h = this.b.huvud
     const a = h.angle
-    const px = 27 * HUVUD_SKALA
-    const py = 8 * HUVUD_SKALA * this.riktning
+    const px = this.stjarna ? 0 : 27 * HUVUD_SKALA
+    const py = this.stjarna ? 12 : 8 * HUVUD_SKALA * this.riktning
     return { x: h.position.x + Math.cos(a) * px - Math.sin(a) * py, y: h.position.y + Math.sin(a) * px + Math.cos(a) * py }
+  }
+
+  // Hjässans riktning (enhetsvektor) — åt det hållet "tittar" grodan i stjärnläget.
+  upp() {
+    const h = this.b.huvud.position
+    const k = this.b.kropp.position
+    const d = Math.hypot(h.x - k.x, h.y - k.y) || 1
+    return { x: (h.x - k.x) / d, y: (h.y - k.y) / d }
   }
 
   get iVatten() {
@@ -440,7 +583,7 @@ export class Groda {
 
   // Hoppa (bara från något eller ur vattnet). Returnerar true om hoppet blev av.
   hoppa(dirX = this.riktning) {
-    const iV = this.iVatten
+    const iV = !this.paMark && this._naraVatten
     if (!this.paMark && !iV) return false
     if (Math.sign(dirX) !== this.riktning && this.paMark) this.vand()
     const s = Math.sign(dirX) || this.riktning
@@ -453,7 +596,319 @@ export class Groda {
     // En liten extra vridning bakåt på bålen så den reser sig i hoppet.
     Body.setAngularVelocity(this.b.kropp, -0.03 * s)
     this._mark = 99
+    this._markUnder = 99
     return true
+  }
+
+  // ── Superhoppet ─────────────────────────────────────────────────────────────────────────
+
+  // Kan grodan ta sats just nu? Som ett vanligt hopp, men en groda som flyter räknas som "i
+  // vattnet" en bit ovanför ytan också: bålen guppar kring gränsen för `iVatten`, och satsen
+  // avbröts av ett enda gupp (_superspelprobe: sats 0,02 och sedan ingenting).
+  get kanHoppa() {
+    if (this.superFas && this.superFas !== 'ladda') return false
+    return this.paMark || this._naraVatten
+  }
+
+  get _naraVatten() {
+    return this.b.kropp.position.y > this.ytY - 24
+  }
+
+  laddaStart() {
+    if (this.superFas) return false
+    this.superFas = 'ladda'
+    this.laddning = 0
+    this._laddT = 0
+    return true
+  }
+
+  setLaddning(c) {
+    if (this.superFas === 'ladda') this.laddning = clamp(c, 0, 1)
+  }
+
+  laddaAvbryt() {
+    if (this.superFas === 'ladda') this.superFas = null
+    this.laddning = 0
+  }
+
+  // p 0…1 = hur länge fingret hölls. Samma vinkel, mer kraft: högre OCH längre.
+  superHopp(p, dirX = this.riktning) {
+    const iV = !this.paMark && this._naraVatten
+    if (!this.paMark && !iV) {
+      this.laddaAvbryt()
+      return false
+    }
+    if (Math.sign(dirX) !== this.riktning && this.paMark) this.vand()
+    const s = this.riktning
+    const k = iV ? 0.78 : 1
+    this.superFas = 'volt'
+    this.laddning = 0
+    this.kraft = 1
+    this._kraftPaus = 0
+    this._tvingadPose = 'hopp'
+    this._poseTid = 6
+    this.knuffa(s * (4.4 + 3.4 * p) * k, -(12.6 + 5 * p) * k, 1)
+    // Bakåtvolt oftast (huvudet upp och bakåt), ibland framåt; ett fullt laddat hopp hinner
+    // två varv. Snurret är stelt kring tyngdpunkten — musklerna kan inte skapa det själva.
+    this._voltRikt = Math.random() < 0.72 ? -s : s
+    this._voltVinkel = 0
+    this._voltForra = this.b.kropp.angle
+    this._voltMal = TAU * (p > 0.8 ? 1.85 : 0.92)
+    this._voltFart = this._voltRikt * (0.22 + 0.08 * p)
+    this._voltStuds = false
+    this._superN = 0
+    this._snurra(this._voltFart * 0.8)
+    // Ledernas dämpning jämför kropparnas MITTPUNKTER (matter), så den bromsar varje stel
+    // rotation: 0,18 rad/steg → 0,002 på 40 steg, även med musklerna och luften avstängda
+    // (_superhoppprobe). I luften sköter musklernas egen dämpning lederna; full dämpning
+    // tillbaka vid landningen, så att grodan lägger sig till ro.
+    this._ledDamp(0.01)
+    this._mark = 99
+    this._markUnder = 99
+    this.landat = false
+    this.vilSteg = 0
+    this.sover = false
+    return true
+  }
+
+  // Spelet säger till när något håller fast grodan i luften (repet i en gren): då räknas det
+  // som en landning, och grodan hänger slak och dinglar i stället för att snurra vidare.
+  landa() {
+    if (this.superFas === 'stjarna') this._landar()
+  }
+
+  _landar() {
+    this.landat = true
+    this._ledDamp(LED_DAMP)
+  }
+
+  // Ledernas dämpning, luftmotståndet och flytvolymen följs åt: alla tre sänks/släpps i luften
+  // under superhoppet (annars äter de snurret och höjden) och återställs när grodan slår i något.
+  _ledDamp(v) {
+    for (const l of this.leder) l.led.damping = v
+    const iLuft = v < LED_DAMP
+    for (const b of this.delar) b.frictionAir = iLuft ? LUFT_SUPER : LUFT
+    this._iVolym(!iLuft)
+  }
+
+  // Spelet lägger grodan i dammens flytvolym (flyt per kroppsdel). Under superhoppets luftfas
+  // tas delarna UR volymen: den spärrar farten vid 22 och dämpar varje dels vridning med 10 %
+  // per bildruta även OVANFÖR ytan — ett snurr överlever inte det.
+  flytIn(volym, flytFor) {
+    this._flyt = volym
+    this._flytFor = flytFor
+    this._iVolym(true)
+  }
+
+  _iVolym(ja) {
+    if (!this._flyt || this._iFlyt === ja) return
+    this._iFlyt = ja
+    for (const b of this.delar) {
+      this._flyt.ta(b)
+      if (ja) this._flyt.lagg(b, { flyt: this._flytFor(b.plugin.grodDel), liv: false })
+    }
+  }
+
+  // Tryck mitt i superhoppet: lemmarna sprattlar till.
+  sprattla() {
+    for (const l of this.leder) if (l.typ !== 'nacke') this._vridPar(l, (Math.random() - 0.5) * 0.5)
+  }
+
+  // Vaknar till (ögonen upp, en liten skakning) — en stund innan spelet anropar vakna().
+  vaknaTill() {
+    this.sover = false
+    this._vakenT = 0.45
+  }
+
+  // Tillbaka till sidovyn, på benen. dir = vilket håll grodan ska titta åt.
+  vakna(dir = this.riktning) {
+    if (!this.superFas && !this.stjarna) return
+    const c = this._com()
+    let golv = -Infinity
+    for (const b of this.delar) golv = Math.max(golv, b.bounds.max.y)
+    const iV = this.iVatten
+    const paMark = this.paMark
+    this._geometri(false)
+    this.stjarna = false
+    this._nollaSuper()
+    this.kraft = 1
+    this._kraftPaus = 0
+    this._tvingadPose = null
+    this.riktning = dir < 0 ? -1 : 1
+    const x = clamp(c.x, 70, 1210)
+    if (iV) this.stall('simIn', x, Math.max(c.y, this.ytY - 2), -0.15)
+    else {
+      this.stall(paMark ? 'sitt' : 'landa', x, Math.min(c.y, golv - 44))
+      if (paMark) this.knuffa(0, -3.4, 1)
+    }
+    this._vyLage(false)
+    this._popp = 1
+    this.vidVyByte?.()
+  }
+
+  // Avbryt allt superhopp direkt (grodan kallas hem, runda slut). Läget sätts av anroparen.
+  avbrytSuper() {
+    if (this.stjarna) {
+      this._geometri(false)
+      this.stjarna = false
+      this._vyLage(false)
+      this.vidVyByte?.()
+    }
+    this._nollaSuper()
+  }
+
+  _nollaSuper() {
+    this._ledDamp(LED_DAMP)
+    this.superFas = null
+    this.landat = false
+    this.sover = false
+    this.vilSteg = 0
+    this.laddning = 0
+    this._vakenT = 0
+  }
+
+  _com() {
+    let x = 0
+    let y = 0
+    let m = 0
+    for (const b of this.delar) {
+      x += b.position.x * b.mass
+      y += b.position.y * b.mass
+      m += b.mass
+    }
+    return { x: x / m, y: y / m }
+  }
+
+  _comFart() {
+    let x = 0
+    let y = 0
+    let m = 0
+    for (const b of this.delar) {
+      x += b.velocity.x * b.mass
+      y += b.velocity.y * b.mass
+      m += b.mass
+    }
+    return { x: x / m, y: y / m }
+  }
+
+  // Hela ragdollens vinkelhastighet kring tyngdpunkten (rörelsemängdsmoment / tröghet) —
+  // inte bålens egen, som musklerna och bruset vrider fram och tillbaka.
+  _snurrFart() {
+    const c = this._com()
+    const v = this._comFart()
+    let L = 0
+    let I = 0
+    for (const b of this.delar) {
+      const rx = b.position.x - c.x
+      const ry = b.position.y - c.y
+      L += b.mass * (rx * (b.velocity.y - v.y) - ry * (b.velocity.x - v.x)) + b.inertia * b.angularVelocity
+      I += b.mass * (rx * rx + ry * ry) + b.inertia
+    }
+    return I > 0 ? L / I : 0
+  }
+
+  // Lägg till ett STELT snurr dw (rad/steg) kring tyngdpunkten — formen behålls.
+  _snurra(dw) {
+    const c = this._com()
+    for (const b of this.delar) {
+      const rx = b.position.x - c.x
+      const ry = b.position.y - c.y
+      Body.setVelocity(b, { x: b.velocity.x - dw * ry, y: b.velocity.y + dw * rx })
+      Body.setAngularVelocity(b, b.angularVelocity + dw)
+    }
+  }
+
+  // Byt till stjärnläget mitt i luften: lemmarna läggs ut kring bålen där den är, tyngdpunkten
+  // och dess fart behålls och snurret fortsätter. Hoppet i bilden döljs av att stjärnan SLÅR UT
+  // (`_popp`) — samma sak som en tecknad groda gör.
+  // landad: grodan står redan på något. Stjärnan lyfts då så att dess lägsta punkt hamnar strax
+  // ovanför sidovyns lägsta punkt (det grodan står på) — lemmar som läggs ut INNE i ett blad
+  // trycks ut av matter med en fart lika stor som överlappet, och det slungar iväg grodan.
+  _tillStjarna(landad = false) {
+    const c0 = this._com()
+    const v0 = this._comFart()
+    const w = clamp(this._snurrFart(), -0.2, 0.2)
+    let golv0 = -Infinity
+    if (landad) for (const b of this.delar) golv0 = Math.max(golv0, b.bounds.max.y)
+    const kr = this.b.kropp
+    this._geometri(true)
+    this.stjarna = true
+    this.riktning = 1
+    this.stall('stjarna', kr.position.x, kr.position.y, kr.angle)
+    const c1 = this._com()
+    const dx = c0.x - c1.x
+    let dy = c0.y - c1.y
+    if (landad) {
+      let golv1 = -Infinity
+      for (const b of this.delar) golv1 = Math.max(golv1, b.bounds.max.y)
+      dy = Math.min(dy, golv0 - 3 - golv1)
+    }
+    for (const b of this.delar) {
+      const x = b.position.x + dx
+      const y = b.position.y + dy
+      Body.setPosition(b, { x, y })
+      Body.setVelocity(b, { x: v0.x - w * (y - c0.y), y: v0.y + w * (x - c0.x) })
+      Body.setAngularVelocity(b, w)
+    }
+    this.superFas = 'stjarna'
+    this._stjN = this._superN
+    this.kraft = 0.55
+    this._spinA = Math.random() * TAU
+    this._spinB = Math.random() * TAU
+    this._spinS = Math.random() < 0.5 ? -1 : 1
+    this._popp = 1
+    this._vyLage(true)
+    if (landad) this._landar()
+    this.vidVyByte?.()
+  }
+
+  _superSteg(iV) {
+    this.lage = 'super'
+    this._superN++
+    const kr = this.b.kropp
+    if (this.superFas === 'volt') {
+      this._voltVinkel += wrap(kr.angle - this._voltForra)
+      this._voltForra = kr.angle
+      if (this._poseTid > 0 && --this._poseTid === 0) this._tvingadPose = null
+      this.pose = this._tvingadPose || 'volt'
+      this.kraft = 1
+      // Ett slag ovanifrån/från sidan (grenen) är en studs, inte en landning — men volten är
+      // därmed slut: stjärnan slår ut så fort grodan är fri.
+      if (this._mark === 0 && this._markUnder > 0) this._voltStuds = true
+      if (this._superN > 10 && (this._markUnder < 2 || iV)) {
+        // Landade mitt i volten (något nära frånskjutet, eller en studs rakt ned). Stjärnan slår
+        // ut ÄNDÅ — det är den barnet väntar på — lyft ovanför det grodan står på, och tumlar
+        // sedan slak (spelkritikern: ett kort hopp och ett grenstuds såg aldrig stjärnan).
+        this._tillStjarna(true)
+        return
+      }
+      // Grodan KASTAR sig runt: snurret hålls uppe mot voltfarten (fötterna nöter bort en del
+      // av det i frånskjutet, och kulan skulle annars bara sakta in).
+      if (this._superN > 2) this._snurra((this._voltFart - this._snurrFart()) * 0.25)
+      // Stjärnan slår ut efter volten, efter en studs, eller senast när grodan börjat falla (efter
+      // ett halvt varv) — men först när grodan är fri, så att lemmarna inte läggs ut inne i något.
+      const klar = Math.abs(this._voltVinkel) >= this._voltMal || this._superN > 80
+      const faller = this._comFart().y > 2 && Math.abs(this._voltVinkel) > Math.PI
+      if ((klar || this._voltStuds || faller) && this._mark > 2) this._tillStjarna()
+      return
+    }
+    if (!this.landat && this._superN - this._stjN > 3 && (this.paMark || iV)) this._landar()
+    if (this.landat) {
+      // Slak: ren ragdoll som tumlar klart. Stjärnposen drar bara svagt i lemmarna.
+      this.kraft = Math.max(0.1, this.kraft - 0.04)
+      this.pose = this.stjarna ? 'stjarna' : 'sitt'
+    } else {
+      this.kraft = 0.55
+      this.pose = 'stjarna'
+      // Ett långsamt snurr som ändrar fart gradvis (två sinusar ur fas, slumpad start).
+      const t = this._superN
+      const mal = this._spinS * (0.05 + 0.035 * Math.sin(t * 0.031 + this._spinA)) + 0.03 * Math.sin(t * 0.053 + this._spinB)
+      this._snurra((mal - this._snurrFart()) * 0.05)
+    }
+    const v = this._comFart()
+    const vilar = this.landat && Math.hypot(v.x, v.y) < 0.6 && Math.abs(this._snurrFart()) < 0.02
+    this.vilSteg = vilar ? this.vilSteg + 1 : Math.max(0, this.vilSteg - 3)
+    if (this.vilSteg > 24 && this.stjarna) this.sover = true
   }
 
   // Spegla grodan i x kring bålens mitt (se huvudet i filen).
@@ -476,6 +931,7 @@ export class Groda {
 
   // Flytta hela grodan (respawn). Läget = bålens mitt.
   teleportera(x, y, riktning = this.riktning) {
+    this.avbrytSuper()
     if (riktning !== this.riktning) {
       this.riktning = riktning
       for (const v of this._delVyer) if (!v.view.destroyed) v.view.scale.y = this.riktning
@@ -493,32 +949,65 @@ export class Groda {
     this._kollaKontakt()
 
     const iV = this.iVatten
-    if (this._kraftPaus > 0) this._kraftPaus--
-    else this.kraft = Math.min(1, this.kraft + 1 / 70)
+    this._poseObj = null
+    const sup = this.superFas === 'volt' || this.superFas === 'stjarna'
+    if (sup) this._superSteg(iV)
+    else {
+      if (this._kraftPaus > 0) this._kraftPaus--
+      else this.kraft = Math.min(1, this.kraft + 1 / 70)
 
-    if (this._poseTid > 0 && --this._poseTid === 0) this._tvingadPose = null
+      if (this._poseTid > 0 && --this._poseTid === 0) this._tvingadPose = null
 
-    // Välj läge + pose.
-    if (this.lage === 'dingla') this.pose = 'dingla'
-    else if (this.kraft < 0.45) this.lage = 'slak'
-    else if (iV) this.lage = 'vatten'
-    else if (this.paMark) this.lage = 'sitt'
-    else this.lage = 'luft'
+      // Välj läge + pose.
+      if (this.lage === 'dingla') this.pose = 'dingla'
+      else if (this.kraft < 0.45) this.lage = 'slak'
+      else if (iV) this.lage = 'vatten'
+      else if (this.paMark) this.lage = 'sitt'
+      else this.lage = 'luft'
 
-    if (this._tvingadPose) this.pose = this._tvingadPose
-    else if (this.lage === 'sitt') this.pose = 'sitt'
-    else if (this.lage === 'luft') this.pose = this.b.kropp.velocity.y < 1.5 ? 'flyg' : 'landa'
-    else if (this.lage === 'vatten') {
-      this._simFas += 1 / 50
-      this.pose = Math.sin(this._simFas * TAU) > 0 ? 'simUt' : 'simIn'
+      if (this._tvingadPose) this.pose = this._tvingadPose
+      else if (this.lage === 'sitt') this.pose = 'sitt'
+      else if (this.lage === 'luft') this.pose = this.b.kropp.velocity.y < 1.5 ? 'flyg' : 'landa'
+      else if (this.lage === 'vatten') {
+        this._simFas += 1 / 50
+        this.pose = Math.sin(this._simFas * TAU) > 0 ? 'simUt' : 'simIn'
+      }
+
+      // Tar sats: målposen glider från sitt mot ladda ju längre fingret hålls.
+      if (this.superFas === 'ladda' && this.pose === 'sitt') {
+        const c = this.laddning
+        for (const k of Object.keys(POSER.sitt)) this._laddPose[k] = POSER.sitt[k] + (POSER.ladda[k] - POSER.sitt[k]) * c
+        this._poseObj = this._laddPose
+      }
     }
 
     this._muskler()
     this._grans()
-    if (this.paMark && this.kraft > 0.5 && this.lage === 'sitt' && !this._tvingadPose) this._balstod()
-    if (this.lage === 'vatten' && this.kraft > 0.5) this._simStod()
+    if (!sup && this.paMark && this.kraft > 0.5 && this.lage === 'sitt' && !this._tvingadPose) {
+      this._balstod(this.superFas === 'ladda' ? SITT_VINKEL + (LADDA_VINKEL - SITT_VINKEL) * this.laddning : SITT_VINKEL)
+    }
+    if (!sup && this.lage === 'vatten' && this.kraft > 0.5) this._simStod()
 
-    // Fartspärr: inget får tunnla genom en tunn kant mellan två steg.
+    // Fartspärr: inget får tunnla genom en tunn kant mellan två steg. I superhoppets luftfas
+    // spärras tyngdpunktens fart och snurret var för sig — en rå spärr per del klipper de delar
+    // som snurret för framåt och bromsar hela hoppet (full sats landade KORTARE än halv).
+    if (sup && !this.landat) {
+      const vc = this._comFart()
+      const s = Math.hypot(vc.x, vc.y)
+      const k = s > 24 ? 24 / s : 1
+      for (const b of this.delar) {
+        let rx = b.velocity.x - vc.x
+        let ry = b.velocity.y - vc.y
+        const r = Math.hypot(rx, ry)
+        if (r > 18) {
+          rx *= 18 / r
+          ry *= 18 / r
+        }
+        Body.setVelocity(b, { x: vc.x * k + rx, y: vc.y * k + ry })
+        if (Math.abs(b.angularVelocity) > 0.6) Body.setAngularVelocity(b, Math.sign(b.angularVelocity) * 0.6)
+      }
+      return
+    }
     for (const b of this.delar) {
       const v = b.velocity
       const s = Math.hypot(v.x, v.y)
@@ -527,8 +1016,12 @@ export class Groda {
     }
   }
 
+  // `_mark`: steg sedan grodan nuddade något alls. `_markUnder`: steg sedan den nuddade något
+  // UNDER sig (kontaktpunkten lägre än kroppsdelens mitt). Superhoppets volt räknar bara det
+  // senare som landning — en groda som flyger upp i grenen ska studsa av den, inte "landa".
   _kollaKontakt() {
     this._mark++
+    this._markUnder++
     const par = this._phys.engine.pairs.list
     for (let i = 0; i < par.length; i++) {
       const p = par[i]
@@ -539,10 +1032,16 @@ export class Groda {
       const bG = this._delSet.has(b)
       if (aG === bG) continue
       const annan = aG ? b : a
-      if (annan.label === 'wall') continue
+      if (annan.label === 'wall' || annan.plugin?.repLank) continue
+      const del = aG ? a : b
+      const s = p.collision?.supports?.[0]
+      const under = s ? s.y > del.position.y + 2 : annan.position.y > del.position.y
+      if (this._mark > 0 || under) this.underlag = annan
       this._mark = 0
-      this.underlag = annan
-      return
+      if (under) {
+        this._markUnder = 0
+        return
+      }
     }
   }
 
@@ -550,11 +1049,19 @@ export class Groda {
   _muskler() {
     const k = this.kraft
     if (k <= 0.02) return
-    const P = POSER[this.pose] || POSER.sitt
+    const P = this._poseObj || POSER[this.pose] || POSER.sitt
     const f = this.riktning
-    for (const l of this.leder) {
+    // Stjärnläget i luften: varje led får ett eget långsamt brus — lemmarna flänger.
+    const flax = this.superFas === 'stjarna' && !this.landat
+    for (let i = 0; i < this.leder.length; i++) {
+      const l = this.leder[i]
       const d = this._rel(l)
-      const mal = wrap(this._malFor(l, P) - l.mitt)
+      let malV = this._malFor(l, P)
+      if (flax && l.typ !== 'nacke') {
+        const n = this._flax[i]
+        malV += n.amp * Math.sin(this._t * n.w + n.fas)
+      }
+      const mal = wrap(malV - l.mitt)
       const e = clamp(mal - d, -1.2, 1.2)
       const wRel = f * (l.B.angularVelocity - l.A.angularVelocity)
       const styv = this._tvingadPose === 'hopp' ? 1.6 : 1
@@ -590,10 +1097,10 @@ export class Groda {
   }
 
   // Bålstödet: marken tar emot — håll sittvinkeln, vänd en groda som landat på rygg.
-  _balstod() {
+  _balstod(malVinkel = SITT_VINKEL) {
     const kr = this.b.kropp
     const aR = this.riktning === 1 ? kr.angle : Math.PI - kr.angle
-    const e = wrap(SITT_VINKEL - aR)
+    const e = wrap(malVinkel - aR)
     const wR = this.riktning * kr.angularVelocity
     const d = clamp(0.05 * e - 0.25 * wR, -0.05, 0.05) * this.kraft
     Body.setAngularVelocity(kr, kr.angularVelocity + this.riktning * d)
@@ -624,12 +1131,14 @@ export class Groda {
   _byggVyer(lager) {
     this._lager = lager
     this._delVyer = []
+    this._vy = {}
     const del = (namn, parent, tint = 0xffffff) => {
       const view = new Container()
       view.eventMode = 'none'
       if (tint !== 0xffffff) view.tint = tint
       parent.addChild(view)
-      this._delVyer.push({ body: this.b[namn], view })
+      this._delVyer.push({ body: this.b[namn], view, namn, tint })
+      this._vy[namn] = view
       return view
     }
     const BORT = 0xa9bb9a
@@ -647,8 +1156,11 @@ export class Groda {
     // Bålen.
     const kroppV = del('kropp', lager.mitt)
     this._kroppG = new Graphics()
-    kroppV.addChild(this._kroppG)
+    this._mageG = new Graphics() // stjärnläget: magen mot oss
+    this._mageG.visible = false
+    kroppV.addChild(this._kroppG, this._mageG)
     ritaKropp(this._kroppG, 0)
+    ritaMage(this._mageG, 0)
     this._ritadMage = 0
 
     // Nära lemmar framför bålen (underben/fot först, låret över).
@@ -701,6 +1213,33 @@ export class Groda {
     ritaHuvud(h)
     h.lockC.scale.y = 0.14
     this._h = h
+    this._huvudSida = huvudInre
+
+    // Stjärnlägets ansikte (framifrån). Egna ögon — pupillerna rullar när grodan snurrar.
+    const fram = new Container()
+    fram.visible = false
+    const hf = { bas: new Graphics(), ogon: [], munC: new Container(), munOppen: new Graphics() }
+    fram.addChild(hf.bas)
+    for (const s of [-1, 1]) {
+      const c = new Container()
+      c.position.set(s * 17, -19)
+      const o = { c, iris: new Graphics(), pupill: new Graphics(), lockC: new Container(), lock: new Graphics(), s }
+      o.lockC.position.set(0, -11)
+      o.lockC.addChild(o.lock)
+      o.lockC.scale.y = 0.1
+      c.addChild(o.iris, o.pupill, o.lockC)
+      fram.addChild(c)
+      hf.ogon.push(o)
+    }
+    hf.munC.position.set(0, 6)
+    hf.munC.addChild(hf.munOppen)
+    hf.munC.scale.y = 0.05
+    hf.munC.visible = false
+    fram.addChild(hf.munC)
+    ritaHuvudFram(hf)
+    huvudV.addChild(fram)
+    this._hf = hf
+    this._huvudFram = fram
 
     // Yrsel-stjärnor över huvudet efter en hård smäll (ritas i världsrum i fram-lagret).
     this._yr = new Container()
@@ -733,6 +1272,33 @@ export class Groda {
     for (const v of this._delVyer) v.view.scale.y = this.riktning
   }
 
+  // Lagerordning, färgton och spegling per vy. Sidovyn: bortre lemmar bakom bålen och
+  // grånade. Stjärnläget: alla lemmar bakom bålen, ingen grånad sida, B-sidan speglad.
+  _vyLage(stj) {
+    const L = this._lager
+    const ordning = stj
+      ? { bak: ['fotB', 'vadB', 'larB', 'fotN', 'vadN', 'larN', 'underarmB', 'overarmB', 'underarmN', 'overarmN'], mitt: ['kropp'], fram: ['huvud'] }
+      : { bak: ['larB', 'vadB', 'fotB', 'overarmB', 'underarmB'], mitt: ['kropp', 'vadN', 'fotN', 'larN'], fram: ['overarmN', 'underarmN', 'huvud'] }
+    for (const [lager, namn] of Object.entries(ordning)) {
+      if (L[lager].destroyed) continue
+      for (const n of namn) {
+        const v = this._vy[n]
+        if (v && !v.destroyed) L[lager].addChild(v)
+      }
+    }
+    if (this._yr && !this._yr.destroyed && !L.fram.destroyed) L.fram.addChild(this._yr)
+    for (const d of this._delVyer) {
+      const v = d.view
+      if (v.destroyed) continue
+      v.tint = stj ? 0xffffff : d.tint
+      v.scale.y = stj ? (d.namn.endsWith('B') ? -1 : 1) : this.riktning
+    }
+    this._kroppG.visible = !stj
+    this._mageG.visible = stj
+    this._huvudSida.visible = !stj
+    this._huvudFram.visible = stj
+  }
+
   // Munnen: 0 stängd … 1 vidöppen (tungan ute, äter).
   oppnaMun(v) {
     this._munOppen = v
@@ -763,20 +1329,52 @@ export class Groda {
   rita(dtS) {
     if (!this._alive) return
     this._tS = (this._tS || 0) + dtS
+    // Bara BILD ovanpå fysiken: sats (hoptryckt mot fötterna + darr), stjärnan som slår ut,
+    // och en liten skakning när grodan vaknar till. Kropparna rörs inte.
+    // Trycket ska SYNAS direkt (P0 < 100 ms), inte först när satsen hunnit växa: grodan hukar
+    // en tredjedel på 0,08 s, sedan följer bilden satsen. Ett kort tryck blir en liten sats
+    // före ett vanligt hopp.
+    if (this.superFas === 'ladda') this._laddT = (this._laddT || 0) + dtS
+    const c = this.superFas === 'ladda' ? Math.max(this.laddning, 0.3 * Math.min(1, this._laddT / 0.08)) : 0
+    if (this._popp > 0) this._popp = Math.max(0, this._popp - dtS / 0.16)
+    if (this._vakenT > 0) this._vakenT = Math.max(0, this._vakenT - dtS)
+    const popp = this._popp * this._popp
+    let fotY = 0
+    if (c > 0) for (const n of ['fotN', 'fotB']) fotY = Math.max(fotY, this.b[n].position.y)
+    const darr = c > 0.5 ? 3.4 * (c - 0.5) / 0.5 : this._vakenT > 0 ? 2.2 * Math.min(1, this._vakenT / 0.2) : 0
+    const jx = darr ? (Math.random() - 0.5) * 2 * darr : 0
+    const jy = darr ? (Math.random() - 0.5) * 1.2 * darr : 0
+    const kx = this.b.kropp.position.x
+    const mitt = popp > 0 ? this._com() : null
     for (const d of this._delVyer) {
       const v = d.view
       if (v.destroyed) continue
-      v.position.set(d.body.position.x, d.body.position.y)
+      let x = d.body.position.x
+      let y = d.body.position.y
+      if (c > 0) {
+        y = fotY + (y - fotY) * (1 - 0.15 * c)
+        x = kx + (x - kx) * (1 + 0.05 * c)
+      }
+      if (mitt) {
+        x = mitt.x + (x - mitt.x) * (1 - 0.3 * popp)
+        y = mitt.y + (y - mitt.y) * (1 - 0.3 * popp)
+      }
+      v.position.set(x + jx, y + jy)
       v.rotation = d.body.angle
+      const sk = 1 - 0.2 * popp
+      v.scale.x = sk
+      v.scale.y = Math.sign(v.scale.y || 1) * sk
     }
     // Magen: rita om bålen bara när den ändrats märkbart.
     const m = this._ritadMage + (this.mage - this._ritadMage) * Math.min(1, dtS * 4)
     if (Math.abs(m - this._ritadMage) > 0.01) {
       this._ritadMage = m
       ritaKropp(this._kroppG, m)
+      ritaMage(this._mageG, m)
       // En mätt groda är RUND: hela bålen sväller lite, inte bara buken.
       this._kroppG.scale.set(1 + m * 0.24, 1 + m * 0.42)
     }
+    if (this.stjarna) this._ritaFram(dtS)
     const h = this._h
     // Munnen.
     this._munNu += (this._munOppen - this._munNu) * Math.min(1, dtS * 18)
@@ -786,7 +1384,8 @@ export class Groda {
       this._sackTid -= dtS
       if (this._sackTid <= 0) this._sackMal = 0
     }
-    this._sackNu += (this._sackMal - this._sackNu) * Math.min(1, dtS * 14)
+    // Tar sats: kinderna/säcken pumpas upp lite, mer ju längre fingret hålls.
+    this._sackNu += (Math.max(this._sackMal, c * 0.45) - this._sackNu) * Math.min(1, dtS * 14)
     h.sackC.alpha = this._sackNu > 0.03 ? 1 : 0
     h.sackC.scale.set(0.2 + this._sackNu * 1.05)
     // Blink + sväljning (grodor trycker ned ögonen när de sväljer).
@@ -801,6 +1400,7 @@ export class Groda {
       lock = 1
     }
     if (this.kraft < 0.3) lock = 0.72 // omtöcknad
+    if (c > 0) lock = Math.max(lock, 0.2 + 0.4 * c) // kisar — fokuserar på hoppet
     if (this._svalj > 0) {
       this._svalj = Math.max(0, this._svalj - dtS * 2.2)
       lock = Math.max(lock, 0.9)
@@ -835,6 +1435,30 @@ export class Groda {
         s.alpha = Math.min(1, this._yrTid * 2)
       })
     } else if (this._yr.visible) this._yr.visible = false
+  }
+
+  // Stjärnlägets ansikte: pupillerna rullar i luften, ögonen sluts när grodan tumlat klart
+  // och slås upp när den vaknar till. Munnen följer samma mun-värde som sidovyn.
+  _ritaFram(dtS) {
+    const hf = this._hf
+    const t = this._tS
+    hf.munC.visible = this._munNu > 0.05
+    hf.munC.scale.y = 0.15 + 0.85 * this._munNu
+    for (const o of hf.ogon) {
+      let px = 0
+      let py = 0
+      if (this._vakenT > 0) py = -2.5
+      else if (!this.sover) {
+        const fart = this.landat ? 4 : 9
+        const a = t * fart + (o.s > 0 ? 0 : Math.PI * 0.7)
+        px = Math.cos(a) * 3.6
+        py = Math.sin(a) * 3
+      }
+      o.pupill.position.set(px, py)
+      const lock = this.sover ? 1 : this._vakenT > 0 ? 0 : 0.1
+      o.lockC.scale.y += (lock - o.lockC.scale.y) * Math.min(1, dtS * 16)
+      o.c.scale.set(this._vakenT > 0 ? 1.15 : 1)
+    }
   }
 
   // Hur långt en punkt ligger från grodans kropp eller huvud (för tryck PÅ grodan).

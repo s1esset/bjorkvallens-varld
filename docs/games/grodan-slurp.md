@@ -5,7 +5,8 @@
 > superhoppet + grodkörens hem-knapp 2026-09-24 (v1.255.0) · bajsloopen (L3 av biomplanen, §4d)
 > 2026-09-24 (v1.257.0) · kamera + stor värld (L4, v1.258.0) · biomerna is/fors/skog (L5, v1.259.0) ·
 > sikt-pil för superhoppet + vändknapp (v1.260.0) · sex nya världar: träsk, öken, strand, kök,
-> vardagsrum, badrum (L6 + L7, v1.261.0)
+> vardagsrum, badrum (L6 + L7, v1.261.0) · hoppen landar, maxfarten, natt + slumpad tid på dygnet,
+> öknen och vardagsrummet utan vatten (v1.262.0)
 
 ## 0. Spec (fylls i av `/spel` innan kod skrivs)
 
@@ -26,7 +27,7 @@ man lär sig att inte ge upp."*
 | **titleSv** | Grodan Slurp |
 | **icon** | 🐸 |
 | **kategori** | `fysik` → flik Fysik |
-| **input** | `tap` — tryck = tungan skjuts mot punkten · tryck PÅ grodan = hopp · HÅLL på grodan = superhopp (valfritt: ett kort tryck är alltid ett vanligt hopp), och fingret som DRAR under hållet siktar (en pil visar banan) · tryck på grodkören med en korv i munnen = kast · håll 2,5 s på grodkören = grodan hem · VÄNDKNAPPEN nere till höger vänder grodan utan tunga |
+| **input** | `tap` — tryck = tungan skjuts mot punkten · tryck PÅ grodan = hopp · HÅLL på grodan = ett sats-hopp dit pilen visar, som landar på benen; FULL sats (maxfarten: grodan glittrar, pilen blir tjock och röd) = superhoppet med volt och ragdoll (valfritt: ett kort tryck är alltid ett vanligt hopp, och man får hålla hur länge som helst), och fingret som DRAR under hållet siktar (en pil visar banan) · tryck på grodkören med en korv i munnen = kast · håll 2,5 s på grodkören = grodan hem · VÄNDKNAPPEN nere till höger vänder grodan utan tunga |
 | **ålder** | [3, 5] |
 | **kärnloop** | Grodan sitter på ett näckrosblad i dammen. Tryck någonstans → tungan skjuts mot punkten och fastnar på det FÖRSTA den träffar. Insekt → rullas in i munnen, GULP. Gren/sten/stock (fast eller tung) → grodan slungas dit och dinglar i tungan. Lätt sak (löv, kotte) → saken dras till grodan. Tryck igen = släpp + ny tunga. |
 | **mål** | ~~8 insekter~~ → sedan L3 (v1.257.0): tre matade grodungar. En full mage (8 insekter, sedan 4 — 5 före L5) blir en bajskorv; tungan hämtar den, grodan bär den och ett tryck på kören kastar den → `progress.complete()` när alla tre fått varsin |
@@ -79,8 +80,9 @@ Val som gjordes i bygget:
   ett kort tryck (< 0,3 s) är exakt samma vanliga hopp som förut, och ingenting i spelet kräver att
   man kan hålla. Satsen syns och hörs direkt vid trycket (< 100 ms), och hoppet kommer vid släppet.
 - **"Styr höjd och längd"** = hur länge fingret hålls. Samma vinkel, mer kraft, så båda växer
-  tillsammans. Den som håller kvar efter full sats får ett hopp av sig självt efter 1,2 s (grodan
-  "orkar inte vänta" — ingen kan fastna i satsen).
+  tillsammans. ~~Den som håller kvar efter full sats får ett hopp av sig självt efter 1,2 s~~ —
+  ⚠️ ändrat v1.262.0: grodan hoppar ALDRIG av sig själv (ägaren 2026-09-25), och bara full sats är
+  ett superhopp — se §1 "Hoppen, maxfarten och dygnet".
 - **"I profil … vi ser magen"** tolkades som stjärnläget: grodan platt med magen mot oss och alla
   fyra benen ut, som en tecknad fallskärmshoppare. Det är en egen vy, med samma kroppar och en
   annan ledgeometri (se §4c).
@@ -127,7 +129,8 @@ bajsloopen, grodkören) men egen fysik, egna plattformar, egna hinder och egna i
   Gasbubblor stiger ur dyn och spricker med ett blubb — det som flyter där får en knuff. En busig
   gädda hoppar. Myggor, trollsländor och eldflugor.
 - **Öknen:** varm sand med sanddyner (grodan glider nedför), sandstensklippor med små ödlor, två
-  jättekaktusar vars armar är grenarna, och oasen med palmer där kören sitter. Sanden är HET: sitter
+  jättekaktusar vars armar är grenarna, och ~~oasen~~ (sedan v1.262.0 HELT utan vatten) en palmlund
+  där kören sitter på en sandstenshäll. Sanden är HET: sitter
   grodan på den trippar den till ("Aj, varm sand!") — klipporna och kaktusarmarna är svala. En
   buskboll rullar förbi, en pillerbagge rullar en bajsboll (tungan i den = grodan åker med).
   Gräshoppor.
@@ -139,7 +142,8 @@ bajsloopen, grodkören) men egen fysik, egna plattformar, egna hinder och egna i
 - **Köket:** grodan lever på köksbänken; diskhon med en stor kran är gölen och kören sitter på en
   disksvamp. Darrande gelé-puddingar studsar, ett kakfat, hyllställ med burkar att klättra i, en
   slevkruka mitt på bänken. En apelsin rullar förbi, droppar faller, ångan blåser. Bananflugor.
-- **Vardagsrummet:** parkettgolv, ett akvarium (med fiskar och ett slott) där kören sitter, en
+- **Vardagsrummet:** parkettgolv, ~~ett akvarium~~ (sedan v1.262.0 HELT utan vatten) en golvkudde
+  vid en flätad matta och en krukväxt där kören sitter, en
   soffa och en puff som studsar, ett soffbord, bokhyllor och en golvlampa. En katt går förbi (tungan
   i katten = grodan åker med), en leksaksboll studsar, ett pappersflygplan glider. Malar och
   nyckelpigor.
@@ -147,6 +151,41 @@ bajsloopen, grodkören) men egen fysik, egna plattformar, egna hinder och egna i
   badkaret är VÅTT och HALT (pölar syns). Handfat, pall, tvättkorg, en duschstång med tvålkorgar,
   handdukshyllor. En badanka paddlar i badkaret (vattenskidor!), en tvål glider, en såpbubbla svävar
   förbi och spricker.
+
+**Hoppen, maxfarten och dygnet (v1.262.0, ägarens önskemål 2026-09-25), ordagrant:** *"Grodan
+slår och tumlar för ofta vid vanliga hopp, den är för känslig i det vanliga läget, superhoppen
+fungerar bra men vi skulle kunna ändra att grodan bara automatiskt går in i ragdoll läge när det är
+maxfart, gör oxå så grodans maxfart aktiveras när man håller ner på honom tillräckligt länge att
+pilen och grodan indikerar att det är maxfart när man släpper (grodan börjar glittra och glänsa och
+pilen blir tjockare och blir lysande röd). Gör så man kan hålla in på grodan hur länge som helst
+utan att den hoppar iväg automatiskt […] maxfart får gärna vara 25% längre (mer kraft). Alla hopp
+utom maxfart ska grodan hoppa och landa som vanligt om den inte slår sig på nåt eller kolliderar.
+Grodans fötter är fortfarande lite för känsliga med kollisioner, vi skulle kunna höja "hitbox"
+detekteringen på fötterna upp lite mer mot anklarna. Vi vill oxå ha mer rotation på banornas tid på
+dygnet (morgon, dag, kväll, natt) […] Gör vardagsrum och öken banorna inte har vatten nånstans
+(enbart land banor)."*
+- **Håll på grodan = ett SATS-HOPP** som växer med hållet och går dit pilen visar, men är ett
+  vanligt hopp: ingen volt, inget stjärnläge, grodan landar på benen (`groda.laddHopp`). Luften är
+  superhoppets (lätt, ur flytvolymen) tills grodan tar mark, så pilen gäller.
+- **Full sats (1,55 s) = MAXFARTEN.** Grodan glittrar (gnistor + tindrande stjärnor på kroppen) och
+  glänser (en varm pulserande glans runt den), en trill går, och pilen blir TJOCK och LYSANDE RÖD
+  (ett glödande band, stora röda prickar med glans, större pilspets, röd landningsskugga). Släpps den
+  då blir det superhoppet som förut (volt, stjärnläge, ragdoll, rep) — med 25 % mer kraft
+  (`MAX_KRAFT` 1,13: höjd +25 %, längd +24 %).
+- **Man får hålla hur länge som helst** — grodan hoppar aldrig av sig själv (förut efter 1,2 s full
+  sats, 3 s med sikte). Trillen går en sekund, sedan ett stilla pling var 0,9 s; om-cuen tiger.
+- **Vanliga hopp tumlar bara av ett riktigt slag** (`_small`): fötterna och underbenets nedre halva
+  (upp mot vristen) känner aldrig av något; en landning OVANPÅ något är en landning (utom ett fall
+  från högt, ≥ 19 px/steg rakt på); bara ett slag från sidan eller underifrån tar ut grodan, och då
+  räknas farten längs kontaktnormalen (ett snuddande glid är inget slag). Hinder som rör sig
+  (kotte, fisk, katt …) och superhoppet har kvar de gamla trösklarna.
+- **Tid på dygnet:** morgon · dag · kväll · NATT (ny: djupblå himmel, fullmåne med kratrar, stjärnor
+  över hela himlen, eldflugor, månskenston på världen — inomhus varmt lampljus och månen i fönstret).
+  Slumpas varje runda, även när spelet öppnas, aldrig samma två gånger i rad (`progress.custom.tidSenast`).
+- **Öknen och vardagsrummet är torra** (`biom.torr`): marken går från kant till kant, ingen
+  flytvolym, inget vatten ritas. Kören sitter på en sandstenshäll i en palmlund (öknen) och på en
+  golvkudde vid en flätad matta och en krukväxt (vardagsrummet). Oasen och akvariet finns kvar i
+  konsten (`ritaOas`, `ritaAkvarium`) men används inte.
 
 **Siktet och vändknappen (v1.260.0, ägarens önskemål 2026-09-24).** *"en liten knapp nere till
 höger som vänder grodans håll … då det inte alltid fungerar att vända genom att klicka på ena
@@ -363,6 +402,25 @@ Uppmätt i L6 + L7 (sex nya världar, 2026-09-24):
 - Konsten (tre hjälpare, egna filer) granskades statiskt mot fällorna: ingen `arc()`,
   `generateTexture`, `FillGradient`, tween eller slumpad färg in i en gradient. Ett rum bakar ~50–60
   gradientfärger första gången det byggs och sedan nästan inga.
+
+Uppmätt 2026-09-25 (v1.262.0 — hoppen, maxfarten, dygnet, torra världar):
+- `_tumlaprobe.mjs` (ny, Chrome, riktiga muspekningar på grodans läge, hindren avstängda), 5 biomer
+  × 12 hopp per arm: **vanliga hopp HEAD 4/60 tumlade → 1/60** (kvar: huvudet rakt in i en
+  kaktusstam — ett riktigt slag). Sats-hopp HEAD 18/60 (de var superhopp) → **0/60**. Full sats
+  (`--arm max`): 5/6 blev superhopp, 5/6 tumlade (meningen). Grodan landade på benen 58/60 (tapp).
+- `_superhoppprobe ladd` (Node): sats 0 / 0,5 / 0,95 × fyra sikten — alla sitter efter landningen
+  (posfel 0,13–0,16, samma som sittposen), aldrig slak, aldrig stjärnläge, luften återställd.
+  `p1` mot en kopia av HEAD:s `groda.js`: höjd 472 → 593 px, längd ~705 → ~874 px (medel 4–6 körningar).
+- `_siktprobe`: sats-hoppen följer pilen (brant 0,9 s: 16 px vid landningen, rakt upp 0 px). Pilen
+  slutade efter 4 steg när en sten låg intill startbladet (sidoproverna slog i stenen vid
+  frånskjutet, grodan flög 100–340 px längre) — nu provas bara tyngdpunkten och ovanför under
+  lättningen. ⚠️ Kvar, sällsynt: ett FLACKT sats-hopp rakt över grannbladet kan snudda det med de
+  utsträckta benen och landa kortare än pilen (envägsbladet blir fast när hela grodan är ovanför).
+- `_bajsloopprobe --biom oken|vardagsrum`: hela loopen klar på 109 s resp. 105 s utan vatten, 0 fel.
+  `_biomrokprobe`: alla tio världar byggs, alla hindertyper startar, 0 fel, 0 konstvarningar.
+- `_superspelprobe` (hållen nu 1,8–1,9 s = full sats): superhoppet hela vägen, repet, kören kallar
+  hem mitt i ett superhopp (7 px från start), exit med repet ute 0 fel. `_grodvisprobe` höll fingret
+  6 s efter full sats: ingen avfyrning, släppet → volt.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
@@ -728,7 +786,8 @@ allt L3–L5 mätt (klättring, envägsgrenar, bajsloopen) gäller i de nya vär
   havet. Skum där vågorna slår mot sluttningen.
 - **Träsket:** `flyt { motstand 0,87, maxFart 14 }` (tjockt), tuvor (`_byggTuvor`, etikett 'tuva' —
   inte hård i `_small`), andmat på ytan, långsam dyning (`_amb`).
-- **Öknen:** gölen = oasen, `markStil 'oken'`, dyner (`_byggDyner`, konvexa kroppar, etikett
+- **Öknen:** ~~gölen = oasen~~ `torr` (v1.262.0: marken kant till kant, `golStil 'palmlund'`, kören
+  på `korUnderlag 'sten'`), `markStil 'oken'`, dyner (`_byggDyner`, konvexa kroppar, etikett
   'strand' så tungan drar grodan dit), klippor (`_byggKlippor`, 'sten'). HET SAND (`index._hetSand`):
   sitter grodan på 'strand' i 1,3 s trippar den (knuff uppåt, tripp-tripp, ibland "Aj, varm sand!").
 - **Inomhus:** `_byggVagg` (väggen i himmellagret, rummets bortre del i fjärranbandet med ett fönster

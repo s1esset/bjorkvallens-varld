@@ -14,6 +14,33 @@ Format:
 
 ---
 
+## 2026-09-25 — Grodan Slurp: hoppen landar, maxfarten, natt, torr öken + vardagsrum · v1.262.0
+
+**Uppdraget (ägaren):** grodan tumlade för ofta vid vanliga hopp och fötterna var för känsliga;
+bara maxfarten ska ge ragdoll; maxfarten ska synas (grodan glittrar/glänser, pilen tjock och
+lysande röd) och ha 25 % mer kraft; man ska kunna hålla hur länge som helst; alla fyra tider på
+dygnet slumpas (även vid start); öknen och vardagsrummet utan vatten; sedan commit, publicera, stäng
+dev-servern.
+
+**Byggt:** HÅLLET är nu ett SATS-HOPP (`groda.laddHopp`: pilens bana, vanliga poser, landar på benen)
+och bara FULL SATS är superhoppet — med `MAX_KRAFT` 1,13 (höjd +25 %, längd +24 % mot HEAD).
+Maxfarten syns: tjock lysande röd pil med glödband, större pilspets, röd skugga; grodan glittrar
+(gnistor, tindrande stjärnor) och glänser (pulserande glans bakom den). Ingen avfyrning av sig själv
+längre. `_small`: fötterna + underbenets nedre halva känner inget, landningar ovanpå något tumlar
+aldrig (utom ≥ 19 px/steg), sidoslag räknas längs kontaktnormalen (`physics.onImpact` ger nu
+`normalFart`). NATT (måne, stjärnor, månskenston; inne lampljus) och `_valjTid` som slumpar varje
+runda och sparar den förra. Öknen och vardagsrummet `torr`: mark kant till kant, ingen flytvolym,
+kören på en sandstenshäll i en palmlund resp. en golvkudde vid en matta. Pilen provar bara
+tyngdpunkten under lättningen (slutade förut efter 4 steg vid en grannsten).
+
+**Mätt:** `_tumlaprobe` (ny): vanliga hopp 4/60 → 1/60 tumlade, sats-hopp 0/60 · `_superhoppprobe
+ladd`: alla landar sittande · bajsloopen klar i öknen (109 s) och vardagsrummet (105 s) utan vatten ·
+`_biomrokprobe` 10/10 världar 0 fel · `_superspelprobe` hela superhoppet + exit med repet 0 fel ·
+test för de 8 spel som använder `onImpact` gröna.
+
+**Öppet:** ett flackt sats-hopp rakt över grannbladet kan snudda det med benen och landa kortare än
+pilen (sällsynt, se docs §3). Se ett barn spela.
+
 ## 2026-09-24 natt — Grodan Slurp: sikt-pil + vändknapp, L6 + L7 (sex nya världar) · v1.260.0–v1.261.0
 
 **Uppdraget (ägaren):** en liten knapp nere till höger som vänder grodan (att trycka bredvid den

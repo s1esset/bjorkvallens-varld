@@ -1916,3 +1916,61 @@ function ritaVass(parent, x, yBas, topp, lut) {
   g.moveTo(0, t + 15).lineTo(0.5, t).stroke({ width: 2.2, color: 0x9a7a4a, cap: 'round' })
   return c
 }
+
+// ---- Öknen utan vatten (ägaren 2026-09-25: "enbart land") -----------------------------------------
+
+// Palmlunden där kören sitter (i stället för oasen): palmer på båda sidor, torra tuvor, en buske
+// och några rundade stenar i sanden. Ingenting här är vått. { x0, x1 } = körens plats på marken.
+export function ritaPalmlund(R, F, { x0, x1, mark = MARK_Y }) {
+  const svaj = []
+  const bas = mark + 2
+  const p1 = ritaPalm(R, { x: x0 - rnd(20, 50), bas, h: rnd(300, 360), sgn: 1 })
+  const p2 = ritaPalm(R, { x: x1 + rnd(20, 50), bas, h: rnd(260, 320), sgn: -1 })
+  svaj.push(...p1.svaj, ...p2.svaj)
+  if (chans(0.6)) {
+    const s = chans(0.5)
+    const p3 = ritaPalm(R, { x: s ? x0 - rnd(120, 160) : x1 + rnd(120, 160), bas, h: rnd(200, 240), sgn: s ? 1 : -1 })
+    svaj.push(...p3.svaj)
+  }
+  const g = ritning(R)
+  // Rundade stenar som ligger i sanden mellan palmerna.
+  for (const [x, r] of [[x0 + rnd(30, 60), rnd(12, 17)], [x0 + rnd(80, 110), rnd(8, 11)], [x1 - rnd(30, 60), rnd(12, 16)]]) {
+    g.ellipse(x, bas - r * 0.45, r, r * 0.72).fill(sphereFill(valj(STEN), { lightX: 0.35, lightY: 0.28, dark: 0.35 }))
+  }
+  torrTuva(g, (x0 + x1) / 2 + rnd(-60, -20), bas, 1.2)
+  torrTuva(g, (x0 + x1) / 2 + rnd(30, 70), bas, 0.9)
+  torrBuske(g, x1 - rnd(90, 120), bas)
+  return { svaj }
+}
+
+// Kören i öknen: en platt sandstenshäll i förgrunden. Ovansidan kring y 0 (där ungarna står),
+// framsidan ned förbi bildkanten, med skikten i stenen och några sprickor.
+export function ritaKorSten(g, w = 236) {
+  const hw = w / 2 + 8
+  const [A, B, C] = SANDSTEN
+  // Skugga i sanden bakom hällen.
+  g.ellipse(0, -4, hw + 22, 18).fill({ color: 0x6a4a2a, alpha: 0.14 })
+  // Framsidan: lite bredare nedåt, rundade övre hörn.
+  g.moveTo(-hw, 4)
+    .quadraticCurveTo(-hw - 2, 30, -hw - 12, 110)
+    .lineTo(hw + 14, 110)
+    .quadraticCurveTo(hw + 2, 30, hw, 4)
+    .closePath()
+    .fill(topLightFill(B, { highlight: 0.18, dark: 0.35 }))
+  // Skikten: vågiga ljusare och mörkare band tvärs över framsidan.
+  for (const [y, f] of [[22, tint(C, 0.2)], [40, shade(B, 0.12)], [62, tint(A, 0.15)], [86, shade(B, 0.2)]]) {
+    g.moveTo(-hw - 4, y)
+    for (let x = -hw; x <= hw; x += 24) g.lineTo(x, y + Math.sin(x * 0.06 + y) * 2.5)
+    g.stroke({ width: 5, color: f, alpha: 0.55, cap: 'round' })
+  }
+  // Ovansidan (hällen sedd lite ovanifrån) med en ljus kant.
+  g.ellipse(0, 3, hw, 13).fill(verticalFill(tint(C, 0.35), C))
+  g.moveTo(-hw + 6, 3).quadraticCurveTo(0, 17, hw - 6, 3).stroke({ width: 2, color: tint(C, 0.5), alpha: 0.7, cap: 'round' })
+  // Sprickor och småsten.
+  g.moveTo(-hw * 0.4, 16).lineTo(-hw * 0.36, 34).lineTo(-hw * 0.44, 52).stroke({ width: 2, color: shade(B, 0.4), alpha: 0.55, cap: 'round' })
+  g.moveTo(hw * 0.55, 12).lineTo(hw * 0.5, 30).stroke({ width: 1.8, color: shade(B, 0.4), alpha: 0.5, cap: 'round' })
+  for (const [x, y, r] of [[-hw * 0.7, 1, 3], [hw * 0.72, 4, 2.4], [hw * 0.2, 7, 2]]) g.circle(x, y, r).fill({ color: shade(C, 0.25), alpha: 0.7 })
+  // Konturen.
+  g.moveTo(-hw, 4).quadraticCurveTo(-hw - 2, 30, -hw - 12, 110).stroke({ width: 2, color: shade(B, 0.45), alpha: 0.5 })
+  g.moveTo(hw, 4).quadraticCurveTo(hw + 2, 30, hw + 14, 110).stroke({ width: 2, color: shade(B, 0.45), alpha: 0.5 })
+}

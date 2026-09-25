@@ -2318,3 +2318,72 @@ export function ritaFramInne(c, stil, kant, variant = Math.random() < 0.5) {
   return { svaj }
 }
 
+
+// ---- Vardagsrummet utan vatten (ägaren 2026-09-25: "enbart land") -----------------------------------
+
+// Körens hörn på golvet (i stället för akvariet): en rund flätad matta och en stor krukväxt som
+// vajar. { x0, x1 } = körens plats, `mark` = golvets ovansida.
+export function ritaMatta(R, F, { x0, x1, mark = MARK_Y }) {
+  const svaj = []
+  const c = dekor(R)
+  const g = ritning(c)
+  const cx = (x0 + x1) / 2
+  const rx = Math.min(170, (x1 - x0) / 2 + 10)
+  // Den flätade mattan: koncentriska ringar i mattans färger, platt på golvet.
+  const farger = [MATTA[0], MATTA[3], MATTA[1], MATTA[3], MATTA[2]]
+  farger.forEach((f, i) => {
+    const k = 1 - i / farger.length
+    g.ellipse(cx, mark + 2, rx * k, 11 * k + 2).fill(f)
+  })
+  g.ellipse(cx, mark + 2, rx, 13).stroke({ width: 1.6, color: shade(MATTA[0], 0.35), alpha: 0.5 })
+  // Krukväxten vid mattans ena kant: en blå kruka och breda blad som vajar.
+  const sida = Math.random() < 0.5 ? -1 : 1
+  const kx = cx + sida * (rx - 30)
+  const blad = vajNod(c, kx, mark - 44, svaj, 0.035, rnd(0.8, 1.2))
+  const bg = ritning(blad)
+  for (const [a, l] of [[-0.9, 70], [-0.35, 86], [0.25, 80], [0.8, 64], [-1.4, 52], [1.3, 50]]) spetsblad(bg, 0, 0, a, l, 26).fill(valj(BASILIKA))
+  const kg = ritning(c)
+  kg.moveTo(kx - 30, mark - 52).lineTo(kx + 30, mark - 52).lineTo(kx + 22, mark + 2).lineTo(kx - 22, mark + 2).closePath().fill(topLightFill(KRUKA_BLA, { highlight: 0.2, dark: 0.3 }))
+  kg.roundRect(kx - 33, mark - 58, 66, 10, 4).fill(tint(KRUKA_BLA, 0.15))
+  kg.ellipse(kx, mark + 3, 30, 5).fill({ color: 0x3a2410, alpha: 0.2 })
+  return { svaj }
+}
+
+// Kören i vardagsrummet: en stor, mjuk golvkudde i förgrunden. Ovansidan kring y 0 (där ungarna
+// står), kudden sväller ned förbi bildkanten, med en kantsöm, en knapp i mitten och tofsar.
+export function ritaKorKudde(g, w = 236) {
+  const hw = w / 2 + 12
+  const BAS = 0xe8844f
+  const SOM = 0xfff0d8
+  // Skuggan på golvet bakom.
+  g.ellipse(0, -2, hw + 16, 14).fill({ color: 0x3a2410, alpha: 0.16 })
+  // Kuddens kropp: bulligt rundad, bredast på mitten.
+  g.moveTo(-hw + 18, -8)
+    .bezierCurveTo(-hw - 14, -6, -hw - 22, 70, -hw + 4, 100)
+    .lineTo(hw - 4, 100)
+    .bezierCurveTo(hw + 22, 70, hw + 14, -6, hw - 18, -8)
+    .bezierCurveTo(hw * 0.4, -16, -hw * 0.4, -16, -hw + 18, -8)
+    .closePath()
+    .fill(topLightFill(BAS, { highlight: 0.22, dark: 0.34 }))
+  // Ovansidan: en ljusare, lite insjunken yta där ungarna sitter.
+  g.ellipse(0, 2, hw - 14, 13).fill(verticalFill(tint(BAS, 0.35), tint(BAS, 0.12)))
+  // Kantsömmen (paspoal) runt ovansidan och ned längs framsidan.
+  g.ellipse(0, 4, hw - 8, 15).stroke({ width: 3, color: SOM, alpha: 0.85 })
+  g.moveTo(-hw * 0.55, 20).quadraticCurveTo(0, 30, hw * 0.55, 20).stroke({ width: 2, color: shade(BAS, 0.3), alpha: 0.45, cap: 'round' })
+  // Knappen och vecken som strålar ut från den (på framsidan).
+  const ky = 52
+  for (const a of [-2.4, -1.6, -0.8, 0.8, 1.6, 2.4]) {
+    g.moveTo(0, ky).quadraticCurveTo(Math.cos(a) * 20, ky + Math.sin(a) * 10, Math.cos(a) * 42, ky + Math.sin(a) * 20)
+  }
+  g.stroke({ width: 2, color: shade(BAS, 0.28), alpha: 0.5, cap: 'round' })
+  g.circle(0, ky, 6).fill(sphereFill(SOM, { lightX: 0.35, lightY: 0.3, dark: 0.3 }))
+  // Tofsar i de övre hörnen.
+  for (const s of [-1, 1]) {
+    const tx = s * (hw - 10)
+    g.circle(tx, -6, 5).fill(SOM)
+    for (let i = -2; i <= 2; i++) g.moveTo(tx, -3).lineTo(tx + s * 6 + i * 2.5, 12)
+    g.stroke({ width: 2, color: SOM, cap: 'round' })
+  }
+  // Glans.
+  g.ellipse(-hw * 0.45, 38, 18, 7).fill({ color: 0xffffff, alpha: 0.18 })
+}

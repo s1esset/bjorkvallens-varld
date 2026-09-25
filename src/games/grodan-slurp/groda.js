@@ -134,6 +134,10 @@ const LED_DAMP = 0.08 // ledernas dämpning (se _ledDamp om varför den sänks i
 const LUFT = 0.012 // kroppsdelarnas luftmotstånd
 export const LUFT_SUPER = 0.004
 export const SUPER_LATT = 4 // px superhoppet lyfter grodan ur underlaget vid frånskjutet (superHopp)
+// Maxfarten (ägaren 2026-09-25: "maxfart får gärna vara 25% längre (mer kraft)"). Bara full sats
+// får den — och bara full sats blir ett superhopp med volt och ragdoll. MÄTT med _superhoppprobe p1
+// mot HEAD: höjd 472 → 593 px (+25 %), längd ~705 → ~874 px (+24 %, medel av 4–6 körningar).
+export const MAX_KRAFT = 1.13
 const HUVUD_SKALA = 1.12
 export const GRODA_MASSA_UNGEFAR = 18
 
@@ -638,13 +642,52 @@ export class Groda {
   // p 0…1 = hur länge fingret hölls. aim = enhetsvektor dit fingret drar (null: dit grodan
   // tittar, i hoppets egen vinkel). Farten är densamma åt alla håll — fingret väljer riktningen,
   // hållet väljer kraften.
+  // Full sats (p = 1) är MAXFARTEN: MAX_KRAFT gånger mer fart.
   superFart(p, aim = null) {
-    const k = !this.paMark && this._naraVatten ? 0.78 : 1
+    const k = (!this.paMark && this._naraVatten ? 0.78 : 1) * (p >= 1 ? MAX_KRAFT : 1)
     const vx = (4.4 + 3.4 * p) * k
     const vy = -(12.6 + 5 * p) * k
     if (!aim) return { x: this.riktning * vx, y: vy }
     const v = Math.hypot(vx, vy)
     return { x: aim.x * v, y: aim.y * v }
+  }
+
+  // Ett SATS-HOPP (hållet, men inte till full sats): samma bana som sikt-pilen visar (superFart),
+  // men ett vanligt hopp — ingen volt, inget stjärnläge, musklerna håller hopp-/flyg-/landa-posen
+  // och grodan landar på benen (ägaren 2026-09-25: "Alla hopp utom maxfart ska grodan hoppa och
+  // landa som vanligt"). Luften är superhoppets (LUFT_SUPER, ur flytvolymen) tills grodan tar mark,
+  // så att pilen gäller; lederna behåller sin dämpning (inget snurr att bevara).
+  laddHopp(p, dirX = this.riktning, aim = null) {
+    const iV = !this.paMark && this._naraVatten
+    if (!this.paMark && !iV) {
+      this.laddaAvbryt()
+      return false
+    }
+    if (aim) {
+      if (Math.abs(aim.x) > 0.12 && Math.sign(aim.x) !== this.riktning) this.vand()
+    } else if (Math.sign(dirX) !== this.riktning && this.paMark) this.vand()
+    const v = this.superFart(p, aim)
+    this.superFas = null
+    this.laddning = 0
+    this.kraft = 1
+    this._kraftPaus = 0
+    this._tvingadPose = 'hopp'
+    this._poseTid = 8
+    this.knuffa(v.x, v.y, 1)
+    for (const b of this.delar) Body.translate(b, { x: 0, y: -SUPER_LATT })
+    Body.setAngularVelocity(this.b.kropp, -0.03 * this.riktning)
+    this._luftLatt(true)
+    this._laddN = 0
+    this._mark = 99
+    this._markUnder = 99
+    return true
+  }
+
+  // Sats-hoppets luft: superhoppets lätta luft och ingen flytvolym medan grodan flyger.
+  _luftLatt(ja) {
+    this._laddLuft = ja
+    for (const b of this.delar) b.frictionAir = ja ? LUFT_SUPER : LUFT
+    this._iVolym(!ja)
   }
 
   // Samma vinkel, mer kraft: högre OCH längre. Med `aim` (fingret drog) går hoppet dit.
@@ -782,6 +825,7 @@ export class Groda {
   }
 
   _nollaSuper() {
+    this._laddLuft = false
     this._ledDamp(LED_DAMP)
     this.superFas = null
     this.landat = false
@@ -978,6 +1022,9 @@ export class Groda {
     this._kollaKontakt()
 
     const iV = this.iVatten
+    // Sats-hoppet tar mark (något UNDER grodan, eller vattnet): vanlig luft och flytvolym igen. Ett
+    // ben som snuddar en grannsten på väg UPP är ingen landning — då flyger grodan vidare längs pilen.
+    if (this._laddLuft && ++this._laddN > 3 && (iV || (this._markUnder === 0 && this.b.kropp.velocity.y > -2))) this._luftLatt(false)
     this._poseObj = null
     const sup = this.superFas === 'volt' || this.superFas === 'stjarna'
     if (sup) this._superSteg(iV)

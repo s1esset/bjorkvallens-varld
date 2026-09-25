@@ -73,6 +73,37 @@ const steg = (phys, n) => {
   for (let i = 0; i < n; i++) phys.update(1000 / 60)
 }
 
+function laddArm(p, siktGrader) {
+  const { phys, groda } = varld()
+  steg(phys, 90)
+  const x0 = groda._com().x
+  const y0 = groda._com().y
+  const aim = siktGrader == null ? null : { x: Math.cos((siktGrader * Math.PI) / 180), y: -Math.sin((siktGrader * Math.PI) / 180) }
+  const v = groda.superFart(p, aim)
+  const ok = groda.laddHopp(p, 1, aim)
+  let minY = y0
+  let landX = null
+  let minKraft = 1
+  let slak = 0
+  let stj = false
+  for (let i = 0; i < 240; i++) {
+    phys.update(1000 / 60)
+    minY = Math.min(minY, groda._com().y)
+    minKraft = Math.min(minKraft, groda.kraft)
+    if (groda.lage === 'slak') slak++
+    if (groda.superFas || groda.stjarna) stj = true
+    if (landX === null && i > 10 && groda.paMark) landX = groda._com().x
+  }
+  const kr = groda.b.kropp
+  const aR = groda.riktning === 1 ? kr.angle : Math.PI - kr.angle
+  return {
+    p, sikt: siktGrader, hoppade: ok, fart: r1(Math.hypot(v.x, v.y)),
+    hojd: r1(y0 - minY), langd: landX === null ? null : r1(Math.abs(landX - x0)),
+    minKraft: r2(minKraft), slakSteg: slak, superFas: stj,
+    efter: { lage: groda.lage, posfel: r2(posfel(groda, 'sitt')), bal: r2(wrap(aR)), luft: r2(groda.delar[0].frictionAir) },
+  }
+}
+
 function superArm(p) {
   const { phys, groda } = varld()
   steg(phys, 90)
@@ -143,6 +174,9 @@ const armar = {
   p0: () => superArm(0),
   p05: () => superArm(0.5),
   p1: () => superArm(1),
+  // SATS-HOPPET (2026-09-25): hållet under full sats är ett vanligt hopp längs pilens bana — ingen
+  // volt, inget stjärnläge. Landar grodan på benen? `sikt` = höjdvinkel i grader (null = egen).
+  ladd: () => [0, 0.5, 0.95].flatMap((p) => [null, 50, 80, 130].map((sikt) => laddArm(p, sikt))),
   stjarna() {
     const ut = {}
     for (const kontroll of [true, false]) {

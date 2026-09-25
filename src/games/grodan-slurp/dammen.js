@@ -73,7 +73,9 @@ const { Body, Bodies, Vertices } = Matter
 const KONST = { ...KONST_UTE, ...KONST_INNE, ...KONST_DJUR }
 
 export const YT_Y = 560
-export const TIDER = ['morgon', 'eftermiddag', 'skymning']
+// Tid på dygnet: morgon · dag (eftermiddag) · kväll (skymning) · natt. index.js slumpar en ny
+// varje runda, även när spelet öppnas (ägaren 2026-09-25: "mer rotation på banornas tid på dygnet").
+export const TIDER = ['morgon', 'eftermiddag', 'skymning', 'natt']
 
 const W = 1280 // SKÄRMENS bredd (himlen, fjärranbandet) — världens bredd är `this.VW`
 const H = 720
@@ -133,6 +135,18 @@ const PALETT = {
     fjarrVatten: 0xf6bb9c, djupTopp: 0x5a6d9c, djupBotten: 0x171c3a, sand: 0x8a7a78,
     yta: 0x8a90c8, djup: 0x1f2450, ytA: 0.42, djupA: 0.84, linje: 0xffe2cc, glitter: 0xffd4aa,
     ton: 0xffe6d6, stjarnor: 9, dimma: false, stral: 0.035,
+  },
+  // Natten: djupblå himmel, fullmåne (solen ritad blek, med kratrar — `mane`), stjärnor över hela
+  // himlen, och eldflugor (index.js). `ton` läggs även på fjärranbandet och vattnet (`nattTon`):
+  // biomernas egna färger på kullar och vatten är dagsfärger och lyste annars mot natthimlen.
+  // Tonen är MÅNSKEN, inte mörker — ett barn ska se varje gren och varje blad.
+  natt: {
+    himmel: 0x121c46, horisont: 0x3a4f8c, glod: null, sol: 0xf6f2dc, solU: 990, solY: 128, moln: 0,
+    dis: 0.22, disFarg: 0x9fb2e0,
+    kulle: 0x46598a, skogFjarran: 0x34466f, skogNara: 0x263759, strandFjarran: 0x1f2c4a,
+    fjarrVatten: 0x5a6fa4, djupTopp: 0x3a5082, djupBotten: 0x0f1734, sand: 0x5e6478,
+    yta: 0x7488c6, djup: 0x1a2656, ytA: 0.42, djupA: 0.86, linje: 0xdfe8ff, glitter: 0xeef2ff,
+    ton: 0xc4cced, stjarnor: 34, stjarnY: 400, dimma: false, stral: 0.02, mane: true, nattTon: true,
   },
 }
 
@@ -260,6 +274,8 @@ export class Dammen {
     this._alive = true
     this.biomNamn = BIOMER[biom] ? biom : 'damm'
     this.biom = BIOMER[this.biomNamn]
+    // En TORR värld (öknen, vardagsrummet): inget vatten nånstans — se biomer.js `torr`.
+    this.torr = !!this.biom.torr
     this._phys = phys
     this._lager = lager
     this._audio = audio
@@ -308,8 +324,15 @@ export class Dammen {
     this._bakomRot = this._rot(lager.bakom)
     this._vattenRot = this._rot(lager.vatten)
     this._framRot = this._rot(lager.fram)
+    // Natten: inomhus är det lampljus (varmt, ljusare), ute månsken — och då tonas även
+    // fjärranbandet och vattnet, vars biomfärger annars är dagsfärger (se PALETT.natt).
+    if (this._pal.nattTon && this.biom.inne) this._pal.ton = 0xe6dccd
     this._bakomRot.tint = this._pal.ton
     this._framRot.tint = this._pal.ton
+    if (this._pal.nattTon) {
+      this._fjarranRot.tint = this._pal.ton
+      this._vattenRot.tint = this._pal.ton
+    }
     this._kronor = []
     this._strander = []
     this._stockar = []
@@ -555,7 +578,9 @@ export class Dammen {
     const ta = (x0, x1) => P.upptaget.push({ x0, x1 })
     if (gol) {
       const golV = Math.random() < 0.5
-      const gw = rnd(560, 660)
+      // I en torr värld är "gölen" bara körens plats på marken (palmlunden, mattan) — smalare, så
+      // att det finns plats för klippor, dyner och möbler.
+      const gw = this.torr ? rnd(320, 380) : rnd(560, 660)
       const g0u = rnd(260, 360)
       P.golSida = golV ? 'v' : 'h'
       const gx0 = golV ? g0u : VW - g0u - gw
@@ -685,8 +710,10 @@ export class Dammen {
     }
     if (hav || B.inne) {
       /* ingen vass */
+    } else if (gol && this.torr) {
+      /* ingen vass där det inte finns vatten */
     } else if (gol) {
-      // Skogen och oasen: vass runt gölens kanter.
+      // Skogen: vass runt gölens kanter.
       lagg(rint(1, 2), this._u(P.gol.x0 + 20), this._u(P.gol.x0 + 60), 14)
       lagg(rint(1, 2), this._u(P.gol.x1 - 60), this._u(P.gol.x1 - 20), 14)
       P.vass.forEach((v) => (v.u = Math.min(v.u, VW)))
@@ -742,7 +769,10 @@ export class Dammen {
     }
 
     // Vatten var: gölen, havet (från strandens sluttning ut till världens ände) — annars överallt.
-    if (gol) P.vattenX = { x0: P.gol.x0, x1: P.gol.x1 }
+    // En torr värld har ett tomt vattenspann långt utanför världen: ingenting är någonsin "i
+    // vattnet" (markVid, sikt-pilen, hindren) och flytvolymen bär ingenting.
+    if (gol && this.torr) P.vattenX = { x0: -1e6, x1: -1e6 }
+    else if (gol) P.vattenX = { x0: P.gol.x0, x1: P.gol.x1 }
     else if (hav) {
       const k = this._x(P.kustU + 40)
       P.vattenX = this._sgn > 0 ? { x0: k, x1: VW + BLEED_X } : { x0: -BLEED_X, x1: k }
@@ -823,6 +853,13 @@ export class Dammen {
     )
     R.addChild(scen)
     this._scen = scen
+    // Natten: solen är månen — några mjuka kratrar och en blek skugga gör den till en fullmåne.
+    if (p.mane) {
+      const mx = this._sida === 'v' ? p.solU : W - p.solU
+      const m = ritning(R)
+      for (const [dx, dy, r] of [[-16, -12, 11], [14, 8, 14], [-8, 22, 7], [22, -18, 6], [-26, 10, 5]]) m.circle(mx + dx, p.solY + dy, r).fill({ color: 0xc9c6b4, alpha: 0.45 })
+      m.circle(mx, p.solY, 58).stroke({ width: 3, color: 0xffffff, alpha: 0.25 })
+    }
     const sx0 = -BLEED_X - 20
     const sbr = W + 2 * BLEED_X + 40
     ritning(R).rect(sx0, YT_Y - 2, sbr, H + BLEED_Y - YT_Y + 30).fill(p.horisont)
@@ -834,8 +871,13 @@ export class Dammen {
 
     // Stjärnor (skymning): tindrar per bildruta, bara högt upp där himlen redan är djup.
     this._stjarnor = []
-    for (let i = 0; i < p.stjarnor; i++) {
-      const c = dekor(R, rnd(-BLEED_X, W + BLEED_X), rnd(-BLEED_Y * 0.5, 170))
+    const maneX = this._sida === 'v' ? p.solU : W - p.solU
+    for (let i = 0, forsok = 0; i < p.stjarnor && forsok < p.stjarnor * 4; forsok++) {
+      const sx = rnd(-BLEED_X, W + BLEED_X)
+      const sy = rnd(-BLEED_Y * 0.5, p.stjarnY || 170)
+      if (p.mane && Math.hypot(sx - maneX, sy - p.solY) < 100) continue // inga stjärnor framför månen
+      i++
+      const c = dekor(R, sx, sy)
       const r = rnd(2.5, 5)
       const k = r * 0.28
       ritning(c).poly([0, -r, k, -k, r, 0, k, k, 0, r, -k, k, -r, 0, -k, -k]).fill(0xfff6e0)
@@ -968,7 +1010,7 @@ export class Dammen {
     // Växter som vajar (ritas om per bildruta i `_ritaBotten`). Inomhus ritar gölens behållare
     // sin egen botten (diskhon, akvariet, badkaret) — där växer inget i sanden.
     this._vaxter = []
-    for (let i = 0; i < (this.biom.inne ? 0 : 12 * (this.VW / W)); i++) {
+    for (let i = 0; i < (this.biom.inne || this.torr ? 0 : 12 * (this.VW / W)); i++) {
       this._vaxter.push({
         x: rnd(-BLEED_X * 0.6, this.VW + BLEED_X * 0.6),
         y: rnd(700, 720),
@@ -992,7 +1034,7 @@ export class Dammen {
     fg.circle(9, -1.5, 1.8).fill({ color: 0xffffff, alpha: 0.7 })
     fc.alpha = 0.55
     fc.visible = false
-    this._fisk = { c: fc, aktiv: false, nasta: this.biom.inne ? Infinity : rnd(4, 9), dir: 1, fart: 60, y: 650, fas: rnd(0, TAU) }
+    this._fisk = { c: fc, aktiv: false, nasta: this.biom.inne || this.torr ? Infinity : rnd(4, 9), dir: 1, fart: 60, y: 650, fas: rnd(0, TAU) }
   }
 
   // ---- stenar -------------------------------------------------------------------------
@@ -1585,13 +1627,14 @@ export class Dammen {
     const G = this._plan.gol
     const stil = this.biom.markStil || 'skog'
     const halt = this.biom.halt
-    const bitar = [[-BLEED_X - 60, G.x0 + 30], [G.x1 - 30, VW + BLEED_X + 60]]
+    // En torr värld: EN bit från kant till kant, utan kant mot någon göl.
+    const bitar = this.torr ? [[-BLEED_X - 60, VW + BLEED_X + 60]] : [[-BLEED_X - 60, G.x0 + 30], [G.x1 - 30, VW + BLEED_X + 60]]
     for (const [a, b] of bitar) {
       if (b - a < 40) continue
       // `kant` = biten mot gölen, `ytter` = bitens andra ände (världens kant). Första versionen
       // utgick alltid från `a` och ritade nästan ingenting av den HÖGRA biten (_varldbildprobe).
       const inat = a < G.x0 ? 1 : -1
-      const kant = inat > 0 ? b : a
+      const kant = this.torr ? null : inat > 0 ? b : a
       // Badrummets våta kakel (L7): närmast badkaret en HAL remsa — en egen kropp med låg friktion,
       // som isen. Resten av golvet är vanligt.
       const delar = []
@@ -1670,6 +1713,12 @@ export class Dammen {
     const stil = this.biom.golStil
     if (!stil || stil === 'skog' || !this._plan.gol) return
     const G = this._plan.gol
+    // Torrt: körens plats på marken — palmlunden (öknen), mattan (vardagsrummet).
+    if (this.torr) {
+      const namn = { palmlund: 'ritaPalmlund', matta: 'ritaMatta' }[stil]
+      if (namn) this._konst(namn, [this._bakomRot, this._framRot, { x0: G.x0, x1: G.x1, mark: MARK_Y }])
+      return
+    }
     const namn = { oas: 'ritaOas', diskho: 'ritaDiskho', akvarium: 'ritaAkvarium', badkar: 'ritaBadkar' }[stil]
     const arg = stil === 'oas' ? { x0: G.x0, x1: G.x1, yt: YT_Y } : { x0: G.x0, x1: G.x1, yt: YT_Y, botten: 740, mark: MARK_Y }
     this._konst(namn, [this._bakomRot, this._framRot, arg], () => {
@@ -1966,7 +2015,9 @@ export class Dammen {
   _byggVatten() {
     const R = this._vattenRot
     const p = this._pal
-    this._vattenG = ritning(R)
+    // En torr värld ritar inget vatten (_ritaVatten tittar på _vattenG); resten nedan blir tomt av
+    // sig självt (vattnets spann är 0), utom morgondiset som hör till fjärran.
+    this._vattenG = this.torr ? null : ritning(R)
     this._vattenFyll = verticalFillAlpha(p.yta, p.djup, p.ytA, p.djupA)
     // Ljusstrålar ner i vattnet, lutade bort från solen.
     const stral = dekor(R)
@@ -2574,7 +2625,8 @@ export class Dammen {
 
 class Grodungar {
   // underlag: det kören sitter på — 'blad' (näckrosbladet), 'badring' (stranden, badrummet),
-  // 'disksvamp' (köket). Konsten för de två senare finns i konst-ute.js / konst-inne.js.
+  // 'disksvamp' (köket), och på LAND (de torra världarna) 'sten' (öknens häll) och 'kudde'
+  // (vardagsrummets golvkudde). Konsten finns i konst-ute.js / konst-inne.js.
   constructor({ lager, audio, x, sida, underlag = 'blad' }) {
     this._alive = true
     this._audio = audio
@@ -2588,9 +2640,10 @@ class Grodungar {
     const cy = 690
     // Bladets mitt i världen — spelet gör kören till en håll-knapp ("kalla hem grodan").
     this.plats = { x: cx, y: cy }
-    // Krusningar på vattnet runt bladet (förgrunden flyter också).
+    // Krusningar på vattnet runt bladet (förgrunden flyter också) — inte på land.
+    this._paLand = underlag === 'sten' || underlag === 'kudde'
     this._ringar = []
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < (this._paLand ? 0 : 2); i++) {
       const c = dekor(rot, cx, cy + 4)
       ritning(c).ellipse(0, 0, 124, 24).stroke({ width: 2.5, color: 0xffffff, alpha: 0.5 })
       this._ringar.push({ c, fas: i * 0.5 })
@@ -2599,7 +2652,7 @@ class Grodungar {
     this._bladC = blad
     this._bladY = cy
     const bg = ritning(blad)
-    const eget = { badring: 'ritaBadring', disksvamp: 'ritaDisksvamp' }[underlag]
+    const eget = { badring: 'ritaBadring', disksvamp: 'ritaDisksvamp', sten: 'ritaKorSten', kudde: 'ritaKorKudde' }[underlag]
     if (eget && typeof KONST[eget] === 'function') {
       try {
         KONST[eget](bg, 236)
@@ -2884,8 +2937,11 @@ class Grodungar {
     }
     // Förgrundsbladet guppar och krusningarna vidgas.
     if (!this._bladC.destroyed) {
-      this._bladC.y = this._bladY + 1.6 * Math.sin(T * 1.4)
-      this._bladC.rotation = 0.012 * Math.sin(T * 1.1)
+      // På vattnet guppar bladet; en häll eller kudde på land står still.
+      if (!this._paLand) {
+        this._bladC.y = this._bladY + 1.6 * Math.sin(T * 1.4)
+        this._bladC.rotation = 0.012 * Math.sin(T * 1.1)
+      }
     }
     for (const r of this._ringar) {
       if (r.c.destroyed) continue

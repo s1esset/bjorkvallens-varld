@@ -367,10 +367,13 @@ export class PhysicsWorld {
         iRutan++
         const s = p.collision?.supports?.[0]
         const namn = a.mat || b.mat || null
+        const n = p.collision?.normal
         handler({
           a,
           b,
           speed: rel,
+          // Farten LÄNGS kontaktnormalen (hur rakt på) — ett snuddande glid har hög `speed` men låg `normalFart`.
+          normalFart: n ? Math.abs((a.velocity.x - b.velocity.x) * n.x + (a.velocity.y - b.velocity.y) * n.y) : rel,
           styrka: Math.min(1, (rel - minSpeed) / Math.max(0.001, hardSpeed - minSpeed)),
           x: s ? s.x : (a.position.x + b.position.x) / 2,
           y: s ? s.y : (a.position.y + b.position.y) / 2,

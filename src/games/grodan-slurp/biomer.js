@@ -15,13 +15,16 @@
 // som förut — det är konsten (konst-ute.js / konst-inne.js / djur.js) och de här talen som skiljer:
 //   flyt       { motstand, maxFart } för vattnet (träsket är tjockt)
 //   tuvor      träskets gräsklumpar i vattnet (som stenar, fast gröna)
-//   golStil    vad gölen ÄR: 'skog' · 'oas' · 'diskho' · 'akvarium' · 'badkar'
+//   golStil    vad gölen ÄR: 'skog' · 'diskho' · 'badkar' — eller, i en TORR värld, vad kören
+//              sitter vid: 'palmlund' (öknen) · 'matta' (vardagsrummet)
+//   torr       ingen vatten NÅNSTANS (ägaren 2026-09-25: öknen och vardagsrummet är "enbart land
+//              banor"): marken går från kant till kant, ingen flytvolym, kören sitter på land
 //   markStil   marken: 'skog' · 'oken' · 'bank' (köksbänken) · 'golv' · 'kakel'
 //   mobler     det som står på marken (skogens flugsvampar): [{ typ, antal, w, topp, studs }]
 //   klippor / dyner   öknens klippor och sanddyner
 //   tradStil   'lov' · 'dod' · 'kaktus' · 'livrad'+'hopptorn' · 'kokshylla' · 'bokhylla' · 'badhylla'
 //   stubbStil  'dod' (dammens döda stam) · 'slevar' · 'golvlampa' · 'dusch'
-//   korUnderlag  det kören sitter på: 'blad' · 'badring' · 'disksvamp'
+//   korUnderlag  det kören sitter på: 'blad' · 'badring' · 'disksvamp' · 'sten' (öknen) · 'kudde'
 //   inne       inomhus: ingen himmel, en vägg i stället (konst-inne.js)
 //   het        öknens heta sand (index.js: grodan trippar när den sitter på sanden)
 //   vagor      strandens vågor: strömmen svänger { amp px/steg, per s, mot px/steg mot land }
@@ -101,13 +104,16 @@ export const BIOMER = {
     hinder: ['gasbubbla', 'gasbubbla', 'gadda', 'vind'],
     anka: false,
   },
-  // Öknen: en värld utan vatten utom oasen där kören sitter. HET sand — grodan trippar när den
-  // sitter på sanden (klipporna, kaktusarmarna och oasen är svala). Sanddyner att glida nedför.
+  // Öknen: en värld HELT utan vatten (förut en oas där kören satt). Kören sitter på en
+  // sandstenshäll i en palmlund. HET sand — grodan trippar när den sitter på sanden (klipporna och
+  // kaktusarmarna är svala). Sanddyner att glida nedför.
   oken: {
     vatten: 'gol',
-    golStil: 'oas',
+    torr: true,
+    golStil: 'palmlund',
     markStil: 'oken',
-    blad: [1, 1],
+    korUnderlag: 'sten',
+    blad: [0, 0],
     stenar: [0, 0],
     stubbe: false,
     trad: 2,
@@ -163,14 +169,17 @@ export const BIOMER = {
     hinder: ['apelsin', 'apelsin', 'droppe', 'anga'],
     anka: false,
   },
-  // Vardagsrummet: golvet, akvariet är gölen. Soffan och puffen studsar, bokhyllor att klättra i,
-  // en golvlampa mitt i rummet — och ibland går katten förbi.
+  // Vardagsrummet: bara golv (förut var akvariet gölen). Kören sitter på en golvkudde på en
+  // matta. Soffan och puffen studsar, bokhyllor att klättra i, en golvlampa mitt i rummet — och
+  // ibland går katten förbi.
   vardagsrum: {
     vatten: 'gol',
+    torr: true,
     inne: true,
-    golStil: 'akvarium',
+    golStil: 'matta',
     markStil: 'golv',
-    blad: [1, 1],
+    korUnderlag: 'kudde',
+    blad: [0, 0],
     stenar: [0, 0],
     stubbe: true,
     stubbStil: 'golvlampa',
@@ -234,7 +243,7 @@ export const BIOM_PALETT = {
     fjarrVatten: 0x9aa47a, djupTopp: 0x6f7d4a, djupBotten: 0x2a3218, sand: 0x4f4030,
     yta: 0x8f9c5c, djup: 0x3f4a24, ytA: 0.55, djupA: 0.9, dis: 0.6, disFarg: 0xe8eedc, dimma: true,
   },
-  // Öknen: sandfärgad fjärran (dyner och klippor i stället för skog), turkos oas.
+  // Öknen: sandfärgad fjärran (dyner och klippor i stället för skog).
   oken: {
     kulle: 0xf0d49a, skogFjarran: 0xdcae72, skogNara: 0xc98f55, strandFjarran: 0xe6bf80,
     fjarrVatten: 0xf2dcaa, djupTopp: 0xe9c88c, djupBotten: 0xc99a5c, sand: 0xc9b07a,
@@ -246,7 +255,7 @@ export const BIOM_PALETT = {
     fjarrVatten: 0xaee6f2, djupTopp: 0x4fbad8, djupBotten: 0x15507c, sand: 0xe6d3a4,
     yta: 0x72d4ea, djup: 0x1b6c9e,
   },
-  // Inomhus: vattnet i diskhon, akvariet och badkaret (himlen syns bara i fönstret).
+  // Inomhus: vattnet i diskhon och badkaret (himlen syns bara i fönstret).
   kok: { yta: 0xd6ecf2, djup: 0x86aabb, ytA: 0.45, djupA: 0.75, sand: 0xa7b2ba, djupTopp: 0xa9c4cf, djupBotten: 0x5f7a88 },
   vardagsrum: { yta: 0x8fe3e6, djup: 0x2a8ea6, sand: 0xd9c79a, djupTopp: 0x6cc4d0, djupBotten: 0x1d5f78 },
   badrum: { yta: 0xdff4fb, djup: 0x8ccbe2, ytA: 0.42, djupA: 0.7, sand: 0xf2f1ec, djupTopp: 0xbfe3ef, djupBotten: 0x7fb0c8 },

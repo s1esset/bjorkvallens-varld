@@ -106,7 +106,7 @@ const ut = { tapp: null, super: [], korKort: null, korHall: null, exit: null }
 }
 
 // ── super × N ──────────────────────────────────────────────────────────────────────────────
-const HALL = [0.45, 1.0, 1.7, 1.2, 0.7]
+const HALL = [1.8, 0.45, 1.9, 1.0, 1.7] // 2026-09-25: bara full sats (≥ 1,55 s) är ett superhopp; 0,45 och 1,0 är sats-hopp
 for (let n = 0; n < HOPP; n++) {
   const L = await vantaSitt()
   if (!L) break
@@ -238,7 +238,7 @@ const hemPunkt = (L) => page.evaluate(([kx, ky]) => {
   let p = await sida(L.x, L.y)
   await page.mouse.move(p.x, p.y)
   await page.mouse.down()
-  await page.waitForTimeout(900)
+  await page.waitForTimeout(1750) // full sats = superhopp (2026-09-25)
   await page.mouse.up()
   await page.waitForTimeout(500)
   const I = await lage()
@@ -261,7 +261,7 @@ const hemPunkt = (L) => page.evaluate(([kx, ky]) => {
   const p = await sida(L.x, L.y)
   await page.mouse.move(p.x, p.y)
   await page.mouse.down()
-  await page.waitForTimeout(700)
+  await page.waitForTimeout(1750) // full sats = superhopp (2026-09-25)
   await page.mouse.up()
   let M = null
   for (let i = 0; i < 40; i++) {

@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tio nya fysikspel</title>
+<meta name="description" content="Idélista för Björkvallens Värld: tio spel med fysik, ragdolls, mjuka kroppar och slump som inte finns i appen än.">
+<style>
+  :root {
+    --bg: #fbf6ec;
+    --surface: #ffffff;
+    --surface-2: #f4ede0;
+    --ink: #2b2521;
+    --ink-2: #5e554d;
+    --ink-3: #8a8077;
+    --line: #e6dccb;
+    --sma: #1f8a6d;
+    --sma-bg: #dff3ea;
+    --stor: #b4532a;
+    --stor-bg: #fbe6d9;
+    --ny: #7a3fb0;
+    --ny-bg: #efe3fa;
+    --finns: #3c6e9e;
+    --finns-bg: #e2edf8;
+    --mat: #fff4cf;
+    --mat-line: #e9cf6c;
+    --shadow: 0 1px 2px rgba(60,40,20,.06), 0 6px 20px rgba(60,40,20,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1815;
+      --surface: #25211d;
+      --surface-2: #2e2924;
+      --ink: #f1ebe2;
+      --ink-2: #c9bfb3;
+      --ink-3: #978c80;
+      --line: #3b352f;
+      --sma: #5fd1ae;
+      --sma-bg: #173a30;
+      --stor: #f29a70;
+      --stor-bg: #43271a;
+      --ny: #c9a1f0;
+      --ny-bg: #342447;
+      --finns: #8fbde8;
+      --finns-bg: #1f3044;
+      --mat: #3a3218;
+      --mat-line: #7d6a2a;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1815; --surface: #25211d; --surface-2: #2e2924; --ink: #f1ebe2; --ink-2: #c9bfb3;
+    --ink-3: #978c80; --line: #3b352f; --sma: #5fd1ae; --sma-bg: #173a30; --stor: #f29a70;
+    --stor-bg: #43271a; --ny: #c9a1f0; --ny-bg: #342447; --finns: #8fbde8; --finns-bg: #1f3044;
+    --mat: #3a3218; --mat-line: #7d6a2a; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  code {
+    font: .86em/1.3 ui-monospace, "Cascadia Code", Consolas, monospace;
+    background: var(--surface-2);
+    padding: .08em .35em;
+    border-radius: 5px;
+    white-space: nowrap;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 64px; }
+
+  header.top { padding: 44px 0 20px; }
+  .kicker { color: var(--ink-3); font-size: .9rem; letter-spacing: .02em; }
+  h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.1; margin: .2em 0 .3em; letter-spacing: -.01em; }
+  .lead { font-size: 1.1rem; color: var(--ink-2); max-width: 62ch; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0 8px; }
+  .stat {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 10px 14px; box-shadow: var(--shadow); min-width: 120px;
+  }
+  .stat b { display: block; font-size: 1.5rem; line-height: 1.1; }
+  .stat span { color: var(--ink-3); font-size: .85rem; }
+
+  h2 { font-size: 1.4rem; margin: 48px 0 12px; }
+  h2 small { color: var(--ink-3); font-weight: 500; font-size: .9rem; margin-left: 6px; }
+
+  /* Översiktstabellen */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; background: var(--surface-2); }
+  tr:last-child td { border-bottom: 0; }
+  td.num { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  td a { color: inherit; text-decoration: none; font-weight: 650; }
+  td a:hover { text-decoration: underline; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--ink); opacity: .75; }
+  .dot.no { background: transparent; border: 1.5px solid var(--line); opacity: 1; }
+  td.c { text-align: center; }
+
+  /* Filter */
+  .filter { display: flex; gap: 8px; flex-wrap: wrap; margin: 28px 0 16px; align-items: center; }
+  .filter span { color: var(--ink-3); font-size: .9rem; margin-right: 4px; }
+  .filter button {
+    font: inherit; font-size: .92rem; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    border-radius: 999px; padding: 6px 14px;
+  }
+  .filter button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+  /* Korten */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 18px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column;
+    scroll-margin-top: 16px;
+  }
+  .card[hidden] { display: none; }
+  .card-head { display: flex; gap: 14px; align-items: flex-start; padding: 18px 18px 12px; border-top: 6px solid var(--accent); }
+  .badge {
+    flex: 0 0 auto; width: 56px; height: 56px; border-radius: 16px;
+    display: grid; place-items: center; font-size: 30px;
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  }
+  .card h3 { margin: 0; font-size: 1.3rem; line-height: 1.2; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
+  .pill { font-size: .76rem; font-weight: 650; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .pill.sma { background: var(--sma-bg); color: var(--sma); }
+  .pill.stor { background: var(--stor-bg); color: var(--stor); }
+  .pill.plain { background: var(--surface-2); color: var(--ink-2); }
+  .meta code { font-size: .78rem; }
+  .pitch { padding: 0 18px; margin: 0 0 6px; font-size: 1.04rem; font-weight: 550; }
+  .body { padding: 4px 18px 18px; display: grid; gap: 12px; }
+  .sec h4 {
+    margin: 0 0 3px; font-size: .74rem; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--ink-3); font-weight: 700;
+  }
+  .sec p { margin: 0; color: var(--ink-2); }
+  .sec ul { margin: 0; padding-left: 1.1em; color: var(--ink-2); }
+  .sec li { margin: 2px 0; }
+  .sec li::marker { color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 6px; }
+  .chip { font: .76rem/1.4 ui-monospace, "Cascadia Code", Consolas, monospace; padding: 2px 8px; border-radius: 7px; }
+  .chip.finns { background: var(--finns-bg); color: var(--finns); }
+  .chip.ny { background: var(--ny-bg); color: var(--ny); font-weight: 700; }
+  .mat {
+    background: var(--mat); border: 1px solid var(--mat-line); border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .mat h4 { color: var(--ink-2); }
+  .mat p { color: var(--ink); }
+
+  /* Byggordning + lyft */
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 18px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); }
+  .panel h3 { margin: 0 0 10px; font-size: 1.1rem; }
+  ol.order { margin: 0; padding-left: 1.3em; }
+  ol.order li { margin: 0 0 10px; color: var(--ink-2); }
+  ol.order li b { color: var(--ink); }
+  .lift { display: grid; gap: 10px; }
+  .lift div { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .lift div:last-child { border-bottom: 0; padding-bottom: 0; }
+  .lift b { font-size: .95rem; }
+  .lift span { color: var(--ink-2); font-size: .92rem; }
+  .p0 { color: var(--ink-2); margin: 0; padding-left: 1.2em; }
+  .p0 li { margin: 0 0 8px; }
+  .legend { color: var(--ink-3); font-size: .86rem; margin: 10px 2px 0; }
+  footer { color: var(--ink-3); font-size: .85rem; margin-top: 48px; border-top: 1px solid var(--line); padding-top: 16px; }
+
+  @media (max-width: 560px) {
+    .card-head { padding: 16px 14px 10px; }
+    .pitch { padding: 0 14px; }
+    .body { padding: 4px 14px 16px; }
+    .badge { width: 48px; height: 48px; font-size: 26px; border-radius: 14px; }
+  }
+  @media print {
+    .filter { display: none; }
+    .card { break-inside: avoid; box-shadow: none; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">Björkvallens Värld · idélista · 2026-09-25 · appen på v1.262.0</div>
+  <h1>Tio nya fysikspel</h1>
+  <p class="lead">Tio spel som varken finns bland appens 86 eller i idébanken (<code>docs/IDEER.md</code>).
+  Alla har fysik i grunden, och slump och händelser gör att ingen runda blir den andra lik.
+  Flera har ragdolls och mjuka kroppar. Varje kort slutar med det som ska <b>mätas först</b>,
+  alltså premissen som kan falla innan något byggs.</p>
+  <div class="stats">
+    <div class="stat"><b>10</b><span>nya spelidéer</span></div>
+    <div class="stat"><b>7</b><span>småbarn 2–5 år</span></div>
+    <div class="stat"><b>3</b><span>storbarn 6–12 · öppnar Utmaning</span></div>
+    <div class="stat"><b>4</b><span>med ragdoll</span></div>
+    <div class="stat"><b>6</b><span>med mjuk kropp eller tyg</span></div>
+  </div>
+</header>
+
+<h2>Översikt <small>tryck på ett namn för att hoppa till kortet</small></h2>
+<div class="tablewrap">
+<table>
+  <thead>
+    <tr><th>#</th><th>Spel</th><th>Band</th><th>Storlek</th><th class="c">Ragdoll</th><th class="c">Mjuk kropp</th><th class="c">Vätska / sand</th><th class="c">Nytt motorbygge</th><th>Slumpen i korthet</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td><a href="#popcornkalaset">🍿 Popcornkalaset</a></td><td>Småbarn</td><td>M</td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot no"></i></td><td>varje korn har egen smällpunkt</td></tr>
+    <tr><td class="num">2</td><td><a href="#nallens-stuntshow">🧸 Nallens stuntshow</a></td><td>Småbarn</td><td>M</td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td>rummet byggs om varje runda</td></tr>
+    <tr><td class="num">3</td><td><a href="#blackfisken-otto">🐙 Bläckfisken Otto</a></td><td>Småbarn</td><td>M</td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot no"></i></td><td>havsbotten, strömmar, fallande fynd</td></tr>
+    <tr><td class="num">4</td><td><a href="#vattenballongerna">🎈 Vattenballongerna</a></td><td>Småbarn</td><td>M</td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot no"></i></td><td>vind, vandrande djur, blindgångare</td></tr>
+    <tr><td class="num">5</td><td><a href="#slajmlabbet">🧪 Slajmlabbet</a></td><td>Småbarn</td><td>M</td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td>överraskningsflaskan, egenskaper blandas</td></tr>
+    <tr><td class="num">6</td><td><a href="#tvattstugan">🧺 Tvättstugan</a></td><td>Småbarn</td><td>L</td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td>plagg, fläckar, den röda strumpan</td></tr>
+    <tr><td class="num">7</td><td><a href="#sandslottet">🏰 Sandslottet</a></td><td>Småbarn</td><td>L</td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot"></i></td><td>vågornas storlek och takt, krabban, måsen</td></tr>
+    <tr><td class="num">8</td><td><a href="#bobo-i-rymden">🚀 Bobo i rymden</a></td><td>Storbarn</td><td>L</td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td>ett nytt solsystem per bana</td></tr>
+    <tr><td class="num">9</td><td><a href="#gelebilen">🚗 Gelébilen</a></td><td>Storbarn</td><td>L</td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td>banan sätts ihop av slumpade bitar</td></tr>
+    <tr><td class="num">10</td><td><a href="#brobyggarna">🌉 Brobyggarna</a></td><td>Storbarn</td><td>L</td><td class="c"><i class="dot"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot no"></i></td><td class="c"><i class="dot"></i></td><td>ravinen och djurkön blandas</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="legend">Storlek: M = i huvudsak befintliga motorer, högst ett mindre tillägg · L = en ny motor eller ett större motorbygge först.
+<span class="chip finns">blå</span> = motorn finns i <code>src/lib/</code> · <span class="chip ny">lila</span> = byggs nytt.</p>
+
+<div class="filter" role="group" aria-label="Filtrera på åldersband">
+  <span>Visa:</span>
+  <button type="button" data-f="alla" aria-pressed="true">Alla (10)</button>
+  <button type="button" data-f="sma" aria-pressed="false">Småbarn 2–5 (7)</button>
+  <button type="button" data-f="stor" aria-pressed="false">Storbarn 6–12 (3)</button>
+</div>
+
+<section class="cards">
+
+  <!-- 1 -->
+  <article class="card" id="popcornkalaset" data-band="sma" style="--accent:#e0a526">
+    <div class="card-head">
+      <div class="badge">🍿</div>
+      <div>
+        <h3>1 · Popcornkalaset</h3>
+        <div class="meta"><span class="pill sma">Småbarn 2–5</span><span class="pill plain">Fysik · tap + drag</span><span class="pill plain">M</span><code>popcornkalaset</code></div>
+      </div>
+    </div>
+    <p class="pitch">Filmkväll i soffan. Varje majskorn har en egen temperatur och en egen smällpunkt, så ingen vet vilket som poppar härnäst eller vart det flyger.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Barnet häller majskorn i grytan och vrider upp plattan med en stor ratt. Kornen skakar och blir varma, och så smäller det: först ett i taget, sedan i en kaskad. Popcornen sväller ur kornen, trycker upp locket och väller över kanten. Barnet skakar grytan och häller upp i skålarna till gästerna i soffan.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Varje korn får en slumpad smälltröskel, så ordningen och takten skiljer sig varje gång</li>
+        <li>Varje popcorn får en slumpad form (antal bulor och storlek), och ibland blir det ett jättepopcorn</li>
+        <li>En hård smäll skjuter iväg ett popcorn över köket: hunden fångar i luften, katten jagar ett under soffan</li>
+        <li>Några korn poppar aldrig ("farmorskorn") och skramlar kvar i botten</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip finns">varme.js</span><span class="chip finns">mjukkropp.js · skala()</span><span class="chip finns">matter</span><span class="chip finns">partiklar.js</span></div>
+        <p>Kornet är en liten matter-kropp med en egen temperatur i <code>Varmefalt</code>. När det smäller blir det en <code>Mjukkropp</code> som växer med <code>skala()</code> och sväller över målet. Den är mjuk bara de 0,3 s den poppar och fryses sedan till en stel kropp i skålen. Det är samma regel som i <code>pruttbad</code>: bara det som deformeras just nu får vara mjukt.</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>Är plattan för het blir några popcorn bruna och ryker lite, och fåglarna utanför fönstret älskar just dem. Blir grytan för full far locket av. Målet är tre fulla skålar. Då släcks lampan, tv:n lyser upp ansiktena och alla mumsar.</p></div>
+      <div class="sec mat"><h4>Mät först · halvvägs mätt 2026-09-25</h4>
+        <p><b>Uppmätt</b> (<code>scripts/_poppprobe.mjs</code>, utan webbläsare): simuleringen kostar ungefär 3,5 µs per kropp och bildruta, alltså ingenting att tala om. Men en popp som går för fort vänder ringen ut och in <b>för gott</b>, utan ett enda konsolfel. Två recept håller över hela spannet: 18 steg (0,3 s) från korn ×0,25, eller 10–12 steg från ×0,35. <b>Kvar att mäta</b> i webbläsaren: vad omritningen kostar när många popcorn poppar i samma bildruta. Det taket bestämmer hur stor kaskaden får bli.</p></div>
+    </div>
+  </article>
+
+  <!-- 2 -->
+  <article class="card" id="nallens-stuntshow" data-band="sma" style="--accent:#b07a4a">
+    <div class="card-head">
+      <div class="badge">🧸</div>
+      <div>
+        <h3>2 · Nallens stuntshow</h3>
+        <div class="meta"><span class="pill sma">Småbarn 2–5</span><span class="pill plain">Fysik · drag</span><span class="pill plain">M</span><code>nallens-stuntshow</code></div>
+      </div>
+    </div>
+    <p class="pitch">Nallen är en slapp trasdocka i en slangbella gjord av en strumpa. Rummet byggs om varje runda, och ingen landning ser ut som den förra.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Barnet drar bak strumpan (prickad bana visar vart den går) och släpper. Nallen flänger genom barnrummet. Den studsar i sängen, fastnar med ena armen i taklampan och svingar, glider nerför en rutschkana av böcker och landar i en hög. Varje landning fotograferas, och fotot med nallens tokiga pose hamnar på väggen.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Rummet sätts ihop av slumpade delar: en säng som studsar, ett kuddberg, en bokhylla, en fläkt, ett leksakståg på räls och ballonger</li>
+        <li>Tre landningsmål slumpas fram per runda: dockvagnen, leksakslådan eller Bobos knä</li>
+        <li>En ragdoll landar aldrig i samma pose två gånger, så fotoväggen blir unik</li>
+        <li>Katten kan komma in, få nallen på ryggen och bära iväg den en bit</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip ny">lib/ragdoll.js</span><span class="chip finns">launcher.js</span><span class="chip finns">fjader.js</span><span class="chip finns">rep.js</span><span class="chip finns">luftmotstand.js</span></div>
+        <p>Grodans ragdollrecept (stiftleder och muskelpar i <code>beforeStep</code>) bryts ut till en delad <code>lib/ragdoll.js</code>. Nallen blir dess andra användare, och Bobo i rymden, Gelébilen och Brobyggarna använder den sedan också. Sängen är en <code>Fjaderbrada</code>, lampsladden ett <code>Rep</code> och fläkten luftmotstånd.</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>Nallen kan fastna ovanpå garderoben, och efter en stund knuffar katten ner den. Har det gått många försök kommer hjälpen sent och syns: lådan flyttar sig mot där nallen landar ("Jag hjälper till!"). Målet är tre lyckade stunts och tre foton på väggen.</p></div>
+      <div class="sec mat"><h4>Mät först</h4>
+        <p>Förhandsbanan är kalibrerad för en enda kropp. Hur mycket avviker en ragdoll med slängande armar? Mät hur bålen faktiskt flyger mot prickarna innan barnet får en bana som visar fel.</p></div>
+    </div>
+  </article>
+
+  <!-- 3 -->
+  <article class="card" id="blackfisken-otto" data-band="sma" style="--accent:#d25a8c">
+    <div class="card-head">
+      <div class="badge">🐙</div>
+      <div>
+        <h3>3 · Bläckfisken Otto</h3>
+        <div class="meta"><span class="pill sma">Småbarn 2–5</span><span class="pill plain">Fysik · drag</span><span class="pill plain">M</span><code>blackfisken-otto</code></div>
+      </div>
+    </div>
+    <p class="pitch">Åtta armar, åtta rep. Otto sträcker sig, sugkopparna fastnar i det de nuddar, och han kan hålla i flera saker samtidigt.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Barnet drar i den arm som sitter närmast fingret, och armen sträcker sig dit. Sugkopparna fastnar i det första de nuddar: en skattkista, en flaska, en sjöstjärna. Lätta saker dras in till Otto, och tunga saker drar Otto till sig. Han byter färg efter humör: rosa när han är glad, randig när han blir förvånad.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Havsbotten slumpas fram: tång, stenar, ett sjunket skepp, ett rev av gamla bildäck</li>
+        <li>En båt ovanför tappar slumpade saker som dalar ner genom vattnet</li>
+        <li>Havsströmmar kommer och går och för med sig saker</li>
+        <li>Tre vänner behöver hjälp, dragna ur en större pool: krabban vill ha tillbaka sitt skal, fisken sitter fast i en burk, sjöhästen har tappat bort sin unge i tången</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip finns">rep.js ×8</span><span class="chip finns">mjukkropp.js</span><span class="chip finns">flytkraft.js</span><span class="chip finns">magnet.js</span><span class="chip finns">partiklar.js</span></div>
+        <p>Åtta armar med tolv verlet-punkter var är billigt. Huvudet är en mjukkropp som trycks ihop när armarna drar. Allt i vattnet ligger i en <code>Flytvolym</code> och rör sig lugnt, och sugkopparna håller fast med ett kort <code>Magnetfalt</code>.</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>En tjuvkrabba norpar något och springer iväg. Kittla den med en arm så släpper den. Skuggan av en snäll haj som simmar förbi skrämmer Otto, och han sprutar ett bläckmoln som klarnar på två sekunder. Målet är att hjälpa tre vänner och få in skatten i grottan.</p></div>
+      <div class="sec mat"><h4>Mät först</h4>
+        <p>Träffytan. Åtta tunna armar kan inte var för sig ha en träffyta på 96 px. Välj därför den arm vars spets ligger närmast fingret inom en radie. Som reserv (tap-tap): barnet trycker på en sak, och närmaste arm sträcker sig dit av sig själv.</p></div>
+    </div>
+  </article>
+
+  <!-- 4 -->
+  <article class="card" id="vattenballongerna" data-band="sma" style="--accent:#2f94d6">
+    <div class="card-head">
+      <div class="badge">🎈</div>
+      <div>
+        <h3>4 · Vattenballongerna</h3>
+        <div class="meta"><span class="pill sma">Småbarn 2–5</span><span class="pill plain">Fysik · tap + drag</span><span class="pill plain">M</span><code>vattenballongerna</code></div>
+      </div>
+    </div>
+    <p class="pitch">En het sommardag, och djuren är för varma. Ballongen fylls, dallrar som gelé i luften och spricker i en riktig vätskekaskad.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Barnet trycker på kranen, och ballongen sväller och dallrar. Sedan drar barnet för att sikta längs en prickad bana och släpper. Ballongen vobblar genom luften och spricker mot elefanten, som blir blå och glad och sprutar tillbaka med snabeln. En miss blir en pöl, och en and kommer och badar i den.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Vilka djur som är varma och var de står slumpas, och de vandrar omkring</li>
+        <li>Vindbyar, som en flagga visar, bär ballongen olika i varje kast</li>
+        <li>Ibland spricker ballongen inte. Den studsar, rullar iväg och spricker senare på ett oväntat ställe</li>
+        <li>Storleken varierar lite: en stor ballong är tung och kommer inte långt</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip finns">mjukkropp.js · tryck + skala()</span><span class="chip finns">launcher.js</span><span class="chip finns">vatska.js (SPH)</span><span class="chip finns">luftmotstand.js</span><span class="chip finns">varme.js</span></div>
+        <p>Ballongen är en mjukkropp med inre tryck, och <code>skala()</code> fyller den. När den spricker föds SPH-vätska bara i zonen där den sprutar (lärdomen från vätskespelen: simulera bara där vätskan syns). Varje djur har en egen värme i <code>Varmefalt</code>.</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>Solen kommer fram igen och värmer långsamt upp ett djur, men aldrig mer än ett åt gången. Målet är att alla fyra djuren är svalkade. Ansiktet går från rött och svettigt till blått och nöjt, utan några siffror.</p></div>
+      <div class="sec mat"><h4>Mät först</h4>
+        <p><code>mjukkropp.js</code> har ingen egen kollision mot mark och väggar. Pröva att låta en matter-cirkel bära flygningen, med mjukkroppen bara som bild och dallring, och mät om studsen fortfarande ser mjuk ut.</p></div>
+    </div>
+  </article>
+
+  <!-- 5 -->
+  <article class="card" id="slajmlabbet" data-band="sma" style="--accent:#5bbf3a">
+    <div class="card-head">
+      <div class="badge">🧪</div>
+      <div>
+        <h3>5 · Slajmlabbet</h3>
+        <div class="meta"><span class="pill sma">Småbarn 2–5</span><span class="pill plain">Fysik · tap + drag</span><span class="pill plain">M</span><code>slajmlabbet</code></div>
+      </div>
+    </div>
+    <p class="pitch">Blanda slajm, så får slajmet liv. Varje blandning får egna egenskaper (studsig, kladdig, glittrig, magnetisk), och drar man för hårt blir det två.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Barnet häller i tre flaskor från hyllan. Slajmet bubblar och får ögon. Petar man på det dallrar det och fnissar, drar man i det töjs det. Kastar man det mot väggen fastnar ett kladdigt slajm och glider sakta ner, medan ett studsigt studsar tillbaka. Drar man riktigt hårt delar det sig i två små, och de går att slå ihop igen.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Professorns överraskningsflaska har en slumpad ingrediens varje runda: den lyser i mörkret, gör slajmet magnetiskt eller luktar jordgubb och lockar humlor</li>
+        <li>Egenskaperna blandas, så samma tre flaskor ger nästan samma slajm men aldrig exakt samma</li>
+        <li>Varje slajm får ett slumpat ansikte och en egen rösthöjd</li>
+        <li>Ett slajm kan rymma, kladda sig ut ur burken och sno en kaka</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip finns">mjukkropp.js</span><span class="chip ny">dela() · slåIhop()</span><span class="chip finns">magnet.js</span></div>
+        <p>Ingredienserna är mjukkroppens parametrar: <code>tryck</code> gör slajmet fast, <code>mjukhet()</code> gör det rinnigt, och sedan <code>styvhet</code> och <code>grav</code>. Kladdigt betyder att punkterna sätts fast med <code>fast()</code> mot väggen där de nuddar. Det nya är delningen: två kroppar med halva viloarean var.</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>Slajm rymmer, kladdar fast i taket och droppar ner. Inget slajm blir "misslyckat", för varje blandning blir en figur. Målet är tre slajmvänner i burkar på hyllan.</p></div>
+      <div class="sec mat"><h4>Mät först</h4>
+        <p>Delningen. När en sluten kurva klipps i två måste båda halvorna få en ny viloarea, annars blåser trycket upp dem till originalstorlek. Det är samma kvadratiska areafälla som <code>skala()</code> redan beskriver i sin kommentar.</p></div>
+    </div>
+  </article>
+
+  <!-- 6 -->
+  <article class="card" id="tvattstugan" data-band="sma" style="--accent:#e2574c">
+    <div class="card-head">
+      <div class="badge">🧺</div>
+      <div>
+        <h3>6 · Tvättstugan</h3>
+        <div class="meta"><span class="pill sma">Småbarn 2–5</span><span class="pill plain">Fysik · drag + tap</span><span class="pill plain">L</span><code>tvattstugan</code></div>
+      </div>
+    </div>
+    <p class="pitch">En riktig tvättmaskin med runt fönster. Kläderna är tyg som veckar sig, snurrar och kommer ut blöta och tunga, och ibland har en röd strumpa smugit sig med.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Det ligger en hög smutsiga kläder på golvet. Barnet drar in dem genom luckan och trycker på den stora knappen. Trumman snurrar, tyget veckar sig, skummet bubblar och maskinen skakar. Sedan öppnas luckan, kläderna floppar ut blöta och slokande, och barnet hänger dem på tvättlinan. Där fladdrar de i vinden, och solen torkar dem tills de blir lätta.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Plaggen dras ur en pool på ungefär 20 (strumpor, tröjor, nallen, kepsen, hundens filt), och fläckarna hamnar på slumpade ställen</li>
+        <li>Den röda strumpan: ibland gömmer den sig i en ficka, och då kommer allt ut rosa. Det är en överraskning, inte ett fel</li>
+        <li>Maskinen kan "vandra" över golvet när den centrifugerar</li>
+        <li>En strumpa försvinner i trumman och dyker upp senare, i hundens mun</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip ny">tyg.js</span><span class="chip finns">rep.js</span><span class="chip finns">luftmotstand.js</span><span class="chip finns">varme.js</span><span class="chip finns">partiklar.js</span></div>
+        <p>Tyget är ett rutnät av verlet-punkter, samma kärna som i <code>rep.js</code> men i två dimensioner. Det ritas som en <code>MeshPlane</code> vars hörn följer punkterna, och bilden på plagget målas en gång med Canvas2D (aldrig <code>generateTexture</code>). Mot trumman räcker det med en cirkelkollision per punkt.</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>Hunden snor en strumpa från linan. Barnet drar i andra änden, och det blir dragkamp med ett rep. En vindby blåser ner ett plagg i gräset, och löven skakas av. Målet är en full lina med torr tvätt. Då kommer Zacke och Alissa ut och tar in den.</p></div>
+      <div class="sec mat"><h4>Mät först</h4>
+        <p>Vad tyget kostar. Hur många plagg med 8×8 punkter kan snurra samtidigt på en surfplatta, och räcker tre relaxationsvarv för att tyget inte ska se ut som gummi?</p></div>
+    </div>
+  </article>
+
+  <!-- 7 -->
+  <article class="card" id="sandslottet" data-band="sma" style="--accent:#d9a44f">
+    <div class="card-head">
+      <div class="badge">🏰</div>
+      <div>
+        <h3>7 · Sandslottet</h3>
+        <div class="meta"><span class="pill sma">Småbarn 2–5</span><span class="pill plain">Fysik · drag + tap</span><span class="pill plain">L</span><code>sandslottet</code></div>
+      </div>
+    </div>
+    <p class="pitch">Riktig sand, korn för korn. Torr sand rinner, blöt sand står, och vågorna kommer när de själva vill.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Barnet häller sand ur hinken, vattnar med vattenkannan och trycker ner formar. Tornet blir stående, eftersom blöt sand håller formen. Snäckor och flaggor pyntar slottet. En vallgrav fylls med vatten när vågen når den och skyddar då slottet, och den strategin kommer barnet på själv.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Vågornas storlek och takt slumpas: vissa slickar bara stranden, andra når ända fram till vallgraven</li>
+        <li>Varje våg tar lite, men lämnar alltid något: en snäcka, en sjöstjärna, en krabba</li>
+        <li>Krabban gräver en tunnel rakt genom ett torn, och måsen landar på en tinne som smular</li>
+        <li>Vinden blåser den torra sanden i drivor som ändrar stranden</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip ny">sand.js (fallande sand)</span><span class="chip finns">partiklar.js</span></div>
+        <p>Sanden är en cellulär automat, ungefär 320×180 celler i en <code>Uint8Array</code>. Torr sand rinner snett nedåt, blöt sand står kvar, och vatten flyter och gör sanden blöt. Bilden är en Canvas2D-<code>ImageData</code> som laddas upp som textur.</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>Vågen tar en bit av slottet, men den har ett tak, tar aldrig mer än ett hörn och lämnar alltid en gåva. Målet är tre torn och en flagga när solen går ner, och ett foto av slottet.</p></div>
+      <div class="sec mat"><h4>Mät först</h4>
+        <p>Texturuppladdningen i varje bildruta. Kör <code>scripts/_ab.sh</code> mot HEAD. Saker som ändrar GL-tillståndet i varje bildruta har fällt <code>test:all</code> förut.</p></div>
+    </div>
+  </article>
+
+  <!-- 8 -->
+  <article class="card" id="bobo-i-rymden" data-band="stor" style="--accent:#6a4fd1">
+    <div class="card-head">
+      <div class="badge">🚀</div>
+      <div>
+        <h3>8 · Bobo i rymden</h3>
+        <div class="meta"><span class="pill stor">Storbarn 6–12</span><span class="pill plain">Utmaning · håll + sikta</span><span class="pill plain">L</span><code>bobo-i-rymden</code></div>
+      </div>
+    </div>
+    <p class="pitch">Bobo i rymddräkt hoppar mellan små planeter vars gravitation böjer banan. Solsystemet genereras nytt för varje bana.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Håll inne för att ladda hoppet, sikta med fingret och släpp. Planeterna drar i Bobo så att banan böjer sig, och han landar på nästa planet i en sprattlande hög innan han reser sig. Samla stjärnor och nå raketen.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Varje bana är ett solsystem genererat från ett seed: 3–6 planeter, månar i omloppsbana och asteroidbälten</li>
+        <li>Ibland passerar en komet som knuffar med svansen, och solvinden blåser i byar</li>
+        <li>På senare banor finns ett svart hål: ett virvlande sug som de modiga kan utnyttja</li>
+        <li>Ragdollen gör att varje landning, och varje miss, ser olika ut</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip ny">lib/ragdoll.js</span><span class="chip finns">magnet.js (gravitationsbrunnar)</span><span class="chip finns">kamera.js</span><span class="chip finns">launcher.js</span></div>
+        <p>Varje planet är ett <code>Magnetfalt</code>. Världen är större än skärmen, så kameran följer och zoomar. I luften stängs ledernas dämpning av, eftersom matter-lederna bromsar ett fritt snurr (det mättes i grodan).</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>Om Bobo driver ut i rymden drar livlinan tillbaka honom till den senaste planeten på under två sekunder. Varje bana ger stjärnor (för samlade stjärnor och få hopp), och rekordet sparas per profil. Efter tre missar på samma hopp visas en tipsknapp, men spelet siktar aldrig åt barnet.</p></div>
+      <div class="sec mat"><h4>Mät först</h4>
+        <p>Förhandsvisningen. <code>predictTrajectory</code> räknar med jämn gravitation, men här måste banan räknas genom flera fält. Visa bara början av banan, resten är skicklighet.</p></div>
+    </div>
+  </article>
+
+  <!-- 9 -->
+  <article class="card" id="gelebilen" data-band="stor" style="--accent:#e0457b">
+    <div class="card-head">
+      <div class="badge">🚗</div>
+      <div>
+        <h3>9 · Gelébilen</h3>
+        <div class="meta"><span class="pill stor">Storbarn 6–12</span><span class="pill plain">Utmaning · håll + två tummar</span><span class="pill plain">L</span><code>gelebilen</code></div>
+      </div>
+    </div>
+    <p class="pitch">En bil av gelé som dallrar fram över en ny bana varje gång. Håller man inne blåses bilen upp till en jättebubbla som rullar över allt, och släpper man blir den liten nog för tunnlarna.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Två stora knappar kör fram och bak, och en tredje blåser upp bilen. Uppblåst är den stor och lätt: den klättrar över stockar men blåser iväg i vinden. Liten är den tung och snabb men fastnar i gropar. Bobo sitter i passagerarsätet och guppar med.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Banan sätts ihop av slumpade bitar: backar, hopp, vippbrädor, repbroar, gungande pontoner och en sovande katt att köra över</li>
+        <li>Händelser längs vägen: äpplen som faller, en zon med vindbyar, en vindbrygga som öppnar i sin egen takt</li>
+        <li>En "dagens bana", där datumet är seed, som hela familjen kan tävla på</li>
+        <li>Bilen dallrar, så samma hopp landar aldrig exakt likadant</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip finns">mjukkropp.js</span><span class="chip ny">kollision mjukkropp ↔ bana</span><span class="chip finns">kamera.js</span><span class="chip finns">fjader.js</span><span class="chip finns">luftmotstand.js</span><span class="chip ny">lib/ragdoll.js</span></div>
+        <p>Kaross och hjul är mjukkroppar med tryck, och <code>skala()</code> blåser upp dem. Det som saknas är kollision mellan mjukkropp och bana. Det här är spelet som gör att den byggs, och vattenballongerna och slajmet får den sedan på köpet.</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>Bilen kan välta och Bobo trilla ur. Då börjar man om vid senaste flaggan på under två sekunder. Stjärnor ges för tid och samlade gelébönor, och rekordet sparas per profil.</p></div>
+      <div class="sec mat"><h4>Mät först</h4>
+        <p>Kollisionen. Håller en mjuk ring mot en polylinjebana utan att tunnla igenom den i full fart? Mät hur djupt en punkt tränger in per steg när bilen landar från ett hopp på maxhöjd.</p></div>
+    </div>
+  </article>
+
+  <!-- 10 -->
+  <article class="card" id="brobyggarna" data-band="stor" style="--accent:#3d8f8a">
+    <div class="card-head">
+      <div class="badge">🌉</div>
+      <div>
+        <h3>10 · Brobyggarna</h3>
+        <div class="meta"><span class="pill stor">Storbarn 6–12</span><span class="pill plain">Utmaning · drag</span><span class="pill plain">L</span><code>brobyggarna</code></div>
+      </div>
+    </div>
+    <p class="pitch">Bygg en bro över ravinen. Sedan kommer elefanten. Varje bro svajar, knakar och böjer sig, och ibland rasar den på riktigt.</p>
+    <div class="body">
+      <div class="sec"><h4>Så spelas det</h4>
+        <p>Barnet drar plankor och rep mellan fästpunkterna inom en budget och trycker sedan på "Kör!". En kö av djur går över: elefanten tungt, ankungarna i rad, kängurun som hoppar (en stöt, inte en jämn last) och leksakståget. Bjälkarna går från grönt till rött när de belastas. En bjälke som går av gör det med en smäll, och djuret plumsar i ån och simmar i land.</p></div>
+      <div class="sec"><h4>Aldrig likadant</h4><ul>
+        <li>Ravinens bredd, höjder och fästpunkter slumpas per bana</li>
+        <li>Djurkön blandas, så samma bro kan klara ankorna men inte kängurun</li>
+        <li>En båt vill åka under bron, så den måste stå högt nog</li>
+        <li>Vindbyar sätter bron i svängning</li>
+      </ul></div>
+      <div class="sec"><h4>Fysiken</h4>
+        <div class="chips"><span class="chip ny">fackverk (bjälkar med brottgräns)</span><span class="chip finns">rep.js</span><span class="chip ny">lib/ragdoll.js</span><span class="chip finns">matter</span></div>
+        <p>Bron är en PBD-lösare som i <code>rep.js</code>, fast med bjälkar som kan brista. Djuren går på statiska matter-kroppar som flyttas varje steg, med farten satt till 0. Fällan: en statisk kropp som flyttas behåller förflyttningen som fart, och när fjäderbrädan bars så föll kulan rakt igenom den. Det är därför <code>fjader.js</code> har både <code>driv()</code> och <code>flytta()</code>.</p></div>
+      <div class="sec"><h4>Motgång · mål</h4>
+        <p>Brister bron kan den provas om direkt med bygget kvar: ändra en bjälke och kör igen. Stjärnor ges för få delar och för att alla djur kom över. Tipsknappen visar den mest belastade bjälken.</p></div>
+      <div class="sec mat"><h4>Mät först</h4>
+        <p>Brottgränsen. Mät spänningen i bjälkarna med elefanten stilla på mitten och med kängurun som landar. Det är stöten som ska avgöra om bron håller, inte vikten.</p></div>
+    </div>
+  </article>
+
+</section>
+
+<h2>Motorbyggen som används flera gånger</h2>
+<div class="grid2">
+  <div class="panel">
+    <h3>Byggs en gång, används av flera spel</h3>
+    <div class="lift">
+      <div><b><code>lib/ragdoll.js</code>: bryts ut ur <code>grodan-slurp</code></b><span>Används av Nallens stuntshow, Bobo i rymden, Gelébilen (Bobo i passagerarsätet) och Brobyggarna (djuren). Receptet finns redan och är mätt.</span></div>
+      <div><b>Kollision mellan mjukkropp och värld</b><span>Gelébilen kräver den. Vattenballongerna och Slajmlabbet kan använda den, och <code>pruttbad</code> och <code>glasstornet</code> med.</span></div>
+      <div><b><code>Mjukkropp.dela()</code> / <code>slåIhop()</code></b><span>Slajmlabbet. Senare även droppar, bubblor som går ihop och deg.</span></div>
+      <div><b><code>tyg.js</code>: verlet-rutnät + <code>MeshPlane</code></b><span>Tvättstugan. Senare även flaggor, gardiner, fallskärmens duk och en mantel på enhörningen.</span></div>
+      <div><b><code>sand.js</code>: cellulär automat</b><span>Sandslottet. Senare även snö, jord i <code>gravmaskinen</code> och glitter som rinner.</span></div>
+      <div><b>Fackverk med brottgräns</b><span>Brobyggarna. Senare även torn som knakar och en koja att bygga.</span></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Föreslagen byggordning</h3>
+    <ol class="order">
+      <li><b>Popcornkalaset</b>: bara motorer som redan finns, så det är den snabbaste vinsten, och slumpen följer med av sig själv.</li>
+      <li><b>Nallens stuntshow</b>: bryter ut <code>lib/ragdoll.js</code>, som tre av de andra idéerna sedan använder.</li>
+      <li><b>Bläckfisken Otto</b>: befintliga motorer. Det enda som är nytt är att välja arm efter fingret.</li>
+      <li><b>Bobo i rymden</b>: det första storbarnsspelet, som öppnar fliken Utmaning och använder ragdollen från steg 2.</li>
+      <li><b>Vattenballongerna</b> och <b>Slajmlabbet</b>: efter att mjukkroppskollisionen har mätts.</li>
+      <li><b>Gelébilen</b>, <b>Tvättstugan</b>, <b>Sandslottet</b>, <b>Brobyggarna</b>: var och en har en egen ny motor, så bygg dem när den motorn har mätts för sig.</li>
+    </ol>
+  </div>
+</div>
+
+<h2>Gemensamt för alla tio</h2>
+<div class="panel">
+  <ul class="p0">
+    <li><b>Småbarn:</b> slumpade hinder är tillåtna och gör spelet bättre, men de har alltid ett <b>tak</b> (en sak i taget), en tydlig orsak och går att åtgärda direkt. Ingen poäng, ingen tidspress, och hjälpen kommer sent och syns.</li>
+    <li><b>Storbarn:</b> stjärnor, rekord och omstart vid checkpoint på under 2 s. Aldrig automatisk hjälp som siktar åt barnet, bara en tipsknapp eller ett tips efter upprepade missar. Spelet räknas inte som testat förrän en sond har spelat dess huvudkontroll (håll, två tummar, en värld större än skärmen).</li>
+    <li><b>Autotestet når inte hela skärmen:</b> harnessens tryck går inte längre än x = 950 och inte lägre än y = 600. En huvudkontroll bortom det kräver en egen sond, annars är ett grönt test bara grönt för halva spelet.</li>
+    <li><b>Slump med seed:</b> generera varje runda från ett seed. Då kan en sond spela om exakt samma runda, och en bugg som bara syns "ibland" går att hitta igen.</li>
+    <li><b>Figurerna:</b> avbildade människor heter bara Zacke, Alissa, Elvira eller Lova. Djur, monster och Bobo är undantagna.</li>
+  </ul>
+</div>
+
+<footer>
+  Framtagen 2026-09-25 mot de 86 spelen i <code>src/games/</code> och idébanken i <code>docs/IDEER.md</code>
+  (femton "Pappa får en kropp"-idéer finns redan där och upprepas inte här). En idé som ska byggas
+  går till <code>/spel &lt;idé&gt;</code> och får sitt spec-kort i <code>docs/games/&lt;id&gt;.md</code>.
+</footer>
+
+</div>
+<script>
+  (function () {
+    var knappar = document.querySelectorAll('.filter button');
+    var kort = document.querySelectorAll('.card');
+    knappar.forEach(function (b) {
+      b.addEventListener('click', function () {
+        var f = b.getAttribute('data-f');
+        knappar.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        kort.forEach(function (k) { k.hidden = !(f === 'alla' || k.getAttribute('data-band') === f); });
+      });
+    });
+  })();
+</script>
+</body>
+</html>

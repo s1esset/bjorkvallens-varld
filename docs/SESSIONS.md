@@ -14,6 +14,32 @@ Format:
 
 ---
 
+## 2026-09-25 eftermiddag — Tio nya fysikspel (idélista) + Popcornkalaset förberett · v1.262.0
+
+**Uppdraget (ägaren):** en lista på tio roliga spelidéer som vi inte har — helst fysik, slumpade
+händelser, aldrig likadant två gånger, gärna ragdolls och mjuka kroppar — sparad som fristående
+html; sedan "förbered nästa session att starta på popcorn kalaset".
+
+**Byggt:** `docs/idelista-fysikspel.html` (fristående, ljust/mörkt, filter per åldersband): tio
+idéer prövade mot alla 86 spel och mot IDEER post 1 — sju småbarn (popcornkalaset,
+nallens-stuntshow, blackfisken-otto, vattenballongerna, slajmlabbet, tvattstugan, sandslottet) och
+tre storbarn (bobo-i-rymden, gelebilen, brobyggarna — appens första, öppnar Utmaning). Varje kort:
+kärnloop, slump, fysik (befintlig motor mot nytt bygge), motgång/mål och vad som ska mätas först.
+`docs/IDEER.md` **post 6** bär listan och ett fullt underlag till Popcornkalasets spec-kort
+(utkast, sju fakta prövade mot koden, sex öppna frågor). Checkpoint `/spel popcornkalaset` steg
+`spec` i `.claude/state/korning.json` — sessionsstarten lyfter den.
+
+**Mätt:** `scripts/_poppprobe.mjs` (ny, utan webbläsare): en `Mjukkropp` som `skala()`s från korn
+(×0,25) till popcorn på ≤ 8 fasta steg vänder sig ut och in **för gott** (fyllnad 0,03–0,08 även
+90 steg senare, noll NaN = noll konsolfel); fler lösarvarv hjälper inte. Mitt första recept
+(12 steg) höll bara för 12 punkter och föll på 14/1,3 · 16/1,15 · 16/1,3 — sonden prövar därför
+hela spannet och har det kända felreceptet som kontrollarm. Håller: 18 steg från ×0,25, eller
+10–12 steg från ×0,35. Simuleringen kostar ~3,5 µs per kropp och bildruta.
+
+**Öppet:** nästa session = steg 0 för `popcornkalaset` (visa spec-kortet, sex frågor, ✋ ja), och
+direkt efter ja den omätta halvan: omritningskostnaden för mjuka popcorn i webbläsaren. SFX-varianter
+`popp_1…5` behöver beställas (`pop.mp3` är ett enda klipp).
+
 ## 2026-09-25 — Grodan Slurp: hoppen landar, maxfarten, natt, torr öken + vardagsrum · v1.262.0
 
 **Uppdraget (ägaren):** grodan tumlade för ofta vid vanliga hopp och fötterna var för känsliga;

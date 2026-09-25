@@ -68,6 +68,15 @@ PowerShell** (cmd/npm sväljer inte sökvägen under git-bash).
 Små UI-blipp (`tap · pling · flip · correct · match · soft`) stannar medvetet procedurella —
 MOSS är foley-orienterad och brusig för knastertorra musikaliska blipp.
 
+**Tredje vägen: syntetisera till fil** när ett ljud ska vara kort, exakt och spelas OFTA (en
+kaskad, ett regn). Facit: `node scripts/gen-popp.mjs` (popcornpoppen, 2026-09-25): seedad syntes
+i Node → WAV → `ffmpeg` → `public/audio/sfx/<namn>_<n>.mp3` (24 kHz mono 96 kbps som resten) +
+en variantserie i manifestet. Nivån sätts på **oviktad RMS** (`volumedetect` mean_volume) mot ett
+mätt mål, aldrig på toppen. Pröva nyckeln mot både literala och dynamiska `sample`/`sfx`-anrop
+i `src/` innan den läggs in (manifestet är app-brett). `<namn>_<tal>.mp3` grupperas till en serie
+även av `gen-sfx.py`, så en senare `npm run sfx` behåller den. `sample()` har ingen volym eller
+tonhöjd per anrop: variationen kommer ur varianterna, tätheten ur spelets egen ljudspärr.
+
 ## Kö-protokollet när tjänsterna är nere (normalläget)
 
 Tjänsterna körs inte alltid. Pipelinen får **aldrig** blockera ett spel på dem:

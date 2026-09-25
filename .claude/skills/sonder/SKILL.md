@@ -88,6 +88,7 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_repprobe.mjs` | verlet-repet: vilolängd · fästpunkt · mjukt stopp · golv · spänd lina — **utan webbläsare** |
 | `node scripts/_mjukprobe.mjs` | mjuka kroppar: håller formen · sjunker när de mjuknar · knuff · exit — **utan webbläsare** |
 | `node scripts/_poppprobe.mjs` | kan en mjuk kropp VÄXA fort (popp ×4) utan att vända sig ut och in FÖR GOTT? gräns per steg · recept över punkter × överskjut · kostnad per kropp — **utan webbläsare** (inför `popcornkalaset`) |
+| `node scripts/_poppdemo.mjs [ut.mp3] [--gap 80] [--utan-sparr]` | LYSSNA på en popcornkaskad (38 korn) med eller utan ljudspärren — skriver en mp3 att ge ägaren; talet att bedöma är hur många popp som hörs |
 | `node scripts/_vobbelprobe.mjs` | vobbeln i ett spel: utslag vid landning · lugnar den sig · tappad volym · exit |
 | `node scripts/_pressprobe.mjs [--takt]` | `pruttbad`s bubbla mot ytan: finns skedet · plattas hinnan · är det YTAN som gör det · tempot mot HEAD |
 | `node scripts/_tuggprobe.mjs [--bara-exit\|--kostnad]` | tuggan + magen i `mata-monstret`: käkens gap trycker maten · buktar den ut · syns den (isolerat lager + kontroll) · växer magen vid SVÄLJET · exit |

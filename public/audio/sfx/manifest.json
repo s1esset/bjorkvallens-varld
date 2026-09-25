@@ -51,6 +51,14 @@
   "plopp": "plopp.mp3",
   "plopp_av": "plopp_av.mp3",
   "pop": "pop.mp3",
+  "popp": [
+    "popp_1.mp3",
+    "popp_2.mp3",
+    "popp_3.mp3",
+    "popp_4.mp3",
+    "popp_5.mp3",
+    "popp_6.mp3"
+  ],
   "reveal": "reveal.mp3",
   "soft": "soft.mp3",
   "svalj": [

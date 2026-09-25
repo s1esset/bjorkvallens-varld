@@ -51,9 +51,14 @@ licens) och lägger variantserien `popp` i manifestet (prövad mot literala och 
 med spärren 80 ms hörs 18 av 38 popp. Gästpoolen inventerad (subagent, verifierad mot koden):
 sex gäster är redan exporterade, fyra måste brytas ut till `lib/figurer.js`.
 
-**Öppet:** ägaren bekräftar tap-reserven (P0 kräver en för drag hos småbarn; förslaget flyttar
-grytan men häller aldrig) · lyssna på demona (spärrens 80 ms) · sedan bygget: B0 omritningen i
-webbläsaren, B1 hällningen med `_hallprobe`.
+**Ägaren efter lyssning:** poppen godkänd, och **utan spärr lät bäst** → ingen ljudspärr. Det gav
+ett fynd: i den godkända kaskaden låg 17 av 37 mellanrum under 30 ms, och `audio.sfx()`s
+anti-loop-golv hade tystat dem — spelet måste spela poppen med `audio.sample('popp')`
+(planen B11, ljudskillen). Tap-reserven vald: tryck på grytan → tryck på en skål = grytan flyttas
+dit men häller aldrig (tipp-stöten valdes bort).
+
+**Öppet:** inga ägarfrågor kvar. Nästa session bygger: B0 omritningen i webbläsaren, B1
+hällningen med `_hallprobe` och tap-reserven.
 
 ## 2026-09-25 — Grodan Slurp: hoppen landar, maxfarten, natt, torr öken + vardagsrum · v1.262.0
 

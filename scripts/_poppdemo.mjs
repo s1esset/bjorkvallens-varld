@@ -1,11 +1,12 @@
-// Lyssningsdemo av popcornkaskaden: 40 korn som poppar under ~6 s med den ljudspärr planen
-// föreslår (minst GAP ms mellan två popp-ljud — bilden poppar ändå, bara ljudet glesas ut).
+// Lyssningsdemo av popcornkaskaden: 38 korn som poppar under några sekunder.
 //
-//   node scripts/_poppdemo.mjs [utfil.mp3] [--gap 80] [--utan-sparr]
+//   node scripts/_poppdemo.mjs [utfil.mp3]            UTAN spärr — ägarens val 2026-09-25
+//   node scripts/_poppdemo.mjs [utfil.mp3] --gap 80   med spärr (minst 80 ms mellan två popp)
 //
-// Spärren är samma som `popcornkalaset` ska ha i koden: ett popp som kommer inom GAP ms efter
-// det förra SPELAS INTE (ingen kö — ett köat popp hörs när kornet redan ligger i skålen).
-// `sfx()`s eget golv (30 ms per namn) räcker inte: 33 popp/s svämmar över.
+// Ägaren lyssnade på båda och valde UTAN spärr ("lät bäst"). Standarden är därför ingen spärr,
+// och det är facit för hur spelet ska låta. I den kaskaden ligger 17 av 37 mellanrum under 30 ms
+// — `audio.sfx()`s anti-loop-golv (30 ms per namn) hade tystat dem, så spelet MÅSTE spela poppen
+// med `audio.sample('popp')`, som saknar golv.
 import { spawnSync, execFileSync } from 'node:child_process'
 import { writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -16,8 +17,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const utfil = args.find((a) => a.endsWith('.mp3')) || join(ROOT, '.test-shots', 'popp_demo.mp3')
 const gi = args.indexOf('--gap')
-const GAP = gi >= 0 ? Number(args[gi + 1]) : 80
-const UTAN = args.includes('--utan-sparr')
+const GAP = gi >= 0 ? Number(args[gi + 1]) : 0
+const UTAN = GAP <= 0 || args.includes('--utan-sparr')
 const SR = 24000
 
 function lasPcm(fil) {

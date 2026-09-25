@@ -29,7 +29,8 @@ kort pop så vi inte svämmar över med ljud"*.
 | **agens** | VAR barnet greppar grytan avgör hur den hänger och vart den häller (se §4 B1) · värmen avgör takten OCH risken (lågt = lugnt, högt = kaskad + brända) · locket på eller av (av = popcorn flyger ut vid hårda smällar) · vilken skål som fylls först |
 | **variation** | slumpad smälltröskel per korn (ordning + takt aldrig lika) · slumpad form per popcorn · sällsynt jättepopcorn · hårda smällar skjuter iväg popcorn · "farmorskorn" som aldrig poppar · **tre gäster slumpade ur en pool på ~10, på slumpade platser** (§4 B6) |
 | **motgång** (tak: EN i taget) | brända popcorn vid hög värme (bruna, en liten rökpuff — **aldrig en brandvarnare**, P0) · locket far av och popcorn regnar · spill på golvet (hunden/katten äter det) |
-| **hjälp** | **ingen automatik** (ägarens beslut): ingenting häller, tippar eller flyttar åt barnet. Bara P0-påminnelsen: efter ~6 s stillhet visar en genomskinlig spökhand GESTEN (greppa kanten, luta) + rösten |
+| **hjälp** | **ingen automatik** (ägarens beslut): ingenting häller eller tippar åt barnet. Bara P0-påminnelsen: efter ~6 s stillhet visar en genomskinlig spökhand GESTEN (greppa kanten, luta) + rösten |
+| **tap-reserv** (P0) | **ägaren 2026-09-25:** tryck på grytan och sedan på en skål → grytan FLYTTAS dit, men häller aldrig. Hällningen sker bara genom att barnet lutar grytan med ett drag. Ingen tipp-stöt vid tryck |
 | **mottagare** | tre gäster i soffan, slumpade ur poolen: `hungrig` medan de väntar, tittar på grytan, `jubel` när deras skål fylls, mumsar (`tugg_knaprig`) |
 | **finish** | taklampan dimmas, tv:ns blå sken (utanför bild) lyser upp gästernas ansikten, alla mumsar, ett sista popcorn poppar ur en skål och landar i någons hår |
 
@@ -76,10 +77,9 @@ aldrig trycka på en knapp som gör det.
 5. **Harnessen når bara x ≤ 950 och y < 600.** Grytan, reglaget och minst en skål ska ligga där,
    annars krävs en sond som spelar kärnloopen. `drag/ratt` (= släpp på RÄTT mål) i
    `.test-logs/popcornkalaset.json` säger om testet någonsin hällt i en skål.
-6. **P0 kräver tap-tap-reserv för drag hos småbarn — ägaren vill undvika automatik.** Förslag som
-   håller båda: trycka på grytan och sedan på en skål FLYTTAR grytan dit (ingen hällning), och
-   ett tryck på grytans ena sida ger en fysisk tipp-stöt åt det hållet — hällningen förblir
-   barnets. **Ägaren bekräftar** innan B1 byggs.
+6. ~~P0 kräver tap-tap-reserv för drag hos småbarn — ägaren vill undvika automatik.~~ **Löst
+   2026-09-25 (ägaren):** tryck på grytan → tryck på en skål = grytan FLYTTAS dit, häller aldrig.
+   Förslagets andra halva (en tipp-stöt vid tryck på grytans sida) valdes INTE — bygg den inte.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
@@ -109,6 +109,12 @@ Värmereglaget på spisens front (y ~520). Majspåsen på bänken bredvid spisen
   en skål får ≥ 70 % av popcornen i skålen, och kontrollarmen (greppar handtaget och drar samma
   väg) får ~0 % — annars skiljer mätaren inte greppen åt. Reserven om det faller: greppet i
   handtaget + lutning ur fingrets vågräta fart (en hink som svänger), prototypas i samma sond.
+  **Tap-reserven (P0, ägarens val):** tryck på grytan (den lyfts en aning och glöder = vald) →
+  tryck på en skål → grytan glider dit och stannar VÅGRÄT ovanför skålen. Den häller aldrig
+  själv; barnet greppar sedan kanten. Förflyttningen drivs med fart i `beforeStep` (inte
+  teleport), så popcornen i grytan följer med och kan skvimpa lite. Ett tryck någon annanstans
+  släpper valet. `DragController` har redan ett tap-tap-läge — pröva om det räcker innan du
+  skriver ett eget.
 - **[Medium] B2 · Majspåsen.** Samma gest som grytan (greppa, luta, kornen rinner ut) — barnet lär
   sig EN rörelse och använder den två gånger. Kornen är små matter-cirklar (r ~5) som faller i
   grytan. 30–40 korn per omgång; påsen fylls på mellan omgångarna.
@@ -152,11 +158,18 @@ Värmereglaget på spisens front (y ~520). Majspåsen på bänken bredvid spisen
   egen licens): sex varianter `popp_1…6`, **75 ms** var, grundton 390–880 Hz, RMS −24 dB (tystare än
   `plopp` −21,6, högre än `tap` −28,5), topp −4…−8 dB. `audio.sample('popp')` slumpar variant av
   sig själv. Det gamla `pop.mp3` är ett bubbelplopp på 1,05 s — och dessutom en SERIE om flera
-  plopp, inte ett — rör det inte, det används av andra spel.
-- **[Quick] B11 · Ljudspärren — "svämma inte över".** Ett popp-ljud spelas bara om det gått minst
-  **80 ms** sedan förra (ingen kö: ett köat popp hörs när kornet redan ligger i skålen). Bilden
-  poppar ALLTID. `sfx()`s eget golv (30 ms) räcker inte. Demo: `node scripts/_poppdemo.mjs` —
-  38 popp → 18 hörs med spärren. Talet 80 är en lyssningsfråga för ägaren (`--gap`).
+  plopp, inte ett — rör det inte, det används av andra spel. **Ägaren 2026-09-25: "poppen låter
+  bra"** — godkänd.
+- **[Quick] B11 · INGEN ljudspärr — varje popp hörs.** Ägaren lyssnade på båda demona
+  2026-09-25: *"utan spärr lät bäst, poppen låter bra"*. Tätheten begränsas ändå av antalet korn
+  (30–40 per omgång, varje korn poppar en gång), precis som i demon: 38 popp, som tätast 24 på
+  en sekund. ⚠️ **Spela med `audio.sample('popp')`, INTE `audio.sfx('popp')`.** `sfx()` har ett
+  anti-loop-golv på 30 ms per namn, och i den godkända demon låg **17 av 37 mellanrum under
+  30 ms** — `sfx()` hade tystat nästan hälften av poppen och låtit som något ägaren inte valde.
+  `sample()` har inget golv. Facit att lyssna mot: `node scripts/_poppdemo.mjs` (standard nu
+  utan spärr; `--gap 80` ger den förkastade varianten). **Håll koll på toppen:** överlappande
+  popp summerar till −1,7 dBFS i demon (med `masterVolume` 0,8 ≈ −3,6 dB). Fräset och rösten
+  ovanpå äter marginalen — lyssna efter klipp i den tätaste sekunden när B12 är på plats.
 - **[Quick] B12 · Övriga ljud.** Fräset: `audio.loop()` med brusbädd, volym = reglagets steg
   (rampas, tystas av `GameHost`). Locket som skramlar: en kort stämd ton, inget klipp. Gästerna
   mumsar med `tugg_knaprig`; djurgäster får sitt `djur_*`-läte vid jubel. Kornen som rinner ner i
@@ -208,4 +221,6 @@ utgångspunkt, anpassas till spelets rum. `makeKompis('nalle')` är ikonen 🧸 
 
 - 2026-09-25 · idén i idélistan; premissen prövad mot koden; `_poppprobe` (popp-fyndet) · `f46ae31`
 - 2026-09-25 · spec beslutad av ägaren; poppljudet syntetiserat (`popp_1…6`, `gen-popp.mjs`) och
-  ljudspärren demonstrerad (`_poppdemo`); gästpoolen inventerad; plan skriven
+  ljudspärren demonstrerad (`_poppdemo`); gästpoolen inventerad; plan skriven · `a121aaa`
+- 2026-09-25 · ägaren efter lyssning: poppen godkänd, INGEN spärr (spela med `sample`, inte
+  `sfx` — 30 ms-golvet hade tystat 17 av 37 popp); tap-reserven vald (flytta, aldrig hälla)

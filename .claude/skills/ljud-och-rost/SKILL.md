@@ -75,7 +75,10 @@ en variantserie i manifestet. Nivån sätts på **oviktad RMS** (`volumedetect` 
 mätt mål, aldrig på toppen. Pröva nyckeln mot både literala och dynamiska `sample`/`sfx`-anrop
 i `src/` innan den läggs in (manifestet är app-brett). `<namn>_<tal>.mp3` grupperas till en serie
 även av `gen-sfx.py`, så en senare `npm run sfx` behåller den. `sample()` har ingen volym eller
-tonhöjd per anrop: variationen kommer ur varianterna, tätheten ur spelets egen ljudspärr.
+tonhöjd per anrop: variationen kommer ur varianterna. ⚠️ **`sfx()` har ett anti-loop-golv på
+30 ms per namn, `sample()` har inget.** Ett ljud som ska kunna ligga tätt (popcornpoppen: 17 av
+37 mellanrum under 30 ms i den kaskad ägaren godkände) måste spelas med `sample()`, annars
+tystas nästan hälften utan att någon märker det.
 
 ## Kö-protokollet när tjänsterna är nere (normalläget)
 

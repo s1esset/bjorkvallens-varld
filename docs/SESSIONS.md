@@ -36,9 +36,24 @@ kärnloop, slump, fysik (befintlig motor mot nytt bygge), motgång/mål och vad 
 hela spannet och har det kända felreceptet som kontrollarm. Håller: 18 steg från ×0,25, eller
 10–12 steg från ×0,35. Simuleringen kostar ~3,5 µs per kropp och bildruta.
 
-**Öppet:** nästa session = steg 0 för `popcornkalaset` (visa spec-kortet, sex frågor, ✋ ja), och
-direkt efter ja den omätta halvan: omritningskostnaden för mjuka popcorn i webbläsaren. SFX-varianter
-`popp_1…5` behöver beställas (`pop.mp3` är ett enda klipp).
+**Spec beslutad (ägaren, samma eftermiddag):** ålder 3–5 · barnet lutar och häller SJÄLV med
+fysik, ingen automatik · värmereglage med 10 steg (reglage + − / +) · brända popcorn med · tre
+gäster slumpade ur en pool på ~10 på slumpade platser · ett litet kort poppljud. → Plan i
+**`docs/games/popcornkalaset.md`** (spec, sex risker, byggordning B0–B13, gästpoolen); IDEER post 6
+pekar dit. Hällningen föreslås som "där du greppar är där den hänger" (handtaget bär vågrätt,
+kanten låter grytan svänga och hälla) — prototypas och mäts först (`_hallprobe`).
+
+**Poppljudet skapat:** MOSS var nere och det enda popp-klippet (`pop.mp3`) är ett bubbelplopp på
+1,05 s som dessutom är en SERIE — så `scripts/gen-popp.mjs` syntetiserar sex varianter
+`popp_1…6` (75 ms, klick + glidande pok + delton + fjun, RMS −24 dB, topp −4…−8 dB, seedat, egen
+licens) och lägger variantserien `popp` i manifestet (prövad mot literala och dynamiska
+`sample`/`sfx` — ingen annan användare). `scripts/_poppdemo.mjs` gör en lyssningsdemo av en kaskad:
+med spärren 80 ms hörs 18 av 38 popp. Gästpoolen inventerad (subagent, verifierad mot koden):
+sex gäster är redan exporterade, fyra måste brytas ut till `lib/figurer.js`.
+
+**Öppet:** ägaren bekräftar tap-reserven (P0 kräver en för drag hos småbarn; förslaget flyttar
+grytan men häller aldrig) · lyssna på demona (spärrens 80 ms) · sedan bygget: B0 omritningen i
+webbläsaren, B1 hällningen med `_hallprobe`.
 
 ## 2026-09-25 — Grodan Slurp: hoppen landar, maxfarten, natt, torr öken + vardagsrum · v1.262.0
 

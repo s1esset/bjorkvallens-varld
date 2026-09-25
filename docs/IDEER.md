@@ -10,8 +10,8 @@ När en idé byggs: flytta den till `docs/games/<id>.md` (§0 Spec) och stryk po
 
 ## 6. Tio nya fysikspel — slump, ragdolls och mjuka kroppar
 
-*Inlagd 2026-09-25. Status: ⬜ idébank. **▶ Nästa session börjar på `popcornkalaset`** (underlaget
-nedan, checkpoint i `.claude/state/korning.json`). Hela listan med ett kort per idé — kärnloop,
+*Inlagd 2026-09-25. Status: ⬜ idébank. **▶ Nästa session bygger `popcornkalaset`** (spec och plan
+i `docs/games/popcornkalaset.md`, checkpoint i `.claude/state/korning.json`). Hela listan med ett kort per idé — kärnloop,
 slump, fysik, motgång/mål och vad som ska mätas först — ligger i **`docs/idelista-fysikspel.html`**
 (fristående, öppnas i en webbläsare).*
 
@@ -35,71 +35,12 @@ ragdolls, softbodies"*. Prövad mot alla 86 spel och mot post 1 här (inga dubbl
 De tre storbarnsspelen vore appens första — det första som landar öppnar fliken Utmaning.
 Föreslagen ordning: popcorn → nallen (bryter ut ragdollen som 8–10 ärver) → Otto → Bobo i rymden.
 
-### ▶ Popcornkalaset — underlag till spec-kortet (steg 0 i `/spel`)
+### ▶ Popcornkalaset → flyttad till `docs/games/popcornkalaset.md`
 
-*Ägaren 2026-09-25: "förbered nästa session att starta på popcorn kalaset". Nedan är råmaterialet;
-spec-kortet visas och godkänns fortfarande i steg 0 — ✋ enda grinden.*
-
-**Utkast** (förslag, inte beslut):
-
-| | |
-|---|---|
-| **id** · titel · ikon | `popcornkalaset` · Popcornkalaset · 🍿 |
-| **kategori** · input | `fysik` → flik Fysik · `mixed` (tap ratt/skål, drag grytan; tap-tap-reserv för hällningen) |
-| **ålder** | [3, 5] föreslaget — se fråga 1 |
-| **kärnloop** | Häll majskorn i grytan → vrid upp plattan → kornen skakar och blir varma → POPP, ett i taget, sedan kaskad → popcornen sväller, trycker upp locket, väller över → skaka grytan och häll i skålarna |
-| **mål** | tre fulla skålar (räknas i en sensor per skål, ~12 popcorn) → `complete()` |
-| **mottagare** | tre gäster i soffan = `makeKaraktar`-riggar med egna `palett`: `hungrig` medan de väntar, `jubel` när deras skål fylls, mumsar (`tugg_knaprig`) |
-| **variation** | slumpad smälltröskel per korn (ordning + takt) · slumpad form per popcorn · sällsynt jättepopcorn · hårda smällar skjuter iväg popcorn (hunden fångar, katten jagar) · "farmorskorn" som aldrig poppar |
-| **motgång** (tak: EN i taget) | locket far av och popcorn regnar · katten hoppar upp på bänken och vill smaka · för het platta → några blir bruna och ryker lite (fåglarna utanför fönstret älskar dem). **Aldrig en brandvarnare** (P0: aldrig summer) |
-| **autohjälp** | sent och synligt: efter ~8 s utan hällning tippar Bobo grytan mot närmaste skål ("Jag hjälper till!") |
-| **finish** | lampan dimmas, tv:n tänds och lyser upp ansiktena, alla mumsar, ett sista popcorn poppar ur skålen |
-| **repliker** (förslag, som `voice.say`-literaler) | "Häll i majskornen!" · "Vrid på spisen!" · "Lyssna … snart poppar det!" · "Popp popp popp!" · "Häll popcornen i skålarna!" · "Oj, locket flög!" · "Nu börjar filmen!" |
-
-**Prövat mot koden 2026-09-25 — premissen håller, med ett fynd:**
-
-1. **Värme per korn går.** `Varmefalt` håller namngivna saker i en `Map`. `temp` (stiger och
-   sjunker) driver utseendet — skakning, ånga; **`grad` (sjunker aldrig) mot en slumpad tröskel per
-   korn avgör smällen**, så ett korn som lyfts ur grytan aldrig "ångrar sig". Samma två-tals-mönster
-   som `lagerelden`s marshmallow.
-2. **FYND: en för snabb popp förstör kroppen FÖR GOTT.** `Mjukkropp.skala()` från korn (×0,25)
-   till popcorn på ≤ 8 fasta steg vänder ringen ut och in: fyllnad 0,03–0,08 även 90 steg senare,
-   noll NaN — alltså noll konsolfel och ett popcorn som ser trasigt ut resten av rundan. Fler
-   lösarvarv hjälper INTE (6/10/14 → 0,08/0,06/0,08). Gränsen beror på tillväxten per steg och kant:
-   12 steg höll för 12 punkter men föll för 14/1,3 · 16/1,15 · 16/1,3. **Två recept håller över hela
-   spannet** (10–16 punkter × överskjut 1–1,3): **18 steg (0,3 s) från ×0,25**, eller **10–12 steg
-   från ×0,35** — då är kornet en egen stel bild som försvinner i smällen och en puff från
-   `partiklar.js` täcker övergången. Stega med en ackumulator på exakt `dtF = 1` (mjukkropp-regeln).
-   Mätt med **`scripts/_poppprobe.mjs`** (ny, utan webbläsare, kontrollarmar åt båda hållen).
-3. **Simuleringen är gratis, omritningen är OMÄTT.** ~3,5 µs per kropp och bildruta (80 kroppar
-   0,26 ms). Det som kostar är att rita om varje mjuk kropp varje bildruta, och det mäts bara i en
-   webbläsare — **första mätningen nästa session**: hur många popp i samma bildruta innan budgeten
-   spricker? Designsvaret gäller oavsett: mjuk BARA under poppen (`pruttbad`-regeln), sedan en stel
-   matter-kropp (cirkel, eller 2–3 cirklar för en bulig silhuett) med en färdigritad bild.
-4. **Grytan som skakas och hälls** är statiska kroppar i rörelse: driv dem i `phys.beforeStep()`
-   med fart (som `balanstornet`, `fjader.js` `driv()`), och bär dem aldrig med `setPosition(…, true)`
-   utan att nolla farten (fartfällan i CLAUDE.md). `fanga-frukten` teleporterar sina korgkanter med
-   `setPosition` varje bildruta — kopiera INTE det för en gryta full av popcorn som skakas.
-5. **Ljud:** `pop.mp3` finns (ETT klipp) och `tugg_knaprig`. `sfx()` har ett golv på 30 ms per namn,
-   så en kaskad glesar ut sig själv (ett bra tak) — men ett och samma klipp 40 gånger blir enformigt:
-   beställ varianter `popp_1…5` (`_valjBuffert` slumpar redan mellan varianter) med `npm run sfx`,
-   eller köa dem om MOSS är nere. Fräset i grytan: `audio.loop()` med brusbädd finns.
-6. **Konst att låna:** spisen med kastrull i `mata-munnen/kok.js`, `gryta()` och vardagsrummet
-   (matta, bokhylla) i `grodan-slurp/konst-inne.js`. Soffan finns inte — ritas nytt. Popcornen ritas
-   fristående (P0 ASSETS), aldrig 🍿.
-7. **Harnessen:** autotrycken når bara x ≤ 950 och y < 600. Ratten, grytan och minst en skål ska
-   ligga där, annars krävs en sond som spelar kärnloopen (ratten → popp → häll i skål). Läs
-   `drag/ratt` (= släpp på RÄTT mål, inte spisratten) i `.test-logs/popcornkalaset.json` — står
-   den på 0 har testet aldrig hällt i en skål.
-
-**Öppna frågor till spec-grinden:**
-1. Ålder [3, 5] (drag + hälla) eller [2, 5]?
-2. Hällningen: dra grytan och luta den, tryck på en skål så häller grytan dit själv — eller båda?
-3. Ratten: varje tryck ett steg varmare (av → låg → hög)? Hur sänker man — tryck på grytan lyfter
-   den från plattan?
-4. Brända popcorn: ja, som en rolig motgång (bruna, lite rök, fåglarna vill ha dem)?
-5. Gästerna: Bobo och två färgade kompisar, eller djur?
-6. Utbyggnad senare: kryddburkar (salt · rosa socker · gult smör) som färgar popcornen?
+*Spec beslutad av ägaren 2026-09-25 (ålder 3–5, manuell fysisk hällning utan automatik, värme-
+reglage med 10 steg, brända popcorn, tre gäster slumpade ur en pool på ~10, ett kort poppljud).
+Spec, risker, byggordning B0–B13 och gästpoolen står i spelets doc. Poppljudet är redan skapat
+(`popp_1…6`, `scripts/gen-popp.mjs`). De andra nio idéerna ligger kvar här och i html-listan.*
 
 ---
 

@@ -14,6 +14,30 @@ Format:
 
 ---
 
+## 2026-09-25 kväll — Popcornkalaset byggt (/spel, återupptaget med /aterta) · v1.263.0
+
+**Uppdraget (ägaren):** återuppta den avbrutna körningen `/spel popcornkalaset` (stod på `bygg`,
+spec + plan klara) och när spelet är klart: wrap and ship — deploya och gör sessionen redo att stänga.
+
+**Byggt:** spel nr 87, `popcornkalaset` (småbarn 3–5, fliken Fysik). Barnet häller själv med fysik:
+grytan och påsen är kroppar som hänger där fingret håller (`karl.js`); bygeln bär vågrätt, sidan
+på ett kärl som hänger över sitt mål vippar det så långt fingret drar. Värmefält → slumpad popp →
+mjuk kropp på 11 fasta steg → stelt popcorn; brända med tak; locket; tre gäster ur sex (B6a,
+`gaster.js` av en spelbyggare) som jublar och mumsar; filmkväll som finish. Konsten (`konst.js`)
+av en spelbyggare parallellt. 8 röstklipp genererade (`npm run voice`).
+**Mätt:** `_grytprobe` (hällningen: 86 % av det hällda i skålen, bygelgrepp 0 %, bärning spiller
+≤ 5 %, påsen 32/32 korn i grytan) · `_popcornomrit` (B0: 0,5–0,85 ms per mjukt popcorn vid CPU ×4 →
+tak 8) · `_popcornspel` (två hela omgångar med riktiga musdrag, 0 konsolfel; `--otalig` 0 konsolfel).
+**Fällor (nya):** matter `Constraint` som grepp skjuter över när greppet sitter utanför kroppens
+tröghetsradie (r²·m/I = 3 → 166 000° snurr, noll konsolfel) — eget punktgrepp `drivPunkt`; en
+driven kropp är en murbräcka mot allt den bär förbi; `_hallprobe.mjs` fanns redan (mata-munnen)
+och skrevs nästan över — återställd, den nya heter `_grytprobe`.
+**Commits:** se git log (feat(popcornkalaset) v1.263.0)
+**Öppet:** B6b (fler gäster ur andra spel) · B7 (hunden äter spillet, katten på bänken) · lockets
+egen skrammelton. Allt står i `docs/games/popcornkalaset.md` §5.
+
+---
+
 ## 2026-09-25 eftermiddag — Tio nya fysikspel (idélista) + Popcornkalaset förberett · v1.262.0
 
 **Uppdraget (ägaren):** en lista på tio roliga spelidéer som vi inte har — helst fysik, slumpade

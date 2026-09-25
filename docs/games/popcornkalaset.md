@@ -1,8 +1,8 @@
 # Popcornkalaset (`popcornkalaset`)
 
-> ⚙️ fysik · drag · 3–5 år · 📝
-> Status: 📝 doc skriven (plan klar) · spec beslutad av ägaren 2026-09-25 · **inget byggt än** ·
-> poppljudet skapat (`popp_1…6`) · premissen mätt (`_poppprobe`)
+> ⚙️ fysik · drag · 3–5 år · ✅
+> Status: ✅ byggt v1.263.0 (2026-09-25) · kärnloopen spelad i två hela omgångar med riktiga
+> musdrag (`_popcornspel`) · hällningen mätt (`_grytprobe`) · omritningen mätt (`_popcornomrit`)
 
 Ursprung: idélistan 2026-09-25 (`docs/idelista-fysikspel.html`, `docs/IDEER.md` post 6).
 
@@ -48,8 +48,24 @@ kort pop så vi inte svämmar över med ljud"*.
 
 ## 1. Nuläge (sett som spelare)
 
-Inget byggt. Det som finns: poppljudet (`public/audio/sfx/popp_1…6.mp3`, manifestnyckeln `popp`),
-två sonder (`_poppprobe` · `_poppdemo`) och generatorn `scripts/gen-popp.mjs`.
+Ett varmt kök och vardagsrum en filmkväll. Barnet bär majspåsen till glasgrytan och vippar den
+(kornen rinner i), vrider upp värmen med knoppen eller − / + (plattan glöder, fräset växer), ser
+kornen darra och höra dem smälla — slumpat, aldrig i samma ordning, ibland ett jättepopcorn —
+bär grytan i bygeln till en skål och vippar den genom att dra sidan nedåt. Tre gäster ur en pool
+på sex (Bobo, Bobos kusin, katten, ankan, valpen, ett knytt) sitter i soffan på slumpade platser,
+tittar på grytan, jublar när deras skål blir full och mumsar. Tre fulla skålar → filmkväll:
+lampan dimmas, tv:n lyser, ett sista popcorn flyger i någons hår, och en ny omgång börjar.
+Motgång: hög värme bränner (tak ⅓, brända räknas ändå), locket far av vid hårda smällar,
+spill blir liggande en stund och försvinner. Tap-reserven flyttar grytan/påsen, häller aldrig.
+
+**Filer:** `index.js` (flöde, input, värme, popp, mål) · `karl.js` (grytan och påsen som fysiska
+kärl, punktgreppet) · `konst.js` (all ritning) · `gaster.js` (gästfasaden, B6a) · `matt.js`
+(layouten — delad med sonderna) · `fysik.js` (skålarna).
+**Sonder:** `_grytprobe` (hällningen, node, `--bild` · `--matris` · `--svep`) · `_popcornomrit`
+(B0) · `_popcornspel` (kärnloopen med riktiga musdrag, `--omgangar 2` · `--otalig` · `--spar`) ·
+`_popcornkonst` / `_popcorngaster` (förhandsbilder av konsten och gästerna) · `_poppprobe` ·
+`_poppdemo`. ⚠️ Harnessens auto-drag träffar aldrig påsen eller grytan (`drag/ratt` = 0) —
+`npm run test` mäter bara att spelet monterar; kärnloopen mäts av `_popcornspel`.
 
 ## 2. Ursprunglig plan & tankeprocess
 
@@ -91,24 +107,46 @@ höger med gästerna framifrån. Tv:n står UTANFÖR bild; dess sken syns bara i
 Värmereglaget på spisens front (y ~520). Majspåsen på bänken bredvid spisen.
 
 ### Kärnloop
-- **[Deep] B0 · Mät omritningen.** Webbläsarsond: N mjuka popcorn som poppar i samma bildruta
+- **[Deep] B0 · Mät omritningen — ✅ MÄTT 2026-09-25 (`_popcornomrit`):** vid CPU ×4 kostar ett
+  mjukt popcorn 0,5–0,85 ms per bildruta (8 st +3,9 ms, 16 st +10,2 ms, 24 st +20,6 ms av 16,7;
+  barlastarmen 4 ms flyttade mätaren 3,7). `MAX_SAMTIDIGA_POPP = 8`. Mjukkroppen har 16 punkter
+  (7 lober behöver ≥ 2 punkter var). Ursprunglig text: Webbläsarsond: N mjuka popcorn som poppar i samma bildruta
   (N = 1, 4, 8, 16) med barlast som kontrollarm (bildrutemått klipps av vsync — CLAUDE.md).
   Svaret sätter taket `MAX_SAMTIDIGA_POPP`; kornen över taket väntar några bildrutor på sin tur
   (osynligt — kaskaden är ändå slumpad).
-- **[Deep] B1 · Grytan och hällningen — "där du greppar är där den hänger".** Grytan är en
-  DYNAMISK sammansatt kropp (botten + två väggar + handtag). Fingret håller i den PUNKT det
-  greppade, via en fjäder (som matters `MouseConstraint`, fast förankrad i greppunkten, inte i
-  mitten). En mjuk "handleds-fjäder" drar grytan mot vågrätt, och dess styrka avtar med avståndet
-  från handtaget:
-  · greppa **handtaget** → grytan bärs vågrät (handleden håller emot)
-  · greppa **kanten** → handleden bär nästan inget, grytan hänger från greppet, tyngdpunkten
-    svänger ner under fingret och den MOTSATTA kanten sjunker → popcornen rinner ut av egen tyngd
-  · ett snabbt ryck i sidled skvimpar ut några (spill → hunden äter)
-  Ingen knapp, ingen automatik — lutningen är ren fysik ur var och hur barnet håller.
-  **Klart när:** en sond (`_hallprobe`, ny) som greppar kanten och drar raka, slarviga drag till
-  en skål får ≥ 70 % av popcornen i skålen, och kontrollarmen (greppar handtaget och drar samma
-  väg) får ~0 % — annars skiljer mätaren inte greppen åt. Reserven om det faller: greppet i
-  handtaget + lutning ur fingrets vågräta fart (en hink som svänger), prototypas i samma sond.
+- **[Deep] B1 · Grytan och hällningen — ✅ BYGGD OCH MÄTT 2026-09-25 (`_grytprobe`, grön).**
+  ⚠️ **Premissen föll** och posten är omskriven till det som byggdes. Det ursprungliga förslaget
+  ("greppa kanten → grytan hänger från greppet → den motsatta kanten sjunker → det rinner ut")
+  mättes och höll inte i tre led:
+  ⓵ en FRI pendel ur ett sidogrepp når bara 55–60°, och med raka väggar lutar innerväggen då
+  fortfarande UPPÅT mot kanten — popcornen blev liggande i fickan (38 % i skålen);
+  ⓶ greppar barnet kanten medan grytan står på spisen häller den LÄNGS VÄGEN, inte i skålen;
+  ⓷ en hink som hänger fritt i bygeln lutar atan(a/g) mot varje acceleration, och matters g är
+  bara 0,278 px/steg² — ett fingerryck tömde grytan på golvet (10 % kvar vid 500 px/s).
+  Dessutom: **matter `Constraint` går inte att använda som grepp.** Den räknar vridningen utan
+  r²-termen i den effektiva massan och skjuter över när greppet sitter utanför tröghetsradien
+  (här r²·m/I = 3,0) — grytan snurrade 166 000° utan ett konsolfel. `karl.js` har ett eget
+  punktgrepp (`drivPunkt`) som löser 2×2-systemet med rätt effektiv massa.
+  **Det som byggdes** (`karl.js`, `Karl` — samma klass för grytan och påsen):
+  · greppa **bygeln** → grytan bärs vågrät (en handled håller emot); innehållet får grytans
+    fartändring (`barAndel` 0,85, som `saftbarens` `_carryAll`) så det inte skvimpar ut
+  · **släpp** över en skål → den osynliga handen håller grytan vågrät ovanför skålen (samma läge
+    som tap-reserven ger); släpp någon annanstans → grytan glider hem till plattan
+  · greppa **sidan på en grytan som hänger över en skål** → den VIPPAR runt pipen: lutningen =
+    fingrets lodräta drag / 90 px per radian, tak 120° (över det vänder mynningen nedåt och
+    strålen blir 170 px bred), pipen sänks upp till 140 px mot skålen och står 60 px FÖRE
+    skålens mitt (vid ~105° vänder mynningen sig åt sidan och popcornen trillar ut med fart bort
+    från pipen). Ett kort drag häller lite, ett långt tömmer — lutningen är barnets.
+  · greppa sidan på en grytan på SPISEN → den hänger från greppet och spiller längs vägen
+    (motgång: hunden äter spillet)
+  · grytan är hal (oljad metall, friktion 0,12) med 15° utåtlutade väggar: hällvinkeln är
+    90° − utfall + friktionsvinkeln, och med raka väggar och friktion 0,5 började det rinna
+    först vid ~117°.
+  **Mätt (`node scripts/_grytprobe.mjs`, `--bild` ritar en hällning i sex rutor):** bygelgrepp
+  häller 0 % · parkeringen spiller 0 % · av det som hälls landar 86 % i skålen (sämst 64 %) · ett
+  långt drag häller 71 % av en skålfull i skålen · ett kort drag 0 % · bygelbärning i 500 /
+  1000 / 1800 px/s spiller ≤ 5 %. Skålen är byggd med bottnen IN UNDER väggarnas fötter
+  (`fysik.js`) — kant mot kant lämnade en glipa i vart hörn som popcornen rann igenom.
   **Tap-reserven (P0, ägarens val):** tryck på grytan (den lyfts en aning och glöder = vald) →
   tryck på en skål → grytan glider dit och stannar VÅGRÄT ovanför skålen. Den häller aldrig
   själv; barnet greppar sedan kanten. Förflyttningen drivs med fart i `beforeStep` (inte
@@ -181,7 +219,7 @@ Värmereglaget på spisens front (y ~520). Majspåsen på bänken bredvid spisen
   Spelets egen rad FÖRE `complete()` ("Nu börjar filmen!"), vänta in rösten (`ctx.narTyst`).
 
 ### Sonder som hör till spelet
-`_poppprobe` (finns: popp-recepten) · `_poppdemo` (finns: lyssna på spärren) · `_hallprobe`
+`_poppprobe` (finns: popp-recepten) · `_poppdemo` (finns: lyssna på spärren) · `_grytprobe`
 (ny, B1: andel i skålen per grepp) · omritningssonden (ny, B0) · `npm run test popcornkalaset`
 + skärmdumpen + `drag/ratt` i loggen · spela TVÅ omgångar och tryck så fort spelet tillåter
 (återspelssäkerhet, CLAUDE.md).
@@ -224,3 +262,15 @@ utgångspunkt, anpassas till spelets rum. `makeKompis('nalle')` är ikonen 🧸 
   ljudspärren demonstrerad (`_poppdemo`); gästpoolen inventerad; plan skriven · `a121aaa`
 - 2026-09-25 · ägaren efter lyssning: poppen godkänd, INGEN spärr (spela med `sample`, inte
   `sfx` — 30 ms-golvet hade tystat 17 av 37 popp); tap-reserven vald (flytta, aldrig hälla)
+- 2026-09-25 kväll · **BYGGT v1.263.0 (✅).** B0 · B1 · B2 · B3 · B4 · B5 · B6a · B8 · B9 · B10 · B11 ·
+  B12 (fräset som slinga, stämda grepp-/reglagetoner, `impactAudio`) · B13. Premissen i B1 föll och är
+  omskriven (se §4). Fynd på vägen: matter `Constraint` går inte att använda som grepp (skjuter
+  över utanför tröghetsradien) · en buren påse är en murbräcka (knuffade ner grytan — kärlen
+  kolliderar inte med varandra) · ett statiskt lock på kroken skrapade av kornen ur påsen (lock på
+  kroken kolliderar med ingenting) · en påse som vippats 149° hann hem före sin uppresning, föll på
+  sidan och fylldes på liggande · regeln "fyll under 3 korn" lät en påse med 4 kvar stå över grytan
+  för alltid · spill som blir liggande måste städas, annars når påfyllningens tak. Kritik: "klar
+  att committa", inga P0-brott; åtgärdat: gästen som jublar kliver fram framför grytan.
+  **Kvar i planen:** B6b (Elvira/Zacke/Lova/grisen ur andra spel till `lib/figurer.js`) · B7
+  (slumpade händelser — hunden som äter spillet i stället för puffen, katten på bänken) · locket
+  som skramlar med en egen ton (B12). Golvkudden ströks ur `PLATSER` (skymde skål 0).

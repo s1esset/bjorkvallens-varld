@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="sv">
+<head><meta charset="utf-8"><title>popcornkalaset — konst</title>
+<style>html,body{margin:0;background:#222}canvas{display:block}</style></head>
+<body>
+<script type="module">
+// Rå förhandssida för src/games/popcornkalaset/konst.js — laddar INTE appen (registret),
+// så en sparad spelfil laddar inte om sidan mitt i en bild. `?vy=detalj` = närbilder.
+import * as PIXI from 'pixi.js'
+import * as K from '/src/games/popcornkalaset/konst.js'
+import { GRYTA, PASE, LOCK, SKAL, SPIS, BANK, POPCORN, KORN, PLATSER } from '/src/games/popcornkalaset/matt.js'
+import { Mjukkropp } from '/src/lib/mjukkropp.js'
+
+const vy = new URLSearchParams(location.search).get('vy') || 'rum'
+const app = new PIXI.Application()
+await app.init({ width: 1280, height: 720, background: 0x222222, antialias: true })
+document.body.appendChild(app.canvas)
+app.ticker.stop()
+const S = app.stage
+const FARGER = [0xe0554a, 0x4aa3df, 0x5bbf6a]
+
+function popcornHog(lager, cx, golvY, bredd, antal, fro, brand = 0) {
+  // En enkel hög: rader som krymper uppåt.
+  let i = 0
+  for (let rad = 0; i < antal; rad++) {
+    const iRad = Math.max(1, Math.floor((bredd + rad * 34) / (POPCORN.r * 1.7)) - (rad > 3 ? (rad - 3) * 4 : 0))
+    for (let k = 0; k < iRad && i < antal; k++, i++) {
+      const p = K.ritaPopcorn(fro + i * 13, POPCORN.r)
+      p.view.position.set(cx + (k - (iRad - 1) / 2) * POPCORN.r * 1.7, golvY - POPCORN.r - rad * POPCORN.r * 1.5)
+      p.view.rotation = (fro + i) * 1.3
+      p.setBrand(typeof brand === 'function' ? brand(i) : brand)
+      lager.addChild(p.view)
+    }
+  }
+}
+
+if (vy === 'rum') {
+  const rum = K.ritaRum()
+  S.addChild(rum.bakgrund)
+  const platta = K.ritaPlatta(); S.addChild(platta.view); platta.setGlod(0.7)
+  // Påsen på bänken, med några korn på väg ut ur den.
+  const pase = K.ritaPase()
+  pase.view.position.set(PASE.x, BANK.yta - PASE.djup - PASE.golv)
+  S.addChild(pase.view)
+  // Grytan på plattan, med korn på botten och popcorn på väg upp.
+  const g = K.ritaGryta()
+  const gx = SPIS.x, gy = SPIS.yta - GRYTA.djup - GRYTA.golv
+  const bak = g.view.bak, fram = g.view.fram
+  bak.position.set(gx, gy); fram.position.set(gx, gy)
+  g.glod.position.set(gx, gy); g.bygel.position.set(gx, gy)
+  g.glod.alpha = 0.7
+  const mitt = new PIXI.Container()
+  S.addChild(bak, mitt, fram, g.glod, g.bygel)
+  for (let i = 0; i < 9; i++) {
+    const k = K.ritaKorn(); k.position.set(gx - 60 + i * 15, gy + GRYTA.djup - KORN.r); k.rotation = i * 0.9; mitt.addChild(k)
+  }
+  popcornHog(mitt, gx, gy + GRYTA.djup - 10, 150, 12, 5)
+  // Ett popcorn MITT i poppen (mjuk kropp).
+  const m = new Mjukkropp({ x: gx + 30, y: gy + 40, w: 30, h: 26, punkter: 16, form: K.popcornForm(42) })
+  const mg = new PIXI.Graphics(); mitt.addChild(mg)
+  K.ritaPopcornMjuk(mg, m, 0.1)
+  const lock = K.ritaLock(); lock.position.set(gx, gy - LOCK.tjock / 2); S.addChild(lock)
+  const reg = K.ritaReglage(); S.addChild(reg.view); reg.setSteg(6)
+  S.addChild(rum.soffa)
+  // Platshållare för gästerna (bara för att se lagerordningen).
+  for (const p of PLATSER.slice(0, 3)) {
+    const gg = new PIXI.Graphics().ellipse(p.x, p.y - 50, 40, 60).fill({ color: 0xffffff, alpha: 0.25 }).stroke({ width: 2, color: 0xffffff, alpha: 0.5 })
+    S.addChild(gg)
+  }
+  S.addChild(rum.bord)
+  SKAL.forEach((s, j) => {
+    const sk = K.ritaSkal(s, FARGER[j])
+    S.addChild(sk.bak)
+    const hog = new PIXI.Container(); S.addChild(hog)
+    popcornHog(hog, s.x, s.botten, s.bottenB + 20, [22, 10, 3][j], 100 + j * 50, j === 2 ? (i) => i / 3 : j * 0.3)
+    S.addChild(sk.fram)
+  })
+  // Korn som rinner ur påsen (fritt i luften).
+  for (let i = 0; i < 4; i++) { const k = K.ritaKorn(); k.position.set(PASE.x + 30 + i * 7, 300 + i * 14); S.addChild(k) }
+  S.addChild(rum.skymning)
+  S.addChild(rum.lampa)
+  S.addChild(rum.tvSken)
+  if (location.search.includes('tv')) { rum.tvSken.alpha = 1; rum.lampa.alpha = 0.2; rum.skymning.alpha = 1 }
+} else {
+  S.addChild(new PIXI.Graphics().rect(0, 0, 1280, 720).fill(0xf3e0bb))
+  // Popcorn i fem brändhetsgrader, tre gånger förstorade.
+  for (let i = 0; i < 5; i++) {
+    const p = K.ritaPopcorn(7 + i * 31, POPCORN.r)
+    p.view.scale.set(3.5); p.view.position.set(110 + i * 150, 110); p.setBrand(i / 4); S.addChild(p.view)
+    const q = K.ritaPopcorn(300 + i * 17, POPCORN.r)
+    q.view.scale.set(3.5); q.view.position.set(110 + i * 150, 250); q.setBrand(0); S.addChild(q.view)
+  }
+  // Mjuka popcorn (samma frö som raden över) i tre brändhetsgrader.
+  for (let i = 0; i < 3; i++) {
+    const m = new Mjukkropp({ x: 0, y: 0, w: POPCORN.r * 2, h: POPCORN.r * 2, punkter: 16, form: K.popcornForm(7 + i * 31) })
+    const c = new PIXI.Container(); c.scale.set(3.5); c.position.set(110 + i * 150, 390); S.addChild(c)
+    const g = new PIXI.Graphics(); c.addChild(g); K.ritaPopcornMjuk(g, m, i / 2)
+  }
+  for (let i = 0; i < 6; i++) { const k = K.ritaKorn(); k.scale.set(4); k.rotation = i * 1.1; k.position.set(560 + i * 50, 400); S.addChild(k) }
+  // Grytan lutad 60° med locket bredvid, påsen lutad.
+  const g = K.ritaGryta(); g.view.position.set(930, 250); g.view.rotation = 0.9; g.glod.alpha = 1; S.addChild(g.view)
+  const lock = K.ritaLock(); lock.position.set(1120, 90); S.addChild(lock)
+  const pase = K.ritaPase(); pase.view.position.set(1180, 560); pase.view.rotation = -1.1; pase.view.scale.set(1.6); S.addChild(pase.view)
+  const reg = K.ritaReglage(); reg.view.position.set(-120, 60); reg.setSteg(10); S.addChild(reg.view)
+  const reg0 = K.ritaReglage(); reg0.view.position.set(380, 60); reg0.setSteg(0); S.addChild(reg0.view)
+  const pl = K.ritaPlatta(); pl.view.position.set(620, 130); pl.setGlod(0); S.addChild(pl.view)
+  const pl2 = K.ritaPlatta(); pl2.view.position.set(620, 170); pl2.setGlod(1); S.addChild(pl2.view)
+}
+app.render()
+window.__klar = true
+</script>
+</body></html>

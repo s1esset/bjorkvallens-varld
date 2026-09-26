@@ -3,15 +3,18 @@
 // `docs/games/popcornkalaset.md`.
 //
 // Ägarens krav (2026-09-25): barnet LUTAR OCH HÄLLER SJÄLV, med fysik — ingenting häller åt
-// det. Därför är grytan och påsen riktiga kroppar som barnet bär (`karl.js`), med EN gest
-// (ägarens rapport 2026-09-26: "jättesvår att styra … fastnar, spiller, vägrar luta"):
+// det. Därför är grytan och påsen riktiga kroppar som barnet bär (`karl.js`):
 //
-//   ta tag var som helst → kärlet bärs upprätt dit fingret drar
-//   över målet (skål / gryta) vilar det på en osynlig hylla; tryck VIDARE NEDÅT → det lutar
-//                     och häller, så mycket som fingret trycker; upp → det rätar sig
-//                     (`_popcornhall`: alla nybörjargrepp häller, kontrollarmarna häller 0 %)
-//   släpp            → över målet hänger det kvar, annars glider det hem
-//   tap-reserven    → tryck på grytan, tryck på en skål: grytan FLYTTAS dit, häller aldrig
+//   GRYTAN (ägarens design 2026-09-26, efter "de osynliga barriärerna gör att grytan flyger
+//   iväg"): två SIDOHANDTAG, inga osynliga spärrar.
+//     ta i själva grytan → den bärs stadigt dit fingret drar
+//     släpp               → den landar där den är — t.ex. på en skål
+//     ta i ett handtag    → den lyfts lugnt och tippar i lagom takt; det rinner ut på den
+//                           BORTRE sidan (`_popcornhandtag` H2: på skålen → ~90 % i den skålen)
+//   PÅSEN (en gest): ta tag var som helst → den bärs upprätt; över grytan vilar den på en
+//     osynlig hylla, tryck vidare nedåt → den lutar och häller (`_popcornhall`)
+//   tap-reserven    → tryck på grytan, tryck på en skål: grytan FLYTTAS dit och ställs ned,
+//                     häller aldrig
 //
 // Poppen: värmefältet (`lib/varme.js`) grader varje korn mot en slumpad tröskel; kornet blir
 // en mjuk kropp (`lib/mjukkropp.js`) som växer på 11 fasta steg (receptet ur `_poppprobe`) och
@@ -26,7 +29,7 @@ import { puff, sparkle, pop, wiggle, ripple } from '../../lib/feedback.js'
 import { logDrag } from '../../lib/gamelog.js'
 import { bage } from '../../lib/form.js'
 import { Karl, drivPunkt } from './karl.js'
-import { byggSkal, iSkal, grytHylla, paseHylla } from './fysik.js'
+import { byggSkal, iSkal, paseHylla } from './fysik.js'
 import { GOLV, BANK, SPIS, REGLAGE, PASE, GRYTA, LOCK, BORD, SKAL, POPCORN, KORN, FULL_SKAL } from './matt.js'
 import { ritaRum, ritaPlatta, ritaReglage, ritaGryta, ritaLock, ritaPase, ritaSkal, ritaKorn, popcornForm, ritaPopcorn, ritaPopcornMjuk } from './konst.js'
 import { dragGaster, skapaGast } from './gaster.js'
@@ -182,9 +185,9 @@ export default {
     this._pase = new Karl(phys, { ...PASE_HEM, ...PASE, label: 'pase', grupp: -7 })
     this._gryta.innehall = []
     this._pase.innehall = []
-    // Hyllorna: fingret drar kärlen ned TILL dem, aldrig igenom (in i skålen, genom grytan), och
-    // det som trycks under hyllan över ett mål blir en lutning (`fysik.js`, `karl.js _folj`).
-    this._gryta.hylla = (x) => grytHylla(this._gryta, x)
+    // Påsens hylla: fingret drar påsen ned TILL den över grytan, aldrig igenom, och det som trycks
+    // under hyllan blir en lutning (`fysik.js`, `karl.js _folj`). Grytan har INGEN hylla
+    // (ägarens design 2026-09-26: inga osynliga spärrar) — den häller i sina sidohandtag.
     this._pase.hylla = (x) => paseHylla(this._pase, this._gryta, x)
     this._gryta.rum = this._pase.rum = { x0: 0, x1: 1280 }
 
@@ -203,7 +206,7 @@ export default {
       const bak = new Container()
       const fram = new Container()
       // Bygeln och glöden hör till framsidan — alla delar följer samma kropp.
-      for (const [c, del] of [[bak, konst.view.bak], [fram, konst.view.fram], [fram, konst.glod], [fram, konst.bygel]]) {
+      for (const [c, del] of [[bak, konst.view.bak], [fram, konst.view.fram], [fram, konst.glod], [fram, konst.handtag ?? konst.bygel]]) {
         if (!del) continue
         del.position.set(-karl._com.x, -karl._com.y)
         c.addChild(del)
@@ -473,13 +476,17 @@ export default {
     this._skalN = skalN
 
     this._platta.setGlod(this._steg / 10)
-    this._grytKonst.glod && (this._grytKonst.glod.alpha = this._gryta.lage === 'fri' ? this._steg / 10 : 0)
+    // Glöden bara när grytan STÅR på plattan (den kan ställas var som helst nu).
+    this._grytKonst.glod && (this._grytKonst.glod.alpha = this._gryta.lage === 'fri' && this._grytaPaSpisen() ? this._steg / 10 : 0)
 
     // Kärl på väg hem: släpp dem på plattan/bänken när handen nått fram.
     // …men först när kärlet hänger VÅGRÄTT: en påse som vippats 149° hann hem före sin egen
     // uppresning, föll på sidan och fylldes sedan på liggande — kornen rann rakt ut.
     const lugn = (k) => Math.abs(k.vinkel) < 0.06 && Math.abs(k.body.angularVelocity) < 0.01
-    if (this._grytaPaVagHem && this._gryta.lage === 'park' && this._gryta.framme(2) && lugn(this._gryta)) {
+    if (this._grytaPaVagHem && this._gryta.lage === 'park' && this._grytaVia?.length && this._gryta.framme(6) && Math.abs(this._gryta.vinkel) < 0.3) {
+      const v = this._grytaVia.shift()
+      this._gryta.parkera(v.x, v.y)
+    } else if (this._grytaPaVagHem && this._gryta.lage === 'park' && this._gryta.framme(2) && lugn(this._gryta)) {
       this._grytaPaVagHem = false
       this._gryta.lagNer()
     }
@@ -502,6 +509,8 @@ export default {
 
   // Ett kärl som står FRITT någon annanstans än hemma (knuffat av en smäll, ramlat av bänken)
   // och ligger still i en sekund glider hem av sig självt — det ska aldrig behöva letas fram.
+  // GRYTAN får stå där barnet ställer den (på en skål, på bänken — ägarens design): den går hem
+  // bara om den vält, ramlat på golvet, eller står TOM en stund (då ska nästa omgång poppas).
   _hemOmVilse(ctx) {
     for (const [karl, hem, typ] of [[this._gryta, GRYTA_HEM, 'gryta'], [this._pase, PASE_HEM, 'pase']]) {
       if (karl.lage !== 'fri' || (this._grepp && this._grepp.typ === typ)) {
@@ -515,7 +524,17 @@ export default {
         karl._vilse = 0
         continue
       }
-      if (++karl._vilse > 60) {
+      let grans = 60
+      if (typ === 'gryta') {
+        const valt = Math.abs(b.angle) > 0.8 || m.y > BORD.yta - GRYTA.djup
+        const tom = !this._pop.some((p) => karl.inuti(p.body.position.x, p.body.position.y, 20)) && !this._korn.some((k) => karl.inuti(k.body.position.x, k.body.position.y, 10))
+        if (!valt && !tom) {
+          karl._vilse = 0
+          continue
+        }
+        grans = valt ? 60 : 150
+      }
+      if (++karl._vilse > grans) {
         karl._vilse = 0
         if (typ === 'gryta') this._grytaHem(ctx)
         else this._paseHem(ctx)
@@ -760,7 +779,7 @@ export default {
       if (this._vald && this._vald !== typ) this._avmarkera(ctx)
       const fore = { lage: karl.lage, mal: { ...karl._mal } }
       karl.greppa(p.x, p.y)
-      if (typ === 'gryta') this._grytaPaVagHem = false
+      if (typ === 'gryta') { this._grytaPaVagHem = false; this._grytaVia = null }
       if (typ === 'pase') { this._pasePaVagHem = false; this._paseVia = null; this._gryta._pasePark = false }
       // Grytan lyfts bort under en påse som hänger över den: påsen går hem.
       if (typ === 'gryta' && this._gryta._pasePark && this._pase.lage === 'park') {
@@ -810,7 +829,6 @@ export default {
       const mal = karl.hallMal
       karl.slappVippa()
       if (karl === this._gryta) {
-        this._grytaVidSkal = mal.s
         logDrag('ratt', { typ: g.typ, skal: mal.s, hallt: true })
       } else {
         logDrag('ratt', { typ: g.typ, hallt: true })
@@ -827,6 +845,14 @@ export default {
       if (g.fore.lage === 'park') karl.parkera(g.fore.mal.x, g.fore.mal.y)
       else this._lyftVald(karl, g.typ)
       this._markera(ctx, g.typ)
+      return
+    }
+    if (karl === this._gryta) {
+      // GRYTAN landar där den släpps (inga osynliga spärrar): på en skål, bänken, spisen.
+      const m = karl.varld(0, 0)
+      const s = SKAL.findIndex((sk) => Math.abs(m.x - sk.x) < sk.kantB / 2 + 20)
+      karl.lagNer()
+      logDrag(s >= 0 ? 'ratt' : 'slapp', { typ: g.typ, skal: s, zon: g.zon })
       return
     }
     this._parkeraEfterSlapp(ctx, g.typ)
@@ -859,18 +885,45 @@ export default {
     }
   },
 
+  // Tap-reservens mål: den osynliga handen bär grytan dit — upp över skålarna — och STÄLLER
+  // den på skålen. Den häller aldrig själv; barnet tar sedan i ett handtag.
   _parkeraOverSkal(ctx, s) {
-    const sk = SKAL[s]
-    this._gryta.parkera(sk.x, grytHylla(this._gryta, sk.x).y)
-    this._grytaVidSkal = s
+    const g = this._gryta
+    const x = clamp(SKAL[s].x, GRYTA.handtag.x + 24, 1280 - GRYTA.handtag.x - 24)
+    this._grytaTill(x, g.parkHojd(SKAL[s].kant) - 6)
     ctx.services.audio.tone({ freq: 523, dur: 0.1, type: 'sine', vol: 0.14, slideTo: 659 })
   },
 
   _grytaHem(ctx) {
     const g = this._gryta
-    g.parkera(GRYTA_HEM.x, g.parkHojd(SPIS.yta) - 4)
-    this._grytaVidSkal = -1
+    this._grytaTill(GRYTA_HEM.x, g.parkHojd(SPIS.yta) - 4)
+  },
+
+  // Den osynliga handen bär grytan till (x, y) och ställer ned den där — över skålarna går
+  // den UPP först: raka vägen släpade grytan genom popcornhögen i skålarna den passerade.
+  _grytaTill(x, y) {
+    const g = this._gryta
+    const m = g.varld(0, 0)
+    const hog = Math.min(m.y, y, SKAL[0].kant - GRYTA.golv - GRYTA.djup - 70)
+    this._grytaVia = []
+    if (Math.abs(m.x - x) > 40) {
+      g.parkera(m.x, hog)
+      this._grytaVia.push({ x, y: hog }, { x, y })
+    } else g.parkera(x, y)
     this._grytaPaVagHem = true
+  },
+
+  // Står grytan på spisplattan?
+  _grytaPaSpisen() {
+    const m = this._gryta.varld(0, 0)
+    return Math.abs(m.x - GRYTA_HEM.x) < 70 && Math.abs(m.y - GRYTA_HEM.y) < 30
+  },
+
+  // Vilken skål grytan står på (eller hänger över), -1 om ingen.
+  _grytaVidSkal() {
+    const m = this._gryta.varld(0, 0)
+    if (this._grytaPaSpisen()) return -1
+    return SKAL.findIndex((sk) => Math.abs(m.x - sk.x) < sk.kantB / 2 + 20 && m.y < sk.kant)
   },
 
   _paseOverGryta(ctx) {
@@ -921,7 +974,7 @@ export default {
     // Ett valt kärl som bara lyftes där det stod går tillbaka.
     const karl = typ === 'gryta' ? this._gryta : this._pase
     if (karl.lage === 'park') {
-      if (typ === 'gryta' && this._grytaVidSkal < 0) this._grytaHem(ctx)
+      if (typ === 'gryta') karl.lagNer()
       if (typ === 'pase' && !this._gryta._pasePark) this._paseHem(ctx)
     }
   },
@@ -1056,7 +1109,7 @@ export default {
     let gest
     if (popIGrytan >= 6) {
       replik = 'Greppa grytan och luta den!'
-      gest = this._grytaVidSkal >= 0 ? 'vippa' : 'bara'
+      gest = this._grytaVidSkal() >= 0 ? 'vippa' : 'bara'
     } else if (iGrytan >= 6 && this._steg === 0) {
       replik = 'Dra i reglaget så blir spisen varm!'
       gest = 'reglage'
@@ -1092,12 +1145,13 @@ export default {
       fran = { x: REGLAGE.x0, y: REGLAGE.y }
       till = { x: REGLAGE.x1, y: REGLAGE.y }
     } else if (gest === 'bara') {
-      fran = this._gryta.varld(0, -GRYTA.bygel)
-      till = { x: SKAL[0].x, y: fran.y - 60 }
-      ned = 150
+      // Ta i själva grytan och ställ den på en skål.
+      fran = this._gryta.varld(0, 50)
+      till = { x: SKAL[0].x, y: SKAL[0].kant - 70 }
     } else {
-      fran = this._gryta.varld(GRYTA.bredd / 2 + GRYTA.vagg, 20)
-      till = { x: fran.x, y: fran.y + 200 }
+      // Ta ett handtag och håll kvar (grytan lyfts och tippar själv) — handen lyfter lite.
+      fran = this._gryta.varld(GRYTA.handtag.x, GRYTA.handtag.y)
+      till = { x: fran.x, y: fran.y - 60 }
     }
     hand.position.set(fran.x, fran.y)
     const tl = gsap.timeline({ repeat: 1 })
@@ -1261,7 +1315,7 @@ export default {
   },
 }
 
-// Ett grepp låter: bygeln klirrar ljust, kroppen dovare.
+// Ett grepp låter: ett handtag (eller påsens kant) klirrar ljust, själva grytan dovare.
 function audioGrip(ctx, zon) {
-  ctx.services.audio.tone({ freq: zon === 'bygel' ? 660 : 440, dur: 0.07, type: 'triangle', vol: 0.12 })
+  ctx.services.audio.tone({ freq: zon === 'bygel' || zon?.startsWith?.('handtag') ? 660 : 440, dur: 0.07, type: 'triangle', vol: 0.12 })
 }

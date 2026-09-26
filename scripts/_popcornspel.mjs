@@ -4,8 +4,10 @@
 //   node scripts/_popcornspel.mjs [--omgangar 2] [--otalig]      (kräver dev-servern på :5173)
 //
 // Per skål: bär påsen över grytan (drag) → vippa påsen (greppa sidan, dra nedåt) → tryck + tills
-// plattan är varm → vänta ut poppen → bär grytan i bygeln till skålen → vippa grytan → sänk
-// värmen. Tre skålar = en omgång; spelet ska då köra finishen och börja om av sig självt.
+// plattan är varm → vänta ut poppen → sänk värmen → bär grytan (mitt på) till skålen och släpp
+// den där → ta ett SIDOHANDTAG och håll kvar (grytan lyfts och tippar, ägarens design
+// 2026-09-26) → släpp → den tomma grytan går hem själv. Tre skålar = en omgång; spelet ska då
+// köra finishen och börja om av sig självt.
 // `--otalig` trycker så fort spelet tillåter (barnets väg — där bor rivningskapplöpningarna).
 // Mäter: korn i grytan, popcorn per skål, hela skålar, konsolfel. Skärmdumpar i .test-shots/.
 import { chromium } from 'playwright'
@@ -96,23 +98,24 @@ try {
       if (s === 0 && o === 0) await page.screenshot({ path: '.test-shots/_popcornspel_poppat.png' })
       // 5. Sänk värmen (inget bränt i sonden) och bär grytan i bygeln till skålen.
       for (let i = 0; i < 10; i++) { await klick(M.REGLAGE.minusX, M.REGLAGE.y); await page.waitForTimeout(OTALIG ? 30 : 60) }
-      const bygel = await lokal('_gryta', 0, -M.GRYTA.bygel)
+      const mitt = await lokal('_gryta', 0, 50)
       const sk = M.SKAL[s]
-      await drag(bygel, { x: sk.x, y: bygel.y - 60 }, 36)
-      await vanta(1600)
-      // 6. Vippa grytan: greppa höger sida, dra nedåt, håll.
-      const sida = await lokal('_gryta', M.GRYTA.bredd / 2 + M.GRYTA.vagg, 20)
-      await drag(sida, { x: sida.x, y: sida.y + 240 }, 50, 2600)
-      await vanta(1500)
+      await drag(mitt, { x: sk.x, y: sk.kant - 70 }, 36)
+      await vanta(1200)
+      // 6. Häll: ta HÖGER handtag (vänster på skål 2 — det högra sitter vid skärmkanten) och håll.
+      const sida = s === 2 ? -1 : 1
+      const h = await lokal('_gryta', sida * M.GRYTA.handtag.x, M.GRYTA.handtag.y)
+      await drag(h, h, 1, 3200)
+      await vanta(1200)
       if (s === 0 && o === 0) await page.screenshot({ path: '.test-shots/_popcornspel_hallt.png' })
       l = await lage()
       console.log(`    efter hällning: i skålarna ${JSON.stringify(l.skal)} · hela ${JSON.stringify(l.full)} · grytan ${l.gryta.lage}`)
-      // 7. Grytan hem igen (tryck på den, tryck på spisen) — tap-reserven.
-      const grytMitt = await lokal('_gryta', 0, M.GRYTA.djup * 0.5)
-      await klick(grytMitt.x, grytMitt.y)
-      await vanta(300)
-      await klick(330, 478)
-      await vanta(2200)
+      // 7. Den tomma (eller välta) grytan går hem till spisen av sig själv — vänta in den.
+      for (let t = 0; t < 40; t++) {
+        const g = await page.evaluate(() => { const k = window.__barnspel.game._gryta; return { lage: k.lage, x: k.body.position.x } })
+        if (g.lage === 'fri' && Math.abs(g.x - 330) < 40) break
+        await page.waitForTimeout(250)
+      }
     }
     const l = await lage()
     ok(`omgång ${o + 1}: tre hela skålar → filmkväll`, l.omgangar > o, `klara omgångar ${l.omgangar} · full ${JSON.stringify(l.full)} · skålar ${JSON.stringify(l.skal)}`)

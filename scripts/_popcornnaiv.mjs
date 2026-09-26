@@ -1,6 +1,7 @@
 // POPCORNKALASET — spela påsen och grytan som en NYBÖRJARE gör, inte som expertvägen i
-// `_popcornspel` (släpp över målet → vänta → greppa SIDAN → dra lodrätt). Ägaren 2026-09-26:
-// "jättesvår att styra / hälla från … fastnar, spiller, vägrar luta ibland".
+// `_popcornspel`. Ägaren 2026-09-26: "jättesvår att styra / hälla från … fastnar, spiller, vägrar
+// luta ibland" (P-fallen, påsen) och sedan "de osynliga barriärerna gör att när man drar grytan mot
+// och över gästerna flyger den iväg utanför skärmen" (G-fallen, grytan med sidohandtag).
 //
 //   node scripts/_popcornnaiv.mjs [--fall P1,G2,…] [--bild]      (kräver dev-servern på :5173)
 //
@@ -26,6 +27,18 @@ async function starta() {
   await G(() => window.__barnspel.nav.go('game', { id: 'popcornkalaset' }))
   await page.waitForFunction(() => !!window.__popcorn, null, { timeout: 15000 })
   await page.waitForTimeout(1200)
+  await G(() => {
+    window.__vakt = { max: 0, ut: null }
+    const tick = () => {
+      const g = window.__barnspel?.game?._gryta
+      if (!g) return
+      const b = g.body
+      window.__vakt.max = Math.max(window.__vakt.max, Math.hypot(b.velocity.x, b.velocity.y))
+      if (!window.__vakt.ut && (b.position.x < -20 || b.position.x > 1300 || b.position.y < -80 || b.position.y > 690)) window.__vakt.ut = `(${Math.round(b.position.x)},${Math.round(b.position.y)})`
+      requestAnimationFrame(tick)
+    }
+    tick()
+  })
 }
 // Vid 1280×720 är designrummet 1:1 med skärmen, men läs det ändå.
 const skarm = (x, y) => G(({ x, y }) => {
@@ -108,6 +121,12 @@ async function fyllGrytan(n = 30) {
   await vanta(2200)
 }
 
+// Grytans slutläge + om den någon gång var utanför bild (`vakt` samplas varje bildruta).
+const grytLage = () => G(() => {
+  const g = window.__barnspel.game._gryta
+  const u = window.__vakt || { max: 0 }
+  return `slut ${g.lage} ${Math.round(g.vinkel * 57.3)}° i (${Math.round(g.body.position.x)},${Math.round(g.body.position.y)}) · toppfart ${u.max.toFixed(1)}${u.ut ? ' · ✗ UTANFÖR BILD ' + u.ut : ' · i bild hela tiden'}`
+})
 const vis = (s, karl) => s.map((r) => `${r[karl].lage}/${r[karl].zon ?? '-'} ${r[karl].v}°${r[karl].glapp != null ? ' g' + r[karl].glapp : ''}`).join(' → ')
 
 const FALLEN = {
@@ -171,83 +190,99 @@ const FALLEN = {
     await vanta(1500)
     console.log('    innehåll', JSON.stringify(await innehall()))
   },
-  // GRYTAN --------------------------------------------------------------------------------
+  // GRYTAN (sidohandtag, ägarens design 2026-09-26) -----------------------------------------
   async G1() {
-    console.log('G1 grytan: greppa SIDAN på spisen och bär den till skål 0')
+    console.log('G1 grytan: ta MITT PÅ grytan, bär den till skål 0 och släpp (ställ ned)')
     await fyllGrytan()
-    const sida = await lokal('_gryta', 100 + 13, 40)
-    const s = await drag(sida, { x: 706, y: sida.y - 40 }, { steg: 36, spar: true })
-    console.log('   ', vis(s, 'gryta'))
-    await vanta(2500)
+    const mitt = await lokal('_gryta', 0, 50)
+    const s = await drag(mitt, { x: 706, y: 420 }, { steg: 40, spar: true })
+    await vanta(2000)
+    console.log('   ', vis(s, 'gryta'), '·', await grytLage())
     console.log('    innehåll', JSON.stringify(await innehall()))
   },
   async G2() {
-    console.log('G2 grytan: bygeln till skål 0 och LUTA utan att släppa (drag nedåt-höger)')
+    console.log('G2 grytan: ta ett HANDTAG på spisen och bär den till skål 1 (handtaget tippar)')
     await fyllGrytan()
-    const bygel = await lokal('_gryta', 0, -92)
-    const over = { x: 706, y: bygel.y - 60 }
-    await drag(bygel, over, { steg: 36, upp: false })
-    const s = await drag(over, { x: over.x + 120, y: over.y + 150 }, { steg: 30, hall: 1500, spar: true })
-    console.log('   ', vis(s, 'gryta'))
+    const h = await lokal('_gryta', 139, 12)
+    const s = await drag(h, { x: 1000, y: 260 }, { steg: 40, hall: 2500, spar: true })
     await vanta(2000)
+    console.log('   ', vis(s, 'gryta'), '·', await grytLage())
     console.log('    innehåll', JSON.stringify(await innehall()))
   },
   async G3() {
-    console.log('G3 grytan: bygeln till skål 0, släpp, greppa BYGELN igen och dra nedåt')
+    console.log('G3 grytan: ställ den på skål 0, ta HÖGER handtag och håll kvar 4 s')
     await fyllGrytan()
-    const bygel = await lokal('_gryta', 0, -92)
-    await drag(bygel, { x: 706, y: bygel.y - 60 }, { steg: 36 })
-    await vanta(1600)
-    const b2 = await lokal('_gryta', 0, -92)
-    const s = await drag(b2, { x: b2.x, y: b2.y + 200 }, { steg: 30, hall: 1500, spar: true })
-    console.log('   ', vis(s, 'gryta'))
+    const mitt = await lokal('_gryta', 0, 50)
+    await drag(mitt, { x: 706, y: 420 }, { steg: 40 })
+    await vanta(1500)
+    const h = await lokal('_gryta', 139, 12)
+    const s = await drag(h, h, { steg: 1, hall: 4000, spar: true })
     await vanta(2000)
+    console.log('   ', vis(s, 'gryta'), '·', await grytLage())
     console.log('    innehåll', JSON.stringify(await innehall()))
   },
   async G4() {
-    console.log('G4 grytan: bygeln till skål 0, släpp, greppa sidan DIREKT och dra nedåt (otålig)')
+    console.log('G4 grytan: ställ den på skål 1, ta VÄNSTER handtag DIREKT (otålig) och håll 4 s')
     await fyllGrytan()
-    const bygel = await lokal('_gryta', 0, -92)
-    await drag(bygel, { x: 706, y: bygel.y - 60 }, { steg: 36 })
-    await vanta(120)
-    const sida = await lokal('_gryta', 113, 20)
-    const s = await drag(sida, { x: sida.x, y: sida.y + 240 }, { steg: 50, hall: 2600, spar: true })
-    console.log('   ', vis(s, 'gryta'))
+    const mitt = await lokal('_gryta', 0, 50)
+    await drag(mitt, { x: 926, y: 420 }, { steg: 40 })
+    await vanta(150)
+    const h = await lokal('_gryta', -139, 12)
+    const s = await drag(h, h, { steg: 1, hall: 4000, spar: true })
     await vanta(2000)
+    console.log('   ', vis(s, 'gryta'), '·', await grytLage())
     console.log('    innehåll', JSON.stringify(await innehall()))
   },
   async G5() {
-    console.log('G5 grytan: expertvägen (bygeln, släpp, vänta, sidan nedåt 240 px) — kontrollarm')
+    console.log('G5 grytan: ställ den på skål 1, ta höger handtag och SKAKA fram och tillbaka')
     await fyllGrytan()
-    const bygel = await lokal('_gryta', 0, -92)
-    await drag(bygel, { x: 706, y: bygel.y - 60 }, { steg: 36 })
-    await vanta(1600)
-    const sida = await lokal('_gryta', 113, 20)
-    const s = await drag(sida, { x: sida.x, y: sida.y + 240 }, { steg: 50, hall: 2600, spar: true })
-    console.log('   ', vis(s, 'gryta'))
+    const mitt = await lokal('_gryta', 0, 50)
+    await drag(mitt, { x: 926, y: 420 }, { steg: 40 })
+    await vanta(1500)
+    const h = await lokal('_gryta', 139, 12)
+    const a = await skarm(h.x, h.y)
+    await page.mouse.move(a.x, a.y)
+    await page.mouse.down()
+    for (let i = 0; i < 90; i++) {
+      const b = await skarm(h.x + Math.sin(i * 0.4) * 40, h.y - Math.min(60, i * 2))
+      await page.mouse.move(b.x, b.y)
+      await page.waitForTimeout(33)
+    }
+    await page.mouse.up()
     await vanta(2000)
+    console.log('   ', await grytLage())
     console.log('    innehåll', JSON.stringify(await innehall()))
   },
   async G6() {
-    console.log('G6 grytan: bygeln till skål 0, släpp, greppa VÄNSTRA sidan och dra nedåt')
+    console.log('G6 grytan: MOT OCH ÖVER GÄSTERNA — mitt på, fram och tillbaka över soffan (ägarens bugg)')
     await fyllGrytan()
-    const bygel = await lokal('_gryta', 0, -92)
-    await drag(bygel, { x: 706, y: bygel.y - 60 }, { steg: 36 })
-    await vanta(1600)
-    const sida = await lokal('_gryta', -113, 20)
-    const s = await drag(sida, { x: sida.x, y: sida.y + 240 }, { steg: 50, hall: 2600, spar: true })
-    console.log('   ', vis(s, 'gryta'))
+    const mitt = await lokal('_gryta', 0, 50)
+    let s = await drag(mitt, { x: 930, y: 420 }, { steg: 30, upp: false, spar: true })
+    s = s.concat(await drag({ x: 930, y: 420 }, { x: 1250, y: 380 }, { steg: 25, upp: false, spar: true }))
+    s = s.concat(await drag({ x: 1250, y: 380 }, { x: 650, y: 470 }, { steg: 40, spar: true }))
     await vanta(2000)
+    console.log('   ', vis(s, 'gryta'), '·', await grytLage())
     console.log('    innehåll', JSON.stringify(await innehall()))
   },
   async G7() {
-    console.log('G7 grytan: glappet — bygeln fram och tillbaka i vanlig takt (600 px på 0,5 s)')
+    console.log('G7 grytan: mot och över gästerna i ett HANDTAG, upp och ned')
     await fyllGrytan()
-    const bygel = await lokal('_gryta', 0, -92)
-    const s = await drag(bygel, { x: bygel.x + 500, y: bygel.y - 60 }, { steg: 30, ms: 16, spar: true, hall: 1000 })
-    console.log('   ', vis(s, 'gryta'))
-    await vanta(1500)
+    const h = await lokal('_gryta', -139, 12)
+    let s = await drag(h, { x: 930, y: 330 }, { steg: 30, upp: false, spar: true })
+    s = s.concat(await drag({ x: 930, y: 330 }, { x: 930, y: 480 }, { steg: 15, upp: false, spar: true }))
+    s = s.concat(await drag({ x: 930, y: 480 }, { x: 1240, y: 330 }, { steg: 25, spar: true }))
+    await vanta(2000)
+    console.log('   ', vis(s, 'gryta'), '·', await grytLage())
     console.log('    innehåll', JSON.stringify(await innehall()))
+  },
+  async G8() {
+    console.log('G8 grytan: tryck den RAKT NED i bordet och dra längs det')
+    await fyllGrytan()
+    const mitt = await lokal('_gryta', 0, 50)
+    let s = await drag(mitt, { x: 926, y: 700 }, { steg: 30, upp: false, spar: true })
+    s = s.concat(await drag({ x: 926, y: 700 }, { x: 1240, y: 700 }, { steg: 25, spar: true }))
+    await vanta(2000)
+    console.log('   ', vis(s, 'gryta'), '·', await grytLage())
   },
 }
 

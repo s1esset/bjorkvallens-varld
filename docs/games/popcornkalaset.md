@@ -1,9 +1,10 @@
 # Popcornkalaset (`popcornkalaset`)
 
 > ⚙️ fysik · drag · 3–5 år · ✅
-> Status: ✅ byggt v1.263.0 (2026-09-25) · **styrningen omgjord till EN gest v1.264.0 (2026-09-26)**
-> · kärnloopen spelad i två hela omgångar med riktiga musdrag (`_popcornspel`) · hällningen mätt
-> (`_popcornhall` + `_grytprobe`) · nybörjargreppen mätta (`_popcornnaiv`) · omritningen (`_popcornomrit`)
+> Status: ✅ byggt v1.263.0 (2026-09-25) · påsen: EN gest v1.264.0 · **grytan: SIDOHANDTAG, inga
+> osynliga spärrar v1.265.0 (2026-09-26, ägarens design)** · kärnloopen spelad i två hela omgångar
+> med riktiga musdrag (`_popcornspel`) · grytan mätt (`_popcornhandtag`) · påsen (`_popcornhall`) ·
+> nybörjargreppen (`_popcornnaiv`) · omritningen (`_popcornomrit`)
 
 Ursprung: idélistan 2026-09-25 (`docs/idelista-fysikspel.html`, `docs/IDEER.md` post 6).
 
@@ -52,11 +53,12 @@ kort pop så vi inte svämmar över med ljud"*.
 Ett varmt kök och vardagsrum en filmkväll. Barnet tar majspåsen (var som helst på den), bär den
 till glasgrytan och trycker den nedåt — påsen lutar och kornen rinner i. Vrider upp värmen med
 knoppen eller − / + (plattan glöder, fräset växer), ser kornen darra och höra dem smälla —
-slumpat, aldrig i samma ordning, ibland ett jättepopcorn — tar grytan, bär den till en skål och
-trycker den nedåt så att den häller. **EN gest för båda kärlen** (sedan 2026-09-26): ta tag var
-som helst → kärlet bärs upprätt; över målet vilar det på en osynlig hylla i hällhöjd; tryck vidare
-nedåt → det lutar så mycket som fingret trycker; upp → det rätar sig; släpp → det hänger kvar
-över målet (en påse som hällt går hem och fylls på). Tre gäster ur en pool
+slumpat, aldrig i samma ordning, ibland ett jättepopcorn. **Grytan** (ägarens design 2026-09-26)
+har två röda sidohandtag och inga osynliga spärrar: ta i själva grytan → den bärs stadigt; släpp →
+den landar där den är, t.ex. på en skål; ta i ett handtag → den lyfts lugnt och tippar i lagom takt,
+och det rinner ut på den BORTRE sidan — står den på en skål hamnar ~90 % i just den skålen.
+Skakar man i handtaget portioneras det ut. En tom (eller vält) gryta går hem till spisen själv.
+**Påsen**: en gest — ta tag var som helst, bär den över grytan, tryck nedåt så lutar den. Tre gäster ur en pool
 på sex (Bobo, Bobos kusin, katten, ankan, valpen, ett knytt) sitter i soffan på slumpade platser,
 tittar på grytan, jublar när deras skål blir full och mumsar. Tre fulla skålar → filmkväll:
 lampan dimmas, tv:n lyser, ett sista popcorn flyger i någons hår, och en ny omgång börjar.
@@ -66,12 +68,13 @@ spill blir liggande en stund och försvinner. Tap-reserven flyttar grytan/påsen
 **Filer:** `index.js` (flöde, input, värme, popp, mål) · `karl.js` (grytan och påsen som fysiska
 kärl, punktgreppet) · `konst.js` (all ritning) · `gaster.js` (gästfasaden, B6a) · `matt.js`
 (layouten — delad med sonderna) · `fysik.js` (skålarna).
-**Sonder:** `_popcornhall` (EN gest: alla grepp × tre skålar × ett drag / parkerad / otålig +
-kontrollarmar som INTE får hälla, node, hela rummet; `FORE=…` sveper hällpunkten) ·
-`_popcornhallspar <skål> <sida> [park] --bild` (en hällning i text och sex rutor) · `_popcornnaiv`
-(nybörjargreppen i webbläsaren: P1–P5 påsen, G1–G7 grytan, `--bild`) · `_popcornspar` (en otålig
-vippning bildruta för bildruta i webbläsaren) · `_grytprobe` (den gamla expertgesten, node, sedan
-2026-09-26 i hela rummet, `--bild` · `--matris` · `--svep`) · `_popcornomrit`
+**Sonder:** `_popcornhandtag` (GRYTAN med sidohandtag, node, hela rummet: K1 bära stadigt · K2
+tryck i bordet · K3 mot och över gästerna · H1 ställ på skål · **H2 ägarens flöde** (ställ på skål,
+ta handtaget, håll) över alla skålar × båda handtagen · H3–H7 info; `TIPP=mal,max` sveper) ·
+`_popcornhandtagbild <skål> <sida> [--ingen-flytt]` (en hällning i sex rutor) · `_popcornhall`
+(PÅSEN, en gest, node) · `_popcornnaiv` (nybörjargreppen i webbläsaren: P1–P5 påsen, G1–G8 grytan
+inkl. ägarens bana över gästerna, `--bild`) · `_popcornomrit`. `_grytprobe`, `_popcornhallspar` och
+`_popcornspar` mätte grytans gamla gester och är borttagna (git har dem).
 (B0) · `_popcornspel` (kärnloopen med riktiga musdrag, `--omgangar 2` · `--otalig` · `--spar`) ·
 `_popcornkonst` / `_popcorngaster` (förhandsbilder av konsten och gästerna) · `_poppprobe` ·
 `_poppdemo`. ⚠️ Harnessens auto-drag träffar aldrig påsen eller grytan (`drag/ratt` = 0) —
@@ -270,6 +273,44 @@ utgångspunkt, anpassas till spelets rum. `makeKompis('nalle')` är ikonen 🧸 
 (P0 ASSETS). Poolen får växa: varje ny gäst är en rad här och en fasad.
 
 ## 5. Status / loggar
+
+- 2026-09-26 · **v1.265.0 — grytan får SIDOHANDTAG och inga osynliga spärrar (ägarens design).**
+  Ägaren efter v1.264: *"Popcorn påsen är bättre men kastrullen / grytan buggar fortfarande, de
+  osynliga barriärerna gör att när man drar grytan mot och över gästerna flyger den iväg utanför
+  skärmen"* — och på frågan om ett bättre sätt: *"Ta bort grytans hink liknande handtag … sätt ett
+  sidohandtag på varje sida, man kan dra i grytan och den är stabil om man tar i själva grytan, tar
+  man i ett sido handtag så tippar den i lagom takt, Ta bort de osynliga barriärerna, låt oss kunna
+  ställa ner grytan på skålarna tex sen ta nytt tag om grytan i ett av sidohandtagen, så kan man
+  hälla / skaka och portionera ut."*
+  **Buggen (reproducerad, `_popcorngast`):** över hela bordet betydde "nedåt" luta; drogs grytan
+  mot gästerna tippade den oavsiktligt, pipen drevs 140 px ned, den kilades på popcornhögen (25°),
+  släppte, tippade med ett ryck och drevs genom bordet — **under golvet** i 2 av 5 banor, toppfart
+  32–56 px/steg (handens tak 22). Greppet var stelt: obegränsad impuls mot statiska kroppar.
+  **Nu:** `karl.js` läge `hang` (sidohandtag, `GRYTA.handtag`) och **krafttak** på greppet
+  (`greppTak`, drivPunkt: Δv ≤ 3 px/steg, fart ≤ 22). Grytan har ingen hylla. Fynd på vägen:
+  ⓵ en gryta i ett sidohandtag tippar direkt av tyngden (pendel) — därför bär man i kroppen och
+  häller i handtaget, som ägaren beskrev; ⓶ premissen "det faller under handtaget" FÖLL — det
+  rinner ut på den bortre sidan, 100–250 px bort (`_popcornhandtagbild`); ⓷ tippade en stående gryta
+  direkt vreds den över sin bortre kant och 71–75 % hamnade i grannskålen (mynningen 226 px ≈
+  skålens öppning 214) — därför lyfts den först **jämnt 140 px (upprätt de första 40)** och tippar
+  sedan; ⓸ vridpunktskorrigeringen får bara gälla tippningens egen knuff — gällde den farttaket
+  blev en krocksnurr rak fart (46 px/steg in i väggen); ⓹ kärlets nära nederhörn svänger ut förbi
+  handtaget (64 px vid 60°) — handtaget som hålls hålls 80 px från sin vägg; en buren gryta hålls
+  så långt in att båda handtagen syns. Tippningen: mot 1,7 rad i högst 0,022 rad/steg (~75°/s).
+  Spelet: släppt gryta `lagNer` där den är; går hem bara om den vält, ligger på golvet eller står
+  TOM 2,5 s (via en punkt ovanför skålarna, så den inte släpar genom popcornhögarna); tap-reserven
+  bär och STÄLLER den på skålen; glöden bara på plattan; spökhanden visar "ta i grytan → skålen"
+  och "ta handtaget och håll".
+  **Mätt:** `_popcornhandtag` alla villkor gröna — ägarens flöde (ställ på skål, ta handtaget,
+  håll) 92–100 % i den skålen i 5 av 6 fall (skål 2 med höger handtag: 17 %, 83 % i skål 1 — det
+  handtaget sitter vid kanten; vänster ger 88 %), 0–8 % på golvet; att bära stadigt spiller 0 % även
+  i 1800 px/s; trycka i bordet och alla fem banor över gästerna: i bild, toppfart ≤ 21.
+  `_popcornnaiv` i webbläsaren G1–G8: i bild hela tiden, toppfart ≤ 11; ställ + handtag 26–29 av 30
+  i skålarna. `_popcornspel --omgangar 2` två hela omgångar, 0 konsolfel. `_popcornhall` (påsen)
+  oförändrad 91–94 %.
+  **Kvar (noterat):** en gryta som släpps i rörelse glider en bit (den kastas — fysik). Att skaka
+  medan grytan står på skålen häller mindre än att hålla still (G5: 11 av 30), eftersom den inte
+  hinner lyftas klart.
 
 - 2026-09-26 · **v1.264.0 — styrningen omgjord till EN gest (`/fixa`).** Ägaren: *"popcornpåsen är
   jättesvår att styra / hälla popcorn från, grytan är likadan, otroligt svårstyrda och buggar /

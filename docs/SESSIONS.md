@@ -14,6 +14,27 @@ Format:
 
 ---
 
+## 2026-09-26 (forts.) — Popcornkalaset: grytan får sidohandtag, inga osynliga spärrar · v1.265.0
+
+**Uppdraget (ägaren):** "Popcorn påsen är bättre men kastrullen / grytan buggar fortfarande, de
+osynliga barriärerna gör att när man drar grytan mot och över gästerna flyger den iväg utanför
+skärmen, kan vi komma på ett bättre sätt att luta / hälla?" — ägaren valde en egen design:
+sidohandtag, stabil i kroppen, tippar i handtaget, inga spärrar, ställ ned på skålarna.
+**Gjort:** buggen reproducerad (`_popcorngast`: grytan genom golvet i 2 av 5 banor, 32–56 px/steg).
+`karl.js` fick läget `hang` (sidohandtag) och krafttak på greppet; grytan har ingen hylla, släpps
+där den är, lyfts jämnt och tippar i handtaget, går hem när den är tom eller vält. Ny ritning med
+två röda gummigrepp. Sonder: `_popcornhandtag` + `_popcornhandtagbild` (nya), `_popcornnaiv` och
+`_popcornspel` omskrivna; `_grytprobe`, `_popcornhallspar`, `_popcornspar` borttagna.
+**Mätt:** ägarens flöde 92–100 % i skålen (5 av 6), grytan i bild och ≤ 21 px/steg i alla banor,
+två hela omgångar 0 konsolfel, påsen oförändrad.
+**Fällor (nya):** en premiss om VART det rinner ("under handtaget") föll på första bilden — rita
+innan du bygger vidare på en geometrisk gissning · ett stelt grepp mot statiska kroppar = obegränsad
+impuls = genom golvet; ge greppet krafttak · korrigera aldrig en ANNAN källas snurr via vridpunkten.
+**Commits:** se git log (fix(popcornkalaset) v1.265.0)
+**Öppet:** B6b · B7 · lockets skrammelton · ägaren provar handtagen.
+
+---
+
 ## 2026-09-26 — Popcornkalaset: påsen och grytan styrs med EN gest (/fixa) · v1.264.0
 
 **Uppdraget (ägaren):** "popcornpåsen är jättesvår att styra / hälla popcorn från, grytan är likadan,

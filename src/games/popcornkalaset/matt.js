@@ -40,7 +40,11 @@ export const PASE = {
 // ett långsamt drag droppar det sista UNDER pipen, i glappet mellan bänken och bordet (vill ha
 // mindre). 70 håller sämsta fallet: `_grytprobe` A 98 % av det hällda i skålen (sämst 91 %),
 // `_popcornhall` 75 % i målskålen och 6 % spill. Vid 90 föll `_grytprobe` till 70 %.
-export const GRYTA = { bredd: 200, djup: 100, vagg: 13, golv: 16, bygel: 92, utfall: 0.26, densitet: 0.006, friktion: 0.12, vippaFore: 70 }
+// Ägarens design 2026-09-26: ingen hinkbygel — två SIDOHANDTAG (`handtag`: mitt i (±x, y) lokalt,
+// träffradie r, P0 ≥ 96 px). Ta i grytan = den bärs stadigt; ta i ett handtag = den hänger där
+// och tippar lugnt (karl.js). `greppTak` gör greppet till en fjäder med krafttak, så att grytan
+// aldrig kan tryckas genom bordet eller skjutas iväg (`_popcorngast`).
+export const GRYTA = { bredd: 200, djup: 100, vagg: 13, golv: 16, bygel: 0, utfall: 0.26, densitet: 0.006, friktion: 0.12, vippaFore: 70, handtag: { x: 139, y: 12, r: 64 }, greppTak: { dv: 3, v: 22 } }
 
 // Locket: en platta med knopp som vilar på mynningen.
 export const LOCK = { bredd: 226, tjock: 12, knoppR: 16 }

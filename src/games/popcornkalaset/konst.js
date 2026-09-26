@@ -700,10 +700,6 @@ export function ritaGryta() {
   for (const s of [-1, 1]) {
     fg.roundRect(s > 0 ? M.inTopp - 4 : -M.ytterTopp - 3, -5, M.ytterTopp - M.inTopp + 7, 11, 5)
       .fill(topLightFill(P.stal, { highlight: 0.4, dark: 0.25 })).stroke({ width: 2, color: P.stalK })
-    // Öronen där bygeln sitter: små nitade flikar utanför kanten.
-    const ox = s * (M.ytterTopp + 5)
-    fg.roundRect(ox - 7, -6, 14, 22, 6).fill(topLightFill(P.stal, { highlight: 0.35, dark: 0.3 })).stroke({ width: 2, color: P.stalK })
-    fg.circle(ox, 8, 2.6).fill(P.stalK)
   }
 
   // GLOD: värmen underifrån — metallbotten drar mot orange och ett sken under kanten.
@@ -719,23 +715,34 @@ export function ritaGryta() {
   gg.ellipse(0, Y1 + 2, M.ytterBott + 6, 7).fill({ color: 0xff8a3d, alpha: 0.5 })
   glod.alpha = 0
 
-  // BYGELN: ståltråd från öronen upp till toppen (y = −GRYTA.bygel), med ett trähandtag.
-  const bygel = new Container()
-  const yg = ritning(bygel)
-  const ox = M.ytterTopp + 5
-  const top = -GRYTA.bygel
-  const tradVag = (g) => g.moveTo(-ox, 6).bezierCurveTo(-ox, top * 0.55, -ox * 0.55, top, 0, top).bezierCurveTo(ox * 0.55, top, ox, top * 0.55, ox, 6)
-  tradVag(yg).stroke({ width: 7, color: P.stalK, cap: 'round', join: 'round' })
-  tradVag(yg).stroke({ width: 3.5, color: tint(P.stal, 0.2), cap: 'round', join: 'round' })
-  // Handtaget: en tjock trärulle i toppen — där barnet greppar.
-  yg.roundRect(-38, top - 10, 76, 20, 10).fill(cylinderFill(0xd9483b, { axis: 'x', dark: 0.3 })).stroke({ width: 3, color: shade(0xd9483b, 0.45) })
-  for (const rx of [-26, 26]) yg.roundRect(rx - 3, top - 10, 6, 20, 2).fill(shade(0xd9483b, 0.25))
-  yg.roundRect(-24, top - 6, 40, 4, 2).fill({ color: 0xffffff, alpha: 0.45 })
+  // SIDOHANDTAGEN (ägarens design 2026-09-26 — hinkbygeln är borta): ett på varje sida, en
+  // nitad stålbygel ut från glaset och ett rött gummigrepp. Greppets mitt ligger i
+  // (±GRYTA.handtag.x, GRYTA.handtag.y) — där träffytan i karl.js sitter.
+  const handtag = new Container()
+  const hg = ritning(handtag)
+  const H = GRYTA.handtag
+  for (const s of [-1, 1]) {
+    const x0 = s * (M.ytterTopp - 2)
+    const xg = s * (H.x - 18) // där greppet börjar
+    // Stålbygeln: två band från glaset ut till greppet.
+    for (const y of [H.y - 8, H.y + 8]) {
+      hg.moveTo(x0, y).lineTo(xg, y).stroke({ width: 5, color: P.stalK, cap: 'round' })
+      hg.moveTo(x0, y).lineTo(xg, y).stroke({ width: 2.5, color: tint(P.stal, 0.2), cap: 'round' })
+    }
+    // Nitplattan mot glaset.
+    hg.roundRect(x0 - 7, H.y - 16, 14, 32, 6).fill(topLightFill(P.stal, { highlight: 0.35, dark: 0.3 })).stroke({ width: 2, color: P.stalK })
+    for (const y of [H.y - 8, H.y + 8]) hg.circle(x0, y, 2.4).fill(P.stalK)
+    // Gummigreppet: en tjock röd rulle — där barnet tar tag.
+    const gx = s > 0 ? H.x - 20 : -H.x - 24
+    hg.roundRect(gx, H.y - 12, 44, 24, 12).fill(cylinderFill(0xd9483b, { axis: 'x', dark: 0.3 })).stroke({ width: 3, color: shade(0xd9483b, 0.45) })
+    for (const d of [12, 30]) hg.roundRect(gx + d - 2, H.y - 12, 4, 24, 2).fill(shade(0xd9483b, 0.22))
+    hg.roundRect(gx + 8, H.y - 8, 26, 4, 2).fill({ color: 0xffffff, alpha: 0.45 })
+  }
 
-  view.addChild(bak, fram, glod, bygel)
+  view.addChild(bak, fram, glod, handtag)
   view.bak = bak
   view.fram = fram
-  return { view, bygel, glod }
+  return { view, handtag, glod }
 }
 
 // ---- locket --------------------------------------------------------------------

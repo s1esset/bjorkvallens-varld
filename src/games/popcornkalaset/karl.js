@@ -19,6 +19,14 @@
 // Spelet beskriver hyllan med `karl.hylla(x)` (se `_folj`). Det enda spelet självt gör är den
 // osynliga HANDEN när ingen håller i: kärlet glider till en parkeringspunkt och hänger där.
 //
+// SIDOHANDTAG (grytan, ägarens design 2026-09-26, efter "de osynliga barriärerna gör att grytan
+// flyger iväg utanför skärmen"): ett kärl med `handtag` och utan hylla har ingen osynlig spärr.
+//   · ta i KROPPEN   → det bärs stadigt (handleden), släpps det landar det där det är
+//   · ta i ett HANDTAG → läget 'hang': det hänger i handtaget, lyfts lugnt om det stod på något,
+//                      och tippar i lagom takt — det rinner ut på den BORTRE sidan
+// och greppet har KRAFTTAK (`greppTak`): ett stelt grepp mot bordet gav obegränsad impuls, och
+// grytan trycktes genom golvet eller sköts iväg (`_popcorngast` → `_popcornhandtag` K2/K3).
+//
 // Rena tal + matter. Ingen Pixi — `_grytprobe.mjs` och `_popcornhall.mjs` kör exakt den här
 // klassen utan webbläsare.
 //
@@ -72,6 +80,24 @@ const VIPPA_START = 10
 const GLID_VINKEL = 0.9
 // Handens fart (px/steg) under vilken kärlet räknas som stilla över målet och får börja tippa.
 const STA_FART = 2.5
+// SIDOHANDTAGET (grytan, ägarens design 2026-09-26): kärlet hänger i handtaget som en pendel av
+// egen tyngd — men en fri pendel ur ett sidogrepp lutar bara 55–70° och hällvinkeln är ~80°, så
+// handtaget TIPPAR det dessutom lugnt mot TIPP_MAL (rad), med vinkelfart högst TIPP_MAX (rad/steg)
+// och vinkelacceleration högst TIPP_ACC — "i lagom takt". Den sida som INTE hålls sänks.
+// Svept (`_popcornhandtag` H2/H6): målvinkeln betyder lite när ett stående kärl tippar — det
+// tömmer sig ändå — farten är det barnet ser. 0,022 ≈ 75°/s.
+const TIPP_MAL = 1.7
+const TIPP_MAX = 0.022
+const TIPP_ACC = 0.0025
+const TIPP_K = 0.02
+const TIPP_DAMP = 0.985
+// Självlyftet (px/steg, högst px) när ett stående kärl greppas i ett handtag och inte kan tippa.
+const LYFT_FART = 2.5
+const LYFT_MAX = 220
+// Ett STÅENDE kärl som greppas i handtaget lyfts jämnt LYFT_FAS px; de första LYFT_UPPRATT px
+// upprätt (så att det lättar från skålen), sedan tippar det medan lyftet fortsätter.
+const LYFT_FAS = 140
+const LYFT_UPPRATT = 40
 // Handleden i bygelgreppet: hur hårt vinkelfarten dras mot fjädern (0..1 per steg), och
 // fjäderns styvhet (rad/steg per rad avvikelse).
 const HANDLED = 0.35
@@ -90,10 +116,25 @@ const rot = (x, y, a) => {
 // andel av glappet. Löser 2×2-systemet Δv_punkt = K·J med K = (1/m)·I₂ + (1/I)·r⊥r⊥ᵀ, alltså
 // rätt effektiv massa (se huvudet om varför det inte är ett matter-Constraint). Exporterad så
 // att locket greppas med samma fysik som kärlen.
-export function drivPunkt(b, r, h, k = GREPP_K) {
+//
+// `tak` = { dv, v } (valfritt): greppet blir en fjäder med KRAFTTAK. Punktens fartändring per
+// steg högst `dv`, och den fart den dras mot högst `v`. Utan tak är greppet stelt: ett kärl som
+// hålls mot bordet får då hur stor impuls som helst, och grytan trycktes genom bordet och golvet
+// eller sköts iväg i 56 px/steg (`_popcorngast`, ägarens "flyger iväg utanför skärmen").
+export function drivPunkt(b, r, h, k = GREPP_K, tak = null) {
   const w = b.angularVelocity
-  const dvx = h.vx + (h.x - (b.position.x + r.x)) * k - (b.velocity.x - w * r.y)
-  const dvy = h.vy + (h.y - (b.position.y + r.y)) * k - (b.velocity.y + w * r.x)
+  let mx = h.vx + (h.x - (b.position.x + r.x)) * k
+  let my = h.vy + (h.y - (b.position.y + r.y)) * k
+  if (tak?.v) {
+    const m = Math.hypot(mx, my)
+    if (m > tak.v) { mx *= tak.v / m; my *= tak.v / m }
+  }
+  let dvx = mx - (b.velocity.x - w * r.y)
+  let dvy = my - (b.velocity.y + w * r.x)
+  if (tak?.dv) {
+    const d = Math.hypot(dvx, dvy)
+    if (d > tak.dv) { dvx *= tak.dv / d; dvy *= tak.dv / d }
+  }
   const im = b.inverseMass
   const ii = b.inverseInertia
   const k11 = im + ii * r.y * r.y
@@ -120,7 +161,13 @@ export class Karl {
   // på friktion 0,5 (27°) började det rinna först vid ~117° — då hade pipen svept långt förbi
   // skålen (`_grytprobe --matris`: 85° hällde ut 15–35 %). Hal gryta (oljad metall) och 15°
   // utfall flyttar det till ~75°, där barnets drag fortfarande är kort.
-  constructor(phys, { x, y, bredd = 190, djup = 104, vagg = 13, golv = 16, bygel = 92, utfall = 0, densitet = 0.006, friktion = 0.5, greppHalo = 34, label = 'karl', maxFart = 22, vinkelDamp = 0.965, vippaVrid = VIPPA_VRID, vippaPx = VIPPA_PX, vippaFore = VIPPA_FORE, vippaSank = VIPPA_SANK, grupp = 0, vippaMax = VIPPA_MAX } = {}) {
+  constructor(phys, { x, y, bredd = 190, djup = 104, vagg = 13, golv = 16, bygel = 92, utfall = 0, densitet = 0.006, friktion = 0.5, greppHalo = 34, label = 'karl', maxFart = 22, vinkelDamp = 0.965, vippaVrid = VIPPA_VRID, vippaPx = VIPPA_PX, vippaFore = VIPPA_FORE, vippaSank = VIPPA_SANK, grupp = 0, vippaMax = VIPPA_MAX, handtag = null, greppTak = null, tippMal = TIPP_MAL, tippMax = TIPP_MAX } = {}) {
+    this.tippMal = tippMal
+    this.tippMax = tippMax
+    // `handtag` = { x, y, r }: två sidohandtag i (±x, y) lokalt, träffradie r. Utan dem har kärlet
+    // bara kroppen (och ev. bygeln). `greppTak` = drivPunkts krafttak { dv, v } (se där).
+    this.handtag = handtag
+    this.greppTak = greppTak
     this.vippaMax = vippaMax
     this.vippaFore = vippaFore
     this.vippaSank = vippaSank
@@ -163,8 +210,8 @@ export class Karl {
     this._hand = null // { x, y, vx, vy } — handens punkt; null = ingen håller (kärlet står fritt)
     this._fast = null // greppunkten i kärlets lokala rum
     this._mal = { x: 0, y: 0 } // dit handen är på väg
-    this.lage = 'fri' // 'fri' | 'grepp' (bärs) | 'vippa' (häller, fingret kvar) | 'park'
-    this.zon = null // 'bygel' | 'kropp' — var fingret tog (ljudet); greppet sitter alltid i bygeln
+    this.lage = 'fri' // 'fri' | 'grepp' (bärs) | 'hang' (i ett sidohandtag) | 'vippa' (häller, fingret kvar) | 'park'
+    this.zon = null // 'bygel' | 'kropp' | 'handtag-h' | 'handtag-v' — var fingret tog
     this._lokalGrepp = null
     // Hyllan: spelet sätter `hylla(x)` → { y, mal? } — bygelns lägsta höjd när kärlets mitt står
     // vid x, och (om kärlet får hälla där) målet { x, sidor, ... }. Utan hylla bärs det fritt.
@@ -212,6 +259,10 @@ export class Karl {
   // Vilken zon ett tryck landar i, eller null om det missar kärlet.
   zonVid(wx, wy) {
     const p = this.lokal(wx, wy)
+    if (this.handtag) {
+      const H = this.handtag
+      for (const s of [1, -1]) if (Math.hypot(p.x - s * H.x, p.y - H.y) <= H.r) return s > 0 ? 'handtag-h' : 'handtag-v'
+    }
     const h = this.greppHalo
     const ytter = this.bredd / 2 + this.vagg
     if (Math.abs(p.x) <= ytter + h && p.y >= -18 && p.y <= this.djup + this.golv + h) return 'kropp'
@@ -241,6 +292,33 @@ export class Karl {
   greppa(wx, wy) {
     const zon = this.zonVid(wx, wy)
     if (!zon) return null
+    if (zon.startsWith('handtag')) {
+      // Kärlet HÄNGER i handtaget: greppunkten är handtaget självt, ingen handled.
+      const s = zon === 'handtag-h' ? 1 : -1
+      const lp = { x: s * this.handtag.x, y: this.handtag.y }
+      const fp = this.varld(lp.x, lp.y)
+      this._satHand(lp, fp.x, fp.y, true)
+      this._fing = { x: wx, y: wy }
+      this._fingerOff = { x: fp.x - wx, y: fp.y - wy }
+      this._mal.x = fp.x
+      this._mal.y = fp.y
+      this._hangSida = s
+      // Stod kärlet (på en skål, bordet, spisen) lyfts det först RAKT UPP, upprätt, och tippar
+      // sedan runt handtaget. Tippade det direkt vreds det över sin bortre kant, och från en
+      // skål hamnade 71–75 % i GRANNSKÅLEN (`_popcornhandtag` H2): grytans mynning är lika bred
+      // som skålens öppning. Hängande i handtaget faller popcornen i stället under handtaget —
+      // alltså under fingret, och barnet styr själv vart.
+      const b = this.body
+      this._lyftFas = this.lage === 'fri' && Math.hypot(b.velocity.x, b.velocity.y) < 1.5 ? 0 : LYFT_FAS
+      this._lyft = 0
+      this._fonster = []
+      this._hvila = null
+      this._hallMal = null
+      this.lage = 'hang'
+      this.zon = zon
+      this._lokalGrepp = lp
+      return zon
+    }
     const p = this.lokal(wx, wy)
     // Sidan fingret håller i blir den sida som sänks när kärlet lutas (där målet tillåter
     // den). Mitt på / i bygeln är obestämt — då väljer målet (`sidor[0]`).
@@ -265,7 +343,7 @@ export class Karl {
   // Fingret rör sig. Vad det betyder (bära, vila på hyllan, luta) avgörs i `_folj`, varje
   // fast steg — hyllan kan flytta sig (påsens hylla följer grytan).
   dra(wx, wy) {
-    if (this.lage !== 'grepp' && this.lage !== 'vippa') return
+    if (this.lage !== 'grepp' && this.lage !== 'vippa' && this.lage !== 'hang') return
     this._fing = { x: wx, y: wy }
   }
 
@@ -320,8 +398,20 @@ export class Karl {
     // Aldrig in i rummets väggar: med farten från bärningen slog grytan i högerväggen vid
     // skål 2 och slungade ut popcornen (`_popcornhallspar 2 1 --bild`).
     if (this.rum) {
-      const halv = this.bredd / 2 + this.vagg + 12
-      T.x = Math.max(this.rum.x0 + halv, Math.min(this.rum.x1 - halv, T.x))
+      if (this.lage === 'hang') {
+        // I ett handtag hänger kroppen ut på den BORTRE sidan (upp till ~250 px) — och när den tippar
+        // svänger kärlets NÄRA nederhörn ut förbi handtaget (64 px vid 60°). Så: handtaget minst
+        // 80 px från sin egen vägg (på skål 2 klämdes grytan annars mot högerväggen på 38°), och
+        // långt nog från den andra för kroppen.
+        const ut = 2 * this.handtag.x - 30
+        const [a, b] = this._hangSida > 0 ? [this.rum.x0 + ut, this.rum.x1 - 80] : [this.rum.x0 + 80, this.rum.x1 - ut]
+        T.x = Math.max(a, Math.min(b, T.x))
+      } else {
+        // Med sidohandtag hålls kärlet så långt in att BÅDA handtagen syns och går att ta — på skål 2
+        // satt det högra annars utanför bild, och grytan kläms mot väggen när den tippade (H2).
+        const halv = this.handtag ? this.handtag.x + 24 : this.bredd / 2 + this.vagg + 12
+        T.x = Math.max(this.rum.x0 + halv, Math.min(this.rum.x1 - halv, T.x))
+      }
     }
     const h = this.hylla?.(T.x)
     let tryck = 0
@@ -330,6 +420,32 @@ export class Karl {
       tryck = T.y - this._hvila
       T.y = h.y
     } else this._hvila = null
+    if (this.lage === 'hang') {
+      // "Tar man i ett sidohandtag så tippar den i lagom takt" (ägaren) — även när kärlet STÅR på
+      // något: bär skålen den bortre sidan kan det inte tippa runt handtaget (`_popcornhandtag`
+      // H2: −2°, ingenting hände). Står tippningen still lyfter handen därför handtaget, lugnt,
+      // och kärlet tippar över sin bortre kant. Lyfter barnet själv behövs inget.
+      if (this._lyftFas < LYFT_FAS) {
+        // Lyftet går JÄMNT hela vägen (manuellt lyft i samma takt hällde 88–92 % i skålen,
+        // H3) — upprätt de första LYFT_UPPRATT px, sedan tippar kärlet medan det lyfts vidare.
+        this._lyftFas = Math.min(LYFT_FAS, this._lyftFas + LYFT_FART)
+        this._lyft = Math.max(this._lyft || 0, this._lyftFas)
+      } else {
+        // Står tippningen still (bortre sidan vilar på skålen) lyfts handtaget tills den kan svänga
+        // fritt. Stillheten mäts över ett FÖNSTER: vinkeln rörde sig < 1° på 10 steg. En räknare
+        // per steg nollställdes av minsta ryck i vinkelfarten och lyfte bara några px åt gången.
+        const v = -this._hangSida * this.body.angle
+        this._fonster = this._fonster || []
+        this._fonster.push(v)
+        if (this._fonster.length > 10) this._fonster.shift()
+        const kvar = this.tippMal - v
+        const rorelse = this._fonster.length === 10 ? v - this._fonster[0] : 1
+        if (kvar > 0.15 && rorelse < 0.017) this._lyft = Math.min(LYFT_MAX, (this._lyft || 0) + LYFT_FART)
+      }
+      this._mal.x = T.x
+      this._mal.y = T.y - (this._lyft || 0)
+      return
+    }
     if (this.lage === 'grepp') {
       this._mal.x = T.x
       this._mal.y = T.y
@@ -440,7 +556,7 @@ export class Karl {
   steg() {
     const h = this._hand
     if (!h) return
-    if (this.lage === 'grepp' || this.lage === 'vippa') this._folj()
+    if (this.lage === 'grepp' || this.lage === 'vippa' || this.lage === 'hang') this._folj()
     const dx = this._mal.x - h.x
     const dy = this._mal.y - h.y
     const d = Math.hypot(dx, dy)
@@ -478,13 +594,31 @@ export class Karl {
     const v0x = b.velocity.x
     const v0y = b.velocity.y
     const r = rot(this._fast.x - this._com.x, this._fast.y - this._com.y, b.angle)
-    drivPunkt(b, r, h)
+    // Greppunktens fart före — i handtaget följer innehållet GREPPETS förflyttning, inte
+    // tyngdpunktens sväng (den hade hållit kvar popcornen i en gryta som tippar).
+    const p0x = b.velocity.x - b.angularVelocity * r.y
+    const p0y = b.velocity.y + b.angularVelocity * r.x
+    drivPunkt(b, r, h, GREPP_K, this.greppTak)
     // HANDLEDEN. En hink som hänger fritt i bygeln lutar atan(a/g) mot varje acceleration, och
     // matters g är bara 0,278 px/steg² — ett fingerryck välte hela grytan och den tömdes
     // under bärningen (`_grytprobe` B: 10 % kvar vid 500 px/s). En hand som håller i bygeln
     // håller alltså också emot: vinkelfarten dras mot en fjäder kring vågrätt.
     let wn = b.angularVelocity
-    if (this.lage === 'vippa') {
+    if (this.lage === 'hang' && this._lyftFas < LYFT_UPPRATT) {
+      // Lyftfasen: handleden håller kärlet upprätt medan handtaget lyfts rakt upp.
+      wn += (-b.angle * HANDLED_K - wn) * HANDLED
+    } else if (this.lage === 'hang') {
+      // Pendeln ur handtaget kommer av sig själv (greppets impuls + tyngden). Ovanpå den en lugn
+      // tippning mot TIPP_MAL, med tak på fart och acceleration — och handtaget är en ÄKTA
+      // vridpunkt: vinkelfarten byts, handtagets fart står kvar (v' = v + (ω − ω')·r⊥).
+      const mal = -this._hangSida * this.tippMal
+      const knuff = Math.max(-TIPP_ACC, Math.min(TIPP_ACC, (mal - b.angle) * TIPP_K))
+      // Vridpunktskorrigeringen gäller BARA den egna knuffen (≤ TIPP_ACC·r, under 1 px/steg).
+      // Gällde den även farttaket omvandlades en snurr från en krock till rak fart — grytan som
+      // slog i väggen sköts iväg i 46 px/steg (`_popcornhandtag` K3).
+      Body.setVelocity(b, { x: b.velocity.x + knuff * r.y, y: b.velocity.y - knuff * r.x })
+      wn = Math.max(-this.tippMax, Math.min(this.tippMax, wn + knuff)) * TIPP_DAMP
+    } else if (this.lage === 'vippa') {
       // Fingret vippar kärlet runt pipen: vinkelfarten dras mot fingrets vinkel.
       wn += ((this._vippaMal - b.angle) * VIPPA_K - wn) * VIPPA_GREPP
     } else {
@@ -502,8 +636,12 @@ export class Karl {
     // under en bärning i 1000 px/s (`_grytprobe` B). Samma grepp som saftbarens `_carryAll`,
     // fast för stela kroppar: de som ligger i kärlet får kärlets fartändring detta steg.
     // `barAndel` < 1 lämnar lite eftersläpning kvar — ett ryck skvimpar fortfarande.
-    const dvx2 = b.velocity.x - v0x
-    const dvy2 = b.velocity.y - v0y
+    let dvx2 = b.velocity.x - v0x
+    let dvy2 = b.velocity.y - v0y
+    if (this.lage === 'hang') {
+      dvx2 = b.velocity.x - wn * r.y - p0x
+      dvy2 = b.velocity.y + wn * r.x - p0y
+    }
     if (this.innehall && (dvx2 || dvy2)) {
       const k = this.barAndel
       for (const c of this.innehall) {

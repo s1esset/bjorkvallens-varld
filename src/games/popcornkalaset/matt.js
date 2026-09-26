@@ -26,15 +26,21 @@ export const REGLAGE = { x0: 262, x1: 398, y: 548, steg: 10, knappR: 48, minusX:
 // kvar vid 120° — bara 7 av 32 rann ut (`_popcornspel`).
 export const PASE = {
   x: 72, bredd: 76, djup: 104, vagg: 8, golv: 10, bygel: 0, utfall: 0.08,
-  densitet: 0.004, friktion: 0.08, greppHalo: 40, barsUppratt: true,
+  densitet: 0.004, friktion: 0.08, greppHalo: 40,
   // Påsen häller i en BRED gryta: kort förskjutning och sänkning, men får vippas längre.
-  vippaFore: 6, vippaSank: 60, vippaPx: 80, vippaMax: 2.6,
+  // `vippaPx` 60 (inte 80): med en-gest-hällningen trycks påsen först ned TILL hyllan, och ett
+  // tryck på 160 px nådde bara 67° — där rinner inga korn ur en påse (`_popcornnaiv` P1).
+  vippaFore: 6, vippaSank: 60, vippaPx: 60, vippaMax: 2.6,
 }
 
 // Grytan (se karl.js för det lokala rummet: origo = mynningens mitt). `utfall` = väggarnas
 // lutning utåt (rad); `bredd` gäller vid mynningen. Hal (oljad metall) — se karl.js om
-// hällvinkeln.
-export const GRYTA = { bredd: 200, djup: 100, vagg: 13, golv: 16, bygel: 92, utfall: 0.26, densitet: 0.006, friktion: 0.12 }
+// hällvinkeln. `vippaFore` = hur långt FÖRE skålens mitt pipen står när den häller. Svept
+// 60…130 i båda sonderna (2026-09-26): ett drag i ETT svep landar förbi mitten (vill ha mer),
+// ett långsamt drag droppar det sista UNDER pipen, i glappet mellan bänken och bordet (vill ha
+// mindre). 70 håller sämsta fallet: `_grytprobe` A 98 % av det hällda i skålen (sämst 91 %),
+// `_popcornhall` 75 % i målskålen och 6 % spill. Vid 90 föll `_grytprobe` till 70 %.
+export const GRYTA = { bredd: 200, djup: 100, vagg: 13, golv: 16, bygel: 92, utfall: 0.26, densitet: 0.006, friktion: 0.12, vippaFore: 70 }
 
 // Locket: en platta med knopp som vilar på mynningen.
 export const LOCK = { bredd: 226, tjock: 12, knoppR: 16 }

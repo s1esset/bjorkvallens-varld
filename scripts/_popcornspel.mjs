@@ -65,8 +65,8 @@ try {
       // Vänta tills påsen har korn (den fylls på hemma när den är tom) — som ett barn gör.
       let fylld = false
       for (let t = 0; t < 40; t++) { if (await page.evaluate(() => window.__barnspel.game._kornIPasen()) >= 20) { fylld = true; break } await page.waitForTimeout(250) }
-      if (!fylld) console.log('    ⚠ påsen fylldes inte:', JSON.stringify(await page.evaluate(() => { const g = window.__barnspel.game, p = g._pase; return { lage: p.lage, vippbar: p._vippbar, x: Math.round(p.body.position.x), vinkel: +p.vinkel.toFixed(2), iPasen: g._kornIPasen(), korn: g._korn.length, tom: g._paseTom, paVagHem: g._pasePaVagHem, framme: p.framme(2), hand: p._hand && { x: Math.round(p._hand.x), y: Math.round(p._hand.y) }, mal: { x: Math.round(p._mal.x), y: Math.round(p._mal.y) } } })))
-      if (!((await lage()).pase.lage === 'park' && (await lage()).pase.vippbar)) {
+      if (!fylld) console.log('    ⚠ påsen fylldes inte:', JSON.stringify(await page.evaluate(() => { const g = window.__barnspel.game, p = g._pase; return { lage: p.lage, overGryta: !!g._gryta._pasePark, x: Math.round(p.body.position.x), vinkel: +p.vinkel.toFixed(2), iPasen: g._kornIPasen(), korn: g._korn.length, tom: g._paseTom, paVagHem: g._pasePaVagHem, framme: p.framme(2), hand: p._hand && { x: Math.round(p._hand.x), y: Math.round(p._hand.y) }, mal: { x: Math.round(p._mal.x), y: Math.round(p._mal.y) } } })))
+      if (!((await lage()).pase.lage === 'park' && (await lage()).pase.overGryta)) {
         const paseMitt = await lokal('_pase', 0, M.PASE.djup * 0.5)
         const grytMynning = await lokal('_gryta', 0, 0)
         await drag(paseMitt, { x: grytMynning.x - 20, y: grytMynning.y - 150 }, 30)

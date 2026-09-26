@@ -14,6 +14,29 @@ Format:
 
 ---
 
+## 2026-09-26 — Popcornkalaset: påsen och grytan styrs med EN gest (/fixa) · v1.264.0
+
+**Uppdraget (ägaren):** "popcornpåsen är jättesvår att styra / hälla popcorn från, grytan är likadan,
+otroligt svårstyrda och buggar / fastnar, spiller, vägrar luta ibland" — och sedan: deploya, spara
+och uppdatera så att sessionen kan avslutas.
+**Gjort:** ny sond `_popcornnaiv` spelade nybörjargreppen (inte expertvägen som `_popcornspel`):
+5 av 10 misslyckades, två tappade 26–29 av 30 popcorn. Styrningen i `karl.js` omgjord till en gest
+(bär upprätt var man än tar · vila på en hylla över målet · tryck nedåt = luta · upp = räta) med
+hyllor i `fysik.js`, stillhetsgrind före tippningen, handen som ärver kärlets fart, pipen som sänks
+före vridningen (annars katapult), träff efter vad fingret faktiskt rör. Allt i
+`docs/games/popcornkalaset.md` §5.
+**Mätt:** `_popcornhall` (ny, node, hela rummet) alla villkor gröna · `_grytprobe` grön ·
+`_popcornnaiv` G3 1 → 23, G4 3 → 25, P4 0 → 29 · `_popcornspel --omgangar 2` två omgångar, 0 fel.
+**Fällor (nya):** en sond som byggaren skrev spelar byggarens egen väg — grön i två dygn medan
+hälften av nybörjargreppen var trasiga · en vippning runt kärlets KANT är en katapult om pipen inte
+sjunker FÖRE vridningen · två kärl vars zoner överlappar: fast ordning blir fel åt ena hållet, välj
+det kärl fingret faktiskt rör · en flyttalsjämförelse (`===`) mot ett mål som räknas om ur ett
+levande läge avbröt hällningen efter 11°.
+**Commits:** se git log (fix(popcornkalaset) v1.264.0)
+**Öppet:** B6b · B7 · lockets skrammelton (oförändrat) · glappet bänk–bord under skål 0:s pipe.
+
+---
+
 ## 2026-09-25 kväll — Popcornkalaset byggt (/spel, återupptaget med /aterta) · v1.263.0
 
 **Uppdraget (ägaren):** återuppta den avbrutna körningen `/spel popcornkalaset` (stod på `bygg`,

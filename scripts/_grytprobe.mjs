@@ -7,14 +7,14 @@
 // Mätarmar (kontrollarmen FÖRST — skiljer mätaren inte greppen åt säger den ingenting):
 //   K  grytan parkerad över skålen, greppas i BYGELN och hålls still 3 s   → ~0 % ut
 //   A  samma, greppas på SIDAN och dras NEDÅT (grytan vippar runt bygeln)   → ≥ 70 % i skålen
-//   K2 samma drag nedåt men i BYGELN                                        → ~0 %
+//   K2 samma drag nedåt men i BYGELN — sedan 2026-09-26 (en gest) HÄLLER den → ≥ 60 % i skålen
 //   B  bärs i bygeln från spisen till skålen (tre farter) och släpps        → ≥ 90 % kvar i grytan
 //   C  (info) greppas på sidan PÅ SPISEN och dras raka vägen till skålen    → spill längs vägen
 import Matter from 'matter-js'
 import { PhysicsWorld } from '../src/lib/physics.js'
 import { Karl } from '../src/games/popcornkalaset/karl.js'
-import { GRYTA, SKAL, SPIS, POPCORN, SKAL_LUFT, BANK, PASE, KORN } from '../src/games/popcornkalaset/matt.js'
-import { byggSkal as byggSkalKropp, iSkal as iSkalPunkt } from '../src/games/popcornkalaset/fysik.js'
+import { GRYTA, SKAL, SPIS, POPCORN, SKAL_LUFT, BANK, PASE, KORN, BORD, GOLV } from '../src/games/popcornkalaset/matt.js'
+import { byggSkal as byggSkalKropp, iSkal as iSkalPunkt, grytHylla, paseHylla } from '../src/games/popcornkalaset/fysik.js'
 
 const { Body, Composite } = Matter
 const SVEP = process.argv.includes('--svep')
@@ -28,11 +28,18 @@ const pct = (v) => `${Math.round(v * 100)} %`
 
 // En värld: spisen, skålen på bordet, grytan på plattan med N popcorn i.
 function varld({ n = 20, karl = {} } = {}) {
-  const phys = new PhysicsWorld({ gravityY: 1, walls: ['floor', 'left', 'right'] })
+  // Spelets HELA rum (2026-09-26): bord, alla tre skålar, golv på GOLV. Med bara skål 0 räknades
+  // det som gick förbi den som golv, fast det i spelet landar i nästa skål och fyller den.
+  const phys = new PhysicsWorld({ gravityY: 1, walls: ['floor', 'left', 'right'], bounds: { left: 0, top: -400, right: 1280, bottom: GOLV } })
   // Hela bänken (spisen sitter i den) — grytans hörn doppar mot bänkens kant när den vippas.
   phys.rectangle((BANK.x0 + BANK.x1) / 2, BANK.yta + 20, BANK.x1 - BANK.x0, 40, { isStatic: true, label: 'spis' })
+  phys.rectangle((BORD.x0 + BORD.x1) / 2, BORD.yta + BORD.tjock / 2, BORD.x1 - BORD.x0, BORD.tjock, { isStatic: true, label: 'bord' })
   const skal = byggSkal(phys, SKAL[0])
-  const gryta = new Karl(phys, { x: SPIS.x, y: SPIS.yta - GRYTA.golv - GRYTA.djup, ...GRYTA, ...karl })
+  byggSkal(phys, SKAL[1])
+  byggSkal(phys, SKAL[2])
+  const gryta = new Karl(phys, { x: SPIS.x, y: SPIS.yta - GRYTA.golv - GRYTA.djup, ...GRYTA, ...(process.env.FORE ? { vippaFore: Number(process.env.FORE) } : {}), ...karl })
+  // Spelets hyllor (en gest, 2026-09-26): utan hylla bärs kärlet fritt och häller aldrig.
+  gryta.hylla = (x) => grytHylla(gryta, x)
   const pop = []
   const cols = 7
   for (let i = 0; i < n; i++) {
@@ -57,22 +64,23 @@ const iSkal = (s, b) => iSkalPunkt(s, b.position.x, b.position.y)
 const stega = (w, n, varje) => { for (let i = 0; i < n; i++) { varje?.(i); w.phys.update(1000 / 60) } }
 
 function rakna(w) {
-  let skal = 0, gryta = 0, golv = 0
+  let skal = 0, gryta = 0, golv = 0, annan = 0
   for (const b of w.pop) {
     if (w.gryta.inuti(b.position.x, b.position.y, 30)) gryta++
     else if (iSkal(w.skal, b)) skal++
+    else if (iSkal(SKAL[1], b) || iSkal(SKAL[2], b)) annan++
     else {
       golv++
       if (process.argv.includes('--golv')) console.log(`      golv: ${Math.round(b.position.x)},${Math.round(b.position.y)}`)
     }
   }
   const n = w.pop.length
-  return { skal: skal / n, gryta: gryta / n, golv: golv / n }
+  return { skal: skal / n, gryta: gryta / n, golv: golv / n, annan: annan / n }
 }
 
 // Parkera grytan över skålen (tap-reservens slutläge) och vänta tills den hänger still.
 function parkeraOverSkal(w, luft = SKAL_LUFT) {
-  w.gryta.parkera(w.skal.x, w.gryta.parkHojd(w.skal.kant - luft))
+  w.gryta.parkera(w.skal.x, luft === SKAL_LUFT ? grytHylla(w.gryta, w.skal.x).y : w.gryta.parkHojd(w.skal.kant - luft))
   stega(w, 240)
 }
 // SKAL_LUFT ur matt.js
@@ -151,7 +159,7 @@ for (const sida of [-1, 1]) {
     stega(w, 120)
     const r = rakna(w)
     sidRes.push({ sida, namn, ...r })
-    console.log(`A  ${sida < 0 ? 'vänster' : 'höger '} ${namn.padEnd(13)} zon=${zon} · skål ${pct(r.skal)} · kvar ${pct(r.gryta)} · golv ${pct(r.golv)} · vinkel ${vinkel}° → ${Math.round((w.gryta.vinkel * 180) / Math.PI)}° efter släpp`)
+    console.log(`A  ${sida < 0 ? 'vänster' : 'höger '} ${namn.padEnd(13)} zon=${zon} · skål ${pct(r.skal)} · kvar ${pct(r.gryta)} · nästa skål ${pct(r.annan)} · golv ${pct(r.golv)} · vinkel ${vinkel}° → ${Math.round((w.gryta.vinkel * 180) / Math.PI)}° efter släpp`)
   }
 }
 {
@@ -174,10 +182,14 @@ for (const sida of [-1, 1]) {
 {
   const w = varld()
   parkeraOverSkal(w)
-  const zon = greppaOchDra(w, 0, -G.bygel, 0, 60, 0.8, 2)
+  const zon = greppaOchDra(w, 0, -G.bygel, 0, 240, 0.8, 2)
+  w.gryta.slappVippa()
+  stega(w, 120)
   const r = rakna(w)
-  console.log(`K2 bygel, parkerad, dras 60 px ned: zon=${zon} · skål ${pct(r.skal)} · kvar ${pct(r.gryta)} · vinkel ${Math.round((w.gryta.vinkel * 180) / Math.PI)}°`)
-  ok('K2 bygelgrepp + drag nedåt vippar inte', r.skal <= 0.1, `i skålen ${pct(r.skal)}`)
+  console.log(`K2 bygel, parkerad, dras 240 px ned: zon=${zon} · skål ${pct(r.skal)} · kvar ${pct(r.gryta)} · vinkel ${Math.round((w.gryta.vinkel * 180) / Math.PI)}°`)
+  // En gest (2026-09-26): var man än tar i grytan betyder "nedåt över skålen" att hälla. Förut
+  // var bygelgreppet dövt för det — och pressade grytan ned i skålen (`_popcornnaiv` G3).
+  ok('K2 bygelgrepp + drag nedåt häller också (en gest)', r.skal >= 0.6, `i skålen ${pct(r.skal)}`)
 }
 
 // B — bära i bygeln
@@ -237,6 +249,8 @@ function paseVarld() {
   phys.rectangle((BANK.x0 + BANK.x1) / 2, BANK.yta + 20, BANK.x1 - BANK.x0, 40, { isStatic: true, label: 'spis' })
   const gryta = new Karl(phys, { x: SPIS.x, y: SPIS.yta - GRYTA.golv - GRYTA.djup, ...GRYTA, grupp: -7 })
   const pase = new Karl(phys, { x: PASE.x, y: BANK.yta - PASE.golv - PASE.djup, ...PASE, grupp: -7 })
+  gryta.hylla = (x) => grytHylla(gryta, x)
+  pase.hylla = (x) => paseHylla(pase, gryta, x)
   const korn = []
   for (let i = 0; i < 32; i++) {
     const ly = PASE.djup - 8 - (i % 6) * 9
@@ -248,7 +262,8 @@ function paseVarld() {
   phys.beforeStep(() => { gryta.steg(); pase.steg() })
   for (let i = 0; i < 60; i++) phys.update(1000 / 60)
   const gm = gryta.varld(0, 0)
-  pase.parkera(gm.x - 30, pase.parkHojd(gm.y - 48))
+  const ph = paseHylla(pase, gryta, gm.x - 30)
+  pase.parkera(ph.mal.x, ph.y)
   for (let i = 0; i < 200; i++) phys.update(1000 / 60)
   return { phys, gryta, pase, korn }
 }

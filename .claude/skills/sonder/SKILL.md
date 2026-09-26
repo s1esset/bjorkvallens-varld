@@ -89,6 +89,9 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_mjukprobe.mjs` | mjuka kroppar: håller formen · sjunker när de mjuknar · knuff · exit — **utan webbläsare** |
 | `node scripts/_poppprobe.mjs` | kan en mjuk kropp VÄXA fort (popp ×4) utan att vända sig ut och in FÖR GOTT? gräns per steg · recept över punkter × överskjut · kostnad per kropp — **utan webbläsare** (inför `popcornkalaset`) |
 | `node scripts/_poppdemo.mjs [ut.mp3] [--gap 80]` | LYSSNA på en popcornkaskad (38 korn) — standard UTAN spärr (ägarens val, facit för `popcornkalaset`), `--gap` ger en spärrad variant; skriver en mp3 att ge ägaren |
+| `node scripts/_popcornnaiv.mjs [--fall P1,G3] [--bild]` | går kärlen att styra för en NYBÖRJARE? P1–P5 påsen, G1–G7 grytan (bär och luta, otålig, bygeln igen, sidled …) mot dev-servern; vart innehållet tog vägen. Byggarens egen sond spelar bara expertvägen |
+| `node scripts/_popcornhall.mjs [--golv]` (`FORE=70`) | EN gest i `popcornkalaset`: alla grepp × tre skålar × ett drag / parkerad / otålig + kontrollarmar som INTE får hälla, i hela rummet — **utan webbläsare**; `landar ±px` visar om hällpunkten sitter fel |
+| `node scripts/_popcornhallspar.mjs <skål> <sida> [park] --bild` | EN hällning bildruta för bildruta, i text och sex rutor — såg katapulten (pipen som sjönk för sent) och väggträffen |
 | `node scripts/_vobbelprobe.mjs` | vobbeln i ett spel: utslag vid landning · lugnar den sig · tappad volym · exit |
 | `node scripts/_pressprobe.mjs [--takt]` | `pruttbad`s bubbla mot ytan: finns skedet · plattas hinnan · är det YTAN som gör det · tempot mot HEAD |
 | `node scripts/_tuggprobe.mjs [--bara-exit\|--kostnad]` | tuggan + magen i `mata-monstret`: käkens gap trycker maten · buktar den ut · syns den (isolerat lager + kontroll) · växer magen vid SVÄLJET · exit |

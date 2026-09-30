@@ -1,5 +1,5 @@
 # Enhörningen Flyger (`enhorningen-flyger`)
-> ⚙️ fysik · drag · 3–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · drag · 3–5 år · status: ✅
 
 ## 1. Nuläge (sett som spelare)
 
@@ -74,10 +74,11 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
   litet eget ögonblick.
 
 ### Variation & överraskning
-- **[Quick] Olika ring-typer:** regnbågsring (extra glitter + pip ×2), blomring, molnring — och
-  sällsynta gyllene stjärnor som ger en gnistkaskad.
-- **[Quick] Himmel-variation per nivå:** dag → solnedgång → stjärnhimmel → norrsken via
-  `createScene`-tema/crossfade, så långa sessioner känns nya.
+- ✅ ~~**[Quick] Olika ring-typer**~~ Klar 2026-09-30: vanlig · blom · moln (1 pip) och regnbåge (2 pips,
+  stigande arpeggio, gnistkaskad), var och en med egen silhuett och eget ljud. Kvar: sällsynta
+  gyllene stjärnor som ger en gnistkaskad.
+- ✅ ~~**[Quick] Himmel-variation per nivå**~~ Klar 2026-09-30: `tid` dag → skymning → kväll → morgon
+  per nivå (övertoning 1,1 s) + egna kullband och lågt moln i nederkanten. Norrsken byggdes inte.
 
 ### Juice
 - ✅ ~~**[Quick] Enhörningen lever:**~~ Klar 2026-09-23 (v1.251.0): galopp-bob, lutning mot nästa
@@ -94,8 +95,8 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
   (`_ringBurst` index.js:558, färgvågen i ringens färg) — uppdagat 2026-09-23.
 
 ### Progression
-- **[Medium] Tydligare mål i världen.** Visa "regnbågsporten" eller Elvira i fjärran till höger
-  som närmar sig när pipsen fylls — så barnet ser *vart* resan går, inte bara abstrakta hoops.
+- ✅ ~~**[Medium] Tydligare mål i världen.**~~ Klar 2026-09-30: en ritad regnbågsport långt till höger
+  som växer och glider närmare för varje tänd pip (`_goTo`), blixtrar vid målet.
 - ✅ ~~**[Quick] Pip-raden större och mer levande**~~ Klar 2026-09-23 (v1.251.0): pipen 16 → 20 px med
   glans, och den fylls med den passerade RINGENS färg (`_lightPip(i, color)` :311); studsen fanns.
 
@@ -104,8 +105,8 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
   Sätt Elvira som ryttare på enhörningen (eller väntande i mål som vinkar
   in henne och kramar vid varje nivåslut) — ger berättelsen ett ansikte och en spelspecifik
   vinst-scen i stället för generisk konfetti.
-- **[Quick] Insamlade stjärnor landar i en liten "stjärnpåse"** vid pipsen — något att samla över
-  rundor.
+- ✅ ~~**[Quick] Insamlade stjärnor landar i en "stjärnpåse"**~~ Klar 2026-09-30: ritad säck vid pipsen,
+  stjärnorna flyger dit, sparas mellan rundor (`custom.stjarnor`), ingen siffra i bild.
 
 ### Ljud
 - **[Quick] Riktiga SFX från [[real-audio-sfx]]:** galopp, magiskt sus, ring-klang — ersätt
@@ -149,3 +150,15 @@ flyt genom nästan tom himmel, utan Elvira och utan att enhörningen lever.
     proxy-tween) och konfetti i samma ton. Ringens färg sparas nu i ring-posten. Tidigare
     var det en generisk `pop` — varje ring får nu ett eget litet ögonblick.
   - Exit-säkert: `_waveTweens` och ryttarens skal-tween dödas i `destroy`.
+- 2026-09-30: **En resa, inte en tom himmel.** (1) Himlen byter tid per nivå (`createScene` `tid`,
+  kväll med stjärnor) + kullband och lågt moln som glider — nedre halvan var bara gradient.
+  (2) Enhörningen ritas 25 % större (R 40 → 50, Elvira 58 → 72) — kollisionen är oförändrad (bara
+  `uni.y`, STAR_R 60 → 70) — och en regnbågsremsa i sex band följer hennes höjdkurva. (3) Fyra
+  ringtyper; pip-summan blir exakt målet (regnbåge = 2) och en missad ring ersätts av SAMMA sort.
+  (4) Regnbågsporten närmar sig med pipsen. (5) Stjärnsäck. Nya repliker: "Regnbåge!" (utrop, hoppas
+  över om något talar). Ej byggt: gyllene stjärnor, norrsken. Orsak till designvalen: ribban
+  "progression" kräver att barnet ser VART resan går.
+  Fixvarv efter kritik (samma dag): kvällen har en blek måne i stället för solen; molntinten byts först
+  när himlens övertoning är klar; porten startar på x 1165 (hela bågen syns) med alfa 0,75; molnringens
+  pip är 0x6cb8ee och tom pip har mörk kontur; säckens stjärnor byter färg per varv om sex; Elvira
+  lyft 11 px så axlarna syns.

@@ -37,7 +37,7 @@ Varje förbättringsförslag taggas: **[Quick]** (timmar), **[Medium]** (en pass
 
 Listan ovan är **granskningens mätsticka**. Själva **kvalitetsgrinden** är de åtta punkterna i
 skill `spel-pipeline` (speglad i `docs/PIPELINE.md`), med en rad per åldersband. Ett spel som
-byggs eller poleras idag får inte landa som 🔧 — det passerar grinden eller är inte klart.
+byggs eller poleras idag får inte landa som ✅ — det passerar grinden eller är inte klart.
 
 ## Doc-mall (varje spel följer denna)
 

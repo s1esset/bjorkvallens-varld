@@ -10,13 +10,20 @@
 // efter ett par missar) garanterar att hon alltid kommer igenom. Allt ritas
 // programmatiskt (Pixi Graphics + emoji) och städas exit-säkert. Avbildad människa =
 // Elvira (enhörningen är ett djur och behöver inget namn).
+//
+// En RESA, inte en tom himmel (2026-09-30): himlen byter tid på dygnet per nivå (dag →
+// skymning → kväll → morgon) med kullar och lågt moln som glider i nederkanten; en
+// regnbågsport långt fram närmar sig och växer för varje tänd pip; fyra ringtyper
+// (vanlig, blom, moln, regnbåge = två pips); en regnbågsremsa ritas bakom enhörningen;
+// och fångade stjärnor flyger ner i en ritad stjärnsäck som sparas mellan rundor.
 import { Container, Graphics, Text, Rectangle, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { COLORS, PLAYFUL, FONT } from '../../lib/theme.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { makeElvira } from '../../lib/figurer.js'
-import { sparkle, puff, wiggle, pop, bounceIn, breathe, floatText, burst, kvittera } from '../../lib/feedback.js'
+import { bage } from '../../lib/form.js'
+import { sparkle, puff, wiggle, pop, bounceIn, breathe, floatText, burst, kvittera, liv } from '../../lib/feedback.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -33,8 +40,29 @@ const ASSIST = 0.006 // mjuk auto-magnet mot nästa rings mitt (förlåtande sik
 const ASSIST_HELP = 0.018 // starkare magnet efter ett par missar -> garanterad passage
 const MAXV = 18 // hastighetstak (px/frame)
 const TAP_IMPULSE = 6 // enkel-tap i övre/nedre halvan ger denna höjd-impuls
-const STAR_R = 60 // samlingsradie för stjärnor
+const STAR_R = 70 // samlingsradie för stjärnor (enhörningen är större nu)
 const IDLE_DELAY = 6 // s utan input -> mild om-cue
+const UNI_SIZE = 50 // enhörningens ritade storlek (R) — var 40; rör inte kollisionen (bara uni.y räknas)
+
+// Regnbågsfärger (ribban bakom enhörningen, regnbågsringen, porten).
+const RB = [0xff6b6b, 0xff8a3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa]
+
+// Himlen byter tid på dygnet per nivå. Sky-temat har ingen mark (vi ritar egna kullar).
+const TIDER = ['dag', 'skymning', 'kvall', 'morgon']
+const SKY_DAG = { top: 0xaee3fb, bottom: 0xeaf7ea, sun: true, clouds: 3 }
+const SKY_KVALL = { top: 0xaee3fb, bottom: 0xeaf7ea, sun: false, clouds: 1, stars: 20 } // månen ritas i _makeBackdrop
+// Kullar + moln-ton per tid (lågt, bakom flygrutan, så nedre halvan inte är bara gradient).
+const KULL_PAL = {
+  dag: { far: 0xa4d8b4, near: 0x86cc98, moln: 0xffffff },
+  skymning: { far: 0xb58ab4, near: 0x8f6aa6, moln: 0xffd9c4 },
+  kvall: { far: 0x454a8c, near: 0x363a78, moln: 0xaab0e6 },
+  morgon: { far: 0xc8d9a6, near: 0xa6cf8c, moln: 0xfff1d6 },
+}
+const SACK_X = 880 // stjärnsäcken, bredvid pipsen
+const SACK_Y = 122
+const PORT_FAR = 1165 // regnbågsportens x när resan börjar …
+const PORT_NEAR = 980 // … och när alla pips är tända
+const PORT_Y = 664
 
 export default {
   id: 'enhorningen-flyger',
@@ -73,12 +101,25 @@ export default {
     this._R = 90
     this._bobAmp = 0
     this._pipNodes = []
+    this._passed = 0 // antal passerade ringar i rundan (beröm var 3:e)
+    this._tid = null // himlens tid på dygnet just nu
+    this._bds = [] // bakgrunder (två under en övertoning): { view, hills, clouds }
+    this._fadeTw = null
+    this._goalTw = null
+    this._goalP = { p: 0 }
+    this._trail = [] // regnbågsremsans punkter
+    this._starTws = [] // stjärnor på väg ner i säcken
+    this._sackN = ctx.progress.get().custom?.stjarnor | 0 // sparat mellan rundor
+    this._kinds = []
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Bakgrund FÖRST: mjuk blå gradient + sol + drivande moln (dekorativ).
-    this._root.addChild(createScene('sky', { ground: false, width: ctx.width, height: ctx.height }))
+    // Bakgrund FÖRST: himmel per nivå + kullar och lågt moln (byts i _buildLevel).
+    this._bgHolder = new Container()
+    this._bgHolder.eventMode = 'none'
+    this._bgHolder.interactiveChildren = false
+    this._root.addChild(this._bgHolder)
 
     // Parallax-molnremsa (scrollar lite långsammare än ringarna -> djup).
     this._parallax = new Container()
@@ -93,16 +134,25 @@ export default {
       this._parallax.addChild(c)
     }
 
+    // Målet långt fram: en regnbågsport som närmar sig när pipsen fylls.
+    this._gate = makeGate()
+    this._gate.position.set(PORT_FAR, PORT_Y)
+    this._root.addChild(this._gate)
+    this._applyGoal()
+
     // Fält för ringar + stjärnor.
     this._field = new Container()
     this._field.eventMode = 'none'
     this._field.interactiveChildren = false
     this._root.addChild(this._field)
 
-    // Glitter-svans (bakom enhörningen).
+    // Regnbågsremsa + glitter-svans (bakom enhörningen).
     this._tail = new Container()
     this._tail.eventMode = 'none'
     this._tail.interactiveChildren = false
+    this._ribbon = new Graphics()
+    this._ribbon.eventMode = 'none'
+    this._tail.addChild(this._ribbon)
     this._root.addChild(this._tail)
 
     // Enhörningen (Elvira).
@@ -114,6 +164,13 @@ export default {
     this._pips.eventMode = 'none'
     this._pips.interactiveChildren = false
     this._root.addChild(this._pips)
+
+    // Stjärnsäcken (fångade stjärnor landar här; sparas mellan rundor, ingen siffra).
+    this._sack = makeSack()
+    this._sack.position.set(SACK_X, SACK_Y)
+    this._root.addChild(this._sack)
+    this._drawSack()
+    liv(this._sack, { bob: 3, sway: 0.05, duration: 2.8 })
 
     // Heltäckande, osynlig drag-yta över flygrutan (egen vertikal styrning).
     this._pad = new Graphics().rect(0, 90, ctx.width, 630).fill({ color: 0x000000, alpha: 0 })
@@ -154,20 +211,20 @@ export default {
     // makeElvira har origo vid FÖTTERNA. Hon sätts en bit bak på ryggen med fötterna
     // strax under kroppens ovansida (y=-13 vid R=40), så benen försvinner in i
     // silhuetten och hon läser som sittande i stället för stående på ryggen.
-    const rider = makeElvira(58)
-    rider.position.set(13, 4)
+    // Enhörningen är 25 % större (R 40 → 50) så hon syns i ett 1280-fält; ryttaren följer med.
+    const rider = makeElvira(72)
+    rider.position.set(16, -6) // höjd så axlarna syns, fötterna fortfarande inne i ryggen
     rider.scale.x = -1 // vänd åt flygriktningen (enhörningen ser åt vänster)
     uni.addChild(rider)
     this._rider = rider
 
     uni.position.set(UNI_X, 360)
     // Mjuk skuggellips under.
-    const shadow = new Graphics().ellipse(0, 56, 46, 14).fill({ color: COLORS.shadow, alpha: 1 })
+    const shadow = new Graphics().ellipse(0, 70, 58, 17).fill({ color: COLORS.shadow, alpha: 1 })
     shadow.alpha = 0.12
     uni.addChild(shadow)
-    // Enhörnings-emoji (roteras lätt mot vy).
     // RITAD flygande enhörning (P0 ASSETS) — var en 🦄-emoji.
-    this._uniEmoji = makeUnicorn()
+    this._uniEmoji = makeUnicorn(UNI_SIZE)
     uni.addChild(this._uniEmoji)
     uni.eventMode = 'none'
     uni.interactiveChildren = false
@@ -211,6 +268,197 @@ export default {
     this._idle = 0
   },
 
+  // ---- Himmel, kullar, mål och säck ---------------------------------------
+
+  // En bakgrund = himmel ur createScene (tid på dygnet) + två kullband och lågt moln.
+  // Kullbanden är två lika breda perioder som glider och lindas (`x += W`), så skarven syns aldrig.
+  _makeBackdrop(ctx, tid) {
+    const W = ctx.width
+    const pal = KULL_PAL[tid]
+    const view = new Container()
+    view.eventMode = 'none'
+    view.interactiveChildren = false
+    view.addChild(createScene(tid === 'kvall' ? SKY_KVALL : SKY_DAG, { ground: false, tid, width: W, height: ctx.height }))
+
+    if (tid === 'kvall') {
+      // Kvällen har en blek måne, inte solen (SKY_KVALL har sun: false).
+      const moon = new Container()
+      moon.eventMode = 'none'
+      moon.addChild(new Graphics().circle(0, 0, 80).fill({ color: 0xf4f1d8, alpha: 0.15 }))
+      moon.addChild(new Graphics().circle(0, 0, 44).fill(0xf4f1d8))
+      moon.addChild(new Graphics().circle(-12, -8, 8).fill({ color: 0xdedab8, alpha: 0.7 }))
+      moon.addChild(new Graphics().circle(10, 12, 5.5).fill({ color: 0xdedab8, alpha: 0.7 }))
+      moon.position.set(270, 135)
+      view.addChild(moon)
+    }
+
+    const hills = []
+    const mkHills = (color, baseY, amp, n, f) => {
+      const lay = new Container()
+      lay.eventMode = 'none'
+      const g = new Graphics()
+      const step = W / n
+      g.moveTo(-W, 980).lineTo(-W, baseY)
+      for (let c = -1; c < 3; c++) {
+        for (let i = 0; i < n; i++) {
+          const x0 = c * W + i * step
+          const a = amp * (0.7 + 0.3 * Math.sin(i * 1.9 + f * 9)) // periodisk över W -> sömlös
+          g.quadraticCurveTo(x0 + step / 2, baseY - a * 2, x0 + step, baseY)
+        }
+      }
+      g.lineTo(3 * W, 980).closePath().fill(color)
+      g.eventMode = 'none'
+      lay.addChild(g)
+      view.addChild(lay)
+      hills.push({ lay, f })
+    }
+    mkHills(pal.far, 612, 52, 4, 0.12)
+
+    const clouds = new Container()
+    clouds.eventMode = 'none'
+    clouds.interactiveChildren = false
+    for (let i = 0; i < 4; i++) {
+      const c = makeParallaxCloud(0.75 + Math.random() * 0.5)
+      c.x = (i / 4) * W * 1.2 + Math.random() * 120
+      c.y = 575 + Math.random() * 85
+      c.alpha = 0.75
+      c.tint = pal.moln
+      clouds.addChild(c)
+    }
+    view.addChild(clouds)
+
+    mkHills(pal.near, 664, 38, 5, 0.3)
+    return { view, hills, clouds }
+  },
+
+  _setSky(ctx, tid) {
+    if (!this._alive || tid === this._tid) return
+    const first = !this._tid
+    this._finishFade() // en övertoning i taget: den förra blir färdig direkt (och tintar molnen)
+    this._tid = tid
+    const bd = this._makeBackdrop(ctx, tid)
+    this._bgHolder.addChild(bd.view)
+    this._bds.push(bd)
+    if (first) this._tintClouds()
+    if (first) return
+    bd.view.alpha = 0
+    const st = { a: 0 }
+    this._fadeTw = gsap.to(st, {
+      a: 1,
+      duration: 1.1,
+      ease: 'sine.inOut',
+      onUpdate: () => { if (!bd.view.destroyed) bd.view.alpha = st.a },
+      onComplete: () => this._finishFade(),
+    })
+  },
+
+  // Molntinten följer himlen: den byts först när övertoningen är klar (annars rosa moln på blå himmel).
+  _tintClouds() {
+    if (!this._tid || !this._parallax || this._parallax.destroyed) return
+    for (const c of this._parallax.children) c.tint = KULL_PAL[this._tid].moln
+  },
+
+  _finishFade() {
+    this._fadeTw?.kill()
+    this._fadeTw = null
+    this._tintClouds()
+    while (this._bds.length > 1) {
+      const old = this._bds.shift()
+      if (old.view && !old.view.destroyed) old.view.destroy({ children: true })
+    }
+    const cur = this._bds[0]
+    if (cur && cur.view && !cur.view.destroyed) cur.view.alpha = 1
+  },
+
+  _scrollBackdrops(ctx, speed) {
+    const W = ctx.width
+    for (const bd of this._bds) {
+      for (const h of bd.hills) {
+        h.lay.x -= speed * h.f
+        if (h.lay.x <= -W) h.lay.x += W
+      }
+      for (const c of bd.clouds.children) {
+        c.x -= speed * 0.22
+        if (c.x < -260) c.x = W + 260 + Math.random() * 80
+      }
+    }
+  },
+
+  // Regnbågsporten: x/skala/alfa följer målets framsteg p (0 = långt bort, 1 = framme).
+  _applyGoal() {
+    const g = this._gate
+    if (!g || g.destroyed) return
+    const p = this._goalP.p
+    g.x = PORT_FAR + (PORT_NEAR - PORT_FAR) * p
+    g.scale.set(0.42 + 0.5 * p)
+    g.alpha = 0.75 + 0.25 * p
+  },
+
+  _goTo(p, dur) {
+    this._goalTw?.kill()
+    this._goalTw = gsap.to(this._goalP, {
+      p,
+      duration: dur,
+      ease: 'power2.out',
+      onUpdate: () => { if (this._alive) this._applyGoal() },
+    })
+  },
+
+  // Säcken: stjärnor som tittar upp ur öppningen (högst 6) — en samling, aldrig en siffra.
+  _drawSack() {
+    const s = this._sack
+    if (!s || s.destroyed) return
+    const n = Math.min(this._sackN, SACK_SPOTS.length)
+    const g = s._stars
+    g.clear()
+    for (let i = 0; i < n; i++) {
+      const [x, y, r] = SACK_SPOTS[i]
+      // Varje varv om sex byter färg (guld, rosa, blå, lila): säcken förändras hela tiden.
+      const [fill, line] = SACK_FARG[Math.floor((this._sackN - 1 - i) / 6) % SACK_FARG.length]
+      drawStar(g, x, y, r, fill, line)
+    }
+    s._body.scale.set(1 + Math.min(this._sackN, 30) * 0.008)
+  },
+
+  // En stjärna har landat i säcken.
+  _sackLand(ctx) {
+    if (!this._alive || !this._sack || this._sack.destroyed) return
+    this._drawSack()
+    pop(this._sack, { scale: 1.22 })
+    ctx.services.audio.tone({ freq: 1047, dur: 0.1, type: 'sine', vol: 0.2 })
+    // Var femte stjärna: säcken firar lite extra.
+    if (this._sackN % 5 === 0) {
+      burst(ctx.fxLayer, SACK_X, SACK_Y, { count: 10, colors: [0xffd24a, 0xfff3b0, 0xffffff] })
+      const au = ctx.services.audio
+      ;[523, 659, 784].forEach((f, i) => au.tone({ freq: f, dur: 0.14, type: 'sine', vol: 0.22, delay: 0.06 + i * 0.08 }))
+    }
+  },
+
+  // Regnbågsremsan bakom henne: en punkt per bildruta som glider bakåt med världen.
+  // Tre alfa-steg (färskast starkast) — sex färgband som följer hennes höjd-kurva.
+  _drawRibbon() {
+    const g = this._ribbon
+    if (!g || g.destroyed) return
+    g.clear()
+    const tr = this._trail
+    const pts = []
+    for (let i = tr.length - 1; i >= 0; i -= 3) pts.push(tr[i])
+    if (pts.length < 3) return
+    const alphas = [0.92, 0.62, 0.3]
+    const per = Math.ceil((pts.length - 1) / alphas.length)
+    for (let s = 0; s < alphas.length; s++) {
+      const a = s * per
+      const b = Math.min(pts.length - 1, (s + 1) * per)
+      if (b - a < 1) continue
+      for (let k = 0; k < RB.length; k++) {
+        const off = (k - 2.5) * 6
+        g.moveTo(pts[a].x, pts[a].y + off)
+        for (let i = a + 1; i <= b; i++) g.lineTo(pts[i].x, pts[i].y + off)
+        g.stroke({ width: 6.4, color: RB[k], alpha: alphas[s], cap: 'round', join: 'round' })
+      }
+    }
+  },
+
   // ---- Bana / nivå ---------------------------------------------------------
 
   _buildLevel(ctx) {
@@ -245,38 +493,43 @@ export default {
     // Töm fältet.
     this._clearField()
     this._ringsDone = 0
+    this._passed = 0
     this._missStreak = 0
     this._dist = 0
     this._resolving = false
+    this._trail.length = 0
+
+    // Ny himmel per nivå, och resans port långt borta igen.
+    this._setSky(ctx, TIDER[L % TIDER.length])
+    this._goTo(0, 0.8)
+
+    // Ringtyper: summan av värdena (regnbåge = 2) blir exakt målet, så pipsen går jämnt upp.
+    // Första nivån får en av varje vanlig sort; senare nivåer garanterar en regnbågsring.
+    const kinds = this._planKinds(target, L)
+    this._kinds = kinds
+    const n = kinds.length
 
     // Bygg spawn-kö: tätare, mer varierad rytm i stället för glesa ensam-ringar.
-    // Ringarna siktar mot VÄXLANDE höjder (sicksack), var tredje får ett tätt
-    // syskon-par på kontrasterande höjd, och stjärnorna bildar en BÅGE man skördar
+    // Ringarna siktar mot VÄXLANDE höjder (sicksack), var tredje följer tätt efter sin
+    // föregångare på kontrasterande höjd, och stjärnorna bildar en BÅGE man skördar
     // genom att glida i en kurva mellan ringarna. Höjd-hint följer med i kön (y).
     const LO = 300
     const HI = 500
     let zig = Math.random() < 0.5
     const q = []
     // Stjärn-båge från höjd a till höjd b (böjer mjukt uppåt på mitten).
-    const arc = (a, b, n) => {
-      for (let s = 0; s < n; s++) {
-        const t = (s + 1) / (n + 1)
+    const arc = (a, b, cnt) => {
+      for (let s = 0; s < cnt; s++) {
+        const t = (s + 1) / (cnt + 1)
         q.push({ type: 'star', gap: 130, y: a + (b - a) * t - Math.sin(t * Math.PI) * 80 })
       }
     }
-    for (let i = 0; i < target; i++) {
+    for (let i = 0; i < n; i++) {
       const y = zig ? LO : HI
-      q.push({ type: 'ring', gap: i === 0 ? 220 : 380, y })
+      q.push({ type: 'ring', kind: kinds[i], gap: i === 0 ? 220 : i % 3 === 0 ? 280 : 380, y })
       zig = !zig
-      let lastY = y
-      // Var tredje ring (ej första/sista): ett tätt syskon-par på motsatt höjd.
-      if (i > 0 && i < target - 1 && i % 3 === 0) {
-        lastY = zig ? LO : HI
-        q.push({ type: 'ring', gap: 280, y: lastY })
-        zig = !zig
-      }
       // Stjärn-båge som leder från senaste ringen mot nästa rings höjd.
-      if (stars > 0) arc(lastY, zig ? LO : HI, stars + 1)
+      if (stars > 0) arc(y, zig ? LO : HI, stars + 1)
     }
     this._toSpawn = q
 
@@ -288,6 +541,33 @@ export default {
       this._uniEmoji.rotation = 0
       bounceIn(this._uni, { duration: 0.4 })
     }
+  },
+
+  // Ringtyper för en nivå. 'vanlig' · 'blom' · 'moln' = 1 pip, 'regnbage' = 2 pips.
+  _planKinds(target, L) {
+    const pool = ['vanlig', 'blom', 'moln']
+    if (L === 0) return shuffle(pool).slice(0, target)
+    let left = target
+    const kinds = []
+    const rb = target >= 5 && Math.random() < 0.5 ? 2 : 1
+    for (let i = 0; i < rb; i++) {
+      kinds.push('regnbage')
+      left -= 2
+    }
+    // Olika sorter i tur och ordning (blandat), så inte tre blommor i rad.
+    let bag = []
+    while (left > 0) {
+      if (!bag.length) bag = shuffle(pool)
+      kinds.push(bag.pop())
+      left--
+    }
+    const out = shuffle(kinds)
+    // Första ringen är aldrig en regnbåge — man ska hinna sikta in sig.
+    if (out[0] === 'regnbage') {
+      const j = out.findIndex((k) => k !== 'regnbage')
+      if (j > 0) [out[0], out[j]] = [out[j], out[0]]
+    }
+    return out
   },
 
   _buildPips() {
@@ -317,23 +597,10 @@ export default {
 
   // ---- Spawn ---------------------------------------------------------------
 
-  _spawnRing(ctx, hintY) {
+  _spawnRing(ctx, hintY, kind = 'vanlig') {
     if (!this._alive) return
-    const color = randomFrom(PLAYFUL)
     const R = this._R
-    const ring = new Container()
-    const g = new Graphics()
-    g.circle(0, 0, R + 16).stroke({ width: 18, color })
-    g.circle(0, 0, R + 16).stroke({ width: 6, color: 0xffffff, alpha: 0.5 })
-    ring.addChild(g)
-    // Ritad glitter-fyrudd (P0 ASSETS) — var en ✨-emoji.
-    const acc = new Graphics()
-    acc.moveTo(0, -20).quadraticCurveTo(3, -5, 19, 0).quadraticCurveTo(3, 5, 0, 20)
-      .quadraticCurveTo(-3, 5, -19, 0).quadraticCurveTo(-3, -5, 0, -20).fill(0xffd24a)
-    acc.circle(0, 0, 4).fill(0xfff3b0)
-    acc.y = -(R + 16)
-    ring.addChild(acc)
-    ring.eventMode = 'none'
+    const { view: ring, acc, color } = makeRingView(kind, R)
     // Efter ett par missar: centrera ringen på enhörningen -> garanterad passage.
     // Annars sikta mot köns höjd-hint (sicksack) med lite slump; utan hint = fritt.
     const ry0 =
@@ -348,6 +615,8 @@ export default {
     bounceIn(ring, { duration: 0.3 })
     this._rings.push({
       view: ring,
+      kind,
+      acc,
       color,
       R,
       ry0,
@@ -388,7 +657,7 @@ export default {
     if (!uni || uni.destroyed) return
 
     // 1. Styr-input: fjäder mot fingret.
-    if (this._steering) this._vy += (clamp(this._fingerY, Y_MIN, Y_MAX) - uni.y) * STEER * dt
+    if (this._steering) this._vy += (clamp(this._fingerY, Y_MIN, Y_MAX) - uni.y) * STEER * dt // (oförändrad flygfysik)
     // 2. Dämpning (glid-momentum).
     this._vy *= Math.pow(DAMP, dt)
     // 3. Mjuk auto-magnet mot nästa opassade ring (förlåtande sikte).
@@ -432,6 +701,14 @@ export default {
       c.x -= speed * 0.45
       if (c.x < -150) c.x = 1430 + Math.random() * 60
     }
+    this._scrollBackdrops(ctx, speed)
+
+    // Regnbågsremsan: en ny punkt vid svansen, alla äldre glider bakåt med världen.
+    const tr = this._trail
+    for (const p of tr) p.x -= speed
+    tr.push({ x: UNI_X - 50, y: uni.y + 14 })
+    while (tr.length && tr[0].x < UNI_X - 50 - 300) tr.shift()
+    this._drawRibbon()
 
     // Ringar: bob -> rörelse -> korsnings-kollision -> recykla.
     for (let i = this._rings.length - 1; i >= 0; i--) {
@@ -443,6 +720,11 @@ export default {
       }
       r.ry = r.ry0 + Math.sin(this._t * r.bobSpeed + r.phase) * this._bobAmp
       v.y = r.ry
+      // Ringens glitter-fyrudd tindrar (vilo-liv): vrider sig och pulserar i egen fas.
+      if (r.acc && !r.acc.destroyed) {
+        r.acc.rotation = Math.sin(this._t * 0.06 + r.phase) * 0.5
+        r.acc.scale.set(1 + 0.18 * Math.sin(this._t * 0.12 + r.phase))
+      }
       const prevX = v.x
       v.x -= speed
       if (!r.done && prevX > UNI_X && v.x <= UNI_X) {
@@ -487,7 +769,7 @@ export default {
     if (this._toSpawn.length && this._dist >= this._toSpawn[0].gap) {
       const item = this._toSpawn.shift()
       this._dist = 0
-      if (item.type === 'ring') this._spawnRing(ctx, item.y)
+      if (item.type === 'ring') this._spawnRing(ctx, item.y, item.kind)
       else this._spawnStar(ctx, item.y)
     }
 
@@ -535,23 +817,64 @@ export default {
     const uni = this._uni
     this._missStreak = 0
     this._idle = 0
-    // Magiskt genomflygnings-ljud: ljus attack + två uppåt-glidande skimmer-toner.
+    // Varje ringtyp har sitt eget ljud (stämd skala, C-dur-pentatonik) och sin egen bild.
     const au = ctx.services.audio
-    au.sfx('pling')
-    au.tone({ freq: 700, slideTo: 1180, dur: 0.2, type: 'sine', vol: 0.34 })
-    au.tone({ freq: 1050, slideTo: 1760, dur: 0.24, type: 'sine', vol: 0.2, delay: 0.05 })
-    sparkle(ctx.fxLayer, UNI_X, uni.y, { count: 8 })
-    floatText(ctx.fxLayer, UNI_X, uni.y - 60, '⭐', { fontSize: 56 })
+    const kind = r.kind || 'vanlig'
+    if (kind === 'regnbage') {
+      // Regnbågen: en stigande arpeggio + stor gnistkaskad, och räknas som TVÅ pips.
+      au.sfx('pling')
+      ;[523, 659, 784, 1047].forEach((f, i) => au.tone({ freq: f, dur: 0.16, type: 'sine', vol: 0.3, delay: i * 0.07 }))
+      sparkle(ctx.fxLayer, UNI_X, uni.y, { count: 16 })
+      floatText(ctx.fxLayer, UNI_X, uni.y - 64, '🌈', { fontSize: 64 })
+    } else if (kind === 'blom') {
+      // Blomringen: mjuk klockklang och kronblad i blomfärger.
+      au.sfx('pling')
+      au.tone({ freq: 784, slideTo: 988, dur: 0.22, type: 'sine', vol: 0.3 })
+      burst(ctx.fxLayer, UNI_X, uni.y, { count: 12, colors: [0xff9ec4, 0xffd24a, 0xffffff, 0xc9a7ff] })
+      floatText(ctx.fxLayer, UNI_X, uni.y - 60, '🌸', { fontSize: 52 })
+    } else if (kind === 'moln') {
+      // Molnringen: luftigt "puff" med lägre, mjukare ton.
+      au.sfx('pop')
+      au.tone({ freq: 392, slideTo: 523, dur: 0.26, type: 'sine', vol: 0.28 })
+      puff(ctx.fxLayer, UNI_X, uni.y, { count: 12, color: 0xffffff })
+      sparkle(ctx.fxLayer, UNI_X, uni.y, { count: 5 })
+      floatText(ctx.fxLayer, UNI_X, uni.y - 60, '⭐', { fontSize: 52 })
+    } else {
+      // Magiskt genomflygnings-ljud: ljus attack + två uppåt-glidande skimmer-toner.
+      au.sfx('pling')
+      au.tone({ freq: 700, slideTo: 1180, dur: 0.2, type: 'sine', vol: 0.34 })
+      au.tone({ freq: 1050, slideTo: 1760, dur: 0.24, type: 'sine', vol: 0.2, delay: 0.05 })
+      sparkle(ctx.fxLayer, UNI_X, uni.y, { count: 8 })
+      floatText(ctx.fxLayer, UNI_X, uni.y - 60, '⭐', { fontSize: 56 })
+    }
     this._ringBurst(ctx, r)
     if (this._rider && !this._rider.destroyed) pop(this._rider, { scale: 1.14 })
-    this._lightPip(this._ringsDone, r.color)
-    this._ringsDone++
-    // Variation + sparsamt beröm var 3:e ring.
-    if (this._ringsDone % 3 === 0) {
-      ctx.services.audio.sfx('reveal')
+
+    // Pips: regnbågen tänder två (den andra strax efter), allt klämt mot målet.
+    const val = kind === 'regnbage' ? 2 : 1
+    const first = this._ringsDone
+    this._passed++
+    this._ringsDone = Math.min(this._target, first + val)
+    this._lightPip(first, r.color)
+    if (val === 2 && first + 1 < this._target) {
+      ctx.later(0.14, () => { if (this._alive) this._lightPip(first + 1, 0xa78bfa) })
+    }
+    // Målet närmar sig för varje tänd pip.
+    this._goTo(this._ringsDone / this._target, 0.9)
+    if (this._gate && !this._gate.destroyed) pop(this._gate._art, { scale: 1.1 })
+
+    if (this._ringsDone >= this._target) {
+      this._win(ctx)
+      return
+    }
+    if (kind === 'regnbage') {
+      // Ett utrop på ett ögonblick: hoppas över om något redan talar.
+      if (!ctx.services.voice.talar) ctx.services.voice.say('Regnbåge!')
+    } else if (this._passed % 3 === 0) {
+      // Variation + sparsamt beröm var 3:e ring.
+      au.sfx('reveal')
       ctx.services.voice.say(randomFrom(['Wow!', 'Bra fluget!', 'Hurra!']))
     }
-    if (this._ringsDone >= this._target) this._win(ctx)
   },
 
   // Ringen får ett EGET ögonblick vid genomflygning: den snäpper till, skickar ut en
@@ -598,7 +921,8 @@ export default {
     }
     this._missStreak++
     // Köa en extra ring så målet alltid förblir nåbart (banan tar aldrig slut).
-    this._toSpawn.push({ type: 'ring', gap: 520 })
+    // Samma sort som den missade, så pip-summan alltid går att nå.
+    this._toSpawn.push({ type: 'ring', kind: r.kind, gap: 520 })
   },
 
   _onStar(ctx, view) {
@@ -606,30 +930,37 @@ export default {
     this._idle = 0
     ctx.services.audio.sfx('pop')
     sparkle(ctx.fxLayer, view.x, view.y, { count: 6 })
-    floatText(ctx.fxLayer, view.x, view.y - 30, '⭐', { fontSize: 46 })
-    // Exit-säker bort-tween: tweena en proxy, rör Text:en bara om den lever.
-    const st = { s: view.scale.x || 1, a: 1, y: view.y }
+    // Stjärnan flyger ner i säcken (sparas mellan rundor). Exit-säker: tweena en proxy och rör
+    // Pixi-noden bara om den lever; tweenen hålls i _starTws så destroy kan döda den.
+    this._sackN++
+    ctx.progress.setCustom('stjarnor', this._sackN)
+    const st = { x: view.x, y: view.y, s: view.scale.x || 1 }
     gsap.killTweensOf(view)
     gsap.killTweensOf(view.scale)
     const tw = gsap.to(st, {
-      s: 1.6,
-      a: 0,
-      y: view.y - 40,
-      duration: 0.35,
-      ease: 'power2.out',
+      x: SACK_X,
+      y: SACK_Y,
+      s: 0.45,
+      duration: 0.65,
+      ease: 'power2.in',
       onUpdate: () => {
         if (view.destroyed) {
           tw.kill()
           return
         }
-        view.alpha = st.a
+        view.x = st.x
         view.y = st.y
         view.scale.set(st.s)
+        view.rotation += 0.18
       },
       onComplete: () => {
+        const i = this._starTws.indexOf(tw)
+        if (i >= 0) this._starTws.splice(i, 1)
         if (!view.destroyed) view.destroy()
+        this._sackLand(ctx)
       },
     })
+    this._starTws.push(tw)
   },
 
   // ---- Mål -----------------------------------------------------------------
@@ -641,6 +972,11 @@ export default {
     // Vinstljud, beröm och konfettiregn kommer från complete() nedan — här bara det egna.
     if (uni && !uni.destroyed) pop(uni, { scale: 1.25 })
     burst(ctx.fxLayer, UNI_X, uni ? uni.y : 360)
+    // Porten är framme: regnbågen blixtrar till där resan slutar.
+    if (this._gate && !this._gate.destroyed) {
+      pop(this._gate._art, { scale: 1.2 })
+      sparkle(ctx.fxLayer, this._gate.x, this._gate.y - 140, { count: 14 })
+    }
 
     ctx.progress.setLevel(this._level + 1)
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
@@ -779,6 +1115,16 @@ export default {
     this._winTimer?.kill()
     this._breatheTw?.kill()
     ;(this._waveTweens || []).forEach((t) => t.kill())
+    this._waveTweens = []
+    this._fadeTw?.kill()
+    this._fadeTw = null
+    this._goalTw?.kill()
+    this._goalTw = null
+    ;(this._starTws || []).forEach((t) => t.kill())
+    this._starTws = []
+    this._sack?._fxLiv?.kill()
+    if (this._sack && !this._sack.destroyed) gsap.killTweensOf(this._sack.scale)
+    if (this._gate && !this._gate.destroyed && this._gate._art) gsap.killTweensOf(this._gate._art.scale)
     if (this._rider && !this._rider.destroyed) gsap.killTweensOf(this._rider.scale)
 
     if (this._pad && !this._pad.destroyed) {
@@ -822,6 +1168,140 @@ export default {
 
 // --- programmatiska hjälpare ------------------------------------------------
 
+// Stjärnsäckens synliga stjärnor (x, y, radie) — fylls på i ordning upp till sex.
+const SACK_SPOTS = [[-9, -30, 11], [9, -34, 10], [0, -42, 12], [-19, -26, 9], [19, -27, 9], [3, -28, 10]]
+
+const SACK_FARG = [[0xffd24a, 0xd9a021], [0xff9ec4, 0xd9688f], [0x7cc4ff, 0x4a8fcf], [0xc9a7ff, 0x8c62c9]]
+
+function drawStar(g, x, y, r, fill, line) {
+  const pts = []
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i / 10) * Math.PI * 2
+    const rr = i % 2 ? r * 0.45 : r
+    pts.push(x + Math.cos(a) * rr, y + Math.sin(a) * rr)
+  }
+  g.poly(pts).fill(fill).stroke({ width: 2, color: line, join: 'round' })
+}
+
+// Ritad stjärnsäck: lila tygpåse med knytband och en guldstjärna på magen. Stjärnorna
+// som tittar upp ur öppningen ligger i ett eget lager BAKOM påsen (`_stars`).
+function makeSack() {
+  const c = new Container()
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  const stars = new Graphics()
+  const body = new Container()
+  const g = new Graphics()
+  g.ellipse(0, 42, 38, 9).fill({ color: 0x000000, alpha: 0.1 })
+  g.moveTo(-16, -16).quadraticCurveTo(-50, 6, -36, 34).quadraticCurveTo(0, 48, 36, 34).quadraticCurveTo(50, 6, 16, -16)
+    .closePath().fill(0xb58cf0).stroke({ width: 3, color: 0x8c62c9, join: 'round' })
+  g.ellipse(0, -16, 18, 7).fill(0x8c62c9)
+  g.ellipse(-17, 8, 7, 14).fill({ color: 0xffffff, alpha: 0.25 })
+  g.circle(-11, -14, 5).fill(0xff9ec4)
+  g.circle(11, -14, 5).fill(0xff9ec4)
+  drawStar(g, 0, 15, 13, 0xffd24a, 0xd9a021)
+  body.addChild(g)
+  c.addChild(stars, body)
+  c._stars = stars
+  c._body = body
+  return c
+}
+
+// Regnbågsporten: sex färgband i en båge på två ben, med molnpuffar vid fötterna. Origo =
+// marken mitt emellan benen; bilden ligger i `_art` (pop:as utan att röra målets x/skala).
+function makeGate() {
+  const c = new Container()
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  const art = new Container()
+  art.eventMode = 'none'
+  const g = new Graphics()
+  const CY = -70
+  for (let i = 0; i < RB.length; i++) {
+    const r = 130 - i * 11
+    const st = { width: 11.5, color: RB[i] }
+    g.moveTo(-r, 0).lineTo(-r, CY).stroke(st)
+    bage(g, 0, CY, r, Math.PI, Math.PI * 2).stroke(st)
+    g.moveTo(r, CY).lineTo(r, 0).stroke(st)
+  }
+  for (const side of [-1, 1]) {
+    const bx = side * 100
+    g.circle(bx + 2, 8, 36).fill({ color: 0x000000, alpha: 0.06 })
+    g.circle(bx, 0, 34).fill(0xffffff)
+    g.circle(bx + side * 28, 8, 25).fill(0xffffff)
+    g.circle(bx - side * 26, 10, 23).fill(0xffffff)
+  }
+  art.addChild(g)
+  c.addChild(art)
+  c._art = art
+  return c
+}
+
+// En ring av given sort. Returnerar { view, acc, color }: `acc` = glitter-fyrudden (tindrar),
+// `color` = färgen på vågen och pipen. Varje sort har egen silhuett, inte bara annan färg.
+function makeRingView(kind, R) {
+  const view = new Container()
+  view.eventMode = 'none'
+  const g = new Graphics()
+  const Rr = R + 16
+  let color
+  let acc = null
+  if (kind === 'regnbage') {
+    color = 0xffd35c
+    RB.forEach((col, i) => g.circle(0, 0, Rr + (i - 2.5) * 5).stroke({ width: 5.4, color: col }))
+    g.circle(0, 0, Rr + 16).stroke({ width: 2, color: 0xffffff, alpha: 0.6 })
+    acc = makeGlitter(Rr + 18)
+  } else if (kind === 'blom') {
+    color = randomFrom([0xff9ec4, 0xffd24a, 0xc9a7ff, 0xffb347])
+    const FL = [0xff9ec4, 0xffffff, 0xffb347, 0xc9a7ff]
+    const cnt = Math.max(8, Math.round((Rr * 2 * Math.PI) / 52))
+    g.circle(0, 0, Rr).stroke({ width: 9, color: 0x6fbf6a })
+    for (let i = 0; i < cnt; i++) {
+      const a = ((i + 0.5) / cnt) * Math.PI * 2
+      g.circle(Math.cos(a) * Rr, Math.sin(a) * Rr, 6.5).fill(0x57a857) // blad mellan blommorna
+    }
+    for (let i = 0; i < cnt; i++) {
+      const a = (i / cnt) * Math.PI * 2
+      const x = Math.cos(a) * Rr
+      const y = Math.sin(a) * Rr
+      for (let p = 0; p < 5; p++) {
+        const pa = (p / 5) * Math.PI * 2 + i
+        g.circle(x + Math.cos(pa) * 8, y + Math.sin(pa) * 8, 7.5).fill(FL[i % FL.length])
+      }
+      g.circle(x, y, 5.5).fill(0xffe27a)
+    }
+  } else if (kind === 'moln') {
+    color = 0x6cb8ee
+    const cnt = Math.max(10, Math.round((Rr * 2 * Math.PI) / 32))
+    for (let i = 0; i < cnt; i++) {
+      const a = (i / cnt) * Math.PI * 2
+      g.circle(Math.cos(a) * Rr + 2, Math.sin(a) * Rr + 4, (i % 2 ? 17 : 21) + 1.5).fill(0xbcd8ee) // skugga
+    }
+    for (let i = 0; i < cnt; i++) {
+      const a = (i / cnt) * Math.PI * 2
+      g.circle(Math.cos(a) * Rr, Math.sin(a) * Rr, i % 2 ? 17 : 21).fill(0xffffff)
+    }
+  } else {
+    color = randomFrom(PLAYFUL)
+    g.circle(0, 0, Rr).stroke({ width: 18, color })
+    g.circle(0, 0, Rr).stroke({ width: 6, color: 0xffffff, alpha: 0.5 })
+    acc = makeGlitter(Rr)
+  }
+  view.addChild(g)
+  if (acc) view.addChild(acc)
+  return { view, acc, color }
+}
+
+// Ritad glitter-fyrudd (P0 ASSETS) — var en ✨-emoji. Sitter överst på ringen.
+function makeGlitter(topY) {
+  const acc = new Graphics()
+  acc.moveTo(0, -20).quadraticCurveTo(3, -5, 19, 0).quadraticCurveTo(3, 5, 0, 20)
+    .quadraticCurveTo(-3, 5, -19, 0).quadraticCurveTo(-3, -5, 0, -20).fill(0xffd24a)
+  acc.circle(0, 0, 4).fill(0xfff3b0)
+  acc.y = -topY
+  return acc
+}
+
 // Liten parallax-molnpuff (vita cirklar + rundad bas).
 function makeParallaxCloud(scale = 1) {
   const c = new Container()
@@ -843,15 +1323,15 @@ function drawPip(g, lit, color) {
     g.circle(0, 0, 20).fill(color).stroke({ width: 6, color: 0xffffff })
     g.circle(-6, -7, 5).fill({ color: 0xffffff, alpha: 0.5 }) // glans
   } else {
-    g.circle(0, 0, 20).stroke({ width: 7, color: 0xffffff, alpha: 0.85 })
+    g.circle(0, 0, 20).stroke({ width: 10, color: 0x7a9bb8, alpha: 0.5 }) // mörk kontur: syns mot ljus himmel
+    g.circle(0, 0, 20).stroke({ width: 7, color: 0xffffff, alpha: 0.9 })
   }
 }
 
 // RITAD flygande enhörning (P0 ASSETS): kropp, ben, vingar, regnbågsman, horn och ansikte.
-function makeUnicorn() {
+function makeUnicorn(R = 40) {
   const c = new Container()
   const g = new Graphics()
-  const R = 40
   g.ellipse(0, R * 1.5, R * 0.9, R * 0.22).fill({ color: 0x000000, alpha: 0.12 })
   // bakre vinge
   g.moveTo(-R * 0.2, -R * 0.15).quadraticCurveTo(-R * 1.2, -R * 1.15, -R * 1.5, -R * 0.35)
@@ -862,8 +1342,7 @@ function makeUnicorn() {
     g.roundRect(bx * R - R * 0.1, R * 1.08, R * 0.2, R * 0.18, R * 0.06).fill(0xf0c8e0)
   }
   g.ellipse(0, R * 0.28, R * 0.94, R * 0.6).fill(0xfffdf7) // kropp
-  // svans i regnbågsfärger
-  const RB = [0xff6b6b, 0xff8a3d, 0xffd35c, 0x5bbf6a, 0x4aa3df, 0xa78bfa]
+  // svans i regnbågsfärger (RB = modulens regnbågsfärger)
   RB.forEach((col, i) => {
     g.moveTo(R * 0.85, R * 0.1 + i * 3)
       .quadraticCurveTo(R * 1.45, R * 0.1 + i * 6, R * 1.3, R * 0.85 + i * 3)

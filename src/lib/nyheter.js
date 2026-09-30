@@ -10,6 +10,18 @@
 
 export const NYHETER = [
   {
+    version: '1.283',
+    fran: '1.280',
+    datum: '2026-09-30',
+    titel: 'Fyra spel har fått nytt liv',
+    punkter: [
+      'Enhörningen Flyger: himlen skiftar mellan dag, skymning och kväll, enhörningen är större och drar en regnbåge efter sig, nya sorters ringar och en regnbågsport att flyga mot. Stjärnorna samlas i en säck.',
+      'Färgregn: Bobo står i regnet med ett paraply eller en hink i färgen man letar efter och fångar dropparna. Regnet faller ur moln, och på himlen växer en regnbåge fram för varje färg man lärt sig.',
+      'Peka på Kroppen: Zacke frågar själv i en pratbubbla, står på en lekplats, pekar när man behöver hjälp och dansar när rundan är klar. Ibland frågar han "Vad är det här?"',
+      'Skuggmatchning: en picknick i parken — sakerna står på en bänk och skuggorna ligger på filten.',
+    ],
+  },
+  {
     version: '1.279',
     datum: '2026-09-30',
     titel: 'Appen hämtar nya versioner själv',

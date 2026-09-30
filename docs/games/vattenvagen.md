@@ -67,13 +67,16 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
 - ✅ ~~**[Medium] Fler tomma celler, färre förplacerade.** Låt barnet bygga en större del av vägen
   själv (behåll bara käll-/mugg-bitarna fasta) så pusslet känns som *barnets* ledning.~~ Redan
   byggd 2026-07-02 (bara käll- och muggbiten förplaceras, :336) — uppdagat 2026-09-23.
-- **[Medium] Mjuka upp auto-hjälpen.** Behåll glöd-hinten, men låt 14s-hjälpen bara lägga *en*
+- ✅ ~~**[Medium] Mjuka upp auto-hjälpen.** Behåll glöd-hinten, men låt 14s-hjälpen bara lägga *en*
   bit och sedan vänta igen — och visa tydligt "Jag hjälper lite!" så barnet ser skillnaden
-  mellan sitt eget bygge och hjälpen.
+  mellan sitt eget bygge och hjälpen.~~ Hjälpen la redan EN bit åt gången; nu säger den också
+  "Jag hjälper till!" (om inget annat talar) och gnistrar på biten — 2026-10-01.
 
 ### Variation & överraskning
-- **[Medium] Inför fler rörtyper på högre nivåer.** Aktivera T-röret/korsningen (finns redan i
-  `BASE.tratt`) och låt vägen förgrenas till två muggar/plantor → äkta val, inte en linje.
+- ✅ ~~**[Medium] Inför fler rörtyper på högre nivåer.** Aktivera T-röret/korsningen (finns redan i
+  `BASE.tratt`) och låt vägen förgrenas till två muggar/plantor → äkta val, inte en linje.~~
+  Byggd 2026-10-01: bana 5, 7, 9 … har ett T-rör som delar vattnet åt två muggar (se §5).
+  Korsning (fyra portar) byggdes inte — T-röret räcker för en förgrening.
 - **[Quick] Ventil/kran-bit barnet får öppna** som sista steg ("vrid på kranen!") — ett litet
   klimax-moment innan vattnet släpps på.
 
@@ -85,8 +88,9 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
   ljud per nivå-höjning~~ Redan byggd i det väsentliga — uppdagat 2026-09-23: ytan är riktig
   vätska sedan 2026-08-09 (vågen kommer på köpet) och "glugg" spelas per femtedel som en stigande
   pentatonisk ton (:969). Bubblorna byggdes aldrig — en riktig vätskeyta rör sig redan själv.
-- **[Quick] Plantan vippar glatt när den får vatten** (utbruten ur punkten ovan 2026-09-23 — den
-  enda halvan som inte fanns): en liten gungning på plantan vid varje glugg-steg.
+- ✅ ~~**[Quick] Plantan vippar glatt när den får vatten** (utbruten ur punkten ovan 2026-09-23 — den
+  enda halvan som inte fanns): en liten gungning på plantan vid varje glugg-steg.~~ Byggd
+  2026-10-01 (`_plantGrow`: klämning + sträckning + gnistr per glugg, vilo-guppning däremellan).
 
 ### Progression
 - **[Quick] Receptbok/karta över klarade ledningar** eller en liten trädgård som får en ny
@@ -103,6 +107,41 @@ en enda förplacerad linje, och vars auto-hjälp gärna spelar klart åt barnet.
   *Blockerad så länge MOSS är nere (glugget finns som stämd ton, :969).*
 
 ## 5. Status / loggar
+
+- 2026-10-01 ✅ **Kontrastpass, fristående rörbitar, levande planta, T-rör** (ej körd i webbläsare —
+  bara `check`; orkestreraren testar). Allt var urblekt (vita brunnar alfa 0,1 på ljusblå himmel,
+  grå rör 0xc3ccd4, muggen alfa 0,22) och rörbitarna låg i vita cirkelhalor på en kräm-panel.
+  - **Scenen.** Kaklat badrum (mättad blågrön vägg via `createScene`-temaobjekt + halvstens-kakel
+    med svaga fogar, takskugga, mörkare vägg vid hyllan) och en trähylla som rör och muggar står
+    på. Full bleed (ritat över ±240/±160). Kranen är mässing med rött vred.
+  - **Brunnar.** Nedsänkta: ljus ram, mörk botten, skugga från överkanten, ljus underläpp.
+  - **Rören.** Ett färgat plaströr per typ (rak orange, böj gul, T lila) med `cylinderFill`, mörk
+    kontur, kopplingsringar och en mörk skåra som det blå vattnet fyller. Bitens struktur är nu
+    `view → body (vrids) → [skugga, rör, vatten]`; skuggan motroteras (`_shadowFix`) så den alltid
+    faller rakt ned. `_turns` räknar varv uppåt — förr tweenades 270° → 0° hela vägen tillbaka
+    när en bit vreds från rot 3 till 0.
+  - **[P0] Fristående bitar.** Panelen och halon är borta. Lådans bitar står på hyllan med egen
+    skugga och egen guppning (`liv` på ett BARN — stämpeln är drag-mål), träffyta 112 px. Lådans
+    läge söks fram (`_trayXs`) så den aldrig hamnar bakom mugg eller Elvira. Placerade bitar har
+    hela cellen (120 px) som träffyta (var en cirkel 140 px som överlappade grannarna).
+  - **Muggen.** Riktig glasmugg: mörk insida bakom vätskan, vit kontur, tjock botten, röd läpp,
+    handtag. Plantan är en stickling i glaset (stam + två blad + knopp) som lutar ut mot glasväggen
+    så den aldrig skymmer strålen, och slår ut till en blomma när muggen är full.
+  - **Plantan lever.** `liv` (vipp + guppning) hela tiden; vid varje glugg-steg klämmer den ihop
+    sig, sträcker sig ett snäpp högre och gnistrar; vid "Nu rinner det!" sträcker den på sig.
+  - **T-rör och två plantor.** Premissen höll delvis: `BASE.tratt` fanns och ritades, men
+    `pipeForPorts` gav bara rak/böj, och hela spelet antog ETT utlopp (`_exit`) och EN mugg
+    (`_mugX`). Byggt om: lösningen är ett träd (portar härleds ur kanter, T-röret får tre av sig
+    själv), `_traverse` är en flödesfyllning i bredd som samlar nådda muggar + öppna portar (läckor,
+    tak 3), `_mugs[]` bär fyllnad/planta/klar per mugg, `_exits[]` ersätter `_exit`. Varje insugen
+    droppe kommer ut ur ALLA utlopp, så varje mugg fylls lika fort som i en enkel bana; en full
+    mugg slutar ta emot. Banan är klar när båda blommar. Bana 5, 7, 9 … förgrenas (muggarna i de
+    yttersta kolumnerna, annars får lådan inte plats); 6, 8 … är enkla som förut. Partikeltaket
+    340 → 480, muggen smalare (halvbredd 50) i tvåmuggsbanan.
+  - **Auto-hjälpen** säger nu "Jag hjälper till!" och gnistrar på biten (P0: sent OCH synligt).
+  - **Att mäta:** FPS/partikelantal på bana 5 (taket 480 är ett antagande), att en drag-bit från sitt
+    faktiska läge når en brunn och bygger hela T-vägen, lådan vs mugg/Elvira på bana 5 och 7,
+    `_plattprobe --medbakgrund` före/efter.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): inga A-rader för spelet; passet var
   firandet. `_bloom` firade bara via `complete()` (rent), men nästa banas `voiceIntro` sades 2,1 s

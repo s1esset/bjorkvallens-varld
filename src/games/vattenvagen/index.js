@@ -12,31 +12,56 @@
 // källrörets mynning och kommer ut i andra änden efter en restid som växer med
 // vägens längd; kanal-overlayen (_paintFlow) visar färden. Målet läses ur vätskan:
 // muggens fyllnadsgrad är vattenYTANS höjd, inte en uppräknad siffra.
+//
+// FÖRGRENING (bana 5, 7, 9 …): ett T-rör delar vattnet åt två muggar med var sin planta.
+// Vägen är en TRÄD, inte en kedja — `_traverse` flödesfyller från kranen och samlar alla
+// muggar som nåtts plus alla öppna portar (läckor, högst tre). Banan är klar när båda
+// plantorna blommar; en full mugg slutar ta emot (annars svämmar den över medan den andra
+// fylls).
+//
+// SCENEN: ett kaklat badrum med en trähylla. Brunnarna är nedsänkta och mörka, rören är
+// färgade plaströr (en färg per typ) med egen skugga, och rörbitarna i lådan står på hyllan
+// som riktiga föremål — ingen panel, ingen halo.
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, puff, sparkle, ripple, burst, floatText, breathe } from '../../lib/feedback.js'
+import { bounceIn, pop, puff, sparkle, ripple, burst, floatText, breathe, liv, squash, wiggle, kvittera } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
-import { COLORS, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { COLORS, DESIGN_W, DESIGN_H, shade } from '../../lib/theme.js'
+import { cylinderFill, sphereFill, topLightFill, verticalFill, verticalFillAlpha, bage } from '../../lib/form.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
 // --- rutnäts-geometri (designkoordinater 1280×720) ---
 const CELL = 120
 const GRIDY0 = 200 // översta radens center-y
 // Rutnätet centreras efter antal kolumner — banorna växer i BREDD, aldrig i höjd:
-// en fjärde rad trycker muggen till y≈690 där brickan och skärmkanten äter den.
+// en fjärde rad trycker muggen till y≈690 där hyllan och skärmkanten äter den.
 const gridX0 = (cols) => 640 - ((cols - 1) * CELL) / 2
 
+// Hyllan (scenens golv): rörbitarna och muggarna står på den.
+const SHELF_Y = 606
+const STAMP_Y = 650 // rörbitarnas läge i lådan (mitt på hyllans ovansida)
+
 // --- muggens mått (relativt muggens center) ---
-const MUG_HW = 62 // inre halvbredd — mellan väggkollisionerna
 const MUG_FLOOR = 78 // inre botten
 const MUG_LINE = -44 // den streckade mållinjen
+const HW_ONE = 62 // inre halvbredd, en mugg
+const HW_TWO = 50 // smalare när två muggar delar scenen (färre partiklar, plats för lådan)
 
 // --- rör-modell: portar = öppna sidor (T=topp, R=höger, B=botten, L=vänster) ---
 const ROT = { T: 'R', R: 'B', B: 'L', L: 'T' } // medurs 90°
 const OPP = { T: 'B', B: 'T', L: 'R', R: 'L' }
 const BASE = { rak: ['T', 'B'], boj: ['T', 'R'], tratt: ['B', 'L', 'R'] }
+const TYPE_ORDER = ['rak', 'boj', 'tratt']
+// En färg per rörtyp: barnet ser i lådan vilken bit som är vilken, och färgerna står mot
+// den mörka kaklade väggen (orange/gul/lila mot blågrönt).
+const PIPE_COLOR = { rak: 0xff9b2f, boj: 0xffd23f, tratt: 0xc870f0 }
+const CHANNEL_DRY = 0x143248 // torr kanal (mörk skåra)
+const CHANNEL_WET = 0x4fc3f7 // vatten i kanalen
+const WELL_SHADOW = 0x04121b // skugga i en mörk brunn (ogenomskinlig — se _makePipe)
+const SHELF_SHADOW = 0x6b3f1c // skugga på hyllan
 
 function portsFor(type, rot) {
   let ps = BASE[type] || []
@@ -44,10 +69,11 @@ function portsFor(type, rot) {
   for (let i = 0; i < n; i++) ps = ps.map((d) => ROT[d])
   return ps
 }
-// Hitta {type,rot} vars portar exakt = de önskade två (raka/böj räcker för banan).
+// Hitta {type,rot} vars portar exakt = de önskade (två portar = rak/böj, tre = T-rör).
 function pipeForPorts(ports) {
   const want = [...ports].sort().join('')
-  for (const type of ['rak', 'boj']) {
+  for (const type of TYPE_ORDER) {
+    if (BASE[type].length !== ports.length) continue
     for (let r = 0; r < 4; r++) {
       if (portsFor(type, r).slice().sort().join('') === want) return { type, rot: r }
     }
@@ -78,41 +104,118 @@ const PORT_OUT = {
   R: { dx: 62, dy: 0, vx: 2.6, vy: 0.6 },
 }
 
-// Rita en rörbit (grå rörkropp + ljusblå innerkanal) för en uppsättning bas-portar.
+// --- rörbitens ritning ---
+const isVertical = (d) => d === 'T' || d === 'B'
+const isStraight = (dirs) => dirs.length === 2 && OPP[dirs[0]] === dirs[1]
+
 function armRect(dir, half, th) {
   if (dir === 'T') return [-th / 2, -half, th, half + 6]
   if (dir === 'B') return [-th / 2, -6, th, half + 6]
   if (dir === 'L') return [-half, -th / 2, half + 6, th]
   return [-6, -th / 2, half + 6, th] // R
 }
-function drawPipe(g, dirs) {
-  const HALF = 58
-  const BODY = 0xb8c4cc
-  const INNER = 0xbfe9ff
-  for (const d of dirs) {
-    const [x, y, w, h] = armRect(d, HALF, 56)
-    g.roundRect(x, y, w, h, 10).fill(BODY)
-  }
-  g.circle(0, 0, 28).fill(BODY)
-  for (const d of dirs) {
-    const [x, y, w, h] = armRect(d, HALF, 26)
-    g.roundRect(x, y, w, h, 8).fill(INNER)
-  }
-  g.circle(0, 0, 14).fill(INNER)
-  // liten glansstrimma
-  g.roundRect(-9, -52, 5, 30, 3).fill({ color: COLORS.white, alpha: 0.5 })
+// Kopplingsringen i varje rörände (något bredare än röret).
+function flangeRect(dir) {
+  if (dir === 'T') return [-33, -62, 66, 14]
+  if (dir === 'B') return [-33, 48, 66, 14]
+  if (dir === 'L') return [-62, -33, 14, 66]
+  return [48, -33, 14, 66] // R
 }
 
-// Rita ENBART innerkanalen i stark vattenblå — läggs som overlay ovanpå röret och
-// tonas in (alpha) allteftersom vattnet passerar → barnet SER flödet hitta vägen.
-function drawPipeWet(g, dirs) {
-  const HALF = 58
-  const WATER = COLORS.blue
+// Rörbitens yttre silhuett i EN färg. Används som mörk kontur under själva röret OCH som
+// skugga (då i hyllans/brunnens egen mörka ton). Ogenomskinlig med flit: en halvgenomskinlig
+// skugga ritad som flera överlappande former blir mörkare där de överlappar.
+function drawPipeSilhouette(g, dirs, color) {
   for (const d of dirs) {
-    const [x, y, w, h] = armRect(d, HALF, 26)
-    g.roundRect(x, y, w, h, 8).fill(WATER)
+    const [x, y, w, h] = armRect(d, 61, 62)
+    g.roundRect(x, y, w, h, 12).fill(color)
+    const [fx, fy, fw, fh] = flangeRect(d)
+    g.roundRect(fx - 1, fy - 1, fw + 2, fh + 2, 6).fill(color)
   }
-  g.circle(0, 0, 14).fill(WATER)
+  if (!isStraight(dirs)) g.circle(0, 0, 31).fill(color)
+}
+
+// Ett färgat plaströr med volym: cylinder-toning tvärs över varje arm (ljus i mitten, mörk
+// mot kanterna), kopplingsringar i ändarna och en mörk skåra som vattnet sedan fyller.
+// Toningen är symmetrisk, så bitens ljus ser likadan ut vridet åt alla fyra håll.
+function drawPipe(g, dirs, color) {
+  const straight = isStraight(dirs)
+  drawPipeSilhouette(g, dirs, shade(color, 0.55))
+  for (const d of dirs) {
+    const [x, y, w, h] = armRect(d, 58, 56)
+    g.roundRect(x, y, w, h, 10).fill(cylinderFill(color, { axis: isVertical(d) ? 'y' : 'x' }))
+  }
+  // Knuten behövs bara i en böj/T där armarna lämnar ett hörn öppet; i ett rakt rör hade den
+  // blivit en mörk ring mitt på röret.
+  if (!straight) {
+    g.circle(0, 0, 28).fill(sphereFill(color, { lightX: 0.5, lightY: 0.42, spread: 0.6, highlight: 0.3, dark: 0.2 }))
+  }
+  for (const d of dirs) {
+    const [fx, fy, fw, fh] = flangeRect(d)
+    g.roundRect(fx, fy, fw, fh, 5)
+      .fill(cylinderFill(shade(color, 0.18), { axis: isVertical(d) ? 'y' : 'x' }))
+      .stroke({ width: 2, color: shade(color, 0.55) })
+  }
+  drawChannel(g, dirs, CHANNEL_DRY)
+}
+
+function drawChannel(g, dirs, color) {
+  for (const d of dirs) {
+    const [x, y, w, h] = armRect(d, 58, 26)
+    g.roundRect(x, y, w, h, 8).fill(color)
+  }
+  g.circle(0, 0, 14).fill(color)
+}
+
+// ENBART innerkanalen i vattenblått — läggs som overlay ovanpå röret och tonas in (alpha)
+// allteftersom vattnet passerar → barnet SER flödet hitta vägen.
+function drawPipeWet(g, dirs) {
+  drawChannel(g, dirs, CHANNEL_WET)
+}
+
+// --- scenen: kaklat badrum + trähylla ---
+function makeBackdrop(W, H) {
+  const root = new Container()
+  root.eventMode = 'none'
+  root.interactiveChildren = false
+  // Mättad blågrön vägg med bokeh och vinjett (scenens eget tema-objekt, inte en egen
+  // gradientbakning). Kaklet läggs ovanpå.
+  root.addChild(createScene({ top: 0x164a66, bottom: 0x2b7f9b, bokeh: 6 }, { width: W, height: H, ground: false }))
+
+  const d = new Graphics()
+  d.eventMode = 'none'
+  const X0 = -BLEED_X - 120
+  const X1 = W + BLEED_X
+  const TW = 120
+  const TH = 60
+  const GROUT = 0x072433
+  const Y0 = -BLEED_Y
+  // Kakel i halvstens-förband. Glansen varierar deterministiskt från bricka till bricka så
+  // väggen inte läser som en jämn yta; fogarna är tunna och svaga så rören förblir läsbara.
+  for (let r = 0; Y0 + r * TH < SHELF_Y; r++) {
+    const y = Y0 + r * TH
+    const off = (r % 2) * (TW / 2)
+    for (let i = 0, x = X0 - off; x < X1; i++, x += TW) {
+      const a = 0.02 + ((r * 7 + i * 13) % 5) * 0.012
+      d.roundRect(x + 6, y + 7, TW - 12, TH - 13, 9).fill({ color: 0xffffff, alpha: a })
+    }
+    d.rect(X0, y, X1 - X0, 3).fill({ color: GROUT, alpha: 0.42 })
+    for (let x = X0 - off; x < X1; x += TW) d.rect(x, y + 3, 3, TH - 3).fill({ color: GROUT, alpha: 0.42 })
+  }
+  // Takskugga överst och mörkare vägg närmast hyllan (djup).
+  d.rect(-BLEED_X, -BLEED_Y, W + 2 * BLEED_X, BLEED_Y + 210).fill(verticalFillAlpha(0x010b12, 0x010b12, 0.5, 0))
+  d.rect(-BLEED_X, SHELF_Y - 46, W + 2 * BLEED_X, 46).fill(verticalFillAlpha(0x010b12, 0x010b12, 0, 0.42))
+
+  // Trähyllan: ovansida (ljus), framkant (mörk), överkantsglans, plankfogar.
+  const SHELF_TOP_H = 96
+  d.rect(-BLEED_X, SHELF_Y, W + 2 * BLEED_X, SHELF_TOP_H).fill(verticalFill(0xdba463, 0xb97f43))
+  d.rect(-BLEED_X, SHELF_Y + SHELF_TOP_H, W + 2 * BLEED_X, H + BLEED_Y - SHELF_Y - SHELF_TOP_H).fill(verticalFill(0x8c562a, 0x5b3516))
+  d.rect(-BLEED_X, SHELF_Y, W + 2 * BLEED_X, 4).fill({ color: 0xffe9bd, alpha: 0.7 })
+  d.rect(-BLEED_X, SHELF_Y + SHELF_TOP_H - 3, W + 2 * BLEED_X, 3).fill({ color: 0x5b3516, alpha: 0.5 })
+  for (let x = X0 + 40; x < X1; x += 290) d.rect(x, SHELF_Y + 4, 3, SHELF_TOP_H - 7).fill({ color: 0x5b3516, alpha: 0.16 })
+  for (let k = 0; k < 2; k++) d.rect(-BLEED_X, SHELF_Y + 30 + k * 30, W + 2 * BLEED_X, 2).fill({ color: 0x5b3516, alpha: 0.1 })
+  root.addChild(d)
+  return root
 }
 
 // Elvira — den törstiga mottagaren som väntar bredvid muggen (helt programmatisk,
@@ -124,6 +227,11 @@ function makeElvira() {
   const shirt = COLORS.pink
   const shirtDark = 0xe87da8
   const hair = 0xf4cf63 // Elvira är blond (ägarens önskemål)
+
+  // Skugga på hyllan.
+  const sh = new Graphics().ellipse(0, 96, 54, 12).fill({ color: 0x000000, alpha: 0.3 })
+  sh.eventMode = 'none'
+  c.addChild(sh)
 
   // Tofsar bakom huvudet.
   c.addChild(new Graphics().circle(-40, -56, 16).fill(hair).circle(40, -56, 16).fill(hair))
@@ -160,7 +268,7 @@ function makeElvira() {
   head.circle(-20, -48, 6).fill({ color: 0xffb0b0, alpha: 0.7 }) // kinder
   head.circle(20, -48, 6).fill({ color: 0xffb0b0, alpha: 0.7 })
   c.addChild(head)
-  const mouth = new Graphics().arc(0, -50, 13, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 4, color: 0x9a5b3b })
+  const mouth = bage(new Graphics(), 0, -50, 13, 0.15 * Math.PI, 0.85 * Math.PI).stroke({ width: 4, color: 0x9a5b3b })
   c.addChild(mouth)
   c._mouth = mouth
 
@@ -173,6 +281,19 @@ function makeElvira() {
       .circle(0, -90, 6).fill(0xd64a4a)
   )
   return c
+}
+
+// Ett blad som pekar åt +x (speglas med scale.x). Toningen ligger lodrätt i bladets egen ruta.
+function makeLeaf(len, color) {
+  const g = new Graphics()
+  g.moveTo(0, 0)
+    .quadraticCurveTo(len * 0.45, -len * 0.42, len, 0)
+    .quadraticCurveTo(len * 0.45, len * 0.42, 0, 0)
+    .fill(topLightFill(color))
+    .stroke({ width: 2.5, color: shade(color, 0.4) })
+  g.moveTo(3, 0).lineTo(len * 0.8, 0).stroke({ width: 2, color: shade(color, 0.35), alpha: 0.7 })
+  g.eventMode = 'none'
+  return g
 }
 
 export default {
@@ -190,28 +311,40 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Mjuk vattenblå scen (ground:false) som FÖRSTA barn.
-    this._root.addChild(createScene('water', { width: ctx.width, height: ctx.height, ground: false }))
+    // Kaklat badrum som FÖRSTA barn (full bleed — ritat över hela den synliga ytan).
+    this._root.addChild(makeBackdrop(ctx.width, ctx.height))
 
     // Per-bana-bräde (innehållet rensas mellan banor; lagren själva ligger kvar,
     // för vätskelagret får inte rivas med banan).
+    // Osynlig tap-fångare under brädet: ett tryck på väggen, en tom brunn eller muggen ger
+    // ett mjukt ljud + en liten ring där fingret var (P0: varje pekning svarar).
+    const fangare = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, DESIGN_W + 2 * BLEED_X, DESIGN_H + 2 * BLEED_Y)
+      .fill({ color: 0x000000, alpha: 0 })
+    fangare.eventMode = 'static'
+    fangare.on('pointertap', (e) => {
+      if (!this._alive) return
+      const p = this._root.toLocal(e.global)
+      kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio, { color: 0x9fdcf5 })
+    })
+    this._root.addChild(fangare)
+
     this._board = new Container()
     this._root.addChild(this._board)
 
-    // Lager-ordning: rutor → rör → VÄTSKA → bricka(panel) → rekvisita → glöd → brickans rör.
-    // Vätskan ligger framför rören (en läcka ska synas) men bakom muggen, så muggens
-    // vatten ses GENOM glaset. Brickans panel ligger bakom muggen — annars döljer den
-    // muggens nedre hälft, precis där vattennivån stiger.
+    // Lager-ordning: rutor + muggarnas baksida → rör → VÄTSKA → rekvisita (mugg, kran, Elvira)
+    // → glöd → rörbitarna i lådan. Vätskan ligger framför rören (en läcka ska synas) men
+    // bakom muggen, så muggens vatten ses GENOM glaset.
     this._gridLayer = new Container()
     this._pipeLayer = new Container()
     this._board.addChild(this._gridLayer, this._pipeLayer)
 
     this._fluid = new FluidWorld({
-      // Muggen rymmer ~220 partiklar upp till mållinjen, och strålarna lever
-      // ovanpå det. Taket måste ligga klart över summan: när det nås återanvänds
-      // den ÄLDSTA partikeln — alltså vattnet som redan ligger stilla i muggen.
-      // Uppmätt topp: 260 vid full mugg.
-      max: 340,
+      // En mugg rymmer ~220 partiklar upp till mållinjen (~180 i den smalare tvåmuggsbanan),
+      // och strålarna lever ovanpå det. Taket måste ligga klart över summan: när det nås
+      // återanvänds den ÄLDSTA partikeln — alltså vattnet som redan ligger stilla i muggen.
+      // Uppmätt topp med en mugg: 260. Två muggar + stråle + läckor: ~450.
+      max: 480,
       radius: 22,
       gravityY: 0.5,
       rho0: FLUIDS.vatten.rho0,
@@ -220,7 +353,7 @@ export default {
       restitution: 0.06,
       wallFriction: 0.3,
       // Inga världsväggar: spill ska rinna ur bild och städas av _cull, inte samlas
-      // i en pöl bakom brickan där ingen ser den.
+      // i en pöl bakom hyllan där ingen ser den.
       walls: { left: false, right: false, bottom: false, top: false },
       bounds: { left: -160, right: DESIGN_W + 160, top: -160, bottom: DESIGN_H + 140 },
     })
@@ -230,7 +363,7 @@ export default {
     // ljusblå himmel = osynlig. Uppmätt i _vatskeprobe.mjs.
     this._fluidView = new FluidView(this._board, this._fluid, {
       color: FLUIDS.vatten.color,
-      edge: 0x8fd4f5,
+      edge: 0xc9efff,
       alpha: FLUIDS.vatten.alpha,
       blobScale: 1.25,
       threshold: 0.34,
@@ -244,22 +377,22 @@ export default {
     this._fluidView.layer.eventMode = 'none'
     this._fluidView.layer.interactiveChildren = false
 
-    this._trayBackLayer = new Container()
-    this._trayBackLayer.eventMode = 'none'
     this._propLayer = new Container()
     this._glowLayer = new Container()
     this._glowLayer.eventMode = 'none'
     this._trayLayer = new Container()
-    this._board.addChild(this._trayBackLayer, this._propLayer, this._glowLayer, this._trayLayer)
+    this._board.addChild(this._propLayer, this._glowLayer, this._trayLayer)
 
     this._drag = new DragController({ space: this._board, services: ctx.services })
 
     // Tillstånd
     this._pipes = []
     this._stones = []
+    this._mugs = []
+    this._livs = [] // vilo-guppningar (liv) — egna tweens som killTweensOf inte når
     this._glow = null
-    this._fill = 0
-    this._connected = false
+    this._connected = false // ALLA muggar har vatten på väg
+    this._reachedN = 0
     this._resolving = false
     this._idle = 0
     this._hintShown = false
@@ -267,8 +400,7 @@ export default {
     this._clock = 0
     this._mounted = false
     this._queue = [] // vatten på väg genom rören: tidpunkt då droppen kommer ut
-    this._exit = null // var vattnet kommer ut just nu (mugg eller läcka)
-    this._gluggSteg = 0
+    this._exits = [] // var vattnet kommer ut just nu (muggar och läckor)
 
     this._level = Math.max(1, ctx.progress.get().highestLevel | 0)
 
@@ -289,7 +421,8 @@ export default {
 
   mount(ctx) {
     this._mounted = true
-    ctx.services.voice.say(this.voiceIntro)
+    if (this._mugs.length > 1) ctx.services.voice.say('Lägg rören så vattnet rinner ner till båda muggarna!')
+    else ctx.services.voice.say(this.voiceIntro)
   },
 
   // ---- bana ----
@@ -300,65 +433,56 @@ export default {
     // Städa förra banan (lagren återanvänds — vätskelagret får inte rivas).
     this._drag.clear()
     this._clearGlow()
-    this._pipes.forEach((p) => this._killViewTweens(p))
-    this._stones.forEach((s) => this._killViewTweens(s))
-    this._elviraBreath?.kill()
-    if (this._elvira) this._killViewTweens(this._elvira)
+    this._killAll()
     this._elvira = null
-    for (const l of [this._gridLayer, this._pipeLayer, this._trayBackLayer, this._propLayer, this._glowLayer, this._trayLayer]) {
+    for (const l of [this._gridLayer, this._pipeLayer, this._propLayer, this._glowLayer, this._trayLayer]) {
       l.removeChildren().forEach((o) => o.destroy({ children: true }))
     }
     this._pipes = []
     this._stones = []
+    this._mugs = []
     this._fluid.clear()
     this._fluid.clearColliders()
     this._queue = []
-    this._exit = null
-    this._gluggSteg = 0
+    this._exits = []
+    this._reachedN = 0
 
     // Planera en garanterat lösbar bana.
     const plan = this._planLevel(this._level)
     this._cols = plan.cols
     this._rows = plan.rows
     this._sourceCol = plan.sourceCol
-    this._mugCol = plan.mugCol
 
-    const path = this._generatePath(plan)
-    this._solution = path.map((c, i) => {
-      const enter = i === 0 ? 'T' : opposite(dirBetween(path[i - 1], c))
-      const exit = i === path.length - 1 ? 'B' : dirBetween(c, path[i + 1])
-      const { type, rot } = pipeForPorts([enter, exit])
-      return { col: c.col, row: c.row, type, rot }
-    })
+    // Lösningen är ett TRÄD av celler med sina portar (en kedja på de enkla banorna).
+    this._solution = this._generateSolution(plan)
 
-    // Vilka rör ligger redan vs. ska barnet lägga? Förplacera BARA käll-biten
-    // (index 0) + mugg-biten (sista) — barnet bygger HELA resten av ledningen
-    // själv (mer agens; docs §4 "fler tomma celler, färre förplacerade").
-    const lastIdx = this._solution.length - 1
-    const missingSet = new Set()
-    this._solution.forEach((_, i) => {
-      if (i !== 0 && i !== lastIdx) missingSet.add(i)
-    })
+    // Förplacera BARA käll-biten (index 0) + mugg-bitarna (nedersta raden) — barnet bygger
+    // HELA resten av ledningen själv (mer agens; docs §4 "fler tomma celler, färre förplacerade").
+    const isFixed = (s, i) => i === 0 || s.row === this._rows - 1
 
     // Käll-/mugg-koordinater.
     this._gx0 = gridX0(this._cols)
     this._lastRowY = GRIDY0 + (this._rows - 1) * CELL
     this._sourceX = cellCenter(this._gx0, this._sourceCol, 0).x
-    this._mugX = cellCenter(this._gx0, this._mugCol, this._rows - 1).x
     this._mugY = this._lastRowY + 145
 
-    // Rutnätsceller + drop-mål.
+    // Rutnätsceller + drop-mål. Brunnarna är NEDSÄNKTA: ljus ram, mörk botten med skugga från
+    // överkanten — då står rören ut mot dem i stället för att flyta i vitt alfa.
     this._grid = []
     for (let r = 0; r < this._rows; r++) {
       const row = []
       for (let c = 0; c < this._cols; c++) {
         const center = cellCenter(this._gx0, c, r)
         const cell = { col: c, row: r, x: center.x, y: center.y, pipe: null, stone: null }
-        const well = new Graphics()
-          .roundRect(-56, -56, 112, 112, 18)
-          .fill({ color: COLORS.white, alpha: 0.1 })
-          .stroke({ width: 3, color: COLORS.white, alpha: 0.35 })
+        const well = new Container()
         well.eventMode = 'none'
+        well.addChild(
+          new Graphics().roundRect(-58, -58, 116, 116, 20).fill(0x3c8fb0).stroke({ width: 3, color: 0x0b2c40 }),
+          new Graphics().roundRect(-51, -51, 102, 102, 14).fill(verticalFill(0x051927, 0x134560)),
+          new Graphics().roundRect(-49, -49, 98, 20, 10).fill({ color: 0x000000, alpha: 0.3 }),
+          new Graphics().roundRect(-44, 47, 88, 3, 1.5).fill({ color: 0xffffff, alpha: 0.16 })
+        )
+        well.children.forEach((g) => { g.eventMode = 'none' })
         const view = new Container()
         view.position.set(center.x, center.y)
         view.addChild(well)
@@ -374,34 +498,45 @@ export default {
       this._grid.push(row)
     }
 
-    // Kran + pip.
-    // RITAD kran (var en 🚰-emoji i en blå ruta): vägghållare, böjt rör och pip.
+    // Kran + pip. RITAD mässingskran (vägghållare, böjt rör, pip och rött vred).
+    const BRASS = 0xe0a93a
+    const brassEdge = shade(BRASS, 0.5)
     const tap = new Graphics()
-    tap.roundRect(-34, -34, 26, 68, 8).fill(0xb6c0cc).stroke({ width: 4, color: 0x8d99a6 }) // vägghållare
-    tap.roundRect(-8, -14, 44, 18, 8).fill(0xc3ccd4).stroke({ width: 4, color: 0x8d99a6 })  // horisontellt rör
-    tap.roundRect(26, -6, 18, 32, 6).fill(0xc3ccd4).stroke({ width: 4, color: 0x8d99a6 })   // nedåtpip
-    tap.roundRect(-2, -42, 30, 12, 6).fill(0x4aa3df).stroke({ width: 4, color: 0x2f7fb8 })  // vred
-    tap.circle(13, -36, 9).fill(0x6ac0f0).stroke({ width: 4, color: 0x2f7fb8 })
-    tap.roundRect(-30, -24, 8, 48, 4).fill({ color: 0xffffff, alpha: 0.35 })
+    tap.roundRect(-34, -34, 26, 68, 8).fill(cylinderFill(BRASS, { axis: 'y' })).stroke({ width: 4, color: brassEdge }) // vägghållare
+    tap.roundRect(-8, -14, 44, 18, 8).fill(cylinderFill(BRASS, { axis: 'x' })).stroke({ width: 4, color: brassEdge }) // horisontellt rör
+    tap.roundRect(26, -6, 18, 32, 6).fill(cylinderFill(BRASS, { axis: 'y' })).stroke({ width: 4, color: brassEdge }) // nedåtpip
+    tap.roundRect(-2, -42, 30, 12, 6).fill(topLightFill(0xe8523f)).stroke({ width: 4, color: 0x8f2a20 }) // vred
+    tap.circle(13, -36, 9).fill(sphereFill(0xff7b6b)).stroke({ width: 4, color: 0x8f2a20 })
     // Kranen sitter så högt att strålen SYNS innan den går in i röret, och pipen
     // (lokalt x 26..44, skala 1.35) centreras över källkolumnen så vattnet kommer
-    // ur pipen och inte bredvid den. Den gamla vita "pip-remsan" är borttagen —
-    // den var en målad vattenstråle, och nu finns en riktig.
+    // ur pipen och inte bredvid den.
     tap.position.set(this._sourceX - 47, GRIDY0 - 142)
-    tap.scale.set(1.35) // matchar den 96px-emoji den ersatte i visuell tyngd
+    tap.scale.set(1.35)
     tap.eventMode = 'none'
     this._propLayer.addChild(tap)
     this._tapY = GRIDY0 - 112 // pipens mynning: där vattnet föds
 
-    // Mugg + planta (mål).
-    this._buildMug()
+    // Muggar + plantor (mål). Två muggar när vägen förgrenas.
+    const two = plan.mugCols.length > 1
+    const hw = two ? HW_TWO : HW_ONE
+    plan.mugCols.forEach((col, idx) => {
+      const x = cellCenter(this._gx0, col, this._rows - 1).x
+      // Handtaget vetter inåt (mot mitten/lådan), plantan lutar åt andra hållet.
+      const handle = two ? (idx === 0 ? 1 : -1) : x >= 640 ? -1 : 1
+      const m = { idx, col, x, y: this._mugY, hw, W: hw + 13, handle, lean: -handle, done: false, connected: false, fill: 0, steg: 0 }
+      this._mugs.push(m)
+      this._buildMug(m)
+    })
 
-    // Elvira väntar törstig BREDVID muggen (mot närmaste kant så hon inte skymmer
-    // rutnätet). Hon "andas" (lever) och jublar/dricker när vattnet kommer.
+    // Elvira väntar törstig BREDVID muggen (mot närmaste skärmkant så hon inte skymmer
+    // rutnätet; vid två muggar står hon utanför den vänstra). Hon "andas" (lever) och
+    // jublar/dricker när vattnet kommer.
     this._elvira = makeElvira()
     const ey = Math.min(this._mugY, 560)
-    const side = this._mugX >= 640 ? 1 : -1 // stå mot den närmaste skärmkanten
-    const ex = Math.max(190, Math.min(1105, this._mugX + side * 150))
+    const first = this._mugs[0]
+    const ex = two
+      ? Math.max(190, first.x - 150)
+      : Math.max(190, Math.min(1105, first.x + (first.x >= 640 ? 1 : -1) * 150))
     this._elvira.position.set(ex, ey)
     this._elvira.scale.set(0.78)
     this._elvira.eventMode = 'none'
@@ -411,13 +546,13 @@ export default {
 
     // Förplacerade rör (rätt typ + rotation → kopplar redan).
     this._solution.forEach((s, i) => {
-      if (missingSet.has(i)) return
+      if (!isFixed(s, i)) return
       const cell = this._cellAt(s.col, s.row)
       if (cell) this._placePipeInCell(ctx, cell, s.type, s.rot, false)
     })
 
     // Stenar (aldrig på lösningsvägen).
-    const pathKeys = new Set(path.map((c) => c.col + ',' + c.row))
+    const pathKeys = new Set(this._solution.map((c) => c.col + ',' + c.row))
     let stoneCells = []
     if (plan.stones === 'auto') {
       const free = []
@@ -432,43 +567,54 @@ export default {
       if (cell && !cell.pipe) cell.stone = this._makeStone(ctx, cell)
     })
 
-    // Rörbricka (oändlig tillgång): de typer som saknas.
-    const trayRect = new Graphics().roundRect(120, 600, 1040, 96, 28).fill({ color: COLORS.cream, alpha: 0.85 })
-    trayRect.eventMode = 'none'
-    this._trayBackLayer.addChild(trayRect)
-    let types = [...new Set(this._solution.filter((_, i) => missingSet.has(i)).map((s) => s.type))]
+    // Rörbitarna (oändlig tillgång): de typer som saknas. De står FRISTÅENDE på hyllan —
+    // egen skugga, egen guppning, ingen panel och ingen halo.
+    let types = [...new Set(this._solution.filter((s, i) => !isFixed(s, i)).map((s) => s.type))]
+    types.sort((a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b))
     if (!types.length) types = ['rak']
-    // Brickans rör får inte hamna bakom muggen — muggen står PÅ brickan och skymde
-    // annars den bit barnet ska dra. Krockar mitten, flytta hela raden åt andra hållet.
-    const bredd = (types.length - 1) * 180
-    let startX = 640 - bredd / 2
-    if (Math.abs(this._mugX - 640) < bredd / 2 + 130) {
-      startX = this._mugX < 640 ? 1090 - bredd : 190
-    }
+    // Lådan får inte hamna bakom en mugg eller Elvira — den står på hyllan och skymde
+    // annars just den bit barnet ska dra. Leta upp en ledig sträcka på hyllan.
+    const occupied = this._mugs.map((m) => [m.x - m.W - (m.handle < 0 ? 52 : 10), m.x + m.W + (m.handle > 0 ? 52 : 10)])
+    occupied.push([ex - 60, ex + 60])
+    const xs = this._trayXs(types.length, occupied)
     types.forEach((type, i) => {
       const stamp = new Container()
-      stamp.position.set(startX + i * 180, 648)
-      const halo = new Graphics().circle(0, 0, 58).fill({ color: COLORS.white, alpha: 0.35 })
-      halo.eventMode = 'none'
+      stamp.position.set(xs[i], STAMP_Y)
+      const sh = new Graphics()
+      drawPipeSilhouette(sh, BASE[type], SHELF_SHADOW)
+      sh.scale.set(0.66)
+      sh.position.set(0, 9)
+      sh.eventMode = 'none'
+      // Bitens eget liv bor i ett BARN: stämpeln är drag-mål och träffyta och får inte guppa.
+      const wrap = new Container()
+      wrap.eventMode = 'none'
       const pv = this._makePipe(type)
-      pv.scale.set(0.6)
+      pv.scale.set(0.66)
       pv.eventMode = 'none'
-      stamp.addChild(halo, pv)
-      stamp.hitArea = new Circle(0, 0, 62)
+      wrap.addChild(pv)
+      stamp.addChild(sh, wrap)
+      // 112 px i diameter (>= 96) — större än själva biten, så halon bor i träffytan. Med tre
+      // bitar på hyllan (avstånd 122) krymper den till 96 så ytorna håller 24 px isär (P0).
+      stamp.hitArea = new Circle(0, 0, types.length >= 3 ? 48 : 56)
       this._trayLayer.addChild(stamp)
+      this._liv(wrap, { bob: 3.5, sway: 0.03, duration: 2.1 + Math.random() * 0.9, phase: Math.random() })
       this._drag.addItem(
         stamp,
         { type },
         {
           onSelect: () => this._resetIdle(),
           onCorrect: (rec, target) => this._onStampDrop(ctx, rec, target),
-          onWrong: () => {},
+          // Ett redan fyllt hål är roligt, inte fel: biten fjädrar hem och den som sitter där vinglar.
+          onWrong: (rec, target) => {
+            const c = target && target.cell
+            if (c && c.pipe) wiggle(c.pipe)
+            else if (c && c.stone) wiggle(c.stone)
+          },
         }
       )
     })
 
     // Nollställ vattentillstånd.
-    this._fill = 0
     this._connected = false
     this._resolving = false
     this._idle = 0
@@ -481,117 +627,287 @@ export default {
       // mitt i berömmet (1,0–2,3 s), som `say()` kapade. Banan syns genast; bara orden
       // väntar in rösten, och bara så länge vattnet inte redan hittat fram på DEN här banan.
       const bana = this._level
+      const tva = this._mugs.length > 1
       ctx.later(0.5, () => ctx.narTyst(() => {
-        if (this._alive && this._level === bana && !this._connected) ctx.services.voice.say(this.voiceIntro)
+        if (!this._alive || this._level !== bana || this._connected) return
+        if (tva) ctx.services.voice.say('Lägg rören så vattnet rinner ner till båda muggarna!')
+        else ctx.services.voice.say(this.voiceIntro)
       }))
     }
   },
 
-  _buildMug() {
-    const mug = new Container()
-    mug.position.set(this._mugX, this._mugY)
-    const shadow = new Graphics().ellipse(this._mugX, this._mugY + 92, 72, 18).fill({ color: COLORS.shadow, alpha: 0.12 })
+  // Rörbitarnas x på hyllan: en sammanhängande rad som inte rör något upptaget intervall.
+  // Mitten först, sedan allt längre ut åt båda håll.
+  _trayXs(n, occupied) {
+    const S = n >= 3 ? 122 : 150
+    const R = 58
+    const span = (n - 1) * S
+    const fits = (cx) => {
+      const a = cx - span / 2 - R
+      const b = cx + span / 2 + R
+      if (a < 60 || b > DESIGN_W - 60) return false
+      return occupied.every((o) => b < o[0] || a > o[1])
+    }
+    const row = (cx) => Array.from({ length: n }, (_, i) => cx - span / 2 + i * S)
+    for (let off = 0; off <= 520; off += 16) {
+      if (fits(640 + off)) return row(640 + off)
+      if (fits(640 - off)) return row(640 - off)
+    }
+    return row(640) // kan inte inträffa med dagens banor; hellre överlapp än ingen låda
+  },
+
+  _buildMug(m) {
+    const { x, y, hw, W } = m
+    const dir = m.handle
+
+    // Muggens INSIDA ligger BAKOM vätskan (rutnätslagret): mörk botten så det ljusblå
+    // vattnet syns tydligt, och glaset får en insida att vara genomskinligt framför.
+    const back = new Container()
+    back.position.set(x, y)
+    back.eventMode = 'none'
+    const inside = new Graphics().roundRect(-(hw + 6), -82, 2 * (hw + 6), 164, 20).fill(verticalFillAlpha(0x0a2a3f, 0x1b5573, 0.8, 0.9))
+    inside.eventMode = 'none'
+    back.addChild(inside)
+    this._gridLayer.addChild(back)
+
+    const shadow = new Graphics().ellipse(x, y + 90, W + 14, 17).fill({ color: 0x000000, alpha: 0.28 })
     shadow.eventMode = 'none'
-    // Glaset ligger FRAMFÖR vätskan, så dess alpha bleker vattnet. 0.5 gjorde en
-    // full mugg till en ljusblå kloss; 0.22 låter vattnet behålla sin färg och
-    // glaset läsas på sin kontur och sin glansstrimma i stället.
-    const glass = new Graphics()
-      .roundRect(-75, -85, 150, 170, 24)
-      .fill({ color: 0xbfe9ff, alpha: 0.22 })
-      .stroke({ width: 5, color: COLORS.white, alpha: 0.8 })
-    const glans = new Graphics().roundRect(-58, -70, 16, 120, 8).fill({ color: COLORS.white, alpha: 0.45 })
-    const line = new Graphics() // streckad gul fyll-linje (mål-nivå)
-    for (let x = -54; x < 54; x += 18) line.roundRect(x, -44, 10, 4, 2).fill({ color: COLORS.yellow, alpha: 0.95 })
-    // RITAD grodd i kruka (var en 🌱-emoji).
-    const plant = new Graphics()
-    plant.moveTo(-20, 4).lineTo(20, 4).lineTo(15, 26).lineTo(-15, 26).closePath()
-    plant.fill(0x9a5c33).stroke({ width: 3, color: 0x6f4a2e })
-    plant.roundRect(-23, -4, 46, 11, 4).fill(0xc98a4b).stroke({ width: 3, color: 0x6f4a2e })
-    plant.roundRect(-3, -30, 6, 30, 3).fill(0x5bbf6a)
-    plant.ellipse(-15, -26, 14, 9).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
-    plant.ellipse(15, -34, 14, 9).fill(0x6fd07a).stroke({ width: 3, color: 0x3f8a44 })
-    plant.position.set(0, -92)
-    this._plant = plant
-    mug.addChild(glass, glans, line, plant)
+
+    const mug = new Container()
+    mug.position.set(x, y)
     mug.eventMode = 'none'
+
+    // Handtag (bakom glaset): ett rör i två toner så det läser som en rund list.
+    const hg = new Graphics()
+    const hcx = dir * (W + 2)
+    const a0 = dir > 0 ? -Math.PI / 2 : Math.PI / 2
+    const a1 = dir > 0 ? Math.PI / 2 : Math.PI * 1.5
+    bage(hg, hcx, -4, 34, a0, a1).stroke({ width: 18, color: shade(0xff6b6b, 0.35), cap: 'round' })
+    bage(hg, hcx, -4, 34, a0, a1).stroke({ width: 10, color: 0xff8f8f, cap: 'round' })
+
+    // Glaset ligger FRAMFÖR vätskan, så dess alpha bleker vattnet: lågt fyllnadsvärde så
+    // vattnet behåller sin färg, och glaset läses i stället på sin vita kontur, tjocka botten
+    // och glansstrimma mot den mörka insidan.
+    const glass = new Graphics()
+      .roundRect(-W, -85, 2 * W, 170, 24)
+      .fill({ color: 0xcdeeff, alpha: 0.14 })
+      .stroke({ width: 6, color: COLORS.white, alpha: 0.95 })
+    const base = new Graphics().roundRect(-W + 8, 62, 2 * W - 16, 14, 7).fill({ color: COLORS.white, alpha: 0.22 })
+    const glans = new Graphics().roundRect(-W + 17, -68, 14, 110, 7).fill({ color: COLORS.white, alpha: 0.5 })
+    const line = new Graphics() // streckad gul fyll-linje (mål-nivå)
+    for (let lx = -(hw - 8); lx < hw - 8; lx += 18) line.roundRect(lx, -44, 10, 4, 2).fill({ color: COLORS.yellow, alpha: 0.95 })
+    const rim = new Graphics()
+      .roundRect(-W - 6, -96, 2 * W + 12, 18, 9)
+      .fill(topLightFill(0xff6b6b))
+      .stroke({ width: 3, color: 0xa83c3c })
+    for (const g of [hg, glass, base, glans, line, rim]) g.eventMode = 'none'
+
+    // RITAD grodd i glaset (en stickling i vatten): stam, två blad och en knopp. Sitter nära
+    // glasväggen och lutar UTÅT, så den aldrig hamnar i strålen mitt i muggen. Hela växten
+    // ligger i `stam` (sträcks vid varje glugg) och `wrap` (vippar, vilo-guppar, kläms).
+    const L = m.lean
+    const wrap = new Container()
+    wrap.position.set(L * hw * 0.6, -34)
+    wrap.eventMode = 'none'
+    const stam = new Container()
+    stam.eventMode = 'none'
+    const stem = new Graphics()
+    stem.moveTo(0, 0).quadraticCurveTo(L * 16, -42, L * 12, -86).stroke({ width: 8, color: 0x2f8f45, cap: 'round' })
+    stem.moveTo(0, 0).quadraticCurveTo(L * 16, -42, L * 12, -86).stroke({ width: 4, color: 0x63c872, cap: 'round' })
+    stem.eventMode = 'none'
+    const leafA = makeLeaf(38, 0x5bbf6a)
+    leafA.position.set(L * 9, -44)
+    leafA.rotation = -0.55
+    leafA.scale.x = L
+    const leafB = makeLeaf(32, 0x46a85a)
+    leafB.position.set(L * 12, -62)
+    leafB.rotation = -0.4
+    leafB.scale.x = -L
+    const bud = new Graphics()
+    bud.ellipse(0, 0, 9, 12).fill(sphereFill(0x7ddf8a)).stroke({ width: 2.5, color: 0x2f8f45 })
+    bud.position.set(L * 12, -94)
+    bud.eventMode = 'none'
+    stam.addChild(stem, leafA, leafB, bud)
+    wrap.addChild(stam)
+
+    mug.addChild(hg, glass, base, glans, line, rim, wrap)
     this._propLayer.addChild(shadow, mug)
-    this._mugContainer = mug
+    m.container = mug
+    m.wrap = wrap
+    m.stam = stam
+    m.bud = bud
+    this._liv(wrap, { bob: 1.2, sway: 0.045, duration: 2.9 + m.idx * 0.6, phase: Math.random() })
 
     // Muggens INSIDA som kollisioner — det är de som gör att vattnet stannar kvar
     // och att ytan stiger. Glaset ritas ovanpå vätskelagret, så vattnet ses genom det.
-    this._fluid.addBox(this._mugX, this._mugY + MUG_FLOOR + 12, MUG_HW * 2 + 40, 24)
-    this._fluid.addBox(this._mugX - MUG_HW - 11, this._mugY, 22, 190)
-    this._fluid.addBox(this._mugX + MUG_HW + 11, this._mugY, 22, 190)
+    this._fluid.addBox(x, y + MUG_FLOOR + 12, hw * 2 + 40, 24)
+    this._fluid.addBox(x - hw - 11, y, 22, 190)
+    this._fluid.addBox(x + hw + 11, y, 22, 190)
   },
 
   // ---- bana-planer ----
-  // ALLTID 3 rader: en fjärde rad trycker muggen ner i brickan och ur bild. Banorna
+  // ALLTID 3 rader: en fjärde rad trycker muggen ner i hyllan och ur bild. Banorna
   // växer i bredd i stället — längre väg, fler kolumner, samma läsbara mugg.
   // Muggen ligger ALDRIG i kranens kolumn: gjorde den det föll läckan från översta
   // röret rakt ner i muggen och banan löste sig av sig själv medan barnet tittade på.
+  // Förgreningsbanorna (5, 7, 9 …) har muggarna i de YTTERSTA kolumnerna: bara där får
+  // rörbitarna i lådan plats mellan dem.
   _planLevel(level) {
     const L = Math.max(1, level)
-    if (L === 1) return { cols: 4, rows: 3, sourceCol: 1, mugCol: 2, turnRow: 0, stones: [] }
-    if (L === 2) return { cols: 4, rows: 3, sourceCol: 1, mugCol: 2, turnRow: 1, stones: [] }
-    if (L === 3) return { cols: 5, rows: 3, sourceCol: 0, mugCol: 3, turnRow: 1, stones: [{ col: 1, row: 0 }] }
-    if (L === 4) return { cols: 5, rows: 3, sourceCol: 1, mugCol: 4, turnRow: 1, stones: [{ col: 2, row: 0 }] }
-    if (L === 5) return { cols: 6, rows: 3, sourceCol: 0, mugCol: 4, turnRow: 1, stones: [{ col: 2, row: 2 }] }
-    // 6+: slumpad start/sväng — aldrig slut.
+    if (L === 1) return { cols: 4, rows: 3, sourceCol: 1, mugCols: [2], turnRow: 0, stones: [] }
+    if (L === 2) return { cols: 4, rows: 3, sourceCol: 1, mugCols: [2], turnRow: 1, stones: [] }
+    if (L === 3) return { cols: 5, rows: 3, sourceCol: 0, mugCols: [3], turnRow: 1, stones: [{ col: 1, row: 0 }] }
+    if (L === 4) return { cols: 5, rows: 3, sourceCol: 1, mugCols: [4], turnRow: 1, stones: [{ col: 2, row: 0 }] }
+    if (L === 5) return { cols: 6, rows: 3, sourceCol: 2, mugCols: [0, 5], branch: true, stones: [] }
     const cols = 6
+    if (L % 2 === 1) {
+      // 7, 9, …: T-rör igen, med slumpad kranplats och stenar i vägen.
+      return { cols, rows: 3, sourceCol: 1 + ((Math.random() * 4) | 0), mugCols: [0, cols - 1], branch: true, stones: 'auto' }
+    }
+    // 6, 8, …: slumpad start/sväng — aldrig slut.
     const sourceCol = (Math.random() * cols) | 0
     return {
       cols,
       rows: 3,
       sourceCol,
-      mugCol: (sourceCol + 1 + ((Math.random() * (cols - 1)) | 0)) % cols,
+      mugCols: [(sourceCol + 1 + ((Math.random() * (cols - 1)) | 0)) % cols],
       turnRow: 1,
       stones: 'auto',
     }
   },
 
-  // Garanterat lösbar väg: ner i källkolumnen till turnRow, sidled till mugg-
-  // kolumnen, sedan ner till botten (eller rakt ner om käll == mugg).
-  _generatePath(plan) {
-    const { sourceCol, mugCol, rows } = plan
-    const tr = Math.min(rows - 1, Math.max(0, plan.turnRow))
-    const cells = []
-    if (sourceCol === mugCol) {
-      for (let r = 0; r < rows; r++) cells.push({ col: sourceCol, row: r })
-      return cells
+  // Garanterat lösbar lösning som {col,row,type,rot}-lista (källan först).
+  // Enkel bana: ner i källkolumnen till turnRow, sidled till mugg-kolumnen, sedan ner.
+  // Förgrening: ner till rad 1, T-rör, sidled åt båda håll, sedan ner till varje mugg.
+  // Varje cells portar härleds ur kanterna mellan grannar → T-röret får tre portar av sig själv.
+  _generateSolution(plan) {
+    const { sourceCol, mugCols, rows } = plan
+    const nodes = new Map()
+    const order = []
+    const node = (col, row) => {
+      const k = col + ',' + row
+      if (!nodes.has(k)) {
+        nodes.set(k, { col, row, ports: new Set() })
+        order.push(k)
+      }
+      return nodes.get(k)
     }
-    for (let r = 0; r <= tr; r++) cells.push({ col: sourceCol, row: r })
-    const step = mugCol > sourceCol ? 1 : -1
-    for (let c = sourceCol + step; c !== mugCol + step; c += step) cells.push({ col: c, row: tr })
-    for (let r = tr + 1; r < rows; r++) cells.push({ col: mugCol, row: r })
-    return cells
+    const chain = (list) => {
+      for (let i = 0; i < list.length; i++) {
+        const n = node(list[i].col, list[i].row)
+        if (i === 0) continue
+        const p = node(list[i - 1].col, list[i - 1].row)
+        const d = dirBetween(p, n)
+        p.ports.add(d)
+        n.ports.add(opposite(d))
+      }
+    }
+
+    if (plan.branch) {
+      chain([{ col: sourceCol, row: 0 }, { col: sourceCol, row: 1 }])
+      for (const mc of mugCols) {
+        const step = mc < sourceCol ? -1 : 1
+        const list = [{ col: sourceCol, row: 1 }]
+        for (let c = sourceCol + step; c !== mc + step; c += step) list.push({ col: c, row: 1 })
+        for (let r = 2; r < rows; r++) list.push({ col: mc, row: r })
+        chain(list)
+      }
+    } else {
+      const mugCol = mugCols[0]
+      const tr = Math.min(rows - 1, Math.max(0, plan.turnRow))
+      const cells = []
+      if (sourceCol === mugCol) {
+        for (let r = 0; r < rows; r++) cells.push({ col: sourceCol, row: r })
+      } else {
+        for (let r = 0; r <= tr; r++) cells.push({ col: sourceCol, row: r })
+        const step = mugCol > sourceCol ? 1 : -1
+        for (let c = sourceCol + step; c !== mugCol + step; c += step) cells.push({ col: c, row: tr })
+        for (let r = tr + 1; r < rows; r++) cells.push({ col: mugCol, row: r })
+      }
+      chain(cells)
+    }
+    // Vatten matas in uppifrån i källcellen och lämnar nedåt i varje mugg-cell.
+    node(sourceCol, 0).ports.add('T')
+    for (const mc of mugCols) node(mc, rows - 1).ports.add('B')
+
+    return order.map((k) => {
+      const n = nodes.get(k)
+      const { type, rot } = pipeForPorts([...n.ports])
+      return { col: n.col, row: n.row, type, rot }
+    })
   },
 
   // ---- rör ----
-  _makePipe(type) {
+  // En rörbit = { view (position/pop/träffyta) → body (vrids) → [skugga, rör, vatten-overlay] }.
+  // Skuggan ligger i kroppen men motroteras (se _shadowFix) så den alltid faller rakt NER.
+  // `shadowColor` null = ingen skugga (lådans bitar har sin egen under guppningen).
+  _makePipe(type, shadowColor = null) {
     const view = new Container()
+    const body = new Container()
+    const dirs = BASE[type] || BASE.rak
+    const color = PIPE_COLOR[type] || PIPE_COLOR.rak
+    let sh = null
+    if (shadowColor != null) {
+      sh = new Graphics()
+      drawPipeSilhouette(sh, dirs, shadowColor)
+      sh.eventMode = 'none'
+      body.addChild(sh)
+    }
     const g = new Graphics()
-    drawPipe(g, BASE[type] || BASE.rak)
+    drawPipe(g, dirs, color)
     g.eventMode = 'none'
     // Vattenblå kanal-overlay (tonas in när flödet når röret) — se _paintFlow.
     const wet = new Graphics()
-    drawPipeWet(wet, BASE[type] || BASE.rak)
+    drawPipeWet(wet, dirs)
     wet.eventMode = 'none'
     wet.alpha = 0
-    view.addChild(g, wet)
+    body.addChild(g, wet)
+    body.eventMode = 'none'
+    view.addChild(body)
+    view._body = body
     view._wet = wet
+    view._sh = sh
     return view
+  },
+
+  // Skuggan är ritad i rörets eget rum och vrids med det; förskjutningen motroteras så den
+  // i skärmrummet alltid är (0, 7) — en skugga som snurrar runt med biten läser som en lampa
+  // som kretsar.
+  _shadowFix(p) {
+    const sh = p && p._sh
+    const b = p && p._body
+    if (!sh || sh.destroyed || !b || b.destroyed) return
+    const t = b.rotation
+    sh.position.set(Math.sin(t) * 7, Math.cos(t) * 7)
+  },
+
+  // Vrid biten framåt till p._turns. _turns räknar VARV uppåt (aldrig modulo), annars snurrar
+  // en bit som går 270° → 0° hela vägen tillbaka.
+  _spin(p) {
+    const b = p._body
+    if (!b || b.destroyed) return
+    gsap.killTweensOf(b)
+    gsap.to(b, {
+      rotation: p._turns * (Math.PI / 2),
+      duration: 0.18,
+      ease: 'back.out(2)',
+      onUpdate: () => this._shadowFix(p),
+    })
   },
 
   _placePipeInCell(ctx, cell, type, rot, announce = true) {
     if (!cell || cell.stone || cell.pipe) return null
-    const view = this._makePipe(type)
+    const view = this._makePipe(type, WELL_SHADOW)
     view.position.set(cell.x, cell.y)
     view._ptype = type
     view._rot = ((rot % 4) + 4) % 4
-    view.rotation = view._rot * (Math.PI / 2)
+    view._turns = view._rot
+    view._body.rotation = view._turns * (Math.PI / 2)
+    this._shadowFix(view)
     view.eventMode = 'static'
     view.cursor = 'pointer'
-    view.hitArea = new Circle(0, 0, 70)
+    // Hela cellen (120 px) är träffyta; grannarna överlappar aldrig.
+    view.hitArea = new Rectangle(-60, -60, 120, 120)
     view._tap = () => this._rotatePipe(ctx, cell)
     view.on('pointertap', view._tap)
     view._cell = cell
@@ -611,7 +927,7 @@ export default {
     if (p._tap) p.off('pointertap', p._tap)
     const i = this._pipes.indexOf(p)
     if (i >= 0) this._pipes.splice(i, 1)
-    if (!p.destroyed) p.destroy()
+    if (!p.destroyed) p.destroy({ children: true })
   },
 
   _rotatePipe(ctx, cell) {
@@ -619,8 +935,9 @@ export default {
     const p = cell.pipe
     if (!p) return
     p._rot = (p._rot + 1) % 4
+    p._turns += 1
     ctx.services.audio.sfx('flip')
-    gsap.to(p, { rotation: p._rot * (Math.PI / 2), duration: 0.18, ease: 'back.out(2)' })
+    this._spin(p)
     pop(p)
     this._recomputePath(ctx, true)
     this._resetIdle()
@@ -649,18 +966,20 @@ export default {
   _makeStone(ctx, cell) {
     const c = new Container()
     c.position.set(cell.x, cell.y)
-    const sh = new Graphics().ellipse(0, 42, 46, 14).fill({ color: COLORS.shadow, alpha: 0.14 })
+    const sh = new Graphics().ellipse(0, 42, 46, 14).fill({ color: 0x000000, alpha: 0.4 })
     sh.eventMode = 'none'
-    // RITAD sten (var en 🪨-emoji).
+    // RITAD sten med ljus topp och mörk undersida.
     const e = new Graphics()
     e.moveTo(-38, 26).lineTo(-28, -14).lineTo(-4, -30).lineTo(28, -14).lineTo(36, 26).closePath()
-    e.fill(0x9b9088).stroke({ width: 4, color: 0x74695f })
-    e.moveTo(-16, 24).lineTo(-10, -8).lineTo(8, -20).stroke({ width: 3, color: 0x74695f, alpha: 0.55 })
-    e.ellipse(-14, 4, 8, 5).fill({ color: 0xb6ada4, alpha: 0.7 })
+    e.fill(topLightFill(0x9b9088, { highlight: 0.35, dark: 0.3 })).stroke({ width: 4, color: 0x5d534b })
+    e.moveTo(-16, 24).lineTo(-10, -8).lineTo(8, -20).stroke({ width: 3, color: 0x5d534b, alpha: 0.55 })
+    e.ellipse(-14, 4, 8, 5).fill({ color: 0xc9c0b7, alpha: 0.6 })
+    sh.eventMode = 'none'
+    e.eventMode = 'none'
     c.addChild(sh, e)
     c.eventMode = 'static'
     c.cursor = 'pointer'
-    c.hitArea = new Circle(0, 0, 70)
+    c.hitArea = new Rectangle(-60, -60, 120, 120)
     c._tap = () => this._removeStone(ctx, cell)
     c.on('pointertap', c._tap)
     this._propLayer.addChild(c)
@@ -695,7 +1014,7 @@ export default {
         s.alpha = st.a
       },
       onComplete: () => {
-        if (!s.destroyed) s.destroy()
+        if (!s.destroyed) s.destroy({ children: true })
       },
     })
     this._recomputePath(ctx, true)
@@ -707,70 +1026,65 @@ export default {
     return this._grid[row] ? this._grid[row][col] : null
   },
 
+  // Flödesfyll i bredd: vattnet går in uppifrån i källcellen och ut genom varje port på
+  // varje vått rör. En port som möter en granne med matchande port för vattnet vidare; en
+  // port nedåt i en mugg-cell går ner i muggen; varje annan öppen port är en LÄCKA (högst tre —
+  // taket på hur mycket som kan rinna fel samtidigt). Nådde vattnet inget rör alls finns ingen
+  // utgång — då rinner kranens stråle rakt igenom rutnätet, och det är precis vad barnet ska se.
   _traverse() {
     const cells = []
-    const visited = new Set()
-    let cur = { col: this._sourceCol, row: 0 }
-    let came = 'T' // vatten matas in uppifrån i källcellen
-    let pushedCame = 'T' // inloppsporten på SISTA cellen som faktiskt blev våt
-    let connected = false
-    while (cur) {
-      if (cur.col < 0 || cur.col >= this._cols || cur.row < 0 || cur.row >= this._rows) break
+    const exits = []
+    const reached = new Set()
+    const seen = new Set()
+    const rows = this._rows
+    const cols = this._cols
+    const queue = [{ col: this._sourceCol, row: 0, came: 'T', depth: 0 }]
+    let maxDepth = 0
+    let leaks = 0
+    while (queue.length) {
+      const cur = queue.shift()
       const cell = this._cellAt(cur.col, cur.row)
-      if (!cell || !cell.pipe) break
+      if (!cell || !cell.pipe) continue
       const ports = portsFor(cell.pipe._ptype, cell.pipe._rot)
-      if (!ports.includes(came)) break
+      if (!ports.includes(cur.came)) continue
       const key = cur.col + ',' + cur.row
-      if (visited.has(key)) break
-      visited.add(key)
+      if (seen.has(key)) continue
+      seen.add(key)
       cells.push({ col: cur.col, row: cur.row })
-      pushedCame = came
-      if (cur.col === this._mugCol && cur.row === this._rows - 1 && ports.includes('B')) {
-        connected = true
-        break
-      }
-      let moved = false
+      if (cur.depth > maxDepth) maxDepth = cur.depth
       for (const p of ports) {
-        if (p === came) continue
+        if (p === cur.came) continue
+        if (p === 'B' && cur.row === rows - 1) {
+          const m = this._mugs.find((mm) => mm.col === cur.col)
+          if (m) {
+            reached.add(m.idx)
+            exits.push({ x: m.x, y: this._lastRowY + 62, vx: 0, vy: 2.4, mug: m })
+            continue
+          }
+        }
         const n = neighborOf(cur, p)
-        if (n.col < 0 || n.col >= this._cols || n.row < 0 || n.row >= this._rows) continue
-        const nc = this._cellAt(n.col, n.row)
-        if (!nc || !nc.pipe) continue
-        const nports = portsFor(nc.pipe._ptype, nc.pipe._rot)
-        if (!nports.includes(opposite(p))) continue
-        cur = n
-        came = opposite(p)
-        moved = true
-        break
-      }
-      if (!moved) break
-    }
-    // Var kommer vattnet UT? Kopplad väg → muggen. Annars ur den öppna porten på
-    // sista röret som vattnet nådde: nedåt hellre än i sidled, i sidled hellre än
-    // tillbaka upp. Nådde vattnet inget rör alls finns ingen utgång — då rinner
-    // kranens stråle rakt igenom rutnätet, och det är precis vad barnet ska se.
-    let exit = null
-    if (connected) {
-      exit = { x: this._mugX, y: this._lastRowY + 62, vx: 0, vy: 2.4, mug: true }
-    } else if (cells.length) {
-      const last = cells[cells.length - 1]
-      const cell = this._cellAt(last.col, last.row)
-      const ports = cell && cell.pipe ? portsFor(cell.pipe._ptype, cell.pipe._rot) : []
-      const open = ['B', 'L', 'R', 'T'].find((p) => ports.includes(p) && p !== pushedCame)
-      if (open) {
-        const c = cellCenter(this._gx0, last.col, last.row)
-        const o = PORT_OUT[open]
-        exit = { x: c.x + o.dx, y: c.y + o.dy, vx: o.vx, vy: o.vy, mug: false }
+        const inside = n.col >= 0 && n.col < cols && n.row >= 0 && n.row < rows
+        const nc = inside ? this._cellAt(n.col, n.row) : null
+        if (nc && nc.pipe && portsFor(nc.pipe._ptype, nc.pipe._rot).includes(opposite(p))) {
+          queue.push({ col: n.col, row: n.row, came: opposite(p), depth: cur.depth + 1 })
+          continue
+        }
+        if (leaks < 3) {
+          leaks++
+          const c = cellCenter(this._gx0, cur.col, cur.row)
+          const o = PORT_OUT[p]
+          exits.push({ x: c.x + o.dx, y: c.y + o.dy, vx: o.vx, vy: o.vy, mug: null })
+        }
       }
     }
-    return { cells, connected, exit }
+    return { cells, exits, reached, depth: maxDepth }
   },
 
   _recomputePath(ctx, announce = true) {
     const res = this._traverse()
-    this._exit = res.exit
+    this._exits = res.exits
     // Restid genom rören: ju längre ledning, desto längre innan vattnet kommer ut.
-    this._pipeMs = 140 + res.cells.length * 95
+    this._pipeMs = 140 + (res.cells.length ? res.depth + 1 : 0) * 95
     // Går det att mata in vatten alls? Källcellen måste ha ett rör med port uppåt.
     const src = this._cellAt(this._sourceCol, 0)
     this._hasEntry = !!(src && src.pipe && portsFor(src.pipe._ptype, src.pipe._rot).includes('T'))
@@ -778,11 +1092,19 @@ export default {
     // Synligt rör-flöde: färga innerkanalen blå så långt vattnet nått (även läckande).
     this._paintFlow(res.cells)
 
-    const was = this._connected
-    this._connected = res.connected
-    if (this._connected && !was && !this._resolving && announce) {
+    const n = res.reached.size
+    const all = n === this._mugs.length
+    for (const m of this._mugs) {
+      const nu = res.reached.has(m.idx)
+      // Plantan spetsar öronen när dess mugg får vatten på väg.
+      if (nu && !m.connected && announce && !m.done && m.wrap && !m.wrap.destroyed) squash(m.wrap, { intensity: 0.9 })
+      m.connected = nu
+    }
+    this._connected = all
+    if (n > this._reachedN && !this._resolving && announce) {
       ctx.services.audio.sfx('reveal')
-      ctx.services.voice.say('Nu rinner det!')
+      if (all && this._mugs.length > 1) ctx.services.voice.say('Nu får båda växterna vatten!')
+      else ctx.services.voice.say('Nu rinner det!')
       res.cells.forEach((c, i) =>
         ctx.later(i * 0.12, () => {
           const cc = cellCenter(this._gx0, c.col, c.row)
@@ -791,6 +1113,7 @@ export default {
       )
       this._cheerElvira(ctx, false) // Elvira ser att vattnet är på väg
     }
+    this._reachedN = n
   },
 
   // Tona in/ut kanal-overlayen per rör: "vått" = ligger på vattnets aktuella väg.
@@ -805,7 +1128,7 @@ export default {
         p._wetOn = true
         const idx = cells.findIndex((c) => c.col + ',' + c.row === key)
         gsap.killTweensOf(p._wet)
-        gsap.to(p._wet, { alpha: 0.92, duration: 0.28, delay: Math.max(0, idx) * 0.07, ease: 'sine.out' })
+        gsap.to(p._wet, { alpha: 0.95, duration: 0.28, delay: Math.max(0, idx) * 0.07, ease: 'sine.out' })
       } else if (!on && p._wetOn) {
         p._wetOn = false
         gsap.killTweensOf(p._wet)
@@ -859,7 +1182,12 @@ export default {
     this._fluidView.update()
     this._readMug(ctx)
 
-    if (this._fill >= 1 && this._connected && !this._resolving) this._bloom(ctx)
+    if (!this._resolving) {
+      for (const m of this._mugs) {
+        if (!m.done && m.connected && m.fill >= 1) this._mugDone(ctx, m)
+        if (this._resolving) break
+      }
+    }
   },
 
   // ---- vattnet: kran → rör → utlopp ----
@@ -893,37 +1221,49 @@ export default {
     // 3. Spill som inte kom genom ledningen rinner UTANFÖR muggen. Utan det här
     // samlas läckvattnet i muggen (den ser full ut men räknas inte) och äter hela
     // partikelbudgeten — uppmätt: 132 partiklar efter 6 s och stigande.
-    if (f.drain(this._mugX, this._mugY - 10, MUG_HW * 2 + 52, 210, { pal: 0 }) > 0) {
-      if (this._clock - (this._lastSpill || 0) > 700) {
-        this._lastSpill = this._clock
-        puff(ctx.fxLayer, this._mugX + (Math.random() < 0.5 ? -1 : 1) * (MUG_HW + 22), this._mugY - 70, { color: 0x9fdcf5, count: 4 })
+    for (const m of this._mugs) {
+      if (f.drain(m.x, m.y - 10, m.hw * 2 + 52, 210, { pal: 0 }) > 0) {
+        if (this._clock - (this._lastSpill || 0) > 700) {
+          this._lastSpill = this._clock
+          puff(ctx.fxLayer, m.x + (Math.random() < 0.5 ? -1 : 1) * (m.hw + 22), m.y - 70, { color: 0x9fdcf5, count: 4 })
+        }
       }
     }
 
-    // 4. Utloppet: muggen eller läckan.
-    const ex = this._exit
+    // 4. Utloppen: muggarna och läckorna. Varje insugen droppe kommer ut UR ALLA utlopp —
+    // en förgrening delar alltså inte vattnet, den levererar samma mängd åt båda håll, så
+    // varje mugg fylls lika fort som i en enkel bana.
+    const exits = this._exits
     while (this._queue.length && this._queue[0] <= this._clock) {
       this._queue.shift()
-      if (!ex || this._resolving) continue
-      // pal 1 = vatten som kommit HELA vägen genom ledningen. Det är bara sådant
-      // vatten muggen räknar — annars kan ett stänk som råkar landa rätt fylla målet.
-      // pal påverkar inte utseendet (ingen palette är satt).
-      // TAKTKNAPP: en kopplad ledning ger två droppar per insugen. Kranens takt är
-      // satt av hur strålen SER ut (droppar tätare än 55 px), muggens av hur länge
-      // ett barn orkar titta på — 1:1 gav 14 s, det här ger ~7 s.
-      const antal = ex.mug ? 2 : 1
-      for (let k = 0; k < antal; k++) {
-        f.spawn(ex.x + (Math.random() - 0.5) * 9, ex.y, { vx: ex.vx, vy: ex.vy, pal: ex.mug ? 1 : 0 })
-      }
-      if (ex.mug) {
-        if (this._clock - (this._lastRip || 0) > 420) {
-          this._lastRip = this._clock
-          ripple(ctx.fxLayer, this._mugX, this._mugY - 40, { color: 0x9fdcf5, maxR: 46 })
+      if (!exits.length || this._resolving) continue
+      let leak = null
+      for (const ex of exits) {
+        const m = ex.mug
+        if (m && m.done) continue // en full mugg tar inte emot mer (skulle svämma över)
+        // pal 1 = vatten som kommit HELA vägen genom ledningen. Det är bara sådant
+        // vatten muggen räknar — annars kan ett stänk som råkar landa rätt fylla målet.
+        // pal påverkar inte utseendet (ingen palette är satt).
+        // TAKTKNAPP: en kopplad ledning ger två droppar per insugen. Kranens takt är
+        // satt av hur strålen SER ut (droppar tätare än 55 px), muggens av hur länge
+        // ett barn orkar titta på — 1:1 gav 14 s, det här ger ~7 s.
+        const antal = m ? 2 : 1
+        for (let k = 0; k < antal; k++) {
+          f.spawn(ex.x + (Math.random() - 0.5) * 9, ex.y, { vx: ex.vx, vy: ex.vy, pal: m ? 1 : 0 })
         }
-      } else if (this._clock - (this._lastLeak || 0) > 900) {
-        // Läckage: en riktig stråle ur den öppna porten (aldrig straff, bara en ledtråd).
+        if (m) {
+          if (this._clock - (m.lastRip || 0) > 420) {
+            m.lastRip = this._clock
+            ripple(ctx.fxLayer, m.x, m.y - 40, { color: 0x9fdcf5, maxR: 46 })
+          }
+        } else if (!leak) {
+          leak = ex
+        }
+      }
+      // Läckage: en riktig stråle ur den öppna porten (aldrig straff, bara en ledtråd).
+      if (leak && this._clock - (this._lastLeak || 0) > 900) {
         this._lastLeak = this._clock
-        puff(ctx.fxLayer, ex.x, ex.y + 10, { color: 0x9fdcf5, count: 5 })
+        puff(ctx.fxLayer, leak.x, leak.y + 10, { color: 0x9fdcf5, count: 5 })
         ctx.services.audio.sfx('soft')
       }
     }
@@ -936,46 +1276,59 @@ export default {
   // och ytan som den TREDJE lägsta droppen.
   _readMug(ctx) {
     const f = this._fluid
-    const x0 = this._mugX - MUG_HW - 6
-    const x1 = this._mugX + MUG_HW + 6
-    const yTop = this._mugY - 100
-    const yBot = this._mugY + MUG_FLOOR + 10
-    let n = 0
-    let s0 = Infinity
-    let s1 = Infinity
-    let s2 = Infinity
-    for (let i = 0; i < f.count; i++) {
-      if (f.pal[i] !== 1) continue
-      const y = f.y[i]
-      if (y < yTop || y > yBot) continue
-      const x = f.x[i]
-      if (x < x0 || x > x1) continue
-      if (Math.abs(f.vy[i]) > 1.8) continue
-      n++
-      if (y < s0) {
-        s2 = s1
-        s1 = s0
-        s0 = y
-      } else if (y < s1) {
-        s2 = s1
-        s1 = y
-      } else if (y < s2) {
-        s2 = y
+    for (const m of this._mugs) {
+      if (m.done) continue
+      const x0 = m.x - m.hw - 6
+      const x1 = m.x + m.hw + 6
+      const yTop = m.y - 100
+      const yBot = m.y + MUG_FLOOR + 10
+      let n = 0
+      let s0 = Infinity
+      let s1 = Infinity
+      let s2 = Infinity
+      for (let i = 0; i < f.count; i++) {
+        if (f.pal[i] !== 1) continue
+        const y = f.y[i]
+        if (y < yTop || y > yBot) continue
+        const x = f.x[i]
+        if (x < x0 || x > x1) continue
+        if (Math.abs(f.vy[i]) > 1.8) continue
+        n++
+        if (y < s0) {
+          s2 = s1
+          s1 = s0
+          s0 = y
+        } else if (y < s1) {
+          s2 = s1
+          s1 = y
+        } else if (y < s2) {
+          s2 = y
+        }
+      }
+      const floorY = m.y + MUG_FLOOR
+      const lineY = m.y + MUG_LINE
+      const surface = n >= 3 ? s2 : floorY
+      m.fill = n < 4 ? 0 : Math.max(0, Math.min(1, (floorY - surface) / (floorY - lineY)))
+
+      // "Glugg" per femtedel: en stigande pentatonisk ton så nivån HÖRS stiga (andra muggen
+      // en stor ters högre), och plantan vippar och sträcker sig ett snäpp.
+      const steg = Math.min(5, Math.floor(m.fill * 5))
+      if (steg > m.steg) {
+        m.steg = steg
+        const skala = [262, 294, 330, 392, 440]
+        ctx.services.audio.tone({ freq: skala[Math.min(4, steg - 1)] * (m.idx ? 1.26 : 1), dur: 0.16, type: 'sine', vol: 0.5 })
+        this._plantGrow(ctx, m, steg)
       }
     }
-    const floorY = this._mugY + MUG_FLOOR
-    const lineY = this._mugY + MUG_LINE
-    const surface = n >= 3 ? s2 : floorY
-    const fill = n < 4 ? 0 : Math.max(0, Math.min(1, (floorY - surface) / (floorY - lineY)))
-    this._fill = fill
+  },
 
-    // "Glugg" per femtedel: en stigande pentatonisk ton så nivån HÖRS stiga.
-    const steg = Math.min(5, Math.floor(fill * 5))
-    if (steg > this._gluggSteg) {
-      this._gluggSteg = steg
-      const skala = [262, 294, 330, 392, 440]
-      ctx.services.audio.tone({ freq: skala[Math.min(4, steg - 1)], dur: 0.16, type: 'sine', vol: 0.5 })
-    }
+  // Plantan lever: vid varje glugg klämmer den ihop sig och sträcker sig uppåt (och blir
+  // ett snäpp högre för varje nivå), med ett litet gnistr vid toppen.
+  _plantGrow(ctx, m, steg) {
+    if (!m.wrap || m.wrap.destroyed || !m.stam || m.stam.destroyed) return
+    squash(m.wrap, { intensity: 1.3 })
+    gsap.to(m.stam.scale, { x: 1 + 0.025 * steg, y: 1 + 0.07 * steg, duration: 0.5, ease: 'back.out(2.4)' })
+    sparkle(ctx.fxLayer, m.x + m.lean * (m.hw * 0.6 + 12), m.y - 34 - 96 * (1 + 0.07 * steg), { count: 3 })
   },
 
   // ---- hjälp ----
@@ -1012,38 +1365,51 @@ export default {
   _clearGlow() {
     if (!this._glow) return
     this._glow.tw?.kill()
-    if (!this._glow.g.destroyed) this._glow.g.destroy()
+    if (!this._glow.g.destroyed) this._glow.g.destroy({ children: true })
     this._glow = null
   },
 
-  // Lägg/justera EN felande bit → vägen garanteras till slut kopplas.
+  // Lägg/justera EN felande bit → vägen garanteras till slut kopplas. Hjälpen syns och hörs
+  // ("Jag hjälper till!") — barnet ska kunna skilja sitt eget bygge från hjälpen.
   _autoHelp(ctx) {
     if (!this._alive || this._resolving) return
     const fix = this._findNextFix()
     if (!fix) return
     const { cell, req, kind } = fix
+    if (!ctx.services.voice.talar) ctx.services.voice.say('Jag hjälper till!')
+    sparkle(ctx.fxLayer, cell.x, cell.y)
     if (kind === 'place') {
       this._placePipeInCell(ctx, cell, req.type, req.rot, true)
     } else if (kind === 'replace') {
       this._removePipe(cell)
       this._placePipeInCell(ctx, cell, req.type, req.rot, true)
     } else {
-      cell.pipe._rot = req.rot
-      gsap.to(cell.pipe, { rotation: req.rot * (Math.PI / 2), duration: 0.2, ease: 'back.out(2)' })
-      pop(cell.pipe)
+      const p = cell.pipe
+      p._turns += (req.rot - p._rot + 4) % 4
+      p._rot = req.rot
+      this._spin(p)
+      pop(p)
       this._recomputePath(ctx, true)
     }
     ctx.services.audio.sfx('pop')
   },
 
   // ---- blomning + nästa bana ----
-  _bloom(ctx) {
+  // En mugg är full: plantan slår ut. Är det den sista muggen är banan klar.
+  _mugDone(ctx, m) {
+    if (m.done) return
+    m.done = true
+    this._bloomPlant(m)
+    ctx.services.audio.sfx('reveal')
+    burst(ctx.fxLayer, m.x, m.y - 20, { count: 16 })
+    sparkle(ctx.fxLayer, m.x, m.y - 40)
+    if (this._mugs.every((mm) => mm.done)) this._finish(ctx)
+    else this._cheerElvira(ctx, true)
+  },
+
+  _finish(ctx) {
     if (this._resolving) return
     this._resolving = true
-    this._bloomPlant()
-    ctx.services.audio.sfx('reveal')
-    burst(ctx.fxLayer, this._mugX, this._mugY - 20, { count: 16 })
-    sparkle(ctx.fxLayer, this._mugX, this._mugY - 40)
     this._cheerElvira(ctx, true) // Elvira dricker & jublar — muggen är full!
     ctx.progress.setLevel(this._level + 1)
     ctx.progress.setCustom('banor', ((ctx.progress.get().custom?.banor) | 0) + 1)
@@ -1051,25 +1417,70 @@ export default {
     ctx.later(1.6, () => this._alive && this._buildLevel(ctx, this._level + 1))
   },
 
-  // Grodden slår ut. (Förut: `this._plant.text = '🌸'` — men plantan är en Graphics,
-  // så tilldelningen gjorde ingenting alls och blomningen syntes ALDRIG.)
-  _bloomPlant() {
-    const p = this._plant
-    if (!p || p.destroyed) return
-    const kron = randomFrom([COLORS.pink, 0xff8fb1, 0xf2c14e])
+  // Knoppen slår ut till en blomma (kronblad + pistill) som studsar in.
+  _bloomPlant(m) {
+    const st = m.stam
+    if (!st || st.destroyed) return
+    if (m.bud && !m.bud.destroyed) m.bud.visible = false
+    const kron = randomFrom([COLORS.pink, 0xff8fb1, 0xf2c14e, 0xff8a3d])
+    // Blomman hör till `wrap` (inte `stam`) så den inte sträcks med stammen; den läggs där
+    // knoppen hamnar vid den nivå stammen har nått.
+    const sx = 1 + 0.025 * Math.min(5, m.steg)
+    const sy = 1 + 0.07 * Math.min(5, m.steg)
+    const fl = new Container()
+    fl.position.set(m.lean * 12 * sx, -94 * sy)
+    fl.eventMode = 'none'
+    const g = new Graphics()
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2
-      p.ellipse(Math.cos(a) * 13, -34 + Math.sin(a) * 13, 10, 8).fill(kron)
+      g.circle(Math.cos(a) * 13, Math.sin(a) * 13, 10).fill(kron).stroke({ width: 2, color: shade(kron, 0.3) })
     }
-    p.circle(0, -34, 8).fill(COLORS.yellow).stroke({ width: 2, color: 0xd8a520 })
-    bounceIn(p)
+    g.circle(0, 0, 9).fill(sphereFill(COLORS.yellow)).stroke({ width: 2, color: 0xd8a520 })
+    g.eventMode = 'none'
+    fl.addChild(g)
+    m.wrap.addChild(fl)
+    m.bloomC = fl
+    bounceIn(fl)
+    squash(m.wrap, { intensity: 1.5 })
+  },
+
+  // Vilo-guppning med egen tween — bokförd så den kan dödas (killTweensOf når inte ett
+  // proxyobjekt).
+  _liv(target, opts) {
+    const tw = liv(target, opts)
+    if (tw) this._livs.push(tw)
+    return tw
   },
 
   _killViewTweens(v) {
     if (!v || v.destroyed) return
     gsap.killTweensOf(v)
     gsap.killTweensOf(v.scale)
+    if (v._body) gsap.killTweensOf(v._body)
     if (v._wet) gsap.killTweensOf(v._wet)
+    v._fxPopTl?.kill()
+    v._fxSquashTl?.kill()
+    v._fxWiggleTl?.kill()
+  },
+
+  _killMug(m) {
+    for (const o of [m.wrap, m.stam, m.bloomC, m.container]) {
+      if (!o || o.destroyed) continue
+      this._killViewTweens(o)
+      o._fxLiv?.kill()
+    }
+  },
+
+  // Allt som har egna tweens och ska dö innan brädet rivs (vid banbyte och exit).
+  _killAll() {
+    this._pipes?.forEach((p) => this._killViewTweens(p))
+    this._stones?.forEach((s) => this._killViewTweens(s))
+    this._mugs?.forEach((m) => this._killMug(m))
+    this._livs?.forEach((t) => t.kill())
+    this._livs = []
+    this._elviraBreath?.kill()
+    this._elviraBreath = null
+    if (this._elvira) this._killViewTweens(this._elvira)
   },
 
   destroy(ctx) {
@@ -1083,12 +1494,7 @@ export default {
     this._fluid?.destroy()
     this._fluidView = null
     this._fluid = null
-    this._pipes?.forEach((p) => this._killViewTweens(p))
-    this._stones?.forEach((s) => this._killViewTweens(s))
-    this._elviraBreath?.kill()
-    if (this._elvira) this._killViewTweens(this._elvira)
-    if (this._mugContainer) this._killViewTweens(this._mugContainer)
-    if (this._plant) this._killViewTweens(this._plant)
+    this._killAll()
     gsap.killTweensOf(this._root)
     this._root?.destroy({ children: true })
   },

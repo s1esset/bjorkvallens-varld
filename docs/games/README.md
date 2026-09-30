@@ -56,7 +56,7 @@ Två **olika** kolumner — de blandades ihop tidigare och gjorde indexet omöjl
 - **polerad** = har spelet gått igenom **poleringsrundan** (metoden i `docs/POLERINGSRUNDA.md`
   — de tolv läckorna, P0 `ASSETS`, skärmdumpsgranskning)? ✅ körd · ⬜ står i kö.
 
-Ett ✅ i *polerad* och 🔧 i *kvalitet* betyder alltså: rundan är körd, men spelet har kvar
+Ett ✅ i *polerad* och ✅ i *kvalitet* betyder alltså: rundan är körd, men spelet har kvar
 [Deep]-punkter i sin doc §4. Det är ett ärligt läge, inte en efterblivet uppdaterad rad.
 Varje spels egen statusrad (`docs/games/<id>.md`, rad 2) speglar **kvalitet**-kolumnen.
 

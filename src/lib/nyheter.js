@@ -10,7 +10,7 @@
 
 export const NYHETER = [
   {
-    version: '1.283',
+    version: '1.284',
     fran: '1.280',
     datum: '2026-09-30',
     titel: 'Fyra spel har fått nytt liv',

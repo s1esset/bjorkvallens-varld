@@ -1,5 +1,5 @@
 # Peka på Kroppen (`peka-pa-kroppen`)
-> 🔤 pedagogiskt · tap · 2–5 år · status: 🔧 förbättringar pågår
+> 🔤 pedagogiskt · tap · 2–5 år · status: ✅ (2026-09-30: Zacke frågar själv, pekar/vinkar/dansar, lekplats, "Vad är det här?")
 
 ## 1. Nuläge (sett som spelare)
 
@@ -58,9 +58,10 @@ Kort sagt: en *stark igenkännings-loop med fin karaktär*, men teaching är enk
 ### Kärnloop & agens
 - ✅ ~~**[Medium] Knyt an till barnets egen kropp.**~~ Redan byggd (varannan fråga, `_ownBody`
   :611 + `_confirmOwnBody`; byggd 2026-07-02, se §5) — uppdagat 2026-09-23.
-- **[Medium] Lägg till en "vad är det här?"-vändning.** Ibland lyser en del upp av sig
-  själv och rösten frågar "Vad är det här?" → efter en stund säger den namnet (produktion +
-  bekräftelse), så barnet får chansen att säga ordet först.
+- ✅ ~~**[Medium] Lägg till en "vad är det här?"-vändning.**~~ Klar 2026-09-30: från tredje
+  rundan (goal ≥ 4) byts fråga 2 (eller 4) mot "Vad är det här?" — delen lyser, Zacke pekar,
+  bubblan visar ett frågetecken; efter 4,4 s (eller ett tryck på den lysande delen) säger
+  Zacke "Det är näsan!" och rundan går vidare (`_vad`, `_vadReveal`, `DET_AR`).
 
 ### Variation & överraskning
 - ✅ ~~**[Quick] Matcha bubbel-emojin till skepnaden**~~ Redan byggd (`KIND_EMOJI` :68; byggd
@@ -83,8 +84,10 @@ Kort sagt: en *stark igenkännings-loop med fin karaktär*, men teaching är enk
   lite oftare (mjukt), så svåra ord nöts in utan att kännas som ett test.
 
 ### Karaktär & berättelse
-- **[Deep] Ge Zacke mer liv som mottagare:** han pekar uppmuntrande mot rätt område när du
-  tvekar, vinkar mellan rundor, och gör en egen liten dans-finish per skepnad.
+- ✅ ~~**[Deep] Ge Zacke mer liv som mottagare**~~ Klar 2026-09-30: pekar mot rätt område vid
+  tystnad (`_peka`, steg 1; glöd tillkommer vid steg 2), vinkar med vänster arm när han
+  frågar (`_vinka`), och egen dans per skepnad (`_finishDance`: barn hurra-hopp, nalle
+  magtrumma, kanin skutt med flaxande öron).
 
 ### Ljud
 - **[Quick] Riktigt barn-skratt + glädje-klipp via SFX-pipelinen** ([[real-audio-sfx]]) vid
@@ -94,6 +97,32 @@ Kort sagt: en *stark igenkännings-loop med fin karaktär*, men teaching är enk
   (SFX-pipelinen/MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-09-30 ✅ **Zacke frågar själv, och står någonstans** (arbetsorder 1–5):
+  - **Frågebubblan** är Zackes egen pratbubbla bredvid huvudet med svans mot munnen (svansens
+    spets står i glappet mellan örat och handen — ingen träffyta täcks). Bilden i den RITAS i
+    figurens egna färger (`_partIcon`: fot, hand med tumme, mage, knä, ben, arm, näsa, öra,
+    öga, mun, barnets huvud; geometri som `_buildChar`); bara nallens/kaninens huvud lånar
+    `drawIcon`. Den guppar med `liv`. (Fixvarv: första versionen gav samma kaninbild för
+    huvud/näsa/öra och en hudfärgsfrämmande emoji för övriga delar.)
+  - **Fixvarv:** Zacke vinkar bara vid första frågan i rundan (munnen öppnas vid varje fråga);
+    i "Vad är det här?" kommer först bara den pekande armen, glöden efter 3 s (`VAD_GLOD`) och
+    ordet efter 6,5 s (`VAD_VANTA`); lekplatsens ram är varm orange i stället för himmelsblå.
+  - **Zacke som mottagare:** en överlagd arm (rör + hand + pekfinger, rotation runt skuldran;
+    den riktiga armen på samma sida göms) pekar mot rätt OMRÅDE vid första tystnaden — glöd
+    kommer först vid andra (eller efter ett feltryck), så hjälpen är sen och synlig. Inte för
+    arm/hand (armarna ÄR svaret → glöd direkt). Han vinkar när han frågar och öppnar munnen.
+    Dans per skepnad ersätter det generiska skalpulsfirandet.
+  - **Scen:** lekplats bakom honom (gungställning med gungor på egen fas, rutschkana, sandlåda
+    med hink, boll) i dämpade toner under ögonhöjd för huvudet.
+  - **Volym:** `sphereFill` (huvud, händer, fötter, öron, hår, mage), `cylinderFill` (armar,
+    ben, kaninöron), `topLightFill` (tröjan). Former och träffzoner oförändrade.
+  - **"Vad är det här?"** (se §4). Introt sägs nu som eget klipp och frågan väntar in det med
+    `ctx.narTyst` (förut en konkatenerad mening som aldrig kunde få ett klipp).
+  - Nya repliker (ska in i `voice-phrases.json`): "Vad är det här?" + elva "Det är X!".
+  - Exit/återspel: armarnas tidslinjer ligger på armnoden (`_tl`) och dödas av `_clearPoke`
+    (anropas av `_clearHint`, före varje rivning och i `destroy`); dansen är en tidslinje
+    (`_danceTl`) som dödas vid ny runda och i `destroy`; `liv`-tweens dödas via `_fxLiv`.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): nästa rundas första fråga kom 1,7 s
   efter `complete()` och kapade skalets beröm — nu byggs figuren genast och frågan väntar in

@@ -110,14 +110,17 @@ export function createScene(theme = 'sky', opts = {}) {
   skyBleed.rect(-BLEED_X, height, L.himmel.w + 2 * BLEED_X, BLEED_Y).fill(t.bottom)
   L.himmel.c.addChild(skyBleed, sky)
 
-  // Sol (mjuk halo + skiva) uppe till vänster/höger.
+  // Sol (mjuk halo + skiva) uppe till vänster. Standardläget stod förut på (150,130), där
+  // halon (r 120) låg bakom skalets hemknapp (70,64, 92 px) och läste som en gul klump runt
+  // den i ~40 spel. På (270,135) går halon fri från knappens hörn med ~36 px, och skivan
+  // håller sig under HUD-remsan som flera spel har högst upp (piller, mätare på y ≈ 60–80).
   if (t.sun) {
     const sunColor = typeof t.sun === 'number' ? t.sun : 0xffe27a
     const sun = new Container()
     sun.addChild(new Graphics().circle(0, 0, 120).fill({ color: sunColor, alpha: 0.18 }))
     sun.addChild(new Graphics().circle(0, 0, 84).fill({ color: sunColor, alpha: 0.28 }))
     sun.addChild(new Graphics().circle(0, 0, 58).fill({ color: sunColor }))
-    sun.position.set(opts.sunX ?? 150, opts.sunY ?? 130)
+    sun.position.set(opts.sunX ?? 270, opts.sunY ?? 135)
     L.sol.c.addChild(sun)
   }
 

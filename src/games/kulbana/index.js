@@ -129,7 +129,7 @@ export default {
     ctx.stage.addChild(this._root)
 
     // Bakgrund FÖRST (dekorativ himmel).
-    // Solen flyttad från standardläget (150,130) — den låg bakom hem- och SLÄPP-knappen som en
+    // Solen flyttad från det gamla standardläget (150,130) — den låg bakom hem- och SLÄPP-knappen som en
     // gul klump. Nu står den fritt i mitten av himlen.
     this._root.addChild(createScene('sky', { ground: false, width: ctx.width, height: ctx.height, sunX: 900, sunY: 112 }))
     this._buildSkyLife(ctx)

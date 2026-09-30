@@ -3,6 +3,8 @@
 
 ## 1. Nuläge (sett som spelare)
 
+*(Uppdaterat 2026-10-01: plattorna är nu fyra sjungande varelser på en konsertscen, se §5. Texten nedan beskriver spelet som det var.)*
+
 Fyra stora färgglada plattor i ett 2×2-rutnät (grön 🐸, röd 🍎, blå 💧, gul ⭐) med en
 liten gulnäbbad maskot mitt i. Maskoten blundar ("lyssnar") medan spelet tänder plattorna
 en i taget i en sekvens — varje platta studsar, lyser upp med en vit glöd och spelar sin
@@ -71,9 +73,10 @@ Grunden är korrekt och snäll, men loopen är en läroboks-Simon utan egen sjä
 - ✅ ~~**[Quick] Ingen-repeat-sekvens.** Undvik samma platta två gånger i rad i generatorn (eller
   begränsa till max 2 i följd) så melodin känns avsiktlig, inte slumpig.~~ Redan byggd
   (`_newSequence` index.js:386) — uppdagat 2026-09-23.
-- **[Medium] Tema-rundor.** Rotera plattuppsättningen var några rundor: djur-set (🐸🐶🐱🦊),
-  frukt-set, väder-set — samma mekanik, ny skrud + nya småljud. Tar bort "exakt likadant
-  varje gång".
+- ✅ ~~**[Medium] Tema-rundor.** Rotera plattuppsättningen var några rundor: djur-set, frukt-set,
+  väder-set — samma mekanik, ny skrud.~~ Klar 2026-10-01: två teman (kompisar = groda/äpple/droppe/
+  stjärna, frukt = päron/jordgubbe/blåbär/citron) byts efter varannan klarad melodi. Väder-setet
+  och nya småljud är inte byggda — tonerna är fasta med flit (`PAD_FREQ`).
 - **[Quick] Tempo-charm.** Låt en sällsynt "snabb melodi"-runda spela upp lite raskare (med
   förvarning från maskoten) som ett litet wow — fortfarande no-fail.
 
@@ -109,11 +112,27 @@ Grunden är korrekt och snäll, men loopen är en läroboks-Simon utan egen sjä
   (se [[real-audio-sfx]]) i stället för återanvända UI-blipp — den enskilt största
   ljud-vinsten här.~~ Premissen föll (SNABBVINSTER D, bekräftat 2026-09-23): plattorna spelar
   redan stämda toner (`PAD_FREQ`) — det ÄR de riktiga tonerna, och `PAD_SFX` finns inte.
+- **[Medium] Egen klangfärg per varelse** (kritiken 2026-10-01): alla fyra sjunger samma
+  sinus (`_lightPad`), så grodan och stjärnan — och frukttemat mot kompistemat — låter likadant.
+  Behåll frekvenserna (`PAD_FREQ`), byt bara vågform/övertoner per varelse (`audio.tone`).
 - **[Quick] Mjuk bakgrunds-ambient.** En lugn, låg ton-matta under leken så de tysta
   pauserna mellan sekvenserna inte känns döda. ⛔ Kräver ett slingklipp (SFX-pipelinen/MOSS
   nere) — och den får inte dränka plattornas toner.
 
 ## 5. Status / loggar
+
+- 2026-10-01 🎭 **Sjungande varelser på en konsertscen** (nattplan F2): de fyra 280×280-rutorna
+  (`roundRect` + ikon, P0 `ASSETS`-brott) är borta. Fyra fristående varelser med egen silhuett —
+  groda, äpple, vattendroppe, stjärna — med blinkande ögon, vilo-guppning (`liv`, egen fas) och en mun
+  som öppnas när de sjunger (+ studs kring fötterna, vit glöd-silhuett, gloria, ljudringar och en flygande
+  not). Bakgrunden är `createScene('meadow')` + en trästage med rampljus, vimplar och dirigentpall
+  (`scen.js`); Bobo är dirigent med kropp, fluga och taktpinne som slår i takt. Kören jublar med Bobo vid
+  klarad melodi. Plats/färg/`PAD_FREQ`/`hitArea`-logik oförändrade: träffytor 190×245 på x 280/500/780/1000
+  (30 px mellan grannar), hela raden över "Visa igen". Nytt: temabyte per varannan melodi (`varelser.js`,
+  `_byggVarelser` river gamla varelser inkl. alla tweens via `killTree`). Melodibokens tomma noter är
+  nu vita konturer så de syns mot ängen. Tomgångsrepliken säger "Din tur!" (samma klipp som förut) —
+  "tryck på plattorna" stämde inte längre. **Ej provkört i natt** (bara `check`): bildkvaliteten på
+  varelserna, dirigenten och scenen är ritad utan att ha setts.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onRoundComplete` regnade egen
   konfetti i samma tick som `complete()` — struken (värdet regnar). "Lyssna!" kom på en fast 1,8 s

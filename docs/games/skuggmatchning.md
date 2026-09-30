@@ -3,10 +3,13 @@
 
 ## 1. Nuläge (sett som spelare)
 
-En mjuk äng (sol, moln, kullar, gräs via `createScene('meadow')`). Upptill en rad
-färgglada föremål (🐶🦋🐸🍌…), nedtill på gräset en rad **svarta silhuetter** — samma
-föremål tintade helt svarta, *utan* platta eller ring bakom (silhuetten ÄR målet). Varje
-föremål har en liten markskugga under sig. Jag **drar** ett föremål → det lyfter (`body.y -20`),
+> ⚠️ *Rättat 2026-09-30:* scenen är sedan dess en **picknick i parken** — se §5. Stycket nedan
+> beskriver resten av loopen, som är oförändrad.
+
+En äng med en **träbänk** och en rödrutig **picknickfilt** (blommor som vaggar). På bänken står en
+rad färgglada föremål (🐶🦋🐸🍌…) med en kontaktskugga rakt under sig; på filten ligger en rad
+**silhuetter** som läser som skuggor (mörkt blågrå, skarp kontur, en svag halvskugga) — samma
+föremål, *utan* platta eller ring bakom (silhuetten ÄR målet). Allt har vilo-liv. Jag **drar** ett föremål → det lyfter (`body.y -20`),
 markskuggan växer och tonar (känns lyft). Släpper jag det på rätt silhuett: "match"-ljud +
 **föremålets svenska namn sägs** ("Fjäril!"), en varm ring + gnistror, slotten tänds i ett
 gult sken, och den svarta silhuetten **blommar ut i full färg** (`back.out(2.2)`) medan det
@@ -106,7 +109,32 @@ håller det utmanande utan att bli svårt.
   `AudioService._celebrate` slumpar det vid varje `complete()`. Ambienten är blockerad: fågel/
   insekt-sus kräver ett nytt SFX-klipp, MOSS nere.)*
 
+- **[Medium] Bänken står tom efter sista matchen** (kritiken 2026-09-30): hela övre halvan är tom
+  tills nästa runda byggs. Låt rundans färgföremål stå kvar på bänken 1–2 s, eller låt nästa
+  rundas saker komma ut ur en korg.
+
 ## 5. Status / loggar
+
+- 2026-09-30 ✅ **Kritikerns fixvarv** (orkestreraren): med 2–3 föremål var föremålen ~104 px på
+  en 1280-bred bänk och filt — skalan nu 1,3 (2 st) och 1,15 (3 st). Halvskuggan 0,2 → 0,12 och
+  (6,7) → (4,5): den gav en grå dubbelkontur på stora silhuetter. **Inte ändrat:** snäppradien
+  (≥120 px) överlappar grannens vid 5–6 föremål, men `DragController._targetUnder` väljer den
+  NÄRMASTE skuggan inom radien — överlappet är ingen bugg, och den generösa radien är barnets.
+  Mätt: `scripts/_polera-skugg.mjs` (fel släpp flyttar inte snäppytan · två rundor med riktiga drag
+  · exit mitt i finalen, 0 konsolfel).
+
+- 2026-09-30 ✅ **Picknick i parken** (arbetsorder, byggd utan körning — orkestreraren testar):
+  (1) **Vilo-liv:** föremålen guppar/vaggar (`liv` på ett INRE barn `inner`: container → body
+  [lyft-tween] → inner [liv] → figur) och skuggorna vaggar svagt (`_fig` inne i `_bump`).
+  `liv` är en proxy-tween, så `_fxLiv` dödas uttryckligen i `_killItemTweens`/`_killShadowTweens`/
+  destroy. (2) **Inga svävande skuggor:** föremålen står på en träbänk (`SHELF_Y` 322, fötterna
+  ur den ritade formens `getLocalBounds().maxY`) med kontaktskugga rakt under; plockas saken upp
+  blir skuggan kvar, större och svagare. (3) **Scen:** bänk + rutig gingham-filt i perspektiv
+  + blommor (vaggar) ovanpå meadow; skuggraden ligger på filten (y 560, nåbar för harnessens
+  tryck). Korgen skars — bänkens sex platser fyller bredden. (4) **Skuggor som skuggor:** ton
+  `0x16212b` (inte kolsvart), skarp kontur + en förskjuten, 7 % större halvskugga (alfa 0,2)
+  som mjukt sken; ljus filt ger kontrast. Fel-knuffen flyttades från målcontainern till
+  `_bump` (samma fälla som `sortera-skrap`: snäppytan får inte röra sig).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): **Gyllene skugga** — ~1 runda av
   6 (`GOLD_CHANCE`) får EN skugga en gyllene markskugga och fyra tindrande glitterstjärnor

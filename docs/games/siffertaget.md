@@ -62,11 +62,11 @@ vägg, och glöden tänker åt barnet.**
 ### Kärnloop & agens
 - ✅ ~~**[Medium] Låt antalet betyda något — lasta vagnarna.**~~ Redan byggd (`index.js:369–377`:
   n ritade föremål per vagn via `drawIcon`) — uppdagat 2026-09-23.
-- **[Medium] Tona ned auto-glöden till ett efterfrågat stöd.** Visa glöden först efter ~4s
-  tvekan (eller efter ett felförsök), inte direkt. Lägg en talad fråga "Vilken vagn är
-  nummer **tre**?" vid varje steg så barnet *söker* talet i stället för att jaga blinket.
-- **[Deep] Fler räkne-lägen per runda (rotera).** (a) fyll luckan: ett tåg med 1,_,3,_,5 där
-  bara udda platser saknas; (b) baklänges-tåg ("5,4,3…" — rösten räknar ner); (c) para-läge:
+- ✅ ~~**[Medium] Tona ned auto-glöden till ett efterfrågat stöd.**~~ Klar 2026-10-01: ingen
+  vagn lyser från start; rösten frågar per steg ("Vilken vagn är nummer tre?") och glöden
+  tänds först efter ~4 s tyst tvekan eller direkt efter en fel vagn.
+- **[Deep] Fler räkne-lägen per runda (rotera).** ✅ ~~(a) fyll luckan~~ (klar 2026-10-01,
+  ett luck-läge `1, _, 3`; en längre variant med flera luckor `1,_,3,_,5` återstår); (b) baklänges-tåg ("5,4,3…" — rösten räknar ner); (c) para-läge:
   vagn visar 🍓🍓🍓, slot visar siffran. Samma drag-mekanik, helt ny tanke.
 
 ### Variation & överraskning
@@ -90,13 +90,14 @@ vägg, och glöden tänker åt barnet.**
   (`_koppelSnapp` :513). Rycket går på vagnens BARN via ett proxy-objekt, ett per vagn.
 
 ### Progression
-- **[Quick] Rälsen rullar.** Vid full tåg: panorera bakgrunden (parallax-kullar/träd) medan
-  tåget kör — så "iväg-rullandet" blir en *resa*, inte bara att objekt lämnar skärmen.
-- **[Medium] En station som mål.** Tåget kör in till en liten station där figurer (Bobo/
-  djuren) vinkar och kliver på — en spel-specifik finish i stället för generisk konfetti.
+- **[Deep] Kurvan planar ut efter N=5.** Två luckor i ett 5-tåg (`1,_,3,_,5`), tåg som börjar på 2 i stället för 1, olika laster per runda (kräver nya klipp för räknefraserna).
+- ✅ ~~**[Quick] Rälsen rullar.**~~ Klar 2026-10-01 (`varld.js`: fyra parallaxlager + sliprar
+  och förgrund som skrollar med en enda variabel).
+- ✅ ~~**[Medium] En station som mål.**~~ Klar 2026-10-01: stationen glider in, kanin, Bobo och
+  björn vinkar och jublar. (Att djuren *kliver på* återstår.)
 
 ### Karaktär & berättelse
-- **[Deep] Lokförare Bobo.** Sätt maskoten i hytten; han reagerar (jublar vid rätt, lutar
+- **[Deep] Lokförare Bobo.** (Bobo står nu som stationsföreståndare på perrongen — hytten återstår.) Sätt maskoten i hytten; han reagerar (jublar vid rätt, lutar
   sig ut och pekar vid idle, viftar vid avgång). Ger en röst åt instruktionerna och någon
   att glädja — "fyll tåget åt Bobo".
 
@@ -107,6 +108,24 @@ vägg, och glöden tänker åt barnet.**
   (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-10-01 🚂 **Sluta jaga blinkern, börja räkna** (arbetsorder, nattkörning; ej körd i webbläsare
+  av byggaren — orkestreraren testar).
+  - **Pedagogik.** `_setActiveCar` (glöd från start) är borta. Varje steg börjar med en FRÅGA
+    (`_fraga`: "Vilken vagn är nummer två?"), köad med `ctx.narTyst` och gällande bara för sitt
+    steg (`_stegTok`). Glöden (`_tandGlod`) tänds efter `GLOD_EFTER` = 4 s tyst tvekan
+    (klockan står still medan rösten talar eller ett drag pågår) eller direkt efter en fel vagn.
+    Fel vagn = vinglar, mjukt ljud och vagnen säger sitt eget nummer ("Det där är nummer tre!",
+    utrop, hoppas över om något talar). Den mjuka om-cuen efter 6 s finns kvar (småbarn).
+  - **Bild.** Spökplatsen är en streckad vagnskontur med streckade hjul och kopplingskrokar.
+    Marken kommer ur `createScene` (tonad), banvall + sliprar. `varld.js`: kullar (två djup),
+    träd, telefonstolpar med tråd, förgrundsstrån — alla periodiska lager på EN skrollvariabel
+    `s` (ingen tween per föremål). När tåget är fullt "åker" det: landskapet glider, en station
+    glider in bakom tåget, kanin/björn vinkar och Bobo (rigg) jublar, sedan rullar tåget ut.
+  - **Läge 2, fyll luckan.** Udda nivåer: tåget står färdigt utom EN vagn (aldrig först/sist);
+    poolen har rätt vagn + två avledare (helst siffror som inte sitter i tåget).
+  - **Fixvarv 1 (P0 ÅTERKOPPLING).** Osynlig fångare längst bak (`_buildFangare`, hela ytan inkl. bleed) ger `kvittera` (ton + ring) på ett tryck på tomt/station/under färden. Loket är tryckbart (`hitArea` -125,-80,225x165 i lokets rum, slutar 100 px höger om origo, före första platsens träffyta): vissla + ångpuff, puls på lokets kropp (barn).
+  - **Ej byggt:** riktigt tuff-tuff/stationsljud (MOSS nere) — stämda toner används.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_finishRound` spelade eget
   vinstljud och eget konfettiregn i samma tick som `complete()` — strukna. "Tut tut! <beröm>"

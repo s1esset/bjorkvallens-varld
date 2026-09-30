@@ -1,34 +1,32 @@
-// Följ Spåret — mjukt sekvensminne (3–5 år). Lysande fotspår (👣) ligger längs en
-// slingrande äng från en liten figur (🐰/🐶/🐱/🦊) till dess hus (🏠). Spelet visar
-// först sekvensen genom att tända fotspåren ett i taget (demofas), sedan trycker
-// barnet på dem i samma ordning (härmfas). Rätt nästa fotspår -> det lyser, ett pling
+// Följ Spåret — mjukt sekvensminne (3–5 år). Tassavtryck är nedtrampade i en riktig slingrande
+// stig över en hel äng (varld.js) från en liten figur (kanin/hund/katt/räv) till dess hus.
+// Spelet visar först sekvensen genom att tända avtrycken ett i taget (demofas), sedan trycker
+// barnet på dem i samma ordning (härmfas). Rätt nästa avtryck -> det lyser, ett pling
 // och figuren hoppar fram dit. Fel/redan tänt -> mjukt vingel + 'soft', ALDRIG en
-// nollställning eller bestraffning. Hela spåret klart = figuren kommer hem, firande +
-// ctx.progress.complete(), sedan byggs en ny (längre) runda. Oändlig lek, ingen poäng,
-// ingen timer, inga felsteg. Allt ritas programmatiskt (Pixi Graphics + emoji).
+// nollställning eller bestraffning. Hela spåret klart = dörren öppnas, röken stiger ur
+// skorstenen och figuren vinkar i dörren, firande + ctx.progress.complete(), sedan byggs en ny
+// (längre) runda i nästa tema (äng -> strand -> snö). Oändlig lek, ingen poäng,
+// ingen timer, inga felsteg. Allt ritas programmatiskt (Pixi Graphics).
 // All async är skyddad med this._alive (exit-säkert).
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { bounceIn, pop, wiggle, sparkle, puff, floatText, kvittera } from '../../lib/feedback.js'
-import { COLORS } from '../../lib/theme.js'
+import { pop, wiggle, sparkle, puff, floatText, kvittera } from '../../lib/feedback.js'
+import { COLORS, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
+import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { Button } from '../../lib/Button.js'
-import { verticalFill, bage } from '../../lib/form.js'
-import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { bage } from '../../lib/form.js'
+import { TEMAN, kurva, byggVarld, rivVarld } from './varld.js'
 
-// Ängens och markens toningar (D1 — se kommentarerna vid ritningen). Båda spänner om
-// den ton ytan HADE, så bilden är densamma; det är bara ljuset som tillkommit.
-const C_MEADOW_TOP = 0xedf4dd
-const C_MEADOW_BOT = 0xd7e4bd
-const C_GROUND_TOP = 0xfdf7e8
-const C_GROUND_BOT = 0xf3e8cf
-
-// Layout (designkoordinater 1280×720).
-const START = { x: 140, y: 410 } // figurens startpunkt (vänster)
-const HOUSE = { x: 1150, y: 410 } // målet/huset (höger)
-const PLATE_R = 58 // fotspårsplattans radie (Ø116 ≥ 96px)
+// Layout (designkoordinater 1280×720). Ängen börjar vid horisonten y=320; stigen ligger på
+// markens främre del (y 405–590), huset står på marken längst till höger.
+const START = { x: 140, y: 486 } // figurens startpunkt (vänster)
+const HOUSE = { x: 1170, y: 430 } // husets origo (målet/huset, höger)
+const HOUSE_S = 1.3 // husets skala (kroppen)
+const KNAPP = { x: 170, y: 660 } // "Visa igen"
+const PLATE_R = 58 // avtryckets sken (Ø116 ≥ 96px)
 const HIT_R = 72 // osynlig träffradie (extra marginal)
-const RAB_DY = -14 // figuren står strax ovanför fotspåret
+const RAB_DY = -14 // figuren står strax ovanför avtrycket
 const IDLE_DELAY = 6 // s utan tap innan röst-recue + hint-puls
 
 
@@ -118,35 +116,36 @@ export default {
     this._hintFoot = null
     this._eagerTween = null
     this._findTweens = []
+    this._world = null
+    this._oldWorld = null
+    this._worldFade = null
+    this._doorTw = null
     this._level = clampLevel(ctx.progress.get().highestLevel | 0)
+    // Temat roterar per runda (äng -> strand -> snö), och fortsätter där förra besöket slutade.
+    this._runda = (ctx.progress.get().custom?.rundor | 0) % TEMAN.length
+    this._tema = TEMAN[this._runda]
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // MARKEN runt ängen. Spelet ritade ingen egen bakgrund alls utan lutade sig mot
-    // skalets `COLORS.bg` — en enda ton, uppmätt 220 932 px (24 % av skärmen). Full bleed,
-    // så en bred telefon aldrig ser skalets kant.
-    this._ground = new Graphics()
-      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
-      .fill(verticalFill(C_GROUND_TOP, C_GROUND_BOT))
-    this._ground.eventMode = 'none'
-    this._root.addChild(this._ground)
+    // Världen (hel skärm, full bleed) byggs om per runda av _build och ligger längst bak.
+    this._worldLayer = new Container()
+    this._worldLayer.eventMode = 'none'
+    this._worldLayer.interactiveChildren = false
+    this._root.addChild(this._worldLayer)
 
-    // Ängmatta (dekorativ, fångar inga tryck). Var en enda tvättad ton — `COLORS.green`
-    // @ alpha 0.16 över skalets kräm gav #e4edd0 över **595 215 px = 65 % av skärmen**,
-    // spelets och hela appens största enfärgade fält. Toningen spänner om exakt den tonen,
-    // så ängen är samma äng, bara belyst uppifrån.
-    const meadow = new Graphics()
-      .roundRect(40, 138, 1200, 562, 48)
-      .fill(verticalFill(C_MEADOW_TOP, C_MEADOW_BOT))
-      .stroke({ width: 6, color: COLORS.green, alpha: 0.22 })
-    meadow.eventMode = 'none'
-    this._root.addChild(meadow)
-
-    // Svag prickad ledtråd mellan fotspåren (ritas om per runda).
-    this._pathHint = new Graphics()
-    this._pathHint.eventMode = 'none'
-    this._root.addChild(this._pathHint)
+    // Osynlig tap-fångare över världen: ett tryck på ängen, huset, katten eller en fjäril ger
+    // ett mjukt ljud + en liten ring där fingret var (P0: varje pekning svarar).
+    const fangare = new Graphics()
+      .rect(-BLEED_X, -BLEED_Y, DESIGN_W + 2 * BLEED_X, DESIGN_H + 2 * BLEED_Y)
+      .fill({ color: 0x000000, alpha: 0 })
+    fangare.eventMode = 'static'
+    fangare.on('pointertap', (e) => {
+      if (!this._alive) return
+      const p = this._root.toLocal(e.global)
+      kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio, { color: 0xfff3c4 })
+    })
+    this._root.addChild(fangare)
 
     // Fotspårslager (rundans föränderliga innehåll).
     this._field = new Container()
@@ -157,21 +156,39 @@ export default {
     this._finds.eventMode = 'none'
     this._root.addChild(this._finds)
 
-    // Hus (mål) + figur (start) — persistenta, flyttas/byts per runda.
-    // RITAT hus (var en 🏠-emoji): stomme, tak, dörr, fönster och skorsten. Huset är en
-    // Container så att fönsterljuset (ett eget lager ovanpå) poppar med huset vid hemkomsten.
+    // RITAT hus: stomme, tak, skorsten, fönster och en DÖRR som kan öppnas. _house är en ytterbehållare
+    // (skala 1, det som poppar) med kroppen i skala HOUSE_S inuti.
     this._house = new Container()
+    this._house.position.set(HOUSE.x, HOUSE.y)
+    const kropp = new Container()
+    kropp.scale.set(HOUSE_S)
     const hus = new Graphics()
+    hus.ellipse(0, 52, 78, 11).fill({ color: 0x000000, alpha: 0.16 }) // markskugga
     hus.roundRect(38, -52, 16, 30, 4).fill(0xb5544a).stroke({ width: 3, color: 0x8a3d36 }) // skorsten
     hus.roundRect(-46, -14, 92, 62, 6).fill(0xf0d7ae).stroke({ width: 4, color: 0xb08d62 })
     hus.moveTo(-58, -12).lineTo(0, -60).lineTo(58, -12).closePath()
     hus.fill(0xe0574f).stroke({ width: 4, color: 0xb03f3a })
-    hus.roundRect(-14, 6, 28, 42, 4).fill(0x9a5c33).stroke({ width: 3, color: 0x6f4a2e }) // dörr
-    hus.circle(7, 28, 3.5).fill(0xffd35c)
+    hus.roundRect(-22, 46, 44, 8, 3).fill(0xcdb89a).stroke({ width: 2, color: 0xa58f70 }) // trappsten
     hus.roundRect(18, 4, 22, 22, 4).fill(0x8ee0ff).stroke({ width: 3, color: 0x5aa6c4 }) // fönster
     hus.moveTo(29, 4).lineTo(29, 26).moveTo(18, 15).lineTo(40, 15).stroke({ width: 2.5, color: 0x5aa6c4 })
     hus.roundRect(-40, 4, 22, 22, 4).fill(0x8ee0ff).stroke({ width: 3, color: 0x5aa6c4 })
     hus.moveTo(-29, 4).lineTo(-29, 26).moveTo(-40, 15).lineTo(-18, 15).stroke({ width: 2.5, color: 0x5aa6c4 })
+    // Snömössa på taket (syns bara i snötemat).
+    this._houseSnow = new Graphics()
+    this._houseSnow.poly([-56, -13, 0, -58, 56, -13, 44, -8, 30, -17, 14, -8, 0, -19, -14, -8, -30, -17, -44, -8]).fill(0xffffff)
+    this._houseSnow.roundRect(36, -56, 20, 8, 4).fill(0xffffff)
+    this._houseSnow.visible = !!this._tema.sno
+    // Dörröppningen: mörk insida + varmt ljus (syns först när dörren svängs upp), och själva dörren
+    // som svänger på sin vänstra gångjärnskant (skala x mot 0,18).
+    const inre = new Graphics().roundRect(-14, 6, 28, 42, 4).fill(0x3a2a22)
+    this._doorLight = new Graphics().roundRect(-12, 9, 24, 39, 3).fill(0xffd98a)
+    this._doorLight.alpha = 0
+    this._door = new Container()
+    this._door.position.set(-14, 6)
+    this._door.addChild(
+      new Graphics().roundRect(0, 0, 28, 42, 4).fill(0x9a5c33).stroke({ width: 3, color: 0x6f4a2e })
+        .circle(21, 23, 3.5).fill(0xffd35c),
+    )
     // Hemfärds-mätaren: fönstren tänds varmgult i takt med sekvensen (alfa = andel rätt
     // tryckta fotspår) — huset "väntar" på figuren och är fullt upplyst när den kommer hem.
     this._houseLight = new Graphics()
@@ -181,10 +198,10 @@ export default {
       this._houseLight.moveTo(wx + 11, 4).lineTo(wx + 11, 26).moveTo(wx, 15).lineTo(wx + 22, 15).stroke({ width: 2.5, color: 0xd99a2b })
     }
     this._houseLight.alpha = 0
-    this._house.addChild(hus, this._houseLight)
+    kropp.addChild(hus, this._houseSnow, inre, this._doorLight, this._door, this._houseLight)
+    this._house.addChild(kropp)
     this._house.eventMode = 'none'
     this._house.interactiveChildren = false
-    this._house.position.set(HOUSE.x, HOUSE.y)
     this._root.addChild(this._house)
 
     // RITAD figur med KROPP (var en djur-emoji, alltså ett svävande huvud).
@@ -206,7 +223,7 @@ export default {
         if (this._alive && !this._winning) this._playDemo(ctx)
       },
     })
-    this._showBtn.position.set(170, 660)
+    this._showBtn.position.set(KNAPP.x, KNAPP.y)
     this._root.addChild(this._showBtn)
 
     this._build(ctx)
@@ -241,8 +258,9 @@ export default {
     this._hintFoot = null
     this._eagerTween?.kill()
     this._eagerTween = null
-    // Nytt spår = husets fönster släcks mjukt igen (förra rundans tända hus tonar ut).
+    // Nytt spår = husets fönster släcks mjukt igen och dörren går i (förra rundans tända hus tonar ut).
     this._lightHouse(0, 0.5)
+    this._stangDorr()
 
     // Töm förra rundans uppsamlade fynd + deras flyg-tweens.
     for (const t of this._findTweens) t?.kill?.()
@@ -253,11 +271,14 @@ export default {
       if (fp && !fp.destroyed) {
         gsap.killTweensOf(fp)
         gsap.killTweensOf(fp.scale)
+        if (fp.body && !fp.body.destroyed) {
+          gsap.killTweensOf(fp.body)
+          gsap.killTweensOf(fp.body.scale)
+        }
       }
     }
     this._field.removeChildren().forEach((o) => o.destroy({ children: true }))
     this._foots = []
-    this._pathHint.clear()
 
     // Nollställ rund-state.
     this._expected = 0
@@ -270,23 +291,29 @@ export default {
     const steps = LEVELS[this._level].steps
     const pts = this._genPath(steps)
 
-    // Prickad ledtråd i banordning (figur -> hus).
-    for (let i = 1; i < pts.length; i++) {
-      const a = pts[i - 1]
-      const b = pts[i]
-      for (let s = 1; s <= 3; s++) {
-        const t = s / 4
-        this._pathHint.circle(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, 5).fill({ color: COLORS.greenDark, alpha: 0.3 })
-      }
-    }
+    // Världen för den här rundan (tema + stig genom fotspårspunkterna). Första rundan sätts
+    // direkt, följande tonas in över den gamla så bytet av tema inte blinkar.
+    this._tema = TEMAN[this._runda % TEMAN.length]
+    this._houseSnow.visible = !!this._tema.sno
+    const ctrl = [
+      { x: ctx.view.left - 100, y: START.y + 28 },
+      { x: START.x, y: START.y + 18 },
+      ...pts,
+      { x: HOUSE.x, y: HOUSE.y + 48 },
+    ]
+    this._setWorld(ctx, byggVarld(ctx, this._tema, kurva(ctrl), { hus: HOUSE, knapp: KNAPP }))
 
     // Fotspår i banordning (index === pathIndex). Vart 3:e fotspår gömmer ett fynd.
+    // De TRYCKS NER i stigen: från större och genomskinlig till på plats.
     pts.forEach((p, i) => {
       const fp = this._makeFoot(ctx, p.x, p.y, i)
       if (i % 3 === 2) fp.find = randomFrom(FINDS)
       this._field.addChild(fp)
       this._foots.push(fp)
-      bounceIn(fp, { delay: i * 0.05 })
+      fp.body.alpha = 0
+      fp.body.scale.set(1.5)
+      gsap.to(fp.body, { alpha: 1, duration: 0.22, delay: i * 0.06, ease: 'power1.out' })
+      gsap.to(fp.body.scale, { x: 1, y: 1, duration: 0.26, delay: i * 0.06, ease: 'power2.in' })
     })
 
     // Tänd-/tryckordning: linjär (låga nivåer), blandad fr.o.m. nivå 3 (renare minne).
@@ -302,19 +329,61 @@ export default {
     this._rabbit.visible = true
     this._rabbit.position.set(START.x, START.y)
 
-    // Spela demon när fotspåren studsat in.
-    this._demoLead = gsap.delayedCall(0.5, () => {
+    // Spela demon när fotspåren trampats ner.
+    this._demoLead = gsap.delayedCall(0.5 + steps * 0.06 + 0.3, () => {
       if (this._alive) this._playDemo(ctx)
     })
   },
 
-  // Banpunkter: jämnt fördelade i x (280→1010), mjuk våg i y, klampade i lekområdet.
-  // x-spacingen ger ≥120px centeravstånd ända upp till 7 steg (träffytor överlappar ej).
+  // Byter värld: den gamla ligger kvar under tills den nya tonat in, sedan rivs den.
+  _setWorld(ctx, ny) {
+    this._worldFade?.kill()
+    this._worldFade = null
+    if (this._oldWorld) {
+      rivVarld(this._oldWorld)
+      this._oldWorld = null
+    }
+    const gammal = this._world
+    this._world = ny
+    this._worldLayer.addChild(ny.root)
+    if (!gammal) return
+    this._oldWorld = gammal
+    ny.root.alpha = 0
+    this._worldFade = gsap.to(ny.root, {
+      alpha: 1,
+      duration: 0.5,
+      ease: 'sine.inOut',
+      onComplete: () => {
+        if (!this._alive) return
+        rivVarld(this._oldWorld)
+        this._oldWorld = null
+        this._worldFade = null
+      },
+    })
+  },
+
+  // Dörren tillbaka till stängd (vid ny runda). Döda pågående svängning först.
+  _stangDorr() {
+    this._doorTw?.kill()
+    this._doorTw = null
+    if (this._door && !this._door.destroyed) {
+      gsap.killTweensOf(this._door.scale)
+      this._door.scale.x = 1
+    }
+    if (this._doorLight && !this._doorLight.destroyed) {
+      gsap.killTweensOf(this._doorLight)
+      this._doorLight.alpha = 0
+    }
+  },
+
+  // Banpunkter: jämnt fördelade i x (280→1010), mjuk våg i y på markens främre del
+  // (horisonten ligger på y=320, stigen i y 405–590). x-spacingen ger ≥120px centeravstånd
+  // ända upp till 7 steg (träffytor överlappar ej).
   _genPath(steps) {
     const x0 = 280
     const x1 = 1010
-    const midY = 410
-    const amp = 95 + Math.random() * 45
+    const midY = 495
+    const amp = 50 + Math.random() * 40
     const phase = Math.random() * Math.PI * 2
     const freq = 0.85 + Math.random() * 0.7
     const pts = []
@@ -322,8 +391,8 @@ export default {
       const t = steps === 1 ? 0 : i / (steps - 1)
       const x = x0 + (x1 - x0) * t
       let y = midY + Math.sin(phase + i * freq) * amp
-      y = Math.max(220, Math.min(560, y))
-      if (x < 340) y = Math.min(y, 460) // håll vänsterkanten fri från "Visa igen"-knappen
+      y = Math.max(410, Math.min(585, y))
+      if (x < 340) y = Math.min(y, 500) // håll vänsterkanten fri från "Visa igen"-knappen
       pts.push({ x, y })
     }
     return pts
@@ -367,30 +436,49 @@ export default {
     bage(g, -4, -10, 4, 0, Math.PI).stroke({ width: 2, color: dark })
     bage(g, 4, -10, 4, 0, Math.PI).stroke({ width: 2, color: dark })
     r.addChild(g)
+    // Högerarmen (vinkar i dörren vid hemkomsten): hänger nedåt från axeln, gömd tills den behövs.
+    const arm = new Container()
+    arm.position.set(20, 4)
+    arm.addChild(new Graphics().ellipse(0, 12, 7, 15).fill(fur).stroke({ width: 2.5, color: dark }))
+    arm.visible = false
+    r.addChild(arm)
+    r._arm = arm
   },
 
-  // Ett fotspår: rund platta (Graphics) + 👣 (Text) + generös träffyta. Aktiveras
-  // (eventMode='static') först när demofasen är klar.
+  // Ett fotspår: tassavtryck NEDTRAMPADE i stigen (en mörkare tass med ljus kant under, som ett
+  // avtryck i jord) + ett mjukt sken som bara tänds när avtrycket lyser. Ingen bricka/platta.
+  // Aktiveras (eventMode='static') först när demofasen är klar. `body` bär avtrycket — det är
+  // den som stämplas in (skala/alfa) så att fp självt (träffytan) aldrig animeras.
   _makeFoot(ctx, x, y, pathIndex) {
     const fp = new Container()
     fp.position.set(x, y)
-    const plate = new Graphics()
+    const plate = new Graphics() // skenet
     plate.eventMode = 'none'
     fp.plate = plate
     fp.addChild(plate)
-    // P0 ASSETS: RITADE tass-avtryck (var en 👣-emoji ovanpå plattan). Det är
-    // ett djur som gått här — alltså tassar, inte människofötter.
-    const emoji = new Graphics()
-    for (const [px, py, rot] of [[-11, 4, -0.2], [11, -6, -0.2]]) {
-      const paw = new Graphics()
-      paw.ellipse(0, 4, 9, 11).fill(0x6b4fc4)
-      for (const [tx, ty] of [[-8, -8], [-2.5, -12], [3.5, -12], [9, -7]]) paw.circle(tx, ty, 3.4).fill(0x6b4fc4)
-      paw.position.set(px, py)
-      paw.rotation = rot
-      emoji.addChild(paw)
+    const body = new Container()
+    body.eventMode = 'none'
+    // Två tassar, ritade VITA och färgsatta med tint per läge (se _paintFoot).
+    const tass = () => {
+      const c = new Container()
+      for (const [px, py, rot] of [[-15, 6, -0.2], [15, -8, -0.2]]) {
+        const paw = new Graphics()
+        paw.ellipse(0, 5, 13, 15).fill(0xffffff)
+        for (const [tx, ty] of [[-11, -11], [-3.5, -17], [5, -17], [12.5, -10]]) paw.circle(tx, ty, 4.8).fill(0xffffff)
+        paw.position.set(px, py)
+        paw.rotation = rot
+        c.addChild(paw)
+      }
+      return c
     }
-    emoji.eventMode = 'none'
-    fp.addChild(emoji)
+    const rim = tass()
+    rim.position.set(1.5, 3)
+    const paws = tass()
+    body.addChild(rim, paws)
+    fp.addChild(body)
+    fp.body = body
+    fp.rim = rim
+    fp.paws = paws
     this._paintFoot(fp, 'base')
     fp.hitArea = new Circle(0, 0, HIT_R)
     fp.eventMode = 'none'
@@ -402,16 +490,33 @@ export default {
     return fp
   },
 
-  // Plattans tre lägen: base (otänd), demo (tänd ledtråd), done (rätt tryckt).
+  // Avtryckets tre lägen: base (nedtrampat), demo (tänd ledtråd), done (rätt tryckt).
   _paintFoot(fp, state) {
     const g = fp.plate
-    if (!g || g.destroyed) return
-    // Plattan är ett SKEN runt tassavtrycket, inte en bricka det ligger i:
-    // svag fyllning + ring. En opak vit disc gjorde spåret till en ikon i en ruta.
-    g.clear().circle(0, 0, PLATE_R)
-    if (state === 'demo') g.fill({ color: COLORS.yellow, alpha: 0.55 }).stroke({ width: 5, color: COLORS.orange })
-    else if (state === 'done') g.fill({ color: COLORS.green, alpha: 0.35 }).stroke({ width: 5, color: COLORS.greenDark })
-    else g.fill({ color: COLORS.cream, alpha: 0.3 }).stroke({ width: 4, color: COLORS.green, alpha: 0.7 })
+    if (!g || g.destroyed || !fp.paws || fp.paws.destroyed) return
+    // Skenet: tre mjuka ellipser inuti varandra (ingen hård ring) — ett ljus i marken, inte en bricka.
+    g.clear()
+    const glod = (color, a) => {
+      g.ellipse(0, 4, PLATE_R * 1.12, PLATE_R * 0.88).fill({ color, alpha: a * 0.45 })
+      g.ellipse(0, 4, PLATE_R * 0.88, PLATE_R * 0.7).fill({ color, alpha: a * 0.6 })
+      g.ellipse(0, 4, PLATE_R * 0.62, PLATE_R * 0.5).fill({ color, alpha: a })
+    }
+    if (state === 'demo') {
+      glod(0xffe27a, 0.42)
+      fp.paws.tint = 0xe8741a
+      fp.paws.alpha = 1
+      fp.rim.alpha = 0.55
+    } else if (state === 'done') {
+      glod(0x8ce79a, 0.32)
+      fp.paws.tint = 0x2f9a4a
+      fp.paws.alpha = 1
+      fp.rim.alpha = 0.55
+    } else {
+      fp.paws.tint = this._tema?.tass ?? 0x7a5530
+      fp.paws.alpha = 1
+      fp.rim.tint = 0xffffff
+      fp.rim.alpha = 0.7
+    }
   },
 
   // ---- Demofas: tänd fotspåren ett i taget i sekvensordning ----------------
@@ -442,6 +547,12 @@ export default {
       if (!fp || fp.destroyed) continue
       gsap.killTweensOf(fp)
       gsap.killTweensOf(fp.scale)
+      if (fp.body && !fp.body.destroyed) {
+        gsap.killTweensOf(fp.body)
+        gsap.killTweensOf(fp.body.scale)
+        fp.body.alpha = 1 // en avbruten nedtrampning ska inte lämna avtrycket halvt
+        fp.body.scale.set(1)
+      }
       fp.scale.set(1)
       fp.rotation = 0
       fp.lit = false
@@ -633,24 +744,47 @@ export default {
     const lx = lastFp.x
     const ly = lastFp.y + RAB_DY
     const hx = HOUSE.x
-    const hy = HOUSE.y + RAB_DY
+    const hy = HOUSE.y + 36 // figuren står på trappstenen (fötterna vid dörrens nederkant)
     const tl = gsap.timeline()
     this._winTl = tl
-    // Hoppa upp på sista fotspåret ...
+    const audio = ctx.services.audio
+    // Hoppa upp på sista avtrycket ...
     tl.to(this._rabbit, { x: lx, duration: 0.3, ease: 'power1.inOut' }, 0)
-    tl.to(this._rabbit, { y: ly - 50, duration: 0.15, ease: 'power2.out' }, 0)
+    tl.to(this._rabbit, { y: ly - 50, duration: 0.15, ease: 'power2.out' }, 0.0)
     tl.to(this._rabbit, { y: ly, duration: 0.15, ease: 'power2.in' }, 0.15)
-    // ... och sedan in i huset (skutt + krymp in genom dörren).
+    // ... sedan fram till huset medan DÖRREN svängs upp (varmt ljus därinne) ...
+    tl.add(() => {
+      if (!this._alive) return
+      audio.tone({ freq: 330, slideTo: 440, dur: 0.28, type: 'triangle', vol: 0.2 })
+    }, 0.45)
+    tl.to(this._door.scale, { x: 0.18, duration: 0.45, ease: 'power2.inOut' }, 0.5)
+    tl.to(this._doorLight, { alpha: 1, duration: 0.4, ease: 'sine.out' }, 0.55)
     tl.to(this._rabbit, { x: hx, duration: 0.5, ease: 'power1.inOut' }, 0.42)
     tl.to(this._rabbit, { y: hy - 80, duration: 0.25, ease: 'power2.out' }, 0.42)
     tl.to(this._rabbit, { y: hy, duration: 0.25, ease: 'power2.in' }, 0.67)
-    tl.to(this._rabbit.scale, { x: 0.12, y: 0.12, duration: 0.28, ease: 'power2.in' }, 0.92)
+    tl.to(this._rabbit.scale, { x: 0.62, y: 0.62, duration: 0.45, ease: 'power1.out' }, 0.45)
+    // ... landar i dörröppningen, huset studsar, röken stiger ur skorstenen och figuren VINKAR.
     tl.add(() => {
       if (!this._alive || this._rabbit.destroyed) return
-      this._rabbit.visible = false
       if (!this._house.destroyed) pop(this._house)
-      puff(ctx.fxLayer, HOUSE.x, HOUSE.y - 16, { color: COLORS.cream })
-    }, 1.2)
+      puff(ctx.fxLayer, HOUSE.x - 14, HOUSE.y + 56, { color: COLORS.cream, count: 5 })
+      const arm = this._rabbit._arm
+      if (arm && !arm.destroyed) {
+        arm.visible = true
+        arm.rotation = -1.7
+      }
+      ;[784, 988, 1175].forEach((f, i) => audio.tone({ freq: f, dur: 0.3, type: 'sine', vol: 0.16, delay: i * 0.12 }))
+    }, 0.95)
+    const arm = this._rabbit._arm
+    if (arm && !arm.destroyed) {
+      tl.to(arm, { rotation: -2.8, duration: 0.2, yoyo: true, repeat: 7, ease: 'sine.inOut' }, 1.0)
+    }
+    tl.to(this._rabbit, { y: hy - 9, duration: 0.2, yoyo: true, repeat: 3, ease: 'sine.inOut' }, 1.15)
+    for (const t of [1.0, 1.35, 1.7, 2.05]) {
+      tl.add(() => {
+        if (this._alive) puff(ctx.fxLayer, HOUSE.x + 60, HOUSE.y - 76, { count: 4, color: 0xe2e6ec })
+      }, t)
+    }
 
     // Tema-rösten sägs FÖRE complete() i samma tick: då utgår berömmet i stället för att
     // kapas av den. Egna hel-repliker, inte 'Hurra! ' + PRAISE: en konkatenerad sträng kan
@@ -662,7 +796,8 @@ export default {
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('rundor', (ctx.progress.get().custom?.rundor || 0) + 1)
 
-    this._nextCall = gsap.delayedCall(1.6, () => {
+    this._runda++
+    this._nextCall = gsap.delayedCall(3.0, () => {
       if (this._alive) this._build(ctx)
     })
   },
@@ -747,8 +882,21 @@ export default {
       if (fp && !fp.destroyed) {
         gsap.killTweensOf(fp)
         gsap.killTweensOf(fp.scale)
+        if (fp.body && !fp.body.destroyed) {
+          gsap.killTweensOf(fp.body)
+          gsap.killTweensOf(fp.body.scale)
+        }
       }
     }
+    // Världen (levande dekor tweenar proxyn — rivVarld dödar dem innan noderna går) + dörren.
+    this._worldFade?.kill()
+    this._worldFade = null
+    rivVarld(this._oldWorld)
+    rivVarld(this._world)
+    this._oldWorld = null
+    this._world = null
+    this._stangDorr()
+    if (this._rabbit?._arm && !this._rabbit._arm.destroyed) gsap.killTweensOf(this._rabbit._arm)
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel?.()
     this._root?.destroy({ children: true })

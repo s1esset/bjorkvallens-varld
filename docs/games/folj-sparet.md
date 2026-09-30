@@ -75,15 +75,16 @@ Stark grund, men flera billiga drag som en kräsen förälder märker:
   håll (figuren på x=280, nästa fotspår på x=645), vilket ger **4,4 px** vid figurens
   ytterkant. Att bara läsa koden hade inte räckt — `vart-tog-det-vagen` bar hela sin
   reaktionstabell i koden och var ändå död i sex veckor.
-- **[Deep] Rita en riktig slingrande stig.** Dra en mjuk kurva (quadratic/bezier) genom
-  fotspåren så banan *ser ut* som en stig i gräset; fotspåren ligger på stigen. Figuren följer
-  kurvan (inte räta hopp). Vägen blir en värld, inte spridda prickar.
+- ~~**[Deep] Rita en riktig slingrande stig.**~~ ✅ Byggd 2026-10-01 (`varld.js:kurva`/`ritaStig`):
+  Catmull-Rom genom fotspårspunkterna, ett band av fyra lager jord + småsten + kantlist. Figuren
+  hoppar fortfarande i skutt mellan avtrycken (inte längs kurvan) — det är skuttet som är
+  orsak-verkan-glädjen, så det står kvar.
 
 ### Variation & överraskning
 - ✅ ~~**[Quick] Gömda fynd i fotspåren.**~~ Redan byggd (`FINDS` index.js:47, `_collectFind`
   :584, 2026-07-02) — uppdagat 2026-09-23.
-- **[Medium] Tema per nivå.** Rotera äng → strand → snö → skog (bakgrund + figur + hus-skrud),
-  samma mekanik. Tar bort "samma matta varje gång".
+- ✅ ~~**[Medium] Tema per nivå.**~~ Byggd 2026-10-01, som tema per RUNDA (äng → strand → snö,
+  `TEMAN` i `varld.js`): en per-nivå-koppling hade låst barnet i snö för alltid vid nivå 5.
 
 ### Juice
 - ✅ ~~**[Quick] Stigande tonhöjd på fotspåren.**~~ Redan byggd (`toneFreq` index.js:40,
@@ -102,9 +103,8 @@ Stark grund, men flera billiga drag som en kräsen förälder märker:
   ("klappa takten") så handen inte bara väntar — gör den långa 7-stegsdemon levande.
 
 ### Karaktär & berättelse
-- **[Medium] Huset firar.** Vid hemkomst: dörren öppnas, ett ljus tänds i fönstret, en liten
-  rökpuff ur skorstenen, figuren vinkar i dörren — ett spel-*specifikt* slut i stället för
-  generisk konfetti.
+- ✅ ~~**[Medium] Huset firar.**~~ Byggd 2026-10-01: dörren svänger upp (varmt ljus inne),
+  figuren landar på trappstenen och vinkar med en ritad arm, fyra rökpuffar ur skorstenen.
 
 ### Ljud
 - **[Quick] Riktiga klipp via SFX-pipelinen.** Byt `pling`/`correct` mot mjuka, distinkta
@@ -113,6 +113,16 @@ Stark grund, men flera billiga drag som en kräsen förälder märker:
   *Blockerad 2026-09-23:* kräver nya SFX-klipp (MOSS nere). Fotstegen är redan stämda toner.
 
 ## 5. Status / loggar
+
+- 2026-10-01 🎨 **En hel äng och en riktig stig** (`varld.js` ny): spelet ritade ängen som ett
+  `roundRect`-kort på en krämfärgad sida och "stigen" som raka rader 5 px-prickar. Nu en värld över
+  hela skärmen (`createScene` med horisont y=320, kullar, moln, sol, full bleed) + egna träd/palm/gran,
+  blommor som vajar, fjärilar/måsar/snöflingor, och en stig ritad som ett jordband genom rundans
+  punkter. Tassarna är nedtrampade avtryck i stigen (vita tassar färgade med `tint`, ljus kant under,
+  inga plattor): tänd = varmt sken + orange tass, klar = grönt sken; de stämplas in vid rundstart.
+  Huset 1,3× med öppningsbar dörr. Temat byts per runda (äng → strand → snö; rundräknaren sparas i
+  `custom.rundor`). Träffytor oförändrade (Ø144 hit-cirkel). Spelytan flyttad nedåt (y 405–590).
+  Kvar att mäta (byggdes utan körning): `_plattprobe` före/efter, tryckföljd till huset.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Hemrepliken (`HOME_PRAISE`)
   sades direkt efter `complete()`. Den sägs nu före, i samma tick, så berömmet utgår i stället

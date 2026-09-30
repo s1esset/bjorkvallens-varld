@@ -23,7 +23,7 @@ import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, wiggle, puff, sparkle, burst, breathe, floatText, shake , kvittera, liv } from '../../lib/feedback.js'
-import { COLORS, shade } from '../../lib/theme.js'
+import { COLORS, shade, tint } from '../../lib/theme.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { topLightFill } from '../../lib/form.js'
 import { drawIcon } from '../../lib/artikoner.js'
@@ -66,6 +66,9 @@ const DARKMUD = 0x6b4429 // mörkare lera (prickar + dubbel-lager)
 // gråblå + stark blank dager läser "blöt och seg" mot den varma leran.
 const CLAY = 0x4f5b64
 const CLAY_GLOSS = 0xbcd6de
+const SUDS_MAX = 24 // tak på löpande skum-klumpar samtidigt (rent visuellt, dör av sig självt)
+const SUDS_AVSTAND = 26 // px mellan två skumklumpar längs ett svep
+const SUDS_PAUS_MS = 350 // gnuggar man på stället skummar det ändå så här ofta
 const STICKY_HINT_MS = 2600 // hur ofta kladd-tipset får upprepas (aldrig tjat)
 // GÖMDA FYND: en sak per djur ligger under en lerklump. Ritade föremål ur ikonbiblioteket
 // (P0 ASSETS: fristående form, aldrig en emoji i en ruta).
@@ -110,6 +113,10 @@ export default {
     this._idle = 0
     this._noProgress = 0
     this._foam = []
+    this._suds = [] // löpande skum där svampen gnuggar (ren bild, ingen spellogik)
+    this._lastSudsPt = null
+    this._lastSudsT = 0
+    this._smutsLvl = -1 // svampens smutsnivå 0..10 (-1 = aldrig ritad)
     this._flakes = []
     this._bubbles = [] // stigande tvålbubblor i karet (ritas i this._tubFx)
     this._waterT = 0 // fas för skvalpande vattenskimmer
@@ -158,6 +165,10 @@ export default {
     this._mudLayer.eventMode = 'none'
     this._foamLayer = new Container()
     this._foamLayer.eventMode = 'none'
+    // Löpande skum ligger över fläckskummet, under vattnet.
+    this._sudsLayer = new Container()
+    this._sudsLayer.eventMode = 'none'
+    this._sudsLayer.interactiveChildren = false
     // DUSCHVATTNET (lib/vatska.js). Sprayen var 24 egna droppar på 4 px radie i
     // blekblått — uppmätt 6,8 px till närmaste granne, alltså långt inom en
     // metaboll-radie, men ritade var för sig och därmed i praktiken OSYNLIGA mot
@@ -176,7 +187,7 @@ export default {
     // att mäta för sig (dölj allt annat, räkna pixlar).
     this._findLayer = new Container()
     this._findLayer.eventMode = 'none'
-    this._root.addChild(this._clean, this._badsakLayer, this._mudLayer, this._foamLayer, this._tubFx, this._findLayer)
+    this._root.addChild(this._clean, this._badsakLayer, this._mudLayer, this._foamLayer, this._sudsLayer, this._tubFx, this._findLayer)
 
     this._fluid = new FluidWorld({
       max: FLUID_MAX,
@@ -299,6 +310,21 @@ export default {
     e.roundRect(-42, 16, 84, 14, 8).fill({ color: 0xff9ec4, alpha: 0.9 })
     e.eventMode = 'none'
     c.addChild(e)
+    // Smutslager: leran svampen tagit upp. Fläckarna är fasta positioner i svampens kropp;
+    // hur många som syns (och hur starka) styrs av _spongeSmuts.
+    const smuts = new Graphics()
+    smuts.eventMode = 'none'
+    c.addChild(smuts)
+    c._smuts = smuts
+    c._smutsSpots = []
+    for (let i = 0; i < 9; i++) {
+      c._smutsSpots.push({
+        x: -32 + Math.random() * 64,
+        y: -20 + Math.random() * 40,
+        rx: 6 + Math.random() * 8,
+        ry: 4 + Math.random() * 6,
+      })
+    }
     c.eventMode = 'static'
     c.cursor = 'pointer'
     c.interactiveChildren = false
@@ -348,6 +374,16 @@ export default {
     this._rundNr = (this._rundNr || 0) + 1 // token för köade ljud (djurlätet vid duschen)
 
     this._resolving = false
+    // Båda verktygen hem. Ett grepp som fortfarande hölls när rundan tog slut släpps här —
+    // annars nollades `_held` medan fingret var nere, `_toolUp` gick sedan tomt och duschen
+    // blev liggande mitt över nästa djur (sett i bild, även på HEAD).
+    for (const tool of this._tools) {
+      tool.view.off('globalpointermove', this._moveH)
+      tool.view.off('pointerup', this._upH)
+      tool.view.off('pointerupoutside', this._upH)
+      gsap.killTweensOf(tool.view)
+      tool.view.position.set(tool.home.x, tool.home.y)
+    }
     this._held = null
     this._selectedTool = null
     this._sprayOn = false
@@ -363,6 +399,7 @@ export default {
     this._idle = 0
     this._noProgress = 0
     this._foam = []
+    this._lastSudsPt = null
 
     const t = this._levelType()
     this._type = t
@@ -379,6 +416,9 @@ export default {
     this._genMud(t)
     this._hasSticky = this._flakes.some((f) => f.kind === 'klibb')
     this._hideFind()
+    this._smutsLvl = -1
+    this._spongeRenVid = 0
+    this._spongeSmuts() // ny runda = ren svamp
 
     // Duschen åter inaktiv/dim tills ~70 % skrubbat.
     this._showerFade?.kill()
@@ -516,8 +556,10 @@ export default {
     const flakes = []
     for (let y = bb.minY; y <= bb.maxY; y += step) {
       for (let x = bb.minX; x <= bb.maxX; x += step) {
-        const jx = x + (Math.random() * 20 - 10)
-        const jy = y + (Math.random() * 20 - 10)
+        // Ruckla rutnätet kraftigare än förut (±10 px) så lerfläckarna inte läses som rader:
+        // ±0,36 × steget. Antalet rutor är detsamma; bara var inom rutan fläcken hamnar ändras.
+        const jx = x + (Math.random() - 0.5) * step * 0.72
+        const jy = y + (Math.random() - 0.5) * step * 0.72
         if (!this._onAnimal(jx, jy)) continue
         // Håll en lerfri ruta runt ansiktet — minen ska alltid synas.
         if (Math.hypot(jx - FACE_X, jy - FACE_Y) < FACE_R) continue
@@ -531,13 +573,9 @@ export default {
         const view = new Graphics()
         view.eventMode = 'none'
         view.position.set(jx, jy)
-        // Slumpen ligger i BUMPARNAS vinkel, inte i `view.rotation`. Samma siluett-
-        // variation som forut, men vyn star ratt — och det ar forutsattningen for att
-        // klumparna ska kunna bara en gradient: en roterad Graphics roterar aven sin
-        // fyllning, sa varje flack hade fatt sin egen slumpmassiga ljusriktning.
-        const rot = Math.random() * Math.PI
-        const rx = (x, y) => x * Math.cos(rot) - y * Math.sin(rot)
-        const ry = (x, y) => x * Math.sin(rot) + y * Math.cos(rot)
+        // Formens slump ligger i punkterna (`lerForm`), inte i `view.rotation`: vyn står rak,
+        // och det är förutsättningen för att en cachad toning ska ge alla fläckar samma
+        // ljusriktning (en roterad Graphics roterar även sin fyllning).
         const flake = {
           view,
           x: jx,
@@ -548,16 +586,11 @@ export default {
           hits: 0,
           _clean: false,
           _lastHit: 0,
-          bumps: [
-            { x: rx(-r * 0.5, r * 0.2), y: ry(-r * 0.5, r * 0.2), r: r * 0.6 },
-            { x: rx(r * 0.55, -r * 0.15), y: ry(r * 0.55, -r * 0.15), r: r * 0.55 },
-          ],
-          dots: [
-            { x: rx(-r * 0.2, -r * 0.2), y: ry(-r * 0.2, -r * 0.2), r: 4 },
-            { x: rx(r * 0.25, r * 0.25), y: ry(r * 0.25, r * 0.25), r: 5 },
-            { x: rx(0, r * 0.05), y: ry(0, r * 0.05), r: 3 },
-          ],
+          ...lerForm(r, sticky),
         }
+        // Dubbel-lagret (DARKMUD) får aldrig bli så ljust att det läses som en vanlig fläck:
+        // bara de två mörkare tonerna.
+        if (need === 2) flake.ton = Math.floor(Math.random() * 2)
         this._paintFlake(flake, need === 2 ? DARKMUD : MUD)
         this._mudLayer.addChild(view)
         bounceIn(view, { duration: 0.3, delay: Math.random() * 0.25 })
@@ -573,29 +606,29 @@ export default {
     if (!g || g.destroyed) return
     g.clear()
     if (flake.kind === 'klibb') {
-      // Blank kladd: mörkare bas, ljus dager uppe till vänster och en droppe som rinner.
-      g.circle(0, 0, flake.r).fill(CLAY)
-      for (const b of flake.bumps) g.circle(b.x, b.y, b.r).fill(CLAY)
-      g.ellipse(-flake.r * 0.28, -flake.r * 0.34, flake.r * 0.4, flake.r * 0.24).fill({ color: CLAY_GLOSS, alpha: 0.9 })
-      g.circle(flake.r * 0.16, flake.r * 0.72, flake.r * 0.26).fill(CLAY)
-      g.circle(flake.r * 0.16, flake.r * 0.96, flake.r * 0.15).fill(CLAY)
+      // Blank kladd: flat kall bas (samma oregelbundna silhuett som leran), ljus dager uppe
+      // till vänster och en droppe som rinner.
+      blobPath(g, flake.blob)
+      g.fill(CLAY)
+      ritaSmadelar(g, flake, CLAY)
+      g.ellipse(-flake.r * 0.26, -flake.r * 0.3, flake.r * 0.36, flake.r * 0.2).fill({ color: CLAY_GLOSS, alpha: 0.9 })
       return
     }
-    // Leran lag pa 111 592 px i EN ton (`_plattprobe --medbakgrund`) — storsta faltet i
-    // hela D1-nivan, och till skillnad fran markplanerna ar det MANGA foremal som delar
-    // tonen. En klump ar r=24..30 plus tva bumps, alltsa ~54 px bred: stort nog att bara
-    // en toning. Fyllningen cachas per farg, sa alla flackar kostar TVA gradienter
-    // (MUD + DARKMUD), inte tva per flack.
+    // LERA SOM LERA: en flikig, oregelbunden stänkform (`lerForm`) med en tunn tunga som rinner,
+    // några små stänk runtom och bara 1–2 mörka korn. Varje fläck har sin egen storlek och sin
+    // egen ton — men tonerna är ett FAST litet antal (3 per grundfärg), så fyllningarna cachas
+    // per färg och en runda kostar sex gradienter i stället för en per fläck.
     //
-    // ⚠️ INTE `sphereFill`, och det ar provat: radiella klot gav varje bump en egen
-    // glansdager, och tre klot per flack lasted som en hog CHOKLADKULOR pa djuret i
-    // stallet for lera. Talet var utmarkt (111 592 -> 30 048) och bilden sa nagot annat.
-    // Lera vill ha LAG inre kontrast och ett ljus uppifran — en klumpig jordkaka, inte
-    // ett godis. Darfor `topLightFill` med dampad ramp.
-    const lera = topLightFill(color, { highlight: 0.14, dark: 0.2 })
-    g.circle(0, 0, flake.r).fill(lera)
-    for (const b of flake.bumps) g.circle(b.x, b.y, b.r).fill(lera)
-    for (const d of flake.dots) g.circle(d.x, d.y, d.r).fill(DARKMUD)
+    // Den här formen ersatte en cirkel + två bulor + tre prickar som såg ut som
+    // chokladkakor. ⚠️ INTE `sphereFill`, och det är provat: radiella klot gav varje bump en
+    // egen glansdager och läste som CHOKLADKULOR. Lera vill ha LÅG inre kontrast och ett ljus
+    // uppifrån, alltså `topLightFill` med dämpad ramp (det ritas här en gång per fläck, med
+    // fyllningen bunden till formens egen ruta, så roterade former får ändå samma ljusriktning).
+    const bas = lerTon(color, flake.ton)
+    blobPath(g, flake.blob)
+    g.fill(topLightFill(bas, { highlight: 0.14, dark: 0.2 }))
+    ritaSmadelar(g, flake, bas)
+    for (const d of flake.dots) g.circle(d.x, d.y, d.r).fill({ color: shade(bas, 0.32), alpha: 0.7 })
   },
 
   // ---- Verktygs-drag (egen pekspårning) ----------------------------------
@@ -789,6 +822,7 @@ export default {
       }
       did = true
     }
+    if (did || !stuck) this._sudsAt(p)
     if (!did) {
       // Bara kladd under svampen: visa VARFÖR och peka på duschen — en gång i taget.
       if (stuck) {
@@ -857,6 +891,7 @@ export default {
     flake._clean = true
     this._scrubbed += 1
     this._noProgress = 0
+    this._spongeSmuts()
     this._spawnFoam(flake.x, flake.y)
     this._fadeOut(flake.view, 0.4)
     puff(ctx.fxLayer, flake.x, flake.y, { count: 4, color: 0xffffff })
@@ -966,8 +1001,104 @@ export default {
     this._foam.push({ view: g, x, y, _rinsed: false })
   },
 
+  // Svampens smuts = leran den tagit upp minus det som sköljts: (skrubbat − sköljt) / totalt.
+  // Skum skapas en per borttagen klump och sköljs en i taget, så talet går aldrig under 0 och
+  // är 0 när allt är sköljt. Ritas om bara när nivån (0–10) ändras. Returnerar true när
+  // svampen just blev ren.
+  _spongeSmuts() {
+    const v = this._sponge?.view
+    const g = v?._smuts
+    if (!g || g.destroyed) return false
+    const total = Math.max(1, this._totalMud)
+    // Smutsen följer det svampen skrubbat sedan den senast sköljdes — och den sköljs bara när
+    // duschstrålen faktiskt träffar den (`_rinseAt`). Att räkna av sköljt skum gjorde svampen
+    // ren i sitt hörn utan att något rörde den.
+    const lvl = clamp(Math.round(((this._scrubbed - (this._spongeRenVid || 0)) / total) * 10), 0, 10)
+    if (lvl === this._smutsLvl) return false
+    const fore = this._smutsLvl
+    this._smutsLvl = lvl
+    g.clear()
+    if (lvl > 0) {
+      const spots = v._smutsSpots
+      const n = Math.ceil((lvl * spots.length) / 10)
+      for (let i = 0; i < n; i++) {
+        const sp = spots[i]
+        g.ellipse(sp.x, sp.y, sp.rx, sp.ry).fill({ color: MUD, alpha: 0.3 + lvl * 0.04 })
+        g.ellipse(sp.x + 1, sp.y + 1, sp.rx * 0.5, sp.ry * 0.5).fill({ color: DARKMUD, alpha: 0.25 + lvl * 0.03 })
+      }
+    }
+    return fore > 0 && lvl === 0
+  },
+
+  // Löpande skum: små vita klumpar som bubblar upp där svampen gnuggar djuret. Bara bild —
+  // räknas aldrig som skum att skölja (det är `_foam`). Tak SUDS_MAX, dör av sig självt i
+  // _sudsTick, rivs i _clearRound/destroy.
+  _sudsAt(p) {
+    const layer = this._sudsLayer
+    if (!layer || layer.destroyed || !this._onAnimal(p.x, p.y)) return
+    const now = performance.now()
+    const lp = this._lastSudsPt
+    if (lp && Math.hypot(p.x - lp.x, p.y - lp.y) < SUDS_AVSTAND && now - this._lastSudsT < SUDS_PAUS_MS) return
+    this._lastSudsPt = { x: p.x, y: p.y }
+    this._lastSudsT = now
+    const antal = Math.random() < 0.5 ? 2 : 1
+    for (let i = 0; i < antal && this._suds.length < SUDS_MAX; i++) {
+      const r = 8 + Math.random() * 6
+      const g = new Graphics()
+      g.circle(0, 0, r).fill({ color: 0xeaf6ff, alpha: 0.92 })
+      g.circle(-r * 0.9, r * 0.35, r * 0.6).fill({ color: 0xffffff, alpha: 0.9 })
+      g.circle(r * 0.85, r * 0.2, r * 0.5).fill({ color: 0xeaf6ff, alpha: 0.9 })
+      g.circle(-r * 0.3, -r * 0.35, r * 0.3).fill({ color: 0xffffff, alpha: 0.95 })
+      g.eventMode = 'none'
+      const x0 = p.x + (Math.random() - 0.5) * 50
+      const y0 = p.y + (Math.random() - 0.5) * 40
+      g.position.set(x0, y0)
+      g.scale.set(0.5)
+      layer.addChild(g)
+      this._suds.push({
+        view: g,
+        x0,
+        y0,
+        vy: -(8 + Math.random() * 14), // px/s uppåt
+        ph: Math.random() * 6.28,
+        age: 0,
+        life: 1.0 + Math.random() * 0.7,
+        s: 0.85 + Math.random() * 0.3,
+      })
+    }
+  },
+
+  _sudsTick(dtMs) {
+    const a = this._suds
+    for (let i = a.length - 1; i >= 0; i--) {
+      const b = a[i]
+      b.age += dtMs / 1000
+      const v = b.view
+      if (v.destroyed) {
+        a.splice(i, 1)
+        continue
+      }
+      if (b.age >= b.life) {
+        v.destroy()
+        a.splice(i, 1)
+        continue
+      }
+      const t = b.age / b.life
+      v.x = b.x0 + Math.sin(b.age * 3 + b.ph) * 3
+      v.y = b.y0 + b.vy * b.age
+      v.scale.set(b.s * (t < 0.15 ? 0.5 + (t / 0.15) * 0.5 : 1 - (t - 0.15) * 0.2))
+      v.alpha = t < 0.55 ? 1 : 1 - (t - 0.55) / 0.45
+    }
+  },
+
   _rinseAt(ctx, p, radius) {
     if (this._resolving || !this._alive) return
+    // Strålen över svampen sköljer den ren — den blänker till.
+    const sv = this._sponge?.view
+    if (sv && !sv.destroyed && Math.hypot(sv.x - p.x, sv.y - p.y) < radius + 40) {
+      this._spongeRenVid = this._scrubbed
+      if (this._spongeSmuts()) sparkle(ctx.fxLayer, sv.x, sv.y, { count: 5 })
+    }
     let did = false
     // Duschen MJUKAR UPP kladdlera till vanlig lera — svampen biter sen. Det är hela
     // poängen med två verktyg: ordningen spelar roll på just de här fläckarna.
@@ -1160,6 +1291,7 @@ export default {
     const dt = Math.min(2.5, tk.deltaMS / 16.67)
 
     this._vattenTick(ctx, dt)
+    this._sudsTick(tk.deltaMS)
 
 
     // Levande kar: skvalpande vattenskimmer + stigande tvålbubblor vid vattenlinjen.
@@ -1379,6 +1511,10 @@ export default {
         o.destroy()
       })
     }
+    if (this._sudsLayer && !this._sudsLayer.destroyed) {
+      this._sudsLayer.removeChildren().forEach((o) => o.destroy())
+    }
+    this._suds = []
     if (this._findLayer) {
       this._findLayer.removeChildren().forEach((o) => {
         gsap.killTweensOf(o)
@@ -1449,9 +1585,87 @@ export default {
     this._fluidView = null
     this._fluid = null
     this._karVaggar = []
+    this._suds = []
     this._root?.destroy({ children: true })
     this._root = null
   },
+}
+
+// ---- Leran: form och ton (bara bilden — träffradie, antal och renhet ligger i flake.r) ------
+
+// Tre toner per grundfärg: mörkare, grund, ljusare. Fast antal → cachade fyllningar.
+function lerTon(color, ton) {
+  if (ton === 0) return shade(color, 0.07)
+  if (ton === 2) return tint(color, 0.07)
+  return color
+}
+
+// Sluten, mjuk kontur genom punkterna (kvadratiska steg via kantmittpunkter, som
+// Mjukkropp.path). Bara moveTo/quadraticCurveTo — ingen arc(), så ingen pennfälla.
+function blobPath(g, pts) {
+  const n = pts.length
+  const mitt = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+  const s = mitt(pts[n - 1], pts[0])
+  g.moveTo(s.x, s.y)
+  for (let i = 0; i < n; i++) {
+    const p = pts[i]
+    const m = mitt(p, pts[(i + 1) % n])
+    g.quadraticCurveTo(p.x, p.y, m.x, m.y)
+  }
+  g.closePath()
+}
+
+// Små stänk runtom + en droppe som rinner rakt NEDÅT (vyn står rak, så tyngdriktningen stämmer).
+function ritaSmadelar(g, flake, farg) {
+  for (const p of flake.sat) g.circle(p.x, p.y, p.r).fill(farg)
+  const d = flake.drip
+  if (d) {
+    g.roundRect(d.x - d.w / 2, d.y, d.w, d.len, d.w / 2).fill(farg)
+    g.circle(d.x, d.y + d.len + d.w * 0.15, d.w * 0.66).fill(farg)
+  }
+}
+
+// Slumpad form för EN fläck, ritad runt origo. `r` är fläckens träffradie och ändras aldrig —
+// formen är bara utseende (högst ~1,3 × r ut).
+function lerForm(r, klibb) {
+  // Konturen är en summa av två vågor (3–4 och 5–7 flikar) över 16 punkter — en jämn, flikig
+  // stänkform. 7–9 punkter med varannan inbuktning gav rundade FYRKANTER (sett i bild).
+  const n = 16
+  const storlek = 0.88 + Math.random() * 0.32 // fläckar i olika storlekar
+  const k1 = 3 + Math.floor(Math.random() * 2), k2 = 5 + Math.floor(Math.random() * 3)
+  const f1 = Math.random() * 6.28, f2 = Math.random() * 6.28
+  const a1 = 0.1 + Math.random() * 0.08, a2 = 0.06 + Math.random() * 0.06
+  const blob = []
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2
+    const rr = r * storlek * (0.9 + a1 * Math.sin(k1 * a + f1) + a2 * Math.sin(k2 * a + f2))
+    blob.push({ x: Math.cos(a) * rr, y: Math.sin(a) * rr })
+  }
+  const sat = []
+  const nSat = Math.floor(Math.random() * 3) // 0–2 stänk: fler blev ett prickigt kakmönster
+  for (let i = 0; i < nSat; i++) {
+    const a = Math.random() * Math.PI * 2
+    const d = r * storlek * (1.2 + Math.random() * 0.3)
+    sat.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, r: 2.5 + Math.random() * 3.5 })
+  }
+  let drip = null
+  if (klibb || Math.random() < 0.4) {
+    const w = 6 + Math.random() * 3
+    drip = {
+      x: (Math.random() - 0.5) * r * 0.7,
+      y: r * storlek * 0.5,
+      w,
+      len: (klibb ? 14 : 8) + Math.random() * 10,
+    }
+  }
+  const dots = []
+  const nDot = 1 + Math.floor(Math.random() * 2) // färre prickar: 1–2
+  for (let i = 0; i < nDot; i++) {
+    const a = Math.random() * Math.PI * 2
+    const d = Math.random() * r * 0.35
+    dots.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, r: 2.5 + Math.random() * 1.5 })
+  }
+  return { blob, sat, drip, dots, ton: Math.floor(Math.random() * 3) }
 }
 
 // Djurets badtillbehör (P0 ASSETS: fristående ritat föremål, ingen emoji i en ruta). Origo

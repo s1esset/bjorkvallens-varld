@@ -70,9 +70,9 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
 ### Kärnloop & agens
 - ✅ ~~**[Medium] Djuret reagerar på beröring.**~~ Redan byggd (`_reactFace` index.js:707:
   njutpuls, blund, kittlat hopp, 2026-07-01) — uppdagat 2026-09-23.
-- **[Medium] Ge svampen materialitet.** Låt svampen samla brun lera (blir smutsig), och låt
-  duschen även skölja svampen ren — ett litet extra orsak-verkan-moment som motiverar
-  två-verktygs-flödet bortom en upplåsningsgräns.
+- ✅ ~~**[Medium] Ge svampen materialitet.**~~ Klar 2026-10-01: svampen får bruna fläckar i
+  takt med att lera skrubbas bort (`_spongeSmuts`, nivå = (skrubbat − sköljt) / totalt, 0–10)
+  och blänker till ren när duschen sköljt det sista skummet.
 - ~~**[Deep] Smutsiga zoner med olika behov.**~~ ✅ 2026-08-07 — **den här omgången.** Två
   lersorter: **torr lera** (varm brun, matt) skrubbas som förut, **kladdlera** (kall skiffer-
   blå, blank dager + rinnande droppe) biter svampen inte på — den måste **sköljas mjuk** med
@@ -106,6 +106,8 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   fortfarande det strypta `soft`; ett riktigt gnugg-klipp kräver SFX-pipelinen.
 - **[Quick] Rinnande skum.** Låt skum-fläckar glida nedåt en aning innan de sköljs, och vatten
   pärla av den rena pälsen — mer "riktigt bad".
+  ✅ *Löpande skum vid gnuggning klart 2026-10-01* (`_sudsAt`/`_sudsTick`, tak 24, ren bild).
+  Kvar: att de kvarliggande skumfläckarna glider och att vatten pärlar av pälsen.
 
 ### Progression
 - **[Medium] Synlig "innan/efter".** En liten miniatyr-ikon (lerig → ren) bredvid mätaren som
@@ -136,8 +138,22 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   *Blockerat:* gnugg-, dusch- och stänkklippen kräver SFX-pipelinen (MOSS nere).
 - **[Quick] Lugn bad-ambient** (vatten, fågel) + varierat vinst-sting.
 
+### Kvar efter nattpoleringen 2026-10-01 (kritikern)
+- **[Quick] Gnuggskummet liknar skummet som ska sköljas** (`_foam`). Ofarligt (det dör själv på
+  ~1,5 s och räknas aldrig) men ge det en annan ton/storlek så barnet inte försöker skölja det.
+- **[Quick] Kladdleran** (grå med ljus dager) läser som staplade mynt i tät gnugg-bild.
+
 ## 5. Status / loggar
 
+- 2026-10-01 🎨 **Leran ser ut som lera** (nattplan): varje fläck var cirkel + två bulor + tre
+  prickar, alltså en rad chokladkakor på ett rutnät. Nu ritar `_paintFlake` en oregelbunden,
+  flikig stänkform (7–9 punkter, mjuk kontur via kvadratiska steg, `lerForm`), olika storlek,
+  2–3 små stänk runtom, en rinnande tunga på 40 % (alla kladdfläckar) och 1–2 mörka korn. Ton: tre
+  fasta toner per grundfärg (cachad `topLightFill`, sex gradienter totalt, inga per fläck).
+  Rutnätsjittret är ±0,36 × steget i stället för ±10 px. **Orört:** `flake.r`, `need`/`hits`,
+  antal rutor, renhetsräkning och träfflogik. ⓶ Svampen blir smutsig och sköljs ren av duschen.
+  ⓷ Löpande skum där man gnuggar (egen ticker-integrator, tak 24, rivs i `_clearRound`/
+  `destroy`; räknas aldrig som skum att skölja). Ej mätt av byggaren (ingen sond körd).
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onComplete` hade egna
   `celebrate` + PRAISE + `bigCelebration` i samma tick som `complete()`. De är strukna;
   skak, droppring, glitter och djurläte står kvar. Fyra snabbvinster: ⓵ badtillbehör per djur
@@ -278,3 +294,12 @@ nås (idle-vink + auto-städ), och att fel-drag är mjukt (bubbla). Lerklumpar/s
   - Kontroll: `npm run check` 0 fel/0 varningar · `npm run test tvatta-djuret` grön ·
     `_fyndprobe` **10/10** (HEAD: 9 röda) · exit mitt i avslöjandet utan konsolfel.
   - **Struket i §4 samtidigt:** *Ansiktet alltid synligt* (redan byggd, `FACE_R`).
+- **2026-10-01 (natt, orkestreraren):** lerkonturen blev en summa av två sinusvågor över 16
+  punkter — 7–9 punkter med varannan inbuktning gav rundade FYRKANTER i bild; 0–2 stänk (fler
+  gav ett prickigt kakmönster). Svampen sköljs nu ren bara när duschstrålen träffar den
+  (`_spongeRenVid`) — att räkna av sköljt skum gjorde den ren i sitt hörn utan orsak. Och en
+  gammal bugg (även på HEAD): en runda som tog slut medan ett verktyg hölls lämnade duschen
+  liggande över nästa djur — `_buildAnimal` släpper greppet och ställer båda verktygen hem.
+  Mätt: `scripts/_natt-tvatta-djuret.mjs` sveper svamp/dusch över fläckarnas faktiska ruta med
+  riktiga musdrag: **3 svep / 10,1 s i båda armarna** (HEAD 63–65 fläckar, nu 63–69), svampen
+  smutsig 2 → oförändrad av dusch över djuret → 0 av strålen över svampen, 0 konsolfel.

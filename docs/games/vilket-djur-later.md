@@ -61,8 +61,9 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
   (`index.js:354`, `_listen` via öron-ikonen per kort) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Medium] Vänd ibland på det:** visa ett djur stort och spela två läten — "Vilket ljud
-  hör DU kon säga?" Eller en "härma"-runda ("Säg muu!") med glad bekräftelse oavsett.
+- ✅ ~~**[Medium] Vänd ibland på det**~~ Byggd 2026-10-01: var fjärde runda visar ETT stort djur
+  ("Hur låter kon? Säg muu!"); trycket spelar djurets eget läte som eko + gest + kort beröm, inget
+  fel svar. (Varianten "spela två läten, välj ljudet" är inte byggd.)
 - ~~**[Quick] Fler djur i poolen syns** genom att rotera vilka 12 som kan dyka upp per session~~
   Premissen föll: poolen ÄR alla 12 djur, varje runda slumpar ur hela `DJUR` (svaret aldrig
   samma två rundor i rad) — det finns ingen delmängd att rotera (SNABBVINSTER D, 2026-09-23).
@@ -76,8 +77,8 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
   vickning; kortets hopp och träffyta är orörda.
 
 ### Progression
-- **[Quick] Mild kategori-tematik:** bondgårdsdjur först, sedan damm/skog (groda/uggla/bi)
-  — grupperar lärandet och ger nivåerna en känsla av nya "platser".
+- ✅ ~~**[Quick] Mild kategori-tematik**~~ Byggd 2026-10-01: bondgården först, sedan dammen/skogen
+  (groda/anka/bi/uggla), växlar vid varje milstolpe med egen kuliss och en talad intro.
 
 ### Karaktär & berättelse
 - **[Deep] En bondgård + en bonde/Bobo** som reagerar ("Ja! Det är kon!"), så scenen är en
@@ -88,6 +89,18 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
   (`index.js:459`) — uppdagat 2026-09-23.
 
 ## 5. Status / loggar
+
+- 2026-10-01 🐄 **Djuren kliver ut ur korten** (nattkörning). P0 ASSETS: korten (cremebricka + skiva +
+  ikon) är borta — varje djur står FRITT på ängen med djurorkesterns kropp (`ritaKropp`/`ritaHander`
+  importerade ur `../djurorkester/konst.js`), markskugga, vilo-guppning (`liv`, egen fas) och
+  reaktion vid tryck (squash + hopp, huvud nickar, eget läte-"prat"). Träffytan sitter på en
+  behållare som aldrig rör sig; allt animeras i barn. 👂 står kvar som en liten UI-kontroll bredvid
+  djuret (syskon i ett eget lager, eftersom en hitArea släpper inget igenom) och 🔊 som förut.
+  Layout: 2–4 djur i en rad (skala 1,3), 6 djur 3×2 (skala 0,95, träffyta 133×158 px, 28 px
+  mellan raderna). **Tema:** rundorna har bondgård (lada + stängsel) först, sedan damm/skog
+  (damm + träd), byts vid varje milstolpe; distraktorer tas i första hand ur samma tema.
+  **Vända-rundan** (var fjärde vinst): "Hur låter kon? Säg muu!" — ett stort djur, tryck spelar
+  djurets klipp som eko. Omätt i webbläsare (orkestreraren testar).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): vinnardjurets egen gest (se §4).
   Dubbelfirandet: spelet firade redan inte själv, men nästa rundas fråga kom 1,6 s efter

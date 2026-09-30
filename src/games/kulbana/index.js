@@ -19,7 +19,7 @@ import { Fjaderbrada } from '../../lib/fjader.js'
 import { createScene } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { pop, wiggle, breathe, bounceIn, puff, sparkle, burst, floatText, shake , kvittera} from '../../lib/feedback.js'
-import { COLORS, FONT } from '../../lib/theme.js'
+import { COLORS, FONT, shade } from '../../lib/theme.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const CHUTE = { x: 300, y: 168 } // utsläppet uppe till vänster (kulans startläge)
@@ -52,6 +52,39 @@ const FOOT_Y = 36
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
+// Knapparnas plats. Skalets hemknapp har hitArea x 0–140 · y −6–134 och högtalaren (speglad)
+// x 1140–1280 · y −6–134 (GameHost + Button.js: 92 px + 24 px halo). SLÄPP och handen sitter i
+// en kolumn UNDER hem: SLÄPP-hitArean (220×152 kring (120,250)) börjar på y 174 = 40 px under
+// hem (P0 kräver 24), handen (216×140 kring (120,450)) slutar på y 520.
+const RELEASE_POS = { x: 120, y: 250 }
+const HELP_POS = { x: 120, y: 450 }
+// Zoner där en DRAGEN del inte får ligga med mitten — annars hamnar dess träffyta under
+// knapparna ovanpå. Delen skjuts ut åt närmaste kant (kontinuerligt, inget hopp).
+const ZONER = [
+  { x0: -50, y0: 150, x1: 240, y1: 535 }, // SLÄPP + hand
+  { x0: 1040, y0: 0, x1: 1330, y1: 200 }, // skalets högtalare
+]
+function undvik(x, y) {
+  for (const z of ZONER) {
+    if (x > z.x0 && x < z.x1 && y > z.y0 && y < z.y1) {
+      const d = [x - z.x0, z.x1 - x, y - z.y0, z.y1 - y]
+      const m = Math.min(...d)
+      if (m === d[0]) x = z.x0
+      else if (m === d[1]) x = z.x1
+      else if (m === d[2]) y = z.y0
+      else y = z.y1
+    }
+  }
+  return { x, y }
+}
+
+// Propellern snurrar i matters takt (rad/steg) — 0,035 ≈ ett varv på 3 s; bladspetsen far
+// då ~3 px/steg, mjukt nog att knuffa kulan men inte slå den ur banan.
+const PROP_OMEGA = 0.035
+const PROP_PARK_Y = 600 // under detta y står propellern på hyllan och snurrar inte
+const PROP_ARM = 75 // halva bladlängden (px)
+const FALL_MAX = 22 // s: längsta ett enda släpp får pågå innan kulan går hem (ingen fastna-för-alltid)
+
 export default {
   id: 'kulbana',
   titleSv: 'Kulbanan',
@@ -79,6 +112,13 @@ export default {
     this._bells = []
     this._helpStage = 0 // 0 = ingen hjälp än, 1 = ramp redan lutad → nästa tryck glider hem
     this._lastWoodAt = -1
+    this._lastPropAt = -1
+    this._fallT = 0
+    this._startle = 0 // s kvar av fåglarnas uppskrämdhet efter SLÄPP
+    this._millBoost = 0 // s kvar av väderkvarnens extra fart efter ett mål
+    this._birds = []
+    this._balloon = null
+    this._mill = null
     this._selected = null
     this._drag = null
     this._lastMoved = false
@@ -89,7 +129,10 @@ export default {
     ctx.stage.addChild(this._root)
 
     // Bakgrund FÖRST (dekorativ himmel).
-    this._root.addChild(createScene('sky', { ground: false, width: ctx.width, height: ctx.height }))
+    // Solen flyttad från standardläget (150,130) — den låg bakom hem- och SLÄPP-knappen som en
+    // gul klump. Nu står den fritt i mitten av himlen.
+    this._root.addChild(createScene('sky', { ground: false, width: ctx.width, height: ctx.height, sunX: 900, sunY: 112 }))
+    this._buildSkyLife(ctx)
 
     // Fysik: lagom mjukt fall. Ceiling läggs till så en studs aldrig kan kasta
     // kulan ut ur banan (no-escape) — osynligt, ändrar inget annat.
@@ -170,11 +213,9 @@ export default {
     tag.roundRect(-22, -6, 44, 8, 3).fill(0xf07a72)
     tag.roundRect(-7, -18, 14, 12, 3).stroke({ width: 4, color: 0x8d99a6 })
     tag.roundRect(-5, 2, 10, 6, 2).fill(0xffd35c)
-    tag.position.set(86, 646)
+    tag.position.set(96, 646)
+    tag.scale.set(1.3) // verktygslådan bär hyllan ensam — ingen text (3–5 år läser inte)
     tag.eventMode = 'none'
-    const tagTxt = new Text({ text: 'Delar', style: { fontFamily: FONT.title, fontSize: 26, fontWeight: '800', fill: COLORS.inkSoft } })
-    tagTxt.position.set(112, 634)
-    tagTxt.eventMode = 'none'
 
     // Utsläpps-spout uppe till vänster (lutande pip med mörk mynning).
     const spout = new Container()
@@ -194,7 +235,122 @@ export default {
     hills.rect(0, 596, 1280, 130).fill({ color: 0x7ec46a, alpha: 0.45 })
     hills.eventMode = 'none'
     this._decor.addChildAt(hills, 0)
-    this._decor.addChild(shelf, tag, tagTxt, spout)
+    this._decor.addChild(shelf, tag, spout)
+  },
+
+
+  // ---- Liv på himlen --------------------------------------------------------
+  //
+  // Bakom ALLT spelbart (före fältfångaren): fåglar som flyger förbi, en ballong som svävar
+  // och en väderkvarn på kullen. Inga träffytor och inga tweens — allt drivs av tickern i
+  // `_updateSky`, så rivningen är bara `_root.destroy`. Fåglarna blir uppskrämda av SLÄPP
+  // och kvarnen snurrar extra efter ett mål.
+
+  _buildSkyLife(ctx) {
+    const sky = new Container()
+    sky.eventMode = 'none'
+    sky.interactiveChildren = false
+    this._root.addChild(sky)
+    this._sky = sky
+
+    // Väderkvarn långt bort på kullen, i knappkolumnen där inga delar får stå (`undvik`).
+    // Liten och disig: stod den stor mitt i fältet läste den som ännu en bandel bredvid
+    // propellern (kritiken 2026-10-01).
+    const mill = new Container()
+    mill.position.set(236, 590)
+    mill.scale.set(0.55)
+    mill.alpha = 0.85
+    const tower = new Graphics()
+    tower.moveTo(-26, 0).lineTo(-17, -104).lineTo(17, -104).lineTo(26, 0).closePath()
+    tower.fill(0xf3e3c7).stroke({ width: 3, color: 0xc9a06a })
+    tower.roundRect(-8, -30, 16, 30, 8).fill(COLORS.brown)
+    tower.circle(0, -66, 6).fill(0x9fd0ee).stroke({ width: 2, color: 0xc9a06a })
+    tower.moveTo(-25, -99).lineTo(0, -138).lineTo(25, -99).closePath().fill(0xe0574f).stroke({ width: 3, color: 0xb03f3a })
+    const vingar = new Container()
+    vingar.position.set(0, -102)
+    for (let k = 0; k < 4; k++) {
+      const arm = new Container()
+      arm.rotation = (k * Math.PI) / 2
+      const stav = new Graphics().roundRect(4, -3, 64, 6, 3).fill(COLORS.brown)
+      const segel = new Graphics().roundRect(16, -17, 48, 14, 3).fill(COLORS.cream).stroke({ width: 2, color: 0xc9a06a })
+      segel.moveTo(28, -17).lineTo(28, -3).moveTo(40, -17).lineTo(40, -3).moveTo(52, -17).lineTo(52, -3)
+        .stroke({ width: 1.5, color: 0xc9a06a, alpha: 0.8 })
+      arm.addChild(stav, segel)
+      vingar.addChild(arm)
+    }
+    const nav = new Graphics().circle(0, 0, 8).fill(0xe0574f).stroke({ width: 2.5, color: 0xb03f3a })
+    mill.addChild(tower, vingar, nav)
+    sky.addChild(mill)
+    this._mill = { view: mill, vingar }
+
+    // Ballongen: sväver sakta åt höger och guppar.
+    const ball = new Container()
+    const bg = new Graphics()
+    bg.moveTo(0, 44).quadraticCurveTo(12, 64, -4, 84).quadraticCurveTo(-14, 98, 0, 112)
+      .stroke({ width: 2.5, color: COLORS.inkSoft, alpha: 0.7 })
+    bg.ellipse(0, 0, 30, 38).fill(0xff6b6b).stroke({ width: 3, color: 0xd94b4b })
+    bg.ellipse(0, 0, 10, 38).fill({ color: COLORS.yellow, alpha: 0.6 })
+    bg.ellipse(-12, -14, 7, 12).fill({ color: 0xffffff, alpha: 0.4 })
+    bg.moveTo(-6, 46).lineTo(6, 46).lineTo(0, 35).closePath().fill(0xd94b4b)
+    ball.addChild(bg)
+    ball.position.set(640, 215)
+    sky.addChild(ball)
+    this._balloon = { view: ball, x: 640, t: Math.random() * 6 }
+
+    // Tre fåglar i olika höjd, fart och färg — en flyger åt andra hållet.
+    const fagel = (kropp, buk, y0, fart, dir, x0, skala) => {
+      const v = new Container()
+      const g = new Graphics()
+      g.moveTo(-14, 0).lineTo(-29, -7).lineTo(-29, 6).closePath().fill(shade(kropp, 0.2))
+      g.ellipse(0, 0, 16, 10).fill(kropp)
+      g.ellipse(2, 3, 11, 6).fill(buk)
+      g.circle(14, -5, 7.5).fill(kropp)
+      g.moveTo(20, -7).lineTo(29, -3).lineTo(20, 0).closePath().fill(COLORS.orange)
+      g.circle(16, -6, 2).fill(COLORS.ink)
+      const vinge = new Graphics()
+      vinge.moveTo(0, 0).quadraticCurveTo(-6, -26, -24, -22).quadraticCurveTo(-10, -8, 0, 0).fill(shade(kropp, 0.25))
+      vinge.position.set(-2, -5)
+      v.addChild(g, vinge)
+      v.scale.set(dir * skala, skala)
+      sky.addChild(v)
+      return { view: v, wing: vinge, x: x0, y0, speed: fart, dir, t: Math.random() * 6, ph: Math.random() * 6 }
+    }
+    this._birds = [
+      fagel(COLORS.blue, 0xdff2ff, 82, 34, 1, 260, 1.05),
+      fagel(0xe0574f, 0xffd9d3, 178, 22, -1, 980, 0.9),
+      fagel(COLORS.yellow, 0xfff3c4, 292, 28, 1, 120, 1.15),
+    ]
+    this._updateSky(ctx, 0)
+  },
+
+  _updateSky(ctx, dt) {
+    const vy = ctx.view
+    const L = (vy ? vy.left : 0) - 80
+    const R = (vy ? vy.right : ctx.width) + 80
+    this._startle = Math.max(0, this._startle - dt)
+    this._millBoost = Math.max(0, this._millBoost - dt)
+    const sf = 1 + Math.min(1, this._startle) * 1.5 // uppskrämda fåglar flaxar och flyger fortare
+    for (const b of this._birds) {
+      if (!b.view || b.view.destroyed) continue
+      b.t += dt * sf
+      b.x += b.dir * b.speed * dt * sf
+      if (b.dir > 0 && b.x > R) b.x = L
+      else if (b.dir < 0 && b.x < L) b.x = R
+      b.view.position.set(b.x, b.y0 + Math.sin(b.t * 1.3 + b.ph) * 12)
+      b.wing.scale.y = Math.sin(b.t * 13 + b.ph) * 0.9 + 0.1
+    }
+    const bl = this._balloon
+    if (bl && bl.view && !bl.view.destroyed) {
+      bl.t += dt
+      bl.x += 13 * dt
+      if (bl.x > R) bl.x = L
+      bl.view.position.set(bl.x, 215 + Math.sin(bl.t * 0.7) * 18)
+      bl.view.rotation = Math.sin(bl.t * 0.9) * 0.08
+    }
+    const m = this._mill
+    if (m && m.vingar && !m.vingar.destroyed) {
+      m.vingar.rotation += (0.5 + Math.min(1, this._millBoost) * 2.6) * dt
+    }
   },
 
   // ---- Kula ---------------------------------------------------------------
@@ -233,16 +389,14 @@ export default {
     const lip = new Graphics().roundRect(-86, -44, 172, 104, 28).fill(COLORS.greenDark)
     const face = new Graphics().roundRect(-86, -52, 172, 98, 28).fill(COLORS.green)
     face.roundRect(-76, -44, 152, 30, 18).fill({ color: 0xffffff, alpha: 0.18 })
-    const label = new Text({ text: 'SLÄPP', style: { fontFamily: FONT.display, fontSize: 34, fontWeight: '800', fill: COLORS.white } })
-    label.anchor.set(0.5)
-    label.position.set(0, -10)
-    // Ritad pil (var ⬇-glyf) — bär hela innebörden för den som inte läser.
+    // Ingen text: den stora ritade pilen bär hela innebörden (3–5 år läser inte).
     const arrow = new Graphics()
-    arrow.roundRect(-6, -14, 12, 18, 5).fill(COLORS.white)
-    arrow.moveTo(-16, 2).lineTo(0, 20).lineTo(16, 2).closePath().fill(COLORS.white)
-    arrow.position.set(0, 18)
-    btn.addChild(lip, face, label, arrow)
-    btn.position.set(160, 150)
+    arrow.roundRect(-11, -34, 22, 34, 8).fill(COLORS.white)
+    arrow.moveTo(-30, -4).lineTo(0, 30).lineTo(30, -4).closePath().fill(COLORS.white)
+    arrow.position.set(0, -3)
+    btn.addChild(lip, face, arrow)
+    // Kolumnen UNDER skalets hemknapp (hem-hitArea slutar på y 134) — se RELEASE_POS.
+    btn.position.set(RELEASE_POS.x, RELEASE_POS.y)
     btn.eventMode = 'static'
     btn.cursor = 'pointer'
     btn.interactiveChildren = false
@@ -278,12 +432,11 @@ export default {
       hand.roundRect(hx - 3.5, -hh + 2, 7, hh, 3.5).fill(0xffd7b0).stroke({ width: 2, color: 0xe0b48c })
     }
     hand.roundRect(-20, 4, 9, 15, 4).fill(0xffd7b0).stroke({ width: 2, color: 0xe0b48c })
-    hand.position.set(-52, 0)
-    const label = new Text({ text: 'Hjälp mig?', style: { fontFamily: FONT.display, fontSize: 26, fontWeight: '800', fill: COLORS.white } })
-    label.anchor.set(0.5)
-    label.position.set(14, 0)
-    btn.addChild(lip, face, hand, label)
-    btn.position.set(160, 300)
+    // Ingen text — den ritade handen räcker. Stor, mitt på knappen.
+    hand.scale.set(1.6)
+    hand.position.set(6, -2)
+    btn.addChild(lip, face, hand)
+    btn.position.set(HELP_POS.x, HELP_POS.y)
     btn.eventMode = 'static'
     btn.cursor = 'pointer'
     btn.interactiveChildren = false
@@ -353,7 +506,9 @@ export default {
       bells = [{ x: 720, y: 350 }]
     } else if (level <= 5) {
       bucket = { x: 1080, y: 590 }
-      parts = ['ramp', 'ramp', 'ramp', 'bounce', 'funnel']
+      // Bana 4 introducerar PROPELLERN (i stället för en ramp och trattens plats); bana 5 är den
+      // gamla tratt-banan, så varje bana ändå är ett nytt pussel.
+      parts = level === 4 ? ['ramp', 'propeller', 'ramp', 'bounce'] : ['ramp', 'ramp', 'ramp', 'bounce', 'funnel']
       obstacles = [
         { x: 520, y: 440, w: 46, h: 170 },
         { x: 800, y: 510, w: 46, h: 150 },
@@ -366,7 +521,9 @@ export default {
       const jx = Math.random() * 60 - 30
       const jy = Math.random() * 40 - 20
       bucket = { x: clamp(1080 + jx, 980, 1140), y: clamp(580 + jy, 540, 612) }
-      parts = ['ramp', 'ramp', 'ramp', 'bounce', 'funnel']
+      // Varannan bana tratt, varannan propeller — fem delar på hyllan räcker för att inte trängas.
+      // Propellern parkeras MITT på hyllan: sist stod den med bladen intill hinken.
+      parts = level % 2 === 0 ? ['ramp', 'ramp', 'propeller', 'bounce', 'funnel'] : ['ramp', 'ramp', 'propeller', 'ramp', 'bounce']
       obstacles = [
         { x: clamp(520 + jx, 440, 620), y: 440, w: 46, h: 170 },
         { x: clamp(820 + jx, 720, 900), y: 510, w: 46, h: 150 },
@@ -393,6 +550,7 @@ export default {
     this._helpStage = 0
     this._idle = 0
     this._restT = 0
+    this._fallT = 0
     this._lastMoved = false
     this._hideHelpButton()
 
@@ -710,6 +868,44 @@ export default {
       hitW = 180
       hitH = 120
       this._addKnob(ctx, part, 96)
+    } else if (kind === 'propeller') {
+      // PROPELLER: fyra blad i kors som snurrar i matters takt (`_stepSprings`). Kulan som
+      // träffar ett blad knuffas åt det håll bladet far — timingen är pusslet. De två
+      // korsade stavarna är STATISKA kroppar vars vinkel sätts MED fart (`setAngle(…, true)`,
+      // matters lösare läser `angle − anglePrev` även på statiska kroppar). Ingen vrid-knapp:
+      // den snurrar redan, och är den ritad rund behöver den ingen riktning.
+      const stativ = new Graphics()
+      stativ.roundRect(-7, 8, 14, 52, 5).fill(0x9a6a43).stroke({ width: 3, color: 0x6e4429 })
+      stativ.roundRect(-36, 54, 72, 14, 7).fill(0x2f7f7c)
+      stativ.roundRect(-36, 54, 72, 6, 3).fill({ color: 0x63c0bc, alpha: 0.6 })
+      stativ.eventMode = 'none'
+      const blad = new Container()
+      const bladFarger = [COLORS.pink, COLORS.teal, COLORS.yellow, COLORS.orange]
+      bladFarger.forEach((c, i) => {
+        const b = new Graphics().roundRect(6, -8, PROP_ARM - 6, 16, 8).fill(c).stroke({ width: 2.5, color: shade(c, 0.3) })
+        b.roundRect(12, -5, PROP_ARM - 22, 4, 2).fill({ color: 0xffffff, alpha: 0.35 })
+        b.rotation = (i * Math.PI) / 2
+        b.eventMode = 'none'
+        blad.addChild(b)
+      })
+      blad.eventMode = 'none'
+      const nav = new Graphics().circle(0, 0, 13).fill(COLORS.yellow).stroke({ width: 3.5, color: COLORS.orangeDark })
+      nav.circle(-4, -4, 4).fill({ color: 0xffffff, alpha: 0.6 })
+      nav.eventMode = 'none'
+      part.addChild(stativ, blad, nav)
+      part._blad = blad
+      part._hub = nav
+      part._stativ = stativ
+      part._spin = Math.PI / 4 // parkerad i kryss tills den dras upp i fältet
+      blad.rotation = part._spin
+      // Två korsade stavar (150×16) = fyra blad. Båda roterar kring navet (= delens mitt).
+      const sa = this._phys.rectangle(x, y, PROP_ARM * 2, 16, { isStatic: true, friction: 0.1, label: 'propeller' })
+      const sb = this._phys.rectangle(x, y, 16, PROP_ARM * 2, { isStatic: true, friction: 0.1, label: 'propeller' })
+      Body.setAngle(sa, part._spin)
+      Body.setAngle(sb, part._spin)
+      part._props = [sa, sb]
+      hitW = 180
+      hitH = 170
     } else {
       // Tratt: två korta plankor i V (centrerar kulan). Ingen vrid-knapp.
       const planks = [
@@ -750,8 +946,9 @@ export default {
     const onMove = (e) => {
       if (!this._drag || this._drag.part !== part) return
       const local = this._root.toLocal(e.global)
-      part.x = clamp(local.x + this._drag.ox, FIELD.minX, FIELD.maxX)
-      part.y = clamp(local.y + this._drag.oy, FIELD.minY, FIELD.maxY)
+      const pp = undvik(clamp(local.x + this._drag.ox, FIELD.minX, FIELD.maxX), clamp(local.y + this._drag.oy, FIELD.minY, FIELD.maxY))
+      part.x = pp.x
+      part.y = pp.y
       this._syncPartBodies(part)
       if (Math.hypot(local.x - this._drag.sx, local.y - this._drag.sy) > 14) this._drag.moved = true
       this._idle = 0
@@ -816,6 +1013,9 @@ export default {
         Body.setPosition(s.body, { x: part.x + s.ox, y: part.y + s.oy })
         Body.setAngle(s.body, s.ang)
       }
+    } else if (part._props) {
+      // Propellern: bara läget flyttas (utan fart) — vinkeln äger `_stepSprings`.
+      for (const b of part._props) Body.setPosition(b, { x: part.x, y: part.y })
     } else if (part._body) {
       Body.setAngle(part._body, part.rotation)
       // En fjäderbräda som flyttas behåller sin inpressning (viloläget är delens läge,
@@ -842,6 +1042,18 @@ export default {
   // varken kropp att flytta eller silhuett att rita om.
   _stepSprings() {
     for (const part of this._parts) {
+      if (part && !part.destroyed && part._props) {
+        // Propellern: ETT fast steg = PROP_OMEGA rad, satt MED fart så kulan knuffas. Vinkeln
+        // wrappas aldrig — ett hopp i `angle` vore en enorm fart i just det steget.
+        // På hyllan (parkerad) står den still: bladen skulle annars svepa in i hinken, och
+        // en kvarlämnad vinkelfart på en statisk kropp försvinner aldrig av sig själv —
+        // `setAngle(…, true)` med oförändrad vinkel nollar den.
+        // Parkerad står den i kryss (45°) så bladen inte når upp över hyllans kant.
+        if (part.y < PROP_PARK_Y) part._spin += PROP_OMEGA
+        else part._spin = Math.PI / 4
+        for (const b of part._props) Body.setAngle(b, part._spin, true)
+        continue
+      }
       const f = part?._fjader
       if (!f || part.destroyed || !part._body) continue
       if (!f.steg()) continue
@@ -902,8 +1114,7 @@ export default {
     this._idle = 0
     if (this._selected && !this._selected.destroyed) {
       const part = this._selected
-      const tx = clamp(p.x, FIELD.minX, FIELD.maxX)
-      const ty = clamp(p.y, FIELD.minY, FIELD.maxY)
+      const { x: tx, y: ty } = undvik(clamp(p.x, FIELD.minX, FIELD.maxX), clamp(p.y, FIELD.minY, FIELD.maxY))
       this._deselect()
       const sx = part.x
       const sy = part.y
@@ -947,6 +1158,8 @@ export default {
     }
     this._falling = true
     this._restT = 0
+    this._fallT = 0
+    this._startle = 1.6 // fåglarna skräms upp av SLÄPP
     this._idle = 0
     this._resetSprings()
     this._deselect()
@@ -976,6 +1189,16 @@ export default {
     }
 
     this._updateTail()
+    this._updateSky(ctx, dt)
+
+    // Propellerns blad ritas i kroppens vinkel (en skrivning per bildruta, ingen tween).
+    for (const part of this._parts) {
+      if (part && !part.destroyed && part._blad && !part._blad.destroyed) {
+        part._blad.rotation = part._spin
+        // Stativet bara ute i fältet — på hyllan hade foten stuckit ut under skärmkanten.
+        if (part._stativ && !part._stativ.destroyed) part._stativ.visible = part.y < PROP_PARK_Y
+      }
+    }
 
     // Fjäderbrädorna ritas om EN gång per bildruta (fysiken steppar upp till fem
     // gånger) och bara medan de rör sig — `_bojd` sätts av `_stepSprings`.
@@ -1006,6 +1229,12 @@ export default {
       }
       const spd = Math.hypot(b.velocity.x, b.velocity.y)
       if (b.position.y > FLOOR_MISS_Y) {
+        this._returnBall(ctx)
+        return
+      }
+      // Skyddsnät: en kula som bärs runt av en propeller står aldrig still nog för REST-testet.
+      this._fallT += dt
+      if (this._fallT >= FALL_MAX) {
         this._returnBall(ctx)
         return
       }
@@ -1117,6 +1346,8 @@ export default {
       gsap.fromTo(w.scale, { x: 1, y: 1 }, { x: 1.1, y: 1.5, duration: 0.18, yoyo: true, repeat: 1, ease: 'power2.out' })
     }
 
+    this._millBoost = 2.4 // väderkvarnen snurrar upp i firandet
+    this._startle = 1.6
     this._level += 1
     ctx.progress.setLevel(this._level)
     ctx.progress.setCustom('banor', (ctx.progress.get().custom?.banor || 0) + 1)
@@ -1303,6 +1534,19 @@ export default {
         continue
       }
 
+      // Propeller: ett blad knuffar kulan — "fjuu" uppåt i tonhöjd, gnistor, navet hoppar till.
+      if (other.label === 'propeller') {
+        if (this._tnow - this._lastPropAt > BOUNCE_THROTTLE) {
+          this._lastPropAt = this._tnow
+          const part = this._parts.find((p) => p && !p.destroyed && p._props && p._props.includes(other))
+          const kraft = clamp((Math.hypot(this._ballBody.velocity.x, this._ballBody.velocity.y) - 1) / 10, 0, 1)
+          ctx.services.audio.tone({ freq: 380 + 160 * kraft, dur: 0.12, type: 'triangle', vol: 0.08 + 0.1 * kraft, slideTo: 760 + 240 * kraft })
+          if (part?._hub && !part._hub.destroyed) pop(part._hub, { scale: 1.35 })
+          sparkle(ctx.fxLayer, this._ballBody.position.x, this._ballBody.position.y, { count: 3 })
+        }
+        continue
+      }
+
       // Fjäderbräda: bräddan TAR EMOT anslaget (lagrar farten i fjädern) och kastar
       // tillbaka kulan när plankan går upp igen. Ljudet spelas i samma sekund som
       // kontakten, inte vid utkastet — annars kommer återkopplingen efter 100 ms.
@@ -1370,6 +1614,20 @@ export default {
       for (const s of part._subBodies) this._phys.removeBody(s.body)
       part._subBodies = null
     }
+    if (part._props) {
+      for (const b of part._props) this._phys.removeBody(b)
+      part._props = null
+    }
+  },
+
+  // Navet poppar på ett tryck från kulan — en tween på ett BARN av delen (inte på delen, som är
+  // dragmål och hitArea). Den måste dödas innan delen rivs.
+  _dodaNavtween(part) {
+    const h = part?._hub
+    if (!h || h.destroyed) return
+    h._fxPopTl?.kill()
+    h._fxPopTl = null
+    gsap.killTweensOf(h.scale)
   },
 
   _clearParts() {
@@ -1378,6 +1636,7 @@ export default {
     for (const part of this._parts) {
       if (!part) continue
       this._removePartBodies(part)
+      this._dodaNavtween(part)
       if (!part.destroyed) {
         gsap.killTweensOf(part)
         gsap.killTweensOf(part.scale)
@@ -1431,6 +1690,7 @@ export default {
 
     for (const part of this._parts || []) {
       if (part && !part.destroyed) {
+        this._dodaNavtween(part)
         gsap.killTweensOf(part)
         gsap.killTweensOf(part.scale)
       }

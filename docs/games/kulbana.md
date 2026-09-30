@@ -73,9 +73,8 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
   inte bara träffen.
 
 ### Variation & överraskning
-- **[Medium] Roliga banelement.** Lägg in valbara delar med karaktär: en snurrande propeller
-  som knuffar kulan, en kort "loop", en studsmatta-kedja, en klocka/blomma som kulan kan slå
-  till på vägen (pling + poäng-fri gnista). Ger nya pussel och wow.
+- ✅ ~~Propeller~~ *(2026-10-01, se §5)*. **[Medium] Fler banelement kvar:** en kort "loop" och en
+  studsmatta-kedja (klockorna och propellern finns).
 - **[Quick] Banbitar med personlighet.** Studsplattan är klar (en riktig fjäderbräda,
   `Fjaderbrada` :663, 2026-08-09). Kvar: rampens "swoosh" när kulan rullar och trattens
   sluk-animation.
@@ -103,6 +102,17 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
 - **[Quick] Riktiga klipp via SFX-pipelinen.** Trä-klonk, studs-boing, whoosh, plums-i-vatten,
   ett glatt "klart!"-sting (se [[real-audio-sfx]]). Lägg en lugn, lätt verkstads-/utomhus-ambient.
   *(2026-09-23: blockerad — kräver nya SFX-klipp, MOSS nere.)*
+- **[Quick] Propellerns ljud** är en triangelton med slide — ett eget "fjuu" (`audio.tone`-svep med
+  brus) vore mer särpräglat (kritiken 2026-10-01).
+
+### Kvar efter kritiken 2026-10-01
+- **[Medium] Hyllan är en panel som bär spelobjekt** (P0 `ASSETS`): delarna ligger på en krämfärgad
+  bricka. Gör den till en riktig ritad hylla/arbetsbänk i trä utan kortram.
+- **[Quick] Trängsel på hyllan med fem delar** (bana 6+): 190 px mellan platserna mot 180 px breda
+  träffytor (propellern) = 10 px glapp, under P0:s 24 px.
+- **[Quick] Fåglarna reagerar inte på tryck** — en fågel som flyger iväg vid tryck (med 96 px halo)
+  ger en anledning att titta upp.
+- **[Quick] `FALL_MAX`-hemfärden är tyst** — en puff + "Hoppsan, hem igen!" gör orsaken tydlig.
 
 ## 5. Status / loggar
 
@@ -195,3 +205,24 @@ Imponerande system, men en kräsen spelare/förälder ser tunna fläckar:
   ⚠️ Och: **att räkna pixlar över en tröskel mäter YTA, inte styrka.** Bandet täcker ungefär
   samma bana i båda armarna, så pixelantalet växte bara 1 011 → 1 587 medan energin gick 33k →
   205k. Styrkan bor i alfan. `npm run check` 0 fel/0 varningar · `npm run test` grön.
+- 2026-10-01 **Hemknappen, tom himmel och propeller** (nattplan F2): ⓵ **P0-buggen:** SLÄPP-hitArean
+  (x 50–270, y 74–226) låg över skalets hemknapp (hitArea x 0–140, y −6–134) — ett tryck nära hem kunde
+  släppa kulan. SLÄPP sitter nu på (120,250): hitArea y 174–326 = 40 px under hem (krav 24). Handknappen
+  (var (160,300) och tätt inpå SLÄPP) flyttad till (120,450). Texterna 'SLÄPP', 'Hjälp mig?' och 'Delar'
+  borttagna (ingen läsning 3–5 år; pilen/handen/verktygslådan bär det) och pilen/handen gjorda större. Delar
+  som DRAS skjuts ut ur knappkolumnen och hörnet under högtalaren (`undvik`/`ZONER`, närmaste kant,
+  kontinuerligt) så deras träffyta inte hamnar under en knapp. Solen flyttad med `sunX/sunY` (900,112).
+  ⓶ **Liv på himlen** (`_buildSkyLife`/`_updateSky`, bakom allt spelbart, inga träffytor, inga tweens):
+  tre fåglar med flaxande vingar (skräms upp och flyger fortare vid SLÄPP), en ballong som svävar, en
+  väderkvarn på kullen som snurrar extra i firandet. ⓷ **Propeller** som ny del (bana 4, sedan varannan
+  bana från 6): fyra blad i kors, två statiska stavar vars vinkel sätts MED fart i `beforeStep`
+  (`setAngle(…, true)` — matters lösare läser `angle − anglePrev` även på statiska kroppar), ritad
+  ur kroppens vinkel, står still på hyllan (annars svepte den in i hinken) och nollar då vinkelfarten.
+  Skyddsnät: `FALL_MAX` 22 s — en kula som bärs runt av propellern står aldrig still nog för REST-testet.
+  Orkestreraren mätte med `scripts/_natt-kulbana.mjs` (riktiga muspekningar): SLÄPP släpper kulan, två
+  banor spelade i mål via hjälpvägen, propellern dragen ut i bana 4 och kulan genom den klar på 1,9 s,
+  ett tryck i hemknappens nederkant (70,128) går HEM, 0 konsolfel. Två kritikfynd rättade: väderkvarnen
+  stod stor mitt i fältet (x 430) och läste som en bandel bredvid propellern → liten och disig i
+  knappkolumnen (236,590, skala 0,55); den parkerade propellern stod sist på hyllan med bladen intill
+  hinken och upp över hyllkanten → parkeras mitt på hyllan, i kryss (45°), utan stativ.
+  Kvar omätt: propellerns knuff (PROP_OMEGA 0,035) som balans, och om kulan kan fastna mellan blad och nav.

@@ -1,0 +1,34 @@
+{
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-sonnet-5-5"
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git push *)",
+      "Bash(npm run deploy:*)",
+      "Bash(npm run deploy *)",
+      "Bash(node scripts/deploy.mjs:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git checkout -- .:*)",
+      "Bash(git checkout .:*)",
+      "Bash(git restore .:*)",
+      "Bash(git rebase:*)",
+      "Bash(git branch -D:*)",
+      "Bash(git stash drop:*)",
+      "Bash(git stash clear:*)",
+      "Bash(git commit --amend:*)",
+      "Bash(git config:*)",
+      "Bash(rm -rf:*)",
+      "Bash(npm install:*)",
+      "Bash(npm i :*)",
+      "Bash(npx vite preview:*)",
+      "Bash(npm run serve:*)",
+      "Bash(schtasks:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh release:*)"
+    ]
+  }
+}

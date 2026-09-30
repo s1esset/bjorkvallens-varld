@@ -83,9 +83,8 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
   uppdagat 2026-09-23.
 
 ### Progression
-- **[Medium] Dämpa platshållar-spoilern på högre nivåer.** Låt den tomma rutan bli mer neutral
-  (eller försvinna helt) på nivå 2+, så att barnet verkligen måste minnas *vad* och inte luta
-  sig mot *var* luckan är. Behåll tydlig "❔" för de yngsta.
+- ✅ ~~**[Medium] Dämpa platshållar-spoilern på högre nivåer.**~~ Klar 2026-10-01: från nivå 2 (5–6 saker)
+  lämnas luckan tom — ingen "?"-cirkel och ingen kvarlämnad skugga. Nivå 0–1 behåller cirkeln.
 - ✅ ~~**[Quick] Visa "rundor klarade".**~~ Klar 2026-09-23 (v1.251.0): `custom.rundor` som en rad ritade
   guldstjärnor överst mellan skalets knappar (tak 10, kan aldrig minska). Den nya stjärnan
   studsar in vid rätt svar (:352, `makeRundStjarna` :836).
@@ -99,8 +98,30 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
 - **[Quick] Verifiera varierat vinst-sting** — verifierat 2026-09-23: `complete()` spelar det globalt
   varierade vinstljudet. Ambienten kräver ett SFX-klipp (MOSS nere) — öppen.
 
+### Kvar efter nattpoleringen 2026-10-01 (kritikern)
+- **[Quick] Uteslutningen löser nivå 2+:** den enda svarssaken som inte står kvar på hyllan är
+  alltid rätt. Blanda in en lockbete som INTE fanns på hyllan från nivå 2 — mät att det inte blir
+  för svårt för en 4-åring.
+
 ## 5. Status / loggar
 
+- 2026-10-01 🛋️ **Ett rum, en filt som är tyg och fristående svar** (nattplanen, `_plattprobe` 2 937 toner).
+  Ny fil `rum.js`. **Filten** är ett punktnät i stället för en rundad rektangel: rutor, prickar
+  eller ränder (slumpas per runda, fem färger), kantband, stygn, snedställda veck och en
+  fastsydd stjärnlapp — allt förskjuts av samma våg, så tyget krusar sig efter FARTEN när det
+  glider in/ut och lägger sig med en liten krusning (ett tryck på filten krusar den också).
+  Alfa 1, en mjuk slagskugga följer duken, och den täcker rutnätet + 40 px marginal, så ingen
+  sak syns igenom. **Rummet:** tapetränder, golvlist, fönster med gardiner (färg per runda) och
+  ett moln som driver, tre tavlor (ordning per runda), vimpelgirlang, golv med brädor, en matta
+  under svarsraden, leksakskorg och en ljusfläck från fönstret — allt i kanterna, dämpat, så
+  hyllan är den enda yta som drar blicken. Golvets horisont flyttad 648 → 600 (`FLOOR_Y`), och
+  sista nivåns radavstånd 240 → 215 (nedre hyllplanet hamnar ovanför horisonten; träffytor
+  fortfarande 25 px isär). **Svaren är fristående saker på mattan** (P0 `ASSETS`): ingen bricka,
+  bara silhuett + kontaktskugga + egen vilorörelse (`liv`), träffyta 160×160 med 40 px luft. Pivån
+  ligger vid fötterna: studs, vingel, andning och hopp vid rätt svar sker kring fötterna; rätt
+  svars hjälp-glöd är ett sken + en ring på golvet. **Spoilern** borta från nivå 2 (se §4). Inga nya
+  repliker. Orsak: filten var en lila låda med alfa 0,95 (bilen syntes igenom) och svarskorten
+  var cremebrickor med motiv i.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): spelets rad "Ja! Det var ju …! <beröm>"
   stod redan före `complete()`, men nästa rundas intro kom efter 1,7 s och kapade den. Introt
   köas nu med `ctx.narTyst` (:747, runda- och fas-token) och nollställer tjat-timern när det
@@ -177,3 +198,11 @@ auto-hjälp är medvetna no-fail-val för 3–5 år.
     filtljud + lugn bakgrunds-ambient; [Medium] "vad bytte plats?"-varianten.
 </content>
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): filten parkerade på 1280+60 och stod FULLT SYNLIG i högra kantremsan på telefon — nu `ctx.view.right+60` vid in- och utglidning. Creme-ytan i övrigt är designen (kant-cream-undantag: innehållsyta ≥35 % creme). Testad båda viewports: 0 fel.
+- **2026-10-01 (natt, orkestreraren):** på sista nivån (två hyllrader) nådde översta raden upp i
+  tavlornas band — stjärnan stod framför måne-tavlan och läste som en del av den (sett i bild).
+  Då hänger nu bara EN tavla, till höger om hyllan (`makeRum(..., { hogHylla })`). Filtens
+  stjärnlapp blev en rund lapp (kritikern: den liknade stjärn-leksaken under filten). Repliken
+  "Välj rätt kort här nere." → "Tryck på den här nere." (korten finns inte längre).
+  Mätt: `scripts/_natt-vad-forsvann.mjs` — 5 rundor (nivå 0, 0, 3 gone, 3 added, 2 gone) med
+  riktiga klick, filten i täckt läge varje gång, fel → rätt → ny runda, 0 konsolfel.
+  `_plattprobe`: 2 937 → 4 456 toner.

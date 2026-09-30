@@ -8,18 +8,20 @@
 // kort = lekfull vingel + mjukt ljud + ny mild ledtråd (ALDRIG ett "fel"); efter
 // ett par försök (eller om barnet väntar) lyser rätt kort upp och väljs till slut
 // så det aldrig kan misslyckas. Ingen poäng, ingen timer, inget slut. Allt ritas
-// programmatiskt (Pixi Graphics + emoji).
+// programmatiskt (Pixi Graphics). Rummet (fönster, tavlor, matta, leksakskorg) och
+// filten (tyg med mönster, stygn, veck och krusning) bor i `rum.js`. Svarsalternativen
+// är fristående saker som står på golvmattan — inga kort.
 // Uppgiftstypen varieras (_mode): 'gone' = en sak försvinner (grund), 'added' = en
 // NY sak dyker upp bakom filten och barnet väljer vilken som är ny — samma
 // kort-svarsmekanik, men bryter den strukturellt identiska rundan.
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle, breathe, ripple, kvittera, liv } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, squash, sparkle, breathe, ripple, kvittera, liv } from '../../lib/feedback.js'
 import { Button } from '../../lib/Button.js'
 import { COLORS, PRAISE } from '../../lib/theme.js'
 import { verticalFill, bage } from '../../lib/form.js'
-import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { makeRum, slumpaTema, makeFilt, slumpaFilt } from './rum.js'
 
 // Saker som slumpas per runda. Emoji-strängen är bara NYCKELN (NAMES/SAMPLES
 // slår upp på den) — P0 ASSETS: allt RITAS av drawMotif(), aldrig en emoji på
@@ -192,22 +194,10 @@ const SAMPLES = {
   '🐶': 'djur_hund', '🐱': 'djur_katt', '🐸': 'djur_groda', '🚗': 'bil_tut',
 }
 
-// RUMMET. `_plattprobe --medbakgrund` mätte spelet som appens plattaste: 809 744 px —
-// 88 % av hela skärmen — i EN enda ton, och den tonen var skalets `COLORS.bg`. Orsaken
-// var inte en platt yta utan en SAKNAD yta: spelet ritade ingen bakgrund alls, så sakerna
-// svävade i ett cremetomrum utan rum, mark eller skala. Väggen nedan spänner OM den gamla
-// bakgrunden (0xfdf6e3) — samma varma creme, bara med ljus i — så bilden är igenkännlig;
-// det är rummet som tillkommit. Tonerna är cachade per färgpar (`verticalFill`), så en
-// montering kostar NOLL texturbakningar; en obakad gradient per montering fäller sviten.
-const C_WALL_TOP = 0xfffaf0
-const C_WALL_BOT = 0xf1e3c5
-const FLOOR_Y = 648 // horisont: under varje hyllplan, bakom svarskortens nedre halva
-// Golvet ligger MEDVETET nära väggens ton. Ett första försök på 0xe7d0a6 läste som en gul
-// rand tvärs över bilden i stället för som ett golv — kontrasten mot väggen gjorde bandet
-// till ett föremål. Nu skiljer bara ett halvsteg, plus en tunn golvlist.
-const C_FLOOR_TOP = 0xe9d8b8
-const C_FLOOR_BOT = 0xdcc79c
-const C_FLOOR_EDGE = 0xc2a97e
+// RUMMET ritas i `rum.js` (vägg, golv, fönster, tavlor, matta, korg). `_plattprobe` mätte
+// spelet som appens plattaste (809 744 px i EN ton = skalets bakgrund). Golvet ligger
+// MEDVETET nära väggens ton — ett för kontrastrikt golv läste som en gul rand tvärs över
+// bilden. Tonerna är cachade per färgpar (`verticalFill`): NOLL texturbakningar vid montering.
 
 // Hyllplanen. Ett per rad i rutnätet, så sakerna STÅR på något i stället för att sväva.
 // Ett försök med konsoler under planet BACKADES: i den storlek som fick plats lästes de
@@ -225,7 +215,9 @@ const LEVELS = [
   { count: 3, cols: 3, rows: 1, cellW: 200, gap: 60, startX: 380, startY: 400 },
   { count: 4, cols: 4, rows: 1, cellW: 190, gap: 44, startX: 289, startY: 400 },
   { count: 5, cols: 5, rows: 1, cellW: 180, gap: 30, startX: 220, startY: 400 },
-  { count: 6, cols: 3, rows: 2, cellW: 190, gap: 50, startX: 400, startY: 290, rowStep: 240 },
+  // rowStep 215 (träffytor 190 → 25 px luft, P0 ≥24). Nedre hyllplanet hamnar på y 545 —
+  // ovanför golvets horisont (600), så det sitter på väggen och inte i golvet.
+  { count: 6, cols: 3, rows: 2, cellW: 190, gap: 50, startX: 400, startY: 270, rowStep: 215 },
 ]
 
 const HALF = 95 // halv cell -> generös träffyta (190px ≫ 96px minimum)
@@ -265,6 +257,14 @@ const LIV = {
 }
 const LIV_FALLBACK = { bob: 3, sway: 0.04, duration: 2.5, fot: true }
 const FOT_Y = SHELF_DROP - 7 // kontaktskuggans höjd = "fötterna"
+
+// SVARSRADEN: fristående saker på golvmattan (ingen bricka). Origo = mitten av saken,
+// skuggan ligger vid "fötterna" (FOT_C). Träffytan är 160×160 med 40 px luft till nästa.
+const CHOICE_S = 1.25
+const FOT_C = 50
+const CHOICE_Y = 632
+const CHOICE_STEP = 200
+const CHOICE_HIT = 80
 
 export default {
   id: 'vad-forsvann',
@@ -328,18 +328,15 @@ export default {
 
     const lvl = LEVELS[this._level]
 
-    // Rummet ritas först, längst bak. Full bleed åt alla håll så en bred telefon aldrig
-    // ser skalets cremekant utanför 0..1280. Se rumsbeskrivningen vid C_WALL_TOP.
-    const room = new Graphics()
-      .rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, ctx.height + 2 * BLEED_Y)
-      .fill(verticalFill(C_WALL_TOP, C_WALL_BOT))
-    room
-      .rect(-BLEED_X, FLOOR_Y, ctx.width + 2 * BLEED_X, ctx.height + BLEED_Y - FLOOR_Y)
-      .fill(verticalFill(C_FLOOR_TOP, C_FLOOR_BOT))
-    room.rect(-BLEED_X, FLOOR_Y - 3, ctx.width + 2 * BLEED_X, 4).fill({ color: C_FLOOR_EDGE, alpha: 0.45 })
+    // Rummet ritas först, längst bak (rum.js). Full bleed åt alla håll så en bred telefon
+    // aldrig ser skalets cremekant utanför 0..1280. Nytt tema (gardin, matta, tavelordning)
+    // per runda — omgång 2 är inte samma rum som omgång 1.
+    const rum = makeRum(ctx.width, ctx.height, slumpaTema(), { hogHylla: (lvl.rows || 1) > 1 })
+    const room = rum.vagg
     // Väggen är skärmens största yta — utan handlare vore varje tryck utanför sakerna
     // obesvarat (P0 ÅTERKOPPLING). Kvitterar ALLTID: en vakt på en upptagen-flagga här
-    // vore precis den döda träffyta `_tystprobe` letar efter.
+    // vore precis den döda träffyta `_tystprobe` letar efter. Dekoren (fönster, tavlor,
+    // matta, korg) är `eventMode: none` och släpper igenom trycket till väggen.
     room.eventMode = 'static'
     this._onRoomTap = (e) => {
       if (!this._alive) return
@@ -348,7 +345,11 @@ export default {
       this._idle = 0
     }
     room.on('pointertap', this._onRoomTap)
-    this._root.addChild(room)
+    this._root.addChild(room, rum.dekor)
+    // Molnet i fönstret driver fram och tillbaka (evig tween — dödas i _killSceneTweens).
+    this._moln = rum.moln
+    this._moln.x -= 18
+    this._molnTw = gsap.to(this._moln, { x: '+=36', duration: 9, ease: 'sine.inOut', yoyo: true, repeat: -1 })
 
     // Klarade rundor som ritade stjärnor (under rutnätet och filten i ritordningen).
     this._stjarnRad = new Container()
@@ -436,6 +437,7 @@ export default {
 
     slot.addChild(kontakt, placeholder, livLager)
     slot._placeholder = placeholder
+    slot._kontakt = kontakt
     slot._emoji = emoji
     slot._livLager = livLager
     liv(livLager, { bob: o.bob, sway: o.sway, duration: o.duration })
@@ -465,30 +467,35 @@ export default {
     // skärmkanten (ctx.view.right, läses vid användning) — vid 1280+60 stod den
     // parkerad fullt synlig i telefonens högra kantremsa.
     const b = bounds(this._slots)
-    const blanket = makeBlanket(b.w, b.h)
+    const blanket = makeFilt(b.w, b.h, slumpaFilt())
     blanket.position.set(ctx.view.right + 60, b.top)
+    blanket._y0 = b.top
+    blanket._lx = blanket.x
     // Filten ÄR skärmens mitt medan den ligger på — och den låg tidigare där som en
     // död yta: trycket träffade filten, inte rutorna under, och ingenting hände
-    // (uppmätt `dod-traffyta` mitt i täck-fasen). Nu vaggar den till och kvitterar.
+    // (uppmätt `dod-traffyta` mitt i täck-fasen). Nu krusar den sig och kvitterar.
     // Att peta på filten är dessutom precis vad ett barn vill göra just då.
-    blanket.eventMode = 'static'
     blanket.cursor = 'pointer'
     blanket.on('pointertap', (e) => {
       if (!this._alive || blanket.destroyed) return
       // Ringen sätts där FINGRET var, inte i filtens mitt: filten glider medan den
-      // täcker, och dess pivå ligger i hörnet — en vingel eller puls därifrån hade
-      // svängt hela duken. Ett kvitto får aldrig se ut som en bugg.
+      // täcker, och dess pivå ligger i hörnet. Själva duken svarar med en krusning.
       const p = ctx.fxLayer.toLocal(e.global)
       kvittera(ctx.fxLayer, p.x, p.y, ctx.services.audio, { color: COLORS.orange, maxR: 90 })
+      if (!blanket._ut) blanket._krusning(6)
     })
     this._root.addChild(blanket)
     this._blanket = blanket
 
     ctx.services.audio.sfx('whoosh')
+    // Vågen i tyget följer farten (onUpdate → _glid), och den lägger sig med en liten
+    // krusning när filten stannat. Filten är alfa 1 och täcker hela rutnätet + marginal.
     gsap.to(blanket, {
       x: b.left, duration: 0.5, ease: 'power2.out',
+      onUpdate: () => blanket._glid(),
       onComplete: () => {
-        if (!this._alive) return
+        if (!this._alive || blanket.destroyed) return
+        blanket._klar()
         this._later(0.8, () => this._removeOne(ctx, blanket))
       },
     })
@@ -509,7 +516,12 @@ export default {
       slot = randomFrom(this._slots)
       slot._isGap = true
       slot._emoji.visible = false
-      slot._placeholder.visible = true
+      // SPOILERN: en synlig "?"-cirkel (och kvarlämnad skugga) pekar ut exakt vilken plats
+      // som blev tom. Den behålls för de yngsta (nivå 0–1, 3–4 saker) men tas bort från
+      // nivå 2: där är luckan bara en tom plats på hyllan och barnet måste minnas VAD.
+      const spoiler = this._level < 2
+      slot._placeholder.visible = spoiler
+      slot._kontakt.visible = spoiler
       // Luckan ska vara ett HÅL. Låt vilorörelsen fortsätta och platshållaren ligger
       // still medan ett osynligt lager andas i den — harmlöst i bild, men det gör
       // luckan till "en sak som gömmer sig" i koden i stället för till en tom plats,
@@ -524,12 +536,15 @@ export default {
 
     ctx.services.audio.sfx('reveal')
     ctx.services.audio.tone({ freq: 320, dur: 0.18, type: 'sine', vol: 0.18, slideTo: 150 }) // magiskt "poff"
+    blanket._ut = true
+    blanket._stopp() // nedläggningens krusning får inte tävla med glid-vågen
     gsap.to(blanket, {
       // Glid ut förbi den SYNLIGA kanten (ctx.view läses när tweenen startar).
       x: ctx.view.right + 60, duration: 0.5, ease: 'power2.in',
+      onUpdate: () => blanket._glid(),
       onComplete: () => {
         if (!this._alive) return
-        if (!blanket.destroyed) blanket.destroy({ children: true })
+        if (!blanket.destroyed) { blanket._stopp(); blanket.destroy({ children: true }) }
         if (this._blanket === blanket) this._blanket = null
         this._phase = 'answer'
         this._busy = false
@@ -578,22 +593,22 @@ export default {
       card.position.set(positions[i].x, positions[i].y)
       layer.addChild(card)
       this._choices.push(card)
-      card.scale.set(0)
-      gsap.to(card.scale, {
-        x: 1, y: 1, duration: 0.32, delay: 0.1 + i * 0.08, ease: 'back.out(1.7)',
-        onStart: () => { if (this._alive && i === 0) ctx.services.audio.sfx('pling') },
-      })
+      // Saken studsar upp ur golvet (skala kring fötterna) en efter en.
+      bounceIn(card._reakt, { delay: 0.1 + i * 0.08 })
+      if (i === 0) this._later(0.1, () => ctx.services.audio.sfx('pling'))
     })
   },
 
-  // Ett svarskort = stort tryckbart kort med en emoji. Träffyta ≫ 96px.
+  // Ett svar = en fristående sak på golvmattan: egen silhuett, kontaktskugga, eget liv.
+  // Träffytan (160×160) sitter på `card`; allt som rör sig bor i barn (`_reakt` för
+  // studs/vingel/puls, `livLager` för vilorörelsen) så träffytan står still.
   _makeChoice(ctx, motif) {
-    const card = makeChoiceCard(motif)
+    const card = makeChoiceObj(motif)
     card.on('pointertap', () => this._onChoice(ctx, card, motif))
     return card
   },
 
-  // Tap på ett svarskort.
+  // Tap på en sak i svarsraden.
   _onChoice(ctx, card, motif) {
     if (!this._alive) return
     if (this._busy || this._phase !== 'answer') return this._kvitto(ctx, card)
@@ -606,7 +621,7 @@ export default {
     }
     // FEL: aldrig en bestraffning — lekfull vingel + mjukt ljud + ny mild ledtråd.
     ctx.services.audio.sfx('soft')
-    wiggle(card)
+    wiggle(card._reakt)
     this._misses = (this._misses || 0) + 1
     if (this._mode === 'added') {
       ctx.services.voice.say(this._misses === 1
@@ -631,12 +646,16 @@ export default {
     this._killHelpTween()
 
     ctx.services.audio.sfx('correct')
-    if (card && !card.destroyed) {
-      gsap.killTweensOf(card.scale)
-      card.scale.set(1)
-      pop(card)
+    if (card && !card.destroyed && card._reakt && !card._reakt.destroyed) {
+      // Den valda saken gör ett glatt hopp (squash kring fötterna). Stoppa först en
+      // pågående in-studs/andning så viloskalan blir 1 och inte ett mellanläge.
+      const r = card._reakt
+      gsap.killTweensOf(r.scale)
+      r._fxScaleBusy = false
+      r.scale.set(1)
+      squash(r, { intensity: 1.3, hop: 22 })
     }
-    // Tona ned de andra korten + lås alla kort.
+    // Tona ned de andra sakerna + lås alla.
     this._choices.forEach((c) => {
       c.eventMode = 'none'
       if (c !== card && !c.destroyed) gsap.to(c, { alpha: 0.3, duration: 0.3 })
@@ -646,6 +665,7 @@ export default {
     const slot = this._missing
     slot._isGap = false
     slot._placeholder.visible = false
+    slot._kontakt.visible = true
     slot._emoji.visible = true
     bounceIn(slot._emoji)
     pop(slot)
@@ -696,13 +716,19 @@ export default {
     const card = this._choices.find((c) => c._motif === this._missing._motif)
     if (!card || card.destroyed) return
     if (!card._glow) {
-      const ring = new Graphics().roundRect(-84, -84, 168, 168, 30).stroke({ width: 8, color: COLORS.green, alpha: 0.95 })
-      ring.eventMode = 'none'
-      card.addChildAt(ring, 0)
-      card._glow = ring
+      // Ett grönt sken bakom saken + en ring på golvet under den (ingen ruta runt saken).
+      const glow = new Graphics()
+      glow.circle(0, 0, 92).fill({ color: COLORS.green, alpha: 0.1 })
+      glow.circle(0, 0, 76).fill({ color: COLORS.green, alpha: 0.12 })
+      glow.ellipse(0, FOT_C, 74, 14).stroke({ width: 6, color: COLORS.green, alpha: 0.9 })
+      glow.eventMode = 'none'
+      card.addChildAt(glow, 0)
+      card._glow = glow
     }
     this._killHelpTween()
-    this._helpTween = breathe(card, { scale: 1.12, duration: 0.7 })
+    card._reakt._fxRestScale = { x: 1, y: 1 } // andningen utgår alltid från skala 1
+    card._reakt._fxScaleBusy = true
+    this._helpTween = breathe(card._reakt, { scale: 1.12, duration: 0.7 })
     const namn = NAMES[this._missing._motif] || 'den'
     ctx.services.voice.say(this._mode === 'added'
       ? `Titta — det var ${namn} som kom till. Tryck på den!`
@@ -765,10 +791,10 @@ export default {
     if (this._phase === 'answer' && this._missing) {
       this._idleNudges = (this._idleNudges || 0) + 1
       if (this._idleNudges >= 2 || this._helped) {
-        this._autoHelp(ctx) // har väntat ett tag -> visa & välj rätt kort
+        this._autoHelp(ctx) // har väntat ett tag -> visa & välj rätt sak
       } else {
-        ctx.services.voice.say('Titta igen — vilken sak är borta? Välj rätt kort här nere.')
-        this._choices.forEach((c) => { if (c && !c.destroyed) pop(c) })
+        ctx.services.voice.say('Titta igen — vilken sak är borta? Tryck på den här nere.')
+        this._choices.forEach((c) => { if (c && !c.destroyed) pop(c._reakt) })
       }
     } else if (this._phase === 'show' && this._button && this._button.visible) {
       ctx.services.voice.say('Tryck på Göm dem! när du har tittat klart.')
@@ -801,9 +827,16 @@ export default {
     })
     this._choices?.forEach((c) => {
       gsap.killTweensOf(c)
-      gsap.killTweensOf(c.scale)
+      if (c._reakt) {
+        gsap.killTweensOf(c._reakt)
+        gsap.killTweensOf(c._reakt.scale)
+      }
+      c._livLager?._fxLiv?.kill()
     })
     this._killHelpTween()
+    this._molnTw?.kill()
+    this._molnTw = null
+    if (this._blanket) this._blanket._stopp?.()
     if (this._gridLayer) gsap.killTweensOf(this._gridLayer)
     if (this._button) {
       gsap.killTweensOf(this._button)
@@ -932,53 +965,50 @@ function makePlaceholder() {
   return c
 }
 
-// Positioner (center) för svarsraden nedtill, centrerad kring x=640.
-function choiceLayout(n, { y = 632, cardW = 150, gap = 56 } = {}) {
-  const step = cardW + gap
-  const totalW = n * cardW + (n - 1) * gap
-  const startX = 640 - totalW / 2 + cardW / 2
+// Positioner (center) för svarsraden på golvmattan, centrerad kring x=640.
+function choiceLayout(n) {
+  const startX = 640 - ((n - 1) * CHOICE_STEP) / 2
   const out = []
-  for (let i = 0; i < n; i++) out.push({ x: startX + i * step, y })
+  for (let i = 0; i < n; i++) out.push({ x: startX + i * CHOICE_STEP, y: CHOICE_Y })
   return out
 }
 
-// Ett svarskort: rundad cream-bricka (150×150) med en stor emoji. Generös
-// träffyta (156px ≫ 96px + osynlig halo). Emoji fångar inte tryck själv.
-function makeChoiceCard(motif) {
+// Ett svar: en fristående sak som står på golvet — ingen bricka, bara silhuetten, en
+// kontaktskugga och eget liv. Lagerordning (alla utom `card` är eventMode none):
+//   card (träffyta 160×160, står stilla)
+//     kontakt  — skuggan på mattan, står kvar när saken guppar eller hoppar
+//     _reakt   — studs / vingel / puls / hopp, med pivån vid FÖTTERNA
+//       livLager — vilorörelsen (`liv` äger dess y + rotation; aldrig wiggle/squash här)
+//         saken (drawMotif, skala CHOICE_S)
+function makeChoiceObj(motif) {
   const card = new Container()
-  const bg = new Graphics()
-    .roundRect(-75, -75, 150, 150, 28)
-    .fill(COLORS.cream)
-    .stroke({ width: 5, color: COLORS.inkSoft, alpha: 0.4 })
-  bg.eventMode = 'none'
-  const emoji = drawMotif(motif)
-  card.addChild(bg, emoji)
+  const kontakt = new Graphics().ellipse(0, FOT_C, 58, 11).fill({ color: COLORS.shadow, alpha: 0.16 })
+  kontakt.eventMode = 'none'
+
+  const reakt = new Container()
+  reakt.eventMode = 'none'
+  reakt.pivot.set(0, FOT_C)
+  reakt.position.set(0, FOT_C)
+
+  const o = LIV[motif] || LIV_FALLBACK
+  const livLager = new Container()
+  livLager.eventMode = 'none'
+  if (o.fot) {
+    livLager.pivot.set(0, FOT_C)
+    livLager.position.set(0, FOT_C)
+  }
+  const sak = drawMotif(motif)
+  sak.scale.set(CHOICE_S)
+  livLager.addChild(sak)
+  reakt.addChild(livLager)
+  liv(livLager, { bob: o.bob, sway: o.sway, duration: o.duration })
+
+  card.addChild(kontakt, reakt)
   card._motif = motif
-  card._emoji = emoji
+  card._reakt = reakt
+  card._livLager = livLager
   card.eventMode = 'static'
   card.cursor = 'pointer'
-  card.hitArea = new Rectangle(-78, -78, 156, 156)
+  card.hitArea = new Rectangle(-CHOICE_HIT, -CHOICE_HIT, CHOICE_HIT * 2, CHOICE_HIT * 2)
   return card
-}
-
-// Mjuk filt: rundad lila rektangel (lokalt origo 0,0) med ljus kant + 🧺-motiv.
-function makeBlanket(w, h) {
-  const c = new Container()
-  const g = new Graphics().roundRect(0, 0, w, h, 40).fill({ color: COLORS.purple, alpha: 0.95 }).stroke({ width: 6, color: 0xffffff, alpha: 0.8 })
-  // Ritad picknickkorg som filtens motiv (var en 🧺-emoji).
-  const motif = new Graphics()
-  motif.arc(0, -14, 34, Math.PI, 0).stroke({ width: 7, color: 0x9a5c33 })
-  motif.moveTo(-42, -14).lineTo(42, -14).lineTo(34, 34).lineTo(-34, 34).closePath()
-  motif.fill(0xc98a4b).stroke({ width: 5, color: 0x9a5c33 })
-  for (let i = 1; i < 4; i++) {
-    const t = i / 4
-    motif.moveTo(-42 + 8 * t, -14 + t * 48).lineTo(42 - 8 * t, -14 + t * 48).stroke({ width: 3, color: 0x9a5c33, alpha: 0.5 })
-  }
-  for (let x = -30; x <= 30; x += 20) motif.moveTo(x, -12).lineTo(x + 6, 32).stroke({ width: 3, color: 0x9a5c33, alpha: 0.4 })
-  motif.roundRect(-46, -22, 92, 14, 7).fill(0xd9925e).stroke({ width: 5, color: 0x9a5c33 })
-  motif.position.set(w / 2, h / 2)
-  motif.eventMode = 'none'
-  c.addChild(g, motif)
-  c.eventMode = 'static' // absorberar tryck medan filten täcker
-  return c
 }

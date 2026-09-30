@@ -109,6 +109,10 @@ fångar försvinner in i abstrakta prickar.
 
 ## 5. Status / loggar
 
+- 2026-09-30 🧑 **Ägarbeslut: hjälten får vara kvar som den är.** Nattkörningen flaggade att
+  figuren (röd dräkt, nätmönster, stora vita ögon) liknar Spindelmannen på en publik sajt; ägaren
+  valde att INTE rita om den. Väck inte frågan igen utan ett nytt skäl.
+
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onComplete` spelade eget
   `celebrate` + `PRAISE` + `bigCelebration` i samma tick som `complete()` — strukna (complete()
   firar). Sex snabbvinster: sällsynt guldgodis (två mätarsteg), månfas + eldflugor per nivå,

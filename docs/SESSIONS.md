@@ -14,6 +14,31 @@ Format:
 
 ---
 
+## 2026-09-30 (kväll) — Efter nattkörningen: tre ägarbeslut och två drivarbuggar · v1.278.0
+
+**Byggt:**
+- **Standardsolen flyttad** (`lib/scene.js`): `createScene`s sol stod på (150,130) och halon
+  (r 120) låg bakom skalets hemknapp (70,64) som en gul klump i ~40 spel. Nu (270,135): halon går
+  fri från knappens hörn med ~36 px och skivan ligger under HUD-remsan högst upp. Spel med egen
+  `sunX/sunY` (kulbana, folj-sparet, harma-melodin, grodan-slurp) är orörda. Mätt med före/efter-
+  ark över de 39 spelen med standardsolen (nattens skärmdumpar som före-arm) + `test:all` 87/87.
+- **Drivaren (`scripts/nattkorning.ps1`):** ⓵ morgonrapportens lägestabell var mojibake
+  (`L├ñra ┬À`) — node/git-utdata avkodades i konsolens OEM 850 när uppgiften startar drivaren;
+  nu `[Console]::OutputEncoding` = UTF-8 (kontrollarm under `chcp 850` reproducerade felet, fixen
+  gav `Lära`). ⓶ en omstart efter kvotväggen fick SAMMA sessionsnamn (`F3-1` två gånger) eftersom
+  namnet följde försöket, som räknas ned vid en kvotvägg — och den andra sessionens loggar skrev
+  över den förstas. Sessionsnumret räknas nu för sig; en session som slog i väggen märks
+  `kvotvagg` i `forbrukning.json` och i rapportraden. Nattens egen MORGONRAPPORT-tabell skrevs om.
+- **Ägarbeslut bokförda:** spindelnätets hjälte får vara kvar (`docs/games/spindelnatet.md` §5),
+  glittergrottans shader parkerad till en bevakad omgång (`docs/games/glittergrottan.md` §4).
+- **Rättelse till nattens post nedan:** backupens robocopy-kod 9 i F2–F4 var INTE dev-servern —
+  F5 visade att det bara var fasens egna öppna loggfiler (`loggar/F?-?.jsonl`, delningsfel 32).
+**Commits:** 38b64ab fix(natt) · 31b4c0d fix(scene) v1.278.0 · + denna bokföring. Publicerat.
+**Öppet:** ägaren provar nattens tolv spel (`.claude/state/natt/MORGONRAPPORT.md`) ·
+glittergrottans shader (bevakad omgång) · R1/R2-reservspelen står kvar · tre 🔧 med en [Deep]
+kvar: kla-efter-vadret, siffertaget, vilket-djur-later · varningen `snal-snappyta` i
+kla-efter-vadret (15 px utanför, inget fel).
+
 ## 2026-10-01 — Nattkörningen: tolv spel polerade i fyra faser · v1.277.0
 
 **Uppdraget (ägaren 2026-09-30):** välj minst tio spel med störst potential eller trasigast bild,

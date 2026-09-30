@@ -129,6 +129,9 @@ namnger den). Samma skärm bär båda åldrarna.
 - ~~**[Deep]** Mjuk kamera-drift på idle~~ ✅ 2026-08-08 — enklare än planerat: `pick()` och
   `worldToDesign()` går via den levande kameran, så ingen "lerpa tillbaka före pick" behövdes;
   `designToWorld` läser bara `camera.position.z` och påverkas inte alls.
+- **[Deep]** Glitter-shadern (`three-shaders.js` `glitterMat`) ger fyrkantigt brus och platt
+  ljus (nattkörningens fynd 2026-10-01). **Parkerad av ägaren 2026-09-30** — tas i en egen,
+  BEVAKAD omgång: WebGL-sviten flakar och går inte att mäta obevakat.
 
 ## 5. Status / loggar
 

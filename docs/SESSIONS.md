@@ -14,6 +14,50 @@ Format:
 
 ---
 
+## 2026-09-30 (sen kväll) — Appen uppdaterar sig själv, Nyheter-ruta, fyra spel polerade · v1.284.0
+
+**Byggt:**
+- **Automatisk uppdatering (v1.279):** `checkForUpdate()` i `lib/pwa.js` kör `reg.update()` när
+  menyn monteras (appstart + varje gång man backar ut dit) och vid `visibilitychange → visible`,
+  spärrat till en koll per 30 s. En installerad app som väcks ur bakgrunden navigerar aldrig —
+  därför kom en ny version förut bara via knappen. Menyn anmäler sig med `onUpdateReady()` och
+  byter efter en 1,4 s-avi, aldrig i bibliotek/spel; `aktivera()` högst en gång per sidliv.
+  Versionspillret står kvar. Mätt med nya `_autouppdatprobe.mjs` mot riktigt bygge
+  (`vite preview`): **8/8, HEAD 2/6** (utan ändringen hittas versionen aldrig utan knapp).
+- **Nyheter-ruta (v1.279):** ✨-pill bredvid versionspillret → DOM-ruta (`domModal.showNews`) med
+  data i `src/lib/nyheter.js` (förälderns språk, nyast först). Prick tills senaste posten lästs,
+  "Uppdaterad till vM.NN" en gång efter ett byte (`localStorage pwagames.nyheter`).
+  `npm run check` varnar när den aktuella versionen saknar en post — regeln står i CLAUDE.md,
+  skill spel-pipeline (steg 9) och skal-och-data. `_nyhetprobe.mjs` 14/14 i båda måtten.
+- **Fyra nya poleringskandidater** (ägaren: "hitta 4 nya"), valda ur ett kontaktark över alla 87
+  skärmdumpar: de med svagast bild som inte rördes i natt. Opus orkestrerade, Sonnet byggde
+  (`.claude/state/polera-2026-09-30.md` = arbetsordrarna), en kritiker före ett samlat fixvarv:
+  - `enhorningen-flyger` (v1.280) — himmel per nivå (dag/skymning/kväll med måne/morgon) med
+    kullar, enhörningen 25 % större med regnbågssvans, fyra ringtyper, regnbågsport som mål,
+    stjärnsäck. 🔧 → ✅.
+  - `fargregn` (v1.281) — målfärgs-skylten (droppe i vit ruta, P0 ASSETS) ersatt av Bobo med
+    paraply/hink i målfärgen som fångar; regn ur moln, hus och träd, regnbåge på himlen band för
+    band, tre nya dropptyper. 🔧 → ✅.
+  - `skuggmatchning` (v1.283) — picknick i parken: sakerna står på en bänk med kontaktskugga,
+    silhuetterna ligger som skuggor på filten, vilo-liv (P0), större saker vid 2–3 föremål.
+  - `peka-pa-kroppen` (v1.284) — Zackes egen pratbubbla med kroppsdelen RITAD i figurens färger
+    (frågekortet med emoji var P0 ASSETS), lekplats, volym, pekhjälp i steg, dans per skepnad,
+    "Vad är det här?"-vändning (12 nya repliker, klipp genererade). 🔧 → ✅.
+**Mätt:** varje spel `natt.mjs prova` (0 fel) + en egen sond `scripts/_polera-<id>.mjs` som
+spelar huvudkontrollen med riktiga klick/drag (harnessen hade `drag/ratt 0` i alla fyra) —
+före och efter fixvarvet. `test:all` 87/87. Publicerat.
+**Läxor:** ⓵ `git add public/audio/voice/*.mp3` expanderar till alla ~1 935 klipp →
+"Argument list too long"; ta bara de ospårade: `$(git ls-files --others --exclude-standard
+public/audio/voice)`. Committen föll, så peka-pa-kroppen fick v1.284 och skuggmatchning v1.283
+(ingen v1.282). ⓶ `Input.synthesizeScrollGesture` scrollar ingenting i headless Chrome — en
+fingerscroll mäts med råa `dispatchTouchEvent` (kontrollarm i `_nyhetprobe`).
+**Commits:** ccb8dc5 feat(skal) v1.279 · 963c15c enhorningen-flyger v1.280 · 5bee8d8 fargregn
+v1.281 · ac0e494 skuggmatchning v1.283 · bc68d26 peka-pa-kroppen v1.284 · + denna bokföring.
+**Öppet:** ägaren provar de fyra spelen + auto-uppdateringen på telefonen (första riktiga
+provet: nästa version efter v1.284 ska komma utan knapptryck) · nästa kandidater: plantera-fron ·
+stor-liten · rakna-applen · ballonglyft · valpens-bajs · fallskarmen · kritikens [Medium] kvar i
+skuggmatchning §4 (tom bänk efter sista matchen) · nattens tolv spel fortfarande oprovade av ägaren.
+
 ## 2026-09-30 (kväll) — Efter nattkörningen: tre ägarbeslut och två drivarbuggar · v1.278.0
 
 **Byggt:**

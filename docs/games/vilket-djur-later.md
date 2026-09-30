@@ -88,6 +88,15 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
 - ✅ ~~**[Quick] Spela det riktiga klippet IGEN vid rätt svar**~~ Redan byggd 2026-07-02
   (`index.js:459`) — uppdagat 2026-09-23.
 
+### Kvar efter nattpoleringen 2026-10-01 (spelkritikern)
+- **[Deep] Egen kroppssilhuett per djur.** Alla djur delar `ritaKropp` (samma ellips, bara färg
+  och fläckar skiljer) — huvudet bär hela identiteten, och grodan läses som en grön nalle.
+  Delas med `djurorkester/konst.js`, så bygg det där och låt båda spelen ärva.
+- **[Quick] Örat överlappar djurets träffyta ~37 px.** På det strecket vinner örat: ett tryck på
+  djurets högerkant spelar lätet i stället för att svara (ofarligt, men otydligt). Krymp
+  djurets `HIT`-bredd till ±55 eller flytta örat — mät öra-mot-grannens-djur (48 px i dag)
+  med `scripts/_natt-vilket-djur-later.mjs` efteråt.
+
 ## 5. Status / loggar
 
 - 2026-10-01 🐄 **Djuren kliver ut ur korten** (nattkörning). P0 ASSETS: korten (cremebricka + skiva +

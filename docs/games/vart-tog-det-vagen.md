@@ -96,13 +96,16 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
   nu tre steg (`_update` :629) — 6 s frågan igen, 12 s **vippar** rätt kopp (`_vippaKopp` :613:
   gungning ±0,09 rad + 10 px skutt + G4→C5, leksaken förblir gömd), 18 s lyfts den som förut.
   Tidigare kom facit redan vid 12 s. ⚠️ Omätt: ingen `_idleprobe`-körning i passet.
-- **[Medium] En synlig "skattkista".** Samla hittade leksaker i en liten hylla/kista mellan
-  rundor — en konkret behållning som växer, en anledning att fortsätta.
+- ✅ ~~**[Medium] En synlig "skattkista".** Samla hittade leksaker i en liten hylla/kista mellan
+  rundor — en konkret behållning som växer, en anledning att fortsätta.~~ Byggd 2026-10-01, se §5
+  (`hylla.js`, sparas i `custom.hittade`).
 
 ### Karaktär & berättelse
-- **[Deep] En gycklare/Bobo som blandar.** En figur med händer som faktiskt lyfter, blandar och
+- ✅ ~~**[Deep] En gycklare/Bobo som blandar.** En figur med händer som faktiskt lyfter, blandar och
   avslöjar kopparna, reagerar finurligt ("Var är den nu?") och firar med barnet. Ger spelet en
-  värd och förvandlar den passiva blandningen till en föreställning.
+  värd och förvandlar den passiva blandningen till en föreställning.~~ Byggd 2026-10-01, se §5
+  (`trollkarl.js`). Kvar att överväga: Bobo som faktiskt *rör* kopparna med handen (i dag pekar
+  han med staven och kopparna lyfts av sig själva).
 
 ### Ljud
 - **[Quick] Verifiera varierat vinst-sting** vid `complete()` och lägg en lågmäld, lite spänd
@@ -111,7 +114,39 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
   som `AudioService._celebrate` varierar i tonhöjd/tempo och variant. Kvar är ambienten, som
   kräver ett SFX-klipp — blockerad så länge MOSS är nere.*
 
+### Kvar efter nattpoleringen 2026-10-01 (kritikern)
+- **[Quick] Hyllan syns dåligt:** den sitter nere till vänster under bordet medan barnet tittar på
+  kopparna — flygningen bär hela belöningen. Pröva en kort kamerablick/puls på hyllan när
+  leksaken landar.
+- **[Quick] Full hylla (10 leksaker)** har inget slutläge — bara en befintlig leksak hoppar.
+
 ## 5. Status / loggar
+
+- 2026-10-01 ✅ **Trolleriföreställningen** (nattplanen; byggd utan webbläsartest — kör `npm run test`):
+  - **Scenen** (`scen.js`): rödsammetsridåer i sidorna med veck och guldtofs, kappa med guldbrätte
+    överst, en hängande lampa som kastar en ljuskägla ner på bordet (tre stackade trianglar, låg
+    alfa — ingen radiell gradient), indigovägg med tapetränder och blinkande guldstjärnor, trägolv
+    med brädor mot en försvinningspunkt. **Bordet** är en duk: kräm-skiva i perspektiv med tealband
+    och guldlinje, hängande kant med vågig fåll och guldtofsar, ljuspöl och golvskugga. Den
+    orangea 8 px-kanten är borta. Skivan (y 422–560) rymmer muggfot (530) + skugga (550).
+  - **Trollkarls-Bobo** (`trollkarl.js`, `makeKaraktar`): hög hatt på huvudet, flugsnipa och
+    trollstav i höger hand. Står på x 92 vänster om bordet — utanför varje muggs träffyta (den
+    vänstraste börjar x≈186). Lyfter staven med gnistor när kopparna lyfts, följer varje byte med
+    blicken och ger staven ett snärt + 3 gnistor per drag, `jubel` vid fynd, `nyfiken` vid fel kopp,
+    pekar med staven vid hjälpens lyft/vipp.
+  - **Hyllan** (`hylla.js`): osynlig tills första leksaken hittats, sedan växer en träbräda från
+    vänster med bara de leksaker som hittats (`custom.hittade`, en nyckel per leksak, sparas vid
+    fyndet — inte vid landningen). Den hittade leksaken flyger i en båge från bordet till sin plats
+    och studsar in med stigande ton; en redan hittad leksak flyger till sin gamla plats och hoppar.
+    Nya leksaker föredras i 75 % av rundorna. Hela hyllan är ETT tryckmål (y 590–714): alla
+    leksaker hoppar i tur och ordning med stigande skala. Ligger längst ner, inte under skalets
+    knappar (hörnen uppe, y < 110).
+  - **Följdändringar:** fem koppar ritas i 85 % storlek (spacing 185) så de ryms mellan Bobo och
+    bordskanten; träffytan är kopparnas bredd men aldrig så bred att grannar kommer närmare än
+    26 px. `CENTER` 640 → 650. Rundan efter ett fynd väntar 1,8 s (var 1,3) så flygningen hinner
+    landa. Fördröjda anrop går nu via `ctx.later`. Leksaken har fått en skugga.
+  - Grind: `check --game` kräver de två nya replikerna i `voice-phrases.json` (listas i byggarens
+    rapport). ⚠️ Ej webbläsartestad av byggaren.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0):
   - **Firandet:** rundan som höjer nivån fick två beröm — spelets eget vid fyndet och
@@ -186,3 +221,8 @@ progression. Leksak-följer-kopp-via-identitet är medvetet (rör sig MED koppen
     Bobo som blandar (värd/föreställning), samt leksaks-specifika sample-klipp (kvack) om MOSS-SFX.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): bakgrunden breddad (tomma-tryck-fångaren täcker kantremsorna). Bakgrundsfärgen är exakt `COLORS.bg` → flaggan släcks av design-undantaget, inte av breddningen. Testad båda viewports: 0 fel.
 - 2026-08-09 ✅ **Vilorörelse [Quick]** (v1.70.0): kopparna vaggar medan de väntar — rörelsen på den inre grafiken, spelet äger blandning och kik. Delad `feedback.liv()` med egen fas per föremål. Mätt med `_livprobe`: 4,8 px / 0,14, 0 tweens kvar efter exit.
+- **2026-10-01 (natt, orkestreraren):** flygningen till hyllan startar 1,0 s efter fyndet (var
+  0,6 — leksakens egen reaktion klipptes), nästa runda 2,2 s (var 1,8). Mätt:
+  `scripts/_natt-vart-tog-det-vagen.mjs` — 4 rundor fel+rätt kopp med riktiga klick, 5 koppar,
+  koppträffytor 26 px isär, Bobo (x 28–170) utanför koppytorna, hyllan sparad och synlig efter
+  återinträde, 0 konsolfel.

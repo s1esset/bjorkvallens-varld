@@ -1,8 +1,12 @@
-// Vart Tog Det Vägen? — det klassiska kopp-spelet ("hitta bollen") för 3–5 år.
-// En leksak göms under en av kopparna, kopparna byter plats i lugna svep och
-// barnet följer med blicken och trycker på rätt kopp. Rätt kopp lyfts och
-// leksaken hoppar fram (firande); fel kopp lyfts lite, visar tom plats och får
-// trycka igen — aldrig ett "fel". Ingen poäng, ingen timer, inget slut.
+// Vart Tog Det Vägen? — det klassiska kopp-spelet ("hitta bollen") för 3–5 år, som en liten
+// trolleriföreställning. Trollkarls-Bobo står vid bordet under en spotlight, lyfter kopparna
+// med sin stav, visar leksaken, blandar i takt med att kopparna byter plats — och jublar när
+// barnet hittar den. Hittade leksaker flyger upp på en hylla som fylls över rundorna.
+//
+// En leksak göms under en av kopparna, kopparna byter plats i lugna svep och barnet följer med
+// blicken och trycker på rätt kopp. Rätt kopp lyfts och leksaken hoppar fram (firande); fel
+// kopp lyfts lite, visar tom plats och får trycka igen — aldrig ett "fel". Ingen poäng, ingen
+// timer, inget slut.
 //
 // Svårigheten växer med nivån (var 3:e lyckad runda):
 //   • FLER KOPPAR: 3 från start, +1 var tredje nivå (nivå 3 -> 4, nivå 6 -> 5).
@@ -10,15 +14,22 @@
 //     längre kan följa en kopp på dess färg utan måste följa rörelsen.
 //   • FLER/SNABBARE BYTEN: antal byten och tempo ökar mjukt med nivån.
 // Allt är fortfarande no-fail: fel tryck är lekfullt och idle ger auto-hjälp.
-// Allt ritas programmatiskt (Pixi Graphics + emoji), inga externa filer.
+//
+// Layout (1280×720): ridåer i sidorna, lampa i taket, bordet i mitten (muggarna på x 280–1030,
+// y 270–550), Bobo till vänster om bordet (x 92 — utanför varje muggs träffyta), hyllan längst
+// ner (y 590–714, inte under skalets knappar som sitter uppe i hörnen, y < 110).
+// Allt ritas programmatiskt (Pixi Graphics), inga externa filer.
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
 import { shuffle, randomFrom } from '../../lib/swedish.js'
 import { pop, wiggle, sparkle, liv } from '../../lib/feedback.js'
-import { COLORS, PRAISE, tint, shade } from '../../lib/theme.js'
+import { COLORS, PRAISE } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { cylinderFill, verticalFill } from '../../lib/form.js'
+import { cylinderFill } from '../../lib/form.js'
+import { byggBakgrund, byggStjarnor, byggLjuskegla, byggRida, byggBord, CENTER } from './scen.js'
+import { makeTrollkarl, spetsGlobal, armTill, snart } from './trollkarl.js'
+import { Hylla } from './hylla.js'
 
 const BASE_Y = 470 // y-referenslinje: koppen nedsänkt på bordet
 const LIFT_Y = BASE_Y - 120 // koppens y i lyft-läge (visa/kika)
@@ -28,10 +39,16 @@ const ROUNDS_PER_LEVEL = 3
 const VIRVEL_GAP = [0.11, 0.1, 0.09, 0.08, 0.07, 0.06, 0.05, 0.045, 0.04]
 
 // Layout: koppar centreras kring CENTER och sprids med jämnt mellanrum (max
-// MAX_SPACING) men hålls inom bordets bredd (SPAN) även när det blir fler.
-const CENTER = 640
+// MAX_SPACING) men hålls inom bordets bredd (SPAN) även när det blir fler. Fem koppar
+// ritas i 85 % storlek så att de får plats mellan Bobo och bordets högerkant.
 const MAX_SPACING = 240
-const SPAN = 840
+const SPAN = 740
+const SMALL_CUP_K = 0.85
+
+// Bobo står vänster om bordet. Hans högra arm med stav når som mest x≈190 när den är
+// utsträckt, och den vänstra muggens träffyta börjar först vid x≈186.
+const BOBO_X = 92
+const BOBO_Y = 448
 
 // Svårighetsparametrar per nivå (saturerar — högre nivå gör inte spelet hårdare).
 const BASE_CUPS = 3 // antal koppar på nivå 0–2
@@ -44,18 +61,6 @@ const MAX_LEVEL = 9 // tak på sparad nivå (parametrarna är ändå maxade här
 const PRIZES = ['🐥', '⭐', '🍓', '🐸', '🚗', '🎈', '🐱', '🌟', '🦋', '🍎']
 // Distinkta färger används bara på nivå 0–2 (3 koppar). Från nivå 3 blir alla röda.
 const CUP_COLORS = [COLORS.red, COLORS.blue, COLORS.yellow, COLORS.green, COLORS.purple]
-const TABLE = 0xf2d6a8 // varm bordsyta
-
-// RUMMET. `_plattprobe --medbakgrund` mätte 529 236 px — 57 % av skärmen — i EN ton,
-// och den tonen var `COLORS.bg`: bordet svävade i skalets egen letterbox-creme. En scen
-// målad i exakt den färgen går dessutom inte att skilja från "ingen bleed alls"
-// (kantCream i scripts/bildkoll.mjs), så bakgrunden MÅSTE äga en egen ton.
-// Horisonten ligger strax ovanför bordsskivan (415), så bordet står på ett golv.
-const HORIZON_Y = 400
-const C_WALL_TOP = 0xfff7e6
-const C_WALL_BOT = 0xfae7c6
-const C_FLOOR_TOP = 0xe6cfab
-const C_FLOOR_BOT = 0xd2b68a
 
 export default {
   id: 'vart-tog-det-vagen',
@@ -69,13 +74,22 @@ export default {
 
   init(ctx) {
     this._alive = true
-    this._timers = []
+    this._ctx = ctx
     this._phase = 'reveal' // reveal | shuffle | guess | resolving
     this._resolving = false
     this._roundsDone = 0
+    this._rundaNr = 0
     this._idleCues = 0
+    this._hyllaBusy = false
+    this._flyer = null
+    this._flyTw = null
+    this._shuffleTl = null
     this._lastInteract = performance.now()
-    this._level = clampLevel(ctx.progress.get().highestLevel | 0)
+    const sparat = ctx.progress.get()
+    this._level = clampLevel(sparat.highestLevel | 0)
+    // Hittade leksaker ur sparet: bara kända nycklar, varje högst en gång.
+    const lista = Array.isArray(sparat.custom?.hittade) ? sparat.custom.hittade : []
+    this._hittade = lista.filter((k, i) => PRIZES.includes(k) && lista.indexOf(k) === i)
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -92,46 +106,47 @@ export default {
     ctx.services.voice.say(this.voiceIntro)
   },
 
-  // Bygg den persistenta scenen en gång: bakgrund, bord, skuggor, leksak.
+  // Bygg den persistenta scenen en gång: teater, bord, Bobo, hylla, leksak.
   // Själva kopparna (antal + färg) byggs/ombyggs av _ensureLayout per nivå.
   _build(ctx) {
-    // Bakgrund: fångar "tomt tryck" -> mjukt ljud (aldrig "fel"). Full bleed:
-    // täcker även telefonens kantremsor utanför 16:9 (statiskt, enfärgad yta).
-    // Vägg + golv (se rumsnoten vid HORIZON_Y). Cachade linjära toningar — noll
-    // texturbakningar per montering.
-    const w = ctx.width + BLEED_X * 2
-    const bg = new Graphics()
-    bg.rect(-BLEED_X, -BLEED_Y, w, HORIZON_Y + BLEED_Y).fill(verticalFill(C_WALL_TOP, C_WALL_BOT))
-    bg.rect(-BLEED_X, HORIZON_Y, w, ctx.height + BLEED_Y - HORIZON_Y).fill(verticalFill(C_FLOOR_TOP, C_FLOOR_BOT))
-    bg.eventMode = 'static'
-    bg.on('pointertap', () => this._emptyTap(ctx))
-    this._root.addChild(bg)
+    const root = this._root
+    root.addChild(byggBakgrund())
+    this._stjarnor = byggStjarnor()
+    root.addChild(this._stjarnor)
+    this._stjarnTw = gsap.to(this._stjarnor, { alpha: 0.5, duration: 1.8, yoyo: true, repeat: -1, ease: 'sine.inOut' })
 
-    // Bordsyta (dekorativ). Skuggan under skivan lyfter bordet från golvet; utan den
-    // låg skivan som en dekal på marken.
-    const table = new Graphics()
-    table.roundRect(132, 432, 1040, 260, 48).fill({ color: COLORS.shadow, alpha: 0.1 })
-    table
-      .roundRect(120, 415, 1040, 260, 48)
-      .fill(verticalFill(tint(TABLE, 0.13), shade(TABLE, 0.14)))
-      .stroke({ width: 8, color: COLORS.orange, alpha: 0.5 })
-    table.eventMode = 'none'
-    this._root.addChild(table)
+    // Fångar "tomt tryck" -> mjukt ljud (aldrig "fel"). Full bleed: täcker även telefonens
+    // kantremsor utanför 16:9. Nästan genomskinlig, inte osynlig-av-`visible`, så den träffas.
+    const fang = new Graphics()
+    fang.rect(-BLEED_X, -BLEED_Y, 1280 + BLEED_X * 2, 720 + BLEED_Y * 2).fill({ color: 0x000000, alpha: 0.001 })
+    fang.eventMode = 'static'
+    fang.on('pointertap', () => this._emptyTap(ctx))
+    root.addChild(fang)
+
+    root.addChild(byggLjuskegla())
+    root.addChild(byggRida())
+    root.addChild(byggBord())
 
     // Mjuka skuggor under varje plats (ritas om per layout).
     this._shadows = new Graphics()
     this._shadows.eventMode = 'none'
     this._shadows.interactiveChildren = false
-    this._root.addChild(this._shadows)
+    root.addChild(this._shadows)
 
-    // Leksaken: en Text-emoji, BAKOM kopparna i z-led (döljs när koppen är nere,
-    // syns när koppen lyfts). Återanvänds varje runda (byter bara text/plats).
-    // P0 ASSETS: behållare för den RITADE leksaken (var en emoji-Text vars
-    // .text byttes varje runda).
+    // Trollkarls-Bobo vänster om bordet.
+    this._bobo = makeTrollkarl(52)
+    this._bobo.view.position.set(BOBO_X, BOBO_Y)
+    root.addChild(this._bobo.view)
+
+    // Hyllan med hittade leksaker (osynlig tills första fyndet).
+    this._hylla = new Hylla(root, { onTap: () => this._hyllaTap(ctx) })
+    for (const k of this._hittade) this._hylla.laggTill(k)
+
+    // Behållare för den RITADE leksaken (ikon + skugga), återanvänds varje runda.
     this._prize = new Container()
     this._prize.eventMode = 'none'
     this._prize.position.set(CENTER, BASE_Y)
-    this._root.addChild(this._prize)
+    root.addChild(this._prize)
 
     this._cups = []
     this._slots = []
@@ -146,46 +161,57 @@ export default {
     if (this._layoutKey === key && this._cups.length === params.cups) return
     this._layoutKey = key
     this._slots = computeSlots(params.cups)
+    const k = params.cups >= MAX_CUPS ? SMALL_CUP_K : 1
+    const spacing = params.cups > 1 ? this._slots[1] - this._slots[0] : MAX_SPACING
+    // Träffytan är kopparnas bredd men aldrig så bred att grannarna närmare än 26 px.
+    const halv = Math.min(105, (spacing - 26) / 2)
 
     // Riv gamla koppar (döda tweens först — spelaren kan ha hunnit avsluta).
-    this._cups.forEach((cup) => {
-      gsap.killTweensOf(cup)
-      gsap.killTweensOf(cup.scale)
-      cup.destroy({ children: true })
-    })
+    this._cups.forEach((cup) => this._rivKopp(cup))
     this._cups = []
 
     // Rita om skuggorna under de nya platserna.
     this._shadows.clear()
     for (const x of this._slots) {
-      this._shadows.ellipse(x, BASE_Y + 58, 96, 20).fill({ color: COLORS.shadow, alpha: 0.12 })
+      this._shadows.ellipse(x, BASE_Y + 58 * k, 96 * k, 20 * k).fill({ color: 0x000000, alpha: 0.2 })
     }
 
     // Bygg kopparna. Från RED_LEVEL är alla samma röda; annars distinkta färger.
     for (let i = 0; i < params.cups; i++) {
       const color = params.allRed ? COLORS.red : CUP_COLORS[i % CUP_COLORS.length]
-      const cup = this._makeCup(color)
+      const cup = this._makeCup(color, k)
       cup._slot = i
       cup._peeking = false
       cup.position.set(this._slots[i], BASE_Y)
       cup.eventMode = 'static'
       cup.cursor = 'pointer'
-      // Generös träffyta (230x280 ≫ 96px) så även kanttryck registreras.
-      cup.hitArea = new Rectangle(-115, -200, 230, 280)
+      // Generös träffyta (≥160 px bred, 250+ hög ≫ 96px) så även kanttryck registreras.
+      cup.hitArea = new Rectangle(-halv, -200 * k, halv * 2, 280 * k)
       cup.on('pointertap', () => this._onTap(ctx, cup))
       this._root.addChild(cup)
       this._cups.push(cup)
     }
   },
 
+  _rivKopp(cup) {
+    if (!cup) return
+    gsap.killTweensOf(cup)
+    gsap.killTweensOf(cup.scale)
+    cup._fxWiggleTl?.kill()
+    cup._fxPopTl?.kill()
+    cup._g?._fxLiv?.kill()
+    if (cup._g) gsap.killTweensOf(cup._g)
+    if (!cup.destroyed) cup.destroy({ children: true })
+  },
+
   // Upp-och-nedvänd kopp: trapets-kropp (smalare topp) + rundad topp + glansremsa.
-  // Lokalt origo = referenslinjen; kroppen går från y=-190 (topp) till y=+60 (rim).
-  _makeCup(color) {
+  // Lokalt origo = referenslinjen; kroppen går från y=-190k (topp) till y=+60k (rim).
+  _makeCup(color, k = 1) {
     const cup = new Container()
-    const topW = 150
-    const botW = 200
-    const top = -190
-    const bot = 60
+    const topW = 150 * k
+    const botW = 200 * k
+    const top = -190 * k
+    const bot = 60 * k
     const g = new Graphics()
     g.moveTo(-topW / 2, top)
       .lineTo(topW / 2, top)
@@ -198,12 +224,10 @@ export default {
       .fill(cylinderFill(color, { axis: 'y' }))
       .stroke({ width: 6, color: COLORS.white })
     // rundad topp-kupol — liten detalj, medvetet platt (C1: gradient på huvudformen)
-    g.ellipse(0, top, topW / 2, 16).fill(darken(color, 0.12)).stroke({ width: 6, color: COLORS.white })
-    // Den handrullade glansremsan är BORTTAGEN: toningen ovan är samma ljus, fast
-    // rundat över hela bredden i stället för som en hårdkantad pill på ett fast avstånd.
-    // Två ljuskällor på samma kropp läser som en dekal, inte som volym.
+    g.ellipse(0, top, topW / 2, 16 * k).fill(darken(color, 0.12)).stroke({ width: 6, color: COLORS.white })
     g.eventMode = 'none'
     cup.addChild(g)
+    cup._g = g
     // Kopparna står och vaggar medan de väntar. Guppningen ligger på den INRE
     // grafiken — spelet äger `cup` (blandning, kik, snäpp tillbaka), så de kan
     // aldrig slåss om samma y.
@@ -214,6 +238,7 @@ export default {
   // Ny runda: säkerställ layout, nollställ koppar, slumpa göm-plats + leksak, visa, blanda.
   _newRound(ctx) {
     if (!this._alive) return
+    this._klarFlyg()
     this._resolving = false
     this._phase = 'reveal'
     this._params = levelParams(this._level)
@@ -236,12 +261,15 @@ export default {
     this._prizeSlot = (Math.random() * n) | 0
     this._prizeCup = this._cups[this._prizeSlot]
     for (const ch of this._prize.removeChildren()) ch.destroy({ children: true })
-    // Nyckeln måste sparas SEPARAT. Leksaken var en `Text` när reaktionstabellen
-    // skrevs, så `_reactPrize` läste `this._prize.text`; sedan leksaken blev en
-    // ritad ikon i en Container (P0 ASSETS) är det fältet `undefined` och HELA
-    // tabellen föll till `default` — tyst, utan ett konsolfel och med grönt test.
-    this._prizeKey = randomFrom(PRIZES)
-    this._prize.addChild(drawIcon(this._prizeKey, 96))
+    // Nyckeln måste sparas SEPARAT. Leksaken är en ritad ikon i en Container; en tabell som
+    // läser nyckeln ur en nod-egenskap faller TYST till `default` (se doc §5, 2026-08-12).
+    // Nya leksaker föredras (75 %) tills hyllan är full, och samma leksak två gånger i rad undviks.
+    const okanda = PRIZES.filter((k) => !this._hittade.includes(k) && k !== this._prizeKey)
+    const andra = PRIZES.filter((k) => k !== this._prizeKey)
+    this._prizeKey = okanda.length && Math.random() < 0.75 ? randomFrom(okanda) : randomFrom(andra)
+    const skugga = new Graphics().ellipse(0, 44, 38, 8).fill({ color: 0x000000, alpha: 0.22 })
+    skugga.eventMode = 'none'
+    this._prize.addChild(skugga, drawIcon(this._prizeKey, 96))
     // Reaktionerna flyttar numera leksaken på riktigt (bilen kör, grodan hoppar),
     // inte bara skalan. En reaktion som råkar leva kvar in i nästa runda hade
     // annars dragit den nya leksaken ur sin kopp.
@@ -253,12 +281,16 @@ export default {
     this._prize.scale.set(1)
     this._prize.visible = true
 
-    // Visa: lyft alla koppar så leksaken syns under en av dem.
+    // Visa: Bobo lyfter staven (gnistor) och alla koppar lyfts så leksaken syns.
     ctx.services.audio.sfx('pling')
+    this._bobo.setMood('glad')
+    this._bobo.look(this._prizeCup.x, BASE_Y)
+    armTill(this._bobo, 0.95, 0.35)
+    this._later(0.2, () => this._stavGnistor(ctx, 7))
     // Efter en nivåhöjning byggs rundan 1,8 s efter complete(), mitt i dess beröm — och
     // `say()` kallar `cancel()`. Kopparna lyfts genast; bara repliken väntar in rösten, och
     // den sägs bara medan leksaken fortfarande syns (samma runda, visa-fasen).
-    const runda = (this._rundaNr = (this._rundaNr || 0) + 1)
+    const runda = ++this._rundaNr
     ctx.narTyst(() => {
       if (this._alive && this._rundaNr === runda && this._phase === 'reveal') ctx.services.voice.say('Titta var leksaken är!')
     })
@@ -269,8 +301,18 @@ export default {
     this._later(1.5, () => {
       this._cups.forEach((cup) => this._lowerCup(cup))
       this._tock(ctx)
+      armTill(this._bobo, 0, 0.4, 'power2.inOut')
       this._later(0.45, () => this._shuffle(ctx))
     })
+  },
+
+  // Gnistor vid stavspetsen (trolleri!). Hoppar över om Bobo hunnit rivas.
+  _stavGnistor(ctx, count = 4) {
+    if (!this._alive) return
+    const gp = spetsGlobal(this._bobo)
+    if (!gp) return
+    const p = ctx.fxLayer.toLocal(gp)
+    sparkle(ctx.fxLayer, p.x, p.y, { count })
   },
 
   // Blanda: en sekvens av "drag" som VARIERAR (par-byte i olika stilar, cyklisk
@@ -280,6 +322,7 @@ export default {
   _shuffle(ctx) {
     if (!this._alive) return
     this._phase = 'shuffle'
+    this._bobo.setMood('nyfiken')
     const params = this._params
     const n = this._cups.length
 
@@ -315,6 +358,14 @@ export default {
     })
   },
 
+  // Bobo följer draget med blicken och ger staven ett snärt + några gnistor.
+  _bobGest(ctx, x, dur) {
+    if (!this._alive) return
+    this._bobo.look(x, BASE_Y)
+    snart(this._bobo, dur * 1.2)
+    this._stavGnistor(ctx, 3)
+  },
+
   // Lägg ETT drag till blandnings-tidslinjen. Uppdaterar order[]/_slot löpande.
   // mv = { type:'swap'|'swirl', slots:[…], style, feint }. prog 0..1 = hur långt in
   // i blandningen (styr glid-ljudets tonhöjd). Leksaken följer sin kopp via identitet.
@@ -340,6 +391,7 @@ export default {
       const map = fwd
         ? [[cA, this._slots[j], j], [cB, this._slots[k], k], [cC, this._slots[i], i]]
         : [[cA, this._slots[k], k], [cB, this._slots[i], i], [cC, this._slots[j], j]]
+      sub.call(() => this._bobGest(ctx, this._slots[j], dur))
       map.forEach(([cup, tx], idx) => {
         sub.to(cup, { x: tx, duration: dur * 1.15, ease: 'power1.inOut' }, 0)
         sub.to(cup, { y: BASE_Y - 30 - idx * 8, duration: dur * 0.6, ease: 'sine.out', yoyo: true, repeat: 1 }, 0)
@@ -361,6 +413,7 @@ export default {
     const cupB = order[j]
     const xA = this._slots[i]
     const xB = this._slots[j]
+    sub.call(() => this._bobGest(ctx, (xA + xB) / 2, dur))
 
     // Ofarlig "fint": en kopp gör en liten falsk rörelse innan det riktiga bytet.
     if (mv.feint) {
@@ -401,6 +454,8 @@ export default {
     this._phase = 'guess'
     this._idleCues = 0
     this._lastInteract = performance.now()
+    this._bobo.setMood('glad')
+    this._bobo.look(CENTER, BASE_Y)
     // Kopparna "landar" — ett sista mjukt tock innan gissningen.
     this._tock(ctx, 0.13)
     // V24: gissningen börjar 3,3 s in och introt är 5,3 s — frågan kapade "Tryck på rätt
@@ -426,8 +481,9 @@ export default {
       return
     }
 
+    this._bobo.look(cup.x, BASE_Y)
     if (cup === this._prizeCup) {
-      // RÄTT: lyft koppen, leksaken hoppar fram, beröm + gnistror.
+      // RÄTT: lyft koppen, leksaken hoppar fram, Bobo jublar, beröm + gnistror.
       this._resolving = true
       this._phase = 'resolving'
       ctx.services.audio.sfx('reveal')
@@ -439,19 +495,114 @@ export default {
         sparkle(ctx.fxLayer, gp.x, gp.y)
         // Leksaken gör SITT eget (anka kvackar, groda hoppar, stjärna snurrar…).
         this._reactPrize(ctx)
+        // Bobo jublar med hela kroppen (armgesterna hör till hans rigg).
+        gsap.killTweensOf(this._bobo.armar[1], 'rotation')
+        this._bobo.react('jubel')
+        this._sparaFynd(ctx)
         this._roundsDone++
-        // Rundan som höjer nivån firas av complete() 1,3 s härifrån (vinstljud + beröm +
+        // Rundan som höjer nivån firas av complete() 2,2 s härifrån (vinstljud + beröm +
         // regn). Ett eget beröm även här blev dubbelberöm: de korta klippen (1,03–1,31 s)
         // hann tystna före complete(), som då lade ett andra ovanpå.
         if (this._roundsDone < ROUNDS_PER_LEVEL) ctx.services.voice.say(randomFrom(PRAISE))
-        this._later(1.3, () => this._finishRound(ctx))
+        // Leksaken flyger upp på hyllan medan reaktionen tonar ut, sedan nästa runda.
+        this._later(1.0, () => this._flygTillHylla(ctx))
+        this._later(2.2, () => this._finishRound(ctx))
       })
     } else {
       // FEL: lyft lite, visa tom plats, vingla, mjukt ljud, "Kika igen!".
       this._peekEmpty(cup)
+      this._bobo.react('nyfiken')
       ctx.services.audio.sfx('soft')
       ctx.services.voice.say('Kika igen!')
     }
+  },
+
+  // Spara fyndet direkt (innan flygningen), så ett barn som lämnar mitt i den inte
+  // tappar leksaken. Hyllan fylls på först när leksaken landat.
+  _sparaFynd(ctx) {
+    const key = this._prizeKey
+    if (this._hittade.includes(key)) return
+    this._hittade.push(key)
+    ctx.progress.setCustom('hittade', [...this._hittade])
+  },
+
+  // Den hittade leksaken flyger i en båge från bordet till sin plats på hyllan.
+  _flygTillHylla(ctx) {
+    if (!this._alive || this._flyer) return
+    const key = this._prizeKey
+    const finns = this._hylla.har(key)
+    const i = finns ? this._hylla.index(key) : this._hylla.antal()
+    const mal = this._hylla.plats(i)
+    const fran = { x: this._prize.x, y: this._prize.y }
+    const flyer = new Container()
+    flyer.eventMode = 'none'
+    flyer.addChild(drawIcon(key, 96))
+    flyer.position.set(fran.x, fran.y)
+    this._root.addChild(flyer)
+    this._flyer = flyer
+    this._prize.visible = false
+    ctx.services.audio.tone({ freq: 660, slideTo: 1100, dur: 0.35, type: 'sine', vol: 0.1 })
+    const st = { p: 0 }
+    this._flyTw = gsap.to(st, {
+      p: 1,
+      duration: 0.75,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        if (flyer.destroyed) return
+        const p = st.p
+        flyer.x = fran.x + (mal.x - fran.x) * p
+        flyer.y = fran.y + (mal.y - fran.y) * p - Math.sin(p * Math.PI) * 150
+        flyer.scale.set(1 - (1 - 62 / 96) * p)
+        flyer.rotation = Math.sin(p * Math.PI * 2) * 0.3
+      },
+      onComplete: () => this._landa(ctx, key, i),
+    })
+  },
+
+  // Flygningen är klar (eller avbruten av en ny runda): städa flygaren.
+  _klarFlyg() {
+    this._flyTw?.kill()
+    this._flyTw = null
+    if (this._flyer && !this._flyer.destroyed) this._flyer.destroy({ children: true })
+    this._flyer = null
+  },
+
+  _landa(ctx, key, i) {
+    if (!this._alive) return
+    this._klarFlyg()
+    const ny = !this._hylla.har(key)
+    const p = this._hylla.plats(i)
+    if (ny) this._hylla.laggTill(key, { animera: true })
+    else this._hylla.hoppa(i)
+    const fx = ctx.fxLayer.toLocal(this._root.toGlobal(p))
+    sparkle(ctx.fxLayer, fx.x, fx.y, { count: ny ? 8 : 4 })
+    const f = this._hylla.ton(i)
+    ctx.services.audio.tone({ freq: f, dur: 0.18, type: 'triangle', vol: 0.16 })
+    ctx.services.audio.tone({ freq: f * 1.5, dur: 0.22, type: 'triangle', vol: 0.12, delay: 0.1 })
+    // Ett utrop på ögonblicket: hoppas över om berömmet fortfarande talar.
+    if (ny && !ctx.services.voice.talar) ctx.services.voice.say('En ny leksak till hyllan!')
+  },
+
+  // Tryck på hyllan: alla leksaker hoppar i tur och ordning med stigande ton.
+  _hyllaTap(ctx) {
+    if (!this._alive) return
+    this._lastInteract = performance.now()
+    const n = this._hylla.antal()
+    if (!n) return
+    if (this._hyllaBusy) {
+      ctx.services.audio.sfx('tap')
+      return
+    }
+    this._hyllaBusy = true
+    for (let i = 0; i < n; i++) {
+      this._later(i * 0.09, () => {
+        this._hylla.hoppa(i)
+        ctx.services.audio.tone({ freq: this._hylla.ton(i), dur: 0.14, type: 'triangle', vol: 0.12 })
+      })
+    }
+    this._later(n * 0.09 + 0.5, () => (this._hyllaBusy = false))
+    if (this._phase === 'guess' && !this._resolving) this._bobo.react('heja')
+    if (n >= 2 && !ctx.services.voice.talar) ctx.services.voice.say('Titta, alla leksaker du har hittat!')
   },
 
   // Avsluta runda: efter ROUNDS_PER_LEVEL lyckade rundor -> höj nivå + firande.
@@ -599,6 +750,8 @@ export default {
     if (!cup || cup._peeking) return
     ctx.services.audio.sfx('pling')
     ctx.services.voice.say('Titta, här är den!')
+    this._bobo.look(cup.x, BASE_Y)
+    armTill(this._bobo, 0.95, 0.35)
     gsap.killTweensOf(cup, 'y')
     gsap.to(cup, {
       y: LIFT_Y,
@@ -609,6 +762,7 @@ export default {
         this._later(0.9, () => {
           if (!this._alive || this._phase !== 'guess') return
           gsap.to(cup, { y: BASE_Y, duration: 0.3, ease: 'power2.in' })
+          armTill(this._bobo, 0, 0.35, 'power2.inOut')
         })
       },
     })
@@ -623,6 +777,8 @@ export default {
     if (!cup || cup.destroyed || cup._peeking) return
     ctx.services.audio.tone({ freq: 392, dur: 0.08, type: 'triangle', vol: 0.12 })
     ctx.services.audio.tone({ freq: 523.25, dur: 0.1, type: 'triangle', vol: 0.12, delay: 0.12 })
+    this._bobo.look(cup.x, BASE_Y)
+    snart(this._bobo, 0.5)
     gsap.killTweensOf(cup, 'y,rotation')
     gsap.timeline()
       .to(cup, { y: BASE_Y - 10, rotation: -0.09, duration: 0.12, ease: 'power2.out' })
@@ -658,28 +814,41 @@ export default {
   destroy(ctx) {
     this._alive = false
     ctx.ticker.remove(this._tick)
-    this._timers?.forEach((t) => t.kill())
     this._shuffleTl?.kill()
+    this._shuffleTl = null
+    this._klarFlyg()
+    this._stjarnTw?.kill()
+    if (this._stjarnor) gsap.killTweensOf(this._stjarnor)
     this._cups?.forEach((cup) => {
       gsap.killTweensOf(cup)
       gsap.killTweensOf(cup.scale)
+      cup._fxWiggleTl?.kill()
+      cup._fxPopTl?.kill()
+      cup._g?._fxLiv?.kill()
+      if (cup._g) gsap.killTweensOf(cup._g)
     })
     if (this._prize) {
       gsap.killTweensOf(this._prize)
       gsap.killTweensOf(this._prize.scale)
+      this._prize._fxPopTl?.kill()
+      this._prize._fxWiggleTl?.kill()
     }
+    this._bobo?.destroy()
+    this._bobo = null
+    this._hylla?.destroy()
+    this._hylla = null
     gsap.killTweensOf(this._root)
     ctx.services.voice.cancel?.()
     this._root?.destroy({ children: true })
+    this._cups = []
   },
 
-  // Schemalägg en guardad fördröjd callback (samlas så destroy kan döda dem).
+  // Schemalägg en guardad fördröjd callback. `ctx.later` dör med spelomgången, så ett anrop
+  // från en tidigare omgång kan aldrig köra in i nästa (modulen är en singleton).
   _later(delay, fn) {
-    const c = gsap.delayedCall(delay, () => {
+    return this._ctx.later(delay, () => {
       if (this._alive) fn()
     })
-    this._timers.push(c)
-    return c
   },
 }
 

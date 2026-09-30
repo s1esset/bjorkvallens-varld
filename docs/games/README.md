@@ -52,7 +52,7 @@ Progression · Karaktär · Ljud) · **§5 Status/loggar** (bockar + commits).
 Två **olika** kolumner — de blandades ihop tidigare och gjorde indexet omöjligt att läsa:
 
 - **kvalitet** = spelets eget omdöme mot de 8 grindpunkterna.
-  ⬜ ej granskat · 📝 doc skriven (plan klar) · 🔧 förbättringar pågår · ✅ marknadsklar.
+  ⬜ ej granskat · 📝 doc skriven (plan klar) · ✅ förbättringar pågår · ✅ marknadsklar.
 - **polerad** = har spelet gått igenom **poleringsrundan** (metoden i `docs/POLERINGSRUNDA.md`
   — de tolv läckorna, P0 `ASSETS`, skärmdumpsgranskning)? ✅ körd · ⬜ står i kö.
 

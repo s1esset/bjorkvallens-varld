@@ -1,5 +1,5 @@
 # Färgregn (`fargregn`)
-> 🔤 larande · tap · 2–5 år · status: 🔧 förbättringar pågår
+> 🔤 larande · tap · 2–5 år · status: ✅
 
 ## 1. Nuläge (sett som spelare)
 
@@ -66,8 +66,8 @@ Kort sagt: *snyggt och korrekt färg-matchning*, men det **lär inte färgord** 
   Inte i en ord-runda förrän formen avslöjats, så ordet bär fortfarande ledtråden där.
 
 ### Variation & överraskning
-- **[Quick] Fler dropptyper:** en "tvilling"-droppe (poppar i två färgstänk), en stor
-  "skvätt"-droppe med extra-fett plask, en långsam glittrande droppe. Rotera per nivå.
+- ✅ ~~**[Quick] Fler dropptyper.**~~ Klar 2026-09-30: tvilling (runda 1+, två färgstänk), stor skvätt
+  (runda 2+), långsam glittrande (runda 3+); tak 2/1/1 i luften samtidigt (`_pickKind`).
 - ✅ ~~**[Medium] "Blanda färger"-bonus.**~~ Redan byggd (`MIXES` :33, `_rippleNearestPuddle`
   :623; se §5 2026-08-06) — uppdagat 2026-09-23.
 
@@ -85,9 +85,9 @@ Kort sagt: *snyggt och korrekt färg-matchning*, men det **lär inte färgord** 
   `custom.mastered`) — uppdagat 2026-09-23.
 
 ### Karaktär & berättelse
-- **[Deep] En liten paraply-figur (Bobo/Elvira) i markremsan** som blir glad när rätt
-  färg samlas, håller upp paraplyet och vid rundslut "fångar" regnbågen i en burk. Egen
-  vinst-animation istället för generisk konfetti, och en värld kring regnet.
+- ✅ ~~**[Deep] Paraply-figur som mottagare.**~~ Klar 2026-09-30: Bobo (`makeKaraktar`) i markremsan
+  med paraply/hink i målfärgen som turas om; rätt droppe flyger som en komet dit och fångas,
+  `jubel` + paraplysvingning vid rundslut. Skylten är borta (Bobo är tryckbar i dess ställe).
 
 ### Ljud
 - **[Quick] Riktiga regn/plask-klipp via SFX-pipelinen** ([[real-audio-sfx]]): mjukt
@@ -131,3 +131,18 @@ Kort sagt: *snyggt och korrekt färg-matchning*, men det **lär inte färgord** 
   - Tre nya repliker tillagda i `scripts/voice-phrases.json` (väntar på `/rost`).
   - Verifierat i en 40-sekunders körning: pölarna färgas löpande, 0 konsolfel.
   - Kvar sedan tidigare: paraply-figur som mottagare ([Deep]), riktiga regn/plask-klipp.
+- 2026-09-30 ✅ **En värld kring regnet** (blind bygge, ej testkört av byggaren): (1) målfärgs-rutan
+  ersatt av Bobo med paraply/hink i målfärgen (`_buildMott`, `_drawItem`); ord-rundan visar ORDET på en
+  skylt i hans andra tass och paraplyet är neutralt tills ~6 s tvekan, då färgas det. Rätt droppe → en
+  komet (`_flyGhost`) flyger till paraplyet/hinken → `_catch` (vingel, gnistor, pling, `heja`).
+  (2) Fyra ritade regnmoln ovanpå dropparna — de föds dolt under ett moln (molnet klämmer ihop sig) —
+  plus kullar, hus och två-tre träd (kronor vaggar). Pölarna flyttade så ingen ligger under Bobo.
+  (3) Regnbågstavlan borta: en riktig regnbåge på himlen, ett band per bemästrad färg, packade
+  ytterifrån utan tomma platser; nytt band sveps in och de innanför glider (`_syncBow`).
+  `custom.mastered` orört. (4) Tre nya dropptyper. Inga nya repliker.
+- 2026-09-30 (fixvarv efter kritik) ✅ Molnen flyttade ner (y 77–87, skala 0,85–0,95, varannat speglat, ljusare
+  ovansida) med glipor emellan, `SPAWN_Y` 92, sista molnet x 880 så dropparna inte korsar ordskylten;
+  prickarna flyttade till y 168 och är krämvita r15 med mörkare kant; rundstart drar blicken till
+  paraplyet/hinken med två färgringar (`_updateMott`) och idle-påminnelsen vinglar det; fångstljudet
+  bär kombots ton (paraply: `f*2` pling, hink: lägre `f`-plopp).
+

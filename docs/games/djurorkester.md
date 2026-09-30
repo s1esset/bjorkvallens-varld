@@ -1,5 +1,5 @@
 # Djurorkester (`djurorkester`)
-> 🔤 pedagogiskt · tap · 2–4 år · status: 🔧 förbättringar pågår
+> 🔤 pedagogiskt · tap · 2–4 år · status: ✅ (applåd-klippet väntar på MOSS)
 
 ## 1. Nuläge (sett som spelare)
 
@@ -64,9 +64,8 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
 ### Variation & överraskning
 - ✅ ~~**[Quick] Ge djuren instrument.**~~ REDAN BYGGD (kontrollerad mot koden 2026-08-12,
   `DJUR[].instr` + `index.js:133`): varje kort bär sin rekvisita i nedre högra hörnet.
-- **[Medium] Byt djur-uppsättning per "konsert".** Efter ett firande: rotera in andra djur
-  (får, häst, tupp, bi, uggla) ur en större pool. Samma mekanik, ny upptäckt — bryter
-  "samma sex för evigt".
+- ✅ ~~**[Medium] Byt djur-uppsättning per "konsert".**~~ Klar 2026-10-01: tolv djur, konsert 2 = helt
+  nya, konsert 3+ = fyra nya + två kvarvarande. Se §5.
 
 ### Juice
 - ✅ ~~**[Quick] Koppla nottecknet till ljudet.**~~ REDAN BYGGD (kontrollerad mot koden
@@ -75,24 +74,54 @@ Kort sagt: en söt **ljudknapps-bräda**, men varken en orkester eller ett lära
   avståndet, en djup röst skakar mer än en ljus, och det finns ett tak. Se §5.
 
 ### Progression
-- **[Medium] Synlig samling/konsert-mätare.** En liten rad noter/stjärnor fylls per tryck så
-  firandet *byggs upp synligt* (barnet ser målet närma sig) i stället för att poppa ur intet.
-  Efter en konsert: en kort auto-spelad melodi av djuren som "tack".
+- ✅ ~~**[Medium] Synlig samling/konsert-mätare.**~~ Klar 2026-10-01: åtta noter tänds på notlinjen i
+  scenbågen, och efter firandet spelar djuren upp barnets melodi som tack. Se §5.
 
 ### Karaktär & berättelse
-- **[Deep] Dirigent Bobo.** Maskoten står framme med taktpinne, dansar/vinglar i takt och
-  pekar (vid idle) på nästa djur att prova. Lägg en enkel scen (scengolv + ridå + ev. liten
-  publik) så det blir en *föreställning*, inte en bräda. Ger karaktär och en mottagare som
-  jublar vid konsert-slut.
+- ✅ ~~**[Deep] Dirigent Bobo.**~~ Klar 2026-10-01 (scen, ridå, rampljus, Bobo med taktpinne i
+  orkestergraven som slår takten, hejar vid kör och jublar vid konsertslut). Se §5. Ej byggt:
+  en liten publik (mottagaren är Bobo).
 
 ### Ljud
+- **[Quick] Tack-melodin blir en monoton rad om barnet trycker på SAMMA djur åtta gånger** (åtta lika
+  toner). Räkna bara noter från olika djur, eller låt tack-melodin stiga. Konsert 1 har dessutom
+  alltid samma sex djur. (DYR, inte nu — kritikerns fynd 2026-10-01.)
 - ✅ ~~**[Quick] Verifiera att alla sex `djur_<id>`-klipp finns**~~ Redan byggd — alla sex
   ligger i `public/audio/sfx/` som egna klipp (anka och groda är olika filer), så inget djur
   faller till TTS — uppdagat 2026-09-23.
-- **[Quick] Mjukt "applåd"-klipp vid konsert-firandet.** ⛔ Blockerad: kräver ett nytt
+- **[Quick] Mjukt "applåd"-klipp vid konsert-firandet.** ⏸ Blockerad: kräver ett nytt
   SFX-klipp (MOSS nere) — en applåd är brus, inte något `audio.tone()` kan stämma.
 
 ## 5. Status / loggar
+
+- 2026-10-01 🎭 **Från knappbräda till orkester** (natt-körning, fyra punkter). Sex djurkort i
+  färgade rutor (brott mot P0 ASSETS) är borta; spelet är en teaterscen.
+  ⓵ **Rutorna bort.** Djuren STÅR FRITT på podietunnor i en mjuk båge på ett trägolv (mitten
+  längre bak och mindre = djup), inför en mörk vägg med målad måne, lampgirlang, röda ridåer och en
+  valance. Varje djur = ritad kropp (konst.js, mönster för ko/bi) + huvud ur drawIcon + ett
+  RITAT instrument (nio: trumpet, trumma, klaviatur, maracas, saxofon, fiol, tamburin, xylofon,
+  triangel — ingen emoji) + händer över instrumentet, rampljuskon och ljuspöl, podiets skugga.
+  Vilo-guppning (liv på `vila`), taktpuls, och vid tryck: squash + hopp på `figur`, huvud och
+  instrument vinglar, rampljuset flammar. **Rörelsen ligger i BARN — djur-behållaren med
+  träffytan står still** (140 px bred, ≥ 96 + halo; 150 px mellan djuren). Djuren sorteras på
+  tonhöjd vänster → höger och podierna får regnbågens färger i samma ordning.
+  ⓶ **Dirigent-Bobo** (makeKaraktar, r 42) i orkestergraven med taktpinne (barn till högra
+  armen). Pinnen slår vid varje taktslag (kraftigare medan barnet spelar), ögonen följer trycket,
+  heja vid kören, jubel vid konsertslut, hej när ridån går upp. Han står under scenkanten
+  (y ≥ 600) och överlappar ingen träffyta.
+  ⓷ **Konsertmätare:** åtta skuggnoter på en notlinje i scenbågen; varje tryck skickar en not i båge
+  från djuret till sin plats, där den tänds i djurets färg och på en höjd som följer tonen. Ingen
+  siffra, ingen poäng. Åttonde noten → complete(), alla noter pulserar, sedan spelar djuren upp
+  barnets melodi (tack), ridån dras för, djuren byts, ridån går upp.
+  ⓸ **Nya djur per konsert** ur alla tolv med djur_<id>-klipp: konsert 1 = ko/hund/katt/groda/
+  gris/anka (som förut), 2 = får/häst/höna/bi/tupp/uggla, 3+ = fyra som INTE var med förra + två som
+  var det. Nio instrument delas ut utan dubbletter på samma scen. Tonerna är tolv unika toner ur
+  C-dur-pentaton (häst G3 … bi A5).
+  Återspelssäkert: varje fördröjt anrop går via ctx.later + en konsert-token (_tok), proxy-
+  tweens (flygande noter, ridå, gung) spåras och dödas, stadFx() städar innernoderna före rivning,
+  träffytorna är av medan ridån är för. Grafik ritas PÅ plats (ingen .position på ett löv-Graphics).
+  ⚠️ Ej mätt: byggaren fick inte köra webbläsare/test — bild, tidtabell och exit-cykeln var
+  otestade när det här skrevs (se orkestreraren).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): ingen kodändring. Spelet firade
   aldrig dubbelt — kören säger sin rad FÖRE `complete()` i samma tick (berömmet utgår), och

@@ -67,11 +67,8 @@ if ($Schemalagg) {
   # Startar vid $start. De två väktartriggrarna gör ingenting om drivaren redan kör
   # (MultipleInstances IgnoreNew + låsfilen) — de finns för att en krasch/omstart inte ska
   # kosta resten av natten. Drivaren tar själv bort uppgiften när den är klar.
-  $trig = @(
-    (New-ScheduledTaskTrigger -Once -At $start)
-    (New-ScheduledTaskTrigger -Once -At $start.AddHours(3))
-    (New-ScheduledTaskTrigger -Once -At $start.AddHours(5.5))
-  )
+  $trig = @((New-ScheduledTaskTrigger -Once -At $start)) +
+    @(2, 4, 6, 8, 10 | ForEach-Object { New-ScheduledTaskTrigger -Once -At $start.AddHours($_) })
   if ($Torrkorning) { $trig = @($trig[0]) }
   $set = New-ScheduledTaskSettingsSet -WakeToRun -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
     -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 14)
@@ -90,6 +87,19 @@ if (Test-Path $Lock) {
   }
 }
 Set-Content -Path $Lock -Value $PID -Encoding ascii
+
+# En drivare som dog (fönstret stängdes) lämnar sin claude-session levande — en väktarstart får
+# då aldrig starta en andra session på samma fas och samma arbetsträd. Vänta ut den.
+$sp = Join-Path $Dir 'session.pid'
+if (Test-Path $sp) {
+  $gammal = [int]((Get-Content $sp -Raw).Trim())
+  $proc = Get-Process -Id $gammal -ErrorAction SilentlyContinue | Where-Object ProcessName -eq 'claude'
+  if ($proc) {
+    Write-Host "En föräldralös claude-session (pid $gammal) kör fortfarande — väntar tills den är klar."
+    $proc.WaitForExit()
+  }
+  Remove-Item $sp -ErrorAction SilentlyContinue
+}
 
 # ── håll datorn vaken medan drivaren lever (ingen bestående energiinställning ändras) ─────
 Add-Type -Namespace Natt -Name Kraft -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint esFlags);'
@@ -128,6 +138,7 @@ function Kor-Session([string]$namn, [string]$prompt, [string]$modell, [string]$e
   $ut = [IO.File]::Create("$bas.jsonl"); $fel = [IO.File]::Create("$bas.err.txt")
   $t0 = Get-Date
   $p = [System.Diagnostics.Process]::Start($psi)
+  Set-Content (Join-Path $Dir 'session.pid') -Value $p.Id -Encoding ascii
   $k1 = $p.StandardOutput.BaseStream.CopyToAsync($ut)
   $k2 = $p.StandardError.BaseStream.CopyToAsync($fel)
   $hann = $p.WaitForExit($maxMin * 60 * 1000)
@@ -137,8 +148,39 @@ function Kor-Session([string]$namn, [string]$prompt, [string]$modell, [string]$e
     [void]$p.WaitForExit(30000)
   }
   [void]$k1.Wait(15000); [void]$k2.Wait(15000); $ut.Dispose(); $fel.Dispose()
+  Remove-Item (Join-Path $Dir 'session.pid') -ErrorAction SilentlyContinue
   $min = [math]::Round(((Get-Date) - $t0).TotalMinutes, 1)
   return [pscustomobject]@{ Kod = $(if ($hann) { $p.ExitCode } else { -1 }); Timeout = -not $hann; Bas = $bas; Minuter = $min }
+}
+
+# ── förbrukningen: resultatraden bär tokens per modell (underagenter inräknade) ──────────
+# Det finns ingen dokumenterad kvotmätare för en headless session, så natten bokför det den
+# faktiskt ser. Listpriset är inte vad ägaren betalar — det är en jämförbar skala mellan nätter.
+$script:Forbrukning = [ordered]@{ usd = 0.0; modeller = [ordered]@{}; faser = @() }
+function Bokfor($namn, $bas, $minuter) {
+  $rad = Get-Content "$bas.jsonl" -ErrorAction SilentlyContinue |
+    Where-Object { $_ -match '"type":"result"' -and $_ -match '"total_cost_usd"' } | Select-Object -Last 1
+  if (-not $rad) { Logg "  förbrukning: ingen resultatrad (avbruten session)"; return }
+  try { $j = $rad | ConvertFrom-Json } catch { return }
+  $delar = @()
+  foreach ($m in $j.modelUsage.PSObject.Properties) {
+    $u = $m.Value
+    $in = [double]$u.inputTokens + [double]$u.cacheCreationInputTokens
+    $las = [double]$u.cacheReadInputTokens
+    $ut = [double]$u.outputTokens
+    if (-not $script:Forbrukning.modeller.Contains($m.Name)) {
+      $script:Forbrukning.modeller[$m.Name] = [ordered]@{ nyaIn = 0.0; cacheLas = 0.0; ut = 0.0; usd = 0.0 }
+    }
+    $s = $script:Forbrukning.modeller[$m.Name]
+    $s.nyaIn += $in; $s.cacheLas += $las; $s.ut += $ut; $s.usd += [double]$u.costUSD
+    $kort = ($m.Name -replace '^claude-', '' -replace '-\d{8}$', '')
+    $delar += ('{0}: {1:N1}M nya + {2:N1}M cache · {3:N2}M ut' -f $kort, ($in / 1e6), ($las / 1e6), ($ut / 1e6))
+  }
+  $script:Forbrukning.usd += [double]$j.total_cost_usd
+  $script:Forbrukning.faser += [ordered]@{ namn = $namn; minuter = $minuter; usd = [double]$j.total_cost_usd; turer = $j.num_turns; agenter = $j.subagent_stats.spawned }
+  $script:Forbrukning | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $Dir 'forbrukning.json') -Encoding utf8
+  Logg ("  förbrukning {0}: {1} · {2} turer · {3} agenter · listpris ~{4:N0} USD (natten hittills ~{5:N0})" -f `
+    $namn, ($delar -join ' | '), $j.num_turns, $j.subagent_stats.spawned, [double]$j.total_cost_usd, $script:Forbrukning.usd)
 }
 
 # ── kvotgränsen: "You've hit your session limit · resets 3:45am" ─────────────────────────
@@ -272,11 +314,12 @@ try {
     if (-not $arLeverans) { $maxMin = [int][math]::Min($maxMin, ($LeveransSenast - (Get-Date)).TotalMinutes + 10) }
     $prompt = "Nattkorning $($plan.natt), fas $($fas.id) (forsok $($forsok[$fas.id])). " +
       "Las $Rel/NATTPLAN.md och sedan $Rel/$($fas.id).md och gor fasen enligt dem. " +
-      "Kor forst `node scripts/natt.mjs visa $($fas.id)` och `git status --short` - ar fasen redan paborjad, fortsatt dar den star, gor inte om det som ar klart. " +
-      "HARD STOPPTID $($stopp.ToString('HH:mm')): kolla klockan (`date +%H:%M`) mellan varje spel. Nar den passerats: committa det som ar grant, rulla tillbaka resten per spel, satt fasen delvis och avsluta. " +
+      "Kor forst ``node scripts/natt.mjs visa $($fas.id)`` och ``git status --short`` - ar fasen redan paborjad, fortsatt dar den star, gor inte om det som ar klart. " +
+      "HARD STOPPTID $($stopp.ToString('HH:mm')): kolla klockan (``date +%H:%M``) mellan varje spel. Nar den passerats: committa det som ar grant, rulla tillbaka resten per spel, satt fasen delvis och avsluta. " +
       "Agaren sover: fraga ingenting, stanna aldrig for att fraga."
     Logg "▶ $namn startar — $($fas.titel) ($Orkestrerare orkestrerar, $Byggmodell bygger, max $maxMin min, stopp $($stopp.ToString('HH:mm')))"
     $r = Kor-Session $namn $prompt $Orkestrerare 'high' $maxMin
+    Bokfor $namn $r.Bas $r.Minuter
     $plan = Las-Plan
     $status = ($plan.faser | Where-Object id -eq $fas.id).status
     Logg "■ $namn slut: kod $($r.Kod) · $($r.Minuter) min · fasstatus '$status'"
@@ -330,17 +373,22 @@ try {
     "- Publicering: $(if ($null -eq $deployKod) { 'ingen körd' } elseif ($deployKod -eq 0) { '✅ klar — ladda om appen på plattan' } else { "⛔ misslyckades (kod $deployKod) — se .claude/state/natt/loggar/deploy.log" })",
     "- Ocommittat arbete: $(if ($stash) { "låg kvar och ligger i ``git stash list`` som **$stash**" } else { 'inget' })",
     "- Leveransfasen (modellen): $(if ($leveransKord) { 'kördes' } else { 'hanns INTE — rapporten ovan kan saknas; läget står nedan' })",
-    '', '```', $lage, '```'
+    ("- Nattens förbrukning (listpris, en jämförbar skala — inte vad du betalar): ~{0:N0} USD över {1} sessioner" -f $script:Forbrukning.usd, $script:Forbrukning.faser.Count)
   )
+  foreach ($m in $script:Forbrukning.modeller.GetEnumerator()) {
+    $del += ('  - {0}: {1:N1}M nya in · {2:N1}M cacheläsning · {3:N2}M ut' -f $m.Key, ($m.Value.nyaIn / 1e6), ($m.Value.cacheLas / 1e6), ($m.Value.ut / 1e6))
+  }
+  $del += @('', '```', $lage, '```')
   Add-Content -Path $Rapport -Value ($del -join "`n") -Encoding utf8
   Logg "✓ morgonrapporten: $Rapport"
 }
 finally {
-  Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
   if ($script:Dev) { & taskkill.exe /T /F /PID $script:Dev.Id 2>&1 | Out-Null; Logg 'dev-servern (som drivaren startade) stoppad' }
   [void][Natt.Kraft]::SetThreadExecutionState([uint32]'0x80000000')
   Remove-Item $Lock -ErrorAction SilentlyContinue
   Logg '── KLART. Inga sessioner kör. Fönstret kan stängas.'
+  # Sist av allt: om borttagningen av uppgiften skulle stoppa den här instansen är ingenting kvar att göra.
+  Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 }
 if ([Environment]::UserInteractive -and -not ([Environment]::GetCommandLineArgs() -contains '-NonInteractive')) {
   Read-Host 'Tryck Enter för att stänga'

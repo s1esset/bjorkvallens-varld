@@ -175,9 +175,12 @@ function Tolka-Aterstallning([string]$s) {
   return $null
 }
 function Las-Grans($bas) {
+  # stderr + slutet av strömmen, men INTE verktygsresultat ("type":"user") — en fas som läst
+  # en fil där gränsmeddelandet står (t.ex. den här) får inte se ut att ha slagit i taket.
   $txt = ''
-  foreach ($f in "$bas.err.txt", "$bas.jsonl") {
-    if (Test-Path $f) { $txt += ((Get-Content $f -Tail 60 -ErrorAction SilentlyContinue) -join "`n") + "`n" }
+  if (Test-Path "$bas.err.txt") { $txt += (Get-Content "$bas.err.txt" -Raw -ErrorAction SilentlyContinue) + "`n" }
+  if (Test-Path "$bas.jsonl") {
+    $txt += ((Get-Content "$bas.jsonl" -Tail 60 -ErrorAction SilentlyContinue | Where-Object { $_ -notmatch '"type":"user"' }) -join "`n")
   }
   $m = [regex]::Match($txt, "(?i)hit your ([a-z0-9 -]*?)limit[^\n]*?resets\s+([^\n`"]+)")
   if ($m.Success) {
@@ -272,7 +275,7 @@ try {
       "Kor forst `node scripts/natt.mjs visa $($fas.id)` och `git status --short` - ar fasen redan paborjad, fortsatt dar den star, gor inte om det som ar klart. " +
       "HARD STOPPTID $($stopp.ToString('HH:mm')): kolla klockan (`date +%H:%M`) mellan varje spel. Nar den passerats: committa det som ar grant, rulla tillbaka resten per spel, satt fasen delvis och avsluta. " +
       "Agaren sover: fraga ingenting, stanna aldrig for att fraga."
-    Logg "▶ $namn startar — $($fas.titel) (Opus orkestrerar, Sonnet bygger, max $maxMin min)"
+    Logg "▶ $namn startar — $($fas.titel) ($Orkestrerare orkestrerar, $Byggmodell bygger, max $maxMin min, stopp $($stopp.ToString('HH:mm')))"
     $r = Kor-Session $namn $prompt $Orkestrerare 'high' $maxMin
     $plan = Las-Plan
     $status = ($plan.faser | Where-Object id -eq $fas.id).status

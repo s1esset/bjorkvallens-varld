@@ -31,6 +31,9 @@ param(
   [string]$Modell                             # simulering: t.ex. haiku i stället för Opus
 )
 $ErrorActionPreference = 'Stop'
+# Utdata från node/git avkodas i konsolens teckentabell, och den är OEM 850 när uppgiften
+# startar drivaren — natt.mjs "Lära ·" blev "L├ñra ┬À" i morgonrapportens lägestabell.
+try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch {}
 $Root = Split-Path -Parent $PSScriptRoot
 $Dir = Join-Path $Root $Katalog
 $Rel = ($Katalog -replace '\\', '/').TrimEnd('/')
@@ -157,6 +160,9 @@ function Kor-Session([string]$namn, [string]$prompt, [string]$modell, [string]$e
 # Det finns ingen dokumenterad kvotmätare för en headless session, så natten bokför det den
 # faktiskt ser. Listpriset är inte vad ägaren betalar — det är en jämförbar skala mellan nätter.
 $script:Forbrukning = [ordered]@{ usd = 0.0; modeller = [ordered]@{}; faser = @() }
+function Spara-Forbrukning {
+  $script:Forbrukning | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $Dir 'forbrukning.json') -Encoding utf8
+}
 function Bokfor($namn, $bas, $minuter) {
   $rad = Get-Content "$bas.jsonl" -ErrorAction SilentlyContinue |
     Where-Object { $_ -match '"type":"result"' -and $_ -match '"total_cost_usd"' } | Select-Object -Last 1
@@ -178,7 +184,7 @@ function Bokfor($namn, $bas, $minuter) {
   }
   $script:Forbrukning.usd += [double]$j.total_cost_usd
   $script:Forbrukning.faser += [ordered]@{ namn = $namn; minuter = $minuter; usd = [double]$j.total_cost_usd; turer = $j.num_turns; agenter = $j.subagent_stats.spawned }
-  $script:Forbrukning | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $Dir 'forbrukning.json') -Encoding utf8
+  Spara-Forbrukning
   Logg ("  förbrukning {0}: {1} · {2} turer · {3} agenter · listpris ~{4:N0} USD (natten hittills ~{5:N0})" -f `
     $namn, ($delar -join ' | '), $j.num_turns, $j.subagent_stats.spawned, [double]$j.total_cost_usd, $script:Forbrukning.usd)
 }
@@ -276,6 +282,10 @@ $Morgon = [datetime]$plan.tider.morgon
 Logg "── NATTKÖRNING $($plan.natt) — drivare pid $PID · sista byggstart $($SistaByggstart.ToString('HH:mm')) · leverans senast $($LeveransSenast.ToString('HH:mm')) · morgon $($Morgon.ToString('HH:mm'))"
 
 $forsok = @{}
+# Sessionsnumret räknas för sig: försöket räknas NED vid en kvotvägg (det var inget misslyckande),
+# och när namnet följde försöket fick omstarten samma namn — F3-1 två gånger, och den andras
+# loggar skrev över den förstas (där kvotväggen stod).
+$sessioner = @{}
 $overhoppad = @{}
 $leveransKord = $false
 try {
@@ -306,7 +316,8 @@ try {
     }
 
     Sakra-Dev
-    $namn = "$($fas.id)-$($forsok[$fas.id])"
+    $sessioner[$fas.id] = 1 + [int]$sessioner[$fas.id]
+    $namn = "$($fas.id)-$($sessioner[$fas.id])"
     # En byggfas får aldrig äta leveransens tid: hård stopptid = leveransSenast. Fasen får
     # veta den, och drivaren kapar sessionen 10 min efter (då är trädet fasens ansvar att ha städat).
     $maxMin = if ($fas.maxMinuter) { [int]$fas.maxMinuter } else { 150 }
@@ -329,6 +340,8 @@ try {
     $g = Las-Grans $r.Bas
     if ($g) {
       $forsok[$fas.id] = [int]$forsok[$fas.id] - 1          # en kvotvägg är inget misslyckat försök
+      $sista = @($script:Forbrukning.faser)[-1]
+      if ($sista -and $sista.namn -eq $namn) { $sista.kvotvagg = $true; Spara-Forbrukning }
       $nar = if ($g.Nar) { $g.Nar.AddMinutes(3) } else { (Get-Date).AddMinutes(20) }
       Logg "⏸ kvotgräns ($($g.Typ)) · återställs '$($g.Text)' → nästa försök $($nar.ToString('HH:mm'))"
       if ($nar -gt $LeveransSenast.AddMinutes(30)) {
@@ -373,7 +386,8 @@ try {
     "- Publicering: $(if ($null -eq $deployKod) { 'ingen körd' } elseif ($deployKod -eq 0) { '✅ klar — ladda om appen på plattan' } else { "⛔ misslyckades (kod $deployKod) — se .claude/state/natt/loggar/deploy.log" })",
     "- Ocommittat arbete: $(if ($stash) { "låg kvar och ligger i ``git stash list`` som **$stash**" } else { 'inget' })",
     "- Leveransfasen (modellen): $(if ($leveransKord) { 'kördes' } else { 'hanns INTE — rapporten ovan kan saknas; läget står nedan' })",
-    ("- Nattens förbrukning (listpris, en jämförbar skala — inte vad du betalar): ~{0:N0} USD över {1} sessioner" -f $script:Forbrukning.usd, $script:Forbrukning.faser.Count)
+    ("- Nattens förbrukning (listpris, en jämförbar skala — inte vad du betalar): ~{0:N0} USD över {1} sessioner{2}" -f $script:Forbrukning.usd, $script:Forbrukning.faser.Count,
+      $(if ($kv = @($script:Forbrukning.faser | Where-Object { $_.kvotvagg }).Count) { " (varav $kv slog i kvotväggen och startades om)" } else { '' }))
   )
   foreach ($m in $script:Forbrukning.modeller.GetEnumerator()) {
     $del += ('  - {0}: {1:N1}M nya in · {2:N1}M cacheläsning · {3:N2}M ut' -f $m.Key, ($m.Value.nyaIn / 1e6), ($m.Value.cacheLas / 1e6), ($m.Value.ut / 1e6))

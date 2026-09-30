@@ -8,7 +8,10 @@
 // hinken 🪣 på stranden där de släpps (plopp + räknas). Alla metallsaker i hinken →
 // firande + ny, lite större damm. Lär ut: magneter gillar metall, inte trä/gummi.
 // Ingen fail-state: fältet når hela dammen, idle-vink + auto-hjälp garanterar framgång.
-// Allt ritas programmatiskt (Pixi Graphics + emoji) och städas exit-säkert.
+// Allt ritas programmatiskt (Pixi Graphics) och städas exit-säkert. Dammen är ritad natur
+// (damm.js: strand, djupa lager, näckrosblad, vass, levande krusningar) som tonas över
+// mellan nivåer, och ~1 fångst på 8 är en sällsynt bonus (sallsynta.js: guldfisk, skattkista,
+// stövel) som aldrig räknas i nivåns mål.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body, nudge, speedToAccel } from '../../lib/physics.js'
@@ -16,8 +19,10 @@ import { Magnetfalt } from '../../lib/magnet.js'
 import { createScene } from '../../lib/scene.js'
 import { COLORS } from '../../lib/theme.js'
 import { shuffle } from '../../lib/swedish.js'
-import { sparkle, pop, wiggle, puff, floatText, breathe, ripple, bounceIn, kvittera } from '../../lib/feedback.js'
+import { sparkle, pop, wiggle, puff, floatText, breathe, ripple, bounceIn, kvittera, burst } from '../../lib/feedback.js'
 import { bage } from '../../lib/form.js'
+import { byggDamm, byggFalt } from './damm.js'
+import { RARA, RAR_NAMN, ritaRar, livRar } from './sallsynta.js'
 
 // P0 ASSETS: varje sak i dammen är ett RITAT föremål med egen silhuett, aldrig
 // en emoji. Nycklarna nedan är id:n — formen ligger i makeThing().
@@ -46,6 +51,7 @@ const FLIP_BTN = { x: 1148, y: 262, r: 56 }
 // Ritar en sak. Allt centreras i (0,0) och håller sig inom ~±34 px så att
 // fysikkroppens radie (28) och solfjäder-slottarna under magneten stämmer.
 function makeThing(kind) {
+  if (RARA.includes(kind)) return ritaRar(kind) // sällsynta fångster bor i sallsynta.js
   const g = new Graphics()
   if (kind === 'fisk') {
     g.ellipse(0, 0, 28, 17).fill(0x8fbcd4).stroke({ width: 3, color: 0x5d8ba6 })
@@ -185,7 +191,12 @@ export default {
     this._inWater = false // för plask-ljud när magneten doppas i dammen
     this._lastDrip = 0 // strypning: droppar när magneten lyfts ur vattnet
     this._livT = 0 // klocka för sakernas egen tomgångsrörelse
-    this._items = [] // { body, view, metal, stuck, delivered, slot }
+    this._bonus = 0 // sällsynta fångster i hinken den här rundan (räknas INTE i målet)
+    this._bonusKinds = []
+    this._lastRare = null
+    this._rarForra = false // förra rundan hade en rar sak → ingen den här (så de förblir sällsynta)
+    this._dammar = [] // levande dammbilder (två under en övergång)
+    this._items = [] // { body, view, metal, stuck, delivered, slot, bonus }
     this._stuck = []
     this._proxyTweens = []
     this._hintTween = null
@@ -203,17 +214,16 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Bakgrund FÖRST: mjuk blå vatten-scen (dekorativ).
-    this._root.addChild(createScene('water', { width: ctx.width, height: ctx.height }))
+    // Bakgrund FÖRST: en gräsäng. INTE 'water' — den har en blå markremsa i botten som
+    // läste som ett andra vatten under dammen. Ingen mark, ingen sol: bara äng ovanifrån.
+    this._root.addChild(createScene({ top: 0xb6e69c, bottom: 0x8ccf7d }, { width: ctx.width, height: ctx.height }))
+    this._root.addChild(byggFalt())
 
-    // Damm-panel + ljusa vågremsor (dekorativ).
-    const panel = new Graphics()
-    panel.roundRect(70, 150, 940, 500, 60).fill({ color: COLORS.blue, alpha: 0.55 }).stroke({ width: 10, color: COLORS.teal })
-    panel.roundRect(110, 230, 860, 26, 13).fill({ color: COLORS.white, alpha: 0.1 })
-    panel.roundRect(150, 360, 780, 26, 13).fill({ color: COLORS.white, alpha: 0.1 })
-    panel.roundRect(120, 500, 840, 26, 13).fill({ color: COLORS.white, alpha: 0.1 })
-    panel.eventMode = 'none'
-    this._root.addChild(panel)
+    // Dammen (bara bilden — POND nedan är den logiska rutan). Byts mjukt mellan nivåer.
+    this._pondLayer = new Container()
+    this._pondLayer.eventMode = 'none'
+    this._pondLayer.interactiveChildren = false
+    this._root.addChild(this._pondLayer)
 
     // Hink + gul glödring (släpp-zon) + skugga (dekorativa).
     const glow = new Graphics().circle(BUCKET.x, 500, 130).stroke({ width: 8, color: COLORS.yellow, alpha: 0.5 })
@@ -386,11 +396,17 @@ export default {
     return { metal: 4, kork: 3, stav: 2 } // cap
   },
 
-  _buildPond(ctx) {
+  // `mjuk`: nivåbyte. Dammens bild tonas över till nästa i stället för att rivas, och sakerna
+  // studsar in en i taget. Första bygget (och en omstart) är hårt — då finns inget att tona från.
+  _buildPond(ctx, mjuk = false) {
     if (!this._alive) return
     this._clearItems()
     this._clearBucketPile()
+    if (this._bucketPile && !this._bucketPile.destroyed) this._bucketPile.alpha = 1
+    this._visaDamm(this._level, mjuk)
     this._caught = 0
+    this._bonus = 0
+    this._bonusKinds = []
     this._resolving = false
     this._dragging = false
     this._target = { x: PARK.x, y: PARK.y }
@@ -429,12 +445,25 @@ export default {
     const metalEmojis = fill(METAL, metal)
     const korkEmojis = fill(korkPool, kork)
 
+    // Sällsynt fångst: ~1 på 8 fångster, aldrig två rundor i rad, aldrig samma sort två gånger.
+    // Den är BONUS och räknas inte i målet (`_needed`) — en stövel kan inte blockera en nivå.
+    let rar = null
+    if (!this._rarForra && Math.random() < Math.min(0.7, this._needed / 8)) {
+      const val = RARA.filter((k) => k !== this._lastRare)
+      rar = val[(Math.random() * val.length) | 0]
+      this._lastRare = rar
+    }
+    this._rarForra = !!rar
+
     const placed = []
-    const spawn = (emoji, isMetal) => {
+    let n = 0
+    const spawn = (emoji, isMetal, opts = {}) => {
       const p = pickSpot(placed)
       placed.push(p)
-      this._addItem(ctx, emoji, isMetal, p.x, p.y)
+      this._addItem(ctx, emoji, isMetal, p.x, p.y, { ...opts, delay: (mjuk ? 0.35 : 0.1) + n * 0.12 })
+      n++
     }
+    if (rar) spawn(rar, true, { bonus: true })
     for (const e of metalEmojis) spawn(e, true)
     if (stav) for (const k of shuffle(Object.keys(STAV))) spawn(k, true)
     for (const e of korkEmojis) spawn(e, false)
@@ -442,7 +471,7 @@ export default {
     this._drawCounter()
   },
 
-  _addItem(ctx, emoji, metal, x, y) {
+  _addItem(ctx, emoji, metal, x, y, opts = {}) {
     const view = new Container()
     const sh = new Graphics().ellipse(0, 30, 34, 12).fill({ color: COLORS.shadow, alpha: 0.12 })
     sh.eventMode = 'none'
@@ -453,6 +482,7 @@ export default {
     view.cursor = 'pointer'
     view.hitArea = new Circle(0, 0, 55)
     this._itemLayer.addChild(view)
+    bounceIn(view, { delay: opts.delay || 0, duration: 0.45 }) // dödas i _clearItems/destroy
 
     const body = this._phys.circle(x, y, 38, { restitution: 0.2, friction: 0.1, frictionAir: 0.06, density: 0.0012, label: metal ? 'metal' : 'kork' })
     nudge(body, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6) // litet levande gupp
@@ -461,7 +491,7 @@ export default {
     // `pol`: 0 = omagnetiserat järn (dras av båda polerna), ±1 = en egen magnet.
     // `art` är den RITADE saken — ett barn till vyn. Tomgångsrörelsen skrivs dit och aldrig
     // på vyn, som bär `hitArea`, `wiggle`/`pop` och fysikens position.
-    const it = { body, view, art: t, fas: Math.random() * Math.PI * 2, metal, emoji, pol: STAV[emoji] || 0, stuck: false, delivered: false, slot: 0, wt: Math.random() * 1.2, wh: Math.random() * Math.PI * 2 }
+    const it = { body, view, art: t, bonus: !!opts.bonus, fas: Math.random() * Math.PI * 2, metal, emoji, pol: STAV[emoji] || 0, stuck: false, delivered: false, slot: 0, wt: Math.random() * 1.2, wh: Math.random() * Math.PI * 2 }
     view.on('pointertap', () => {
       if (!this._alive || this._resolving || it.delivered || it.stuck) return
       if (it.metal) {
@@ -622,6 +652,7 @@ export default {
     }
     this._inWater = inWater
     this._livSaker(dt)
+    for (const d of this._dammar) d.update(dt)
 
     // Kraftfältet sitter i magnetspetsen och är levande bara under vattnet.
     this._falt.flytta(tip.x, tip.y)
@@ -730,6 +761,8 @@ export default {
       } else if (it.emoji === 'fisk') {
         a.rotation = Math.sin(t * 2.2 + f) * 0.14
         a.scale.y = 1 + Math.sin(t * 4.4 + f) * 0.04
+      } else if (it.bonus) {
+        livRar(a, it.emoji, t, f)
       }
     }
   },
@@ -761,14 +794,18 @@ export default {
     sparkle(ctx.fxLayer, it.view.x, it.view.y)
     ripple(ctx.fxLayer, it.view.x, it.view.y, { color: COLORS.white, maxR: 54, alpha: 0.45, duration: 0.4 })
     if (!it.view.destroyed) pop(it.view)
-    floatText(ctx.fxLayer, it.view.x, it.view.y - 20, '✨', { fontSize: 46 })
-    if (it.pol && !this._saidPull) {
-      // Den andra halvan av pol-lärandet, sagd i det ögonblick den syns.
-      this._saidPull = true
-      ctx.services.voice.say('Nu drar den! Olika färger gillar varandra.')
-    } else if (!this._saidFirst) {
-      this._saidFirst = true
-      ctx.services.voice.say('Den fastnar! Metall!')
+    if (it.bonus) {
+      this._rarStick(ctx, it) // eget ord, egen klang, egen replik
+    } else {
+      floatText(ctx.fxLayer, it.view.x, it.view.y - 20, '✨', { fontSize: 46 })
+      if (it.pol && !this._saidPull) {
+        // Den andra halvan av pol-lärandet, sagd i det ögonblick den syns.
+        this._saidPull = true
+        ctx.services.voice.say('Nu drar den! Olika färger gillar varandra.')
+      } else if (!this._saidFirst) {
+        this._saidFirst = true
+        ctx.services.voice.say('Den fastnar! Metall!')
+      }
     }
     this._idle = 0
   },
@@ -787,10 +824,18 @@ export default {
     ctx.services.audio.tone({ freq: 320, dur: 0.14, type: 'sine', vol: 0.16, slideTo: 130 })
     puff(ctx.fxLayer, BUCKET.x, BUCKET.y, { color: COLORS.yellow })
     ripple(ctx.fxLayer, BUCKET.x, BUCKET.y, { color: COLORS.yellow, maxR: 66, alpha: 0.5 })
-    this._caught++
-    this._drawCounter()
+    // En sällsynt fångst är bonus: den fyller inte målet, men får sin plats i räknar-raden,
+    // sin plats i hinken och sin egen reaktion från katten.
+    if (it.bonus) {
+      this._bonus++
+      this._bonusKinds.push(it.emoji)
+    } else {
+      this._caught++
+    }
+    this._drawCounter(it.bonus)
     this._addToBucketPile(it.emoji) // saken syns nu ligga kvar i hinken
-    this._catCheer() // katten hoppar till för varje fångst
+    if (it.bonus) this._rarLevererad(ctx, it)
+    else this._catCheer() // katten hoppar till för varje fångst
 
     // Vyn ploppar ner i hinken (exit-säker proxy-tween).
     const v = it.view
@@ -824,7 +869,7 @@ export default {
       this._proxyTweens.push(tw)
     }
 
-    if (this._caught >= this._needed) this._onComplete(ctx)
+    if (!it.bonus && this._caught >= this._needed) this._onComplete(ctx)
   },
 
   // ---- Mål nått: firande + ny, lite större damm ---------------------------
@@ -843,16 +888,84 @@ export default {
     ctx.progress.complete()
     this._level += 1
 
-    this._completeTimer?.kill()
-    this._completeTimer = gsap.delayedCall(1.5, () => {
+    // Övergången är mjuk: först tonas det som blev kvar (ankor, en oplockad rar sak, hink-högen)
+    // ut, sedan tonas nästa damm in över den gamla medan nya saker studsar in. ctx.later dör
+    // med omgången, och `lvl` stoppar en gammal callback från att bygga om en nyare damm.
+    ctx.later(1.5, () => {
       if (!this._alive) return
-      // Berömmet är 1,0–2,3 s och say() kapar: raden väntar in rösten, dammen gör det inte.
       const lvl = this._level
-      ctx.narTyst(() => {
-        if (this._alive && this._level === lvl) ctx.services.voice.say('Fler saker att fiska!')
+      this._tona()
+      ctx.later(0.5, () => {
+        if (!this._alive || this._level !== lvl) return
+        // Berömmet är 1,0–2,3 s och say() kapar: raden väntar in rösten, dammen gör det inte.
+        ctx.narTyst(() => {
+          if (this._alive && this._level === lvl) ctx.services.voice.say('Fler saker att fiska!')
+        })
+        this._buildPond(ctx, true)
       })
-      this._buildPond(ctx)
     })
+  },
+
+  // Tona ut det som ligger kvar i dammen + hink-högen (proxy-tween, exit-säker).
+  _tona() {
+    const mal = []
+    for (const it of this._items) if (!it.delivered && it.view && !it.view.destroyed) mal.push(it.view)
+    if (this._bucketPile && !this._bucketPile.destroyed) mal.push(this._bucketPile)
+    const st = { a: 1 }
+    const tw = gsap.to(st, {
+      a: 0,
+      duration: 0.45,
+      ease: 'sine.in',
+      onUpdate: () => {
+        for (const o of mal) if (!o.destroyed) o.alpha = st.a
+      },
+      onComplete: () => {
+        const i = this._proxyTweens.indexOf(tw)
+        if (i >= 0) this._proxyTweens.splice(i, 1)
+      },
+    })
+    this._proxyTweens.push(tw)
+  },
+
+  // Lägg en ny dammbild i lagret. Mjukt: den nya ligger ovanpå, tonar 0 → 1, och den gamla
+  // rivs först när den är helt täckt. Hårt: allt gammalt rivs direkt.
+  _visaDamm(niva, mjuk) {
+    const ny = byggDamm(niva)
+    this._pondLayer.addChild(ny.root)
+    const gamla = [...this._dammar]
+    this._dammar.push(ny)
+    const riv = () => {
+      for (const g of gamla) {
+        g.destroy()
+        const i = this._dammar.indexOf(g)
+        if (i >= 0) this._dammar.splice(i, 1)
+      }
+    }
+    if (!mjuk || !gamla.length) {
+      riv()
+      return
+    }
+    ny.root.alpha = 0
+    const st = { a: 0 }
+    const tw = gsap.to(st, {
+      a: 1,
+      duration: 0.9,
+      ease: 'sine.inOut',
+      onUpdate: () => {
+        if (ny.root.destroyed) {
+          tw.kill()
+          return
+        }
+        ny.root.alpha = st.a
+      },
+      onComplete: () => {
+        const i = this._proxyTweens.indexOf(tw)
+        if (i >= 0) this._proxyTweens.splice(i, 1)
+        if (!ny.root.destroyed) ny.root.alpha = 1
+        riv()
+      },
+    })
+    this._proxyTweens.push(tw)
   },
 
   // ---- Idle-vink + snäll auto-hjälp ---------------------------------------
@@ -863,7 +976,7 @@ export default {
     let bd = Infinity
     let bortstott = 0
     for (const it of this._items) {
-      if (!it.metal || it.stuck || it.delivered) continue
+      if (!it.metal || it.stuck || it.delivered || it.bonus) continue // vinken pekar på MÅLET, inte bonusen
       // Vinken måste peka på något som FAKTISKT går att fånga just nu. En knuff mot
       // magneten på en sak som stöts bort är hjälp åt fel håll.
       if (this._poles && it.pol && it.pol === this._falt.polaritet) {
@@ -911,12 +1024,15 @@ export default {
   // ---- Räknar-rad ---------------------------------------------------------
 
   // Visar MÅLET: en stjärna per metallsak — guld = i hinken, blek = kvar att fiska.
-  _drawCounter() {
+  _drawCounter(nyttBonus = false) {
     const c = this._counter
     if (!c || c.destroyed) return
-    for (const ch of [...c.children]) ch.destroy()
+    for (const ch of [...c.children]) {
+      gsap.killTweensOf(ch.scale)
+      ch.destroy()
+    }
     const total = Math.max(this._needed, this._caught)
-    const startX = -((total - 1) * 32) / 2
+    const startX = -((total + this._bonus - 1) * 32) / 2
     for (let i = 0; i < total; i++) {
       const done = i < this._caught
       // Ritad stjärna (var ⭐) — femuddig, med kontur så den syns mot vattnet.
@@ -933,6 +1049,14 @@ export default {
       s.eventMode = 'none'
       c.addChild(s)
     }
+    // Sällsynta fångster står sist i raden som sina egna små bilder (inte som en stjärna).
+    this._bonusKinds.forEach((kind, j) => {
+      const r = makeThing(kind)
+      r.scale.set(0.45)
+      r.position.set(startX + (total + j) * 32 + 4, 0)
+      c.addChild(r)
+      if (nyttBonus && j === this._bonusKinds.length - 1) bounceIn(r, { duration: 0.4 })
+    })
   },
 
   // ---- Synlig hink-hög ----------------------------------------------------
@@ -988,10 +1112,88 @@ export default {
     gsap.fromTo(c.position, { y: y0 }, { y: y0 - 20, duration: 0.16, yoyo: true, repeat: 1, ease: 'power2.out' })
   },
 
+  // ---- Sällsynta fångster: reaktioner -----------------------------------------
+
+  // Det ögonblick saken fastnar på magneten: ord, klang och glitter i sort.
+  _rarStick(ctx, it) {
+    const kind = it.emoji
+    const a = ctx.services.audio
+    floatText(ctx.fxLayer, it.view.x, it.view.y - 26, RAR_NAMN[kind], { fontSize: 44 })
+    if (kind === 'stovel') {
+      // komisk nedgång — ett skratt, inget fel
+      a.tone({ freq: 330, dur: 0.3, type: 'triangle', vol: 0.16, slideTo: 130 })
+      a.tone({ freq: 196, dur: 0.12, type: 'square', vol: 0.08, delay: 0.3 })
+      puff(ctx.fxLayer, it.view.x, it.view.y, { count: 6, color: 0x8fd3f4 })
+    } else {
+      const skala = kind === 'guldfisk' ? [1046.5, 1318.5, 1568, 2093] : [783.99, 987.77, 1174.66, 1568]
+      skala.forEach((f, i) => a.tone({ freq: f, dur: 0.14, type: kind === 'guldfisk' ? 'sine' : 'triangle', vol: 0.13, delay: i * 0.09 }))
+      burst(ctx.fxLayer, it.view.x, it.view.y, { count: 12, colors: [0xffd35c, 0xfff0b8, 0xffffff] })
+    }
+    this._rarSag(ctx, it)
+  },
+
+  // Utrop på ett ögonblick: sägs bara om ingen redan talar (köat kommer det för sent).
+  _rarSag(ctx, it) {
+    if (it.sagt || ctx.services.voice.talar) return
+    it.sagt = true
+    const v = ctx.services.voice
+    if (it.emoji === 'guldfisk') v.say('Wow, en guldfisk!')
+    else if (it.emoji === 'kista') v.say('En skattkista!')
+    else v.say('Haha, en gammal stövel!')
+  },
+
+  // Fångsten ligger i hinken: katten reagerar på sitt eget sätt för varje sort.
+  _rarLevererad(ctx, it) {
+    const kind = it.emoji
+    if (kind === 'stovel') {
+      puff(ctx.fxLayer, BUCKET.x, BUCKET.y - 20, { count: 8, color: 0x8fd3f4 })
+      floatText(ctx.fxLayer, BUCKET.x, BUCKET.y - 70, 'Hihi!', { fontSize: 44 })
+    } else {
+      burst(ctx.fxLayer, BUCKET.x, BUCKET.y - 30, { count: 16, colors: [0xffd35c, 0xfff0b8, 0xffffff, 0xffb02e] })
+    }
+    this._catHoppar(kind)
+    this._rarSag(ctx, it)
+  },
+
+  // Katten, per sort: guldfisk = volt i luften · kista = två glada hopp · stövel = skakar på huvudet.
+  _catHoppar(kind) {
+    const c = this._cat
+    if (!c || c.destroyed) return
+    const y0 = 596
+    this._catTl?.kill()
+    gsap.killTweensOf(c.position)
+    gsap.killTweensOf(c)
+    c.position.y = y0
+    c.rotation = 0
+    const tl = gsap.timeline({
+      onComplete: () => {
+        if (!c.destroyed) {
+          c.position.y = y0
+          c.rotation = 0
+        }
+      },
+    })
+    if (kind === 'guldfisk') {
+      tl.to(c.position, { y: y0 - 48, duration: 0.22, ease: 'power2.out' })
+        .to(c, { rotation: Math.PI * 2, duration: 0.44, ease: 'power1.inOut' }, '<')
+        .to(c.position, { y: y0, duration: 0.3, ease: 'bounce.out' })
+    } else if (kind === 'kista') {
+      tl.to(c.position, { y: y0 - 34, duration: 0.15, yoyo: true, repeat: 3, ease: 'power2.out' })
+    } else {
+      tl.to(c, { rotation: -0.45, duration: 0.18, ease: 'power2.out' })
+        .to(c, { rotation: 0.35, duration: 0.11, yoyo: true, repeat: 3, ease: 'sine.inOut' })
+        .to(c, { rotation: 0, duration: 0.2, ease: 'power2.out' })
+    }
+    this._catTl = tl
+  },
+
   destroy(ctx) {
     this._alive = false
+    this._catTl?.kill()
+    for (const d of this._dammar) d.destroy()
+    this._dammar = []
+    if (this._counter && !this._counter.destroyed) for (const ch of this._counter.children) gsap.killTweensOf(ch.scale)
     if (this._tick) ctx?.ticker?.remove(this._tick)
-    this._completeTimer?.kill()
     this._catIdle?.kill()
     this._clearHint()
 

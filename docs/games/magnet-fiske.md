@@ -57,7 +57,7 @@ Stark, polerad kärna — men några tunna kanter återstår:
   fiske-tema ("Full hink! Vilken fångst!"), ingen scen som reagerar.
 - ~~**Variationen är bara "fler saker + snabbare simning".**~~ **Delvis åtgärdad 2026-08-10
   (`c41d451`):** nivå 2 lägger till en riktig ny *regel* (poler — lika färg knuffar bort,
-  vänd magneten), inte bara fler ikoner. Kvar av punkten: fortfarande inga sällsynta
+  vänd magneten), inte bara fler ikoner. (Sällsynta fångster tillkom 2026-10-01, se §5.) Tidigare: inga sällsynta
   *fångster* — ingen gammal stövel som skämtfångst, ingen skattkista, ingen guldfisk.
 
 ## 4. Förbättringar & förhöjningar (plan)
@@ -79,9 +79,8 @@ Stark, polerad kärna — men några tunna kanter återstår:
 - ✅ ~~**[Quick] Saker med egen rörelse.**~~ Klar 2026-09-23 (v1.251.0): myntet snurrar på
   högkant, burken guppar stelt och fisken vajar — skrivet varje bildruta på det RITADE barnet
   (`it.art`, `_livSaker` :714), aldrig på vyn som bär träffyta och fysik.
-- **[Medium] Skämt- och skatt-fångster.** En sällsynt gammal stövel 🥾 (skratt-fångst), en
-  skinande skattkista 🧰 (extra gnistor/beröm), en "blank" guldfisk som blänker — sällsynta
-  wow-ögonblick som bryter monotonin.
+- ✅ ~~**[Medium] Skämt- och skatt-fångster.**~~ Klar 2026-10-01: stövel, skattkista och
+  guldfisk (se §5).
 
 ### Juice
 - **[Quick] Riktiga vatten- & metall-ljud.** Plask när magneten doppas, ett mjukt "klonk/kläck"
@@ -96,8 +95,8 @@ Stark, polerad kärna — men några tunna kanter återstår:
 ### Progression
 - ✅ ~~**[Medium] Synligt fylld hink.**~~ Redan byggd (`_addToBucketPile` :937, ritade saker
   ligger kvar i hinken) — uppdagat 2026-09-23.
-- **[Quick] Mjuk damm-övergång.** Cross-fade scenen mellan nivåer (ny vattenton/ny tid på
-  dygnet) i stället för hård rebuild, så världen känns sammanhängande.
+- ✅ ~~**[Quick] Mjuk damm-övergång.**~~ Klar 2026-10-01: dammbilden tonas över mellan nivåer
+  (ny vattenton per nivå), resterna tonas ut och nya saker studsar in (se §5).
 
 ### Karaktär & berättelse
 - **[Deep] En fiskare + mottagare.** Sätt Bobo/Zacke på en liten brygga vid spöets pivot som
@@ -111,7 +110,41 @@ Stark, polerad kärna — men några tunna kanter återstår:
   vatten-ambient (se [[real-audio-sfx]]). Behåll rösten för det pedagogiska ("Metall!"/"Trä!").
   ⛔ Blockerad: kräver nya SFX-klipp (MOSS nere).
 
+### Kvar efter kritiken 2026-10-01
+- **[Quick] Vassen kan hamna tätt intill magnetens parkering** (x ~490, y ~100) och läsa plottrigt —
+  håll en tuva ≥ 120 px från `PARK`.
+- **[Quick] Katten står över hinkens ring** — flytta den en aning åt höger så ringen är ren.
+- **[Quick] `RAR_NAMN`-texten som flyter upp** ("Guldfisk!") är läsning; rösten bär det redan —
+  byt mot en glimt/ikon.
+
 ## 5. Status / loggar
+
+- 2026-10-01 ✨ **Dammen som natur, sällsynta fångster, mjuk övergång** (nattplan F2). Byggt blint
+  (endast `check`, ingen webbläsare). Orkestreraren mätte efteråt med `scripts/_natt-magnet.mjs`
+  (riktiga drag magnet → sak → hink, två nivåer, tvingad bonus: 0 fel, allt i dammen, en dammbild
+  efter övergången) och rättade två kritikfynd: djupet var åtta skalade kopior av strandkonturen
+  som lade sig som koncentriska trappsteg → tolv egna mjuka klumpar (`klump`, alfa 0,05); och
+  stöveln var ritad som GUMMIstövel medan dammen lär ut att gummi inte fastnar → läderstövel med
+  järnhätta och spikrad.
+  - **Dammen** (`damm.js`): scenen byttes från `water` (blå markremsa = ett andra vatten i botten)
+    till en gräsäng (`createScene` med eget tema utan mark/sol) + `byggFalt()` med slåttränder och
+    strån. Dammen är en organisk kontur 40 px utanför `POND` (hörnen mätta: 22 px vatten kvar
+    vid `POND`-hörnet, vågigheten trycker bara utåt): gräskant → sandstrand med stenar → blöt
+    kant → grunt → vatten → åtta halvgenomskinliga djuplager mot en förskjuten djuppunkt. INGA
+    gradienter (noll texturbakningar vid montering). Näckrosblad (4–6, en del med blomma), vass (3
+    tuvor, aldrig åt höger där hink och katt står), solglimtar och krusningar — allt lever via
+    `update(dt)` i spelets ticker, ingen tween att läcka. Fyra vattenhumör, valt av nivå; ny
+    slumpad form vid varje bygge. `POND`, väggar, fångst och fält är orörda.
+  - **Sällsynta fångster** (`sallsynta.js`): guldfisk (glimt), skattkista (locket lyfter, guldsken),
+    gammal stövel (rocka, tång). ~1 fångst på 8 (`chans = mål/8`, max 0,7, aldrig två rundor i
+    rad, aldrig samma sort två gånger). **Bonus, inte mål:** räknas inte i `_needed`, så en nivå
+    går alltid att klara; `_recue` pekar aldrig på dem; en oplockad tonas ut med resten. Egen
+    klang + ord + replik vid fastnande, egen katt-reaktion vid hinken (guldfisk = volt, kista =
+    två hopp, stövel = skakar huvudet), syns som liten bild sist i räknar-raden.
+  - **Mjuk övergång:** resterna och hink-högen tonas ut (0,45 s), nästa damm tonas in över den gamla
+    (0,9 s, gamla rivs när den är täckt) medan sakerna studsar in i tur och ordning. Fördröjningarna
+    är `ctx.later` (den gamla `gsap.delayedCall` är borta).
+  - Nya repliker: "Wow, en guldfisk!", "En skattkista!", "Haha, en gammal stövel!".
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_onComplete` spelade eget
   vinstljud, eget beröm och eget konfettiregn i samma tick som `complete()` — alla tre strukna.

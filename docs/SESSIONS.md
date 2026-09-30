@@ -14,6 +14,43 @@ Format:
 
 ---
 
+## 2026-10-01 — Nattkörningen: tolv spel polerade i fyra faser · v1.277.0
+
+**Uppdraget (ägaren 2026-09-30):** välj minst tio spel med störst potential eller trasigast bild,
+polera dem i en obevakad nattkörning i faser (Opus orkestrerar, Sonnet bygger), spara och
+publicera allt till morgonen. Drivare: `scripts/nattkorning.ps1` + `scripts/natt.mjs`; plan och
+fasfiler i `.claude/state/natt/`. R1/R2 (sju reservspel) ströks av ägaren för veckokvotens skull.
+**Byggt (ett commit per spel, varje spel har en §5-rad daterad 2026-10-01 i sin doc):**
+- F1 Lära — `djurorkester` (djuren står fritt på en scen, dirigent-Bobo, notlinje, nya djur per
+  konsert) · `kla-efter-vadret` (kläderna hänger på ett klädstreck i ett rum med fönster, ny Elvira,
+  blåsigt väder) · `siffertaget` (rösten frågar per vagn, glöden kommer sent, tågvärld med station,
+  nytt lucka-läge).
+- F2 Pussel — `harma-melodin` (fyra sjungande varelser på en konsertscen, dirigent-Bobo, temabyte) ·
+  `magnet-fiske` (dammen med strand och näckrosor, sällsynta fångster, mjukt nivåbyte) · `kulbana`
+  (SLÄPP-knappen ut ur hemknappens yta — P0-bugg —, liv på himlen, propeller-del).
+- F3 — `vattenvagen` (kaklat badrum, fristående rör på hylla, levande planta, T-rör till två muggar) ·
+  `folj-sparet` (hel äng med slingrande stig, nedtrampade tassar, husfinal, tema per runda) ·
+  `vilket-djur-later` (djuren kliver ut ur korten och står fritt, bondgård → damm/skog, vända-runda).
+- F4 — `vad-forsvann` (ett barnrum, filten är tyg, svaren står fritt på mattan) ·
+  `vart-tog-det-vagen` (trolleriföreställning: ridå, spotlight, trollkarls-Bobo, hylla med fynd) ·
+  `tvatta-djuret` (flikiga lerstänk, svampen blir smutsig och sköljs, skum där man gnuggar).
+- F5 — bokföringen: README-indexets kvalitetskolumn speglade inte statusraderna för 14 spel (12
+  sattes till 🔧 som docen säger; `studsmatta` och `gungan` prövades mot koden och blev ✅).
+**Mätt:** varje spel gick genom `natt.mjs prova` (check + test + gamelogg, 0 konsolfel) och en
+egen sond som spelade huvudkontrollen med riktiga klick/drag där harnessen inte når; en
+`spelkritiker` per fas, vars billiga fynd åtgärdades och resten står i spelens §4.
+**Läxor:** ⓵ headless-läget dödar bakgrundsagenter 600 s efter att orkestrerarens svar tagit
+slut (F1 försök 1) — byggare startas i förgrunden, parallellt i samma meddelande ⓶ `npm run
+backup` gav robocopy-kod 9/11 i F2–F4 medan dev-servern körde (låsta filer); arbetet låg ändå
+committat ⓷ fem av de tolv spelen fick §4-poster "kvar efter kritiken" — kritikern före fixvarvet
+gav ett samlat meddelande per byggare.
+**Commits:** 0e88fce · 85b2e02 · 6521611 · c2915b6 · 57fae9d · 33a3c60 · 0b54bb3 · f07f4b8 ·
+7e1e0e3 · 84c9899 · 01f5928 · c876663 + röst + denna bokföring.
+**Öppet:** ägaren provar spelen (MORGONRAPPORT) · tre ägarbeslut: spindelnätets hjälte,
+`createScene`s standardsol bakom hemknappen, glittergrottans shader · R1/R2-spelen står kvar.
+
+---
+
 ## 2026-09-26 (forts.) — Popcornkalaset: grytan får sidohandtag, inga osynliga spärrar · v1.265.0
 
 **Uppdraget (ägaren):** "Popcorn påsen är bättre men kastrullen / grytan buggar fortfarande, de

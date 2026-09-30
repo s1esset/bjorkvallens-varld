@@ -164,12 +164,12 @@ i stället för att avfyra skottet åt barnet (`_offerAssist` + Skjut!-knapp, no
 | 38 | Knuffa Tornet | `knuffa-tornet` | drag | ✅ | ✅ |
 | 39 | Spindelhjälten | `spindelhjalten` | drag | ✅ | ✅ |
 | 40 | Enhörningen Elvira | `enhorningen-elvira` | mixed | ✅ | ✅ |
-| 44 | Valpens Bajs | `valpens-bajs` | mixed | ✅ | ✅ |
+| 44 | Valpens Bajs | `valpens-bajs` | mixed | 🔧 | ✅ |
 | 46 | Tvätta Djuret | `tvatta-djuret` | drag | ✅ | ✅ |
 | 48 | Gungan | `gungan` | tap | ✅ | ✅ |
-| 50 | Spindelnätet | `spindelnatet` | tap | ✅ | ✅ |
-| 52 | Fallskärmen | `fallskarmen` | drag | ✅ | ✅ |
-| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | ✅ | ✅ |
+| 50 | Spindelnätet | `spindelnatet` | tap | 🔧 | ✅ |
+| 52 | Fallskärmen | `fallskarmen` | drag | 🔧 | ✅ |
+| 53 | Enhörningen Flyger | `enhorningen-flyger` | drag | 🔧 | ✅ |
 | 54 | Spindel-Zacke Svingar | `spindel-zacke-svingar` | tap | ✅ | ✅ |
 | 55 | Bobos Bowling | `bowling` | drag | ✅ | ✅ |
 | 56 | Flipperspel | `flipperspel` | tap | ✅ | ✅ |
@@ -214,15 +214,15 @@ stor del via det nya delade `src/lib/artikoner.js`.*
 *Första-omgången 2026-07-02, poleringsrundan 2026-08-06. Sista fliken — rundan är klar.*
 | # | Spel | id | input | kvalitet | polerad |
 |---|------|----|-------|:--:|:--:|
-| 7 | Färgregn | `fargregn` | tap | ✅ | ✅ |
-| 9 | Räkna Äpplena | `rakna-applen` | tap | ✅ | ✅ |
-| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | ✅ | ✅ |
-| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | ✅ | ✅ |
-| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | ✅ | ✅ |
-| 25 | Siffertåget | `siffertaget` | mixed | ✅ | ✅ |
+| 7 | Färgregn | `fargregn` | tap | 🔧 | ✅ |
+| 9 | Räkna Äpplena | `rakna-applen` | tap | 🔧 | ✅ |
+| 11 | Peka på Kroppen | `peka-pa-kroppen` | tap | 🔧 | ✅ |
+| 12 | Vilket Djur Låter Så? | `vilket-djur-later` | tap | 🔧 | ✅ |
+| 20 | Klä efter Vädret | `kla-efter-vadret` | mixed | 🔧 | ✅ |
+| 25 | Siffertåget | `siffertaget` | mixed | 🔧 | ✅ |
 | 30 | Djurorkester | `djurorkester` | tap | ✅ | ✅ |
-| 47 | Ballonglyft | `ballonglyft` | tap | ✅ | ✅ |
-| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | ✅ | ✅ |
+| 47 | Ballonglyft | `ballonglyft` | tap | 🔧 | ✅ |
+| 62 | Blixt och Dunder | `blixt-och-dunder` | mixed | 🔧 | ✅ |
 
 ### 🏆 Utmaning (storbarn 6–12) — *tom, fliken är dold tills första spelet finns*
 *Bandet infördes 2026-09-24 (v1.256.0). Hit hör nya storbarnsspel (`ageRange` [6–12]) och

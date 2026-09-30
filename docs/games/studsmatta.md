@@ -1,5 +1,5 @@
 # Studsmatta (`studsmatta`)
-> ⚙️ fysik · mixed · 2–5 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · mixed · 2–5 år · status: ✅ marknadsklar (2026-10-01: bara valfria [Quick]-punkter kvar i §4)
 
 ## 1. Nuläge (sett som spelare)
 

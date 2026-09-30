@@ -1,5 +1,5 @@
 # Gungan (`gungan`)
-> ⚙️ fysik · tap · 2–4 år · status: 🔧 förbättringar pågår
+> ⚙️ fysik · tap · 2–4 år · status: ✅ marknadsklar (2026-10-01: Bobo knuffar och jublar, takten belönas — kvar är valfria [Quick]/[Medium])
 
 ## 1. Nuläge (sett som spelare)
 
@@ -65,7 +65,7 @@ upplevelsen runt den.
   index.js:571-581) — uppdagat 2026-09-23. Vid varje tryck: en liten hand/Bobo-tass (eller en färgad
   "push"-puff) bakom sitsen som skjuter till, så barnet *ser* sin handling driva Lova. Skala
   puffen med fas-kvaliteten `q` (stor puff nära ytterläget).
-- **[Medium] Belöna takten tydligare.** Vid 2–3 bra knuffar i rad (`q ≥ 0.7`): en synlig
+- ◐ **[Medium→Quick] Belöna takten tydligare.** *(2026-10-01: streaken `_goodStreak` :557 skjuter redan auto-medvinden och knuff-tonen klättrar :563 — kvar är bara en synlig glöd runt sitsen.)* Vid 2–3 bra knuffar i rad (`q ≥ 0.7`): en synlig
   kombo-glöd runt sitsen + stigande ton, och auto-medvinden skjuts upp ännu längre ("du klarar
   det själv!"). Gör skillnaden mellan egen rytm och auto-hjälp *kännbar*.
 - ✅ ~~**[Deep] Mål som lever.**~~ Redan byggd (nästa mål guppar och lutar ivrigare ju närmare hon
@@ -111,7 +111,7 @@ upplevelsen runt den.
 - **[Quick] Mjuk scen-crossfade** mellan nivåer i stället för hård ombyggnad.
 
 ### Karaktär & berättelse
-- **[Deep] Bobo som puttar.** Maskoten Bobo står bakom gungan, ger den synliga knuffen vid varje
+- ◐ **[Deep→Medium] Bobo som puttar.** *(2026-10-01: Bobo står vid stället, hejar vid varje knuff `_boboPush` :395 och jublar vid mål `_boboCheer` :402 — kvar är bara korgen som fångar målen vid nivåslut.)* Maskoten Bobo står bakom gungan, ger den synliga knuffen vid varje
   tryck, hejar vid toppen och fångar de nedfallande målen i en korg vid nivåslut — en egen
   vinst-animation i stället för generisk konfetti.
 - **[Quick] En kompis i kö** vid sidan som klappar händerna när Lova når ett mål (levande scen).

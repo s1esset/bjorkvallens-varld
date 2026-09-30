@@ -1,5 +1,5 @@
 # Klä efter Vädret (`kla-efter-vadret`)
-> 🔤 pedagogiskt · mixed · 3–5 år · status: 🔧 förbättringar pågår
+> 🔤 pedagogiskt · mixed · 3–5 år · status: 🔧 förbättringar pågår (rummet + klädstrecket + blåst byggda 2026-10-01; [Deep] berättelseramen står kvar)
 
 ## 1. Nuläge (sett som spelare)
 
@@ -63,8 +63,7 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
   index.js:70/:82/:94, 2026-07-02) — uppdagat 2026-09-23.
 
 ### Variation & överraskning
-- **[Medium] Fler väder/nyanser:** blåsigt (behöver något som sitter fast), halvkallt höst
-  (jacka men ingen mössa), regnbåge efter regn. Ger nya kombinationer att tänka kring.
+- ✅ ~~**[Medium] Fler väder/nyanser: blåsigt**~~ BYGGT 2026-10-01 (`bla`, se §5). Kvar: halvkallt höst (jacka men ingen mössa) och regnbåge efter regn.
 - **[Quick] Variera figuren ibland** (Elvira / Zacke / Lova) så omsorgen känns bredare —
   alla är tillåtna karaktärsnamn.
   *Blockerad 2026-09-23:* intro-, payoff- och lagom-replikerna säger "Elvira", och
@@ -72,6 +71,14 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
   Kräver nya röstklipp (TTS nere).
 
 ### Juice
+- **[Deep] Blåsigt: en synlig avblåsning.** Fel plagg i blåst (solhatt/keps) ska FLYGA ut ur bild
+  (svepa iväg med vinden, snurra) och komma tillbaka till nypan, i stället för samma wiggle som i
+  alla andra väder. Kräver en egen bana för plagget utanför DragControllers snäpp-tillbaka och
+  att nypan/hang-lagret åter tar över när det landat (exit-säkert, en tween per plagg).
+- **[Deep] Payoffen "Elvira går ut" är bara ett kort sidosteg + en flytande emoji.** Låt henne gå
+  ut genom en DÖRR (rum.js får en dörr på väggen, hon går dit och försvinner, kommer tillbaka
+  utanför fönstret) eller låt fönstret/utsikten TA ÖVER skärmen (zoom in på vädret med henne
+  klädd i det). Då blir belöningen själva lärandet: vädret hon klätt sig för.
 - ✅ ~~**[Quick] Snäpp-"klick" + tyg-frasande**~~ Redan byggd (stämda toner + `pop` på zonringen
   i `_onCorrect`, 2026-07-02) — uppdagat 2026-09-23.
 - ~~**[Quick] Elvira reagerar på fel:** huttrar till vid för lite kläder, viftar bort för
@@ -94,6 +101,38 @@ Kort sagt: en *fin, varm omsorgs-loop med snygg scen*, men slutledningen är tun
   likaså. Det som återstår är de riktiga klippen, och de kräver SFX-pipelinen (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-10-01 🧺 **Kläderna hänger på riktigt, och rummet finns** (nattkörning, ej provkört i
+  webbläsare — bara `check` kördes; orkestreraren testar). Varför: plaggen låg på en genomskinlig
+  hyllpanel (P0 ASSETS), figuren var fem rektanglar mot en enfärgad vägg, och spelet var bland
+  appens plattaste skärmdumpar (`_plattprobe`: 3 507 toner). Nu (filer: `index.js`, `figur.js`,
+  `rum.js`):
+  ① **Klädstreck** (`rum.js` REP: två rader på vänster sida, repet kommer utifrån och knyts i en
+  krok vid x 500, höjder valda mot skalets hem-knapp) — plaggen hänger i en klädnypa, med egen
+  väggskugga, och gungar från nypan (lugnt i vila, kraftigt i blåst; det som hålls hänger rakt).
+  Drag + tap-tap oförändrade; släppzonerna (640,230/400/560, r130) är orörda. Påsatt: nypan
+  släpper, plagget glider till sin plats och skalas upp till Elviras storlek (hatt på huvudet,
+  skor/stövlar som ETT PAR på fötterna). Hyllan är borta.
+  ② **Egen figur** i `figur.js` (`makeElvira` har fastbakad klänning + röda skor, så plaggen hade
+  hamnat på andra plagg): underkläder, klot-/rörfyllningar, ansikte med blinkning, blick som
+  följer det som dras, bryn som oroas, tre munnar, svettdroppe i värmen, andning. Ett tryck på
+  henne kittlar henne (skratt + hopp). Skalvet ligger kvar i `_figureInner` (samma fältnamn som
+  `_ryserprobe` läser).
+  ③ **Rum** (`rum.js`): tapet med ränder + blommor, dado med list, plankgolv, matta, golvskugga;
+  **fönster** på höger sida där vädret syns ute (sol med strålar och moln, mörka regnmoln och
+  droppar, snöfall, blåst med flygande löv och ett träd som böjer sig) + gardiner, fönsterbräda
+  och kruka som svajar i blåst. Rummet tonas fortfarande EN gång per väder (`_rum.tint`). Den
+  gamla väderbrickan/glow-pulsen uppe och det helskärms-regn/-snö som fanns är borta —
+  fönstret bär frågan.
+  ④ **Nytt väder: blåsigt (`bla`)**, som fjärde runda och därefter i slumpen. Solhatten och kepsen
+  blåser iväg — bara det som SITTER KVAR duger: mössa (huvud), jacka eller halsduk (kropp),
+  stövlar eller skor (fötter). Egen skalv-takt (ryckig), egen ambient (vindpuff), egna vinkar.
+  ⚠️ Halsduken är nu ett dugligt plagg i snö också (den var en "fel"-distraktor där, vilket gav
+  "Brr, då fryser vi!" åt en halsduk i snön). Distraktorpoolen hoppar över allt som är dugligt
+  för DAGENS väder i samma zon (mössan är rätt både i snö och blåst).
+  🔊 **Rösten (fixvarv 2):** plaggets egen rad (`sitter`) sägs alltid vid rätt plagg, före `complete()` (berömmet utgår), och "Nu går Elvira ut!" → lagom-raden → nästa runda köar i den ordningen via `ctx.narTyst` med rund-vakt. Förut kapade "Nu går Elvira ut!" plaggnamnet på sista plagget, och nästa runda kom på fast 1,7 s så lagom-raden föll på sin väder-vakt.
+  ⚠️ Ospårat/otestat i bild: påsatta plaggs storlek/placering (`WEAR`, `WEAR_OVR` i index.js) är
+  räknade ur ikonernas mått, inte sedda — kolla skärmdumpen i alla fyra väder.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): Tre repliker i rundslutet kapade
   varandra. Lagom-raden (3,2 s) kom på fast 0,68 s mitt i "Nu går Elvira ut!" (1,9 s), och

@@ -1,121 +1,143 @@
-// Klä efter Vädret — dra-och-släpp (3–5 år). Uppe visas dagens väder (sol/regn/snö)
-// med stor animerad symbol + fallande regn/snö. En glad figur (Elvira) står i mitten.
-// Barnet drar (eller tap-tap:ar via DragController) rätt plagg till rätt kroppszon
-// (huvud/överkropp/fötter). Passar plagget vädret + zonen → det snäpper fast, figuren
-// hoppar till och rösten säger plaggnamnet. Opassande plagg ger en mjuk vänlig vink
-// ("Brr, då fryser vi!") och snäpper tillbaka — aldrig en bestraffning. Alla zoner
-// fyllda → delat firande + klistermärke, sedan nytt väder. Oändlig omsorgslek.
-// Allt ritas programmatiskt i Pixi Graphics — plagg och vädertecken via drawIcon
-// (src/lib/artikoner.js), inga externa filer och ingen emoji som spelobjekt.
+// Klä efter Vädret — dra-och-släpp (3–5 år). Ett rum: tapetserad vägg, plankgolv, matta och ett
+// FÖNSTER där dagens väder syns ute (sol / regn / snö / blåst med höstlöv) — bilden bär frågan
+// "vad är det för väder?" utan läsning. Elvira står på mattan i underkläder (figur.js).
+// Plaggen HÄNGER på ett klädstreck till vänster (rum.js), fästa med varsin klädnypa, och gungar
+// i vila (mer när det blåser). Barnet drar (eller tap-tap:ar via DragController) rätt plagg till
+// rätt kroppszon (huvud/överkropp/fötter). Passar plagget vädret + zonen → det snäpper fast och
+// sätts på henne (hatt på huvudet, ett par skor på fötterna), hon hoppar och rösten säger
+// plaggnamnet. Opassande plagg ger en mjuk vänlig vink ("Brr, då fryser vi!") och hänger tillbaka
+// på strecket — aldrig en bestraffning. Alla zoner fyllda → hon går ut i vädret, delat firande
+// + klistermärke, sedan nytt väder. Oändlig omsorgslek.
+// Allt ritas programmatiskt i Pixi Graphics — plagg via drawIcon (src/lib/artikoner.js), inga
+// externa filer och ingen emoji som spelobjekt.
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
-import { bounceIn, pop, wiggle, sparkle, floatText } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, floatText, ripple } from '../../lib/feedback.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS } from '../../lib/theme.js'
-import { BLEED_X, BLEED_Y } from '../../lib/view.js'
-import { verticalFill } from '../../lib/form.js'
+import { byggElvira, CX } from './figur.js'
+import { byggRum, byggStreck, byggNypa, byggFonster, repY } from './rum.js'
 
-// MARKEN. `_plattprobe --medbakgrund` mätte 693 298 px — 75 % av skärmen — i EN ton:
-// bakgrunden var en enda vit rektangel som TINTAS per väder, så Elvira stod i en
-// färgad void utan mark under fötterna. Lösningen måste bevara tint-mekaniken, och gör
-// det: en tonad fyllning behåller sin variation när den tintas (tint multiplicerar), och
-// en mark som ritas i SAMMA Graphics tintas därför automatiskt med vädret — sandvarm i
-// sol, fuktigt gråblå i regn, kall och blek i snö, utan en enda extra rad väderlogik.
-// Bastonerna nedan är därför neutrala: det är vädrets tint som ger dem färg.
-const GROUND_Y = 606 // fötternas underkant ligger på 616 -> hon står PÅ marken
-const C_SKY_BOT = 0xe8e6e0
-const C_GROUND_TOP = 0xc9c0ae
-const C_GROUND_BOT = 0xafa491
-const C_GROUND_EDGE = 0x9a8f7c
+// Fötternas underkant ligger på 616 -> hon står PÅ mattan (rum.js FLOOR_Y = 606).
+const GROUND_Y = 606
 
 // --- Elvira KÄNNER vädret -------------------------------------------------
-// `_stillaprobe` mätte scenen som nästan död: 84 noder, **3** i rörelse, största
-// utslag **4,1–4,2 px i tre svep av tre** — och de tre var de fallande regn-/
-// snöflingorna. Elvira själv, spelets enda karaktär och hela dess anledning, stod
-// blick stilla medan barnet skulle bry sig om henne. §4 [Quick]: "Elvira reagerar
-// på fel: huttrar till vid för lite kläder, viftar bort för varmt."
-// Obehaget är inte dekor: det är dagens VÄDER mot hur mycket hon har på sig, så
-// skalvet börjar stort, avtar för varje plagg och är BORTA när hon är lagom klädd
-// — då blir "Nu blir jag lagom varm i snön!" något barnet ser, inte bara hör.
-// ⚠️ Utslagen är höjda en gång efter mätning. De första (3,6 / 1,7 / 2,3 px) gav i
-// sol ett svängningsrum på 4,6 px — mindre än de fallande flingorna scenen redan
-// hade, alltså precis det `_stillaprobe` kallar "nästan stilla". Takterna är däremot
-// orörda: det är FREKVENSEN som skiljer väderslagen åt, inte storleken.
+// Obehaget är inte dekor: det är dagens VÄDER mot hur mycket hon har på sig, så skalvet börjar
+// stort, avtar för varje plagg och är BORTA när hon är lagom klädd — då blir "Nu blir jag lagom
+// varm i snön!" något barnet ser, inte bara hör. Takterna skiljer väderslagen åt (frekvens),
+// storleken är kalibrerad mot `_ryserprobe`/`_stillaprobe` (rör inte utslagen utan mätning).
 const OBEHAG = {
   sno: { frekv: 21, ampX: 4.8, ampR: 0.005 }, // snabbt, smått köldskalv
   regn: { frekv: 8.5, ampX: 3.4, ampR: 0.013 }, // långsammare hukning i blöten
   sol: { frekv: 3.0, ampX: 5.4, ampR: 0.020 }, // trög värmevaggning, fläktar sig
+  bla: { frekv: 13, ampX: 4.4, ampR: 0.016 }, // ryckigt, vindpuffar
 }
 const RYS_MS = 750 // en extra huttring när ett opassande plagg provas
 
 // Kroppszonernas centrum (= snäpp-mål). Huvud-zonen ligger strax ovanför huvudet
 // (en hatt sitter på toppen), fot-zonen strax ovanför fötterna.
 const ZONES = { huvud: [640, 230], overkropp: [640, 400], fotter: [640, 560] }
-const ZONE_NAMES = { huvud: 'huvudet', overkropp: 'kroppen', fotter: 'fötterna' }
 // Prioritetsordning när antal obligatoriska zoner växer med nivån.
 const ZONE_ORDER = ['overkropp', 'huvud', 'fotter']
 
-// Väderdata. key = ascii-nyckel, namn/intro/lagom behåller åäö. valid = LISTA av
-// dugliga plagg per zon (flera funkar → barnet resonerar i stället för att hitta det
-// enda rätta). lagom/proof = "gå ut"-payoffen (kopplar belöningen till lärandet).
+// Där plagget SITTER när det är påsatt (och hur stort det blir på henne). Plaggen hänger i
+// 104 px-ikoner, men Elviras kropp är ~200 px bred — påsatt skalas de upp så de passar.
+const WEAR = {
+  huvud: { x: CX, y: 172, s: 1.6 },
+  overkropp: { x: CX, y: 385, sx: 2.6, sy: 3.2 }, // reserv; alla överkroppsplagg har egen rad i WEAR_OVR
+  fotter: { x: CX, y: 566, s: 1.25 }, // ett PAR: se _sattPa
+}
+// Överkroppsplaggen skalas ICKE-likformigt (sx bredd, sy höjd) så de täcker Elviras bål (x 550–730,
+// axlar y ~300, höfter ~480–510). Ikonernas mått (S = 1,04): tröja/klänning/jacka ±37 bred med ärmar,
+// tröja y −26..30, klänning −26..34, jacka/dunjacka axlar −20 och nederkant 32 (jackans huva −48 hamnar
+// BAKOM huvudet). y = axelhöjd 300–302 − ikonens topp·1,04·sy.
+const WEAR_OVR = {
+  troja: { y: 381, sx: 2.6, sy: 3.0 }, // bredd 200, y 300–475
+  klanning: { y: 387, sx: 2.6, sy: 3.2 }, // y 300–500
+  regnjacka: { y: 373, sx: 2.6, sy: 3.4 }, // axlar 302, nederkant 486
+  vinterjacka: { y: 373, sx: 2.6, sy: 3.4 },
+  halsduk: { y: 364, sx: 1.9, sy: 2.0 }, // kragen vid halsen (y ~318), ändarna till ~433
+  '☂️': { x: 770, y: 380, s: 1.9, top: true }, // hålls i höger hand, ovanpå allt
+}
+
+// Klädstrecket: två rader på vänster sida (rum.js REP). Plaggen hänger HANG px under repet.
+const HANG = 46
+const ROW_X = { 1: [260], 2: [185, 335], 3: [110, 260, 410] }
+
+// Väderdata. key = ascii-nyckel, namn/intro/lagom behåller åäö. valid = LISTA av dugliga
+// plagg per zon (flera funkar → barnet resonerar i stället för att hitta det enda rätta).
+// `sitter` = plaggets egen replik (literal — klippen finns färdiga). lagom/proof = "gå ut"-
+// payoffen (kopplar belöningen till lärandet). bg = rummets tint. look = vad fönstret visar.
 const WEATHERS = {
   sol: {
-    key: 'sol', symbol: '☀️', bg: 0xfff3c4, glow: 0xffd35c,
+    key: 'sol', bg: 0xfff3c4,
     intro: 'Det är sol idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är sol och varmt — vad behöver vi då?',
     lagom: 'Nu blir jag lagom sval i solen!',
     proof: '😎',
+    look: { sky: 0x8fd3ff, hill: 0x8fd06a, crown: 0x5fbf62, moln: [0xffffff, 0xffffff, null], sol: true, wind: 0.12, ljus: 0.22 },
     valid: {
-      huvud: [{ art: 'solhatt', namn: 'solhatten' }, { art: 'keps', namn: 'kepsen' }],
-      overkropp: [{ art: 'troja', namn: 'tröjan' }, { art: 'klanning', namn: 'klänningen' }],
-      fotter: [{ art: 'sandaler', namn: 'sandalerna' }, { art: 'skor', namn: 'skorna' }],
+      huvud: [{ art: 'solhatt', sitter: 'Solhatten sitter!' }, { art: 'keps', sitter: 'Kepsen sitter!' }],
+      overkropp: [{ art: 'troja', sitter: 'Tröjan sitter!' }, { art: 'klanning', sitter: 'Klänningen sitter!' }],
+      fotter: [{ art: 'sandaler', sitter: 'Sandalerna sitter!' }, { art: 'skor', sitter: 'Skorna sitter!' }],
     },
   },
   regn: {
-    key: 'regn', symbol: 'regnmoln', bg: 0xcfe3ef, glow: 0x9fc4dd,
+    key: 'regn', bg: 0xcfe3ef,
     intro: 'Det är regn idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är regnigt — vad behöver vi då?',
     lagom: 'Nu blir jag lagom torr i regnet!',
     proof: '☂️',
+    look: { sky: 0x8b97a6, hill: 0x5f8f6e, crown: 0x467a58, moln: [0x6f7a86, 0x7d8894, 0x66717d], regn: true, wind: 0.3, ljus: 0 },
     valid: {
-      huvud: [{ art: 'regnhatt', namn: 'regnhatten' }],
-      overkropp: [{ art: 'regnjacka', namn: 'regnjackan' }, { art: '☂️', namn: 'paraplyet' }],
-      fotter: [{ art: 'gummistovlar', namn: 'gummistövlarna' }, { art: 'stovlar', namn: 'stövlarna' }],
+      huvud: [{ art: 'regnhatt', sitter: 'Regnhatten sitter!' }],
+      overkropp: [{ art: 'regnjacka', sitter: 'Regnjackan sitter!' }, { art: '☂️', sitter: 'Paraplyet sitter!' }],
+      fotter: [{ art: 'gummistovlar', sitter: 'Gummistövlarna sitter!' }, { art: 'stovlar', sitter: 'Stövlarna sitter!' }],
     },
   },
   sno: {
-    key: 'sno', symbol: 'snoflinga', bg: 0xeaf4fb, glow: 0xbfe6f7,
+    key: 'sno', bg: 0xeaf4fb,
     intro: 'Det är snö idag. Klä på Elvira så hon blir lagom!',
     recue: 'Det är kallt och snöigt — vad behöver vi då?',
     lagom: 'Nu blir jag lagom varm i snön!',
     proof: '⛄',
+    look: { sky: 0xc4d8ee, hill: 0xf4f8ff, crown: 0xf2f8ff, moln: [0xe6ecf2, 0xf4f7fa, null], sno: true, wind: 0.08, ljus: 0.06 },
     valid: {
-      huvud: [{ art: 'vintermossa', namn: 'vintermössan' }],
-      overkropp: [{ art: 'vinterjacka', namn: 'vinterjackan' }],
-      fotter: [{ art: 'vinterstovlar', namn: 'vinterstövlarna' }, { art: 'kangor', namn: 'kängorna' }],
+      huvud: [{ art: 'vintermossa', sitter: 'Vintermössan sitter!' }],
+      overkropp: [{ art: 'vinterjacka', sitter: 'Vinterjackan sitter!' }, { art: 'halsduk', sitter: 'Halsduken sitter!' }],
+      fotter: [{ art: 'vinterstovlar', sitter: 'Vinterstövlarna sitter!' }, { art: 'kangor', sitter: 'Kängorna sitter!' }],
+    },
+  },
+  // Blåsigt höstväder: solhatten och kepsen blåser iväg — bara det som SITTER KVAR duger
+  // (en mössa som sluter tätt, en jacka, sjalen knuten runt halsen).
+  bla: {
+    key: 'bla', bg: 0xf6e2c0,
+    intro: 'Det blåser idag. Klä på Elvira så hon blir lagom!',
+    recue: 'Det blåser och är svalt — vad behöver vi då?',
+    lagom: 'Nu blir jag lagom varm, och mössan sitter kvar!',
+    proof: '🍂',
+    look: { sky: 0xa9cbe0, hill: 0xc2bf5c, crown: 0xe0902f, moln: [0xf4f4f4, 0xe4e8ec, 0xd4dadf], lov: true, wind: 1, ljus: 0.1 },
+    valid: {
+      huvud: [{ art: 'vintermossa', sitter: 'Mössan sitter!' }],
+      overkropp: [{ art: 'regnjacka', sitter: 'Jackan sitter!' }, { art: 'halsduk', sitter: 'Halsduken sitter!' }],
+      fotter: [{ art: 'stovlar', sitter: 'Stövlarna sitter!' }, { art: 'skor', sitter: 'Skorna sitter!' }],
     },
   },
 }
+const WEATHER_ORDER = ['sol', 'regn', 'sno', 'bla']
 
 // Extra "tydliga säsongs"-plagg som bara används som distraktorer (fel väder).
 const EXTRAS = {
   sol: [
-    { slot: 'huvud', art: 'solglasogon', namn: 'solglasögonen' },
-    { slot: 'overkropp', art: 'badbyxor', namn: 'badbyxorna' },
+    { slot: 'huvud', art: 'solglasogon', sitter: 'Solglasögonen sitter!' },
+    { slot: 'overkropp', art: 'badbyxor', sitter: 'Badbyxorna sitter!' },
   ],
-  regn: [{ slot: 'overkropp', art: '☂️', namn: 'paraplyet' }],
-  sno: [{ slot: 'overkropp', art: 'halsduk', namn: 'halsduken' }],
+  regn: [{ slot: 'overkropp', art: '☂️', sitter: 'Paraplyet sitter!' }],
+  sno: [],
+  bla: [],
 }
-
-// Plaggens y på hyllan (designkoordinater). Låg nog att ligga PÅ hyllplanet
-// (626..718) i stället för att sväva ovanför det och krocka med Elviras fötter.
-const SHELF_Y = 668
-// Mittkolumnen är Elviras — inga plagg får läggas där. Se _layoutShelf.
-const SHELF_LEFT_END = 470
-const SHELF_RIGHT_START = 810
-const SHELF_STEP = 168
 
 export default {
   id: 'kla-efter-vadret',
@@ -135,20 +157,21 @@ export default {
     this._filled = new Set()
     this._reqZones = []
     this._seq = 0
+    this._t = 0
+    this._rysT = 0
+    this._obehagT = 0
     this._ambT = 1200 // ms till nästa väder-ambient (fågel/regn/vind)
     this._payoff = null
     this._lastWeather = ctx.progress.get().custom?.lastWeather || null
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
-    this._drag = new DragController({ space: this._root, services: ctx.services, skugga: true })
+    // Ingen lyft-skugga från biblioteket: plagget ritar sin egen skugga mot väggen (_makeItem).
+    this._drag = new DragController({ space: this._root, services: ctx.services })
 
-    this._buildBackground(ctx)
-    this._buildWeatherFx(ctx)
-    this._buildHeader()
+    this._buildRoom(ctx)
     this._buildFigure()
-    this._buildShelf()
-    this._buildZones()
+    this._buildZones(ctx)
 
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
     this._newRound(ctx, { silent: true })
@@ -162,168 +185,64 @@ export default {
     ctx.services.voice.say(this._weather.intro)
   },
 
-  // Heltäckande bakgrund (vit, tonas via tint per väder). Fångar tomma tryck mjukt.
-  // Ritas med bleed åt alla håll så breda telefoner (synlig yta utanför 0..1280)
-  // aldrig visar creme-lister — se lib/view.js. Himmel och mark ligger i SAMMA
-  // Graphics så en enda tint klär hela scenen efter vädret — se noten vid GROUND_Y.
-  _buildBackground(ctx) {
-    const w = ctx.width + 2 * BLEED_X
-    const bg = new Graphics()
-    bg.rect(-BLEED_X, -BLEED_Y, w, GROUND_Y + BLEED_Y).fill(verticalFill(0xffffff, C_SKY_BOT))
-    bg.rect(-BLEED_X, GROUND_Y, w, ctx.height + BLEED_Y - GROUND_Y).fill(verticalFill(C_GROUND_TOP, C_GROUND_BOT))
-    bg.rect(-BLEED_X, GROUND_Y - 3, w, 5).fill({ color: C_GROUND_EDGE, alpha: 0.45 })
-    bg.tint = 0xffffff
-    this._bgColor = { r: 255, g: 255, b: 255 }
-    bg.eventMode = 'static'
-    bg.on('pointertap', () => {
+  // Rummet: vägg + golv + matta i ETT tonat Graphics (en tint klär hela rummet efter vädret),
+  // klädstreck, fönster med väder, golvljus. Ett tryck på tomt: mjukt ljud + ring; ett tryck på
+  // Elvira kittlar henne.
+  _buildRoom(ctx) {
+    const rum = byggRum()
+    rum.on('pointertap', (e) => {
       if (!this._alive) return
       this._idle = 0
-      ctx.services.audio.sfx('soft')
+      const p = this._root.toLocal(e.global)
+      if (Math.abs(p.x - CX) < 150 && p.y > 150 && p.y < 625) {
+        this._kittlaElvira(ctx, p)
+      } else {
+        ctx.services.audio.sfx('soft')
+        ripple(ctx.fxLayer, p.x, p.y, { maxR: 46 })
+      }
     })
-    this._root.addChild(bg)
-    this._bg = bg
+    this._root.addChild(rum)
+    this._rum = rum
+    this._bgColor = { r: 255, g: 255, b: 255 }
+
+    this._root.addChild(byggStreck())
+    this._fonster = byggFonster()
+    this._root.addChild(this._fonster.view, this._fonster.ljus)
   },
 
-  // Pooled regn/snö-partiklar (skapas en gång, återvinns i tickern → exit-säkert).
-  _buildWeatherFx(ctx) {
-    const fx = new Container()
-    fx.eventMode = 'none'
-    fx.interactiveChildren = false
-    this._root.addChild(fx)
-    this._activeFx = null
-
-    // Regn/snö faller över hela den SYNLIGA ytan (ctx.view läses vid användning,
-    // aldrig cachad) — på en bred telefon vore torra kolumner i kanterna avslöjande.
-    this._rain = []
-    for (let i = 0; i < 26; i++) {
-      const d = new Graphics().roundRect(-3, -13, 6, 26, 3).fill({ color: 0x6fb7e0, alpha: 0.8 })
-      d.x = ctx.view.left + Math.random() * ctx.view.width
-      d.y = Math.random() * ctx.height
-      d._spd = 6 + Math.random() * 4
-      d.visible = false
-      fx.addChild(d)
-      this._rain.push(d)
-    }
-
-    this._snow = []
-    for (let i = 0; i < 26; i++) {
-      const s = new Graphics().circle(0, 0, 5 + Math.random() * 4).fill({ color: 0xffffff, alpha: 0.92 })
-      s._bx = ctx.view.left + Math.random() * ctx.view.width
-      s.x = s._bx
-      s.y = Math.random() * ctx.height
-      s._spd = 1.4 + Math.random() * 1.4
-      s._amp = 12 + Math.random() * 22
-      s._ph = Math.random() * Math.PI * 2
-      s.visible = false
-      fx.addChild(s)
-      this._snow.push(s)
-    }
+  // Ett tryck på Elvira: hon skrattar och hoppar till. (Zonernas träffytor ligger över henne, så
+  // samma metod anropas därifrån — utom när ett plagg är valt för tap-tap: då är trycket ett släpp.)
+  _kittlaElvira(ctx, p) {
+    ctx.services.audio.sfx('tap')
+    this._elvira?.kittla()
+    if (!this._resolving) this._hopp(12)
+    sparkle(ctx.fxLayer, p.x, p.y, { count: 4 })
   },
 
-  // Vädersymbol upptill (undviker knapphörnen): mjuk glow + vit panel + stort RITAT
-  // vädertecken. Symbolen är hela ledtråden i spelet — den får inte vara en emoji
-  // som ritas av systemfonten.
-  _buildHeader() {
-    const group = new Container()
-    group.position.set(640, 96)
-    group.eventMode = 'none'
-    group.interactiveChildren = false
-
-    const glow = new Graphics().circle(0, 0, 92).fill(0xffffff)
-    glow.alpha = 0.55
-    glow.tint = COLORS.yellow
-    const panel = new Graphics().circle(0, 0, 80).fill({ color: 0xffffff, alpha: 0.5 })
-    // Egen behållare: tecknet byts genom att rita om, inte genom att byta .text.
-    const symbol = new Container()
-    symbol.eventMode = 'none'
-    symbol.addChild(drawIcon('☀️', 120))
-
-    group.addChild(glow, panel, symbol)
-    this._root.addChild(group)
-    this._glow = glow
-    this._symbol = symbol
-
-    this._glowPulse = gsap.to(glow.scale, { x: 1.12, y: 1.12, duration: 1.4, yoyo: true, repeat: -1, ease: 'sine.inOut' })
-    this._symPulse = gsap.to(symbol.scale, { x: 1.07, y: 1.07, duration: 1.2, yoyo: true, repeat: -1, ease: 'sine.inOut' })
-  },
-
-  // Figuren "Elvira" — en glad tjej med blont hår, byggd av Pixi Graphics i en
-  // container på (0,0) så den kan hoppa. Håret (blont) + tofsarna ritas i samma
-  // statiska figur (inga egna tweens → städas med figuren, exit-säkert).
+  // Figuren "Elvira" (figur.js): volym, ansikte, andning och blinkning. `_figure` ägs av gsap
+  // (hoppet vid rätt plagg och "gå ut"-promenaden); skalvet + andningen drivs av tickern på det
+  // INRE lagret `_figureInner` — de får aldrig skriva samma egenskap.
   _buildFigure() {
-    const fig = new Container()
-    fig.eventMode = 'none'
-    fig.interactiveChildren = false
-    this._figure = fig
-    this._root.addChild(fig)
-
-    // Kroppen ligger i ETT INRE lager. `_figure` ägs av gsap (hoppet vid rätt plagg
-    // och "gå ut"-payoffen), så obehaget måste drivas någon annanstans — annars
-    // slåss tickern och gsap om samma x/y och den ena nollar den andra.
-    const inner = new Container()
-    // ⚠️ Kroppsdelarna ritas i ABSOLUTA koordinater kring x=640, så ett `rotation`
-    // på den här containern skulle svänga henne i en cirkelbåge kring scenens
-    // origo (0,0) — 640 px bort — i stället för att luta henne kring sin egen
-    // kropp. Pivoten läggs därför vid FÖTTERNA: en människa vaggar kring marken
-    // hon står på. Med pivot == position är transformen identisk i viloläge.
-    inner.pivot.set(640, GROUND_Y)
-    inner.position.set(640, GROUND_Y)
-    this._figureInner = inner
-    fig.addChild(inner)
-
-    const skin = 0xffe0b2
-    const skinDark = 0xe7c193
-    const body = COLORS.teal
-    const bodyDark = darken(COLORS.teal, 0.2)
-    const ink = 0x4a3526
-    const hair = 0xf6cb45 // blont
-    const hairDark = darken(hair, 0.22)
-
-    const feet = new Graphics()
-    for (const fx of [-46, 46]) feet.ellipse(640 + fx, 590, 42, 26).fill(skin).stroke({ width: 6, color: skinDark })
-    const legs = new Graphics()
-    for (const lx of [-46, 10]) legs.roundRect(640 + lx, 498, 36, 96, 16).fill(body)
-    const arms = new Graphics()
-    for (const ax of [-124, 88]) arms.roundRect(640 + ax, 300, 38, 150, 18).fill(body).stroke({ width: 6, color: bodyDark })
-    const torso = new Graphics().roundRect(640 - 90, 290, 180, 220, 40).fill(body).stroke({ width: 8, color: bodyDark })
-    // Blonda tofsar (bakom huvudet) som tittar fram vid sidorna → tydlig tjej.
-    const backHair = new Graphics()
-    for (const hx of [-74, 74]) backHair.ellipse(640 + hx, 282, 24, 46).fill(hair).stroke({ width: 5, color: hairDark })
-    const head = new Graphics().circle(640, 250, 70).fill(skin).stroke({ width: 8, color: skinDark })
-    // Blond lugg/topphår ovanpå huvudet (efter head, före face så ögonen syns).
-    const topHair = new Graphics().ellipse(640, 192, 74, 40).fill(hair).stroke({ width: 5, color: hairDark })
-    const face = new Graphics()
-    face.circle(640 - 40, 262, 9).fill({ color: COLORS.pink, alpha: 0.5 })
-    face.circle(640 + 40, 262, 9).fill({ color: COLORS.pink, alpha: 0.5 })
-    face.circle(640 - 24, 244, 9).fill(ink)
-    face.circle(640 + 24, 244, 9).fill(ink)
-    // moveTo till bågens startpunkt först, annars drar Pixi v8 en linje från
-    // origo (0,0) till munnens början (stray-streck-buggen).
-    const mouthA0 = 0.15 * Math.PI
-    face.moveTo(640 + 26 * Math.cos(mouthA0), 258 + 26 * Math.sin(mouthA0))
-    face.arc(640, 258, 26, mouthA0, 0.85 * Math.PI).stroke({ width: 6, color: ink, cap: 'round' })
-    // Små hårsnoddar där tofsarna fästs.
-    const ties = new Graphics()
-    for (const tx of [-70, 70]) ties.circle(640 + tx, 238, 10).fill(COLORS.pink)
-
-    inner.addChild(feet, legs, arms, torso, backHair, head, topHair, face, ties)
-  },
-
-  // Garderobshylla (dekor) längst ner som plaggen ligger på.
-  _buildShelf() {
-    // Bred nog att bära sex plagg i två grupper (yttersta centrum 134 resp. 1146).
-    const shelf = new Graphics().roundRect(80, 626, 1120, 92, 24).fill({ color: 0xffffff, alpha: 0.6 })
-    shelf.eventMode = 'none'
-    this._root.addChild(shelf)
+    this._elvira = byggElvira(GROUND_Y)
+    this._figure = this._elvira.root
+    this._figureInner = this._elvira.inner
+    // Mjuk golvskugga som följer med henne när hon går (ligger i roten, under kroppen).
+    const skugga = new Graphics().ellipse(CX, 612, 132, 15).fill({ color: 0x000000, alpha: 0.18 })
+    skugga.eventMode = 'none'
+    this._figure.addChildAt(skugga, 0)
+    this._root.addChild(this._figure)
   },
 
   // Tre kroppszoner: svag ledtrådsring + osynlig snäpp-/tap-mål-container.
-  _buildZones() {
+  _buildZones(ctx) {
     this._zones = {}
     this._rings = {}
     for (const key of Object.keys(ZONES)) {
       const [zx, zy] = ZONES[key]
-      const ring = new Graphics().circle(0, 0, 70).stroke({ width: 6, color: COLORS.white, alpha: 0.9 })
+      // Vit ring med mörk kant under: läses mot både ljus tapet och mörkt trä.
+      const ring = new Graphics()
+      ring.circle(0, 0, 70).stroke({ width: 10, color: 0x000000, alpha: 0.22 })
+      ring.circle(0, 0, 70).stroke({ width: 6, color: COLORS.white, alpha: 0.95 })
       ring.position.set(zx, zy)
       ring.alpha = 0
       ring.eventMode = 'none'
@@ -335,42 +254,92 @@ export default {
       zone.hitArea = new Circle(0, 0, 130) // generös träffyta för tap-tap (>96px)
       zone.eventMode = 'static'
       zone.cursor = 'pointer'
+      zone.on('pointertap', (e) => {
+        if (!this._alive || this._drag.selected) return
+        this._idle = 0
+        this._kittlaElvira(ctx, this._root.toLocal(e.global))
+      })
       this._root.addChild(zone)
       this._zones[key] = zone
     }
   },
 
-  // x-positioner för n plagg: halva vänster om Elvira, halva höger, mitten fri.
-  // Vänstergruppen fylls högerifrån så den alltid slutar vid SHELF_LEFT_END.
-  _layoutShelf(n) {
-    const leftN = Math.ceil(n / 2)
-    const xs = []
-    for (let i = 0; i < leftN; i++) xs.push(SHELF_LEFT_END - (leftN - 1 - i) * SHELF_STEP)
-    for (let j = 0; j < n - leftN; j++) xs.push(SHELF_RIGHT_START + j * SHELF_STEP)
-    return xs
+  // Var plaggen hänger: n plagg fördelas på strecket, upp till tre per rad. Returnerar
+  // [{x, y}] i itemets mittpunkt (klädnypan sitter på repet, HANG px ovanför).
+  _ropeSlots(n) {
+    const rad1 = Math.ceil(n / 2)
+    const rader = [rad1, n - rad1]
+    const slots = []
+    rader.forEach((k, rad) => {
+      const xs = ROW_X[k] || []
+      for (const x of xs) slots.push({ x, y: repY(x, rad) + HANG })
+    })
+    return slots
   },
 
-  // Ett plagg: ett RITAT plagg (P0 ASSETS — de dras runt, de är spelobjekt) utan
-  // bricka/bakgrund + en osynlig generös träffyta (Ø140 ≥ 96px).
+  // Ett plagg: ett RITAT föremål som HÄNGER i en klädnypa på strecket (P0 ASSETS — de dras
+  // runt, de är spelobjekt), med egen skugga mot väggen, och en osynlig generös träffyta
+  // (Ø140 ≥ 96px). Strukturen:
+  //   it (drag-mål, hitArea, ägs av DragController)
+  //     └ hang (pivot i klädnypan → gungar därifrån; ägs av tickern)
+  //         ├ cloth (skugga + ikon; skalas upp när plagget sätts på)
+  //         └ peg (klädnypan)
   _makeItem(art) {
     const it = new Container()
-    it.addChild(drawIcon(art, 104))
+    it.interactiveChildren = false
+    const hang = new Container()
+    hang.position.set(0, -HANG)
+    hang.pivot.set(0, -HANG)
+    const cloth = new Container()
+    const skugga = drawIcon(art, 104)
+    skugga.tint = 0x000000
+    skugga.alpha = 0.13
+    skugga.position.set(7, 9)
+    skugga.eventMode = 'none'
+    const ikon = drawIcon(art, 104)
+    ikon.eventMode = 'none'
+    cloth.addChild(skugga, ikon)
+    const peg = byggNypa()
+    peg.position.set(0, -HANG)
+    hang.addChild(cloth, peg)
+    it.addChild(hang)
     it.hitArea = new Circle(0, 0, 70)
+    it._wxHang = hang
+    it._wxCloth = cloth
+    it._wxIkon = ikon
+    it._wxSkugga = skugga
+    it._wxPeg = peg
+    it._wxPh = Math.random() * Math.PI * 2
+    it._wxWorn = false
     return it
   },
 
+  // Städa ett plagg: killTweensOf når bara roten, så innernoderna tas med.
+  _stadaItem(v) {
+    if (!v || v.destroyed) return
+    gsap.killTweensOf(v)
+    gsap.killTweensOf(v.scale)
+    for (const n of [v._wxHang, v._wxCloth, v._wxIkon, v._wxSkugga, v._wxPeg]) {
+      if (!n || n.destroyed) continue
+      gsap.killTweensOf(n)
+      if (n.scale) gsap.killTweensOf(n.scale)
+    }
+  },
+
   // Välj väder: sol→regn→snö de tre första rundorna (offset så vi ej upprepar förra
-  // sessionens väder), sedan slumpat ≠ förra. Sparas så en ny session ej upprepar.
+  // sessionens väder), blåst som fjärde, sedan slumpat ≠ förra. Sparas så en ny session ej upprepar.
   _pickWeather(ctx) {
-    const order = ['sol', 'regn', 'sno']
     let key
     if (this._seq < 3) {
+      const first = WEATHER_ORDER.slice(0, 3)
       let start = 0
-      const li = order.indexOf(this._lastWeather)
+      const li = first.indexOf(this._lastWeather)
       if (li >= 0) start = (li + 1) % 3
-      key = order[(start + this._seq) % 3]
+      key = first[(start + this._seq) % 3]
+    } else if (this._seq === 3 && this._lastWeather !== 'bla') {
+      key = 'bla'
     } else {
-      key = randomFrom(order.filter((k) => k !== this._lastWeather))
+      key = randomFrom(WEATHER_ORDER.filter((k) => k !== this._lastWeather))
     }
     this._seq++
     this._lastWeather = key
@@ -378,28 +347,24 @@ export default {
     return key
   },
 
-  // Måla om bakgrund + symbol + partiklar mjukt vid nytt väder.
-  _applyWeather(key) {
+  // Nytt väder: rummet tonas mjukt, fönstret byter utsikt.
+  _applyWeather(key, snap = false) {
     const w = WEATHERS[key]
     const to = rgb(w.bg)
     gsap.killTweensOf(this._bgColor)
-    gsap.to(this._bgColor, {
-      r: to.r, g: to.g, b: to.b, duration: 0.6, ease: 'sine.inOut',
-      onUpdate: () => {
-        if (this._alive && this._bg && !this._bg.destroyed) {
-          const c = this._bgColor
-          this._bg.tint = (Math.round(c.r) << 16) | (Math.round(c.g) << 8) | Math.round(c.b)
-        }
-      },
-    })
-    this._symbol.removeChildren().forEach((c) => c.destroy())
-    this._symbol.addChild(drawIcon(w.symbol, 120))
-    this._glow.tint = w.glow
-    const rainOn = key === 'regn'
-    const snowOn = key === 'sno'
-    for (const d of this._rain) d.visible = rainOn
-    for (const s of this._snow) s.visible = snowOn
-    this._activeFx = rainOn ? 'rain' : snowOn ? 'snow' : null
+    const sätt = () => {
+      if (this._alive && this._rum && !this._rum.destroyed) {
+        const c = this._bgColor
+        this._rum.tint = (Math.round(c.r) << 16) | (Math.round(c.g) << 8) | Math.round(c.b)
+      }
+    }
+    if (snap) {
+      Object.assign(this._bgColor, to)
+      sätt()
+    } else {
+      gsap.to(this._bgColor, { r: to.r, g: to.g, b: to.b, duration: 0.6, ease: 'sine.inOut', onUpdate: sätt })
+    }
+    this._fonster.apply(w.look, snap)
     this._ambT = 1200 // mjuk start på nya vädrets ambient
   },
 
@@ -421,25 +386,30 @@ export default {
     // Nollställ skalvet också, annars ärver nya rundan förra rundans utslag.
     this._rysT = 0
     if (this._figureInner && !this._figureInner.destroyed) {
-      this._figureInner.position.set(640, GROUND_Y) // == pivoten, se _buildFigure
+      this._figureInner.position.set(CX, GROUND_Y) // == pivoten, se figur.js
       this._figureInner.rotation = 0
     }
 
-    // Rensa förra rundans plagg (clear() avregistrerar lyssnare + dödar tweens först).
+    // Rensa förra rundans plagg (clear() avregistrerar lyssnare + dödar tweens först). Påsatta
+    // plagg ligger i Elviras inre lager och tas med här.
     this._drag.clear()
-    for (const v of this._items) if (!v.destroyed) v.destroy({ children: true })
+    for (const v of this._items) {
+      this._stadaItem(v)
+      if (!v.destroyed) v.destroy({ children: true })
+    }
     this._items = []
     for (const k of Object.keys(this._rings)) {
       gsap.killTweensOf(this._rings[k])
+      gsap.killTweensOf(this._rings[k].scale)
       this._rings[k].alpha = 0
       this._rings[k].scale.set(1)
     }
 
     const key = this._pickWeather(ctx)
     this._weather = WEATHERS[key]
-    this._applyWeather(key)
+    this._applyWeather(key, silent)
 
-    // Svårighet växer mjukt: antal obligatoriska zoner + plagg på hyllan.
+    // Svårighet växer mjukt: antal obligatoriska zoner + plagg på strecket.
     const reqCount = this._level >= 4 ? 3 : this._level >= 2 ? 2 : 1
     const shelfCount = reqCount === 1 ? 3 : reqCount === 2 ? 4 : this._level >= 6 ? 6 : 5
     const reqZones = ZONE_ORDER.slice(0, reqCount)
@@ -449,7 +419,7 @@ export default {
 
     // Passande plagg: minst ETT per obligatorisk zon, och för en slumpad zon (som har
     // fler dugliga val) läggs ETT extra dugligt plagg ut → barnet resonerar "vilket
-    // funkar?" i stället för att leta det enda rätta. Sedan fylls hyllan med distraktorer.
+    // funkar?" i stället för att leta det enda rätta. Sedan fylls strecket med distraktorer.
     const usedArt = new Set()
     const fitting = []
     const choiceZones = reqZones.filter((s) => this._weather.valid[s].length >= 2)
@@ -459,19 +429,18 @@ export default {
       const take = slot === choiceZone ? 2 : 1
       for (let i = 0; i < take && i < opts.length; i++) {
         usedArt.add(opts[i].art)
-        fitting.push({ slot, fits: true, art: opts[i].art, namn: opts[i].namn, from: key })
+        fitting.push({ slot, fits: true, art: opts[i].art, sitter: opts[i].sitter, from: key })
       }
     }
     const distractors = distractorPool(key, usedArt).slice(0, Math.max(1, shelfCount - fitting.length))
     const deck = shuffle([...fitting, ...distractors])
 
-    // Lägg ut på hyllan i TVÅ grupper med mittkolumnen fri. Jämnt centrerat gav
-    // alltid ett plagg på x=640 — ovanpå Elvira och inuti fot-zonens träffyta
-    // (Ø260), så en liten knuff kunde räknas som en placering barnet aldrig gjort.
-    const xs = this._layoutShelf(deck.length)
+    // Häng upp dem på strecket (max tre per rad, två rader). Strecket ligger på vänster sida
+    // och slutar vid x 500 — mittkolumnen är Elviras, så inget plagg spawnar i en släppzon.
+    const slots = this._ropeSlots(deck.length)
     deck.forEach((data, i) => {
       const view = this._makeItem(data.art)
-      view.position.set(xs[i], SHELF_Y)
+      view.position.set(slots[i].x, slots[i].y)
       this._root.addChild(view)
       this._items.push(view)
       this._drag.addItem(view, data, {
@@ -485,9 +454,9 @@ export default {
     // Registrera snäpp-mål för dagens obligatoriska zoner + visa ledtrådsringar.
     for (const slot of reqZones) {
       // Godkänn valfritt dugligt plagg för zonen — men bara tills zonen är fylld
-      // (så ett andra dugligt plagg inte dubbel-fyller den).
+      // (så ett andra dugliga plagg inte dubbel-fyller den).
       this._drag.addTarget(this._zones[slot], (data) => this._alive && data.slot === slot && data.fits && !this._filled.has(slot), { hitRadius: 130 })
-      this._rings[slot].alpha = 0.32
+      this._rings[slot].alpha = 0.4
     }
 
     // Väderbytet syns genast; bara orden köar bakom lagom-raden (3,2 s) som en fast
@@ -506,13 +475,14 @@ export default {
   _onCorrect(ctx, rec) {
     if (!this._alive || this._resolving) return
     this._idle = 0
-    const { slot, namn } = rec.data
+    const { slot, sitter } = rec.data
 
     ctx.services.audio.sfx('correct')
     // Snäpp-"klick" + mjukt tyg-fras när plagget sätter sig (fastsättningen var platt).
     ctx.services.audio.tone({ freq: 880, dur: 0.045, type: 'square', vol: 0.1 })
     ctx.services.audio.tone({ freq: 300, dur: 0.16, type: 'sine', vol: 0.09, slideTo: 170, delay: 0.04 })
-    ctx.services.voice.say(randomFrom([`${cap(namn)}!`, `${cap(namn)} sitter!`, 'Så fin!', 'Vad bra!']))
+    // Alltid plaggets egen rad — även det sista i rundan (den sägs FÖRE complete(), se _roundComplete).
+    ctx.services.voice.say(sitter)
 
     pop(rec.view)
     const z = this._zones[slot]
@@ -529,29 +499,66 @@ export default {
     // och skakar med henne så länge hon fortfarande fryser.
     rec.view.eventMode = 'none'
     const inner = this._figureInner
-    if (inner && !inner.destroyed && !rec.view.destroyed) inner.addChild(rec.view)
+    if (inner && !inner.destroyed && !rec.view.destroyed) {
+      const wo = WEAR_OVR[rec.data.art]
+      const bak = this._elvira.bakHar
+      if (slot === 'overkropp' && !wo?.top && bak && bak.parent === inner) inner.addChildAt(rec.view, inner.getChildIndex(bak))
+      else inner.addChild(rec.view)
+      this._sattPa(rec)
+    }
 
-    gsap.killTweensOf(this._figure)
-    gsap.to(this._figure, { y: -10, duration: 0.14, yoyo: true, repeat: 1, ease: 'power2.out' })
+    this._hopp(10)
 
     this._filled.add(slot)
     this._placed += 1
     if (this._placed >= this._needed) this._roundComplete(ctx)
   },
 
+  // Plagget lämnar klädnypan och sätts på: nypan släpper, gungandet upphör, plagget glider till
+  // sin plats på kroppen och växer till Elviras storlek. Skor och stövlar blir ETT PAR.
+  _sattPa(rec) {
+    const v = rec.view
+    if (!v || v.destroyed || v._wxWorn) return
+    const { slot, art } = rec.data
+    const w = { ...WEAR[slot], ...(WEAR_OVR[art] || {}) }
+    const sx = w.sx ?? w.s
+    const sy = w.sy ?? w.s
+    v._wxWorn = true
+    v._wxPeg.visible = false
+    v._wxSkugga.visible = false
+    v._wxHang.rotation = 0
+    if (slot === 'fotter') {
+      // Ett par: originalet på höger fot, en spegling på vänster (tårna utåt åt varsitt håll).
+      const dx = 44 / sx
+      v._wxIkon.x = dx
+      const par = drawIcon(art, 104)
+      par.eventMode = 'none'
+      par.scale.x = -1
+      par.x = -dx
+      v._wxCloth.addChild(par)
+    }
+    gsap.to(v, { x: w.x, y: w.y, duration: 0.3, ease: 'back.out(1.5)' })
+    gsap.to(v._wxCloth.scale, { x: sx, y: sy, duration: 0.3, ease: 'back.out(1.6)' })
+  },
+
   // Opassande plagg (fel väder eller fel zon): ALDRIG bestraffning — mjuk vink.
-  // DragController har redan spelat 'soft' och snäpper plagget tillbaka till hyllan.
+  // DragController har redan spelat 'soft' och snäpper plagget tillbaka till strecket.
   _onWrong(ctx, rec) {
     if (!this._alive) return
     this._idle = 0
     wiggle(rec.view)
     this._rys() // kroppen svarar också, inte bara plagget och rösten
     const d = rec.data
-    let line
-    if (d.fits && this._filled.has(d.slot)) line = 'Där sitter det redan något bra!'
-    else if (d.fits) line = `${cap(d.namn)} hör på ${ZONE_NAMES[d.slot]}!`
-    else line = mismatchHint(this._weather.key, d.from)
-    ctx.services.voice.say(line || this._weather.recue)
+    const v = ctx.services.voice
+    if (d.fits && this._filled.has(d.slot)) {
+      v.say('Där sitter det redan något bra!')
+    } else if (d.fits) {
+      if (d.slot === 'huvud') v.say('Den passar på huvudet!')
+      else if (d.slot === 'overkropp') v.say('Den passar på kroppen!')
+      else v.say('Den passar på fötterna!')
+    } else {
+      v.say(mismatchHint(this._weather.key, d.from, d.slot) || this._weather.recue)
+    }
   },
 
   // Alla obligatoriska zoner fyllda: delat firande + "gå ut"-payoff (Elvira går ut i
@@ -562,9 +569,14 @@ export default {
     this._level += 1
     ctx.progress.setLevel(this._level)
 
-    // Egen replik FÖRE complete() i samma tick: då utgår berömmet i stället för att kapas.
-    ctx.services.voice.say('Nu går Elvira ut!')
-    ctx.progress.complete() // celebrate-ljud + beröm + konfetti + stjärna + klistermärke
+    // Plaggets egen rad ('… sitter!') sägs redan i _onCorrect, alltså FÖRE complete(): då talar
+    // rösten och berömmet utgår i stället för att kapa den. 'Nu går Elvira ut!' KÖAR bakom den
+    // (say() skulle kapa plaggnamnet) och gäller bara om rundan är kvar. Bilden väntar inte.
+    ctx.progress.complete() // celebrate-ljud + konfetti + stjärna + klistermärke
+    const w = this._weather
+    ctx.narTyst(() => {
+      if (this._alive && this._resolving && this._weather === w) ctx.services.voice.say('Nu går Elvira ut!')
+    })
     this._goOutside(ctx)
   },
 
@@ -574,6 +586,7 @@ export default {
     const fig = this._figure
     if (!fig || fig.destroyed) return
     gsap.killTweensOf(fig)
+    fig.y = 0 // ett avbrutet hopp får inte bli promenadens nya golv
     ctx.services.audio.sfx('whoosh')
     this._payoff?.kill()
     const tl = gsap.timeline()
@@ -596,15 +609,28 @@ export default {
       if (this._alive && this._weather === w && this._resolving) ctx.services.voice.say(w.lagom)
     })
     ctx.services.audio.sfx('reveal')
-    const hx = 640 + (this._figure?.x || 0)
-    floatText(ctx.fxLayer, hx, 150, w.proof, { fontSize: 76, rise: 74, duration: 1.4 })
+    const hx = CX + (this._figure?.x || 0)
+    floatText(ctx.fxLayer, hx, 110, w.proof, { fontSize: 76, rise: 74, duration: 1.4 })
     sparkle(ctx.fxLayer, hx, 230, { count: 8 })
-    if (this._figure && !this._figure.destroyed) {
-      gsap.to(this._figure, { y: -22, duration: 0.16, yoyo: true, repeat: 1, ease: 'power2.out' })
-    }
-    this._celebrate = gsap.delayedCall(1.7, () => {
-      if (this._alive) this._newRound(ctx)
+    this._hopp(22)
+    // Nästa runda köas BAKOM lagom-raden (och 'Nu går Elvira ut!' före den): på en fast 1,7 s
+    // hann lagom-raden (3,2 s) aldrig sägas, den föll på sin väder-vakt. narTyst kör i köordning
+    // och varje fn väntar in det den förra sa; 1,7 s är den minsta tid utsikten får stå kvar.
+    ctx.later(1.7, () => {
+      ctx.narTyst(() => {
+        if (this._alive && this._weather === w && this._resolving) this._newRound(ctx)
+      })
     })
+  },
+
+  // Ett hopp på roten (gsap äger x/y där). Nollar y först så ett avbrutet hopp inte lämnar
+  // henne i luften — yoyo återvänder till startvärdet, och startvärdet var mitt i det förra.
+  _hopp(h) {
+    const fig = this._figure
+    if (!fig || fig.destroyed) return
+    gsap.killTweensOf(fig, 'y')
+    fig.y = 0
+    gsap.to(fig, { y: -h, duration: 0.14, yoyo: true, repeat: 1, ease: 'power2.out' })
   },
 
   // Hur illa Elvira har det just nu: 0 = lagom klädd, 1 = inget på sig alls.
@@ -616,14 +642,13 @@ export default {
     return Math.max(0, Math.min(1, (n - this._placed) / n))
   },
 
-  // En extra huttring när ett opassande plagg provas — §4:s "reagerar på fel".
-  // Vinken var förut bara wiggle på plagget + en replik; nu svarar KROPPEN.
+  // En extra huttring när ett opassande plagg provas: kroppen svarar, inte bara plagget.
   _rys() {
     this._rysT = RYS_MS / 1000
   },
 
   // Per-frame: obehaget uttryckt i kroppen. Skalvet ligger i `_figureInner` — se
-  // `_buildFigure` för varför det inte får ligga i `_figure`.
+  // figur.js för varför det inte får ligga i `_figure`.
   _stepObehag(dt) {
     const inner = this._figureInner
     if (!inner || inner.destroyed) return
@@ -634,45 +659,62 @@ export default {
     const extra = this._rysT > 0 ? 1.6 * (this._rysT / (RYS_MS / 1000)) : 0
     const styrka = Math.min(1.9, o + extra)
     if (styrka <= 0.001) { // lagom klädd = helt stilla, inget kvarglömt utslag
-      inner.x = 640
+      inner.x = CX
       inner.rotation = 0
       return
     }
     const p = OBEHAG[this._weather?.key] || OBEHAG.sno
     const t = this._obehagT
-    inner.x = 640 + Math.sin(t * p.frekv) * p.ampX * styrka
+    inner.x = CX + Math.sin(t * p.frekv) * p.ampX * styrka
     inner.rotation = Math.sin(t * p.frekv * 0.5) * p.ampR * styrka
   },
 
-  // Tick: animera aktiva väderpartiklar (pooled) + idle-recue efter ~6 s.
+  // Plaggen på strecket gungar från klädnypan — lugnt i vila, kraftigt i blåst; det som hålls
+  // i handen hänger rakt.
+  _gungaPlagg(sec) {
+    const vind = this._weather?.look.wind || 0
+    const held = this._drag.active?.view
+    const k = Math.min(1, sec * 10)
+    for (const v of this._items) {
+      if (!v || v.destroyed || v._wxWorn) continue
+      const hang = v._wxHang
+      if (!hang || hang.destroyed) continue
+      let mal = 0
+      if (v !== held) {
+        const t = this._t
+        mal = Math.sin(t * (1.15 + vind * 1.5) + v._wxPh) * (0.035 + vind * 0.09)
+          + vind * 0.04 * Math.sin(t * 0.7 + v._wxPh * 0.5)
+      }
+      hang.rotation += (mal - hang.rotation) * k
+    }
+  },
+
+  // Tick: fönstret, Elvira (ansikte + andning), plaggen, ambient + idle-recue efter ~6 s.
   _update(ctx, ticker) {
     if (!this._alive) return
     const dt = ticker.deltaTime
-    // Wrap mot ctx.view (läses i användningsögonblicket): på en bred telefon eller
-    // 4:3-platta ska dropparna täcka och vända utanför den SYNLIGA ytan, inte 0..1280.
-    if (this._activeFx === 'rain') {
-      for (const d of this._rain) {
-        d.y += d._spd * dt * 1.7
-        if (d.y > ctx.view.bottom + 20) {
-          d.y = ctx.view.top - 20
-          d.x = ctx.view.left + Math.random() * ctx.view.width
-        }
-      }
-    } else if (this._activeFx === 'snow') {
-      for (const s of this._snow) {
-        s._ph += 0.04 * dt
-        s.y += s._spd * dt
-        s.x = s._bx + Math.sin(s._ph) * s._amp
-        if (s.y > ctx.view.bottom + 15) {
-          s.y = ctx.view.top - 15
-          s._bx = ctx.view.left + Math.random() * ctx.view.width
-        }
-      }
-    }
+    const sec = ticker.deltaMS / 1000
+    this._t += sec
 
-    this._stepObehag(ticker.deltaMS / 1000)
+    this._fonster.update(dt, this._t)
+    this._stepObehag(sec)
+    this._gungaPlagg(sec)
 
-    // Lugn väder-ambient: fågelkvitter (sol) / mjuka droppar (regn) / vind-sus (snö).
+    // Elvira: blicken följer det som dras, ansiktet visar obehaget.
+    const act = this._drag.active
+    const sel = act?.dragging ? act : null
+    const lx = sel ? clamp((sel.tx - CX) / 260, -1, 1) : 0
+    const ly = sel ? clamp((sel.ty - 250) / 260, -1, 1) : 0
+    const rys = this._rysT > 0 ? 1.6 * (this._rysT / (RYS_MS / 1000)) : 0
+    this._elvira.uppdatera(sec, {
+      obehag: this._obehag() + rys,
+      glad: this._resolving,
+      vader: this._weather.key,
+      lookX: lx,
+      lookY: ly,
+    })
+
+    // Lugn väder-ambient: fågelkvitter (sol) / mjuka droppar (regn) / vind-sus (snö, blåst).
     this._ambT -= ticker.deltaMS
     if (this._ambT <= 0) this._playAmbient(ctx)
 
@@ -699,6 +741,12 @@ export default {
     } else if (k === 'sno') {
       a.tone({ freq: rnd(240, 340), dur: rnd(1.0, 1.6), type: 'sine', vol: 0.05, slideTo: rnd(180, 240) })
       this._ambT = rnd(3800, 6000)
+    } else if (k === 'bla') {
+      // Vindpuff: en låg ton som stiger och dör ut, ibland två i rad.
+      const f = rnd(170, 250)
+      a.tone({ freq: f, dur: rnd(1.1, 1.7), type: 'sine', vol: 0.05, slideTo: f * rnd(1.3, 1.7) })
+      if (Math.random() < 0.4) a.tone({ freq: f * 1.5, dur: rnd(0.7, 1.1), type: 'sine', vol: 0.03, slideTo: f * 1.1, delay: rnd(0.5, 0.9) })
+      this._ambT = rnd(2800, 4600)
     } else {
       const f = rnd(1900, 2500)
       a.tone({ freq: f, dur: 0.07, type: 'sine', vol: 0.05, slideTo: f * 1.25 })
@@ -710,78 +758,62 @@ export default {
   destroy(ctx) {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
-    this._celebrate?.kill()
     this._payoff?.kill()
     this._drag?.destroy()
-    this._symPulse?.kill()
-    this._glowPulse?.kill()
-    if (this._symbol) gsap.killTweensOf(this._symbol.scale)
-    if (this._glow) {
-      gsap.killTweensOf(this._glow)
-      gsap.killTweensOf(this._glow.scale)
-    }
     if (this._bgColor) gsap.killTweensOf(this._bgColor)
     if (this._figure) gsap.killTweensOf(this._figure)
     for (const k of Object.keys(this._rings || {})) {
       gsap.killTweensOf(this._rings[k])
       gsap.killTweensOf(this._rings[k].scale)
     }
-    for (const v of this._items || []) {
-      if (!v.destroyed) {
-        gsap.killTweensOf(v)
-        gsap.killTweensOf(v.scale)
-      }
-    }
+    for (const v of this._items || []) this._stadaItem(v)
     gsap.killTweensOf(this._root)
     ctx?.services?.voice?.cancel?.()
+    // Fönstrets mask måste lossas innan noderna rivs.
+    this._fonster?.destroy()
     this._root?.destroy({ children: true })
   },
 }
 
-// Distraktor-pool: passande plagg från de ANDRA vädren + säsongs-extras, alla
-// fits:false. Hoppar över plagg som krockar med rundans passande (paraplyet finns
-// både som regn-plagg och regn-extra).
+// Distraktor-pool: passande plagg från de ANDRA vädren + säsongs-extras, alla fits:false.
+// Hoppar över plagg som krockar med rundans passande — och över allt som är dugligt för DAGENS
+// väder i samma zon (mössan är rätt både i snö och i blåst; då får den aldrig vara en distraktor).
 function distractorPool(curKey, usedArt) {
   const seen = new Set(usedArt)
+  const dugliga = new Set()
+  for (const z of ZONE_ORDER) for (const o of WEATHERS[curKey].valid[z]) dugliga.add(o.art)
   const pool = []
   for (const okey of Object.keys(WEATHERS)) {
     if (okey === curKey) continue
     const ow = WEATHERS[okey]
     const cands = []
-    for (const z of ['huvud', 'overkropp', 'fotter']) {
+    for (const z of ZONE_ORDER) {
       const first = ow.valid[z][0]
-      cands.push({ slot: z, art: first.art, namn: first.namn })
+      cands.push({ slot: z, art: first.art, sitter: first.sitter })
     }
     for (const ex of EXTRAS[okey] || []) cands.push(ex)
     for (const c of cands) {
-      if (seen.has(c.art)) continue
+      if (seen.has(c.art) || dugliga.has(c.art)) continue
       seen.add(c.art)
-      pool.push({ slot: c.slot, fits: false, art: c.art, namn: c.namn, from: okey })
+      pool.push({ slot: c.slot, fits: false, art: c.art, sitter: c.sitter, from: okey })
     }
   }
   return shuffle(pool)
 }
 
 // Vänlig (positiv) vink när plagget passar fel väder.
-function mismatchHint(cur, from) {
-  if (cur === 'sol') return from === 'sno' ? 'Oj, då blir det för varmt!' : 'Det behövs inte när solen skiner!'
+function mismatchHint(cur, from, slot) {
+  if (cur === 'sol') return from === 'sno' || from === 'bla' ? 'Oj, då blir det för varmt!' : 'Det behövs inte när solen skiner!'
   if (cur === 'sno') return 'Brr, då fryser vi!'
   if (cur === 'regn') return 'Det regnar ju — vad behöver vi då?'
+  if (cur === 'bla') return slot === 'huvud' ? 'Oj, den blåser ju iväg!' : 'Det blåser ju — vad behöver vi då?'
   return ''
 }
 
-function cap(s = '') {
-  return s.charAt(0).toUpperCase() + s.slice(1)
+function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v
 }
 
 function rgb(hex) {
   return { r: (hex >> 16) & 0xff, g: (hex >> 8) & 0xff, b: hex & 0xff }
-}
-
-function darken(hex, amt) {
-  const r = (hex >> 16) & 0xff
-  const g = (hex >> 8) & 0xff
-  const b = hex & 0xff
-  const d = (v) => Math.max(0, Math.round(v * (1 - amt)))
-  return (d(r) << 16) | (d(g) << 8) | d(b)
 }

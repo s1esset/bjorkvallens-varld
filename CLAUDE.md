@@ -448,6 +448,8 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
   `bjorkvallens-varld`) — varje push publicerar sajten via GitHub Actions, så grinden måste
   vara grön FÖRE pushen. Aldrig push till någon annan remote eller gren.
 - **Bumpa MINOR i `package.json`** per ändringsomgång; versionspillret är förälderns kvitto.
+  Skriv omgångens post i **`src/lib/nyheter.js`** (menyns Nyheter-ruta, på förälderns språk —
+  vad barnet märker, inga filnamn). `npm run check` varnar när den aktuella versionen saknar en.
 - **Nya spel landar som ✅, aldrig 🔧** — kvalitetsgrindens 8 punkter i skill **spel-pipeline**.
 - **Mät, resonera inte.** Balans, trösklar och "känns det rätt?" avgörs med en sond som spelar
   spelet och jämförs mot HEAD — aldrig med ett antagande i huvudet.

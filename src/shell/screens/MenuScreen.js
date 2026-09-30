@@ -5,6 +5,8 @@ import { gsap } from 'gsap'
 import { Button } from '../../lib/Button.js'
 import { makeMascot } from '../../lib/mascot.js'
 import { confirmDialog } from '../../lib/confirm.js'
+import { showNews } from '../../lib/domModal.js'
+import { NYHETER } from '../../lib/nyheter.js'
 import { avatarEmoji } from '../../lib/swedish.js'
 import { COLORS, FONT, DESIGN_W, DESIGN_H, SPACING, ANIM } from '../../lib/theme.js'
 
@@ -12,8 +14,7 @@ export async function createMenuScreen(services) {
   const view = new Container()
   const { nav, gate, audio, voice, profiles, save } = services
 
-  // Applicera en ev. väntande app-uppdatering vid denna lugna punkt.
-  services.applyPendingUpdateAtMenu?.()
+  let levande = true
 
   const mascot = makeMascot(70)
   mascot.x = DESIGN_W / 2
@@ -118,7 +119,86 @@ export async function createMenuScreen(services) {
   update.alpha = 0.85
   view.addChild(update)
 
+  // "Nyheter" — vad som är nytt i varje version, för föräldern. Sitter bredvid versionspillret
+  // och har samma höjd: det är en vuxenyta som läser text. Ingen grind (den visar bara text
+  // och ändrar ingenting) — ett barn som råkar öppna den stänger den med ETT tryck.
+  // Avståndet till pillret är 48 px så att de två osynliga halorna (24 px var) inte möts.
+  const nyheter = new Button({
+    icon: '✨',
+    label: 'Nyheter',
+    width: 176,
+    height: 60,
+    color: COLORS.purple,
+    fontSize: 24,
+    iconSize: 26,
+    services,
+    sound: 'tap',
+    onTap: () => onNyheter(),
+  })
+  nyheter.x = update.x - 62 - 48 - 88
+  nyheter.y = update.y
+  nyheter.alpha = 0.85
+  view.addChild(nyheter)
+
+  // En prick på knappen tills föräldern läst den senaste posten. Stilla — den ska synas för
+  // en vuxen som letar, inte locka ett barn.
+  const senaste = NYHETER[0]?.version || ''
+  const minne = lasNyhetsminne()
+  const prick = new Graphics().circle(0, 0, 11).fill(COLORS.red).stroke({ width: 3, color: COLORS.white })
+  prick.x = 176 / 2 - 8
+  prick.y = -60 / 2 + 6
+  prick.eventMode = 'none'
+  prick.visible = !!senaste && minne.sett !== senaste
+  nyheter.addChild(prick)
+
+  let nyhetOppen = false
+  let uppdateringVantar = false
+  async function onNyheter() {
+    if (nyhetOppen) return
+    nyhetOppen = true
+    prick.visible = false
+    skrivNyhetsminne({ sett: senaste })
+    await showNews({
+      nyheter: NYHETER,
+      version: (services.appVersion?.() || '').replace(/^v/, ''),
+      full: services.appVersionFull?.() || '',
+    })
+    nyhetOppen = false
+    if (uppdateringVantar && levande) uppdateraNu()
+  }
+
+  // Blev appen uppdaterad sedan förra gången menyn visades? Säg det en gång, så att föräldern
+  // ser att den automatiska uppdateringen slog igenom och var nyheterna finns.
+  const nuVersion = services.appVersion?.() || ''
+  if (minne.kord && minne.kord !== nuVersion) services.toast?.(`Uppdaterad till ${nuVersion} ✨`, { duration: 3.4 })
+  if (minne.kord !== nuVersion) skrivNyhetsminne({ kord: nuVersion })
+
+  // AUTOMATISK UPPDATERING. Menyn är appens lugna punkt: här (och bara här) byts versionen.
+  // ⓵ Leta efter en ny version varje gång menyn visas — appstart och varje gång man backar ut
+  //    hit (spärrat i pwa.js till en koll per halvminut).
+  // ⓶ Är en ny version redan nedladdad, eller blir den klar MEDAN menyn visas, byts den efter
+  //    en kort avi. Hinner barnet gå vidare till biblioteket under avin avbryts bytet, och det
+  //    görs vid nästa meny i stället — aldrig mitt i ett spel. Står nyhetsrutan öppen väntar
+  //    bytet tills den stängts.
   let letar = false
+  let uppdateraTimer = null
+  function uppdateraNu() {
+    if (!levande || uppdateraTimer || letar) return
+    if (nyhetOppen) {
+      uppdateringVantar = true
+      return
+    }
+    uppdateringVantar = false
+    services.toast?.('Ny version – startar om…')
+    save.flush()
+    uppdateraTimer = setTimeout(() => {
+      uppdateraTimer = null
+      if (levande) services.applyPendingUpdateAtMenu?.()
+    }, 1400)
+  }
+  const avanmal = services.onUpdateReady?.(uppdateraNu)
+  services.checkForUpdate?.()
+
   async function onForceUpdate() {
     // Dubbeltryck ska inte starta två sökningar — den andra hade hittat en SW som redan
     // installerar och sett ut som "inget nytt".
@@ -171,9 +251,32 @@ export async function createMenuScreen(services) {
   return {
     view,
     destroy() {
+      levande = false
+      clearTimeout(uppdateraTimer)
+      avanmal?.()
       gsap.killTweensOf(mascot)
       gsap.killTweensOf(play.scale)
     },
+  }
+}
+
+// Nyhetsrutans minne i den här webbläsaren: vilken post som är läst (`sett`) och vilken
+// version appen senast kördes i (`kord`). Bara en UI-bekvämlighet — kan vara tomt eller
+// otillgängligt (privat läge), och då visas pricken och ingen "Uppdaterad till"-avi.
+const NYHETSNYCKEL = 'pwagames.nyheter'
+function lasNyhetsminne() {
+  try {
+    const v = JSON.parse(localStorage.getItem(NYHETSNYCKEL) || '{}')
+    return v && typeof v === 'object' ? v : {}
+  } catch {
+    return {}
+  }
+}
+function skrivNyhetsminne(andring) {
+  try {
+    localStorage.setItem(NYHETSNYCKEL, JSON.stringify({ ...lasNyhetsminne(), ...andring }))
+  } catch {
+    /* privat läge / full lagring — pricken kommer bara tillbaka nästa gång */
   }
 }
 

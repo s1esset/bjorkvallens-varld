@@ -45,6 +45,25 @@ zero-paddad, via `appVersion()` i `lib/pwa.js`, källa `package.json`). Bumpa MI
 hopslagen ändringsomgång — annars kan föräldern inte se att uppdateringen slog igenom.
 Se `docs/DESIGN.md §9`.
 
+**Nyheter:** varje omgång får en post i `src/lib/nyheter.js` (ren data, nyast först, skriven för
+föräldern). Menyns ✨-pill öppnar den som en DOM-ruta (`domModal.showNews`); `npm run check`
+varnar när den aktuella versionen saknar en post. En omgång som bumpade flera MINOR i rad
+skriver EN post med `fran`.
+
+## Automatisk uppdatering (v1.279)
+
+Webbläsaren letar bara efter en ny service worker vid en NAVIGERING — en installerad app som
+väcks ur bakgrunden navigerar aldrig, så förut kom en ny version bara via knappen.
+`checkForUpdate()` (`lib/pwa.js`) kör `reg.update()` när **menyn** monteras (appstart +
+varje gång man backar ut dit) och vid `visibilitychange → visible`, spärrat till en koll per
+30 s. En nedladdad version väntar (`pending`) tills menyn visas; menyn anmäler sig med
+`onUpdateReady(cb)` och byter efter en 1,4 s-avi — gick barnet vidare under avin väntar bytet
+till nästa meny, och står nyhetsrutan öppen väntar det tills den stängts. `aktivera()` körs
+högst en gång per sidliv (auto och knapp kan annars mötas). Efter bytet säger menyn
+"Uppdaterad till vM.NN" en gång (`localStorage` `pwagames.nyheter.kord`).
+**Mät med `scripts/_autouppdatprobe.mjs`** mot `npm run build && npx vite preview --port 4173`
+(8/8 med ändringen, 2/6 på HEAD — utan den hittas versionen aldrig utan knapptryck).
+
 ## Spardata
 
 `localStorage`-nyckel `pwagames.save.v1`, backup `pwagames.save.bak`.
@@ -81,12 +100,15 @@ npm run serve:stop     # dödar bara detta projekts träd (.server.pid + port 41
 ```
 
 Appen ligger på **<https://s1esset.github.io/bjorkvallens-varld/>** (föräldrarnas
-installationssida: `…/start.html`). På telefonen: öppna → meny → **Hämta senaste**; bekräfta
+installationssida: `…/start.html`). På telefonen: öppna appen → menyn hämtar själv (eller tryck
+på versionspillret för att leta direkt); bekräfta
 med **versionspillret**.
 
-⚠️ **Den lokala servern kan inte pröva PWA-delen.** `http://…:4173` är inte ett säkert
-ursprung: ingen install, ingen service worker, inget offline-läge och inget uppdateringsflöde.
-Allt sådant provas på Pages-adressen. (Tailscale-vägen är borttagen 2026-08-15.)
+⚠️ **LAN-adressen kan inte pröva PWA-delen — `localhost` kan.** `http://<ip>:4173` från en
+annan enhet är inte ett säkert ursprung (ingen service worker, inget offline, ingen uppdatering).
+Men `localhost` ÄR en säker kontext: `npm run build && npx vite preview --port 4173` ger en
+riktig service worker med precache och hela uppdateringsvägen — så mäts den (`_uppdatprobe`,
+`_autouppdatprobe`). Bara install-prompten kräver Pages (HTTPS). (Tailscale borttagen 2026-08-15.)
 
 ⚠️ **Stale servrar är den vanligaste fällan** — en gammal `vite preview` serverar ett gammalt
 bygge till telefonen. Kolla lyssnare på 5173/4173 innan test.

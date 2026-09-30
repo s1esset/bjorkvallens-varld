@@ -1,22 +1,33 @@
 // Service worker-registrering. Vi använder "prompt"-läge men promptar ALDRIG barnet:
-// en väntande uppdatering appliceras först vid menyn/biblioteket (se applyPendingUpdateAtMenu).
-// En förälder kan dock TVINGA fram senaste versionen via knappen i menyn (forceUpdate).
+// en väntande uppdatering appliceras bara vid menyn (se applyPendingUpdateAtMenu och
+// onUpdateReady) — aldrig mitt i ett spel.
+//
+// Appen LETAR SJÄLV efter en ny version (checkForUpdate): när menyn visas (appstart och
+// varje gång man backar ut dit) och när appen kommer tillbaka från bakgrunden. Det behövs
+// därför att webbläsaren bara kollar vid en NAVIGERING — en installerad app som väcks ur
+// bakgrunden navigerar aldrig, och fick förut bara en ny version via knappen.
+// En förälder kan fortfarande TVINGA fram senaste versionen via knappen i menyn (forceUpdate).
+//
+// Enda nätanropet är webbläsarens egen jämförelse av appens sw.js mot servern — samma
+// ursprung, ingen data skickas, och utan nät misslyckas det tyst.
 import { registerSW } from 'virtual:pwa-register'
 
 let pending = false
 let offlineReadyCb = null
 let swRegistration = null
+let redoCb = null
 
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
-    pending = true // stash — applicera vid lugn gräns, inte mitt i ett spel
+    markeraVantande() // stash — applicera vid lugn gräns, inte mitt i ett spel
   },
   onOfflineReady() {
     offlineReadyCb?.()
   },
   onRegisteredSW(_swUrl, reg) {
     swRegistration = reg || null
+    bevaka(swRegistration)
   },
   onRegisterError(err) {
     console.warn('SW kunde inte registreras', err)
@@ -25,6 +36,71 @@ const updateSW = registerSW({
 
 export function onOfflineReady(cb) {
   offlineReadyCb = cb
+}
+
+// Menyn anmäler sig här medan den visas: blir en uppdatering redo MEDAN man står på menyn
+// ska den tillämpas där och då, inte först vid nästa besök. Returnerar avanmälan (menyns
+// destroy) — när barnet gått vidare till biblioteket väntar uppdateringen till nästa meny.
+export function onUpdateReady(cb) {
+  redoCb = cb
+  if (pending) cb?.()
+  return () => {
+    if (redoCb === cb) redoCb = null
+  }
+}
+
+function markeraVantande() {
+  pending = true
+  redoCb?.()
+}
+
+// Egen bevakning av registreringen, utöver pluginets `onNeedRefresh`: workbox-window kan
+// klassa en uppdatering som hittas långt efter sidladdningen som "extern" och då säga till
+// på en annan väg. `updatefound` + `installed` är webbläsarens egna händelser och täcker alla
+// fall. En installation utan `controller` är appens FÖRSTA — ingen uppdatering att tillämpa.
+function bevaka(reg) {
+  if (!reg?.addEventListener) return
+  try {
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing
+      if (!w || !navigator.serviceWorker?.controller) return
+      w.addEventListener('statechange', () => {
+        if (w.state === 'installed' && reg.waiting) markeraVantande()
+      })
+    })
+    if (reg.waiting && navigator.serviceWorker?.controller) markeraVantande()
+  } catch {
+    /* ingen bevakning — knappen och nästa navigering finns kvar */
+  }
+}
+
+// Leta efter en ny version i bakgrunden. Tyst: hittas en, laddas den ner och
+// `markeraVantande` säger till menyn när den är redo. Spärrad till en koll per halvminut
+// så att ett barn som studsar meny ↔ bibliotek inte frågar servern vid varje byte.
+const KOLL_MELLANRUM = 30000
+let senastKoll = -Infinity
+
+export async function checkForUpdate() {
+  const nu = Date.now()
+  if (nu - senastKoll < KOLL_MELLANRUM) return
+  senastKoll = nu
+  let reg = swRegistration
+  try {
+    if (!reg) reg = await navigator.serviceWorker?.getRegistration?.()
+    if (!reg || reg.installing || reg.waiting) return
+    await reg.update()
+  } catch {
+    /* offline eller servern svarar inte — nästa koll tar det */
+  }
+}
+
+// Appen tillbaka ur bakgrunden = barnet "öppnar spelet" igen, utan att sidan laddas om.
+try {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForUpdate()
+  })
+} catch {
+  /* ingen document-yta */
 }
 
 // Körs appen som INSTALLERAD app (från hemskärmen) eller i en vanlig webbläsarflik?
@@ -190,8 +266,13 @@ function vantaPaWaiting(reg, timeoutMs) {
 // meddelande workbox egen `messageSkipWaiting()` skickar, och den genererade servicearbetaren
 // lyssnar på det. Tidsgränsen är skyddsnätet: byter den ändå inte, ladda om — den nya
 // arbetaren tar då över vid nästa start.
+// Bara EN aktivering per sidliv: menyns automatiska byte och knappen kan annars mötas
+// (knappen trycks medan den automatiska nedladdningen blir klar) och skicka två byten.
+let aktivering = null
+
 function aktivera(w) {
-  return new Promise((resolve) => {
+  if (aktivering) return aktivering
+  aktivering = new Promise((resolve) => {
     let klar = false
     const ladda = () => {
       if (klar) return
@@ -212,6 +293,7 @@ function aktivera(w) {
       ladda()
     }
   })
+  return aktivering
 }
 
 function fallbackReload() {

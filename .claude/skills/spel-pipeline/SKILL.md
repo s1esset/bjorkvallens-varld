@@ -76,7 +76,7 @@ Plus P0 för spelets band (se CLAUDE.md) och exit-säkerhet (se skill **spelkont
 | 6 | `kritik` | `spelkritiker`-agent: spelar i spelets åldersband (3-åring resp. 9-åring) mot skärmdump+kod, listar vad som är tunt mot de 8 punkterna. |
 | 7 | `fix` | Åtgärda kritiken. Om-testa. |
 | 8 | `commit` | `feat(<id>): <kort svensk beskrivning>` — **explicita sökvägar**, aldrig `git add -A`. |
-| 9 | `version` | Bumpa MINOR i `package.json` (versionspillret `vM.NN` är förälderns kvitto). |
+| 9 | `version` | Bumpa MINOR i `package.json` (versionspillret `vM.NN` är förälderns kvitto) + en post i `src/lib/nyheter.js` (menyns Nyheter-ruta; `check` varnar om den saknas). |
 | 10 | `leverans` | `npm run build` → `npm run serve`. Rapportera: *"✅ &lt;Titel&gt; &lt;ikon&gt; ligger i &lt;flik&gt;. Ladda om appen — leta efter v1.NN."* |
 | 11 | `logg` | Rad i `docs/SESSIONS.md`, rad i `docs/games/README.md`-indexet (status ✅), spegel via `npm run backup`. `steg: klar`. |
 

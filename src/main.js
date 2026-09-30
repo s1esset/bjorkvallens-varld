@@ -17,7 +17,15 @@ import { createMenuScreen } from './shell/screens/MenuScreen.js'
 import { createSettingsScreen } from './shell/screens/SettingsScreen.js'
 import { createLibraryScreen } from './shell/screens/LibraryScreen.js'
 import { createGameHost } from './shell/screens/GameHost.js'
-import { onOfflineReady, applyPendingUpdateAtMenu, forceUpdate, appVersion } from './lib/pwa.js'
+import {
+  onOfflineReady,
+  onUpdateReady,
+  checkForUpdate,
+  applyPendingUpdateAtMenu,
+  forceUpdate,
+  appVersion,
+  appVersionFull,
+} from './lib/pwa.js'
 
 async function boot() {
   await loadFonts()
@@ -49,9 +57,12 @@ async function boot() {
     stickers,
     gate,
     nav,
+    onUpdateReady,
+    checkForUpdate,
     applyPendingUpdateAtMenu,
     forceUpdate,
     appVersion,
+    appVersionFull,
     toast: (msg, opts) => showToast(ctx.gateLayer, msg, opts),
   }
   gate.services = services

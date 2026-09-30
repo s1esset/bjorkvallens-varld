@@ -132,8 +132,13 @@ skärmzon. Döda alla tweens i `destroy` (P0).
 - **Dialog** (`confirm.js`): mörk backdrop (alpha 0.5), cream-kort `RADIUS.panel`, H2-rubrik,
   två knappar (positiv färgad, neutral grå/cream).
 - **Toast** (`toast.js`): lugn, kort, aldrig blockerande.
-- **Versionsknapp** (meny, nere höger): liten teal-pill som visar `vM.NN` — se §9. Grindad;
-  tvingar fram senaste versionen.
+- **Versionsknapp** (meny, nere höger): liten teal-pill som visar `vM.NN` — se §9. Ogrindad
+  (en uppdatering tar inte bort något); letar direkt efter senaste versionen. Appen letar
+  också själv, se skill **skal-och-data**.
+- **Nyheter** (meny, till vänster om versionsknappen, 48 px isär så halorna inte möts):
+  lila pill ✨ som öppnar nyhetsrutan (`domModal.showNews`, data i `lib/nyheter.js`) — DOM,
+  eftersom löptexten ska scrollas med fingret (`touch-action: pan-y` på listan). En stilla
+  röd prick tills senaste posten lästs. Ingen grind: den visar bara text.
 
 ### 8.1 Fristående spelobjekt (P0 `ASSETS`)
 

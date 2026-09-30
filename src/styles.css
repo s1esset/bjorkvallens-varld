@@ -130,3 +130,97 @@ body {
 .dom-modal__btn--cancel {
   background: #c9b8a8;
 }
+
+/* Nyhetsrutan (menyn → "Nyheter"). Löptext för föräldern; listan är den enda ytan i
+   appen som får scrollas med fingret, därför en egen touch-action (html/body har none). */
+.dom-modal__card.nyheter {
+  width: min(760px, 92vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 18px 12px 26px;
+  text-align: left;
+}
+.nyheter__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.nyheter__title {
+  margin: 0;
+  font-size: 28px;
+  color: var(--orange);
+}
+.nyheter__stang {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  border: none;
+  border-radius: 50%;
+  background: #c9b8a8;
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nyheter__lista {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding-right: 10px;
+  color: #4a3526;
+  font-size: 17px;
+  line-height: 1.45;
+}
+.nyheter__post {
+  padding: 12px 0 10px;
+  border-top: 2px solid #f3e6d3;
+}
+.nyheter__post:first-child {
+  border-top: none;
+}
+.nyheter__rad {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.nyheter__version {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
+  background: #57c8c3;
+  border-radius: 10px;
+  padding: 1px 10px;
+}
+.nyheter__post--nu .nyheter__version {
+  background: var(--orange);
+}
+.nyheter__datum {
+  font-size: 14px;
+  color: #7a6657;
+}
+.nyheter__rubrik {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 21px;
+  margin: 4px 0 2px;
+}
+.nyheter__post ul {
+  margin: 4px 0 0;
+  padding-left: 22px;
+}
+.nyheter__post li {
+  margin: 3px 0;
+}
+.nyheter__fot {
+  padding-top: 8px;
+  font-size: 13px;
+  color: #7a6657;
+  text-align: right;
+}

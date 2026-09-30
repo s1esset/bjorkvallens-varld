@@ -8,7 +8,7 @@
 // Exit 0 = grönt, 1 = fel hittade.
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
@@ -304,6 +304,27 @@ for (const g of games) {
     if (Number(tal) === 0) continue // `restitution: 0` säger samma sak som setStatic gör
     const rad = g.src.slice(0, m.index).split('\n').length
     dodaStuds.push({ id: g.id, rad, tal })
+  }
+}
+
+// ---------- nyhetsrutan: har den aktuella versionen en post? ----------
+// Menyns "Nyheter" (src/lib/nyheter.js) är förälderns läsning av vad som ändrats. Bumpas
+// MINOR utan en post säger rutan ingenting om versionen föräldern just fick. En varning, inte
+// ett fel: en omgång som bumpar flera MINOR i rad (nattkörningen) får skriva EN post med
+// `fran` för sin första version, och versionerna däremellan räknas som täckta.
+if (!onlyGame) {
+  try {
+    const pkg = JSON.parse(read(join(ROOT, 'package.json')) || '{}')
+    const [maj, min] = String(pkg.version || '0.0.0').split('.').map(Number)
+    const { NYHETER = [] } = await import(pathToFileURL(join(ROOT, 'src/lib/nyheter.js')).href)
+    const tal = (v) => { const [a, b] = String(v).split('.').map(Number); return a * 10000 + b }
+    const nu = maj * 10000 + min
+    const tacks = NYHETER.some((n) => tal(n.fran ?? n.version) <= nu && nu <= tal(n.version))
+    if (!tacks) {
+      problems.push({ level: 'varning', id: 'nyheter', msg: `v${maj}.${String(min).padStart(2, '0')} saknar en post i src/lib/nyheter.js (menyns Nyheter-ruta)` })
+    }
+  } catch (e) {
+    problems.push({ level: 'varning', id: 'nyheter', msg: `src/lib/nyheter.js gick inte att läsa: ${e.message}` })
   }
 }
 

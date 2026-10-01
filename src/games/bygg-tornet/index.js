@@ -17,6 +17,7 @@ import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, puff, sparkle, breathe, shake } from '../../lib/feedback.js'
 import { COLORS, PLAYFUL, DESIGN_W, DESIGN_H } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
+import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 
 // --- Geometri (designkoordinater 1280×720) ---
 const BASE_X = 640 // tornets mittlinje (nästa klossens default-läge)
@@ -91,6 +92,7 @@ export default {
     this._lastSay = -2
     this._dropX = BASE_X // var nästa kloss faller (sätts av barnets tryck)
     this._carrierX = BASE_X // var kran-kroken ritas
+    this._egenFig = null // barnets knytt/kompis på avsatsen (varannan torn), annars kattungen
 
     this._phase = 'reset' // reset | carry | fall | wait | finish
     this._placed = [] // fastlåsta klossar { view, body }
@@ -197,8 +199,13 @@ export default {
 
     // Kattungen som sitter fast där uppe: BYGG upp till den så den kan ta sig ner.
     // Det ger bygget ett syfte och spelet en egen slutscen.
-    this._kitten = makeKitten()
+    // `_kitten` är en HÅLLARE (det är den räddningsresan flyttar); kattungen är ett barn i den
+    // och byts mot barnets egen figur varannan omgång (LYFTPLAN §10).
+    this._kitten = new Container()
+    this._kittenArt = makeKitten()
+    this._kitten.addChild(this._kittenArt)
     this._kitten.eventMode = 'none'
+    this._kitten.interactiveChildren = false
     this._root.addChild(this._kitten)
 
     // Bobo står vid foten och hejar på varje våning.
@@ -266,12 +273,31 @@ export default {
       this._kitten.rotation = 0
       this._kitten.position.set(912, goalY + 12)
       this._kittenTw = breathe(this._kitten, { scale: 1.05, duration: 1.3 })
+      this._sattEgenFigur(ctx)
     }
 
     this._ghost.visible = true
     this._moveGhost()
 
     this._spawnBlock(ctx)
+  },
+
+  // Den som väntar på avsatsen: barnets eget knytt/kompis varannan omgång (och det barnet nyss
+  // skapade först), annars kattungen. EN `valjEgna` per torn — anropet räknar takten. Figuren
+  // lever hela tornet (även räddningen) och rivs när nästa torn börjar eller spelet lämnas.
+  _sattEgenFigur(ctx) {
+    this._egenFig?.destroy()
+    this._egenFig = null
+    const [egen] = valjEgna(ctx.services, 'bygg-tornet')
+    this._kittenArt.visible = !egen
+    if (!egen) return
+    const fig = byggEgenFigur(ctx, egen, { hojd: 104, maxBredd: 76 })
+    // Fötterna på avsatsens översida (avsatsens ovansida ligger på lokala y ≈ 14, flaggan guppar ±10 ovanför den), lite åt
+    // vänster så flaggstången vid x = 912 inte döljs helt.
+    fig.view.position.set(-26, 15)
+    this._kitten.addChild(fig.view)
+    this._egenFig = fig
+    presentera(ctx, fig, { knytt: 'Titta, ditt knytt sitter fast däruppe!', kompis: 'Titta, din kompis sitter fast däruppe!' })
   },
 
   // Skapa nästa kloss högt upp, väntande (statisk; positionen sätts varje bildruta).
@@ -478,7 +504,14 @@ export default {
     }
 
     ctx.services.audio.sfx('correct')
-    ctx.services.voice.say('Hurra! Nu kan kattungen komma ner!')
+    const fig = this._egenFig
+    // Den som väntar hejar när tornet nått den — och raden följer vem det är (aldrig "ditt" för
+    // ett knytt barnet bara mött).
+    fig?.react('heja')
+    if (!fig) ctx.services.voice.say('Hurra! Nu kan kattungen komma ner!')
+    else if (fig.mott) ctx.services.voice.say('Hurra! Nu kan ett knytt komma ner!')
+    else if (fig.typ === 'knytt') ctx.services.voice.say('Hurra! Nu kan ditt knytt komma ner!')
+    else ctx.services.voice.say('Hurra! Nu kan din kompis komma ner!')
     for (const b of this._placed) sparkle(ctx.fxLayer, b.body.position.x, b.body.position.y, { count: 4 })
 
     // Spara förlopp + delat firande (stjärna + klistermärke) — exakt en gång.
@@ -532,9 +565,11 @@ export default {
         puff(ctx.fxLayer, s.x, s.y + 20, { count: 3, color: 0xc9a06a })
       })
     })
-    // Sista skuttet ner till Bobo + jubel.
-    tl.to(st, { x: 300, y: GROUND_TOP_Y - 90, r: 0.4, duration: 0.26, ease: 'power2.out' })
-    tl.to(st, { x: 268, y: GROUND_TOP_Y - 24, r: 0, duration: 0.26, ease: 'power2.in' })
+    // Sista skuttet ner till Bobo + jubel. Barnets figur är större än kattungen och står åt
+    // vänster i hållaren, så den landar längre bort från Bobos utsträckta armar.
+    const hemX = this._egenFig ? 316 : 268
+    tl.to(st, { x: hemX + 32, y: GROUND_TOP_Y - 90, r: 0.4, duration: 0.26, ease: 'power2.out' })
+    tl.to(st, { x: hemX, y: GROUND_TOP_Y - 24, r: 0, duration: 0.26, ease: 'power2.in' })
     // Landningen sker 1,8–2,7 s efter complete(), medan dess vinstljud och konfettiregn
     // (1,6–3,2 s) ännu pågår — ett andra regn och en andra fanfar vore dubbelfirande.
     // Kattungens eget ögonblick blir en kort stämd durtreklang + det lokala glittret.
@@ -542,14 +577,17 @@ export default {
     tl.add(() => {
       if (!this._alive) return
       const a = ctx.services.audio
-      if (!a.sample('djur_katt')) a.sfx('pling')
+      if (this._egenFig) a.sfx('pling')
+      else if (!a.sample('djur_katt')) a.sfx('pling')
       a.tone({ freq: 523.25, dur: 0.12, type: 'triangle', vol: 0.18 })
       a.tone({ freq: 659.25, dur: 0.12, type: 'triangle', vol: 0.18, delay: 0.1 })
       a.tone({ freq: 783.99, dur: 0.12, type: 'triangle', vol: 0.18, delay: 0.2 })
       a.tone({ freq: 1046.5, dur: 0.26, type: 'triangle', vol: 0.2, delay: 0.3 })
-      puff(ctx.fxLayer, 268, GROUND_TOP_Y - 8, { count: 8, color: 0xc9a06a })
-      sparkle(ctx.fxLayer, 268, GROUND_TOP_Y - 52, { count: 12 })
+      puff(ctx.fxLayer, hemX, GROUND_TOP_Y - 8, { count: 8, color: 0xc9a06a })
+      sparkle(ctx.fxLayer, hemX, GROUND_TOP_Y - 52, { count: 12 })
       this._boboCheer(true)
+      // Framme hos Bobo: den räddade jublar (knyttet skuttar och sjunger, kompisen armarna upp).
+      if (this._egenFig) this._egenFig.react('jubel')
       // Köar bakom "Hurra! Nu kan kattungen komma ner!" (3,5 s) som annars kapades mitt i.
       ctx.narTyst(() => {
         if (this._alive && this._level === niva) ctx.services.voice.say('Tack för hjälpen!')
@@ -585,6 +623,17 @@ export default {
       this._carrierX = this._dropX
       Body.setPosition(this._active.body, { x: this._dropX, y })
       Body.setAngle(this._active.body, 0)
+    }
+
+    // Figuren på avsatsen följer bygget med blicken — klossen som bärs, annars stapelns topp —
+    // och Bobo när den tagit sig ner. `look` tar förälderns (hållarens) rum.
+    if (this._egenFig && this._kitten && !this._kitten.destroyed) {
+      const k = this._kitten
+      let tx = this._supportX
+      let ty = this._stackTopY - 30
+      if (this._phase === 'finish') { tx = 190; ty = GROUND_TOP_Y - 70 }
+      else if (this._active && !this._active.view.destroyed) { tx = this._active.view.x; ty = this._active.view.y }
+      this._egenFig.look(tx - k.x, ty - k.y)
     }
 
     // Stega fysiken (fast tidssteg) och synka vyerna.
@@ -738,6 +787,9 @@ export default {
     this._ghostTween?.kill()
     this._kittenTw?.kill()
     this._boboIdle?.kill()
+    // Barnets figur FÖRST: den tickar på ctx.ticker och har egna noder en nivå in.
+    this._egenFig?.destroy()
+    this._egenFig = null
     if (this._kitten && !this._kitten.destroyed) { gsap.killTweensOf(this._kitten); gsap.killTweensOf(this._kitten.scale) }
     if (this._bobo && !this._bobo.destroyed) {
       gsap.killTweensOf(this._bobo)

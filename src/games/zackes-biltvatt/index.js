@@ -783,8 +783,9 @@ export default {
   _stepHose(dt) {
     if (!this._hose) return
     this._hoseHemTick(dt)
-    const steps = clamp(Math.round(dt * 60), 1, 3)
-    for (let i = 0; i < steps; i++) this._hoseSubstep()
+    // FAST 60 Hz-steg (lib/takt.js, T3): slangens egen Takt, exakt 1 per steg — samma hängning
+    // och dragkraft vid 30, 57 och 90 fps. dt är redan klampat till 50 ms (max 3 steg).
+    this._hose.takt.kor(dt * 1000, () => this._hoseSubstep())
     this._drawHose()
   },
 

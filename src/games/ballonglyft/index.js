@@ -750,6 +750,7 @@ export default {
     ctx.narTyst(() => {
       if (!this._alive || this._surprise !== s || s.destroyed) return
       if (!fig) ctx.services.voice.say(`Titta, en ${pick.namn}! Tack så mycket!`)
+      else if (fig.mott) ctx.services.voice.say('Titta, ett knytt! Tack så mycket!')
       else if (fig.typ === 'knytt') ctx.services.voice.say('Titta, ditt knytt! Tack så mycket!')
       else ctx.services.voice.say('Titta, din kompis! Tack så mycket!')
     })

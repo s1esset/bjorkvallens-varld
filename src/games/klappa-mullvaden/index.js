@@ -5,12 +5,13 @@
 // bara mjukt ner av sig själv. Var N:te klapp firar vi (delat firande + stjärna +
 // klistermärke) och en ny, lite livligare runda startar. Djuren varieras (mullvad,
 // kanin, igelkott, mus, groda) och nivån växer mjukt med antal hål/uppdyk.
-import { Container, Graphics, Circle } from 'pixi.js'
+import { Container, Graphics, Circle, Point } from 'pixi.js'
 import { gsap } from 'gsap'
 import { pop, wiggle, puff, ripple, sparkle, floatText, burst, breathe, shake } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { topLightFill, verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { figurForOmgang, presentera } from '../../lib/egnafigurer.js'
 
 // Lekfältets area (designkoordinater) — hålen placeras i ett rutnät här inne.
 // FX1 lämnar plats åt vänboken (den lodräta samlingen) längs högerkanten.
@@ -65,7 +66,13 @@ const BEHAVIOR = {
   igelkott: { rise: 0.55, ease: 'power2.out', lift: 0, up: 1.25, hops: 0 },
   mus: { rise: 0.2, ease: 'power3.out', lift: 8, up: 0.62, hops: 0, peek: true },
   groda: { rise: 0.3, ease: 'back.out(3)', lift: 40, up: 0.85, hops: 1 },
+  // Barnets egen figur (Spår F): kikar upp lugnt och stannar längre — den ska hinnas med.
+  egen: { rise: 0.42, ease: 'back.out(1.8)', lift: 8, up: 1.4, hops: 1 },
 }
+
+// Barnets egen figur är ingen "art": den hänger aldrig i vänboken och rör aldrig `custom.arter`.
+// Rollen i huvudet-mitt-rummet (som Bobo-riggen): r = 44 ger ~141 px, huvudet i hålets mun.
+const EGEN_R = 44
 
 // Riktigt inspelat läte per art om det finns (SFX-pipelinen, sample('djur_…')).
 const SAMPLE_FOR = { groda: 'djur_groda' }
@@ -99,13 +106,17 @@ export default {
 
   init(ctx) {
     this._alive = true
+    this._ctx = ctx
     this._idle = 0
-    this._elapsed = 0 // speltid; klapp-stegen mäter avstånd i den, inte i väggklockan
+    this._elapsed = 0// speltid; klapp-stegen mäter avstånd i den, inte i väggklockan
     this._radd = 0 // hur många klappar i rad just nu
     this._lastWhackAt = -1e9
     this._spawnAcc = 0
     this._roundDone = false
     this._level = ctx.progress.get().highestLevel || 1
+    this._egen = null
+    this._egenHole = null
+    this._holes = []
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -163,6 +174,13 @@ export default {
     const tapCatcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
     tapCatcher.eventMode = 'static'
     tapCatcher.on('pointertap', (e) => this._emptyTap(ctx, e))
+    // Barnets egen figur tittar mot fingret (globala koordinater, läses i _update).
+    this._lookPt = new Point()
+    this._lookSet = false
+    tapCatcher.on('globalpointermove', (e) => {
+      this._lookPt.copyFrom(e.global)
+      this._lookSet = true
+    })
     this._root.addChild(tapCatcher)
 
     // Fält (hål + djur) och räknar-rad byggs om mellan rundor.
@@ -198,6 +216,8 @@ export default {
     this._p = paramsFor(this._level)
     const { cols, rows, goal } = this._p
 
+    // Förra rundans egen figur: lyft ur sitt hål FÖRE fältet rivs, sedan destroy() (tickern).
+    this._slappEgen()
     this._holes?.forEach((h) => this._killHoleTweens(h))
     this._field.removeChildren().forEach((o) => o.destroy({ children: true }))
     this._holes = []
@@ -232,6 +252,52 @@ export default {
       paw.alpha = 0.25
       this._pawRow.addChild(paw)
       this._paws.push(paw)
+    }
+
+    // Barnets egna figur — EN gång per runda (anropet räknar takten: nyss skapat först, sedan
+    // varannan runda). Utan egna figurer blir det null och rundan är exakt som förut.
+    this._egen = figurForOmgang(ctx, 'klappa-mullvaden', { r: EGEN_R, skugga: false, reserv: () => null })
+    this._egenHole = null
+    this._egenVisad = false
+    this._raises = 0
+    this._egenAt = 2 + Math.floor(Math.random() * 2) // 2:a eller 3:e uppdyket
+  },
+
+  // Lyft figuren ur hålet den står i och riv den. Alltid i den här ordningen: en nod som
+  // förstörs med {children:true} tar annars figurens view med sig bakom ryggen på tickern.
+  _slappEgen() {
+    const fig = this._egen
+    this._egen = null
+    this._egenHole = null
+    if (!fig) return
+    for (const h of this._holes || []) {
+      if (h._egenNode) {
+        gsap.killTweensOf(h._egenNode)
+        gsap.killTweensOf(h._egenNode.scale)
+        h._egenNode = null
+      }
+    }
+    if (fig.view && !fig.view.destroyed) {
+      gsap.killTweensOf(fig.view)
+      gsap.killTweensOf(fig.view.scale)
+      fig.view.parent?.removeChild(fig.view)
+    }
+    fig.destroy()
+  },
+
+  // Säg vem som kikar upp — en LITERAL per variant (barnets nyskapade presenteras av
+  // `presentera`, mötta knytt kallas aldrig "ditt").
+  _egenRad(ctx, fig) {
+    const voice = ctx.services.voice
+    if (fig.ny && !fig.mott) {
+      presentera(ctx, fig, {
+        knytt: 'Titta, ditt nya knytt kikar upp!',
+        kompis: 'Titta, din nya kompis kikar upp!',
+      })
+    } else if (!voice.talar) {
+      if (fig.mott) voice.say('Titta, ett knytt kikar upp!')
+      else if (fig.typ === 'kompis') voice.say('Titta, din kompis kikar upp!')
+      else voice.say('Titta, ditt knytt kikar upp!')
     }
   },
 
@@ -397,9 +463,23 @@ export default {
 
   // Sätt ett nytt, slumpat djur i hålets wrap (städar ev. gammalt först).
   _setCritter(hole) {
+    // Står barnets figur i det här hålet från förra uppdyket: lyft ur den innan noden rivs.
+    if (hole._egenNode) this._lyftEgen(hole)
     if (hole._critter && !hole._critter.destroyed) {
       this._killCritterTweens(hole)
       hole._critter.destroy({ children: true })
+    }
+    this._raises = (this._raises || 0) + 1
+    const fig = this._egen
+    if (fig && fig._alive && this._raises >= this._egenAt) {
+      // Figuren bor i ETT hål åt gången; ligger den gömd i ett annat hål flyttar den hit.
+      const gammal = this._egenHole
+      if (gammal && gammal !== hole && gammal._state === 'down') this._lyftEgen(gammal)
+      if (!this._egenHole) {
+        this._egenAt = this._raises + 4 + Math.floor(Math.random() * 3)
+        this._setEgen(hole, fig)
+        return
+      }
     }
     const species = this._pickSpecies()
     hole._species = species
@@ -421,6 +501,45 @@ export default {
     hole._cheeks = cr.cheeks
     hole._back = cr.back
     hole._wrap.addChild(cr.node)
+  },
+
+  // Barnets figur som uppdyk: egen nod runt figurens view, så ducka/andas/studsa går på noden
+  // (aldrig på fig.view) och masken klipper kroppen vid hålkanten som för djuren.
+  _setEgen(hole, fig) {
+    const node = new Container()
+    node.eventMode = 'none'
+    node.addChild(fig.view)
+    hole._species = 'egen'
+    hole._royal = false
+    hole._crown = null
+    hole._critter = node
+    hole._egenNode = node
+    hole._eyes = null
+    hole._mouth = null
+    hole._cheeks = null
+    hole._back = null
+    hole._wrap.addChild(node)
+    this._egenHole = hole
+    fig.look(0, -20)
+    if (!this._egenVisad) {
+      this._egenVisad = true
+      this._egenRad(this._ctx, fig)
+    }
+  },
+
+  _lyftEgen(hole) {
+    const node = hole._egenNode
+    const fig = this._egen
+    hole._egenNode = null
+    if (this._egenHole === hole) this._egenHole = null
+    if (!node) return
+    gsap.killTweensOf(node)
+    gsap.killTweensOf(node.scale)
+    hole._breatheTw?.kill()
+    hole._breatheTw = null
+    if (fig && fig.view && !fig.view.destroyed && fig.view.parent === node) node.removeChild(fig.view)
+    if (hole._critter === node) hole._critter = null
+    if (!node.destroyed) node.destroy({ children: true })
   },
 
   // Välj art ur mixen för aktuell nivå (mullvaden väger lite tyngre — det är ju den).
@@ -587,7 +706,9 @@ export default {
     const cy = hole.y + MOLE_UP_Y - (hole._bh?.lift || 0)
 
     ctx.services.audio.sfx('pop') // taktil klapp-plopp
-    this._critterSound(ctx, hole._species) // + riktigt djurläte/pip som "fniss"
+    // Barnets figur svarar med sitt eget (knyttets motiv / kompisens melodi) — inget pip ovanpå.
+    if (hole._species === 'egen') this._egen?.react('jubel')
+    else this._critterSound(ctx, hole._species) // + riktigt djurläte/pip som "fniss"
     this._raddPling(ctx)
     ripple(this._fx, cx, cy, { color: 0xffffff, maxR: 84 })
     // Mikroskak i själva HÅLET: klappen ska kännas i marken, inte bara i djuret.
@@ -621,7 +742,7 @@ export default {
     // Vänboken: första gången en art klappas hänger dess ansikte upp på tavlan — och
     // stannar där mellan spelomgångar.
     const sp = hole._species
-    if (sp && !this._found.has(sp)) {
+    if (sp && sp !== 'egen' && !this._found.has(sp)) {
       this._found.add(sp)
       ctx.progress.setCustom('arter', [...this._found])
       this._fillBookSlot(sp, true)
@@ -740,6 +861,16 @@ export default {
       this._trySpawn(ctx)
     }
 
+    // Barnets figur följer fingret med blicken medan den står uppe.
+    const eh = this._egenHole
+    if (eh && this._egen && eh._state === 'up' && this._lookSet) {
+      const p = this._egen.view.parent
+      if (p && !p.destroyed) {
+        const l = p.toLocal(this._lookPt)
+        this._egen.look(l.x, l.y)
+      }
+    }
+
     if (this._roundDone) return // pausa spawn medan vi firar
 
     // Uppe-djur blinkar då och då och dyker lugnt ner av sig själva i tid.
@@ -798,6 +929,7 @@ export default {
     this._alive = false
     if (this._tick) ctx.ticker.remove(this._tick)
     this._holes?.forEach((h) => this._killHoleTweens(h))
+    this._slappEgen() // före rötterna rivs — figuren tickar annars vidare utan förälder
     this._paws?.forEach((p) => {
       gsap.killTweensOf(p)
       gsap.killTweensOf(p.scale)

@@ -208,3 +208,11 @@ garanterar minst 2 av varje så mönstret framträder över tid.
     exit. `_vatskeprobe`: **58,9 FPS**, 167 k vätskepixlar, 0 konsolfel.
   - Nya/ändrade verktyg: `scripts/_plaskprobe.mjs` (stänk · undanträngning · tak · volym ·
     exit) och `_vatskeprobe.mjs` som känner igen släpp-spel och tömmer hyllan i tanken.
+- **2026-10-02 · flytkraften per fysiksteg (FYSIKPLAN T1).** `Flytvolym` ser att `PhysicsWorld`
+  har `beforeStep` och registrerar sig SJÄLV (egen stegklocka `t += 1/60` för gupp/vaggning);
+  spelet kallar inte längre `steg()`. Raden `this._vatten.steg(this._t)` i `_update` är borta,
+  `destroy()` avregistrerar kroken. Node (`scripts/_flytsteg.mjs`, Pixis Ticker): flyt-1,6-jämvikten
+  var 1,000 / 0,927 / 0,746 / 0,657 / 0,637 vid 30/40/50/57/60 Hz (HEAD) och är nu 0,625 vid alla.
+  **Ny baslinje för `_plaskprobe`:** headless-harnessens ~57 fps gav 0,656 (flytarna låg ~2 %
+  grundare), fixen ger 0,625 — en ärlig förändring, inte en regression. Stänk, undanträngning
+  (+8–13 px), tak och volym (416 → 416) ska stå kvar; flytarna ligger något djupare.

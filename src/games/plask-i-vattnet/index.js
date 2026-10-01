@@ -1167,8 +1167,7 @@ export default {
     if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
 
-    // Flytkraft FÖRE motorsteget (krafterna nollställs i Engine.update).
-    this._vatten.steg(this._t)
+    // Flytkraften läggs per FYSIKSTEG: `Flytvolym` registrerar sig själv i `phys.beforeStep` (T1).
     this._phys.update(ticker.deltaMS)
 
     // Vätskeskiktet: föremålens hinder flyttas EFTER motorsteget (då står kropparna

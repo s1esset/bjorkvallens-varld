@@ -28,6 +28,7 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 
 // --- Layout (designkoordinater 1280×720) ---
 const BALL_R = 46
@@ -482,6 +483,7 @@ export default {
 
   _loadLevel(ctx, level) {
     if (!this._alive) return
+    this._publik(ctx)
     this._phase = 'aim'
     this._resolving = false
     this._rollT = 0
@@ -540,6 +542,75 @@ export default {
 
     this._launcher?.setEnabled(true)
     if (this._ball && !this._ball.destroyed) pop(this._ball)
+  },
+
+  // ---- Publiken på bänken (LYFTPLAN §10, Spår F) ----------------------------
+  //
+  // Bänkens tre ritade åskådare är NAMNLÖSA människor — en P0-gråzon (avbildade människor heter
+  // bara Zacke/Alissa/Elvira/Lova). Varannan nivå (och direkt efter att barnet skapat något)
+  // sitter i stället BARNETS egna figurer där: upp till tre knytt/kompisar, och bara de som
+  // finns tar platsen — står färre kvar sitter de ritade åskådarna kvar på resten. Utan egna
+  // figurer är bänken exakt som förut. `valjEgna` anropas en gång per nivå (anropet räknar takten).
+  _publik(ctx) {
+    this._rivPubliken()
+    const c = this._crowd
+    if (!c || c.destroyed) return
+    for (const f of c.fans) {
+      if (!f || f.destroyed) continue
+      gsap.killTweensOf(f)
+      f.y = f._baseY
+      f.visible = true
+    }
+    const egna = valjEgna(ctx.services, 'bowling', { antal: c.fans.length })
+    const platser = [1, 0, 2] // mitten först, sedan vänster och höger
+    egna.forEach((beskr, i) => {
+      const fan = c.fans[platser[i]]
+      if (!fan || fan.destroyed) return
+      fan.visible = false
+      // Bara den första tar med sig sitt eget motiv — tre motiv i högen vore oljud.
+      const fig = byggEgenFigur(ctx, beskr, { hojd: 100, maxBredd: 58, ljud: i === 0 })
+      // Egen hållare: det som poppar in animeras på den, aldrig på figurens egen vy.
+      const h = new Container()
+      h.eventMode = 'none'
+      h.position.set(fan.x, 56)
+      h.addChild(fig.view)
+      c.addChild(h)
+      if (this._publikKlar) pop(h, { scale: 1.2 })
+      this._egnaPubl.push({ fig, h, fan })
+    })
+    this._publikKlar = true
+    // En ny figur presenteras en gång (ett mött knytt presenteras aldrig som "ditt").
+    const ny = this._egnaPubl.find((e) => e.fig.ny)
+    if (ny) {
+      presentera(ctx, ny.fig, {
+        knytt: 'Titta, ditt knytt hejar på dig!',
+        kompis: 'Titta, din kompis hejar på dig!',
+      })
+    }
+  },
+
+  // Städa figurerna och deras hållare (de tickar på ctx.ticker och har noder en nivå in).
+  _rivPubliken() {
+    for (const e of this._egnaPubl || []) {
+      if (e.h && !e.h.destroyed) {
+        e.h._fxPopTl?.kill()
+        gsap.killTweensOf(e.h)
+        gsap.killTweensOf(e.h.scale)
+      }
+      e.fig.destroy()
+      if (e.h && !e.h.destroyed) e.h.destroy({ children: true })
+    }
+    this._egnaPubl = []
+  },
+
+  // Barnets figurer på bänken: knytt skuttar, kompis jublar (strike) eller hejar (kägelfall).
+  _egnaHeja(ctx, handelse, stegMs = 90) {
+    if (!this._egnaPubl?.length) return
+    this._egnaPubl.forEach(({ fig }, i) => {
+      ctx.later(i * (stegMs / 1000), () => {
+        if (this._alive && fig._alive) fig.react(handelse)
+      })
+    })
   },
 
   // ---- Kägelmätare ---------------------------------------------------------
@@ -694,6 +765,12 @@ export default {
       gsap.to(dot, { alpha: 0.26, duration: 0.3 })
     }
 
+    // Kägelfall: barnets figurer på bänken hejar till (högst en gång per sekund; en strike
+    // har sitt eget jubel).
+    if (this._standingCount > 0 && now - (this._lastHeja || 0) > 1000) {
+      this._lastHeja = now
+      this._egnaHeja(ctx, 'heja', 70)
+    }
     if (this._standingCount <= 0) this._strike(ctx)
   },
 
@@ -791,6 +868,7 @@ export default {
     this._shakeAmp = Math.min(14, this._shakeAmp + 10)
     this._boboDance()
     this._cheerCrowd()
+    this._egnaHeja(ctx, 'jubel')
     if (this._aimGlow && !this._aimGlow.destroyed) this._aimGlow.visible = false
 
     const cur = ctx.progress.get()
@@ -904,6 +982,10 @@ export default {
     // Käglorna lever: ögonen följer klotet och spärras upp när det närmar sig.
     const bx = this._ball && !this._ball.destroyed ? this._ball.x : BALL_START.x
     const by = this._ball && !this._ball.destroyed ? this._ball.y : BALL_START.y
+    // Barnets figurer på bänken följer klotet med blicken (föräldern är publiken, i origo bänken).
+    if (this._egnaPubl?.length && this._crowd && !this._crowd.destroyed) {
+      for (const { fig } of this._egnaPubl) if (fig._alive) fig.look(bx - this._crowd.x, by - this._crowd.y)
+    }
     for (const p of this._pins) {
       const v = p.view
       if (p.down || !v || v.destroyed || !v.pupils) continue
@@ -994,6 +1076,8 @@ export default {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
     this._launcher?.destroy()
+    this._rivPubliken()
+    this._publikKlar = false
     this._nextTimer?.kill()
     this._helpTimer?.kill()
     this._railTween?.kill()

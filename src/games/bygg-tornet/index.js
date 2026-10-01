@@ -138,6 +138,8 @@ export default {
     // Fysik: gravitation + golv/väggar.
     this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Centreringshjälpen läggs per FAST fysiksteg (T2) — avregistreras i destroy.
+    this._avHjalp = this._phys.beforeStep(() => this._centreraSteg())
     // Stapeln HÖRS nu. `_lockActive` hade redan en duns, men bara på klossen barnet
     // just la — och alltid lika hård. Nu låter varje kloss-mot-kloss-anslag i tornet
     // efter sin egen fart, så ett torn som gungar och sätter sig ger en levande
@@ -647,13 +649,7 @@ export default {
       this._fallT += dt
       const b = this._active.body
       const slow = b.speed < REST_SPEED && b.angularSpeed < ANG_REST
-      // Mjuk centrerings-hjälp — men den träder in SENT: barnet får sikta helt själv de
-      // första försöken. Först från tredje försöket (misses>=2) smyger en svag "magnet"
-      // in mot stödpunkten. Skicklighet ska kännas, aldrig krävas.
-      if (this._misses >= 2 && !slow) {
-        const pull = 0.0006 * (this._misses - 1)
-        Body.applyForce(b, b.position, { x: (this._supportX - b.position.x) * pull * b.mass, y: 0 })
-      }
+      // Centrerings-hjälpen ligger i `_centreraSteg` (phys.beforeStep), en gång per fysiksteg.
       this._restT = slow ? this._restT + dt : 0
       if ((this._fallT > 0.25 && this._restT > REST_HOLD) || this._fallT > MAX_FALL) {
         this._settleActive(ctx)
@@ -670,6 +666,20 @@ export default {
         ctx.services.voice.say(this.voiceIntro)
         if (this._active && !this._active.view.destroyed) pop(this._active.view)
       }
+    }
+  },
+
+  // Mjuk centrerings-hjälp, EN gång per fast fysiksteg (`phys.beforeStep`) — men den träder in SENT:
+  // barnet får sikta helt själv de första försöken. Först från tredje försöket (misses>=2) smyger
+  // en svag "magnet" in mot stödpunkten. Skicklighet ska kännas, aldrig krävas.
+  _centreraSteg() {
+    if (!this._alive || this._phase !== 'fall' || !this._active) return
+    const b = this._active.body
+    if (!b) return
+    const slow = b.speed < REST_SPEED && b.angularSpeed < ANG_REST
+    if (this._misses >= 2 && !slow) {
+      const pull = 0.0006 * (this._misses - 1)
+      Body.applyForce(b, b.position, { x: (this._supportX - b.position.x) * pull * b.mass, y: 0 })
     }
   },
 
@@ -780,6 +790,8 @@ export default {
     this._alive = false
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._unbind?.()
+    this._avHjalp?.()
+    this._avHjalp = null
     this._unbindImpact?.()
     this._spawnCall?.kill()
     this._finishCall?.kill()

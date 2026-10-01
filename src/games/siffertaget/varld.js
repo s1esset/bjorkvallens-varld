@@ -21,6 +21,10 @@ import { BLEED_X } from '../../lib/view.js'
 
 export const STATION_X = 640 // stationens mitt när tåget stannat
 export const STATION_HALV = 340 // perrongens halva bredd + marginal (för in-/utkörning)
+// Barnets egen figur på perrongen (LYFTPLAN §10): en fjärde gäst mellan Bobo och björnen.
+export const GAST_X = 100
+export const GAST_HOJD = 104
+export const GAST_BREDD = 84
 
 const BAS_Y = 296 // horisonten / rälsens bakkant (samma som HORIZON_Y i index.js)
 const C_HILL_FAR = 0xd9e8bf
@@ -250,6 +254,8 @@ export class Varld {
     this._st = null // { x0, s0 } medan stationen är framme
     this._djur = []
     this._bobo = null
+    this._egen = null // barnets figur på perrongen (EgenFigur) — bara medan stationen står
+    this._malX = 0
 
     // BAK: ligger mellan scenen och banvallen (kullar, träd, stolpar, stationshuset).
     this.bak = new Container()
@@ -320,6 +326,8 @@ export class Varld {
     const x = st.x0 + (s - st.s0)
     this._stBak.x = x
     this._stFram.x = x
+    // Gästen tittar mot tåget (look() räknar i förälderns rum: perrongens).
+    if (this._egen?._alive) this._egen.look(this._malX - x, 250)
     if (x > this._view.right + STATION_HALV + 40) this.stationDolj()
   }
 
@@ -333,7 +341,30 @@ export class Varld {
     this._stFram.visible = true
   }
 
+  /** Ställ barnets figur på perrongen (ersätter en som står kvar). malX = där tåget står. */
+  sattGast(fig, malX) {
+    this._rivGast()
+    if (!this._alive || !fig) return
+    this._egen = fig
+    this._malX = malX
+    fig.view.position.set(GAST_X, 398)
+    this.fram.addChild(fig.view)
+  }
+
+  _rivGast() {
+    const e = this._egen
+    this._egen = null
+    if (!e) return
+    if (e.view && !e.view.destroyed) {
+      gsap.killTweensOf(e.view)
+      gsap.killTweensOf(e.view.scale)
+    }
+    e.destroy()
+  }
+
   stationDolj() {
+    // Figuren följer med stationen ut ur bild — den rivs när perrongen gömts, aldrig mitt i bild.
+    this._rivGast()
     this._st = null
     if (this._stBak && !this._stBak.destroyed) this._stBak.visible = false
     if (this._stFram && !this._stFram.destroyed) this._stFram.visible = false
@@ -374,6 +405,8 @@ export class Varld {
       squash,
       { intensity: 1.1 },
     )
+    // Barnets figur vinkar med de andra: en kompis med armen, ett knytt med ett skutt.
+    this._egen?.react('hej')
     this._bobo?.react('jubel')
     const x = this._stFram.x
     for (const [dx, y] of [[-200, 320], [0, 300], [200, 320]]) sparkle(ctx.fxLayer, x + dx, y, { count: 5 })
@@ -391,6 +424,7 @@ export class Varld {
         if (n.scale) gsap.killTweensOf(n.scale)
       }
     }
+    this._rivGast()
     this._bobo?.destroy()
     this._bobo = null
     this._djur = []

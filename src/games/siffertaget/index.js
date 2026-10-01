@@ -21,7 +21,8 @@ import { COLORS, FONT, PLAYFUL, PRAISE } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { verticalFill } from '../../lib/form.js'
 import { createScene } from '../../lib/scene.js'
-import { Varld, STATION_X, STATION_HALV } from './varld.js'
+import { Varld, STATION_X, STATION_HALV, GAST_HOJD, GAST_BREDD } from './varld.js'
+import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 
 // Lastens ritnyckel per vagnsnummer (emoji-strängen är nyckel in i artikoner.js — föremålen
 // RITAS, de är inte glyfer). Rundans vagnar håller sig alltid inom 1–5.
@@ -872,6 +873,7 @@ export default {
     const s0 = this._scroll.s
     const x0 = ctx.view.left - STATION_HALV - 20
     this._varld.stationVisa(s0, x0)
+    this._egenGast(ctx)
     this._depart = gsap.timeline()
     this._depart.to(
       this._scroll,
@@ -943,6 +945,18 @@ export default {
       this._level++
       this._newRound(ctx)
     })
+  },
+
+  // Barnets egen figur står bland gästerna på perrongen — en gång per ankomst (valjEgna räknar
+  // takten: varannan station, annars bara kanin, Bobo och björn). Byggs vid ankomsten och
+  // följer med stationen ut ur bild. En ny figur presenteras; andra får bilden räcka, så
+  // ett mött knytt aldrig kallas "ditt".
+  _egenGast(ctx) {
+    const [beskr] = valjEgna(ctx.services, 'siffertaget', { antal: 1 })
+    if (!beskr || !this._alive || !this._varld) return
+    const fig = byggEgenFigur(ctx, beskr, { hojd: GAST_HOJD, maxBredd: GAST_BREDD })
+    this._varld.sattGast(fig, this._engineX)
+    presentera(ctx, fig, { knytt: 'Titta, ditt knytt står på perrongen!', kompis: 'Titta, din kompis står på perrongen!' })
   },
 
   // Tvekan och idle. Båda räknar bara TYSTNAD utan att barnet rör något: medan en replik talar

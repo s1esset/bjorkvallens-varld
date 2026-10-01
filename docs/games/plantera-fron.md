@@ -106,6 +106,8 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
   mitten och emojin täcker ~46, så emojin ÄR i praktiken blommans ansikte — på gränsen till
   P0 ASSETS ("detalj ovanpå, aldrig hela föremålet"). Lösningen vore en ritad pistill/ansikte
   i stället för `FLOWERS`, men det byter blommornas utseende och är ett ägarbeslut.
+  **Ägarbeslut 2026-10-01 (FYSIKPLAN Ä12): ja — rita blomhuvudet.** Kronblad och ansikte som
+  riktig form; emojin blir en detalj eller försvinner. Köad som **[Quick]** i FYSIKPLAN omgång 0.
 
 ### Progression
 - **[Medium] En trädgård som minns.** Visa `custom.flowers` som en faktisk **rabatt** längst ner

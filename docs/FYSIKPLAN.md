@@ -52,7 +52,7 @@ sparar 0,04 ms · **broadphase/kollisionsfilter** — kroppstalen är tiotal, in
 behörighetsdialog på iOS/iPadOS (G7) · **p2-es** — LYFTPLAN A1.
 
 **Spelgenomgången (§5)** lade till tre spår — **P** fysik in i spelen, **U** omspelning, **L** bild
-— och 29 enkla vinster. Den största raden därifrån: tre kärnmekaniker är skriptade fast ett mätt
+— och 30 enkla vinster. Den största raden därifrån: tre kärnmekaniker är skriptade fast ett mätt
 verktyg redan finns — studsmattans studs (`Fjaderbrada`, P1), flipperspelets paddlar (R2) och
 byggtornets klossar som låses statiska (F1).
 
@@ -1296,7 +1296,7 @@ C-betygen (31 spel, §5.2) har fyra orsaker:
 
 ## 3. Utrullning i omgångar
 
-**Omgång 0 — enkla vinster, variation och bild** (föreslagen av spelgenomgången, ordningen är Ä11):
+**Omgång 0 — enkla vinster, variation och bild** (ur spelgenomgången; byggs FÖRE omgång 1, Ä11):
 **U1** → **U2** (ett spel per commit) · de enkla vinsterna i §5.4 · **P5** · **L1** → **L2**. Inget
 här rör det omgång 1 mäter, utom L1 (`scene.js`) och P5 (`partiklar.js`), som körs med `_ab.sh`
 som allt annat. Inga spelfiler ändras medan en sond eller `_ab.sh` kör (CLAUDE.md).
@@ -1357,8 +1357,8 @@ de nya kunderna i F4/F5/F6 ur §5.5 · **U3** via `/polera <id>`.
 | **Ä8** | Vill du ha `kulbana`s slow-motion-repris av den lyckade rullningen (köad [Deep] i spelets doc)? | Ja. Den blir billig när inspelningen (F8) finns, och den belönar bygget, inte bara träffen. | **Ja** (enligt förslaget). |
 | **Ä9** | Bryggan för avbrutna pekningar (K1) gör ett avbrutet finger till ett släpp — i alla spel samtidigt. Okej? | Ja, om M3 visar att greppen fastnar i dag. Alternativet är en kontroll som slutar svara. | **Ja, om M3 visar fastnade grepp** (enligt förslaget). |
 | **Ä10** | Omgång 1 ändrar fysiken där den i dag beror på bildtakten — mycket under 60 fps, lite vid 60 Hz (bara rutorna med noll eller två steg). Får den byggas som en omgång? | Ja. Harnessens skärmdumpar flyttar sig lite (57 fps-fysiken blir 60 Hz-fysik) — det ska stå i varje commit. | **Ja, en omgång** (enligt förslaget). |
-| **Ä11** | Spelgenomgången (§5) gav enkla vinster, variation (U) och bildlyft (L) som inte beror på libbändringarna i omgång 1. Ska de byggas FÖRE omgång 1 (som omgång 0), EFTER, eller i egna pass mellan omgångarna? | Före, som omgång 0. Barnen märker dem direkt, de rör inga bibliotek som omgång 1 mäter (utom L1 och P5, som får `_ab.sh` som allt annat) och de är klara på några pass. Regeln står kvar: inga spelfiler ändras medan en sond kör. | *Öppen* |
-| **Ä12** | `plantera-fron`s blomhuvud är en emoji-`Text` i storlek 92 som täcker kronbladen (`index.js:525`) — P0 `ASSETS` säger att en emoji aldrig får vara hela föremålet. Spelets doc har lämnat det som ägarbeslut. Ska blomman ritas? | Ja: rita blomhuvudet (kronblad och ansikte som riktig form) och låt emojin bli en detalj eller försvinna. Blommorna byter utseende, därför är det ditt beslut. | *Öppen* |
+| **Ä11** | Spelgenomgången (§5) gav enkla vinster, variation (U) och bildlyft (L) som inte beror på libbändringarna i omgång 1. Ska de byggas FÖRE omgång 1 (som omgång 0), EFTER, eller i egna pass mellan omgångarna? | Före, som omgång 0. Barnen märker dem direkt, de rör inga bibliotek som omgång 1 mäter (utom L1 och P5, som får `_ab.sh` som allt annat) och de är klara på några pass. Regeln står kvar: inga spelfiler ändras medan en sond kör. | **Ja, före — som omgång 0** (enligt förslaget). |
+| **Ä12** | `plantera-fron`s blomhuvud är en emoji-`Text` i storlek 92 som täcker kronbladen (`index.js:525`) — P0 `ASSETS` säger att en emoji aldrig får vara hela föremålet. Spelets doc har lämnat det som ägarbeslut. Ska blomman ritas? | Ja: rita blomhuvudet (kronblad och ansikte som riktig form) och låt emojin bli en detalj eller försvinna. Blommorna byter utseende, därför är det ditt beslut. | **Ja, rita blomman** (enligt förslaget). |
 
 ---
 
@@ -1456,6 +1456,7 @@ finns i tabellerna i §5.7 som "köad".
 | loopdjuren | scenfärg per nivå | alltid `candy` `:91` |
 | borsta-tanderna | kranen går att trycka på | `_rum.kran.pa` bara i finalen `:1441` |
 | studsmatta | målens jitter redan från nivå 0 | jitter först från nivå 4 `:500` |
+| plantera-fron | rita blomhuvudet (Ä12, beslutat) | ✔ emoji-`Text` i storlek 92 `:525` |
 
 ### 5.5 Nya kunder till befintliga arbetsordrar
 
@@ -1615,3 +1616,6 @@ inget annat anges.
   fynden: tre kärnmekaniker är skriptade fast ett mätt verktyg finns (studsmattans studs,
   flipperspelets paddlar, byggtornets låsta klossar), och `meadow`-presetens släta kupoler är
   bildtaket för 24 spel.
+- **2026-10-01** · Ägaren besvarade Ä11 och Ä12, båda enligt förslaget: omgång 0 (enkla vinster,
+  U, P5, L) byggs FÖRE omgång 1, och `plantera-fron`s blomhuvud ritas (står nu även i spelets
+  doc §4). Alla tolv ägarbeslut är tagna.

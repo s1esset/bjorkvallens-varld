@@ -33,7 +33,7 @@ import { byggSkal, iSkal, paseHylla } from './fysik.js'
 import { GOLV, BANK, SPIS, REGLAGE, PASE, GRYTA, LOCK, BORD, SKAL, POPCORN, KORN, FULL_SKAL } from './matt.js'
 import { ritaRum, ritaPlatta, ritaReglage, ritaGryta, ritaLock, ritaPase, ritaSkal, ritaKorn, popcornForm, ritaPopcorn, ritaPopcornMjuk } from './konst.js'
 import { dragGaster, skapaGast } from './gaster.js'
-import { valjEgna } from '../../lib/egnafigurer.js'
+import { valjEgna, minnsMott } from '../../lib/egnafigurer.js'
 
 const STEG_MS = 1000 / 60
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v)
@@ -599,7 +599,8 @@ export default {
     // Barnets EGET knytt eller kompis (LYFTPLAN §10): det barnet nyss skapat kommer alltid på
     // nästa kalas, sedan varannan omgång. Det tar det slumpade knyttets plats om ett sådant
     // drogs, annars en slumpad gästs — platsen (och skålens ägare) står kvar.
-    const [egen] = valjEgna(ctx.services, 'popcornkalaset')
+    // `motta: false`: soffan slumpar redan fram nya knytt — ett MÖTT knytt här vore en repris.
+    const [egen] = valjEgna(ctx.services, 'popcornkalaset', { motta: false })
     let egenI = -1
     if (egen && val.length) {
       egenI = val.findIndex((v) => v.typ === 'knytt')
@@ -616,6 +617,9 @@ export default {
       g.hungrig()
       return g
     })
+    // Soffans slumpade knytt har barnet nu MÖTT — de får dyka upp i andra spel under sessionen
+    // (LYFTPLAN F5.4, "så mycket variation som möjligt").
+    for (const g of this._gaster) if (g.post) minnsMott(ctx.services, 'knytt', g.post)
     // Första kalaset med en figur barnet NYSS skapat: säg det, och knyttets namn som ett eget
     // klipp efteråt. Köat bakom introt; tystnar om omgången hunnit bytas.
     const egenGast = egenI >= 0 ? this._gaster[egenI] : null

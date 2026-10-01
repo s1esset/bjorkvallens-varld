@@ -201,6 +201,10 @@ function byggNyttKnytt(rng, audio, senare, post = null) {
     g: Math.floor(rng() * 4),
   }
   const fig = byggKnytt(post ? dnaFranPost(post) : dnaFromSeed(seed, val), { r: 60, audio, senare })
+  // Det slumpade knyttet som en SPARPOST, så det kan dyka upp igen i andra spel (`minnsMott`,
+  // LYFTPLAN F5.4). Generation 0 utan tier och flaggor: `dnaFranPost` av den här posten ger
+  // exakt samma individ som `dnaFromSeed(seed, val)` ovan (_egnafigurprobe M3).
+  const sparpost = post || [seed, val.f, val.z, val.m, val.v, 0, val.g, 0, 0]
   // Knyttets mått läses ur dess fästpunktspost (`_m`, satt vid bygget, skrivs aldrig om) och
   // storleksfaktorn `_bas`. Origo = fötterna; kroppens botten sitter på −benhöjden.
   const m = fig._m || {}
@@ -225,6 +229,7 @@ function byggNyttKnytt(rng, audio, senare, post = null) {
     huvud: { x: 0, y: (Number.isFinite(m.faceY) ? m.faceY : -80) * bas },
     mun: { x: 0, y: (Number.isFinite(m.munY) ? m.munY : -60) * bas },
     natur: 0,
+    post: sparpost,
   }
 }
 
@@ -299,6 +304,8 @@ class Gast {
     else d = byggNyttKnytt(slump, audio, senare, egen?.data || null)
     // Namnet (bara ett knytt har ett) — spelet säger det när barnets eget knytt kommer.
     this.namn = this.typ === 'knytt' && egen ? d.fig?._dna?.namn ?? null : null
+    // Ett SLUMPAT knytts sparpost — spelet låter andra spel minnas det (`minnsMott`).
+    this.post = this.typ === 'knytt' && !egen ? d.post || null : null
     // Golvkudden (x 632) står trångt: reglagets plus slutar på x ~528 och skål 0 börjar på
     // x 599. En något mindre gäst där skymmer skålen mindre (§ rapporten: platsen bör flyttas).
     if (this.plats.id === 'kudde') d.s *= 0.85

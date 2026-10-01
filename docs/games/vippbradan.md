@@ -189,3 +189,5 @@ Kort sagt: *mekaniskt rik men känslomässigt tom* — grodan och korgen saknar 
     mätte den först i partiklarnas FÖDELSEÖGONBLICK, då alla ligger i en klump: 3 och 10
     partiklar gav samma pixeltal (verifierat i bild — ett enda grått klot).
   Kontroll: `check` 0 fel/0 varningar · `npm run test vippbradan` grön · `_vippprobe` grön.
+
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Mottagaren byts per nivå (`_bytMottagare` i `_loadLevel`): varannan nivå står barnets EGET knytt eller kompis vid korgen (`figurForOmgang`, r 50), annars Bobo. Samma `look/react/setMood` som förut — figuren följer grodan med blicken. Sond: `scripts/_egnafigurprobe.mjs` (41/41).

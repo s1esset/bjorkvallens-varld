@@ -12,6 +12,7 @@ import { gsap } from 'gsap'
 import { PhysicsWorld, MATERIALS, Matter, predictTrajectory } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { figurForOmgang, presentera } from '../../lib/egnafigurer.js'
 import { Button } from '../../lib/Button.js'
 import { puff, sparkle, floatText, pop, wiggle, bounceIn , kvittera} from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
@@ -199,9 +200,11 @@ export default {
     // Riggen ÄR den här kroppen, plus en arm med egen pivå och ett ansikte som lever.
     // Riggen ligger i en YTTRE container: spelet äger `pop`/`wiggle` på den, riggen
     // sin egen `view.scale` (andningen). Två skrivare om samma skala hackar.
+    //
+    // Varannan nivå står barnets EGET knytt eller kompis där i stället (LYFTPLAN §10) — samma
+    // Karaktar-yta, så resten av spelet märker ingen skillnad. Byts i _bytMottagare per nivå.
     this._bobo = new Container()
-    this._kar = makeKaraktar({ r: 50 })
-    this._bobo.addChild(this._kar.view)
+    this._kar = null
     this._bobo.eventMode = 'none'
     this._bobo.interactiveChildren = false
     this._root.addChild(this._bobo)
@@ -322,9 +325,20 @@ export default {
     const tx = clamp(1080 + level * 24, 1080, 1180)
     const ty = clamp(450 - level * 16, 320, 450)
     const r = clamp(100 - level * 4, 72, 100)
+    this._bytMottagare(ctx)
     this._setTarget(ctx, tx, ty, r)
 
     this._resetSeesaw(ctx)
+  },
+
+  // Mottagaren för den här nivån: barnets egen figur när takten säger det, annars Bobo.
+  // Den gamla rivs först — riggarna städar sina egna tweens och sin tick i destroy().
+  _bytMottagare(ctx) {
+    if (!this._bobo || this._bobo.destroyed) return
+    this._kar?.destroy()
+    this._kar = figurForOmgang(ctx, 'vippbradan', { r: 50, reserv: () => makeKaraktar({ r: 50 }) })
+    this._bobo.addChild(this._kar.view)
+    presentera(ctx, this._kar, { knytt: 'Titta, ditt knytt är här!', kompis: 'Titta, din kompis är här!' })
   },
 
   _setTarget(ctx, x, y, r) {

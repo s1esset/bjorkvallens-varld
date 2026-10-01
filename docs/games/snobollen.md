@@ -279,3 +279,5 @@ auto-hjälpen kan spela banan åt barnet**.
   =` i ett spel — hela repot är rent (snöbollen var enda träffen).
   Statusen går till ✅: alla åtta grindpunkter höll redan, det var bilden som ljög.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): flingornas wrap/respawn mot `ctx.view`, backens band + väderljus + styryta breddade (styrytan gör kantremse-tryck levande), gransiluetter från i=−2. Testad båda viewports: 0 fel.
+
+- **2026-10-02 · T2: styrning, hjälpskjuts och anti-tunnel-clamp per fysiksteg via phys.beforeStep — 57 fps-fysiken blir 60 Hz-fysik.** `_styrSteg` registreras en gång i `init` (`_avStyr`, avregistreras i `destroy`). Fart-blandningarna `v += (mål − v) · k` (STEER_BLEND, skjutsens 0,12) var en per bildruta och kördes EFTER `phys.update`; nu körs de precis FÖRE varje steg (blanda → clamp → steg — samma följd som förut, förskjuten en halv bildruta), så svaret vid 60 Hz (ett steg per bildruta) är detsamma. `_steering`/`_tapSteerT`/`_fingerX` läses direkt ur fälten i steget. Timers (`_tapSteerT`, `_helpPushT`), glitter, `_drawHint`, onGround/frameDist ligger kvar per bildruta.

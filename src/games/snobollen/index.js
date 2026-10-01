@@ -275,6 +275,8 @@ export default {
     this._buildFlakes(ctx) // faller i skärmrymd, framför världen
 
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Styrning, hjälpskjuts och anti-tunnel-clamp per FAST fysiksteg (T2) — avregistreras i destroy.
+    this._avStyr = this._phys.beforeStep(() => this._styrSteg())
 
     this._tick = (ticker) => {
       if (!this._alive) return
@@ -1124,6 +1126,32 @@ export default {
     this._glodFull = full
   },
 
+  // Barnets direkta kontroll + hjälpskjutsen, EN gång per fast fysiksteg (`phys.beforeStep`): fart-
+  // blandningarna `v += (mål − v) · k` är per STEG, så svaret är detsamma på varje skärm (förut en
+  // blandning per bildruta). Ordningen mot steget är oförändrad: blanda → clamp → steg — det som
+  // förut kördes efter `phys.update` i bildrutan kör nu precis före nästa steg. Läser fälten
+  // (_steering, _tapSteerT, _fingerX) direkt; timers och bild räknas kvar per bildruta i _gameTick.
+  _styrSteg() {
+    if (!this._alive || this._resolving) return
+    const b = this._ballBody
+    if (!b) return
+    const steeringNow = this._steering || this._tapSteerT > 0
+    // Autohjälpens SKJUTS (barnets eget drag tar alltid över direkt).
+    if (this._helpPushT > 0 && !steeringNow) {
+      const d = 2.8 + this._helpCount * 0.4
+      Body.setVelocity(b, { x: b.velocity.x + (d - b.velocity.x) * 0.12, y: b.velocity.y })
+    }
+    if (steeringNow) {
+      const desired = clamp((this._fingerX - b.position.x) * STEER_GAIN, -STEER_MAX, STEER_MAX)
+      const vx = b.velocity.x
+      Body.setVelocity(b, { x: vx + (desired - vx) * STEER_BLEND, y: b.velocity.y })
+    }
+    // Hastighets-clamp (anti-tunnel).
+    const cvx = clamp(b.velocity.x, -MAX_V, MAX_V)
+    const cvy = clamp(b.velocity.y, -MAX_V, MAX_V)
+    if (cvx !== b.velocity.x || cvy !== b.velocity.y) Body.setVelocity(b, { x: cvx, y: cvy })
+  },
+
   _gameTick(ctx, ticker) {
     const dt = Math.min(ticker.deltaMS / 1000, 0.05)
     this._gt += dt
@@ -1143,11 +1171,10 @@ export default {
     // Autohjälpens SKJUTS: en kort, synlig puff i ryggen (inte bara en impuls — en
     // impuls kan inte ta sig uppför en hoppkulle, energin räcker helt enkelt inte).
     // Barnets eget drag tar alltid över direkt.
+    // Själva fart-blandningen ligger i `_styrSteg` (phys.beforeStep); här bara timern och glittret.
     if (this._helpPushT > 0) {
       this._helpPushT -= dt
       if (!steeringNow) {
-        const d = 2.8 + this._helpCount * 0.4
-        Body.setVelocity(b, { x: b.velocity.x + (d - b.velocity.x) * 0.12, y: b.velocity.y })
         if (this._gt - this._lastHelpFx > 0.22) {
           this._lastHelpFx = this._gt
           sparkle(ctx.fxLayer, this._fx(b.position.x - this._r * 0.9), this._fy(b.position.y), { count: 4 })
@@ -1155,17 +1182,7 @@ export default {
       }
     }
     if (this._helpCount && b.position.x > this._helpFromX + 160) this._helpCount = 0 // hjälpen "kvitterad" först när bollen tagit sig vidare
-    if (steeringNow) {
-      const desired = clamp((this._fingerX - b.position.x) * STEER_GAIN, -STEER_MAX, STEER_MAX)
-      const vx = b.velocity.x
-      Body.setVelocity(b, { x: vx + (desired - vx) * STEER_BLEND, y: b.velocity.y })
-      if (this._steering) this._drawHint()
-    }
-
-    // Hastighets-clamp (anti-tunnel).
-    const cvx = clamp(b.velocity.x, -MAX_V, MAX_V)
-    const cvy = clamp(b.velocity.y, -MAX_V, MAX_V)
-    if (cvx !== b.velocity.x || cvy !== b.velocity.y) Body.setVelocity(b, { x: cvx, y: cvy })
+    if (steeringNow && this._steering) this._drawHint()
 
     const spd = Math.hypot(b.velocity.x, b.velocity.y)
     const surfY = surfaceY(b.position.x)
@@ -1797,6 +1814,8 @@ export default {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
     this._unbind?.()
+    this._avStyr?.()
+    this._avStyr = null
     this._growTween?.kill()
     this._helpTimer?.kill()
     this._nextTimer?.kill()

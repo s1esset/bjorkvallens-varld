@@ -33,6 +33,7 @@ import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { nastaVariant } from '../../lib/variation.js'
 import { bounceIn, pop, puff, sparkle, ripple, burst, floatText, kvittera } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { figurForOmgang, presentera } from '../../lib/egnafigurer.js'
@@ -152,6 +153,7 @@ export default {
     this._magnetHelp = false
     this._vesselBodies = [] // kärlets statiska kroppar (byts per nivå)
     this._vessel = VESSELS[0]
+    this._vesselForra = null // förra tornets kärl-id (nastaVariant undviker att upprepa det)
     this._mouthR = VESSELS[0].mouthR
     this._columnMax = VESSELS[0].columnMax
     this._glitterT = 0 // timer för regnbågskulans gnistror
@@ -416,7 +418,11 @@ export default {
     for (const b of this._vesselBodies) this._phys.removeBody(b)
     this._vesselBodies = []
 
-    const v = VESSELS[this._level % VESSELS.length]
+    // Kärlet lottas (U2): aldrig samma som förra tornet, så struten, bägaren och skålen kommer i
+    // ny ordning varje gång. Allra första tornet (nivå 0) är alltid struten — den lagom
+    // avvägningen, innan bägarens höga väggar eller skålens låga kant gör något att tänka på.
+    const v = this._level <= 0 && !this._vesselForra ? VESSELS[0] : nastaVariant(VESSELS, this._vesselForra)
+    this._vesselForra = v.id
     this._vessel = v
     this._mouthR = v.mouthR
     this._columnMax = v.columnMax

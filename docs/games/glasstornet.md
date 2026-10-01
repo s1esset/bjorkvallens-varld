@@ -107,6 +107,9 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
 - ~~**[Quick] Variera struten/skålen per nivå.**~~ ✅ 2026-08-06 — och de skiljer sig i
   fysik, inte bara utseende. Se §5.
 
+- ~~**[Quick] Kärlet i fast cykel (strut → bägare → skål, `level % 3`) (U2).**~~ ✅ 2026-10-02 — lottas
+  med `nastaVariant`, se §5.
+
 ### Juice
 - ~~**[Quick] Mjukt "plopp" + smask**~~ ✅ 2026-07-01. ~~**[Quick] Nestle-squash.**~~ ✅ 2026-07-01.
 - ~~**[Quick] Strössel-regn vid finalen**~~ ✅ 2026-08-06 (`_sprinkleRain`).
@@ -133,6 +136,15 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
   blockerad så länge MOSS är nere.*
 
 ## 5. Status / loggar
+
+- 2026-10-02 · **Kärlet utan upprepning (U2)** (FYSIKPLAN omgång 0, nattkörning B4). `_buildVessel` tog
+  `VESSELS[level % 3]` — alltid strut → bägare → skål, i samma ordning. Nu lottas kärlet med
+  `nastaVariant(VESSELS, förra id)`: aldrig samma kärl två torn i rad, ordningen byter. Allra första
+  tornet (nivå 0) är alltid struten (den lagom avvägningen innan bägarens höga väggar och skålens låga
+  kant). Svårighetens mått ligger i `_goal` (3 → 4 kulor ur nivån) och kärlens egna fysiktal — båda
+  orörda; kärlen balanserades mot varandra redan 2026-08-06 (strut 5, bägare 5, skål 6 släpp). Rösten
+  säger fortfarande vilket kärl som står framme (inga nya repliker). Mätning: `g._vessel.id`.
+  Doc-drift: §1 rad 13 ("i cykel") gäller inte längre — det är nu slumpat.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): inga A-rader för spelet; passet var
   firandet. `_finishTower` regnade egen konfetti i samma tick som `complete()` (struken). Efter

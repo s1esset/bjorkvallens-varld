@@ -40,6 +40,7 @@ import { pop, wiggle, sparkle, puff, burst, liv, ripple, kvittera, squash, shake
 import { COLORS, PRAISE, shade } from '../../lib/theme.js'
 import { verticalFill, groundFill, topLightFill, sphereFill } from '../../lib/form.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { valjEgna, byggEgenFigur } from '../../lib/egnafigurer.js'
 
 const W = 1280
 const H = 720
@@ -523,12 +524,21 @@ export default {
 
     // Sällsynt: en sovande katt som ligger ovanpå en av sakerna och först måste
     // spinna färdigt. Motgång med rolig ton, aldrig ett stopp.
+    //
+    // LYFTPLAN §10 (Spår F): varannan runda (och direkt efter att barnet skapat något) är det
+    // BARNETS EGET knytt som sover där i stället — `sover`/`vakna` är mekaniken — eller en
+    // kompis som gömmer sig (bara knytt kan sova). Finns inget står katten kvar som förut. En
+    // runda med barnets figur har ALLTID en sovare (annars hamnade en ny figur i en 55 %-lucka);
+    // `valjEgna` anropas exakt en gång per runda, för anropet räknar takten.
     this._katt = null
-    if (Math.random() < 0.45) {
+    this._runda = (this._runda | 0) + 1
+    const [egen] = valjEgna(ctx.services, 'skattjakt-i-morkret')
+    if (egen || Math.random() < 0.45) {
       const offer = randomFrom(this._mal)
       offer._blockad = true
       offer._underKatt = true // får en extra fanfar när den väl syns (`_upptack`)
-      this._byggKatt(offer)
+      if (egen) this._byggSovare(ctx, offer, egen)
+      else this._byggKatt(offer)
     }
 
     this._byggHylla()
@@ -565,6 +575,10 @@ export default {
   // fördröjning skulle annars skriva på en förstörd Graphics efter att en ny runda byggts.
   _rivSaker() {
     this._dodaRundansTweens()
+    // Barnets sovande knytt först: den tickar på ctx.ticker och har noder en nivå in, så en
+    // bar `destroy()` på hållaren nedan hade lämnat den levande utan förälder.
+    this._egenFig?.destroy()
+    this._egenFig = null
     for (const barn of this._saker.removeChildren()) barn.destroy({ children: true })
     for (const barn of this._flyg.removeChildren()) barn.destroy({ children: true })
     for (const barn of this._glimtar.removeChildren()) barn.destroy({ children: true })
@@ -668,6 +682,34 @@ export default {
     k._sak = sak
     k._vaknat = false
     k._lyst = 0
+    this._saker.addChild(k)
+    this._katt = k
+  },
+
+  // Barnets eget knytt som sover ovanpå en sak (i stället för katten). Samma hållare-kontrakt
+  // som katten (`_bild`, `_sak`, `_vaknat`, `_lyst`), så uppdateringen, städningen och
+  // väckningen kan dela vägar. Knyttet ritas i mörkret under ljuset som allt annat i `_saker`,
+  // och sover tills lampan legat på det en stund: `setMood('sover')` söver, `setMood('glad')`
+  // väcker. Fötterna står där katten hade sin skugga.
+  _byggSovare(ctx, sak, beskr) {
+    const k = new Container()
+    k.position.set(sak.x + 4, sak.y + 44)
+    k.eventMode = 'none'
+    const skugga = new Graphics().ellipse(0, 0, 54, 12).fill({ color: 0x000000, alpha: 0.3 })
+    skugga.eventMode = 'none'
+    const bild = new Container() // hållaren som får vippa — knyttet har sina egna rörelser
+    const fig = byggEgenFigur(ctx, beskr, { hojd: 104, maxBredd: 118, skugga: false })
+    bild.addChild(fig.view)
+    k.addChild(skugga, bild)
+    // Ett knytt SOVER. En kompis kan inte somna — den står stilla och gömmer sig i mörkret,
+    // och vaknar till liv (vinkar, jublar) när lampan hittar den. Samma väg, annan väckning.
+    if (fig.kan.sova) fig.setMood('sover')
+    k._bild = bild
+    k._sak = sak
+    k._vaknat = false
+    k._lyst = 0
+    k._egen = fig
+    this._egenFig = fig
     this._saker.addChild(k)
     this._katt = k
   },
@@ -805,8 +847,9 @@ export default {
       if (katt._lyst > 0.45) this._vackKatt(ctx, katt)
     }
 
-    // Bobo tittar dit barnet lyser.
+    // Bobo tittar dit barnet lyser — och det väckta knyttet också.
     this._bobo?.look(this._lx, this._ly)
+    if (katt?._egen && katt._vaknat && !katt.destroyed) katt._egen.look(this._lx - katt.x, this._ly - katt.y)
 
     // Idle: mjuk om-cue, andra gången en ring där något gömmer sig. Aldrig en tillsägelse.
     // Tomgången räknas från TYSTNAD: medan rösten talar står klockan på noll, annars
@@ -968,7 +1011,14 @@ export default {
     this._bobo?.react('nyfiken')
     if (!this._forstaFyndet) {
       this._forstaFyndet = true
-      ctx.services.voice.say('Där är något! Tryck på den.')
+      if (sak._underKatt && ctx.services.voice.talar) {
+        // Sakens sovare (katten/knyttet) har just väckts och rösten pratar fortfarande — köa
+        // instruktionen i stället för att kapa väckningsraden (och knyttets namn) mitt i.
+        const runda = this._runda
+        ctx.narTyst(() => {
+          if (this._alive && this._runda === runda && !sak._tagen) ctx.services.voice.say('Där är något! Tryck på den.')
+        })
+      } else ctx.services.voice.say('Där är något! Tryck på den.')
     } else if (Math.random() < 0.4) {
       ctx.services.voice.say('Lägg den i skattkistan!')
     }
@@ -1094,6 +1144,10 @@ export default {
     if (!this._alive || katt._vaknat) return
     katt._vaknat = true
     const a = ctx.services.audio
+    if (katt._egen) {
+      this._vackKnytt(ctx, katt)
+      return
+    }
     ctx.services.voice.say('En katt som sover! Titta vad den gömmer.')
     // Riktigt kattklipp om det finns; annars spinnandet som två låga svävande toner.
     if (!a.sample('djur_katt')) {
@@ -1111,6 +1165,40 @@ export default {
     })
     tl.to(katt, { x: katt.x + 156, duration: 1.1, ease: 'power1.inOut', delay: 0.35 })
     tl.to(katt, { y: katt.y - 8, duration: 0.18, yoyo: true, repeat: 5, ease: 'sine.inOut' }, 0.35)
+    this._tw.push(tl)
+  },
+
+  // Barnets knytt vaknar av lampan: gäspar till, jublar, skuttar åt sidan och lämnar saken bar.
+  // Det blir kvar i rummet (försvinner aldrig) och tittar efter ljuset medan barnet letar vidare.
+  // Raden är TRE varianter efter vem det är (barnets eget / bara mött); namnet köas som eget klipp.
+  _vackKnytt(ctx, katt) {
+    const fig = katt._egen
+    const a = ctx.services.audio
+    const runda = this._runda
+    const voice = ctx.services.voice
+    if (fig.typ === 'kompis') voice.say('Din kompis gömde sig här! Titta vad den gömmer.')
+    else if (fig.mott) voice.say('Ett knytt som sover! Titta vad det gömmer.')
+    else voice.say('Ditt knytt sover! Titta vad det gömmer.')
+    if (fig.ny && fig.namn) {
+      ctx.narTyst(() => {
+        if (this._alive && this._runda === runda && fig._alive) voice.say(fig.namn)
+      })
+    }
+    a.tone({ freq: 523.25, dur: 0.12, type: 'sine', vol: 0.1, slideTo: 783.99 })
+    fig.setMood('glad') // väcker knyttet (en kompis har inget att väcka — den jublar nedan)
+    sparkle(this._fx, katt.x, katt.y - 50, { count: 6 })
+    const riktning = katt._sak && katt._sak.x > 700 ? -1 : 1
+    const tl = gsap.timeline({
+      onComplete: () => {
+        if (!this._alive || this._runda !== runda) return
+        if (katt._sak) katt._sak._blockad = false
+        puff(this._fx, katt._sak?.x ?? katt.x, katt._sak?.y ?? katt.y, { count: 8, color: 0xd8d0c4 })
+        if (fig._alive) fig.react('heja')
+      },
+    })
+    tl.call(() => { if (this._alive && fig._alive) fig.react('jubel') }, null, 0.4)
+    tl.call(() => { if (this._alive && fig._alive) fig.react('hoppsan') }, null, 1.0)
+    tl.to(katt, { x: katt.x + 156 * riktning, duration: 1.1, ease: 'power1.inOut' }, 0.9)
     this._tw.push(tl)
   },
 
@@ -1210,6 +1298,8 @@ export default {
     gsap.killTweensOf(this._rot)
     this._bobo?.destroy()
     this._bobo = null
+    this._egenFig?.destroy()
+    this._egenFig = null
     ctx?.services?.voice?.cancel?.()
     this._rot?.destroy({ children: true })
     this._rot = null

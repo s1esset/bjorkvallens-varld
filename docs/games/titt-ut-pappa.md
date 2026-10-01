@@ -255,3 +255,6 @@ de kommer också ut vid SIDAN och i möbelns egen skala.
 mellan rundor. layout.js ny (ren Node-mätbar). Sju kompositionsfel hittade i BILD efter att
 alla tal var gröna — se §3b.`
 `2026-08-16 · ägarrapport: dörrens glugg, lampans lucka, tavla/klocka/matta som gömställen (v1.229.0). Se §3c.`
+
+
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Varannan runda gömmer sig barnets EGET knytt eller kompis på ett av ställena (`makeEgenKompis` i `kompisar.js`, samma fyndkontrakt), säger sin egen replik + knyttets namn när det hittas, och flyttar in på raden. `ljud.tyst` — figuren låter med sitt eget motiv/melodi. Sond: `scripts/_egnafigurprobe.mjs` (41/41).

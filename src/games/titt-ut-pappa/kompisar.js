@@ -17,6 +17,7 @@ import { drawIcon } from '../../lib/artikoner.js'
 import { topLightFill, sphereFill, rimLight } from '../../lib/form.js'
 import { COLORS, shade } from '../../lib/theme.js'
 import { liv as fbLiv, squash } from '../../lib/feedback.js'
+import { byggEgenFigur } from '../../lib/egnafigurer.js'
 
 export const KOMPISAR = ['strumpa', 'katt', 'anka', 'ballong', 'tetra', 'nalle', 'boll']
 
@@ -488,6 +489,38 @@ const BYGG = {
   tetra: byggTetra,
   nalle: byggNalle,
   boll: byggBoll,
+}
+
+// --- barnets egen figur ------------------------------------------------------
+// Ett knytt eller en kompis barnet själv skapat (LYFTPLAN §10) i SAMMA kontrakt som sakerna
+// ovan, så index.js gömmer, hittar, samlar och firar den utan en enda specialväg. Riggen har
+// sitt eget liv och sitt eget läte (knyttets motiv, kompisens melodi) — därför är `ljud` tyst
+// och `liv()` en no-op. Origo i figurens mitt, som de andra sakerna (skuggan på ~+54).
+export function makeEgenKompis(ctx, beskr) {
+  const fig = byggEgenFigur(ctx, beskr, { hojd: 104, maxBredd: 110 })
+  const view = new Container()
+  fig.view.y = 52
+  view.addChild(fig.view)
+  let dod = false
+  return {
+    key: beskr?.id || 'egen',
+    egen: fig,
+    view,
+    ljud: { tyst: true },
+    reagera() {
+      if (!dod) fig.react('jubel')
+    },
+    jubla() {
+      if (!dod) fig.react('jubel')
+    },
+    liv() {},
+    destroy() {
+      if (dod) return
+      dod = true
+      fig.destroy()
+      if (!view.destroyed) view.destroy({ children: true })
+    },
+  }
 }
 
 // --- fabriken ---------------------------------------------------------------

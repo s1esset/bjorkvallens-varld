@@ -30,7 +30,8 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { byggRum, makeGomstalle } from './rummet.js'
-import { KOMPISAR, makeKompis } from './kompisar.js'
+import { KOMPISAR, makeKompis, makeEgenKompis } from './kompisar.js'
+import { valjEgna } from '../../lib/egnafigurer.js'
 import { ANS_H, HALO, MOBLER, SLOTS, bytbaraPar, platsInfo, validera, valjUppsattning, varldsHit } from './layout.js'
 import { Ansikte, laddaAnsikte } from '../../lib/ansikte.js'
 import { burst, kvittera, puff, ripple, sparkle, wiggle } from '../../lib/feedback.js'
@@ -437,6 +438,12 @@ export default {
     // Överraskningarna lottas om varje runda — det är variationsaxeln (kvalitetsgrind 2).
     const pool = shuffle([...KOMPISAR])
     let pi = 0
+    // Varannan runda gömmer sig barnets EGET knytt eller kompis på ett av ställena (LYFTPLAN
+    // §10) — och det barnet nyss skapat alltid i nästa runda. Ett slumpat ställe av dem som
+    // får en överraskning; taklampan och pappas gömställe räknas inte.
+    const [egen] = valjEgna(ctx.services, 'titt-ut-pappa')
+    const fyndPlatser = this._platser.filter((p) => p !== gomma && p.slot.sort !== 'tak')
+    const egenPlats = egen && fyndPlatser.length ? randomFrom(fyndPlatser) : null
     for (const plats of this._platser) {
       this._tomPlats(plats)
       if (plats === gomma) {
@@ -445,9 +452,8 @@ export default {
       } else if (plats.slot.sort === 'tak') {
         plats.innehall = null // taklampan står tom när pappa inte sitter i den
       } else {
-        const key = pool[pi++ % pool.length]
-        plats.innehall = key
-        const kompis = makeKompis(key)
+        const kompis = plats === egenPlats ? makeEgenKompis(ctx, egen) : makeKompis(pool[pi++ % pool.length])
+        plats.innehall = kompis.key
         if (kompis) {
           // Kompisen får PLATSENS skala — samma funktion som möbeln och pappas huvud.
           kompis.view.scale.set(this._kompisSkala(plats))
@@ -794,9 +800,15 @@ export default {
     this._kompisLjud(ctx, kompis)
     sparkle(ctx.fxLayer, k.x, k.y - 30 * s, { count: 10 })
 
-    this._sag(ctx, kompis.key === 'strumpa'
-      ? 'Oj, en strumpa! Leta vidare.'
-      : 'Titta vad du hittade! Leta vidare.')
+    if (kompis.egen?.typ === 'knytt') this._sag(ctx, 'Titta, ditt knytt gömde sig här! Leta vidare.')
+    else if (kompis.egen) this._sag(ctx, 'Titta, din kompis gömde sig här! Leta vidare.')
+    else {
+      this._sag(ctx, kompis.key === 'strumpa'
+        ? 'Oj, en strumpa! Leta vidare.'
+        : 'Titta vad du hittade! Leta vidare.')
+    }
+    // Knyttets namn som ett EGET klipp efteråt (alla 24 namn har ett) — aldrig ihopfogat.
+    if (kompis.egen?.namn) this._sag(ctx, kompis.egen.namn)
 
     // Har den här sortens kompis redan flyttat in? Då hoppar nykomlingen bort till sin
     // tvilling och försvinner in i den i stället för att lägga sig som en till på raden.
@@ -939,6 +951,8 @@ export default {
 
   _kompisLjud(ctx, kompis) {
     const l = kompis.ljud || {}
+    // Barnets egen figur låter med sin EGEN röst (motivet/melodin) när den reagerar.
+    if (l.tyst) return
     const audio = ctx.services.audio
     if (l.klipp && audio.harSample?.(l.klipp) && audio.sample(l.klipp)) return
     const ton = l.ton || [520, 700]

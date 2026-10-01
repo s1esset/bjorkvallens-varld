@@ -251,3 +251,5 @@ inga spelobjekt är emoji-i-en-ruta längre. Kvarstående risker:
   kvar som reserv: utan DOM returnerar `repMesh` null och den gamla vägen ritar precis som förut.
   Mellansteg klipps in ur samma kvadratiska kurva som `repPath`, eftersom en MeshRope bara böjer
   sig i sina punkter och 20 solverpunkter ger synliga knän.
+
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Varannan bil (`valjEgna`, en gång per `_makeOwner`) är ägaren barnets EGET knytt/kompis i stället för Bobo/djuret: 180 px hög, fötterna på y 114 (djurens rum) med samma skugga. `kropp: false` var ingen enradsbytare — Bobo-grenen ritar jackan själv — så figuren ersätter hela ägaren (jacka/djur ritas inte) och tilldelas `this._kar`, vars yta (look · react · setMood · destroy) `_ownerLook`, `heja` vid varje ren fläck och rivningen redan använder. När bilen är ren: spelets hopp + `react('jubel')` (knyttets motiv / kompisens armar upp). Ny figur presenteras (`presentera`, två rader); inga andra repliker nämner ägaren, så mött-varianten behövs inte. Sond: `scripts/_egnakund.mjs zackes-biltvatt --bild`.

@@ -31,6 +31,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { puff, sparkle, floatText, ripple, wiggle, shake } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { valjEgna, byggEgenFigur, presentera, arEgen } from '../../lib/egnafigurer.js'
 import { Rep, repMesh } from '../../lib/rep.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { FONT, DESIGN_W } from '../../lib/theme.js'
@@ -886,7 +887,7 @@ export default {
     this._car.position.set(-360, CAR_Y)
     this._carLayer.addChild(this._car)
 
-    this._makeOwner(n)
+    this._makeOwner(ctx, n)
 
     // Smutsfläckar: växer lugnt med antal tvättade bilar (två faser tar tid).
     const antal = Math.min(3 + Math.floor(n * 0.8), 8)
@@ -1016,7 +1017,7 @@ export default {
   },
 
   // Ägaren: Bobo var tredje bil, annars ett RITAT djur (inga emoji-huvuden).
-  _makeOwner(n) {
+  _makeOwner(ctx, n) {
     // Riggen från förra bilen måste dö HÄR. `removeChildren().destroy()` river bara
     // displayträdet — riggens andning, blink och humör-tweens lever vidare och skriver
     // på en riven Graphics varje bildruta. Det är exakt `tween-lacka`.
@@ -1024,7 +1025,24 @@ export default {
     this._kar = null
     this._owner.removeChildren().forEach((c) => c.destroy({ children: true }))
     const c = new Container()
-    if (n % 3 === 0) {
+    // Barnets egen figur som ägare — varannan bil (valjEgna räknar takten, EN gång per bil).
+    // Hon står i djurens rum: fötterna på y 114, med samma lilla skugga. Utan egna figurer
+    // blir listan tom och ägaren är Bobo/djuret precis som förut.
+    const [beskr] = valjEgna(ctx.services, 'zackes-biltvatt', { antal: 1 })
+    if (beskr) {
+      const skugga = new Graphics().ellipse(0, 116, 44, 10).fill({ color: 0x000000, alpha: 0.16 })
+      skugga.eventMode = 'none'
+      const fig = byggEgenFigur(ctx, beskr, { hojd: 180, maxBredd: 140, skugga: false })
+      fig.view.y = 114
+      c.addChild(skugga, fig.view)
+      // Samma yta som riggen (look · react · setMood · destroy): _ownerLook, heja-reaktionen
+      // och rivningen i _makeOwner/destroy fungerar oförändrade.
+      this._kar = fig
+      presentera(ctx, fig, {
+        knytt: 'Titta, ditt nya knytt väntar på sin bil!',
+        kompis: 'Titta, din nya kompis väntar på sin bil!',
+      })
+    } else if (n % 3 === 0) {
       c.addChild(new Graphics().roundRect(-32, 34, 64, 74, 24).fill(0x8f6bd8))
       c.addChild(new Graphics().roundRect(-30, 96, 24, 16, 7).fill(0x5f4a94))
       c.addChild(new Graphics().roundRect(6, 96, 24, 16, 7).fill(0x5f4a94))
@@ -1869,6 +1887,8 @@ export default {
         // Spelets hopp på 46 px är större än riggens `jubel` (0,5·r = 26) och äger
         // därför `y`. Riggen bidrar med minen — stolt över sin skinande bil.
         this._kar?.setMood('stolt')
+        // Barnets egen figur firar med sitt eget (knyttets motiv / kompisens armar upp).
+        if (arEgen(this._kar)) this._kar.react('jubel')
         gsap.to(o, { y: this._ownerHomeY - 46, duration: 0.22, yoyo: true, repeat: 1, ease: 'power2.out' })
         floatText(this._fx, o.x, o.y - 90, '🎉', { fontSize: 54 })
       }

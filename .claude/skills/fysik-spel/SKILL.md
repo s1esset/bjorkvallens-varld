@@ -53,7 +53,19 @@ Mallar: **`rulla-bollen-hem`** (top-down minigolf, underlagsväxling), **`spinde
 - `beforeStep(cb)` — EN gång per fast steg, inte per bildruta. Allt som spelet självt driver med
   en fart (fjäderbräda, hiss, åra) måste röra sig i matters takt: farten är px/STEG och en
   bildruta rymmer 1–5 steg.
-- `update(deltaMS)` fast tidssteg · exit-säker `destroy()`.
+- **Kraftfält per fysiksteg (T1):** matter nollar krafterna efter varje steg och en bildruta har 0–2
+  steg, så en kraft som läggs per BILDRUTA blir 0/1/2× för stark (flyt-1,6-jämvikt 0,625 → 0,656 vid
+  57 fps → 1,000 vid 30 Hz). `new Flytvolym({ varld: phys, … })` registrerar sig SJÄLV i
+  `phys.beforeStep` (egen stegklocka för gupp/vaggning) — kalla ALDRIG `steg(t)` (no-op + dev-varning);
+  `perSteg: false` eller en rå matter-Engine ger gamla per-bildruta-vägen. `destroy()` avregistrerar.
+  Egna kraftfält (`Magnetfalt.dra`, simning, knuffar): lägg dem i `phys.beforeStep` (spara unbindern,
+  kalla den i `destroy`); ljud/bild/röst sätter en flagga i steget och löses in i tickern, ett fält
+  per kropp. Mät: `node scripts/_flytsteg.mjs` (Pixis Ticker vid 30–90 Hz, kontrollarm = HEAD-kopian).
+- `update(deltaMS)` fast tidssteg · exit-säker `destroy()`. **Ackumulatorsnäpp (T4, gäller även
+  `FluidWorld.update`):** en bildruta inom 0,5 ms från 16,67 ms räknas som exakt ett steg. Utan det
+  slår vsync-jitter (±0,1 ms) restens tröskel fram och tillbaka → 32 % noll- och 34 % dubbelstegsrutor
+  vid 60,00 Hz (ryck), med snäpp 0 / 98 / 2 %. Andra bildtakter (30/45/50/90/120 Hz) steg som förut,
+  bildruta för bildruta. 57 fps går alltså numera på 60 Hz-fysik. Mät: `node scripts/_snappmatt.mjs`.
 - ⚠️ `restitution` på en **statisk** kropp är nollad av `Body.setStatic` — se fällistan i
   CLAUDE.md. Studsen blir alltid den dynamiska kroppens egen. **Ska ytan studsa: `{ isStatic:
   true, studs: 0.75 }`** — opt-in, sätts efter `setStatic` och bärs även av `_original`, så en

@@ -11,8 +11,16 @@
 //   const v = new Flytvolym({ varld: this._phys, ytY: 330, botten: 672,
 //                             vanster: 414, hoger: 866 })
 //   v.lagg(body, { flyt: 1.6 })     // > 1 = flyter, < 1 = sjunker
-//   ...varje bildruta, FÖRE varld.update():  v.steg(this._t)
 //   ...destroy():                            v.destroy()
+//
+// PER FYSIKSTEG (FYSIKPLAN T1). Får volymen en `varld` med `beforeStep` (PhysicsWorld)
+// registrerar den sig SJÄLV där och stegar en gång per fast 1/60-steg, med egen klocka för
+// gupp/vaggning — inget spel anropar `steg()`. Matter nollar krafterna efter varje
+// `Engine.update` och `PhysicsWorld.update` kör 0–2 steg per bildruta, så en kraft som lades
+// per BILDRUTA blev 0, 1 eller 2 gånger för stark beroende på skärmen: jämvikten för flyt 1,6
+// låg på 0,625 vid 60 steg/s men 0,656 vid 57 fps och 1,000 (sjunker) vid 30 fps (§1.3.3).
+// Utan `varld.beforeStep` (en rå matter-Engine) — eller med `perSteg: false` — gäller det
+// gamla mönstret: kalla `v.steg(t)` varje bildruta FÖRE `varld.update()`.
 //
 // VARFÖR DET ÄR MASSOBEROENDE. Matter lägger på gravitationen som en KRAFT
 // (`massa · g.y · g.scale`), så accelerationen blir densamma för alla kroppar.
@@ -79,6 +87,8 @@ export class Flytvolym {
     // Ström i sidled (px/steg): farten i x dras mot `stromX · nedsänkning` — det som flyter följer
     // med, det som ligger djupare följer med mer. 0 = stilla vatten (standard). grodan-slurps fors.
     stromX = 0,
+    // perSteg: true/false tvingar; utelämnat = självsteg när `varld` har `beforeStep`.
+    perSteg = null,
   } = {}) {
     this._engine = varld?.engine || varld || null
     this._bas = bas
@@ -100,6 +110,17 @@ export class Flytvolym {
     this.stromX = stromX
     this._alive = true
     this._items = []
+    this._t = 0 // egen stegklocka (s): +1/60 per fast steg — driver bara gupp/vaggning
+    this._av = null // avregistrerar beforeStep-kroken
+    this._varnat = false
+    const sjalv = (perSteg ?? true) && typeof varld?.beforeStep === 'function'
+    if (sjalv) this._av = varld.beforeStep(() => this._steg()) || null
+    this._sjalv = !!this._av
+  }
+
+  // Sant när volymen stegar själv (per fysiksteg) och publika `steg()` därför är en no-op.
+  get stegarSjalv() {
+    return this._sjalv
   }
 
   // Flytkraftens bas i matters kraftenheter: exakt neutral vid `frac · flyt = 1`.
@@ -147,11 +168,30 @@ export class Flytvolym {
     return clamp((p.y + rec.r - this.ytY) / (2 * rec.r), 0, 1)
   }
 
-  // Anropas EN gång per bildruta, FÖRE `varld.update()`: matter nollställer alla
-  // krafter i sitt eget steg, så en flytkraft som läggs på efteråt kastas bort.
-  // `t` är speltid i sekunder och driver bara gupp/vaggnings-faserna.
+  // GAMLA VÄGEN (volym utan `beforeStep`, eller `perSteg: false`): anropas EN gång per bildruta,
+  // FÖRE `varld.update()` — matter nollställer alla krafter i sitt eget steg, så en flytkraft som
+  // läggs på efteråt kastas bort. `t` är speltid i sekunder och driver bara gupp/vaggnings-faserna.
+  // En volym som redan stegar själv ignorerar anropet (annars dubblas kraften i ett spel som inte
+  // hunnit migreras) och varnar EN gång i dev.
   steg(t = 0) {
     if (!this._alive) return
+    if (this._sjalv) {
+      if (!this._varnat && import.meta.env?.DEV) {
+        this._varnat = true
+        console.warn('Flytvolym.steg() ignoreras: volymen stegar redan själv per fysiksteg (ta bort anropet, eller perSteg: false).')
+      }
+      return
+    }
+    this._krafter(t)
+  }
+
+  _steg() {
+    if (!this._alive) return
+    this._t += 1 / 60
+    this._krafter(this._t)
+  }
+
+  _krafter(t) {
     for (const o of this._items) {
       const b = o.body
       if (!b || b.isStatic) continue
@@ -190,6 +230,8 @@ export class Flytvolym {
 
   destroy() {
     this._alive = false
+    this._av?.()
+    this._av = null
     this._items = []
   }
 }

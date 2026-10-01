@@ -252,6 +252,8 @@ export default {
     // Fysik: mjuk gravitation + bara sidoväggar (eget golv hanteras geometriskt).
     this._phys = new PhysicsWorld({ gravityY: GRAVITY_Y, walls: ['left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Fånghjälpen + fartgränsen läggs per FAST fysiksteg (T2) — avregistreras i destroy.
+    this._avFang = this._phys.beforeStep(() => this._fangSteg())
 
     // Korgen i fysiken: två studsiga kant-knoppar + en sensor i munnen. Statiska kroppar
     // som flyttas varje bildruta med korgens x (mjuk rörelse -> inga teleport-smällar).
@@ -321,6 +323,26 @@ export default {
     this._drawMeter()
   },
 
+  // Kraftdelen, EN gång per fast fysiksteg (`phys.beforeStep`): fånghjälpen (växer med missarna,
+  // aldrig före 2) och fartgränsen nedåt. Korgens x läses ur korgen själv, samma källa som förut.
+  _fangSteg() {
+    if (!this._alive) return
+    const b = this._basket
+    const bx = b && !b.destroyed ? b.x : 640
+    const m = Math.min(this._misses, 6)
+    const assistA = m >= 2 ? 0.00045 * (m - 1) : 0
+    for (const f of this._fruit) {
+      if (!f.body || f.caught) continue
+      const pos = f.body.position
+      if (assistA > 0 && pos.y > 100 && pos.y < this._mouthY - 6) {
+        const factor = clamp((bx - pos.x) / 220, -1, 1)
+        Body.applyForce(f.body, pos, { x: f.body.mass * assistA * factor, y: 0 })
+      }
+      // Fartgräns nedåt så det aldrig blir för snabbt för ett litet barn.
+      if (f.body.velocity.y > MAX_FALL) Body.setVelocity(f.body, { x: f.body.velocity.x, y: MAX_FALL })
+    }
+  },
+
   // ---- Ticker: korgrörelse, fysik, spawn, miss-koll, idle -----------------
 
   _update(ctx, t) {
@@ -355,18 +377,11 @@ export default {
     // Barnet fångar HELT själv de första försöken — ingen magnet. Först efter ett par
     // missar smyger en svag, växande "magnet" in mot korgen som no-fail-backstop, så det
     // alltid går att lyckas till slut. Skicklighet ska kännas, aldrig krävas.
-    const m = Math.min(this._misses, 6)
-    const assistA = m >= 2 ? 0.00045 * (m - 1) : 0
+    // Själva hjälpkraften och fartgränsen ligger i `_fangSteg` (phys.beforeStep), en gång per fysiksteg.
     for (let i = this._fruit.length - 1; i >= 0; i--) {
       const f = this._fruit[i]
       if (!f.body || f.caught) continue
       const pos = f.body.position
-      if (assistA > 0 && pos.y > 100 && pos.y < this._mouthY - 6) {
-        const factor = clamp((bx - pos.x) / 220, -1, 1)
-        Body.applyForce(f.body, pos, { x: f.body.mass * assistA * factor, y: 0 })
-      }
-      // Fartgräns nedåt så det aldrig blir för snabbt för ett litet barn.
-      if (f.body.velocity.y > MAX_FALL) Body.setVelocity(f.body, { x: f.body.velocity.x, y: MAX_FALL })
       // Guldfrukten GLITTRAR på väg ner — det är så barnet upptäcker att den är särskild
       // innan den fångats. Takad i tid, aldrig en gnista per bildruta.
       if (f.kind === 'guld' && pos.y > -20 && this._t - (f.gnistT || 0) > 0.22) {
@@ -880,6 +895,8 @@ export default {
     if (this._wishIcon && !this._wishIcon.destroyed) gsap.killTweensOf(this._wishIcon.scale)
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._unbind?.()
+    this._avFang?.()
+    this._avFang = null
     this._levelTimer?.kill()
 
     if (this._catcher && !this._catcher.destroyed) {

@@ -965,7 +965,9 @@ export default {
     // svalnar och stelnar igen, medan det gyllene det HUNNIT bli står kvar (lib/varme.js).
     if (this._soft) {
       this._soft.mjukhet(this._varme.temp('mat') * 0.9)
-      this._soft.steg(clamp(ticker.deltaMS / (1000 / 60), 0.5, 2))
+      // FAST steg (lib/takt.js): samma jämvikt vid 30, 57 och 90 fps. Förut dtF = deltaMS/16,67 —
+      // marshmallowen kollapsade vid ≤ 40 fps och fick fel form vid 57.
+      this._soft.uppdatera(ticker.deltaMS)
       this._drawMarsh(this._toast)
     }
 

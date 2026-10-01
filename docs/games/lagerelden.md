@@ -206,3 +206,9 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
   `fyllnad()` kvar på 1,00). Det finns likadant på HEAD och är alltså inte det här bytet —
   men mät aldrig hoptryckningen med en bounding box här, sondens första version blev röd
   på just den vridningen.
+- 2026-10-02 · **Fast steg för den mjuka marshmallowen (FYSIKPLAN T3, `lib/takt.js`).** Stegraden var
+  `steg(clamp(deltaMS/16,67, 0,5, 2))`; nu `uppdatera(deltaMS)` (alltid exakt ett steg, noll eller flera per
+  bildruta). Uppmätt i Node (`scripts/_taktlib.mjs`, mjukhet 0,9, mitt-pinnad): höjd/bredd **39,6 / 51,5 px vid ALLA
+  30–90 Hz**; före 23,3/22,5 vid 30 fps och 22,3 vid 40 (kollapsad) och 40,0/51,2 vid 57. **Vad flyttar sig:**
+  57 fps-formen blir 60 Hz-formen (±0,4 px — knappt synligt); 30–50 fps slutar kollapsa/plana. Värmen
+  (`_varme`), mjukhet och mål är orörda. Kolla `_rostprobe` (styvhet 1,000 → 0,175 i lågan, 0,995 efter 3 s).

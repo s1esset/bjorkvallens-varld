@@ -125,3 +125,5 @@ det någonsin blir svårt på ett bestraffande sätt.
   (6) **Bugg:** `gsap.delayedCall` för respawn bytt mot `ctx.later()` (överlevde spelomgången);
   den nya kompis-silhuettens oändliga tween använder proxy-mönstret så en ny runda mitt i
   animationen inte kan skriva till en nollställd transform.
+
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Premissen "vänner i ballongerna" höll i grunden, men kompisraden är fem DJURSLAG sparade som arter (`custom.vanner`) — barnets figur kan inte bli en sparad rad-plats. I stället är den en extra gömd passagerare: varannan runda (`valjEgna` en gång per `_build`) bär en vanlig ballong (aldrig special/gul/kompisens) barnets knytt/kompis som skugga; poppas den snurrar figuren ut, seglar ner och ställer sig på gräset efter kompisraden (x 730, höjd 112), följer ballongerna med blicken, jublar när rundan är klar och hoppar glatt ut åt höger när nästa runda byggs — försvinner aldrig mitt i en runda. Byggs först vid räddningen (ingen tick i onödan). Tre repliker. Sond: `_egnakund` med `--trigger` som poppar den gömda ballongen, alla armar gröna.

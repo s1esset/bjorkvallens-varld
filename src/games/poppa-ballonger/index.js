@@ -9,6 +9,7 @@ import { gsap } from 'gsap'
 import { bounceIn, ripple, burst, sparkle, floatText, shake, breathe, pop, wiggle } from '../../lib/feedback.js'
 import { createScene } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 import { PLAYFUL, FONT, COLORS } from '../../lib/theme.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 
@@ -45,6 +46,13 @@ const FRIENDS = [
 const FRIEND_X0 = 268 // vänraden börjar strax till höger om Bobo
 const FRIEND_GAP = 74
 const FRIEND_Y = 646
+// Barnets egen figur (LYFTPLAN §10): en gömd passagerare i en ballong som räddas och ställer
+// sig på gräset efter kompisraden — spelet har ingen annan plats för en figur som är större
+// än djuren, och ballongerna seglar framför.
+const EGEN_X = 730
+const EGEN_FOT_Y = 692
+const EGEN_HOJD = 112
+const EGEN_BREDD = 110
 
 // Rita en liten fristående kompis (egen silhuett — aldrig en emoji i en ruta, se P0 ASSETS).
 function makeFriend(kind, s = 1) {
@@ -160,6 +168,8 @@ export default {
     const saved = ctx.progress.get().custom?.vanner
     this._friendKinds = Array.isArray(saved) ? saved.filter((k) => FRIENDS.some((f) => f.kind === k)) : []
     this._friendSprites = []
+    this._egnaFigurer = [] // { fig, holder, tw } — barnets figur(er) som räddats den här sessionen
+    this._egenBeskr = null
 
     this._layer = new Container()
     ctx.stage.addChild(this._layer)
@@ -282,6 +292,10 @@ export default {
   _build(ctx) {
     if (!this._alive) return
     this._stopAttract()
+    // Förra rundans räddade figur går glatt ut ur bild; en ny kan vara gömd i den här rundan
+    // (en gång per runda — valjEgna räknar takten: barnets egen varannan runda, annars ingen).
+    this._lamnaFigurer()
+    this._egenBeskr = valjEgna(ctx.services, 'poppa-ballonger', { antal: 1 })[0] || null
 
     // städa förra rundans ballonger + tweens
     this._balloons.forEach((b) => {
@@ -332,6 +346,13 @@ export default {
       }
     }
 
+    // Barnets figur: gömd i en annan vanlig ballong än kompisens (aldrig i en specialballong).
+    let egenIndex = -1
+    if (this._egenBeskr) {
+      egenIndex = freeSlots.slice(specials.length).find((i) => i !== friendIndex && typeAt[i] == null) ?? -1
+      if (egenIndex < 0) this._egenBeskr = null
+    }
+
     // Synlig räknerad: en rad tomma pluppar (1..N) som fylls per pop — gör räkningen
     // begriplig UTAN ljud (mönster: progression synlig). Bara under räknerundor.
     this._buildCountRow(count)
@@ -341,7 +362,7 @@ export default {
       const type = golden ? 'guld' : typeAt[i] || 'normal'
       const color = type === 'vatten' ? WATER : golden ? GOLD : PLAYFUL[i % PLAYFUL.length]
       const size = golden ? 1.12 : type === 'jatte' ? 1.5 : randomFrom(SIZES)
-      const b = this._makeBalloon(ctx, color, size, golden, type, i === friendIndex ? this._friendPick : null)
+      const b = this._makeBalloon(ctx, color, size, golden, type, i === friendIndex ? this._friendPick : null, i === egenIndex ? this._egenBeskr : null)
       b._baseX = this._spawnX(ctx)
       b.x = b._baseX
       b.y = 160 + Math.random() * 640 // spridda, en del syns direkt
@@ -380,7 +401,7 @@ export default {
   },
 
   // Bygg en glansig ballong-Container (ankare i kroppens centrum).
-  _makeBalloon(ctx, color, size, golden, type = 'normal', friend = null) {
+  _makeBalloon(ctx, color, size, golden, type = 'normal', friend = null, egen = null) {
     const b = new Container()
     const g = new Graphics()
     const rx = 56 * size
@@ -434,7 +455,7 @@ export default {
 
     // Gömd kompis: en mjuk skugga som rör sig inuti ballongen. Ingen text, ingen pil —
     // barnet upptäcker den själv och väljer att trycka just där (agens, inte tur).
-    if (friend) {
+    if (friend || egen) {
       const sil = new Graphics()
       sil.ellipse(0, 4 * size, 22 * size, 20 * size).fill({ color: darken(color, 0.55), alpha: 0.34 })
       sil.circle(-11 * size, -12 * size, 8 * size).fill({ color: darken(color, 0.55), alpha: 0.34 })
@@ -453,6 +474,7 @@ export default {
         },
       })
       b._friend = friend
+      b._egen = egen
       b._sil = sil
       b._silTw = stw
     }
@@ -548,7 +570,10 @@ export default {
 
     // Gömd kompis befriad: den seglar ner till Bobo och blir kvar i raden.
     if (b._friend) this._releaseFriend(ctx, b)
-    else this._boboReact(ctx)
+    else if (b._egen) {
+      this._boboReact(ctx)
+      this._releaseEgen(ctx, b)
+    } else this._boboReact(ctx)
 
     // Räkne-känsla: säg poppen ("ett, två, tre…") + fyll motsvarande plupp i raden.
     if (this._countingRound) {
@@ -611,6 +636,7 @@ export default {
   // regnbågsbåge sveper över himlen. (Inte samma konfetti+stjärna som alla andra spel.)
   _finish(ctx) {
     this._kar?.react('jubel')
+    this._egnaFigurer.forEach((e) => { if (e.fig._alive && !e.gar) e.fig.react('jubel') })
     if (this._bobo && !this._bobo.destroyed) {
       const by = this._bobo.y
       this._boboIdle?.pause()
@@ -711,6 +737,103 @@ export default {
         }
       },
     })
+  },
+
+  // Barnets figur räddas ur ballongen: den snurrar glatt, seglar ner och ställer sig på gräset
+  // efter kompisraden och hejar när rundan är klar. Byggs FÖRST nu (valjEgna räknade takten
+  // i _build) — en figur som ingen sett ännu behöver ingen tick.
+  _releaseEgen(ctx, b) {
+    const beskr = b._egen
+    b._egen = null
+    if (!beskr || !this._alive) return
+    const fig = byggEgenFigur(ctx, beskr, { hojd: EGEN_HOJD, maxBredd: EGEN_BREDD })
+    const holder = new Container()
+    holder.eventMode = 'none'
+    holder.interactiveChildren = false
+    // Hållarens origo = figurens kroppsmitt, så snurran går runt mitten och inte runt fötterna.
+    const halv = fig.matt.hojd / 2
+    fig.view.y = halv
+    holder.addChild(fig.view)
+    holder.position.set(b.x, b.y)
+    holder.scale.set(0.8)
+    this._layer.addChild(holder)
+    const post = { fig, holder, tw: null, gar: false }
+    this._egnaFigurer.push(post)
+
+    sparkle(ctx.fxLayer, b.x, b.y, { count: 10 })
+    ctx.services.audio.sfx('reveal')
+    // Tre varianter: barnets knytt, barnets kompis, ett knytt barnet bara mött (aldrig "ditt").
+    if (fig.ny) {
+      presentera(ctx, fig, { knytt: 'Ditt knytt var gömt i en ballong!', kompis: 'Din kompis var gömd i en ballong!' })
+    } else {
+      ctx.narTyst(() => {
+        if (!this._alive || !fig._alive) return
+        if (fig.mott) ctx.services.voice.say('Ett knytt var gömt i en ballong!')
+        else if (fig.typ === 'knytt') ctx.services.voice.say('Ditt knytt var gömt i en ballong!')
+        else ctx.services.voice.say('Din kompis var gömd i en ballong!')
+      })
+    }
+
+    const tx = EGEN_X
+    const ty = EGEN_FOT_Y - halv
+    const st = { x: b.x, y: b.y, r: 0, s: 0.8 }
+    const tw = gsap.timeline()
+    post.tw = tw
+    tw.to(st, {
+      r: Math.PI * 2, s: 1, duration: 0.5, ease: 'power1.out',
+      onUpdate: () => {
+        if (holder.destroyed) { tw.kill(); return }
+        holder.rotation = st.r
+        holder.scale.set(st.s)
+      },
+    })
+    tw.to(st, {
+      x: tx, y: ty, duration: 0.85, ease: 'power1.inOut',
+      onUpdate: () => {
+        if (holder.destroyed) { tw.kill(); return }
+        holder.position.set(st.x, st.y)
+        holder.rotation = 0
+      },
+      onComplete: () => {
+        if (!this._alive || holder.destroyed || !fig._alive) return
+        holder.rotation = 0
+        // Ner i världen (under ballongerna) där kompisraden står.
+        if (this._friendRow && !this._friendRow.destroyed) this._world.addChild(holder)
+        bounceIn(holder, { duration: 0.4 })
+        ctx.services.audio.sfx('pling')
+        fig.react('hej')
+        sparkle(ctx.fxLayer, tx, ty - 20, { count: 8 })
+      },
+    })
+  },
+
+  // Rundan är slut: figuren (om någon räddats) hoppar glatt ut åt höger och rivs. Aldrig bort
+  // för gott i mitten av en runda — den lämnar först när nästa runda byggs.
+  _lamnaFigurer() {
+    for (const e of this._egnaFigurer) {
+      if (e.gar) continue
+      e.gar = true
+      const { fig, holder } = e
+      e.tw?.kill()
+      if (!fig._alive || !holder || holder.destroyed) { fig._alive && fig.destroy(); continue }
+      fig.react('heja')
+      const st = { x: holder.x, y: holder.y, t: 0 }
+      const y0 = holder.y
+      e.tw = gsap.to(st, {
+        x: 1480, t: 1, duration: 1.05, ease: 'power1.in',
+        onUpdate: () => {
+          if (holder.destroyed) { e.tw.kill(); return }
+          holder.x = st.x
+          holder.y = y0 - Math.abs(Math.sin(st.t * Math.PI * 3)) * 34
+        },
+        onComplete: () => {
+          if (fig._alive) fig.destroy()
+          if (!holder.destroyed) holder.destroy({ children: true })
+          const i = this._egnaFigurer.indexOf(e)
+          if (i >= 0) this._egnaFigurer.splice(i, 1)
+        },
+      })
+    }
   },
 
   // Popens efterklang: en färgdimma som dröjer kvar och krymper där ballongen var, 1–2
@@ -901,6 +1024,16 @@ export default {
       // Bobo tittar på den ballong som är närmast honom — publiken följer det som
       // är på väg att hända. `look()` räknar i FÖRÄLDERNS rymd, och riggen sitter i
       // `_bobo`, medan ballongerna ligger i `_world`; därför via global.
+      for (const e of this._egnaFigurer) {
+        if (!e.fig._alive || e.gar || !e.holder || e.holder.destroyed || !live.length) continue
+        let mal = null
+        let bast = Infinity
+        for (const b of live) {
+          const d = (b.x - e.holder.x) ** 2 + (b.y - e.holder.y) ** 2
+          if (d < bast) { bast = d; mal = b }
+        }
+        if (mal && !mal.destroyed) e.fig.look(mal.x - e.holder.x, mal.y - e.holder.y)
+      }
       if (this._kar && this._bobo && !this._bobo.destroyed && live.length) {
         let mal = null
         let bast = Infinity
@@ -983,6 +1116,16 @@ export default {
     ctx.services.voice.cancel()
     this._respawnCall?.kill()
     this._stopAttract()
+    // Barnets egna figurer: tickern släpps och tweensen dör FÖRE rötterna rivs.
+    for (const e of this._egnaFigurer || []) {
+      e.tw?.kill()
+      if (e.holder && !e.holder.destroyed) {
+        gsap.killTweensOf(e.holder)
+        gsap.killTweensOf(e.holder.scale)
+      }
+      e.fig.destroy()
+    }
+    this._egnaFigurer = []
     this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
     this._kar = null
     this._boboIdle?.kill()

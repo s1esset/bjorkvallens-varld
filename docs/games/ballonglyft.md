@@ -213,3 +213,5 @@ aldrig.
     läser aldrig `opts` — auto-fästet är alltså omöjligt att skilja från barnets eget tryck.
     Antingen ska hjälpen låta annorlunda/räknas annorlunda, eller så ska parametern bort.
     Inte ändrat här: det är beteende, inte polering.
+
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Varannan present bär barnets EGET knytt eller kompis (`valjEgna`), som hoppar ur paketet i Elviras famn och jublar där; annars ett av djuren som förut. Egna repliker + knyttets namn som eget klipp. `_clearSurprise` river nu hållaren med barn (och figuren först — den tickar själv). Sond: `scripts/_egnafigurprobe.mjs` (41/41).

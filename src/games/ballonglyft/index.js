@@ -18,6 +18,7 @@ import { makeElvira } from '../../lib/figurer.js'
 import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe, kvittera } from '../../lib/feedback.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 import { Motstandsvolym } from '../../lib/luftmotstand.js'
+import { valjEgna, byggEgenFigur } from '../../lib/egnafigurer.js'
 
 // Räkneord (index = antal ballonger). n=1 -> 'en', n=2 -> 'två' ...
 const SVENSKA_TAL = ['noll', 'en', 'två', 'tre', 'fyra', 'fem', 'sex', 'sju', 'åtta']
@@ -357,7 +358,11 @@ export default {
   _clearSurprise() {
     this._surpriseTl?.kill()
     this._surpriseTl = null
-    if (this._surprise && !this._surprise.destroyed) this._surprise.destroy()
+    // Barnets egen figur först: den tickar på ctx.ticker och har egna noder en nivå in, så
+    // en bar `destroy()` på hållaren hade lämnat den levande utan förälder.
+    this._egenFig?.destroy()
+    this._egenFig = null
+    if (this._surprise && !this._surprise.destroyed) this._surprise.destroy({ children: true })
     this._surprise = null
   },
 
@@ -680,6 +685,9 @@ export default {
   _openPackage(ctx) {
     if (!this._alive || this._box?.destroyed) return
     const pick = SURPRISES[(Math.random() * SURPRISES.length) | 0]
+    // Varannan present bär barnets EGET knytt eller kompis (LYFTPLAN §10) — och det barnet
+    // nyss skapat kommer alltid i nästa present. Annars ett av spelets djur, som förut.
+    const [egen] = valjEgna(ctx.services, 'ballonglyft')
 
     const bx = this._box.x
     const by = this._box.y
@@ -689,8 +697,17 @@ export default {
     sparkle(ctx.fxLayer, bx, by - 30, { count: 8 })
     burst(ctx.fxLayer, bx, by - 20, { power: 1 })
 
-    // Överraskningen: hoppar upp ur paketet och sedan in i Elviras famn.
-    const s = drawIcon(pick.e, 96)
+    // Överraskningen: hoppar upp ur paketet och sedan in i Elviras famn. Barnets figur står
+    // i en hållare med origo i figurens MITT, som ikonen — samma resa, samma skala.
+    let s
+    let fig = null
+    if (egen) {
+      s = new Container()
+      fig = byggEgenFigur(ctx, egen, { hojd: 112, maxBredd: 120 })
+      fig.view.y = fig.matt.hojd / 2
+      s.addChild(fig.view)
+      this._egenFig = fig
+    } else s = drawIcon(pick.e, 96)
     s.position.set(bx, by - 20)
     s.scale.set(0.2)
     s.eventMode = 'none'
@@ -721,6 +738,9 @@ export default {
           if (!this._alive) return
           pop(this._elvira)
           if (!s.destroyed) burst(ctx.fxLayer, armX, armY, { power: 0.9 })
+          // Framme i famnen: knyttet skuttar och sjunger sitt motiv, kompisen jublar med
+          // armarna i luften och sin melodi.
+          if (fig && this._egenFig === fig) fig.glad()
         },
       })
 
@@ -729,8 +749,17 @@ export default {
     // bara orden köar. Har nästa nivå hunnit riva överraskningen är repliken inaktuell.
     ctx.narTyst(() => {
       if (!this._alive || this._surprise !== s || s.destroyed) return
-      ctx.services.voice.say(`Titta, en ${pick.namn}! Tack så mycket!`)
+      if (!fig) ctx.services.voice.say(`Titta, en ${pick.namn}! Tack så mycket!`)
+      else if (fig.typ === 'knytt') ctx.services.voice.say('Titta, ditt knytt! Tack så mycket!')
+      else ctx.services.voice.say('Titta, din kompis! Tack så mycket!')
     })
+    // Knyttets namn som ett EGET klipp efteråt (alla 24 namn har ett) — aldrig ihopfogat
+    // med raden ovan, för en sammanfogad sträng kan aldrig få ett klipp.
+    if (fig?.namn) {
+      ctx.narTyst(() => {
+        if (this._alive && this._surprise === s && !s.destroyed) ctx.services.voice.say(fig.namn)
+      })
+    }
   },
 
   destroy(ctx) {
@@ -760,6 +789,8 @@ export default {
       gsap.killTweensOf(b.scale)
     })
     if (this._surprise && !this._surprise.destroyed) gsap.killTweensOf(this._surprise)
+    this._egenFig?.destroy()
+    this._egenFig = null
     this._root?.destroy({ children: true })
   },
 }

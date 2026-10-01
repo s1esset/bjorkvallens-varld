@@ -247,3 +247,10 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
   ritas ur SAMMA kropp via `path(g, skala)` — var för sig glider de isär i vobbeln.
 
 - 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Kunden byts per torn (`_bytKund` i `_newTower`): varannan glass går till barnets EGET knytt eller kompis (`figurForOmgang`, Karaktar-rummet r 56), annars Bobo. Knyttets `nam` = gapa–tugga–rapa. Sond: `scripts/_egnafigurprobe.mjs` (41/41).
+
+- 2026-10-02 · **Fast steg för vobbeln (FYSIKPLAN T3, `lib/takt.js`).** `_wobbla` fick `deltaMS` i stället för
+  `dtF` och stegar `soft.uppdatera(dms)`. Knuffen (`skjut`) räknas fortfarande per bildruta ur matter-kroppens
+  fartändring — alltså SUMMAN över de fysiksteg bildrutan fick. **Vad flyttar sig:** vid 57 fps ger 5 % av
+  rutorna två steg; då får vobbeln två soft-steg i stället för ett steg med dtF 1,05 — utslaget följer nu
+  matter-världens fasta takt. Vid 30 fps: två soft-steg per ruta i stället för ett med dtF 2 — uppmätt (`scripts/_taktlib.mjs`, vobbel) medelavvikelse 0,5 s efter en knuff **10,4 px → 0,71** och 5,6 px rest efter 1 s → 0,00 (före: ringen sprang iväg och lugnade sig inte). Vid 57–90 fps: 0,4–0,7 px båda sätten. Bildrutor utan fysiksteg (> 60 Hz) kör noll soft-steg.
+  Orkestreraren kör `_vobbelprobe` (4,57 px utslag, 0,00 i vila).

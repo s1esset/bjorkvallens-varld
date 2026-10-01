@@ -739,7 +739,7 @@ export default {
 
     // ... och sedan VOBBELN: varje landad kopa är en mjuk kropp vars ring släpar efter
     // när matter-kroppen rycker till — landningen, en vindstöt, en ny kula ovanpå.
-    this._wobbla(clamp(dms / (1000 / 60), 0.5, 2))
+    this._wobbla(dms)
 
     // Vinden ritas varje frame (vimpel + streck) så motgången alltid syns.
     this._drawWind()
@@ -1439,7 +1439,7 @@ export default {
   // sätter sig mjukt — utan att någon behöver leta reda på var träffen skedde.
   // Trögheten räknas om till kulans EGNA koordinater, annars pekar vobbeln åt fel håll
   // så fort kroppen har rullat ett kvarts varv.
-  _wobbla(dtF) {
+  _wobbla(dms) {
     for (const rec of this._live) {
       const view = rec.view
       const soft = view && !view.destroyed ? view._soft : null
@@ -1455,7 +1455,7 @@ export default {
         clamp(-(dvx * ca - dvy * sa) * WOBBLE_K, -14, 14),
         clamp(-(dvx * sa + dvy * ca) * WOBBLE_K, -14, 14),
       )
-      soft.steg(dtF)
+      soft.uppdatera(dms) // fast steg (lib/takt.js) — samma vobbel vid 30, 57 och 90 fps
       // Rita om BARA medan ringen faktiskt rör sig. En kula som lagt sig i tornet
       // kostar då noll per bildruta, och ett fullt torn kan inte bli en ritstorm.
       let rorelse = 0

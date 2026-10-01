@@ -1339,6 +1339,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ✅ v1.57.0 *(3 kunder, 2 kvar + 1 struken)* |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |
 | 13 | **Full bleed** — `lib/view.js` + scenbleed + `ctx.view` | D | **alla 72 spel på telefon** | ✅ v1.67–68.0 |
+| 14 | **Barnets egna figurer** — `lib/egnafigurer.js` (knytt + kompisar i andra spel) | F | 26 starka kunder, 41 möjliga | 🟨 grunden + 6 kunder v1.285.0 — se §10 |
 
 **Grind per rad:** `npm run check` grön · `npm run test:all` 72/72 med 0 konsolfel · skärmdump
 granskad med ögat · FPS mätt på plattan när raden rör rendering eller partiklar.
@@ -1642,3 +1643,199 @@ kärnan), `rulla-bollen-hem` (toppvy, parallax har inget att göra där), `valpe
 kunder — `domino` är den starkaste av dem, men kräver ett designbeslut om bricktråget.
 
 </details>
+
+## 10. Spår F — barnets egna figurer i andra spel (knytt + kompisar) 🟨 OMGÅNG 1 BYGGD 2026-10-01 (v1.285.0)
+
+**Ägarens önskan (2026-10-01):** spel med figurer ska kunna använda slumpade unika knytt eller
+sparade kompisar ur `bygg-en-kompis`, som `popcornkalaset` gör med gästerna i soffan — och helst
+de figurer barnet skapat under **samma spelsession**, inte bara figurer som är hårdkodade när
+appen byggs.
+
+### F0. Läget i koden (läst 2026-10-01, v1.284.0)
+
+- **Inget spel använder i dag barnets EGNA knytt eller kompisar.** `popcornkalaset` slumpar ett
+  NYTT knytt per omgång (`gaster.js:byggNyttKnytt`, `dnaFromSeed` ur ett slumpfrö) och har aldrig
+  läst samlingen. Grep-träffar på "kompis" i andra spel är ordet för vän (`poppa-ballonger`s
+  `FRIENDS`, `stor-liten`s mottagare, `titt-ut-pappa/kompisar.js` = katt/anka/strumpa …).
+- **Knytten** sparas per profil i `games['unika-knytt'].custom.knytt.lista` (≤ 200 poster à 9 tal,
+  nyast sist, `index.js:_sparaKnytt`). `dnaFranPost(post)` (`dna.js:536`) + `byggKnytt(dna, {r,
+  audio, senare})` bygger en exakt kopia — boden gör redan så. Riggen drivs helt i `tick()`, alltså
+  exit-säker av konstruktion. Namnet (`dna.namn`, 24 fasta, `dna.js:223`) har **redan egna
+  röstklipp** ("Bubbel", "Glimma" …).
+- **Kompisarna** sparas i `games['bygg-en-kompis'].custom.galleri` (≤ 6 cfg à 6 tal, nyast sist).
+  Ritningen `byggVarelse(cfg, look)` (`bygg-en-kompis/index.js:452`) är **inte exporterad**, och
+  figuren har **inget eget liv** — spelet driver blink, andning och vinkning med egna tweens
+  (`_blinka`, `_vinka`, `_sparaLiv`). Kompisar har inga namn.
+- Ett spel KAN redan läsa ett annat spels sparpost (`ctx.services.profiles.active().games[id]
+  .custom`), men saneringen (`_rensaPost`, `_rensaCfg`) är metoder på källspelens objekt.
+- **14 spel** har Bobo-riggen (`makeKaraktar`) som publik eller mottagare och anropar bara
+  `look · react · setMood · destroy`. Riggens origo är **huvudets mitt**, fötterna på ≈ 2,16·r — en
+  ersättare måste ha samma geometri för att vara ett enradsbyte. ⚠️ `lagerelden`, `saftbaren` och
+  `zackes-biltvatt` använder `kropp: false` (bara huvudet, spelet ritar kroppen) och är alltså
+  INGA enradsbyten.
+
+### F1. Grunden: `lib/egnafigurer.js` **[Medium]** — bygg först, varje kund står på den
+
+1. **Läsning per profil.** `lasEgna(services)` → `{ knytt: [post…], kompisar: [cfg…] }` ur den
+   AKTIVA profilen, genom samma sanering som källspelen. Saneringen flyttas ut: `rensaPost` till
+   `unika-knytt/dna.js`, `rensaCfg` + ritningen till en ny `bygg-en-kompis/varelse.js`, och
+   källspelen importerar därifrån — en sanning. **Läser bara**, skriver aldrig i ett annat spels
+   post (P0: sparade framsteg).
+2. **Sessionsminne.** En modulvariabel (överlever spelbyten, dör med sidan) nycklad på
+   **profil-id**: `minns(profilId, { typ, data })`. `unika-knytt` anropar den i `_sparaKnytt`,
+   `bygg-en-kompis` när fotot spikas (`_hangUpp`). Profilnyckeln är inte kosmetisk: två syskon med
+   var sin profil ska aldrig få varandras knytt.
+3. **Urval.** `valjEgna(services, { antal, typer, rng })` → beskrivningar i prioritetsordning:
+   ⓵ skapade i den här sessionen, nyast först · ⓶ sparade, slumpade ur samlingen · ⓷ reserv
+   (F2). Inga dubbletter i samma drag, och en rotation så samma knytt inte står i varje spel.
+4. **Fasaden `EgenFigur`** — EN yta oavsett typ, så spelet aldrig vet vad det fått (mönstret från
+   `popcornkalaset`s `Gast`):
+   - `view` · `matt` {hojd, bredd, huvud, mun} efter normalisering till en begärd höjd (knytt
+     varierar 0,5–1,7× i storlek, en kompis är 200–260 px).
+   - **Karaktar-kompatibel:** `look(x, y)` i förälderns rum · `react('heja'|'hej'|'jubel'|'nam'|
+     'hoppsan'|'nyfiken')` · `setMood()` · `destroy()` · plus `{ origo: 'huvud', r }` så de 14
+     Bobo-spelen kan byta med en rad.
+   - **Tickar själv** på `ctx.ticker` och avregistreras i `destroy()` — en `Karaktar` behöver
+     ingen tick, och en ersättare som kräver en är ingen ersättare.
+   - **Förmågor som flaggor:** `kan.armar` (kompis) · `kan.ata` / `kan.sova` / `kan.sjunga`
+     (knytt). Ett spel som vill hänga ett paraply på en arm frågar först.
+   - Mappning, knytt: heja/hej → `hoppa(1)` · jubel → `glad()` · nam → `at()` · hoppsan/nyfiken →
+     lutning + blick. Kompis: heja/hej → vinkning · jubel → båda armarna upp + hopp · nam →
+     munnens skala.
+5. **Kompisriggen** (i `varelse.js`): andning, blink, blick, vinkning, hopp och tugga drivna i
+   `tick` som knyttets — inga eviga tweens, alltså ingen spöktween att städa i 30 spel
+   (`killTweensOf(roten)`-fällan). Källspelet får gärna gå över till den, men det krävs inte.
+6. **Knyttet somnar av sig självt** efter 12 s utan rörlig pekare (`knytt.js:1414`). I en
+   publikroll ska det vara vaket: ny option `somnar: false` i `byggKnytt`.
+7. **Ljud:** knyttets motiv spelas bara om `audio` skickas. I `harma-melodin`/`djurorkester` måste
+   det stängas av eller stämmas till platsens ton.
+8. **Röst:** allt som literaler. Generiska rader per roll ("Titta, ditt knytt!", "Där är din
+   kompis!" …), och knyttets namn som ETT EGET klipp efteråt (`ctx.narTyst`). Aldrig en
+   sammanfogad sträng — en sådan kan aldrig få ett klipp.
+9. **Sond `_egnafigurprobe.mjs`:** urvalsordningen (session före sparat före reserv, profilnyckeln,
+   inga dubbletter), normaliserade mått för alla kompiskroppar × 3 storlekar och ett knyttsvep,
+   0 levande tweens efter `destroy()` (spelets gsap-instans) och att tick-lyssnaren är borta.
+   Kontrollarm först: HEAD utan sessionsminne.
+
+### F2. Designregler — förslag, ägarens beslut (F5)
+
+- **Barnets egen figur får bara snälla roller:** den tar emot, hittas, räddas, jublar, äter och
+  sjunger. Aldrig ett hinder som välts (`snobollen`s pingviner), aldrig något som spolas bort
+  (`bajs-och-kiss`), aldrig en fiende. Den försvinner aldrig för gott ur en scen den kommit in i.
+- **Saknas egna figurer** står spelets egen figur kvar i publikroller. Där det är ETT KNYTT som är
+  poängen (som i soffan) kommer i stället ett nyslumpat.
+- **Identitetsfigurer rörs inte:** Elvira (`kla-efter-vadret`), Pappa (foto-spelen), Zacke i
+  spindelspelen, enhörningarna, grodan, Lovas valp.
+
+### F3. Inventeringen — alla 84 spel (2026-10-01; tre läsagenter + stickprov mot koden)
+
+**Starka (26).** Typ: K = knytt, Ko = kompis.
+
+| Roll | Spel | Figuren i dag → förslaget | Typ | Insats |
+|---|---|---|:--:|:--:|
+| **Äter** | `glasstornet` | Bobo-kunden (`:334`) → kund-kö där barnets figur turas om med Bobo (kön är redan planerad i docen) | K | S/M |
+| | `fanga-frukten` | ekorren önskar → knytt på grenen; frukten når nu fram till munnen (`at()`) | K | S–M |
+| | `studsmatta` | Bobo vid picknickkorgen (`:539`) → knytt tuggar morötterna | K | S |
+| | `lagerelden` | Bobo-huvud med fat → knytt på molnet äter varje rostad bit | K | S–M |
+| | `saftbaren` | Bobo dricker bakom disken → knytt/kompis som gäst; 7 Bobo-repliker blir generiska | K | M |
+| | `hamburgerbygget` | grillmästaren äter → kund-kö där barnets knytt ibland kommer fram | K | M |
+| | `stor-liten` | tre mottagarmonster → knytt i liten/mellan/stor, `at()` = sväljandet | K | M |
+| | `mata-monstret` | monstret som matas → "mata ditt knytt" som femte skepnad; kräver ett gradvis gap i `knytt.js` | K | L |
+| **Hittas / samlas** | `ballonglyft` | emoji-överraskning ur paketet (`:682`) → barnets figur hoppar ur paketet i Elviras famn | K+Ko | S |
+| | `poppa-ballonger` | vänner i ballongerna som samlas i en rad → barnets knytt; motivet är lätet | K+Ko | M |
+| | `titt-ut-pappa` | fynden i fel gömställe → ny nyckel i fyndkontraktet; repliken är redan generisk | K+Ko | S |
+| | `vart-tog-det-vagen` | priset under koppen → barnets figur, och hyllan blir en samling | K+Ko | S–M |
+| | `klappa-mullvaden` | fem djur kikar upp → knytt som sjätte "art", plats i vänboken | K | M |
+| | `skattjakt-i-morkret` | sovande katt på skatten → sovande knytt som vaknar av lampan (`sover`/`vakna()` ÄR mekaniken) | K | S–M |
+| | `blixt-och-dunder` | husen sover tills lampan tänds → ett knytt i dörren vaknar och jublar | K | M |
+| | `bygg-tornet` | kattungen räddas ner → knyttet räddas; kompisen blir byggaren som lyfter armarna | K+Ko | M |
+| **Barnet leker med den** | `folj-sparet` | kanin/hund/katt/räv följer spåret → "hjälp ditt knytt hem" | K+Ko | S–M |
+| | `kittla-figuren` | byter skepnad per runda → knytt som femte skepnad, zoner ur `_m` | K | M |
+| | `loopdjuren` | fyra djur utför block → knyttrad, röst-blocket = motivet | K | M |
+| | `harma-melodin` | fyra sjungande varelser → temat "dina knytt" + kompis som dirigent (kräver mun-API) | K+Ko | M |
+| | `enkelt-pussel` | motivet maskas per bit → pussla ihop sin egen varelse som vaknar i finalen | K+Ko | M |
+| **Publik** | `vippbradan` | Bobo vid korgen (`:203`) → knytt vars ögon följer grodan | K | S |
+| | `studsbollar` | handritad Bobo med armar (`:994`) → kompis med armarna upp | Ko | S |
+| | `siffertaget` | kanin och björn vinkar på perrongen → kompisar vinkar | Ko | S |
+| | `zackes-biltvatt` | bilägaren roterar Bobo/djur → barnets figur som en ägare till | K+Ko | S |
+| | `bowling` | tre NAMNLÖSA människor på bänken → barnets figurer (tar samtidigt bort en P0-gråzon) | K+Ko | S–M |
+
+Plus **`popcornkalaset`** (referensen): knyttgästen ska ta barnets egna ur sessionen eller
+samlingen före ett nyslumpat — S när grunden finns.
+
+**Möjliga (41).**
+- *Publikbyte, liten vinst (S):* `balanstornet` · `borsta-tanderna` · `domino` ·
+  `elementlekplatsen` · `flugan-pa-nasan` · `gungan` · `knuffa-tornet` · `leksakslada`
+  (Bobo-repliker) · `passa-formerna` · `spindelnatet` · `tarta-i-ansiktet` · `magnet-fiske` ·
+  `golvet-ar-lava` (draken) · `rakna-applen` (ekorren) · `fyrverkeri` (stilbrott: publiken ritas
+  bakifrån).
+- *Kompisens armar bär rollen:* `kulbana` (fångaren) · `rulla-bollen-hem` (målvakten) ·
+  `fargregn` (paraplyet) · `djurorkester` (dirigenten) · `fallskarmen` (mottagaren eller en tredje
+  hoppare) · `flipperspel` (greppar kanten) · `sapbubblor` (håller ringen) · `roliga-snurran`
+  (blandfiguren bär symbolerna).
+- *Ny biroll:* `klambubblor` · `pizzabageriet` (kund) · `vattenvagen` (den andra muggen) ·
+  `pruttbad` (fynd i skummet) · `spindel-zacke-svingar` + `spindelhjalten` (den som räddas) ·
+  `trollblandning` · `tryck-och-forvandla` (ägg → knytt) · `vad-forsvann` · `vandkort` (knyttema)
+  · `sortera-skrap` (knytt i tunnan; krockar med färgkodningen) · `skuggmatchning`
+  (knyttsilhuetter) · `natskott-pa-stan` · `kla-pa-nallen` (klä kompisen) · `tvatta-djuret`
+  (lerigt knytt; krock med sidovyn) · `vakna-pappa` (busverktyg) · `snobollen` (vakten, inte
+  hindren) · `bajs-och-kiss` (bara om figuren kommer tillbaka — se F2).
+
+**Svaga eller nej (16):** `kla-efter-vadret` och `mata-munnen` (NEJ — identitet) ·
+`enhorning-glitterbajs` · `enhorningen-elvira` · `enhorningen-flyger` · `glittergrottan` (3D) ·
+`gravmaskinen` (för litet) · `grodan-slurp` · `kugghjulen` · `peka-pa-kroppen` (människans anatomi
+är lektionen) · `plantera-fron` · `plask-i-vattnet` · `regnbagsmalaren` · `studsa-ner` ·
+`valpens-bajs` · `vilket-djur-later` (artlätet är poängen). `spara-linjen` har inga figurer.
+
+### F4. Utrullning
+
+1. **Omgång 1 — grunden + en kund per roll**, så varje del av fasaden prövas av ett riktigt spel:
+   F1 → `popcornkalaset` (urvalet) → `ballonglyft` (hittas) → `glasstornet` (äter) → `vippbradan`
+   (Karaktar-ersättaren) → `studsbollar` (kompisens armar) → `titt-ut-pappa` (fyndkontraktet).
+2. **Omgång 2:** de övriga starka på S–M.
+3. **Omgång 3 — nya mekaniker:** `kittla-figuren` · `loopdjuren` · `harma-melodin` ·
+   `enkelt-pussel` · `mata-monstret` · `vad-forsvann` · `vandkort`.
+
+Grind per kund som vanligt, plus: **spela med en profil som HAR knytt och kompisar och med en som
+inte har några** — reserven är en egen väg och testas inte av sig själv (en färsk testprofil har
+tom samling).
+
+### F5. Ägarbeslut (2026-10-01)
+
+1. ✅ **Bara snälla roller** (F2) — pingvinerna i `snobollen` och busgästerna i `bajs-och-kiss`
+   förblir spelets egna.
+2. ✅ **Reserven är spelets egen figur.** Undantaget är där det är ETT knytt som är poängen
+   (soffan i `popcornkalaset`) — där kommer ett nyslumpat, som förut.
+3. ✅ **Det senast skapade först, sedan varannan omgång.** En figur barnet gjort i sessionen
+   kommer i nästa omgång av VARJE spel tills den visats där; därefter växlar spelet mellan
+   barnets figurer och sina egna.
+4. Öppen: ska slumpade knytt som barnet MÖTT (soffgästen) också minnas i sessionen? Förslag:
+   nej — "mina" ska betyda det barnet själv gjort. Byggt så tills ägaren säger annat.
+5. ✅ **Omgång 1 beställd** (grunden + sex kunder, F4).
+
+### F6. Omgång 1 — byggd 2026-10-01 (v1.285.0)
+
+**Grunden:** `src/lib/egnafigurer.js` (läsning · sessionsminne per profil · urval med takten ·
+fasaden `EgenFigur` · `figurForOmgang` · `presentera`), `src/games/bygg-en-kompis/varelse.js`
+(ritningen + tabellerna + melodin + saneringen utflyttade ur index.js, plus den tweenfria riggen
+`Kompis`), `rensaPost` i `unika-knytt/dna.js`, `somnar: false` i `knytt.js`, och `minns(…)` i
+båda källspelen. **Kunderna:** `popcornkalaset` (soffgästen) · `ballonglyft` (presenten) ·
+`glasstornet` (kunden) · `vippbradan` (vid korgen) · `studsbollar` (fångaren) · `titt-ut-pappa`
+(ett gömt fynd). 12 nya repliker med klipp; knyttens namn hade redan klipp.
+
+**Mätt** (`scripts/_egnafigurprobe.mjs`, 41/41, kontrollarmen K0 FÖRST — en tom profil ger
+reserven överallt): takten egen/tom per spel och oberoende mellan spel · en ny figur först i
+VARJE spel, även på en "tom" omgång, och bara en gång · en annan profil ser ingenting · fasaden
+160 px hög med fötterna på 2,16·r för alla fem testfigurer · `destroy()` släpper tickern, och en
+vy som spelet river UTAN att fråga städar själv i nästa tick · alla sex spelen: barnets figur på
+första omgången, spelets egen på nästa, 0 konsolfel över tre besök med en exit mitt i.
+Skärmdumparna granskade med ögat (`--bild` → `.test-shots/egna-<id>.png`). `npm run test` 8/8.
+
+⚠️ **Sondens urvalsarmar måste köra mot APPENS modulinstans** — url:en hämtas ur
+`performance.getEntriesByType('resource')`. En nyimporterad kopia har ett eget sessionsminne och
+hade mätt en annan takt än spelen.
+
+⚠️ `bygg-en-kompis`s testskärmdump är urblekt — **samma på HEAD** (mätt: HEAD:s index.js inlagd,
+samma bild). Inte den här omgången; inte utrett.
+
+**Nästa:** omgång 2 (F4) — de övriga starka på S–M.

@@ -539,6 +539,29 @@ export function dnaFranPost(post) {
   return dnaFromSeed(p[0] >>> 0, { f: p[1], z: p[2], m: p[3], v: p[4], r: p[5], g: p[6], t: p[7], gen: fl.gen, tofs: fl.tofs })
 }
 
+/**
+ * Faltvis sanering av en sparpost. `progress.get()` ger en LEVANDE referens och `setCustom`
+ * sparar utan kopia, sa allt som lases kopieras och allt som ar trasigt kastas. Bor har (och
+ * inte i index.js) for att ANDRA spel laser samlingen ocksa (`lib/egnafigurer.js`) — en
+ * sanering per lasare vore samma glidning som `dnaFranPost` byggdes for att stoppa.
+ *
+ * ATTA falt = en post skriven fore steg 2 (2026-09-10). Den far ett nionde, flaggfaltet med
+ * generation 0, och lases exakt som forut — utan den raden hade langdkontrollen kastat
+ * varje knytt barnet redan hade (`_knyttlyftprobe` R6).
+ */
+export function rensaPost(post) {
+  if (!Array.isArray(post) || (post.length !== 8 && post.length !== 9)) return null
+  for (const n of post) if (!Number.isFinite(n)) return null
+  const tak = [0, FARGER.length, STORLEKAR.length, MONSTER.length, VARLDAR.length, MOTIV_ANTAL, 4, 4, FLAGG_TAK]
+  const ut = [post[0] >>> 0]
+  for (let i = 1; i < 9; i++) {
+    const t = tak[i]
+    const x = i < post.length ? Math.trunc(post[i]) : 0
+    ut.push(((x % t) + t) % t)
+  }
+  return ut
+}
+
 // ---------------------------------------------------------------------------
 // Upplasningar — spelets enda SAMLINGS-krok (ATGARDER U3)
 // ---------------------------------------------------------------------------

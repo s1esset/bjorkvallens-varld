@@ -10,6 +10,20 @@
 
 export const NYHETER = [
   {
+    version: '1.285',
+    datum: '2026-10-01',
+    titel: 'Barnets egna knytt och kompisar hälsar på i andra spel',
+    punkter: [
+      'Knytten man kläckt i Unika Knytt och kompisarna man fotograferat i Bygg en Kompis dyker nu upp i andra spel. Den man nyss gjort kommer alltid först, och sedan ungefär varannan omgång. Har barnet inte gjort några än står spelets vanliga figurer kvar.',
+      'Popcornkalaset: ett av barnets egna knytt eller kompisar sitter i soffan och äter popcorn.',
+      'Ballonglyft: ibland är det barnets eget knytt eller kompis som hoppar ur presenten och landar i Elviras famn.',
+      'Glasstornet: barnets figur står och väntar på glassen och mumsar när den kommer.',
+      'Vippbrädan och Studsbollar: barnets figur står vid korgen, följer grodan eller bollen med blicken och jublar.',
+      'I Titt ut, pappa! gömmer sig barnets figur på ett av ställena och flyttar sedan in på raden med det man hittat.',
+      'Knytten säger sitt namn när de dyker upp första gången, och kompisarna sjunger sin egen melodi när de jublar.',
+    ],
+  },
+  {
     version: '1.284',
     fran: '1.280',
     datum: '2026-09-30',

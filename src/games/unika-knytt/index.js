@@ -25,8 +25,9 @@ import { lasVanner, sparaVanner } from './vanner.js'
 import {
   dnaFromSeed, dnaFranPost, slumpFro, mulberry32, STORLEKAR, MONSTER, FARGER, VARLDAR,
   MILSTOLPAR, START_TAK, takFor, antalFranPoster, rullaTier,
-  GEN_NU, MOTIV_ANTAL, FLAGG_TAK, packaFlaggor,
+  GEN_NU, MOTIV_ANTAL, FLAGG_TAK, packaFlaggor, rensaPost,
 } from './dna.js'
+import { minns } from '../../lib/egnafigurer.js'
 
 // Verkstadens egen värld. createScene tar ett eget tema-objekt lika gärna som en nyckel —
 // och det behövs: temanycklarna är sky·meadow·sunset·candy·water·night·warm, och 'warm' bär
@@ -686,23 +687,10 @@ export default {
     })
   },
 
-  // Fältvis sanering: progress.get() ger en LEVANDE referens och setCustom sparar utan kopia,
-  // så allt som läses kopieras och allt som är trasigt kastas.
-  //
-  // ÅTTA fält = en post skriven före steg 2 (2026-09-10). Den får ett nionde, flaggfältet med
-  // generation 0, och läses exakt som förut — utan den raden hade längdkontrollen kastat
-  // varje knytt barnet redan hade (`_knyttlyftprobe` R6).
+  // Saneringen bor i dna.js sedan andra spel läser samlingen (`lib/egnafigurer.js`). Metoden
+  // står kvar för sondernas skull (`_knyttlyftprobe` R6 anropar den på spelobjektet).
   _rensaPost(post) {
-    if (!Array.isArray(post) || (post.length !== 8 && post.length !== 9)) return null
-    for (const n of post) if (!Number.isFinite(n)) return null
-    const tak = [0, FARGER.length, STORLEKAR.length, MONSTER.length, VARLDAR.length, MOTIV_ANTAL, 4, 4, FLAGG_TAK]
-    const ut = [post[0] >>> 0]
-    for (let i = 1; i < 9; i++) {
-      const t = tak[i]
-      const x = i < post.length ? Math.trunc(post[i]) : 0
-      ut.push(((x % t) + t) % t)
-    }
-    return ut
+    return rensaPost(post)
   },
 
   _sparaKnytt(ctx) {
@@ -732,6 +720,10 @@ export default {
     // krockar med ceremonin.
     this._antal++
     this._spara(ctx)
+    // Sessionsminnet (LYFTPLAN §10): det knytt barnet just kläckt kommer först i nästa omgång
+    // av varje annat spel med en figurroll. Efter `_spara` — minnet läser bara poster som
+    // faktiskt finns i samlingen.
+    minns(ctx.services, 'knytt', p)
   },
 
   _byggHylla(ctx) {

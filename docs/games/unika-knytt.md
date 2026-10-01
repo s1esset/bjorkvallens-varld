@@ -1916,3 +1916,5 @@ ett knytt på golvet · mata ett bär · kamera-parallax). Inget av det är kval
 3. ~~**F**~~ — tom: V19 stängd 2026-09-05, V16 stängd 2026-09-12 (se F).
 
 *(ÅTGÄRDER U6, ögonlocket, är stängt 2026-09-01 — se E.)*
+
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Samlingen lånas ut till andra spel (LYFTPLAN §10): `rensaPost` flyttad till `dna.js` (en sanering för alla läsare), `minns(…)` i `_sparaKnytt` (sessionsminnet), och `byggKnytt(…, { somnar: false })` för knytt i publikroller. Sond: `scripts/_egnafigurprobe.mjs` (41/41).

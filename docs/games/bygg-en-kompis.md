@@ -172,3 +172,5 @@ Sonden bar själv ett mätfel först: vingspetsen var hårdkodad till 150 och ra
 samma tal efter att vingen krympts · d6e15b2`
 
 ⬜ **Aldrig speltestat av ett barn.**
+
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Galleriet lånas ut till andra spel (LYFTPLAN §10): ritningen, delarnas tabeller, skalan, melodin och saneringen flyttade till `varelse.js`, plus en egen tweenfri rigg `Kompis` (andning, blink, blick, skutt, vinkning, tugga, melodi — allt i `tick`) för kompisar som står i ANDRA spel. Verkstan själv använder fortfarande sina egna tweens. `minns(…)` när fotot spikas upp. Sond: `scripts/_egnafigurprobe.mjs` (41/41).

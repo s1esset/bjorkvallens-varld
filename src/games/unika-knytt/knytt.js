@@ -762,6 +762,7 @@ class Knytt {
     this._r = tal(opts.r, 90)
     this._ljud = opts.audio || null
     this._senare = typeof opts.senare === 'function' ? opts.senare : null
+    this._somnar = opts.somnar !== false
     this._bas = clamp(tal(d.storlek, 1), 0.5, 1.7)
     this._prop = laesProp(d)
     this._pal = laesPalett(d)
@@ -1411,8 +1412,11 @@ class Knytt {
     // Sömnen kommer av sig själv: 12 s till sömnig, 8 s till efter det till sover.
     // Står EFTER lekfullheten med flit: den bildruta då leken släpper ska kunna somna
     // direkt om fingret redan varit borta länge, i stället för att vänta en ruta till.
-    if (this._lage === 'idle' && this._stilla > 12) this._lage = 'somnig'
-    else if (this._lage === 'somnig' && this._stilla > 20) this._lage = 'sover'
+    // `somnar: false` (ett knytt LÅNAT till ett annat spel, `lib/egnafigurer.js`): publiken och
+    // mottagaren ska vara vakna, och där finns sällan ett finger som rör sig nära dem.
+    // Den tvingade sömnen nedan (`somna()`) gäller fortfarande.
+    if (this._somnar && this._lage === 'idle' && this._stilla > 12) this._lage = 'somnig'
+    else if (this._somnar && this._lage === 'somnig' && this._stilla > 20) this._lage = 'sover'
     // Tvingad sömn (`somna()`): gäspningen hinner klart, sedan sover det — oavsett fingret.
     if (this._somnKvar > 0) {
       this._somnKvar -= dt

@@ -166,6 +166,17 @@ m.path(g.clear()).fill(col).stroke({ width: 3, color: edge })
   SITTER FAST i kroppen (en fjäder under en planka) ska läsa kroppen — `Fjaderbrada.undersida(x)`
   finns just därför — inte räkna på skalären som driver den.
 
+## Fast takt (`src/lib/takt.js`, T3)
+
+- **`steg(dtF)` med variabelt `dtF` är fel för `Mjukkropp` och `Rep`:** `damp`/styvhet räknas per STEG
+  men `grav`/`falt` per `dtF²`, så jämvikten flyttar sig med bildfrekvensen (marshmallow kollapsar ≤ 40 fps,
+  spänt rep hänger 1,73× djupare vid 30 fps). Använd **`kropp.uppdatera(ticker.deltaMS)`** (opt-in; `steg()` orört).
+- `new Takt({ steg: 1000/60, max: 3, snapp: 0.5 })` · `takt.kor(deltaMS, fn) → antal steg` · `takt.alfa` (0..1,
+  resten). Samma snäpp som `PhysicsWorld.update`; kastar överskott vid `max`. `fjader1d(w, zeta)` = grodans
+  fjäder med fasta delsteg 1/120 s. `kropp.takt` ger den inbyggda Takten.
+- `fast()`/`dra()`/`skjut()` sätts per bildruta FÖRE `uppdatera` — noll steg (> 60 Hz) eller flera (< 60 Hz) körs.
+  Mät: `node scripts/_taktlib.mjs` (Pixis Ticker vid 30–90 Hz, kontrollarm = dagens `steg(dtF)`).
+
 ## Fjäderbräda (`src/lib/fjader.js`)
 
 En planka som LAGRAR ett anslag och ger tillbaka det. Fjäder med eget tillstånd (`komp`,

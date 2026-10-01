@@ -25,6 +25,8 @@
 // Rena tal, ingen Pixi, inga tweens, inga timers — kroppen kan inte överleva ett
 // spelbyte. `destroy()` finns för symmetri och för att kunna nolla referenser.
 
+import { Takt } from './takt.js'
+
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v)
 
 export class Mjukkropp {
@@ -284,6 +286,18 @@ export class Mjukkropp {
       b.x -= dx * diff
       b.y -= dy * diff
     }
+  }
+
+  // OPT-IN FAST TAKT: `uppdatera(ticker.deltaMS)` i stället för `steg(dtF)`. Stegar alltid med
+  // exakt 1 (en inbyggd `Takt`, lib/takt.js) så jämvikten blir densamma vid 30, 57 och 90 Hz.
+  // 0 steg på en bildruta är normalt vid > 60 Hz (`this.takt.alfa` = resten). `steg()` är orört.
+  uppdatera(deltaMS) {
+    this.takt.kor(deltaMS, () => this.steg(1))
+    return this
+  }
+
+  get takt() {
+    return (this._takt ??= new Takt())
   }
 
   steg(dtF = 1) {

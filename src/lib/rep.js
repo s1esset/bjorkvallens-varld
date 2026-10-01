@@ -27,6 +27,7 @@
 // med resten av verktygslådan och för att kunna nolla referenser.
 
 import { CanvasSource, MeshRope, Point, Texture } from 'pixi.js'
+import { Takt } from './takt.js'
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v)
 
@@ -136,6 +137,19 @@ export class Rep {
     this.losa(this.sista)
     this._span = null
     return this
+  }
+
+  // OPT-IN FAST TAKT: `uppdatera(ticker.deltaMS)` i stället för `steg(dtF)`. Stegar alltid med
+  // exakt 1 (en inbyggd `Takt`, lib/takt.js) så repets hängning blir densamma vid 30, 57 och
+  // 90 Hz. Anropa fast()/dra() FÖRE — de sätter mål, uppdatera() kör noll eller flera steg.
+  // `steg()` är orört.
+  uppdatera(deltaMS) {
+    this.takt.kor(deltaMS, () => this.steg(1))
+    return this
+  }
+
+  get takt() {
+    return (this._takt ??= new Takt())
   }
 
   steg(dtF = 1) {

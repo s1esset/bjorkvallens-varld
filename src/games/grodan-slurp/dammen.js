@@ -2121,7 +2121,7 @@ export class Dammen {
   // =====================================================================================
   // Per bildruta
 
-  // FÖRE phys.update: flytkraften + bladens fjädrande gupp + stockens vakt.
+  // FÖRE phys.update: strömmen (stromX) + bladens fjädrande gupp + stockens vakt.
   steg(t) {
     if (!this._alive) return
     const nu = Number.isFinite(t) ? t : this._t
@@ -2137,7 +2137,7 @@ export class Dammen {
       const fas = (nu * TAU) / (V.per || 4)
       this.flytvolym.stromX = this._plan.landDir * ((V.mot || 0) + (V.amp || 1) * Math.sin(fas) + this._vagPuff)
     }
-    this.flytvolym.steg(nu)
+    // Flytkraften stegar sig SJÄLV per fysiksteg (Flytvolym registrerar sig i phys.beforeStep, T1).
     this._stockVakt()
     this._laddaBlad()
     const s = this._stock

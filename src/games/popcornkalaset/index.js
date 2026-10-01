@@ -33,6 +33,7 @@ import { byggSkal, iSkal, paseHylla } from './fysik.js'
 import { GOLV, BANK, SPIS, REGLAGE, PASE, GRYTA, LOCK, BORD, SKAL, POPCORN, KORN, FULL_SKAL } from './matt.js'
 import { ritaRum, ritaPlatta, ritaReglage, ritaGryta, ritaLock, ritaPase, ritaSkal, ritaKorn, popcornForm, ritaPopcorn, ritaPopcornMjuk } from './konst.js'
 import { dragGaster, skapaGast } from './gaster.js'
+import { valjEgna } from '../../lib/egnafigurer.js'
 
 const STEG_MS = 1000 / 60
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v)
@@ -595,12 +596,41 @@ export default {
     this._gastLager.removeChildren()
     this._jubelLager.removeChildren()
     const val = dragGaster(this._rng, 3)
-    this._gaster = val.map(({ typ, plats }) => {
-      const g = skapaGast(typ, plats, { later: ctx.later, audio: ctx.services.audio, rng: this._rng })
+    // Barnets EGET knytt eller kompis (LYFTPLAN §10): det barnet nyss skapat kommer alltid på
+    // nästa kalas, sedan varannan omgång. Det tar det slumpade knyttets plats om ett sådant
+    // drogs, annars en slumpad gästs — platsen (och skålens ägare) står kvar.
+    const [egen] = valjEgna(ctx.services, 'popcornkalaset')
+    let egenI = -1
+    if (egen && val.length) {
+      egenI = val.findIndex((v) => v.typ === 'knytt')
+      if (egenI < 0) egenI = Math.floor(this._rng() * val.length) % val.length
+    }
+    this._gaster = val.map(({ typ, plats }, i) => {
+      const g = skapaGast(typ, plats, {
+        later: ctx.later,
+        audio: ctx.services.audio,
+        rng: this._rng,
+        egen: i === egenI ? egen : null,
+      })
       this._gastLager.addChild(g.view)
       g.hungrig()
       return g
     })
+    // Första kalaset med en figur barnet NYSS skapat: säg det, och knyttets namn som ett eget
+    // klipp efteråt. Köat bakom introt; tystnar om omgången hunnit bytas.
+    const egenGast = egenI >= 0 ? this._gaster[egenI] : null
+    if (egenGast && egen.ny) {
+      const gaster = this._gaster
+      ctx.narTyst(() => {
+        if (!this._alive || this._gaster !== gaster) return
+        ctx.services.voice.say(egenGast.typ === 'knytt' ? 'Titta, ditt knytt har kommit på kalaset!' : 'Titta, din kompis har kommit på kalaset!')
+      })
+      if (egenGast.namn) {
+        ctx.narTyst(() => {
+          if (this._alive && this._gaster === gaster) ctx.services.voice.say(egenGast.namn)
+        })
+      }
+    }
     // Varje skål har en ägare (dragGaster lovar minst en per skål); den första som äger den.
     this._agare = SKAL.map((_, s) => this._gaster.find((g) => g.plats.skal === s) || this._gaster[s % this._gaster.length])
     this._nastaMums = this._gaster.map(() => 2 + this._rng() * 3)

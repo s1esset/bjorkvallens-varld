@@ -9,6 +9,10 @@
 //                                       eget spel — här är den VAKEN: eget öga, egen tunga)
 //   knytt   byggKnytt(dnaFromSeed(…))   unika-knytt/knytt.js        ett nytt varje omgång, tick()
 //
+// Plus BARNETS EGNA (LYFTPLAN §10, `opts.egen` ur `lib/egnafigurer.js`): ett sparat knytt går
+// samma väg som det slumpade, byggt ur sparposten (`dnaFranPost`), och en kompis ur
+// `bygg-en-kompis` får typen 'kompis' (`varelse.js`: jubla · tugga · heja · tick).
+//
 // Spelet ska inte veta vilken figur det fått, så allt går genom EN fasad (`Gast`):
 //   hungrig() · titta(x, y) · jubla() · mumsa() · knaprigt() · tick(dtMs) · destroy()
 //
@@ -34,7 +38,8 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { makeKompis } from '../titt-ut-pappa/kompisar.js'
 import { makeVerktyg } from '../vakna-pappa/verktyg.js'
 import { byggKnytt } from '../unika-knytt/knytt.js'
-import { dnaFromSeed } from '../unika-knytt/dna.js'
+import { dnaFromSeed, dnaFranPost } from '../unika-knytt/dna.js'
+import { byggKompis } from '../bygg-en-kompis/varelse.js'
 import { burst, sparkle, stadFx } from '../../lib/feedback.js'
 import { spray } from '../../lib/partiklar.js'
 import { COLORS, shade, tint } from '../../lib/theme.js'
@@ -184,8 +189,9 @@ function byggValp() {
   return { fig, view: fig.view, s: 1.8, ned: 57, halv: 60, huvud: { x: 14, y: -26 }, mun: { x: 34, y: -12 }, natur: 1, huvudNod, pupill, tunga }
 }
 
-function byggNyttKnytt(rng, audio, senare) {
+function byggNyttKnytt(rng, audio, senare, post = null) {
   // Ett nytt individ varje gång: fröet OCH barnets recept slumpas (färg, mönster, värld).
+  // Med `post` är det i stället barnets EGET knytt ur samlingen, exakt som det kläcktes.
   const seed = Math.floor(rng() * 4294967296) >>> 0
   const val = {
     f: Math.floor(rng() * 10),
@@ -194,7 +200,7 @@ function byggNyttKnytt(rng, audio, senare) {
     v: Math.floor(rng() * 6),
     g: Math.floor(rng() * 4),
   }
-  const fig = byggKnytt(dnaFromSeed(seed, val), { r: 60, audio, senare })
+  const fig = byggKnytt(post ? dnaFranPost(post) : dnaFromSeed(seed, val), { r: 60, audio, senare })
   // Knyttets mått läses ur dess fästpunktspost (`_m`, satt vid bygget, skrivs aldrig om) och
   // storleksfaktorn `_bas`. Origo = fötterna; kroppens botten sitter på −benhöjden.
   const m = fig._m || {}
@@ -222,6 +228,28 @@ function byggNyttKnytt(rng, audio, senare) {
   }
 }
 
+// Barnets kompis ur bygg-en-kompis. Origo = fötterna; snittet läggs en sjättedel upp på
+// figuren, så fötterna och benstumparna hamnar under sitsen och den sitter. Måtten läses ur
+// den RITADE figuren (prydnaden och vingarna med), som knyttets.
+function byggEgenKompis(cfg, audio) {
+  const fig = byggKompis(cfg, { audio, skugga: false })
+  const mt = fig.matt
+  const ned = mt.topp * 0.16
+  const hojd = Math.max(1, ned - mt.topp)
+  const bredd = Math.max(1, mt.hoger - mt.vanster)
+  const s = clamp(Math.min(165 / hojd, 200 / bredd), 0.4, 1.8)
+  return {
+    fig,
+    view: fig.view,
+    s,
+    ned,
+    halv: bredd / 2,
+    huvud: { x: 0, y: mt.ansikte },
+    mun: { x: 0, y: mt.mun },
+    natur: 0,
+  }
+}
+
 function ritaMajs(g, f) {
   // Bulig silhuett: fem överlappande klotar, konturen som en mörkare kopia bakom (en stroke
   // på överlappande former drar streck tvärs över silhuetten).
@@ -238,8 +266,10 @@ function ritaMajs(g, f) {
 // --- fasaden -------------------------------------------------------------------
 
 class Gast {
-  constructor(typ, plats, { later, audio, rng } = {}) {
-    this.typ = POOL.includes(typ) ? typ : 'bobo'
+  constructor(typ, plats, { later, audio, rng, egen = null } = {}) {
+    // Barnets egen figur bestämmer typen själv: ett knytt går knyttets väg, en kompis sin egen.
+    this.egen = egen
+    this.typ = egen ? (egen.typ === 'kompis' ? 'kompis' : 'knytt') : POOL.includes(typ) ? typ : 'bobo'
     this.plats = plats || PLATSER[0]
     this._later = typeof later === 'function' ? later : null
     this._audio = audio || null
@@ -265,7 +295,10 @@ class Gast {
     if (this.typ === 'bobo' || this.typ === 'kusin') d = byggBobo(slump, this.typ === 'kusin')
     else if (this.typ === 'katt' || this.typ === 'anka') d = byggDjur(this.typ)
     else if (this.typ === 'valp') d = byggValp()
-    else d = byggNyttKnytt(slump, audio, senare)
+    else if (this.typ === 'kompis') d = byggEgenKompis(egen.data, audio)
+    else d = byggNyttKnytt(slump, audio, senare, egen?.data || null)
+    // Namnet (bara ett knytt har ett) — spelet säger det när barnets eget knytt kommer.
+    this.namn = this.typ === 'knytt' && egen ? d.fig?._dna?.namn ?? null : null
     // Golvkudden (x 632) står trångt: reglagets plus slutar på x ~528 och skål 0 börjar på
     // x 599. En något mindre gäst där skymmer skålen mindre (§ rapporten: platsen bör flyttas).
     if (this.plats.id === 'kudde') d.s *= 0.85
@@ -535,6 +568,9 @@ class Gast {
       fig.tryck() // örat flaxar, svansen viftar, hon skuttar
       this._hopp(22)
       ljud = this._ljud('djur_hund')
+    } else if (this.typ === 'kompis') {
+      fig.jubla() // båda armarna upp, två skutt och kompisens EGEN melodi — dess läte
+      ljud = !!this._audio
     } else {
       fig.glad() // skutt ×3, glada ögon och knyttets EGET fyrtonsmotiv — dess läte
       ljud = !!this._audio
@@ -549,7 +585,7 @@ class Gast {
   // Ett popcorn ur skålen: det flyger in i munnen, gästen tuggar och det knastrar.
   mumsa() {
     if (this._dod || this._upptagen()) return
-    const tok = this._ny('mums', this.typ === 'knytt' ? 1500 : 950)
+    const tok = this._ny('mums', this.typ === 'knytt' ? 1500 : this.typ === 'kompis' ? 1100 : 950)
     this._flyg(false, (mun) => {
       if (tok !== this._token) return
       this._ljud('tugg_knaprig')
@@ -582,6 +618,9 @@ class Gast {
         this._tugga(2)
       } else if (this.typ === 'valp') {
         fig.tryck()
+      } else if (this.typ === 'kompis') {
+        fig.tugga()
+        fig.heja()
       } else {
         fig.at() // gapar, tuggar tre gånger och RAPAR en gnista
       }
@@ -592,6 +631,7 @@ class Gast {
     const fig = this._fig
     if (this.typ === 'bobo' || this.typ === 'kusin') fig.react('nam')
     else if (this.typ === 'knytt') fig.at()
+    else if (this.typ === 'kompis') fig.tugga()
     else if (this.typ === 'valp') {
       const h = this._d.huvudNod
       if (h && !h.destroyed) {
@@ -678,6 +718,13 @@ class Gast {
         this._pek.y = lok.y
       }
       fig.tick(dtMs, lok ? this._pek : null)
+    } else if (this.typ === 'kompis') {
+      // Kompisriggen läser målet i samma rum som knyttet (fig-noden) och somnar aldrig.
+      if (lok) {
+        this._pek.x = lok.x
+        this._pek.y = lok.y
+      }
+      fig.tick(dtMs, lok ? this._pek : null)
     }
 
     // Sniffet: en hungrig djurgäst lyfter sig lite då och då — väntan syns, inte bara står.
@@ -715,6 +762,7 @@ class Gast {
 
 // Skapa en gäst på sin plats. `later` = spelets ctx.later (dör med omgången), `audio` =
 // ctx.services.audio, `rng` = () => [0,1) (kusinens päls, knyttets frö, golvkuddens färg).
-export function skapaGast(typ, plats, { later, audio, rng } = {}) {
-  return new Gast(typ, plats, { later, audio, rng })
+// `egen` = en post ur `valjEgna` (barnets knytt eller kompis) — då bestämmer den typen.
+export function skapaGast(typ, plats, { later, audio, rng, egen = null } = {}) {
+  return new Gast(typ, plats, { later, audio, rng, egen })
 }

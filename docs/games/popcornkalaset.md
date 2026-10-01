@@ -365,3 +365,5 @@ utgångspunkt, anpassas till spelets rum. `makeKompis('nalle')` är ikonen 🧸 
   **Kvar i planen:** B6b (Elvira/Zacke/Lova/grisen ur andra spel till `lib/figurer.js`) · B7
   (slumpade händelser — hunden som äter spillet i stället för puffen, katten på bänken) · locket
   som skramlar med en egen ton (B12). Golvkudden ströks ur `PLATSER` (skymde skål 0).
+
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Barnets EGNA figurer i soffan: `valjEgna(…, 'popcornkalaset')` — det barnet nyss kläckt/fotograferat kommer alltid på nästa kalas, sedan varannan omgång; tar det slumpade knyttets plats om ett sådant drogs. Ett sparat knytt går knyttgrenen (`byggNyttKnytt(…, post)`), en kompis den nya `'kompis'`-grenen i `Gast` (`varelse.js`: jubla · tugga · heja · tick). Reserven är som förut: ett NYSLUMPAT knytt (ägarbeslut F5.2 — här är det ett knytt som är poängen). Sond: `scripts/_egnafigurprobe.mjs` (41/41).

@@ -14,6 +14,46 @@ Format:
 
 ---
 
+## 2026-10-01 (kväll) — Spår F omgång 2 (16 spel), Nätskott i kvällen, fysikplanen · v1.288.0
+
+**Byggt:**
+- **Spår F omgång 2 (v1.287.0):** barnets egna och MÖTTA knytt/kompisar i 16 spel till — saftbaren
+  · lagerelden · studsmatta · hamburgerbygget · stor-liten · fanga-frukten (äter) · poppa-ballonger
+  · klappa-mullvaden · vart-tog-det-vagen · skattjakt-i-morkret · blixt-och-dunder · bygg-tornet
+  (hittas/räddas) · folj-sparet · siffertaget · zackes-biltvatt · bowling (leker/publik). Sex
+  Sonnet-byggare parallellt i samma träd (arbetsorder `.claude/state/sparf-omgang2.md`), tre
+  replikvarianter per roll (ditt knytt / din kompis / ett knytt), 77 repliker med klipp.
+  F3-premissen föll i 5 av 16 och skrevs om (LYFTPLAN F7 har tabellen).
+- **Bugg i grunden, rättad:** `presentera` fyrade under `mount()` och spelets intro kapade raden
+  efter **0 ms** — barnet hörde bara knyttets namn (även omgång 1:s vippbrädan, glasstornet,
+  studsbollar). Nu `ctx.later(0.15)` först; kontrollarm utan fixen röd, med fixen grön.
+- **Ny sond `scripts/_egnakund.mjs`** (generisk per kund, `levandeFigurer()` i lib) och
+  **`scripts/_vite-nohmr.mjs`** — dev-server :5174 utan HMR så parallella agenters sparningar
+  inte river varandras testsidor (mätt: `_nohmrprobe.mjs`).
+- **Nätskott på stan (v1.288.0, Opus-agent + kritiker):** resan in i kvällen (`kvall.js` —
+  solnedgång, måne, fönster som tänds, lyktor, regn med paraplyer varannan runda), sex
+  uppdragssorter (nya: snärj med nätbollen · fönstermonstret · tänd lyktorna), eget hem där
+  barnets figur (eller ett monster) väntar i dörren och tänder lamporna. Nätbollen fastnar inte
+  på gatusaker (31/32 träffar mot HEAD:s 10–14), husen byggs inte längre ovanpå varandra.
+  Bildrutekostnad oförändrad. Kritikern: inga blockerare.
+- **`docs/FYSIKPLAN.md`** (Opus 5.5, effort max — agenttypen `fysikplanerare`): 40 arbetsordrar.
+  Störst: fysiken beror på BILDTAKTEN (kraft per bildruta i stället för per steg — flytjämvikt
+  0,637 vid 60 Hz, sjunker vid 30; 15 spel), `pointercancel` når aldrig spelen, andra fingret
+  kapar draget (30 spel). Tio ägarbeslut (Ä1–Ä10) väntar.
+**Mätt:** `_egnakund` 16/16 gröna i en oberoende omkörning, `_egnafigurprobe` grön,
+`npm run test:all` **87/87**, `check` 0/0. E1-bilderna granskade i kontaktark — rättat:
+lagereldens figur lyftes ut ur bild i vinsthoppet.
+**Commits:** cb4d9e0 feat(egnafigurer) · 8c02a24…3c3ffd0 sexton spel (ett per spel) · 2194667
+docs(fysikplan) · 980cc70 feat(natskott-pa-stan) · + denna bokföring. Publicerat.
+**Öppet:**
+- Ägaren provar: omgång 1–2 av Spår F (gör ett knytt i Unika Knytt och gå sedan runt i spelen),
+  och Nätskott på stan ett helt varv till hemkomsten.
+- **FYSIKPLAN Ä1–Ä10** — ägarens beslut (enheter, 60 fps-taket, första storbarnsspelet …), sedan
+  omgång 1 (T1–T4 bildtakten + K1/K2 pekare + M1/M2 mätstickan).
+- Spår F omgång 3 (nya mekaniker: kittla-figuren, loopdjuren, harma-melodin, enkelt-pussel,
+  mata-monstret, vad-forsvann, vandkort).
+- Nätskott §4: snärj-panelen, dörrfiguren byggd i förväg, mittenhanden som skymmer.
+
 ## 2026-10-01 — Barnets egna knytt och kompisar i andra spel (Spår F, omgång 1) · v1.285.0
 
 **Byggt:**

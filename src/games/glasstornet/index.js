@@ -35,6 +35,7 @@ import { createScene } from '../../lib/scene.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { bounceIn, pop, puff, sparkle, ripple, burst, floatText, kvittera } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { figurForOmgang, presentera } from '../../lib/egnafigurer.js'
 import { COLORS } from '../../lib/theme.js'
 
 // ---- Layout (designkoordinater 1280×720) --------------------------------
@@ -328,12 +329,14 @@ export default {
   // Placeringen är räknad, inte gissad. Den gamla kroppens skugga låg på y 158 under
   // containerorigo; riggens ligger på 2,36·r = 132. Origo flyttas därför 26 px NER så
   // att fötterna står kvar på exakt samma golvlinje (462 + 158 = 488 + 132 = 620).
+  //
+  // Varannan glass går till barnets EGET knytt eller kompis i stället (LYFTPLAN §10): samma
+  // Karaktar-yta, och knyttets `nam` är hela sekvensen gapa–tugga–rapa. Figuren byts i
+  // _bytKund när ett nytt torn börjar; containern `c` (spelets pop) står kvar.
   _buildCustomer() {
     const c = new Container()
     c.position.set(146, 488)
-    this._kar = makeKaraktar({ r: 56 })
-    c.addChild(this._kar.view)
-    this._kar.setMood('hungrig', { direkt: true })
+    this._kar = null
     c.eventMode = 'none'
     c.interactiveChildren = false
     this._customer = c
@@ -517,6 +520,7 @@ export default {
     this._serveItem = null
 
     this._clearLive()
+    this._bytKund(ctx)
 
     this._count = 0
     this._fallStreak = 0
@@ -1041,6 +1045,17 @@ export default {
       .to(view.scale, { x: 1.22, y: 0.82, duration: 0.1, ease: 'power2.out' })
       .to(view.scale, { x: 0.93, y: 1.08, duration: 0.12, ease: 'sine.inOut' })
       .to(view.scale, { x: 1, y: 1, duration: 0.24, ease: 'back.out(2.2)' })
+  },
+
+  // Kunden för det här tornet: barnets egen figur när takten säger det, annars Bobo.
+  _bytKund(ctx) {
+    const c = this._customer
+    if (!c || c.destroyed) return
+    this._kar?.destroy()
+    this._kar = figurForOmgang(ctx, 'glasstornet', { r: 56, reserv: () => makeKaraktar({ r: 56 }) })
+    c.addChild(this._kar.view)
+    this._kar.setMood('hungrig', { direkt: true })
+    presentera(ctx, this._kar, { knytt: 'Titta, ditt knytt vill ha glass!', kompis: 'Titta, din kompis vill ha glass!' })
   },
 
   // Mottagaren blir sugen: studsar till (större ju högre tornet är) + jublar nära mål.

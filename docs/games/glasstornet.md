@@ -245,3 +245,5 @@ auto-hjälp + osynligt svaj urvattnar timing-skickligheten**.
   ⚠️ Silhuetten måste ÄRVAS av den mjuka kroppen (`form`-parametern), annars poppar den
   vågiga kopan till en slät cirkel i samma sekund barnet släpper. Och skugga + regnbågsband
   ritas ur SAMMA kropp via `path(g, skala)` — var för sig glider de isär i vobbeln.
+
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Kunden byts per torn (`_bytKund` i `_newTower`): varannan glass går till barnets EGET knytt eller kompis (`figurForOmgang`, Karaktar-rummet r 56), annars Bobo. Knyttets `nam` = gapa–tugga–rapa. Sond: `scripts/_egnafigurprobe.mjs` (41/41).

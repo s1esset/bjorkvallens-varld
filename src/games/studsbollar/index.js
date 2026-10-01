@@ -25,6 +25,7 @@ import { Button } from '../../lib/Button.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 
 const FLOOR_Y = 648 // golvets ovansida (design-y)
 const LAUNCH = { x: 205, y: 512 } // avskjutningsplattans boll-position
@@ -291,6 +292,7 @@ export default {
     this._flying = false
 
     const { x, scale } = this._basketFor(level)
+    this._bytFangare(ctx)
     this._setBasket(x, scale)
     this._drawMeter()
     this._clearBalls()
@@ -573,10 +575,30 @@ export default {
     }
   },
 
+  // Fångaren för den här nivån (LYFTPLAN §10): varannan nivå står barnets EGET knytt eller
+  // kompis vid korgen i stället för den ritade Bobo. Spelet äger den yttre containern (guppet,
+  // hoppet, speglingen) precis som förut — figuren bor inuti och har sitt eget liv.
+  _bytFangare(ctx) {
+    const c = this._catcher
+    if (!c || c.destroyed) return
+    this._egenFang?.destroy()
+    this._egenFang = null
+    const [egen] = valjEgna(ctx.services, 'studsbollar')
+    for (const barn of c.children) barn.visible = !egen
+    if (!egen) return
+    const fig = byggEgenFigur(ctx, egen, { hojd: 132, maxBredd: 130 })
+    c.addChild(fig.view)
+    this._egenFang = fig
+    presentera(ctx, fig, { knytt: 'Titta, ditt knytt tar emot bollen!', kompis: 'Titta, din kompis tar emot bollen!' })
+  },
+
   // Bobo hoppar och kastar upp armarna när en boll landar i korgen.
   _catcherCheer(big = false) {
     const c = this._catcher
     if (!c || c.destroyed) return
+    // Barnets figur jublar med sin egen rigg: knyttet skuttar (och sjunger vid vinsten),
+    // kompisen slänger upp båda armarna.
+    this._egenFang?.react(big ? 'jubel' : 'heja')
     const base = FLOOR_Y - 6
     this._catcherIdle?.pause()
     gsap.killTweensOf(c)
@@ -841,6 +863,16 @@ export default {
     if (!this._alive) return
     const dt = t.deltaMS / 1000
     this._phys.update(t.deltaMS)
+    // Barnets figur vid korgen följer bollen med blicken: skottet i luften, annars bollen
+    // som väntar på att skjutas. I fångarens EGET rum — containern speglas per nivå.
+    const fang = this._egenFang
+    if (fang && this._catcher && !this._catcher.destroyed) {
+      const boll = this._shot?.view || this._readyBall
+      if (boll && !boll.destroyed && boll.parent) {
+        const p = this._catcher.toLocal(boll.getGlobalPosition())
+        fang.look(p.x, p.y)
+      }
+    }
     // Tomgången räknas från TYSTNAD — annars kapar om-cuen en replik som talar.
     if (ctx.services.voice.talar) this._idle = 0
     this._idle += dt
@@ -900,6 +932,8 @@ export default {
     this._readyBreathe?.kill()
     this._basketTween?.kill()
     this._catcherIdle?.kill()
+    this._egenFang?.destroy()
+    this._egenFang = null
     if (this._catcher && !this._catcher.destroyed) {
       gsap.killTweensOf(this._catcher)
       gsap.killTweensOf(this._catcher.scale)

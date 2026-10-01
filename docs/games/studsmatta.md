@@ -98,6 +98,7 @@ Kort sagt: *en riktigt fin kontroll som spelet både motarbetar (centrering) och
 
 ## 5. Status / loggar
 
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Picknick-gästen byts per montering (`figurForOmgang`, r 42, samma Karaktar-mått som Bobo → oförändrad placering): varannan gång sitter barnets EGET knytt eller kompis (eller ett MÖTT knytt) vid korgen. Den tuggar varje fångad morot/stjärna (`_boboMunch` → `react('nam')`), jublar när picknicken är serverad och följer kaninen med blicken (bara den egna figuren — Bobo är orörd). Inga repliker nämner Bobo, så bara presentationsraderna är nya. Utan egna figurer ser spelet ut som förut.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_winLevel` spelade själv vinstljud
   och konfettiregn i samma tick som `complete()` — strukna (WIN_CHEERS sägs före och står kvar).
   Nytt: sällsynt gyllene jättemorot (räknas dubbelt), höjdton upp och ned per studs, och

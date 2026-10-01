@@ -18,6 +18,7 @@ import { makeStjarna } from '../../lib/foremal.js'
 import { floatText, sparkle, puff, burst, pop, kvittera } from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { figurForOmgang, arEgen, presentera } from '../../lib/egnafigurer.js'
 import { COLORS } from '../../lib/theme.js'
 import { bage } from '../../lib/form.js'
 
@@ -201,7 +202,7 @@ export default {
     // VARFÖRET (gate-punkt 4): en picknick i högerkanten. Kaninen samlar inte i tomma
     // luften längre — allt hon fångar flyger till Bobos korg, och han jublar. Byggs
     // SIST så picknicken ligger i förgrunden och studsmattan glider bakom den.
-    this._buildPicnic()
+    this._buildPicnic(ctx)
 
     // Fysik: golv + sidoväggar (mjukt tak hanteras manuellt i ticken).
     this._phys = new PhysicsWorld({ gravityY: GRAVITY_Y, walls: ['floor', 'left', 'right'] })
@@ -244,6 +245,11 @@ export default {
   mount(ctx) {
     this._idle = 0
     this._say(ctx, this.voiceIntro, 0)
+    // Ett NYSS skapat knytt/en ny kompis presenteras första gången (tiger för mötta och gamla).
+    presentera(ctx, this._kar, {
+      knytt: 'Ditt knytt väntar vid picknicken!',
+      kompis: 'Din kompis väntar vid picknicken!',
+    })
   },
 
   // ---- Aktuell studskraft 0..1 utifrån hur lågt mattan är dragen --------------
@@ -279,6 +285,8 @@ export default {
     this._prevVy = vy
 
     this._titta()
+    // Barnets egen figur vid korgen följer kaninen med blicken (Bobo gör som förut).
+    if (this._egenGast && this._kar && this._char) this._kar.look(this._char.position.x, this._char.position.y)
 
     if (this._gliding) return // hjälp-glid styr kaninen helt
 
@@ -502,7 +510,7 @@ export default {
   },
 
   // Picknick i högerkanten: filt, korg och Bobo som väntar på maten.
-  _buildPicnic() {
+  _buildPicnic(ctx) {
     const p = new Container()
     p.eventMode = 'none'
     p.interactiveChildren = false
@@ -536,7 +544,15 @@ export default {
     // 2,36·r ner till fötterna, alltså oförändrad placering. Andningen sköter
     // riggens egen `idle()`; den handrullade skal-tweenen är borta, annars hade
     // två skrivare ägt samma `view.scale`.
-    this._kar = makeKaraktar({ r: PICNIC_R })
+    // Varannan gång sitter barnets EGET knytt eller kompis vid korgen i stället för Bobo
+    // (LYFTPLAN §10) — samma Karaktar-yta och samma mått, alltså samma placering. Den tuggar
+    // varje fångad morot (`nam`) och jublar när hela picknicken är serverad.
+    this._kar = figurForOmgang(ctx, 'studsmatta', {
+      r: PICNIC_R,
+      maxBredd: 150,
+      reserv: () => makeKaraktar({ r: PICNIC_R }),
+    })
+    this._egenGast = arEgen(this._kar)
     this._bobo = this._kar.view
     this._bobo.position.set(PICNIC_X + 44, PICNIC_GROUND - 2.36 * PICNIC_R)
     p.addChild(this._bobo)

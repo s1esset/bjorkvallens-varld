@@ -101,13 +101,8 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
   som stänker blått där de landar :734) — uppdagat 2026-09-23.
 - ✅ ~~**[Medium] Blomman slår ut steg för steg.**~~ Redan byggd (`_bloom` :748: knoppen
   spricker, kronbladen ett i taget, pollen-pluff) — uppdagat 2026-09-23.
-- ⚠️ **Sidofynd (SNABBVINSTER, tittat 2026-09-23, inte åtgärdat):** blomhuvudet är en
-  emoji-`Text` i storlek 92 ovanpå de ritade kronbladen. Kronbladen sticker ut ~48 px från
-  mitten och emojin täcker ~46, så emojin ÄR i praktiken blommans ansikte — på gränsen till
-  P0 ASSETS ("detalj ovanpå, aldrig hela föremålet"). Lösningen vore en ritad pistill/ansikte
-  i stället för `FLOWERS`, men det byter blommornas utseende och är ett ägarbeslut.
-  **Ägarbeslut 2026-10-01 (FYSIKPLAN Ä12): ja — rita blomhuvudet.** Kronblad och ansikte som
-  riktig form; emojin blir en detalj eller försvinner. Köad som **[Quick]** i FYSIKPLAN omgång 0.
+- ✅ ~~**Sidofynd: blomhuvudet var en emoji-`Text` (storlek 92) som täckte kronbladen.**~~
+  **BYGGD 2026-10-02** (ägarbeslut FYSIKPLAN Ä12: ja, rita den) — se §5.
 
 ### Progression
 - **[Medium] En trädgård som minns.** Visa `custom.flowers` som en faktisk **rabatt** längst ner
@@ -128,7 +123,29 @@ berättelsebåge (frö → blomma) som passar 2–4 år. Fjärilarna är "skörd
   *Första halvan klar (kontrollerat 2026-09-23):* vinstljudet varieras redan i
   `AudioService._celebrate` varje gång. ⛔ Ambienten kräver ett nytt SFX-klipp (MOSS nere).
 
+- **[Quick] Staketets fot (kritiken 2026-10-02).** Staketet står på ett platt mörkbrunt band (y 432–478) utan gräs; en gräskant eller några blommor vid foten. Halva bilden är tom himmel med bara ollonet.
+- **[Quick] Bakningar vid montering.** Första monteringen bakar ~14 linjära gradienter (cachade per färg). `test:all` var grön, men kör `scripts/_ab.sh` om sviten börjar flaka med `tom-scen`.
+
 ## 5. Status / loggar
+
+- 2026-10-02 🌸 **Blomman ritas (Ä12) + bilden får djup** (nattkörning F1/B4). Emoji-`Text`en
+  (`FLOWERS`) är borta. Sex SORTER (`SORTER`) med egen silhuett — prästkrage (11 smala), ros
+  (7 breda + 7 inre), solros (2×14 spetsiga + frökorn), tulpan (5 spetsiga), viol (5 runda),
+  körsbärsblom (5 hjärtformade) — kronblad med `topLightFill`, mitt med `sphereFill` och ett litet
+  ansikte (`makeFace`): blinkar (olika takt per blomma), tittar mot kannan, ler stort när kannan
+  vattnar nära och blundar glatt (^ ^) i knoppen när det är DERAS vatten. Knoppen har fått tre
+  kronbladsspetsar i sortens färg som tittar upp (en ledtråd). Sorten lottas ur en `pase` (alla sex
+  innan någon återkommer). Vilo-liv: stjälken vajar, huvudet vajar med eftersläpning (ticker-drivet,
+  inga tweens). Nytt: en UTSLAGEN blomma är nu en träffyta (Ø144) — tryck = klunk (`squash`), stort
+  leende och en ton ur dur-pentatonen som stiger för varje tryck. Kronbladens ton är ur samma skala
+  (högst åtta toner, även för solrosens 28 blad). Jätteblomman (1/6) skalar nu hela huvudet.
+  Bilden: solsken (tre ringar), moln med ljus topp/blå undersida, tre plan bakom rabatten (blek
+  fjärrås med små träd → kullar med volym → vitt staket), jordlager (ränder, sandkorn), stenar med
+  skugga, hål med bräm och djupare svalg, volym på jordhögen och grästuvor i förgrunden (hörnen).
+  Utelämnat med skäl: `createScene` används inte här (spelet har egen bakgrund) och `silhuett`/
+  `forgrund` fanns inte i `scene.js` när detta byggdes — djupet är byggt lokalt.
+  Kvar i §4: rabatten av sparade blommor, vattenstrålen som vätska, stjälken som rep.
+  ⚠️ Ej testat med `npm run test` av byggaren (andra byggare sparade filer samtidigt).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): spelet firade aldrig dubbelt —
   bara `complete()` firar, och nästa runda (1,4 s) säger ingenting (fas 1: orört). A-raden

@@ -13,14 +13,16 @@
 //              kannan först (bara röst+gest); först SENARE hjälper en mjuk auto-vattning
 //              lite (svagare dos), så barnets hållande faktiskt avgör — men det blir
 //              alltid klart.
-// Inga felsteg, ingen timer, ingen poäng. Allt ritas programmatiskt (Pixi + emoji).
-import { Container, Graphics, Text, Circle } from 'pixi.js'
+// Inga felsteg, ingen timer, ingen poäng. Allt ritas programmatiskt (Pixi) — blomhuvudet
+// också: kronblad med volym, en mitt och ett litet ansikte som blinkar, ser mot kannan och ler.
+import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
-import { bounceIn, pop, wiggle, puff, sparkle , kvittera} from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, squash, puff, sparkle , kvittera} from '../../lib/feedback.js'
 import { randomFrom } from '../../lib/swedish.js'
-import { COLORS, FONT, tint } from '../../lib/theme.js'
-import { verticalFill, bage } from '../../lib/form.js'
+import { COLORS, tint } from '../../lib/theme.js'
+import { verticalFill, sphereFill, topLightFill, bage } from '../../lib/form.js'
+import { pase } from '../../lib/variation.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 
 // Himlen var tidigare den platta tonen 0xbfe6ff; de två nedan spänner om den.
@@ -28,11 +30,32 @@ const SKY_TOP = 0xa7dbfd
 const SKY_HORIZON = 0xd8f1ff
 const HOLE_Y = 560 // jordhålens y (i jordrabatten)
 const SEED_Y = 210 // fröförrådets y (uppe i himlen)
-const FLOWERS = ['🌸', '🌺', '🌻', '🌷', '🌼', '🌹']
 const BUD_COLORS = [0x6fbf73, 0x88c98a, 0x7bc043]
-// Kronbladsfärger (programmatiska petals som vecklar ut vid blomning).
-const PETAL_COLORS = [0xff8ab0, 0xffd35c, 0xff6b6b, 0xa78bfa, 0xff9ec4, 0xffb84d, 0xff8a3d]
 const POLLEN = 0xffe08a
+// Dur-pentatonisk skala (C5–E6) för kronbladens pling och blommornas fnitter — stämd, inte gissad.
+const PENTA = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51]
+
+// --- Blomsorterna ---------------------------------------------------------
+// Varje sort är en egen SILHUETT, inte bara en annan färg: antal kronblad, bredd, spetsig/rund/
+// hjärtformad spets och en mitt i egen storlek. `lager` ritas bakifrån och fram (varje kronblad
+// vecklas ut för sig i `_bloom`). Kronbladet börjar `off` px från mitten och är `ry*2` långt, så
+// räckvidden är off + 2·ry ≈ 46–52 px — samma som de gamla kronbladens 48.
+//   form: 'rund' | 'spets' | 'hjarta' · ton: <0 mörkare, >0 ljusare än sortens färg
+//   vrid: andel av kronbladsvinkeln som lagret vrids, så de inre ligger i glipan mellan de yttre
+const SORTER = [
+  { id: 'prastkrage', farg: [0xfdf6ee, 0xffe3ef], mitt: 0xffd23c, R: 22, ink: 0x4a3220,
+    lager: [{ n: 11, rx: 7, ry: 21, off: 6, form: 'rund', ton: 0 }] },
+  { id: 'ros', farg: [0xff5d73, 0xf2557f, 0xff7a52], mitt: 0xffc07a, R: 19, ink: 0x4a2530,
+    lager: [{ n: 7, rx: 19, ry: 17, off: 12, form: 'rund', ton: 0 }, { n: 7, rx: 14, ry: 11, off: 8, form: 'rund', ton: 0.2, vrid: 0.5 }] },
+  { id: 'solros', farg: [0xffc928], mitt: 0xc98a4b, R: 27, ink: 0x3a2616, frukorn: true,
+    lager: [{ n: 14, rx: 8, ry: 21, off: 6, form: 'spets', ton: -0.14, vrid: 0.5 }, { n: 14, rx: 8, ry: 21, off: 6, form: 'spets', ton: 0 }] },
+  { id: 'tulpan', farg: [0xff8a3d, 0xff5d73, 0xffd35c], mitt: 0xfff0a0, R: 20, ink: 0x4a3220,
+    lager: [{ n: 5, rx: 17, ry: 23, off: 4, form: 'spets', ton: 0 }] },
+  { id: 'viol', farg: [0xa78bfa, 0x8f9bff], mitt: 0xffe27a, R: 18, ink: 0x2f2250,
+    lager: [{ n: 5, rx: 17, ry: 18, off: 10, form: 'rund', ton: 0 }] },
+  { id: 'korsbar', farg: [0xffb7d0, 0xffc9d8], mitt: 0xffe3a0, R: 19, ink: 0x5a2a3c,
+    lager: [{ n: 5, rx: 17, ry: 22, off: 6, form: 'hjarta', ton: 0 }] },
+]
 const DROP_BLUE = 0x6fc3ef
 const STEM_H = 150 // full stjälkhöjd
 // Sällsynt jätteblomma: var sjätte blomning får ett 1,35 gånger större huvud. Plantan är
@@ -74,6 +97,120 @@ function shade(hex, amt) {
   return (d(r) << 16) | (d(g) << 8) | d(b)
 }
 
+// --- Blomhuvudet: ritat, inte en emoji (FYSIKPLAN Ä12) -------------------------
+// Kronbladet börjar vid (0, -off) och pekar uppåt; L är dess längd. Rotationen i `_makePlant`
+// sprider ut dem runt mitten, och skalan 0→1 vecklar ut dem från mitten.
+function ritaKronblad(g, form, rx, L, off) {
+  if (form === 'spets') {
+    g.moveTo(0, -off).quadraticCurveTo(-2 * rx, -off - L * 0.5, 0, -off - L).quadraticCurveTo(2 * rx, -off - L * 0.5, 0, -off)
+    g.closePath()
+  } else if (form === 'hjarta') {
+    g.moveTo(0, -off)
+      .bezierCurveTo(-1.5 * rx, -off - 0.25 * L, -1.1 * rx, -off - 1.05 * L, -0.5 * rx, -off - 0.98 * L)
+      .quadraticCurveTo(-0.12 * rx, -off - 0.97 * L, 0, -off - 0.84 * L)
+      .quadraticCurveTo(0.12 * rx, -off - 0.97 * L, 0.5 * rx, -off - 0.98 * L)
+      .bezierCurveTo(1.1 * rx, -off - 1.05 * L, 1.5 * rx, -off - 0.25 * L, 0, -off)
+    g.closePath()
+  } else {
+    g.ellipse(0, -off - L / 2, rx, L / 2)
+  }
+}
+
+// Ett kronblad med volym: ljust mot spetsen, mörkare mot mitten (som skuggan i en blomma), ett
+// mörkare kantstreck och en svag nerv. Gradienten är cachad per färg — noll bakningar per planta.
+function makeKronblad(lag, farg) {
+  const c = lag.ton < 0 ? shade(farg, -lag.ton) : tint(farg, lag.ton)
+  const L = lag.ry * 2
+  const g = new Graphics()
+  ritaKronblad(g, lag.form, lag.rx, L, lag.off)
+  g.fill(topLightFill(c, { highlight: 0.2, dark: 0.22, mid: 0.4 })).stroke({ width: 2, color: shade(c, 0.28), join: 'round' })
+  g.moveTo(0, -lag.off - L * 0.2).lineTo(0, -lag.off - L * 0.62).stroke({ width: 1.8, color: shade(c, 0.3), alpha: 0.35, cap: 'round' })
+  g.eventMode = 'none'
+  return g
+}
+
+// Ett litet vänligt ansikte. `set` kallas varje bildruta men ritar bara om munnen när öppningen
+// ändrats (kvantiserad i åttondelar). open 0..1 = leende → skratt · happy = blundar glatt (^ ^) ·
+// lx/ly = blickriktning (-1..1) · blink 0.1..1 = ögonlockens höjd.
+function makeFace(R, ink) {
+  const root = new Container()
+  root.eventMode = 'none'
+  const ex = R * 0.4
+  const er = R * 0.24
+  const eyes = new Container()
+  eyes.position.set(0, -R * 0.14)
+  const pupils = []
+  for (const s of [-1, 1]) {
+    eyes.addChild(new Graphics().ellipse(s * ex, 0, er, er * 1.15).fill(0xffffff).stroke({ width: 1.4, color: ink }))
+    const p = new Graphics().circle(0, 0, er * 0.58).fill(ink).circle(-er * 0.2, -er * 0.22, er * 0.2).fill(0xffffff)
+    p.position.set(s * ex, 0)
+    eyes.addChild(p)
+    pupils.push(p)
+  }
+  const happyEyes = new Container()
+  happyEyes.position.set(0, -R * 0.14)
+  happyEyes.visible = false
+  const hg = new Graphics()
+  for (const s of [-1, 1]) bage(hg, s * ex, er * 0.45, er * 0.95, 1.12 * Math.PI, 1.88 * Math.PI).stroke({ width: Math.max(2, R * 0.1), color: ink, cap: 'round' })
+  happyEyes.addChild(hg)
+  const cheeks = new Graphics()
+  cheeks.circle(-R * 0.66, R * 0.2, R * 0.17).fill({ color: 0xff7a8a, alpha: 0.42 })
+  cheeks.circle(R * 0.66, R * 0.2, R * 0.17).fill({ color: 0xff7a8a, alpha: 0.42 })
+  const mouth = new Graphics()
+  mouth.position.set(0, R * 0.3)
+  root.addChild(cheeks, eyes, happyEyes, mouth)
+  const st = { q: -1 }
+  const drawMouth = (q) => {
+    mouth.clear()
+    if (q === 0) {
+      bage(mouth, 0, -R * 0.14, R * 0.36, 0.17 * Math.PI, 0.83 * Math.PI).stroke({ width: Math.max(2, R * 0.1), color: ink, cap: 'round' })
+      return
+    }
+    const o = q / 8
+    const w = R * 0.32
+    const h = R * 0.36 * o
+    mouth.moveTo(-w, 0).lineTo(w, 0).bezierCurveTo(w * 0.9, h * 1.5, -w * 0.9, h * 1.5, -w, 0).closePath()
+    mouth.fill(0x8a2f3a).stroke({ width: Math.max(1.6, R * 0.07), color: ink, join: 'round' })
+    if (o > 0.5) mouth.ellipse(0, h * 0.95, w * 0.5, h * 0.3).fill(0xff8a98)
+  }
+  return {
+    root,
+    set({ open = 0, happy = false, lx = 0, ly = 0, blink = 1 }) {
+      const q = Math.round(Math.max(0, Math.min(1, open)) * 8)
+      if (q !== st.q) {
+        st.q = q
+        drawMouth(q)
+      }
+      eyes.visible = !happy
+      happyEyes.visible = happy
+      eyes.scale.y = blink
+      pupils[0].position.set(-ex + lx * R * 0.1, ly * R * 0.1)
+      pupils[1].position.set(ex + lx * R * 0.1, ly * R * 0.1)
+    },
+  }
+}
+
+// Knoppen: en grön ägg-silhuett med tre kronbladsspetsar i sortens färg som tittar upp ur toppen
+// (en ledtråd om vad som kommer) och ett sovande litet ansikte som ler när den vattnas.
+function makeBud(sort, farg, green) {
+  const c = new Container()
+  c.eventMode = 'none'
+  const dark = shade(green, 0.3)
+  for (const a of [-0.6, 0, 0.6]) {
+    const t = new Graphics()
+    ritaKronblad(t, 'spets', 6, 17, 12)
+    t.fill(topLightFill(farg, { highlight: 0.2, dark: 0.22 })).stroke({ width: 2, color: shade(farg, 0.28), join: 'round' })
+    t.rotation = a
+    c.addChild(t)
+  }
+  c.addChild(new Graphics().circle(0, 0, 20).fill(sphereFill(green)).stroke({ width: 3, color: dark }))
+  const face = makeFace(14, 0x1f4a2a)
+  face.root.position.set(0, 1)
+  c.addChild(face.root)
+  c._face = face
+  return c
+}
+
 export default {
   id: 'plantera-fron',
   titleSv: 'Plantera Frön',
@@ -96,6 +233,8 @@ export default {
     this._worms = [] // maskarna i jorden (ticker-drivna, per runda)
     this._tweened = [] // per-runda-objekt vars tweens måste dödas vid städ/exit
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
+    this._ctx = ctx
+    this._sorter = pase(SORTER) // varje blomsort visas en gång per varv, aldrig samma två i rad
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -103,6 +242,7 @@ export default {
 
     this._round = new Container() // all per-runda-grafik (frön/hål/plantor/kanna/droppar)
     this._root.addChild(this._round)
+    this._buildFore(ctx) // gräs i förgrunden, ovanpå rundan (tar inga tryck)
 
     this._drag = new DragController({ space: this._round, services: ctx.services })
 
@@ -139,6 +279,11 @@ export default {
     // största enfärgade fält (57 152 px) — samma fynd, ny plats. Tonas som resten.
     decor.addChild(new Graphics().roundRect(-20 - BLEED_X, 432, ctx.width + 40 + 2 * BLEED_X, 46, 24).fill(verticalFill(shade(COLORS.brown, 0.1), shade(COLORS.brown, 0.3))))
 
+    // Solens sken: tre mjuka ringar bakom solen så himlen får ett ljus att luta sig mot.
+    const halo = new Graphics()
+    for (const [hr, ha] of [[150, 0.1], [108, 0.14], [78, 0.2]]) halo.circle(1080, 132, hr).fill({ color: 0xfff3b0, alpha: ha })
+    decor.addChild(halo)
+
     // Ritad sol med strålar och ansikte (var en ☀️-emoji).
     const sun = new Graphics()
     for (let i = 0; i < 12; i++) {
@@ -156,22 +301,48 @@ export default {
     decor.addChild(sun)
 
     // Riktiga puffiga moln (var rundade rektanglar som läste som tomma etiketter).
+    // Molnen har en ljus topp och en blåaktig undersida (som riktiga moln) i stället för en platt vit ton.
     const clouds = new Graphics()
+    const molnFyll = topLightFill(COLORS.white, { highlight: 0, dark: 0.1, mid: 0.35 })
     for (const [cx, cy, s] of [[330, 120, 1], [640, 90, 0.8], [880, 150, 0.7]]) {
-      clouds.circle(cx - 42 * s, cy + 6 * s, 24 * s).fill({ color: COLORS.white, alpha: 0.92 })
-      clouds.circle(cx, cy - 12 * s, 34 * s).fill({ color: COLORS.white, alpha: 0.92 })
-      clouds.circle(cx + 44 * s, cy + 6 * s, 26 * s).fill({ color: COLORS.white, alpha: 0.92 })
-      clouds.roundRect(cx - 66 * s, cy, 132 * s, 28 * s, 14 * s).fill({ color: COLORS.white, alpha: 0.92 })
+      clouds.roundRect(cx - 66 * s, cy, 132 * s, 28 * s, 14 * s).fill(molnFyll)
+      clouds.circle(cx - 42 * s, cy + 6 * s, 24 * s).fill(molnFyll)
+      clouds.circle(cx, cy - 12 * s, 34 * s).fill(molnFyll)
+      clouds.circle(cx + 44 * s, cy + 6 * s, 26 * s).fill(molnFyll)
     }
     decor.addChild(clouds)
 
     // Trädgården fick en värld: kullar bakom rabatten, gräskant och småsten i
     // jorden. Marken var förut en platt brun platta utan ett enda kännetecken.
+    // Tre plan bakom rabatten: en dimmig fjärrås med små träd, gröna kullar och ett vitt staket.
+    // Längre bort = blekare och blåare (luftperspektiv), så himlen får djup i stället för att vara
+    // en tonad skiva. Allt ligger under y 440 + matjordskanten, och inget högt sitter i hörnen.
+    const ridge = new Graphics()
+    ridge.ellipse(120, 452, 420, 84).fill(topLightFill(0xb4d8d2, { highlight: 0.12, dark: 0.06 }))
+    ridge.ellipse(760, 460, 520, 96).fill(topLightFill(0xbfdcd0, { highlight: 0.12, dark: 0.06 }))
+    ridge.ellipse(1300, 452, 360, 80).fill(topLightFill(0xb4d8d2, { highlight: 0.12, dark: 0.06 }))
+    for (const [tx, ty, tr] of [[250, 376, 15], [296, 382, 12], [520, 372, 16], [575, 378, 12], [880, 376, 14], [930, 380, 17], [1210, 380, 13], [1262, 376, 16]]) {
+      ridge.roundRect(tx - 2, ty, 4, tr + 6, 2).fill(0x8aa89a)
+      ridge.circle(tx, ty, tr).fill(sphereFill(0x9ccaa6))
+    }
+    decor.addChildAt(ridge, 1)
+
     const hills = new Graphics()
-    hills.ellipse(180, 500, 260, 90).fill(0x8fd07a)
-    hills.ellipse(640, 512, 320, 100).fill(0x9fd88a)
-    hills.ellipse(1120, 498, 240, 86).fill(0x8fd07a)
-    decor.addChildAt(hills, 1)
+    hills.ellipse(180, 500, 260, 90).fill(topLightFill(0x8fd07a, { highlight: 0.16, dark: 0.12 }))
+    hills.ellipse(640, 512, 320, 100).fill(topLightFill(0x9fd88a, { highlight: 0.16, dark: 0.12 }))
+    hills.ellipse(1120, 498, 240, 86).fill(topLightFill(0x8fd07a, { highlight: 0.16, dark: 0.12 }))
+    decor.addChildAt(hills, 2)
+
+    // Staketet: spetsiga ribbor på en längsgående bom, bakom gräsranden. Ribborna får volym
+    // (ljus topp, varm underkant) och en skugga mot kullen så de står i något.
+    const fence = new Graphics()
+    const staketFyll = topLightFill(0xf6ead2, { highlight: 0.06, dark: 0.16 })
+    for (let fx = -BLEED_X - 30; fx < ctx.width + BLEED_X + 30; fx += 46) {
+      fence.ellipse(fx + 8, 436, 18, 4).fill({ color: 0x4f8a45, alpha: 0.3 })
+      fence.poly([fx - 9, 436, fx - 9, 408, fx, 398, fx + 9, 408, fx + 9, 436]).fill(staketFyll).stroke({ width: 2, color: 0xc9b690, join: 'round' })
+    }
+    fence.roundRect(-BLEED_X - 30, 414, ctx.width + 2 * BLEED_X + 60, 8, 3).fill(topLightFill(0xf0dfbd, { highlight: 0.05, dark: 0.18 })).stroke({ width: 2, color: 0xc9b690 })
+    decor.addChildAt(fence, 3)
 
     const soil = new Graphics()
     // De fyra yttersta stråna ligger i bleed-zonen (utanför 0..1280) så gräskanten
@@ -181,12 +352,68 @@ export default {
       soil.moveTo(gx, 452).quadraticCurveTo(gx + 2, 452 - gh - 3, gx + 8, 452 - gh + 2)
       soil.stroke({ width: 4, color: 0x6fb85c, cap: 'round' })
     }
-    for (const [px, py, pr] of [[190, 560, 7], [420, 640, 5], [880, 590, 6], [1090, 660, 8], [330, 690, 5], [720, 700, 6]]) {
-      soil.ellipse(px, py, pr, pr * 0.7).fill({ color: 0x6f4a2e, alpha: 0.55 })
-    }
     decor.addChild(soil)
 
+    // Jorden har lager: släta ränder som en spadtagen profil, och sandkorn. Rännorna ligger i
+    // sidled på y 500–705 och korsar aldrig hål (y 560) eller maskar (y 606/644) som ritas OVANPÅ.
+    const lager = new Graphics()
+    const sidovag = (y, amp, ton, alfa, bredd) => {
+      const x0 = -20 - BLEED_X
+      const x1 = ctx.width + 20 + BLEED_X
+      lager.moveTo(x0, y)
+      const steg = 160
+      for (let x = x0; x < x1; x += steg) {
+        const f = ((x - x0) / steg) % 2 === 0 ? 1 : -1
+        lager.quadraticCurveTo(x + steg / 2, y + f * amp, x + steg, y + (f * amp) / 4)
+      }
+      lager.stroke({ width: bredd, color: ton, alpha: alfa, cap: 'round' })
+    }
+    sidovag(512, 7, 0x2b1a0f, 0.16, 7)
+    sidovag(518, 5, tint(COLORS.brown, 0.3), 0.2, 3)
+    sidovag(676, 9, 0x2b1a0f, 0.2, 9)
+    sidovag(684, 6, tint(COLORS.brown, 0.3), 0.18, 3)
+    sidovag(718, 5, 0x1d1008, 0.22, 6)
+    for (let i = 0; i < 46; i++) {
+      const kx = -140 + ((i * 197 + 61) % 1560)
+      const ky = 492 + ((i * 89 + 23) % 230)
+      lager.circle(kx, ky, 1.4 + (i % 3) * 0.7).fill({ color: i % 2 ? tint(COLORS.brown, 0.35) : 0x2b1a0f, alpha: 0.4 })
+    }
+    decor.addChild(lager)
+
+    // Stenar med volym och en mörk skugga, nedtryckta i jorden. De ligger i bräddarna, utanför
+    // hålraden och maskarnas gånghål (se WORM_YS), så inget ritas ovanpå dem.
+    const stenar = new Graphics()
+    for (const [px, py, pr, pf] of [[150, 702, 15, 0xa39587], [330, 698, 11, 0x9a8c80], [560, 708, 13, 0xaa9b8c], [760, 704, 10, 0x9a8c80], [990, 700, 16, 0xa39587], [1190, 706, 12, 0xaa9b8c], [92, 512, 12, 0x9a8c80], [1196, 522, 14, 0xa39587]]) {
+      stenar.ellipse(px + 3, py + pr * 0.55, pr * 1.05, pr * 0.42).fill({ color: 0x1d1008, alpha: 0.35 })
+      stenar.ellipse(px, py, pr, pr * 0.74).fill(sphereFill(pf)).stroke({ width: 2, color: shade(pf, 0.4) })
+    }
+    decor.addChild(stenar)
+
     this._root.addChild(decor)
+  },
+
+  // Förgrund: ett par grästuvor i nedre hörnen, framför jorden och rundans föremål. De sitter i
+  // x < 130 och x > 1150 (längre ut än hålen, maskarna och kannans dragyta) och tar inga tryck.
+  _buildFore(ctx) {
+    const fore = new Container()
+    fore.eventMode = 'none'
+    fore.interactiveChildren = false
+    const g = new Graphics()
+    const tuva = (bx, riktning) => {
+      for (const [dx, h, lutning, ton] of [[0, 46, 0.1, 0x4f9d49], [10, 62, 0.3, 0x5fb057], [22, 40, 0.5, 0x4f9d49], [-10, 54, -0.2, 0x6fbf63], [-22, 36, -0.45, 0x5fb057]]) {
+        const x = bx + dx * riktning
+        const sx = lutning * riktning
+        g.moveTo(x - 6, 730).quadraticCurveTo(x + sx * h * 0.3, 730 - h * 0.6, x + sx * h, 730 - h).quadraticCurveTo(x + sx * h * 0.3 + 7, 730 - h * 0.55, x + 6, 730)
+        g.closePath()
+        g.fill(topLightFill(ton, { highlight: 0.18, dark: 0.2 })).stroke({ width: 1.5, color: shade(ton, 0.3), join: 'round' })
+      }
+    }
+    tuva(30, 1)
+    tuva(-120, 1)
+    tuva(1250, -1)
+    tuva(1400, -1)
+    fore.addChild(g)
+    this._root.addChild(fore)
   },
 
   // Ny runda: töm förra rundan, bygg hål + frön. Kannan skapas först vid vattenfasen.
@@ -287,7 +514,11 @@ export default {
 
   _makeHole() {
     const c = new Container()
-    c.addChild(new Graphics().ellipse(0, 0, 75, 30).fill(0x3a2616).stroke({ width: 4, color: shade(COLORS.brown, 0.35) }))
+    // Hålet har ett ljusare brätte och ett djupare, mörkare svalg — det läser som en grop, inte som en skiva.
+    c.addChild(new Graphics()
+      .ellipse(0, 0, 75, 30).fill(0x3a2616).stroke({ width: 4, color: shade(COLORS.brown, 0.35) })
+      .ellipse(0, -2, 80, 32).stroke({ width: 3, color: tint(COLORS.brown, 0.22), alpha: 0.55 })
+      .ellipse(0, 5, 60, 20).fill({ color: 0x1d1008, alpha: 0.65 }))
     c.hitArea = new Circle(0, 0, 90) // generös träffyta för tap-tap
     return c
   },
@@ -418,7 +649,7 @@ export default {
 
     const mound = new Graphics()
       .ellipse(0, 0, 60, 26)
-      .fill(shade(COLORS.brown, 0.15))
+      .fill(topLightFill(shade(COLORS.brown, 0.15), { highlight: 0.22, dark: 0.18 }))
       .stroke({ width: 3, color: shade(COLORS.brown, 0.32) })
     mound.eventMode = 'none'
     mound.position.set(hole.x, hole.y - 6)
@@ -503,37 +734,118 @@ export default {
     rightLeaf.rotation = 0.5
     rightLeaf.scale.set(0)
 
-    const bud = new Graphics().circle(0, 0, 20).fill(randomFrom(BUD_COLORS)).stroke({ width: 3, color: dark })
+    // Sorten (silhuett + färg + mitt) lottas ur en påse: alla sex visas innan någon återkommer.
+    const sort = this._sorter.nasta()
+    const farg = randomFrom(sort.farg)
+    const bud = makeBud(sort, farg, randomFrom(BUD_COLORS))
     bud.scale.set(0)
 
-    // Programmatiska kronblad (petals) som vecklar ut sig ett i taget vid blomning.
-    // Ellipsen ritas med basen i (0,0) och spetsen uppåt → rotation pekar utåt,
-    // scale 0→1 växer ut från blomcentrum.
+    // Blomhuvudet: kronbladen (ett Graphics vardera, så de kan vecklas ut ett i taget) bakom en
+    // mitt med ansikte. Kronbladet ritas med basen i (0,0) och spetsen uppåt → rotation pekar
+    // utåt, scale 0→1 växer ut från mitten. Huvudet är bara en träffyta efter blomningen.
+    const head = new Container()
+    head.eventMode = 'none' // blir 'static' först när blomman slagit ut (p.ready)
+    head.hitArea = new Circle(0, 0, 72) // Ø144 — ≥96 px, grannen står 230 px bort
     const petals = new Container()
     petals.eventMode = 'none'
-    const petalColor = randomFrom(PETAL_COLORS)
-    const petalDark = shade(petalColor, 0.24)
-    const petalN = 5 + ((Math.random() * 3) | 0) // 5–7 kronblad
-    for (let i = 0; i < petalN; i++) {
-      const pet = new Graphics().ellipse(0, -24, 13, 24).fill(petalColor).stroke({ width: 2, color: petalDark })
-      pet.rotation = (i / petalN) * Math.PI * 2
-      pet.scale.set(0)
-      petals.addChild(pet)
-      this._track(pet)
+    for (const lag of sort.lager) {
+      for (let i = 0; i < lag.n; i++) {
+        const pet = makeKronblad(lag, farg)
+        pet.rotation = ((i + (lag.vrid || 0)) / lag.n) * Math.PI * 2
+        pet.scale.set(0)
+        petals.addChild(pet)
+        this._track(pet)
+      }
     }
+    const mid = new Container() // mitten + ansiktet; poppar in sist
+    mid.eventMode = 'none'
+    const skiva = new Graphics().circle(0, 0, sort.R).fill(sphereFill(sort.mitt)).stroke({ width: 2.5, color: shade(sort.mitt, 0.32) })
+    mid.addChild(skiva)
+    if (sort.frukorn) {
+      const korn = new Graphics()
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2 + 0.2
+        korn.circle(Math.cos(a) * (sort.R - 4.5), Math.sin(a) * (sort.R - 4.5), 1.9).fill({ color: 0x5c3720, alpha: 0.55 })
+      }
+      mid.addChild(korn)
+    }
+    const face = makeFace(sort.R, sort.ink)
+    mid.addChild(face.root)
+    mid.scale.set(0)
+    head.addChild(petals, mid)
 
-    const flower = new Text({ text: randomFrom(FLOWERS), style: { fontFamily: FONT.body, fontSize: 92, align: 'center' } })
-    flower.anchor.set(0.5)
-    flower.scale.set(0)
-
-    node.addChild(damp, stem, leftLeaf, rightLeaf, bud, petals, flower)
+    node.eventMode = 'passive' // huvudet ovanför tar tryck; resten av plantan gör det aldrig
+    node.addChild(damp, stem, leftLeaf, rightLeaf, bud, head)
     this._round.addChild(node)
     this._track(stem)
     this._track(leftLeaf)
     this._track(rightLeaf)
     this._track(bud)
-    this._track(flower)
-    return { node, damp, stem, leftLeaf, rightLeaf, bud, petals, flower, hy: h.y, x: h.x, flowerY: h.y - 8 - STEM_H, grow: 0, done: false }
+    this._track(mid)
+    this._track(head)
+    const p = {
+      node, damp, stem, leftLeaf, rightLeaf, bud, head, petals, mid, face, sort,
+      hy: h.y, x: h.x, flowerY: h.y - 8 - STEM_H, grow: 0, done: false, ready: false,
+      t: 0, fas: Math.random() * Math.PI * 2, blinkT: 1.2 + Math.random() * 2.5, blinkP: 0,
+      open: 0, happyT: 0, wetT: 0, tapN: 0,
+    }
+    head.on('pointertap', () => this._klappa(this._ctx, p))
+    return p
+  },
+
+  // Ett tryck på en utslagen blomma: den kluckar till, ler stort och sjunger en ton ur skalan —
+  // en liten melodi uppåt för varje tryck. Aldrig fel, och aldrig något som ändrar spelet.
+  _klappa(ctx, p) {
+    if (!this._alive || !p.ready || p.head.destroyed) return
+    this._idle = 0
+    squash(p.head, { intensity: 1.1 })
+    p.happyT = 1.3
+    p.blinkP = 0
+    const f = PENTA[p.tapN++ % PENTA.length]
+    ctx.services.audio.tone({ freq: f, dur: 0.16, type: 'sine', vol: 0.13, slideTo: f * 1.5 })
+    sparkle(ctx.fxLayer, p.node.x, p.flowerY, { count: 3 })
+  },
+
+  // Blommornas eget liv, varje bildruta (ticker-drivet, inga tweens att städa): de vajar, blinkar
+  // med olika takt, tittar på vattenkannan, och ler stort när kannan vattnar nära — knopparna
+  // blundar glatt när det är DERAS vatten. Munnen ritas bara om när öppningen ändras.
+  _stepBlommor(s) {
+    const can = this._can && !this._can.destroyed ? this._can : null
+    for (const p of this._plants) {
+      if (!p.node || p.node.destroyed) continue
+      p.t += s
+      const g01 = smooth(clamp01(p.grow))
+      p.node.rotation = Math.sin(p.t * 1.15 + p.fas) * (0.012 + 0.03 * g01)
+      if (p.done) p.head.rotation = Math.sin(p.t * 1.15 + p.fas - 0.8) * 0.05
+
+      p.blinkT -= s
+      if (p.blinkT <= 0) {
+        p.blinkP = 0.15
+        p.blinkT = 2.4 + Math.random() * 3
+      }
+      let blink = 1
+      if (p.blinkP > 0) {
+        p.blinkP = Math.max(0, p.blinkP - s)
+        blink = 0.1 + 0.9 * Math.abs((1 - p.blinkP / 0.15) * 2 - 1)
+      }
+      if (p.happyT > 0) p.happyT -= s
+      if (p.wetT > 0) p.wetT -= s
+
+      let lx = 0
+      let ly = 0.2
+      if (can) {
+        const dx = can.x - p.x
+        const dy = can.y - p.flowerY
+        const len = Math.hypot(dx, dy) || 1
+        lx = dx / len
+        ly = dy / len
+      }
+      const nara = this._pouring && can && Math.abs(can.x - p.x) < 300
+      const mal = p.done ? (p.happyT > 0 || nara ? 1 : 0) : p.wetT > 0 ? 1 : 0
+      p.open += (mal - p.open) * Math.min(1, 8 * s)
+      if (p.done) p.face.set({ open: p.open, happy: p.happyT > 0, lx, ly, blink })
+      else p.bud._face.set({ open: p.open, happy: p.wetT > 0, lx, ly, blink })
+    }
   },
 
   // Rita plantan utifrån dess grow-värde (0→1). Kontinuerligt: stjälk → blad → svällande
@@ -563,8 +875,7 @@ export default {
 
     // Toppnoderna följer stjälkspetsen.
     p.bud.y = topY
-    p.petals.y = topY
-    p.flower.y = topY
+    p.head.y = topY
     if (!p.done) {
       p.bud.alpha = 1
       p.bud.scale.set(budFrac)
@@ -698,6 +1009,7 @@ export default {
       }
     }
     if (best) {
+      best.wetT = 0.4 // knoppen ler så länge den får vatten
       best.grow = Math.min(1, best.grow + dt / POUR_MS)
       this._renderPlant(best)
       if (best.grow >= 1) this._bloom(ctx, best)
@@ -762,30 +1074,41 @@ export default {
     const jatte = Math.random() < JATTE_CHANS
     const hs = jatte ? JATTE_SKALA : 1
     p.jatte = jatte
-    p.petals.scale.set(hs)
+    p.head.scale.set(hs) // kronbladen och mitten är skala 0 tills de vecklas ut — huvudet bär storleken
 
-    // 2) Kronbladen vecklar ut sig ETT i taget, med en stigande liten "pling".
+    // 2) Kronbladen vecklar ut sig ETT i taget (bakre lagret först), med en stigande liten "pling"
+    // ur pentatonskalan. Många kronblad (solros: 28) tar högst ~0,9 s totalt.
     const petals = p.petals.children
+    const steg = Math.min(0.09, 0.9 / petals.length)
     petals.forEach((pet, i) => {
       gsap.killTweensOf(pet.scale)
       pet.scale.set(0)
-      const d = 0.16 + i * 0.09
+      const d = 0.16 + i * steg
       gsap.to(pet.scale, { x: 1, y: 1, duration: 0.34, delay: d, ease: 'back.out(2.4)' })
-      ctx.services.audio.tone({ freq: 480 + i * 70, dur: 0.13, type: 'sine', vol: 0.13, delay: d })
+      // Högst åtta toner (en per skalsteg), även när en solros har 28 kronblad.
+      if (i % Math.ceil(petals.length / PENTA.length) === 0) {
+        ctx.services.audio.tone({ freq: PENTA[Math.min(PENTA.length - 1, Math.floor(i / Math.ceil(petals.length / PENTA.length)))], dur: 0.13, type: 'sine', vol: 0.12, delay: d })
+      }
     })
 
-    // 3) Blomman (ansiktet) poppar in överst + magi-klipp, gnistror och pollen-pluff.
-    const faceDelay = 0.16 + petals.length * 0.09 + 0.06
-    gsap.killTweensOf(p.flower.scale)
-    p.flower.scale.set(0)
-    gsap.to(p.flower.scale, {
-      x: hs,
-      y: hs,
+    // 3) Mitten med ansiktet poppar in sist + magi-klipp, gnistror och pollen-pluff.
+    const faceDelay = 0.16 + petals.length * steg + 0.06
+    gsap.killTweensOf(p.mid.scale)
+    p.mid.scale.set(0)
+    gsap.to(p.mid.scale, {
+      x: 1,
+      y: 1,
       duration: jatte ? 0.6 : 0.42,
       delay: faceDelay,
       ease: 'back.out(2.6)',
+      onComplete: () => {
+        if (!this._alive || p.head.destroyed) return
+        p.ready = true // nu är blomman en träffyta
+        p.head.eventMode = 'static'
+      },
       onStart: () => {
         if (!this._alive) return
+        p.happyT = 1.8 // ler stort när den slagit ut
         ctx.services.audio.sfx('magi')
         sparkle(ctx.fxLayer, p.node.x, p.flowerY, jatte ? { count: 18 } : undefined)
         puff(ctx.fxLayer, p.node.x, p.flowerY, { count: jatte ? 14 : 8, color: POLLEN })
@@ -816,7 +1139,9 @@ export default {
     ctx.progress.setLevel(this._level + 1)
     ctx.progress.setCustom('flowers', (ctx.progress.get().custom?.flowers || 0) + this._holeCount)
     ctx.progress.complete() // celebrate-ljud + beröm + konfetti + stjärna + klistermärke
-    this._newRoundCall = gsap.delayedCall(1.4, () => {
+    // 3 s: den ritade blomman ska hinna slå ut helt, le och gå att trycka på innan
+    // nästa runda river den (1,4 s rev den mitt i utvecklingen — 2026-10-02).
+    this._newRoundCall = gsap.delayedCall(3, () => {
       if (!this._alive) return
       this._level++
       this._newRound(ctx)
@@ -858,6 +1183,7 @@ export default {
     ctx.services.voice.say('Jag hjälper till lite!')
     for (let i = 0; i < 6; i++) this._spawnDrop(best.x + (Math.random() * 30 - 15), 400)
     ctx.services.audio.sfx('whoosh')
+    best.wetT = 1.2
     best.grow = Math.min(1, best.grow + 0.16)
     this._renderPlant(best)
     if (best.grow >= 1) this._bloom(ctx, best)
@@ -911,6 +1237,7 @@ export default {
     const dt = ticker.deltaMS
     this._stepDrops(ctx, dt)
     this._stepWorms(dt / 1000)
+    this._stepBlommor(dt / 1000)
 
     // Tomgången räknas från TYSTNAD: medan en replik talar står klockan still (V21 —
     // annars kapar påminnelsens say() en replik som redan talar).
@@ -955,6 +1282,7 @@ export default {
     this._drops = []
     this._plants = []
     this._worms = []
+    this._ctx = null
     gsap.killTweensOf(this._root)
     this._root?.destroy({ children: true })
   },

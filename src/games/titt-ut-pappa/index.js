@@ -800,7 +800,8 @@ export default {
     this._kompisLjud(ctx, kompis)
     sparkle(ctx.fxLayer, k.x, k.y - 30 * s, { count: 10 })
 
-    if (kompis.egen?.typ === 'knytt') this._sag(ctx, 'Titta, ditt knytt gömde sig här! Leta vidare.')
+    if (kompis.egen?.mott) this._sag(ctx, 'Titta, ett knytt gömde sig här! Leta vidare.')
+    else if (kompis.egen?.typ === 'knytt') this._sag(ctx, 'Titta, ditt knytt gömde sig här! Leta vidare.')
     else if (kompis.egen) this._sag(ctx, 'Titta, din kompis gömde sig här! Leta vidare.')
     else {
       this._sag(ctx, kompis.key === 'strumpa'

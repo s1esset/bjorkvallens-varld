@@ -35,8 +35,18 @@
 // ETT RIKTIGT MÅL: klibbnätet fångar det i rutan, dragnätet lyfter ut det och tar hem
 // det till baksätet. TAK: max 2 krossade rutor — därutöver studsar nätet av.
 //
-// Uppdragsrundor som roterar och KRÄVER båda näten ("fånga katten med dragnätet" ·
-// "fäst paketen" · "hämta 3 ballonger"); fri lek däremellan räknas också. Motgång
+// Uppdragsrundor (tre per varv) dras ur sex sorter och KRÄVER olika händer: "fånga katten
+// med dragnätet" · "fäst paketen" · "hämta 3 ballonger" · "snärj in saker med nätbollen" ·
+// "fånga monstret i fönstret" · "tänd lyktorna" (den sista bara i skymningen). Panelen
+// visar uppdragets mål + den HAND som behövs (samma dräkt som i hörnet). Fri lek
+// däremellan räknas också.
+//
+// RESAN IN I KVÄLLEN (kvall.js): varje varv är en eftermiddag som blir kväll i takt med
+// uppdragen — solnedgång, fönster som tänds ett efter ett, måne och stjärnor vid
+// hemkomsten — och när bilen kör ut igen går solen upp. Ungefär varannan runda regnar
+// det på eftermiddagen (djuren bär paraply, nätet blåser av dem) och klarnar mot kvällen.
+// Hemma väntar någon i dörren: barnets eget knytt/kompis (lib/egnafigurer.js, varannan
+// runda) eller ett av spelets egna monster, som tar emot vännerna när de går in. Motgång
 // MED TAK och ALDRIG mer än en i taget: vindby som blåser loss fästa paket (max 2
 // lösa), en skata som knycker ett paket, eller ett monster som smyger fram, lyfter ett
 // paket över huvudet och kutar iväg — nätas monstret tappar det bytet direkt. Redan
@@ -54,12 +64,14 @@ import { Container, Graphics, Text, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Body } from '../../lib/physics.js'
 import { Rep } from '../../lib/rep.js'
-import { pop, wiggle, sparkle, puff, burst, floatText, ripple, bounceIn, breathe } from '../../lib/feedback.js'
+import { pop, wiggle, sparkle, puff, burst, floatText, ripple, bounceIn, breathe, squash, stadFx } from '../../lib/feedback.js'
 import { lerpColor } from '../../lib/scene.js'
-import { FONT, COLORS, shade, tint } from '../../lib/theme.js'
-import { topLightFill, verticalFill } from '../../lib/form.js'
+import { FONT, shade, tint } from '../../lib/theme.js'
+import { topLightFill } from '../../lib/form.js'
 import { shuffle } from '../../lib/swedish.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
+import { valjEgna, byggEgenFigur } from '../../lib/egnafigurer.js'
+import { Himmel, Regn, TINT, lagerTint, mjuk, ritaFonsterLjus, ritaSkyltLjus } from './kvall.js'
 
 // ---- Layout (designkoordinater 1280×720) -----------------------------------
 const FAR_BASE = 470 // avlägsna siluetter står här
@@ -164,7 +176,9 @@ const PROP_SVAR = {
 }
 
 // Kulissfärger (stad → förort)
-const CITY_WALLS = [0x9aa3b5, 0xb08a75, 0x8f9aa8, 0xa88f9b, 0x93a89a]
+// Stadens fasader: förr fem nästan grå toner ("platta grå hus" — ägarens ord). Nu tegel,
+// ockra, salvia, duvblått och mullbär: fortfarande en stad, men en med färg.
+const CITY_WALLS = [0xa6b2cf, 0xc29072, 0x9cb6c8, 0xc59bb0, 0x9fbfa4, 0xd3aa6e]
 const SUBURB_WALLS = [0xf2c94c, 0xe98fb0, 0x8fd0c8, 0xffb27a, 0xb5d98a]
 const KATT_TINTS = [0xffb15c, 0x9aa2b0, 0xc9a06a]
 const BALLONG_TINTS = [0xff6b6b, 0xffd35c, 0x4aa3df, 0xa78bfa, 0x5bbf6a, 0xff9ec4]
@@ -174,6 +188,26 @@ const MONSTER_TINTS = [0x9bd06b, 0xa78bfa, 0x57c8c3, 0xff9ec4]
 const NOTES = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]
 // Hemkomsthusets två fönster (andel av husets bredd) — delas av ritningen och ljuslagret.
 const HOME_WIN_XS = [0.2, 0.8]
+const HOME_BW = 340
+const HOME_X = 700 // där hemmet stannar
+const HOME_DORR = HOME_BW / 2 // dörrens mitt (husets lokala x)
+
+// Uppdragen. handelse = det som räknas (_credit): 'drag' (hemdraget) · 'klibb' (fäst) ·
+// 'snarj' (nätbollen snärjde in något) · 'fonster' (ett fönstermonster fångat, med vilket
+// nät som helst) · 'lykta' (en lyktstolpe tänd). net = handen panelen visar och tipset
+// pekar på (null = vilken som helst). kinds = målen som räknas (null = alla).
+const UPPDRAG = {
+  katt: { handelse: 'drag', net: 'drag', kinds: ['katt'] },
+  paket: { handelse: 'klibb', net: 'klibb', kinds: ['paket', 'guldpaket'] },
+  ballong: { handelse: 'drag', net: 'drag', kinds: ['ballong'] },
+  snarj: { handelse: 'snarj', net: 'boll', kinds: null },
+  fonster: { handelse: 'fonster', net: null, kinds: null },
+  lykta: { handelse: 'lykta', net: null, kinds: null },
+}
+// Panelens kantfärg för uppdrag som tar vilken hand som helst.
+const UPPDRAG_FRI_FARG = 0xf2a541
+// Höga pentatoniska toner för fönster som tänds (mycket tyst — staden "tindrar").
+const LJUS_TONER = [1046.5, 1174.66, 1318.51, 1567.98, 1760.0]
 
 // ---- Ritade spelobjekt (P0 ASSETS: egen silhuett, aldrig emoji-i-ruta) -----
 
@@ -1111,22 +1145,85 @@ function drawWebNet(g, r, { color = 0xf6f6f2, alpha = 0.95, width = 3 } = {}) {
   g.stroke({ width: Math.max(1.6, width * 0.7), color, alpha: alpha * 0.8 })
 }
 
-// Växelknappens ikoner: klibbnät (droppe + glans) / dragnät (pil hem).
-function makeNetIcon(mode, netColor = 0xffffff) {
+// Paraplyet (regnrundorna). Origo = greppet vid tassen; käppen går L px upp till skärmen.
+const PARAPLY_FARGER = [0xff6b6b, 0xffd35c, 0x4aa3df, 0xa78bfa, 0x5bbf6a, 0xff9ec4]
+function ritaParaply(farg, L = 46) {
   const c = new Container()
+  c.eventMode = 'none'
   const g = new Graphics()
-  drawWebNet(g, 26, { color: netColor, alpha: 0.95, width: 3 })
-  if (mode === 'klibb') {
-    g.moveTo(14, 8).quadraticCurveTo(20, 16, 14, 22).quadraticCurveTo(8, 16, 14, 8).closePath().fill(0x9adcf0)
-    g.circle(12, 14, 2).fill({ color: 0xffffff, alpha: 0.8 })
-    g.moveTo(-16, -14).quadraticCurveTo(-8, -20, 0, -18).stroke({ width: 3, color: 0xd6f4ff, alpha: 0.8, cap: 'round' })
-  } else {
-    g.moveTo(20, -4).lineTo(20, 16).stroke({ width: 6, color: 0xffd35c, cap: 'round' })
-    g.moveTo(12, 12).lineTo(28, 12).lineTo(20, 26).closePath().fill(0xffd35c)
-  }
+  const kapp = 0x5a4636
+  g.moveTo(0, 0).lineTo(0, -L).stroke({ width: 3.4, color: kapp, cap: 'round' })
+  g.moveTo(0, 0).quadraticCurveTo(0, 9, -7, 8).stroke({ width: 3.4, color: kapp, cap: 'round' })
+  const R = 38
+  const H = 28
+  const y = -L
+  // kupol + tre bågar i underkanten (en paraplyskärm, inte en halvcirkel)
+  g.moveTo(-R, y).bezierCurveTo(-R, y - H * 1.32, R, y - H * 1.32, R, y)
+    .quadraticCurveTo(R * 0.66, y - 8, R / 3, y)
+    .quadraticCurveTo(0, y - 8, -R / 3, y)
+    .quadraticCurveTo(-R * 0.66, y - 8, -R, y)
+    .closePath()
+    .fill(farg)
+    .stroke({ width: 2.6, color: shade(farg, 0.25) })
+  g.moveTo(0, y - H).lineTo(R / 3, y).moveTo(0, y - H).lineTo(-R / 3, y).stroke({ width: 2, color: shade(farg, 0.22), alpha: 0.7 })
+  g.moveTo(-R * 0.62, y - 6).quadraticCurveTo(-R * 0.55, y - H * 0.85, -R * 0.12, y - H * 0.98).stroke({ width: 3, color: 0xffffff, alpha: 0.4, cap: 'round' })
+  g.circle(0, y - H - 2, 3.4).fill(kapp)
   g.eventMode = 'none'
   c.addChild(g)
+  return c
+}
+
+// Uppdragspanelens symbol (en UI-symbol för uppdraget — målen själva står ute på gatan).
+function ritaUppdragsIkon(key) {
+  const c = new Container()
   c.eventMode = 'none'
+  if (key === 'katt' || key === 'paket' || key === 'ballong') {
+    const a = KIND_DRAW[key]()
+    a.scale.set(0.62)
+    a.y = 4
+    c.addChild(a)
+  } else if (key === 'snarj') {
+    // en katt som ligger insnärjd i en vit nätboll, precis som ute på gatan
+    const a = drawKatt()
+    a.scale.set(0.56)
+    a.rotation = 1.45 // ligger på rygg-sidan: huvudet åt höger-upp, tassarna ut åt vänster
+    c.addChild(a)
+    const g = new Graphics()
+    g.circle(-9, 6, 15).fill({ color: 0xffffff, alpha: 0.93 }).stroke({ width: 2.4, color: 0xe3e0d8 })
+    g.eventMode = 'none'
+    const nat = new Graphics()
+    drawWebNet(nat, 12, { color: 0xa9a49a, alpha: 0.95, width: 1.6 })
+    nat.position.set(-9, 6)
+    nat.eventMode = 'none'
+    c.addChild(g, nat)
+  } else if (key === 'fonster') {
+    const g = new Graphics()
+    const w = 48
+    const h = 54
+    const ram = 0x9a7656
+    g.roundRect(-w / 2 - 5, -h / 2 - 5, w + 10, h + 10, 4).fill(ram)
+    g.roundRect(-w / 2, -h / 2, w, h, 3).fill(0x3a3040)
+    g.moveTo(-w / 2, -h / 2).lineTo(-w / 2 - 14, -h / 2 - 5).lineTo(-w / 2 - 14, h / 2 + 5).lineTo(-w / 2, h / 2).closePath().fill(0xbfe4f2).stroke({ width: 2.4, color: ram })
+    g.roundRect(-w / 2 - 8, h / 2 + 4, w + 16, 7, 3).fill(shade(ram, 0.2))
+    g.eventMode = 'none'
+    c.addChild(g)
+    const m = drawMonster()
+    m.scale.set(0.46)
+    m.position.set(2, 6)
+    c.addChild(m)
+  } else {
+    // lyktan: lyktglaset lyser med ett mjukt sken (skal, ingen radiell gradient)
+    const g = new Graphics()
+    const jarn = 0x556070
+    for (const [r, a] of [[36, 0.14], [26, 0.2], [17, 0.3]]) g.circle(0, 6, r).fill({ color: 0xffd36b, alpha: a })
+    g.moveTo(-6, -40).lineTo(-6, -20).stroke({ width: 5, color: jarn, cap: 'round' })
+    g.moveTo(-21, -14).lineTo(21, -14).lineTo(13, -31).lineTo(-13, -31).closePath().fill(shade(jarn, 0.2))
+    g.moveTo(-20, -13).lineTo(20, -13).lineTo(13, 13).lineTo(-13, 13).closePath().fill(0xffe9a8).stroke({ width: 3, color: shade(jarn, 0.1) })
+    g.moveTo(0, -13).lineTo(0, 13).stroke({ width: 2, color: shade(jarn, 0.05), alpha: 0.6 })
+    g.roundRect(-14, 13, 28, 7, 3).fill(shade(jarn, 0.25))
+    g.eventMode = 'none'
+    c.addChild(g)
+  }
   return c
 }
 
@@ -3291,6 +3388,25 @@ function ritaLyktstolpe() {
   g.eventMode = 'none'
   k.addChild(g)
 
+  // LJUSET bor i en egen behållare (`c._wxLjus`). Spelet flyttar den till ett otintat lager
+  // så kvällen inte dämpar det som ska lysa; utan spelet ligger den kvar som barn här.
+  // Samma lokala rum som saken (foten i origo).
+  const ljus = new Container()
+  ljus.eventMode = 'none'
+  ljus.interactiveChildren = false
+  c.addChild(ljus)
+  c._wxLjus = ljus
+  c._wxTand = false // sätts av spelet: tänd för gott (skymningen)
+  // ljuskägla ner mot trottoaren — syns bara när lyktan är tänd för gott
+  const kagla = new Graphics()
+  kagla.moveTo(-36, -184).lineTo(-16, -184).lineTo(52, 2).lineTo(-104, 2).closePath().fill({ color: 0xffe9b0, alpha: 0.12 })
+  kagla.moveTo(-32, -184).lineTo(-20, -184).lineTo(24, 2).lineTo(-76, 2).closePath().fill({ color: 0xfff3cf, alpha: 0.1 })
+  kagla.ellipse(-26, -1, 70, 9).fill({ color: 0xffe9b0, alpha: 0.16 })
+  kagla.alpha = 0
+  kagla.visible = false
+  kagla.eventMode = 'none'
+  ljus.addChild(kagla)
+
   // mjuk halo i tre skal — en enda tät cirkel läser som en klistrad skiva
   const sken = new Graphics()
   sken.circle(0, 10, 36).fill({ color: 0xffe9b0, alpha: 0.13 })
@@ -3299,7 +3415,7 @@ function ritaLyktstolpe() {
   sken.position.set(-26, -196)
   sken.alpha = 0.16
   sken.eventMode = 'none'
-  k.addChild(sken)
+  ljus.addChild(sken)
 
   const lampa = new Container()
   const lg = new Graphics()
@@ -3318,15 +3434,20 @@ function ritaLyktstolpe() {
   lampa.eventMode = 'none'
   k.addChild(lampa)
 
+  // det glödande glaset: i ljusbehållaren, men vrids med lyktan (glodC följer lampa)
+  const glodC = new Container()
+  glodC.position.set(-26, -196)
+  glodC.eventMode = 'none'
+  ljus.addChild(glodC)
   const glod = new Graphics()
   glod.moveTo(-11, 3).lineTo(11, 3).lineTo(7, 17).lineTo(-7, 17).closePath().fill(0xffe9b0)
   glod.alpha = 0
   glod.eventMode = 'none'
-  lampa.addChild(glod)
+  glodC.addChild(glod)
 
   const malar = new Graphics()
   malar.eventMode = 'none'
-  c.addChild(malar)
+  ljus.addChild(malar)
 
   c._wxTick = (t, dt) => {
     if (c.destroyed) return
@@ -3334,26 +3455,44 @@ function ritaLyktstolpe() {
     const p = c._wxRT
     let ljusMal = 0.12 + Math.sin(c._wxT * 0.6) * 0.03
     let sving = Math.sin(c._wxT * 1.1) * 0.012
+    // tänd för gott: varmt sken som fladdrar lite, och en nattfjäril som alltid är där
+    if (c._wxTand) ljusMal = 0.9 + Math.sin(c._wxT * 7.3) * 0.03 + Math.sin(c._wxT * 2.1) * 0.03
     if (aktiv(c, 'drag')) {
-      ljusMal = 0.5 + puckel(clamp(p / 0.4, 0, 1)) * 0.5
-      if (p > 0.4) ljusMal = 0.72 + Math.sin(p * 3) * 0.06
+      ljusMal = Math.max(ljusMal, 0.5 + puckel(clamp(p / 0.4, 0, 1)) * 0.5)
+      if (p > 0.4) ljusMal = Math.max(c._wxTand ? ljusMal : 0, 0.72 + Math.sin(p * 3) * 0.06)
       sving += Math.sin(p * 8) * 0.04 * avta(p, 0.6)
     } else if (aktiv(c, 'klibb')) {
-      ljusMal = 0.2 + Math.abs(Math.sin(p * 3.4)) * 0.62
+      ljusMal = 0.2 + Math.abs(Math.sin(p * 3.4)) * (c._wxTand ? 0.78 : 0.62)
     } else if (aktiv(c, 'boll')) {
       sving += Math.sin(p * 5.2) * 0.4 * avta(p, 1.1)
-      ljusMal = 0.2 + Math.abs(Math.sin(p * 5.2)) * 0.24
+      if (!c._wxTand) ljusMal = 0.2 + Math.abs(Math.sin(p * 5.2)) * 0.24
     }
     lampa.rotation = sving
+    glodC.rotation = sving
     if (!glod.destroyed) glod.alpha += (ljusMal - glod.alpha) * Math.min(1, d * 9)
     if (!sken.destroyed) {
       sken.alpha += (clamp(ljusMal, 0.14, 1) - sken.alpha) * Math.min(1, d * 9)
       // halon följer glaset när lyktan gungar (glaspunkten (0,10) roterad)
       sken.position.set(-26 - Math.sin(sving) * 10, -196 + (Math.cos(sving) - 1) * 10)
+      const s = c._wxTand ? 1.7 : 1
+      sken.scale.set(sken.scale.x + (s - sken.scale.x) * Math.min(1, d * 4))
+    }
+    if (!kagla.destroyed) {
+      kagla.alpha += ((c._wxTand ? 1 : 0) - kagla.alpha) * Math.min(1, d * 4)
+      kagla.visible = kagla.alpha > 0.02
     }
 
     if (!malar.destroyed) {
       malar.clear()
+      if (c._wxTand && !aktiv(c, 'drag')) {
+        const a = c._wxT * 2.2
+        const x = -26 + Math.cos(a) * 30
+        const y = -186 + Math.sin(a * 1.4) * 14
+        const flap = Math.sin(c._wxT * 22) * 0.5 + 0.6
+        malar.ellipse(x - 5, y - 1, 6 * flap, 4).fill({ color: 0xf7ecd0, alpha: 0.9 })
+        malar.ellipse(x + 5, y - 1, 6 * flap, 4).fill({ color: 0xf7ecd0, alpha: 0.9 })
+        malar.ellipse(x, y + 1, 3.6, 2.6).fill({ color: 0x9a8560, alpha: 0.9 })
+      }
       if (aktiv(c, 'drag')) {
         const s = clamp(p / 0.4, 0, 1) * clamp((2.4 - p) / 0.6, 0, 1)
         for (let i = 0; i < 2; i++) {
@@ -4014,7 +4153,8 @@ const GATUSAKER = [
   { id: 'gatulock', fot: 'mark', bredd: 78, hojd: 32, traffR: 54, rita: () => ritaGatulock() },
   { id: 'blommor', fot: 'trottoar', bredd: 80, hojd: 84, traffR: 54, rita: () => ritaBlommor() },
   // lyktstolpen hänger 56 px åt VÄNSTER om foten (armen) — bredden är asymmetrisk
-  { id: 'lyktstolpe', fot: 'trottoar', bredd: 84, hojd: 226, traffR: 62, rita: () => ritaLyktstolpe() },
+  // extra: lyktans huvud är det man pekar på (r 66 → 132 px yta, P0 ≥ 96)
+  { id: 'lyktstolpe', fot: 'trottoar', bredd: 84, hojd: 226, traffR: 62, extra: [{ dx: -26, dy: -188, r: 66 }], rita: () => ritaLyktstolpe() },
   { id: 'trafikljus', fot: 'trottoar', bredd: 54, hojd: 224, traffR: 62, rita: () => ritaTrafikljus() },
   // bilen står vid kantstenen — den ser bäst ut med foten nära SIDEWALK_BOT
   { id: 'bil', fot: 'trottoar', bredd: 236, hojd: 130, traffR: 80, rita: () => ritaBil() },
@@ -4074,9 +4214,25 @@ export default {
     this._lastBytSaid = -99
     this._missionActive = false
     this._missionsDone = 0
-    this._missionOrder = shuffle(['katt', 'paket', 'ballong'])
+    this._sistaUppdrag = []
+    this._missionOrder = this._planeraRunda()
+    this._fonsterT = 1.2
     this._armAim = 0
     this._recoil = 0
+    // Resan in i kvällen (kvall.js): k 0 = eftermiddag · 0,5 = solnedgång · 1 = kväll.
+    // Vädret växlar med nivån, så två omgångar i rad aldrig ser likadana ut — även över
+    // två besök (nivån sparas).
+    this._kvall = 0
+    this._kvallFart = 0.035
+    this._rundT = 0
+    this._vader = this._level % 2 === 1 ? 'regn' : 'klart'
+    this._regn = this._vader === 'regn' ? 1 : 0
+    this._regnLjud = false
+    this._ljusTint = -1
+    this._lastLjusTon = -9
+    this._flygParaply = []
+    this._hemFig = null
+    this._hemGlow = null
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -4094,6 +4250,22 @@ export default {
     this._midLayer.interactiveChildren = false
     this._root.addChild(this._midLayer)
 
+    // LJUSLAGRET: allt som ska lysa när gatan mörknar (tända fönster, skyltfönster,
+    // hemmets dörr och lampa) — och monstren som tittar ut ur fönstren, så målen syns
+    // lika bra på kvällen. Det tintas ALDRIG; varje hus-segment har en egen behållare
+    // här (`seg.lc`) som följer husets x.
+    this._glowLayer = new Container()
+    this._glowLayer.eventMode = 'none'
+    this._glowLayer.interactiveChildren = false
+    this._root.addChild(this._glowLayer)
+    // HEMMET står ovanpå hela gatan, även grannhusens ljus: i första kvällsbilden lyste ett
+    // grannhus fönster (och ett fönstermonster) rakt igenom hemmets vägg. Huset tintas för
+    // hand (_ljusSteg), dess ljus och figuren i dörren inte alls.
+    this._hemLayer = new Container()
+    this._hemLayer.eventMode = 'none'
+    this._hemLayer.interactiveChildren = false
+    this._root.addChild(this._hemLayer)
+
     // Statisk trottoar + dynamiska skarvar/vägkant (ritas om varje bildruta).
     this._buildGround()
 
@@ -4103,6 +4275,12 @@ export default {
     this._propLayer.eventMode = 'none'
     this._propLayer.interactiveChildren = false
     this._root.addChild(this._propLayer)
+    // Lyktstolparnas ljus (sken, ljuskägla, glödande glas) ligger utanför den tintade
+    // gatusakslagret — annars hade kvällen dämpat just det som ska lysa.
+    this._propLjusLayer = new Container()
+    this._propLjusLayer.eventMode = 'none'
+    this._propLjusLayer.interactiveChildren = false
+    this._root.addChild(this._propLjusLayer)
 
     this._targetLayer = new Container()
     this._targetLayer.eventMode = 'none'
@@ -4113,6 +4291,10 @@ export default {
     this._skataLayer.eventMode = 'none'
     this._skataLayer.interactiveChildren = false
     this._root.addChild(this._skataLayer)
+
+    // Regnet faller framför gatan men bakom bilen och händerna.
+    this._regnFx = new Regn(ctx.width, ctx.height, BLEED_X, BLEED_Y)
+    this._root.addChild(this._regnFx.root)
 
     // Nät-grafik (skott + rep) ovanpå målen.
     this._netG = new Graphics()
@@ -4158,43 +4340,12 @@ export default {
 
   // ------------------------------------------------------------------ kuliss
   _buildSky(ctx) {
-    const g = new Graphics()
-    const top = 0x8ecdf0
-    const bot = 0xdff2fb
-    // Full bleed: banden breddas ±BLEED_X och en toppremsa täcker ovanför y=0 på
-    // höga skärmar (4:3-platta). 16:9-bilden är pixelidentisk.
-    g.rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, BLEED_Y).fill(top)
-    // Himlen ritades tidigare som ATTA handrullade band a 60 px. Varje band var da
-    // 1280x62 ≈ 79 000 px i EN exakt ton, och det gjorde himlen till spelets storsta
-    // platta falt (71 095 px, `_plattprobe --medbakgrund`) trots att den REDAN var tankt
-    // som en toning — 8 steg ar bara for grovt. En cachad `verticalFill` ger samma
-    // fargresa mjukt, i en ritinstruktion i stallet for atta.
-    g.rect(-BLEED_X, 0, ctx.width + 2 * BLEED_X, 482).fill(verticalFill(top, bot))
-    // sol med strålar
-    g.circle(985, 108, 42).fill(0xffe28a)
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2
-      g.moveTo(985 + Math.cos(a) * 52, 108 + Math.sin(a) * 52)
-        .lineTo(985 + Math.cos(a) * 66, 108 + Math.sin(a) * 66)
-    }
-    g.stroke({ width: 5, color: 0xffe28a, alpha: 0.7 })
-    g.eventMode = 'none'
-    this._root.addChild(g)
-    // två drivande moln (ritas, driver långsamt i tick)
-    this._clouds = []
-    for (const [cx, cy, s] of [[300, 90, 1], [760, 150, 0.7]]) {
-      const m = new Graphics()
-      m.circle(-34, 4, 24).fill(0xffffff)
-      m.circle(0, -8, 30).fill(0xffffff)
-      m.circle(34, 4, 25).fill(0xffffff)
-      m.roundRect(-52, 0, 104, 26, 13).fill(0xffffff)
-      m.alpha = 0.85
-      m.scale.set(s)
-      m.position.set(cx, cy)
-      m.eventMode = 'none'
-      this._root.addChild(m)
-      this._clouds.push(m)
-    }
+    // Himlen bor i kvall.js: eftermiddagens toning (samma färgresa som spelet alltid haft,
+    // en cachad `verticalFill` i stället för åtta band — D1, 71 095 → 57 169 px) plus
+    // solnedgång, kväll, regnhimmel, sol, måne, stjärnor och moln, alla styrda av `k`.
+    this._himmel = new Himmel(ctx.width, BLEED_X, BLEED_Y)
+    this._root.addChild(this._himmel.root)
+    this._himmel.steg(this._kvall, this._regn, 0, 0, ctx.width)
     // varm förorts-ton som tonas in med resan
     this._biomeTint = new Graphics().rect(-BLEED_X, -BLEED_Y, ctx.width + 2 * BLEED_X, SIDEWALK_BOT + BLEED_Y).fill(0xffd9a0)
     this._biomeTint.alpha = 0
@@ -4211,6 +4362,7 @@ export default {
     }
     g.eventMode = 'none'
     this._root.addChild(g)
+    this._streetBaseG = g
   },
 
   _buildGround() {
@@ -4221,6 +4373,7 @@ export default {
     g.rect(-BLEED_X, SIDEWALK_BOT, 1280 + 2 * BLEED_X, 7).fill(0x9aa1a8) // kantsten
     g.eventMode = 'none'
     this._root.addChild(g)
+    this._groundBaseG = g
     this._root.addChild(this._biomeTint)
     // dynamiska skarvar + fartstreck (ritas om i tick)
     this._groundG = new Graphics()
@@ -4248,12 +4401,35 @@ export default {
     x = -80 - BLEED_X
     while (x < 1560 + BLEED_X) {
       const s = this._mkMidSeg(ctx, this._biomeT(), x < 1200)
-      s.c.x = x
-      this._midLayer.addChild(s.c)
-      this._mid.push(s)
+      this._laggTillSeg(s, x)
       if (s._wxPotAt) this._spawnPotAt(ctx, s)
       x += s.w
     }
+  },
+
+  // Ett hus-segment in i gatan: huset i det tintade mellanlagret, dess ljus (`lc`) i det
+  // otintade ljuslagret, på samma x. `_mid` hålls SORTERAT på x — `_scrollLayers` river
+  // bara det första segmentet och räknar nästa hus från det sista.
+  _laggTillSeg(s, x) {
+    s.c.x = x
+    this._midLayer.addChild(s.c)
+    if (s.lc) {
+      s.lc.x = x
+      this._glowLayer.addChild(s.lc)
+    }
+    let i = this._mid.length
+    while (i > 0 && this._mid[i - 1].c.x > x) i--
+    this._mid.splice(i, 0, s)
+  },
+
+  _rivSeg(s) {
+    s.fig?.destroy?.()
+    s.fig = null
+    if (s.lc && !s.lc.destroyed) {
+      stadFx(s.lc)
+      s.lc.destroy({ children: true })
+    }
+    if (s.c && !s.c.destroyed) s.c.destroy({ children: true })
   },
 
   _mkFarSeg(bt) {
@@ -4302,6 +4478,7 @@ export default {
     const wins = []
     let bw
     let seg_butik = null
+    let disp = null
     // ~1 av 3 hus är en BUTIK (oberoende av biom-mixen: affärsgatan hör hemma
     // både i stan och i förorten, och den bryter monotonin i den långa mitten)
     if (Math.random() < 0.34) {
@@ -4309,6 +4486,8 @@ export default {
       bw = hus.bw
       for (const f of hus.fonster) wins.push(this._mkWindow(c, f.lx, f.cy, f.w, f.h, f.frame))
       seg_butik = hus.id
+      // skyltfönstren tänds tidigt i skymningen (butiken har öppet)
+      disp = hus.skyltfonster.map((f) => ({ lx: f.lx, cy: f.cy, w: f.w, h: f.h, lg: null, ljus: 0 }))
     } else if (Math.random() > bt) {
       bw = rnd(190, 250)
       const bh = rnd(285, 370)
@@ -4320,6 +4499,14 @@ export default {
       // vaggton kostar en gradient, inte en per hus.
       g.rect(gap, topY, bw, bh).fill(topLightFill(wall, { highlight: 0.12, dark: 0.2 })).stroke({ width: 3, color: shade(wall, 0.25) })
       g.rect(gap - 6, topY - 12, bw + 12, 14).fill(shade(wall, 0.2)) // taklist
+      g.rect(gap - 3, topY + 2, bw + 6, 6).fill({ color: 0x1d2430, alpha: 0.1 }) // taklistens skugga
+      // VOLYM: skuggsida mot vänster (solen står till höger) + ett gesimsband mellan
+      // våningarna, så fasaden läser som ett hus och inte som en platt skiva
+      g.rect(gap, topY, 12, bh).fill({ color: 0x1d2430, alpha: 0.09 })
+      for (let ry = 0; ry < 2; ry++) {
+        const by = topY + 56 + ry * 78 + 39
+        if (by < SIDEWALK_TOP - 120) g.rect(gap, by, bw, 5).fill(shade(wall, 0.13))
+      }
       g.rect(gap, SIDEWALK_TOP - 26, bw, 26).fill(shade(wall, 0.14)) // sockel
       // dörr
       g.roundRect(gap + bw / 2 - 26, SIDEWALK_TOP - 88, 52, 88, 6).fill(shade(wall, 0.35))
@@ -4357,7 +4544,10 @@ export default {
     g.eventMode = 'none'
     c.addChildAt(g, 0)
     const w = gap + bw + rnd(10, 30)
-    const seg = { c, w, wins, butik: seg_butik }
+    const lc = new Container()
+    lc.eventMode = 'none'
+    lc.interactiveChildren = false
+    const seg = { c, lc, w, wins, butik: seg_butik, disp, dispAt: rnd(0.3, 0.5) }
     // Ibland en blomkruka i ett fönsterbleck (riktig fysik-målkropp som följer huset).
     if (!seeded && ctx && this._targets.length < MAX_TARGETS && wins.length && Math.random() < 0.4 && this._phase === 'drive') {
       const win = wins[(Math.random() * wins.length) | 0]
@@ -4372,7 +4562,12 @@ export default {
     g.position.set(lx, cy)
     g.eventMode = 'none'
     parent.addChild(g)
-    const win = { g, lx, cy, w, h, frame, state: 'ok', brokenAt: 0, mc: null, seed: Math.random() * 9 }
+    // tandAt: vid vilket kvällsläge rutan tänds (var femte förblir mörk — någon är inte
+    // hemma). Spridningen gör att gatan tänds ETT fönster i taget, inte allt på en gång.
+    const win = {
+      g, lx, cy, w, h, frame, state: 'ok', brokenAt: 0, mc: null, seed: Math.random() * 9,
+      tandAt: Math.random() < 0.8 ? rnd(0.3, 0.9) : 9, ljus: 0, lg: null, variant: (Math.random() * 4) | 0,
+    }
     this._drawWindow(win)
     return win
   },
@@ -4386,6 +4581,13 @@ export default {
       g.roundRect(-w / 2, -h / 2, w, h, 3).fill(0xbfe4f2)
       g.moveTo(0, -h / 2).lineTo(0, h / 2).moveTo(-w / 2, 0).lineTo(w / 2, 0).stroke({ width: 3, color: frame })
       g.moveTo(-w * 0.34, h * 0.3).lineTo(w * 0.1, -h * 0.42).stroke({ width: 5, color: 0xffffff, alpha: 0.4 })
+    } else if (win.state === 'open') {
+      // ÖPPNAT inifrån (fönstermonster-uppdraget): mörkt rum + rutan uppslagen utåt —
+      // aldrig krossad, för monstret öppnade själv
+      g.roundRect(-w / 2, -h / 2, w, h, 3).fill(0x3a3040)
+      g.moveTo(-w / 2, -h / 2).lineTo(-w / 2 - w * 0.34, -h / 2 - 7).lineTo(-w / 2 - w * 0.34, h / 2 + 7).lineTo(-w / 2, h / 2)
+        .closePath().fill(0xbfe4f2).stroke({ width: 3, color: frame })
+      g.moveTo(-w / 2 - w * 0.17, -h / 2 - 3).lineTo(-w / 2 - w * 0.17, h / 2 + 3).stroke({ width: 2.4, color: frame })
     } else {
       // krossad: mörkt hål + tecknade skärvor längs kanten
       g.roundRect(-w / 2, -h / 2, w, h, 3).fill(0x2e2632)
@@ -4573,13 +4775,33 @@ export default {
   _needFor(key) {
     if (key === 'katt') return this._level >= 4 ? 2 : 1
     if (key === 'paket') return this._level >= 2 ? 3 : 2
+    if (key === 'snarj') return this._level >= 3 ? 3 : 2
+    if (key === 'fonster') return this._level >= 3 ? 2 : 1
+    if (key === 'lykta') return this._level >= 3 ? 3 : 2
     return 3
   },
 
+  // handelse = det som räknas (se _credit) · net = handen uppdraget vill ha (null = vilken
+  // som helst) · kinds = vilka mål som räknas (null = alla).
   _missionDef(key) {
-    if (key === 'katt') return { net: 'drag', kinds: ['katt'] }
-    if (key === 'paket') return { net: 'klibb', kinds: ['paket', 'guldpaket'] }
-    return { net: 'drag', kinds: ['ballong'] }
+    return UPPDRAG[key] || UPPDRAG.ballong
+  },
+
+  // Tre uppdrag per varv ur sex sorter. Det som var med förra varvet hamnar sist i kön, så
+  // två varv i rad nästan aldrig är samma. "Tänd lyktorna" kan bara bli det TREDJE — då är
+  // det skymning — och två dragnät-uppdrag (katt + ballong) paras aldrig ihop.
+  _planeraRunda() {
+    const forra = this._sistaUppdrag || []
+    const pool = shuffle(['katt', 'paket', 'ballong', 'snarj', 'fonster'])
+    pool.sort((a, b) => (forra.includes(a) ? 1 : 0) - (forra.includes(b) ? 1 : 0))
+    const a = pool[0]
+    const b = pool.find((x) => x !== a && !(['katt', 'ballong'].includes(x) && ['katt', 'ballong'].includes(a)))
+    const lyktaChans = forra.includes('lykta') ? 0.45 : 0.75
+    const c = Math.random() < lyktaChans ? 'lykta' : pool.find((x) => x !== a && x !== b)
+    const plan = shuffle([a, b])
+    plan.push(c)
+    this._sistaUppdrag = plan
+    return plan
   },
 
   _buildMissionPanel() {
@@ -4619,6 +4841,9 @@ export default {
     // uppdraget, 3,4 s efter hemkomsten) — panelen kommer genast, men orden väntar in rösten
     // och sägs bara medan SAMMA uppdrag pågår. Växel-tipset köar efter uppdraget, aldrig före.
     const nr = this._missionsDone
+    const need = this._missionNeed
+    if (key === 'fonster') this._fonsterT = 0.6 // första monstret öppnar strax
+    if (key === 'lykta') this._kvallFart = 0.08 // skymningen faller lite fortare: lyktorna ska behövas
     ctx.narTyst(() => {
       if (!this._alive || !this._missionActive || this._missionsDone !== nr) return
       // Literala repliker (aldrig ternärer i say — check.mjs ser bara literaler).
@@ -4626,11 +4851,24 @@ export default {
         ctx.services.voice.say('Fånga katten med dragnätet!')
       } else if (key === 'paket') {
         ctx.services.voice.say('Fäst paketen så de inte blåser iväg!')
+      } else if (key === 'snarj') {
+        if (need >= 3) ctx.services.voice.say('Snärj in tre saker med nätbollen!')
+        else ctx.services.voice.say('Snärj in två saker med nätbollen!')
+      } else if (key === 'fonster') {
+        if (need >= 2) ctx.services.voice.say('Fånga monstren som tittar ut genom fönstren!')
+        else ctx.services.voice.say('Fånga monstret som tittar ut genom fönstret!')
+      } else if (key === 'lykta') {
+        ctx.services.voice.say('Det blir mörkt! Tänd lyktorna med nätet!')
       } else {
         ctx.services.voice.say('Hämta hem tre ballonger!')
       }
     })
-    // Aldrig bytt nät efter 2 uppdrag → visa vägen till växelknappen.
+    // Aldrig bytt nät efter 2 uppdrag → visa vägen till växelknappen. Ett uppdrag som
+    // vill ha en ANNAN hand än den som är framme pekar ut den direkt (handen andas).
+    const vill = this._missionDef(key).net
+    if (vill && vill !== this._mode) ctx.later(3.5, () => {
+      if (this._alive && this._missionActive && this._missionsDone === nr && this._mode !== vill) this._pulseHands(ctx, vill)
+    })
     if (this._missionsDone >= 2 && !this._everToggled) {
       ctx.later(2.8, () => ctx.narTyst(() => {
         if (this._alive && this._missionActive && this._missionsDone === nr) this._sayByt(ctx)
@@ -4638,29 +4876,50 @@ export default {
     }
   },
 
+  // Panelens färg = handens muddfärg (blå = dragnät, lila = fästnät, röd = nätboll), så
+  // panelen och handen i hörnet talar samma språk. Fritt uppdrag: varm orange.
+  _panelFarg(def) {
+    return def.net ? natTyp(def.net).mudd : UPPDRAG_FRI_FARG
+  },
+
+  // Panelens bredd: symbol + (hand) + pluppar.
+  _panelMatt(def, need) {
+    const handW = def.net ? 74 : 0
+    const w = 128 + handW + need * 34
+    return { w, handX: -w / 2 + 104 + handW / 2, pipX0: -w / 2 + 112 + handW }
+  },
+
   _drawPanel() {
     if (!this._panel || this._panel.destroyed) return
-    const def = this._missionDef(this._missionKey)
+    const key = this._missionKey
+    const def = this._missionDef(key)
     const need = this._missionNeed
-    const w = 190 + need * 34
+    const { w, handX } = this._panelMatt(def, need)
+    const col = this._panelFarg(def)
     const bg = this._panelBg
     bg.clear()
-    bg.roundRect(-w / 2, -46, w, 92, 26).fill({ color: 0xfffdf7, alpha: 0.94 }).stroke({ width: 4, color: shade(def.net === 'klibb' ? COLORS.green : COLORS.blue, 0.1) })
-    for (const ch of this._panelContent.removeChildren()) ch.destroy({ children: true })
-    // ritad mål-symbol
-    const icon = KIND_DRAW[this._missionKey === 'paket' ? 'paket' : this._missionKey]()
-    icon.scale.set(0.62)
-    icon.position.set(-w / 2 + 52, 8)
+    bg.roundRect(-w / 2, -46, w, 92, 26).fill({ color: 0xfffdf7, alpha: 0.94 }).stroke({ width: 4, color: shade(col, 0.1) })
+    for (const ch of this._panelContent.removeChildren()) {
+      stadFx(ch)
+      ch.destroy({ children: true })
+    }
+    // ritad mål-symbol (UI-symbol för uppdraget — själva målen står ute på gatan)
+    const icon = ritaUppdragsIkon(key)
+    icon.position.set(-w / 2 + 52, 4)
     icon.eventMode = 'none'
     this._panelContent.addChild(icon)
-    // nätläges-ikon (vilket nät uppdraget vill ha)
-    const net = makeNetIcon(def.net, 0x7a6657)
-    net.scale.set(0.72)
-    net.position.set(-w / 2 + 118, 0)
-    this._panelContent.addChild(net)
-    const ring = new Graphics().circle(-w / 2 + 118, 0, 27).stroke({ width: 3, color: def.net === 'klibb' ? COLORS.green : COLORS.blue, alpha: 0.8 })
-    ring.eventMode = 'none'
-    this._panelContent.addChild(ring)
+    // HANDEN uppdraget vill ha — samma dräkt som den som väntar i hörnet. Tidigare stod
+    // här växelknappens gamla nätikon (pil/droppe), som inte längre fanns någonstans i bild.
+    if (def.net) {
+      const ring = new Graphics().circle(handX, 0, 33).fill({ color: col, alpha: 0.14 }).stroke({ width: 3, color: col, alpha: 0.85 })
+      ring.eventMode = 'none'
+      this._panelContent.addChild(ring)
+      const hand = ritaNathand(natTyp(def.net), { kort: true })
+      hand.scale.set(0.215)
+      hand.position.set(handX - 2, 40)
+      hand.eventMode = 'none'
+      this._panelContent.addChild(hand)
+    }
     // pluppar (fylls i takt med framsteg)
     this._panelPips = new Graphics()
     this._panelPips.eventMode = 'none'
@@ -4672,12 +4931,12 @@ export default {
     const g = this._panelPips
     if (!g || g.destroyed) return
     const def = this._missionDef(this._missionKey)
-    const col = def.net === 'klibb' ? COLORS.green : COLORS.blue
+    const col = this._panelFarg(def)
     const need = this._missionNeed
-    const w = 190 + need * 34
+    const { pipX0 } = this._panelMatt(def, need)
     g.clear()
     for (let i = 0; i < need; i++) {
-      const x = -w / 2 + 168 + i * 34
+      const x = pipX0 + 17 + i * 34
       const done = i < this._missionGot
       g.circle(x, 0, 13).fill({ color: done ? col : 0xffffff, alpha: done ? 1 : 0.5 }).stroke({ width: 3, color: shade(col, 0.15) })
       if (done) g.circle(x, 0, 5).fill(0xfffdf7)
@@ -4686,12 +4945,14 @@ export default {
 
   // Rätt nät på rätt mål under aktivt uppdrag → framsteg (räknas KUMULATIVT,
   // vindbyn kan aldrig sänka en siffra — P0: poäng sjunker aldrig).
-  _credit(ctx, net, kind) {
+  _credit(ctx, handelse, kind) {
     if (!this._alive || !this._missionActive || this._phase !== 'drive') return
     const def = this._missionDef(this._missionKey)
-    if (def.net !== net || !def.kinds.includes(kind)) {
-      // fel nät på uppdrags-målet? Roligt ändå — men efter 2 ggr: visa växelknappen.
-      if (def.kinds.includes(kind)) {
+    if (def.handelse !== handelse || (def.kinds && !def.kinds.includes(kind))) {
+      // fel hand på uppdrags-målet? Roligt ändå — men efter 2 ggr: visa handen. För
+      // nätbollsuppdraget är VARJE fångst med en annan hand ett tecken på fel hand.
+      const malet = def.kinds ? def.kinds.includes(kind) : handelse === 'drag' || handelse === 'klibb'
+      if (def.net && malet) {
         this._wrongNet++
         if (this._wrongNet >= 2 && !this._hintedNet) {
           this._hintedNet = true
@@ -4708,11 +4969,50 @@ export default {
     if (this._missionGot >= this._missionNeed) this._missionDone(ctx)
   },
 
+  // Hjälpens pekpunkt: ett mål i bild som det pågående uppdraget räknar. null = inget i bild.
+  _uppdragsMalIBild(ctx) {
+    const key = this._missionKey
+    const def = this._missionDef(key)
+    const iBild = (x) => x > 100 && x < Math.min(1200, ctx.view.right - 40)
+    if (def.kinds) {
+      const m = this._targets.find((r) => def.kinds.includes(r.kind) && !r.netted && iBild(r.view.x))
+      return m ? { x: m.view.x, y: m.view.y } : null
+    }
+    if (key === 'snarj') {
+      const m = this._targets.find((r) => !r.snarjd && !r.netted && r.kind !== 'kruka' && iBild(r.view.x))
+      return m ? { x: m.view.x, y: m.view.y } : null
+    }
+    if (key === 'fonster') {
+      for (const seg of this._mid) {
+        for (const win of seg.wins) {
+          const x = seg.c.x + win.lx
+          if (win.mc && !win.mc.destroyed && !win.mc._wxCaught && iBild(x)) return { x, y: win.cy + 6 }
+        }
+      }
+      return null
+    }
+    if (key === 'lykta') {
+      const p = this._props.find((q) => q.def.id === 'lyktstolpe' && q.c && !q.c.destroyed && !q.c._wxTand && iBild(q.c.x))
+      return p ? { x: p.c.x - 26, y: p.c.y - 188 } : null
+    }
+    return null
+  },
+
+  // …och finns inget i bild: skapa ett (ett djur, ett monster i ett fönster, en lykta).
+  _skapaUppdragsMal(ctx) {
+    const key = this._missionKey
+    if (key === 'fonster') this._oppnaFonster(ctx)
+    else if (key === 'lykta') this._spawnProp(ctx, Math.min(1420, ctx.view.right + 120), 'lyktstolpe')
+    else if (key === 'snarj') this._spawnTarget(ctx, 'katt')
+    else this._spawnTarget(ctx, key === 'paket' ? 'paket' : key)
+  },
+
   _sayByt(ctx) {
-    if (!this._alive || this._t - this._lastBytSaid < 18) return
+    const vill = this._missionDef(this._missionKey).net
+    if (!this._alive || !vill || this._t - this._lastBytSaid < 18) return
     this._lastBytSaid = this._t
     ctx.services.voice.say('Byt hand nere i hörnet!')
-    this._pulseHands(ctx, this._missionDef(this._missionKey).net)
+    this._pulseHands(ctx, vill)
   },
 
   _missionDone(ctx) {
@@ -4726,8 +5026,15 @@ export default {
     if (this._missionsDone >= 3) {
       ctx.later(1.1, () => this._homecoming(ctx))
     } else {
+      // Utrop (V24): hoppas över om något redan talar. Efter andra uppdraget står solen
+      // lågt — då är det resan in i kvällen som är nyheten, inte baksätet.
+      const nr = this._missionsDone
       ctx.later(0.7, () => {
-        if (this._alive) ctx.services.voice.say('Titta, baksätet blir fullt med vänner!')
+        if (!this._alive || ctx.services.voice.talar) return
+        // i en regnrunda syns ingen sol — då är det kvällen som kommer
+        if (nr === 2 && this._vader === 'regn') ctx.services.voice.say('Titta, nu blir det kväll!')
+        else if (nr === 2) ctx.services.voice.say('Titta, solen går ner!')
+        else if (this._seatList.length > 0) ctx.services.voice.say('Titta, baksätet blir fullt med vänner!')
       })
       ctx.later(2.4, () => {
         if (this._panel && !this._panel.destroyed) {
@@ -4796,11 +5103,74 @@ export default {
     rec.r = r
     rec.body = body
     view.addChild(inner)
+    // I regnet bär de som går på trottoaren paraply — ett nät blåser av det (_tappaParaply).
+    if (this._regn > 0.35 && (kind === 'katt' || kind === 'hund' || kind === 'monster') && !opts.force) {
+      // greppet vid tassen, käppen förbi huvudet, skärmen ovanför det högsta på figuren
+      const y0 = -r * 0.15
+      const topp = art.getLocalBounds().minY
+      const p = ritaParaply(slumpFarg(PARAPLY_FARGER), Math.max(44, y0 - topp + 10))
+      p.position.set(r * 0.5, y0)
+      view.addChild(p)
+      rec.paraply = p
+    }
     view.position.set(body.position.x, body.position.y)
     this._targetLayer.addChild(view)
     this._phys.link(body, view)
     this._targets.push(rec)
     return rec
+  },
+
+  // Nätet blåser paraplyet ur tassen: det snurrar uppåt och tonar bort (drivs av tick,
+  // ligger i spelets eget lager — dör med spelet).
+  _tappaParaply(ctx, rec) {
+    const p = rec.paraply
+    rec.paraply = null
+    if (!p || p.destroyed) return
+    const gx = rec.view.x + p.x
+    const gy = rec.view.y + p.y
+    p.removeFromParent()
+    p.position.set(gx, gy)
+    this._skataLayer.addChild(p)
+    this._flygParaply.push({ g: p, vx: rnd(-2.2, 2.2), vy: rnd(-7, -5), vr: rnd(-0.16, 0.16), t: 0 })
+    ctx.services.audio.tone({ freq: 783.99, dur: 0.12, type: 'triangle', vol: 0.15, slideTo: 1046.5 })
+    puff(ctx.fxLayer, gx, gy, { count: 4, color: 0xe4eef8 })
+  },
+
+  _updateParaplyer(ctx, dtF) {
+    for (let i = this._flygParaply.length - 1; i >= 0; i--) {
+      const f = this._flygParaply[i]
+      if (!f.g || f.g.destroyed) {
+        this._flygParaply.splice(i, 1)
+        continue
+      }
+      f.t += dtF / 60
+      f.vy += 0.12 * dtF
+      f.g.x += f.vx * dtF
+      f.g.y += f.vy * dtF
+      f.g.rotation += f.vr * dtF
+      f.g.alpha = Math.max(0, 1 - f.t / 1.3)
+      if (f.t > 1.3) {
+        f.g.destroy({ children: true })
+        this._flygParaply.splice(i, 1)
+      }
+    }
+    // när regnet slutat fäller de sina paraplyer (ett i taget, inte alla i samma ruta)
+    if (this._regn < 0.12) {
+      for (const rec of this._targets) {
+        if (rec.paraply && Math.random() < dtF * 0.04) {
+          const p = rec.paraply
+          rec.paraply = null
+          if (!p.destroyed) {
+            sparkle(ctx.fxLayer, rec.view.x + p.x, rec.view.y + p.y, { count: 3 })
+            p.destroy({ children: true })
+          }
+        }
+      }
+    } else {
+      for (const rec of this._targets) {
+        if (rec.paraply && !rec.paraply.destroyed) rec.paraply.rotation = Math.sin(this._t * 2.3 + rec.seed) * 0.09
+      }
+    }
   },
 
   // Blomkruka på ett fönsterbleck i ett nyskapat hus-segment.
@@ -4819,8 +5189,14 @@ export default {
     let kind = null
     if (this._missionActive) {
       const def = this._missionDef(this._missionKey)
-      const alive = this._targets.filter((r) => def.kinds.includes(r.kind) && !r.stuck && !r.netted).length
-      if (alive < 2 && Math.random() < 0.7) kind = this._missionKey === 'paket' ? 'paket' : this._missionKey
+      if (def.kinds) {
+        const alive = this._targets.filter((r) => def.kinds.includes(r.kind) && !r.stuck && !r.netted).length
+        if (alive < 2 && Math.random() < 0.7) kind = this._missionKey === 'paket' ? 'paket' : this._missionKey
+      } else if (this._missionKey === 'snarj') {
+        // nätbollen träffar bäst det som går på trottoaren — se till att det finns några
+        const gar = this._targets.filter((r) => !r.snarjd && !r.netted && ['katt', 'hund', 'monster', 'paket'].includes(r.kind)).length
+        if (gar < 3 && Math.random() < 0.75) kind = ['katt', 'hund', 'monster', 'monster', 'paket'][(Math.random() * 5) | 0]
+      }
     }
     if (!kind) {
       const pool = ['katt', 'hund', 'paket', 'paket', 'ballong', 'fagel', 'monster', 'monster']
@@ -4870,6 +5246,7 @@ export default {
         const gs = this._propAt(p.x, p.y)
         if (gs) {
           shot.prop = gs
+          shot.propPt = this._propTraff // nätet flyger dit man pekade (lyktans huvud, inte stolpen)
         } else {
         // monstret som tittar ut ur en krossad ruta är ett riktigt mål
         const m = this._windowMonsterAt(p.x, p.y)
@@ -4921,7 +5298,7 @@ export default {
       return
     }
     if (s.prop) {
-      this._hitProp(ctx, s.prop)
+      this._hitProp(ctx, s.prop, s.propPt)
       return
     }
     if (s.mons) {
@@ -4947,6 +5324,7 @@ export default {
     if (!this._alive || !this._targets.includes(rec)) return
     // nätade du tjuven? Då tappar den paketet på fläcken — motgången är återtagbar
     if (this._thief && this._thief.mons === rec) this._dropLoot(ctx)
+    if (rec.paraply) this._tappaParaply(ctx, rec)
     this._soundFor(ctx, rec.kind, rec.inner?.children[0]?._wxArt)
     if (rec.inner && !rec.inner.destroyed) pop(rec.inner, { scale: 1.25 })
     sparkle(ctx.fxLayer, rec.view.x, rec.view.y, { count: 5 })
@@ -5002,17 +5380,34 @@ export default {
   // brevlåda, dörr, äppelträd, gatulock, blommor, lyktstolpe, trafikljus,
   // parkerad bil, korvstånd, cykel. Varje sak har eget liv i vila (_wxTick) och
   // tre olika reaktioner (_wxReagera per nät) — ingen kan gå sönder permanent.
-  _spawnProp(ctx, atX = 1420) {
+  _spawnProp(ctx, atX = 1420, id = null) {
     if (!this._alive || this._props.length >= PROP_MAX) return null
     // aldrig två saker på varandra
     for (const q of this._props) if (Math.abs(q.c.x - atX) < PROP_LUFT) return null
-    const def = GATUSAKER[(Math.random() * GATUSAKER.length) | 0]
+    let def = (id && GATUSAKER.find((d) => d.id === id)) || GATUSAKER[(Math.random() * GATUSAKER.length) | 0]
+    // Lyktstolparna är skymningens gatusak: under "tänd lyktorna" kommer de tätt (annars
+    // en på elva — ett uppdrag på två lyktor hade tagit en minut), och i skymningen ofta.
+    const lyktaVill = this._missionActive && this._missionKey === 'lykta' ? 0.62 : this._kvall > 0.4 ? 0.22 : 0
+    if (!id && lyktaVill && Math.random() < lyktaVill) def = GATUSAKER.find((d) => d.id === 'lyktstolpe') || def
     const c = def.rita()
     c.position.set(atX, PROP_Y[def.fot] ?? PROP_Y.trottoar)
     this._propLayer.addChild(c)
+    // lyktans ljus flyttas till det otintade ljuslagret (följer sakens x i _updateProps)
+    if (c._wxLjus && !c._wxLjus.destroyed) {
+      this._propLjusLayer.addChild(c._wxLjus)
+      c._wxLjus.position.set(c.x, c.y)
+    }
     const prop = { c, def, r: Math.max(48, def.traffR | 0) }
     this._props.push(prop)
     return prop
+  },
+
+  _rivProp(p) {
+    if (p.c?._wxLjus && !p.c._wxLjus.destroyed) p.c._wxLjus.destroy({ children: true })
+    if (p.c && !p.c.destroyed) {
+      stadFx(p.c)
+      p.c.destroy({ children: true })
+    }
   },
 
   _updateProps(ctx, dt, sc) {
@@ -5024,10 +5419,12 @@ export default {
       }
       p.c.x -= sc
       if (p.c.x < -260) {
-        p.c.destroy({ children: true })
+        this._rivProp(p)
         this._props.splice(i, 1)
         continue
       }
+      const lj = p.c._wxLjus
+      if (lj && !lj.destroyed) lj.x = p.c.x
       // ticka bara det som är i eller nära bild (vilo-animationen är billig men
       // reaktionerna ritar om per bildruta)
       if (p.c.x > -220 && p.c.x < 1520 && typeof p.c._wxTick === 'function') p.c._wxTick(this._t, dt)
@@ -5040,23 +5437,35 @@ export default {
     }
   },
 
+  // Träffpunkter per sak: mitthöjden, plus EXTRA cirklar där det finns något man vill
+  // peka på högt upp (lyktans huvud sitter 190 px över foten — mitthöjden 100 px längre
+  // ner, så ett tryck PÅ lyktan missade). `this._propTraff` = punkten som träffades.
   _propAt(px, py) {
     let best = null
     let bd = 1e9
     for (const p of this._props) {
       if (!p.c || p.c.destroyed) continue
       // träffytan mäts mot sakens mitthöjd, inte foten
-      const cy = p.c.y - (p.def.hojd || 90) * 0.45
-      const d = Math.hypot(px - p.c.x, py - cy)
+      const dy0 = -(p.def.hojd || 90) * 0.45
+      const d = Math.hypot(px - p.c.x, py - (p.c.y + dy0))
       if (d < p.r && d < bd) {
         bd = d
         best = p
+        this._propTraff = { dx: 0, dy: dy0 }
+      }
+      for (const e of p.def.extra || []) {
+        const de = Math.hypot(px - (p.c.x + e.dx), py - (p.c.y + e.dy))
+        if (de < e.r && de < bd) {
+          bd = de
+          best = p
+          this._propTraff = { dx: e.dx, dy: e.dy }
+        }
       }
     }
     return best
   },
 
-  _hitProp(ctx, p) {
+  _hitProp(ctx, p, punkt = null) {
     if (!this._alive || !p.c || p.c.destroyed || typeof p.c._wxReagera !== 'function') return
     const tagg = p.c._wxReagera(this._mode)
     const svar = PROP_SVAR[tagg] || { sfx: 'soft', ton: 440, farg: 0xd8d3c8 }
@@ -5067,10 +5476,22 @@ export default {
       a.sfx(svar.sfx)
     }
     if (svar.ton) a.tone({ freq: svar.ton, dur: 0.16, type: 'triangle', vol: 0.19, delay: 0.04 })
-    const cy = p.c.y - (p.def.hojd || 90) * 0.45
-    sparkle(ctx.fxLayer, p.c.x, cy, { count: 6 })
-    puff(ctx.fxLayer, p.c.x, cy, { count: 5, color: svar.farg })
+    const px = p.c.x + (punkt?.dx ?? 0)
+    const cy = p.c.y + (punkt?.dy ?? -(p.def.hojd || 90) * 0.45)
+    sparkle(ctx.fxLayer, px, cy, { count: 6 })
+    puff(ctx.fxLayer, px, cy, { count: 5, color: svar.farg })
     this._idle = 0
+    // LYKTAN TÄNDS för gott i skymningen (eller under lykt-uppdraget) — med vilket nät som
+    // helst. På dagen blinkar den bara till, som förut.
+    if (p.def.id === 'lyktstolpe' && !p.c._wxTand && (this._kvall >= 0.4 || (this._missionActive && this._missionKey === 'lykta'))) {
+      p.c._wxTand = true
+      const lx = p.c.x - 26
+      const ly = p.c.y - 186
+      burst(ctx.fxLayer, lx, ly, { count: 12, colors: [0xffe9b0, 0xffd36b, 0xfff6d8] })
+      a.tone({ freq: 659.25, dur: 0.14, type: 'triangle', vol: 0.18 })
+      a.tone({ freq: 987.77, dur: 0.22, type: 'triangle', vol: 0.18, delay: 0.1 })
+      this._credit(ctx, 'lykta', 'lyktstolpe')
+    }
   },
 
   // ------------------------------------------------------------- nätbollar
@@ -5105,7 +5526,14 @@ export default {
     view.position.set(hand.x, hand.y)
     this._targetLayer.addChild(view)
     this._phys.link(body, view)
-    this._balls.push({ body, view, g, t: 0, studs: 0 })
+    // Siktade barnet på en gatusak? Bara DEN tar emot bollen på första flygningen — en
+    // brandpost som råkar stå mellan handen och katten man siktade på ska inte äta skottet
+    // (gatusakerna står i planet bakom djuren). Efter två studsar har bollen tappat siktet
+    // och kan träffa vad som helst. Uppmätt i scripts/_natsikte.mjs (32 skott/arm):
+    // HEAD 14 träffar / 18 uppätna av en gatusak → 25 / 7 med enbart siktet.
+    // Samma prioritet som nätet (_onTap): ett mål under fingret går före gatusaken bakom det.
+    const malUnder = this._targets.some((r) => !r.netted && Math.hypot(p.x - r.view.x, p.y - r.view.y) < r.r + 42)
+    this._balls.push({ body, view, g, t: 0, studs: 0, sikteProp: malUnder ? null : this._propAt(p.x, p.y) })
     this._recoil = 1
     ctx.services.audio.tone({ freq: 392, dur: 0.08, type: 'square', vol: 0.14 })
   },
@@ -5134,11 +5562,19 @@ export default {
       }
       // nätbollen krockar även med gatusakerna (de svarar med 'boll'-varianten)
       const traffP = this._propAt(pos.x, pos.y)
-      if (traffP && b.t > 0.07) {
+      if (traffP && b.t > 0.07 && (traffP === b.sikteProp || b.studs > 1)) {
         const spara = this._mode
         this._mode = 'boll'
-        this._hitProp(ctx, traffP)
+        this._hitProp(ctx, traffP, this._propTraff)
         this._mode = spara
+        this._killBall(ctx, b, true)
+        this._balls.splice(i, 1)
+        continue
+      }
+      // …och med monstren som tittar ut genom fönstren (snärjs in där de står)
+      const fm = b.t > 0.07 ? this._windowMonsterAt(pos.x, pos.y) : null
+      if (fm) {
+        this._catchWindowMonster(ctx, fm.seg, fm.win, 'boll')
         this._killBall(ctx, b, true)
         this._balls.splice(i, 1)
         continue
@@ -5179,6 +5615,9 @@ export default {
     if (!this._alive || rec.snarjd) return
     rec.snarjd = true
     rec.walkV = 0
+    if (rec.paraply) this._tappaParaply(ctx, rec)
+    // nätbollsuppdraget: varje insnärjning räknas (en gång per mål — snarjd spärrar)
+    this._credit(ctx, 'snarj', rec.kind)
     rec.stuck = false
     if (rec.netG && !rec.netG.destroyed) rec.netG.destroy()
     rec.netG = null
@@ -5261,8 +5700,14 @@ export default {
   },
 
   _hitWindow(ctx, seg, win) {
-    if (!this._alive || win.state !== 'ok' || win.g.destroyed) return
+    if (!this._alive || win.g.destroyed) return
     const wx = seg.c.x + win.lx
+    if (win.state !== 'ok') {
+      // redan öppen/krossad ruta utan monster: nätet fastnar i karmen en stund — svar ändå
+      ctx.services.audio.sfx('soft')
+      puff(ctx.fxLayer, wx, win.cy, { count: 4, color: 0xd8d3c8 })
+      return
+    }
     if (this._brokenCount >= MAX_BROKEN) {
       // TAK: nätet studsar av med en gnista — rutan klarar sig
       ctx.services.audio.sfx('pling')
@@ -5285,37 +5730,68 @@ export default {
     }
     // Ofta lutar sig ett monster ut ur hålet och vinkar — och det går att FÅNGA
     // (se _catchWindowMonster). Det är en riktig art ur familjen, inte en klick,
-    // så det man drar hem ser likadant ut i baksätet.
-    if (Math.random() < 0.55) {
-      const art = slumpaMonsterArt()
-      const kropp = drawMonster(art)
-      kropp.scale.set(0.6)
-      const tintC = kropp._wxTint ?? MONSTER_TINTS[0]
-      const mc = new Container()
-      mc.eventMode = 'none'
-      mc.addChild(kropp)
-      const arm = new Graphics()
-      arm.moveTo(0, 0).lineTo(13, -15).stroke({ width: 6, color: tintC, cap: 'round' })
-      arm.circle(13, -15, 5).fill(tintC)
-      arm.position.set(15, 4)
-      arm.eventMode = 'none'
-      mc.addChild(arm)
-      mc._wxArm = arm
-      mc._wxArt = art
-      mc._wxTint = tintC
-      mc.position.set(win.lx, win.cy + 6)
-      seg.c.addChild(mc)
-      win.mc = mc
-      bounceIn(mc)
-      ctx.services.audio.sfx('boing')
+    // så det man drar hem ser likadant ut i baksätet. Under fönstermonster-uppdraget
+    // kommer det ALLTID ett.
+    const uppdrag = this._missionActive && this._missionKey === 'fonster'
+    if (uppdrag || Math.random() < 0.55) this._monsterIFonster(ctx, seg, win)
+  },
+
+  // Ett monster lutar sig ut ur en öppen/krossad ruta och vinkar. Det står i husets
+  // LJUSLAGER (`seg.lc`), inte i det tintade huset — ett mål ska synas lika bra på kvällen.
+  _monsterIFonster(ctx, seg, win) {
+    const art = slumpaMonsterArt()
+    const kropp = drawMonster(art)
+    kropp.scale.set(0.6)
+    const tintC = kropp._wxTint ?? MONSTER_TINTS[0]
+    const mc = new Container()
+    mc.eventMode = 'none'
+    mc.addChild(kropp)
+    const arm = new Graphics()
+    arm.moveTo(0, 0).lineTo(13, -15).stroke({ width: 6, color: tintC, cap: 'round' })
+    arm.circle(13, -15, 5).fill(tintC)
+    arm.position.set(15, 4)
+    arm.eventMode = 'none'
+    mc.addChild(arm)
+    mc._wxArm = arm
+    mc._wxArt = art
+    mc._wxTint = tintC
+    mc.position.set(win.lx, win.cy + 6)
+    ;(seg.lc && !seg.lc.destroyed ? seg.lc : seg.c).addChild(mc)
+    win.mc = mc
+    bounceIn(mc)
+    ctx.services.audio.sfx('boing')
+    return mc
+  },
+
+  // Fönstermonster-uppdraget: ett monster ÖPPNAR själv en ruta längre fram på gatan
+  // (aldrig fler än två som tittar ut samtidigt — tak). Barnet behöver alltså inte först
+  // krossa en ruta: uppdraget är att fånga, inte att leta.
+  _oppnaFonster(ctx) {
+    let tittar = 0
+    const kandidater = []
+    for (const seg of this._mid) {
+      for (const win of seg.wins) {
+        const x = seg.c.x + win.lx
+        if (win.mc && !win.mc.destroyed && !win.mc._wxCaught && x > ctx.view.left && x < ctx.view.right) tittar++
+        if (win.state === 'ok' && !win.mc && x > 560 && x < Math.min(1150, ctx.view.right - 80) && win.cy < 430) kandidater.push({ seg, win })
+      }
     }
+    if (tittar >= 2 || !kandidater.length) return
+    const { seg, win } = kandidater[(Math.random() * kandidater.length) | 0]
+    win.state = 'open'
+    win.brokenAt = this._t
+    this._drawWindow(win)
+    this._monsterIFonster(ctx, seg, win)
+    ctx.services.audio.sfx('flip')
+    sparkle(ctx.fxLayer, seg.c.x + win.lx, win.cy, { count: 5 })
   },
 
   // Monstret i hålet är fångbart med BÅDA näten och gör olika saker:
   //   klibbnät = det fastnar i rutan, sprattlar och kryper skrattande in igen
   //   dragnät  = det lyfts UT ur fönstret och vinschas hem till baksätet som en vän
   // Ingen variant är ett felval (P0 AGENS), och rutan lagar sig som vanligt efteråt.
-  _catchWindowMonster(ctx, seg, win) {
+  // lage: nätet som fångade ('klibb' · 'drag' · 'boll' — nätbollen snärjer in det i rutan).
+  _catchWindowMonster(ctx, seg, win, lage = this._mode) {
     const mc = win.mc
     if (!this._alive || !mc || mc.destroyed || mc._wxCaught) return
     const wx = seg.c.x + win.lx
@@ -5325,11 +5801,23 @@ export default {
     this._idle = 0
     // ge fångst-ögonblicket luft: rutan får inte självlaga mitt i det
     win.brokenAt = Math.max(win.brokenAt, this._t - HEAL_AFTER + 3.2)
+    // fönstermonster-uppdraget räknar fångsten med VILKET nät som helst
+    this._credit(ctx, 'fonster', 'monster')
 
-    if (this._mode === 'klibb') {
+    if (lage === 'klibb' || lage === 'boll') {
       mc._wxCaught = 'klibb'
       const net = new Graphics()
-      drawWebNet(net, 32)
+      if (lage === 'boll') {
+        // nätbollen: vit boll runt kroppen, bara huvudet och armen sticker ut
+        net.circle(0, 10, 25).fill({ color: 0xffffff, alpha: 0.93 }).stroke({ width: 3, color: 0xe3e0d8 })
+        const v = new Graphics()
+        drawWebNet(v, 22, { color: 0xa9a49a, alpha: 0.95, width: 2 })
+        v.position.set(0, 10)
+        v.eventMode = 'none'
+        net.addChild(v)
+      } else {
+        drawWebNet(net, 32)
+      }
       net.eventMode = 'none'
       mc.addChild(net)
       mc._wxNet = net // destroy() måste kunna döda bounceIn-tweenen på nätet
@@ -5340,6 +5828,7 @@ export default {
       ctx.later(2.5, () => {
         if (!this._alive || mc.destroyed) return
         puff(ctx.fxLayer, seg.c.x + win.lx, win.cy + 6, { count: 6, color: 0xd8d3c8 })
+        stadFx(mc)
         mc.destroy({ children: true })
         win.mc = null
       })
@@ -5369,12 +5858,18 @@ export default {
   _healWindows(ctx) {
     for (const seg of this._mid) {
       for (const win of seg.wins) {
-        if (win.state !== 'broken') continue
-        if (this._t - win.brokenAt > HEAL_AFTER) {
+        if (win.state !== 'broken' && win.state !== 'open') continue
+        // en ÖPPNAD ruta (fönstermonster-uppdraget) står öppen lite längre — monstret ska
+        // hinna fångas — och räknas aldrig mot taket för krossade rutor
+        const oppen = win.state === 'open'
+        if (this._t - win.brokenAt > (oppen ? HEAL_AFTER + 2.5 : HEAL_AFTER)) {
           win.state = 'ok'
-          this._brokenCount = Math.max(0, this._brokenCount - 1)
+          if (!oppen) this._brokenCount = Math.max(0, this._brokenCount - 1)
           this._drawWindow(win)
-          if (win.mc && !win.mc.destroyed) win.mc.destroy({ children: true })
+          if (win.mc && !win.mc.destroyed) {
+            stadFx(win.mc)
+            win.mc.destroy({ children: true })
+          }
           win.mc = null
           const wx = seg.c.x + win.lx
           if (wx > ctx.view.left - 60 && wx < ctx.view.right + 60) {
@@ -5698,6 +6193,7 @@ export default {
     if (!this._alive || this._phase !== 'drive') return
     this._phase = 'arrive'
     this._missionActive = false
+    this._kvallFart = 0.12 // kvällen hinner falla medan bilen bromsar: måne och stjärnor
     this._stopHandPulse()
     for (const b of [...this._balls]) this._killBall(ctx, b, false)
     this._balls = []
@@ -5718,6 +6214,19 @@ export default {
       if (rec.view && !rec.view.destroyed) puff(ctx.fxLayer, rec.view.x, rec.view.y, { count: 4 })
       this._removeTarget(rec)
     }
+    // …och gatusakerna som skulle stanna framför hemmet. I baslinjens finalbild stod ett
+    // korvstånd och en lyktstolpe mitt framför dörren (mätt i skärmdumpen). Scrollen
+    // bromsar ungefär 80 px till, så det är DÄR de skulle hamna som avgör.
+    for (let i = this._props.length - 1; i >= 0; i--) {
+      const p = this._props[i]
+      if (!p.c || p.c.destroyed) continue
+      const slutX = p.c.x - 80
+      if (slutX > HOME_X - 210 && slutX < HOME_X + HOME_BW + 210) {
+        puff(ctx.fxLayer, p.c.x, p.c.y - (p.def.hojd || 90) * 0.45, { count: 5 })
+        this._rivProp(p)
+        this._props.splice(i, 1)
+      }
+    }
     // parallaxen saktar in (proxy-tween på scrollvärdet)
     const st = { v: this._scroll }
     const tw = gsap.to(st, {
@@ -5733,31 +6242,49 @@ export default {
       },
     })
     this._tws.push(tw)
-    // hemmet glider fram och stannar mitt i bild
-    const house = this._mkHomeHouse()
-    house.x = 1560
-    this._midLayer.addChild(house)
-    this._homeHouse = house
+    // hemmet glider fram och stannar mitt i bild — huset i mellanlagret, dess ljus (och
+    // den som väntar i dörren) i ljuslagret, på samma x
+    const hem = this._mkHomeHouse(ctx)
+    hem.c.x = 1560
+    hem.lc.x = 1560
+    this._hemLayer.addChild(hem.c, hem.lc)
+    this._homeHouse = hem.c
+    this._hemGlow = hem.lc
     const hs = { x: 1560 }
     const tw2 = gsap.to(hs, {
-      x: 700,
+      x: HOME_X,
       duration: 1.9,
       ease: 'power2.out',
       onUpdate: () => {
-        if (house.destroyed) {
+        if (hem.c.destroyed || hem.lc.destroyed) {
           tw2.kill()
           return
         }
-        house.x = hs.x
+        hem.c.x = hs.x
+        hem.lc.x = hs.x
       },
     })
     this._tws.push(tw2)
+    // VEM VÄNTAR I DÖRREN? Varannan runda barnets eget knytt eller kompis (det barnet nyss
+    // skapat kommer alltid först — LYFTPLAN §10 F5.3), annars ett av spelets egna monster
+    // (F5.2: reserven är spelets egen figur). valjEgna räknar takten: EN gång per hemkomst.
+    const [egen] = valjEgna(ctx.services, 'natskott-pa-stan')
+    this._hemEgen = egen || null
     ctx.later(2.1, () => {
       if (!this._alive) return
       ctx.services.voice.say('Nu är vi hemma — vilket äventyr!')
       ctx.services.audio.sfx('reveal')
       this._hopOut(ctx)
-      this._homeWelcome(ctx, Math.min(8, this._seatList.length))
+      this._homeWelcome(ctx)
+    })
+    // ett stjärnfall över hemmet när kvällen fallit
+    ctx.later(2.8, () => {
+      if (!this._alive || !this._himmel) return
+      this._himmel.stjarnfall()
+      const a = ctx.services.audio
+      a.tone({ freq: 1567.98, dur: 0.14, type: 'sine', vol: 0.07 })
+      a.tone({ freq: 1318.51, dur: 0.14, type: 'sine', vol: 0.07, delay: 0.12 })
+      a.tone({ freq: 1046.5, dur: 0.26, type: 'sine', vol: 0.07, delay: 0.24 })
     })
     // Hemrepliken (3,75 s) talar fortfarande när complete() kommer — då hoppar complete()
     // över sitt beröm i stället för att kapa den (GameHost, v1.251). Firandet i bild och
@@ -5768,85 +6295,226 @@ export default {
       ctx.progress.setLevel(this._level)
       ctx.progress.complete()
     })
-    ctx.later(6.8, () => this._startRound(ctx))
+    // vännerna går in i huset (och tänder lamporna), sedan kör bilen vidare
+    ctx.later(5.4, () => this._hopIn(ctx))
+    ctx.later(7.9, () => this._startRound(ctx))
   },
 
-  _mkHomeHouse() {
+  // Hemmet: ett eget hus med trädgård, hjärta över dörren och en lampa vid trappan. Två
+  // behållare: `c` (huset, i mellanlagret — mörknar med gatan) och `lc` (ljuset, dörren och
+  // den som väntar i den — otintat). Fönstren är SLÄCKTA tills vännerna gått in.
+  _mkHomeHouse(ctx) {
     const c = new Container()
     c.eventMode = 'none'
     const g = new Graphics()
-    const bw = 330
-    const bh = 215
+    const bw = HOME_BW
+    const bh = 232
     const topY = SIDEWALK_TOP - bh
-    g.rect(0, topY, bw, bh).fill(0xffe3a9).stroke({ width: 4, color: 0xd9a021 })
-    g.moveTo(-20, topY).lineTo(bw / 2, topY - 78).lineTo(bw + 20, topY).closePath().fill(0xc0574f)
-    g.rect(bw * 0.72, topY - 52, 20, 46).fill(0x8a5a3b)
-    // dörröppningen: hallens varma ljus, som syns när dörren (egen nod nedan) går upp
-    g.roundRect(bw / 2 - 34, SIDEWALK_TOP - 104, 68, 104, 8).fill(0xffd35c)
-    g.rect(bw / 2 - 44, SIDEWALK_TOP - 10, 88, 10).fill(0xd9c9a8)
-    // fönster med blomlådor — släckta (blekt glas) tills vännerna är hemma
-    const blommor = (gg, wx) => {
-      for (let i = 0; i < 3; i++) gg.circle(wx - 18 + i * 18, topY + 120, 6).fill([0xff9ec4, 0xff6b6b, 0xffd35c][i])
+    const golv = SIDEWALK_TOP
+    const trappa = golv - 18 // översta trappsteget: dörrens underkant och fötternas nivå
+    const dorrY = trappa - 104
+    const vagg = 0xffe0a3
+    // trädgården på båda sidor: häck, ett runt träd och ett lågt vitt staket
+    for (const sida of [-1, 1]) {
+      const tx = sida < 0 ? -78 : bw + 78
+      g.roundRect(sida < 0 ? -168 : bw + 18, golv - 38, 150, 38, 19).fill(0x76a97b)
+      g.rect(tx - 8, golv - 92, 16, 92).fill(0x8a5a3b)
+      g.circle(tx, golv - 128, 44).fill(0x6aa865)
+      g.circle(tx - 30, golv - 104, 30).fill(0x74b06c)
+      g.circle(tx + 30, golv - 106, 32).fill(0x63a05f)
+      g.circle(tx - 12, golv - 142, 16).fill({ color: 0xffffff, alpha: 0.12 })
+      const x0 = sida < 0 ? -160 : bw + 26
+      for (let i = 0; i < 9; i++) {
+        const px = x0 + i * 16
+        g.moveTo(px, golv).lineTo(px, golv - 22).lineTo(px + 4, golv - 27).lineTo(px + 8, golv - 22).lineTo(px + 8, golv).closePath().fill(0xfff8ec)
+      }
+      g.rect(x0 - 2, golv - 18, 9 * 16 + 2, 4).fill(0xf1e6d2)
     }
-    const sprojsar = (gg, wx) =>
-      gg.moveTo(wx, topY + 62).lineTo(wx, topY + 122).moveTo(wx - 28, topY + 92).lineTo(wx + 28, topY + 92).stroke({ width: 3, color: 0xfffdf7 })
+    // kroppen, belyst uppifrån (cachad toning per färg)
+    g.rect(0, topY, bw, bh).fill(topLightFill(vagg, { highlight: 0.12, dark: 0.18 })).stroke({ width: 4, color: 0xd9a021 })
+    // taket med tegelrader
+    g.moveTo(-26, topY + 4).lineTo(bw / 2, topY - 96).lineTo(bw + 26, topY + 4).closePath().fill(0xc0574f).stroke({ width: 3, color: shade(0xc0574f, 0.25) })
+    for (let i = 1; i <= 3; i++) {
+      const y = topY + 4 - i * 25
+      const half = (bw / 2 + 26) * (1 - (i * 25) / 100)
+      g.moveTo(bw / 2 - half + 6, y).lineTo(bw / 2 + half - 6, y).stroke({ width: 2.4, color: shade(0xc0574f, 0.2), alpha: 0.7 })
+    }
+    // skorsten (röken ritas i _hemSteg)
+    g.rect(bw * 0.72, topY - 74, 24, 58).fill(0x9a5a3b)
+    g.rect(bw * 0.72 - 4, topY - 80, 32, 9).fill(shade(0x9a5a3b, 0.2))
+    // runt vindsfönster
+    g.circle(bw / 2, topY - 36, 18).fill(0xd8e6ee).stroke({ width: 4, color: 0xfffdf7 })
+    g.moveTo(bw / 2, topY - 54).lineTo(bw / 2, topY - 18).moveTo(bw / 2 - 18, topY - 36).lineTo(bw / 2 + 18, topY - 36).stroke({ width: 3, color: 0xfffdf7 })
+    // dörrkarm + dörröppningens mörka hall (dörren själv är en egen nod i ljuslagret)
+    g.roundRect(bw / 2 - 42, dorrY - 8, 84, 112, 12).fill(0xd9a021)
+    g.roundRect(bw / 2 - 34, dorrY, 68, 104, 8).fill(0x6b4a3a)
+    // ett hjärta över dörren — så hemmet ser ut som NÅGONS hem, inte ett hus till
+    const hx = bw / 2
+    const hy = dorrY - 26
+    g.moveTo(hx, hy + 10).bezierCurveTo(hx - 16, hy, hx - 12, hy - 12, hx, hy - 6)
+      .bezierCurveTo(hx + 12, hy - 12, hx + 16, hy, hx, hy + 10).closePath().fill(0xe8534a)
+    // trappan
+    g.rect(bw / 2 - 52, golv - 9, 104, 9).fill(0xcbbb98)
+    g.rect(bw / 2 - 44, trappa, 88, 9).fill(0xe2d4b6)
+    // fönster med blomlådor — blekt glas (det tända ljuset ligger i ljuslagret)
+    const fonsterY = topY + 92
     for (const wx of HOME_WIN_XS.map((f) => bw * f)) {
-      g.roundRect(wx - 28, topY + 62, 56, 60, 4).fill(0xd8e6ee).stroke({ width: 4, color: 0xfffdf7 })
-      sprojsar(g, wx)
-      g.roundRect(wx - 32, topY + 122, 64, 10, 4).fill(0x8a5a3b)
-      blommor(g, wx)
+      g.roundRect(wx - 32, fonsterY - 34, 64, 68, 5).fill(0xfffdf7)
+      g.roundRect(wx - 28, fonsterY - 30, 56, 60, 4).fill(0xd8e6ee)
+      g.moveTo(wx, fonsterY - 30).lineTo(wx, fonsterY + 30).moveTo(wx - 28, fonsterY).lineTo(wx + 28, fonsterY).stroke({ width: 3, color: 0xfffdf7 })
+      g.roundRect(wx - 34, fonsterY + 30, 68, 11, 4).fill(0x8a5a3b)
+      for (let i = 0; i < 3; i++) g.circle(wx - 18 + i * 18, fonsterY + 29, 6.5).fill([0xff9ec4, 0xff6b6b, 0xffd35c][i])
     }
-    // buskar + lykta
-    g.circle(-24, SIDEWALK_TOP - 16, 18).fill(0x7fae84)
-    g.circle(bw + 26, SIDEWALK_TOP - 14, 15).fill(0x8fbe8f)
+    // lampan vid dörren: konsol + lykthus (ljuset i ljuslagret)
+    const lampX = bw / 2 + 62
+    const lampY = dorrY + 16
+    g.moveTo(lampX - 10, lampY - 14).lineTo(lampX - 10, lampY + 6).stroke({ width: 4, color: 0x4a4038, cap: 'round' })
+    g.moveTo(lampX - 10, lampY - 14).lineTo(lampX, lampY - 14).stroke({ width: 4, color: 0x4a4038, cap: 'round' })
+    g.moveTo(lampX - 9, lampY - 8).lineTo(lampX + 9, lampY - 8).lineTo(lampX + 6, lampY + 14).lineTo(lampX - 6, lampY + 14).closePath().fill(0xfff3d6).stroke({ width: 2.4, color: 0x4a4038 })
     g.eventMode = 'none'
     c.addChild(g)
-    // Tänt fönsterlager (alfa 0 → 1 i _homeWelcome): ljus på väggen som tre ringar med
-    // avtagande alfa (samma knep som byn i blixt-och-dunder), varm ruta, spröjsar och
-    // blommor ritade om ovanpå så att ljuset ligger BAKOM dem.
-    const lit = new Graphics()
-    lit.eventMode = 'none'
-    for (const wx of HOME_WIN_XS.map((f) => bw * f)) {
-      for (const [d, a] of [[20, 0.1], [13, 0.14], [7, 0.2]]) {
-        lit.roundRect(wx - 28 - d, topY + 62 - d, 56 + 2 * d, 60 + 2 * d, 10 + d).fill({ color: 0xffd35c, alpha: a })
-      }
-      lit.roundRect(wx - 26, topY + 64, 52, 56, 3).fill(0xffd35c)
-      sprojsar(lit, wx)
-      blommor(lit, wx)
-    }
-    lit.alpha = 0
-    c.addChild(lit)
-    // Dörren är en egen nod med gångjärnet i vänsterkanten: scale.x mot 0 = den går upp.
-    // Höjden 94 (inte 104) — trappan täckte förut dörrens nedersta 10 px.
+    // röken: ritas om i _hemSteg (6 cirklar)
+    const rok = new Graphics()
+    rok.eventMode = 'none'
+    c.addChild(rok)
+    c._wxRokG = rok
+    c._wxRokX = bw * 0.72 + 12
+    c._wxRokY = topY - 84
+
+    // ---- ljuslagret ----
+    const lc = new Container()
+    lc.eventMode = 'none'
+    lc.interactiveChildren = false
+    const lampor = []
+    // vindsfönstret först, sedan de två stora — samma ordning som vännerna tänder dem
+    const vind = new Graphics()
+    for (const [r, a] of [[34, 0.07], [27, 0.1], [22, 0.14]]) vind.circle(bw / 2, topY - 36, r).fill({ color: 0xffc35c, alpha: a })
+    vind.circle(bw / 2, topY - 36, 16).fill(0xffd987)
+    vind.moveTo(bw / 2, topY - 52).lineTo(bw / 2, topY - 20).moveTo(bw / 2 - 16, topY - 36).lineTo(bw / 2 + 16, topY - 36).stroke({ width: 3, color: 0x6b4430, alpha: 0.85 })
+    vind.alpha = 0
+    vind.eventMode = 'none'
+    lc.addChild(vind)
+    lampor.push({ g: vind, x: bw / 2, y: topY - 36, tand: false })
+    HOME_WIN_XS.forEach((f, i) => {
+      const lg = ritaFonsterLjus(56, 60, i === 0 ? 0 : 1)
+      lg.position.set(bw * f, fonsterY)
+      lg.alpha = 0
+      lc.addChild(lg)
+      lampor.push({ g: lg, x: bw * f, y: fonsterY, tand: false })
+    })
+    // hallens varma ljus i dörröppningen + ljuset som faller ut över trappan
+    const hall = new Graphics()
+    hall.moveTo(bw / 2 - 34, golv).lineTo(bw / 2 + 34, golv).lineTo(bw / 2 + 92, golv + 44).lineTo(bw / 2 - 92, golv + 44).closePath().fill({ color: 0xffd987, alpha: 0.22 })
+    hall.roundRect(bw / 2 - 34, dorrY, 68, 104, 8).fill(0xffd987)
+    hall.roundRect(bw / 2 - 34, dorrY + 62, 68, 42, 8).fill({ color: 0xffb95e, alpha: 0.5 })
+    hall.alpha = 0
+    hall.eventMode = 'none'
+    lc.addChild(hall)
+    // Dörren: egen nod med gångjärnet i vänsterkanten, scale.x mot 0 = den går upp. Den
+    // ligger i ljuslagret (ovanpå hallens ljus) och får husets tint av spelet (_ljusSteg).
     const door = new Container()
     door.eventMode = 'none'
-    door.position.set(bw / 2 - 34, SIDEWALK_TOP - 104)
+    door.position.set(bw / 2 - 34, dorrY)
     const dg = new Graphics()
-    dg.roundRect(0, 0, 68, 94, 8).fill(0x8a5a3b)
-    dg.circle(34, 28, 12).fill(0xffe9b0)
-    dg.circle(56, 52, 4.5).fill(0xffd35c)
+    dg.roundRect(0, 0, 68, 104, 8).fill(0x8a5a3b)
+    dg.roundRect(8, 44, 52, 50, 5).fill(shade(0x8a5a3b, 0.12))
+    dg.circle(34, 24, 12).fill(0xffe9b0)
+    dg.circle(56, 58, 4.5).fill(0xffd35c)
     dg.eventMode = 'none'
     door.addChild(dg)
-    c.addChild(door)
-    c._door = door
-    c._lit = lit
-    return c
+    const hemT = lerpColor(lagerTint(this._kvall, this._regn, TINT.varld), 0xffffff, 0.3)
+    door.tint = hemT
+    c.tint = hemT
+    lc.addChild(door)
+    // platsen där figuren står (fötterna på översta trappsteget)
+    const plats = new Container()
+    plats.eventMode = 'none'
+    plats.position.set(HOME_DORR, trappa + 1)
+    lc.addChild(plats)
+    // lampan vid dörren tänds när dörren går upp
+    const lampa = new Graphics()
+    for (const [r, a] of [[40, 0.06], [28, 0.1], [18, 0.16]]) lampa.circle(lampX, lampY + 3, r).fill({ color: 0xffd987, alpha: a })
+    lampa.moveTo(lampX - 7, lampY - 6).lineTo(lampX + 7, lampY - 6).lineTo(lampX + 5, lampY + 12).lineTo(lampX - 5, lampY + 12).closePath().fill(0xffe9a8)
+    lampa.alpha = 0
+    lampa.eventMode = 'none'
+    lc.addChild(lampa)
+    lc._wxDorr = door
+    lc._wxHall = hall
+    lc._wxLampa = lampa
+    lc._wxPlats = plats
+    lc._wxLampor = lampor
+    return { c, lc }
   },
 
-  // Hemmet välkomnar paraden: dörren går upp när bilen står still (ding-dong), och
-  // fönstren tänds när den sista vännen landat framför huset. Proxy-tweens (exit-säkra,
-  // dödas i destroy via _tws); huset självt scrollar bort som ett vanligt segment.
-  _homeWelcome(ctx, n) {
-    const house = this._homeHouse
-    if (!house || house.destroyed) return
-    const door = house._door
-    const lit = house._lit
+  // Spelets egen figur i dörren (reserven, F5.2): ett av spelets monster, i dörrstorlek.
+  // Samma yta som en EgenFigur (react · look · destroy) så hemkomsten inte behöver veta
+  // vilken den fick. Ingen egen ticker — _hemSteg driver vinkningen.
+  _hemReserv() {
+    const art = slumpaMonsterArt()
+    const view = new Container()
+    view.eventMode = 'none'
+    const inner = new Container()
+    inner.eventMode = 'none'
+    view.addChild(inner)
+    const kropp = drawMonster(art)
+    const b = kropp.getLocalBounds()
+    const s = Math.min(1.3, 100 / Math.max(1, b.maxY - b.minY))
+    kropp.scale.set(s)
+    kropp.y = -b.maxY * s // fötterna i origo
+    inner.addChild(kropp)
+    const tintC = kropp._wxTint ?? MONSTER_TINTS[0]
+    const arm = new Graphics()
+    arm.moveTo(0, 0).lineTo(19, -24).stroke({ width: 9, color: tintC, cap: 'round' })
+    arm.circle(19, -24, 7).fill(tintC)
+    arm.position.set(Math.max(18, b.maxX * s * 0.7), -(b.maxY - b.minY) * s * 0.5)
+    arm.eventMode = 'none'
+    inner.addChild(arm)
+    let vinkT = 0
+    return {
+      _wxReserv: true,
+      typ: 'reserv',
+      mott: false,
+      namn: null,
+      view,
+      react(h) {
+        if (view.destroyed) return this
+        if (h === 'jubel') squash(inner, { intensity: 1.3, hop: 26 })
+        else if (h === 'heja') squash(inner, { intensity: 0.7, hop: 10 })
+        else vinkT = 2.2
+        return this
+      },
+      look() {
+        return this
+      },
+      tick(dt, t) {
+        if (arm.destroyed) return
+        vinkT = Math.max(0, vinkT - dt)
+        arm.rotation = vinkT > 0 ? Math.sin(t * 9) * 0.6 : Math.sin(t * 1.6) * 0.12
+      },
+      destroy() {
+        if (view.destroyed) return
+        stadFx(view)
+        view.destroy({ children: true })
+      },
+    }
+  },
+
+  // Hemmet välkomnar paraden: dörren går upp när bilen står still (ding-dong), lampan vid
+  // trappan tänds, och den som väntar kliver fram i det varma ljuset och vinkar.
+  // Proxy-tweens (exit-säkra, dödas i destroy via _tws).
+  _homeWelcome(ctx) {
+    const lc = this._hemGlow
+    if (!lc || lc.destroyed) return
+    const door = lc._wxDorr
+    const hall = lc._wxHall
+    const lampa = lc._wxLampa
     const a = ctx.services.audio
     a.tone({ freq: 783.99, dur: 0.22, type: 'triangle', vol: 0.14 })
     a.tone({ freq: 659.25, dur: 0.32, type: 'triangle', vol: 0.14, delay: 0.2 })
-    const ds = { s: 1 }
+    const ds = { s: 1, h: 0 }
     const tw = gsap.to(ds, {
       s: 0.16,
+      h: 1,
       duration: 0.45,
       delay: 0.15,
       ease: 'power2.out',
@@ -5856,27 +6524,42 @@ export default {
           return
         }
         door.scale.x = ds.s
+        if (hall && !hall.destroyed) hall.alpha = ds.h
+        if (lampa && !lampa.destroyed) lampa.alpha = ds.h
       },
     })
     this._tws.push(tw)
-    const ls = { a: 0 }
-    const tw2 = gsap.to(ls, {
-      a: 1,
-      duration: 0.5,
-      delay: 0.18 * n + 0.6,
-      ease: 'power2.out',
-      onStart: () => {
-        if (this._alive) a.tone({ freq: 1046.5, dur: 0.3, type: 'sine', vol: 0.1 })
-      },
-      onUpdate: () => {
-        if (!lit || lit.destroyed) {
-          tw2.kill()
-          return
-        }
-        lit.alpha = ls.a
-      },
+    // figuren: barnets egen eller spelets monster
+    const plats = lc._wxPlats
+    let fig = null
+    if (this._hemEgen) fig = byggEgenFigur(ctx, this._hemEgen, { hojd: 118, maxBredd: 116 })
+    else fig = this._hemReserv()
+    this._hemFig = fig
+    plats.addChild(fig.view)
+    bounceIn(plats, { delay: 0.35, duration: 0.5 })
+    ctx.later(0.85, () => {
+      if (this._alive && this._hemFig === fig) fig.react('hej')
     })
-    this._tws.push(tw2)
+    // jubel när alla hoppat ur — efter complete()s fanfar (3,9 s), inte ovanpå den
+    ctx.later(2.7, () => {
+      if (this._alive && this._hemFig === fig) fig.react('jubel')
+    })
+    // Barnets egen figur får en replik, köad bakom hemrepliken (V24). Tre varianter: ditt
+    // knytt · din kompis · ett knytt barnet bara MÖTT (F5.4 — aldrig "ditt").
+    if (this._hemEgen) {
+      ctx.narTyst(() => {
+        if (!this._alive || this._hemFig !== fig) return
+        if (fig.mott) ctx.services.voice.say('Titta, ett knytt väntar på oss!')
+        else if (fig.typ === 'knytt') ctx.services.voice.say('Titta, ditt knytt väntar på oss!')
+        else ctx.services.voice.say('Titta, din kompis väntar på oss!')
+      })
+      // knyttets namn som ett EGET klipp efteråt (aldrig ihopfogat med raden ovan)
+      if (fig.namn) {
+        ctx.narTyst(() => {
+          if (this._alive && this._hemFig === fig) ctx.services.voice.say(fig.namn)
+        })
+      }
+    }
   },
 
   _hopOut(ctx) {
@@ -5884,7 +6567,10 @@ export default {
     const list = this._seatList.slice(-8)
     // huvudena i sätet försvinner (de "hoppar ur")
     for (const h of this._seatHeads) {
-      if (h.c && !h.c.destroyed) h.c.destroy({ children: true })
+      if (h.c && !h.c.destroyed) {
+        stadFx(h.c)
+        h.c.destroy({ children: true })
+      }
     }
     this._seatHeads = []
     list.forEach((v, i) => {
@@ -5900,6 +6586,7 @@ export default {
         const sx = fig.x
         const sy = fig.y
         const st = { p: 0 }
+        const rec = { c: fig, seed: Math.random() * 9, by: ty, in: false }
         const tw = gsap.to(st, {
           p: 1,
           duration: 0.6,
@@ -5915,11 +6602,18 @@ export default {
           onComplete: () => {
             if (fig.destroyed) return
             puff(ctx.fxLayer, fig.x, fig.y + 16, { count: 5 })
-            if (this._alive) ctx.services.audio.tone({ freq: NOTES[i % NOTES.length], dur: 0.16, type: 'triangle', vol: 0.2 })
+            if (!this._alive) return
+            ctx.services.audio.tone({ freq: NOTES[i % NOTES.length], dur: 0.16, type: 'triangle', vol: 0.2 })
+            this._hemSer = { x: fig.x, y: fig.y - 20 }
+            // den i dörren hejar på varje vän som landar (strypt, så det inte blir ett surr)
+            if (this._hemFig && this._t - (this._hemHejaT || 0) > 0.4) {
+              this._hemHejaT = this._t
+              this._hemFig.react('heja')
+            }
           },
         })
         this._tws.push(tw)
-        this._outFriends.push({ c: fig, seed: Math.random() * 9, by: ty })
+        this._outFriends.push(rec)
       })
     })
     if (list.length === 0) {
@@ -5928,12 +6622,119 @@ export default {
     }
   },
 
+  // Vännerna går in genom dörren en i taget, och varje vän som kommer in TÄNDER en lampa
+  // i huset (vindsfönstret, sedan de två stora). Figuren i dörren tar emot var och en.
+  _hopIn(ctx) {
+    if (!this._alive || this._phase !== 'arrive') return
+    const lc = this._hemGlow
+    if (!lc || lc.destroyed) return
+    const lista = this._outFriends.filter((f) => f.c && !f.c.destroyed)
+    if (!lista.length) {
+      // ingen att ta emot: huset tänder sina lampor ändå
+      for (let i = 0; i < 3; i++) ctx.later(0.25 * i, () => this._tandHem(ctx, i))
+      return
+    }
+    lista.forEach((f, i) => {
+      ctx.later(0.2 * i, () => {
+        if (!this._alive || f.c.destroyed || !lc || lc.destroyed) return
+        f.in = true
+        const fig = f.c
+        const sx = fig.x
+        const sy = fig.y
+        const st = { p: 0 }
+        const tw = gsap.to(st, {
+          p: 1,
+          duration: 0.5,
+          ease: 'power1.in',
+          onUpdate: () => {
+            if (fig.destroyed || lc.destroyed) {
+              tw.kill()
+              return
+            }
+            // dörren står där huset står JUST NU (läses varje bildruta)
+            const dx = lc.x + HOME_DORR
+            const dy = SIDEWALK_TOP - 58
+            fig.x = sx + (dx - sx) * st.p
+            fig.y = sy + (dy - sy) * st.p - Math.sin(st.p * Math.PI) * 70
+            fig.scale.set(0.7 - st.p * 0.38)
+            fig.alpha = st.p < 0.7 ? 1 : 1 - (st.p - 0.7) / 0.3
+          },
+          onComplete: () => {
+            if (!fig.destroyed) {
+              stadFx(fig)
+              fig.destroy({ children: true })
+            }
+            if (!this._alive) return
+            ctx.services.audio.tone({ freq: NOTES[(i + 2) % NOTES.length], dur: 0.14, type: 'triangle', vol: 0.17 })
+            this._tandHem(ctx, i)
+            if (this._hemFig && this._t - (this._hemHejaT || 0) > 0.35) {
+              this._hemHejaT = this._t
+              this._hemFig.react('heja')
+            }
+          },
+        })
+        this._tws.push(tw)
+      })
+    })
+  },
+
+  // Lampa nummer i (modulo tre) tänds i hemmet; redan tänd → den blinkar till av glädje.
+  _tandHem(ctx, i) {
+    const lc = this._hemGlow
+    if (!this._alive || !lc || lc.destroyed) return
+    const l = lc._wxLampor[i % lc._wxLampor.length]
+    if (!l || !l.g || l.g.destroyed) return
+    sparkle(ctx.fxLayer, lc.x + l.x, l.y, { count: 4 })
+    if (l.tand) return
+    l.tand = true
+    ctx.services.audio.tone({ freq: LJUS_TONER[i % LJUS_TONER.length], dur: 0.24, type: 'sine', vol: 0.1 })
+    const s = { a: 0 }
+    const tw = gsap.to(s, {
+      a: 1,
+      duration: 0.35,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (l.g.destroyed) {
+          tw.kill()
+          return
+        }
+        l.g.alpha = s.a
+      },
+    })
+    this._tws.push(tw)
+  },
+
+  // Varje bildruta medan hemmet syns: röken ur skorstenen, figurens blick mot vännerna,
+  // och spelets eget dörrmonster vinkar (EgenFigur tickar sig själv).
+  _hemSteg(dt) {
+    const rita = (c, lc, fig) => {
+      const g = c?._wxRokG
+      if (g && !g.destroyed) {
+        g.clear()
+        ritaAnga(g, c._wxRokX, c._wxRokY, this._t * 0.32, 0.95, 14, 74)
+      }
+      if (!fig) return
+      if (fig._wxReserv) fig.tick(dt, this._t)
+      const plats = lc?._wxPlats
+      if (plats && !plats.destroyed && this._hemSer) fig.look(this._hemSer.x - lc.x - plats.x, this._hemSer.y - plats.y)
+    }
+    if (this._homeHouse && !this._homeHouse.destroyed) rita(this._homeHouse, this._hemGlow, this._hemFig)
+    for (const s of this._mid) if (s.hem) rita(s.c, s.lc, s.fig)
+  },
+
   _startRound(ctx) {
     if (!this._alive) return
+    // färdiga proxy-tweens ur listan (`tw.parent` = lever: löpande ELLER väntande — se
+    // CLAUDE.md om ringbuffertar), annars växer den med varje varv i en lång session
+    this._tws = this._tws.filter((tw) => tw && tw.parent)
     this._phase = 'drive'
     this._missionsDone = 0
     this._missionActive = false
-    this._missionOrder = shuffle(['katt', 'paket', 'ballong'])
+    // En ny dag: solen går upp medan bilen kör iväg (snabbt — ~2,5 s), och vädret växlar.
+    this._kvallFart = 0.4
+    this._rundT = 0
+    this._vader = this._level % 2 === 1 ? 'regn' : 'klart'
+    this._missionOrder = this._planeraRunda()
     this._journey = 0
     this._biomeFlip = !this._biomeFlip
     this._scrollBase = 2.1 + Math.min(1.0, this._level * 0.12)
@@ -5950,15 +6751,27 @@ export default {
     for (const f of this._outFriends) {
       if (f.c && !f.c.destroyed) {
         puff(ctx.fxLayer, f.c.x, f.c.y, { count: 4 })
+        stadFx(f.c)
         f.c.destroy({ children: true })
       }
     }
     this._outFriends = []
-    // hemmets hus lämnas kvar som segment och scrollar av skärmen naturligt
+    this._hemSer = null
+    // Hemmet lämnas kvar som segment och scrollar av skärmen naturligt — figuren i dörren
+    // vinkar hej då och följer med huset (rivs med segmentet, _rivSeg).
     if (this._homeHouse && !this._homeHouse.destroyed) {
-      this._mid.push({ c: this._homeHouse, w: 380, wins: [] })
+      const seg = { c: this._homeHouse, lc: this._hemGlow, w: HOME_BW + 170, wins: [], fig: this._hemFig, hem: true }
+      let i = this._mid.length
+      while (i > 0 && this._mid[i - 1].c.x > seg.c.x) i--
+      this._mid.splice(i, 0, seg)
+      this._hemFig?.react('hej')
+    } else {
+      this._hemFig?.destroy?.()
     }
     this._homeHouse = null
+    this._hemGlow = null
+    this._hemFig = null
+    this._hemEgen = null
     // farten tillbaka upp
     const st = { v: 0 }
     const tw = gsap.to(st, {
@@ -5977,7 +6790,113 @@ export default {
     this._spawnTimer = 1.4
     this._gustTimer = 12
     this._skataTimer = 18
+    // en stigande morgonslinga när solen kommer upp
+    const a = ctx.services.audio
+    ;[523.25, 659.25, 783.99, 1046.5].forEach((f, i) => a.tone({ freq: f, dur: 0.18, type: 'triangle', vol: 0.11, delay: 0.5 + i * 0.13 }))
     ctx.later(3.4, () => this._announce(ctx))
+  },
+
+  // ------------------------------------------------------------------ kvällen
+  // Kvällens mål: följer uppdragen (tre uppdrag = solnedgång → skymning), med en långsam
+  // drift så himlen lever även utan framsteg — men aldrig långt före barnet. Hemkomsten
+  // drar den hela vägen till kväll.
+  _kvallMalNu() {
+    if (this._phase === 'arrive') return 1
+    const del = this._missionActive ? Math.min(1, this._missionGot / Math.max(1, this._missionNeed)) : 0
+    const p = (this._missionsDone + del) / 3
+    const p2 = Math.max(p, Math.min(p + 0.1, this._rundT / 200))
+    return clamp(p2 * 0.84, 0, 0.84)
+  },
+
+  _ljusSteg(ctx, dt, dtF, sc) {
+    const mal = this._kvallMalNu()
+    const d = mal - this._kvall
+    if (Math.abs(d) > 0.0001) this._kvall += Math.sign(d) * Math.min(Math.abs(d), this._kvallFart * dt)
+    if (this._phase === 'drive' && Math.abs(d) < 0.01 && this._kvallFart > 0.1) this._kvallFart = 0.035 // efter soluppgången: resans takt
+    const k = this._kvall
+    // regnet: bara regnrundor, och det klarnar upp i skymningen
+    const regnMal = this._vader === 'regn' ? 1 - mjuk(0.5, 0.74, k) : 0
+    this._regn += (regnMal - this._regn) * Math.min(1, dt * 1.5)
+    if (this._regn < 0.004) this._regn = 0
+    const regn = this._regn
+    this._himmel?.steg(k, regn, this._t, dtF, ctx.width)
+    this._regnFx?.steg(regn, dtF, sc, SIDEWALK_TOP + 6, NEAR_BOT - 6)
+    // regnljud: en mjuk brusslinga medan det regnar (GameHost stoppar också alla slingor)
+    const a = ctx.services.audio
+    if (regn > 0.3 && !this._regnLjud && this._phase === 'drive') {
+      this._regnLjud = a.loop?.('natskott-regn', { typ: 'brus', freq: 2600, q: 0.7, vol: 0.035 }) === true
+    } else if (this._regnLjud && (regn < 0.15 || this._phase !== 'drive')) {
+      a.stopLoop?.('natskott-regn')
+      this._regnLjud = false
+    }
+    // lagrens tint — bara när ljuset faktiskt ändrats
+    const nyckel = Math.round(k * 400) * 1000 + Math.round(regn * 400)
+    if (nyckel !== this._ljusTint) {
+      this._ljusTint = nyckel
+      const varld = lagerTint(k, regn, TINT.varld)
+      const sak = lagerTint(k, regn * 0.5, TINT.sak)
+      for (const n of [this._streetBaseG, this._midLayer, this._groundBaseG, this._groundG]) if (n && !n.destroyed) n.tint = varld
+      if (this._farLayer && !this._farLayer.destroyed) this._farLayer.tint = lagerTint(k, regn, TINT.fjarran)
+      for (const n of [this._propLayer, this._targetLayer, this._skataLayer]) if (n && !n.destroyed) n.tint = sak
+      // hemmet: lite ljusare än gatan (det är bildens fokus), dörren i husets ton
+      const hemT = lerpColor(varld, 0xffffff, 0.3)
+      const hus = [[this._homeHouse, this._hemGlow]]
+      for (const s of this._mid) if (s.hem) hus.push([s.c, s.lc])
+      for (const [c, lc] of hus) {
+        if (c && !c.destroyed) c.tint = hemT
+        if (lc?._wxDorr && !lc._wxDorr.destroyed) lc._wxDorr.tint = hemT
+      }
+    }
+    this._ljusFonster(ctx, dt)
+  },
+
+  // Fönstren tänds ett efter ett när kvällen kommer (var och en vid sitt eget kvällsläge)
+  // och släcks när solen går upp. Krossade/öppnade rutor lyser inte. Skyltfönstren tänds
+  // tidigt — butiken har öppet.
+  _ljusFonster(ctx, dt) {
+    const k = this._kvall
+    for (const seg of this._mid) {
+      const lc = seg.lc
+      if (!lc || lc.destroyed) continue
+      for (const win of seg.wins) {
+        const mal = win.state === 'ok' && k >= win.tandAt ? 1 : 0
+        if (win.ljus === mal) continue
+        if (mal && !win.lg) {
+          win.lg = ritaFonsterLjus(win.w, win.h, win.variant)
+          win.lg.position.set(win.lx, win.cy)
+          win.lg.alpha = 0
+          lc.addChildAt(win.lg, 0)
+          // ett mycket tyst pling när ett fönster i bild tänds (strypt) — staden tindrar
+          const x = seg.c.x + win.lx
+          if (x > ctx.view.left && x < ctx.view.right && this._t - this._lastLjusTon > 0.45 && this._phase === 'drive') {
+            this._lastLjusTon = this._t
+            ctx.services.audio.tone({ freq: LJUS_TONER[(Math.random() * LJUS_TONER.length) | 0], dur: 0.22, type: 'sine', vol: 0.05 })
+          }
+        }
+        win.ljus = mal ? Math.min(1, win.ljus + dt * 3.2) : Math.max(0, win.ljus - dt * (win.state === 'ok' ? 2.4 : 30))
+        if (win.lg && !win.lg.destroyed) {
+          win.lg.alpha = win.ljus
+          win.lg.visible = win.ljus > 0.01
+        }
+      }
+      if (seg.disp) {
+        const mal = k >= seg.dispAt ? 1 : 0
+        for (const f of seg.disp) {
+          if (f.ljus === mal) continue
+          if (mal && !f.lg) {
+            f.lg = ritaSkyltLjus(f.w, f.h)
+            f.lg.position.set(f.lx, f.cy)
+            f.lg.alpha = 0
+            lc.addChildAt(f.lg, 0)
+          }
+          f.ljus = mal ? Math.min(1, f.ljus + dt * 2.5) : Math.max(0, f.ljus - dt * 2.4)
+          if (f.lg && !f.lg.destroyed) {
+            f.lg.alpha = f.ljus
+            f.lg.visible = f.ljus > 0.01
+          }
+        }
+      }
+    }
   },
 
   // ------------------------------------------------------------------ tick
@@ -6004,6 +6923,8 @@ export default {
     this._updateBalls(ctx, dt, sc)
     this._updateThief(ctx)
     this._updateArm(dt, dtF)
+    this._updateParaplyer(ctx, dtF)
+    this._ljusSteg(ctx, dt, dtF, sc)
 
     // sätes-vännerna guppar lugnt
     for (const h of this._seatHeads) {
@@ -6011,17 +6932,21 @@ export default {
     }
     // utsläppta vänner studsar av glädje under hemkomsten
     for (const f of this._outFriends) {
-      if (f.c && !f.c.destroyed && Math.abs(f.c.y - f.by) < 30) f.c.y = f.by - Math.abs(Math.sin(this._t * 4 + f.seed)) * 10
-    }
-    // moln driver
-    for (const m of this._clouds) {
-      if (m.destroyed) continue
-      m.x -= 0.16 * dtF
-      if (m.x < -140) m.x = 1420
+      if (f.c && !f.c.destroyed && !f.in && Math.abs(f.c.y - f.by) < 30) f.c.y = f.by - Math.abs(Math.sin(this._t * 4 + f.seed)) * 10
     }
     if (this._biomeTint && !this._biomeTint.destroyed) this._biomeTint.alpha = this._biomeT() * 0.1
+    this._hemSteg(dt)
 
     if (this._phase === 'drive') {
+      this._rundT += dt
+      // fönstermonster-uppdraget: ett monster öppnar en ruta längre fram då och då
+      if (this._missionActive && this._missionKey === 'fonster') {
+        this._fonsterT -= dt
+        if (this._fonsterT <= 0) {
+          this._fonsterT = rnd(2.6, 3.8)
+          this._oppnaFonster(ctx)
+        }
+      }
       this._spawnTimer -= dt
       if (this._spawnTimer <= 0) {
         this._spawnTimer = rnd(2.2, 3.4)
@@ -6051,13 +6976,12 @@ export default {
         if (this._missionT > 24) {
           this._missionT = 0
           // mjuk hjälp, sent och synligt: peka ut ett uppdrags-mål + repetera repliken
-          const def = this._missionDef(this._missionKey)
-          const m = this._targets.find((r) => def.kinds.includes(r.kind) && !r.netted && r.view.x > 100 && r.view.x < 1200)
-          if (m) {
-            sparkle(ctx.fxLayer, m.view.x, m.view.y - 30, { count: 8 })
-            floatText(ctx.fxLayer, m.view.x, m.view.y - 70, '👆', { fontSize: 56 })
+          const pekPa = this._uppdragsMalIBild(ctx)
+          if (pekPa) {
+            sparkle(ctx.fxLayer, pekPa.x, pekPa.y - 30, { count: 8 })
+            floatText(ctx.fxLayer, pekPa.x, pekPa.y - 70, '👆', { fontSize: 56 })
           } else {
-            this._spawnTarget(ctx, this._missionKey === 'paket' ? 'paket' : this._missionKey)
+            this._skapaUppdragsMal(ctx)
           }
           ctx.services.voice.replayLast()
         }
@@ -6069,10 +6993,14 @@ export default {
       if (this._idle >= IDLE_DELAY) {
         this._idle = 0
         ctx.services.voice.replayLast()
-        const m = this._targets.find((r) => !r.netted && r.view.x > 200 && r.view.x < 1100)
-        if (m) {
-          sparkle(ctx.fxLayer, m.view.x, m.view.y - 20, { count: 6 })
-          floatText(ctx.fxLayer, m.view.x, m.view.y - 66, '👆', { fontSize: 56 })
+        // under ett uppdrag pekar påminnelsen på något uppdraget räknar (en lykta, ett
+        // fönstermonster) — inte på första bästa katt
+        const upp = this._missionActive ? this._uppdragsMalIBild(ctx) : null
+        const m = upp ? null : this._targets.find((r) => !r.netted && r.view.x > 200 && r.view.x < 1100)
+        const pekPa = upp || (m ? { x: m.view.x, y: m.view.y } : null)
+        if (pekPa) {
+          sparkle(ctx.fxLayer, pekPa.x, pekPa.y - 20, { count: 6 })
+          floatText(ctx.fxLayer, pekPa.x, pekPa.y - 66, '👆', { fontSize: 56 })
         }
       }
     }
@@ -6093,21 +7021,29 @@ export default {
       this._far.push(s)
       farEdge += s.w
     }
-    // gatuplanets hus
-    for (const s of this._mid) s.c.x -= sc
+    // gatuplanets hus (och deras ljus i ljuslagret, på samma x)
+    for (const s of this._mid) {
+      s.c.x -= sc
+      if (s.lc) s.lc.x = s.c.x
+    }
     while (this._mid.length && this._mid[0].c.x + this._mid[0].w < -120 - BLEED_X) {
       const s = this._mid.shift()
       for (const win of s.wins) {
         if (win.state === 'broken') this._brokenCount = Math.max(0, this._brokenCount - 1)
       }
-      s.c.destroy({ children: true })
+      this._rivSeg(s)
     }
-    let midEdge = this._mid.length ? this._mid[this._mid.length - 1].c.x + this._mid[this._mid.length - 1].w : 1400
+    // Nästa hus börjar där det LÄNGST TILL HÖGER slutar. HEAD räknade från det SISTA i
+    // listan — och hemmet lades sist fast det stod mitt i bild, så nya hus byggdes ovanpå
+    // de befintliga till höger (syns i baslinjens runda-2-bild: ett hus mitt i glasskiosken).
+    let midEdge = 1400
+    if (this._mid.length) {
+      midEdge = -1e9
+      for (const s of this._mid) midEdge = Math.max(midEdge, s.c.x + s.w)
+    }
     while (midEdge < 1560 + BLEED_X) {
       const s = this._mkMidSeg(ctx, this._biomeT())
-      s.c.x = midEdge
-      this._midLayer.addChild(s.c)
-      this._mid.push(s)
+      this._laggTillSeg(s, midEdge)
       if (s._wxPotAt) this._spawnPotAt(ctx, s)
       midEdge += s.w
     }
@@ -6273,8 +7209,8 @@ export default {
           s.ex = this._skata.c.x
           s.ey = this._skata.c.y
         } else if (s.prop && s.prop.c && !s.prop.c.destroyed) {
-          s.ex = s.prop.c.x
-          s.ey = s.prop.c.y - (s.prop.def.hojd || 90) * 0.45
+          s.ex = s.prop.c.x + (s.propPt?.dx ?? 0)
+          s.ey = s.prop.c.y + (s.propPt?.dy ?? -(s.prop.def.hojd || 90) * 0.45)
         } else if (s.mons && s.mons.win.mc && !s.mons.win.mc.destroyed) {
           s.ex = s.mons.seg.c.x + s.mons.win.lx
           s.ey = s.mons.win.cy + 6
@@ -6380,6 +7316,24 @@ export default {
     this._tws = []
     this._stopHandPulse()
     this._panelFade?.kill()
+    // regnets brusslinga (GameHost stoppar också alla slingor — det här är spelets egen städning)
+    if (this._regnLjud) ctx?.services?.audio?.stopLoop?.('natskott-regn')
+    this._regnLjud = false
+    // Figuren i dörren — barnets egen tickar själv på ctx.ticker och måste destroy()as,
+    // både den som står kvar i hemkomsten och den som följer med ett hus som scrollar bort.
+    this._hemFig?.destroy?.()
+    this._hemFig = null
+    for (const s of this._mid || []) {
+      s.fig?.destroy?.()
+      s.fig = null
+      if (s.lc && !s.lc.destroyed) stadFx(s.lc)
+    }
+    if (this._hemGlow && !this._hemGlow.destroyed) stadFx(this._hemGlow)
+    this._hemGlow = null
+    this._homeHouse = null
+    for (const f of this._flygParaply || []) if (f.g && !f.g.destroyed) gsap.killTweensOf(f.g)
+    this._flygParaply = []
+    if (this._panelContent && !this._panelContent.destroyed) stadFx(this._panelContent)
     if (this._surface && !this._surface.destroyed) this._surface.off('pointertap', this._onTapH)
     for (const h of this._sidoTaps || []) {
       if (h.c && !h.c.destroyed) {

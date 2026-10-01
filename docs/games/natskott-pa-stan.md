@@ -92,6 +92,28 @@ villa (~1 av 3 hus). Och gatan svarar: **elva gatusaker** står längs trottoare
 brevlåda, dörr, äppelträd, gatulock, blommor, lyktstolpe, trafikljus, parkerad bil, korvstånd,
 cykel — var och en med eget liv i vila och **tre olika reaktioner**, en per nättyp.
 
+**Efter poleringen 2026-10-01 (resan in i kvällen):** varje varv är nu en **eftermiddag som
+blir kväll** i takt med de tre uppdragen (`kvall.js`): himlen går från blå via solnedgångens
+orange och rosa till mörkblå, solen sjunker bakom husen, gatan mörknar (lagren tintas) medan
+fönstren **tänds ett efter ett** med gardiner, lampor och krukväxter innanför, skyltfönstren
+lyser, och vid hemkomsten står **månskäran och stjärnorna** framme — med ett stjärnfall över
+hemmet. När bilen kör ut igen går solen upp. **Varannan runda regnar det** (vädret följer
+nivån): grå himmel, regnmoln, streck och plask, en mjuk regnslinga — djuren på trottoaren bär
+**paraply**, och ett nät blåser paraplyet ur tassen. Regnet klarnar i skymningen.
+**Sex uppdragssorter** i stället för tre: utöver katt/paket/ballong även **"snärj in saker med
+nätbollen"**, **"fånga monstret i fönstret"** (ett monster öppnar själv en ruta längre fram,
+alla tre händerna fungerar — även nätbollen) och **"tänd lyktorna"** (alltid tredje uppdraget,
+i skymningen; en tänd lykta får sken, ljuskägla och en nattfjäril). Panelen visar uppdragets
+mål plus den **hand** som behövs, i dess egen dräkt och färg — den gamla nätikonen syftade på
+en växelknapp som inte finns längre. Nätbollen träffar nu det man siktar på (passerar
+gatusakerna bakom djuren). **Hemmet** är ett eget hus med trädgård, staket, hjärta över
+dörren och en lampa vid trappan, och det står **ovanpå** gatan (gatusaker framför dörren går
+hem). I dörren väntar **någon**: varannan runda barnets eget knytt eller kompis (Spår F,
+`lib/egnafigurer.js`), annars ett av spelets egna monster. Den vinkar, hejar på varje vän som
+hoppar ur och jublar — och sedan går vännerna in genom dörren och **tänder lamporna i huset**,
+en i taget. Figuren vinkar hej då när bilen kör vidare och följer med huset ut ur bild.
+(Skärmdumpar: `.test-shots/_natkvall/` · `.test-shots/_nathem/` · `.test-shots/_natspel/`.)
+
 ## 2. Ursprunglig plan & tankeprocess
 
 Första förstapersonsspelet i biblioteket (alla 71 övriga är sidovy/ovanifrån) — resa-känsla
@@ -103,17 +125,16 @@ fail-nivåer. Uppdragen tvingar fram båda näten så växelknappen inte blir de
 
 ## 3. Vad gör det lättjefullt / tunt
 
-Efter poleringsomgången 2026-08-08 (repfysik · monsterfamilj · fångbara fönstermonster ·
-pakettjuv) återstår:
+Efter poleringen 2026-10-01 (kvällen · sex uppdrag · någon i dörren) återstår:
 
-- Mottagar-scenen tål mer: paraden är fin men huset självt reagerar inte (inga tända fönster,
-  ingen som öppnar dörren). Kritikern sa det rakt ut efter omgång 2 också: *det finns en
-  mottagare, men den kunde svara tillbaka mer.*
-- Kulissen har fortfarande bara ETT väder och en tid på dygnet.
-- Uppdragstyperna är tre och rör bara fånga/fästa/hämta — inget uppdrag använder
-  fönstermonstren, tjuven, nätbollarna eller de elva gatusakerna.
+- Tjuven springer alltid åt höger i rak linje (se §4).
+- Bara EN gatusak (lyktstolpen) har ett uppdrag; brandposten, brevlådan, äppelträdet … svarar
+  på nät men räknas aldrig.
 - Höger hörn-hand ligger mot baksätets täta textur och är mer visuellt konkurrensutsatt än
   vänster (mildrat med en mjuk platta bakom båda händerna, inte helt löst).
+- På en BRED telefon (952×428) slutar bilens röda dörrkant vid x 0/1280 — bleed-zonerna visar
+  gatan under den (sett i `.test-shots/_natkvall-telefon/`, finns också på HEAD).
+- Dörrfiguren tar emot men gör inget barnet kan påverka — man kan inte trycka på den.
 
 ## 4. Förbättringar & förhöjningar (plan)
 
@@ -124,10 +145,28 @@ pakettjuv) återstår:
 - ✅ ~~**[Quick] Hemkomst-huset lever:** dörren öppnas / fönster tänds när paraden står klar.~~
   Klar 2026-09-23 (v1.251.0): dörren är en egen nod som svänger upp (ding-dong) när bilen står
   still, och fönstren tänds med ljus på väggen när sista vännen landat (`_homeWelcome` :5829).
-- **[Medium] Fler kulisser:** natt-läge med lysande fönster, regnväder med paraplyer.
-- **[Medium] Uppdrag som använder de NYA systemen:** "snärj in tre saker med nätbollen" ·
-  "fånga monstret i fönstret" · "spruta brandposten" — i dag rör alla tre uppdragen bara
-  fånga/fästa/hämta, och nätbollen ger ingen uppdragskredit alls.
+- ✅ ~~**[Medium] Fler kulisser:** natt-läge med lysande fönster, regnväder med paraplyer.~~
+  Klar 2026-10-01: eftermiddag → solnedgång → kväll per varv (`kvall.js`), soluppgång vid ny
+  runda, regn varannan runda med paraplyer som nätet blåser av. Se §5.
+- ✅ ~~**[Medium] Uppdrag som använder de NYA systemen:** "snärj in tre saker med nätbollen" ·
+  "fånga monstret i fönstret" · "spruta brandposten".~~ Klar 2026-10-01 med snärj/fönster/
+  **lyktor** i stället för brandposten (lyktan hör ihop med kvällen; brandposten står kvar
+  som idé nedan). Se §5.
+- **[Medium] Ett uppdrag per gatusak till:** "spruta brandposten", "skaka ner äpplen",
+  "posta brev" — `_hitProp` returnerar redan en reaktionstagg per nät; ett uppdrag är en rad
+  i `UPPDRAG` + ett `_credit(ctx, '<tagg>', …)` i `_hitProp` + panelsymbol + replik.
+- **[Quick] Tryck på dörrfiguren:** den i dörren (`_hemFig`) svarar på tryck med `react('hej')`
+  — i dag kan barnet bara titta. Kräver en träffyta i hemlagret (ingen finns där i dag).
+- **[Quick] Bilens dörrkant över bleed:** `_buildCar` ritar dörrkanten 0..1280; på en bred
+  telefon syns gatan under den i kanterna.
+- **[Quick] Snärj-panelen** (kritiker 2026-10-01): svagaste panelen utan text — katten i nätet
+  är ~45 px och grå mot ballong/katt-panelernas ~65 px (`_natspel/uppdrag-snarj.png`). Samma
+  storlek som de andra och orange katt.
+- **[Quick] Bygg dörrfiguren i förväg** (kritiker 2026-10-01): EN bildruta på 87,3 ms av 612 i
+  fasen `arrive/kkvall` — troligen `byggEgenFigur` när hemmet kommer. Bygg den under
+  inbromsningen. Osynligt i skärmdumparna.
+- **[Quick] Mittenhanden skymmer** mål som passerar bakom den vid x 420–540 (fanns före
+  poleringen) — lägre eller lite genomskinlig i vila.
 - **[Medium] Fler tjuvbeteenden:** tjuven springer alltid åt höger i rak linje — den skulle
   kunna gömma sig bakom ett hus eller kasta paketet till en kompis.
 - **[Quick] Krossbara skyltfönster:** butikernas stora skyltfönster är dekor, för `_drawWindow`
@@ -138,6 +177,85 @@ pakettjuv) återstår:
   `thwip.mp3` har legat i sfx-manifestet sedan 2026-06-29) — uppdagat 2026-09-23.
 
 ## 5. Status / loggar
+
+- 2026-10-01 🌙 **Poleringsomgång: resan in i kvällen, sex uppdrag, någon i dörren.**
+  Valt efter att ha spelat två varv och tittat på bilderna (`.test-shots/_natbas/`): staden
+  var alltid samma bleka dag, panelen visade växelknappens gamla nätikon (pil/droppe) som inte
+  längre fanns i bild, nätbollen gav ingen uppdragskredit, och **hemkomstens finalbild var
+  rörig** — ett korvstånd och en lyktstolpe stod mitt framför hemmets dörr, och hemmet såg ut
+  som vilket förortshus som helst.
+  - **Kvällen** (`src/games/natskott-pa-stan/kvall.js`, ny fil): ett tal `k` (0 eftermiddag ·
+    0,5 solnedgång · 1 kväll) följer uppdragen (`_kvallMalNu`: tre uppdrag = 0,84, hemkomsten
+    = 1) med en långsam tidsdrift. Fyra himlar tonas över varandra (dag · regn · solnedgång ·
+    kväll), alla `verticalFill` cachade per färgpar — noll bakningar vid en andra montering,
+    ingen radiell gradient. Mörkret är `Container.tint` på lagren (gata/hus mörknar på
+    riktigt, mål och gatusaker bara lite), så det som LYSER ligger i otintade lager:
+    `_glowLayer` (fönster, skyltfönster, fönstermonster), `_propLjusLayer` (lyktans
+    sken/kägla/glas — lyktan fick en egen ljusbehållare `c._wxLjus`) och `_hemLayer`. Fönstren
+    tänds vid var sitt `tandAt` (0,3–0,9; var femte förblir mörk) med ett mycket tyst pling,
+    strypt till 0,45 s. Månen är en polygon (`skara()`) — `cut()` gav en full skiva med ett
+    mörkt streck.
+  - **Regn varannan runda** (`_vader` följer nivån, så det växlar även mellan besök):
+    förritade streckmönster som glider (ingen omritning), plask, brusslinga (`audio.loop`,
+    stoppas i `destroy` och av GameHost), paraplyer på katt/hund/monster (`ritaParaply`) som
+    blåser av vid träff (`_tappaParaply`, flyger i spelets eget lager) och fälls ihop när
+    regnet slutar.
+  - **Sex uppdrag** (`UPPDRAG`, `_planeraRunda`): förra varvets uppdrag sorteras sist,
+    katt+ballong paras aldrig, "tänd lyktorna" bara som tredje (skymning; lyktor kommer tätt
+    under det uppdraget och skymningen faller lite fortare). `_credit(handelse, kind)` räknar
+    nu `'snarj'` (`_snarjIn`), `'fonster'` (`_catchWindowMonster`, vilket nät som helst — även
+    nätbollen, ny) och `'lykta'` (`_hitProp`). Fönstermonstren **öppnar själva** en ruta
+    längre fram (`_oppnaFonster`, nytt läge `'open'`, tak 2 som tittar ut). Lyktans huvud fick
+    en extra träffcirkel (r 66) — mitthöjden satt 100 px under lyktan, så ett tryck PÅ lyktan
+    missade. Hjälpen (24 s) och påminnelsen (6 s) pekar på något uppdraget räknar
+    (`_uppdragsMalIBild`) — inte på första bästa katt.
+  - **Panelen** visar den hand uppdraget vill ha (`ritaNathand(…, { kort: true })`) i
+    handens muddfärg; fria uppdrag (fönster, lyktor) har ingen hand och varm orange kant.
+  - **Nätbollen träffar det man siktar på:** den passerar gatusakerna bakom djuren tills den
+    studsat två gånger, om man inte siktade PÅ gatusaken (`sikteProp`, samma prioritet som
+    nätet).
+  - **Hemmet:** eget hus (trädgård, staket, hjärta, trapplampa, rök) i `_hemLayer` ovanpå
+    grannhusens ljus (första kvällsbilden visade ett grannfönster och ett fönstermonster rakt
+    genom hemmets vägg). Gatusaker som skulle stanna framför hemmet går hem. **Figuren i
+    dörren:** `valjEgna(…, 'natskott-pa-stan')` en gång per hemkomst → `byggEgenFigur({ hojd:
+    118 })`, annars `_hemReserv()` (ett av spelets tolv monster i dörrstorlek, F5.2). Vinkar,
+    hejar på varje landning, jublar efter fanfaren, tar emot vännerna som går in och **tänder
+    en lampa per vän** (`_hopIn`, `_tandHem`), vinkar hej då och följer med huset ut
+    (`seg.fig`, rivs i `_rivSeg`). Repliken köas bakom hemrepliken, tre varianter + knyttets
+    namn som eget klipp.
+  - **Två gamla brister på vägen:** nya hus byggdes från det SISTA segmentet i `_mid` — och
+    hemmet lades sist fast det stod mitt i bild, så hus ritades ovanpå varandra till höger
+    efter varje hemkomst (syns i baslinjens `runda2-start.png`). `_mid` hålls nu sorterat och
+    nästa hus räknas från den högsta högerkanten. Stadens fasader var fem nästan grå toner —
+    nu sex färger med skuggsida och gesimsband.
+  - **MÄTT:**
+    - `scripts/_natspel.mjs` (ny; spelar som ett otåligt barn, alla sex uppdragssorterna):
+      tre varv i rad, alla sex uppdragen sedda, exit mitt i sista hemkomsten + in + snabba
+      tryck + ut, **0 konsolfel**.
+    - `scripts/_nathem.mjs` (ny): hemkomsten med reserv / barnets knytt / kompis / mött
+      knytt — rätt figur i varje arm (`arEgen`), 3/3 lampor tänds, `levandeFigurer()` = **0**
+      efter exit mitt i finalen i alla fyra armarna; i nästa runda följer figuren med huset (1
+      levande) och är **0** när huset scrollat ut. 0 konsolfel.
+    - `scripts/_natsikte.mjs` (ny, HEAD som kontrollarm via `_natHEAD.mjs`): ett tryck på en
+      katt med nätbollen, 32 skott per arm — **HEAD 10–14 träffar (18–22 uppätna av en
+      gatusak) → 31 träffar (1 uppäten)**. Blind arm (tryck i himlen ovanför): 1/16 i båda —
+      sonden mäter siktet, inte slumpen.
+    - `scripts/_natram.mjs` (ny, CPU ×4, tre växelvisa varv mot HEAD): bildrutan **17,57 →
+      17,54 ms** (mättad av vsync i alla lägen, även strypt); spelets `_update` + `render()`
+      på CPU: HEAD **2,13 ms** · dag **2,16** · kväll **2,23** · regn **2,18**. Kontrollarm
+      för mätaren: 12 ms barlast flyttade `_update` 0,6 → 12,5 ms.
+    - `scripts/_natkvall.mjs` (ny): bild per kvällsläge och väder, även 952×428.
+    - `npm run test natskott-pa-stan` grön (0 fel, inga fynd, 18,07 ms snitt — mättat; HEAD
+      samma dag 17,98). `npm run check`: 0 fel, 9–10 varningar = de nya replikerna nedan som
+      väntar på klipp (med `--game` räknas de som fel tills de ligger i `voice-phrases.json`).
+  - **Nya repliker** (literaler, väntar på `voice-phrases.json` + `npm run voice`):
+    "Snärj in tre saker med nätbollen!" · "Snärj in två saker med nätbollen!" ·
+    "Fånga monstret som tittar ut genom fönstret!" · "Fånga monstren som tittar ut genom
+    fönstren!" · "Det blir mörkt! Tänd lyktorna med nätet!" · "Titta, solen går ner!" ·
+    "Titta, nu blir det kväll!" · "Titta, ditt knytt väntar på oss!" · "Titta, din kompis
+    väntar på oss!" · "Titta, ett knytt väntar på oss!"
+  - ⚠️ `scripts/_natprobe.mjs` känner bara de tre gamla uppdragen och fastnar på de nya —
+    använd `_natspel.mjs`.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): hemkomsthuset lever — dörren
   (egen nod, gångjärn i vänsterkanten) svänger upp med en ding-dong (G5→E5) när bilen stannat,

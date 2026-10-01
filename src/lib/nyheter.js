@@ -10,6 +10,18 @@
 
 export const NYHETER = [
   {
+    version: '1.288',
+    datum: '2026-10-01',
+    titel: 'Nätskott på stan: resan hem i kvällen',
+    punkter: [
+      'Bilfärden går nu från eftermiddag till solnedgång och kväll: himlen blir rosa och sedan mörk med måne och stjärnor, fönstren tänds ett efter ett och gatlyktorna lyser. När bilen kör ut igen går solen upp.',
+      'Varannan runda regnar det — djuren har paraply, och nätet kan blåsa iväg det.',
+      'Tre nya uppdrag: snärj in saker med nätbollen, fånga monstret som tittar ut genom fönstret, och tänd lyktorna med nätet när det blir mörkt.',
+      'Hemma väntar någon i dörren — ibland barnets eget knytt eller kompis — som vinkar, hejar på varje vän som kommer hem och tänder lamporna i huset. Hemmet har fått trädgård, staket och rök ur skorstenen.',
+      'Nätbollen träffar nu det man siktar på i stället för att fastna på saker längs trottoaren.',
+    ],
+  },
+  {
     version: '1.287',
     datum: '2026-10-01',
     titel: 'Barnets knytt och kompisar finns nu i 22 spel',

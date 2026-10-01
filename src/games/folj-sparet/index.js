@@ -16,6 +16,7 @@ import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { Button } from '../../lib/Button.js'
 import { bage } from '../../lib/form.js'
+import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 import { TEMAN, kurva, byggVarld, rivVarld } from './varld.js'
 
 // Layout (designkoordinater 1280×720). Ängen börjar vid horisonten y=320; stigen ligger på
@@ -115,6 +116,9 @@ export default {
     this._saidJa = false
     this._hintFoot = null
     this._eagerTween = null
+    this._egenFig = null // barnets knytt/kompis som följer spåret varannan runda (annars djuret)
+    this._demoFoot = null
+    this._mounted = false
     this._findTweens = []
     this._world = null
     this._oldWorld = null
@@ -235,7 +239,31 @@ export default {
 
   mount(ctx) {
     this._idle = 0
-    ctx.services.voice.say(this.voiceIntro)
+    this._mounted = true
+    const fig = this._egenFig
+    if (!fig) {
+      ctx.services.voice.say(this.voiceIntro)
+      return
+    }
+    // Barnets egen figur är den som ska hem: kortare intro, sedan "hjälp ... hem" — för en NY
+    // figur genom presentera (som också säger knyttets namn), för övriga rakt av.
+    ctx.services.voice.say('Titta var fötterna lyser! Tryck på dem i samma ordning.')
+    if (fig.ny && !fig.mott) {
+      presentera(ctx, fig, { knytt: 'Hjälp ditt knytt hem!', kompis: 'Hjälp din kompis hem!' })
+    } else this._sagHjalp(ctx, fig)
+  },
+
+  // "Hjälp ... hem" — tre varianter: barnets knytt, barnets kompis, ett knytt barnet mött.
+  // Köas bakom det som talar och gäller bara om det är samma figur och samma runda.
+  _sagHjalp(ctx, fig) {
+    const runda = this._runda
+    ctx.narTyst(() => {
+      if (!this._alive || this._egenFig !== fig || this._runda !== runda) return
+      const v = ctx.services.voice
+      if (fig.mott) v.say('Hjälp ett knytt hem!')
+      else if (fig.typ === 'knytt') v.say('Hjälp ditt knytt hem!')
+      else v.say('Hjälp din kompis hem!')
+    })
   },
 
   // ---- Bygg en ny runda (oändlig lek) -------------------------------------
@@ -320,8 +348,14 @@ export default {
     const order = Array.from({ length: steps }, (_, k) => k)
     this._sequence = this._level >= 3 ? shuffle(order) : order
 
-    // Figur (slumpad) vid start, hus vid mål.
-    this._paintFigure(Math.floor(Math.random() * 4))
+    // Figur vid start, hus vid mål: varannan runda barnets eget knytt/kompis (EN valjEgna per
+    // runda — anropet räknar takten), annars ett av de fyra djuren.
+    const [egen] = valjEgna(ctx.services, 'folj-sparet')
+    this._paintFigure(Math.floor(Math.random() * 4), egen ? { ctx, egen } : null)
+    this._demoFoot = null
+    // Nästa runda av en kvarvarande egen figur: samma uppmaning som i introt (första rundan
+    // sköts av mount).
+    if (this._egenFig && this._mounted) this._sagHjalp(ctx, this._egenFig)
     gsap.killTweensOf(this._rabbit)
     gsap.killTweensOf(this._rabbit.scale)
     this._rabbit.scale.set(1)
@@ -400,10 +434,23 @@ export default {
 
   // Fyra ritade djur med KROPP: kanin, hund, katt, räv. Låg tidigare som
   // 🐰/🐶/🐱/🦊 — emoji-huvuden utan kropp som svävade över ängen.
-  _paintFigure(idx) {
+  _paintFigure(idx, egna = null) {
     const r = this._rabbit
     if (!r || r.destroyed) return
+    // Barnets figur först: den tickar på ctx.ticker och måste avregistreras, inte bara rivas.
+    this._egenFig?.destroy()
+    this._egenFig = null
     for (const ch of r.removeChildren()) ch.destroy({ children: true })
+    if (egna) {
+      // Samma rum som djuren: origo mitt på kroppen, fötterna på y ≈ 34 (skuggan ligger där).
+      const fig = byggEgenFigur(egna.ctx, egna.egen, { hojd: 96, maxBredd: 72 })
+      const skugga = new Graphics().ellipse(0, 34, 26, 8).fill({ color: 0x000000, alpha: 0.15 })
+      skugga.eventMode = 'none'
+      fig.view.position.set(0, 34)
+      r.addChild(skugga, fig.view)
+      this._egenFig = fig
+      return
+    }
     const kind = ['kanin', 'hund', 'katt', 'rav'][idx % 4]
     const fur = { kanin: 0xf2f2f4, hund: 0xc98a4b, katt: 0x9aa4b0, rav: 0xef8a3d }[kind]
     const dark = { kanin: 0xd6d6dc, hund: 0x9a5c33, katt: 0x74808e, rav: 0xc4661f }[kind]
@@ -571,6 +618,7 @@ export default {
           fp.cursor = 'pointer'
         }
         this._busy = false
+        this._demoFoot = null
         this._expected = 0
         this._wrongStreak = 0
         this._idle = 0
@@ -584,6 +632,7 @@ export default {
       const tOn = k * stepDur
       tl.add(() => {
         if (!this._alive || !fp || fp.destroyed) return
+        this._demoFoot = fp
         this._paintFoot(fp, 'demo')
         pop(fp)
         // Stigande pentatonisk ton per sekvenssteg → demon spelar en liten melodi.
@@ -775,6 +824,10 @@ export default {
       }
       ;[784, 988, 1175].forEach((f, i) => audio.tone({ freq: f, dur: 0.3, type: 'sine', vol: 0.16, delay: i * 0.12 }))
     }, 0.95)
+    // Barnets egen figur jublar i dörren (knyttet skuttar och sjunger, kompisen får armarna upp).
+    tl.add(() => {
+      if (this._alive && this._egenFig) this._egenFig.react('jubel')
+    }, 0.95)
     const arm = this._rabbit._arm
     if (arm && !arm.destroyed) {
       tl.to(arm, { rotation: -2.8, duration: 0.2, yoyo: true, repeat: 7, ease: 'sine.inOut' }, 1.0)
@@ -842,9 +895,27 @@ export default {
     this._hintFoot = null
   },
 
+  // Barnets figur tittar framåt längs spåret: på det fotspår som lyser under demon, på nästa
+  // som ska tryckas under härmningen och på huset när den är på väg hem. `look` tar förälderns
+  // (djurhållarens) rum.
+  _blick() {
+    const fig = this._egenFig
+    if (!fig || !this._rabbit || this._rabbit.destroyed) return
+    let mal = null
+    if (this._winning) mal = HOUSE
+    else if (this._busy && this._demoFoot && !this._demoFoot.destroyed) mal = this._demoFoot
+    else if (!this._busy && this._expected < this._sequence.length) mal = this._foots[this._sequence[this._expected]]
+    else mal = this._foots[this._sequence[0]]
+    if (!mal || mal.destroyed) return
+    const p = this._rabbit.toLocal({ x: mal.x, y: mal.y }, this._root)
+    fig.look(p.x, p.y)
+  },
+
   // Idle ~6s utan tap (under härmfasen): upprepa röst + pulsa nästa fotspår.
   _update(ctx, ticker) {
-    if (!this._alive || this._busy) return
+    if (!this._alive) return
+    this._blick()
+    if (this._busy) return
     this._idle += ticker.deltaMS / 1000
     // V21/V24: tomgången räknas från TYSTNAD — påminnelsen kapade annars introt (9,0 s, appens
     // längsta klipp) 8,8 s in. V21-svepet missade spelet: sondens långa replik ÄR det här
@@ -869,6 +940,9 @@ export default {
     this._eagerTween?.kill()
     this._houseLightTw?.kill()
     this._houseLightTw = null
+    // Barnets figur FÖRST (tickar på ctx.ticker, har egna noder en nivå in).
+    this._egenFig?.destroy()
+    this._egenFig = null
     for (const t of this._findTweens || []) t?.kill?.()
     if (this._rabbit && !this._rabbit.destroyed) {
       gsap.killTweensOf(this._rabbit)

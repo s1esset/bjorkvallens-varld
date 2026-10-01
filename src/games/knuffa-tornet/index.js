@@ -28,6 +28,7 @@ import { Container, Graphics, Text, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { PhysicsWorld, Matter, MATERIAL, mat } from '../../lib/physics.js'
 import { createScene } from '../../lib/scene.js'
+import { nastaVariant } from '../../lib/variation.js'
 import { makeBoll } from '../../lib/foremal.js'
 import { topLightFill, bage } from '../../lib/form.js'
 import { Button } from '../../lib/Button.js'
@@ -172,6 +173,8 @@ export default {
     this._theta = THETA_REST
     this._stretch = 1
     this._blocks = [] // { body, view, cleared, isCrown, kind }
+    this._formId = null // förra tornets form (nastaVariant undviker att upprepa den)
+    this._specialer = '' // specialklossarnas plats i tornet (för mätning)
     this._shatter = [] // glasklossar som ska spricka i nästa tick
     this._invited = false // hjälpen har ställt kulan i läge och väntar på barnet
     this._inviteT = 0
@@ -567,12 +570,15 @@ export default {
 
   // ---- Nivåer -------------------------------------------------------------
 
-  // Banans form OCH innehåll per nivå. Formen roterar (torn → trappa → port → pyramid
-  // → dubbel) och växer på höjden först när alla former visats en gång, så tur 2 aldrig
-  // ser ut som tur 1. Specialklossarna sätts DETERMINISTISKT: banan ska vara en design,
-  // inte ett tärningskast.
+  // Banans form OCH innehåll per nivå. Formen lottas ur SHAPES med `nastaVariant` — aldrig
+  // samma som förra tornet (U2) — och höjden växer med nivån (`grow`), så svårighetens mått
+  // står kvar medan utseendet byter. Allra första tornet (nivå 0) är alltid den enkla ensamma
+  // pelaren: det är inlärningstornet, innan någon tung kloss eller lucka finns att tänka på.
+  // Specialklossarna hamnar på en SLUMPAD plats inom sitt band (sten i basen, glas lågt, gummi
+  // högt) — rollerna är kvar, platsen byter, så valet av tyngd och rep måste göras om varje torn.
   _layoutFor(level) {
-    const shape = SHAPES[level % SHAPES.length]
+    const shape = level <= 0 ? SHAPES[0] : nastaVariant(SHAPES, this._formId)
+    this._formId = shape.id
     const grow = clamp(Math.floor(level / SHAPES.length), 0, 2)
     const sturdy = clamp(1 + level * 0.1, 1, 1.6)
     const cells = []
@@ -584,22 +590,22 @@ export default {
     }
     if (shape.lintel) cells.push({ x: TOWER_X, row: topRow, kind: 'normal' })
 
-    const byRow = [...cells].sort((a, b) => a.row - b.row)
-    // Stensockeln hör hemma i ett BRETT torn. I en ensam kolumn blev den i stället en
-    // propp: de lätta klossarna ovanpå försvann på ett sving, och sedan stod en tung
-    // kloss ensam kvar och kröp några pixlar per sving (mätt: 8 svingar utan avslut).
-    if (level >= 2 && shape.cols.length > 1) byRow[0].kind = 'sten'
+    // Lotta en normal kloss ur `band` (en lista celler); ingen kvar -> ingen special.
+    const lotta = (band, kind) => {
+      const fri = band.filter((c) => c.kind === 'normal')
+      if (fri.length) fri[Math.floor(Math.random() * fri.length)].kind = kind
+    }
+    // Stensockeln hör hemma i BASEN av ett BRETT torn (en av bottenklossarna, inte alltid den
+    // till vänster). I en ensam kolumn blev den i stället en propp: de lätta klossarna ovanpå
+    // försvann på ett sving, och sedan stod en tung kloss ensam kvar och kröp några pixlar per
+    // sving (mätt: 8 svingar utan avslut).
+    if (level >= 2 && shape.cols.length > 1) lotta(cells.filter((c) => c.row === 0), 'sten')
     // Glaset LÅGT och gummit HÖGT, inte tvärtom: kulan sveper genom de två understa
     // raderna, så en glaskloss i toppen träffades i praktiken aldrig — den ramlade bara
-    // av som vilken kloss som helst och krossögonblicket uteblev.
-    if (level >= 3) {
-      const lagt = byRow.find((c) => c.row <= 1 && c.kind === 'normal')
-      if (lagt) lagt.kind = 'glas'
-    }
-    if (level >= 4) {
-      const top = byRow[byRow.length - 1]
-      if (top.kind === 'normal') top.kind = 'studs'
-    }
+    // av som vilken kloss som helst och krossögonblicket uteblev. Platsen lottas INOM bandet.
+    if (level >= 3) lotta(cells.filter((c) => c.row <= 1), 'glas')
+    if (level >= 4) lotta(cells.filter((c) => c.row >= topRow - 1), 'studs')
+    this._specialer = cells.map((c) => ({ normal: '.', sten: 'S', glas: 'g', studs: 'u' })[c.kind]).join('')
 
     // Kronan står överst på den högsta kolumnen (eller på bron).
     const highest = cells.reduce((a, b) => (b.row > a.row ? b : a), cells[0])

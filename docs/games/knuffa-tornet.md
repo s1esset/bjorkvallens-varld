@@ -79,6 +79,8 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
 ### Variation & överraskning
 - ✅ ~~**[Quick] Tornform varierar per nivå.**~~ Redan byggd (fem former i `_layoutFor` :574,
   2026-08-07) — uppdagat 2026-09-23.
+- ✅ ~~**[Quick] Formen i fast ordning, specialklossar på fasta platser (U2).**~~ Klar 2026-10-02:
+  formen lottas med `nastaVariant`, specialplatsen slumpas inom sitt band (se §5).
 - **[Medium] Gömda fynd i tornet.** Var 3:e bana göms en ⭐/🎈 bakom en kloss som flyger
   upp när den ramlar — en liten "en till!"-morot.
 
@@ -112,6 +114,17 @@ Kort sagt: fysiken är äkta och kontrollerna rika, men **slaget är ljudlöst, 
   inte är ljudtyst mellan svingar.
 
 ## 5. Status / loggar
+
+- 2026-10-02 · **Variation (U2)** (FYSIKPLAN omgång 0, nattkörning B4). `_layoutFor` gick `SHAPES[level
+  % 5]` — torn → trappa → port → pyramid → dubbel i samma ordning varje gång — och sätte
+  specialklossarna på fasta celler (sten = `byRow[0]`, glas = första låga, gummi = översta). Nu: formen
+  lottas med `nastaVariant(SHAPES, förra id)` (aldrig samma torn två gånger i rad), utom nivå 0 som
+  alltid är den enkla ensamma pelaren (inlärningstornet). Specialplatsen slumpas INOM sitt band: sten
+  på en av bottenklossarna (bara i brett torn, som förut), glas på en normal kloss i rad 0–1, gummi på
+  en normal kloss i de två översta raderna — rollerna och deras skäl (glaset lågt för att kulan sveper
+  de två understa raderna, gummit högt, stenen i basen) är oförändrade, så svårigheten står kvar.
+  Höjden (`grow`) följer fortfarande nivån. Brytbart glas i riktiga bitar (F3/Ä7) är inte med.
+  Mätning: `g._formId` + `g._specialer` (en bokstav per kloss: `.` normal, `S` sten, `g` glas, `u` studs).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_demolitionFinish` hade ett
   eget `celebrate` + `bigCelebration` 1,05 s efter `complete()`. Båda sväljs av värdets

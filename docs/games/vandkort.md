@@ -72,6 +72,8 @@ progression. Strikt felfritt — fel par vänds vänligt tillbaka, ingen timer, 
   som förut. Tweenen dödas i `destroy`.
 
 ### Karaktär & berättelse
+- ✅ ~~**[Quick] Brädet ligger i ett landskap, inte på en tapet**~~ Klar 2026-10-02 (L1/B3): trädlinje/
+  stadssiluett + förgrund per tema och en picknickfilt under korten (se §5).
 - **[Deep] Bobo som medspelare.** En liten figur i hörnet som "tittar bort" medan jag väljer,
   blir glad vid par, och vid tomt bräde springer fram och "samlar in" paren i galleriet — egen
   vinst-animation istället för generisk konfetti.
@@ -84,6 +86,19 @@ progression. Strikt felfritt — fel par vänds vänligt tillbaka, ingen timer, 
   blockerad på SFX-pipelinen (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-10-02 🧺 **Korten ligger på en filt i ett landskap** (nattkörning, FYSIKPLAN L1, kluster B3).
+  Bild C: ängsmallen ensam och fyra blå kort. Nu: (1) `createScene(tema, { silhuett, forgrund, fro })`
+  per tema — djuren/frukterna får en trädlinje, fordonen/figurerna en stadssiluett, havsdjuren ingen;
+  strån och blomtuvor längst ned ritas på temana med gräs (meadow/warm/sky) och hoppas över på
+  candy/water (strån på vatten läste som skräp, jfr `scene.js`). `fro` är fast per tema, så trädlinjen är
+  densamma varje gång temat kommer tillbaka. (2) **Filten** (`ritaFilt`): en rutig picknickfilt i temats
+  färg (röd · blå · gul · mint · sand för havsdjuren), 38 px större än brädet åt varje håll, med skugga
+  och sydd kant. Den ligger i SCENEN, så den tonas ut med scenen vid temabyte; den har ingen träffyta.
+  Korten, deras regler och träffytor är orörda. Ingen gradient, ingen textur.
+  **Mätt i Node** (`scripts/_natt-b3-scene.mjs`, 26/26): 0 texturbakningar vid montering, deterministiskt
+  per `fro`. **Omätt i webbläsare** (orkestreraren): skärmdump per tema (alla fem), att filten ryms
+  vid hem-/högtalarknappen (filtens topp 100 px, vänsterkant ≥ 153 px på 4×2-brädet, hemknappen slutar vid x 116) och `npm run test vandkort`.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): temaljud när barnet vänder ett kort
   och mjuk scen-övertoning vid temabyte (se §4). Dubbelfirandet: nästa rundas instruktion kom

@@ -30,15 +30,15 @@ const LEVELS = [
 // det aldrig blir samma bräde två gånger. name = talad svensk form, scene = bakgrund,
 // back/accent = kortfärger, emblem = liten symbol på baksidan.
 const SETS = [
-  { name: 'djuren', kind: 'animal', scene: 'meadow', back: COLORS.green, accent: COLORS.greenDark, emblem: '🐾',
+  { name: 'djuren', kind: 'animal', scene: 'meadow', sil: 'skog', filt: [0xe8574c, 0xffffff], back: COLORS.green, accent: COLORS.greenDark, emblem: '🐾',
     symbols: ['🐶', '🐱', '🦊', '🐰', '🐻', '🦁', '🐸', '🐵', '🐼', '🐧', '🐮', '🐷'] },
-  { name: 'frukterna', kind: 'fruit', scene: 'warm', back: COLORS.red, accent: COLORS.orangeDark, emblem: '🍃',
+  { name: 'frukterna', kind: 'fruit', scene: 'warm', sil: 'skog', filt: [0x5aa8e8, 0xffffff], back: COLORS.red, accent: COLORS.orangeDark, emblem: '🍃',
     symbols: ['🍎', '🍌', '🍓', '🍇', '🍊', '🍉', '🍐', '🍒', '🥝', '🍑', '🥥', '🍍'] },
-  { name: 'fordonen', kind: 'vehicle', scene: 'sky', back: COLORS.blue, accent: COLORS.teal, emblem: '⭐',
+  { name: 'fordonen', kind: 'vehicle', scene: 'sky', sil: 'stad', filt: [0xffd35c, 0xffffff], back: COLORS.blue, accent: COLORS.teal, emblem: '⭐',
     symbols: ['🚗', '🚒', '🚜', '🚌', '🚲', '🚁', '🚂', '🚀', '⛵', '🚓', '🚑', '🚕'] },
-  { name: 'figurerna', kind: 'figure', scene: 'candy', back: COLORS.purple, accent: COLORS.pink, emblem: '✨',
+  { name: 'figurerna', kind: 'figure', scene: 'candy', sil: 'stad', filt: [0x8fe3c4, 0xffffff], back: COLORS.purple, accent: COLORS.pink, emblem: '✨',
     symbols: ['⭐', '❤️', '🔵', '🟢', '🟡', '🟣', '🔶', '🌸', '🌙', '🍀', '🔺', '💎'] },
-  { name: 'havsdjuren', kind: 'sea', scene: 'water', back: COLORS.teal, accent: COLORS.blue, emblem: '🐚',
+  { name: 'havsdjuren', kind: 'sea', scene: 'water', sil: false, filt: [0xf3d79a, 0xffffff], back: COLORS.teal, accent: COLORS.blue, emblem: '🐚',
     symbols: ['🐠', '🐙', '🐳', '🦀', '🐬', '🐡', '🐢', '🦈', '🦐', '🐚', '🦑', '🪼'] },
 ]
 
@@ -122,8 +122,10 @@ export default {
     const set = SETS[this._setIdx]
     this._set = set // aktivt tema (används av tema-belöningen när ett par hittas)
 
-    // Bakgrundsscen (varierar med temat).
-    this._scen = createScene(set.scene)
+    // Bakgrundsscen (varierar med temat). L1: trädlinje/stadssiluett på banden och strån +
+    // blomtuvor längst ned (förgrunden ritas bara på teman med gräs). `fro` är fast per tema, så
+    // trädlinjen är densamma varje gång temat kommer tillbaka.
+    this._scen = createScene(set.scene, { silhuett: set.sil, forgrund: true, fro: 3 + SETS.indexOf(set) })
     this._root.addChild(this._scen)
     if (gammal) {
       this._root.addChild(gammal) // ovanpå den nya scenen, under kortlagret nedan
@@ -169,6 +171,11 @@ export default {
     const gridH = rows * cardH + (rows - 1) * gap
     const startX = (ctx.width - gridW) / 2 + cardW / 2
     const startY = topPad + (availH - gridH) / 2 + cardH / 2
+
+    // Filten korten ligger på: en rutig picknickfilt (eller en strandhandduk) i temats färg, en
+    // aning större än brädet. Den bor i SCENEN, så övertoningen vid temabyte tar den med sig,
+    // och den har ingen träffyta — korten ovanpå är det enda som går att trycka på.
+    this._scen.addChild(ritaFilt(ctx.width / 2, topPad + availH / 2, gridW + 76, gridH + 64, set.filt))
 
     // GYLLENE KORT. Ett sällsynt skimrande kort som ger extra firande när dess par
     // hittas. Två regler bär hela idén:
@@ -593,6 +600,40 @@ export default {
 }
 
 // --- kort-grafik (rena Graphics/Text, inga tillgångar) ---
+
+// Picknickfilten under korten: skugga, bas i färg 1, rutor i färg 2 (halvgenomskinliga, så det
+// där de korsar varandra blir en djupare ton) och en sydd kant av korta streck. Rutorna ligger
+// 12 px innanför kanten — med hörnradie 26 stannar de då alltid inne i den rundade formen.
+// Ren dekor: Graphics i ett barn-lager, ingen gradient, ingen textur.
+function ritaFilt(cx, cy, w, h, [c1, c2]) {
+  const c = new Container()
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  const g = new Graphics()
+  const x0 = cx - w / 2
+  const y0 = cy - h / 2
+  const x1 = x0 + w
+  const y1 = y0 + h
+  g.roundRect(x0 + 5, y0 + 10, w, h, 26).fill({ color: 0x16314a, alpha: 0.16 })
+  g.roundRect(x0, y0, w, h, 26).fill(c1)
+  const IN = 12
+  const P = 56
+  for (let x = x0 + IN; x < x1 - IN; x += P) g.rect(x, y0 + IN, Math.min(P / 2, x1 - IN - x), h - 2 * IN).fill({ color: c2, alpha: 0.5 })
+  for (let y = y0 + IN; y < y1 - IN; y += P) g.rect(x0 + IN, y, w - 2 * IN, Math.min(P / 2, y1 - IN - y)).fill({ color: c2, alpha: 0.5 })
+  const sy = 6
+  for (let x = x0 + 22; x < x1 - 30; x += 14) {
+    g.moveTo(x, y0 + sy).lineTo(x + 8, y0 + sy)
+    g.moveTo(x, y1 - sy).lineTo(x + 8, y1 - sy)
+  }
+  for (let y = y0 + 22; y < y1 - 30; y += 14) {
+    g.moveTo(x0 + sy, y).lineTo(x0 + sy, y + 8)
+    g.moveTo(x1 - sy, y).lineTo(x1 - sy, y + 8)
+  }
+  g.stroke({ width: 2.5, color: 0xffffff, alpha: 0.75, cap: 'round' })
+  g.eventMode = 'none'
+  c.addChild(g)
+  return c
+}
 
 // Mönstrad, premium-känslig baksida: bas + ljusare inre platta + prick-mönster +
 // centralt emblem. Stroke i vitt för "tryckt kort"-look.

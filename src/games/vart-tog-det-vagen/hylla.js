@@ -42,6 +42,10 @@ export class Hylla {
     return this.leksaker.length
   }
 
+  antalFigurer() {
+    return this.leksaker.filter((l) => l.fig).length
+  }
+
   har(key) {
     return this.leksaker.some((l) => l.key === key)
   }
@@ -80,6 +84,31 @@ export class Hylla {
     return slot
   }
 
+  // En av barnets egna figurer som hittats: står på brädan resten av besöket (ingen sparpost —
+  // `custom.hittade` rör bara leksaker). Figuren ÄGS av hyllan härifrån och rivs i destroy().
+  // Fötterna i slotens lokala rum ligger på samma plats som leksakernas skugga (+27 px), och
+  // figuren är normaliserad till samma höjd som en leksak (62 px).
+  laggTillFigur(fig, key, { animera = false } = {}) {
+    if (!this._alive || this.har(key) || !fig?.view || fig.view.destroyed) return null
+    const i = this.leksaker.length
+    const p = this.plats(i)
+    const slot = new Container()
+    slot.position.set(p.x, p.y)
+    slot.eventMode = 'none'
+    const skugga = new Graphics().ellipse(0, LEK_STORLEK * 0.46, LEK_STORLEK * 0.4, 6).fill({ color: 0x000000, alpha: 0.25 })
+    slot.addChild(skugga)
+    fig.view.parent?.removeChild(fig.view)
+    // Pris-höjden är 100 px och foten 44 px under mitten; på hyllan 0,62× av det.
+    fig.view.position.set(0, 44 * 0.62)
+    fig.view.scale.set(0.62)
+    slot.addChild(fig.view)
+    this._lager.addChild(slot)
+    this.leksaker.push({ key, slot, kropp: fig.view, fig })
+    this._rita()
+    if (animera) bounceIn(slot, { duration: 0.5 })
+    return slot
+  }
+
   // Bräda + fästen, ritad om efter antalet. Hitarean följer med (≥96 px hög alltid).
   _rita() {
     const n = this.leksaker.length
@@ -106,11 +135,19 @@ export class Hylla {
     l.slot.y = LEK_Y
     gsap.timeline().to(l.slot, { y: LEK_Y - 24, duration: 0.15, ease: 'power2.out' }).to(l.slot, { y: LEK_Y, duration: 0.34, ease: 'bounce.out' })
     pop(l.slot, { scale: 1.2 })
+    l.fig?.react('heja')
   }
 
   destroy() {
     this._alive = false
     for (const l of this.leksaker) {
+      // Figurerna tickar på spelets ticker: riv dem FÖRE hyllans rötter (en bar view.destroy()
+      // lämnar dem levande).
+      if (l.fig) {
+        gsap.killTweensOf(l.kropp)
+        if (l.kropp && !l.kropp.destroyed) l.kropp.parent?.removeChild(l.kropp)
+        l.fig.destroy()
+      }
       l.kropp._fxLiv?.kill()
       gsap.killTweensOf(l.kropp)
       gsap.killTweensOf(l.slot)

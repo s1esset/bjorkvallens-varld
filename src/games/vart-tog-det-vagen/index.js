@@ -30,11 +30,14 @@ import { cylinderFill } from '../../lib/form.js'
 import { byggBakgrund, byggStjarnor, byggLjuskegla, byggRida, byggBord, CENTER } from './scen.js'
 import { makeTrollkarl, spetsGlobal, armTill, snart } from './trollkarl.js'
 import { Hylla } from './hylla.js'
+import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 
 const BASE_Y = 470 // y-referenslinje: koppen nedsänkt på bordet
 const LIFT_Y = BASE_Y - 120 // koppens y i lyft-läge (visa/kika)
 const PEEK_Y = BASE_Y - 60 // litet lyft vid fel gissning (visar tom plats)
 const ROUNDS_PER_LEVEL = 3
+const HYLLA_MAX = 11 // platser på brädan (plats 10 slutar på x 1156)
+const HYLLA_FIG_MAX = 3 // högst tre figurer på brädan — resten av platserna är leksakernas
 // Trumvirvelns avstånd mellan tickarna (s) — tätnar mot slutet, 0,645 s totalt.
 const VIRVEL_GAP = [0.11, 0.1, 0.09, 0.08, 0.07, 0.06, 0.05, 0.045, 0.04]
 
@@ -83,6 +86,7 @@ export default {
     this._hyllaBusy = false
     this._flyer = null
     this._flyTw = null
+    this._figur = null // barnets figur som pris just nu (ägs av spelet tills den står på hyllan)
     this._shuffleTl = null
     this._lastInteract = performance.now()
     const sparat = ctx.progress.get()
@@ -239,6 +243,7 @@ export default {
   _newRound(ctx) {
     if (!this._alive) return
     this._klarFlyg()
+    this._slappFigur() // FÖRE prize.removeChildren: en nod som rivs tar annars figurens view med sig
     this._resolving = false
     this._phase = 'reveal'
     this._params = levelParams(this._level)
@@ -264,12 +269,24 @@ export default {
     // Nyckeln måste sparas SEPARAT. Leksaken är en ritad ikon i en Container; en tabell som
     // läser nyckeln ur en nod-egenskap faller TYST till `default` (se doc §5, 2026-08-12).
     // Nya leksaker föredras (75 %) tills hyllan är full, och samma leksak två gånger i rad undviks.
-    const okanda = PRIZES.filter((k) => !this._hittade.includes(k) && k !== this._prizeKey)
-    const andra = PRIZES.filter((k) => k !== this._prizeKey)
-    this._prizeKey = okanda.length && Math.random() < 0.75 ? randomFrom(okanda) : randomFrom(andra)
+    // Barnets egen figur som priset — varannan runda (valjEgna räknar takten, så EN gång per runda).
+    // Utan egna figurer blir listan tom och rundan är exakt som förut.
+    const [beskr] = valjEgna(ctx.services, 'vart-tog-det-vagen', { antal: 1 })
     const skugga = new Graphics().ellipse(0, 44, 38, 8).fill({ color: 0x000000, alpha: 0.22 })
     skugga.eventMode = 'none'
-    this._prize.addChild(skugga, drawIcon(this._prizeKey, 96))
+    if (beskr) {
+      // Fötterna står där leksakens skugga ligger (+44), höjden 100 px så toppen ryms under den
+      // lyfta koppen. Figuren ÄR priset: tweens går på this._prize, aldrig på fig.view.
+      this._prizeKey = 'egen'
+      this._figur = byggEgenFigur(ctx, beskr, { hojd: 100, maxBredd: 120, skugga: false })
+      this._figur.view.position.set(0, 44)
+      this._prize.addChild(skugga, this._figur.view)
+    } else {
+      const okanda = PRIZES.filter((k) => !this._hittade.includes(k) && k !== this._prizeKey)
+      const andra = PRIZES.filter((k) => k !== this._prizeKey)
+      this._prizeKey = okanda.length && Math.random() < 0.75 ? randomFrom(okanda) : randomFrom(andra)
+      this._prize.addChild(skugga, drawIcon(this._prizeKey, 96))
+    }
     // Reaktionerna flyttar numera leksaken på riktigt (bilen kör, grodan hoppar),
     // inte bara skalan. En reaktion som råkar leva kvar in i nästa runda hade
     // annars dragit den nya leksaken ur sin kopp.
@@ -291,9 +308,27 @@ export default {
     // `say()` kallar `cancel()`. Kopparna lyfts genast; bara repliken väntar in rösten, och
     // den sägs bara medan leksaken fortfarande syns (samma runda, visa-fasen).
     const runda = ++this._rundaNr
-    ctx.narTyst(() => {
-      if (this._alive && this._rundaNr === runda && this._phase === 'reveal') ctx.services.voice.say('Titta var leksaken är!')
-    })
+    const fig = this._figur
+    if (fig) {
+      // Tre varianter: barnets knytt, barnets kompis, ett MÖTT knytt (aldrig "ditt").
+      if (fig.ny && !fig.mott) {
+        presentera(ctx, fig, {
+          knytt: 'Titta, ditt nya knytt gömmer sig under koppen!',
+          kompis: 'Titta, din nya kompis gömmer sig under koppen!',
+        })
+      } else {
+        ctx.narTyst(() => {
+          if (!this._alive || this._rundaNr !== runda || this._phase !== 'reveal') return
+          if (fig.mott) ctx.services.voice.say('Titta, ett knytt gömmer sig!')
+          else if (fig.typ === 'kompis') ctx.services.voice.say('Titta, din kompis gömmer sig!')
+          else ctx.services.voice.say('Titta, ditt knytt gömmer sig!')
+        })
+      }
+    } else {
+      ctx.narTyst(() => {
+        if (this._alive && this._rundaNr === runda && this._phase === 'reveal') ctx.services.voice.say('Titta var leksaken är!')
+      })
+    }
     this._cups.forEach((cup) => this._liftCup(cup, LIFT_Y))
     pop(this._prize)
 
@@ -520,6 +555,7 @@ export default {
   // Spara fyndet direkt (innan flygningen), så ett barn som lämnar mitt i den inte
   // tappar leksaken. Hyllan fylls på först när leksaken landat.
   _sparaFynd(ctx) {
+    if (this._figur) return // barnets figur sparas aldrig här — custom.hittade är bara leksaker
     const key = this._prizeKey
     if (this._hittade.includes(key)) return
     this._hittade.push(key)
@@ -529,14 +565,23 @@ export default {
   // Den hittade leksaken flyger i en båge från bordet till sin plats på hyllan.
   _flygTillHylla(ctx) {
     if (!this._alive || this._flyer) return
-    const key = this._prizeKey
+    const fig = this._figur
+    // Figuren står på hyllan resten av besöket. Finns den redan där, eller är hyllan full,
+    // flyger den till en befintlig plats, hyllan hoppar, och exemplaret rivs i _landa.
+    const key = fig ? `egen:${fig.id}` : this._prizeKey
     const finns = this._hylla.har(key)
-    const i = finns ? this._hylla.index(key) : this._hylla.antal()
+    const plats = finns || this._hyllaRymmer(fig)
+    const i = finns ? this._hylla.index(key) : plats ? this._hylla.antal() : this._hylla.antal() - 1
     const mal = this._hylla.plats(i)
     const fran = { x: this._prize.x, y: this._prize.y }
     const flyer = new Container()
     flyer.eventMode = 'none'
-    flyer.addChild(drawIcon(key, 96))
+    if (fig) {
+      // Samma figur flyger — view flyttas över till flygaren (fötterna 44 px under mitten).
+      fig.view.position.set(0, 44)
+      flyer.addChild(fig.view)
+    } else flyer.addChild(drawIcon(key, 96))
+    const slutSkala = fig ? 0.62 : 62 / 96
     flyer.position.set(fran.x, fran.y)
     this._root.addChild(flyer)
     this._flyer = flyer
@@ -552,7 +597,7 @@ export default {
         const p = st.p
         flyer.x = fran.x + (mal.x - fran.x) * p
         flyer.y = fran.y + (mal.y - fran.y) * p - Math.sin(p * Math.PI) * 150
-        flyer.scale.set(1 - (1 - 62 / 96) * p)
+        flyer.scale.set(1 - (1 - slutSkala) * p)
         flyer.rotation = Math.sin(p * Math.PI * 2) * 0.3
       },
       onComplete: () => this._landa(ctx, key, i),
@@ -563,15 +608,67 @@ export default {
   _klarFlyg() {
     this._flyTw?.kill()
     this._flyTw = null
-    if (this._flyer && !this._flyer.destroyed) this._flyer.destroy({ children: true })
+    if (this._flyer && !this._flyer.destroyed) {
+      // En figur mitt i flygningen lyfts ur FÖRE flygaren rivs (annars tar noden view med sig).
+      const v = this._figur?.view
+      if (v && !v.destroyed && v.parent === this._flyer) this._flyer.removeChild(v)
+      this._flyer.destroy({ children: true })
+    }
     this._flyer = null
+  },
+
+  // Ryms ett föremål till på brädan? Högst 11 platser (plats 10 slutar på x 1156), och bara tre
+  // av dem figurer — de sparade leksakerna (högst tio) ska alltid få sin plats.
+  _hyllaRymmer(fig) {
+    const h = this._hylla
+    if (h.antal() >= HYLLA_MAX) return false
+    return !fig || h.antalFigurer() < HYLLA_FIG_MAX
+  },
+
+  // Riv rundans figur om den inte hunnit upp på hyllan: lyft ur sin förälder, sedan destroy()
+  // (en EgenFigur tickar på ctx.ticker och måste rivas själv).
+  _slappFigur() {
+    const fig = this._figur
+    this._figur = null
+    if (!fig) return
+    const v = fig.view
+    if (v && !v.destroyed) {
+      gsap.killTweensOf(v)
+      gsap.killTweensOf(v.scale)
+      v.parent?.removeChild(v)
+    }
+    fig.destroy()
   },
 
   _landa(ctx, key, i) {
     if (!this._alive) return
     this._klarFlyg()
-    const ny = !this._hylla.har(key)
+    const fig = this._figur
+    const ny = !this._hylla.har(key) && this._hyllaRymmer(fig)
     const p = this._hylla.plats(i)
+    if (fig) {
+      // _klarFlyg lyfte ur figuren; antingen tar hyllan över den, eller så var platsen redan
+      // tagen/full och exemplaret rivs medan hyllans egen figur hoppar.
+      const kan = ny
+      if (kan) {
+        this._hylla.laggTillFigur(fig, key, { animera: true })
+        this._figur = null
+      } else {
+        this._slappFigur()
+        this._hylla.hoppa(i)
+      }
+      const fx = ctx.fxLayer.toLocal(this._root.toGlobal(p))
+      sparkle(ctx.fxLayer, fx.x, fx.y, { count: kan ? 8 : 4 })
+      const f = this._hylla.ton(i)
+      ctx.services.audio.tone({ freq: f, dur: 0.18, type: 'triangle', vol: 0.16 })
+      ctx.services.audio.tone({ freq: f * 1.5, dur: 0.22, type: 'triangle', vol: 0.12, delay: 0.1 })
+      if (kan && !ctx.services.voice.talar) {
+        if (fig.mott) ctx.services.voice.say('Ett knytt står på hyllan nu!')
+        else if (fig.typ === 'kompis') ctx.services.voice.say('Din kompis står på hyllan nu!')
+        else ctx.services.voice.say('Ditt knytt står på hyllan nu!')
+      }
+      return
+    }
     if (ny) this._hylla.laggTill(key, { animera: true })
     else this._hylla.hoppa(i)
     const fx = ctx.fxLayer.toLocal(this._root.toGlobal(p))
@@ -682,6 +779,13 @@ export default {
     gsap.killTweensOf(p)
     gsap.killTweensOf(p.scale)
     const y0 = p.y
+    if (this._figur) {
+      // Barnets figur gör sitt eget (knyttets motiv / kompisens armar upp + melodin).
+      this._figur.react('jubel')
+      pop(p)
+      sparkle(fx, gp.x, gp.y - 20, { count: 9 })
+      return
+    }
     switch (this._prizeKey) {
       case '🐥': // anka: vaggar + kvackar
         wiggle(p)
@@ -817,6 +921,7 @@ export default {
     this._shuffleTl?.kill()
     this._shuffleTl = null
     this._klarFlyg()
+    this._slappFigur() // före rötterna rivs; hyllans figurer rivs av hylla.destroy()
     this._stjarnTw?.kill()
     if (this._stjarnor) gsap.killTweensOf(this._stjarnor)
     this._cups?.forEach((cup) => {

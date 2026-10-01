@@ -17,6 +17,8 @@ V10/V10b (statisk `studs` — migreringen fortsätter där, inte här).
 > `hamburgerbygget` · `zackes-biltvatt` m.fl. kan ha flyttat sig — **greppa på det citerade
 > uttrycket**, lita inte på numret.
 >
+> Spelgenomgången i §5 (spåren P, U och L) är gjord samma dag mot v1.288.0.
+>
 > Taggar: **[Quick]** timmar · **[Medium]** ett pass · **[Deep]** nytt system.
 >
 > **Hur siffrorna togs.** Grep och läsning av koden, plus åtta engångsmätningar i Node som körde
@@ -48,6 +50,11 @@ sparar 0,04 ms · **broadphase/kollisionsfilter** — kroppstalen är tiotal, in
 **delsteg som standard** — ändrar varje px/steg-kalibrering i repot och inget tunnlar i loggarna
 · **global återställning av statisk restitution** — ÅTGÄRDER V10 · **tilt** — kräver
 behörighetsdialog på iOS/iPadOS (G7) · **p2-es** — LYFTPLAN A1.
+
+**Spelgenomgången (§5)** lade till tre spår — **P** fysik in i spelen, **U** omspelning, **L** bild
+— och 29 enkla vinster. Den största raden därifrån: tre kärnmekaniker är skriptade fast ett mätt
+verktyg redan finns — studsmattans studs (`Fjaderbrada`, P1), flipperspelets paddlar (R2) och
+byggtornets klossar som låses statiska (F1).
 
 ---
 
@@ -498,6 +505,12 @@ skilja två kända lägen åt säger ingenting). En commit per lib-ändring och 
   kastkraft (Fjaderbrada.flytta-semantik).
 - **Kunder:** fanga-frukten · studsa-ner · studsmatta (enhorning-glitterbajs sensor `:779`
   behöver ingen fart — rör inte).
+- **Ny kund ur spelgenomgången (§5.5):** **flipperspel** — paddlarna är statiska kroppar vars
+  läge och vinkel skrivs om varje bildruta (`Body.setPosition`/`setAngle` utan fart,
+  `flipperspel/index.js:934-935`) och kicken är skriptad (`_tryKick` `:1033-1052`). En kula som
+  ligger an skyfflas utan rörelsemängd, precis som i S8. Spelets doc §1 ("drivs med
+  vinkelhastighet") är inaktuell. Kicken kan ligga kvar som golv. Dessutom P3:s behållare och
+  P1:s studsmatta.
 - **Mätning:** M1 S8 (kontroll: väggen står still → bollen orörd). Per spel en snabbdrags-arm i
   M2: dra korgen/tratten 40 px/bildruta genom fallande frukt — **antal som går igenom kanten** och
   **högsta frukt-fart efter mötet**, HEAD mot fix.
@@ -660,6 +673,13 @@ skilja två kända lägen åt säger ingenting). En commit per lib-ändring och 
   `docs/games/kulbana.md:155`), bajs-och-kiss gungande potta (`docs/games/bajs-och-kiss.md:72`),
   enhorningen-elvira gungande moln (valfritt); grundlag för G8 och F10. grodan-slurp behåller
   sina leder (muskler och vybyte är spelets).
+- **Nya kunder ur spelgenomgången (§5.5):** **bygg-tornet** först — en lagd kloss låses statisk
+  (`_lockActive`, `Body.setStatic` `:384-386`), så tornet kan aldrig svaja; leder mellan
+  klossarna och en vridfjäder vid basen låter det gunga som helhet utan att rasa. Sedan
+  flipperspel (snurran är bara bild, `:940-945`) · domino (klockan är en gsap-tidslinje,
+  `:914-919`) · kulbana (vippa och dominobit som bandelar) · studsbollar (gungande korg) ·
+  studsa-ner (snurror bland pinnarna) · rulla-bollen-hem (svängande grind = motor) ·
+  fanga-frukten (frukten gungar i skaftet) · spindelhjalten (knoppen rör sig).
 - **Mätning:** M1 S4: gångjärnets drift under last ≤ 0,5 px över 10 s; pendelns energi över 10 s
   med `damp 0` mot `0,1` (**kontrollarm = fällan, ska tappa**); motorn når målfart under last
   inom N steg och överskrider aldrig momenttaket. Port: `_vippprobe` (puff + ljud + skak vid
@@ -694,6 +714,9 @@ skilja två kända lägen åt säger ingenting). En commit per lib-ändring och 
   av bitar som ärver `v + ω × r`, tonar bort efter `livstid`, och aldrig fler än `tak` i världen.
 - **Kunder:** knuffa-tornet (glaset i riktiga bitar); framtida `brobyggarna` (IDEER #10,
   storbarn — en led med brottgräns är F1 + samma kö).
+- **Ny kund ur spelgenomgången (§5.5):** **snobollen** — krossade hinder slungas i dag med
+  skriptad fart (`setVelocity` `:1379`, `:1400`). Den köade "snögubbe att krocka i bitar" blir
+  F3:s andra småbarnskund, och rundade snöklumpar passar Ä7-tonen.
 - **Mätning:** M1 S9: rörelsemängden före/efter delning inom 1 %; ingen bit föds överlappande
   statisk geometri (utkastfart ≤ 2 px/steg); taket håller. I spelet: `_tornprobe` + bild.
 - **Risker/fällor:** P0 småbarn — rundade bitar och glitter, inga vassa skärvor, inget som läses
@@ -711,6 +734,12 @@ skilja två kända lägen åt säger ingenting). En commit per lib-ändring och 
   tung släpar), styrkan i px/steg via `speedToAccel`. Filter per kropp.
 - **Kunder:** studsa-ner (port), bajs-och-kiss (pruttvinden som en kon i stället för global),
   spindelhjalten (vindband), enhorningen-elvira (vindknappen).
+- **Nya kunder ur spelgenomgången (§5.5):** flugan-pa-nasan (fläktens eget fält, `_vindKraft`
+  `:826` — och ett **krav på F4**: spelets filhuvud mätte att en ren kon bara nådde 22 av 200
+  flugpositioner, så `form` måste klara sug bakom plus kon framför) · sapbubblor (puffarna längs
+  siktlinjen) · bowling (auto-hjälpens slumpknuff `:817-841` blir en synlig vindby) · fallskarmen
+  (vind i höjdskikt) · kla-efter-vadret (blåsigt väder, i dag en sinus `:674`) ·
+  rulla-bollen-hem (backar och gropar som kraftzoner i toppvy) · enhorningen-flyger (uppvind).
 - **Mätning:** `_flaktprobe` 10 mynt per sida — **231 px = 0,72 fickor** ska stå efter porten;
   M1 S6 takt-invarians.
 - **Risker/fällor:** en kort passage dimensioneras inte i sluthastighet (B5-lärdomen: släpp
@@ -727,6 +756,11 @@ skilja två kända lägen åt säger ingenting). En commit per lib-ändring och 
   (med `Takt`), `rorlig` (för omritningsgrinden), `path(g)`.
 - **Kunder:** pruttbad · grodan-slurp (port); kandidater när de ändå rörs: tvatta-djuret (badet),
   magnet-fiske (dammens yta).
+- **Nya kunder ur spelgenomgången (§5.5):** **pruttbad redan i dag** — ankan läser inte ytan: hon
+  guppar på en sinus (`pruttbad/index.js:1944`) vid en fast `_floatY`, fast `_waveAt(x)` finns
+  (`:593`). Det är en enkel vinst före porten (läs bara `_wave`-delen; ankans egen grop ligger i
+  `_waveRest`). Dessutom fargregn (pölarna slår upp vågor) · tvatta-djuret (badsaken svarar på
+  duschen) · unika-knytt (vattenvärldens mark skvalpar).
 - **Mätning:** portekvivalens som `_flytprobe` (samma tal steg för steg över 900 steg); minnets
   fyra fällor som armar (pumptest 0,5 s drag når inte taket; rest efter 4 s; Nyquist-läget;
   grinden ritar inte en stilla dell). `_pressprobe` (pruttbad) och `_vagdiag` (dammen) oförändrade.
@@ -745,6 +779,10 @@ skilja två kända lägen åt säger ingenting). En commit per lib-ändring och 
   kraft på kroppen. Bara (a) tills ett spel ber om (b).
 - **Kunder:** plask-i-vattnet · zackes-biltvatt · mata-munnen (a); framtida `vattenballongerna`
   (IDEER #4) (b).
+- **Nya kunder ur spelgenomgången (§5.5):** saftbaren (isbitar som flyter på saften) ·
+  vattenvagen (ett vattenhjul som snurrar av strålen) · plask-i-vattnet ("lasta flytaren": en
+  sjunkare som släpps på stocken trycker ned eller kantrar den — `Flytvolym` ger redan lyft ∝
+  nedsänkning, det som saknas är att ett släpp kan landa på en flytare).
 - **Mätning:** `_plaskprobe` (undanträngning +8–13 px, volym 416 → 416), `_vatskeprobe --losa`.
 - **Risker/fällor:** "ett spel = en motor" — (b) kopplar två lösare med olika ackumulatorer
   (T3 först); volym trängs undan (lavans 35 px).
@@ -833,6 +871,8 @@ skilja två kända lägen åt säger ingenting). En commit per lib-ändring och 
 - **Kunder:** popcornkalaset (`Karl` importerar `drivPunkt` ur libbet — inget annat ändras),
   leksakslada (center-grepp med tak per leksak); kandidater: mata-munnens lösa kroppar
   (`_gorLos`), nya spel (IDEER #2, #3, #5).
+- **Ny kund ur spelgenomgången (§5.5):** spindelnatet — bytet tas ur fysiken (`:443`) och dras
+  in med en tween (`_reelIn` `:475`); det kan hänga kvar och svänga in via `drivPunkt`.
 - **Mätning:** ny `_greppprobe.mjs` (Node): r²·m/I ∈ {0,5; 1; 3} → max |ω| över 300 steg —
   **kontrollarm: matter-`Constraint`** (ska skena vid 3,0); grepp mot statiskt golv med och utan
   tak → genomträngning och utfart (kontroll: utan tak, ~56 px/steg); tap-tap når målet utan att
@@ -856,6 +896,11 @@ skilja två kända lägen åt säger ingenting). En commit per lib-ändring och 
   svep som spelhandling.
 - **Kunder:** mata-munnen (oförändrad via DragController), Grepp-kunderna (leksakslådan: kasta i
   korgen, Ä5).
+- **Nya kunder ur spelgenomgången (§5.5):** tarta-i-ansiktet mäter släppfarten själv
+  (`VEL_WINDOW` `:50`, `:465-485`) — repots TREDJE implementation bredvid DragController, alltså
+  ett starkare skäl att flytta den till `pekspar.js`. blixt-och-dunder (släppfarten skrivs över
+  med en slumpdrift, `:412-413` — ett moln går inte att kasta) · valpens-bajs (kast ur skyffeln
+  mot tunnan, bonus) · mata-monstret (efter leksakslådan).
 - **Mätning:** `_kastprobe` (4 kontrollarmar före mätarmarna) identisk; M1-arm med syntetiska
   pekspår: snärt efter långsamt drag → fart; stilla en halv sekund före släpp → `null`.
 - **Beroenden:** inga.
@@ -941,7 +986,8 @@ skilja två kända lägen åt säger ingenting). En commit per lib-ändring och 
 - **Bygg:** dra runt en axel → vinkelfart till ett `gangjarn` (moment ur fingrets
   tangentialfart, med tak); tap-fallback: varje tryck = en knuff (ett kvarts varv).
 - **Åldersband:** småbarn ✓ (enkel drag + tap); storbarn ✓.
-- **Kunder:** kugghjulen (F10), kulbanas propeller.
+- **Kunder:** kugghjulen (F10), kulbanas propeller; ur spelgenomgången: vattenvagen (ventilen
+  barnet vrider som sista steg, köad i spelets doc §4).
 - **Mätning:** `_vevprobe` mot HEAD; tap-armen når samma varvtal inom 10 tryck.
 - **Beroenden:** F1, K3.
 
@@ -1036,9 +1082,224 @@ finns bara för popcornet.
   talen. Kontroll: på datorn (där samma sak går att simulera) ska talen likna §1.3.3.
 - **Beroenden:** inga (T4/T5 väntar på den).
 
+### Spår P — fysik in i spelen
+
+> Ur spelgenomgången (§5). Spåret bygger inget bibliotek som saknar kund i §5.7: varje order är
+> en hjälpare ovanpå det som redan finns (`Fjaderbrada`, `fjader1d` ur T3, R2, `Emitter`) plus
+> spelen som ska använda den. Småbarns-P0 gäller varje kund: inget kastas ur bild, inget välter
+> det barnet byggt eller samlat, och motgången får bara sakta ner.
+
+#### P1. Fjädrande ytor: `Fjaderbrada` och `fjader1d` som studs **[Medium]**
+
+- **Premiss — prövad:** studsmattans landning är skriptad: `nudge(char, vx, -up)` med en uppfart
+  ur `power` (`studsmatta/index.js:386-391`) och en gsap-dipp som spelas upp (`_dipBed`
+  `:858-865`) — mattan ger ingen studs, den visar en. `Fjaderbrada` (`fjader.js`) beskriver i sitt
+  eget filhuvud just en studsmatta, har 19 mått i `_fjaderprobe` och **en** kund (kulbana).
+  Enhorningen-elviras molnstuds är ett skriptat lyft (`_cloudBoost` `:684-687`) och fallskarmens
+  landning en tween (`:909-914`) — båda granskarens läsning, inte stickprovade.
+- **Bygg:** studsmatta: mattan blir en `Fjaderbrada` (`taEmot` vid landning, `steg` per
+  fysiksteg), och `driv`/`flytta` låter den följa fingret — R2 för samma matta i samma drag.
+  Elvira: varje moln en `Fjaderbrada` som sviktar och ger lyftet ur fjädringen. Fallskarmen kör
+  ingen matter-värld → `fjader1d` för gräsmattan, så att en tung hoppare sjunker djupare och
+  kastas högre och tyngdvalet syns (spelets doc §3). Vippbradan: bara mjukkropps-silhuetten
+  (plankan böjs), studsen orörd.
+- **Kunder:** studsmatta · enhorningen-elvira · fallskarmen · vippbradan (silhuett).
+- **Mätning:** `_fjaderprobe` orörd (libbet ändras inte). Per spel en sond som landar figuren från
+  tre fallhöjder. **Kontrollarm HEAD** — förväntat: studshöjden beror på `power`, inte på
+  fallhöjden. Mätarm: höjden växer med fallhöjden och har ett tak. P0: figuren lämnar aldrig
+  bild (högsta läge över 300 landningar).
+- **Risker/fällor:** studsen kommer ur brädan, aldrig ur `restitution` på en statisk kropp
+  (CLAUDE.md, V10). Det här är barnets huvudkontroll — kör spelets egen sond och `_idleprobe`
+  mot HEAD innan känslan bedöms.
+- **Beroenden:** R2 (mattan som följer fingret), T3 (`fjader1d`).
+
+#### P2. Fjädrande detaljer: `vippa(nod)` på `fjader1d` **[Quick]** per spel
+
+- **Premiss — prövad i koden:** `fjader1d` finns bara i `grodan-slurp/djur.js:112-131` (T3 lyfter
+  den till `lib/takt.js`). Sex spel har en del som borde fjädra men står stel eller får en fast
+  tween: `bygg-en-kompis`s `toppNod` (`varelse.js:400-405`, bara `bounceIn` vid byte `:734`),
+  hamburgerstapeln (`_layoutStack` skriver bara y, `:888-896`), karossen i `zackes-biltvatt`
+  (rörs aldrig efter intåget, `:899`), de lagda stenarna i `golvet-ar-lava`, tågkopplen i
+  `siffertaget` (stel tidslinje, `:877`) och kranklossen i `bygg-tornet`.
+- **Bygg:** `vippa(nod, { k, damp, max, axel: 'rot' | 'y' | 'skev' })` → `{ stot(v), destroy() }`,
+  stegad med `Takt` (fast steg). Animerar alltid ett **inre barn** — aldrig noden som bär
+  `hitArea` eller är ett `DragController`-mål (CLAUDE.md: animera aldrig containern som
+  `addTarget` fick). `destroy()` tar sin ticker-lyssnare och sina tweens (minnet "tween mot
+  barnbarn").
+- **Kunder (ett spel per commit):** bygg-en-kompis · hamburgerbygget · zackes-biltvatt ·
+  golvet-ar-lava · siffertaget · bygg-tornet (kranklossen) · loopdjuren (öron, valfritt).
+- **Mätning:** Node: utslag efter en stöt och 0,00 i vila efter N s (kontrollarm: `damp 0` ska
+  INTE gå till vila). Per spel: ritad geometri (`getBounds()` på det inre barnet) rör sig vid
+  stöt och står still i vila; `hitArea` identisk före och efter stöten; 0 levande tweens efter
+  `destroy()` (`_tweenprobe`-mönstret).
+- **Risker/fällor:** hamburgerstapeln får svaja men aldrig välta (`max`). En vippa på en egenskap
+  som annan kod skriver varje bildruta blir osynlig (minnet "vem skriver egenskapen varje
+  bildruta").
+- **Beroenden:** T3.
+
+#### P3. Det barnet samlar blir en hög: `lib/hog.js` **[Medium]**
+
+- **Premiss — prövad i koden (granskarna):** fem spel visar aldrig det barnet samlat:
+  `klambubblor` ritar om burken (`_drawJar` `:502`), `enhorning-glitterbajs`s kista är en sensor
+  som förstör glittret (`:308`), `fanga-frukten` förstör frukten (`_tuck` `:744`),
+  `roliga-snurran`s mynt faller ur bild och `rakna-applen`s frukt flyger med en tween till en fast
+  plats (`:487-500`).
+- **Bygg:** `new Hog({ varld, kanter, tak: 30, sova: true })` → `lagg(form, x, y, v)`, `tom()`. En
+  liten matter-värld per behållare (eller spelets egen), behållaren kinematisk via R2 när den
+  rör sig, fångväggar så att inget hoppar ur, ett tak (den äldsta tonar bort) och sömn som
+  STABILITET (R5) — en vilande hög som darrar ser trasig ut. Töms i finalen.
+- **Kunder:** rakna-applen (räkningen orörd: 1 tryck = 1 frukt = 1 ord) · klambubblor ·
+  enhorning-glitterbajs · fanga-frukten · roliga-snurran.
+- **Mätning:** M1-arm: taket håller, 0 `kropp-rymde` över 3 000 steg, kostnad (S7) vid N = 30,
+  kryp < 0,5 px/10 s med sömn (S1). Per spel: antal synliga i behållaren = antal fångade, upp
+  till taket.
+- **Risker/fällor:** använd `studs`, inte `restitution`, på kanterna. `rakna-applen` är ett
+  lärospel: högen får aldrig göra antalet svårare att se (högst 5 frukter, P0 LÄSNING).
+- **Beroenden:** R2, R5.
+
+#### P4. Saker som landar i stället för att sväva **[Medium]**
+
+- **Premiss — prövad i koden (granskare 3):** `stor-liten` lägger sakerna på y 140–320 i himlen
+  (`_gridSlots` `:606-620`), `sortera-skrap` i genomskinliga skivor i himlen (`:875`, stickprovad);
+  `passa-formerna` och `plantera-fron` har föremål med markskugga men ingen yta under.
+- **Bygg:** en landa-intro i `lib/`: föremålen släpps från ovankanten och landar med tyngd (stort
+  = duns och skak, litet = studs) och står sedan still för draget. `fjader1d` per föremål räcker
+  — ingen matter-värld — och animationen går i ett inre barn, så att `DragController` mäter mot
+  ett stilla mål. I `stor-liten` blir landningen en del av lärandet: det stora dunsar, det lilla
+  studsar.
+- **Kunder:** stor-liten · sortera-skrap · passa-formerna · plantera-fron.
+- **Mätning:** föremålet står på markens y efter landningen (ritad geometri); `_dragprobe`
+  identisk mot HEAD; 0 `snal-snappyta` i loggen.
+- **Risker/fällor:** ett barn som greppar mitt i fallet ska få föremålet ändå (CLAUDE.md: tryck så
+  fort spelet tillåter — det är barnets väg).
+- **Beroenden:** T3 (`fjader1d`).
+
+#### P5. Partiklar och korn med luft och vind **[Quick]**
+
+- **Premiss — prövad:** `fyrverkeri`s gnistor har bara tyngd (`:711-724`) medan nivåns vind bara
+  läggs på raketen (`:345`). `unika-knytt`s korn faller med konstant fart (`kupan.js:1057-1063`),
+  och ett tryck på glaset skakar bara bilden (`rullaOm`, `:1381-1393`). `Emitter`
+  (`partiklar.js:413`) räknar en sluten bana med bara `gravity` (`:570`).
+- **Bygg:** `Emitter`-optionerna `luft` (linjärt motstånd k) och `vind` (lufthastighet w). Banan
+  förblir sluten — `x(t) = x0 + w·t + (v0 − w)(1 − e^(−k·t))/k` — så kostnaden per partikel är
+  oförändrad. `fyrverkeri` och `unika-knytt` har egna loopar och får samma två termer där.
+- **Kunder:** fyrverkeri · unika-knytt (glastrycket kastar upp kornen, som virvlar och sjunker) ·
+  varje `Emitter`-kund som vill.
+- **Mätning:** Node: `k → 0` ger exakt dagens bana (kontrollarm); sluthastigheten blir w + g/k. I
+  spelet: bilden och `_partikelprobe`.
+- **Beroenden:** inga (F4 kan senare mata `vind` regionalt).
+
+### Spår U — omspelning
+
+#### U1. `lib/variation.js`: slump som inte upprepar sig **[Quick]**
+
+- **Premiss — prövad:** `nastaVariant` finns bara i `snobollen` (`:116`). `peka-pa-kroppen`s påse
+  (`:197`) är rätt mönster för innehåll. Resten av appen väljer med `randomFrom`, `% längd` eller
+  direkt ur nivån (§5.3 mönster 4).
+- **Bygg:** `nastaVariant(lista, forra)` (ur snobollen), `pase(lista)` (varje post en gång per
+  varv, aldrig samma två i rad över varvsgränsen), `slumpIBand(niva, { min, max })` (slump inom
+  nivåns band, så att svårigheten står kvar) och `rundprofil(fro)` för spel vars variation tar
+  slut vid nivåtaket. Allt går genom `Math.random` — M2 seedar den, så sonderna förblir
+  deterministiska.
+- **Kunder:** U2:s spel.
+- **Mätning:** Node, 10 000 dragningar: aldrig samma två i rad, påsen ger varje post exakt en gång
+  per varv, `slumpIBand` håller sig i bandet. Kontrollarm: `randomFrom` upprepar ~1/n.
+- **Beroenden:** inga.
+
+#### U2. Variation per spel **[Quick]** per spel
+
+| Spel | Vad som upprepas | Förslag |
+|---|---|---|
+| vippbradan | korgens läge, höjd och radie ur nivån (`:325-327`) | `slumpIBand` |
+| studsbollar | korgen (`:279-282`), målbollar på x 520/650/780 (`:310`) | båda inom band |
+| enhorningen-elvira | `_levelConfig` helt deterministisk (`:342-358`) | ädelstenar och regnbåge inom band |
+| bowling | fasta trianglar (`_pinLayout` `:448-481`) | 3–4 formationer per kägelantal |
+| knuffa-tornet | `SHAPES` i fast ordning (`:575`), specialklossar fasta (`:589-600`) | `nastaVariant` + slumpad plats |
+| studsmatta | målen på en fast linje (`:503-506`), jitter först från nivå 4 (`:500`) | jitter från nivå 0 |
+| bajs-och-kiss | pottans x och storlek ur nivån (`:296-297`), slut vid nivå 5 | `slumpIBand` + en pall från nivå 3 |
+| rakna-applen | målet 2, 3, 4, 5, 2 … (`:369`), fast läge (`:367`) | `slumpIBand` |
+| enkelt-pussel | motiven i fast ordning (`THEMES[round % len]` `:386`) | `pase` |
+| regnbagsmalaren | identisk från nivå 3 (`:193`, `:227`, `:248`) | lotta mellan varianterna |
+| glasstornet | 3 kärl i fast cykel (`:419`) | `nastaVariant` |
+| lagerelden | sorten ur `level % 4` (`:347`) | `pase` per order |
+| pruttbad | badsort och leksak per nivå (`:459`, `:878`) | `pase` efter första varvet |
+| fyrverkeri | stjärnorna jämnt i rad (`:226-231`) | klungor och konstellationer |
+| spara-linjen | fast plan i 18 steg (`:542-561`), sedan 8 motiv | `pase` efter planen |
+| glittergrottan | reglerna i fast ordning de första sex rundorna (`:306`) | `pase` |
+| tvatta-djuret | djuret ur nivån till nivå 5 (`:365-367`) | `pase` |
+| loopdjuren | alltid `candy` (`:91`), samma fem block | scen per nivå (block: U3) |
+
+- **Risker/fällor:** några fasta tidiga nivåer är **inlärningsbanor med avsikt** (kulbana 1–5,
+  golvet-ar-lava 0–5, kugghjulen 1–8, blixt-och-dunder 0–5). Läs spelets doc innan de rörs, och
+  slumpa i så fall inom banans idé. `domino`s raka rad är ett ägarbeslut.
+- **Mätning:** per spel: två rundor på samma nivå ger olika layout (läs den ur spelinstansen), och
+  svårighetens mått (avstånd, antal) står kvar i bandet.
+- **Beroenden:** U1.
+
+#### U3. Innehåll som tar slut **[Medium]** — köat i spelens doc
+
+- **Premiss — prövad i koden (granskarna):** `trollblandning` har 9 nåbara mål (`:279`), sedan
+  finns inget nytt att upptäcka. `plantera-fron` sparar `custom.flowers` (`:817`) men visar dem
+  aldrig. `siffertaget` är alltid 1..N med fast last (`LAST_ORD` `:29`). `loopdjuren` har fem
+  block, `valpens-bajs`s park minns ingenting, och `vakna-pappa`s sömnsteg spelas likadant varje
+  runda.
+- **Bygg:** det som står i respektive doc §4 (fler recept, trädgård som minns, baklänges-tåg, nya
+  block, parken som blommar där den städats) — via `/polera <id>`. Det här är spelpolering, inte
+  fysik; ordern står här för att ägaren bad om omspelningslistan.
+- **Beroenden:** U1.
+
+### Spår L — bild
+
+> Bild hör egentligen till LYFTPLAN, vars rad 4 byggde `scene.js`-djupet. Spåret står här för att
+> ägaren bad om genomgången i den här planen. L1 rör samma fil som LYFTPLAN rad 4 och ska läsa
+> dess lärdomar först.
+
+#### L1. Trädlinje och förgrund i `createScene` **[Medium]**
+
+- **Premiss — prövad:** `createScene` har redan tre avståndsband, dis, markstruktur och vinjett
+  (`scene.js:156-193`); det som saknas mot `grodan-slurp` är FORMEN — banden är släta kupoler
+  (`kupoler()`, `paintBand`), ingen trädlinje och ingen förgrundsväxt. `meadow` bär 24 spel,
+  `sky` och `candy` 7 var, `warm` 6 (grep på `createScene('…'`). Grodans trädlinje är en färdig
+  metod: `_tradlinje(g, basY, hojd, farg, granAndel, wMin, wMax)` (`grodan-slurp/dammen.js:963`,
+  lövkupoler och granar om vartannat).
+- **Bygg:** lyft `_tradlinje` till `scene.js` och ge `createScene` optionen
+  `silhuett: 'skog' | 'gran' | 'stad' | false` för fjärran- och mellanbandet, plus `forgrund: true`
+  (strån och blomtuvor framför marken, i scenroten bakom spelytan). Förval `false` — inget spel
+  ändras förrän det slår på det. Färgen ur temat (`lerpColor` mot himlen, som banden).
+- **Kunder:** de 24 `meadow`-spelen i omgångar, C-spelen först: stor-liten · rakna-applen ·
+  ballonglyft · vilket-djur-later · vandkort · kla-pa-nallen · spindelhjalten · vippbradan ·
+  bygg-tornet · regnbagsmalaren.
+- **Mätning:** NOLL texturbakningar vid montering (CLAUDE.md: `generateTexture` och en
+  `FillGradient` per montering fäller `test:all`); `_montageprobe`; `_ab.sh scene.js` växelvis,
+  eftersom ändringen rör många spel; skärmdump per kund och en blick.
+- **Risker/fällor:** med `kamera: { bredd }` måste trädlinjen ritas per lagerbredd som banden
+  (`lagerBredd`). Inget högt i fjärranbandet bakom skalets knappar (solens historia,
+  `scene.js:113-116`).
+- **Beroenden:** inga.
+
+#### L2. Bildlyft per spel **[Medium]** per spel
+
+C-betygen (31 spel, §5.2) har fyra orsaker:
+
+| Orsak | Spel | Lyft |
+|---|---|---|
+| Krämplatta eller färgplatta, ingen värld | enkelt-pussel · kugghjulen · spara-linjen · bowling · gravmaskinen · tarta-i-ansiktet · glittergrottan · elementlekplatsen | en egen plats som hör till spelet (verkstad, bana, byggarbetsplats, cirkus) — det A-spelen har |
+| Ängsmallen ensam | stor-liten · rakna-applen · ballonglyft · vilket-djur-later · vandkort · kla-pa-nallen · spindelhjalten · vippbradan · bygg-tornet · regnbagsmalaren | L1, plus något i mitten som hör till spelet |
+| Brickor och ringar bakom föremålen (P0 ASSETS-gränsfall) | trollblandning (ring `:881`, 🧪-final `:1401`) · sortera-skrap (skiva `:875`) · loopdjuren · tryck-och-forvandla (`:226-229`) · studsa-ner (pinnarna tomma ringar) | ta bort skivan eller ringen; föremålet står fritt med skugga eller glöd |
+| Platt egen bakgrund eller platta figurer | plask-i-vattnet (tanken) · saftbaren (Bobo ett svävande huvud) · spindel-zacke-svingar (lådhus) · rulla-bollen-hem · fyrverkeri (rektangelstad, stjärnor i ringar) · kittla-figuren · plantera-fron (emoji-blomma, Ä12) · spindelnatet | volym och detalj i det som redan finns |
+
+- **Mätning:** skärmdump före och efter, och en blick; `bildkoll` grön; P0 `ASSETS`-raden.
+- **Risker/fällor:** `glittergrottan`s glittershader är parkerad av ägaren — rör inte den.
+- **Beroenden:** L1 för ängsmall-raden.
+
 ---
 
 ## 3. Utrullning i omgångar
+
+**Omgång 0 — enkla vinster, variation och bild** (föreslagen av spelgenomgången, ordningen är Ä11):
+**U1** → **U2** (ett spel per commit) · de enkla vinsterna i §5.4 · **P5** · **L1** → **L2**. Inget
+här rör det omgång 1 mäter, utom L1 (`scene.js`) och P5 (`partiklar.js`), som körs med `_ab.sh`
+som allt annat. Inga spelfiler ändras medan en sond eller `_ab.sh` kör (CLAUDE.md).
 
 **Omgång 1 — mätstickan och takten** (ingen ändring i en bildruta med exakt ett fysiksteg; allt mätt):
 1. **M1** S6 · S7 · S8 (tre av mätningarna finns redan som engångskörningar — gör dem permanenta).
@@ -1048,9 +1309,15 @@ finns bara för popcornet.
 5. **M2**, sedan **T2** per spel (studsa-ner · magnet-fiske · fanga-frukten · bygg-tornet · studsbollar · enhorning-glitterbajs · glasstornet · snobollen).
 6. **R1** fällvakter + `test:all`-baslinje.
 
+**Omgång 1b — fjädrar och landningar** (behöver bara T3:s `fjader1d`): **P2** `vippa` →
+bygg-en-kompis · hamburgerbygget · zackes-biltvatt · golvet-ar-lava · siffertaget · bygg-tornet
+(kranklossen) · **P4** landa → stor-liten · sortera-skrap · passa-formerna · plantera-fron.
+
 **Omgång 2 — kontrollerna håller:**
 7. **M3** mot HEAD → **K1** (bara om arm A fastnar) → **K2** → **K3**.
-8. **R2** kinematiska kroppar → fanga-frukten · studsa-ner · studsmatta.
+8. **R2** kinematiska kroppar → fanga-frukten · studsa-ner · studsmatta · flipperspel (paddlarna)
+→ **P1** fjädrande ytor (studsmatta i samma drag som R2, sedan enhorningen-elvira · fallskarmen ·
+vippbradan).
 9. **R3** · **R4** · **R5** · **R6**.
 10. **M4** → **O2** · **O3** · **K4** (bara där M4 visar utslag).
 11. **F9** DEV-överlägg.
@@ -1058,12 +1325,14 @@ finns bara för popcornet.
 **Omgång 3 — greppa, kasta, vrida** (småbarnens nya kontroller):
 12. **G2** pekspår (DragController oförändrad).
 13. **G1** fjädergrepp: port popcornkalaset → leksakslada, med naiv-gest-sond.
-14. **F1** leder och motorer: port balanstornet · vippbradan · knuffa-tornet → **G8** vev → **F10** kugghjulen.
+14. **F1** leder och motorer: port balanstornet · vippbradan · knuffa-tornet → **bygg-tornet**
+(svajande torn, §5.5) → **G8** vev → **F10** kugghjulen. F1:s övriga nya kunder när spelen ändå rörs.
 
 **Omgång 4 — features med kund:**
 15. **F4** vindfält (studsa-ner port, bajs-och-kiss) · **F5** ytvågor (port pruttbad, dammen) ·
-**F8** inspelning (kulbana, Ä8) · **F3** brytbart (knuffa-tornet, Ä7) · **G3a** skuggvärld
-(bowling, rulla-bollen-hem) · **O1** mjuk mesh (mät först).
+**F8** inspelning (kulbana, Ä8) · **F3** brytbart (knuffa-tornet, Ä7; snobollen) · **G3a** skuggvärld
+(bowling, rulla-bollen-hem) · **O1** mjuk mesh (mät först) · **P3** hög (rakna-applen först) ·
+de nya kunderna i F4/F5/F6 ur §5.5 · **U3** via `/polera <id>`.
 
 **Omgång 5 — storbarn, bara på ägarens begäran (Ä3):** **G5** tumspak · **G6** tvåhandsgrepp ·
 **G4** laddning med håll · **G3c** kort sikte — i samma commit som den första storbarnskunden.
@@ -1076,25 +1345,273 @@ finns bara för popcornet.
 
 ## 4. Ägarens beslut
 
-| # | Fråga | Mitt förslag |
-|---|---|---|
-| **Ä1** | Vilka plattor och telefoner spelar barnen på (märke, iPad eller Android, 60/90/120 Hz)? | Svara med modell. Låt M5 (`?takt`) ligga i bygget så att varje enhet kan läsas av med en adress — det är enda sättet att veta om §1.3.3:s skurar händer hos er. |
-| **Ä2** | Ska appen fortsätta låsa tickern till 60 fps (`App.js:24`)? | Behåll taket tills M5 visat om det tappar rutor på era enheter. Ta bort det bara tillsammans med interpolationen i T5 — annars blir en 90 Hz-skärm ryckigare, inte mjukare. |
-| **Ä3** | Storbarnskontrollerna (tumspak, tvåhandsgrepp, håll som huvudkontroll, kort sikte) har ingen kund. Vilket spel blir det första storbarnsspelet? | Bygg ingen av dem utan kund. Första kandidat: `bobo-i-rymden` (IDEER #8 — sikte genom fält + dragkraft) eller `/storbarn snobollen` (tumspak). |
-| **Ä4** | Får håll-för-att-ladda finnas i fler småbarnsspel — som tillägg, aldrig som grind, som i `grodan-slurp`? | Ja, och skriv regeln i skill **fysik-spel**: tryck eller gnid är huvudvägen, håll är bonus, och inget avfyras av sig självt. |
-| **Ä5** | Kast ur draget i småbarnsspel — i vilka spel, som bonus? | `leksakslada` först (kasta leksaken i korgen). Aldrig ett krav för att nå målet. |
-| **Ä6** | Tilt är struken (iOS kräver dialog). Vill du ändå ha en Android-bonus någonstans? | Nej. En kontroll som saknas på en del av enheterna kan inte bära ett spel. |
-| **Ä7** | Ska `knuffa-tornet`s glas gå sönder i riktiga bitar som studsar och tonar bort, i stället för att försvinna i gnistor? | Ja — rundade "godisbitar" med glitter, inga skärvor, högst 12 bitar i världen. |
-| **Ä8** | Vill du ha `kulbana`s slow-motion-repris av den lyckade rullningen (köad [Deep] i spelets doc)? | Ja. Den blir billig när inspelningen (F8) finns, och den belönar bygget, inte bara träffen. |
-| **Ä9** | Bryggan för avbrutna pekningar (K1) gör ett avbrutet finger till ett släpp — i alla spel samtidigt. Okej? | Ja, om M3 visar att greppen fastnar i dag. Alternativet är en kontroll som slutar svara. |
-| **Ä10** | Omgång 1 ändrar fysiken där den i dag beror på bildtakten — mycket under 60 fps, lite vid 60 Hz (bara rutorna med noll eller två steg). Får den byggas som en omgång? | Ja. Harnessens skärmdumpar flyttar sig lite (57 fps-fysiken blir 60 Hz-fysik) — det ska stå i varje commit. |
+| # | Fråga | Mitt förslag | Beslut (ägaren 2026-10-01) |
+|---|---|---|---|
+| **Ä1** | Vilka plattor och telefoner spelar barnen på (märke, iPad eller Android, 60/90/120 Hz)? | Svara med modell. Låt M5 (`?takt`) ligga i bygget så att varje enhet kan läsas av med en adress — det är enda sättet att veta om §1.3.3:s skurar händer hos er. | **Både iPad och Android.** Modeller och Hz ej angivna — M5 är fortfarande enda vägen till talen. |
+| **Ä2** | Ska appen fortsätta låsa tickern till 60 fps (`App.js:24`)? | Behåll taket tills M5 visat om det tappar rutor på era enheter. Ta bort det bara tillsammans med interpolationen i T5 — annars blir en 90 Hz-skärm ryckigare, inte mjukare. | **Behåll taket** tills vidare (enligt förslaget). |
+| **Ä3** | Storbarnskontrollerna (tumspak, tvåhandsgrepp, håll som huvudkontroll, kort sikte) har ingen kund. Vilket spel blir det första storbarnsspelet? | Bygg ingen av dem utan kund. Första kandidat: `bobo-i-rymden` (IDEER #8 — sikte genom fält + dragkraft) eller `/storbarn snobollen` (tumspak). | **Inget än — vänta.** Omgång 5 byggs inte förrän ägaren beställer ett storbarnsspel. |
+| **Ä4** | Får håll-för-att-ladda finnas i fler småbarnsspel — som tillägg, aldrig som grind, som i `grodan-slurp`? | Ja, och skriv regeln i skill **fysik-spel**: tryck eller gnid är huvudvägen, håll är bonus, och inget avfyras av sig självt. | **Ja, som bonus** (enligt förslaget). |
+| **Ä5** | Kast ur draget i småbarnsspel — i vilka spel, som bonus? | `leksakslada` först (kasta leksaken i korgen). Aldrig ett krav för att nå målet. | **`leksakslada` först** (enligt förslaget). |
+| **Ä6** | Tilt är struken (iOS kräver dialog). Vill du ändå ha en Android-bonus någonstans? | Nej. En kontroll som saknas på en del av enheterna kan inte bära ett spel. | **Nej, ingen lutning.** |
+| **Ä7** | Ska `knuffa-tornet`s glas gå sönder i riktiga bitar som studsar och tonar bort, i stället för att försvinna i gnistor? | Ja — rundade "godisbitar" med glitter, inga skärvor, högst 12 bitar i världen. | **Ja, rundade godisbitar** (enligt förslaget). |
+| **Ä8** | Vill du ha `kulbana`s slow-motion-repris av den lyckade rullningen (köad [Deep] i spelets doc)? | Ja. Den blir billig när inspelningen (F8) finns, och den belönar bygget, inte bara träffen. | **Ja** (enligt förslaget). |
+| **Ä9** | Bryggan för avbrutna pekningar (K1) gör ett avbrutet finger till ett släpp — i alla spel samtidigt. Okej? | Ja, om M3 visar att greppen fastnar i dag. Alternativet är en kontroll som slutar svara. | **Ja, om M3 visar fastnade grepp** (enligt förslaget). |
+| **Ä10** | Omgång 1 ändrar fysiken där den i dag beror på bildtakten — mycket under 60 fps, lite vid 60 Hz (bara rutorna med noll eller två steg). Får den byggas som en omgång? | Ja. Harnessens skärmdumpar flyttar sig lite (57 fps-fysiken blir 60 Hz-fysik) — det ska stå i varje commit. | **Ja, en omgång** (enligt förslaget). |
+| **Ä11** | Spelgenomgången (§5) gav enkla vinster, variation (U) och bildlyft (L) som inte beror på libbändringarna i omgång 1. Ska de byggas FÖRE omgång 1 (som omgång 0), EFTER, eller i egna pass mellan omgångarna? | Före, som omgång 0. Barnen märker dem direkt, de rör inga bibliotek som omgång 1 mäter (utom L1 och P5, som får `_ab.sh` som allt annat) och de är klara på några pass. Regeln står kvar: inga spelfiler ändras medan en sond kör. | *Öppen* |
+| **Ä12** | `plantera-fron`s blomhuvud är en emoji-`Text` i storlek 92 som täcker kronbladen (`index.js:525`) — P0 `ASSETS` säger att en emoji aldrig får vara hela föremålet. Spelets doc har lämnat det som ägarbeslut. Ska blomman ritas? | Ja: rita blomhuvudet (kronblad och ansikte som riktig form) och låt emojin bli en detalj eller försvinna. Blommorna byter utseende, därför är det ditt beslut. | *Öppen* |
 
 ---
 
-## 5. Logg
+## 5. Spelgenomgången — fysik, enkla vinster, bild och omspelning
+
+### 5.1 Så gjordes den
+
+> Gjord 2026-10-01 mot v1.288.0 på ägarens begäran, innan omgång 1 startar. Fyra frågor per spel:
+> **missad fysik**, **enkla vinster**, **bilden mot `grodan-slurp`** och **omspelning**. 86 spel —
+> `grodan-slurp` är referensen och betygsätts inte. Tre granskare läste spelets doc, koden och
+> skärmdumparna i `.test-shots/` (tagna 2026-09-24 – 10-01, ~6 s in i spelet, så några visar
+> introt). Ingen webbläsare, ingen sond, inga ändringar i `src/`. Huvudsessionen prövade 21
+> bärande påståenden mot koden och alla höll — de är markerade ✔ nedan. Radnumren är greppade
+> samma dag: greppa på uttrycket, lita inte på numret.
+>
+> ⚠️ **Bildbetyget är en bedömning av en stillbild, inte en mätning**, och omspelningsbetyget
+> bygger på koden (fasta listor och ordningar), inte på ett speltest. Båda pekar ut var man ska
+> titta. Docens §4 visade sig inaktuell sex gånger (§5.6) — pröva varje rad mot koden innan den
+> byggs.
+
+### 5.2 Läget
+
+| | A · Hög | B · Medel | C · Låg |
+|---|--:|--:|--:|
+| Bild mot `grodan-slurp` | 11 | 44 | 31 |
+| Omspelning | 15 | 58 | 13 |
+
+- **Bild A (11):** borsta-tanderna · djurorkester · flugan-pa-nasan · folj-sparet · leksakslada ·
+  mata-munnen · natskott-pa-stan · popcornkalaset · titt-ut-pappa · unika-knytt · vakna-pappa.
+  Gemensamt: ett eget rum, en egen gata eller en egen scen i flera djupled — inget av dem står
+  på en `createScene`-preset ensam.
+- **Bild C (31)** har fyra orsaker — se L2.
+- **Omspelning Låg (13):** bowling · enhorningen-elvira · knuffa-tornet · studsbollar · studsmatta
+  · vippbradan · loopdjuren · regnbagsmalaren · valpens-bajs · plantera-fron · rakna-applen ·
+  siffertaget · trollblandning.
+- **Prio 1 — störst vinst per insats (8):** bygg-tornet · studsmatta · rakna-applen ·
+  sortera-skrap · fyrverkeri · kittla-figuren · regnbagsmalaren · poppa-ballonger.
+
+### 5.3 Fem mönster
+
+1. **Skriptad rörelse där ett mätt verktyg redan finns.** Studsmattans landning är en knuff och en
+   gsap-dipp ✔ (`studsmatta:388-391`, `:858-865`) medan `Fjaderbrada` har en enda kund.
+   Flipperspelets paddlar teleporteras varje bildruta ✔ (`:934-935`), byggtornets klossar låses
+   statiska ✔ (`:384-386`), domino-klockan är en gsap-tidslinje. → **P1**, och nya kunder i R2
+   och F1.
+2. **Det barnet samlar syns aldrig som en hög.** Burken ritas om (klambubblor), kistan är en
+   sensor (enhorning-glitterbajs), frukten förstörs (fanga-frukten), mynten faller ur bild
+   (roliga-snurran), äpplet flyger till en fast plats (rakna-applen). → **P3**.
+3. **Utstickande delar, staplar och snören är stela.** Antennerna (bygg-en-kompis),
+   burgarstapeln, bilkarossen, de lagda stenarna (golvet-ar-lava), tågkopplen och
+   ballongsnörena (✔ `ballonglyft:576` är ett `lineTo`). → **P2**, och `Rep` på nya ställen
+   (§5.5).
+4. **Nivån bestämmer layouten, och variationen tar slut vid taket.** Sex fysikspel räknar korg,
+   mål eller formation deterministiskt ur nivån. Räkneäpplenas mål går 2, 3, 4, 5 ✔ (`:369`),
+   pusslets motiv i fast ordning ✔ (`:386`) och regnbågsmålaren är identisk från nivå 3 ✔.
+   `nastaVariant` finns bara i `snobollen` ✔. → **U1**, **U2**.
+5. **`createScene`-presets är taket för ungefär 30 spel.** `meadow` används i 24 spel ✔. Scenen
+   har redan djup — tre band, dis, markstruktur och vinjett (`scene.js:156-193`) — så det som
+   saknas mot grodan är FORM: släta kupoler i stället för en trädlinje, och ingen förgrund.
+   Grodans trädlinje är en färdig metod (`dammen.js:963`). → **L1**.
+
+### 5.4 Enkla vinster som inte står köade
+
+Prövade mot koden; ✔ = stickprovad av huvudsessionen. De vinster som redan står i spelets doc §4
+finns i tabellerna i §5.7 som "köad".
+
+| Spel | Vinst | Bevis |
+|---|---|---|
+| pruttbad | ankan rider på vågen i stället för en sinus | ✔ sinus `:1944`, `_waveAt` finns `:593` |
+| fyrverkeri | gnistor och rök får luftmotstånd och nivåns vind (P5) | ✔ bara tyngd `:711-724`, vinden bara på raketen `:345` |
+| klambubblor | bubblorna stöter mot varandra | ✔ ingen stöt; mönstret finns i `poppa-ballonger:1050` |
+| rakna-applen | slumpat målantal inom bandet (U2) | ✔ `2 + ((lvl-1) % 4)` `:369` |
+| enkelt-pussel | slumpad motivordning (U2) | ✔ `THEMES[round % len]` `:386` |
+| regnbagsmalaren | lotta mellan varianterna efter nivå 3 (U2) | ✔ `:193`, `:227`, `:248` |
+| blixt-och-dunder | behåll släppfarten över en fartgräns, så att molnet går att kasta | ✔ skrivs över med slumpdrift `:412-413` |
+| trollblandning | ta bort ringen runt elementen | ✔ `stroke` `:881` |
+| sortera-skrap | ta bort skivan bakom sakerna | ✔ vit skiva alfa 0,25 `:875` |
+| bajs-och-kiss | squash och materialljud vid studs via `phys.onImpact` / `impactAudio` | ✔ 0 anrop i spelet |
+| unika-knytt | glastrycket kastar upp kornen (P5) | ✔ `rullaOm` skakar bara bilden `kupan.js:1381-1393` |
+| poppa-ballonger | pysballong som far runt med ett prutt, ny specialtyp | specialtyperna `:328-331`, egen integrator finns |
+| enhorning-glitterbajs | kistan svämmar över vid full mätare | grep 0 träffar |
+| kla-pa-nallen | nallen följer det hållna plagget med blicken | bara blink `:575`, `:895-919` |
+| golvet-ar-lava | barnets egen figur hoppar (`lib/egnafigurer`) | ingen import |
+| stor-liten | sakerna på marken eller en filt, i väntan på P4 | `_gridSlots` y 140–320 `:606-620` |
+| saftbaren | Bobo får en kropp | ett svävande huvud `:121`, `:547` |
+| snobollen | pingvinens ögon följer bollen | ögonen i samma `Graphics` `:549` |
+| bygg-tornet | klossen gungar i kranlinan (P2) | ingen pendel i koden |
+| bygg-en-kompis | antennerna fjädrar vid studs och kittling (P2) | bara `bounceIn` vid byte `:734` |
+| hamburgerbygget | stapeln svajar när ett lager landar (P2) | `_layoutStack` skriver bara y `:888-896` |
+| lagerelden | slumpa sorten per order | `level % 4` `:347` |
+| ballonglyft | Elvira får idle-liv | ingen `liv()` på henne |
+| tryck-och-forvandla | figurerna står på mark i stället för på rosa plattor | ellipsplattor `:226-229` |
+| spindelhjalten | förgrundsdekor (staket, träd) | bara `createScene('meadow')` `:91` |
+| plask-i-vattnet | sandbotten och vattenväxter i tanken | skärmdumpen |
+| loopdjuren | scenfärg per nivå | alltid `candy` `:91` |
+| borsta-tanderna | kranen går att trycka på | `_rum.kran.pa` bara i finalen `:1441` |
+| studsmatta | målens jitter redan från nivå 0 | jitter först från nivå 4 `:500` |
+
+### 5.5 Nya kunder till befintliga arbetsordrar
+
+| Order | Nya kunder ur genomgången |
+|---|---|
+| **F1** leder | **bygg-tornet** (✔ klossarna låses statiska — tornet ska svaja, aldrig rasa) · flipperspel (snurran) · domino (klockan) · kulbana (vippa, dominobit) · studsbollar (gungande korg) · studsa-ner (snurror) · rulla-bollen-hem (svängande grind) · fanga-frukten (frukten i skaftet) · spindelhjalten (rörlig knopp) |
+| **R2** kinematiska | **flipperspel** — paddlarna ✔ (`:934-935`) · P1:s studsmatta · P3:s behållare · rulla-bollen-hem (rörlig dyna) |
+| **F3** brytbart | snobollen (snögubben i rundade bitar) |
+| **F4** vind | flugan-pa-nasan (sug bakom + kon framför — ett krav på F4) · sapbubblor · bowling · fallskarmen · kla-efter-vadret · rulla-bollen-hem · enhorningen-flyger |
+| **F5** ytvågor | pruttbad (ankan, ✔ redan i dag) · fargregn · tvatta-djuret · unika-knytt |
+| **F6a** vätska ↔ kropp | saftbaren (isbitar) · vattenvagen (vattenhjul) · plask-i-vattnet (lasta flytaren) |
+| **G1** grepp | spindelnatet (bytet svänger in) |
+| **G2** kast | tarta-i-ansiktet (tredje egna släppfarten) · blixt-och-dunder ✔ · valpens-bajs · mata-monstret |
+| **G8** vev | vattenvagen (ventilen) · kugghjulen (svänghjulströghet, F10) |
+| `Rep` på nya ställen (T3) | ballonglyft ✔ · poppa-ballonger (`:427-430`) · kla-efter-vadret (klädstrecket `rum.js:93-95`) · kla-pa-nallen (halsduk) · magnet-fiske (linan `:633`) · plantera-fron (stjälken) · titt-ut-pappa (gardinen) · vakna-pappa (ballongsnöret) |
+| `Mjukkropp` på nya ställen | **kittla-figuren** (kroppen är en rundad rektangel `:277` — `rundadRektForm` i `hamburgerbygget/bulle.js:42` gör den formen mjuk) · bajs-och-kiss (korven plattas, en i taget) · borsta-tanderna (tandkrämen) · valpens-bajs (högen på skopan) |
+| `Motstandsvolym` på nya ställen | **poppa-ballonger** (pysballongen) · sortera-skrap (papper som fladdrar ner i tunnan) · flugan-pa-nasan (pappren seglar) · spindelnatet (löv- och fjäderbyten) |
+| `FluidWorld` där den syns | trollblandning (överkokningen i stället för ✔ 🧪 `:1401`) · plantera-fron (vattenstrålen) · glasstornet (sås i finalen) · borsta-tanderna (spottet, liten `area`) |
+| Kandidat utan order: tyg och nät | vad-forsvann (filten draperar) · spindelnatet (nätet buktar). `Rep` är 1D; ett 2D-rutnät byggs inte förrän en kund bär det. |
+
+### 5.6 Doc-drift som ska rättas när spelet rörs
+
+- `flipperspel` §1: paddlarna "drivs med vinkelhastighet" — koden teleporterar statiska kroppar ✔.
+- `rulla-bollen-hem` §4: "[Quick] tap-fallback mindre perfekt" är redan gjord (`tapPower: 0.62` `:255`).
+- `mata-monstret` §3: "magen byggs aldrig upp" — den växer (`_bellyScale` `:677`).
+- `kugghjulen` §4: Elviras uttryck är redan lagat (`:284-287`, `_setElvira` `:1334`).
+- `vad-forsvann` §4: läget "vad är NYTT?" är redan byggt (`'added'` `:326`).
+- `poppa-ballonger` doc: ballongerna knuffar redan varandra (`:1050`).
+- **"Blockerad: TTS nere" (2026-09-23)** står kvar i sex docs ✔: ballonglyft · kla-efter-vadret ·
+  saftbaren · siffertaget · valpens-bajs · zackes-biltvatt. `npm run voice` fungerar (CLAUDE.md),
+  så de punkterna är byggbara.
+
+### 5.7 Per spel
+
+Bild **A/B/C** mot `grodan-slurp` · omspelning **Hög/Medel/Låg** · prio **1–3** (1 = störst vinst
+per insats för barnet). "Köad" = står redan i spelets doc §4. Radnummer i spelets `index.js` om
+inget annat anges.
+
+#### Fysikspelen, plus magnet-fiske och mata-monstret
+
+| Spel | Bild | Omspelning | Fysik | Enkla vinster | Prio |
+|---|---|---|---|---|---|
+| balanstornet | B — createScene-äng, inget avlägset djupled | Medel — stöd ur 3, lutning ur 5 (`:376-377`) | F1-port; rullande stöd = gångjärn på rörlig kropp | vindpust med tak (köad) · Bobo hejar vid mitten (köad) | 3 |
+| bowling | C — krämplatta, tom bana | Låg — fasta trianglar (`:448-481`) | G3a; auto-hjälpens knuff (`:817-841`) → synlig vindby (F4) | formation ur 3–4 mönster (U2) | 2 |
+| bygg-tornet | C — tom himmel, tomt mittfält | Medel — kattungen alltid x 912 (`:264`) | **fejkat:** ✔ klossen låses statisk (`:384-386`) → F1-leder + vridfjäder, tornet svajar utan att rasa; kranklossen som pendel | klossen gungar i linan (P2) · tema per runda (köad) | 1 |
+| domino | B — gles, platta brickor | Medel — raden alltid rak (ägarbeslut) | klockan är gsap (`:914-919`) → F1-pendel som sista brickan träffar | Bobo följer raset med blicken (köad) | 3 |
+| elementlekplatsen | C — mörk låda, platta celler | Hög | ingen — automaten är fysiken | fler sällsyntheter (köad) | 3 |
+| enhorningen-elvira | B — pastell utan kontrast | Låg — `_levelConfig` deterministisk (`:342-358`) | molnstudsen skriptad (`:684-687`) → `Fjaderbrada`-moln (P1) | ädelstenar och regnbåge inom band (U2) | 2 |
+| enhorningen-flyger | B — jämn himmel | Medel — inga händelser längs vägen | uppvindsband (F4, inget behov) | gyllene stjärna (köad) | 3 |
+| fallskarmen | B — tom luft, platt gräs | Medel — alltid samma matta | landningen en tween (`:909-914`) → `fjader1d` (P1); vind i höjdskikt (F4) | varierade landningsmål · vindkast (köade) | 2 |
+| flipperspel | B — platt bord och ram | Hög (`slumpaUt`) | ✔ paddlarna teleporteras, kicken skriptad → R2; snurran bara bild (`:940-945`) → F1 | bantema per nivå (köad) | 2 |
+| glasstornet | B — rosa tvätt, struten en V-pinne | Medel — 3 kärl i fast cykel (`:419`) | (T2/T3); sås som rinner i finalen (FluidWorld) | kärl utan upprepning (U2) | 3 |
+| gravmaskinen | C — beige platta | Medel — 5 laster i fast ordning | ingen — kornautomaten är fysiken | befolka bygget (köad) | 3 |
+| gungan | B — platt Lova, svävande hylla | Medel — alltid `meadow` (`:119`) | ingen — pendeln är mekaniken (B3) | taktglöd runt sitsen (köad) | 3 |
+| knuffa-tornet | B — platt himmel och avsats | Låg — `SHAPES` i fast ordning (`:575`) | F1, F3 | form och specialplats slumpas (U2) | 3 |
+| leksakslada | A | Hög | G1, G2 | fler sällsynta gäster (köad) | 3 |
+| natskott-pa-stan | A | Hög | `Rep`/matter; "skaka ner äpplen" som kroppar | köade småfix | 3 |
+| plask-i-vattnet | C — platt blå tank utan botten | Medel | lasta flytaren (`Flytvolym`, F6a) | överraskningsföremål (köad) · sandbotten och växter | 2 |
+| popcornkalaset | A | Medel — B7-händelserna saknas | källan till G1 | slumpade händelser B7 (köad) | 3 |
+| rulla-bollen-hem | C — platt grön yta | Medel — två hindertyper | backar och gropar (F4); grind (F1), dyna (R2) | rikare banor (köad) · ⚠️ doc §4:s tap-fallback redan gjord | 2 |
+| saftbaren | C — remsgradient, Bobo ett huvud | Medel — samma kund, fyra glas | isbitar som flyter (F6a) | Bobo får kropp | 3 |
+| snobollen | B — små platta hinder | Hög (`nastaVariant`) | krossade hinder skriptade (`:1379`) → F3 snögubbe | pingvinens ögon följer bollen | 2 |
+| spindel-zacke-svingar | C — platta lådhus | Medel | ingen — pendeln är mekaniken | folk i fönstren (köad) | 3 |
+| spindelhjalten | C — tom äng, platt hjälte | Medel | G3b, F4; rörlig knopp (F1) | förgrundsdekor | 3 |
+| studsa-ner | C — vit tavla, tomma ringar | Medel — fast pinntriangel | R2, F4; snurror (F1) | snurra eller vimpel (köad) | 2 |
+| studsbollar | B — platta bollar | Låg — korg och målbollar fasta (`:279-282`, `:310`) | T2; gungande korg (F1) | korg och målbollar inom band (U2) | 2 |
+| studsmatta | B — mattan ett streck | Låg — målen på fast linje (`:503-506`) | **fejkat:** ✔ knuff + gsap-dipp → `Fjaderbrada` + R2 (P1) | driftande ballong (köad) · jitter från nivå 0 | 1 |
+| vippbradan | C — tom himmel, platt triangel | Låg — korgen ur nivån (`:325-327`) | F1-port; plankan böjs (P1-silhuett) | korgen inom band (U2) | 2 |
+| magnet-fiske | B — toppvy utan ljus och spegling | Hög | T1, F5; `Rep`-lina från spötoppen (`:633`) | köade småfix | 3 |
+| mata-monstret | B — standardhimmel, platt bord | Hög | (T3); G2-kast som bonus | rap och klapp vid full mage | 3 |
+
+#### Roligt, plus fem motorikspel
+
+| Spel | Bild | Omspelning | Fysik | Enkla vinster | Prio |
+|---|---|---|---|---|---|
+| bajs-och-kiss | B — platt kakel, platta figurer | Medel — pottan ur nivån (`:296-297`), slut vid nivå 5 | korven tas bort i samma bildruta som sensorn nuddas (`_score` `:718`) → plums: liten `Mjukkropp`; kanternas `restitution` död (`:340-341`, V10) | ✔ squash + materialljud via `onImpact` · `studs` på kanterna (mät mot HEAD) | 2 |
+| borsta-tanderna | A | Medel — samma ansikte | tandkrämen som `Mjukkropp`; spottet som liten FluidWorld | handduken vaggar (köad) · kranen går att trycka på | 3 |
+| bygg-en-kompis | B — blek verkstad, pilknappar tar bilden | Hög | antenner och öron vippar (`toppNod` `varelse.js:400-405`, P2) — inte `Mjukkropp`, konsten är lager | fjädervipp på `toppNod` (städa i `_stadVarelse` `:747`) | 2 |
+| enhorning-glitterbajs | B — rosa bokeh-platta, plattformar i luften | Medel — samma kista | kistan en sensor (`:308`) → hög (P3); plattformarnas `restitution` död (`:364`) | kistan svämmar över | 2 |
+| flugan-pa-nasan | A | Medel — samma rum | fläktens fält (`:826`) → F4-krav; pappren seglar (`Motstandsvolym`) | inga nya | 3 |
+| fyrverkeri | C — platt mörkblå platta, rektangelstad | Medel — stjärnorna i rad (`:226-231`) | ✔ gnistorna har bara tyngd → luft och vind (P5) | ✔ gnistor och rök i vinden | 1 |
+| hamburgerbygget | B — frontalt platt kök, ikonremsa | Medel — önskan ur samma set | stapeln spikrak (`:888-896`) → svajar (P2), välter aldrig; ketchup som `Rep` (köad) | stapeln svajar vid landning · burgargalleri (köad) | 2 |
+| kittla-figuren | C — tonade roundRects på godisplatta | Medel — samma rigg omfärgad | kroppen som `Mjukkropp` (`rundadRektForm`): kittlingen blir en buckla som gungar ut; zonerna står still | accessoar per runda (köad) | 1 |
+| klambubblor | B — platt blå gradient | Medel — alltid hexrutnät (`:181-183`) | pärlorna ritas om (`:502`) → hög (P3) | ✔ stöt mellan bubblorna · efterklang (köad) | 2 |
+| lagerelden | B — platta figurer, bålet en partikelklump | Medel — sorten ur `level % 4` (`:347`) | (`Mjukkropp`, `Varmefalt`); ved som rullar in kräver en ny motor | sorten slumpas per order (U2) | 3 |
+| loopdjuren | C — pastellpaneler, djuren bara huvuden | Låg — samma block, djur och scen | ingen — tiden är mekaniken (öronen: P2) | scenfärg per nivå | 3 |
+| mata-munnen | A | Hög | djupast redan; kvar: matter ↔ `Mjukkropp` (kastrullen trycker geggan) | inga | 3 |
+| pizzabageriet | B — platt kakelvägg, ugnen en ruta | Medel — bara räknaren sparas (`:1091`) | ingen — fri placering i toppvy är poängen | pizzabok · sås- och ostval (köade) | 3 |
+| pruttbad | B — Zacke en grå klump under ytan | Medel — badsort och leksak per nivå (`:459`, `:878`) | ✔ ankan läser inte `_waveAt` → F5 inne i spelet | ✔ ankan rider på vågen | 2 |
+| regnbagsmalaren | C — grå gradient, platta kullar | Låg — identisk från nivå 3 | ingen; man och svans som `Rep` (köad) | ✔ lotta varianterna (U2) | 1 |
+| roliga-snurran | B — tom rosa platta | Medel — hyllan tar 8, sedan inget nytt | mynten faller ur bild → hög (P3, köad) | regnbågssymbol (köad) | 3 |
+| sapbubblor | B — platt Bobo och mark | Medel — ringens x ur fast lista (`:431-434`) | puffarna = regionalt vindfält (F4) | svag vind från nivå 1 (köad) | 3 |
+| tarta-i-ansiktet | C — krämplatta mellan ridåer | Medel — samma clown och scen | tredje egna släppfarten (`:50`) → G2; `STEER` (`:46`) avgör landningen | blank strimma (köad) | 2 |
+| titt-ut-pappa | A | Medel — alltid samma rum | taklampan som pendel (sluten form, B3); gardinen som `Rep` | lampan gungar som ledtråd (idé i doc §4) | 3 |
+| tryck-och-forvandla | C — figurer på rosa plattor | Medel | liten: raketen flyger ballistiskt | figurer på mark | 2 |
+| unika-knytt | A | Hög | ✔ kupan som snöglob: kornen kastas upp och sjunker (P5); vattenvärlden skvalpar (F5) | glastrycket kastar upp kornen | 3 |
+| vakna-pappa | A | Medel — sömnstegen likadant varje gång | krydda: ballongen i sitt snöre (`Rep`) | "ett öga"-effekten (köad) | 3 |
+| zackes-biltvatt | B — bilen platta former, grå hall | Medel — sex fordon | (`Rep`, SPH); bilen står stel efter intåget (`:899`) | karossen gungar på fjädrarna (P2) | 2 |
+| fanga-frukten | B — tom himmel, trädet utan volym | Medel — samma scen och korg | frukten förstörs (`:744`) → ligger kvar (P3 + R2); gungar i skaftet (F1) | inga nya | 2 |
+| poppa-ballonger | B — ingen fond | Medel — antal och fart ur nivån (`:311-312`) | snörena som `Rep` (`:427-430`); **pysballong** (`Motstandsvolym`) | pysballong som ny typ | 1 |
+| klappa-mullvaden | B — platt gräs, platta hål | Medel — alltid `meadow` (`:125`) | ingen — tajmad tap är kärnan | bakgrund per nivå (köad) | 3 |
+| valpens-bajs | B — stor tom gräsmatta | Låg — samma park (`:1200`) | kast ur skyffeln (G2, bonus); högen som `Mjukkropp` | inga nya | 2 |
+| tvatta-djuret | B — tom fond | Medel — djuret ur nivån till nivå 5 (`:365-367`) | badsaken svarar på duschen (F5) | gnuggskummet egen ton (köad) | 3 |
+
+#### Pussel, Lära, Minne och fem dra-spel
+
+| Spel | Bild | Omspelning | Fysik | Enkla vinster | Prio |
+|---|---|---|---|---|---|
+| enkelt-pussel | C — krämplatta, ingen värld | Medel — ✔ motiven i fast ordning (`:386`) | ingen | ✔ slumpad motivordning · reaktion per bit (köad) | 2 |
+| passa-formerna | B — formerna svävar utan yta | Medel — `ANTAL` 6 av 7 (`:54`) | formerna tumlar ur lådan i finalen; landa (P4) | fel form fastnar och puttas ut · fjäril (köade) | 3 |
+| glittergrottan | C — platt lila grotta | Medel — reglerna i fast ordning (`:306`) | ingen | inga nya (shadern parkerad av ägaren) | 3 |
+| golvet-ar-lava | B — platta klippblock | Medel — fasta layouter nivå 0–5 | stenarna dyker och gungar vid landning (P2) | barnets egen figur hoppar | 2 |
+| kugghjulen | C — pegboard-platta, tom yta | Medel — nivå 1–8 fasta | svänghjulströghet (F10, G8) | verkstaden vaknar · målbelöningar (köade) | 3 |
+| kulbana | B — delarna på krämpanel | Medel — bana 1–5 fasta | vippa och dominobit som bandelar (F1) | fåglar · "Hoppsan, hem igen!" · hyllan (köade) | 3 |
+| skattjakt-i-morkret | B — skatterna gråa cirklar | Medel — ett rum, 3 nivåer | ingen | nattfjäril som sällsynt gäst (köad) | 3 |
+| skuggmatchning | B — bara huvuden, ängsmall | Hög — 44 föremål | ingen | inga nya | 3 |
+| stor-liten | C — saker svävar i himlen, text i bild (`:232`) | Medel — samma uppgift | sakerna landar efter storlek (P4) | sakerna på marken | 2 |
+| trollblandning | C — ✔ ikoner i färgring, platt kittel, 🧪-final | Låg — 9 nåbara mål (`:279`) | överkokningen som riktig vätska (spelets FluidWorld) | ✔ ringen bort | 2 |
+| vattenvagen | B — omotiverade bubblor i fonden | Hög — genererade banor | vattenhjul som snurrar av strålen (F6a) | ventilen (köad, G8) | 3 |
+| ballonglyft | C — ängsmall, sifferruta | Medel — samma handling | ✔ snörena raka streck → `Rep` med slak | Elvira får idle-liv · balkongen höjs mjukt (köad) | 2 |
+| blixt-och-dunder | B — platta hus och mark | Medel — fasta byar nivå 0–5 | kasta molnet (G2); moln som `Mjukkropp` (G4) | ✔ behåll släppfarten | 2 |
+| fargregn | B — platta träd och mark | Hög | pölarna slår upp vågor (F5) | inga nya | 3 |
+| rakna-applen | C — platt trädklump, tom äng | Låg — ✔ målet 2, 3, 4, 5 (`:369`) | frukten faller och lägger sig i en synlig hög (P3) | ✔ slumpat målantal · subitisering (köad) | 1 |
+| siffertaget | B — vagnarna kort med siffra | Låg — alltid 1..N, fast last (`:29`) | kopplen sträcks ett i taget vid avgång (P2) | köat (märkt "TTS nere", §5.6) | 2 |
+| djurorkester | A | Medel — konsert 1 alltid samma sex (`:52`) | ingen | tack-melodin varieras (köad) | 3 |
+| kla-efter-vadret | B — stel lådformad Elvira | Medel — 4 väder | klädstrecket som `Rep` (`rum.js:93-95`); blåsigt väder (F4) | variera figuren (köad, "TTS nere") | 2 |
+| peka-pa-kroppen | B — tom mitt, fråga i pratbubbla | Medel — påse med ~9 delar | ingen (valfritt: magen dallrar) | svans- och öronfrågor (köad, "TTS nere") | 3 |
+| vilket-djur-later | C — halva bilden platt grön yta | Medel — 12 djur | ingen | örat överlappar träffytan (köad) | 3 |
+| folj-sparet | A | Medel — linjär ordning nivå 0–2 (`:349`) | ingen | glöd efter fotspåren (köad) | 3 |
+| harma-melodin | B — ängsmall | Medel — 4 plattor, `MAX_LEN` 6 (`:37`) | ingen | klangfärg per varelse · tempo (köade) | 3 |
+| vad-forsvann | B — små saker, platt "?"-skiva | Medel — uteslutningen löser nivå 2+ (`:582`) | filten som tyg (2D-rutnät, kandidat) | lockbete utifrån (köad) · ⚠️ "vad är NYTT?" redan byggt | 2 |
+| vandkort | C — ängsmall och fyra blå kort | Hög — 5 set | ingen | inga nya | 3 |
+| vart-tog-det-vagen | B — platta koppar, tomt bord | Hög — `planMoves` | ingen — slump gör blandningen omöjlig att följa | puls på hyllan · full hylla (köade) | 3 |
+| kla-pa-nallen | C — ängsmall, platt nalle, platta plagg | Medel — 5 outfits | halsduk och rosett som korta `Rep` | nallen följer plagget med blicken | 2 |
+| plantera-fron | C — platt himmel och jord, emoji-blomma (Ä12) | Låg — högst 3 hål (`:203`), `custom.flowers` visas aldrig (`:817`) | vattenstrålen som FluidWorld; stjälken som `Rep` | rabatten av sparade blommor (köad) | 2 |
+| sortera-skrap | C — ✔ saker i skivor i himlen (`:875`) | Medel — round-robin (`:386-394`) | högen sätter sig; fall per material (papper `Motstandsvolym`) | ✔ skivan bort, högen på marken | 1 |
+| spara-linjen | C — pappersskiva på krämplatta | Medel — fast plan 18 steg | ingen | bakgrund efter motivet (köad) | 2 |
+| spindelnatet | C — tom natthimmel, små byten | Medel — samma byten | bytet tweenas in (`:475`) → G1; nätet buktar (kandidat) | inga nya | 2 |
+
+---
+
+## 6. Logg
 
 - **2026-10-01** · Planen skriven (läsning + åtta Node-mätningar i scratchpad, ingen webbläsare,
   inga ändringar under `src/`). Tre fynd som inte stod någonstans förut: kraftfält och
   mjukkroppar som beror på bildtakten (§1.3.3), `pointercancel` som Pixi aldrig mappar (K1), och
   att appens 60 fps-tak tillsammans med vsync-stämplar simulerat ger skurar av noll- och
   dubbelsteg (T4/T5). Inget av det är uppmätt på en riktig platta än — M3 och M5 avgör.
+- **2026-10-01** · Ägaren besvarade Ä1–Ä10 (§4). Nio följer förslaget. Ä1: både iPad och
+  Android, utan modeller, så M5 behövs fortfarande för att få talen. Omgång 1–4 är fria att
+  bygga; omgång 5 väntar på en beställning.
+- **2026-10-01** · Spelgenomgången (§5) på ägarens begäran, innan omgång 1: 86 spel granskade av
+  tre läsande granskare (doc + kod + skärmdump, ingen webbläsare), 21 påståenden stickprovade
+  mot koden — alla höll. Resultat: tre nya spår i §2 (**P** fysik in i spelen, **U** omspelning,
+  **L** bild), 29 enkla vinster (§5.4), nya kunder i F1/R2/F3/F4/F5/F6/G1/G2/G8, omgång 0 och 1b
+  i §3, och två nya ägarfrågor (Ä11 ordningen, Ä12 plantera-frons emoji-blomma). Största
+  fynden: tre kärnmekaniker är skriptade fast ett mätt verktyg finns (studsmattans studs,
+  flipperspelets paddlar, byggtornets låsta klossar), och `meadow`-presetens släta kupoler är
+  bildtaket för 24 spel.

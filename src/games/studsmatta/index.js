@@ -21,6 +21,7 @@ import { makeKaraktar } from '../../lib/karaktarer.js'
 import { figurForOmgang, arEgen, presentera } from '../../lib/egnafigurer.js'
 import { COLORS } from '../../lib/theme.js'
 import { bage } from '../../lib/form.js'
+import { slumpIBand } from '../../lib/variation.js'
 
 const { Body } = Matter
 
@@ -497,13 +498,17 @@ export default {
     const n = clamp(2 + level, 2, 5)
     // Toppen sjunker (högre upp) med nivån; aldrig högre än kaninen säkert når.
     const top = Math.max(210, 460 - level * 55)
-    const jit = level >= 4 ? () => (Math.random() * 50 - 25) : () => 0
+    // U2: jitter från nivå 0 (förut först från nivå 4). ±14 px de första nivåerna — lagom litet så
+    // att målen inte hoppar ur kaninens räckvidd — och de gamla ±25 från nivå 4. Bandet klipps
+    // mot golv/tak FÖRE dragningen, så inga mål samlas på kanten.
+    const amp = level >= 4 ? 25 : 14
+    const jit = (mitt, golv, tak) => slumpIBand(mitt, amp, { golv, tak })
     const guldIdx = Math.random() < GULD_CHANS ? Math.floor(Math.random() * n) : -1
     for (let i = 0; i < n; i++) {
       const f = n === 1 ? 0.5 : i / (n - 1)
-      const x = clamp(380 + f * 520 + jit(), 360, 920)
+      const x = jit(clamp(380 + f * 520, 360, 920), 360, 920)
       // Varannan högt (top), varannan mitt — tvingar barnet att variera höjden.
-      const y = clamp((i % 2 === 0 ? top : Math.min(460, top + 150)) + jit(), 200, 470)
+      const y = jit(i % 2 === 0 ? top : Math.min(460, top + 150), 200, 470)
       const kind = i === guldIdx ? 'guld' : Math.random() < 0.5 ? 'star' : 'carrot'
       this._addGoal(x, y, kind)
     }

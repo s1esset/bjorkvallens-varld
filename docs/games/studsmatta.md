@@ -136,3 +136,4 @@ Kort sagt: *en riktigt fin kontroll som spelet både motarbetar (centrering) och
   - Exit-säkert: `_boboIdle`, flyg-tweens (`_flyTweens`) och skal-tweens dödas i `destroy`.
 - 2026-08-09: **LYFTPLAN rad 3 / A2** (v1.47–48.0, `62b91db` + `bce776d`): stjärnorna ritas av delade `makeStjarna` (`lib/foremal.js`).
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
+- 2026-10-02 · **U2 jitter från nivå 0 (FYSIKPLAN omgång 0).** Målens läge slumpas via `slumpIBand` redan på nivå 0–3 (±14 px, lagom litet) och ±25 från nivå 4 som förut; bandet klipps mot golv/tak (x 360–920, y 200–470) FÖRE dragningen så inga mål samlas på kanten. Förut stod nivå 0–3 på en exakt rad. Studsen (P1) och mattan (R2) orörda.

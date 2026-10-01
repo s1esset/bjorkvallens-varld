@@ -17,7 +17,8 @@ import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, sparkle, burst, floatText, shake, breathe } from '../../lib/feedback.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
-import { randomFrom } from '../../lib/swedish.js'
+import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { valjEgna, byggEgenFigur } from '../../lib/egnafigurer.js'
 
 // Himmel-band (molnens yta) — molnen klampas hit.
 // Molnbandet börjar under mätaren (y 95..129) — dekorativa moln drev tidigare in
@@ -74,6 +75,8 @@ export default {
     this._litCount = 0
     this._rainbowTws = []
     this._rainbowBands = []
+    this._egna = [] // barnets figurer i husdörrarna: { fig, house }
+    this._bygge = 0
 
     this._root = new Container()
     ctx.stage.addChild(this._root)
@@ -179,6 +182,24 @@ export default {
       bounceIn(lamp.container, { delay: 0.05 * i })
     })
 
+    // Barnets egna figurer sover i husdörrarna (LYFTPLAN §10, Spår F) och vaknar när huset
+    // väcks av sin lampa. En per by, två i de större byarna; huset slumpas. `valjEgna` anropas
+    // EN gång per by (anropet räknar takten) — utan egna figurer är byn exakt som förut.
+    this._bygge++
+    this._egnaSagt = false
+    const egna = valjEgna(ctx.services, 'blixt-och-dunder', { antal: this._houses.length >= 3 ? 2 : 1 })
+    const husOrdning = shuffle(this._houses.map((_, i) => i))
+    egna.forEach((beskr, k) => {
+      const house = this._houses[husOrdning[k]]
+      if (!house) return
+      const fig = byggEgenFigur(ctx, beskr, { hojd: 92, maxBredd: 100 })
+      fig.view.position.set(house._wx, BASE_Y + 4)
+      house.addChild(fig.view)
+      if (fig.kan.sova) fig.setMood('sover') // ett knytt sover; en kompis står och väntar i mörkret
+      house._egen = fig
+      this._egna.push({ fig, house })
+    })
+
     // Mätare: en liten ritad lykta per lampa, grå tills lampan tänds.
     this._buildMeter(ctx, lay.lampXs.length)
 
@@ -246,6 +267,8 @@ export default {
       }
     }
     this._houses = []
+    // Barnets figurer FÖRE husen: de tickar på ctx.ticker och har noder en nivå in.
+    this._rivEgna()
     if (this._village) for (const c of [...this._village.children]) c.destroy({ children: true })
     // Moln (avregistrera lyssnare + döda tweens innan destroy).
     for (const c of this._clouds) this._teardownCloud(c)
@@ -328,6 +351,11 @@ export default {
     c.on('pointerup', c._upHandler)
     c.on('pointerupoutside', c._upHandler)
     return c
+  },
+
+  _rivEgna() {
+    for (const e of this._egna || []) e.fig.destroy()
+    this._egna = []
   },
 
   _teardownCloud(c) {
@@ -507,6 +535,13 @@ export default {
         cloud._glow.alpha = cloud.charge >= 1 ? 0.5 + 0.12 * Math.sin(this._t * 6) : cloud.charge * 0.6
       }
       if (cloud._zap && !cloud._zap.destroyed) cloud._zap.alpha = cloud.charge
+    }
+
+    // De vakna figurerna i dörrarna tittar på molnet barnet håller i (annars det första).
+    // Föräldern är husets container i origo, alltså samma rum som molnen.
+    const blick = this._activeCloud || this._clouds[0]
+    if (blick && !blick.destroyed) {
+      for (const { fig, house } of this._egna) if (house._awake && fig._alive) fig.look(blick.x, blick.y)
     }
 
     // Röken ur skorstenarna på de hus som vaknat. Puffarna återanvänds — bara
@@ -724,7 +759,7 @@ export default {
     }
 
     // Huset under lampan vaknar — tändningen blir en händelse i byn, inte en tint.
-    this._wakeHouse(this._houses[lamp.index])
+    this._wakeHouse(this._houses[lamp.index], ctx)
     this._lightRainbow(ctx)
 
     ctx.services.audio.sfx('correct')
@@ -738,9 +773,10 @@ export default {
   // Huset vaknar: rutan blir varm, ljuset syns på väggen, kvällstonen släpper och
   // röken börjar stiga. Alfa-tweens går på en {}-proxy (exit-säkert), skalan via den
   // delade `pop()` — rutan har egen origo, så den skalar kring sig själv.
-  _wakeHouse(house) {
+  _wakeHouse(house, ctx) {
     if (!house || house.destroyed || house._awake) return
     house._awake = true
+    this._vackFigur(house, ctx)
 
     const win = house._win
     if (win && !win.destroyed) {
@@ -771,6 +807,35 @@ export default {
     })
     house._wakeTw = tw
     if (house._smoke && !house._smoke.destroyed) house._smoke.visible = true
+  },
+
+  // Barnets figur i husets dörr vaknar när huset gör det: knyttet vaknar ur sömnen och skuttar
+  // av glädje, en kompis vinkar och jublar. Jublet dröjer en stund så det inte krockar med
+  // tändningens ljud. Raden om figuren köar efter lamprösten (räkningen "En lampa!" är
+  // spelets lärande och får inte kapas) och sägs bara en gång per by.
+  _vackFigur(house, ctx) {
+    const fig = house._egen
+    if (!fig || !fig._alive) return
+    const bygge = this._bygge
+    fig.setMood('glad') // väcker ett sovande knytt
+    fig.react('hoppsan')
+    ctx.later(0.5, () => {
+      if (this._alive && this._bygge === bygge && fig._alive) fig.react(fig.typ === 'kompis' ? 'hej' : 'jubel')
+    })
+    if (this._egnaSagt) return
+    this._egnaSagt = true
+    const voice = ctx.services.voice
+    ctx.narTyst(() => {
+      if (!this._alive || this._bygge !== bygge || !fig._alive) return
+      if (fig.typ === 'kompis') voice.say('Titta, din kompis är vaken!')
+      else if (fig.mott) voice.say('Titta, ett knytt vaknade!')
+      else voice.say('Titta, ditt knytt vaknade!')
+    })
+    if (fig.ny && fig.namn) {
+      ctx.narTyst(() => {
+        if (this._alive && this._bygge === bygge && fig._alive) voice.say(fig.namn)
+      })
+    }
   },
 
   // ---- Auto-hjälp (garanterad framgång) -----------------------------------
@@ -828,6 +893,12 @@ export default {
     })
     ctx.services.voice.say('Hela byn lyser nu!')
     this._kar?.react('jubel') // hela byn lyser — det här är kvällens stora ögonblick
+    const bygge = this._bygge
+    this._egna.forEach(({ fig }, i) => {
+      ctx.later(0.3 + 0.25 * i, () => {
+        if (this._alive && this._bygge === bygge && fig._alive) fig.react('jubel')
+      })
+    })
 
     this._level += 1
     ctx.progress.setLevel(this._level)
@@ -988,6 +1059,7 @@ export default {
       }
     }
     this._houses = []
+    this._rivEgna()
     for (const m of this._meterIcons) if (m && !m.destroyed) gsap.killTweensOf(m.scale)
     if (this._bobo && !this._bobo.destroyed) gsap.killTweensOf(this._bobo.scale)
     this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
@@ -1086,6 +1158,7 @@ function makeHouse(cx, baseY, i) {
   c._glow = glow
   c._smoke = smoke
   c._awake = false
+  c._wx = cx // husets mittlinje (eget prefix: `_cx` är Pixis egen transform-cache)
   return c
 }
 

@@ -162,3 +162,5 @@ livlös rekvisita.
      den i fläktens egen blå.
   `_idleprobe` ger 1 framsteg i 2 av 3 körningar — **oförändrat mot HEAD** (2 av 3): det är
   hjälp-släppets egen pinnslump, inte fläkten.
+
+- **2026-10-02 · T2: fläktens kraft per fysiksteg via phys.beforeStep — 57 fps-fysiken blir 60 Hz-fysik.** `_fanForce` registreras en gång i `init` där `_phys` skapas (`_avFlakt`, avregistreras i `destroy`) i stället för att anropas per bildruta före `phys.update`. Före/efter-ordningen mot steget är oförändrad. Per bildruta låg kraften på ett steg → halv verkan vid 30 Hz; nu ges den varje steg.

@@ -143,6 +143,8 @@ export default {
     // ingen konstig/förstärkt tyngdkraft, myntet faller naturligt.
     this._phys = new PhysicsWorld({ gravityY: 1.0, walls: ['floor', 'left', 'right'] })
     this._unbind = this._phys.onCollision((e) => this._onCollision(ctx, e))
+    // Fläktens kraft läggs per FAST fysiksteg (T2) — avregistreras i destroy.
+    this._avFlakt = this._phys.beforeStep(() => this._fanForce())
 
     this._buildStatic(ctx)
 
@@ -839,8 +841,7 @@ export default {
 
   _update(ctx, t) {
     if (!this._alive) return
-    // Fläktens kraft läggs på FÖRE motorsteget (matter nollställer krafter i sitt steg).
-    this._fanForce(t.deltaMS)
+    // Fläktens kraft ligger i phys.beforeStep (_fanForce) — en gång per fysiksteg, inte per bildruta.
     this._phys.update(t.deltaMS)
     this._fanDraw(t.deltaMS)
 
@@ -1069,6 +1070,8 @@ export default {
     this._alive = false
     ctx?.ticker?.remove(this._tick)
     this._unbind?.()
+    this._avFlakt?.()
+    this._avFlakt = null
     this._demoTimer?.kill()
     this._levelTimer?.kill()
     this._announceTimer?.kill()

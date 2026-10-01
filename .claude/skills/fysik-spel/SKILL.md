@@ -255,3 +255,15 @@ vid `GY` och har därför en exakt förhandsvisning per konstruktion.
   placering faktiskt avgör. Skicklighet ska kännas, aldrig krävas.
 - Bygg-/släpp-spel: låt fysiken vara ärlig (riktiga kedjereaktioner, naturliga stopp) i stället
   för scriptade utfall — det är där agenskänslan sitter.
+
+## Luft och vind på partiklar (`lib/partiklar.js`)
+
+- `new Emitter(lager, { gravity, luft: k, vind: w })` — `luft` = linjärt motstånd (1/s),
+  `vind` = lufthastighet i sidled (px/s). `dv/dt = −k·(v − w) + g`, så sluthastigheten blir
+  **w sidled och g/k nedåt**: gnistor och rök hänger och driver i stället för att falla.
+- Banan är fortfarande SLUTEN (`luftbana(x0, v0, w, k, g, t)` är exporterad) — samma kostnad per
+  partikel som förr. Utan `luft` (default 0) är banan bit för bit den gamla, och `vind` utan
+  `luft` gör ingenting. `luft`/`vind` fastnar vid födseln (ändra dem → nästa partikel).
+- Luften bromsar utspridningen (på 0,9 s ≈ hälften av sträckan vid k 1,6): höj starthastigheten
+  med `t/E(t)` om smällen ska vara lika stor — linjär luft skalar hela formen lika, så en ring
+  eller ett hjärta behåller formen (`fyrverkeri` `LUFT_FART`). Mät med `node scripts/_partikelvind.mjs`.

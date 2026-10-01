@@ -403,11 +403,32 @@ const _emitterDefaults = {
   angle: -Math.PI / 2, // uppåt
   spread: 0.6,
   gravity: 0, // px/s² — NEGATIV betyder att partikeln stiger (rök, lågtungor)
+  luft: 0, // linjärt luftmotstånd k (1/s): dv/dt = −k·(v − vind) + gravity. 0 = ingen luft (dagens bana)
+  vind: 0, // lufthastighet w (px/s, vågrätt). Verkar BARA tillsammans med `luft` > 0
   spin: 0,
   life: 0.9,
   lifeVar: 0.3,
   alpha: 1,
   fadeIn: 0.15, // andel av livet som tänder upp. 0 = full styrka direkt (gnistor)
+}
+
+// Luftbana längs EN axel, sluten form — samma kostnad per partikel som utan luft.
+// dv/dt = −k·(v − w) + g  ⇒  sluthastighet w + g/k, och
+//   x(t) = x0 + w·t + (v0 − w)·E + g·(t − E)/k,   E = (1 − e^(−k·t))/k
+// k ≤ 0 ger EXAKT den gamla banan x0 + v0·t + ½·g·t² (ingen luft, vinden har inget att
+// ta tag i). Nära k·t → 0 divideras små tal med små tal, så där används serien i stället.
+export function luftbana(x0, v0, w, k, g, t) {
+  if (!(k > 0)) return x0 + v0 * t + 0.5 * g * t * t
+  const a = k * t
+  let E, R // E = (1 − e^−a)/k, R = (t − E)/k
+  if (a < 1e-3) {
+    E = t * (1 - a / 2 + (a * a) / 6 - (a * a * a) / 24)
+    R = t * t * (0.5 - a / 6 + (a * a) / 24 - (a * a * a) / 120)
+  } else {
+    E = (1 - Math.exp(-a)) / k
+    R = (t - E) / k
+  }
+  return x0 + w * t + (v0 - w) * E + g * R
 }
 
 export class Emitter {
@@ -417,7 +438,7 @@ export class Emitter {
     this.x = this.o.x
     this.y = this.o.y
     this.rate = this.o.rate
-    this._parts = [] // {p, fodd, liv, x0, y0, vx, vy, s0, rot0, spin, dod}
+    this._parts = [] // {p, fodd, liv, x0, y0, vx, vy, k, w, s0, rot0, spin, dod}
     this._nu = 0
     this._rest = 0
     this._on = o.pa !== false
@@ -529,6 +550,8 @@ export class Emitter {
     rec.vx = Math.cos(a) * v
     rec.vy = Math.sin(a) * v
     rec.s0 = s0
+    rec.k = o.luft // luft och vind fastnar vid födseln: ändras de mitt i flykten gäller det nästa partikel
+    rec.w = o.vind
     rec.rot0 = rot0
     rec.spin = o.spin ? (Math.random() * 2 - 1) * o.spin : 0
   }
@@ -566,8 +589,13 @@ export class Emitter {
       }
       nagonLever = true
       const u = age / r.liv
-      r.p.x = r.x0 + r.vx * age
-      r.p.y = r.y0 + r.vy * age + 0.5 * o.gravity * age * age
+      if (r.k > 0) {
+        r.p.x = luftbana(r.x0, r.vx, r.w, r.k, 0, age)
+        r.p.y = luftbana(r.y0, r.vy, 0, r.k, o.gravity, age)
+      } else {
+        r.p.x = r.x0 + r.vx * age
+        r.p.y = r.y0 + r.vy * age + 0.5 * o.gravity * age * age
+      }
       const s = r.s0 * (1 + (o.sizeTo - 1) * u)
       r.p.scaleX = s
       r.p.scaleY = s

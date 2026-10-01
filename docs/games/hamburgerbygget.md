@@ -123,6 +123,17 @@ Originaltexten för de avbockade punkterna står kvar nedan.
 
 ## 5. Status / loggar
 
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Premissen "grillmästaren äter" höll, men en
+  hel kund-kö hade gjort om loopen — byggt det minsta: serveringsluckan har EN gäst åt gången.
+  Varje omgång frågar `valjEgna` (en gång, i init och `_reset`); när takten säger det (nyskapat först,
+  sedan varannan, mötta knytt med) står barnets knytt/kompis i luckan i stället för Bobo (Bobo dyker
+  ner/poppar tillbaka), annars Bobo som förut. Gästen normaliseras till 214 px (max 196 bred, luckans
+  innerbredd är 208), fötterna på bänkskivan (y 556). Burgaren flyger till gästens MUN (`matt.mun`),
+  `react('nam')`, och är beställningen uppfylld jublar den efter 1,5 s (knyttets gapa–tugga–rapa är
+  1,4 s). Blicken följer burgaren/draget. Gästen poppar ihop (0,28 s) när nästa omgång börjar.
+  Röst: tre varianter per beställningsrad (knytt/kompis/mött — ett mött knytt är aldrig "ditt"),
+  och en ny figur presenteras (`presentera`) före beställningen. Sond: `_egnakund hamburgerbygget`
+  K0/M1/E1/E2/N1/N2/X gröna (N1/N2/E1 med `--trigger` som serverar visar `nam` mitt i).
 - 2026-09-23 ✅ **Dubbelfirandet + snabbvinstsvepet** (v1.251.0): **Rösten kapades i tre led.**
   Grillrepliken (2,8 s) sägs vid avtagningen, Bobos tack kom på en fast 0,6 s-tween och kapade
   den, och nästa rundas beställning kom på en fast 2,6 s och kapade tacket. Nu köar tacket

@@ -19,6 +19,7 @@ import { Button } from '../../lib/Button.js'
 import { BAKE_SECONDS, makeBakeTint, toneSpeech, buildToneMeter } from '../../lib/cooking.js'
 import { bounceIn, pop, wiggle, sparkle, puff, floatText, liv } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { BLEED_X, BLEED_Y } from '../../lib/view.js'
@@ -68,6 +69,15 @@ const ORDER_CUES = [
   'Titta vad Bobo vill ha i sin burgare!',
 ]
 const SERVE_CHEERS = ['Mums, tack!', 'Så god burgare!', 'Jättegott!']
+
+// En gäst i serveringsluckan (barnets eget knytt/kompis, eller ett mött knytt): står där Bobo
+// annars står. Beställningsraderna finns i tre varianter — ett mött knytt är aldrig "ditt".
+const GAST = { hojd: 214, maxBredd: 196, fot: 556 } // fötterna på bänkskivan, inne i luckan
+const GAST_CUES = {
+  knytt: ['Ditt knytt är hungrigt! Det önskar sig något särskilt.', 'Titta vad ditt knytt vill ha i sin burgare!'],
+  kompis: ['Din kompis är hungrig! Den önskar sig något särskilt.', 'Titta vad din kompis vill ha i sin burgare!'],
+  mott: ['Ett knytt är hungrigt! Det önskar sig något särskilt.', 'Titta vad knyttet vill ha i sin burgare!'],
+}
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -158,12 +168,21 @@ export default {
     this._root.addChild(this._customer)
     this._rig?.setMood('hungrig', { direkt: true }) // han väntar på sin burgare
 
+    // Gästerna (barnets egna figurer) bor i ett eget lager mellan Bobo och önskebubblan.
+    this._gasteLager = new Container()
+    this._gasteLager.eventMode = 'none'
+    this._gasteLager.interactiveChildren = false
+    this._root.addChild(this._gasteLager)
+    this._gast = null
+    this._lamnar = []
+
     // Bobos önskelista: pratbubbla med 1–2 ritade ingredienser han vill ha. Frivillig.
     this._orderBubble = new Container()
     this._orderBubble.position.set(ORDER.x, ORDER.y)
     this._orderBubble.eventMode = 'none'
     this._root.addChild(this._orderBubble)
     this._newOrder()
+    this._bytGast(ctx, true)
 
     // Ingrediens-bräda nederst (svepbar hylla).
     this._buildPalette(ctx)
@@ -386,6 +405,69 @@ export default {
       bounceIn(v, { delay: 0.1 + i * 0.08 })
     })
     b.scale.set(1)
+  },
+
+  // Gästen för den här omgången (LYFTPLAN §10, Spår F): barnets eget knytt/kompis (eller ett mött
+  // knytt) står i serveringsluckan i stället för Bobo när takten säger det — annars Bobo som förut.
+  // Gästen äter burgaren, jublar och går sin väg när nästa omgång börjar. Anropas EN gång per omgång.
+  _bytGast(ctx, forsta = false) {
+    const gammal = this._gast
+    this._gast = null
+    if (gammal) this._gastGar(ctx, gammal)
+    const [beskr] = valjEgna(ctx.services, 'hamburgerbygget', { antal: 1 })
+    const bobo = this._customer
+    if (!beskr) {
+      // Bobo tillbaka i luckan, om en gäst stått där.
+      if (bobo && !bobo.destroyed && !bobo.visible) {
+        ctx.later(0.3, () => {
+          if (!this._alive || this._gast || bobo.destroyed) return
+          bobo.visible = true
+          bounceIn(bobo)
+        })
+      }
+      return
+    }
+    const fig = byggEgenFigur(ctx, beskr, { hojd: GAST.hojd, maxBredd: GAST.maxBredd })
+    const h = new Container()
+    h.position.set(BOBO.x, GAST.fot)
+    h.addChild(fig.view)
+    h.visible = false
+    this._gasteLager.addChild(h)
+    const g = { fig, h }
+    this._gast = g
+    const visa = () => {
+      if (!this._alive || this._gast !== g || h.destroyed) return
+      if (bobo && !bobo.destroyed) bobo.visible = false
+      h.visible = true
+      bounceIn(h)
+      fig.setMood('hungrig')
+      presentera(ctx, fig, {
+        knytt: 'Titta, ditt knytt kom förbi!',
+        kompis: 'Titta, din kompis kom förbi!',
+      })
+    }
+    if (forsta) visa()
+    else ctx.later(0.3, visa)
+  },
+
+  // En gäst som lämnar luckan: poppar ihop och städas efter 0,32 s (eller av destroy()).
+  _gastGar(ctx, g) {
+    this._lamnar.push(g)
+    if (!g.h.destroyed) gsap.to(g.h.scale, { x: 0.01, y: 0.01, duration: 0.28, ease: 'back.in(2)' })
+    ctx.later(0.32, () => this._stadaGast(g))
+  },
+
+  _stadaGast(g) {
+    const i = this._lamnar.indexOf(g)
+    if (i >= 0) this._lamnar.splice(i, 1)
+    if (g.h && !g.h.destroyed) {
+      g.h._fxPopTl?.kill()
+      g.h._fxSquashTl?.kill()
+      gsap.killTweensOf(g.h)
+      gsap.killTweensOf(g.h.scale)
+    }
+    g.fig?.destroy()
+    if (g.h && !g.h.destroyed) g.h.destroy({ children: true })
   },
 
   _orderFilled() {
@@ -931,6 +1013,11 @@ export default {
         const p = this._customer.toLocal(mal.getGlobalPosition())
         this._rig.look(p.x, p.y)
       }
+      const gast = this._gast
+      if (gast && mal && !mal.destroyed && !gast.h.destroyed) {
+        const p = gast.h.toLocal(mal.getGlobalPosition())
+        gast.fig.look(p.x, p.y)
+      }
     }
     if (this._orderBubble && !this._orderBubble.destroyed) {
       this._orderBubble.y = ORDER.y + Math.sin(this._bob * 1.7 + 0.7) * 3
@@ -1048,14 +1135,18 @@ export default {
 
   // Burgaren flyger till Bobo som mumsar — mottagaren för det man byggt.
   _serveToCustomer(ctx, tone, filled) {
-    const c = this._customer
+    // Står en gäst i luckan tar den emot burgaren (munnen är målet), annars Bobo.
+    const g = this._gast && !this._gast.h.destroyed ? this._gast : null
+    const c = g ? g.h : this._customer
     if (!c || c.destroyed) return
+    const mx = c.x
+    const my = g ? c.y + g.fig.matt.mun.y : c.y - 10
     const item = this._makeMiniBurger(tone)
     item.position.set(BUILD.x, BUILD.y - 120)
     this._root.addChild(item)
     const st = { x: BUILD.x, y: BUILD.y - 120, s: 1 }
     this._serveTween = gsap.to(st, {
-      x: c.x, y: c.y - 10, s: 0.7, duration: 0.6, ease: 'power2.in',
+      x: mx, y: my, s: 0.7, duration: 0.6, ease: 'power2.in',
       onUpdate: () => {
         if (item.destroyed) { this._serveTween?.kill(); return }
         item.position.set(st.x, st.y)
@@ -1066,11 +1157,20 @@ export default {
         if (this._alive && c && !c.destroyed) {
           // Han tuggar i sig den ('nam'), och blir extra stolt om det var precis
           // det han önskade sig. Skalpulsen ligger på den YTTRE containern `c`.
-          this._rig?.react('nam')
-          if (filled) this._rig?.setMood('stolt')
-          pop(c, { scale: 1.2 })
-          puff(ctx.fxLayer, c.x, c.y - 10, { count: 8 })
-          floatText(ctx.fxLayer, c.x, c.y - 92, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 42 })
+          if (g) {
+            g.fig.react('nam')
+            if (filled) {
+              g.fig.setMood('glad')
+              // Efter tuggandet (knyttets nam är gapa–tugga–rapa, 1,4 s) jublar gästen.
+              ctx.later(1.5, () => { if (this._alive && g.fig._alive) g.fig.react('jubel') })
+            }
+          } else {
+            this._rig?.react('nam')
+            if (filled) this._rig?.setMood('stolt')
+          }
+          pop(c, { scale: g ? 1.1 : 1.2 })
+          puff(ctx.fxLayer, mx, my, { count: 8 })
+          floatText(ctx.fxLayer, mx, g ? c.y - g.fig.matt.hojd - 8 : c.y - 92, randomFrom(['😋', 'Mums!', '❤️']), { fontSize: 42 })
           // Tacket väntar in grillrepliken (2,8 s, sades 0,6 s före) i stället för att kapa
           // den — bara orden köar, tuggandet ovan kommer genast. `_tackKo` håller nästa
           // rundas beställning (_reset) bakom tacket så ordningen står sig.
@@ -1117,6 +1217,7 @@ export default {
     pop(this._grillBtn)
     // Bobo önskar sig något nytt till nästa burgare.
     this._newOrder()
+    this._bytGast(ctx)
     if (this._orderBubble && !this._orderBubble.destroyed) bounceIn(this._orderBubble)
     this._setHint('En ny burgare! Bygg igen 🍔')
     // Beställningen köar bakom grillrepliken och Bobos tack (narTyst + `_tackKo`) — på den
@@ -1126,9 +1227,12 @@ export default {
       if (!this._alive || this._rounds !== runda || this._phase !== 'decorate') return
       if (this._tackKo) return void ctx.later(0.35, () => ctx.narTyst(bestall))
       this._idle = 0 // påminnelsen (6,5 s) räknar från instruktionen, så den inte kapar den
-      ctx.services.voice.say(randomFrom(ORDER_CUES))
+      const g = this._gast
+      ctx.services.voice.say(randomFrom(g ? GAST_CUES[g.fig.mott ? 'mott' : g.fig.typ] : ORDER_CUES))
     }
-    ctx.narTyst(bestall)
+    // En NY gäst presenteras först (raden + knyttets namn köas vid 0,45 s) — beställningen efter.
+    if (this._gast?.fig.ny) ctx.later(0.7, () => ctx.narTyst(bestall))
+    else ctx.narTyst(bestall)
   },
 
   // ---- Hjälpare -----------------------------------------------------------
@@ -1177,6 +1281,10 @@ export default {
     this._serveTween?.kill()
     this._rig?.destroy()
     this._rig = null
+    // Gästerna (egna figurer) tickar på ctx.ticker och måste rivas före rötterna.
+    for (const g of [this._gast, ...(this._lamnar || [])]) if (g) this._stadaGast(g)
+    this._gast = null
+    this._lamnar = []
     // De mjuka bröden är rena tal och kan inte överleva ett spelbyte, men referenserna
     // ska ändå nollas — `_stegBullar` får aldrig hitta en kropp efter exit.
     for (const bun of [this._bottomBun, this._topBun]) {

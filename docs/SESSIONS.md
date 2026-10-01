@@ -14,6 +14,40 @@ Format:
 
 ---
 
+## 2026-10-01 — Barnets egna knytt och kompisar i andra spel (Spår F, omgång 1) · v1.285.0
+
+**Byggt:**
+- **Inventering av alla 84 spel med figurer** (tre läsagenter + stickprov mot koden) — vilka som
+  kan låna barnets knytt ur `unika-knytt` och kompisar ur `bygg-en-kompis`. Resultatet står i
+  `docs/LYFTPLAN.md` **§10 Spår F**: 26 starka (sorterade per roll: äter · hittas · leker ·
+  publik), 41 möjliga, 16 svaga/nej + skälen, och utrullningen i tre omgångar.
+- **Ägarbeslut (F5):** bara SNÄLLA roller (aldrig hinder/bortspolad) · reserven är spelets egen
+  figur (utom soffan, där ett nyslumpat knytt är poängen) · det nyss skapade först i varje spel,
+  sedan varannan omgång.
+- **Grunden:** `src/lib/egnafigurer.js` — `lasEgna` (aktiva profilens samlingar, källspelens
+  sanering) · `minns` (sessionsminne per PROFIL-id, anropas av källspelen) · `valjEgna` (takten)
+  · fasaden `EgenFigur` (Karaktar-kompatibel `look/react/setMood`, `{ r }` = samma rum som
+  `makeKaraktar`, tickar själv och städar själv om vyn rivs) · `figurForOmgang` · `presentera`.
+  `bygg-en-kompis/varelse.js` (ny): ritningen, tabellerna, melodin och saneringen utflyttade ur
+  index.js + en tweenfri rigg `Kompis`. `rensaPost` → `unika-knytt/dna.js`; `somnar: false` i
+  `knytt.js`.
+- **Sex kunder:** popcornkalaset (soffgästen) · ballonglyft (presenten) · glasstornet (kunden) ·
+  vippbrädan + studsbollar (vid korgen) · titt ut, pappa! (ett gömt fynd). 12 nya repliker med
+  klipp (`npm run voice`, 12/12); knyttnamnen hade redan klipp.
+- **Mätt:** `scripts/_egnafigurprobe.mjs` 41/41, kontrollarmen K0 (tom profil → reserven) först.
+  `npm run test` 8/8 för de berörda spelen. Skärmdumparna granskade (`--bild`).
+
+**Commits:** `f7c9d54` feat(egnafigurer) grunden · `2a2e086` popcornkalaset · `dbdae6b` ballonglyft
+· `a774f6e` glasstornet · `a01bbc3` vippbradan · `c94bee4` studsbollar · `3a549ff` titt-ut-pappa
+
+**Öppet:**
+- **Omgång 2 (LYFTPLAN F4):** de övriga starka på S–M — fanga-frukten, studsmatta, lagerelden,
+  saftbaren, poppa-ballonger, vart-tog-det-vagen, klappa-mullvaden, skattjakt-i-morkret,
+  blixt-och-dunder, bygg-tornet, folj-sparet, siffertaget, zackes-biltvatt, bowling, stor-liten.
+- F5.4 öppen: ska slumpade knytt barnet MÖTT (soffgästen) också minnas? Byggt som "nej".
+- Ingenting av omgång 1 är provat av ägaren eller ett barn än.
+- `bygg-en-kompis`s testskärmdump är urblekt — **samma på HEAD**, alltså äldre; inte utrett.
+
 ## 2026-09-30 (sen kväll) — Appen uppdaterar sig själv, Nyheter-ruta, fyra spel polerade · v1.284.0
 
 **Byggt:**

@@ -181,7 +181,7 @@ destroy(ctx) {
 | Fil | Ger dig |
 |---|---|
 | `lib/feedback.js` | `bounceIn·pop·wiggle·shake·breathe·squash·landa·stegra·liv` (egna objekt — döda tweens i destroy) · `puff·sparkle·burst·ripple·bigCelebration·floatText` (självstädande, exit-säkra). `squash(t,{intensity,hop})` = squash-and-stretch (+ hopp), `landa(t)` = landningstryckning, `stegra(list, fx)` = förskjuten start via `ANIM.stagger`, `liv(t,{bob,sway})` = **vilorörelse med egen fas** (gupp + vaggning; `breathe` är skala och synkron). **Handrulla dem inte** — tiderna bor i `ANIM` |
-| `lib/scene.js` | `createScene('sky'|…)` bakgrundsvärld + `lerpColor` |
+| `lib/scene.js` | `createScene('sky'|…)` bakgrundsvärld + `lerpColor`. **Opt-in (förval `false`, inget spel ändras av sig självt):** `silhuett: 'skog'\|'gran'\|'stad'` ger fjärran- och mellanbandet en trädlinje/stadssiluett (PÅ kullarna, mörkare, disas av disbandet) · `forgrund: true` strån + blomtuvor längst ned i scenroten, alltså BAKOM spelytan (bara teman med `gras`: meadow/sky/warm) · `fro` byter utseende, samma `fro` = samma bild (fast pseudoslump, drar aldrig `Math.random`). Noll texturbakningar, kamerasäker (ritas per lagerbredd; `forgrund` blir ett extra lager). Inget högt bakom skalets knappar: x < 230 kläms till y ≥ 170 — ändå: sätt `groundH` så horisonten ligger lågt. Exporterar även `tradlinje`·`stadlinje`·`slump(fro)`. Mät: `node scripts/_natt-b3-scene.mjs` (Node, räknar bakningar) |
 | `lib/kamera.js` | `Camera` — parallaxlager, `follow`/`moveTo`/`panTo`/`shake`/`zoomTo`; världar bredare än rutan (se nedan) |
 | `lib/DragController.js` | drag med snäpp / snäpp-tillbaka / **tap-tap-fallback** + `onMiss` — obligatorisk för dragspel. Tyngd ingår (eftersläpning, lutning, landning); `skugga: true` tänder lyft-skuggan — **bara om spelet inte redan ritar en egen skugga under föremålet** |
 | `lib/Button.js` | stor barnknapp (hit-halo, studs, ljud) |
@@ -192,6 +192,7 @@ destroy(ctx) {
 | `lib/physics.js` · `lib/launcher.js` | se skill **fysik-spel** |
 | `lib/three3d.js` | se skill **threejs-games** |
 | `lib/cooking.js` | delad grädda/grilla-tonmodell |
+| `lib/variation.js` | **Omspelning utan att svårigheten flyttar sig** (allt via `Math.random`). `pase(lista, forra?)` → påse; `.nasta()` ger varje post exakt en gång per varv, aldrig samma två i rad (även över varvsgränsen) — för INNEHÅLL (motiv, sorter, djur, regler); skapa den i `mount()`. `nastaVariant(lista, forra)` = lotta men aldrig förra (id, värde eller post) — när inget ska "tas slut". `slumpIBand(mitt, spann, {heltal, steg, golv, tak, forra})` = slump runt nivåns värde (`spann` = ±tal eller `{min,max}` som avstånd) — för LAYOUT/SVÅRHET i stället för `mitt` rakt av; golv/tak klipper bandet före dragningen. `rundprofil(runda, forra?)` → `{sida,a,b,c}` (a/b/c 0..1, minst 0,25 från förra) när nivåvariationen tar slut vid taket. Mät: `node scripts/_variationprobe.mjs <id> --expr "g._fält" --n 6` → `olika: k av n` (1 av n = fortfarande fast); logik: `node scripts/_variationtest.mjs` |
 
 ### Värld bredare än rutan → `lib/kamera.js`
 

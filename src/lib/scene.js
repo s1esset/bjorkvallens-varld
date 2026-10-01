@@ -54,6 +54,10 @@ const THEMES = {
 // samma tema. Allt ligger i scenroten, alltså BAKOM spelytan — vinjetten kan därför aldrig
 // mörka ner något barnet ska trycka på.
 //
+// `silhuett: 'skog' | 'gran' | 'stad'` (förval false) ger fjärran- och mellanbandet en trädlinje
+// eller stadssiluett, och `forgrund: true` strån + blomtuvor längst ned (bara temor med `gras`).
+// `fro` byter utseende; samma `fro` ger samma bild. Se "Trädlinje, stadssiluett och förgrund".
+//
 // `kamera: { bredd }` (LYFTPLAN rad 5) delar upp scenen i parallaxlager i stället för att
 // lägga allt i en container, och ritar varje lager så brett som just DESS faktor kräver.
 // Roten får då `_kamLager`, som `Camera.adopt()` plockar upp. Utan flaggan är utfallet
@@ -68,6 +72,11 @@ export function createScene(theme = 'sky', opts = {}) {
   const dis = (opts.dis ?? true) && showGround
   const markstruktur = (opts.markstruktur ?? true) && showGround
   const vinjett = opts.vinjett ?? true
+  // L1: trädlinje/stadssiluett på fjärran- och mellanbandet + strån och blomtuvor i förgrunden.
+  // Båda är OPT-IN (förval false) — en scen utan dem är pixel för pixel som förut.
+  const sil = showGround ? silhuettNamn(opts.silhuett) : false
+  const medForgrund = !!opts.forgrund && showGround && !!t.gras
+  const fro = opts.fro ?? 1
 
   const root = new Container()
   root.eventMode = 'none'
@@ -96,6 +105,7 @@ export function createScene(theme = 'sky', opts = {}) {
     mellan: mk(DJUP.mellan),
     nara: mk(DJUP.nara),
     mark: mk(DJUP.mark),
+    forgrund: medForgrund ? mk(DJUP.mark) : null,
     vinjett: mk(DJUP.himmel),
   }
 
@@ -161,6 +171,9 @@ export function createScene(theme = 'sky', opts = {}) {
       // Kupolantalet skalas med lagrets bredd, annars blir kullarna utdragna i en bred värld.
       paintBand(L.fjarran.c, L.fjarran.w, gy + 4, kupoler(4, L.fjarran.w, width), 104, lerpColor(t.groundDark, t.bottom, 0.64))
     }
+    // Trädlinjen står PÅ fjärranbandet (ritas efter kullarna, före disbandet så luften äter
+    // den på samma sätt) och är en aning mörkare än kullarna bakom, så de syns som toppar.
+    if (sil) ritaSilhuett(L.fjarran, sil, 'fjarran', gy + 2, lerpColor(t.groundDark, t.bottom, 0.5), fro * 1000 + 11)
     if (dis) {
       // Disband: ljusare mot horisonten, genomskinligt uppåt. Alfa i färgstoppen fungerar
       // (Pixi kör dem genom Color.toHexa()), så bandet behöver ingen egen alpha på formen.
@@ -168,11 +181,12 @@ export function createScene(theme = 'sky', opts = {}) {
       hz.eventMode = 'none'
       L.dis.c.addChild(hz)
     }
+    // Mellan- och närband. Tre band i stället för två är skillnaden mellan "det finns en
+    // horisont" och "det finns ett landskap": varje band är lägre, mörkare och tätare
+    // kuperat än det bakom, vilket är precis de tre signalerna ögat läser som avstånd.
+    if (djup) paintBand(L.mellan.c, L.mellan.w, gy + 14, kupoler(6, L.mellan.w, width), 72, lerpColor(t.groundDark, t.bottom, 0.4))
+    if (sil) ritaSilhuett(L.mellan, sil, 'mellan', gy + 10, lerpColor(t.groundDark, t.bottom, 0.28), fro * 1000 + 23)
     if (djup) {
-      // Mellan- och närband. Tre band i stället för två är skillnaden mellan "det finns en
-      // horisont" och "det finns ett landskap": varje band är lägre, mörkare och tätare
-      // kuperat än det bakom, vilket är precis de tre signalerna ögat läser som avstånd.
-      paintBand(L.mellan.c, L.mellan.w, gy + 14, kupoler(6, L.mellan.w, width), 72, lerpColor(t.groundDark, t.bottom, 0.4))
       paintBand(L.nara.c, L.nara.w, gy + 22, kupoler(t.hills ? 7 : 9, L.nara.w, width), 44, lerpColor(t.groundDark, t.bottom, 0.2))
     }
     const ground = new Graphics()
@@ -257,6 +271,9 @@ export function createScene(theme = 'sky', opts = {}) {
       tufts.eventMode = 'none'
       L.mark.c.addChild(tufts)
     }
+    // Förgrund: strån och blomtuvor FRAMFÖR marken, längst ned. Ritas efter marken och
+    // markstrukturen, och ligger ändå i scenroten — alltså bakom spelytan, aldrig i vägen.
+    if (L.forgrund) ritaForgrund(L.forgrund.c, t, L.forgrund.w, height, slump(fro * 1000 + 37))
   }
 
   // Moln som långsamt driver (exit-säkert). Molnen ritas sist i koden men hamnar i sitt
@@ -343,6 +360,163 @@ function paintBand(root, w, baseY, humps, amp, color) {
   g.lineTo(w + 40 + BLEED_X, baseY + 260 + BLEED_Y).closePath().fill(color)
   g.eventMode = 'none'
   root.addChild(g)
+}
+
+// --- Trädlinje, stadssiluett och förgrund (FYSIKPLAN L1) -----------------------------------
+// `silhuett: 'skog' | 'gran' | 'stad'` lägger en siluett PÅ fjärran- och mellanbandet; `forgrund:
+// true` lägger strån och blomtuvor längst ned. Båda är opt-in, ritas med fyllda Graphics i EN
+// färg per lager (noll gradienter, noll texturbakningar) och är deterministiska: samma `fro`
+// (förval 1) ger samma bild vid varje montering. Ge ett annat `fro` för en annan trädlinje.
+//
+// Inget högt bakom skalets knappar: i vänsterhörnet (x < KNAPP_X) kläms varje punkt ned till
+// KNAPP_Y, annars hade en trädtopp stuckit upp bakom hem-/högtalarknappen (solens historia).
+const KNAPP_X = 230
+const KNAPP_Y = 170
+
+const SILHUETTER = {
+  skog: { fjarran: { gran: 0.35, wMin: 24, wMax: 58, h: 40 }, mellan: { gran: 0.2, wMin: 30, wMax: 70, h: 24 } },
+  gran: { fjarran: { gran: 0.9, wMin: 16, wMax: 36, h: 44 }, mellan: { gran: 0.85, wMin: 20, wMax: 44, h: 28 } },
+  stad: { fjarran: { h: 54 }, mellan: { h: 30 } },
+}
+
+function silhuettNamn(v) {
+  if (!v) return false
+  return SILHUETTER[v] ? v : 'skog' // true och okända namn => skog
+}
+
+function ritaSilhuett(lager, namn, band, basY, farg, fro) {
+  const p = SILHUETTER[namn][band]
+  const o = { x0: -BLEED_X - 40, xSlut: lager.w + BLEED_X + 40, rnd: slump(fro) }
+  const g = new Graphics()
+  if (namn === 'stad') stadlinje(g, basY, p.h, farg, o)
+  else tradlinje(g, basY, p.h, farg, p.gran, p.wMin, p.wMax, o)
+  g.eventMode = 'none'
+  lager.c.addChild(g)
+}
+
+// Pseudoslump (mulberry32): deterministisk per frö, så en trädlinje inte hoppar mellan monteringar.
+export function slump(fro) {
+  let a = Math.floor(fro) >>> 0 || 1
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+const klamp = (minY) => (x, y) => (x < KNAPP_X ? Math.max(y, minY) : y)
+
+// En trädlinje: runda lövträdskupoler och spetsiga granar om vartannat (lyft ur
+// grodan-slurp/dammen.js `_tradlinje`). Fyller ned till basY + 30. `o`: { x0, xSlut, rnd, minY }.
+// Utan `rnd` används Math.random (som grodan gör) — scenen skickar alltid en seedad slump.
+export function tradlinje(g, basY, hojd, farg, granAndel, wMin, wMax, o = {}) {
+  const rnd = o.rnd ?? Math.random
+  const xSlut = o.xSlut ?? DESIGN_W + BLEED_X + 40
+  const kl = klamp(o.minY ?? KNAPP_Y)
+  let x = o.x0 ?? -BLEED_X - 40
+  g.moveTo(x, kl(x, basY + 30)).lineTo(x, kl(x, basY - hojd * 0.5))
+  while (x < xSlut) {
+    const w = wMin + rnd() * (wMax - wMin)
+    const h = hojd * (0.55 + rnd() * 0.45)
+    const slut = basY - hojd * (0.35 + rnd() * 0.25)
+    if (rnd() < granAndel) {
+      g.lineTo(x + w * 0.2, kl(x + w * 0.2, basY - h * 0.8))
+      g.lineTo(x + w * 0.5, kl(x + w * 0.5, basY - h - hojd * 0.35))
+      g.lineTo(x + w * 0.8, kl(x + w * 0.8, basY - h * 0.8))
+      g.lineTo(x + w, kl(x + w, slut))
+    } else {
+      const cy = basY - h - w * 0.45
+      g.bezierCurveTo(x, kl(x, cy), x + w, kl(x + w, cy), x + w, kl(x + w, slut))
+    }
+    x += w
+  }
+  g.lineTo(x, basY + 30).closePath().fill(farg)
+}
+
+// Stadssiluett: sadeltak, platta tak med skorsten och en och annan kyrktorn, kant i kant.
+// Alla former i EN fyllning (samma färg) — överlapp syns inte.
+export function stadlinje(g, basY, hojd, farg, o = {}) {
+  const rnd = o.rnd ?? Math.random
+  const xSlut = o.xSlut ?? DESIGN_W + BLEED_X + 40
+  const kl = klamp(o.minY ?? KNAPP_Y)
+  let x = o.x0 ?? -BLEED_X - 40
+  const botten = basY + 30
+  const hus = (xx, top, w) => g.rect(xx, kl(xx, top), w, botten - kl(xx, top))
+  while (x < xSlut) {
+    const w = 30 + rnd() * 46
+    const h = hojd * (0.4 + rnd() * 0.6)
+    const typ = rnd()
+    const top = basY - h
+    if (typ < 0.4) { // sadeltak
+      hus(x, top, w)
+      const m = x + w / 2
+      g.poly([x - 3, kl(x - 3, top), m, kl(m, top - w * 0.36), x + w + 3, kl(x + w + 3, top)])
+    } else if (typ < 0.75) { // platt tak + skorsten
+      hus(x, top, w)
+      const sx = x + w * 0.62
+      const sh = hojd * 0.2
+      g.rect(sx, kl(sx, top - sh), w * 0.14, kl(sx, top) - kl(sx, top - sh) + 2)
+    } else if (typ < 0.9) { // torn med spetsigt tak
+      const tw = w * 0.5
+      const tx = x + (w - tw) / 2
+      const tt = top - h * 0.3
+      hus(x, top, w)
+      hus(tx, tt, tw)
+      g.poly([tx - 2, kl(tx - 2, tt), x + w / 2, kl(x + w / 2, tt - tw * 1.2), tx + tw + 2, kl(tx + tw + 2, tt)])
+    } else { // lågt skjul
+      hus(x, basY - hojd * 0.28, w)
+    }
+    x += w + rnd() * 5
+  }
+  g.fill(farg)
+}
+
+// Förgrunden: två rader strån (en vid designytans nederkant, en djupare ned som bara syns på en
+// hög skärm) i tre gröntoner ur temat, och en blomma ibland. Spetsiga fyllda strån, inte linjer,
+// så de läser som gräs i stället för streck. Allt är dekor (eventMode 'none').
+const BLOMFARG = [0xfff2a8, 0xffffff, 0xffb3d1, 0xffc27a, 0xd7b8ff]
+
+function ritaForgrund(c, t, w, height, rnd) {
+  const toner = [lerpColor(t.groundDark, 0x0a2a14, 0.3), t.groundDark, lerpColor(t.ground, 0xffffff, 0.12)]
+  const rader = [
+    { y: height + 4, hMin: 20, hMax: 44, steg: 36 },
+    { y: height + BLEED_Y * 0.7, hMin: 30, hMax: 58, steg: 42 },
+  ]
+  for (const rad of rader) {
+    const g = new Graphics()
+    g.eventMode = 'none'
+    const stra = [[], [], []]
+    const blommor = []
+    for (let x = -BLEED_X - 20; x < w + BLEED_X + 20; x += rad.steg * (0.7 + rnd() * 0.6)) {
+      const n = 3 + Math.floor(rnd() * 3)
+      for (let i = 0; i < n; i++) {
+        const h = rad.hMin + rnd() * (rad.hMax - rad.hMin)
+        stra[Math.floor(rnd() * 3)].push([x + (i - n / 2) * 7 + rnd() * 5, rad.y, h, (rnd() - 0.5) * 22, 3 + rnd() * 2.5])
+      }
+      if (rnd() < 0.32) blommor.push([x + rnd() * 12, rad.y, 34 + rnd() * 30, (rnd() - 0.5) * 12, BLOMFARG[Math.floor(rnd() * BLOMFARG.length)]])
+    }
+    for (let k = 0; k < 3; k++) {
+      for (const [x, y, h, lean, bw] of stra[k]) {
+        g.moveTo(x - bw, y)
+          .quadraticCurveTo(x - bw * 0.4 + lean * 0.4, y - h * 0.55, x + lean, y - h)
+          .quadraticCurveTo(x + bw * 0.4 + lean * 0.5, y - h * 0.5, x + bw, y)
+          .closePath()
+      }
+      g.fill(toner[k])
+    }
+    for (const [x, y, h, lean, farg] of blommor) {
+      const hx = x + lean
+      const hy = y - h
+      g.moveTo(x, y).quadraticCurveTo(x + lean * 0.2, y - h * 0.5, hx, hy).stroke({ width: 2.5, color: toner[1], cap: 'round' })
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2
+        g.circle(hx + Math.cos(a) * 6.5, hy + Math.sin(a) * 6.5, 5).fill(farg)
+      }
+      g.circle(hx, hy, 3.6).fill(0xffd35c)
+    }
+    c.addChild(g)
+  }
 }
 
 // Vinjett som FYRA linjära kanttoningar, inte en radiell gradient. Den radiella vägen ser

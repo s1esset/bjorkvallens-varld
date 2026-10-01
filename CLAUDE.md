@@ -129,6 +129,7 @@ vägrar publicera med ocommittat arbete, röd `check` eller fel gren. Föräldra
 | vad som hände senast | `docs/SESSIONS.md` |
 | spelidéer som väntar på planering | `docs/IDEER.md` |
 | app-breda lyft (motor · assets · rendering) | `docs/LYFTPLAN.md` |
+| fysikbibliotekens plan (bildtakt · kontroller · nya features) | `docs/FYSIKPLAN.md` |
 
 ## Tysta fällor — kostade tid på riktigt, gissa inte om dem
 

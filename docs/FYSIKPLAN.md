@@ -1,0 +1,1100 @@
+# FYSIKPLAN.md — fysikbiblioteken: rätt i varje bildtakt, och fler sätt att röra fysiken
+
+Planen täcker appens fysikbibliotek (`physics.js` · `launcher.js` · `DragController.js` ·
+`fjader.js` · `flytkraft.js` · `luftmotstand.js` · `magnet.js` · `mjukkropp.js` · `vatska.js` ·
+`rep.js` · `varme.js` · `kamera.js` · `partiklar.js` · `utplacering.js`) och de egna lösningar
+spelen byggt bredvid dem. Tre frågor styr: **vad är fel i dag** (och syns inte i ett grönt
+test), **var kostar fysiken faktiskt**, och **vilka nya sätt att röra fysiken** — grepp, kast,
+sikte, styrning, laddning — som går att bygga inom P0 för varje åldersband.
+
+Den här filen skriver inte om det som redan är gjort i `docs/LYFTPLAN.md` spår B (B1–B6c
+och B8 är byggda; B7 `kugghjulen` står öppen och har en kund här, F10) eller i ÅTGÄRDER
+V10/V10b (statisk `studs` — migreringen fortsätter där, inte här).
+
+> Mätt 2026-10-01 mot `HEAD` `2712532` (v1.286.0) plus arbetsträdet. matter-js **0.20.0**,
+> pixi.js **8.19.0**. ⚠️ Andra agenter ändrar spel just nu (Spår F omgång 2): radnummer i
+> `bowling` · `bygg-tornet` · `fanga-frukten` · `lagerelden` · `studsmatta` · `saftbaren` ·
+> `hamburgerbygget` · `zackes-biltvatt` m.fl. kan ha flyttat sig — **greppa på det citerade
+> uttrycket**, lita inte på numret.
+>
+> Taggar: **[Quick]** timmar · **[Medium]** ett pass · **[Deep]** nytt system.
+>
+> **Hur siffrorna togs.** Grep och läsning av koden, plus åtta engångsmätningar i Node som körde
+> bibliotekens EGEN kod (`src/lib/*.js`) och Pixis EGEN `Ticker` (`node_modules/pixi.js`) — inga
+> repo-filer skrevs, ingen webbläsare startades (andra agenter körde webbläsare, och två
+> webbläsarsonder samtidigt förfalskar varandra). Varje sådan mätning hade en kontrollarm som
+> gav det kända svaret först (t.ex. 60 Hz med exakt ett steg per bildruta → flytjämvikt exakt
+> 1/flyt). **M1** gör mätningarna permanenta i `scripts/_fysikbank.mjs`. Där en rad bygger på
+> ett antagande står det **premiss (oprövad)** och vilken sond som avgör den.
+
+---
+
+## 0. Sammanfattning — de åtta raderna med störst effekt
+
+| # | Rad | Vad den löser — mätt eller prövat i koden | Stl | Kunder |
+|---|---|---|---|---|
+| 1 | **T1–T4 Fysik som inte beror på bildtakten** | Fyra sorters kod lägger kraft eller stegar en lösare **per bildruta** i stället för per fysiksteg. Uppmätt genom Pixis riktiga ticker (taket 60 fps i `App.js:24`): en flytare med `flyt 1,6` ska ligga på 0,625 — den ligger på **0,637 vid 60 Hz, 0,656 vid harnessens 57 fps, 0,746 vid 50, 0,927 vid 40 och SJUNKER (1,000) vid 30**. Magnetens fångsttid **700 → 1 133 ms** vid 30 fps. Lagereldens varma marshmallow **kollapsar** vid ≤ 40 fps (höjd 47,6 → 29,0 px). Ett rep hänger **1,9× djupare** vid 30 fps. Allt per steg: **identiskt vid alla takter**. En bildruta med exakt ett fysiksteg räknas likadant före och efter — det som flyttar sig är bara de rutor som redan i dag får noll eller två steg. | Quick–Medium | 15 spel |
+| 2 | **K1 Avbruten pekning når aldrig spelen** | Pixi 8.19 registrerar aldrig `pointercancel` (`EventSystem.mjs:322-327`, och `EventBoundary.mjs:67-74` har ingen mappning). Avbryter webbläsaren ett finger (kantsvep, systemgest, appbyte) kommer inget släpp — och `DragController._onDown` avvisar varje nytt grepp medan `active` står kvar (`DragController.js:82`). **Premiss (oprövad):** permanent död träffyta i 23 spel. En brygga i `lib/pixilapp.js`, M3 avgör. | Quick | 23 + 7 + ~10 kontroller |
+| 3 | **K2 Andra fingret kapar draget** | Varken `DragController` (`:117`, `:122-142`) eller `AimLauncher` (`launcher.js:97`, `:121-127`) jämför `pointerId`. En handflata eller ett andra finger som rör sig flyttar föremålet dit. Bara 4 spel filtrerar själva (`glasstornet` · `grodan-slurp` · `popcornkalaset` · `skattjakt-i-morkret`). | Quick | 30 spel |
+| 4 | **M1 + M2 En gemensam mätsticka** | Alla Node-sonder för fysik stegar exakt 1/60 (`_flytprobe` · `_faltprobe` · `_mjukprobe` · `_repprobe` · `_fjaderprobe` …) och kan därför aldrig se rad 1. `_fysikbank.mjs` (Node, S1–S9) och `_taktprobe.mjs` (webbläsare, manuellt driven ticker, seedad slump) blir det mått varje framtida rad mäts mot. | Medium | alla |
+| 5 | **G1 Fjädergreppet blir ett bibliotek** | `drivPunkt` (`popcornkalaset/karl.js:124-149`) — repots enda grepp som klarar en punkt långt från tyngdpunkten — och leksakslådans fart-mot-fingret (`leksakslada/index.js:637-660`) blir `lib/grepp.js`, med tap-tap, krafttak, kast och pekar-id. Småbarnens första nya kontroll, och grunden för storbarnens tvåhandsgrepp. | Medium | 2 port + nya |
+| 6 | **R2 Kinematiska kroppar** | Statiska kanter som följer fingret flyttas med teleport per bildruta (`fanga-frukten:342-344` · `studsa-ner:652-653` · `studsmatta:487`). Uppmätt (S8): de **tunnlar igenom bollen vid ≥ 32 px/bildruta** och ger den **ingen rörelsemängd** (skyfflar). Driven med fart per steg: ingen tunnling upp till 48 px/bildruta. | Medium | 3 spel |
+| 7 | **F1 Leder, gångjärn och motorer** | Tre spel bygger samma `Constraint.create + Composite.add` för hand (`balanstornet:301` · `vippbradan:222` · `knuffa-tornet:257`). `phys.gangjarn/led/pendel/motor/vridfjader` med `damping 0` som förval (CLAUDE.md-fällan). Öppnar `kugghjulen`s B7 (kuggverk med last), `kulbana`s propeller och `bajs-och-kiss`s gungande potta. | Medium | 3 port + 3 köade |
+| 8 | **R1 Fällvakter i DEV** | Två av CLAUDE.md:s fysikfällor blir automatiska fynd i varje `npm run test`: **`statisk-fart`** (en statisk kropp som står still men bär fart — setPosition-fällan) och **`snurr`** (vinkelfart som skenar — Constraint-greppets 166 000°). Billigt, och skyddar allt som byggs efter. | Quick | 28 världar |
+
+**Stängt med mätning — föreslås INTE** (skälen i spår O):
+· **sömn (sleeping) som prestanda** — lösaren kostar 0,044 ms/steg vid 34 vilande kroppar; sömn
+sparar 0,04 ms · **broadphase/kollisionsfilter** — kroppstalen är tiotal, inte hundratal ·
+**delsteg som standard** — ändrar varje px/steg-kalibrering i repot och inget tunnlar i loggarna
+· **global återställning av statisk restitution** — ÅTGÄRDER V10 · **tilt** — kräver
+behörighetsdialog på iOS/iPadOS (G7) · **p2-es** — LYFTPLAN A1.
+
+---
+
+## 1. Inventering
+
+### 1.1 Biblioteken — vad de gör och vem som använder dem
+
+Kundtalen är räknade på `import`-rader i `src/games/*/*.js`. **Inget av appens 87 spel är ett
+storbarnsspel** (alla `ageRange` börjar på 2 eller 3) — varje storbarnskontroll i spår G saknar
+alltså kund tills ägaren ber om en (Ä3).
+
+| Modul | Gör | Kunder |
+|---|---|---|
+| `physics.js` | `PhysicsWorld`: matter-brygga, fast 1/60-steg (max 5/bildruta), `link`, `onCollision`/`onImpact`/`impactAudio`, `beforeStep`, `setWind`/`setGravity`, `MATERIALS` + `MATERIAL`/`mat()`, `studs`-opt-in, `speedToAccel`/`STEG2`, `predictTrajectory` | **29** importerar, **28** skapar en värld: bajs-och-kiss · balanstornet · bowling · bygg-tornet · domino · enhorning-glitterbajs · enhorningen-elvira · fanga-frukten · flipperspel · glasstornet · grodan-slurp · knuffa-tornet · kulbana · leksakslada · magnet-fiske · mata-monstret · mata-munnen · natskott-pa-stan · plask-i-vattnet · popcornkalaset · rulla-bollen-hem · snobollen · spindelhjalten · spindelnatet · studsa-ner · studsbollar · studsmatta · vippbradan (+ fyrverkeri bara för förhandsbanan) |
+| `launcher.js` | `AimLauncher`: dra för riktning + kraft, levande prickbana, tap-fallback mot `defaultAim` | **7**: bajs-och-kiss · bowling · enhorningen-elvira · fyrverkeri · rulla-bollen-hem · spindelhjalten · studsbollar |
+| `DragController.js` | dra-och-släpp med snäpp, tap-tap, tyngd i draget, opt-in kast (`onKast`) | **23**: balanstornet · borsta-tanderna · enkelt-pussel · flugan-pa-nasan · kla-efter-vadret · kla-pa-nallen · kugghjulen · lagerelden · leksakslada · loopdjuren · mata-monstret · mata-munnen · passa-formerna · plantera-fron · plask-i-vattnet · siffertaget · skuggmatchning · sortera-skrap · stor-liten · trollblandning · unika-knytt · vakna-pappa · vattenvagen (kast: bara mata-munnen) |
+| `fjader.js` | `Fjaderbrada`: planka som lagrar ett anslag (`taEmot`/`steg`/`driv`/`flytta`) + mjukkropps-silhuett | **1**: kulbana |
+| `flytkraft.js` | `Flytvolym`: lyftkraft ∝ nedsänkning, motstånd, fartspärr, ström | **2**: grodan-slurp · plask-i-vattnet |
+| `luftmotstand.js` | `Motstandsvolym`: egen integrator, kvadratiskt luftmotstånd, vind som lufthastighet | **2**: ballonglyft · fallskarmen |
+| `magnet.js` | `Magnetfalt`: drag/knuff/poler, styrka i px/steg | **1**: magnet-fiske |
+| `mjukkropp.js` | `Mjukkropp`: verlet-ring + tryckvillkor, `path()` med kvadratiska mellansteg | **9** (+ `fjader.js`): fallskarmen · glasstornet · hamburgerbygget · lagerelden · mata-monstret · mata-munnen · popcornkalaset · pruttbad · unika-knytt |
+| `vatska.js` | `FluidWorld` (Clavet SPH, spatial hash) + `FluidView` (metabollfilter) | **9**: golvet-ar-lava · mata-munnen · plask-i-vattnet · pruttbad · saftbaren · trollblandning · tvatta-djuret · vattenvagen · zackes-biltvatt |
+| `rep.js` | `Rep` (verlet/PBD + FABRIK-längdpass), `ritaRep`, `repMesh` | **4**: kugghjulen · natskott-pa-stan · spindelnatet · zackes-biltvatt |
+| `varme.js` | `Varmefalt`: `temp` (nu) och `grad` (sjunker aldrig) | **3**: lagerelden · popcornkalaset · trollblandning |
+| `kamera.js` | `Camera`: parallaxlager, följning, dödzon, skak, zoom | **2**: grodan-slurp · spindel-zacke-svingar |
+| `partiklar.js` | `ParticleContainer`-partiklar + `Emitter` (egen integrator) | **5** direkt + alla via `feedback.js` |
+| `utplacering.js` | `slumpaUt` + `hinderUrFysik` (inga fickor) | **1**: flipperspel (medvetet inte app-bred, LYFTPLAN B8) |
+
+**Kända svagheter, per modul (fil:rad):**
+
+- **`physics.js`**
+  - `update()` synkar vyn till senaste fysiksteget utan interpolation och utan tolerans mot
+    vsync (`:422-456`). Simulerat genom Pixis ticker: 0- och 2-stegsrutor (§1.3.3) → T4/T5.
+  - `Engine.create()` utan alternativ (`:92`): ingen sömn, inga iterationer i API:t —
+    `grodan-slurp` skriver `phys.engine.positionIterations = 8` direkt (`grodan-slurp/index.js:308-310`) → R5.
+  - `_buildWalls` skickar `{ isStatic: true, restitution: 0.4, friction: 0.6 }` rakt in i
+    `Bodies.rectangle` (`:202`, `:212`): båda talen är döda — restitution 0 och friktion 1, och
+    `_original` fångas aldrig (ÅTGÄRDER V10 fynd 3) → R3.
+  - Statisk friktion är alltid 1 (`:248`); det finns ingen opt-in motsvarande `studs`, så
+    `bowling` skriver `body.friction = 0.1` för hand efter skapandet (ÅTGÄRDER V10b) → R3.
+  - Inga hjälpare för leder, kedjor, sammansatta eller konvexa kroppar → F1, F2, R6.
+  - `removeBody` tar bara FÖRSTA länken till kroppen (`:300-301`).
+- **`launcher.js`** — inget pekar-id (`:97`, `:121-127`); ritar om banan vid VARJE pekrörelse
+  (`:121-127` → `:178-194`); `predict()` känner bara golv och väggar (`:232-266`), så varje
+  studs mot en ramp eller en studsplatta ritas fel; tap-fallbacken skjuter MOT MÅLET
+  (`:137-149`) — rätt för småbarn, men P0 storbarn HJÄLP förbjuder automatiskt sikte → G3.
+- **`DragController.js`** — inget pekar-id (`:117`, `:122-142`); `_onDown` avvisar allt medan
+  `active` är satt (`:82`), så ett grepp vars släpp aldrig kommer låser hela kontrollern → K1/K2.
+  Kastet (`_slappFart`, `:156-174`) har bara en kund → G2.
+- **`flytkraft.js`** — `steg()` är dokumenterad som "EN gång per bildruta, FÖRE `varld.update()`"
+  (`:150-153`), och båda kunderna gör så (`plask-i-vattnet/index.js:1170-1171`,
+  `grodan-slurp/index.js:1961` → `dammen.js:2140`). Matter nollar krafterna efter VARJE steg, så
+  en bildruta med två steg ger kraften bara åt det första och en med noll steg dubblar den i
+  nästa — mätt i §1.3.3 → T1. Fartspärren och `vridDamp` verkar även ovanför ytan (`:181-187`),
+  och `grodan-slurp` tar därför ut grodans delar ur volymen under superhoppet
+  (`groda.js:760-776`) → R4.
+- **`magnet.js`** — `dra()` anropas per bildruta före `phys.update` (`magnet-fiske/index.js:703-707`
+  före `:719`) — samma fel, mätt → T1.
+- **`mjukkropp.js`** — `steg(dtF)` klämmer `dtF` till 0,2–2 (`:292`) och lägger fältet som
+  `f²` (`:308-309`) medan `damp` och styvheten räknas per steg. CLAUDE.md har fällan, men fyra
+  kunder stegar fortfarande med variabelt `dtF` (`lagerelden:968`, `glasstornet:742`,
+  `fallskarmen:526`→`:600`, `pruttbad:2321` = ett steg per BILDRUTA) → T3. Omritningen, inte
+  lösaren, är kostnaden (`docs/games/popcornkalaset.md:101`, `:123-125`) → O1.
+- **`vatska.js`** — egen ackumulator, max 3 steg, ingen tolerans (`:258-269`) → T4. `area` saknas
+  i `saftbaren` (`:235-242`) och `zackes-biltvatt` (`:289-300`) → O2. Ingen koppling till
+  matter-kroppar utöver att spelen flyttar kolliderare själva (`plask-i-vattnet/index.js:578`,
+  `:1176`) → F6.
+- **`rep.js`** — `steg(dtF)` med fart × f och tyngd × f² (`:144`, `:162-163`); tre kunder
+  variabelt `dtF` (`kugghjulen:1649`, `natskott-pa-stan:6027`, `spindelnatet:783`) och en som
+  AVRUNDAR antalet steg (`zackes-biltvatt:786`: `clamp(round(dt·60), 1, 3)` — slangen går
+  1,5–2× fortare på en skärm över 60 Hz om taket tas bort) → T3.
+- **`luftmotstand.js`** — explicit Euler, dt klämt till 0–3 (`:131-165`); stabil vid de
+  uppmätta gränsfarterna men aldrig takt-mätt → M1 S6 får en arm.
+- **`varme.js`** — inga fynd: exponentiell och bildrutefri (`:142-145`).
+- **`fjader.js`** — inga fynd (19 mått i `_fjaderprobe`). Dess `driv`/`flytta`-par
+  (`:247-270`) är repots enda korrekta "kinematiska kropp" — och används inte utanför bräddan → R2.
+- **Pixi-lagret (inte vår kod, men vår risk)** — `pointercancel` mappas aldrig
+  (`EventSystem.mjs:322-327`, `EventBoundary.mjs:67-74`) → K1. `app.ticker.maxFPS = 60`
+  (`src/shell/App.js:24`) tillsammans med tickerns heltalstrunkering (`Ticker.mjs:429-435`)
+  hoppar simulerat över ~2 % av vsync-rutorna vid 60 Hz → T5/M5.
+
+### 1.2 Egna lösningar som återkommer i två eller fler spel
+
+| Lösning | Var (fil:rad) | Antal | Förslag |
+|---|---|--:|---|
+| Fast-stegs-ackumulator för en egen lösare | `hamburgerbygget/bulle.js:116-131` · `unika-knytt/ceremoni.js:591-596` · `mata-munnen/index.js:1849` · `mata-monstret/index.js:1110` · `pruttbad/index.js:491` · `grodan-slurp/dammen.js:2255-2276` · `elementlekplatsen/index.js:935-960` (nollställer aldrig vid taket) · `fyrverkeri/index.js:701` · `gravmaskinen/index.js:933` | 9 | **T3** `lib/takt.js` |
+| Kraft eller fartändring per BILDRUTA på en matter-kropp | `studsa-ner:400`/`:843` (fläkten) · `magnet-fiske:693` · `fanga-frukten:366` · `bygg-tornet:655` · `studsbollar:891` · `enhorning-glitterbajs:794` · `glasstornet:757`, `:818` · `snobollen:1150`, `:1161` | 8 | **T2** |
+| Statisk kant som följer fingret med teleport | `fanga-frukten:342-344` · `studsa-ner:652-653` · `studsmatta:487` · `enhorning-glitterbajs:779` (sensor) — rätt mönster finns i `fjader.js:247-270` och `grodan-slurp/hinder.js:421-491` | 4 | **R2** |
+| Grepp på dynamisk kropp | `popcornkalaset/karl.js:124-149` (`drivPunkt`, punkt långt från tyngdpunkten) · `leksakslada/index.js:637-660` (fart mot fingret, tak per leksak) | 2 | **G1** |
+| Gångjärn/pendel som rå `Constraint` | `balanstornet:301-307` · `vippbradan:222-229` · `knuffa-tornet:257-265` | 3 | **F1** |
+| Vridfjäder (återförande moment per steg) | `balanstornet:13-20`, `:177` | 1 (+F10) | **F1** |
+| Fartspärr mot tunnling | 13 filer (`MAX_FALL`/`MAX_V`/`maxFart`…), t.ex. `fanga-frukten:369`, `snobollen:1166-1168` | 13 | **R5** |
+| Kollisionsetikett i par, med förälder | `bygg-tornet` · `knuffa-tornet` · `mata-monstret` · `spindelhjalten` · `vippbradan` (`bodyA.label`) + 11 rader `parent` i `grodan-slurp` | 6 | **R6** |
+| Höjdfält för en vattenyta | `pruttbad/index.js:177`, `:360-363`, `:491` · `grodan-slurp/dammen.js:285-310`, `:2255-2290` | 2 | **F5** |
+| Dämpad 1D-fjäder med fasta delsteg | `grodan-slurp/djur.js:112-131` · `sapbubblor/index.js:520-551` (dt-skalad) | 2 | T3 (`fjader1d` i samma modul) |
+| Kropp ur kontur / sammansatt kropp | `grodan-slurp/dammen.js:1555-1572` · `popcornkalaset/karl.js:193-202` | 2 | **R6** |
+| Brytbar kropp | `knuffa-tornet/index.js:146-148`, `:1398-1405`, `:1433` (glas, köas till nästa tick) | 1 | **F3** (med framtida kunder) |
+| Kedja av matter-kroppar | `grodan-slurp/klibbrep.js:90`, `:101`, `:192` | 1 | **F2** (med framtida kunder) |
+| Pendel som θ/ω-integrator | `gungan:97-98`, `:552` · `spindel-zacke-svingar:115-116` | 2 | **lyfts INTE** — LYFTPLAN B3 mätte att den slutna formen ÄR mekaniken (`_pendelprobe`) |
+| Cellautomat | `elementlekplatsen/automat.js` | 1 | bara med `sandslottet` (IDEER #7), i samma commit |
+
+### 1.3 Mätt läge
+
+#### 1.3.1 Kroppstal och rivning (ur `.test-logs/*.json`, körningar 2026-09-30/10-01)
+
+| | |
+|---|---|
+| Max dynamiska kroppar | `popcornkalaset` **34** · `leksakslada` **17** · `grodan-slurp` **13** · `domino` 6 · `knuffa-tornet` 5 · alla andra ≤ 4 |
+| Max statiska kroppar | `studsa-ner` **53** (pinnarna) · `grodan-slurp` 28 · `flipperspel` 16 · `popcornkalaset` 15 |
+| Sovande kroppar | **0 i alla** — `Engine.create()` sätter aldrig `enableSleeping` |
+| Världar | alla 27 som skapade en värld i testkörningen loggade `skapad 1 · riven 1` — **exit-säkert på världsnivå** |
+| Fysikfynd i loggarna | 0 (`nan-kropp`, `kropp-rymde`, `hog-fart`) — men harnessen spelar knappt fysikspelen (nio fasta tryck med x ≤ 950, `test-game.mjs:50-54`, och generiska drag) |
+
+⚠️ Harnessens körningar är ~6 s långa; en riktig runda kan bära fler kroppar (`leksakslada`
+16–22 leksaker, `popcornkalaset` 30 korn). Ordningen är ändå tiotal, inte hundratal.
+
+#### 1.3.2 Lösarens kostnad (Node, desktop, ren tid runt `Engine.update` — inte rAF)
+
+| Dynamiska kroppar (vilande hög) | ms/steg i dag | med sömn | iterationer 8/6 |
+|--:|--:|--:|--:|
+| 6 | 0,005 | 0,002 | 0,007 |
+| 17 | 0,018 | 0,002 | 0,019 |
+| 34 | **0,044** | 0,004 | 0,049 |
+| 60 | 0,090 | 0,007 | 0,100 |
+| 120 | 0,226 | 0,017 | 0,249 |
+
+Kontroll: kostnaden växer med N, alltså mäter klockan lösaren. En platta är flera gånger
+långsammare än en desktop — faktorn är **omätt** och mäts med `--cpu 6` i M4. Jämför:
+**ett mjukt popcorn kostar 0,5–0,85 ms per bildruta att RITA OM** vid CPU ×4 mot ~3,5 µs att
+simulera (`docs/games/popcornkalaset.md:101`, `:123-125`). Kostnaden bor i renderingen.
+
+#### 1.3.3 Bildtakten (Node, Pixis egen `Ticker` med `maxFPS = 60`, vsync-stämplar kvantiserade till 0,1 ms)
+
+| Skärm | Flytjämvikt `flyt 1,6` (rätt: 0,625) | Varm marshmallow: massans häng / höjd (rätt: 1,75 / 47,6 px) |
+|---|--:|---|
+| 60 Hz | 0,637 | 2,12 / 43,4 |
+| 57,1 Hz (headless-harnessen) | 0,656 | 2,54 / 39,3 |
+| 90 Hz | 0,637 | 1,68 / 48,2 |
+| 120 Hz (tickern tar varannan ruta) | 0,630 | 1,94 / 43,7 |
+| 50 Hz | 0,746 | 2,44 / 55,4 |
+| 40 Hz | 0,927 | **−12,98 / 29,0 — kollapsad** |
+| 30 Hz | **1,000 — sjunker** | **−10,11 / 35,0 — kollapsad** |
+| **samma kod per fysiksteg / fast steg** | **0,625 vid alla** | **1,75 / 47,6 vid alla** |
+
+Magnetfältet (`magnet-fiske`s tal, 150/220/290 px bort): fångst **700 / 1 250 / 1 950 ms** vid
+60 Hz mot **1 133 / 2 133 / 3 433 ms** vid 30 Hz; per steg 700 / 1 250 / 1 950 vid båda. Ett rep
+spänt 300 px med sag 1,15 (rep-kundernas typfall): djupaste punkt **82 px** vid 60 Hz,
+**159 px** vid 30 Hz; fast steg 82 vid båda. (30 Hz ligger under taket, så tickern ändrar
+inget där — de två mätningarna kördes med fast `deltaMS` per bildruta.)
+
+Stegfördelning per avfyrad bildruta i `PhysicsWorld.update` (0 steg = bilden står still, 2 =
+den hoppar dubbelt):
+
+| Skärm | 0 steg | 1 steg | 2 steg | med snäpp 0,5 ms (T4) |
+|---|--:|--:|--:|---|
+| 60,00 Hz | **32,0 %** | 34,0 % | **34,0 %** | 0 / 98 / 2 % |
+| 59,94 Hz | 0,0 % | 98,8 % | 1,1 % | 0 / 99 / 1 % |
+| 57,1 Hz (headless) | 0,0 % | 95,0 % | 5,0 % | oförändrat (behöver T5) |
+| 90 Hz | 15,1 % | 66,7 % | 18,1 % | oförändrat (behöver T5) |
+
+⚠️ **Läs 60,00 Hz-raden rätt.** Vsync-stämplar ligger nästan exakt på multiplar av det fasta
+steget, så ackumulatorns rest STARTAR på tröskeln och 0,1 ms-kvantiseringen slår den fram och
+tillbaka. På en riktig skärm som går på t.ex. 59,95 Hz driver resten ut ur zonen efter ~15
+bildrutor och kommer tillbaka var ~20:e sekund — alltså skurar, inte konstant. Hur det ser ut
+på familjens plattor är **omätt** och avgörs av M5. De kvarvarande 2 % med snäpp är tickern som
+hoppar över en vsync (`maxFPS`-taket + `| 0`-trunkeringen, `Ticker.mjs:430-434`).
+
+#### 1.3.4 Kinematiska kanter (Node, S8)
+
+En statisk vägg 16 × 120 px dras i sidled in i en boll (r 22):
+
+| Väggens fart | Teleport per bildruta (dagens mönster) | Fart per fysiksteg (`setPosition(…, true)` i `beforeStep`, nollad i vila) |
+|--:|---|---|
+| 4–24 px/bildruta | bollen **skyfflas** framför väggen, fart **0,0** (ingen rörelsemängd) | bollen får fart 5,1–30,9 px/steg (1,29 × väggens) |
+| 32 px/bildruta | **väggen passerar igenom bollen** | ingen tunnling, 41,2 px/steg |
+| 48 px/bildruta | **igenom** | ingen tunnling, 61,8 px/steg |
+
+32 px/bildruta är ~1 900 px/s — ett snabbt barnsvep. Fart per steg kräver därför ett fart-tak
+(annars kastas frukten ur banan, P0).
+
+---
+
+## 2. Arbetsordrar
+
+Varje order har samma fält. **Kontrollarmen körs FÖRST** (CLAUDE.md: en mätning som inte kan
+skilja två kända lägen åt säger ingenting). En commit per lib-ändring och en per spel; spelkund
+= `npm run check` grön + `npm run test <id>` 0 fel + titta på bilden.
+
+### Spår T — takt och tidssteg
+
+> Gemensamt för hela spåret: **i en bildruta med exakt ett fysiksteg är per-bildruta och
+> per-steg samma sak.** Ingen ändring i spåret flyttar alltså ett handtrimmat spel i de rutorna —
+> den rättar bara rutor med noll eller två steg och takter under 60 fps, där spelet i dag är fel.
+> Vid realistiska 60 Hz (0,1 ms-stämplar, ~2 % tickerhopp) flyttar sig talen ändå lite
+> (flytjämvikten 0,637 → 0,625, marshmallowen 2,12 → 1,75 px häng) — det är rättelsen, inte en
+> ny trimning. Det är också skälet till att felet aldrig syntes: allt trimmades runt 57–60 fps.
+
+#### T1. Kraftfält per fysiksteg: `Flytvolym` och `Magnetfalt` **[Quick]**
+
+- **Premiss — prövad:** `Flytvolym.steg()` körs per bildruta (`flytkraft.js:150-153`;
+  `plask-i-vattnet/index.js:1170`, `dammen.js:2140`), `Magnetfalt.dra()` likaså
+  (`magnet-fiske/index.js:703-707`). Matter nollar krafter efter varje `Engine.update`. Mätt i
+  §1.3.3: jämvikten 0,625 → 0,656 (57 fps) → 1,000 (30 fps); fångsttiden 700 → 1 133 ms.
+- **Bygg:** en `Flytvolym` som får `varld` med `beforeStep` registrerar sig själv per steg
+  (`this._av = varld.beforeStep(() => this._steg())`) och för en egen stegklocka (t += 1/60 per
+  steg) för gupp/vaggning. Det publika `steg(t)` blir en no-op med en DEV-varning när volymen
+  redan stegar själv — annars dubbleras kraften i ett spel som inte hunnit migreras.
+  Motståndsdämpningen (`:172-175`) och `bottenLugn` (`:177-180`) följer med in i steget. För
+  `Magnetfalt` flyttar spelet sin loop (`magnet-fiske/index.js:690-710`) in i
+  `phys.beforeStep` — fältet tar kroppar med egna optioner (pol), så en självregistrering vore
+  mer API än den sparar. Uppdatera skill **fysik-spel** (avsnittet om `PhysicsWorld`): kraftfält
+  och allt som ändrar fart läggs i `beforeStep`.
+- **Kunder:** `plask-i-vattnet` · `grodan-slurp` · `magnet-fiske`.
+- **Mätning:** M1 S6 — samma tank som `_flytprobe` genom Pixis ticker vid 30/40/50/57/60/90 Hz.
+  **Kontrollarm:** dagens kod (förväntat: 1,000 / 0,927 / 0,746 / 0,656 / 0,637 / 0,637). Mätarm:
+  0,625 ± 0,005 vid alla. Magneten: fångsttid inom ±2 % av 60 Hz-värdet vid alla takter. I
+  spelen: `_plaskprobe` (stänk, +8–13 px nivå) och `_magnetprobe` — **ny baslinje i samma
+  commit**, för harnessens 57 fps ger i dag 0,656 och efter fixen 0,625, och det är en ärlig
+  förändring, inte en regression.
+- **Risker/fällor:** dubbelapplicering under migreringen (därav no-op + varning). `grodan-slurp`
+  sätter `stromX` per bildruta i `dammen.steg` — det är en parameter och får stanna där.
+- **Beroenden:** M1 S6 (kan köras i samma pass).
+
+#### T2. Spelens egna per-bildruta-krafter → `beforeStep` **[Quick]** per spel
+
+- **Premiss — prövad i koden, effekten omätt per spel:** åtta spel lägger kraft eller ändrar
+  fart per bildruta (§1.2, rad 2). Samma mekanism som T1, mindre spelvikt: fläkten
+  (`studsa-ner:400`, anropad `:843` före `:844`), simtagen (`magnet-fiske:693`), fånghjälpen
+  (`fanga-frukten:366`), centreringshjälpen (`bygg-tornet:655`, EFTER `:640` — slår på nästa
+  bildrutas steg), gropbollarnas drift (`studsbollar:891`), böjen (`enhorning-glitterbajs:794`),
+  knuffarna (`glasstornet:757`, `:818`) och styrningen (`snobollen:1150`, `:1161`).
+- **Bygg:** flytta varje block in i `this._phys.beforeStep(…)` (spara unbindern, kalla den i
+  `destroy`). Fart-blandningar (`v += (mål − v) · k`) är per steg därefter.
+- **Kunder:** studsa-ner (`_flaktprobe`: 231 px = 0,72 fickor ska stå) · magnet-fiske ·
+  fanga-frukten · bygg-tornet · studsbollar · enhorning-glitterbajs · glasstornet · snobollen.
+- **Mätning:** M2 `_taktprobe <id> --hz 30,60` med samma seed. **Kontrollarm:** 60 Hz två gånger
+  → identiska tal (bevisar determinismen). Mätarm: HEAD skiljer 30 från 60, fixen gör det inte.
+  Per spel det tal som är spelets: fickträff (studsa-ner), fångstprocent (fanga-frukten),
+  centrering (bygg-tornet), styrsvar (snobollen).
+- **Risker/fällor:** `snobollen`s styrning är barnets direkta kontroll — mät att svaret vid
+  60 Hz är oförändrat innan den flyttas. Hjälpkrafter som räknas på speltid (`dt`) måste räknas
+  om till per-steg-tal.
+- **Beroenden:** M2.
+
+#### T3. Fast steg för mjukkroppar, rep och egna lösare: `lib/takt.js` **[Medium]**
+
+- **Premiss — prövad:** åtta kunder stegar `Mjukkropp`/`Rep` med variabelt `dtF` eller ett steg
+  per bildruta (§1.1). Mätt: varm marshmallow kollapsar vid ≤ 40 fps och har fel form vid
+  harnessens 57 fps (2,54 / 39,3 mot 1,75 / 47,6); repet hänger 1,9× djupare vid 30 fps.
+  CLAUDE.md:s fälla "en mjuk kropp måste stega med FAST tidssteg" gäller alltså fortfarande i
+  fyra spel och har en ospecificerad tvilling i `rep.js`. Nio spel har skrivit sin egen
+  ackumulator (§1.2, rad 1), en av dem utan nollställning vid taket
+  (`elementlekplatsen/index.js:955-960` — ackumulatorn växer obegränsat på en långsam enhet).
+- **Bygg:**
+  ```js
+  import { Takt } from '../../lib/takt.js'
+  this._takt = new Takt({ steg: 1000 / 60, max: 3, snapp: 0.5 })
+  // i tickern:
+  this._takt.kor(ticker.deltaMS, () => this._soft.steg(1))
+  this._takt.alfa   // 0..1 — resten, för interpolation (T5)
+  ```
+  `kor()` stegar alltid med exakt 1, kastar överskott vid `max` (och nollställer), och snäpper
+  `deltaMS` inom ±`snapp` ms till exakt ett steg (T4). Bekvämlighet: `Mjukkropp.uppdatera(deltaMS)`
+  och `Rep.uppdatera(deltaMS)` med en inbyggd `Takt`. Samma modul exporterar `fjader1d(w, zeta)`
+  (ur `grodan-slurp/djur.js:112-131`, fasta delsteg 1/120 s).
+- **Kunder (ett spel per commit):** lagerelden (`:968`) · glasstornet (`:742`) · fallskarmen
+  (`:526`) · kugghjulen (`:1649`) · natskott-pa-stan (`:6027`) · spindelnatet (`:783`) ·
+  zackes-biltvatt (`:786`) · pruttbad (`_stepPress` `:2321`). Valfritt, när spelet ändå rörs:
+  hamburgerbygget · unika-knytt · mata-munnen · mata-monstret · pruttbad (vågen) ·
+  grodan-slurp (vågen) · elementlekplatsen · fyrverkeri · gravmaskinen.
+- **Mätning:** M1 S6 för libbet (häng/bredd/höjd vid 30–90 Hz; fast steg ska ge exakt samma tal
+  vid alla). Per spel: lagerelden `_rostprobe` (styvhet 1,000 → 0,175 i lågan, 0,995 efter 3 s
+  ur elden) · glasstornet `_vobbelprobe` (4,57 px utslag, 0,00 i vila) · spindelnatet
+  `_tradprobe` (båge 13,4–14,1 % ut, 2,7–6,2 % in) · natskott `_natlinaprobe`/`_linabild` ·
+  zackes-biltvatt `_stralprobe` · pruttbad `_pressprobe` (13,2 rutor) · kugghjulen `_remprobe`.
+  **Kontrollarm:** varje sond på HEAD först — talen är tagna vid harnessens 57 fps, alltså med
+  `dtF ≈ 1,05`, och ska flytta sig lite. **Titta på bilden** (`bildkoll` + öga): formen ändras
+  från 57 fps-varianten till 60 Hz-varianten, vilket är rätt men syns.
+- **Risker/fällor:** CLAUDE.md:s "för litet steg ger en annan JÄMVIKT" — trimningar gjorda med
+  `dtF` ≈ 1,05 kan behöva en sista blick. `natskott-pa-stan` är 6 463 rader: rör bara stegraden.
+- **Beroenden:** inga (M1 S6 mäter libbet).
+
+#### T4. Ackumulator-snäpp i `PhysicsWorld` och `FluidWorld` **[Quick]**
+
+- **Premiss — simulerad, inte uppmätt på enhet:** §1.3.3 — vid 60,00 Hz med 0,1 ms-stämplar
+  ger `PhysicsWorld.update` (`:426-442`) 32 % noll-stegsrutor och 34 % dubbelsteg; med snäpp
+  0 / 98 / 2 %. `FluidWorld.update` (`vatska.js:258-269`) har samma konstruktion.
+- **Bygg:** `if (Math.abs(d − FIXED) < 0.5) d = FIXED` innan `d` läggs i ackumulatorn — eller
+  båda lösarna byter till `Takt` (T3). Simuleringen går då 0,1 % långsamt på en 59,94 Hz-skärm
+  (omärkligt) i stället för att hacka.
+- **Kunder:** alla 28 världar + 9 vätskespel (ingen kod i spelen ändras).
+- **Mätning:** M1 S6 stegfördelning (kontrollarm: dagens ackumulator → 32/34/34 %). På enhet:
+  M5. I `test:all`: `_ab.sh physics.js vatska.js` (ändringen rör varje fysikspel — flakfrekvensen
+  ska attribueras växelvis, inte sekventiellt).
+- **Risker/fällor:** sonder som räknar steg per bildruta (`fysik-svalt`-larmet i `gamelog.js:600-602`)
+  kan se färre svältsteg — det är rätt riktning.
+- **Beroenden:** inga.
+
+#### T5. Taket på 60 fps och render-interpolation **[Medium]** — villkorad (Ä1, Ä2)
+
+- **Premiss — simulerad:** `app.ticker.maxFPS = 60` (`App.js:24`) gör att en 90 Hz-skärm får
+  tickern på 2 av 3 vsync (deltaMS 11–28 ms, 15 % noll- och 18 % dubbelsteg) och att även en
+  60 Hz-skärm tappar ~2 % av rutorna med kvantiserade stämplar. Vid 57 fps (harnessen) ger
+  dagens synk 5 % dubbelsteg — uppmätt hack 6 → 12 px i en ruta, försvinner helt med
+  interpolation (sd 1,31 → 0,00 px).
+- **Bygg:** (a) mät först på enhet (M5). (b) Om tappen syns: ersätt `maxFPS` med en tolerant
+  begränsare (hoppa över bara om `delta < 1000/60 − 1`) eller ta bort taket. (c) Opt-in
+  `new PhysicsWorld({ interpolera: true })`: `link()`-synken lägger vyn på
+  `positionPrev + (position − positionPrev) · alfa` (och vinkeln likadant) med `alfa` ur
+  ackumulatorn.
+- **Kunder:** spel med en kamera som följer en kropp (grodan-slurp, spindel-zacke-svingar via
+  sin egen integrator — ej berörd) och spel med snabba bollar (bowling, studsbollar,
+  flipperspel, snobollen). Ingen tvångsmigrering.
+- **Mätning:** M1 S6 (ritad förflyttning per visad ruta, sd mot ideal); M5 på enhet; M4 för
+  kostnaden om taket tas bort (en rendering per vsync i stället för högst 60 per sekund).
+- **Risker/fällor:** vyn ligger upp till ett steg (16,7 ms) efter kroppen — allt som läser
+  `view.x` som kroppens läge (DragController-snäpp, träffprov, kamerans `follow`) läser då en
+  annan punkt än lösaren; `onUpdate(view, body)`-callbacks läser `body.position` och glider isär
+  från en interpolerad vy. Därför opt-in per värld. Utan taket renderar en 120 Hz-skärm dubbelt
+  så ofta — batteri (Ä2).
+- **Beroenden:** T4, M5.
+
+### Spår K — kontrollernas robusthet
+
+#### K1. En brygga för avbrutna pekningar (`pointercancel`) **[Quick]**
+
+- **Premiss — prövad i Pixis källa och vår, konsekvensen oprövad:** Pixi 8.19 lyssnar med
+  PointerEvent bara på `pointerdown`/`pointermove`/`pointerup`/`pointerover`/`pointerleave`
+  (`EventSystem.mjs:322-327`); översättningstabellen har en rad för `touchcancel` (`:14`), men
+  ingen gren registrerar en lyssnare för den (touch-grenen tar bara `touchstart`/`touchend`/
+  `touchmove`, `:335-337`), och `EventBoundary` har ingen mappning för typen
+  (`EventBoundary.mjs:67-74`). Efter `pointercancel` skickar webbläsaren inget `pointerup`.
+  Följd i vår kod: `DragController` behåller `active` och avvisar varje nytt grepp (`:82`) —
+  CLAUDE.md:s "permanent död träffyta" (ÅTGÄRDER #13) i en ny form. `AimLauncher` återhämtar
+  sig vid nästa tryck (inget avvisande) men lämnar prickbanan synlig. `grodan-slurp` lyssnar på
+  `'pointercancel'` (`grodan-slurp/index.js:175`) — en lyssnare Pixi aldrig matar.
+- **Bygg:** `lappaPekavbrott(app)` i `lib/pixilapp.js` (där appens Pixi-lappar redan bor), körd
+  en gång av `App.js`. Skiss:
+  ```js
+  const sist = new Map() // pointerId → senaste PointerEvent
+  document.addEventListener('pointermove', (e) => sist.set(e.pointerId, e), true)
+  app.canvas.addEventListener('pointerdown', (e) => sist.set(e.pointerId, e), true)
+  window.addEventListener('pointercancel', (e) => {
+    const p = sist.get(e.pointerId) || e
+    sist.delete(e.pointerId)
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      pointerId: e.pointerId, pointerType: p.pointerType, isPrimary: e.isPrimary,
+      clientX: p.clientX, clientY: p.clientY, button: 0, buttons: 0, bubbles: true }))
+  }, true)
+  ```
+  Händelsen skickas på `window`, alltså inte på duken → Pixi gör den till `pointerupoutside`
+  (`EventSystem.mjs:241`) längs pressmålets egen kedja — det släpp varje kontroll redan lyssnar
+  på. Ta bort `grodan-slurp`s döda `'pointercancel'`-lyssnare i samma veva (eller låt den stå —
+  den är ofarlig).
+- **Kunder:** varje Pixi-kontroll: 23 DragController-spel, 7 AimLauncher-spel, och spelens egna
+  (knuffa-tornet `:801-845`, studsa-ner-fläkten, fanga-frukten-korgen, popcornkalaset, grodan-slurp …).
+- **Mätning:** M3 `_pekavbrottprobe`. **Arm 0 (kontroll):** `touchStart → touchMove → touchEnd`
+  på en bricka i `sortera-skrap`, sedan en ny pekning som tar en bricka → ska fungera på HEAD.
+  **Arm 0b:** räkna `pointercancel` på `window` när CDP skickar `touchCancel` — är den 0 måste
+  sonden skicka `new PointerEvent('pointercancel')` själv. **Arm A:** samma med `touchCancel` →
+  HEAD: andra greppet misslyckas (`_drag.active` kvar), fixen: lyckas. ⚠️ **Lyckas andra greppet
+  redan på HEAD faller premissen** — skriv det i ÅTGÄRDER och bygg inte bryggan.
+- **Risker/fällor:** ett avbrutet finger över ett mål blir ett släpp PÅ målet (godkänt — aldrig
+  ett straff). Dubbla släpp är ofarliga (`_onUp` kollar `active !== rec`). Musens pekare avbryts
+  i praktiken aldrig. Bryggan lever hela appens livstid — den får inte ligga i ett spel.
+- **Beroenden:** M3.
+
+#### K2. Pekar-id i `DragController` och `AimLauncher` **[Quick]**
+
+- **Premiss — prövad i koden, effekten oprövad:** `globalpointermove` levereras för VARJE pekare;
+  ingen av de två jämför `e.pointerId` (`DragController.js:117`, `:122-142`; `launcher.js:97`,
+  `:121-127`). Ett andra finger (eller en handflata) som rör sig drar föremålet/siktet dit.
+  `_lampprobe` visade att varje ny fingerpekning får ett nytt id — det är så filtret ska byggas.
+- **Bygg:** spara `e.pointerId` vid `pointerdown`; ignorera move/up/upoutside med annat id
+  (`rec._up` får ta emot händelsen). Skyddsnät som i `grodan-slurp:471-472`: ett nytt tryck på
+  samma föremål medan `active` har stått kvar längre än 2 s utan rörelse avslutar det gamla
+  greppet.
+- **Kunder:** 23 + 7 spel, utan en rad i spelen.
+- **Mätning:** M3 arm B: finger 1 drar en bricka, finger 2 trycker och rör sig 200 px bort.
+  **Kontrollarm:** bara finger 1 → brickan följer det. HEAD: brickan hoppar till finger 2. Fix:
+  följer finger 1. Samma för siktet i `spindelhjalten`. `_dragprobe` (tyngd, städning, exit mitt
+  i drag) ska vara oförändrad.
+- **Risker/fällor:** ett barn som byter hand mitt i draget — första handens släpp lägger ned
+  föremålet, andra handen kan ta det igen (P0 ok). Harnessens mus har alltid id 1 — testet ser
+  ingen skillnad, sonden gör det.
+- **Beroenden:** K1 (annars kan ett id fastna).
+
+#### K3. En delad pekhjälpare: `lib/pekare.js` **[Medium]**
+
+- **Premiss — prövad:** varje kontroll skriver samma sekvens (down på målet → move/up/upoutside
+  på samma mål) och samma två fällor kommer tillbaka: släppet på ett SYSKON (CLAUDE.md,
+  `skattjakt-i-morkret`) och pekar-id:t (K2). Mönstret finns i `DragController`, `AimLauncher`,
+  `knuffa-tornet:801-821`, `studsa-ner`s fläkt, `popcornkalaset`, `grodan-slurp:172-179`.
+- **Bygg:** `pekGrepp(yta, { traff(p), ned(p, mal, e), flytta(p, mal, e), slapp(p, mal, { avbruten }) })`
+  → unbinder. En pekare åt gången, alla lyssnare på EN gemensam `static` förälder,
+  `pointerupoutside` och den bryggade cancel-händelsen ingår. G1, G4, G5 och G8 byggs på den.
+- **Kunder:** lib-kontrollerna först; spel bara när de ändå rörs.
+- **Mätning:** M3 över DragController-, AimLauncher- och grepp-spel; `_lampprobe` (två id, två
+  greppytor) ska vara grön mot en hjälpare-byggd variant.
+- **Risker/fällor:** CLAUDE.md: en bubblande förälder MÅSTE vara `eventMode = 'static'`, och en
+  bar `Container` utan geometri träffas aldrig (minnet "träffyta utan geometri").
+- **Beroenden:** K1, K2.
+
+#### K4. Prickbanan ritas en gång per bildruta, inte per pekrörelse **[Quick]**
+
+- **Premiss — prövad i koden, kostnaden omätt:** `_pointerMove` ritar om hela banan (≈ 22 cirklar
+  i en `Graphics`) för varje `globalpointermove` (`launcher.js:121-127` → `:178-194`). En
+  pekskärm kan leverera fler rörelser än bildrutor.
+- **Bygg:** spara senaste farten i `_pointerMove`, rita i en ticker-lyssnare om den ändrats.
+- **Kunder:** 7 AimLauncher-spel.
+- **Mätning:** M4 `_fysikkostnad spindelhjalten` under ett drag (rörelser per bildruta och
+  bildrutearbete) mot kontrollarm utan drag; barlast-armen först. Bygg bara om utslaget är
+  mätbart.
+- **Risker/fällor:** inga kända.
+- **Beroenden:** M4.
+
+### Spår R — rätt fysik och ergonomi i libbet
+
+#### R1. Fällvakter i DEV: `statisk-fart` och `snurr` **[Quick]**
+
+- **Premiss — prövad:** `_diagSample` (`physics.js:135-178`) loggar redan NaN, rymning och
+  toppfart, men två av CLAUDE.md:s dyraste fysikfällor syns inte: (1) en statisk kropp som bär
+  en gammal fart (`setPosition(…, true)` + en paus — bräddan med (−651, −230) i hela byggfasen),
+  (2) en vinkelfart som skenar (Constraint-greppet, 166 000° utan konsolfel).
+- **Bygg:** i `_diagSample`: **`statisk-fart`** när en statisk kropp har |v| > 0,5 px/steg vid två
+  prov i rad OCH inte flyttat sig > 0,5 px mellan dem (en kinematisk kropp i rörelse flaggas inte).
+  **`snurr`** när en dynamisk kropp har |ω| > 1,5 rad/steg (≈ 5 000°/s; ett klot med radie 30 i
+  20 px/steg rullar med 0,67). Båda som `varning` via `logPhysics` (`gamelog.js:588-607`).
+- **Kunder:** alla 28 världar, via varje `npm run test`.
+- **Mätning:** M1 S5/S8-armar i Node: `Fjaderbrada.driv` använd som drag + paus → MÅSTE flagga;
+  `flytta` → får inte; Constraint-grepp vid r²·m/I = 3 → MÅSTE flagga `snurr`; ett rullande
+  klot i 20 px/steg → får inte. Sedan `npm run test:all` en gång för baslinjen — varje träff är
+  ett fynd att läsa med `_vilkaprobe`-mentalitet (identitet före slutsats).
+- **Risker/fällor:** tröskeln är en gissning tills armarna ovan satt den. `grodan-slurp`s hinder
+  drivs med `setPosition(…, true)` med flit — en träff där när hindret STÅR STILL är ett äkta fynd.
+- **Beroenden:** M1 (armarna).
+
+#### R2. Kinematiska kroppar: `phys.kinematisk(body)` **[Medium]**
+
+- **Premiss — prövad (S8, §1.3.4):** teleporterade statiska kanter skyfflar utan rörelsemängd och
+  tunnlar vid ≥ 32 px/bildruta. Spelen: `fanga-frukten:342-344` (korgens kanter + sensor),
+  `studsa-ner:652-653` (tratten), `studsmatta:487` (mattan). Det rätta mönstret finns redan två
+  gånger (`fjader.js:247-270`, `grodan-slurp/hinder.js:421-491`) men inte som verktyg.
+- **Bygg:** `const k = phys.kinematisk(body, { maxFart: 12 })` → `k.till(x, y, vinkel)` från
+  pekhanteraren; varje fysiksteg flyttas kroppen mot målet med `setPosition(…, true)`
+  (förflyttningen ÄR farten, klämd till `maxFart`) och `setVelocity(0)` + `setAngularVelocity(0)`
+  när den står still — så ingen gammal fart blir kvar (R1 vaktar). `k.flytta(x, y)` = bära utan
+  kastkraft (Fjaderbrada.flytta-semantik).
+- **Kunder:** fanga-frukten · studsa-ner · studsmatta (enhorning-glitterbajs sensor `:779`
+  behöver ingen fart — rör inte).
+- **Mätning:** M1 S8 (kontroll: väggen står still → bollen orörd). Per spel en snabbdrags-arm i
+  M2: dra korgen/tratten 40 px/bildruta genom fallande frukt — **antal som går igenom kanten** och
+  **högsta frukt-fart efter mötet**, HEAD mot fix.
+- **Risker/fällor:** **känslan ändras** — korgen knuffar nu frukten i stället för att skyffla den.
+  `maxFart` håller den i banan (P0: aldrig fly ur banan); kör `_idleprobe` och fånga-sonden mot
+  HEAD. matter väcker inte sovande kroppar av en statisk förflyttning (relevant först om R5:s
+  sömn slås på).
+- **Beroenden:** R1, M2.
+
+#### R3. Statisk friktion som opt-in, och de döda talen i libbet **[Quick]**
+
+- **Premiss — prövad:** `setStatic` sätter friktionen till 1 (`physics.js:248`); parregeln är
+  `min(A, B)`, så ett deklarerat lågt tal på en statisk yta gör ingenting så länge den rörliga
+  kroppen har högre friktion. `bowling` behövde räckets 0,1 för att pricklinjen skulle gå från
+  79 till 9 px fel (ÅTGÄRDER V10b) och sätter den för hand. `_buildWalls`' 0,4/0,6 (`:202`) är
+  döda och vilseledande.
+- **Bygg:** `{ isStatic: true, friktion: 0.1 }` i `_make` (sätts efter `setStatic`, uppdaterar
+  `_original`, loopar `parts` — exakt som `studs`). `check.mjs --studs` listar även deklarerad
+  `friction` på statiska kroppar (läslista, inte fixlista). Stryk talen i `_buildWalls` (de har
+  aldrig gjort något — ÅTGÄRDER V10 fynd 3) och skriv vad väggarna faktiskt är.
+- **Kunder:** bowling (byt handraden mot nyckeln — identiskt beteende). Läslistan avgör fler;
+  `flipperspel`s stolpar/dynor (0,02, `:500`, `:797`) mot kulans friktion är första frågan.
+- **Mätning:** `_studsprobe` ny §: glidsträcka för en kloss på en statisk ramp med `friktion`
+  0,1 mot utan (kontroll: utan nyckeln ska talet vara identiskt med i dag). `bowling` §7 ska stå
+  på 9 px.
+- **Risker/fällor:** samma lärdom som V10b: den rörliga kroppens EGET tal är golvet (här taket,
+  `min`) — läs det innan en kund väljs.
+- **Beroenden:** inga.
+
+#### R4. `Flytvolym` som spärrar bara i vattnet (opt-in) **[Quick]**
+
+- **Premiss — prövad:** fartspärren och `vridDamp` verkar på varje kropp i volymen var den än är
+  (`flytkraft.js:181-187`, med avsikt — det är tunnlingsskyddet). `grodan-slurp` tar därför ut och
+  lägger tillbaka grodans delar runt varje superhopp (`groda.js:760-776`), och CLAUDE.md har
+  fällan "en Node-sond utan spelets flytvolym mäter en snällare värld".
+- **Bygg:** `lagg(body, { sparr: 'vatten' })` → spärr och vridDamp bara när nedsänkningen > 0.
+  Förval oförändrat.
+- **Kunder:** grodan-slurp (ta bort `_iVolym`-växlingen).
+- **Mätning:** `_superhoppprobe` (med flytvolym) — höjd, längd, volt och stjärnpose identiska med
+  HEAD; `_tumlaprobe` tummel/hopp oförändrat; `_flytprobe` orörd.
+- **Risker/fällor:** en del som flyger fort OVANFÖR vattnet har då ingen spärr alls — `hog-fart`
+  i `_diagSample` vaktar.
+- **Beroenden:** T1 (samma fil, samma pass).
+
+#### R5. `PhysicsWorld`-optioner: iterationer, sömn, fartspärr **[Quick]**
+
+- **Premiss — prövad:** iterationerna skrivs direkt på motorn (`grodan-slurp/index.js:308-310`),
+  sömn går inte att slå på (`physics.js:92`), och 13 filer har egna fartspärrar (§1.2).
+- **Bygg:** `new PhysicsWorld({ iterationer: { position, fart, villkor }, sova: false })` och
+  `phys.fartTak(body, max)` (per steg, i `afterUpdate`-läge så det gäller farten lösaren lämnar).
+  Sömn är opt-in och ska motiveras av STABILITET (vilokryp), aldrig av kostnad (§1.3.2).
+- **Kunder:** grodan-slurp (iterationer); fartspärrarna migreras bara när ett spel ändå rörs;
+  sömn bara efter M1 S1 + spelsond (bygg-tornet, balanstornet — vilande högar som darrar?).
+- **Mätning:** M1 S1 (vilokryp px/10 s och kostnad, sova av/på); S3 (fartspärr mot tunnling).
+- **Risker/fällor:** matter-sömn fryser kroppar som tappat sitt stöd om ingen väcker dem; en
+  statisk kropp som flyttas väcker ingen (R2 måste väcka).
+- **Beroenden:** M1.
+
+#### R6. Kontaktetiketter och kroppsfabriker **[Quick]**
+
+- **Premiss — prövad:** 17 spel går igenom `e.pairs` och matchar `label` för hand; sex av dem
+  (bygg-tornet · knuffa-tornet · mata-monstret · spindelhjalten · vippbradan · grodan-slurp) måste
+  dessutom tänka på att en sammansatt kropps par pekar på DELEN, inte föräldern.
+  `grodan-slurp/dammen.js:1555-1572` (kropp ur kontur) och `popcornkalaset/karl.js:193-202`
+  (sammansatt kropp) bygger förbi `_make`.
+- **Bygg:** `phys.paKontakt('kula', 'kagla', (kula, kagla, par) => …)` — matchar i båda
+  ordningarna och läser `part.parent.label`. `phys.konvex(punkter, opts)` och
+  `phys.sammansatt(delar, opts)` som går genom `_make` (alltså väckbara och med `studs`/`friktion`).
+  `phys.grupp()` = `Body.nextGroup(true)`.
+- **Kunder:** inga tvångsmigreringar; nya spel och kunder i G/F använder dem.
+- **Mätning:** M1-armar: `paKontakt` får samma par som en handskriven matchning över en 600 steg
+  lång kollisionsström; `konvex` lägger hörnen exakt på punkterna (0,0 px, som
+  `_konvexKropp` lovar).
+- **Risker/fällor:** `Bodies.fromVertices` med konkav kontur kräver poly-decomp (finns inte) och
+  faller tillbaka på konvext hölje — dokumentera, kasta inte.
+- **Beroenden:** inga.
+
+### Spår O — optimering där kostnaden faktiskt ligger
+
+> **Princip, mätt:** lösaren kostar 0,044 ms/steg vid 34 kroppar (§1.3.2); ett mjukt popcorn
+> kostar 0,5–0,85 ms per bildruta att rita om vid CPU ×4. Optimera RENDERINGEN. Och mät aldrig
+> kostnad med rAF-intervallet — det klipps av vsync (CLAUDE.md); mät bildrutearbete
+> (`_popcornomrit`-mönstret: stämpel före spelet och efter Pixis render) med en barlast som
+> kontrollarm, eller en profilerare.
+
+#### O1. Mjuka kroppar som mesh i stället för omritad `Graphics` **[Medium]** — hypotes
+
+- **Premiss (oprövad):** kostnaden per mjuk kropp är `Graphics.clear()` + `path()` +
+  triangulering varje bildruta (`mjukkropp.js:408-423`; `popcornkalaset` håller därför
+  `MAX_SAMTIDIGA_POPP = 8`, `index.js:53`). En `MeshSimple`-solfjäder (mitt + ring + mellansteg
+  ur samma kvadratiska kurva) uppdaterar bara hörnpositioner — ingen triangulering.
+- **Bygg:** `mjukMesh(m, { farg, tathet })` → `{ mesh, uppdatera(), destroy() }`, fyllning via
+  `Texture.WHITE` + `tint`; gradientfyllningar via en Canvas2D-textur cachad per färg (aldrig
+  `generateTexture`, aldrig en `FillGradient` per montering). Konturen som en andra remsa.
+- **Kunder (om mätningen bär):** popcornkalaset (höj taket) · pruttbad · glasstornet ·
+  mata-monstret · mata-munnen · hamburgerbygget · lagerelden · fallskarmen · unika-knytt.
+- **Mätning:** `_popcornomrit` N = 8/16/24 med `path()` mot `mjukMesh` (barlast 4 ms måste flytta
+  mätaren ~3,7, som i B0). **Bygg vidare bara vid ≥ 2× billigare.** `_graflackprobe` efter tolv
+  spelbyten: en mesh som äger sin `MeshGeometry` får inte bli kvar (samma familj som V16).
+- **Risker/fällor:** formen måste vara pixellik `path()` (mät med `_bullprobe`-mönstret: ritad
+  geometri, inte tillstånd); C2/C3-fällorna om texturbakning.
+- **Beroenden:** M4.
+
+#### O2. `FluidView.area` i `saftbaren` och `zackes-biltvatt` **[Quick]**
+
+- **Premiss — prövad:** sju av nio vätskespel sätter `area`; de två som inte gör det kör filtret
+  över hela förvalsytan 1520 × 1080 (760 × 540 rendermål vid `resolution 0.5`, tre pass —
+  `vatska.js:687-702`). Bibliotekets egen kommentar: kostnaden betalas "i tappade
+  WebGL-kontexter i ANDRA spel".
+- **Bygg:** sätt `area` till den yta vätskan kan nå (glasraden i `saftbaren`; strålens fält i
+  `zackes-biltvatt` — bredare, men inte hela skärmen).
+- **Kunder:** saftbaren · zackes-biltvatt.
+- **Mätning:** rendermålets pixlar (ur `boundsArea × resolution`, före/efter) + `_vatskeprobe` /
+  `_stralprobe` (målade pixlar oförändrade — en för snål yta klipper vätskan) + `_ab.sh` för
+  flakfrekvensen i `test:all` (växelvis, HEADs egen frekvens bredvid).
+- **Risker/fällor:** metabollen sväller ~30 px utanför partiklarna — marginal i ytan.
+- **Beroenden:** inga.
+
+#### O3. Omritning bara vid rörelse — för rep, trådar och prickbanor **[Quick]** per spel
+
+- **Premiss (oprövad per spel):** `glasstornet`, `fallskarmen` och `fjader.js` grindar redan
+  omritningen på rörelse; rep ritas med tre `stroke` per bildruta (`rep.js:294-301`) även när de
+  hänger still (`kugghjulen:976`, `:1016-1017`).
+- **Bygg:** rita om när största punktförflyttningen > 0,05 px (samma tröskel som
+  `Fjaderbrada._mjukFart`), plus en sista ritning när den faller under.
+- **Kunder:** kugghjulen · spindelnatet · natskott-pa-stan (de som M4 visar betalar).
+- **Mätning:** M4 per spel — bygg bara där bildrutearbetet rör sig mätbart.
+- **Beroenden:** M4.
+
+**Stängt med mätning (inga arbetsordrar):**
+- **Sömn som prestanda** — 0,044 → 0,004 ms/steg vid 34 kroppar = 0,04 ms vinst (§1.3.2). Som
+  stabilitet: R5, efter mätning.
+- **Broadphase och kollisionsfilter** — matter 0.20:s sorteringssvep med 6–34 dynamiska kroppar
+  är redan försumbart; filter används där de behövs för BETEENDE (grodan, kärlen).
+- **Delsteg som standard** — matter 0.20 normaliserar farten mot 16,67 ms, men varje
+  `beforeStep`-impuls och varje px/steg-konstant i repot (förhandsbanans 0,2778 × gravityY,
+  `speedToAccel`) skulle byta betydelse. Inga `kropp-rymde`/`hog-fart` i loggarna. Opt-in per
+  värld bara för ett nytt spel där M1 S3 visar tunnling.
+
+### Spår F — nya features
+
+#### F1. Leder, gångjärn, motorer och vridfjädrar i `PhysicsWorld` **[Medium]**
+
+- **Premiss — prövad:** tre spel bygger rå `Constraint` + `Composite.add` (`balanstornet:301-307`,
+  `vippbradan:222-229`, `knuffa-tornet:257-265`); vridfjädern finns en gång (`balanstornet:13-20`,
+  `:177`); motorer finns inte. CLAUDE.md: konstraintens `damping` jämför MITTPUNKTER och bromsar
+  stel rotation (0,18 → 0,002 rad/steg på 40 steg).
+- **Bygg:**
+  ```js
+  const g = phys.gangjarn(planka, { x: CX, y: PIVOT_Y })           // längd 0, styvhet 1, damp 0
+  g.vridfjader({ vila: 0, k: STOD_K, damp: STOD_DAMP })            // per steg (balanstornets formel)
+  g.motor({ fart: 0.05, maxMoment: 0.02 })                         // rad/steg mot målfart, momenttak
+  const p = phys.pendel({ x, y }, kula, { langd, styvhet, damp: 0 })
+  const l = phys.led(a, b, { ankA, ankB, styvhet: 0.95, damp: 0 }) // stiftled, grodans mönster
+  g.ta()                                                           // destroy() tar allt ändå
+  ```
+  Motor och vridfjäder läggs som vinkelimpulser per steg i `beforeStep` — fördelade efter
+  `inverseInertia` som ett par när leden sitter mellan två kroppar (ragdoll-minnet).
+- **Kunder:** balanstornet · vippbradan · knuffa-tornet (port); kulbanas propeller (köad,
+  `docs/games/kulbana.md:155`), bajs-och-kiss gungande potta (`docs/games/bajs-och-kiss.md:72`),
+  enhorningen-elvira gungande moln (valfritt); grundlag för G8 och F10. grodan-slurp behåller
+  sina leder (muskler och vybyte är spelets).
+- **Mätning:** M1 S4: gångjärnets drift under last ≤ 0,5 px över 10 s; pendelns energi över 10 s
+  med `damp 0` mot `0,1` (**kontrollarm = fällan, ska tappa**); motorn når målfart under last
+  inom N steg och överskrider aldrig momenttaket. Port: `_vippprobe` (puff + ljud + skak vid
+  nedslag) och balanstornets egen kalibrering (tung kloss ytterst → 0,183 rad, filhuvudet
+  `:18-20`) ska ge samma tal; knuffa-tornet `_tornprobe` noll fysikavvikelser.
+- **Risker/fällor:** `constraintIterations` 2 som förval räcker inte för kedjor av leder
+  (grodan: 5); en motor utan momenttak är en kraftkälla utan gräns (popcorn-greppets lärdom).
+- **Beroenden:** R5 (iterationer), M1 S4.
+
+#### F2. Kedjor och rep som matter-kroppar: `phys.kedja()` **[Medium]**
+
+- **Premiss — prövad:** en kedja som KROCKAR med världen (inte bara ritas) finns en gång:
+  `grodan-slurp/klibbrep.js` (13 länkar, 15 px, styvhet 0,85, damping 0,04, egen negativ grupp).
+  Verlet-`Rep` kan inte knuffa en matter-kropp.
+- **Bygg:** `phys.kedja({ fran: kropp | punkt, till, lankar, seg, radie, grupp, styvhet, damp })`
+  → `{ lankar, leder, ta() }`. Klibbandet stannar i grodan.
+- **Kunder:** grodan-slurp (port); bajs-och-kiss gungande potta på kedja; framtida
+  `blackfisken-otto` (IDEER #3) om armarna ska kollidera. Byggs inte före en andra kund.
+- **Mätning:** M1-arm: töjning i % under last, ingen NaN över 3 000 steg, kostnad per länk (S7).
+  Port: `_superspelprobe` repet fångar/klibbar som förut.
+- **Risker/fällor:** matter-kedjor töjs och kan explodera med tung last — `Rep`s FABRIK-pass finns
+  inte här; dämpningsfällan (F1).
+- **Beroenden:** F1.
+
+#### F3. Brytbara kroppar: `phys.brytbar()` **[Medium]** — tonen är ägarens (Ä7)
+
+- **Premiss — prövad:** `knuffa-tornet`s glas spricker vid hård träff och FÖRSVINNER i gnistor
+  (`:146-148`, `:1398-1405`, `:1433`) — med rätt detalj: borttagningen köas till nästa tick, inte
+  mitt i matters kollisionshändelse.
+- **Bygg:** `phys.brytbar(body, { grans: 6 /* normalFart px/steg */, bitar: (body) => [...], livstid: 3, tak: 12, onBryt })`
+  → vid anslag över gränsen (`onImpact`s `normalFart`) köas en delning; nästa steg ersätts kroppen
+  av bitar som ärver `v + ω × r`, tonar bort efter `livstid`, och aldrig fler än `tak` i världen.
+- **Kunder:** knuffa-tornet (glaset i riktiga bitar); framtida `brobyggarna` (IDEER #10,
+  storbarn — en led med brottgräns är F1 + samma kö).
+- **Mätning:** M1 S9: rörelsemängden före/efter delning inom 1 %; ingen bit föds överlappande
+  statisk geometri (utkastfart ≤ 2 px/steg); taket håller. I spelet: `_tornprobe` + bild.
+- **Risker/fällor:** P0 småbarn — rundade bitar och glitter, inga vassa skärvor, inget som läses
+  som "du förstörde". Ta aldrig bort en kropp inne i en kollisionshändelse.
+- **Beroenden:** F1 (för brottgräns på leder), R6.
+
+#### F4. Vindfält och strömmar: `lib/vind.js` **[Medium]**
+
+- **Premiss — prövad:** `setWind` är global och konstant (`physics.js:182-185`); den enda
+  regionala vinden är `studsa-ner`s fläkt (`:387-401`, per bildruta — T2); `Motstandsvolym`
+  modellerar redan vind som LUFTHASTIGHET (`luftmotstand.js:87-92`) men bara för sin egen
+  integrator.
+- **Bygg:** `new Vindfalt({ varld, form: { typ: 'band' | 'kon', … }, luft: { x, y }, avtag, puff })`
+  — stegar per fysiksteg, verkar som ett motstånd mot fart RELATIVT luften (lätt sak följer med,
+  tung släpar), styrkan i px/steg via `speedToAccel`. Filter per kropp.
+- **Kunder:** studsa-ner (port), bajs-och-kiss (pruttvinden som en kon i stället för global),
+  spindelhjalten (vindband), enhorningen-elvira (vindknappen).
+- **Mätning:** `_flaktprobe` 10 mynt per sida — **231 px = 0,72 fickor** ska stå efter porten;
+  M1 S6 takt-invarians.
+- **Risker/fällor:** en kort passage dimensioneras inte i sluthastighet (B5-lärdomen: släpp
+  föremål och mät var de landar). Vinden måste SYNAS (fläktens blå ström).
+- **Beroenden:** T1/T2-mönstret.
+
+#### F5. Ytvågor via höjdfält: `lib/ytvag.js` **[Medium]**
+
+- **Premiss — prövad:** två handbyggda höjdfält (`pruttbad/index.js:177`, `:360-363`, `:491`;
+  `grodan-slurp/dammen.js:285-310`, `:2255-2290`), båda med minnets fyra fällor lösta på var
+  sitt sätt (viloläge + avvikelse, dämpning SIST, omritning på rörelse, fast steg).
+- **Bygg:** `new Ytvag({ n, x0, x1, ytY, sprid, k, damp, max })` → `stot(x, kraft)`,
+  `vila(x, djup, bredd)` (dellen som viloläge, inte som kraft), `hojd(x)`, `uppdatera(deltaMS)`
+  (med `Takt`), `rorlig` (för omritningsgrinden), `path(g)`.
+- **Kunder:** pruttbad · grodan-slurp (port); kandidater när de ändå rörs: tvatta-djuret (badet),
+  magnet-fiske (dammens yta).
+- **Mätning:** portekvivalens som `_flytprobe` (samma tal steg för steg över 900 steg); minnets
+  fyra fällor som armar (pumptest 0,5 s drag når inte taket; rest efter 4 s; Nyquist-läget;
+  grinden ritar inte en stilla dell). `_pressprobe` (pruttbad) och `_vagdiag` (dammen) oförändrade.
+- **Risker/fällor:** lång våglängd avklingar långsamt (~6 s) — en sond som väntar 4 s dömer ett
+  friskt fält.
+- **Beroenden:** T3.
+
+#### F6. Vätska ↔ kropp **[Deep]** — villkorad
+
+- **Premiss — prövad:** `FluidWorld`s kolliderare är plana former som spelen flyttar själva efter
+  matter-steget (`plask-i-vattnet/index.js:578`, `:1176`); vätskan knuffar aldrig en kropp
+  (skill **fysik-spel**: "vätskan läser matter-kärlen som statiska kanter" — med avsikt).
+- **Bygg:** (a) **[Medium]** `fluid.foljKroppar(phys, [{ body, form }])` — synkar kolliderare ur
+  kroppar varje steg, inklusive kärl som bär sin vätska (`saftbaren._carryAll`-regeln: en ägare
+  per partikel). (b) **[Deep]** reaktionskraft: summan av partikelimpulser per kolliderare →
+  kraft på kroppen. Bara (a) tills ett spel ber om (b).
+- **Kunder:** plask-i-vattnet · zackes-biltvatt · mata-munnen (a); framtida `vattenballongerna`
+  (IDEER #4) (b).
+- **Mätning:** `_plaskprobe` (undanträngning +8–13 px, volym 416 → 416), `_vatskeprobe --losa`.
+- **Risker/fällor:** "ett spel = en motor" — (b) kopplar två lösare med olika ackumulatorer
+  (T3 först); volym trängs undan (lavans 35 px).
+- **Beroenden:** T3, T4.
+
+#### F7. `lib/ragdoll.js` **[Deep]** — villkorad
+
+- **Premiss — prövad:** receptet finns och är mätt (`grodan-slurp/groda.js`, minnet "ragdoll i
+  matter"); IDEER #2 `nallens-stuntshow` listar biblioteket som sitt motorbygge.
+- **Bygg:** stiftleder i negativ grupp, muskelpar och vinkelgränser per steg (centrerade kring
+  ledens mitt), spegling, vybyte — **i samma commit som `nallens-stuntshow`**, aldrig före
+  (p2-es-regeln, LYFTPLAN A1).
+- **Kunder:** nallens-stuntshow; grodan-slurp bara om porten är gratis.
+- **Mätning:** `_grodprobe`-mönstret (sittpose, hopp, tunga mot Newton) för det nya spelet.
+- **Beroenden:** F1.
+
+#### F8. Inspelning per fysiksteg och slow-motion-repris **[Medium]**
+
+- **Premiss — prövad:** `kulbana` har en köad [Deep]-punkt "Replay av den lyckade rullningen"
+  (`docs/games/kulbana.md:71-73`). En repris behöver ingen omsimulering — bara lägena.
+- **Bygg:** `const r = phys.spelaIn(kula, { max: 900 })` → ringbuffert av `{ x, y, vinkel }` per
+  steg; `r.spelaUpp(vy, { fart: 0.4, spar: true })` animerar ur bufferten (deterministiskt per
+  konstruktion). Samma buffert matar DEV-överlägget (F9) och sonder som jämför banor steg för steg.
+- **Kunder:** kulbana (Ä8); sonder.
+- **Mätning:** reprisen avviker 0,0 px från den spelade banan; minnet begränsat; exit mitt i en
+  repris lämnar inget (`_exitprobe`-mönstret).
+- **Risker/fällor:** reprisen får inte låsa nästa runda (återspelssäkerhet, CLAUDE.md).
+- **Beroenden:** inga.
+
+#### F9. Fysiköverlägg i DEV: `lib/fysikdebug.js` **[Quick]**
+
+- **Premiss — prövad:** ingenting ritar kropparna; "konstens utbredning och träffytans utbredning
+  är två budgetar" (CLAUDE.md) syns bara i en sond.
+- **Bygg:** `?fysik` i DEV: kroppskonturer, leder, kontaktpunkter, fartpilar, `statisk-fart`-
+  markering, sensorer, `hitArea` för grepp/sikte. Bakom `import.meta.env.DEV` så det viker ihop i
+  bygget.
+- **Kunder:** alla 28 världar (för den som bygger).
+- **Mätning:** `npm run build` + grep i `dist/` efter modulens markörsträng = 0 träffar; överlägget
+  ritar N konturer för N kroppar; 0 konsolfel.
+- **Beroenden:** inga.
+
+#### F10. Kuggkoppling med last: `kugghjulen` B7 **[Deep]**
+
+- **Premiss — prövad:** LYFTPLAN B7 (`:889-893`): rotationen är BFS över mittavstånd, inga kroppar;
+  `docs/games/kugghjulen.md:88-92` förklarar varför ett back-hjul inte går att bygga som ett
+  extra hjul.
+- **Bygg:** hjul som `gangjarn`-kroppar (F1) + en kuggkoppling per hjulpar (ω_b = −r_a/r_b · ω_a,
+  löst per steg med rätt effektiva tröghetsmoment, drivPunkt-mönstret) + last på karusellen;
+  veven via G8.
+- **Kunder:** kugghjulen.
+- **Mätning:** `_vevprobe` (känns maskinen tyngre ju mer barnet byggt?) och `_remprobe` mot HEAD;
+  M1-arm för utväxlingen (1 % fel över 10 varv).
+- **Risker/fällor:** P0 MOTGÅNG — motståndet får sakta ned, aldrig stoppa.
+- **Beroenden:** F1, G8.
+
+### Spår G — nya kontroller
+
+> Varje kontroll prövas mot sitt åldersband. **Småbarn:** tap och enkel drag med tap-tap-
+> fallback, ≥ 96 px + 24 px halo, inga långtryck, ingen multitouch, återkoppling < 100 ms.
+> **Storbarn:** håll, multitouch och svep som spelhandling är tillåtna, blindkontroller ≥ 96 px,
+> och ALDRIG automatisk hjälp som siktar åt barnet. Storbarn har **noll spel** i dag — G4:s
+> håll-läge, G5 och G6 byggs i samma commit som sin första kund (Ä3).
+
+#### G1. Fjädergrepp: `lib/grepp.js` **[Medium]**
+
+- **Premiss — prövad:** `drivPunkt` löser greppet med rätt effektiv massa och krafttak
+  (`popcornkalaset/karl.js:116-149`); ett matter-`Constraint` som grepp snurrade grytan 166 000°.
+  Leksakslådans center-grepp (`leksakslada/index.js:637-660`, tak per leksak) är samma sak med
+  r = 0. Två implementationer, två sätt att greppa — men ett bibliotek.
+- **Bygg:**
+  ```js
+  this._grepp = new Grepp({
+    phys, yta: this._root,                 // gemensam static förälder (K3)
+    kroppar: () => this._leksaker.map((l) => l.body),
+    halo: 24, punkt: 'fingret' | 'mitten', k: 0.35, tak: { dv, v }, fartTak: (b) => …,
+    kast: false | { max: 18 },             // G2
+    tapTap: true,                          // småbarn: tryck kropp → tryck mål → handen bär dit
+    onLyft, onSlapp,
+  })
+  ```
+  Per steg: handen följer fingret (accelerationstak som `karl.js`s `HAND_ACC`), `drivPunkt` med
+  krafttak. Tap-tap: första trycket markerar (vippning + ljud < 100 ms), andra sätter ett mål
+  och den osynliga handen bär dit i begränsad fart — aldrig en teleport. Hylla/vippning stannar i
+  `Karl` (det är popcornspelets regel, inte greppets).
+- **Åldersband:** småbarn ✓ (ett finger, tap-tap, halo); storbarn ✓ (kast som huvudhandling, G6).
+- **Kunder:** popcornkalaset (`Karl` importerar `drivPunkt` ur libbet — inget annat ändras),
+  leksakslada (center-grepp med tak per leksak); kandidater: mata-munnens lösa kroppar
+  (`_gorLos`), nya spel (IDEER #2, #3, #5).
+- **Mätning:** ny `_greppprobe.mjs` (Node): r²·m/I ∈ {0,5; 1; 3} → max |ω| över 300 steg —
+  **kontrollarm: matter-`Constraint`** (ska skena vid 3,0); grepp mot statiskt golv med och utan
+  tak → genomträngning och utfart (kontroll: utan tak, ~56 px/steg); tap-tap når målet utan att
+  överskrida taket; exit mitt i grepp. Port: `_popcornhandtag` + `_popcornhall` identiska tal,
+  `_popcornnaiv` (10 nybörjargrepp) minst lika bra som HEAD; `_leksakprobe` oförändrad.
+  **Och en naiv-gest-sond för varje ny kund** (minnet: byggarens sond spelar byggarens väg).
+- **Risker/fällor:** en driven kropp är en murbräcka — `collisionFilter.group` på FÖRÄLDERN;
+  innehåll i ett buret kärl behöver kärlets fartändring (`barAndel`); korrigera aldrig en annan
+  källas snurr via vridpunkten (hällningsminnet).
+- **Beroenden:** K3, R6, G2.
+
+#### G2. Kast ur draget: `lib/pekspar.js` **[Quick]**
+
+- **Premiss — prövad:** släppfarten finns redan och har sina två tysta fällor lösta
+  (`DragController.js:144-174`: 90 ms fönster, 130 ms ålder, provet bortom två fönster), men bara
+  för `DragController` och en kund.
+- **Bygg:** flytta `_slappFart` till `pekspar.js` (`spar.lagg(t, x, y)` · `spar.fart()` → px/ms eller
+  `null`); `DragController` använder den oförändrat, `Grepp` och G3-varianterna också.
+  px/ms × 16,67 = px/steg, klämt till `kast.max`.
+- **Åldersband:** småbarn — bara BONUS (målet nås utan kast, som i mata-munnen); storbarn —
+  svep som spelhandling.
+- **Kunder:** mata-munnen (oförändrad via DragController), Grepp-kunderna (leksakslådan: kasta i
+  korgen, Ä5).
+- **Mätning:** `_kastprobe` (4 kontrollarmar före mätarmarna) identisk; M1-arm med syntetiska
+  pekspår: snärt efter långsamt drag → fart; stilla en halv sekund före släpp → `null`.
+- **Beroenden:** inga.
+
+#### G3. Sikte och slangbella, fler varianter (`AimLauncher` v2) **[Medium]**
+
+- **Premiss — prövad:** `predict()` känner bara golv/väggar (`launcher.js:232-266`) — studsar mot
+  ramper och plattor ritas fel, och tre spel har handtrimmat runt det (bowling: 214 → 9 px med
+  `studs` + friktion; rulla-bollen-hem: `Math.max(ball.rest, WALL_REST)` mot ett nollat väggtal;
+  ÅTGÄRDER V10b ①–③). Tap-fallbacken siktar mot målet (`:137-149`).
+- **Bygg, i tre delar:**
+  - **(a) Banan genom en skuggvärld:** en liten matter-motor med världens STATISKA kroppar
+    (inklusive `studs`/`friktion`) och en provkula med projektilens egna tal; 64 steg per
+    omritning, högst en gång per bildruta (K4). Kroppar med spelets egna impulser
+    (enhorningen-elviras `_cloudBoost`, flipperspelets dynor) markeras `forhandsStopp` — banan
+    slutar där i stället för att ljuga.
+  - **(b) Banan genom fält:** förhandsbanan integrerar `Magnetfalt`/`Vindfalt` (F4) — för
+    `bobo-i-rymden` (IDEER #8) och spindelhjaltens vindband.
+  - **(c) Storbarnsläge:** `forhandsvisning: 'kort'` (första tredjedelen), `tapFallback: false`
+    (P0 storbarn HJÄLP) och valfritt förra skottets spår.
+- **Åldersband:** (a)(b) båda; (c) bara storbarn.
+- **Kunder:** bowling · rulla-bollen-hem (a); spindelhjalten (b); (c) först med en
+  storbarnsvariant (Ä3).
+- **Mätning:** förhandsbana mot verklig bana i px vid landning (mallen `_studsprobe` §7) per spel,
+  HEAD mot (a); kostnad per omritning i Node (S7) ≤ 0,5 ms.
+- **Risker/fällor:** skuggvärlden måste läsa samma `gravityY`/`frictionAir` som den riktiga —
+  annars ärver den den gamla 380 px-lögnen (skill fysik-spel, kalibreringen).
+- **Beroenden:** K4, R3, F4 (för b).
+
+#### G4. Laddning: `lib/laddning.js` (tryck · gnid · håll) **[Medium]**
+
+- **Premiss — prövad:** två laddningar finns och visar vägen per åldersband:
+  `blixt-och-dunder` laddar per TRYCK och per GNID (`index.js:401-410`, `:440-456`) — helt inom
+  småbarnens P0; `grodan-slurp` laddar med HÅLL som ett TILLÄGG, aldrig en grind
+  (`docs/games/grodan-slurp.md:79-81`), och hoppar aldrig av sig själv (ägaren 2026-09-25).
+- **Bygg:** `new Laddning({ lage: 'tryck' | 'gnid' | 'hall', steg, kurva, onSteg, onFull, onSlapp })`
+  — återkoppling på första ögonblicket (< 100 ms), synliga steg, ingen automatisk avfyrning.
+- **Åldersband:** småbarn — `tryck`/`gnid` som huvudväg, `hall` bara som tillägg (Ä4);
+  storbarn — `hall` som huvudkontroll, med tajming (släpp i rätt ögonblick) som tillåten skicklighet.
+- **Kunder:** första nya kund avgör; port av blixt-och-dunder/grodan-slurp bara om den är gratis.
+- **Mätning:** `_satsprobe`-mönstret (syns trycket inom 100 ms, mot kontroll utan tryck);
+  `_siktprobe` om grodan porteras.
+- **Beroenden:** K3.
+
+#### G5. Tumspak för storbarn: `lib/tumspak.js` **[Medium]** — blockerad (Ä3)
+
+- **Premiss — prövad:** ingen styrspak finns; inget spel har `ageRange[0] ≥ 6`.
+- **Bygg:** spak fast i skärmen (kamerans faktor 0), knopp ≥ 96 px (blindkontroll), dödzon,
+  vektor −1…1; eget pekar-id så en andra tumme kan trycka en hoppknapp samtidigt; släpp eller
+  avbrott → noll.
+- **Åldersband:** storbarn ✓ (multitouch tillåten, aldrig enda vägen till navigation);
+  **småbarn ✗**.
+- **Kunder:** ingen i dag — kandidater `bobo-i-rymden` (dragkraft), `gelebilen` (köra),
+  en `/storbarn snobollen`.
+- **Mätning:** CDP-sond med två touch-punkter (spak + knapp) — harnessen provar varken håll eller
+  multitouch (CLAUDE.md TEST: spelet är inte testat förrän en sond spelat huvudkontrollen).
+- **Beroenden:** K1, K3.
+
+#### G6. Tvåhandsgrepp för storbarn **[Medium]** — blockerad (Ä3)
+
+- **Premiss:** `drivPunkt` tar en punkt; två punkter på samma kropp ger lyft + vridning utan
+  rotationsgest.
+- **Bygg:** `Grepp` med två pekare på samma kropp (två `drivPunkt` per steg, delat krafttak) eller
+  två kroppar samtidigt.
+- **Åldersband:** storbarn ✓; **småbarn ✗** (multitouch).
+- **Kunder:** `brobyggarna` (IDEER #10 — vrida en balk på plats).
+- **Mätning:** `_greppprobe`-arm med två punkter (vinkeln följer händerna, ingen snurr-explosion,
+  R1 tyst); CDP med två touch-punkter.
+- **Beroenden:** G1.
+
+#### G7. Tilt (lutning) — **STRUKEN**
+
+- **Skäl:** uppdragets villkor var "bara om den fungerar offline och utan behörighetsdialog".
+  iOS/iPadOS (WebKit, sedan iOS 13) kräver `DeviceOrientationEvent.requestPermission()` — en
+  dialog — så villkoret faller på minst en plattform. Android-Chrome kräver i dag ingen dialog
+  (plattformsfakta, inte prövat på familjens enheter), men en kontroll som bara finns på en del
+  av enheterna kan aldrig bära ett spel, och en 2–5-åring som lutar en platta tappar den. (Ä6 om ägaren ändå vill ha en Android-bonus.)
+
+#### G8. Vev: rotationsgrepp kring en axel **[Medium]**
+
+- **Premiss — prövad:** `kugghjulen` har en vev men ingen tröghet (B7, `_vevprobe`); F1 ger axlar
+  och motorer att vrida.
+- **Bygg:** dra runt en axel → vinkelfart till ett `gangjarn` (moment ur fingrets
+  tangentialfart, med tak); tap-fallback: varje tryck = en knuff (ett kvarts varv).
+- **Åldersband:** småbarn ✓ (enkel drag + tap); storbarn ✓.
+- **Kunder:** kugghjulen (F10), kulbanas propeller.
+- **Mätning:** `_vevprobe` mot HEAD; tap-armen når samma varvtal inom 10 tryck.
+- **Beroenden:** F1, K3.
+
+### Spår M — mätbarhet
+
+**Befintliga sonder som mäter fysik** (skill **sonder** har hela katalogen):
+
+| | Node — utan webbläsare | Webbläsare |
+|---|---|---|
+| matter-lib | `_studsprobe` (statisk studs, §7 bowling) · `_slagprobe` (anslag) · `_faltprobe` (magnet) · `_flytprobe` (flytvolym) · `_fjaderprobe` (bräda) | `_flipperprobe` · `_banprobe` · `_kilprobe` · `_tornprobe` · `_vippprobe` · `_flaktprobe` · `_magnetprobe` |
+| egna lösare | `_mjukprobe` · `_repprobe` · `_motstandprobe` · `_varmeprobe` · `_poppprobe` · `_bullprobe`/`_stapelprobe` · `_natlinaprobe` · `_pendelprobe` · `_lyftprobe` | `_vobbelprobe` · `_pressprobe` · `_tuggprobe` · `_tradprobe` · `_rostprobe` · `_gungprobe` |
+| ragdoll/grepp | `_grodprobe` · `_superhoppprobe` · `_popcornhandtag` · `_popcornhall` | `_superspelprobe` · `_siktprobe` · `_tumlaprobe` · `_klatterprobe` · `_popcornnaiv` · `_popcornspel` |
+| vätska | — | `_vatskeprobe` · `_plaskprobe` · `_tvalprobe` · `_stralprobe` · `_duschprobe` |
+| kontroller | — | `_dragprobe` · `_kastprobe` · `_lampprobe` (två id) · `_satsprobe` (< 100 ms) |
+| kostnad | — | `_popcornomrit` (bildrutearbete + barlast) · `_montageprobe` · `_fpsprobe` (meny) · `_graflackprobe` |
+
+**Vad som saknas för att kunna säga "bättre":** (1) varje Node-sond ovan stegar exakt ett steg per
+anrop — **ingen kan se takt-beroendet** i §1.3.3; (2) inget mäter lösarens kostnad; (3) inget
+mäter tunnling mot fart; (4) leder och grepp mäts bara inuti grodan och popcornet; (5) ingen
+sond provar `pointercancel` eller två fingrar på DragController/AimLauncher; (6) bildrutearbete
+finns bara för popcornet.
+
+#### M1. Fysikbänken: `scripts/_fysikbank.mjs` (Node) **[Medium]**
+
+- **Bygg:** `node scripts/_fysikbank.mjs [--bara S6,S8] [--json]` — en tabell per scen, varje scen
+  med sin kontrollrad som MÅSTE hålla innan mätraden läses:
+
+| Scen | Mäter | Kontrollrad |
+|---|---|---|
+| **S1** vilande hög | kryp (px/10 s) + ms/steg, sova av/på | N = 0 ger 0,000 ms-golvet; kostnaden växer med N |
+| **S2** statisk yta | studs `max(A,B)`, friktion `min(A,B)`, `studs`/`friktion`-nycklarna | ur `_studsprobe` (13/13) — återanvänd, kopiera inte |
+| **S3** tunnling | kula mot 16 px vägg vid 10–60 px/steg; med fartspärr/`fartTak` | 10 px/steg studsar alltid |
+| **S4** leder | gångjärnsdrift, pendelenergi med `damp 0`/`0,1`, motor under last | `damp 0,1` MÅSTE tappa snurr (fällan) |
+| **S5** grepp | `drivPunkt` mot `Constraint` vid r²·m/I 0,5/1/3; krafttak mot golv | Constraint vid 3,0 MÅSTE skena |
+| **S6** takt | Pixis `Ticker` (`maxFPS 60`, stämplar à 0,1 ms) vid 30/40/50/57,1/60/90/120 Hz → stegfördelning, flytjämvikt, magnetfångst, mjukkroppshäng, rephäng, `Motstandsvolym`-fall; per bildruta mot per steg; snäpp | 60,000 Hz OKVANTISERAT → exakt 1 steg/ruta och 0,625 |
+| **S7** kostnad | `Engine.update` ms/steg N = 6…120; `FluidWorld` 200…800; `Mjukkropp.steg` µs; skuggvärld (G3a) per omritning | kostnaden växer med N |
+| **S8** kinematik | teleport mot fart per steg, 4–48 px/bildruta | vägg i vila → bollen orörd |
+| **S9** brytbart | rörelsemängd före/efter delning, utkastfart | ingen delning under gränsen |
+
+  Så drivs Pixis riktiga ticker i Node (det var så §1.3.3 mättes):
+  ```js
+  import { Ticker } from 'pixi.js'          // laddar i Node — rep.js gör samma import (:29, :480-483)
+  const tk = new Ticker(); tk.autoStart = false; tk.maxFPS = 60   // som src/shell/App.js:24
+  tk.add((t) => { vol.steg(tid); varld.update(t.deltaMS) })       // exakt spelets ordning
+  for (const s of vsyncStamplar) tk.update(Math.round(s * 10) / 10)
+  ```
+- **Kunder:** varje arbetsorder i T, R, F och G pekar på sin scen.
+- **Risker/fällor:** en grön bänk-rad bevisar libbet, inte spelet — spelsonden (M2) behövs för
+  T2/R2. Sätt inga trösklar förrän kontrollraden visat att talet RÖR SIG.
+- **Beroenden:** inga.
+
+#### M2. Takt-sonden: `scripts/_taktprobe.mjs <id>` (webbläsare) **[Medium]**
+
+- **Bygg:** `--hz 30,45,57,60 --seed 7`. `page.addInitScript` ersätter `Math.random` med en
+  seedad generator (samma bana i varje arm — minnet "beteendemätning konfunderas", punkt 3);
+  efter monteringen `ctx.ticker.stop()` (`window.__barnspel.ctx`) och sonden driver
+  `ticker.update(t += 1000/hz)` själv. Läser spelets egna fysikstorheter (flytdjup, fångsttid,
+  häng, styrsvar) via spelinstansen. Deterministisk körning = sondens "replay": samma seed och
+  samma tryck på samma tick-index ger samma tal.
+- **Kontrollarm:** samma seed och 60 Hz två gånger → identiska tal (bevisar determinismen innan
+  något jämförs). Sedan 30 mot 60 på HEAD (ska skilja för per-bildruta-kod) och på fixen (ska inte).
+- **Risker/fällor:** gsap går på sin egen rAF-klocka — mät fysikstorheter, inte tween-lägen.
+  Redigera ingen `src/` medan den kör; kör den aldrig bredvid en annan webbläsarsond.
+- **Beroenden:** inga.
+
+#### M3. Pekavbrott-sonden: `scripts/_pekavbrottprobe.mjs [id…]` (webbläsare) **[Quick]**
+
+- **Bygg:** CDP `Input.dispatchTouchEvent` (mallen `_lampprobe`): arm 0 (`touchEnd`, kontroll),
+  arm 0b (räknar `pointercancel` på `window`), arm A (`touchCancel` mitt i draget → kan en ny
+  pekning greppa?), arm B (två fingrar: följer föremålet finger 1?). Spel: sortera-skrap
+  (DragController) · spindelhjalten (AimLauncher) · popcornkalaset (eget grepp med pekar-id) ·
+  knuffa-tornet (egen kula) · studsa-ner (fläkten) · fanga-frukten (korgen).
+- **Beroenden:** inga — körs FÖRE K1/K2.
+
+#### M4. Kostnadssonden: `scripts/_fysikkostnad.mjs <id> [--cpu 4]` (webbläsare) **[Quick]**
+
+- **Bygg:** `_popcornomrit`s stämplar (ticker-lyssnare med högsta prioritet före spelet och lägsta
+  efter Pixis render) + tidtagning runt spelets `PhysicsWorld.update` → bildrutearbete delat i
+  fysik och resten, median och 95:e percentil.
+- **Kontrollarm:** en barlast på 4 ms per bildruta måste flytta mätaren ~4 ms (annars mäter den
+  något annat). Rapportera aldrig rAF-intervallet.
+- **Beroenden:** inga.
+
+#### M5. Takt-mätaren på riktig enhet (`?takt`) **[Quick]** — ägarbeslut (Ä1)
+
+- **Premiss:** stegfördelningen i §1.3.3 är simulerad; om familjens plattor ger skurar av
+  0/2-stegsrutor och tickerhopp avgörs bara på plattan.
+- **Bygg:** med `?takt` i adressen visar appen en liten textruta: uppmätt vsync-Hz, tickerns
+  avfyrningar/s, andel överhoppade vsync, och för en aktiv `PhysicsWorld` andelen bildrutor med
+  0/1/2+ steg de senaste 10 s. Inget nätanrop, ingen lagring.
+- **Mätning:** ägaren öppnar `…/?takt` på varje enhet, spelar ett fysikspel 30 s och läser av
+  talen. Kontroll: på datorn (där samma sak går att simulera) ska talen likna §1.3.3.
+- **Beroenden:** inga (T4/T5 väntar på den).
+
+---
+
+## 3. Utrullning i omgångar
+
+**Omgång 1 — mätstickan och takten** (ingen ändring i en bildruta med exakt ett fysiksteg; allt mätt):
+1. **M1** S6 · S7 · S8 (tre av mätningarna finns redan som engångskörningar — gör dem permanenta).
+2. **T4** snäpp i `PhysicsWorld` och `FluidWorld` (`_ab.sh` över hela sviten).
+3. **T1** `Flytvolym` per steg + `magnet-fiske`s loop i `beforeStep`; ny baslinje för `_plaskprobe`/`_magnetprobe`.
+4. **T3** `lib/takt.js` → lagerelden · glasstornet · fallskarmen · kugghjulen · natskott-pa-stan · spindelnatet · zackes-biltvatt · pruttbad (ett spel per commit, titta på bilden).
+5. **M2**, sedan **T2** per spel (studsa-ner · magnet-fiske · fanga-frukten · bygg-tornet · studsbollar · enhorning-glitterbajs · glasstornet · snobollen).
+6. **R1** fällvakter + `test:all`-baslinje.
+
+**Omgång 2 — kontrollerna håller:**
+7. **M3** mot HEAD → **K1** (bara om arm A fastnar) → **K2** → **K3**.
+8. **R2** kinematiska kroppar → fanga-frukten · studsa-ner · studsmatta.
+9. **R3** · **R4** · **R5** · **R6**.
+10. **M4** → **O2** · **O3** · **K4** (bara där M4 visar utslag).
+11. **F9** DEV-överlägg.
+
+**Omgång 3 — greppa, kasta, vrida** (småbarnens nya kontroller):
+12. **G2** pekspår (DragController oförändrad).
+13. **G1** fjädergrepp: port popcornkalaset → leksakslada, med naiv-gest-sond.
+14. **F1** leder och motorer: port balanstornet · vippbradan · knuffa-tornet → **G8** vev → **F10** kugghjulen.
+
+**Omgång 4 — features med kund:**
+15. **F4** vindfält (studsa-ner port, bajs-och-kiss) · **F5** ytvågor (port pruttbad, dammen) ·
+**F8** inspelning (kulbana, Ä8) · **F3** brytbart (knuffa-tornet, Ä7) · **G3a** skuggvärld
+(bowling, rulla-bollen-hem) · **O1** mjuk mesh (mät först).
+
+**Omgång 5 — storbarn, bara på ägarens begäran (Ä3):** **G5** tumspak · **G6** tvåhandsgrepp ·
+**G4** laddning med håll · **G3c** kort sikte — i samma commit som den första storbarnskunden.
+
+**Villkorat:** **T5** (Ä1, Ä2, efter M5) · **M5** (Ä1) · **F2** (när pottan eller Otto byggs) ·
+**F6** (när ett spel ber om vätska som knuffar) · **F7** (med `nallens-stuntshow`) · **G3b**
+(med `bobo-i-rymden`).
+
+---
+
+## 4. Ägarens beslut
+
+| # | Fråga | Mitt förslag |
+|---|---|---|
+| **Ä1** | Vilka plattor och telefoner spelar barnen på (märke, iPad eller Android, 60/90/120 Hz)? | Svara med modell. Låt M5 (`?takt`) ligga i bygget så att varje enhet kan läsas av med en adress — det är enda sättet att veta om §1.3.3:s skurar händer hos er. |
+| **Ä2** | Ska appen fortsätta låsa tickern till 60 fps (`App.js:24`)? | Behåll taket tills M5 visat om det tappar rutor på era enheter. Ta bort det bara tillsammans med interpolationen i T5 — annars blir en 90 Hz-skärm ryckigare, inte mjukare. |
+| **Ä3** | Storbarnskontrollerna (tumspak, tvåhandsgrepp, håll som huvudkontroll, kort sikte) har ingen kund. Vilket spel blir det första storbarnsspelet? | Bygg ingen av dem utan kund. Första kandidat: `bobo-i-rymden` (IDEER #8 — sikte genom fält + dragkraft) eller `/storbarn snobollen` (tumspak). |
+| **Ä4** | Får håll-för-att-ladda finnas i fler småbarnsspel — som tillägg, aldrig som grind, som i `grodan-slurp`? | Ja, och skriv regeln i skill **fysik-spel**: tryck eller gnid är huvudvägen, håll är bonus, och inget avfyras av sig självt. |
+| **Ä5** | Kast ur draget i småbarnsspel — i vilka spel, som bonus? | `leksakslada` först (kasta leksaken i korgen). Aldrig ett krav för att nå målet. |
+| **Ä6** | Tilt är struken (iOS kräver dialog). Vill du ändå ha en Android-bonus någonstans? | Nej. En kontroll som saknas på en del av enheterna kan inte bära ett spel. |
+| **Ä7** | Ska `knuffa-tornet`s glas gå sönder i riktiga bitar som studsar och tonar bort, i stället för att försvinna i gnistor? | Ja — rundade "godisbitar" med glitter, inga skärvor, högst 12 bitar i världen. |
+| **Ä8** | Vill du ha `kulbana`s slow-motion-repris av den lyckade rullningen (köad [Deep] i spelets doc)? | Ja. Den blir billig när inspelningen (F8) finns, och den belönar bygget, inte bara träffen. |
+| **Ä9** | Bryggan för avbrutna pekningar (K1) gör ett avbrutet finger till ett släpp — i alla spel samtidigt. Okej? | Ja, om M3 visar att greppen fastnar i dag. Alternativet är en kontroll som slutar svara. |
+| **Ä10** | Omgång 1 ändrar fysiken där den i dag beror på bildtakten — mycket under 60 fps, lite vid 60 Hz (bara rutorna med noll eller två steg). Får den byggas som en omgång? | Ja. Harnessens skärmdumpar flyttar sig lite (57 fps-fysiken blir 60 Hz-fysik) — det ska stå i varje commit. |
+
+---
+
+## 5. Logg
+
+- **2026-10-01** · Planen skriven (läsning + åtta Node-mätningar i scratchpad, ingen webbläsare,
+  inga ändringar under `src/`). Tre fynd som inte stod någonstans förut: kraftfält och
+  mjukkroppar som beror på bildtakten (§1.3.3), `pointercancel` som Pixi aldrig mappar (K1), och
+  att appens 60 fps-tak tillsammans med vsync-stämplar simulerat ger skurar av noll- och
+  dubbelsteg (T4/T5). Inget av det är uppmätt på en riktig platta än — M3 och M5 avgör.

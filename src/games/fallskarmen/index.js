@@ -16,6 +16,7 @@ import { bounceIn, pop, wiggle, puff, sparkle, burst, floatText, kvittera, shake
 import { makeKaraktar } from '../../lib/karaktarer.js'
 import { Motstandsvolym } from '../../lib/luftmotstand.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
+import { Takt } from '../../lib/takt.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -97,6 +98,9 @@ export default {
     // överst. Lasten läggs i den när fallskärmen finns (`_setLast`).
     this._luft = new Motstandsvolym({ grav: GRAV })
     this._luftRec = null
+    // FAST 60 Hz-steg (lib/takt.js): luften och kupolen stegar alltid med exakt 1, så fallet,
+    // vindens drift och tygets bukt blir desamma vid 30, 57 och 90 fps.
+    this._takt = new Takt({ steg: 1000 / 60, max: 3, snapp: 0.5 })
     this._kupolX = 0 // senast ritade toppunkt — grindar omritningen av tyget
     this._kupolY = 0
 
@@ -557,21 +561,35 @@ export default {
     // känns lika snäll i båda tyngdlägena). Skillnaden är mätt, se `_motstandprobe.mjs`.
     const rec = this._luftRec
     if (rec) {
-      this._luft.setVind(this._wind * VIND_FART, 0) // vinden ÄR luftens fart, inte en kraft
-      if (dir) this._luft.kraft(rec, dir * STEER_KRAFT, 0)
-      // Snäll styr-assist som växer efter mjuka omstarter (no-fail-garanti). 0 vid
-      // 0 missar -> barnet styr helt själv; starkare efteråt -> når alltid målet.
-      if (this._misses > 0) {
-        const assist = Math.min(this._misses, 4) * ASSIST_ACC
-        const low = chute.y > 360 ? 1 : 0.4
-        this._luft.driv(rec, Math.sign(this._targetX - chute.x) * assist * low, 0)
-      }
-      this._luft.steg(dt) // skriver chute.x/y
+      // Egen fysikintegration → FAST steg (lib/takt.js). Kraft och hjälp läggs in per STEG
+      // (luften nollar dem efter varje steg): två steg på en lagg-bildruta ger dubbel
+      // påverkan, noll steg vid >60 Hz ingen alls — aldrig en ackumulerad kraft.
+      this._takt.kor(dms, () => {
+        this._luft.setVind(this._wind * VIND_FART, 0) // vinden ÄR luftens fart, inte en kraft
+        if (dir) this._luft.kraft(rec, dir * STEER_KRAFT, 0)
+        // Snäll styr-assist som växer efter mjuka omstarter (no-fail-garanti). 0 vid
+        // 0 missar -> barnet styr helt själv; starkare efteråt -> når alltid målet.
+        if (this._misses > 0) {
+          const assist = Math.min(this._misses, 4) * ASSIST_ACC
+          const low = chute.y > 360 ? 1 : 0.4
+          this._luft.driv(rec, Math.sign(this._targetX - chute.x) * assist * low, 0)
+        }
+        this._luft.steg(1) // skriver chute.x/y
+        if (chute.x < X_MIN || chute.x > X_MAX) {
+          chute.x = clamp(chute.x, X_MIN, X_MAX) // mjuka väggar (ingen studs-straff)
+          rec.vx *= 0.4 // och farten dör mot väggen i stället för att ligga kvar och trycka
+        }
+        // KUPOLEN BÄR KRAFTEN. Luftkraften är den enda drivningen — faller lasten fort är
+        // trycket i tyget stort och kupolen står spänd och hög; i en by trycks den in från
+        // sidan. `skjut()` läses av verlet som fart, så tyget SLÄPAR efter och svänger ut
+        // i stället för att hoppa till en ny form (samma grepp som glasskopornas vobbel).
+        if (this._kupol) {
+          const F = this._luft.luftkraft(rec)
+          this._kupol.falt(F.x * KUPOL_KRAFT, F.y * KUPOL_KRAFT)
+          this._kupol.steg(1)
+        }
+      })
       this._vx = rec.vx // resten av spelet (ben, lutning, landning) läser den här
-      if (chute.x < X_MIN || chute.x > X_MAX) {
-        chute.x = clamp(chute.x, X_MIN, X_MAX) // mjuka väggar (ingen studs-straff)
-        rec.vx *= 0.4 // och farten dör mot väggen i stället för att ligga kvar och trycka
-      }
     }
 
     // Mjuk lutning: styrningen lutar åt sitt håll OCH vinden drar kupolen åt sitt
@@ -590,14 +608,8 @@ export default {
       this._legs.rotation = Math.sin(this._legPhase) * 0.16 + vxN * 0.35 + this._wind * 0.9
     }
 
-    // KUPOLEN BÄR KRAFTEN. Luftkraften är den enda drivningen — faller lasten fort är
-    // trycket i tyget stort och kupolen står spänd och hög; i en by trycks den in från
-    // sidan. `skjut()` läses av verlet som fart, så tyget SLÄPAR efter och svänger ut
-    // i stället för att hoppa till en ny form (samma grepp som glasskopornas vobbel).
+    // Tygets steg ligger i takten ovan; här ritas det om när formen rörde sig.
     if (this._kupol && rec) {
-      const F = this._luft.luftkraft(rec)
-      this._kupol.falt(F.x * KUPOL_KRAFT, F.y * KUPOL_KRAFT)
-      this._kupol.steg(dt)
       // Omritning bara när formen faktiskt rörde sig — en stilla kupol kostar noll.
       const topp = this._kupol.pts[0]
       if (Math.abs(topp.x - this._kupolX) > 0.15 || Math.abs(topp.y - this._kupolY) > 0.15) {

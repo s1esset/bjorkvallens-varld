@@ -183,3 +183,4 @@ styrs hem, men det berättas ingen liten resa.
   - §4-punkter avbockade ovan: **[Medium] Gör tyngd-valet kännbart** och **[Quick]
     Vind-lut på fallskärmen** (den senare fanns delvis redan; lutningen läses nu ur den
     verkliga relativfarten mot luften i stället för ur vindtalet).
+- 2026-10-02 **T3: fast 60 Hz-steg via lib/takt.js — 57 fps-fysiken blir 60 Hz-fysik** (Ä10): luften (`Motstandsvolym.steg`, inkl. styrkraft, no-fail-assist och väggklämman) och kupolens mjukkropp (`falt` + `steg`) stegar nu i en `Takt` med exakt 1 per steg i stället för variabelt `dt` (deltaMS/16,67). Kraft och hjälp läggs in per steg, så ingen kraft ackumuleras över en nollstegs-bildruta. Löven, lutningen, benen och chevronerna är rendering/utjämning och ligger kvar per bildruta med `dt`. Formen flyttar sig lite mot 57 fps-varianten — avsiktligt.

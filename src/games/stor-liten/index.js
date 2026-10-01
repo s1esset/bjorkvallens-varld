@@ -9,6 +9,7 @@
 // Fel = mjuk vingel på kompisen (ALDRIG en bestraffning). Oändlig, växande lek:
 // fler föremål, ny gullig figur varje runda, och en tredje kompis på högre nivåer.
 // När rundan är klar firar vi (stjärna + klistermärke) och en ny runda startar.
+// Barnets egna knytt/kompisar kan ta mottagarnas plats (LYFTPLAN §10): se `_valjFigurer`.
 import { Container, Graphics, Text, Circle } from 'pixi.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { gsap } from 'gsap'
@@ -16,6 +17,7 @@ import { DragController } from '../../lib/DragController.js'
 import { createScene } from '../../lib/scene.js'
 import { pop, wiggle, sparkle, ripple, shake, breathe, bounceIn, floatText, puff } from '../../lib/feedback.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 
 // Ny gullig figur varje runda (samma figur i flera storlekar) -> alltid en rent
@@ -76,6 +78,15 @@ const WORDS = {
 }
 const WRONG = ['Prova en annan kompis!', 'Hoppsan, prova en annan kompis!']
 const HAPPY = ['😄', '🎉', '⭐', '💛', '✨']
+
+// Barnets egna figurer som mottagare (LYFTPLAN §10, Spår F). Storleken ÄR lektionen: varje figur
+// normaliseras till en höjd per storleksklass (och en maxbredd), oavsett hur stor den är på riktigt,
+// så stor/mellan/liten läses lika tydligt som med de egna kompisarna — ordningen 1 : 0,72 : 0,48.
+const FIG_MATT = {
+  stor: { hojd: 256, maxBredd: 250 },
+  mellan: { hojd: 184, maxBredd: 188 },
+  liten: { hojd: 124, maxBredd: 134 },
+}
 
 const INTRO_TWO = 'Ge de stora sakerna till den stora kompisen och de små till den lilla kompisen!'
 const INTRO_THREE = 'Ge sakerna till rätt kompis: stor, mellan och liten!'
@@ -139,6 +150,7 @@ export default {
   _buildFriends(ctx, sizeKeys) {
     if (this._friends) {
       for (const f of this._friends) {
+        this._rivFigur(f)
         this._killFriendTweens(f)
         if (!f.destroyed) f.destroy({ children: true })
       }
@@ -211,7 +223,11 @@ export default {
     ghost.position.set(0, h * 0.3)
     ghost.alpha = 0.5
 
-    body.addChild(ears, shell, belly, ...eyes, mouth, ghost)
+    // Själva kompisen (öron, kropp, ögon, mun) ligger i `art` så barnets egen figur kan
+    // ta dess plats utan att önske-figuren, prickraden eller träffytan flyttar sig.
+    const art = new Container()
+    art.addChild(ears, shell, belly, ...eyes, mouth)
+    body.addChild(art, ghost)
 
     const label = new Text({
       text: s.label,
@@ -226,6 +242,8 @@ export default {
 
     c.addChild(shadow, body, label, dots)
     c._body = body
+    c._art = art
+    c._fig = null
     c._mouth = mouth
     c._eyes = eyes
     c._ghost = ghost
@@ -233,6 +251,60 @@ export default {
     c._dotR = Math.max(6, w * 0.045)
     c._filled = 0
     return c
+  },
+
+  // --- Barnets egna figurer som mottagare ---------------------------------
+
+  // Vilka mottagare är barnets egna den här rundan? `valjEgna` (EN gång per runda) ger upp till
+  // en figur per mottagare; de läggs på slumpade storlekar så att "den stora" inte alltid är
+  // samma. Spelets egna kompisar står kvar på de platser som blir över (och på ALLA när takten
+  // säger att det är spelets egen runda, eller barnet inte har några figurer).
+  _valjFigurer(ctx) {
+    const friends = this._friends
+    for (const f of friends) this._rivFigur(f)
+    const lista = valjEgna(ctx.services, 'stor-liten', { antal: friends.length })
+    if (!lista.length) return
+    const platser = shuffle(friends.map((_, i) => i))
+    let presenterad = false
+    lista.forEach((beskr, k) => {
+      const f = friends[platser[k]]
+      if (!f || f.destroyed) return
+      const m = FIG_MATT[f._size]
+      const fig = byggEgenFigur(ctx, beskr, { hojd: m.hojd, maxBredd: m.maxBredd })
+      const h2 = f._h / 2
+      f._fig = fig
+      f._nyFigur = true
+      f._art.visible = false
+      // Kroppen pivoterar kring fötterna: svälj-skvätten och vinglet landar på marken.
+      f._body.pivot.set(0, h2)
+      f._body.position.set(0, h2)
+      fig.view.position.set(0, h2)
+      f._body.addChildAt(fig.view, 0)
+      f._ghost.position.set(0, h2 - fig.matt.hojd * 0.2)
+      f._ghost.alpha = 0.7
+      f._dots.y = h2 - fig.matt.hojd - 22
+      if (!presenterad && fig.ny) {
+        presenterad = true
+        presentera(ctx, fig, {
+          knytt: 'Titta, ditt knytt är med och leker!',
+          kompis: 'Titta, din kompis är med och leker!',
+        })
+      }
+    })
+  },
+
+  // Tillbaka till spelets egen kompis (och riv figuren: den tickar på ctx.ticker).
+  _rivFigur(f) {
+    if (!f || !f._fig) return
+    f._fig.destroy()
+    f._fig = null
+    if (f.destroyed) return
+    f._art.visible = true
+    f._body.pivot.set(0, 0)
+    f._body.position.set(0, 0)
+    f._ghost.position.set(0, f._h * 0.3)
+    f._ghost.alpha = 0.5
+    f._dots.y = -f._h / 2 - 24
   },
 
   // Levande kompis: långsam andning på önske-figuren + slumpvisa blinkningar.
@@ -264,6 +336,9 @@ export default {
     if (v?.tone2) ctx.services.audio.tone(v.tone2)
 
     if (!friend.destroyed) {
+      // Barnets egen figur: `nam` (knyttet gapar–tuggar–rapar, kompisen tuggar) i stället för
+      // den ritade munnen — kroppsskvätten nedan gäller båda.
+      friend._fig?.react('nam')
       gsap.killTweensOf(friend._mouth.scale)
       gsap.timeline().to(friend._mouth.scale, { y: v?.mouthY ?? 2, duration: 0.12, ease: 'power2.out' }).to(friend._mouth.scale, { y: 1, duration: 0.24, ease: 'power2.inOut' }, '+=0.05')
 
@@ -311,12 +386,18 @@ export default {
 
     const emoji = randomFrom(EMOJIS)
 
+    this._valjFigurer(ctx)
+
     // Uppdatera varje kompis önske-figur + prickrad, och re-registrera som drop-mål
     // (clear() tog bort lyssnarna). Generös träffradie efter kompisens storlek.
     for (const friend of this._friends) {
       this._setupFriendRound(friend, emoji, perSize)
       gsap.killTweensOf(friend.scale)
       friend.scale.set(1)
+      if (friend._nyFigur) {
+        friend._nyFigur = false
+        bounceIn(friend, { duration: 0.42 })
+      }
       const key = friend._size
       this._drag.addTarget(friend, (d) => d.size === key, { hitRadius: Math.max(friend._w, friend._h) * 0.62 })
     }
@@ -356,6 +437,7 @@ export default {
         this._killHint()
         this._resetIdle(ctx)
         ctx.services.audio.sfx('pop')
+        this._tittaPa(view)
         gsap.killTweensOf(made.body)
         gsap.killTweensOf(made.shadow)
         gsap.killTweensOf(made.shadow.scale)
@@ -387,6 +469,17 @@ export default {
     })
 
     this._resetIdle(ctx)
+  },
+
+  // Barnets figurer tittar på det som plockas upp (blicken släpper av sig själv efter 2,5 s).
+  _tittaPa(view) {
+    if (!this._friends || view.destroyed) return
+    const g = view.getGlobalPosition()
+    for (const f of this._friends) {
+      if (!f._fig || f.destroyed || f._body.destroyed) continue
+      const p = f._body.toLocal(g)
+      f._fig.look(p.x, p.y)
+    }
   },
 
   // Uppdatera kompisens rundspecifika delar: önske-figur + töm/rita prickraden.
@@ -499,6 +592,7 @@ export default {
     ctx.progress.setCustom('rounds', this._rounds)
     ctx.progress.setLevel(this._level)
     this._shakePlay(6, 0.4)
+    for (const f of this._friends) f._fig?.react('jubel')
     ctx.progress.complete() // celebrate + beröm + konfetti + stjärna + klistermärke
     this._next = gsap.delayedCall(1.5, () => {
       if (!this._alive) return
@@ -625,7 +719,10 @@ export default {
       }
     }
     if (this._friends) {
-      for (const f of this._friends) this._killFriendTweens(f)
+      for (const f of this._friends) {
+        this._rivFigur(f) // egna figurer tickar på ctx.ticker — riv dem före rötterna
+        this._killFriendTweens(f)
+      }
     }
     gsap.killTweensOf(this._play)
     gsap.killTweensOf(this._root)

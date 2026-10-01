@@ -92,6 +92,16 @@ inget distraherar från storleksjämförelsen.
 
 ## 5. Status / loggar
 
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Mottagarna kan vara barnets knytt/kompisar
+  (eller mötta knytt): `valjEgna(…, { antal: antalMottagare })` EN gång per runda (`_valjFigurer`), figurerna
+  läggs på slumpade storlekar och resten förblir spelets egna kompisar (alla, när takten säger spelets egen
+  runda). Storleken är lektionen, så varje figur normaliseras till en höjd per klass (stor 256 / mellan 184 /
+  liten 124 px, + maxbredd) — ordningen 1 : 0,72 : 0,48, träffytan (`_w/_h`) är densamma som förut. Kompisens
+  nedre del (öron, kropp, ögon, mun) ligger i `_art` som döljs; kroppen pivoterar kring fötterna så svälj-
+  skvätten landar på marken. `react('nam')` = sväljandet (knyttet gapar–tuggar–rapar), `jubel` vid rundans slut,
+  blicken följer det som plockas upp. Önske-figuren och prickraden flyttas till figurens bröst/huvud.
+  Röst: bara en presentationsrad för en NY figur (`presentera`); inget annat nämner figuren. `_egnakund stor-liten`
+  alla armar gröna; runda 2 byter tillbaka till spelets egna utan konsolfel.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): firandet prövades och var rent —
   spelet firar bara via `complete()`, och sista sakens egen replik sägs före `complete()` i samma
   tick (berömmet utgår). Nytt: sällsynt jätte/pytte (se §4). §4 städad: mottagarkompisarna,

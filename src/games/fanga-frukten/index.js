@@ -15,6 +15,14 @@ import { sphereFill } from '../../lib/form.js'
 import { COLORS } from '../../lib/theme.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { puff, sparkle, floatText, bounceIn, pop, squash } from '../../lib/feedback.js'
+import { figurForOmgang, presentera } from '../../lib/egnafigurer.js'
+
+// Rollen på grenen: ekorren (reserven) eller barnets egen figur. Fötterna står på grenen.
+const FRIEND_X = 1006
+const FRIEND_Y = 186 // ekorrens origo (kroppens mitt)
+const FRIEND_FOT = 18 // ekorrens fötter ligger 18 px under origo
+const FIG_HOJD = 118
+const FIG_BREDD = 104
 
 // Frukterna RITAS (P0 ASSETS): egen silhuett, egen färg, egna detaljer — aldrig en emoji
 // som hela föremålet. `kind` är ascii-id:t som ekorrens önskan pekar på.
@@ -195,10 +203,16 @@ export default {
 
     // Den hungriga kompisen: en ekorre på grenen som ÖNSKAR sig en viss frukt. Att välja
     // vilken frukt man fångar blir därmed ett riktigt val — och korgen fylls åt någon.
-    this._friend = makeSquirrel()
-    this._friend.position.set(1006, 186)
+    // `_friend` är en HÅLLARE: ekorren (eller barnets egen figur, LYFTPLAN §10) byts per nivå
+    // i `_bytVan`. Spelets tweens (guppet, hoppet) går på hållaren, aldrig på figurens egen view.
+    this._friend = new Container()
+    this._friend.position.set(FRIEND_X, FRIEND_Y)
+    this._friend.eventMode = 'none'
+    this._friend.interactiveChildren = false
     this._root.addChild(this._friend)
-    this._friendIdle = gsap.to(this._friend, { y: 178, duration: 1.5, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    this._fig = null // barnets egen figur den här nivån (null = ekorren)
+    this._tail = null
+    this._friendIdle = null
 
     // Önskebubbla (UI-panel) med den ritade frukten inuti.
     this._wishBubble = new Container()
@@ -275,7 +289,7 @@ export default {
 
     // Starta på sparad nivå.
     this._level = Math.max(0, ctx.progress.get().highestLevel | 0)
-    this._loadLevel(this._level)
+    this._loadLevel(ctx, this._level)
 
     this._tick = (t) => this._update(ctx, t)
     ctx.ticker.add(this._tick)
@@ -292,8 +306,9 @@ export default {
 
   // ---- Nivå ---------------------------------------------------------------
 
-  _loadLevel(level) {
+  _loadLevel(ctx, level) {
     if (!this._alive) return
+    this._bytVan(ctx)
     this._busy = false
     this._caught = 0
     this._misses = 0
@@ -360,6 +375,23 @@ export default {
       }
       // Nådde marken utan att fångas -> mjuk miss (aldrig straff).
       if (pos.y > this._groundY) this._missFruit(ctx, f)
+    }
+
+    // Barnets figur på grenen följer frukten (helst den önskade) — annars korgen.
+    if (this._fig?._alive && this._friend && !this._friend.destroyed) {
+      let tx = bx
+      let ty = this._mouthY
+      let best = -Infinity
+      for (const f of this._fruit) {
+        if (!f.body || f.caught) continue
+        const sc = f.body.position.y + (f.kind === this._wish ? 400 : 0)
+        if (sc > best) {
+          best = sc
+          tx = f.body.position.x
+          ty = f.body.position.y
+        }
+      }
+      this._fig.look(tx - this._friend.x, ty - this._friend.y)
     }
 
     // Tyst påminnelse om ingen rört skärmen på ett tag.
@@ -492,6 +524,15 @@ export default {
   _feedFriend(ctx, wished) {
     const fr = this._friend
     if (!fr || fr.destroyed) return
+    if (this._fig?._alive) {
+      // Barnets figur: den önskade frukten FLYGER till munnen (se _flyToFigur) och ätes där;
+      // en annan sort får ett glatt litet skutt.
+      if (wished) {
+        ctx.services.audio.tone({ freq: 523, dur: 0.12, type: 'triangle', vol: 0.16 })
+        ctx.services.audio.tone({ freq: 784, dur: 0.16, type: 'triangle', vol: 0.16, delay: 0.1 })
+      } else this._fig.react('hoppsan')
+      return
+    }
     this._friendIdle?.pause()
     const by = 186
     gsap.killTweensOf(fr)
@@ -499,11 +540,12 @@ export default {
       y: by - (wished ? 44 : 18), duration: 0.16, ease: 'power2.out', yoyo: true, repeat: wished ? 3 : 1,
       onComplete: () => { if (!fr.destroyed) { fr.y = by; this._friendIdle?.resume() } },
     })
-    if (fr._tail && !fr._tail.destroyed) {
-      gsap.killTweensOf(fr._tail)
-      gsap.to(fr._tail, {
+    const tail = this._tail
+    if (tail && !tail.destroyed) {
+      gsap.killTweensOf(tail)
+      gsap.to(tail, {
         rotation: 0.4, duration: 0.13, yoyo: true, repeat: wished ? 5 : 1, ease: 'sine.inOut',
-        onComplete: () => { if (fr._tail && !fr._tail.destroyed) fr._tail.rotation = 0 },
+        onComplete: () => { if (tail && !tail.destroyed) tail.rotation = 0 },
       })
     }
     if (wished) {
@@ -531,14 +573,16 @@ export default {
     sparkle(ctx.fxLayer, bx, this._mouthY, { count: 6 })
     if (this._basket && !this._basket.destroyed) squash(this._basket, { intensity: 0.45 + steg * 0.08 })
 
-    // Frukten ploppar ner i korgen (exit-säker proxy-tween).
-    this._tuck(f, bx)
+    const guld = f.kind === 'guld'
+    const wished = guld || f.kind === this._wish
+    // Frukten ploppar ner i korgen (exit-säker proxy-tween) — men till barnets egen figur på
+    // grenen flyger den ÖNSKADE frukten hela vägen till munnen och ätes (LYFTPLAN §10).
+    if (wished && this._fig?._alive) this._flyToFigur(ctx, f)
+    else this._tuck(f, bx)
 
     // Mottagaren: fångade barnet den ÖNSKADE sorten blir djuret extra glatt (mums + hopp
     // + gnistor) och önskar sig något nytt. Fel sort är fortfarande kul — djuret fnissar,
     // ingenting går förlorat. Att välja VILKEN frukt man fångar blir ett riktigt val.
-    const guld = f.kind === 'guld'
-    const wished = guld || f.kind === this._wish
     this._feedFriend(ctx, wished) // guldfrukten gör ekorren lika glad som en uppfylld önskan
 
     // Guldfrukten firas för sig: en stigande treklang, extra gnistor och en tydlig
@@ -608,6 +652,93 @@ export default {
     this._kombo = 0
   },
 
+  // Den önskade frukten flyger i en båge från korgen upp till barnets figur och ätes: sist i
+  // flykten at() (gapar/tuggar), sedan ett jubel. Ett vanligt {}-proxy: dör frukten kopieras inget.
+  _flyToFigur(ctx, f) {
+    const v = f.view
+    if (!v || v.destroyed) return
+    const fig = this._fig
+    gsap.killTweensOf(v)
+    gsap.killTweensOf(v.scale)
+    const mun = fig.matt?.mun || { x: 0, y: -50 }
+    const mx = FRIEND_X + mun.x
+    const my = FRIEND_Y + FRIEND_FOT + mun.y
+    const st = { p: 0, x0: v.x, y0: v.y, s0: v.scale.x || 1 }
+    const tw = gsap.to(st, {
+      p: 1,
+      duration: 0.8,
+      ease: 'power1.inOut',
+      onUpdate: () => {
+        if (v.destroyed) {
+          tw.kill()
+          return
+        }
+        const p = st.p
+        v.x = st.x0 + (mx - st.x0) * p
+        v.y = st.y0 + (my - st.y0) * p - Math.sin(Math.PI * p) * 170
+        v.scale.set(st.s0 * (1 - 0.7 * p))
+        v.rotation = p * 5
+        v.alpha = p > 0.85 ? 1 - ((p - 0.85) / 0.15) * 0.8 : 1
+      },
+      onComplete: () => {
+        const idx = this._proxyTweens.indexOf(tw)
+        if (idx >= 0) this._proxyTweens.splice(idx, 1)
+        if (!v.destroyed) v.destroy()
+        if (!this._alive || this._fig !== fig || !fig._alive) return
+        ctx.services.audio.sfx('pop')
+        sparkle(ctx.fxLayer, mx, my, { count: 8 })
+        fig.react('nam')
+        ctx.later(0.9, () => {
+          if (this._alive && this._fig === fig && fig._alive) fig.react('jubel')
+        })
+      },
+    })
+    this._proxyTweens.push(tw)
+  },
+
+  // Rollen på grenen för den här nivån: barnets egen figur när takten säger det, annars ekorren.
+  // Den gamla rivs helt först (figurens tick, hållarens tweens och ekorrens barn).
+  _bytVan(ctx) {
+    const h = this._friend
+    if (!h || h.destroyed) return
+    const forsta = this._friendRunda === undefined
+    this._friendRunda = (this._friendRunda || 0) + 1
+    this._friendIdle?.kill()
+    this._friendIdle = null
+    gsap.killTweensOf(h)
+    gsap.killTweensOf(h.scale)
+    if (this._tail && !this._tail.destroyed) gsap.killTweensOf(this._tail)
+    this._tail = null
+    this._fig?.destroy()
+    this._fig = null
+    for (const c of [...h.children]) c.destroy({ children: true })
+    h.position.set(FRIEND_X, FRIEND_Y)
+    h.scale.set(1)
+
+    const fig = figurForOmgang(ctx, 'fanga-frukten', { hojd: FIG_HOJD, maxBredd: FIG_BREDD, reserv: () => null })
+    if (fig) {
+      this._fig = fig
+      fig.view.y = FRIEND_FOT
+      h.addChild(fig.view)
+      presentera(ctx, fig, { knytt: 'Titta, ditt knytt sitter på grenen!', kompis: 'Titta, din kompis sitter på grenen!' })
+      if (fig.mott) {
+        // Ett knytt barnet bara mött — aldrig "ditt". Köas bakom introt.
+        ctx.later(0.15, () => {
+          if (!this._alive || this._fig !== fig) return
+          ctx.narTyst(() => {
+            if (this._alive && this._fig === fig) ctx.services.voice.say('Titta, ett knytt sitter på grenen!')
+          })
+        })
+      }
+    } else {
+      const sq = makeSquirrel()
+      h.addChild(sq)
+      this._tail = sq._tail
+      this._friendIdle = gsap.to(h, { y: 178, duration: 1.5, yoyo: true, repeat: -1, ease: 'sine.inOut' })
+    }
+    if (!forsta) bounceIn(h, { duration: 0.4 })
+  },
+
   // Tweena ett vanligt objekt och kopiera till frukten bara om den lever.
   // En frukt som förstörs (t.ex. vid spel-exit) hoppas över -> kan aldrig krascha.
   _tuck(f, bx) {
@@ -651,7 +782,14 @@ export default {
     ctx.services.audio.sfx('correct')
     // Egen vinstreplik FÖRE complete(): då står den kvar och berömmet utgår. Vinstljudet
     // och konfettin kommer från complete().
-    ctx.services.voice.say(randomFrom(FULL_SAY))
+    // Talar något (t.ex. presentationen av barnets figur + knyttets namn) köar raden i stället
+    // för att kapa det — bilden och firandet väntar inte.
+    const vinst = randomFrom(FULL_SAY)
+    if (ctx.services.voice.talar) {
+      ctx.narTyst(() => {
+        if (this._alive) ctx.services.voice.say(vinst)
+      })
+    } else ctx.services.voice.say(vinst)
     const bx = this._basket && !this._basket.destroyed ? this._basket.x : ctx.width / 2
     sparkle(ctx.fxLayer, bx, this._mouthY, { count: 10 })
     if (this._basket && !this._basket.destroyed) pop(this._basket, { scale: 1.18 })
@@ -669,7 +807,7 @@ export default {
       ctx.narTyst(() => {
         if (this._alive && this._level === niva) ctx.services.voice.say('Fler frukter!')
       })
-      this._loadLevel(this._level)
+      this._loadLevel(ctx, this._level)
     })
   },
 
@@ -734,8 +872,11 @@ export default {
     if (this._foliage && !this._foliage.destroyed) gsap.killTweensOf(this._foliage)
     if (this._friend && !this._friend.destroyed) {
       gsap.killTweensOf(this._friend)
-      if (this._friend._tail) gsap.killTweensOf(this._friend._tail)
+      gsap.killTweensOf(this._friend.scale)
+      if (this._tail && !this._tail.destroyed) gsap.killTweensOf(this._tail)
     }
+    this._fig?.destroy() // barnets egen figur: släpper tickern före rötterna rivs
+    this._fig = null
     if (this._wishIcon && !this._wishIcon.destroyed) gsap.killTweensOf(this._wishIcon.scale)
     if (this._tick) ctx?.ticker?.remove(this._tick)
     this._unbind?.()

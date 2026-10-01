@@ -110,6 +110,7 @@ rostar åt ett spöke, och den mest påverkande kontrollen (veden) känns minst.
 
 ## 5. Status / loggar
 
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Mottagaren vid fatet byts per montering (`figurForOmgang`, `kropp: false`-spelet är inget enradsbyte): varannan gång står barnets EGET knytt eller kompis (eller ett MÖTT knytt) i stället för Bobo-huvudet. Premissen "på molnet" fanns inte i koden (Bobo svävade fritt) — i stället ritas ett litet moln (`_byggMoln`) som figuren (135 px hög, fötterna y 152) står på och som fatet vilar på; Bobos ritade arm utgår då. Molnet byggs om när fatet byter bredd (ny order). Figuren äter varje rostad bit (`_fillSlot` → `react('nam')`), följer marshmallowen med blicken och jublar när ordern är klar. Inga repliker nämner Bobo — bara presentationsraderna för en ny figur är nya. Utan egna figurer ser spelet ut som förut.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): `_winOrder` spelade själv vinstljud,
   PRAISE och konfettiregn i samma tick som `complete()` — strukna (skalet gör alla tre). Nästa
   eldens rubrik kom 1,8 s efter och kapade berömmet; nu väntar den in rösten via `ctx.narTyst`

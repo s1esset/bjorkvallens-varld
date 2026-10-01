@@ -22,6 +22,7 @@ import { createScene, lerpColor } from '../../lib/scene.js'
 import { glod } from '../../lib/glod.js'
 import { puff, sparkle, burst, pop, wiggle, breathe, floatText, kvittera } from '../../lib/feedback.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { figurForOmgang, arEgen, presentera } from '../../lib/egnafigurer.js'
 import { COLORS } from '../../lib/theme.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
@@ -38,6 +39,11 @@ const FIRE_BASE_Y = 566
 const ZACKE = { x: 1152, y: 446 }
 const HAND = { x: 1082, y: 506 } // Zacke's hand där pinnen + maten sitter
 const MARSH_REST = { x: 944, y: 486 } // matens viloposition framför Zacke
+// Barnets egen figur vid fatet: fötterna på molnet, huvudet i höjd med fatet (y 96). Figuren är
+// 135 px hög (toppen y 15) och högst 120 bred, så den ryms mellan fatet och skärmkanten.
+const GAST_FOT_Y = 152
+const GAST_HOJD = 135
+const GAST_BREDD = 120
 
 // --- Eld-tillstånd ---
 const BASE_FUEL = 0.6 // _fuel faller aldrig under detta → elden dör aldrig
@@ -282,10 +288,20 @@ export default {
     this._bobo = new Container()
     this._bobo.eventMode = 'none'
     this._bobo.interactiveChildren = false
-    this._kar = makeKaraktar({ r: 54, kropp: false })
+    // Barnets egen figur (LYFTPLAN §10) tar hans plats varannan gång: den har en hel kropp och
+    // en egen arm att ge sig själv, så den står på ett litet moln bredvid fatet (se _placeBobo)
+    // i stället för att sticka upp över ett. Utan egna figurer: Bobo, som förut.
+    this._kar = figurForOmgang(ctx, 'lagerelden', {
+      hojd: GAST_HOJD,
+      maxBredd: GAST_BREDD,
+      reserv: () => makeKaraktar({ r: 54, kropp: false }),
+    })
+    this._egen = arEgen(this._kar)
+    if (this._egen) this._kar.view.y = GAST_FOT_Y - 122 // figurens origo = fötterna; hållaren = Bobos huvudmitt
     this._bobo.addChild(this._kar.view)
     this._bobo.position.set(this._boboBase.x, this._boboBase.y)
     this._kar.setMood('hungrig') // han VÄNTAR på mat — det är hans roll i spelet
+    this._moln = null
     this._root.addChild(this._bobo)
 
     // 11) Order-fat uppe i mitten: tomma platser som fylls med färdigrostad mat.
@@ -305,6 +321,11 @@ export default {
     this._idle = 0
     if (this._kind === 'marshmallow') ctx.services.voice.say(this.voiceIntro)
     else this._sayKind(ctx)
+    // Ett NYSS skapat knytt/en ny kompis presenteras första gången (tiger för mötta och gamla).
+    presentera(ctx, this._kar, {
+      knytt: 'Ditt knytt är hungrigt!',
+      kompis: 'Din kompis är hungrig!',
+    })
   },
 
   // ---- Nivå-konfiguration -------------------------------------------------
@@ -383,6 +404,7 @@ export default {
     const plateW = Math.max(totalW + 104, 200)
     const plateX = FIRE_X - plateW / 2
     this._plateLeft = plateX
+    this._plateW = plateW
     // Fat: en riktig träbricka med rim och glansstreck (inte en brun pilla).
     const plate = new Graphics()
       .roundRect(plateX, y - 26, plateW, 66, 26).fill(0x5b3820)
@@ -432,7 +454,12 @@ export default {
     // Armen kommer UNDER huvudet (annars läser den som en pratbubbleflik) och har en
     // mörk kontur + tass, så den syns som en arm som håller upp fatet.
     const arm = this._boboArm
-    if (arm && !arm.destroyed) {
+    if (this._egen) {
+      // Barnets figur håller inte fatet med Bobos ritade arm — fatet VILAR i stället på samma
+      // moln som figuren står på.
+      if (arm && !arm.destroyed) arm.clear()
+      this._byggMoln(left)
+    } else if (arm && !arm.destroyed) {
       const sx = this._boboBase.x + 18
       const sy = this._boboBase.y + 50
       const px = left + 16
@@ -447,6 +474,34 @@ export default {
         .circle(px - 4, py - 4, 2.6).fill({ color: COLORS.pink, alpha: 0.7 })
         .circle(px + 2, py - 5, 2.6).fill({ color: COLORS.pink, alpha: 0.7 })
     }
+  },
+
+  // Molnet barnets figur står på och fatet vilar på: en vit bänk av puffar från figurens vänstra
+  // kant till fatets högra. Ritas UNDER figuren och fatet (inför armen), tar inga tryck, och
+  // byggs om när fatet byter bredd (ny order).
+  _byggMoln(plateLeft) {
+    if (this._moln && !this._moln.destroyed) this._moln.destroy({ children: true })
+    const x0 = this._boboBase.x - 84
+    const x1 = plateLeft + (this._plateW ?? 200) + 20
+    const c = new Container()
+    c.eventMode = 'none'
+    c.interactiveChildren = false
+    const g = new Graphics()
+    // skuggsida, sedan vit kropp, sedan puffar längs ovankanten
+    g.roundRect(x0, GAST_FOT_Y + 2, x1 - x0, 40, 20).fill(0xd9e4f2)
+    g.roundRect(x0, GAST_FOT_Y - 6, x1 - x0, 38, 19).fill(0xffffff)
+    const puffar = Math.max(4, Math.round((x1 - x0) / 54))
+    for (let i = 0; i < puffar; i++) {
+      const t = puffar === 1 ? 0.5 : i / (puffar - 1)
+      const px = x0 + 24 + t * (x1 - x0 - 48)
+      const r = 20 + ((i * 7) % 3) * 6
+      g.circle(px, GAST_FOT_Y - 4, r).fill(0xffffff)
+    }
+    // en mjuk skugga under figuren så den står PÅ molnet
+    g.ellipse(this._boboBase.x, GAST_FOT_Y + 1, 46, 8).fill({ color: 0xc9d6e8, alpha: 0.7 })
+    c.addChild(g)
+    this._root.addChildAt(c, this._root.getChildIndex(this._boboArm))
+    this._moln = c
   },
 
   _fillSlot(ctx, i) {
@@ -1023,8 +1078,14 @@ export default {
       // därför `y`. Riggen bidrar med minen i stället — annars hade två tweens skrivit
       // samma tal och hoppet blivit hackigt.
       this._kar?.setMood('stolt')
+      // Barnets figur jublar på sitt eget sätt (knyttets motiv / kompisens armar upp) — dess
+      // hopp ligger i en egen nod, så hållarens `y` får fortsätta vara spelets.
+      if (this._egen) this._kar?.react('jubel')
+      // Figurens topp står ~17 px under skärmkanten och den skuttar redan själv i jubeln —
+      // 40 px till hade lyft huvudet ut ur bild. Bobo (bara huvud, lägre) hoppar som förut.
+      const hopp = this._egen ? 12 : 40
       gsap.killTweensOf(this._bobo)
-      gsap.to(this._bobo, { y: this._boboBase.y - 40, duration: 0.24, yoyo: true, repeat: 3, ease: 'power2.out', onComplete: () => { if (this._bobo && !this._bobo.destroyed) this._bobo.y = this._boboBase.y } })
+      gsap.to(this._bobo, { y: this._boboBase.y - hopp, duration: 0.24, yoyo: true, repeat: 3, ease: 'power2.out', onComplete: () => { if (this._bobo && !this._bobo.destroyed) this._bobo.y = this._boboBase.y } })
     }
 
     ctx.progress.setLevel(this._level + 1)

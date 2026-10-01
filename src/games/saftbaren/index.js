@@ -11,6 +11,7 @@ import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 import { FluidWorld, FluidView } from '../../lib/vatska.js'
 import { lerpColor } from '../../lib/scene.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
+import { figurForOmgang, arEgen, presentera } from '../../lib/egnafigurer.js'
 import { Button } from '../../lib/Button.js'
 import { pop, puff, sparkle, burst , kvittera} from '../../lib/feedback.js'
 
@@ -71,6 +72,35 @@ const ORDER_ROST = [
   'Bobo vill ha orange saft!',
   'Bobo vill ha lila saft!',
 ]
+// Står barnets egen figur bakom disken i stället för Bobo (LYFTPLAN §10): samma sex beställningar
+// i tre röster — barnets knytt, barnets kompis och ett knytt barnet bara MÖTT (aldrig "ditt").
+// Index = färgen, som ORDER_ROST. Literaler, så varje rad får ett eget klipp.
+const ORDER_ROST_EGEN = {
+  knytt: [
+    'Ditt knytt vill ha röd saft!',
+    'Ditt knytt vill ha gul saft!',
+    'Ditt knytt vill ha blå saft!',
+    'Ditt knytt vill ha grön saft!',
+    'Ditt knytt vill ha orange saft!',
+    'Ditt knytt vill ha lila saft!',
+  ],
+  kompis: [
+    'Din kompis vill ha röd saft!',
+    'Din kompis vill ha gul saft!',
+    'Din kompis vill ha blå saft!',
+    'Din kompis vill ha grön saft!',
+    'Din kompis vill ha orange saft!',
+    'Din kompis vill ha lila saft!',
+  ],
+  mott: [
+    'Ett knytt vill ha röd saft!',
+    'Ett knytt vill ha gul saft!',
+    'Ett knytt vill ha blå saft!',
+    'Ett knytt vill ha grön saft!',
+    'Ett knytt vill ha orange saft!',
+    'Ett knytt vill ha lila saft!',
+  ],
+}
 
 // --- mått ------------------------------------------------------------------
 const GLASS_X = [390, 570, 750, 930]
@@ -88,6 +118,12 @@ const SPOUT_Y = 236 // där saften lämnar pipen
 const HINK_X = 1100
 const BOBO_X = 1160
 const BOBO_Y = 300
+// Barnets egen figur har en HEL kropp (Bobo är bara ett huvud som svävar vid väggen), så den
+// står på en liten hylla med fötterna här. 405 håller hyllan 13 px över hinkhandtagets topp
+// (y 434) och 87 px över hinkens träffyta (y 492).
+const GAST_FOT_Y = 405
+const GAST_HOJD = 196
+const GAST_BREDD = 176
 const LEVER_X = 150
 const LEVER_TOP = 322
 const LEVER_STEP = 96 // avstånd mellan färglägena (≥96 px träffyta)
@@ -224,7 +260,7 @@ export default {
     this._buildGrateFront()
     this._buildKran(ctx)
     this._buildLever(ctx)
-    this._buildBobo()
+    this._buildBobo(ctx)
     this._buildDroppToggle(ctx)
 
     // Tre glas står färdiga med grundfärgerna, det fjärde är tomt att blanda i.
@@ -237,7 +273,12 @@ export default {
 
   mount(ctx) {
     ctx.services.voice.say(this.voiceIntro)
-    this._tick = (t) => this._update(ctx, t.deltaMS)
+    // Ett NYSS skapat knytt/en ny kompis presenteras första gången (tiger för mötta och gamla).
+    presentera(ctx, this._kar, {
+      knytt: 'Ditt knytt har kommit till saftbaren!',
+      kompis: 'Din kompis har kommit till saftbaren!',
+    })
+    this._tick =(t) => this._update(ctx, t.deltaMS)
     ctx.ticker.add(this._tick)
   },
 
@@ -254,8 +295,10 @@ export default {
     gsap.killTweensOf(this._kran || {})
     gsap.killTweensOf(this._lever || {})
     if (this._bobo) gsap.killTweensOf(this._bobo)
-    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion)
+    this._kar?.destroy() // river riggens alla tweens (idle, blink, humör, reaktion) — eller barnets egen figur
     this._kar = null
+    this._gast = 'bobo'
+    this._tuggT = 0
     this._boboFace = null
     this._view?.destroy()
     this._world?.destroy()
@@ -493,20 +536,34 @@ export default {
     arm.on('pointerdown', (e) => this._onLeverDown(ctx, e))
   },
 
-  _buildBobo() {
+  _buildBobo(ctx) {
     const b = new Container()
     b.x = BOBO_X
     b.y = BOBO_Y
-    // Bobo är gästen som BESTÄLLER och DRICKER — spelets hela poäng. Som statiskt
-    // huvud kunde han bara vänta; som rigg är han törstig medan beställningen står
-    // och nöjd när glaset är tomt. `kropp: false`: disken skär av honom vid midjan
-    // och en kropp bakom disken syns inte alls.
-    this._kar = makeKaraktar({ r: 74, kropp: false })
-    const m = this._kar.view
+    // Gästen som BESTÄLLER och DRICKER — spelets hela poäng. Bobo som rigg är törstig medan
+    // beställningen står och nöjd när glaset är tomt. `kropp: false`: disken skär av honom vid
+    // midjan och en kropp bakom disken syns inte alls.
+    // Barnets egna figur (LYFTPLAN §10) tar hans plats varannan gång — den har en hel kropp och
+    // står därför på en hylla vid väggen (se _buildGastHylla). Utan egna figurer: Bobo, som förut.
+    this._gast = 'bobo'
+    this._tuggT = 0
+    const fig = figurForOmgang(ctx, 'saftbaren', {
+      hojd: GAST_HOJD,
+      maxBredd: GAST_BREDD,
+      reserv: () => makeKaraktar({ r: 74, kropp: false }),
+    })
+    this._kar = fig
+    const m = fig.view
+    if (arEgen(fig)) {
+      this._gast = fig.mott ? 'mott' : fig.typ
+      // Origo i hållaren är Bobos huvudmitt; figurens origo är fötterna.
+      m.y = GAST_FOT_Y - BOBO_Y
+      this._buildGastHylla()
+    }
     b.addChild(m)
     this._propL.addChild(b)
     this._bobo = b
-    this._kar.setMood('hungrig', { direkt: true }) // törstig i vila
+    this._kar.setMood('hungrig', { direkt: true }) // törstig i vila (bara Bobo ritar det)
     this._boboFace = m
 
     // pratbubbla med ett ritat glas i den beställda färgen
@@ -524,6 +581,23 @@ export default {
     this._propL.addChild(bub)
     this._bubble = bub
     this._bubbleGlass = mini
+  },
+
+  // Hyllan gästen står på: en planka ur väggen med två fästen, i samma trä som flaskhyllan.
+  // Läggs UNDER figuren (läggs till före hållaren) och tar inga tryck. Den sträcker sig ut i
+  // bleed-zonen så en bred skärm inte ser en avklippt planka.
+  _buildGastHylla() {
+    const g = new Graphics()
+    const x0 = BOBO_X - 118
+    const x1 = DESIGN_W + BLEED_X
+    g.roundRect(x0, GAST_FOT_Y - 2, x1 - x0, 16, 5).fill(0xa9714a)
+    g.rect(x0 + 6, GAST_FOT_Y + 11, x1 - x0 - 6, 5).fill(shade(0xa9714a, 0.25))
+    for (const fx of [BOBO_X - 78, BOBO_X + 82]) {
+      g.moveTo(fx, GAST_FOT_Y + 14).lineTo(fx + 34, GAST_FOT_Y + 14).lineTo(fx + 34, GAST_FOT_Y + 52).closePath().fill(shade(0xa9714a, 0.15))
+    }
+    g.eventMode = 'none'
+    this._propL.addChild(g)
+    this._hylla = g
   },
 
   _buildDroppToggle(ctx) {
@@ -1016,7 +1090,9 @@ export default {
     if (!first) {
       const order = this._order
       ctx.narTyst(() => {
-        if (this._alive && this._order === order && !this._drink) ctx.services.voice.say(ORDER_ROST[want])
+        if (!this._alive || this._order !== order || this._drink) return
+        const egen = ORDER_ROST_EGEN[this._gast]
+        ctx.services.voice.say(egen ? egen[want] : ORDER_ROST[want])
       })
     }
     pop(this._bubble, { scale: 1.12 })
@@ -1040,6 +1116,7 @@ export default {
     this._busy = true
     this._deselect()
     this._drink = { g, t: 0, drained: 0 }
+    this._tuggT = 0
     // bubblan viker undan medan glaset förs upp till munnen
     gsap.killTweensOf(this._bubble)
     gsap.to(this._bubble, { alpha: 0, duration: 0.25 })
@@ -1064,6 +1141,9 @@ export default {
     // fyra hopp på 46 px är större än riggens och får äga `y` — därför `setMood`
     // och inte `react('jubel')`, som hade tweenat samma `y` samtidigt.
     this._kar?.setMood('stolt')
+    // Barnets figur jublar på sitt eget sätt (knyttets motiv / kompisens armar upp) — den hoppar
+    // i en egen nod, så spelets hållare får fortsätta äga sitt hopp.
+    if (this._gast !== 'bobo') this._kar?.react('jubel')
     gsap.to(this._bobo, { y: BOBO_Y - 46, duration: 0.22, yoyo: true, repeat: 3, ease: 'power2.out' })
     burst(this._propL, BOBO_X, BOBO_Y, { count: 16, colors: [PAL[pal].hex, PAL[pal].mork, 0xffffff] })
     const bubbla = new Graphics()
@@ -1091,7 +1171,11 @@ export default {
     })
     // Vinstljud och konfetti spelar complete() själv; repliken sägs FÖRE så den ersätter
     // berömmet i stället för att kapas av det.
-    ctx.services.voice.say('Precis den färgen Bobo ville ha!')
+    // Samma vinstrad i tre röster (Bobo / barnets knytt / barnets kompis / ett mött knytt).
+    if (this._gast === 'knytt') ctx.services.voice.say('Precis den färgen ditt knytt ville ha!')
+    else if (this._gast === 'kompis') ctx.services.voice.say('Precis den färgen din kompis ville ha!')
+    else if (this._gast === 'mott') ctx.services.voice.say('Precis den färgen knyttet ville ha!')
+    else ctx.services.voice.say('Precis den färgen Bobo ville ha!')
     ctx.progress.complete()
     ctx.later(1.8, () => {
       if (!this._alive) return
@@ -1142,6 +1226,15 @@ export default {
     // hinken slukar allt som hamnar i den
     this._world.drain(this._hinkDrain.x, this._hinkDrain.y, 110, 130, { max: 6 })
 
+    // Barnets figur följer det som händer med blicken: glaset som bärs till den, annars kranen.
+    // `look` tar förälderns rum (hållaren, origo = Bobos gamla huvudmitt).
+    if (this._gast !== 'bobo' && this._kar && this._bobo) {
+      const held = this._drink?.g || this._glasses.find((g) => g.held)
+      const mx = held ? held.x : this._kran.x
+      const my = held ? held.y - 90 : SPOUT_Y
+      this._kar.look(mx - BOBO_X, my - this._bobo.y)
+    }
+
     // Bobo dricker
     if (this._drink) {
       this._drink.t += dt
@@ -1150,7 +1243,18 @@ export default {
       // Han TUGGAR/sväljer i takt med att saften faktiskt försvinner — reaktionen
       // hänger på mätningen (`got`), inte på en timer, så munnen rör sig bara när
       // det verkligen rinner i den.
-      if (got && this._frame % 24 === 0) this._kar?.react('nam')
+      if (this._gast === 'bobo') {
+        if (got && this._frame % 24 === 0) this._kar?.react('nam')
+      } else {
+        // Knyttets måltid (gapa, tugga tre gånger, rapa) tar 1,4 s och kompisens tugga 0,95 s —
+        // en ny `react('nam')` var 24:e bildruta hade startat om dem innan de hunnit tugga klart.
+        // Därför en egen takt som väntar ut måltiden.
+        this._tuggT -= dt
+        if (got && this._tuggT <= 0) {
+          this._tuggT = this._gast === 'kompis' ? 1000 : 1450
+          this._kar?.react('nam')
+        }
+      }
       if (got && this._frame % 8 === 0) {
         ctx.services.audio.tone({ freq: 300 + Math.min(1, this._drink.drained / 60) * 300, dur: 0.09, type: 'sine', vol: 0.18 })
       }

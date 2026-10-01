@@ -94,6 +94,7 @@ strunta i beställningen hur länge som helst och bara leka.
 
 ## 5. Status / loggar
 
+- 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.287.0).** Gästen bakom baren byts per montering (`figurForOmgang`, `kropp: false`-spelet är inget enradsbyte): varannan gång står barnets EGET knytt eller kompis (eller ett MÖTT knytt) i stället för Bobo. Den har en hel kropp, så den står på en liten hylla vid väggen (`_buildGastHylla`, fötterna y 405, 196 px hög, ≤176 bred) — hyllan 13 px över hinkhandtaget och utanför alla träffytor. Den dricker (`react('nam')`) i en egen takt (1,45 s knytt / 1,0 s kompis — en ny `nam` var 24:e bildruta hade startat om måltiden), följer det burna glaset/kranen med blicken och jublar (`react('jubel')`) när beställningen är klar. Bobos 7 repliker finns nu i tre röster (`ORDER_ROST_EGEN`: ditt knytt / din kompis / ett knytt, 18 beställningsrader + 3 vinstrader); en ny figur presenteras av `presentera`. Utan egna figurer ser spelet ut som förut.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): båda öppna [Quick] kräver nya röstklipp
   (se §4). Dubbelfirandet: spelets eget `sfx('celebrate')` struket ("Precis den färgen Bobo ville
   ha!" sägs före `complete()` och ersätter berömmet). Nästa beställning kom 1,8 s in och kapade

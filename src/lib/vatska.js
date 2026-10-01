@@ -258,7 +258,10 @@ export class FluidWorld {
   update(deltaMS) {
     if (!this._alive) return
     const FIXED = 1000 / 60
-    this._acc += Math.min(deltaMS || FIXED, 100)
+    let d = Math.min(deltaMS || FIXED, 100)
+    // Snäpp (se PhysicsWorld.update): vsync-jitter runt 16,67 ms ger 0- och 2-stegsrutor → ryck.
+    if (Math.abs(d - FIXED) < 0.5) d = FIXED
+    this._acc += d
     let steps = 0
     while (this._acc >= FIXED && steps < 3) {
       this._step()

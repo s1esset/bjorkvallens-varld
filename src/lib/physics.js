@@ -423,7 +423,11 @@ export class PhysicsWorld {
     if (!this._alive) return
     this._frames++
     const FIXED = 1000 / 60
-    this._acc += Math.min(deltaMS || FIXED, 100) // klamp stora hopp (flik-byte)
+    let d = Math.min(deltaMS || FIXED, 100) // klamp stora hopp (flik-byte)
+    // Snäpp: vsync-jitter (±0,1 ms) runt 16,67 ms slår ackumulatorns rest fram och tillbaka över
+    // tröskeln → 0- och 2-stegsrutor (ryck). Inom 0,5 ms räknas bildrutan som exakt ett steg.
+    if (Math.abs(d - FIXED) < 0.5) d = FIXED
+    this._acc += d
     let steps = 0
     const windy = this._windAx !== 0 || this._windAy !== 0
     while (this._acc >= FIXED && steps < 5) {

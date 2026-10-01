@@ -14,6 +14,62 @@ import { ON as DIAG, logPhysics } from './gamelog.js'
 
 const { Engine, Composite, Bodies, Body, Vector, Events } = Matter
 
+// --- fällvakter (FYSIKPLAN R1) — rena tal, DEV-diagnosens egen logik ---
+// Två av CLAUDE.md:s dyraste tysta fällor, som inget konsolfel någonsin avslöjar:
+//   statisk-fart  en STATISK kropp med kvarliggande fart. `Body.setPosition(b, p, true)` sätter
+//                 farten till förflyttningen och matter räknar aldrig om den på en statisk kropp
+//                 (Engine hoppar över dem) — en planka som dragits 230 px ligger kvar på
+//                 (−651, −230) och lösaren läser nästa kontakt som SEPARERANDE (kulan faller
+//                 igenom). Flaggas när |v| > 0,5 px/steg vid TVÅ prov i rad OCH kroppen inte
+//                 flyttat sig > 0,5 px mellan dem (en kinematisk kropp i rörelse har en
+//                 äkta fart och flaggas inte).
+//   snurr         en DYNAMISK kropp med |ω| > 1,5 rad/steg (≈ 5 000°/s). Ett klot med radie 30
+//                 som rullar 20 px/steg har 0,67; ett Constraint-grepp utanför tröghetsradien
+//                 (r²·m/I = 3) skenar långt över (166 000° utan konsolfel).
+// Exporterad så att en Node-sond kan pröva tröskeln utan webbläsare (gamelog är DEV-only och
+// loggar inget i Node). Anropas bara bakom DIAG — i bygget tas hela blocket bort.
+export const VAKT_STAT_FART = 0.5 // px/steg
+export const VAKT_STAT_FLYTT = 0.5 // px mellan två prov
+export const VAKT_SNURR = 1.5 // rad/steg
+export function nyVaktminne() {
+  return { stat: new Map(), flagg: new Set() }
+}
+// Ett prov för en kropp → null eller [händelse, data]. `minne` = nyVaktminne() per värld.
+// En kropp flaggas EN gång tills den lugnat sig (då får den flaggas igen).
+export function fallvakt(b, minne) {
+  const id = b.id
+  const label = b.label || 'kropp'
+  if (b.isStatic) {
+    const x = b.position.x
+    const y = b.position.y
+    const fart = Math.hypot(b.velocity.x, b.velocity.y)
+    if (!(fart > VAKT_STAT_FART)) {
+      minne.stat.delete(id)
+      minne.flagg.delete('s' + id)
+      return null
+    }
+    const f = minne.stat.get(id)
+    minne.stat.set(id, { x, y })
+    if (!f) return null // första provet — väntar på ett till
+    const stilla = Math.hypot(x - f.x, y - f.y) <= VAKT_STAT_FLYTT
+    if (!stilla) {
+      minne.flagg.delete('s' + id)
+      return null
+    }
+    if (minne.flagg.has('s' + id)) return null
+    minne.flagg.add('s' + id)
+    return ['statisk-fart', { label, id, fart: Number(fart.toFixed(2)), vx: Number(b.velocity.x.toFixed(2)), vy: Number(b.velocity.y.toFixed(2)), x: Math.round(x), y: Math.round(y) }]
+  }
+  const w = Math.abs(b.angularVelocity)
+  if (!(w > VAKT_SNURR)) {
+    minne.flagg.delete('r' + id)
+    return null
+  }
+  if (minne.flagg.has('r' + id)) return null
+  minne.flagg.add('r' + id)
+  return ['snurr', { label, id, vinkelfart: Number(b.angularVelocity.toFixed(2)), grader_per_s: Math.round((w * 180 / Math.PI) * 60), x: Math.round(b.position.x), y: Math.round(b.position.y) }]
+}
+
 // Materialförval (kropp-opts) — ger spelen "olika egenskaper" utan magiska tal:
 // studsighet (restitution), täthet/massa (density), friktion, luftmotstånd.
 export const MATERIALS = {
@@ -108,7 +164,7 @@ export class PhysicsWorld {
   // --- diagnostik (DEV-only; hela blocket viker ihop till inget i bygget) ---
 
   _diagInit(opts) {
-    this._diag = { frames: 0, bodies: 0, collisions: 0, escaped: new Set(), maxSpeed: 0 }
+    this._diag = { frames: 0, bodies: 0, collisions: 0, escaped: new Set(), maxSpeed: 0, vakt: nyVaktminne() }
     logPhysics('skapad', opts)
     // Lyssna på ALLA kollisioner, inte bara de spelet självt bryr sig om.
     Events.on(this.engine, 'collisionStart', (e) => {
@@ -139,6 +195,8 @@ export class PhysicsWorld {
     let sleeping = 0
     let maxSpeed = 0
     for (const b of all) {
+      const fynd = fallvakt(b, d.vakt)
+      if (fynd) logPhysics(fynd[0], fynd[1])
       if (b.isStatic) continue
       dyn++
       if (b.isSleeping) sleeping++

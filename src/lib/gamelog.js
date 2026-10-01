@@ -596,13 +596,20 @@ export function logPhysics(event, data) {
     phys.sleeping = data?.sovande ?? phys.sleeping
     if (data?.toppfart > phys.maxSpeed) phys.maxSpeed = data.toppfart
   }
-  log('fysik', event, data, event === 'svalt' || event === 'nan-kropp' ? 'varning' : 'info')
+  log('fysik', event, data, event === 'svalt' || event === 'nan-kropp' || event === 'statisk-fart' || event === 'snurr' ? 'varning' : 'info')
   if (event === 'svalt') {
     phys.starved++
     if (phys.starved === 3) flag('fysik-svalt', 'Fysiken hinner inte med (>5 steg per bildruta) — simuleringen saktar ned', data, 'varning')
   }
   if (event === 'nan-kropp') flag('nan-kropp', 'Fysikkropp med NaN-position — motorn har spårat ur', data, 'fel')
   if (event === 'rymde') flag('kropp-rymde', 'Kropp hamnade långt utanför banan (föll genom golvet eller tunnlade)', data, 'varning')
+  // Fällvakter (FYSIKPLAN R1) — alltid `varning`, aldrig `fel`: en träff är ett spår att läsa, inget som fäller grinden.
+  if (event === 'statisk-fart') {
+    flag('statisk-fart', `Statisk kropp "${data?.label}" bär kvarliggande fart ${data?.fart} px/steg (${data?.vx}, ${data?.vy}) utan att flytta sig — setPosition(…, true) följd av en paus? Lösaren läser nästa kontakt som separerande`, data, 'varning')
+  }
+  if (event === 'snurr') {
+    flag('snurr', `Kropp "${data?.label}" snurrar ${data?.vinkelfart} rad/steg (≈ ${data?.grader_per_s}°/s) — ett grepp utanför tröghetsradien (r²·m/I)?`, data, 'varning')
+  }
   if (event === 'skapad') phys.worlds++
 }
 

@@ -221,7 +221,7 @@ try {
   // skulle stå, i tio nivåer, eftersom `korkPool` fortfarande höll emoji-strängar.
   // Måttet är billigt och fångar hela klassen: varje sak i varje nivå måste heta något
   // `makeThing` faktiskt har en gren för.
-  const KANDA = ['fisk', 'nyckel', 'mynt', 'skruv', 'burk', 'anka', 'badring', 'batt', 'stavrod', 'stavbla']
+  const KANDA = ['fisk', 'nyckel', 'mynt', 'skruv', 'burk', 'anka', 'badring', 'batt', 'stavrod', 'stavbla', 'stovel', 'guldfisk'] // v1.270: sällsynta fångster
   let sortFel = 0
   const sedda = new Set()
   for (const lvl of [0, 1, 2, 3]) {

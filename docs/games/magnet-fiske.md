@@ -261,3 +261,14 @@ Stark, polerad kärna — men några tunna kanter återstår:
   från 80/150/220/290 px (15 · 41 · 74 · 116 steg), banorna sammanfaller inom 2·10⁻⁴ px
   över 2 sekunders lek. Spelsonden `_magnetprobe.mjs 3` oförändrad: 0 självfångade på 8 s,
   0 tunnlade, toppfart 2,7 px/steg.
+- **2026-10-02 · krafterna per fysiksteg (FYSIKPLAN T1).** Loopen som lade simning, drag
+  (`dra`/`polDra`), ankknuff och pinning av fastklistrade saker låg i tickern, EN gång per
+  bildruta; matter nollar krafterna efter varje steg och `PhysicsWorld.update` kör 0–2 steg per
+  bildruta, så fältet blev 0, 1 eller 2 gånger för starkt beroende på skärm (fångsttid 700 ms
+  vid 60 Hz mot 1 133 ms vid 30 Hz, §1.3.3). Nu `_krafterSteg()` i `phys.beforeStep` (unbindern
+  `_avKrafter` kallas i `destroy`); simningens riktningstimer räknas i steg (`STEG_DT`). Ljud, bild
+  och röst (`_stot`, `_fniss`) körs INTE i steget — det sätter flaggorna `it._reagStot/_reagFniss`
+  som `_reagera()` löser in en gång per bildruta efter `phys.update` (aldrig 0 eller 2 gånger,
+  aldrig efter destroy/`_resolving`). Vid exakt ett steg per ruta är beteendet oförändrat; på 57 fps
+  och 30 fps blir fångsten lika snabb som på 60. Ny baslinje för `_magnetprobe` väntas: samma
+  0 självfångade/0 tunnlade, men fångsttider inom ±2 % över takter i stället för drift.

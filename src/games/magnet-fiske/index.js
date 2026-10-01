@@ -147,6 +147,7 @@ const DUCK_PUSH = 4 // px/steg — en mjuk knuff, aldrig en katapult
 // rörliga mål istället för statiska högar. Farten (px/steg) ökar per nivå (svårare).
 const SWIM_BASE = 1.1 // grund-simfart
 const SWIM_PER_LEVEL = 0.3 // hur mycket snabbare per nivå
+const STEG_DT = 1 / 60 // ett fast fysiksteg i sekunder (simningens riktningstimer räknas i steg)
 
 const BUCKET = { x: 1150, y: 510 } // hinkens släpp-zon (centrum)
 const BUCKET_R = 130 // släpp-zonens radie
@@ -291,6 +292,8 @@ export default {
     this._phys.rectangle(540, POND.y1 + 20, 900, 40, wopt) // botten
     this._phys.rectangle(POND.x0 - 20, 405, 40, 450, wopt) // vänster
     this._phys.rectangle(POND.x1 + 20, 405, 40, 450, wopt) // höger
+    // Krafter per fast fysiksteg (T1) — avregistreras i destroy.
+    this._avKrafter = this._phys.beforeStep(() => this._krafterSteg())
 
     // Osynlig träffyta över hinken (tap-tap → magneten åker dit och släpper lasten).
     this._bucketHit = new Graphics().circle(BUCKET.x, BUCKET.y, BUCKET_R).fill({ color: 0xffffff, alpha: 0.001 })
@@ -658,65 +661,14 @@ export default {
     this._falt.flytta(tip.x, tip.y)
     this._falt.aktiv = inWater
 
-    // Per-tick krafter FÖRE fysiksteget: pinna fastklistrade, dra metall, knuffa ankor.
-    if (!this._resolving) {
-      for (const it of this._items) {
-        if (it.delivered) continue
-        const p = it.body.position
-        if (it.metal && it.stuck) {
-          // MEDVETET: en fastklistrad sak läser aldrig fältet igen, så en stavmagnet
-          // som redan sitter fast BLIR KVAR när polen vänds. Fysikaliskt inkonsekvent,
-          // men den andra vägen är värre: vänd-vinken kan vända åt barnet (`_recue`)
-          // mitt under bärningen, och då hade hjälpen slagit ur barnets fångst rakt
-          // framför hinken. Greppet är mekaniskt när saken väl sitter på kroken.
-          const s = SLOTS[Math.min(it.slot, SLOTS.length - 1)]
-          Body.setPosition(it.body, { x: tip.x + s.x, y: tip.y + s.y })
-          Body.setVelocity(it.body, { x: 0, y: 0 })
-          continue
-        }
-        const dx = tip.x - p.x
-        const dy = tip.y - p.y
-        const dist = Math.hypot(dx, dy) || 0.0001
-
-        // Vandring (simning): byt riktning ibland, styr in från väggar, mjuk fart.
-        it.wt -= dt
-        if (it.wt <= 0) {
-          it.wh = Math.random() * Math.PI * 2
-          it.wt = 0.8 + Math.random() * 1.6
-        }
-        if (p.x < SPAWN.x0) it.wh = 0
-        else if (p.x > SPAWN.x1) it.wh = Math.PI
-        if (p.y < SPAWN.y0) it.wh = Math.PI / 2
-        else if (p.y > SPAWN.y1) it.wh = -Math.PI / 2
-        // Nära magneten dras metall ändå (nedan) → dämpa simningen så den inte motverkar fångst.
-        const swimA = speedToAccel(this._swim * (it.metal && inWater && dist < R_FIELD ? 0.3 : 1), it.body.frictionAir)
-        Body.applyForce(it.body, p, { x: it.body.mass * swimA * Math.cos(it.wh), y: it.body.mass * swimA * Math.sin(it.wh) })
-
-        // Magneten fiskar bara när den är DOPPAD (`_falt.aktiv` sätts ovan). Låg den och
-        // drog i luften fångade den hela dammen av sig själv medan barnet tittade på.
-        if (!inWater) continue
-
-        if (it.metal) {
-          // Med poler avgör kroppens egen pol tecknet: järn (0) dras alltid, en
-          // stavmagnet av samma färg knuffas bort. Utan poler exakt som förut.
-          if (this._poles) {
-            if (this._falt.polDra(it.body, it.pol) < 0) this._stot(ctx, it)
-          } else {
-            this._falt.dra(it.body)
-          }
-        } else if (this._falt.knuff(it.body, { radie: DUCK_PUSH_R, styrka: DUCK_PUSH, profil: 'jamn' })) {
-          // mjuk knuff BORT — ankan kan aldrig fastna. Returvärdet ÄR närhetsvillkoret.
-          const now = performance.now()
-          if (now - this._lastFniss > 600) {
-            this._lastFniss = now
-            this._fniss(ctx, it)
-          }
-        }
-      }
-    }
+    // Krafterna (simning, drag, knuff, pinning) läggs per FYSIKSTEG i `_krafterSteg`, registrerad i
+    // `phys.beforeStep` (T1) — en kraft per BILDRUTA blev 0, 1 eller 2 gånger för stark per skärm.
+    // Här sparas bara det steget behöver; bild/ljud-reaktionerna körs EN gång per bildruta nedan.
+    this._tip = tip
 
     // Stega fysiken + synka vyer.
     this._phys.update(t.deltaMS)
+    this._reagera(ctx)
 
     // EFTER steget: fastna-koll + släpp i hink.
     if (!this._resolving) {
@@ -739,6 +691,86 @@ export default {
       if (this._idle > 6) {
         this._idle = 0
         this._recue(ctx)
+      }
+    }
+  },
+
+  // Kraftdelen av tickern, EN gång per fast fysiksteg (`phys.beforeStep`): pinna fastklistrade,
+  // låt sakerna simma, dra metall, knuffa ankor. Bara KRAFTER och fart här — ljud, bild och röst
+  // sätter en flagga (`_reagStot`/`_reagFniss`) som `_reagera` löser in EN gång per bildruta, så de
+  // varken körs 0 eller 2 gånger per ruta eller efter destroy.
+  _krafterSteg() {
+    if (!this._alive || this._resolving) return
+    const tip = this._tip
+    if (!tip) return
+    const inWater = this._inWater
+    for (const it of this._items) {
+      if (it.delivered) continue
+      const p = it.body.position
+      if (it.metal && it.stuck) {
+        // MEDVETET: en fastklistrad sak läser aldrig fältet igen, så en stavmagnet
+        // som redan sitter fast BLIR KVAR när polen vänds. Fysikaliskt inkonsekvent,
+        // men den andra vägen är värre: vänd-vinken kan vända åt barnet (`_recue`)
+        // mitt under bärningen, och då hade hjälpen slagit ur barnets fångst rakt
+        // framför hinken. Greppet är mekaniskt när saken väl sitter på kroken.
+        const s = SLOTS[Math.min(it.slot, SLOTS.length - 1)]
+        Body.setPosition(it.body, { x: tip.x + s.x, y: tip.y + s.y })
+        Body.setVelocity(it.body, { x: 0, y: 0 })
+        continue
+      }
+      const dx = tip.x - p.x
+      const dy = tip.y - p.y
+      const dist = Math.hypot(dx, dy) || 0.0001
+
+      // Vandring (simning): byt riktning ibland, styr in från väggar, mjuk fart.
+      it.wt -= STEG_DT
+      if (it.wt <= 0) {
+        it.wh = Math.random() * Math.PI * 2
+        it.wt = 0.8 + Math.random() * 1.6
+      }
+      if (p.x < SPAWN.x0) it.wh = 0
+      else if (p.x > SPAWN.x1) it.wh = Math.PI
+      if (p.y < SPAWN.y0) it.wh = Math.PI / 2
+      else if (p.y > SPAWN.y1) it.wh = -Math.PI / 2
+      // Nära magneten dras metall ändå (nedan) → dämpa simningen så den inte motverkar fångst.
+      const swimA = speedToAccel(this._swim * (it.metal && inWater && dist < R_FIELD ? 0.3 : 1), it.body.frictionAir)
+      Body.applyForce(it.body, p, { x: it.body.mass * swimA * Math.cos(it.wh), y: it.body.mass * swimA * Math.sin(it.wh) })
+
+      // Magneten fiskar bara när den är DOPPAD (`_falt.aktiv` sätts i tickern). Låg den och
+      // drog i luften fångade den hela dammen av sig själv medan barnet tittade på.
+      if (!inWater) continue
+
+      if (it.metal) {
+        // Med poler avgör kroppens egen pol tecknet: järn (0) dras alltid, en
+        // stavmagnet av samma färg knuffas bort. Utan poler exakt som förut.
+        if (this._poles) {
+          if (this._falt.polDra(it.body, it.pol) < 0) it._reagStot = true
+        } else {
+          this._falt.dra(it.body)
+        }
+      } else if (this._falt.knuff(it.body, { radie: DUCK_PUSH_R, styrka: DUCK_PUSH, profil: 'jamn' })) {
+        // mjuk knuff BORT — ankan kan aldrig fastna. Returvärdet ÄR närhetsvillkoret.
+        it._reagFniss = true
+      }
+    }
+  },
+
+  // Ljud/bild/röst-svaren på det `_krafterSteg` såg — EFTER fysiksteget, en gång per bildruta.
+  // Flaggorna rensas alltid (även under `_resolving`), så inget gammalt svar hinner ikapp senare.
+  _reagera(ctx) {
+    for (const it of this._items) {
+      const stot = it._reagStot
+      const fniss = it._reagFniss
+      if (!stot && !fniss) continue
+      it._reagStot = it._reagFniss = false
+      if (!this._alive || this._resolving || it.delivered || !it.view || it.view.destroyed) continue
+      if (stot) this._stot(ctx, it)
+      if (fniss) {
+        const now = performance.now()
+        if (now - this._lastFniss > 600) {
+          this._lastFniss = now
+          this._fniss(ctx, it)
+        }
       }
     }
   },
@@ -1232,6 +1264,8 @@ export default {
       for (const ch of this._bucketPile.children) gsap.killTweensOf(ch.scale)
     }
 
+    this._avKrafter?.()
+    this._avKrafter = null
     this._falt?.destroy()
     this._phys?.destroy()
     gsap.killTweensOf(this._root)

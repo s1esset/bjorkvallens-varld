@@ -10,6 +10,8 @@
 //   node scripts/natt.mjs fas <F> <status> [--notis "…"]
 //        status: vantar | pagar | klar | delvis
 //   node scripts/natt.mjs logg "<rad>"              en rad i nattloggen (logg.md)
+//   node scripts/natt.mjs kvot                      klockan + 5h/veckokvoten ur drivarens mätare
+//                                                   (kvot.json) → "byggare max N" och ev. STOPP
 //   node scripts/natt.mjs prova <id>                check --game + test + gamelogg i EN kompakt
 //                                                   utskrift (orkestreraren är den dyra modellen —
 //                                                   ett anrop och tjugo rader i stället för fyra
@@ -97,6 +99,30 @@ switch (cmd) {
     console.log('✓ loggat')
     break
   }
+  case 'kvot': {
+    // kvot.json skrivs av drivaren var 30:e s ur sessionens rate_limit_event (riktig mätare,
+    // inte en uppskattning). Reglerna står i plan.json → kvot; förvalen nedan.
+    const p = load()
+    const r = { byggareTak: 0.82, perByggare: 0.075, maxByggare: 4, fasStopp: 0.93, veckoTak: 0.74, ...(p.kvot ?? {}) }
+    const klocka = new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
+    let k = null
+    try { k = JSON.parse(readFileSync(join(DIR, 'kvot.json'), 'utf8').replace(/^﻿/, '')) } catch {}
+    if (!k) { console.log(`klockan ${klocka} · kvot okänd (ingen mätning än) · byggare max 2`); break }
+    const nu = Date.now()
+    const fem = nu >= Date.parse(k.femAterstalls) ? 0 : k.fem
+    const sju = nu >= Date.parse(k.sjuAterstalls) ? 0 : k.sju
+    const pct = (x) => `${Math.round(x * 100)} %`
+    const hhmm = (s) => new Date(Date.parse(s)).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
+    let max = Math.max(0, Math.min(r.maxByggare, Math.floor((r.byggareTak - fem) / r.perByggare + 1e-9)))
+    const stopp = []
+    if (fem >= r.fasStopp) stopp.push(`5h-kvoten ${pct(fem)}`)
+    if (sju >= r.veckoTak) stopp.push(`veckokvoten ${pct(sju)} (nattens tak ${pct(r.veckoTak)})`)
+    if (stopp.length) max = 0
+    console.log(`klockan ${klocka} · 5h ${pct(fem)} (återställs ${hhmm(k.femAterstalls)}) · vecka ${pct(sju)} · byggare max ${max}`)
+    if (stopp.length) console.log(`STOPP: ${stopp.join(' · ')} — committa det som är grönt, sätt spelens status rätt, \`natt.mjs fas <F> pagar --notis "kvotpaus"\` och avsluta sessionen. Drivaren sover till återställningen.`)
+    else if (max === 0) console.log('INGA NYA BYGGARE: testa/committa det som redan är byggt, sätt fasen pagar --notis "kvotpaus" och avsluta.')
+    break
+  }
   case 'prova': {
     const id = argv[1]
     if (!id) { console.error('✗ prova <id>'); process.exit(2) }
@@ -120,6 +146,6 @@ switch (cmd) {
     process.exit(chk.status || tst.status ? 1 : 0)
   }
   default:
-    console.log('användning: natt.mjs visa [F] | spel <id> <status> | fas <F> <status> | logg "<rad>" | prova <id>')
+    console.log('användning: natt.mjs visa [F] | spel <id> <status> | fas <F> <status> | logg "<rad>" | kvot | prova <id>')
     process.exit(2)
 }

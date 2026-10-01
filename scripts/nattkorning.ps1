@@ -122,6 +122,47 @@ function Sakra-Dev {
   Logg '⚠ dev-servern kom inte upp på 60 s — fasen får försöka själv'
 }
 
+# ── kvotmätaren ──────────────────────────────────────────────────────────────────────────
+# Uppmätt 2026-10-01: stream-json bär `rate_limit_event` med rate_limit_info.unifiedWindows
+# .five_hour/.seven_day { utilization 0..1, resetsAt unix }, en händelse per procentenhet — även
+# medan underagenterna bygger. Förra nattens 48 USD flyttade 5h-fönstret 87 enheter och veckan 5.
+# Drivaren läser den senaste händelsen var 30:e s och skriver kvot.json; `natt.mjs kvot` låter
+# fasen fråga hur många byggare som ryms innan något startas.
+$KvotFil = Join-Path $Dir 'kvot.json'
+$script:Kvot = $null
+if (Test-Path $KvotFil) { try { $script:Kvot = Get-Content $KvotFil -Raw | ConvertFrom-Json } catch {} }
+function Las-Kvot([string]$fil) {
+  if (-not (Test-Path $fil)) { return }
+  try {
+    $fs = [IO.FileStream]::new($fil, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+    try {
+      $n = [int][math]::Min($fs.Length, 524288)
+      [void]$fs.Seek(-$n, [IO.SeekOrigin]::End)
+      $buf = New-Object byte[] $n
+      $las = 0
+      while ($las -lt $n) { $r = $fs.Read($buf, $las, $n - $las); if ($r -le 0) { break }; $las += $r }
+    } finally { $fs.Dispose() }
+    $rad = [Text.Encoding]::UTF8.GetString($buf, 0, $las) -split "`n" |
+      Where-Object { $_ -match '"type":"rate_limit_event"' } | Select-Object -Last 1
+    if (-not $rad) { return }
+    $j = $rad | ConvertFrom-Json
+    $u = $j.rate_limit_info.unifiedWindows
+    if (-not $u.five_hour) { return }
+    $tid = { param($s) [DateTimeOffset]::FromUnixTimeSeconds([long]$s).LocalDateTime.ToString('s') }
+    $k = [pscustomobject][ordered]@{
+      fem = [double]$u.five_hour.utilization; femAterstalls = & $tid $u.five_hour.resetsAt
+      sju = [double]$u.seven_day.utilization; sjuAterstalls = & $tid $u.seven_day.resetsAt
+      status = $j.rate_limit_info.status; uppdaterad = (Get-Date).ToString('s')
+    }
+    $script:Kvot = $k
+    $k | ConvertTo-Json | Set-Content $KvotFil -Encoding utf8
+  } catch {}
+}
+# Nuvärdet: efter återställningen är fönstret tomt även om ingen ny händelse kommit än.
+function Kvot-Fem { if (-not $script:Kvot -or (Get-Date) -ge [datetime]$script:Kvot.femAterstalls) { 0.0 } else { [double]$script:Kvot.fem } }
+function Kvot-Sju { if (-not $script:Kvot -or (Get-Date) -ge [datetime]$script:Kvot.sjuAterstalls) { 0.0 } else { [double]$script:Kvot.sju } }
+function Kvot-Text { '5h {0:P0} · vecka {1:P0}' -f (Kvot-Fem), (Kvot-Sju) }
+
 # ── en headless session ──────────────────────────────────────────────────────────────────
 function Kor-Session([string]$namn, [string]$prompt, [string]$modell, [string]$effort, [int]$maxMin, [string[]]$extra = @()) {
   $bas = Join-Path $LogDir $namn
@@ -138,19 +179,27 @@ function Kor-Session([string]$namn, [string]$prompt, [string]$modell, [string]$e
   $psi.RedirectStandardError = $true
   $psi.Environment['CLAUDE_CODE_SUBAGENT_MODEL'] = $Byggmodell
   $psi.Environment['NATT_DIR'] = $Rel
-  $ut = [IO.File]::Create("$bas.jsonl"); $fel = [IO.File]::Create("$bas.err.txt")
+  # FileShare.ReadWrite: kvotmätaren (Las-Kvot) läser strömmen medan sessionen skriver den.
+  $ny = { param($f) [IO.FileStream]::new($f, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite) }
+  $ut = & $ny "$bas.jsonl"; $fel = & $ny "$bas.err.txt"
   $t0 = Get-Date
   $p = [System.Diagnostics.Process]::Start($psi)
   Set-Content (Join-Path $Dir 'session.pid') -Value $p.Id -Encoding ascii
   $k1 = $p.StandardOutput.BaseStream.CopyToAsync($ut)
   $k2 = $p.StandardError.BaseStream.CopyToAsync($fel)
-  $hann = $p.WaitForExit($maxMin * 60 * 1000)
+  $slut = $t0.AddMinutes($maxMin)
+  while (-not $p.WaitForExit(30000)) {
+    Las-Kvot "$bas.jsonl"
+    if ((Get-Date) -gt $slut) { break }
+  }
+  $hann = $p.HasExited
   if (-not $hann) {
     Logg "⚠ $namn överskred $maxMin min — avbryts (arbetet ligger kvar på disk, nästa session tar vid)"
     & taskkill.exe /T /F /PID $p.Id 2>&1 | Out-Null
     [void]$p.WaitForExit(30000)
   }
   [void]$k1.Wait(15000); [void]$k2.Wait(15000); $ut.Dispose(); $fel.Dispose()
+  Las-Kvot "$bas.jsonl"
   Remove-Item (Join-Path $Dir 'session.pid') -ErrorAction SilentlyContinue
   $min = [math]::Round(((Get-Date) - $t0).TotalMinutes, 1)
   return [pscustomobject]@{ Kod = $(if ($hann) { $p.ExitCode } else { -1 }); Timeout = -not $hann; Bas = $bas; Minuter = $min }
@@ -163,10 +212,16 @@ $script:Forbrukning = [ordered]@{ usd = 0.0; modeller = [ordered]@{}; faser = @(
 function Spara-Forbrukning {
   $script:Forbrukning | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $Dir 'forbrukning.json') -Encoding utf8
 }
-function Bokfor($namn, $bas, $minuter) {
+function Bokfor($namn, $bas, $minuter, $kvotFore = '') {
   $rad = Get-Content "$bas.jsonl" -ErrorAction SilentlyContinue |
     Where-Object { $_ -match '"type":"result"' -and $_ -match '"total_cost_usd"' } | Select-Object -Last 1
-  if (-not $rad) { Logg "  förbrukning: ingen resultatrad (avbruten session)"; return }
+  Logg "  kvot $namn`: före $kvotFore → efter $(Kvot-Text)"
+  if (-not $rad) {
+    Logg "  förbrukning: ingen resultatrad (avbruten session)"
+    $script:Forbrukning.faser += [ordered]@{ namn = $namn; minuter = $minuter; usd = 0; kvotFore = $kvotFore; kvotEfter = (Kvot-Text) }
+    Spara-Forbrukning
+    return
+  }
   try { $j = $rad | ConvertFrom-Json } catch { return }
   $delar = @()
   foreach ($m in $j.modelUsage.PSObject.Properties) {
@@ -183,7 +238,7 @@ function Bokfor($namn, $bas, $minuter) {
     $delar += ('{0}: {1:N1}M nya + {2:N1}M cache · {3:N2}M ut' -f $kort, ($in / 1e6), ($las / 1e6), ($ut / 1e6))
   }
   $script:Forbrukning.usd += [double]$j.total_cost_usd
-  $script:Forbrukning.faser += [ordered]@{ namn = $namn; minuter = $minuter; usd = [double]$j.total_cost_usd; turer = $j.num_turns; agenter = $j.subagent_stats.spawned }
+  $script:Forbrukning.faser += [ordered]@{ namn = $namn; minuter = $minuter; usd = [double]$j.total_cost_usd; turer = $j.num_turns; agenter = $j.subagent_stats.spawned; kvotFore = $kvotFore; kvotEfter = (Kvot-Text) }
   Spara-Forbrukning
   Logg ("  förbrukning {0}: {1} · {2} turer · {3} agenter · listpris ~{4:N0} USD (natten hittills ~{5:N0})" -f `
     $namn, ($delar -join ' | '), $j.num_turns, $j.subagent_stats.spawned, [double]$j.total_cost_usd, $script:Forbrukning.usd)
@@ -264,6 +319,8 @@ if ($Torrkorning) {
     if ($resultat) { Logg ("svar: " + (($resultat | ConvertFrom-Json).result -replace "`n", ' ')) } else { Logg '⚠ inget result-meddelande — läs loggar\F0-torr.err.txt' }
     $g = Las-Grans $r.Bas
     if ($g) { Logg "kvotgräns syns: $($g.Typ) · $($g.Text)" }
+    Logg "kvotmätaren: $(Kvot-Text) · 5h återställs $(if ($script:Kvot) { $script:Kvot.femAterstalls } else { 'OKÄNT — ingen rate_limit_event i strömmen' }) · kvot.json $(if (Test-Path $KvotFil) { 'skriven' } else { 'SAKNAS' })"
+    Logg ("natt.mjs kvot: " + ((& node (Join-Path $Root 'scripts\natt.mjs') kvot) -join ' | '))
     $sista = Get-Content (Join-Path $Dir 'logg.md') -Tail 1 -ErrorAction SilentlyContinue
     Logg "logg.md sista raden: $sista"
   } finally {
@@ -279,7 +336,10 @@ $plan = Las-Plan
 $SistaByggstart = [datetime]$plan.tider.sistaByggstart
 $LeveransSenast = [datetime]$plan.tider.leveransSenast
 $Morgon = [datetime]$plan.tider.morgon
-Logg "── NATTKÖRNING $($plan.natt) — drivare pid $PID · sista byggstart $($SistaByggstart.ToString('HH:mm')) · leverans senast $($LeveransSenast.ToString('HH:mm')) · morgon $($Morgon.ToString('HH:mm'))"
+$LeveransSistaStart = if ($plan.tider.leveransSistaStart) { [datetime]$plan.tider.leveransSistaStart } else { $LeveransSenast.AddMinutes(30) }
+$VeckoTak = if ($plan.kvot.veckoTak) { [double]$plan.kvot.veckoTak } else { 0.74 }
+$StartTak = if ($plan.kvot.startTak) { [double]$plan.kvot.startTak } else { 0.75 }
+Logg "── NATTKÖRNING $($plan.natt) — drivare pid $PID · sista byggstart $($SistaByggstart.ToString('HH:mm')) · leverans senast $($LeveransSenast.ToString('HH:mm')) (start senast $($LeveransSistaStart.ToString('HH:mm'))) · morgon $($Morgon.ToString('HH:mm')) · veckotak $('{0:P0}' -f $VeckoTak) · $(Kvot-Text)"
 
 $forsok = @{}
 # Sessionsnumret räknas för sig: försöket räknas NED vid en kvotvägg (det var inget misslyckande),
@@ -302,9 +362,30 @@ try {
       & node (Join-Path $Root 'scripts\natt.mjs') fas $fas.id delvis --notis 'tiden tog slut innan fasen hann starta' | Out-Null
       continue
     }
-    if ($arLeverans -and $nu -gt $LeveransSenast.AddMinutes(30)) {
+    if ($arLeverans -and $nu -gt $LeveransSistaStart) {
       Logg "⏭ leveransfasen hinns inte före morgonen — drivaren levererar själv"
       $overhoppad[$fas.id] = $true
+      continue
+    }
+    # ── kvotvakterna: veckan räcker till ägarens dag, och ingen session startar i ett fullt fönster
+    if (-not $arLeverans -and (Kvot-Sju) -ge $VeckoTak) {
+      Logg "⏭ $($fas.id) hoppas över — $(Kvot-Text), nattens veckotak är $('{0:P0}' -f $VeckoTak) (ägaren behöver kvot under dagen)"
+      $overhoppad[$fas.id] = $true
+      & node (Join-Path $Root 'scripts\natt.mjs') fas $fas.id delvis --notis 'veckotaket nått' | Out-Null
+      continue
+    }
+    $tak = if ($arLeverans) { 0.96 } else { $StartTak }
+    if ((Kvot-Fem) -ge $tak) {
+      $nar = ([datetime]$script:Kvot.femAterstalls).AddMinutes(2)
+      $grans = if ($arLeverans) { $LeveransSistaStart } else { $SistaByggstart }
+      if ($nar -gt $grans) {
+        if ($arLeverans) { Logg "⏭ $(Kvot-Text), återställs först $($nar.ToString('HH:mm')) — drivaren levererar själv"; $overhoppad[$fas.id] = $true; continue }
+        Logg "⏭ $($fas.id) — $(Kvot-Text), fönstret återställs först $($nar.ToString('HH:mm')) (efter sista byggstart)"
+        $overhoppad[$fas.id] = $true
+        & node (Join-Path $Root 'scripts\natt.mjs') fas $fas.id delvis --notis '5h-kvoten slut for natten' | Out-Null
+        continue
+      }
+      Vanta-Till $nar "$(Kvot-Text) — ingen ny session i ett fullt fönster; $($fas.id) fortsätter FÄRSK från checkpointen efter återställningen"
       continue
     }
     $forsok[$fas.id] = 1 + [int]$forsok[$fas.id]
@@ -326,11 +407,12 @@ try {
     $prompt = "Nattkorning $($plan.natt), fas $($fas.id) (forsok $($forsok[$fas.id])). " +
       "Las $Rel/NATTPLAN.md och sedan $Rel/$($fas.id).md och gor fasen enligt dem. " +
       "Kor forst ``node scripts/natt.mjs visa $($fas.id)`` och ``git status --short`` - ar fasen redan paborjad, fortsatt dar den star, gor inte om det som ar klart. " +
-      "HARD STOPPTID $($stopp.ToString('HH:mm')): kolla klockan (``date +%H:%M``) mellan varje spel. Nar den passerats: committa det som ar grant, rulla tillbaka resten per spel, satt fasen delvis och avsluta. " +
+      "HARD STOPPTID $($stopp.ToString('HH:mm')). KVOTEN: kor ``node scripts/natt.mjs kvot`` FORE varje byggomgang (den sager hur manga byggare som ryms) och mellan varje spel (klockan + STOPP). Vid STOPP eller passerad stopptid: committa det som ar grant, satt varje spels status ratt, satt fasen pagar (kvot) eller delvis (tid) och avsluta - drivaren sover till aterstallningen och startar en FARSK session. " +
       "Agaren sover: fraga ingenting, stanna aldrig for att fraga."
-    Logg "▶ $namn startar — $($fas.titel) ($Orkestrerare orkestrerar, $Byggmodell bygger, max $maxMin min, stopp $($stopp.ToString('HH:mm')))"
+    Logg "▶ $namn startar — $($fas.titel) ($Orkestrerare orkestrerar, $Byggmodell bygger, max $maxMin min, stopp $($stopp.ToString('HH:mm')), $(Kvot-Text))"
+    $kvotFore = Kvot-Text
     $r = Kor-Session $namn $prompt $Orkestrerare 'high' $maxMin
-    Bokfor $namn $r.Bas $r.Minuter
+    Bokfor $namn $r.Bas $r.Minuter $kvotFore
     $plan = Las-Plan
     $status = ($plan.faser | Where-Object id -eq $fas.id).status
     Logg "■ $namn slut: kod $($r.Kod) · $($r.Minuter) min · fasstatus '$status'"
@@ -344,11 +426,21 @@ try {
       if ($sista -and $sista.namn -eq $namn) { $sista.kvotvagg = $true; Spara-Forbrukning }
       $nar = if ($g.Nar) { $g.Nar.AddMinutes(3) } else { (Get-Date).AddMinutes(20) }
       Logg "⏸ kvotgräns ($($g.Typ)) · återställs '$($g.Text)' → nästa försök $($nar.ToString('HH:mm'))"
-      if ($nar -gt $LeveransSenast.AddMinutes(30)) {
-        Logg '⛔ återställningen kommer för sent för natten — slutar bygga, drivaren levererar det som är committat'
-        break
+      $grans = if ($arLeverans) { $LeveransSistaStart } else { $SistaByggstart }
+      if ($nar -gt $grans) {
+        if ($arLeverans) { Logg '⛔ återställningen kommer för sent — drivaren levererar det som är committat'; break }
+        Logg "⏭ återställningen kommer efter sista byggstart — inga fler byggfaser, leveransfasen får försöka"
+        foreach ($f in @($plan.faser | Where-Object { $_.typ -ne 'leverans' -and $_.status -ne 'klar' })) { $overhoppad[$f.id] = $true }
+        continue
       }
       Vanta-Till $nar 'kvoten återställs; nästa session startar FÄRSK från checkpointen'
+      continue
+    }
+    # Fasen stannade själv på kvotmätaren (natt.mjs kvot sa STOPP / 0 byggare) — inget misslyckat
+    # försök; vakten överst sover till återställningen innan nästa session startar.
+    if ((Kvot-Fem) -ge $StartTak -or (Kvot-Sju) -ge $VeckoTak) {
+      $forsok[$fas.id] = [int]$forsok[$fas.id] - 1
+      Logg "⏸ $namn stannade på kvoten ($(Kvot-Text)) — fortsätter efter återställningen"
       continue
     }
     if ($r.Timeout) { continue }                           # nästa försök tar vid där den stod
@@ -386,11 +478,15 @@ try {
     "- Publicering: $(if ($null -eq $deployKod) { 'ingen körd' } elseif ($deployKod -eq 0) { '✅ klar — ladda om appen på plattan' } else { "⛔ misslyckades (kod $deployKod) — se .claude/state/natt/loggar/deploy.log" })",
     "- Ocommittat arbete: $(if ($stash) { "låg kvar och ligger i ``git stash list`` som **$stash**" } else { 'inget' })",
     "- Leveransfasen (modellen): $(if ($leveransKord) { 'kördes' } else { 'hanns INTE — rapporten ovan kan saknas; läget står nedan' })",
+    "- Kvoten när natten slutade: $(Kvot-Text) (5h-fönstret återställs $(if ($script:Kvot) { ([datetime]$script:Kvot.femAterstalls).ToString('HH:mm') } else { '?' }))",
     ("- Nattens förbrukning (listpris, en jämförbar skala — inte vad du betalar): ~{0:N0} USD över {1} sessioner{2}" -f $script:Forbrukning.usd, $script:Forbrukning.faser.Count,
       $(if ($kv = @($script:Forbrukning.faser | Where-Object { $_.kvotvagg }).Count) { " (varav $kv slog i kvotväggen och startades om)" } else { '' }))
   )
   foreach ($m in $script:Forbrukning.modeller.GetEnumerator()) {
     $del += ('  - {0}: {1:N1}M nya in · {2:N1}M cacheläsning · {3:N2}M ut' -f $m.Key, ($m.Value.nyaIn / 1e6), ($m.Value.cacheLas / 1e6), ($m.Value.ut / 1e6))
+  }
+  foreach ($f in @($script:Forbrukning.faser)) {
+    $del += ('  - {0}: {1} min · ~{2:N0} USD · kvot {3} → {4}' -f $f.namn, $f.minuter, [double]$f.usd, $f.kvotFore, $f.kvotEfter)
   }
   $del += @('', '```', $lage, '```')
   Add-Content -Path $Rapport -Value ($del -join "`n") -Encoding utf8

@@ -1258,9 +1258,11 @@ const mkRope = (x, y) => {
 }
 
 // sag < 1 = spänt rep (kortare segment än avståndet) · > 1 = slakt, hänger ner
-const stepRope = (rope, ax, ay, bx, by, dtF, sag = 1) => {
+// Stegar med FAST 60 Hz-takt (Rep.uppdatera → lib/takt.js, T3): samma piskning och
+// hängning vid 30, 57 och 90 fps. spann() sätter målet före, uppdatera() kör 0–3 steg.
+const stepRope = (rope, ax, ay, bx, by, dtMS, sag = 1) => {
   rope.spann(ax, ay, bx, by, sag)
-  rope.steg(dtF)
+  rope.uppdatera(dtMS)
 }
 
 // Ritar repet som en spunnen tråd: en bärande lina + en tunnare medlöpare som
@@ -7193,7 +7195,6 @@ export default {
 
   // ------------------------------------------------------------------ skott-animering
   _advanceShots(ctx, dtMS, sc) {
-    const dtF = dtMS / 16.667
     const hand = this._handPos()
     for (let i = this._shots.length - 1; i >= 0; i--) {
       const s = this._shots[i]
@@ -7219,7 +7220,7 @@ export default {
         // repet piskar efter spetsen: spänt (sag < 1) medan linan skjuts ut
         const tipX = hand.x + (s.ex - hand.x) * s.p
         const tipY = hand.y + (s.ey - hand.y) * s.p
-        if (s.rope) stepRope(s.rope, hand.x, hand.y, tipX, tipY, dtF, 0.98)
+        if (s.rope) stepRope(s.rope, hand.x, hand.y, tipX, tipY, dtMS, 0.98)
         if (s.p >= 1) {
           s.p = 1
           this._resolveShot(ctx, s)
@@ -7229,7 +7230,7 @@ export default {
         s.ex -= sc // missnätet sitter på husväggen och åker med
         s.life -= dtMS / 900
         // linan tappar spänsten och hänger allt slakare innan den tonar bort
-        if (s.rope) stepRope(s.rope, hand.x, hand.y, s.ex, s.ey, dtF, 1 + (1 - s.life) * 0.5)
+        if (s.rope) stepRope(s.rope, hand.x, hand.y, s.ex, s.ey, dtMS, 1 + (1 - s.life) * 0.5)
         if (s.life <= 0) this._shots.splice(i, 1)
       }
     }
@@ -7237,7 +7238,7 @@ export default {
     for (const rec of this._targets) {
       if (!rec.netted || !rec.rope) continue
       const d = Math.hypot(hand.x - rec.view.x, hand.y - rec.view.y) || 1
-      stepRope(rec.rope, hand.x, hand.y, rec.view.x, rec.view.y, dtF, clamp((rec.reel ?? d) / d, 0.9, 1.6))
+      stepRope(rec.rope, hand.x, hand.y, rec.view.x, rec.view.y, dtMS, clamp((rec.reel ?? d) / d, 0.9, 1.6))
     }
   },
 

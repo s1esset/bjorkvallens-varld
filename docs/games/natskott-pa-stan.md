@@ -178,6 +178,7 @@ Efter poleringen 2026-10-01 (kvällen · sex uppdrag · någon i dörren) åters
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **T3: fast 60 Hz-steg via lib/takt.js — 57 fps-fysiken blir 60 Hz-fysik** (Ä10). `stepRope` stegade nätlinan med `rope.steg(dtF)` (variabelt); nu `rope.uppdatera(dtMS)` — Rep:ens inbyggda Takt, exakt 1 per steg. Bara stegraden rörd. `_linabild` mot HEAD: största lina/korda 1,65× → 1,60×, flykten 1,53× → 1,54× vid ~375 px korda — samma lina.
 - 2026-10-01 🌙 **Poleringsomgång: resan in i kvällen, sex uppdrag, någon i dörren.**
   Valt efter att ha spelat två varv och tittat på bilderna (`.test-shots/_natbas/`): staden
   var alltid samma bleka dag, panelen visade växelknappens gamla nätikon (pil/droppe) som inte

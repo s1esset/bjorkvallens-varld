@@ -109,6 +109,7 @@ fångar försvinner in i abstrakta prickar.
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **T3: fast 60 Hz-steg via lib/takt.js — 57 fps-fysiken blir 60 Hz-fysik** (Ä10). Nättrådens `Rep` stegades med variabelt `dtF = min(2, dt*60)` per bildruta (`damp`/styvhet per steg men kraft per `dtF²` ⇒ olika hängning vid olika fps); nu `s.rep.uppdatera(t.deltaMS)` = exakt 1 per fast steg, 0 vid >60 Hz. Bara stegraden rörd (matter-världen, jägaren, spawn och ritning orörda). Båghöjd mäts med `_tradprobe` (13,4–14,1 % ut, 2,7–6,2 % in) — formen flyttar sig lite från 57 fps-varianten, avsiktligt.
 - 2026-09-30 🧑 **Ägarbeslut: hjälten får vara kvar som den är.** Nattkörningen flaggade att
   figuren (röd dräkt, nätmönster, stora vita ögon) liknar Spindelmannen på en publik sajt; ägaren
   valde att INTE rita om den. Väck inte frågan igen utan ett nytt skäl.

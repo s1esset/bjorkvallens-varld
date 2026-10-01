@@ -780,7 +780,6 @@ export default {
         const hp = this._handPos() // tråden skjuts från handen, inte basen
         const bx = hp.x
         const by = hp.y
-        const dtF = Math.min(2, dt * 60)
         let drew = false
         for (const s of this._strands) {
           let tx
@@ -796,7 +795,7 @@ export default {
           }
           if (s.rep) {
             s.rep.spann(bx, by, tx, ty, s.reeling ? SAG_IN : SAG_UT)
-            s.rep.steg(dtF)
+            s.rep.uppdatera(t.deltaMS) // fast 60 Hz-steg (lib/takt.js, T3)
             repPath(th, s.rep)
           } else {
             th.moveTo(bx, by).lineTo(tx, ty)

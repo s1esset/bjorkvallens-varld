@@ -25,6 +25,7 @@ import { Button } from '../../lib/Button.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
+import { slumpIBand } from '../../lib/variation.js'
 import { valjEgna, byggEgenFigur, presentera } from '../../lib/egnafigurer.js'
 
 const FLOOR_Y = 648 // golvets ovansida (design-y)
@@ -277,7 +278,9 @@ export default {
   // ---- Nivå ----------------------------------------------------------------
 
   _basketFor(level) {
-    const x = clamp(820 + level * 42, 820, 1095)
+    // U2: nivåns x är bandets mitt. Golvet 820 = nivåns första läge (mål-bollarna ligger till
+    // vänster om korgen), taket 1110 = en aning bortom det längsta nivåerna redan når (1095).
+    const x = slumpIBand(clamp(820 + level * 42, 820, 1095), 40, { golv: 820, tak: 1110 })
     const scale = clamp(1.0 - level * 0.06, 0.66, 1.0)
     return { x, scale }
   },
@@ -307,7 +310,11 @@ export default {
   _seedTargets(ctx, level) {
     if (!this._alive) return
     const specials = SPECIAL_CYCLE[level % SPECIAL_CYCLE.length]
-    const xs = [520, 650, 780]
+    // U2: varje mål-boll slumpas ±30 px runt sin plats (grannarna står 130 px isär, så de
+    // kan aldrig börja i varandra) och hålls minst 40 px till vänster om korgens mitt — som
+    // förut, så ingen mål-boll poängar av sig själv.
+    const tak = this._basket.x - 40
+    const xs = [520, 650, 780].map((x) => slumpIBand(x, 30, { golv: 100, tak }))
     xs.forEach((x, i) => this._drop(ctx, x, specials[i] || null))
   },
 

@@ -24,6 +24,7 @@ import { randomFrom } from '../../lib/swedish.js'
 import { verticalFillAlpha, groundFill } from '../../lib/form.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
+import { Takt } from '../../lib/takt.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -200,7 +201,7 @@ const FOAM_K = 0.9 // skum-tillskott per pop = r * FOAM_K
 // för 10–16 punkter över hela spannet 17–100 px radie (den råa polygonen ligger på 0,3–4,9).
 // Kostnadshalvan av invändningen står kvar men träffar inte pruttbad: bara de bubblor som
 // ligger an mot ytan är mjuka, uppmätt **högst 2 samtidigt** och ~0,2 s var.
-const PRESS_TID = 13 // bildrutor bubblan ligger an mot ytan innan den brister
+const PRESS_TID = 13 // FASTA 60 Hz-steg (lib/takt.js) bubblan ligger an mot ytan innan den brister
 const PRESS_LYFT = 1.2 // lyftkraften som håller hinnan mot ytan (px/steg², som `grav`)
 
 // ---- Skummet som en MASSA, inte ett band --------------------------------
@@ -327,6 +328,8 @@ export default {
 
   init(ctx) {
     this._alive = true
+    // FAST 60 Hz-steg (lib/takt.js, T3) för bubblor som ligger an mot ytan (_stepPress).
+    this._takt = new Takt({ steg: 1000 / 60, max: 3, snapp: 0.5 })
     this._ctx = ctx // _drawFoam saknar ctx men behöver den för fyndets ljud/röst
     this._bubbles = []
     this._floats = [] // spärren mot staplade flyt-texter, se FLOAT_LIV
@@ -1970,6 +1973,10 @@ export default {
       this._beard.visible = this._foam.level >= this._goalFoam * 0.78
     }
 
+    // Antalet FASTA steg den här bildrutan — räknas ut EN gång så alla mjuka bubblor stegar lika
+    // många (0 vid >60 Hz, 1 vid 60, 2 efter en tappad ruta). Fria bubblor rörs inte av den.
+    const pressSteg = this._takt.kor(tk.deltaMS, () => {})
+
     // Bubblor tar plats mot varandra INNAN integratorn — då hinner väggarna, ankan och Zacke
     // nedan städa upp varje rättning som råkade skjuta in en bubbla i något fast.
     this._separateBubbles(dt)
@@ -1982,7 +1989,7 @@ export default {
       // Ligger den an mot ytan är den en mjuk kropp och inget annat rör den — integratorn
       // nedan skulle bara slåss med lösaren om samma två tal.
       if (b.press) {
-        this._stepPress(ctx, b, i)
+        this._stepPress(ctx, b, i, pressSteg)
         continue
       }
       const vyT = -(0.11 * b.r) // terminalfart uppåt ∝ radie
@@ -2312,30 +2319,34 @@ export default {
     }
   },
 
-  _stepPress(ctx, b, i) {
+  _stepPress(ctx, b, i, steg = 1) {
     const m = b.press
     if (!m || !m.pts.length) {
       this._popBubble(ctx, b, i)
       return
     }
-    m.steg(1)
     // YTAN ÄR VÄGGEN — och det är den LEVANDE ytan (höjdfältet + ankans dell), inte en rak
     // linje. En bubbla som pressas mot en konstant hade platts lika mycket mitt i en våg
     // som i stiltje, och då är hela `_waveAt` bortkastad just där den syns bäst.
+    // Taket mot ytan är ett villkor PER steg (annars hinner hinnan tränga igenom mellan två).
     const yta0 = this._surf
-    for (let k = 0; k < m.n; k++) {
-      const p = m.pts[k]
-      const tak = yta0 + this._waveAt(p.x)
-      if (p.y < tak) {
-        p.y = tak
-        p.py = tak // farten nollas i väggen, annars matar den in rörelse varje ruta
+    for (let s = 0; s < steg; s++) {
+      m.steg(1)
+      for (let k = 0; k < m.n; k++) {
+        const p = m.pts[k]
+        const tak = yta0 + this._waveAt(p.x)
+        if (p.y < tak) {
+          p.y = tak
+          p.py = tak // farten nollas i väggen, annars matar den in rörelse varje steg
+        }
       }
+      b.pressT++ // livslängden räknas i fasta steg, inte bildrutor — samma tid vid alla fps
     }
     const c = m.centrum
     b.x = c.x
     b.y = c.y
     this._drawPress(b)
-    if (++b.pressT >= PRESS_TID) this._popBubble(ctx, b, i)
+    if (b.pressT >= PRESS_TID) this._popBubble(ctx, b, i)
   },
 
   _drawPress(b) {

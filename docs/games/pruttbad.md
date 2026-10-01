@@ -171,6 +171,7 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
 
 ## 5. Status / loggar
 
+- 2026-10-02 ✅ **T3: fast 60 Hz-steg via lib/takt.js — 57 fps-fysiken blir 60 Hz-fysik** (Ä10). `_stepPress` gjorde `m.steg(1)` en gång per bildruta. Nu räknas antalet fasta steg ut EN gång per bildruta (`this._takt.kor`, delad så alla mjuka bubblor stegar lika) och `_stepPress` kör `steg × { m.steg(1) + ytans tak }` — taket mot den levande ytan är ett villkor PER steg. `pressT`/`PRESS_TID` (13) räknas nu i fasta steg i stället för bildrutor så att hur länge bubblan ligger an är samma tid vid alla fps (vid 60 Hz identiskt med förut). Pop-beslut och ritning per bildruta. Vågen (höjdfältet) och fria bubblors integrator orörda. Mäts med `_pressprobe`.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): inga öppna A-snabbvinster (den enda
   [Quick] väntar på SFX-klipp). Dubbelfirandet: `_onComplete` spelade själv vinstljud, ett PRAISE
   och `bigCelebration` i samma tick som `complete()` — alla tre strukna (Zackes jubel, plasket och

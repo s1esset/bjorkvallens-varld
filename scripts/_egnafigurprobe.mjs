@@ -89,6 +89,68 @@ try {
   }, MOD)
   ok('K0 tom profil: lasEgna tom', k0.las.knytt.length === 0 && k0.las.kompisar.length === 0)
   ok('K0 tom profil: valjEgna ger alltid tomt (reserven)', k0.ut.every((n) => n === 0), JSON.stringify(k0.ut))
+
+  // ---- M: MÖTTA knytt (F5.4) — fortfarande tom samling -----------------------------------
+  const dnaUrl = await page.evaluate(() => {
+    const e = performance.getEntriesByType('resource').map((r) => r.name).find((n) => n.includes('/src/games/unika-knytt/dna.js'))
+    return e || '/src/games/unika-knytt/dna.js'
+  })
+  const mArm = await page.evaluate(async ({ mod, dnaMod }) => {
+    const m = await import(mod)
+    const d = await import(dnaMod)
+    const s = window.__barnspel
+    m.glomSessionen()
+    const r = {}
+    // M1: ett mött knytt i en profil UTAN egna → valjEgna ger det på en egen omgång.
+    const post = [424242, 3, 2, 1, 4, 0, 2, 0, 0]
+    m.minnsMott(s, 'knytt', post)
+    const a = m.valjEgna(s, 'm-spel')
+    r.m1 = a.map((b) => `${b.id}:${b.kalla}:${b.ny}`)
+    r.m1tom = m.valjEgna(s, 'm-spel').length // takten: nästa är spelets egen
+    // M2: popcornkalaset ber om motta: false → ingenting
+    r.m2 = m.valjEgna(s, 'm-spel2', { motta: false }).length
+    // M3: soffans sparpost ger EXAKT samma individ som dnaFromSeed(seed, val), 300 slumpade.
+    let lika = 0
+    for (let i = 0; i < 300; i++) {
+      const seed = Math.floor(Math.random() * 4294967296) >>> 0
+      const val = { f: Math.floor(Math.random() * 10), z: Math.floor(Math.random() * 4), m: Math.floor(Math.random() * 6), v: Math.floor(Math.random() * 6), g: Math.floor(Math.random() * 4) }
+      const p = [seed, val.f, val.z, val.m, val.v, 0, val.g, 0, 0]
+      if (JSON.stringify(d.dnaFromSeed(seed, val)) === JSON.stringify(d.dnaFranPost(p))) lika++
+    }
+    r.m3 = lika
+    // M4: presentera tiger för ett mött knytt, även om det vore "nytt".
+    let koat = 0
+    const falskCtx = { ...s.ctx, narTyst: () => { koat++ } }
+    const fig = m.byggEgenFigur(s.ctx, { ...a[0], ny: true }, { r: 40 })
+    m.presentera(falskCtx, fig, { knytt: 'x', kompis: 'y' })
+    r.m4 = { koat, mott: fig.mott }
+    fig.destroy()
+    return r
+  }, { mod: MOD, dnaMod: dnaUrl })
+  ok('M1 ett mött knytt dyker upp i en profil utan egna, som mött och inte nytt', mArm.m1.length === 1 && mArm.m1[0] === 'k424242:mott:false', JSON.stringify(mArm.m1))
+  ok('M1 … och takten gäller (nästa är spelets egen)', mArm.m1tom === 0)
+  ok('M2 motta: false (soffan) ser inga mötta', mArm.m2 === 0)
+  ok('M3 soffans sparpost = samma individ (300/300)', mArm.m3 === 300, `${mArm.m3}/300`)
+  ok('M4 presentera kallar aldrig ett mött knytt "ditt"', mArm.m4.koat === 0 && mArm.m4.mott === true, JSON.stringify(mArm.m4))
+
+  // M5: popcornkalaset minns sina slumpade knytt. En knyttgäst dras inte varje gång — gå in
+  // tills en sitter i soffan (högst 8 försök), och se att ETT ANNAT spel då får just den.
+  let m5 = null
+  for (let i = 0; i < 8 && !m5; i++) {
+    await page.evaluate(async (mod) => (await import(mod)).glomSessionen(), MOD)
+    await ga('popcornkalaset')
+    m5 = await page.evaluate(async (mod) => {
+      const m = await import(mod)
+      const g = window.__barnspel.game
+      const knytt = (g._gaster || []).find((x) => x.post)
+      if (!knytt) return null
+      const val = m.valjEgna(window.__barnspel, 'm5-spel')
+      return { vantat: m.figurId('knytt', knytt.post), fick: val.map((b) => `${b.id}:${b.kalla}`) }
+    }, MOD)
+    await hem()
+  }
+  ok('M5 soffans slumpade knytt dyker upp i ett annat spel', !!m5 && m5.fick[0] === `${m5.vantat}:mott`, JSON.stringify(m5))
+  await page.evaluate(async (mod) => (await import(mod)).glomSessionen(), MOD)
   for (const id of ['vippbradan', 'glasstornet', 'studsbollar']) {
     await ga(id)
     const egen = await page.evaluate(async ({ mod, id }) => {

@@ -9,7 +9,10 @@
 //    annat spels post (P0: sparade framsteg).
 // 2. SESSIONSMINNET — `minns(services, typ, data)` anropas av källspelen när en ny figur blivit
 //    till. En modulvariabel: överlever spelbyten, dör med sidan. Nycklad på PROFIL-id, så två
-//    syskon med var sin profil aldrig får varandras figurer.
+//    syskon med var sin profil aldrig får varandras figurer. `minnsMott(…)` minns dessutom
+//    knytt barnet bara MÖTT (soffans slumpade gäster) — ägarbeslut F5.4, "så mycket variation
+//    som möjligt": de går in i samma pool som barnets egna, men får aldrig förtur och kallas
+//    aldrig "ditt" (`kalla: 'mott'`).
 // 3. URVALET — `valjEgna(services, spelId, { antal, typer })`. Ägarbesluten 2026-10-01 (§F5):
 //    ⓵ en figur barnet skapat i sessionen kommer i nästa omgång av VARJE spel tills den visats
 //    där, ⓶ därefter växlar spelet mellan barnets figurer och sina egna (varannan omgång),
@@ -34,6 +37,9 @@ import { stadFx } from './feedback.js'
 export const KNYTT_SPEL = 'unika-knytt'
 export const KOMPIS_SPEL = 'bygg-en-kompis'
 const TYPER = ['knytt', 'kompis']
+
+// Så många mötta knytt minns sessionen per profil — de äldsta glöms först.
+const MOTTA_MAX = 12
 
 const tal = (v, reserv) => (typeof v === 'number' && Number.isFinite(v) ? v : reserv)
 
@@ -85,15 +91,15 @@ export function lasEgna(services) {
 
 // --- 2. sessionsminnet ----------------------------------------------------------------------
 
-// profilId → { skapade: [{ typ, data, id }], visad: Map(spelId → Set(id)),
-//              nastaEgen: Map(spelId → bool), senast: Map(id → klocka) }
+// profilId → { skapade: [{ typ, data, id }], motta: [{ typ, data, id }],
+//              visad: Map(spelId → Set(id)), nastaEgen: Map(spelId → bool), senast: Map(id → klocka) }
 const SESSION = new Map()
 let klocka = 0
 
 function sess(pid) {
   let s = SESSION.get(pid)
   if (!s) {
-    s = { skapade: [], visad: new Map(), nastaEgen: new Map(), senast: new Map() }
+    s = { skapade: [], motta: [], visad: new Map(), nastaEgen: new Map(), senast: new Map() }
     SESSION.set(pid, s)
   }
   return s
@@ -111,6 +117,23 @@ export function minns(services, typ, data) {
   s.skapade.push({ typ, data: rent, id })
   // En nyskapad figur är OSEDD överallt — även om en likadan kompis visats förut.
   for (const set of s.visad.values()) set.delete(id)
+}
+
+/**
+ * Ett spel som SLUMPAT fram en figur (soffans knytt): barnet har mött den, och den får dyka upp
+ * igen i andra spel under sessionen. Aldrig med förtur, aldrig presenterad som barnets egen.
+ */
+export function minnsMott(services, typ, data) {
+  const pid = profilId(services)
+  if (pid == null || !TYPER.includes(typ)) return
+  const rent = rensa(typ, data)
+  if (!rent) return
+  const s = sess(pid)
+  const id = figurId(typ, rent)
+  if (s.skapade.some((f) => f.id === id)) return
+  s.motta = s.motta.filter((f) => f.id !== id)
+  s.motta.push({ typ, data: rent, id })
+  if (s.motta.length > MOTTA_MAX) s.motta.splice(0, s.motta.length - MOTTA_MAX)
 }
 
 /** För sonderna: glöm hela sessionen (som en omladdning av sidan). */
@@ -131,12 +154,13 @@ function blanda(arr, rng) {
 
 /**
  * Vilka av barnets figurer ska stå i den här omgången av `spelId`? Returnerar en lista med
- * beskrivningar `{ typ, data, id, ny }` (högst `antal`), eller en TOM lista — då står spelets
- * egen figur kvar (ägarbeslut F5.2). Anropa en gång per omgång: anropet räknar takten.
+ * beskrivningar `{ typ, data, id, ny, kalla }` (högst `antal`), eller en TOM lista — då står
+ * spelets egen figur kvar (ägarbeslut F5.2). Anropa en gång per omgång: anropet räknar takten.
+ * `kalla` är 'egen' (barnet gjorde den) eller 'mott' (barnet träffade den, F5.4).
  *
- * opts: { antal = 1, typer = ['knytt', 'kompis'], rng = Math.random }
+ * opts: { antal = 1, typer = ['knytt', 'kompis'], rng = Math.random, motta = true }
  */
-export function valjEgna(services, spelId, { antal = 1, typer = TYPER, rng = Math.random } = {}) {
+export function valjEgna(services, spelId, { antal = 1, typer = TYPER, rng = Math.random, motta = true } = {}) {
   const pid = profilId(services)
   const n = Math.max(0, Math.round(tal(antal, 1)))
   if (pid == null || !n || !spelId) return []
@@ -145,11 +169,18 @@ export function valjEgna(services, spelId, { antal = 1, typer = TYPER, rng = Mat
   // Bara figurer som FINNS i samlingen — en nollställd profil eller en kompis som ramlat ner
   // från en full bildvägg visas inte ur minnet.
   const pool = new Map()
-  if (tillatna.includes('knytt')) for (const d of sparat.knytt) pool.set(figurId('knytt', d), { typ: 'knytt', data: d })
-  if (tillatna.includes('kompis')) for (const d of sparat.kompisar) pool.set(figurId('kompis', d), { typ: 'kompis', data: d })
+  if (tillatna.includes('knytt')) for (const d of sparat.knytt) pool.set(figurId('knytt', d), { typ: 'knytt', data: d, kalla: 'egen' })
+  if (tillatna.includes('kompis')) for (const d of sparat.kompisar) pool.set(figurId('kompis', d), { typ: 'kompis', data: d, kalla: 'egen' })
+  const s = sess(pid)
+  // De MÖTTA (F5.4): samma pool, efter barnets egna — ett knytt som både finns i samlingen och
+  // mötts är barnets eget.
+  if (motta) {
+    for (const f of s.motta) {
+      if (tillatna.includes(f.typ) && !pool.has(f.id)) pool.set(f.id, { typ: f.typ, data: f.data, kalla: 'mott' })
+    }
+  }
   if (!pool.size) return []
 
-  const s = sess(pid)
   let visad = s.visad.get(spelId)
   if (!visad) {
     visad = new Set()
@@ -201,6 +232,8 @@ class EgenFigur {
     this.typ = beskr?.typ === 'kompis' ? 'kompis' : 'knytt'
     this.id = beskr?.id ?? null
     this.ny = !!beskr?.ny
+    // Ett knytt barnet bara MÖTT (soffan) — aldrig "ditt" i en replik.
+    this.mott = beskr?.kalla === 'mott'
     this._mood = 'glad'
     const audio = opts.ljud === false ? null : ctx?.services?.audio || null
 
@@ -427,7 +460,7 @@ export function arEgen(fig) {
  * En figur som inte är ny presenteras inte — bilden räcker, och spelets egna repliker får plats.
  */
 export function presentera(ctx, fig, repliker = {}) {
-  if (!arEgen(fig) || !fig.ny || typeof ctx?.narTyst !== 'function') return
+  if (!arEgen(fig) || !fig.ny || fig.mott || typeof ctx?.narTyst !== 'function') return
   const voice = ctx.services?.voice
   const rad = fig.typ === 'knytt' ? repliker.knytt : repliker.kompis
   if (!voice || !rad) return

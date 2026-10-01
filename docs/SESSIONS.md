@@ -44,8 +44,10 @@ Format:
 - **Omgång 2 (LYFTPLAN F4):** de övriga starka på S–M — fanga-frukten, studsmatta, lagerelden,
   saftbaren, poppa-ballonger, vart-tog-det-vagen, klappa-mullvaden, skattjakt-i-morkret,
   blixt-och-dunder, bygg-tornet, folj-sparet, siffertaget, zackes-biltvatt, bowling, stor-liten.
-- F5.4 öppen: ska slumpade knytt barnet MÖTT (soffgästen) också minnas? Byggt som "nej".
 - Ingenting av omgång 1 är provat av ägaren eller ett barn än.
+- **Tillägg samma dag, v1.286.0:** F5.4 avgjord — "så mycket variation som möjligt": soffans
+  slumpade knytt minns i sessionen (`minnsMott`) och dyker upp i de andra fem spelen (aldrig med
+  förtur, aldrig "ditt"). Sonden 47/47.
 - `bygg-en-kompis`s testskärmdump är urblekt — **samma på HEAD**, alltså äldre; inte utrett.
 
 ## 2026-09-30 (sen kväll) — Appen uppdaterar sig själv, Nyheter-ruta, fyra spel polerade · v1.284.0

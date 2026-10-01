@@ -10,6 +10,15 @@
 
 export const NYHETER = [
   {
+    version: '1.286',
+    datum: '2026-10-01',
+    titel: 'Knytten från soffan hälsar på i andra spel',
+    punkter: [
+      'De knytt som sitter i soffan på Popcornkalaset kan nu dyka upp i andra spel under samma stund — i presenten i Ballonglyft, vid korgen i Vippbrädan och Studsbollar, som kund i Glasstornet och gömda i Titt ut, pappa! Det ger fler olika figurer att träffa.',
+      'Barnets egna knytt och kompisar kommer fortfarande först.',
+    ],
+  },
+  {
     version: '1.285',
     datum: '2026-10-01',
     titel: 'Barnets egna knytt och kompisar hälsar på i andra spel',

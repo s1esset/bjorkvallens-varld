@@ -1809,8 +1809,12 @@ tom samling).
 3. ✅ **Det senast skapade först, sedan varannan omgång.** En figur barnet gjort i sessionen
    kommer i nästa omgång av VARJE spel tills den visats där; därefter växlar spelet mellan
    barnets figurer och sina egna.
-4. Öppen: ska slumpade knytt som barnet MÖTT (soffgästen) också minnas i sessionen? Förslag:
-   nej — "mina" ska betyda det barnet själv gjort. Byggt så tills ägaren säger annat.
+4. ✅ **Mötta knytt minns också** (ägaren 2026-10-01: "välj det som ger så mycket variation som
+   möjligt"). Soffans slumpade knytt sparas i sessionen (`minnsMott`, högst 12 per profil) och
+   går in i samma pool som barnets egna — aldrig med förtur, aldrig kallade "ditt" (`kalla:
+   'mott'`, egna repliker "Titta, ett knytt!"). Soffan själv ber om `motta: false` (den slumpar
+   redan nya). Byggt v1.286.0; mätt M1–M5 i `_egnafigurprobe` (sparposten `[frö, f, z, m, v, 0, g,
+   0, 0]` = samma individ som `dnaFromSeed`, 300/300).
 5. ✅ **Omgång 1 beställd** (grunden + sex kunder, F4).
 
 ### F6. Omgång 1 — byggd 2026-10-01 (v1.285.0)
@@ -1838,4 +1842,5 @@ hade mätt en annan takt än spelen.
 ⚠️ `bygg-en-kompis`s testskärmdump är urblekt — **samma på HEAD** (mätt: HEAD:s index.js inlagd,
 samma bild). Inte den här omgången; inte utrett.
 
-**Nästa:** omgång 2 (F4) — de övriga starka på S–M.
+**Nästa:** omgång 2 (F4) — de övriga starka på S–M. (v1.286.0: mötta knytt, se F5.4 — sonden nu
+47/47.)

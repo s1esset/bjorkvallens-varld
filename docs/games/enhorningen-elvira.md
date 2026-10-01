@@ -225,3 +225,4 @@ Allt programmatiskt, exit-säkert.
   sig mellan bilderna) — hon och spåret döljs nu i båda bilderna. Det gula strecket i
   `_regnbage-vaken.png` är sondens teleportering, inte spelets spår: en riktig testkörning
   ritar det aldrig. `npm run check` 0 fel · `npm run test` grön.
+- 2026-10-02 · **U2 `_levelConfig` inom band (FYSIKPLAN omgång 0).** Regnbågen slumpas ±35 runt nivåns läge (x 1000–1170, y 250–470 — taken är nivåernas egna, regnbågsfoten ska inte ut ur ytan), ädelstenarna ±30 px runt sin plats på linjen dit, sicksacken (upp/ned) slås om och vilken sort (stjärna/ädelsten) som kommer först slumpas. Antal moln, vind och ädelstensantal (svårigheten) orörda; fölets plats följer regnbågen som förut. Hjälp-molnet och den mjuka glidningen står kvar, så varje mål nås.

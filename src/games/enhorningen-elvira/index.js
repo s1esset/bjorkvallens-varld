@@ -26,6 +26,7 @@ import { Button } from '../../lib/Button.js'
 import { puff, sparkle, pop, breathe, ripple, squash, floatText } from '../../lib/feedback.js'
 import { COLORS, FONT, DESIGN_W } from '../../lib/theme.js'
 import { groundFill } from '../../lib/form.js'
+import { slumpIBand } from '../../lib/variation.js'
 
 // --- Layout (designkoordinater 1280×720) ---------------------------------
 const START = { x: 185, y: 165 } // Elviras starthörn (uppe till vänster)
@@ -341,19 +342,26 @@ export default {
 
   _levelConfig(level) {
     const L = Math.max(0, level | 0)
-    const gx = Math.min(1170, 1010 + L * 22) // regnbågen längre bort
-    const gy = Math.max(250, 470 - L * 42) // och högre
+    // U2: nivåns värden är bandets MITT. Regnbågen slumpas inom det spann nivåerna redan täcker
+    // (x 1010–1170, y 250–470; taken är nivåernas egna — regnbågsfoten får inte ut ur ytan),
+    // ädelstenarna ±30 px runt sin plats på linjen dit, och sicksacken samt vilken sort som kommer
+    // först slås om. Nåbarhet: spannet är nivåernas eget, och hjälp-molnet + den mjuka glidningen
+    // står kvar.
+    const gx = slumpIBand(Math.min(1170, 1010 + L * 22), 35, { golv: 1000, tak: 1170 }) // regnbågen längre bort
+    const gy = slumpIBand(Math.max(250, 470 - L * 42), 35, { golv: 250, tak: 470 }) // och högre
     const cloudCount = Math.max(2, 3 - Math.floor(L / 3)) // färre moln senare
     const gemCount = L <= 0 ? 1 : L <= 2 ? 2 : 3
     const wind = L >= 3
+    const zig = Math.random() < 0.5 ? 1 : -1 // vilken sida första stenen ligger på
+    const forstStar = Math.random() < 0.5
     const gems = []
     for (let i = 0; i < gemCount; i++) {
       const t = (i + 1) / (gemCount + 1)
       let x = 360 + (gx - 360 - 80) * t
-      let y = 380 + (gy - 380) * t + (i % 2 ? -54 : 46)
-      x = clamp(x, 300, gx - 50)
-      y = clamp(y, 150, 540)
-      gems.push({ x, y, icon: i % 2 ? 'star' : 'gem' })
+      let y = 380 + (gy - 380) * t + (i % 2 ? -54 : 46) * zig
+      x = clamp(slumpIBand(x, 30), 300, gx - 50)
+      y = clamp(slumpIBand(y, 30), 150, 540)
+      gems.push({ x, y, icon: (i % 2 === 0) === forstStar ? 'star' : 'gem' })
     }
     return { goal: { x: gx, y: gy }, gems, cloudCount, wind }
   },

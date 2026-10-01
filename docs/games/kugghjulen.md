@@ -352,3 +352,4 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
     mål-belöningar, [Quick] maskin-galleri/verkstads-rekvisita, [Quick] riktiga maskin-SFX (MOSS).
 - 2026-08-09 ✅ **Tyngd i draget [Quick]** (v1.69.0): föremålet följer fingret med en liten eftersläpning, lutar åt dragets håll och landar med en tryckning i målet (delat i `DragController`). Här tändes dessutom lyft-skuggan (`skugga: true`) — spelet ritar ingen egen. Mätt med `_dragprobe`: 13 px släp, 0,108 rad lutning, skuggan borta och lagret tillbaka efter släpp, 0 konsolfel vid exit mitt i drag.
 
+- 2026-10-02 **T3: fast 60 Hz-steg via lib/takt.js — 57 fps-fysiken blir 60 Hz-fysik** (Ä10): vevens tröghet (`_stegMaskin`), det fria snurret (`freeVel *= 0,94`) och remmens ribbfas stegar i en `Takt` med exakt 1; remmens `Rep` stegas med `uppdatera(deltaMS)` (egen Takt). Vinkeltilldelning till vyerna, flaggan och idle-timers ligger kvar per bildruta. Nivå 1–8 orörda.

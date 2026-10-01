@@ -15,6 +15,7 @@ import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { Rep, ritaRep } from '../../lib/rep.js'
+import { Takt } from '../../lib/takt.js'
 import { createScene } from '../../lib/scene.js'
 import { bounceIn, pop, puff, sparkle, burst, breathe, floatText, ripple , kvittera} from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
@@ -119,8 +120,11 @@ export default {
     this._pegViews = []
     this._solutionPegs = []
     this._dispensers = {}
+    // FAST 60 Hz-steg (lib/takt.js): maskinens tröghet, fritt snurr och remmens fas stegar
+    // alltid med exakt 1 — samma gång vid 30, 57 och 90 fps. Remmens Rep har sin egen Takt.
+    this._takt = new Takt({ steg: 1000 / 60, max: 3, snapp: 0.5 })
     this._crankAngle = 0
-    this._crankVel = 0 // maskinens fart (rad/bildruta) — svänghjulet
+    this._crankVel = 0 // maskinens fart (rad/steg) — svänghjulet
     this._fingerAngle = 0 // fingrets ackumulerade vinkel — veven dras mot den
     this._fingerVel = 0 // fingrets fart (framkoppling, se `_stegMaskin`)
     this._targetFactor = 0
@@ -904,7 +908,7 @@ export default {
 
   // ---- Remmen per bildruta -------------------------------------------------
 
-  _stegRem(dt) {
+  _stegRem(dms, steg) {
     const rem = this._rem
     if (!rem || !rem.view || rem.view.destroyed) return
     const A = this._remNod(rem.aRef)
@@ -927,7 +931,7 @@ export default {
     const griper = A.ok && B.ok
     // Remmens ytfart följer den ände som faktiskt driver.
     const yta = this._remOmega(rem.aRef) * A.r || this._remOmega(rem.bRef) * B.r
-    rem.phase += yta * dt
+    rem.phase += yta * steg // ribbornas fas: ett tillägg per FAST steg (noll steg = står kvar)
 
     // Lägg om repet när remmen VÄNDS också — annars piskar den in från förra
     // bildrutans raka form och X:et föds som en knut.
@@ -937,7 +941,7 @@ export default {
       rem._griperFore = griper
       rem._korsadFore = rem.korsad
     }
-    this._ritaRemBana(rem.view.clear(), AL, BL, griper, REM_BREDD, rem, dt)
+    this._ritaRemBana(rem.view.clear(), AL, BL, griper, REM_BREDD, rem, dms)
   },
 
   // Lägg repets punkter längs den räta linjen de ska spännas mellan — annars
@@ -963,7 +967,7 @@ export default {
   },
 
   // Ritar remmen (eller dess spöke). `rem === null` ⇒ bara konturen, ingen fysik.
-  _ritaRemBana(g, A, B, griper, bredd, rem, dt = 1) {
+  _ritaRemBana(g, A, B, griper, bredd, rem, dms = 0) {
     const mork = darken(REM_COLOR, 0.4)
     if (!griper) {
       // Ett hjul saknas: remmen hänger slak från den fälg som FINNS ned till den
@@ -972,7 +976,7 @@ export default {
       const fri = remFriaAndar(A, B)
       if (rem) {
         rem.repA.spann(fri.ax, fri.ay, fri.bx, fri.by, REM_SLAK)
-        rem.repA.steg(dt)
+        rem.repA.uppdatera(dms) // fast steg (lib/takt.js)
         ritaRep(g, rem.repA, { width: bredd, color: REM_COLOR, dager: 0.2 })
       } else {
         const mx = (fri.ax + fri.bx) / 2
@@ -1001,8 +1005,8 @@ export default {
     if (rem) {
       rem.repA.spann(t1.ax, t1.ay, t1.bx, t1.by, REM_SPAND)
       rem.repB.spann(t2.ax, t2.ay, t2.bx, t2.by, REM_SPAND)
-      rem.repA.steg(dt)
-      rem.repB.steg(dt)
+      rem.repA.uppdatera(dms) // fast steg (lib/takt.js)
+      rem.repB.uppdatera(dms)
     }
 
     bagA(g)
@@ -1646,21 +1650,23 @@ export default {
 
   _update(ctx, ticker) {
     if (!this._alive) return
-    const dt = ticker.deltaMS / 16.6667
     const dtSec = ticker.deltaMS / 1000
 
-    this._stegMaskin(dt)
+    // Egen fysikintegration (vevens tröghet + fritt snurr) → fast steg. Vinklarna ritas
+    // per bildruta nedan; 0 steg vid >60 Hz lämnar dem som de var.
+    const steg = this._takt.kor(ticker.deltaMS, () => {
+      this._stegMaskin(1)
+      for (const g of this._gears) {
+        if (!g.view || g.view.destroyed || g.fly || g.driven) continue
+        g.freeAngle += g.freeVel
+        g.freeVel *= 0.94
+      }
+    })
     if (this._crank && !this._crank.destroyed) this._crank.rotation = this._crankAngle
 
     for (const g of this._gears) {
       if (!g.view || g.view.destroyed || g.fly) continue
-      if (g.driven) {
-        g.view.rotation = this._crankAngle * g.factor
-      } else {
-        g.freeAngle += g.freeVel * dt
-        g.freeVel *= Math.pow(0.94, dt)
-        g.view.rotation = g.freeAngle
-      }
+      g.view.rotation = g.driven ? this._crankAngle * g.factor : g.freeAngle
     }
 
     // Dubbelhjulets ANDRA gren: fläkten snurrar med grenhjulets EGEN faktor — alltså
@@ -1671,7 +1677,7 @@ export default {
       this._flaktBlad.rotation = this._crankAngle * gg.factor
     }
 
-    this._stegRem(dt)
+    this._stegRem(ticker.deltaMS, steg)
 
     if (this._chainComplete && !this._resolving) {
       const ta = this._crankAngle * this._targetFactor

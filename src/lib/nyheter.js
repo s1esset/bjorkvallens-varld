@@ -10,6 +10,18 @@
 
 export const NYHETER = [
   {
+    version: '1.287',
+    datum: '2026-10-01',
+    titel: 'Barnets knytt och kompisar finns nu i 22 spel',
+    punkter: [
+      'Ytterligare 16 spel kan nu visa knytten barnet kläckt i Unika Knytt och kompisarna från Bygg en Kompis — och knytten från soffan på Popcornkalaset. Den man nyss gjort kommer först, sedan ungefär varannan omgång. Utan egna figurer ser spelen ut som vanligt.',
+      'De äter: figuren dricker saft i Saftbaren, äter de rostade bitarna vid Lägerelden, tuggar morötterna på picknicken i Studsmattan, tar emot burgaren i Hamburgerbygget och får frukten i munnen i Fånga frukten. I Stor och liten kan barnets figurer vara de stora och små som matas.',
+      'De hittas och räddas: barnets figur sitter fast högst upp i Bygg tornet, är gömd i en ballong i Poppa ballonger, kikar upp ur ett hål i Klappa mullvaden, gömmer sig under koppen i Vart tog det vägen (och ställer sig på hyllan), sover på skatten i Skattjakt i mörkret och vaknar i husets dörr när lampan tänds i Blixt och dunder.',
+      'De är med och leker: figuren följer spåret hem i Följ spåret, väntar på perrongen i Siffertåget, är bilägare i Zackes biltvätt och hejar från bänken i Bowling.',
+      'Rättat: när ett nytt knytt dök upp första gången kunde spelets introduktion avbryta "Titta, ditt knytt är här!" så att bara namnet hördes. Nu hörs hela raden.',
+    ],
+  },
+  {
     version: '1.286',
     datum: '2026-10-01',
     titel: 'Knytten från soffan hälsar på i andra spel',

@@ -226,6 +226,10 @@ export function valjEgna(services, spelId, { antal = 1, typer = TYPER, rng = Mat
 // Utan ett nytt `look()` på så här länge släpper figuren målet och tittar sig omkring själv.
 const MAL_SLAPP_S = 2.5
 
+// Varje figur som lever just nu. Sonderna läser den (`levandeFigurer()`): efter att spelet
+// lämnats ska den vara tom — en figur som överlever sitt spel tickar vidare utan förälder.
+const LEVANDE = new Set()
+
 class EgenFigur {
   constructor(ctx, beskr, opts = {}) {
     this._alive = true
@@ -238,6 +242,7 @@ class EgenFigur {
     const audio = opts.ljud === false ? null : ctx?.services?.audio || null
 
     this.view = new Container()
+    this.view.label = 'egen-figur'
     this.view.eventMode = 'none'
     this.view.interactiveChildren = false
     // `_norm` äger normaliseringen (skala + fötternas läge). `view` är anroparens.
@@ -316,6 +321,7 @@ class EgenFigur {
       this._tickFn = (tk) => this.tick(tk.deltaMS)
       this._ticker.add(this._tickFn)
     }
+    LEVANDE.add(this)
   }
 
   /** En bildruta. Anropas av tickern själv — bara med `{ tick: false }` driver spelet den. */
@@ -415,6 +421,7 @@ class EgenFigur {
   destroy() {
     if (!this._alive) return
     this._alive = false
+    LEVANDE.delete(this)
     if (this._ticker && this._tickFn) this._ticker.remove(this._tickFn)
     this._ticker = null
     if (this.view && !this.view.destroyed) stadFx(this.view)
@@ -447,6 +454,24 @@ export function figurForOmgang(ctx, spelId, { reserv = null, typer = TYPER, ...o
   return typeof reserv === 'function' ? reserv() : null
 }
 
+/**
+ * För sonderna: figurerna som lever just nu. `synlig` = hela föräldrakedjan synlig (visible,
+ * alpha > 0); `rot` = kedjans översta nod (sonden jämför med scenens rot).
+ */
+export function levandeFigurer() {
+  return [...LEVANDE].map((f) => {
+    let synlig = !!f.view && !f.view.destroyed
+    let n = f.view
+    let rot = null
+    while (synlig && n) {
+      if (!n.visible || n.alpha <= 0.01) synlig = false
+      rot = n
+      n = n.parent
+    }
+    return { typ: f.typ, id: f.id, mott: f.mott, ny: f.ny, synlig, rot, fig: f }
+  })
+}
+
 /** Är det här en av barnets egna figurer (och inte spelets reserv)? */
 export function arEgen(fig) {
   return fig instanceof EgenFigur
@@ -464,12 +489,20 @@ export function presentera(ctx, fig, repliker = {}) {
   const voice = ctx.services?.voice
   const rad = fig.typ === 'knytt' ? repliker.knytt : repliker.kompis
   if (!voice || !rad) return
-  ctx.narTyst(() => {
-    if (fig._alive) voice.say(rad)
-  })
-  if (fig.namn) {
+  const ko = () => {
+    if (!fig._alive) return
     ctx.narTyst(() => {
-      if (fig._alive) voice.say(fig.namn)
+      if (fig._alive) voice.say(rad)
     })
+    if (fig.namn) {
+      ctx.narTyst(() => {
+        if (fig._alive) voice.say(fig.namn)
+      })
+    }
   }
+  // Vänta ut monteringen. Spelen säger sitt intro SIST i mount(), efter att figuren byggts —
+  // en rad som köats dessförinnan fyrade direkt (rösten var ju tyst) och kapades av introt i
+  // samma millisekund: barnet hörde bara namnet (uppmätt i _egnakund N1, vippbrädan).
+  if (typeof ctx.later === 'function') ctx.later(0.15, ko)
+  else ko()
 }

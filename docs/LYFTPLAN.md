@@ -1339,7 +1339,7 @@ Störst lyft per risk först. Varje rad är en egen commit + MINOR-bump.
 | 11 | `lib/mjukkropp.js` | B2 | 6 spel | ✅ v1.57.0 *(3 kunder, 2 kvar + 1 struken)* |
 | 12 | Beslut om `p2-es` | A1 | dokumenten | ✅ v1.49.0 *(borttagen)* |
 | 13 | **Full bleed** — `lib/view.js` + scenbleed + `ctx.view` | D | **alla 72 spel på telefon** | ✅ v1.67–68.0 |
-| 14 | **Barnets egna figurer** — `lib/egnafigurer.js` (knytt + kompisar i andra spel) | F | 26 starka kunder, 41 möjliga | 🟨 grunden + 6 kunder v1.285.0 — se §10 |
+| 14 | **Barnets egna figurer** — `lib/egnafigurer.js` (knytt + kompisar i andra spel) | F | 26 starka kunder, 41 möjliga | 🟨 grunden + 22 kunder (omgång 1 v1.285.0, omgång 2 v1.287.0) — se §10 |
 
 **Grind per rad:** `npm run check` grön · `npm run test:all` 72/72 med 0 konsolfel · skärmdump
 granskad med ögat · FPS mätt på plattan när raden rör rendering eller partiklar.
@@ -1644,7 +1644,7 @@ kunder — `domino` är den starkaste av dem, men kräver ett designbeslut om br
 
 </details>
 
-## 10. Spår F — barnets egna figurer i andra spel (knytt + kompisar) 🟨 OMGÅNG 1 BYGGD 2026-10-01 (v1.285.0)
+## 10. Spår F — barnets egna figurer i andra spel (knytt + kompisar) 🟨 OMGÅNG 1+2 BYGGDA 2026-10-01 (v1.285.0 · v1.287.0)
 
 **Ägarens önskan (2026-10-01):** spel med figurer ska kunna använda slumpade unika knytt eller
 sparade kompisar ur `bygg-en-kompis`, som `popcornkalaset` gör med gästerna i soffan — och helst
@@ -1842,5 +1842,52 @@ hade mätt en annan takt än spelen.
 ⚠️ `bygg-en-kompis`s testskärmdump är urblekt — **samma på HEAD** (mätt: HEAD:s index.js inlagd,
 samma bild). Inte den här omgången; inte utrett.
 
-**Nästa:** omgång 2 (F4) — de övriga starka på S–M. (v1.286.0: mötta knytt, se F5.4 — sonden nu
-47/47.)
+**Nästa:** ~~omgång 2 (F4)~~ byggd v1.287.0, se F7. (v1.286.0: mötta knytt, se F5.4 — sonden nu 47/47.)
+
+### F7. Omgång 2 — byggd 2026-10-01 (v1.287.0)
+
+**16 kunder**, sex Sonnet-byggare parallellt i samma arbetsträd (arbetsorder:
+`.claude/state/sparf-omgang2.md`), en commit per spel. Varje roll har tre replikvarianter
+(ditt knytt · din kompis · ett knytt för MÖTTA); 77 nya repliker, alla med klipp.
+
+| Roll | Spel | Vad barnets figur gör | Premissen |
+|---|---|---|---|
+| Äter | `saftbaren` | gästen på en hylla vid väggen dricker (`nam` i egen takt) och jublar; sex beställningsrader × 3 | höll — "7 Bobo-repliker" = 6 + vinstraden |
+| | `lagerelden` | står på ett eget litet moln vid fatet och äter varje rostad bit | **omskriven** — Bobo svävade utan moln; molnet ritas (`_byggMoln`) |
+| | `studsmatta` | picknick-gästen (Karaktar-byte, r 42) tuggar varje morot | höll |
+| | `hamburgerbygget` | gästen i serveringsluckan (Bobo duckar undan) tar emot burgaren i munnen | **omskriven** — ingen kö, luckan rymmer en |
+| | `stor-liten` | upp till alla mottagare, normaliserade stor 256 / mellan 184 / liten 124 px | höll — storleksordningen läses tydligt |
+| | `fanga-frukten` | sitter på grenen; önskad frukt flyger till munnen (ny mekanik bara för figuren) | **halv** — frukten nådde aldrig någon mun förut |
+| Hittas | `poppa-ballonger` | gömd passagerare i en vanlig ballong, landar på gräset, hejar ut vid nästa runda | **omskriven** — vännerna sparas per art; figuren är en extra plats |
+| | `klappa-mullvaden` | kikar upp ur ett hål som en sjätte art; klappen = jubel; tittar mot fingret | **omskriven** — inte i vänboken (sparas per art) |
+| | `vart-tog-det-vagen` | priset under koppen; flyttar in på hyllan resten av besöket (≤ 3, sparas inte) | höll |
+| | `skattjakt-i-morkret` | sover på saken i stället för katten; lampan väcker (kompisen vinkar i stället) | höll — `typer` inte begränsad, annars visas en ny kompis aldrig |
+| | `blixt-och-dunder` | i ett hus dörr, sover tills husets lampa tänds, jublar när byn lyser | höll |
+| | `bygg-tornet` | sitter fast på avsatsen i stället för kattungen och räddas ner till Bobo | höll — "kompisen som byggare" ströks (Bobo är handritad) |
+| Leker | `folj-sparet` | följer spåret hem (egen kortare intro + "Hjälp ditt knytt hem!") | höll |
+| Publik | `siffertaget` | fjärde gäst på perrongen, vinkar vid tågets ankomst | höll |
+| | `zackes-biltvatt` | ägaren till bilen (ersätter hela `kropp: false`-ägaren), hejar per ren fläck | höll |
+| | `bowling` | upp till tre på bänken hejar vid kägelfall, jublar vid strike | höll — med < 3 figurer sitter namnlösa åskådare kvar |
+
+**Grunden, tillägg:** `levandeFigurer()` + `view.label = 'egen-figur'` (sonderna hittar figuren
+utan att veta var spelet lagt den) · **`presentera` väntar ut monteringen** (`ctx.later(0.15)`):
+spelen säger sitt intro SIST i `mount()`, så presentationsraden fyrade direkt och kapades av
+introt i samma millisekund — barnet hörde bara namnet. Gällde redan omgång 1:s vippbrädan,
+glasstornet och studsbollar. Mätt: kontrollarm utan fixen → raden kapad efter **0 ms**; med fixen
+hörs den hel.
+
+**Mätt:** ny generisk sond **`scripts/_egnakund.mjs <id> [--trigger "<js>"]`** — K0 (tom profil,
+kontrollarm) · M1 (mött knytt, ingen replik säger "ditt") · E1 (figuren lever OCH syns på första
+omgången) · E2 (takten) · N1/N2 (ny figur presenteras, raden kapas inte) · X (exit mitt i) och
+`levandeFigurer()` tom efter varje arm. **16/16 gröna** i en oberoende omkörning efter byggarna
+(triggers per spel i spelens §5-rader), `npm run test` 16/16, `_egnafigurprobe` (omgång 1) grön.
+E1-bilderna granskade i två kontaktark. Rättat vid granskningen: lagereldens figur lyftes ut ur
+bild i vinsthoppet (spelets 40 px + figurens eget skutt) → 12 px för barnets figur.
+
+**Infrastruktur för parallella byggare:** `scripts/_vite-nohmr.mjs` (dev-server :5174 utan HMR,
+egen `cacheDir`) — mätt med `_nohmrprobe.mjs`: en sparning laddar om :5173:s sidor men inte
+:5174:s. Utan den hade sex agenters sparningar rivit varandras testsidor.
+
+**Kvar till omgång 3 (F4):** `kittla-figuren` · `loopdjuren` · `harma-melodin` · `enkelt-pussel` ·
+`mata-monstret` · `vad-forsvann` · `vandkort` — plus de 41 "möjliga" (F3). Ingenting av omgång
+1–2 är provat av ägaren eller ett barn än.

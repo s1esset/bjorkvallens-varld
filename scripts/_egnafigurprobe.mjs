@@ -4,6 +4,7 @@
 //
 //   node scripts/_egnafigurprobe.mjs            alla armar
 //   node scripts/_egnafigurprobe.mjs --bild     + skärmdumpar i .test-shots/egna-<id>.png
+//   … --url http://localhost:5174               mot dev-servern utan omladdning (_vite-nohmr.mjs)
 //
 // Armarna:
 //   K0  KONTROLLARM: en profil UTAN samlingar → valjEgna ger tomt varje gång (reserven), och
@@ -23,7 +24,10 @@ import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
 
 const BILD = process.argv.includes('--bild')
-const URL = 'http://localhost:5173'
+const URL = (() => {
+  const i = process.argv.indexOf('--url')
+  return i >= 0 ? process.argv[i + 1] : 'http://localhost:5173'
+})()
 
 const KNYTT = [
   [12345, 2, 1, 3, 0, 1, 0, 0, 0],

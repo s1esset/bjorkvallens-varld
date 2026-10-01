@@ -113,3 +113,10 @@ Bild- och balanssonder (kör dem när ett spel *känns* fel men testet är grön
 | `node scripts/_autouppdatprobe.mjs [--bara a|b]` | **hämtar appen en ny version SJÄLV?** Samma riktiga bygge + `vite preview`. Kontroll (ingen ny version → ingen omladdning) · A: ny version medan barnet är i biblioteket → laddas ner men byts FÖRST på menyn · B: ny version medan menyn visas → byts utan knapp. 8/8 med v1.279, 2/6 på HEAD |
 | `node scripts/_nyhetprobe.mjs` | menyns Nyheter-ruta i 1280×720 och 952×428: öppnas, ryms, **scrollar med fingret**, stängs med ✖ och utanför. ⚠️ `Input.synthesizeScrollGesture` scrollar ingenting i headless (0 px även med touch-action auto) — råa `dispatchTouchEvent` skiljer lägena (285 px mot 0 px med `touch-action: none`) |
 | `node scripts/kenney-sfx.mjs <Audio-katalog>` | importera CC0-ljud → `public/audio/sfx/` |
+
+Fysikbänken (FYSIKPLAN M1, **utan webbläsare**, ~1 s):
+
+| | |
+|---|---|
+| `node scripts/_fysikbank.mjs [--bara S6,S7,S8] [--json] [--start ms]` | **S6 takt** (Pixis riktiga `Ticker`, `maxFPS 60`, stämplar à 0,1 ms vid 30–120 Hz → andel rutor med 0/1/2/3+ steg + flytjämvikt `flyt 1,6`, rätt 0,625) · **S7 kostnad** (Engine.update N=0…120 med/utan sömn · FluidWorld 200–800 · Mjukkropp) · **S8 kinematik** (vägg dras in i boll: teleport per ruta mot fart per steg). Varje scen har kontrollrader som måste hålla innan mätraderna skrivs (S6: 60,000 Hz exakt → 1 steg/ruta och 0,625 · S7: växer med N · S8: vägg i vila → bollen orörd); faller de skrivs inga mätrader och exit-kod är 1 |
+| armarna i S6 | `ref` = DAGENS ackumulator + flytkraft per bildruta, inbäddad i sonden (oberoende av lib-filerna) · `ref-T` = snäpp 0,5 ms + kraft per steg (målläget) · `lib*` = `physics.js`/`flytkraft.js` som de står, med självstegning DETEKTERAD (volymen la en `beforeUpdate`-lyssnare → bänken anropar inte `steg(t)`). `lib` ska likna `ref` före T1/T4 och `ref-T` efter. ⚠️ Okvantiserade stämplar går inte att tro på genom tickern (flyttalsbrus → 33/33/33 %), därför är kontrollen en direkt `deltaMS = 1000/60`. S1–S5 och S9 är TODO i filhuvudet |

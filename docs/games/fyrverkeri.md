@@ -75,6 +75,8 @@ inget ljud-"bom" och ingen som tittar på.
 ### Variation & överraskning
 - **[Medium] Stjärn-konstellationer.** Lägg stjärnorna i en form (hjärta, smiley, blomma) som
   framträder som en bild när alla är tända → ett "wow, det blev något!"-ögonblick.
+  *Halva klar 2026-10-02 (U2): stjärnorna står i slumpade klungor/konstellationer
+  (`_konstellationer`), inte i rad. Kvar: en NAMNGIVEN form (hjärta/smiley) som blir en bild.*
 - ✅ ~~**[Quick] Rakettyper.** Variera färg/form; ibland en "stor raket" som ger en jättesmäll.~~
   Klar 2026-09-23 (v1.251.0): ungefär vart sjätte skott (`STOR_CHANS` :43) är en större
   guldraket med djupare vissel, 1,7× så många gnistor som når 1,25× längre, djupare bom,
@@ -105,6 +107,8 @@ inget ljud-"bom" och ingen som tittar på.
 - **[Quick] Egen fyrverkeri-ljuduppsättning** (vissel/bom/crackle/final-salva) + lugn natt-
   ambient med syrsor. *Vissel/bom/sprak finns som syntes och finalen har sin salva; kvar är
   natt-ambienten, som kräver ett SFX-klipp — blockerad så länge MOSS är nere.*
+
+- **[Quick] Gnistorna bleknar när de hänger (kritiken 2026-10-02).** Med luften hänger gnistorna längst i det skede där alfan är lägst (`Math.min(1, k*1.6)`) — ringen läser som gråa prickar vid ~0,7 s. Pröva full alfa längre (t.ex. `k*2.4`) och fota vid 0,3/0,7 s.
 
 ## 5. Status / loggar
 
@@ -143,3 +147,14 @@ inget ljud-"bom" och ingen som tittar på.
   Kontroll: `check` 0 fel · `test:all` 72/72 · skärmdump granskad. Inga spelregler eller layout rörda.
 - 2026-08-09 ✅ **Full bleed [Quick]** (v1.68.0): natthimmel/blixt breddade till hela telefonskärmen (±BLEED), stjärnor spawnar i bleed-zonen, raket-cull och vindpilars wrap mot `ctx.view`. Testad 1280×720 + 952×428: 0 fel.
 - 2026-08-09 ✅ **Vilorörelse [Quick]** (v1.70.0): publiken (Bobo + Elvira) står och vaggar; `_cheer` använder pop() (bara skala) så de kan inte slåss. Delad `feedback.liv()` med egen fas per föremål. Mätt med `_livprobe`: 7,4 px / 0,19, 0 tweens kvar efter exit.
+- 2026-10-02 ✅ **P5 luft och vind + U2 klungor [Quick]** (FYSIKPLAN §5.7 Prio 1): gnistor och raketspår
+  hade bara tyngd (`:711-724`) och nivåns vind låg bara på raketen. De får nu luftmotstånd
+  (`LUFT_K` 1,6) och nivåns vind (`VIND_PX`) ur `luftbana()` i `lib/partiklar.js` — samma sluten
+  form som `Emitter.luft/vind` — så gnistorna bromsar in, hänger och driver i stället för att falla
+  som stenar (sluthastighet nedåt g/k = 325 px/s mot obegränsat förr). Starthastigheten höjd
+  med `LUFT_FART` (≈1,8×) så smällen når lika långt och formerna (ring, hjärta) står kvar.
+  **U2:** `_layoutFor` lägger stjärnorna via `_konstellationer` — par/trianglar/böjda kedjor
+  (grannar 150–190 px, klungor ≥230 px isär), inom bilden och aldrig i zonen x<330 ∧ y<260
+  (hemknapp + flagga); reserv = de gamla raderna (≈3 % av nivå 6+). Sidoeffekt: två stjärnor i en
+  klunga tänds ofta av EN smäll (tänd-radien 130 oförändrad). Mätt i Node: `_partikelvind.mjs`
+  (kontrollarm 0,000 px, sluthastighet w / g/k) och 20 000 layouter: 0 utanför bild/zon.

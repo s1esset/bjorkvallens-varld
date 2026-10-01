@@ -21,6 +21,7 @@ import { gsap } from 'gsap'
 import { AimLauncher } from '../../lib/launcher.js'
 import { predictTrajectory } from '../../lib/physics.js'
 import { sparkle, pop, puff, floatText, liv } from '../../lib/feedback.js'
+import { luftbana } from '../../lib/partiklar.js'
 import { verticalFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 import { PLAYFUL } from '../../lib/theme.js'
@@ -30,6 +31,17 @@ import { BLEED_X, BLEED_Y } from '../../lib/view.js'
 const ORIGIN = { x: 640, y: 648 } // raketens rampe-läge (greppas + skjuts härifrån)
 const GY = 0.4 // gravitation px/steg² (matchar prick-förhandsvisningen exakt)
 const PART_GRAVITY = 520 // px/s² — drar gnistorna mjukt nedåt så de bågar
+// Luft för gnistor och rök (samma två termer som Emitter.luft/vind i lib/partiklar.js):
+// dv/dt = −k·(v − vind) + g. En gnista bromsas till att HÄNGA och driva i stället för att
+// falla som en sten. Sluthastighet nedåt = g/k, i sidled = vinden.
+const LUFT_K = 1.6 // 1/s
+const VIND_PX = 2400 // px/s lufthastighet per px/steg² nivåvind (nivå 2 ≈ 60 px/s, nivå 6+ ≈ 200)
+// Luften bromsar utspridningen: på 0,9 s når en gnista bara ca hälften av sin gamla sträcka.
+// Gnistorna startar därför snabbare (LUFT_FART ≈ 1,8×) så smällens storlek står kvar — ringen
+// lika stor, hjärtat lika brett — men de bromsar in och hänger. Linjär luft skalar HELA
+// formen lika mycket, så formen bevaras.
+const LUFT_REF = 0.9
+const LUFT_FART = LUFT_REF / ((1 - Math.exp(-LUFT_K * LUFT_REF)) / LUFT_K)
 const FIXED = 1000 / 60 // fast flyg-tidssteg (gör banan = prickarna)
 const MAX_FLIGHT = 3.6 // s i luften innan raketen smäller (no-fail)
 const IDLE_DELAY = 6 // s utan handling innan röst-recue
@@ -74,7 +86,8 @@ export default {
     this._flightAcc = 0
     this._timers = [] // gsap.delayedCall-handtag att döda i destroy
     this._stars = [] // bakgrundsstjärnor (tindrar)
-    this._particles = [] // { g, x, y, vx, vy, grav, life, maxLife }
+    this._particles = [] // { g, x, y, x0, y0, vx0, vy0, k, w, grav, life, maxLife } — bana ur luftbana()
+    this._vindPx = 0 // px/s lufthastighet (nivåns vind, läggs på gnistor och rök)
     this._targets = [] // mål-stjärnor att tända { view, x, y, baseY, phase, lit, hue }
     this._chevrons = []
 
@@ -222,19 +235,81 @@ export default {
     const count = clamp(2 + Math.floor(level / 1.5), 2, 6) // 2..6 stjärnor
     const yHi = clamp(150 + 60 - level * 16, 110, 260) // högre upp på högre nivå
     const yLo = clamp(430 - level * 14, 300, 430)
-    const stars = []
-    for (let i = 0; i < count; i++) {
-      const f = count === 1 ? 0.5 : i / (count - 1)
-      stars.push({
-        x: clamp(190 + (1090 - 190) * f + rnd(-40, 40), 170, 1110),
-        y: clamp(rnd(yHi, yLo), 110, 440),
-        hue: randomFrom(HUES),
-      })
+    let stars = this._konstellationer(count, yHi, yLo)
+    if (!stars) {
+      // Reserv (aldrig nåtts i mätningen men måste finnas): de gamla jämna raderna.
+      stars = []
+      for (let i = 0; i < count; i++) {
+        const f = count === 1 ? 0.5 : i / (count - 1)
+        stars.push({
+          x: clamp(190 + (1090 - 190) * f + rnd(-40, 40), 170, 1110),
+          y: clamp(rnd(yHi, yLo), 110, 440),
+        })
+      }
+      // …men aldrig bakom hemknapp/flagga uppe till vänster (samma zon som klungorna).
+      for (const s of stars) if (s.x < 330 && s.y < 260) s.y = 260 + rnd(0, 60)
+      for (const s of stars) if (Math.hypot(s.x - 1076, s.y - 150) < 130) s.y = 290 + rnd(0, 60)
     }
+    for (const s of stars) s.hue = randomFrom(HUES)
     // Mild vind från nivå 2 (växer sakta), slumpad riktning.
     const windMag = level >= 2 ? 0.025 + Math.min(level - 2, 4) * 0.014 : 0
     const windDir = windMag > 0 ? (Math.random() < 0.5 ? -1 : 1) : 0
     return { stars, windX: windDir * windMag, windDir }
+  },
+
+  // U2: stjärnorna står i klungor och små konstellationer (par, trianglar, böjda kedjor)
+  // i stället för jämnt i rad. Slumpas inom bilden och aldrig bakom hemknappen/flaggan uppe
+  // till vänster (ZON_UT). Grannar i samma klunga ligger ~150–190 px isär, olika klungor
+  // minst 230 px — så en klunga läses som en klunga. Returnerar null om det inte gick att
+  // placera (anroparen faller då tillbaka på raden).
+  _konstellationer(count, yHi, yLo) {
+    const X0 = 190, X1 = 1090
+    const y0 = Math.max(yHi, 110), y1 = Math.min(yLo, 440)
+    const ZON_UT = { x: 330, y: 260 } // x < 330 && y < 260: hemknapp (70,64) + flagga (214,84…214)
+    const rnd = (a, b) => a + Math.random() * (b - a)
+    const ledig = (x, y, alla, grupp) => {
+      if (x < X0 || x > X1 || y < y0 || y > y1) return false
+      if (x < ZON_UT.x && y < ZON_UT.y) return false
+      if (Math.hypot(x - 1076, y - 150) < 130) return false // aldrig på månen (1076,150 r52 + glöd)
+      for (const o of alla) {
+        const lim = grupp.includes(o) ? 140 : 230
+        if (Math.hypot(x - o.x, y - o.y) < lim) return false
+      }
+      return true
+    }
+    for (let forsok = 0; forsok < 40; forsok++) {
+      const alla = []
+      let kvar = count
+      let ok = true
+      while (kvar > 0 && ok) {
+        const storlek = Math.min(kvar, randomFrom([1, 2, 2, 3]))
+        let lagd = null
+        for (let f2 = 0; f2 < 40 && !lagd; f2++) {
+          const grupp = []
+          const nya = []
+          const a0 = Math.random() * Math.PI * 2
+          let x = rnd(X0, X1), y = rnd(y0, y1)
+          let a = a0
+          for (let i = 0; i < storlek; i++) {
+            if (i > 0) {
+              a += (Math.random() < 0.5 ? -1 : 1) * rnd(1.0, 2.1) // böjd kedja: 57–120° mellan led
+              const d = rnd(150, 190)
+              x += Math.cos(a) * d
+              y += Math.sin(a) * d
+            }
+            if (!ledig(x, y, alla.concat(nya), grupp)) { nya.length = 0; break }
+            const st = { x, y }
+            grupp.push(st)
+            nya.push(st)
+          }
+          if (nya.length === storlek) lagd = nya
+        }
+        if (!lagd) ok = false
+        else { alla.push(...lagd); kvar -= storlek }
+      }
+      if (ok) return alla
+    }
+    return null
   },
 
   _loadLevel(level) {
@@ -476,7 +551,7 @@ export default {
       g.eventMode = 'none'
       g.position.set(x, y)
       this._fx.addChild(g)
-      this._pushParticle({ g, x, y, vx: vx * vk, vy: vy * vk, grav: opts.grav ?? PART_GRAVITY, life: 0, maxLife: opts.maxLife ?? 0.8 + Math.random() * 0.4 })
+      this._pushParticle({ g, x, y, vx: vx * vk * LUFT_FART, vy: vy * vk * LUFT_FART, grav: opts.grav ?? PART_GRAVITY, life: 0, maxLife: opts.maxLife ?? 0.8 + Math.random() * 0.4 })
     }
 
     if (shape === 'ring') {
@@ -707,7 +782,7 @@ export default {
       }
     }
 
-    // Gnistor: hastighet + gravitation, tona ut, ta bort.
+    // Gnistor och rök: luftbanan ur partikelns ålder (tyngd + motstånd + nivåns vind), tona ut, ta bort.
     for (let i = this._particles.length - 1; i >= 0; i--) {
       const p = this._particles[i]
       p.life += dt
@@ -717,9 +792,8 @@ export default {
         this._particles.splice(i, 1)
         continue
       }
-      p.vy += p.grav * dt
-      p.x += p.vx * dt
-      p.y += p.vy * dt
+      p.x = luftbana(p.x0, p.vx0, p.w, p.k, 0, p.life)
+      p.y = luftbana(p.y0, p.vy0, 0, p.k, p.grav, p.life)
       p.g.position.set(p.x, p.y)
       p.g.alpha = Math.min(1, k * 1.6)
       p.g.scale.set(0.45 + k * 0.55)
@@ -759,6 +833,13 @@ export default {
   },
 
   _pushParticle(p) {
+    // Startläget fryses: banan räknas ur (x0, v0, ålder), aldrig ur förra bildrutan.
+    p.x0 = p.x
+    p.y0 = p.y
+    p.vx0 = p.vx
+    p.vy0 = p.vy
+    p.k = LUFT_K
+    p.w = this._vindPx // vinden vid födseln — en ny nivå ändrar inte sparkar som redan flyger
     this._particles.push(p)
     if (this._particles.length > PARTICLE_CAP) {
       const old = this._particles.shift()
@@ -784,6 +865,7 @@ export default {
   _applyWind(windX, dir) {
     this._windX = windX
     this._windDir = dir || 0
+    this._vindPx = windX * VIND_PX
     this._launcher?.setPreview({ wind: windX })
     const c = this._flagCloth
     if (c && !c.destroyed) {

@@ -20,7 +20,8 @@ import { shuffle, randomFrom } from '../../lib/swedish.js'
 import {
   bounceIn, pop, wiggle, sparkle, floatText, ripple, shake, burst, breathe, kvittera, squash, liv, stadFx,
 } from '../../lib/feedback.js'
-import { createScene } from '../../lib/scene.js'
+import { createScene, slump } from '../../lib/scene.js'
+import { BLEED_X } from '../../lib/view.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { COLORS, FONT } from '../../lib/theme.js'
 import { ritaKropp, ritaHander, ritaFlygNot } from '../djurorkester/konst.js'
@@ -99,10 +100,15 @@ const HUVUD_Y = -104
 // Träffyta: 140 px bred och från huvudets topp till strax under fötterna. Skalan sätts per
 // layout så att den aldrig understiger 96 px + halo, och så att rader/kolumner ligger
 // ≥ 24 px isär (se _lagg).
-const HIT = new Rectangle(-70, -150, 140, 166)
+// ±55 = kroppens egen halvbredd (ellipsen är 53) — en bredare yta lät örats yta ligga ovanpå den.
+const HIT_HALV = 55
+const HIT = new Rectangle(-HIT_HALV, -150, 2 * HIT_HALV, 166)
 // Örat (fri-lyssna) sitter bredvid kroppen — som SYSKON till djuret, inte barn: en
-// behållare med hitArea släpper aldrig igenom träffar utanför sin yta.
-const EAR_DX = 84
+// behållare med hitArea släpper aldrig igenom träffar utanför sin yta. Träffytan är 96 px
+// (radie 48) och ligger 24 px utanför djurets (P0-avståndet), så ett tryck på djurets kant
+// aldrig kan hamna på örat: mittpunkten ligger HIT_HALV·skala + 24 + 48 från djurets.
+const EAR_R = 48
+const EAR_GAP = 24
 const EAR_DY = -56
 
 export default {
@@ -138,7 +144,9 @@ export default {
     // 1) Marknadsmässig bakgrund: mjuk äng med sol, kullar och drivande moln.
     //    Marken börjar vid stängslet (y≈360) så djuren, ladan och dammen står PÅ ängen i
     //    stället för att sväva på himlens dis.
-    this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height, groundH: 360 }))
+    //    L1: trädlinje på fjärran- och mellanbandet + strån/blomtuvor längst ned. Kulissen
+    //    (lada, stängsel, damm) står framför, och djuren ovanpå allt.
+    this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height, groundH: 360, silhuett: 'skog', forgrund: true }))
 
     // 2) Kuliss per tema (lada + stängsel / damm + träd), byts när temat byts.
     this._decoLager = new Container()
@@ -265,7 +273,7 @@ export default {
   _makeEar(ctx, d) {
     const earR = 34
     const ear = new Container()
-    ear.position.set(d.x + EAR_DX * d._sc, d.y + EAR_DY * d._sc)
+    ear.position.set(d.x + HIT_HALV * d._sc + EAR_GAP + EAR_R, d.y + EAR_DY * d._sc)
     ear.addChild(new Graphics().circle(0, 2, earR).fill({ color: 0x000000, alpha: 0.12 }))
     ear.addChild(new Graphics().circle(0, 0, earR).fill(COLORS.white).stroke({ width: 4, color: d._djur.color, alpha: 0.9 }))
     const earIcon = new Text({ text: '👂', style: { fontFamily: FONT.body, fontSize: earR + 8 } })
@@ -274,7 +282,7 @@ export default {
     ear.addChild(earIcon)
     ear.eventMode = 'static'
     ear.cursor = 'pointer'
-    ear.hitArea = new Circle(0, 0, 50) // 100px träffyta (>=96)
+    ear.hitArea = new Circle(0, 0, EAR_R) // 96px träffyta
     ear.on('pointertap', (e) => {
       e.stopPropagation() // örat är inte ett svar
       this._listen(ctx, d)
@@ -791,13 +799,45 @@ function clampLevel(l) {
 }
 
 // --- kulisser (ritade, ingen emoji) -------------------------------------------------
-// Ligger bakom djuren på horisonten (y ≈ 250–360) så de aldrig tar plats där djuren står.
+// Ligger bakom djuren. Husen, stängslet och dammen står på horisonten (y ≈ 250–400) så de aldrig
+// tar plats där djuren står; mitten av ängen (y ≈ 400–720) är ENGÅNG-DEKOR bakom djuren — ljusa
+// slåttränder, prickar av tusenskönor och lite mossa. Den är låg i kontrast med flit: ko, anka och
+// höna är nästan vita och hund, häst och tupp bruna, och ingen av dem ska tappa sin silhuett.
+// Allt är deterministiskt (slump med fast frö) och går bredare än 1280 (BLEED_X) för breda skärmar.
 
-// Bondgård: röd lada till vänster, ett stängsel tvärs över och en höbal till höger.
+// En tusensköna (dekor, inget spelobjekt): vita kronblad runt en gul mitt.
+function tusenskona(g, x, y, r) {
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2
+    g.ellipse(x + Math.cos(a) * r * 0.9, y + Math.sin(a) * r * 0.55, r * 0.7, r * 0.45).fill({ color: 0xffffff, alpha: 0.92 })
+  }
+  g.ellipse(x, y, r * 0.55, r * 0.4).fill(0xffd35c)
+}
+
+// Slåttränder: lodrätt tilltagande band med en svag ljusning, så ängen får riktning och djup.
+function slattrander(g) {
+  const ys = [372, 416, 468, 528, 598, 678, 760]
+  for (let i = 0; i < ys.length - 1; i += 2) {
+    g.rect(-BLEED_X, ys[i], 1280 + 2 * BLEED_X, ys[i + 1] - ys[i]).fill({ color: 0xffffff, alpha: 0.07 })
+  }
+}
+
+// Bondgård: röd lada till vänster, ett stängsel tvärs över, en höbal till höger, ett tråg att
+// dricka ur och slåttrad äng med tusenskönor i mitten.
 function byggGard() {
   const c = new Container()
   c.eventMode = 'none'
   c.interactiveChildren = false
+  const rnd = slump(5)
+  const m = new Graphics()
+  slattrander(m)
+  for (let i = 0; i < 34; i++) {
+    const x = -BLEED_X + 40 + rnd() * (1280 + 2 * BLEED_X - 80)
+    const y = 404 + rnd() * 300
+    tusenskona(m, x, y, 4.5 + (y - 404) / 300 * 3)
+  }
+  m.eventMode = 'none'
+  c.addChild(m)
   const g = new Graphics()
   // Ladan (vänster): röd kropp, mörkare tak, dubbeldörr med kryss, lucka på vinden.
   g.ellipse(160, 352, 104, 12).fill({ color: 0x000000, alpha: 0.12 })
@@ -808,25 +848,66 @@ function byggGard() {
   g.moveTo(198, 298).lineTo(122, 350).stroke({ width: 4, color: 0xfff3d6 })
   g.rect(122, 298, 76, 52).stroke({ width: 4, color: 0xfff3d6 })
   g.circle(160, 250, 11).fill(0xfff3d6).stroke({ width: 3, color: 0x8f2d28 })
-  // Höbalen (höger).
+  // Höbalarna (höger): en stor och en liten ovanpå.
   g.ellipse(1150, 356, 58, 10).fill({ color: 0x000000, alpha: 0.12 })
   g.roundRect(1100, 318, 100, 40, 16).fill(0xe8c65a).stroke({ width: 3, color: 0xc9a23c })
   for (const x of [1125, 1150, 1175]) g.moveTo(x, 320).lineTo(x, 356).stroke({ width: 2, color: 0xc9a23c })
-  // Stängslet (framför ladan): två liggande ribbor + stolpar.
+  g.roundRect(1118, 284, 66, 34, 14).fill(0xefd26e).stroke({ width: 3, color: 0xc9a23c })
+  for (const x of [1138, 1151, 1164]) g.moveTo(x, 287).lineTo(x, 315).stroke({ width: 2, color: 0xc9a23c })
+  // Stängslet (framför ladan): två liggande ribbor + stolpar, hela vägen ut i bleed-zonen.
   const Y = 340
-  g.rect(0, Y + 14, 1280, 6).fill(0xd9b98a)
-  g.rect(0, Y + 34, 1280, 6).fill(0xd9b98a)
-  for (let x = 24; x < 1280; x += 64) g.roundRect(x, Y, 10, 56, 3).fill(0xc79d68)
+  g.rect(-BLEED_X, Y + 14, 1280 + 2 * BLEED_X, 6).fill(0xd9b98a)
+  g.rect(-BLEED_X, Y + 34, 1280 + 2 * BLEED_X, 6).fill(0xd9b98a)
+  for (let x = 24 - Math.ceil(BLEED_X / 64) * 64; x < 1280 + BLEED_X; x += 64) g.roundRect(x, Y, 10, 56, 3).fill(0xc79d68)
+  // Vattentråget framför stängslet: trä, vatten, två ben, en hink bredvid.
+  g.ellipse(386, 408, 62, 8).fill({ color: 0x000000, alpha: 0.14 })
+  g.roundRect(336, 380, 100, 26, 6).fill(0x9a6a3a).stroke({ width: 3, color: 0x7a5028 })
+  g.roundRect(342, 384, 88, 9, 4).fill(0x6ec3e8)
+  g.ellipse(370, 388.5, 14, 2.5).fill({ color: 0xffffff, alpha: 0.5 })
+  g.rect(348, 404, 8, 8).fill(0x7a5028)
+  g.rect(416, 404, 8, 8).fill(0x7a5028)
+  g.ellipse(1040, 406, 26, 5).fill({ color: 0x000000, alpha: 0.14 })
+  g.poly([1018, 380, 1062, 380, 1056, 404, 1024, 404]).fill(0x8fa4b8).stroke({ width: 3, color: 0x6b8196 })
+  g.ellipse(1040, 380, 22, 5).fill(0x6ec3e8).stroke({ width: 3, color: 0x6b8196 })
+  // Blommor längs stängslets fot.
+  for (let x = -BLEED_X + 30; x < 1280 + BLEED_X; x += 70 + rnd() * 60) {
+    g.moveTo(x, 400).lineTo(x, 388).stroke({ width: 2.5, color: 0x4f8f3e, cap: 'round' })
+    g.circle(x, 385, 5).fill(rnd() < 0.5 ? 0xff9ec4 : 0xfff2a8)
+    g.circle(x, 385, 2).fill(0xffd35c)
+  }
   g.eventMode = 'none'
   c.addChild(g)
   return c
 }
 
-// Damm + skog: en liten damm med näckrosor och vass till vänster, ett stort träd till höger.
+// Damm + skog: en liten damm med näckrosor och vass till vänster, ett stort träd till höger,
+// och en mossig glänta emellan med svampar, en sten och vilda blommor.
 function byggSkog() {
   const c = new Container()
   c.eventMode = 'none'
   c.interactiveChildren = false
+  const rnd = slump(9)
+  const m = new Graphics()
+  for (let i = 0; i < 9; i++) {
+    const x = -BLEED_X + rnd() * (1280 + 2 * BLEED_X)
+    const y = 420 + rnd() * 280
+    m.ellipse(x, y, 90 + rnd() * 120, 16 + rnd() * 16).fill({ color: 0x2f7a46, alpha: 0.12 })
+  }
+  slattrander(m)
+  for (let i = 0; i < 30; i++) {
+    const x = -BLEED_X + 40 + rnd() * (1280 + 2 * BLEED_X - 80)
+    const y = 404 + rnd() * 300
+    const r = 3.5 + (y - 404) / 300 * 3
+    m.moveTo(x, y + r).lineTo(x, y + r * 3).stroke({ width: 2, color: 0x4f8f3e, cap: 'round' })
+    const farg = [0xd7b8ff, 0xfff2a8, 0xffb3d1][i % 3]
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2
+      m.circle(x + Math.cos(a) * r, y + Math.sin(a) * r, r * 0.8).fill(farg)
+    }
+    m.circle(x, y, r * 0.6).fill(0xffd35c)
+  }
+  m.eventMode = 'none'
+  c.addChild(m)
   const g = new Graphics()
   // Dammen.
   g.ellipse(180, 352, 158, 38).fill(0x5fb8e6).stroke({ width: 4, color: 0x3f93c2 })
@@ -847,6 +928,18 @@ function byggSkog() {
   g.circle(1136, 240, 44).fill(0x3f9e55)
   g.circle(1232, 244, 44).fill(0x4aae5f)
   g.circle(1172, 190, 30).fill({ color: 0x7bd18a, alpha: 0.55 })
+  // Glänta: två stenar och ett par fluga-svampar (röd hatt, vita prickar).
+  g.ellipse(560, 392, 40, 7).fill({ color: 0x000000, alpha: 0.14 })
+  g.ellipse(560, 380, 34, 20).fill(0x9aa3ab)
+  g.ellipse(548, 372, 18, 9).fill({ color: 0xffffff, alpha: 0.28 })
+  g.ellipse(604, 386, 18, 11).fill(0x8a929a)
+  for (const [x, h, r] of [[880, 22, 17], [912, 14, 12]]) {
+    g.ellipse(x, 396, r * 0.9, 4).fill({ color: 0x000000, alpha: 0.14 })
+    g.roundRect(x - 4, 396 - h, 8, h, 3).fill(0xf4ead0)
+    g.ellipse(x, 396 - h, r, r * 0.62).fill(0xd9453a)
+    g.circle(x - r * 0.4, 396 - h - r * 0.15, 2.6).fill(0xffffff)
+    g.circle(x + r * 0.35, 396 - h - r * 0.25, 2.2).fill(0xffffff)
+  }
   g.eventMode = 'none'
   c.addChild(g)
   return c

@@ -81,7 +81,7 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
   (groda/anka/bi/uggla), växlar vid varje milstolpe med egen kuliss och en talad intro.
 
 ### Karaktär & berättelse
-- **[Deep] En bondgård + en bonde/Bobo** som reagerar ("Ja! Det är kon!"), så scenen är en
+- **[Deep] En bondgård + en bonde/Bobo** (själva gården finns sedan 2026-10-01 och fick tråg, hö och glänta 2026-10-02 — kvar är en bonde/Bobo) som reagerar ("Ja! Det är kon!"), så scenen är en
   värld och firandet en plats-specifik glädje istället för generisk konfetti.
 
 ### Ljud
@@ -92,12 +92,28 @@ ljudet**, det går inte att utforska fritt, och de lägsta nivåerna är för l�
 - **[Deep] Egen kroppssilhuett per djur.** Alla djur delar `ritaKropp` (samma ellips, bara färg
   och fläckar skiljer) — huvudet bär hela identiteten, och grodan läses som en grön nalle.
   Delas med `djurorkester/konst.js`, så bygg det där och låt båda spelen ärva.
-- **[Quick] Örat överlappar djurets träffyta ~37 px.** På det strecket vinner örat: ett tryck på
-  djurets högerkant spelar lätet i stället för att svara (ofarligt, men otydligt). Krymp
-  djurets `HIT`-bredd till ±55 eller flytta örat — mät öra-mot-grannens-djur (48 px i dag)
-  med `scripts/_natt-vilket-djur-later.mjs` efteråt.
+- ✅ ~~**[Quick] Örat överlappar djurets träffyta ~37 px.**~~ Klar 2026-10-02 (L1/B3): djurets
+  `HIT` ±70 → ±55 (kroppens egen halvbredd), örats träffyta 96 px (r 48) på HIT_HALV·skala + 24 + 48
+  från djurets mitt. Uppmätt i Node (`scripts/_natt-b3-scene.mjs`): öra→träffyta **−31,8 px → 24,0 px**
+  för 2/3/4/6 djur; smalaste djurträffyta 104,5 px (6 djur) — alltså P0:s 96 px + 24 px avstånd.
+
+- **[Quick] Fyra djur: sista örat vid skärmkanten (kritiken 2026-10-02).** Pitch 300 för n=4 lägger örats träffyta på x≈1281; pitch 290 räcker.
 
 ## 5. Status / loggar
+
+- 2026-10-02 🌳 **Ängen får djup och en mitt** (nattkörning, FYSIKPLAN L1, kluster B3). Bild C:
+  halva bilden var platt grön yta. (1) `createScene('meadow', { groundH: 360, silhuett: 'skog',
+  forgrund: true })` — trädlinje på fjärran- och mellanbandet och strån + blomtuvor längst ned.
+  (2) Mitten ritas nu: **slåttränder** (svag ljusning i tre band med växande höjd), **tusenskönor**
+  utströdda över ängen och — i bondgården — ett **vattentråg** och en **hink** framför stängslet,
+  en andra **höbal** ovanpå den första och blommor längs stängslets fot; i dammen/skogen en
+  **mossig glänta** med stenar, **flugsvampar** och vilda blommor. Stängslet och ängsdekoren går nu ut i
+  bleed-zonen (förut slutade de vid 1280). Dekoren är med flit LÅG i kontrast: ko/anka/höna/får är nästan
+  vita och hund/häst/tupp bruna, och ingen mark- eller jordplatta får tära på deras silhuett (därför
+  ingen ljus gårdsplan under djuren). Allt är ritat, ingen emoji. (3) Öra-överlappet (§4) är åtgärdat.
+  **Mätt i Node** (`scripts/_natt-b3-scene.mjs`, 26/26): 0 texturbakningar vid montering, L1 drar inga
+  extra `Math.random`, samma `fro` = samma geometri, knappzonen (x<230) ≥ y 170. **Omätt i webbläsare**
+  (orkestreraren): skärmdump, `npm run test vilket-djur-later`, `scripts/_natt-vilket-djur-later.mjs`.
 
 - 2026-10-01 🐄 **Djuren kliver ut ur korten** (nattkörning). P0 ASSETS: korten (cremebricka + skiva +
   ikon) är borta — varje djur står FRITT på ängen med djurorkesterns kropp (`ritaKropp`/`ritaHander`

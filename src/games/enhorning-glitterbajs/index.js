@@ -3,7 +3,8 @@
 // mun; den tuggar, PRUTTAR och bajsar ut ett regn av små guldglitter-pellets (riktiga
 // matter.js-kroppar, materialet `bouncy`) bakåt-uppåt-höger. Pelletsen studsar på en
 // lutande ramp och regnar ner — och barnet DRAR en skattburk i sidled för att fånga
-// glittret (sensor-kollision). En glittermätare till höger fylls för varje fångad pellet.
+// glittret (sensor-kollision). Fångat glitter läggs i en riktig HÖG i kistan (lib/hog.js) som syns och
+// följer kistan; en glittermätare till höger fylls för varje fångad pellet.
 //
 // Två kontroller styr utfallet: HUR MYCKET du matar (mer mat = mer glitter) och VAR du
 // ställer burken (positionering under regnet). INGET game-over: missade pellets studsar
@@ -18,7 +19,8 @@
 // pointerup-logik med tap-tap-fallback (DragController stödjer bara snäpp-hem/snäpp-mål).
 import { Container, Graphics, Circle, Rectangle } from 'pixi.js'
 import { gsap } from 'gsap'
-import { PhysicsWorld, MATERIALS, Body, nudge, applyForce } from '../../lib/physics.js'
+import { PhysicsWorld, MATERIALS, Body, Matter, nudge, applyForce } from '../../lib/physics.js'
+import { Hog } from '../../lib/hog.js'
 import { createScene } from '../../lib/scene.js'
 import { burst, puff, sparkle, floatText, pop, wiggle , kvittera} from '../../lib/feedback.js'
 import { COLORS, PLAYFUL } from '../../lib/theme.js'
@@ -35,6 +37,17 @@ const CHEST_Y = 548 // burkens MITT — vald så att burken vilar PÅ marken (ma
 const CHEST_MIN = 540
 const CHEST_MAX = 1150
 const SENSOR_DY = -50 // sensorns y-offset från burkens mitt (öppningen)
+
+// Högen i kistan (FYSIKPLAN P3): fångat glitter tas ur spelvärlden och läggs i en `Hog` — en egen liten
+// matter-värld i KISTANS rum (kistan är en container; högens vyer är barn till den, så högen följer med
+// när barnet drar kistan). Golvet ligger i öppningen (y −46), innerväggarna på ±80. Taket 16 ≈ tre rader
+// över öppningens kant; därefter tonar det äldsta glittret bort. Fångstsensorn lyfter med högen, så glittret
+// alltid fångas strax OVANFÖR högen och faller de sista pixlarna i stället för att födas inuti den.
+// `g._nFangade` = glitterkorn som lagts i högen denna runda, `g._hog.antal` = de som syns (≤ taket).
+const HOG_TAK = 16
+const HOG_GOLV = -46
+const HOG_X = 80
+const SENSOR_MAX_UPP = 76 // sensorn lyfter högst så här mycket med högen
 
 const PELLET_R = 11
 const MAX_PELLETS = 48 // tak på samtidiga pellets (prestanda)
@@ -132,6 +145,11 @@ export default {
     this._lastCatchSfx = 0
     this._lastBounceSfx = 0
     this._pellets = [] // { body, view, restT, age, caught }
+    this._glidande = new Set() // pellets som glider mot kistan (auto-hjälpen) och inte hunnit läggas i högen
+    this._hog = null
+    this._pile = null
+    this._nFangade = 0
+    this._sensorY = SENSOR_DY
     this._foods = [] // { view, slotX, slotY, _onDown }
     this._platforms = [] // { body, view } — slumpade studsplattformar, byggs om per nivå
     this._timers = [] // gsap delayedCalls
@@ -299,11 +317,15 @@ export default {
     this._onChestUp = () => this._chestUp(ctx)
     chest.on('pointerdown', this._chestDownH)
     this._chest = chest
-    // Synlig glitter-hög som växer inuti kistan (ovanpå den mörka öppningen).
-    this._chestFill = new Graphics()
-    this._chestFill.eventMode = 'none'
-    chest.addChild(this._chestFill)
+    // Glitterhögen: riktiga kroppar i en Hog, vyerna barn till kistan (ovanpå den mörka öppningen).
+    this._pile = new Container()
+    this._pile.eventMode = 'none'
+    this._pile.interactiveChildren = false
+    chest.addChild(this._pile)
     this._root.addChild(chest)
+    this._hog = new Hog(this._hogOpt())
+    // Mjukt glasklick när glittret landar i högen (lågt, högst ett per 70 ms).
+    this._hog.fysik.impactAudio(ctx.services.audio, { standard: 'glas', vol: 0.04, minSpeed: 1.2, maxPerFrame: 1, minGapMs: 70 })
 
     // Sensor-kropp i burkens öppning.
     this._sensor = this._phys.rectangle(CHEST_START, CHEST_Y + SENSOR_DY, 160, 40, {
@@ -311,6 +333,11 @@ export default {
       isSensor: true,
       label: 'burk',
     })
+  },
+
+  // Högens kanter, tak och tyngd (ren funktion av modulens tal — `_hogprobe` bygger samma Hog).
+  _hogOpt() {
+    return { kanter: { x0: -HOG_X, x1: HOG_X, y1: HOG_GOLV, hornrund: 12 }, tak: HOG_TAK, sova: true, gravitation: 0.9 }
   },
 
   // ---- Nivå ---------------------------------------------------------------
@@ -344,7 +371,10 @@ export default {
 
     this._meterFrac = 0
     this._paintMeter()
-    this._drawChestFill()
+    // Kistan töms: högen tonar bort (nästa runda börjar med en tom kista) och sensorn sänks igen.
+    this._hog?.tom()
+    this._nFangade = 0
+    this._sensorY = SENSOR_DY
   },
 
   // Bygg om plattformarna för en ny nivå från slumpade defs (olika antal/läge/vinkel).
@@ -630,7 +660,9 @@ export default {
     if (pellet.body) this._phys.removeBody(pellet.body)
 
     this._idle = 0
-    this._tuckPellet(pellet, auto ? 0.5 : 0.3)
+    // Sensorn tar glittret rakt in i högen; auto-hjälpen glider dit först (0,5 s) och lägger sig sedan.
+    if (auto) this._glidIn(pellet)
+    else this._laggIHog(pellet)
 
     const now = performance.now()
     // Fångst-plinget klättrar uppför skalan så länge glittret kommer tätt (paus > 1,5 s
@@ -644,7 +676,7 @@ export default {
       ctx.services.audio.tone({ freq: FANGST_TON[this._fangstSteg], dur: 0.1, type: 'triangle', vol: 0.07 })
     }
     const cx = this._chest && !this._chest.destroyed ? this._chest.x : CHEST_START
-    puff(ctx.fxLayer, cx, CHEST_Y - 40, { count: 4, color: COLORS.yellow })
+    puff(ctx.fxLayer, cx, CHEST_Y + this._sensorY - 10, { count: 4, color: COLORS.yellow })
     if (this._chest && !this._chest.destroyed) pop(this._chest, { scale: pellet.jackpot ? 1.15 : 1.05 })
 
     if (!this._resolving) {
@@ -656,59 +688,108 @@ export default {
         JACKPOT_TON.forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.16, type: 'triangle', vol: 0.13, delay: 0.07 * i }))
         if (this._elvira && !this._elvira.destroyed) pop(this._elvira, { scale: 1.2 })
       }
-      this._drawChestFill()
       this._drawMeter(true)
       if (this._caught >= this._goal) this._onComplete(ctx)
     }
   },
 
-  // Synlig glitter-hög som växer inuti kistan per fångst (samlandet blir synligt).
-  _drawChestFill() {
-    const g = this._chestFill
-    if (!g || g.destroyed) return
-    g.clear()
-    const frac = clamp(this._goal ? this._caught / this._goal : 0, 0, 1)
-    const n = Math.round(frac * 16)
-    const cols = [COLORS.yellow, COLORS.pink, COLORS.blue, COLORS.green, COLORS.orange]
-    for (let i = 0; i < n; i++) {
-      const gx = -58 + (i % 7) * 19
-      const gy = -54 - Math.floor(i / 7) * 11
-      g.circle(gx, gy, 6).fill(cols[i % cols.length])
+  // Glittret lämnas över till högen: vyn flyttas från pelletlagret in i kistan (högens rum) och kroppen
+  // föds i kistans koordinater, där sensorn tog den — den faller de sista pixlarna och lägger sig.
+  // Räkningen (`_nFangade`) sker HÄR, när kroppen faktiskt ligger i högen.
+  _laggIHog(pellet) {
+    const v = pellet.view
+    if (!v || v.destroyed) return
+    if (!this._alive || !this._hog || !this._pile || this._pile.destroyed || !this._chest || this._chest.destroyed) {
+      v.destroy()
+      return
     }
+    gsap.killTweensOf(v)
+    gsap.killTweensOf(v.scale)
+    const r = pellet.jackpot ? JACKPOT_R : PELLET_R
+    const lx = clamp(v.x - this._chest.x, -(HOG_X - r - 2), HOG_X - r - 2)
+    const ly = Math.min(v.y - CHEST_Y, HOG_GOLV - r - 4)
+    v.alpha = 1
+    v.scale.set(1)
+    const rot = v.rotation
+    v.parent?.removeChild(v)
+    this._pile.addChild(v)
+    const vx = pellet.body ? clamp(pellet.body.velocity.x * 0.3, -2, 2) : 0
+    const post = this._hog.lagg(
+      {
+        cirkel: r,
+        vy: v,
+        studs: 0.3,
+        friktion: 0.35,
+        luft: 0.01,
+        label: 'glitter',
+        // Jackpot-stjärnan glimmar kvar i högen (skala på det ritade barnet — kroppen och länken rörs inte).
+        uppdatera: pellet.jackpot ? (vy) => vy.children[0]?.scale.set(1 + 0.12 * Math.sin(performance.now() * 0.009)) : undefined,
+      },
+      lx,
+      ly,
+      { x: vx, y: 2 }
+    )
+    if (!post) {
+      v.destroy()
+      return
+    }
+    Body.setAngle(post.body, rot)
+    this._nFangade++
   },
 
-  // Glittret glider in i burkens öppning (exit-säker {}-proxy-tween).
-  _tuckPellet(pellet, dur) {
+  // Auto-hjälpen (glitter som blivit liggande): glider synligt mot kistans öppning ovanför högen och lägger sig
+  // sedan i den. Kistan kan flyttas under glidet, så målet läses varje bildruta.
+  _glidIn(pellet) {
     const v = pellet.view
     if (!v || v.destroyed) return
     gsap.killTweensOf(v)
     gsap.killTweensOf(v.scale)
-    const cx = this._chest && !this._chest.destroyed ? this._chest.x : CHEST_START
-    const st = { x: v.x, y: v.y, s: v.scale.x || 1, a: 1 }
+    this._glidande.add(pellet)
+    const x0 = v.x
+    const y0 = v.y
+    const st = { p: 0 }
     const tw = gsap.to(st, {
-      x: cx,
-      y: CHEST_Y - 10,
-      s: 0.2,
-      a: 0,
-      duration: dur,
+      p: 1,
+      duration: 0.5,
       ease: 'power2.in',
       onUpdate: () => {
         if (v.destroyed) {
           tw.kill()
           return
         }
-        v.x = st.x
-        v.y = st.y
-        v.alpha = st.a
-        v.scale.set(st.s)
+        const cx = this._chest && !this._chest.destroyed ? this._chest.x : CHEST_START
+        const ty = CHEST_Y + this._sensorY - 24
+        v.x = x0 + (cx - x0) * st.p
+        v.y = y0 + (ty - y0) * st.p
       },
       onComplete: () => {
         const idx = this._proxyTweens.indexOf(tw)
         if (idx >= 0) this._proxyTweens.splice(idx, 1)
-        if (!v.destroyed) v.destroy()
+        this._glidande.delete(pellet)
+        if (!this._alive) return
+        this._laggIHog(pellet)
       },
     })
+    pellet.glidTw = tw
     this._proxyTweens.push(tw)
+  },
+
+  // Sensorn sitter strax ovanför högens topp (≤ 76 px över öppningen) och glider dit mjukt — glittret fångas
+  // alltså där det kommer att landa. Högen räknas utan det som tonar bort.
+  _sensorSteg() {
+    const hojd = this._hog ? Math.max(0, HOG_GOLV - this._hog.topp) : 0
+    const mal = SENSOR_DY - Math.min(SENSOR_MAX_UPP, hojd)
+    this._sensorY += (mal - this._sensorY) * 0.2
+  },
+
+  // Vid full mätare hoppar glittret i högen till (firandet) — kropparna får en uppåtfart och landar igen.
+  _hogHopp() {
+    if (!this._hog) return
+    for (const p of this._hog.poster) {
+      if (p.ute) continue
+      Matter.Sleeping.set(p.body, false)
+      Body.setVelocity(p.body, { x: (Math.random() * 2 - 1) * 1.5, y: -(5 + Math.random() * 3) })
+    }
   },
 
   // ---- Burk-drag (fri-följande) -------------------------------------------
@@ -790,11 +871,13 @@ export default {
   _update(ctx, t) {
     if (!this._alive) return
     this._phys.update(t.deltaMS)
+    this._hog?.update(t.deltaMS) // glitterhögen i kistan faller och lägger sig (egen värld, kistans rum)
     const dt = Math.min(0.05, (t.deltaMS || 16.67) / 1000)
     const cx = this._chest && !this._chest.destroyed ? this._chest.x : CHEST_START
 
-    // Synka sensorn med burken.
-    if (this._sensor) Body.setPosition(this._sensor, { x: cx, y: CHEST_Y + SENSOR_DY })
+    // Synka sensorn med burken (och med högens höjd).
+    this._sensorSteg()
+    if (this._sensor) Body.setPosition(this._sensor, { x: cx, y: CHEST_Y + this._sensorY })
 
     for (let i = this._pellets.length - 1; i >= 0; i--) {
       const p = this._pellets[i]
@@ -904,9 +987,9 @@ export default {
     this._timers.push(tw)
   },
 
-  // Full mätare = kistan svämmar över: en glitterhög pöser upp ur öppningen och glitter rinner
+  // Full mätare = kistan svämmar över: den riktiga högen (Hog) hoppar till och glitter rinner
   // över kanten, studsar ner längs sidorna och blir liggande en stund innan nästa runda. Rent
-  // visuellt (inga kroppar) — allt ligger i en egen container i KISTAN och styrs av EN tidslinje
+  // visuellt (inga kroppar; högen själv är riktig) — allt ligger i en egen container i KISTAN och styrs av EN tidslinje
   // som dödas i _clearOverflow (nästa runda) och destroy.
   _svamma(ctx) {
     this._clearOverflow()
@@ -915,21 +998,6 @@ export default {
     const cols = [COLORS.yellow, COLORS.pink, COLORS.blue, COLORS.green, COLORS.orange]
     const over = new Container()
     over.eventMode = 'none'
-    // Högen: en kupol av glitterkorn, vuxen uppåt från öppningens kant (origo = basen).
-    const mound = new Graphics()
-    const rader = [9, 7, 5, 3]
-    for (let k = 0; k < rader.length; k++) {
-      const n = rader[k]
-      for (let i = 0; i < n; i++) {
-        const gx = (i - (n - 1) / 2) * 15 + (k % 2 ? 2 : -2)
-        mound.circle(gx, -k * 11 - 4, 7).fill(cols[(i + k * 2) % cols.length])
-        mound.circle(gx - 2, -k * 11 - 6.5, 2).fill({ color: COLORS.white, alpha: 0.7 })
-      }
-    }
-    mound.position.set(0, -56)
-    mound.scale.set(0.5, 0.05)
-    mound.eventMode = 'none'
-    over.addChild(mound)
     // Överflödet: korn som rinner över kanten åt båda hållen och studsar ner längs kistans sidor.
     const dots = []
     for (let i = 0; i < 14; i++) {
@@ -946,7 +1014,7 @@ export default {
 
     const tl = gsap.timeline()
     this._overflowTl = tl
-    tl.to(mound.scale, { x: 1, y: 1, duration: 0.5, ease: 'back.out(2.2)' }, 0)
+    this._hogHopp() // den riktiga högen hoppar till — ingen påklistrad kupol
     dots.forEach(({ d, sida }, i) => {
       const t0 = 0.28 + i * 0.05
       const x0 = sida * (58 + Math.random() * 24)
@@ -957,7 +1025,7 @@ export default {
     })
     tl.to(over, { alpha: 0, duration: 0.25, ease: 'sine.in' }, 1.12)
 
-    // Ljudet: tre stigande stämda toner (pentatonik) medan högen pöser upp.
+    // Ljudet: tre stigande stämda toner (pentatonik) medan högen hoppar.
     ;[880, 1046.5, 1174.66].forEach((f, i) => ctx.services.audio.tone({ freq: f, dur: 0.14, type: 'triangle', vol: 0.08, delay: 0.1 * i }))
     sparkle(ctx.fxLayer, chest.x, CHEST_Y - 70, { count: 8 })
   },
@@ -973,6 +1041,11 @@ export default {
   // ---- Städning -----------------------------------------------------------
 
   _clearPellets() {
+    for (const p of this._glidande) {
+      p.glidTw?.kill()
+      if (p.view && !p.view.destroyed) p.view.destroy()
+    }
+    this._glidande.clear()
     for (const p of this._pellets) {
       if (p.body) this._phys.removeBody(p.body)
       const v = p.view
@@ -996,6 +1069,10 @@ export default {
     this._timers = []
     this._proxyTweens.forEach((t) => t?.kill())
     this._proxyTweens = []
+    this._glidande?.clear()
+    this._hog?.destroy() // vyerna rivs av roten
+    this._hog = null
+    this._pile = null
     this._meterTween?.kill()
     this._chestGlide?.kill()
     this._unicornBob?.kill()

@@ -455,7 +455,10 @@ export default {
     for (const slot of reqZones) {
       // Godkänn valfritt dugligt plagg för zonen — men bara tills zonen är fylld
       // (så ett andra dugliga plagg inte dubbel-fyller den).
-      this._drag.addTarget(this._zones[slot], (data) => this._alive && data.slot === slot && data.fits && !this._filled.has(slot), { hitRadius: 130 })
+      // Snäppradien 155 (inte 130): test:all fångade ett släpp 15 px utanför 130 — vid sidan
+      // om Elvira. Närmaste mål vinner ändå, så zonerna tar inte varandras släpp; kläderna
+      // ligger ≥ 230 px bort och snäpper inte av ett kort drag.
+      this._drag.addTarget(this._zones[slot], (data) => this._alive && data.slot === slot && data.fits && !this._filled.has(slot), { hitRadius: 155 })
       this._rings[slot].alpha = 0.4
     }
 

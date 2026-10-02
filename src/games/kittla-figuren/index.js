@@ -15,10 +15,12 @@
 import { Container, Graphics, Circle } from 'pixi.js'
 import { gsap } from 'gsap'
 import { pop, wiggle, puff, sparkle, floatText, ripple, burst, breathe , kvittera} from '../../lib/feedback.js'
-import { createScene, lerpColor } from '../../lib/scene.js'
+import { lerpColor } from '../../lib/scene.js'
 import { COLORS, DESIGN_W } from '../../lib/theme.js'
-import { sphereFill, cylinderFill } from '../../lib/form.js'
+import { sphereFill, cylinderFill, topLightFill } from '../../lib/form.js'
 import { randomFrom, shuffle } from '../../lib/swedish.js'
+import { nastaVariant } from '../../lib/variation.js'
+import { byggRum, PALETTER } from './rum.js'
 
 // --- layout (designkoordinater, figur-rummet är centrerat i this._figure) ---
 const CX = 640
@@ -136,9 +138,10 @@ export default {
     this._layer = new Container()
     ctx.stage.addChild(this._layer)
 
-    // Polerad godis-scen (gradient + bokeh). Dekorativ, FÖRSTA barnet.
-    this._scene = createScene('candy', { width: ctx.width, height: ctx.height, ground: true })
-    this._layer.addChild(this._scene)
+    // Platsen: ett barnrum (säng, matta, fönster, leksakslåda) som byggs om med en ny palett
+    // varje runda (se _byggRum, kallas från _startRound). Dekorativ, FÖRSTA barnet.
+    this._rum = null
+    this._pal = null
 
     // Osynligt tap-fångar-lager (ovanför scenen, under figuren): tomt tryck.
     const tap = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
@@ -176,8 +179,18 @@ export default {
     return { mode: 'sequence', goal: clamp(2 + (level - 2), 2, 5), zoneLevel: 2 }
   },
 
+  // Rummet byts mot ett med en annan palett (aldrig samma som förra). Det gamla rivs med sina
+  // tweens först — annars skriver gsap på döda noder varje bildruta (se rum.js).
+  _byggRum() {
+    this._rum?.riv()
+    this._pal = nastaVariant(PALETTER, this._pal?.id)
+    this._rum = byggRum(this._pal)
+    this._layer.addChildAt(this._rum.view, 0)
+  },
+
   _startRound(ctx, first) {
     this._clearChar()
+    this._byggRum()
     // Återställ den persistenta figurens transform.
     gsap.killTweensOf(this._figure)
     gsap.killTweensOf(this._figure.scale)
@@ -254,7 +267,7 @@ export default {
     // Fötter (bakom kroppen, "tittar fram").
     p.footL = this._g(-FOOT_X, FOOT_Y)
     p.footR = this._g(FOOT_X, FOOT_Y)
-    for (const f of [p.footL, p.footR]) f.ellipse(0, 0, 58, 34).fill(color).stroke({ width: 8, color: dark })
+    for (const f of [p.footL, p.footR]) f.ellipse(0, 0, 58, 34).fill(sphereFill(color, { highlight: 0.3, dark: 0.16 })).stroke({ width: 8, color: dark })
     char.addChild(p.footL, p.footR)
 
     // Kropp + armar.
@@ -283,8 +296,14 @@ export default {
 
     // Mage-markering (ljusare cirkel — kittelzon).
     p.belly = this._g(0, BELLY_Y)
-    p.belly.circle(0, 0, 88).fill({ color: lighten(color), alpha: 0.85 })
+    p.belly.circle(0, 0, 88).fill(sphereFill(lighten(color), { highlight: 0.3, dark: 0.12 }))
+    p.belly.alpha = 0.9
     char.addChild(p.belly)
+
+    // Huvudets skugga på bålen under hakan — utan den sitter huvudet bara ovanpå kroppen.
+    p.hakskugga = this._g(0, -98)
+    p.hakskugga.ellipse(0, 0, 88, 22).fill({ color: darken(color, 0.4), alpha: 0.22 })
+    char.addChild(p.hakskugga)
 
     // Huvud-container (skakar/andas som enhet).
     const head = new Container()
@@ -306,13 +325,18 @@ export default {
     // Björn får en ljus nos.
     if (sp.ear === 'oron') {
       const snout = this._g(0, 30)
-      snout.ellipse(0, 0, 54, 40).fill({ color: lighten(color, 0.4) })
+      snout.ellipse(0, 0, 54, 40).fill(sphereFill(lighten(color, 0.4), { highlight: 0.25, dark: 0.12 }))
       snout.circle(0, -6, 11).fill(MOUTH)
       head.addChild(snout)
     }
 
     p.eyeL = this._makeEye(-38, -12)
     p.eyeR = this._makeEye(38, -12)
+    // Bryn: lyfts av skratt och höjs mot det som kittlas (se _titta / _bryn).
+    p.brynL = this._g(-38, -46)
+    p.brynR = this._g(38, -46)
+    for (const b of [p.brynL, p.brynR]) b.moveTo(-15, 3).quadraticCurveTo(0, -7, 15, 3).stroke({ width: 6, color: dark, cap: 'round' })
+    head.addChild(p.brynL, p.brynR)
     p.cheekL = this._g(-CHEEK_DX, CHEEK_DY)
     p.cheekR = this._g(CHEEK_DX, CHEEK_DY)
     for (const c of [p.cheekL, p.cheekR]) {
@@ -344,18 +368,18 @@ export default {
       if (sp.ear === 'antenn') {
         ex = 36
         g.roundRect(-4, -46, 8, 50, 4).fill(dark)
-        g.circle(0, -52, 14).fill(color).stroke({ width: 6, color: dark })
+        g.circle(0, -52, 14).fill(sphereFill(color, { highlight: 0.3, dark: 0.16 })).stroke({ width: 6, color: dark })
       } else if (sp.ear === 'oron') {
         ex = 60
-        g.circle(0, 0, 34).fill(color).stroke({ width: 8, color: dark })
+        g.circle(0, 0, 34).fill(sphereFill(color, { highlight: 0.3, dark: 0.16 })).stroke({ width: 8, color: dark })
         g.circle(0, 0, 17).fill({ color: lighten(color, 0.45) })
       } else if (sp.ear === 'langoron') {
         ex = 42
-        g.roundRect(-17, -150, 34, 158, 17).fill(color).stroke({ width: 8, color: dark })
+        g.roundRect(-17, -150, 34, 158, 17).fill(cylinderFill(color, { dark: 0.2, highlight: 0.2 })).stroke({ width: 8, color: dark })
         g.roundRect(-9, -134, 18, 124, 9).fill({ color: lighten(color, 0.5) })
       } else if (sp.ear === 'horn') {
         ex = 48
-        g.poly([-17, 6, 17, 6, 0, -58]).fill(HORN).stroke({ width: 7, color: darken(HORN, 0.35) })
+        g.poly([-17, 6, 17, 6, 0, -58]).fill(topLightFill(HORN, { highlight: 0.2, dark: 0.15 })).stroke({ width: 7, color: darken(HORN, 0.35) })
       }
     }
 
@@ -389,7 +413,9 @@ export default {
     const w = new Graphics().circle(0, 0, 21).fill(0xffffff).stroke({ width: 3, color: MOUTH })
     const pupil = new Graphics().circle(0, 5, 11).fill(0x33271f)
     const shine = new Graphics().circle(5, 0, 4).fill(0xffffff)
+    pupil.addChild(new Graphics().circle(-4, 2, 2.2).fill({ color: 0xffffff, alpha: 0.85 }))
     e.addChild(w, pupil, shine)
+    e._pupil = pupil
     return e
   },
 
@@ -490,6 +516,8 @@ export default {
     // Saftig kropps-reaktion (skalar med intensiteten) + ansikte + zon-specifik krydda.
     this._giggle(prog)
     this._react(zon._kind)
+    this._titta(zon) // blicken söker sig till stället som kittlas
+    this._bryn() // brynen far upp
 
     // Partiklar vid själva trycket (i layer-koordinater).
     const lp = this._layer.toLocal(zon.getGlobalPosition())
@@ -713,6 +741,8 @@ export default {
   _setGlow(zon, soft = false) {
     const g = this._glow
     if (!g || g.destroyed || !zon) return
+    this._glowZon = zon
+    this._titta(zon, true) // ögonen vilar på ringen
     this._glowTween?.kill()
     g.visible = true
     g.position.set(zon.x, zon.y)
@@ -723,6 +753,50 @@ export default {
       .circle(0, 0, ZONE_R + 4)
       .stroke({ width: soft ? 7 : 10, color: 0xffffff, alpha: soft ? 0.55 : 0.9 })
     this._glowTween = breathe(g, { scale: soft ? 1.1 : 1.16, duration: soft ? 1 : 0.7 })
+  },
+
+  // Blicken: pupillerna glider mot det som kittlas och återvänder sedan till ringen som lyser
+  // (eller rakt fram). Pupillen är ritad kring sin egen origo (0,0 = vilo), så målet är ett
+  // litet avstånd i riktning mot zonen — aldrig mer än pupillen får plats att röra sig.
+  _titta(zon, hall = false) {
+    const p = this._parts
+    const pupiller = [p.eyeL?._pupil, p.eyeR?._pupil].filter((q) => q && !q.destroyed)
+    if (!pupiller.length) return
+    let tx = 0
+    let ty = 0
+    if (zon) {
+      const dx = zon.x
+      const dy = zon.y - HEAD_Y
+      const d = Math.hypot(dx, dy) || 1
+      tx = (dx / d) * 8
+      ty = (dy / d) * 6
+    }
+    gsap.to(pupiller, { x: tx, y: ty, duration: 0.14, ease: 'power2.out', overwrite: 'auto' })
+    this._blickCall?.kill()
+    this._blickCall = null
+    if (!hall) {
+      this._blickCall = gsap.delayedCall(1.1, () => {
+        if (this._alive) this._titta(this._glowZon, true)
+      })
+    }
+  },
+
+  // Brynen far upp en stund när figuren kittlas.
+  _bryn() {
+    const p = this._parts
+    const bs = [p.brynL, p.brynR].filter((b) => b && !b.destroyed)
+    if (!bs.length) return
+    gsap.to(bs, {
+      y: -55,
+      duration: 0.1,
+      yoyo: true,
+      repeat: 1,
+      ease: 'power2.out',
+      overwrite: 'auto',
+      onComplete: () => {
+        for (const b of bs) if (!b.destroyed) b.y = -46
+      },
+    })
   },
 
   // Mjuk "börja här"-ring i fritt läge; flyttar sig till en ny zon efter varje kittling.
@@ -771,6 +845,8 @@ export default {
     this._resolving = true
     this._idle = 0
     this._glowTween?.kill()
+    this._glowZon = null
+    this._titta(null, true)
     if (this._glow && !this._glow.destroyed) this._glow.visible = false
     this._drawMouth(true)
 
@@ -838,6 +914,10 @@ export default {
       p.cheekL,
       p.cheekR,
       p.mouth,
+      p.brynL,
+      p.brynR,
+      p.eyeL?._pupil,
+      p.eyeR?._pupil,
       p.earL,
       p.earR,
       this._glow,
@@ -861,6 +941,9 @@ export default {
     this._breatheTween = null
     this._glowTween?.kill()
     this._glowTween = null
+    this._blickCall?.kill()
+    this._blickCall = null
+    this._glowZon = null
     this._mouthTimer?.kill()
     this._mouthTimer = null
     this._killTweens(this._charObjs())
@@ -881,6 +964,9 @@ export default {
     this._glowTween?.kill()
     this._mouthTimer?.kill()
     this._newRoundCall?.kill()
+    this._blickCall?.kill()
+    this._rum?.riv()
+    this._rum = null
     this._killTweens([this._figure, this._shadow, ...this._charObjs(), ...this._dots])
     ctx.services.voice.cancel()
     gsap.killTweensOf(this._layer)

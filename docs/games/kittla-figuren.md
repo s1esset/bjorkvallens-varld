@@ -1,10 +1,15 @@
 # Kittla Figuren (`kittla-figuren`)
-> 🎉 roligt · tap · 2–5 år · status: ✅ klar
+> 🎉 roligt · tap · 2–5 år · status: 🔧 förbättringar pågår (rum + volym byggda 2026-10-02; [Deep] skepnader och Mjukkropp står kvar)
 
 ## 1. Nuläge (sett som spelare)
 
-En stor, gosig figur (klump / björn / kanin / monster) står mitt på en mjuk godis-scen
-(gradient + bokeh). Den andas, blinkar slumpvis och har rosa kinder och ett litet leende.
+En stor, gosig figur (klump / björn / kanin / monster) står på en matta i ett **barnrum**
+(tapet med ränder och väggpanel, plankgolv, en säng med nalle i ena hörnet, ett fönster med
+gungande gardiner och en stjärnklar/solig/skymmande himmel i det andra, vimplar i taket och en
+leksakslåda med boll). Rummet byts mot en annan palett varje runda (rosa · mint · sol). Figuren
+har volym överallt — klotad kropp, huvud, mage, fötter, öron och nos, en skugga från huvudet på
+bålen — och andas, blinkar slumpvis och har rosa kinder och ett litet leende. Pupillerna glider
+mot stället som kittlas (eller mot ringen som lyser) och brynen far upp vid varje kittling.
 Jag trycker på en kittelzon — mage, huvud, fötter, kinder, öron/horn — och figuren reagerar
 OMEDELBART: den squashar + skuttar, hela kroppen vinglar, munnen slår upp i ett brett skratt,
 ögonen knips, gnistror/ringar/skratt-emoji (😄🤭❤️😆) yr vid trycket och ett glatt ljud spelas.
@@ -51,7 +56,8 @@ Charmigt, men en kräsen blick hittar genvägarna:
   stället men går aldrig, vänder sig aldrig, lägger sig aldrig ner och skrattar.
 - **Fri kittling saknar mål.** På låg nivå finns ingen visuell ledtråd om var man ska trycka —
   de allra minsta petar lite planlöst (prickarna fylls men pekar inte ut en plats).
-- **Statisk scen.** Godis-bokehen rör sig inte, ingen rekvisita, inget händer i bakgrunden.
+- ~~**Statisk scen.**~~ Rättad 2026-10-02: rummet har egna rörelser (gardiner, vimplar, nalle och
+  boll guppar, stjärnor tindrar) och byts varje runda.
 
 Kort sagt: en **fin men "frusen" karaktär** — samma fniss-loop varje tryck, robotskratt, och
 fyra skepnader som beter sig likadant.
@@ -65,6 +71,14 @@ fyra skepnader som beter sig likadant.
   [Medium] Posevariation nedan.
 - **[Medium] Posevariation.** Då och då (eller vid hög intensitet) byter figuren pose — rullar,
   faller bakåt, håller om magen — istället för att alltid stå rakt fram.
+
+### Bild
+- ✅ ~~**[Deep, L2] Volym i figuren och en plats i stället för plattan.**~~ Klar 2026-10-02 — se §5.
+- **[Deep] Kroppen som `Mjukkropp`** (FYSIKPLAN §5.5, `rundadRektForm` ur
+  `hamburgerbygget/bulle.js`): kittlingen blir en buckla som gungar ut, zonerna står still.
+  **Inte byggd** — den kräver T3:s fasta steg (`lib/takt.js`); en mjuk kropp måste stega med
+  exakt 1 per steg (CLAUDE.md "Mjuk kropp = fast tidssteg"). Ta upp efter T3. Kittelzonernas
+  `Circle`-träffytor ligger på egna containrar och påverkas inte av kroppens form.
 
 ### Variation & överraskning
 - **[Deep] Gör skepnaderna genuint olika.** Kaninens långöron flaxar och täcker ögonen; björnen
@@ -99,6 +113,19 @@ fyra skepnader som beter sig likadant.
   **blockerad** — kräver ett nytt ljudklipp via SFX-pipelinen (MOSS nere).
 
 ## 5. Status / loggar
+
+- 2026-10-02 🎨 **L2: ett rum och en figur med volym** (`rum.js`, ny fil). Plattan
+  (`createScene('candy')`) är utbytt mot ett barnrum som byggs om varje runda med en palett
+  ur `PALETTER` (`nastaVariant`, aldrig samma två i rad): vägg + panel + list, plankgolv med
+  ljuspöl från fönstret, matta under figuren (skuggan ligger på den), säng med nalle på kudden,
+  fönster med månskära/sol/skymning och gungande gardiner, vimplar, leksakslåda med boll och
+  klossar. Allt är dekor (`eventMode 'none'`) bakom figuren; `riv()` dödar rummets tweens
+  innan noderna förstörs, så ett rundbyte aldrig lämnar något som skriver på en död nod.
+  Figuren: mage, fötter, öron/antenn/horn och nos fick `sphereFill`/`cylinderFill`/
+  `topLightFill` (före: platta former), huvudet kastar en mjuk skugga på bålen, ögonen fick
+  glans, och ansiktet reagerar mer — pupillerna glider mot den kittlade zonen (`_titta`) och
+  vilar på den lysande ringen, brynen far upp (`_bryn`). Zonerna och deras träffytor är orörda.
+  Kroppen som `Mjukkropp` är EJ med (väntar på T3, se §4).
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): nästa rundas instruktion kom på en
   fast tid 1,6 s efter `complete()` och kapade skalets beröm (1,0–2,3 s) — nu väntar den in rösten

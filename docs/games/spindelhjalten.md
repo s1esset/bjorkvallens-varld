@@ -117,8 +117,15 @@ licens/igenkänning. No-fail via hjälp-skott → glid-båge.
   (`index.js:380`, `:928`, `:491`); tjonget är en stämd ton sedan 2026-09-23 — uppdagat 2026-09-23.
 - **[Quick] Lugn äng-ambient** (vind/fågel) + varierat vinst-sting.
   *Not 2026-09-23:* vinst-stinget varieras redan app-brett (`AudioService._celebrate`); ambienten kvarstår.
+- [Enkel] Busken längst till höger ligger nästan helt bakom Vind-knappen (kritiken 2026-10-02) — flytta den eller byt plats med staketets högra sektion.
 
 ## 5. Status / loggar
+
+- 2026-10-02 ✅ **Förgrundsdekor + L1 (FYSIKPLAN §5.4)**: `createScene('meadow', { silhuett: 'skog',
+  forgrund: true })` ger trädlinje på kullarna och strån längst fram; `makeForgrundsdekor()` lägger ett
+  lövträd bakom slangbellan, ett spjälstaket i två sektioner (luckan x 510–770 ligger fri under
+  Skjut!-knappen) och en buske till höger — allt på gräsremsan BAKOM spelet. Siktet, prickbanan och
+  fysiken orörda.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): stjärnor i båge, bandspänn-toner +
   tjong med dallrande band, och en studsknopp som svarar med ring + gnistor (se §4).

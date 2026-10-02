@@ -87,8 +87,18 @@ export default {
     this._root.sortableChildren = false
     ctx.stage.addChild(this._root)
 
-    // Bakgrund: glad himmel med moln + sol.
-    this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
+    // Bakgrund: glad himmel med moln + sol, en trädlinje på kullarna och strån längst fram (L1).
+    // Staket, träd och buskar står på gräset BAKOM spelet (förgrundsdekor, aldrig i vägen).
+    this._root.addChild(
+      createScene('meadow', {
+        width: ctx.width,
+        height: ctx.height,
+        silhuett: 'skog',
+        forgrund: true,
+        fro: 1 + Math.floor(Math.random() * 9),
+      }),
+    )
+    this._root.addChild(makeForgrundsdekor())
 
     // Dekor-lager (vind-pilar som driver) — under allt spel-grafik.
     this._chevronLayer = new Container()
@@ -1368,6 +1378,46 @@ function makeBumper(r) {
   if (star.star) star.star(0, 0, 8, r * 0.42, r * 0.2).fill({ color: 0xff8a3d, alpha: 0.7 })
   const gloss = new Graphics().circle(-r * 0.32, -r * 0.34, r * 0.26).fill({ color: 0xffffff, alpha: 0.5 })
   c.addChild(outer, inner, star, gloss)
+  return c
+}
+
+// Förgrundsdekor på gräsremsan: ett lövträd längst till vänster bakom slangbellan, ett
+// spjälstaket (med en lucka mitt under Skjut!-knappen) och en buske till höger om det.
+// Ren dekor (eventMode 'none', inga tweens) — rivs med roten. Inget högt bakom skalets knappar.
+function makeForgrundsdekor() {
+  const c = new Container()
+  c.eventMode = 'none'
+  c.interactiveChildren = false
+  const g = new Graphics()
+  // Träd: skugga, stam, tre överlappande kronor i två gröntoner med en ljus kant.
+  g.ellipse(96, 650, 78, 13).fill({ color: 0x000000, alpha: 0.16 })
+  g.roundRect(84, 520, 24, 134, 8).fill(0x8a5a2f)
+  g.roundRect(84, 520, 9, 134, 4).fill({ color: 0x6b4422, alpha: 0.5 })
+  g.circle(96, 478, 66).fill(0x4fae5e)
+  g.circle(52, 514, 46).fill(0x4fae5e)
+  g.circle(142, 512, 48).fill(0x4fae5e)
+  g.circle(86, 462, 44).fill(0x6cc674)
+  g.circle(132, 496, 30).fill(0x6cc674)
+  g.circle(58, 502, 26).fill(0x6cc674)
+  // Buske längst till höger om staketet.
+  g.ellipse(1060, 656, 66, 12).fill({ color: 0x000000, alpha: 0.14 })
+  g.circle(1030, 630, 28).fill(0x4fae5e)
+  g.circle(1066, 622, 34).fill(0x4fae5e)
+  g.circle(1098, 636, 24).fill(0x4fae5e)
+  g.circle(1062, 614, 20).fill(0x6cc674)
+  // Staket: två sektioner runt Skjut!-knappen (x 520–760 lämnas fri).
+  const sektion = (x0, x1) => {
+    g.ellipse((x0 + x1) / 2, 656, (x1 - x0) / 2, 7).fill({ color: 0x000000, alpha: 0.13 })
+    g.roundRect(x0 - 6, 616, x1 - x0 + 12, 9, 3).fill(0xe9d7b4)
+    g.roundRect(x0 - 6, 637, x1 - x0 + 12, 9, 3).fill(0xe9d7b4)
+    for (let x = x0; x <= x1 - 10; x += 34) {
+      g.poly([x, 656, x, 606, x + 11, 592, x + 22, 606, x + 22, 656]).fill(0xfff3dc)
+      g.poly([x + 15, 656, x + 15, 604, x + 22, 606, x + 22, 656]).fill({ color: 0xc9a875, alpha: 0.35 })
+    }
+  }
+  sektion(330, 510)
+  sektion(770, 990)
+  c.addChild(g)
   return c
 }
 

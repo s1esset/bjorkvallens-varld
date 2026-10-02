@@ -41,6 +41,7 @@ import { PLATS, HUVUD_Y, byggRum } from './rummet.js'
 import { makeFluga, makeMedalj, makeSylt } from './props.js'
 import { Effekter, VERKTYG, makeIkon, inomVerkan } from './verktyg.js'
 import { BLICK_RADIE, Flugbana } from './fluga.js'
+import { byggFlaktfalt, flaktLuft, FLAKT_RACKVIDD, FLAKT_HOJD } from './flaktvind.js'
 import { Ansikte, laddaAnsikte } from '../../lib/ansikte.js'
 import { DragController } from '../../lib/DragController.js'
 import { makeKaraktar } from '../../lib/karaktarer.js'
@@ -66,11 +67,8 @@ const FLAKT_CD = 2         // s mellan två pustar — taket på fläkten
 //    Nu är det ett VINDFÄLT som lever `FLAKT_VIND_TID` sekunder efter tryckningen, mätt
 //    från huvudet, riktat mot fönstret.
 const FLAKT_VIND_TID = 1.15   // s som luftströmmen ligger kvar efter en pust
-const FLAKT_RACKVIDD = 760    // px från huvudet där pusten fortfarande biter
-const FLAKT_HOJD = 260        // px halv konhöjd vid huvudet (den vidgar sig utåt)
+// Fältets form (räckvidd, höjd, sug) bor i `flaktvind.js` — ett `Vindfalt` ur `lib/vind.js`.
 const FLAKT_KRAFT = 430       // px/s tillskott i luftströmmens mitt
-const FLAKT_SUG_RACK = 620    // px bakom gallret där insuget når
-const FLAKT_SUG_DEL = 0.62    // insugets styrka som andel av utblåsets
 const SITT_MIN = 2.2
 const SITT_MAX = 4.6
 const NYS_TID = 6          // s på näsan innan nysningen byggs upp
@@ -158,6 +156,10 @@ export default {
     // Fläkten blåser MOT FÖNSTRET — det är dit flugorna ska. Talet räknas ur layouten så
     // en flyttad fläkt eller ett flyttat fönster inte tyst vänder pusten åt fel håll.
     this._flaktRikt = PLATS.fonster.x >= PLATS.flakt.x ? 1 : -1
+    // Fläktens luft är ett `Vindfalt` (lib/vind.js, F4) — utan `varld`: flugan är ingen
+    // matter-kropp, spelet läser fältet och äger tiden (`_vindT`).
+    this._flaktFalt = byggFlaktfalt({ huvud: this._flaktHuvud, rikt: this._flaktRikt })
+    this._vindVisT = 0
     this._verktygKnappar = []
     this._valdIx = 0
     this._kylT = 0
@@ -188,6 +190,10 @@ export default {
     this._root.addChild(this._syltL)
     // Verktygens verkan ritas ÖVER flugorna — smällan ska slå ner på henne, inte bakom.
     this._fxL = this._nyttLager()
+    // Fältets egna bågar (`Vindfalt.rita`): luftströmmen syns i SAMMA form som den verkar i.
+    this._vindG = new Graphics()
+    this._vindG.eventMode = 'none'
+    this._fxL.addChild(this._vindG)
     this._klickL = new Container()
     this._root.addChild(this._klickL)
 
@@ -824,37 +830,38 @@ export default {
    *    fönstret. Hela rummet blir nåbart utan att en enda pust pekar åt fel håll.
    */
   _vindKraft(x, y) {
-    const h = this._flaktHuvud
-    const langs = (x - h.x) * this._flaktRikt
-    const dy = y - h.y
+    // Formen, styrkan och sugets riktning ur `Vindfalt` (`flaktvind.js`); utblåsets riktning
+    // bändes mot fönstret som förut. Allt före detta (kon + sug) räknades här för hand.
+    if (!this._flaktFalt) return null
+    return flaktLuft(this._flaktFalt, this._flaktHuvud, this._flaktRikt, x, y, PLATS.fonster)
+  },
 
-    if (langs >= 0) {
-      // UTBLÅSET: en kon som vidgar sig framåt och avtar med avståndet.
-      if (langs > FLAKT_RACKVIDD) return null
-      const halv = FLAKT_HOJD + langs * 0.42
-      if (Math.abs(dy) > halv) return null
-      const s = (1 - langs / FLAKT_RACKVIDD) * (1 - (Math.abs(dy) / halv) * 0.72)
-      if (s <= 0) return null
-      // Riktningen blandas mot fönstret så flugan driver ut genom öppningen i stället för
-      // att blåsas rakt in i väggen bredvid den.
-      const F = PLATS.fonster
-      const fx = F.x - x
-      const fy = F.y - y
-      const d = Math.hypot(fx, fy) || 1
-      return { vx: this._flaktRikt * 0.55 + (fx / d) * 0.45, vy: (fy / d) * 0.45, s }
+  /**
+   * Fältets bågar medan pusten ligger kvar — `Vindfalt.rita` ritar formen fältet VERKAR i
+   * (kon ur huvudet, tonar med avståndet). Tonas in på ~0,1 s och ut på ~0,35 s; ritas inte
+   * alls när luften står still, och Graphics töms en gång när pusten tagit slut.
+   */
+  _ritaVind(dt) {
+    const g = this._vindG
+    if (!g || g.destroyed || !this._flaktFalt) return
+    if (this._vindT <= 0) {
+      if (this._vindVisT > 0) { g.clear(); this._vindVisT = 0 }
+      return
     }
-
-    // INSUGET: allt bakom gallret dras MOT huvudet. Svagare än utblåset (annars rycks
-    // flugan iväg i stället för att glida in), men med god räckvidd — det är den här
-    // halvan som når flugorna som sitter och surrar kring pappa.
-    const bak = -langs
-    if (bak > FLAKT_SUG_RACK) return null
-    const halv = FLAKT_HOJD * 1.25
-    if (Math.abs(dy) > halv) return null
-    const s = (1 - bak / FLAKT_SUG_RACK) * (1 - (Math.abs(dy) / halv) * 0.55) * FLAKT_SUG_DEL
-    if (s <= 0) return null
-    const d = Math.hypot(bak, dy) || 1
-    return { vx: (this._flaktRikt * bak) / d, vy: -dy / d, s }
+    this._vindVisT += dt
+    const upp = Math.min(1, this._vindVisT / 0.1)
+    const ner = Math.min(1, this._vindT / 0.35)
+    g.clear()
+    this._flaktFalt.rita(g, {
+      t: this._vindVisT,
+      antal: 4,
+      fran: 46,
+      till: 560, // x 1220 — inte förbi skärmkanten
+      bag: 34,
+      bredd: 13,
+      alpha: 0.85 * upp * ner,
+      farg: 0x3b8fd6, // mörkare blå — ljusblått försvann mot rummets beige och trä
+    })
   },
 
   /** Bara styrkan — sonderna och `_blas` behöver ett skalärt "blåser det här?". */
@@ -1279,6 +1286,7 @@ export default {
     if (this._flaktT > 0) this._flaktT -= dt
     if (this._kylT > 0) this._kylT -= dt
     if (this._vindT > 0) this._vindT -= dt
+    this._ritaVind(dt)
 
     // Syltens platsringar lyser medan burken hålls eller är markerad. Läget läses här och
     // inte i krokarna — `_deselect()` har ingen krok att haka i.
@@ -1465,6 +1473,10 @@ export default {
       s.destroy()
     }
     this._vindNoder = []
+    if (this._vindG && !this._vindG.destroyed) this._vindG.clear()
+    this._vindG = null
+    this._flaktFalt?.destroy()
+    this._flaktFalt = null
     for (const r of this._syltMarken || []) if (r && !r.destroyed) gsap.killTweensOf(r)
     this._syltMarken = []
     if (this._ans && !this._ans.view.destroyed) gsap.killTweensOf(this._ans.view)

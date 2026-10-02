@@ -233,6 +233,13 @@ vindfältet lever 1,15 s och syns hela vägen som elva strimmor. Uppmätt med en
 
 ## 5. Status / loggar
 
+- 2026-10-02 **F4/B3: fläktens fält är ett `Vindfalt`** (`lib/vind.js`, form `kon` + `sug`; limmet i
+  `flaktvind.js`). Index-radens egen `_vindKraft` (kon framför + sug bakom, handräknade) är borta; `_vindKraft`/
+  `_vindStyrka` finns kvar med samma signatur ovanpå fältet. Utblåsets 45 % mot fönstret ligger kvar i spelets
+  limkod (fläkten står lägre än luckan). Mätt `node scripts/_flugvindprobe.mjs`: 200 flugpositioner ur
+  flugans område (runda 0 / 4 / 12) — ren kon 6 / 35 / 37 (medel 26, filhuvudets 22), HEAD = NYA = 199 / 170 /
+  165 (samma mängd, |Δs| och |Δriktning| = 0). Luftströmmen syns nu även som fältets egna bågar
+  (`Vindfalt.rita`) medan pusten ligger kvar, ovanpå de vita strimmorna.
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): finalens egna `sfx('celebrate')` i samma
   tick som `complete()` struken (complete() spelar vinstljudet själv); rösten var redan rätt —
   `_sag` köar bakom berömmet. Fönstret glider nu igen med avtagande ease i stället för att falla.

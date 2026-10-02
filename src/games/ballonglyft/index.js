@@ -15,7 +15,7 @@ import { gsap } from 'gsap'
 import { createScene } from '../../lib/scene.js'
 import { drawIcon } from '../../lib/artikoner.js'
 import { makeElvira } from '../../lib/figurer.js'
-import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe, kvittera } from '../../lib/feedback.js'
+import { bounceIn, pop, wiggle, sparkle, burst, floatText, breathe, kvittera, liv } from '../../lib/feedback.js'
 import { COLORS, FONT, PLAYFUL } from '../../lib/theme.js'
 import { Motstandsvolym } from '../../lib/luftmotstand.js'
 import { valjEgna, byggEgenFigur } from '../../lib/egnafigurer.js'
@@ -104,7 +104,8 @@ export default {
     ctx.stage.addChild(this._root)
 
     // Bakgrund (gradient + sol + moln + mark) som FÖRSTA barn, dekorativ.
-    this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height }))
+    // L1: trädlinje på fjärran- och mellanbandet + strån och blomtuvor längst ned (bakom spelytan).
+    this._root.addChild(createScene('meadow', { width: ctx.width, height: ctx.height, silhuett: 'skog', forgrund: true, fro: 5 }))
 
     // Lager: balkong+Elvira+bubbla → spök-present (mål) → snören → ballonger → present → räknare.
     this._balcony = this._makeBalcony()
@@ -166,10 +167,20 @@ export default {
     plate.roundRect(700, 0, 320, 34, 14).fill(COLORS.brown).stroke({ width: 6, color: 0x6f4630 })
     c.addChild(plate)
 
-    const elvira = makeElvira()
+    // Elvira = en hållare (wiggle/pop/rotation rör den) med en inre vilo-nod: liv() äger målets y
+    // och rotation, så vilorörelsen ligger ETT steg längre in och slåss aldrig med vinkningen.
+    // Origo är fötterna, så vaggningen pivoterar där hon står.
+    const elvira = new Container()
     elvira.position.set(BOX_X, 2)
+    elvira.eventMode = 'none'
+    const vilo = new Container()
+    vilo.eventMode = 'none'
+    vilo.addChild(makeElvira())
+    elvira.addChild(vilo)
     c.addChild(elvira)
     this._elvira = elvira
+    this._elviraVilo = vilo
+    this._elviraLiv = liv(vilo, { bob: 2, sway: 0.018, duration: 3.1 })
 
     const name = new Text({
       text: 'Elvira',
@@ -776,6 +787,8 @@ export default {
     this._levelCall?.kill()
     this._riseTween?.kill()
     this._ghostBreathe?.kill()
+    this._elviraLiv?.kill()
+    this._elviraLiv = null
     this._surpriseTl?.kill()
     if (this._box) {
       gsap.killTweensOf(this._box)

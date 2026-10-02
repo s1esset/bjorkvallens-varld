@@ -102,16 +102,16 @@ aldrig.
 - ✅ ~~**[Medium] Paketet öppnas.**~~ Klar 2026-07-02 (åtta överraskningar, Elvira kramar).
 
 ### Karaktär & berättelse
-- **[Deep] Levande Elvira** — HALVT klar. Hon ÄR ritad sedan 2026-08-06 (`makeElvira()`), men
-  står orörlig mellan tryck: kvar är idle-liv (tittar ner, hoppar av otålighet, sträcker sig)
-  och att hon *räknar med* ("…tre! En till!").
+- **[Deep] Levande Elvira** — MESTADELS klar. Hon ÄR ritad sedan 2026-08-06 (`makeElvira()`) och har
+  vilo-liv sedan 2026-10-02 (`liv()` på en inre nod, se §5). Kvar: att hon tittar ner mot paketet,
+  hoppar av otålighet, sträcker sig, och att hon *räknar med* ("…tre! En till!").
 
 ### Ljud
 - **[Quick] Variera räkne-frasen + lägg pop-vid-fäst som riktigt klipp** ([[real-audio-sfx]]).
   Ett mjukt "tack!" från Elvira (förinspelat) vid leverans i stället för generiskt `correct`.
   *2026-09-23:* tacket finns redan i överraskningsrepliken ("Titta, en … Tack så mycket!").
-  Resten är **blockerat**: nya räknefraser kräver röstklipp (TTS nere), pop-klippet SFX-pipelinen
-  (MOSS nere).
+  Pop-klippet kräver SFX-pipelinen (MOSS). Nya räknefraser är byggbara: `npm run voice` fungerar
+  ("Blockerad: TTS nere" stämde 2026-09-23, inte längre).
 
 ## 5. Status / loggar
 
@@ -215,3 +215,5 @@ aldrig.
     Inte ändrat här: det är beteende, inte polering.
 
 - 2026-10-01 · **Barnets egna figurer (LYFTPLAN §10, v1.285.0).** Varannan present bär barnets EGET knytt eller kompis (`valjEgna`), som hoppar ur paketet i Elviras famn och jublar där; annars ett av djuren som förut. Egna repliker + knyttets namn som eget klipp. `_clearSurprise` river nu hållaren med barn (och figuren först — den tickar själv). Sond: `scripts/_egnafigurprobe.mjs` (41/41).
+
+- **2026-10-02 · Elvira får vilo-liv + trädlinje/förgrund (FYSIKPLAN §5.4 + L1).** (1) `this._elvira` är nu en hållare (wiggle/pop/rotation=0 rör den som förut) med en inre nod `_elviraVilo` där `liv(vilo, { bob: 2, sway: 0.018, duration: 3.1 })` äger y/rotation — liv och wiggle på SAMMA nod hade slagits om rotationen. Origo är fötterna, så hon vaggar vid balkongen. Tweenen sparas (`_elviraLiv`) och dödas i `destroy`. Mätning: `g._elviraVilo.rotation` / `.y` (rör sig ±0,018 rad / ±2 px). (2) `createScene('meadow', { silhuett: 'skog', forgrund: true, fro: 5 })` — trädlinje på kullarna och strån/blomtuvor längst ned, noll bakningar. Snörena som rep är INTE med (egen order, T3). "Något i mitten som hör till spelet" (L2) är inte byggt.

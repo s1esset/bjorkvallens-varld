@@ -10,6 +10,19 @@
 
 export const NYHETER = [
   {
+    version: '1.416',
+    fran: '1.410',
+    datum: '2026-10-02',
+    titel: 'Godis, snöklumpar och en riktig hög',
+    punkter: [
+      'När kulan i Knuffa Tornet träffar glasklossen hårt blir glaset fyra runda godisbitar som glittrar och rullar iväg. Glaset kan bara gå sönder av kulan.',
+      'En snögubbe som Snöbollen kör på går sönder i runda snöklumpar som rullar nerför backen. Huvudet har kvar sina ögon och sin morot.',
+      'Frukten i Räkna Äpplena trillar ner i korgen och lägger sig i en liten hög, högst fem i varje rad, så att det fortfarande är lätt att se hur många det är. Räkningen fungerar som förut.',
+      'Burken i Klämbubblor fylls med en pärla för varje bubbla barnet klämmer.',
+      'På Popcornkalaset kan många fler popcorn poppa på en gång, och varje popcorn växer upp som en hel krämgul klump.',
+    ],
+  },
+  {
     version: '1.409',
     fran: '1.406',
     datum: '2026-10-02',

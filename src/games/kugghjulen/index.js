@@ -16,10 +16,9 @@ import { gsap } from 'gsap'
 import { DragController } from '../../lib/DragController.js'
 import { Rep, ritaRep } from '../../lib/rep.js'
 import { Takt } from '../../lib/takt.js'
-import { createScene } from '../../lib/scene.js'
+import { byggVerkstad } from './verkstad.js'
 import { bounceIn, pop, puff, sparkle, burst, breathe, floatText, ripple , kvittera} from '../../lib/feedback.js'
 import { COLORS } from '../../lib/theme.js'
-import { groundFill } from '../../lib/form.js'
 import { randomFrom } from '../../lib/swedish.js'
 
 // --- Layout & fysikkonstanter (designkoordinater 1280×720) -----------------
@@ -144,8 +143,9 @@ export default {
     this._root = new Container()
     ctx.stage.addChild(this._root)
 
-    // Bakgrund FÖRST (varm verkstadston).
-    this._root.addChild(createScene('warm', { ground: false, width: ctx.width, height: ctx.height }))
+    // Bakgrund FÖRST: verkstaden (vägg, fönster, lampa, verktyg, bänk, katt) — se verkstad.js.
+    this._verkstad = byggVerkstad()
+    this._root.addChild(this._verkstad.vagg)
 
     // Osynlig fångare för tomma tryck (mjuk ring + ljud — aldrig en bestraffning).
     this._catcher = new Graphics().rect(0, 0, ctx.width, ctx.height).fill({ color: 0x000000, alpha: 0 })
@@ -160,24 +160,8 @@ export default {
     this._catcher.on('pointertap', this._onEmptyTap)
     this._root.addChild(this._catcher)
 
-    // Pegboard-panel (träbrun verkstadsskiva) + håldekor.
-    const panel = new Graphics()
-    // Bradan lag pa 83 792 px i EN ton (`_plattprobe --medbakgrund`) — spelets storsta falt.
-    //
-    // ⚠️ Rampen ar HARD har, och det ar rakning och inte smak: fyllningen ar brun men ligger
-    // pa alpha 0,16, sa den SYNLIGA kontrasten blir rampen GANGER alfan. Standardvardena
-    // (0,14/0,28) hade slappt igenom en dryg tiondel av sitt spann och knappt rort talet.
-    // Regeln att bara med sig: en lag alpha dampar toningen lika mycket som den dampar
-    // fargen, sa en genomskinlig yta behover en HARDARE ramp an en tackande for samma
-    // verkan. Alpha-vagen, se lib/form.js.
-    panel.roundRect(120, 110, 1040, 470, 30).fill(groundFill(COLORS.brown, { light: 0.25, dark: 0.45, alpha: 0.16 })).stroke({ width: 8, color: COLORS.brown, alpha: 0.5 })
-    for (let x = 150; x < 1160; x += 60) {
-      for (let y = 140; y < 580; y += 60) {
-        panel.circle(x, y, 4).fill({ color: COLORS.brown, alpha: 0.18 })
-      }
-    }
-    panel.eventMode = 'none'
-    this._root.addChild(panel)
+    // Pegbrädan: ram, skugga och en yta med hål (verkstad.js). Samma yta som förut, 120–1160 × 110–580.
+    this._root.addChild(this._verkstad.bradan)
 
     // Lager (alla i origo → designkoordinater matchar DragControllers _root-space).
     this._pole = new Graphics()
@@ -322,7 +306,8 @@ export default {
     this._flagLayer.addChild(this._flag)
 
     // Bricka (oändliga dispensrar i tre storlekar).
-    const shelf = new Graphics().roundRect(120, 596, 1040, 104, 24).fill({ color: COLORS.brown, alpha: 0.22 })
+    // Brickan är ett urfräst spår i bänkskivan.
+    const shelf = new Graphics().roundRect(120, 596, 1040, 104, 24).fill({ color: 0x2e1a0c, alpha: 0.3 })
     shelf.eventMode = 'none'
     this._trayLayer.addChild(shelf)
     for (const size of ['S', 'M', 'L']) {
@@ -366,6 +351,7 @@ export default {
   _buildLevel(ctx, level) {
     if (!this._alive) return
     this._clearLevel(ctx)
+    this._verkstad?.somna() // en ny maskin: verkstaden lägger sig till rätta igen
     this._crankAngle = 0
     this._crankVel = 0 // maskinens fart (rad/bildruta) — svänghjulet
     this._fingerAngle = 0 // fingrets ackumulerade vinkel — veven dras mot den
@@ -1314,6 +1300,7 @@ export default {
   _onChainGrips(ctx) {
     ctx.services.audio.sfx('match')
     ctx.services.audio.sfx('reveal')
+    this._verkstad?.vakna(ctx.services.audio) // lampan tänds, katten vaknar, verktygen vaggar
     // Greppa-juice: ett distinkt "klonk"-klick-i-läge när kuggarna faller i grepp.
     ctx.services.audio.tone?.({ freq: 300, slideTo: 150, dur: 0.14, type: 'triangle', vol: 0.5 })
     // Glödpuls + gnistra längs kedjan (i djupordning) — mjukt ryck som vandrar hela raden.
@@ -1789,6 +1776,7 @@ export default {
 
     // Elvira firar och åker karusellen: byt till glad min och guppa runt på hjulet.
     this._setElvira('fest')
+    this._verkstad?.fira()
     if (this._elvira && !this._elvira.destroyed && this._carousel && !this._carousel.destroyed) {
       const cx = this._carousel.x
       const cy = this._carousel.y - 24
@@ -1839,6 +1827,8 @@ export default {
     this._drag?.destroy()
     this._stopDispenserHints()
     this._clearRem()
+    this._verkstad?.destroy()
+    this._verkstad = null
 
     for (const o of [this._crank, this._targetWheel, this._carousel, this._elvira, this._flag, this._ghost, this._flaktBlad, this._flaktStativ, this._flaktAxel]) {
       if (o && !o.destroyed) {

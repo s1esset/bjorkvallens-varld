@@ -128,17 +128,15 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   fler drivna prylar (lampa tänds, fläkt snurrar) för varje klarad nivå.
 
 ### Karaktär & berättelse
-- **[Medium] Elvira reagerar och hejar.** Låt henne titta på bygget, klappa när kedjan greppar,
-  och åka karusellen vid vinst — byt uttryck/pose i stället för bara `pop`×2. En levande
-  mottagare i stället för en dekor-emoji.
-  *Hälften byggd och hälften DÖD (uppdagat 2026-09-23):* hon hoppar när kedjan greppar och åker
-  karusellen vid vinst, men uttrycksbytet är en no-op. `_setElvira` (:1323) och
-  `_positionMachine` (:560) skriver `this._elvira.text = '🥳'/'👧'` — en kvarleva från när hon
-  var en emoji-`Text`. Nu är hon en ritad `Graphics`, så fältet läses aldrig: samma dödsorsak som
-  `vart-tog-det-vagen`s leksaksreaktioner. Kvar: ge den ritade figuren uttryck (egna noder för
-  mun/ögon) och stryk `.text`-raderna.
-- **[Quick] Liten verkstads-rekvisita** (hängande verktyg, en oljekanna, en sovande katt) som
-  vaknar/guppar när maskinen går — fyller den tomma pegboarden med liv.
+- ✅ ~~**[Medium] Elvira reagerar och hejar.**~~ Byggd. Hon hoppar när kedjan greppar och åker
+  karusellen vid vinst, och uttrycksbytet fungerar: `_ritaElvira(min)` ritar om armar och ansikte
+  (lugn · glad · oj · jubel · fest, ÅTGÄRDER V22). *Doc-drift rättad 2026-10-02:* den gamla
+  anmärkningen om en död `.text`-no-op (`_setElvira`/`_positionMachine`) stämmer inte längre —
+  `.text`-raderna är borta ur koden.
+- ✅ ~~**[Quick] Liten verkstads-rekvisita** (hängande verktyg, en oljekanna, en sovande katt) som
+  vaknar/guppar när maskinen går — fyller den tomma pegboarden med liv.~~ Byggd 2026-10-02 (L2,
+  `verkstad.js`): verktyg på väggen, oljekanna/skruvburk/färgburk på en hylla, en sovande katt på
+  bänken som vaknar när kedjan greppar. Se §5.
 
 ### Ljud
 - **[Quick] Riktiga maskin-SFX via MOSS-pipelinen** ([[real-audio-sfx]]): spärrhjuls-klack vid
@@ -148,6 +146,27 @@ vevande inte kräver något, och vars storleks-poäng aldrig firas.**
   syntes. Kvar är riktiga klipp och surr-ambienten — blockerade så länge MOSS är nere.*
 
 ## 5. Status / loggar
+
+- 2026-10-02 🎨 **L2: en verkstad som vaknar** (FYSIKPLAN L2, bara det som ritas). Pegbrädan stod
+  på en tom kräm-/färgplatta; nu ligger den på en vägg i ett rum (`verkstad.js`, ny fil i spelet).
+  - **Rummet:** panelvägg i mynta, ett fönster uppe i mitten med sol, kullar, träd och moln utanför
+    (djup), en hängande lampa som svajar, en hylla med oljekanna · skruvburk · färgburk, hammare och
+    skiftnyckel på väggens vänstra kant, såg och måttband på högra, och en brun bänk i förgrunden
+    med verktygslåda (vänster) och en sovande tabby-katt (höger). Brädan är nu ett riktigt föremål:
+    trä ram, skugga mot väggen, skruvar i hörnen, hål med djup. Brickan är ett urfräst spår i bänken.
+  - **Vaknar:** lampan är släckt och katten sover (zzz, andas) när en nivå börjar. När kedjan
+    greppar (`_onChainGrips`) tänds lampan, katten öppnar ögonen och lyfter huvudet, och verktyg,
+    burkar och låda vaggar i tur och ordning. Vid vinst hoppar katten till. Ny nivå = verkstaden
+    somnar igen, så varje maskin får sin egen väckning.
+  - **Orört:** nivå 1–8, pinnarnas lägen, träffytor, hyllan, alla kontroller och repliker.
+    Svänghjulströghet (F10/G8) är INTE med. Inget bakom skalets knappar: hemknappsområdet
+    (x < 200, y < 160) är rent vägg, fönster/hylla/lampa ligger till höger om det.
+  - **Exit/återspel:** all dekor är `eventMode 'none'`; `verkstad.destroy()` dödar liv-tweens, zzz,
+    andning, stegrade vaggningar och lampans tonning före rotens `destroy`. Mätt i Node: 0 nya
+    texturbakningar vid andra monteringen (första bakar fem cachade lodräta toningar, som
+    `createScene`), 0 kvarlevande tweens med mål i verkstaden efter `destroy`.
+  - **Inte provkörd i webbläsare** (nattkörningens regel) — kontrollera skärmdumpen: gearfärgerna
+    mot den nu täckande brädan (beige), och att hylla/lampa inte stör i toppremsan.
 
 - 2026-09-23 ✅ **Snabbvinster + dubbelfirandet** (v1.251.0): inga A-rader för spelet; passet var
   firandet. `_onComplete` spelade eget vinstljud, ett eget slumpat beröm och eget konfettiregn i

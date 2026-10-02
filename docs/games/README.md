@@ -91,6 +91,7 @@ Grupperat efter biblioteksflik (se [[library-tabs-sort]]).
 | 85 | Unika Knytt | `unika-knytt` | tap | ✅ | ✅ |
 | 86 | Grodan Slurp | `grodan-slurp` | tap | ✅ | ✅ |
 | 87 | Popcornkalaset | `popcornkalaset` | drag | ✅ | ✅ |
+| 88 | Bläckfisken Otto | `blackfisken-otto` | drag | ✅ | ✅ |
 
 ✅ **Pappa ÖNSKAR sig en bit, och kyldörren minns** (v1.214): målet räknade förut "N tuggor",
 aldrig VILKA — varje matbit var exakt lika rätt, och tallrik 7 såg likadan ut som tallrik 1.

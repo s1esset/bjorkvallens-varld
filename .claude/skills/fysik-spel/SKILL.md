@@ -299,3 +299,12 @@ vid `GY` och har därför en exakt förhandsvisning per konstruktion.
 - Luften bromsar utspridningen (på 0,9 s ≈ hälften av sträckan vid k 1,6): höj starthastigheten
   med `t/E(t)` om smällen ska vara lika stor — linjär luft skalar hela formen lika, så en ring
   eller ett hjärta behåller formen (`fyrverkeri` `LUFT_FART`). Mät med `node scripts/_partikelvind.mjs`.
+
+## Landa-intro (`lib/landa.js`, P4)
+
+- `landa(inreBarn, { ticker, fran, markY, tyngd: 'stor'|'liten', fordrojning, onLand })` → `{ klar, avbryt(), destroy(), tick(ms), ar }`.
+  Stor = duns (1–2 slag), liten = studs (5 slag). Fast steg via `Takt`, ingen matter. `fran`/`markY` = `nod.y` i nodens eget
+  föräldrarum — kör den i ett INRE BARN så att `DragController`s mål och `hitArea` står still.
+- `avbryt()` ur pekhanteraren lägger noden på `markY` direkt; `destroy()` gör samma på en levande nod och rör inte en riven.
+  `klar` resolvas alltid ('landad' | 'avbruten' | 'riven'). Efter landning: exakt `markY`, lyssnaren lossad.
+- Ljud och skak är kundens: `onLand(tyngd, { nr, fart })` vid varje nedslag. Mät: `node scripts/_landaprobe.mjs`.

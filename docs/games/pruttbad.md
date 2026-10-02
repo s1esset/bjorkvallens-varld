@@ -556,3 +556,16 @@ som förvirrar, och önskade fyra nya interaktioner. Punkterna nedan är hens or
   - **Mätt:** `scripts/_badprobe.mjs` **8/8** ×3 · `npm run check` 0/0 · `npm run test:all`
     **71/71** · 0 fynd i `.test-logs/pruttbad.json`. **Kvalitet 🔧 → ✅.**
   - Kvar som [Quick] i §4: variera pop-klippen + lugn vatten-ambient (väntar på SFX-pipelinen).
+
+- 2026-10-02 🦆 **ANKAN RIDER PÅ VÅGEN + PÅSE FÖR BADSORT OCH LEKSAK** (F3 B1, FYSIKPLAN §5.4 + U2).
+  - **Ankan:** hennes gupp var en ren sinus (`Math.sin(_duckPhase) * 5`) vid en fast `_floatY()`,
+    fast höjdfältet fanns. Hon läser nu `_waveOnlyAt(x)` (bara avvikelsen `_wave`, aldrig sin egen
+    dell `_waveRest` — då skulle hon sjunka i gropen hon själv gör) för höjd, och lutningen över
+    ±24 px för krängning. En poppad bubbla eller ett plask lyfter och kränger alltså henne på
+    riktigt. Ett litet vilo-andetag (2 px) är kvar för alldeles stilla vatten, och allt tonas ut
+    när hon hålls nere (samma `hall`-faktor som förut). Ytringen runt henne följer vågen.
+  - **U2:** nivå 0–4 går i fast ordning (alla fem bad och leksaker i en lugn följd), därefter drar
+    `pase(BATHS)` / `pase(TREASURES)` — varje sort en gång per varv, aldrig samma två i rad.
+    Påsarna skapas lazy i `_valjBad`/`_valjLeksak` och nollas i `init`. Svårigheten (mål, bubbelstorlek)
+    är oförändrad — bara innehållet lottas.
+  - **Verifiera:** `g._bathNow.id` och `g._treasure.kind.id` (nivå ≥ 5), `g._duck.y - g._duckBase.y`.

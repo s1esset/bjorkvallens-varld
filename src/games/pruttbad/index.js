@@ -25,6 +25,7 @@ import { verticalFillAlpha, groundFill } from '../../lib/form.js'
 import { FluidWorld, FluidView, FLUIDS } from '../../lib/vatska.js'
 import { Mjukkropp } from '../../lib/mjukkropp.js'
 import { Takt } from '../../lib/takt.js'
+import { pase } from '../../lib/variation.js'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
@@ -334,6 +335,9 @@ export default {
     this._bubbles = []
     this._floats = [] // spärren mot staplade flyt-texter, se FLOAT_LIV
     this._foam = { level: 0 }
+    this._badPase = null // påsar för badsort/leksak efter första varvet (se _valjBad)
+    this._leksakPase = null
+    this._bathNow = null
     this._held = false
     this._charging = null
     this._resolving = false
@@ -459,7 +463,7 @@ export default {
       this._waterArea.hitArea.height = FLOOR - SURF_FULL + 20
     }
     const SURFACE_Y = this._surf // LEVANDE ytan, inte en konstant
-    this._bathNow = BATHS[Math.abs(this._level | 0) % BATHS.length]
+    this._bathNow = this._valjBad()
     this._goalFoam = 70 + this._level * 18
     // Linjen får inte krypa upp i kar-kanten. Skummet ritas i ANDEL av vägen hit
     // (se _drawFoam), så mätaren och skummet når linjen exakt samtidigt — förr
@@ -477,6 +481,23 @@ export default {
     // uppkastat TVÅLVATTEN, alltså badets vatten draget mot vitt, med vit kant.
     this._tintTval()
     this._tval?.clear() // nytt kar → inga droppar kvar i luften från förra rundan
+  },
+
+  // Badsort och leksak: det första varvet (nivå 0–4) går i fast ordning så barnet ser alla fem
+  // i en lugn följd; därefter drar en PÅSE — varje sort en gång per varv, aldrig samma två i
+  // rad. Påsarna skapas här första gången de behövs (init nollar dem), inte på modulnivå.
+  _valjBad() {
+    const lv = Math.abs(this._level | 0)
+    if (lv < BATHS.length) return BATHS[lv]
+    this._badPase ??= pase(BATHS, this._bathNow)
+    return this._badPase.nasta()
+  },
+
+  _valjLeksak() {
+    const lv = Math.abs(this._level | 0)
+    if (lv < TREASURES.length) return TREASURES[lv]
+    this._leksakPase ??= pase(TREASURES, this._treasure?.kind)
+    return this._leksakPase.nasta()
   },
 
   // Ankans flytlinje — en FUNKTION av nivån, inte en konstant. Töms badet åker hon med ner.
@@ -604,6 +625,17 @@ export default {
     const a = this._wave[i] + this._waveRest[i]
     const b = this._wave[j] + this._waveRest[j]
     return a + (b - a) * f
+  },
+
+  // Bara VÅGEN vid x (avvikelsen), utan ankans egen dell. Ankan rider på det som kommer
+  // utifrån — läste hon sin egen grop (`_waveRest`) skulle hon sjunka i den hon själv gör.
+  _waveOnlyAt(x) {
+    if (!this._wave || !this._waveOn) return 0
+    const t = clamp((x - IN_L) / (IN_R - IN_L), 0, 1) * (WAVE_N - 1)
+    const i = Math.floor(t)
+    const j = Math.min(WAVE_N - 1, i + 1)
+    const f = t - i
+    return this._wave[i] + (this._wave[j] - this._wave[i]) * f
   },
 
   // Mållinjen hänger i ytan: skummet mäts från ytan och uppåt, så sjunker vattnet måste
@@ -878,7 +910,7 @@ export default {
     this._treasureBob = null
     if (this._treasure?.view && !this._treasure.view.destroyed) this._treasure.view.destroy()
     if (!this._treasureLayer || this._treasureLayer.destroyed) return
-    const kind = TREASURES[Math.abs(this._level | 0) % TREASURES.length]
+    const kind = this._valjLeksak()
     const view = makeTreasure(kind.id)
     // Mellan 35 % och 80 % av vägen upp → alltid efter en stunds spelande, aldrig sist.
     //
@@ -1944,14 +1976,21 @@ export default {
     if (this._duck && !this._duck.destroyed) {
       // Guppet dör bort när hon hålls nere — en anka som fortfarande studsar 5 px medan
       // den trycks under vattnet ser ut att sväva, inte att hållas.
-      const bob = Math.sin(this._duckPhase) * 5 * clamp(1 - dip / 40, 0, 1)
-      this._duck.position.set(this._duckBase.x, this._duckBase.y + bob)
-      this._duck.rotation = Math.sin(this._duckPhase * 0.7) * 0.06
+      // Hon RIDER på vågen: höjden och lutningen läses ur höjdfältet där hon står, så en
+      // poppad bubbla eller ett plask får henne att lyfta och krängas på riktigt. Vilo-
+      // guppet är kvar som ett litet andetag för ett alldeles stilla vatten.
+      const hall = clamp(1 - dip / 40, 0, 1)
+      const dx = this._duckBase.x
+      const vagY = this._waveOnlyAt(dx)
+      const lut = (this._waveOnlyAt(dx + 24) - this._waveOnlyAt(dx - 24)) / 48
+      const bob = Math.sin(this._duckPhase) * 2 * hall + vagY * hall
+      this._duck.position.set(dx, this._duckBase.y + bob)
+      this._duck.rotation = Math.sin(this._duckPhase * 0.7) * 0.03 + clamp(Math.atan(lut) * 1.4, -0.4, 0.4) * hall
     }
     // Ytringen ligger kvar I ytan medan ankan rör sig genom den — det är den som gör
     // henne flytande i stället för pålagd.
     if (this._duckWake && !this._duckWake.destroyed) {
-      this._duckWake.position.set(this._duckBase.x, SURFACE_Y)
+      this._duckWake.position.set(this._duckBase.x, SURFACE_Y + this._waveAt(this._duckBase.x))
       const s = 1 + clamp(dip / DUCK_DIP_MAX, 0, 1) * 0.34
       this._duckWake.scale.set(s, 1)
       this._duckWake.alpha = this._foam.level > 4 ? 0 : 1 // skummet äter ytan → ingen ring
